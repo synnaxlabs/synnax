@@ -237,6 +237,13 @@ func (o ObjectZ) Parse(data any, dest any) error {
 	return nil
 }
 
+// Validate checks data against the object schema without converting it. It
+// accepts the same inputs as Dump.
+func (o ObjectZ) Validate(data any) error {
+	_, err := o.Dump(data)
+	return err
+}
+
 // Object creates a new object schema with the given fields. This is the entry point for
 // creating object validation schemas. The fields parameter maps field names to their
 // validation schemas.
@@ -250,7 +257,10 @@ func Object(fields map[string]Schema) ObjectZ {
 }
 
 func (o ObjectZ) getFieldOnMap(data map[string]any, field string) (any, bool) {
-	v, ok := data[o.caseConversions.pascal[field]]
+	v, ok := data[field]
+	if !ok {
+		v, ok = data[o.caseConversions.pascal[field]]
+	}
 	if !ok {
 		v, ok = data[o.caseConversions.camel[field]]
 	}

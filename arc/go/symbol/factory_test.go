@@ -117,14 +117,14 @@ var _ = Describe("Factories", func() {
 
 		It("Should skip non-module children of the ambient prelude", func() {
 			ambient := &symbol.Symbol{Kind: symbol.KindAmbient}
-			ambient.AddChild(&symbol.Symbol{Name: "global_const", Kind: symbol.KindGlobalConstant})
+			ambient.AddChild(&symbol.Symbol{Name: "value", Kind: symbol.KindVariable})
 			ambient.AddChild(&symbol.Symbol{Name: "time", Kind: symbol.KindModule})
 			root := symbol.NewRoot(nil, nil)
 			ambient.AddChild(root)
 
 			symbol.AutoImportModules(root)
 
-			Expect(root.FindChild("global_const")).To(BeNil())
+			Expect(root.FindChild("value")).To(BeNil())
 			Expect(root.FindChild("time")).ToNot(BeNil())
 		})
 	})
@@ -164,6 +164,57 @@ var _ = Describe("Factories", func() {
 			Expect(resolver.resolveCalls).To(Equal(1))
 		})
 	})
+})
+
+var _ = Describe("Value variable predicates", func() {
+	// rwChan builds the read+write channel type a bare-channel alias carries.
+	rwChan := func(elem types.Type) types.Type {
+		t := types.Chan(elem)
+		t.ChanDirection = types.ChanDirectionRead | types.ChanDirectionWrite
+		return t
+	}
+	src := 7
+	DescribeTable("classify a symbol by kind and data type",
+		func(sym symbol.Symbol, valueVar, readWrite, reactive, literal bool) {
+			Expect(sym.IsValueVariable()).To(Equal(valueVar))
+			Expect(sym.IsChannelReadWrite()).To(Equal(readWrite))
+			Expect(sym.IsReactive()).To(Equal(reactive))
+			Expect(sym.IsLiteral()).To(Equal(literal))
+		},
+		Entry("literal := variable",
+			symbol.Symbol{Kind: symbol.KindVariable, Type: types.I32()},
+			true, false, false, true),
+		Entry("stateful $= variable",
+			symbol.Symbol{Kind: symbol.KindStatefulVariable, Type: types.F64()},
+			true, false, false, true),
+		Entry("bare-channel read/write alias",
+			symbol.Symbol{Kind: symbol.KindVariable, Type: rwChan(types.F32()), SourceID: &src},
+			true, true, false, false),
+		Entry("reactive channel-read variable",
+			symbol.Symbol{Kind: symbol.KindVariable, Type: types.ReadChan(types.F32())},
+			true, false, true, false),
+		Entry("chan-typed variable with unset direction classifies as reactive",
+			symbol.Symbol{Kind: symbol.KindVariable, Type: types.Chan(types.F32())},
+			true, false, true, false),
+		Entry("stateful bare-channel read/write alias",
+			symbol.Symbol{
+				Kind: symbol.KindStatefulVariable, Type: rwChan(types.F32()),
+				SourceID: &src,
+			},
+			true, true, false, false),
+		Entry("stateful reactive channel-read variable",
+			symbol.Symbol{Kind: symbol.KindStatefulVariable, Type: types.ReadChan(types.F32())},
+			true, false, true, false),
+		Entry("loop variable is not a value variable",
+			symbol.Symbol{Kind: symbol.KindLoopVariable, Type: types.I32()},
+			false, false, false, false),
+		Entry("channel symbol is not a value variable",
+			symbol.Symbol{Kind: symbol.KindChannel, Type: types.Chan(types.F32())},
+			false, false, false, false),
+		Entry("function symbol is not a value variable",
+			symbol.Symbol{Kind: symbol.KindFunction},
+			false, false, false, false),
+	)
 })
 
 type recordingResolver struct {

@@ -132,6 +132,18 @@ type forNode struct {
 	lastChanged telem.TimeStamp
 }
 
+// refreshDuration latches the var-bound live duration at a window start;
+// an in-flight window completes under the duration it began with.
+func (s *forNode) refreshDuration() {
+	i, err := s.ResolveInput("duration")
+	if err != nil || !s.RefSourced(i) {
+		return
+	}
+	if v := s.RefInput(i); v.Len() > 0 {
+		s.duration = telem.TimeSpan(telem.ValueAt[int64](v, -1))
+	}
+}
+
 func (s *forNode) Reset() {
 	s.State.Reset()
 	s.value = nil
@@ -152,6 +164,7 @@ func (s *forNode) Next(ctx node.Context) {
 				if s.value == nil || *s.value != currentValue {
 					s.value = &currentValue
 					s.lastChanged = currentTime
+					s.refreshDuration()
 				}
 			}
 		}

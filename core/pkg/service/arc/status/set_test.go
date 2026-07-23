@@ -20,7 +20,7 @@ import (
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/runtime/node"
 	stlstrings "github.com/synnaxlabs/arc/stl/strings"
-	arctest "github.com/synnaxlabs/arc/stl/testutil"
+	. "github.com/synnaxlabs/arc/stl/testutil"
 	"github.com/synnaxlabs/arc/symbol"
 	symboltestutil "github.com/synnaxlabs/arc/symbol/testutil"
 	"github.com/synnaxlabs/arc/text"
@@ -65,24 +65,16 @@ func newModule(ctx context.Context, reporter *recordingReporter) node.Factory {
 	}))
 }
 
-// buildState builds an ir.IR + ProgramState directly (skipping graph.Analyze,
-// which rejects unwired ExecBoth nodes) so node.Output(0) is usable.
-func buildState(_ context.Context, bareType string, inputs types.Params) (*node.ProgramState, ir.Node) {
-	irNode := ir.Node{Key: "n", Type: bareType, Inputs: inputs, Outputs: setOutputs}
-	prog := ir.IR{Nodes: ir.Nodes{irNode}}
-	return node.New(prog), irNode
-}
-
-var setOutputs = types.Params{
-	{Name: ir.DefaultOutputParam, Type: types.String()},
-}
-
-func setInputs(keyOrName, message, variant string) types.Params {
-	return types.Params{
-		{Name: "key_or_name", Type: types.String(), Value: keyOrName},
-		{Name: "message", Type: types.String(), Value: message},
-		{Name: "variant", Type: types.String(), Value: variant},
-	}
+// set declares the native's input shape for building test configs. Configs are
+// built directly from IR (graph.Analyze rejects unwired ExecBoth nodes).
+var set = NodeSpec{
+	Type:    "set",
+	Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.String()}},
+	Inputs: types.Params{
+		{Name: "key_or_name", Type: types.String()},
+		{Name: "message", Type: types.String()},
+		{Name: "variant", Type: types.String()},
+	},
 }
 
 var _ = Describe("Symbols", func() {
@@ -210,11 +202,7 @@ var _ = Describe("Module", func() {
 		})
 
 		It("Should construct a set node from valid inputs", func(ctx SpecContext) {
-			state, irNode := buildState(ctx, "set", setInputs("alarm", "msg", "info"))
-			n := MustSucceed(mod.Create(ctx, node.Config{
-				Node:  irNode,
-				State: state.Node(irNode.Key),
-			}))
+			n := MustSucceed(mod.Create(ctx, set.Config("alarm", "msg", "info")))
 			Expect(n).ToNot(BeNil())
 			Expect(func() { n.Reset() }).ToNot(Panic())
 			// Output(0) hasn't been written yet; truthiness reads the empty cache.
@@ -229,7 +217,7 @@ var _ = Describe("Module", func() {
 					{Name: "variant", Type: types.String(), Value: "info"},
 				}},
 			}
-			Expect(mod.Create(ctx, cfg)).Error().To(MatchError(ContainSubstring("status.set config")))
+			Expect(mod.Create(ctx, cfg)).Error().To(MatchError(ContainSubstring("status.set inputs")))
 		})
 
 		It("Should return a clean error when set inputs are missing variant", func(ctx SpecContext) {
@@ -239,7 +227,7 @@ var _ = Describe("Module", func() {
 					{Name: "message", Type: types.String(), Value: "y"},
 				}},
 			}
-			Expect(mod.Create(ctx, cfg)).Error().To(MatchError(ContainSubstring("status.set config")))
+			Expect(mod.Create(ctx, cfg)).Error().To(MatchError(ContainSubstring("status.set inputs")))
 		})
 	})
 })
@@ -255,15 +243,28 @@ var _ = Describe("setNode.Next", func() {
 	})
 
 	build := func(ctx context.Context, keyOrName, message, variant string) (node.Node, *node.State) {
-		state, irNode := buildState(ctx, "set", setInputs(keyOrName, message, variant))
-		s := state.Node(irNode.Key)
-		n := MustSucceed(mod.Create(ctx, node.Config{Node: irNode, State: s}))
-		return n, s
+		cfg := set.Config(keyOrName, message, variant)
+		n := MustSucceed(mod.Create(ctx, cfg))
+		return n, cfg.State
 	}
 
 	nodeCtx := func(ctx context.Context) node.Context {
 		return node.Context{Context: ctx, MarkChanged: func(int) {}}
 	}
+
+	It("Should read a var-bound message at fire time", func(ctx SpecContext) {
+		name := "var_msg_" + uuid.NewString()
+		cfg := set.Config(name, VarOf("live message"), "info")
+		n := MustSucceed(mod.Create(ctx, cfg))
+		n.Next(nodeCtx(ctx))
+
+		newKey := telem.UnmarshalSeries[string](*cfg.State.Output(0))[0]
+		var st status.Status[any]
+		Expect(statSvc.NewRetrieve().Where(status.MatchKeys[any](newKey)).
+			Entry(&st).Exec(ctx, nil)).To(Succeed())
+		Expect(st.Message).To(Equal("live message"))
+		Expect(rep.get()).To(BeEmpty())
+	})
 
 	It("Should upsert a new UUID-keyed row by name when none exists", func(ctx SpecContext) {
 		name := "next_new_" + uuid.NewString()
@@ -551,13 +552,13 @@ var _ = Describe("Analyzer hooks", func() {
 
 var _ = Describe("WASM host functions", func() {
 	var (
-		rt   *arctest.Runtime
+		rt   *Runtime
 		strs *stlstrings.ProgramState
 		rep  *recordingReporter
 	)
 
 	BeforeEach(func(ctx SpecContext) {
-		rt = arctest.NewRuntime(ctx)
+		rt = NewRuntime(ctx)
 		strs = stlstrings.NewProgramState()
 		rep = &recordingReporter{}
 		MustSucceed(arcstatus.NewModule(ctx, arcstatus.ModuleConfig{
@@ -581,8 +582,8 @@ var _ = Describe("WASM host functions", func() {
 			varH := strs.Create("info")
 
 			res := rt.Call(ctx, "status", "set",
-				arctest.U32(keyH), arctest.U32(msgH), arctest.U32(varH))
-			out := arctest.AsU32(res[0])
+				U32(keyH), U32(msgH), U32(varH))
+			out := AsU32(res[0])
 			Expect(out).ToNot(BeZero())
 			newKey := MustBeOk(strs.Get(out))
 			MustSucceed(uuid.Parse(newKey))
@@ -598,8 +599,8 @@ var _ = Describe("WASM host functions", func() {
 			msgH := strs.Create("m")
 			varH := strs.Create("info")
 			res := rt.Call(ctx, "status", "set",
-				arctest.U32(9999), arctest.U32(msgH), arctest.U32(varH))
-			Expect(arctest.AsU32(res[0])).To(Equal(uint32(0)))
+				U32(9999), U32(msgH), U32(varH))
+			Expect(AsU32(res[0])).To(Equal(uint32(0)))
 			calls := rep.get()
 			Expect(calls).To(HaveLen(1))
 			Expect(calls[0].variant).To(Equal(status.VariantWarning))
@@ -610,8 +611,8 @@ var _ = Describe("WASM host functions", func() {
 			keyH := strs.Create("wasm_msg_h_" + uuid.NewString())
 			varH := strs.Create("info")
 			res := rt.Call(ctx, "status", "set",
-				arctest.U32(keyH), arctest.U32(9999), arctest.U32(varH))
-			Expect(arctest.AsU32(res[0])).To(Equal(uint32(0)))
+				U32(keyH), U32(9999), U32(varH))
+			Expect(AsU32(res[0])).To(Equal(uint32(0)))
 			Expect(rep.get()).To(HaveLen(1))
 		})
 
@@ -619,8 +620,8 @@ var _ = Describe("WASM host functions", func() {
 			keyH := strs.Create("wasm_var_h_" + uuid.NewString())
 			msgH := strs.Create("m")
 			res := rt.Call(ctx, "status", "set",
-				arctest.U32(keyH), arctest.U32(msgH), arctest.U32(9999))
-			Expect(arctest.AsU32(res[0])).To(Equal(uint32(0)))
+				U32(keyH), U32(msgH), U32(9999))
+			Expect(AsU32(res[0])).To(Equal(uint32(0)))
 			Expect(rep.get()).To(HaveLen(1))
 		})
 	})

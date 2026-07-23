@@ -13,6 +13,8 @@ import (
 	"strings"
 
 	"github.com/antlr4-go/antlr/v4"
+
+	"github.com/synnaxlabs/x/set"
 )
 
 // IsLiteral checks if an expression is a single literal value (optionally negated)
@@ -221,6 +223,32 @@ func isNumericLiteral(node antlr.ParserRuleContext) bool {
 		return false
 	}
 	return false
+}
+
+// CollectIdentifiers returns the primary-expression identifier names in expr,
+// deduplicated, in source order.
+func CollectIdentifiers(expr IExpressionContext) []string {
+	var (
+		names []string
+		seen  = make(set.Set[string])
+		walk  func(t antlr.Tree)
+	)
+	walk = func(t antlr.Tree) {
+		if pe, ok := t.(IPrimaryExpressionContext); ok {
+			if id := pe.IDENTIFIER(); id != nil {
+				name := id.GetText()
+				if !seen.Contains(name) {
+					seen.Add(name)
+					names = append(names, name)
+				}
+			}
+		}
+		for i := 0; i < t.GetChildCount(); i++ {
+			walk(t.GetChild(i))
+		}
+	}
+	walk(expr)
+	return names
 }
 
 // GetPrimaryExpression extracts the primary expression from an expression that has no
