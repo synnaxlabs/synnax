@@ -32,8 +32,8 @@ or generator logic and schemas disagree.
   peers are never version-skewed, and there are no unvalidated caches.
 - **Never version derived artifacts** (compiled output like arc `Program`). On mismatch
   they are recomputed from their versioned sources, not migrated.
-- `@go version` is type-granular and must be declared per type, never file-level (the
-  analyzer warns): declare it struct-level on persisted types (channel-style).
+- `@go version` is type-granular and must be declared per type; the analyzer rejects
+  file-level declarations. Declare it struct-level on persisted types (channel-style).
   Unversioned siblings are transient — they generate real declarations at the package
   root (`transient.gen.go`) instead of riding the types/vN layout, and their shape
   changes never force a version bump.
