@@ -347,10 +347,10 @@ func analyzeFlowNode(
 	ctx acontext.Context[parser.IFlowNodeContext],
 	kg *keyGenerator,
 	shell *shellBuilder,
-	isSink bool,
+	isFirst, isSink bool,
 ) (flowNodeResult, bool) {
 	if id := ctx.AST.Identifier(); id != nil {
-		return analyzeIdentifierByRole(acontext.Child(ctx, id), kg, shell, isSink)
+		return analyzeIdentifierByRole(acontext.Child(ctx, id), kg, shell, isFirst, isSink)
 	}
 	if fn := ctx.AST.Function(); fn != nil {
 		r, ok := analyzeFunctionNode(acontext.Child(ctx, fn), kg, shell)
@@ -403,7 +403,7 @@ func analyzeIdentifierByRole(
 	ctx acontext.Context[parser.IIdentifierContext],
 	kg *keyGenerator,
 	shell *shellBuilder,
-	isSink bool,
+	isFirst, isSink bool,
 ) (flowNodeResult, bool) {
 	name := ctx.AST.IDENTIFIER().GetText()
 	sym, err := ctx.Scope.Resolve(ctx, name)
@@ -429,7 +429,10 @@ func analyzeIdentifierByRole(
 			if isSink {
 				return flowNodeResult{node: varFeederRef(rn)}, true
 			}
-			return flowNodeResult{node: varReadRef(rn)}, true
+			if isFirst {
+				return flowNodeResult{node: varReadRef(rn)}, true
+			}
+			return flowNodeResult{node: buildVarReadNode(sym, rn, kg)}, true
 		}
 		if !isSink && isConstVar(sym) {
 			return flowNodeResult{node: buildVarConstNode(sym, kg)}, true
@@ -929,6 +932,23 @@ func retargetEdges[T antlr.ParserRuleContext](
 		kept = append(kept, e)
 	}
 	shell.edges = kept
+}
+
+// buildVarReadNode lowers a triggered mid-chain variable read: a constant
+// whose value input references the register, emitting the live value on fire.
+func buildVarReadNode(sym *symbol.Symbol, vn *ir.Node, kg *keyGenerator) nodeResult {
+	n := ir.Node{
+		Key:      kg.generate("read", sym.Name),
+		Type:     "constant",
+		Channels: types.NewChannels(),
+		Inputs: types.Params{{
+			Name:  "value",
+			Type:  types.VarRef(sym.Type, vn.Key),
+			Value: sym.DefaultValue,
+		}},
+		Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: sym.Type}},
+	}
+	return newNodeResult(n, ir.DefaultInputParam, ir.DefaultOutputParam)
 }
 
 func buildVarConstNode(sym *symbol.Symbol, kg *keyGenerator) nodeResult {
@@ -1588,7 +1608,10 @@ func (p *flowChainProcessor) processFlowNode(flowNode parser.IFlowNodeContext) b
 		}
 	}
 
-	result, ok := analyzeFlowNode(acontext.Child(p.ctx, flowNode), p.kg, p.shell, isSink)
+	isFirst := p.prevNode == nil
+	result, ok := analyzeFlowNode(
+		acontext.Child(p.ctx, flowNode), p.kg, p.shell, isFirst, isSink,
+	)
 	if !ok {
 		return false
 	}
@@ -1961,7 +1984,9 @@ func analyzeOutputRoutingTable(
 			isLast := i == len(flowNodes)-1
 			isSink := isLast && flowNode.Identifier() != nil
 
-			result, ok := analyzeFlowNode(acontext.Child(ctx, flowNode), kg, shell, isSink)
+			result, ok := analyzeFlowNode(
+				acontext.Child(ctx, flowNode), kg, shell, false, isSink,
+			)
 			if !ok {
 				return nil, nil, nil, false
 			}

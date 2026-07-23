@@ -674,6 +674,223 @@ var _ = Describe("Text", func() {
 			Expect(diagnostics.String()).To(ContainSubstring("must be a literal"))
 		})
 
+		Describe("Mid-chain variable reads", func() {
+			// liveReads returns the constant nodes whose value input references a
+			// variable node, i.e. triggered live reads.
+			liveReads := func(inter ir.IR) []ir.Node {
+				var out []ir.Node
+				for _, n := range inter.Nodes {
+					if n.Type != "constant" {
+						continue
+					}
+					if p, ok := n.Inputs.Get("value"); ok &&
+						p.Type.Kind == types.KindVarRef {
+						out = append(out, n)
+					}
+				}
+				return out
+			}
+			noEmptyEdgeTargets := func(inter ir.IR) {
+				for _, e := range inter.Edges {
+					Expect(e.Target.Node).ToNot(BeEmpty(),
+						"an edge must never target an empty node key")
+					Expect(e.Source.Node).ToNot(BeEmpty(),
+						"an edge must never leave an empty node key")
+				}
+			}
+
+			It("Should lower a mid-chain read of a flow-written string variable to a live read", func(ctx SpecContext) {
+				resolver := append([]symbol.Symbol{
+					{Name: "str_ch", Kind: symbol.KindChannel, Type: types.Chan(types.String()), ID: 906},
+					{Name: "out_str", Kind: symbol.KindChannel, Type: types.Chan(types.String()), ID: 907},
+				}, varResolver...)
+				source := `
+				sequence main {
+					t := "hello"
+					stage s1 {
+						str_ch -> t
+						flag_ch -> t -> out_str
+					}
+				}`
+				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+				inter, diagnostics := text.Analyze(ctx, parsedText, NewRoot(nil, resolver...))
+				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+				noEmptyEdgeTargets(inter)
+				vars := variableNodes(inter)
+				Expect(vars).To(HaveLen(1))
+				reads := liveReads(inter)
+				Expect(reads).To(HaveLen(1))
+				p := MustBeOk(reads[0].Inputs.Get("value"))
+				Expect(p.Type.Name).To(Equal(vars[0].Key))
+				Expect(p.Type.Elem.Kind).To(Equal(types.KindString))
+				Expect(p.Value).To(Equal("hello"))
+				flagRead := nodeReading(inter, 903)
+				strWrite := nodeWriting(inter, 907)
+				Expect(hasEdge(inter, flagRead, reads[0].Key)).To(BeTrue(),
+					"the trigger must feed the live read")
+				Expect(hasEdge(inter, reads[0].Key, strWrite)).To(BeTrue(),
+					"the live read must feed the channel write")
+				strRead := nodeReading(inter, 906)
+				Expect(hasEdge(inter, strRead, vars[0].Key)).To(BeTrue(),
+					"the flow write must still feed the register")
+			})
+
+			It("Should lower a mid-chain read of an assignment-written variable to a live read", func(ctx SpecContext) {
+				source := `
+				sequence main {
+					k i64 := 5
+					stage s1 {
+						flag_ch -> k -> out_ch
+					}
+					stage s2 {
+						k = 9
+					}
+				}`
+				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+				inter, diagnostics := text.Analyze(ctx, parsedText, NewRoot(nil, varResolver...))
+				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+				noEmptyEdgeTargets(inter)
+				vars := variableNodes(inter)
+				Expect(vars).To(HaveLen(1))
+				reads := liveReads(inter)
+				Expect(reads).To(HaveLen(1))
+				p := MustBeOk(reads[0].Inputs.Get("value"))
+				Expect(p.Type.Name).To(Equal(vars[0].Key))
+				Expect(p.Type.Elem.Kind).To(Equal(types.KindI64))
+				Expect(p.Value).To(BeEquivalentTo(5))
+				Expect(hasEdge(inter, nodeReading(inter, 903), reads[0].Key)).
+					To(BeTrue())
+				Expect(hasEdge(inter, reads[0].Key, nodeWriting(inter, 902))).
+					To(BeTrue())
+			})
+
+			It("Should keep a chain-head read wired straight off the register", func(ctx SpecContext) {
+				source := `
+				sequence main {
+					k i64 := 5
+					stage s1 {
+						count_ch -> k
+						k -> out_ch
+					}
+				}`
+				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+				inter, diagnostics := text.Analyze(ctx, parsedText, NewRoot(nil, varResolver...))
+				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+				noEmptyEdgeTargets(inter)
+				vars := variableNodes(inter)
+				Expect(vars).To(HaveLen(1))
+				Expect(liveReads(inter)).To(BeEmpty(),
+					"a head read must not synthesize a live-read node")
+				Expect(hasEdge(inter, vars[0].Key, nodeWriting(inter, 902))).
+					To(BeTrue(), "the register must feed the write directly")
+			})
+
+			It("Should register-back a mid-chain read with no other write site", func(ctx SpecContext) {
+				resolver := append([]symbol.Symbol{
+					{Name: "out_str", Kind: symbol.KindChannel, Type: types.Chan(types.String()), ID: 907},
+				}, varResolver...)
+				source := `
+				sequence main {
+					t := "hello"
+					stage s1 {
+						flag_ch -> t -> out_str
+					}
+				}`
+				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+				inter, diagnostics := text.Analyze(ctx, parsedText, NewRoot(nil, resolver...))
+				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+				noEmptyEdgeTargets(inter)
+				vars := variableNodes(inter)
+				Expect(vars).To(HaveLen(1))
+				reads := liveReads(inter)
+				Expect(reads).To(HaveLen(1))
+				p := MustBeOk(reads[0].Inputs.Get("value"))
+				Expect(p.Type.Name).To(Equal(vars[0].Key))
+				Expect(p.Value).To(Equal("hello"))
+				Expect(hasEdge(inter, nodeReading(inter, 903), reads[0].Key)).
+					To(BeTrue())
+				Expect(hasEdge(inter, reads[0].Key, nodeWriting(inter, 907))).
+					To(BeTrue())
+			})
+
+			It("Should synthesize one live read per use site", func(ctx SpecContext) {
+				source := `
+				sequence main {
+					k i64 := 5
+					stage s1 {
+						count_ch -> k
+						flag_ch -> k -> out_ch
+						flag_ch -> k -> sink_ch
+					}
+				}`
+				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+				inter, diagnostics := text.Analyze(ctx, parsedText, NewRoot(nil, varResolver...))
+				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+				noEmptyEdgeTargets(inter)
+				vars := variableNodes(inter)
+				Expect(vars).To(HaveLen(1))
+				reads := liveReads(inter)
+				Expect(reads).To(HaveLen(2))
+				Expect(reads[0].Key).ToNot(Equal(reads[1].Key))
+				for _, r := range reads {
+					p := MustBeOk(r.Inputs.Get("value"))
+					Expect(p.Type.Name).To(Equal(vars[0].Key))
+				}
+			})
+
+			It("Should lower a mid-chain read of a stateful variable to a live read", func(ctx SpecContext) {
+				source := `
+				sequence main {
+					acc i64 $= 7
+					stage s1 {
+						count_ch -> acc
+						flag_ch -> acc -> out_ch
+					}
+				}`
+				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+				inter, diagnostics := text.Analyze(ctx, parsedText, NewRoot(nil, varResolver...))
+				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+				noEmptyEdgeTargets(inter)
+				vars := variableNodes(inter)
+				Expect(vars).To(HaveLen(1))
+				Expect(vars[0].Type).To(Equal("stateful_variable"))
+				reads := liveReads(inter)
+				Expect(reads).To(HaveLen(1))
+				p := MustBeOk(reads[0].Inputs.Get("value"))
+				Expect(p.Type.Name).To(Equal(vars[0].Key))
+				Expect(p.Value).To(BeEquivalentTo(7))
+			})
+
+			It("Should feed a downstream function from a mid-chain live read", func(ctx SpecContext) {
+				source := `
+				func double{} (n i64) i64 {
+					return n * 2
+				}
+				sequence main {
+					k i64 := 5
+					stage s1 {
+						count_ch -> k
+						flag_ch -> k -> double{} -> out_ch
+					}
+				}`
+				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+				inter, diagnostics := text.Analyze(ctx, parsedText, NewRoot(nil, varResolver...))
+				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+				noEmptyEdgeTargets(inter)
+				reads := liveReads(inter)
+				Expect(reads).To(HaveLen(1))
+				fnKey := ""
+				for _, n := range inter.Nodes {
+					if n.Type == "double" {
+						fnKey = n.Key
+					}
+				}
+				Expect(fnKey).ToNot(BeEmpty(), "expected a double{} node")
+				Expect(hasEdge(inter, reads[0].Key, fnKey)).To(BeTrue(),
+					"the live read must feed the function")
+			})
+		})
+
 		It("Should reject a reassigned reactive variable as an input value", func(ctx SpecContext) {
 			source := `
 			func my_func{tag i64} (n u8) i64 {

@@ -136,6 +136,10 @@ func resolveUpstreamType(
 			ctx.Diagnostics.Add(diagnostics.Error(err, prevIDNode))
 			return types.Type{}, false
 		}
+		// A register-backed value variable feeds its current value.
+		if idSym.IsLiteral() {
+			return idSym.Type, true
+		}
 		isChanVar := idSym.Kind == symbol.KindVariable && idSym.Type.Kind == types.KindChan
 		if idSym.Kind != symbol.KindChannel && !isChanVar {
 			ctx.Diagnostics.Add(diagnostics.Errorf(prevIDNode, "%s is not a channel", idName))

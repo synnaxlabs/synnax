@@ -4857,6 +4857,164 @@ var _ = Describe("Sequence", func() {
 		})
 	})
 
+	// A triggered mid-chain variable read emits the variable's live value on
+	// each fire; the write itself never fires the chain.
+	Describe("Mid-chain variable reads", func() {
+		It("emits the live string value at each interval fire", func(ctx SpecContext) {
+			resolver := channelSymbols(map[string]channelDef{
+				"start_cmd": {types.U8(), 350},
+				"log_ch":    {types.String(), 351},
+			})
+			h := newRuntimeHarness(ctx, `
+    sequence main {
+        text := "hello"
+        stage s1 {
+            interval{300ms} -> text -> log_ch
+            wait{100ms} -> sequence {
+                text = "goodbye"
+            }
+        }
+    }
+    start_cmd => main`, resolver,
+				channels.Digest{Key: 350, DataType: telem.Uint8T},
+				channels.Digest{Key: 351, DataType: telem.StringT},
+			)
+			defer h.Close(ctx)
+			// Stage entry: the interval fires and the read emits the initial.
+			trigger(h, ctx, 350)
+			out, _ := h.Flush()
+			Expect(lastString(out, 351)).To(Equal("hello"))
+			// The wait fires and reassigns text; the write alone must not
+			// re-fire the chain.
+			advance(h, ctx, 171*telem.Millisecond)
+			advance(h, ctx, 172*telem.Millisecond)
+			advance(h, ctx, 173*telem.Millisecond)
+			out, _ = h.Flush()
+			Expect(out.Get(351).Series).To(BeEmpty(),
+				"a variable write must not fire the reading chain")
+			// Next interval fire: the read emits the reassigned value.
+			advance(h, ctx, 331*telem.Millisecond)
+			out, _ = h.Flush()
+			Expect(lastString(out, 351)).To(Equal("goodbye"))
+			Expect(countOf(out, 351, "hello")).To(Equal(0),
+				"the stale initial must not be emitted after the write")
+			// The reassigned value persists on later fires.
+			advance(h, ctx, 700*telem.Millisecond)
+			out, _ = h.Flush()
+			Expect(lastString(out, 351)).To(Equal("goodbye"))
+		})
+
+		It("emits the live numeric value at each interval fire", func(ctx SpecContext) {
+			resolver := channelSymbols(map[string]channelDef{
+				"start_cmd": {types.U8(), 352},
+				"out_ch":    {types.U8(), 353},
+			})
+			h := newRuntimeHarness(ctx, `
+    sequence main {
+        k u8 := 5
+        stage s1 {
+            interval{300ms} -> k -> out_ch
+            wait{100ms} -> sequence {
+                k = 9
+            }
+        }
+    }
+    start_cmd => main`, resolver,
+				channels.Digest{Key: 352, DataType: telem.Uint8T},
+				channels.Digest{Key: 353, DataType: telem.Uint8T},
+			)
+			defer h.Close(ctx)
+			trigger(h, ctx, 352)
+			out, _ := h.Flush()
+			Expect(lastU8(out, 353)).To(Equal(uint8(5)))
+			advance(h, ctx, 171*telem.Millisecond)
+			advance(h, ctx, 172*telem.Millisecond)
+			advance(h, ctx, 173*telem.Millisecond)
+			out, _ = h.Flush()
+			Expect(out.Get(353).Series).To(BeEmpty(),
+				"a variable write must not fire the reading chain")
+			advance(h, ctx, 331*telem.Millisecond)
+			out, _ = h.Flush()
+			Expect(lastU8(out, 353)).To(Equal(uint8(9)))
+		})
+
+		It("keeps head reads write-driven while mid-chain reads stay trigger-driven", func(ctx SpecContext) {
+			resolver := channelSymbols(map[string]channelDef{
+				"start_cmd": {types.U8(), 354},
+				"slow_out":  {types.U8(), 355},
+				"live_out":  {types.U8(), 356},
+			})
+			h := newRuntimeHarness(ctx, `
+    sequence main {
+        k u8 := 5
+        stage s1 {
+            interval{10s} -> k -> slow_out
+            k -> live_out
+            wait{100ms} -> sequence {
+                k = 9
+            }
+        }
+    }
+    start_cmd => main`, resolver,
+				channels.Digest{Key: 354, DataType: telem.Uint8T},
+				channels.Digest{Key: 355, DataType: telem.Uint8T},
+				channels.Digest{Key: 356, DataType: telem.Uint8T},
+			)
+			defer h.Close(ctx)
+			// Entry: the interval fires once and reads the initial.
+			trigger(h, ctx, 354)
+			out, _ := h.Flush()
+			Expect(lastU8(out, 355)).To(Equal(uint8(5)))
+			// The reassignment fires the head read but not the interval chain.
+			advance(h, ctx, 171*telem.Millisecond)
+			advance(h, ctx, 172*telem.Millisecond)
+			advance(h, ctx, 173*telem.Millisecond)
+			out, _ = h.Flush()
+			Expect(lastU8(out, 356)).To(Equal(uint8(9)),
+				"the head read must fire on the write")
+			Expect(out.Get(355).Series).To(BeEmpty(),
+				"the write must not fire the interval chain")
+			advance(h, ctx, 500*telem.Millisecond)
+			out, _ = h.Flush()
+			Expect(out.Get(355).Series).To(BeEmpty(),
+				"a 10s interval must stay quiet at 500ms")
+		})
+
+		It("emits the live stateful variable value at each interval fire", func(ctx SpecContext) {
+			resolver := channelSymbols(map[string]channelDef{
+				"start_cmd": {types.U8(), 357},
+				"out_ch":    {types.U8(), 358},
+			})
+			h := newRuntimeHarness(ctx, `
+    sequence main {
+        k u8 $= 5
+        stage s1 {
+            interval{300ms} -> k -> out_ch
+            wait{100ms} -> sequence {
+                k = 9
+            }
+        }
+    }
+    start_cmd => main`, resolver,
+				channels.Digest{Key: 357, DataType: telem.Uint8T},
+				channels.Digest{Key: 358, DataType: telem.Uint8T},
+			)
+			defer h.Close(ctx)
+			trigger(h, ctx, 357)
+			out, _ := h.Flush()
+			Expect(lastU8(out, 358)).To(Equal(uint8(5)))
+			advance(h, ctx, 171*telem.Millisecond)
+			advance(h, ctx, 172*telem.Millisecond)
+			advance(h, ctx, 173*telem.Millisecond)
+			out, _ = h.Flush()
+			Expect(out.Get(358).Series).To(BeEmpty(),
+				"a variable write must not fire the reading chain")
+			advance(h, ctx, 331*telem.Millisecond)
+			out, _ = h.Flush()
+			Expect(lastU8(out, 358)).To(Equal(uint8(9)))
+		})
+	})
+
 	// A one-shot entry drives a func whose output rebinds a variable;
 	// the loopback must not re-fire the chain.
 	Describe("Variable capture dispatch", func() {
