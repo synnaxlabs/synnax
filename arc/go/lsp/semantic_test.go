@@ -37,8 +37,7 @@ const (
 	tokenTypeNamespace         = uint32(19)
 	tokenTypeStringRaw         = uint32(20)
 	tokenTypeStringPlaceholder = uint32(21)
-	tokenTypeChannelReadWrite  = uint32(22)
-	tokenTypeChannelRead       = uint32(23)
+	tokenTypeChannelVariable   = uint32(22)
 )
 
 // decodeSemanticTokens turns the LSP delta-encoded uint32 stream from
@@ -516,17 +515,12 @@ func cat() {
 			Expect(stateful).To(HaveLen(1))
 			Expect(stateful[0].Line).To(Equal(uint32(2)))
 
-			channelReadWrite := filterByType(tokens, tokenTypeChannelReadWrite)
-			Expect(channelReadWrite).To(HaveLen(1))
-			Expect(channelReadWrite[0]).To(Equal(decodedToken{
-				Line: 3, StartChar: 0, Length: 3, TokenType: tokenTypeChannelReadWrite,
-			}))
-
-			channelRead := filterByType(tokens, tokenTypeChannelRead)
-			Expect(channelRead).To(HaveLen(1))
-			Expect(channelRead[0]).To(Equal(decodedToken{
-				Line: 4, StartChar: 0, Length: 4, TokenType: tokenTypeChannelRead,
-			}))
+			channelVariable := filterByType(tokens, tokenTypeChannelVariable)
+			Expect(channelVariable).To(HaveLen(2))
+			Expect(channelVariable).To(ContainElements(
+				decodedToken{Line: 3, StartChar: 0, Length: 3, TokenType: tokenTypeChannelVariable},
+				decodedToken{Line: 4, StartChar: 0, Length: 4, TokenType: tokenTypeChannelVariable},
+			))
 		})
 
 		It("colors the declaration of a reassigned channel read/write variable", func(ctx SpecContext) {
@@ -539,11 +533,11 @@ func cat() {
 				NewRoot: func() *symbol.Symbol { return NewRoot(nil, channels...) },
 			})
 			OpenArcDocument(server, ctx, uri, "sequence main {\n\tal := crw_a\n\tal -> out\n\tal = crw_b\n}")
-			channelReadWrite := filterByType(decodeSemanticTokens(SemanticTokens(server, ctx, uri).Data), tokenTypeChannelReadWrite)
-			Expect(channelReadWrite).To(ContainElement(decodedToken{
-				Line: 1, StartChar: 1, Length: 2, TokenType: tokenTypeChannelReadWrite,
+			channelVariable := filterByType(decodeSemanticTokens(SemanticTokens(server, ctx, uri).Data), tokenTypeChannelVariable)
+			Expect(channelVariable).To(ContainElement(decodedToken{
+				Line: 1, StartChar: 1, Length: 2, TokenType: tokenTypeChannelVariable,
 			}))
-			Expect(channelReadWrite).To(HaveLen(3))
+			Expect(channelVariable).To(HaveLen(3))
 		})
 
 		It("colors a constant reference with the constant token type", func(ctx SpecContext) {
@@ -574,9 +568,8 @@ func cat() {
 			Expect(ok).To(BeTrue())
 			Expect(legend.TokenTypes).ToNot(BeEmpty())
 			n := len(legend.TokenTypes)
-			Expect(string(legend.TokenTypes[tokenTypeChannelReadWrite])).To(Equal("channelAlias"))
-			Expect(string(legend.TokenTypes[n-1])).To(Equal("reactiveVariable"))
-			Expect(uint32(n - 1)).To(Equal(tokenTypeChannelRead))
+			Expect(string(legend.TokenTypes[n-1])).To(Equal("channelVariable"))
+			Expect(uint32(n - 1)).To(Equal(tokenTypeChannelVariable))
 		})
 	})
 })

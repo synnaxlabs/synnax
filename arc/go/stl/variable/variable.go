@@ -69,6 +69,12 @@ func (h *Host) Create(_ context.Context, cfg node.Config) (node.Node, error) {
 	}, nil
 }
 
+// stampNow overwrites ts with a single sample of now, reusing its buffer.
+func stampNow(ts *telem.Series, now telem.TimeStamp) {
+	ts.Resize(1)
+	telem.SetValueAt(*ts, 0, now)
+}
+
 // register holds what its variable is mapped to: a value, a channel key, or a
 // derivation index. Writes are last-wins; the unedged f0 holds the initial value.
 type register struct {
@@ -87,7 +93,7 @@ func (v *register) Reset() {
 	}
 	v.AbsorbInputs()
 	v.Output(0).CopyFrom(v.Input(0))
-	telem.SetSeriesV(v.OutputTime(0), v.clock.Now())
+	stampNow(v.OutputTime(0), v.clock.Now())
 }
 
 func (v *register) Next(ctx node.Context) {
@@ -97,7 +103,7 @@ func (v *register) Next(ctx node.Context) {
 	}
 	// Feeders reuse their output buffers in place; the register value must not alias them.
 	v.Output(0).CopyFrom(data)
-	telem.SetSeriesV(v.OutputTime(0), v.clock.Now())
+	stampNow(v.OutputTime(0), v.clock.Now())
 	ctx.MarkChanged(0)
 }
 
@@ -128,6 +134,6 @@ func (v *exprRead) Next(ctx node.Context) {
 		return
 	}
 	v.Output(0).CopyFrom(data)
-	telem.SetSeriesV(v.OutputTime(0), v.clock.Now())
+	stampNow(v.OutputTime(0), v.clock.Now())
 	ctx.MarkChanged(0)
 }

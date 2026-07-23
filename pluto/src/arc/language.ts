@@ -116,12 +116,7 @@ const TOKEN_CONFIG = {
     light: "#292929",
     scopes: ["variable.other.arc"],
   },
-  channelAlias: {
-    dark: "#61AFEF",
-    light: "#0070C1",
-    scopes: [],
-  },
-  reactiveVariable: {
+  channelVariable: {
     dark: "#61AFEF",
     light: "#0070C1",
     scopes: [],

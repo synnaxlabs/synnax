@@ -106,43 +106,6 @@ var _ = Describe("SeriesFactory", func() {
 		})
 	})
 
-	Describe("SetSeriesV", func() {
-		It("Should overwrite the series with the given samples", func() {
-			s := telem.NewSeriesV[int64](1, 2, 3)
-			s.TimeRange = telem.TimeRange{Start: 100, End: 200}
-			s.Alignment = telem.NewAlignment(1, 5)
-			telem.SetSeriesV(&s, int64(7))
-			Expect(s.DataType).To(Equal(telem.Int64T))
-			Expect(s.TimeRange).To(Equal(telem.TimeRangeZero))
-			Expect(s.Alignment).To(BeZero())
-			Expect(telem.UnmarshalSeries[int64](s)).To(Equal([]int64{7}))
-		})
-
-		It("Should set samples on a zero-value series", func() {
-			var s telem.Series
-			telem.SetSeriesV(&s, telem.TimeStamp(5), telem.TimeStamp(6))
-			Expect(s.DataType).To(Equal(telem.TimeStampT))
-			Expect(telem.UnmarshalSeries[telem.TimeStamp](s)).
-				To(Equal([]telem.TimeStamp{5, 6}))
-		})
-
-		It("Should reuse the series buffer across sets", func() {
-			var s telem.Series
-			telem.SetSeriesV(&s, uint8(1), uint8(2), uint8(3))
-			first := &s.Data[0]
-			telem.SetSeriesV(&s, uint8(9))
-			Expect(&s.Data[0]).To(BeIdenticalTo(first))
-			Expect(telem.UnmarshalSeries[uint8](s)).To(Equal([]uint8{9}))
-		})
-
-		It("Should retype the series when the sample type changes", func() {
-			s := telem.NewSeriesV[uint8](1)
-			telem.SetSeriesV(&s, 1.5)
-			Expect(s.DataType).To(Equal(telem.Float64T))
-			Expect(telem.UnmarshalSeries[float64](s)).To(Equal([]float64{1.5}))
-		})
-	})
-
 	Describe("MakeSeries", func() {
 		It("Should allocate a series with the specified length", func() {
 			s := telem.MakeSeries(telem.Int64T, 20)

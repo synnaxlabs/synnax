@@ -46,8 +46,7 @@ const (
 	SemanticTokenTypeNamespace
 	SemanticTokenTypeStringRaw
 	SemanticTokenTypeStringPlaceholder
-	SemanticTokenTypeChannelAlias
-	SemanticTokenTypeReactiveVariable
+	SemanticTokenTypeChannelVariable
 )
 
 var semanticTokenTypes = []string{
@@ -73,8 +72,7 @@ var semanticTokenTypes = []string{
 	"namespace",
 	"stringRaw",
 	"stringPlaceholder",
-	"channelAlias",
-	"reactiveVariable",
+	"channelVariable",
 }
 
 func (s *Server) SemanticTokensFull(ctx context.Context, params *protocol.SemanticTokensParams) (*protocol.SemanticTokens, error) {
@@ -367,15 +365,10 @@ func classifyIdentifierAt(ctx context.Context, name string, line1, col0 int, roo
 }
 
 func classifyVarKind(sym *symbol.Symbol) *uint32 {
-	var tokenType uint32
-	switch {
-	case sym.IsChannelReadWrite():
-		tokenType = SemanticTokenTypeChannelAlias
-	case sym.IsReactive():
-		tokenType = SemanticTokenTypeReactiveVariable
-	default:
+	if !sym.IsChannelReadWrite() && !sym.IsReactive() {
 		return nil
 	}
+	tokenType := uint32(SemanticTokenTypeChannelVariable)
 	return &tokenType
 }
 

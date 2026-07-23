@@ -78,18 +78,6 @@ func NewSeries[T Sample](data []T) Series {
 // NewSeriesV is a variadic version of NewSeries.
 func NewSeriesV[T Sample](data ...T) Series { return NewSeries(data) }
 
-// SetSeriesV overwrites s with the given samples, reusing s's buffer capacity to
-// avoid allocation. Emit hot paths should prefer this over NewSeriesV (SY-4506).
-func SetSeriesV[T FixedSample](s *Series, values ...T) {
-	s.DataType = InferDataType[T]()
-	s.TimeRange = TimeRangeZero
-	s.Alignment = 0
-	s.Resize(int64(len(values)))
-	for i, v := range values {
-		SetValueAt(*s, i, v)
-	}
-}
-
 // MakeSeries allocates a new Series with the specified DataType and length. Note that
 // this function allocates a length and not a capacity.
 func MakeSeries(dt DataType, len int) Series {
