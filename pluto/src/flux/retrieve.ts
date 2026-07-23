@@ -399,7 +399,10 @@ const suspendOnFetch = <Query extends cache.Query, Data extends cache.Data>(
       },
       (cause: unknown) => {
         const error = new Error(`Failed to retrieve ${name}`, { cause });
-        if (getCached == null) local.settled.set(hash, { error });
+        // A failed fetch writes nothing getCached can serve, so the error must
+        // settle locally or the next render refetches forever. A later cache
+        // hit short-circuits before this entry is read.
+        local.settled.set(hash, { error });
         local.inFlight.delete(hash);
         throw error;
       },

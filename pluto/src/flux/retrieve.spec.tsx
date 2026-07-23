@@ -312,6 +312,45 @@ describe("useRetrieveSuspended", () => {
     expect(utils.queryByTestId("error")?.textContent).toBe("Failed to retrieve Number");
   });
 
+  it("routes a rejection to the error fallback without refetching when the query is domain-cached", async () => {
+    const retrieve = vi.fn(async (): Promise<number> => {
+      throw new Error("boom");
+    });
+    const { useRetrieveSuspended } = Flux.createRetrieve<{ key: string }, number>({
+      name: "Number",
+      retrieve,
+      getCached: () => undefined,
+    });
+
+    const Display = (): ReactElement => {
+      const value = useRetrieveSuspended({ key: "cached-error-test" });
+      return <div>{value}</div>;
+    };
+
+    let utils!: ReturnType<typeof render>;
+    await act(async () => {
+      utils = render(
+        <Wrapper>
+          <Errors.SuspenseBoundary
+            loading={<div>loading-cached-error</div>}
+            FallbackComponent={({ error }) => (
+              <div data-testid="error">{error.message}</div>
+            )}
+          >
+            <Display />
+          </Errors.SuspenseBoundary>
+        </Wrapper>,
+      );
+    });
+
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    expect(utils.queryByTestId("error")?.textContent).toBe("Failed to retrieve Number");
+    expect(retrieve).toHaveBeenCalledTimes(1);
+  });
+
   it("resolves synchronously without suspending when the cache hits", async () => {
     const retrieve = vi.fn(async () => 99);
     const cached: cache.Cached<number> = { variant: "changed", data: 42 };
@@ -491,5 +530,44 @@ describe("useEnsureRetrieved", () => {
     expect(utils.queryByText("loading-ensure")).toBeNull();
     expect(utils.queryByTestId("ready")).toBeTruthy();
     expect(retrieve).not.toHaveBeenCalled();
+  });
+
+  it("routes a rejection to the error fallback without refetching when the query is domain-cached", async () => {
+    const retrieve = vi.fn(async (): Promise<number> => {
+      throw new Error("boom");
+    });
+    const { useEnsureRetrieved } = Flux.createRetrieve<{ key: string }, number>({
+      name: "Number",
+      retrieve,
+      getCached: () => undefined,
+    });
+
+    const Display = (): ReactElement => {
+      useEnsureRetrieved({ key: "ensure-error" });
+      return <div data-testid="ready">ready</div>;
+    };
+
+    let utils!: ReturnType<typeof render>;
+    await act(async () => {
+      utils = render(
+        <Wrapper>
+          <Errors.SuspenseBoundary
+            loading={<div>loading-ensure-error</div>}
+            FallbackComponent={({ error }) => (
+              <div data-testid="error">{error.message}</div>
+            )}
+          >
+            <Display />
+          </Errors.SuspenseBoundary>
+        </Wrapper>,
+      );
+    });
+
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    expect(utils.queryByTestId("error")?.textContent).toBe("Failed to retrieve Number");
+    expect(retrieve).toHaveBeenCalledTimes(1);
   });
 });
