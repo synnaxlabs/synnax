@@ -168,6 +168,26 @@ func (s *ProgramState) Node(key string) *State {
 		}
 	}
 
+	// A node that feeds a register it reads by var ref is an entry one-shot:
+	// its trigger entries latch on Reset, matching the edge-fed read latch.
+	selfWrite := false
+	for _, p := range n.Inputs {
+		if p.Type.Kind != types.KindVarRef {
+			continue
+		}
+		for _, e := range s.ir.Edges {
+			if e.Source.Node == key && e.Target.Node == p.Type.Name {
+				selfWrite = true
+				break
+			}
+		}
+	}
+	if selfWrite {
+		for i := len(n.Inputs); i < len(inputs); i++ {
+			rearm[i] = rearmOnReset
+		}
+	}
+
 	outputCache := make([]*value, len(n.Outputs))
 	for i, p := range n.Outputs {
 		handle := ir.Handle{Node: key, Param: p.Name}

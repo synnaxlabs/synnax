@@ -183,15 +183,14 @@ var _ = Describe("Identifier Compilation", func() {
 			Expect(byteCode).To(MatchOpcodes(OpI32Const, int32(7)))
 		})
 
-		It("Should reject a reassigned enclosing-scope variable that was not lifted", func(bCtx SpecContext) {
+		It("Should reject a variable whose initializer did not fold", func(bCtx SpecContext) {
 			ctx := NewContext(bCtx)
 			MustSucceed(ctx.Scope.Root().Add(ctx, symbol.Symbol{
 				Name: "shared", Kind: symbol.KindVariable, Type: types.I32(),
-				DefaultValue: int32(7), Reassigned: true,
 			}))
 			expr := MustSucceed(parser.ParseExpression("shared"))
 			Expect(expression.Compile(ccontext.Child(ctx, expr))).Error().
-				To(MatchError(ContainSubstring("cannot read reassigned variable")))
+				To(MatchError(ContainSubstring("not a compile-time constant")))
 		})
 
 		It("Should read a channel read/write alias from another unit by its source key", func(bCtx SpecContext) {

@@ -891,6 +891,252 @@ var _ = Describe("Text", func() {
 			})
 		})
 
+		Describe("Triggered expression variable reads", func() {
+			exprResolver := append([]symbol.Symbol{
+				{Name: "msg_ch", Kind: symbol.KindChannel, Type: types.Chan(types.String()), ID: 908},
+				{Name: "sensor_f", Kind: symbol.KindChannel, Type: types.Chan(types.F64()), ID: 909},
+				{Name: "backup_f", Kind: symbol.KindChannel, Type: types.Chan(types.F64()), ID: 910},
+			}, varResolver...)
+
+			findByTypePrefix := func(inter ir.IR, prefix string) (ir.Node, bool) {
+				for _, n := range inter.Nodes {
+					if strings.HasPrefix(n.Type, prefix) {
+						return n, true
+					}
+				}
+				return ir.Node{}, false
+			}
+			edgeInto := func(inter ir.IR, node, param string) bool {
+				for _, e := range inter.Edges {
+					if e.Target.Node == node && e.Target.Param == param {
+						return true
+					}
+				}
+				return false
+			}
+			analyze := func(ctx SpecContext, source string) ir.IR {
+				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+				inter, diagnostics := text.Analyze(ctx, parsedText, NewRoot(nil, exprResolver...))
+				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+				return inter
+			}
+
+			It("Should bind a triggered format-string read of a reassigned variable as a var ref", func(ctx SpecContext) {
+				inter := analyze(ctx, `
+				sequence main {
+					k i64 := 5
+					stage s1 {
+						flag_ch -> f"v={k}" -> msg_ch
+					}
+					stage s2 {
+						k = 9
+					}
+				}`)
+				vars := variableNodes(inter)
+				Expect(vars).To(HaveLen(1))
+				fmtNode := MustBeOk(findByTypePrefix(inter, compiler.FmtStrSyntheticPrefix))
+				p := MustBeOk(fmtNode.Inputs.Get("k"))
+				Expect(p.Type.Kind).To(Equal(types.KindVarRef))
+				Expect(p.Type.Name).To(Equal(vars[0].Key))
+				Expect(p.Type.Elem.Kind).To(Equal(types.KindI64))
+				Expect(edgeInto(inter, fmtNode.Key, "k")).To(BeFalse(),
+					"a var ref param must not be edge-fed")
+				Expect(hasEdge(inter, nodeReading(inter, 903), fmtNode.Key)).To(BeTrue(),
+					"the trigger must feed the format node")
+			})
+
+			It("Should bind a triggered expression read of a reassigned variable as a var ref", func(ctx SpecContext) {
+				inter := analyze(ctx, `
+				sequence main {
+					k i64 := 5
+					stage s1 {
+						flag_ch -> str(k) -> msg_ch
+					}
+					stage s2 {
+						k = 9
+					}
+				}`)
+				vars := variableNodes(inter)
+				Expect(vars).To(HaveLen(1))
+				exprNode := MustBeOk(findByTypePrefix(inter, "expression_"))
+				p := MustBeOk(exprNode.Inputs.Get("k"))
+				Expect(p.Type.Kind).To(Equal(types.KindVarRef))
+				Expect(p.Type.Name).To(Equal(vars[0].Key))
+				Expect(edgeInto(inter, exprNode.Key, "k")).To(BeFalse(),
+					"a var ref param must not be edge-fed")
+			})
+
+			It("Should leave the synthesized function's params unstamped", func(ctx SpecContext) {
+				inter := analyze(ctx, `
+				sequence main {
+					k i64 := 5
+					stage s1 {
+						flag_ch -> f"v={k}" -> msg_ch
+					}
+					stage s2 {
+						k = 9
+					}
+				}`)
+				synth := lo.Filter(inter.Functions, func(f ir.Function, _ int) bool {
+					return strings.HasPrefix(f.Key, compiler.FmtStrSyntheticPrefix)
+				})
+				Expect(synth).To(HaveLen(1))
+				fp := MustBeOk(synth[0].Inputs.Get("k"))
+				Expect(fp.Type.Kind).To(Equal(types.KindI64),
+					"the function param must keep the value type")
+			})
+
+			It("Should keep a chain-head format string fed from the register", func(ctx SpecContext) {
+				inter := analyze(ctx, `
+				sequence main {
+					k i64 := 5
+					stage s1 {
+						f"v={k}" -> msg_ch
+					}
+					stage s2 {
+						k = 9
+					}
+				}`)
+				vars := variableNodes(inter)
+				Expect(vars).To(HaveLen(1))
+				fmtNode := MustBeOk(findByTypePrefix(inter, compiler.FmtStrSyntheticPrefix))
+				p := MustBeOk(fmtNode.Inputs.Get("k"))
+				Expect(p.Type.Kind).To(Equal(types.KindI64))
+				Expect(edgeInto(inter, fmtNode.Key, "k")).To(BeTrue(),
+					"a head read must stay edge-fed so writes fire it")
+				Expect(hasEdge(inter, vars[0].Key, fmtNode.Key)).To(BeTrue())
+			})
+
+			It("Should bind a triggered read of a stateful variable as a var ref", func(ctx SpecContext) {
+				inter := analyze(ctx, `
+				sequence main {
+					acc i64 $= 7
+					stage s1 {
+						count_ch -> acc
+						flag_ch -> f"a={acc}" -> msg_ch
+					}
+				}`)
+				vars := variableNodes(inter)
+				Expect(vars).To(HaveLen(1))
+				Expect(vars[0].Type).To(Equal("stateful_variable"))
+				fmtNode := MustBeOk(findByTypePrefix(inter, compiler.FmtStrSyntheticPrefix))
+				p := MustBeOk(fmtNode.Inputs.Get("acc"))
+				Expect(p.Type.Kind).To(Equal(types.KindVarRef))
+				Expect(p.Type.Name).To(Equal(vars[0].Key))
+			})
+
+			It("Should keep a triggered read of a reactive variable edge-fed", func(ctx SpecContext) {
+				inter := analyze(ctx, `
+				sequence main {
+					r := count_ch + 1
+					stage s1 {
+						flag_ch -> f"r={r}" -> msg_ch
+					}
+				}`)
+				vars := variableNodes(inter)
+				Expect(vars).To(HaveLen(1))
+				fmtNode := MustBeOk(findByTypePrefix(inter, compiler.FmtStrSyntheticPrefix))
+				p := MustBeOk(fmtNode.Inputs.Get("r"))
+				Expect(p.Type.Kind).ToNot(Equal(types.KindVarRef))
+				Expect(edgeInto(inter, fmtNode.Key, "r")).To(BeTrue(),
+					"a reactive read must stay edge-fed")
+				Expect(hasEdge(inter, vars[0].Key, fmtNode.Key)).To(BeTrue())
+			})
+
+			It("Should keep a triggered read of a rebound alias edge-fed", func(ctx SpecContext) {
+				inter := analyze(ctx, `
+				sequence main {
+					src := sensor_f
+					stage s1 {
+						flag_ch -> f"v={src}" -> msg_ch
+					}
+					stage s2 {
+						src = backup_f
+					}
+				}`)
+				fmtNode := MustBeOk(findByTypePrefix(inter, compiler.FmtStrSyntheticPrefix))
+				p := MustBeOk(fmtNode.Inputs.Get("src"))
+				Expect(p.Type.Kind).To(Equal(types.KindF64))
+				Expect(edgeInto(inter, fmtNode.Key, "src")).To(BeTrue(),
+					"an alias read must stay edge-fed through its read node")
+			})
+
+			It("Should stamp every variable in a multi-placeholder format string", func(ctx SpecContext) {
+				inter := analyze(ctx, `
+				sequence main {
+					a i64 := 1
+					b i64 := 2
+					stage s1 {
+						flag_ch -> f"{a}-{b}" -> msg_ch
+					}
+					stage s2 {
+						a = 3
+						b = 4
+					}
+				}`)
+				vars := variableNodes(inter)
+				Expect(vars).To(HaveLen(2))
+				fmtNode := MustBeOk(findByTypePrefix(inter, compiler.FmtStrSyntheticPrefix))
+				pa := MustBeOk(fmtNode.Inputs.Get("a"))
+				pb := MustBeOk(fmtNode.Inputs.Get("b"))
+				Expect(pa.Type.Kind).To(Equal(types.KindVarRef))
+				Expect(pb.Type.Kind).To(Equal(types.KindVarRef))
+				Expect(pa.Type.Name).ToNot(Equal(pb.Type.Name))
+				Expect(edgeInto(inter, fmtNode.Key, "a")).To(BeFalse())
+				Expect(edgeInto(inter, fmtNode.Key, "b")).To(BeFalse())
+			})
+
+			It("Should mix a var ref with a channel placeholder", func(ctx SpecContext) {
+				inter := analyze(ctx, `
+				sequence main {
+					k i64 := 5
+					stage s1 {
+						flag_ch -> f"v={k} c={count_ch}" -> msg_ch
+					}
+					stage s2 {
+						k = 9
+					}
+				}`)
+				fmtNode := MustBeOk(findByTypePrefix(inter, compiler.FmtStrSyntheticPrefix))
+				p := MustBeOk(fmtNode.Inputs.Get("k"))
+				Expect(p.Type.Kind).To(Equal(types.KindVarRef))
+				Expect(edgeInto(inter, fmtNode.Key, "k")).To(BeFalse())
+				Expect(fmtNode.Channels.Read).To(HaveKey(uint32(901)))
+			})
+
+			It("Should stamp a self-incrementing expression and keep its feeder edge", func(ctx SpecContext) {
+				inter := analyze(ctx, `
+				sequence main {
+					stage s1 {
+						counter i64 := 0
+						1 => counter + 1 => counter
+					}
+				}`)
+				vars := variableNodes(inter)
+				Expect(vars).To(HaveLen(1))
+				exprNode := MustBeOk(findByTypePrefix(inter, "expression_"))
+				p := MustBeOk(exprNode.Inputs.Get("counter"))
+				Expect(p.Type.Kind).To(Equal(types.KindVarRef))
+				Expect(p.Type.Name).To(Equal(vars[0].Key))
+				Expect(hasEdge(inter, exprNode.Key, vars[0].Key)).To(BeTrue(),
+					"the increment must still feed the register")
+			})
+
+			It("Should not lift a never-reassigned variable placeholder", func(ctx SpecContext) {
+				inter := analyze(ctx, `
+				sequence main {
+					k i64 := 5
+					stage s1 {
+						flag_ch -> f"v={k}" -> msg_ch
+					}
+				}`)
+				Expect(variableNodes(inter)).To(BeEmpty())
+				fmtNode := MustBeOk(findByTypePrefix(inter, compiler.FmtStrSyntheticPrefix))
+				_, ok := fmtNode.Inputs.Get("k")
+				Expect(ok).To(BeFalse(), "a folded read must not become a param")
+			})
+		})
+
 		It("Should reject a reassigned reactive variable as an input value", func(ctx SpecContext) {
 			source := `
 			func my_func{tag i64} (n u8) i64 {
@@ -5139,6 +5385,53 @@ time.wait{duration=500ms} -> output`
 			ir, diagnostics := text.Analyze(ctx, parsedText, NewRoot(nil, resolver...))
 			Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 
+			module := MustSucceed(text.Compile(ctx, ir))
+			Expect(module.Output.WASM).ToNot(BeEmpty())
+		})
+
+		It("Should reject reading a variable whose initializer did not fold", func(ctx SpecContext) {
+			resolver := []symbol.Symbol{
+				{Name: "trig", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 100},
+				{Name: "log_ch", Kind: symbol.KindChannel, Type: types.Chan(types.String()), ID: 101},
+			}
+			source := `
+			x := 1 + 2
+			trig -> f"{x}" -> log_ch`
+			parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+			ir, diagnostics := text.Analyze(ctx, parsedText, NewRoot(nil, resolver...))
+			Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+			Expect(text.Compile(ctx, ir)).Error().To(MatchError(
+				ContainSubstring("not a compile-time constant")))
+		})
+
+		It("Should reject a function body reading a variable whose initializer did not fold", func(ctx SpecContext) {
+			resolver := []symbol.Symbol{
+				{Name: "trig", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 100},
+				{Name: "out", Kind: symbol.KindChannel, Type: types.Chan(types.I64()), ID: 102},
+			}
+			source := `
+			k := 1 + 2
+			func rd{} (n u8) i64 { return k }
+			trig -> rd{} -> out`
+			parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+			ir, diagnostics := text.Analyze(ctx, parsedText, NewRoot(nil, resolver...))
+			Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+			Expect(text.Compile(ctx, ir)).Error().To(MatchError(
+				ContainSubstring("not a compile-time constant")))
+		})
+
+		It("Should fold a never-reassigned top-level variable into a function body", func(ctx SpecContext) {
+			resolver := []symbol.Symbol{
+				{Name: "trig", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 100},
+				{Name: "out", Kind: symbol.KindChannel, Type: types.Chan(types.I64()), ID: 102},
+			}
+			source := `
+			k i64 := 5
+			func rd{} (n u8) i64 { return k }
+			trig -> rd{} -> out`
+			parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+			ir, diagnostics := text.Analyze(ctx, parsedText, NewRoot(nil, resolver...))
+			Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 			module := MustSucceed(text.Compile(ctx, ir))
 			Expect(module.Output.WASM).ToNot(BeEmpty())
 		})

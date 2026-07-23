@@ -178,7 +178,7 @@ var _ = Describe("Sequence", func() {
 			Expect(lastF32(out, 102)).To(Equal(float32(25))) // rx_b: rx_src + 20
 		})
 
-		It("does not re-emit an unchanged recompute", func(ctx SpecContext) {
+		It("re-emits an unchanged recompute on a fresh sample", func(ctx SpecContext) {
 			h := newH(ctx)
 			defer h.Close(ctx)
 			trigger(h, ctx, 100)
@@ -187,7 +187,8 @@ var _ = Describe("Sequence", func() {
 			Expect(lastF32(out, 102)).To(Equal(float32(3)))
 			pushSrc(h, ctx, 2)
 			out, _ = h.Flush()
-			Expect(out.Get(102).Series).To(BeEmpty(), "an equal recompute is not an event")
+			Expect(lastF32(out, 102)).To(Equal(float32(3)),
+				"a fresh sample fires even when the value is unchanged")
 		})
 	})
 
@@ -3113,7 +3114,7 @@ var _ = Describe("Sequence", func() {
 			Expect(logged).To(Equal([]string{"0", "1", "2", "3", "4"}))
 		})
 
-		It("Coalesces repeated derivations of the same value", func(ctx SpecContext) {
+		It("Re-emits repeated derivations of the same value", func(ctx SpecContext) {
 			resolver := channelSymbols(map[string]channelDef{
 				"cpu": {types.U8(), 201},
 				"out": {types.U8(), 202},
@@ -3139,11 +3140,12 @@ var _ = Describe("Sequence", func() {
 			for _, s := range out.Get(202).Series {
 				total += s.Len()
 			}
-			Expect(total).To(Equal(int64(1)))
+			Expect(total).To(Equal(int64(4)),
+				"every fresh sample fires even when the value is unchanged")
 			Expect(lastU8(out, 202)).To(Equal(uint8(10)))
 		})
 
-		It("Re-fires a derivation only when its value changes", func(ctx SpecContext) {
+		It("Re-fires a derivation on every fresh sample", func(ctx SpecContext) {
 			resolver := channelSymbols(map[string]channelDef{
 				"cpu": {types.U8(), 201},
 				"out": {types.U8(), 202},
@@ -3174,10 +3176,10 @@ var _ = Describe("Sequence", func() {
 			feed(7)
 			feed(7)
 			feed(5)
-			Expect(got).To(Equal([]uint8{10, 14, 10}))
+			Expect(got).To(Equal([]uint8{10, 10, 14, 14, 10}))
 		})
 
-		It("Coalesces repeated format-string derivations", func(ctx SpecContext) {
+		It("Re-emits repeated format-string derivations", func(ctx SpecContext) {
 			resolver := channelSymbols(map[string]channelDef{
 				"cpu": {types.U8(), 201},
 				"out": {types.String(), 202},
@@ -3206,7 +3208,7 @@ var _ = Describe("Sequence", func() {
 			feed(5)
 			feed(5)
 			feed(7)
-			Expect(got).To(Equal([]string{"v: 5", "v: 7"}))
+			Expect(got).To(Equal([]string{"v: 5", "v: 5", "v: 7"}))
 		})
 
 		It("Derives a channel-read variable and reads it", func(ctx SpecContext) {
@@ -4379,6 +4381,215 @@ var _ = Describe("Sequence", func() {
 		})
 	})
 
+	// A triggered format string or expression samples a variable's latest value
+	// at each fire; writes alone never fire it.
+	Describe("Triggered expression variable reads", func() {
+		fmtSrc := `
+    sequence main {
+        v u8 := 3
+        stage s1 {
+            set_ch -> v
+            go_ch -> ` + `f"v={v}"` + ` -> out
+        }
+    }
+    start_cmd => main`
+		newH := func(ctx SpecContext, src string) *runtimeHarness {
+			resolver := channelSymbols(map[string]channelDef{
+				"start_cmd": {types.U8(), 300},
+				"set_ch":    {types.U8(), 301},
+				"go_ch":     {types.U8(), 302},
+				"out":       {types.String(), 303},
+			})
+			return newRuntimeHarness(ctx, src, resolver,
+				channels.Digest{Key: 300, DataType: telem.Uint8T},
+				channels.Digest{Key: 301, DataType: telem.Uint8T},
+				channels.Digest{Key: 302, DataType: telem.Uint8T},
+				channels.Digest{Key: 303, DataType: telem.StringT},
+			)
+		}
+		pushVal := func(h *runtimeHarness, ctx SpecContext, v uint8) {
+			h.Ingest(301, telem.NewSeriesV[uint8](v))
+			for range 5 {
+				advance(h, ctx, telem.Millisecond)
+			}
+		}
+
+		It("reads the latest value at each trigger", func(ctx SpecContext) {
+			h := newH(ctx, fmtSrc)
+			defer h.Close(ctx)
+			trigger(h, ctx, 300)
+			trigger(h, ctx, 302)
+			out, _ := h.Flush()
+			Expect(lastString(out, 303)).To(Equal("v=3"))
+			pushVal(h, ctx, 9)
+			trigger(h, ctx, 302)
+			out, _ = h.Flush()
+			Expect(lastString(out, 303)).To(Equal("v=9"))
+		})
+
+		It("fires exactly once per trigger and never on idle passes", func(ctx SpecContext) {
+			h := newH(ctx, fmtSrc)
+			defer h.Close(ctx)
+			trigger(h, ctx, 300)
+			trigger(h, ctx, 302)
+			out, _ := h.Flush()
+			Expect(countOf(out, 303, "v=3")).To(Equal(1))
+			for range 10 {
+				advance(h, ctx, telem.Millisecond)
+			}
+			out, _ = h.Flush()
+			Expect(countOf(out, 303, "v=3")).To(BeZero())
+		})
+
+		It("does not fire on a variable write alone", func(ctx SpecContext) {
+			h := newH(ctx, fmtSrc)
+			defer h.Close(ctx)
+			trigger(h, ctx, 300)
+			_, _ = h.Flush()
+			pushVal(h, ctx, 9)
+			out, _ := h.Flush()
+			Expect(out.Get(303).Series).To(BeEmpty(),
+				"a write must not fire the triggered read")
+		})
+
+		It("re-emits an unchanged value on every trigger", func(ctx SpecContext) {
+			h := newH(ctx, fmtSrc)
+			defer h.Close(ctx)
+			trigger(h, ctx, 300)
+			trigger(h, ctx, 302)
+			trigger(h, ctx, 302)
+			out, _ := h.Flush()
+			Expect(countOf(out, 303, "v=3")).To(Equal(2))
+		})
+
+		It("reads the latest value through a triggered expression", func(ctx SpecContext) {
+			h := newH(ctx, `
+    sequence main {
+        v u8 := 3
+        stage s1 {
+            set_ch -> v
+            go_ch -> str(v) -> out
+        }
+    }
+    start_cmd => main`)
+			defer h.Close(ctx)
+			trigger(h, ctx, 300)
+			trigger(h, ctx, 302)
+			out, _ := h.Flush()
+			Expect(lastString(out, 303)).To(Equal("3"))
+			pushVal(h, ctx, 9)
+			trigger(h, ctx, 302)
+			out, _ = h.Flush()
+			Expect(lastString(out, 303)).To(Equal("9"))
+		})
+
+		It("reads the latest value of a stateful variable", func(ctx SpecContext) {
+			h := newH(ctx, `
+    sequence main {
+        v u8 $= 3
+        stage s1 {
+            set_ch -> v
+            go_ch -> `+`f"v={v}"`+` -> out
+        }
+    }
+    start_cmd => main`)
+			defer h.Close(ctx)
+			trigger(h, ctx, 300)
+			trigger(h, ctx, 302)
+			out, _ := h.Flush()
+			Expect(lastString(out, 303)).To(Equal("v=3"))
+			pushVal(h, ctx, 9)
+			trigger(h, ctx, 302)
+			out, _ = h.Flush()
+			Expect(lastString(out, 303)).To(Equal("v=9"))
+		})
+
+		It("samples every variable in a multi-placeholder format string", func(ctx SpecContext) {
+			h := newH(ctx, `
+    sequence main {
+        a u8 := 3
+        b u8 := 3
+        stage s1 {
+            set_ch -> b
+            go_ch -> `+`f"{a}-{b}"`+` -> out
+        }
+    }
+    start_cmd => main`)
+			defer h.Close(ctx)
+			trigger(h, ctx, 300)
+			trigger(h, ctx, 302)
+			out, _ := h.Flush()
+			Expect(lastString(out, 303)).To(Equal("3-3"))
+			pushVal(h, ctx, 9)
+			trigger(h, ctx, 302)
+			out, _ = h.Flush()
+			Expect(lastString(out, 303)).To(Equal("3-9"))
+		})
+
+		It("reads the reset initial after stage re-entry", func(ctx SpecContext) {
+			resolver := channelSymbols(map[string]channelDef{
+				"start_cmd": {types.U8(), 300},
+				"set_ch":    {types.U8(), 301},
+				"go_ch":     {types.U8(), 302},
+				"out":       {types.String(), 303},
+				"next_ch":   {types.U8(), 304},
+				"back_ch":   {types.U8(), 305},
+			})
+			h := newRuntimeHarness(ctx, `
+    sequence main {
+        stage s1 {
+            v u8 := 3
+            set_ch -> v
+            go_ch -> `+`f"v={v}"`+` -> out
+            next_ch => next
+        }
+        stage s2 {
+            back_ch => s1
+        }
+    }
+    start_cmd => main`, resolver,
+				channels.Digest{Key: 300, DataType: telem.Uint8T},
+				channels.Digest{Key: 301, DataType: telem.Uint8T},
+				channels.Digest{Key: 302, DataType: telem.Uint8T},
+				channels.Digest{Key: 303, DataType: telem.StringT},
+				channels.Digest{Key: 304, DataType: telem.Uint8T},
+				channels.Digest{Key: 305, DataType: telem.Uint8T},
+			)
+			defer h.Close(ctx)
+			trigger(h, ctx, 300)
+			pushVal(h, ctx, 9)
+			trigger(h, ctx, 302)
+			out, _ := h.Flush()
+			Expect(lastString(out, 303)).To(Equal("v=9"))
+			trigger(h, ctx, 304)
+			trigger(h, ctx, 305)
+			trigger(h, ctx, 302)
+			out, _ = h.Flush()
+			Expect(lastString(out, 303)).To(Equal("v=3"))
+		})
+
+		It("fires per interval tick with the live value", func(ctx SpecContext) {
+			h := newH(ctx, `import time
+    stage main {
+        x u8 := 3
+        set_ch -> x
+        time.interval{50ms} -> `+`f"v={x}"`+` -> out
+    }
+    1 -> main`)
+			defer h.Close(ctx)
+			advance(h, ctx, 0)
+			advance(h, ctx, 60*telem.Millisecond)
+			out, _ := h.Flush()
+			Expect(countOf(out, 303, "v=3")).To(Equal(1))
+			h.Ingest(301, telem.NewSeriesV[uint8](9))
+			advance(h, ctx, 65*telem.Millisecond)
+			advance(h, ctx, 115*telem.Millisecond)
+			out, _ = h.Flush()
+			Expect(countOf(out, 303, "v=9")).To(Equal(1))
+			Expect(countOf(out, 303, "v=3")).To(BeZero())
+		})
+	})
+
 	// A func brace input bound to a variable reads the variable's value at
 	// each fire; the node fires only on its own trigger.
 	Describe("Variable brace inputs", func() {
@@ -5103,7 +5314,7 @@ var _ = Describe("Sequence", func() {
 			Expect(countOf(out, 366, "tick")).To(Equal(3))
 		})
 
-		It("does not re-fire on a recomputed identical value", func(ctx SpecContext) {
+		It("re-fires on a recomputed identical value", func(ctx SpecContext) {
 			resolver := channelSymbols(map[string]channelDef{
 				"src_ch":  {types.F32(), 367},
 				"out_str": {types.String(), 368},
@@ -5126,8 +5337,8 @@ var _ = Describe("Sequence", func() {
 				advance(h, ctx, telem.Millisecond)
 			}
 			out, _ = h.Flush()
-			Expect(countOf(out, 368, "tick")).To(Equal(0),
-				"an unchanged derivation value is not an event")
+			Expect(countOf(out, 368, "tick")).To(Equal(1),
+				"a fresh sample fires even when the value is unchanged")
 		})
 
 		It("fires once per sample when the chain lives in a stage", func(ctx SpecContext) {

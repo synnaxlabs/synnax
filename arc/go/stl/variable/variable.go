@@ -10,7 +10,6 @@
 package variable
 
 import (
-	"bytes"
 	"context"
 
 	"github.com/synnaxlabs/arc/ir"
@@ -126,11 +125,6 @@ func (v *exprRead) Next(ctx node.Context) {
 	}
 	data, ok := v.ConsumeInput(0)
 	if !ok || repointed {
-		return
-	}
-	// A derivation only changes when its value does; recomputes are not events.
-	if data.DataType == v.Output(0).DataType &&
-		bytes.Equal(data.Data, v.Output(0).Data) {
 		return
 	}
 	v.Output(0).CopyFrom(data)

@@ -357,7 +357,7 @@ func analyzeFlowNode(
 		return flowNodeResult{node: r}, ok
 	}
 	if expr := ctx.AST.Expression(); expr != nil {
-		r, ok := analyzeExpression(acontext.Child(ctx, expr), kg, shell)
+		r, ok := analyzeExpression(acontext.Child(ctx, expr), kg, shell, !isFirst)
 		return flowNodeResult{node: r}, ok
 	}
 	if ctx.AST.NEXT() != nil {
@@ -624,7 +624,7 @@ func collectBranch[T antlr.ParserRuleContext](
 	kg *keyGenerator,
 	shell *shellBuilder,
 ) bool {
-	res, ok := analyzeExpression(acontext.Child(ctx, expr), kg, shell)
+	res, ok := analyzeExpression(acontext.Child(ctx, expr), kg, shell, false)
 	if !ok {
 		return false
 	}
@@ -652,7 +652,7 @@ func lowerDerivation[T antlr.ParserRuleContext](
 	kg *keyGenerator,
 	shell *shellBuilder,
 ) bool {
-	res, ok := analyzeExpression(acontext.Child(ctx, expr), kg, shell)
+	res, ok := analyzeExpression(acontext.Child(ctx, expr), kg, shell, false)
 	if !ok {
 		return false
 	}
@@ -755,7 +755,7 @@ func lowerAssignment(
 		}
 		return lowerExprReadReassign(ctx, sym, e, expr, kg, shell)
 	}
-	res, ok := analyzeExpression(acontext.Child(ctx, expr), kg, shell)
+	res, ok := analyzeExpression(acontext.Child(ctx, expr), kg, shell, false)
 	if !ok {
 		return nil, nil, false
 	}
@@ -1158,6 +1158,7 @@ func tryAnalyzeFmtStrLiteral(
 	sym *symbol.Symbol,
 	kg *keyGenerator,
 	shell *shellBuilder,
+	triggered bool,
 ) (nodeResult, bool, bool) {
 	literalCtx := parser.GetLiteral(ctx.AST)
 	if literalCtx == nil {
@@ -1204,14 +1205,18 @@ func tryAnalyzeFmtStrLiteral(
 		Inputs:   sym.Type.Inputs,
 		Outputs:  types.Params{{Name: ir.DefaultOutputParam, Type: outputType}},
 	}
-	wireVarEdges(ctx, shell, kg, key, sym.Type.Inputs)
+	wireVarEdges(ctx, shell, kg, &n, triggered)
 	return newNodeResult(n, ir.DefaultInputParam, ir.DefaultOutputParam), true, true
 }
 
+// analyzeExpression lowers an expression into a node. triggered means the node
+// sits behind a flow trigger, so lifted value-variable params bind as VarRefs
+// sampled per fire rather than edges that wake the node on writes.
 func analyzeExpression(
 	ctx acontext.Context[parser.IExpressionContext],
 	kg *keyGenerator,
 	shell *shellBuilder,
+	triggered bool,
 ) (nodeResult, bool) {
 	sym, err := ctx.Scope.Root().GetChildByParserRule(ctx.AST)
 	if err != nil {
@@ -1220,7 +1225,7 @@ func analyzeExpression(
 	}
 
 	if sym.Kind == symbol.KindFunction && parser.IsLiteral(ctx.AST) {
-		if n, handled, ok := tryAnalyzeFmtStrLiteral(ctx, sym, kg, shell); handled {
+		if n, handled, ok := tryAnalyzeFmtStrLiteral(ctx, sym, kg, shell, triggered); handled {
 			return n, ok
 		}
 	}
@@ -1265,19 +1270,21 @@ func analyzeExpression(
 		Inputs:   freshType.Inputs,
 		Outputs:  types.Params{{Name: ir.DefaultOutputParam, Type: outputType}},
 	}
-	wireVarEdges(ctx, shell, kg, key, freshType.Inputs)
+	wireVarEdges(ctx, shell, kg, &n, triggered)
 	return newNodeResult(n, ir.DefaultInputParam, ir.DefaultOutputParam), true
 }
 
 // wireVarEdges feeds each lifted variable-read param from its variable node.
+// On a triggered node a register-backed value variable binds as a VarRef
+// instead of an edge: sampled per fire, and writes never wake the node.
 func wireVarEdges(
 	ctx acontext.Context[parser.IExpressionContext],
 	shell *shellBuilder,
 	kg *keyGenerator,
-	nodeKey string,
-	inputs types.Params,
+	n *ir.Node,
+	triggered bool,
 ) {
-	for _, p := range inputs {
+	for i, p := range n.Inputs {
 		vsym, err := ctx.Scope.Resolve(ctx, p.Name)
 		if err != nil {
 			continue
@@ -1294,9 +1301,15 @@ func wireVarEdges(
 			shell.rootNodes = append(shell.rootNodes, &r.node)
 			shell.edges = append(shell.edges, ir.Edge{
 				Source: r.output,
-				Target: ir.Handle{Node: nodeKey, Param: p.Name},
+				Target: ir.Handle{Node: n.Key, Param: p.Name},
 				Kind:   ir.EdgeKindContinuous,
 			})
+			continue
+		}
+		if triggered && e.deref == nil && e.register != nil {
+			// Cloned so the stamp stays off the synth function's shared params.
+			n.Inputs = slices.Clone(n.Inputs)
+			n.Inputs[i].Type = types.VarRef(p.Type, e.register.Key)
 			continue
 		}
 		src := e.deref
@@ -1306,7 +1319,7 @@ func wireVarEdges(
 		if src != nil {
 			shell.edges = append(shell.edges, ir.Edge{
 				Source: ir.Handle{Node: src.Key, Param: ir.DefaultOutputParam},
-				Target: ir.Handle{Node: nodeKey, Param: p.Name},
+				Target: ir.Handle{Node: n.Key, Param: p.Name},
 				Kind:   ir.EdgeKindContinuous,
 			})
 		}
@@ -2412,7 +2425,7 @@ func analyzeSingleInvocation(
 		return result.node, true
 	}
 	if expr := ctx.AST.Expression(); expr != nil {
-		result, ok := analyzeExpression(acontext.Child(ctx, expr), kg, shell)
+		result, ok := analyzeExpression(acontext.Child(ctx, expr), kg, shell, false)
 		if !ok {
 			return ir.Node{}, false
 		}

@@ -102,7 +102,7 @@ func inferVarKind(ctx context.Context[parser.IVariableDeclarationContext]) {
 				"channels and channel-read expressions cannot be assigned to stateful variables"))
 			return
 		}
-		// SY-4474: Enable Const Expressions for Stateful Variables
+		// SY-4474: Enable const-expression initializers for variables
 		if expr != nil && !parser.IsLiteral(expr) {
 			ctx.Diagnostics.Add(diagnostics.Errorf(ctx.AST,
 				"stateful variable initializer must be a literal value"))

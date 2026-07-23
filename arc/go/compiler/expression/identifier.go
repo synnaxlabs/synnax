@@ -46,13 +46,15 @@ func compileIdentifier[ASTNode antlr.ParserRuleContext](
 			emitChannelRead(ctx, scope.Type)
 			return scope.Type.Unwrap(), nil
 		}
-		// A flow-level variable has no local in this unit: fold its initial value.
+		// A never-reassigned flow variable collapses to its initial value;
+		// reassigned reads are lifted into params before compilation gets here.
 		if scope.Kind == symbol.KindVariable && !sameFunction(ctx.Scope, scope) {
-			if !scope.Reassigned && scope.DefaultValue != nil {
+			if scope.DefaultValue != nil {
 				return castAndEmitConst(ctx, scope)
 			}
+			// SY-4474: Enable const-expression initializers for variables
 			return types.Type{}, errors.Newf(
-				"cannot read reassigned variable '%s' inside an expression yet", name,
+				"cannot read '%s': its initializer is not a compile-time constant", name,
 			)
 		}
 		ctx.Writer.WriteLocalGet(scope.ID)

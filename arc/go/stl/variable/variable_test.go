@@ -436,15 +436,16 @@ var _ = Describe("Variable", func() {
 			Expect(*v.Output(0)).To(telem.MatchSeriesDataV[int64](5))
 		})
 
-		It("Should coalesce an unchanged recompute", func(ctx SpecContext) {
+		It("Should re-emit an unchanged recompute", func(ctx SpecContext) {
 			emit(d, int64(5), 10)
 			n.Next(nodeCtx)
 			emit(d, int64(5), 20)
 			n.Next(nodeCtx)
-			Expect(marked).To(HaveLen(1))
+			Expect(marked).To(HaveLen(2),
+				"a fresh recompute fires even when the value is unchanged")
 			emit(d, int64(6), 30)
 			n.Next(nodeCtx)
-			Expect(marked).To(HaveLen(2))
+			Expect(marked).To(HaveLen(3))
 			Expect(*v.Output(0)).To(telem.MatchSeriesDataV[int64](6))
 		})
 
