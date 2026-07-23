@@ -188,14 +188,6 @@ func (s StickyXY) Validate() error {
 	return v.Error()
 }
 
-// Dimensions is a 2D size with width and height values.
-type Dimensions struct {
-	// Width is the width in pixels.
-	Width float64 `json:"width" msgpack:"width"`
-	// Height is the height in pixels.
-	Height float64 `json:"height" msgpack:"height"`
-}
-
 // Viewport is the camera state of a viewport.
 type Viewport struct {
 	// Zoom is the zoom level where 1.0 equals 100%.
@@ -208,39 +200,6 @@ type Viewport struct {
 func (v *Viewport) ApplyDefaults() {
 	if v.Zoom == 0 {
 		v.Zoom = 1
-	}
-}
-
-// AngularDirection is a rotational direction in 2D space.
-type AngularDirection string
-
-const (
-	AngularDirectionClockwise        AngularDirection = "clockwise"
-	AngularDirectionCounterclockwise AngularDirection = "counterclockwise"
-)
-
-// IsValid reports whether a is one of the defined AngularDirection values.
-func (a AngularDirection) IsValid() bool {
-	switch a {
-	case AngularDirectionClockwise, AngularDirectionCounterclockwise:
-		return true
-	default:
-		return false
-	}
-}
-
-// CenterLocation is a location at the center of a container.
-type CenterLocation string
-
-const CenterLocationCenter CenterLocation = "center"
-
-// IsValid reports whether c is one of the defined CenterLocation values.
-func (c CenterLocation) IsValid() bool {
-	switch c {
-	case CenterLocationCenter:
-		return true
-	default:
-		return false
 	}
 }
 
@@ -266,26 +225,6 @@ func (l Location) IsValid() bool {
 	}
 }
 
-// Alignment is a positioning indicator for aligning content along an axis within a
-// container.
-type Alignment string
-
-const (
-	AlignmentStart  Alignment = "start"
-	AlignmentCenter Alignment = "center"
-	AlignmentEnd    Alignment = "end"
-)
-
-// IsValid reports whether a is one of the defined Alignment values.
-func (a Alignment) IsValid() bool {
-	switch a {
-	case AlignmentStart, AlignmentCenter, AlignmentEnd:
-		return true
-	default:
-		return false
-	}
-}
-
 // Order is a positional ordering indicator for elements in a sequence.
 type Order string
 
@@ -302,60 +241,6 @@ func (o Order) IsValid() bool {
 	default:
 		return false
 	}
-}
-
-// Dimension is the name of a 2D size axis.
-type Dimension string
-
-const (
-	DimensionWidth  Dimension = "width"
-	DimensionHeight Dimension = "height"
-)
-
-// IsValid reports whether d is one of the defined Dimension values.
-func (d Dimension) IsValid() bool {
-	switch d {
-	case DimensionWidth, DimensionHeight:
-		return true
-	default:
-		return false
-	}
-}
-
-// SignedDimension is the name of a 2D signed size axis.
-type SignedDimension string
-
-const (
-	SignedDimensionSignedWidth  SignedDimension = "signedWidth"
-	SignedDimensionSignedHeight SignedDimension = "signedHeight"
-)
-
-// IsValid reports whether s is one of the defined SignedDimension values.
-func (s SignedDimension) IsValid() bool {
-	switch s {
-	case SignedDimensionSignedWidth, SignedDimensionSignedHeight:
-		return true
-	default:
-		return false
-	}
-}
-
-// SignedDimensions is a 2D size whose width and height components carry sign, allowing
-// negative values to express direction.
-type SignedDimensions struct {
-	// SignedWidth is the signed width.
-	SignedWidth float64 `json:"signed_width" msgpack:"signed_width"`
-	// SignedHeight is the signed height.
-	SignedHeight float64 `json:"signed_height" msgpack:"signed_height"`
-}
-
-// ClientXY is a 2D coordinate point expressed in client (viewport) space, matching the
-// shape of DOM mouse events.
-type ClientXY struct {
-	// ClientX is the horizontal coordinate in client (viewport) space.
-	ClientX float64 `json:"client_x" msgpack:"client_x"`
-	// ClientY is the vertical coordinate in client (viewport) space.
-	ClientY float64 `json:"client_y" msgpack:"client_y"`
 }
 
 // Decimal is a normalized value in [0, 1] expressed as a decimal fraction of a whole,

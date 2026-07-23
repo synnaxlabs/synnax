@@ -7,10 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import "schemas/x/telem"
 import "schemas/synnax/node"
-import "schemas/x/control"
 import "schemas/synnax/status"
+import "schemas/x/control"
+import "schemas/x/telem"
 
 @ts output  "client/ts/src/channel"
 @py output  "client/py/synnax/channel"

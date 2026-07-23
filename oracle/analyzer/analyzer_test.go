@@ -47,6 +47,37 @@ var _ = Describe("Analyzer", func() {
 		loader = NewMockFileLoader()
 	})
 
+	Describe("Imports", func() {
+		It("Should error on an unused import", func(ctx SpecContext) {
+			loader.Add("schemas/dep", `
+				Inner struct { value int32 }
+			`)
+			source := `
+				import "schemas/dep"
+				Entry struct {
+					name string
+				}
+			`
+			_, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+			Expect(diag.Ok()).To(BeFalse())
+			Expect(diag.String()).To(ContainSubstring(`unused import "schemas/dep"`))
+		})
+
+		It("Should not error when an import is referenced", func(ctx SpecContext) {
+			loader.Add("schemas/dep", `
+				Inner struct { value int32 }
+			`)
+			source := `
+				import "schemas/dep"
+				Entry struct {
+					inner dep.Inner
+				}
+			`
+			_, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+			Expect(diag.Ok()).To(BeTrue())
+		})
+	})
+
 	Describe("AnalyzeSource", func() {
 		It("Should analyze a simple struct", func(ctx SpecContext) {
 			source := `
@@ -465,7 +496,7 @@ var _ = Describe("Analyzer", func() {
 
 				Range struct {
 					key uuid @id
-					labels uuid[]
+					labels label.Label[]
 				}
 			`
 			table, diag := analyzer.AnalyzeSource(ctx, source, "ranger", loader)
@@ -482,16 +513,16 @@ var _ = Describe("Analyzer", func() {
 		It("Should detect circular imports", func(ctx SpecContext) {
 			loader.Files["schema/core/a"] = `
 				import "schema/core/b"
-				A struct {}
+				A struct { b b.B? }
 			`
 			loader.Files["schema/core/b"] = `
 				import "schema/core/a"
-				B struct {}
+				B struct { a a.A? }
 			`
 
 			source := `
 				import "schema/core/a"
-				C struct {}
+				C struct { a a.A? }
 			`
 			table, diag := analyzer.AnalyzeSource(ctx, source, "main", loader)
 			// Should not error - circular imports are handled by tracking

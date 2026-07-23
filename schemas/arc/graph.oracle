@@ -7,8 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import "schemas/x/spatial"
 import "schemas/arc/ir"
+import "schemas/x/spatial"
 
 @ts output  "client/ts/src/arc/graph"
 @py output  "client/py/synnax/arc/graph"

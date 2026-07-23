@@ -275,97 +275,6 @@ func (Direction) EnumDescriptor() ([]byte, []int) {
 	return file_x_go_spatial_pb_spatial_proto_rawDescGZIP(), []int{4}
 }
 
-// AngularDirection is a rotational direction in 2D space.
-type AngularDirection int32
-
-const (
-	AngularDirection_ANGULAR_DIRECTION_CLOCKWISE        AngularDirection = 0
-	AngularDirection_ANGULAR_DIRECTION_COUNTERCLOCKWISE AngularDirection = 1
-)
-
-// Enum value maps for AngularDirection.
-var (
-	AngularDirection_name = map[int32]string{
-		0: "ANGULAR_DIRECTION_CLOCKWISE",
-		1: "ANGULAR_DIRECTION_COUNTERCLOCKWISE",
-	}
-	AngularDirection_value = map[string]int32{
-		"ANGULAR_DIRECTION_CLOCKWISE":        0,
-		"ANGULAR_DIRECTION_COUNTERCLOCKWISE": 1,
-	}
-)
-
-func (x AngularDirection) Enum() *AngularDirection {
-	p := new(AngularDirection)
-	*p = x
-	return p
-}
-
-func (x AngularDirection) String() string {
-	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
-}
-
-func (AngularDirection) Descriptor() protoreflect.EnumDescriptor {
-	return file_x_go_spatial_pb_spatial_proto_enumTypes[5].Descriptor()
-}
-
-func (AngularDirection) Type() protoreflect.EnumType {
-	return &file_x_go_spatial_pb_spatial_proto_enumTypes[5]
-}
-
-func (x AngularDirection) Number() protoreflect.EnumNumber {
-	return protoreflect.EnumNumber(x)
-}
-
-// Deprecated: Use AngularDirection.Descriptor instead.
-func (AngularDirection) EnumDescriptor() ([]byte, []int) {
-	return file_x_go_spatial_pb_spatial_proto_rawDescGZIP(), []int{5}
-}
-
-// CenterLocation is a location at the center of a container.
-type CenterLocation int32
-
-const (
-	CenterLocation_CENTER_LOCATION_CENTER CenterLocation = 0
-)
-
-// Enum value maps for CenterLocation.
-var (
-	CenterLocation_name = map[int32]string{
-		0: "CENTER_LOCATION_CENTER",
-	}
-	CenterLocation_value = map[string]int32{
-		"CENTER_LOCATION_CENTER": 0,
-	}
-)
-
-func (x CenterLocation) Enum() *CenterLocation {
-	p := new(CenterLocation)
-	*p = x
-	return p
-}
-
-func (x CenterLocation) String() string {
-	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
-}
-
-func (CenterLocation) Descriptor() protoreflect.EnumDescriptor {
-	return file_x_go_spatial_pb_spatial_proto_enumTypes[6].Descriptor()
-}
-
-func (CenterLocation) Type() protoreflect.EnumType {
-	return &file_x_go_spatial_pb_spatial_proto_enumTypes[6]
-}
-
-func (x CenterLocation) Number() protoreflect.EnumNumber {
-	return protoreflect.EnumNumber(x)
-}
-
-// Deprecated: Use CenterLocation.Descriptor instead.
-func (CenterLocation) EnumDescriptor() ([]byte, []int) {
-	return file_x_go_spatial_pb_spatial_proto_rawDescGZIP(), []int{6}
-}
-
 // Location is a position indicator covering the four outer edges of a container and its
 // center.
 type Location int32
@@ -407,11 +316,11 @@ func (x Location) String() string {
 }
 
 func (Location) Descriptor() protoreflect.EnumDescriptor {
-	return file_x_go_spatial_pb_spatial_proto_enumTypes[7].Descriptor()
+	return file_x_go_spatial_pb_spatial_proto_enumTypes[5].Descriptor()
 }
 
 func (Location) Type() protoreflect.EnumType {
-	return &file_x_go_spatial_pb_spatial_proto_enumTypes[7]
+	return &file_x_go_spatial_pb_spatial_proto_enumTypes[5]
 }
 
 func (x Location) Number() protoreflect.EnumNumber {
@@ -420,58 +329,7 @@ func (x Location) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use Location.Descriptor instead.
 func (Location) EnumDescriptor() ([]byte, []int) {
-	return file_x_go_spatial_pb_spatial_proto_rawDescGZIP(), []int{7}
-}
-
-// Alignment is a positioning indicator for aligning content along an axis within a
-// container.
-type Alignment int32
-
-const (
-	Alignment_ALIGNMENT_START  Alignment = 0
-	Alignment_ALIGNMENT_CENTER Alignment = 1
-	Alignment_ALIGNMENT_END    Alignment = 2
-)
-
-// Enum value maps for Alignment.
-var (
-	Alignment_name = map[int32]string{
-		0: "ALIGNMENT_START",
-		1: "ALIGNMENT_CENTER",
-		2: "ALIGNMENT_END",
-	}
-	Alignment_value = map[string]int32{
-		"ALIGNMENT_START":  0,
-		"ALIGNMENT_CENTER": 1,
-		"ALIGNMENT_END":    2,
-	}
-)
-
-func (x Alignment) Enum() *Alignment {
-	p := new(Alignment)
-	*p = x
-	return p
-}
-
-func (x Alignment) String() string {
-	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
-}
-
-func (Alignment) Descriptor() protoreflect.EnumDescriptor {
-	return file_x_go_spatial_pb_spatial_proto_enumTypes[8].Descriptor()
-}
-
-func (Alignment) Type() protoreflect.EnumType {
-	return &file_x_go_spatial_pb_spatial_proto_enumTypes[8]
-}
-
-func (x Alignment) Number() protoreflect.EnumNumber {
-	return protoreflect.EnumNumber(x)
-}
-
-// Deprecated: Use Alignment.Descriptor instead.
-func (Alignment) EnumDescriptor() ([]byte, []int) {
-	return file_x_go_spatial_pb_spatial_proto_rawDescGZIP(), []int{8}
+	return file_x_go_spatial_pb_spatial_proto_rawDescGZIP(), []int{5}
 }
 
 // Order is a positional ordering indicator for elements in a sequence.
@@ -505,11 +363,11 @@ func (x Order) String() string {
 }
 
 func (Order) Descriptor() protoreflect.EnumDescriptor {
-	return file_x_go_spatial_pb_spatial_proto_enumTypes[9].Descriptor()
+	return file_x_go_spatial_pb_spatial_proto_enumTypes[6].Descriptor()
 }
 
 func (Order) Type() protoreflect.EnumType {
-	return &file_x_go_spatial_pb_spatial_proto_enumTypes[9]
+	return &file_x_go_spatial_pb_spatial_proto_enumTypes[6]
 }
 
 func (x Order) Number() protoreflect.EnumNumber {
@@ -518,101 +376,7 @@ func (x Order) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use Order.Descriptor instead.
 func (Order) EnumDescriptor() ([]byte, []int) {
-	return file_x_go_spatial_pb_spatial_proto_rawDescGZIP(), []int{9}
-}
-
-// Dimension is the name of a 2D size axis.
-type Dimension int32
-
-const (
-	Dimension_DIMENSION_WIDTH  Dimension = 0
-	Dimension_DIMENSION_HEIGHT Dimension = 1
-)
-
-// Enum value maps for Dimension.
-var (
-	Dimension_name = map[int32]string{
-		0: "DIMENSION_WIDTH",
-		1: "DIMENSION_HEIGHT",
-	}
-	Dimension_value = map[string]int32{
-		"DIMENSION_WIDTH":  0,
-		"DIMENSION_HEIGHT": 1,
-	}
-)
-
-func (x Dimension) Enum() *Dimension {
-	p := new(Dimension)
-	*p = x
-	return p
-}
-
-func (x Dimension) String() string {
-	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
-}
-
-func (Dimension) Descriptor() protoreflect.EnumDescriptor {
-	return file_x_go_spatial_pb_spatial_proto_enumTypes[10].Descriptor()
-}
-
-func (Dimension) Type() protoreflect.EnumType {
-	return &file_x_go_spatial_pb_spatial_proto_enumTypes[10]
-}
-
-func (x Dimension) Number() protoreflect.EnumNumber {
-	return protoreflect.EnumNumber(x)
-}
-
-// Deprecated: Use Dimension.Descriptor instead.
-func (Dimension) EnumDescriptor() ([]byte, []int) {
-	return file_x_go_spatial_pb_spatial_proto_rawDescGZIP(), []int{10}
-}
-
-// SignedDimension is the name of a 2D signed size axis.
-type SignedDimension int32
-
-const (
-	SignedDimension_SIGNED_DIMENSION_SIGNED_WIDTH  SignedDimension = 0
-	SignedDimension_SIGNED_DIMENSION_SIGNED_HEIGHT SignedDimension = 1
-)
-
-// Enum value maps for SignedDimension.
-var (
-	SignedDimension_name = map[int32]string{
-		0: "SIGNED_DIMENSION_SIGNED_WIDTH",
-		1: "SIGNED_DIMENSION_SIGNED_HEIGHT",
-	}
-	SignedDimension_value = map[string]int32{
-		"SIGNED_DIMENSION_SIGNED_WIDTH":  0,
-		"SIGNED_DIMENSION_SIGNED_HEIGHT": 1,
-	}
-)
-
-func (x SignedDimension) Enum() *SignedDimension {
-	p := new(SignedDimension)
-	*p = x
-	return p
-}
-
-func (x SignedDimension) String() string {
-	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
-}
-
-func (SignedDimension) Descriptor() protoreflect.EnumDescriptor {
-	return file_x_go_spatial_pb_spatial_proto_enumTypes[11].Descriptor()
-}
-
-func (SignedDimension) Type() protoreflect.EnumType {
-	return &file_x_go_spatial_pb_spatial_proto_enumTypes[11]
-}
-
-func (x SignedDimension) Number() protoreflect.EnumNumber {
-	return protoreflect.EnumNumber(x)
-}
-
-// Deprecated: Use SignedDimension.Descriptor instead.
-func (SignedDimension) EnumDescriptor() ([]byte, []int) {
-	return file_x_go_spatial_pb_spatial_proto_rawDescGZIP(), []int{11}
+	return file_x_go_spatial_pb_spatial_proto_rawDescGZIP(), []int{6}
 }
 
 // XY is a 2D coordinate point with x and y values. Used for positioning elements in
@@ -855,61 +619,6 @@ func (x *StickyXY) GetUnits() *StickyUnits {
 	return nil
 }
 
-// Dimensions is a 2D size with width and height values.
-type Dimensions struct {
-	state protoimpl.MessageState `protogen:"open.v1"`
-	// width is the width in pixels.
-	Width float64 `protobuf:"fixed64,1,opt,name=width,proto3" json:"width,omitempty"`
-	// height is the height in pixels.
-	Height        float64 `protobuf:"fixed64,2,opt,name=height,proto3" json:"height,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *Dimensions) Reset() {
-	*x = Dimensions{}
-	mi := &file_x_go_spatial_pb_spatial_proto_msgTypes[4]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *Dimensions) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*Dimensions) ProtoMessage() {}
-
-func (x *Dimensions) ProtoReflect() protoreflect.Message {
-	mi := &file_x_go_spatial_pb_spatial_proto_msgTypes[4]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use Dimensions.ProtoReflect.Descriptor instead.
-func (*Dimensions) Descriptor() ([]byte, []int) {
-	return file_x_go_spatial_pb_spatial_proto_rawDescGZIP(), []int{4}
-}
-
-func (x *Dimensions) GetWidth() float64 {
-	if x != nil {
-		return x.Width
-	}
-	return 0
-}
-
-func (x *Dimensions) GetHeight() float64 {
-	if x != nil {
-		return x.Height
-	}
-	return 0
-}
-
 // Viewport is the camera state of a viewport.
 type Viewport struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
@@ -923,7 +632,7 @@ type Viewport struct {
 
 func (x *Viewport) Reset() {
 	*x = Viewport{}
-	mi := &file_x_go_spatial_pb_spatial_proto_msgTypes[5]
+	mi := &file_x_go_spatial_pb_spatial_proto_msgTypes[4]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -935,7 +644,7 @@ func (x *Viewport) String() string {
 func (*Viewport) ProtoMessage() {}
 
 func (x *Viewport) ProtoReflect() protoreflect.Message {
-	mi := &file_x_go_spatial_pb_spatial_proto_msgTypes[5]
+	mi := &file_x_go_spatial_pb_spatial_proto_msgTypes[4]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -948,7 +657,7 @@ func (x *Viewport) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Viewport.ProtoReflect.Descriptor instead.
 func (*Viewport) Descriptor() ([]byte, []int) {
-	return file_x_go_spatial_pb_spatial_proto_rawDescGZIP(), []int{5}
+	return file_x_go_spatial_pb_spatial_proto_rawDescGZIP(), []int{4}
 }
 
 func (x *Viewport) GetZoom() float64 {
@@ -963,118 +672,6 @@ func (x *Viewport) GetPosition() *XY {
 		return x.Position
 	}
 	return nil
-}
-
-// SignedDimensions is a 2D size whose width and height components carry sign, allowing
-// negative values to express direction.
-type SignedDimensions struct {
-	state protoimpl.MessageState `protogen:"open.v1"`
-	// signed_width is the signed width.
-	SignedWidth float64 `protobuf:"fixed64,1,opt,name=signed_width,json=signedWidth,proto3" json:"signed_width,omitempty"`
-	// signed_height is the signed height.
-	SignedHeight  float64 `protobuf:"fixed64,2,opt,name=signed_height,json=signedHeight,proto3" json:"signed_height,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *SignedDimensions) Reset() {
-	*x = SignedDimensions{}
-	mi := &file_x_go_spatial_pb_spatial_proto_msgTypes[6]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *SignedDimensions) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*SignedDimensions) ProtoMessage() {}
-
-func (x *SignedDimensions) ProtoReflect() protoreflect.Message {
-	mi := &file_x_go_spatial_pb_spatial_proto_msgTypes[6]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use SignedDimensions.ProtoReflect.Descriptor instead.
-func (*SignedDimensions) Descriptor() ([]byte, []int) {
-	return file_x_go_spatial_pb_spatial_proto_rawDescGZIP(), []int{6}
-}
-
-func (x *SignedDimensions) GetSignedWidth() float64 {
-	if x != nil {
-		return x.SignedWidth
-	}
-	return 0
-}
-
-func (x *SignedDimensions) GetSignedHeight() float64 {
-	if x != nil {
-		return x.SignedHeight
-	}
-	return 0
-}
-
-// ClientXY is a 2D coordinate point expressed in client (viewport) space, matching the
-// shape of DOM mouse events.
-type ClientXY struct {
-	state protoimpl.MessageState `protogen:"open.v1"`
-	// client_x is the horizontal coordinate in client (viewport) space.
-	ClientX float64 `protobuf:"fixed64,1,opt,name=client_x,json=clientX,proto3" json:"client_x,omitempty"`
-	// client_y is the vertical coordinate in client (viewport) space.
-	ClientY       float64 `protobuf:"fixed64,2,opt,name=client_y,json=clientY,proto3" json:"client_y,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *ClientXY) Reset() {
-	*x = ClientXY{}
-	mi := &file_x_go_spatial_pb_spatial_proto_msgTypes[7]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *ClientXY) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*ClientXY) ProtoMessage() {}
-
-func (x *ClientXY) ProtoReflect() protoreflect.Message {
-	mi := &file_x_go_spatial_pb_spatial_proto_msgTypes[7]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use ClientXY.ProtoReflect.Descriptor instead.
-func (*ClientXY) Descriptor() ([]byte, []int) {
-	return file_x_go_spatial_pb_spatial_proto_rawDescGZIP(), []int{7}
-}
-
-func (x *ClientXY) GetClientX() float64 {
-	if x != nil {
-		return x.ClientX
-	}
-	return 0
-}
-
-func (x *ClientXY) GetClientY() float64 {
-	if x != nil {
-		return x.ClientY
-	}
-	return 0
 }
 
 // Bounds is a closed-open interval [lower, upper) over an ordered numeric value space.
@@ -1092,7 +689,7 @@ type Bounds struct {
 
 func (x *Bounds) Reset() {
 	*x = Bounds{}
-	mi := &file_x_go_spatial_pb_spatial_proto_msgTypes[8]
+	mi := &file_x_go_spatial_pb_spatial_proto_msgTypes[5]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1104,7 +701,7 @@ func (x *Bounds) String() string {
 func (*Bounds) ProtoMessage() {}
 
 func (x *Bounds) ProtoReflect() protoreflect.Message {
-	mi := &file_x_go_spatial_pb_spatial_proto_msgTypes[8]
+	mi := &file_x_go_spatial_pb_spatial_proto_msgTypes[5]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1117,7 +714,7 @@ func (x *Bounds) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Bounds.ProtoReflect.Descriptor instead.
 func (*Bounds) Descriptor() ([]byte, []int) {
-	return file_x_go_spatial_pb_spatial_proto_rawDescGZIP(), []int{8}
+	return file_x_go_spatial_pb_spatial_proto_rawDescGZIP(), []int{5}
 }
 
 func (x *Bounds) GetLower() float64 {
@@ -1152,20 +749,10 @@ const file_x_go_spatial_pb_spatial_proto_rawDesc = "" +
 	"\x01x\x18\x01 \x01(\x01R\x01x\x12\f\n" +
 	"\x01y\x18\x02 \x01(\x01R\x01y\x120\n" +
 	"\x04root\x18\x03 \x01(\v2\x1c.x.spatial.pb.CornerLocationR\x04root\x12/\n" +
-	"\x05units\x18\x04 \x01(\v2\x19.x.spatial.pb.StickyUnitsR\x05units\":\n" +
-	"\n" +
-	"Dimensions\x12\x14\n" +
-	"\x05width\x18\x01 \x01(\x01R\x05width\x12\x16\n" +
-	"\x06height\x18\x02 \x01(\x01R\x06height\"L\n" +
+	"\x05units\x18\x04 \x01(\v2\x19.x.spatial.pb.StickyUnitsR\x05units\"L\n" +
 	"\bViewport\x12\x12\n" +
 	"\x04zoom\x18\x01 \x01(\x01R\x04zoom\x12,\n" +
-	"\bposition\x18\x02 \x01(\v2\x10.x.spatial.pb.XYR\bposition\"Z\n" +
-	"\x10SignedDimensions\x12!\n" +
-	"\fsigned_width\x18\x01 \x01(\x01R\vsignedWidth\x12#\n" +
-	"\rsigned_height\x18\x02 \x01(\x01R\fsignedHeight\"@\n" +
-	"\bClientXY\x12\x19\n" +
-	"\bclient_x\x18\x01 \x01(\x01R\aclientX\x12\x19\n" +
-	"\bclient_y\x18\x02 \x01(\x01R\aclientY\"4\n" +
+	"\bposition\x18\x02 \x01(\v2\x10.x.spatial.pb.XYR\bposition\"4\n" +
 	"\x06Bounds\x12\x14\n" +
 	"\x05lower\x18\x01 \x01(\x01R\x05lower\x12\x14\n" +
 	"\x05upper\x18\x02 \x01(\x01R\x05upper*6\n" +
@@ -1186,32 +773,17 @@ const file_x_go_spatial_pb_spatial_proto_rawDesc = "" +
 	"\x13OUTER_LOCATION_LEFT\x10\x03*-\n" +
 	"\tDirection\x12\x0f\n" +
 	"\vDIRECTION_X\x10\x00\x12\x0f\n" +
-	"\vDIRECTION_Y\x10\x01*[\n" +
-	"\x10AngularDirection\x12\x1f\n" +
-	"\x1bANGULAR_DIRECTION_CLOCKWISE\x10\x00\x12&\n" +
-	"\"ANGULAR_DIRECTION_COUNTERCLOCKWISE\x10\x01*,\n" +
-	"\x0eCenterLocation\x12\x1a\n" +
-	"\x16CENTER_LOCATION_CENTER\x10\x00*m\n" +
+	"\vDIRECTION_Y\x10\x01*m\n" +
 	"\bLocation\x12\x10\n" +
 	"\fLOCATION_TOP\x10\x00\x12\x12\n" +
 	"\x0eLOCATION_RIGHT\x10\x01\x12\x13\n" +
 	"\x0fLOCATION_BOTTOM\x10\x02\x12\x11\n" +
 	"\rLOCATION_LEFT\x10\x03\x12\x13\n" +
-	"\x0fLOCATION_CENTER\x10\x04*I\n" +
-	"\tAlignment\x12\x13\n" +
-	"\x0fALIGNMENT_START\x10\x00\x12\x14\n" +
-	"\x10ALIGNMENT_CENTER\x10\x01\x12\x11\n" +
-	"\rALIGNMENT_END\x10\x02*(\n" +
+	"\x0fLOCATION_CENTER\x10\x04*(\n" +
 	"\x05Order\x12\x0f\n" +
 	"\vORDER_FIRST\x10\x00\x12\x0e\n" +
 	"\n" +
-	"ORDER_LAST\x10\x01*6\n" +
-	"\tDimension\x12\x13\n" +
-	"\x0fDIMENSION_WIDTH\x10\x00\x12\x14\n" +
-	"\x10DIMENSION_HEIGHT\x10\x01*X\n" +
-	"\x0fSignedDimension\x12!\n" +
-	"\x1dSIGNED_DIMENSION_SIGNED_WIDTH\x10\x00\x12\"\n" +
-	"\x1eSIGNED_DIMENSION_SIGNED_HEIGHT\x10\x01B\x96\x01\n" +
+	"ORDER_LAST\x10\x01B\x96\x01\n" +
 	"\x10com.x.spatial.pbB\fSpatialProtoP\x01Z\"github.com/synnaxlabs/x/spatial/pb\xa2\x02\x03XSP\xaa\x02\fX.Spatial.Pb\xca\x02\fX\\Spatial\\Pb\xe2\x02\x18X\\Spatial\\Pb\\GPBMetadata\xea\x02\x0eX::Spatial::Pbb\x06proto3"
 
 var (
@@ -1226,44 +798,36 @@ func file_x_go_spatial_pb_spatial_proto_rawDescGZIP() []byte {
 	return file_x_go_spatial_pb_spatial_proto_rawDescData
 }
 
-var file_x_go_spatial_pb_spatial_proto_enumTypes = make([]protoimpl.EnumInfo, 12)
-var file_x_go_spatial_pb_spatial_proto_msgTypes = make([]protoimpl.MessageInfo, 9)
+var file_x_go_spatial_pb_spatial_proto_enumTypes = make([]protoimpl.EnumInfo, 7)
+var file_x_go_spatial_pb_spatial_proto_msgTypes = make([]protoimpl.MessageInfo, 6)
 var file_x_go_spatial_pb_spatial_proto_goTypes = []any{
-	(XLocation)(0),           // 0: x.spatial.pb.XLocation
-	(YLocation)(0),           // 1: x.spatial.pb.YLocation
-	(StickyUnit)(0),          // 2: x.spatial.pb.StickyUnit
-	(OuterLocation)(0),       // 3: x.spatial.pb.OuterLocation
-	(Direction)(0),           // 4: x.spatial.pb.Direction
-	(AngularDirection)(0),    // 5: x.spatial.pb.AngularDirection
-	(CenterLocation)(0),      // 6: x.spatial.pb.CenterLocation
-	(Location)(0),            // 7: x.spatial.pb.Location
-	(Alignment)(0),           // 8: x.spatial.pb.Alignment
-	(Order)(0),               // 9: x.spatial.pb.Order
-	(Dimension)(0),           // 10: x.spatial.pb.Dimension
-	(SignedDimension)(0),     // 11: x.spatial.pb.SignedDimension
-	(*XY)(nil),               // 12: x.spatial.pb.XY
-	(*CornerLocation)(nil),   // 13: x.spatial.pb.CornerLocation
-	(*StickyUnits)(nil),      // 14: x.spatial.pb.StickyUnits
-	(*StickyXY)(nil),         // 15: x.spatial.pb.StickyXY
-	(*Dimensions)(nil),       // 16: x.spatial.pb.Dimensions
-	(*Viewport)(nil),         // 17: x.spatial.pb.Viewport
-	(*SignedDimensions)(nil), // 18: x.spatial.pb.SignedDimensions
-	(*ClientXY)(nil),         // 19: x.spatial.pb.ClientXY
-	(*Bounds)(nil),           // 20: x.spatial.pb.Bounds
+	(XLocation)(0),         // 0: x.spatial.pb.XLocation
+	(YLocation)(0),         // 1: x.spatial.pb.YLocation
+	(StickyUnit)(0),        // 2: x.spatial.pb.StickyUnit
+	(OuterLocation)(0),     // 3: x.spatial.pb.OuterLocation
+	(Direction)(0),         // 4: x.spatial.pb.Direction
+	(Location)(0),          // 5: x.spatial.pb.Location
+	(Order)(0),             // 6: x.spatial.pb.Order
+	(*XY)(nil),             // 7: x.spatial.pb.XY
+	(*CornerLocation)(nil), // 8: x.spatial.pb.CornerLocation
+	(*StickyUnits)(nil),    // 9: x.spatial.pb.StickyUnits
+	(*StickyXY)(nil),       // 10: x.spatial.pb.StickyXY
+	(*Viewport)(nil),       // 11: x.spatial.pb.Viewport
+	(*Bounds)(nil),         // 12: x.spatial.pb.Bounds
 }
 var file_x_go_spatial_pb_spatial_proto_depIdxs = []int32{
-	0,  // 0: x.spatial.pb.CornerLocation.x:type_name -> x.spatial.pb.XLocation
-	1,  // 1: x.spatial.pb.CornerLocation.y:type_name -> x.spatial.pb.YLocation
-	2,  // 2: x.spatial.pb.StickyUnits.x:type_name -> x.spatial.pb.StickyUnit
-	2,  // 3: x.spatial.pb.StickyUnits.y:type_name -> x.spatial.pb.StickyUnit
-	13, // 4: x.spatial.pb.StickyXY.root:type_name -> x.spatial.pb.CornerLocation
-	14, // 5: x.spatial.pb.StickyXY.units:type_name -> x.spatial.pb.StickyUnits
-	12, // 6: x.spatial.pb.Viewport.position:type_name -> x.spatial.pb.XY
-	7,  // [7:7] is the sub-list for method output_type
-	7,  // [7:7] is the sub-list for method input_type
-	7,  // [7:7] is the sub-list for extension type_name
-	7,  // [7:7] is the sub-list for extension extendee
-	0,  // [0:7] is the sub-list for field type_name
+	0, // 0: x.spatial.pb.CornerLocation.x:type_name -> x.spatial.pb.XLocation
+	1, // 1: x.spatial.pb.CornerLocation.y:type_name -> x.spatial.pb.YLocation
+	2, // 2: x.spatial.pb.StickyUnits.x:type_name -> x.spatial.pb.StickyUnit
+	2, // 3: x.spatial.pb.StickyUnits.y:type_name -> x.spatial.pb.StickyUnit
+	8, // 4: x.spatial.pb.StickyXY.root:type_name -> x.spatial.pb.CornerLocation
+	9, // 5: x.spatial.pb.StickyXY.units:type_name -> x.spatial.pb.StickyUnits
+	7, // 6: x.spatial.pb.Viewport.position:type_name -> x.spatial.pb.XY
+	7, // [7:7] is the sub-list for method output_type
+	7, // [7:7] is the sub-list for method input_type
+	7, // [7:7] is the sub-list for extension type_name
+	7, // [7:7] is the sub-list for extension extendee
+	0, // [0:7] is the sub-list for field type_name
 }
 
 func init() { file_x_go_spatial_pb_spatial_proto_init() }
@@ -1276,8 +840,8 @@ func file_x_go_spatial_pb_spatial_proto_init() {
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_x_go_spatial_pb_spatial_proto_rawDesc), len(file_x_go_spatial_pb_spatial_proto_rawDesc)),
-			NumEnums:      12,
-			NumMessages:   9,
+			NumEnums:      7,
+			NumMessages:   6,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

@@ -210,22 +210,6 @@ StickyXY::from_proto(const ::x::spatial::pb::StickyXY &pb) {
     return {cpp, x::errors::NIL};
 }
 
-inline std::pair<::x::spatial::pb::Dimensions, x::errors::Error>
-Dimensions::to_proto() const {
-    ::x::spatial::pb::Dimensions pb;
-    pb.set_width(this->width);
-    pb.set_height(this->height);
-    return {pb, x::errors::NIL};
-}
-
-inline std::pair<Dimensions, x::errors::Error>
-Dimensions::from_proto(const ::x::spatial::pb::Dimensions &pb) {
-    Dimensions cpp;
-    cpp.width = pb.width();
-    cpp.height = pb.height();
-    return {cpp, x::errors::NIL};
-}
-
 inline std::pair<::x::spatial::pb::Viewport, x::errors::Error>
 Viewport::to_proto() const {
     ::x::spatial::pb::Viewport pb;
@@ -247,38 +231,6 @@ Viewport::from_proto(const ::x::spatial::pb::Viewport &pb) {
         if (err) return {{}, err};
         cpp.position = v;
     }
-    return {cpp, x::errors::NIL};
-}
-
-inline std::pair<::x::spatial::pb::SignedDimensions, x::errors::Error>
-SignedDimensions::to_proto() const {
-    ::x::spatial::pb::SignedDimensions pb;
-    pb.set_signed_width(this->signed_width);
-    pb.set_signed_height(this->signed_height);
-    return {pb, x::errors::NIL};
-}
-
-inline std::pair<SignedDimensions, x::errors::Error>
-SignedDimensions::from_proto(const ::x::spatial::pb::SignedDimensions &pb) {
-    SignedDimensions cpp;
-    cpp.signed_width = pb.signed_width();
-    cpp.signed_height = pb.signed_height();
-    return {cpp, x::errors::NIL};
-}
-
-inline std::pair<::x::spatial::pb::ClientXY, x::errors::Error>
-ClientXY::to_proto() const {
-    ::x::spatial::pb::ClientXY pb;
-    pb.set_client_x(this->client_x);
-    pb.set_client_y(this->client_y);
-    return {pb, x::errors::NIL};
-}
-
-inline std::pair<ClientXY, x::errors::Error>
-ClientXY::from_proto(const ::x::spatial::pb::ClientXY &pb) {
-    ClientXY cpp;
-    cpp.client_x = pb.client_x();
-    cpp.client_y = pb.client_y();
     return {cpp, x::errors::NIL};
 }
 

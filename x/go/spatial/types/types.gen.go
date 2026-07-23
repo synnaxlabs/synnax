@@ -71,24 +71,8 @@ type StickyUnits = v0.StickyUnits
 // configurable units (pixels or decimal fractions).
 type StickyXY = v0.StickyXY
 
-// Dimensions is a 2D size with width and height values.
-type Dimensions = v0.Dimensions
-
 // Viewport is the camera state of a viewport.
 type Viewport = v0.Viewport
-
-// AngularDirection is a rotational direction in 2D space.
-type AngularDirection = v0.AngularDirection
-
-const (
-	AngularDirectionClockwise        AngularDirection = v0.AngularDirectionClockwise
-	AngularDirectionCounterclockwise AngularDirection = v0.AngularDirectionCounterclockwise
-)
-
-// CenterLocation is a location at the center of a container.
-type CenterLocation = v0.CenterLocation
-
-const CenterLocationCenter CenterLocation = v0.CenterLocationCenter
 
 // Location is a position indicator covering the four outer edges of a container and its
 // center.
@@ -102,16 +86,6 @@ const (
 	LocationCenter Location = v0.LocationCenter
 )
 
-// Alignment is a positioning indicator for aligning content along an axis within a
-// container.
-type Alignment = v0.Alignment
-
-const (
-	AlignmentStart  Alignment = v0.AlignmentStart
-	AlignmentCenter Alignment = v0.AlignmentCenter
-	AlignmentEnd    Alignment = v0.AlignmentEnd
-)
-
 // Order is a positional ordering indicator for elements in a sequence.
 type Order = v0.Order
 
@@ -119,30 +93,6 @@ const (
 	OrderFirst Order = v0.OrderFirst
 	OrderLast  Order = v0.OrderLast
 )
-
-// Dimension is the name of a 2D size axis.
-type Dimension = v0.Dimension
-
-const (
-	DimensionWidth  Dimension = v0.DimensionWidth
-	DimensionHeight Dimension = v0.DimensionHeight
-)
-
-// SignedDimension is the name of a 2D signed size axis.
-type SignedDimension = v0.SignedDimension
-
-const (
-	SignedDimensionSignedWidth  SignedDimension = v0.SignedDimensionSignedWidth
-	SignedDimensionSignedHeight SignedDimension = v0.SignedDimensionSignedHeight
-)
-
-// SignedDimensions is a 2D size whose width and height components carry sign, allowing
-// negative values to express direction.
-type SignedDimensions = v0.SignedDimensions
-
-// ClientXY is a 2D coordinate point expressed in client (viewport) space, matching the
-// shape of DOM mouse events.
-type ClientXY = v0.ClientXY
 
 // Decimal is a normalized value in [0, 1] expressed as a decimal fraction of a whole,
 // such as a container's extent.

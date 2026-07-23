@@ -71,24 +71,8 @@ type StickyUnits = types.StickyUnits
 // configurable units (pixels or decimal fractions).
 type StickyXY = types.StickyXY
 
-// Dimensions is a 2D size with width and height values.
-type Dimensions = types.Dimensions
-
 // Viewport is the camera state of a viewport.
 type Viewport = types.Viewport
-
-// AngularDirection is a rotational direction in 2D space.
-type AngularDirection = types.AngularDirection
-
-const (
-	AngularDirectionClockwise        AngularDirection = types.AngularDirectionClockwise
-	AngularDirectionCounterclockwise AngularDirection = types.AngularDirectionCounterclockwise
-)
-
-// CenterLocation is a location at the center of a container.
-type CenterLocation = types.CenterLocation
-
-const CenterLocationCenter CenterLocation = types.CenterLocationCenter
 
 // Location is a position indicator covering the four outer edges of a container and its
 // center.
@@ -102,16 +86,6 @@ const (
 	LocationCenter Location = types.LocationCenter
 )
 
-// Alignment is a positioning indicator for aligning content along an axis within a
-// container.
-type Alignment = types.Alignment
-
-const (
-	AlignmentStart  Alignment = types.AlignmentStart
-	AlignmentCenter Alignment = types.AlignmentCenter
-	AlignmentEnd    Alignment = types.AlignmentEnd
-)
-
 // Order is a positional ordering indicator for elements in a sequence.
 type Order = types.Order
 
@@ -119,30 +93,6 @@ const (
 	OrderFirst Order = types.OrderFirst
 	OrderLast  Order = types.OrderLast
 )
-
-// Dimension is the name of a 2D size axis.
-type Dimension = types.Dimension
-
-const (
-	DimensionWidth  Dimension = types.DimensionWidth
-	DimensionHeight Dimension = types.DimensionHeight
-)
-
-// SignedDimension is the name of a 2D signed size axis.
-type SignedDimension = types.SignedDimension
-
-const (
-	SignedDimensionSignedWidth  SignedDimension = types.SignedDimensionSignedWidth
-	SignedDimensionSignedHeight SignedDimension = types.SignedDimensionSignedHeight
-)
-
-// SignedDimensions is a 2D size whose width and height components carry sign, allowing
-// negative values to express direction.
-type SignedDimensions = types.SignedDimensions
-
-// ClientXY is a 2D coordinate point expressed in client (viewport) space, matching the
-// shape of DOM mouse events.
-type ClientXY = types.ClientXY
 
 // Decimal is a normalized value in [0, 1] expressed as a decimal fraction of a whole,
 // such as a container's extent.

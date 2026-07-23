@@ -99,12 +99,6 @@ struct Dimensions {
 
     static Dimensions parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
-
-    using proto_type = ::x::spatial::pb::Dimensions;
-    [[nodiscard]] std::pair<::x::spatial::pb::Dimensions, x::errors::Error>
-    to_proto() const;
-    static std::pair<Dimensions, x::errors::Error>
-    from_proto(const ::x::spatial::pb::Dimensions &pb);
 };
 
 /// @brief SignedDimensions is a 2D size whose width and height components carry sign,
@@ -117,12 +111,6 @@ struct SignedDimensions {
 
     static SignedDimensions parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
-
-    using proto_type = ::x::spatial::pb::SignedDimensions;
-    [[nodiscard]] std::pair<::x::spatial::pb::SignedDimensions, x::errors::Error>
-    to_proto() const;
-    static std::pair<SignedDimensions, x::errors::Error>
-    from_proto(const ::x::spatial::pb::SignedDimensions &pb);
 };
 
 /// @brief ClientXY is a 2D coordinate point expressed in client (viewport) space,
@@ -135,12 +123,6 @@ struct ClientXY {
 
     static ClientXY parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
-
-    using proto_type = ::x::spatial::pb::ClientXY;
-    [[nodiscard]] std::pair<::x::spatial::pb::ClientXY, x::errors::Error>
-    to_proto() const;
-    static std::pair<ClientXY, x::errors::Error>
-    from_proto(const ::x::spatial::pb::ClientXY &pb);
 };
 
 /// @brief Bounds is a closed-open interval [lower, upper) over an ordered numeric value
