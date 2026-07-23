@@ -1299,7 +1299,7 @@ var _ = Describe("Sequence", func() {
 			h.channelState.ClearReads()
 			out, _ := h.Flush()
 			n := len(out.Get(103).Series)
-			for i := 0; i < 4; i++ {
+			for range 4 {
 				h.Ingest(102, telem.NewSeriesV[float64](5))
 				h.Tick(ctx, telem.Millisecond)
 				out, _ := h.Flush()
@@ -1313,7 +1313,7 @@ var _ = Describe("Sequence", func() {
 			h := mk(ctx, "stage { cpu > 0 => out }")
 			defer h.Close(ctx)
 			enter(h, ctx)
-			for i := 0; i < 9; i++ { // spam trigger -> re-activate the already-active stage
+			for range 9 { // spam trigger -> re-activate the already-active stage
 				h.Ingest(101, telem.NewSeriesV[uint8](1))
 				h.Tick(ctx, telem.Millisecond)
 				h.channelState.ClearReads()
