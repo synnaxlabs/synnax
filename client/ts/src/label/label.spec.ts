@@ -82,7 +82,7 @@ describe("Label", () => {
   });
 });
 
-// A second client with its own engine: its writes reach the first client only
+// A second client with its own cache: its writes reach the first client only
 // through the cluster's change streams, never through a shared cache.
 const remote = createTestClient();
 

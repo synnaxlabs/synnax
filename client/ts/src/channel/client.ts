@@ -26,7 +26,6 @@ import {
 } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { cache } from "@/cache";
 import { type Params, type PrimitiveParams, statusKey } from "@/channel/payload";
 import {
   analyzeParams,
@@ -52,6 +51,7 @@ import { NotFoundError, ValidationError } from "@/errors";
 import { type framer } from "@/framer";
 import { group } from "@/group";
 import { ontology } from "@/ontology";
+import { query } from "@/query";
 import { type ranger } from "@/ranger";
 import { createKey, decodeDeleteChange } from "@/ranger/alias/payload";
 import { status } from "@/status";
@@ -319,27 +319,27 @@ const requestFilter = (req: NormalizedRequest): ((ch: Channel) => boolean) => {
 };
 
 const createTable = (
-  engine: cache.Cache,
+  cache: query.Cache,
   retriever: Retriever,
   sugar: (payload: Payload) => Channel,
-): cache.Table<Key, Channel> => {
-  const table = engine.createTable<Key, Channel>({
+): query.Table<Key, Channel> => {
+  const table = cache.createTable<Key, Channel>({
     name: "channels",
     equal: (a, b) => deep.equal(a.payload, b.payload),
     refetch: async (keys) =>
       (await retriever.retrieve(keys)).map((p) => sugar(stripComposed(p))),
   });
-  const set: cache.ChannelListener<typeof payloadZ> = {
+  const set: query.ChannelListener<typeof payloadZ> = {
     channel: SET_CHANNEL_NAME,
     schema: payloadZ,
     onChange: (changed) => table.set(changed.key, sugar(stripComposed(changed))),
   };
-  const del: cache.ChannelListener<typeof keyZ> = {
+  const del: query.ChannelListener<typeof keyZ> = {
     channel: DELETE_CHANNEL_NAME,
     schema: keyZ,
     onChange: (changed) => table.delete(changed),
   };
-  engine.addListeners(table, set, del);
+  cache.addListeners(table, set, del);
   return table;
 };
 
@@ -348,7 +348,7 @@ const createTable = (
  * class should not be instantiated directly, and instead should be used through the
  * `channels` property of an {@link Synnax} client.
  */
-export class Client extends cache.Reader<
+export class Client extends query.Retriever<
   RetrieveSingleParams,
   RetrieveRequest,
   RetrieveSingleParams,
@@ -361,9 +361,9 @@ export class Client extends cache.Reader<
   readonly writer: Writer;
   private readonly statuses?: status.Client;
   private readonly ranges?: ranger.Client;
-  private readonly store: cache.Table<Key, Channel>;
-  private readonly statusStore: cache.Table<status.Key, status.Status>;
-  private readonly aliasStore: cache.Table<string, ranger.alias.Alias>;
+  private readonly store: query.Table<Key, Channel>;
+  private readonly statusStore: query.Table<status.Key, status.Status>;
+  private readonly aliasStore: query.Table<string, ranger.alias.Alias>;
   private readonly ontology: ontology.Stores;
 
   constructor(
@@ -373,14 +373,14 @@ export class Client extends cache.Reader<
     writer: Writer,
     statuses: status.Client | undefined,
     ranges: ranger.Client | undefined,
-    engine: cache.Cache,
-    statusStore: cache.Table<status.Key, status.Status>,
-    aliasStore: cache.Table<string, ranger.alias.Alias>,
+    cache: query.Cache,
+    statusStore: query.Table<status.Key, status.Status>,
+    aliasStore: query.Table<string, ranger.alias.Alias>,
     ontologyStores: ontology.Stores,
   ) {
-    const store = createTable(engine, retriever, (payload) => this.sugar(payload));
+    const store = createTable(cache, retriever, (payload) => this.sugar(payload));
     super({
-      single: engine.answers({
+      single: cache.queries({
         name: "channel",
         table: store,
         fetch: async (query) => [(await this.fetchSingle(query)).key],
@@ -388,17 +388,17 @@ export class Client extends cache.Reader<
         keyOf: (query) => query.key,
         single: true,
         watch: [
-          cache.watch(statusStore, (event, query: RetrieveSingleParams) =>
+          query.watch(statusStore, (event, query: RetrieveSingleParams) =>
             event.key === statusKey(query.key) ? [query.key] : null,
           ),
-          cache.watch(aliasStore, (event, query: RetrieveSingleParams) => {
+          query.watch(aliasStore, (event, query: RetrieveSingleParams) => {
             if (query.rangeKey == null) return null;
             const aliasKey = createKey({ range: query.rangeKey, channel: query.key });
             return event.key === aliasKey ? [query.key] : null;
           }),
         ],
       }),
-      request: engine.answers({
+      request: cache.queries({
         name: "channels",
         table: store,
         fetch: async (query) => (await this.fetchRequest(query)).map((ch) => ch.key),
@@ -410,7 +410,7 @@ export class Client extends cache.Reader<
         matches: (ch, query) => requestFilter(query)(ch),
         serverFields: SERVER_FIELDS,
         watch: [
-          cache.watch(aliasStore, (event, query: NormalizedRequest) => {
+          query.watch(aliasStore, (event, query: NormalizedRequest) => {
             if (query.rangeKey == null) return null;
             if (event.variant === "set")
               return event.value.range === query.rangeKey
@@ -604,11 +604,11 @@ export class Client extends cache.Reader<
    * network, or undefined when nothing is cached. Unfetched filter queries
    * are approximated from the record store when possible.
    */
-  getCached(params: RetrieveSingleParams): cache.Cached<Channel> | undefined;
-  getCached(params: RetrieveRequest): cache.Cached<Channel[]> | undefined;
+  getCached(params: RetrieveSingleParams): query.Cached<Channel> | undefined;
+  getCached(params: RetrieveRequest): query.Cached<Channel[]> | undefined;
   getCached(
     params: RetrieveSingleParams | RetrieveRequest,
-  ): cache.Cached<Channel> | cache.Cached<Channel[]> | undefined {
+  ): query.Cached<Channel> | query.Cached<Channel[]> | undefined {
     if ("key" in params) return super.getCached(params);
     return (
       super.getCached(params) ?? this.approximateCached(retrieveRequestZ.parse(params))
@@ -621,7 +621,7 @@ export class Client extends cache.Reader<
    */
   private approximateCached(
     req: NormalizedRequest,
-  ): cache.Cached<Channel[]> | undefined {
+  ): query.Cached<Channel[]> | undefined {
     if (req.searchTerm != null || req.limit != null || req.offset != null)
       return undefined;
     const matches = this.store.get(requestFilter(req));
@@ -633,11 +633,11 @@ export class Client extends cache.Reader<
    * Deletes channels from the database using the given keys or names.
    * @param params - The keys or names of the channels to delete.
    */
-  async delete(params: Params, opts: cache.WriteOptions = {}): Promise<void> {
+  async delete(params: Params, opts: query.WriteOptions = {}): Promise<void> {
     const { normalized, variant } = analyzeParams(params);
     if (variant === "keys") {
       const keys = normalized;
-      const rollback = new cache.Rollback();
+      const rollback = new query.Rollback();
       const ids = ontologyID(keys);
       rollback.add(ontology.deleteCachedRelationships(this.ontology, ids));
       rollback.add(this.store.delete(keys));
@@ -655,16 +655,16 @@ export class Client extends cache.Reader<
     if (cached.length > 0) this.store.delete(cached.map((ch) => ch.key));
   }
 
-  async rename(key: Key, name: string, opts?: cache.WriteOptions): Promise<void>;
-  async rename(keys: Key[], names: string[], opts?: cache.WriteOptions): Promise<void>;
+  async rename(key: Key, name: string, opts?: query.WriteOptions): Promise<void>;
+  async rename(keys: Key[], names: string[], opts?: query.WriteOptions): Promise<void>;
   async rename(
     keys: Key | Key[],
     names: string | string[],
-    opts: cache.WriteOptions = {},
+    opts: query.WriteOptions = {},
   ): Promise<void> {
     const keysArr = array.toArray(keys);
     const namesArr = array.toArray(names);
-    const rollback = new cache.Rollback();
+    const rollback = new query.Rollback();
     keysArr.forEach((key, i) => {
       const name = namesArr[i];
       rollback.add(this.renameThrough(key, name));
@@ -813,7 +813,7 @@ export class Client extends cache.Reader<
       this.store.set(fetched);
       results.push(...fetched);
     }
-    return cache.orderByKeys(keys, results, (ch) => ch.key);
+    return query.orderByKeys(keys, results, (ch) => ch.key);
   }
 
   private async fetchRequest(query: NormalizedRequest): Promise<Channel[]> {

@@ -11,7 +11,6 @@ import { type UnaryClient } from "@synnaxlabs/freighter";
 import { array, caseconv, primitive, record } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { cache } from "@/cache";
 import { ontology } from "@/ontology";
 import {
   type Key,
@@ -21,6 +20,7 @@ import {
   type Project,
   projectZ,
 } from "@/project/types.gen";
+import { query } from "@/query";
 import { checkForMultipleOrNoResults } from "@/util/retrieve";
 
 export const SET_CHANNEL_NAME = "sy_project_set";
@@ -68,23 +68,23 @@ const requestFilter = (req: RetrieveRequest): ((p: Project) => boolean) => {
 const toRequest = (params: Key[] | RetrieveRequest): RetrieveRequest =>
   retrieveReqZ.parse(Array.isArray(params) ? { keys: params } : params);
 
-const createTable = (engine: cache.Cache): cache.Table<Key, Project> => {
-  const table = engine.createTable<Key, Project>({ name: "projects" });
-  const set: cache.ChannelListener<typeof projectZ> = {
+const createTable = (cache: query.Cache): query.Table<Key, Project> => {
+  const table = cache.createTable<Key, Project>({ name: "projects" });
+  const set: query.ChannelListener<typeof projectZ> = {
     channel: SET_CHANNEL_NAME,
     schema: projectZ,
     onChange: (changed) => table.set(changed),
   };
-  const del: cache.ChannelListener<typeof keyZ> = {
+  const del: query.ChannelListener<typeof keyZ> = {
     channel: DELETE_CHANNEL_NAME,
     schema: keyZ,
     onChange: (changed) => table.delete(changed),
   };
-  engine.addListeners(table, set, del);
+  cache.addListeners(table, set, del);
   return table;
 };
 
-export class Client extends cache.Reader<
+export class Client extends query.Retriever<
   Key,
   Key[] | RetrieveRequest,
   Key,
@@ -92,17 +92,17 @@ export class Client extends cache.Reader<
   Project
 > {
   private readonly client: UnaryClient;
-  private readonly store: cache.Table<Key, Project>;
+  private readonly store: query.Table<Key, Project>;
   private readonly ontology: ontology.Stores;
 
   constructor(
     client: UnaryClient,
-    engine: cache.Cache,
+    cache: query.Cache,
     ontologyStores: ontology.Stores,
   ) {
-    const store = createTable(engine);
+    const store = createTable(cache);
     super({
-      single: engine.answers({
+      single: cache.queries({
         name: "project",
         table: store,
         fetch: async (query) => [await this.fetchSingle(query)].map((p) => p.key),
@@ -110,7 +110,7 @@ export class Client extends cache.Reader<
         keyOf: (query) => query,
         single: true,
       }),
-      request: engine.answers({
+      request: cache.queries({
         name: "projects",
         table: store,
         fetch: async (query) => (await this.fetchRequest(query)).map((p) => p.key),
@@ -150,10 +150,10 @@ export class Client extends cache.Reader<
   async setLayout(
     key: Key,
     layout: record.Unknown,
-    opts: cache.WriteOptions = {},
+    opts: query.WriteOptions = {},
   ): Promise<void> {
-    const rollback = new cache.Rollback();
-    rollback.add(cache.partialUpdate(this.store, key, { layout }));
+    const rollback = new query.Rollback();
+    rollback.add(query.partialUpdate(this.store, key, { layout }));
     await opts.onOptimistic?.();
     await rollback.guard(
       async () =>
@@ -167,11 +167,11 @@ export class Client extends cache.Reader<
     this.mergeThrough(key, { layout });
   }
 
-  async delete(key: Key, opts?: cache.WriteOptions): Promise<void>;
-  async delete(keys: Key[], opts?: cache.WriteOptions): Promise<void>;
-  async delete(keys: Key | Key[], opts: cache.WriteOptions = {}): Promise<void> {
+  async delete(key: Key, opts?: query.WriteOptions): Promise<void>;
+  async delete(keys: Key[], opts?: query.WriteOptions): Promise<void>;
+  async delete(keys: Key | Key[], opts: query.WriteOptions = {}): Promise<void> {
     const keysArr = array.toArray(keys);
-    const rollback = new cache.Rollback();
+    const rollback = new query.Rollback();
     rollback.add(ontology.deleteCachedResources(this.ontology, ontologyID(keysArr)));
     rollback.add(this.store.delete(keysArr));
     await opts.onOptimistic?.();
@@ -221,7 +221,7 @@ export class Client extends cache.Reader<
       this.store.set(fetched);
       results.push(...fetched);
     }
-    return cache.orderByKeys(keys, results, (p) => p.key);
+    return query.orderByKeys(keys, results, (p) => p.key);
   }
 
   private async fetchSingle(query: Key): Promise<Project> {

@@ -11,8 +11,8 @@ import { id } from "@synnaxlabs/x";
 import { beforeAll, describe, expect, it, vi } from "vitest";
 
 import { type role } from "@/access/role";
-import { type cache } from "@/cache";
 import { NotFoundError } from "@/errors";
+import { type query } from "@/query";
 import { createTestClient } from "@/testutil";
 
 const client = createTestClient();
@@ -96,7 +96,7 @@ describe("role", () => {
   });
 });
 
-// A second client with its own engine: its writes reach the first client only
+// A second client with its own cache: its writes reach the first client only
 // through the cluster's change streams, never through a shared cache.
 const remote = createTestClient();
 
@@ -164,7 +164,7 @@ describe("cached reads", () => {
 
     it("delivers a remote delete as a deleted result carrying the corpse", async () => {
       const r = await createRole();
-      const results: Array<cache.Cached<role.Role> | undefined> = [];
+      const results: Array<query.Cached<role.Role> | undefined> = [];
       const off = client.access.roles.onChange({ key: r.key }, (res) =>
         results.push(res),
       );

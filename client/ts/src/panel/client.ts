@@ -12,7 +12,6 @@ import { array, type destructor, primitive } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { actions } from "@/actions";
-import { cache } from "@/cache";
 import { ontology } from "@/ontology";
 import { kindOf, reduceAll } from "@/panel/actions";
 import {
@@ -30,6 +29,7 @@ import {
   panelZ,
   TYPE_ONTOLOGY_ID,
 } from "@/panel/types.gen";
+import { query } from "@/query";
 import { checkForMultipleOrNoResults } from "@/util/retrieve";
 
 export const SET_CHANNEL_NAME = "sy_panel_set";
@@ -72,7 +72,7 @@ const requestFilter = (req: RetrieveRequest): ((p: Panel) => boolean) => {
 const toRequest = (params: Key[] | RetrieveRequest): RetrieveRequest =>
   retrieveReqZ.parse(Array.isArray(params) ? { keys: params } : params);
 
-export class Client extends cache.Reader<
+export class Client extends query.Retriever<
   Key,
   Key[] | RetrieveRequest,
   Key,
@@ -80,7 +80,7 @@ export class Client extends cache.Reader<
   Panel
 > {
   private readonly client: UnaryClient;
-  private readonly store: cache.Table<Key, Panel>;
+  private readonly store: query.Table<Key, Panel>;
   private readonly dispatcher: actions.Controller<Key, Panel, Action>;
   private readonly ontologyClient: ontology.Client;
   private readonly ontology: ontology.Stores;
@@ -88,28 +88,28 @@ export class Client extends cache.Reader<
   constructor(
     client: UnaryClient,
     ontologyClient: ontology.Client,
-    engine: cache.Cache,
+    cache: query.Cache,
     ontologyStores: ontology.Stores,
   ) {
-    const store = engine.createTable<Key, Panel>({ name: "panels" });
+    const store = cache.createTable<Key, Panel>({ name: "panels" });
     const dispatcher = new actions.Controller<Key, Panel, Action>({
       store,
-      onError: engine.onError,
+      onError: cache.onError,
       reduce: reduceAll,
       kindOf,
     });
-    const del: cache.ChannelListener<typeof keyZ> = {
+    const del: query.ChannelListener<typeof keyZ> = {
       channel: DELETE_CHANNEL_NAME,
       schema: keyZ,
       onChange: (changed) => store.delete(changed),
     };
-    engine.addListeners(
+    cache.addListeners(
       store,
       del,
       dispatcher.listener(SET_CHANNEL_NAME, scopedActionZ),
     );
     super({
-      single: engine.answers({
+      single: cache.queries({
         name: "panel",
         table: store,
         fetch: async (query) => [await this.fetchSingle(query)].map((p) => p.key),
@@ -117,7 +117,7 @@ export class Client extends cache.Reader<
         keyOf: (query) => query,
         single: true,
       }),
-      request: engine.answers({
+      request: cache.queries({
         name: "panels",
         table: store,
         fetch: async (query) => (await this.fetchRequest(query)).map((p) => p.key),
@@ -127,7 +127,7 @@ export class Client extends cache.Reader<
           (query.parent == null || this.isCachedChild(query.parent, panel.key)),
         serverFields: SERVER_FIELDS,
         watch: [
-          cache.watch(ontologyStores.relationships, (event, query: RetrieveRequest) => {
+          query.watch(ontologyStores.relationships, (event, query: RetrieveRequest) => {
             if (query.parent == null) return null;
             const rel =
               event.variant === "set"
@@ -167,15 +167,15 @@ export class Client extends cache.Reader<
     );
   }
 
-  async create(panel: New, opts?: cache.WriteOptions<Panel[]>): Promise<Panel>;
-  async create(panels: New[], opts?: cache.WriteOptions<Panel[]>): Promise<Panel[]>;
+  async create(panel: New, opts?: query.WriteOptions<Panel[]>): Promise<Panel>;
+  async create(panels: New[], opts?: query.WriteOptions<Panel[]>): Promise<Panel[]>;
   async create(
     panels: New | New[],
-    opts: cache.WriteOptions<Panel[]> = {},
+    opts: query.WriteOptions<Panel[]> = {},
   ): Promise<Panel | Panel[]> {
     const isMany = Array.isArray(panels);
     const optimistic = array.toArray(panels).map((p) => panelZ.parse(p));
-    const rollback = new cache.Rollback();
+    const rollback = new query.Rollback();
     rollback.add(this.store.set(optimistic));
     await opts.onOptimistic?.(optimistic);
     // onOptimistic may dispatch further local mutations against these keys
@@ -196,8 +196,8 @@ export class Client extends cache.Reader<
   }
 
   async rename(key: Key, name: string): Promise<void> {
-    const rollback = new cache.Rollback();
-    rollback.add(cache.partialUpdate(this.store, key, { name }));
+    const rollback = new query.Rollback();
+    rollback.add(query.partialUpdate(this.store, key, { name }));
     rollback.add(ontology.renameCachedResource(this.ontology, ontologyID(key), name));
     // Rename routes through dispatch so the action channel broadcasts the change
     // to other connected clients.
@@ -282,11 +282,11 @@ export class Client extends cache.Reader<
     );
   }
 
-  async delete(key: Key, opts?: cache.WriteOptions): Promise<void>;
-  async delete(keys: Key[], opts?: cache.WriteOptions): Promise<void>;
-  async delete(keys: Key | Key[], opts: cache.WriteOptions = {}): Promise<void> {
+  async delete(key: Key, opts?: query.WriteOptions): Promise<void>;
+  async delete(keys: Key[], opts?: query.WriteOptions): Promise<void>;
+  async delete(keys: Key | Key[], opts: query.WriteOptions = {}): Promise<void> {
     const keysArr = array.toArray(keys);
-    const rollback = new cache.Rollback();
+    const rollback = new query.Rollback();
     rollback.add(ontology.deleteCachedResources(this.ontology, ontologyID(keysArr)));
     rollback.add(this.store.delete(keysArr));
     await opts.onOptimistic?.();

@@ -12,9 +12,9 @@ import { array, type destructor } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { actions } from "@/actions";
-import { cache } from "@/cache";
 import { ontology } from "@/ontology";
 import { project } from "@/project";
+import { query } from "@/query";
 import { kindOf, reduceAll } from "@/table/actions";
 import {
   type Action,
@@ -65,7 +65,7 @@ const requestFilter = (req: RetrieveRequest): ((t: Table) => boolean) => {
   return (t) => keySet.has(t.key);
 };
 
-export class Client extends cache.Reader<
+export class Client extends query.Retriever<
   RetrieveSingleParams,
   RetrieveMultipleParams,
   Key,
@@ -73,34 +73,34 @@ export class Client extends cache.Reader<
   Table
 > {
   private readonly client: UnaryClient;
-  private readonly store: cache.Table<Key, Table>;
+  private readonly store: query.Table<Key, Table>;
   private readonly ontology: ontology.Stores;
   private readonly dispatcher: actions.Controller<Key, Table, Action>;
 
   constructor(
     client: UnaryClient,
-    engine: cache.Cache,
+    cache: query.Cache,
     ontologyStores: ontology.Stores,
   ) {
-    const store = engine.createTable<Key, Table>({ name: "tables" });
+    const store = cache.createTable<Key, Table>({ name: "tables" });
     const dispatcher = new actions.Controller<Key, Table, Action>({
       store,
-      onError: engine.onError,
+      onError: cache.onError,
       reduce: reduceAll,
       kindOf,
     });
-    const del: cache.ChannelListener<typeof keyZ> = {
+    const del: query.ChannelListener<typeof keyZ> = {
       channel: DELETE_CHANNEL_NAME,
       schema: keyZ,
       onChange: (changed) => store.delete(changed),
     };
-    engine.addListeners(
+    cache.addListeners(
       store,
       del,
       dispatcher.listener(SET_CHANNEL_NAME, scopedActionZ),
     );
     super({
-      single: engine.answers({
+      single: cache.queries({
         name: "table",
         table: store,
         fetch: async (query) => [await this.fetchSingle(query)].map((t) => t.key),
@@ -108,7 +108,7 @@ export class Client extends cache.Reader<
         keyOf: (query) => query,
         single: true,
       }),
-      request: engine.answers({
+      request: cache.queries({
         name: "tables",
         table: store,
         fetch: async (query) => (await this.fetchRequest(query)).map((t) => t.key),
@@ -128,21 +128,21 @@ export class Client extends cache.Reader<
   async create(
     project: project.Key,
     table: New,
-    opts?: cache.WriteOptions<Table[]>,
+    opts?: query.WriteOptions<Table[]>,
   ): Promise<Table>;
   async create(
     project: project.Key,
     tables: New[],
-    opts?: cache.WriteOptions<Table[]>,
+    opts?: query.WriteOptions<Table[]>,
   ): Promise<Table[]>;
   async create(
     project: project.Key,
     tables: New | New[],
-    opts: cache.WriteOptions<Table[]> = {},
+    opts: query.WriteOptions<Table[]> = {},
   ): Promise<Table | Table[]> {
     const isMany = Array.isArray(tables);
     const optimistic = array.toArray(tables).map((t) => tableZ.parse(t));
-    const rollback = new cache.Rollback();
+    const rollback = new query.Rollback();
     rollback.add(this.store.set(optimistic));
     await opts.onOptimistic?.(optimistic);
     const res = await rollback.guard(
@@ -159,8 +159,8 @@ export class Client extends cache.Reader<
   }
 
   async rename(key: Key, name: string): Promise<void> {
-    const rollback = new cache.Rollback();
-    rollback.add(cache.partialUpdate(this.store, key, { name }));
+    const rollback = new query.Rollback();
+    rollback.add(query.partialUpdate(this.store, key, { name }));
     rollback.add(ontology.renameCachedResource(this.ontology, ontologyID(key), name));
     await rollback.guard(
       async () => await this.sendDispatch(key, "", [renameAction({ name })]),
@@ -245,9 +245,9 @@ export class Client extends cache.Reader<
     );
   }
 
-  async delete(keys: Key | Key[], opts: cache.WriteOptions = {}): Promise<void> {
+  async delete(keys: Key | Key[], opts: query.WriteOptions = {}): Promise<void> {
     const keysArr = array.toArray(keys);
-    const rollback = new cache.Rollback();
+    const rollback = new query.Rollback();
     rollback.add(
       ontology.deleteCachedRelationships(this.ontology, ontologyID(keysArr)),
     );

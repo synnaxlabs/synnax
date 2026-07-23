@@ -11,7 +11,6 @@ import { type UnaryClient } from "@synnaxlabs/freighter";
 import { deep, type destructor, primitive, strings } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { cache } from "@/cache";
 import { QueryError } from "@/errors";
 import {
   type ID,
@@ -38,6 +37,7 @@ import {
   type Stores,
 } from "@/ontology/store";
 import { Writer } from "@/ontology/writer";
+import { query } from "@/query";
 
 const retrieveReqZ = z.object({
   ids: idZ.array().optional(),
@@ -159,50 +159,50 @@ type Routed =
   | { space: "request"; query: NormalizedRequest };
 
 const createTables = (
-  engine: cache.Cache,
+  cache: query.Cache,
   refetch: (keys: string[]) => Promise<Resource[]>,
 ): Stores => {
-  const relationships = engine.createTable<string, Relationship>({
+  const relationships = cache.createTable<string, Relationship>({
     name: "relationships",
     equal: (a, b) =>
       idsEqual(a.from, b.from) && idsEqual(a.to, b.to) && a.type === b.type,
   });
-  const relationshipSet: cache.ChannelListener<typeof relationshipZ> = {
+  const relationshipSet: query.ChannelListener<typeof relationshipZ> = {
     channel: RELATIONSHIP_SET_CHANNEL_NAME,
     schema: relationshipZ,
     onChange: (changed) => relationships.set(relationshipToString(changed), changed),
   };
-  const relationshipDelete: cache.ChannelListener<typeof relationshipZ> = {
+  const relationshipDelete: query.ChannelListener<typeof relationshipZ> = {
     channel: RELATIONSHIP_DELETE_CHANNEL_NAME,
     schema: relationshipZ,
     onChange: (changed) => relationships.delete(relationshipToString(changed)),
   };
-  engine.addListeners(relationships, relationshipSet, relationshipDelete);
+  cache.addListeners(relationships, relationshipSet, relationshipDelete);
 
-  const resources = engine.createTable<string, Resource>({
+  const resources = cache.createTable<string, Resource>({
     name: "resources",
     equal: (a, b) => deep.equal(a, b),
     // Reconciliation refetches must bypass the query cache.
     refetch,
   });
-  const resourceSet: cache.ChannelListener<typeof resourceZ> = {
+  const resourceSet: query.ChannelListener<typeof resourceZ> = {
     channel: RESOURCE_SET_CHANNEL_NAME,
     schema: resourceZ,
     onChange: (changed) =>
       resources.set(changed.key, (p) => (p == null ? changed : { ...p, ...changed })),
   };
-  const resourceDelete: cache.ChannelListener<typeof idZ> = {
+  const resourceDelete: query.ChannelListener<typeof idZ> = {
     channel: RESOURCE_DELETE_CHANNEL_NAME,
     schema: idZ,
     // The store is keyed by the full "type:key" string, not the bare key.
     onChange: (changed) => resources.delete(idToString(changed)),
   };
-  engine.addListeners(resources, resourceSet, resourceDelete);
+  cache.addListeners(resources, resourceSet, resourceDelete);
   return { relationships, resources };
 };
 
 /** The main client class for executing queries against a Synnax cluster ontology */
-export class Client extends cache.Reader<
+export class Client extends query.Retriever<
   ID,
   ID[] | RetrieveRequest,
   string,
@@ -215,17 +215,17 @@ export class Client extends cache.Reader<
   private readonly client: UnaryClient;
   private readonly writer: Writer;
   private readonly answers: {
-    children: cache.Answers<DependentRequest, Resource[], string, Resource>;
-    parents: cache.Answers<DependentRequest, Resource[], string, Resource>;
+    children: query.Queries<DependentRequest, Resource[], string, Resource>;
+    parents: query.Queries<DependentRequest, Resource[], string, Resource>;
   };
 
-  constructor(unary: UnaryClient, engine: cache.Cache) {
+  constructor(unary: UnaryClient, cache: query.Cache) {
     const stores = createTables(
-      engine,
+      cache,
       async (keys) => await this.execRetrieve({ ids: parseIDs(keys) }),
     );
     super({
-      single: engine.answers({
+      single: cache.queries({
         name: "resource",
         table: stores.resources,
         fetch: async (query) => [(await this.fetchSingle(query)).key],
@@ -233,7 +233,7 @@ export class Client extends cache.Reader<
         keyOf: (query) => query,
         single: true,
       }),
-      request: engine.answers({
+      request: cache.queries({
         name: "resources",
         table: stores.resources,
         fetch: async (query) => (await this.fetchRequest(query)).map((r) => r.key),
@@ -250,18 +250,18 @@ export class Client extends cache.Reader<
     this.writer = new Writer(unary);
     this.stores = stores;
     this.answers = {
-      children: this.dependentAnswers(engine, "children", "to"),
-      parents: this.dependentAnswers(engine, "parents", "from"),
+      children: this.dependentAnswers(cache, "children", "to"),
+      parents: this.dependentAnswers(cache, "parents", "from"),
     };
   }
 
   /** Read surface of the relationship cache. */
-  get relationships(): cache.Table<string, Relationship> {
+  get relationships(): query.Table<string, Relationship> {
     return this.stores.relationships;
   }
 
   /** Read surface of the resource cache. */
-  get resources(): cache.Table<string, Resource> {
+  get resources(): query.Table<string, Resource> {
     return this.stores.resources;
   }
 
@@ -345,19 +345,19 @@ export class Client extends cache.Reader<
    * queries deliver a resource; every other shape delivers the matching
    * resources.
    */
-  onChange(params: ID, handler: cache.ChangeHandler<Resource>): destructor.Destructor;
+  onChange(params: ID, handler: query.ChangeHandler<Resource>): destructor.Destructor;
   onChange(
     params: ID[] | RetrieveRequest,
-    handler: cache.ChangeHandler<Resource[]>,
+    handler: query.ChangeHandler<Resource[]>,
   ): destructor.Destructor;
   onChange(
     params: ID | ID[] | RetrieveRequest,
-    handler: cache.ChangeHandler<Resource> | cache.ChangeHandler<Resource[]>,
+    handler: query.ChangeHandler<Resource> | query.ChangeHandler<Resource[]>,
   ): destructor.Destructor {
     if (!Array.isArray(params) && "key" in params)
-      return super.onChange(params, handler as cache.ChangeHandler<Resource>);
+      return super.onChange(params, handler as query.ChangeHandler<Resource>);
     const routed = this.routeRequest(Array.isArray(params) ? { ids: params } : params);
-    const h = handler as cache.ChangeHandler<Resource[]>;
+    const h = handler as query.ChangeHandler<Resource[]>;
     if (routed.space === "request") return super.onChange(params, h);
     return this.answers[routed.space].onChange(routed.query, h);
   }
@@ -366,11 +366,11 @@ export class Client extends cache.Reader<
    * Returns the cached answer to the given query without touching the
    * network, or undefined when nothing is cached.
    */
-  getCached(params: ID): cache.Cached<Resource> | undefined;
-  getCached(params: ID[] | RetrieveRequest): cache.Cached<Resource[]> | undefined;
+  getCached(params: ID): query.Cached<Resource> | undefined;
+  getCached(params: ID[] | RetrieveRequest): query.Cached<Resource[]> | undefined;
   getCached(
     params: ID | ID[] | RetrieveRequest,
-  ): cache.Cached<Resource> | cache.Cached<Resource[]> | undefined {
+  ): query.Cached<Resource> | query.Cached<Resource[]> | undefined {
     if (!Array.isArray(params) && "key" in params) return super.getCached(params);
     const routed = this.routeRequest(Array.isArray(params) ? { ids: params } : params);
     if (routed.space === "request") return super.getCached(params);
@@ -419,7 +419,7 @@ export class Client extends cache.Reader<
       });
       return [...deletions, ...insertions];
     };
-    const rollback = new cache.Rollback();
+    const rollback = new query.Rollback();
     rollback.add(...move());
     await rollback.guard(
       async () => await this.writer.moveChildren(from, to, ...children),
@@ -533,12 +533,12 @@ export class Client extends cache.Reader<
   }
 
   private dependentAnswers(
-    engine: cache.Cache,
+    cache: query.Cache,
     name: string,
     direction: RelationshipDirection,
-  ): cache.Answers<DependentRequest, Resource[], string, Resource> {
+  ): query.Queries<DependentRequest, Resource[], string, Resource> {
     const anchor = oppositeRelationshipDirection(direction);
-    return engine.answers({
+    return cache.queries({
       name,
       table: this.resources,
       fetch: async (query) =>
@@ -547,7 +547,7 @@ export class Client extends cache.Reader<
       matches: (resource, query) => this.isDependent(resource, query, direction),
       serverFields: DEPENDENT_SERVER_FIELDS,
       watch: [
-        cache.watch(this.relationships, (event, query: DependentRequest) => {
+        query.watch(this.relationships, (event, query: DependentRequest) => {
           const rel =
             event.variant === "set" ? event.value : relationshipZ.parse(event.key);
           if (rel.type !== PARENT_OF_RELATIONSHIP_TYPE) return null;

@@ -18,8 +18,8 @@ import {
 } from "@synnaxlabs/x";
 import type z from "zod";
 
-import { type cache } from "@/cache";
-import { Table } from "@/cache/table";
+import { type query } from "@/query";
+import { Table } from "@/query/table";
 
 const DEFAULT_COALESCE_WINDOW = TimeSpan.milliseconds(500);
 const DEFAULT_STACK_CAP = 200;
@@ -65,7 +65,7 @@ const pushOnto = <A>(
   return out.length > cap ? out.slice(out.length - cap) : out;
 };
 
-export interface Reducer<State extends cache.Data, Action> {
+export interface Reducer<State extends query.Data, Action> {
   (
     state: State,
     actions: Action[],
@@ -130,7 +130,7 @@ export interface Options<State, Action> {
 }
 
 /** The action-dispatch surface a document domain client exposes. */
-export interface Domain<Key extends record.Key, State extends cache.Data, Action> {
+export interface Domain<Key extends record.Key, State extends query.Data, Action> {
   dispatch(
     key: Key,
     actions: Action | Action[],
@@ -163,7 +163,7 @@ export interface Frame<Key, Action> {
 
 export interface ControllerParams<
   Key extends record.Key,
-  State extends cache.Data,
+  State extends query.Data,
   Action,
 > {
   /** The table holding the documents this controller dispatches over. */
@@ -184,7 +184,7 @@ export interface ControllerParams<
  * application. Operates on a plain cache table; all dispatch bookkeeping is
  * session-local and dropped when a document's row is deleted (tombstoned).
  */
-export class Controller<Key extends record.Key, State extends cache.Data, Action> {
+export class Controller<Key extends record.Key, State extends query.Data, Action> {
   private readonly docs: Table<Key, State>;
   private readonly undos: Table<Key, UndoState<Action>>;
   private readonly params: Required<
@@ -582,7 +582,7 @@ export class Controller<Key extends record.Key, State extends cache.Data, Action
   listener(
     channel: string,
     schema: z.ZodType<Frame<Key, Action>>,
-  ): cache.ChannelListener<z.ZodType<Frame<Key, Action>>> {
+  ): query.ChannelListener<z.ZodType<Frame<Key, Action>>> {
     return {
       channel,
       schema,

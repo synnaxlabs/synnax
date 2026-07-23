@@ -22,9 +22,9 @@ import {
 } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { cache } from "@/cache";
 import { type framer } from "@/framer";
 import { ontology } from "@/ontology";
+import { query } from "@/query";
 import { type Key as RackKey, keyZ as rackKeyZ } from "@/rack/types.gen";
 import { type ranger } from "@/ranger";
 import { status } from "@/status";
@@ -335,25 +335,25 @@ const matchesSingle = (t: Omit<Task, "status">, query: SingleRequest): boolean =
 };
 
 const createTable = (
-  engine: cache.Cache,
-  statuses: cache.Table<status.Key, status.Status>,
+  cache: query.Cache,
+  statuses: query.Table<status.Key, status.Status>,
   retrieveTask: (key: Key) => Promise<Task>,
-): cache.Table<Key, Omit<Task, "status">> => {
-  const table = engine.createTable<Key, Omit<Task, "status">>({
+): query.Table<Key, Omit<Task, "status">> => {
+  const table = cache.createTable<Key, Omit<Task, "status">>({
     name: "tasks",
     equal: (a, b) => deep.equal(a.payload, b.payload),
   });
-  const setListener: cache.ChannelListener<typeof keyZ> = {
+  const setListener: query.ChannelListener<typeof keyZ> = {
     channel: SET_CHANNEL_NAME,
     schema: keyZ,
     onChange: async (key) => table.set(key, await retrieveTask(key)),
   };
-  const deleteListener: cache.ChannelListener<typeof keyZ> = {
+  const deleteListener: query.ChannelListener<typeof keyZ> = {
     channel: DELETE_CHANNEL_NAME,
     schema: keyZ,
     onChange: (changed) => table.delete(changed),
   };
-  const commandListener: cache.ChannelListener<typeof commandZ> = {
+  const commandListener: query.ChannelListener<typeof commandZ> = {
     channel: COMMAND_CHANNEL_NAME,
     schema: commandZ,
     onChange: (changed) => {
@@ -369,11 +369,11 @@ const createTable = (
       });
     },
   };
-  engine.addListeners(table, setListener, deleteListener, commandListener);
+  cache.addListeners(table, setListener, deleteListener, commandListener);
   return table;
 };
 
-export class Client extends cache.Reader<
+export class Client extends query.Retriever<
   RetrieveSingleParams,
   RetrieveMultipleParams,
   SingleRequest,
@@ -381,12 +381,12 @@ export class Client extends cache.Reader<
   Task
 > {
   /** The task record table; injected into sibling clients at wiring. */
-  readonly store: cache.Table<Key, Omit<Task, "status">>;
+  readonly store: query.Table<Key, Omit<Task, "status">>;
   private readonly client: UnaryClient;
   private readonly frameClient: framer.Client;
   private readonly ontologyClient: ontology.Client;
   private readonly rangeClient: ranger.Client;
-  private readonly statusStore: cache.Table<status.Key, status.Status>;
+  private readonly statusStore: query.Table<status.Key, status.Status>;
   private readonly ontology: ontology.Stores;
 
   constructor(
@@ -394,16 +394,16 @@ export class Client extends cache.Reader<
     frameClient: framer.Client,
     ontologyClient: ontology.Client,
     rangeClient: ranger.Client,
-    engine: cache.Cache,
-    statusStore: cache.Table<status.Key, status.Status>,
+    cache: query.Cache,
+    statusStore: query.Table<status.Key, status.Status>,
   ) {
     const store = createTable(
-      engine,
+      cache,
       statusStore,
       async (key) => await this.retrieve({ key, includeStatus: true }),
     );
     super({
-      single: engine.answers({
+      single: cache.queries({
         name: "task",
         table: store,
         fetch: async (query) => [(await this.fetchSingle(query)).key],
@@ -411,16 +411,16 @@ export class Client extends cache.Reader<
         keyOf: (query) => (primitive.isNonZero(query.keys) ? query.keys[0] : null),
         matches: matchesSingle,
         single: true,
-        watch: [cache.watch(statusStore, (event) => affectedTaskKeys(event))],
+        watch: [query.watch(statusStore, (event) => affectedTaskKeys(event))],
       }),
-      request: engine.answers({
+      request: cache.queries({
         name: "tasks",
         table: store,
         fetch: async (query) => (await this.fetchRequest(query)).map((t) => t.key),
         compose: (records) => records.map((t) => this.compose(t)),
         matches: (t, query) => requestFilter(query)(t),
         serverFields: SERVER_FIELDS,
-        watch: [cache.watch(statusStore, (event) => affectedTaskKeys(event))],
+        watch: [query.watch(statusStore, (event) => affectedTaskKeys(event))],
       }),
       isSingle: (params) => singleRetrieveParamsZ.safeParse(params).success,
       normalizeSingle,
@@ -459,9 +459,9 @@ export class Client extends cache.Reader<
     return isSingle ? sugared[0] : sugared;
   }
 
-  async delete(keys: Key | Key[], opts: cache.WriteOptions = {}): Promise<void> {
+  async delete(keys: Key | Key[], opts: query.WriteOptions = {}): Promise<void> {
     const keysArr = array.toArray(keys);
-    const rollback = new cache.Rollback();
+    const rollback = new query.Rollback();
     rollback.add(ontology.deleteCachedResources(this.ontology, ontologyID(keysArr)));
     rollback.add(this.store.delete(keysArr));
     rollback.add(this.statusStore.delete(keysArr.map((k) => statusKey(k))));
@@ -479,8 +479,8 @@ export class Client extends cache.Reader<
     this.statusStore.delete(keysArr.map((k) => statusKey(k)));
   }
 
-  async rename(key: Key, name: string, opts: cache.WriteOptions = {}): Promise<void> {
-    const rollback = new cache.Rollback();
+  async rename(key: Key, name: string, opts: query.WriteOptions = {}): Promise<void> {
+    const rollback = new query.Rollback();
     rollback.add(
       this.store.set(key, (p) =>
         p == null ? undefined : this.sugar({ ...p.payload, name }),
@@ -608,7 +608,7 @@ export class Client extends cache.Reader<
       fetched.forEach((t) => this.writeThrough(t));
       results.push(...fetched);
     }
-    return cache.orderByKeys(keys, results, (t) => t.key);
+    return query.orderByKeys(keys, results, (t) => t.key);
   }
 
   private async fetchSingle(query: SingleRequest): Promise<Task> {
@@ -717,7 +717,7 @@ const taskStatusZ = z.object({ details: z.object({ task: keyZ }) });
 // Task statuses may arrive under any status key; the referenced task lives in
 // the details, with the "task:<key>" status key as a fallback.
 const affectedTaskKeys = (
-  event: cache.TableEvent<status.Key, status.Status>,
+  event: query.TableEvent<status.Key, status.Status>,
 ): Key[] | null => {
   const keys: Key[] = [];
   if (event.variant === "set") {

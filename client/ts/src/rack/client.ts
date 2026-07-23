@@ -11,8 +11,8 @@ import { type UnaryClient } from "@synnaxlabs/freighter";
 import { array, primitive, TimeStamp } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { cache } from "@/cache";
 import { ontology } from "@/ontology";
+import { query } from "@/query";
 import {
   type Key,
   keyZ,
@@ -129,7 +129,7 @@ const requestFilter = (
 // Rack statuses live in the status table under the "rack:<key>" status key,
 // carrying the rack key in their details.
 const affectedRackKeys = (
-  event: cache.TableEvent<status.Key, status.Status>,
+  event: query.TableEvent<status.Key, status.Status>,
 ): Key[] | null => {
   if (event.variant === "set") {
     const parsed = statusZ.safeParse(event.value);
@@ -141,25 +141,23 @@ const affectedRackKeys = (
   return parsed.success ? [parsed.data] : null;
 };
 
-const createTable = (
-  engine: cache.Cache,
-): cache.Table<Key, Omit<Payload, "status">> => {
-  const table = engine.createTable<Key, Omit<Payload, "status">>({ name: "racks" });
-  const set: cache.ChannelListener<typeof payloadZ> = {
+const createTable = (cache: query.Cache): query.Table<Key, Omit<Payload, "status">> => {
+  const table = cache.createTable<Key, Omit<Payload, "status">>({ name: "racks" });
+  const set: query.ChannelListener<typeof payloadZ> = {
     channel: SET_CHANNEL_NAME,
     schema: payloadZ,
     onChange: ({ status: _, ...rack }) => table.set(rack),
   };
-  const del: cache.ChannelListener<typeof keyZ> = {
+  const del: query.ChannelListener<typeof keyZ> = {
     channel: DELETE_CHANNEL_NAME,
     schema: keyZ,
     onChange: (changed) => table.delete(changed),
   };
-  engine.addListeners(table, set, del);
+  cache.addListeners(table, set, del);
   return table;
 };
 
-export class Client extends cache.Reader<
+export class Client extends query.Retriever<
   RetrieveSingleParams,
   RetrieveMultipleParams,
   SingleQuery,
@@ -168,25 +166,25 @@ export class Client extends cache.Reader<
 > {
   private readonly client: UnaryClient;
   private readonly tasks: task.Client;
-  private readonly store: cache.Table<Key, Omit<Payload, "status">>;
-  private readonly statusStore: cache.Table<status.Key, status.Status>;
+  private readonly store: query.Table<Key, Omit<Payload, "status">>;
+  private readonly statusStore: query.Table<status.Key, status.Status>;
   private readonly ontology: ontology.Stores;
 
   constructor(
     client: UnaryClient,
     taskClient: task.Client,
-    engine: cache.Cache,
-    statusStore: cache.Table<status.Key, status.Status>,
+    cache: query.Cache,
+    statusStore: query.Table<status.Key, status.Status>,
     ontologyStores: ontology.Stores,
   ) {
-    const store = createTable(engine);
+    const store = createTable(cache);
     const statusWatch = <Q extends { includeStatus?: boolean }>() =>
-      cache.watch(statusStore, (event, query: Q) => {
+      query.watch(statusStore, (event, query: Q) => {
         if (query.includeStatus !== true) return null;
         return affectedRackKeys(event);
       });
     super({
-      single: engine.answers({
+      single: cache.queries({
         name: "rack",
         table: store,
         fetch: async (query) => [(await this.fetchSingle(query)).key],
@@ -198,7 +196,7 @@ export class Client extends cache.Reader<
         single: true,
         watch: [statusWatch<SingleQuery>()],
       }),
-      request: engine.answers({
+      request: cache.queries({
         name: "racks",
         table: store,
         fetch: async (query) => (await this.fetchRequest(query)).map((r) => r.key),
@@ -219,9 +217,9 @@ export class Client extends cache.Reader<
     this.store = store;
   }
 
-  async delete(keys: Key | Key[], opts: cache.WriteOptions = {}): Promise<void> {
+  async delete(keys: Key | Key[], opts: query.WriteOptions = {}): Promise<void> {
     const keysArr = array.toArray(keys);
-    const rollback = new cache.Rollback();
+    const rollback = new query.Rollback();
     rollback.add(ontology.deleteCachedResources(this.ontology, ontologyID(keysArr)));
     rollback.add(this.store.delete(keysArr));
     await opts.onOptimistic?.();
@@ -237,9 +235,9 @@ export class Client extends cache.Reader<
     this.store.delete(keysArr);
   }
 
-  async rename(key: Key, name: string, opts: cache.WriteOptions = {}): Promise<void> {
-    const rollback = new cache.Rollback();
-    rollback.add(cache.partialUpdate(this.store, key, { name }));
+  async rename(key: Key, name: string, opts: query.WriteOptions = {}): Promise<void> {
+    const rollback = new query.Rollback();
+    rollback.add(query.partialUpdate(this.store, key, { name }));
     rollback.add(ontology.renameCachedResource(this.ontology, ontologyID(key), name));
     await opts.onOptimistic?.();
     await rollback.guard(async () => {
@@ -334,7 +332,7 @@ export class Client extends cache.Reader<
       this.writeThrough(fetched);
       results.push(...this.sugar(fetched));
     }
-    return cache.orderByKeys(keys, results, (r) => r.key);
+    return query.orderByKeys(keys, results, (r) => r.key);
   }
 
   private async fetchSingle(query: SingleQuery): Promise<Rack> {

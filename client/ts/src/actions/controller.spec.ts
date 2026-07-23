@@ -12,7 +12,7 @@ import { describe, expect, it, vi } from "vitest";
 import z from "zod";
 
 import { Controller, type Frame, type Reducer, type Send } from "@/actions/controller";
-import { Table } from "@/cache/table";
+import { Table } from "@/query/table";
 
 interface Doc {
   values: Record<string, number>;

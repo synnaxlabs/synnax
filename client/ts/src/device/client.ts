@@ -11,7 +11,6 @@ import { type UnaryClient } from "@synnaxlabs/freighter";
 import { array, type destructor, primitive, type record, zod } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { cache } from "@/cache";
 import {
   type Device,
   type DeviceSchemas,
@@ -23,6 +22,7 @@ import {
   statusZ,
 } from "@/device/types.gen";
 import { ontology } from "@/ontology";
+import { query } from "@/query";
 import { keyZ as rackKeyZ } from "@/rack/types.gen";
 import { type status } from "@/status";
 import { checkForMultipleOrNoResults } from "@/util/retrieve";
@@ -159,7 +159,7 @@ const requestFilter = (
 // Device statuses live in the status table under the "device:<key>" status
 // key, carrying the device key in their details.
 const affectedDeviceKeys = (
-  event: cache.TableEvent<status.Key, status.Status>,
+  event: query.TableEvent<status.Key, status.Status>,
 ): Key[] | null => {
   if (event.variant === "set") {
     const parsed = statusZ.safeParse(event.value);
@@ -170,25 +170,25 @@ const affectedDeviceKeys = (
   return [key];
 };
 
-const createTable = (engine: cache.Cache): cache.Table<Key, Omit<Device, "status">> => {
+const createTable = (cache: query.Cache): query.Table<Key, Omit<Device, "status">> => {
   // Explicitly omit 'status' from the device type to make sure we aren't storing two
   // copies of the statuses in the store.
-  const table = engine.createTable<Key, Omit<Device, "status">>({ name: "devices" });
-  const set: cache.ChannelListener<typeof genericDeviceZ> = {
+  const table = cache.createTable<Key, Omit<Device, "status">>({ name: "devices" });
+  const set: query.ChannelListener<typeof genericDeviceZ> = {
     channel: SET_CHANNEL_NAME,
     schema: genericDeviceZ,
     onChange: ({ status: _, ...device }) => table.set(device),
   };
-  const del: cache.ChannelListener<typeof keyZ> = {
+  const del: query.ChannelListener<typeof keyZ> = {
     channel: DELETE_CHANNEL_NAME,
     schema: keyZ,
     onChange: (changed) => table.delete(changed),
   };
-  engine.addListeners(table, set, del);
+  cache.addListeners(table, set, del);
   return table;
 };
 
-export class Client extends cache.Reader<
+export class Client extends query.Retriever<
   RetrieveSingleParams,
   RetrieveMultipleParams,
   SingleQuery,
@@ -196,24 +196,24 @@ export class Client extends cache.Reader<
   Device
 > {
   private readonly client: UnaryClient;
-  private readonly store: cache.Table<Key, Omit<Device, "status">>;
-  private readonly statusStore: cache.Table<status.Key, status.Status>;
+  private readonly store: query.Table<Key, Omit<Device, "status">>;
+  private readonly statusStore: query.Table<status.Key, status.Status>;
   private readonly ontology: ontology.Stores;
 
   constructor(
     client: UnaryClient,
-    engine: cache.Cache,
-    statusStore: cache.Table<status.Key, status.Status>,
+    cache: query.Cache,
+    statusStore: query.Table<status.Key, status.Status>,
     ontologyStores: ontology.Stores,
   ) {
-    const store = createTable(engine);
+    const store = createTable(cache);
     const statusWatch = <Q extends { includeStatus?: boolean }>() =>
-      cache.watch(statusStore, (event, query: Q) => {
+      query.watch(statusStore, (event, query: Q) => {
         if (query.includeStatus !== true) return null;
         return affectedDeviceKeys(event);
       });
     super({
-      single: engine.answers({
+      single: cache.queries({
         name: "device",
         table: store,
         fetch: async (query) => [(await this.fetchSingle(query)).key],
@@ -223,7 +223,7 @@ export class Client extends cache.Reader<
         single: true,
         watch: [statusWatch<SingleQuery>()],
       }),
-      request: engine.answers({
+      request: cache.queries({
         name: "devices",
         table: store,
         fetch: async (query) => (await this.fetchRequest(query)).map((d) => d.key),
@@ -285,11 +285,11 @@ export class Client extends cache.Reader<
    * network, or undefined when nothing is cached. Unfetched filter queries
    * are approximated from the record table when possible.
    */
-  getCached(params: RetrieveSingleParams): cache.Cached<Device> | undefined;
-  getCached(params: RetrieveMultipleParams): cache.Cached<Device[]> | undefined;
+  getCached(params: RetrieveSingleParams): query.Cached<Device> | undefined;
+  getCached(params: RetrieveMultipleParams): query.Cached<Device[]> | undefined;
   getCached(
     params: RetrieveSingleParams | RetrieveMultipleParams,
-  ): cache.Cached<Device> | cache.Cached<Device[]> | undefined {
+  ): query.Cached<Device> | query.Cached<Device[]> | undefined {
     if ("key" in params) return super.getCached(params);
     return (
       super.getCached(params) ?? this.approximateCached(retrieveRequestZ.parse(params))
@@ -300,7 +300,7 @@ export class Client extends cache.Reader<
    * Approximates an unfetched filter query's answer from the record table.
    * Server-computed shapes (search, pagination) cannot be approximated.
    */
-  private approximateCached(req: RetrieveRequest): cache.Cached<Device[]> | undefined {
+  private approximateCached(req: RetrieveRequest): query.Cached<Device[]> | undefined {
     if (req.searchTerm != null || req.limit != null || req.offset != null)
       return undefined;
     const matches = this.store.get(requestFilter(req));
@@ -349,9 +349,9 @@ export class Client extends cache.Reader<
     return isSingle ? res.devices[0] : res.devices;
   }
 
-  async delete(keys: Key | Key[], opts: cache.WriteOptions = {}): Promise<void> {
+  async delete(keys: Key | Key[], opts: query.WriteOptions = {}): Promise<void> {
     const keysArr = array.toArray(keys);
-    const rollback = new cache.Rollback();
+    const rollback = new query.Rollback();
     rollback.add(ontology.deleteCachedResources(this.ontology, ontologyID(keysArr)));
     rollback.add(this.store.delete(keysArr));
     await opts.onOptimistic?.();
@@ -367,10 +367,10 @@ export class Client extends cache.Reader<
     this.store.delete(keysArr);
   }
 
-  async rename(key: Key, name: string, opts: cache.WriteOptions = {}): Promise<void> {
+  async rename(key: Key, name: string, opts: query.WriteOptions = {}): Promise<void> {
     const dev = await this.retrieve({ key });
     const renamed = { ...dev, name };
-    const rollback = new cache.Rollback();
+    const rollback = new query.Rollback();
     rollback.add(this.store.set(renamed.key, stripStatus(renamed)));
     await opts.onOptimistic?.();
     await rollback.guard(async () => {
@@ -440,7 +440,7 @@ export class Client extends cache.Reader<
       this.writeThrough(fetched);
       results.push(...fetched);
     }
-    return cache.orderByKeys(keys, results, (d) => d.key);
+    return query.orderByKeys(keys, results, (d) => d.key);
   }
 
   private async fetchSingle(query: SingleQuery): Promise<Device> {

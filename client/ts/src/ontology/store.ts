@@ -9,7 +9,6 @@
 
 import { type destructor } from "@synnaxlabs/x";
 
-import { cache } from "@/cache";
 import {
   type ID,
   idsEqual,
@@ -19,6 +18,7 @@ import {
   type Relationship,
   type Resource,
 } from "@/ontology/payload";
+import { query } from "@/query";
 
 export const RESOURCE_SET_CHANNEL_NAME = "sy_ontology_resource_set";
 export const RESOURCE_DELETE_CHANNEL_NAME = "sy_ontology_resource_delete";
@@ -27,13 +27,13 @@ export const RELATIONSHIP_DELETE_CHANNEL_NAME = "sy_ontology_relationship_delete
 
 /** The ontology tables shared across domain clients. */
 export interface Stores {
-  relationships: cache.Table<string, Relationship>;
-  resources: cache.Table<string, Resource>;
+  relationships: query.Table<string, Relationship>;
+  resources: query.Table<string, Resource>;
 }
 
 /** Returns the cached parent ID of the given ontology ID, or null if unknown. */
 export const cachedParentID = (
-  relationships: cache.Table<string, Relationship>,
+  relationships: query.Table<string, Relationship>,
   id: ID,
 ): ID | null => {
   const res = relationships.get((r) =>
@@ -51,7 +51,7 @@ export const renameCachedResource = (
   { resources }: Stores,
   id: ID,
   name: string,
-): destructor.Destructor => cache.partialUpdate(resources, idToString(id), { name });
+): destructor.Destructor => query.partialUpdate(resources, idToString(id), { name });
 
 /**
  * Optimistically drops every cached relationship touching the given IDs.

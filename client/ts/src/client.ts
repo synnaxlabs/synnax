@@ -23,7 +23,6 @@ import { z } from "zod";
 import { access } from "@/access";
 import { arc } from "@/arc";
 import { auth } from "@/auth";
-import { cache } from "@/cache";
 import { channel } from "@/channel";
 import { connection } from "@/connection";
 import { control } from "@/control";
@@ -38,6 +37,7 @@ import { log } from "@/log";
 import { ontology } from "@/ontology";
 import { panel } from "@/panel";
 import { project } from "@/project";
+import { query } from "@/query";
 import { rack } from "@/rack";
 import { ranger } from "@/ranger";
 import { schematic } from "@/schematic";
@@ -120,7 +120,7 @@ export default class Synnax extends framer.Client {
    * `cache: false`. Not a data access path: per-domain stores on the domain
    * clients remain the only way to read cached records.
    */
-  readonly cache: cache.Cache;
+  readonly cache: query.Cache;
   private readonly transport: Transport;
 
   /**
@@ -163,7 +163,7 @@ export default class Synnax extends framer.Client {
     transport.use(errorsMiddleware);
     const chRetriever = new channel.ClusterRetriever(transport.unary);
     super(transport.stream, transport.unary, chRetriever);
-    const engine = new cache.Cache({
+    const cache = new query.Cache({
       openStreamer: parsedParams.cache
         ? async (channels, { onOpen, onReopen }) => {
             const hardened = await framer.HardenedStreamer.open(
@@ -185,7 +185,7 @@ export default class Synnax extends framer.Client {
         : null,
       onInternalError: parsedParams.onInternalError,
     });
-    this.cache = engine;
+    this.cache = cache;
     this.connection = new connection.Machine({
       unary: transport.unary,
       clientVersion: __VERSION__,
@@ -194,11 +194,11 @@ export default class Synnax extends framer.Client {
       clockSkewThreshold,
       retry: breaker,
       bringUpStream: parsedParams.cache
-        ? async () => await engine.ensureStreaming()
+        ? async () => await cache.ensureStreaming()
         : undefined,
       onInternalError: parsedParams.onInternalError,
     });
-    engine.onEpoch((epoch) => this.connection.ingestEpoch(epoch));
+    cache.onEpoch((epoch) => this.connection.ingestEpoch(epoch));
     transport.unary.use(this.shortCircuitMiddleware());
     this.auth = new auth.Client(
       transport.unary,
@@ -214,17 +214,17 @@ export default class Synnax extends framer.Client {
     this.createdAt = TimeStamp.now();
     this.params = parsedParams;
     this.transport = transport;
-    this.ontology = new ontology.Client(this.transport.unary, engine);
+    this.ontology = new ontology.Client(this.transport.unary, cache);
     const ontologyStores = this.ontology.stores;
     const rangeWriter = new ranger.Writer(this.transport.unary);
     this.labels = new label.Client(
       this.transport.unary,
-      engine,
+      cache,
       ontologyStores.relationships,
     );
     this.statuses = new status.Client(
       this.transport.unary,
-      engine,
+      cache,
       this.labels.store,
       ontologyStores,
       this.labels,
@@ -236,7 +236,7 @@ export default class Synnax extends framer.Client {
       chRetriever,
       this.labels,
       this.ontology,
-      engine,
+      cache,
     );
     this.channels = new channel.Client(
       this,
@@ -245,33 +245,33 @@ export default class Synnax extends framer.Client {
       chCreator,
       this.statuses,
       this.ranges,
-      engine,
+      cache,
       this.statuses.store,
       this.ranges.aliases,
       ontologyStores,
     );
     this.control = new control.Client(this);
-    this.access = new access.Client(this.transport.unary, engine, ontologyStores);
-    this.users = new user.Client(this.transport.unary, engine, ontologyStores);
-    this.projects = new project.Client(this.transport.unary, engine, ontologyStores);
+    this.access = new access.Client(this.transport.unary, cache, ontologyStores);
+    this.users = new user.Client(this.transport.unary, cache, ontologyStores);
+    this.projects = new project.Client(this.transport.unary, cache, ontologyStores);
     this.tasks = new task.Client(
       this.transport.unary,
       this,
       this.ontology,
       this.ranges,
-      engine,
+      cache,
       this.statuses.store,
     );
     this.racks = new rack.Client(
       this.transport.unary,
       this.tasks,
-      engine,
+      cache,
       this.statuses.store,
       ontologyStores,
     );
     this.devices = new device.Client(
       this.transport.unary,
-      engine,
+      cache,
       this.statuses.store,
       ontologyStores,
     );
@@ -280,29 +280,29 @@ export default class Synnax extends framer.Client {
       this.transport.stream,
       this.ontology,
       this.tasks,
-      engine,
+      cache,
       this.statuses.store,
     );
-    this.views = new view.Client(this.transport.unary, engine, ontologyStores);
+    this.views = new view.Client(this.transport.unary, cache, ontologyStores);
     this.schematics = new schematic.Client(
       this.transport.unary,
       this.ontology,
-      engine,
+      cache,
       ontologyStores,
     );
-    this.lineplots = new lineplot.Client(this.transport.unary, engine, ontologyStores);
+    this.lineplots = new lineplot.Client(this.transport.unary, cache, ontologyStores);
     this.panels = new panel.Client(
       this.transport.unary,
       this.ontology,
-      engine,
+      cache,
       ontologyStores,
     );
-    this.logs = new log.Client(this.transport.unary, engine, ontologyStores);
-    this.tables = new table.Client(this.transport.unary, engine, ontologyStores);
+    this.logs = new log.Client(this.transport.unary, cache, ontologyStores);
+    this.tables = new table.Client(this.transport.unary, cache, ontologyStores);
     this.groups = new group.Client(
       this.transport.unary,
       this.ontology,
-      engine,
+      cache,
       ontologyStores,
     );
     this.imex = new imex.Client(this.transport.file);

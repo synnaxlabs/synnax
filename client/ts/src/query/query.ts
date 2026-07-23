@@ -16,9 +16,9 @@ import {
   TimeSpan,
 } from "@synnaxlabs/x";
 
-import { type Table, type TableEvent } from "@/cache/table";
-import { type Data, type FetchOptions, type Query } from "@/cache/types";
 import { NotFoundError } from "@/errors";
+import { type Table, type TableEvent } from "@/query/table";
+import { type Data, type FetchOptions, type Query } from "@/query/types";
 
 /**
  * Deterministically serializes a query to a stable string. Keys are sorted
@@ -100,7 +100,7 @@ export const watch = <
  * 3. server-computed — any field named in `serverFields` is set on the query
  *    (or neither `keyOf` nor `matches` applies): debounced wholesale refetch.
  */
-export interface AnswersParams<
+export interface QueriesParams<
   Q extends Query,
   D extends Data,
   K extends record.Key = record.Key,
@@ -147,7 +147,7 @@ export interface AnswersParams<
   debounce?: TimeSpan;
 }
 
-/** Wiring an {@link Answers} space receives from the cache that owns it. */
+/** Wiring an {@link Queries} space receives from the cache that owns it. */
 export interface AnswersHooks {
   /** Started (not awaited) on reads and subscriptions to open change delivery. */
   ensureStreaming?: () => Promise<void>;
@@ -187,18 +187,18 @@ interface Entry<Q extends Query, K extends record.Key, D extends Data> {
  * refetches; an unsubscribed getCached serves the retained (possibly stale)
  * answer, recomposed against live tables.
  */
-export class Answers<
+export class Queries<
   Q extends Query,
   D extends Data,
   K extends record.Key = record.Key,
   V extends state.State = state.State,
 > {
   private readonly entries = new Map<string, Entry<Q, K, D>>();
-  private readonly params: AnswersParams<Q, D, K, V>;
+  private readonly params: QueriesParams<Q, D, K, V>;
   private readonly hooks: AnswersHooks;
   private readonly detachEpoch?: destructor.Destructor;
 
-  constructor(params: AnswersParams<Q, D, K, V>, hooks: AnswersHooks = {}) {
+  constructor(params: QueriesParams<Q, D, K, V>, hooks: AnswersHooks = {}) {
     this.params = params;
     this.hooks = hooks;
     this.detachEpoch = hooks.onEpoch?.(() => {

@@ -19,8 +19,8 @@ import {
   type Role,
   roleZ,
 } from "@/access/role/types.gen";
-import { cache } from "@/cache";
 import { ontology } from "@/ontology";
+import { query } from "@/query";
 import { user } from "@/user";
 import { checkForMultipleOrNoResults } from "@/util/retrieve";
 
@@ -112,23 +112,23 @@ const assignmentRel = (role: Key, userKey: user.Key): ontology.Relationship => (
   to: user.ontologyID(userKey),
 });
 
-const createTable = (engine: cache.Cache): cache.Table<Key, Role> => {
-  const table = engine.createTable<Key, Role>({ name: "roles" });
-  const set: cache.ChannelListener<typeof roleZ> = {
+const createTable = (cache: query.Cache): query.Table<Key, Role> => {
+  const table = cache.createTable<Key, Role>({ name: "roles" });
+  const set: query.ChannelListener<typeof roleZ> = {
     channel: SET_CHANNEL_NAME,
     schema: roleZ,
     onChange: table.set.bind(table),
   };
-  const del: cache.ChannelListener<typeof keyZ> = {
+  const del: query.ChannelListener<typeof keyZ> = {
     channel: DELETE_CHANNEL_NAME,
     schema: keyZ,
     onChange: table.delete.bind(table),
   };
-  engine.addListeners(table, set, del);
+  cache.addListeners(table, set, del);
   return table;
 };
 
-export class Client extends cache.Reader<
+export class Client extends query.Retriever<
   RetrieveSingleParams,
   RetrieveMultipleParams,
   Key,
@@ -136,17 +136,17 @@ export class Client extends cache.Reader<
   Role
 > {
   private readonly client: UnaryClient;
-  private readonly store: cache.Table<Key, Role>;
+  private readonly store: query.Table<Key, Role>;
   private readonly ontology: ontology.Stores;
 
   constructor(
     client: UnaryClient,
-    engine: cache.Cache,
+    cache: query.Cache,
     ontologyStores: ontology.Stores,
   ) {
-    const store = createTable(engine);
+    const store = createTable(cache);
     super({
-      single: engine.answers({
+      single: cache.queries({
         name: "role",
         table: store,
         fetch: async (query) => [await this.fetchSingle(query)].map((r) => r.key),
@@ -154,7 +154,7 @@ export class Client extends cache.Reader<
         keyOf: (query) => query,
         single: true,
       }),
-      request: engine.answers({
+      request: cache.queries({
         name: "roles",
         table: store,
         fetch: async (query) => (await this.fetchRequest(query)).map((r) => r.key),
@@ -185,10 +185,10 @@ export class Client extends cache.Reader<
     return isMany ? res.roles : res.roles[0];
   }
 
-  async delete(params: DeleteParams, opts: cache.WriteOptions = {}): Promise<void> {
+  async delete(params: DeleteParams, opts: query.WriteOptions = {}): Promise<void> {
     const keysArr = array.toArray(params);
     const ids = ontologyID(keysArr);
-    const rollback = new cache.Rollback();
+    const rollback = new query.Rollback();
     rollback.add(ontology.deleteCachedResources(this.ontology, ids));
     rollback.add(this.store.delete(keysArr));
     await opts.onOptimistic?.();
@@ -253,7 +253,7 @@ export class Client extends cache.Reader<
       this.store.set(fetched);
       results.push(...fetched);
     }
-    return cache.orderByKeys(keys, results, (r) => r.key);
+    return query.orderByKeys(keys, results, (r) => r.key);
   }
 
   private async fetchSingle(query: Key): Promise<Role> {

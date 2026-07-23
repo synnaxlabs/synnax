@@ -12,11 +12,11 @@ import { DataType, Series } from "@synnaxlabs/x";
 import { describe, expect, it, type Mock, vi } from "vitest";
 import z from "zod";
 
-import { type cache } from "@/cache";
-import { createStreamer, type StreamerParams } from "@/cache/streamer";
 import { type channel } from "@/channel";
 import { NotFoundError } from "@/errors";
 import { framer } from "@/framer";
+import { type query } from "@/query";
+import { createStreamer, type StreamerParams } from "@/query/streamer";
 
 class MockHardenedStreamer implements framer.Streamer {
   private keysI: channel.Params[];
@@ -77,7 +77,7 @@ class MockHardenedStreamer implements framer.Streamer {
 }
 
 const wrapOpener =
-  (opener: framer.StreamOpener): cache.StreamOpener =>
+  (opener: framer.StreamOpener): query.StreamOpener =>
   async (channels, { onOpen, onReopen }) => {
     const hardened = await framer.HardenedStreamer.open(
       opener,
@@ -102,7 +102,7 @@ const createListeners = (
   channel: string,
   schema: z.ZodType,
   onChange: Mock,
-): cache.ChannelListener[] => [{ channel, schema, onChange }];
+): query.ChannelListener[] => [{ channel, schema, onChange }];
 
 const createStreamerArgs = (overrides?: Partial<StreamerParams>): StreamerParams => ({
   onError: vi.fn(),
@@ -171,7 +171,7 @@ describe("openStreamer", () => {
         new framer.Frame({ test2: new Series([{ value: 3 }]) }),
       ];
 
-      const listeners: cache.ChannelListener[] = [
+      const listeners: query.ChannelListener[] = [
         { channel: "test", schema, onChange: listener1 },
         { channel: "test2", schema, onChange: listener2 },
       ];
@@ -312,7 +312,7 @@ describe("openStreamer", () => {
       const listener3 = vi.fn();
       const schema = z.object({ value: z.number() });
 
-      const listeners: cache.ChannelListener[] = [
+      const listeners: query.ChannelListener[] = [
         { channel: "test", schema, onChange: listener1 },
         { channel: "test", schema, onChange: listener2 },
         { channel: "test", schema, onChange: listener3 },
@@ -352,7 +352,7 @@ describe("openStreamer", () => {
       const onError = vi.fn();
       const schema = z.object({ value: z.number() });
 
-      const listeners: cache.ChannelListener[] = [
+      const listeners: query.ChannelListener[] = [
         { channel: "test", schema, onChange: listener1 },
         { channel: "test", schema, onChange: listener2 },
         { channel: "test", schema, onChange: listener3 },
@@ -402,7 +402,7 @@ describe("openStreamer", () => {
       });
       const schema = z.object({ value: z.number() });
 
-      const listeners: cache.ChannelListener[] = [
+      const listeners: query.ChannelListener[] = [
         { channel: "test", schema, onChange: listener1 },
         { channel: "test", schema, onChange: listener2 },
         { channel: "test", schema, onChange: listener3 },
@@ -448,7 +448,7 @@ describe("openStreamer", () => {
       const onError = vi.fn();
       const schema = z.object({ value: z.number() });
 
-      const listeners: cache.ChannelListener[] = [
+      const listeners: query.ChannelListener[] = [
         { channel: "test", schema, onChange: listener1 },
         { channel: "test", schema, onChange: listener2 },
         { channel: "test", schema, onChange: listener3 },
@@ -496,7 +496,7 @@ describe("openStreamer", () => {
       const schema1 = z.object({ value: z.number() });
       const schema2 = z.object({ value: z.string() });
 
-      const listeners: cache.ChannelListener[] = [
+      const listeners: query.ChannelListener[] = [
         { channel: "test", schema: schema1, onChange: listener1 },
         { channel: "test", schema: schema2, onChange: listener2 },
       ];
@@ -541,7 +541,7 @@ describe("openStreamer", () => {
       });
       const schema = z.object({ id: z.number() });
 
-      const listeners: cache.ChannelListener[] = [
+      const listeners: query.ChannelListener[] = [
         { channel: "user_create", schema, onChange: createListener },
         { channel: "user_delete", schema, onChange: deleteListener },
         { channel: "user_update", schema, onChange: updateListener },
@@ -584,7 +584,7 @@ describe("openStreamer", () => {
       ];
 
       const schema = z.object({ id: z.number() });
-      const channelListeners: cache.ChannelListener[] = [];
+      const channelListeners: query.ChannelListener[] = [];
 
       channels.forEach((channel) => {
         const listener = vi.fn().mockImplementation(() => {
@@ -641,7 +641,7 @@ describe("openStreamer", () => {
         type: z.string(),
       });
 
-      const listeners: cache.ChannelListener[] = [
+      const listeners: query.ChannelListener[] = [
         {
           channel: "relationship_create",
           schema: relationshipSchema,
@@ -697,7 +697,7 @@ describe("openStreamer", () => {
     it("should handle frames with only delete channels", async () => {
       const executionOrder: string[] = [];
       const schema = z.object({ id: z.number() });
-      const listeners: cache.ChannelListener[] = [];
+      const listeners: query.ChannelListener[] = [];
 
       ["user_delete", "role_delete", "permission_delete"].forEach((channel) => {
         const listener = vi.fn().mockImplementation(() => {
@@ -735,7 +735,7 @@ describe("openStreamer", () => {
     it("should handle frames with no delete channels", async () => {
       const executionOrder: string[] = [];
       const schema = z.object({ id: z.number() });
-      const listeners: cache.ChannelListener[] = [];
+      const listeners: query.ChannelListener[] = [];
 
       ["user_create", "role_update", "permission_grant"].forEach((channel) => {
         const listener = vi.fn().mockImplementation(() => {
@@ -781,7 +781,7 @@ describe("openStreamer", () => {
         "update_user",
       ];
 
-      const listeners: cache.ChannelListener[] = [];
+      const listeners: query.ChannelListener[] = [];
       channels.forEach((channel) => {
         const listener = vi.fn().mockImplementation(() => {
           executionOrder.push(channel);
@@ -955,7 +955,7 @@ describe("openStreamer", () => {
       const jsonSchema = z.object({ id: z.number(), name: z.string() });
       const numericSchema = z.number();
 
-      const listeners: cache.ChannelListener[] = [
+      const listeners: query.ChannelListener[] = [
         { channel: "json_channel", schema: jsonSchema, onChange: jsonListener },
         {
           channel: "numeric_channel",

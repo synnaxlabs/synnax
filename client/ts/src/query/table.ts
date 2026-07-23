@@ -7,14 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import {
-  array,
-  deep,
-  type destructor,
-  type record,
-  state,
-  TimeStamp,
-} from "@synnaxlabs/x";
+import { array, deep, destructor, type record, state, TimeStamp } from "@synnaxlabs/x";
 import type z from "zod";
 
 /// Reorders the given items to match the order of keys, dropping any key that
@@ -142,7 +135,7 @@ export class Table<
     value?: state.SetArg<Value | undefined>,
   ): destructor.Destructor {
     if (typeof keyOrValues !== "object")
-      return this.setOne(keyOrValues as Key, value) ?? (() => {});
+      return this.setOne(keyOrValues as Key, value) ?? destructor.NOOP;
     const rollbacks: destructor.Destructor[] = [];
     array.toArray(keyOrValues).forEach((val) => {
       const rollback = this.setOne(val.key, val);

@@ -10,7 +10,7 @@
 import { type record } from "@synnaxlabs/x";
 import { describe, expect, it, vi } from "vitest";
 
-import { cache } from "@/cache";
+import { query } from "@/query";
 
 const noopError = (_: Error) => {};
 
@@ -21,7 +21,7 @@ describe("Table", () => {
   describe("Basic Operations", () => {
     describe("Set and Get", () => {
       it("should set and get a value", () => {
-        const table = new cache.Table<string, string>(noopError);
+        const table = new query.Table<string, string>(noopError);
         table.set("key1", "value1");
         expect(table.get("key1")).toBe("value1");
       });
@@ -31,7 +31,7 @@ describe("Table", () => {
           key: string;
           value: string;
         }
-        const table = new cache.Table<string, KeyedValue>(noopError);
+        const table = new query.Table<string, KeyedValue>(noopError);
 
         const item: KeyedValue = { key: "key1", value: "value1" };
         table.set(item.key, item);
@@ -44,7 +44,7 @@ describe("Table", () => {
           key: string;
           value: string;
         }
-        const table = new cache.Table<string, KeyedValue>(noopError);
+        const table = new query.Table<string, KeyedValue>(noopError);
 
         const items: KeyedValue[] = [
           { key: "key1", value: "value1" },
@@ -59,26 +59,26 @@ describe("Table", () => {
       });
 
       it("should update an existing value", () => {
-        const table = new cache.Table<string, string>(noopError);
+        const table = new query.Table<string, string>(noopError);
         table.set("key1", "value1");
         table.set("key1", "value2");
         expect(table.get("key1")).toBe("value2");
       });
 
       it("should handle setter functions", () => {
-        const table = new cache.Table<string, string>(noopError);
+        const table = new query.Table<string, string>(noopError);
         table.set("key1", "initial");
         table.set("key1", (prev) => `${prev}_updated`);
         expect(table.get("key1")).toBe("initial_updated");
       });
 
       it("should return undefined for non-existent keys", () => {
-        const table = new cache.Table<string, string>(noopError);
+        const table = new query.Table<string, string>(noopError);
         expect(table.get("nonexistent")).toBeUndefined();
       });
 
       it("should get multiple values by keys array", () => {
-        const table = new cache.Table<string, string>(noopError);
+        const table = new query.Table<string, string>(noopError);
         table.set("key1", "value1");
         table.set("key2", "value2");
         table.set("key3", "value3");
@@ -88,7 +88,7 @@ describe("Table", () => {
       });
 
       it("should filter values using a predicate", () => {
-        const table = new cache.Table<string, number>(noopError);
+        const table = new query.Table<string, number>(noopError);
         table.set("a", 1);
         table.set("b", 2);
         table.set("c", 3);
@@ -99,7 +99,7 @@ describe("Table", () => {
       });
 
       it("should not set null values", () => {
-        const table = new cache.Table<string, string>(noopError);
+        const table = new query.Table<string, string>(noopError);
         table.set("key1", "value1");
         table.set("key1", () => null as any);
         expect(table.get("key1")).toBe("value1");
@@ -111,7 +111,7 @@ describe("Table", () => {
           data: number;
         }
 
-        const table = new cache.Table<string, ComplexValue>(noopError);
+        const table = new query.Table<string, ComplexValue>(noopError);
 
         // set keys the row by its first argument, not the value's key field.
         table.set("explicitKey", { key: "valueKey", data: 100 });
@@ -135,7 +135,7 @@ describe("Table", () => {
           value: number;
         }
 
-        const table = new cache.Table<string, KeyedData>(noopError);
+        const table = new query.Table<string, KeyedData>(noopError);
 
         table.set("key1", { key: "key1", value: 100 });
         table.set([{ key: "key2", value: 200 }]);
@@ -158,20 +158,20 @@ describe("Table", () => {
       }
 
       it("should insert a single value when the key is absent", () => {
-        const table = new cache.Table<string, KeyedValue>(noopError);
+        const table = new query.Table<string, KeyedValue>(noopError);
         table.setIfAbsent({ key: "key1", value: "value1" });
         expect(table.get("key1")).toEqual({ key: "key1", value: "value1" });
       });
 
       it("should leave an existing value untouched", () => {
-        const table = new cache.Table<string, KeyedValue>(noopError);
+        const table = new query.Table<string, KeyedValue>(noopError);
         table.set([{ key: "key1", value: "original" }]);
         table.setIfAbsent({ key: "key1", value: "replacement" });
         expect(table.get("key1")).toEqual({ key: "key1", value: "original" });
       });
 
       it("should insert only the absent keys from an array", () => {
-        const table = new cache.Table<string, KeyedValue>(noopError);
+        const table = new query.Table<string, KeyedValue>(noopError);
         table.set([{ key: "key1", value: "original" }]);
         table.setIfAbsent([
           { key: "key1", value: "replacement" },
@@ -182,7 +182,7 @@ describe("Table", () => {
       });
 
       it("should not notify subscribers for keys that already exist", () => {
-        const table = new cache.Table<string, KeyedValue>(noopError);
+        const table = new query.Table<string, KeyedValue>(noopError);
         const listener = vi.fn();
 
         table.set([{ key: "key1", value: "original" }]);
@@ -201,7 +201,7 @@ describe("Table", () => {
       });
 
       it("should only roll back the keys it inserted", () => {
-        const table = new cache.Table<string, KeyedValue>(noopError);
+        const table = new query.Table<string, KeyedValue>(noopError);
         table.set([{ key: "key1", value: "original" }]);
         const rollback = table.setIfAbsent([
           { key: "key1", value: "replacement" },
@@ -217,7 +217,7 @@ describe("Table", () => {
     describe("Rollback Functionality", () => {
       describe("Set Rollback", () => {
         it("should rollback a set operation for new entry", () => {
-          const table = new cache.Table<string, string>(noopError);
+          const table = new query.Table<string, string>(noopError);
           const rollback = table.set("key1", "value1");
           expect(table.get("key1")).toBe("value1");
 
@@ -226,7 +226,7 @@ describe("Table", () => {
         });
 
         it("should rollback a set operation for existing entry", () => {
-          const table = new cache.Table<string, string>(noopError);
+          const table = new query.Table<string, string>(noopError);
           table.set("key1", "initial");
           const rollback = table.set("key1", "updated");
           expect(table.get("key1")).toBe("updated");
@@ -240,7 +240,7 @@ describe("Table", () => {
             key: string;
             value: string;
           }
-          const table = new cache.Table<string, KeyedString>(noopError);
+          const table = new query.Table<string, KeyedString>(noopError);
           const rollback = table.set([
             { key: "key1", value: "value1" },
             { key: "key2", value: "value2" },
@@ -262,7 +262,7 @@ describe("Table", () => {
             key: string;
             value: string;
           }
-          const table = new cache.Table<string, KeyedString>(noopError);
+          const table = new query.Table<string, KeyedString>(noopError);
 
           const item: KeyedString = { key: "key1", value: "value1" };
           const rollback = table.set([item]);
@@ -278,7 +278,7 @@ describe("Table", () => {
             key: string;
             value: string;
           }
-          const table = new cache.Table<string, KeyedString>(noopError);
+          const table = new query.Table<string, KeyedString>(noopError);
 
           table.set([{ key: "key1", value: "initial" }]);
           const rollback = table.set([{ key: "key1", value: "updated" }]);
@@ -290,7 +290,7 @@ describe("Table", () => {
         });
 
         it("should notify subscribers of a delete when rolling back new entry", () => {
-          const table = new cache.Table<string, string>(noopError);
+          const table = new query.Table<string, string>(noopError);
           const listener = vi.fn();
 
           table.subscribe(listener);
@@ -305,7 +305,7 @@ describe("Table", () => {
         });
 
         it("should notify subscribers of a set when rolling back updated entry", () => {
-          const table = new cache.Table<string, string>(noopError);
+          const table = new query.Table<string, string>(noopError);
           const listener = vi.fn();
 
           table.set("key1", "initial");
@@ -329,7 +329,7 @@ describe("Table", () => {
 
       describe("Delete Rollback", () => {
         it("should rollback a delete operation", () => {
-          const table = new cache.Table<string, string>(noopError);
+          const table = new query.Table<string, string>(noopError);
           table.set("key1", "value1");
           const rollback = table.delete("key1");
           expect(table.get("key1")).toBeUndefined();
@@ -339,7 +339,7 @@ describe("Table", () => {
         });
 
         it("should rollback multiple delete operations", () => {
-          const table = new cache.Table<string, string>(noopError);
+          const table = new query.Table<string, string>(noopError);
           table.set("key1", "value1");
           table.set("key2", "value2");
           table.set("key3", "value3");
@@ -356,7 +356,7 @@ describe("Table", () => {
         });
 
         it("should rollback filter-based delete", () => {
-          const table = new cache.Table<string, number>(noopError);
+          const table = new query.Table<string, number>(noopError);
           table.set("a", 1);
           table.set("b", 2);
           table.set("c", 3);
@@ -376,7 +376,7 @@ describe("Table", () => {
         });
 
         it("should notify subscribers of a set when rolling back delete", () => {
-          const table = new cache.Table<string, string>(noopError);
+          const table = new query.Table<string, string>(noopError);
           const listener = vi.fn();
 
           table.set("key1", "value1");
@@ -395,7 +395,7 @@ describe("Table", () => {
 
       describe("Complex Rollback Scenarios", () => {
         it("should handle nested rollbacks", () => {
-          const table = new cache.Table<string, string>(noopError);
+          const table = new query.Table<string, string>(noopError);
           const rollback1 = table.set("key1", "value1");
           const rollback2 = table.set("key1", "value2");
           const rollback3 = table.delete("key1");
@@ -413,7 +413,7 @@ describe("Table", () => {
         });
 
         it("should handle rollback of no-op operations", () => {
-          const table = new cache.Table<string, string>(noopError);
+          const table = new query.Table<string, string>(noopError);
 
           table.set("key1", "value1");
           const rollback = table.set("key1", "value1");
@@ -423,7 +423,7 @@ describe("Table", () => {
         });
 
         it("should handle rollback of delete on non-existent keys", () => {
-          const table = new cache.Table<string, string>(noopError);
+          const table = new query.Table<string, string>(noopError);
           const rollback = table.delete("nonexistent");
 
           expect(() => rollback()).not.toThrow();
@@ -434,7 +434,7 @@ describe("Table", () => {
 
     describe("Delete", () => {
       it("should delete an entry", () => {
-        const table = new cache.Table<string, string>(noopError);
+        const table = new query.Table<string, string>(noopError);
         table.set("key1", "value1");
         expect(table.get("key1")).toBe("value1");
 
@@ -443,12 +443,12 @@ describe("Table", () => {
       });
 
       it("should handle deleting non-existent keys", () => {
-        const table = new cache.Table<string, string>(noopError);
+        const table = new query.Table<string, string>(noopError);
         expect(() => table.delete("nonexistent")).not.toThrow();
       });
 
       it("should delete entries using a filter function", () => {
-        const table = new cache.Table<string, number>(noopError);
+        const table = new query.Table<string, number>(noopError);
         table.set("a", 1);
         table.set("b", 2);
         table.set("c", 3);
@@ -465,7 +465,7 @@ describe("Table", () => {
       });
 
       it("should delete entries using a filter with key parameter", () => {
-        const table = new cache.Table<string, string>(noopError);
+        const table = new query.Table<string, string>(noopError);
         table.set("key1", "value1");
         table.set("key2", "value2");
         table.set("test1", "test1");
@@ -486,7 +486,7 @@ describe("Table", () => {
           age: number;
         }
 
-        const table = new cache.Table<string, User>(noopError);
+        const table = new query.Table<string, User>(noopError);
 
         table.set("user1", { id: "1", name: "Alice", age: 25 });
         table.set("user2", { id: "2", name: "Bob", age: 35 });
@@ -502,7 +502,7 @@ describe("Table", () => {
       });
 
       it("should delete nothing when filter matches no entries", () => {
-        const table = new cache.Table<string, number>(noopError);
+        const table = new query.Table<string, number>(noopError);
         table.set("a", 1);
         table.set("b", 2);
         table.set("c", 3);
@@ -515,7 +515,7 @@ describe("Table", () => {
       });
 
       it("should delete all entries when filter matches all", () => {
-        const table = new cache.Table<string, number>(noopError);
+        const table = new query.Table<string, number>(noopError);
         table.set("a", 1);
         table.set("b", 2);
         table.set("c", 3);
@@ -529,7 +529,7 @@ describe("Table", () => {
       });
 
       it("should combine filter with value and key checks", () => {
-        const table = new cache.Table<string, { value: number; active: boolean }>(
+        const table = new query.Table<string, { value: number; active: boolean }>(
           noopError,
         );
 
@@ -549,12 +549,12 @@ describe("Table", () => {
 
     describe("List", () => {
       it("should return empty array when table is empty", () => {
-        const table = new cache.Table<string, string>(noopError);
+        const table = new query.Table<string, string>(noopError);
         expect(table.list()).toEqual([]);
       });
 
       it("should return all values in the table", () => {
-        const table = new cache.Table<string, string>(noopError);
+        const table = new query.Table<string, string>(noopError);
         table.set("key1", "value1");
         table.set("key2", "value2");
         table.set("key3", "value3");
@@ -567,7 +567,7 @@ describe("Table", () => {
       });
 
       it("should return values after deletions", () => {
-        const table = new cache.Table<string, string>(noopError);
+        const table = new query.Table<string, string>(noopError);
         table.set("key1", "value1");
         table.set("key2", "value2");
         table.set("key3", "value3");
@@ -581,7 +581,7 @@ describe("Table", () => {
       });
 
       it("should return values after updates", () => {
-        const table = new cache.Table<string, string>(noopError);
+        const table = new query.Table<string, string>(noopError);
         table.set("key1", "value1");
         table.set("key2", "value2");
         table.set("key1", "updated1");
@@ -600,7 +600,7 @@ describe("Table", () => {
           age: number;
         }
 
-        const table = new cache.Table<string, User>(noopError);
+        const table = new query.Table<string, User>(noopError);
         const user1: User = { id: "1", name: "John", age: 30 };
         const user2: User = { id: "2", name: "Jane", age: 25 };
         const user3: User = { id: "3", name: "Bob", age: 35 };
@@ -617,7 +617,7 @@ describe("Table", () => {
       });
 
       it("should return values after bulk set operations", () => {
-        const table = new cache.Table<string, { key: string; value: string }>(
+        const table = new query.Table<string, { key: string; value: string }>(
           noopError,
         );
 
@@ -637,7 +637,7 @@ describe("Table", () => {
       });
 
       it("should return values after bulk delete operations", () => {
-        const table = new cache.Table<string, string>(noopError);
+        const table = new query.Table<string, string>(noopError);
         table.set("key1", "value1");
         table.set("key2", "value2");
         table.set("key3", "value3");
@@ -652,7 +652,7 @@ describe("Table", () => {
       });
 
       it("should return empty array after clear", () => {
-        const table = new cache.Table<string, string>(noopError);
+        const table = new query.Table<string, string>(noopError);
 
         table.set("key1", "value1");
         table.set("key2", "value2");
@@ -666,7 +666,7 @@ describe("Table", () => {
       });
 
       it("should work with number keys", () => {
-        const table = new cache.Table<number, string>(noopError);
+        const table = new query.Table<number, string>(noopError);
         table.set(1, "value1");
         table.set(2, "value2");
         table.set(3, "value3");
@@ -679,7 +679,7 @@ describe("Table", () => {
       });
 
       it("should handle mixed operations correctly", () => {
-        const table = new cache.Table<string, number>(noopError);
+        const table = new query.Table<string, number>(noopError);
 
         table.set("a", 1);
         table.set("b", 2);
@@ -698,7 +698,7 @@ describe("Table", () => {
       });
 
       it("should return independent arrays on each call", () => {
-        const table = new cache.Table<string, string>(noopError);
+        const table = new query.Table<string, string>(noopError);
         table.set("key1", "value1");
         table.set("key2", "value2");
 
@@ -716,7 +716,7 @@ describe("Table", () => {
 
       it("should preserve values with equal function check", () => {
         const equalFunc = (a: string, b: string) => a.toLowerCase() === b.toLowerCase();
-        const table = new cache.Table<string, string>(noopError, equalFunc);
+        const table = new query.Table<string, string>(noopError, equalFunc);
 
         table.set("key1", "Value1");
         table.set("key2", "Value2");
@@ -733,7 +733,7 @@ describe("Table", () => {
   describe("Subscriptions", () => {
     describe("Set Events", () => {
       it("should notify subscribers when a value is set", () => {
-        const table = new cache.Table<string, string>(noopError);
+        const table = new query.Table<string, string>(noopError);
         const listener = vi.fn();
 
         table.subscribe(listener);
@@ -747,7 +747,7 @@ describe("Table", () => {
       });
 
       it("should notify only for specific key when key filter is provided", () => {
-        const table = new cache.Table<string, string>(noopError);
+        const table = new query.Table<string, string>(noopError);
         const listener1 = vi.fn();
         const listener2 = vi.fn();
 
@@ -772,7 +772,7 @@ describe("Table", () => {
       });
 
       it("should remove subscriber when destructor is called", () => {
-        const table = new cache.Table<string, string>(noopError);
+        const table = new query.Table<string, string>(noopError);
         const listener = vi.fn();
 
         const destructor = table.subscribe(listener);
@@ -785,7 +785,7 @@ describe("Table", () => {
       });
 
       it("should notify every subscriber on a set", () => {
-        const table = new cache.Table<string, string>(noopError);
+        const table = new query.Table<string, string>(noopError);
         const listener1 = vi.fn();
         const listener2 = vi.fn();
 
@@ -800,7 +800,7 @@ describe("Table", () => {
       });
 
       it("should notify subscribers for every value in a multi-value set", () => {
-        const table = new cache.Table<string, record.Keyed<string>>(noopError);
+        const table = new query.Table<string, record.Keyed<string>>(noopError);
         const listener = vi.fn();
         const keyed = vi.fn();
         table.subscribe(listener);
@@ -817,7 +817,7 @@ describe("Table", () => {
 
       it("should call the error sink when a subscriber throws", () => {
         const onError = vi.fn();
-        const table = new cache.Table<string, string>(onError);
+        const table = new query.Table<string, string>(onError);
         const error = new Error("Listener error");
         const listener = vi.fn(() => {
           throw error;
@@ -834,7 +834,7 @@ describe("Table", () => {
 
       it("should continue notifying other subscribers when one throws", () => {
         const onError = vi.fn();
-        const table = new cache.Table<string, string>(onError);
+        const table = new query.Table<string, string>(onError);
         const listener1 = vi.fn(() => {
           throw new Error("First listener error");
         });
@@ -856,7 +856,7 @@ describe("Table", () => {
 
       it("should handle errors from multiple subscribers", () => {
         const onError = vi.fn();
-        const table = new cache.Table<string, string>(onError);
+        const table = new query.Table<string, string>(onError);
         const listener1 = vi.fn(() => {
           throw new Error("First error");
         });
@@ -882,7 +882,7 @@ describe("Table", () => {
 
     describe("Delete Events", () => {
       it("should notify subscribers when a value is deleted", () => {
-        const table = new cache.Table<string, string>(noopError);
+        const table = new query.Table<string, string>(noopError);
         const listener = vi.fn();
 
         table.subscribe(listener);
@@ -893,7 +893,7 @@ describe("Table", () => {
       });
 
       it("should notify only for specific key when key filter is provided", () => {
-        const table = new cache.Table<string, string>(noopError);
+        const table = new query.Table<string, string>(noopError);
         const listener1 = vi.fn();
         const listener2 = vi.fn();
 
@@ -913,7 +913,7 @@ describe("Table", () => {
       });
 
       it("should remove subscriber when destructor is called", () => {
-        const table = new cache.Table<string, string>(noopError);
+        const table = new query.Table<string, string>(noopError);
         const listener = vi.fn();
 
         table.set("key1", "value1");
@@ -929,10 +929,10 @@ describe("Table", () => {
 
       it("should call the error sink when a subscriber throws on delete", () => {
         const onError = vi.fn();
-        const table = new cache.Table<string, string>(onError);
+        const table = new query.Table<string, string>(onError);
         const error = new Error("Delete listener error");
         table.set("key1", "value1");
-        const listener = vi.fn((event: cache.TableEvent<string, string>) => {
+        const listener = vi.fn((event: query.TableEvent<string, string>) => {
           if (event.variant === "delete") throw error;
         });
 
@@ -947,9 +947,9 @@ describe("Table", () => {
 
       it("should continue notifying other subscribers when one throws", () => {
         const onError = vi.fn();
-        const table = new cache.Table<string, string>(onError);
+        const table = new query.Table<string, string>(onError);
         table.set("key1", "value1");
-        const listener1 = vi.fn((event: cache.TableEvent<string, string>) => {
+        const listener1 = vi.fn((event: query.TableEvent<string, string>) => {
           if (event.variant === "delete") throw new Error("First delete error");
         });
         const listener2 = vi.fn();
@@ -969,7 +969,7 @@ describe("Table", () => {
       });
 
       it("should notify subscribers for each item deleted by filter", () => {
-        const table = new cache.Table<string, number>(noopError);
+        const table = new query.Table<string, number>(noopError);
         const listener = vi.fn();
 
         table.set("a", 1);
@@ -986,7 +986,7 @@ describe("Table", () => {
       });
 
       it("should notify key-specific subscribers only for matching filtered deletes", () => {
-        const table = new cache.Table<string, number>(noopError);
+        const table = new query.Table<string, number>(noopError);
         const listenerA = vi.fn();
         const listenerB = vi.fn();
         const listenerC = vi.fn();
@@ -1007,7 +1007,7 @@ describe("Table", () => {
       });
 
       it("should not notify any subscribers when filter matches nothing", () => {
-        const table = new cache.Table<string, number>(noopError);
+        const table = new query.Table<string, number>(noopError);
         const listener = vi.fn();
 
         table.set("a", 1);
@@ -1021,7 +1021,7 @@ describe("Table", () => {
       });
 
       it("should handle filter delete with mixed subscriber types", () => {
-        const table = new cache.Table<string, string>(noopError);
+        const table = new query.Table<string, string>(noopError);
         const globalListener = vi.fn();
         const specificListener = vi.fn();
 
@@ -1053,7 +1053,7 @@ describe("Table", () => {
 
     describe("Equality Silencing", () => {
       it("should not notify subscribers when the set value deep-equals the row", () => {
-        const table = new cache.Table<string, { name: string }>(noopError);
+        const table = new query.Table<string, { name: string }>(noopError);
         const listener = vi.fn();
 
         table.subscribe(listener);
@@ -1065,7 +1065,7 @@ describe("Table", () => {
       });
 
       it("should notify subscribers when the set value differs", () => {
-        const table = new cache.Table<string, { name: string }>(noopError);
+        const table = new query.Table<string, { name: string }>(noopError);
         const listener = vi.fn();
 
         table.set("key1", { name: "a" });
@@ -1080,7 +1080,7 @@ describe("Table", () => {
       });
 
       it("should respect a custom equal override", () => {
-        const table = new cache.Table<string, string>(
+        const table = new query.Table<string, string>(
           noopError,
           (a, b) => a.toLowerCase() === b.toLowerCase(),
         );
@@ -1100,7 +1100,7 @@ describe("Table", () => {
           key: string;
           value: string;
         }
-        const table = new cache.Table<string, KeyedValue>(noopError);
+        const table = new query.Table<string, KeyedValue>(noopError);
         const listener = vi.fn();
 
         table.set([{ key: "key1", value: "a" }]);
@@ -1129,7 +1129,7 @@ describe("Table", () => {
       }
 
       it("should handle object state", () => {
-        const table = new cache.Table<string, User>(noopError);
+        const table = new query.Table<string, User>(noopError);
         const user: User = { id: "1", name: "John", age: 30 };
 
         table.set("user1", user);
@@ -1137,7 +1137,7 @@ describe("Table", () => {
       });
 
       it("should update nested properties with setter function", () => {
-        const table = new cache.Table<string, User>(noopError);
+        const table = new query.Table<string, User>(noopError);
         const user: User = { id: "1", name: "John", age: 30 };
 
         table.set("user1", user);
@@ -1157,22 +1157,22 @@ describe("Table", () => {
       }
 
       it("should merge the partial into the existing row", () => {
-        const table = new cache.Table<string, User>(noopError);
+        const table = new query.Table<string, User>(noopError);
         table.set("user1", { id: "1", name: "John", age: 30 });
-        cache.partialUpdate(table, "user1", { age: 31 });
+        query.partialUpdate(table, "user1", { age: 31 });
         expect(table.get("user1")).toEqual({ id: "1", name: "John", age: 31 });
       });
 
       it("should be a no-op when the row is absent", () => {
-        const table = new cache.Table<string, User>(noopError);
-        cache.partialUpdate(table, "missing", { age: 31 });
+        const table = new query.Table<string, User>(noopError);
+        query.partialUpdate(table, "missing", { age: 31 });
         expect(table.get("missing")).toBeUndefined();
       });
 
       it("should return a rollback that restores the prior value", () => {
-        const table = new cache.Table<string, User>(noopError);
+        const table = new query.Table<string, User>(noopError);
         table.set("user1", { id: "1", name: "John", age: 30 });
-        const rollback = cache.partialUpdate(table, "user1", { age: 31 });
+        const rollback = query.partialUpdate(table, "user1", { age: 31 });
         rollback();
         expect(table.get("user1")).toEqual({ id: "1", name: "John", age: 30 });
       });
@@ -1180,8 +1180,8 @@ describe("Table", () => {
 
     describe("Table Independence", () => {
       it("keeps rows isolated between separate tables", () => {
-        const table1 = new cache.Table<string, record.Keyed<string>>(noopError);
-        const table2 = new cache.Table<string, record.Keyed<string>>(noopError);
+        const table1 = new query.Table<string, record.Keyed<string>>(noopError);
+        const table2 = new query.Table<string, record.Keyed<string>>(noopError);
 
         table1.set([{ key: "key1" }]);
         table2.set([{ key: "key2" }]);
@@ -1206,7 +1206,7 @@ describe("Table", () => {
         { key: 1, name: "a" },
         { key: 2, name: "b" },
       ];
-      const ordered = cache.orderByKeys([1, 2, 3], items, getKey);
+      const ordered = query.orderByKeys([1, 2, 3], items, getKey);
       expect(ordered.map((i) => i.name)).toEqual(["a", "b", "c"]);
     });
 
@@ -1215,7 +1215,7 @@ describe("Table", () => {
         { key: 1, name: "a" },
         { key: 3, name: "c" },
       ];
-      const ordered = cache.orderByKeys([1, 2, 3], items, getKey);
+      const ordered = query.orderByKeys([1, 2, 3], items, getKey);
       expect(ordered.map((i) => i.name)).toEqual(["a", "c"]);
     });
 
@@ -1224,17 +1224,17 @@ describe("Table", () => {
         { key: 1, name: "a" },
         { key: 2, name: "b" },
       ];
-      const ordered = cache.orderByKeys([1, 2, 1, 2, 1], items, getKey);
+      const ordered = query.orderByKeys([1, 2, 1, 2, 1], items, getKey);
       expect(ordered.map((i) => i.name)).toEqual(["a", "b"]);
     });
 
     it("should return an empty array when keys is empty", () => {
       const items: Item[] = [{ key: 1, name: "a" }];
-      expect(cache.orderByKeys([], items, getKey)).toEqual([]);
+      expect(query.orderByKeys([], items, getKey)).toEqual([]);
     });
 
     it("should return an empty array when items is empty", () => {
-      expect(cache.orderByKeys([1, 2, 3], [], getKey)).toEqual([]);
+      expect(query.orderByKeys([1, 2, 3], [], getKey)).toEqual([]);
     });
 
     it("should ignore items whose key is not present in keys", () => {
@@ -1242,7 +1242,7 @@ describe("Table", () => {
         { key: 1, name: "a" },
         { key: 99, name: "x" },
       ];
-      const ordered = cache.orderByKeys([1], items, getKey);
+      const ordered = query.orderByKeys([1], items, getKey);
       expect(ordered.map((i) => i.name)).toEqual(["a"]);
     });
 
@@ -1251,7 +1251,7 @@ describe("Table", () => {
         { key: "b", name: "two" },
         { key: "a", name: "one" },
       ];
-      const ordered = cache.orderByKeys(["a", "b"], items, (i) => i.key);
+      const ordered = query.orderByKeys(["a", "b"], items, (i) => i.key);
       expect(ordered.map((i) => i.name)).toEqual(["one", "two"]);
     });
 
@@ -1260,7 +1260,7 @@ describe("Table", () => {
         { key: 1, name: "first" },
         { key: 1, name: "second" },
       ];
-      const ordered = cache.orderByKeys([1], items, getKey);
+      const ordered = query.orderByKeys([1], items, getKey);
       // Map.set with the same key keeps the last value written — confirming contract.
       expect(ordered).toEqual([{ key: 1, name: "second" }]);
     });
@@ -1272,7 +1272,7 @@ describe("Tombstones", () => {
     key: string;
     name: string;
   }
-  const newTable = () => new cache.Table<string, Doc>(noopError);
+  const newTable = () => new query.Table<string, Doc>(noopError);
 
   it("should report unknown for a never-seen key", () => {
     const table = newTable();

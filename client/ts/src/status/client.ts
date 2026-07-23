@@ -11,9 +11,9 @@ import { type UnaryClient } from "@synnaxlabs/freighter";
 import { array, type destructor, primitive } from "@synnaxlabs/x";
 import z from "zod";
 
-import { cache } from "@/cache";
 import { label } from "@/label";
 import { ontology } from "@/ontology";
+import { query } from "@/query";
 import {
   DELETE_CHANNEL_NAME,
   type Key,
@@ -90,12 +90,12 @@ const isKeysOnly = (req: RetrieveRequest): req is RetrieveRequest & { keys: Key[
   req.offset == null;
 
 const createTable = (
-  engine: cache.Cache,
-  relationships: cache.Table<string, ontology.Relationship>,
-  labels: cache.Table<label.Key, label.Label>,
-): cache.Table<Key, Status> => {
-  const table = engine.createTable<Key, Status>({ name: "statuses" });
-  const set: cache.ChannelListener<ReturnType<typeof statusZ>> = {
+  cache: query.Cache,
+  relationships: query.Table<string, ontology.Relationship>,
+  labels: query.Table<label.Key, label.Label>,
+): query.Table<Key, Status> => {
+  const table = cache.createTable<Key, Status>({ name: "statuses" });
+  const set: query.ChannelListener<ReturnType<typeof statusZ>> = {
     channel: SET_CHANNEL_NAME,
     schema: statusZ(),
     onChange: (changed) =>
@@ -106,16 +106,16 @@ const createTable = (
         return next;
       }),
   };
-  const del: cache.ChannelListener<typeof keyZ> = {
+  const del: query.ChannelListener<typeof keyZ> = {
     channel: DELETE_CHANNEL_NAME,
     schema: keyZ,
     onChange: (changed) => table.delete(changed),
   };
-  engine.addListeners(table, set, del);
+  cache.addListeners(table, set, del);
   return table;
 };
 
-export class Client extends cache.Reader<
+export class Client extends query.Retriever<
   SingleRetrieveParams,
   MultiRetrieveParams,
   Key,
@@ -124,23 +124,23 @@ export class Client extends cache.Reader<
 > {
   readonly type: string = "status";
   /** The status record table; injected into sibling clients at wiring. */
-  readonly store: cache.Table<Key, Status>;
+  readonly store: query.Table<Key, Status>;
   private readonly client: UnaryClient;
   private readonly labelClient?: label.Client;
-  private readonly engine: cache.Cache;
-  private readonly labels: cache.Table<label.Key, label.Label>;
+  private readonly cache: query.Cache;
+  private readonly labels: query.Table<label.Key, label.Label>;
   private readonly ontology: ontology.Stores;
 
   constructor(
     client: UnaryClient,
-    engine: cache.Cache,
-    labels: cache.Table<label.Key, label.Label>,
+    cache: query.Cache,
+    labels: query.Table<label.Key, label.Label>,
     ontologyStores: ontology.Stores,
     labelClient?: label.Client,
   ) {
-    const store = createTable(engine, ontologyStores.relationships, labels);
+    const store = createTable(cache, ontologyStores.relationships, labels);
     super({
-      single: engine.answers({
+      single: cache.queries({
         name: "status",
         table: store,
         fetch: async (query) => [(await this.fetchSingle(query)).key],
@@ -148,7 +148,7 @@ export class Client extends cache.Reader<
         keyOf: (query) => query,
         single: true,
         watch: [
-          cache.watch(ontologyStores.relationships, (event, query: Key) => {
+          query.watch(ontologyStores.relationships, (event, query: Key) => {
             const rel =
               event.variant === "set"
                 ? event.value
@@ -157,12 +157,12 @@ export class Client extends cache.Reader<
             if (event.variant === "set") this.ensureLabel(rel);
             return [query];
           }),
-          cache.watch(labels, (event, query: Key) =>
+          query.watch(labels, (event, query: Key) =>
             this.isLabeledBy(query, event.key) ? [query] : null,
           ),
         ],
       }),
-      request: engine.answers({
+      request: cache.queries({
         name: "statuses",
         table: store,
         fetch: async (query) => (await this.fetchRequest(query)).map((s) => s.key),
@@ -170,7 +170,7 @@ export class Client extends cache.Reader<
         matches: (status, query) => this.requestFilter(query)(status),
         serverFields: SERVER_FIELDS,
         watch: [
-          cache.watch(ontologyStores.relationships, (event, _: RetrieveRequest) => {
+          query.watch(ontologyStores.relationships, (event, _: RetrieveRequest) => {
             const rel =
               event.variant === "set"
                 ? event.value
@@ -183,7 +183,7 @@ export class Client extends cache.Reader<
             if (event.variant === "set") this.ensureLabel(rel);
             return [rel.from.key];
           }),
-          cache.watch(labels, (event, _: RetrieveRequest) =>
+          query.watch(labels, (event, _: RetrieveRequest) =>
             this.statusesLabeledBy(event.key),
           ),
         ],
@@ -197,7 +197,7 @@ export class Client extends cache.Reader<
     });
     this.client = client;
     this.labelClient = labelClient;
-    this.engine = engine;
+    this.cache = cache;
     this.labels = labels;
     this.ontology = ontologyStores;
     this.store = store;
@@ -252,10 +252,10 @@ export class Client extends cache.Reader<
     return isMany ? created : created[0];
   }
 
-  async rename(key: Key, name: string, opts: cache.WriteOptions = {}): Promise<void> {
+  async rename(key: Key, name: string, opts: query.WriteOptions = {}): Promise<void> {
     const stat = await this.retrieve({ key });
     const renamed = { ...stat, name };
-    const rollback = new cache.Rollback();
+    const rollback = new query.Rollback();
     rollback.add(this.store.set(renamed));
     rollback.add(ontology.renameCachedResource(this.ontology, ontologyID(key), name));
     await opts.onOptimistic?.();
@@ -342,7 +342,7 @@ export class Client extends cache.Reader<
       fetched.forEach((s) => this.writeThrough(s));
       results.push(...fetched);
     }
-    return cache.orderByKeys(keys, results, (s) => s.key);
+    return query.orderByKeys(keys, results, (s) => s.key);
   }
 
   private async fetchSingle(query: Key): Promise<Status> {
@@ -364,7 +364,7 @@ export class Client extends cache.Reader<
     void this.labelClient
       .retrieve({ key: rel.to.key })
       .catch((exc: unknown) =>
-        this.engine.onError(new Error("failed to fetch status label", { cause: exc })),
+        this.cache.onError(new Error("failed to fetch status label", { cause: exc })),
       );
   }
 

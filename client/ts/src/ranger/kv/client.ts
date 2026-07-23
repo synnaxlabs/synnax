@@ -11,7 +11,7 @@ import { type UnaryClient } from "@synnaxlabs/freighter";
 import { array } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { type cache } from "@/cache";
+import { type query } from "@/query";
 import { createPairKey } from "@/ranger/kv/payload";
 import { type Pair, pairZ } from "@/ranger/kv/types.gen";
 import { type Key, keyZ } from "@/ranger/types.gen";
@@ -24,9 +24,9 @@ const deleteReqZ = z.object({ range: keyZ, keys: z.string().array() });
 export class Client {
   private readonly rangeKey: Key;
   private readonly client: UnaryClient;
-  private readonly pairs: cache.Table<string, Pair>;
+  private readonly pairs: query.Table<string, Pair>;
 
-  constructor(rng: Key, client: UnaryClient, pairs: cache.Table<string, Pair>) {
+  constructor(rng: Key, client: UnaryClient, pairs: query.Table<string, Pair>) {
     this.rangeKey = rng;
     this.client = client;
     this.pairs = pairs;

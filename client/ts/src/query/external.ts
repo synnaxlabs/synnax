@@ -7,23 +7,23 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+export { Cache, type CacheParams } from "@/query/cache";
 export {
-  Answers,
-  type AnswersParams,
   type Cached,
   type ChangeHandler,
   hashQuery,
+  Queries,
+  type QueriesParams,
   watch,
   type WatchEntry,
-} from "@/cache/answers";
-export { Cache, type CacheParams } from "@/cache/cache";
-export { Reader, type ReaderParams, type Reads } from "@/cache/reader";
-export { Rollback } from "@/cache/rollback";
+} from "@/query/query";
+export { Retriever, type RetrieverParams, type Retrieves } from "@/query/reader";
+export { Rollback } from "@/query/rollback";
 export {
   type ObservableStream,
   type StreamOpener,
   type StreamOpenerHooks,
-} from "@/cache/streamer";
+} from "@/query/streamer";
 export {
   type ChannelListener,
   orderByKeys,
@@ -34,10 +34,10 @@ export {
   type TableEvent,
   type TableSubscriber,
   type Tombstone,
-} from "@/cache/table";
+} from "@/query/table";
 export {
   type Data,
   type FetchOptions,
   type Query,
   type WriteOptions,
-} from "@/cache/types";
+} from "@/query/types";

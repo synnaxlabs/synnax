@@ -24,9 +24,9 @@ import {
   scopedActionZ,
 } from "@/arc/actions.gen";
 import { type Arc, arcZ, type Key, keyZ, type New, ontologyID } from "@/arc/types.gen";
-import { cache } from "@/cache";
 import { NotFoundError } from "@/errors";
 import { ontology } from "@/ontology";
+import { query } from "@/query";
 import { status } from "@/status";
 import { task } from "@/task";
 import { checkForMultipleOrNoResults } from "@/util/retrieve";
@@ -135,7 +135,7 @@ const taskStatusZ = z.object({ details: z.object({ task: task.keyZ }) });
 // Task statuses may arrive under any status key; the referenced task lives in
 // the details, with the "task:<key>" status key as a fallback.
 const affectedTaskKeys = (
-  event: cache.TableEvent<status.Key, status.Status>,
+  event: query.TableEvent<status.Key, status.Status>,
 ): task.Key[] | null => {
   const keys: task.Key[] = [];
   if (event.variant === "set") {
@@ -148,7 +148,7 @@ const affectedTaskKeys = (
   return keys.length === 0 ? null : keys;
 };
 
-export class Client extends cache.Reader<
+export class Client extends query.Retriever<
   SingleRetrieveParams,
   RetrieveRequest,
   SingleRetrieveParams,
@@ -160,11 +160,11 @@ export class Client extends cache.Reader<
   private readonly dispatcher: actions.Controller<Key, Arc, Action>;
   private readonly ontologyClient: ontology.Client;
   private readonly taskClient: task.Client;
-  private readonly store: cache.Table<Key, Arc>;
-  private readonly statusStore: cache.Table<status.Key, status.Status>;
-  private readonly taskStore: cache.Table<task.Key, Omit<task.Task, "status">>;
+  private readonly store: query.Table<Key, Arc>;
+  private readonly statusStore: query.Table<status.Key, status.Status>;
+  private readonly taskStore: query.Table<task.Key, Omit<task.Task, "status">>;
   private readonly ontology: ontology.Stores;
-  private readonly taskAnswers: cache.Answers<
+  private readonly taskAnswers: query.Queries<
     Key,
     task.Task | null,
     task.Key,
@@ -176,29 +176,29 @@ export class Client extends cache.Reader<
     streamClient: StreamClient,
     ontologyClient: ontology.Client,
     taskClient: task.Client,
-    engine: cache.Cache,
-    statusStore: cache.Table<status.Key, status.Status>,
+    cache: query.Cache,
+    statusStore: query.Table<status.Key, status.Status>,
   ) {
-    const store = engine.createTable<Key, Arc>({ name: "arcs" });
+    const store = cache.createTable<Key, Arc>({ name: "arcs" });
     const dispatcher = new actions.Controller<Key, Arc, Action>({
       store,
-      onError: engine.onError,
+      onError: cache.onError,
       reduce: reduceAll,
       isUndoable,
       kindOf,
     });
-    const del: cache.ChannelListener<typeof keyZ> = {
+    const del: query.ChannelListener<typeof keyZ> = {
       channel: DELETE_CHANNEL_NAME,
       schema: keyZ,
       onChange: (changed) => store.delete(changed),
     };
-    engine.addListeners(
+    cache.addListeners(
       store,
       del,
       dispatcher.listener(SET_CHANNEL_NAME, scopedActionZ),
     );
     super({
-      single: engine.answers({
+      single: cache.queries({
         name: "arc",
         table: store,
         fetch: async (query) => [(await this.fetchSingle(query)).key],
@@ -208,7 +208,7 @@ export class Client extends cache.Reader<
           "key" in query ? a.key === query.key : a.name === query.name,
         single: true,
       }),
-      request: engine.answers({
+      request: cache.queries({
         name: "arcs",
         table: store,
         fetch: async (query) => (await this.fetchRequest(query)).map((a) => a.key),
@@ -229,7 +229,7 @@ export class Client extends cache.Reader<
     this.ontology = ontologyClient.stores;
     this.store = store;
     this.dispatcher = dispatcher;
-    this.taskAnswers = engine.answers({
+    this.taskAnswers = cache.queries({
       name: "arc task",
       table: this.taskStore,
       fetch: async (query) => {
@@ -247,7 +247,7 @@ export class Client extends cache.Reader<
           }),
         ),
       watch: [
-        cache.watch(this.ontology.relationships, (event, query: Key) => {
+        query.watch(this.ontology.relationships, (event, query: Key) => {
           const rel =
             event.variant === "set"
               ? event.value
@@ -255,7 +255,7 @@ export class Client extends cache.Reader<
           if (!isTaskChild(rel, query)) return null;
           return [rel.to.key];
         }),
-        cache.watch(this.statusStore, (event) => affectedTaskKeys(event)),
+        query.watch(this.statusStore, (event) => affectedTaskKeys(event)),
       ],
       hydrate: async (keys) => {
         await this.taskClient.retrieve({ keys });
@@ -263,11 +263,11 @@ export class Client extends cache.Reader<
     });
   }
 
-  async create(arc: CreateParams, opts?: cache.WriteOptions<Arc[]>): Promise<Arc>;
-  async create(arcs: CreateParams[], opts?: cache.WriteOptions<Arc[]>): Promise<Arc[]>;
+  async create(arc: CreateParams, opts?: query.WriteOptions<Arc[]>): Promise<Arc>;
+  async create(arcs: CreateParams[], opts?: query.WriteOptions<Arc[]>): Promise<Arc[]>;
   async create(
     arcs: CreateParams | CreateParams[],
-    opts: cache.WriteOptions<Arc[]> = {},
+    opts: query.WriteOptions<Arc[]> = {},
   ): Promise<Arc | Arc[]> {
     const isMany = Array.isArray(arcs);
     const params = array.toArray(arcs);
@@ -287,7 +287,7 @@ export class Client extends cache.Reader<
       taskKeys.set(i, taskKey);
     }
     const optimistic = params.map((a) => arcZ.parse(a));
-    const rollback = new cache.Rollback();
+    const rollback = new query.Rollback();
     rollback.add(this.store.set(optimistic));
     await opts.onOptimistic?.(optimistic);
     const res = await rollback.guard(
@@ -320,11 +320,11 @@ export class Client extends cache.Reader<
     return isMany ? res.arcs : res.arcs[0];
   }
 
-  async rename(key: Key, name: string, opts: cache.WriteOptions = {}): Promise<void> {
+  async rename(key: Key, name: string, opts: query.WriteOptions = {}): Promise<void> {
     const tsk = await this.retrieveTask(key);
     if (tsk != null) await this.taskClient.rename(tsk.key, name);
-    const rollback = new cache.Rollback();
-    rollback.add(cache.partialUpdate(this.store, key, { name }));
+    const rollback = new query.Rollback();
+    rollback.add(query.partialUpdate(this.store, key, { name }));
     await opts.onOptimistic?.();
     await rollback.guard(
       async () => await this.sendDispatch(key, id.create(), [renameAction({ name })]),
@@ -347,7 +347,7 @@ export class Client extends cache.Reader<
    * Cached queries for the task deployed for an arc, keyed by the arc's key.
    * Resolves null when the arc has no task.
    */
-  get task(): cache.Answers<
+  get task(): query.Queries<
     Key,
     task.Task | null,
     task.Key,
@@ -356,9 +356,9 @@ export class Client extends cache.Reader<
     return this.taskAnswers;
   }
 
-  async delete(keys: Key | Key[], opts: cache.WriteOptions = {}): Promise<void> {
+  async delete(keys: Key | Key[], opts: query.WriteOptions = {}): Promise<void> {
     const keysArr = array.toArray(keys);
-    const rollback = new cache.Rollback();
+    const rollback = new query.Rollback();
     rollback.add(this.store.delete(keysArr));
     await opts.onOptimistic?.();
     await rollback.guard(

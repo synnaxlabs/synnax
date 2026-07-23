@@ -9,10 +9,10 @@
 
 import { type destructor, observe, type record, type state } from "@synnaxlabs/x";
 
-import { Answers, type AnswersParams } from "@/cache/answers";
-import { createStreamer, type Streamer, type StreamOpener } from "@/cache/streamer";
-import { type ChannelListener, Table, type TableConfig } from "@/cache/table";
-import { type Data, type Query } from "@/cache/types";
+import { Queries, type QueriesParams } from "@/query/query";
+import { createStreamer, type Streamer, type StreamOpener } from "@/query/streamer";
+import { type ChannelListener, Table, type TableConfig } from "@/query/table";
+import { type Data, type Query } from "@/query/types";
 
 export interface CacheParams {
   /**
@@ -106,13 +106,13 @@ export class Cache {
    * stream, maintained answers refetch on epoch bumps, and maintenance errors
    * report to the cache's error sink.
    */
-  answers<
+  queries<
     Q extends Query,
     D extends Data,
     K extends record.Key = record.Key,
     V extends state.State = state.State,
-  >(params: AnswersParams<Q, D, K, V>): Answers<Q, D, K, V> {
-    return new Answers(params, {
+  >(params: QueriesParams<Q, D, K, V>): Queries<Q, D, K, V> {
+    return new Queries(params, {
       ensureStreaming: async () => await this.ensureStreaming(),
       onEpoch: (callback) => this.onEpoch(callback),
       onError: this.onError,

@@ -13,7 +13,6 @@ export type { Role } from "@/access/role/types.gen";
 export { actions } from "@/actions";
 export { arc } from "@/arc";
 export type { Param } from "@/arc/types/types.gen";
-export { cache } from "@/cache";
 export { channel } from "@/channel";
 export { Channel, isCalculated } from "@/channel/client";
 export {
@@ -50,6 +49,7 @@ export { node } from "@/node";
 export { ontology } from "@/ontology";
 export { panel } from "@/panel";
 export { project } from "@/project";
+export { query as cache } from "@/query";
 export { rack } from "@/rack";
 export { ranger } from "@/ranger";
 export { schematic } from "@/schematic";

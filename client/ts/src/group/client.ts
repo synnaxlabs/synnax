@@ -11,10 +11,10 @@ import { type UnaryClient } from "@synnaxlabs/freighter";
 import { array } from "@synnaxlabs/x";
 import z from "zod";
 
-import { cache } from "@/cache";
 import { type Group, groupZ, type Key, keyZ, ontologyID } from "@/group/types.gen";
 import { ontology } from "@/ontology";
 import { idZ as ontologyIDZ } from "@/ontology/payload";
+import { query } from "@/query";
 
 export const SET_CHANNEL_NAME = "sy_group_set";
 export const DELETE_CHANNEL_NAME = "sy_group_delete";
@@ -56,23 +56,23 @@ const isChildOf = (rel: ontology.Relationship, parent: ontology.ID): boolean =>
     to: { type: "group" },
   });
 
-const createTable = (engine: cache.Cache): cache.Table<Key, Group> => {
-  const table = engine.createTable<Key, Group>({ name: "groups" });
-  const set: cache.ChannelListener<typeof groupZ> = {
+const createTable = (cache: query.Cache): query.Table<Key, Group> => {
+  const table = cache.createTable<Key, Group>({ name: "groups" });
+  const set: query.ChannelListener<typeof groupZ> = {
     channel: SET_CHANNEL_NAME,
     schema: groupZ,
     onChange: (changed) => table.set(changed),
   };
-  const del: cache.ChannelListener<typeof keyZ> = {
+  const del: query.ChannelListener<typeof keyZ> = {
     channel: DELETE_CHANNEL_NAME,
     schema: keyZ,
     onChange: (changed) => table.delete(changed),
   };
-  engine.addListeners(table, set, del);
+  cache.addListeners(table, set, del);
   return table;
 };
 
-export class Client extends cache.Reader<
+export class Client extends query.Retriever<
   RetrieveSingleParams,
   RetrieveChildrenParams,
   Key,
@@ -81,18 +81,18 @@ export class Client extends cache.Reader<
 > {
   client: UnaryClient;
   private readonly ontologyClient?: ontology.Client;
-  private readonly store: cache.Table<Key, Group>;
+  private readonly store: query.Table<Key, Group>;
   private readonly ontology: ontology.Stores;
 
   constructor(
     client: UnaryClient,
     ontologyClient: ontology.Client | undefined,
-    engine: cache.Cache,
+    cache: query.Cache,
     ontologyStores: ontology.Stores,
   ) {
-    const store = createTable(engine);
+    const store = createTable(cache);
     super({
-      single: engine.answers({
+      single: cache.queries({
         name: "group",
         table: store,
         fetch: async (query) => [await this.fetchSingle(query)].map((g) => g.key),
@@ -100,7 +100,7 @@ export class Client extends cache.Reader<
         keyOf: (query) => query,
         single: true,
       }),
-      request: engine.answers({
+      request: cache.queries({
         name: "groups",
         table: store,
         fetch: async (query) => (await this.fetchChildren(query)).map((g) => g.key),
@@ -108,7 +108,7 @@ export class Client extends cache.Reader<
         matches: (group, query) => this.isCachedChild(query.parent, group.key),
         serverFields: SERVER_FIELDS,
         watch: [
-          cache.watch(ontologyStores.relationships, (event, query: ChildrenRequest) => {
+          query.watch(ontologyStores.relationships, (event, query: ChildrenRequest) => {
             const rel =
               event.variant === "set"
                 ? event.value
@@ -148,9 +148,9 @@ export class Client extends cache.Reader<
     return res.group;
   }
 
-  async rename(key: Key, name: string, opts: cache.WriteOptions = {}): Promise<void> {
-    const rollback = new cache.Rollback();
-    rollback.add(cache.partialUpdate(this.store, key, { name }));
+  async rename(key: Key, name: string, opts: query.WriteOptions = {}): Promise<void> {
+    const rollback = new query.Rollback();
+    rollback.add(query.partialUpdate(this.store, key, { name }));
     rollback.add(ontology.renameCachedResource(this.ontology, ontologyID(key), name));
     await opts.onOptimistic?.();
     await rollback.guard(
@@ -164,7 +164,7 @@ export class Client extends cache.Reader<
     );
     // Re-applied after success: a stale streamer echo may have clobbered the
     // optimistic write while the send was in flight.
-    cache.partialUpdate(this.store, key, { name });
+    query.partialUpdate(this.store, key, { name });
   }
 
   async delete(keys: Key | Key[]): Promise<void> {

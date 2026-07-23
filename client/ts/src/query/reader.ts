@@ -9,17 +9,17 @@
 
 import { type destructor } from "@synnaxlabs/x";
 
-import { type Cached, type ChangeHandler } from "@/cache/answers";
-import { type Data, type Query } from "@/cache/types";
+import { type Cached, type ChangeHandler } from "@/query/query";
+import { type Data, type Query } from "@/query/types";
 
 /** The read surface of one answer space: fetch, subscribe, snapshot. */
-export interface Reads<Q extends Query, D extends Data> {
+export interface Retrieves<Q extends Query, D extends Data> {
   retrieve: (query: Q) => Promise<D>;
   onChange: (query: Q, handler: ChangeHandler<D>) => destructor.Destructor;
   getCached: (query: Q) => Cached<D> | undefined;
 }
 
-export interface ReaderParams<
+export interface RetrieverParams<
   SingleParams,
   MultiParams,
   SingleQuery extends Query,
@@ -27,9 +27,9 @@ export interface ReaderParams<
   V extends Data,
 > {
   /** The space answering queries that address exactly one record. */
-  single: Reads<SingleQuery, V>;
+  single: Retrieves<SingleQuery, V>;
   /** The space answering every other query shape. */
-  request: Reads<MultiQuery, V[]>;
+  request: Retrieves<MultiQuery, V[]>;
   /** Whether the params address exactly one record. */
   isSingle: (params: SingleParams | MultiParams) => boolean;
   /** Canonicalizes single params so equivalent queries hash identically. */
@@ -47,9 +47,9 @@ export interface ReaderParams<
  *
  * ```ts
  * export class Client extends cache.Reader<Single, Multi, Key, Request, Policy> {
- *   constructor(engine: cache.Cache) {
- *     const store = createTable(engine);
- *     super({ single: engine.answers({ table: store, ... }), request: ..., ... });
+ *   constructor(cache: cache.Cache) {
+ *     const store = createTable(cache);
+ *     super({ single: cache.answers({ table: store, ... }), request: ..., ... });
  *     this.store = store;
  *   }
  * }
@@ -62,14 +62,14 @@ export interface ReaderParams<
  * A domain needing more than routing overrides the method and delegates to
  * `super` for the cached path.
  */
-export abstract class Reader<
+export abstract class Retriever<
   SingleParams,
   MultiParams,
   SingleQuery extends Query,
   MultiQuery extends Query,
   V extends Data,
 > {
-  private readonly reads: ReaderParams<
+  private readonly reads: RetrieverParams<
     SingleParams,
     MultiParams,
     SingleQuery,
@@ -78,7 +78,7 @@ export abstract class Reader<
   >;
 
   constructor(
-    reads: ReaderParams<SingleParams, MultiParams, SingleQuery, MultiQuery, V>,
+    reads: RetrieverParams<SingleParams, MultiParams, SingleQuery, MultiQuery, V>,
   ) {
     this.reads = reads;
   }
@@ -124,10 +124,10 @@ export abstract class Reader<
   // TypeScript cannot carry it across separate parameters, so the casts that
   // would otherwise appear in every domain client live only here.
   private route(params: SingleParams | MultiParams): {
-    space: Reads<SingleQuery | MultiQuery, V | V[]>;
+    space: Retrieves<SingleQuery | MultiQuery, V | V[]>;
     query: SingleQuery | MultiQuery;
   } {
-    type Either = Reads<SingleQuery | MultiQuery, V | V[]>;
+    type Either = Retrieves<SingleQuery | MultiQuery, V | V[]>;
     const { single, request, isSingle, normalizeSingle, normalizeRequest } = this.reads;
     return isSingle(params)
       ? { space: single as Either, query: normalizeSingle(params as SingleParams) }

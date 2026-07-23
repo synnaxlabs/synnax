@@ -11,8 +11,8 @@ import { id } from "@synnaxlabs/x";
 import { beforeAll, describe, expect, it, vi } from "vitest";
 
 import { policy } from "@/access/policy";
-import { type cache } from "@/cache";
 import { AuthError, NotFoundError } from "@/errors";
+import { type query } from "@/query";
 import { createTestClient, createTestClientWithPolicy } from "@/testutil";
 
 const client = createTestClient();
@@ -147,7 +147,7 @@ describe("policy", () => {
   });
 });
 
-// A second client with its own engine: its writes reach the first client only
+// A second client with its own cache: its writes reach the first client only
 // through the cluster's change streams, never through a shared cache.
 const remote = createTestClient();
 
@@ -219,7 +219,7 @@ describe("cached reads", () => {
 
     it("delivers a remote delete as a deleted result carrying the corpse", async () => {
       const p = await createPolicy();
-      const results: Array<cache.Cached<policy.Policy> | undefined> = [];
+      const results: Array<query.Cached<policy.Policy> | undefined> = [];
       const off = client.access.policies.onChange({ key: p.key }, (r) =>
         results.push(r),
       );

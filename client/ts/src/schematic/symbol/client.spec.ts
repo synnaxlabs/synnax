@@ -10,9 +10,9 @@
 import { id } from "@synnaxlabs/x";
 import { beforeAll, describe, expect, it } from "vitest";
 
-import { type cache } from "@/cache";
 import { group } from "@/group";
 import { ontology } from "@/ontology";
+import { type query } from "@/query";
 import { type schematic } from "@/schematic";
 import { createTestClient } from "@/testutil";
 
@@ -223,7 +223,7 @@ describe("Symbol Client", () => {
         ],
         parent,
       });
-      let latest: cache.Cached<schematic.symbol.Symbol[]> | undefined;
+      let latest: query.Cached<schematic.symbol.Symbol[]> | undefined;
       const stop = client.schematics.symbols.onChange({ parent }, (cached) => {
         latest = cached;
       });

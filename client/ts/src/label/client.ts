@@ -11,11 +11,11 @@ import { type UnaryClient } from "@synnaxlabs/freighter";
 import { array, primitive } from "@synnaxlabs/x";
 import z from "zod";
 
-import { cache } from "@/cache";
 import { LABELED_BY_ONTOLOGY_RELATIONSHIP_TYPE } from "@/label/payload";
 import { matchLabeledBy } from "@/label/store";
 import { type Key, keyZ, type Label, labelZ, type New } from "@/label/types.gen";
 import { ontology } from "@/ontology";
+import { query } from "@/query";
 import { checkForMultipleOrNoResults } from "@/util/retrieve";
 
 export const SET_CHANNEL_NAME = "sy_label_set";
@@ -72,25 +72,25 @@ const isKeysOnly = (req: RetrieveRequest): req is RetrieveRequest & { keys: Key[
   req.offset == null;
 
 const createTable = (
-  engine: cache.Cache,
+  cache: query.Cache,
   refetch: (keys: Key[]) => Promise<Label[]>,
-): cache.Table<Key, Label> => {
-  const table = engine.createTable<Key, Label>({ name: "labels", refetch });
-  const set: cache.ChannelListener<typeof labelZ> = {
+): query.Table<Key, Label> => {
+  const table = cache.createTable<Key, Label>({ name: "labels", refetch });
+  const set: query.ChannelListener<typeof labelZ> = {
     channel: SET_CHANNEL_NAME,
     schema: labelZ,
     onChange: table.set.bind(table),
   };
-  const del: cache.ChannelListener<typeof keyZ> = {
+  const del: query.ChannelListener<typeof keyZ> = {
     channel: DELETE_CHANNEL_NAME,
     schema: keyZ,
     onChange: table.delete.bind(table),
   };
-  engine.addListeners(table, set, del);
+  cache.addListeners(table, set, del);
   return table;
 };
 
-export class Client extends cache.Reader<
+export class Client extends query.Retriever<
   RetrieveSingleParams,
   RetrieveMultipleParams,
   Key,
@@ -99,21 +99,18 @@ export class Client extends cache.Reader<
 > {
   readonly type: string = "label";
   /** The label record table; injected into sibling clients at wiring. */
-  readonly store: cache.Table<Key, Label>;
+  readonly store: query.Table<Key, Label>;
   private readonly client: UnaryClient;
-  private readonly relationships: cache.Table<string, ontology.Relationship>;
+  private readonly relationships: query.Table<string, ontology.Relationship>;
 
   constructor(
     client: UnaryClient,
-    engine: cache.Cache,
-    relationships: cache.Table<string, ontology.Relationship>,
+    cache: query.Cache,
+    relationships: query.Table<string, ontology.Relationship>,
   ) {
-    const store = createTable(
-      engine,
-      async (keys) => await this.execRetrieve({ keys }),
-    );
+    const store = createTable(cache, async (keys) => await this.execRetrieve({ keys }));
     super({
-      single: engine.answers({
+      single: cache.queries({
         name: "label",
         table: store,
         fetch: async (query) => [await this.fetchSingle(query)].map((l) => l.key),
@@ -121,7 +118,7 @@ export class Client extends cache.Reader<
         keyOf: (query) => query,
         single: true,
       }),
-      request: engine.answers({
+      request: cache.queries({
         name: "labels",
         table: store,
         fetch: async (query) => (await this.fetchRequest(query)).map((l) => l.key),
@@ -129,7 +126,7 @@ export class Client extends cache.Reader<
         matches: (label, query) => this.requestFilter(query)(label),
         serverFields: SERVER_FIELDS,
         watch: [
-          cache.watch(relationships, (event, query: RetrieveRequest) => {
+          query.watch(relationships, (event, query: RetrieveRequest) => {
             if (query.for == null) return null;
             const rel =
               event.variant === "set"
@@ -226,7 +223,7 @@ export class Client extends cache.Reader<
       this.store.set(fetched);
       results.push(...fetched);
     }
-    return cache.orderByKeys(keys, results, (l) => l.key);
+    return query.orderByKeys(keys, results, (l) => l.key);
   }
 
   private async fetchSingle(query: Key): Promise<Label> {

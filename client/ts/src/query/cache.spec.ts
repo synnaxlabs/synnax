@@ -12,9 +12,9 @@ import { type record, Series } from "@synnaxlabs/x";
 import { describe, expect, it, vi } from "vitest";
 import z from "zod";
 
-import { cache } from "@/cache";
 import { type channel } from "@/channel";
 import { framer } from "@/framer";
+import { query } from "@/query";
 
 interface Doc extends record.Keyed<string> {
   key: string;
@@ -56,7 +56,7 @@ class MockStreamer implements framer.Streamer {
 }
 
 const wrapOpener =
-  (opener: framer.StreamOpener): cache.StreamOpener =>
+  (opener: framer.StreamOpener): query.StreamOpener =>
   async (channels, { onOpen, onReopen }) => {
     const hardened = await framer.HardenedStreamer.open(
       opener,
@@ -69,7 +69,7 @@ const wrapOpener =
   };
 
 const makeEngine = (openStreamer?: framer.StreamOpener) =>
-  new cache.Cache({
+  new query.Cache({
     openStreamer: wrapOpener(openStreamer ?? (async () => new MockStreamer())),
     onInternalError: vi.fn(),
   });
@@ -77,57 +77,57 @@ const makeEngine = (openStreamer?: framer.StreamOpener) =>
 describe("Cache", () => {
   describe("detached", () => {
     it("creates purely local tables", () => {
-      const engine = new cache.Cache({ openStreamer: null });
-      expect(engine.detached).toBe(true);
-      const table = engine.createTable<string, number>({ name: "docs" });
+      const cache = new query.Cache({ openStreamer: null });
+      expect(cache.detached).toBe(true);
+      const table = cache.createTable<string, number>({ name: "docs" });
       table.set("a", 1);
       expect(table.get("a")).toEqual(1);
     });
 
     it("keeps ensureStreaming a no-op and stays at epoch 0", async () => {
-      const engine = new cache.Cache({ openStreamer: null });
-      engine.createTable<string, number>({ name: "docs" });
-      await engine.ensureStreaming();
-      expect(engine.epoch).toEqual(0);
-      const late = () => engine.createTable({ name: "late" });
+      const cache = new query.Cache({ openStreamer: null });
+      cache.createTable<string, number>({ name: "docs" });
+      await cache.ensureStreaming();
+      expect(cache.epoch).toEqual(0);
+      const late = () => cache.createTable({ name: "late" });
       expect(late).not.toThrow();
-      await engine.close();
+      await cache.close();
     });
   });
 
   describe("createTable", () => {
     it("returns a live table owned by the cache", () => {
-      const engine = makeEngine();
-      const table = engine.createTable<string, Doc>({ name: "docs" });
+      const cache = makeEngine();
+      const table = cache.createTable<string, Doc>({ name: "docs" });
       table.set("k1", { key: "k1", name: "a" });
       expect(table.get("k1")).toEqual({ key: "k1", name: "a" });
     });
 
     it("throws when creating a table after streaming has started", async () => {
-      const engine = makeEngine();
-      engine.createTable({ name: "docs" });
-      await engine.ensureStreaming();
-      expect(() => engine.createTable({ name: "late" })).toThrow("after streaming");
-      await engine.close();
+      const cache = makeEngine();
+      cache.createTable({ name: "docs" });
+      await cache.ensureStreaming();
+      expect(() => cache.createTable({ name: "late" })).toThrow("after streaming");
+      await cache.close();
     });
 
     it("throws when adding listeners to a foreign table", () => {
-      const engine = makeEngine();
-      const foreign = new cache.Table<string, Doc>(vi.fn());
-      expect(() => engine.addListeners(foreign)).toThrow("not created by this cache");
+      const cache = makeEngine();
+      const foreign = new query.Table<string, Doc>(vi.fn());
+      expect(() => cache.addListeners(foreign)).toThrow("not created by this cache");
     });
 
     it("throws when adding listeners after streaming has started", async () => {
-      const engine = makeEngine();
-      const table = engine.createTable({ name: "docs" });
-      await engine.ensureStreaming();
-      expect(() => engine.addListeners(table)).toThrow("after streaming");
-      await engine.close();
+      const cache = makeEngine();
+      const table = cache.createTable({ name: "docs" });
+      await cache.ensureStreaming();
+      expect(() => cache.addListeners(table)).toThrow("after streaming");
+      await cache.close();
     });
 
     it("silences sets whose value equals the cached row", () => {
-      const engine = makeEngine();
-      const table = engine.createTable<string, Doc>({ name: "docs" });
+      const cache = makeEngine();
+      const table = cache.createTable<string, Doc>({ name: "docs" });
       const listener = vi.fn();
       table.subscribe(listener);
       table.set("k1", { key: "k1", name: "a" });
@@ -139,8 +139,8 @@ describe("Cache", () => {
     });
 
     it("respects a custom equal override from the table config", () => {
-      const engine = makeEngine();
-      const table = engine.createTable<string, Doc>({
+      const cache = makeEngine();
+      const table = cache.createTable<string, Doc>({
         name: "docs",
         equal: (a, b) => a.name.toLowerCase() === b.name.toLowerCase(),
       });
@@ -155,36 +155,36 @@ describe("Cache", () => {
   describe("lazy streaming and epochs", () => {
     it("does not open the stream until ensureStreaming is called", async () => {
       const opener = vi.fn(async () => new MockStreamer());
-      const engine = makeEngine(opener);
-      engine.createTable({ name: "docs" });
+      const cache = makeEngine(opener);
+      cache.createTable({ name: "docs" });
       expect(opener).not.toHaveBeenCalled();
-      expect(engine.epoch).toBe(0);
-      await engine.ensureStreaming();
+      expect(cache.epoch).toBe(0);
+      await cache.ensureStreaming();
       expect(opener).toHaveBeenCalledTimes(1);
-      expect(engine.epoch).toBe(1);
-      await engine.close();
+      expect(cache.epoch).toBe(1);
+      await cache.close();
     });
 
     it("opens the stream once across concurrent ensureStreaming calls", async () => {
       const opener = vi.fn(async () => new MockStreamer());
-      const engine = makeEngine(opener);
+      const cache = makeEngine(opener);
       await Promise.all([
-        engine.ensureStreaming(),
-        engine.ensureStreaming(),
-        engine.ensureStreaming(),
+        cache.ensureStreaming(),
+        cache.ensureStreaming(),
+        cache.ensureStreaming(),
       ]);
       expect(opener).toHaveBeenCalledTimes(1);
-      expect(engine.epoch).toBe(1);
-      await engine.close();
+      expect(cache.epoch).toBe(1);
+      await cache.close();
     });
 
     it("notifies epoch listeners on first open", async () => {
-      const engine = makeEngine();
+      const cache = makeEngine();
       const epochs: number[] = [];
-      engine.onEpoch((epoch) => epochs.push(epoch));
-      await engine.ensureStreaming();
+      cache.onEpoch((epoch) => epochs.push(epoch));
+      await cache.ensureStreaming();
       expect(epochs).toEqual([1]);
-      await engine.close();
+      await cache.close();
     });
 
     it("routes streamed changes into the listener's table", async () => {
@@ -193,16 +193,16 @@ describe("Cache", () => {
         new MockStreamer([
           new framer.Frame({ docs_set: new Series([{ key: "k1", name: "remote" }]) }),
         ]);
-      const engine = makeEngine(opener);
-      const table = engine.createTable<string, Doc>({ name: "docs" });
-      engine.addListeners(table, {
+      const cache = makeEngine(opener);
+      const table = cache.createTable<string, Doc>({ name: "docs" });
+      cache.addListeners(table, {
         channel: "docs_set",
         schema,
         onChange: (changed) => table.set(changed.key, changed),
       });
-      await engine.ensureStreaming();
+      await cache.ensureStreaming();
       await expect.poll(() => table.get("k1")).toEqual({ key: "k1", name: "remote" });
-      await engine.close();
+      await cache.close();
     });
 
     it("bumps the epoch and reconciles after a stream reopen", async () => {
@@ -230,16 +230,16 @@ describe("Cache", () => {
         if (opens === 1) return failing;
         return new MockStreamer();
       };
-      const engine = makeEngine(opener);
-      const table = engine.createTable<string, Doc>({ name: "docs", refetch });
+      const cache = makeEngine(opener);
+      const table = cache.createTable<string, Doc>({ name: "docs", refetch });
       table.set([
         { key: "kept", name: "stale" },
         { key: "gone", name: "deleted-on-server" },
       ]);
       const epochs: number[] = [];
-      engine.onEpoch((epoch) => epochs.push(epoch));
-      await engine.ensureStreaming();
-      await expect.poll(() => engine.epoch).toBe(2);
+      cache.onEpoch((epoch) => epochs.push(epoch));
+      await cache.ensureStreaming();
+      await expect.poll(() => cache.epoch).toBe(2);
       expect(epochs).toEqual([1, 2]);
       await expect.poll(() => refetch.mock.calls.length).toBeGreaterThan(0);
       expect(refetch).toHaveBeenCalledWith(["kept", "gone"]);
@@ -249,45 +249,45 @@ describe("Cache", () => {
         name: "deleted-on-server",
       });
       expect(table.get("kept")).toEqual({ key: "kept", name: "kept-fresh" });
-      await engine.close();
+      await cache.close();
     });
   });
 
   describe("reconcile", () => {
     it("skips tables without a refetch", async () => {
-      const engine = makeEngine();
-      const table = engine.createTable<string, Doc>({ name: "docs" });
+      const cache = makeEngine();
+      const table = cache.createTable<string, Doc>({ name: "docs" });
       table.set("k1", { key: "k1", name: "a" });
-      await engine.reconcile();
+      await cache.reconcile();
       expect(table.get("k1")).toEqual({ key: "k1", name: "a" });
     });
 
     it("skips refetch when the table is empty", async () => {
       const refetch = vi.fn(async () => []);
-      const engine = makeEngine();
-      engine.createTable({ name: "docs", refetch });
-      await engine.reconcile();
+      const cache = makeEngine();
+      cache.createTable({ name: "docs", refetch });
+      await cache.reconcile();
       expect(refetch).not.toHaveBeenCalled();
     });
 
     it("continues reconciling other tables when one refetch fails", async () => {
-      const engine = makeEngine();
+      const cache = makeEngine();
       const goodRefetch = vi.fn(async (keys: string[]) =>
         keys.map((k) => ({ key: k, name: "fresh" })),
       );
-      const bad = engine.createTable<string, Doc>({
+      const bad = cache.createTable<string, Doc>({
         name: "bad",
         refetch: async () => {
           throw new Error("network");
         },
       });
-      const good = engine.createTable<string, Doc>({
+      const good = cache.createTable<string, Doc>({
         name: "good",
         refetch: goodRefetch,
       });
       bad.set("b1", { key: "b1", name: "a" });
       good.set("g1", { key: "g1", name: "stale" });
-      await engine.reconcile();
+      await cache.reconcile();
       expect(good.get("g1")).toEqual({ key: "g1", name: "fresh" });
       expect(bad.get("b1")).toEqual({ key: "b1", name: "a" });
     });

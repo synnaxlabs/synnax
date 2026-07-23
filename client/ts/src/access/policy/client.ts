@@ -19,8 +19,8 @@ import {
   type Policy,
   policyZ,
 } from "@/access/policy/types.gen";
-import { cache } from "@/cache";
 import { ontology } from "@/ontology";
+import { query } from "@/query";
 import { checkForMultipleOrNoResults } from "@/util/retrieve";
 
 export const SET_CHANNEL_NAME = "sy_policy_set";
@@ -103,23 +103,23 @@ const requestFilter = (req: RetrieveRequest): ((p: Policy) => boolean) => {
   };
 };
 
-const createTable = (engine: cache.Cache): cache.Table<Key, Policy> => {
-  const table = engine.createTable<Key, Policy>({ name: "policies" });
-  const set: cache.ChannelListener<typeof policyZ> = {
+const createTable = (cache: query.Cache): query.Table<Key, Policy> => {
+  const table = cache.createTable<Key, Policy>({ name: "policies" });
+  const set: query.ChannelListener<typeof policyZ> = {
     channel: SET_CHANNEL_NAME,
     schema: policyZ,
     onChange: (changed) => table.set(changed),
   };
-  const del: cache.ChannelListener<typeof keyZ> = {
+  const del: query.ChannelListener<typeof keyZ> = {
     channel: DELETE_CHANNEL_NAME,
     schema: keyZ,
     onChange: (changed) => table.delete(changed),
   };
-  engine.addListeners(table, set, del);
+  cache.addListeners(table, set, del);
   return table;
 };
 
-export class Client extends cache.Reader<
+export class Client extends query.Retriever<
   RetrieveSingleParams,
   RetrieveMultipleParams,
   Key,
@@ -127,17 +127,17 @@ export class Client extends cache.Reader<
   Policy
 > {
   private readonly client: UnaryClient;
-  private readonly store: cache.Table<Key, Policy>;
+  private readonly store: query.Table<Key, Policy>;
   private readonly ontology: ontology.Stores;
 
   constructor(
     client: UnaryClient,
-    engine: cache.Cache,
+    cache: query.Cache,
     ontologyStores: ontology.Stores,
   ) {
-    const store = createTable(engine);
+    const store = createTable(cache);
     super({
-      single: engine.answers({
+      single: cache.queries({
         name: "policy",
         table: store,
         fetch: async (query) => [await this.fetchSingle(query)].map((p) => p.key),
@@ -145,7 +145,7 @@ export class Client extends cache.Reader<
         keyOf: (query) => query,
         single: true,
       }),
-      request: engine.answers({
+      request: cache.queries({
         name: "policies",
         table: store,
         fetch: async (query) => (await this.fetchRequest(query)).map((p) => p.key),
@@ -176,12 +176,12 @@ export class Client extends cache.Reader<
     return isMany ? res.policies : res.policies[0];
   }
 
-  async delete(key: Key, opts?: cache.WriteOptions): Promise<void>;
-  async delete(keys: Key[], opts?: cache.WriteOptions): Promise<void>;
-  async delete(keys: Key | Key[], opts: cache.WriteOptions = {}): Promise<void> {
+  async delete(key: Key, opts?: query.WriteOptions): Promise<void>;
+  async delete(keys: Key[], opts?: query.WriteOptions): Promise<void>;
+  async delete(keys: Key | Key[], opts: query.WriteOptions = {}): Promise<void> {
     const keysArr = array.toArray(keys);
     const ids = ontologyID(keysArr);
-    const rollback = new cache.Rollback();
+    const rollback = new query.Rollback();
     rollback.add(ontology.deleteCachedResources(this.ontology, ids));
     rollback.add(this.store.delete(keysArr));
     await opts.onOptimistic?.();
@@ -200,10 +200,10 @@ export class Client extends cache.Reader<
     );
   }
 
-  async rename(key: Key, name: string, opts: cache.WriteOptions = {}): Promise<void> {
+  async rename(key: Key, name: string, opts: query.WriteOptions = {}): Promise<void> {
     const existing = await this.retrieve({ key });
-    const rollback = new cache.Rollback();
-    rollback.add(cache.partialUpdate(this.store, key, { name }));
+    const rollback = new query.Rollback();
+    rollback.add(query.partialUpdate(this.store, key, { name }));
     rollback.add(ontology.renameCachedResource(this.ontology, ontologyID(key), name));
     await opts.onOptimistic?.();
     await rollback.guard(async () => {
@@ -238,7 +238,7 @@ export class Client extends cache.Reader<
       this.store.set(fetched);
       results.push(...fetched);
     }
-    return cache.orderByKeys(keys, results, (p) => p.key);
+    return query.orderByKeys(keys, results, (p) => p.key);
   }
 
   private async fetchSingle(query: Key): Promise<Policy> {

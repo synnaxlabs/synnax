@@ -10,9 +10,9 @@
 import { DataType, errors, unique } from "@synnaxlabs/x";
 import type z from "zod";
 
-import { type ChannelListener } from "@/cache/table";
 import { NotFoundError } from "@/errors";
 import { type framer } from "@/framer";
+import { type ChannelListener } from "@/query/table";
 
 /**
  * Sorts channel names to ensure deletions are processed before other changes.

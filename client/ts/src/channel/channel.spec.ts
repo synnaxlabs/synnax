@@ -10,9 +10,9 @@
 import { DataType, id, TimeRange, TimeStamp } from "@synnaxlabs/x";
 import { beforeAll, describe, expect, it, test, vi } from "vitest";
 
-import { type cache } from "@/cache";
 import { Channel } from "@/channel/client";
 import { NotFoundError } from "@/errors";
+import { type query } from "@/query";
 import { createTestClient } from "@/testutil";
 
 const client = createTestClient();
@@ -429,7 +429,7 @@ describe("cached reads", () => {
 
     it("delivers a remote delete as a deleted result carrying the corpse", async () => {
       const ch = await createVirtual();
-      const results: Array<cache.Cached<Channel> | undefined> = [];
+      const results: Array<query.Cached<Channel> | undefined> = [];
       const off = client.channels.onChange({ key: ch.key }, (c) => results.push(c));
       try {
         await client.channels.retrieve(ch.key);

@@ -18,8 +18,8 @@ import {
 } from "@synnaxlabs/x";
 import { beforeAll, describe, expect, it, vi } from "vitest";
 
-import { type cache } from "@/cache";
 import { NotFoundError } from "@/errors";
+import { type query } from "@/query";
 import { ranger } from "@/ranger";
 import { createTestClient } from "@/testutil";
 
@@ -347,7 +347,7 @@ describe("range", () => {
   });
 });
 
-// A second client with its own engine: its writes reach the first client only
+// A second client with its own cache: its writes reach the first client only
 // through the cluster's change streams, never through a shared cache.
 const remote = createTestClient();
 
@@ -421,7 +421,7 @@ describe("cached reads", () => {
 
     it("delivers a remote delete as a deleted result carrying the corpse", async () => {
       const rng = await createRange();
-      const results: Array<cache.Cached<ranger.Range> | undefined> = [];
+      const results: Array<query.Cached<ranger.Range> | undefined> = [];
       const off = client.ranges.onChange(rng.key, (r) => results.push(r));
       try {
         await client.ranges.retrieve(rng.key);
