@@ -225,8 +225,9 @@ func (d *Driver) handleStart(ctx context.Context, cmd task.Command) {
 	}
 	if tsk.Rack != d.rack.Key {
 		// The task moved racks: the start deploys it on the new rack, and doubles
-		// as the teardown signal for the instance this driver still holds.
-		if d.release(cmd.Task) {
+		// as the teardown signal for the instance this driver still holds. The
+		// teardown is silent: the new rack's driver owns status reporting.
+		if d.release(cmd.Task, false) {
 			d.cfg.L.Info("stopped task moved to another rack",
 				zap.Stringer("task", cmd.Task),
 			)
@@ -364,7 +365,7 @@ func (d *Driver) configure(ctx context.Context, t task.Task) error {
 	d.mu.Unlock()
 
 	if hadExisting {
-		if err := existing.Stop(); err != nil {
+		if err := existing.Stop(false); err != nil {
 			d.cfg.L.Error("failed to stop existing task for reconfiguration",
 				zap.Stringer("task", t),
 				zap.Error(err),
@@ -399,14 +400,14 @@ func (d *Driver) configure(ctx context.Context, t task.Task) error {
 }
 
 func (d *Driver) delete(key task.Key) {
-	if d.release(key) {
+	if d.release(key, true) {
 		d.cfg.L.Info("deleted task", zap.Stringer("task", key))
 	}
 }
 
 // release stops and forgets the live instance for key, reporting whether one
 // existed.
-func (d *Driver) release(key task.Key) bool {
+func (d *Driver) release(key task.Key, sendStatus bool) bool {
 	d.mu.Lock()
 	t, ok := d.mu.tasks[key]
 	delete(d.mu.tasks, key)
@@ -415,7 +416,7 @@ func (d *Driver) release(key task.Key) bool {
 	if !ok {
 		return false
 	}
-	if err := t.Stop(); err != nil {
+	if err := t.Stop(sendStatus); err != nil {
 		d.cfg.L.Error(
 			"failed to stop task",
 			zap.Stringer("task", key),
@@ -428,7 +429,7 @@ func (d *Driver) release(key task.Key) bool {
 func (d *Driver) Close() error {
 	d.mu.Lock()
 	for key, t := range d.mu.tasks {
-		if err := t.Stop(); err != nil {
+		if err := t.Stop(true); err != nil {
 			d.cfg.L.Error(
 				"failed to stop task during shutdown",
 				zap.Stringer("task", key),

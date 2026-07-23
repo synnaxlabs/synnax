@@ -20,8 +20,9 @@ import (
 type Task interface {
 	// Exec handles commands (start, stop, etc.)
 	Exec(context.Context, task.Command) error
-	// Stop gracefully shuts down the task.
-	Stop() error
+	// Stop gracefully shuts down the task. When sendStatus is false the task
+	// emits no terminal status: a successor instance owns status reporting.
+	Stop(sendStatus bool) error
 }
 
 // ErrUnsupportedCommand is returned when a command is not supported by a task.

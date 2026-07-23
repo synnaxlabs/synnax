@@ -395,7 +395,7 @@ var _ = Describe("Task", Ordered, func() {
 					ConfigureTask(ctx, svcTask),
 			)
 			Expect(t).ToNot(BeNil())
-			defer func() { Expect(t.Stop()).To(Succeed()) }()
+			defer func() { Expect(t.Stop(true)).To(Succeed()) }()
 			var stat task.Status
 			Expect(status.NewRetrieve[task.StatusDetails](statusSvc).
 				Where(status.MatchKeys[task.StatusDetails](task.OntologyID(svcTask.Key).String())).
@@ -425,12 +425,41 @@ var _ = Describe("Task", Ordered, func() {
 				simpleGraph(ch.Key())).
 				ConfigureTask(ctx, svcTask))
 			Expect(t).ToNot(BeNil())
-			defer func() { Expect(t.Stop()).To(Succeed()) }()
+			defer func() { Expect(t.Stop(true)).To(Succeed()) }()
 			var stat task.Status
 			Expect(status.NewRetrieve[task.StatusDetails](statusSvc).
 				Where(status.MatchKeys[task.StatusDetails](task.OntologyID(svcTask.Key).String())).
 				Entry(&stat).Exec(ctx, nil)).To(Succeed())
 			Expect(stat.Variant).To(BeEquivalentTo("success"))
+			Expect(stat.Message).To(Equal("Task started successfully"))
+			Expect(stat.Details.Running).To(BeTrue())
+		})
+
+		It("Should not write a terminal status when stopped silently", func(ctx SpecContext) {
+			ch := &channel.Channel{
+				Name:     "silent_stop_test_ch_" + uuid.NewString()[:8],
+				Virtual:  true,
+				DataType: telem.Float32T,
+			}
+			Expect(channelWriter.Create(ctx, ch)).To(Succeed())
+			svcTask := task.Task{
+				Key:  uuid.New(),
+				Name: "test-silent-stop",
+				Type: arctask.Type,
+				Config: configToMap(arctask.Config{
+					ArcKey:    uuid.New(),
+					AutoStart: true,
+				}),
+			}
+			t := MustSucceed(newGraphFactory(
+				simpleGraph(ch.Key())).
+				ConfigureTask(ctx, svcTask))
+			Expect(t).ToNot(BeNil())
+			Expect(t.Stop(false)).To(Succeed())
+			var stat task.Status
+			Expect(status.NewRetrieve[task.StatusDetails](statusSvc).
+				Where(status.MatchKeys[task.StatusDetails](task.OntologyID(svcTask.Key).String())).
+				Entry(&stat).Exec(ctx, nil)).To(Succeed())
 			Expect(stat.Message).To(Equal("Task started successfully"))
 			Expect(stat.Details.Running).To(BeTrue())
 		})
@@ -504,7 +533,7 @@ var _ = Describe("Task", Ordered, func() {
 
 		AfterEach(func() {
 			if arcTask != nil {
-				Expect(arcTask.Stop()).To(Succeed())
+				Expect(arcTask.Stop(true)).To(Succeed())
 			}
 		})
 
@@ -523,8 +552,8 @@ var _ = Describe("Task", Ordered, func() {
 		})
 
 		It("Should be idempotent on stop", func(ctx SpecContext) {
-			Expect(arcTask.Stop()).To(Succeed())
-			Expect(arcTask.Stop()).To(Succeed())
+			Expect(arcTask.Stop(true)).To(Succeed())
+			Expect(arcTask.Stop(true)).To(Succeed())
 		})
 
 		It("Should support restart after stop", func(ctx SpecContext) {
@@ -608,7 +637,7 @@ var _ = Describe("Task", Ordered, func() {
 
 			t := newTask(ctx, newGraphFactory(alarmGraph))
 			Expect(t.Exec(ctx, task.Command{Type: "start"})).To(Succeed())
-			defer func() { Expect(t.Stop()).To(Succeed()) }()
+			defer func() { Expect(t.Stop(true)).To(Succeed()) }()
 
 			time.Sleep(20 * time.Millisecond)
 
@@ -657,7 +686,7 @@ var _ = Describe("Task", Ordered, func() {
 			}
 			t := MustSucceed(newTextFactory(ctx, prog).ConfigureTask(ctx, svcTask))
 			Expect(t.Exec(ctx, task.Command{Type: "start"})).To(Succeed())
-			defer func() { Expect(t.Stop()).To(Succeed()) }()
+			defer func() { Expect(t.Stop(true)).To(Succeed()) }()
 
 			time.Sleep(20 * time.Millisecond)
 			w := MustSucceed(framerSvc.OpenWriter(ctx, framer.WriterConfig{
@@ -730,7 +759,7 @@ var _ = Describe("Task", Ordered, func() {
 			}
 			t := MustSucceed(newGraphFactory(reportGraph).ConfigureTask(ctx, svcTask))
 			Expect(t.Exec(ctx, task.Command{Type: "start"})).To(Succeed())
-			defer func() { Expect(t.Stop()).To(Succeed()) }()
+			defer func() { Expect(t.Stop(true)).To(Succeed()) }()
 
 			time.Sleep(20 * time.Millisecond)
 			fw := MustSucceed(framerSvc.OpenWriter(ctx, framer.WriterConfig{
@@ -783,7 +812,7 @@ var _ = Describe("Task", Ordered, func() {
 
 			t := newTask(ctx, newTextFactory(ctx, prog))
 			Expect(t.Exec(ctx, task.Command{Type: "start"})).To(Succeed())
-			defer func() { Expect(t.Stop()).To(Succeed()) }()
+			defer func() { Expect(t.Stop(true)).To(Succeed()) }()
 
 			var fr framer.StreamerResponse
 			Eventually(responses).Should(Receive(&fr))
@@ -823,7 +852,7 @@ var _ = Describe("Task", Ordered, func() {
 
 			t := newTask(ctx, newTextFactory(ctx, prog))
 			Expect(t.Exec(ctx, task.Command{Type: "start"})).To(Succeed())
-			defer func() { Expect(t.Stop()).To(Succeed()) }()
+			defer func() { Expect(t.Stop(true)).To(Succeed()) }()
 
 			w := MustSucceed(framerSvc.OpenWriter(ctx, framer.WriterConfig{
 				Start: telem.Now(),
@@ -855,7 +884,7 @@ var _ = Describe("Task", Ordered, func() {
 
 			t := newTask(ctx, newTextFactory(ctx, prog))
 			Expect(t.Exec(ctx, task.Command{Type: "start"})).To(Succeed())
-			defer func() { Expect(t.Stop()).To(Succeed()) }()
+			defer func() { Expect(t.Stop(true)).To(Succeed()) }()
 
 			var fr framer.StreamerResponse
 			Eventually(responses).Should(Receive(&fr))
@@ -888,7 +917,7 @@ var _ = Describe("Task", Ordered, func() {
 
 			t := newTask(ctx, newTextFactory(ctx, prog))
 			Expect(t.Exec(ctx, task.Command{Type: "start"})).To(Succeed())
-			defer func() { Expect(t.Stop()).To(Succeed()) }()
+			defer func() { Expect(t.Stop(true)).To(Succeed()) }()
 
 			var (
 				fr     framer.StreamerResponse
@@ -922,7 +951,7 @@ var _ = Describe("Task", Ordered, func() {
 			t := newTask(ctx, newTextFactory(ctx, prog))
 			Expect(t.Exec(ctx, task.Command{Type: "start"})).To(Succeed())
 			time.Sleep(50 * time.Millisecond)
-			Expect(t.Stop()).To(Succeed())
+			Expect(t.Stop(true)).To(Succeed())
 		})
 	})
 
@@ -938,7 +967,7 @@ var _ = Describe("Task", Ordered, func() {
 
 			t := newTask(ctx, newTextFactory(ctx, prog))
 			Expect(t.Exec(ctx, task.Command{Type: "start"})).To(Succeed())
-			defer func() { Expect(t.Stop()).To(Succeed()) }()
+			defer func() { Expect(t.Stop(true)).To(Succeed()) }()
 
 			var fr framer.StreamerResponse
 			Eventually(responses).Should(Receive(&fr))
@@ -969,7 +998,7 @@ var _ = Describe("Task", Ordered, func() {
 
 			t := newTask(ctx, newTextFactory(ctx, prog))
 			Expect(t.Exec(ctx, task.Command{Type: "start"})).To(Succeed())
-			defer func() { Expect(t.Stop()).To(Succeed()) }()
+			defer func() { Expect(t.Stop(true)).To(Succeed()) }()
 
 			var gotConst, gotExpr bool
 			for !gotConst || !gotExpr {
@@ -1025,7 +1054,7 @@ var _ = Describe("Task", Ordered, func() {
 
 			t := newTask(ctx, newTextFactory(ctx, prog))
 			Expect(t.Exec(ctx, task.Command{Type: "start"})).To(Succeed())
-			defer func() { Expect(t.Stop()).To(Succeed()) }()
+			defer func() { Expect(t.Stop(true)).To(Succeed()) }()
 
 			var (
 				fr         framer.StreamerResponse
@@ -1070,7 +1099,7 @@ var _ = Describe("Task", Ordered, func() {
 
 			t := newTask(ctx, newTextFactory(ctx, prog))
 			Expect(t.Exec(ctx, task.Command{Type: "start"})).To(Succeed())
-			defer func() { Expect(t.Stop()).To(Succeed()) }()
+			defer func() { Expect(t.Stop(true)).To(Succeed()) }()
 
 			var fr framer.StreamerResponse
 			Eventually(responses).Should(Receive(&fr))
@@ -1102,7 +1131,7 @@ var _ = Describe("Task", Ordered, func() {
 
 			t := newTask(ctx, newTextFactory(ctx, prog))
 			Expect(t.Exec(ctx, task.Command{Type: "start"})).To(Succeed())
-			defer func() { Expect(t.Stop()).To(Succeed()) }()
+			defer func() { Expect(t.Stop(true)).To(Succeed()) }()
 
 			var fr framer.StreamerResponse
 			Eventually(responses).Should(Receive(&fr))
@@ -1133,7 +1162,7 @@ var _ = Describe("Task", Ordered, func() {
 
 			t := newTask(ctx, newTextFactory(ctx, prog))
 			Expect(t.Exec(ctx, task.Command{Type: "start"})).To(Succeed())
-			defer func() { Expect(t.Stop()).To(Succeed()) }()
+			defer func() { Expect(t.Stop(true)).To(Succeed()) }()
 
 			var fr framer.StreamerResponse
 			Eventually(responses).Should(Receive(&fr))
@@ -1167,7 +1196,7 @@ var _ = Describe("Task", Ordered, func() {
 
 			t := newTask(ctx, newTextFactory(ctx, prog))
 			Expect(t.Exec(ctx, task.Command{Type: "start"})).To(Succeed())
-			defer func() { Expect(t.Stop()).To(Succeed()) }()
+			defer func() { Expect(t.Stop(true)).To(Succeed()) }()
 
 			var fr framer.StreamerResponse
 			Eventually(responses).Should(Receive(&fr))
@@ -1208,7 +1237,7 @@ var _ = Describe("Task", Ordered, func() {
 
 			t := newTask(ctx, newTextFactory(ctx, prog))
 			Expect(t.Exec(ctx, task.Command{Type: "start"})).To(Succeed())
-			defer func() { Expect(t.Stop()).To(Succeed()) }()
+			defer func() { Expect(t.Stop(true)).To(Succeed()) }()
 
 			var fr framer.StreamerResponse
 			Eventually(responses).Should(Receive(&fr))
@@ -1244,7 +1273,7 @@ var _ = Describe("Task", Ordered, func() {
 
 			t := newTask(ctx, newTextFactory(ctx, prog))
 			Expect(t.Exec(ctx, task.Command{Type: "start"})).To(Succeed())
-			defer func() { Expect(t.Stop()).To(Succeed()) }()
+			defer func() { Expect(t.Stop(true)).To(Succeed()) }()
 
 			var fr framer.StreamerResponse
 			Eventually(responses).Should(Receive(&fr))
@@ -1298,7 +1327,7 @@ var _ = Describe("Task", Ordered, func() {
 
 			t := newTask(ctx, newTextFactory(ctx, prog))
 			Expect(t.Exec(ctx, task.Command{Type: "start"})).To(Succeed())
-			defer func() { Expect(t.Stop()).To(Succeed()) }()
+			defer func() { Expect(t.Stop(true)).To(Succeed()) }()
 
 			var fr framer.StreamerResponse
 			Eventually(responses).Should(Receive(&fr))
@@ -1361,7 +1390,7 @@ var _ = Describe("Task", Ordered, func() {
 
 			t := newTask(ctx, newTextFactory(ctx, prog))
 			Expect(t.Exec(ctx, task.Command{Type: "start"})).To(Succeed())
-			defer func() { Expect(t.Stop()).To(Succeed()) }()
+			defer func() { Expect(t.Stop(true)).To(Succeed()) }()
 
 			var fr framer.StreamerResponse
 			Eventually(responses).Should(Receive(&fr))
@@ -1390,7 +1419,7 @@ var _ = Describe("Task", Ordered, func() {
 
 			t := newTask(ctx, newTextFactory(ctx, prog))
 			Expect(t.Exec(ctx, task.Command{Type: "start"})).To(Succeed())
-			defer func() { Expect(t.Stop()).To(Succeed()) }()
+			defer func() { Expect(t.Stop(true)).To(Succeed()) }()
 
 			startW := MustSucceed(framerSvc.OpenWriter(ctx, framer.WriterConfig{
 				Keys:  channel.Keys{startSignal.Key()},
@@ -1450,7 +1479,7 @@ var _ = Describe("Task", Ordered, func() {
 
 			t := newTask(ctx, newTextFactory(ctx, prog))
 			Expect(t.Exec(ctx, task.Command{Type: "start"})).To(Succeed())
-			defer func() { Expect(t.Stop()).To(Succeed()) }()
+			defer func() { Expect(t.Stop(true)).To(Succeed()) }()
 
 			startW := MustSucceed(framerSvc.OpenWriter(ctx, framer.WriterConfig{
 				Keys:  channel.Keys{startSignal.Key()},
@@ -1514,7 +1543,7 @@ var _ = Describe("Task", Ordered, func() {
 			t := MustSucceed(newTextFactory(ctx, prog).ConfigureTask(ctx, svcTask))
 			Expect(t.Exec(ctx, task.Command{Type: "start"})).To(Succeed())
 			defer func() {
-				Expect(t.Stop()).To(Succeed())
+				Expect(t.Stop(true)).To(Succeed())
 			}()
 
 			time.Sleep(20 * time.Millisecond)
@@ -1572,7 +1601,7 @@ var _ = Describe("Task", Ordered, func() {
 
 			t := newTask(ctx, newTextFactory(ctx, prog))
 			Expect(t.Exec(ctx, task.Command{Type: "start"})).To(Succeed())
-			defer func() { Expect(t.Stop()).To(Succeed()) }()
+			defer func() { Expect(t.Stop(true)).To(Succeed()) }()
 
 			time.Sleep(20 * time.Millisecond)
 
@@ -1638,7 +1667,7 @@ var _ = Describe("Task", Ordered, func() {
 			defer closeStreamer()
 
 			Expect(t.Exec(ctx, task.Command{Type: "start"})).To(Succeed())
-			defer func() { Expect(t.Stop()).To(Succeed()) }()
+			defer func() { Expect(t.Stop(true)).To(Succeed()) }()
 
 			time.Sleep(20 * time.Millisecond)
 

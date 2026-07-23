@@ -165,7 +165,7 @@ var _ = Describe("Factory", func() {
 					Expect(stat.Variant).To(BeEquivalentTo("success"))
 					Expect(stat.Message).To(Equal("Task configured successfully"))
 					Expect(stat.Details.Running).To(BeFalse())
-					Expect(tsk.Stop()).To(Succeed())
+					Expect(tsk.Stop(true)).To(Succeed())
 				},
 			)
 
@@ -190,7 +190,7 @@ var _ = Describe("Factory", func() {
 				Expect(stat.Variant).To(BeEquivalentTo("success"))
 				Expect(stat.Message).To(Equal("Task started successfully"))
 				Expect(stat.Details.Running).To(BeTrue())
-				Expect(tsk.Stop()).To(Succeed())
+				Expect(tsk.Stop(true)).To(Succeed())
 			})
 		})
 
