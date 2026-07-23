@@ -236,9 +236,12 @@ drifted = task.config_hash != status.details.config_hash
 The driver reports its rack in status details alongside the hash, and the Console shows
 the same redeploy control as for config drift. Redeploy sends `start`: the new driver
 builds from the task and runs, while the old driver, holding a live instance whose task
-now names a different rack, stops and frees it (the teardown clause in 3.7). The two
-drivers are not serialized, so both instances may briefly exist; channel write authority
-arbitrates during the window (open question, section 9).
+now names a different rack, stops and frees it (the teardown clause in 3.7). The
+teardown is silent, emitting no terminal status: the new driver owns status reporting
+from that point, and a late "stopped" write must never clobber its statuses. The same
+suppression already applies to the stop inside a same-rack rebuild. The two drivers are
+not serialized, so both instances may briefly exist; channel write authority arbitrates
+during the window (open question, section 9).
 
 For a stopped task, a rack change does nothing anywhere. The next start simply lands on
 the new rack.
