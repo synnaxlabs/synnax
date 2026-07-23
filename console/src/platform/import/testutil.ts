@@ -56,7 +56,7 @@ export const createDataTransferItemContext = async (
   ...overrides,
 });
 
-export interface FakeDataTransferItemArgs {
+export interface FakeDataTransferItemParams {
   /** The item kind; anything other than "file" makes the import path reject it. */
   kind?: string;
   /** The FileSystemEntry-shaped value webkitGetAsEntry returns. */
@@ -74,7 +74,7 @@ export const fakeDataTransferItem = ({
   kind = "file",
   entry = null,
   file = null,
-}: FakeDataTransferItemArgs = {}): DataTransferItem =>
+}: FakeDataTransferItemParams = {}): DataTransferItem =>
   ({
     kind,
     webkitGetAsEntry: () => entry,

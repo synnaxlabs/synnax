@@ -53,7 +53,7 @@ const IndividualConfig = ({ nodeKey }: IndividualConfigProps): ReactElement | nu
     values: initialValues,
     sync: true,
     onChange: useCallback(
-      ({ values: config }: Form.OnChangeArgs<typeof Arc.Graph.Node.configZ>) =>
+      ({ values: config }: Form.OnChangeParams<typeof Arc.Graph.Node.configZ>) =>
         dispatch(arc.setNodeInputs({ key: nodeKey, inputs: deep.copy(config) })),
       [dispatch, nodeKey],
     ),

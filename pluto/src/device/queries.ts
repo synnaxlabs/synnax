@@ -243,9 +243,12 @@ export const useList = Flux.createList<
   ],
 });
 
-export type UseDeleteArgs = device.Key | device.Key[];
+export type UseDeleteParams = device.Key | device.Key[];
 
-export const { useUpdate: useDelete } = Flux.createUpdate<UseDeleteArgs, FluxSubStore>({
+export const { useUpdate: useDelete } = Flux.createUpdate<
+  UseDeleteParams,
+  FluxSubStore
+>({
   name: RESOURCE_NAME,
   verbs: Flux.DELETE_VERBS,
   update: async ({ client, data, store, rollbacks, onOptimisticComplete }) => {
@@ -287,10 +290,10 @@ export const createCreate = <
 
 export const { useUpdate: useCreate } = createCreate();
 
-export type UseRetrieveGroupArgs = Record<string, never>;
+export type UseRetrieveGroupParams = Record<string, never>;
 
 export const { useRetrieve: useRetrieveGroupID } = Flux.createRetrieve<
-  UseRetrieveGroupArgs,
+  UseRetrieveGroupParams,
   ontology.ID | undefined,
   FluxSubStore
 >({

@@ -41,10 +41,10 @@ const createChannel = (
     ...overrides,
   }) as NI.Task.AOChannel;
 
-const renderAnalogWrite = async (args = {}) =>
+const renderAnalogWrite = async (params = {}) =>
   await renderNITaskForm(NI.Task.AnalogWrite, NI.Task.ANALOG_WRITE_TYPE, {
     client,
-    args,
+    params,
   });
 
 const createConfig = (

@@ -24,7 +24,7 @@ import {
 const COMMAND_PREFIX = ">";
 const PLACEHOLDER = <>Type {COMMAND_PREFIX} to view commands</>;
 
-export interface RenderPaletteArgs {
+export interface RenderPaletteParams {
   commands?: Command.Command[];
   client?: Client | null;
   preloadedState?: ConsolePreloadedState;
@@ -78,7 +78,7 @@ export const renderPalette = async ({
   preloadedState,
   fileIngesters = {},
   extractors = {},
-}: RenderPaletteArgs = {}): Promise<PaletteHandle> => {
+}: RenderPaletteParams = {}): Promise<PaletteHandle> => {
   const { wrapper, store } = await createConsoleWrapper({ client, preloadedState });
   render(
     <Import.FileIngestersProvider fileIngesters={fileIngesters}>

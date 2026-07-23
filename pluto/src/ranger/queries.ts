@@ -927,13 +927,13 @@ const requireRange = (store: FluxSubStore, key: ranger.Key): ranger.Range => {
   return rng;
 };
 
-export interface SelectKeyArgs {
+export interface SelectKeyParams {
   key: ranger.Key;
 }
 
 export const [useSelectName, useGetName] = Flux.createSelector<
   FluxSubStore,
-  SelectKeyArgs,
+  SelectKeyParams,
   string
 >({
   subscribe: (store, { key }, notify) => store.ranges.onSet(notify, key),

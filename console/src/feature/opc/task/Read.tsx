@@ -137,7 +137,7 @@ const getInitialValues: Task.GetInitialValues<ReadSchemas> = ({
   };
 };
 
-interface DetermineIndexChannelArgs {
+interface DetermineIndexChannelParams {
   client: Synnax;
   config: ReadConfig;
   device: Device.Device;
@@ -149,7 +149,7 @@ const determineIndexChannel = async ({
   config,
   device,
   taskName,
-}: DetermineIndexChannelArgs): Promise<channel.Key> => {
+}: DetermineIndexChannelParams): Promise<channel.Key> => {
   const indexChannelInTaskConfig = config.channels.find(({ useAsIndex }) => useAsIndex);
   if (indexChannelInTaskConfig) {
     const existingIndex = getChannelByNodeID(

@@ -26,7 +26,7 @@ export interface SelectPortProps
       Select.SingleProps<string, Port | undefined>,
       "resourceName" | "data" | "children"
     >,
-    Omit<List.UseStaticDataArgs<string, Port>, "data"> {
+    Omit<List.UseStaticDataParams<string, Port>, "data"> {
   model: Model;
   portType: PortType;
   children?: ReactNode;

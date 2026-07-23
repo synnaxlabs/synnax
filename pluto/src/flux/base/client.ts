@@ -23,7 +23,7 @@ import { type Query } from "@/flux/base/types";
 import { type state } from "@/state";
 import { type status } from "@/status/aether";
 
-interface ClientArgs<ScopedStore extends Store> {
+interface ClientParams<ScopedStore extends Store> {
   client: Synnax | null;
   openStreamer?: framer.StreamOpener;
   storeConfig: StoreConfig<ScopedStore>;
@@ -48,7 +48,7 @@ export class Client<ScopedStore extends Store = Store> {
     storeConfig,
     handleError,
     handleAsyncError,
-  }: ClientArgs<ScopedStore>) {
+  }: ClientParams<ScopedStore>) {
     this.store = createStore(storeConfig, handleError);
     this.client = client;
     if (client == null) return;

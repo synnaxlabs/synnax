@@ -99,10 +99,12 @@ export interface CreateListParams<
   Store extends flux.Store,
 > extends Omit<CreateRetrieveParams<Query, E[], Store>, "mountListeners"> {
   sort?: compare.Comparator<E>;
-  retrieveByKey: (args: RetrieveByKeyParams<Query, K, Store>) => Promise<E | undefined>;
-  retrieveCached?: (args: RetrieveCachedParams<Query, Store>) => E[];
+  retrieveByKey: (
+    params: RetrieveByKeyParams<Query, K, Store>,
+  ) => Promise<E | undefined>;
+  retrieveCached?: (params: RetrieveCachedParams<Query, Store>) => E[];
   mountListeners?: (
-    args: ListMountListenersParams<Query, K, E, Store>,
+    params: ListMountListenersParams<Query, K, E, Store>,
   ) => destructor.Destructor | destructor.Destructor[];
 }
 
@@ -123,7 +125,7 @@ export interface UseList<
   K extends record.Key,
   E extends record.Keyed<K>,
 > {
-  (args?: UseListParams<Query, K, E>): UseListReturn<Query, K, E>;
+  (params?: UseListParams<Query, K, E>): UseListReturn<Query, K, E>;
 }
 
 type ListChangeMode = "prepend" | "append" | "replace";
@@ -468,7 +470,7 @@ export const createList =
     };
   };
 
-export interface UseListItemArgs<
+export interface UseListItemParams<
   K extends record.Key,
   E extends record.Keyed<K>,
 > extends Pick<UseListReturn<base.Query, K, E>, "subscribe" | "getItem"> {
@@ -479,7 +481,7 @@ export const useListItem = <K extends record.Key, E extends record.Keyed<K>>({
   key,
   subscribe,
   getItem,
-}: UseListItemArgs<K, E>) =>
+}: UseListItemParams<K, E>) =>
   useSyncExternalStore(
     useCallback((callback) => subscribe(callback, key), [subscribe, key]),
     useCallback(() => getItem(key), [getItem, key]),

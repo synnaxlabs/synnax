@@ -21,13 +21,13 @@ export interface DownloadLine {
   channels: { x?: channel.Key; y: channel.Key };
 }
 
-export interface DownloadAsCSVArgs {
+export interface DownloadAsCSVParams {
   timeRanges: TimeRange[];
   lines: DownloadLine[];
   name: string;
 }
 
-export const useDownloadAsCSV = (): ((args: DownloadAsCSVArgs) => void) => {
+export const useDownloadAsCSV = (): ((params: DownloadAsCSVParams) => void) => {
   const openDownloadCSVModal = CSV.useDownloadModal();
   const handleError = Status.useErrorHandler();
   return useCallback(

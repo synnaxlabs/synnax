@@ -219,12 +219,12 @@ const baseObjects = [
   access.policy.TYPE_ONTOLOGY_ID,
 ];
 
-interface SetupArgs {
+interface SetupParams {
   editable: boolean;
   userClient?: Synnax;
 }
 
-const setup = async ({ editable, userClient = client }: SetupArgs) => {
+const setup = async ({ editable, userClient = client }: SetupParams) => {
   const { wrapper: Wrapper } = await createConsoleWrapper({
     client: userClient,
     preloadedState: {

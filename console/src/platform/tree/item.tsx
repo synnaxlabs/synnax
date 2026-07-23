@@ -68,7 +68,7 @@ const DefaultRow = ({
 
 const noop = (): void => {};
 
-export interface CreateItemArgs {
+export interface CreateItemParams {
   type: ontology.ResourceType;
   icon?: Icon.ReactElement | ((resource: ontology.Resource) => Icon.ReactElement);
   useOnSelect?: () => (resource: ontology.Resource) => void;
@@ -90,7 +90,7 @@ export const createItem = ({
   ContextMenu,
   visible,
   Content: ContentComp,
-}: CreateItemArgs): Item => {
+}: CreateItemParams): Item => {
   const Row = ContentComp ?? DefaultRow;
   const Component = (props: ItemProps): ReactElement => {
     const onSelect = useOnSelect();

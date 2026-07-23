@@ -138,7 +138,7 @@ const CellForm = ({ cellKey }: CellFormProps): ReactElement | null => {
   );
 
   const handleChange = useCallback(
-    ({ values }: Form.OnChangeArgs<ReturnType<typeof record.unknownZ>>) => {
+    ({ values }: Form.OnChangeParams<ReturnType<typeof record.unknownZ>>) => {
       if (cell == null) return;
       dispatch([
         table.setCell({

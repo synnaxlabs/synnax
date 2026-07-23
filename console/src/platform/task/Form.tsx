@@ -42,7 +42,7 @@ export interface OnConfigure<Config extends z.ZodType = z.ZodType> {
   ): Promise<[z.infer<Config>, rack.Key]>;
 }
 
-export const formArgsZ = z.object({
+export const formParamsZ = z.object({
   deviceKey: z.string().optional(),
   taskKey: z.string().optional(),
   rackKey: z.number().optional(),
@@ -53,17 +53,17 @@ export const formArgsZ = z.object({
   name: z.string().optional(),
 });
 
-export interface FormViewArgs extends z.infer<typeof formArgsZ> {}
+export interface FormViewParams extends z.infer<typeof formParamsZ> {}
 
-const useFormArgs = PlutoPanel.createSelectTabArgs(formArgsZ);
+const useFormArgs = PlutoPanel.createSelectTabArgs(formParamsZ);
 
-export interface getInitialValuesArgs {
+export interface getInitialValuesParams {
   deviceKey?: device.Key;
   config?: unknown;
 }
 
 export interface GetInitialValues<S extends task.Schemas = task.Schemas> {
-  (args: getInitialValuesArgs): PTask.InitialValues<S>;
+  (params: getInitialValuesParams): PTask.InitialValues<S>;
 }
 
 export interface FormProps<
@@ -73,7 +73,7 @@ export interface FormProps<
   onConfigure: () => void;
 }
 
-export interface WrapFormArgs<S extends task.Schemas = task.Schemas> {
+export interface WrapFormParams<S extends task.Schemas = task.Schemas> {
   Properties?: FC<{}>;
   Form: FC<FormProps<S>>;
   type: z.infer<S["type"]>;
@@ -120,11 +120,11 @@ export const wrapForm = <S extends task.Schemas = task.Schemas>({
   onConfigure,
   showHeader = true,
   showControls = true,
-}: WrapFormArgs<S>): Panel.Tab => {
+}: WrapFormParams<S>): Panel.Tab => {
   const defaultName = getInitialValues({}).name;
   const useSyncName = (
     form: PForm.ContextValue<PTask.FormSchema<S>>,
-    { deviceKey, taskKey, rackKey, config, name }: FormViewArgs,
+    { deviceKey, taskKey, rackKey, config, name }: FormViewParams,
   ): void => {
     const { set } = form;
     const setView = PlutoPanel.useSetCurrentTabView();

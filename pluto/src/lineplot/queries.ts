@@ -73,7 +73,7 @@ export const {
   ],
 });
 
-export interface SelectKeyArgs {
+export interface SelectKeyParams {
   key: lineplot.Key;
 }
 
@@ -84,35 +84,35 @@ const requireLinePlot = (store: FluxSubStore, key: lineplot.Key): lineplot.LineP
 };
 
 export const [useSelectName, useGetName] = Scope.bindSelector(
-  Flux.createSelector<FluxSubStore, SelectKeyArgs, string>({
+  Flux.createSelector<FluxSubStore, SelectKeyParams, string>({
     subscribe: (store, { key }, notify) => store.lineplots.onSet(notify, key),
     select: (store, { key }) => requireLinePlot(store, key).name,
   }),
 );
 
 export const [useSelectTitle, useGetTitle] = Scope.bindSelector(
-  Flux.createSelector<FluxSubStore, SelectKeyArgs, lineplot.Title>({
+  Flux.createSelector<FluxSubStore, SelectKeyParams, lineplot.Title>({
     subscribe: (store, { key }, notify) => store.lineplots.onSet(notify, key),
     select: (store, { key }) => requireLinePlot(store, key).title,
   }),
 );
 
 export const [useSelectLegend, useGetLegend] = Scope.bindSelector(
-  Flux.createSelector<FluxSubStore, SelectKeyArgs, lineplot.Legend>({
+  Flux.createSelector<FluxSubStore, SelectKeyParams, lineplot.Legend>({
     subscribe: (store, { key }, notify) => store.lineplots.onSet(notify, key),
     select: (store, { key }) => requireLinePlot(store, key).legend,
   }),
 );
 
 export const [useSelectRanges, useGetRanges] = Scope.bindSelector(
-  Flux.createSelector<FluxSubStore, SelectKeyArgs, lineplot.Ranges>({
+  Flux.createSelector<FluxSubStore, SelectKeyParams, lineplot.Ranges>({
     subscribe: (store, { key }, notify) => store.lineplots.onSet(notify, key),
     select: (store, { key }) => requireLinePlot(store, key).ranges,
   }),
 );
 
 export const [useSelectAxes, useGetAxes] = Scope.bindSelector(
-  Flux.createSelector<FluxSubStore, SelectKeyArgs, lineplot.Axes>({
+  Flux.createSelector<FluxSubStore, SelectKeyParams, lineplot.Axes>({
     subscribe: (store, { key }, notify) => store.lineplots.onSet(notify, key),
     select: (store, { key }) => requireLinePlot(store, key).axes,
   }),
@@ -133,7 +133,7 @@ const shouldDisplayAxis = (
 // on membership changes rather than on every channel edit.
 const createAxisKeysSelector = <K extends lineplot.AxisKey>(keys: readonly K[]) =>
   Scope.bindSelector(
-    Flux.createSelector<FluxSubStore, SelectKeyArgs, K[], lineplot.Channels>({
+    Flux.createSelector<FluxSubStore, SelectKeyParams, K[], lineplot.Channels>({
       subscribe: (store, { key }, notify) => store.lineplots.onSet(notify, key),
       select: (store, { key }) => requireLinePlot(store, key).channels,
       transform: (channels) => keys.filter((k) => shouldDisplayAxis(k, channels)),
@@ -153,13 +153,13 @@ export const [useSelectAxisKeys, useGetAxisKeys] = createAxisKeysSelector(
   lineplot.AXIS_KEYS,
 );
 
-export interface SelectAxisArgs {
+export interface SelectAxisParams {
   key: lineplot.Key;
   axisKey: lineplot.AxisKey;
 }
 
 export const [useSelectAxis, useGetAxis] = Scope.bindSelector(
-  Flux.createSelector<FluxSubStore, SelectAxisArgs, lineplot.Axis>({
+  Flux.createSelector<FluxSubStore, SelectAxisParams, lineplot.Axis>({
     subscribe: (store, { key }, notify) => store.lineplots.onSet(notify, key),
     select: (store, { key, axisKey }) => requireLinePlot(store, key).axes[axisKey],
   }),
@@ -194,7 +194,7 @@ const resolvePaletteColor = (
 // re-derives when the lines actually change.
 const [useSelectRawLines] = Flux.createSelector<
   FluxSubStore,
-  SelectKeyArgs,
+  SelectKeyParams,
   RawDerivedLine[],
   lineplot.Line[]
 >({
@@ -207,22 +207,24 @@ const [useSelectRawLines] = Flux.createSelector<
 // identity and its render color resolved from the active palette (a line with
 // no stored color is assigned one by its position). Lines are materialized
 // eagerly by the reducer, so this is the complete set of plotted lines.
-export const useSelectLines = Scope.bindHook((args: SelectKeyArgs): DerivedLine[] => {
-  const lines = useSelectRawLines(args);
-  const palette = Theming.use().colors.visualization.palettes.default;
-  return useMemo(
-    () =>
-      lines.map(({ color, ...line }, i) => ({
-        ...line,
-        color: resolvePaletteColor(color, i, palette),
-        isDefaultLabel: line.label == null,
-      })),
-    [lines, palette],
-  );
-});
+export const useSelectLines = Scope.bindHook(
+  (params: SelectKeyParams): DerivedLine[] => {
+    const lines = useSelectRawLines(params);
+    const palette = Theming.use().colors.visualization.palettes.default;
+    return useMemo(
+      () =>
+        lines.map(({ color, ...line }, i) => ({
+          ...line,
+          color: resolvePaletteColor(color, i, palette),
+          isDefaultLabel: line.label == null,
+        })),
+      [lines, palette],
+    );
+  },
+);
 
 export const [useSelectLineKeys, useGetLineKeys] = Scope.bindSelector(
-  Flux.createSelector<FluxSubStore, SelectKeyArgs, string[]>({
+  Flux.createSelector<FluxSubStore, SelectKeyParams, string[]>({
     subscribe: (store, { key }, notify) => store.lineplots.onSet(notify, key),
     select: (store, { key }) => requireLinePlot(store, key).lines.map((l) => l.key),
     equal: compare.arraysEqual,
@@ -230,18 +232,18 @@ export const [useSelectLineKeys, useGetLineKeys] = Scope.bindSelector(
 );
 
 export const [useSelectLineCount, useGetLineCount] = Scope.bindSelector(
-  Flux.createSelector<FluxSubStore, SelectKeyArgs, number>({
+  Flux.createSelector<FluxSubStore, SelectKeyParams, number>({
     subscribe: (store, { key }, notify) => store.lineplots.onSet(notify, key),
     select: (store, { key }) => requireLinePlot(store, key).lines.length,
   }),
 );
 
-export interface SelectYAxisArgs {
+export interface SelectYAxisParams {
   key: lineplot.Key;
   axisKey: lineplot.YAxisKey;
 }
 
-export interface SelectXAxisArgs {
+export interface SelectXAxisParams {
   key: lineplot.Key;
   axisKey: lineplot.XAxisKey;
 }
@@ -252,7 +254,7 @@ export interface SelectXAxisArgs {
 export const [useSelectYAxisChannels, useGetYAxisChannels] = Scope.bindSelector(
   Flux.createSelector<
     FluxSubStore,
-    SelectYAxisArgs,
+    SelectYAxisParams,
     lineplot.Channels[lineplot.YAxisKey]
   >({
     subscribe: (store, { key }, notify) => store.lineplots.onSet(notify, key),
@@ -265,7 +267,7 @@ export const [useSelectYAxisChannels, useGetYAxisChannels] = Scope.bindSelector(
 export const [useSelectXAxisChannel, useGetXAxisChannel] = Scope.bindSelector(
   Flux.createSelector<
     FluxSubStore,
-    SelectXAxisArgs,
+    SelectXAxisParams,
     lineplot.Channels[lineplot.XAxisKey]
   >({
     subscribe: (store, { key }, notify) => store.lineplots.onSet(notify, key),
@@ -277,7 +279,7 @@ export const [useSelectXAxisChannel, useGetXAxisChannel] = Scope.bindSelector(
 export const [useSelectXAxisRanges, useGetXAxisRanges] = Scope.bindSelector(
   Flux.createSelector<
     FluxSubStore,
-    SelectXAxisArgs,
+    SelectXAxisParams,
     lineplot.Ranges[lineplot.XAxisKey]
   >({
     subscribe: (store, { key }, notify) => store.lineplots.onSet(notify, key),
@@ -293,7 +295,7 @@ interface SelectXAxisBaseReturn {
 
 const [useSelectXAxisBase] = Flux.createSelector<
   FluxSubStore,
-  SelectXAxisArgs,
+  SelectXAxisParams,
   SelectXAxisBaseReturn
 >({
   subscribe: (store, { key }, notify) => store.lineplots.onSet(notify, key),
@@ -308,23 +310,25 @@ const [useSelectXAxisBase] = Flux.createSelector<
 // a null stored type is derived from the plotted channel's data type (timestamp
 // → time, otherwise linear), defaulting to time while the channel loads. A
 // non-null stored type is an explicit user override.
-export const useSelectXAxis = Scope.bindHook((args: SelectXAxisArgs): lineplot.Axis => {
-  const { axis, channel } = useSelectXAxisBase({
-    key: args.key,
-    axisKey: args.axisKey,
-  });
-  const { data: chan } = Channel.useRetrieve(
-    { key: channel },
-    { beforeRetrieve: ({ query: { key } }) => primitive.isNonZero(key) },
-  );
-  return useMemo(() => {
-    if (axis.type != null) return axis;
-    let type: lineplot.TickType = "linear";
-    if (channel == 0 || chan == null || chan.dataType.equals(DataType.TIMESTAMP))
-      type = "time";
-    return { ...axis, type };
-  }, [axis, channel, chan]);
-});
+export const useSelectXAxis = Scope.bindHook(
+  (params: SelectXAxisParams): lineplot.Axis => {
+    const { axis, channel } = useSelectXAxisBase({
+      key: params.key,
+      axisKey: params.axisKey,
+    });
+    const { data: chan } = Channel.useRetrieve(
+      { key: channel },
+      { beforeRetrieve: ({ query: { key } }) => primitive.isNonZero(key) },
+    );
+    return useMemo(() => {
+      if (axis.type != null) return axis;
+      let type: lineplot.TickType = "linear";
+      if (channel == 0 || chan == null || chan.dataType.equals(DataType.TIMESTAMP))
+        type = "time";
+      return { ...axis, type };
+    }, [axis, channel, chan]);
+  },
+);
 
 interface SelectYAxisReturn {
   axis: lineplot.Axis;
@@ -333,7 +337,7 @@ interface SelectYAxisReturn {
 }
 
 export const [useSelectYAxis, useGetYAxis] = Scope.bindSelector(
-  Flux.createSelector<FluxSubStore, SelectYAxisArgs, SelectYAxisReturn>({
+  Flux.createSelector<FluxSubStore, SelectYAxisParams, SelectYAxisReturn>({
     subscribe: (store, { key }, notify) => store.lineplots.onSet(notify, key),
     select: (store, { key, axisKey }) => {
       const plot = requireLinePlot(store, key);
@@ -349,7 +353,7 @@ export const [useSelectYAxis, useGetYAxis] = Scope.bindSelector(
   }),
 );
 
-export interface SelectLineArgs {
+export interface SelectLineParams {
   key: lineplot.Key;
   lineKey: string;
 }
@@ -363,23 +367,25 @@ interface RawLine {
 // compares the stored line reference (kept stable across unrelated edits by
 // Immer) and the index, so it re-renders only when that line or its position
 // changes — not when other lines on the plot do.
-const [useSelectRawLine] = Flux.createSelector<FluxSubStore, SelectLineArgs, RawLine>({
-  subscribe: (store, { key }, notify) => store.lineplots.onSet(notify, key),
-  select: (store, { key, lineKey }) => {
-    const lines = requireLinePlot(store, key).lines;
-    const index = lines.findIndex((l) => l.key === lineKey);
-    if (index === -1) throw new NotFoundError(`line with key ${lineKey} not found`);
-    return { line: lines[index], index };
+const [useSelectRawLine] = Flux.createSelector<FluxSubStore, SelectLineParams, RawLine>(
+  {
+    subscribe: (store, { key }, notify) => store.lineplots.onSet(notify, key),
+    select: (store, { key, lineKey }) => {
+      const lines = requireLinePlot(store, key).lines;
+      const index = lines.findIndex((l) => l.key === lineKey);
+      if (index === -1) throw new NotFoundError(`line with key ${lineKey} not found`);
+      return { line: lines[index], index };
+    },
+    equal: (a, b) => a.line === b.line && a.index === b.index,
   },
-  equal: (a, b) => a.line === b.line && a.index === b.index,
-});
+);
 
 // useSelectLine returns a single line, enriched with its identity and its color
 // resolved by position the same way as useSelectLines, subscribing narrowly so
 // it re-renders only when that line, its position, or the palette changes.
 export const useSelectLine = Scope.bindHook(
-  (args: SelectLineArgs): require.Require<DerivedLine, "label"> => {
-    const raw = useSelectRawLine(args);
+  (params: SelectLineParams): require.Require<DerivedLine, "label"> => {
+    const raw = useSelectRawLine(params);
     const palette = Theming.use().colors.visualization.palettes.default;
     const { yChannel } = lineplot.parseLineKey(raw.line.key);
     const { data: chan } = Channel.useRetrieve({ key: yChannel });
@@ -404,7 +410,7 @@ export interface DerivedRule extends Omit<lineplot.Rule, "color"> {
 
 const [useSelectRawRules] = Flux.createSelector<
   FluxSubStore,
-  SelectKeyArgs,
+  SelectKeyParams,
   lineplot.Rule[]
 >({
   subscribe: (store, { key }, notify) => store.lineplots.onSet(notify, key),
@@ -414,20 +420,22 @@ const [useSelectRawRules] = Flux.createSelector<
 // useSelectRules returns the plot's rules, each with its render color resolved
 // from the active palette (a rule with no stored color is assigned one by its
 // position, the same way lines are).
-export const useSelectRules = Scope.bindHook((args: SelectKeyArgs): DerivedRule[] => {
-  const rules = useSelectRawRules(args);
-  const palette = Theming.use().colors.visualization.palettes.default;
-  return useMemo(
-    () =>
-      rules.map(({ color, ...rule }, i) => ({
-        ...rule,
-        color: resolvePaletteColor(color, i, palette),
-      })),
-    [rules, palette],
-  );
-});
+export const useSelectRules = Scope.bindHook(
+  (params: SelectKeyParams): DerivedRule[] => {
+    const rules = useSelectRawRules(params);
+    const palette = Theming.use().colors.visualization.palettes.default;
+    return useMemo(
+      () =>
+        rules.map(({ color, ...rule }, i) => ({
+          ...rule,
+          color: resolvePaletteColor(color, i, palette),
+        })),
+      [rules, palette],
+    );
+  },
+);
 
-export interface SelectRuleArgs {
+export interface SelectRuleParams {
   key: lineplot.Key;
   ruleKey: string;
 }
@@ -437,22 +445,24 @@ interface RawRule {
   index: number;
 }
 
-const [useSelectRawRule] = Flux.createSelector<FluxSubStore, SelectRuleArgs, RawRule>({
-  subscribe: (store, { key }, notify) => store.lineplots.onSet(notify, key),
-  select: (store, { key, ruleKey }) => {
-    const rules = requireLinePlot(store, key).rules;
-    const index = rules.findIndex((r) => r.key === ruleKey);
-    if (index === -1) throw new NotFoundError(`rule with key ${ruleKey} not found`);
-    return { rule: rules[index], index };
+const [useSelectRawRule] = Flux.createSelector<FluxSubStore, SelectRuleParams, RawRule>(
+  {
+    subscribe: (store, { key }, notify) => store.lineplots.onSet(notify, key),
+    select: (store, { key, ruleKey }) => {
+      const rules = requireLinePlot(store, key).rules;
+      const index = rules.findIndex((r) => r.key === ruleKey);
+      if (index === -1) throw new NotFoundError(`rule with key ${ruleKey} not found`);
+      return { rule: rules[index], index };
+    },
+    equal: (a, b) => a?.rule === b?.rule && a?.index === b?.index,
   },
-  equal: (a, b) => a?.rule === b?.rule && a?.index === b?.index,
-});
+);
 
 // useSelectRule returns a single rule with its color resolved by position the
 // same way as useSelectRules. It throws NotFoundError when no rule with ruleKey
 // exists, so callers must only request rules they know are present.
-export const useSelectRule = Scope.bindHook((args: SelectRuleArgs): DerivedRule => {
-  const raw = useSelectRawRule(args);
+export const useSelectRule = Scope.bindHook((params: SelectRuleParams): DerivedRule => {
+  const raw = useSelectRawRule(params);
   const palette = Theming.use().colors.visualization.palettes.default;
   return useMemo(
     () => ({
@@ -463,7 +473,7 @@ export const useSelectRule = Scope.bindHook((args: SelectRuleArgs): DerivedRule 
   );
 });
 
-export interface SelectAxisRulesArgs {
+export interface SelectAxisRulesParams {
   key: lineplot.Key;
   axisKey: lineplot.AxisKey;
 }
@@ -472,7 +482,7 @@ export interface SelectAxisRulesArgs {
 // Stable across edits to individual rules (only changes when rules are added or
 // removed) so an axis re-renders only when its rule membership changes.
 export const [useSelectAxisRuleKeys, useGetAxisRuleKeys] = Scope.bindSelector(
-  Flux.createSelector<FluxSubStore, SelectAxisRulesArgs, string[]>({
+  Flux.createSelector<FluxSubStore, SelectAxisRulesParams, string[]>({
     subscribe: (store, { key }, notify) => store.lineplots.onSet(notify, key),
     select: (store, { key, axisKey }) =>
       requireLinePlot(store, key)
@@ -482,9 +492,12 @@ export const [useSelectAxisRuleKeys, useGetAxisRuleKeys] = Scope.bindSelector(
   }),
 );
 
-export type UseDeleteArgs = lineplot.Key | lineplot.Key[];
+export type UseDeleteParams = lineplot.Key | lineplot.Key[];
 
-export const { useUpdate: useDelete } = Flux.createUpdate<UseDeleteArgs, FluxSubStore>({
+export const { useUpdate: useDelete } = Flux.createUpdate<
+  UseDeleteParams,
+  FluxSubStore
+>({
   name: RESOURCE_NAME,
   verbs: Flux.DELETE_VERBS,
   update: async ({ client, data, rollbacks, store, onOptimisticComplete }) => {

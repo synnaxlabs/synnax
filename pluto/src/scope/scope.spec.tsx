@@ -18,16 +18,16 @@ import { beforeEach, describe, expect, it } from "vitest";
 
 import { Scope } from "@/scope";
 
-interface SelectArgs {
+interface SelectParams {
   key: string;
   suffix?: string;
 }
 
-const select = ({ key, suffix = "" }: SelectArgs): string => `${key}${suffix}`;
+const select = ({ key, suffix = "" }: SelectParams): string => `${key}${suffix}`;
 
-const selector: Scope.SelectorHooks<SelectArgs, string> = [
+const selector: Scope.SelectorHooks<SelectParams, string> = [
   (args) => select(args),
-  () => useCallback((args: SelectArgs) => select(args), []),
+  () => useCallback((args: SelectParams) => select(args), []),
 ];
 
 describe("Scope", () => {

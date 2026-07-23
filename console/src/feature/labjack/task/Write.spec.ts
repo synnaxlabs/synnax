@@ -30,10 +30,10 @@ const client = createTestClient();
 
 stubGeometry();
 
-const renderWrite = async (args = {}) =>
+const renderWrite = async (params = {}) =>
   await renderTaskFormTab(LabJack.Task.Write, LabJack.Task.WRITE_TYPE, {
     client,
-    args,
+    params,
   });
 
 const createConfig = (

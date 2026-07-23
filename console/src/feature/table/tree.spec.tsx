@@ -48,13 +48,13 @@ const Item = Table.TREE_ITEMS.table;
 const createTable = async (): Promise<table.Table> =>
   await client.tables.create(await project(), { name: uniqueName("table") });
 
-interface SetupArgs {
+interface SetupParams {
   tables: table.Table[];
   overrides?: Partial<Tree.BaseProps>;
   withCluster?: boolean;
 }
 
-const renderMenu = async ({ tables, overrides, withCluster = false }: SetupArgs) => {
+const renderMenu = async ({ tables, overrides, withCluster = false }: SetupParams) => {
   const ids = tables.map((t) => clientTable.ontologyID(t.key));
   const store = await createTestStore({
     preloadedState: {

@@ -16,8 +16,8 @@ import { type FC, type ReactElement } from "react";
 import { CSS } from "@/platform/css";
 import { Panel } from "@/platform/panel";
 
-/** OnSelectArgs is passed to a selectable's onSelect hook when it is chosen. */
-export interface OnSelectArgs {
+/** OnSelectParams is passed to a selectable's onSelect hook when it is chosen. */
+export interface OnSelectParams {
   /**
    * tabKey is the selector tab the pick was made from, so the selectable can open
    * its content into that tab in place rather than a new one.

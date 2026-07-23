@@ -277,7 +277,7 @@ export const renderHookWithConsole = async <Result, Props>(
   return { ...renderHook(cb, { wrapper: Wrapper, ...rest }), store: resolvedStore };
 };
 
-export interface CreateConsoleWrapperArgs {
+export interface CreateConsoleWrapperParams {
   client: Client | null;
   preloadedState?: ConsolePreloadedState;
   store?: TestStore;
@@ -290,7 +290,7 @@ export const createConsoleWrapper = async ({
   preloadedState,
   store,
   additionalRegistry,
-}: CreateConsoleWrapperArgs): Promise<{
+}: CreateConsoleWrapperParams): Promise<{
   wrapper: FC<PropsWithChildren>;
   store: TestStore;
 }> => {
@@ -329,7 +329,7 @@ export const createGrantedFluxStore = async (
   return result.current.store;
 };
 
-export interface CreateConnectedConsoleWrapperArgs extends CreateConsoleWrapperArgs {
+export interface CreateConnectedConsoleWrapperParams extends CreateConsoleWrapperParams {
   /** Connection parameters handed to the production pluto Synnax.Provider. */
   connParams: SynnaxParams;
 }
@@ -342,7 +342,7 @@ export interface CreateConnectedConsoleWrapperArgs extends CreateConsoleWrapperA
 export const createConnectedConsoleWrapper = async ({
   connParams,
   ...args
-}: CreateConnectedConsoleWrapperArgs): Promise<{
+}: CreateConnectedConsoleWrapperParams): Promise<{
   wrapper: FC<PropsWithChildren>;
   store: TestStore;
 }> => {

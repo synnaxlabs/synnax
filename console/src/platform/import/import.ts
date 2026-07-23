@@ -55,7 +55,7 @@ export const ingestComponent = async (
 
 const FILTERS = [{ name: "JSON", extensions: ["json"] }];
 
-interface ImportComponentArgs {
+interface ImportComponentParams {
   handleError: Status.ErrorHandler;
   client: Client | null;
   openTab: Panel.OpenTab;
@@ -73,7 +73,7 @@ const importComponent = ({
   projectKey,
   fluxStore,
   fileIngesters,
-}: ImportComponentArgs): void => {
+}: ImportComponentParams): void => {
   handleError(async () => {
     const files = await Runtime.pickFiles({
       title: "Import",

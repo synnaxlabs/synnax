@@ -41,14 +41,14 @@ export interface ListItem extends FC<ListItemProps> {}
 
 export interface ListItems extends Partial<Record<ontology.ResourceType, ListItem>> {}
 
-export interface CreateListItemArgs extends Pick<BaseListItemProps, "icon"> {
+export interface CreateListItemParams extends Pick<BaseListItemProps, "icon"> {
   useOnSelect?: () => (item: ontology.Resource) => void;
 }
 
 export const createListItem = ({
   icon,
   useOnSelect = Panel.useOpenResource,
-}: CreateListItemArgs): ListItem => {
+}: CreateListItemParams): ListItem => {
   const Item = (props: ListItemProps) => (
     <BaseListItem icon={icon} onSelect={useOnSelect()} {...props} />
   );

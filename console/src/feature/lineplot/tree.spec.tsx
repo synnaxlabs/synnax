@@ -48,13 +48,13 @@ const Item = LinePlot.TREE_ITEMS.lineplot;
 const createLinePlot = async (): Promise<lineplot.LinePlot> =>
   await client.lineplots.create(await project(), { name: uniqueName("plot") });
 
-interface SetupArgs {
+interface SetupParams {
   plots: lineplot.LinePlot[];
   overrides?: Partial<Tree.BaseProps>;
   withCluster?: boolean;
 }
 
-const renderMenu = async ({ plots, overrides, withCluster = false }: SetupArgs) => {
+const renderMenu = async ({ plots, overrides, withCluster = false }: SetupParams) => {
   const store = await createTestStore({
     preloadedState: {
       ...createPreloadedState(plots[0].key),

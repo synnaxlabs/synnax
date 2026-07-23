@@ -318,7 +318,7 @@ const loadSchematic = async (
   await within(utils.container).findByText("schematic loaded");
 };
 
-interface SetupArgs {
+interface SetupParams {
   editable: boolean;
   snapshot?: boolean;
   userClient?: Synnax;
@@ -330,7 +330,7 @@ const setup = async ({
   snapshot = false,
   userClient = client,
   scoped = true,
-}: SetupArgs) => {
+}: SetupParams) => {
   const created = await client.schematics.create(projectKey, {
     key: uuid.create(),
     name: id.create(),

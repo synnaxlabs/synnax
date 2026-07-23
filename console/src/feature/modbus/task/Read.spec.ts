@@ -26,7 +26,7 @@ describe("Modbus.Read", () => {
     const dev = await createModbusDevice(client);
     const rendered = await renderTaskFormTab(Modbus.Task.Read, Modbus.Task.READ_TYPE, {
       client,
-      args: { deviceKey: dev.key },
+      params: { deviceKey: dev.key },
     });
     const { container } = rendered;
     await screen.findByRole("button", { name: /Configure/ });
@@ -78,7 +78,7 @@ describe("Modbus.Read", () => {
     const dev = await createModbusDevice(client);
     const first = await renderTaskFormTab(Modbus.Task.Read, Modbus.Task.READ_TYPE, {
       client,
-      args: { deviceKey: dev.key },
+      params: { deviceKey: dev.key },
     });
     await screen.findByRole("button", { name: /Configure/ });
     fireEvent.click(getIconButton(first.container, "add"));
@@ -93,7 +93,7 @@ describe("Modbus.Read", () => {
 
     await renderTaskFormTab(Modbus.Task.Read, Modbus.Task.READ_TYPE, {
       client,
-      args: { deviceKey: dev.key, taskKey },
+      params: { deviceKey: dev.key, taskKey },
     });
     await screen.findByText("Coil");
     fireEvent.click(screen.getByRole("button", { name: /Configure/ }));

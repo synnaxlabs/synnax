@@ -23,7 +23,7 @@ export interface FluxStore extends Flux.UndoableUnaryStore<
   log.Action
 > {}
 
-export type UseDeleteArgs = log.Key | log.Key[];
+export type UseDeleteParams = log.Key | log.Key[];
 
 export interface FluxSubStore extends Flux.Store {
   [FLUX_STORE_KEY]: FluxStore;
@@ -58,7 +58,7 @@ export const {
     store.logs.onSet(onChange, key),
 });
 
-export interface SelectKeyArgs {
+export interface SelectKeyParams {
   key: log.Key;
 }
 
@@ -69,14 +69,14 @@ const requireLog = (store: FluxSubStore, key: log.Key): log.Log => {
 };
 
 export const [useSelectName, useGetName] = Scope.bindSelector(
-  Flux.createSelector<FluxSubStore, SelectKeyArgs, string>({
+  Flux.createSelector<FluxSubStore, SelectKeyParams, string>({
     subscribe: (store, { key }, notify) => store.logs.onSet(notify, key),
     select: (store, { key }) => requireLog(store, key).name,
   }),
 );
 
 export const [useSelectChannels, useGetChannels] = Scope.bindSelector(
-  Flux.createSelector<FluxSubStore, SelectKeyArgs, log.ChannelEntry[]>({
+  Flux.createSelector<FluxSubStore, SelectKeyParams, log.ChannelEntry[]>({
     subscribe: (store, { key }, notify) => store.logs.onSet(notify, key),
     select: (store, { key }) => requireLog(store, key).channels,
   }),
@@ -87,14 +87,14 @@ export const [useSelectChannels, useGetChannels] = Scope.bindSelector(
 // is edited. Iterate the toolbar list off this and read each row via
 // useSelectChannelEntry.
 export const [useSelectChannelKeys, useGetChannelKeys] = Scope.bindSelector(
-  Flux.createSelector<FluxSubStore, SelectKeyArgs, channel.Key[]>({
+  Flux.createSelector<FluxSubStore, SelectKeyParams, channel.Key[]>({
     subscribe: (store, { key }, notify) => store.logs.onSet(notify, key),
     select: (store, { key }) => requireLog(store, key).channels.map((e) => e.channel),
     equal: compare.arraysEqual,
   }),
 );
 
-export interface SelectChannelEntryArgs extends SelectKeyArgs {
+export interface SelectChannelEntryParams extends SelectKeyParams {
   channel: channel.Key;
 }
 
@@ -103,7 +103,7 @@ export interface SelectChannelEntryArgs extends SelectKeyArgs {
 // stable across dispatches that don't touch it, so editing one channel does not
 // re-render the rows of the others.
 export const [useSelectChannelEntry, useGetChannelEntry] = Scope.bindSelector(
-  Flux.createSelector<FluxSubStore, SelectChannelEntryArgs, log.ChannelEntry | null>({
+  Flux.createSelector<FluxSubStore, SelectChannelEntryParams, log.ChannelEntry | null>({
     subscribe: (store, { key }, notify) => store.logs.onSet(notify, key),
     select: (store, { key, channel }) =>
       requireLog(store, key).channels.find((e) => e.channel === channel) ?? null,
@@ -112,14 +112,14 @@ export const [useSelectChannelEntry, useGetChannelEntry] = Scope.bindSelector(
 
 export const [useSelectTimestampPrecision, useGetTimestampPrecision] =
   Scope.bindSelector(
-    Flux.createSelector<FluxSubStore, SelectKeyArgs, number>({
+    Flux.createSelector<FluxSubStore, SelectKeyParams, number>({
       subscribe: (store, { key }, notify) => store.logs.onSet(notify, key),
       select: (store, { key }) => requireLog(store, key).timestampPrecision,
     }),
   );
 
 export const [useSelectHideChannelNames, useGetHideChannelNames] = Scope.bindSelector(
-  Flux.createSelector<FluxSubStore, SelectKeyArgs, boolean>({
+  Flux.createSelector<FluxSubStore, SelectKeyParams, boolean>({
     subscribe: (store, { key }, notify) => store.logs.onSet(notify, key),
     select: (store, { key }) => requireLog(store, key).hideChannelNames,
   }),
@@ -127,7 +127,7 @@ export const [useSelectHideChannelNames, useGetHideChannelNames] = Scope.bindSel
 
 export const [useSelectHideReceiptTimestamp, useGetHideReceiptTimestamp] =
   Scope.bindSelector(
-    Flux.createSelector<FluxSubStore, SelectKeyArgs, boolean>({
+    Flux.createSelector<FluxSubStore, SelectKeyParams, boolean>({
       subscribe: (store, { key }, notify) => store.logs.onSet(notify, key),
       select: (store, { key }) => requireLog(store, key).hideReceiptTimestamp,
     }),
@@ -200,7 +200,10 @@ export const useSingleDispatch = Scope.bindHook(useSingleDispatchBase);
 export const useUndo = Scope.bindHook(useUndoBase);
 export const useRedo = Scope.bindHook(useRedoBase);
 
-export const { useUpdate: useDelete } = Flux.createUpdate<UseDeleteArgs, FluxSubStore>({
+export const { useUpdate: useDelete } = Flux.createUpdate<
+  UseDeleteParams,
+  FluxSubStore
+>({
   name: RESOURCE_NAME,
   verbs: Flux.DELETE_VERBS,
   update: async ({ client, data, rollbacks, store, onOptimisticComplete }) => {

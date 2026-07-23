@@ -10,7 +10,7 @@
 import { Button, type Icon } from "@synnaxlabs/pluto";
 
 import {
-  type OnSelectArgs,
+  type OnSelectParams,
   type Selectable,
   type SelectableProps,
 } from "@/platform/selector/Selector";
@@ -31,7 +31,7 @@ export interface CreateSelectableConfig {
   type: string;
   title: string;
   icon: Icon.ReactElement;
-  useOnSelect: (args?: OnSelectArgs) => () => void;
+  useOnSelect: (params?: OnSelectParams) => () => void;
   useVisible?: () => boolean;
 }
 
