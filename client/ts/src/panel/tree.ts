@@ -85,6 +85,21 @@ export const findTabByResource = (
   );
 };
 
+/**
+ * findTabByType returns the tab whose view variant carries the given type, or
+ * null when no view of that type is present. Openers of singleton views use this
+ * to select the existing tab instead of inserting a duplicate.
+ */
+export const findTabByType = (
+  node: Node | undefined,
+  type: string,
+): Tab | undefined => {
+  if (node == null) return undefined;
+  if (node.variant === "leaf")
+    return node.tabs.find((t) => t.variant === "view" && t.type === type);
+  return findTabByType(node.first, type) ?? findTabByType(node.last, type);
+};
+
 /** firstTab returns the first tab in traversal order, or null for an empty tree. */
 export const firstTab = (node: Node | undefined): Tab | undefined => {
   if (node == null) return undefined;
