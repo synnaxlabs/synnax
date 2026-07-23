@@ -113,18 +113,33 @@ func NewFactory(cfgs ...FactoryConfig) (driver.Factory, error) {
 func (f *factory) ConfigureTask(
 	ctx context.Context,
 	t task.Task,
+	startPending bool,
 ) (driver.Task, error) {
 	if t.Type != Type {
 		return nil, driver.ErrTaskNotHandled
 	}
 	var cfg Config
 	if err := t.Config.Unmarshal(&cfg); err != nil {
-		f.setConfigStatus(ctx, t, status.VariantError, err.Error())
+		if startPending {
+			f.setConfigStatus(ctx, t, status.VariantError, err.Error())
+		} else {
+			f.cfg.L.Warn("failed to configure task",
+				zap.Stringer("task", t),
+				zap.Error(err),
+			)
+		}
 		return nil, err
 	}
 	prog, err := f.cfg.GetProgram(ctx, cfg.ArcKey)
 	if err != nil {
-		f.setConfigStatus(ctx, t, status.VariantError, err.Error())
+		if startPending || cfg.AutoStart {
+			f.setConfigStatus(ctx, t, status.VariantError, err.Error())
+		} else {
+			f.cfg.L.Warn("failed to configure task",
+				zap.Stringer("task", t),
+				zap.Error(err),
+			)
+		}
 		return nil, err
 	}
 	arcTask := &impl{
@@ -137,7 +152,7 @@ func (f *factory) ConfigureTask(
 		if err := arcTask.Exec(ctx, task.Command{Type: "start"}); err != nil {
 			return nil, err
 		}
-	} else {
+	} else if startPending {
 		f.setConfigStatus(
 			ctx, t, status.VariantSuccess, "Task configured successfully",
 		)

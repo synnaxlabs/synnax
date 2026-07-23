@@ -134,6 +134,10 @@ public:
     /// Core-side deduplication filtering.
     virtual synnax::rack::Key rack_key() { return 0; }
 
+    /// @brief returns the key of the start command driving an in-flight deploy for
+    /// the task, or empty when none is pending (boot).
+    virtual std::string pending_cmd(const synnax::task::Key &key) { return ""; }
+
     /// @brief updates the state of the task in the Synnax cluster.
     virtual void set_status(synnax::task::Status &status) = 0;
 };
@@ -144,9 +148,16 @@ class MockContext final : public Context {
 
 public:
     std::vector<synnax::task::Status> statuses{};
+    /// @brief pending start command returned for every task. Defaults to a
+    /// deploy-like value; clear it to simulate a boot-time configure.
+    std::string pending_start_cmd = "mock_start_cmd";
 
     explicit MockContext(const std::shared_ptr<synnax::Synnax> &client):
         Context(client) {}
+
+    std::string pending_cmd(const synnax::task::Key &key) override {
+        return this->pending_start_cmd;
+    }
 
     void set_status(synnax::task::Status &status) override {
         mu.lock();
@@ -182,6 +193,10 @@ public:
     }
 
     synnax::rack::Key rack_key() override { return this->rack_key_; }
+
+    std::string pending_cmd(const synnax::task::Key &key) override {
+        return this->deploys_ == nullptr ? "" : this->deploys_->pending_cmd(key);
+    }
 
     void set_status(synnax::task::Status &status) override {
         if (status.time == 0) status.time = x::telem::TimeStamp::now();

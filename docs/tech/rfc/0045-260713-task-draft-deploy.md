@@ -162,7 +162,7 @@ restart; a `deployed_at` timestamp and a monotonic version counter both false-po
 on no-op saves and on undo respectively. The server-assigned hash is the only signal
 that stays truthful across console reloads, concurrent editors, and driver reboots.
 
-## 3.4 - Boot deploys the latest draft
+## 3.4 - Boot deploys the latest draft, silently
 
 On boot the driver configures tasks from the task's `config`, exactly as today, so a
 driver restart implicitly deploys whatever was last autosaved. This is accepted: drafts
@@ -170,6 +170,25 @@ autosaved from a live form are typically seconds stale, and the hash reporting k
 drift indicator truthful afterward. Retaining the deployed bytes somewhere is exactly
 the machinery this design avoids; the planned version-control system (section 8) is the
 right place to make boot stricter.
+
+Boot changes what gets reported, not what gets configured. With autosave, a task the
+user never started may hold a half-finished draft, and a boot that reports a
+configuration error on it turns an unfinished form into an alert. Reporting follows the
+user's intent instead:
+
+- A task the user never started stays invisible. Boot configures it but writes no
+  status, success or failure. Failures are logged on the driver.
+- `auto_start` delegates starting to the machine. Boot starts the task and reports the
+  outcome, including configuration failures.
+- A manually started task waits for the next start command. Boot configures it silently;
+  the next start reports as usual.
+
+The gate lives in the integrations, not the manager: each integration already writes its
+own configure statuses, so each decides when to stay silent. A configure driven by a
+pending start command or an `auto_start` config reports; a bare boot configure logs
+instead. An auto-start task holding an unfinished draft still surfaces errors at boot;
+distinguishing drafts from deployable configs is deferred to the formal draft mechanics
+in section 8.
 
 ## 3.5 - Drift is a running-task concept
 
@@ -437,6 +456,9 @@ a new driver still deploys the latest config, and stop always works.
 - **Version control for data structures**: a general versioning system supplies deploy
   history, rollback, and a stricter boot story. It layers onto the task without touching
   the start-syncs-config protocol.
+- **Formal draft mechanics**: a first-class draft state separates unfinished configs
+  from deployable ones, letting boot skip drafts outright instead of configuring them
+  silently.
 - **Online change**: a per-integration "hot fields" declaration could apply some config
   fields (for example `data_saving`) without a rebuild, mirroring PLC online change.
 - **Validate without start**: a `validate` command that runs the configure path against

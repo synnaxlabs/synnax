@@ -393,15 +393,17 @@ void Manager::execute_op(const Op &op, const std::shared_ptr<Entry> &entry) cons
                 if (!handled) {
                     LOG(WARNING)
                         << "failed to find integration to handle task" << op.task;
-                    synnax::task::Status status;
-                    status.key = synnax::task::status_key(op.task);
-                    status.name = op.task.name;
-                    status.variant = synnax::status::VARIANT_ERROR;
-                    status.message = "no driver integration handles task type '" +
-                                     op.task.type + "'";
-                    status.details.task = op.task_key;
-                    status.details.running = false;
-                    this->ctx->set_status(status);
+                    if (!op.cmd.key.empty()) {
+                        synnax::task::Status status;
+                        status.key = synnax::task::status_key(op.task);
+                        status.name = op.task.name;
+                        status.variant = synnax::status::VARIANT_ERROR;
+                        status.message = "no driver integration handles task type '" +
+                                         op.task.type + "'";
+                        status.details.task = op.task_key;
+                        status.details.running = false;
+                        this->ctx->set_status(status);
+                    }
                 }
                 this->deploys_->remove(op.task_key);
                 VLOG(1) << "failed to configure task: " << op.task;

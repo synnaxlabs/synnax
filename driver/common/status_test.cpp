@@ -383,4 +383,120 @@ TEST(TestStatusRateLimit, testDifferentVariantSameMessage) {
     EXPECT_EQ(ctx->statuses.size(), 2);
     EXPECT_EQ(ctx->statuses[1].variant, synnax::status::VARIANT_ERROR);
 }
+
+class RecordingTask final : public task::Task {
+public:
+    std::vector<synnax::task::Command> cmds;
+    void exec(synnax::task::Command &cmd) override { this->cmds.push_back(cmd); }
+    void stop(bool will_reconfigure) override {}
+};
+
+/// @brief a config error during a start-triggered deploy should write an error
+/// status.
+TEST(TestHandleConfigErr, testErrorWithPendingStart) {
+    const auto ctx = std::make_shared<task::MockContext>(nullptr);
+    const synnax::task::Task task{.name = "task1", .type = "ni_analog_read"};
+    auto [tsk, handled] = handle_config_err(
+        ctx,
+        task,
+        {ConfigureResult{}, x::errors::Error(x::errors::VALIDATION, "bad config")}
+    );
+    EXPECT_TRUE(handled);
+    EXPECT_EQ(tsk, nullptr);
+    ASSERT_EQ(ctx->statuses.size(), 1);
+    EXPECT_EQ(ctx->statuses[0].variant, synnax::status::VARIANT_ERROR);
+    EXPECT_EQ(ctx->statuses[0].message, "bad config");
+}
+
+/// @brief a config error at boot with no auto-start should not write a status.
+TEST(TestHandleConfigErr, testErrorAtBootSilent) {
+    const auto ctx = std::make_shared<task::MockContext>(nullptr);
+    ctx->pending_start_cmd = "";
+    const synnax::task::Task task{.name = "task1", .type = "ni_analog_read"};
+    auto [tsk, handled] = handle_config_err(
+        ctx,
+        task,
+        {ConfigureResult{}, x::errors::Error(x::errors::VALIDATION, "bad config")}
+    );
+    EXPECT_TRUE(handled);
+    EXPECT_EQ(tsk, nullptr);
+    EXPECT_TRUE(ctx->statuses.empty());
+}
+
+/// @brief a config error at boot with auto-start requested should write an error
+/// status.
+TEST(TestHandleConfigErr, testErrorAtBootWithAutoStart) {
+    const auto ctx = std::make_shared<task::MockContext>(nullptr);
+    ctx->pending_start_cmd = "";
+    const synnax::task::Task task{.name = "task1", .type = "ni_analog_read"};
+    ConfigureResult res;
+    res.auto_start = true;
+    auto [tsk, handled] = handle_config_err(
+        ctx,
+        task,
+        {std::move(res), x::errors::Error(x::errors::VALIDATION, "bad config")}
+    );
+    EXPECT_TRUE(handled);
+    EXPECT_EQ(tsk, nullptr);
+    ASSERT_EQ(ctx->statuses.size(), 1);
+    EXPECT_EQ(ctx->statuses[0].variant, synnax::status::VARIANT_ERROR);
+}
+
+/// @brief a successful configure during a deploy should write a success status.
+TEST(TestHandleConfigErr, testSuccessWithPendingStart) {
+    const auto ctx = std::make_shared<task::MockContext>(nullptr);
+    const synnax::task::Task task{.name = "task1", .type = "ni_analog_read"};
+    ConfigureResult res;
+    res.task = std::make_unique<RecordingTask>();
+    auto [tsk, handled] = handle_config_err(
+        ctx,
+        task,
+        {std::move(res), x::errors::NIL}
+    );
+    EXPECT_TRUE(handled);
+    EXPECT_NE(tsk, nullptr);
+    ASSERT_EQ(ctx->statuses.size(), 1);
+    EXPECT_EQ(ctx->statuses[0].variant, synnax::status::VARIANT_SUCCESS);
+    EXPECT_EQ(ctx->statuses[0].message, "Task configured successfully");
+}
+
+/// @brief a successful configure at boot should not write a status.
+TEST(TestHandleConfigErr, testSuccessAtBootSilent) {
+    const auto ctx = std::make_shared<task::MockContext>(nullptr);
+    ctx->pending_start_cmd = "";
+    const synnax::task::Task task{.name = "task1", .type = "ni_analog_read"};
+    ConfigureResult res;
+    res.task = std::make_unique<RecordingTask>();
+    auto [tsk, handled] = handle_config_err(
+        ctx,
+        task,
+        {std::move(res), x::errors::NIL}
+    );
+    EXPECT_TRUE(handled);
+    EXPECT_NE(tsk, nullptr);
+    EXPECT_TRUE(ctx->statuses.empty());
+}
+
+/// @brief auto-start at boot should exec the start command instead of writing a
+/// configure status.
+TEST(TestHandleConfigErr, testAutoStartAtBootExecsStart) {
+    const auto ctx = std::make_shared<task::MockContext>(nullptr);
+    ctx->pending_start_cmd = "";
+    const synnax::task::Task task{.name = "task1", .type = "ni_analog_read"};
+    ConfigureResult res;
+    auto recording = std::make_unique<RecordingTask>();
+    auto *raw = recording.get();
+    res.task = std::move(recording);
+    res.auto_start = true;
+    auto [tsk, handled] = handle_config_err(
+        ctx,
+        task,
+        {std::move(res), x::errors::NIL}
+    );
+    EXPECT_TRUE(handled);
+    EXPECT_NE(tsk, nullptr);
+    EXPECT_TRUE(ctx->statuses.empty());
+    ASSERT_EQ(raw->cmds.size(), 1);
+    EXPECT_EQ(raw->cmds[0].type, START_CMD_TYPE);
+}
 }
