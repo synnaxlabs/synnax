@@ -15,8 +15,8 @@ import (
 	v0 "github.com/synnaxlabs/arc/graph/types/v0"
 )
 
-// MigrateGraph lifts a v0 graph into this version's shape; dependents'
-// generated migrations consume it cross-package.
+// MigrateGraph lifts a v0 graph into this version's shape; dependents' generated
+// migrations consume it cross-package.
 func MigrateGraph(ctx context.Context, old v0.Graph) (Graph, error) {
 	return autoMigrateGraph(ctx, old)
 }

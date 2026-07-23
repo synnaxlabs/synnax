@@ -11,14 +11,12 @@ package v2
 
 import "github.com/samber/lo"
 
-// Find returns the node with the given key and a boolean indicating whether
-// the node was found. This is the safe variant of Get.
+// Find returns the node with the given key and a boolean indicating whether the node
+// was found. This is the safe variant of Get.
 func (n Nodes) Find(key string) (Node, bool) {
 	return lo.Find(n, func(n Node) bool { return n.Key == key })
 }
 
-// Get returns the node with the given key. Panics if the node is not found.
-// Use Find for safe lookups with error handling.
-func (n Nodes) Get(key string) Node {
-	return lo.Must(n.Find(key))
-}
+// Get returns the node with the given key. Panics if the node is not found. Use Find
+// for safe lookups with error handling.
+func (n Nodes) Get(key string) Node { return lo.Must(n.Find(key)) }

@@ -9,14 +9,13 @@
 
 package v2
 
-import irv2 "github.com/synnaxlabs/arc/ir/types/v2"
+import (
+	"github.com/samber/lo"
+	ir "github.com/synnaxlabs/arc/ir/types/v2"
+)
 
 // IR projects the graph edges into their keyless ir.Edge form for compilation.
 // The graph-layer key is an editing concern the compiler does not consume.
-func (e Edges) IR() irv2.Edges {
-	out := make(irv2.Edges, len(e))
-	for i := range e {
-		out[i] = e[i].Edge
-	}
-	return out
+func (e Edges) IR() ir.Edges {
+	return lo.Map(e, func(e Edge, _ int) ir.Edge { return e.Edge })
 }
