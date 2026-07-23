@@ -110,7 +110,7 @@ class AccessClient:
         for _ in range(20):
             sy.sleep(0.5)
 
-            error_status = self.layout.page.locator(".pluto-status--error")
+            error_status = self.layout.page.locator(".pluto--status-error")
             if error_status.count() > 0 and error_status.is_visible():
                 error_text = error_status.inner_text().strip()
                 raise RuntimeError(f"Login failed: {error_text}")
@@ -162,7 +162,9 @@ class AccessClient:
 
         :returns: The username, or None if not logged in.
         """
-        user_badge = self.layout.page.locator(".console-user-badge")
+        user_badge = self.layout.page.locator(
+            ".pluto-dialog__trigger:has(.pluto-icon--user)"
+        )
         if user_badge.count() > 0 and user_badge.is_visible():
             return user_badge.inner_text().strip()
         return None

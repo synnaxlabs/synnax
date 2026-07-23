@@ -9,12 +9,8 @@
 
 import { Icon } from "@synnaxlabs/pluto";
 
-import { Panel } from "@/platform/panel";
 import { Search } from "@/platform/search";
 
-const SearchListItem = Search.createListItem({
-  icon: <Icon.Schematic />,
-  useOnSelect: Panel.useOpenResource,
-});
+const SearchListItem = Search.createListItem({ icon: <Icon.Schematic /> });
 
 export const SEARCH_LIST_ITEMS: Search.ListItems = { schematic: SearchListItem };

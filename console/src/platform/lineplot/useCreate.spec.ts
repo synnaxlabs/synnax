@@ -130,7 +130,7 @@ describe("lineplot useCreate", () => {
   });
 
   describe("init defaults", () => {
-    it("defaults the line plot name to 'New Line Plot' when init omits one", async () => {
+    it("defaults the line plot name to 'Line Plot' when init omits one", async () => {
       const harness = await buildHarness({ activeProject: projectA });
       const { result } = renderCreate(harness);
       const key = uuid.create();
@@ -138,9 +138,7 @@ describe("lineplot useCreate", () => {
         result.current({ key });
       });
       await waitFor(async () =>
-        expect((await client.lineplots.retrieve({ key })).name).toEqual(
-          "New Line Plot",
-        ),
+        expect((await client.lineplots.retrieve({ key })).name).toEqual("Line Plot"),
       );
     });
 

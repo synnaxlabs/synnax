@@ -9,13 +9,27 @@
 
 import "@/platform/selector/Selector.css";
 
-import { Eraser, Flex, type Icon, Text } from "@synnaxlabs/pluto";
+import { type panel } from "@synnaxlabs/client";
+import { Eraser, Flex, type Icon, Panel as PPanel, Text } from "@synnaxlabs/pluto";
 import { type FC, type ReactElement } from "react";
 
 import { CSS } from "@/platform/css";
 import { Panel } from "@/platform/panel";
 
-export interface Selectable extends FC {
+/** OnSelectArgs is passed to a selectable's onSelect hook when it is chosen. */
+export interface OnSelectArgs {
+  /**
+   * tabKey is the selector tab the pick was made from, so the selectable can open
+   * its content into that tab in place rather than a new one.
+   */
+  tabKey?: panel.TabKey;
+}
+
+export interface SelectableProps {
+  tabKey?: panel.TabKey;
+}
+
+export interface Selectable extends FC<SelectableProps> {
   type: string;
   useVisible?: () => boolean;
 }
@@ -33,33 +47,36 @@ export const create = ({
   text,
   icon,
 }: CreateParams): Panel.Tab => {
-  const Content: Panel.Content = (): ReactElement => (
-    <Eraser.Eraser>
-      <Flex.Box
-        className={CSS.BE("layout-selector", "frame")}
-        gap="large"
-        align="center"
-        grow
-        full
-      >
-        <Text.Text level="h4" color={10} weight={400}>
-          {text}
-        </Text.Text>
+  const Content: Panel.Content = (): ReactElement => {
+    const tabKey = PPanel.useOptionalTabKey();
+    return (
+      <Eraser.Eraser>
         <Flex.Box
-          x
-          wrap
-          full="x"
-          justify="center"
-          gap={2.5}
-          className={CSS.BE("layout-selector", "items")}
+          className={CSS.BE("layout-selector", "frame")}
+          gap="large"
+          align="center"
+          grow
+          full
         >
-          {selectables.map((Selectable) => (
-            <Selectable key={Selectable.type} />
-          ))}
+          <Text.Text level="h4" color={10} weight={400}>
+            {text}
+          </Text.Text>
+          <Flex.Box
+            x
+            wrap
+            full="x"
+            justify="center"
+            gap={2.5}
+            className={CSS.BE("layout-selector", "items")}
+          >
+            {selectables.map((Selectable) => (
+              <Selectable key={Selectable.type} tabKey={tabKey} />
+            ))}
+          </Flex.Box>
         </Flex.Box>
-      </Flex.Box>
-    </Eraser.Eraser>
-  );
+      </Eraser.Eraser>
+    );
+  };
   Content.displayName = `${tabTitle}.Selector`;
   const Name = Panel.createStaticTabName({ name: tabTitle, icon });
   return { Content, Name };

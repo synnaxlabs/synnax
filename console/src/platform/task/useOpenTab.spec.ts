@@ -13,7 +13,7 @@ import { act, renderHook } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { Task } from "@/platform/task";
-import { createConsoleWrapper, resolveFocusedTab } from "@/testutil";
+import { createConsoleWrapper, resolveFocusedTab, selectTestProject } from "@/testutil";
 
 const client = createTestClient();
 
@@ -23,6 +23,7 @@ const useOpenTaskTab = Task.createOpenTab(TAB_TYPE);
 describe("Task.createOpenTab", () => {
   it("opens a view tab of the factory's type on the cluster", async () => {
     const { wrapper, store } = await createConsoleWrapper({ client });
+    await selectTestProject(store, client);
     const { result } = renderHook(() => useOpenTaskTab(), { wrapper });
     await act(async () => {
       result.current();
@@ -38,6 +39,7 @@ describe("Task.createOpenTab", () => {
 
   it("defaults the tab args to an empty object when invoked with no arguments", async () => {
     const { wrapper, store } = await createConsoleWrapper({ client });
+    await selectTestProject(store, client);
     const { result } = renderHook(() => useOpenTaskTab(), { wrapper });
     await act(async () => {
       result.current();
@@ -53,6 +55,7 @@ describe("Task.createOpenTab", () => {
 
   it("carries the provided form args through to the tab", async () => {
     const { wrapper, store } = await createConsoleWrapper({ client });
+    await selectTestProject(store, client);
     const { result } = renderHook(() => useOpenTaskTab(), { wrapper });
     const args = {
       taskKey: uuid.create(),
@@ -77,6 +80,8 @@ describe("Task.createOpenTab", () => {
     const useOpenB = Task.createOpenTab("test_task_form_b");
     const a = await createConsoleWrapper({ client });
     const b = await createConsoleWrapper({ client });
+    await selectTestProject(a.store, client);
+    await selectTestProject(b.store, client);
     const ra = renderHook(() => useOpenA(), { wrapper: a.wrapper });
     const rb = renderHook(() => useOpenB(), { wrapper: b.wrapper });
     await act(async () => {

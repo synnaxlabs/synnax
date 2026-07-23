@@ -14,6 +14,7 @@ import { describe, expect, it } from "vitest";
 
 import { Arc } from "@/platform/arc";
 import { client, renderArc } from "@/platform/arc/testutil";
+import { selectTestProject } from "@/testutil";
 
 const Harness = (): ReactElement => {
   const create = Arc.useCreate();
@@ -34,7 +35,8 @@ describe("arc useCreate", () => {
 
   it("should create the arc on the server after the modal completes", async () => {
     const name = id.create();
-    await renderArc(<Harness />);
+    const { store } = await renderArc(<Harness />);
+    await selectTestProject(store, client);
     fireEvent.click(screen.getByRole("button", { name: "open" }));
 
     const input = await screen.findByPlaceholderText("Automation Name");

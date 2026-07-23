@@ -53,14 +53,7 @@ class Accelerometer(Analog):
 
         self._configure_input("Sensitivity", sensitivity)
 
-        # Custom handling for sensitivity units (button text contains special chars)
-        if units is not None:
-            self.layout.page.locator(
-                "button.pluto-dialog__trigger:has-text('V/g')"
-            ).click()
-            self.layout.page.locator(".pluto-list__item").get_by_text(
-                units, exact=True
-            ).dispatch_event("click")
+        self._configure_symbol_dropdown("V/g", units)
 
         self._configure_dropdown("Current Excitation Source", excitation_source)
         self._configure_input("Current Excitation Value", current_excitation_value)
