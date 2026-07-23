@@ -14,6 +14,7 @@ import (
 	"strings"
 
 	"github.com/samber/lo"
+	"github.com/synnaxlabs/x/tree"
 )
 
 // IsZero reports whether the scope carries no execution content.
@@ -39,28 +40,28 @@ func (s Scope) StringWithPrefix(prefix string) string {
 		for i, stratum := range s.Strata {
 			isLast := i == len(s.Strata)-1 && len(s.Transitions) == 0
 			b.WriteString(prefix)
-			b.WriteString(treePrefix(isLast))
+			b.WriteString(tree.Prefix(isLast))
 			lo.Must(fmt.Fprintf(&b, "stratum %d\n", i))
-			childPrefix := prefix + treeIndent(isLast)
+			childPrefix := prefix + tree.Indent(isLast)
 			for j, m := range stratum {
 				isLastMember := j == len(stratum)-1
 				b.WriteString(childPrefix)
-				b.WriteString(treePrefix(isLastMember))
-				b.WriteString(m.stringWithPrefix(childPrefix + treeIndent(isLastMember)))
+				b.WriteString(tree.Prefix(isLastMember))
+				b.WriteString(m.stringWithPrefix(childPrefix + tree.Indent(isLastMember)))
 			}
 		}
 	} else {
 		for i, m := range s.Steps {
 			isLast := i == len(s.Steps)-1 && len(s.Transitions) == 0
 			b.WriteString(prefix)
-			b.WriteString(treePrefix(isLast))
-			b.WriteString(m.stringWithPrefix(prefix + treeIndent(isLast)))
+			b.WriteString(tree.Prefix(isLast))
+			b.WriteString(m.stringWithPrefix(prefix + tree.Indent(isLast)))
 		}
 	}
 	for i, t := range s.Transitions {
 		isLast := i == len(s.Transitions)-1
 		b.WriteString(prefix)
-		b.WriteString(treePrefix(isLast))
+		b.WriteString(tree.Prefix(isLast))
 		b.WriteString(t.String())
 		b.WriteByte('\n')
 	}
@@ -72,20 +73,4 @@ func scopeLabel(s Scope) string {
 		return "(scope)"
 	}
 	return s.Key
-}
-
-// treePrefix returns the prefix for a tree item. If last is true, returns "└── ",
-// otherwise "├── ".
-func treePrefix(last bool) string {
-	if last {
-		return "└── "
-	}
-	return "├── "
-}
-
-func treeIndent(last bool) string {
-	if last {
-		return "    "
-	}
-	return "│   "
 }

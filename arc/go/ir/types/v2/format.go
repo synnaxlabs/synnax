@@ -17,22 +17,6 @@ import (
 	"github.com/synnaxlabs/arc/types"
 )
 
-// treePrefix returns the prefix for a tree item. If last is true, returns "└── ",
-// otherwise "├── ".
-func treePrefix(last bool) string {
-	if last {
-		return "└── "
-	}
-	return "├── "
-}
-
-func treeIndent(last bool) string {
-	if last {
-		return "    "
-	}
-	return "│   "
-}
-
 // formatParams formats a slice of Params as "name (type), name (type), ..."
 func formatParams(params types.Params) string {
 	if len(params) == 0 {

@@ -14,6 +14,7 @@ import (
 	"strings"
 
 	"github.com/samber/lo"
+	"github.com/synnaxlabs/x/tree"
 )
 
 func (i *IR) IsZero() bool {
@@ -61,39 +62,39 @@ func (i *IR) stringWithPrefix(prefix string) string {
 
 func (i *IR) writeFunctions(b *strings.Builder, prefix string, last bool) {
 	b.WriteString(prefix)
-	b.WriteString(treePrefix(last))
+	b.WriteString(tree.Prefix(last))
 	lo.Must(fmt.Fprintf(b, "Functions (%d)\n", len(i.Functions)))
-	childPrefix := prefix + treeIndent(last)
+	childPrefix := prefix + tree.Indent(last)
 	for j, f := range i.Functions {
 		isLast := j == len(i.Functions)-1
 		b.WriteString(childPrefix)
-		b.WriteString(treePrefix(isLast))
-		b.WriteString(f.stringWithPrefix(childPrefix + treeIndent(isLast)))
+		b.WriteString(tree.Prefix(isLast))
+		b.WriteString(f.stringWithPrefix(childPrefix + tree.Indent(isLast)))
 	}
 }
 
 func (i *IR) writeNodes(b *strings.Builder, prefix string, last bool) {
 	b.WriteString(prefix)
-	b.WriteString(treePrefix(last))
+	b.WriteString(tree.Prefix(last))
 	lo.Must(fmt.Fprintf(b, "Nodes (%d)\n", len(i.Nodes)))
-	childPrefix := prefix + treeIndent(last)
+	childPrefix := prefix + tree.Indent(last)
 	for j, n := range i.Nodes {
 		isLast := j == len(i.Nodes)-1
 		b.WriteString(childPrefix)
-		b.WriteString(treePrefix(isLast))
-		b.WriteString(n.stringWithPrefix(childPrefix + treeIndent(isLast)))
+		b.WriteString(tree.Prefix(isLast))
+		b.WriteString(n.stringWithPrefix(childPrefix + tree.Indent(isLast)))
 	}
 }
 
 func (i *IR) writeEdges(b *strings.Builder, prefix string, last bool) {
 	b.WriteString(prefix)
-	b.WriteString(treePrefix(last))
+	b.WriteString(tree.Prefix(last))
 	lo.Must(fmt.Fprintf(b, "Edges (%d)\n", len(i.Edges)))
-	childPrefix := prefix + treeIndent(last)
+	childPrefix := prefix + tree.Indent(last)
 	for j, e := range i.Edges {
 		isLast := j == len(i.Edges)-1
 		b.WriteString(childPrefix)
-		b.WriteString(treePrefix(isLast))
+		b.WriteString(tree.Prefix(isLast))
 		b.WriteString(e.String())
 		b.WriteString("\n")
 	}
@@ -101,8 +102,8 @@ func (i *IR) writeEdges(b *strings.Builder, prefix string, last bool) {
 
 func (i *IR) writeRoot(b *strings.Builder, prefix string, last bool) {
 	b.WriteString(prefix)
-	b.WriteString(treePrefix(last))
+	b.WriteString(tree.Prefix(last))
 	b.WriteString("Root\n")
-	childPrefix := prefix + treeIndent(last)
+	childPrefix := prefix + tree.Indent(last)
 	b.WriteString(i.Root.StringWithPrefix(childPrefix))
 }

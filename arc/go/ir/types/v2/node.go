@@ -14,6 +14,7 @@ import (
 	"strings"
 
 	"github.com/synnaxlabs/arc/types"
+	"github.com/synnaxlabs/x/tree"
 	"github.com/vmihailenco/msgpack/v5"
 )
 
@@ -36,7 +37,7 @@ func (n Node) stringWithPrefix(prefix string) string {
 
 	isLast := !hasInputs && !hasOutputs
 	b.WriteString(prefix)
-	b.WriteString(treePrefix(isLast))
+	b.WriteString(tree.Prefix(isLast))
 	b.WriteString("channels: ")
 	b.WriteString(formatChannels(n.Channels))
 	b.WriteString("\n")
@@ -44,7 +45,7 @@ func (n Node) stringWithPrefix(prefix string) string {
 	if hasInputs {
 		isLast = !hasOutputs
 		b.WriteString(prefix)
-		b.WriteString(treePrefix(isLast))
+		b.WriteString(tree.Prefix(isLast))
 		b.WriteString("inputs: ")
 		b.WriteString(formatParams(n.Inputs))
 		b.WriteString("\n")
@@ -52,7 +53,7 @@ func (n Node) stringWithPrefix(prefix string) string {
 
 	if hasOutputs {
 		b.WriteString(prefix)
-		b.WriteString(treePrefix(true))
+		b.WriteString(tree.Prefix(true))
 		b.WriteString("outputs: ")
 		b.WriteString(formatParams(n.Outputs))
 		b.WriteString("\n")

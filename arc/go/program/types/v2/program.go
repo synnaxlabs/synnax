@@ -14,6 +14,8 @@ import (
 	"encoding/hex"
 	"fmt"
 	"strings"
+
+	"github.com/synnaxlabs/x/tree"
 )
 
 // IsZero reports whether the Program is empty (uninitialized or contains no content).
@@ -36,15 +38,7 @@ func (p Program) IsZero() bool { return len(p.WASM) == 0 && p.IR.IsZero() }
 // String returns a human-readable string representation of the program. The output
 // includes a summary of the WASM bytecode (size and SHA256 hash) and the full IR tree
 // structure with functions, nodes, edges, and the Layer-2 execution shell rooted at
-// IR.Root. treePrefix returns the branch prefix for a tree line: "└── " when last is
-// true, "├── " otherwise.
-func treePrefix(last bool) string {
-	if last {
-		return "└── "
-	}
-	return "├── "
-}
-
+// IR.Root.
 func (p Program) String() string {
 	var b strings.Builder
 	b.WriteString("Arc Program\n")
@@ -53,7 +47,7 @@ func (p Program) String() string {
 		len(p.Edges) > 0 || !p.Root.IsZero()
 
 	// WASM summary
-	b.WriteString(treePrefix(!hasContent))
+	b.WriteString(tree.Prefix(!hasContent))
 	b.WriteString(p.wasmSummary())
 	b.WriteString("\n")
 
