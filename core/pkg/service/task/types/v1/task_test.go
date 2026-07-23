@@ -56,14 +56,3 @@ var _ = Describe("Task", func() {
 	})
 
 })
-
-var _ = Describe("Command", func() {
-	Describe("String", func() {
-		It("Should include the type, key, and target task", func() {
-			c := v1.Command{Type: "start", Key: "cmd-1", Task: key}
-			Expect(c.String()).To(Equal(
-				"start (key=cmd-1, task=" + key.String() + ")",
-			))
-		})
-	})
-})

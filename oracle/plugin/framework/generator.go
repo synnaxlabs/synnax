@@ -44,7 +44,11 @@ type Generator struct {
 	// PathFilter, when non-nil, restricts generation to output paths for
 	// which it returns true. Types at filtered-out paths are still collected
 	// (so grouping and enum merging stay identical) but produce no file.
-	PathFilter      func(outputPath string) bool
+	PathFilter func(outputPath string) bool
+	// FilterEnums, when non-nil, filters the referenced-enum set merged into
+	// each file. Used when a file's structs may reference enums that belong to
+	// a different output path and must not be re-declared.
+	FilterEnums     func(enums []resolution.Type, outputPath string) []resolution.Type
 	Domain          string
 	FilePattern     string
 	MergeByName     bool
@@ -117,6 +121,9 @@ func (g *Generator) Generate(req *plugin.Request) (*plugin.Response, error) {
 		}
 		if g.ExtraEnumsFunc != nil {
 			enums = MergeTypes(enums, g.ExtraEnumsFunc(structs, req.Resolutions, outputPath))
+		}
+		if g.FilterEnums != nil {
+			enums = g.FilterEnums(enums, outputPath)
 		}
 		var typeDefs []resolution.Type
 		if typeDefCollector != nil && typeDefCollector.Has(outputPath) {

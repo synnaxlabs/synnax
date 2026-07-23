@@ -12,9 +12,7 @@
 package v2
 
 import (
-	"github.com/antlr4-go/antlr/v4"
 	v1 "github.com/synnaxlabs/arc/ir/types/v1"
-	"github.com/synnaxlabs/arc/symbol"
 	types "github.com/synnaxlabs/arc/types/types/v1"
 )
 
@@ -33,43 +31,6 @@ const (
 
 // Edge is a dataflow connection between node parameters in the Arc graph.
 type Edge = v1.Edge
-
-// Edges is a collection of dataflow edges in an Arc graph.
-type Edges = v1.Edges
-
-// ScopeMode defines the concurrency model of a Scope.
-type ScopeMode = v1.ScopeMode
-
-const (
-	ScopeModeUnspecified ScopeMode = v1.ScopeModeUnspecified
-	ScopeModeParallel    ScopeMode = v1.ScopeModeParallel
-	ScopeModeSequential  ScopeMode = v1.ScopeModeSequential
-)
-
-// Liveness defines whether a Scope is continuously active or must be activated.
-type Liveness = v1.Liveness
-
-const (
-	LivenessUnspecified Liveness = v1.LivenessUnspecified
-	LivenessAlways      Liveness = v1.LivenessAlways
-	LivenessGated       Liveness = v1.LivenessGated
-)
-
-// Transition is a declarative state-transition rule on a sequential Scope.
-type Transition = v1.Transition
-
-// Member is a tagged union representing a single child of a Scope. Exactly one of
-// nodeKey or scope is set. The member's lookup key (used as the target of `=> name`
-// transitions) is derived from the set variant via Member.key().
-type Member = v1.Member
-
-// Members is an ordered collection of Scope members, one per position.
-type Members = v1.Members
-
-// Scope is the unified Layer 2 execution primitive. Parameterized by mode (parallel or
-// sequential) and liveness (always-live or gated). Parallel scopes organize members
-// into strata; sequential scopes run one step at a time and advance via transitions.
-type Scope = v1.Scope
 
 // Body is raw function body source code with optional parsed AST.
 type Body = v1.Body
@@ -91,42 +52,3 @@ type Function struct {
 
 // Functions is a collection of function definitions in an Arc module.
 type Functions []Function
-
-// Node is a concrete instantiation of a function with typed parameters and values.
-type Node struct {
-	// Key is the unique identifier for this node instance.
-	Key string `json:"key" msgpack:"key"`
-	// Type is the function type being instantiated.
-	Type string `json:"type" msgpack:"type"`
-	// Inputs contains input parameter type signatures.
-	Inputs types.Params `json:"inputs,omitzero" msgpack:"inputs,omitzero"`
-	// Outputs contains output parameter type signatures.
-	Outputs types.Params `json:"outputs,omitzero" msgpack:"outputs,omitzero"`
-	// Channels contains channel read/write mappings.
-	Channels types.Channels `json:"channels" msgpack:"channels"`
-}
-
-// Nodes is a collection of node instantiations in an Arc module.
-type Nodes []Node
-
-// Authorities holds the static authority declarations from an Arc program.
-type Authorities = v1.Authorities
-
-// IR is the intermediate representation of an Arc program as a dataflow graph with
-// stratified execution, bridging semantic analysis and WebAssembly compilation.
-type IR struct {
-	// Functions contains function template definitions.
-	Functions Functions `json:"functions,omitzero" msgpack:"functions,omitzero"`
-	// Nodes contains node instantiations.
-	Nodes Nodes `json:"nodes,omitzero" msgpack:"nodes,omitzero"`
-	// Edges contains dataflow connections.
-	Edges Edges `json:"edges,omitzero" msgpack:"edges,omitzero"`
-	// Authorities contains the static authority declarations for this program.
-	Authorities Authorities `json:"authorities" msgpack:"authorities"`
-	// Root is the top-level execution context. The root is always a parallel,
-	// always-live Scope whose strata mix module-scope reactive flow with top-level
-	// gated scopes.
-	Root    Scope                                  `json:"root" msgpack:"root"`
-	Symbols *symbol.Symbol                         `json:"-"`
-	TypeMap map[antlr.ParserRuleContext]types.Type `json:"-"`
-}

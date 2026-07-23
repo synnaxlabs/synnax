@@ -29,43 +29,6 @@ const (
 // Edge is a dataflow connection between node parameters in the Arc graph.
 type Edge = types.Edge
 
-// Edges is a collection of dataflow edges in an Arc graph.
-type Edges = types.Edges
-
-// ScopeMode defines the concurrency model of a Scope.
-type ScopeMode = types.ScopeMode
-
-const (
-	ScopeModeUnspecified ScopeMode = types.ScopeModeUnspecified
-	ScopeModeParallel    ScopeMode = types.ScopeModeParallel
-	ScopeModeSequential  ScopeMode = types.ScopeModeSequential
-)
-
-// Liveness defines whether a Scope is continuously active or must be activated.
-type Liveness = types.Liveness
-
-const (
-	LivenessUnspecified Liveness = types.LivenessUnspecified
-	LivenessAlways      Liveness = types.LivenessAlways
-	LivenessGated       Liveness = types.LivenessGated
-)
-
-// Transition is a declarative state-transition rule on a sequential Scope.
-type Transition = types.Transition
-
-// Member is a tagged union representing a single child of a Scope. Exactly one of
-// nodeKey or scope is set. The member's lookup key (used as the target of `=> name`
-// transitions) is derived from the set variant via Member.key().
-type Member = types.Member
-
-// Members is an ordered collection of Scope members, one per position.
-type Members = types.Members
-
-// Scope is the unified Layer 2 execution primitive. Parameterized by mode (parallel or
-// sequential) and liveness (always-live or gated). Parallel scopes organize members
-// into strata; sequential scopes run one step at a time and advance via transitions.
-type Scope = types.Scope
-
 // Body is raw function body source code with optional parsed AST.
 type Body = types.Body
 
@@ -75,16 +38,3 @@ type Function = types.Function
 
 // Functions is a collection of function definitions in an Arc module.
 type Functions = types.Functions
-
-// Node is a concrete instantiation of a function with typed parameters and values.
-type Node = types.Node
-
-// Nodes is a collection of node instantiations in an Arc module.
-type Nodes = types.Nodes
-
-// Authorities holds the static authority declarations from an Arc program.
-type Authorities = types.Authorities
-
-// IR is the intermediate representation of an Arc program as a dataflow graph with
-// stratified execution, bridging semantic analysis and WebAssembly compilation.
-type IR = types.IR

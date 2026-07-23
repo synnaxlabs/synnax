@@ -27,21 +27,3 @@ var _ = Describe("MigrateFunction", func() {
 		Expect(migrated.Body.Raw).To(Equal("x * 2"))
 	})
 })
-
-var _ = Describe("MigrateIR", func() {
-	It("Should carry an IR's functions, nodes, edges, and root", func(ctx SpecContext) {
-		migrated := MustSucceed(v2.MigrateIR(ctx, v1.IR{
-			Functions: v1.Functions{{Key: "f"}},
-			Nodes:     v1.Nodes{{Key: "n", Type: "add"}},
-			Edges:     v1.Edges{{Kind: v1.EdgeKindContinuous}},
-			Root:      v1.Scope{Key: "root"},
-		}))
-		Expect(migrated.Functions).To(HaveLen(1))
-		Expect(migrated.Functions[0].Key).To(Equal("f"))
-		Expect(migrated.Nodes).To(HaveLen(1))
-		Expect(migrated.Nodes[0].Key).To(Equal("n"))
-		Expect(migrated.Nodes[0].Type).To(Equal("add"))
-		Expect(migrated.Edges).To(HaveLen(1))
-		Expect(migrated.Root.Key).To(Equal("root"))
-	})
-})

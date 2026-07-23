@@ -18,6 +18,7 @@ import (
 	"github.com/synnaxlabs/oracle/plugin/framework"
 	"github.com/synnaxlabs/oracle/plugin/go/internal/imports"
 	"github.com/synnaxlabs/oracle/plugin/go/internal/naming"
+	"github.com/synnaxlabs/oracle/plugin/go/internal/versioning"
 	"github.com/synnaxlabs/oracle/plugin/internal/casing"
 	"github.com/synnaxlabs/oracle/plugin/resolver"
 	"github.com/synnaxlabs/oracle/resolution"
@@ -108,6 +109,11 @@ func (g *aliasFileGenerator) GenerateFile(ctx *framework.GenerateContext) (strin
 
 	for _, d := range orderDecls(ctx.Table, ctx.TypeDefs, ctx.Enums, ctx.Structs, ctx.Unions) {
 		if omit.IsType(d.typ, "go") {
+			continue
+		}
+		// Transient types generate real declarations at the package root
+		// (transient.gen.go), not in the version layout: no alias to emit.
+		if _, versioned := versioning.Version(d.typ); !versioned {
 			continue
 		}
 		if d.kind == declEnum && d.typ.Namespace != namespace {

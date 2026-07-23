@@ -9,7 +9,6 @@
 
 @py output  "x/py/x/control"
 @go output  "x/go/control"
-@go version 0
 @ts output  "x/ts/src/control"
 @cpp output "x/cpp/control"
 @pb
@@ -26,7 +25,8 @@ Concurrency enum {
     exclusive = 0
     shared    = 1
 
-    @doc value "defines whether a resource can have multiple subjects acting on it at once."
+    @go version 0
+    @doc value  "defines whether a resource can have multiple subjects acting on it at once."
 }
 
 Subject struct {

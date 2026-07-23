@@ -13,10 +13,10 @@ import "schemas/synnax/status"
 @py output  "client/py/synnax/rack"
 @cpp output "client/cpp/rack"
 @go output  "core/pkg/service/rack"
-@go version 1
 @pb
 
 Key uint32 {
+    @go version 1
     @doc value  """
         is a composite identifier for a rack. The high 16 bits contain the node key, and
         the low 16 bits contain the local sequential key. Racks are leased to specific
@@ -32,11 +32,13 @@ StatusDetails struct {
         @doc value "is the key of the rack this status pertains to."
     }
 
-    @doc value "contains rack-specific status details."
+    @go version 1
+    @doc value  "contains rack-specific status details."
 }
 
 Status = status.Status<StatusDetails> {
-    @doc value "is rack-specific status information including operational state."
+    @go version 1
+    @doc value  "is rack-specific status information including operational state."
 }
 
 Rack struct {
@@ -73,6 +75,7 @@ Rack struct {
         @filter
     }
 
+    @go version      1
     @doc value       """
         is a collection container for hardware devices and tasks running on a
         specific cluster node. Racks serve as the integration point between the
@@ -94,6 +97,7 @@ New struct extends Rack {
     -embedded
     key = 0
 
+    @go version   1
     @doc value    "contains parameters for creating a new rack."
     @ts use_input
     @go omit

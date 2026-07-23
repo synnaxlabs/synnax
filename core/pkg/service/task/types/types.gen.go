@@ -28,6 +28,3 @@ type Status = v1.Status
 // hardware operations such as reading sensor data, writing control signals, or scanning
 // for devices.
 type Task = v1.Task
-
-// Command is a command to execute on a task in the Driver system.
-type Command = v1.Command

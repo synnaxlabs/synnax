@@ -19,11 +19,6 @@ type Key = types.Key
 // Cell is a single cell in a table, identified by key and variant.
 type Cell = types.Cell
 
-// CellTemplate is a variant + props pair describing what a cell should look like,
-// without identifying which cell. Used by actions that overwrite existing cells in
-// place (EraseCells), where the target cell's key is provided separately.
-type CellTemplate = types.CellTemplate
-
 // Row is a single row in a table, with height and ordered cell keys.
 type Row = types.Row
 

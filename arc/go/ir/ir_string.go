@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package v2
+package ir
 
 import (
 	"fmt"
@@ -69,7 +69,7 @@ func (i *IR) writeFunctions(b *strings.Builder, prefix string, last bool) {
 		isLast := j == len(i.Functions)-1
 		b.WriteString(childPrefix)
 		b.WriteString(tree.Prefix(isLast))
-		b.WriteString(f.stringWithPrefix(childPrefix + tree.Indent(isLast)))
+		b.WriteString(f.StringWithPrefix(childPrefix + tree.Indent(isLast)))
 	}
 }
 

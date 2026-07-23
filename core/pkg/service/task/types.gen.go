@@ -28,6 +28,3 @@ type Status = types.Status
 // hardware operations such as reading sensor data, writing control signals, or scanning
 // for devices.
 type Task = types.Task
-
-// Command is a command to execute on a task in the Driver system.
-type Command = types.Command

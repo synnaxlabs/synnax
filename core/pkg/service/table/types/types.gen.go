@@ -19,11 +19,6 @@ type Key = v2.Key
 // Cell is a single cell in a table, identified by key and variant.
 type Cell = v2.Cell
 
-// CellTemplate is a variant + props pair describing what a cell should look like,
-// without identifying which cell. Used by actions that overwrite existing cells in
-// place (EraseCells), where the target cell's key is provided separately.
-type CellTemplate = v2.CellTemplate
-
 // Row is a single row in a table, with height and ordered cell keys.
 type Row = v2.Row
 

@@ -17,6 +17,7 @@ package versioning
 
 import (
 	"fmt"
+	"github.com/synnaxlabs/oracle/domain/omit"
 
 	"github.com/synnaxlabs/oracle/plugin/domain"
 	"github.com/synnaxlabs/oracle/plugin/output"
@@ -137,7 +138,10 @@ func RewriteCurrent(table *resolution.Table) (*resolution.Table, map[string]stri
 }
 
 // RewriteOutputPaths clones table, replacing the @go output value of every
-// type whose path appears in pathMap. Types at unmapped paths are unchanged.
+// version-declaring type whose path appears in pathMap. Types at unmapped
+// paths are unchanged. Types that do not declare @go version also stay put:
+// they are transient (never persisted), living at the package root rather
+// than the version layout even when siblings at their path are versioned.
 func RewriteOutputPaths(table *resolution.Table, pathMap map[string]string) *resolution.Table {
 	clone := &resolution.Table{
 		Imports:    table.Imports,
@@ -147,6 +151,12 @@ func RewriteOutputPaths(table *resolution.Table, pathMap map[string]string) *res
 	for _, typ := range table.Types {
 		goPath := output.GetPath(typ, "go")
 		mirroredPath, needsRewrite := pathMap[goPath]
+		// Omitted types carry no generated declaration; their hand-written
+		// homes follow the version layout (per-version alias files), so their
+		// references keep tracking the version directory.
+		if _, versioned := Version(typ); !versioned && !omit.IsType(typ, "go") {
+			needsRewrite = false
+		}
 		if !needsRewrite {
 			clone.Types = append(clone.Types, typ)
 			continue

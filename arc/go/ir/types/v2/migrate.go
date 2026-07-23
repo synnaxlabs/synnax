@@ -21,14 +21,3 @@ import (
 func MigrateFunction(ctx context.Context, old v1.Function) (Function, error) {
 	return autoMigrateFunction(ctx, old)
 }
-
-// migrateNode lifts a v1 node into the current shape.
-func migrateNode(ctx context.Context, old v1.Node) (Node, error) {
-	return autoMigrateNode(ctx, old)
-}
-
-// MigrateIR lifts a v1 IR into the current shape; program's generated
-// migrations consume it cross-package.
-func MigrateIR(ctx context.Context, old v1.IR) (IR, error) {
-	return autoMigrateIR(ctx, old)
-}

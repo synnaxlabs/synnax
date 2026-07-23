@@ -13,17 +13,6 @@ package spatial
 
 import "github.com/synnaxlabs/x/spatial/types"
 
-// OuterLocation is a position indicator for elements anchored to the outer edge of a
-// container. Used for orientation and positioning of UI elements.
-type OuterLocation = types.OuterLocation
-
-const (
-	OuterLocationTop    OuterLocation = types.OuterLocationTop
-	OuterLocationRight  OuterLocation = types.OuterLocationRight
-	OuterLocationBottom OuterLocation = types.OuterLocationBottom
-	OuterLocationLeft   OuterLocation = types.OuterLocationLeft
-)
-
 // XY is a 2D coordinate point with x and y values. Used for positioning elements in
 // two-dimensional space.
 type XY = types.XY
@@ -70,29 +59,6 @@ type StickyUnits = types.StickyUnits
 // StickyXY is a position that can be anchored to different corners of a container with
 // configurable units (pixels or decimal fractions).
 type StickyXY = types.StickyXY
-
-// Viewport is the camera state of a viewport.
-type Viewport = types.Viewport
-
-// Location is a position indicator covering the four outer edges of a container and its
-// center.
-type Location = types.Location
-
-const (
-	LocationTop    Location = types.LocationTop
-	LocationRight  Location = types.LocationRight
-	LocationBottom Location = types.LocationBottom
-	LocationLeft   Location = types.LocationLeft
-	LocationCenter Location = types.LocationCenter
-)
-
-// Order is a positional ordering indicator for elements in a sequence.
-type Order = types.Order
-
-const (
-	OrderFirst Order = types.OrderFirst
-	OrderLast  Order = types.OrderLast
-)
 
 // Decimal is a normalized value in [0, 1] expressed as a decimal fraction of a whole,
 // such as a container's extent.

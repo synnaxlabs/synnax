@@ -23,6 +23,11 @@ type TimeStamp = types.TimeStamp
 // system.
 type TimeSpan = types.TimeSpan
 
+// TimeRange is a time interval defined by a start and end timestamp. The range is
+// start-inclusive and end-exclusive, following standard interval conventions for
+// predictable boundary handling.
+type TimeRange = types.TimeRange
+
 // Rate is a data sampling rate expressed in Hertz (Hz). Used to specify acquisition
 // frequencies and calculate sample counts over time intervals.
 type Rate = types.Rate
@@ -31,20 +36,15 @@ type Rate = types.Rate
 // Supports conversion to human-readable formats (B, kB, MB, GB, TB).
 type Size = types.Size
 
-// TimeRange is a time interval defined by a start and end timestamp. The range is
-// start-inclusive and end-exclusive, following standard interval conventions for
-// predictable boundary handling.
-type TimeRange = types.TimeRange
+// Alignment is a 64-bit index for positioning samples within multi-array structures.
+// Packs a domain index (which array) and sample index (position within array) into a
+// single value for efficient multi-dimensional data access.
+type Alignment = types.Alignment
 
 // DataType is a string identifier specifying the format of telemetry samples. Supports
 // fixed-density types (Float64, Int32, TimeStamp, etc.) with known byte sizes and
 // variable-density types (String, JSON, Bytes) for flexible data storage.
 type DataType = types.DataType
-
-// Alignment is a 64-bit index for positioning samples within multi-array structures.
-// Packs a domain index (which array) and sample index (position within array) into a
-// single value for efficient multi-dimensional data access.
-type Alignment = types.Alignment
 
 // TimestampFormat is the rendered form of a timestamp displayed alongside a sample.
 type TimestampFormat = types.TimestampFormat

@@ -174,6 +174,11 @@ func (g *generation) pathChanged(path string) bool {
 		if !ok {
 			return true
 		}
+		// Transient types never reach the stored wire format; their shape
+		// changes do not require a version bump.
+		if _, versioned := versioning.Version(newType); !versioned {
+			continue
+		}
 		if !schemadiff.SchemasEqual(oldType, newType, g.req.OldResolutions, g.req.Resolutions) {
 			return true
 		}

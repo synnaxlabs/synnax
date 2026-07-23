@@ -11,7 +11,7 @@ package v2
 
 import (
 	"github.com/samber/lo"
-	ir "github.com/synnaxlabs/arc/ir/types/v2"
+	ir "github.com/synnaxlabs/arc/ir"
 )
 
 // IR projects the graph edges into their keyless ir.Edge form for compilation.

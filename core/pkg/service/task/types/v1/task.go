@@ -39,8 +39,3 @@ func (t Task) String() string {
 	}
 	return t.Key.String()
 }
-
-// String returns the command's type together with its key and target task.
-func (c Command) String() string {
-	return fmt.Sprintf("%s (key=%s, task=%s)", c.Type, c.Key, c.Task)
-}

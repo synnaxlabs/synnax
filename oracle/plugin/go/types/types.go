@@ -101,7 +101,7 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 	for _, current := range pathMap {
 		currentPaths.Add(current)
 	}
-	closure := persistedClosure(rewritten)
+	closure := PersistedClosure(rewritten)
 	versionedGen := &framework.Generator{
 		Domain:      "go",
 		FilePattern: p.Options.FileNamePattern,
@@ -145,6 +145,34 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 		return resp, nil
 	}
 	pathFilter := func(outputPath string) bool { _, ok := pathMap[outputPath]; return ok }
+	// Transient types — those without their own @go version at a versioned
+	// path — stay at the package root, generating real declarations into a
+	// transient.gen.go beside the root alias file. Referenced enums that live
+	// in the version layout must not be re-declared there.
+	transientGen := &framework.Generator{
+		Domain:        "go",
+		FilePattern:   "transient.gen.go",
+		FileGenerator: &goFileGenerator{},
+		PathFilter:    pathFilter,
+		FilterEnums: func(enums []resolution.Type, outputPath string) []resolution.Type {
+			filtered := make([]resolution.Type, 0, len(enums))
+			for _, e := range enums {
+				if output.GetPath(e, "go") == outputPath {
+					filtered = append(filtered, e)
+				}
+			}
+			return filtered
+		},
+		MergeByName:     false,
+		CollectTypeDefs: true,
+		CollectEnums:    true,
+		CollectUnions:   true,
+	}
+	transientResp, err := transientGen.Generate(&versionedReq)
+	if err != nil {
+		return nil, err
+	}
+	resp.Files = append(resp.Files, transientResp.Files...)
 	aliasGen := &framework.Generator{
 		Domain:          "go",
 		FilePattern:     p.Options.FileNamePattern,
@@ -245,7 +273,7 @@ func computeSplit(
 	if err != nil {
 		return nil, err
 	}
-	closure := persistedClosure(rewritten)
+	closure := PersistedClosure(rewritten)
 	capture := &captureGenerator{contexts: make(map[string]*framework.GenerateContext)}
 	capReq := *req
 	capReq.Resolutions = rewritten
@@ -374,11 +402,11 @@ func latestTable(
 	return nil
 }
 
-// persistedClosure returns the qualified names of every type reachable from a
+// PersistedClosure returns the qualified names of every type reachable from a
 // @go marshal root through stored references: non-omitted struct fields,
 // extends, type arguments, alias targets, distinct bases, and union variants.
 // Types outside the closure never reach a table's wire format.
-func persistedClosure(table *resolution.Table) set.Set[string] {
+func PersistedClosure(table *resolution.Table) set.Set[string] {
 	closure := make(set.Set[string])
 	var walkType func(t resolution.Type)
 	var walkRef func(ref resolution.TypeRef)
@@ -400,8 +428,20 @@ func persistedClosure(table *resolution.Table) set.Set[string] {
 			for _, ext := range form.Extends {
 				walkRef(ext)
 			}
+			for _, tp := range form.TypeParams {
+				if tp.Constraint != nil {
+					walkRef(*tp.Constraint)
+				}
+				if tp.Default != nil {
+					walkRef(*tp.Default)
+				}
+			}
 			for _, f := range schemadiff.PersistedFields(resolution.UnifiedFields(t, table)) {
 				walkRef(f.Type)
+			}
+		case resolution.EnumForm:
+			for _, ext := range form.Extends {
+				walkRef(ext)
 			}
 		case resolution.AliasForm:
 			walkRef(form.Target)
@@ -417,7 +457,8 @@ func persistedClosure(table *resolution.Table) set.Set[string] {
 		}
 	}
 	for _, t := range table.Types {
-		if domain.HasExprFromType(t, "go", "marshal") {
+		if domain.HasExprFromType(t, "go", "marshal") ||
+			domain.HasExprFromType(t, "go", "migrate") {
 			walkType(t)
 		}
 	}
@@ -1439,3 +1480,50 @@ func (u {{.Name}}) Validate() error {
 {{- end}}
 {{- end}}
 `))
+
+// WalkTypeRefs visits every type t directly references: all struct fields
+// (omitted included), extends, type parameters, alias targets, distinct
+// bases, and union variants.
+func WalkTypeRefs(t resolution.Type, table *resolution.Table, visit func(resolution.Type)) {
+	var walkRef func(ref resolution.TypeRef)
+	walkRef = func(ref resolution.TypeRef) {
+		for _, arg := range ref.TypeArgs {
+			walkRef(arg)
+		}
+		if resolved, ok := ref.Resolve(table); ok {
+			visit(resolved)
+		}
+	}
+	switch form := t.Form.(type) {
+	case resolution.StructForm:
+		for _, ext := range form.Extends {
+			walkRef(ext)
+		}
+		for _, tp := range form.TypeParams {
+			if tp.Constraint != nil {
+				walkRef(*tp.Constraint)
+			}
+			if tp.Default != nil {
+				walkRef(*tp.Default)
+			}
+		}
+		for _, f := range resolution.UnifiedFields(t, table) {
+			walkRef(f.Type)
+		}
+	case resolution.EnumForm:
+		for _, ext := range form.Extends {
+			walkRef(ext)
+		}
+	case resolution.AliasForm:
+		walkRef(form.Target)
+	case resolution.DistinctForm:
+		walkRef(form.Base)
+	case resolution.UnionForm:
+		for _, ext := range form.Extends {
+			walkRef(ext)
+		}
+		for _, v := range form.Variants {
+			walkRef(v.Type)
+		}
+	}
+}

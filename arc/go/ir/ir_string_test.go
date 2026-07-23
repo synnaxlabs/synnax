@@ -7,13 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package v2_test
+package ir_test
 
 import (
 	"github.com/antlr4-go/antlr/v4"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	v2 "github.com/synnaxlabs/arc/ir/types/v2"
+	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
 )
@@ -22,44 +22,44 @@ var _ = Describe("IR", func() {
 	Describe("IsZero", func() {
 		DescribeTable(
 			"Classification",
-			func(ir v2.IR, expected bool) {
+			func(ir ir.IR, expected bool) {
 				Expect(ir.IsZero()).To(Equal(expected))
 			},
-			Entry("an empty IR", v2.IR{}, true),
+			Entry("an empty IR", ir.IR{}, true),
 			Entry("a function",
-				v2.IR{Functions: v2.Functions{{Key: "add"}}}, false),
+				ir.IR{Functions: ir.Functions{{Key: "add"}}}, false),
 			Entry("a node",
-				v2.IR{Nodes: v2.Nodes{{Key: "n1"}}}, false),
+				ir.IR{Nodes: ir.Nodes{{Key: "n1"}}}, false),
 			Entry("an edge",
-				v2.IR{Edges: v2.Edges{{Kind: v2.EdgeKindContinuous}}}, false),
+				ir.IR{Edges: ir.Edges{{Kind: ir.EdgeKindContinuous}}}, false),
 			Entry("a non-zero root",
-				v2.IR{Root: v2.Scope{Key: "root"}}, false),
+				ir.IR{Root: ir.Scope{Key: "root"}}, false),
 			Entry("symbols",
-				v2.IR{Symbols: &symbol.Symbol{}}, false),
+				ir.IR{Symbols: &symbol.Symbol{}}, false),
 			Entry("a type map",
-				v2.IR{TypeMap: map[antlr.ParserRuleContext]types.Type{}}, false),
+				ir.IR{TypeMap: map[antlr.ParserRuleContext]types.Type{}}, false),
 		)
 	})
 
 	Describe("String", func() {
 		It("Should return an empty string for an empty IR", func() {
-			ir := v2.IR{}
+			ir := ir.IR{}
 			Expect(ir.String()).To(Equal(""))
 		})
 
 		It("Should render functions, nodes, edges, and root as tree sections", func() {
-			ir := v2.IR{
-				Functions: v2.Functions{{Key: "add"}},
-				Nodes:     v2.Nodes{{Key: "n1", Type: "add"}},
-				Edges: v2.Edges{{
-					Source: v2.Handle{Node: "n1", Param: "out"},
-					Target: v2.Handle{Node: "n2", Param: "in"},
-					Kind:   v2.EdgeKindContinuous,
+			ir := ir.IR{
+				Functions: ir.Functions{{Key: "add"}},
+				Nodes:     ir.Nodes{{Key: "n1", Type: "add"}},
+				Edges: ir.Edges{{
+					Source: ir.Handle{Node: "n1", Param: "out"},
+					Target: ir.Handle{Node: "n2", Param: "in"},
+					Kind:   ir.EdgeKindContinuous,
 				}},
-				Root: v2.Scope{
+				Root: ir.Scope{
 					Key:      "root",
-					Mode:     v2.ScopeModeParallel,
-					Liveness: v2.LivenessAlways,
+					Mode:     ir.ScopeModeParallel,
+					Liveness: ir.LivenessAlways,
 				},
 			}
 			out := ir.String()
@@ -73,7 +73,7 @@ var _ = Describe("IR", func() {
 		})
 
 		It("Should mark the only section as the last tree item", func() {
-			ir := v2.IR{Nodes: v2.Nodes{{Key: "n1", Type: "add"}}}
+			ir := ir.IR{Nodes: ir.Nodes{{Key: "n1", Type: "add"}}}
 			Expect(ir.String()).To(HavePrefix("└── Nodes (1)\n"))
 		})
 	})

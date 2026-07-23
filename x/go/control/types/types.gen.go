@@ -13,11 +13,6 @@ package types
 
 import "github.com/synnaxlabs/x/control/types/v0"
 
-// Authority is a numeric value (0-255) representing the level of control authority a
-// subject has over a resource. Higher values indicate greater authority. The maximum
-// value of 255 represents absolute authority.
-type Authority = v0.Authority
-
 // Concurrency defines whether a resource can have multiple subjects acting on it at
 // once.
 type Concurrency = v0.Concurrency
@@ -26,26 +21,3 @@ const (
 	ConcurrencyExclusive Concurrency = v0.ConcurrencyExclusive
 	ConcurrencyShared    Concurrency = v0.ConcurrencyShared
 )
-
-// Subject is an entity that can hold control authority over a resource. Typically
-// represents a user, process, or service.
-type Subject = v0.Subject
-
-// State represents the state of control over a resource at a point in time, capturing
-// who controls what and with how much authority.
-type State[R any] = v0.State[R]
-
-// Transfer represents a transfer of control over a resource. It is represented as a
-// transition from one state to another over the same resource. A transfer between
-// resources that are different will result in a panic when any transfer methods are
-// called.
-//
-// If From is nil, the entity was uncontrolled before the transfer. If To is nil, the
-// resource is uncontrolled after the transfer.
-//
-// If both From and To are nil, no transfer occurred. If both From and To are not nil,
-// and From.Subject != To.Subject, a transfer occurred.
-type Transfer[R comparable] = v0.Transfer[R]
-
-// Update represents a batch of control transfers that occurred atomically.
-type Update[R comparable] = v0.Update[R]
