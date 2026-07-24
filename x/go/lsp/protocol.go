@@ -24,13 +24,16 @@ func TranslateDiagnostics(
 ) []protocol.Diagnostic {
 	oDiagnostics := make([]protocol.Diagnostic, 0, len(analysisDiag))
 	for _, diag := range analysisDiag {
-		end := diag.End
-		if end == (protocol.Position{}) {
-			end = protocol.Position{Line: diag.Start.Line, Character: diag.Start.Character + 1}
+		rng := diag.Range
+		if rng.End == (protocol.Position{}) {
+			rng.End = protocol.Position{
+				Line:      rng.Start.Line,
+				Character: rng.Start.Character + 1,
+			}
 		}
 
 		pDiag := protocol.Diagnostic{
-			Range:    protocol.Range{Start: diag.Start, End: end},
+			Range:    rng,
 			Severity: diag.Severity,
 			Source:   protocol.NewOptional(source),
 			Message:  protocol.String(diag.Message),

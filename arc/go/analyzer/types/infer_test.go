@@ -78,8 +78,8 @@ var _ = Describe("Binary minus spacing", func() {
 			atypes.InferFromExpression(ctx)
 			for _, d := range *ctx.Diagnostics {
 				if strings.Contains(d.Message, "whitespace on both sides") {
-					Expect(d.Start.Character).To(Equal(uint32(2)))
-					Expect(d.End.Character).To(Equal(uint32(3)))
+					Expect(d.Range.Start.Character).To(Equal(uint32(2)))
+					Expect(d.Range.End.Character).To(Equal(uint32(3)))
 					return
 				}
 			}

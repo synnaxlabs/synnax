@@ -46,13 +46,13 @@ func (g AnalyzeGate) Run(_ context.Context, p *pipeline.Result, _ Env) GateRepor
 		p.Diagnostics.Each(func(file string, d diagnostics.Diagnostic) {
 			// Positions are 0-indexed; render 1-indexed, with 0 meaning no location.
 			line := 0
-			if d.Start != (protocol.Position{}) {
-				line = int(d.Start.Line) + 1
+			if d.Range.Start != (protocol.Position{}) {
+				line = int(d.Range.Start.Line) + 1
 			}
 			f := Finding{
 				Path:     file,
 				Line:     line,
-				Col:      int(d.Start.Character),
+				Col:      int(d.Range.Start.Character),
 				Message:  d.Message,
 				Severity: severityFromDiagnostic(d.Severity, g.WarningsAsErrors),
 				FixHint:  hintFromNotes(d.Notes),

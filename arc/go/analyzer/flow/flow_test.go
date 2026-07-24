@@ -2339,7 +2339,7 @@ var _ = Describe("Flow Sink Type Compatibility", func() {
 			analyzer.AnalyzeProgram(ctx)
 			Expect(ctx.Diagnostics.Ok()).To(BeFalse(), ctx.Diagnostics.String())
 			diag := (*ctx.Diagnostics)[0]
-			Expect(diag.Start.Line).To(Equal(tc.line))
+			Expect(diag.Range.Start.Line).To(Equal(tc.line))
 			for _, s := range tc.substrings {
 				Expect(diag.Message).To(ContainSubstring(s))
 			}

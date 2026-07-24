@@ -237,7 +237,7 @@ var _ = Describe("Function Analyzer", func() {
 					func dog() {}
 					func dog() {}
 				`, nil, ContainSubstring("name dog conflicts with existing function"))
-				Expect((*ctx.Diagnostics)[0].Start.Line).To(Equal(uint32(2)))
+				Expect((*ctx.Diagnostics)[0].Range.Start.Line).To(Equal(uint32(2)))
 			})
 
 			It("should diagnose duplicate parameter names", func(bCtx SpecContext) {

@@ -40,8 +40,10 @@ var _ = Describe("LSP", func() {
 		It("Should copy the already-0-indexed range straight through", func() {
 			var d diagnostics.Diagnostics
 			d.Add(diagnostics.Diagnostic{
-				Start:    protocol.Position{Line: 5, Character: 3},
-				End:      protocol.Position{Line: 5, Character: 10},
+				Range: protocol.Range{
+					Start: protocol.Position{Line: 5, Character: 3},
+					End:   protocol.Position{Line: 5, Character: 10},
+				},
 				Severity: protocol.DiagnosticSeverityError,
 				Message:  "test error",
 			})
@@ -68,8 +70,10 @@ var _ = Describe("LSP", func() {
 		It("Should convert notes to related information", func() {
 			var d diagnostics.Diagnostics
 			d.Add(diagnostics.Diagnostic{
-				Start:    protocol.Position{Line: 1, Character: 0},
-				End:      protocol.Position{Line: 1, Character: 5},
+				Range: protocol.Range{
+					Start: protocol.Position{Line: 1, Character: 0},
+					End:   protocol.Position{Line: 1, Character: 5},
+				},
 				Severity: protocol.DiagnosticSeverityError,
 				Message:  "error",
 				Notes: []protocol.DiagnosticRelatedInformation{{
@@ -87,7 +91,7 @@ var _ = Describe("LSP", func() {
 		It("Should handle zero-line diagnostics safely", func() {
 			var d diagnostics.Diagnostics
 			d.Add(diagnostics.Diagnostic{
-				Start:    protocol.Position{Line: 0, Character: 0},
+				Range:    protocol.Range{Start: protocol.Position{Line: 0, Character: 0}},
 				Severity: protocol.DiagnosticSeverityError,
 				Message:  "zero line",
 			})

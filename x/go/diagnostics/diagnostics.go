@@ -18,9 +18,8 @@ import (
 	"go.lsp.dev/protocol"
 )
 
-// Advance returns the position reached by walking off bytes of body from pos,
-// resetting the character on each newline. Positions are 0-indexed, matching
-// protocol.Position.
+// Advance returns the position reached by walking off bytes of body from pos, resetting
+// the character on each newline. Positions are 0-indexed, matching protocol.Position.
 func Advance(pos protocol.Position, body string, off int) protocol.Position {
 	for i := 0; i < off && i < len(body); i++ {
 		if body[i] == '\n' {
@@ -33,8 +32,6 @@ func Advance(pos protocol.Position, body string, off int) protocol.Position {
 	return pos
 }
 
-// severityLabel renders an LSP severity as the lowercase word used in the
-// human-readable String output.
 func severityLabel(s protocol.DiagnosticSeverity) string {
 	switch s {
 	case protocol.DiagnosticSeverityError:
@@ -60,12 +57,11 @@ type Diagnostic struct {
 	Code     ErrorCode                               `json:"code,omitempty"`
 	Message  string                                  `json:"message"`
 	Severity protocol.DiagnosticSeverity             `json:"severity"`
-	Start    protocol.Position                       `json:"start"`
-	End      protocol.Position                       `json:"end"`
+	Range    protocol.Range                          `json:"range"`
 	Notes    []protocol.DiagnosticRelatedInformation `json:"notes,omitempty"`
 }
 
-// SetRange sets the Start and End positions from an ANTLR parser rule context.
+// SetRange sets the Range from an ANTLR parser rule context.
 func (d *Diagnostic) SetRange(ctx antlr.ParserRuleContext) {
 	if ctx == nil {
 		return
@@ -73,19 +69,19 @@ func (d *Diagnostic) SetRange(ctx antlr.ParserRuleContext) {
 	start := ctx.GetStart()
 	stop := ctx.GetStop()
 	// ANTLR lines are 1-indexed; store 0-indexed to match protocol.Position.
-	d.Start = protocol.Position{
+	d.Range.Start = protocol.Position{
 		Line:      uint32(start.GetLine() - 1),
 		Character: uint32(start.GetColumn()),
 	}
 	if stop != nil {
-		d.End = protocol.Position{
+		d.Range.End = protocol.Position{
 			Line:      uint32(stop.GetLine() - 1),
 			Character: uint32(stop.GetColumn() + len(stop.GetText())),
 		}
 	} else {
-		d.End = protocol.Position{
-			Line:      d.Start.Line,
-			Character: d.Start.Character + uint32(len(start.GetText())),
+		d.Range.End = protocol.Position{
+			Line:      d.Range.Start.Line,
+			Character: d.Range.Start.Character + uint32(len(start.GetText())),
 		}
 	}
 }
@@ -137,10 +133,10 @@ func (d Diagnostic) WithCode(code ErrorCode) Diagnostic {
 	return d
 }
 
-// WithRange returns a copy of the diagnostic with explicit Start and End
-// positions, overriding any range set by SetRange.
+// WithRange returns a copy of the diagnostic with an explicit range, overriding
+// any range set by SetRange.
 func (d Diagnostic) WithRange(start, end protocol.Position) Diagnostic {
-	d.Start, d.End = start, end
+	d.Range = protocol.Range{Start: start, End: end}
 	return d
 }
 
@@ -189,7 +185,7 @@ func (d Diagnostics) Empty() bool { return len(d) == 0 }
 func (d Diagnostics) Error() string { return d.String() }
 
 func (d *Diagnostics) Add(diag Diagnostic) {
-	for _, idx := range d.AtLocation(diag.Start) {
+	for _, idx := range d.AtLocation(diag.Range.Start) {
 		existing := (*d)[idx]
 		if existing.Message == diag.Message {
 			if diag.Severity < existing.Severity {
@@ -213,7 +209,7 @@ func (d *Diagnostics) Merge(other Diagnostics) {
 func (d *Diagnostics) AtLocation(start protocol.Position) []int {
 	var indices []int
 	for i, diag := range *d {
-		if diag.Start == start {
+		if diag.Range.Start == start {
 			indices = append(indices, i)
 		}
 	}
@@ -256,8 +252,8 @@ func (d Diagnostics) String() string {
 		if diag.Code != "" {
 			_, _ = fmt.Fprintf(&sb,
 				"%d:%d %s [%s]: %s",
-				diag.Start.Line+1,
-				diag.Start.Character,
+				diag.Range.Start.Line+1,
+				diag.Range.Start.Character,
 				severityLabel(diag.Severity),
 				diag.Code,
 				diag.Message,
@@ -265,8 +261,8 @@ func (d Diagnostics) String() string {
 		} else {
 			_, _ = fmt.Fprintf(&sb,
 				"%d:%d %s: %s",
-				diag.Start.Line+1,
-				diag.Start.Character,
+				diag.Range.Start.Line+1,
+				diag.Range.Start.Character,
 				severityLabel(diag.Severity),
 				diag.Message,
 			)
