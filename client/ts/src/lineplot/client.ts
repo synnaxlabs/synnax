@@ -186,7 +186,7 @@ export class Client extends query.Retriever<
     opts?: actions.Options<LinePlot, Action>,
   ): Promise<boolean>;
   /**
-   * @deprecated Legacy raw-send form used by pre-cutover flux. Removed in the
+   * Legacy raw-send form used by pre-cutover flux. Removed in the
    * pluto rebind; new callers use the two-argument controller form above.
    */
   async dispatch(key: Key, dispatchKey: string, actions: Action[]): Promise<void>;
