@@ -35,21 +35,23 @@ import (
 )
 
 var _ = Describe("MigrateArc", func() {
-	It("Should lift a v1 arc, seeding the document from the raw text", func(ctx SpecContext) {
-		key := uuid.New()
-		migrated := migrateFromV1(ctx, v1.Arc{
-			Key:  key,
-			Name: "direct",
-			Mode: v1.ModeText,
-			Text: text.Text{Raw: "x := 1"},
+	Describe("v1 -> current", func() {
+		It("Should lift a v1 arc, seeding the document from the raw text", func(ctx SpecContext) {
+			key := uuid.New()
+			migrated := migrateFromV1(ctx, v1.Arc{
+				Key:  key,
+				Name: "direct",
+				Mode: v1.ModeText,
+				Text: text.Text{Raw: "x := 1"},
+			})
+			Expect(migrated.Key).To(Equal(key))
+			Expect(migrated.Name).To(Equal("direct"))
+			Expect(migrated.Text.Materialize().Raw).To(Equal("x := 1"))
+			Expect(migrated.Text.Raw).To(BeEmpty())
 		})
-		Expect(migrated.Key).To(Equal(key))
-		Expect(migrated.Name).To(Equal("direct"))
-		Expect(migrated.Text.Materialize().Raw).To(Equal("x := 1"))
-		Expect(migrated.Text.Raw).To(BeEmpty())
 	})
 
-	Describe("v1 -> current", func() {
+	Describe("v0 -> current", func() {
 		It("Should seed the document from the previously persisted raw text", func(ctx SpecContext) {
 			got := migrateFromV0(ctx, v0.Arc{
 				Key:  uuid.New(),
@@ -68,9 +70,6 @@ var _ = Describe("MigrateArc", func() {
 			})
 			Expect(got.Text.Materialize().Raw).To(Equal(""))
 		})
-	})
-
-	Describe("v0 -> current", func() {
 		It("rewrites v0-encoded entries through the new codec", func(ctx SpecContext) {
 			seed := v0.Arc{
 				Key:  uuid.New(),

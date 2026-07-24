@@ -17,7 +17,7 @@ import (
 	"github.com/synnaxlabs/x/telem"
 )
 
-// Migration lifts stored statuses from v1 to v2. Labels are intentionally dropped: they
+// Migration lifts stored statuses from v0 to v1. Labels are intentionally dropped: they
 // are no longer persisted on the status and are instead resolved at read time from the
 // label relationship.
 var Migration = gorp.NewEntryMigration(
