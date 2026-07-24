@@ -137,8 +137,8 @@ var _ = Describe("Freighter Transport", func() {
 	})
 
 	Describe("Symbol requests", func() {
-		// The TS client probes these methods without checking capabilities; they
-		// must answer with an empty result, not method-not-found.
+		// The TS client probes these methods without checking capabilities; they must
+		// answer with an empty result, not method-not-found.
 		It("Should return empty results for documentSymbol and workspace/symbol", func(ctx SpecContext) {
 			sendRequest(1, "initialize", map[string]any{
 				"clientInfo": map[string]any{"name": "test-client"},
@@ -177,8 +177,8 @@ var _ = Describe("Freighter Transport", func() {
 
 	Describe("Eager client", func() {
 		// Pins the streamAdapter ready gate: a notification queued before
-		// ServeFreighter starts must not reach a handler until SetClient has wired
-		// the client, or publishDiagnostics would panic on a nil client.
+		// ServeFreighter starts must not reach a handler until SetClient has wired the
+		// client, or publishDiagnostics would panic on a nil client.
 		It("Should publish diagnostics for a didOpen queued before the server starts", func() {
 			eagerCtx, eagerCancel := context.WithTimeout(context.Background(), 5*time.Second)
 			defer eagerCancel()
