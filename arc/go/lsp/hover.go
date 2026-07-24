@@ -450,6 +450,18 @@ func resolveDotted(
 	return resolveDotted(ctx, sym, tail)
 }
 
+// variableTypeDetail renders a value variable's hover type, tagged by its kind.
+func variableTypeDetail(sym *symbol.Symbol) string {
+	switch {
+	case sym.IsChannelReadWrite():
+		return "chan read/write " + sym.Type.UnwrapChan().String()
+	case sym.IsReactive():
+		return "chan read " + sym.Type.UnwrapChan().String()
+	default:
+		return sym.Type.String()
+	}
+}
+
 func (s *Server) getUserSymbolHover(
 	ctx context.Context,
 	scope *symbol.Symbol,
@@ -488,7 +500,7 @@ func (s *Server) getUserSymbolHover(
 		}
 	case symbol.KindVariable:
 		d = doc.New(doc.TitleWithKind(displayName, "Variable"))
-		d.Add(doc.Detail("Type", sym.Type.String(), true))
+		d.Add(doc.Detail("Type", variableTypeDetail(sym), true))
 	case symbol.KindStatefulVariable:
 		d = doc.New(doc.TitleWithKind(displayName, "Stateful Variable"))
 		d.Add(doc.Paragraph("Persists across executions"))

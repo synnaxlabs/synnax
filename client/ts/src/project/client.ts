@@ -35,7 +35,7 @@ const emptyResZ = z.object({});
 export const SET_CHANNEL_NAME = "sy_project_set";
 export const DELETE_CHANNEL_NAME = "sy_project_delete";
 
-export interface SetLayoutArgs extends z.input<typeof setLayoutReqZ> {}
+export interface SetLayoutParams extends z.input<typeof setLayoutReqZ> {}
 
 export class Client {
   private readonly client: UnaryClient;

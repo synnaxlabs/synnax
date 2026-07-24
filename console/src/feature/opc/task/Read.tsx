@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import "@/feature/opc/task/Task.css";
+
 import { channel, NotFoundError, type Synnax } from "@synnaxlabs/client";
 import { Component, Flex, Form as PForm, Icon } from "@synnaxlabs/pluto";
 import { caseconv, DataType, errors, primitive } from "@synnaxlabs/x";
@@ -24,20 +26,15 @@ import {
   type ReadSchemas,
   ZERO_READ_PAYLOAD,
 } from "@/feature/opc/task/types";
+import { CSS } from "@/platform/css";
 import { Selector } from "@/platform/selector";
 import { Task } from "@/platform/task";
 
-export const READ_LAYOUT: Task.Layout = {
-  ...Task.LAYOUT,
+export const ReadSelectable = Selector.createSelectable({
   type: READ_TYPE,
-  name: ZERO_READ_PAYLOAD.name,
-  icon: "Logo.OPC",
-};
-
-export const ReadSelectable = Selector.createSimpleItem({
   title: "OPC UA Read Task",
   icon: <Icon.Logo.OPC />,
-  layout: READ_LAYOUT,
+  useOnSelect: Task.createOpenTab(READ_TYPE),
 });
 
 const getChannelByNodeID = (props: Device.Properties, nodeId: string): channel.Key =>
@@ -90,7 +87,7 @@ const Properties = (): ReactElement => {
           <PForm.NumericField
             label="Array Size"
             path="config.arraySize"
-            style={{ width: 100 }}
+            className={CSS.B("opc-array-size-field")}
           />
         ) : (
           <Task.Fields.StreamRate />
@@ -140,7 +137,7 @@ const getInitialValues: Task.GetInitialValues<ReadSchemas> = ({
   };
 };
 
-interface DetermineIndexChannelArgs {
+interface DetermineIndexChannelParams {
   client: Synnax;
   config: ReadConfig;
   device: Device.Device;
@@ -152,7 +149,7 @@ const determineIndexChannel = async ({
   config,
   device,
   taskName,
-}: DetermineIndexChannelArgs): Promise<channel.Key> => {
+}: DetermineIndexChannelParams): Promise<channel.Key> => {
   const indexChannelInTaskConfig = config.channels.find(({ useAsIndex }) => useAsIndex);
   if (indexChannelInTaskConfig) {
     const existingIndex = getChannelByNodeID(

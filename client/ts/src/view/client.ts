@@ -30,13 +30,13 @@ const retrieveRequestZ = z.object({
   limit: z.number().optional(),
 });
 
-const singleRetrieveArgsZ = z
+const singleRetrieveParamsZ = z
   .object({ key: keyZ })
   .transform(({ key }) => ({ keys: [key] }));
 
-const retrieveArgsZ = z.union([singleRetrieveArgsZ, retrieveRequestZ]);
+const retrieveParamsZ = z.union([singleRetrieveParamsZ, retrieveRequestZ]);
 
-export interface RetrieveSingleParams extends z.input<typeof singleRetrieveArgsZ> {}
+export interface RetrieveSingleParams extends z.input<typeof singleRetrieveParamsZ> {}
 export interface RetrieveMultipleParams extends z.input<typeof retrieveRequestZ> {}
 
 const retrieveResponseZ = z.object({ views: viewZ.array().default(() => []) });
@@ -48,19 +48,19 @@ export class Client {
     this.client = client;
   }
 
-  async retrieve(args: RetrieveSingleParams): Promise<View>;
-  async retrieve(args: RetrieveMultipleParams): Promise<View[]>;
+  async retrieve(params: RetrieveSingleParams): Promise<View>;
+  async retrieve(params: RetrieveMultipleParams): Promise<View[]>;
   async retrieve(
-    args: RetrieveSingleParams | RetrieveMultipleParams,
+    params: RetrieveSingleParams | RetrieveMultipleParams,
   ): Promise<View | View[]> {
-    const isSingle = "key" in args;
+    const isSingle = "key" in params;
     const res = await this.client.send(
       "/view/retrieve",
-      args,
-      retrieveArgsZ,
+      params,
+      retrieveParamsZ,
       retrieveResponseZ,
     );
-    checkForMultipleOrNoResults("View", args, res.views, isSingle);
+    checkForMultipleOrNoResults("View", params, res.views, isSingle);
     return isSingle ? res.views[0] : res.views;
   }
 

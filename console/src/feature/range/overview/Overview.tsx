@@ -9,29 +9,22 @@
 
 import "@/feature/range/overview/Overview.css";
 
-import { Flex, Ranger } from "@synnaxlabs/pluto";
+import { Flex, Panel as PlutoPanel } from "@synnaxlabs/pluto";
 
 import { ChildRanges } from "@/feature/range/overview/ChildRanges";
 import { Snapshots } from "@/feature/range/overview/Snapshots";
 import { CSS } from "@/platform/css";
-import { Layout } from "@/platform/layout";
+import { type Panel } from "@/platform/panel";
 import { Range } from "@/platform/range";
 
-export const Overview: Layout.Renderer = ({ layoutKey }) => (
-  <Flex.Box
-    y
-    style={{ padding: "5rem", maxWidth: 1050, margin: "0 auto", overflowY: "auto" }}
-    className={CSS.BE("range", "overview")}
-    gap="large"
-  >
-    <Range.Details rangeKey={layoutKey} />
-    <ChildRanges rangeKey={layoutKey} />
-    <Range.MetaData rangeKey={layoutKey} />
-    <Snapshots rangeKey={layoutKey} />
-  </Flex.Box>
-);
-
-Overview.useName = Layout.createUseFluxName(
-  Ranger.useRename,
-  Ranger.useRetrieveObservableName,
-);
+export const Overview: Panel.Content = () => {
+  const { key } = PlutoPanel.useSelectTabResource();
+  return (
+    <Flex.Box key={key} y className={CSS.BE("range", "overview")} gap="large">
+      <Range.Details rangeKey={key} />
+      <ChildRanges rangeKey={key} />
+      <Range.MetaData rangeKey={key} />
+      <Snapshots rangeKey={key} />
+    </Flex.Box>
+  );
+};

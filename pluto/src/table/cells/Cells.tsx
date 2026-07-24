@@ -10,7 +10,7 @@
 import "@/table/cells/Cells.css";
 
 import { box, color, location, type record, scale, text } from "@synnaxlabs/x";
-import { type ReactElement } from "react";
+import { type ReactElement, useMemo } from "react";
 import { z } from "zod";
 
 import { CSS } from "@/css";
@@ -56,6 +56,11 @@ export const Text = ({
   const handleSelect = (e: React.MouseEvent) => onSelect(cellKey, e);
   const handleValueChange = (value: string) =>
     onChange({ level, value, weight, align, backgroundColor });
+  const cellStyle = useMemo(
+    () => ({ backgroundColor: color.cssString(backgroundColor), width: box.width(b) }),
+    [backgroundColor, b],
+  );
+  const editableStyle = useMemo(() => ({ justifyContent: align }), [align]);
   return (
     <Base
       id={cellKey}
@@ -68,17 +73,14 @@ export const Text = ({
       height={box.height(b)}
       onClick={handleSelect}
       onContextMenu={handleSelect}
-      style={{
-        backgroundColor: color.cssString(backgroundColor),
-        width: box.width(b),
-      }}
+      style={cellStyle}
     >
       <BaseText.Editable
         level={level}
         value={value}
         weight={weight}
         onChange={handleValueChange}
-        style={{ justifyContent: align }}
+        style={editableStyle}
         allowDoubleClick={editable}
         allowEmpty
         outline={false}
@@ -138,6 +140,11 @@ export const Value = ({
     clip: true,
   });
   const handleSelect = (e: React.MouseEvent) => onSelect(cellKey, e);
+  // Use the column-driven box width, not BaseValue's natural text width: when
+  // row indicators are hidden, the first data row determines column widths via
+  // table-layout: fixed, so the cell must be locked to the stored column size
+  // or canvas/DOM alignment drifts.
+  const cellStyle = useMemo(() => ({ width: box.width(b) }), [b]);
 
   return (
     <Base
@@ -146,11 +153,7 @@ export const Value = ({
       height={box.height(b)}
       onClick={handleSelect}
       onContextMenu={handleSelect}
-      // Use the column-driven box width, not BaseValue's natural text width:
-      // when row indicators are hidden, the first data row determines column
-      // widths via table-layout: fixed, so the cell must be locked to the
-      // stored column size or canvas/DOM alignment drifts.
-      style={{ width: box.width(b) }}
+      style={cellStyle}
       className={CSS(
         Menu.CONTEXT_TARGET,
         selected && Menu.CONTEXT_SELECTED,

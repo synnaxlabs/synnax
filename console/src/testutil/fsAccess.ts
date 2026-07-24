@@ -50,7 +50,7 @@ export const removeFilePickers = (): void => {
   delete window.showDirectoryPicker;
 };
 
-export interface InstallFakeDirectoryPickerArgs {
+export interface InstallFakeDirectoryPickerParams {
   name?: string;
   preExisted?: boolean;
 }
@@ -69,7 +69,7 @@ export interface FakeDirectoryPicker {
 export const installFakeDirectoryPicker = ({
   name = "exports",
   preExisted = false,
-}: InstallFakeDirectoryPickerArgs = {}): FakeDirectoryPicker => {
+}: InstallFakeDirectoryPickerParams = {}): FakeDirectoryPicker => {
   const files = new Map<string, string>();
   const createSubdir = (subName: string): FileSystemDirectoryHandle =>
     ({

@@ -29,23 +29,22 @@ import {
 import { type ReactElement, useCallback } from "react";
 
 import { ContextMenu } from "@/feature/range/ContextMenu";
-import { EXPLORER_LAYOUT } from "@/feature/range/Explorer";
+import { Explorer } from "@/feature/range/explorer";
 import { CSS } from "@/platform/css";
 import { Empty } from "@/platform/empty";
-import { Layout } from "@/platform/layout";
 import { type Nav } from "@/platform/nav";
 import { Range } from "@/platform/range";
 import { Toolbar } from "@/platform/toolbar";
 import { Session } from "@/session";
 
 const NoRanges = (): ReactElement => {
-  const placeLayout = Layout.usePlacer();
+  const openExplorer = Explorer.useOpenTab();
   const hasRetrievePermission = Access.useRetrieveGranted(ranger.TYPE_ONTOLOGY_ID);
   return (
     <Empty.Action
       message="No favorited ranges."
       action={hasRetrievePermission ? "Open Range Explorer" : undefined}
-      onClick={() => placeLayout(EXPLORER_LAYOUT)}
+      onClick={openExplorer}
     />
   );
 };
@@ -96,22 +95,21 @@ const List = (): ReactElement => {
 };
 
 export const useRename = () => {
-  const store = Session.useStore();
+  const getRangeState = Session.Range.useGetState();
+  const dispatch = Session.useDispatch();
   return Ranger.useRename({
     beforeUpdate: useCallback(
       async ({ data, rollbacks }: Flux.BeforeUpdateParams<Ranger.RenameParams>) => {
         const { key, name } = data;
-        const rng = Session.Range.selectState(store.getState(), key);
+        const rng = getRangeState(key);
         if (rng == null) return data;
         const oldName = rng.name;
         if (!rng.persisted) return false;
-        store.dispatch(Session.Range.rename({ key, name }));
-        rollbacks.push(() =>
-          store.dispatch(Session.Range.rename({ key, name: oldName })),
-        );
+        dispatch(Session.Range.rename({ key, name }));
+        rollbacks.push(() => dispatch(Session.Range.rename({ key, name: oldName })));
         return data;
       },
-      [store],
+      [getRangeState],
     ),
   });
 };
@@ -152,12 +150,7 @@ const listItem = Component.renderProp((props: BaseList.ItemProps<string>) => {
       </Flex.Box>
       <Telem.Text.TimeRange level="small">{timeRange}</Telem.Text.TimeRange>
       {labels.length > 0 && (
-        <Flex.Box
-          x
-          gap="small"
-          wrap
-          style={{ overflowX: "auto", height: "fit-content" }}
-        >
+        <Flex.Box x gap="small" wrap className={CSS.B("range-list-item-labels")}>
           {labels.map((l) => (
             <Tag.Tag key={l.key} size="tiny" color={l.color}>
               {l.name}
@@ -170,7 +163,7 @@ const listItem = Component.renderProp((props: BaseList.ItemProps<string>) => {
 });
 
 const Actions = (): ReactElement | null => {
-  const placeLayout = Layout.usePlacer();
+  const openExplorer = Explorer.useOpenTab();
   const openCreate = Range.useCreateModal();
   const hasCreatePermission = Access.useCreateGranted(ranger.TYPE_ONTOLOGY_ID);
   const hasRetrievePermission = Access.useRetrieveGranted(ranger.TYPE_ONTOLOGY_ID);
@@ -185,7 +178,7 @@ const Actions = (): ReactElement | null => {
       {hasRetrievePermission && (
         <Toolbar.Action
           tooltip="Open Range Explorer"
-          onClick={() => placeLayout(EXPLORER_LAYOUT)}
+          onClick={openExplorer}
           variant="filled"
         >
           <Icon.Explore />

@@ -10,7 +10,7 @@
 import "@/button/Button.css";
 
 import { color, record, text, TimeSpan } from "@synnaxlabs/x";
-import { type ReactElement, useCallback, useRef } from "react";
+import { type ReactElement, useCallback, useMemo, useRef } from "react";
 
 import { SIZE_TEXT_LEVELS, TEXT_LEVEL_SIZES } from "@/component/text";
 import { CSS } from "@/css";
@@ -154,26 +154,28 @@ const Base = <E extends ElementType = "button">({
     ),
   });
 
-  let pStyle = style;
   const res = color.colorZ.safeParse(colorVal);
   const hasCustomColor =
     res.success && (variant === "filled" || variant === "outlined");
-  if (hasCustomColor) {
-    const theme = Theming.use();
-    pStyle = {
-      ...pStyle,
-      [CSS.var("btn-color")]: color.rgbString(res.data),
-      [CSS.var("btn-text-color")]: color.rgbCSS(
-        color.pickByContrast(res.data, theme.colors.text, theme.colors.textInverted),
-      ),
-    };
-  }
+  const theme = Theming.use();
 
-  if (!parsedDelay.isZero)
-    pStyle = {
-      ...pStyle,
-      [CSS.var("btn-delay")]: `${parsedDelay.seconds.toString()}s`,
-    };
+  const pStyle = useMemo(() => {
+    let s = style;
+    if (hasCustomColor)
+      s = {
+        ...s,
+        [CSS.var("btn-color")]: color.rgbString(res.data),
+        [CSS.var("btn-text-color")]: color.rgbCSS(
+          color.pickByContrast(res.data, theme.colors.text, theme.colors.textInverted),
+        ),
+      };
+    if (!parsedDelay.isZero)
+      s = {
+        ...s,
+        [CSS.var("btn-delay")]: `${parsedDelay.seconds.toString()}s`,
+      };
+    return s;
+  }, [style, hasCustomColor, colorVal, theme, parsedDelay]);
 
   if (size == null && level != null) size = TEXT_LEVEL_SIZES[level];
   else if (size != null && level == null) level = SIZE_TEXT_LEVELS[size];

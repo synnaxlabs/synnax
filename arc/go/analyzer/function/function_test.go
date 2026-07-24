@@ -218,7 +218,7 @@ var _ = Describe("Function Analyzer", func() {
 			It("should fail on duplicate function names", func(bCtx SpecContext) {
 				ctx := analyzeProgram(bCtx, `func foo() {} func foo() {}`, nil)
 				Expect(*ctx.Diagnostics).To(HaveLen(1))
-				Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("conflicts with existing symbol"))
+				Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("conflicts with existing function"))
 			})
 			It("should add functions to root scope", func(bCtx SpecContext) {
 				ctx := analyzeExpectSuccess(bCtx, `func outer() { } func inner() { }`, nil)
@@ -236,14 +236,14 @@ var _ = Describe("Function Analyzer", func() {
 				ctx := analyzeExpectError(bCtx, `
 					func dog() {}
 					func dog() {}
-				`, nil, ContainSubstring("name dog conflicts with existing symbol"))
+				`, nil, ContainSubstring("name dog conflicts with existing function"))
 				Expect((*ctx.Diagnostics)[0].Start.Line).To(Equal(uint32(2)))
 			})
 
 			It("should diagnose duplicate parameter names", func(bCtx SpecContext) {
 				analyzeExpectError(bCtx, `
 					func dog(age i32, age i32) {}
-				`, nil, ContainSubstring("name age conflicts with existing symbol"))
+				`, nil, ContainSubstring("name age conflicts with existing input parameter"))
 			})
 		})
 	})
@@ -320,7 +320,7 @@ var _ = Describe("Function Analyzer", func() {
 						gain f64,
 						gain f64
 					} () {}
-				`, nil, ContainSubstring("name gain conflicts with existing symbol"))
+				`, nil, ContainSubstring("name gain conflicts with existing input parameter"))
 			})
 		})
 
@@ -916,7 +916,7 @@ var _ = Describe("Function Analyzer", func() {
 					func compute{result f64}() result f64 {
 						result = 42.0
 					}
-				`, nil, ContainSubstring("name result conflicts with existing symbol"))
+				`, nil, ContainSubstring("name result conflicts with existing input parameter"))
 			})
 		})
 
@@ -999,7 +999,7 @@ var _ = Describe("Function Analyzer", func() {
 					func compute() (a f64, a f64) {
 						a = 1.0
 					}
-				`, nil, ContainSubstring("name a conflicts with existing symbol"))
+				`, nil, ContainSubstring("name a conflicts with existing output parameter"))
 			})
 		})
 	})

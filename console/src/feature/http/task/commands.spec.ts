@@ -8,34 +8,51 @@
 // included in the file licenses/APL.txt.
 
 import { createTestClient } from "@synnaxlabs/client/testutil";
-import { describe, it } from "vitest";
+import { describe, expect, it } from "vitest";
 
 import { renderPalette } from "@/feature/command/testutil";
 import { HTTP } from "@/feature/http";
-import { stubGeometry, waitForPlacedLayout } from "@/testutil";
+import { Session } from "@/session";
+import { resolveFocusedTab, stubGeometry, uniqueName } from "@/testutil";
 
 stubGeometry();
 
 const client = createTestClient();
 
 describe("HTTP.Task Commands", () => {
-  it("should place the read task layout from the create read task command", async () => {
+  it("should open the read task view from the create read task command", async () => {
+    const proj = await client.projects.create({
+      name: uniqueName("proj"),
+      layout: {},
+    });
     const { store, openCommandPalette, selectCommand } = await renderPalette({
       commands: HTTP.Task.COMMANDS,
       client,
     });
+    store.dispatch(Session.Project.select(proj.key));
     await openCommandPalette("Create an HTTP Read");
     await selectCommand("Create an HTTP Read Task");
-    await waitForPlacedLayout(store, HTTP.Task.READ_TYPE);
+    expect(await resolveFocusedTab(store, client)).toMatchObject({
+      variant: "view",
+      type: HTTP.Task.READ_TYPE,
+    });
   });
 
-  it("should place the write task layout from the create write task command", async () => {
+  it("should open the write task view from the create write task command", async () => {
+    const proj = await client.projects.create({
+      name: uniqueName("proj"),
+      layout: {},
+    });
     const { store, openCommandPalette, selectCommand } = await renderPalette({
       commands: HTTP.Task.COMMANDS,
       client,
     });
+    store.dispatch(Session.Project.select(proj.key));
     await openCommandPalette("Create an HTTP Write");
     await selectCommand("Create an HTTP Write Task");
-    await waitForPlacedLayout(store, HTTP.Task.WRITE_TYPE);
+    expect(await resolveFocusedTab(store, client)).toMatchObject({
+      variant: "view",
+      type: HTTP.Task.WRITE_TYPE,
+    });
   });
 });

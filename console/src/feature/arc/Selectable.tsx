@@ -9,20 +9,14 @@
 
 import { arc } from "@synnaxlabs/client";
 import { Access, Icon } from "@synnaxlabs/pluto";
-import { useCallback } from "react";
 
 import { Arc } from "@/platform/arc";
 import { Selector } from "@/platform/selector";
 
-export const Selectable: Selector.Selectable = ({ layoutKey }) => {
-  const create = Arc.useCreate();
-  const handleClick = useCallback(
-    () => create({ key: layoutKey }),
-    [create, layoutKey],
-  );
-  return (
-    <Selector.Item title="Arc Automation" icon={<Icon.Arc />} onClick={handleClick} />
-  );
-};
-Selectable.type = Arc.LAYOUT_TYPE;
-Selectable.useVisible = () => Access.useCreateGranted(arc.TYPE_ONTOLOGY_ID);
+export const Selectable = Selector.createSelectable({
+  title: "Arc Automation",
+  icon: <Icon.Arc />,
+  useOnSelect: Arc.useCreate,
+  type: arc.TYPE_ONTOLOGY_ID.type,
+  useVisible: () => Access.useCreateGranted(arc.TYPE_ONTOLOGY_ID),
+});

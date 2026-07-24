@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import "@/feature/schematic/symbol/edit/Edit.css";
+
 import {
   Button,
   Flex,
@@ -19,6 +21,8 @@ import {
   Text,
 } from "@synnaxlabs/pluto";
 import { location, xy } from "@synnaxlabs/x";
+
+import { CSS } from "@/platform/css";
 
 export const SelectHandleOrientation = (
   props: Omit<Select.ButtonsProps<location.Outer>, "keys">,
@@ -55,7 +59,11 @@ const HandleListItem = (props: HandleListItemProps) => {
   if (handle == null) return null;
   const scaledPos = xy.scale(handle.position, 100);
   return (
-    <Select.ListItem {...props} justify="between" style={{ paddingRight: "0.5rem" }}>
+    <Select.ListItem
+      {...props}
+      justify="between"
+      className={CSS.B("schematic-handle-list-item")}
+    >
       <Flex.Box x align="center" gap={1}>
         <Text.Text level="small" weight={500}>
           Handle {index + 1}
@@ -94,7 +102,7 @@ export const HandleList = ({ value, onChange, onAddHandle }: HandleListProps) =>
   >("data.handles");
 
   return (
-    <Flex.Box y gap={1} style={{ maxHeight: 200 }}>
+    <Flex.Box y gap={1} className={CSS.B("schematic-handle-list")}>
       <Header.Header level="p" bordered={false} padded>
         <Header.Title level="p" weight={500}>
           Handles

@@ -46,6 +46,7 @@ const (
 	SemanticTokenTypeNamespace
 	SemanticTokenTypeStringRaw
 	SemanticTokenTypeStringPlaceholder
+	SemanticTokenTypeChannelVariable
 )
 
 var semanticTokenTypes = []string{
@@ -71,6 +72,7 @@ var semanticTokenTypes = []string{
 	"namespace",
 	"stringRaw",
 	"stringPlaceholder",
+	"channelVariable",
 }
 
 func (s *Server) SemanticTokensFull(ctx context.Context, params *protocol.SemanticTokensParams) (*protocol.SemanticTokens, error) {
@@ -356,7 +358,18 @@ func classifyIdentifierAt(ctx context.Context, name string, line1, col0 int, roo
 	if err != nil || sym == nil {
 		return nil
 	}
+	if t := classifyVarKind(sym); t != nil {
+		return t
+	}
 	return mapSymbolKind(sym.Kind)
+}
+
+func classifyVarKind(sym *symbol.Symbol) *uint32 {
+	if !sym.IsChannelReadWrite() && !sym.IsReactive() {
+		return nil
+	}
+	tokenType := uint32(SemanticTokenTypeChannelVariable)
+	return &tokenType
 }
 
 func mapSymbolKind(kind symbol.Kind) *uint32 {
@@ -366,7 +379,7 @@ func mapSymbolKind(kind symbol.Kind) *uint32 {
 		tokenType = SemanticTokenTypeFunction
 	case symbol.KindVariable:
 		tokenType = SemanticTokenTypeVariable
-	case symbol.KindConstant, symbol.KindGlobalConstant:
+	case symbol.KindConstant:
 		tokenType = SemanticTokenTypeConstant
 	case symbol.KindStatefulVariable:
 		tokenType = SemanticTokenTypeStatefulVariable

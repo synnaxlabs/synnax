@@ -21,13 +21,13 @@ export const SET_CHANNEL_NAME = "sy_table_set";
 const deleteReqZ = z.object({ keys: keyZ.array() });
 
 const retrieveReqZ = z.object({ keys: keyZ.array() });
-const singleRetrieveArgsZ = z
+const singleRetrieveParamsZ = z
   .object({ key: keyZ })
   .transform(({ key }) => ({ keys: [key] }));
 
-export const retrieveArgsZ = z.union([singleRetrieveArgsZ, retrieveReqZ]);
-export type RetrieveArgs = z.input<typeof retrieveArgsZ>;
-export type RetrieveSingleParams = z.input<typeof singleRetrieveArgsZ>;
+export const retrieveParamsZ = z.union([singleRetrieveParamsZ, retrieveReqZ]);
+export type RetrieveParams = z.input<typeof retrieveParamsZ>;
+export type RetrieveSingleParams = z.input<typeof singleRetrieveParamsZ>;
 export type RetrieveMultipleParams = z.input<typeof retrieveReqZ>;
 
 const retrieveResZ = z.object({ tables: tableZ.array().default(() => []) });
@@ -70,19 +70,19 @@ export class Client {
     );
   }
 
-  async retrieve(args: RetrieveSingleParams): Promise<Table>;
-  async retrieve(args: RetrieveMultipleParams): Promise<Table[]>;
+  async retrieve(params: RetrieveSingleParams): Promise<Table>;
+  async retrieve(params: RetrieveMultipleParams): Promise<Table[]>;
   async retrieve(
-    args: RetrieveSingleParams | RetrieveMultipleParams,
+    params: RetrieveSingleParams | RetrieveMultipleParams,
   ): Promise<Table | Table[]> {
-    const isSingle = singleRetrieveArgsZ.safeParse(args).success;
+    const isSingle = singleRetrieveParamsZ.safeParse(params).success;
     const res = await this.client.send(
       "/table/retrieve",
-      args,
-      retrieveArgsZ,
+      params,
+      retrieveParamsZ,
       retrieveResZ,
     );
-    checkForMultipleOrNoResults("Table", args, res.tables, isSingle);
+    checkForMultipleOrNoResults("Table", params, res.tables, isSingle);
     return isSingle ? res.tables[0] : res.tables;
   }
 

@@ -496,6 +496,8 @@ func KindToPB(v types.Kind) (Kind, error) {
 		return Kind_KIND_SEQUENCE, nil
 	case types.KindStage:
 		return Kind_KIND_STAGE, nil
+	case types.KindVarRef:
+		return Kind_KIND_VAR_REF, nil
 	default:
 		return 0, errors.Newf("unrecognized types.Kind value: %v", v)
 	}
@@ -548,6 +550,8 @@ func KindFromPB(v Kind) (types.Kind, error) {
 		return types.KindSequence, nil
 	case Kind_KIND_STAGE:
 		return types.KindStage, nil
+	case Kind_KIND_VAR_REF:
+		return types.KindVarRef, nil
 	default:
 		return 0, errors.Newf("unrecognized Kind value: %v", v)
 	}

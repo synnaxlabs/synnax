@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import "@/feature/ni/task/AIChannelForm.css";
+
 import { Divider, Flex, Form, Icon } from "@synnaxlabs/pluto";
 import { type record } from "@synnaxlabs/x";
 import { type FC } from "react";
@@ -27,6 +29,7 @@ import {
   type VelocitySensitivityUnits,
   type VelocityUnits,
 } from "@/feature/ni/task/types";
+import { CSS } from "@/platform/css";
 
 interface FormProps {
   prefix: string;
@@ -583,7 +586,7 @@ const CHANNEL_FORMS: Record<AIChannelType, FC<FormProps>> = {
           path={`${prefix}.voltageExcitVal`}
           label="Voltage Excitation Value"
           grow
-          style={{ maxWidth: 200 }}
+          className={CSS.BM("ni-field", "narrow")}
         />
       </Flex.Box>
       <Divider.Divider x padded="bottom" />
@@ -593,21 +596,25 @@ const CHANNEL_FORMS: Record<AIChannelType, FC<FormProps>> = {
           fieldKey="physicalUnits"
           label="Physical Units"
           grow
-          style={{ width: "50%" }}
+          className={CSS.BM("ni-field", "half")}
         />
-        <ElectricalUnitsField path={prefix} grow style={{ width: "50%" }} />
+        <ElectricalUnitsField
+          path={prefix}
+          grow
+          className={CSS.BM("ni-field", "half")}
+        />
       </Flex.Box>
       <Flex.Box x>
         <Form.NumericField
           path={`${prefix}.firstPhysicalVal`}
           label="Physical Value One"
           grow
-          style={{ width: "50%" }}
+          className={CSS.BM("ni-field", "half")}
         />
         <Form.NumericField
           path={`${prefix}.secondPhysicalVal`}
           label="Physical Value Two"
-          style={{ width: "50%" }}
+          className={CSS.BM("ni-field", "half")}
           grow
         />
       </Flex.Box>
@@ -615,13 +622,13 @@ const CHANNEL_FORMS: Record<AIChannelType, FC<FormProps>> = {
         <Form.NumericField
           path={`${prefix}.firstElectricalVal`}
           label="Electrical Value One"
-          style={{ width: "50%" }}
+          className={CSS.BM("ni-field", "half")}
           grow
         />
         <Form.NumericField
           path={`${prefix}.secondElectricalVal`}
           label="Electrical Value Two"
-          style={{ width: "50%" }}
+          className={CSS.BM("ni-field", "half")}
           grow
         />
       </Flex.Box>

@@ -15,8 +15,6 @@ import { describe, expect, it } from "vitest";
 
 import { Arc } from "@/platform/arc";
 import { client } from "@/platform/arc/testutil";
-import { Layout } from "@/platform/layout";
-import { Session } from "@/session";
 import { createConsoleWrapper } from "@/testutil";
 
 const getItemFor = (item: arc.Arc): List.GetItem<arc.Key, arc.Arc> =>
@@ -26,36 +24,22 @@ const getItemFor = (item: arc.Arc): List.GetItem<arc.Key, arc.Arc> =>
   );
 
 describe("arc useRename", () => {
-  it("should rename the arc layout and persist the rename to the cluster", async () => {
+  it("should persist the rename to the cluster", async () => {
     const original = await client.arcs.create({
       name: id.create(),
       mode: "graph",
       graph: { nodes: [], edges: [] },
     });
     const newName = id.create();
-    const { wrapper, store } = await createConsoleWrapper({ client });
-    const { result } = renderHook(
-      () => ({
-        placer: Layout.usePlacer(),
-        rename: Arc.useRename(getItemFor(original)),
-      }),
-      { wrapper },
-    );
-
-    act(() => {
-      result.current.placer(Arc.create({ key: original.key, name: original.name }));
-    });
-    expect(Session.Layout.select(store.getState(), original.key)?.name).toBe(
-      original.name,
-    );
-
-    act(() => {
-      result.current.rename.update({ key: original.key, name: newName });
+    const { wrapper } = await createConsoleWrapper({ client });
+    const { result } = renderHook(() => Arc.useRename(getItemFor(original)), {
+      wrapper,
     });
 
-    await waitFor(() =>
-      expect(Session.Layout.select(store.getState(), original.key)?.name).toBe(newName),
-    );
+    act(() => {
+      result.current.update({ key: original.key, name: newName });
+    });
+
     await waitFor(async () => {
       const retrieved = await client.arcs.retrieve({ key: original.key });
       expect(retrieved.name).toBe(newName);

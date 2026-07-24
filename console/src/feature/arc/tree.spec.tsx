@@ -10,19 +10,18 @@
 import { arc as clientArc, group, ontology } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { type Status } from "@synnaxlabs/pluto";
-import { fireEvent, waitFor } from "@testing-library/react";
+import { fireEvent } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { Arc } from "@/feature/arc";
 import { findTreeRow, renderOntologyTree } from "@/platform/tree/treeTestutil";
-import { Session } from "@/session";
-import { CaptureStatuses, uniqueName } from "@/testutil";
+import { CaptureStatuses, resolveFocusedTab, uniqueName } from "@/testutil";
 
 const client = createTestClient();
 
 describe("arc/ontology", () => {
   describe("onSelect", () => {
-    it("should place the arc editor layout when the row is double-clicked", async () => {
+    it("should open the arc as a tab when the row is double-clicked", async () => {
       const arc = await client.arcs.create({
         name: uniqueName("arc"),
         mode: "graph",
@@ -42,15 +41,12 @@ describe("arc/ontology", () => {
         items: Arc.TREE_ITEMS,
       });
       fireEvent.doubleClick(await findTreeRow(arc.name));
-      await waitFor(() =>
-        expect(Session.Layout.select(store.getState(), arc.key)?.name).toBe(arc.name),
-      );
-      expect(Session.Layout.select(store.getState(), arc.key)?.type).toBe(
-        Arc.EDITOR_LAYOUT_TYPE,
-      );
+      const tab = await resolveFocusedTab(store, client);
+      if (tab.variant !== "resource") throw new Error("expected a resource tab");
+      expect(tab.resource.key).toBe(arc.key);
     });
 
-    it("should report an error when the arc cannot be loaded", async () => {
+    it("should open the tab without retrieving the arc", async () => {
       const arc = await client.arcs.create({
         name: uniqueName("arc"),
         mode: "graph",
@@ -65,7 +61,7 @@ describe("arc/ontology", () => {
         clientArc.ontologyID(arc.key),
       );
       let statuses: Status.NotificationSpec[] = [];
-      await renderOntologyTree({
+      const { store } = await renderOntologyTree({
         client,
         root: group.ontologyID(grp.key),
         items: Arc.TREE_ITEMS,
@@ -74,11 +70,10 @@ describe("arc/ontology", () => {
       const row = await findTreeRow(arc.name);
       await client.arcs.delete(arc.key);
       fireEvent.doubleClick(row);
-      await waitFor(() =>
-        expect(statuses.some((s) => s.message === `Failed to load ${arc.name}`)).toBe(
-          true,
-        ),
-      );
+      const tab = await resolveFocusedTab(store, client);
+      if (tab.variant !== "resource") throw new Error("expected a resource tab");
+      expect(tab.resource.key).toBe(arc.key);
+      expect(statuses).toEqual([]);
     });
   });
 });

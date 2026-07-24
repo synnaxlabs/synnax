@@ -20,18 +20,19 @@ const CONFIG: Triggers.ModeConfig<"toggle"> = {
 };
 
 export const useTriggerHold = (): void => {
-  const { layoutKey: activeTab } = Session.Layout.useSelectActiveMosaicTabState();
   const dispatch = Session.useDispatch();
   const flat = Triggers.useFlattenedMemoConfig(CONFIG);
+  const getFocusedKey = Session.LinePlot.useGetFocusedKey();
   Triggers.use({
     triggers: flat,
     loose: true,
     callback: useCallback(
       (e: Triggers.UseEvent) => {
-        if (e.stage === "start" && activeTab != null)
-          dispatch(Session.LinePlot.setControlHold({ key: activeTab }));
+        if (e.stage !== "start") return;
+        const key = getFocusedKey();
+        if (key != null) dispatch(Session.LinePlot.setControlHold({ key }));
       },
-      [dispatch, activeTab, flat],
+      [dispatch, flat],
     ),
   });
 };

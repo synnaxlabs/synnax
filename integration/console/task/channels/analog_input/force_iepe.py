@@ -58,14 +58,7 @@ class ForceIEPE(Analog):
         self._configure_dropdown("Force Units", force_units)
         self._configure_input("Sensitivity", sensitivity)
 
-        # Custom handling for sensitivity units (button text contains special chars)
-        if sensitivity_units is not None:
-            self.layout.page.locator(
-                "button.pluto-dialog__trigger:has-text('V/')"
-            ).click()
-            self.layout.page.locator(".pluto-list__item").get_by_text(
-                sensitivity_units, exact=True
-            ).dispatch_event("click")
+        self._configure_symbol_dropdown("V/", sensitivity_units)
 
         self._configure_dropdown("Current Excitation Source", current_excitation_source)
         self._configure_input("Current Excitation Value", current_excitation_value)

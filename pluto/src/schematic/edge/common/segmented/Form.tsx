@@ -7,10 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import "@/schematic/edge/common/segmented/Segmented.css";
+
 import { type color, type record } from "@synnaxlabs/x";
 import { type CSSProperties, type ReactElement } from "react";
 
 import { Color } from "@/color";
+import { CSS } from "@/css";
 import { Flex } from "@/flex";
 import { Form as Base } from "@/form";
 import { type Variant } from "@/schematic/edge/registry";
@@ -43,7 +46,7 @@ const SelectVariant = (props: SelectVariantProps): ReactElement => (
 );
 
 export const Form = (): ReactElement => (
-  <Flex.Box style={{ padding: "2rem" }} align="start" x>
+  <Flex.Box className={CSS.B("schematic-edge-form")} align="start" x>
     <Base.Field<color.Color> path="color" label="Color" padHelpText={false}>
       {({ value, onChange, variant: _, ...rest }) => (
         <Color.Swatch value={value} onChange={onChange} {...rest} />

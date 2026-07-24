@@ -10,6 +10,8 @@
 import { type log } from "@synnaxlabs/client";
 import { Log } from "@synnaxlabs/pluto";
 import { type record } from "@synnaxlabs/x";
+import { useCallback } from "react";
+import { useStore } from "react-redux";
 
 import {
   SLICE_NAME,
@@ -32,12 +34,28 @@ const createSelector = <R>(selector: (params: KeyedSelectorParams) => R) =>
     Select.useMemo((state: StoreState) => selector({ state, key }), [key]),
   );
 
-export const selectState = ({ state, key }: KeyedSelectorParams): State =>
+const createGetter =
+  <R>(selector: (params: KeyedSelectorParams) => R) =>
+  (): ((args?: { key?: log.Key }) => R) => {
+    const store = useStore<StoreState>();
+    const scopeKey = Log.Scope.useOptional();
+    return useCallback(
+      (args) =>
+        selector({
+          state: store.getState(),
+          key: Log.Scope.require(args?.key ?? scopeKey),
+        }),
+      [store, scopeKey],
+    );
+  };
+
+const selectState = ({ state, key }: KeyedSelectorParams): State =>
   selectSliceState(state).logs[key] ?? ZERO_STATE;
 
 export const useSelectState = createSelector(selectState);
+export const useGetState = createGetter(selectState);
 
-export const selectSelectedToolbarTab = (params: KeyedSelectorParams): ToolbarTab =>
+const selectSelectedToolbarTab = (params: KeyedSelectorParams): ToolbarTab =>
   selectState(params).toolbar.selectedTab;
 
 export const useSelectSelectedToolbarTab = createSelector(selectSelectedToolbarTab);

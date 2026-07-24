@@ -14,7 +14,7 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { Project } from "@/feature/project";
-import { createActiveState, createSavedLayout } from "@/platform/project/testutil";
+import { createActiveState } from "@/platform/project/testutil";
 import { Session } from "@/session";
 import { createConsoleWrapper, renderWithConsole } from "@/testutil";
 
@@ -33,15 +33,14 @@ describe("Project.Selector", () => {
     expect(container.querySelector(".console-trigger")).toBeNull();
   });
 
-  it("switches the active project and loads its layout on selection", async () => {
+  it("switches the active project on selection", async () => {
     const active: project.Project = await client.projects.create({
       name: `proj-active-${id.create()}`,
-      layout: Session.Layout.ZERO_SLICE_STATE,
+      layout: {},
     });
-    const layoutKey = id.create();
     const target: project.Project = await client.projects.create({
       name: `proj-target-${id.create()}`,
-      layout: createSavedLayout(layoutKey),
+      layout: {},
     });
     const { wrapper, store } = await createConsoleWrapper({
       client,
@@ -56,6 +55,5 @@ describe("Project.Selector", () => {
     await waitFor(() =>
       expect(Session.Project.selectSelected(store.getState())).toBe(target.key),
     );
-    expect(Session.Layout.select(store.getState(), layoutKey)?.name).toBe("Operator");
   });
 });

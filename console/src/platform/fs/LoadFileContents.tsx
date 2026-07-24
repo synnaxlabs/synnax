@@ -56,7 +56,7 @@ export const InputFilePath = ({
       >
         {primitive.isNonZero(path) ? (
           <>
-            <Icon.Attachment style={{ color: "var(--pluto-gray-l8)" }} />
+            <Icon.Attachment className={CSS.BE("input-file-path", "icon")} />
             {path}
           </>
         ) : (

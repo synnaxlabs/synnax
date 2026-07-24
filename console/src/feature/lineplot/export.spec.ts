@@ -7,38 +7,27 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { DisconnectedError } from "@synnaxlabs/client";
+import { DisconnectedError, lineplot } from "@synnaxlabs/client";
 import { describe, expect, it } from "vitest";
 
 import { LinePlot } from "@/feature/lineplot";
-import { client, createPreloadedState, project } from "@/feature/lineplot/testutil";
+import { client, project } from "@/feature/lineplot/testutil";
 import { createTestStore, uniqueName } from "@/testutil";
 
-const extract = LinePlot.EXTRACTORS[LinePlot.LAYOUT_TYPE];
+const extract = LinePlot.EXTRACTORS[lineplot.TYPE_ONTOLOGY_ID.type];
 
 describe("lineplot export", () => {
-  it("serializes the plot with its layout type and the layout's name", async () => {
-    const plot = await client.lineplots.create(await project(), {
-      name: uniqueName("plot"),
-    });
-    const store = await createTestStore({
-      preloadedState: createPreloadedState(plot.key, "Renamed Layout"),
-    });
-    const file = await extract(plot.key, { store, client });
-    expect(file.name).toBe("Renamed Layout");
-    const data = JSON.parse(file.data);
-    expect(data.type).toBe(LinePlot.LAYOUT_TYPE);
-    expect(data.key).toBe(plot.key);
-    expect(data.name).toBe(plot.name);
-  });
-
-  it("falls back to the server name when no layout exists", async () => {
+  it("serializes the plot with its type and the server name", async () => {
     const plot = await client.lineplots.create(await project(), {
       name: uniqueName("plot"),
     });
     const store = await createTestStore();
     const file = await extract(plot.key, { store, client });
     expect(file.name).toBe(plot.name);
+    const data = JSON.parse(file.data);
+    expect(data.type).toBe(lineplot.TYPE_ONTOLOGY_ID.type);
+    expect(data.key).toBe(plot.key);
+    expect(data.name).toBe(plot.name);
   });
 
   it("throws a DisconnectedError without a client", async () => {

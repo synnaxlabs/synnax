@@ -30,6 +30,7 @@ import (
 	"github.com/synnaxlabs/arc/stl/stateful"
 	"github.com/synnaxlabs/arc/stl/strings"
 	"github.com/synnaxlabs/arc/stl/time"
+	"github.com/synnaxlabs/arc/stl/variable"
 	"github.com/synnaxlabs/arc/stl/wasm"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
@@ -179,6 +180,7 @@ func (t *impl) start(ctx context.Context) (err error) {
 		timeMod,
 		selector.NewHost(),
 		constant.NewHost(),
+		variable.NewHost(),
 		op.NewHost(),
 		stable.NewHost(),
 		statusMod,

@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import "@/steps/Steps.css";
+
 import { Fragment, type ReactElement } from "react";
 
 import { Button } from "@/button";
@@ -45,9 +47,7 @@ export const Steps = ({
             {i + 1}. {step.title}
           </Button.Button>
           {i !== steps.length - 1 && (
-            <Icon.Arrow.Right
-              style={{ fontSize: "15px", color: "var(--pluto-gray-l10)" }}
-            />
+            <Icon.Arrow.Right className={CSS.B("steps-arrow")} />
           )}
         </Fragment>
       ))}

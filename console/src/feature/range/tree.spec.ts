@@ -13,12 +13,11 @@ import { fireEvent, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { Range } from "@/feature/range";
-import { Range as CommonRange } from "@/platform/range";
 import { createTestRange } from "@/platform/range/testutil";
 import { createResource } from "@/platform/tree/testutil";
 import { findTreeRow, renderOntologyTree } from "@/platform/tree/treeTestutil";
 import { Session } from "@/session";
-import { uniqueName } from "@/testutil";
+import { resolveFocusedTab, uniqueName } from "@/testutil";
 
 const client = createTestClient();
 
@@ -47,12 +46,9 @@ describe("range/ontology", () => {
           rng.name,
         ),
       );
-      await waitFor(() =>
-        expect(Session.Layout.select(store.getState(), rng.key)?.name).toBe(rng.name),
-      );
-      expect(Session.Layout.select(store.getState(), rng.key)?.type).toBe(
-        CommonRange.OVERVIEW_LAYOUT_TYPE,
-      );
+      const tab = await resolveFocusedTab(store, client);
+      if (tab.variant !== "resource") throw new Error("expected a resource tab");
+      expect(tab.resource.key).toBe(rng.key);
     });
   });
 

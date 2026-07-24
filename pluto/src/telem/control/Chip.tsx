@@ -9,7 +9,13 @@
 
 import { control as clientControl, type status } from "@synnaxlabs/client";
 import { TimeStamp } from "@synnaxlabs/x";
-import { type CSSProperties, type ReactElement, useCallback, useEffect } from "react";
+import {
+  type CSSProperties,
+  type ReactElement,
+  useCallback,
+  useEffect,
+  useMemo,
+} from "react";
 import { type z } from "zod";
 
 import { Aether } from "@/aether";
@@ -114,7 +120,7 @@ export const Chip = ({ source, sink, className, ...rest }: ChipProps): ReactElem
     chipIcon: ChipIcon,
     buttonStyle,
     disabled,
-  } = tooltipMessage(status);
+  } = useMemo(() => tooltipMessage(status), [status]);
 
   return (
     <Button.Button

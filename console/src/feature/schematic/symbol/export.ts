@@ -24,7 +24,7 @@ export const extract: Export.Extractor = async (key, { client }) => {
 
 export const useExport = () => Export.use(extract, "symbol");
 
-interface ExportGroupArgs {
+interface ExportGroupParams {
   client: Client | null;
   group: group.Group;
   handleError: Status.ErrorHandler;
@@ -37,7 +37,7 @@ const exportGroup = async ({
   group: { key, name },
   addStatus,
   confirm,
-}: ExportGroupArgs): Promise<void> => {
+}: ExportGroupParams): Promise<void> => {
   if (client == null) throw new DisconnectedError();
   const children = await client.ontology.retrieveChildren(group.ontologyID(key));
   const symbolKeys = children

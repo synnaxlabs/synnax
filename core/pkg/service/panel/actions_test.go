@@ -278,6 +278,56 @@ var _ = Describe("Actions", func() {
 			Expect(next).To(Equal(p))
 		})
 
+		It("Should be a no-op when a singleton view of the same type already exists", func() {
+			p := panel.Panel{Root: leafNode(viewTab(tab1, "range_explorer"))}
+			duplicate := viewTab(tab2, "range_explorer")
+			next := MustSucceed(panel.InsertTabPayload{
+				Tab:       duplicate,
+				Singleton: new(true),
+			}.Handle(p))
+			Expect(next).To(Equal(p))
+		})
+
+		It("Should dedupe a singleton view across a split", func() {
+			p := panel.Panel{Root: splitNode(
+				spatial.DirectionX, 0.5,
+				leafNode(tab(tab1)),
+				leafNode(viewTab(tab2, "range_explorer")),
+			)}
+			duplicate := viewTab(tab3, "range_explorer")
+			next := MustSucceed(panel.InsertTabPayload{
+				Tab:       duplicate,
+				Singleton: new(true),
+			}.Handle(p))
+			Expect(next).To(Equal(p))
+		})
+
+		It("Should insert a singleton view when no view of that type exists", func() {
+			p := panel.Panel{Root: leafNode(viewTab(tab1, "docs"))}
+			next := MustSucceed(panel.InsertTabPayload{
+				Tab:       viewTab(tab2, "range_explorer"),
+				Singleton: new(true),
+			}.Handle(p))
+			Expect(tabKeys(next.Root)).To(Equal([]uuid.UUID{tab1, tab2}))
+		})
+
+		It("Should refresh a singleton view in place when its own key is reinserted", func() {
+			p := panel.Panel{Root: leafNode(viewTab(tab1, "range_explorer"))}
+			next := MustSucceed(panel.InsertTabPayload{
+				Tab:       viewTab(tab1, "range_explorer"),
+				Singleton: new(true),
+			}.Handle(p))
+			Expect(tabKeys(next.Root)).To(Equal([]uuid.UUID{tab1}))
+		})
+
+		It("Should allow a duplicate view type when singleton is unset", func() {
+			p := panel.Panel{Root: leafNode(viewTab(tab1, "range_explorer"))}
+			next := MustSucceed(panel.InsertTabPayload{
+				Tab: viewTab(tab2, "range_explorer"),
+			}.Handle(p))
+			Expect(tabKeys(next.Root)).To(Equal([]uuid.UUID{tab1, tab2}))
+		})
+
 		It("Should relocate an existing tab and refresh its content when a placement is given", func() {
 			p := panel.Panel{Root: leafNode(tab(tab1), viewTab(tab2, "selector"))}
 			next := MustSucceed(panel.InsertTabPayload{

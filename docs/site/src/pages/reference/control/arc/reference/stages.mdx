@@ -51,14 +51,15 @@ named-stage jumps, or cross-sequence jumps.
 
 When entering a stage:
 
-1. All stateful variables in stage nodes reset
+1. Local variables (`:=`) reset to their initial values; stateful variables (`$=`) keep
+   their state
 2. Continuous flows (`->`) start fresh
 3. Timing nodes (`time.wait`, `time.interval`) reset their countdowns
 4. Inline sub-sequences restart from their first item
 5. Channel triggers only react to new writes. Values written before stage activation are
    ignored
 
-Stages are stateless between entries.
+Aside from stateful variables (`$=`), a stage holds no state between entries.
 
 ### Resumable Controllers
 

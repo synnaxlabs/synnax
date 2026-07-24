@@ -22,11 +22,6 @@ const useOpen = () => {
     handleError(async () => {
       const proj = await client.projects.retrieve(id.key);
       store.dispatch(Session.Project.select(proj.key));
-      store.dispatch(
-        Session.Layout.setProject({
-          slice: Session.Layout.migrateLayout(proj.layout),
-        }),
-      );
     }, `Failed to select ${name}`);
   };
 };

@@ -478,3 +478,128 @@ var _ = Describe("Construction validation", func() {
 		Expect(stable.NewHost().Create(ctx, cfg)).Error().To(BeAValidationPathError())
 	})
 })
+
+var _ = Describe("Variable duration", func() {
+	var (
+		module      *stable.Host
+		s           *node.ProgramState
+		cfg         node.Config
+		setDuration func(telem.TimeSpan)
+		currentTime telem.TimeStamp
+	)
+	BeforeEach(func() {
+		currentTime = 0
+		module = stable.NewHost(stable.WithNow(func() telem.TimeStamp {
+			return currentTime
+		}))
+	})
+	// build wires source -> stable with a var-bound duration: Value holds the
+	// declared initial and setDuration writes the variable's live slot.
+	build := func(initial telem.TimeSpan) {
+		prog := ir.IR{
+			Nodes: ir.Nodes{
+				{
+					Key:  "source",
+					Type: "source",
+					Outputs: types.Params{
+						{Name: ir.DefaultOutputParam, Type: types.U8()},
+					},
+				},
+				{
+					Key:  "v",
+					Type: "variable",
+					Outputs: types.Params{
+						{Name: ir.DefaultOutputParam, Type: types.I64()},
+					},
+				},
+				{
+					Key:  "stable",
+					Type: "stable_for",
+					Inputs: types.Params{
+						{
+							Name:  "duration",
+							Type:  types.VarRef(types.I64(), "v"),
+							Value: initial,
+						},
+						{Name: ir.DefaultInputParam, Type: types.U8()},
+					},
+					Outputs: types.Params{
+						{Name: ir.DefaultOutputParam, Type: types.U8()},
+					},
+				},
+			},
+			Edges: ir.Edges{{
+				Source: ir.Handle{Node: "source", Param: ir.DefaultOutputParam},
+				Target: ir.Handle{Node: "stable", Param: ir.DefaultInputParam},
+			}},
+		}
+		s = node.New(prog)
+		cfg = node.Config{Node: prog.Nodes.Get("stable"), State: s.Node("stable")}
+		setDuration = func(d telem.TimeSpan) {
+			*s.Node("v").Output(0) = telem.NewSeriesV(int64(d))
+		}
+	}
+	ingest := func(v uint8, at telem.TimeStamp) {
+		*s.Node("source").Output(0) = telem.NewSeriesV[uint8](v)
+		*s.Node("source").OutputTime(0) = telem.NewSeriesV[telem.TimeStamp](at)
+	}
+	next := func(ctx SpecContext, n node.Node) bool {
+		fired := false
+		n.Next(node.Context{Context: ctx, MarkChanged: func(int) { fired = true }})
+		return fired
+	}
+
+	It("Should honor the declared initial before any write", func(ctx SpecContext) {
+		build(telem.Second)
+		n := MustSucceed(module.Create(ctx, cfg))
+		ingest(5, telem.SecondTS)
+		currentTime = telem.SecondTS
+		Expect(next(ctx, n)).To(BeFalse())
+		currentTime = telem.SecondTS + telem.SecondTS/2
+		Expect(next(ctx, n)).To(BeFalse())
+		currentTime = 2 * telem.SecondTS
+		Expect(next(ctx, n)).To(BeTrue())
+	})
+
+	It("Should adopt a shortening write at the next window, not mid-window", func(ctx SpecContext) {
+		build(10 * telem.Second)
+		n := MustSucceed(module.Create(ctx, cfg))
+		ingest(5, telem.SecondTS)
+		currentTime = telem.SecondTS
+		Expect(next(ctx, n)).To(BeFalse())
+		setDuration(telem.Second)
+		// The in-flight window completes under its starting 10s.
+		currentTime = 2 * telem.SecondTS
+		Expect(next(ctx, n)).To(BeFalse())
+		currentTime = 11 * telem.SecondTS
+		Expect(next(ctx, n)).To(BeTrue())
+		// The next window latches the shortened 1s.
+		ingest(7, 12*telem.SecondTS)
+		currentTime = 12 * telem.SecondTS
+		Expect(next(ctx, n)).To(BeFalse())
+		currentTime = 13 * telem.SecondTS
+		Expect(next(ctx, n)).To(BeTrue())
+	})
+
+	It("Should adopt a lengthening write at the next window, not mid-window", func(ctx SpecContext) {
+		build(telem.Second)
+		n := MustSucceed(module.Create(ctx, cfg))
+		ingest(5, telem.SecondTS)
+		currentTime = telem.SecondTS
+		Expect(next(ctx, n)).To(BeFalse())
+		setDuration(10 * telem.Second)
+		// The in-flight window completes under its starting 1s.
+		currentTime = 2 * telem.SecondTS
+		Expect(next(ctx, n)).To(BeTrue())
+		// The next window latches the lengthened 10s.
+		ingest(7, 3*telem.SecondTS)
+		currentTime = 3 * telem.SecondTS
+		Expect(next(ctx, n)).To(BeFalse())
+		currentTime = 4 * telem.SecondTS
+		Expect(next(ctx, n)).To(BeFalse())
+		currentTime = 13 * telem.SecondTS
+		Expect(next(ctx, n)).To(BeTrue())
+		output := s.Node("stable").Output(0)
+		Expect(telem.UnmarshalSeries[uint8](*output)).To(Equal([]uint8{7}))
+	})
+})

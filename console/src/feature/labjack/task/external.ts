@@ -7,17 +7,17 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Read, READ_LAYOUT, ReadSelectable } from "@/feature/labjack/task/Read";
+import { Read, ReadSelectable } from "@/feature/labjack/task/Read";
 import {
   READ_SCHEMAS,
   READ_TYPE,
   WRITE_SCHEMAS,
   WRITE_TYPE,
 } from "@/feature/labjack/task/types";
-import { Write, WRITE_LAYOUT, WriteSelectable } from "@/feature/labjack/task/Write";
+import { Write, WriteSelectable } from "@/feature/labjack/task/Write";
 import { type Export } from "@/platform/export";
 import { type Import } from "@/platform/import";
-import { type Layout } from "@/platform/layout";
+import { type Panel } from "@/platform/panel";
 import { type Selector } from "@/platform/selector";
 import { Task } from "@/platform/task";
 
@@ -34,18 +34,13 @@ export const EXTRACTORS: Export.Extractors = {
 };
 
 export const FILE_INGESTERS: Import.FileIngesters = {
-  [READ_TYPE]: Task.createIngester(READ_SCHEMAS.config, READ_LAYOUT),
-  [WRITE_TYPE]: Task.createIngester(WRITE_SCHEMAS.config, WRITE_LAYOUT),
+  [READ_TYPE]: Task.createIngester(READ_SCHEMAS.config, READ_TYPE),
+  [WRITE_TYPE]: Task.createIngester(WRITE_SCHEMAS.config, WRITE_TYPE),
 };
 
-export const LAYOUTS: Layout.Renderers = {
+export const TABS: Panel.Tabs = {
   [READ_TYPE]: Read,
   [WRITE_TYPE]: Write,
 };
 
 export const SELECTABLES: Selector.Selectable[] = [ReadSelectable, WriteSelectable];
-
-export const ZERO_LAYOUTS: Record<string, Task.Layout> = {
-  [READ_TYPE]: READ_LAYOUT,
-  [WRITE_TYPE]: WRITE_LAYOUT,
-};

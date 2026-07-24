@@ -104,13 +104,20 @@ var _ = Describe("Streamer Behavior", func() {
 					r, o, closer := openStreamer(db, cesium.StreamerConfig{})
 
 					r.Inlet() <- cesium.StreamerRequest{Channels: []cesium.ChannelKey{key}}
-					MustSucceed(w.Write(telem.MultiFrame(
-						[]cesium.ChannelKey{key},
-						[]telem.Series{telem.NewSeriesSecondsTSV(10, 11)},
-					)))
 
+					// The subscription update is applied asynchronously, so writes
+					// racing ahead of it are dropped. Retry with increasing timestamps
+					// until a frame comes through.
 					var res cesium.StreamerResponse
-					Eventually(o.Outlet()).Should(Receive(&res))
+					ts := telem.TimeStamp(10)
+					Eventually(func(g Gomega) {
+						g.Expect(w.Write(telem.MultiFrame(
+							[]cesium.ChannelKey{key},
+							[]telem.Series{telem.NewSeriesSecondsTSV(ts)},
+						))).To(BeTrue())
+						ts++
+						g.Expect(o.Outlet()).To(Receive(&res))
+					}).Should(Succeed())
 					Expect(res.Frame.KeysSlice()).To(ContainElement(key))
 					Expect(closer.Close()).To(Succeed())
 					Expect(w.Close()).To(Succeed())

@@ -7,9 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import "@/arc/graph/node/operator/Operator.css";
+
 import { type FC } from "react";
 
 import { Minimal } from "@/arc/graph/node/Base";
+import { CSS } from "@/css";
 import { Icon } from "@/icon";
 import { Text } from "@/text";
 
@@ -34,7 +37,7 @@ export const createOperator = (
         weight={500}
         variant="code"
         color={10}
-        style={{ transform: "scale(1.2) translateY(-2%)", padding: "1rem" }}
+        className={CSS.BE("arc", "operator-label")}
       >
         {operator}
       </Text.Text>
