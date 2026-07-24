@@ -12,7 +12,7 @@
 package v2
 
 import (
-	graph "github.com/synnaxlabs/arc/graph/versions/v2"
+	graph "github.com/synnaxlabs/arc/graph/versions/v1"
 	"github.com/synnaxlabs/arc/program"
 	text "github.com/synnaxlabs/arc/text/versions/v1"
 	v1 "github.com/synnaxlabs/synnax/pkg/service/arc/versions/v1"

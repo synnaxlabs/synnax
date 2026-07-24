@@ -7,12 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package v2_test
+package v1_test
 
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	v2 "github.com/synnaxlabs/arc/graph/versions/v2"
+	v1 "github.com/synnaxlabs/arc/graph/versions/v1"
 	"github.com/synnaxlabs/arc/ir"
 	xmsgpack "github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/spatial"
@@ -23,12 +23,12 @@ import (
 var _ = Describe("DecodeMsgpack", func() {
 	Describe("Node", func() {
 		It("Should decode new lowercase msgpack fields", func() {
-			original := v2.Node{
+			original := v1.Node{
 				Key:      "node1",
 				Position: spatial.XY{X: 100, Y: 200},
 			}
 			data := MustSucceed(msgpack.Marshal(original))
-			var decoded v2.Node
+			var decoded v1.Node
 			Expect(msgpack.Unmarshal(data, &decoded)).To(Succeed())
 			Expect(decoded.Key).To(Equal("node1"))
 			Expect(decoded.Position).To(Equal(spatial.XY{X: 100, Y: 200}))
@@ -46,7 +46,7 @@ var _ = Describe("DecodeMsgpack", func() {
 				Position: spatial.XY{X: 50, Y: 75},
 			}
 			data := MustSucceed(msgpack.Marshal(legacy))
-			var decoded v2.Node
+			var decoded v1.Node
 			Expect(msgpack.Unmarshal(data, &decoded)).To(Succeed())
 			Expect(decoded.Key).To(Equal("node1"))
 			Expect(decoded.Position).To(Equal(spatial.XY{X: 50, Y: 75}))
@@ -58,13 +58,13 @@ var _ = Describe("DecodeMsgpack", func() {
 			legacy := struct {
 				Functions ir.Functions
 				Edges     ir.Edges
-				Nodes     v2.Nodes
+				Nodes     v1.Nodes
 			}{
-				Nodes: v2.Nodes{{Key: "n1"}},
+				Nodes: v1.Nodes{{Key: "n1"}},
 				Edges: ir.Edges{{Source: ir.Handle{Node: "n1", Param: "out"}}},
 			}
 			data := MustSucceed(msgpack.Marshal(legacy))
-			var decoded v2.Graph
+			var decoded v1.Graph
 			Expect(msgpack.Unmarshal(data, &decoded)).To(Succeed())
 			Expect(decoded.Nodes).To(HaveLen(1))
 			Expect(decoded.Nodes[0].Key).To(Equal("n1"))
@@ -91,7 +91,7 @@ var _ = Describe("DecodeMsgpack", func() {
 				},
 			}
 			data := MustSucceed(msgpack.Marshal(legacy))
-			var decoded v2.Graph
+			var decoded v1.Graph
 			Expect(msgpack.Unmarshal(data, &decoded)).To(Succeed())
 			Expect(decoded.Nodes).To(HaveLen(2))
 			Expect(decoded.Inputs["n1"]).To(SatisfyAll(

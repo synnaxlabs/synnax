@@ -12,14 +12,50 @@
 package v1
 
 import (
+	"encoding/json"
+
 	ir "github.com/synnaxlabs/arc/ir/versions/v1"
+	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/encoding/orc"
 )
 
-func (g Graph) EncodeOrc(w *orc.Writer) error {
-	if err := g.Viewport.EncodeOrc(w); err != nil {
+// EncodeOrc writes the value to w in the Orc binary format.
+func (e Edge) EncodeOrc(w *orc.Writer) error {
+	if err := e.Source.EncodeOrc(w); err != nil {
 		return err
 	}
+	if err := e.Target.EncodeOrc(w); err != nil {
+		return err
+	}
+	w.Int64(int64(e.Kind))
+	w.String(e.Key)
+	return nil
+}
+
+// DecodeOrc reads the value from r in the Orc binary format.
+func (e *Edge) DecodeOrc(r *orc.Reader) error {
+	var err error
+	if err = e.Source.DecodeOrc(r); err != nil {
+		return err
+	}
+	if err = e.Target.DecodeOrc(r); err != nil {
+		return err
+	}
+	{
+		v, err := r.Int64()
+		if err != nil {
+			return err
+		}
+		e.Kind = ir.EdgeKind(v)
+	}
+	if e.Key, err = r.String(); err != nil {
+		return err
+	}
+	return nil
+}
+
+// EncodeOrc writes the value to w in the Orc binary format.
+func (g Graph) EncodeOrc(w *orc.Writer) error {
 	w.Bool(g.Functions != nil)
 	if g.Functions != nil {
 		w.Uint32(uint32(len(g.Functions)))
@@ -47,14 +83,25 @@ func (g Graph) EncodeOrc(w *orc.Writer) error {
 			}
 		}
 	}
+	w.Bool(g.Inputs != nil)
+	if g.Inputs != nil {
+		w.Uint32(uint32(len(g.Inputs)))
+		for key, val := range g.Inputs {
+			w.String(key)
+			{
+				b, err := json.Marshal(val)
+				if err != nil {
+					return err
+				}
+				w.WriteWithLen(b)
+			}
+		}
+	}
 	return nil
 }
 
+// DecodeOrc reads the value from r in the Orc binary format.
 func (g *Graph) DecodeOrc(r *orc.Reader) error {
-	var err error
-	if err = g.Viewport.DecodeOrc(r); err != nil {
-		return err
-	}
 	{
 		present, err := r.Bool()
 		if err != nil {
@@ -83,7 +130,7 @@ func (g *Graph) DecodeOrc(r *orc.Reader) error {
 			if err != nil {
 				return err
 			}
-			g.Edges = make([]ir.Edge, n)
+			g.Edges = make([]Edge, n)
 			for i := range g.Edges {
 				if err = g.Edges[i].DecodeOrc(r); err != nil {
 					return err
@@ -108,6 +155,57 @@ func (g *Graph) DecodeOrc(r *orc.Reader) error {
 				}
 			}
 		}
+	}
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			n, err := r.CollectionLen()
+			if err != nil {
+				return err
+			}
+			g.Inputs = make(map[string]msgpack.EncodedJSON, n)
+			for range n {
+				var key string
+				var val msgpack.EncodedJSON
+				if key, err = r.String(); err != nil {
+					return err
+				}
+				{
+					b, err := r.ReadWithLen()
+					if err != nil {
+						return err
+					}
+					if err = json.Unmarshal(b, &val); err != nil {
+						return err
+					}
+				}
+				g.Inputs[key] = val
+			}
+		}
+	}
+	return nil
+}
+
+// EncodeOrc writes the value to w in the Orc binary format.
+func (nv Node) EncodeOrc(w *orc.Writer) error {
+	w.String(nv.Key)
+	if err := nv.Position.EncodeOrc(w); err != nil {
+		return err
+	}
+	return nil
+}
+
+// DecodeOrc reads the value from r in the Orc binary format.
+func (nv *Node) DecodeOrc(r *orc.Reader) error {
+	var err error
+	if nv.Key, err = r.String(); err != nil {
+		return err
+	}
+	if err = nv.Position.DecodeOrc(r); err != nil {
+		return err
 	}
 	return nil
 }

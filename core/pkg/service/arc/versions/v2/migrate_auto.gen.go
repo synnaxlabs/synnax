@@ -14,7 +14,7 @@ package v2
 import (
 	"context"
 
-	graph "github.com/synnaxlabs/arc/graph/versions/v2"
+	graph "github.com/synnaxlabs/arc/graph/versions/v1"
 	text "github.com/synnaxlabs/arc/text"
 	v1 "github.com/synnaxlabs/synnax/pkg/service/arc/versions/v1"
 )

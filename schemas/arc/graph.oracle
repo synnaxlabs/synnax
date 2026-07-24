@@ -24,7 +24,7 @@ Node struct {
         @doc value "is the canvas position (x, y) for visual layout."
     }
 
-    @go version 2
+    @go version 1
     @doc value  """
         is a visual node in the Arc graph editor representing a function
         instantiation with position data. The function type and input
@@ -34,7 +34,7 @@ Node struct {
 }
 
 Nodes Node[] {
-    @go version 2
+    @go version 1
     @doc value  "is a collection of visual nodes in an Arc graph."
 }
 
@@ -43,7 +43,7 @@ Edge struct extends ir.Edge {
         @doc value "is the stable identifier for this edge within the graph."
     }
 
-    @go version 2
+    @go version 1
     @doc value  """
         is a dataflow connection between node parameters carrying a stable
         identifier. The key persists across endpoint edits, distinguishing the
@@ -52,7 +52,7 @@ Edge struct extends ir.Edge {
 }
 
 Edges Edge[] {
-    @go version 2
+    @go version 1
     @doc value  "is a collection of graph edges in an Arc graph."
 }
 
@@ -76,7 +76,7 @@ Graph struct {
         @ts preserve_case
     }
 
-    @go version 2
+    @go version 1
     @doc value  """
         is a visual dataflow graph representation combining IR elements with
         canvas layout for the Arc graph editor.

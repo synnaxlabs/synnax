@@ -15,24 +15,53 @@ import (
 	v0 "github.com/synnaxlabs/arc/graph/versions/v0"
 	v1 "github.com/synnaxlabs/arc/graph/versions/v1"
 	irv0 "github.com/synnaxlabs/arc/ir/versions/v0"
-	irv1 "github.com/synnaxlabs/arc/ir/versions/v1"
+	ir "github.com/synnaxlabs/arc/ir/versions/v1"
+	"github.com/synnaxlabs/x/encoding/msgpack"
+	"github.com/synnaxlabs/x/spatial"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
 var _ = Describe("MigrateGraph", func() {
-	It("Should carry the viewport, functions, nodes, and edges", func(ctx SpecContext) {
+	It("Should move node types and configs into inputs", func(ctx SpecContext) {
 		migrated := MustSucceed(v1.MigrateGraph(ctx, v0.Graph{
-			Viewport:  v0.Viewport{Zoom: 2},
 			Functions: irv0.Functions{{Key: "f"}},
 			Edges:     irv0.Edges{{Kind: irv0.EdgeKindContinuous}},
-			Nodes:     v0.Nodes{{Key: "n1", Type: "add"}},
+			Nodes: v0.Nodes{{
+				Key:    "n1",
+				Type:   "add",
+				Config: msgpack.EncodedJSON{"rate": "10"},
+			}},
 		}))
-		Expect(migrated.Viewport.Zoom).To(Equal(2.0))
 		Expect(migrated.Functions).To(HaveLen(1))
-		Expect(migrated.Functions[0].Key).To(Equal("f"))
 		Expect(migrated.Edges).To(HaveLen(1))
-		Expect(migrated.Edges[0].Kind).To(Equal(irv1.EdgeKindContinuous))
+		Expect(migrated.Edges[0].Key).ToNot(BeEmpty())
 		Expect(migrated.Nodes).To(HaveLen(1))
-		Expect(migrated.Nodes[0].Key).To(Equal("n1"))
+		Expect(migrated.Inputs).To(HaveKey("n1"))
+		Expect(migrated.Inputs["n1"]).To(HaveKeyWithValue("type", "add"))
+		Expect(migrated.Inputs["n1"]).To(HaveKeyWithValue("rate", "10"))
+	})
+
+	It("Should carry edge endpoints and assign fresh edge keys", func(ctx SpecContext) {
+		migrated := MustSucceed(v1.MigrateGraph(ctx, v0.Graph{
+			Edges: irv0.Edges{{
+				Source: irv0.Handle{Node: "a", Param: "out"},
+				Target: irv0.Handle{Node: "b", Param: "in"},
+				Kind:   irv0.EdgeKindContinuous,
+			}},
+		}))
+		edge := migrated.Edges[0]
+		Expect(edge.Source).To(Equal(ir.Handle{Node: "a", Param: "out"}))
+		Expect(edge.Target).To(Equal(ir.Handle{Node: "b", Param: "in"}))
+		Expect(edge.Kind).To(Equal(ir.EdgeKindContinuous))
+		Expect(edge.Key).ToNot(BeEmpty())
+	})
+
+	It("Should carry node keys and positions", func(ctx SpecContext) {
+		migrated := MustSucceed(v1.MigrateGraph(ctx, v0.Graph{
+			Nodes: v0.Nodes{{Key: "n1", Position: spatial.XY{X: 1, Y: 2}}},
+		}))
+		node := migrated.Nodes[0]
+		Expect(node.Key).To(Equal("n1"))
+		Expect(node.Position).To(Equal(spatial.XY{X: 1, Y: 2}))
 	})
 })

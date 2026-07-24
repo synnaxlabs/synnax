@@ -7,19 +7,19 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package v2_test
+package v1_test
 
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	v2 "github.com/synnaxlabs/arc/graph/versions/v2"
+	v1 "github.com/synnaxlabs/arc/graph/versions/v1"
 	"github.com/synnaxlabs/arc/ir"
 )
 
 var _ = Describe("Edges", func() {
 	Describe("IR", func() {
 		It("Should project graph edges into keyless ir edges", func() {
-			edges := v2.Edges{
+			edges := v1.Edges{
 				{
 					Key: "e1",
 					Edge: ir.Edge{
@@ -52,7 +52,7 @@ var _ = Describe("Edges", func() {
 		})
 
 		It("Should return an empty collection for no edges", func() {
-			Expect(v2.Edges{}.IR()).To(BeEmpty())
+			Expect(v1.Edges{}.IR()).To(BeEmpty())
 		})
 	})
 })

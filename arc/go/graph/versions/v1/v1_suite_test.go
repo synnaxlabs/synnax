@@ -17,7 +17,7 @@ import (
 	. "github.com/synnaxlabs/x/testutil"
 )
 
-func TestGraphV1(t *testing.T) {
+func TestGraphV2(t *testing.T) {
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "Graph v1 Suite")
 }

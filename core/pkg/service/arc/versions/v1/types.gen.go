@@ -13,7 +13,7 @@ package v1
 
 import (
 	"github.com/google/uuid"
-	graph "github.com/synnaxlabs/arc/graph/versions/v1"
+	graph "github.com/synnaxlabs/arc/graph/versions/v0"
 	"github.com/synnaxlabs/arc/program"
 	text "github.com/synnaxlabs/arc/text/versions/v0"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/arc/versions/v0"

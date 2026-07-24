@@ -11,30 +11,30 @@
 
 package versions
 
-import "github.com/synnaxlabs/arc/ir/versions/v2"
+import "github.com/synnaxlabs/arc/ir/versions/v1"
 
 // Handle is a reference to a specific parameter on a specific node in the dataflow
 // graph.
-type Handle = v2.Handle
+type Handle = v1.Handle
 
 // EdgeKind defines execution semantics for dataflow edges between nodes.
-type EdgeKind = v2.EdgeKind
+type EdgeKind = v1.EdgeKind
 
 const (
-	EdgeKindUnspecified EdgeKind = v2.EdgeKindUnspecified
-	EdgeKindContinuous  EdgeKind = v2.EdgeKindContinuous
-	EdgeKindConditional EdgeKind = v2.EdgeKindConditional
+	EdgeKindUnspecified EdgeKind = v1.EdgeKindUnspecified
+	EdgeKindContinuous  EdgeKind = v1.EdgeKindContinuous
+	EdgeKindConditional EdgeKind = v1.EdgeKindConditional
 )
 
 // Edge is a dataflow connection between node parameters in the Arc graph.
-type Edge = v2.Edge
+type Edge = v1.Edge
 
 // Body is raw function body source code with optional parsed AST.
-type Body = v2.Body
+type Body = v1.Body
 
 // Function is a function template definition with typed parameters, serving as a
 // blueprint for node instantiation.
-type Function = v2.Function
+type Function = v1.Function
 
 // Functions is a collection of function definitions in an Arc module.
-type Functions = v2.Functions
+type Functions = v1.Functions

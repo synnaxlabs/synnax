@@ -18,8 +18,8 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	graph "github.com/synnaxlabs/arc/graph/versions/v2"
-	ir "github.com/synnaxlabs/arc/ir/versions/v2"
+	graph "github.com/synnaxlabs/arc/graph/versions/v1"
+	ir "github.com/synnaxlabs/arc/ir/versions/v1"
 	text "github.com/synnaxlabs/arc/text/versions/v1"
 	types "github.com/synnaxlabs/arc/types/versions/v1"
 	"github.com/synnaxlabs/synnax/pkg/service/arc/versions/v2"

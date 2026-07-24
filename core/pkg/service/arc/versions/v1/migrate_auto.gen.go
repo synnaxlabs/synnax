@@ -14,20 +14,15 @@ package v1
 import (
 	"context"
 
-	graph "github.com/synnaxlabs/arc/graph/versions/v1"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/arc/versions/v0"
 )
 
-func autoMigrateArc(ctx context.Context, old v0.Arc) (Arc, error) {
-	graph, err := graph.MigrateGraph(ctx, old.Graph)
-	if err != nil {
-		return Arc{}, err
-	}
+func autoMigrateArc(_ context.Context, old v0.Arc) (Arc, error) {
 	return Arc{
 		Key:   old.Key,
 		Name:  old.Name,
 		Mode:  old.Mode,
-		Graph: graph,
+		Graph: old.Graph,
 		Text:  old.Text,
 	}, nil
 }

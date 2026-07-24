@@ -7,19 +7,15 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package v2_test
+package v1
 
 import (
-	"testing"
-
-	. "github.com/onsi/ginkgo/v2"
-	. "github.com/onsi/gomega"
-	. "github.com/synnaxlabs/x/testutil"
+	"github.com/samber/lo"
+	ir "github.com/synnaxlabs/arc/ir"
 )
 
-func TestIRV2(t *testing.T) {
-	RegisterFailHandler(Fail)
-	RunSpecs(t, "IR v2 Suite")
+// IR projects the graph edges into their keyless ir.Edge form for compilation.
+// The graph-layer key is an editing concern the compiler does not consume.
+func (e Edges) IR() ir.Edges {
+	return lo.Map(e, func(e Edge, _ int) ir.Edge { return e.Edge })
 }
-
-var _ = ShouldNotLeakGoroutinesPerSpec()

@@ -13,13 +13,12 @@ package v1
 
 import (
 	v0 "github.com/synnaxlabs/arc/ir/versions/v0"
+	types "github.com/synnaxlabs/arc/types/versions/v1"
 )
 
-// Functions is a collection of function definitions in an Arc module.
-type Functions = v0.Functions
-
-// Edges is a collection of dataflow edges in an Arc graph.
-type Edges = v0.Edges
+// Handle is a reference to a specific parameter on a specific node in the dataflow
+// graph.
+type Handle = v0.Handle
 
 // EdgeKind defines execution semantics for dataflow edges between nodes.
 type EdgeKind = v0.EdgeKind
@@ -30,16 +29,26 @@ const (
 	EdgeKindConditional EdgeKind = v0.EdgeKindConditional
 )
 
-// Function is a function template definition with typed parameters, serving as a
-// blueprint for node instantiation.
-type Function = v0.Function
+// Edge is a dataflow connection between node parameters in the Arc graph.
+type Edge = v0.Edge
 
 // Body is raw function body source code with optional parsed AST.
 type Body = v0.Body
 
-// Edge is a dataflow connection between node parameters in the Arc graph.
-type Edge = v0.Edge
+// Function is a function template definition with typed parameters, serving as a
+// blueprint for node instantiation.
+type Function struct {
+	// Key is the function identifier (template name).
+	Key string `json:"key" msgpack:"key"`
+	// Body is raw source code for user-defined functions.
+	Body Body `json:"body" msgpack:"body"`
+	// Inputs contains input parameter definitions.
+	Inputs types.Params `json:"inputs,omitzero" msgpack:"inputs,omitzero"`
+	// Outputs contains output parameter definitions.
+	Outputs types.Params `json:"outputs,omitzero" msgpack:"outputs,omitzero"`
+	// Channels contains channel read/write declarations.
+	Channels types.Channels `json:"channels" msgpack:"channels"`
+}
 
-// Handle is a reference to a specific parameter on a specific node in the dataflow
-// graph.
-type Handle = v0.Handle
+// Functions is a collection of function definitions in an Arc module.
+type Functions []Function

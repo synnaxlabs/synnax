@@ -7,62 +7,65 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package v2_test
+package v1_test
 
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	v2 "github.com/synnaxlabs/arc/ir/versions/v2"
+	v1 "github.com/synnaxlabs/arc/graph/versions/v1"
+	"github.com/synnaxlabs/x/spatial"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
-var _ = Describe("Functions", func() {
+var _ = Describe("Nodes", func() {
 	var (
-		fn1, fn2, fn3 v2.Function
-		fns           v2.Functions
+		node1, node2, node3 v1.Node
+		nodes               v1.Nodes
 	)
 
 	BeforeEach(func() {
-		fn1 = v2.Function{Key: "add"}
-		fn2 = v2.Function{Key: "multiply"}
-		fn3 = v2.Function{Key: "divide"}
-		fns = v2.Functions{fn1, fn2, fn3}
+		node1 = v1.Node{Key: "node1", Position: spatial.XY{X: 1, Y: 2}}
+		node2 = v1.Node{Key: "node2", Position: spatial.XY{X: 3, Y: 4}}
+		node3 = v1.Node{Key: "node3", Position: spatial.XY{X: 5, Y: 6}}
+		nodes = v1.Nodes{node1, node2, node3}
 	})
 
 	Describe("Find", func() {
-		It("Should find existing function by key", func() {
-			fn := MustBeOk(fns.Find("multiply"))
-			Expect(fn.Key).To(Equal("multiply"))
+		It("Should find existing node by key", func() {
+			node := MustBeOk(nodes.Find("node2"))
+			Expect(node.Key).To(Equal("node2"))
+			Expect(node.Position).To(Equal(spatial.XY{X: 3, Y: 4}))
 		})
 
 		It("Should return false for non-existent key", func() {
-			_, found := fns.Find("nonexistent")
+			_, found := nodes.Find("nonexistent")
 			Expect(found).To(BeFalse())
 		})
 	})
 
 	Describe("Get", func() {
-		It("Should get existing function by key", func() {
-			fn := fns.Get("add")
-			Expect(fn.Key).To(Equal("add"))
+		It("Should get existing node by key", func() {
+			node := nodes.Get("node2")
+			Expect(node.Key).To(Equal("node2"))
+			Expect(node.Position).To(Equal(spatial.XY{X: 3, Y: 4}))
 		})
 
 		It("Should panic for non-existent key", func() {
 			Expect(func() {
-				_ = fns.Get("nonexistent")
+				_ = nodes.Get("nonexistent")
 			}).To(Panic())
 		})
 	})
 
 	Describe("Empty Collection", func() {
 		It("Should handle Find on empty collection", func() {
-			empty := v2.Functions{}
+			empty := v1.Nodes{}
 			_, found := empty.Find("anything")
 			Expect(found).To(BeFalse())
 		})
 
 		It("Should panic on Get with empty collection", func() {
-			empty := v2.Functions{}
+			empty := v1.Nodes{}
 			Expect(func() {
 				_ = empty.Get("anything")
 			}).To(Panic())
