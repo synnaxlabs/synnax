@@ -106,14 +106,7 @@ func String() Type { return Type{Kind: KindString} }
 
 // TimeStamp returns an i64 type with nanosecond time units.
 func TimeStamp() Type {
-	return Type{
-		Kind: KindI64,
-		Unit: &Unit{
-			Dimensions: DimTime,
-			Scale:      1,
-			Name:       "ns",
-		},
-	}
+	return Type{Kind: KindI64, Unit: &Unit{Dimensions: DimTime, Scale: 1, Name: "ns"}}
 }
 
 // TimeSpan returns an i64 type with nanosecond time units.
