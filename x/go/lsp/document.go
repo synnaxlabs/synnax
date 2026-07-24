@@ -10,6 +10,7 @@
 package lsp
 
 import (
+	"fmt"
 	"strings"
 
 	"go.lsp.dev/protocol"
@@ -36,8 +37,7 @@ func PositionToOffset(content string, pos protocol.Position) int {
 }
 
 // ApplyIncrementalChange splices a single incremental change into the document content
-// and returns the updated string. An unrecognized change variant leaves the content
-// unchanged.
+// and returns the updated string. Panics on a change variant outside the sealed union.
 func ApplyIncrementalChange(
 	content string,
 	change protocol.TextDocumentContentChangeEvent,
@@ -55,7 +55,7 @@ func ApplyIncrementalChange(
 		b.WriteString(content[end:])
 		return b.String()
 	default:
-		return content
+		panic(fmt.Sprintf("unhandled TextDocumentContentChangeEvent variant %T", change))
 	}
 }
 

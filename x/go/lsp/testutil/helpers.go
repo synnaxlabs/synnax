@@ -72,8 +72,8 @@ func Hover(
 }
 
 // HoverContents extracts the markup value from a hover result, handling the
-// HoverContents union. Returns the empty string when hover is nil or the contents carry
-// no text.
+// HoverContents union. Returns the empty string when hover is nil or the contents are
+// unset; fails the test on an unhandled union variant.
 func HoverContents(hover *protocol.Hover) string {
 	if hover == nil {
 		return ""
@@ -84,12 +84,15 @@ func HoverContents(hover *protocol.Hover) string {
 	case protocol.String:
 		return string(c)
 	default:
+		gomega.ExpectWithOffset(1, c).To(gomega.BeNil(),
+			"unhandled HoverContents variant %T", c)
 		return ""
 	}
 }
 
 // Definition returns definition locations at the given position, unwrapping the
-// DefinitionResult union into a flat location slice.
+// DefinitionResult union into a flat location slice. Fails the test on an unhandled
+// union variant.
 func Definition(
 	server protocol.Server,
 	ctx context.Context,
@@ -108,12 +111,15 @@ func Definition(
 	case *protocol.Location:
 		return []protocol.Location{*r}
 	default:
+		gomega.ExpectWithOffset(1, r).To(gomega.BeNil(),
+			"unhandled DefinitionResult variant %T", r)
 		return nil
 	}
 }
 
 // Completion returns completion items at the given position, unwrapping the
-// CompletionResult union into a completion list.
+// CompletionResult union into a completion list. Fails the test on an unhandled union
+// variant.
 func Completion(
 	server protocol.Server,
 	ctx context.Context,
@@ -132,6 +138,8 @@ func Completion(
 	case protocol.CompletionItemSlice:
 		return &protocol.CompletionList{Items: r}
 	default:
+		gomega.ExpectWithOffset(1, r).To(gomega.BeNil(),
+			"unhandled CompletionResult variant %T", r)
 		return nil
 	}
 }

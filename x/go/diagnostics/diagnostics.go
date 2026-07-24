@@ -270,8 +270,10 @@ func (d Diagnostics) String() string {
 		}
 		for _, note := range diag.Notes {
 			sb.WriteString("\n")
-			start := note.Location.Range.Start
-			if start != (protocol.Position{}) {
+			// Placed notes always set a non-zero End, so a zero Range means unplaced
+			// even for a note at 0:0.
+			if note.Location.Range != (protocol.Range{}) {
+				start := note.Location.Range.Start
 				_, _ = fmt.Fprintf(&sb, "  %d:%d note: %s", start.Line+1, start.Character, note.Message)
 			} else {
 				_, _ = fmt.Fprintf(&sb, "  note: %s", note.Message)

@@ -377,7 +377,7 @@ var completions = []completionInfo{
 }
 
 // optStr wraps a string in an Optional, leaving it absent when empty so
-// empty fields stay off the wire like the old omitempty behavior.
+// empty fields stay off the wire.
 func optStr(s string) protocol.Optional[string] {
 	if s == "" {
 		return protocol.Optional[string]{}

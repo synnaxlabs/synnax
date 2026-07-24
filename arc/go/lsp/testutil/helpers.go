@@ -33,9 +33,9 @@ func defaultNewRoot() *symbol.Symbol {
 func SetupTestServer(cfgs ...lsp.Config) (*lsp.Server, uri.URI) {
 	cfgs = withDefaultNewRoot(cfgs)
 	server := xutil.MustSucceed(lsp.New(cfgs...))
-	uri := uri.URI("file:///test.arc")
+	docURI := uri.URI("file:///test.arc")
 	server.SetClient(&testutil.MockClient{})
-	return server, uri
+	return server, docURI
 }
 
 // SetupTestServerWithClient creates a new arc LSP server and returns
@@ -46,10 +46,10 @@ func SetupTestServerWithClient(
 ) (*lsp.Server, uri.URI, *testutil.MockClient) {
 	cfgs = withDefaultNewRoot(cfgs)
 	server := xutil.MustSucceed(lsp.New(cfgs...))
-	uri := uri.URI("file:///test.arc")
+	docURI := uri.URI("file:///test.arc")
 	client := &testutil.MockClient{}
 	server.SetClient(client)
-	return server, uri, client
+	return server, docURI, client
 }
 
 func withDefaultNewRoot(cfgs []lsp.Config) []lsp.Config {
@@ -65,8 +65,8 @@ func withDefaultNewRoot(cfgs []lsp.Config) []lsp.Config {
 func OpenArcDocument(
 	server *lsp.Server,
 	ctx context.Context,
-	uri uri.URI,
+	docURI uri.URI,
 	content string,
 ) {
-	testutil.OpenDocument(server, ctx, uri, content, "arc")
+	testutil.OpenDocument(server, ctx, docURI, content, "arc")
 }

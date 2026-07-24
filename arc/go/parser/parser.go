@@ -189,6 +189,7 @@ func (e *errorListener) SyntaxError(
 		Severity: protocol.DiagnosticSeverityError,
 		Range: protocol.Range{
 			Start: protocol.Position{Line: uint32(line - 1), Character: uint32(column)},
+			End:   protocol.Position{Line: uint32(line - 1), Character: uint32(column + 1)},
 		},
 		Message: msg,
 	})
