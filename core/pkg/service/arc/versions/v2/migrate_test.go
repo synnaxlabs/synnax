@@ -144,7 +144,7 @@ var _ = Describe("MigrateArc", func() {
 			got := migrateFromV0(ctx, seed)
 			Expect(got.Graph.Nodes).To(HaveLen(2))
 
-			_ = MustBeOk(got.Graph.Nodes.Find("alarm"))
+			Expect(got.Graph.Nodes).To(ContainElement(HaveField("Key", "alarm")))
 			alarmCfg := got.Graph.Inputs["alarm"]
 			Expect(alarmCfg["type"]).To(Equal("status.set"))
 			Expect(alarmCfg["key_or_name"]).To(Equal("ox_alarm"))
@@ -153,7 +153,7 @@ var _ = Describe("MigrateArc", func() {
 			Expect(alarmCfg).ToNot(HaveKey("statusKey"))
 			Expect(alarmCfg).ToNot(HaveKey("description"))
 
-			_ = MustBeOk(got.Graph.Nodes.Find("scale"))
+			Expect(got.Graph.Nodes).To(ContainElement(HaveField("Key", "scale")))
 			scaleCfg := got.Graph.Inputs["scale"]
 			Expect(scaleCfg["type"]).To(Equal("scale"))
 			Expect(scaleCfg["factor"]).To(Equal("2"))
@@ -169,7 +169,7 @@ var _ = Describe("MigrateArc", func() {
 				},
 			}
 			got := migrateFromV0(ctx, seed)
-			_ = MustBeOk(got.Graph.Nodes.Find("alarm"))
+			Expect(got.Graph.Nodes).To(ContainElement(HaveField("Key", "alarm")))
 			alarmCfg := got.Graph.Inputs["alarm"]
 			Expect(alarmCfg["type"]).To(Equal("status.set"))
 			Expect(alarmCfg["key_or_name"]).To(Equal(""))
