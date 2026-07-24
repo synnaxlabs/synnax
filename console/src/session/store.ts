@@ -189,7 +189,10 @@ const swapDriftWindows = (
   if (stored == null) return loaded;
   Object.values(stored.windows).forEach((win) => {
     if (win.key === Drift.MAIN_WINDOW || !win.reserved) return;
-    store.dispatch(Drift.createWindow(Drift.windowPropsZ.parse(win)));
+    // A stored window on a stale schema must not abort the swap after the
+    // current windows have already closed; skip the unparseable entry.
+    const parsed = Drift.windowPropsZ.safeParse(win);
+    if (parsed.success) store.dispatch(Drift.createWindow(parsed.data));
   });
   return loaded;
 };
