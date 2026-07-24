@@ -23,13 +23,13 @@ import (
 func OpenDocument(
 	server protocol.Server,
 	ctx context.Context,
-	docURI uri.URI,
-	content string,
+	uri uri.URI,
+	content,
 	languageID string,
 ) {
 	gomega.Expect(server.DidOpen(ctx, &protocol.DidOpenTextDocumentParams{
 		TextDocument: protocol.TextDocumentItem{
-			URI:        docURI,
+			URI:        uri,
 			LanguageID: protocol.LanguageKind(languageID),
 			Version:    1,
 			Text:       content,
@@ -41,13 +41,13 @@ func OpenDocument(
 func ChangeDocument(
 	server protocol.Server,
 	ctx context.Context,
-	docURI uri.URI,
+	uri uri.URI,
 	content string,
 	version int32,
 ) {
 	gomega.Expect(server.DidChange(ctx, &protocol.DidChangeTextDocumentParams{
 		TextDocument: protocol.VersionedTextDocumentIdentifier{
-			TextDocumentIdentifier: protocol.TextDocumentIdentifier{URI: docURI},
+			TextDocumentIdentifier: protocol.TextDocumentIdentifier{URI: uri},
 			Version:                version,
 		},
 		ContentChanges: []protocol.TextDocumentContentChangeEvent{
@@ -60,12 +60,12 @@ func ChangeDocument(
 func Hover(
 	server protocol.Server,
 	ctx context.Context,
-	docURI uri.URI,
+	uri uri.URI,
 	line, char uint32,
 ) *protocol.Hover {
 	return xutil.MustSucceed(server.Hover(ctx, &protocol.HoverParams{
 		TextDocumentPositionParams: protocol.TextDocumentPositionParams{
-			TextDocument: protocol.TextDocumentIdentifier{URI: docURI},
+			TextDocument: protocol.TextDocumentIdentifier{URI: uri},
 			Position:     protocol.Position{Line: line, Character: char},
 		},
 	}))
@@ -93,12 +93,12 @@ func HoverContents(hover *protocol.Hover) string {
 func Definition(
 	server protocol.Server,
 	ctx context.Context,
-	docURI uri.URI,
+	uri uri.URI,
 	line, char uint32,
 ) []protocol.Location {
 	result := xutil.MustSucceed(server.Definition(ctx, &protocol.DefinitionParams{
 		TextDocumentPositionParams: protocol.TextDocumentPositionParams{
-			TextDocument: protocol.TextDocumentIdentifier{URI: docURI},
+			TextDocument: protocol.TextDocumentIdentifier{URI: uri},
 			Position:     protocol.Position{Line: line, Character: char},
 		},
 	}))
@@ -117,12 +117,12 @@ func Definition(
 func Completion(
 	server protocol.Server,
 	ctx context.Context,
-	docURI uri.URI,
+	uri uri.URI,
 	line, char uint32,
 ) *protocol.CompletionList {
 	result := xutil.MustSucceed(server.Completion(ctx, &protocol.CompletionParams{
 		TextDocumentPositionParams: protocol.TextDocumentPositionParams{
-			TextDocument: protocol.TextDocumentIdentifier{URI: docURI},
+			TextDocument: protocol.TextDocumentIdentifier{URI: uri},
 			Position:     protocol.Position{Line: line, Character: char},
 		},
 	}))
@@ -140,10 +140,10 @@ func Completion(
 func SemanticTokens(
 	server protocol.Server,
 	ctx context.Context,
-	docURI uri.URI,
+	uri uri.URI,
 ) *protocol.SemanticTokens {
 	return xutil.MustSucceed(server.SemanticTokensFull(ctx, &protocol.SemanticTokensParams{
-		TextDocument: protocol.TextDocumentIdentifier{URI: docURI},
+		TextDocument: protocol.TextDocumentIdentifier{URI: uri},
 	}))
 }
 

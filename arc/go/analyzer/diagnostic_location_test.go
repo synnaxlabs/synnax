@@ -21,13 +21,13 @@ import (
 
 var _ = Describe("Diagnostic Locations", func() {
 	type diagnosticCase struct {
-		source            string
-		expectedMsg       string
-		expectedLine      int
-		expectedColumn    int
-		expectedEndLine   int
-		expectedEndColumn int
-		expectedSev       protocol.DiagnosticSeverity
+		source               string
+		expectedMsg          string
+		expectedLine         int
+		expectedCharacter    int
+		expectedEndLine      int
+		expectedEndCharacter int
+		expectedSev          protocol.DiagnosticSeverity
 	}
 
 	runDiagnosticTest := func(bCtx SpecContext, tc diagnosticCase) {
@@ -39,18 +39,17 @@ var _ = Describe("Diagnostic Locations", func() {
 
 		diag := (*ctx.Diagnostics)[0]
 		Expect(diag.Message).To(ContainSubstring(tc.expectedMsg))
-		// Entries use human 1-indexed lines; positions are stored 0-indexed.
 		if tc.expectedLine > 0 {
-			Expect(diag.Start.Line).To(Equal(uint32(tc.expectedLine - 1)))
+			Expect(diag.Start.Line).To(Equal(uint32(tc.expectedLine)))
 		}
-		if tc.expectedColumn > 0 {
-			Expect(diag.Start.Character).To(Equal(uint32(tc.expectedColumn)))
+		if tc.expectedCharacter > 0 {
+			Expect(diag.Start.Character).To(Equal(uint32(tc.expectedCharacter)))
 		}
 		if tc.expectedEndLine > 0 {
-			Expect(diag.End.Line).To(Equal(uint32(tc.expectedEndLine - 1)))
+			Expect(diag.End.Line).To(Equal(uint32(tc.expectedEndLine)))
 		}
-		if tc.expectedEndColumn > 0 {
-			Expect(diag.End.Character).To(Equal(uint32(tc.expectedEndColumn)))
+		if tc.expectedEndCharacter > 0 {
+			Expect(diag.End.Character).To(Equal(uint32(tc.expectedEndCharacter)))
 		}
 		if tc.expectedSev != 0 {
 			Expect(diag.Severity).To(Equal(tc.expectedSev))
@@ -65,10 +64,10 @@ var _ = Describe("Diagnostic Locations", func() {
 func test() {
 	x := undefined_var
 }`,
-				expectedMsg:    "undefined symbol: undefined_var",
-				expectedLine:   3,
-				expectedColumn: 6,
-				expectedSev:    protocol.DiagnosticSeverityError,
+				expectedMsg:       "undefined symbol: undefined_var",
+				expectedLine:      2,
+				expectedCharacter: 6,
+				expectedSev:       protocol.DiagnosticSeverityError,
 			}),
 		Entry("undefined variable on left side of assignment",
 			diagnosticCase{
@@ -77,10 +76,10 @@ func test() {
 	x i32 := 1
 	undefined_target = x
 }`,
-				expectedMsg:    "undefined symbol: undefined_target",
-				expectedLine:   4,
-				expectedColumn: 1,
-				expectedSev:    0,
+				expectedMsg:       "undefined symbol: undefined_target",
+				expectedLine:      3,
+				expectedCharacter: 1,
+				expectedSev:       0,
 			}),
 		Entry("undefined function call",
 			diagnosticCase{
@@ -88,10 +87,10 @@ func test() {
 func test() {
 	result := unknownFunc(1, 2)
 }`,
-				expectedMsg:    "undefined symbol: unknownFunc",
-				expectedLine:   3,
-				expectedColumn: -1,
-				expectedSev:    0,
+				expectedMsg:       "undefined symbol: unknownFunc",
+				expectedLine:      2,
+				expectedCharacter: -1,
+				expectedSev:       0,
 			}),
 	)
 
@@ -103,10 +102,10 @@ func test() {
 func test() {
 	x i32 := "hello"
 }`,
-				expectedMsg:    "type mismatch",
-				expectedLine:   3,
-				expectedColumn: -1,
-				expectedSev:    protocol.DiagnosticSeverityError,
+				expectedMsg:       "type mismatch",
+				expectedLine:      2,
+				expectedCharacter: -1,
+				expectedSev:       protocol.DiagnosticSeverityError,
 			}),
 		Entry("type mismatch in assignment",
 			diagnosticCase{
@@ -115,10 +114,10 @@ func test() {
 	x i32 := 10
 	x = "hello"
 }`,
-				expectedMsg:    "type mismatch",
-				expectedLine:   4,
-				expectedColumn: -1,
-				expectedSev:    0,
+				expectedMsg:       "type mismatch",
+				expectedLine:      3,
+				expectedCharacter: -1,
+				expectedSev:       0,
 			}),
 		Entry("type mismatch in binary expression",
 			diagnosticCase{
@@ -128,10 +127,10 @@ func test() {
 	y f32 := 20.5
 	z := x + y
 }`,
-				expectedMsg:    "type mismatch",
-				expectedLine:   5,
-				expectedColumn: -1,
-				expectedSev:    0,
+				expectedMsg:       "type mismatch",
+				expectedLine:      4,
+				expectedCharacter: -1,
+				expectedSev:       0,
 			}),
 	)
 
@@ -144,10 +143,10 @@ func test() {
 	x := 1
 	x := 2
 }`,
-				expectedMsg:    "name x conflicts",
-				expectedLine:   4,
-				expectedColumn: 1,
-				expectedSev:    0,
+				expectedMsg:       "name x conflicts",
+				expectedLine:      3,
+				expectedCharacter: 1,
+				expectedSev:       0,
 			}),
 		Entry("duplicate function declaration",
 			diagnosticCase{
@@ -157,20 +156,20 @@ func myFunc() {
 
 func myFunc() {
 }`,
-				expectedMsg:    "name myFunc conflicts",
-				expectedLine:   5,
-				expectedColumn: -1,
-				expectedSev:    0,
+				expectedMsg:       "name myFunc conflicts",
+				expectedLine:      4,
+				expectedCharacter: -1,
+				expectedSev:       0,
 			}),
 		Entry("duplicate parameter name",
 			diagnosticCase{
 				source: `
 func test(x i32, x i32) {
 }`,
-				expectedMsg:    "name x conflicts",
-				expectedLine:   2,
-				expectedColumn: -1,
-				expectedSev:    0,
+				expectedMsg:       "name x conflicts",
+				expectedLine:      1,
+				expectedCharacter: -1,
+				expectedSev:       0,
 			}),
 	)
 
@@ -182,10 +181,10 @@ func test(x i32, x i32) {
 func test() i64 {
 	x := 42
 }`,
-				expectedMsg:    "must return a value",
-				expectedLine:   -1,
-				expectedColumn: -1,
-				expectedSev:    0,
+				expectedMsg:       "must return a value",
+				expectedLine:      -1,
+				expectedCharacter: -1,
+				expectedSev:       0,
 			}),
 		Entry("unexpected return value",
 			diagnosticCase{
@@ -193,10 +192,10 @@ func test() i64 {
 func test() {
 	return 42
 }`,
-				expectedMsg:    "cannot return a value from a function with no return type",
-				expectedLine:   3,
-				expectedColumn: -1,
-				expectedSev:    0,
+				expectedMsg:       "cannot return a value from a function with no return type",
+				expectedLine:      2,
+				expectedCharacter: -1,
+				expectedSev:       0,
 			}),
 	)
 
@@ -208,10 +207,10 @@ func test() {
 func test() {
 	x := "hello" + 12
 }`,
-				expectedMsg:    "is not compatible with",
-				expectedLine:   3,
-				expectedColumn: -1,
-				expectedSev:    0,
+				expectedMsg:       "is not compatible with",
+				expectedLine:      2,
+				expectedCharacter: -1,
+				expectedSev:       0,
 			}),
 		Entry("invalid unary operator",
 			diagnosticCase{
@@ -220,10 +219,10 @@ func test() {
 	x := "hello"
 	y := -x
 }`,
-				expectedMsg:    "operator - not supported",
-				expectedLine:   4,
-				expectedColumn: -1,
-				expectedSev:    0,
+				expectedMsg:       "operator - not supported",
+				expectedLine:      3,
+				expectedCharacter: -1,
+				expectedSev:       0,
 			}),
 		Entry("invalid logical operation",
 			diagnosticCase{
@@ -233,10 +232,10 @@ func test() {
 	y i32 := 20
 	z := x and y
 }`,
-				expectedMsg:    "cannot use i32 in and operation",
-				expectedLine:   5,
-				expectedColumn: -1,
-				expectedSev:    0,
+				expectedMsg:       "cannot use i32 in and operation",
+				expectedLine:      4,
+				expectedCharacter: -1,
+				expectedSev:       0,
 			}),
 	)
 
@@ -252,10 +251,10 @@ func test() {
 		}
 	}
 }`,
-				expectedMsg:    "undefined symbol: undefined",
-				expectedLine:   5,
-				expectedColumn: -1,
-				expectedSev:    0,
+				expectedMsg:       "undefined symbol: undefined",
+				expectedLine:      4,
+				expectedCharacter: -1,
+				expectedSev:       0,
 			}),
 		Entry("error in else block",
 			diagnosticCase{
@@ -267,10 +266,10 @@ func test() {
 		y := undefined
 	}
 }`,
-				expectedMsg:    "undefined symbol: undefined",
-				expectedLine:   6,
-				expectedColumn: -1,
-				expectedSev:    0,
+				expectedMsg:       "undefined symbol: undefined",
+				expectedLine:      5,
+				expectedCharacter: -1,
+				expectedSev:       0,
 			}),
 	)
 
@@ -300,33 +299,33 @@ func test() {
 		runDiagnosticTest,
 		Entry("undefined variable should span the identifier",
 			diagnosticCase{
-				source:            "func test() {\n\tx := undefined_var\n}",
-				expectedMsg:       "undefined symbol: undefined_var",
-				expectedLine:      2,
-				expectedColumn:    6,
-				expectedEndLine:   2,
-				expectedEndColumn: 19,
-				expectedSev:       protocol.DiagnosticSeverityError,
+				source:               "func test() {\n\tx := undefined_var\n}",
+				expectedMsg:          "undefined symbol: undefined_var",
+				expectedLine:         1,
+				expectedCharacter:    6,
+				expectedEndLine:      1,
+				expectedEndCharacter: 19,
+				expectedSev:          protocol.DiagnosticSeverityError,
 			}),
-		Entry("short identifier should have correct end column",
+		Entry("short identifier should have correct end character",
 			diagnosticCase{
-				source:            "func test() {\n\tx := y\n}",
-				expectedMsg:       "undefined symbol: y",
-				expectedLine:      2,
-				expectedColumn:    6,
-				expectedEndLine:   2,
-				expectedEndColumn: 7,
-				expectedSev:       protocol.DiagnosticSeverityError,
+				source:               "func test() {\n\tx := y\n}",
+				expectedMsg:          "undefined symbol: y",
+				expectedLine:         1,
+				expectedCharacter:    6,
+				expectedEndLine:      1,
+				expectedEndCharacter: 7,
+				expectedSev:          protocol.DiagnosticSeverityError,
 			}),
 		Entry("multiline expression should span correctly",
 			diagnosticCase{
-				source:            "func test() {\n\tx := undefined_symbol +\n\t\t1\n}",
-				expectedMsg:       "undefined symbol: undefined_symbol",
-				expectedLine:      2,
-				expectedColumn:    6,
-				expectedEndLine:   2,
-				expectedEndColumn: 22,
-				expectedSev:       protocol.DiagnosticSeverityError,
+				source:               "func test() {\n\tx := undefined_symbol +\n\t\t1\n}",
+				expectedMsg:          "undefined symbol: undefined_symbol",
+				expectedLine:         1,
+				expectedCharacter:    6,
+				expectedEndLine:      1,
+				expectedEndCharacter: 22,
+				expectedSev:          protocol.DiagnosticSeverityError,
 			}),
 	)
 })

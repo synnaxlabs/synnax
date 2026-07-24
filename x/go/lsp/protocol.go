@@ -41,20 +41,13 @@ func TranslateDiagnostics(
 		}
 
 		if len(diag.Notes) > 0 {
-			related := make([]protocol.DiagnosticRelatedInformation, 0, len(diag.Notes))
-			for _, note := range diag.Notes {
-				loc := protocol.Location{Range: protocol.Range{
-					Start: note.Start,
-					End:   protocol.Position{Line: note.Start.Line, Character: note.Start.Character + 1},
-				}}
+			related := make([]protocol.DiagnosticRelatedInformation, len(diag.Notes))
+			for i, note := range diag.Notes {
 				// An unpositioned note points at the diagnostic's own range.
-				if note.Start == (protocol.Position{}) {
-					loc.Range = pDiag.Range
+				if note.Location.Range == (protocol.Range{}) {
+					note.Location.Range = pDiag.Range
 				}
-				related = append(related, protocol.DiagnosticRelatedInformation{
-					Location: loc,
-					Message:  note.Message,
-				})
+				related[i] = note
 			}
 			pDiag.RelatedInformation = related
 		}

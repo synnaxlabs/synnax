@@ -178,11 +178,12 @@ func (s *Server) publishDiagnostics(ctx context.Context, uri uri.URI, content st
 	namespace := deriveNamespaceFromURI(uri)
 	table, analyzeDiag := analyzer.AnalyzeSource(ctx, content, namespace, noopLoader{})
 	if analyzeDiag != nil {
-		doc.Diagnostics = analyzeDiag
+		flat := analyzeDiag.Flat()
+		doc.Diagnostics = &flat
 		doc.Table = table
 		_ = s.client.PublishDiagnostics(ctx, &protocol.PublishDiagnosticsParams{
 			URI:         uri,
-			Diagnostics: xlsp.TranslateDiagnostics(*analyzeDiag, translateSource),
+			Diagnostics: xlsp.TranslateDiagnostics(flat, translateSource),
 		})
 		return
 	}

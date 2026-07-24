@@ -72,7 +72,12 @@ var _ = Describe("LSP", func() {
 				End:      protocol.Position{Line: 1, Character: 5},
 				Severity: protocol.DiagnosticSeverityError,
 				Message:  "error",
-				Notes:    []diagnostics.Note{{Message: "related note", Start: protocol.Position{Line: 3, Character: 2}}},
+				Notes: []protocol.DiagnosticRelatedInformation{{
+					Message: "related note",
+					Location: protocol.Location{Range: protocol.Range{
+						Start: protocol.Position{Line: 3, Character: 2},
+					}},
+				}},
 			})
 			result := lsp.TranslateDiagnostics(d, source)
 			Expect(result[0].RelatedInformation).To(HaveLen(1))

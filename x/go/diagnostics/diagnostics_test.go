@@ -395,7 +395,7 @@ var _ = Describe("Diagnostics", func() {
 				Start:    protocol.Position{Line: 1, Character: 0},
 				Severity: protocol.DiagnosticSeverityError,
 				Message:  "error msg",
-				Notes:    []diagnostics.Note{{Message: "additional context"}},
+				Notes:    []protocol.DiagnosticRelatedInformation{{Message: "additional context"}},
 			})
 			str := d.String()
 			Expect(str).To(ContainSubstring("error msg"))
@@ -408,9 +408,11 @@ var _ = Describe("Diagnostics", func() {
 				Start:    protocol.Position{Line: 5, Character: 2},
 				Severity: protocol.DiagnosticSeverityError,
 				Message:  "error here",
-				Notes: []diagnostics.Note{{
+				Notes: []protocol.DiagnosticRelatedInformation{{
 					Message: "related to this",
-					Start:   protocol.Position{Line: 3, Character: 10},
+					Location: protocol.Location{Range: protocol.Range{
+						Start: protocol.Position{Line: 3, Character: 10},
+					}},
 				}},
 			})
 			str := d.String()
@@ -501,7 +503,7 @@ var _ = Describe("Diagnostics", func() {
 				Severity: protocol.DiagnosticSeverityWarning,
 				Message:  "msg",
 				Code:     "C001",
-				Notes:    []diagnostics.Note{{Message: "n"}},
+				Notes:    []protocol.DiagnosticRelatedInformation{{Message: "n"}},
 			}
 			out := d.WithRange(
 				protocol.Position{Line: 2, Character: 0},

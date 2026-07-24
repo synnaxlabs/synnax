@@ -43,14 +43,14 @@ func (g AnalyzeGate) Run(_ context.Context, p *pipeline.Result, _ Env) GateRepor
 	start := time.Now()
 	r := GateReport{Gate: g.Name(), Status: StatusPass}
 	if p.Diagnostics != nil {
-		for _, d := range *p.Diagnostics {
+		p.Diagnostics.Each(func(file string, d diagnostics.Diagnostic) {
 			// Positions are 0-indexed; render 1-indexed, with 0 meaning no location.
 			line := 0
 			if d.Start != (protocol.Position{}) {
 				line = int(d.Start.Line) + 1
 			}
 			f := Finding{
-				Path:     d.File,
+				Path:     file,
 				Line:     line,
 				Col:      int(d.Start.Character),
 				Message:  d.Message,
@@ -61,7 +61,7 @@ func (g AnalyzeGate) Run(_ context.Context, p *pipeline.Result, _ Env) GateRepor
 			if f.Severity == SeverityError {
 				r.Status = StatusFail
 			}
-		}
+		})
 	}
 	r.Elapsed = time.Since(start)
 	return r
@@ -81,7 +81,7 @@ func severityFromDiagnostic(s protocol.DiagnosticSeverity, warningsAsErrors bool
 	}
 }
 
-func hintFromNotes(notes []diagnostics.Note) string {
+func hintFromNotes(notes []protocol.DiagnosticRelatedInformation) string {
 	if len(notes) == 0 {
 		return ""
 	}
