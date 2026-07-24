@@ -14,3 +14,7 @@ func (s Status[Details]) GorpKey() string { return s.Key }
 
 // SetOptions implements gorp.Entry.
 func (Status[Details]) SetOptions() []any { return nil }
+
+// CustomTypeName implements types.CustomTypeName to match the gorp key prefix stored
+// statuses were written under.
+func (Status[Details]) CustomTypeName() string { return "Status" }
