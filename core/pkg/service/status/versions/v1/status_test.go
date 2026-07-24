@@ -138,4 +138,10 @@ var _ = Describe("Status", func() {
 			}))
 		})
 	})
+
+	Describe("CustomTypeName", func() {
+		It("Should return the Status gorp type name", func() {
+			Expect(v1.Status[any]{}.CustomTypeName()).To(Equal("Status"))
+		})
+	})
 })

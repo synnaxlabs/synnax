@@ -30,4 +30,10 @@ var _ = Describe("Pair", func() {
 			Expect(v0.Pair{}.SetOptions()).To(BeNil())
 		})
 	})
+
+	Describe("CustomTypeName", func() {
+		It("Should return the KVPair gorp type name", func() {
+			Expect(v0.Pair{}.CustomTypeName()).To(Equal("KVPair"))
+		})
+	})
 })
