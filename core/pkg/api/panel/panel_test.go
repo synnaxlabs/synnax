@@ -97,6 +97,27 @@ var _ = Describe("Service.Retrieve", func() {
 		})).Error().To(MatchError(access.ErrDenied))
 	})
 
+	It("Should omit missing keys from a multi-key retrieve instead of failing", func(ctx SpecContext) {
+		p := createPanel(ctx, "partial-survivor")
+		missing := uuid.New()
+		grant(ctx, user.OntologyID(author.Key), access.ActionRetrieve,
+			panel.OntologyID(p.Key), panel.OntologyID(missing))
+		res := MustSucceed(apiSvc.Retrieve(authedCtx(ctx, author), RetrieveRequest{
+			Keys:                []panel.Key{p.Key, missing},
+			IgnoreNotFoundError: true,
+		}))
+		Expect(res.Panels).To(HaveLen(1))
+		Expect(res.Panels[0].Key).To(Equal(p.Key))
+	})
+
+	It("Should return an empty result when every requested key is missing", func(ctx SpecContext) {
+		res := MustSucceed(apiSvc.Retrieve(authedCtx(ctx, author), RetrieveRequest{
+			Keys:                []panel.Key{uuid.New()},
+			IgnoreNotFoundError: true,
+		}))
+		Expect(res.Panels).To(BeEmpty())
+	})
+
 	It("Should honor the limit and offset bounds", func(ctx SpecContext) {
 		a := createPanel(ctx, "page-a")
 		b := createPanel(ctx, "page-b")
