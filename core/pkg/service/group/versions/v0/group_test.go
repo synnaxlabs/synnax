@@ -38,4 +38,14 @@ var _ = Describe("Group", func() {
 			}))
 		})
 	})
+
+	Describe("IsZero", func() {
+		It("Should return true for a zero group", func() {
+			Expect(v0.Group{}.IsZero()).To(BeTrue())
+		})
+
+		It("Should return false for a populated group", func() {
+			Expect(v0.Group{Key: uuid.New()}.IsZero()).To(BeFalse())
+		})
+	})
 })
