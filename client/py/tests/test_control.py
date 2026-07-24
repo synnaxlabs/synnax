@@ -148,9 +148,9 @@ class TestController:
                 )
                 auto[press_en.key] = False
                 # Give the acknowledgement sample time to reach the sequence before
-                # opening the valve, then keep publishing open-valve samples until
-                # the sequence finishes, so the observation window is guaranteed to
-                # see the condition fail no matter when it starts.
+                # opening the valve, then keep publishing open-valve samples until the
+                # sequence finishes, so the observation window is guaranteed to see the
+                # condition fail no matter when it starts.
                 auto.sleep(5 * sy.TimeSpan.MILLISECOND)
                 while not stop.is_set():
                     auto[press_en.key] = True
@@ -217,9 +217,9 @@ class TestController:
                 auto.wait_until(
                     lambda c: not c[press_en_cmd.key], timeout=5 * sy.TimeSpan.SECOND
                 )
-                # Keep publishing closed-valve samples until the sequence finishes,
-                # so the observation window always contains samples no matter when
-                # it starts.
+                # Keep publishing closed-valve samples until the sequence finishes, so
+                # the observation window always contains samples no matter when it
+                # starts.
                 while not stop.is_set():
                     auto[press_en.key] = False
                     auto.sleep(5 * sy.TimeSpan.MILLISECOND)
@@ -295,10 +295,10 @@ class TestController:
                 auto.wait_until(
                     lambda c: not c[press_en_cmd.key], timeout=5 * sy.TimeSpan.SECOND
                 )
-                # Keep the valve closed for three out of every four samples (75%
-                # closed, comfortably above the 50% target) until the sequence
-                # finishes, so the observation window always sees the same mix of
-                # samples no matter when it starts.
+                # Keep the valve closed for three out of every four samples (75% closed,
+                # comfortably above the 50% target) until the sequence finishes, so the
+                # observation window always sees the same mix of samples no matter when
+                # it starts.
                 i = 0
                 while not stop.is_set():
                     auto[press_en.key] = i % 4 == 3
