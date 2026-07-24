@@ -16,6 +16,20 @@ import (
 	"github.com/synnaxlabs/x/crdt"
 )
 
+var _ = Describe("Create", func() {
+	It("Should build a document that materializes back to the raw text", func() {
+		doc := v1.Create("x * 2")
+		Expect(doc.Inserts).ToNot(BeEmpty())
+		t := v1.Text{Doc: doc}
+		Expect(t.Materialize().Raw).To(Equal("x * 2"))
+	})
+	It("Should build an empty document from empty text", func() {
+		doc := v1.Create("")
+		Expect(doc.Inserts).To(BeEmpty())
+		Expect(doc.Deletes).To(BeEmpty())
+	})
+})
+
 var _ = Describe("Text", func() {
 	Describe("Materialize", func() {
 		It("Should derive the raw source from the replicated document", func() {
