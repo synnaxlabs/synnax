@@ -51,6 +51,8 @@ int login(x::args::Parser &args) {
     }
     LOG(INFO) << x::log::GREEN() << "credentials saved successfully!"
               << x::log::RESET();
+    LOG(INFO) << "start driver: " << x::log::BLUE() << "synnax-driver start -s"
+              << x::log::RESET();
     return 0;
 }
 }
