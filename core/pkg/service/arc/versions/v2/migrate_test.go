@@ -11,6 +11,7 @@ package v2_test
 
 import (
 	"context"
+	"slices"
 
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
@@ -215,8 +216,9 @@ func migrateFromV1(ctx SpecContext, seed v1.Arc) v2.Arc {
 	db := DeferClose(gorp.Wrap(memkv.New()))
 	MustSucceed(gorp.OpenTable(ctx, gorp.TableConfig[v1.Key, v1.Arc]{DB: db}))
 	Expect(gorp.NewCreate[v1.Key, v1.Arc]().Entry(&seed).Exec(ctx, db)).To(Succeed())
-	applied := make([]migrate.Migration, 0, len(v1.Migrations)+1)
-	for _, m := range v1.Migrations {
+	prior := slices.Concat(v0.Migrations, v1.Migrations)
+	applied := make([]migrate.Migration, 0, len(prior)+1)
+	for _, m := range prior {
 		applied = append(applied, gorp.NewMigration(
 			m.Key(),
 			func(context.Context, gorp.Tx, alamos.Instrumentation) error { return nil },
@@ -243,8 +245,8 @@ func migrateFromV0(ctx SpecContext, seed v0.Arc) v2.Arc {
 	Expect(gorp.Migrate(ctx, gorp.MigrateConfig{
 		DB:        db,
 		Namespace: "Arc",
-		Migrations: append(
-			append([]migrate.Migration{}, v1.Migrations...), v2.Migration,
+		Migrations: slices.Concat(
+			v0.Migrations, v1.Migrations, []migrate.Migration{v2.Migration},
 		),
 	})).To(Succeed())
 	var got v2.Arc

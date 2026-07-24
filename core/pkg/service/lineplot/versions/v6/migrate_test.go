@@ -14,6 +14,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 
 	"github.com/google/uuid"
@@ -54,7 +55,7 @@ func migrateSeed(ctx SpecContext, seed v5.LinePlot) v6.LinePlot {
 	Expect(gorp.Migrate(ctx, gorp.MigrateConfig{
 		DB:         db,
 		Namespace:  "LinePlot",
-		Migrations: v6.Migrations,
+		Migrations: slices.Concat(v5.Migrations, v6.Migrations),
 	})).To(Succeed())
 	var got v6.LinePlot
 	Expect(gorp.NewRetrieve[v6.Key, v6.LinePlot]().

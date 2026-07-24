@@ -12,9 +12,11 @@ package versions
 import (
 	"slices"
 
+	v0 "github.com/synnaxlabs/synnax/pkg/service/arc/versions/v0"
 	v1 "github.com/synnaxlabs/synnax/pkg/service/arc/versions/v1"
 	v2 "github.com/synnaxlabs/synnax/pkg/service/arc/versions/v2"
+	"github.com/synnaxlabs/x/migrate"
 )
 
 // Migrations is the ordered migration chain for stored arcs.
-var Migrations = append(slices.Clone(v1.Migrations), v2.Migration)
+var Migrations = slices.Concat(v0.Migrations, v1.Migrations, []migrate.Migration{v2.Migration})

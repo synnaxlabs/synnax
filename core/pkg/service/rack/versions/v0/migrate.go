@@ -157,3 +157,8 @@ func backfillStatuses(
 var Migration = gorp.CodecMigration[Key, Rack](
 	"msgpack_to_orc", NewMigration(MigrationConfig{}).Key(),
 )
+
+// NewMigrations returns the ordered set of migrations introduced at this version.
+func NewMigrations(cfg MigrationConfig) []migrate.Migration {
+	return []migrate.Migration{NewMigration(cfg), Migration}
+}

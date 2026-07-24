@@ -40,9 +40,11 @@ var _ = Describe("MigrateDevice", func() {
 			func(context.Context, gorp.Tx, alamos.Instrumentation) error { return nil },
 		)
 		Expect(gorp.Migrate(ctx, gorp.MigrateConfig{
-			DB:         db,
-			Namespace:  "Device",
-			Migrations: append([]migrate.Migration{v0Applied}, v1.Migrations...),
+			DB:        db,
+			Namespace: "Device",
+			Migrations: append(
+				[]migrate.Migration{v0Applied, v0.Migration}, v1.Migrations...,
+			),
 		})).To(Succeed())
 		var got v1.Device
 		Expect(gorp.NewRetrieve[v1.Key, v1.Device]().

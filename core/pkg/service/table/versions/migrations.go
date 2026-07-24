@@ -9,7 +9,12 @@
 
 package versions
 
-import v2 "github.com/synnaxlabs/synnax/pkg/service/table/versions/v2"
+import (
+	"slices"
+
+	v1 "github.com/synnaxlabs/synnax/pkg/service/table/versions/v1"
+	v2 "github.com/synnaxlabs/synnax/pkg/service/table/versions/v2"
+)
 
 // Migrations is the ordered migration chain for stored tables.
-var Migrations = v2.Migrations
+var Migrations = slices.Concat(v1.Migrations, v2.Migrations)

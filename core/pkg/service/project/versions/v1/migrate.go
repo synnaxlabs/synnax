@@ -270,7 +270,6 @@ type MigrationsConfig struct {
 // NewMigrations returns the ordered migration chain for stored projects.
 func NewMigrations(cfg MigrationsConfig) []migrate.Migration {
 	return []migrate.Migration{
-		v0.Migration,
 		workspaceToProjectMigration,
 		layoutsToStagingMigration,
 		removeAuthorRelationshipsMigration(cfg.Ontology),

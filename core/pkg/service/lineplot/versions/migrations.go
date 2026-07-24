@@ -10,8 +10,11 @@
 package versions
 
 import (
+	"slices"
+
+	v5 "github.com/synnaxlabs/synnax/pkg/service/lineplot/versions/v5"
 	v6 "github.com/synnaxlabs/synnax/pkg/service/lineplot/versions/v6"
 )
 
-// Migrations is the ordered migration chain for stored line plots.
-var Migrations = v6.Migrations
+// Migrations is the ordered migration chain for stored lineplots.
+var Migrations = slices.Concat(v5.Migrations, v6.Migrations)

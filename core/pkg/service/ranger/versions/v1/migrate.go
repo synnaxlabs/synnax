@@ -36,4 +36,4 @@ var colorNullableMigration = gorp.NewEntryMigration(
 )
 
 // Migrations is the ordered set of migrations introduced at this version.
-var Migrations = []migrate.Migration{v0.Migration, colorNullableMigration}
+var Migrations = []migrate.Migration{colorNullableMigration}

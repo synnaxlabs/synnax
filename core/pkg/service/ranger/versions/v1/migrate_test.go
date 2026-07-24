@@ -38,9 +38,11 @@ var _ = Describe("v1 -> current Range migration", func() {
 			func(context.Context, gorp.Tx, alamos.Instrumentation) error { return nil },
 		)
 		Expect(gorp.Migrate(ctx, gorp.MigrateConfig{
-			DB:         db,
-			Namespace:  "Range",
-			Migrations: append([]migrate.Migration{v0Applied}, v1.Migrations...),
+			DB:        db,
+			Namespace: "Range",
+			Migrations: append(
+				[]migrate.Migration{v0Applied, v0.Migration}, v1.Migrations...,
+			),
 		})).To(Succeed())
 		out := make(map[v1.Key]v1.Range, len(seeds))
 		for _, seed := range seeds {

@@ -64,7 +64,6 @@ var renameSetStatusMigration = gorp.NewEntryMigration(
 
 // Migrations is the ordered set of migrations introduced at this version.
 var Migrations = []migrate.Migration{
-	v0.Migration,
 	dropProgramStatusMigration,
 	renameSetStatusMigration,
 }

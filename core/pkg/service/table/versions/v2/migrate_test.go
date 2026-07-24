@@ -14,6 +14,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 
 	"github.com/google/uuid"
@@ -59,7 +60,7 @@ func migrateSeed(ctx SpecContext, seed v1.Table) v2.Table {
 	Expect(gorp.Migrate(ctx, gorp.MigrateConfig{
 		DB:         db,
 		Namespace:  "Table",
-		Migrations: v2.Migrations,
+		Migrations: slices.Concat(v1.Migrations, v2.Migrations),
 	})).To(Succeed())
 	var got v2.Table
 	Expect(gorp.NewRetrieve[v2.Key, v2.Table]().
@@ -252,7 +253,7 @@ var _ = Describe("MigrateTable", func() {
 			Expect(gorp.Migrate(ctx, gorp.MigrateConfig{
 				DB:         db,
 				Namespace:  "Table",
-				Migrations: v2.Migrations,
+				Migrations: slices.Concat(v1.Migrations, v2.Migrations),
 			})).To(MatchError(ContainSubstring("table data")))
 		})
 	})

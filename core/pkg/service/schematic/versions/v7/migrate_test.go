@@ -14,6 +14,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 
 	"github.com/google/uuid"
@@ -57,7 +58,7 @@ func migrateSeed(ctx SpecContext, seed v6.Schematic) v7.Schematic {
 	Expect(gorp.Migrate(ctx, gorp.MigrateConfig{
 		DB:         db,
 		Namespace:  "Schematic",
-		Migrations: v7.Migrations,
+		Migrations: slices.Concat(v6.Migrations, v7.Migrations),
 	})).To(Succeed())
 	var got v7.Schematic
 	Expect(gorp.NewRetrieve[v7.Key, v7.Schematic]().

@@ -172,4 +172,4 @@ var liftMigration = gorp.NewEntryMigration(
 )
 
 // Migrations is the ordered set of migrations introduced at this version.
-var Migrations = []migrate.Migration{v5.Migration, liftMigration}
+var Migrations = []migrate.Migration{liftMigration}

@@ -12,6 +12,7 @@ package v1_test
 import (
 	"context"
 	"encoding/json"
+	"slices"
 
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
@@ -31,9 +32,11 @@ import (
 func runMigrations(ctx context.Context, db *gorp.DB) {
 	otg := MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
 	Expect(gorp.Migrate(ctx, gorp.MigrateConfig{
-		DB:         db,
-		Namespace:  "Project",
-		Migrations: v1.NewMigrations(v1.MigrationsConfig{Ontology: otg}),
+		DB:        db,
+		Namespace: "Project",
+		Migrations: slices.Concat(
+			v0.Migrations, v1.NewMigrations(v1.MigrationsConfig{Ontology: otg}),
+		),
 	})).To(Succeed())
 }
 

@@ -12,6 +12,7 @@ package v3_test
 import (
 	"encoding/json"
 	"os"
+	"slices"
 
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
@@ -277,7 +278,7 @@ var _ = Describe("MigrateLog", func() {
 			Expect(gorp.Migrate(ctx, gorp.MigrateConfig{
 				DB:         db,
 				Namespace:  "Log",
-				Migrations: v3.Migrations,
+				Migrations: slices.Concat(v2.Migrations, v3.Migrations),
 			})).To(Succeed())
 
 			var got v3.Log

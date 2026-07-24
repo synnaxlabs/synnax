@@ -38,9 +38,11 @@ var _ = Describe("MigrateRack", func() {
 			func(context.Context, gorp.Tx, alamos.Instrumentation) error { return nil },
 		)
 		Expect(gorp.Migrate(ctx, gorp.MigrateConfig{
-			DB:         db,
-			Namespace:  "Rack",
-			Migrations: append([]migrate.Migration{v0Applied}, v1.Migrations...),
+			DB:        db,
+			Namespace: "Rack",
+			Migrations: append(
+				[]migrate.Migration{v0Applied, v0.Migration}, v1.Migrations...,
+			),
 		})).To(Succeed())
 		var got v1.Rack
 		Expect(gorp.NewRetrieve[v1.Key, v1.Rack]().
