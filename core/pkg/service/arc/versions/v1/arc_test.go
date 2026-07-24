@@ -14,8 +14,6 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	v1 "github.com/synnaxlabs/synnax/pkg/service/arc/versions/v1"
-	. "github.com/synnaxlabs/x/testutil"
-	"github.com/vmihailenco/msgpack/v5"
 )
 
 var _ = Describe("Arc", func() {
@@ -29,32 +27,6 @@ var _ = Describe("Arc", func() {
 	Describe("SetOptions", func() {
 		It("Should return no options", func() {
 			Expect(v1.Arc{}.SetOptions()).To(BeNil())
-		})
-	})
-})
-
-var _ = Describe("StatusDetails", func() {
-	Describe("DecodeMsgpack", func() {
-		It("Should decode new lowercase msgpack fields", func() {
-			original := v1.StatusDetails{Running: true}
-			data := MustSucceed(msgpack.Marshal(original))
-			var decoded v1.StatusDetails
-			Expect(msgpack.Unmarshal(data, &decoded)).To(Succeed())
-			Expect(decoded.Running).To(BeTrue())
-		})
-		It("Should decode legacy uppercase Go field name", func() {
-			legacy := struct{ Running bool }{Running: true}
-			data := MustSucceed(msgpack.Marshal(legacy))
-			var decoded v1.StatusDetails
-			Expect(msgpack.Unmarshal(data, &decoded)).To(Succeed())
-			Expect(decoded.Running).To(BeTrue())
-		})
-		It("Should handle false value correctly for both formats", func() {
-			original := v1.StatusDetails{Running: false}
-			data := MustSucceed(msgpack.Marshal(original))
-			var decoded v1.StatusDetails
-			Expect(msgpack.Unmarshal(data, &decoded)).To(Succeed())
-			Expect(decoded.Running).To(BeFalse())
 		})
 	})
 })

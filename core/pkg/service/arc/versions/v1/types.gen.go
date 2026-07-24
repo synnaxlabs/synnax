@@ -12,7 +12,6 @@
 package v1
 
 import (
-	"github.com/google/uuid"
 	graph "github.com/synnaxlabs/arc/graph/versions/v0"
 	"github.com/synnaxlabs/arc/program"
 	text "github.com/synnaxlabs/arc/text/versions/v0"
@@ -21,7 +20,7 @@ import (
 )
 
 // Key is a unique identifier for an Arc module.
-type Key = uuid.UUID
+type Key = v0.Key
 
 // Status is the status of an Arc module including execution state.
 type Status = status.Status[StatusDetails]

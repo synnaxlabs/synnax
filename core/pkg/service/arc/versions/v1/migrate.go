@@ -18,8 +18,7 @@ import (
 	"github.com/synnaxlabs/x/migrate"
 )
 
-// migrateArc lifts a v0 arc into the v1 shape, dropping the persisted program
-// status.
+// migrateArc lifts a v0 arc into the v1 shape, dropping the persisted program status.
 func migrateArc(ctx context.Context, old v0.Arc) (Arc, error) {
 	return autoMigrateArc(ctx, old)
 }
@@ -64,6 +63,5 @@ var renameSetStatusMigration = gorp.NewEntryMigration(
 
 // Migrations is the ordered set of migrations introduced at this version.
 var Migrations = []migrate.Migration{
-	dropProgramStatusMigration,
-	renameSetStatusMigration,
+	dropProgramStatusMigration, renameSetStatusMigration,
 }

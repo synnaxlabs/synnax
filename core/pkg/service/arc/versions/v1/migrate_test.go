@@ -25,8 +25,8 @@ import (
 	. "github.com/synnaxlabs/x/testutil"
 )
 
-// migrateSeed runs the v1 migration chain over a gorp-seeded v0 arc and returns
-// the migrated v1 Arc.
+// migrateSeed runs the v1 migration chain over a gorp-seeded v0 arc and returns the
+// migrated v1 Arc.
 func migrateSeed(ctx SpecContext, seed v0.Arc) v1.Arc {
 	db := DeferClose(gorp.Wrap(memkv.New()))
 	MustSucceed(gorp.OpenTable(ctx, gorp.TableConfig[v0.Key, v0.Arc]{DB: db}))

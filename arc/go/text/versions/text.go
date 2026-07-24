@@ -16,3 +16,7 @@ import v1 "github.com/synnaxlabs/arc/text/versions/v1"
 // only needs to be stable and distinct from the zero root sentinel; clients must choose
 // a different replica.
 const SeedReplica = v1.SeedReplica
+
+// Create builds a Document from raw source text, attributing every character to the
+// seed replica.
+var Create = v1.Create

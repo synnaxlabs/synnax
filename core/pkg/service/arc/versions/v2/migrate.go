@@ -16,7 +16,7 @@ package v2
 import (
 	"context"
 
-	"github.com/synnaxlabs/arc/text"
+	text "github.com/synnaxlabs/arc/text/versions/v1"
 	v1 "github.com/synnaxlabs/synnax/pkg/service/arc/versions/v1"
 	"github.com/synnaxlabs/x/gorp"
 )
@@ -27,10 +27,9 @@ func migrateArc(ctx context.Context, old v1.Arc) (Arc, error) {
 	if err != nil {
 		return Arc{}, err
 	}
-	// Text is now stored as a replicated document; seed it from the previously
-	// persisted raw source. Raw itself is derived and no longer persisted.
-	migrated.Text.Doc = text.Create(old.Text.Raw)
-	migrated.Text.Raw = ""
+	if migrated.Text, err = text.MigrateText(ctx, old.Text); err != nil {
+		return Arc{}, err
+	}
 	return migrated, nil
 }
 

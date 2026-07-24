@@ -9,10 +9,7 @@
 
 package text
 
-import (
-	"github.com/synnaxlabs/arc/text/versions"
-	"github.com/synnaxlabs/x/crdt"
-)
+import "github.com/synnaxlabs/arc/text/versions"
 
 // SeedReplica is the replica id the server uses when seeding or materializing a
 // document. The server never authors characters of its own (clients do), so the replica
@@ -23,9 +20,4 @@ const SeedReplica = versions.SeedReplica
 // Create builds a Document from raw source text, attributing every character to the
 // seed replica. It initializes the replicated document for an arc created or imported
 // with plain text.
-func Create(raw string) Document {
-	doc := crdt.New(SeedReplica)
-	doc.Insert(0, raw)
-	inserts, deletes := doc.Snapshot()
-	return Document{Inserts: inserts, Deletes: deletes}
-}
+var Create = versions.Create
