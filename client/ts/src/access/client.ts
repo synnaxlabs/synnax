@@ -11,13 +11,19 @@ import { type UnaryClient } from "@synnaxlabs/freighter";
 
 import { policy } from "@/access/policy";
 import { role } from "@/access/role";
+import { type ontology } from "@/ontology";
+import { type query } from "@/query";
 
 export class Client {
   readonly policies: policy.Client;
   readonly roles: role.Client;
 
-  constructor(client: UnaryClient) {
-    this.policies = new policy.Client(client);
-    this.roles = new role.Client(client);
+  constructor(
+    client: UnaryClient,
+    cache: query.Cache,
+    ontologyStores: ontology.Stores,
+  ) {
+    this.policies = new policy.Client(client, cache, ontologyStores);
+    this.roles = new role.Client(client, cache, ontologyStores);
   }
 }

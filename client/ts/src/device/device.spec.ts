@@ -8,10 +8,10 @@
 // included in the file licenses/APL.txt.
 
 import { id, record, TimeStamp, unique } from "@synnaxlabs/x";
-import { beforeAll, describe, expect, it } from "vitest";
+import { beforeAll, describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 
-import { type device } from "@/device";
+import { device } from "@/device";
 import { createTestClient } from "@/testutil";
 
 const client = createTestClient();
@@ -456,6 +456,125 @@ describe("Device", async () => {
         expect(retrieved[0].properties.rate).toBe(100);
         expect(retrieved[1].properties.rate).toBe(200);
       });
+    });
+  });
+
+  describe("onChange", () => {
+    it("merges status updates into a subscribed single query", async () => {
+      const key = id.create();
+      await client.devices.create({
+        key,
+        rack: testRack.key,
+        location: "Dev1",
+        name: "status-single",
+        make: "ni",
+        model: "dog",
+        properties: {},
+      });
+      const query = { key, includeStatus: true };
+      const off = client.devices.onChange(query, vi.fn());
+      try {
+        await client.devices.retrieve(query);
+        await client.statuses.set({
+          key: device.statusKey(key),
+          name: "",
+          variant: "warning",
+          message: "device degraded",
+          time: TimeStamp.now(),
+          details: { rack: testRack.key, device: key },
+        });
+        await expect
+          .poll(() => {
+            const cached = client.devices.getCached(query);
+            if (cached?.variant !== "changed") return undefined;
+            return cached.data.status?.message;
+          })
+          .toBe("device degraded");
+      } finally {
+        off();
+      }
+    });
+
+    it("merges status updates into a subscribed request query", async () => {
+      const make = id.create();
+      const dev = await client.devices.create({
+        key: id.create(),
+        rack: testRack.key,
+        location: "Dev1",
+        name: "status-request",
+        make,
+        model: "dog",
+        properties: {},
+      });
+      const query = { makes: [make], includeStatus: true };
+      const off = client.devices.onChange(query, vi.fn());
+      try {
+        await client.devices.retrieve(query);
+        await client.statuses.set({
+          key: device.statusKey(dev.key),
+          name: "",
+          variant: "error",
+          message: "device has issues",
+          time: TimeStamp.now(),
+          details: { rack: testRack.key, device: dev.key },
+        });
+        await expect
+          .poll(() => {
+            const cached = client.devices.getCached(query);
+            if (cached?.variant !== "changed") return undefined;
+            return cached.data.find((d) => d.key === dev.key)?.status?.message;
+          })
+          .toBe("device has issues");
+      } finally {
+        off();
+      }
+    });
+  });
+
+  describe("getCached", () => {
+    it("approximates an unfetched filter query from the record store", async () => {
+      const make = id.create();
+      const d1 = await client.devices.create({
+        key: id.create(),
+        rack: testRack.key,
+        location: "Dev1",
+        name: "cached-filter-1",
+        make,
+        model: "dog",
+        properties: {},
+      });
+      const d2 = await client.devices.create({
+        key: id.create(),
+        rack: testRack.key,
+        location: "Dev2",
+        name: "cached-filter-2",
+        make: "other",
+        model: "dog",
+        properties: {},
+      });
+      await client.devices.retrieve({ keys: [d1.key, d2.key] });
+      const cached = client.devices.getCached({ makes: [make] });
+      expect(cached?.variant).toEqual("changed");
+      if (cached?.variant === "changed") {
+        expect(cached.data.map((d) => d.key)).toContain(d1.key);
+        expect(cached.data.map((d) => d.key)).not.toContain(d2.key);
+      }
+    });
+
+    it("does not approximate server-computed query shapes", async () => {
+      const make = id.create();
+      const dev = await client.devices.create({
+        key: id.create(),
+        rack: testRack.key,
+        location: "Dev1",
+        name: "cached-no-approx",
+        make,
+        model: "dog",
+        properties: {},
+      });
+      await client.devices.retrieve({ keys: [dev.key] });
+      expect(client.devices.getCached({ makes: [make], limit: 1 })).toBeUndefined();
+      expect(client.devices.getCached({ searchTerm: make })).toBeUndefined();
     });
   });
 });

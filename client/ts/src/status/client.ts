@@ -8,12 +8,20 @@
 // included in the file licenses/APL.txt.
 
 import { type UnaryClient } from "@synnaxlabs/freighter";
-import { array } from "@synnaxlabs/x";
+import { array, destructor, primitive } from "@synnaxlabs/x";
 import z from "zod";
 
 import { label } from "@/label";
 import { ontology } from "@/ontology";
-import { type Key, keyZ } from "@/status/payload";
+import { query } from "@/query";
+import {
+  DELETE_CHANNEL_NAME,
+  type Key,
+  keyZ,
+  ontologyID,
+  SET_CHANNEL_NAME,
+  TYPE_ONTOLOGY_ID,
+} from "@/status/payload";
 import { type New, type Status, statusZ } from "@/status/types.gen";
 import { checkForMultipleOrNoResults } from "@/util/retrieve";
 
@@ -50,6 +58,8 @@ export type RetrieveParams = z.input<typeof retrieveParamsZ>;
 export type SingleRetrieveParams = z.input<typeof singleRetrieveParamsZ>;
 export type MultiRetrieveParams = z.input<typeof retrieveRequestZ>;
 
+interface RetrieveRequest extends z.infer<typeof retrieveRequestZ> {}
+
 const retrieveResponseZ = <DetailsSchema extends z.ZodType = z.ZodNever>(
   detailsSchema?: DetailsSchema,
 ) =>
@@ -63,12 +73,134 @@ export interface SetOptions {
   parent?: ontology.ID;
 }
 
-export class Client {
-  readonly type: string = "status";
-  private readonly client: UnaryClient;
+const BASE_REQUEST: Partial<RetrieveRequest> = { includeLabels: true };
 
-  constructor(client: UnaryClient) {
+/** Query fields only the server can evaluate. */
+const SERVER_FIELDS = ["searchTerm", "limit", "offset"] as const;
+
+const normalizeRequest = (params: MultiRetrieveParams): RetrieveRequest =>
+  retrieveRequestZ.parse(params);
+
+const isKeysOnly = (req: RetrieveRequest): req is RetrieveRequest & { keys: Key[] } =>
+  primitive.isNonZero(req.keys) &&
+  req.searchTerm == null &&
+  req.hasLabels == null &&
+  req.variants == null &&
+  req.limit == null &&
+  req.offset == null;
+
+const createTable = (
+  cache: query.Cache,
+  relationships: query.Table<string, ontology.Relationship>,
+  labels: query.Table<label.Key, label.Label>,
+): query.Table<Key, Status> => {
+  const table = cache.createTable<Key, Status>({ name: "statuses" });
+  const set: query.ChannelListener<ReturnType<typeof statusZ>> = {
+    channel: SET_CHANNEL_NAME,
+    schema: statusZ(),
+    onChange: (changed) =>
+      table.set(changed.key, (p) => {
+        const next = { ...p, ...changed };
+        const id = ontologyID(changed.key);
+        next.labels = label.cachedLabelsOf(relationships, labels, id);
+        return next;
+      }),
+  };
+  const del: query.ChannelListener<typeof keyZ> = {
+    channel: DELETE_CHANNEL_NAME,
+    schema: keyZ,
+    onChange: (changed) => table.delete(changed),
+  };
+  cache.addListeners(table, set, del);
+  return table;
+};
+
+export class Client extends query.Retriever<
+  SingleRetrieveParams,
+  MultiRetrieveParams,
+  Key,
+  RetrieveRequest,
+  Status
+> {
+  readonly type: string = "status";
+  /** The status record table; injected into sibling clients at wiring. */
+  readonly store: query.Table<Key, Status>;
+  private readonly client: UnaryClient;
+  private readonly labelClient?: label.Client;
+  private readonly cache: query.Cache;
+  private readonly labels: query.Table<label.Key, label.Label>;
+  private readonly ontology: ontology.Stores;
+
+  constructor(
+    client: UnaryClient,
+    cache: query.Cache,
+    labels: query.Table<label.Key, label.Label>,
+    ontologyStores: ontology.Stores,
+    labelClient?: label.Client,
+  ) {
+    const store = createTable(cache, ontologyStores.relationships, labels);
+    super({
+      single: cache.queries({
+        name: "status",
+        table: store,
+        fetch: async (query) => [(await this.fetchSingle(query)).key],
+        compose: (records) => this.compose(records[0]),
+        keyOf: (query) => query,
+        single: true,
+        watch: [
+          query.watch(ontologyStores.relationships, (event, query: Key) => {
+            const rel =
+              event.variant === "set"
+                ? event.value
+                : ontology.relationshipZ.parse(event.key);
+            if (!label.matchLabeledBy(rel, ontologyID(query))) return null;
+            if (event.variant === "set") this.ensureLabel(rel);
+            return [query];
+          }),
+          query.watch(labels, (event, query: Key) =>
+            this.isLabeledBy(query, event.key) ? [query] : null,
+          ),
+        ],
+      }),
+      request: cache.queries({
+        name: "statuses",
+        table: store,
+        fetch: async (query) => (await this.fetchRequest(query)).map((s) => s.key),
+        compose: (records) => records.map((s) => this.compose(s)),
+        matches: (status, query) => this.requestFilter(query)(status),
+        serverFields: SERVER_FIELDS,
+        watch: [
+          query.watch(ontologyStores.relationships, (event, _: RetrieveRequest) => {
+            const rel =
+              event.variant === "set"
+                ? event.value
+                : ontology.relationshipZ.parse(event.key);
+            if (
+              rel.type !== label.LABELED_BY_ONTOLOGY_RELATIONSHIP_TYPE ||
+              rel.from.type !== TYPE_ONTOLOGY_ID.type
+            )
+              return null;
+            if (event.variant === "set") this.ensureLabel(rel);
+            return [rel.from.key];
+          }),
+          query.watch(labels, (event, _: RetrieveRequest) =>
+            this.statusesLabeledBy(event.key),
+          ),
+        ],
+        hydrate: async (keys) => {
+          await this.fetchKeys(keys);
+        },
+      }),
+      isSingle: (params) => "key" in params,
+      normalizeSingle: ({ key }) => key,
+      normalizeRequest,
+    });
     this.client = client;
+    this.labelClient = labelClient;
+    this.cache = cache;
+    this.labels = labels;
+    this.ontology = ontologyStores;
+    this.store = store;
   }
 
   async retrieve<DetailsSchema extends z.ZodType>(
@@ -80,15 +212,17 @@ export class Client {
     params: RetrieveParams & { detailsSchema?: DetailsSchema },
   ): Promise<Status<DetailsSchema> | Status<DetailsSchema>[]> {
     const isSingle = "key" in params;
-    const res = await this.client.send(
-      "/status/retrieve",
-      params,
-      retrieveParamsZ,
-      retrieveResponseZ<DetailsSchema>(params.detailsSchema),
-    );
-    checkForMultipleOrNoResults("Status", params, res.statuses, isSingle);
-    const statuses = res.statuses as Status<DetailsSchema>[];
-    return isSingle ? statuses[0] : statuses;
+    // Schema-parametrized retrieves validate details for one caller; their
+    // results are not shared through the cache.
+    if (params.detailsSchema != null) {
+      const statuses = await this.execRetrieve<DetailsSchema>(params);
+      checkForMultipleOrNoResults("Status", params, statuses, isSingle);
+      return isSingle ? statuses[0] : statuses;
+    }
+    if (isSingle) return (await super.retrieve(params)) as Status<DetailsSchema>;
+    return (await super.retrieve(
+      params as MultiRetrieveParams,
+    )) as Status<DetailsSchema>[];
   }
 
   async set<DetailsSchema extends z.ZodType>(
@@ -114,15 +248,176 @@ export class Client {
       setResZ(opts.detailsSchema),
     );
     const created = res.statuses as Status<DetailsSchema>[];
+    this.store.set(created);
     return isMany ? created : created[0];
   }
 
+  async rename(key: Key, name: string, opts: query.WriteOptions = {}): Promise<void> {
+    const stat = await this.retrieve({ key });
+    const renamed = { ...stat, name };
+    const rollback = new destructor.Chain();
+    rollback.add(this.store.set(renamed));
+    rollback.add(ontology.renameCachedResource(this.ontology, ontologyID(key), name));
+    await opts.onOptimistic?.();
+    await rollback.guard(async () => {
+      await this.set(renamed);
+    });
+  }
+
   async delete(keys: Key | Key[]): Promise<void> {
-    await this.client.send(
-      "/status/delete",
-      { keys: array.toArray(keys) },
-      deleteReqZ,
-      emptyResZ,
+    const keysArr = array.toArray(keys);
+    await this.client.send("/status/delete", { keys: keysArr }, deleteReqZ, emptyResZ);
+    this.store.delete(keysArr);
+    this.ontology.relationships.delete((r) =>
+      keysArr.some((key) => label.matchLabeledBy(r, ontologyID(key))),
     );
+  }
+
+  /** Subscribes to every status set delivered to the cache. */
+  onSet(handler: (status: Status) => void): destructor.Destructor {
+    return this.store.subscribe((event) => {
+      if (event.variant === "set") handler(event.value);
+    });
+  }
+
+  /** Subscribes to every status delete delivered to the cache. */
+  onDelete(handler: (key: Key) => void): destructor.Destructor {
+    return this.store.subscribe((event) => {
+      if (event.variant === "delete") handler(event.key);
+    });
+  }
+
+  private async execRetrieve<DetailsSchema extends z.ZodType = z.ZodNever>(
+    params: RetrieveParams & { detailsSchema?: DetailsSchema },
+  ): Promise<Status<DetailsSchema>[]> {
+    const res = await this.client.send(
+      "/status/retrieve",
+      params,
+      retrieveParamsZ,
+      retrieveResponseZ<DetailsSchema>(params.detailsSchema),
+    );
+    return res.statuses as Status<DetailsSchema>[];
+  }
+
+  /** Rebuilds a cached status with its cached labels attached. */
+  private compose(cached: Status): Status {
+    const labels = label.cachedLabelsOf(
+      this.ontology.relationships,
+      this.labels,
+      ontologyID(cached.key),
+    );
+    return { ...cached, labels };
+  }
+
+  /** Writes a fetched status and its included label relationships. */
+  private writeThrough(status: Status): void {
+    this.store.set(status);
+    if (status.labels == null) return;
+    this.labels.set(status.labels);
+    const id = ontologyID(status.key);
+    status.labels.forEach((l) => {
+      const rel: ontology.Relationship = {
+        from: id,
+        type: label.LABELED_BY_ONTOLOGY_RELATIONSHIP_TYPE,
+        to: label.ontologyID(l.key),
+      };
+      this.ontology.relationships.set(ontology.relationshipToString(rel), rel);
+    });
+  }
+
+  /**
+   * Fetches the given keys, serving cached entries and fetching only the
+   * misses. Preserves the caller's key order.
+   */
+  private async fetchKeys(keys: Key[]): Promise<Status[]> {
+    const results: Status[] = [];
+    const misses: Key[] = [];
+    for (const key of keys) {
+      const cached = this.store.get(key);
+      if (cached != null) results.push(cached);
+      else misses.push(key);
+    }
+    if (misses.length > 0) {
+      const fetched = await this.execRetrieve({ ...BASE_REQUEST, keys: misses });
+      fetched.forEach((s) => this.writeThrough(s));
+      results.push(...fetched);
+    }
+    return query.orderByKeys(keys, results, (s) => s.key);
+  }
+
+  private async fetchSingle(query: Key): Promise<Status> {
+    const cached = this.store.get(query);
+    if (cached != null) return cached;
+    const statuses = await this.execRetrieve({ ...BASE_REQUEST, keys: [query] });
+    checkForMultipleOrNoResults("Status", query, statuses, true);
+    this.writeThrough(statuses[0]);
+    return statuses[0];
+  }
+
+  /**
+   * Fetches a labeled-by target the cache is missing so composition sees it.
+   * The fetched label lands in the label table, which recomposes answers.
+   */
+  private ensureLabel(rel: ontology.Relationship): void {
+    if (this.labelClient == null) return;
+    if (rel.to.type !== "label" || this.labels.has(rel.to.key)) return;
+    void this.labelClient
+      .retrieve({ key: rel.to.key })
+      .catch((exc: unknown) =>
+        this.cache.onError(new Error("failed to fetch status label", { cause: exc })),
+      );
+  }
+
+  /** Reports whether the status is labeled by the given label. */
+  private isLabeledBy(status: Key, labelKey: label.Key): boolean {
+    return this.ontology.relationships.has(
+      ontology.relationshipToString({
+        from: ontologyID(status),
+        type: label.LABELED_BY_ONTOLOGY_RELATIONSHIP_TYPE,
+        to: label.ontologyID(labelKey),
+      }),
+    );
+  }
+
+  /** Returns the keys of cached statuses labeled by the given label. */
+  private statusesLabeledBy(labelKey: label.Key): Key[] {
+    return this.ontology.relationships
+      .get(
+        (r) =>
+          r.type === label.LABELED_BY_ONTOLOGY_RELATIONSHIP_TYPE &&
+          r.from.type === TYPE_ONTOLOGY_ID.type &&
+          r.to.type === "label" &&
+          r.to.key === labelKey,
+      )
+      .map((r) => r.from.key);
+  }
+
+  private async fetchRequest(query: RetrieveRequest): Promise<Status[]> {
+    if (isKeysOnly(query)) return await this.fetchKeys(query.keys);
+    const statuses = await this.execRetrieve({ ...BASE_REQUEST, ...query });
+    statuses.forEach((s) => this.writeThrough(s));
+    return statuses;
+  }
+
+  /**
+   * Client-side matching for a request: key sets, variants, and label
+   * membership via the relationship table. Server-computed shapes (search,
+   * limit/offset) never reach this filter; they refetch instead.
+   */
+  private requestFilter(req: RetrieveRequest): (s: Status) => boolean {
+    const keySet = primitive.isNonZero(req.keys) ? new Set(req.keys) : undefined;
+    const variantSet = primitive.isNonZero(req.variants)
+      ? new Set(req.variants)
+      : undefined;
+    return (s) => {
+      if (keySet != null && !keySet.has(s.key)) return false;
+      if (variantSet != null && !variantSet.has(s.variant)) return false;
+      if (
+        primitive.isNonZero(req.hasLabels) &&
+        !req.hasLabels.some((key) => this.isLabeledBy(s.key, key))
+      )
+        return false;
+      return true;
+    };
   }
 }

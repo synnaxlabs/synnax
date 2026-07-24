@@ -8,11 +8,20 @@
 // included in the file licenses/APL.txt.
 
 import { type UnaryClient } from "@synnaxlabs/freighter";
-import { array } from "@synnaxlabs/x";
+import { array, destructor, primitive } from "@synnaxlabs/x";
 import { z } from "zod";
 
+import { ontology } from "@/ontology";
+import { query } from "@/query";
 import { checkForMultipleOrNoResults } from "@/util/retrieve";
-import { type Key, keyZ, type New, type View, viewZ } from "@/view/types.gen";
+import {
+  type Key,
+  keyZ,
+  type New,
+  ontologyID,
+  type View,
+  viewZ,
+} from "@/view/types.gen";
 
 export const SET_CHANNEL_NAME = "sy_view_set";
 export const DELETE_CHANNEL_NAME = "sy_view_delete";
@@ -39,29 +48,91 @@ const retrieveParamsZ = z.union([singleRetrieveParamsZ, retrieveRequestZ]);
 export interface RetrieveSingleParams extends z.input<typeof singleRetrieveParamsZ> {}
 export interface RetrieveMultipleParams extends z.input<typeof retrieveRequestZ> {}
 
+interface RetrieveRequest extends z.infer<typeof retrieveRequestZ> {}
+
 const retrieveResponseZ = z.object({ views: viewZ.array().default(() => []) });
 
-export class Client {
+/** Query fields only the server can evaluate. */
+const SERVER_FIELDS = ["searchTerm", "limit", "offset"] as const;
+
+const isKeysOnly = (req: RetrieveRequest): req is RetrieveRequest & { keys: Key[] } =>
+  primitive.isNonZero(req.keys) &&
+  req.types == null &&
+  req.searchTerm == null &&
+  req.limit == null &&
+  req.offset == null;
+
+/**
+ * Client-side matching for a request: key and type sets. Server-computed
+ * shapes (search, limit/offset) never reach this filter; they refetch instead.
+ */
+const requestFilter = (req: RetrieveRequest): ((v: View) => boolean) => {
+  const keySet = primitive.isNonZero(req.keys) ? new Set(req.keys) : undefined;
+  const typeSet = primitive.isNonZero(req.types) ? new Set(req.types) : undefined;
+  return (v) => {
+    if (keySet != null && !keySet.has(v.key)) return false;
+    if (typeSet != null && !typeSet.has(v.type)) return false;
+    return true;
+  };
+};
+
+const createTable = (cache: query.Cache): query.Table<Key, View> => {
+  const table = cache.createTable<Key, View>({ name: "views" });
+  const set: query.ChannelListener<typeof viewZ> = {
+    channel: SET_CHANNEL_NAME,
+    schema: viewZ,
+    onChange: (changed) => table.set(changed),
+  };
+  const del: query.ChannelListener<typeof keyZ> = {
+    channel: DELETE_CHANNEL_NAME,
+    schema: keyZ,
+    onChange: (changed) => table.delete(changed),
+  };
+  cache.addListeners(table, set, del);
+  return table;
+};
+
+export class Client extends query.Retriever<
+  RetrieveSingleParams,
+  RetrieveMultipleParams,
+  Key,
+  RetrieveRequest,
+  View
+> {
   private readonly client: UnaryClient;
+  private readonly store: query.Table<Key, View>;
+  private readonly ontology: ontology.Stores;
 
-  constructor(client: UnaryClient) {
+  constructor(
+    client: UnaryClient,
+    cache: query.Cache,
+    ontologyStores: ontology.Stores,
+  ) {
+    const store = createTable(cache);
+    super({
+      single: cache.queries({
+        name: "view",
+        table: store,
+        fetch: async (query) => [await this.fetchSingle(query)].map((v) => v.key),
+        compose: (records) => records[0],
+        keyOf: (query) => query,
+        single: true,
+      }),
+      request: cache.queries({
+        name: "views",
+        table: store,
+        fetch: async (query) => (await this.fetchRequest(query)).map((v) => v.key),
+        compose: (records) => records,
+        matches: (view, query) => requestFilter(query)(view),
+        serverFields: SERVER_FIELDS,
+      }),
+      isSingle: (params) => "key" in params,
+      normalizeSingle: ({ key }) => key,
+      normalizeRequest: (params) => retrieveRequestZ.parse(params),
+    });
     this.client = client;
-  }
-
-  async retrieve(params: RetrieveSingleParams): Promise<View>;
-  async retrieve(params: RetrieveMultipleParams): Promise<View[]>;
-  async retrieve(
-    params: RetrieveSingleParams | RetrieveMultipleParams,
-  ): Promise<View | View[]> {
-    const isSingle = "key" in params;
-    const res = await this.client.send(
-      "/view/retrieve",
-      params,
-      retrieveParamsZ,
-      retrieveResponseZ,
-    );
-    checkForMultipleOrNoResults("View", params, res.views, isSingle);
-    return isSingle ? res.views[0] : res.views;
+    this.ontology = ontologyStores;
+    this.store = store;
   }
 
   async create(view: New): Promise<View>;
@@ -74,15 +145,100 @@ export class Client {
       createReqZ,
       createResZ,
     );
+    this.store.set(res.views);
     return isMany ? res.views : res.views[0];
   }
 
-  async delete(keys: Key | Key[]): Promise<void> {
-    await this.client.send(
-      "/view/delete",
-      { keys: array.toArray(keys) },
-      deleteReqZ,
-      emptyResZ,
+  async rename(key: Key, name: string, opts: query.WriteOptions = {}): Promise<void> {
+    const v = await this.retrieve({ key });
+    const rollback = new destructor.Chain();
+    rollback.add(query.partialUpdate(this.store, key, { name }));
+    rollback.add(ontology.renameCachedResource(this.ontology, ontologyID(key), name));
+    await opts.onOptimistic?.();
+    await rollback.guard(async () => {
+      await this.create({ ...v, name });
+    });
+  }
+
+  async delete(keys: Key | Key[], opts: query.WriteOptions = {}): Promise<void> {
+    const keysArr = array.toArray(keys);
+    const rollback = new destructor.Chain();
+    const ids = ontologyID(keysArr);
+    rollback.add(ontology.deleteCachedRelationships(this.ontology, ids));
+    rollback.add(this.store.delete(keysArr));
+    rollback.add(this.ontology.resources.delete(ontology.idToString(ids)));
+    await opts.onOptimistic?.();
+    await rollback.guard(
+      async () =>
+        await this.client.send(
+          "/view/delete",
+          { keys: keysArr },
+          deleteReqZ,
+          emptyResZ,
+        ),
     );
+    this.store.delete(keysArr);
+  }
+
+  /** Subscribes to every view set delivered to the cache. */
+  onSet(handler: (view: View) => void): destructor.Destructor {
+    return this.store.subscribe((event) => {
+      if (event.variant === "set") handler(event.value);
+    });
+  }
+
+  /** Subscribes to every view delete delivered to the cache. */
+  onDelete(handler: (key: Key) => void): destructor.Destructor {
+    return this.store.subscribe((event) => {
+      if (event.variant === "delete") handler(event.key);
+    });
+  }
+
+  private async execRetrieve(
+    params: RetrieveSingleParams | RetrieveMultipleParams,
+  ): Promise<View[]> {
+    const res = await this.client.send(
+      "/view/retrieve",
+      params,
+      retrieveParamsZ,
+      retrieveResponseZ,
+    );
+    return res.views;
+  }
+
+  /**
+   * Fetches the given keys, serving cached entries and fetching only the
+   * misses. Preserves the caller's key order.
+   */
+  private async fetchKeys(keys: Key[]): Promise<View[]> {
+    const results: View[] = [];
+    const misses: Key[] = [];
+    for (const key of keys) {
+      const cached = this.store.get(key);
+      if (cached != null) results.push(cached);
+      else misses.push(key);
+    }
+    if (misses.length > 0) {
+      const fetched = await this.execRetrieve({ keys: misses });
+      this.store.set(fetched);
+      results.push(...fetched);
+    }
+    return query.orderByKeys(keys, results, (v) => v.key);
+  }
+
+  private async fetchSingle(query: Key): Promise<View> {
+    const cached = this.store.get(query);
+    if (cached != null) return cached;
+    const views = await this.execRetrieve({ key: query });
+    checkForMultipleOrNoResults("View", query, views, true);
+    this.store.set(views);
+    return views[0];
+  }
+
+  private async fetchRequest(query: RetrieveRequest): Promise<View[]> {
+    if (isKeysOnly(query)) return await this.fetchKeys(query.keys);
+    const views = await this.execRetrieve(query);
+    this.store.set(views);
+    return views;
   }
 }

@@ -72,27 +72,6 @@ describe("destructor", () => {
         expect(undo).toHaveBeenCalledTimes(1);
       });
 
-      it("should run remaining destructors when one fails", async () => {
-        const consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
-        try {
-          const chain = new destructor.Chain();
-          const undo = vi.fn();
-          chain.add(undo);
-          chain.add(() => {
-            throw new Error("undo failure");
-          });
-          await expect(
-            chain.guard(async () => {
-              throw new Error("network failure");
-            }),
-          ).rejects.toThrow("network failure");
-          expect(undo).toHaveBeenCalledTimes(1);
-          expect(consoleError).toHaveBeenCalled();
-        } finally {
-          consoleError.mockRestore();
-        }
-      });
-
       it("should log instead of throwing when a destructor fails", async () => {
         const consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
         try {

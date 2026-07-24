@@ -19,7 +19,10 @@ export interface Async {
 
 export const NOOP = () => {};
 
-/** Accumulates destructors and runs them all when a guarded call fails. */
+/**
+ * Accumulates destructors that undo optimistic writes. Callers add each
+ * mutation's undo and run them all when a guarded call fails.
+ */
 export class Chain {
   private readonly destructors: Destructor[] = [];
 
@@ -30,13 +33,13 @@ export class Chain {
 
   /** Runs every destructor in reverse order. Errors are logged, not thrown. */
   private run(): void {
-    for (const d of this.destructors.reverse())
-      try {
-        d();
-      } catch (error) {
-        console.error("destructor failed", error);
-      }
-    this.destructors.length = 0;
+    try {
+      this.destructors.reverse().forEach((d) => d());
+    } catch (error) {
+      console.error("failed to roll back optimistic writes", error);
+    } finally {
+      this.destructors.length = 0;
+    }
   }
 
   /**

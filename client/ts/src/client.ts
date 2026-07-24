@@ -27,10 +27,9 @@ import { log } from "@/log";
 import { ontology } from "@/ontology";
 import { panel } from "@/panel";
 import { project } from "@/project";
+import { query } from "@/query";
 import { rack } from "@/rack";
 import { ranger } from "@/ranger";
-import { alias } from "@/ranger/alias";
-import { kv } from "@/ranger/kv";
 import { schematic } from "@/schematic";
 import { status } from "@/status";
 import { table } from "@/table";
@@ -51,6 +50,15 @@ export const synnaxParamsZ = z.object({
   secure: z.boolean().default(false),
   name: z.string().optional(),
   retry: breaker.breakerConfigZ.optional(),
+  cache: z.boolean().default(true),
+  /**
+   * Receives cache errors that have no caller to throw to (listener fan-out,
+   * streamer frame handling, background reconciliation). Defaults to console
+   * logging.
+   */
+  onInternalError: z
+    .function({ input: z.tuple([z.instanceof(Error)]), output: z.void() })
+    .optional(),
 });
 
 export interface SynnaxParams extends z.input<typeof synnaxParamsZ> {}
@@ -91,6 +99,13 @@ export default class Synnax extends framer.Client {
   readonly tables: table.Client;
   readonly groups: group.Client;
   readonly imex: imex.Client;
+  /**
+   * The client's local mirror of cluster state. Live and streamed when
+   * `cache: true` (the default); detached (local-only, no streaming) when
+   * `cache: false`. Not a data access path: per-domain stores on the domain
+   * clients remain the only way to read cached records.
+   */
+  readonly cache: query.Cache;
   static readonly connectivity = connection.Checker;
   private readonly transport: Transport;
 
@@ -106,8 +121,8 @@ export default class Synnax extends framer.Client {
    * cluster is insecure.
    * @param props.password - Password for authentication. Not required if the
    * cluster is insecure.
-   * @param props.connectivityPollFrequency - Frequency at which to poll the
-   * cluster for connectivity information. Defaults to 30 seconds.
+   * @param props.connectivityPollFrequency - Heartbeat cadence while the
+   * connection is healthy. Defaults to 30 seconds.
    * @param props.secure - Whether to connect to the cluster using TLS. The cluster
    * must be configured to support TLS. Defaults to false.
    *
@@ -132,18 +147,26 @@ export default class Synnax extends framer.Client {
       secure,
     );
     transport.use(errorsMiddleware);
-    const chRetriever = new channel.CacheRetriever(
-      new channel.ClusterRetriever(transport.unary),
-    );
+    const chRetriever = new channel.ClusterRetriever(transport.unary);
     super(transport.stream, transport.unary, chRetriever);
-    this.auth = new auth.Client(transport.unary, { username, password });
-    transport.use(this.auth.middleware());
-    const chCreator = new channel.Writer(transport.unary, chRetriever);
-    this.key = uuid.create();
-    this.createdAt = TimeStamp.now();
-    this.params = parsedParams;
-    this.transport = transport;
-    this.channels = new channel.Client(this, chRetriever, transport.unary, chCreator);
+    const cache = new query.Cache({
+      openStreamer: parsedParams.cache
+        ? async (channels, { onOpen, onReopen }) => {
+            const hardened = await framer.HardenedStreamer.open(
+              (config) => this.openStreamer(config),
+              channels,
+              breaker,
+              () => onReopen?.(),
+            );
+            // Reads start when the ObservableStreamer is constructed below,
+            // so onOpen fires strictly before any frame or reconnect.
+            onOpen?.();
+            return new framer.ObservableStreamer(hardened);
+          }
+        : null,
+      onInternalError: parsedParams.onInternalError,
+    });
+    this.cache = cache;
     this.connectivity = new connection.Checker(
       transport.unary,
       connectivityPollFrequency,
@@ -151,11 +174,28 @@ export default class Synnax extends framer.Client {
       parsedParams.name,
       clockSkewThreshold,
     );
-    this.control = new control.Client(this);
-    this.ontology = new ontology.Client(this.transport.unary);
+    this.auth = new auth.Client(transport.unary, { username, password });
+    transport.use(this.auth.middleware());
+    const chCreator = new channel.Writer(transport.unary);
+    this.key = uuid.create();
+    this.createdAt = TimeStamp.now();
+    this.params = parsedParams;
+    this.transport = transport;
+    this.ontology = new ontology.Client(this.transport.unary, cache);
+    const ontologyStores = this.ontology.stores;
     const rangeWriter = new ranger.Writer(this.transport.unary);
-    this.labels = new label.Client(this.transport.unary);
-    this.statuses = new status.Client(this.transport.unary);
+    this.labels = new label.Client(
+      this.transport.unary,
+      cache,
+      ontologyStores.relationships,
+    );
+    this.statuses = new status.Client(
+      this.transport.unary,
+      cache,
+      this.labels.store,
+      ontologyStores,
+      this.labels,
+    );
     this.ranges = new ranger.Client(
       this,
       rangeWriter,
@@ -163,33 +203,81 @@ export default class Synnax extends framer.Client {
       chRetriever,
       this.labels,
       this.ontology,
-      (key: ranger.Key) => new alias.Client(key, this.transport.unary),
-      (key: ranger.Key) => new kv.Client(key, this.transport.unary),
+      cache,
     );
-    this.access = new access.Client(this.transport.unary);
-    this.users = new user.Client(this.transport.unary);
-    this.projects = new project.Client(this.transport.unary);
+    this.channels = new channel.Client(
+      this,
+      chRetriever,
+      transport.unary,
+      chCreator,
+      this.statuses,
+      this.ranges,
+      cache,
+      this.statuses.store,
+      this.ranges.aliases,
+      ontologyStores,
+    );
+    this.control = new control.Client(this);
+    this.access = new access.Client(this.transport.unary, cache, ontologyStores);
+    this.users = new user.Client(this.transport.unary, cache, ontologyStores);
+    this.projects = new project.Client(this.transport.unary, cache, ontologyStores);
     this.tasks = new task.Client(
       this.transport.unary,
       this,
       this.ontology,
       this.ranges,
+      cache,
+      this.statuses.store,
     );
-    this.racks = new rack.Client(this.transport.unary, this.tasks);
-    this.devices = new device.Client(this.transport.unary);
-    this.arcs = new arc.Client(this.transport.unary, this.transport.stream);
-    this.views = new view.Client(this.transport.unary);
-    this.schematics = new schematic.Client(this.transport.unary);
-    this.lineplots = new lineplot.Client(this.transport.unary);
-    this.panels = new panel.Client(this.transport.unary);
-    this.logs = new log.Client(this.transport.unary);
-    this.tables = new table.Client(this.transport.unary);
-    this.groups = new group.Client(this.transport.unary);
+    this.racks = new rack.Client(
+      this.transport.unary,
+      this.tasks,
+      cache,
+      this.statuses.store,
+      ontologyStores,
+    );
+    this.devices = new device.Client(
+      this.transport.unary,
+      cache,
+      this.statuses.store,
+      ontologyStores,
+    );
+    this.arcs = new arc.Client(
+      this.transport.unary,
+      this.transport.stream,
+      this.ontology,
+      this.tasks,
+      cache,
+      this.statuses.store,
+    );
+    this.views = new view.Client(this.transport.unary, cache, ontologyStores);
+    this.schematics = new schematic.Client(
+      this.transport.unary,
+      this.ontology,
+      cache,
+      ontologyStores,
+    );
+    this.lineplots = new lineplot.Client(this.transport.unary, cache, ontologyStores);
+    this.panels = new panel.Client(
+      this.transport.unary,
+      this.ontology,
+      cache,
+      ontologyStores,
+    );
+    this.logs = new log.Client(this.transport.unary, cache, ontologyStores);
+    this.tables = new table.Client(this.transport.unary, cache, ontologyStores);
+    this.groups = new group.Client(
+      this.transport.unary,
+      this.ontology,
+      cache,
+      ontologyStores,
+    );
     this.imex = new imex.Client(this.transport.file);
   }
 
   close(): void {
     this.connectivity.stop();
+    this.cache.close().catch(console.error);
   }
 }
 

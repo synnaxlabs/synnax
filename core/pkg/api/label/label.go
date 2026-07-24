@@ -117,11 +117,10 @@ func (s *Service) Retrieve(
 		if len(req.Names) != 0 {
 			q = q.Where(label.MatchNames(req.Names...))
 		}
-		err := q.Entries(&res.Labels).Exec(ctx, nil)
-		if req.IgnoreNotFoundError && err != nil {
-			err = errors.Skip(err, query.ErrNotFound)
-		}
-		if err != nil {
+		// Missing keys are omitted from the result, not an error, so callers
+		// can existence-check cached keys in bulk.
+		if err := q.Entries(&res.Labels).
+			Exec(ctx, nil); errors.Skip(err, query.ErrNotFound) != nil {
 			return RetrieveResponse{}, err
 		}
 	}

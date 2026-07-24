@@ -7,8 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { uuid } from "@synnaxlabs/x";
-import { describe, expect, test } from "vitest";
+import { id, uuid } from "@synnaxlabs/x";
+import { describe, expect, it, test } from "vitest";
 
 import { NotFoundError } from "@/errors";
 import { table } from "@/table";
@@ -112,14 +112,14 @@ describe("Table", () => {
 
     test("rename applies via dispatch", async () => {
       const t = await createTable();
-      await client.tables.dispatch(t.key, "dk-1", [table.rename({ name: "renamed" })]);
+      await client.tables.dispatch(t.key, [table.rename({ name: "renamed" })]);
       const res = await client.tables.retrieve({ key: t.key });
       expect(res.name).toEqual("renamed");
     });
 
     test("addRow appends a row and its cells", async () => {
       const t = await createTable();
-      await client.tables.dispatch(t.key, "dk-1", [
+      await client.tables.dispatch(t.key, [
         table.addRow({
           index: 1,
           size: 40,
@@ -137,7 +137,7 @@ describe("Table", () => {
 
     test("removeRow drops the row and its cells", async () => {
       const t = await createTable();
-      await client.tables.dispatch(t.key, "dk-1", [table.removeRow({ index: 0 })]);
+      await client.tables.dispatch(t.key, [table.removeRow({ index: 0 })]);
       const res = await client.tables.retrieve({ key: t.key });
       expect(res.rows).toEqual([]);
       expect(Object.keys(res.cells)).toEqual([]);
@@ -145,7 +145,7 @@ describe("Table", () => {
 
     test("addCol inserts a column at the given index across every row", async () => {
       const t = await createTable();
-      await client.tables.dispatch(t.key, "dk-1", [
+      await client.tables.dispatch(t.key, [
         table.addCol({
           index: 1,
           size: 90,
@@ -159,7 +159,7 @@ describe("Table", () => {
 
     test("removeCol drops every cell in that column", async () => {
       const t = await createTable();
-      await client.tables.dispatch(t.key, "dk-1", [table.removeCol({ index: 0 })]);
+      await client.tables.dispatch(t.key, [table.removeCol({ index: 0 })]);
       const res = await client.tables.retrieve({ key: t.key });
       expect(res.columns).toHaveLength(1);
       expect(res.rows[0].cells).toEqual(["b"]);
@@ -168,7 +168,7 @@ describe("Table", () => {
 
     test("resize actions update size in place", async () => {
       const t = await createTable();
-      await client.tables.dispatch(t.key, "dk-1", [
+      await client.tables.dispatch(t.key, [
         table.resizeRow({ index: 0, size: 55 }),
         table.resizeCol({ index: 1, size: 200 }),
       ]);
@@ -179,7 +179,7 @@ describe("Table", () => {
 
     test("setCell replaces an existing cell", async () => {
       const t = await createTable();
-      await client.tables.dispatch(t.key, "dk-1", [
+      await client.tables.dispatch(t.key, [
         table.setCell({
           cell: { key: "a", variant: "value", props: { units: "psi" } },
         }),
@@ -191,7 +191,7 @@ describe("Table", () => {
 
     test("setCell is a no-op for an unknown key", async () => {
       const t = await createTable();
-      await client.tables.dispatch(t.key, "dk-1", [
+      await client.tables.dispatch(t.key, [
         table.setCell({ cell: { key: "ghost", variant: "text", props: {} } }),
       ]);
       const res = await client.tables.retrieve({ key: t.key });
@@ -201,7 +201,7 @@ describe("Table", () => {
 
     test("multi-action sequence applies atomically", async () => {
       const t = await createTable();
-      await client.tables.dispatch(t.key, "dk-1", [
+      await client.tables.dispatch(t.key, [
         table.rename({ name: "multi" }),
         table.addRow({
           index: 1,
@@ -622,5 +622,21 @@ describe("Table", () => {
         },
       ])("$name round-trips", ({ action }) => roundTrip(action));
     });
+  });
+});
+
+describe("store", () => {
+  it("tombstones deletes from live delete signals", async () => {
+    await client.cache.ensureStreaming();
+    const project = await client.projects.create({ name: `tbl-${id.create()}` });
+    const created = await client.tables.create(project.key, {
+      name: `table-${id.create()}`,
+    });
+    await client.tables.delete(created.key);
+    await expect
+      .poll(() => client.tables.getCached({ key: created.key })?.variant)
+      .toBe("deleted");
+    const cached = client.tables.getCached({ key: created.key });
+    if (cached?.variant === "deleted") expect(cached.corpse.name).toEqual(created.name);
   });
 });

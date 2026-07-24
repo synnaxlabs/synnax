@@ -8,11 +8,12 @@
 // included in the file licenses/APL.txt.
 
 import { type UnaryClient } from "@synnaxlabs/freighter";
-import { array } from "@synnaxlabs/x";
+import { array, destructor, primitive, record } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { MultipleFoundError, NotFoundError } from "@/errors";
 import { ontology } from "@/ontology";
+import { query } from "@/query";
 import { type Key, keyZ, type New, newZ, type User, userZ } from "@/user/types.gen";
 
 const retrieveRequestZ = z.object({
@@ -71,11 +72,76 @@ const deleteResZ = z.object({});
 export const SET_CHANNEL_NAME = "sy_user_set";
 export const DELETE_CHANNEL_NAME = "sy_user_delete";
 
-export class Client {
-  private readonly client: UnaryClient;
+type SingleParams = KeyRetrieveRequest | UsernameRetrieveRequest;
 
-  constructor(client: UnaryClient) {
+const isSingleParams = (params: RetrieveParams): params is SingleParams =>
+  "key" in params || "username" in params;
+
+const singleIdentifier = (params: SingleParams): string =>
+  "key" in params ? `key ${params.key}` : `username ${params.username}`;
+
+const normalizeRequest = (params: RetrieveParams): RetrieveRequest =>
+  "usernames" in params && !("keys" in params)
+    ? { usernames: params.usernames }
+    : (params as RetrieveRequest);
+
+const isKeysOnly = (req: RetrieveRequest): req is RetrieveRequest & { keys: Key[] } =>
+  primitive.isNonZero(req.keys) && req.usernames == null;
+
+const requestFilter = (req: RetrieveRequest): ((u: User) => boolean) => {
+  const keySet = primitive.isNonZero(req.keys) ? new Set(req.keys) : undefined;
+  const usernameSet = primitive.isNonZero(req.usernames)
+    ? new Set(req.usernames)
+    : undefined;
+  return (u) => {
+    if (keySet != null && !keySet.has(u.key)) return false;
+    if (usernameSet != null && !usernameSet.has(u.username)) return false;
+    return true;
+  };
+};
+
+export class Client extends query.Retriever<
+  SingleParams,
+  RetrieveParams,
+  SingleParams,
+  RetrieveRequest,
+  User
+> {
+  private readonly client: UnaryClient;
+  private readonly store: query.Table<Key, User>;
+  private readonly ontology: ontology.Stores;
+
+  constructor(
+    client: UnaryClient,
+    cache: query.Cache,
+    ontologyStores: ontology.Stores,
+  ) {
+    const store = cache.createTable<Key, User>({ name: "users" });
+    super({
+      single: cache.queries({
+        name: "user",
+        table: store,
+        fetch: async (query) => [await this.fetchSingle(query)].map((u) => u.key),
+        compose: (records) => records[0],
+        keyOf: (query) => ("key" in query ? query.key : null),
+        matches: (u, query) =>
+          "key" in query ? u.key === query.key : u.username === query.username,
+        single: true,
+      }),
+      request: cache.queries({
+        name: "users",
+        table: store,
+        fetch: async (query) => (await this.fetchRequest(query)).map((u) => u.key),
+        compose: (records) => records,
+        matches: (u, query) => requestFilter(query)(u),
+      }),
+      isSingle: isSingleParams,
+      normalizeSingle: (params) => params,
+      normalizeRequest,
+    });
     this.client = client;
+    this.store = store;
+    this.ontology = ontologyStores;
   }
 
   async create(user: New): Promise<User>;
@@ -88,6 +154,7 @@ export class Client {
       createReqZ,
       createResZ,
     );
+    this.store.set(res.users);
     return isMany ? res.users : res.users[0];
   }
 
@@ -98,33 +165,8 @@ export class Client {
       changeUsernameReqZ,
       changeUsernameResZ,
     );
-  }
-
-  async retrieve(params: KeyRetrieveRequest): Promise<User>;
-  async retrieve(params: UsernameRetrieveRequest): Promise<User>;
-  async retrieve(params: RetrieveParams): Promise<User[]>;
-  async retrieve(params: RetrieveParams): Promise<User | User[]> {
-    const isSingle = "key" in params || "username" in params;
-    const res = await this.client.send(
-      "/user/retrieve",
-      params,
-      retrieveParamsZ,
-      retrieveResZ,
-    );
-
-    if (!isSingle) return res.users;
-
-    if (res.users.length === 0) {
-      const identifier =
-        "key" in params ? `key ${params.key}` : `username ${params.username}`;
-      throw new NotFoundError(`No user with ${identifier} found`);
-    }
-    if (res.users.length > 1) {
-      const identifier =
-        "key" in params ? `key ${params.key}` : `username ${params.username}`;
-      throw new MultipleFoundError(`Multiple users found with ${identifier}`);
-    }
-    return res.users[0];
+    this.mergeThrough(key, { username: newUsername });
+    ontology.renameCachedResource(this.ontology, ontologyID(key), newUsername);
   }
 
   async rename(key: Key, firstName?: string, lastName?: string): Promise<void> {
@@ -134,19 +176,95 @@ export class Client {
       renameReqZ,
       renameResZ,
     );
+    this.mergeThrough(key, { firstName, lastName });
   }
 
-  async delete(key: Key): Promise<void>;
-  async delete(keys: Key[]): Promise<void>;
-  async delete(keys: Key | Key[]): Promise<void> {
-    await this.client.send(
-      "/user/delete",
-      { keys: array.toArray(keys) },
-      deleteReqZ,
-      deleteResZ,
+  async delete(key: Key, opts?: query.WriteOptions): Promise<void>;
+  async delete(keys: Key[], opts?: query.WriteOptions): Promise<void>;
+  async delete(keys: Key | Key[], opts: query.WriteOptions = {}): Promise<void> {
+    const keysArr = array.toArray(keys);
+    const rollback = new destructor.Chain();
+    rollback.add(ontology.deleteCachedResources(this.ontology, ontologyID(keysArr)));
+    await opts.onOptimistic?.();
+    await rollback.guard(
+      async () =>
+        await this.client.send(
+          "/user/delete",
+          { keys: keysArr },
+          deleteReqZ,
+          deleteResZ,
+        ),
     );
+    this.store.delete(keysArr);
+  }
+
+  // Undefined fields are dropped: the server keeps prior values for them.
+  private mergeThrough(key: Key, changes: Partial<User>): void {
+    const prev = this.store.get(key);
+    if (prev != null)
+      this.store.set(key, { ...prev, ...record.purgeUndefined(changes) });
+  }
+
+  private async execRetrieve(params: RetrieveParams): Promise<User[]> {
+    const res = await this.client.send(
+      "/user/retrieve",
+      params,
+      retrieveParamsZ,
+      retrieveResZ,
+    );
+    return res.users;
+  }
+
+  /**
+   * Fetches the given keys, serving cached entries and fetching only the
+   * misses. Preserves the caller's key order.
+   */
+  private async fetchKeys(keys: Key[]): Promise<User[]> {
+    const results: User[] = [];
+    const misses: Key[] = [];
+    for (const key of keys) {
+      const cached = this.store.get(key);
+      if (cached != null) results.push(cached);
+      else misses.push(key);
+    }
+    if (misses.length > 0) {
+      const fetched = await this.execRetrieve({ keys: misses });
+      this.store.set(fetched);
+      results.push(...fetched);
+    }
+    return query.orderByKeys(keys, results, (u) => u.key);
+  }
+
+  private async fetchSingle(query: SingleParams): Promise<User> {
+    if ("key" in query) {
+      const cached = this.store.get(query.key);
+      if (cached != null) return cached;
+    } else {
+      const [cached] = this.store.get((u) => u.username === query.username);
+      if (cached != null) return cached;
+    }
+    const users = await this.execRetrieve(query);
+    checkSingle(query, users);
+    this.store.set(users);
+    return users[0];
+  }
+
+  private async fetchRequest(query: RetrieveRequest): Promise<User[]> {
+    if (isKeysOnly(query)) return await this.fetchKeys(query.keys);
+    const users = await this.execRetrieve(query);
+    this.store.set(users);
+    return users;
   }
 }
+
+const checkSingle = (params: SingleParams, users: User[]): void => {
+  if (users.length === 0)
+    throw new NotFoundError(`No user with ${singleIdentifier(params)} found`);
+  if (users.length > 1)
+    throw new MultipleFoundError(
+      `Multiple users found with ${singleIdentifier(params)}`,
+    );
+};
 
 export const ontologyID = ontology.createIDFactory<Key>("user");
 export const TYPE_ONTOLOGY_ID = ontologyID("");

@@ -11,6 +11,8 @@ import { id, TimeStamp, zod } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
 import { type rack } from "@/rack";
+import { statusKey } from "@/rack/client";
+import { status } from "@/status";
 import { createTestClient } from "@/testutil";
 
 const client = createTestClient();
@@ -166,6 +168,55 @@ describe("Rack", () => {
       expect(statuses).toHaveLength(2);
       expect(statuses[0]?.details?.rack).toBe(r1.key);
       expect(statuses[1]?.details?.rack).toBe(r2.key);
+    });
+    it("should compose streamed statuses onto a single query answer", async () => {
+      const r = await client.racks.create({ name: "status-compose-single" });
+      const query = { key: r.key, includeStatus: true };
+      await client.racks.retrieve(query);
+      const seen: rack.Rack[] = [];
+      const stop = client.racks.onChange(query, (cached) => {
+        if (cached?.variant === "changed") seen.push(cached.data);
+      });
+      try {
+        await client.statuses.set(
+          status.create<typeof rack.statusDetailsZ>({
+            key: statusKey(r.key),
+            variant: "warning",
+            message: "Rack needs attention",
+            details: { rack: r.key },
+          }),
+        );
+        await expect
+          .poll(() => seen.at(-1)?.status?.message)
+          .toBe("Rack needs attention");
+        expect(seen.at(-1)?.status?.variant).toBe("warning");
+      } finally {
+        stop();
+      }
+    });
+    it("should compose streamed statuses onto a request query answer", async () => {
+      const r = await client.racks.create({ name: "status-compose-request" });
+      const query = { keys: [r.key], includeStatus: true };
+      await client.racks.retrieve(query);
+      const seen: rack.Rack[][] = [];
+      const stop = client.racks.onChange(query, (cached) => {
+        if (cached?.variant === "changed") seen.push(cached.data);
+      });
+      try {
+        await client.statuses.set(
+          status.create<typeof rack.statusDetailsZ>({
+            key: statusKey(r.key),
+            variant: "error",
+            message: "Rack went dark",
+            details: { rack: r.key },
+          }),
+        );
+        await expect
+          .poll(() => seen.at(-1)?.find((item) => item.key === r.key)?.status?.message)
+          .toBe("Rack went dark");
+      } finally {
+        stop();
+      }
     });
   });
 });

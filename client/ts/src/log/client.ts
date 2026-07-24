@@ -8,19 +8,32 @@
 // included in the file licenses/APL.txt.
 
 import { type UnaryClient } from "@synnaxlabs/freighter";
-import { array } from "@synnaxlabs/x";
+import { array, destructor } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { type Action, dispatchReqZ, rename as renameAction } from "@/log/actions.gen";
-import { type Key, keyZ, type Log, logZ, type New } from "@/log/types.gen";
+import { actions } from "@/actions";
+import { kindOf, reduceAll } from "@/log/actions";
+import {
+  type Action,
+  dispatchReqZ,
+  rename as renameAction,
+  scopedActionZ,
+} from "@/log/actions.gen";
+import { type Key, keyZ, type Log, logZ, type New, ontologyID } from "@/log/types.gen";
+import { ontology } from "@/ontology";
 import { project } from "@/project";
+import { query } from "@/query";
 import { checkForMultipleOrNoResults } from "@/util/retrieve";
 
 export const SET_CHANNEL_NAME = "sy_log_set";
+export const DELETE_CHANNEL_NAME = "sy_log_delete";
 
 const deleteReqZ = z.object({ keys: keyZ.array() });
 
-const retrieveReqZ = z.object({ keys: keyZ.array() });
+const retrieveReqZ = z.object({
+  keys: keyZ.array(),
+  ignoreNotFoundError: z.boolean().optional(),
+});
 const singleRetrieveParamsZ = z
   .object({ key: keyZ })
   .transform(({ key }) => ({ keys: [key] }));
@@ -30,6 +43,8 @@ export type RetrieveParams = z.input<typeof retrieveParamsZ>;
 export type RetrieveSingleParams = z.input<typeof singleRetrieveParamsZ>;
 export type RetrieveMultipleParams = z.input<typeof retrieveReqZ>;
 
+interface RetrieveRequest extends z.infer<typeof retrieveReqZ> {}
+
 const retrieveResZ = z.object({ logs: logZ.array().default(() => []) });
 
 const createReqZ = z.object({ project: project.keyZ, logs: logZ.array() });
@@ -37,31 +52,201 @@ const createResZ = z.object({ logs: logZ.array() });
 
 const emptyResZ = z.object({});
 
-export class Client {
-  private readonly client: UnaryClient;
+/**
+ * Client-side matching for a request: exact for the requested key set, the
+ * only field a request carries.
+ */
+const requestFilter = (req: RetrieveRequest): ((l: Log) => boolean) => {
+  const keySet = new Set(req.keys);
+  return (l) => keySet.has(l.key);
+};
 
-  constructor(client: UnaryClient) {
+export class Client extends query.Retriever<
+  RetrieveSingleParams,
+  RetrieveMultipleParams,
+  Key,
+  RetrieveRequest,
+  Log
+> {
+  private readonly client: UnaryClient;
+  private readonly store: query.Table<Key, Log>;
+  private readonly ontology: ontology.Stores;
+  private readonly dispatcher: actions.Controller<Key, Log, Action>;
+
+  constructor(
+    client: UnaryClient,
+    cache: query.Cache,
+    ontologyStores: ontology.Stores,
+  ) {
+    const store = cache.createTable<Key, Log>({
+      name: "logs",
+      refetch: async (keys) =>
+        await this.execRetrieve({ keys, ignoreNotFoundError: true }),
+    });
+    const dispatcher = new actions.Controller<Key, Log, Action>({
+      store,
+      onError: cache.onError,
+      reduce: reduceAll,
+      kindOf,
+    });
+    const del: query.ChannelListener<typeof keyZ> = {
+      channel: DELETE_CHANNEL_NAME,
+      schema: keyZ,
+      onChange: (changed) => store.delete(changed),
+    };
+    cache.addListeners(
+      store,
+      del,
+      dispatcher.listener(SET_CHANNEL_NAME, scopedActionZ),
+    );
+    super({
+      single: cache.queries({
+        name: "log",
+        table: store,
+        fetch: async (query) => [await this.fetchSingle(query)].map((l) => l.key),
+        compose: (records) => records[0],
+        keyOf: (query) => query,
+        single: true,
+      }),
+      request: cache.queries({
+        name: "logs",
+        table: store,
+        fetch: async (query) => (await this.fetchRequest(query)).map((l) => l.key),
+        compose: (records) => records,
+        matches: (log, query) => requestFilter(query)(log),
+      }),
+      isSingle: (params) => "key" in params,
+      normalizeSingle: ({ key }) => key,
+      normalizeRequest: (params) => retrieveReqZ.parse(params),
+    });
     this.client = client;
+    this.store = store;
+    this.dispatcher = dispatcher;
+    this.ontology = ontologyStores;
   }
 
-  async create(project: project.Key, log: New): Promise<Log>;
-  async create(project: project.Key, logs: New[]): Promise<Log[]>;
-  async create(project: project.Key, logs: New | New[]): Promise<Log | Log[]> {
+  async create(
+    project: project.Key,
+    log: New,
+    opts?: query.WriteOptions<Log[]>,
+  ): Promise<Log>;
+  async create(
+    project: project.Key,
+    logs: New[],
+    opts?: query.WriteOptions<Log[]>,
+  ): Promise<Log[]>;
+  async create(
+    project: project.Key,
+    logs: New | New[],
+    opts: query.WriteOptions<Log[]> = {},
+  ): Promise<Log | Log[]> {
     const isMany = Array.isArray(logs);
-    const res = await this.client.send(
-      "/log/create",
-      { project, logs: array.toArray(logs) },
-      createReqZ,
-      createResZ,
+    const optimistic = array.toArray(logs).map((l) => logZ.parse(l));
+    const rollback = new destructor.Chain();
+    rollback.add(this.store.set(optimistic));
+    await opts.onOptimistic?.(optimistic);
+    const res = await rollback.guard(
+      async () =>
+        await this.client.send(
+          "/log/create",
+          { project, logs: optimistic },
+          createReqZ,
+          createResZ,
+        ),
     );
+    this.store.set(res.logs);
     return isMany ? res.logs : res.logs[0];
   }
 
   async rename(key: Key, name: string): Promise<void> {
-    await this.dispatch(key, "", [renameAction({ name })]);
+    const rollback = new destructor.Chain();
+    rollback.add(query.partialUpdate(this.store, key, { name }));
+    rollback.add(ontology.renameCachedResource(this.ontology, ontologyID(key), name));
+    await rollback.guard(
+      async () => await this.sendDispatch(key, "", [renameAction({ name })]),
+    );
   }
 
-  async dispatch(key: Key, dispatchKey: string, actions: Action[]): Promise<void> {
+  /**
+   * Applies actions to the cached log and sends them to the server,
+   * recording an undoable entry. Returns false without side effects when the
+   * log isn't cached. Rolls back the local apply and rethrows on send
+   * failure.
+   */
+  async dispatch(
+    key: Key,
+    actions: Action | Action[],
+    opts?: actions.Options<Log, Action>,
+  ): Promise<boolean>;
+  /**
+   * @deprecated Legacy raw-send form used by pre-cutover flux. Removed in the
+   * pluto rebind; new callers use the two-argument controller form above.
+   */
+  async dispatch(key: Key, dispatchKey: string, actions: Action[]): Promise<void>;
+  async dispatch(
+    key: Key,
+    actionsOrKey: Action | Action[] | string,
+    opts: actions.Options<Log, Action> | Action[] = {},
+  ): Promise<boolean | void> {
+    if (typeof actionsOrKey === "string")
+      return await this.sendDispatch(key, actionsOrKey, opts as Action[]);
+    return await this.dispatcher.dispatch(
+      key,
+      array.toArray(actionsOrKey),
+      this.dispatchSender(key),
+      (opts as actions.Options<Log, Action>).preprocess,
+    );
+  }
+
+  /**
+   * Reverts the log's most recent undoable entry. Returns false when
+   * nothing is undoable.
+   */
+  async undo(key: Key): Promise<boolean> {
+    return await this.dispatcher.undo(key, this.dispatchSender(key));
+  }
+
+  /**
+   * Re-applies the log's most recently undone entry. Returns false when
+   * nothing is redoable.
+   */
+  async redo(key: Key): Promise<boolean> {
+    return await this.dispatcher.redo(key, this.dispatchSender(key));
+  }
+
+  /** Whether the log has a live undo entry. */
+  hasUndo(key: Key): boolean {
+    return this.dispatcher.hasUndo(key);
+  }
+
+  /** Whether the log has a live redo entry. */
+  hasRedo(key: Key): boolean {
+    return this.dispatcher.hasRedo(key);
+  }
+
+  /**
+   * Subscribes to changes in the log's undo/redo stacks. Returns a
+   * destructor that unsubscribes.
+   */
+  onUndoStateChange(callback: () => void, key?: Key): destructor.Destructor {
+    return this.dispatcher.onUndoStateChange(callback, key);
+  }
+
+  /** Stages actions committed atomically as one undoable entry. */
+  beginTransaction(key: Key, kind?: string): actions.Transaction<Action> {
+    return this.dispatcher.transaction(key, this.dispatchSender(key), kind);
+  }
+
+  private dispatchSender(key: Key): actions.SendDispatch<Action> {
+    return async (actions, dispatchKey) =>
+      await this.sendDispatch(key, dispatchKey, actions);
+  }
+
+  private async sendDispatch(
+    key: Key,
+    dispatchKey: string,
+    actions: Action[],
+  ): Promise<void> {
     await this.client.send(
       "/log/dispatch",
       { key, dispatchKey, actions },
@@ -70,28 +255,52 @@ export class Client {
     );
   }
 
-  async retrieve(params: RetrieveSingleParams): Promise<Log>;
-  async retrieve(params: RetrieveMultipleParams): Promise<Log[]>;
-  async retrieve(
+  async delete(keys: Key | Key[], opts: query.WriteOptions = {}): Promise<void> {
+    const keysArr = array.toArray(keys);
+    const rollback = new destructor.Chain();
+    rollback.add(
+      ontology.deleteCachedRelationships(this.ontology, ontologyID(keysArr)),
+    );
+    rollback.add(this.store.delete(keysArr));
+    await opts.onOptimistic?.();
+    await rollback.guard(
+      async () =>
+        await this.client.send("/log/delete", { keys: keysArr }, deleteReqZ, emptyResZ),
+    );
+  }
+
+  /** Subscribes to every log delete delivered to the cache. */
+  onDelete(handler: (key: Key) => void): destructor.Destructor {
+    return this.store.subscribe((event) => {
+      if (event.variant === "delete") handler(event.key);
+    });
+  }
+
+  private async execRetrieve(
     params: RetrieveSingleParams | RetrieveMultipleParams,
-  ): Promise<Log | Log[]> {
-    const isSingle = singleRetrieveParamsZ.safeParse(params).success;
+  ): Promise<Log[]> {
     const res = await this.client.send(
       "/log/retrieve",
       params,
       retrieveParamsZ,
       retrieveResZ,
     );
-    checkForMultipleOrNoResults("Log", params, res.logs, isSingle);
-    return isSingle ? res.logs[0] : res.logs;
+    return res.logs;
   }
 
-  async delete(keys: Key | Key[]): Promise<void> {
-    await this.client.send(
-      "/log/delete",
-      { keys: array.toArray(keys) },
-      deleteReqZ,
-      emptyResZ,
-    );
+  // Dispatch mutates documents server-side, so a cached copy is only as fresh
+  // as the streamer. Fetches always hit the network; setIfAbsent hydrates the
+  // table without clobbering a doc holding locally replayed edits.
+  private async fetchSingle(query: Key): Promise<Log> {
+    const logs = await this.execRetrieve({ key: query });
+    checkForMultipleOrNoResults("Log", query, logs, true);
+    this.store.setIfAbsent(logs);
+    return logs[0];
+  }
+
+  private async fetchRequest(query: RetrieveRequest): Promise<Log[]> {
+    const logs = await this.execRetrieve(query);
+    this.store.setIfAbsent(logs);
+    return logs;
   }
 }

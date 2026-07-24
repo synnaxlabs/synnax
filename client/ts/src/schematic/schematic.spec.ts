@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { uuid } from "@synnaxlabs/x";
+import { id, uuid } from "@synnaxlabs/x";
 import { describe, expect, it, test } from "vitest";
 
 import { NotFoundError, ValidationError } from "@/errors";
@@ -139,7 +139,7 @@ describe("Schematic", () => {
           snapshot: true,
         });
         await expect(
-          client.schematics.dispatch(schem2.key, "sess-1", [
+          client.schematics.dispatch(schem2.key, [
             schematic.setNode({
               node: { key: "n1", position: { x: 0, y: 0 } },
             }),
@@ -152,10 +152,10 @@ describe("Schematic", () => {
   describe("dispatch", () => {
     test("setNodePosition moves the matching node", async () => {
       const { schem } = await newProjectSchematic(client);
-      await client.schematics.dispatch(schem.key, "sess-1", [
+      await client.schematics.dispatch(schem.key, [
         schematic.setNode({ node: { key: "n1", position: { x: 0, y: 0 } } }),
       ]);
-      await client.schematics.dispatch(schem.key, "sess-1", [
+      await client.schematics.dispatch(schem.key, [
         schematic.setNodePosition({ key: "n1", position: { x: 100, y: 200 } }),
       ]);
       const res = await client.schematics.retrieve({ key: schem.key });
@@ -165,7 +165,7 @@ describe("Schematic", () => {
 
     test("setNode inserts a node and writes its config", async () => {
       const { schem } = await newProjectSchematic(client);
-      await client.schematics.dispatch(schem.key, "sess-1", [
+      await client.schematics.dispatch(schem.key, [
         schematic.setNode({
           node: { key: "n1", position: { x: 1, y: 2 } },
           config: { label: "Pump" },
@@ -179,7 +179,7 @@ describe("Schematic", () => {
 
     test("removeNode removes the node and drops its config", async () => {
       const { schem } = await newProjectSchematic(client);
-      await client.schematics.dispatch(schem.key, "sess-1", [
+      await client.schematics.dispatch(schem.key, [
         schematic.setNode({
           node: { key: "n1", position: { x: 0, y: 0 } },
           config: { label: "Pump" },
@@ -189,7 +189,7 @@ describe("Schematic", () => {
           config: { label: "Tank" },
         }),
       ]);
-      await client.schematics.dispatch(schem.key, "sess-1", [
+      await client.schematics.dispatch(schem.key, [
         schematic.removeNode({ key: "n1" }),
       ]);
       const res = await client.schematics.retrieve({ key: schem.key });
@@ -211,11 +211,11 @@ describe("Schematic", () => {
         source: { node: srcNode, param: srcParam },
         target: { node: tgtNode, param: tgtParam },
       });
-      await client.schematics.dispatch(schem.key, "sess-1", [
+      await client.schematics.dispatch(schem.key, [
         schematic.addEdge({ edge: e("e1", "a", "o", "b", "i") }),
         schematic.addEdge({ edge: e("e2", "b", "o", "c", "i") }),
       ]);
-      await client.schematics.dispatch(schem.key, "sess-1", [
+      await client.schematics.dispatch(schem.key, [
         schematic.addEdge({ edge: e("e2", "x", "y", "z", "w") }),
         schematic.addEdge({ edge: e("e3", "c", "o", "d", "i") }),
       ]);
@@ -229,7 +229,7 @@ describe("Schematic", () => {
 
     test("removeEdge removes the matching edge", async () => {
       const { schem } = await newProjectSchematic(client);
-      await client.schematics.dispatch(schem.key, "sess-1", [
+      await client.schematics.dispatch(schem.key, [
         schematic.addEdge({
           edge: {
             key: "e1",
@@ -238,7 +238,7 @@ describe("Schematic", () => {
           },
         }),
       ]);
-      await client.schematics.dispatch(schem.key, "sess-1", [
+      await client.schematics.dispatch(schem.key, [
         schematic.removeEdge({ key: "e1" }),
       ]);
       const res = await client.schematics.retrieve({ key: schem.key });
@@ -247,7 +247,7 @@ describe("Schematic", () => {
 
     test("setConfig upserts config under the given key", async () => {
       const { schem } = await newProjectSchematic(client);
-      await client.schematics.dispatch(schem.key, "sess-1", [
+      await client.schematics.dispatch(schem.key, [
         schematic.setConfig({ key: "n1", config: { label: "Original" } }),
         schematic.setConfig({ key: "n1", config: { label: "Replaced" } }),
       ]);
@@ -257,7 +257,7 @@ describe("Schematic", () => {
 
     test("applies a multi-action sequence atomically", async () => {
       const { schem } = await newProjectSchematic(client);
-      await client.schematics.dispatch(schem.key, "sess-1", [
+      await client.schematics.dispatch(schem.key, [
         schematic.setNode({
           node: { key: "pump", position: { x: 0, y: 0 } },
         }),
@@ -281,7 +281,7 @@ describe("Schematic", () => {
 
     test("converges to the final position after a 30-action drag storm", async () => {
       const { schem } = await newProjectSchematic(client);
-      await client.schematics.dispatch(schem.key, "sess-1", [
+      await client.schematics.dispatch(schem.key, [
         schematic.setNode({
           node: { key: "pump", position: { x: 0, y: 0 } },
         }),
@@ -289,14 +289,14 @@ describe("Schematic", () => {
       const actions = Array.from({ length: 30 }, (_, i) =>
         schematic.setNodePosition({ key: "pump", position: { x: i, y: i * 2 } }),
       );
-      await client.schematics.dispatch(schem.key, "sess-1", actions);
+      await client.schematics.dispatch(schem.key, actions);
       const res = await client.schematics.retrieve({ key: schem.key });
       expect(res.nodes[0].position).toEqual({ x: 29, y: 58 });
     });
 
     test("preserves arbitrary key casing within config values through dispatch", async () => {
       const { schem } = await newProjectSchematic(client);
-      await client.schematics.dispatch(schem.key, "sess-1", [
+      await client.schematics.dispatch(schem.key, [
         schematic.setConfig({
           key: "n1",
           config: {
@@ -316,5 +316,21 @@ describe("Schematic", () => {
       expect(nested.innerCamelCase).toBe(1);
       expect((nested.InnerPascalCase as Record<string, unknown>).deepKey).toBe(true);
     });
+  });
+});
+
+describe("store", () => {
+  it("tombstones deletes from live delete signals", async () => {
+    await client.cache.ensureStreaming();
+    const project = await client.projects.create({ name: `sch-${id.create()}` });
+    const created = await client.schematics.create(project.key, {
+      name: `schematic-${id.create()}`,
+    });
+    await client.schematics.delete(created.key);
+    await expect
+      .poll(() => client.schematics.getCached({ key: created.key })?.variant)
+      .toBe("deleted");
+    const cached = client.schematics.getCached({ key: created.key });
+    if (cached?.variant === "deleted") expect(cached.corpse.name).toEqual(created.name);
   });
 });
