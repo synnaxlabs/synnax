@@ -42,6 +42,7 @@ cc_test(
     srcs = ["synnax_test.cpp"],
     deps = [
         "//client/cpp:synnax",
+        "//core/pkg/transport/grpc:api_grpc",
         "//x/cpp/json",
         "@googletest//:gtest_main",
     ],

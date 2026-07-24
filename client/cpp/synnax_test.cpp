@@ -10,10 +10,13 @@
 #include <sstream>
 #include <string>
 
+#include "google/protobuf/empty.pb.h"
 #include "gtest/gtest.h"
 
 #include "client/cpp/synnax.h"
 #include "x/cpp/json/json.h"
+
+#include "core/pkg/transport/grpc/channel/channel.pb.h"
 
 /// @brief loads a JSON string into a fresh Config via override.
 synnax::Config load(const std::string &json) {
@@ -157,4 +160,67 @@ TEST(ConfigAddress, FormatsHostPort) {
     cfg.host = "node1";
     cfg.port = 9091;
     EXPECT_EQ(cfg.address(), "node1:9091");
+}
+
+/// @brief a middleware that counts how many times it runs.
+class CountingMiddleware final : public freighter::PassthroughMiddleware {
+public:
+    int calls = 0;
+
+    std::pair<freighter::Context, x::errors::Error>
+    operator()(freighter::Context context, freighter::Next &next) override {
+        this->calls++;
+        return next(context);
+    }
+};
+
+/// @brief the connectivity check skips client middleware so it can probe a
+/// cluster before authenticating.
+TEST(TransportMiddleware, ConnectivityCheckSkipsMiddleware) {
+    synnax::details::Transport t(1, "localhost", "", "", "", false);
+    auto mw = std::make_shared<CountingMiddleware>();
+    t.use(mw);
+    google::protobuf::Empty req;
+    const auto err = t.connectivity_check->send("/connectivity/check", req).second;
+    EXPECT_TRUE(err.matches(freighter::UNREACHABLE));
+    EXPECT_EQ(mw->calls, 0);
+}
+
+/// @brief every other client runs middleware.
+TEST(TransportMiddleware, OtherClientsRunMiddleware) {
+    synnax::details::Transport t(1, "localhost", "", "", "", false);
+    auto mw = std::make_shared<CountingMiddleware>();
+    t.use(mw);
+    grpc::channel::RetrieveRequest req;
+    const auto err = t.chan_retrieve->send("/channel/retrieve", req).second;
+    EXPECT_TRUE(err.matches(freighter::UNREACHABLE));
+    EXPECT_EQ(mw->calls, 1);
+}
+
+/// @brief middleware runs once per call, so repeated requests each pass
+/// through it.
+TEST(TransportMiddleware, MiddlewareRunsPerCall) {
+    synnax::details::Transport t(1, "localhost", "", "", "", false);
+    auto mw = std::make_shared<CountingMiddleware>();
+    t.use(mw);
+    grpc::channel::RetrieveRequest req;
+    (void) t.chan_retrieve->send("/channel/retrieve", req);
+    (void) t.chan_retrieve->send("/channel/retrieve", req);
+    google::protobuf::Empty check_req;
+    (void) t.connectivity_check->send("/connectivity/check", check_req);
+    EXPECT_EQ(mw->calls, 2);
+}
+
+/// @brief the full client probes connectivity against an unreachable cluster
+/// without needing credentials, mirroring the login flow.
+TEST(SynnaxConnectivity, ProbeFailsAgainstUnreachableCluster) {
+    synnax::Config cfg;
+    cfg.port = 1;
+    cfg.username = "";
+    cfg.password = "";
+    const synnax::Synnax client(cfg);
+    const auto state = client.connectivity->check();
+    EXPECT_EQ(state.status, synnax::connection::Status::FAILED);
+    EXPECT_TRUE(state.error.matches(freighter::UNREACHABLE));
+    EXPECT_FALSE(state.message.empty());
 }

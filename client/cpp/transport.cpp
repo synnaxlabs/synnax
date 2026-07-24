@@ -204,6 +204,5 @@ void Transport::use(const std::shared_ptr<freighter::Middleware> &mw) const {
     view_create->use(mw);
     view_retrieve->use(mw);
     view_delete->use(mw);
-    connectivity_check->use(mw);
 }
 }
