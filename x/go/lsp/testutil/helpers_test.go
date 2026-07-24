@@ -95,3 +95,105 @@ var _ = Describe("HasCompletion", func() {
 		Expect(testutil.HasCompletion(items, "Sensor")).To(BeFalse())
 	})
 })
+
+var _ = Describe("HoverContents", func() {
+	It("should return the empty string for a nil hover", func() {
+		Expect(testutil.HoverContents(nil)).To(Equal(""))
+	})
+
+	It("should extract the value from markup content", func() {
+		hover := &protocol.Hover{Contents: &protocol.MarkupContent{
+			Kind:  protocol.MarkupKindMarkdown,
+			Value: "**sensor** chan f32",
+		}}
+		Expect(testutil.HoverContents(hover)).To(Equal("**sensor** chan f32"))
+	})
+
+	It("should extract a plain string", func() {
+		hover := &protocol.Hover{Contents: protocol.String("sensor chan f32")}
+		Expect(testutil.HoverContents(hover)).To(Equal("sensor chan f32"))
+	})
+
+	It("should return the empty string when contents are unset", func() {
+		Expect(testutil.HoverContents(&protocol.Hover{})).To(Equal(""))
+	})
+})
+
+var _ = Describe("ItemDetail", func() {
+	It("should return the detail when set", func() {
+		item := protocol.CompletionItem{Detail: protocol.NewOptional("chan f32")}
+		Expect(testutil.ItemDetail(item)).To(Equal("chan f32"))
+	})
+
+	It("should return the empty string when unset", func() {
+		Expect(testutil.ItemDetail(protocol.CompletionItem{})).To(Equal(""))
+	})
+})
+
+var _ = Describe("ItemInsertText", func() {
+	It("should return the insert text when set", func() {
+		item := protocol.CompletionItem{InsertText: protocol.NewOptional("sensor")}
+		Expect(testutil.ItemInsertText(item)).To(Equal("sensor"))
+	})
+
+	It("should return the empty string when unset", func() {
+		Expect(testutil.ItemInsertText(protocol.CompletionItem{})).To(Equal(""))
+	})
+})
+
+var _ = Describe("ItemTextEdit", func() {
+	It("should return a plain text edit", func() {
+		edit := &protocol.TextEdit{
+			Range:   protocol.Range{End: protocol.Position{Character: 3}},
+			NewText: "sensor",
+		}
+		item := protocol.CompletionItem{TextEdit: edit}
+		Expect(testutil.ItemTextEdit(item)).To(BeIdenticalTo(edit))
+	})
+
+	It("should return nil when unset", func() {
+		Expect(testutil.ItemTextEdit(protocol.CompletionItem{})).To(BeNil())
+	})
+
+	It("should return nil for an insert-replace edit", func() {
+		item := protocol.CompletionItem{
+			TextEdit: &protocol.InsertReplaceEdit{NewText: "sensor"},
+		}
+		Expect(testutil.ItemTextEdit(item)).To(BeNil())
+	})
+})
+
+var _ = Describe("DiagnosticCode", func() {
+	It("should return a string code", func() {
+		d := protocol.Diagnostic{Code: protocol.String("ARC001")}
+		Expect(testutil.DiagnosticCode(d)).To(Equal("ARC001"))
+	})
+
+	It("should return the empty string when unset", func() {
+		Expect(testutil.DiagnosticCode(protocol.Diagnostic{})).To(Equal(""))
+	})
+
+	It("should return the empty string for a numeric code", func() {
+		d := protocol.Diagnostic{Code: protocol.Integer(42)}
+		Expect(testutil.DiagnosticCode(d)).To(Equal(""))
+	})
+})
+
+var _ = Describe("DiagnosticMessage", func() {
+	It("should return a plain string message", func() {
+		d := protocol.Diagnostic{Message: protocol.String("undefined symbol")}
+		Expect(testutil.DiagnosticMessage(d)).To(Equal("undefined symbol"))
+	})
+
+	It("should extract the value from a markup message", func() {
+		d := protocol.Diagnostic{Message: &protocol.MarkupContent{
+			Kind:  protocol.MarkupKindMarkdown,
+			Value: "undefined **symbol**",
+		}}
+		Expect(testutil.DiagnosticMessage(d)).To(Equal("undefined **symbol**"))
+	})
+
+	It("should return the empty string when unset", func() {
+		Expect(testutil.DiagnosticMessage(protocol.Diagnostic{})).To(Equal(""))
+	})
+})
