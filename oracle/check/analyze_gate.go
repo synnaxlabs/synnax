@@ -45,8 +45,10 @@ func (g AnalyzeGate) Run(_ context.Context, p *pipeline.Result, _ Env) GateRepor
 	if p.Diagnostics != nil {
 		p.Diagnostics.Each(func(file string, d diagnostics.Diagnostic) {
 			// Positions are 0-indexed; render 1-indexed, with 0 meaning no location.
+			// A zero Range means unpositioned: SetRange always populates End, so a
+			// real diagnostic at 0:0 still has a non-zero End.
 			var line int
-			if d.Range.Start != (protocol.Position{}) {
+			if d.Range != (protocol.Range{}) {
 				line = int(d.Range.Start.Line) + 1
 			}
 			f := Finding{

@@ -243,6 +243,23 @@ func (s *Server) Initialized(context.Context, *protocol.InitializedParams) error
 	return nil
 }
 
+// DocumentSymbol returns an empty result. Existing clients probe this method without
+// checking capabilities; the embedded UnimplementedServer would error instead.
+func (s *Server) DocumentSymbol(
+	context.Context,
+	*protocol.DocumentSymbolParams,
+) (protocol.DocumentSymbolResult, error) {
+	return nil, nil
+}
+
+// Symbols returns an empty result; see DocumentSymbol.
+func (s *Server) Symbols(
+	context.Context,
+	*protocol.WorkspaceSymbolParams,
+) (protocol.WorkspaceSymbolResult, error) {
+	return nil, nil
+}
+
 // Shutdown handles the shutdown request.
 func (s *Server) Shutdown(context.Context) error {
 	s.cfg.L.Info("Shutting down server")

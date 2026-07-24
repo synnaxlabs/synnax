@@ -36,7 +36,8 @@ func PositionToOffset(content string, pos protocol.Position) int {
 }
 
 // ApplyIncrementalChange splices a single incremental change into the
-// document content and returns the updated string.
+// document content and returns the updated string. An unrecognized change
+// variant leaves the content unchanged.
 func ApplyIncrementalChange(
 	content string,
 	change protocol.TextDocumentContentChangeEvent,

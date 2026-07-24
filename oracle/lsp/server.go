@@ -129,7 +129,9 @@ func (s *Server) DidChange(ctx context.Context, params *protocol.DidChangeTextDo
 	if doc, ok := s.documents[uri]; ok {
 		if len(params.ContentChanges) > 0 {
 			doc.Version = params.TextDocument.Version
-			doc.Content = xlsp.ApplyIncrementalChange(doc.Content, params.ContentChanges[0])
+			for _, change := range params.ContentChanges {
+				doc.Content = xlsp.ApplyIncrementalChange(doc.Content, change)
+			}
 		}
 	}
 	s.mu.Unlock()

@@ -17,7 +17,7 @@ import (
 
 // TranslateDiagnostics converts internal diagnostics to LSP protocol diagnostics,
 // tagging each with source as its LSP diagnostic source (e.g. "arc-analyzer").
-// Line numbers are converted from 1-indexed (ANTLR) to 0-indexed (LSP).
+// Positions are passed through unchanged; diagnostics store 0-indexed positions.
 func TranslateDiagnostics(
 	analysisDiag diagnostics.Diagnostics,
 	source string,
