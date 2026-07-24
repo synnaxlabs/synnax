@@ -7,15 +7,16 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Synnax, synnaxParamsZ } from "@synnaxlabs/client";
+import { connection, Synnax, synnaxParamsZ } from "@synnaxlabs/client";
 import { deep } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { aether } from "@/aether/aether";
+import { useErrorHandler } from "@/status/aether/aggregator";
 
 const stateZ = z.object({
   props: synnaxParamsZ.nullable(),
-  state: Synnax.connectivity.connectionStateZ.nullable(),
+  state: connection.stateZ.nullable(),
 });
 
 export interface ContextValue {
@@ -47,7 +48,10 @@ export class Provider extends aether.Composite<typeof stateZ, ContextValue> {
       return;
 
     this.closeClient();
-    this.internal.client = new Synnax(this.state.props);
+    this.internal.client = new Synnax({
+      ...this.state.props,
+      onInternalError: useErrorHandler(ctx),
+    });
     set(ctx, this.internal);
   }
 

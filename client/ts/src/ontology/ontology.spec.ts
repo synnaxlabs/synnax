@@ -233,7 +233,7 @@ describe("Ontology", () => {
     // Changes made while the stream is still opening are lost (epoch
     // reconciliation repairs them in production); open it up front so remote
     // writes in these specs are always observed.
-    beforeAll(async () => await client.cache.ensureStreaming());
+    beforeAll(async () => await client.connect());
 
     describe("retrieveChildren", () => {
       it("reflects remote child changes on an unsubscribed repeat retrieve", async () => {
@@ -618,7 +618,7 @@ describe("Ontology", () => {
 
 describe("store", () => {
   it("caches resource sets and corpses deletes from live signals", async () => {
-    await client.cache.ensureStreaming();
+    await client.connect();
     const label = await client.labels.create({
       name: `cache-test-${id.create()}`,
       color: "#E774D0",

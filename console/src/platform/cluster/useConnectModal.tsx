@@ -8,17 +8,8 @@
 // included in the file licenses/APL.txt.
 
 import { checkConnection, type connection } from "@synnaxlabs/client";
-import {
-  Button,
-  Flex,
-  Form,
-  Icon,
-  type Input,
-  Nav,
-  Status,
-  Synnax,
-} from "@synnaxlabs/pluto";
-import { caseconv, uuid } from "@synnaxlabs/x";
+import { Button, Flex, Form, Icon, type Input, Nav, Status } from "@synnaxlabs/pluto";
+import { uuid } from "@synnaxlabs/x";
 import { useState } from "react";
 import { type z } from "zod";
 
@@ -144,12 +135,8 @@ export const useConnectModal = Modals.create<ConnectModalParams>(
         <Modals.Footer>
           <Nav.Bar.Start gap="small">
             {connState != null ? (
-              <Status.Summary
-                variant={Synnax.CONNECTION_STATE_VARIANTS[connState.status]}
-              >
-                {connState.status === "connected"
-                  ? caseconv.capitalize(connState.status)
-                  : connState.message}
+              <Status.Summary variant={connState.variant}>
+                {connState.variant === "success" ? "Connected" : connState.message}
               </Status.Summary>
             ) : (
               <Triggers.SaveHelpText action={isEdit ? "Save" : "Connect"} noBar />

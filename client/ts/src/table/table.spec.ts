@@ -627,7 +627,7 @@ describe("Table", () => {
 
 describe("store", () => {
   it("tombstones deletes from live delete signals", async () => {
-    await client.cache.ensureStreaming();
+    await client.connect();
     const project = await client.projects.create({ name: `tbl-${id.create()}` });
     const created = await client.tables.create(project.key, {
       name: `table-${id.create()}`,

@@ -44,19 +44,21 @@ export const Primary = (): ReactElement => (
   <>
     <SideEffect />
     <Auth.Guard>
-      <Project.Guard>
-        <Nav.Bar.Top />
-        <Flex.Box x gap="tiny" grow className={CSS.BE("main", "content")}>
-          <Nav.Bar.Left />
-          <Flex.Box gap="tiny" grow className={CSS.BE("main", "column")}>
-            <Flex.Box x gap="tiny" grow className={CSS.BE("main", "row")}>
-              <Nav.Drawer.Left />
-              <Mosaic.Mosaic />
+      <Auth.ConnectionGuard>
+        <Project.Guard>
+          <Nav.Bar.Top />
+          <Flex.Box x gap="tiny" grow className={CSS.BE("main", "content")}>
+            <Nav.Bar.Left />
+            <Flex.Box gap="tiny" grow className={CSS.BE("main", "column")}>
+              <Flex.Box x gap="tiny" grow className={CSS.BE("main", "row")}>
+                <Nav.Drawer.Left />
+                <Mosaic.Mosaic />
+              </Flex.Box>
+              <Nav.Drawer.Bottom />
             </Flex.Box>
-            <Nav.Drawer.Bottom />
           </Flex.Box>
-        </Flex.Box>
-      </Project.Guard>
+        </Project.Guard>
+      </Auth.ConnectionGuard>
     </Auth.Guard>
   </>
 );

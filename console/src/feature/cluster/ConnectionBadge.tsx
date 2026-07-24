@@ -12,27 +12,26 @@ import { Flex, Status, Synnax, Text, Tooltip } from "@synnaxlabs/pluto";
 import { location } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
-const MESSAGES: Record<connection.Status, string> = {
-  connected: "Connected",
-  failed: "Error",
-  connecting: "Connecting",
-  disconnected: "Disconnected",
+const LABELS: Record<connection.State["variant"], string> = {
+  success: "Connected",
+  info: "Connected",
+  loading: "Connecting",
+  warning: "Reconnecting",
+  error: "Error",
+  disabled: "Disconnected",
 };
 
 export const ConnectionBadge = (): ReactElement => {
-  const { status, message } = Synnax.useConnectionState();
-  const variant = Synnax.CONNECTION_STATE_VARIANTS[status];
+  const { variant, message } = Synnax.useConnectionState();
   return (
     <Tooltip.Dialog location={location.BOTTOM_LEFT}>
       <Flex.Box y gap="tiny">
         <Text.Text status={variant} weight={650}>
-          {MESSAGES[status]}
+          {LABELS[variant]}
         </Text.Text>
-        {message != null && (
-          <Text.Text color={9} weight={450}>
-            {message}
-          </Text.Text>
-        )}
+        <Text.Text color={9} weight={450}>
+          {message}
+        </Text.Text>
       </Flex.Box>
       <Text.Text
         status={variant}

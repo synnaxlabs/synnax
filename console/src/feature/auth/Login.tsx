@@ -9,7 +9,6 @@
 
 import "@/feature/auth/Login.css";
 
-import { status, Synnax as Client } from "@synnaxlabs/client";
 import { Logo } from "@synnaxlabs/media";
 import {
   Button,
@@ -17,9 +16,11 @@ import {
   Form,
   type Input,
   Status,
+  Synnax,
   Text,
   type Triggers,
 } from "@synnaxlabs/pluto";
+import { uuid } from "@synnaxlabs/x";
 import { type ReactElement, useCallback, useState } from "react";
 import { z } from "zod";
 
@@ -28,14 +29,12 @@ import { Cluster } from "@/platform/cluster";
 import { CSS } from "@/platform/css";
 import { Session } from "@/session";
 
-const SIGN_IN_TRIGGER: Triggers.Trigger = ["Enter"];
+const LOG_IN_TRIGGER: Triggers.Trigger = ["Enter"];
 
 const credentialsZ = z.object({
   username: z.string().min(1, "Username is required"),
   password: z.string().min(1, "Password is required"),
 });
-
-export interface Credentials extends z.infer<typeof credentialsZ> {}
 
 const USERNAME_INPUT_PROPS: Partial<Input.TextProps> = {
   placeholder: "synnax",
@@ -49,61 +48,62 @@ const PASSWORD_INPUT_PROPS: Partial<Input.TextProps> = {
   size: "large",
 };
 
-export const Login = (): ReactElement => {
+export interface LoginProps {
+  /** Renders the window nav chrome above the surface. Off in child windows. */
+  nav?: boolean;
+}
+
+/**
+ * Full-screen login surface: cluster selection plus credential entry. Serves
+ * both initial login (no session selected) and credential re-entry when the
+ * active cluster rejects auth, in which case the live connection status is
+ * shown and submitting for the active cluster resumes its connection.
+ */
+export const Login = ({ nav = true }: LoginProps): ReactElement => {
+  const client = Synnax.use();
+  const connState = Synnax.useConnectionState();
   const servingCluster = Cluster.detectConnection();
-  const [stat, setStatus] = useState<status.Status>(() =>
-    status.create({ variant: "disabled", message: "" }),
-  );
   const clusters = Session.Cluster.useSelectMany();
-  const [selectedKey, setSelectedKey] = useState<string | undefined>(clusters[0]?.key);
+  const activeKey = Session.Cluster.useSelectSelectedKey();
+  const [selectedKey, setSelectedKey] = useState<string | undefined>(
+    activeKey ?? clusters[0]?.key,
+  );
   const selectedCluster = Session.Cluster.useSelectState(selectedKey);
   const dispatch = Session.useDispatch();
-  const handleError = Status.useErrorHandler();
 
   const methods = Form.use<typeof credentialsZ>({
     schema: credentialsZ,
-    values: { username: "", password: "" },
-    onChange: () => {
-      const usernameTouched = methods.get("username").touched;
-      const passwordTouched = methods.get("password").touched;
-      setStatus(
-        status.create({
-          variant: usernameTouched && passwordTouched ? "success" : "disabled",
-          message: "",
-        }),
-      );
-    },
+    values: { username: selectedCluster?.username ?? "", password: "" },
   });
 
-  const handleSubmit = (): void =>
-    handleError(async () => {
-      const clusterToConnect = servingCluster ?? selectedCluster;
-      if (!methods.validate() || clusterToConnect == null) return;
-      const credentials = methods.value();
-      setStatus(status.create({ variant: "loading", message: "Connecting..." }));
-      const client = new Client({ ...clusterToConnect, ...credentials });
-      const state = await client.connectivity.check();
-      const key = state.clusterKey;
-      if (state.status !== "connected") {
-        const message = state.message ?? "Unknown error";
-        return setStatus(status.create({ variant: "error", message }));
-      }
-      dispatch(Session.Cluster.set({ ...clusterToConnect, key, ...credentials }));
-      dispatch(Session.Cluster.select(key));
-    }, "Failed to log in");
+  const handleSubmit = (): void => {
+    const clusterToConnect = servingCluster ?? selectedCluster;
+    if (!methods.validate() || clusterToConnect == null) return;
+    const credentials = methods.value();
+    const key =
+      servingCluster == null && selectedCluster != null
+        ? selectedCluster.key
+        : (activeKey ?? uuid.create());
+    // A same-credentials resubmit leaves the connection params untouched, so the
+    // provider never swaps the client; nudge the existing one to reconnect.
+    if (client != null && key === activeKey) client.reauthenticate(credentials);
+    dispatch(Session.Cluster.set({ ...clusterToConnect, key, ...credentials }));
+    dispatch(Session.Cluster.select(key));
+  };
 
   const handleSelectedClusterChange = useCallback(
     (key?: string) => {
       if (key == null) return;
-      methods.reset();
+      const next = clusters.find((c) => c.key === key);
+      methods.reset({ username: next?.username ?? "", password: "" });
       setSelectedKey(key);
     },
-    [methods],
+    [methods, clusters],
   );
 
   return (
     <Flex.Box y empty className={CSS.B("login")}>
-      <LoginNav />
+      {nav && <LoginNav />}
       <Flex.Box
         y
         align="center"
@@ -155,15 +155,19 @@ export const Login = (): ReactElement => {
                   <Form.TextField path="password" inputProps={PASSWORD_INPUT_PROPS} />
                 </Flex.Box>
                 <Flex.Box gap="small" align="center">
-                  <Flex.Box className={CSS.BE("login", "status")}>
-                    {stat.message !== "" && (
-                      <Status.Summary variant={stat.variant} message={stat.message} />
-                    )}
-                  </Flex.Box>
+                  {client != null && (
+                    <Flex.Box className={CSS.BE("login", "status")}>
+                      {connState.message !== "" && (
+                        <Status.Summary
+                          variant={connState.variant}
+                          message={connState.message}
+                        />
+                      )}
+                    </Flex.Box>
+                  )}
                   <Button.Button
                     onClick={handleSubmit}
-                    status={stat.variant}
-                    trigger={SIGN_IN_TRIGGER}
+                    trigger={LOG_IN_TRIGGER}
                     variant="filled"
                     size="large"
                   >

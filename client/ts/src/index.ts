@@ -18,7 +18,8 @@ export { Channel, isCalculated } from "@/channel/client";
 export {
   checkConnection,
   type CheckConnectionParams,
-  newConnectionChecker,
+  connect,
+  type ConnectOptions,
   default as Synnax,
   type SynnaxParams,
   synnaxParamsZ,

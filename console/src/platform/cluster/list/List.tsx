@@ -85,7 +85,7 @@ export const List = ({ value, onChange, ...rest }: ListProps): ReactElement => {
           secure: cluster.secure,
           name: cluster.name,
         });
-        if (state.status === "connected") {
+        if (state.variant === "success") {
           addStatus({
             variant: "success",
             message: `Connected to ${cluster.name}`,

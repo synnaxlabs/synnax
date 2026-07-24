@@ -16,6 +16,10 @@ import { installTestWebSocket } from "@/testutil/websocket";
 // allow more than the 1s waitFor default.
 configure({ asyncUtilTimeout: 5000 });
 
+// Clients constructed at spec module scope start connecting immediately, so the
+// crash-proof WebSocket must be in place before spec imports, not in beforeAll.
+installTestWebSocket();
+
 // jsdom does not implement ResizeObserver, and pluto's useResize constructs one
 // unconditionally. Provide an inert polyfill so construction succeeds; it never
 // fires, so observed elements keep jsdom's real (zero) geometry. Specs that render
@@ -79,7 +83,6 @@ const cssEscape = (value: string): string => {
 };
 
 beforeAll(() => {
-  installTestWebSocket();
   vi.stubGlobal("ResizeObserver", ResizeObserverStub);
   vi.stubGlobal("IntersectionObserver", IntersectionObserverMock);
   if (typeof globalThis.CSS === "undefined")

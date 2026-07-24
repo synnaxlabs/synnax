@@ -321,7 +321,7 @@ describe("Schematic", () => {
 
 describe("store", () => {
   it("tombstones deletes from live delete signals", async () => {
-    await client.cache.ensureStreaming();
+    await client.connect();
     const project = await client.projects.create({ name: `sch-${id.create()}` });
     const created = await client.schematics.create(project.key, {
       name: `schematic-${id.create()}`,

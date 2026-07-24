@@ -23,10 +23,12 @@ import { CSS } from "@/platform/css";
  */
 export const Secondary = (): ReactElement => (
   <Auth.Guard>
-    <Project.Guard>
-      <Flex.Box x gap="tiny" grow className={CSS.B("secondary")}>
-        <Mosaic.Mosaic />
-      </Flex.Box>
-    </Project.Guard>
+    <Auth.ConnectionGuard nav={false}>
+      <Project.Guard>
+        <Flex.Box x gap="tiny" grow className={CSS.B("secondary")}>
+          <Mosaic.Mosaic />
+        </Flex.Box>
+      </Project.Guard>
+    </Auth.ConnectionGuard>
   </Auth.Guard>
 );
