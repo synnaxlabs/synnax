@@ -84,7 +84,7 @@ public:
             opts.pem_cert_chain = pem_cert_chain;
             auto [pem_private_key, pem_priv_key_err] = x::fs::read_file(key_path);
             if (pem_priv_key_err)
-                LOG(ERROR) << "Failed to read client private key from " << err;
+                LOG(ERROR) << "Failed to read client private key: " << pem_priv_key_err;
             opts.pem_private_key = pem_private_key;
         }
         credentials = SslCredentials(opts);
