@@ -7,8 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-// Package v2 holds the frozen wire format for console schematic state at version
-// 2.0.0. v2 added per-schematic key, type literal, and viewportMode fields.
+// Package v2 holds the frozen wire format for Console schematic state at version 2.0.0.
+// v2 added per-schematic key, type literal, and viewportMode fields.
 package v2
 
 import (

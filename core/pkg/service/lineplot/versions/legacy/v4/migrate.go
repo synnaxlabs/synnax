@@ -11,9 +11,9 @@ package v4
 
 import v3 "github.com/synnaxlabs/synnax/pkg/service/lineplot/versions/legacy/v3"
 
-// Migrate transforms v3 line plot data into v4 by rewriting the version
-// string. The UI-only fields added at v4 (measure, annotations) are not
-// modeled on the wire here since they do not survive the final lift.
+// Migrate transforms v3 line plot data into v4 by rewriting the version string. The
+// UI-only fields added at v4 (measure, annotations) are not modeled on the wire here
+// since they do not survive the final lift.
 func Migrate(old v3.Data) Data {
 	d := Data(old)
 	d.Version = Version

@@ -46,8 +46,8 @@ func jsonMap(raw string) msgpack.EncodedJSON {
 	return m
 }
 
-// migrateSeed runs the v7 migration chain over a gorp-seeded v6 schematic and
-// returns the migrated typed Schematic.
+// migrateSeed runs the v7 migration chain over a gorp-seeded v6 schematic and returns
+// the migrated typed Schematic.
 func migrateSeed(ctx SpecContext, seed v6.Schematic) v7.Schematic {
 	db := DeferClose(gorp.Wrap(memkv.New()))
 	MustSucceed(gorp.OpenTable(
@@ -74,10 +74,9 @@ func stringOr(v any) string {
 	return ""
 }
 
-// assertMigrated compares got against the canonical .migrated.json file for
-// fixture, or rewrites it if UPDATE_MIGRATED=1 is set. Outputs are
-// canonicalized via json.MarshalIndent (which sorts map keys) so diffs are
-// deterministic.
+// assertMigrated compares got against the canonical .migrated.json file for fixture, or
+// rewrites it if UPDATE_MIGRATED=1 is set. Outputs are canonicalized via
+// json.MarshalIndent (which sorts map keys) so diffs are deterministic.
 func assertMigrated(fixture string, got v7.Schematic) {
 	pretty := MustSucceed(json.MarshalIndent(got, "", "  "))
 	pretty = append(pretty, '\n')
@@ -93,9 +92,9 @@ func assertMigrated(fixture string, got v7.Schematic) {
 }
 
 var _ = Describe("MigrateSchematic", func() {
-	// Snapshot tests against the canonical .migrated.json output for every
-	// captured production fixture. Run with UPDATE_MIGRATED=1 to regenerate
-	// the .migrated.json files after intentional migration changes.
+	// Snapshot tests against the canonical .migrated.json output for every captured
+	// production fixture. Run with UPDATE_MIGRATED=1 to regenerate the .migrated.json
+	// files after intentional migration changes.
 	Describe("canonical migrated output", func() {
 		fixedKey := uuid.MustParse("00000000-0000-0000-0000-000000000001")
 		DescribeTable("Should produce the canonical typed Schematic",
@@ -152,8 +151,8 @@ var _ = Describe("MigrateSchematic", func() {
 		})
 	})
 
-	// Each spec uses a v5-shaped blob and asserts a single reshape rule from
-	// the v6 console contract. Keep one concern per spec so failures localize.
+	// Each spec uses a v5-shaped blob and asserts a single reshape rule from the v6
+	// console contract. Keep one concern per spec so failures localize.
 	Describe("v5 reshape semantics", func() {
 		migrateV5 := func(ctx SpecContext, body string) v7.Schematic {
 			return migrateSeed(ctx, v6.Schematic{
@@ -196,7 +195,8 @@ var _ = Describe("MigrateSchematic", func() {
 
 		It("Should strip legacy stumps from a full-path edge", func(ctx SpecContext) {
 			// Real OX Pre-Valve -> OX MPV edge from a 0.55 schematic: the stored full
-			// path includes both stumps, which would double on render and fold a pigtail.
+			// path includes both stumps, which would double on render and fold a
+			// pigtail.
 			out := migrateSeed(ctx, v6.Schematic{
 				Key: uuid.New(),
 				Data: jsonMap(`{
@@ -222,7 +222,8 @@ var _ = Describe("MigrateSchematic", func() {
 		It("Should clear degenerate short edges so they auto-route", func(ctx SpecContext) {
 			// A single segment shorter than two stumps (real 0.55 edge, 11.88px) has no
 			// strippable middle; subtracting a full stump from each end would flip it
-			// into a self-crossing spur, so it is cleared to an empty (auto-routed) edge.
+			// into a self-crossing spur, so it is cleared to an empty (auto-routed)
+			// edge.
 			out := migrateSeed(ctx, v6.Schematic{
 				Key: uuid.New(),
 				Data: jsonMap(`{
@@ -324,8 +325,8 @@ var _ = Describe("MigrateSchematic", func() {
 })
 
 var _ = Describe("MigrateData", func() {
-	// Walk each captured production fixture through the chain and assert
-	// invariants: counts, edge.data preservation, orphan filter, dispatch.
+	// Walk each captured production fixture through the chain and assert invariants:
+	// counts, edge.data preservation, orphan filter, dispatch.
 	Describe("real-world fixtures", func() {
 		DescribeTable("Should walk the chain to v5.Data, preserving edge.data and dropping orphans",
 			func(fixture string, expectNodes, expectEdges, expectInputOrphans int) {
@@ -378,9 +379,9 @@ var _ = Describe("MigrateData", func() {
 		)
 	})
 
-	// Synthesized inputs cover the chain semantics that real fixtures don't
-	// exercise: bottom of the chain (v0), version dispatch edge cases,
-	// orphan filtering, and error paths.
+	// Synthesized inputs cover the chain semantics that real fixtures don't exercise:
+	// bottom of the chain (v0), version dispatch edge cases, orphan filtering, and
+	// error paths.
 	Describe("synthesized inputs", func() {
 		It("Should chain a v0 blob through every step migration", func() {
 			out := MustSucceed(legacy.MigrateData(jsonMap(`{
@@ -464,5 +465,5 @@ var _ = Describe("MigrateData", func() {
 	})
 })
 
-// Each step is fed nonZeroV0() chained up to its input version. Tests assert
-// the step's *new* fields and that every prior field passes through unchanged.
+// Each step is fed nonZeroV0() chained up to its input version. Tests assert the step's
+// *new* fields and that every prior field passes through unchanged.

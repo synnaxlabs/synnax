@@ -14,10 +14,10 @@ import (
 	v4 "github.com/synnaxlabs/synnax/pkg/service/schematic/versions/legacy/v4"
 )
 
-// Migrate transforms v4 schematic data into v5. The console drops the type
-// literal in this step and seeds the new per-schematic mode and toolbar UI
-// state. Mode and Toolbar are UI-only and are dropped when the v6 wire form
-// is lifted into the typed schematic.Schematic.
+// Migrate transforms v4 schematic data into v5. The Console drops the type literal in
+// this step and seeds the new per-schematic mode and toolbar UI state. Mode and Toolbar
+// are UI-only and are dropped when the v6 wire form is lifted into the typed
+// schematic.Schematic.
 func Migrate(old v4.Data) Data {
 	return Data{
 		Version:         Version,

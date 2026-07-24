@@ -7,12 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-// Package legacy is the single entry point for migrating an opaque line plot
-// data blob through the chain of historical wire formats up to the latest
-// legacy snapshot, v4.Data. Each subpackage v0..v4 owns a frozen Data shape
-// and a single Migrate function that lifts the previous version's Data into
-// its own; this package owns the version-string dispatch and the forward
-// chain, so callers never have to think about either.
+// Package legacy is the single entry point for migrating an opaque line plot data blob
+// through the chain of historical wire formats up to the latest legacy snapshot,
+// v4.Data. Each subpackage v0..v4 owns a frozen Data shape and a single Migrate
+// function that lifts the previous version's Data into its own; this package owns the
+// version-string dispatch and the forward chain, so callers never have to think about
+// either.
 package legacy
 
 import (
@@ -25,10 +25,9 @@ import (
 	"github.com/synnaxlabs/x/errors"
 )
 
-// MigrateData decodes the opaque line plot data blob, dispatches on its
-// declared version, and walks the per-step Migrate functions forward to
-// v4.Data. A nil blob and a blob without a version field both fall through
-// to v0 and walk the full chain.
+// MigrateData decodes the opaque line plot data blob, dispatches on its declared
+// version, and walks the per-step Migrate functions forward to v4.Data. A nil blob and
+// a blob without a version field both fall through to v0 and walk the full chain.
 func MigrateData(blob msgpack.EncodedJSON) (v4.Data, error) {
 	var peek struct {
 		Version string `json:"version"`
@@ -78,8 +77,8 @@ func dispatch(blob msgpack.EncodedJSON, version string) (v4.Data, error) {
 	}
 }
 
-// decode unmarshals blob as T, treating a nil blob as a zero T so empty
-// entries round-trip without erroring.
+// decode unmarshals blob as T, treating a nil blob as a zero T so empty entries
+// round-trip without erroring.
 func decode[T any](blob msgpack.EncodedJSON, version string) (T, error) {
 	var d T
 	if blob == nil {

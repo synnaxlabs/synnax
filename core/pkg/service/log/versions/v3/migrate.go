@@ -20,8 +20,8 @@ import (
 	"github.com/synnaxlabs/x/migrate"
 )
 
-// MigrateLog lifts the previous log snapshot (v2, {Key, Name, Data}) into the
-// v3 strongly-typed Log. autoMigrateLog copies the gorp-entry fields (Key, Name); the body
+// MigrateLog lifts the previous log snapshot (v2, {Key, Name, Data}) into the v3
+// strongly-typed Log. autoMigrateLog copies the gorp-entry fields (Key, Name); the body
 // is decoded from the per-log JSON blob via legacy.MigrateData and lifted by logFromV1,
 // which normalizes out-of-set enums to their documented defaults. If legacy.MigrateData
 // fails (e.g. a channel key that cannot coerce to uint32), the body is dropped and only

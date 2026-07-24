@@ -7,9 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-// Package v2 holds the frozen wire format for console line plot per-plot state
-// at version 2.0.0. v2 introduces the optional axis tick Type (linear/time) and
-// flips y-axis labelDirection to "y" on migration.
+// Package v2 holds the frozen wire format for console line plot per-plot state at
+// version 2.0.0. v2 introduces the optional axis tick Type (linear/time) and flips
+// y-axis labelDirection to "y" on migration.
 package v2
 
 import (
@@ -19,9 +19,9 @@ import (
 
 const Version = "2.0.0"
 
-// Axis is the per-axis configuration at v2. Type is optional; absent (or empty
-// after decode) means the default (linear). Legacy JSON blobs that store
-// "type": null or omit the field both decode to "".
+// Axis is the per-axis configuration at v2. Type is optional; absent (or empty after
+// decode) means the default (linear). Legacy JSON blobs that store "type": null or omit
+// the field both decode to "".
 type Axis struct {
 	Key            string        `json:"key"`
 	Label          string        `json:"label"`

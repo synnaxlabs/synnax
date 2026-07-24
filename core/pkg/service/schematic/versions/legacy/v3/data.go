@@ -7,8 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-// Package v3 holds the frozen wire format for console schematic state at version
-// 3.0.0. v3 added segments[] to each edge.
+// Package v3 holds the frozen wire format for Console schematic state at version 3.0.0.
+// v3 added segments[] to each edge.
 package v3
 
 import (
@@ -26,11 +26,11 @@ type Segment struct {
 	Length    float64 `json:"length"`
 }
 
-// Edge is the wire shape of a schematic edge at version 3.0.0. Inherits the
-// flat source/target form from v0, adds segments at the top level, and carries
-// a catch-all Data field that captured ReactFlow's per-edge data bag in
-// shipped consoles. The v6 migration reads segments, color, and variant out
-// of either location and lifts them into the props map.
+// Edge is the wire shape of a schematic edge at version 3.0.0. Inherits the flat
+// source/target form from v0, adds segments at the top level, and carries a catch-all
+// Data field that captured ReactFlow's per-edge data bag in shipped Consoles. The v6
+// migration reads segments, color, and variant out of either location and lifts them
+// into the props map.
 type Edge struct {
 	Key          string          `json:"key"`
 	Source       string          `json:"source"`

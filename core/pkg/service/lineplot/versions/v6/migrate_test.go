@@ -45,8 +45,8 @@ func jsonMap(raw string) msgpack.EncodedJSON {
 	return m
 }
 
-// migrateSeed runs the v6 migration chain over a gorp-seeded v5 line plot and
-// returns the migrated typed LinePlot.
+// migrateSeed runs the v6 migration chain over a Gorp-seeded v5 line plot and returns
+// the migrated typed LinePlot.
 func migrateSeed(ctx SpecContext, seed v5.LinePlot) v6.LinePlot {
 	db := DeferClose(gorp.Wrap(memkv.New()))
 	MustSucceed(gorp.OpenTable(ctx, gorp.TableConfig[uuid.UUID, v5.LinePlot]{DB: db}))
@@ -64,10 +64,9 @@ func migrateSeed(ctx SpecContext, seed v5.LinePlot) v6.LinePlot {
 	return got
 }
 
-// assertMigrated compares got against the canonical .migrated.json file for
-// fixture, or rewrites it if UPDATE_MIGRATED=1 is set. Outputs are
-// canonicalized via json.MarshalIndent (which sorts map keys) so diffs are
-// deterministic.
+// assertMigrated compares got against the canonical .migrated.json file for fixture, or
+// rewrites it if UPDATE_MIGRATED=1 is set. Outputs are canonicalized via
+// json.MarshalIndent (which sorts map keys) so diffs are deterministic.
 func assertMigrated(fixture string, got v6.LinePlot) {
 	pretty := MustSucceed(json.MarshalIndent(got, "", "  "))
 	pretty = append(pretty, '\n')
@@ -83,9 +82,9 @@ func assertMigrated(fixture string, got v6.LinePlot) {
 }
 
 var _ = Describe("MigrateLinePlot", func() {
-	// Snapshot tests against the canonical .migrated.json output for every
-	// captured fixture. Run with UPDATE_MIGRATED=1 to regenerate the
-	// .migrated.json files after intentional migration changes.
+	// Snapshot tests against the canonical .migrated.json output for every captured
+	// fixture. Run with UPDATE_MIGRATED=1 to regenerate the .migrated.json files after
+	// intentional migration changes.
 	Describe("canonical migrated output", func() {
 		fixedKey := uuid.MustParse("00000000-0000-0000-0000-000000000001")
 		DescribeTable("Should produce the canonical typed LinePlot",
@@ -195,8 +194,8 @@ var _ = Describe("MigrateLinePlot", func() {
 		})
 	})
 
-	// Each spec asserts a single reshape rule. Keep one concern per spec so
-	// failures localize.
+	// Each spec asserts a single reshape rule. Keep one concern per spec so failures
+	// localize.
 	Describe("lift semantics", func() {
 		migrateV4 := func(ctx SpecContext, body string) v6.LinePlot {
 			return migrateSeed(ctx, v5.LinePlot{

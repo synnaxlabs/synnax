@@ -7,9 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-// Package v5 holds the frozen wire format for console schematic state at version
-// 5.0.0. v5 dropped the type literal and introduced the per-schematic mode and
-// toolbar UI fields.
+// Package v5 holds the frozen wire format for Console schematic state at version 5.0.0.
+// v5 dropped the type literal and introduced the per-schematic mode and toolbar UI
+// fields.
 package v5
 
 import (
@@ -22,9 +22,8 @@ import (
 
 const Version = "5.0.0"
 
-// Data is the persisted per-schematic state at version 5.0.0. Drops the type
-// literal and adds mode and toolbar (UI-only fields that the typed Schematic
-// does not carry).
+// Data is the persisted per-schematic state at version 5.0.0. Drops the type literal
+// and adds mode and toolbar (UI-only fields that the typed Schematic does not carry).
 type Data struct {
 	Version         string                     `json:"version"`
 	Editable        bool                       `json:"editable"`

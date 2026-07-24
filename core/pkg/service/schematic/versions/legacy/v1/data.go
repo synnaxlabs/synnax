@@ -7,8 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-// Package v1 holds the frozen wire format for console schematic state at version
-// 1.0.0. v1 introduces the legend overlay configuration.
+// Package v1 holds the frozen wire format for Console schematic state at version 1.0.0.
+// v1 introduces the legend overlay configuration.
 package v1
 
 import (
@@ -19,8 +19,8 @@ import (
 
 const Version = "1.0.0"
 
-// LegendUnits is the optional axis-by-axis unit hint for a legend position. May
-// be absent in the wire format.
+// LegendUnits is the optional axis-by-axis unit hint for a legend position. May be
+// absent in the wire format.
 type LegendUnits struct {
 	X string `json:"x"`
 	Y string `json:"y"`
@@ -47,8 +47,8 @@ type Legend struct {
 	Colors   map[string]string `json:"colors"`
 }
 
-// Data is the persisted per-schematic state at version 1.0.0. Adds the legend
-// field to v0.
+// Data is the persisted per-schematic state at version 1.0.0. Adds the legend field to
+// v0.
 type Data struct {
 	Version         string                     `json:"version"`
 	Editable        bool                       `json:"editable"`

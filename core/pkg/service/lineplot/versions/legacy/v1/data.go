@@ -7,13 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-// Package v1 holds the frozen wire format for console line plot per-plot state
-// at version 1.0.0. v1 introduces the legend overlay position.
+// Package v1 holds the frozen wire format for Console line plot per-plot state at
+// version 1.0.0. v1 introduces the legend overlay position.
 package v1
 
-import (
-	v0 "github.com/synnaxlabs/synnax/pkg/service/lineplot/versions/legacy/v0"
-)
+import v0 "github.com/synnaxlabs/synnax/pkg/service/lineplot/versions/legacy/v0"
 
 const Version = "1.0.0"
 

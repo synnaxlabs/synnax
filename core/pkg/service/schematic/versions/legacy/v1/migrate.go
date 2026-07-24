@@ -11,8 +11,8 @@ package v1
 
 import v0 "github.com/synnaxlabs/synnax/pkg/service/schematic/versions/legacy/v0"
 
-// ZeroLegend is the default legend used when a v0 payload is migrated forward.
-// Mirrors the console's ZERO_LEGEND_STATE at v1.
+// ZeroLegend is the default legend used when a v0 payload is migrated forward. Mirrors
+// the console's ZERO_LEGEND_STATE at v1.
 var ZeroLegend = Legend{
 	Visible: true,
 	Position: LegendPosition{

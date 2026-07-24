@@ -7,8 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-// Package v4 holds the frozen wire format for console schematic state at version
-// 4.0.0. v4 added the per-schematic authority field.
+// Package v4 holds the frozen wire format for Console schematic state at version 4.0.0.
+// v4 added the per-schematic authority field.
 package v4
 
 import (
@@ -21,8 +21,7 @@ import (
 
 const Version = "4.0.0"
 
-// Data is the persisted per-schematic state at version 4.0.0. Adds authority
-// to v3.
+// Data is the persisted per-schematic state at version 4.0.0. Adds authority to v3.
 type Data struct {
 	Version         string                     `json:"version"`
 	Editable        bool                       `json:"editable"`

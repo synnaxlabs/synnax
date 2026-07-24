@@ -9,15 +9,12 @@
 
 package v1
 
-import (
-	v0 "github.com/synnaxlabs/synnax/pkg/service/lineplot/versions/legacy/v0"
-)
+import v0 "github.com/synnaxlabs/synnax/pkg/service/lineplot/versions/legacy/v0"
 
-// ZeroLegend is the default legend used when a v0 payload is migrated forward.
-// Mirrors the console's ZERO_LEGEND_STATE at v1, which replaces the v0 legend
-// wholesale (including the user's visibility choice). Preserving exact console
-// behavior matters since the same migration runs client-side before this code
-// existed.
+// ZeroLegend is the default legend used when a v0 payload is migrated forward. Mirrors
+// the console's ZERO_LEGEND_STATE at v1, which replaces the v0 legend wholesale
+// (including the user's visibility choice). Preserving exact console behavior matters
+// since the same migration runs client-side before this code existed.
 var ZeroLegend = Legend{
 	Visible: true,
 	Position: LegendPosition{

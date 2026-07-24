@@ -27,7 +27,7 @@ type LinePlot struct {
 	Key Key `json:"key" msgpack:"key"`
 	// Name is a human-readable name for the line plot.
 	Name string `json:"name" msgpack:"name"`
-	// Data is the line plot configuration including channel references, axis settings, and
-	// display options.
+	// Data is the line plot configuration including channel references, axis settings,
+	// and display options.
 	Data msgpack.EncodedJSON `json:"data" msgpack:"data"`
 }

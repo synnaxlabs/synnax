@@ -27,11 +27,11 @@ import (
 
 // migrateSchematic transforms the previous schematic snapshot (v6) into the v7
 // strongly-typed Schematic. autoMigrateSchematic handles the trivially-copyable
-// gorp-entry fields (Key, Name, Snapshot); the body fields are sourced from the
-// per-schematic blob the console used to persist alongside those gorp fields, after
+// Gorp-entry fields (Key, Name, Snapshot); the body fields are sourced from the
+// per-schematic blob the Console used to persist alongside those Gorp fields, after
 // legacy.MigrateData walks the legacy migration chain up to v5.Data. UI-only fields
 // (editable, fitViewOnResize, viewport, mode, toolbar, control, viewportMode,
-// authority, legend, the wire-format key) are dropped; the latter live on the console
+// authority, legend, the wire-format key) are dropped; the latter live on the Console
 // slice and never reach the server. Edges flip from the flat source / sourceHandle pair
 // into nested Handle objects, edge.data segments / color / variant lift into the props
 // map keyed by edge id, and node-prop "key" renames to "variant" so the lifted shape
@@ -86,15 +86,14 @@ func migrateNode(n v0.Node) Node {
 	return out
 }
 
-// migrateEdge reshapes a v5 edge into the typed Edge with nested Handles and,
-// when the edge carries a ReactFlow-style data bag, lifts its segments /
-// color / variant fields into a props map entry keyed by the edge id.
-// Mirrors the console v6 migrateEdge: a missing or null data field produces
-// no edgeProps; any non-null data object produces an EncodedJSON payload
-// with EdgeProps defaults applied (segments defaults to [], variant defaults
-// to "pipe") so the lifted shape always parses cleanly under the v6
-// EdgeProps schema. Returns the typed edge plus the payload (or nil when
-// there is nothing to lift).
+// migrateEdge reshapes a v5 edge into the typed Edge with nested Handles and, when the
+// edge carries a ReactFlow-style data bag, lifts its segments / color / variant fields
+// into a props map entry keyed by the edge id. Mirrors the Console v6 migrateEdge: a
+// missing or null data field produces no edgeProps; any non-null data object produces
+// an EncodedJSON payload with EdgeProps defaults applied (segments defaults to [],
+// variant defaults to "pipe") so the lifted shape always parses cleanly under the v6
+// EdgeProps schema. Returns the typed edge plus the payload (or nil when there is
+// nothing to lift).
 func migrateEdge(e v3.Edge) (Edge, msgpack.EncodedJSON, error) {
 	out := Edge{
 		Key:    e.Key,
@@ -126,8 +125,8 @@ func migrateEdge(e v3.Edge) (Edge, msgpack.EncodedJSON, error) {
 	return out, lifted, nil
 }
 
-// stumpLength mirrors STUMP_LENGTH in the pluto segmented connector: the fixed
-// length of the auto-generated stub that leaves each handle.
+// stumpLength mirrors STUMP_LENGTH in the pluto segmented connector: the fixed length
+// of the auto-generated stub that leaves each handle.
 const stumpLength = 10.0
 
 // segment is the decoded form of one entry in an edge's segments list.
@@ -136,13 +135,12 @@ type segment struct {
 	length    float64
 }
 
-// stripLegacyStumps converts a pre-0.56 full edge path into the middle-only form
-// the current renderer expects. Pre-0.56 edges stored the complete path including
-// both stumps; the current model stores only the middle and re-derives the stumps
-// on render, so leaving them in doubles the stumps and folds a pigtail over the
-// target. The stumps are the first and last segments. Mirrors stripLegacyStumps in
-// the console v6 migration. The input is returned unchanged if it does not parse as
-// a segment list.
+// stripLegacyStumps converts a pre-0.56 full edge path into the middle-only form the
+// current renderer expects. Pre-0.56 edges stored the complete path including both
+// stumps; the current model stores only the middle and re-derives the stumps on render,
+// so leaving them in doubles the stumps and folds a pigtail over the target. The stumps
+// are the first and last segments. Mirrors stripLegacyStumps in the Console v6
+// migration. The input is returned unchanged if it does not parse as a segment list.
 func stripLegacyStumps(raw []any) []any {
 	segs, ok := parseSegments(raw)
 	if !ok || len(segs) == 0 {
@@ -154,10 +152,10 @@ func stripLegacyStumps(raw []any) []any {
 	return segmentsToRaw(extractMiddle(segs))
 }
 
-// hasNoStrippableMiddle reports whether an edge's stumps overlap, leaving no middle
-// to preserve: a single segment shorter than two stumps, or a first/last segment
-// shorter than one stump. Subtracting a full stump from those would flip the segment
-// and fold a spur, so such edges are cleared to auto-route instead.
+// hasNoStrippableMiddle reports whether an edge's stumps overlap, leaving no middle to
+// preserve: a single segment shorter than two stumps, or a first/last segment shorter
+// than one stump. Subtracting a full stump from those would flip the segment and fold a
+// spur, so such edges are cleared to auto-route instead.
 func hasNoStrippableMiddle(segs []segment) bool {
 	if len(segs) == 1 {
 		return math.Abs(segs[0].length) <= 2*stumpLength-0.5
@@ -198,8 +196,8 @@ func sign(v float64) float64 {
 	return 1
 }
 
-// parseSegments decodes the opaque segments list into typed segments, returning
-// false if any entry is not a well-formed {direction, length} object.
+// parseSegments decodes the opaque segments list into typed segments, returning false
+// if any entry is not a well-formed {direction, length} object.
 func parseSegments(raw []any) ([]segment, bool) {
 	out := make([]segment, 0, len(raw))
 	for _, item := range raw {
@@ -228,11 +226,11 @@ func segmentsToRaw(segs []segment) []any {
 	return out
 }
 
-// migrateProps decodes each opaque prop entry from raw JSON bytes into the
-// in-memory map[string]any shape that msgpack.EncodedJSON wraps, renaming
-// the v0..v5 node-prop "key" field to "variant" to match the v6 NodeProps
-// schema declared in schematic.oracle. Empty entries are dropped because
-// msgpack.EncodedJSON is nil-equivalent to "no entry".
+// migrateProps decodes each opaque prop entry from raw JSON bytes into the in-memory
+// map[string]any shape that msgpack.EncodedJSON wraps, renaming the v0..v5 node-prop
+// "key" field to "variant" to match the v6 NodeProps schema declared in
+// schematic.oracle. Empty entries are dropped because msgpack.EncodedJSON is
+// nil-equivalent to "no entry".
 func migrateProps(in map[string]json.RawMessage) (map[string]msgpack.EncodedJSON, error) {
 	if len(in) == 0 {
 		return nil, nil
@@ -246,11 +244,10 @@ func migrateProps(in map[string]json.RawMessage) (map[string]msgpack.EncodedJSON
 		if err := json.Unmarshal(raw, &m); err != nil {
 			return nil, errors.Wrapf(err, "decode props[%q]", k)
 		}
-		// Mirrors the console v6 migrateProps: variant is always set from
-		// the v0..v5 "key" field, overwriting any prior variant. v0..v5
-		// NodeProps schemas declare key (not variant), so production data
-		// never carries both, but the always-overwrite contract matches
-		// the console's single source of truth.
+		// Mirrors the Console v6 migrateProps: variant is always set from the v0..v5
+		// "key" field, overwriting any prior variant. v0..v5 NodeProps schemas declare
+		// key (not variant), so production data never carries both, but the
+		// always-overwrite contract matches the Console's single source of truth.
 		if v, ok := m["key"]; ok {
 			m["variant"] = v
 			delete(m, "key")
@@ -267,8 +264,7 @@ func stringOrEmpty(s *string) string {
 	return *s
 }
 
-// liftMigration lifts stored schematics from the v6 blob layout to the typed v7
-// shape.
+// liftMigration lifts stored schematics from the v6 blob layout to the typed v7 shape.
 var liftMigration = gorp.NewEntryMigration(
 	"v55_lift_typed_schematic", migrateSchematic, v6.Migration.Key(),
 )

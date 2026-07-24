@@ -10,8 +10,8 @@
 // Package v0 holds the frozen wire format for console line plot per-plot state at
 // version 0.0.0. Per-version Data structs in this directory tree are immutable
 // snapshots of what consoles actually persisted at that version. They are the
-// JSON-decode targets for the storage migration chain that lifts older blobs
-// forward into the typed lineplot.LinePlot.
+// JSON-decode targets for the storage migration chain that lifts older blobs forward
+// into the typed lineplot.LinePlot.
 package v0
 
 import (
@@ -23,8 +23,8 @@ import (
 // version.
 const Version = "0.0.0"
 
-// XY is the planar coordinate shape consoles persisted from version 0.0.0
-// onward. Identical to spatial.XY at the wire level.
+// XY is the planar coordinate shape consoles persisted from version 0.0.0 onward.
+// Identical to spatial.XY at the wire level.
 type XY struct {
 	X float64 `json:"x"`
 	Y float64 `json:"y"`
@@ -66,9 +66,9 @@ type Axis struct {
 	TickSpacing    float64    `json:"tickSpacing"`
 }
 
-// Axes bundles every axis configuration. The console persists this nested
-// under the AxesContainer below so the renderTrigger/hasHadChannelSet bookkeeping
-// stays alongside.
+// Axes bundles every axis configuration. The Console persists this nested under the
+// AxesContainer below so the renderTrigger/hasHadChannelSet bookkeeping stays
+// alongside.
 type Axes struct {
 	X1 Axis `json:"x1"`
 	X2 Axis `json:"x2"`
@@ -96,18 +96,18 @@ type Channels struct {
 	Y4 []channel.Key `json:"y4"`
 }
 
-// Ranges binds opaque range keys to each x-axis. Strings (not UUIDs) because
-// the console persists synthetic rolling-window keys (e.g. "recent",
-// "rolling1m") alongside persisted ranges.
+// Ranges binds opaque range keys to each x-axis. Strings (not UUIDs) because the
+// Console persists synthetic rolling-window keys (e.g. "recent", "rolling1m") alongside
+// persisted ranges.
 type Ranges struct {
 	X1 []string `json:"x1"`
 	X2 []string `json:"x2"`
 }
 
-// Line is the per-line styling configuration at v0. Label is optional in the
-// wire format; absent means derive from the channel name at render time.
-// Color was persisted as a hex string at v0; color.Color's UnmarshalJSON
-// parses that on decode so the in-memory shape matches v5.
+// Line is the per-line styling configuration at v0. Label is optional in the wire
+// format; absent means derive from the channel name at render time. Color was persisted
+// as a hex string at v0; color.Color's UnmarshalJSON parses that on decode so the
+// in-memory shape matches v5.
 type Line struct {
 	Key            string      `json:"key"`
 	Label          *string     `json:"label,omitempty"`
@@ -117,10 +117,9 @@ type Line struct {
 	DownsampleMode string      `json:"downsampleMode"`
 }
 
-// Rule is the annotation-line configuration at v0. Selected is UI-only and
-// dropped at the final lift. Color was persisted as a hex string at v0;
-// color.Color's UnmarshalJSON parses that on decode so the in-memory shape
-// matches v5.
+// Rule is the annotation-line configuration at v0. Selected is UI-only and dropped at
+// the final lift. Color was persisted as a hex string at v0; color.Color's
+// UnmarshalJSON parses that on decode so the in-memory shape matches v5.
 type Rule struct {
 	Selected  *bool       `json:"selected,omitempty"`
 	Key       string      `json:"key"`
@@ -133,10 +132,9 @@ type Rule struct {
 	Position  float64     `json:"position"`
 }
 
-// Data is the wire shape of a per-plot line plot state at v0.0.0. UI-only
-// fields persisted alongside the model fields (viewport, selection) are
-// silently ignored on decode since they do not survive the lift to the typed
-// body.
+// Data is the wire shape of a per-plot line plot state at v0.0.0. UI-only fields
+// persisted alongside the model fields (viewport, selection) are silently ignored on
+// decode since they do not survive the lift to the typed body.
 type Data struct {
 	Version       string        `json:"version"`
 	Key           string        `json:"key"`

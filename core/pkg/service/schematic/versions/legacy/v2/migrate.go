@@ -14,10 +14,10 @@ import (
 	v1 "github.com/synnaxlabs/synnax/pkg/service/schematic/versions/legacy/v1"
 )
 
-// Migrate transforms v1 schematic data into v2 by adding the per-schematic
-// key, the literal "schematic" type, and the default viewport mode. The
-// generated key is a fresh UUID; the storage migration overwrites it with
-// the gorp entry's key when it lifts the blob into the typed schematic.
+// Migrate transforms v1 schematic data into v2 by adding the per-schematic key, the
+// literal "schematic" type, and the default viewport mode. The generated key is a fresh
+// UUID; the storage migration overwrites it with the Gorp entry's key when it lifts the
+// blob into the typed schematic.
 func Migrate(old v1.Data) Data {
 	return Data{
 		Version:         Version,

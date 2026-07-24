@@ -69,10 +69,9 @@ func migrateSeed(ctx SpecContext, seed v1.Table) v2.Table {
 	return got
 }
 
-// assertMigrated compares got against the canonical .migrated.json file for
-// fixture, or rewrites it if UPDATE_MIGRATED=1 is set. Outputs are
-// canonicalized via json.MarshalIndent (which sorts map keys) so diffs are
-// deterministic.
+// assertMigrated compares got against the canonical .migrated.json file for fixture, or
+// rewrites it if UPDATE_MIGRATED=1 is set. Outputs are canonicalized via
+// json.MarshalIndent (which sorts map keys) so diffs are deterministic.
 func assertMigrated(fixture string, got v2.Table) {
 	pretty := MustSucceed(json.MarshalIndent(got, "", "  "))
 	pretty = append(pretty, '\n')
@@ -88,9 +87,9 @@ func assertMigrated(fixture string, got v2.Table) {
 }
 
 var _ = Describe("MigrateTable", func() {
-	// Snapshot tests against the canonical .migrated.json output for every
-	// captured fixture. Run with UPDATE_MIGRATED=1 to regenerate the
-	// .migrated.json files after intentional migration changes.
+	// Snapshot tests against the canonical .migrated.json output for every captured
+	// fixture. Run with UPDATE_MIGRATED=1 to regenerate the .migrated.json files after
+	// intentional migration changes.
 	Describe("canonical migrated output", func() {
 		fixedKey := uuid.MustParse("00000000-0000-0000-0000-000000000001")
 		DescribeTable("Should produce the canonical typed Table",
