@@ -40,7 +40,7 @@ func New(inter ir.IR) *ProgramState {
 	for _, node := range inter.Nodes {
 		for _, p := range node.Outputs {
 			s.outputs[ir.Handle{Node: node.Key, Param: p.Name}] = &value{
-				data: telem.Series{DataType: types.ToTelem(p.Type)},
+				data: telem.Series{DataType: p.Type.ToTelem()},
 				time: telem.Series{DataType: telem.TimeStampT},
 			}
 		}
@@ -109,7 +109,7 @@ func (s *ProgramState) Node(key string) *State {
 				Source: syntheticSource,
 				Target: ir.Handle{Node: key, Param: p.Name},
 			}
-			data := telem.NewSeriesFromAny(p.Value, types.ToTelem(p.Type))
+			data := telem.NewSeriesFromAny(p.Value, p.Type.ToTelem())
 			time := telem.NewSeriesV[telem.TimeStamp](0)
 			alignedData[i] = data
 			alignedTime[i] = time

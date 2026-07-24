@@ -183,7 +183,7 @@ var _ = Describe("Types", func() {
 
 		DescribeTable("ToTelem should convert arc types to telem types",
 			func(arcType types.Type, expected telem.DataType) {
-				Expect(types.ToTelem(arcType)).To(Equal(expected))
+				Expect(arcType.ToTelem()).To(Equal(expected))
 			},
 			Entry("U8", types.U8(), telem.Uint8T),
 			Entry("U16", types.U16(), telem.Uint16T),
@@ -202,17 +202,17 @@ var _ = Describe("Types", func() {
 
 		It("Should return UnknownT for types that don't map to telem", func() {
 			chanType := types.Chan(types.I32())
-			Expect(types.ToTelem(chanType)).To(Equal(telem.UnknownT))
+			Expect(chanType.ToTelem()).To(Equal(telem.UnknownT))
 
 			fnType := types.Function(types.FunctionProperties{})
-			Expect(types.ToTelem(fnType)).To(Equal(telem.UnknownT))
+			Expect(fnType.ToTelem()).To(Equal(telem.UnknownT))
 		})
 
 		// The value type mirrors what literal.Parse emits per kind, so a missing
 		// cast case in NewSeriesFromAny (the TimeSpan regression) is caught here.
 		DescribeTable("ToTelem output must seed a series via NewSeriesFromAny",
 			func(arcType types.Type, value any) {
-				dt := types.ToTelem(arcType)
+				dt := arcType.ToTelem()
 				s := telem.NewSeriesFromAny(value, dt)
 				Expect(s.DataType).To(Equal(dt))
 				Expect(s.Len()).To(Equal(int64(1)))

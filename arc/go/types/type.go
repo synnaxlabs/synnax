@@ -62,7 +62,7 @@
 // Converting to/from telemetry types:
 //
 //	arcType := types.FromTelem(telem.Float64T)
-//	telemType := types.ToTelem(types.F64())
+//	telemType := types.F64().ToTelem()
 package types
 
 import (
@@ -272,39 +272,5 @@ func FromTelem(t telem.DataType) Type {
 		return TimeStamp()
 	default:
 		return Type{Kind: KindInvalid}
-	}
-}
-
-// ToTelem converts an Arc type to a telemetry data type.
-func ToTelem(t Type) telem.DataType {
-	if t.Kind == KindI64 && t.Unit != nil &&
-		t.Unit.Dimensions.Equal(DimTime) && t.Unit.Name == "ns" {
-		return telem.TimeStampT
-	}
-	switch t.Kind {
-	case KindU8:
-		return telem.Uint8T
-	case KindU16:
-		return telem.Uint16T
-	case KindU32:
-		return telem.Uint32T
-	case KindU64:
-		return telem.Uint64T
-	case KindF32:
-		return telem.Float32T
-	case KindF64:
-		return telem.Float64T
-	case KindString:
-		return telem.StringT
-	case KindI8:
-		return telem.Int8T
-	case KindI16:
-		return telem.Int16T
-	case KindI32:
-		return telem.Int32T
-	case KindI64:
-		return telem.Int64T
-	default:
-		return telem.UnknownT
 	}
 }
