@@ -39,9 +39,11 @@ or generator logic and schemas disagree.
   versions/vN layout, and their shape changes never force a version bump.
 - Two classes must stay versioned despite being unpersisted: types referenced by a
   versioned sibling (even via `@go marshal omit` fields — their Go home cannot leave the
-  package without an import cycle; the persistence gate exempts these), and types whose
-  hand-written Go methods entangle with versioned siblings (telem's
-  Size/Rate/Alignment).
+  package without an import cycle; the persistence gate exempts these automatically),
+  and types whose hand-written Go methods entangle with versioned siblings (telem's
+  Size/Rate). Mark the latter `@go version N pinned` — the gate skips pinned types and
+  warns if a pinned type is actually persisted; the analyzer rejects any other version
+  argument.
 - `oracle check` runs a non-blocking persistence gate warning on versioned types outside
   the persisted closure and on persisted types missing @go version at a versioned path.
   Use `--verbose` to see warnings on passing gates.

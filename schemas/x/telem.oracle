@@ -66,7 +66,7 @@ TimeRangeBounded = TimeRange {
 }
 
 Rate float64 {
-    @go version 0
+    @go version 0 pinned
     @doc value  """
         is a data sampling rate expressed in Hertz (Hz). Used to specify
         acquisition frequencies and calculate sample counts over time intervals.
@@ -77,7 +77,7 @@ Rate float64 {
 }
 
 Size int64 {
-    @go version 0
+    @go version 0 pinned
     @doc value  """
         is a byte measurement used for storage capacity and data volume
         representation. Supports conversion to human-readable formats (B, kB,
@@ -89,8 +89,7 @@ Size int64 {
 }
 
 Alignment uint64 {
-    @go version 0
-    @doc value  """
+    @doc value """
         is a 64-bit index for positioning samples within multi-array structures.
         Packs a domain index (which array) and sample index (position within
         array) into a single value for efficient multi-dimensional data access.

@@ -115,6 +115,36 @@ func validateFileVersion(c *analysisCtx) {
 	}
 }
 
+// validateVersionArgs errors on malformed @go version declarations: the first
+// value must be an integer, and the only allowed extra argument is a single
+// `pinned` marker.
+func validateVersionArgs(c *analysisCtx, types []resolution.Type) {
+	for _, t := range types {
+		dom, ok := t.Domains["go"]
+		if !ok {
+			continue
+		}
+		expr, ok := dom.Expressions.Find("version")
+		if !ok {
+			continue
+		}
+		valid := len(expr.Values) >= 1 && len(expr.Values) <= 2 &&
+			expr.Values[0].Kind == resolution.ValueKindInt
+		if valid && len(expr.Values) == 2 {
+			valid = expr.Values[1].IdentValue == "pinned"
+		}
+		if valid {
+			continue
+		}
+		d := diagnostics.Errorf(nil,
+			"%s has a malformed @go version; expected `version <int>` or `version <int> pinned`",
+			t.QualifiedName,
+		)
+		d.File = c.filePath
+		c.diag.Add(d)
+	}
+}
+
 // validateDeadOutputs errors when a file declares a language output that
 // nothing uses: every type omits the language and none is hand-written.
 func validateDeadOutputs(

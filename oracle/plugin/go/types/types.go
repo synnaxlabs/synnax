@@ -402,6 +402,10 @@ func latestTable(
 	return nil
 }
 
+// VersionPinned reports whether the type's @go version carries the `pinned`
+// marker (see versioning.Pinned).
+func VersionPinned(t resolution.Type) bool { return versioning.Pinned(t) }
+
 // PersistedClosure returns the qualified names of every type reachable from a
 // @go marshal root through stored references: non-omitted struct fields,
 // extends, type arguments, alias targets, distinct bases, and union variants.

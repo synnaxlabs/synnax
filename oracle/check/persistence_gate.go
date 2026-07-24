@@ -79,9 +79,17 @@ func (g PersistenceGate) Run(_ context.Context, p *pipeline.Result, _ Env) GateR
 		}
 		versioned := domain.HasExprFromType(t, "go", "version")
 		persisted := closure.Contains(t.QualifiedName)
+		pinned := gotypes.VersionPinned(t)
 		var f Finding
 		switch {
-		case versioned && !persisted && siblingRef.Contains(t.QualifiedName):
+		case versioned && pinned && persisted:
+			f = Finding{
+				Path:     schemaPathFor(p, t.Namespace),
+				Severity: severity,
+				Message:  t.QualifiedName + " pins its @go version but is persisted",
+				FixHint:  "remove the pinned marker; persistence alone requires the version",
+			}
+		case versioned && !persisted && (pinned || siblingRef.Contains(t.QualifiedName)):
 			continue
 		case versioned && !persisted:
 			f = Finding{

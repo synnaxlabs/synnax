@@ -74,6 +74,46 @@ var _ = Describe("Analyzer", func() {
 		})
 	})
 
+	Describe("Version arguments", func() {
+		It("Should accept a pinned marker", func(ctx SpecContext) {
+			source := `
+				@go output "out"
+				Entry struct {
+					value int32
+					@go version 0 pinned
+				}
+			`
+			_, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+			Expect(diag.Ok()).To(BeTrue())
+		})
+
+		It("Should error on an unknown version argument", func(ctx SpecContext) {
+			source := `
+				@go output "out"
+				Entry struct {
+					value int32
+					@go version 0 pined
+				}
+			`
+			_, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+			Expect(diag.Ok()).To(BeFalse())
+			Expect(diag.String()).To(ContainSubstring("malformed @go version"))
+		})
+
+		It("Should error on extra version arguments", func(ctx SpecContext) {
+			source := `
+				@go output "out"
+				Entry struct {
+					value int32
+					@go version 0 pinned pinned
+				}
+			`
+			_, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+			Expect(diag.Ok()).To(BeFalse())
+			Expect(diag.String()).To(ContainSubstring("malformed @go version"))
+		})
+	})
+
 	Describe("Domain omission", func() {
 		It("Should error when a generating type references an omitted type", func(ctx SpecContext) {
 			source := `

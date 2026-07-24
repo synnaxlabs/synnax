@@ -39,6 +39,26 @@ func Version(t resolution.Type) (int, bool) {
 	return int(expr.Values[0].IntValue), true
 }
 
+// Pinned reports whether the type's @go version carries the `pinned` marker:
+// intentionally versioned despite being unpersisted, because hand-written Go
+// methods entangle it with versioned siblings.
+func Pinned(t resolution.Type) bool {
+	dom, ok := t.Domains["go"]
+	if !ok {
+		return false
+	}
+	expr, ok := dom.Expressions.Find("version")
+	if !ok {
+		return false
+	}
+	for _, v := range expr.Values[1:] {
+		if v.IdentValue == "pinned" || v.StringValue == "pinned" {
+			return true
+		}
+	}
+	return false
+}
+
 // PreVersioning reports whether no type in the table declares a @go version.
 // Snapshots taken before per-resource versioning existed satisfy this and
 // cannot serve as a version-diffing baseline.

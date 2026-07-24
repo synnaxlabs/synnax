@@ -36,11 +36,6 @@ type Rate = versions.Rate
 // Supports conversion to human-readable formats (B, kB, MB, GB, TB).
 type Size = versions.Size
 
-// Alignment is a 64-bit index for positioning samples within multi-array structures.
-// Packs a domain index (which array) and sample index (position within array) into a
-// single value for efficient multi-dimensional data access.
-type Alignment = versions.Alignment
-
 // DataType is a string identifier specifying the format of telemetry samples. Supports
 // fixed-density types (Float64, Int32, TimeStamp, etc.) with known byte sizes and
 // variable-density types (String, JSON, Bytes) for flexible data storage.
@@ -66,3 +61,8 @@ const (
 	TimeZoneLocal TimeZone = versions.TimeZoneLocal
 	TimeZoneUTC   TimeZone = versions.TimeZoneUTC
 )
+
+// Alignment is a 64-bit index for positioning samples within multi-array structures.
+// Packs a domain index (which array) and sample index (position within array) into a
+// single value for efficient multi-dimensional data access.
+type Alignment uint64
