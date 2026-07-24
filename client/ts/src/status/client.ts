@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type UnaryClient } from "@synnaxlabs/freighter";
-import { array, type destructor, primitive } from "@synnaxlabs/x";
+import { array, destructor, primitive } from "@synnaxlabs/x";
 import z from "zod";
 
 import { label } from "@/label";
@@ -255,7 +255,7 @@ export class Client extends query.Retriever<
   async rename(key: Key, name: string, opts: query.WriteOptions = {}): Promise<void> {
     const stat = await this.retrieve({ key });
     const renamed = { ...stat, name };
-    const rollback = new query.Rollback();
+    const rollback = new destructor.Chain();
     rollback.add(this.store.set(renamed));
     rollback.add(ontology.renameCachedResource(this.ontology, ontologyID(key), name));
     await opts.onOptimistic?.();

@@ -17,7 +17,7 @@ import {
   type CrudeTimeStamp,
   DataType,
   deep,
-  type destructor,
+  destructor,
   errors,
   type MultiSeries,
   primitive,
@@ -637,7 +637,7 @@ export class Client extends query.Retriever<
     const { normalized, variant } = analyzeParams(params);
     if (variant === "keys") {
       const keys = normalized;
-      const rollback = new query.Rollback();
+      const rollback = new destructor.Chain();
       const ids = ontologyID(keys);
       rollback.add(ontology.deleteCachedRelationships(this.ontology, ids));
       rollback.add(this.store.delete(keys));
@@ -664,7 +664,7 @@ export class Client extends query.Retriever<
   ): Promise<void> {
     const keysArr = array.toArray(keys);
     const namesArr = array.toArray(names);
-    const rollback = new query.Rollback();
+    const rollback = new destructor.Chain();
     keysArr.forEach((key, i) => {
       const name = namesArr[i];
       rollback.add(this.renameThrough(key, name));

@@ -18,7 +18,6 @@ export {
   type WatchEntry,
 } from "@/query/query";
 export { Retriever, type RetrieverParams, type Retrieves } from "@/query/reader";
-export { Rollback } from "@/query/rollback";
 export {
   type ObservableStream,
   type StreamOpener,
@@ -38,6 +37,6 @@ export {
 export {
   type Data,
   type FetchOptions,
-  type Query,
+  type Params,
   type WriteOptions,
 } from "@/query/types";

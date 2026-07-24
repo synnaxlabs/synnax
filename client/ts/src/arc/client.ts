@@ -12,7 +12,7 @@ import {
   type StreamClient,
   type UnaryClient,
 } from "@synnaxlabs/freighter";
-import { array, deep, type destructor, errors, id, primitive } from "@synnaxlabs/x";
+import { array, deep, destructor, errors, id, primitive } from "@synnaxlabs/x";
 import { z } from "zod/v4";
 
 import { actions } from "@/actions";
@@ -290,7 +290,7 @@ export class Client extends query.Retriever<
       taskKeys.set(i, taskKey);
     }
     const optimistic = params.map((a) => arcZ.parse(a));
-    const rollback = new query.Rollback();
+    const rollback = new destructor.Chain();
     rollback.add(this.store.set(optimistic));
     await opts.onOptimistic?.(optimistic);
     const res = await rollback.guard(
@@ -326,7 +326,7 @@ export class Client extends query.Retriever<
   async rename(key: Key, name: string, opts: query.WriteOptions = {}): Promise<void> {
     const tsk = await this.retrieveTask(key);
     if (tsk != null) await this.taskClient.rename(tsk.key, name);
-    const rollback = new query.Rollback();
+    const rollback = new destructor.Chain();
     rollback.add(query.partialUpdate(this.store, key, { name }));
     await opts.onOptimistic?.();
     await rollback.guard(
@@ -361,7 +361,7 @@ export class Client extends query.Retriever<
 
   async delete(keys: Key | Key[], opts: query.WriteOptions = {}): Promise<void> {
     const keysArr = array.toArray(keys);
-    const rollback = new query.Rollback();
+    const rollback = new destructor.Chain();
     rollback.add(this.store.delete(keysArr));
     await opts.onOptimistic?.();
     await rollback.guard(

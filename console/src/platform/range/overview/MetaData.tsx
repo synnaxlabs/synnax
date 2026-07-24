@@ -95,7 +95,7 @@ const MetaDataListItem = ({
     afterSave: useCallback(
       ({
         reset,
-      }: Flux.AfterSaveParams<query.Query, typeof Ranger.kvPairFormSchema>) => {
+      }: Flux.AfterSaveParams<query.Params, typeof Ranger.kvPairFormSchema>) => {
         onClose?.();
         if (isCreate) reset({ key: "", value: "", range: rangeKey });
       },

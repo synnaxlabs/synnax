@@ -45,7 +45,7 @@ export interface AsyncListOptions extends query.FetchOptions {
 }
 
 export type UseListReturn<
-  Query extends query.Query,
+  Query extends query.Params,
   K extends record.Key,
   E extends record.Keyed<K>,
 > = Omit<Result<K[]>, "data"> & {
@@ -63,7 +63,7 @@ export type UseListReturn<
 };
 
 export interface RetrieveByKeyParams<
-  Query extends query.Query,
+  Query extends query.Params,
   K extends record.Key,
 > extends Omit<RetrieveParams<Query>, "query"> {
   query: Partial<Query>;
@@ -71,7 +71,7 @@ export interface RetrieveByKeyParams<
 }
 
 export interface CreateListParams<
-  Query extends query.Query,
+  Query extends query.Params,
   K extends record.Key,
   E extends record.Keyed<K>,
 > extends CreateRetrieveParams<Query, E[]> {
@@ -88,7 +88,7 @@ export interface CreateListParams<
 }
 
 export interface UseListParams<
-  Query extends query.Query,
+  Query extends query.Params,
   K extends record.Key,
   E extends record.Keyed<K>,
 > {
@@ -100,7 +100,7 @@ export interface UseListParams<
 }
 
 export interface UseList<
-  Query extends query.Query,
+  Query extends query.Params,
   K extends record.Key,
   E extends record.Keyed<K>,
 > {
@@ -118,7 +118,7 @@ interface Page<K extends record.Key> {
 }
 
 export const createList =
-  <Query extends query.Query, Key extends record.Key, Data extends record.Keyed<Key>>({
+  <Query extends query.Params, Key extends record.Key, Data extends record.Keyed<Key>>({
     name,
     retrieve,
     retrieveByKey,
@@ -436,7 +436,7 @@ export const createList =
 export interface UseListItemParams<
   K extends record.Key,
   E extends record.Keyed<K>,
-> extends Pick<UseListReturn<query.Query, K, E>, "subscribe" | "getItem"> {
+> extends Pick<UseListReturn<query.Params, K, E>, "subscribe" | "getItem"> {
   key: K;
 }
 

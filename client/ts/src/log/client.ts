@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type UnaryClient } from "@synnaxlabs/freighter";
-import { array, type destructor } from "@synnaxlabs/x";
+import { array, destructor } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { actions } from "@/actions";
@@ -138,7 +138,7 @@ export class Client extends query.Retriever<
   ): Promise<Log | Log[]> {
     const isMany = Array.isArray(logs);
     const optimistic = array.toArray(logs).map((l) => logZ.parse(l));
-    const rollback = new query.Rollback();
+    const rollback = new destructor.Chain();
     rollback.add(this.store.set(optimistic));
     await opts.onOptimistic?.(optimistic);
     const res = await rollback.guard(
@@ -155,7 +155,7 @@ export class Client extends query.Retriever<
   }
 
   async rename(key: Key, name: string): Promise<void> {
-    const rollback = new query.Rollback();
+    const rollback = new destructor.Chain();
     rollback.add(query.partialUpdate(this.store, key, { name }));
     rollback.add(ontology.renameCachedResource(this.ontology, ontologyID(key), name));
     await rollback.guard(
@@ -241,7 +241,7 @@ export class Client extends query.Retriever<
 
   async delete(keys: Key | Key[], opts: query.WriteOptions = {}): Promise<void> {
     const keysArr = array.toArray(keys);
-    const rollback = new query.Rollback();
+    const rollback = new destructor.Chain();
     rollback.add(
       ontology.deleteCachedRelationships(this.ontology, ontologyID(keysArr)),
     );

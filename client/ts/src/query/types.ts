@@ -31,13 +31,13 @@ export interface WriteOptions<T = void> {
  * primitives, arrays of queries, plain string-keyed objects of queries, or
  * class instances implementing {@link primitive.Hashable}. Maps, Sets, Dates,
  * and non-Hashable class instances are rejected at compile time because their
- * fields don't recursively reduce to {@link Query}.
+ * fields don't recursively reduce to {@link Params}.
  *
  * Consumer query types must be declared with `type` aliases, not `interface`,
  * because TypeScript interfaces lack an implicit string index signature and
- * fail the `{ readonly [k: string]: Query }` branch.
+ * fail the `{ readonly [k: string]: Params }` branch.
  */
-export type Query =
+export type Params =
   | string
   | number
   | bigint
@@ -45,12 +45,12 @@ export type Query =
   | null
   | undefined
   | primitive.Hashable
-  | readonly Query[]
-  | { readonly [key: string]: Query };
+  | readonly Params[]
+  | { readonly [key: string]: Params };
 
 /**
  * Shape of values returned and stored by the cache query system. Unlike
- * {@link Query}, data values do not need to be hashable — they may carry
+ * {@link Params}, data values do not need to be hashable — they may carry
  * arbitrary state including class instances or non-serializable references.
  */
 export type Data = state.State;

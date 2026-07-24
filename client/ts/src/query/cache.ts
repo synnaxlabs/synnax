@@ -12,7 +12,7 @@ import { type destructor, observe, type record, type state } from "@synnaxlabs/x
 import { Queries, type QueriesParams } from "@/query/query";
 import { createStreamer, type Streamer, type StreamOpener } from "@/query/streamer";
 import { type ChannelListener, Table, type TableConfig } from "@/query/table";
-import { type Data, type Query } from "@/query/types";
+import { type Data, type Params } from "@/query/types";
 
 export interface CacheParams {
   /**
@@ -107,7 +107,7 @@ export class Cache {
    * report to the cache's error sink.
    */
   queries<
-    Q extends Query,
+    Q extends Params,
     D extends Data,
     K extends record.Key = record.Key,
     V extends state.State = state.State,

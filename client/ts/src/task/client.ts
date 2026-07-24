@@ -13,6 +13,7 @@ import {
   caseconv,
   type CrudeTimeSpan,
   deep,
+  destructor,
   id,
   primitive,
   type record,
@@ -461,7 +462,7 @@ export class Client extends query.Retriever<
 
   async delete(keys: Key | Key[], opts: query.WriteOptions = {}): Promise<void> {
     const keysArr = array.toArray(keys);
-    const rollback = new query.Rollback();
+    const rollback = new destructor.Chain();
     rollback.add(ontology.deleteCachedResources(this.ontology, ontologyID(keysArr)));
     rollback.add(this.store.delete(keysArr));
     rollback.add(this.statusStore.delete(keysArr.map((k) => statusKey(k))));
@@ -480,7 +481,7 @@ export class Client extends query.Retriever<
   }
 
   async rename(key: Key, name: string, opts: query.WriteOptions = {}): Promise<void> {
-    const rollback = new query.Rollback();
+    const rollback = new destructor.Chain();
     rollback.add(
       this.store.set(key, (p) =>
         p == null ? undefined : this.sugar({ ...p.payload, name }),

@@ -13,7 +13,7 @@ import {
   color,
   type CrudeTimeRange,
   deep,
-  type destructor,
+  destructor,
   primitive,
   type Series,
   TimeRange,
@@ -333,7 +333,7 @@ const affectedRangeKeys = (rel: ontology.Relationship): Key[] | null => {
 };
 
 /** Projects relationship events onto the range keys they affect. */
-const watchRelationships = <Q extends query.Query>(
+const watchRelationships = <Q extends query.Params>(
   relationships: query.Table<string, ontology.Relationship>,
 ): query.WatchEntry<Q, Key> =>
   query.watch<Q, Key, string, ontology.Relationship>(relationships, (event) =>
@@ -356,7 +356,7 @@ const rangesWithLabel = (
 };
 
 /** Projects label content changes onto the ranges they label. */
-const watchLabels = <Q extends query.Query>(
+const watchLabels = <Q extends query.Params>(
   labels: query.Table<label.Key, label.Label>,
   relationships: query.Table<string, ontology.Relationship>,
 ): query.WatchEntry<Q, Key> =>
@@ -537,11 +537,11 @@ export class Client extends query.Retriever<
       this.store.set(key, (p) =>
         p == null ? undefined : this.sugarOne({ ...p.payload, name }),
       );
-    const rollback = new query.Rollback();
-    rollback.add(rename());
-    rollback.add(ontology.renameCachedResource(this.ontology, ontologyID(key), name));
+    const rollbacks = new destructor.Chain();
+    rollbacks.add(rename());
+    rollbacks.add(ontology.renameCachedResource(this.ontology, ontologyID(key), name));
     await opts.onOptimistic?.();
-    await rollback.guard(async () => await this.writer.rename(key, name));
+    await rollbacks.guard(async () => await this.writer.rename(key, name));
     // Re-applied after success: a stale streamer echo may have clobbered the
     // optimistic write while the send was in flight.
     rename();

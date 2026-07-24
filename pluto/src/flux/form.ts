@@ -33,19 +33,19 @@ export interface FormUpdateParams<Schema extends z.ZodType<query.Data>>
     Omit<Form.UseReturn<Schema>, "setStatus"> {}
 
 /** Client and query handles for a form operation. */
-interface FormClientParams<Query extends query.Query> {
+interface FormClientParams<Query extends query.Params> {
   client: Client;
   query: Query;
 }
 
 export interface FormRetrieveParams<
-  Query extends query.Query,
+  Query extends query.Params,
   Schema extends z.ZodType<query.Data>,
 >
   extends Form.UseReturn<Schema>, FormClientParams<Query> {}
 
 export interface CreateFormParams<
-  Query extends query.Query,
+  Query extends query.Params,
   Schema extends z.ZodType<query.Data>,
 > {
   name: string;
@@ -67,29 +67,29 @@ export type UseFormReturn<Schema extends z.ZodType<query.Data>> = Omit<
 };
 
 export interface FormBeforeSaveParams<
-  Query extends query.Query,
+  Query extends query.Params,
   Schema extends z.ZodType<query.Data>,
 >
   extends Form.UseReturn<Schema>, FormClientParams<Query> {}
 
 interface FormMountListenersParams<
-  Query extends query.Query,
+  Query extends query.Params,
   Schema extends z.ZodType<query.Data>,
 >
   extends Form.UseReturn<Schema>, FormClientParams<Query> {}
 
 export interface AfterSaveParams<
-  Query extends query.Query,
+  Query extends query.Params,
   Schema extends z.ZodType<query.Data>,
 > extends FormBeforeSaveParams<Query, Schema> {}
 
 export interface BeforeValidateParams<
-  Query extends query.Query,
+  Query extends query.Params,
   Schema extends z.ZodType<query.Data>,
 > extends FormBeforeSaveParams<Query, Schema> {}
 
 export interface UseFormParams<
-  Query extends query.Query,
+  Query extends query.Params,
   Schema extends z.ZodType<query.Data>,
 > extends Pick<Form.UseParams<Schema>, "sync" | "onHasTouched" | "mode"> {
   initialValues?: z.infer<Schema>;
@@ -101,7 +101,7 @@ export interface UseFormParams<
 }
 
 export interface UseForm<
-  Query extends query.Query,
+  Query extends query.Params,
   Schema extends z.ZodType<query.Data>,
 > {
   (params: UseFormParams<Query, Schema>): UseFormReturn<Schema>;
@@ -113,7 +113,7 @@ const DEFAULT_SET_OPTIONS: Form.SetOptions = {
 };
 
 export const createForm =
-  <Query extends query.Query, Schema extends z.ZodType<query.Data>>({
+  <Query extends query.Params, Schema extends z.ZodType<query.Data>>({
     name,
     schema,
     retrieve,

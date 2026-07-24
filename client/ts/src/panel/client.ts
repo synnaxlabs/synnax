@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type UnaryClient } from "@synnaxlabs/freighter";
-import { array, type destructor, primitive } from "@synnaxlabs/x";
+import { array, destructor, primitive } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { actions } from "@/actions";
@@ -178,7 +178,7 @@ export class Client extends query.Retriever<
   ): Promise<Panel | Panel[]> {
     const isMany = Array.isArray(panels);
     const optimistic = array.toArray(panels).map((p) => panelZ.parse(p));
-    const rollback = new query.Rollback();
+    const rollback = new destructor.Chain();
     rollback.add(this.store.set(optimistic));
     await opts.onOptimistic?.(optimistic);
     // onOptimistic may dispatch further local mutations against these keys
@@ -199,7 +199,7 @@ export class Client extends query.Retriever<
   }
 
   async rename(key: Key, name: string): Promise<void> {
-    const rollback = new query.Rollback();
+    const rollback = new destructor.Chain();
     rollback.add(query.partialUpdate(this.store, key, { name }));
     rollback.add(ontology.renameCachedResource(this.ontology, ontologyID(key), name));
     // Rename routes through dispatch so the action channel broadcasts the change
@@ -289,7 +289,7 @@ export class Client extends query.Retriever<
   async delete(keys: Key[], opts?: query.WriteOptions): Promise<void>;
   async delete(keys: Key | Key[], opts: query.WriteOptions = {}): Promise<void> {
     const keysArr = array.toArray(keys);
-    const rollback = new query.Rollback();
+    const rollback = new destructor.Chain();
     rollback.add(ontology.deleteCachedResources(this.ontology, ontologyID(keysArr)));
     rollback.add(this.store.delete(keysArr));
     await opts.onOptimistic?.();

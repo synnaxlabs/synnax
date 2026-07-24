@@ -18,7 +18,7 @@ import {
 
 import { NotFoundError } from "@/errors";
 import { type Table, type TableEvent } from "@/query/table";
-import { type Data, type FetchOptions, type Query } from "@/query/types";
+import { type Data, type FetchOptions, type Params } from "@/query/types";
 
 /**
  * Deterministically serializes a query to a stable string. Keys are sorted
@@ -26,14 +26,14 @@ import { type Data, type FetchOptions, type Query } from "@/query/types";
  * Class instances implementing {@link primitive.Hashable} delegate to their
  * `hash()` method; plain objects and arrays recurse structurally.
  */
-export const hashQuery = (query: Query): string => {
+export const hashQuery = (query: Params): string => {
   if (query === null) return "null";
   if (query === undefined) return "undefined";
   if (typeof query === "bigint") return `${query.toString()}n`;
   if (typeof query !== "object") return JSON.stringify(query);
   if (primitive.isHashable(query)) return query.hash();
   if (Array.isArray(query)) return `[${query.map(hashQuery).join(",")}]`;
-  const entries = Object.entries(query as Record<string, Query>).sort(([a], [b]) =>
+  const entries = Object.entries(query as Record<string, Params>).sort(([a], [b]) =>
     a < b ? -1 : a > b ? 1 : 0,
   );
   return `{${entries.map(([k, v]) => `${JSON.stringify(k)}:${hashQuery(v)}`).join(",")}}`;
@@ -59,7 +59,7 @@ export interface ChangeHandler<D extends Data> {
  * A foreign-table subscription for an answer space: projects that table's
  * events onto the space's primary keys. Build with {@link watch}.
  */
-export interface WatchEntry<Q extends Query, K extends record.Key> {
+export interface WatchEntry<Q extends Params, K extends record.Key> {
   attach: (
     query: Q,
     onEvent: (result: K[] | "refetch") => void,
@@ -72,7 +72,7 @@ export interface WatchEntry<Q extends Query, K extends record.Key> {
  * touches, "refetch" to invalidate wholesale, or null when unaffected.
  */
 export const watch = <
-  Q extends Query,
+  Q extends Params,
   K extends record.Key,
   FK extends record.Key,
   FV extends state.State,
@@ -101,7 +101,7 @@ export const watch = <
  *    (or neither `keyOf` nor `matches` applies): debounced wholesale refetch.
  */
 export interface QueriesParams<
-  Q extends Query,
+  Q extends Params,
   D extends Data,
   K extends record.Key = record.Key,
   V extends state.State = state.State,
@@ -166,7 +166,7 @@ type EntryState<K extends record.Key, D extends Data> =
   | { variant: "error"; error: Error }
   | { variant: "deleted"; key: K };
 
-interface Entry<Q extends Query, K extends record.Key, D extends Data> {
+interface Entry<Q extends Params, K extends record.Key, D extends Data> {
   query: Q;
   state: EntryState<K, D>;
   /** Memoized view for referential stability; invalidated on every change. */
@@ -188,7 +188,7 @@ interface Entry<Q extends Query, K extends record.Key, D extends Data> {
  * answer, recomposed against live tables.
  */
 export class Queries<
-  Q extends Query,
+  Q extends Params,
   D extends Data,
   K extends record.Key = record.Key,
   V extends state.State = state.State,

@@ -10,10 +10,10 @@
 import { type destructor } from "@synnaxlabs/x";
 
 import { type Cached, type ChangeHandler } from "@/query/query";
-import { type Data, type Query } from "@/query/types";
+import { type Data, type Params } from "@/query/types";
 
 /** The read surface of one answer space: fetch, subscribe, snapshot. */
-export interface Retrieves<Q extends Query, D extends Data> {
+export interface Retrieves<Q extends Params, D extends Data> {
   retrieve: (query: Q) => Promise<D>;
   onChange: (query: Q, handler: ChangeHandler<D>) => destructor.Destructor;
   getCached: (query: Q) => Cached<D> | undefined;
@@ -22,8 +22,8 @@ export interface Retrieves<Q extends Query, D extends Data> {
 export interface RetrieverParams<
   SingleParams,
   MultiParams,
-  SingleQuery extends Query,
-  MultiQuery extends Query,
+  SingleQuery extends Params,
+  MultiQuery extends Params,
   V extends Data,
 > {
   /** The space answering queries that address exactly one record. */
@@ -65,8 +65,8 @@ export interface RetrieverParams<
 export abstract class Retriever<
   SingleParams,
   MultiParams,
-  SingleQuery extends Query,
-  MultiQuery extends Query,
+  SingleQuery extends Params,
+  MultiQuery extends Params,
   V extends Data,
 > {
   private readonly reads: RetrieverParams<

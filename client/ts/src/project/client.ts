@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type UnaryClient } from "@synnaxlabs/freighter";
-import { array, caseconv, type destructor, primitive, record } from "@synnaxlabs/x";
+import { array, caseconv, destructor, primitive, record } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { ontology } from "@/ontology";
@@ -152,7 +152,7 @@ export class Client extends query.Retriever<
     layout: record.Unknown,
     opts: query.WriteOptions = {},
   ): Promise<void> {
-    const rollback = new query.Rollback();
+    const rollback = new destructor.Chain();
     rollback.add(query.partialUpdate(this.store, key, { layout }));
     await opts.onOptimistic?.();
     await rollback.guard(
@@ -171,7 +171,7 @@ export class Client extends query.Retriever<
   async delete(keys: Key[], opts?: query.WriteOptions): Promise<void>;
   async delete(keys: Key | Key[], opts: query.WriteOptions = {}): Promise<void> {
     const keysArr = array.toArray(keys);
-    const rollback = new query.Rollback();
+    const rollback = new destructor.Chain();
     rollback.add(ontology.deleteCachedResources(this.ontology, ontologyID(keysArr)));
     rollback.add(this.store.delete(keysArr));
     await opts.onOptimistic?.();
