@@ -151,7 +151,6 @@ export const Provider = ({ children, connParams }: ProviderProps): ReactElement 
   );
 
   useEffect(() => {
-    if (ref.current.client != null) ref.current.client.close();
     if (connParams == null) {
       setState(ZERO_CONTEXT_VALUE);
       return;
