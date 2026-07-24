@@ -73,12 +73,6 @@ const (
 	RHSInputParam = "b"
 )
 
-// NodeMember builds a leaf Member referencing the node with the given key.
-func NodeMember(key string) Member { return Member{NodeKey: new(key)} }
-
-// ScopeMember builds a Member wrapping the given nested Scope.
-func ScopeMember(s Scope) Member { return Member{Scope: &s} }
-
 func (i *IR) IsZero() bool {
 	return len(i.Functions) == 0 &&
 		len(i.Nodes) == 0 &&
