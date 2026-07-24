@@ -19,6 +19,7 @@ import (
 	telem "github.com/synnaxlabs/x/telem/versions/v0"
 )
 
+// EncodeOrc writes the value to w in the Orc binary format.
 func (s Status[Details]) EncodeOrc(w *orc.Writer) error {
 	w.String(s.Key)
 	w.String(s.Name)
@@ -47,6 +48,7 @@ func (s Status[Details]) EncodeOrc(w *orc.Writer) error {
 	return nil
 }
 
+// DecodeOrc reads the value from r in the Orc binary format.
 func (s *Status[Details]) DecodeOrc(r *orc.Reader) error {
 	var err error
 	if s.Key, err = r.String(); err != nil {

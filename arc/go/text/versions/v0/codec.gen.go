@@ -13,11 +13,13 @@ package v0
 
 import "github.com/synnaxlabs/x/encoding/orc"
 
+// EncodeOrc writes the value to w in the Orc binary format.
 func (t Text) EncodeOrc(w *orc.Writer) error {
 	w.String(t.Raw)
 	return nil
 }
 
+// DecodeOrc reads the value from r in the Orc binary format.
 func (t *Text) DecodeOrc(r *orc.Reader) error {
 	var err error
 	if t.Raw, err = r.String(); err != nil {

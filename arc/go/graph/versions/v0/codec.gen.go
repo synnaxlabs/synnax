@@ -18,6 +18,7 @@ import (
 	"github.com/synnaxlabs/x/encoding/orc"
 )
 
+// EncodeOrc writes the value to w in the Orc binary format.
 func (g Graph) EncodeOrc(w *orc.Writer) error {
 	if err := g.Viewport.EncodeOrc(w); err != nil {
 		return err
@@ -52,6 +53,7 @@ func (g Graph) EncodeOrc(w *orc.Writer) error {
 	return nil
 }
 
+// DecodeOrc reads the value from r in the Orc binary format.
 func (g *Graph) DecodeOrc(r *orc.Reader) error {
 	var err error
 	if err = g.Viewport.DecodeOrc(r); err != nil {
@@ -114,6 +116,7 @@ func (g *Graph) DecodeOrc(r *orc.Reader) error {
 	return nil
 }
 
+// EncodeOrc writes the value to w in the Orc binary format.
 func (vv Viewport) EncodeOrc(w *orc.Writer) error {
 	if err := vv.Position.EncodeOrc(w); err != nil {
 		return err
@@ -122,6 +125,7 @@ func (vv Viewport) EncodeOrc(w *orc.Writer) error {
 	return nil
 }
 
+// DecodeOrc reads the value from r in the Orc binary format.
 func (vv *Viewport) DecodeOrc(r *orc.Reader) error {
 	var err error
 	if err = vv.Position.DecodeOrc(r); err != nil {
@@ -133,6 +137,7 @@ func (vv *Viewport) DecodeOrc(r *orc.Reader) error {
 	return nil
 }
 
+// EncodeOrc writes the value to w in the Orc binary format.
 func (nv Node) EncodeOrc(w *orc.Writer) error {
 	w.String(nv.Key)
 	w.String(nv.Type)
@@ -149,6 +154,7 @@ func (nv Node) EncodeOrc(w *orc.Writer) error {
 	return nil
 }
 
+// DecodeOrc reads the value from r in the Orc binary format.
 func (nv *Node) DecodeOrc(r *orc.Reader) error {
 	var err error
 	if nv.Key, err = r.String(); err != nil {
