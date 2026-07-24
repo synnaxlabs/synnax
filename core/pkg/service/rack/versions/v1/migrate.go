@@ -21,7 +21,7 @@ import (
 	"github.com/synnaxlabs/x/migrate"
 )
 
-// migrateRack lifts a v0 rack into the current shape, dropping the persisted status.
+// migrateRack lifts a v0 rack into the v1 shape, dropping the persisted status.
 func migrateRack(ctx context.Context, old v0.Rack) (Rack, error) {
 	return autoMigrateRack(ctx, old)
 }

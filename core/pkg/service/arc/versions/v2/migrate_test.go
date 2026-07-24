@@ -35,7 +35,7 @@ import (
 )
 
 var _ = Describe("MigrateArc", func() {
-	Describe("v1 -> current", func() {
+	Describe("v1 -> v2", func() {
 		It("Should lift a v1 arc, seeding the document from the raw text", func(ctx SpecContext) {
 			key := uuid.New()
 			migrated := migrateFromV1(ctx, v1.Arc{
@@ -51,7 +51,7 @@ var _ = Describe("MigrateArc", func() {
 		})
 	})
 
-	Describe("v0 -> current", func() {
+	Describe("v0 -> v2", func() {
 		It("Should seed the document from the previously persisted raw text", func(ctx SpecContext) {
 			got := migrateFromV0(ctx, v0.Arc{
 				Key:  uuid.New(),

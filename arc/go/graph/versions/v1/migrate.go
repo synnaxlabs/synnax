@@ -16,19 +16,19 @@ import (
 	irv0 "github.com/synnaxlabs/arc/ir/versions/v0"
 )
 
-// MigrateGraph lifts a v0 graph into the current shape; arc's generated
+// MigrateGraph lifts a v0 graph into the v1 shape; arc's generated
 // migrations consume it cross-package.
 func MigrateGraph(ctx context.Context, old v0.Graph) (Graph, error) {
 	return autoMigrateGraph(ctx, old)
 }
 
-// migrateEdge lifts a v0 IR edge into the current keyed graph edge, assigning a
+// migrateEdge lifts a v0 IR edge into the v1 keyed graph edge, assigning a
 // fresh key.
 func migrateEdge(ctx context.Context, old irv0.Edge) (Edge, error) {
 	return autoMigrateEdge(ctx, old)
 }
 
-// migrateNode lifts a v0 node into the current shape, dropping the config and type
+// migrateNode lifts a v0 node into the v1 shape, dropping the config and type
 // fields that moved to Graph.Inputs.
 func migrateNode(ctx context.Context, old v0.Node) (Node, error) {
 	return autoMigrateNode(ctx, old)

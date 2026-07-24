@@ -25,7 +25,7 @@ import (
 	"github.com/synnaxlabs/x/spatial"
 )
 
-// migrateSchematic transforms the previous schematic snapshot (v0) into the current
+// migrateSchematic transforms the previous schematic snapshot (v6) into the v7
 // strongly-typed Schematic. autoMigrateSchematic handles the trivially-copyable
 // gorp-entry fields (Key, Name, Snapshot); the body fields are sourced from the
 // per-schematic blob the console used to persist alongside those gorp fields, after

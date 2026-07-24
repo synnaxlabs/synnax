@@ -20,7 +20,7 @@ import (
 	"github.com/synnaxlabs/x/migrate"
 )
 
-// migrateTable transforms the previous Table snapshot (v0) into the current
+// migrateTable transforms the previous Table snapshot (v1) into the v2
 // strongly-typed Table. autoMigrateTable handles the trivially-copyable gorp-entry
 // fields (Key, Name); the structural fields (Rows, Columns, Cells) are sourced from the
 // opaque blob the console used to persist alongside those fields, after

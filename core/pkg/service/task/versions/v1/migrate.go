@@ -21,7 +21,7 @@ import (
 	"github.com/synnaxlabs/x/migrate"
 )
 
-// migrateTask lifts a v0 task into the current shape, dropping the persisted status.
+// migrateTask lifts a v0 task into the v1 shape, dropping the persisted status.
 func migrateTask(ctx context.Context, old v0.Task) (Task, error) {
 	return autoMigrateTask(ctx, old)
 }

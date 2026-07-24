@@ -14,7 +14,6 @@ import (
 
 	v0 "github.com/synnaxlabs/synnax/pkg/service/status/versions/v0"
 	"github.com/synnaxlabs/x/gorp"
-	"github.com/synnaxlabs/x/telem"
 )
 
 // Migration lifts stored statuses from v0 to v1. Labels are intentionally dropped: they
@@ -26,12 +25,11 @@ var Migration = gorp.NewEntryMigration(
 		return Status[any]{
 			Key:         old.Key,
 			Name:        old.Name,
-			Variant:     Variant(old.Variant),
+			Variant:     old.Variant,
 			Message:     old.Message,
 			Description: old.Description,
-			Time:        telem.TimeStamp(old.Time),
+			Time:        old.Time,
 			Details:     old.Details,
-			Labels:      nil,
 		}, nil
 	},
 )

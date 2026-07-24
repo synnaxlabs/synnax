@@ -24,7 +24,7 @@ import (
 	"github.com/synnaxlabs/x/text"
 )
 
-// migrateLinePlot transforms the previous line plot snapshot (v0) into the current
+// migrateLinePlot transforms the previous line plot snapshot (v5) into the v6
 // strongly-typed LinePlot. autoMigrateLinePlot handles the trivially-copyable
 // gorp-entry fields (Key, Name); the body fields are sourced from the per-plot blob the
 // console used to persist alongside those gorp fields, after legacy.MigrateData walks

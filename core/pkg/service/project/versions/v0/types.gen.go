@@ -21,7 +21,7 @@ type Key = uuid.UUID
 
 // Workspace is the frozen shape of the type that became Project. It is retained so the
 // workspace-to-project migration can decode records persisted under the legacy
-// "Workspace" gorp prefix before lifting them into the current Project type.
+// "Workspace" gorp prefix before lifting them into the v1 Project type.
 type Workspace struct {
 	// Key is the unique identifier for this workspace.
 	Key Key `json:"key" msgpack:"key"`

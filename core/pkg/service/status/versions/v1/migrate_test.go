@@ -24,7 +24,7 @@ import (
 	. "github.com/synnaxlabs/x/testutil"
 )
 
-var _ = Describe("v0 -> current Status migration", func() {
+var _ = Describe("v0 -> v1 Status migration", func() {
 	It("drops Labels from the wire and preserves core fields when v0 entries carry populated Labels", func(ctx SpecContext) {
 		db := DeferClose(gorp.Wrap(memkv.New()))
 

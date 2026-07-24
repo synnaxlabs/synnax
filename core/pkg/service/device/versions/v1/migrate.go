@@ -21,7 +21,7 @@ import (
 	"github.com/synnaxlabs/x/migrate"
 )
 
-// migrateDevice lifts a v0 device into the current shape, dropping the persisted
+// migrateDevice lifts a v0 device into the v1 shape, dropping the persisted
 // status and parent.
 func migrateDevice(ctx context.Context, old v0.Device) (Device, error) {
 	return autoMigrateDevice(ctx, old)
