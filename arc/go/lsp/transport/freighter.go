@@ -13,6 +13,7 @@ import (
 	"context"
 	"encoding/json"
 	"io"
+	"sync"
 	"sync/atomic"
 
 	"github.com/synnaxlabs/arc/lsp"
@@ -44,13 +45,17 @@ const DefaultMaxContentLength = 10 * 1024 * 1024 // 10MB
 var ErrContentLengthExceeded = errors.New("[transport] - content length exceeded maximum allowed size")
 
 // streamAdapter wraps a freighter stream to implement jsonrpc2.Stream. Each freighter
-// message carries one fully-encoded JSON-RPC envelope in Content. Thread safety is
-// handled by jsonrpc2.Conn, which serializes writes and uses a single goroutine for
-// reads; only the closed flag needs an atomic.
+// message carries one fully-encoded JSON-RPC envelope in Content. jsonrpc2 v1 requires
+// Write to be safe for concurrent use (unlike v0.10, which serialized writes in the
+// Conn), so writeMu serializes Send: the underlying freighter/websocket stream panics
+// on concurrent writes. Reads run on the Conn's single read goroutine.
 type streamAdapter struct {
 	stream           freighter.ServerStream[JSONRPCMessage, JSONRPCMessage]
 	closed           atomic.Bool
 	maxContentLength int
+	// writeMu serializes concurrent Write callers (handler responses racing async
+	// diagnostic/semantic-token notifications).
+	writeMu sync.Mutex
 	// ready gates the first Read until the server's client dispatcher has been wired
 	// via SetClient, so an eager client cannot trigger a notification handler that
 	// publishes diagnostics before the client is set.
@@ -93,6 +98,8 @@ func (s *streamAdapter) Write(_ context.Context, msg jsonrpc2.Message) (int64, e
 	if len(data) > s.maxContentLength {
 		return 0, ErrContentLengthExceeded
 	}
+	s.writeMu.Lock()
+	defer s.writeMu.Unlock()
 	if err := s.stream.Send(JSONRPCMessage{Content: string(data)}); err != nil {
 		return 0, err
 	}
