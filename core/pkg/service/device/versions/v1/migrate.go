@@ -27,7 +27,7 @@ func migrateDevice(ctx context.Context, old v0.Device) (Device, error) {
 	return autoMigrateDevice(ctx, old)
 }
 
-// codecMigration re-encodes stored devices from msgpack to orc. It is pinned
+// codecMigration re-encodes stored devices from MessagePack to Orc. It is pinned
 // to the v1 shapes so its output stays stable as Device evolves.
 var codecMigration = gorp.CodecMigration[Key, v0.Device](
 	"msgpack_to_orc", v0.NewMigration(v0.MigrationConfig{}).Key(),

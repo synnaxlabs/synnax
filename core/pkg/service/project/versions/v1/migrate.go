@@ -22,7 +22,7 @@ import (
 	"github.com/synnaxlabs/x/migrate"
 )
 
-// codecMigration re-encodes stored workspaces from msgpack to orc. It is pinned to the
+// codecMigration re-encodes stored workspaces from MessagePack to Orc. It is pinned to the
 // v0 shape so its output stays stable as Project evolves.
 var codecMigration = gorp.CodecMigration[Key, v0.Workspace]("msgpack_to_orc")
 
@@ -111,8 +111,8 @@ func renameWorkspaceGroup(ctx context.Context, tx gorp.Tx) error {
 }
 
 // liftWorkspaces copies every legacy workspace record into the project table and
-// removes it from the workspace table. The DB codec decodes the legacy records (orc,
-// falling back to msgpack) and re-encodes the projects as orc.
+// removes it from the workspace table. The DB codec decodes the legacy records (Orc,
+// falling back to MessagePack) and re-encodes the projects as Orc.
 func liftWorkspaces(ctx context.Context, tx gorp.Tx) error {
 	stale, err := collectEntries(
 		ctx,

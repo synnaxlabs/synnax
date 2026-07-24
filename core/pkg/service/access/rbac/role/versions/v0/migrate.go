@@ -11,5 +11,5 @@ package v0
 
 import "github.com/synnaxlabs/x/gorp"
 
-// Migration re-encodes stored roles from msgpack to orc.
+// Migration re-encodes stored roles from MessagePack to Orc.
 var Migration = gorp.CodecMigration[Key, Role]("msgpack_to_orc")

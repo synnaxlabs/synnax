@@ -29,7 +29,7 @@ import (
 	"go.uber.org/zap"
 )
 
-// codecMigration re-encodes stored panels from msgpack to orc.
+// codecMigration re-encodes stored panels from MessagePack to Orc.
 var codecMigration = gorp.CodecMigration[Key, Panel]("msgpack_to_orc")
 
 // migratableLayoutTypes maps the Console layout types whose layout key is the key of

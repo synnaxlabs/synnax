@@ -50,7 +50,7 @@ func legacyStatusConfigString(config msgpack.EncodedJSON, key, def string) strin
 	return def
 }
 
-// codecMigration re-encodes stored arcs from msgpack to orc. It is pinned to the v0
+// codecMigration re-encodes stored arcs from MessagePack to Orc. It is pinned to the v0
 // shape so its output stays stable as Arc evolves.
 var codecMigration = gorp.CodecMigration[Key, v0.Arc]("msgpack_to_orc")
 

@@ -74,7 +74,7 @@ func migrateCells(in map[string]v0.Cell) map[string]Cell {
 	return out
 }
 
-// codecMigration re-encodes stored tables from msgpack to orc. It is pinned to the v1
+// codecMigration re-encodes stored tables from MessagePack to Orc. It is pinned to the v1
 // shape so its output stays stable as Table evolves.
 var codecMigration = gorp.CodecMigration[Key, v1.Table]("msgpack_to_orc")
 

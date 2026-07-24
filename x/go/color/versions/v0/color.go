@@ -123,7 +123,7 @@ func (c *Color) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
-// DecodeMsgpack supports backwards-compatible decoding from msgpack. Old data stored
+// DecodeMsgpack supports backwards-compatible decoding from MessagePack. Old data stored
 // as a string (hex) in Pebble will be decoded correctly. Also handles map (struct)
 // and array formats.
 func (c *Color) DecodeMsgpack(dec *msgpack.Decoder) error {
