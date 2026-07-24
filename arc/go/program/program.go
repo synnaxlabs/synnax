@@ -7,6 +7,52 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+// Package program provides the compiled Arc program representation.
+//
+// A Program combines an intermediate representation (IR) with compiled WebAssembly
+// bytecode, representing a complete executable Arc program. Programs are the final
+// output of the Arc compilation pipeline and can be serialized for storage or executed
+// by a WebAssembly runtime.
+//
+// # Compilation Pipeline
+//
+// Programs fit into the Arc compilation pipeline as follows:
+//
+//	Parser → AST → Analyzer → IR → Compiler → Program (IR + WASM)
+//
+// # Usage Example
+//
+// Creating a program from Arc source code:
+//
+//	import (
+//	    "context"
+//
+//	    "github.com/synnaxlabs/arc/text"
+//	)
+//
+//	// Parse Arc source code
+//	src := text.Text{Raw: "func add(a i64, b i64) i64 { return a + b }"}
+//	parsed, err := text.Parse(src)
+//	if err != nil {
+//	    panic(err)
+//	}
+//
+//	// Analyze to produce IR
+//	ir, diag := text.Analyze(context.Background(), parsed, nil)
+//	if !diag.Ok() {
+//	    panic(diag.Error())
+//	}
+//
+//	// Compile to program with WASM
+//	prog, err := text.Compile(context.Background(), ir)
+//	if err != nil {
+//	    panic(err)
+//	}
+//
+//	// Program now contains both IR and compiled WASM bytecode
+//	wasm := prog.WASM              // WebAssembly bytecode
+//	functions := prog.Functions    // Function definitions
+//	symbols := prog.Symbols        // Symbol table
 package program
 
 import (
@@ -15,6 +61,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/x/tree"
 )
 
@@ -46,24 +93,19 @@ func (p Program) String() string {
 	hasContent := len(p.Functions) > 0 || len(p.Nodes) > 0 ||
 		len(p.Edges) > 0 || !p.Root.IsZero()
 
-	// WASM summary
 	b.WriteString(tree.Prefix(!hasContent))
-	b.WriteString(p.wasmSummary())
+	if len(p.WASM) == 0 {
+		b.WriteString("WASM: (none)")
+	} else {
+		hash := sha256.Sum256(p.WASM)
+		shortHash := hex.EncodeToString(hash[:])[:8]
+		lo.Must(fmt.Fprintf(&b, "WASM: %d bytes (sha256: %s...)", len(p.WASM), shortHash))
+	}
 	b.WriteString("\n")
 
-	// Delegate to IR for remaining content
 	if hasContent {
 		b.WriteString(p.IR.String())
 	}
 
 	return b.String()
-}
-
-func (p Program) wasmSummary() string {
-	if len(p.WASM) == 0 {
-		return "WASM: (none)"
-	}
-	hash := sha256.Sum256(p.WASM)
-	shortHash := hex.EncodeToString(hash[:])[:8]
-	return fmt.Sprintf("WASM: %d bytes (sha256: %s...)", len(p.WASM), shortHash)
 }
