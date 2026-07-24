@@ -31,14 +31,12 @@ type Nodes = v0.Nodes
 type Members = []Member
 
 // EdgeKind defines execution semantics for dataflow edges between nodes.
-type EdgeKind uint8
-
-//go:generate stringer -type=EdgeKind
+type EdgeKind = v0.EdgeKind
 
 const (
-	EdgeKindUnspecified EdgeKind = iota
-	EdgeKindContinuous
-	EdgeKindConditional
+	EdgeKindUnspecified EdgeKind = v0.EdgeKindUnspecified
+	EdgeKindContinuous  EdgeKind = v0.EdgeKindContinuous
+	EdgeKindConditional EdgeKind = v0.EdgeKindConditional
 )
 
 // ScopeMode defines the concurrency model of a Scope.

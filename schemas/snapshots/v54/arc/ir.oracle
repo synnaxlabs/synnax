@@ -29,7 +29,7 @@ Handle struct {
 EdgeKind enum {
     unspecified = 0
     continuous  = 1
-    one_shot    = 2
+    conditional = 2
 
     @doc value "defines execution semantics for dataflow edges between nodes."
 }

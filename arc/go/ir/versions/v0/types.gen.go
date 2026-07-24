@@ -48,7 +48,7 @@ type EdgeKind uint8
 const (
 	EdgeKindUnspecified EdgeKind = iota
 	EdgeKindContinuous
-	EdgeKindOneShot
+	EdgeKindConditional
 )
 
 // Function is a function template definition with typed parameters, serving as a
