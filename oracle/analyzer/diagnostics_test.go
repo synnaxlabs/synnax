@@ -129,11 +129,19 @@ var _ = Describe("FileDiagnostics", func() {
 			Expect(fd.String()).To(Equal("analysis successful"))
 		})
 
-		It("Should format every file's diagnostics", func() {
+		It("Should format every file's diagnostics under its file name", func() {
 			fd.Report("a.oracle", errAt("a error"))
 			fd.Report("b.oracle", warnAt("b warning"))
+			Expect(fd.String()).To(ContainSubstring("a.oracle:\n"))
 			Expect(fd.String()).To(ContainSubstring("a error"))
+			Expect(fd.String()).To(ContainSubstring("b.oracle:\n"))
 			Expect(fd.String()).To(ContainSubstring("b warning"))
+		})
+
+		It("Should omit the file header for diagnostics with no file", func() {
+			fd.Add(errAt("free-floating error"))
+			Expect(fd.String()).ToNot(ContainSubstring(":\n"))
+			Expect(fd.String()).To(ContainSubstring("free-floating error"))
 		})
 
 		It("Should report the formatted diagnostics as the error message", func() {

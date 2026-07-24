@@ -616,7 +616,7 @@ func formatModuleMembersList(sym *symbol.Symbol) []string {
 
 // symbolToLocation converts a symbol to an LSP Location pointing to its definition
 func (s *Server) symbolToLocation(
-	uri uri.URI,
+	docURI uri.URI,
 	sym *symbol.Symbol,
 ) *protocol.Location {
 	if sym.AST == nil {
@@ -629,7 +629,7 @@ func (s *Server) symbolToLocation(
 	line := uint32(start.GetLine() - 1)
 	col := uint32(start.GetColumn())
 	return &protocol.Location{
-		URI: uri,
+		URI: docURI,
 		Range: protocol.Range{
 			Start: protocol.Position{Line: line, Character: col},
 			End:   protocol.Position{Line: line, Character: col + uint32(len(sym.Name))},

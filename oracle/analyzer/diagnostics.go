@@ -110,12 +110,19 @@ func (f *FileDiagnostics) Flat() diagnostics.Diagnostics {
 	return out
 }
 
-// String formats all diagnostics grouped by file.
+// String formats all diagnostics grouped by file, prefixing each group with its file
+// name when one is known.
 func (f *FileDiagnostics) String() string {
 	parts := make([]string, 0, len(f.order))
 	for _, file := range f.order {
-		if ds := f.byFile[file]; !ds.Empty() {
+		ds := f.byFile[file]
+		if ds.Empty() {
+			continue
+		}
+		if file == "" {
 			parts = append(parts, ds.String())
+		} else {
+			parts = append(parts, file+":\n"+ds.String())
 		}
 	}
 	if len(parts) == 0 {

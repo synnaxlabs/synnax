@@ -211,10 +211,10 @@ func (s *Server) SetClient(client protocol.Client) {
 // the write lock, and a reader holding the snapshot is unaffected. Callers must not
 // mutate the returned document — writes do not reach the live document and would be
 // lost.
-func (s *Server) getDocument(uri uri.URI) (*Document, bool) {
+func (s *Server) getDocument(docURI uri.URI) (*Document, bool) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
-	doc, ok := s.documents[uri]
+	doc, ok := s.documents[docURI]
 	if !ok {
 		return nil, false
 	}
@@ -289,15 +289,15 @@ func (s *Server) DidOpen(
 	ctx context.Context,
 	params *protocol.DidOpenTextDocumentParams,
 ) error {
-	uri := params.TextDocument.URI
-	s.cfg.L.Debug("document opened", zap.String("uri", string(uri)))
-	metadata := extractMetadataFromURI(uri)
+	docURI := params.TextDocument.URI
+	s.cfg.L.Debug("document opened", zap.String("uri", string(docURI)))
+	metadata := extractMetadataFromURI(docURI)
 	s.cfg.L.Debug("file meta-data",
-		zap.String("uri", string(uri)),
+		zap.String("uri", string(docURI)),
 		zap.Bool("hasMetadata", metadata != nil),
 		zap.Bool("isBlock", metadata != nil && metadata.isFunctionBlock))
 	doc := &Document{
-		URI:      uri,
+		URI:      docURI,
 		Version:  params.TextDocument.Version,
 		Content:  params.TextDocument.Text,
 		metadata: metadata,
@@ -305,17 +305,17 @@ func (s *Server) DidOpen(
 	deb, err := debounce.New(debounce.Config{
 		Delay:    s.cfg.DebounceDelay,
 		MaxDelay: s.cfg.MaxDebounceDelay,
-		Callback: func(ctx context.Context) { s.runAnalysis(ctx, doc, uri) },
+		Callback: func(ctx context.Context) { s.runAnalysis(ctx, doc, docURI) },
 	})
 	if err != nil {
 		return errors.Wrap(err, "create document debouncer")
 	}
 	doc.debouncer = deb
 	s.mu.Lock()
-	s.documents[uri] = doc
+	s.documents[docURI] = doc
 	s.mu.Unlock()
 
-	s.publishDiagnostics(ctx, uri, params.TextDocument.Text)
+	s.publishDiagnostics(ctx, docURI, params.TextDocument.Text)
 
 	return nil
 }
@@ -325,11 +325,11 @@ func (s *Server) DidChange(
 	_ context.Context,
 	params *protocol.DidChangeTextDocumentParams,
 ) error {
-	uri := params.TextDocument.URI
-	s.cfg.L.Debug("Document changed", zap.String("uri", string(uri)))
+	docURI := params.TextDocument.URI
+	s.cfg.L.Debug("Document changed", zap.String("uri", string(docURI)))
 
 	s.mu.Lock()
-	doc, ok := s.documents[uri]
+	doc, ok := s.documents[docURI]
 	if !ok {
 		s.mu.Unlock()
 		return nil
@@ -349,11 +349,11 @@ func (s *Server) DidSave(
 	ctx context.Context,
 	params *protocol.DidSaveTextDocumentParams,
 ) error {
-	uri := params.TextDocument.URI
-	s.cfg.L.Debug("Document saved", zap.String("uri", string(uri)))
+	docURI := params.TextDocument.URI
+	s.cfg.L.Debug("Document saved", zap.String("uri", string(docURI)))
 
 	s.mu.RLock()
-	doc, ok := s.documents[uri]
+	doc, ok := s.documents[docURI]
 	if !ok {
 		s.mu.RUnlock()
 		return nil
@@ -362,7 +362,7 @@ func (s *Server) DidSave(
 	s.mu.RUnlock()
 
 	doc.debouncer.Stop()
-	s.publishDiagnostics(ctx, uri, content)
+	s.publishDiagnostics(ctx, docURI, content)
 	return nil
 }
 
@@ -371,28 +371,36 @@ func (s *Server) DidClose(
 	ctx context.Context,
 	params *protocol.DidCloseTextDocumentParams,
 ) error {
-	uri := params.TextDocument.URI
-	s.cfg.L.Debug("Document closed", zap.String("uri", string(uri)))
+	docURI := params.TextDocument.URI
+	s.cfg.L.Debug("Document closed", zap.String("uri", string(docURI)))
 
 	s.mu.Lock()
-	doc, ok := s.documents[uri]
-	delete(s.documents, uri)
+	doc, ok := s.documents[docURI]
+	delete(s.documents, docURI)
 	s.mu.Unlock()
 
 	if ok {
 		doc.debouncer.Stop()
 	}
 
-	return s.client.PublishDiagnostics(ctx, &protocol.PublishDiagnosticsParams{
-		URI:         uri,
+	// A notification handler error fails the jsonrpc2 v1 connection; log it instead.
+	if err := s.client.PublishDiagnostics(ctx, &protocol.PublishDiagnosticsParams{
+		URI:         docURI,
 		Diagnostics: []protocol.Diagnostic{},
-	})
+	}); err != nil {
+		s.cfg.L.Error(
+			"failed to clear diagnostics",
+			zap.Error(err),
+			zap.String("uri", string(docURI)),
+		)
+	}
+	return nil
 }
 
 func (s *Server) runAnalysis(
 	ctx context.Context,
 	doc *Document,
-	uri uri.URI,
+	docURI uri.URI,
 ) {
 	if ctx.Err() != nil {
 		return
@@ -409,27 +417,27 @@ func (s *Server) runAnalysis(
 	}
 
 	s.mu.Lock()
-	if _, ok := s.documents[uri]; ok {
+	if _, ok := s.documents[docURI]; ok {
 		doc.IR = docIR
 		doc.Diagnostics = docDiag
 	}
 	s.mu.Unlock()
 
 	if err := s.client.PublishDiagnostics(ctx, &protocol.PublishDiagnosticsParams{
-		URI:         uri,
+		URI:         docURI,
 		Diagnostics: pDiagnostics,
 	}); err != nil {
 		s.cfg.L.Error(
 			"failed to publish diagnostics",
 			zap.Error(err),
-			zap.String("uri", string(uri)),
+			zap.String("uri", string(docURI)),
 		)
 	}
 
-	s.refreshSemanticTokens(ctx, uri)
+	s.refreshSemanticTokens(ctx, docURI)
 }
 
-func (s *Server) refreshSemanticTokens(ctx context.Context, uri uri.URI) {
+func (s *Server) refreshSemanticTokens(ctx context.Context, docURI uri.URI) {
 	if s.client == nil {
 		return
 	}
@@ -438,7 +446,7 @@ func (s *Server) refreshSemanticTokens(ctx context.Context, uri uri.URI) {
 		s.cfg.L.Warn(
 			"failed to refresh semantic tokens",
 			zap.Error(err),
-			zap.String("uri", string(uri)),
+			zap.String("uri", string(docURI)),
 		)
 	}
 }
@@ -490,11 +498,11 @@ func (s *Server) analyze(
 // DidSave, and republish where immediate feedback is expected.
 func (s *Server) publishDiagnostics(
 	ctx context.Context,
-	uri uri.URI,
+	docURI uri.URI,
 	content string,
 ) {
 	s.mu.RLock()
-	doc, ok := s.documents[uri]
+	doc, ok := s.documents[docURI]
 	if !ok {
 		s.mu.RUnlock()
 		return
@@ -505,20 +513,20 @@ func (s *Server) publishDiagnostics(
 	pDiagnostics, docIR, docDiag := s.analyze(ctx, content, isBlock)
 
 	s.mu.Lock()
-	if _, stillOpen := s.documents[uri]; stillOpen {
+	if _, stillOpen := s.documents[docURI]; stillOpen {
 		doc.IR = docIR
 		doc.Diagnostics = docDiag
 	}
 	s.mu.Unlock()
 
 	if err := s.client.PublishDiagnostics(ctx, &protocol.PublishDiagnosticsParams{
-		URI:         uri,
+		URI:         docURI,
 		Diagnostics: pDiagnostics,
 	}); err != nil {
 		s.cfg.L.Error(
 			"failed to publish diagnostics",
 			zap.Error(err),
-			zap.String("uri", string(uri)),
+			zap.String("uri", string(docURI)),
 		)
 	}
 }
@@ -528,12 +536,12 @@ func (s *Server) publishDiagnostics(
 func (s *Server) republishAllDiagnostics(ctx context.Context) {
 	s.mu.RLock()
 	docs := make(map[uri.URI]string, len(s.documents))
-	for uri, doc := range s.documents {
-		docs[uri] = doc.Content
+	for docURI, doc := range s.documents {
+		docs[docURI] = doc.Content
 	}
 	s.mu.RUnlock()
-	for uri, content := range docs {
-		s.publishDiagnostics(ctx, uri, content)
+	for docURI, content := range docs {
+		s.publishDiagnostics(ctx, docURI, content)
 	}
 	s.refreshSemanticTokens(ctx, "")
 }

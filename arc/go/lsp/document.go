@@ -26,8 +26,8 @@ type documentMetadata struct {
 	isFunctionBlock bool
 }
 
-func extractMetadataFromURI(uri uri.URI) *documentMetadata {
-	uriStr := string(uri)
+func extractMetadataFromURI(docURI uri.URI) *documentMetadata {
+	uriStr := string(docURI)
 	return &documentMetadata{
 		isFunctionBlock: strings.HasPrefix(uriStr, "arc://block/"),
 	}

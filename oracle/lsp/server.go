@@ -71,10 +71,28 @@ func New() *Server {
 	}
 }
 
+// gatedStream delays the first Read until ready closes, so the connection cannot
+// dispatch a handler before Serve wires the client.
+type gatedStream struct {
+	jsonrpc2.Stream
+	ready chan struct{}
+}
+
+func (g *gatedStream) Read(ctx context.Context) (jsonrpc2.Message, int64, error) {
+	select {
+	case <-g.ready:
+	case <-ctx.Done():
+		return nil, 0, ctx.Err()
+	}
+	return g.Stream.Read(ctx)
+}
+
 // Serve starts the LSP server on the given ReadWriteCloser (typically xos.StdIO).
 func (s *Server) Serve(ctx context.Context, rwc io.ReadWriteCloser) error {
-	_, conn, client := protocol.NewServer(ctx, s, jsonrpc2.NewStream(rwc))
+	stream := &gatedStream{Stream: jsonrpc2.NewStream(rwc), ready: make(chan struct{})}
+	_, conn, client := protocol.NewServer(ctx, s, stream)
 	s.client = client
+	close(stream.ready)
 	<-conn.Done()
 	return conn.Err()
 }
@@ -85,10 +103,10 @@ func (s *Server) SetClient(client protocol.Client) {
 }
 
 // getDocument retrieves a document from the cache by URI.
-func (s *Server) getDocument(uri uri.URI) (*Document, bool) {
+func (s *Server) getDocument(docURI uri.URI) (*Document, bool) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
-	doc, ok := s.documents[uri]
+	doc, ok := s.documents[docURI]
 	return doc, ok
 }
 
@@ -110,23 +128,23 @@ func (s *Server) Shutdown(_ context.Context) error {
 
 // DidOpen handles opening a document.
 func (s *Server) DidOpen(ctx context.Context, params *protocol.DidOpenTextDocumentParams) error {
-	uri := params.TextDocument.URI
+	docURI := params.TextDocument.URI
 	s.mu.Lock()
-	s.documents[uri] = &Document{
-		URI:     uri,
+	s.documents[docURI] = &Document{
+		URI:     docURI,
 		Version: params.TextDocument.Version,
 		Content: params.TextDocument.Text,
 	}
 	s.mu.Unlock()
-	s.publishDiagnostics(ctx, uri, params.TextDocument.Text)
+	s.publishDiagnostics(ctx, docURI, params.TextDocument.Text)
 	return nil
 }
 
 // DidChange handles document changes.
 func (s *Server) DidChange(ctx context.Context, params *protocol.DidChangeTextDocumentParams) error {
-	uri := params.TextDocument.URI
+	docURI := params.TextDocument.URI
 	s.mu.Lock()
-	if doc, ok := s.documents[uri]; ok {
+	if doc, ok := s.documents[docURI]; ok {
 		if len(params.ContentChanges) > 0 {
 			doc.Version = params.TextDocument.Version
 			for _, change := range params.ContentChanges {
@@ -137,30 +155,32 @@ func (s *Server) DidChange(ctx context.Context, params *protocol.DidChangeTextDo
 	s.mu.Unlock()
 	s.mu.RLock()
 	content := ""
-	if doc, ok := s.documents[uri]; ok {
+	if doc, ok := s.documents[docURI]; ok {
 		content = doc.Content
 	}
 	s.mu.RUnlock()
-	s.publishDiagnostics(ctx, uri, content)
+	s.publishDiagnostics(ctx, docURI, content)
 	return nil
 }
 
 // DidClose handles closing a document.
 func (s *Server) DidClose(ctx context.Context, params *protocol.DidCloseTextDocumentParams) error {
-	uri := params.TextDocument.URI
+	docURI := params.TextDocument.URI
 	s.mu.Lock()
-	delete(s.documents, uri)
+	delete(s.documents, docURI)
 	s.mu.Unlock()
-	return s.client.PublishDiagnostics(ctx, &protocol.PublishDiagnosticsParams{
-		URI:         uri,
+	// A notification handler error fails the jsonrpc2 v1 connection; drop it instead.
+	_ = s.client.PublishDiagnostics(ctx, &protocol.PublishDiagnosticsParams{
+		URI:         docURI,
 		Diagnostics: []protocol.Diagnostic{},
 	})
+	return nil
 }
 
 // publishDiagnostics parses the document and publishes diagnostics.
-func (s *Server) publishDiagnostics(ctx context.Context, uri uri.URI, content string) {
+func (s *Server) publishDiagnostics(ctx context.Context, docURI uri.URI, content string) {
 	s.mu.Lock()
-	doc, ok := s.documents[uri]
+	doc, ok := s.documents[docURI]
 	s.mu.Unlock()
 	if !ok {
 		return
@@ -170,21 +190,21 @@ func (s *Server) publishDiagnostics(ctx context.Context, uri uri.URI, content st
 	if parseDiag != nil && !parseDiag.Ok() {
 		doc.Diagnostics = parseDiag
 		_ = s.client.PublishDiagnostics(ctx, &protocol.PublishDiagnosticsParams{
-			URI:         uri,
+			URI:         docURI,
 			Diagnostics: xlsp.TranslateDiagnostics(*parseDiag, translateSource),
 		})
 		return
 	}
 
 	doc.Schema = ast
-	namespace := deriveNamespaceFromURI(uri)
+	namespace := deriveNamespaceFromURI(docURI)
 	table, analyzeDiag := analyzer.AnalyzeSource(ctx, content, namespace, noopLoader{})
 	if analyzeDiag != nil {
 		flat := analyzeDiag.Flat()
 		doc.Diagnostics = &flat
 		doc.Table = table
 		_ = s.client.PublishDiagnostics(ctx, &protocol.PublishDiagnosticsParams{
-			URI:         uri,
+			URI:         docURI,
 			Diagnostics: xlsp.TranslateDiagnostics(flat, translateSource),
 		})
 		return
@@ -193,14 +213,14 @@ func (s *Server) publishDiagnostics(ctx context.Context, uri uri.URI, content st
 	doc.Table = table
 	doc.Diagnostics = &diagnostics.Diagnostics{}
 	_ = s.client.PublishDiagnostics(ctx, &protocol.PublishDiagnosticsParams{
-		URI:         uri,
+		URI:         docURI,
 		Diagnostics: []protocol.Diagnostic{},
 	})
 }
 
 // deriveNamespaceFromURI extracts a namespace from the document URI.
-func deriveNamespaceFromURI(uri uri.URI) string {
-	path := string(uri)
+func deriveNamespaceFromURI(docURI uri.URI) string {
+	path := string(docURI)
 	path = strings.TrimPrefix(path, "file://")
 	base := filepath.Base(path)
 	ext := filepath.Ext(base)

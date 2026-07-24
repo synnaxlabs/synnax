@@ -200,7 +200,8 @@ func DiagnosticCode(d protocol.Diagnostic) string {
 }
 
 // DiagnosticMessage returns the message text of a diagnostic, handling the union
-// between plain strings and markup content.
+// between plain strings and markup content. Returns the empty string when the message
+// is unset; fails the test on an unhandled union variant.
 func DiagnosticMessage(d protocol.Diagnostic) string {
 	switch m := d.Message.(type) {
 	case protocol.String:
@@ -208,6 +209,8 @@ func DiagnosticMessage(d protocol.Diagnostic) string {
 	case *protocol.MarkupContent:
 		return m.Value
 	default:
+		gomega.ExpectWithOffset(1, m).To(gomega.BeNil(),
+			"unhandled DiagnosticMessage variant %T", m)
 		return ""
 	}
 }
