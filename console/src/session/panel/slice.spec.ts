@@ -111,6 +111,22 @@ describe("Panel Slice", () => {
       );
       expect(Panel.selectSelectedTabs(state, PANEL)).toEqual([TAB]);
     });
+
+    it("should evict leaf siblings so one tab stays selected per leaf", () => {
+      const state = run(
+        Panel.internalSelectTab({
+          key: PANEL,
+          tabKey: OTHER_TAB,
+          otherTabKeys: [TAB, OTHER_TAB],
+        }),
+        Panel.startOverlaying({
+          key: PANEL,
+          tabKey: TAB,
+          otherTabKeys: [TAB, OTHER_TAB],
+        }),
+      );
+      expect(Panel.selectSelectedTabs(state, PANEL)).toEqual([TAB]);
+    });
   });
 
   describe("selectTab", () => {
@@ -183,6 +199,89 @@ describe("Panel Slice", () => {
     });
   });
 
+  describe("reconcileSelection", () => {
+    const THIRD_TAB = uuid.create();
+
+    it("should keep only the most recent selected tab per leaf", () => {
+      const state = run(
+        Panel.internalSelectTab({ key: PANEL, tabKey: TAB, otherTabKeys: [TAB] }),
+        Panel.internalSelectTab({
+          key: PANEL,
+          tabKey: OTHER_TAB,
+          otherTabKeys: [OTHER_TAB],
+        }),
+        Panel.reconcileSelection({ key: PANEL, leaves: [[TAB, OTHER_TAB]] }),
+      );
+      expect(Panel.selectSelectedTabs(state, PANEL)).toEqual([OTHER_TAB]);
+    });
+
+    it("should drop keys no longer in the tree and fill empty leaves with their last tab", () => {
+      const state = run(
+        Panel.internalSelectTab({ key: PANEL, tabKey: TAB, otherTabKeys: [TAB] }),
+        Panel.reconcileSelection({ key: PANEL, leaves: [[OTHER_TAB, THIRD_TAB]] }),
+      );
+      expect(Panel.selectSelectedTabs(state, PANEL)).toEqual([THIRD_TAB]);
+    });
+
+    it("should keep one recency-ordered tab per leaf across a split", () => {
+      const state = run(
+        Panel.internalSelectTab({ key: PANEL, tabKey: TAB, otherTabKeys: [TAB] }),
+        Panel.internalSelectTab({
+          key: PANEL,
+          tabKey: OTHER_TAB,
+          otherTabKeys: [OTHER_TAB],
+        }),
+        Panel.reconcileSelection({ key: PANEL, leaves: [[OTHER_TAB], [TAB]] }),
+      );
+      expect(Panel.selectSelectedTabs(state, PANEL)).toEqual([OTHER_TAB, TAB]);
+    });
+
+    it("should populate a fresh panel with one tab per leaf", () => {
+      const state = run(
+        Panel.reconcileSelection({
+          key: PANEL,
+          leaves: [[TAB, OTHER_TAB], [THIRD_TAB]],
+        }),
+      );
+      expect(Panel.selectSelectedTabs(state, PANEL)).toEqual([OTHER_TAB, THIRD_TAB]);
+    });
+
+    it("should target the window named in the payload", () => {
+      const state = run(
+        Panel.internalSelectTab({
+          windowKey: "other",
+          key: PANEL,
+          tabKey: TAB,
+          otherTabKeys: [TAB],
+        }),
+        Panel.reconcileSelection({
+          windowKey: "other",
+          key: PANEL,
+          leaves: [[OTHER_TAB]],
+        }),
+      );
+      expect(Panel.selectSelectedTabs(state, PANEL)).toEqual([]);
+      expect(state[Panel.SLICE_NAME].windows.other.panels[PANEL].selectedTabs).toEqual([
+        OTHER_TAB,
+      ]);
+    });
+
+    // Cross-window echoes of the action re-apply against already-converged state, so
+    // an in-invariant selection must not churn its reference.
+    it("should leave a consistent selection referentially unchanged", () => {
+      const store = configureStore({
+        reducer: rootReducer,
+        middleware: (getDefault) => getDefault().concat(Panel.MIDDLEWARE),
+      });
+      store.dispatch(
+        Panel.internalSelectTab({ key: PANEL, tabKey: TAB, otherTabKeys: [TAB] }),
+      );
+      const before = store.getState()[Panel.SLICE_NAME];
+      store.dispatch(Panel.reconcileSelection({ key: PANEL, leaves: [[TAB]] }));
+      expect(store.getState()[Panel.SLICE_NAME]).toBe(before);
+    });
+  });
+
   describe("remove", () => {
     it("should drop a panel's per-panel state", () => {
       const state = run(
@@ -192,7 +291,7 @@ describe("Panel Slice", () => {
           otherTabKeys: [OTHER_TAB],
         }),
         Panel.internalSelectTab({ key: PANEL, tabKey: TAB, otherTabKeys: [TAB] }),
-        Panel.remove({ key: PANEL }),
+        Panel.remove(PANEL),
       );
       expect(Panel.selectSelectedTabs(state, PANEL)).toEqual([]);
       expect(Panel.selectSelectedTabs(state, OTHER_PANEL)).toEqual([OTHER_TAB]);
@@ -202,7 +301,7 @@ describe("Panel Slice", () => {
       const state = run(
         Panel.select({ key: PANEL }),
         Panel.internalSelectTab({ key: PANEL, tabKey: TAB, otherTabKeys: [TAB] }),
-        Panel.remove({ key: PANEL }),
+        Panel.remove(PANEL),
       );
       expect(Panel.selectSelected(state)).toBeUndefined();
     });
@@ -218,7 +317,7 @@ describe("Panel Slice", () => {
           tabKey: OTHER_TAB,
           otherTabKeys: [OTHER_TAB],
         }),
-        Panel.remove({ key: PANEL }),
+        Panel.remove(PANEL),
       );
       expect(Panel.selectSelected(state)).toBeUndefined();
       expect(Panel.selectSelectedTabs(state, OTHER_PANEL)).toEqual([OTHER_TAB]);
@@ -234,9 +333,48 @@ describe("Panel Slice", () => {
           tabKey: OTHER_TAB,
           otherTabKeys: [OTHER_TAB],
         }),
-        Panel.remove({ key: OTHER_PANEL }),
+        Panel.remove(OTHER_PANEL),
       );
       expect(Panel.selectSelected(state)).toEqual(PANEL);
+    });
+
+    it("should drop the panel's state and selection in every window", () => {
+      const state = run(
+        Panel.select({ key: PANEL }),
+        Panel.internalSelectTab({ key: PANEL, tabKey: TAB, otherTabKeys: [TAB] }),
+        Panel.internalSelectTab({
+          windowKey: "other",
+          key: PANEL,
+          tabKey: TAB,
+          otherTabKeys: [TAB],
+        }),
+        Panel.remove(PANEL),
+      );
+      expect(Panel.selectSelected(state)).toBeUndefined();
+      Object.values(state[Panel.SLICE_NAME].windows).forEach((win) => {
+        expect(win.panels[PANEL]).toBeUndefined();
+      });
+    });
+
+    it("should leave other panels and their selections untouched", () => {
+      const state = run(
+        Panel.select({ key: OTHER_PANEL }),
+        Panel.internalSelectTab({
+          key: OTHER_PANEL,
+          tabKey: OTHER_TAB,
+          otherTabKeys: [OTHER_TAB],
+        }),
+        Panel.internalSelectTab({
+          windowKey: "other",
+          key: PANEL,
+          tabKey: TAB,
+          otherTabKeys: [TAB],
+        }),
+        Panel.remove([PANEL]),
+      );
+      expect(Panel.selectSelected(state)).toEqual(OTHER_PANEL);
+      expect(Panel.selectSelectedTabs(state, OTHER_PANEL)).toEqual([OTHER_TAB]);
+      expect(state[Panel.SLICE_NAME].windows.other.panels[PANEL]).toBeUndefined();
     });
   });
 

@@ -9,3 +9,4 @@
 
 export * from "@/session/arc/selectors";
 export * from "@/session/arc/slice";
+export * from "@/session/arc/synchronizer";

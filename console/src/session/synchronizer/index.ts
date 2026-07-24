@@ -7,6 +7,4 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-export * from "@/session/status/selectors";
-export * from "@/session/status/slice";
-export * from "@/session/status/synchronizer";
+export * as Synchronizer from "@/session/synchronizer/external";

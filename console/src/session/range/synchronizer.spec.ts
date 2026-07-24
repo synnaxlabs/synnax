@@ -9,18 +9,22 @@
 
 import { type ranger } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
-import { id } from "@synnaxlabs/x";
+import { id, TimeRange, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { renderHook, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
-import { Range } from "@/platform/range";
-import { createTestRange } from "@/platform/range/testutil";
 import { Session } from "@/session";
-import { createConsoleWrapper } from "@/testutil";
+import { createConsoleWrapper, uniqueName } from "@/testutil";
 
 const client = createTestClient();
 
-const createRange = async (): Promise<ranger.Range> => await createTestRange(client);
+const createRange = async (): Promise<ranger.Range> => {
+  const start = TimeStamp.now();
+  return await client.ranges.create({
+    name: uniqueName("range"),
+    timeRange: new TimeRange(start, start.add(TimeSpan.seconds(10))),
+  });
+};
 
 const preloadedFor = (range: ranger.Range) => ({
   [Session.Range.SLICE_NAME]: {
@@ -29,14 +33,14 @@ const preloadedFor = (range: ranger.Range) => ({
   },
 });
 
-describe("Range.useListenForChanges", () => {
+describe("Range.SYNCHRONIZERS", () => {
   it("should update a favorited range in the slice when it is renamed remotely", async () => {
     const range = await createRange();
     const { wrapper, store } = await createConsoleWrapper({
       client,
       preloadedState: preloadedFor(range),
     });
-    renderHook(() => Range.useListenForChanges(), { wrapper });
+    renderHook(() => Session.Range.SYNCHRONIZERS.useSyncRanges(), { wrapper });
     const nextName = id.create();
     await client.ranges.rename(range.key, nextName);
     await waitFor(() => {
@@ -52,7 +56,7 @@ describe("Range.useListenForChanges", () => {
       client,
       preloadedState: preloadedFor(range),
     });
-    renderHook(() => Range.useListenForChanges(), { wrapper });
+    renderHook(() => Session.Range.SYNCHRONIZERS.useSyncRanges(), { wrapper });
     expect(Session.Range.selectState(store.getState(), range.key)).toBeDefined();
     await client.ranges.delete(range.key);
     await waitFor(() => {

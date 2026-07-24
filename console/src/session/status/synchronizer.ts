@@ -7,20 +7,25 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { type Dispatch } from "@reduxjs/toolkit";
 import { type status } from "@synnaxlabs/client";
 import { Status, Synnax, useAsyncEffect } from "@synnaxlabs/pluto";
 import { useCallback, useEffectEvent } from "react";
+import { useDispatch } from "react-redux";
 
-import { Session } from "@/session";
+import { filterFavoritesToKeys, removeFavorites } from "@/session/status/slice";
+// Type-only: a value import of the store would cycle through its domain barrels.
+import type { Action } from "@/session/store";
+import { Synchronizer } from "@/session/synchronizer";
 
-export const useListenForChanges = () => {
-  const dispatch = Session.useDispatch();
+const useSyncStatuses = (): void => {
+  const dispatch = useDispatch<Dispatch<Action>>();
   const addStatus = Status.useAdder();
   const listQuery = Status.useList();
   const client = Synnax.use();
   const onVariantChange = useEffectEvent(() => {
     if (listQuery.variant !== "success") return;
-    dispatch(Session.Status.filterFavoritesToKeys(listQuery.data));
+    dispatch(filterFavoritesToKeys(listQuery.data));
   });
   useAsyncEffect(
     async (signal) => {
@@ -32,9 +37,15 @@ export const useListenForChanges = () => {
   Status.useSetSynchronizer(addStatus);
   const handleDelete = useCallback(
     (key: status.Key) => {
-      dispatch(Session.Status.removeFavorites(key));
+      dispatch(removeFavorites(key));
     },
     [dispatch],
   );
   Status.useDeleteSynchronizer(handleDelete);
+  Synchronizer.useEpochSweep(async () => {
+    await listQuery.retrieveAsync({});
+    onVariantChange();
+  });
 };
+
+export const SYNCHRONIZERS: Synchronizer.Synchronizers = { useSyncStatuses };

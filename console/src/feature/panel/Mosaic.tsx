@@ -17,9 +17,12 @@ import {
   Dialog,
   Errors,
   Flex,
+  Flux,
   Icon,
   Nav,
   Panel,
+  Status,
+  Synnax,
   Text,
 } from "@synnaxlabs/pluto";
 import { caseconv } from "@synnaxlabs/x";
@@ -29,18 +32,76 @@ import { useDispatch } from "react-redux";
 import { TabMenuItems } from "@/feature/panel/ContextMenu";
 import { Empty } from "@/platform";
 import { CSS } from "@/platform/css";
+import { Panel as PlatformPanel } from "@/platform/panel";
 import { useTab } from "@/platform/panel/tab";
 import { Session } from "@/session";
+
+const corpseName = (error: Error): string | undefined =>
+  Flux.DeletedError.matches(error)
+    ? (error as Flux.DeletedError<{ name?: string }>).corpse.name
+    : undefined;
 
 // Tab names render in the selector strip, outside the content's suspense
 // boundary. A name service throws when its resource has been deleted, so an
 // unguarded name would crash the entire app on a single stale tab.
-const TabNameFallback = (): ReactElement => (
+const TabNameFallback = ({ error }: Errors.FallbackProps): ReactElement => (
   <>
     <Icon.Warning />
-    <Text.Text>Not found</Text.Text>
+    <Text.Text>{corpseName(error) ?? "Not found"}</Text.Text>
   </>
 );
+
+// Renders the deleted state of a resource tab: the corpse's name plus Close and,
+// for restorable document types, Restore. Remote deletes land here; the tab is
+// never closed out from under the user.
+const DeletedResourceContent = ({
+  error,
+  resetErrorBoundary,
+}: Errors.FallbackProps): ReactElement => {
+  const corpse = (error as Flux.DeletedError<{ name?: string }>).corpse;
+  const resource = Panel.useSelectTabResource({});
+  const closeTabs = Panel.useCloseResourceTabs();
+  const client = Synnax.use();
+  const project = Session.Project.useSelectSelected();
+  const handleError = Status.useErrorHandler();
+  const name = corpse.name ?? "This resource";
+  const handleRestore = (): void => {
+    handleError(async () => {
+      if (client == null) return;
+      await PlatformPanel.restore(resource, { client, project, corpse });
+      resetErrorBoundary();
+    }, `Failed to restore ${name}`);
+  };
+  return (
+    <Flex.Box grow align="center" justify="center" gap="small">
+      <Icon.Warning />
+      <Text.Text>{name} was deleted</Text.Text>
+      <Flex.Box x gap="small">
+        <Button.Button onClick={() => closeTabs(resource)}>Close</Button.Button>
+        {client != null && PlatformPanel.canRestore(resource) && (
+          <Button.Button variant="filled" onClick={handleRestore}>
+            Restore
+          </Button.Button>
+        )}
+      </Flex.Box>
+    </Flex.Box>
+  );
+};
+
+// A DeletedError can also bubble out of a view tab reading someone else's
+// resource; only a resource tab's own deletion gets the tombstone treatment.
+const DeletedContent = (props: Errors.FallbackProps): ReactElement => {
+  const variant = Panel.useSelectTabVariant({});
+  if (variant !== "resource") return <Errors.Fallback {...props} />;
+  return <DeletedResourceContent {...props} />;
+};
+
+const ContentFallback = (props: Errors.FallbackProps): ReactElement =>
+  Flux.DeletedError.matches(props.error) ? (
+    <DeletedContent {...props} />
+  ) : (
+    <Errors.Fallback {...props} />
+  );
 
 const TabName = (): ReactElement => {
   const { Name } = useTab();
@@ -61,7 +122,7 @@ const Content = (): ReactElement => {
     [dispatch],
   );
   return (
-    <Errors.SuspenseBoundary>
+    <Errors.SuspenseBoundary FallbackComponent={ContentFallback}>
       <Dialog.Frame
         onVisibleChange={handleDialogClose}
         visible={isOverlaid}
@@ -157,7 +218,6 @@ export interface MosaicProps {
 
 export const Mosaic = ({ onCreateTab }: MosaicProps): ReactElement => {
   const selected = Session.Panel.useSelectSelected();
-  Panel.useCloseResourceTabs();
   if (selected == null) return <EmptyContent />;
   return (
     <Panel.Suspended panelKey={selected}>

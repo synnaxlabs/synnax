@@ -11,6 +11,7 @@ import {
   combineReducers,
   type Dispatch,
   type Middleware,
+  type MiddlewareAPI,
   type Reducer,
   type Store as BaseStore,
   Tuple,
@@ -47,6 +48,34 @@ const PERSIST_EXCLUDE: Array<deep.Key<State> | ((func: State) => State)> = [
   ...Table.PERSIST_EXCLUDE,
 ];
 
+// Every persisted slice lives in exactly one partition level: L0 is global,
+// L1 is per-cluster, L2 is per-cluster-per-project.
+const PERSIST_LEVELS: Persist.Levels<State> = {
+  l0: [Cluster.SLICE_NAME, Color.SLICE_NAME, Docs.SLICE_NAME, Theme.SLICE_NAME],
+  l1: [Project.SLICE_NAME, Status.SLICE_NAME],
+  l2: [
+    Arc.SLICE_NAME,
+    Drift.SLICE_NAME,
+    Haul.SLICE_NAME,
+    LinePlot.SLICE_NAME,
+    Log.SLICE_NAME,
+    Nav.SLICE_NAME,
+    Panel.SLICE_NAME,
+    Range.SLICE_NAME,
+    Schematic.SLICE_NAME,
+    Table.SLICE_NAME,
+  ],
+};
+
+const PERSIST_MIGRATORS: Persist.SliceMigrators<State> = {
+  [Status.SLICE_NAME]: (raw) => Status.migrateSlice(raw as Status.AnySliceState),
+};
+
+const getPersistContext = (state: State): Persist.Context => ({
+  cluster: state[Cluster.SLICE_NAME].selected,
+  project: state[Project.SLICE_NAME].selected,
+});
+
 export const ZERO_STATE: State = {
   [Arc.SLICE_NAME]: Arc.ZERO_SLICE_STATE,
   [Cluster.SLICE_NAME]: Cluster.ZERO_SLICE_STATE,
@@ -66,7 +95,7 @@ export const ZERO_STATE: State = {
   [Theme.SLICE_NAME]: Theme.ZERO_SLICE_STATE,
 };
 
-export const reducer = combineReducers({
+const combinedReducer = combineReducers({
   [Arc.SLICE_NAME]: Arc.reducer,
   [Cluster.SLICE_NAME]: Cluster.reducer,
   [Color.SLICE_NAME]: Color.reducer,
@@ -84,6 +113,13 @@ export const reducer = combineReducers({
   [Table.SLICE_NAME]: Table.reducer,
   [Theme.SLICE_NAME]: Theme.reducer,
 }) as unknown as Reducer<State, Action>;
+
+// hydrate replaces the swapped slices wholesale on a session context switch.
+export const reducer: Reducer<State, Action> = (state, action) => {
+  if (state != null && Persist.hydrate.match(action))
+    state = { ...state, ...(action.payload as Partial<State>) };
+  return combinedReducer(state, action);
+};
 
 export interface State {
   [Arc.SLICE_NAME]: Arc.SliceState;
@@ -135,6 +171,29 @@ interface OpenPersistReturn {
   persistMiddleware: Middleware<record.Unknown, State, Dispatch<Action>>;
 }
 
+// Drift's real windows open and close through actions, not state diffs, so the
+// stored drift slice never hydrates wholesale: the old context's secondary
+// windows close and the target's stored windows reopen through ordinary drift
+// dispatches carrying their stored props.
+const swapDriftWindows = (
+  loaded: Partial<State>,
+  store: MiddlewareAPI,
+): Partial<State> => {
+  const stored = loaded[Drift.SLICE_NAME];
+  delete loaded[Drift.SLICE_NAME];
+  const current = (store.getState() as State)[Drift.SLICE_NAME].windows;
+  Object.values(current).forEach((win) => {
+    if (win.key === Drift.MAIN_WINDOW || !win.reserved) return;
+    store.dispatch(Drift.closeWindow({ key: win.key }));
+  });
+  if (stored == null) return loaded;
+  Object.values(stored.windows).forEach((win) => {
+    if (win.key === Drift.MAIN_WINDOW || !win.reserved) return;
+    store.dispatch(Drift.createWindow(Drift.windowPropsZ.parse(win)));
+  });
+  return loaded;
+};
+
 const openPersist = async (): Promise<OpenPersistReturn> => {
   if (!Runtime.isMainWindow())
     return {
@@ -143,11 +202,18 @@ const openPersist = async (): Promise<OpenPersistReturn> => {
     };
   const engine = await Persist.open<State>({
     initial: ZERO_STATE,
+    levels: PERSIST_LEVELS,
+    getContext: getPersistContext,
+    migrators: PERSIST_MIGRATORS,
     exclude: PERSIST_EXCLUDE,
   });
   return {
     initialState: engine.initialState,
-    persistMiddleware: Persist.middleware(engine),
+    persistMiddleware: Persist.middleware({
+      engine,
+      getContext: getPersistContext,
+      onSwap: swapDriftWindows,
+    }),
   };
 };
 

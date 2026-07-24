@@ -412,14 +412,14 @@ describe("panel selectors", () => {
 
     // Regression: a leaf whose stored selection named a vanished tab rendered
     // nothing. The reconcile synchronizer repairs the selection to the live tree.
-    // The reconcile synchronizer lands with the session synchronizers; re-enabled there.
-    it.skip("should show a leaf's tab when the stored selection names a vanished tab", async () => {
+    it("should show a leaf's tab when the stored selection names a vanished tab", async () => {
       const client = createTestClient();
       const { Wrapper, store } = await setup({ client });
       const { result } = renderHook(
-        // WINDOW_SYNCHRONIZERS.useReconcileTabSelections lands with the session
-        // synchronizers; this test is re-enabled there.
-        () => Panel.useSelectIsTabVisible(PANEL, TAB),
+        () => {
+          Panel.WINDOW_SYNCHRONIZERS.useReconcileTabSelections();
+          return Panel.useSelectIsTabVisible(PANEL, TAB);
+        },
         { wrapper: Wrapper },
       );
       act(() => {

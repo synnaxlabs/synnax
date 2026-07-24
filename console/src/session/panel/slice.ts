@@ -10,7 +10,7 @@
 import { createSlice, type Dispatch, type PayloadAction } from "@reduxjs/toolkit";
 import { panel } from "@synnaxlabs/client";
 import { Panel } from "@synnaxlabs/pluto";
-import { type require } from "@synnaxlabs/x";
+import { array, compare, type require } from "@synnaxlabs/x";
 import { useCallback } from "react";
 import { useDispatch } from "react-redux";
 import z from "zod";
@@ -57,6 +57,8 @@ export interface TabAndPanelKeyPayload extends PanelKeyPayload {
   tabKey: string;
 }
 
+export type RemovePayload = panel.Key | panel.Key[];
+
 interface SelectTabPayload extends TabAndPanelKeyPayload {
   otherTabKeys: panel.TabKey[];
 }
@@ -66,6 +68,11 @@ interface SelectTabPayload extends TabAndPanelKeyPayload {
 export interface StartOverlayingPayload extends Window.OptionalKeyParams {
   key?: panel.Key;
   tabKey?: panel.TabKey;
+  otherTabKeys?: panel.TabKey[];
+}
+
+export interface ReconcileSelectionPayload extends PanelKeyPayload {
+  leaves: panel.TabKey[][];
 }
 
 const withWindowKey = Window.createWithKeyHandler(windowStateZ);
@@ -96,10 +103,6 @@ const { actions, reducer } = createSlice({
     clearSelected: withWindowKey<Window.OptionalKeyParams, SliceState>((win) => {
       win.selected = undefined;
     }),
-    remove: withWindowKey<PanelKeyPayload, SliceState>((win, { payload: { key } }) => {
-      delete win.panels[key];
-      if (win.selected === key) win.selected = undefined;
-    }),
     selectTab: withSelectedState<SelectTabPayload>(
       (pan, { payload: { tabKey, otherTabKeys } }) => {
         pan.selectedTabs = [
@@ -109,16 +112,48 @@ const { actions, reducer } = createSlice({
       },
     ),
     startOverlaying: withWindowKey<StartOverlayingPayload, SliceState>(
-      (win, { payload: { key = win.selected, tabKey } }) => {
+      (win, { payload: { key = win.selected, tabKey, otherTabKeys = [] } }) => {
         win.isOverlaid = true;
         if (tabKey == null || key == null) return;
         const pan = (win.panels[key] ??= stateZ.parse({}));
-        pan.selectedTabs = [tabKey, ...pan.selectedTabs.filter((k) => k !== tabKey)];
+        pan.selectedTabs = [
+          tabKey,
+          ...pan.selectedTabs.filter((k) => k !== tabKey && !otherTabKeys.includes(k)),
+        ];
+      },
+    ),
+    // reconcileSelection converges a panel's selection to its live tree: one tab
+    // per leaf, most recent first; a leaf with no selected tab contributes its
+    // last tab.
+    reconcileSelection: withSelectedState<ReconcileSelectionPayload>(
+      (pan, { payload: { leaves } }) => {
+        const leafOf = new Map<panel.TabKey, number>();
+        leaves.forEach((tabs, i) => tabs.forEach((tab) => leafOf.set(tab, i)));
+        const claimed = new Set<number>();
+        const next: panel.TabKey[] = [];
+        pan.selectedTabs.forEach((k) => {
+          const leaf = leafOf.get(k);
+          if (leaf == null || claimed.has(leaf)) return;
+          claimed.add(leaf);
+          next.push(k);
+        });
+        leaves.forEach((tabs, i) => {
+          if (!claimed.has(i) && tabs.length > 0) next.push(tabs[tabs.length - 1]);
+        });
+        if (!compare.arraysEqual(pan.selectedTabs, next)) pan.selectedTabs = next;
       },
     ),
     stopOverlaying: withWindowKey<Window.OptionalKeyParams, SliceState>((win) => {
       win.isOverlaid = false;
     }),
+    remove: (state, { payload: keys }: PayloadAction<RemovePayload>) => {
+      const removed = array.toArray(keys);
+      Object.values(state.windows).forEach((win) => {
+        removed.forEach((key) => delete win.panels[key]);
+        if (win.selected != null && removed.includes(win.selected))
+          win.selected = undefined;
+      });
+    },
     reset: () => ZERO_SLICE_STATE,
   },
 });
@@ -130,12 +165,14 @@ const {
   selectTab: internalSelectTab,
   startOverlaying,
   stopOverlaying,
+  reconcileSelection,
   reset,
 } = actions;
 
 export {
   clearSelected,
   internalSelectTab,
+  reconcileSelection,
   reducer,
   remove,
   reset,
@@ -151,10 +188,10 @@ export const MIDDLEWARE = [
   Window.createInjectKeyMiddleware([
     select,
     clearSelected,
-    remove,
     internalSelectTab,
     startOverlaying,
     stopOverlaying,
+    reconcileSelection,
   ]),
 ];
 
@@ -173,6 +210,28 @@ export const useSelectTab = (panelKey?: panel.Key) => {
         internalSelectTab({
           tabKey: key,
           key: resolvedPanelKey,
+          otherTabKeys: leaf.tabs.map((t) => t.key),
+        }),
+      );
+    },
+    [scopedPanelKey, getTabLeaf, dispatch],
+  );
+};
+
+/** @returns a callback that overlays the given tab, evicting its leaf siblings from
+ * the selection so exactly one tab stays selected per leaf. */
+export const useStartOverlaying = (panelKey?: panel.Key) => {
+  const scopedPanelKey = Panel.useOptionalKey(panelKey);
+  const getTabLeaf = Panel.useGetTabLeaf();
+  const dispatch = useDispatch<Dispatch<Action>>();
+  return useCallback(
+    (tabKey: panel.TabKey) => {
+      if (scopedPanelKey == null) return;
+      const leaf = getTabLeaf({ key: scopedPanelKey, tabKey });
+      dispatch(
+        startOverlaying({
+          key: scopedPanelKey,
+          tabKey,
           otherTabKeys: leaf.tabs.map((t) => t.key),
         }),
       );
