@@ -370,13 +370,13 @@ class Controller:
             raise ValueError("First argument to remains_true_for must be a callable.")
         processor = RemainsTrueFor(cond, percentage)
         try:
-            self._receiver.processors.add(processor)
+            self._receiver.add_processor(processor)
             timeout_seconds = TimeSpan(duration).seconds
             # If the event is set, this means the target percentage was >= 1 and the
             # callback returned False, so we just exit immediately.
             ok = not processor.event.wait(timeout=timeout_seconds)
         finally:
-            self._receiver.processors.remove(processor)
+            self._receiver.remove_processor(processor)
         # If we executed the callback for the entire duration and the actual percentage
         # is still less than the target percentage, we return False.
         if ok:
