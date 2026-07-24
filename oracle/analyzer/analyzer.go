@@ -34,9 +34,7 @@ type analysisCtx struct {
 }
 
 // report records a diagnostic against the file currently being analyzed.
-func (c *analysisCtx) report(d diagnostics.Diagnostic) {
-	c.diag.Report(c.filePath, d)
-}
+func (c *analysisCtx) report(d diagnostics.Diagnostic) { c.diag.Report(c.filePath, d) }
 
 func Analyze(
 	ctx context.Context,

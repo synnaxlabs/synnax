@@ -14,7 +14,7 @@ import (
 
 	"github.com/onsi/gomega"
 	"github.com/samber/lo"
-	xutil "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/testutil"
 	"go.lsp.dev/protocol"
 	"go.lsp.dev/uri"
 )
@@ -63,7 +63,7 @@ func Hover(
 	uri uri.URI,
 	line, char uint32,
 ) *protocol.Hover {
-	return xutil.MustSucceed(server.Hover(ctx, &protocol.HoverParams{
+	return testutil.MustSucceed(server.Hover(ctx, &protocol.HoverParams{
 		TextDocumentPositionParams: protocol.TextDocumentPositionParams{
 			TextDocument: protocol.TextDocumentIdentifier{URI: uri},
 			Position:     protocol.Position{Line: line, Character: char},
@@ -72,8 +72,8 @@ func Hover(
 }
 
 // HoverContents extracts the markup value from a hover result, handling the
-// HoverContents union. Returns the empty string when hover is nil or the
-// contents carry no text.
+// HoverContents union. Returns the empty string when hover is nil or the contents carry
+// no text.
 func HoverContents(hover *protocol.Hover) string {
 	if hover == nil {
 		return ""
@@ -88,15 +88,15 @@ func HoverContents(hover *protocol.Hover) string {
 	}
 }
 
-// Definition returns definition locations at the given position, unwrapping
-// the DefinitionResult union into a flat location slice.
+// Definition returns definition locations at the given position, unwrapping the
+// DefinitionResult union into a flat location slice.
 func Definition(
 	server protocol.Server,
 	ctx context.Context,
 	uri uri.URI,
 	line, char uint32,
 ) []protocol.Location {
-	result := xutil.MustSucceed(server.Definition(ctx, &protocol.DefinitionParams{
+	result := testutil.MustSucceed(server.Definition(ctx, &protocol.DefinitionParams{
 		TextDocumentPositionParams: protocol.TextDocumentPositionParams{
 			TextDocument: protocol.TextDocumentIdentifier{URI: uri},
 			Position:     protocol.Position{Line: line, Character: char},
@@ -120,7 +120,7 @@ func Completion(
 	uri uri.URI,
 	line, char uint32,
 ) *protocol.CompletionList {
-	result := xutil.MustSucceed(server.Completion(ctx, &protocol.CompletionParams{
+	result := testutil.MustSucceed(server.Completion(ctx, &protocol.CompletionParams{
 		TextDocumentPositionParams: protocol.TextDocumentPositionParams{
 			TextDocument: protocol.TextDocumentIdentifier{URI: uri},
 			Position:     protocol.Position{Line: line, Character: char},
@@ -142,7 +142,7 @@ func SemanticTokens(
 	ctx context.Context,
 	uri uri.URI,
 ) *protocol.SemanticTokens {
-	return xutil.MustSucceed(server.SemanticTokensFull(ctx, &protocol.SemanticTokensParams{
+	return testutil.MustSucceed(server.SemanticTokensFull(ctx, &protocol.SemanticTokensParams{
 		TextDocument: protocol.TextDocumentIdentifier{URI: uri},
 	}))
 }
@@ -163,36 +163,36 @@ func HasCompletion(items []protocol.CompletionItem, label string) bool {
 	return found
 }
 
-// ItemDetail returns the detail string of a completion item, or the empty
-// string when unset.
+// ItemDetail returns the detail string of a completion item, or the empty string when
+// unset.
 func ItemDetail(item protocol.CompletionItem) string {
 	v, _ := item.Detail.Get()
 	return v
 }
 
-// ItemInsertText returns the insert text of a completion item, or the empty
-// string when unset.
+// ItemInsertText returns the insert text of a completion item, or the empty string when
+// unset.
 func ItemInsertText(item protocol.CompletionItem) string {
 	v, _ := item.InsertText.Get()
 	return v
 }
 
-// ItemTextEdit returns the completion item's text edit, or nil when unset or
-// not a plain TextEdit.
+// ItemTextEdit returns the completion item's text edit, or nil when unset or not a
+// plain TextEdit.
 func ItemTextEdit(item protocol.CompletionItem) *protocol.TextEdit {
 	edit, _ := item.TextEdit.(*protocol.TextEdit)
 	return edit
 }
 
-// DiagnosticCode returns the string code of a diagnostic, or the empty string
-// when unset or numeric.
+// DiagnosticCode returns the string code of a diagnostic, or the empty string when
+// unset or numeric.
 func DiagnosticCode(d protocol.Diagnostic) string {
 	code, _ := d.Code.(protocol.String)
 	return string(code)
 }
 
-// DiagnosticMessage returns the message text of a diagnostic, handling the
-// union between plain strings and markup content.
+// DiagnosticMessage returns the message text of a diagnostic, handling the union
+// between plain strings and markup content.
 func DiagnosticMessage(d protocol.Diagnostic) string {
 	switch m := d.Message.(type) {
 	case protocol.String:

@@ -96,9 +96,7 @@ func GetWordAtPosition(content string, pos protocol.Position) string {
 	return line[start:end]
 }
 
-func isQualifiedWordChar(c byte) bool {
-	return IsWordChar(c) || c == '.'
-}
+func isQualifiedWordChar(c byte) bool { return IsWordChar(c) || c == '.' }
 
 // GetQualifiedPrefixWordAtPosition extracts the qualifier chain ending at
 // the cursor word. The left walk crosses dots so a qualifier prefix is

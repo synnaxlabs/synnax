@@ -133,8 +133,8 @@ func (d Diagnostic) WithCode(code ErrorCode) Diagnostic {
 	return d
 }
 
-// WithRange returns a copy of the diagnostic with an explicit range, overriding
-// any range set by SetRange.
+// WithRange returns a copy of the diagnostic with an explicit range, overriding any
+// range set by SetRange.
 func (d Diagnostic) WithRange(start, end protocol.Position) Diagnostic {
 	d.Range = protocol.Range{Start: start, End: end}
 	return d
@@ -167,8 +167,8 @@ type Diagnostics []Diagnostic
 
 var _ error = (*Diagnostics)(nil)
 
-// Ok returns true if there are no error-level diagnostics.
-// Warnings, info, and hints are allowed.
+// Ok returns true if there are no error-level diagnostics. Warnings, info, and hints
+// are allowed.
 func (d Diagnostics) Ok() bool {
 	for _, diag := range d {
 		if diag.Severity == protocol.DiagnosticSeverityError {
@@ -197,8 +197,8 @@ func (d *Diagnostics) Add(diag Diagnostic) {
 	*d = append(*d, diag)
 }
 
-// Merge appends all diagnostics from other into d, using Add to preserve
-// deduplication semantics.
+// Merge appends all diagnostics from other into d, using Add to preserve deduplication
+// semantics.
 func (d *Diagnostics) Merge(other Diagnostics) {
 	for _, diag := range other {
 		d.Add(diag)
@@ -238,7 +238,8 @@ func (d Diagnostics) Warnings() []Diagnostic {
 	return warnings
 }
 
-// String formats all diagnostics as a human-readable string with line:column severity: message format.
+// String formats all diagnostics as a human-readable string with line:column severity:
+// message format.
 func (d Diagnostics) String() string {
 	if len(d) == 0 {
 		return "analysis successful"

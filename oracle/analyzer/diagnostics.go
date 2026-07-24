@@ -15,10 +15,10 @@ import (
 	"github.com/synnaxlabs/x/diagnostics"
 )
 
-// FileDiagnostics groups analyzer diagnostics by the schema file they originate
-// from. The file key carries the origin that diagnostics.Diagnostic does not,
-// mirroring how LSP scopes diagnostics by URI at the envelope. Files are kept in
-// first-seen order so downstream output is deterministic.
+// FileDiagnostics groups analyzer diagnostics by the schema file they originate from.
+// The file key carries the origin that diagnostics.Diagnostic does not, mirroring how
+// LSP scopes diagnostics by URI at the envelope. Files are kept in first-seen order so
+// downstream output is deterministic.
 type FileDiagnostics struct {
 	order  []string
 	byFile map[string]*diagnostics.Diagnostics
@@ -100,8 +100,8 @@ func (f *FileDiagnostics) Each(fn func(file string, d diagnostics.Diagnostic)) {
 	}
 }
 
-// Flat returns all diagnostics as one ordered collection, dropping file grouping.
-// Used where a per-file envelope already fixes the origin, such as LSP publish.
+// Flat returns all diagnostics as one ordered collection, dropping file grouping. Used
+// where a per-file envelope already fixes the origin, such as LSP publish.
 func (f *FileDiagnostics) Flat() diagnostics.Diagnostics {
 	var out diagnostics.Diagnostics
 	for _, file := range f.order {
