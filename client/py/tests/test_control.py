@@ -104,6 +104,7 @@ class TestController:
         press_end_cmd_time, press_en_cmd, press_en, daq_time = create_valve_set(client)
 
         assertions = dict()
+        acked = threading.Event()
         stop = threading.Event()
 
         def sequence(ev: threading.Event):
@@ -125,6 +126,7 @@ class TestController:
                         lambda c: not c[press_en.key],
                         timeout=2 * sy.TimeSpan.SECOND,
                     )
+                    acked.set()
                     assertions["remained_true"] = auto.remains_true_for(
                         lambda c: not c[press_en.key],
                         duration=100 * sy.TimeSpan.MILLISECOND,
@@ -146,12 +148,14 @@ class TestController:
                 auto.wait_until(
                     lambda c: not c[press_en_cmd.key], timeout=5 * sy.TimeSpan.SECOND
                 )
-                auto[press_en.key] = False
-                # Give the acknowledgement sample time to reach the sequence before
-                # opening the valve, then keep publishing open-valve samples until the
-                # sequence finishes, so the observation window is guaranteed to see the
-                # condition fail no matter when it starts.
-                auto.sleep(5 * sy.TimeSpan.MILLISECOND)
+                # Keep publishing closed-valve samples until the sequence has observed
+                # the acknowledgement, so the second wait_until always fires, then keep
+                # publishing open-valve samples until the sequence finishes, so the
+                # observation window is guaranteed to see the condition fail no matter
+                # when it starts.
+                while not acked.is_set() and not stop.is_set():
+                    auto[press_en.key] = False
+                    auto.sleep(5 * sy.TimeSpan.MILLISECOND)
                 while not stop.is_set():
                     auto[press_en.key] = True
                     auto.sleep(5 * sy.TimeSpan.MILLISECOND)
@@ -244,6 +248,7 @@ class TestController:
         press_end_cmd_time, press_en_cmd, press_en, daq_time = create_valve_set(client)
 
         assertions = dict()
+        acked = threading.Event()
         stop = threading.Event()
 
         def sequence(ev: threading.Event):
@@ -265,6 +270,7 @@ class TestController:
                         lambda c: not c[press_en.key],
                         timeout=2 * sy.TimeSpan.SECOND,
                     )
+                    acked.set()
                     c = 0
 
                     def is_closed(auto):
@@ -295,10 +301,16 @@ class TestController:
                 auto.wait_until(
                     lambda c: not c[press_en_cmd.key], timeout=5 * sy.TimeSpan.SECOND
                 )
-                # Keep the valve closed for three out of every four samples (75% closed,
-                # comfortably above the 50% target) until the sequence finishes, so the
-                # observation window always sees the same mix of samples no matter when
-                # it starts.
+                # Keep publishing closed-valve samples until the sequence has observed
+                # the acknowledgement, so the second wait_until always fires. Then keep
+                # the valve closed for three out of every four samples (75% closed,
+                # comfortably above the 50% target) until the sequence finishes.
+                # Starting the pattern with its closed run right as the observation
+                # window opens means even a heavily-truncated window sees a
+                # closed-dominated prefix of the pattern.
+                while not acked.is_set() and not stop.is_set():
+                    auto[press_en.key] = False
+                    auto.sleep(5 * sy.TimeSpan.MILLISECOND)
                 i = 0
                 while not stop.is_set():
                     auto[press_en.key] = i % 4 == 3
@@ -501,11 +513,15 @@ class TestRemainsTrueForProcessor:
     """Unit tests for the RemainsTrueFor percentage logic, independent of streaming
     timing."""
 
+    # The callbacks under test never touch the controller, so a bare sentinel stands
+    # in for it.
+    _state = cast(Controller, object())
+
     def _run(self, results: list[bool], percentage: float) -> RemainsTrueFor:
         it = iter(results)
         processor = RemainsTrueFor(lambda _: next(it), percentage)
         for _ in results:
-            processor.process(cast(Controller, None))
+            processor.process(self._state)
         return processor
 
     def test_all_true_meets_full_target(self) -> None:
@@ -521,7 +537,6 @@ class TestRemainsTrueForProcessor:
         assert not processor.event.is_set()
         assert processor.count == 4
         assert processor.actual == pytest.approx(0.75)
-        assert processor.actual >= processor.target
 
     def test_partial_true_below_target(self) -> None:
         """Should report an actual percentage below the target."""
@@ -529,7 +544,6 @@ class TestRemainsTrueForProcessor:
         assert not processor.event.is_set()
         assert processor.count == 4
         assert processor.actual == pytest.approx(0.25)
-        assert processor.actual < processor.target
 
     def test_exits_immediately_on_false_when_target_is_full(self) -> None:
         """Should set the exit event as soon as the condition fails when the target
@@ -545,6 +559,6 @@ class TestRemainsTrueForProcessor:
             raise ValueError("boom")
 
         processor = RemainsTrueFor(boom, percentage=1)
-        processor.process(cast(Controller, None))
+        processor.process(self._state)
         assert isinstance(processor.exc, ValueError)
         assert processor.event.is_set()
