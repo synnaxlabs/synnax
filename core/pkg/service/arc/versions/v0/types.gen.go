@@ -33,16 +33,6 @@ const (
 	ModeGraph Mode = "graph"
 )
 
-// IsValid reports whether m is one of the defined Mode values.
-func (m Mode) IsValid() bool {
-	switch m {
-	case ModeText, ModeGraph:
-		return true
-	default:
-		return false
-	}
-}
-
 // Arc is an Arc module combining visual graph representation and text-based source code
 // for reactive control systems. Compiles to WebAssembly for sandboxed execution.
 type Arc struct {
@@ -68,7 +58,3 @@ type StatusDetails struct {
 	// Running indicates whether the Arc module is currently executing.
 	Running bool `json:"running" msgpack:"running"`
 }
-
-func (a Arc) GorpKey() Key { return a.Key }
-
-func (Arc) SetOptions() []any { return nil }

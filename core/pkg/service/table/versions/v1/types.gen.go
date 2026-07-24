@@ -31,7 +31,3 @@ type Table struct {
 	// and formatting options.
 	Data msgpack.EncodedJSON `json:"data" msgpack:"data"`
 }
-
-func (t Table) GorpKey() Key { return t.Key }
-
-func (Table) SetOptions() []any { return nil }

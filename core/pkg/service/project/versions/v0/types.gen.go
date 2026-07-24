@@ -33,7 +33,3 @@ type Workspace struct {
 	// Contains tab layout, split configurations, and window positions.
 	Layout msgpack.EncodedJSON `json:"layout" msgpack:"layout"`
 }
-
-func (w Workspace) GorpKey() Key { return w.Key }
-
-func (Workspace) SetOptions() []any { return nil }

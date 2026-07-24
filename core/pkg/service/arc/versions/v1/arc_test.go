@@ -10,12 +10,28 @@
 package v1_test
 
 import (
+	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	v1 "github.com/synnaxlabs/synnax/pkg/service/arc/versions/v1"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/vmihailenco/msgpack/v5"
 )
+
+var _ = Describe("Arc", func() {
+	Describe("GorpKey", func() {
+		It("Should return the arc's key", func() {
+			k := uuid.New()
+			Expect(v1.Arc{Key: k}.GorpKey()).To(Equal(k))
+		})
+	})
+
+	Describe("SetOptions", func() {
+		It("Should return no options", func() {
+			Expect(v1.Arc{}.SetOptions()).To(BeNil())
+		})
+	})
+})
 
 var _ = Describe("StatusDetails", func() {
 	Describe("DecodeMsgpack", func() {

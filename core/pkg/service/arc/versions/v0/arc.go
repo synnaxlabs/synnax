@@ -11,6 +11,22 @@ package v0
 
 import "github.com/vmihailenco/msgpack/v5"
 
+// IsValid reports whether m is one of the defined Mode values.
+func (m Mode) IsValid() bool {
+	switch m {
+	case ModeText, ModeGraph:
+		return true
+	default:
+		return false
+	}
+}
+
+// GorpKey implements gorp.Entry.
+func (a Arc) GorpKey() Key { return a.Key }
+
+// SetOptions implements gorp.Entry.
+func (Arc) SetOptions() []any { return nil }
+
 // DecodeMsgpack implements msgpack.CustomDecoder, supporting both legacy uppercase
 // Go field name "Running" and new lowercase msgpack tag "running" for backward
 // compatibility.

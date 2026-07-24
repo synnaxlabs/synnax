@@ -28,16 +28,6 @@ const (
 	VariantDisabled Variant = "disabled"
 )
 
-// IsValid reports whether v is one of the defined Variant values.
-func (v Variant) IsValid() bool {
-	switch v {
-	case VariantSuccess, VariantInfo, VariantWarning, VariantError, VariantLoading, VariantDisabled:
-		return true
-	default:
-		return false
-	}
-}
-
 // Status is a standardized message used to communicate state across the Synnax
 // platform. Statuses support different severity variants and can carry
 // component-specific details.
@@ -60,7 +50,3 @@ type Status[Details any] struct {
 	// Labels contains optional labels for categorization and filtering.
 	Labels []label.Label `json:"labels" msgpack:"labels"`
 }
-
-func (s Status[Details]) GorpKey() string { return s.Key }
-
-func (Status[Details]) SetOptions() []any { return nil }

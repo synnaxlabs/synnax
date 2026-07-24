@@ -56,7 +56,3 @@ type Arc struct {
 
 // StatusDetails contains Arc-specific status details for execution state.
 type StatusDetails = v0.StatusDetails
-
-func (a Arc) GorpKey() Key { return a.Key }
-
-func (Arc) SetOptions() []any { return nil }

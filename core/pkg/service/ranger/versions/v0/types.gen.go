@@ -13,9 +13,7 @@ package v0
 
 import (
 	"github.com/google/uuid"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/x/color"
-	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/telem"
 )
 
@@ -35,14 +33,4 @@ type Range struct {
 	// Color is an optional display color for visual identification of the range in user
 	// interfaces.
 	Color color.Color `json:"color" msgpack:"color"`
-}
-
-var _ gorp.Entry[Key] = Range{}
-
-func (r Range) GorpKey() Key { return r.Key }
-
-func (Range) SetOptions() []any { return nil }
-
-func OntologyID(k Key) ontology.ID {
-	return ontology.ID{Type: ontology.ResourceTypeRange, Key: k.String()}
 }

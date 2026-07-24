@@ -33,7 +33,3 @@ type Schematic struct {
 	// Snapshot indicates whether this schematic represents a saved snapshot state.
 	Snapshot bool `json:"snapshot" msgpack:"snapshot"`
 }
-
-func (s Schematic) GorpKey() Key { return s.Key }
-
-func (Schematic) SetOptions() []any { return nil }
