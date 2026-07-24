@@ -295,20 +295,17 @@ const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
     [getResourceByKey],
   );
 
-  const subscribe = useCallback(
-    (callback: () => void, key: string) => {
-      let listeners = placeholderListenersRef.current.get(key);
-      if (listeners == null) {
-        listeners = new Set();
-        placeholderListenersRef.current.set(key, listeners);
-      }
-      listeners.add(callback);
-      return () => {
-        listeners.delete(callback);
-      };
-    },
-    [],
-  );
+  const subscribe = useCallback((callback: () => void, key: string) => {
+    let listeners = placeholderListenersRef.current.get(key);
+    if (listeners == null) {
+      listeners = new Set();
+      placeholderListenersRef.current.set(key, listeners);
+    }
+    listeners.add(callback);
+    return () => {
+      listeners.delete(callback);
+    };
+  }, []);
 
   const getItem = useMemo(
     () =>
