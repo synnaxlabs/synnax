@@ -48,19 +48,20 @@ export const createUseDelete =
         async (query: Flux.BeforeUpdateParams<K | K[]>) => {
           const res = await confirm(getResource(ids));
           if (!res) return false;
-          let result: K | K[] | boolean = true;
-          if (beforeUpdate != null) result = await beforeUpdate({ ...query, ...props });
-          // The deleting console closes its own tabs; remote consoles tombstone.
-          if (result !== false) closeTabs(ids);
-          return result;
+          if (beforeUpdate != null) return await beforeUpdate({ ...query, ...props });
+          return true;
         },
-        [props, closeTabs],
+        [props],
       ),
       afterSuccess: useCallback(
         (query: Flux.AfterSuccessParams<K | K[]>) => {
+          // The deleting console closes its own tabs; remote consoles tombstone.
+          // Closing only after the server confirms avoids orphaning tabs on a
+          // failed delete.
+          closeTabs(ids);
           afterSuccess?.({ ...query, ...props });
         },
-        [props],
+        [props, closeTabs],
       ),
     });
     return useCallback(

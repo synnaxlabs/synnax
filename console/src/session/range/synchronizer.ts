@@ -46,7 +46,7 @@ const useSyncRanges = (): void => {
       .range.ranges.filter(({ persisted }) => persisted)
       .map(({ key }) => key);
     if (keys.length === 0) return;
-    const found = await client.ranges.retrieve(keys);
+    const found = await client.ranges.retrieve({ keys, ignoreNotFoundError: true });
     const foundKeys = new Set(found.map(({ key }) => key));
     const missing = keys.filter((key) => !foundKeys.has(key));
     if (missing.length > 0) dispatch(remove({ keys: missing }));
