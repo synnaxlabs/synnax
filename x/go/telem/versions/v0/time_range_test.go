@@ -379,13 +379,6 @@ var _ = Describe("TimeRange", func() {
 		})
 	})
 
-	Describe("Midpoint", func() {
-		It("Should return the midpoint of the time range", func() {
-			tr := rangeSeconds(4, 12)
-			Expect(tr.Midpoint()).To(Equal(v0.TimeStamp(8 * v0.Second)))
-		})
-	})
-
 	Describe("Union", func() {
 
 		Specify("Overlap, first before second", func() {

@@ -232,36 +232,6 @@ var _ = Describe("Channel", func() {
 		)
 	})
 
-	Describe("UnmarshalJSON", func() {
-		It("Should decode a channel from JSON", func() {
-			var c v0.Channel
-			Expect(c.UnmarshalJSON(
-				[]byte(`{"name":"test","leaseholder":3,"local_key":2}`),
-			)).To(Succeed())
-			Expect(c.Name).To(Equal("test"))
-			Expect(c.Leaseholder).To(Equal(node.Key(3)))
-		})
-		It("Should fall back to node_id when leaseholder is absent", func() {
-			var c v0.Channel
-			Expect(c.UnmarshalJSON(
-				[]byte(`{"name":"test","node_id":7,"local_key":2}`),
-			)).To(Succeed())
-			Expect(c.Leaseholder).To(Equal(node.Key(7)))
-		})
-		It("Should return an error when the JSON is malformed", func() {
-			var c v0.Channel
-			Expect(c.UnmarshalJSON([]byte(`{not json`))).To(
-				MatchError(ContainSubstring("failed to decode channel from JSON")),
-			)
-		})
-		It("Should return an error when the legacy node_id field is malformed", func() {
-			var c v0.Channel
-			Expect(c.UnmarshalJSON([]byte(`{"node_id":"abc"}`))).To(
-				MatchError(ContainSubstring("failed to decode legacy node_id from JSON")),
-			)
-		})
-	})
-
 	Describe("DecodeMsgpack", func() {
 		It("Should decode a channel from msgpack", func() {
 			data := MustSucceed(msgpack.Marshal(map[string]any{

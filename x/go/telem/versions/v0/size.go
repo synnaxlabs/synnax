@@ -9,74 +9,8 @@
 
 package v0
 
-import (
-	"encoding/json"
-	"fmt"
-
-	xjson "github.com/synnaxlabs/x/encoding/json"
-)
-
-var (
-	_ json.Unmarshaler = (*Size)(nil)
-	_ json.Marshaler   = Size(0)
-)
-
-// MarshalJSON implements json.Marshaler. Size is encoded as a string to avoid float64
-// precision loss for values beyond the safe integer range.
-func (s Size) MarshalJSON() ([]byte, error) {
-	return xjson.MarshalStringInt64(int64(s)), nil
-}
-
-// UnmarshalJSON implements json.Unmarshaler.
-func (s *Size) UnmarshalJSON(b []byte) error {
-	n, err := xjson.UnmarshalStringInt64(b)
-	if err != nil {
-		return err
-	}
-	*s = Size(n)
-	return nil
-}
-
-// String implements fmt.Stringer.
-func (s Size) String() string {
-	if s > Exabyte {
-		return fmt.Sprintf("%g EB", s.Exabytes())
-	}
-	if s > Petabyte {
-		return fmt.Sprintf("%g PB", s.Petabytes())
-	}
-	if s > Terabyte {
-		return fmt.Sprintf("%g TB", s.Terabytes())
-	}
-	if s > Gigabyte {
-		return fmt.Sprintf("%g GB", s.Gigabytes())
-	}
-	if s > Megabyte {
-		return fmt.Sprintf("%g MB", s.Megabytes())
-	}
-	if s > Kilobyte {
-		return fmt.Sprintf("%g kB", s.Kilobytes())
-	}
-	return fmt.Sprintf("%d B", s)
-}
-
-// Kilobytes returns the number of kilobytes in the size.
-func (s Size) Kilobytes() float64 { return float64(s) / float64(Kilobyte) }
-
-// Megabytes returns the number of megabytes in the size.
-func (s Size) Megabytes() float64 { return float64(s) / float64(Megabyte) }
-
 // Gigabytes returns the number of gigabytes in the size.
 func (s Size) Gigabytes() float64 { return float64(s) / float64(Gigabyte) }
-
-// Terabytes returns the number of terabytes in the size.
-func (s Size) Terabytes() float64 { return float64(s) / float64(Terabyte) }
-
-// Petabytes returns the number of petabytes in the size.
-func (s Size) Petabytes() float64 { return float64(s) / float64(Petabyte) }
-
-// Exabytes returns the number of exabytes in the size.
-func (s Size) Exabytes() float64 { return float64(s) / float64(Exabyte) }
 
 const (
 	// Byte is a single byte.

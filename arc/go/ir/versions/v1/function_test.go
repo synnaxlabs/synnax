@@ -40,11 +40,11 @@ var _ = Describe("Function", func() {
 		})
 	})
 
-	Describe("String", func() {
+	Describe("StringWithPrefix", func() {
 		DescribeTable(
 			"Rendering",
 			func(fn v1.Function, expected string) {
-				Expect(fn.String()).To(Equal(expected))
+				Expect(fn.StringWithPrefix("")).To(Equal(expected))
 			},
 			Entry("no inputs, outputs, or channels",
 				v1.Function{Key: "add"},

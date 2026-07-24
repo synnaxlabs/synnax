@@ -91,9 +91,6 @@ func (tr TimeRange) Swap() TimeRange { return TimeRange{Start: tr.End, End: tr.S
 // Valid returns true if TimeRange.Start is before or equal to TimeRange.End
 func (tr TimeRange) Valid() bool { return tr.Span() >= 0 }
 
-// Midpoint returns the TimeStamp half-way in between TimeRange.Start and TimeRange.End.
-func (tr TimeRange) Midpoint() TimeStamp { return tr.Start.Add(tr.Span() / 2) }
-
 // String displays the time range with both timestamps in a human-readable format,
 // omitting redundant time components between start and end times.
 func (tr TimeRange) String() string {

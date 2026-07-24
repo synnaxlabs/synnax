@@ -22,10 +22,5 @@ var _ = Describe("Rate", func() {
 				Expect(v0.Rate(1).Period()).To(Equal(v0.Second))
 			})
 		})
-		Describe("SampleCount", func() {
-			It("Should return the number of samples that fit in the span", func() {
-				Expect(v0.Rate(10).SampleCount(v0.Second)).To(Equal(10))
-			})
-		})
 	})
 })

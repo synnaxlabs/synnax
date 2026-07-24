@@ -12,10 +12,6 @@ package v0
 // Period returns a TimeSpan representing the period of the Rate.
 func (r Rate) Period() TimeSpan { return TimeSpan(float64(Second) / float64(r)) }
 
-// SampleCount returns an integer representing the number of samples in the provided
-// Span.
-func (r Rate) SampleCount(t TimeSpan) int { return int(t.Seconds() * float64(r)) }
-
 const (
 	// Hertz is a data rate of 1 Hz.
 	Hertz Rate = 1

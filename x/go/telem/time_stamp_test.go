@@ -35,7 +35,7 @@ var _ = Describe("TimeStamp", func() {
 
 	Describe("Since", func() {
 		It("Should return a positive TimeSpan for a timestamp in the past", func() {
-			past := telem.Now().Sub(telem.Second)
+			past := telem.Now().Add(-telem.Second)
 			elapsed := telem.Since(past)
 			Expect(elapsed).To(BeNumerically(">=", telem.Second))
 			Expect(elapsed).To(BeNumerically("<", 2*telem.Second))

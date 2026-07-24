@@ -44,30 +44,10 @@ var _ = Describe("TimeSpan", func() {
 		)
 	})
 
-	Describe("Seconds", func() {
-		It("Should return the correct number of seconds in the span", func() {
-			ts := v0.Millisecond
-			Expect(ts.Seconds()).To(Equal(0.001))
-		})
-	})
-
 	Describe("IsZero", func() {
 		It("Should return true if the time span is zero", func() {
 			Expect(v0.TimeSpanMax.IsZero()).To(BeFalse())
 			Expect(v0.TimeSpanZero.IsZero()).To(BeTrue())
-		})
-	})
-
-	Describe("IsMax", func() {
-		It("Should return true if the time span is the maximum", func() {
-			Expect(v0.TimeSpanMax.IsMax()).To(BeTrue())
-			Expect(v0.TimeSpanZero.IsMax()).To(BeFalse())
-		})
-	})
-
-	Describe("ByteSize", func() {
-		It("Should return the correct byte size", func() {
-			Expect(v0.Second.ByteSize(1, 8)).To(Equal(v0.Size(8)))
 		})
 	})
 

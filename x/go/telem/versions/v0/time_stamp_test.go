@@ -67,14 +67,6 @@ var _ = Describe("TimeStamp", func() {
 		})
 	})
 
-	Describe("sub", func() {
-		It("Should return a new timestamp with the provided timespan subtracted from it", func() {
-			t0 := v0.TimeStamp(0)
-			t1 := t0.Sub(v0.Second)
-			Expect(t1).To(Equal(v0.TimeStamp(-1 * v0.Second)))
-		})
-	})
-
 	Describe("SpanRange", func() {
 		It("Should return the correct time range", func() {
 			t0 := v0.TimeStamp(0)

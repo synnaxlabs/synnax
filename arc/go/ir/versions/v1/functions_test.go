@@ -41,31 +41,11 @@ var _ = Describe("Functions", func() {
 		})
 	})
 
-	Describe("Get", func() {
-		It("Should get existing function by key", func() {
-			fn := fns.Get("add")
-			Expect(fn.Key).To(Equal("add"))
-		})
-
-		It("Should panic for non-existent key", func() {
-			Expect(func() {
-				_ = fns.Get("nonexistent")
-			}).To(Panic())
-		})
-	})
-
 	Describe("Empty Collection", func() {
 		It("Should handle Find on empty collection", func() {
 			empty := v1.Functions{}
 			_, found := empty.Find("anything")
 			Expect(found).To(BeFalse())
-		})
-
-		It("Should panic on Get with empty collection", func() {
-			empty := v1.Functions{}
-			Expect(func() {
-				_ = empty.Get("anything")
-			}).To(Panic())
 		})
 	})
 })

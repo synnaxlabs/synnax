@@ -23,16 +23,6 @@ import (
 // IsZero returns true if the color is the zero value for its type.
 func (c Color) IsZero() bool { return c.R == 0 && c.G == 0 && c.B == 0 && c.A == 0 }
 
-// Hex returns the hex string representation of the color (e.g. "#ff0000" or "#ff000080"
-// if alpha is not 1).
-func (c Color) Hex() string {
-	alphaByte := uint8(c.A * 255)
-	if alphaByte == 255 {
-		return fmt.Sprintf("#%02x%02x%02x", c.R, c.G, c.B)
-	}
-	return fmt.Sprintf("#%02x%02x%02x%02x", c.R, c.G, c.B, alphaByte)
-}
-
 // FromHex parses a hex color string into a Color. Supports 6 or 8 character hex strings
 // with or without a leading '#'.
 func FromHex(s string) (Color, error) {

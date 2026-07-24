@@ -10,7 +10,6 @@
 package v0
 
 import (
-	"encoding/json"
 	"fmt"
 	"slices"
 
@@ -122,25 +121,6 @@ func (c Channel) String() string {
 		return fmt.Sprintf("[%s]<%d>", c.Name, c.Key())
 	}
 	return fmt.Sprintf("<%d>", c.Key())
-}
-
-// UnmarshalJSON implements json.Unmarshaler, supporting both legacy "node_id" and new
-// "leaseholder" field names for backward compatibility.
-func (c *Channel) UnmarshalJSON(data []byte) error {
-	type alias Channel
-	if err := json.Unmarshal(data, (*alias)(c)); err != nil {
-		return errors.Wrap(err, "failed to decode channel from JSON")
-	}
-	if c.Leaseholder == 0 {
-		var legacy struct {
-			NodeID node.Key `json:"node_id"`
-		}
-		if err := json.Unmarshal(data, &legacy); err != nil {
-			return errors.Wrap(err, "failed to decode legacy node_id from JSON")
-		}
-		c.Leaseholder = legacy.NodeID
-	}
-	return nil
 }
 
 // DecodeMsgpack implements msgpack.CustomDecoder, supporting both legacy uppercase Go

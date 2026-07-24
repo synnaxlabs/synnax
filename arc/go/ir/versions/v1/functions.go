@@ -16,6 +16,3 @@ import "github.com/samber/lo"
 func (f Functions) Find(key string) (Function, bool) {
 	return lo.Find(f, func(fn Function) bool { return fn.Key == key })
 }
-
-// Get returns the function with the given key. Panics if not found.
-func (f Functions) Get(key string) Function { return lo.Must(f.Find(key)) }

@@ -21,19 +21,6 @@ import (
 )
 
 var _ = Describe("Color", func() {
-	Describe("Hex", func() {
-		It("Should output a 6-character hex without alpha when alpha is 1", func() {
-			c := v0.Color{R: 255, G: 0, B: 0, A: 1}
-			Expect(c.Hex()).To(Equal("#ff0000"))
-		})
-		It("Should output an 8-character hex when alpha is not 1", func() {
-			c := v0.Color{R: 255, G: 0, B: 0, A: 0.5}
-			hex := c.Hex()
-			Expect(hex).To(HavePrefix("#ff0000"))
-			Expect(hex).To(HaveLen(9))
-		})
-	})
-
 	Describe("FromHex", func() {
 		It("Should parse a 6-character hex string", func() {
 			c := MustSucceed(v0.FromHex("#ff0000"))

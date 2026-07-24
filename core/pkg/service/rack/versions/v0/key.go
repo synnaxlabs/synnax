@@ -35,15 +35,12 @@ type Key uint32
 // Node returns the node that the rack is leased to.
 func (k Key) Node() node.Key { return node.Key(k >> 16) }
 
-// LocalKey returns unique key for the rack on its leaseholder node.
-func (k Key) LocalKey() uint16 { return uint16(uint32(k) & 0xFFFF) }
-
 // OntologyID returns the unique ontology identifier for the rack.
 func (k Key) OntologyID() ontology.ID {
 	return ontology.ID{Type: ontology.ResourceTypeRack, Key: k.String()}
 }
 
-// IsZero returns true if the key is unset, i.e. both its Node and LocalKey are zero.
+// IsZero returns true if the key is unset.
 func (k Key) IsZero() bool { return k == 0 }
 
 // String returns the key formatted as its decimal integer value.

@@ -98,10 +98,10 @@ var _ = Describe("Rack", Ordered, func() {
 		writer = svc.NewWriter(tx)
 	})
 	Describe("Key", func() {
-		It("Should correctly construct and deconstruct key from its components", func(ctx SpecContext) {
+		It("Should correctly construct a key from its components", func(ctx SpecContext) {
 			k := rack.NewKey(1, 2)
 			Expect(k.Node()).To(Equal(node.Key(1)))
-			Expect(k.LocalKey()).To(Equal(uint16(2)))
+			Expect(k).To(Equal(rack.Key(1<<16 | 2)))
 		})
 	})
 	Describe("StatusKey", func() {
@@ -168,13 +168,12 @@ var _ = Describe("Rack", Ordered, func() {
 			r := &rack.Rack{Name: "rack1"}
 			Expect(writer.Create(ctx, r)).To(Succeed())
 			Expect(!r.Key.IsZero()).To(BeTrue())
-			Expect(r.Key.Node()).To(Equal(node.Key(1)))
-			Expect(r.Key.LocalKey()).To(Equal(uint16(2)))
+			Expect(r.Key).To(Equal(rack.NewKey(1, 2)))
 		})
 		It("Should correctly increment the local key counter", func(ctx SpecContext) {
 			r := &rack.Rack{Name: "rack2"}
 			Expect(writer.Create(ctx, r)).To(Succeed())
-			Expect(r.Key.LocalKey()).To(Equal(uint16(3)))
+			Expect(r.Key).To(Equal(rack.NewKey(1, 3)))
 		})
 		It("Should return an error if the rack has no name", func(ctx SpecContext) {
 			r := &rack.Rack{}

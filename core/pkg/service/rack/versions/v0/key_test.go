@@ -27,12 +27,6 @@ var _ = Describe("Key", func() {
 		})
 	})
 
-	Describe("LocalKey", func() {
-		It("Should return the rack's key on its leaseholder node", func() {
-			Expect(key.LocalKey()).To(Equal(uint16(7)))
-		})
-	})
-
 	Describe("OntologyID", func() {
 		It("Should return the rack ontology identifier", func() {
 			Expect(key.OntologyID()).To(Equal(ontology.ID{

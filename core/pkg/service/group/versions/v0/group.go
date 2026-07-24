@@ -26,6 +26,3 @@ func (Group) SetOptions() []any { return nil }
 func (g Group) OntologyID() ontology.ID {
 	return ontology.ID{Type: ontology.ResourceTypeGroup, Key: g.Key.String()}
 }
-
-// IsZero implements ZeroAble.
-func (g Group) IsZero() bool { return g == Group{} }

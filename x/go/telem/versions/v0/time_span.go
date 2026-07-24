@@ -48,18 +48,8 @@ func (ts *TimeSpan) UnmarshalJSON(b []byte) error {
 // Duration converts TimeSpan to a time.Duration.
 func (ts TimeSpan) Duration() time.Duration { return time.Duration(ts) }
 
-// Seconds returns a float64 value representing the number of seconds in the TimeSpan.
-func (ts TimeSpan) Seconds() float64 { return ts.Duration().Seconds() }
-
 // IsZero returns true if the TimeSpan is TimeSpanZero.
 func (ts TimeSpan) IsZero() bool { return ts == TimeSpanZero }
-
-// IsMax returns true if the TimeSpan is the maximum possible value.
-func (ts TimeSpan) IsMax() bool { return ts == TimeSpanMax }
-
-func (ts TimeSpan) ByteSize(rate Rate, density Density) Size {
-	return Size(ts / rate.Period() * TimeSpan(density))
-}
 
 // String returns a string representation of the TimeSpan
 func (ts TimeSpan) String() string {

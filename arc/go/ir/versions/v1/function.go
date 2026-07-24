@@ -25,9 +25,6 @@ func (f Function) Type() types.Type {
 	})
 }
 
-// String returns the string representation of the function.
-func (f Function) String() string { return f.StringWithPrefix("") }
-
 // StringWithPrefix returns the string representation with tree formatting.
 func (f Function) StringWithPrefix(prefix string) string {
 	var b strings.Builder

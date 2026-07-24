@@ -76,9 +76,6 @@ func (ts TimeStamp) Add(tspan TimeSpan) TimeStamp {
 	return TimeStamp(clamp.AddInt64(int64(ts), int64(tspan)))
 }
 
-// Sub returns a new TimeStamp with the provided TimeSpan subtracted from it.
-func (ts TimeStamp) Sub(tspan TimeSpan) TimeStamp { return ts.Add(-tspan) }
-
 // SpanRange constructs a new TimeRange with the TimeStamp and provided TimeSpan.
 func (ts TimeStamp) SpanRange(span TimeSpan) TimeRange {
 	return ts.Range(ts.Add(span)).MakeValid()
