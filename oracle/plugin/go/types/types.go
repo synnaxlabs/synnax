@@ -295,6 +295,7 @@ func computeSplit(
 	if _, err := capGen.Generate(&capReq); err != nil {
 		return nil, err
 	}
+	chains := newChainResolver(req.RepoRoot)
 	for origPath, version := range entries {
 		if version == 0 {
 			continue
@@ -321,7 +322,7 @@ func computeSplit(
 		if err != nil {
 			return nil, err
 		}
-		aliased, err := frozenAliasSplit(candidate, ctx, predDir)
+		aliased, err := frozenAliasSplit(candidate, ctx, predDir, chains)
 		if err != nil {
 			return nil, errors.Wrapf(err, "frozen baseline for %s", origPath)
 		}

@@ -24,6 +24,7 @@ import (
 	"github.com/synnaxlabs/oracle/domain/omit"
 	"github.com/synnaxlabs/oracle/plugin/framework"
 	"github.com/synnaxlabs/oracle/plugin/go/internal/naming"
+	"github.com/synnaxlabs/oracle/plugin/gomod"
 	"github.com/synnaxlabs/oracle/plugin/internal/casing"
 	"github.com/synnaxlabs/oracle/resolution"
 	"github.com/synnaxlabs/x/errors"
@@ -42,6 +43,7 @@ func frozenAliasSplit(
 	candidate []byte,
 	ctx *framework.GenerateContext,
 	predDir string,
+	chains *chainResolver,
 ) (set.Set[string], error) {
 	candOwners, candRefs, candSpecs, err := groupDecls(candidate)
 	if err != nil {
@@ -51,6 +53,8 @@ func frozenAliasSplit(
 	if err != nil {
 		return nil, err
 	}
+	chains.canonicalizeAll(candOwners, candSpecs)
+	chains.canonicalizeAll(frozOwners, frozSpecs)
 
 	type entry struct {
 		qualified string
@@ -370,4 +374,128 @@ func packageDecls(dir string) (map[string][]string, map[string]string, error) {
 		maps.Copy(specs, fs)
 	}
 	return owners, specs, nil
+}
+
+// selectorRe matches a qualifier-normalized selector: "«import/path».Name".
+var selectorRe = regexp.MustCompile(`«([^»]+)»\.(\w+)`)
+
+// aliasHopRe matches a plain same-name alias spec ("type X = «path».X",
+// optionally generic on the left). Aliases that rename or instantiate stop the
+// chain: they denote a different type.
+var aliasHopRe = regexp.MustCompile(`^type (\w+)(?:\[[^\]]*\])? = «([^»]+)»\.(\w+)$`)
+
+// chainResolver canonicalizes selector denotations by following on-disk
+// same-name alias chains to their defining package, so a candidate referencing
+// rack/versions/v1.Key compares equal to a frozen file referencing
+// rack/versions/v0.Key when v1 merely aliases v0.
+type chainResolver struct {
+	// mods maps each module name in the repo to its directory.
+	mods map[string]string
+	// specs caches packageDecls type specs per parsed directory; nil marks a
+	// directory that failed to read or parse.
+	specs map[string]map[string]string
+}
+
+// newChainResolver walks repoRoot for go.mod files, building the module map
+// used to resolve import paths back to disk locations.
+func newChainResolver(repoRoot string) *chainResolver {
+	r := &chainResolver{
+		mods:  make(map[string]string),
+		specs: make(map[string]map[string]string),
+	}
+	_ = filepath.WalkDir(repoRoot, func(path string, d os.DirEntry, err error) error {
+		if err != nil {
+			return nil
+		}
+		if d.IsDir() {
+			name := d.Name()
+			if path != repoRoot &&
+				(strings.HasPrefix(name, ".") || name == "node_modules" ||
+					name == "vendor" || name == "dist" || name == "build") {
+				return filepath.SkipDir
+			}
+			return nil
+		}
+		if d.Name() != "go.mod" {
+			return nil
+		}
+		if mod, err := gomod.ParseModuleName(path); err == nil {
+			r.mods[mod] = filepath.Dir(path)
+		}
+		return nil
+	})
+	return r
+}
+
+// dirFor resolves an import path to its repo directory by longest module
+// prefix, reporting false for modules outside the repo.
+func (r *chainResolver) dirFor(importPath string) (string, bool) {
+	best, bestDir := "", ""
+	for mod, dir := range r.mods {
+		if (importPath == mod || strings.HasPrefix(importPath, mod+"/")) &&
+			len(mod) > len(best) {
+			best, bestDir = mod, dir
+		}
+	}
+	if best == "" {
+		return "", false
+	}
+	return filepath.Join(bestDir, strings.TrimPrefix(strings.TrimPrefix(importPath, best), "/")), true
+}
+
+// specFor returns the printed type spec declaring name in the package at
+// importPath, parsing and caching the directory on first use.
+func (r *chainResolver) specFor(importPath, name string) (string, bool) {
+	dir, ok := r.dirFor(importPath)
+	if !ok {
+		return "", false
+	}
+	specs, cached := r.specs[dir]
+	if !cached {
+		if _, s, err := packageDecls(dir); err == nil {
+			specs = s
+		}
+		r.specs[dir] = specs
+	}
+	if specs == nil {
+		return "", false
+	}
+	spec, ok := specs[name]
+	return spec, ok
+}
+
+// canonicalize rewrites every selector in decl to the import path that
+// ultimately defines its name, following same-name alias hops.
+func (r *chainResolver) canonicalize(decl string) string {
+	return selectorRe.ReplaceAllStringFunc(decl, func(sel string) string {
+		m := selectorRe.FindStringSubmatch(sel)
+		path, name := m[1], m[2]
+		// Version chains are short; the bound only guards against cycles.
+		for range 32 {
+			spec, ok := r.specFor(path, name)
+			if !ok {
+				break
+			}
+			hop := aliasHopRe.FindStringSubmatch(spec)
+			if hop == nil || hop[1] != name || hop[3] != name {
+				break
+			}
+			path = hop[2]
+		}
+		return "«" + path + "»." + name
+	})
+}
+
+// canonicalizeAll canonicalizes every printed declaration and type spec in the
+// grouped maps in place.
+func (r *chainResolver) canonicalizeAll(owners map[string][]string, specs map[string]string) {
+	for o, decls := range owners {
+		for i, d := range decls {
+			decls[i] = r.canonicalize(d)
+		}
+		owners[o] = decls
+	}
+	for o, s := range specs {
+		specs[o] = r.canonicalize(s)
+	}
 }
