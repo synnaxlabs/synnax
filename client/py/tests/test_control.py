@@ -513,8 +513,8 @@ class TestRemainsTrueForProcessor:
     """Unit tests for the RemainsTrueFor percentage logic, independent of streaming
     timing."""
 
-    # The callbacks under test never touch the controller, so a bare sentinel stands
-    # in for it.
+    # The callbacks under test never touch the controller, so a bare sentinel stands in
+    # for it.
     _state = cast(Controller, object())
 
     def _run(self, results: list[bool], percentage: float) -> RemainsTrueFor:
