@@ -37,24 +37,6 @@ func (kv *Key) UnmarshalJSON(b []byte) error {
 }
 
 // EncodeOrc writes the value to w in the Orc binary format.
-func (sd StatusDetails) EncodeOrc(w *orc.Writer) error {
-	w.Uint32(uint32(sd.Rack))
-	return nil
-}
-
-// DecodeOrc reads the value from r in the Orc binary format.
-func (sd *StatusDetails) DecodeOrc(r *orc.Reader) error {
-	{
-		v, err := r.Uint32()
-		if err != nil {
-			return err
-		}
-		sd.Rack = Key(v)
-	}
-	return nil
-}
-
-// EncodeOrc writes the value to w in the Orc binary format.
 func (rv Rack) EncodeOrc(w *orc.Writer) error {
 	w.Uint32(uint32(rv.Key))
 	w.String(rv.Name)

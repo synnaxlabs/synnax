@@ -30,7 +30,7 @@ type StatusDetails struct {
 	// Rack is the key of the rack this device belongs to.
 	Rack rack.Key `json:"rack" msgpack:"rack"`
 	// Device is the device identifier.
-	Device string `json:"device" msgpack:"device"`
+	Device Key `json:"device" msgpack:"device"`
 }
 
 // Device is a physical piece of hardware connected to Synnax through the Driver system.
