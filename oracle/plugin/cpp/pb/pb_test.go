@@ -332,6 +332,26 @@ var _ = Describe("C++ PB Plugin", func() {
 					)
 			})
 
+			It("Should translate a standalone pb enum beside pb structs that never reference it", func(ctx SpecContext) {
+				source := `
+					@cpp output "client/cpp/status"
+					@pb output "core/pkg/service/status/pb"
+
+					Variant enum {
+						success = "success"
+						error = "error"
+					}
+
+					Status struct {
+						name string
+					}
+				`
+				resp := MustGenerate(ctx, source, "status", loader, pbPlugin)
+
+				ExpectContent(resp, "proto.gen.h").
+					ToContain("variant_to_pb", "variant_from_pb")
+			})
+
 			It("Should return error for unrecognized string enum values", func(ctx SpecContext) {
 				source := `
 					@cpp output "client/cpp/status"

@@ -123,9 +123,7 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 		if enumPath == "" {
 			continue
 		}
-		if _, exists := outputStructs[enumPath]; !exists {
-			standaloneEnums[enumPath] = append(standaloneEnums[enumPath], e)
-		}
+		standaloneEnums[enumPath] = append(standaloneEnums[enumPath], e)
 	}
 	for path := range standaloneEnums {
 		found := slices.Contains(outputOrder, path)
@@ -153,12 +151,12 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 
 		enums := enum.CollectReferenced(structs, req.Resolutions)
 
-		if len(structs) == 0 {
-			if standalone, ok := standaloneEnums[outputPath]; ok {
-				enums = append(enums, standalone...)
-				if len(standalone) > 0 {
-					namespace = standalone[0].Namespace
-				}
+		// Standalone pb enums must translate even when no sibling pb struct
+		// references them: cross-namespace callers resolve the translator here.
+		if standalone, ok := standaloneEnums[outputPath]; ok {
+			enums = append(enums, standalone...)
+			if namespace == "" && len(standalone) > 0 {
+				namespace = standalone[0].Namespace
 			}
 		}
 

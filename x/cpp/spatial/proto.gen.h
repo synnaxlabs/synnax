@@ -11,6 +11,8 @@
 
 #pragma once
 
+#include <string>
+#include <unordered_map>
 #include <utility>
 
 #include "x/cpp/errors/errors.h"
@@ -21,6 +23,30 @@
 #include "x/go/spatial/pb/spatial.pb.h"
 
 namespace x::spatial {
+
+inline std::pair<::x::spatial::pb::XLocation, x::errors::Error>
+x_location_to_pb(const std::string &cpp) {
+    static const std::unordered_map<std::string, ::x::spatial::pb::XLocation> kMap = {
+        {X_LOCATION_LEFT, ::x::spatial::pb::X_LOCATION_LEFT},
+        {X_LOCATION_RIGHT, ::x::spatial::pb::X_LOCATION_RIGHT},
+    };
+    auto it = kMap.find(cpp);
+    if (it == kMap.end())
+        return {{}, x::errors::Error("unrecognized XLocation value: " + cpp)};
+    return {it->second, x::errors::NIL};
+}
+
+inline std::pair<std::string, x::errors::Error>
+x_location_from_pb(::x::spatial::pb::XLocation pb) {
+    switch (pb) {
+        case ::x::spatial::pb::X_LOCATION_LEFT:
+            return {X_LOCATION_LEFT, x::errors::NIL};
+        case ::x::spatial::pb::X_LOCATION_RIGHT:
+            return {X_LOCATION_RIGHT, x::errors::NIL};
+        default:
+            return {"", x::errors::Error("unrecognized XLocation protobuf value")};
+    }
+}
 
 inline std::pair<::x::spatial::pb::XY, x::errors::Error> XY::to_proto() const {
     ::x::spatial::pb::XY pb;
