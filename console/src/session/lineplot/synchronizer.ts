@@ -14,7 +14,9 @@ export const SYNCHRONIZERS: Synchronizer.Synchronizers = {
   usePruneDeletedLinePlots: Synchronizer.create({
     onDelete: (client, handler) => client.lineplots.onDelete(handler),
     retrieveExisting: async (client, keys) =>
-      (await client.lineplots.retrieve({ keys })).map(({ key }) => key),
+      (await client.lineplots.retrieve({ keys, ignoreNotFoundError: true })).map(
+        ({ key }) => key,
+      ),
     selectKeys: (state) => Object.keys(state.line.plots),
     remove: (keys) => remove({ keys }),
   }),

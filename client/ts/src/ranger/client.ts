@@ -260,6 +260,7 @@ const retrieveRequestZ = z.object({
   offset: z.int().optional(),
   includeLabels: z.boolean().optional(),
   includeParent: z.boolean().optional(),
+  ignoreNotFoundError: z.boolean().optional(),
 });
 
 export type RetrieveRequest = z.infer<typeof retrieveRequestZ>;
@@ -405,7 +406,7 @@ export class Client extends query.Retriever<
       cache,
       (payload) => this.sugarOne(payload),
       relationships,
-      async (keys) => await this.execRetrieve(keys),
+      async (keys) => await this.execRetrieve({ keys, ignoreNotFoundError: true }),
       async (rel) => await this.ensureRelationshipTargets(rel),
     );
     super({

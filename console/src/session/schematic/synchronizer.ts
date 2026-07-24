@@ -14,7 +14,9 @@ export const SYNCHRONIZERS: Synchronizer.Synchronizers = {
   usePruneDeletedSchematics: Synchronizer.create({
     onDelete: (client, handler) => client.schematics.onDelete(handler),
     retrieveExisting: async (client, keys) =>
-      (await client.schematics.retrieve({ keys })).map(({ key }) => key),
+      (await client.schematics.retrieve({ keys, ignoreNotFoundError: true })).map(
+        ({ key }) => key,
+      ),
     selectKeys: (state) => Object.keys(state.schematic.schematics),
     remove: (keys) => remove({ keys }),
   }),

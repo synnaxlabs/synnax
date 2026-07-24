@@ -45,7 +45,8 @@ var _ = Describe("Service.Retrieve", func() {
 		grantOn(ctx, user.OntologyID(author.Key), access.ActionRetrieve,
 			schematic.OntologyID(s.Key), schematic.OntologyID(missing))
 		res := MustSucceed(apiSvc.Retrieve(authedCtx(ctx, author), RetrieveRequest{
-			Keys: []schematic.Key{s.Key, missing},
+			Keys:                []schematic.Key{s.Key, missing},
+			IgnoreNotFoundError: true,
 		}))
 		Expect(res.Schematics).To(HaveLen(1))
 		Expect(res.Schematics[0].Key).To(Equal(s.Key))
@@ -53,7 +54,8 @@ var _ = Describe("Service.Retrieve", func() {
 
 	It("Should return an empty result when every requested key is missing", func(ctx SpecContext) {
 		res := MustSucceed(apiSvc.Retrieve(authedCtx(ctx, author), RetrieveRequest{
-			Keys: []schematic.Key{uuid.New()},
+			Keys:                []schematic.Key{uuid.New()},
+			IgnoreNotFoundError: true,
 		}))
 		Expect(res.Schematics).To(BeEmpty())
 	})

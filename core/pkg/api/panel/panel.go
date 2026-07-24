@@ -89,10 +89,11 @@ func (s *Service) Create(
 
 type (
 	RetrieveRequest struct {
-		SearchTerm string      `json:"search_term" msgpack:"search_term"`
-		Keys       []panel.Key `json:"keys" msgpack:"keys"`
-		Limit      int         `json:"limit" msgpack:"limit"`
-		Offset     int         `json:"offset" msgpack:"offset"`
+		SearchTerm          string      `json:"search_term" msgpack:"search_term"`
+		Keys                []panel.Key `json:"keys" msgpack:"keys"`
+		Limit               int         `json:"limit" msgpack:"limit"`
+		Offset              int         `json:"offset" msgpack:"offset"`
+		IgnoreNotFoundError bool        `json:"ignore_not_found_error" msgpack:"ignore_not_found_error"`
 	}
 	RetrieveResponse struct {
 		Panels []panel.Panel `json:"panels,omitzero" msgpack:"panels,omitzero"`
@@ -113,9 +114,10 @@ func (s *Service) Retrieve(
 	if req.Offset > 0 {
 		q = q.Offset(req.Offset)
 	}
-	// Missing keys are omitted from the result, not an error, so callers can
-	// existence-check cached keys in bulk.
-	err = errors.Skip(q.Entries(&res.Panels).Exec(ctx, nil), query.ErrNotFound)
+	err = q.Entries(&res.Panels).Exec(ctx, nil)
+	if req.IgnoreNotFoundError && err != nil {
+		err = errors.Skip(err, query.ErrNotFound)
+	}
 	if eErr := s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionRetrieve,

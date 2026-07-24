@@ -41,6 +41,7 @@ const retrieveReqZ = z.object({
   limit: z.int().optional(),
   offset: z.int().optional(),
   includeStatus: z.boolean().optional(),
+  ignoreNotFoundError: z.boolean().optional(),
 });
 const createReqZ = z.object({ arcs: arcZ.array() });
 const deleteReqZ = z.object({ keys: keyZ.array() });
@@ -181,7 +182,8 @@ export class Client extends query.Retriever<
   ) {
     const store = cache.createTable<Key, Arc>({
       name: "arcs",
-      refetch: async (keys) => await this.execRetrieve({ keys }),
+      refetch: async (keys) =>
+        await this.execRetrieve({ keys, ignoreNotFoundError: true }),
     });
     const dispatcher = new actions.Controller<Key, Arc, Action>({
       store,

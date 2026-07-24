@@ -73,9 +73,7 @@ describe("destructor", () => {
       });
 
       it("should log instead of throwing when a destructor fails", async () => {
-        const consoleError = vi
-          .spyOn(console, "error")
-          .mockImplementation(() => {});
+        const consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
         try {
           const chain = new destructor.Chain();
           chain.add(() => {

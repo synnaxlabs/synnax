@@ -46,14 +46,15 @@ func NewService(cfgs ...config.LayerConfig) (*Service, error) {
 
 type (
 	RetrieveRequest struct {
-		SearchTerm       string                  `json:"search_term" msgpack:"search_term"`
-		IDs              []ontology.ID           `json:"ids" msgpack:"ids" validate:"required"`
-		Types            []ontology.ResourceType `json:"types" msgpack:"types"`
-		Limit            int                     `json:"limit" msgpack:"limit"`
-		Offset           int                     `json:"offset" msgpack:"offset"`
-		Children         bool                    `json:"children" msgpack:"children"`
-		Parents          bool                    `json:"parents" msgpack:"parents"`
-		ExcludeFieldData bool                    `json:"exclude_field_data" msgpack:"exclude_field_data"`
+		SearchTerm          string                  `json:"search_term" msgpack:"search_term"`
+		IDs                 []ontology.ID           `json:"ids" msgpack:"ids" validate:"required"`
+		Types               []ontology.ResourceType `json:"types" msgpack:"types"`
+		Limit               int                     `json:"limit" msgpack:"limit"`
+		Offset              int                     `json:"offset" msgpack:"offset"`
+		Children            bool                    `json:"children" msgpack:"children"`
+		Parents             bool                    `json:"parents" msgpack:"parents"`
+		ExcludeFieldData    bool                    `json:"exclude_field_data" msgpack:"exclude_field_data"`
+		IgnoreNotFoundError bool                    `json:"ignore_not_found_error" msgpack:"ignore_not_found_error"`
 	}
 	RetrieveResponse struct {
 		Resources []ontology.Resource `json:"resources" msgpack:"resources"`
@@ -99,10 +100,8 @@ func (s *Service) Retrieve(
 		if req.Offset > 0 {
 			q = q.Offset(req.Offset)
 		}
-		// Missing IDs are omitted from the result, not an error, so callers
-		// can existence-check resources in bulk.
 		err := q.Entries(&resources).Exec(ctx, nil)
-		if len(req.IDs) > 0 {
+		if req.IgnoreNotFoundError && err != nil {
 			err = errors.Skip(err, query.ErrNotFound)
 		}
 		if err != nil {

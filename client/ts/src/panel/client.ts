@@ -41,6 +41,7 @@ const retrieveReqZ = z.object({
   searchTerm: z.string().optional(),
   offset: z.int().optional(),
   limit: z.int().optional(),
+  ignoreNotFoundError: z.boolean().optional(),
 });
 export interface RetrieveRequest extends z.infer<typeof retrieveReqZ> {}
 const createReqZ = z.object({ panels: panelZ.array() });
@@ -93,7 +94,8 @@ export class Client extends query.Retriever<
   ) {
     const store = cache.createTable<Key, Panel>({
       name: "panels",
-      refetch: async (keys) => await this.execRetrieve({ keys }),
+      refetch: async (keys) =>
+        await this.execRetrieve({ keys, ignoreNotFoundError: true }),
     });
     const dispatcher = new actions.Controller<Key, Panel, Action>({
       store,

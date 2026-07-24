@@ -44,7 +44,10 @@ const copyReqZ = z.object({
   snapshot: z.boolean(),
 });
 
-const retrieveReqZ = z.object({ keys: keyZ.array() });
+const retrieveReqZ = z.object({
+  keys: keyZ.array(),
+  ignoreNotFoundError: z.boolean().optional(),
+});
 const singleRetrieveParamsZ = z
   .object({ key: keyZ })
   .transform(({ key }) => ({ keys: [key] }));
@@ -98,7 +101,8 @@ export class Client extends query.Retriever<
   ) {
     const store = cache.createTable<Key, Schematic>({
       name: "schematics",
-      refetch: async (keys) => await this.execRetrieve({ keys }),
+      refetch: async (keys) =>
+        await this.execRetrieve({ keys, ignoreNotFoundError: true }),
     });
     const dispatcher = new actions.Controller<Key, Schematic, Action>({
       store,

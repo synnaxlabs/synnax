@@ -96,7 +96,8 @@ func (s *Service) Dispatch(
 
 type (
 	RetrieveRequest struct {
-		Keys []log.Key `json:"keys" msgpack:"keys"`
+		Keys                []log.Key `json:"keys" msgpack:"keys"`
+		IgnoreNotFoundError bool      `json:"ignore_not_found_error" msgpack:"ignore_not_found_error"`
 	}
 	RetrieveResponse struct {
 		Logs []log.Log `json:"logs,omitzero" msgpack:"logs,omitzero"`
@@ -108,11 +109,12 @@ func (s *Service) Retrieve(
 	req RetrieveRequest,
 ) (RetrieveResponse, error) {
 	var res RetrieveResponse
-	// Missing keys are omitted from the result, not an error, so callers can
-	// existence-check cached keys in bulk.
-	if err := s.internal.NewRetrieve().
-		Where(log.MatchKeys(req.Keys...)).Entries(&res.Logs).
-		Exec(ctx, nil); errors.Skip(err, query.ErrNotFound) != nil {
+	err := s.internal.NewRetrieve().
+		Where(log.MatchKeys(req.Keys...)).Entries(&res.Logs).Exec(ctx, nil)
+	if req.IgnoreNotFoundError && err != nil {
+		err = errors.Skip(err, query.ErrNotFound)
+	}
+	if err != nil {
 		return RetrieveResponse{}, err
 	}
 	if err := s.access.NewEnforcer(nil).Enforce(ctx, access.Request{

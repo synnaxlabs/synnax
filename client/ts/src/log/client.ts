@@ -30,7 +30,10 @@ export const DELETE_CHANNEL_NAME = "sy_log_delete";
 
 const deleteReqZ = z.object({ keys: keyZ.array() });
 
-const retrieveReqZ = z.object({ keys: keyZ.array() });
+const retrieveReqZ = z.object({
+  keys: keyZ.array(),
+  ignoreNotFoundError: z.boolean().optional(),
+});
 const singleRetrieveParamsZ = z
   .object({ key: keyZ })
   .transform(({ key }) => ({ keys: [key] }));
@@ -77,7 +80,8 @@ export class Client extends query.Retriever<
   ) {
     const store = cache.createTable<Key, Log>({
       name: "logs",
-      refetch: async (keys) => await this.execRetrieve({ keys }),
+      refetch: async (keys) =>
+        await this.execRetrieve({ keys, ignoreNotFoundError: true }),
     });
     const dispatcher = new actions.Controller<Key, Log, Action>({
       store,

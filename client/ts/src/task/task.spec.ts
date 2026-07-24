@@ -105,13 +105,6 @@ describe("Task", async () => {
       expect(retrieved.type).toBe("ni");
     });
 
-    it("should omit missing keys from a multi-key retrieve", async () => {
-      const m = await testRack.createTask({ name: "test", config: {}, type: "ni" });
-      const missing = ((BigInt(testRack.key) << 32n) | 0xfffffff0n).toString();
-      const retrieved = await client.tasks.retrieve({ keys: [m.key, missing] });
-      expect(retrieved.map(({ key }) => key)).toEqual([m.key]);
-    });
-
     it("should retrieve a task by its name", async () => {
       const name = `test-${Date.now()}-${Math.random()}`;
       const m = await testRack.createTask({ name, config: { a: "dog" }, type: "ni" });

@@ -92,15 +92,16 @@ func (s *Service) Create(
 
 type (
 	RetrieveRequest struct {
-		Keys          []ranger.Key    `json:"keys" msgpack:"keys"`
-		Names         []string        `json:"names" msgpack:"names"`
-		SearchTerm    string          `json:"search_term" msgpack:"search_term"`
-		HasLabels     []label.Key     `json:"has_labels" msgpack:"has_labels"`
-		OverlapsWith  telem.TimeRange `json:"overlaps_with" msgpack:"overlaps_with"`
-		Limit         int             `json:"limit" msgpack:"limit"`
-		Offset        int             `json:"offset" msgpack:"offset"`
-		IncludeLabels bool            `json:"include_labels" msgpack:"include_labels"`
-		IncludeParent bool            `json:"include_parent" msgpack:"include_parent"`
+		Keys                []ranger.Key    `json:"keys" msgpack:"keys"`
+		Names               []string        `json:"names" msgpack:"names"`
+		SearchTerm          string          `json:"search_term" msgpack:"search_term"`
+		HasLabels           []label.Key     `json:"has_labels" msgpack:"has_labels"`
+		OverlapsWith        telem.TimeRange `json:"overlaps_with" msgpack:"overlaps_with"`
+		Limit               int             `json:"limit" msgpack:"limit"`
+		Offset              int             `json:"offset" msgpack:"offset"`
+		IncludeLabels       bool            `json:"include_labels" msgpack:"include_labels"`
+		IncludeParent       bool            `json:"include_parent" msgpack:"include_parent"`
+		IgnoreNotFoundError bool            `json:"ignore_not_found_error" msgpack:"ignore_not_found_error"`
 	}
 	RetrieveResponse struct {
 		Ranges []Range `json:"ranges,omitzero" msgpack:"ranges,omitzero"`
@@ -141,12 +142,13 @@ func (s *Service) Retrieve(
 	if req.Offset > 0 {
 		q = q.Offset(req.Offset)
 	}
-	// Missing keys are omitted from the result, not an error, so callers can
-	// existence-check cached keys in bulk.
-	if err := q.Exec(ctx, nil); errors.Skip(err, query.ErrNotFound) != nil {
+	err := q.Exec(ctx, nil)
+	if req.IgnoreNotFoundError && err != nil {
+		err = errors.Skip(err, query.ErrNotFound)
+	}
+	if err != nil {
 		return RetrieveResponse{}, err
 	}
-	var err error
 	if req.IncludeLabels {
 		for i, r := range ranges {
 			if ranges[i].Labels, err = s.label.

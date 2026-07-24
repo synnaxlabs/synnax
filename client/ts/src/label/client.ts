@@ -43,6 +43,7 @@ const retrieveRequestZ = z.object({
   searchTerm: z.string().optional(),
   offset: z.int().optional(),
   limit: z.int().optional(),
+  ignoreNotFoundError: z.boolean().optional(),
 });
 
 const singleRetrieveParamsZ = z
@@ -108,7 +109,10 @@ export class Client extends query.Retriever<
     cache: query.Cache,
     relationships: query.Table<string, ontology.Relationship>,
   ) {
-    const store = createTable(cache, async (keys) => await this.execRetrieve({ keys }));
+    const store = createTable(
+      cache,
+      async (keys) => await this.execRetrieve({ keys, ignoreNotFoundError: true }),
+    );
     super({
       single: cache.queries({
         name: "label",

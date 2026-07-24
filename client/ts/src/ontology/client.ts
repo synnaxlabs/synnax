@@ -48,6 +48,7 @@ const retrieveReqZ = z.object({
   searchTerm: z.string().optional(),
   limit: z.int().optional(),
   offset: z.int().optional(),
+  ignoreNotFoundError: z.boolean().optional(),
 });
 export interface RetrieveRequest extends z.infer<typeof retrieveReqZ> {}
 
@@ -222,7 +223,8 @@ export class Client extends query.Retriever<
   constructor(unary: UnaryClient, cache: query.Cache) {
     const stores = createTables(
       cache,
-      async (keys) => await this.execRetrieve({ ids: parseIDs(keys) }),
+      async (keys) =>
+        await this.execRetrieve({ ids: parseIDs(keys), ignoreNotFoundError: true }),
     );
     super({
       single: cache.queries({

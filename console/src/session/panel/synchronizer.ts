@@ -37,7 +37,9 @@ export const SYNCHRONIZERS: Synchronizer.Synchronizers = {
   usePruneDeletedPanels: Synchronizer.create({
     onDelete: (client, handler) => client.panels.onDelete(handler),
     retrieveExisting: async (client, keys) =>
-      (await client.panels.retrieve({ keys })).map(({ key }) => key),
+      (await client.panels.retrieve({ keys, ignoreNotFoundError: true })).map(
+        ({ key }) => key,
+      ),
     selectKeys,
     remove,
   }),

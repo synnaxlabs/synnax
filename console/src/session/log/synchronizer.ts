@@ -14,7 +14,9 @@ export const SYNCHRONIZERS: Synchronizer.Synchronizers = {
   usePruneDeletedLogs: Synchronizer.create({
     onDelete: (client, handler) => client.logs.onDelete(handler),
     retrieveExisting: async (client, keys) =>
-      (await client.logs.retrieve({ keys })).map(({ key }) => key),
+      (await client.logs.retrieve({ keys, ignoreNotFoundError: true })).map(
+        ({ key }) => key,
+      ),
     selectKeys: (state) => Object.keys(state.log.logs),
     remove: (keys) => remove({ keys }),
   }),

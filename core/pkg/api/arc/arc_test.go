@@ -42,7 +42,8 @@ var _ = Describe("Service.Retrieve", func() {
 		a := createArc(ctx, "partial-survivor")
 		grantOn(ctx, user.OntologyID(author.Key), access.ActionRetrieve, arc.OntologyID(a.Key))
 		res := MustSucceed(apiSvc.Retrieve(authedCtx(ctx, author), RetrieveRequest{
-			Keys: []arc.Key{a.Key, uuid.New()},
+			Keys:                []arc.Key{a.Key, uuid.New()},
+			IgnoreNotFoundError: true,
 		}))
 		Expect(res.Arcs).To(HaveLen(1))
 		Expect(res.Arcs[0].Key).To(Equal(a.Key))
@@ -50,7 +51,8 @@ var _ = Describe("Service.Retrieve", func() {
 
 	It("Should return an empty result when every requested key is missing", func(ctx SpecContext) {
 		res := MustSucceed(apiSvc.Retrieve(authedCtx(ctx, author), RetrieveRequest{
-			Keys: []arc.Key{uuid.New()},
+			Keys:                []arc.Key{uuid.New()},
+			IgnoreNotFoundError: true,
 		}))
 		Expect(res.Arcs).To(BeEmpty())
 	})

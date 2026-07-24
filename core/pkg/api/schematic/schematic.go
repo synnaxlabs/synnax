@@ -99,7 +99,8 @@ func (s *Service) Dispatch(
 
 type (
 	RetrieveRequest struct {
-		Keys []schematic.Key `json:"keys" msgpack:"keys"`
+		Keys                []schematic.Key `json:"keys" msgpack:"keys"`
+		IgnoreNotFoundError bool            `json:"ignore_not_found_error" msgpack:"ignore_not_found_error"`
 	}
 	RetrieveResponse struct {
 		Schematics []schematic.Schematic `json:"schematics" msgpack:"schematics"`
@@ -111,11 +112,12 @@ func (s *Service) Retrieve(
 	req RetrieveRequest,
 ) (RetrieveResponse, error) {
 	var res RetrieveResponse
-	// Missing keys are omitted from the result, not an error, so callers can
-	// existence-check cached keys in bulk.
-	if err := s.internal.NewRetrieve().
-		Where(schematic.MatchKeys(req.Keys...)).Entries(&res.Schematics).
-		Exec(ctx, nil); errors.Skip(err, query.ErrNotFound) != nil {
+	err := s.internal.NewRetrieve().
+		Where(schematic.MatchKeys(req.Keys...)).Entries(&res.Schematics).Exec(ctx, nil)
+	if req.IgnoreNotFoundError && err != nil {
+		err = errors.Skip(err, query.ErrNotFound)
+	}
+	if err != nil {
 		return RetrieveResponse{}, err
 	}
 	if err := s.access.NewEnforcer(nil).Enforce(ctx, access.Request{

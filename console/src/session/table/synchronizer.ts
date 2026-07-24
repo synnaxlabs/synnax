@@ -14,7 +14,9 @@ export const SYNCHRONIZERS: Synchronizer.Synchronizers = {
   usePruneDeletedTables: Synchronizer.create({
     onDelete: (client, handler) => client.tables.onDelete(handler),
     retrieveExisting: async (client, keys) =>
-      (await client.tables.retrieve({ keys })).map(({ key }) => key),
+      (await client.tables.retrieve({ keys, ignoreNotFoundError: true })).map(
+        ({ key }) => key,
+      ),
     selectKeys: (state) => Object.keys(state.table.tables),
     remove: (keys) => remove({ keys }),
   }),

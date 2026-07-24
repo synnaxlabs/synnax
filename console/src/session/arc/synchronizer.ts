@@ -14,7 +14,9 @@ export const SYNCHRONIZERS: Synchronizer.Synchronizers = {
   usePruneDeletedArcs: Synchronizer.create({
     onDelete: (client, handler) => client.arcs.onDelete(handler),
     retrieveExisting: async (client, keys) =>
-      (await client.arcs.retrieve({ keys })).map(({ key }) => key),
+      (await client.arcs.retrieve({ keys, ignoreNotFoundError: true })).map(
+        ({ key }) => key,
+      ),
     selectKeys: (state) => Object.keys(state.arc.arcs),
     remove: (keys) => remove({ keys }),
   }),
