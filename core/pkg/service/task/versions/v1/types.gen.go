@@ -22,16 +22,7 @@ import (
 type Key = v0.Key
 
 // StatusDetails contains task-specific status details including execution state.
-type StatusDetails struct {
-	// Task is the key of the task this status pertains to.
-	Task Key `json:"task" msgpack:"task"`
-	// Running is true if the task is currently executing.
-	Running bool `json:"running" msgpack:"running"`
-	// Cmd is the last command executed on this task.
-	Cmd string `json:"cmd" msgpack:"cmd"`
-	// Data contains task-specific status data.
-	Data msgpack.EncodedJSON `json:"data,omitzero" msgpack:"data,omitzero"`
-}
+type StatusDetails = v0.StatusDetails
 
 // Status is task-specific status information including execution state and
 // task-specific data.

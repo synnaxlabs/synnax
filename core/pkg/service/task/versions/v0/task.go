@@ -53,7 +53,7 @@ type StatusDetails struct {
 	// Cmd is the last command executed on this task.
 	Cmd string `json:"cmd" msgpack:"cmd"`
 	// Data contains task-specific status data.
-	Data msgpack.EncodedJSON `json:"data,omitempty" msgpack:"data,omitempty"`
+	Data msgpack.EncodedJSON `json:"data,omitzero" msgpack:"data,omitzero"`
 }
 
 // Task is an executable unit of work in the Driver system. Tasks represent specific
