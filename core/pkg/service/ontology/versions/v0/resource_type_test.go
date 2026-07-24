@@ -15,17 +15,10 @@ import (
 	v0 "github.com/synnaxlabs/synnax/pkg/service/ontology/versions/v0"
 )
 
-var _ = Describe("Resource", func() {
-	Describe("GorpKey", func() {
-		It("Should return the resource ID formatted as type:key", func() {
-			r := v0.Resource{ID: v0.ID{Type: "channel", Key: "qux"}}
-			Expect(r.GorpKey()).To(Equal("channel:qux"))
-		})
-	})
-
-	Describe("SetOptions", func() {
-		It("Should return no options", func() {
-			Expect(v0.Resource{}.SetOptions()).To(BeNil())
+var _ = Describe("ResourceType", func() {
+	Describe("String", func() {
+		It("Should return the string representation of the type", func() {
+			Expect(v0.ResourceTypeChannel.String()).To(Equal("channel"))
 		})
 	})
 })
