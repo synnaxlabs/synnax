@@ -19,4 +19,4 @@ const SeedReplica = v1.SeedReplica
 
 // Create builds a Document from raw source text, attributing every character to the
 // seed replica.
-var Create = v1.Create
+func Create(raw string) Document { return v1.Create(raw) }

@@ -20,4 +20,4 @@ const SeedReplica = versions.SeedReplica
 // Create builds a Document from raw source text, attributing every character to the
 // seed replica. It initializes the replicated document for an arc created or imported
 // with plain text.
-var Create = versions.Create
+func Create(raw string) Document { return versions.Create(raw) }
