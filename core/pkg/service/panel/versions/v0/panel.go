@@ -10,7 +10,6 @@
 package v0
 
 import (
-	"github.com/google/uuid"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/x/gorp"
 )
@@ -26,17 +25,4 @@ func (Panel) SetOptions() []any { return nil }
 // OntologyID returns the ontology.ID of the resource.
 func (p Panel) OntologyID() ontology.ID {
 	return ontology.ID{Type: ontology.ResourceTypePanel, Key: p.Key.String()}
-}
-
-// Key returns the stable identifier of the tab regardless of its content variant.
-// Returns uuid.Nil for a Tab with no variant set.
-func (t Tab) Key() uuid.UUID {
-	switch v := t.Variant.(type) {
-	case TabResource:
-		return v.Key
-	case TabView:
-		return v.Key
-	default:
-		return uuid.Nil
-	}
 }

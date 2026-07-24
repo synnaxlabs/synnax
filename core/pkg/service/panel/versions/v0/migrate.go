@@ -32,10 +32,10 @@ import (
 // codecMigration re-encodes stored panels from MessagePack to Orc.
 var codecMigration = gorp.CodecMigration[Key, Panel]("msgpack_to_orc")
 
-// migratableLayoutTypes maps the Console layout types whose layout key is the key of
-// a backing core document to that document's ontology resource type. Tabs of any
-// other layout type (inline app views, modals) have no server-side document to
-// reference and are dropped by the migration.
+// migratableLayoutTypes maps the Console layout types whose layout key is the key of a
+// backing core document to that document's ontology resource type. Tabs of any other
+// layout type (inline app views, modals) have no server-side document to reference and
+// are dropped by the migration.
 var migratableLayoutTypes = map[string]ontology.ResourceType{
 	"arc":       ontology.ResourceTypeArc,
 	"lineplot":  ontology.ResourceTypeLineplot,
@@ -85,9 +85,9 @@ type legacySlice struct {
 // mainWindowKey is the key the Console uses for the main window's mosaic.
 const mainWindowKey = "main"
 
-// stagedLayout is a project layout gathered from the staging prefix for conversion:
-// the KV key it was read from, the owning project's ontology ID, and the parsed
-// mosaic state.
+// stagedLayout is a project layout gathered from the staging prefix for conversion: the
+// KV key it was read from, the owning project's ontology ID, and the parsed mosaic
+// state.
 type stagedLayout struct {
 	key       []byte
 	projectID ontology.ID
@@ -95,14 +95,14 @@ type stagedLayout struct {
 }
 
 // migrateProjectLayouts returns a migration that converts the legacy layout blobs the
-// project migration stages under projectv1.LegacyLayoutKVPrefix into panels,
-// deleting each staged entry as it is consumed, so this migration never reads the
-// project layout field directly. Every window mosaic that references at least one live
-// visualization document becomes a panel parented under the project. Tabs whose
-// layout entry is missing, whose layout type has no backing document, or whose document
-// no longer exists are dropped; splits that lose a side collapse into the surviving
-// child. Blobs that cannot be parsed are skipped, since the Console wrote them
-// best-effort and an unreadable layout must not block the upgrade.
+// project migration stages under projectv1.LegacyLayoutKVPrefix into panels, deleting
+// each staged entry as it is consumed, so this migration never reads the project layout
+// field directly. Every window mosaic that references at least one live visualization
+// document becomes a panel parented under the project. Tabs whose layout entry is
+// missing, whose layout type has no backing document, or whose document no longer
+// exists are dropped; splits that lose a side collapse into the surviving child. Blobs
+// that cannot be parsed are skipped, since the Console wrote them best-effort and an
+// unreadable layout must not block the upgrade.
 func migrateProjectLayouts() func(context.Context, gorp.Tx, alamos.Instrumentation) error {
 	return func(ctx context.Context, tx gorp.Tx, ins alamos.Instrumentation) error {
 		staged, err := scanStagedLayouts(tx, ins)
@@ -121,9 +121,9 @@ func migrateProjectLayouts() func(context.Context, gorp.Tx, alamos.Instrumentati
 	}
 }
 
-// scanStagedLayouts gathers every staged layout before any are converted, since
-// writing panels while iterating the staging prefix would be unsafe. Blobs that fail
-// to parse are skipped with a warning.
+// scanStagedLayouts gathers every staged layout before any are converted, since writing
+// panels while iterating the staging prefix would be unsafe. Blobs that fail to parse
+// are skipped with a warning.
 func scanStagedLayouts(
 	tx gorp.Tx,
 	ins alamos.Instrumentation,
