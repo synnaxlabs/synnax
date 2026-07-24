@@ -22,19 +22,19 @@ import (
 	"github.com/synnaxlabs/x/query"
 )
 
-const LegacyMappingKVKey = "sy_rbac_legacy_permission_mapping"
+const legacyMappingKVKey = "sy_rbac_legacy_permission_mapping"
 
-// LegacyUserMapping stores the legacy permission data for a single user,
-// persisted to KV between Phase 1 (extraction) and Phase 2 (role assignment).
+// LegacyUserMapping stores the legacy permission data for a single user, persisted to
+// KV between Phase 1 (extraction) and Phase 2 (role assignment).
 type LegacyUserMapping struct {
 	UserOntologyID ontology.ID `json:"user_ontology_id"`
 	Policies       []Policy    `json:"policies"`
 }
 
-// Migration (Phase 1) reads legacy policies with Subjects from
-// the Policy table, persists the user-to-policy mapping in KV, and deletes the
-// legacy entries. This runs before any oracle schema migrations that could
-// re-encode entries and lose the Subjects field.
+// Migration (Phase 1) reads legacy policies with Subjects from the Policy table,
+// persists the user-to-policy mapping in KV, and deletes the legacy entries. This runs
+// before any oracle schema migrations that could re-encode entries and lose the
+// Subjects field.
 var Migration = gorp.NewMigration(
 	"v0.policy_conversion",
 	func(ctx context.Context, tx gorp.Tx, _ alamos.Instrumentation) error {
@@ -70,7 +70,7 @@ var Migration = gorp.NewMigration(
 		if err != nil {
 			return errors.Wrap(err, "failed to marshal legacy permission mapping")
 		}
-		if err = tx.Set(ctx, []byte(LegacyMappingKVKey), mappingBytes); err != nil {
+		if err = tx.Set(ctx, []byte(legacyMappingKVKey), mappingBytes); err != nil {
 			return err
 		}
 
@@ -115,10 +115,10 @@ func buildUserMappings(legacyPolicies []Policy) []LegacyUserMapping {
 	return mappings
 }
 
-// ReadLegacyMappings reads the persisted legacy permission mapping from KV.
-// Returns nil if no mapping exists.
+// ReadLegacyMappings reads the persisted legacy permission mapping from KV. Returns nil
+// if no mapping exists.
 func ReadLegacyMappings(ctx context.Context, tx gorp.Tx) ([]LegacyUserMapping, error) {
-	mappingBytes, closer, err := tx.Get(ctx, []byte(LegacyMappingKVKey))
+	mappingBytes, closer, err := tx.Get(ctx, []byte(legacyMappingKVKey))
 	if err != nil {
 		if errors.Is(err, query.ErrNotFound) {
 			return nil, nil
@@ -140,5 +140,5 @@ func ReadLegacyMappings(ctx context.Context, tx gorp.Tx) ([]LegacyUserMapping, e
 
 // DeleteLegacyMappings removes the persisted legacy permission mapping from KV.
 func DeleteLegacyMappings(ctx context.Context, tx gorp.Tx) error {
-	return tx.Delete(ctx, []byte(LegacyMappingKVKey))
+	return tx.Delete(ctx, []byte(legacyMappingKVKey))
 }

@@ -105,7 +105,7 @@ var _ = Describe("Legacy mappings", func() {
 
 	writeMapping := func(ctx SpecContext, mappings []v0.LegacyUserMapping) {
 		raw := MustSucceed(json.Marshal(mappings))
-		Expect(db.Set(ctx, []byte(v0.LegacyMappingKVKey), raw)).To(Succeed())
+		Expect(db.Set(ctx, []byte("sy_rbac_legacy_permission_mapping"), raw)).To(Succeed())
 	}
 
 	Describe("ReadLegacyMappings", func() {
