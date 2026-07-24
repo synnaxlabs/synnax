@@ -32,12 +32,12 @@ import (
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/service"
 	"github.com/synnaxlabs/x/set"
-	xtypes "github.com/synnaxlabs/x/types"
+	"github.com/synnaxlabs/x/types"
 	"github.com/synnaxlabs/x/validate"
 )
 
 // IntOverflowChecker reports whether a channel causes an integer overflow.
-type IntOverflowChecker = func(xtypes.Uint20) error
+type IntOverflowChecker = func(types.Uint20) error
 
 // ServiceConfig configures the service-layer channel service.
 type ServiceConfig struct {
@@ -227,7 +227,7 @@ func (s *Service) validateChannels(_ gorp.Context, channels []Channel) error {
 			continue
 		}
 		channelNumber := s.mu.externalNonVirtualSet.NumLessThan(key) + 1
-		if err := s.cfg.IntOverflowCheck(xtypes.Uint20(channelNumber)); err != nil {
+		if err := s.cfg.IntOverflowCheck(types.Uint20(channelNumber)); err != nil {
 			return err
 		}
 	}
