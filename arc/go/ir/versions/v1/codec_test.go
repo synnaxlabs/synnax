@@ -18,26 +18,6 @@ import (
 )
 
 var _ = Describe("Codec", func() {
-	Describe("Edge", func() {
-		DescribeTable("should round-trip encode and decode",
-			func(original v1.Edge) {
-				w := orc.NewWriter(0)
-				Expect(original.EncodeOrc(w)).To(Succeed())
-				var decoded v1.Edge
-				r := orc.NewReader(nil)
-				r.ResetBytes(w.Bytes())
-				Expect(decoded.DecodeOrc(r)).To(Succeed())
-				Expect(decoded).To(Equal(original))
-			},
-			Entry("fully populated", v1.Edge{
-				Source: v1.Handle{Node: "sensor", Param: "output"},
-				Target: v1.Handle{Node: "valve", Param: "command"},
-				Kind:   v1.EdgeKindConditional,
-			}),
-			Entry("zero value", v1.Edge{}),
-		)
-	})
-
 	Describe("IR", func() {
 		DescribeTable("should round-trip encode and decode",
 			func(original v1.IR) {

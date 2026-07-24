@@ -22,7 +22,7 @@ import (
 type Functions = v0.Functions
 
 // Edges is a collection of dataflow edges in an Arc graph.
-type Edges []Edge
+type Edges = v0.Edges
 
 // Nodes is a collection of node instantiations in an Arc module.
 type Nodes = v0.Nodes
@@ -69,14 +69,7 @@ type Function = v0.Function
 type Body = v0.Body
 
 // Edge is a dataflow connection between node parameters in the Arc graph.
-type Edge struct {
-	// Source is the source node parameter producing data.
-	Source Handle `json:"source" msgpack:"source"`
-	// Target is the target node parameter consuming data.
-	Target Handle `json:"target" msgpack:"target"`
-	// Kind defines execution semantics for this connection.
-	Kind EdgeKind `json:"kind" msgpack:"kind"`
-}
+type Edge = v0.Edge
 
 // Handle is a reference to a specific parameter on a specific node in the dataflow
 // graph.

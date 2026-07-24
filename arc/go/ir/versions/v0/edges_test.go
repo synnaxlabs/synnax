@@ -7,47 +7,47 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package v1_test
+package v0_test
 
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	v1 "github.com/synnaxlabs/arc/ir/versions/v1"
+	v0 "github.com/synnaxlabs/arc/ir/versions/v0"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
 var _ = Describe("Edges", func() {
 	var (
-		edge1, edge2, edge3 v1.Edge
-		edges               v1.Edges
+		edge1, edge2, edge3 v0.Edge
+		edges               v0.Edges
 	)
 
 	BeforeEach(func() {
-		edge1 = v1.Edge{
-			Source: v1.Handle{Node: "node1", Param: "output"},
-			Target: v1.Handle{Node: "node2", Param: "a"},
+		edge1 = v0.Edge{
+			Source: v0.Handle{Node: "node1", Param: "output"},
+			Target: v0.Handle{Node: "node2", Param: "a"},
 		}
-		edge2 = v1.Edge{
-			Source: v1.Handle{Node: "node1", Param: "output"},
-			Target: v1.Handle{Node: "node3", Param: "b"},
+		edge2 = v0.Edge{
+			Source: v0.Handle{Node: "node1", Param: "output"},
+			Target: v0.Handle{Node: "node3", Param: "b"},
 		}
-		edge3 = v1.Edge{
-			Source: v1.Handle{Node: "node2", Param: "output"},
-			Target: v1.Handle{Node: "node4", Param: "input"},
+		edge3 = v0.Edge{
+			Source: v0.Handle{Node: "node2", Param: "output"},
+			Target: v0.Handle{Node: "node4", Param: "input"},
 		}
-		edges = v1.Edges{edge1, edge2, edge3}
+		edges = v0.Edges{edge1, edge2, edge3}
 	})
 
 	Describe("FindBySource", func() {
 		It("Should find edge by source handle", func() {
-			handle := v1.Handle{Node: "node2", Param: "output"}
+			handle := v0.Handle{Node: "node2", Param: "output"}
 			edge := MustBeOk(edges.FindBySource(handle))
 			Expect(edge.Source.Node).To(Equal("node2"))
 			Expect(edge.Target.Node).To(Equal("node4"))
 		})
 
 		It("Should return false for non-existent source", func() {
-			handle := v1.Handle{Node: "nonexistent", Param: "output"}
+			handle := v0.Handle{Node: "nonexistent", Param: "output"}
 			_, found := edges.FindBySource(handle)
 			Expect(found).To(BeFalse())
 		})
@@ -55,14 +55,14 @@ var _ = Describe("Edges", func() {
 
 	Describe("FindByTarget", func() {
 		It("Should find edge by target handle", func() {
-			handle := v1.Handle{Node: "node3", Param: "b"}
+			handle := v0.Handle{Node: "node3", Param: "b"}
 			edge := MustBeOk(edges.FindByTarget(handle))
 			Expect(edge.Source.Node).To(Equal("node1"))
 			Expect(edge.Target.Node).To(Equal("node3"))
 		})
 
 		It("Should return false for non-existent target", func() {
-			handle := v1.Handle{Node: "nonexistent", Param: "x"}
+			handle := v0.Handle{Node: "nonexistent", Param: "x"}
 			_, found := edges.FindByTarget(handle)
 			Expect(found).To(BeFalse())
 		})
@@ -70,13 +70,13 @@ var _ = Describe("Edges", func() {
 
 	Describe("GetBySource", func() {
 		It("Should get edge by source handle", func() {
-			handle := v1.Handle{Node: "node1", Param: "output"}
+			handle := v0.Handle{Node: "node1", Param: "output"}
 			edge := edges.GetBySource(handle)
 			Expect(edge.Source.Node).To(Equal("node1"))
 		})
 
 		It("Should panic for non-existent source", func() {
-			handle := v1.Handle{Node: "nonexistent", Param: "output"}
+			handle := v0.Handle{Node: "nonexistent", Param: "output"}
 			Expect(func() {
 				_ = edges.GetBySource(handle)
 			}).To(Panic())
@@ -85,13 +85,13 @@ var _ = Describe("Edges", func() {
 
 	Describe("GetByTarget", func() {
 		It("Should get edge by target handle", func() {
-			handle := v1.Handle{Node: "node2", Param: "a"}
+			handle := v0.Handle{Node: "node2", Param: "a"}
 			edge := edges.GetByTarget(handle)
 			Expect(edge.Target.Node).To(Equal("node2"))
 		})
 
 		It("Should panic for non-existent target", func() {
-			handle := v1.Handle{Node: "nonexistent", Param: "x"}
+			handle := v0.Handle{Node: "nonexistent", Param: "x"}
 			Expect(func() {
 				_ = edges.GetByTarget(handle)
 			}).To(Panic())
@@ -112,9 +112,9 @@ var _ = Describe("Edges", func() {
 		})
 
 		It("Should return multiple edges for multi-input node", func() {
-			edge4 := v1.Edge{
-				Source: v1.Handle{Node: "node5", Param: "output"},
-				Target: v1.Handle{Node: "node3", Param: "a"},
+			edge4 := v0.Edge{
+				Source: v0.Handle{Node: "node5", Param: "output"},
+				Target: v0.Handle{Node: "node3", Param: "a"},
 			}
 			edges = append(edges, edge4)
 			inputs := edges.GetInputs("node3")
@@ -143,71 +143,71 @@ var _ = Describe("Edges", func() {
 	})
 
 	Describe("GetByKind", func() {
-		var mixedEdges v1.Edges
+		var mixedEdges v0.Edges
 
 		BeforeEach(func() {
-			mixedEdges = v1.Edges{
+			mixedEdges = v0.Edges{
 				{
-					Source: v1.Handle{Node: "timer", Param: "output"},
-					Target: v1.Handle{Node: "controller", Param: "input"},
-					Kind:   v1.EdgeKindContinuous,
+					Source: v0.Handle{Node: "timer", Param: "output"},
+					Target: v0.Handle{Node: "controller", Param: "input"},
+					Kind:   v0.EdgeKindContinuous,
 				},
 				{
-					Source: v1.Handle{Node: "condition", Param: "output"},
-					Target: v1.Handle{Node: "stage_entry", Param: "activate"},
-					Kind:   v1.EdgeKindConditional,
+					Source: v0.Handle{Node: "condition", Param: "output"},
+					Target: v0.Handle{Node: "stage_entry", Param: "activate"},
+					Kind:   v0.EdgeKindConditional,
 				},
 				{
-					Source: v1.Handle{Node: "sensor", Param: "output"},
-					Target: v1.Handle{Node: "filter", Param: "input"},
-					Kind:   v1.EdgeKindContinuous,
+					Source: v0.Handle{Node: "sensor", Param: "output"},
+					Target: v0.Handle{Node: "filter", Param: "input"},
+					Kind:   v0.EdgeKindContinuous,
 				},
 				{
-					Source: v1.Handle{Node: "timeout", Param: "output"},
-					Target: v1.Handle{Node: "abort_entry", Param: "activate"},
-					Kind:   v1.EdgeKindConditional,
+					Source: v0.Handle{Node: "timeout", Param: "output"},
+					Target: v0.Handle{Node: "abort_entry", Param: "activate"},
+					Kind:   v0.EdgeKindConditional,
 				},
 				{
-					Source: v1.Handle{Node: "pid", Param: "output"},
-					Target: v1.Handle{Node: "actuator", Param: "input"},
-					Kind:   v1.EdgeKindContinuous,
+					Source: v0.Handle{Node: "pid", Param: "output"},
+					Target: v0.Handle{Node: "actuator", Param: "input"},
+					Kind:   v0.EdgeKindContinuous,
 				},
 			}
 		})
 
 		It("Should filter Continuous edges", func() {
-			continuous := mixedEdges.GetByKind(v1.EdgeKindContinuous)
+			continuous := mixedEdges.GetByKind(v0.EdgeKindContinuous)
 			Expect(continuous).To(HaveLen(3))
 			for _, e := range continuous {
-				Expect(e.Kind).To(Equal(v1.EdgeKindContinuous))
+				Expect(e.Kind).To(Equal(v0.EdgeKindContinuous))
 			}
 		})
 
 		It("Should filter Conditional edges", func() {
-			conditional := mixedEdges.GetByKind(v1.EdgeKindConditional)
+			conditional := mixedEdges.GetByKind(v0.EdgeKindConditional)
 			Expect(conditional).To(HaveLen(2))
 			for _, e := range conditional {
-				Expect(e.Kind).To(Equal(v1.EdgeKindConditional))
+				Expect(e.Kind).To(Equal(v0.EdgeKindConditional))
 			}
 		})
 
 		It("Should return empty for no matches", func() {
-			allContinuous := v1.Edges{
-				{Kind: v1.EdgeKindContinuous},
-				{Kind: v1.EdgeKindContinuous},
-				{Kind: v1.EdgeKindContinuous},
+			allContinuous := v0.Edges{
+				{Kind: v0.EdgeKindContinuous},
+				{Kind: v0.EdgeKindContinuous},
+				{Kind: v0.EdgeKindContinuous},
 			}
-			Expect(allContinuous.GetByKind(v1.EdgeKindConditional)).To(BeEmpty())
+			Expect(allContinuous.GetByKind(v0.EdgeKindConditional)).To(BeEmpty())
 		})
 
 		It("Should return empty from empty collection", func() {
-			empty := v1.Edges{}
-			Expect(empty.GetByKind(v1.EdgeKindContinuous)).To(BeEmpty())
-			Expect(empty.GetByKind(v1.EdgeKindConditional)).To(BeEmpty())
+			empty := v0.Edges{}
+			Expect(empty.GetByKind(v0.EdgeKindContinuous)).To(BeEmpty())
+			Expect(empty.GetByKind(v0.EdgeKindConditional)).To(BeEmpty())
 		})
 
 		It("Should preserve source and target handles when filtering", func() {
-			conditional := mixedEdges.GetByKind(v1.EdgeKindConditional)
+			conditional := mixedEdges.GetByKind(v0.EdgeKindConditional)
 			Expect(conditional).To(HaveLen(2))
 			// Verify first Conditional edge
 			Expect(conditional[0].Source.Node).To(Equal("condition"))
@@ -218,7 +218,7 @@ var _ = Describe("Edges", func() {
 		})
 
 		It("Should return edges in original order", func() {
-			continuous := mixedEdges.GetByKind(v1.EdgeKindContinuous)
+			continuous := mixedEdges.GetByKind(v0.EdgeKindContinuous)
 			Expect(continuous[0].Source.Node).To(Equal("timer"))
 			Expect(continuous[1].Source.Node).To(Equal("sensor"))
 			Expect(continuous[2].Source.Node).To(Equal("pid"))
@@ -227,43 +227,43 @@ var _ = Describe("Edges", func() {
 
 	Describe("Empty Collection", func() {
 		It("Should handle FindBySource on empty collection", func() {
-			empty := v1.Edges{}
-			handle := v1.Handle{Node: "node1", Param: "output"}
+			empty := v0.Edges{}
+			handle := v0.Handle{Node: "node1", Param: "output"}
 			_, found := empty.FindBySource(handle)
 			Expect(found).To(BeFalse())
 		})
 
 		It("Should handle FindByTarget on empty collection", func() {
-			empty := v1.Edges{}
-			handle := v1.Handle{Node: "node1", Param: "input"}
+			empty := v0.Edges{}
+			handle := v0.Handle{Node: "node1", Param: "input"}
 			_, found := empty.FindByTarget(handle)
 			Expect(found).To(BeFalse())
 		})
 
 		It("Should panic on GetBySource with empty collection", func() {
-			empty := v1.Edges{}
-			handle := v1.Handle{Node: "node1", Param: "output"}
+			empty := v0.Edges{}
+			handle := v0.Handle{Node: "node1", Param: "output"}
 			Expect(func() {
 				_ = empty.GetBySource(handle)
 			}).To(Panic())
 		})
 
 		It("Should panic on GetByTarget with empty collection", func() {
-			empty := v1.Edges{}
-			handle := v1.Handle{Node: "node1", Param: "input"}
+			empty := v0.Edges{}
+			handle := v0.Handle{Node: "node1", Param: "input"}
 			Expect(func() {
 				_ = empty.GetByTarget(handle)
 			}).To(Panic())
 		})
 
 		It("Should return empty slice for GetInputs on empty collection", func() {
-			empty := v1.Edges{}
+			empty := v0.Edges{}
 			inputs := empty.GetInputs("node1")
 			Expect(inputs).To(BeEmpty())
 		})
 
 		It("Should return empty slice for GetOutputs on empty collection", func() {
-			empty := v1.Edges{}
+			empty := v0.Edges{}
 			outputs := empty.GetOutputs("node1")
 			Expect(outputs).To(BeEmpty())
 		})

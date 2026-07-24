@@ -14,29 +14,14 @@ package v1
 import (
 	"context"
 
-	"github.com/samber/lo"
 	v0 "github.com/synnaxlabs/arc/ir/versions/v0"
 )
 
-func autoMigrateEdge(_ context.Context, old v0.Edge) (Edge, error) {
-	return Edge{
-		Source: old.Source,
-		Target: old.Target,
-		Kind:   EdgeKind(old.Kind),
-	}, nil
-}
-
-func autoMigrateIR(ctx context.Context, old v0.IR) (IR, error) {
-	edges, err := lo.MapErr(old.Edges, func(v v0.Edge, _ int) (Edge, error) {
-		return MigrateEdge(ctx, v)
-	})
-	if err != nil {
-		return IR{}, err
-	}
+func autoMigrateIR(_ context.Context, old v0.IR) (IR, error) {
 	return IR{
 		Functions:   old.Functions,
 		Nodes:       old.Nodes,
-		Edges:       edges,
+		Edges:       old.Edges,
 		Authorities: old.Authorities,
 	}, nil
 }

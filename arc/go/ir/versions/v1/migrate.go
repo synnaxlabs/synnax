@@ -17,11 +17,6 @@ import (
 	v0 "github.com/synnaxlabs/arc/ir/versions/v0"
 )
 
-// MigrateEdge lifts a v0 edge into the current shape.
-func MigrateEdge(ctx context.Context, old v0.Edge) (Edge, error) {
-	return autoMigrateEdge(ctx, old)
-}
-
 // MigrateIR lifts a v0 IR into the current shape.
 func MigrateIR(ctx context.Context, old v0.IR) (IR, error) {
 	return autoMigrateIR(ctx, old)

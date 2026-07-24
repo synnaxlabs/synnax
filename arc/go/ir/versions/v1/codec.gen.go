@@ -13,35 +13,6 @@ package v1
 
 import "github.com/synnaxlabs/x/encoding/orc"
 
-func (e Edge) EncodeOrc(w *orc.Writer) error {
-	if err := e.Source.EncodeOrc(w); err != nil {
-		return err
-	}
-	if err := e.Target.EncodeOrc(w); err != nil {
-		return err
-	}
-	w.Int64(int64(e.Kind))
-	return nil
-}
-
-func (e *Edge) DecodeOrc(r *orc.Reader) error {
-	var err error
-	if err = e.Source.DecodeOrc(r); err != nil {
-		return err
-	}
-	if err = e.Target.DecodeOrc(r); err != nil {
-		return err
-	}
-	{
-		v, err := r.Int64()
-		if err != nil {
-			return err
-		}
-		e.Kind = EdgeKind(v)
-	}
-	return nil
-}
-
 func (ir IR) EncodeOrc(w *orc.Writer) error {
 	w.Bool(ir.Functions != nil)
 	if ir.Functions != nil {
