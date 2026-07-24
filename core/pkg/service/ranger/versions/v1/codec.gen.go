@@ -25,7 +25,7 @@ func (rv Range) EncodeOrc(w *orc.Writer) error {
 	}
 	if rv.Color != nil {
 		w.Bool(true)
-		if err := (*rv.Color).EncodeOrc(w); err != nil {
+		if err := rv.Color.EncodeOrc(w); err != nil {
 			return err
 		}
 	} else {

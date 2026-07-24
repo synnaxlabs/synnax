@@ -44,7 +44,7 @@ func (rv Rack) EncodeOrc(w *orc.Writer) error {
 	w.Bool(rv.Embedded)
 	if rv.Status != nil {
 		w.Bool(true)
-		if err := (*rv.Status).EncodeOrc(w); err != nil {
+		if err := rv.Status.EncodeOrc(w); err != nil {
 			return err
 		}
 	} else {

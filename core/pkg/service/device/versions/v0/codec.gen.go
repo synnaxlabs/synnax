@@ -37,7 +37,7 @@ func (d Device) EncodeOrc(w *orc.Writer) error {
 	}
 	if d.Status != nil {
 		w.Bool(true)
-		if err := (*d.Status).EncodeOrc(w); err != nil {
+		if err := d.Status.EncodeOrc(w); err != nil {
 			return err
 		}
 	} else {
@@ -45,7 +45,7 @@ func (d Device) EncodeOrc(w *orc.Writer) error {
 	}
 	if d.Parent != nil {
 		w.Bool(true)
-		if err := (*d.Parent).EncodeOrc(w); err != nil {
+		if err := d.Parent.EncodeOrc(w); err != nil {
 			return err
 		}
 	} else {

@@ -93,7 +93,7 @@ func (t Type) EncodeOrc(w *orc.Writer) error {
 	w.String(t.Name)
 	if t.Elem != nil {
 		w.Bool(true)
-		if err := (*t.Elem).EncodeOrc(w); err != nil {
+		if err := t.Elem.EncodeOrc(w); err != nil {
 			return err
 		}
 	} else {
@@ -101,7 +101,7 @@ func (t Type) EncodeOrc(w *orc.Writer) error {
 	}
 	if t.Unit != nil {
 		w.Bool(true)
-		if err := (*t.Unit).EncodeOrc(w); err != nil {
+		if err := t.Unit.EncodeOrc(w); err != nil {
 			return err
 		}
 	} else {
@@ -109,7 +109,7 @@ func (t Type) EncodeOrc(w *orc.Writer) error {
 	}
 	if t.Constraint != nil {
 		w.Bool(true)
-		if err := (*t.Constraint).EncodeOrc(w); err != nil {
+		if err := t.Constraint.EncodeOrc(w); err != nil {
 			return err
 		}
 	} else {

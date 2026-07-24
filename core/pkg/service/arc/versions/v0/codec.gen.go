@@ -29,7 +29,7 @@ func (a Arc) EncodeOrc(w *orc.Writer) error {
 	}
 	if a.Program != nil {
 		w.Bool(true)
-		if err := (*a.Program).EncodeOrc(w); err != nil {
+		if err := a.Program.EncodeOrc(w); err != nil {
 			return err
 		}
 	} else {
@@ -37,7 +37,7 @@ func (a Arc) EncodeOrc(w *orc.Writer) error {
 	}
 	if a.Status != nil {
 		w.Bool(true)
-		if err := (*a.Status).EncodeOrc(w); err != nil {
+		if err := a.Status.EncodeOrc(w); err != nil {
 			return err
 		}
 	} else {

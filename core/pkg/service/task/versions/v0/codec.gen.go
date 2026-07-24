@@ -54,7 +54,7 @@ func (t Task) EncodeOrc(w *orc.Writer) error {
 	w.Bool(t.Snapshot)
 	if t.Status != nil {
 		w.Bool(true)
-		if err := (*t.Status).EncodeOrc(w); err != nil {
+		if err := t.Status.EncodeOrc(w); err != nil {
 			return err
 		}
 	} else {

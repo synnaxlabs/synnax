@@ -363,7 +363,7 @@ func (b *encoderBuilder) processValueByType(
 		// union fields dispatch like struct fields.
 		ind := b.indent()
 		b.encodeLines = append(b.encodeLines,
-			ind+fmt.Sprintf("if err := %s.EncodeOrc(w); err != nil { return err }", getPath))
+			ind+fmt.Sprintf("if err := %s.EncodeOrc(w); err != nil { return err }", callPath(getPath)))
 		b.decodeWithErr(
 			ind + fmt.Sprintf("if err = %s.DecodeOrc(r); err != nil { return err }", setPath))
 		return nil
@@ -462,10 +462,20 @@ func (b *encoderBuilder) processStruct(
 
 	// Method dispatch: call EncodeOrc/DecodeOrc on the field directly.
 	b.encodeLines = append(b.encodeLines,
-		ind+fmt.Sprintf("if err := %s.EncodeOrc(w); err != nil { return err }", getPath))
+		ind+fmt.Sprintf("if err := %s.EncodeOrc(w); err != nil { return err }", callPath(getPath)))
 	b.decodeWithErr(
 		ind + fmt.Sprintf("if err = %s.DecodeOrc(r); err != nil { return err }", setPath))
 	return nil
+}
+
+// callPath strips the parenthesized deref an optional field's path carries:
+// method calls auto-dereference pointers, so (*d.Status).EncodeOrc reads as
+// d.Status.EncodeOrc.
+func callPath(getPath string) string {
+	if strings.HasPrefix(getPath, "(*") && strings.HasSuffix(getPath, ")") {
+		return getPath[2 : len(getPath)-1]
+	}
+	return getPath
 }
 
 // typeIsRecursive reports whether decoding typ can re-enter its own codec,

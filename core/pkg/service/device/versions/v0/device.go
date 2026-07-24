@@ -49,16 +49,16 @@ type Device struct {
 	Model string `json:"model" msgpack:"model"`
 	// Name is a human-readable name for the device.
 	Name string `json:"name" msgpack:"name"`
-	// Configured indicates whether the device has been successfully configured and is ready
-	// for use.
+	// Configured indicates whether the device has been successfully configured and is
+	// ready for use.
 	Configured bool `json:"configured" msgpack:"configured"`
 	// Properties contains device-specific configuration properties stored as JSON.
 	// Structure varies by device make and model.
 	Properties msgpack.EncodedJSON `json:"properties" msgpack:"properties"`
 	// Status is the current operational status of the device.
 	Status *Status `json:"status,omitempty" msgpack:"status,omitempty"`
-	// Parent is an optional parent resource ID for hierarchical device organization (e.g.,
-	// NI chassis containing modules).
+	// Parent is an optional parent resource ID for hierarchical device organization
+	// (e.g., NI chassis containing modules).
 	Parent *ontology.ID `json:"parent,omitempty" msgpack:"parent,omitempty"`
 }
 

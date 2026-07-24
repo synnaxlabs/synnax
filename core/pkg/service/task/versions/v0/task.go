@@ -77,18 +77,6 @@ type Task struct {
 	Status *Status `json:"status,omitempty" msgpack:"status,omitempty"`
 }
 
-// Command is a command to execute on a task in the Driver system.
-type Command struct {
-	// Task is the key of the target task.
-	Task Key `json:"task" msgpack:"task"`
-	// Type is the command type (e.g., 'start', 'stop', 'configure').
-	Type string `json:"type" msgpack:"type"`
-	// Key is a unique identifier for this command instance.
-	Key string `json:"key" msgpack:"key"`
-	// Args contains optional arguments for the command.
-	Args msgpack.EncodedJSON `json:"args" msgpack:"args"`
-}
-
 var _ gorp.Entry[Key] = Task{}
 
 // GorpKey implements gorp.Entry.

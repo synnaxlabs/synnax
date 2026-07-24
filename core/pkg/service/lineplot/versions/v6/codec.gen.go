@@ -320,7 +320,7 @@ func (lv Line) EncodeOrc(w *orc.Writer) error {
 	}
 	if lv.Color != nil {
 		w.Bool(true)
-		if err := (*lv.Color).EncodeOrc(w); err != nil {
+		if err := lv.Color.EncodeOrc(w); err != nil {
 			return err
 		}
 	} else {
@@ -568,7 +568,7 @@ func (rv Rule) EncodeOrc(w *orc.Writer) error {
 	w.String(rv.Label)
 	if rv.Color != nil {
 		w.Bool(true)
-		if err := (*rv.Color).EncodeOrc(w); err != nil {
+		if err := rv.Color.EncodeOrc(w); err != nil {
 			return err
 		}
 	} else {
