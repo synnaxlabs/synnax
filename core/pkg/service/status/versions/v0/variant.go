@@ -9,8 +9,12 @@
 
 package v0
 
-// GorpKey implements gorp.Entry.
-func (s Status[Details]) GorpKey() string { return s.Key }
-
-// SetOptions implements gorp.Entry.
-func (Status[Details]) SetOptions() []any { return nil }
+// IsValid reports whether v is one of the defined Variant values.
+func (v Variant) IsValid() bool {
+	switch v {
+	case VariantSuccess, VariantInfo, VariantWarning, VariantError, VariantLoading, VariantDisabled:
+		return true
+	default:
+		return false
+	}
+}

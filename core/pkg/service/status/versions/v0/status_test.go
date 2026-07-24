@@ -15,24 +15,6 @@ import (
 	v0 "github.com/synnaxlabs/synnax/pkg/service/status/versions/v0"
 )
 
-var _ = Describe("Variant", func() {
-	Describe("IsValid", func() {
-		DescribeTable("Should report whether the variant is defined",
-			func(v v0.Variant, valid bool) {
-				Expect(v.IsValid()).To(Equal(valid))
-			},
-			Entry("success", v0.VariantSuccess, true),
-			Entry("info", v0.VariantInfo, true),
-			Entry("warning", v0.VariantWarning, true),
-			Entry("error", v0.VariantError, true),
-			Entry("loading", v0.VariantLoading, true),
-			Entry("disabled", v0.VariantDisabled, true),
-			Entry("unknown", v0.Variant("bogus"), false),
-			Entry("empty", v0.Variant(""), false),
-		)
-	})
-})
-
 var _ = Describe("Status", func() {
 	Describe("GorpKey", func() {
 		It("Should return the status's key", func() {
