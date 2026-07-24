@@ -16,18 +16,10 @@ import {
   type SynnaxParams,
 } from "@synnaxlabs/client";
 import { Drift } from "@synnaxlabs/drift";
-import {
-  Access,
-  Flux,
-  type Panel as PlutoPanel,
-  type Pluto,
-  Status,
-  Synnax,
-} from "@synnaxlabs/pluto";
+import { Access, Status, Synnax } from "@synnaxlabs/pluto";
 import { type aether, eraser } from "@synnaxlabs/pluto/ether";
-import { deep, id, uuid } from "@synnaxlabs/x";
+import { deep, id } from "@synnaxlabs/x";
 import {
-  act,
   render,
   renderHook,
   type RenderHookOptions,
@@ -94,28 +86,6 @@ export const waitForFocusedTab = async (store: TestStore): Promise<string> =>
     if (focused == null) throw new Error("no tab focused");
     return focused;
   });
-
-/**
- * Seeds a single-leaf panel holding one resource tab for the given ontology ID into
- * the wrapper's flux store, so the panel scope hooks a mounted tab's content reads
- * (useSelectTabResource) resolve to it. Returns the keys to mount the content under.
- */
-export const createResourceTab = (
-  Wrapper: FC<PropsWithChildren>,
-  resource: ontology.ID,
-): { panelKey: string; tabKey: string } => {
-  const tabKey = uuid.create();
-  const doc = panel.panelZ.parse({
-    key: uuid.create(),
-    name: uniqueName("panel"),
-    root: { variant: "leaf", tabs: [{ variant: "resource", key: tabKey, resource }] },
-  });
-  const { result } = renderHook(() => Flux.useStore<PlutoPanel.FluxSubStore>(), {
-    wrapper: Wrapper,
-  });
-  act(() => void result.current.panels.set(doc));
-  return { panelKey: doc.key, tabKey };
-};
 
 /**
  * Polls until the active window's focused tab resolves to a tab in the selected
@@ -306,27 +276,22 @@ export const createConsoleWrapper = async ({
 };
 
 /**
- * Builds a flux store whose permission cache has resolved a grant for `action` on `id`
- * against the given client, so synchronous Access checks (createGranted,
- * updateGranted) used by file ingesters pass exactly as they do in a running app.
+ * Warms the client's permission cache with a resolved grant for `action` on `id`, so
+ * synchronous Access checks (createGranted, updateGranted) used by file ingesters pass
+ * exactly as they do in a running app.
  */
-export const createGrantedFluxStore = async (
+export const awaitGranted = async (
   client: Client,
   id: ontology.ID,
   action: access.Action = "create",
-): Promise<Pluto.FluxStore> => {
+): Promise<void> => {
   const { wrapper } = await createConsoleWrapper({ client });
-  const { result } = renderHook(
-    () => ({
-      store: Flux.useStore<Pluto.FluxStore>(),
-      granted: Access.useGranted({ objects: id, action }),
-    }),
-    { wrapper },
-  );
-  await waitFor(() => {
-    if (!result.current.granted) throw new Error(`${action} grant did not resolve`);
+  const { result } = renderHook(() => Access.useGranted({ objects: id, action }), {
+    wrapper,
   });
-  return result.current.store;
+  await waitFor(() => {
+    if (!result.current) throw new Error(`${action} grant did not resolve`);
+  });
 };
 
 export interface CreateConnectedConsoleWrapperParams extends CreateConsoleWrapperParams {
@@ -352,5 +317,29 @@ export const createConnectedConsoleWrapper = async ({
       <Synnax.Provider connParams={connParams}>{children}</Synnax.Provider>
     </Console>
   );
+  return { wrapper: Wrapper, store };
+};
+
+const SessionSynnaxProvider = ({ children }: PropsWithChildren): ReactElement => {
+  const cluster = Session.Cluster.useSelectState();
+  return <Synnax.Provider connParams={cluster}>{children}</Synnax.Provider>;
+};
+SessionSynnaxProvider.displayName = "SessionSynnaxProvider";
+
+/**
+ * Like createConnectedConsoleWrapper, but derives the provider's connection params from
+ * the store's selected cluster, exactly as the production Pluto.Context does. Use for
+ * tests that exercise the login -> select -> connect flow.
+ */
+export const createSessionConsoleWrapper = async (
+  args: CreateConsoleWrapperParams,
+): Promise<{ wrapper: FC<PropsWithChildren>; store: TestStore }> => {
+  const { wrapper: Console, store } = await createConsoleWrapper(args);
+  const Wrapper = ({ children }: PropsWithChildren): ReactElement => (
+    <Console>
+      <SessionSynnaxProvider>{children}</SessionSynnaxProvider>
+    </Console>
+  );
+  Wrapper.displayName = "SessionConsoleWrapper";
   return { wrapper: Wrapper, store };
 };

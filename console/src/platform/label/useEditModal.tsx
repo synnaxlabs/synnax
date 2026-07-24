@@ -9,7 +9,7 @@
 
 import "@/platform/label/Edit.css";
 
-import { type label } from "@synnaxlabs/client";
+import { type label, type query } from "@synnaxlabs/client";
 import {
   Button,
   Color,
@@ -51,13 +51,7 @@ const LabelListItem = ({
     initialValues,
     autoSave: !isCreate,
     afterSave: useCallback(
-      ({
-        reset,
-      }: Flux.AfterSaveParams<
-        Flux.Query,
-        typeof Label.formSchema,
-        Label.FluxSubStore
-      >) => {
+      ({ reset }: Flux.AfterSaveParams<query.Params, typeof Label.formSchema>) => {
         onClose?.();
         if (isCreate) reset({ name: "", color: color.construct("#000000") });
       },

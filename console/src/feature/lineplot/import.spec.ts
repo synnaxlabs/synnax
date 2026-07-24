@@ -14,7 +14,7 @@ import { describe, expect, it, vi } from "vitest";
 import { LinePlot } from "@/feature/lineplot";
 import { client, project } from "@/feature/lineplot/testutil";
 import { type Panel } from "@/platform/panel";
-import { createGrantedFluxStore, createTestFluxStore, uniqueName } from "@/testutil";
+import { awaitGranted, uniqueName } from "@/testutil";
 
 const zeroAxis = (key: string) => ({
   key,
@@ -296,17 +296,12 @@ describe("lineplot import", () => {
 
 describe("lineplot ingest", () => {
   it("creates the plot on the cluster and opens it as a tab", async () => {
-    const store = await createGrantedFluxStore(
-      client,
-      clientLineplot.TYPE_ONTOLOGY_ID,
-      "update",
-    );
+    await awaitGranted(client, clientLineplot.TYPE_ONTOLOGY_ID, "update");
     const openTab = vi.fn<Panel.OpenTab>();
     const name = uniqueName("imported");
     await LinePlot.ingest(TYPED_EXPORT, {
       name,
       openTab,
-      store,
       client,
       projectKey: await project(),
       fileName: "test.json",
@@ -320,16 +315,16 @@ describe("lineplot ingest", () => {
     const created = await client.lineplots.retrieve({ key: spec.resource.key });
     expect(created.name).toBe(name);
     expect(created.channels.y1).toEqual([65538]);
-    expect(store.lineplots.get(spec.resource.key)?.name).toBe(name);
+    const cached = client.lineplots.getCached({ key: spec.resource.key });
+    if (cached?.variant !== "changed") throw new Error("expected a cached plot");
+    expect(cached.data.name).toBe(name);
   });
 
   it("rejects the import when the permission cache has no grant", async () => {
-    const store = createTestFluxStore(null);
     await expect(
       LinePlot.ingest(TYPED_EXPORT, {
         name: "denied",
         openTab: vi.fn<Panel.OpenTab>(),
-        store,
         client: null,
         projectKey: "project-1",
         fileName: "test.json",

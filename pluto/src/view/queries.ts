@@ -8,115 +8,45 @@
 // included in the file licenses/APL.txt.
 
 import { view } from "@synnaxlabs/client";
-import { array, type optional } from "@synnaxlabs/x";
+import { type optional } from "@synnaxlabs/x";
 import { useEffect } from "react";
 import { type z } from "zod";
 
 import { Flux } from "@/flux";
-import { Ontology } from "@/ontology";
-import { state } from "@/state";
+import { Synnax } from "@/synnax";
 
-export const FLUX_STORE_KEY = "views";
 export const RESOURCE_NAME = "view";
 export const PLURAL_RESOURCE_NAME = "views";
 
-export interface FluxStore extends Flux.UnaryStore<view.Key, view.View> {}
-
-export interface FluxSubStore extends Flux.Store {
-  [FLUX_STORE_KEY]: FluxStore;
-  [Ontology.RELATIONSHIPS_FLUX_STORE_KEY]: Ontology.RelationshipFluxStore;
-  [Ontology.RESOURCES_FLUX_STORE_KEY]: Ontology.ResourceFluxStore;
-}
-
-const SET_VIEW_LISTENER: Flux.ChannelListener<FluxSubStore, typeof view.viewZ> = {
-  channel: view.SET_CHANNEL_NAME,
-  schema: view.viewZ,
-  onChange: ({ store, changed }) => store.views.set(changed.key, changed),
-};
-
-const DELETE_VIEW_LISTENER: Flux.ChannelListener<FluxSubStore, typeof view.keyZ> = {
-  channel: view.DELETE_CHANNEL_NAME,
-  schema: view.keyZ,
-  onChange: ({ store, changed }) => store.views.delete(changed),
-};
-
-export const FLUX_STORE_CONFIG: Flux.UnaryStoreConfig<FluxSubStore> = {
-  listeners: [SET_VIEW_LISTENER, DELETE_VIEW_LISTENER],
-};
-
 export type ListQuery = view.RetrieveMultipleParams;
 
-export const useList = Flux.createList<ListQuery, view.Key, view.View, FluxSubStore>({
+export const useList = Flux.createList<ListQuery, view.Key, view.View>({
   name: PLURAL_RESOURCE_NAME,
-  retrieve: async ({ client, query, store }) => {
-    const views = await client.views.retrieve(query);
-    store.views.set(views);
-    return views;
-  },
-  retrieveByKey: async ({ client, key, store }) => {
-    let v = store.views.get(key);
-    if (v == null) {
-      v = await client.views.retrieve({ key });
-      store.views.set(v);
-    }
-    return v;
-  },
-  mountListeners: ({ store, onChange, onDelete, query: { keys, types } }) => {
-    const keysSet = keys != null ? new Set(keys) : undefined;
-    const typesSet = types != null ? new Set(types) : undefined;
-    return [
-      store.views.onSet((view) => {
-        if (
-          (keysSet != null && !keysSet.has(view.key)) ||
-          (typesSet != null && !typesSet.has(view.type))
-        )
-          return;
-        onChange(view.key, view);
-      }),
-      store.views.onDelete(onDelete),
-    ];
-  },
+  retrieve: async ({ client, query }) => await client.views.retrieve(query),
+  retrieveByKey: async ({ client, key }) => await client.views.retrieve({ key }),
+  subscribe: ({ client, query }, handler) => client.views.onChange(query, handler),
+  subscribeByKey: ({ client, key }, handler) => client.views.onChange({ key }, handler),
+  getCached: ({ client, query }) => client.views.getCached(query),
 });
 
-export const { useUpdate: useCreate } = Flux.createUpdate<view.New, FluxSubStore>({
+export const { useUpdate: useCreate } = Flux.createUpdate<view.New>({
   name: RESOURCE_NAME,
   verbs: Flux.CREATE_VERBS,
-  update: async ({ client, data, store, rollbacks }) => {
-    const views = await client.views.create(data);
-    rollbacks.push(store.views.set(views));
-    return views;
-  },
+  update: async ({ client, data }) => await client.views.create(data),
 });
 
 export type DeleteParams = view.Key | view.Key[];
 
-export const { useUpdate: useDelete } = Flux.createUpdate<DeleteParams, FluxSubStore>({
+export const { useUpdate: useDelete } = Flux.createUpdate<DeleteParams>({
   name: RESOURCE_NAME,
   verbs: Flux.DELETE_VERBS,
-  update: async ({ client, data, store, rollbacks, onOptimisticComplete }) => {
-    const keys = array.toArray(data);
-    const ids = keys.map((key) => view.ontologyID(key));
-    const relFilter = Ontology.filterRelationshipsThatHaveIDs(ids);
-    rollbacks.push(store.relationships.delete(relFilter));
-    rollbacks.push(store.views.delete(keys));
-    rollbacks.push(store.resources.delete(keys));
-    await onOptimisticComplete(data);
-    await client.views.delete(data);
+  update: async ({ client, data, onOptimisticComplete }) => {
+    await client.views.delete(data, {
+      onOptimistic: async () => await onOptimisticComplete(data),
+    });
     return data;
   },
 });
-
-const retrieveSingle = async ({
-  client,
-  query: { key },
-  store,
-}: Flux.RetrieveParams<view.RetrieveSingleParams, FluxSubStore>) => {
-  const cached = store.views.get(key);
-  if (cached != null) return cached;
-  const v = await client.views.retrieve({ key });
-  store.views.set(v);
-  return v;
-};
 
 export const formSchema = view.viewZ.partial({ key: true });
 
@@ -127,55 +57,46 @@ const ZERO_VALUES: z.infer<typeof formSchema> = {
 };
 export type FormQuery = optional.Optional<view.RetrieveSingleParams, "key">;
 
-export const useForm = Flux.createForm<FormQuery, typeof formSchema, FluxSubStore>({
+export const useForm = Flux.createForm<FormQuery, typeof formSchema>({
   name: RESOURCE_NAME,
   schema: formSchema,
   initialValues: ZERO_VALUES,
-  retrieve: async ({ client, query: { key }, store, reset }) => {
+  retrieve: async ({ client, query: { key }, reset }) => {
     if (key == null) return;
-    reset(await retrieveSingle({ client, store, query: { key } }));
+    reset(await client.views.retrieve({ key }));
   },
-  update: async ({ client, value, reset, store, rollbacks }) => {
+  update: async ({ client, value, reset }) => {
     const updated = await client.views.create(value());
     reset(updated);
-    rollbacks.push(store.views.set(updated.key, updated));
   },
-  mountListeners: ({ store, get, reset }) => [
-    store.views.onSet((view) => {
-      const prevKey = get<string>("key", { optional: true })?.value;
-      if (prevKey == null || view.key !== prevKey) return;
-      reset(view);
-    }),
-  ],
+  mountListeners: ({ client, query: { key }, reset }) => {
+    if (key == null) return [];
+    return client.views.onChange({ key }, (result) => {
+      if (result?.variant === "changed") reset(result.data);
+    });
+  },
 });
 
 export interface RenameParams extends Pick<view.View, "key" | "name"> {}
 
-export const { useUpdate: useRename } = Flux.createUpdate<RenameParams, FluxSubStore>({
+export const { useUpdate: useRename } = Flux.createUpdate<RenameParams>({
   name: RESOURCE_NAME,
   verbs: Flux.RENAME_VERBS,
-  update: async ({ client, data, store, rollbacks, onOptimisticComplete }) => {
+  update: async ({ client, data, onOptimisticComplete }) => {
     const { key, name } = data;
-    const v = await retrieveSingle({ client, store, query: { key } });
-    rollbacks.push(
-      store.views.set(
-        key,
-        state.skipUndefined((p) => ({ ...p, name })),
-      ),
-    );
-    rollbacks.push(Ontology.renameFluxResource(store, view.ontologyID(key), name));
-    await onOptimisticComplete(data);
-    await client.views.create({ ...v, name });
+    await client.views.rename(key, name, {
+      onOptimistic: async () => await onOptimisticComplete(data),
+    });
     return data;
   },
 });
 
 export const useSetSynchronizer = (onSet: (view: view.View) => void): void => {
-  const store = Flux.useStore<FluxSubStore>();
-  useEffect(() => store.views.onSet(onSet), [store, onSet]);
+  const client = Synnax.use();
+  useEffect(() => client?.views.onSet(onSet), [client, onSet]);
 };
 
 export const useDeleteSynchronizer = (onDelete: (key: view.Key) => void): void => {
-  const store = Flux.useStore<FluxSubStore>();
-  useEffect(() => store.views.onDelete(onDelete), [store, onDelete]);
+  const client = Synnax.use();
+  useEffect(() => client?.views.onDelete(onDelete), [client, onDelete]);
 };

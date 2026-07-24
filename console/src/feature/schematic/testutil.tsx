@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { project, schematic } from "@synnaxlabs/client";
+import { panel, project, schematic } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import {
   Haul,
@@ -16,7 +16,7 @@ import {
   Triggers,
 } from "@synnaxlabs/pluto";
 import { type aether } from "@synnaxlabs/pluto/ether";
-import { id } from "@synnaxlabs/x";
+import { id, uuid } from "@synnaxlabs/x";
 import { act, render, screen, within } from "@testing-library/react";
 import {
   type ComponentType,
@@ -33,7 +33,6 @@ import { Session } from "@/session";
 import {
   type ConsolePreloadedState,
   createConsoleWrapper,
-  createResourceTab,
   uniqueName,
 } from "@/testutil";
 
@@ -92,6 +91,27 @@ const loadSchematic = async (
   await within(utils.container).findByTestId("loaded");
 };
 
+// createResourceTab creates a single-leaf panel holding one resource tab that backs
+// the given schematic on the cluster, so the panel scope hooks a mounted tab content
+// reads (useSelectTabResource) resolve to the schematic's ontology ID.
+const createResourceTab = async (
+  key: string,
+): Promise<{ panelKey: string; tabKey: string }> => {
+  const tabKey = uuid.create();
+  const doc = panel.panelZ.parse({
+    key: uuid.create(),
+    name: uniqueName("panel"),
+    root: {
+      variant: "leaf",
+      tabs: [{ variant: "resource", key: tabKey, resource: schematic.ontologyID(key) }],
+    },
+  });
+  await client.panels.create(doc);
+  // Prime the query cache the way the mosaic's retrieve does.
+  await client.panels.retrieve(doc.key);
+  return { panelKey: doc.key, tabKey };
+};
+
 export interface RenderSchematicOptions {
   schematic?: Partial<schematic.New>;
   sessionState?: Partial<Session.Schematic.State>;
@@ -120,10 +140,7 @@ export const renderSchematic = async (
     additionalRegistry,
   });
   await loadSchematic(Wrapper, created.key);
-  const { panelKey, tabKey } = createResourceTab(
-    Wrapper,
-    schematic.ontologyID(created.key),
-  );
+  const { panelKey, tabKey } = await createResourceTab(created.key);
   const result = render(
     <PlutoPanel.Scope.Provider value={panelKey}>
       <PlutoPanel.TabScope.Provider value={tabKey}>

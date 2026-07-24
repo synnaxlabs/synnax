@@ -220,25 +220,13 @@ export class Client extends query.Retriever<
   async dispatch(
     key: Key,
     actions: Action | Action[],
-    opts?: actions.Options<Panel, Action>,
-  ): Promise<boolean>;
-  /**
-   * @deprecated Legacy raw-send form used by pre-cutover flux. Removed in the
-   * pluto rebind; new callers use the two-argument controller form above.
-   */
-  async dispatch(key: Key, dispatchKey: string, actions: Action[]): Promise<void>;
-  async dispatch(
-    key: Key,
-    actionsOrKey: Action | Action[] | string,
-    opts: actions.Options<Panel, Action> | Action[] = {},
-  ): Promise<boolean | void> {
-    if (typeof actionsOrKey === "string")
-      return await this.sendDispatch(key, actionsOrKey, opts as Action[]);
+    opts: actions.Options<Panel, Action> = {},
+  ): Promise<boolean> {
     return await this.dispatcher.dispatch(
       key,
-      array.toArray(actionsOrKey),
+      array.toArray(actions),
       this.dispatchSender(key),
-      (opts as actions.Options<Panel, Action>).preprocess,
+      opts.preprocess,
     );
   }
 

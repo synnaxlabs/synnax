@@ -12,7 +12,7 @@ import { useEffect } from "react";
 
 import { Flux } from "@/flux";
 import { type List } from "@/list";
-import { type FluxSubStore } from "@/ontology/aether/queries";
+import { Synnax } from "@/synnax";
 
 const RESOURCE_RESOURCE_NAME = "resource";
 const PLURAL_RESOURCE_RESOURCE_NAME = "resources";
@@ -21,93 +21,67 @@ const PLURAL_CHILDREN_RESOURCE_NAME = "children";
 export const useResourceSetSynchronizer = (
   onSet: (resource: ontology.Resource) => void,
 ): void => {
-  const store = Flux.useStore<FluxSubStore>();
-  useEffect(() => store.resources.onSet(onSet), [store.resources]);
+  const client = Synnax.use();
+  useEffect(() => client?.ontology.onResourceSet(onSet), [client, onSet]);
 };
 
 export const useResourceDeleteSynchronizer = (
   onDelete: (id: ontology.ID) => void,
 ): void => {
-  const store = Flux.useStore<FluxSubStore>();
-  useEffect(() => {
-    const destructor = store.resources.onDelete(async (changed) =>
-      onDelete(ontology.idZ.parse(changed)),
-    );
-    return () => destructor();
-  }, [store.resources]);
+  const client = Synnax.use();
+  useEffect(() => client?.ontology.onResourceDelete(onDelete), [client, onDelete]);
 };
 
 export const useRelationshipSetSynchronizer = (
   onSet: (relationship: ontology.Relationship) => void,
 ): void => {
-  const store = Flux.useStore<FluxSubStore>();
-  useEffect(() => store.relationships.onSet(onSet), [store.relationships]);
+  const client = Synnax.use();
+  useEffect(() => client?.ontology.onRelationshipSet(onSet), [client, onSet]);
 };
 
 export const useRelationshipDeleteSynchronizer = (
   onDelete: (relationship: ontology.Relationship) => void,
 ): void => {
-  const store = Flux.useStore<FluxSubStore>();
-  useEffect(
-    () =>
-      store.relationships.onDelete((changed) =>
-        onDelete(ontology.relationshipZ.parse(changed)),
-      ),
-    [store.relationships, onDelete],
-  );
+  const client = Synnax.use();
+  useEffect(() => client?.ontology.onRelationshipDelete(onDelete), [client, onDelete]);
 };
 
 type DependentQuery = List.PagerParams & {
   id?: ontology.ID;
 };
 
+const dependentRequest = (
+  direction: ontology.RelationshipDirection,
+  id: ontology.ID,
+): ontology.RetrieveRequest => ({
+  ids: [id],
+  children: direction === "to",
+  parents: direction === "from",
+});
+
 export const createDependentsListHook = (
   direction: ontology.RelationshipDirection,
   name: string,
 ) =>
-  Flux.createList<DependentQuery, string, ontology.Resource, FluxSubStore>({
+  Flux.createList<DependentQuery, string, ontology.Resource>({
     name,
     retrieve: async ({ client, query: { id } }) => {
       if (id == null) return [];
-      return await client.ontology.retrieve([id], {
-        children: direction === "to",
-        parents: direction === "from",
-      });
+      if (direction === "to") return await client.ontology.retrieveChildren(id);
+      return await client.ontology.retrieveParents(id);
     },
     retrieveByKey: async ({ client, key }) =>
       await client.ontology.retrieve(ontology.idZ.parse(key)),
-    mountListeners: ({ store, onChange, onDelete, client, query: { id } }) => [
-      store.relationships.onSet(async (relationship) => {
-        if (
-          ontology.matchRelationship(relationship, {
-            type: "parent",
-            [ontology.oppositeRelationshipDirection(direction)]: id,
-          })
-        ) {
-          const dependent = await client.ontology.retrieve(relationship[direction]);
-          onChange(dependent.key, dependent);
-        }
-      }),
-      store.relationships.onDelete((relationship) => {
-        const rel = ontology.relationshipZ.parse(relationship);
-        if (
-          ontology.matchRelationship(rel, {
-            type: "parent",
-            [ontology.oppositeRelationshipDirection(direction)]: id,
-          })
-        )
-          onDelete(ontology.idToString(rel[direction]));
-      }),
-      store.resources.onSet((resource) =>
-        onChange(resource.key, (prev) => {
-          // Default to null if the resource is not in the list,
-          // as we don't want to add any non-children.
-          if (prev == null) return null;
-          return { ...prev, ...resource };
-        }),
-      ),
-      store.resources.onDelete(async (resource) => onDelete(resource)),
-    ],
+    subscribe: ({ client, query: { id } }, handler) => {
+      if (id == null) return () => {};
+      return client.ontology.onChange(dependentRequest(direction, id), handler);
+    },
+    getCached: ({ client, query: { id } }) => {
+      if (id == null) return undefined;
+      return client.ontology.getCached(dependentRequest(direction, id));
+    },
+    subscribeByKey: ({ client, key }, handler) =>
+      client.ontology.onChange(ontology.idZ.parse(key), handler),
   });
 
 export const useListChildren = createDependentsListHook(
@@ -117,72 +91,16 @@ export const useListChildren = createDependentsListHook(
 
 export type ListQuery = ontology.RetrieveRequest;
 
-export const useResourceList = Flux.createList<
-  ListQuery,
-  string,
-  ontology.Resource,
-  FluxSubStore
->({
+export const useResourceList = Flux.createList<ListQuery, string, ontology.Resource>({
   name: PLURAL_RESOURCE_RESOURCE_NAME,
-  retrieveCached: ({ store }) => store.resources.list(),
-  retrieve: async ({ client, query, store }) => {
-    const res = await client.ontology.retrieve(query);
-    res.forEach((r) => store.resources.set(r.key, r));
-    return res;
-  },
-  retrieveByKey: async ({ client, key, store }) => {
-    const res = await client.ontology.retrieve(ontology.idZ.parse(key));
-    store.resources.set(key, res);
-    return res;
-  },
-  mountListeners: ({ store, onChange, onDelete }) => [
-    store.resources.onSet(async (r) => onChange(r.key, r)),
-    store.resources.onDelete(async (key) => onDelete(key)),
-  ],
+  retrieve: async ({ client, query }) => await client.ontology.retrieve(query),
+  retrieveByKey: async ({ client, key }) =>
+    await client.ontology.retrieve(ontology.idZ.parse(key)),
+  subscribe: ({ client, query }, handler) => client.ontology.onChange(query, handler),
+  getCached: ({ client, query }) => client.ontology.getCached(query),
+  subscribeByKey: ({ client, key }, handler) =>
+    client.ontology.onChange(ontology.idZ.parse(key), handler),
 });
-
-export const retrieveCachedParentID = (
-  store: FluxSubStore,
-  id: ontology.ID,
-): ontology.ID | null => {
-  const res = store.relationships.get((r) =>
-    ontology.matchRelationship(r, {
-      type: ontology.PARENT_OF_RELATIONSHIP_TYPE,
-      to: id,
-    }),
-  );
-  if (res.length === 0) return null;
-  return res[0].from;
-};
-
-export type RetrieveParentIDQuery = {
-  id: ontology.ID;
-};
-
-export const retrieveParentID = async ({
-  client,
-  query: { id },
-  store,
-}: Flux.RetrieveParams<RetrieveParentIDQuery, FluxSubStore>): Promise<ontology.ID> => {
-  const cached = retrieveCachedParentID(store, id);
-  if (cached != null) return cached;
-  const res = await client.ontology.retrieveParents(id);
-  store.resources.set(res);
-  const rel: ontology.Relationship = {
-    from: res[0].id,
-    type: ontology.PARENT_OF_RELATIONSHIP_TYPE,
-    to: id,
-  };
-  store.relationships.set(ontology.relationshipToString(rel), rel);
-  return res[0].id;
-};
-
-export const filterRelationshipsThatHaveIDs =
-  (resources: ontology.ID[]) => (rel: ontology.Relationship) =>
-    resources.some(
-      (resource) =>
-        ontology.idsEqual(rel.to, resource) || ontology.idsEqual(rel.from, resource),
-    );
 
 export interface MoveChildrenParams {
   source: ontology.ID;
@@ -196,44 +114,16 @@ const MOVE_VERBS: Flux.Verbs = {
   past: "moved",
 };
 
-export const { useUpdate: useMoveChildren } = Flux.createUpdate<
-  MoveChildrenParams,
-  FluxSubStore
->({
+export const { useUpdate: useMoveChildren } = Flux.createUpdate<MoveChildrenParams>({
   name: PLURAL_CHILDREN_RESOURCE_NAME,
   verbs: MOVE_VERBS,
-  update: async ({ client, data, store, rollbacks, onOptimisticComplete }) => {
+  update: async ({ client, data, onOptimisticComplete }) => {
     const { source, destination, ids } = data;
-    rollbacks.push(
-      store.relationships.delete((rel) =>
-        ids.some((id) =>
-          ontology.matchRelationship(rel, {
-            type: ontology.PARENT_OF_RELATIONSHIP_TYPE,
-            from: source,
-            to: id,
-          }),
-        ),
-      ),
-    );
-    ids.forEach((id) => {
-      const rel = {
-        from: destination,
-        type: ontology.PARENT_OF_RELATIONSHIP_TYPE,
-        to: id,
-      };
-      rollbacks.push(store.relationships.set(ontology.relationshipToString(rel), rel));
-    });
     await onOptimisticComplete(data);
     await client.ontology.moveChildren(source, destination, ...ids);
     return data;
   },
 });
-
-export const renameFluxResource = (
-  store: FluxSubStore,
-  id: ontology.ID,
-  name: string,
-) => Flux.partialUpdate(store.resources, ontology.idToString(id), { name });
 
 export type RetrieveChildrenQuery = {
   [K in keyof ontology.RetrieveOptions]: ontology.RetrieveOptions[K];
@@ -244,13 +134,14 @@ export type RetrieveChildrenQuery = {
 export const {
   useRetrieve: useRetrieveChildren,
   useRetrieveObservable: useRetrieveObservableChildren,
-} = Flux.createRetrieve<RetrieveChildrenQuery, ontology.Resource[], FluxSubStore>({
+} = Flux.createRetrieve<RetrieveChildrenQuery, ontology.Resource[]>({
   name: RESOURCE_RESOURCE_NAME,
-  retrieve: async ({ client, query, store }) => {
-    const children = await client.ontology.retrieveChildren(query.id, query);
-    store.resources.set(children);
-    return children;
-  },
+  retrieve: async ({ client, query: { id, ...options } }) =>
+    await client.ontology.retrieveChildren(id, options),
+  subscribe: ({ client, query: { id, ...options } }, handler) =>
+    client.ontology.onChange({ ids: [id], ...options, children: true }, handler),
+  getCached: ({ client, query: { id, ...options } }) =>
+    client.ontology.getCached({ ids: [id], ...options, children: true }),
 });
 
 type RetrieveResourceQuery = {
@@ -260,13 +151,10 @@ type RetrieveResourceQuery = {
 export const {
   useRetrieve: useRetrieveResource,
   useRetrieveObservable: useRetrieveObservableResource,
-} = Flux.createRetrieve<RetrieveResourceQuery, ontology.Resource[], FluxSubStore>({
+} = Flux.createRetrieve<RetrieveResourceQuery, ontology.Resource[]>({
   name: RESOURCE_RESOURCE_NAME,
-  retrieve: async ({ client, query: { ids }, store }) => {
-    const cached = store.resources.get(ontology.idToString(ids));
-    if (cached.length === ids.length) return cached;
-    const resource = await client.ontology.retrieve(ids);
-    store.resources.set(resource);
-    return resource;
-  },
+  retrieve: async ({ client, query: { ids } }) => await client.ontology.retrieve(ids),
+  subscribe: ({ client, query: { ids } }, handler) =>
+    client.ontology.onChange(ids, handler),
+  getCached: ({ client, query: { ids } }) => client.ontology.getCached(ids),
 });

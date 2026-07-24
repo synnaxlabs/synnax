@@ -15,9 +15,9 @@ import { type Import } from "@/platform/import";
 
 export const createIngester =
   (configSchema: z.ZodType, type: string): Import.FileIngester =>
-  (data: unknown, { openTab, store, client }) => {
+  (data: unknown, { openTab, client }) => {
     const config = configSchema.parse(data);
-    if (!Access.createGranted({ id: task.TYPE_ONTOLOGY_ID, store, client }))
+    if (!Access.createGranted({ id: task.TYPE_ONTOLOGY_ID, client }))
       throw new Error("You do not have permission to import tasks");
     openTab({ variant: "view", type, args: { config } });
   };

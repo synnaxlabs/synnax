@@ -9,9 +9,9 @@
 
 import { alamos as alamosLib, type Instrumentation } from "@synnaxlabs/alamos";
 import { UnexpectedError } from "@synnaxlabs/client";
+import { type state } from "@synnaxlabs/x";
 
 import { aether } from "@/aether/aether";
-import { type state } from "@/state";
 
 /** Key of the synthetic root mounted by {@link createDriver}. All driver paths begin
  * with this segment. */

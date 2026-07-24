@@ -7,7 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type label } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { color, testutil } from "@synnaxlabs/x";
 import { act, renderHook, waitFor } from "@testing-library/react";
@@ -72,9 +71,7 @@ describe("useForm", () => {
   describe("existing entity", () => {
     it("should return the existing entity as the form values", async () => {
       const retrieve = vi.fn(
-        async ({
-          reset,
-        }: Flux.FormRetrieveParams<Params, typeof formSchema, FluxStore>) =>
+        async ({ reset }: Flux.FormRetrieveParams<Params, typeof formSchema>) =>
           reset({
             key: "123",
             name: "Apple Cat",
@@ -83,7 +80,7 @@ describe("useForm", () => {
       );
       const { result } = renderHook(
         () =>
-          Flux.createForm<Params, typeof formSchema, FluxStore>({
+          Flux.createForm<Params, typeof formSchema>({
             initialValues: {
               key: "",
               name: "",
@@ -366,10 +363,6 @@ describe("useForm", () => {
     });
   });
 
-  interface FluxStore extends Flux.Store {
-    labels: Flux.UnaryStore<label.Key, label.Label>;
-  }
-
   describe("listeners", () => {
     it("should correctly update the form data when the listener receives changes", async () => {
       const label = await client.labels.create({
@@ -385,13 +378,12 @@ describe("useForm", () => {
 
       const retrieve = async ({
         reset,
-      }: Flux.FormRetrieveParams<Params, typeof formSchema, FluxStore>) =>
-        reset(initialValues);
+      }: Flux.FormRetrieveParams<Params, typeof formSchema>) => reset(initialValues);
       const update = vi.fn();
 
       const { result } = renderHook(
         () =>
-          Flux.createForm<Params, typeof formSchema, FluxStore>({
+          Flux.createForm<Params, typeof formSchema>({
             initialValues: {
               key: label.key.toString(),
               name: "",
@@ -401,8 +393,10 @@ describe("useForm", () => {
             name: "test",
             retrieve,
             update,
-            mountListeners: ({ store, set }) =>
-              store.labels.onSet((changed) => set("name", changed.name), label.key),
+            mountListeners: ({ client, set }) =>
+              client.labels.onChange({ key: label.key }, (result) => {
+                if (result?.variant === "changed") set("name", result.data.name);
+              }),
           })({ query: { key: label.key } }),
         { wrapper },
       );
@@ -439,13 +433,12 @@ describe("useForm", () => {
 
       const retrieve = async ({
         reset,
-      }: Flux.FormRetrieveParams<Params, typeof formSchema, FluxStore>) =>
-        reset(initialValues);
+      }: Flux.FormRetrieveParams<Params, typeof formSchema>) => reset(initialValues);
       const update = vi.fn();
 
       const { result } = renderHook(
         () =>
-          Flux.createForm<Params, typeof formSchema, FluxStore>({
+          Flux.createForm<Params, typeof formSchema>({
             initialValues: {
               key: label.key.toString(),
               name: "",
@@ -455,8 +448,10 @@ describe("useForm", () => {
             name: "test",
             retrieve,
             update,
-            mountListeners: ({ store, set }) =>
-              store.labels.onSet((changed) => set("name", changed.name), label.key),
+            mountListeners: ({ client, set }) =>
+              client.labels.onChange({ key: label.key }, (result) => {
+                if (result?.variant === "changed") set("name", result.data.name);
+              }),
           })({ query: { key: label.key } }),
         { wrapper },
       );

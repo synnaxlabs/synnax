@@ -14,7 +14,11 @@ import { describe, expect, it } from "vitest";
 
 import { Modbus } from "@/feature/modbus";
 import { createModbusDevice } from "@/feature/modbus/testutil";
-import { awaitTaskKey, renderTaskFormTab } from "@/platform/task/testutil";
+import {
+  awaitTaskKey,
+  clickConfigure,
+  renderTaskFormTab,
+} from "@/platform/task/testutil";
 import {
   awaitTextEditingElement,
   commitTextEdit,
@@ -46,7 +50,7 @@ describe("Modbus.Write", () => {
     fireEvent.click(await screen.findByText("Holding Register"));
     await screen.findByText("Holding Register");
 
-    fireEvent.click(screen.getByRole("button", { name: /Configure/ }));
+    await clickConfigure();
     const taskKey = await awaitTaskKey(rendered);
 
     const tsk = await client.tasks.retrieve({ key: taskKey });
@@ -88,7 +92,7 @@ describe("Modbus.Write", () => {
     await screen.findByRole("button", { name: /Configure/ });
     fireEvent.click(getIconButton(first.container, "add"));
     await screen.findByText("Coil");
-    fireEvent.click(screen.getByRole("button", { name: /Configure/ }));
+    await clickConfigure();
     const taskKey = await awaitTaskKey(first);
     const afterFirst = await client.devices.retrieve({
       key: dev.key,
@@ -101,7 +105,7 @@ describe("Modbus.Write", () => {
       params: { deviceKey: dev.key, taskKey },
     });
     await screen.findByText("Coil");
-    fireEvent.click(screen.getByRole("button", { name: /Configure/ }));
+    await clickConfigure();
     await waitFor(async () => {
       const afterSecond = await client.devices.retrieve({
         key: dev.key,

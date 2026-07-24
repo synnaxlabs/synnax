@@ -15,10 +15,9 @@ import {
   Input,
   List as Base,
   Select,
-  type state,
   Triggers,
 } from "@synnaxlabs/pluto";
-import { type record } from "@synnaxlabs/x";
+import { type record, type state } from "@synnaxlabs/x";
 import { type FC, type ReactElement, useCallback } from "react";
 
 import { CSS } from "@/platform/css";

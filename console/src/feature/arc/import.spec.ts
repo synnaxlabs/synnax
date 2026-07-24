@@ -14,7 +14,7 @@ import { describe, expect, it, vi } from "vitest";
 import { Arc } from "@/feature/arc";
 import { createFileIngesterContext } from "@/platform/import/testutil";
 import { type Panel } from "@/platform/panel";
-import { createGrantedFluxStore, uniqueName } from "@/testutil";
+import { awaitGranted, uniqueName } from "@/testutil";
 
 const LATEST_VERSION = "3.0.0";
 
@@ -167,22 +167,20 @@ describe("arc import", () => {
     const client = createTestClient();
 
     it("should create the arc on the cluster and open it as a tab", async () => {
-      const store = await createGrantedFluxStore(
-        client,
-        arc.TYPE_ONTOLOGY_ID,
-        "update",
-      );
+      await awaitGranted(client, arc.TYPE_ONTOLOGY_ID, "update");
       const openTab = vi.fn<Panel.OpenTab>();
       const name = uniqueName("imported");
       const id = await Arc.ingest(
         v1State({ n1: { key: "channel.read", channel: 1 } }),
-        createFileIngesterContext({ name, openTab, store, client }),
+        createFileIngesterContext({ name, openTab, client }),
       );
       expect(openTab).toHaveBeenCalledTimes(1);
       if (id == null) throw new Error("ingest returned no ontology id");
       const created = await client.arcs.retrieve({ key: id.key });
       expect(created.name).toBe(name);
-      expect(store.arcs.get(id.key)?.name).toBe(name);
+      const cached = client.arcs.getCached({ key: id.key });
+      if (cached?.variant !== "changed") throw new Error("expected a cached arc");
+      expect(cached.data.name).toBe(name);
     });
 
     it("should reject the import when the permission cache has no grant", async () => {

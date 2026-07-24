@@ -15,16 +15,9 @@ import {
   schematic,
 } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
-import { Flux, Icon, Panel as PlutoPanel } from "@synnaxlabs/pluto";
+import { Icon, Panel as PlutoPanel } from "@synnaxlabs/pluto";
 import { TimeRange, TimeSpan, TimeStamp, uuid } from "@synnaxlabs/x";
-import {
-  act,
-  fireEvent,
-  render,
-  renderHook,
-  screen,
-  waitFor,
-} from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 import { Range } from "@/feature/range";
@@ -46,7 +39,7 @@ stubGeometry();
 interface RenderOverviewResult {
   onSnapshotClick: ReturnType<typeof vi.fn>;
   onSnapshotDelete: ReturnType<typeof vi.fn>;
-  setTabResource: (rangeKey: string) => void;
+  setTabResource: (rangeKey: string) => Promise<void>;
 }
 
 const renderOverview = async (rangeKey: string): Promise<RenderOverviewResult> => {
@@ -75,12 +68,7 @@ const renderOverview = async (rangeKey: string): Promise<RenderOverviewResult> =
       ],
     },
   });
-  const { result } = renderHook(() => Flux.useStore<PlutoPanel.FluxSubStore>(), {
-    wrapper,
-  });
-  act(() => {
-    result.current.panels.set(doc);
-  });
+  await client.panels.create(doc);
   render(
     <PlutoPanel.Scope.Provider value={doc.key}>
       <PlutoPanel.TabScope.Provider value={tabKey}>
@@ -92,16 +80,14 @@ const renderOverview = async (rangeKey: string): Promise<RenderOverviewResult> =
     </PlutoPanel.Scope.Provider>,
     { wrapper },
   );
-  const setTabResource = (nextKey: string) =>
-    act(() => {
-      result.current.panels.set(
-        panel.reduceAll(doc, [
-          panel.setTabResource({
-            key: tabKey,
-            resource: rangerClient.ontologyID(nextKey),
-          }),
-        ]).next,
-      );
+  const setTabResource = async (nextKey: string) =>
+    await act(async () => {
+      await client.panels.dispatch(doc.key, [
+        panel.setTabResource({
+          key: tabKey,
+          resource: rangerClient.ontologyID(nextKey),
+        }),
+      ]);
     });
   return { onSnapshotClick, onSnapshotDelete, setTabResource };
 };
@@ -154,7 +140,7 @@ describe("range/overview/Overview", () => {
     const child = await createChildRange(parent);
     const { setTabResource } = await renderOverview(child.key);
     expect(await screen.findByDisplayValue(child.name)).toBeTruthy();
-    setTabResource(parent.key);
+    await setTabResource(parent.key);
     expect(await screen.findByDisplayValue(parent.name)).toBeTruthy();
     expect(await screen.findByText(child.name)).toBeTruthy();
   });

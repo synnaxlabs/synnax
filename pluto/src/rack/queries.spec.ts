@@ -14,7 +14,6 @@ import { act, renderHook, waitFor } from "@testing-library/react";
 import { type PropsWithChildren } from "react";
 import { beforeEach, describe, expect, it } from "vitest";
 
-import { Flux } from "@/flux";
 import { Rack } from "@/rack";
 import { createAsyncSynnaxWrapper } from "@/testutil/Synnax";
 
@@ -50,31 +49,32 @@ describe("queries", () => {
     it("should include the status of the rack even when the query is cached", async () => {
       const testRack = await client.racks.create({ name: "testRack2" });
       const { result: result1 } = renderHook(
-        () => ({
-          rack: Rack.useRetrieve({ key: testRack.key }),
-          store: Flux.useStore<Rack.FluxSubStore>(),
-        }),
-        {
-          wrapper,
-        },
+        () => Rack.useRetrieve({ key: testRack.key }),
+        { wrapper },
       );
-      await waitFor(() => expect(result1.current.rack.variant).toEqual("success"));
-      expect(result1.current.rack.data?.status).toBeDefined();
-      expect(result1.current.rack.data?.status?.time.nanoseconds).toBeGreaterThan(0);
+      await waitFor(() => expect(result1.current.variant).toEqual("success"));
+      expect(result1.current.data?.status).toBeDefined();
+      expect(result1.current.data?.status?.time.nanoseconds).toBeGreaterThan(0);
       const rackStatus: rack.Status = status.create<typeof rack.statusDetailsZ>({
         key: rack.statusKey(testRack.key),
         variant: "success",
         message: "Rack is happy as a clam",
         details: { rack: testRack.key },
       });
-      result1.current.store.statuses.set(rackStatus);
+      await act(async () => {
+        await client.statuses.set(rackStatus);
+      });
       const { result: result2 } = renderHook(
         () => Rack.useRetrieve({ key: testRack.key }),
         { wrapper },
       );
       await waitFor(() => expect(result2.current.variant).toEqual("success"));
-      expect(result2.current.data?.status?.variant).toEqual("success");
-      expect(result2.current.data?.status?.message).toEqual("Rack is happy as a clam");
+      await waitFor(() => {
+        expect(result2.current.data?.status?.variant).toEqual("success");
+        expect(result2.current.data?.status?.message).toEqual(
+          "Rack is happy as a clam",
+        );
+      });
     });
   });
 

@@ -7,9 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { arc } from "@synnaxlabs/client";
+import { arc, panel } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { Panel as PlutoPanel } from "@synnaxlabs/pluto";
+import { uuid } from "@synnaxlabs/x";
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { Suspense } from "react";
 import { describe, expect, it } from "vitest";
@@ -18,7 +19,6 @@ import { Arc } from "@/feature/arc";
 import { Session } from "@/session";
 import {
   createConsoleWrapper,
-  createResourceTab,
   getIconButton,
   type TestStore,
   uniqueName,
@@ -33,9 +33,25 @@ const createGraphArc = async (graph: Partial<arc.Arc["graph"]> = {}) =>
     graph: { nodes: [], edges: [], ...graph },
   });
 
+const createResourceTab = async (
+  key: string,
+): Promise<{ panelKey: string; tabKey: string }> => {
+  const tabKey = uuid.create();
+  const doc = panel.panelZ.parse({
+    key: uuid.create(),
+    name: uniqueName("panel"),
+    root: {
+      variant: "leaf",
+      tabs: [{ variant: "resource", key: tabKey, resource: arc.ontologyID(key) }],
+    },
+  });
+  await client.panels.create(doc);
+  return { panelKey: doc.key, tabKey };
+};
+
 const renderToolbar = async (arcKey: string): Promise<{ store: TestStore }> => {
   const { wrapper, store } = await createConsoleWrapper({ client });
-  const { panelKey, tabKey } = createResourceTab(wrapper, arc.ontologyID(arcKey));
+  const { panelKey, tabKey } = await createResourceTab(arcKey);
   await act(async () => {
     render(
       <PlutoPanel.Scope.Provider value={panelKey}>

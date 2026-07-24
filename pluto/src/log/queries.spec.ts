@@ -20,7 +20,6 @@ import {
 } from "react";
 import { beforeEach, describe, expect, it } from "vitest";
 
-import { Flux } from "@/flux";
 import { Log } from "@/log";
 import { createAsyncSynnaxWrapper } from "@/testutil/Synnax";
 
@@ -260,26 +259,26 @@ describe("log queries", () => {
   });
 
   describe("useCreate", () => {
-    it("should create a new log and store it in the flux store", async () => {
+    it("should create a new log and cache it", async () => {
       const project = await client.projects.create({
         name: "create_project",
         layout: {},
       });
-      const { result } = renderHook(
-        () => ({ create: Log.useCreate(), store: Flux.useStore<Log.FluxSubStore>() }),
-        { wrapper },
-      );
+      const { result } = renderHook(() => Log.useCreate(), { wrapper });
       const key = uuid.create();
       await act(async () => {
-        await result.current.create.updateAsync({
+        await result.current.updateAsync({
           key,
           project: project.key,
           name: "created_log",
         });
       });
-      expect(result.current.create.variant).toEqual("success");
+      expect(result.current.variant).toEqual("success");
       expect((await client.logs.retrieve({ key })).name).toEqual("created_log");
-      expect(result.current.store.logs.get(key)?.name).toEqual("created_log");
+      const { result: name } = await loadAndSelect(key, () =>
+        Log.useSelectName({ key }),
+      );
+      expect(name.current).toEqual("created_log");
     });
   });
 

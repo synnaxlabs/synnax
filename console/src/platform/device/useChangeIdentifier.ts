@@ -8,27 +8,28 @@
 // included in the file licenses/APL.txt.
 
 import { type device } from "@synnaxlabs/client";
-import { Device, Flux } from "@synnaxlabs/pluto";
+import { Flux } from "@synnaxlabs/pluto";
 
 export interface ChangeIdentifierParams {
   key: device.Key;
   identifier: string;
 }
 
-export const { useUpdate: useChangeIdentifier } = Flux.createUpdate<
-  ChangeIdentifierParams,
-  Device.FluxSubStore
->({
-  name: "device identifier",
-  verbs: {
-    present: "change identifier",
-    past: "changed identifier",
-    participle: "changing identifier",
-  },
-  update: async ({ client, data, store }) => {
-    const { key, identifier } = data;
-    const d = await Device.retrieveSingle({ client, store, query: { key } });
-    await client.devices.create({ ...d, properties: { ...d.properties, identifier } });
-    return data;
-  },
-});
+export const { useUpdate: useChangeIdentifier } =
+  Flux.createUpdate<ChangeIdentifierParams>({
+    name: "device identifier",
+    verbs: {
+      present: "change identifier",
+      past: "changed identifier",
+      participle: "changing identifier",
+    },
+    update: async ({ client, data }) => {
+      const { key, identifier } = data;
+      const d = await client.devices.retrieve({ key, includeStatus: true });
+      await client.devices.create({
+        ...d,
+        properties: { ...d.properties, identifier },
+      });
+      return data;
+    },
+  });

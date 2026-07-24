@@ -24,7 +24,7 @@ interface CreateParams extends Tree.ContextMenuProps {
   prevNodes?: PTree.Node<string>[];
 }
 
-const base = Flux.createUpdate<CreateParams, Group.FluxSubStore>({
+const base = Flux.createUpdate<CreateParams>({
   name: Group.RESOURCE_NAME,
   verbs: Flux.CREATE_VERBS,
   update: async ({ client, data }) => {

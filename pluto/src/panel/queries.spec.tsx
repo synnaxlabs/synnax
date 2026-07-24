@@ -15,10 +15,14 @@ import { type FC, type PropsWithChildren, type ReactElement } from "react";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { Errors } from "@/errors";
+import { Ontology } from "@/ontology";
 import { Panel } from "@/panel";
 import { createAsyncSynnaxWrapper } from "@/testutil/Synnax";
 
 const client = createTestClient();
+// writer is a second connected client used to emit changes the wrapper client
+// must pick up through the action channel.
+const writer = createTestClient();
 
 const newTab = (): panel.Tab => ({
   variant: "view",
@@ -126,9 +130,9 @@ describe("Panel queries", () => {
 
   describe("useEnsureRetrieved", () => {
     // Single-hook bootstrap component so the suspending useEnsureRetrieved is
-    // not followed by additional hooks — that shape trips a React 19
+    // not followed by additional hooks; that shape trips a React 19
     // concurrent-replay warning.
-    it("populates the store so downstream selectors resolve", async () => {
+    it("populates the cache so downstream selectors resolve", async () => {
       const created = await createPanel();
       const Bootstrap = (): ReactElement => {
         Panel.useEnsureRetrieved({ key: created.key });
@@ -211,16 +215,16 @@ describe("Panel queries", () => {
       expect(retrieved.current.data?.root).toEqual({ variant: "leaf", tabs: [] });
     });
 
-    it("should store the created panel in the flux store", async () => {
+    it("should cache the created panel", async () => {
       const { result } = renderHook(() => Panel.useCreate(), { wrapper });
       const key = uuid.create();
       await act(async () => {
         await result.current.updateAsync({ key, name: "stored-panel" });
       });
 
-      const { result: root } = renderHook(() => Panel.useSelectRoot({ key }), {
-        wrapper,
-      });
+      const { result: root } = await loadAndUse(key, () =>
+        Panel.useSelectRoot({ key }),
+      );
       expect(root.current).toEqual({ variant: "leaf", tabs: [] });
     });
 
@@ -936,115 +940,6 @@ describe("Panel queries", () => {
     });
   });
 
-  describe("useSelectSelection", () => {
-    const createTabs = async (...tabs: panel.Tab[]) => {
-      const created = await createPanel();
-      const ops = await loadAndUse(created.key, () => Panel.useDispatch());
-      await act(async () => {
-        await ops.result.current.dispatchAsync({
-          key: created.key,
-          actions: tabs.map((tab) =>
-            panel.insertTab({ tab, targetLeaf: panel.ROOT_NODE_KEY }),
-          ),
-        });
-      });
-      return { created, ops };
-    };
-
-    it("should keep only the most recent selected tab per leaf", async () => {
-      const [tabA, tabB] = [newTab(), newTab()];
-      const { created } = await createTabs(tabA, tabB);
-      const { result } = renderHook(
-        () =>
-          Panel.useSelectSelection({
-            key: created.key,
-            selected: [tabB.key, tabA.key],
-          }),
-        { wrapper },
-      );
-      expect(result.current).toEqual([tabB.key]);
-    });
-
-    it("should drop keys no longer in the tree and add per-leaf fallbacks", async () => {
-      const [tabA, tabB] = [newTab(), newTab()];
-      const { created } = await createTabs(tabA, tabB);
-      const removed = newTab();
-      const { result } = renderHook(
-        () => Panel.useSelectSelection({ key: created.key, selected: [removed.key] }),
-        { wrapper },
-      );
-      expect(result.current).toEqual([tabA.key]);
-    });
-
-    it("should keep one recency-ordered tab per leaf across a split", async () => {
-      const [tabA, tabB] = [newTab(), newTab()];
-      const { created, ops } = await createTabs(tabA, tabB);
-      await act(async () => {
-        await ops.result.current.dispatchAsync({
-          key: created.key,
-          actions: [panel.splitTab({ key: tabB.key, direction: "x" })],
-        });
-      });
-      const { result } = renderHook(
-        () =>
-          Panel.useSelectSelection({
-            key: created.key,
-            selected: [tabB.key, tabA.key],
-          }),
-        { wrapper },
-      );
-      expect(result.current).toEqual([tabB.key, tabA.key]);
-    });
-
-    it("should return the list unresolved when the panel is not cached", () => {
-      const orphan = uuid.create();
-      const { result } = renderHook(
-        () => Panel.useSelectSelection({ key: orphan, selected: ["x", "y"] }),
-        { wrapper },
-      );
-      expect(result.current).toEqual(["x", "y"]);
-    });
-
-    it("should stay referentially stable across a content-only change", async () => {
-      const [tabA, tabB] = [newTab(), newTab()];
-      const { created, ops } = await createTabs(tabA, tabB);
-      const { result, renderCount } = await loadAndCount(created.key, () =>
-        Panel.useSelectSelection({ key: created.key, selected: [tabB.key] }),
-      );
-      expect(result.current).toEqual([tabB.key]);
-      const first = result.current;
-      const countBefore = renderCount();
-
-      await act(async () => {
-        await ops.result.current.dispatchAsync({
-          key: created.key,
-          actions: [panel.setTabView({ key: tabA.key, view: { type: "docs" } })],
-        });
-      });
-
-      expect(result.current).toBe(first);
-      expect(renderCount()).toEqual(countBefore);
-    });
-
-    it("should recompute when tab membership changes", async () => {
-      const [tabA, tabB] = [newTab(), newTab()];
-      const { created, ops } = await createTabs(tabA, tabB);
-      const { result } = await loadAndUse(created.key, () =>
-        Panel.useSelectSelection({ key: created.key, selected: [tabB.key] }),
-      );
-      expect(result.current).toEqual([tabB.key]);
-
-      await act(async () => {
-        await ops.result.current.dispatchAsync({
-          key: created.key,
-          actions: [panel.removeTab({ key: tabB.key })],
-        });
-      });
-
-      await waitFor(() => expect(result.current).toEqual([tabA.key]));
-    });
-  });
-
   describe("structural and granular selectors", () => {
     const createTab = async (tab: panel.Tab) => {
       const created = await createPanel();
@@ -1479,7 +1374,7 @@ describe("Panel queries", () => {
       await waitFor(() => expect(result.current.variant).toEqual("success"));
       expect(result.current.data?.name).toEqual("reactive-before");
 
-      await client.panels.rename(target.key, "reactive-after");
+      await writer.panels.rename(target.key, "reactive-after");
 
       await waitFor(() => expect(result.current.data?.name).toEqual("reactive-after"));
     });
@@ -1492,7 +1387,8 @@ describe("Panel queries", () => {
       expect(result.current.variant).toEqual("leaf");
 
       const [tabA, tabB] = [newTab(), newTab()];
-      await client.panels.dispatch(created.key, "", [
+      await writer.panels.retrieve(created.key);
+      await writer.panels.dispatch(created.key, [
         panel.insertTab({ tab: tabA, targetLeaf: panel.ROOT_NODE_KEY }),
         panel.insertTab({ tab: tabB, targetLeaf: panel.ROOT_NODE_KEY }),
         panel.splitTab({ key: tabB.key, direction: "x" }),
@@ -1514,13 +1410,13 @@ describe("Panel queries", () => {
       });
       await waitFor(() => expect(result.current.data).toContain(target.key));
 
-      await client.panels.delete(target.key);
+      await writer.panels.delete(target.key);
 
       await waitFor(() => expect(result.current.data).not.toContain(target.key));
     });
   });
 
-  describe("useCloseDeletedResourceTabs", () => {
+  describe("useCloseResourceTabs", () => {
     const createLabel = async (): Promise<ontology.ID> => {
       const created = await client.labels.create({
         name: `label-${uuid.create()}`,
@@ -1543,7 +1439,36 @@ describe("Panel queries", () => {
         });
       });
 
-    it("closes a resource tab when its resource is deleted", async () => {
+    it("closes tabs for the given resources and leaves others open", async () => {
+      const created = await createPanel();
+      const [doomed, survivor] = [await createLabel(), await createLabel()];
+      const [doomedTab, survivorTab] = [
+        newResourceTab(doomed),
+        newResourceTab(survivor),
+      ];
+      const { result } = await loadAndUse(created.key, () => ({
+        retrieve: Panel.useRetrieve({ key: created.key }),
+        dispatch: Panel.useDispatch(),
+      }));
+      await insert(result.current.dispatch, created.key, doomedTab, survivorTab);
+      await waitFor(() =>
+        expect(leafTabKeys(result.current.retrieve.data?.root)).toEqual([
+          doomedTab.key,
+          survivorTab.key,
+        ]),
+      );
+
+      const close = renderHook(() => Panel.useCloseResourceTabs(), { wrapper });
+      act(() => close.result.current(doomed));
+
+      await waitFor(() =>
+        expect(leafTabKeys(result.current.retrieve.data?.root)).toEqual([
+          survivorTab.key,
+        ]),
+      );
+    });
+
+    it("leaves tabs open when a resource is deleted remotely", async () => {
       const created = await createPanel();
       const resource = await createLabel();
       const tab = newResourceTab(resource);
@@ -1556,39 +1481,20 @@ describe("Panel queries", () => {
         expect(leafTabKeys(result.current.retrieve.data?.root)).toEqual([tab.key]),
       );
 
-      renderHook(() => Panel.useCloseDeletedResourceTabs(), { wrapper });
+      const deleted: string[] = [];
+      renderHook(
+        () => {
+          Panel.useCloseResourceTabs();
+          Ontology.useResourceDeleteSynchronizer((id) => deleted.push(id.key));
+        },
+        { wrapper },
+      );
       await act(async () => {
-        await client.labels.delete(resource.key);
+        await writer.labels.delete(resource.key);
       });
 
-      await waitFor(() =>
-        expect(leafTabKeys(result.current.retrieve.data?.root)).toEqual([]),
-      );
-    });
-
-    it("leaves tabs backing other resources open", async () => {
-      const created = await createPanel();
-      const [doomed, survivor] = [await createLabel(), await createLabel()];
-      const [doomedTab, survivorTab] = [
-        newResourceTab(doomed),
-        newResourceTab(survivor),
-      ];
-      const { result } = await loadAndUse(created.key, () => ({
-        retrieve: Panel.useRetrieve({ key: created.key }),
-        dispatch: Panel.useDispatch(),
-      }));
-      await insert(result.current.dispatch, created.key, doomedTab, survivorTab);
-
-      renderHook(() => Panel.useCloseDeletedResourceTabs(), { wrapper });
-      await act(async () => {
-        await client.labels.delete(doomed.key);
-      });
-
-      await waitFor(() =>
-        expect(leafTabKeys(result.current.retrieve.data?.root)).toEqual([
-          survivorTab.key,
-        ]),
-      );
+      await waitFor(() => expect(deleted).toContain(resource.key));
+      expect(leafTabKeys(result.current.retrieve.data?.root)).toEqual([tab.key]);
     });
   });
 });

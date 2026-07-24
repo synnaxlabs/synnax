@@ -14,7 +14,7 @@ import { describe, expect, it, vi } from "vitest";
 import { Log } from "@/feature/log";
 import { createFileIngesterContext } from "@/platform/import/testutil";
 import { type Panel } from "@/platform/panel";
-import { createGrantedFluxStore, uniqueName } from "@/testutil";
+import { awaitGranted, uniqueName } from "@/testutil";
 
 describe("ingest", () => {
   it("should create the log on the cluster and open it as a tab", async () => {
@@ -28,11 +28,11 @@ describe("ingest", () => {
       encoding: "JSON",
     });
     const data = JSON.parse(await new Response(stream).text());
-    const store = await createGrantedFluxStore(client, log.TYPE_ONTOLOGY_ID, "update");
+    await awaitGranted(client, log.TYPE_ONTOLOGY_ID, "update");
     const openTab = vi.fn<Panel.OpenTab>();
     const id = await Log.ingest(
       data,
-      createFileIngesterContext({ openTab, store, client, projectKey: proj.key }),
+      createFileIngesterContext({ openTab, client, projectKey: proj.key }),
     );
     if (id == null) throw new Error("ingest returned no id");
     expect(openTab).toHaveBeenCalledWith({ variant: "resource", resource: id });

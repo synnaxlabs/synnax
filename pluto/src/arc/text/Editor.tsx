@@ -10,24 +10,26 @@
 import { useCallback, useMemo } from "react";
 
 import { NAME } from "@/arc/language";
-import { type FluxSubStore, useSelectName, useSingleDispatch } from "@/arc/queries";
+import { useSelectName, useSingleDispatch } from "@/arc/queries";
 import { useKey } from "@/arc/Suspended";
 import { changesToDiffs, CollabText, type TextChange } from "@/arc/text/collab";
 import { Code } from "@/code";
-import { Flux } from "@/flux";
+import { Synnax } from "@/synnax";
 
 export const Editor = () => {
   const resourceKey = useKey();
-  const store = Flux.useStore<FluxSubStore>();
+  const client = Synnax.use();
   const dispatch = useSingleDispatch();
   const hasText = useSelectName();
 
   // text is the working CRDT replica. It is bootstrapped once the document loads and lives
   // for the editor's lifetime, materializing the value and translating edits to operations.
   const text = useMemo<CollabText | null>(() => {
-    const doc = store.arcs.get(resourceKey)?.text.doc;
+    const cached = client?.arcs.getCached({ key: resourceKey });
+    if (cached == null || cached.variant === "deleted") return null;
+    const doc = cached.data.text.doc;
     return doc != null ? CollabText.bootstrap(doc) : null;
-  }, [store, resourceKey, hasText]);
+  }, [client, resourceKey, hasText]);
 
   const handleEdit = useCallback(
     (edits: readonly TextChange[]) => {
@@ -38,18 +40,19 @@ export const Editor = () => {
     [text, dispatch],
   );
 
-  // connect subscribes the editor to operations from other editors: each store update for
-  // this arc is merged into the replica and reflected into the editor as a minimal edit.
-  // Returning the unsubscribe lets React tear the subscription down on unmount.
+  // connect subscribes the editor to operations from other editors: each cached update
+  // for this arc is merged into the replica and reflected into the editor as a minimal
+  // edit. Returning the unsubscribe lets React tear the subscription down on unmount.
   const connect = useCallback(
     (handle: Code.EditorHandle | null) => {
-      if (handle == null || text == null) return;
-      return store.arcs.onSet((a) => {
-        text.sync(a.text.doc);
+      if (handle == null || text == null || client == null) return;
+      return client.arcs.onChange({ key: resourceKey }, (cached) => {
+        if (cached?.variant !== "changed") return;
+        text.sync(cached.data.text.doc);
         handle.setValue(text.value());
-      }, resourceKey);
+      });
     },
-    [store, text, resourceKey],
+    [client, text, resourceKey],
   );
 
   if (text == null) return null;

@@ -13,9 +13,6 @@ import { type FC, type PropsWithChildren, type ReactElement } from "react";
 import { Aether } from "@/aether";
 import { type aether } from "@/aether/aether";
 import { aetherTest } from "@/aether/test";
-import { Flux } from "@/flux";
-import { flux } from "@/flux/aether";
-import { Pluto } from "@/pluto";
 import { status } from "@/status/aether";
 import { Status } from "@/status/base";
 import { Synnax } from "@/synnax";
@@ -40,14 +37,12 @@ const RenderContextSeed = ({
 
 const newWrapper = (
   client: Client | null,
-  fluxClient: Flux.Client,
   additionalRegistry?: aether.ComponentRegistry,
   renderContext?: canvasTest.Recorder,
 ) => {
   const AetherProvider = aetherTest.createProvider({
     ...synnax.REGISTRY,
     ...status.REGISTRY,
-    ...flux.createRegistry({ storeConfig: {} }),
     ...(renderContext != null
       ? { [canvasTest.RenderProvider.TYPE]: canvasTest.RenderProvider }
       : {}),
@@ -57,13 +52,11 @@ const newWrapper = (
     <AetherProvider>
       <Status.Aggregator>
         <Synnax.TestProvider client={client}>
-          <Flux.Provider client={fluxClient}>
-            {renderContext == null ? (
-              children
-            ) : (
-              <RenderContextSeed context={renderContext}>{children}</RenderContextSeed>
-            )}
-          </Flux.Provider>
+          {renderContext == null ? (
+            children
+          ) : (
+            <RenderContextSeed context={renderContext}>{children}</RenderContextSeed>
+          )}
         </Synnax.TestProvider>
       </Status.Aggregator>
     </AetherProvider>
@@ -73,11 +66,6 @@ const newWrapper = (
 
 export interface CreateSynnaxWrapperParams {
   client: Client | null;
-  excludeFluxStores?: string[];
-  /** Overrides the flux error handler. Defaults to logging via console.error. */
-  handleError?: status.ErrorHandler;
-  /** Overrides the flux async error handler. Defaults to logging via console.error. */
-  handleAsyncError?: status.AsyncErrorHandler;
   /** Extra aether components merged into the test render registry. */
   additionalRegistry?: aether.ComponentRegistry;
   /**
@@ -88,38 +76,17 @@ export interface CreateSynnaxWrapperParams {
   renderContext?: canvasTest.Recorder;
 }
 
-const createFluxClient = (params: CreateSynnaxWrapperParams): Flux.Client => {
-  const { client, excludeFluxStores, handleError, handleAsyncError } = params;
-  const storeConfig = { ...Pluto.FLUX_STORE_CONFIG };
-  if (excludeFluxStores)
-    excludeFluxStores.forEach((store) => delete storeConfig[store]);
-  return new Flux.Client({
-    client,
-    storeConfig,
-    handleError: handleError ?? status.createErrorHandler(console.error),
-    handleAsyncError: handleAsyncError ?? status.createAsyncErrorHandler(console.error),
-  });
-};
-
-export const createSynnaxWrapper = (
-  params: CreateSynnaxWrapperParams,
-): FC<PropsWithChildren> =>
-  newWrapper(
-    params.client,
-    createFluxClient(params),
-    params.additionalRegistry,
-    params.renderContext,
-  );
+export const createSynnaxWrapper = ({
+  client,
+  additionalRegistry,
+  renderContext,
+}: CreateSynnaxWrapperParams): FC<PropsWithChildren> =>
+  newWrapper(client, additionalRegistry, renderContext);
 
 export const createAsyncSynnaxWrapper = async (
   params: CreateSynnaxWrapperParams,
 ): Promise<FC<PropsWithChildren>> => {
-  const fluxClient = createFluxClient(params);
-  await fluxClient.awaitInitialized();
-  return newWrapper(
-    params.client,
-    fluxClient,
-    params.additionalRegistry,
-    params.renderContext,
-  );
+  const { client } = params;
+  if (client != null) await client.connect();
+  return createSynnaxWrapper(params);
 };
