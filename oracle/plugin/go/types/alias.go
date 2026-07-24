@@ -111,8 +111,8 @@ func (g *aliasFileGenerator) GenerateFile(ctx *framework.GenerateContext) (strin
 		if omit.IsSkipped(d.typ, "go") {
 			continue
 		}
-		// Transient types generate real declarations at the package root
-		// (transient.gen.go), not in the version layout: no alias to emit.
+		// Transient types generate real declarations at the package root,
+		// not in the version layout: no alias to emit.
 		if _, versioned := versioning.Version(d.typ); !versioned {
 			continue
 		}

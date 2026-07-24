@@ -35,8 +35,8 @@ or generator logic and schemas disagree.
 - `@go version` is type-granular and must be declared per type; the analyzer rejects
   file-level declarations. Declare it struct-level on persisted types (channel-style).
   Unversioned siblings are transient — they generate real declarations at the package
-  root (`transient.gen.go`) instead of riding the versions/vN layout, and their shape
-  changes never force a version bump.
+  root (merged into `types.gen.go` beside the version aliases) instead of riding the
+  versions/vN layout, and their shape changes never force a version bump.
 - Two classes must stay versioned despite being unpersisted: types referenced by a
   versioned sibling (even via `@go marshal omit` fields — their Go home cannot leave the
   package without an import cycle; the persistence gate exempts these), and types whose

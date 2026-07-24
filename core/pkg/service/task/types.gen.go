@@ -11,7 +11,11 @@
 
 package task
 
-import "github.com/synnaxlabs/synnax/pkg/service/task/versions"
+import (
+	"github.com/synnaxlabs/synnax/pkg/service/task/versions"
+	task "github.com/synnaxlabs/synnax/pkg/service/task/versions/v1"
+	"github.com/synnaxlabs/x/encoding/msgpack"
+)
 
 // Key is a composite identifier for a task. The high 32 bits contain the rack key, and
 // the low 32 bits contain the local task key within that rack.
@@ -28,3 +32,15 @@ type Status = versions.Status
 // hardware operations such as reading sensor data, writing control signals, or scanning
 // for devices.
 type Task = versions.Task
+
+// Command is a command to execute on a task in the Driver system.
+type Command struct {
+	// Task is the key of the target task.
+	Task task.Key `json:"task" msgpack:"task"`
+	// Type is the command type (e.g., 'start', 'stop', 'configure').
+	Type string `json:"type" msgpack:"type"`
+	// Key is a unique identifier for this command instance.
+	Key string `json:"key" msgpack:"key"`
+	// Args contains optional arguments for the command.
+	Args msgpack.EncodedJSON `json:"args,omitzero" msgpack:"args,omitzero"`
+}

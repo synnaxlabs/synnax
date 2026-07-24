@@ -11,7 +11,10 @@
 
 package table
 
-import "github.com/synnaxlabs/synnax/pkg/service/table/versions"
+import (
+	"github.com/synnaxlabs/synnax/pkg/service/table/versions"
+	"github.com/synnaxlabs/x/encoding/msgpack"
+)
 
 // Key is a unique identifier for a table, represented as a UUID.
 type Key = versions.Key
@@ -29,3 +32,16 @@ type Column = versions.Column
 // Tables support multiple columns, channel data sources, and customizable formatting
 // options.
 type Table = versions.Table
+
+// CellTemplate is a variant + props pair describing what a cell should look like,
+// without identifying which cell. Used by actions that overwrite existing cells in
+// place (EraseCells), where the target cell's key is provided separately.
+type CellTemplate struct {
+	// Variant is the cell variant identifier (e.g. "text", "value"). The variant
+	// determines the shape of props and which Pluto cell component renders the cell.
+	Variant string `json:"variant" msgpack:"variant"`
+	// Props is the variant-specific cell configuration. The shape is determined by the
+	// variant; the wire format intentionally stores it as an opaque record so new
+	// variants can be added without a schema migration.
+	Props msgpack.EncodedJSON `json:"props,omitzero" msgpack:"props,omitzero"`
+}

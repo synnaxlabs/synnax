@@ -11,7 +11,10 @@
 
 package spatial
 
-import "github.com/synnaxlabs/x/spatial/versions"
+import (
+	"github.com/synnaxlabs/x/spatial/versions"
+	spatial "github.com/synnaxlabs/x/spatial/versions/v0"
+)
 
 // XY is a 2D coordinate point with x and y values. Used for positioning elements in
 // two-dimensional space.
@@ -68,3 +71,79 @@ type Decimal = versions.Decimal
 // The TypeScript binding is generic over T so callers can express bounds over either
 // number or bigint values; other languages emit a concrete float64-based type.
 type Bounds = versions.Bounds
+
+// OuterLocation is a position indicator for elements anchored to the outer edge of a
+// container. Used for orientation and positioning of UI elements.
+type OuterLocation string
+
+const (
+	OuterLocationTop    OuterLocation = "top"
+	OuterLocationRight  OuterLocation = "right"
+	OuterLocationBottom OuterLocation = "bottom"
+	OuterLocationLeft   OuterLocation = "left"
+)
+
+// IsValid reports whether o is one of the defined OuterLocation values.
+func (o OuterLocation) IsValid() bool {
+	switch o {
+	case OuterLocationTop, OuterLocationRight, OuterLocationBottom, OuterLocationLeft:
+		return true
+	default:
+		return false
+	}
+}
+
+// Viewport is the camera state of a viewport.
+type Viewport struct {
+	// Zoom is the zoom level where 1.0 equals 100%.
+	Zoom float64 `json:"zoom" msgpack:"zoom"`
+	// Position is the (x, y) pan offset of the viewport.
+	Position spatial.XY `json:"position" msgpack:"position"`
+}
+
+// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
+func (v *Viewport) ApplyDefaults() {
+	if v.Zoom == 0 {
+		v.Zoom = 1
+	}
+}
+
+// Location is a position indicator covering the four outer edges of a container and its
+// center.
+type Location string
+
+const (
+	LocationTop    Location = "top"
+	LocationRight  Location = "right"
+	LocationBottom Location = "bottom"
+	LocationLeft   Location = "left"
+	LocationCenter Location = "center"
+)
+
+// IsValid reports whether l is one of the defined Location values.
+func (l Location) IsValid() bool {
+	switch l {
+	case LocationTop, LocationRight, LocationBottom, LocationLeft, LocationCenter:
+		return true
+	default:
+		return false
+	}
+}
+
+// Order is a positional ordering indicator for elements in a sequence.
+type Order string
+
+const (
+	OrderFirst Order = "first"
+	OrderLast  Order = "last"
+)
+
+// IsValid reports whether o is one of the defined Order values.
+func (o Order) IsValid() bool {
+	switch o {
+	case OrderFirst, OrderLast:
+		return true
+	default:
+		return false
+	}
+}

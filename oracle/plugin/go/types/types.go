@@ -146,12 +146,12 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 	}
 	pathFilter := func(outputPath string) bool { _, ok := pathMap[outputPath]; return ok }
 	// Transient types — those without their own @go version at a versioned
-	// path — stay at the package root, generating real declarations into a
-	// transient.gen.go beside the root alias file. Referenced enums that live
-	// in the version layout must not be re-declared there.
+	// path — stay at the package root, generating real declarations merged
+	// into the root alias file. Referenced enums that live in the version
+	// layout must not be re-declared there.
 	transientGen := &framework.Generator{
 		Domain:        "go",
-		FilePattern:   "transient.gen.go",
+		FilePattern:   p.Options.FileNamePattern,
 		FileGenerator: &goFileGenerator{},
 		PathFilter:    pathFilter,
 		FilterEnums: func(enums []resolution.Type, outputPath string) []resolution.Type {
@@ -187,7 +187,7 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 	if err != nil {
 		return nil, err
 	}
-	resp.Files = append(resp.Files, aliasResp.Files...)
+	resp.Files = mergeByPath(resp.Files, aliasResp.Files)
 	selectorGen := &framework.Generator{
 		Domain:          "go",
 		FilePattern:     "versions/" + p.Options.FileNamePattern,

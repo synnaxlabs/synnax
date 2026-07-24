@@ -10,6 +10,8 @@
 package types_test
 
 import (
+	"strings"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/oracle/plugin/go/types"
@@ -50,10 +52,19 @@ var _ = Describe("Transient types", func() {
 		`
 		req := MustGenerateRequest(ctx, source, "test", loader)
 		resp := MustSucceed(goPlugin.Generate(req))
-		paths := make([]string, 0, len(resp.Files))
+		var root string
+		count := 0
 		for _, f := range resp.Files {
-			paths = append(paths, f.Path)
+			if f.Path == "out/types.gen.go" {
+				root = string(f.Content)
+				count++
+			}
 		}
-		Expect(paths).To(ContainElement("out/transient.gen.go"))
+		Expect(count).To(Equal(1))
+		Expect(root).To(ContainSubstring("type Key uint32"))
+		Expect(root).To(ContainSubstring("type LocalKey types.Uint20"))
+		Expect(root).To(ContainSubstring("type Entry = versions.Entry"))
+		Expect(strings.Count(root, "package out")).To(Equal(1))
+		Expect(strings.Count(root, "import")).To(Equal(1))
 	})
 })
