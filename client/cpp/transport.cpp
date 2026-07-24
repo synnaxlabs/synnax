@@ -43,13 +43,15 @@ Transport::Transport(
     const std::string &ip,
     const std::string &ca_cert_file,
     const std::string &client_cert_file,
-    const std::string &client_key_file
+    const std::string &client_key_file,
+    const bool secure
 ) {
     auto base_target = x::url::URL(ip, port, "").to_string();
     auto pool = std::make_shared<freighter::grpc::Pool>(
         ca_cert_file,
         client_cert_file,
-        client_key_file
+        client_key_file,
+        secure
     );
     this->auth_login = std::make_unique<freighter::grpc::UnaryClient<
         grpc::auth::LoginRequest,

@@ -19,9 +19,10 @@ int login(x::args::Parser &args) {
     config.username = x::cli::prompt("Username");
     config.password = x::cli::prompt("Password", std::nullopt, true);
     if (x::cli::confirm("Secure", false)) {
-        config.ca_cert_file = x::cli::prompt("Path to CA certificate file");
-        config.client_cert_file = x::cli::prompt("Path to client certificate file");
-        config.client_key_file = x::cli::prompt("Path to client key file");
+        config.secure = true;
+        config.ca_cert_file = x::cli::prompt("Path to CA certificate file", "");
+        config.client_cert_file = x::cli::prompt("Path to client certificate file", "");
+        config.client_key_file = x::cli::prompt("Path to client key file", "");
     }
 
     LOG(INFO) << "connecting to Synnax using the following parameters: \n" << config;

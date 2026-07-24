@@ -33,7 +33,10 @@ inline std::string prompt(
 ) {
     while (true) {
         std::string prompt_text = message;
-        if (default_value.has_value()) prompt_text += " [" + *default_value + "]";
+        if (default_value.has_value()) {
+            if (default_value->empty()) prompt_text += " [none]";
+            else prompt_text += " [" + *default_value + "]";
+        }
         prompt_text += ": ";
 
 #ifdef _WIN32

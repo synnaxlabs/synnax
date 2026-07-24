@@ -1,0 +1,160 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+#include <sstream>
+#include <string>
+
+#include "gtest/gtest.h"
+
+#include "client/cpp/synnax.h"
+#include "x/cpp/json/json.h"
+
+/// @brief loads a JSON string into a fresh Config via override.
+synnax::Config load(const std::string &json) {
+    synnax::Config cfg;
+    auto parser = x::json::Parser(json);
+    cfg.override(parser);
+    return cfg;
+}
+
+/// @brief a fresh config is insecure.
+TEST(ConfigIsSecure, InsecureByDefault) {
+    const synnax::Config cfg;
+    EXPECT_FALSE(cfg.is_secure());
+}
+
+/// @brief the secure flag alone uses the public trust store.
+TEST(ConfigIsSecure, FlagWithoutCAFile) {
+    synnax::Config cfg;
+    cfg.secure = true;
+    EXPECT_TRUE(cfg.is_secure());
+    EXPECT_TRUE(cfg.ca_cert_file.empty());
+}
+
+/// @brief a CA file implies secure (backward compatibility).
+TEST(ConfigIsSecure, CAFileWithoutFlag) {
+    synnax::Config cfg;
+    cfg.ca_cert_file = "/certs/ca.crt";
+    EXPECT_FALSE(cfg.secure);
+    EXPECT_TRUE(cfg.is_secure());
+}
+
+/// @brief flag and CA file together are secure.
+TEST(ConfigIsSecure, FlagAndCAFile) {
+    synnax::Config cfg;
+    cfg.secure = true;
+    cfg.ca_cert_file = "/certs/ca.crt";
+    EXPECT_TRUE(cfg.is_secure());
+}
+
+/// @brief secure persists across a save/load.
+TEST(ConfigPersist, SecureFlagTrue) {
+    synnax::Config cfg;
+    cfg.secure = true;
+    const auto loaded = load(cfg.to_json().dump());
+    EXPECT_TRUE(loaded.secure);
+    EXPECT_TRUE(loaded.is_secure());
+}
+
+/// @brief insecure persists across a save/load.
+TEST(ConfigPersist, SecureFlagFalse) {
+    synnax::Config cfg;
+    cfg.secure = false;
+    const auto loaded = load(cfg.to_json().dump());
+    EXPECT_FALSE(loaded.secure);
+    EXPECT_FALSE(loaded.is_secure());
+}
+
+/// @brief every field survives the round-trip.
+TEST(ConfigPersist, AllFields) {
+    synnax::Config cfg;
+    cfg.host = "example.com";
+    cfg.port = 8080;
+    cfg.username = "op";
+    cfg.password = "op123";
+    cfg.ca_cert_file = "/certs/ca.crt";
+    cfg.client_cert_file = "/certs/client.crt";
+    cfg.client_key_file = "/certs/client.key";
+    cfg.secure = true;
+    cfg.max_retries = 9;
+
+    const auto loaded = load(cfg.to_json().dump());
+    EXPECT_EQ(loaded.host, "example.com");
+    EXPECT_EQ(loaded.port, 8080);
+    EXPECT_EQ(loaded.username, "op");
+    EXPECT_EQ(loaded.password, "op123");
+    EXPECT_EQ(loaded.ca_cert_file, "/certs/ca.crt");
+    EXPECT_EQ(loaded.client_cert_file, "/certs/client.crt");
+    EXPECT_EQ(loaded.client_key_file, "/certs/client.key");
+    EXPECT_TRUE(loaded.secure);
+    EXPECT_EQ(loaded.max_retries, 9);
+    EXPECT_TRUE(loaded.is_secure());
+}
+
+/// @brief a pre-flag config with only a CA loads secure.
+TEST(ConfigOverride, LegacySecureViaCAFile) {
+    const auto cfg = load(R"({"ca_cert_file":"/certs/ca.crt"})");
+    EXPECT_FALSE(cfg.secure);
+    EXPECT_TRUE(cfg.is_secure());
+}
+
+/// @brief a pre-flag config with no CA loads insecure.
+TEST(ConfigOverride, LegacyInsecure) {
+    const auto cfg = load(R"({"username":"op"})");
+    EXPECT_FALSE(cfg.secure);
+    EXPECT_FALSE(cfg.is_secure());
+}
+
+/// @brief absent keys keep their defaults.
+TEST(ConfigOverride, EmptyKeepsDefaults) {
+    const auto cfg = load("{}");
+    EXPECT_EQ(cfg.host, "localhost");
+    EXPECT_EQ(cfg.port, 9090);
+    EXPECT_FALSE(cfg.is_secure());
+}
+
+/// @brief present keys override, absent keys are untouched.
+TEST(ConfigOverride, PartialDoesNotClobber) {
+    const auto cfg = load(R"({"secure":true})");
+    EXPECT_TRUE(cfg.secure);
+    EXPECT_EQ(cfg.host, "localhost");
+}
+
+/// @brief an insecure config omits the cert-file lines.
+TEST(ConfigStream, InsecureOmitsCertLines) {
+    const synnax::Config cfg;
+    std::ostringstream os;
+    os << cfg;
+    EXPECT_EQ(os.str().find("ca_cert_file"), std::string::npos);
+}
+
+/// @brief a secure config prints the cert-file lines.
+TEST(ConfigStream, SecureIncludesCertLines) {
+    synnax::Config cfg;
+    cfg.ca_cert_file = "/certs/ca.crt";
+    std::ostringstream os;
+    os << cfg;
+    EXPECT_NE(os.str().find("ca_cert_file"), std::string::npos);
+}
+
+/// @brief the secure field always prints.
+TEST(ConfigStream, AlwaysShowsSecure) {
+    const synnax::Config cfg;
+    std::ostringstream os;
+    os << cfg;
+    EXPECT_NE(os.str().find("secure"), std::string::npos);
+}
+
+/// @brief address joins host and port.
+TEST(ConfigAddress, FormatsHostPort) {
+    synnax::Config cfg;
+    cfg.host = "node1";
+    cfg.port = 9091;
+    EXPECT_EQ(cfg.address(), "node1:9091");
+}
