@@ -71,6 +71,19 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 					Expect(t.Occurred()).To(BeTrue())
 					Expect(db.LeadingControlState()).To(BeNil())
 				})
+				Specify("NextLeadingAlignment", func(ctx SpecContext) {
+					reserved := db.NextLeadingAlignment()
+					Expect(db.NextLeadingAlignment()).To(Equal(reserved + 1))
+					w, t := MustSucceed2(db.OpenWriter(ctx, unary.WriterConfig{
+						Start:   telem.TimeStamp(0),
+						Subject: control.Subject{Key: "leading"},
+					}))
+					Expect(t.Occurred()).To(BeTrue())
+					Expect(MustSucceed(w.Write(telem.NewSeriesSecondsTSV(0)))).
+						To(Equal(alignment.Leading(3, 0)))
+					t = MustSucceed(w.Close())
+					Expect(t.Occurred()).To(BeTrue())
+				})
 				Describe("Open", func() {
 					It("Should not allow opening a writer if the specified end timestamp is before the start", func(ctx SpecContext) {
 						_, _, err := db.OpenWriter(ctx, unary.WriterConfig{Start: 10, End: 3, Subject: control.Subject{Key: "foo"}})
