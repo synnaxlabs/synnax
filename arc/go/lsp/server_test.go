@@ -22,6 +22,7 @@ import (
 	"github.com/synnaxlabs/arc/types"
 	. "github.com/synnaxlabs/x/lsp/testutil"
 	"github.com/synnaxlabs/x/observe"
+	. "github.com/synnaxlabs/x/testutil"
 	"go.lsp.dev/protocol"
 	"go.lsp.dev/uri"
 )
@@ -443,5 +444,82 @@ var _ = Describe("External Change Notifications", func() {
 		}
 		close(done)
 		wg.Wait()
+	})
+})
+
+var _ = Describe("Server Lifecycle", func() {
+	var (
+		server *lsp.Server
+		docURI uri.URI
+		client *MockClient
+	)
+
+	BeforeEach(func() {
+		server, docURI, client = SetupTestServerWithClient()
+	})
+
+	Describe("New", func() {
+		It("Should reject a config without NewRoot", func() {
+			Expect(lsp.New()).Error().To(MatchError(ContainSubstring("new_root")))
+		})
+	})
+
+	Describe("Initialized", func() {
+		It("Should accept the initialized notification", func(ctx SpecContext) {
+			Expect(server.Initialized(ctx, &protocol.InitializedParams{})).To(Succeed())
+		})
+	})
+
+	Describe("Symbol requests", func() {
+		It("Should return an empty documentSymbol result", func(ctx SpecContext) {
+			Expect(MustSucceed(server.DocumentSymbol(ctx, &protocol.DocumentSymbolParams{
+				TextDocument: protocol.TextDocumentIdentifier{URI: docURI},
+			}))).To(BeNil())
+		})
+
+		It("Should return an empty workspace/symbol result", func(ctx SpecContext) {
+			Expect(MustSucceed(server.Symbols(ctx, &protocol.WorkspaceSymbolParams{
+				Query: "test",
+			}))).To(BeNil())
+		})
+	})
+
+	Describe("DidClose", func() {
+		It("Should drop the document and clear its diagnostics", func(ctx SpecContext) {
+			OpenArcDocument(server, ctx, docURI, "func test() {\n\tx := undefined_var\n}")
+			Expect(client.Diagnostics()).ToNot(BeEmpty())
+			Expect(server.DidClose(ctx, &protocol.DidCloseTextDocumentParams{
+				TextDocument: protocol.TextDocumentIdentifier{URI: docURI},
+			})).To(Succeed())
+			Expect(client.Diagnostics()).To(BeEmpty())
+		})
+
+		It("Should tolerate closing an unopened document", func(ctx SpecContext) {
+			Expect(server.DidClose(ctx, &protocol.DidCloseTextDocumentParams{
+				TextDocument: protocol.TextDocumentIdentifier{URI: "file:///unknown.arc"},
+			})).To(Succeed())
+		})
+	})
+
+	Describe("Unopened documents", func() {
+		It("Should ignore a change for an unopened document", func(ctx SpecContext) {
+			Expect(server.DidChange(ctx, &protocol.DidChangeTextDocumentParams{
+				TextDocument: protocol.VersionedTextDocumentIdentifier{
+					TextDocumentIdentifier: protocol.TextDocumentIdentifier{
+						URI: "file:///unknown.arc",
+					},
+					Version: 2,
+				},
+				ContentChanges: []protocol.TextDocumentContentChangeEvent{
+					&protocol.TextDocumentContentChangeWholeDocument{Text: "x"},
+				},
+			})).To(Succeed())
+		})
+
+		It("Should ignore a save for an unopened document", func(ctx SpecContext) {
+			Expect(server.DidSave(ctx, &protocol.DidSaveTextDocumentParams{
+				TextDocument: protocol.TextDocumentIdentifier{URI: "file:///unknown.arc"},
+			})).To(Succeed())
+		})
 	})
 })

@@ -10,12 +10,50 @@
 package diagnostics_test
 
 import (
+	"github.com/antlr4-go/antlr/v4"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/x/diagnostics"
 	"github.com/synnaxlabs/x/errors"
 	"go.lsp.dev/protocol"
 )
+
+// fakeToken is a minimal antlr.Token with a fixed line, column, and text.
+type fakeToken struct {
+	line, column int
+	text         string
+}
+
+var _ antlr.Token = (*fakeToken)(nil)
+
+func (t *fakeToken) GetSource() *antlr.TokenSourceCharStreamPair { return nil }
+func (t *fakeToken) GetTokenType() int                           { return 0 }
+func (t *fakeToken) GetChannel() int                             { return 0 }
+func (t *fakeToken) GetStart() int                               { return 0 }
+func (t *fakeToken) GetStop() int                                { return 0 }
+func (t *fakeToken) GetLine() int                                { return t.line }
+func (t *fakeToken) GetColumn() int                              { return t.column }
+func (t *fakeToken) GetText() string                             { return t.text }
+func (t *fakeToken) SetText(text string)                         { t.text = text }
+func (t *fakeToken) GetTokenIndex() int                          { return 0 }
+func (t *fakeToken) SetTokenIndex(int)                           {}
+func (t *fakeToken) GetTokenSource() antlr.TokenSource           { return nil }
+func (t *fakeToken) GetInputStream() antlr.CharStream            { return nil }
+func (t *fakeToken) String() string                              { return t.text }
+
+// ruleCtxAt builds a parser rule context spanning the given tokens; stop may be nil.
+func ruleCtxAt(start, stop antlr.Token) antlr.ParserRuleContext {
+	ctx := antlr.NewBaseParserRuleContext(nil, -1)
+	ctx.SetStart(start)
+	ctx.SetStop(stop)
+	return ctx
+}
+
+// hintedError is an error carrying a fix hint via GetHint.
+type hintedError struct{ msg, hint string }
+
+func (e hintedError) Error() string   { return e.msg }
+func (e hintedError) GetHint() string { return e.hint }
 
 var _ = Describe("Diagnostics", func() {
 	Describe("Deduplication", func() {
@@ -518,5 +556,74 @@ var _ = Describe("Diagnostics", func() {
 			Expect(out.Code).To(Equal(diagnostics.ErrorCode("C001")))
 			Expect(out.Notes).To(HaveLen(1))
 		})
+	})
+})
+
+var _ = Describe("Diagnostic.SetRange", func() {
+	It("Should convert 1-indexed ANTLR lines to a 0-indexed range", func() {
+		var d diagnostics.Diagnostic
+		d.SetRange(ruleCtxAt(
+			&fakeToken{line: 3, column: 4, text: "foo"},
+			&fakeToken{line: 5, column: 2, text: "bar"},
+		))
+		Expect(d.Range.Start).To(Equal(protocol.Position{Line: 2, Character: 4}))
+		Expect(d.Range.End).To(Equal(protocol.Position{Line: 4, Character: 5}))
+	})
+
+	It("Should derive the end from the start token when stop is missing", func() {
+		var d diagnostics.Diagnostic
+		d.SetRange(ruleCtxAt(&fakeToken{line: 2, column: 1, text: "name"}, nil))
+		Expect(d.Range.Start).To(Equal(protocol.Position{Line: 1, Character: 1}))
+		Expect(d.Range.End).To(Equal(protocol.Position{Line: 1, Character: 5}))
+	})
+
+	It("Should leave the range zero for a nil context", func() {
+		var d diagnostics.Diagnostic
+		d.SetRange(nil)
+		Expect(d.Range).To(Equal(protocol.Range{}))
+	})
+})
+
+var _ = Describe("Error with HintProvider", func() {
+	It("Should extract a hint into a note", func() {
+		d := diagnostics.Error(hintedError{msg: "bad type", hint: "use i64"}, nil)
+		Expect(d.Message).To(Equal("bad type"))
+		Expect(d.Notes).To(HaveLen(1))
+		Expect(d.Notes[0].Message).To(Equal("use i64"))
+	})
+
+	It("Should skip an empty hint", func() {
+		d := diagnostics.Error(hintedError{msg: "bad type"}, nil)
+		Expect(d.Notes).To(BeEmpty())
+	})
+})
+
+var _ = Describe("Diagnostic.WithNoteAt", func() {
+	It("Should attach a note pointing at the given position", func() {
+		d := diagnostics.Errorf(nil, "boom").
+			WithNoteAt("declared here", protocol.Position{Line: 4, Character: 7})
+		Expect(d.Notes).To(HaveLen(1))
+		Expect(d.Notes[0].Message).To(Equal("declared here"))
+		Expect(d.Notes[0].Location.Range).To(Equal(protocol.Range{
+			Start: protocol.Position{Line: 4, Character: 7},
+			End:   protocol.Position{Line: 4, Character: 8},
+		}))
+	})
+
+	It("Should skip an empty note", func() {
+		d := diagnostics.Errorf(nil, "boom").
+			WithNoteAt("", protocol.Position{Line: 4, Character: 7})
+		Expect(d.Notes).To(BeEmpty())
+	})
+})
+
+var _ = Describe("Diagnostics.Error", func() {
+	It("Should report the formatted diagnostics as the error message", func() {
+		d := diagnostics.Diagnostics{{
+			Severity: protocol.DiagnosticSeverityError,
+			Message:  "boom",
+		}}
+		var err error = &d
+		Expect(err.Error()).To(Equal(d.String()))
 	})
 })

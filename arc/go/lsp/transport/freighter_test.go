@@ -245,3 +245,69 @@ var _ = Describe("Freighter Transport", func() {
 		})
 	})
 })
+
+var _ = Describe("Transport Failure Modes", func() {
+	var (
+		fCtx    context.Context
+		fCancel context.CancelFunc
+	)
+
+	BeforeEach(func() {
+		fCtx, fCancel = context.WithTimeout(context.Background(), 5*time.Second)
+	})
+
+	AfterEach(func() { fCancel() })
+
+	serve := func(maxLen int) (
+		*mock.ClientStream[transport.JSONRPCMessage, transport.JSONRPCMessage],
+		chan error,
+	) {
+		server := MustSucceed(lsp.New(lsp.Config{
+			Instrumentation: alamos.New("failure"),
+			NewRoot:         func() *symbol.Symbol { return NewRoot(nil) },
+		}))
+		client, stream := mock.NewStreams[transport.JSONRPCMessage, transport.JSONRPCMessage](fCtx, 1)
+		errs := make(chan error, 1)
+		go func() {
+			errs <- transport.ServeFreighter(fCtx, transport.Config{
+				Server:           server,
+				Stream:           stream,
+				MaxContentLength: maxLen,
+			})
+		}()
+		return client, errs
+	}
+
+	It("Should reject a config missing the server and stream", func(ctx SpecContext) {
+		Expect(transport.ServeFreighter(ctx)).To(MatchError(ContainSubstring("must be non-nil")))
+	})
+
+	It("Should fail the connection when an incoming message exceeds the max length", func() {
+		client, errs := serve(8)
+		Expect(client.Send(transport.JSONRPCMessage{
+			Content: `{"jsonrpc":"2.0","method":"initialized","params":{}}`,
+		})).To(Succeed())
+		Eventually(errs, 10*time.Second).Should(
+			Receive(MatchError(ContainSubstring("content length"))))
+	})
+
+	It("Should fail the connection on a malformed JSON payload", func() {
+		client, errs := serve(transport.DefaultMaxContentLength)
+		Expect(client.Send(transport.JSONRPCMessage{Content: "{not json"})).To(Succeed())
+		Eventually(errs, 10*time.Second).Should(
+			Receive(MatchError(ContainSubstring("parse error"))))
+	})
+
+	It("Should fail the connection when a response exceeds the max length", func() {
+		client, errs := serve(150)
+		content := MustSucceed(json.Marshal(map[string]any{
+			"jsonrpc": "2.0",
+			"id":      1,
+			"method":  "initialize",
+			"params":  map[string]any{"clientInfo": map[string]any{"name": "t"}},
+		}))
+		Expect(client.Send(transport.JSONRPCMessage{Content: string(content)})).To(Succeed())
+		Eventually(errs, 10*time.Second).Should(
+			Receive(MatchError(ContainSubstring("content length"))))
+	})
+})

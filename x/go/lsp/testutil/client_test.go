@@ -10,6 +10,8 @@
 package testutil_test
 
 import (
+	"time"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/x/lsp/testutil"
@@ -109,6 +111,54 @@ var _ = Describe("MockClient", func() {
 		It("should return not-implemented for methods without overrides", func(ctx SpecContext) {
 			Expect(client.ShowMessageRequest(ctx, &protocol.ShowMessageRequestParams{})).
 				Error().To(MatchError(ContainSubstring("not implemented")))
+		})
+	})
+})
+
+var _ = Describe("MockClient Counters", func() {
+	var client *testutil.MockClient
+
+	BeforeEach(func() { client = &testutil.MockClient{} })
+
+	Describe("PublishCount", func() {
+		It("Should count each PublishDiagnostics call", func(ctx SpecContext) {
+			Expect(client.PublishCount()).To(Equal(0))
+			Expect(client.PublishDiagnostics(ctx, &protocol.PublishDiagnosticsParams{
+				URI: "file:///test.arc",
+			})).To(Succeed())
+			Expect(client.PublishCount()).To(Equal(1))
+		})
+	})
+
+	Describe("WaitForDiagnostics", func() {
+		It("Should observe a publish past the baseline", func(ctx SpecContext) {
+			Expect(client.PublishDiagnostics(ctx, &protocol.PublishDiagnosticsParams{
+				URI: "file:///test.arc",
+			})).To(Succeed())
+			Expect(client.WaitForDiagnostics(0, 50*time.Millisecond)).To(BeTrue())
+		})
+
+		It("Should time out when no publish happens", func() {
+			Expect(client.WaitForDiagnostics(0, 20*time.Millisecond)).To(BeFalse())
+		})
+	})
+
+	Describe("SemanticTokensRefresh", func() {
+		It("Should count each refresh", func(ctx SpecContext) {
+			Expect(client.SemanticRefreshCount()).To(Equal(0))
+			Expect(client.SemanticTokensRefresh(ctx)).To(Succeed())
+			Expect(client.SemanticRefreshCount()).To(Equal(1))
+		})
+	})
+
+	Describe("WaitForSemanticRefresh", func() {
+		It("Should observe a refresh past the baseline", func(ctx SpecContext) {
+			Expect(client.SemanticTokensRefresh(ctx)).To(Succeed())
+			Expect(client.WaitForSemanticRefresh(0, 50*time.Millisecond)).To(BeTrue())
+		})
+
+		It("Should time out when no refresh happens", func() {
+			Expect(client.WaitForSemanticRefresh(0, 20*time.Millisecond)).To(BeFalse())
 		})
 	})
 })
