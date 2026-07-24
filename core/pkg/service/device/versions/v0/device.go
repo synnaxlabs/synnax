@@ -69,7 +69,3 @@ func (d Device) GorpKey() Key { return d.Key }
 
 // SetOptions implements gorp.Entry.
 func (Device) SetOptions() []any { return nil }
-
-func OntologyID(key string) ontology.ID {
-	return ontology.ID{Type: ontology.ResourceTypeDevice, Key: key}
-}

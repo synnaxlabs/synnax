@@ -78,7 +78,7 @@ var _ = Describe("Migration", func() {
 
 		var restoredStatus status.Status[v0.StatusDetails]
 		Expect(status.NewRetrieve[v0.StatusDetails](statusSvc).
-			Where(status.MatchKeys[v0.StatusDetails](v0.OntologyID(d.Key).String())).
+			Where(status.MatchKeys[v0.StatusDetails](ontology.ID{Type: ontology.ResourceTypeDevice, Key: d.Key}.String())).
 			Entry(&restoredStatus).
 			Exec(ctx, nil)).To(Succeed())
 		Expect(restoredStatus.Variant).To(Equal(status.VariantWarning))
@@ -100,7 +100,7 @@ var _ = Describe("Migration", func() {
 			Entry(&d).
 			Exec(ctx, db)).To(Succeed())
 		existing := status.Status[v0.StatusDetails]{
-			Key:     v0.OntologyID(d.Key).String(),
+			Key:     ontology.ID{Type: ontology.ResourceTypeDevice, Key: d.Key}.String(),
 			Name:    d.Name,
 			Variant: status.VariantSuccess,
 			Message: "Device With Status is configured",
@@ -114,7 +114,7 @@ var _ = Describe("Migration", func() {
 
 		var deviceStatus status.Status[v0.StatusDetails]
 		Expect(status.NewRetrieve[v0.StatusDetails](statusSvc).
-			Where(status.MatchKeys[v0.StatusDetails](v0.OntologyID(d.Key).String())).
+			Where(status.MatchKeys[v0.StatusDetails](ontology.ID{Type: ontology.ResourceTypeDevice, Key: d.Key}.String())).
 			Entry(&deviceStatus).
 			Exec(ctx, nil)).To(Succeed())
 		Expect(deviceStatus.Variant).To(Equal(status.VariantSuccess))

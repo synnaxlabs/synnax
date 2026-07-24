@@ -88,19 +88,19 @@ var _ = Describe("Migration", func() {
 		Expect(bareTable.NewCreate().Entry(&r2).Exec(ctx, tx)).To(Succeed())
 
 		otgWriter := otg.NewWriter(tx)
-		Expect(otgWriter.DefineResources(ctx, v0.OntologyID(r1.Key))).To(Succeed())
-		Expect(otgWriter.DefineResources(ctx, v0.OntologyID(r2.Key))).To(Succeed())
+		Expect(otgWriter.DefineResources(ctx, ontology.ID{Type: ontology.ResourceTypeRange, Key: r1.Key.String()})).To(Succeed())
+		Expect(otgWriter.DefineResources(ctx, ontology.ID{Type: ontology.ResourceTypeRange, Key: r2.Key.String()})).To(Succeed())
 		Expect(otgWriter.DefineRelationships(
 			ctx,
 			subGroup.OntologyID(),
 			ontology.RelationshipTypeParentOf,
-			v0.OntologyID(r1.Key),
+			ontology.ID{Type: ontology.ResourceTypeRange, Key: r1.Key.String()},
 		)).To(Succeed())
 		Expect(otgWriter.DefineRelationships(
 			ctx,
 			subGroup.OntologyID(),
 			ontology.RelationshipTypeParentOf,
-			v0.OntologyID(r2.Key),
+			ontology.ID{Type: ontology.ResourceTypeRange, Key: r2.Key.String()},
 		)).To(Succeed())
 
 		Expect(tx.Commit(ctx)).To(Succeed())
@@ -134,7 +134,7 @@ var _ = Describe("Migration", func() {
 		// The parent range should have r1 and r2 as children in the ontology.
 		var children []ontology.Resource
 		Expect(otg.NewRetrieve().
-			WhereIDs(v0.OntologyID(parentRange.Key)).
+			WhereIDs(ontology.ID{Type: ontology.ResourceTypeRange, Key: parentRange.Key.String()}).
 			TraverseTo(ontology.ChildrenTraverser).
 			WhereTypes(ontology.ResourceTypeRange).
 			ExcludeFieldData(true).
@@ -145,8 +145,8 @@ var _ = Describe("Migration", func() {
 			childIDs = append(childIDs, c.ID)
 		}
 		Expect(childIDs).To(ConsistOf(
-			v0.OntologyID(r1.Key),
-			v0.OntologyID(r2.Key),
+			ontology.ID{Type: ontology.ResourceTypeRange, Key: r1.Key.String()},
+			ontology.ID{Type: ontology.ResourceTypeRange, Key: r2.Key.String()},
 		))
 	})
 })

@@ -14,6 +14,7 @@ import (
 	"fmt"
 
 	"github.com/synnaxlabs/alamos"
+	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
@@ -60,7 +61,7 @@ func newMigration(cfg MigrationConfig) migrate.Migration {
 
 			statusKeys := make([]string, len(devices))
 			for i, d := range devices {
-				statusKeys[i] = OntologyID(d.Key).String()
+				statusKeys[i] = ontology.ID{Type: ontology.ResourceTypeDevice, Key: d.Key}.String()
 			}
 			var existingStatuses []status.Status[StatusDetails]
 			if err = status.NewRetrieve[StatusDetails](cfg.Status).
@@ -75,7 +76,7 @@ func newMigration(cfg MigrationConfig) migrate.Migration {
 			}
 			var missingStatuses []status.Status[StatusDetails]
 			for _, d := range devices {
-				key := OntologyID(d.Key).String()
+				key := ontology.ID{Type: ontology.ResourceTypeDevice, Key: d.Key}.String()
 				if !existingKeys.Contains(key) {
 					missingStatuses = append(missingStatuses, status.Status[StatusDetails]{
 						Key:     key,

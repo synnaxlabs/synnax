@@ -165,13 +165,13 @@ func newMigration(cfg MigrationConfig) migrate.Migration {
 				}
 				if err = otgWriter.DefineResources(
 					ctx,
-					OntologyID(newParentRange.Key),
+					ontology.ID{Type: ontology.ResourceTypeRange, Key: newParentRange.Key.String()},
 				); err != nil {
 					return err
 				}
 				if err = otgWriter.DefineRelationships(
 					ctx,
-					OntologyID(newParentRange.Key),
+					ontology.ID{Type: ontology.ResourceTypeRange, Key: newParentRange.Key.String()},
 					ontology.RelationshipTypeParentOf,
 					lo.Map(childRanges, func(r ontology.Resource, _ int) ontology.ID {
 						return r.ID
