@@ -12,18 +12,19 @@
 
 # 0 - Summary
 
-Today every `types/vN/` package is a full copy: when a resource bumps its `@go version`,
-Oracle re-emits every type at the path into the new version directory, and the freeze
-step re-emits every type into the outgoing one. Between arc's `types/types/v0` and `v1`,
-two types changed shape; roughly ten were duplicated, along with their codecs and enum
-stringers, and the hand-written method files were ported by hand.
+Under the full-copy layout every `versions/vN/` package was a complete copy: when a
+resource bumped its `@go version`, Oracle re-emitted every type at the path into the new
+version directory, and the freeze step re-emitted every type into the outgoing one.
+Between arc's `types/versions/v0` and `v1`, two types changed shape; roughly ten were
+duplicated, along with their codecs and enum stringers, and the hand-written method
+files were ported by hand.
 
 This RFC replaces full copies with a predecessor chain. A version package defines only
 the types whose shape changed at that version; every other type is a Go type alias to
 the previous version's package:
 
 ```go
-// arc/go/types/types/v1/types.gen.go
+// arc/go/types/versions/v1/types.gen.go
 type Param = v0.Param
 
 type FunctionProperties struct { ... } // changed at v1: defined here
@@ -38,19 +39,19 @@ type collapse into direct assignment, because the two names denote one type.
 
 # 1 - Motivation
 
-The full-copy layout has three concrete costs, all visible in the repo today:
+The full-copy layout had three concrete costs, all visible in the repo before the
+cutover:
 
-1. **Duplication scales with package size, not change size.** A one-field change to one
-   struct re-emits the whole package twice (outgoing freeze + incoming current).
-   `closureForPath` does this deliberately: "if any type from a package is needed,
-   include ALL types from that package" (`oracle/plugin/go/migrate/migrate.go:544`).
-2. **Hand-written files port by hand.** `moveHelpers`
-   (`oracle/plugin/go/migrate/migrate.go:427`) carries `helpers.go` forward wholesale
-   and deletes the outgoing copy, and files like arc's `type.go` and `msgpack.go`
-   (~1,300 lines with tests) must follow the current version by manual copy. Each port
-   is an opportunity for drift.
-3. **Migration auto-copies are busywork.** `v0.Param` and `v1.Param` are distinct
-   structs even when byte-identical, so `migrate_auto.gen.go` generates field-by-field
+1. **Duplication scaled with package size, not change size.** A one-field change to one
+   struct re-emitted the whole package twice (outgoing freeze + incoming current).
+   `closureForPath` did this deliberately: "if any type from a package is needed,
+   include ALL types from that package" (deleted with this RFC).
+2. **Hand-written files ported by hand.** `moveHelpers` (also deleted) carried the
+   version package's method file forward wholesale and deleted the outgoing copy, and
+   files like arc's `type.go` and `msgpack.go` (~1,300 lines with tests) had to follow
+   the current version by manual copy. Each port was an opportunity for drift.
+3. **Migration auto-copies were busywork.** `v0.Param` and `v1.Param` were distinct
+   structs even when byte-identical, so `migrate_auto.gen.go` generated field-by-field
    copies for types that never changed.
 
 ---
@@ -65,8 +66,8 @@ The full-copy layout has three concrete costs, all visible in the repo today:
 - **Predecessor chain** — each version package imports only `v(N-1)`. An alias may
   resolve through several hops to its definer; the Go compiler and gopls pierce the
   chain, and `grep "type T struct"` finds definers directly.
-- **Changed** — structurally unequal per `schemasEqual`
-  (`oracle/plugin/go/migrate/schema.go:23`), which is transitive: a type whose own
+- **Changed** — structurally unequal per `schemadiff.SchemasEqual`
+  (`oracle/plugin/go/internal/schemadiff`), which is transitive: a type whose own
   declaration is untouched but whose referenced types changed shape is changed.
 
 ---
@@ -79,9 +80,9 @@ The full-copy layout has three concrete costs, all visible in the repo today:
    — by definition or by alias. Consumers (root re-export, migrations, frozen
    dependents) never need to know which.
 3. **Transitive shape equality decides define-vs-alias.** Aliasing a type whose nested
-   types changed would pin stale shapes; `schemasEqual`'s recursive comparison is the
-   gate, and `SchemaDiff`'s `TypeDescendantChanged`
-   (`oracle/plugin/go/migrate/schema.go:168`) already classifies it.
+   types changed would pin stale shapes; `schemadiff.SchemasEqual`'s recursive
+   comparison is the gate, and `schemadiff.SchemaDiff`'s `TypeDescendantChanged` already
+   classifies it.
 4. **Code lives with the definer.** Go forbids methods on aliased non-local types, so
    hand-written method files (`<resource>.go`, arc's `type.go`) sit in the defining
    package permanently. When a type is redefined at a bump, its methods are ported to
@@ -106,17 +107,25 @@ When `go/types` generates a version-laid-out current package `vM`:
   the would-be define-all file, parses it and the frozen `types.gen.go` with comments
   stripped, and aliases exactly the types whose declarations are identical — struct tags
   included — computed to a fixpoint so a type referencing a re-defined local type is
-  re-defined too (`frozenAliasSplit`, `oracle/plugin/go/types/frozen.go`). An alias is
-  emitted only when it denotes literally the same code, which makes the retrofit immune
-  to generator-vintage drift (a frozen struct missing today's `omitzero` tags simply
-  stays defined).
+  re-defined too (`frozenAliasSplit`, `oracle/plugin/go/types/frozen.go`). Before
+  comparing, both sides are canonicalized through alias chains — local and cross-package
+  (`chainResolver`): a frozen predecessor that is itself an alias surface, or that names
+  a dependency's older version directory, still compares equal to a candidate naming the
+  definer, so chained history keeps aliasing instead of spuriously redefining. An alias
+  is emitted only when it denotes literally the same code, which makes the retrofit
+  immune to generator-vintage drift (a frozen struct missing today's `omitzero` tags
+  simply stays defined).
 - **Define** a type when it has no baseline counterpart (brand-new types fold into the
-  current version, `migrate.go:180`), or when `schemasEqual` against the baseline
-  reports a change (own shape or transitive).
+  current version), or when `schemadiff.SchemasEqual` against the baseline reports a
+  change (own shape or transitive).
 - **Alias** everything else: `type T = vPrev.T`, with enum and union discriminator
-  consts re-declared beside the alias. The emission machinery exists in
-  `aliasFileGenerator` (`oracle/plugin/go/types/alias.go:26`), including generic type
-  parameters (`Status[Details any] = vPrev.Status[Details]`).
+  consts re-declared beside the alias. The emission machinery lives in
+  `aliasFileGenerator` (`oracle/plugin/go/types/alias.go`), including generic type
+  parameters (`Status[Details any] = vPrev.Status[Details]`). The same machinery emits
+  the re-export surfaces above the version directories — the `versions/types.gen.go`
+  selector aliasing the latest version and the package-root `types.gen.go` aliasing the
+  selector — and both include hand-written (`@go omit`) types, so the full namespace at
+  a path is presented by generated aliases rather than hand-maintained re-export files.
 - **v0** and paths with neither a declared baseline nor a frozen predecessor on disk
   define everything.
 
@@ -126,15 +135,15 @@ When `go/types` generates a version-laid-out current package `vM`:
 version. Aliased types carry their codec methods and stringers through the alias from
 their definer. The same holds for `gorp.Entry` methods: they live in the definer's
 `<resource>.go` method file (the existing placement,
-`core/pkg/service/status/types/v2/status.go`), and the freeze-time
-`generateGorpEntryMethods` append (`migrate.go:646`) is deleted — a frozen package
-already has whatever it needs, because it was current when its content was written.
+`core/pkg/service/status/versions/v1/status.go`), and the freeze-time
+`generateGorpEntryMethods` append is deleted — a frozen package already has whatever it
+needs, because it was current when its content was written.
 
 ## 4.2 - The Bump
 
-`freezePath`'s re-emission (`migrate.go:221`) disappears. The outgoing package is
-already in its final form on disk: its defined types reference dependency versions that
-are themselves immutable, so imports are pinned by construction. A bump now:
+`freezePath`'s re-emission disappears. The outgoing package is already in its final form
+on disk: its defined types reference dependency versions that are themselves immutable,
+so imports are pinned by construction. A bump now:
 
 1. Emits the incoming `v(N+1)` package under the emission rule (mostly aliases).
 2. Scaffolds migration files into the incoming package (§4.3).
@@ -153,9 +162,16 @@ generator already scaffolds both gorp-entry and value-type paths this way
 (`scaffoldIncoming`, `oracle/plugin/go/migrate/migrate.go`). Legacy reverse-direction
 files (migrations living in the frozen old package, importing the new version) form an
 import cycle the moment the current package aliases backward, so the retrofit moved them
-into the incoming packages for the affected paths (`arc/types` v0→v1, `arc/ir` v1→v2)
+into the incoming packages for the affected paths (`arc/types` v0→v1, `arc/ir` v0→v1)
 and retargeted their callers; paths whose current packages emitted no aliases keep their
 legacy files until they next bump.
+
+Each version package exports a single entry point — `Migration`, or `Migrations` when
+one bump carries several steps (arc v1's shape lift plus its `set_status` rename) — and
+a hand-written `versions/migrations.go` concatenates them into the ordered chain the
+service registers with gorp. Codec re-encodings (`gorp.CodecMigration`) are pinned in
+the version package whose stored bytes they rewrite (arc v0's `msgpack_to_orc`), not in
+the version that followed them.
 
 Auto-copy generation simplifies: when a nested type is `TypeUnchanged`, old and new
 names denote the same Go type, and the generated copy is direct assignment. Only
@@ -182,6 +198,13 @@ bent when incoming-package migrations imported their predecessor; the chain make
 the norm. The consequence is that historical version directories cannot be individually
 deleted while newer versions alias into them (§6.4).
 
+Two mechanical pieces of RFC 0041 are superseded with the freeze-flow deletion (§4.2):
+§4.6.0's bump steps that re-emit the outgoing package and move the method file forward,
+and §5.3's Oracle-automated `helpers.go` move — method files stay with their definer,
+and the version package's method file is named for the resource (`status.go`), not
+`helpers.go`. RFC 0041's layout sections also predate the Phase 2 rename of the version
+directory from `types/` to `versions/`; this RFC uses the landed naming.
+
 ---
 
 # 5 - Implementation Phases
@@ -201,9 +224,13 @@ declarations into aliases. Reconciliation moved hand-written methods whose recei
 types became aliases to their definer packages (arc's `dimensions.go` and
 `ChanDirection` methods, rack/task `Key` methods, arc service's `StatusDetails`
 decoder), deleted the now-duplicate enum `_string.go` files from current packages, and
-relocated the cycle-inducing legacy migrations (§4.3). Frozen packages gained only
-files; no frozen declaration changed. Wire formats are untouched throughout — the change
-is purely source-level.
+relocated the cycle-inducing legacy migrations (§4.3). The cutover also renamed the
+version directory from `types/` to `versions/`, routed package-root re-exports through
+the `versions` selector, renumbered `arc/ir` and `arc/graph` onto dense v0/v1 (removing
+a spurious version link between them), and consolidated migration exports onto the
+one-entry-point-per-version shape (§4.3). Frozen packages gained only files; no frozen
+declaration changed. Wire formats are untouched throughout — the change is purely
+source-level.
 
 ---
 
@@ -265,8 +292,8 @@ is ever needed.
 
 # 8 - What This RFC Does Not Cover
 
-- TypeScript, Python, C++, and protobuf outputs: the `types/vN` layout is Go-only (RFC
-  0041 §4.3), and this RFC changes nothing outside the Go generator.
+- TypeScript, Python, C++, and protobuf outputs: the `versions/vN` layout is Go-only
+  (RFC 0041 §4.3), and this RFC changes nothing outside the Go generator.
 - Snapshot cadence, `oracle snapshot`/`oracle migrate` CLI behavior, and the bump
   discipline in `detectBumps` — all unchanged.
-- The runtime migration dispatch (`types/decode.go`) and gorp integration.
+- The runtime migration dispatch (RFC 0041's deferred `decode.go`) and gorp integration.
