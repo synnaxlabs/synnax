@@ -119,8 +119,8 @@ export class Client {
     const mw: Middleware = async (reqCtx, next) => {
       if (!this.authenticated && !reqCtx.target.endsWith(LOGIN_ENDPOINT)) {
         this.authenticating ??= (async (): Promise<Error | null> => {
-          // failures of logins issued before a setCredentials are stale and
-          // must not reach the observer
+          // logins issued before a setCredentials are stale; their result must
+          // not reach the observer
           const generation = this.generation;
           try {
             const res = await this.client.send(
@@ -129,6 +129,7 @@ export class Client {
               credentialsZ,
               tokenResponseZ,
             );
+            if (generation !== this.generation) return null;
             this.authState = {
               authenticated: true,
               user: res.user,

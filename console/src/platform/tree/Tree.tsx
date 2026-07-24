@@ -219,6 +219,7 @@ const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
   const handleSyncResourceSet = useCallback(
     (resource: ontology.Resource) => {
       placeholdersRef.current.delete(resource.key);
+      placeholderListenersRef.current.get(resource.key)?.forEach((notify) => notify());
       setNodes((prevNodes) => [...prevNodes]);
     },
     [setNodes],
@@ -302,15 +303,11 @@ const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
         placeholderListenersRef.current.set(key, listeners);
       }
       listeners.add(callback);
-      const disconnect = client?.ontology.onResourceSet((resource) => {
-        if (resource.key === key) callback();
-      });
       return () => {
         listeners.delete(callback);
-        disconnect?.();
       };
     },
-    [client],
+    [],
   );
 
   const getItem = useMemo(
