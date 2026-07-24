@@ -17,8 +17,8 @@ import (
 	v1 "github.com/synnaxlabs/synnax/pkg/service/task/versions/v1"
 )
 
-// key composes rack key 65538 (node 1, local 2) in the high 32 bits and local
-// task key 7 in the low 32.
+// key composes rack key 65538 (node 1, local 2) in the high 32 bits and local task key
+// 7 in the low 32.
 const key = v1.Key(65538<<32 | 7)
 
 var _ = Describe("Task", func() {

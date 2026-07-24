@@ -17,8 +17,8 @@ import (
 
 var _ = Describe("Command", func() {
 	Describe("String", func() {
-		// key composes rack key 65538 (node 1, local 2) in the high 32 bits and
-		// local task key 7 in the low 32.
+		// key composes rack key 65538 (node 1, local 2) in the high 32 bits and local
+		// task key 7 in the low 32.
 		const key = task.Key(65538<<32 | 7)
 
 		It("Should include the type, key, and target task", func() {

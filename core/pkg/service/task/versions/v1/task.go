@@ -14,7 +14,7 @@ import (
 
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 
-	rackv1 "github.com/synnaxlabs/synnax/pkg/service/rack/versions/v1"
+	rack "github.com/synnaxlabs/synnax/pkg/service/rack/versions/v1"
 	"github.com/synnaxlabs/x/gorp"
 )
 
@@ -30,7 +30,7 @@ func (t Task) SetOptions() []any { return []any{t.Key.Rack().Node()} }
 func (t Task) OntologyID() ontology.ID { return t.Key.OntologyID() }
 
 // Rack returns the key of the rack the task belongs to.
-func (t Task) Rack() rackv1.Key { return t.Key.Rack() }
+func (t Task) Rack() rack.Key { return t.Key.Rack() }
 
 // String returns the task's name and key, or just the key when unnamed.
 func (t Task) String() string {
