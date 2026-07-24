@@ -17,8 +17,8 @@ import (
 	"github.com/vmihailenco/msgpack/v5"
 )
 
-var _ = Describe("DecodeMsgpack", func() {
-	Describe("Output", func() {
+var _ = Describe("Output", func() {
+	Describe("DecodeMsgpack", func() {
 		It("Should decode new lowercase msgpack fields", func() {
 			original := v0.Output{
 				WASM:              []byte{0x00, 0x61, 0x73, 0x6d},
