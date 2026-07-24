@@ -13,6 +13,7 @@ import (
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/ranger/versions/v0"
 )
 
@@ -30,4 +31,12 @@ var _ = Describe("Range", func() {
 		})
 	})
 
+	Describe("OntologyID", func() {
+		It("Should return the range ontology identifier", func() {
+			k := uuid.New()
+			Expect(v0.Range{Key: k}.OntologyID()).To(Equal(ontology.ID{
+				Type: ontology.ResourceTypeRange, Key: k.String(),
+			}))
+		})
+	})
 })

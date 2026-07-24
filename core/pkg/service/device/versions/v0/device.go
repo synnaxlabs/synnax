@@ -69,3 +69,8 @@ func (d Device) GorpKey() Key { return d.Key }
 
 // SetOptions implements gorp.Entry.
 func (Device) SetOptions() []any { return nil }
+
+// OntologyID returns the unique ID for the device within the ontology.
+func (d Device) OntologyID() ontology.ID {
+	return ontology.ID{Type: ontology.ResourceTypeDevice, Key: d.Key}
+}
