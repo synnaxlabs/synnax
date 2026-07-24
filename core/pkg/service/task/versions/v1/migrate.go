@@ -21,6 +21,9 @@ import (
 	"github.com/synnaxlabs/x/migrate"
 )
 
+// v0Migrations resolves the final v0 migration key this version depends on.
+var v0Migrations = v0.NewMigrations(v0.MigrationConfig{})
+
 // migrateTask lifts a v0 task into the v1 shape, dropping the persisted status.
 func migrateTask(ctx context.Context, old v0.Task) (Task, error) {
 	return autoMigrateTask(ctx, old)
@@ -28,7 +31,7 @@ func migrateTask(ctx context.Context, old v0.Task) (Task, error) {
 
 // liftMigration lifts stored tasks from v0 to v1, dropping the persisted status field.
 var liftMigration = gorp.NewEntryMigration(
-	"v54_drop_status", migrateTask, v0.Migration.Key(),
+	"v54_drop_status", migrateTask, v0Migrations[len(v0Migrations)-1].Key(),
 )
 
 // Migrations is the ordered set of migrations introduced at this version.

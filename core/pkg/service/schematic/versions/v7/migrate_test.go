@@ -14,7 +14,6 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
-	"slices"
 	"strings"
 
 	"github.com/google/uuid"
@@ -27,6 +26,7 @@ import (
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/kv/memkv"
+	"github.com/synnaxlabs/x/migrate"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -58,7 +58,7 @@ func migrateSeed(ctx SpecContext, seed v6.Schematic) v7.Schematic {
 	Expect(gorp.Migrate(ctx, gorp.MigrateConfig{
 		DB:         db,
 		Namespace:  "Schematic",
-		Migrations: slices.Concat(v6.Migrations, v7.Migrations),
+		Migrations: append([]migrate.Migration{v6.Migration}, v7.Migrations...),
 	})).To(Succeed())
 	var got v7.Schematic
 	Expect(gorp.NewRetrieve[v7.Key, v7.Schematic]().

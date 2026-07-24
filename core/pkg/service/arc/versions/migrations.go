@@ -19,4 +19,6 @@ import (
 )
 
 // Migrations is the ordered migration chain for stored arcs.
-var Migrations = slices.Concat(v0.Migrations, v1.Migrations, []migrate.Migration{v2.Migration})
+var Migrations = slices.Concat(
+	[]migrate.Migration{v0.Migration}, v1.Migrations, []migrate.Migration{v2.Migration},
+)

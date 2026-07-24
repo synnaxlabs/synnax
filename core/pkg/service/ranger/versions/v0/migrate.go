@@ -25,7 +25,7 @@ import (
 	"go.uber.org/zap"
 )
 
-// MigrationConfig is the configuration for NewMigration.
+// MigrationConfig is the configuration for newMigration.
 type MigrationConfig struct {
 	// Ontology is the cluster ontology; migrated ranges are re-parented in it.
 	Ontology *ontology.Ontology
@@ -34,9 +34,9 @@ type MigrationConfig struct {
 	alamos.Instrumentation
 }
 
-// NewMigration returns the v0 migration, which swaps invalid time ranges and folds
+// newMigration returns the v0 migration, which swaps invalid time ranges and folds
 // legacy range groups into the group service.
-func NewMigration(cfg MigrationConfig) migrate.Migration {
+func newMigration(cfg MigrationConfig) migrate.Migration {
 	return gorp.NewMigration(
 		"range_groups_1",
 		func(ctx context.Context, tx gorp.Tx, ins alamos.Instrumentation) (err error) {
@@ -185,12 +185,12 @@ func NewMigration(cfg MigrationConfig) migrate.Migration {
 	)
 }
 
-// Migration re-encodes stored ranges from MessagePack to the Orc value-color layout.
-var Migration = gorp.CodecMigration[Key, Range](
-	"msgpack_to_orc", NewMigration(MigrationConfig{}).Key(),
+// codecMigration re-encodes stored ranges from MessagePack to the Orc value-color layout.
+var codecMigration = gorp.CodecMigration[Key, Range](
+	"msgpack_to_orc", newMigration(MigrationConfig{}).Key(),
 )
 
 // NewMigrations returns the ordered set of migrations introduced at this version.
 func NewMigrations(cfg MigrationConfig) []migrate.Migration {
-	return []migrate.Migration{NewMigration(cfg), Migration}
+	return []migrate.Migration{newMigration(cfg), codecMigration}
 }

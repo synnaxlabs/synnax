@@ -9,9 +9,7 @@
 
 package node
 
-import (
-	"github.com/synnaxlabs/synnax/pkg/distribution/node"
-)
+import "github.com/synnaxlabs/synnax/pkg/distribution/node"
 
 // Re-exports of the node domain primitives defined in pkg/distribution/node. Consumers
 // in the service and API layers should reach for these aliases so they only depend on a

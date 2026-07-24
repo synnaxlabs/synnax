@@ -22,7 +22,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/kv/memkv"
-	"github.com/synnaxlabs/x/migrate"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -58,11 +57,9 @@ var _ = Describe("Migration", func() {
 
 	runMigration := func(ctx context.Context) {
 		Expect(gorp.Migrate(ctx, gorp.MigrateConfig{
-			DB:        db,
-			Namespace: "Device",
-			Migrations: []migrate.Migration{
-				v0.NewMigration(v0.MigrationConfig{Status: statusSvc}),
-			},
+			DB:         db,
+			Namespace:  "Device",
+			Migrations: v0.NewMigrations(v0.MigrationConfig{Status: statusSvc}),
 		})).To(Succeed())
 	}
 

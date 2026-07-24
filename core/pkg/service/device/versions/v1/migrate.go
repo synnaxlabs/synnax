@@ -21,6 +21,9 @@ import (
 	"github.com/synnaxlabs/x/migrate"
 )
 
+// v0Migrations resolves the final v0 migration key this version depends on.
+var v0Migrations = v0.NewMigrations(v0.MigrationConfig{})
+
 // migrateDevice lifts a v0 device into the v1 shape, dropping the persisted
 // status and parent.
 func migrateDevice(ctx context.Context, old v0.Device) (Device, error) {
@@ -30,7 +33,7 @@ func migrateDevice(ctx context.Context, old v0.Device) (Device, error) {
 // liftMigration lifts stored devices from v0 to v1, dropping the persisted status
 // and parent fields.
 var liftMigration = gorp.NewEntryMigration(
-	"v54_drop_status_parent", migrateDevice, v0.Migration.Key(),
+	"v54_drop_status_parent", migrateDevice, v0Migrations[len(v0Migrations)-1].Key(),
 )
 
 // Migrations is the ordered set of migrations introduced at this version.

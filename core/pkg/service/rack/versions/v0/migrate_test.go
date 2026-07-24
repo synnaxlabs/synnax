@@ -24,7 +24,6 @@ import (
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/kv/memkv"
-	"github.com/synnaxlabs/x/migrate"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -62,10 +61,10 @@ var _ = Describe("Migration", func() {
 		Expect(gorp.Migrate(ctx, gorp.MigrateConfig{
 			DB:        db,
 			Namespace: "Rack",
-			Migrations: []migrate.Migration{v0.NewMigration(v0.MigrationConfig{
+			Migrations: v0.NewMigrations(v0.MigrationConfig{
 				HostProvider: mock.NewStaticHostProvider(1),
 				Status:       statusSvc,
-			})},
+			}),
 		})).To(Succeed())
 	}
 
@@ -207,10 +206,10 @@ var _ = Describe("Status backfill", func() {
 		Expect(gorp.Migrate(ctx, gorp.MigrateConfig{
 			DB:        db,
 			Namespace: "Rack",
-			Migrations: []migrate.Migration{v0.NewMigration(v0.MigrationConfig{
+			Migrations: v0.NewMigrations(v0.MigrationConfig{
 				HostProvider: mock.NewStaticHostProvider(1),
 				Status:       statusSvc,
-			})},
+			}),
 		})).To(Succeed())
 
 		// Verify the status is readable with the correct typed key.

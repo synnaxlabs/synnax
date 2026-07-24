@@ -25,7 +25,7 @@ import (
 	"go.uber.org/zap"
 )
 
-// MigrationConfig is the configuration for NewMigration.
+// MigrationConfig is the configuration for newMigration.
 type MigrationConfig struct {
 	// HostProvider resolves the host node, used to rename the embedded rack.
 	HostProvider cluster.HostProvider
@@ -34,9 +34,9 @@ type MigrationConfig struct {
 	Status *status.Service
 }
 
-// NewMigration returns the v0 migration, which renames the host's embedded rack and
+// newMigration returns the v0 migration, which renames the host's embedded rack and
 // backfills an unknown status for every rack missing one.
-func NewMigration(cfg MigrationConfig) migrate.Migration {
+func newMigration(cfg MigrationConfig) migrate.Migration {
 	return gorp.NewMigration(
 		"v0.embedded_rack_rename_status_backfill",
 		func(ctx context.Context, tx gorp.Tx, ins alamos.Instrumentation) error {
@@ -153,12 +153,12 @@ func backfillStatuses(
 	return status.NewWriter[StatusDetails](cfg.Status, tx).SetMany(ctx, &missingStatuses)
 }
 
-// Migration re-encodes stored racks from MessagePack to Orc.
-var Migration = gorp.CodecMigration[Key, Rack](
-	"msgpack_to_orc", NewMigration(MigrationConfig{}).Key(),
+// codecMigration re-encodes stored racks from MessagePack to Orc.
+var codecMigration = gorp.CodecMigration[Key, Rack](
+	"msgpack_to_orc", newMigration(MigrationConfig{}).Key(),
 )
 
 // NewMigrations returns the ordered set of migrations introduced at this version.
 func NewMigrations(cfg MigrationConfig) []migrate.Migration {
-	return []migrate.Migration{NewMigration(cfg), Migration}
+	return []migrate.Migration{newMigration(cfg), codecMigration}
 }

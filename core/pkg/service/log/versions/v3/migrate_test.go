@@ -12,7 +12,6 @@ package v3_test
 import (
 	"encoding/json"
 	"os"
-	"slices"
 
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
@@ -22,6 +21,7 @@ import (
 	"github.com/synnaxlabs/x/color"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/kv/memkv"
+	"github.com/synnaxlabs/x/migrate"
 	"github.com/synnaxlabs/x/notation"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
@@ -278,7 +278,7 @@ var _ = Describe("MigrateLog", func() {
 			Expect(gorp.Migrate(ctx, gorp.MigrateConfig{
 				DB:         db,
 				Namespace:  "Log",
-				Migrations: slices.Concat(v2.Migrations, v3.Migrations),
+				Migrations: append([]migrate.Migration{v2.Migration}, v3.Migrations...),
 			})).To(Succeed())
 
 			var got v3.Log

@@ -14,7 +14,6 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
-	"slices"
 	"strings"
 
 	"github.com/google/uuid"
@@ -25,6 +24,7 @@ import (
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/kv/memkv"
+	"github.com/synnaxlabs/x/migrate"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/text"
 )
@@ -55,7 +55,7 @@ func migrateSeed(ctx SpecContext, seed v5.LinePlot) v6.LinePlot {
 	Expect(gorp.Migrate(ctx, gorp.MigrateConfig{
 		DB:         db,
 		Namespace:  "LinePlot",
-		Migrations: slices.Concat(v5.Migrations, v6.Migrations),
+		Migrations: append([]migrate.Migration{v5.Migration}, v6.Migrations...),
 	})).To(Succeed())
 	var got v6.LinePlot
 	Expect(gorp.NewRetrieve[v6.Key, v6.LinePlot]().

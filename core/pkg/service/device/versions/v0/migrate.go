@@ -24,16 +24,16 @@ import (
 	"go.uber.org/zap"
 )
 
-// MigrationConfig is the configuration for NewMigration.
+// MigrationConfig is the configuration for newMigration.
 type MigrationConfig struct {
 	// Status is the status service used to backfill unknown statuses for devices
 	// missing them.
 	Status *status.Service
 }
 
-// NewMigration returns the v0 migration, which backfills an unknown status for every
+// newMigration returns the v0 migration, which backfills an unknown status for every
 // device missing one.
-func NewMigration(cfg MigrationConfig) migrate.Migration {
+func newMigration(cfg MigrationConfig) migrate.Migration {
 	return gorp.NewMigration(
 		"v0.status_backfill",
 		func(ctx context.Context, tx gorp.Tx, ins alamos.Instrumentation) error {
@@ -95,12 +95,12 @@ func NewMigration(cfg MigrationConfig) migrate.Migration {
 		})
 }
 
-// Migration re-encodes stored devices from MessagePack to Orc.
-var Migration = gorp.CodecMigration[Key, Device](
-	"msgpack_to_orc", NewMigration(MigrationConfig{}).Key(),
+// codecMigration re-encodes stored devices from MessagePack to Orc.
+var codecMigration = gorp.CodecMigration[Key, Device](
+	"msgpack_to_orc", newMigration(MigrationConfig{}).Key(),
 )
 
 // NewMigrations returns the ordered set of migrations introduced at this version.
 func NewMigrations(cfg MigrationConfig) []migrate.Migration {
-	return []migrate.Migration{NewMigration(cfg), Migration}
+	return []migrate.Migration{newMigration(cfg), codecMigration}
 }

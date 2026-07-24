@@ -10,8 +10,6 @@
 package versions
 
 import (
-	"slices"
-
 	v0 "github.com/synnaxlabs/synnax/pkg/service/project/versions/v0"
 	v1 "github.com/synnaxlabs/synnax/pkg/service/project/versions/v1"
 	"github.com/synnaxlabs/x/migrate"
@@ -22,5 +20,5 @@ type MigrationsConfig = v1.MigrationsConfig
 
 // NewMigrations returns the ordered migration chain for stored projects.
 func NewMigrations(cfg MigrationsConfig) []migrate.Migration {
-	return slices.Concat(v0.Migrations, v1.NewMigrations(cfg))
+	return append([]migrate.Migration{v0.Migration}, v1.NewMigrations(cfg)...)
 }

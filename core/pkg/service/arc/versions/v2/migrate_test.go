@@ -215,7 +215,7 @@ func migrateFromV1(ctx SpecContext, seed v1.Arc) v2.Arc {
 	db := DeferClose(gorp.Wrap(memkv.New()))
 	MustSucceed(gorp.OpenTable(ctx, gorp.TableConfig[v1.Key, v1.Arc]{DB: db}))
 	Expect(gorp.NewCreate[v1.Key, v1.Arc]().Entry(&seed).Exec(ctx, db)).To(Succeed())
-	prior := slices.Concat(v0.Migrations, v1.Migrations)
+	prior := append([]migrate.Migration{v0.Migration}, v1.Migrations...)
 	applied := make([]migrate.Migration, 0, len(prior)+1)
 	for _, m := range prior {
 		applied = append(applied, gorp.NewMigration(
@@ -245,7 +245,8 @@ func migrateFromV0(ctx SpecContext, seed v0.Arc) v2.Arc {
 		DB:        db,
 		Namespace: "Arc",
 		Migrations: slices.Concat(
-			v0.Migrations, v1.Migrations, []migrate.Migration{v2.Migration},
+			[]migrate.Migration{v0.Migration}, v1.Migrations,
+			[]migrate.Migration{v2.Migration},
 		),
 	})).To(Succeed())
 	var got v2.Arc

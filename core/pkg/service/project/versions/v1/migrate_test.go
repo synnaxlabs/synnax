@@ -12,7 +12,6 @@ package v1_test
 import (
 	"context"
 	"encoding/json"
-	"slices"
 
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
@@ -24,6 +23,7 @@ import (
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/kv/memkv"
+	"github.com/synnaxlabs/x/migrate"
 	"github.com/synnaxlabs/x/query"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -34,8 +34,9 @@ func runMigrations(ctx context.Context, db *gorp.DB) {
 	Expect(gorp.Migrate(ctx, gorp.MigrateConfig{
 		DB:        db,
 		Namespace: "Project",
-		Migrations: slices.Concat(
-			v0.Migrations, v1.NewMigrations(v1.MigrationsConfig{Ontology: otg}),
+		Migrations: append(
+			[]migrate.Migration{v0.Migration},
+			v1.NewMigrations(v1.MigrationsConfig{Ontology: otg})...,
 		),
 	})).To(Succeed())
 }

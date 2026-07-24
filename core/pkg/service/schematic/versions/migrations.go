@@ -10,11 +10,10 @@
 package versions
 
 import (
-	"slices"
-
 	v6 "github.com/synnaxlabs/synnax/pkg/service/schematic/versions/v6"
 	v7 "github.com/synnaxlabs/synnax/pkg/service/schematic/versions/v7"
+	"github.com/synnaxlabs/x/migrate"
 )
 
 // Migrations is the ordered migration chain for stored schematics.
-var Migrations = slices.Concat(v6.Migrations, v7.Migrations)
+var Migrations = append([]migrate.Migration{v6.Migration}, v7.Migrations...)

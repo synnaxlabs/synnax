@@ -35,15 +35,16 @@ var _ = Describe("MigrateDevice", func() {
 		MustSucceed(gorp.OpenTable(ctx, gorp.TableConfig[v0.Key, v0.Device]{DB: db}))
 		Expect(gorp.NewCreate[v0.Key, v0.Device]().
 			Entry(&seed).Exec(ctx, db)).To(Succeed())
+		v0Chain := v0.NewMigrations(v0.MigrationConfig{})
 		v0Applied := gorp.NewMigration(
-			v0.NewMigration(v0.MigrationConfig{}).Key(),
+			v0Chain[0].Key(),
 			func(context.Context, gorp.Tx, alamos.Instrumentation) error { return nil },
 		)
 		Expect(gorp.Migrate(ctx, gorp.MigrateConfig{
 			DB:        db,
 			Namespace: "Device",
 			Migrations: append(
-				[]migrate.Migration{v0Applied, v0.Migration}, v1.Migrations...,
+				append([]migrate.Migration{v0Applied}, v0Chain[1:]...), v1.Migrations...,
 			),
 		})).To(Succeed())
 		var got v1.Device

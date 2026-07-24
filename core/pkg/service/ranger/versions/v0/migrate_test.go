@@ -21,7 +21,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/search"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/kv/memkv"
-	"github.com/synnaxlabs/x/migrate"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
@@ -47,10 +46,10 @@ var _ = Describe("Migration", func() {
 		Expect(gorp.Migrate(ctx, gorp.MigrateConfig{
 			DB:        db,
 			Namespace: "Range",
-			Migrations: []migrate.Migration{v0.NewMigration(v0.MigrationConfig{
+			Migrations: v0.NewMigrations(v0.MigrationConfig{
 				Ontology: otg,
 				Group:    gSvc,
-			})},
+			}),
 		})).To(Succeed())
 	}
 	It("should migrate subgroups to parent ranges and delete groups", func(ctx SpecContext) {

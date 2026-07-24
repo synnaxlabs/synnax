@@ -10,11 +10,10 @@
 package versions
 
 import (
-	"slices"
-
 	v2 "github.com/synnaxlabs/synnax/pkg/service/log/versions/v2"
 	v3 "github.com/synnaxlabs/synnax/pkg/service/log/versions/v3"
+	"github.com/synnaxlabs/x/migrate"
 )
 
 // Migrations is the ordered migration chain for stored logs.
-var Migrations = slices.Concat(v2.Migrations, v3.Migrations)
+var Migrations = append([]migrate.Migration{v2.Migration}, v3.Migrations...)

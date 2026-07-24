@@ -33,15 +33,16 @@ var _ = Describe("MigrateRack", func() {
 		MustSucceed(gorp.OpenTable(ctx, gorp.TableConfig[v0.Key, v0.Rack]{DB: db}))
 		Expect(gorp.NewCreate[v0.Key, v0.Rack]().
 			Entry(&seed).Exec(ctx, db)).To(Succeed())
+		v0Chain := v0.NewMigrations(v0.MigrationConfig{})
 		v0Applied := gorp.NewMigration(
-			v0.NewMigration(v0.MigrationConfig{}).Key(),
+			v0Chain[0].Key(),
 			func(context.Context, gorp.Tx, alamos.Instrumentation) error { return nil },
 		)
 		Expect(gorp.Migrate(ctx, gorp.MigrateConfig{
 			DB:        db,
 			Namespace: "Rack",
 			Migrations: append(
-				[]migrate.Migration{v0Applied, v0.Migration}, v1.Migrations...,
+				append([]migrate.Migration{v0Applied}, v0Chain[1:]...), v1.Migrations...,
 			),
 		})).To(Succeed())
 		var got v1.Rack

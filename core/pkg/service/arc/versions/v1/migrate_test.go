@@ -21,8 +21,8 @@ import (
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/kv/memkv"
+	"github.com/synnaxlabs/x/migrate"
 	. "github.com/synnaxlabs/x/testutil"
-	"slices"
 )
 
 // migrateSeed runs the v1 migration chain over a gorp-seeded v0 arc and returns
@@ -35,7 +35,7 @@ func migrateSeed(ctx SpecContext, seed v0.Arc) v1.Arc {
 	Expect(gorp.Migrate(ctx, gorp.MigrateConfig{
 		DB:         db,
 		Namespace:  "Arc",
-		Migrations: slices.Concat(v0.Migrations, v1.Migrations),
+		Migrations: append([]migrate.Migration{v0.Migration}, v1.Migrations...),
 	})).To(Succeed())
 	var got v1.Arc
 	Expect(gorp.NewRetrieve[v1.Key, v1.Arc]().

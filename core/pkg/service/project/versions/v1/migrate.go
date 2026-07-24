@@ -32,10 +32,9 @@ const LegacyLayoutKVPrefix = "sy_project_legacy_layout/"
 
 // migrateLayoutsToStaging copies every project's layout blob into its own staging KV
 // entry keyed by LegacyLayoutKVPrefix plus the project key. The blob is the project
-// layout marshalled to
-// JSON, which the panel migration unmarshals back into its legacy mosaic structs.
-// The layout field is left intact; this migration only forwards a copy so the panel
-// migration no longer depends on reading it.
+// layout marshalled to JSON, which the panel migration unmarshals back into its legacy
+// mosaic structs. The layout field is left intact; this migration only forwards a copy
+// so the panel migration no longer depends on reading it.
 func migrateLayoutsToStaging(
 	ctx context.Context,
 	tx gorp.Tx,
@@ -61,16 +60,16 @@ func migrateLayoutsToStaging(
 	return nil
 }
 
-// legacyWorkspaceType is the ontology resource type workspaces were stored under
-// before the rename to project.
+// legacyWorkspaceType is the ontology resource type workspaces were stored under before
+// the rename to project.
 const legacyWorkspaceType = ontology.ResourceType("workspace")
 
 // migrateWorkspaceToProject lifts a renamed workspace into a project. The
 // workspace-to-project change was a pure rename, so it lifts every record from the
-// legacy "Workspace" gorp prefix into the v1 Project type and repoints the
-// ontology at the renamed type: it re-keys each workspace resource node to project and
-// rewrites every relationship endpoint of type workspace to project. The whole
-// transition runs in one migration transaction, so it commits atomically.
+// legacy "Workspace" gorp prefix into the v1 Project type and repoints the ontology at
+// the renamed type: it re-keys each workspace resource node to project and rewrites
+// every relationship endpoint of type workspace to project. The whole transition runs
+// in one migration transaction, so it commits atomically.
 func migrateWorkspaceToProject(ctx context.Context, tx gorp.Tx, _ alamos.Instrumentation) error {
 	if err := liftWorkspaces(ctx, tx); err != nil {
 		return err
@@ -84,9 +83,9 @@ func migrateWorkspaceToProject(ctx context.Context, tx gorp.Tx, _ alamos.Instrum
 	return renameWorkspaceGroup(ctx, tx)
 }
 
-// renameWorkspaceGroup renames the root "Workspaces" group to "Projects" so the
-// service retrieves the existing group (with the migrated projects already
-// parented under it) rather than creating a second one.
+// renameWorkspaceGroup renames the root "Workspaces" group to "Projects" so the service
+// retrieves the existing group (with the migrated projects already parented under it)
+// rather than creating a second one.
 func renameWorkspaceGroup(ctx context.Context, tx gorp.Tx) error {
 	stale, err := collectEntries(
 		ctx,
@@ -211,9 +210,8 @@ func removeAuthorRelationships(ctx context.Context, tx gorp.Tx, otg *ontology.On
 	return otg.NewWriter(tx).DeleteRelationships(ctx, stale...)
 }
 
-// collectEntries drains a reader into a slice of the entries matching keep.
-// Mutating a gorp table while iterating it is unsafe, so callers gather first and
-// write after.
+// collectEntries drains a reader into a slice of the entries matching keep. Mutating a
+// gorp table while iterating it is unsafe, so callers gather first and write after.
 func collectEntries[K gorp.Key, E gorp.Entry[K]](
 	ctx context.Context,
 	r gorp.Reader[K, E],
@@ -232,22 +230,22 @@ func collectEntries[K gorp.Key, E gorp.Entry[K]](
 	return out, iter.Error()
 }
 
-// workspaceToProjectMigration lifts stored workspaces into projects. It
-// depends on the codec migration so it always reads Orc-encoded entries.
+// workspaceToProjectMigration lifts stored workspaces into projects. It depends on the
+// codec migration so it always reads Orc-encoded entries.
 var workspaceToProjectMigration = migrate.WithAddedDeps(
 	gorp.NewMigration("v56_migrate_workspace_to_project", migrateWorkspaceToProject),
 	v0.Migration.Key(),
 )
 
-// layoutsToStagingMigration stages each project's legacy layout blob for the
-// panel service to adopt.
+// layoutsToStagingMigration stages each project's legacy layout blob for the panel
+// service to adopt.
 var layoutsToStagingMigration = migrate.WithAddedDeps(
 	gorp.NewMigration("v56_stage_project_layouts", migrateLayoutsToStaging),
 	workspaceToProjectMigration.Key(),
 )
 
-// removeAuthorRelationshipsMigration drops the legacy author relationships
-// projects held in the ontology.
+// removeAuthorRelationshipsMigration drops the legacy author relationships projects
+// held in the ontology.
 func removeAuthorRelationshipsMigration(otg *ontology.Ontology) migrate.Migration {
 	return migrate.WithAddedDeps(
 		gorp.NewMigration(
@@ -262,8 +260,8 @@ func removeAuthorRelationshipsMigration(otg *ontology.Ontology) migrate.Migratio
 
 // MigrationsConfig is the configuration for NewMigrations.
 type MigrationsConfig struct {
-	// Ontology is the cluster ontology; the author-relationship cleanup runs
-	// against it.
+	// Ontology is the cluster ontology; the author-relationship cleanup runs against
+	// it.
 	Ontology *ontology.Ontology
 }
 

@@ -23,7 +23,6 @@ import (
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/kv/memkv"
-	"github.com/synnaxlabs/x/migrate"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -59,11 +58,9 @@ var _ = Describe("Migration", func() {
 
 	runMigration := func(ctx context.Context) {
 		Expect(gorp.Migrate(ctx, gorp.MigrateConfig{
-			DB:        db,
-			Namespace: "Task",
-			Migrations: []migrate.Migration{
-				v0.NewMigration(v0.MigrationConfig{Status: statusSvc}),
-			},
+			DB:         db,
+			Namespace:  "Task",
+			Migrations: v0.NewMigrations(v0.MigrationConfig{Status: statusSvc}),
 		})).To(Succeed())
 	}
 
@@ -173,11 +170,9 @@ var _ = Describe("Status backfill", func() {
 		// fail without the flex DecodeMsgpack on the Key type because the task key is
 		// stored as a MessagePack float64.
 		Expect(gorp.Migrate(ctx, gorp.MigrateConfig{
-			DB:        db,
-			Namespace: "Task",
-			Migrations: []migrate.Migration{
-				v0.NewMigration(v0.MigrationConfig{Status: statusSvc}),
-			},
+			DB:         db,
+			Namespace:  "Task",
+			Migrations: v0.NewMigrations(v0.MigrationConfig{Status: statusSvc}),
 		})).To(Succeed())
 
 		// Verify the status is readable with the correct typed key.
