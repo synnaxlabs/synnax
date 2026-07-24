@@ -17,6 +17,7 @@ import (
 	"github.com/synnaxlabs/x/encoding/orc"
 )
 
+// EncodeOrc writes the value to w in the Orc binary format.
 func (t Table) EncodeOrc(w *orc.Writer) error {
 	w.Write(t.Key[:])
 	w.String(t.Name)
@@ -30,6 +31,7 @@ func (t Table) EncodeOrc(w *orc.Writer) error {
 	return nil
 }
 
+// DecodeOrc reads the value from r in the Orc binary format.
 func (t *Table) DecodeOrc(r *orc.Reader) error {
 	var err error
 	if _, err := r.Read(t.Key[:]); err != nil {

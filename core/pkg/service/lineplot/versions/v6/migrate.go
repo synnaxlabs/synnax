@@ -165,15 +165,11 @@ func migrateRules(in []v0.Rule) []Rule {
 	return out
 }
 
-// codecMigration re-encodes stored line plots from MessagePack to Orc. It is
-// pinned to the v5 shape so its output stays stable as LinePlot evolves.
-var codecMigration = gorp.CodecMigration[Key, v5.LinePlot]("msgpack_to_orc")
-
 // liftMigration lifts stored line plots from the v5 blob layout to the typed v6
 // shape.
 var liftMigration = gorp.NewEntryMigration(
-	"v55_lift_typed_lineplot", migrateLinePlot, codecMigration.Key(),
+	"v55_lift_typed_lineplot", migrateLinePlot, v5.Migration.Key(),
 )
 
 // Migrations is the ordered set of migrations introduced at this version.
-var Migrations = []migrate.Migration{codecMigration, liftMigration}
+var Migrations = []migrate.Migration{v5.Migration, liftMigration}

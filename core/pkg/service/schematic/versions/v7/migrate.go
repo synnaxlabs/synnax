@@ -267,15 +267,11 @@ func stringOrEmpty(s *string) string {
 	return *s
 }
 
-// codecMigration re-encodes stored schematics from MessagePack to Orc. It is
-// pinned to the v6 shape so its output stays stable as Schematic evolves.
-var codecMigration = gorp.CodecMigration[Key, v6.Schematic]("msgpack_to_orc")
-
 // liftMigration lifts stored schematics from the v6 blob layout to the typed v7
 // shape.
 var liftMigration = gorp.NewEntryMigration(
-	"v55_lift_typed_schematic", migrateSchematic, codecMigration.Key(),
+	"v55_lift_typed_schematic", migrateSchematic, v6.Migration.Key(),
 )
 
 // Migrations is the ordered set of migrations introduced at this version.
-var Migrations = []migrate.Migration{codecMigration, liftMigration}
+var Migrations = []migrate.Migration{v6.Migration, liftMigration}

@@ -74,14 +74,10 @@ func migrateCells(in map[string]v0.Cell) map[string]Cell {
 	return out
 }
 
-// codecMigration re-encodes stored tables from MessagePack to Orc. It is pinned to the v1
-// shape so its output stays stable as Table evolves.
-var codecMigration = gorp.CodecMigration[Key, v1.Table]("msgpack_to_orc")
-
 // liftMigration lifts stored tables from the v1 blob layout to the typed v2 shape.
 var liftMigration = gorp.NewEntryMigration(
-	"v55_lift_typed_table", migrateTable, codecMigration.Key(),
+	"v55_lift_typed_table", migrateTable, v1.Migration.Key(),
 )
 
 // Migrations is the ordered set of migrations introduced at this version.
-var Migrations = []migrate.Migration{codecMigration, liftMigration}
+var Migrations = []migrate.Migration{v1.Migration, liftMigration}

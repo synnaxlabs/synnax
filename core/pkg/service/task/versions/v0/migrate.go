@@ -96,3 +96,8 @@ func NewMigration(cfg MigrationConfig) migrate.Migration {
 		},
 	)
 }
+
+// Migration re-encodes stored tasks from MessagePack to Orc.
+var Migration = gorp.CodecMigration[Key, Task](
+	"msgpack_to_orc", NewMigration(MigrationConfig{}).Key(),
+)

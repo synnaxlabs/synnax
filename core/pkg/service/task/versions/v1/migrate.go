@@ -26,16 +26,10 @@ func migrateTask(ctx context.Context, old v0.Task) (Task, error) {
 	return autoMigrateTask(ctx, old)
 }
 
-// codecMigration re-encodes stored tasks from MessagePack to Orc. It is pinned to the
-// v0 shapes so its output stays stable as Task evolves.
-var codecMigration = gorp.CodecMigration[v0.Key, v0.Task](
-	"msgpack_to_orc", v0.NewMigration(v0.MigrationConfig{}).Key(),
-)
-
 // liftMigration lifts stored tasks from v0 to v1, dropping the persisted status field.
 var liftMigration = gorp.NewEntryMigration(
-	"v54_drop_status", migrateTask, codecMigration.Key(),
+	"v54_drop_status", migrateTask, v0.Migration.Key(),
 )
 
 // Migrations is the ordered set of migrations introduced at this version.
-var Migrations = []migrate.Migration{codecMigration, liftMigration}
+var Migrations = []migrate.Migration{v0.Migration, liftMigration}

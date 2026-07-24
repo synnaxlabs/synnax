@@ -22,10 +22,6 @@ import (
 	"github.com/synnaxlabs/x/migrate"
 )
 
-// codecMigration re-encodes stored workspaces from MessagePack to Orc. It is pinned to the
-// v0 shape so its output stays stable as Project evolves.
-var codecMigration = gorp.CodecMigration[Key, v0.Workspace]("msgpack_to_orc")
-
 // LegacyLayoutKVPrefix is the KV key prefix under which the layout staging migration
 // stages each project's legacy layout blob. The remainder of the key is the project's
 // key. The panel migration scans this prefix to convert the blobs into panels and
@@ -240,7 +236,7 @@ func collectEntries[K gorp.Key, E gorp.Entry[K]](
 // depends on the codec migration so it always reads Orc-encoded entries.
 var workspaceToProjectMigration = migrate.WithAddedDeps(
 	gorp.NewMigration("v56_migrate_workspace_to_project", migrateWorkspaceToProject),
-	codecMigration.Key(),
+	v0.Migration.Key(),
 )
 
 // layoutsToStagingMigration stages each project's legacy layout blob for the
@@ -274,7 +270,7 @@ type MigrationsConfig struct {
 // NewMigrations returns the ordered migration chain for stored projects.
 func NewMigrations(cfg MigrationsConfig) []migrate.Migration {
 	return []migrate.Migration{
-		codecMigration,
+		v0.Migration,
 		workspaceToProjectMigration,
 		layoutsToStagingMigration,
 		removeAuthorRelationshipsMigration(cfg.Ontology),

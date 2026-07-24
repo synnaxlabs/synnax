@@ -94,3 +94,8 @@ func NewMigration(cfg MigrationConfig) migrate.Migration {
 			return status.NewWriter[StatusDetails](cfg.Status, tx).SetMany(ctx, &missingStatuses)
 		})
 }
+
+// Migration re-encodes stored devices from MessagePack to Orc.
+var Migration = gorp.CodecMigration[Key, Device](
+	"msgpack_to_orc", NewMigration(MigrationConfig{}).Key(),
+)

@@ -152,3 +152,8 @@ func backfillStatuses(
 	ins.L.Info("creating unknown statuses for existing racks", zap.Int("count", len(missingStatuses)))
 	return status.NewWriter[StatusDetails](cfg.Status, tx).SetMany(ctx, &missingStatuses)
 }
+
+// Migration re-encodes stored racks from MessagePack to Orc.
+var Migration = gorp.CodecMigration[Key, Rack](
+	"msgpack_to_orc", NewMigration(MigrationConfig{}).Key(),
+)

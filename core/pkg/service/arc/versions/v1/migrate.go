@@ -50,14 +50,10 @@ func legacyStatusConfigString(config msgpack.EncodedJSON, key, def string) strin
 	return def
 }
 
-// codecMigration re-encodes stored arcs from MessagePack to Orc. It is pinned to the v0
-// shape so its output stays stable as Arc evolves.
-var codecMigration = gorp.CodecMigration[Key, v0.Arc]("msgpack_to_orc")
-
 // dropProgramStatusMigration lifts stored arcs from v0 to v1, dropping the persisted
 // program status.
 var dropProgramStatusMigration = gorp.NewEntryMigration(
-	"v54_drop_program_status", migrateArc, codecMigration.Key(),
+	"v54_drop_program_status", migrateArc, v0.Migration.Key(),
 )
 
 // renameSetStatusMigration renames legacy set_status graph nodes onto the current node
@@ -68,7 +64,7 @@ var renameSetStatusMigration = gorp.NewEntryMigration(
 
 // Migrations is the ordered set of migrations introduced at this version.
 var Migrations = []migrate.Migration{
-	codecMigration,
+	v0.Migration,
 	dropProgramStatusMigration,
 	renameSetStatusMigration,
 }

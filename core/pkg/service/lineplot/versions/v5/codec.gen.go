@@ -17,6 +17,7 @@ import (
 	"github.com/synnaxlabs/x/encoding/orc"
 )
 
+// EncodeOrc writes the value to w in the Orc binary format.
 func (l LinePlot) EncodeOrc(w *orc.Writer) error {
 	w.Write(l.Key[:])
 	w.String(l.Name)
@@ -30,6 +31,7 @@ func (l LinePlot) EncodeOrc(w *orc.Writer) error {
 	return nil
 }
 
+// DecodeOrc reads the value from r in the Orc binary format.
 func (l *LinePlot) DecodeOrc(r *orc.Reader) error {
 	var err error
 	if _, err := r.Read(l.Key[:]); err != nil {

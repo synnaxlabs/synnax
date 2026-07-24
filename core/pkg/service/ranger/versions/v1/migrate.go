@@ -17,13 +17,6 @@ import (
 	"github.com/synnaxlabs/x/migrate"
 )
 
-// codecMigration re-encodes ranges from the legacy MessagePack layout to the Orc
-// value-color layout. It is pinned to v0.Range so it always produces the value-color
-// encoding regardless of how Range later evolves.
-var codecMigration = gorp.CodecMigration[Key, v0.Range](
-	"msgpack_to_orc", v0.NewMigration(v0.MigrationConfig{}).Key(),
-)
-
 // colorNullableMigration converts every range from the Orc value-color layout (Color
 // stored inline) to the current nullable layout (Color a presence-flagged pointer). A
 // zero stored color denoted "no color" under the value layout, so it maps to nil. It
@@ -39,8 +32,8 @@ var colorNullableMigration = gorp.NewEntryMigration(
 		}
 		return rng, nil
 	},
-	codecMigration.Key(),
+	v0.Migration.Key(),
 )
 
 // Migrations is the ordered set of migrations introduced at this version.
-var Migrations = []migrate.Migration{codecMigration, colorNullableMigration}
+var Migrations = []migrate.Migration{v0.Migration, colorNullableMigration}

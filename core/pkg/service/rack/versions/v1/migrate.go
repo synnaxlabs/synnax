@@ -26,17 +26,11 @@ func migrateRack(ctx context.Context, old v0.Rack) (Rack, error) {
 	return autoMigrateRack(ctx, old)
 }
 
-// codecMigration re-encodes stored racks from MessagePack to Orc. It is pinned to
-// the v0 shapes so its output stays stable as Rack evolves.
-var codecMigration = gorp.CodecMigration[v0.Key, v0.Rack](
-	"msgpack_to_orc", v0.NewMigration(v0.MigrationConfig{}).Key(),
-)
-
 // liftMigration lifts stored racks from v0 to v1, dropping the persisted status
 // field.
 var liftMigration = gorp.NewEntryMigration(
-	"v54_drop_status", migrateRack, codecMigration.Key(),
+	"v54_drop_status", migrateRack, v0.Migration.Key(),
 )
 
 // Migrations is the ordered set of migrations introduced at this version.
-var Migrations = []migrate.Migration{codecMigration, liftMigration}
+var Migrations = []migrate.Migration{v0.Migration, liftMigration}

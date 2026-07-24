@@ -38,6 +38,7 @@ func (kv *Key) UnmarshalJSON(b []byte) error {
 	return nil
 }
 
+// EncodeOrc writes the value to w in the Orc binary format.
 func (t Task) EncodeOrc(w *orc.Writer) error {
 	w.Uint64(uint64(t.Key))
 	w.String(t.Name)
@@ -62,6 +63,7 @@ func (t Task) EncodeOrc(w *orc.Writer) error {
 	return nil
 }
 
+// DecodeOrc reads the value from r in the Orc binary format.
 func (t *Task) DecodeOrc(r *orc.Reader) error {
 	var err error
 	{
@@ -108,6 +110,7 @@ func (t *Task) DecodeOrc(r *orc.Reader) error {
 	return nil
 }
 
+// EncodeOrc writes the value to w in the Orc binary format.
 func (sd StatusDetails) EncodeOrc(w *orc.Writer) error {
 	w.Uint64(uint64(sd.Task))
 	w.Bool(sd.Running)
@@ -127,6 +130,7 @@ func (sd StatusDetails) EncodeOrc(w *orc.Writer) error {
 	return nil
 }
 
+// DecodeOrc reads the value from r in the Orc binary format.
 func (sd *StatusDetails) DecodeOrc(r *orc.Reader) error {
 	var err error
 	{

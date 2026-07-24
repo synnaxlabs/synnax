@@ -83,14 +83,10 @@ func parseColor(hex string) color.Color {
 	return c
 }
 
-// codecMigration re-encodes stored logs from MessagePack to Orc. It is pinned to
-// the v2 shape so its output stays stable as Log evolves.
-var codecMigration = gorp.CodecMigration[Key, v2.Log]("msgpack_to_orc")
-
 // liftMigration lifts stored logs from the v2 blob layout to the typed v3 shape.
 var liftMigration = gorp.NewEntryMigration(
-	"v55_lift_typed_log", MigrateLog, codecMigration.Key(),
+	"v55_lift_typed_log", MigrateLog, v2.Migration.Key(),
 )
 
 // Migrations is the ordered set of migrations introduced at this version.
-var Migrations = []migrate.Migration{codecMigration, liftMigration}
+var Migrations = []migrate.Migration{v2.Migration, liftMigration}
