@@ -231,8 +231,10 @@ export class Table<
   }
 
   clear() {
+    const keys = [...this.rows.keys(), ...this.tombstones.keys()];
     this.rows.clear();
     this.tombstones.clear();
+    keys.forEach((key) => this.notify({ variant: "delete", key }));
   }
 
   /**
