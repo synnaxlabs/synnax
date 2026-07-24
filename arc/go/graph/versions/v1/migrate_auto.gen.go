@@ -15,12 +15,12 @@ import (
 	"context"
 	"maps"
 
-	uuid "github.com/google/uuid"
+	"github.com/google/uuid"
 	"github.com/samber/lo"
 	v0 "github.com/synnaxlabs/arc/graph/versions/v0"
 	irv0 "github.com/synnaxlabs/arc/ir/versions/v0"
 	ir "github.com/synnaxlabs/arc/ir/versions/v1"
-	msgpack "github.com/synnaxlabs/x/encoding/msgpack"
+	"github.com/synnaxlabs/x/encoding/msgpack"
 )
 
 func autoMigrateGraph(ctx context.Context, old v0.Graph) (Graph, error) {

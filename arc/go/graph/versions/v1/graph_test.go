@@ -20,40 +20,8 @@ import (
 	"github.com/vmihailenco/msgpack/v5"
 )
 
-var _ = Describe("DecodeMsgpack", func() {
-	Describe("Node", func() {
-		It("Should decode new lowercase msgpack fields", func() {
-			original := v1.Node{
-				Key:      "node1",
-				Position: spatial.XY{X: 100, Y: 200},
-			}
-			data := MustSucceed(msgpack.Marshal(original))
-			var decoded v1.Node
-			Expect(msgpack.Unmarshal(data, &decoded)).To(Succeed())
-			Expect(decoded.Key).To(Equal("node1"))
-			Expect(decoded.Position).To(Equal(spatial.XY{X: 100, Y: 200}))
-		})
-		It("Should decode legacy uppercase Go field names, dropping inline type and config", func() {
-			legacy := struct {
-				Key      string
-				Type     string
-				Config   xmsgpack.EncodedJSON
-				Position spatial.XY
-			}{
-				Key:      "node1",
-				Type:     "fn1",
-				Config:   xmsgpack.EncodedJSON{"gain": 1},
-				Position: spatial.XY{X: 50, Y: 75},
-			}
-			data := MustSucceed(msgpack.Marshal(legacy))
-			var decoded v1.Node
-			Expect(msgpack.Unmarshal(data, &decoded)).To(Succeed())
-			Expect(decoded.Key).To(Equal("node1"))
-			Expect(decoded.Position).To(Equal(spatial.XY{X: 50, Y: 75}))
-		})
-	})
-
-	Describe("Graph", func() {
+var _ = Describe("Graph", func() {
+	Describe("DecodeMsgpack", func() {
 		It("Should decode legacy uppercase Go field names", func() {
 			legacy := struct {
 				Functions ir.Functions

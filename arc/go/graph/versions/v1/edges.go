@@ -14,8 +14,8 @@ import (
 	ir "github.com/synnaxlabs/arc/ir"
 )
 
-// IR projects the graph edges into their keyless ir.Edge form for compilation.
-// The graph-layer key is an editing concern the compiler does not consume.
+// IR projects the graph edges into their keyless ir.Edge form for compilation. The
+// graph-layer key is an editing concern the compiler does not consume.
 func (e Edges) IR() ir.Edges {
 	return lo.Map(e, func(e Edge, _ int) ir.Edge { return e.Edge })
 }
