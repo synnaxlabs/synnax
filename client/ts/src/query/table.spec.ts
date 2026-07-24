@@ -665,6 +665,20 @@ describe("Table", () => {
         expect(table.list()).toEqual([]);
       });
 
+      it("should notify subscribers for every cleared key", () => {
+        const table = new query.Table<string, string>(noopError);
+        table.set("key1", "value1");
+        table.set("key2", "value2");
+        const listener = vi.fn();
+        table.subscribe(listener);
+
+        table.clear();
+
+        expect(listener).toHaveBeenCalledTimes(2);
+        expect(listener).toHaveBeenCalledWith({ variant: "delete", key: "key1" });
+        expect(listener).toHaveBeenCalledWith({ variant: "delete", key: "key2" });
+      });
+
       it("should work with number keys", () => {
         const table = new query.Table<number, string>(noopError);
         table.set(1, "value1");
