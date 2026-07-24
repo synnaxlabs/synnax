@@ -106,7 +106,7 @@ func exprReadState(ctx SpecContext) *node.ProgramState {
 
 // emit writes data and a second-precision timestamp to a node's first output.
 func emit[T telem.Sample](n *node.State, value T, seconds telem.TimeStamp) {
-	*n.Output(0) = telem.NewSeriesV[T](value)
+	*n.Output(0) = telem.NewSeriesV(value)
 	*n.OutputTime(0) = telem.NewSeriesSecondsTSV(seconds)
 }
 

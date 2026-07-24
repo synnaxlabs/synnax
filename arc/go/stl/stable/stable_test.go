@@ -540,8 +540,8 @@ var _ = Describe("Variable duration", func() {
 		}
 	}
 	ingest := func(v uint8, at telem.TimeStamp) {
-		*s.Node("source").Output(0) = telem.NewSeriesV[uint8](v)
-		*s.Node("source").OutputTime(0) = telem.NewSeriesV[telem.TimeStamp](at)
+		*s.Node("source").Output(0) = telem.NewSeriesV(v)
+		*s.Node("source").OutputTime(0) = telem.NewSeriesV(at)
 	}
 	next := func(ctx SpecContext, n node.Node) bool {
 		fired := false
