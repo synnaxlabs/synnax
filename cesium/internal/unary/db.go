@@ -70,6 +70,10 @@ func (db *DB) index() *index.Domain {
 
 func (db *DB) SetIndex(idx *index.Domain) { db.idx = idx }
 
+// NextLeadingAlignment reserves and returns the next leading-region domain index from
+// this channel's counter, keeping alignment monotonic across writer sessions.
+func (db *DB) NextLeadingAlignment() uint32 { return db.leadingAlignment.Add(1) }
+
 // LeadingControlState returns the first chronological gate in this unary database.
 func (db *DB) LeadingControlState() *control.State {
 	return db.controller.LeadingState()

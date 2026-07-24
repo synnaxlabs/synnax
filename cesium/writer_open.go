@@ -320,6 +320,10 @@ func (db *DB) newStreamWriter(ctx context.Context, cfgs ...WriterConfig) (w *str
 				return nil, err
 			}
 			idxW.writingToIdx = false
+			// Draw the domain from the index's counter so every write to this
+			// channel shares one alignment authority and stays monotonic.
+			idxU := db.mu.dbs.unary[idxKey]
+			idxW.domainAlignment = idxU.NextLeadingAlignment()
 			domainWriters[idxKey] = idxW
 		}
 		var (

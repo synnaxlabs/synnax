@@ -153,6 +153,398 @@ var _ = Describe("Writer Behavior", func() {
 						})
 
 					})
+
+					Context("Index-less Data Write Alignment", func() {
+						It("Should keep streamed alignment monotonic when a data channel is written without its index", func(ctx SpecContext) {
+							var (
+								idx  = GenerateChannelKey()
+								data = GenerateChannelKey()
+							)
+							By("Creating an index and a data channel")
+							Expect(db.CreateChannel(
+								ctx,
+								cesium.Channel{Key: idx, Name: "Vonnegut", IsIndex: true, DataType: telem.TimeStampT},
+								cesium.Channel{Key: data, Name: "Heller", Index: idx, DataType: telem.Int64T},
+							)).To(Succeed())
+
+							By("Writing the index and data together to seed the index's alignment authority")
+							wA := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
+								Channels: []cesium.ChannelKey{idx, data},
+								Start:    10 * telem.SecondTS,
+							}))
+							MustSucceed(wA.Write(telem.MultiFrame(
+								[]cesium.ChannelKey{idx, data},
+								[]telem.Series{
+									telem.NewSeriesSecondsTSV(10, 11),
+									telem.NewSeriesV[int64](1, 2),
+								},
+							)))
+							MustSucceed(wA.Commit())
+							Expect(wA.Close()).To(Succeed())
+
+							By("Opening a streamer over the index and data channels")
+							s := MustSucceed(db.NewStreamer(ctx, cesium.StreamerConfig{
+								Channels: []cesium.ChannelKey{idx, data},
+							}))
+							in, out := confluence.Attach(s, 2)
+							sCtx, cancel := signal.WithCancel(ctx)
+							defer cancel()
+							s.Flow(sCtx)
+
+							By("Writing index-only samples to push the index domain further ahead")
+							wB := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
+								Channels: []cesium.ChannelKey{idx},
+								Start:    20 * telem.SecondTS,
+							}))
+							MustSucceed(wB.Write(telem.MultiFrame(
+								[]cesium.ChannelKey{idx},
+								[]telem.Series{telem.NewSeriesSecondsTSV(20, 21, 22, 23)},
+							)))
+							MustSucceed(wB.Commit())
+							Expect(wB.Close()).To(Succeed())
+
+							var fB cesium.StreamerResponse
+							Eventually(out.Outlet()).Should(Receive(&fB))
+							idxDomain := fB.Frame.Get(idx).Series[0].Alignment
+
+							By("Writing the data channel alone, without its index")
+							wC := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
+								Channels: []cesium.ChannelKey{data},
+								Start:    20 * telem.SecondTS,
+							}))
+							MustSucceed(wC.Write(telem.MultiFrame(
+								[]cesium.ChannelKey{data},
+								[]telem.Series{telem.NewSeriesV[int64](5, 6)},
+							)))
+
+							var fC cesium.StreamerResponse
+							Eventually(out.Outlet()).Should(Receive(&fC))
+							dataDomain := fC.Frame.Get(data).Series[0].Alignment
+
+							Expect(dataDomain.DomainIndex()).To(BeNumerically(">", idxDomain.DomainIndex()),
+								"a data channel written without its index must draw a domain from the "+
+									"index's authority, not regress onto its own counter")
+							in.Close()
+							Expect(sCtx.Wait()).To(Succeed())
+							Expect(wC.Close()).To(Succeed())
+						})
+
+						It("Should keep a resumed co-write above alignments from prior index-less sessions", func(ctx SpecContext) {
+							var (
+								idx  = GenerateChannelKey()
+								data = GenerateChannelKey()
+							)
+							By("Creating an index and a data channel")
+							Expect(db.CreateChannel(
+								ctx,
+								cesium.Channel{Key: idx, Name: "Bradbury", IsIndex: true, DataType: telem.TimeStampT},
+								cesium.Channel{Key: data, Name: "Orwell", Index: idx, DataType: telem.Int64T},
+							)).To(Succeed())
+
+							By("Seeding the index and data channels together")
+							wSeed := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
+								Channels: []cesium.ChannelKey{idx, data},
+								Start:    10 * telem.SecondTS,
+							}))
+							MustSucceed(wSeed.Write(telem.MultiFrame(
+								[]cesium.ChannelKey{idx, data},
+								[]telem.Series{
+									telem.NewSeriesSecondsTSV(10, 11),
+									telem.NewSeriesV[int64](1, 2),
+								},
+							)))
+							MustSucceed(wSeed.Commit())
+							Expect(wSeed.Close()).To(Succeed())
+
+							By("Extending the index to cover the index-less writes")
+							wIdx := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
+								Channels: []cesium.ChannelKey{idx},
+								Start:    12 * telem.SecondTS,
+							}))
+							MustSucceed(wIdx.Write(telem.MultiFrame(
+								[]cesium.ChannelKey{idx},
+								[]telem.Series{telem.NewSeriesSecondsTSV(12, 13, 14, 15, 16, 17, 18, 19)},
+							)))
+							MustSucceed(wIdx.Commit())
+							Expect(wIdx.Close()).To(Succeed())
+
+							By("Opening a streamer over the data channel")
+							s := MustSucceed(db.NewStreamer(ctx, cesium.StreamerConfig{
+								Channels: []cesium.ChannelKey{data},
+							}))
+							in, out := confluence.Attach(s, 2)
+							sCtx, cancel := signal.WithCancel(ctx)
+							defer cancel()
+							s.Flow(sCtx)
+
+							By("Running repeated index-less sessions on the data channel")
+							var lastRogue telem.Alignment
+							for i := range 4 {
+								wR := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
+									Channels: []cesium.ChannelKey{data},
+									Start:    telem.TimeStamp(13+i) * telem.SecondTS,
+								}))
+								MustSucceed(wR.Write(telem.MultiFrame(
+									[]cesium.ChannelKey{data},
+									[]telem.Series{telem.NewSeriesV[int64](int64(i))},
+								)))
+								var f cesium.StreamerResponse
+								Eventually(out.Outlet()).Should(Receive(&f))
+								a := f.Frame.Get(data).Series[0].Alignment
+								Expect(a).To(BeNumerically(">", lastRogue),
+									"each index-less session must stream above the previous one")
+								lastRogue = a
+								Expect(wR.Close()).To(Succeed())
+							}
+
+							By("Resuming index and data co-writes")
+							wF := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
+								Channels: []cesium.ChannelKey{idx, data},
+								Start:    30 * telem.SecondTS,
+							}))
+							MustSucceed(wF.Write(telem.MultiFrame(
+								[]cesium.ChannelKey{idx, data},
+								[]telem.Series{
+									telem.NewSeriesSecondsTSV(30, 31),
+									telem.NewSeriesV[int64](9, 10),
+								},
+							)))
+							var fF cesium.StreamerResponse
+							Eventually(out.Outlet()).Should(Receive(&fF))
+							Expect(fF.Frame.Get(data).Series[0].Alignment).To(BeNumerically(">", lastRogue),
+								"a co-write resumed after index-less sessions must stay above their alignments")
+							in.Close()
+							Expect(sCtx.Wait()).To(Succeed())
+							Expect(wF.Close()).To(Succeed())
+						})
+
+						It("Should keep the data channel's own streamed alignment monotonic across an index-less session", func(ctx SpecContext) {
+							var (
+								idx  = GenerateChannelKey()
+								data = GenerateChannelKey()
+							)
+							By("Creating an index and a data channel")
+							Expect(db.CreateChannel(
+								ctx,
+								cesium.Channel{Key: idx, Name: "Atwood", IsIndex: true, DataType: telem.TimeStampT},
+								cesium.Channel{Key: data, Name: "Ishiguro", Index: idx, DataType: telem.Int64T},
+							)).To(Succeed())
+
+							By("Opening a streamer over the data channel")
+							s := MustSucceed(db.NewStreamer(ctx, cesium.StreamerConfig{
+								Channels: []cesium.ChannelKey{data},
+							}))
+							in, out := confluence.Attach(s, 2)
+							sCtx, cancel := signal.WithCancel(ctx)
+							defer cancel()
+							s.Flow(sCtx)
+
+							By("Co-writing the index and data channels")
+							wA := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
+								Channels: []cesium.ChannelKey{idx, data},
+								Start:    10 * telem.SecondTS,
+							}))
+							MustSucceed(wA.Write(telem.MultiFrame(
+								[]cesium.ChannelKey{idx, data},
+								[]telem.Series{
+									telem.NewSeriesSecondsTSV(10, 11, 12),
+									telem.NewSeriesV[int64](1, 2, 3),
+								},
+							)))
+							var fA cesium.StreamerResponse
+							Eventually(out.Outlet()).Should(Receive(&fA))
+							seed := fA.Frame.Get(data).Series[0].Alignment
+							MustSucceed(wA.Commit())
+							Expect(wA.Close()).To(Succeed())
+
+							By("Extending the index")
+							wIdx := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
+								Channels: []cesium.ChannelKey{idx},
+								Start:    13 * telem.SecondTS,
+							}))
+							MustSucceed(wIdx.Write(telem.MultiFrame(
+								[]cesium.ChannelKey{idx},
+								[]telem.Series{telem.NewSeriesSecondsTSV(13, 14, 15)},
+							)))
+							MustSucceed(wIdx.Commit())
+							Expect(wIdx.Close()).To(Succeed())
+
+							By("Writing the data channel without its index")
+							wR := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
+								Channels: []cesium.ChannelKey{data},
+								Start:    13 * telem.SecondTS,
+							}))
+							MustSucceed(wR.Write(telem.MultiFrame(
+								[]cesium.ChannelKey{data},
+								[]telem.Series{telem.NewSeriesV[int64](4)},
+							)))
+							var fR cesium.StreamerResponse
+							Eventually(out.Outlet()).Should(Receive(&fR))
+							Expect(fR.Frame.Get(data).Series[0].Alignment).To(BeNumerically(">", seed),
+								"an index-less session must stream above the channel's previous alignment")
+							in.Close()
+							Expect(sCtx.Wait()).To(Succeed())
+							Expect(wR.Close()).To(Succeed())
+						})
+
+						It("Should keep a virgin data channel monotonic when its first write is index-less", func(ctx SpecContext) {
+							var (
+								idx  = GenerateChannelKey()
+								data = GenerateChannelKey()
+							)
+							By("Creating an index and a data channel")
+							Expect(db.CreateChannel(
+								ctx,
+								cesium.Channel{Key: idx, Name: "Camus", IsIndex: true, DataType: telem.TimeStampT},
+								cesium.Channel{Key: data, Name: "Kafka", Index: idx, DataType: telem.Int64T},
+							)).To(Succeed())
+
+							By("Opening a streamer over the data channel")
+							s := MustSucceed(db.NewStreamer(ctx, cesium.StreamerConfig{
+								Channels: []cesium.ChannelKey{data},
+							}))
+							in, out := confluence.Attach(s, 2)
+							sCtx, cancel := signal.WithCancel(ctx)
+							defer cancel()
+							s.Flow(sCtx)
+
+							By("Writing the data channel first, before any index data exists")
+							wR := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
+								Channels:         []cesium.ChannelKey{data},
+								Start:            10 * telem.SecondTS,
+								EnableAutoCommit: new(false),
+							}))
+							MustSucceed(wR.Write(telem.MultiFrame(
+								[]cesium.ChannelKey{data},
+								[]telem.Series{telem.NewSeriesV[int64](1)},
+							)))
+							var fR cesium.StreamerResponse
+							Eventually(out.Outlet()).Should(Receive(&fR))
+							first := fR.Frame.Get(data).Series[0].Alignment
+							Expect(wR.Close()).To(Succeed())
+
+							By("Co-writing the index and data channels afterward")
+							wF := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
+								Channels: []cesium.ChannelKey{idx, data},
+								Start:    20 * telem.SecondTS,
+							}))
+							MustSucceed(wF.Write(telem.MultiFrame(
+								[]cesium.ChannelKey{idx, data},
+								[]telem.Series{
+									telem.NewSeriesSecondsTSV(20, 21),
+									telem.NewSeriesV[int64](2, 3),
+								},
+							)))
+							var fF cesium.StreamerResponse
+							Eventually(out.Outlet()).Should(Receive(&fF))
+							Expect(fF.Frame.Get(data).Series[0].Alignment).To(BeNumerically(">", first),
+								"a co-write after a virgin index-less session must stream above it")
+							in.Close()
+							Expect(sCtx.Wait()).To(Succeed())
+							Expect(wF.Close()).To(Succeed())
+						})
+
+						It("Should share one alignment authority across sibling data channels written without their index", func(ctx SpecContext) {
+							var (
+								idx = GenerateChannelKey()
+								d1  = GenerateChannelKey()
+								d2  = GenerateChannelKey()
+							)
+							By("Creating an index and two data channels")
+							Expect(db.CreateChannel(
+								ctx,
+								cesium.Channel{Key: idx, Name: "Tolstoy", IsIndex: true, DataType: telem.TimeStampT},
+								cesium.Channel{Key: d1, Name: "Chekhov", Index: idx, DataType: telem.Int64T},
+								cesium.Channel{Key: d2, Name: "Gogol", Index: idx, DataType: telem.Int64T},
+							)).To(Succeed())
+
+							By("Opening a streamer over both data channels")
+							s := MustSucceed(db.NewStreamer(ctx, cesium.StreamerConfig{
+								Channels: []cesium.ChannelKey{d1, d2},
+							}))
+							in, out := confluence.Attach(s, 2)
+							sCtx, cancel := signal.WithCancel(ctx)
+							defer cancel()
+							s.Flow(sCtx)
+
+							By("Co-writing the index and both data channels")
+							wSeed := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
+								Channels: []cesium.ChannelKey{idx, d1, d2},
+								Start:    10 * telem.SecondTS,
+							}))
+							MustSucceed(wSeed.Write(telem.MultiFrame(
+								[]cesium.ChannelKey{idx, d1, d2},
+								[]telem.Series{
+									telem.NewSeriesSecondsTSV(10, 11),
+									telem.NewSeriesV[int64](1, 2),
+									telem.NewSeriesV[int64](1, 2),
+								},
+							)))
+							var fS cesium.StreamerResponse
+							Eventually(out.Outlet()).Should(Receive(&fS))
+							seed1 := fS.Frame.Get(d1).Series[0].Alignment
+							seed2 := fS.Frame.Get(d2).Series[0].Alignment
+							MustSucceed(wSeed.Commit())
+							Expect(wSeed.Close()).To(Succeed())
+
+							By("Extending the index")
+							wIdx := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
+								Channels: []cesium.ChannelKey{idx},
+								Start:    12 * telem.SecondTS,
+							}))
+							MustSucceed(wIdx.Write(telem.MultiFrame(
+								[]cesium.ChannelKey{idx},
+								[]telem.Series{telem.NewSeriesSecondsTSV(12, 13, 14, 15, 16, 17, 18, 19)},
+							)))
+							MustSucceed(wIdx.Commit())
+							Expect(wIdx.Close()).To(Succeed())
+
+							By("Writing both data channels without the index")
+							w1 := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
+								Channels: []cesium.ChannelKey{d1, d2},
+								Start:    13 * telem.SecondTS,
+							}))
+							MustSucceed(w1.Write(telem.MultiFrame(
+								[]cesium.ChannelKey{d1, d2},
+								[]telem.Series{
+									telem.NewSeriesV[int64](3),
+									telem.NewSeriesV[int64](3),
+								},
+							)))
+							var f1 cesium.StreamerResponse
+							Eventually(out.Outlet()).Should(Receive(&f1))
+							a1 := f1.Frame.Get(d1).Series[0].Alignment
+							b1 := f1.Frame.Get(d2).Series[0].Alignment
+							Expect(a1).To(Equal(b1),
+								"sibling data channels in one index-less writer must share a domain")
+							Expect(a1).To(BeNumerically(">", seed1))
+							Expect(b1).To(BeNumerically(">", seed2))
+							Expect(w1.Close()).To(Succeed())
+
+							By("Writing them again in a second index-less session")
+							w2 := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
+								Channels: []cesium.ChannelKey{d1, d2},
+								Start:    15 * telem.SecondTS,
+							}))
+							MustSucceed(w2.Write(telem.MultiFrame(
+								[]cesium.ChannelKey{d1, d2},
+								[]telem.Series{
+									telem.NewSeriesV[int64](4),
+									telem.NewSeriesV[int64](4),
+								},
+							)))
+							var f2 cesium.StreamerResponse
+							Eventually(out.Outlet()).Should(Receive(&f2))
+							a2 := f2.Frame.Get(d1).Series[0].Alignment
+							b2 := f2.Frame.Get(d2).Series[0].Alignment
+							Expect(a2).To(Equal(b2))
+							Expect(a2).To(BeNumerically(">", a1),
+								"a later index-less session must stream above the previous one")
+							in.Close()
+							Expect(sCtx.Wait()).To(Succeed())
+							Expect(w2.Close()).To(Succeed())
+						})
+					})
 				})
 
 				Context("Multiple Indexes", func() {
