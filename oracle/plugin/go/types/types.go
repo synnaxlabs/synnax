@@ -150,10 +150,14 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 	// into the root alias file. Referenced enums that live in the version
 	// layout must not be re-declared there.
 	transientGen := &framework.Generator{
-		Domain:        "go",
-		FilePattern:   p.Options.FileNamePattern,
-		FileGenerator: &goFileGenerator{},
-		PathFilter:    pathFilter,
+		Domain:      "go",
+		FilePattern: p.Options.FileNamePattern,
+		FileGenerator: &goFileGenerator{
+			original: req.Resolutions,
+			pathMap:  pathMap,
+			closure:  closure,
+		},
+		PathFilter: pathFilter,
 		FilterEnums: func(enums []resolution.Type, outputPath string) []resolution.Type {
 			filtered := make([]resolution.Type, 0, len(enums))
 			for _, e := range enums {
@@ -310,7 +314,7 @@ func computeSplit(
 		candidate, err := generateGoFile(
 			current, ctx.Structs, ctx.Enums, ctx.TypeDefs, ctx.Unions,
 			rewritten, req.RepoRoot, predecessor{},
-			latestTable(req.Resolutions, pathMap, current), closure,
+			latestTable(req.Resolutions, pathMap, current), closure, false,
 		)
 		if err != nil {
 			return nil, err
@@ -372,9 +376,11 @@ type goFileGenerator struct {
 
 func (g *goFileGenerator) GenerateFile(ctx *framework.GenerateContext) (string, error) {
 	latest := latestTable(g.original, g.pathMap, ctx.OutputPath)
+	_, transient := g.pathMap[ctx.OutputPath]
 	content, err := generateGoFile(
 		ctx.OutputPath, ctx.Structs, ctx.Enums, ctx.TypeDefs, ctx.Unions,
 		ctx.Table, ctx.RepoRoot, g.preds[ctx.OutputPath], latest, g.closure,
+		transient,
 	)
 	if err != nil {
 		return "", err
@@ -385,12 +391,18 @@ func (g *goFileGenerator) GenerateFile(ctx *framework.GenerateContext) (string, 
 // latestTable returns the latest-resolution table for a current version path:
 // the original table with only this path rewritten to its version directory,
 // so local references stay in-package while dependency references resolve to
-// the root re-export. Nil when original is nil or the path is not versioned.
+// the root re-export. For a versioned root path (the transient pass) the
+// original table already resolves this way: versioned siblings stay local and
+// dependencies hit their root re-exports. Nil when original is nil or the
+// path is not versioned.
 func latestTable(
 	original *resolution.Table, pathMap map[string]string, outputPath string,
 ) *resolution.Table {
 	if original == nil {
 		return nil
+	}
+	if _, ok := pathMap[outputPath]; ok {
+		return original
 	}
 	for orig, current := range pathMap {
 		if current == outputPath {
@@ -484,6 +496,7 @@ func generateGoFile(
 	pred predecessor,
 	latest *resolution.Table,
 	closure set.Set[string],
+	transientPass bool,
 ) ([]byte, error) {
 	namespace := ""
 	if len(structs) > 0 {
@@ -531,7 +544,7 @@ func generateGoFile(
 	// dependency references resolve against the latest table and track the
 	// dependencies' current versions instead of pinning one.
 	var latestData *templateData
-	if latest != nil && pathHasMarshalRoot(structs) {
+	if latest != nil && (transientPass || pathHasMarshalRoot(structs)) {
 		lctx := *ctx
 		lctx.Table = latest
 		ld := *data

@@ -7,20 +7,15 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package v0
+package versions
 
-// Period returns a TimeSpan representing the period of the Rate.
-func (r Rate) Period() TimeSpan { return TimeSpan(float64(Second) / float64(r)) }
-
-// SampleCount returns an integer representing the number of samples in the provided
-// Span.
-func (r Rate) SampleCount(t TimeSpan) int { return int(t.Seconds() * float64(r)) }
+import v0 "github.com/synnaxlabs/x/telem/versions/v0"
 
 const (
 	// Hertz is a data rate of 1 Hz.
-	Hertz Rate = 1
+	Hertz Rate = v0.Hertz
 	// Kilohertz is a data rate of 1 kHz.
-	Kilohertz = 1000 * Hertz
+	Kilohertz Rate = v0.Kilohertz
 	// Megahertz is a data rate of 1 MHz.
-	Megahertz = 1000 * Kilohertz
+	Megahertz Rate = v0.Megahertz
 )

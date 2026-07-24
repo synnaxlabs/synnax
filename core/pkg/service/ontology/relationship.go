@@ -12,7 +12,7 @@ package ontology
 import (
 	"strings"
 
-	v0 "github.com/synnaxlabs/synnax/pkg/service/ontology/versions/v0"
+	"github.com/synnaxlabs/synnax/pkg/service/ontology/versions"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/validate"
 )
@@ -24,23 +24,23 @@ import (
 // [Relationship.To] pattern. For example, if a relationship of type "member" indicates
 // that a particular the variable should be named MemberOf (i.e. Start is a MemberOf
 // To).
-type RelationshipType = v0.RelationshipType
+type RelationshipType = versions.RelationshipType
 
 // RelationshipTypeParentOf indicates that a resource is the parent of another resource.
 // When examining a Relationship of type RelationshipTypeParentOf, the From field will
 // be the parent and the To field will be the child i.e. (From is the parent of To).
-const RelationshipTypeParentOf = v0.RelationshipTypeParentOf
+const RelationshipTypeParentOf = versions.RelationshipTypeParentOf
 
 // Relationship is a struct that represents a relationship between two resources in the
 // ontology. A relationship is defined by a type, a from and a to field. This means that
 // two resources can have multiple relationships of different types between them. Think
 // about the relationship like From->Type->To i.e. Dog->Parent->Puppy.
-type Relationship = v0.Relationship
+type Relationship = versions.Relationship
 
 // relationshipKeySep separates the From, Type, and To fields in an encoded relationship
 // gorp key. The four Writer delete helpers depend on this layout to short-circuit scans
 // without decoding the entry.
-const relationshipKeySep = v0.RelationshipKeySep
+const relationshipKeySep = versions.RelationshipKeySep
 
 func ParseRelationship(key string) (Relationship, error) {
 	split := strings.Split(key, "->")

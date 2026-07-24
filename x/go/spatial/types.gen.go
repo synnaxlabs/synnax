@@ -11,10 +11,7 @@
 
 package spatial
 
-import (
-	"github.com/synnaxlabs/x/spatial/versions"
-	spatial "github.com/synnaxlabs/x/spatial/versions/v0"
-)
+import "github.com/synnaxlabs/x/spatial/versions"
 
 // XY is a 2D coordinate point with x and y values. Used for positioning elements in
 // two-dimensional space.
@@ -98,7 +95,7 @@ type Viewport struct {
 	// Zoom is the zoom level where 1.0 equals 100%.
 	Zoom float64 `json:"zoom" msgpack:"zoom"`
 	// Position is the (x, y) pan offset of the viewport.
-	Position spatial.XY `json:"position" msgpack:"position"`
+	Position XY `json:"position" msgpack:"position"`
 }
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.

@@ -14,9 +14,8 @@ package ir
 import (
 	"github.com/antlr4-go/antlr/v4"
 	"github.com/synnaxlabs/arc/ir/versions"
-	ir "github.com/synnaxlabs/arc/ir/versions/v2"
 	"github.com/synnaxlabs/arc/symbol"
-	types "github.com/synnaxlabs/arc/types/versions/v1"
+	"github.com/synnaxlabs/arc/types"
 )
 
 // Handle is a reference to a specific parameter on a specific node in the dataflow
@@ -46,7 +45,7 @@ type Function = versions.Function
 type Functions = versions.Functions
 
 // Edges is a collection of dataflow edges in an Arc graph.
-type Edges []ir.Edge
+type Edges []Edge
 
 // ScopeMode defines the concurrency model of a Scope.
 type ScopeMode uint8
@@ -73,7 +72,7 @@ const (
 // Transition is a declarative state-transition rule on a sequential Scope.
 type Transition struct {
 	// On is the dataflow handle whose truthy value fires this transition.
-	On ir.Handle `json:"on" msgpack:"on"`
+	On Handle `json:"on" msgpack:"on"`
 	// TargetKey is the sibling step key to activate. Null when the transition exits the
 	// scope, yielding to the parent.
 	TargetKey *string `json:"target_key,omitempty" msgpack:"target_key,omitempty"`
@@ -105,7 +104,7 @@ type Scope struct {
 	Liveness Liveness `json:"liveness" msgpack:"liveness"`
 	// Activation is the handle whose truthy value activates a gated scope. Unset for
 	// always-live scopes.
-	Activation *ir.Handle `json:"activation,omitempty" msgpack:"activation,omitempty"`
+	Activation *Handle `json:"activation,omitempty" msgpack:"activation,omitempty"`
 	// Strata contains stratified execution layers for parallel scopes. On sequential
 	// scopes, strata hold variable nodes that run every pass alongside the active step.
 	// Stratum N depends only on strata 0 to N-1.
@@ -146,7 +145,7 @@ type Authorities struct {
 // stratified execution, bridging semantic analysis and WebAssembly compilation.
 type IR struct {
 	// Functions contains function template definitions.
-	Functions ir.Functions `json:"functions,omitzero" msgpack:"functions,omitzero"`
+	Functions Functions `json:"functions,omitzero" msgpack:"functions,omitzero"`
 	// Nodes contains node instantiations.
 	Nodes Nodes `json:"nodes,omitzero" msgpack:"nodes,omitzero"`
 	// Edges contains dataflow connections.

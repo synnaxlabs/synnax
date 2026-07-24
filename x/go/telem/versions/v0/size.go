@@ -21,8 +21,8 @@ var (
 	_ json.Marshaler   = Size(0)
 )
 
-// MarshalJSON implements json.Marshaler. Size is encoded as a string to avoid
-// float64 precision loss for values beyond the safe integer range.
+// MarshalJSON implements json.Marshaler. Size is encoded as a string to avoid float64
+// precision loss for values beyond the safe integer range.
 func (s Size) MarshalJSON() ([]byte, error) {
 	return xjson.MarshalStringInt64(int64(s)), nil
 }

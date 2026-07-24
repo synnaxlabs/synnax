@@ -7,41 +7,27 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package telem
+package versions
 
-import (
-	"time"
-
-	"github.com/synnaxlabs/x/telem/versions"
-)
+import v0 "github.com/synnaxlabs/x/telem/versions/v0"
 
 const (
 	// TimeStampMin represents the minimum value for a TimeStamp
-	TimeStampMin TimeStamp = versions.TimeStampMin
+	TimeStampMin TimeStamp = v0.TimeStampMin
 	// TimeStampMax represents the maximum value for a TimeStamp
-	TimeStampMax TimeStamp = versions.TimeStampMax
+	TimeStampMax TimeStamp = v0.TimeStampMax
 	// NanosecondTS is a TimeStamp 1 nanosecond after the unix epoch.
-	NanosecondTS TimeStamp = versions.NanosecondTS
+	NanosecondTS TimeStamp = v0.NanosecondTS
 	// MicrosecondTS is a TimeStamp 1 microsecond after the unix epoch.
-	MicrosecondTS TimeStamp = versions.MicrosecondTS
+	MicrosecondTS TimeStamp = v0.MicrosecondTS
 	// MillisecondTS is a TimeStamp 1 millisecond after the unix epoch.
-	MillisecondTS TimeStamp = versions.MillisecondTS
+	MillisecondTS TimeStamp = v0.MillisecondTS
 	// SecondTS is a TimeStamp 1 second after the unix epoch.
-	SecondTS TimeStamp = versions.SecondTS
+	SecondTS TimeStamp = v0.SecondTS
 	// MinuteTS is a TimeStamp 1 minute after the unix epoch.
-	MinuteTS TimeStamp = versions.MinuteTS
+	MinuteTS TimeStamp = v0.MinuteTS
 	// HourTS is a TimeStamp 1 hour after the unix epoch.
-	HourTS TimeStamp = versions.HourTS
+	HourTS TimeStamp = v0.HourTS
 	// DayTS is a TimeStamp 1 day after the unix epoch.
-	DayTS TimeStamp = versions.DayTS
+	DayTS TimeStamp = v0.DayTS
 )
-
-// Now returns the current time as a TimeStamp.
-func Now() TimeStamp { return NewTimeStamp(time.Now()) }
-
-// NewTimeStamp creates a new TimeStamp from a time.Time.
-func NewTimeStamp(t time.Time) TimeStamp { return TimeStamp(t.UnixNano()) }
-
-// Since returns a TimeSpan representing the amount of time that has passed since the
-// provided TimeStamp.
-func Since(ts TimeStamp) TimeSpan { return TimeSpan(Now() - ts) }

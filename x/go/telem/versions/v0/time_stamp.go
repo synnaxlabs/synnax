@@ -45,8 +45,7 @@ func (ts TimeStamp) MarshalJSON() ([]byte, error) {
 }
 
 // String returns the timestamp in the string format. All digits after are truncated.
-// "2006-01-02T15:04:05.999Z"
-// String implements fmt.Stringer
+// "2006-01-02T15:04:05.999Z" String implements fmt.Stringer
 func (ts TimeStamp) String() string {
 	if ts == TimeStampMax {
 		return "end of time"
@@ -88,9 +87,9 @@ func (ts TimeStamp) SpanRange(span TimeSpan) TimeRange {
 // Range constructs a new TimeRange with the TimeStamp and provided TimeStamp.
 func (ts TimeStamp) Range(ts2 TimeStamp) TimeRange { return TimeRange{ts, ts2} }
 
-// Span returns a TimeSpan representing the amount of time between ts and the
-// given time span. The returned span is positive if t is after ts, and negative
-// if t is before is ts.
+// Span returns a TimeSpan representing the amount of time between ts and the given time
+// span. The returned span is positive if t is after ts, and negative if t is before is
+// ts.
 func (ts TimeStamp) Span(t TimeStamp) TimeSpan { return TimeSpan(t - ts) }
 
 const (

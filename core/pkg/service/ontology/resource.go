@@ -13,7 +13,7 @@ import (
 	"strings"
 
 	"github.com/samber/lo"
-	v0 "github.com/synnaxlabs/synnax/pkg/service/ontology/versions/v0"
+	"github.com/synnaxlabs/synnax/pkg/service/ontology/versions"
 	"github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/validate"
@@ -53,7 +53,7 @@ func IDsToKeys(ids []ID) []string {
 }
 
 // Resource represents an instance matching of a resource in the ontology.
-type Resource = v0.Resource
+type Resource = versions.Resource
 
 // NewResource creates a new Resource with the given schema, name, and data. NewResource
 // panics if the provided data value does not fit the Resource's schema.

@@ -115,7 +115,8 @@ func (ts TimeSpan) String() string {
 	return strings.Join(parts, " ")
 }
 
-// Truncate returns a new TimeSpan that is truncated to the nearest multiple of the given TimeSpan.
+// Truncate returns a new TimeSpan that is truncated to the nearest multiple of the
+// given TimeSpan.
 func (ts TimeSpan) Truncate(unit TimeSpan) TimeSpan {
 	if unit == 0 {
 		return ts

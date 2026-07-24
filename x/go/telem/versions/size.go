@@ -7,23 +7,23 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package telem
+package versions
 
-import "github.com/synnaxlabs/x/telem/versions"
+import v0 "github.com/synnaxlabs/x/telem/versions/v0"
 
 const (
 	// Byte is a single byte.
-	Byte Size = versions.Byte
+	Byte Size = v0.Byte
 	// Kilobyte is 1,000 bytes.
-	Kilobyte Size = versions.Kilobyte
+	Kilobyte Size = v0.Kilobyte
 	// Megabyte is 1,000 kilobytes.
-	Megabyte Size = versions.Megabyte
+	Megabyte Size = v0.Megabyte
 	// Gigabyte is 1,000 megabytes.
-	Gigabyte Size = versions.Gigabyte
+	Gigabyte Size = v0.Gigabyte
 	// Terabyte is 1,000 gigabytes.
-	Terabyte Size = versions.Terabyte
+	Terabyte Size = v0.Terabyte
 	// Petabyte is 1,000 terabytes.
-	Petabyte Size = versions.Petabyte
+	Petabyte Size = v0.Petabyte
 	// Exabyte is 1,000 petabytes.
-	Exabyte Size = versions.Exabyte
+	Exabyte Size = v0.Exabyte
 )

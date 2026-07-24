@@ -7,15 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package telem
+package versions
 
-import "github.com/synnaxlabs/x/telem/versions"
+import v0 "github.com/synnaxlabs/synnax/pkg/service/ontology/versions/v0"
 
-const (
-	// Hertz is a data rate of 1 Hz.
-	Hertz Rate = versions.Hertz
-	// Kilohertz is a data rate of 1 kHz.
-	Kilohertz Rate = versions.Kilohertz
-	// Megahertz is a data rate of 1 MHz.
-	Megahertz Rate = versions.Megahertz
-)
+// Resource represents an instance matching of a resource in the ontology.
+type Resource = v0.Resource

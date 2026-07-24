@@ -17,8 +17,6 @@ import (
 	v0 "github.com/synnaxlabs/x/telem/versions/v0"
 )
 
-// rangeSeconds builds a TimeRange spanning the given whole seconds. The exported
-// NewRangeSeconds constructor lives in the top-level telem package.
 func rangeSeconds(start, end int) v0.TimeRange {
 	return v0.TimeRange{Start: v0.TimeStamp(start) * v0.SecondTS, End: v0.TimeStamp(end) * v0.SecondTS}
 }

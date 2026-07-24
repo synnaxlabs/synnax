@@ -11,7 +11,7 @@ package node
 
 import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/node"
-	v0 "github.com/synnaxlabs/synnax/pkg/service/node/versions/v0"
+	"github.com/synnaxlabs/synnax/pkg/service/node/versions"
 )
 
 // Re-exports of the node domain primitives defined in pkg/distribution/node. Consumers
@@ -20,7 +20,7 @@ import (
 type (
 	// Key is a 12-bit unsigned integer that uniquely identifies a Node within a
 	// cluster.
-	Key = v0.Key
+	Key = versions.Key
 	// Node is a single Core of a Synnax cluster, identified by a Key and reachable at a
 	// network address.
 	Node = node.Node

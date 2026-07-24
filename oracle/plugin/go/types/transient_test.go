@@ -67,4 +67,40 @@ var _ = Describe("Transient types", func() {
 		Expect(strings.Count(root, "package out")).To(Equal(1))
 		Expect(strings.Count(root, "import")).To(Equal(1))
 	})
+
+	It("Should reference versioned types locally, never through versions/vN", func(ctx SpecContext) {
+		loader.Add("schemas/dep.oracle", `
+			@go output "dep"
+			Item struct {
+				@go version 1
+				key string {@key}
+				@go marshal
+			}
+		`)
+		source := `
+			import "schemas/dep"
+			@go output "out"
+			Entry struct {
+				@go version 0
+				key string {@key}
+				@go marshal
+			}
+			View struct {
+				entry Entry
+				item  dep.Item
+			}
+		`
+		req := MustGenerateRequest(ctx, source, "test", loader)
+		resp := MustSucceed(goPlugin.Generate(req))
+		var root string
+		for _, f := range resp.Files {
+			if f.Path == "out/types.gen.go" {
+				root = string(f.Content)
+			}
+		}
+		Expect(root).To(ContainSubstring("Entry Entry"))
+		Expect(root).To(ContainSubstring("dep.Item"))
+		Expect(root).ToNot(ContainSubstring("versions/v0"))
+		Expect(root).ToNot(ContainSubstring("dep/versions/v1"))
+	})
 })

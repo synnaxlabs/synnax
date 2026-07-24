@@ -7,15 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package telem
+package versions
 
-import "github.com/synnaxlabs/x/telem/versions"
+import v0 "github.com/synnaxlabs/x/color/versions/v0"
 
-const (
-	// Hertz is a data rate of 1 Hz.
-	Hertz Rate = versions.Hertz
-	// Kilohertz is a data rate of 1 kHz.
-	Kilohertz Rate = versions.Kilohertz
-	// Megahertz is a data rate of 1 MHz.
-	Megahertz Rate = versions.Megahertz
-)
+// FromHex parses a hex color string into a Color. Supports 6 or 8 character hex
+// strings with or without a leading '#'.
+func FromHex(s string) (Color, error) { return v0.FromHex(s) }

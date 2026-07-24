@@ -13,7 +13,6 @@ package task
 
 import (
 	"github.com/synnaxlabs/synnax/pkg/service/task/versions"
-	task "github.com/synnaxlabs/synnax/pkg/service/task/versions/v1"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 )
 
@@ -36,7 +35,7 @@ type Task = versions.Task
 // Command is a command to execute on a task in the Driver system.
 type Command struct {
 	// Task is the key of the target task.
-	Task task.Key `json:"task" msgpack:"task"`
+	Task Key `json:"task" msgpack:"task"`
 	// Type is the command type (e.g., 'start', 'stop', 'configure').
 	Type string `json:"type" msgpack:"type"`
 	// Key is a unique identifier for this command instance.

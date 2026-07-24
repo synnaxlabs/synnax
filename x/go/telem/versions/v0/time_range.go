@@ -17,8 +17,7 @@ func (tr TimeRange) Span() TimeSpan { return TimeSpan(tr.End - tr.Start) }
 // IsZero returns true if both the start and end timestamps are zero.
 func (tr TimeRange) IsZero() bool { return tr.Start.IsZero() && tr.End.IsZero() }
 
-// BoundBy limits the time range to the provided bounds.
-// Example One:
+// BoundBy limits the time range to the provided bounds. Example One:
 //
 //	[5s, 10s).BoundBy([7s, 11s)) == [7s, 10s)
 //
@@ -53,8 +52,8 @@ func (tr TimeRange) ContainsRange(rng TimeRange) bool {
 }
 
 // OverlapsWith returns true if the provided TimeRange overlaps with this time range.
-// This function will ensure that both ranges are valid (i.e. start before end) as
-// part of its checks.
+// This function will ensure that both ranges are valid (i.e. start before end) as part
+// of its checks.
 func (tr TimeRange) OverlapsWith(rng TimeRange) bool {
 	if tr == rng {
 		return true
@@ -168,8 +167,8 @@ func (tr TimeRange) Intersection(rng TimeRange) (ret TimeRange) {
 	return TimeRange{Start: max(tr.Start, rng.Start), End: min(tr.End, rng.End)}
 }
 
-// Split returns the time between the start of the time range and the given
-// timestamp and the time between the end of the time range and the given timestamp.
+// Split returns the time between the start of the time range and the given timestamp
+// and the time between the end of the time range and the given timestamp.
 func (tr TimeRange) Split(ts TimeStamp) (before TimeRange, after TimeRange) {
 	return TimeRange{Start: tr.Start, End: ts}, TimeRange{Start: ts, End: tr.End}
 }

@@ -7,15 +7,15 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package telem
+package versions
 
-import "github.com/synnaxlabs/x/telem/versions"
+import v0 "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v0"
 
-const (
-	// Hertz is a data rate of 1 Hz.
-	Hertz Rate = versions.Hertz
-	// Kilohertz is a data rate of 1 kHz.
-	Kilohertz Rate = versions.Kilohertz
-	// Megahertz is a data rate of 1 MHz.
-	Megahertz Rate = versions.Megahertz
+type (
+	// Key is the cluster-unique identifier for a channel.
+	Key = v0.Key
+	// Keys is a slice of Key with convenience methods.
+	Keys = v0.Keys
+	// LocalKey is the 20-bit, node-local portion of a channel Key.
+	LocalKey = v0.LocalKey
 )

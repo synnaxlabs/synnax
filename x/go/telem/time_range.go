@@ -10,7 +10,7 @@
 package telem
 
 import (
-	v0 "github.com/synnaxlabs/x/telem/versions/v0"
+	"github.com/synnaxlabs/x/telem/versions"
 	"github.com/synnaxlabs/x/zyn"
 )
 
@@ -22,11 +22,11 @@ var TimeRangeSchema = zyn.Object(map[string]zyn.Schema{
 
 var (
 	// TimeRangeMax represents the maximum possible value for a TimeRange.
-	TimeRangeMax TimeRange = v0.TimeRangeMax
+	TimeRangeMax TimeRange = versions.TimeRangeMax
 	// TimeRangeMin represents the minimum possible value for a TimeRange.
-	TimeRangeMin TimeRange = v0.TimeRangeMin
+	TimeRangeMin TimeRange = versions.TimeRangeMin
 	// TimeRangeZero represents the zero value for a TimeRange.
-	TimeRangeZero TimeRange = v0.TimeRangeZero
+	TimeRangeZero TimeRange = versions.TimeRangeZero
 )
 
 // NewRangeSeconds creates a new TimeRange between start and end seconds.
