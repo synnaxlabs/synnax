@@ -13,7 +13,6 @@ import (
 	"strings"
 
 	"github.com/samber/lo"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology/versions"
 	"github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/validate"
@@ -51,9 +50,6 @@ func ParseIDs(keys []string) ([]ID, error) {
 func IDsToKeys(ids []ID) []string {
 	return lo.Map(ids, func(id ID, _ int) string { return id.String() })
 }
-
-// Resource represents an instance matching of a resource in the ontology.
-type Resource = versions.Resource
 
 // NewResource creates a new Resource with the given schema, name, and data. NewResource
 // panics if the provided data value does not fit the Resource's schema.

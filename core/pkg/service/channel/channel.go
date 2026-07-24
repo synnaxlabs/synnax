@@ -14,25 +14,13 @@ import (
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
-	"github.com/synnaxlabs/synnax/pkg/service/channel/versions"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/validate"
 )
 
-// These type aliases re-export the key types so service-layer callers can refer to
-// them through this package without importing the distribution layer directly.
-type (
-	// Key is the cluster-unique identifier for a channel. It packs a leaseholder node
-	// key (first 12 bits) and a node-local LocalKey (last 20 bits) into a single
-	// uint32. Re-exported from [channel.Key].
-	Key = versions.Key
-	// Keys is a slice of Key with convenience methods for deduplication, grouping by
-	// leaseholder, and conversion to storage keys. Re-exported from [channel.Keys].
-	Keys = versions.Keys
-	// LocalKey is the 20-bit, node-local portion of a channel Key. Re-exported from
-	// [channel.LocalKey].
-	LocalKey = versions.LocalKey
-)
+// Keys is a slice of Key with convenience methods for deduplication, grouping by
+// leaseholder, and conversion to storage keys. Re-exported from [channel.Keys].
+type Keys = channel.Keys
 
 var (
 	// NewKey composes a Key from a leaseholder node key and a node-local LocalKey.

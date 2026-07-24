@@ -11,15 +11,8 @@ package versions
 
 import v0 "github.com/synnaxlabs/synnax/pkg/service/ontology/versions/v0"
 
-// RelationshipType uniquely identifies the type of a relationship between two
-// resources.
-type RelationshipType = v0.RelationshipType
-
 // RelationshipTypeParentOf indicates that a resource is the parent of another resource.
 const RelationshipTypeParentOf = v0.RelationshipTypeParentOf
-
-// Relationship represents a relationship between two resources in the ontology.
-type Relationship = v0.Relationship
 
 // RelationshipKeySep separates the From, Type, and To fields in an encoded
 // relationship gorp key.

@@ -108,12 +108,13 @@ func (g *aliasFileGenerator) GenerateFile(ctx *framework.GenerateContext) (strin
 	}
 
 	for _, d := range orderDecls(ctx.Table, ctx.TypeDefs, ctx.Enums, ctx.Structs, ctx.Unions) {
-		if omit.IsSkipped(d.typ, "go") {
+		if omit.IsType(d.typ, "go") {
 			continue
 		}
 		// Transient types generate real declarations at the package root,
-		// not in the version layout: no alias to emit.
-		if _, versioned := versioning.Version(d.typ); !versioned {
+		// not in the version layout: no alias to emit. Hand types follow the
+		// version layout, so their aliases are emitted even when unversioned.
+		if _, versioned := versioning.Version(d.typ); !versioned && !omit.IsHand(d.typ, "go") {
 			continue
 		}
 		if d.kind == declEnum && d.typ.Namespace != namespace {

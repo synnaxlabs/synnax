@@ -13,6 +13,15 @@ package channel
 
 import "github.com/synnaxlabs/synnax/pkg/service/channel/versions"
 
+// Key is a unique identifier for a channel in the Synnax database. Composed of a node
+// key (first 12 bits) and a local key (last 20 bits), enabling distributed assignment
+// while maintaining global uniqueness.
+type Key = versions.Key
+
+// LocalKey is a 20-bit unsigned integer representing the locally-unique portion of a
+// channel key within a node. Combined with a node.Key to form the global channel Key.
+type LocalKey = versions.LocalKey
+
 // Name is a human-readable name for a channel. Must start with a letter or underscore
 // and contain only letters, digits, and underscores. Names are not guaranteed to be
 // unique across channels.

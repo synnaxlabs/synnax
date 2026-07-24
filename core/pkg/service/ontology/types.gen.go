@@ -43,6 +43,8 @@ const (
 	ResourceTypeView            ResourceType = versions.ResourceTypeView
 )
 
+type RelationshipType = versions.RelationshipType
+
 // ID ID is a unique identifier for a Resource. An example:
 //
 // userID := ID{ Key: "748d31e2-5732-4cb5-8bc9-64d4ad51efe8", Type: "user", }
@@ -52,3 +54,11 @@ const (
 // unique for a particular resource (e.g. channel), it might not be unique across all
 // resources. We need something universally unique across the entire Synnax Core.
 type ID = versions.ID
+
+// Resource is a resource in the ontology system with its identifier, name, and optional
+// metadata.
+type Resource = versions.Resource
+
+// Relationship is a directional relationship between two resources in the ontology
+// system.
+type Relationship = versions.Relationship

@@ -12,6 +12,7 @@ package framework
 import (
 	"fmt"
 
+	"github.com/synnaxlabs/oracle/domain/omit"
 	"github.com/synnaxlabs/oracle/plugin"
 	"github.com/synnaxlabs/oracle/plugin/enum"
 	"github.com/synnaxlabs/oracle/plugin/output"
@@ -55,6 +56,9 @@ type Generator struct {
 	CollectTypeDefs bool
 	CollectEnums    bool
 	CollectUnions   bool
+	// IncludeHand collects hand-written types alongside generated ones, so
+	// re-export surfaces can alias them. Omitted types are still skipped.
+	IncludeHand bool
 }
 
 // allows reports whether outputPath passes the generator's PathFilter.
@@ -65,9 +69,16 @@ func (g *Generator) allows(outputPath string) bool {
 func (g *Generator) Generate(req *plugin.Request) (*plugin.Response, error) {
 	resp := &plugin.Response{Files: make([]plugin.File, 0)}
 
+	var skip SkipFunc
+	if g.IncludeHand {
+		skip = func(typ resolution.Type) bool { return omit.IsType(typ, g.Domain) }
+	} else {
+		skip = func(typ resolution.Type) bool { return omit.IsSkipped(typ, g.Domain) }
+	}
+
 	var typeDefCollector *Collector
 	if g.CollectTypeDefs {
-		typeDefCollector = NewCollector(g.Domain, req)
+		typeDefCollector = NewCollector(g.Domain, req).WithSkipFunc(skip)
 		if err := typeDefCollector.AddAll(req.Resolutions.DistinctTypes()); err != nil {
 			return nil, err
 		}
@@ -76,14 +87,14 @@ func (g *Generator) Generate(req *plugin.Request) (*plugin.Response, error) {
 		}
 	}
 
-	structCollector, err := CollectStructs(g.Domain, req)
-	if err != nil {
+	structCollector := NewCollector(g.Domain, req).WithSkipFunc(skip)
+	if err := structCollector.AddAll(req.Resolutions.StructTypes()); err != nil {
 		return nil, err
 	}
 
 	var unionCollector *Collector
 	if g.CollectUnions {
-		unionCollector = NewCollector(g.Domain, req)
+		unionCollector = NewCollector(g.Domain, req).WithSkipFunc(skip)
 		if err := unionCollector.AddAll(req.Resolutions.UnionTypes()); err != nil {
 			return nil, err
 		}
@@ -101,7 +112,7 @@ func (g *Generator) Generate(req *plugin.Request) (*plugin.Response, error) {
 		}
 	}
 
-	err = structCollector.ForEach(func(outputPath string, structs []resolution.Type) error {
+	err := structCollector.ForEach(func(outputPath string, structs []resolution.Type) error {
 		enums := enum.CollectReferenced(structs, req.Resolutions)
 		if enumCollector != nil && enumCollector.Has(outputPath) {
 			if g.MergeByName {

@@ -31,9 +31,6 @@ type (
 	// key (first 12 bits) and a node-local LocalKey (last 20 bits) into a single
 	// uint32. Re-exported from [channel.Key].
 	Key = channel.Key
-	// Keys is a slice of Key with convenience methods for deduplication, grouping by
-	// leaseholder, and conversion to storage keys. Re-exported from [channel.Keys].
-	Keys = channel.Keys
 	// LocalKey is the 20-bit, node-local portion of a channel Key. Re-exported from
 	// [channel.LocalKey].
 	LocalKey = channel.LocalKey

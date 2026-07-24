@@ -186,6 +186,7 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 		CollectTypeDefs: true,
 		CollectEnums:    true,
 		CollectUnions:   true,
+		IncludeHand:     true,
 	}
 	aliasResp, err := aliasGen.Generate(req)
 	if err != nil {
@@ -201,6 +202,7 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 		CollectTypeDefs: true,
 		CollectEnums:    true,
 		CollectUnions:   true,
+		IncludeHand:     true,
 	}
 	selectorResp, err := selectorGen.Generate(req)
 	if err != nil {
