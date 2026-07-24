@@ -16,25 +16,17 @@ package v2
 import (
 	"context"
 
-	text "github.com/synnaxlabs/arc/text/versions/v1"
 	v1 "github.com/synnaxlabs/synnax/pkg/service/arc/versions/v1"
 	"github.com/synnaxlabs/x/gorp"
 )
 
 // migrateArc lifts a v1 arc into the v2 shape.
 func migrateArc(ctx context.Context, old v1.Arc) (Arc, error) {
-	migrated, err := autoMigrateArc(ctx, old)
-	if err != nil {
-		return Arc{}, err
-	}
-	if migrated.Text, err = text.MigrateText(ctx, old.Text); err != nil {
-		return Arc{}, err
-	}
-	return migrated, nil
+	return autoMigrateArc(ctx, old)
 }
 
-// Migration lifts stored arcs from v1 to v2, converting deploy state to the
-// live representation.
+// Migration lifts stored arcs from v1 to v2, converting deploy state to the live
+// representation.
 var Migration = gorp.NewEntryMigration(
 	"v56_to_live", migrateArc, "v55_rename_set_status",
 )

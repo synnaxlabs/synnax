@@ -15,7 +15,7 @@ import (
 	"context"
 
 	graph "github.com/synnaxlabs/arc/graph/versions/v1"
-	text "github.com/synnaxlabs/arc/text"
+	text "github.com/synnaxlabs/arc/text/versions/v1"
 	v1 "github.com/synnaxlabs/synnax/pkg/service/arc/versions/v1"
 )
 
@@ -24,11 +24,15 @@ func autoMigrateArc(ctx context.Context, old v1.Arc) (Arc, error) {
 	if err != nil {
 		return Arc{}, err
 	}
+	text, err := text.MigrateText(ctx, old.Text)
+	if err != nil {
+		return Arc{}, err
+	}
 	return Arc{
 		Key:   old.Key,
 		Name:  old.Name,
 		Mode:  old.Mode,
 		Graph: graph,
-		Text:  text.Text{Raw: old.Text.Raw},
+		Text:  text,
 	}, nil
 }
