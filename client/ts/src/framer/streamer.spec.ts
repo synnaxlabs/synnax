@@ -700,6 +700,39 @@ describe("Streamer", () => {
       ).rejects.toThrow("very unreachable");
     });
 
+    it("should fire onDrop when the stream fails and onReopen after recovery", async () => {
+      const streamer1 = new MockStreamer();
+      const streamer2 = new MockStreamer();
+      const fr1 = new Frame({ 1: new Series([1]) });
+      const fr2 = new Frame({ 1: new Series([2]) });
+      streamer1.responses = [
+        [fr1, null],
+        [fr2, new Unreachable({ message: "cat" })],
+      ];
+      streamer2.responses = [[fr2, null]];
+      const onDrop = vi.fn();
+      const onReopen = vi.fn();
+      let count = 0;
+      const hardened = await HardenedStreamer.open(
+        async () => {
+          count++;
+          if (count === 1) return streamer1;
+          return streamer2;
+        },
+        { channels: [1] },
+        undefined,
+        onReopen,
+        onDrop,
+      );
+      expect(onDrop).not.toHaveBeenCalled();
+      expect(onReopen).not.toHaveBeenCalled();
+      await hardened.read();
+      await hardened.read();
+      expect(onDrop).toHaveBeenCalledTimes(1);
+      expect(onDrop.mock.calls[0][0]).toBeInstanceOf(Error);
+      expect(onReopen).toHaveBeenCalledTimes(1);
+    });
+
     it("should retry update when the underlying streamer fails", async () => {
       const streamer1 = new MockStreamer();
       streamer1.updateErrors = [null, new Unreachable({ message: "cat" })];
