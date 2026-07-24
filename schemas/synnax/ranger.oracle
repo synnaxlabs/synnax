@@ -89,8 +89,7 @@ New struct extends Range {
     }
     key?
 
-    @go version 1
-    @doc value  "contains parameters for creating a new range."
+    @doc value "contains parameters for creating a new range."
     @ts {
         name "New"
         use_input

@@ -97,7 +97,6 @@ New struct extends Rack {
     -embedded
     key = 0
 
-    @go version   1
     @doc value    "contains parameters for creating a new rack."
     @ts use_input
     @go omit

@@ -49,9 +49,7 @@ func NewMigration(cfg MigrationConfig) migrate.Migration {
 			if err != nil {
 				return err
 			}
-			defer func() {
-				err = errors.Combine(err, iter.Close())
-			}()
+			defer func() { err = errors.Combine(err, iter.Close()) }()
 			rangeMap := make(map[Key]Range)
 			for iter.First(); iter.Valid(); iter.Next() {
 				rng := iter.Value(ctx)

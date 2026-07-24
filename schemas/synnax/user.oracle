@@ -62,7 +62,6 @@ New struct extends User {
     first_name?
     last_name?
 
-    @go version   0
     @doc value    "contains parameters for creating a new user."
     @ts use_input
     @go omit
