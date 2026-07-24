@@ -72,7 +72,7 @@ func splitGeneratedGo(src string) (head string, imports []string, body string) {
 	switch {
 	case strings.HasPrefix(rest, "import (\n"):
 		end := strings.Index(rest, "\n)")
-		for _, l := range strings.Split(rest[len("import (\n"):end], "\n") {
+		for l := range strings.SplitSeq(rest[len("import (\n"):end], "\n") {
 			if l = strings.TrimSpace(l); l != "" {
 				imports = append(imports, l)
 			}
