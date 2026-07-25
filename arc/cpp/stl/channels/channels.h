@@ -27,20 +27,66 @@ namespace arc::stl::channels {
 
 inline constexpr const char *MODULE_NAME = "channels";
 
+/// @brief marks a node whose channel input is not alias-bound.
+inline constexpr size_t NO_CHANNEL = ~size_t{0};
+
+/// @brief returns the channel a node currently targets: the binding edge's
+/// latest key when present, otherwise the configured key.
+inline types::ChannelKey bound_key(
+    const runtime::state::Node &s,
+    const size_t channel_idx,
+    const types::ChannelKey configured
+) {
+    if (const auto t = s.ref_input(channel_idx); t != nullptr && t->size() > 0)
+        return t->at<uint32_t>(-1);
+    return configured;
+}
+
 /// @brief Source node that reads from a channel and outputs the data.
 /// Tracks a high water mark to avoid duplicate processing of the same data.
 class On : public runtime::node::Node {
     runtime::state::Node state;
-    types::ChannelKey channel_key;
+    types::ChannelKey key;
+    types::ChannelKey curr_key;
+    /// @brief channel_idx is the channel ref input's index; NO_CHANNEL when not
+    /// alias-bound.
+    size_t channel_idx;
     ::x::telem::Alignment high_water_mark{0};
     ::x::telem::MonoClock clock;
 
+    /// @brief re-points the source at key. A rebind is not a value:
+    /// only values arriving afterward fire
+    void rebind_to(const types::ChannelKey key) {
+        this->curr_key = key;
+        this->high_water_mark = ::x::telem::Alignment(0);
+        this->raise_water_mark();
+    }
+
+    /// @brief advances the mark past all buffered data on the bound channel.
+    void raise_water_mark() {
+        auto [data, index_data, ok] = this->state.read_series(this->curr_key);
+        if (!ok || data.series.empty()) return;
+        const auto &last = data.series.back();
+        const auto lower = last.alignment;
+        const auto upper_val = lower.uint64() + (last.size() > 0 ? last.size() - 1 : 0);
+        const auto upper = x::telem::Alignment(upper_val + 1);
+        if (upper.uint64() > this->high_water_mark.uint64())
+            this->high_water_mark = upper;
+    }
+
 public:
-    On(runtime::state::Node &&state, const types::ChannelKey channel_key):
-        state(std::move(state)), channel_key(channel_key) {}
+    On(runtime::state::Node &&state,
+       const types::ChannelKey key,
+       const size_t channel_idx):
+        state(std::move(state)), key(key), curr_key(key), channel_idx(channel_idx) {}
 
     x::errors::Error next(runtime::node::Context &ctx) override {
-        auto [data, index_data, ok] = this->state.read_series(this->channel_key);
+        if (const auto k = bound_key(this->state, this->channel_idx, this->key);
+            k != this->curr_key) {
+            this->rebind_to(k);
+            return x::errors::NIL;
+        }
+        auto [data, index_data, ok] = this->state.read_series(this->curr_key);
         if (!ok) return x::errors::NIL;
 
         for (size_t i = 0; i < data.series.size(); i++) {
@@ -87,16 +133,17 @@ public:
         return x::errors::NIL;
     }
 
+    /// @brief advances the high water mark to the current channel alignment,
+    /// ensuring that when a stage is (re-)activated it only responds to
+    /// data that arrives after activation rather than stale pre-existing data.
     void reset() override {
-        runtime::node::Node::reset();
-        auto [data, index_data, ok] = this->state.read_series(this->channel_key);
-        if (!ok || data.series.empty()) return;
-        const auto &last = data.series.back();
-        const auto lower = last.alignment;
-        const auto upper_val = lower.uint64() + (last.size() > 0 ? last.size() - 1 : 0);
-        const auto upper = x::telem::Alignment(upper_val + 1);
-        if (upper.uint64() > this->high_water_mark.uint64())
-            this->high_water_mark = upper;
+        this->state.reset();
+        if (const auto k = bound_key(this->state, this->channel_idx, this->key);
+            k != this->curr_key) {
+            this->rebind_to(k);
+            return;
+        }
+        this->raise_water_mark();
     }
 
     [[nodiscard]] bool is_output_truthy(size_t output_idx) const override {
@@ -107,17 +154,24 @@ public:
 /// @brief Sink node that writes input data to a channel.
 class Write : public runtime::node::Node {
     runtime::state::Node state;
-    types::ChannelKey channel_key;
+    types::ChannelKey key;
     size_t input_idx;
+    /// @brief channel_idx is the channel ref input's index; NO_CHANNEL when not
+    /// alias-bound.
+    size_t channel_idx;
     ::x::telem::MonoClock clock;
 
 public:
     Write(
         runtime::state::Node &&state,
-        const types::ChannelKey channel_key,
-        size_t input_idx
+        const types::ChannelKey key,
+        size_t input_idx,
+        const size_t channel_idx
     ):
-        state(std::move(state)), channel_key(channel_key), input_idx(input_idx) {}
+        state(std::move(state)),
+        key(key),
+        input_idx(input_idx),
+        channel_idx(channel_idx) {}
 
     x::errors::Error next(runtime::node::Context &ctx) override {
         if (!this->state.refresh_inputs()) return x::errors::NIL;
@@ -131,7 +185,11 @@ public:
                 data->size()
             )
         );
-        this->state.write_series(this->channel_key, data, time);
+        this->state.write_series(
+            bound_key(this->state, this->channel_idx, this->key),
+            data,
+            time
+        );
         auto &out = this->state.output(0);
         out->resize(1);
         out->set(0, static_cast<uint8_t>(1));
@@ -169,9 +227,15 @@ public:
     std::pair<std::unique_ptr<runtime::node::Node>, x::errors::Error>
     create(runtime::node::Config &&cfg) override {
         if (!this->handles(cfg.node.type)) return {nullptr, x::errors::NOT_FOUND};
+        size_t channel_idx = NO_CHANNEL;
+        if (const auto [idx, terr] = cfg.state.resolve_input("channel"); !terr)
+            channel_idx = idx;
         const auto &ch_param = cfg.node.inputs["channel"];
         auto ch_sv = types::to_sample_value(ch_param.value, ch_param.type);
-        if (!ch_sv.has_value())
+        // An unbound source or sink requires its channel key as an input value.
+        // An alias-bound source or sink takes its key from the binding edge at
+        // runtime.
+        if (!ch_sv.has_value() && !cfg.state.ref_sourced(channel_idx))
             return {
                 nullptr,
                 x::errors::Error(
@@ -180,16 +244,23 @@ public:
                         " node missing required channel parameter"
                 )
             };
-        auto channel_key = x::telem::cast<types::ChannelKey>(*ch_sv);
+        const auto channel_key = ch_sv.has_value()
+                                   ? x::telem::cast<types::ChannelKey>(*ch_sv)
+                                   : types::ChannelKey(0);
         if (cfg.node.type == "on")
             return {
-                std::make_unique<On>(std::move(cfg.state), channel_key),
+                std::make_unique<On>(std::move(cfg.state), channel_key, channel_idx),
                 x::errors::NIL
             };
         auto [input_idx, in_err] = cfg.node.resolve_input(ir::default_input_param);
         if (in_err) return {nullptr, in_err};
         return {
-            std::make_unique<Write>(std::move(cfg.state), channel_key, input_idx),
+            std::make_unique<Write>(
+                std::move(cfg.state),
+                channel_key,
+                input_idx,
+                channel_idx
+            ),
             x::errors::NIL
         };
     }

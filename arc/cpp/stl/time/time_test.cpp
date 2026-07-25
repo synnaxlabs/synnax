@@ -201,7 +201,7 @@ TEST(TimeModuleTest, BaseIntervalComputesGCDAcrossNodes) {
 TEST(IntervalTest, DoesNotFireBeforeNextIntervalElapses) {
     TestSetup setup("interval", "period", x::telem::SECOND.nanoseconds());
     const auto inputs = ASSERT_NIL_P(IntervalInputs::create(setup.ir.nodes[0].inputs));
-    Interval node(inputs, setup.make_node());
+    Interval node(setup.make_node(), inputs.interval);
 
     auto ctx1 = make_context(x::telem::TimeSpan(0));
     ASSERT_NIL(node.next(ctx1));
@@ -220,7 +220,7 @@ TEST(IntervalTest, DoesNotFireBeforeNextIntervalElapses) {
 TEST(IntervalTest, FiresWhenIntervalReached) {
     TestSetup setup("interval", "period", x::telem::SECOND.nanoseconds());
     const auto inputs = ASSERT_NIL_P(IntervalInputs::create(setup.ir.nodes[0].inputs));
-    Interval node(inputs, setup.make_node());
+    Interval node(setup.make_node(), inputs.interval);
 
     auto ctx = make_context(x::telem::SECOND);
     ASSERT_NIL(node.next(ctx));
@@ -235,7 +235,7 @@ TEST(IntervalTest, FiresWhenIntervalReached) {
 TEST(IntervalTest, FiresRepeatedly) {
     TestSetup setup("interval", "period", x::telem::SECOND.nanoseconds());
     const auto inputs = ASSERT_NIL_P(IntervalInputs::create(setup.ir.nodes[0].inputs));
-    Interval node(inputs, setup.make_node());
+    Interval node(setup.make_node(), inputs.interval);
 
     auto ctx1 = make_context(x::telem::SECOND);
     ASSERT_NIL(node.next(ctx1));
@@ -257,7 +257,7 @@ TEST(IntervalTest, FiresRepeatedly) {
 TEST(IntervalTest, SetsTimestampOnFire) {
     TestSetup setup("interval", "period", x::telem::SECOND.nanoseconds());
     const auto inputs = ASSERT_NIL_P(IntervalInputs::create(setup.ir.nodes[0].inputs));
-    Interval node(inputs, setup.make_node());
+    Interval node(setup.make_node(), inputs.interval);
 
     auto ctx = make_context(x::telem::SECOND * 5);
     ASSERT_NIL(node.next(ctx));
@@ -272,7 +272,7 @@ TEST(IntervalTest, SetsTimestampOnFire) {
 TEST(IntervalTest, CallsMarkChangedOnFire) {
     TestSetup setup("interval", "period", x::telem::SECOND.nanoseconds());
     const auto inputs = ASSERT_NIL_P(IntervalInputs::create(setup.ir.nodes[0].inputs));
-    Interval node(inputs, setup.make_node());
+    Interval node(setup.make_node(), inputs.interval);
 
     std::vector<size_t> marked;
     auto ctx = make_context(x::telem::SECOND);
@@ -287,7 +287,7 @@ TEST(IntervalTest, CallsMarkChangedOnFire) {
 TEST(IntervalTest, DoesNotCallMarkChangedWhenNotFiring) {
     TestSetup setup("interval", "period", x::telem::SECOND.nanoseconds());
     const auto inputs = ASSERT_NIL_P(IntervalInputs::create(setup.ir.nodes[0].inputs));
-    Interval node(inputs, setup.make_node());
+    Interval node(setup.make_node(), inputs.interval);
 
     auto ctx1 = make_context(x::telem::SECOND);
     node.next(ctx1);
@@ -304,7 +304,7 @@ TEST(IntervalTest, DoesNotCallMarkChangedWhenNotFiring) {
 TEST(IntervalTest, IsOutputTruthyDelegatesToState) {
     TestSetup setup("interval", "period", x::telem::SECOND.nanoseconds());
     const auto inputs = ASSERT_NIL_P(IntervalInputs::create(setup.ir.nodes[0].inputs));
-    Interval node(inputs, setup.make_node());
+    Interval node(setup.make_node(), inputs.interval);
 
     auto ctx = make_context(x::telem::SECOND);
     node.next(ctx);
@@ -316,7 +316,7 @@ TEST(IntervalTest, IsOutputTruthyDelegatesToState) {
 TEST(IntervalTest, IsOutputTruthyFalseBeforeFiring) {
     TestSetup setup("interval", "period", x::telem::SECOND.nanoseconds());
     const auto inputs = ASSERT_NIL_P(IntervalInputs::create(setup.ir.nodes[0].inputs));
-    Interval node(inputs, setup.make_node());
+    Interval node(setup.make_node(), inputs.interval);
 
     EXPECT_FALSE(node.is_output_truthy(0));
 }
@@ -325,7 +325,7 @@ TEST(IntervalTest, IsOutputTruthyFalseBeforeFiring) {
 TEST(IntervalTest, IsOutputTruthyFalseForUnknownParam) {
     TestSetup setup("interval", "period", x::telem::SECOND.nanoseconds());
     const auto inputs = ASSERT_NIL_P(IntervalInputs::create(setup.ir.nodes[0].inputs));
-    Interval node(inputs, setup.make_node());
+    Interval node(setup.make_node(), inputs.interval);
 
     auto ctx = make_context(x::telem::SECOND);
     node.next(ctx);
@@ -337,7 +337,7 @@ TEST(IntervalTest, IsOutputTruthyFalseForUnknownParam) {
 TEST(IntervalTest, ResetAllowsImmediateFiring) {
     TestSetup setup("interval", "period", x::telem::SECOND.nanoseconds());
     const auto inputs = ASSERT_NIL_P(IntervalInputs::create(setup.ir.nodes[0].inputs));
-    Interval node(inputs, setup.make_node());
+    Interval node(setup.make_node(), inputs.interval);
 
     auto ctx1 = make_context(x::telem::TimeSpan(0));
     node.next(ctx1);
@@ -361,7 +361,7 @@ TEST(IntervalTest, ResetAllowsImmediateFiring) {
 TEST(IntervalTest, OnlyFiresOnTimerTick) {
     TestSetup setup("interval", "period", x::telem::SECOND.nanoseconds());
     const auto inputs = ASSERT_NIL_P(IntervalInputs::create(setup.ir.nodes[0].inputs));
-    Interval node(inputs, setup.make_node());
+    Interval node(setup.make_node(), inputs.interval);
 
     bool changed_called = false;
     runtime::node::Context ctx;
@@ -392,8 +392,7 @@ TEST(IntervalTest, OnlyFiresOnTimerTick) {
 /// @brief Test that Wait does not fire before the duration elapses.
 TEST(WaitTest, DoesNotFireBeforeDurationElapses) {
     TestSetup setup("wait", "duration", x::telem::SECOND.nanoseconds());
-    const auto inputs = ASSERT_NIL_P(WaitInputs::create(setup.ir.nodes[0].inputs));
-    Wait node(inputs, setup.make_node());
+    Wait node(setup.make_node());
 
     auto ctx = make_context(x::telem::MILLISECOND * 500);
     ASSERT_NIL(node.next(ctx));
@@ -406,8 +405,7 @@ TEST(WaitTest, DoesNotFireBeforeDurationElapses) {
 /// @brief Test that Wait fires once after the duration elapses.
 TEST(WaitTest, FiresOnceAfterDuration) {
     TestSetup setup("wait", "duration", x::telem::SECOND.nanoseconds());
-    const auto inputs = ASSERT_NIL_P(WaitInputs::create(setup.ir.nodes[0].inputs));
-    Wait node(inputs, setup.make_node());
+    Wait node(setup.make_node());
 
     auto ctx1 = make_context(x::telem::TimeSpan(0));
     ASSERT_NIL(node.next(ctx1));
@@ -425,8 +423,7 @@ TEST(WaitTest, FiresOnceAfterDuration) {
 /// @brief Test that Wait does not fire again after the first fire.
 TEST(WaitTest, DoesNotFireAgain) {
     TestSetup setup("wait", "duration", x::telem::SECOND.nanoseconds());
-    const auto inputs = ASSERT_NIL_P(WaitInputs::create(setup.ir.nodes[0].inputs));
-    Wait node(inputs, setup.make_node());
+    Wait node(setup.make_node());
 
     auto ctx1 = make_context(x::telem::TimeSpan(0));
     node.next(ctx1);
@@ -448,8 +445,7 @@ TEST(WaitTest, DoesNotFireAgain) {
 /// @brief Test that Wait reset allows it to fire again.
 TEST(WaitTest, ResetAllowsFiringAgain) {
     TestSetup setup("wait", "duration", x::telem::SECOND.nanoseconds());
-    const auto inputs = ASSERT_NIL_P(WaitInputs::create(setup.ir.nodes[0].inputs));
-    Wait node(inputs, setup.make_node());
+    Wait node(setup.make_node());
 
     auto ctx1 = make_context(x::telem::TimeSpan(0));
     node.next(ctx1);
@@ -476,8 +472,7 @@ TEST(WaitTest, ResetAllowsFiringAgain) {
 
 TEST(WaitTest, OnlyFiresOnTimerTick) {
     TestSetup setup("wait", "duration", x::telem::SECOND.nanoseconds());
-    const auto inputs = ASSERT_NIL_P(WaitInputs::create(setup.ir.nodes[0].inputs));
-    Wait node(inputs, setup.make_node());
+    Wait node(setup.make_node());
 
     bool changed_called = false;
     runtime::node::Context ctx;
@@ -510,8 +505,7 @@ TEST(WaitTest, OnlyFiresOnTimerTick) {
 /// @brief Test that Wait measures duration from first next() call, not construction.
 TEST(WaitTest, MeasuresDurationFromFirstNextCall) {
     TestSetup setup("wait", "duration", x::telem::SECOND.nanoseconds());
-    const auto inputs = ASSERT_NIL_P(WaitInputs::create(setup.ir.nodes[0].inputs));
-    Wait node(inputs, setup.make_node());
+    Wait node(setup.make_node());
 
     auto ctx1 = make_context(x::telem::SECOND * 10);
     node.next(ctx1);
@@ -531,8 +525,7 @@ TEST(WaitTest, MeasuresDurationFromFirstNextCall) {
 /// TimerTick, not when the stage was activated via channel input.
 TEST(WaitTest, StartsTimingFromChannelInputThatActivatesStage) {
     TestSetup setup("wait", "duration", x::telem::SECOND.nanoseconds());
-    const auto inputs = ASSERT_NIL_P(WaitInputs::create(setup.ir.nodes[0].inputs));
-    Wait node(inputs, setup.make_node());
+    Wait node(setup.make_node());
 
     auto ctx1 = make_context(
         x::telem::SECOND * 5,
@@ -556,8 +549,7 @@ TEST(WaitTest, StartsTimingFromChannelInputThatActivatesStage) {
 /// next TimerTick, effectively doubling the wait duration.
 TEST(WaitTest, StartsTimingFromChannelInputAfterReset) {
     TestSetup setup("wait", "duration", x::telem::SECOND.nanoseconds());
-    const auto inputs = ASSERT_NIL_P(WaitInputs::create(setup.ir.nodes[0].inputs));
-    Wait node(inputs, setup.make_node());
+    Wait node(setup.make_node());
 
     auto ctx1 = make_context(x::telem::TimeSpan(0));
     node.next(ctx1);
@@ -589,8 +581,7 @@ TEST(WaitTest, StartsTimingFromChannelInputAfterReset) {
 /// @brief Test that Wait calls mark_self_changed when active but not yet fired.
 TEST(WaitTest, CallsMarkSelfChangedWhenActiveButNotFired) {
     TestSetup setup("wait", "duration", x::telem::SECOND.nanoseconds());
-    const auto inputs = ASSERT_NIL_P(WaitInputs::create(setup.ir.nodes[0].inputs));
-    Wait node(inputs, setup.make_node());
+    Wait node(setup.make_node());
 
     int self_changed_calls = 0;
     bool changed_called = false;
@@ -626,8 +617,7 @@ TEST(WaitTest, CallsMarkSelfChangedWhenActiveButNotFired) {
 /// non-tick cycles without being starved.
 TEST(WaitTest, CallsMarkSelfChangedOnChannelInputToSurvive) {
     TestSetup setup("wait", "duration", x::telem::SECOND.nanoseconds());
-    const auto inputs = ASSERT_NIL_P(WaitInputs::create(setup.ir.nodes[0].inputs));
-    Wait node(inputs, setup.make_node());
+    Wait node(setup.make_node());
 
     int self_changed_calls = 0;
     bool changed_called = false;
@@ -666,8 +656,7 @@ TEST(WaitTest, CallsMarkSelfChangedOnChannelInputToSurvive) {
 /// @brief Test that Wait sets the timestamp to elapsed time when firing.
 TEST(WaitTest, SetsTimestampOnFire) {
     TestSetup setup("wait", "duration", x::telem::SECOND.nanoseconds());
-    const auto inputs = ASSERT_NIL_P(WaitInputs::create(setup.ir.nodes[0].inputs));
-    Wait node(inputs, setup.make_node());
+    Wait node(setup.make_node());
 
     auto ctx1 = make_context(x::telem::SECOND * 2);
     node.next(ctx1);
@@ -684,8 +673,7 @@ TEST(WaitTest, SetsTimestampOnFire) {
 /// @brief Test that Wait calls mark_changed when firing.
 TEST(WaitTest, CallsMarkChangedOnFire) {
     TestSetup setup("wait", "duration", x::telem::SECOND.nanoseconds());
-    const auto inputs = ASSERT_NIL_P(WaitInputs::create(setup.ir.nodes[0].inputs));
-    Wait node(inputs, setup.make_node());
+    Wait node(setup.make_node());
 
     auto ctx1 = make_context(x::telem::TimeSpan(0));
     node.next(ctx1);
@@ -702,8 +690,7 @@ TEST(WaitTest, CallsMarkChangedOnFire) {
 /// @brief Test that Wait does not call mark_changed when not firing.
 TEST(WaitTest, DoesNotCallMarkChangedWhenNotFiring) {
     TestSetup setup("wait", "duration", x::telem::SECOND.nanoseconds());
-    const auto inputs = ASSERT_NIL_P(WaitInputs::create(setup.ir.nodes[0].inputs));
-    Wait node(inputs, setup.make_node());
+    Wait node(setup.make_node());
 
     int call_count = 0;
     auto ctx = make_context(x::telem::MILLISECOND * 100);
@@ -716,8 +703,7 @@ TEST(WaitTest, DoesNotCallMarkChangedWhenNotFiring) {
 /// @brief Test that Wait is_output_truthy delegates to state.
 TEST(WaitTest, IsOutputTruthyDelegatesToState) {
     TestSetup setup("wait", "duration", x::telem::SECOND.nanoseconds());
-    const auto inputs = ASSERT_NIL_P(WaitInputs::create(setup.ir.nodes[0].inputs));
-    Wait node(inputs, setup.make_node());
+    Wait node(setup.make_node());
 
     auto ctx1 = make_context(x::telem::TimeSpan(0));
     node.next(ctx1);
@@ -731,8 +717,7 @@ TEST(WaitTest, IsOutputTruthyDelegatesToState) {
 /// @brief Test that Wait reset restarts timing from zero.
 TEST(WaitTest, ResetRestartsTimingFromZero) {
     TestSetup setup("wait", "duration", x::telem::SECOND.nanoseconds());
-    const auto inputs = ASSERT_NIL_P(WaitInputs::create(setup.ir.nodes[0].inputs));
-    Wait node(inputs, setup.make_node());
+    Wait node(setup.make_node());
 
     auto ctx1 = make_context(x::telem::SECOND * 5);
     node.next(ctx1);
@@ -819,7 +804,7 @@ TEST(CalculateToleranceTest, HalfIntervalMinimum) {
 TEST(IntervalToleranceTest, FiresWithinTolerance) {
     TestSetup setup("interval", "period", x::telem::SECOND.nanoseconds());
     const auto inputs = ASSERT_NIL_P(IntervalInputs::create(setup.ir.nodes[0].inputs));
-    Interval node(inputs, setup.make_node());
+    Interval node(setup.make_node(), inputs.interval);
 
     auto ctx1 = make_context(x::telem::TimeSpan(0));
     ASSERT_NIL(node.next(ctx1));
@@ -840,7 +825,7 @@ TEST(IntervalToleranceTest, FiresWithinTolerance) {
 TEST(IntervalToleranceTest, DoesNotFireTooEarly) {
     TestSetup setup("interval", "period", x::telem::SECOND.nanoseconds());
     const auto inputs = ASSERT_NIL_P(IntervalInputs::create(setup.ir.nodes[0].inputs));
-    Interval node(inputs, setup.make_node());
+    Interval node(setup.make_node(), inputs.interval);
 
     auto ctx1 = make_context(x::telem::TimeSpan(0));
     ASSERT_NIL(node.next(ctx1));
@@ -857,8 +842,7 @@ TEST(IntervalToleranceTest, DoesNotFireTooEarly) {
 /// @brief Test that Wait fires within tolerance.
 TEST(WaitToleranceTest, FiresWithinTolerance) {
     TestSetup setup("wait", "duration", x::telem::SECOND.nanoseconds());
-    const auto inputs = ASSERT_NIL_P(WaitInputs::create(setup.ir.nodes[0].inputs));
-    Wait node(inputs, setup.make_node());
+    Wait node(setup.make_node());
 
     auto ctx1 = make_context(x::telem::TimeSpan(0));
     ASSERT_NIL(node.next(ctx1));
@@ -878,8 +862,7 @@ TEST(WaitToleranceTest, FiresWithinTolerance) {
 /// @brief Test that Wait does not fire too early even with tolerance.
 TEST(WaitToleranceTest, DoesNotFireTooEarly) {
     TestSetup setup("wait", "duration", x::telem::SECOND.nanoseconds());
-    const auto inputs = ASSERT_NIL_P(WaitInputs::create(setup.ir.nodes[0].inputs));
-    Wait node(inputs, setup.make_node());
+    Wait node(setup.make_node());
 
     auto ctx1 = make_context(x::telem::TimeSpan(0));
     ASSERT_NIL(node.next(ctx1));
@@ -897,7 +880,7 @@ TEST(WaitToleranceTest, DoesNotFireTooEarly) {
 TEST(IntervalToleranceTest, ZeroToleranceRequiresExactTime) {
     TestSetup setup("interval", "period", x::telem::SECOND.nanoseconds());
     const auto inputs = ASSERT_NIL_P(IntervalInputs::create(setup.ir.nodes[0].inputs));
-    Interval node(inputs, setup.make_node());
+    Interval node(setup.make_node(), inputs.interval);
 
     auto ctx1 = make_context(x::telem::TimeSpan(0));
     ASSERT_NIL(node.next(ctx1));
@@ -921,8 +904,7 @@ TEST(IntervalToleranceTest, ZeroToleranceRequiresExactTime) {
 /// @brief Test that Wait fires correctly with zero tolerance (original behavior).
 TEST(WaitToleranceTest, ZeroToleranceRequiresExactTime) {
     TestSetup setup("wait", "duration", x::telem::SECOND.nanoseconds());
-    const auto inputs = ASSERT_NIL_P(WaitInputs::create(setup.ir.nodes[0].inputs));
-    Wait node(inputs, setup.make_node());
+    Wait node(setup.make_node());
 
     auto ctx1 = make_context(x::telem::TimeSpan(0), x::telem::TimeSpan(0));
     ASSERT_NIL(node.next(ctx1));
@@ -966,7 +948,7 @@ TEST(IntervalDeadlineTest, SetsDeadlineToLastFiredPlusPeriod) {
     const auto inputs = ASSERT_NIL_P(
         time::IntervalInputs::create(setup.ir.nodes[0].inputs)
     );
-    time::Interval node(inputs, setup.make_node());
+    time::Interval node(setup.make_node(), inputs.interval);
 
     x::telem::TimeSpan reported_deadline(-1);
     auto ctx = make_context(x::telem::TimeSpan(0));
@@ -980,7 +962,7 @@ TEST(IntervalDeadlineTest, SetsDeadlineOnNonTimerTick) {
     const auto inputs = ASSERT_NIL_P(
         time::IntervalInputs::create(setup.ir.nodes[0].inputs)
     );
-    time::Interval node(inputs, setup.make_node());
+    time::Interval node(setup.make_node(), inputs.interval);
 
     auto ctx1 = make_context(x::telem::TimeSpan(0));
     ASSERT_NIL(node.next(ctx1));
@@ -1001,7 +983,7 @@ TEST(IntervalDeadlineTest, SetsDeadlineAfterFiring) {
     const auto inputs = ASSERT_NIL_P(
         time::IntervalInputs::create(setup.ir.nodes[0].inputs)
     );
-    time::Interval node(inputs, setup.make_node());
+    time::Interval node(setup.make_node(), inputs.interval);
 
     auto ctx1 = make_context(x::telem::TimeSpan(0));
     ASSERT_NIL(node.next(ctx1));
@@ -1015,10 +997,7 @@ TEST(IntervalDeadlineTest, SetsDeadlineAfterFiring) {
 
 TEST(WaitDeadlineTest, SetsDeadlineToStartTimePlusDuration) {
     TestSetup setup("wait", "duration", x::telem::SECOND.nanoseconds());
-    const auto inputs = ASSERT_NIL_P(
-        time::WaitInputs::create(setup.ir.nodes[0].inputs)
-    );
-    time::Wait node(inputs, setup.make_node());
+    time::Wait node(setup.make_node());
 
     x::telem::TimeSpan reported_deadline(-1);
     auto ctx = make_context(x::telem::SECOND * 5);
@@ -1029,10 +1008,7 @@ TEST(WaitDeadlineTest, SetsDeadlineToStartTimePlusDuration) {
 
 TEST(WaitDeadlineTest, SetsDeadlineOnChannelInput) {
     TestSetup setup("wait", "duration", x::telem::SECOND.nanoseconds());
-    const auto inputs = ASSERT_NIL_P(
-        time::WaitInputs::create(setup.ir.nodes[0].inputs)
-    );
-    time::Wait node(inputs, setup.make_node());
+    time::Wait node(setup.make_node());
 
     x::telem::TimeSpan reported_deadline(-1);
     auto ctx = make_context(
@@ -1047,10 +1023,7 @@ TEST(WaitDeadlineTest, SetsDeadlineOnChannelInput) {
 
 TEST(WaitDeadlineTest, DoesNotSetDeadlineAfterFiring) {
     TestSetup setup("wait", "duration", x::telem::SECOND.nanoseconds());
-    const auto inputs = ASSERT_NIL_P(
-        time::WaitInputs::create(setup.ir.nodes[0].inputs)
-    );
-    time::Wait node(inputs, setup.make_node());
+    time::Wait node(setup.make_node());
 
     auto ctx1 = make_context(x::telem::TimeSpan(0));
     ASSERT_NIL(node.next(ctx1));
@@ -1067,10 +1040,7 @@ TEST(WaitDeadlineTest, DoesNotSetDeadlineAfterFiring) {
 
 TEST(WaitDeadlineTest, SetsCorrectDeadlineAfterReset) {
     TestSetup setup("wait", "duration", x::telem::SECOND.nanoseconds());
-    const auto inputs = ASSERT_NIL_P(
-        time::WaitInputs::create(setup.ir.nodes[0].inputs)
-    );
-    time::Wait node(inputs, setup.make_node());
+    time::Wait node(setup.make_node());
 
     auto ctx1 = make_context(x::telem::TimeSpan(0));
     ASSERT_NIL(node.next(ctx1));

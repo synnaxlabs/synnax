@@ -97,39 +97,45 @@ inline std::string dispatch_end(
     return uid.to_string();
 }
 
+/// @brief validates that the named param holds a string value.
+inline x::errors::Error validate_string(
+    const ::arc::types::Params &params,
+    const std::string &scope,
+    const std::string &name
+) {
+    const auto &p = params[name];
+    const auto sv = ::arc::types::to_sample_value(p.value, p.type);
+    if (sv.has_value() && std::holds_alternative<std::string>(*sv))
+        return x::errors::NIL;
+    return x::errors::Error(
+        x::errors::VALIDATION,
+        scope + " inputs: " + name + " must be a string"
+    );
+}
+
 /// @brief Flow node for `ranges.create`. Creates an open range on every trigger and
-/// emits the new range key on Output(0).
+/// emits the new range key on Output(0). Inputs are read at fire time so var-bound
+/// params track the referenced variable's latest value.
 class CreateRange : public ::arc::runtime::node::Node {
     ::arc::runtime::state::Node state;
     std::shared_ptr<synnax::Synnax> client;
     Reporter report;
-    std::string name;
-    std::string parent;
-    std::string color;
 
 public:
     CreateRange(
         ::arc::runtime::state::Node &&state,
         std::shared_ptr<synnax::Synnax> client,
-        Reporter report,
-        std::string name,
-        std::string parent,
-        std::string color
+        Reporter report
     ):
-        state(std::move(state)),
-        client(std::move(client)),
-        report(std::move(report)),
-        name(std::move(name)),
-        parent(std::move(parent)),
-        color(std::move(color)) {}
+        state(std::move(state)), client(std::move(client)), report(std::move(report)) {}
 
     x::errors::Error next(::arc::runtime::node::Context &ctx) override {
         const std::string key = dispatch_create(
             this->client,
             this->report,
-            this->name,
-            this->parent,
-            this->color
+            this->state.string_input("name"),
+            this->state.string_input("parent"),
+            this->state.string_input("color")
         );
         *this->state.output(0) = x::telem::Series(key);
         *this->state.output_time(0) = x::telem::Series(x::telem::TimeStamp::now());
@@ -137,38 +143,42 @@ public:
         return x::errors::NIL;
     }
 
+    void reset() override { this->state.reset(); }
+
     [[nodiscard]] bool is_output_truthy(size_t output_idx) const override {
         return this->state.is_output_truthy(output_idx);
     }
 };
 
 /// @brief Flow node for `ranges.end`. Sets the end bound on the keyed range to now on
-/// every trigger, emitting the key on Output(0).
+/// every trigger, emitting the key on Output(0). The key is read at fire time so a
+/// var-bound param tracks the referenced variable's latest value.
 class EndRange : public ::arc::runtime::node::Node {
     ::arc::runtime::state::Node state;
     std::shared_ptr<synnax::Synnax> client;
     Reporter report;
-    std::string key;
 
 public:
     EndRange(
         ::arc::runtime::state::Node &&state,
         std::shared_ptr<synnax::Synnax> client,
-        Reporter report,
-        std::string key
+        Reporter report
     ):
-        state(std::move(state)),
-        client(std::move(client)),
-        report(std::move(report)),
-        key(std::move(key)) {}
+        state(std::move(state)), client(std::move(client)), report(std::move(report)) {}
 
     x::errors::Error next(::arc::runtime::node::Context &ctx) override {
-        const std::string out = dispatch_end(this->client, this->report, this->key);
+        const std::string out = dispatch_end(
+            this->client,
+            this->report,
+            this->state.string_input("key")
+        );
         *this->state.output(0) = x::telem::Series(out);
         *this->state.output_time(0) = x::telem::Series(x::telem::TimeStamp::now());
         ctx.mark_changed(0);
         return x::errors::NIL;
     }
+
+    void reset() override { this->state.reset(); }
 
     [[nodiscard]] bool is_output_truthy(size_t output_idx) const override {
         return this->state.is_output_truthy(output_idx);
@@ -233,31 +243,28 @@ public:
     std::pair<std::unique_ptr<::arc::runtime::node::Node>, x::errors::Error>
     create(::arc::runtime::node::Config &&cfg) override {
         if (!this->handles(cfg.node.type)) return {nullptr, x::errors::NOT_FOUND};
-        const auto get_str = [&](const std::string &key) -> std::string {
-            const auto &p = cfg.node.inputs[key];
-            auto sv = ::arc::types::to_sample_value(p.value, p.type);
-            if (!sv.has_value()) return "";
-            const auto *s = std::get_if<std::string>(&*sv);
-            return s != nullptr ? *s : "";
-        };
-        if (cfg.node.type == "create")
+        if (cfg.node.type == "create") {
+            for (const auto *name: {"name", "parent", "color"})
+                if (const auto
+                        err = validate_string(cfg.node.inputs, "ranges.create", name);
+                    err)
+                    return {nullptr, err};
             return {
                 std::make_unique<CreateRange>(
                     std::move(cfg.state),
                     this->client,
-                    this->report,
-                    get_str("name"),
-                    get_str("parent"),
-                    get_str("color")
+                    this->report
                 ),
                 x::errors::NIL
             };
+        }
+        if (const auto err = validate_string(cfg.node.inputs, "ranges.end", "key"); err)
+            return {nullptr, err};
         return {
             std::make_unique<EndRange>(
                 std::move(cfg.state),
                 this->client,
-                this->report,
-                get_str("key")
+                this->report
             ),
             x::errors::NIL
         };
