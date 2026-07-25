@@ -90,9 +90,12 @@ export const List = ({ value, onChange, ...rest }: ListProps): ReactElement => {
             variant: "success",
             message: `Connected to ${cluster.name}`,
           });
-          if (state.clusterKey && state.clusterKey !== key)
+          if (state.details.clusterKey && state.details.clusterKey !== key)
             dispatch(
-              Session.Cluster.changeKey({ oldKey: key, newKey: state.clusterKey }),
+              Session.Cluster.changeKey({
+                oldKey: key,
+                newKey: state.details.clusterKey,
+              }),
             );
         } else
           addStatus({

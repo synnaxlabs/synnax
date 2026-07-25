@@ -30,7 +30,7 @@ const tokenResponseZ = z.object({
   clusterInfo: clusterInfoZ.optional(),
 });
 
-const LOGIN_ENDPOINT = "/auth/login";
+export const LOGIN_ENDPOINT = "/auth/login";
 
 const MAX_RETRIES = 3;
 

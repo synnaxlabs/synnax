@@ -103,7 +103,7 @@ const Base = ({
         <Flex.Box x>
           {state?.nodeVersion != null && (
             <Text.Text size="tiny" color={9}>
-              v{state.nodeVersion}
+              v{state.details.nodeVersion}
             </Text.Text>
           )}
           <Text.Text size="tiny" color={9}>

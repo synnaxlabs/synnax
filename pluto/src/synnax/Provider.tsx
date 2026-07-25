@@ -65,7 +65,7 @@ export const clockSkewDetailsSchema = z.object({
 export interface StatusDetails extends z.infer<typeof statusDetailsSchema> {}
 
 const addClockSkewStatus = (addStatus: Status.Adder, state: connection.State): void => {
-  const skew = state.clockSkew;
+  const skew = state.details.clockSkew;
   const direction = skew.valueOf() > 0n ? "ahead of" : "behind";
   addStatus<typeof clockSkewDetailsSchema>({
     variant: "warning",
@@ -86,17 +86,17 @@ const addVersionMismatchStatus = (
   state: connection.State,
 ): void => {
   const oldServer =
-    state.nodeVersion == null ||
-    migrate.semVerOlder(state.nodeVersion, state.clientVersion);
+    state.details.nodeVersion == null ||
+    migrate.semVerOlder(state.details.nodeVersion, state.details.clientVersion);
   addStatus<typeof statusDetailsSchema>({
     variant: "warning",
     message: "Incompatible Core version",
-    description: `Core version ${state.nodeVersion != null ? `${state.nodeVersion} ` : ""}is ${oldServer ? "older" : "newer"} than client version ${state.clientVersion}. Compatibility issues may arise.`,
+    description: `Core version ${state.details.nodeVersion != null ? `${state.details.nodeVersion} ` : ""}is ${oldServer ? "older" : "newer"} than client version ${state.details.clientVersion}. Compatibility issues may arise.`,
     details: {
       type: SERVER_VERSION_MISMATCH,
       oldServer,
-      nodeVersion: state.nodeVersion,
-      clientVersion: state.clientVersion,
+      nodeVersion: state.details.nodeVersion,
+      clientVersion: state.details.clientVersion,
     },
   });
 };
@@ -136,11 +136,15 @@ export const Provider = ({ children, connParams }: ProviderProps): ReactElement 
   const handleChange = useCallback(
     (connState: connection.State) => {
       const prev = ref.current.state;
-      if (prev.variant !== connState.variant || prev.reason !== connState.reason)
+      if (
+        prev.variant !== connState.variant ||
+        prev.details.reason !== connState.details.reason
+      )
         addStatus({ variant: connState.variant, message: connState.message });
       if (connState.variant === "success") {
-        if (connState.clockSkewExceeded) addClockSkewStatus(addStatus, connState);
-        if (!connState.clientServerCompatible && !versionWarned.current) {
+        if (connState.details.clockSkewExceeded)
+          addClockSkewStatus(addStatus, connState);
+        if (!connState.details.clientServerCompatible && !versionWarned.current) {
           versionWarned.current = true;
           addVersionMismatchStatus(addStatus, connState);
         }
