@@ -485,6 +485,35 @@ export const {
 export const reducer: Reducer<SliceState, Action> = slice.reducer;
 
 /**
+ * Merges persisted window state into the live slice. The current window's label, the
+ * runtime config, the main window, and unused pre-rendered windows describe the running
+ * process rather than the session, and are kept as they are; the stored secondary
+ * windows replace the live ones. The middleware syncs the difference to the runtime, so
+ * windows open and close to match.
+ * @param current - The live slice.
+ * @param stored - The persisted slice to restore.
+ */
+export const restoreWindows = (current: SliceState, stored: SliceState): SliceState => {
+  const windows: Record<string, WindowState> = {};
+  Object.entries(current.windows).forEach(([label, win]) => {
+    if (label === MAIN_WINDOW || !win.reserved) windows[label] = win;
+  });
+  Object.entries(stored.windows).forEach(([label, win]) => {
+    if (label === MAIN_WINDOW || !win.reserved) return;
+    windows[label] = { ...win, focusCount: 0, centerCount: 0, processCount: 0 };
+  });
+  const labelKeys: Record<string, string> = {};
+  const keyLabels: Record<string, string> = {};
+  // Pre-rendered windows share the prerender key, so they never enter the maps.
+  Object.entries(windows).forEach(([label, win]) => {
+    if (!win.reserved) return;
+    labelKeys[label] = win.key;
+    keyLabels[win.key] = label;
+  });
+  return { ...current, windows, labelKeys, keyLabels };
+};
+
+/**
  * @returns true if the given action type is a drift action.
  * @param type - The action type to check.
  */

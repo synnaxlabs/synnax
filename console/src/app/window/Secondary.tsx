@@ -9,24 +9,47 @@
 
 import "@/app/window/Secondary.css";
 
-import { Flex } from "@synnaxlabs/pluto";
+import { Flex, Nav as PNav } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
 import { Mosaic } from "@/app/mosaic";
+import { Nav } from "@/app/nav";
+import { Triggers } from "@/app/triggers";
 import { Auth } from "@/feature/auth";
+import { Panel } from "@/feature/panel";
 import { Project } from "@/feature/project";
 import { CSS } from "@/platform/css";
+import { Nav as PlatformNav } from "@/platform/nav";
+import { Window } from "@/platform/window";
+
+const SideEffect = (): null => {
+  Panel.useTearOff();
+  Triggers.use();
+  return null;
+};
 
 /**
- * Secondary is the shell for every non-main window: a pure panel viewport with
- * the panel selector strip and no navigation chrome.
+ * Secondary is the shell for every non-main window: a panel viewport with the selector
+ * strip and the visualization toolbar, and none of the main window's remaining chrome.
  */
 export const Secondary = (): ReactElement => (
   <Auth.Guard>
     <Auth.ConnectionGuard nav={false}>
       <Project.Guard>
-        <Flex.Box x gap="tiny" grow className={CSS.B("secondary")}>
+        <SideEffect />
+        <PlatformNav.Bar location="top" size="6.5rem">
+          <PNav.Bar.Start data-tauri-drag-region gap="large">
+            <Window.Controls visibleIfOS="macOS" />
+            <Panel.Selector />
+          </PNav.Bar.Start>
+          <PNav.Bar.Content data-tauri-drag-region full="x" />
+          <PNav.Bar.End data-tauri-drag-region justify="end">
+            <Window.Controls visibleIfOS="Windows" />
+          </PNav.Bar.End>
+        </PlatformNav.Bar>
+        <Flex.Box gap="tiny" grow className={CSS.B("secondary")}>
           <Mosaic.Mosaic />
+          <Nav.Drawer.Bottom />
         </Flex.Box>
       </Project.Guard>
     </Auth.ConnectionGuard>

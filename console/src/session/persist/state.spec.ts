@@ -11,6 +11,20 @@ import { type MiddlewareAPI } from "@reduxjs/toolkit";
 import { kv, TimeSpan } from "@synnaxlabs/x";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+const mocks = vi.hoisted((): { engine: "web" | "tauri"; label: string } => ({
+  engine: "web",
+  label: "main",
+}));
+
+vi.mock("@/session/runtime/runtime", async (importOriginal) => {
+  const { mockRuntimeEngine } = await import("@/testutil/runtime");
+  return await mockRuntimeEngine(importOriginal, mocks);
+});
+
+vi.mock("@tauri-apps/api/window", () => ({
+  getCurrentWindow: () => ({ label: mocks.label }),
+}));
+
 import { Persist } from "@/session/persist";
 
 interface MockState {
@@ -25,10 +39,10 @@ const ZERO_MOCK_STATE: MockState = {
   work: { value: "0.0.0", transient: "zero" },
 };
 
-const LEVELS: Persist.Levels<MockState> = {
-  l0: ["cluster"],
-  l1: ["project"],
-  l2: ["work"],
+const SCOPES: Persist.Scopes<MockState> = {
+  global: ["cluster"],
+  cluster: ["project"],
+  project: ["work"],
 };
 
 const getContext = (state: MockState): Persist.Context => ({
@@ -44,231 +58,239 @@ const STATE: MockState = {
   work: { value: "16.2.0", transient: "drag" },
 };
 
-const openEngine = async (
+// One state key plus one version key for the global partition.
+const GLOBAL_KEYS = 2;
+
+const openPersist = async (
   store: kv.MockAsync,
   overrides: Partial<Persist.Config<MockState>> = {},
 ) =>
   await Persist.open<MockState>({
     initial: ZERO_MOCK_STATE,
-    levels: LEVELS,
+    scopes: SCOPES,
     getContext,
     openKV: () => store,
+    debounceInterval: TimeSpan.ZERO,
     ...overrides,
   });
 
-describe("Persist", () => {
-  describe("engine.persist", () => {
-    it("should write each partition under its own versioned keys", async () => {
-      const store = new kv.MockAsync();
-      const engine = await openEngine(store);
-      await engine.persist(STATE, CTX);
-      await expect(
-        store.get(Persist.partitionStateKey(Persist.l0PartitionBase(), 1)),
-      ).resolves.toEqual({ cluster: { selected: "c1" } });
-      await expect(
-        store.get(Persist.partitionStateKey(Persist.l1PartitionBase("c1"), 1)),
-      ).resolves.toEqual({ project: { selected: "p1" } });
-      await expect(
-        store.get(Persist.partitionStateKey(Persist.l2PartitionBase("c1", "p1"), 1)),
-      ).resolves.toEqual({ work: STATE.work });
-      await expect(
-        store.get(Persist.partitionVersionKey(Persist.l0PartitionBase())),
-      ).resolves.toEqual({ version: 1 });
+/**
+ * Drives actions through the persistence middleware the way the redux store does,
+ * standing in for the root reducer: the caller supplies the state each action reduced
+ * to, and a hydrate the middleware dispatches swaps its slices in and rides back
+ * through the chain.
+ */
+const createDriver = async (
+  store: kv.MockAsync,
+  overrides: Partial<Persist.Config<MockState>> = {},
+) => {
+  const { initialState, middleware } = await openPersist(store, overrides);
+  let state = initialState ?? ZERO_MOCK_STATE;
+  let settled = 0;
+  const next = vi.fn((action: unknown) => action);
+  const dispatched = vi.fn((action: unknown) => {
+    if (!Persist.hydrate.match(action)) return;
+    state = { ...state, ...(action.payload as Partial<MockState>) };
+    run(action);
+  });
+  const api = { getState: () => state, dispatch: dispatched } as MiddlewareAPI;
+  const run = middleware(api)(next);
+  return {
+    initialState,
+    next,
+    dispatched,
+    getState: () => state,
+    dispatch: (action: { type: string }, reduced?: MockState) => {
+      if (reduced != null) state = reduced;
+      return run(action);
+    },
+    /** Waits for the swap in flight to hydrate. */
+    settle: async () => {
+      await vi.waitFor(() =>
+        expect(dispatched.mock.calls.length).toBeGreaterThan(settled),
+      );
+      settled = dispatched.mock.calls.length;
+    },
+    /** Reopens the store to see what production has written so far. */
+    composed: async () => (await openPersist(store)).initialState,
+    /** Waits until a reopened engine composes state the predicate accepts. */
+    flushed: async (predicate: (state?: MockState) => boolean) =>
+      await vi.waitFor(async () => {
+        const { initialState } = await openPersist(store);
+        if (!predicate(initialState)) throw new Error("state not persisted yet");
+      }),
+  };
+};
+
+const workIs =
+  (value: string) =>
+  (state?: MockState): boolean =>
+    state?.work.value === value;
+
+type Driver = Awaited<ReturnType<typeof createDriver>>;
+
+/**
+ * Walks into a context the way production does: the cluster is chosen first, and only
+ * once its partition has hydrated does the project it names become selectable.
+ */
+const enter = async (driver: Driver, { cluster, project }: Persist.Context) => {
+  if (driver.getState().cluster.selected !== cluster) {
+    driver.dispatch(
+      { type: "cluster/select" },
+      { ...driver.getState(), cluster: { selected: cluster } },
+    );
+    await driver.settle();
+  }
+  // The cluster's partition may already name the project, in which case nothing moved.
+  if (project == null || driver.getState().project.selected === project) return;
+  driver.dispatch(
+    { type: "project/select" },
+    { ...driver.getState(), project: { selected: project } },
+  );
+  await driver.settle();
+};
+
+/** Edits the work slice and waits for the edit to reach disk. */
+const edit = async (driver: Driver, value: string) => {
+  driver.dispatch(
+    { type: "work/edit" },
+    { ...driver.getState(), work: { value, transient: "drag" } },
+  );
+  await driver.flushed(workIs(value));
+};
+
+describe("Persist.open", () => {
+  beforeEach(() => {
+    mocks.engine = "web";
+    mocks.label = "main";
+  });
+
+  describe("composition", () => {
+    it("should start from the initial state when nothing has been persisted", async () => {
+      const { initialState } = await openPersist(new kv.MockAsync());
+      expect(initialState).toEqual(ZERO_MOCK_STATE);
     });
 
-    it("should skip L1 and L2 when no cluster is in context", async () => {
+    it("should compose the global, selected cluster, and active project partitions", async () => {
       const store = new kv.MockAsync();
-      const engine = await openEngine(store);
-      await engine.persist(STATE, {});
-      await expect(
-        store.get(Persist.partitionStateKey(Persist.l0PartitionBase(), 1)),
-      ).resolves.toEqual({ cluster: { selected: "c1" } });
-      await expect(
-        store.get(Persist.partitionStateKey(Persist.l1PartitionBase("c1"), 1)),
-      ).resolves.toBeNull();
+      const driver = await createDriver(store);
+      await enter(driver, CTX);
+      await edit(driver, "16.2.0");
+      expect(await driver.composed()).toEqual(STATE);
     });
 
-    it("should skip L2 when no project is in context", async () => {
+    it("should stop at the global partition when no cluster was selected", async () => {
       const store = new kv.MockAsync();
-      const engine = await openEngine(store);
-      await engine.persist(STATE, { cluster: "c1" });
-      await expect(
-        store.get(Persist.partitionStateKey(Persist.l1PartitionBase("c1"), 1)),
-      ).resolves.toEqual({ project: { selected: "p1" } });
-      await expect(
-        store.get(Persist.partitionStateKey(Persist.l2PartitionBase("c1", "p1"), 1)),
-      ).resolves.toBeNull();
-    });
-
-    it("should maintain a bounded history ring per partition", async () => {
-      const store = new kv.MockAsync();
-      const openKV = () => store;
-      const engine = await openEngine(store, { openKV });
-      for (let i = 0; i < 10; i++)
-        await engine.persist({ ...STATE, work: { value: `16.2.${i}` } }, CTX);
-      // 4 ring entries + 1 version pointer for each of the three partitions.
-      await expect(store.length()).resolves.toBe(15);
-      const engine2 = await openEngine(store, { openKV });
-      expect(engine2.initialState?.work.value).toEqual("16.2.9");
+      const driver = await createDriver(store);
+      driver.dispatch({ type: "work/edit" }, { ...ZERO_MOCK_STATE, work: STATE.work });
+      await vi.waitFor(async () => expect(await store.length()).toBe(GLOBAL_KEYS));
+      const composed = await driver.composed();
+      expect(composed?.project).toEqual(ZERO_MOCK_STATE.project);
+      expect(composed?.work).toEqual(ZERO_MOCK_STATE.work);
     });
   });
 
-  describe("engine.revert", () => {
-    it("should step every active partition back one version", async () => {
+  describe("partitions", () => {
+    it("should write only the global partition when no cluster is in context", async () => {
       const store = new kv.MockAsync();
-      const engine = await openEngine(store);
-      await engine.persist(STATE, CTX);
-      await engine.persist({ ...STATE, work: { value: "16.2.1" } }, CTX);
-      await engine.revert(CTX);
-      const engine2 = await openEngine(store);
-      expect(engine2.initialState?.work.value).toEqual("16.2.0");
+      const driver = await createDriver(store);
+      driver.dispatch({ type: "work/edit" }, { ...ZERO_MOCK_STATE, work: STATE.work });
+      await vi.waitFor(async () => expect(await store.length()).toBe(GLOBAL_KEYS));
     });
 
-    it("should fall back to the initial state when reverting past the first version", async () => {
+    it("should skip the project partition when no project is in context", async () => {
       const store = new kv.MockAsync();
-      const engine = await openEngine(store);
-      await engine.persist(STATE, CTX);
-      await engine.revert(CTX);
-      const engine2 = await openEngine(store);
-      expect(engine2.initialState?.work.value).toEqual(ZERO_MOCK_STATE.work.value);
+      const driver = await createDriver(store);
+      await enter(driver, { cluster: "c1" });
+      driver.dispatch(
+        { type: "work/edit" },
+        { ...driver.getState(), work: { value: "c1-work" } },
+      );
+      await driver.flushed((s) => s?.cluster.selected === "c1");
+      // The project-scoped work never reached disk, so it composes from zero.
+      expect((await driver.composed())?.work).toEqual(ZERO_MOCK_STATE.work);
+    });
+
+    it("should bound each partition to four versions", async () => {
+      const store = new kv.MockAsync();
+      const driver = await createDriver(store);
+      await enter(driver, CTX);
+      for (let i = 0; i < 10; i++) await edit(driver, `16.2.${i}`);
+      // Four ring entries plus a version pointer for each of the three partitions.
+      expect(await store.length()).toBe(15);
+    });
+
+    it("should scope slices to the context they were written under", async () => {
+      const store = new kv.MockAsync();
+      const driver = await createDriver(store);
+      await enter(driver, CTX);
+      await edit(driver, "p1-work");
+      await enter(driver, { cluster: "c2", project: "p2" });
+      await edit(driver, "p2-work");
+      await enter(driver, CTX);
+      expect(driver.getState().work.value).toEqual("p1-work");
     });
   });
 
-  describe("engine.clear", () => {
-    it("should clear the entire store", async () => {
+  describe("secondary windows", () => {
+    it("should neither compose nor persist state outside the main window", async () => {
+      mocks.engine = "tauri";
+      mocks.label = "child-window";
       const store = new kv.MockAsync();
-      const engine = await openEngine(store);
-      await engine.persist(STATE, CTX);
-      await engine.clear();
+      const driver = await createDriver(store);
+      expect(driver.initialState).toBeUndefined();
+      const action = { type: "work/edit" };
+      expect(driver.dispatch(action, STATE)).toBe(action);
+      expect(driver.next).toHaveBeenCalledWith(action);
       await expect(store.length()).resolves.toBe(0);
-      const engine2 = await openEngine(store);
-      expect(engine2.initialState).toEqual(ZERO_MOCK_STATE);
-    });
-  });
-
-  describe("startup composition", () => {
-    it("should compose L0, the selected cluster's L1, and its project's L2", async () => {
-      const store = new kv.MockAsync();
-      const engine = await openEngine(store);
-      await engine.persist(STATE, CTX);
-      const engine2 = await openEngine(store);
-      expect(engine2.initialState).toEqual({
-        ...STATE,
-        work: { ...STATE.work, transient: STATE.work.transient },
-      });
-      expect(engine2.context).toEqual(CTX);
-    });
-
-    it("should stop at L0 when no cluster was selected", async () => {
-      const store = new kv.MockAsync();
-      const engine = await openEngine(store);
-      await engine.persist({ ...STATE, cluster: {} }, { cluster: "c1", project: "p1" });
-      const engine2 = await openEngine(store);
-      expect(engine2.initialState?.project).toEqual(ZERO_MOCK_STATE.project);
-      expect(engine2.initialState?.work).toEqual(ZERO_MOCK_STATE.work);
-    });
-  });
-
-  describe("engine.loadSwap", () => {
-    it("should load the target cluster's L1 and the L2 its project points at", async () => {
-      const store = new kv.MockAsync();
-      const engine = await openEngine(store);
-      await engine.persist(
-        {
-          cluster: { selected: "c2" },
-          project: { selected: "p2" },
-          work: { value: "c2-work" },
-        },
-        { cluster: "c2", project: "p2" },
-      );
-      const loaded = await engine.loadSwap(STATE, { cluster: "c2" }, true);
-      expect(loaded.project?.selected).toEqual("p2");
-      expect(loaded.work?.value).toEqual("c2-work");
-    });
-
-    it("should return zero slices for a never-visited context", async () => {
-      const store = new kv.MockAsync();
-      const engine = await openEngine(store);
-      const loaded = await engine.loadSwap(STATE, { cluster: "fresh" }, true);
-      expect(loaded.project).toEqual(ZERO_MOCK_STATE.project);
-      expect(loaded.work).toEqual(ZERO_MOCK_STATE.work);
-    });
-
-    it("should swap only L2 when the cluster is unchanged", async () => {
-      const store = new kv.MockAsync();
-      const engine = await openEngine(store);
-      await engine.persist(
-        { ...STATE, project: { selected: "p2" }, work: { value: "p2-work" } },
-        { cluster: "c1", project: "p2" },
-      );
-      const loaded = await engine.loadSwap(
-        STATE,
-        { cluster: "c1", project: "p2" },
-        false,
-      );
-      expect(loaded.project).toBeUndefined();
-      expect(loaded.work?.value).toEqual("p2-work");
     });
   });
 
   describe("exclude", () => {
-    it("should strip excluded deep keys from writes and restore their defaults on load", async () => {
+    it("should strip excluded state from writes", async () => {
       const store = new kv.MockAsync();
-      const openKV = () => store;
-      const exclude: Persist.Config<MockState>["exclude"] = ["work.transient"];
-      const engine = await openEngine(store, { openKV, exclude });
-      await engine.persist(STATE, CTX);
-      await expect(
-        store.get(Persist.partitionStateKey(Persist.l2PartitionBase("c1", "p1"), 1)),
-      ).resolves.toEqual({ work: { value: "16.2.0" } });
-      const engine2 = await openEngine(store, { openKV, exclude });
-      expect(engine2.initialState?.work).toEqual({
-        value: "16.2.0",
-        transient: "zero",
-      });
-    });
-
-    it("should apply a function exclude to transform the persisted state", async () => {
-      const store = new kv.MockAsync();
-      const stripWork = (s: MockState): MockState => ({
+      const stripTransient = (s: MockState): MockState => ({
         ...s,
-        work: { value: "" },
+        work: { value: s.work.value },
       });
-      const engine = await openEngine(store, { exclude: [stripWork] });
-      await engine.persist(STATE, CTX);
-      await expect(
-        store.get(Persist.partitionStateKey(Persist.l2PartitionBase("c1", "p1"), 1)),
-      ).resolves.toEqual({ work: { value: "" } });
+      const driver = await createDriver(store, { exclude: [stripTransient] });
+      await enter(driver, CTX);
+      await edit(driver, "16.2.0");
+      expect((await driver.composed())?.work).toEqual({ value: "16.2.0" });
     });
   });
 
   describe("migrators", () => {
+    const createPersisted = async (store: kv.MockAsync) => {
+      const driver = await createDriver(store);
+      await enter(driver, CTX);
+      await edit(driver, "16.2.0");
+    };
+
     it("should apply a slice migrator as its partition loads", async () => {
       const store = new kv.MockAsync();
-      const engine = await openEngine(store);
-      await engine.persist(STATE, CTX);
-      const engine2 = await openEngine(store, {
+      await createPersisted(store);
+      const { initialState } = await openPersist(store, {
         migrators: {
           work: (raw) => ({ ...(raw as MockState["work"]), value: "migrated" }),
         },
       });
-      expect(engine2.initialState?.work.value).toEqual("migrated");
+      expect(initialState?.work.value).toEqual("migrated");
     });
 
     it("should fall back to the slice's initial state when its migrator throws", async () => {
       const store = new kv.MockAsync();
-      const engine = await openEngine(store);
-      await engine.persist(STATE, CTX);
+      await createPersisted(store);
       const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
-      const engine2 = await openEngine(store, {
+      const { initialState } = await openPersist(store, {
         migrators: {
           work: () => {
             throw new Error("migration failed");
           },
         },
       });
-      expect(engine2.initialState?.work).toEqual(ZERO_MOCK_STATE.work);
-      expect(engine2.initialState?.cluster).toEqual(STATE.cluster);
+      expect(initialState?.work).toEqual(ZERO_MOCK_STATE.work);
+      expect(initialState?.cluster).toEqual(STATE.cluster);
       expect(errorSpy).toHaveBeenCalled();
       errorSpy.mockRestore();
     });
@@ -276,186 +298,160 @@ describe("Persist", () => {
 });
 
 describe("Persist.middleware", () => {
-  const createEngine = (): Persist.Engine<MockState> => ({
-    context: {},
-    initialState: undefined,
-    persist: vi.fn().mockResolvedValue(undefined),
-    loadSwap: vi.fn().mockResolvedValue({ work: { value: "swapped" } }),
-    revert: vi.fn().mockResolvedValue(undefined),
-    clear: vi.fn().mockResolvedValue(undefined),
+  beforeEach(() => {
+    mocks.engine = "web";
+    mocks.label = "main";
   });
 
-  // Drives an action straight through the middleware chain, capturing what next saw.
-  const drive = (
-    engine: Persist.Engine<MockState>,
-    state: MockState,
-    action: { type: string },
-    debounceInterval = TimeSpan.ZERO,
-  ) => {
-    const next = vi.fn((a: unknown) => a);
-    const dispatch = vi.fn();
-    const store: MiddlewareAPI = { getState: () => state, dispatch };
-    const result = Persist.middleware<MockState>({
-      engine,
-      getContext,
-      debounceInterval,
-    })(store)(next)(action);
-    return { next, dispatch, result };
-  };
-
-  it("should pass the action through to next and return its result", () => {
-    const engine = createEngine();
+  it("should pass the action through to next and return its result", async () => {
+    const driver = await createDriver(new kv.MockAsync());
     const action = { type: "any/action" };
-    const { next, result } = drive(engine, ZERO_MOCK_STATE, action);
-    expect(next).toHaveBeenCalledWith(action);
-    expect(result).toBe(action);
+    expect(driver.dispatch(action)).toBe(action);
+    expect(driver.next).toHaveBeenCalledWith(action);
   });
 
-  it("should persist the current store state under the current context", () => {
-    const engine = createEngine();
-    drive(engine, ZERO_MOCK_STATE, { type: "any/action" });
-    expect(engine.persist).toHaveBeenCalledWith(ZERO_MOCK_STATE, {});
-    expect(engine.revert).not.toHaveBeenCalled();
-    expect(engine.clear).not.toHaveBeenCalled();
+  it("should persist the current store state under the current context", async () => {
+    const store = new kv.MockAsync();
+    const driver = await createDriver(store);
+    await enter(driver, CTX);
+    await edit(driver, "edited");
   });
 
-  // The revert/clear branches trigger a window reload, which jsdom cannot perform; the
+  // The revert and clear branches reload the window, which jsdom cannot perform; the
   // production code swallows that failure via .catch, so we suppress the expected log.
-  it("should revert instead of persisting on a revertState action", () => {
+  it("should revert every active partition one version on a revertState action", async () => {
     const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
-    const engine = createEngine();
-    drive(engine, ZERO_MOCK_STATE, Persist.revertState());
-    expect(engine.revert).toHaveBeenCalledOnce();
-    expect(engine.persist).not.toHaveBeenCalled();
+    const store = new kv.MockAsync();
+    const driver = await createDriver(store);
+    await enter(driver, CTX);
+    await edit(driver, "16.2.0");
+    await edit(driver, "16.2.1");
+    driver.dispatch(Persist.revertState());
+    await driver.flushed(workIs("16.2.0"));
     errorSpy.mockRestore();
   });
 
-  it("should clear instead of persisting on a clearState action", () => {
+  it("should fall back to the initial state when reverting past the first version", async () => {
     const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
-    const engine = createEngine();
-    drive(engine, ZERO_MOCK_STATE, Persist.clearState());
-    expect(engine.clear).toHaveBeenCalledOnce();
-    expect(engine.persist).not.toHaveBeenCalled();
+    const store = new kv.MockAsync();
+    const driver = await createDriver(store);
+    await enter(driver, CTX);
+    await edit(driver, "16.2.0");
+    driver.dispatch(Persist.revertState());
+    await driver.flushed(workIs(ZERO_MOCK_STATE.work.value));
     errorSpy.mockRestore();
   });
 
-  it("should flush the old context, load the target, and dispatch hydrate on a context switch", async () => {
-    const engine = createEngine();
-    const { dispatch } = drive(engine, STATE, { type: "cluster/select" });
-    expect(engine.persist).toHaveBeenCalledWith(STATE, {});
-    await vi.waitFor(() => {
-      expect(engine.loadSwap).toHaveBeenCalledWith(STATE, CTX, true);
-      expect(dispatch).toHaveBeenCalledWith(
-        Persist.hydrate({ work: { value: "swapped" } }),
-      );
-    });
+  it("should clear the entire store on a clearState action", async () => {
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    const store = new kv.MockAsync();
+    const driver = await createDriver(store);
+    await enter(driver, CTX);
+    await edit(driver, "16.2.0");
+    driver.dispatch(Persist.clearState());
+    await vi.waitFor(async () => expect(await store.length()).toBe(0));
+    errorSpy.mockRestore();
   });
 
-  it("should swap only L2 when the project changes within the same cluster", async () => {
-    const engine = createEngine();
-    engine.context = { cluster: "c1", project: "p0" };
-    drive(engine, STATE, { type: "project/select" });
-    await vi.waitFor(() => {
-      expect(engine.loadSwap).toHaveBeenCalledWith(STATE, CTX, false);
-    });
+  it("should load the target context and dispatch hydrate on a context switch", async () => {
+    const driver = await createDriver(new kv.MockAsync());
+    await enter(driver, CTX);
+    await edit(driver, "c1-work");
+    await enter(driver, { cluster: "c2", project: "p2" });
+    await enter(driver, { cluster: "c1" });
+    // The cluster's partition names the project whose partition holds the work.
+    expect(driver.dispatched).toHaveBeenLastCalledWith(
+      Persist.hydrate({
+        project: { selected: "p1" },
+        work: { value: "c1-work", transient: "drag" },
+      }),
+    );
   });
 
-  it("should let onSwap rewrite the loaded slices before hydrating", async () => {
-    const engine = createEngine();
-    const next = vi.fn((a: unknown) => a);
-    const dispatch = vi.fn();
-    const store: MiddlewareAPI = { getState: () => STATE, dispatch };
-    Persist.middleware<MockState>({
-      engine,
-      getContext,
-      debounceInterval: TimeSpan.ZERO,
-      onSwap: (loaded) => ({ ...loaded, work: { value: "rewritten" } }),
-    })(store)(next)({ type: "cluster/select" });
-    await vi.waitFor(() => {
-      expect(dispatch).toHaveBeenCalledWith(
-        Persist.hydrate({ work: { value: "rewritten" } }),
-      );
-    });
+  it("should swap only the project partition when the cluster is unchanged", async () => {
+    const driver = await createDriver(new kv.MockAsync());
+    await enter(driver, CTX);
+    await edit(driver, "p1-work");
+    await enter(driver, { cluster: "c1", project: "p2" });
+    await enter(driver, CTX);
+    // The cluster-scoped project slice stayed put; only the project's work swapped.
+    expect(driver.dispatched).toHaveBeenLastCalledWith(
+      Persist.hydrate({ work: { value: "p1-work", transient: "drag" } }),
+    );
+  });
+
+  it("should hydrate zero slices for a never-visited context", async () => {
+    const driver = await createDriver(new kv.MockAsync());
+    await enter(driver, { cluster: "fresh" });
+    expect(driver.dispatched).toHaveBeenCalledWith(
+      Persist.hydrate({
+        project: ZERO_MOCK_STATE.project,
+        work: ZERO_MOCK_STATE.work,
+      }),
+    );
+  });
+
+  it("should adopt the hydrated context instead of re-swapping on hydrate", async () => {
+    const store = new kv.MockAsync();
+    const driver = await createDriver(store);
+    await enter(driver, CTX);
+    const swaps = driver.dispatched.mock.calls.length;
+    driver.dispatch(Persist.hydrate({ work: STATE.work }), STATE);
+    await driver.flushed(workIs("16.2.0"));
+    expect(driver.dispatched.mock.calls.length).toBe(swaps);
   });
 
   it("should discard a stale swap when a newer context switch supersedes it", async () => {
-    const engine = createEngine();
+    const store = new kv.MockAsync();
+    const seed = await createDriver(store);
+    await enter(seed, CTX);
+    await edit(seed, "fresh");
     let releaseStale: (() => void) | undefined;
     const staleGate = new Promise<void>((resolve) => (releaseStale = resolve));
-    engine.loadSwap = vi.fn(async (_state, context: Persist.Context) => {
-      if (context.project == null) {
-        await staleGate;
-        return { project: {}, work: { value: "stale" } };
-      }
-      return { work: { value: "fresh" } };
-    });
-    const next = vi.fn((a: unknown) => a);
-    const dispatch = vi.fn();
-    let state: MockState = {
-      cluster: { selected: "c1" },
-      project: {},
-      work: { value: "w" },
+    // Holds the cluster partition read so its swap is still in flight when the project
+    // swap starts and finishes.
+    let gateArmed = false;
+    const gated: Persist.SugaredKV = {
+      get: async <V>(key: string): Promise<V | null> => {
+        if (gateArmed && key.startsWith("cluster.c1")) await staleGate;
+        return await store.get<V>(key);
+      },
+      set: async (key, value) => await store.set(key, value),
+      delete: async (key) => await store.delete(key),
+      length: async () => await store.length(),
+      clear: async () => await store.clear(),
     };
-    const store: MiddlewareAPI = { getState: () => state, dispatch };
-    const mw = Persist.middleware<MockState>({
-      engine,
-      getContext,
-      debounceInterval: TimeSpan.ZERO,
-    })(store)(next);
-    mw({ type: "cluster/select" });
-    await vi.waitFor(() => expect(engine.loadSwap).toHaveBeenCalledTimes(1));
-    state = { ...state, project: { selected: "p1" } };
-    mw({ type: "project/select" });
-    await vi.waitFor(() => {
-      expect(dispatch).toHaveBeenCalledWith(
-        Persist.hydrate({ work: { value: "fresh" } }),
-      );
-    });
+    const driver = await createDriver(store, { openKV: () => gated });
+    gateArmed = true;
+    driver.dispatch(
+      { type: "cluster/select" },
+      { ...ZERO_MOCK_STATE, cluster: { selected: "c1" } },
+    );
+    driver.dispatch({ type: "project/select" }, STATE);
+    await driver.settle();
+    expect(driver.getState().work.value).toEqual("fresh");
     releaseStale?.();
-    await vi.waitFor(() => expect(engine.loadSwap).toHaveBeenCalledTimes(2));
-    // The slow cluster swap resolved last; hydrating it would wipe the newer
-    // project selection with its stale project slice.
-    expect(dispatch).toHaveBeenCalledOnce();
+    // The slow cluster swap resolved last; hydrating it would wipe the newer project
+    // selection with its stale slices.
+    await expect.poll(() => driver.dispatched.mock.calls.length).toBe(1);
   });
 
-  it("should adopt the hydrated context instead of re-swapping on hydrate", () => {
-    const engine = createEngine();
-    const next = vi.fn((a: unknown) => a);
-    const dispatch = vi.fn();
-    const store: MiddlewareAPI = { getState: () => STATE, dispatch };
-    const mw = Persist.middleware<MockState>({
-      engine,
-      getContext,
-      debounceInterval: TimeSpan.ZERO,
-    })(store)(next);
-    mw(Persist.hydrate({ work: STATE.work }));
-    expect(engine.loadSwap).not.toHaveBeenCalled();
-    expect(engine.persist).toHaveBeenCalledWith(STATE, CTX);
-  });
-
-  it("should coalesce rapid dispatches into a single persist when debounced", () => {
+  it("should coalesce rapid dispatches into a single persist when debounced", async () => {
+    const store = new kv.MockAsync();
+    const driver = await createDriver(store, {
+      debounceInterval: TimeSpan.milliseconds(250),
+    });
     vi.useFakeTimers();
     try {
-      const engine = createEngine();
-      const next = vi.fn((a: unknown) => a);
-      const store: MiddlewareAPI = {
-        getState: () => ZERO_MOCK_STATE,
-        dispatch: vi.fn(),
-      };
-      const dispatch = Persist.middleware<MockState>({
-        engine,
-        getContext,
-        debounceInterval: TimeSpan.milliseconds(250),
-      })(store)(next);
-      dispatch({ type: "a" });
-      dispatch({ type: "b" });
-      dispatch({ type: "c" });
-      expect(engine.persist).not.toHaveBeenCalled();
-      vi.advanceTimersByTime(250);
-      expect(engine.persist).toHaveBeenCalledOnce();
+      driver.dispatch({ type: "a" }, ZERO_MOCK_STATE);
+      driver.dispatch({ type: "b" }, ZERO_MOCK_STATE);
+      driver.dispatch({ type: "c" }, ZERO_MOCK_STATE);
+      await expect(store.length()).resolves.toBe(0);
+      await vi.advanceTimersByTimeAsync(250);
     } finally {
       vi.useRealTimers();
     }
+    await vi.waitFor(async () => expect(await store.length()).toBe(GLOBAL_KEYS));
   });
 });
 
@@ -476,12 +472,13 @@ describe("Persist.hardClearAndReload", () => {
   });
 
   it("should clear the persisted store scoped to the store path", async () => {
-    const versionKey = Persist.partitionVersionKey(Persist.l0PartitionBase());
-    localStorage.setItem(`${PREFIX}${versionKey}`, JSON.stringify({ version: 1 }));
+    await Persist.openSugaredKV(Persist.STORE_PATH).set("global.version", {
+      version: 1,
+    });
     localStorage.setItem("unrelated:key", "keep-me");
     Persist.hardClearAndReload();
     await vi.waitFor(() => {
-      expect(localStorage.getItem(`${PREFIX}${versionKey}`)).toBeNull();
+      expect(localStorage.getItem(`${PREFIX}global.version`)).toBeNull();
     });
     expect(localStorage.getItem("unrelated:key")).toBe("keep-me");
   });

@@ -11,13 +11,11 @@ import {
   combineReducers,
   type Dispatch,
   type Middleware,
-  type MiddlewareAPI,
   type Reducer,
   type Store as BaseStore,
   Tuple,
 } from "@reduxjs/toolkit";
 import { Drift } from "@synnaxlabs/drift";
-import { type deep, type record } from "@synnaxlabs/x";
 import { useDispatch as baseUseDispatch, useStore as baseUseStore } from "react-redux";
 
 import { Arc } from "@/session/arc";
@@ -38,7 +36,7 @@ import { Status } from "@/session/status";
 import { Table } from "@/session/table";
 import { Theme } from "@/session/theme";
 
-const PERSIST_EXCLUDE: Array<deep.Key<State> | ((func: State) => State)> = [
+const PERSIST_EXCLUDE: Array<Persist.ExcludeFn<State>> = [
   ...Panel.PERSIST_EXCLUDE,
   Haul.PERSIST_EXCLUDE,
   ...Arc.PERSIST_EXCLUDE,
@@ -48,12 +46,12 @@ const PERSIST_EXCLUDE: Array<deep.Key<State> | ((func: State) => State)> = [
   ...Table.PERSIST_EXCLUDE,
 ];
 
-// Every persisted slice lives in exactly one partition level: L0 is global,
-// L1 is per-cluster, L2 is per-cluster-per-project.
-const PERSIST_LEVELS: Persist.Levels<State> = {
-  l0: [Cluster.SLICE_NAME, Color.SLICE_NAME, Docs.SLICE_NAME, Theme.SLICE_NAME],
-  l1: [Project.SLICE_NAME, Status.SLICE_NAME],
-  l2: [
+// Every persisted slice lives in exactly one partition scope: global,
+// per-cluster, or per-cluster-per-project.
+const PERSIST_SCOPES: Persist.Scopes<State> = {
+  global: [Cluster.SLICE_NAME, Color.SLICE_NAME, Docs.SLICE_NAME, Theme.SLICE_NAME],
+  cluster: [Project.SLICE_NAME, Status.SLICE_NAME],
+  project: [
     Arc.SLICE_NAME,
     Drift.SLICE_NAME,
     Haul.SLICE_NAME,
@@ -114,10 +112,16 @@ const combinedReducer = combineReducers({
   [Theme.SLICE_NAME]: Theme.reducer,
 }) as unknown as Reducer<State, Action>;
 
-// hydrate replaces the swapped slices wholesale on a session context switch.
+// hydrate replaces the swapped slices wholesale on a session context switch. Drift
+// merges instead, keeping the windows this process is actually running.
 export const reducer: Reducer<State, Action> = (state, action) => {
-  if (state != null && Persist.hydrate.match(action))
-    state = { ...state, ...(action.payload as Partial<State>) };
+  if (state != null && Persist.hydrate.match(action)) {
+    const payload = action.payload as Partial<State>;
+    const stored = payload[Drift.SLICE_NAME];
+    const live = state[Drift.SLICE_NAME];
+    state = { ...state, ...payload };
+    if (stored != null) state[Drift.SLICE_NAME] = Drift.restoreWindows(live, stored);
+  }
   return combinedReducer(state, action);
 };
 
@@ -166,60 +170,6 @@ const DEFAULT_WINDOW_PROPS: Omit<Drift.WindowProps, "key"> = {
   minSize: { width: 625, height: 375 },
 };
 
-interface OpenPersistReturn {
-  initialState?: State;
-  persistMiddleware: Middleware<record.Unknown, State, Dispatch<Action>>;
-}
-
-// Drift's real windows open and close through actions, not state diffs, so the
-// stored drift slice never hydrates wholesale: the old context's secondary
-// windows close and the target's stored windows reopen through ordinary drift
-// dispatches carrying their stored props.
-const swapDriftWindows = (
-  loaded: Partial<State>,
-  store: MiddlewareAPI,
-): Partial<State> => {
-  const stored = loaded[Drift.SLICE_NAME];
-  delete loaded[Drift.SLICE_NAME];
-  const current = (store.getState() as State)[Drift.SLICE_NAME].windows;
-  Object.values(current).forEach((win) => {
-    if (win.key === Drift.MAIN_WINDOW || !win.reserved) return;
-    store.dispatch(Drift.closeWindow({ key: win.key }));
-  });
-  if (stored == null) return loaded;
-  Object.values(stored.windows).forEach((win) => {
-    if (win.key === Drift.MAIN_WINDOW || !win.reserved) return;
-    // A stored window on a stale schema must not abort the swap after the
-    // current windows have already closed; skip the unparseable entry.
-    const parsed = Drift.windowPropsZ.safeParse(win);
-    if (parsed.success) store.dispatch(Drift.createWindow(parsed.data));
-  });
-  return loaded;
-};
-
-const openPersist = async (): Promise<OpenPersistReturn> => {
-  if (!Runtime.isMainWindow())
-    return {
-      initialState: undefined,
-      persistMiddleware: () => (next) => (action) => next(action),
-    };
-  const engine = await Persist.open<State>({
-    initial: ZERO_STATE,
-    levels: PERSIST_LEVELS,
-    getContext: getPersistContext,
-    migrators: PERSIST_MIGRATORS,
-    exclude: PERSIST_EXCLUDE,
-  });
-  return {
-    initialState: engine.initialState,
-    persistMiddleware: Persist.middleware({
-      engine,
-      getContext: getPersistContext,
-      onSwap: swapDriftWindows,
-    }),
-  };
-};
-
 export const BASE_MIDDLEWARE = [...Nav.MIDDLEWARE, ...Panel.MIDDLEWARE];
 
 export interface CreateStoreOptions extends Partial<
@@ -241,9 +191,15 @@ export const createStore = async (opts: CreateStoreOptions = {}): Promise<Store>
   let { preloadedState } = opts;
   const middleware: Middleware[] = [...BASE_MIDDLEWARE];
   if (enablePersistence) {
-    const { initialState, persistMiddleware } = await openPersist();
-    preloadedState ??= initialState;
-    middleware.push(persistMiddleware);
+    const persist = await Persist.open<State>({
+      initial: ZERO_STATE,
+      scopes: PERSIST_SCOPES,
+      getContext: getPersistContext,
+      migrators: PERSIST_MIGRATORS,
+      exclude: PERSIST_EXCLUDE,
+    });
+    preloadedState ??= persist.initialState;
+    middleware.push(persist.middleware);
   }
   return await Drift.configureStore<State, Action>({
     runtime,
