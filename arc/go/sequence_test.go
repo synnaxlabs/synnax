@@ -1260,6 +1260,191 @@ var _ = Describe("Sequence", func() {
 		})
 	})
 
+	Describe("Inline routing case body lifetime", func() {
+		// mk builds `trigger -> select{} -> { true: <body> }` inside a stage,
+		// so <body> is entered once when trigger fires select's true output.
+		mk := func(ctx SpecContext, body string) *runtimeHarness {
+			resolver := channelSymbols(map[string]channelDef{
+				"start_cmd": {types.U8(), 100},
+				"trigger":   {types.U8(), 101},
+				"cpu":       {types.F64(), 102},
+				"out":       {types.U8(), 103},
+			})
+			prog := "\nsequence WU {\n stage watcher {\n trigger -> select{} -> {\n true: " + body + "\n }\n }\n}\nstart_cmd => WU"
+			return newRuntimeHarness(ctx, prog, resolver,
+				channels.Digest{Key: 100, DataType: telem.Uint8T},
+				channels.Digest{Key: 101, DataType: telem.Uint8T},
+				channels.Digest{Key: 102, DataType: telem.Float64T},
+				channels.Digest{Key: 103, DataType: telem.Uint8T},
+			)
+		}
+		enter := func(h *runtimeHarness, ctx SpecContext) {
+			h.Ingest(100, telem.NewSeriesV[uint8](1)) // activate WU -> watcher
+			h.Tick(ctx, telem.Millisecond)
+			h.Ingest(102, telem.NewSeriesV[float64](5)) // cpu > 0
+			h.Ingest(101, telem.NewSeriesV[uint8](1))   // trigger -> select true -> enter body
+			h.Tick(ctx, telem.Millisecond)
+			h.channelState.ClearReads()
+		}
+		// firesPerUpdate counts total out samples across entry + 4 later cpu
+		// updates. A once-and-done body writes once; a stage fires each update.
+		firesPerUpdate := func(ctx SpecContext, body string) int {
+			h := mk(ctx, body)
+			defer h.Close(ctx)
+			h.Ingest(100, telem.NewSeriesV[uint8](1))
+			h.Tick(ctx, telem.Millisecond)
+			h.Ingest(102, telem.NewSeriesV[float64](5))
+			h.Ingest(101, telem.NewSeriesV[uint8](1))
+			h.Tick(ctx, telem.Millisecond)
+			h.channelState.ClearReads()
+			out, _ := h.Flush()
+			n := len(out.Get(103).Series)
+			for range 4 {
+				h.Ingest(102, telem.NewSeriesV[float64](5))
+				h.Tick(ctx, telem.Millisecond)
+				out, _ := h.Flush()
+				n += len(out.Get(103).Series)
+				h.channelState.ClearReads()
+			}
+			return n
+		}
+
+		It("Re-triggering an active inline stage does not stack instances", func(ctx SpecContext) {
+			h := mk(ctx, "stage { cpu > 0 => out }")
+			defer h.Close(ctx)
+			enter(h, ctx)
+			for range 9 { // spam trigger -> re-activate the already-active stage
+				h.Ingest(101, telem.NewSeriesV[uint8](1))
+				h.Tick(ctx, telem.Millisecond)
+				h.channelState.ClearReads()
+			}
+			h.Ingest(102, telem.NewSeriesV[float64](5)) // one cpu update
+			h.Tick(ctx, telem.Millisecond)
+			out, _ := h.Flush()
+			samples := int64(0)
+			for _, s := range out.Get(103).Series {
+				samples += s.Len()
+			}
+			// One instance only: a cpu update writes once, not once per trigger.
+			Expect(samples).To(Equal(int64(1)))
+		})
+
+		DescribeTable("bare inline flow and sequence fire once; stage fires per update",
+			func(ctx SpecContext, body string, want int) {
+				Expect(firesPerUpdate(ctx, body)).To(Equal(want))
+			},
+			Entry("bare inline flow fires once and done", "cpu > 0 => out", 1),
+			Entry("inline sequence fires once and done", "sequence { cpu > 0 => out }", 1),
+			Entry("inline stage fires on every cpu update", "stage { cpu > 0 => out }", 4),
+		)
+	})
+
+	Describe("Routing table => transitions", func() {
+		// select{} routes flag to one of two sibling stages via `=>`.
+		selectProg := `
+			sequence WU {
+			    stage router {
+			        flag -> select{} -> {
+			            true: 1 => high_stage,
+			            false: 1 => low_stage
+			        }
+			    }
+			    stage high_stage { 1 -> high_out }
+			    stage low_stage { 1 -> low_out }
+			}
+			start_cmd => WU`
+
+		DescribeTable("select routes the => transition to the stage picked by the input",
+			func(ctx SpecContext, flag uint8, hit, miss uint32) {
+				resolver := channelSymbols(map[string]channelDef{
+					"start_cmd": {types.U8(), 100},
+					"flag":      {types.U8(), 101},
+					"high_out":  {types.U8(), 102},
+					"low_out":   {types.U8(), 103},
+				})
+				h := newRuntimeHarness(ctx, selectProg, resolver,
+					channels.Digest{Key: 100, DataType: telem.Uint8T},
+					channels.Digest{Key: 101, DataType: telem.Uint8T},
+					channels.Digest{Key: 102, DataType: telem.Uint8T},
+					channels.Digest{Key: 103, DataType: telem.Uint8T},
+				)
+				defer h.Close(ctx)
+
+				h.Ingest(100, telem.NewSeriesV[uint8](1)) // activate WU -> router
+				h.Tick(ctx, telem.Millisecond)
+				h.Ingest(101, telem.NewSeriesV[uint8](flag))
+				h.Tick(ctx, telem.Millisecond)
+				h.Tick(ctx, telem.Millisecond)
+				out, _ := h.Flush()
+				Expect(lastU8(out, hit)).To(Equal(uint8(1)))
+				Expect(out.Get(miss).Series).To(BeEmpty())
+			},
+			Entry("flag 1 jumps to high_stage", uint8(1), uint32(102), uint32(103)),
+			Entry("flag 0 jumps to low_stage", uint8(0), uint32(103), uint32(102)),
+		)
+
+		// A custom 3-output router jumps to one of three sibling stages.
+		routerProg := `
+			func route{} (v f64) (lo u8, mid u8, hi u8) {
+			    if v < 10.0 {
+			        lo = 1
+			    } else if v < 20.0 {
+			        mid = 1
+			    } else {
+			        hi = 1
+			    }
+			}
+			sequence WU {
+			    stage router {
+			        signal -> route{} -> {
+			            lo: 1 => lo_stage,
+			            mid: 1 => mid_stage,
+			            hi: 1 => hi_stage
+			        }
+			    }
+			    stage lo_stage { 1 -> lo_out }
+			    stage mid_stage { 1 -> mid_out }
+			    stage hi_stage { 1 -> hi_out }
+			}
+			start_cmd => WU`
+
+		DescribeTable("custom multi-output router jumps to the matching stage",
+			func(ctx SpecContext, signal float64, hit uint32) {
+				resolver := channelSymbols(map[string]channelDef{
+					"start_cmd": {types.U8(), 100},
+					"signal":    {types.F64(), 101},
+					"lo_out":    {types.U8(), 102},
+					"mid_out":   {types.U8(), 103},
+					"hi_out":    {types.U8(), 104},
+				})
+				h := newRuntimeHarness(ctx, routerProg, resolver,
+					channels.Digest{Key: 100, DataType: telem.Uint8T},
+					channels.Digest{Key: 101, DataType: telem.Float64T},
+					channels.Digest{Key: 102, DataType: telem.Uint8T},
+					channels.Digest{Key: 103, DataType: telem.Uint8T},
+					channels.Digest{Key: 104, DataType: telem.Uint8T},
+				)
+				defer h.Close(ctx)
+
+				h.Ingest(100, telem.NewSeriesV[uint8](1)) // activate WU -> router
+				h.Tick(ctx, telem.Millisecond)
+				h.Ingest(101, telem.NewSeriesV[float64](signal))
+				h.Tick(ctx, telem.Millisecond)
+				h.Tick(ctx, telem.Millisecond)
+				out, _ := h.Flush()
+				Expect(lastU8(out, hit)).To(Equal(uint8(1)))
+				for _, k := range []uint32{102, 103, 104} {
+					if k != hit {
+						Expect(out.Get(k).Series).To(BeEmpty())
+					}
+				}
+			},
+			Entry("signal < 10 jumps to lo_stage", 5.0, uint32(102)),
+			Entry("signal in [10,20) jumps to mid_stage", 15.0, uint32(103)),
+			Entry("signal >= 20 jumps to hi_stage", 25.0, uint32(104)),
+		)
+	})
+
 	Describe("Inline routing case bodies", func() {
 		It("Anonymous top-level stage dispatches into the inline branch matching the routed output", func(ctx SpecContext) {
 			resolver := channelSymbols(map[string]channelDef{
