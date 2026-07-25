@@ -41,12 +41,10 @@ const retrievePanels = async (
   client: Client,
   projectKey: project.Key,
 ): Promise<panel.Panel[]> => {
-  const children = await client.ontology.retrieveChildren(
-    project.ontologyID(projectKey),
-  );
+  const children = await client.ontology.children.retrieve({ ids: project.ontologyID(projectKey) });
   const keys = children.filter(({ id }) => id.type === "panel").map(({ id }) => id.key);
   if (keys.length === 0) return [];
-  return await client.panels.retrieve(keys);
+  return await client.panels.retrieve({ keys });
 };
 
 export interface ExportContext {
@@ -67,7 +65,7 @@ export const export_ = (
     const storeState = store.getState();
     const targetKey = key ?? Session.Project.selectSelected(storeState);
     if (client == null) throw new DisconnectedError();
-    const proj = await client.projects.retrieve(targetKey);
+    const proj = await client.projects.retrieve({ key: targetKey });
     name = proj.name;
     const panels = await retrievePanels(client, targetKey);
     const directory = await Runtime.pickWritableDirectory({

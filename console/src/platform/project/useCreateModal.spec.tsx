@@ -74,7 +74,7 @@ describe("Project.useCreateModal", () => {
     );
 
     const active = Session.Project.selectSelected(store.getState());
-    const created = await client.projects.retrieve(active);
+    const created = await client.projects.retrieve({ key: active });
     expect(created.name).toBe(name);
   });
 });

@@ -63,7 +63,7 @@ describe("project/Splash", () => {
         if (key == null) throw new Error("no active project selected");
         return key;
       });
-      const created = await client.projects.retrieve(active);
+      const created = await client.projects.retrieve({ key: active });
       expect(created.name).toEqual(name);
     });
   });

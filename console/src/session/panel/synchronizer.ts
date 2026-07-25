@@ -87,7 +87,7 @@ const useReconcileTabSelections = (): void => {
   const selected = useSelector(selectActiveWindowSelected);
   useEffect(() => {
     if (client == null || selected == null) return;
-    const cached = client.panels.getCached(selected);
+    const cached = client.panels.getCached({ key: selected });
     if (cached == null || cached.variant === "deleted") return;
     reconcile(cached.data);
   }, [client, selected, reconcile]);

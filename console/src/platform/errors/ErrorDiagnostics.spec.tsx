@@ -104,7 +104,7 @@ describe("ErrorDiagnostics", () => {
     });
     await client.panels.create(doc);
     // Prime the query cache the way the mosaic's retrieve does.
-    await client.panels.retrieve(doc.key);
+    await client.panels.retrieve({ key: doc.key });
     render(
       <Boundary panelKey={doc.key}>
         <Throw error={retrieveNotFoundError()} />

@@ -83,7 +83,7 @@ const importComponent = ({
     const activeProjectKey = Session.Project.selectSelected(storeState);
     if (projectKey != null && activeProjectKey !== projectKey) {
       if (client == null) throw new DisconnectedError();
-      const proj = await client.projects.retrieve(projectKey);
+      const proj = await client.projects.retrieve({ key: projectKey });
       store.dispatch(Session.Project.select(proj.key));
     }
     const activeProjectKeyAfter = Session.Project.selectSelected(store.getState());

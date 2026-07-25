@@ -121,7 +121,7 @@ const selectImportedProject = (store: TestStore): project.Key => {
 const retrieveProjectChildren = async (
   key: project.Key,
 ): Promise<ontology.Resource[]> =>
-  await client.ontology.retrieveChildren(project.ontologyID(key));
+  await client.ontology.children.retrieve({ ids: project.ontologyID(key) });
 
 describe("project import", () => {
   const runImport = async (fileList: Import.File[]): Promise<TestStore> => {
@@ -163,7 +163,7 @@ describe("project import", () => {
       .filter(({ id }) => id.type === "panel")
       .map(({ id }) => id.key);
     expect(panelKeys).toHaveLength(1);
-    const [imported] = await client.panels.retrieve(panelKeys);
+    const [imported] = await client.panels.retrieve({ keys: panelKeys });
     expect(imported.name).toBe("Main");
     if (imported.root.variant !== "leaf") throw new Error("expected a leaf root");
     const resources = imported.root.tabs.map((tab) => {

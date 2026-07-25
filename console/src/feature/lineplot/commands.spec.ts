@@ -21,7 +21,7 @@ stubGeometry();
 
 describe("LinePlot Commands", () => {
   it("creates a line plot on the server and opens it as a tab", async () => {
-    const proj = await client.projects.retrieve(await project());
+    const proj = await client.projects.retrieve({ key: await project() });
     const { store, openCommandPalette, selectCommand } = await renderPalette({
       commands: LinePlot.COMMANDS,
       client,

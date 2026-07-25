@@ -20,7 +20,7 @@ const useOpen = () => {
   return ({ id, name }: ontology.Resource) => {
     if (client == null) return;
     handleError(async () => {
-      const proj = await client.projects.retrieve(id.key);
+      const proj = await client.projects.retrieve({ key: id.key });
       store.dispatch(Session.Project.select(proj.key));
     }, `Failed to select ${name}`);
   };

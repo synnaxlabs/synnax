@@ -106,7 +106,7 @@ export const resolveFocusedTab = async (
         ? undefined
         : Session.Panel.selectSelectedTabs(state, panelKey)[0];
     if (focused == null || panelKey == null) throw new Error("no tab focused");
-    const doc = await client.panels.retrieve(panelKey);
+    const doc = await client.panels.retrieve({ key: panelKey });
     const tab = panel.findTab(doc.root, focused);
     if (tab == null) throw new Error("focused tab not found in panel");
     // Placement lands focus one dispatch after the click, so a test opening a

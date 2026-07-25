@@ -20,7 +20,7 @@ export const SYNCHRONIZERS: Synchronizer.Synchronizers = {
       const existing: string[] = [];
       for (const key of keys)
         try {
-          await client.projects.retrieve(key);
+          await client.projects.retrieve({ key });
           existing.push(key);
         } catch (err) {
           if (!NotFoundError.matches(err)) throw errors.fromUnknown(err);

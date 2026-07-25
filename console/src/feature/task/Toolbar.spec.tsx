@@ -80,7 +80,7 @@ const renderToolbar = async () => {
   const created = await createSelectedPanel(store, client);
   // useOpenTab reads the panel query cache; warm it and keep it subscribed
   // so dispatches stay visible.
-  await client.panels.retrieve(created.panelKey);
+  await client.panels.retrieve({ key: created.panelKey });
   render(
     <Task.RegistryProvider registry={Task.REGISTRY}>
       {Task.TOOLBAR.content}
@@ -93,7 +93,7 @@ const renderToolbar = async () => {
 
 const awaitTab = async (created: CreatedPanel, type: string): Promise<record.Unknown> =>
   await waitFor(async () => {
-    const doc = await client.panels.retrieve(created.panelKey);
+    const doc = await client.panels.retrieve({ key: created.panelKey });
     if (doc.root.variant !== "leaf") throw new Error("panel root is not a leaf");
     const tab = doc.root.tabs.find(
       (t): t is panel.TabView => t.variant === "view" && t.type === type,
@@ -268,7 +268,7 @@ describe("task/Toolbar", () => {
       await openContextMenu(t.name);
       fireEvent.click(await screen.findByText(`Snapshot to ${rng.name}`));
       await waitFor(async () => {
-        const children = await client.ontology.retrieveChildren(rng.ontologyID);
+        const children = await client.ontology.children.retrieve({ ids: rng.ontologyID });
         expect(children.some((c) => c.id.type === "task")).toBe(true);
       });
     });

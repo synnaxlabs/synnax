@@ -54,7 +54,7 @@ describe("useCreateEmpty", () => {
       commitTextEdit(editable, name);
     });
     await waitFor(async () => {
-      const children = await client.ontology.retrieveChildren(parentID);
+      const children = await client.ontology.children.retrieve({ ids: parentID });
       const created = children.find((c) => c.name === name);
       expect(created).toBeDefined();
       expect(created?.id.type).toBe("group");
@@ -99,9 +99,7 @@ describe("useCreateEmpty", () => {
       commitTextEdit(editable, name);
     });
     await waitFor(async () => {
-      const children = await client.ontology.retrieveChildren(
-        group.ontologyID(child.key),
-      );
+      const children = await client.ontology.children.retrieve({ ids: group.ontologyID(child.key) });
       const created = children.find((c) => c.name === name);
       expect(created).toBeDefined();
       expect(created?.id.type).toBe("group");
@@ -116,7 +114,7 @@ describe("useCreateEmpty", () => {
     });
     await awaitTextEditingExit();
     await waitFor(() => expect(document.getElementById(placeholderID)).toBeNull());
-    const children = await client.ontology.retrieveChildren(parentID);
+    const children = await client.ontology.children.retrieve({ ids: parentID });
     expect(children.map((c) => c.id.key)).toEqual([child.key]);
   });
 });

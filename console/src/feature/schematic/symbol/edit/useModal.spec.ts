@@ -49,7 +49,7 @@ const createParentGroup = async (): Promise<group.Group> => {
 };
 
 const childNames = async (id: ontology.ID): Promise<string[]> =>
-  (await client.ontology.retrieveChildren(id)).map((c) => c.name);
+  (await client.ontology.children.retrieve({ ids: id })).map((c) => c.name);
 
 const openCreateModal = async (createKey?: string) => {
   const grp = await createParentGroup();

@@ -137,9 +137,7 @@ describe("Schematic.useRangeSnapshot", () => {
       state: createState([createResource(id, s.name)]),
     });
     await waitFor(async () => {
-      const children = await client.ontology.retrieveChildren(
-        ranger.ontologyID(rng.key),
-      );
+      const children = await client.ontology.children.retrieve({ ids: ranger.ontologyID(rng.key) });
       expect(children.map((c) => c.name)).toContain(`${s.name} (Snapshot)`);
     });
     await waitFor(() =>
@@ -188,7 +186,7 @@ describe("Schematic TreeContextMenu", () => {
     fireEvent.click(await screen.findByText("Copy"));
     let copyKey = "";
     await waitFor(async () => {
-      const children = await client.ontology.retrieveChildren(rootID);
+      const children = await client.ontology.children.retrieve({ ids: rootID });
       const copy = children.find((c) => c.name === `${s.name} (copy)`);
       if (copy == null) throw new Error("copy not created yet");
       copyKey = copy.id.key;

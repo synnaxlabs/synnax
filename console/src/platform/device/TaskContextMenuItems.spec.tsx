@@ -43,7 +43,7 @@ const setup = async (configured: boolean, itemClient: Synnax | null = client) =>
     created = await createSelectedPanel(store, itemClient);
     // useOpenTab reads the panel query cache; warm it and keep it subscribed
     // so dispatches stay visible.
-    await itemClient.panels.retrieve(created.panelKey);
+    await itemClient.panels.retrieve({ key: created.panelKey });
   }
   return { onConfigure, key: resource.id.key, store, created };
 };
@@ -53,7 +53,7 @@ const findViewTab = async (
   type: string,
 ): Promise<panel.TabView | undefined> => {
   assertDefined(created, "no panel was created");
-  const doc = await client.panels.retrieve(created.panelKey);
+  const doc = await client.panels.retrieve({ key: created.panelKey });
   if (doc.root.variant !== "leaf") return undefined;
   return doc.root.tabs.find(
     (t): t is panel.TabView => t.variant === "view" && t.type === type,

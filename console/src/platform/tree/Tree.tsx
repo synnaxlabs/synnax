@@ -201,7 +201,7 @@ const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
   useAsyncEffect(
     async (signal) => {
       if (client == null) return;
-      const resources = await client.ontology.retrieveChildren(root);
+      const resources = await client.ontology.children.retrieve({ ids: root });
       if (signal.aborted) return;
       const filtered = resources.filter((r) => {
         const svc = resolveItem(r.id.type);

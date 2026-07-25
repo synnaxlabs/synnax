@@ -34,7 +34,7 @@ const createSymbolGroup = async (): Promise<group.Group> => {
 };
 
 const childNames = async (id: ontology.ID): Promise<string[]> =>
-  (await client.ontology.retrieveChildren(id)).map((c) => c.name);
+  (await client.ontology.children.retrieve({ ids: id })).map((c) => c.name);
 
 describe("Schematic.Symbol.useImport", () => {
   it("imports a picked symbol file into the given group", async () => {
@@ -154,7 +154,7 @@ describe("Schematic.Symbol.useImportGroup", () => {
       ).toBe(true),
     );
     const root = await client.schematics.symbols.retrieveGroup();
-    const groups = await client.ontology.retrieveChildren(group.ontologyID(root.key));
+    const groups = await client.ontology.children.retrieve({ ids: group.ontologyID(root.key) });
     const created = groups.find((g) => g.name === groupName);
     if (created == null) throw new Error("imported group not found");
     expect(await childNames(created.id)).toContain(symbolName);

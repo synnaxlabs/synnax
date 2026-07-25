@@ -69,7 +69,7 @@ describe("ParentRangeButton", () => {
       await createSelectedPanel(store, client, [], panelKey);
       fireEvent.click(await screen.findByText(range.name, {}));
       await waitFor(async () => {
-        const doc = await client.panels.retrieve(panelKey);
+        const doc = await client.panels.retrieve({ key: panelKey });
         const tab = panel.findTabByResource(doc.root, ranger.ontologyID(range.key));
         assertDefined(tab, "range resource tab was not opened");
       });

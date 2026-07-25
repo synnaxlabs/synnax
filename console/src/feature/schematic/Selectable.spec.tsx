@@ -19,7 +19,7 @@ import { createConsoleWrapper, resolveFocusedTab } from "@/testutil";
 
 describe("schematic/Selectable", () => {
   it("creates a schematic in the active project and opens its tab when clicked", async () => {
-    const proj = await client.projects.retrieve(await testProjectKey());
+    const proj = await client.projects.retrieve({ key: await testProjectKey() });
     const { wrapper, store } = await createConsoleWrapper({
       client,
       preloadedState: { [Session.Project.SLICE_NAME]: createActiveState(proj) },

@@ -50,7 +50,7 @@ describe("Panel.useOpenTab", () => {
         result.current({ variant: "view", key: newTabKey, type: "added", args: {} });
       });
       await waitFor(async () => {
-        const doc = await client.panels.retrieve(existing.key);
+        const doc = await client.panels.retrieve({ key: existing.key });
         expect(panel.findTab(doc.root, newTabKey)).toBeDefined();
       });
       await waitFor(() =>
@@ -58,7 +58,7 @@ describe("Panel.useOpenTab", () => {
           Session.Panel.selectSelectedTabs(store.getState(), existing.key)[0],
         ).toBe(newTabKey),
       );
-      const doc = await client.panels.retrieve(existing.key);
+      const doc = await client.panels.retrieve({ key: existing.key });
       expect(leafTabs(doc.root)).toHaveLength(2);
     });
 
@@ -75,7 +75,7 @@ describe("Panel.useOpenTab", () => {
         result.current({ variant: "view", key: newTabKey, type: "added", args: {} });
       });
       await waitFor(async () => {
-        const doc = await client.panels.retrieve(existing.key);
+        const doc = await client.panels.retrieve({ key: existing.key });
         expect(panel.findTab(doc.root, newTabKey)).toBeDefined();
       });
       await waitFor(() =>
@@ -103,10 +103,10 @@ describe("Panel.useOpenTab", () => {
         result.current({ variant: "view", key: newTabKey, type: "added", args: {} });
       });
       await waitFor(async () => {
-        const doc = await client.panels.retrieve(scoped.key);
+        const doc = await client.panels.retrieve({ key: scoped.key });
         expect(panel.findTab(doc.root, newTabKey)).toBeDefined();
       });
-      const selectedDoc = await client.panels.retrieve(selected.key);
+      const selectedDoc = await client.panels.retrieve({ key: selected.key });
       expect(panel.findTab(selectedDoc.root, newTabKey)).toBeUndefined();
     });
 
@@ -131,7 +131,7 @@ describe("Panel.useOpenTab", () => {
           Session.Panel.selectSelectedTabs(store.getState(), existing.key)[0],
         ).toBe(seedTabKey),
       );
-      const doc = await client.panels.retrieve(existing.key);
+      const doc = await client.panels.retrieve({ key: existing.key });
       expect(leafTabs(doc.root)).toHaveLength(1);
     });
 
@@ -149,10 +149,10 @@ describe("Panel.useOpenTab", () => {
         result.current({ variant: "view", type: "added", args: {} });
       });
       await waitFor(async () => {
-        const doc = await client.panels.retrieve(existing.key);
+        const doc = await client.panels.retrieve({ key: existing.key });
         expect(leafTabs(doc.root)).toHaveLength(2);
       });
-      const doc = await client.panels.retrieve(existing.key);
+      const doc = await client.panels.retrieve({ key: existing.key });
       const seed = panel.findTab(doc.root, seedTabKey);
       if (seed == null || seed.variant !== "view") throw new Error("seed tab missing");
       expect(seed.type).toBe("seed");
@@ -177,13 +177,13 @@ describe("Panel.useOpenTab", () => {
         });
       });
       await waitFor(async () => {
-        const doc = await client.panels.retrieve(existing.key);
+        const doc = await client.panels.retrieve({ key: existing.key });
         const tab = panel.findTab(doc.root, seedTabKey);
         if (tab == null || tab.variant !== "view")
           throw new Error("tab not replaced yet");
         expect(tab.type).toBe("replaced");
       });
-      const doc = await client.panels.retrieve(existing.key);
+      const doc = await client.panels.retrieve({ key: existing.key });
       expect(leafTabs(doc.root)).toHaveLength(1);
     });
 
@@ -210,7 +210,7 @@ describe("Panel.useOpenTab", () => {
           Session.Panel.selectSelectedTabs(store.getState(), existing.key)[0],
         ).toBe(seedTabKey),
       );
-      const doc = await client.panels.retrieve(existing.key);
+      const doc = await client.panels.retrieve({ key: existing.key });
       expect(leafTabs(doc.root)).toHaveLength(1);
     });
 
@@ -229,10 +229,10 @@ describe("Panel.useOpenTab", () => {
         result.current({ variant: "resource", resource });
       });
       await waitFor(async () => {
-        const doc = await client.panels.retrieve(existing.key);
+        const doc = await client.panels.retrieve({ key: existing.key });
         expect(leafTabs(doc.root)).toHaveLength(2);
       });
-      const doc = await client.panels.retrieve(existing.key);
+      const doc = await client.panels.retrieve({ key: existing.key });
       const resourceTab = leafTabs(doc.root).find((t) => t.variant === "resource");
       if (resourceTab == null) throw new Error("resource tab missing");
       await waitFor(() =>
@@ -259,7 +259,7 @@ describe("Panel.useOpenTab", () => {
         result.current({ variant: "view", type: "range_explorer", args: {} });
       });
       await waitFor(async () => {
-        const doc = await client.panels.retrieve(existing.key);
+        const doc = await client.panels.retrieve({ key: existing.key });
         expect(leafTabs(doc.root)).toHaveLength(2);
       });
     });
@@ -277,7 +277,7 @@ describe("Panel.useOpenTab", () => {
       expect(tab.variant).toBe("view");
       const panelKey = Session.Panel.selectSelected(store.getState());
       if (panelKey == null) throw new Error("no panel selected after create");
-      const doc = await client.panels.retrieve(panelKey);
+      const doc = await client.panels.retrieve({ key: panelKey });
       expect(doc.name).toBe("New Panel");
       expect(panel.findTab(doc.root, tabKey)).toBeDefined();
     });
