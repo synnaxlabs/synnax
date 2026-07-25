@@ -390,7 +390,8 @@ export class Client extends query.Retriever<
       },
       compose: (record) => this.compose(record),
       single: {
-        is: (params) => singleRetrieveParamsZ.safeParse(params).success,
+        is: (params): params is RetrieveSingleParams =>
+          singleRetrieveParamsZ.safeParse(params).success,
         normalize: normalizeSingle,
         space: single as query.Retrieves<query.Params, Task>,
       },

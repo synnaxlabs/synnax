@@ -71,7 +71,7 @@ const wrapOpener =
 const makeEngine = (openStreamer?: framer.StreamOpener) =>
   new query.Cache({
     openStreamer: wrapOpener(openStreamer ?? (async () => new MockStreamer())),
-    onInternalError: vi.fn(),
+    onError: vi.fn(),
   });
 
 // Fails on every read with a non-EOF error, forcing a reopen.

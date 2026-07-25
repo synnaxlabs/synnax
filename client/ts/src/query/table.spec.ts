@@ -714,7 +714,10 @@ describe("Table", () => {
 
       it("should preserve values with equal function check", () => {
         const equalFunc = (a: string, b: string) => a.toLowerCase() === b.toLowerCase();
-        const table = new query.Table<string, string>({ onError: noopError, equal: equalFunc });
+        const table = new query.Table<string, string>({
+          onError: noopError,
+          equal: equalFunc,
+        });
 
         table.set("key1", "Value1");
         table.set("key2", "Value2");
@@ -798,7 +801,9 @@ describe("Table", () => {
       });
 
       it("should notify subscribers for every value in a multi-value set", () => {
-        const table = new query.Table<string, record.Keyed<string>>({ onError: noopError });
+        const table = new query.Table<string, record.Keyed<string>>({
+          onError: noopError,
+        });
         const listener = vi.fn();
         const keyed = vi.fn();
         table.subscribe(listener);
@@ -1178,8 +1183,12 @@ describe("Table", () => {
 
     describe("Table Independence", () => {
       it("keeps rows isolated between separate tables", () => {
-        const table1 = new query.Table<string, record.Keyed<string>>({ onError: noopError });
-        const table2 = new query.Table<string, record.Keyed<string>>({ onError: noopError });
+        const table1 = new query.Table<string, record.Keyed<string>>({
+          onError: noopError,
+        });
+        const table2 = new query.Table<string, record.Keyed<string>>({
+          onError: noopError,
+        });
 
         table1.set([{ key: "key1" }]);
         table2.set([{ key: "key2" }]);
@@ -1199,7 +1208,7 @@ describe("Table", () => {
     const item = (key: string, name: string): Item => ({ key, name });
     const fetchTable = (
       fetch: (keys: string[]) => Promise<Item[]>,
-      hydrate?: "set" | "if-absent",
+      hydrate?: query.HydrateMode,
     ) => new query.Table<string, Item>({ onError: noopError, fetch, hydrate });
 
     it("should serve cached rows without touching the fetch", async () => {
@@ -1368,5 +1377,4 @@ describe("Tombstones", () => {
     expect(table.status("k1")).toBe("tombstoned");
     expect(table.getTombstone("k1")?.corpse).toEqual({ key: "k1", name: "a" });
   });
-
 });

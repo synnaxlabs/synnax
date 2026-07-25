@@ -35,7 +35,7 @@ export const hash = (query: Params): string => {
   if (typeof query !== "object") return JSON.stringify(query);
   if (primitive.isHashable(query)) return query.hash();
   if (Array.isArray(query)) return `[${query.map(hash).join(",")}]`;
-  const entries = Object.entries(query as Record<string, Params>)
+  const entries = Object.entries(query)
     .filter(([, v]) => v !== undefined)
     .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0));
   return `{${entries.map(([k, v]) => `${JSON.stringify(k)}:${hash(v)}`).join(",")}}`;
@@ -311,11 +311,11 @@ export class Queries<
     void this.hooks.ensureStreaming?.().catch((exc: unknown) => this.report(exc));
   }
 
-  private report(exc: unknown, message?: string): void {
-    const error = new Error(
-      message ?? `failed to maintain ${this.params.name} answers`,
-      { cause: exc },
-    );
+  private report(
+    exc: unknown,
+    message = `failed to maintain ${this.params.name} answers`,
+  ): void {
+    const error = new Error(message, { cause: exc });
     if (this.hooks.onError != null) this.hooks.onError(error);
     else console.error(error);
   }
@@ -429,8 +429,8 @@ export class Queries<
     const { serverFields } = this.params;
     if (serverFields == null || serverFields.length === 0) return false;
     if (typeof query !== "object" || query === null) return false;
-    return serverFields.some(
-      (field) => (query as Record<string, unknown>)[field] != null,
+    return Object.entries(query).some(
+      ([field, value]) => value != null && serverFields.includes(field),
     );
   }
 

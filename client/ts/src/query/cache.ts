@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { array, type destructor, observe, type record, type state } from "@synnaxlabs/x";
+import { type destructor, observe, type record, type state } from "@synnaxlabs/x";
 import type z from "zod";
 
 import { Queries, type QueriesParams, type Retrieves } from "@/query/query";
@@ -32,7 +32,7 @@ export interface CacheParams {
    * streamer frame handling, and background reconciliation. Defaults to
    * console logging.
    */
-  onInternalError?: (error: Error) => void;
+  onError?: (error: Error) => void;
 }
 
 /** Configuration for a table owned by a {@link Cache}. */
@@ -52,40 +52,6 @@ interface TableEntry {
   reconcile?: () => Promise<void>;
 }
 
-/** Binds a mirror spec to its owning table as a raw channel listener. */
-const bindSpec = <Key extends record.Key, Value extends state.State>(
-  table: Table<Key, Value>,
-  spec: ListenerSpec<Key, Value>,
-): Listener => {
-  const { channel, schema } = spec;
-  switch (spec.kind) {
-    case "set":
-      return {
-        channel,
-        schema,
-        onChange: (changed) => {
-          table.set(spec.key(changed), (prev) => spec.value(changed, prev) ?? undefined);
-        },
-      };
-    case "delete":
-      return {
-        channel,
-        schema,
-        onChange: (changed) => {
-          table.delete(spec.key(changed));
-        },
-      };
-    case "fetch":
-      return {
-        channel,
-        schema,
-        onChange: async (changed) => {
-          await table.retrieve(array.toArray(changed) as Key[], { refresh: true });
-        },
-      };
-  }
-};
-
 /**
  * Binds a table's reconcile pass: refreshes rows that still exist on the
  * cluster and tombstones rows that vanished.
@@ -96,7 +62,7 @@ const bindReconcile =
     fetch: NonNullable<TableParams<Key, Value>["fetch"]>,
   ): (() => Promise<void>) =>
   async () => {
-    const keys = table.get().map((value) => (value as record.Keyed<Key>).key);
+    const keys = table.keys();
     if (keys.length === 0) return;
     const values = await fetch(keys);
     const present = new Set<Key>(values.map(({ key }) => key));
@@ -121,22 +87,19 @@ export class Cache {
   private readonly reactions: Listener[] = [];
   private readonly spaces: Array<{ close: () => void }> = [];
   private readonly epochObserver = new observe.Observer<number>();
-  private readonly onInternalError: (error: Error) => void;
   private readonly openStreamer: StreamOpener | null;
   private streamer: Streamer | null = null;
   private epochCount = 0;
-
-  constructor({ openStreamer, onInternalError }: CacheParams) {
-    this.openStreamer = openStreamer;
-    this.onInternalError = onInternalError ?? ((error) => console.error(error));
-  }
 
   /**
    * Stable error sink for machinery built on this cache (dispatch
    * controllers, answer spaces).
    */
-  get onError(): (error: Error) => void {
-    return (error) => this.onInternalError(error);
+  readonly onError: (error: Error) => void;
+
+  constructor({ openStreamer, onError = console.error }: CacheParams) {
+    this.openStreamer = openStreamer;
+    this.onError = onError;
   }
 
   /**
@@ -154,9 +117,8 @@ export class Cache {
     const table = new Table<Key, Value>({ ...params, onError: this.onError });
     this.entries.push({
       name,
-      listeners: (listen ?? []).map((spec) => bindSpec(table, spec)),
-      reconcile:
-        config.fetch == null ? undefined : bindReconcile(table, config.fetch),
+      listeners: (listen ?? []).map((spec) => spec.bind(table)),
+      reconcile: config.fetch == null ? undefined : bindReconcile(table, config.fetch),
     });
     return table;
   }
@@ -243,9 +205,7 @@ export class Cache {
         try {
           await reconcile();
         } catch (exc) {
-          this.onInternalError(
-            new Error(`failed to reconcile ${name} cache`, { cause: exc }),
-          );
+          this.onError(new Error(`failed to reconcile ${name} cache`, { cause: exc }));
         }
       }),
     );
@@ -255,7 +215,7 @@ export class Cache {
     this.epochCount++;
     this.epochObserver.notify(this.epochCount);
     this.reconcile().catch((exc: unknown) =>
-      this.onInternalError(
+      this.onError(
         new Error("failed to reconcile caches after reconnect", { cause: exc }),
       ),
     );
