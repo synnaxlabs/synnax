@@ -45,9 +45,10 @@ Kind enum {
 }
 
 ChanDirection enum {
-    none  = 0
-    read  = 1
-    write = 2
+    none       = 0
+    read       = 1
+    write      = 2
+    read_write = 3
 
     @doc value "indicates read/write direction for channel-typed parameters."
 }

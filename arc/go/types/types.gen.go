@@ -55,6 +55,7 @@ const (
 	ChanDirectionNone ChanDirection = iota
 	ChanDirectionRead
 	ChanDirectionWrite
+	ChanDirectionReadWrite
 )
 
 // FunctionProperties contains common parameter definitions for function-like types.
