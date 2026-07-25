@@ -140,7 +140,9 @@ describe("Ontology", () => {
         parent: group.ontologyID(g.key),
         name: name2,
       });
-      const children = await client.ontology.children.retrieve({ ids: group.ontologyID(g.key) });
+      const children = await client.ontology.children.retrieve({
+        ids: group.ontologyID(g.key),
+      });
       expect(children.length).toEqual(1);
       expect(children[0].name).toEqual(name2);
     });
@@ -152,7 +154,9 @@ describe("Ontology", () => {
         parent: group.ontologyID(g.key),
         name: name2,
       });
-      const parents = await client.ontology.parents.retrieve({ ids: group.ontologyID(g2.key) });
+      const parents = await client.ontology.parents.retrieve({
+        ids: group.ontologyID(g2.key),
+      });
       expect(parents.length).toEqual(1);
       expect(parents[0].name).toEqual(name);
     });
@@ -181,7 +185,9 @@ describe("Ontology", () => {
         group.ontologyID(g.key),
         group.ontologyID(g2.key),
       );
-      const children = await client.ontology.children.retrieve({ ids: group.ontologyID(g.key) });
+      const children = await client.ontology.children.retrieve({
+        ids: group.ontologyID(g.key),
+      });
       expect(children.length).toEqual(1);
       expect(children[0].name).toEqual(name2);
     });
@@ -201,7 +207,9 @@ describe("Ontology", () => {
         group.ontologyID(g.key),
         group.ontologyID(g2.key),
       );
-      const children = await client.ontology.children.retrieve({ ids: group.ontologyID(g.key) });
+      const children = await client.ontology.children.retrieve({
+        ids: group.ontologyID(g.key),
+      });
       expect(children.length).toEqual(0);
     });
     test("move children", async () => {
@@ -212,8 +220,9 @@ describe("Ontology", () => {
         parent: ontology.ROOT_ID,
         name: name2,
       });
-      const oldRootLength = (await client.ontology.children.retrieve({ ids: ontology.ROOT_ID }))
-        .length;
+      const oldRootLength = (
+        await client.ontology.children.retrieve({ ids: ontology.ROOT_ID })
+      ).length;
 
       await client.ontology.moveChildren(
         ontology.ROOT_ID,
@@ -221,10 +230,13 @@ describe("Ontology", () => {
         group.ontologyID(g2.key),
       );
 
-      const children = await client.ontology.children.retrieve({ ids: group.ontologyID(g.key) });
+      const children = await client.ontology.children.retrieve({
+        ids: group.ontologyID(g.key),
+      });
       expect(children.length).toEqual(1);
-      const newRootLength = (await client.ontology.children.retrieve({ ids: ontology.ROOT_ID }))
-        .length;
+      const newRootLength = (
+        await client.ontology.children.retrieve({ ids: ontology.ROOT_ID })
+      ).length;
       expect(newRootLength).toEqual(oldRootLength - 1);
     });
   });
@@ -247,7 +259,9 @@ describe("Ontology", () => {
           name: randomName(),
         });
         const childID = group.ontologyID(child.key);
-        expect(await client.ontology.children.retrieve({ ids: parentID })).toHaveLength(0);
+        expect(await client.ontology.children.retrieve({ ids: parentID })).toHaveLength(
+          0,
+        );
         await remote.ontology.addChildren(parentID, childID);
         // Unsubscribed queries hold no frozen answer: repeat retrieves refetch
         // and converge on the remote change once it streams in.

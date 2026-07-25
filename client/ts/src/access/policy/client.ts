@@ -84,11 +84,7 @@ const requestFilter = (req: RetrieveRequest): ((p: Policy) => boolean) => {
   };
 };
 
-export class Client extends query.Retriever<
-  typeof listRetrieveParamsZ,
-  Key,
-  Policy
-> {
+export class Client extends query.Retriever<typeof listRetrieveParamsZ, Key, Policy> {
   private readonly client: UnaryClient;
   private readonly store: query.Table<Key, Policy>;
   private readonly ontology: ontology.Stores;

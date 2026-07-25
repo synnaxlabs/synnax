@@ -225,7 +225,12 @@ export class Client extends query.Retriever<
     this.ontology = ontologyClient.stores;
     this.store = store;
     this.dispatcher = dispatcher;
-    this.taskAnswers = cache.queries<Key, task.Task | null, task.Key, Omit<task.Task, "status">>({
+    this.taskAnswers = cache.queries<
+      Key,
+      task.Task | null,
+      task.Key,
+      Omit<task.Task, "status">
+    >({
       name: "arc task",
       table: this.taskStore,
       fetch: async (q) => {

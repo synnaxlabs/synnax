@@ -179,7 +179,12 @@ export class Client extends query.Retriever<typeof retrieveRequestZ, Key, Label>
     await opts.onOptimistic?.();
     await rollback.guard(
       async () =>
-        await this.client.send("/label/delete", { keys: keysArr }, deleteReqZ, emptyResZ),
+        await this.client.send(
+          "/label/delete",
+          { keys: keysArr },
+          deleteReqZ,
+          emptyResZ,
+        ),
     );
     drop();
   }
