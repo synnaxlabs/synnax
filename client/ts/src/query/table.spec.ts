@@ -21,7 +21,7 @@ describe("Table", () => {
   describe("Basic Operations", () => {
     describe("Set and Get", () => {
       it("should set and get a value", () => {
-        const table = new query.Table<string, string>(noopError);
+        const table = new query.Table<string, string>({ onError: noopError });
         table.set("key1", "value1");
         expect(table.get("key1")).toBe("value1");
       });
@@ -31,7 +31,7 @@ describe("Table", () => {
           key: string;
           value: string;
         }
-        const table = new query.Table<string, KeyedValue>(noopError);
+        const table = new query.Table<string, KeyedValue>({ onError: noopError });
 
         const item: KeyedValue = { key: "key1", value: "value1" };
         table.set(item.key, item);
@@ -44,7 +44,7 @@ describe("Table", () => {
           key: string;
           value: string;
         }
-        const table = new query.Table<string, KeyedValue>(noopError);
+        const table = new query.Table<string, KeyedValue>({ onError: noopError });
 
         const items: KeyedValue[] = [
           { key: "key1", value: "value1" },
@@ -59,26 +59,26 @@ describe("Table", () => {
       });
 
       it("should update an existing value", () => {
-        const table = new query.Table<string, string>(noopError);
+        const table = new query.Table<string, string>({ onError: noopError });
         table.set("key1", "value1");
         table.set("key1", "value2");
         expect(table.get("key1")).toBe("value2");
       });
 
       it("should handle setter functions", () => {
-        const table = new query.Table<string, string>(noopError);
+        const table = new query.Table<string, string>({ onError: noopError });
         table.set("key1", "initial");
         table.set("key1", (prev) => `${prev}_updated`);
         expect(table.get("key1")).toBe("initial_updated");
       });
 
       it("should return undefined for non-existent keys", () => {
-        const table = new query.Table<string, string>(noopError);
+        const table = new query.Table<string, string>({ onError: noopError });
         expect(table.get("nonexistent")).toBeUndefined();
       });
 
       it("should get multiple values by keys array", () => {
-        const table = new query.Table<string, string>(noopError);
+        const table = new query.Table<string, string>({ onError: noopError });
         table.set("key1", "value1");
         table.set("key2", "value2");
         table.set("key3", "value3");
@@ -88,7 +88,7 @@ describe("Table", () => {
       });
 
       it("should filter values using a predicate", () => {
-        const table = new query.Table<string, number>(noopError);
+        const table = new query.Table<string, number>({ onError: noopError });
         table.set("a", 1);
         table.set("b", 2);
         table.set("c", 3);
@@ -99,7 +99,7 @@ describe("Table", () => {
       });
 
       it("should not set null values", () => {
-        const table = new query.Table<string, string>(noopError);
+        const table = new query.Table<string, string>({ onError: noopError });
         table.set("key1", "value1");
         table.set("key1", () => null as any);
         expect(table.get("key1")).toBe("value1");
@@ -111,7 +111,7 @@ describe("Table", () => {
           data: number;
         }
 
-        const table = new query.Table<string, ComplexValue>(noopError);
+        const table = new query.Table<string, ComplexValue>({ onError: noopError });
 
         // set keys the row by its first argument, not the value's key field.
         table.set("explicitKey", { key: "valueKey", data: 100 });
@@ -135,7 +135,7 @@ describe("Table", () => {
           value: number;
         }
 
-        const table = new query.Table<string, KeyedData>(noopError);
+        const table = new query.Table<string, KeyedData>({ onError: noopError });
 
         table.set("key1", { key: "key1", value: 100 });
         table.set([{ key: "key2", value: 200 }]);
@@ -151,29 +151,41 @@ describe("Table", () => {
       });
     });
 
-    describe("Set If Absent", () => {
+    describe("Ingest", () => {
       interface KeyedValue extends record.Keyed<string> {
         key: string;
         value: string;
       }
+      const ifAbsentTable = () =>
+        new query.Table<string, KeyedValue>({
+          onError: noopError,
+          hydrate: "if-absent",
+        });
+
+      it("should overwrite rows under the default set mode", () => {
+        const table = new query.Table<string, KeyedValue>({ onError: noopError });
+        table.set([{ key: "key1", value: "original" }]);
+        table.ingest({ key: "key1", value: "replacement" });
+        expect(table.get("key1")).toEqual({ key: "key1", value: "replacement" });
+      });
 
       it("should insert a single value when the key is absent", () => {
-        const table = new query.Table<string, KeyedValue>(noopError);
-        table.setIfAbsent({ key: "key1", value: "value1" });
+        const table = ifAbsentTable();
+        table.ingest({ key: "key1", value: "value1" });
         expect(table.get("key1")).toEqual({ key: "key1", value: "value1" });
       });
 
-      it("should leave an existing value untouched", () => {
-        const table = new query.Table<string, KeyedValue>(noopError);
+      it("should leave an existing value untouched under if-absent mode", () => {
+        const table = ifAbsentTable();
         table.set([{ key: "key1", value: "original" }]);
-        table.setIfAbsent({ key: "key1", value: "replacement" });
+        table.ingest({ key: "key1", value: "replacement" });
         expect(table.get("key1")).toEqual({ key: "key1", value: "original" });
       });
 
       it("should insert only the absent keys from an array", () => {
-        const table = new query.Table<string, KeyedValue>(noopError);
+        const table = ifAbsentTable();
         table.set([{ key: "key1", value: "original" }]);
-        table.setIfAbsent([
+        table.ingest([
           { key: "key1", value: "replacement" },
           { key: "key2", value: "value2" },
         ]);
@@ -182,12 +194,12 @@ describe("Table", () => {
       });
 
       it("should not notify subscribers for keys that already exist", () => {
-        const table = new query.Table<string, KeyedValue>(noopError);
+        const table = ifAbsentTable();
         const listener = vi.fn();
 
         table.set([{ key: "key1", value: "original" }]);
         table.subscribe(listener);
-        table.setIfAbsent([
+        table.ingest([
           { key: "key1", value: "replacement" },
           { key: "key2", value: "value2" },
         ]);
@@ -201,9 +213,9 @@ describe("Table", () => {
       });
 
       it("should only roll back the keys it inserted", () => {
-        const table = new query.Table<string, KeyedValue>(noopError);
+        const table = ifAbsentTable();
         table.set([{ key: "key1", value: "original" }]);
-        const rollback = table.setIfAbsent([
+        const rollback = table.ingest([
           { key: "key1", value: "replacement" },
           { key: "key2", value: "value2" },
         ]);
@@ -217,7 +229,7 @@ describe("Table", () => {
     describe("Rollback Functionality", () => {
       describe("Set Rollback", () => {
         it("should rollback a set operation for new entry", () => {
-          const table = new query.Table<string, string>(noopError);
+          const table = new query.Table<string, string>({ onError: noopError });
           const rollback = table.set("key1", "value1");
           expect(table.get("key1")).toBe("value1");
 
@@ -226,7 +238,7 @@ describe("Table", () => {
         });
 
         it("should rollback a set operation for existing entry", () => {
-          const table = new query.Table<string, string>(noopError);
+          const table = new query.Table<string, string>({ onError: noopError });
           table.set("key1", "initial");
           const rollback = table.set("key1", "updated");
           expect(table.get("key1")).toBe("updated");
@@ -240,7 +252,7 @@ describe("Table", () => {
             key: string;
             value: string;
           }
-          const table = new query.Table<string, KeyedString>(noopError);
+          const table = new query.Table<string, KeyedString>({ onError: noopError });
           const rollback = table.set([
             { key: "key1", value: "value1" },
             { key: "key2", value: "value2" },
@@ -262,7 +274,7 @@ describe("Table", () => {
             key: string;
             value: string;
           }
-          const table = new query.Table<string, KeyedString>(noopError);
+          const table = new query.Table<string, KeyedString>({ onError: noopError });
 
           const item: KeyedString = { key: "key1", value: "value1" };
           const rollback = table.set([item]);
@@ -278,7 +290,7 @@ describe("Table", () => {
             key: string;
             value: string;
           }
-          const table = new query.Table<string, KeyedString>(noopError);
+          const table = new query.Table<string, KeyedString>({ onError: noopError });
 
           table.set([{ key: "key1", value: "initial" }]);
           const rollback = table.set([{ key: "key1", value: "updated" }]);
@@ -290,7 +302,7 @@ describe("Table", () => {
         });
 
         it("should notify subscribers of a delete when rolling back new entry", () => {
-          const table = new query.Table<string, string>(noopError);
+          const table = new query.Table<string, string>({ onError: noopError });
           const listener = vi.fn();
 
           table.subscribe(listener);
@@ -305,7 +317,7 @@ describe("Table", () => {
         });
 
         it("should notify subscribers of a set when rolling back updated entry", () => {
-          const table = new query.Table<string, string>(noopError);
+          const table = new query.Table<string, string>({ onError: noopError });
           const listener = vi.fn();
 
           table.set("key1", "initial");
@@ -329,7 +341,7 @@ describe("Table", () => {
 
       describe("Delete Rollback", () => {
         it("should rollback a delete operation", () => {
-          const table = new query.Table<string, string>(noopError);
+          const table = new query.Table<string, string>({ onError: noopError });
           table.set("key1", "value1");
           const rollback = table.delete("key1");
           expect(table.get("key1")).toBeUndefined();
@@ -339,7 +351,7 @@ describe("Table", () => {
         });
 
         it("should rollback multiple delete operations", () => {
-          const table = new query.Table<string, string>(noopError);
+          const table = new query.Table<string, string>({ onError: noopError });
           table.set("key1", "value1");
           table.set("key2", "value2");
           table.set("key3", "value3");
@@ -356,7 +368,7 @@ describe("Table", () => {
         });
 
         it("should rollback filter-based delete", () => {
-          const table = new query.Table<string, number>(noopError);
+          const table = new query.Table<string, number>({ onError: noopError });
           table.set("a", 1);
           table.set("b", 2);
           table.set("c", 3);
@@ -376,7 +388,7 @@ describe("Table", () => {
         });
 
         it("should notify subscribers of a set when rolling back delete", () => {
-          const table = new query.Table<string, string>(noopError);
+          const table = new query.Table<string, string>({ onError: noopError });
           const listener = vi.fn();
 
           table.set("key1", "value1");
@@ -395,7 +407,7 @@ describe("Table", () => {
 
       describe("Complex Rollback Scenarios", () => {
         it("should handle nested rollbacks", () => {
-          const table = new query.Table<string, string>(noopError);
+          const table = new query.Table<string, string>({ onError: noopError });
           const rollback1 = table.set("key1", "value1");
           const rollback2 = table.set("key1", "value2");
           const rollback3 = table.delete("key1");
@@ -413,7 +425,7 @@ describe("Table", () => {
         });
 
         it("should handle rollback of no-op operations", () => {
-          const table = new query.Table<string, string>(noopError);
+          const table = new query.Table<string, string>({ onError: noopError });
 
           table.set("key1", "value1");
           const rollback = table.set("key1", "value1");
@@ -423,7 +435,7 @@ describe("Table", () => {
         });
 
         it("should handle rollback of delete on non-existent keys", () => {
-          const table = new query.Table<string, string>(noopError);
+          const table = new query.Table<string, string>({ onError: noopError });
           const rollback = table.delete("nonexistent");
 
           expect(() => rollback()).not.toThrow();
@@ -434,7 +446,7 @@ describe("Table", () => {
 
     describe("Delete", () => {
       it("should delete an entry", () => {
-        const table = new query.Table<string, string>(noopError);
+        const table = new query.Table<string, string>({ onError: noopError });
         table.set("key1", "value1");
         expect(table.get("key1")).toBe("value1");
 
@@ -443,12 +455,12 @@ describe("Table", () => {
       });
 
       it("should handle deleting non-existent keys", () => {
-        const table = new query.Table<string, string>(noopError);
+        const table = new query.Table<string, string>({ onError: noopError });
         expect(() => table.delete("nonexistent")).not.toThrow();
       });
 
       it("should delete entries using a filter function", () => {
-        const table = new query.Table<string, number>(noopError);
+        const table = new query.Table<string, number>({ onError: noopError });
         table.set("a", 1);
         table.set("b", 2);
         table.set("c", 3);
@@ -465,7 +477,7 @@ describe("Table", () => {
       });
 
       it("should delete entries using a filter with key parameter", () => {
-        const table = new query.Table<string, string>(noopError);
+        const table = new query.Table<string, string>({ onError: noopError });
         table.set("key1", "value1");
         table.set("key2", "value2");
         table.set("test1", "test1");
@@ -486,7 +498,7 @@ describe("Table", () => {
           age: number;
         }
 
-        const table = new query.Table<string, User>(noopError);
+        const table = new query.Table<string, User>({ onError: noopError });
 
         table.set("user1", { id: "1", name: "Alice", age: 25 });
         table.set("user2", { id: "2", name: "Bob", age: 35 });
@@ -502,7 +514,7 @@ describe("Table", () => {
       });
 
       it("should delete nothing when filter matches no entries", () => {
-        const table = new query.Table<string, number>(noopError);
+        const table = new query.Table<string, number>({ onError: noopError });
         table.set("a", 1);
         table.set("b", 2);
         table.set("c", 3);
@@ -515,7 +527,7 @@ describe("Table", () => {
       });
 
       it("should delete all entries when filter matches all", () => {
-        const table = new query.Table<string, number>(noopError);
+        const table = new query.Table<string, number>({ onError: noopError });
         table.set("a", 1);
         table.set("b", 2);
         table.set("c", 3);
@@ -525,13 +537,13 @@ describe("Table", () => {
         expect(table.get("a")).toBeUndefined();
         expect(table.get("b")).toBeUndefined();
         expect(table.get("c")).toBeUndefined();
-        expect(table.list()).toEqual([]);
+        expect(table.get()).toEqual([]);
       });
 
       it("should combine filter with value and key checks", () => {
-        const table = new query.Table<string, { value: number; active: boolean }>(
-          noopError,
-        );
+        const table = new query.Table<string, { value: number; active: boolean }>({
+          onError: noopError,
+        });
 
         table.set("item1", { value: 10, active: true });
         table.set("item2", { value: 20, active: false });
@@ -547,19 +559,19 @@ describe("Table", () => {
       });
     });
 
-    describe("List", () => {
+    describe("Get All", () => {
       it("should return empty array when table is empty", () => {
-        const table = new query.Table<string, string>(noopError);
-        expect(table.list()).toEqual([]);
+        const table = new query.Table<string, string>({ onError: noopError });
+        expect(table.get()).toEqual([]);
       });
 
       it("should return all values in the table", () => {
-        const table = new query.Table<string, string>(noopError);
+        const table = new query.Table<string, string>({ onError: noopError });
         table.set("key1", "value1");
         table.set("key2", "value2");
         table.set("key3", "value3");
 
-        const values = table.list();
+        const values = table.get();
         expect(values).toHaveLength(3);
         expect(values).toContain("value1");
         expect(values).toContain("value2");
@@ -567,13 +579,13 @@ describe("Table", () => {
       });
 
       it("should return values after deletions", () => {
-        const table = new query.Table<string, string>(noopError);
+        const table = new query.Table<string, string>({ onError: noopError });
         table.set("key1", "value1");
         table.set("key2", "value2");
         table.set("key3", "value3");
         table.delete("key2");
 
-        const values = table.list();
+        const values = table.get();
         expect(values).toHaveLength(2);
         expect(values).toContain("value1");
         expect(values).toContain("value3");
@@ -581,12 +593,12 @@ describe("Table", () => {
       });
 
       it("should return values after updates", () => {
-        const table = new query.Table<string, string>(noopError);
+        const table = new query.Table<string, string>({ onError: noopError });
         table.set("key1", "value1");
         table.set("key2", "value2");
         table.set("key1", "updated1");
 
-        const values = table.list();
+        const values = table.get();
         expect(values).toHaveLength(2);
         expect(values).toContain("updated1");
         expect(values).toContain("value2");
@@ -600,7 +612,7 @@ describe("Table", () => {
           age: number;
         }
 
-        const table = new query.Table<string, User>(noopError);
+        const table = new query.Table<string, User>({ onError: noopError });
         const user1: User = { id: "1", name: "John", age: 30 };
         const user2: User = { id: "2", name: "Jane", age: 25 };
         const user3: User = { id: "3", name: "Bob", age: 35 };
@@ -609,7 +621,7 @@ describe("Table", () => {
         table.set("user2", user2);
         table.set("user3", user3);
 
-        const users = table.list();
+        const users = table.get();
         expect(users).toHaveLength(3);
         expect(users).toContainEqual(user1);
         expect(users).toContainEqual(user2);
@@ -617,9 +629,9 @@ describe("Table", () => {
       });
 
       it("should return values after bulk set operations", () => {
-        const table = new query.Table<string, { key: string; value: string }>(
-          noopError,
-        );
+        const table = new query.Table<string, { key: string; value: string }>({
+          onError: noopError,
+        });
 
         const items = [
           { key: "key1", value: "value1" },
@@ -629,7 +641,7 @@ describe("Table", () => {
 
         table.set(items);
 
-        const values = table.list();
+        const values = table.get();
         expect(values).toHaveLength(3);
         expect(values).toContainEqual({ key: "key1", value: "value1" });
         expect(values).toContainEqual({ key: "key2", value: "value2" });
@@ -637,7 +649,7 @@ describe("Table", () => {
       });
 
       it("should return values after bulk delete operations", () => {
-        const table = new query.Table<string, string>(noopError);
+        const table = new query.Table<string, string>({ onError: noopError });
         table.set("key1", "value1");
         table.set("key2", "value2");
         table.set("key3", "value3");
@@ -645,47 +657,19 @@ describe("Table", () => {
 
         table.delete(["key2", "key3"]);
 
-        const values = table.list();
+        const values = table.get();
         expect(values).toHaveLength(2);
         expect(values).toContain("value1");
         expect(values).toContain("value4");
       });
 
-      it("should return empty array after clear", () => {
-        const table = new query.Table<string, string>(noopError);
-
-        table.set("key1", "value1");
-        table.set("key2", "value2");
-        table.set("key3", "value3");
-
-        expect(table.list()).toHaveLength(3);
-
-        table.clear();
-
-        expect(table.list()).toEqual([]);
-      });
-
-      it("should notify subscribers for every cleared key", () => {
-        const table = new query.Table<string, string>(noopError);
-        table.set("key1", "value1");
-        table.set("key2", "value2");
-        const listener = vi.fn();
-        table.subscribe(listener);
-
-        table.clear();
-
-        expect(listener).toHaveBeenCalledTimes(2);
-        expect(listener).toHaveBeenCalledWith({ variant: "delete", key: "key1" });
-        expect(listener).toHaveBeenCalledWith({ variant: "delete", key: "key2" });
-      });
-
       it("should work with number keys", () => {
-        const table = new query.Table<number, string>(noopError);
+        const table = new query.Table<number, string>({ onError: noopError });
         table.set(1, "value1");
         table.set(2, "value2");
         table.set(3, "value3");
 
-        const values = table.list();
+        const values = table.get();
         expect(values).toHaveLength(3);
         expect(values).toContain("value1");
         expect(values).toContain("value2");
@@ -693,7 +677,7 @@ describe("Table", () => {
       });
 
       it("should handle mixed operations correctly", () => {
-        const table = new query.Table<string, number>(noopError);
+        const table = new query.Table<string, number>({ onError: noopError });
 
         table.set("a", 1);
         table.set("b", 2);
@@ -702,7 +686,7 @@ describe("Table", () => {
         table.set("d", 4);
         table.set("a", 10);
 
-        const values = table.list();
+        const values = table.get();
         expect(values).toHaveLength(3);
         expect(values).toContain(10);
         expect(values).toContain(3);
@@ -712,12 +696,12 @@ describe("Table", () => {
       });
 
       it("should return independent arrays on each call", () => {
-        const table = new query.Table<string, string>(noopError);
+        const table = new query.Table<string, string>({ onError: noopError });
         table.set("key1", "value1");
         table.set("key2", "value2");
 
-        const list1 = table.list();
-        const list2 = table.list();
+        const list1 = table.get();
+        const list2 = table.get();
 
         expect(list1).not.toBe(list2);
         expect(list1).toEqual(list2);
@@ -725,18 +709,18 @@ describe("Table", () => {
         list1.push("extra");
         expect(list1).toHaveLength(3);
         expect(list2).toHaveLength(2);
-        expect(table.list()).toHaveLength(2);
+        expect(table.get()).toHaveLength(2);
       });
 
       it("should preserve values with equal function check", () => {
         const equalFunc = (a: string, b: string) => a.toLowerCase() === b.toLowerCase();
-        const table = new query.Table<string, string>(noopError, equalFunc);
+        const table = new query.Table<string, string>({ onError: noopError, equal: equalFunc });
 
         table.set("key1", "Value1");
         table.set("key2", "Value2");
         table.set("key1", "VALUE1");
 
-        const values = table.list();
+        const values = table.get();
         expect(values).toHaveLength(2);
         expect(values).toContain("Value1");
         expect(values).toContain("Value2");
@@ -747,7 +731,7 @@ describe("Table", () => {
   describe("Subscriptions", () => {
     describe("Set Events", () => {
       it("should notify subscribers when a value is set", () => {
-        const table = new query.Table<string, string>(noopError);
+        const table = new query.Table<string, string>({ onError: noopError });
         const listener = vi.fn();
 
         table.subscribe(listener);
@@ -761,7 +745,7 @@ describe("Table", () => {
       });
 
       it("should notify only for specific key when key filter is provided", () => {
-        const table = new query.Table<string, string>(noopError);
+        const table = new query.Table<string, string>({ onError: noopError });
         const listener1 = vi.fn();
         const listener2 = vi.fn();
 
@@ -786,7 +770,7 @@ describe("Table", () => {
       });
 
       it("should remove subscriber when destructor is called", () => {
-        const table = new query.Table<string, string>(noopError);
+        const table = new query.Table<string, string>({ onError: noopError });
         const listener = vi.fn();
 
         const destructor = table.subscribe(listener);
@@ -799,7 +783,7 @@ describe("Table", () => {
       });
 
       it("should notify every subscriber on a set", () => {
-        const table = new query.Table<string, string>(noopError);
+        const table = new query.Table<string, string>({ onError: noopError });
         const listener1 = vi.fn();
         const listener2 = vi.fn();
 
@@ -814,7 +798,7 @@ describe("Table", () => {
       });
 
       it("should notify subscribers for every value in a multi-value set", () => {
-        const table = new query.Table<string, record.Keyed<string>>(noopError);
+        const table = new query.Table<string, record.Keyed<string>>({ onError: noopError });
         const listener = vi.fn();
         const keyed = vi.fn();
         table.subscribe(listener);
@@ -831,7 +815,7 @@ describe("Table", () => {
 
       it("should call the error sink when a subscriber throws", () => {
         const onError = vi.fn();
-        const table = new query.Table<string, string>(onError);
+        const table = new query.Table<string, string>({ onError });
         const error = new Error("Listener error");
         const listener = vi.fn(() => {
           throw error;
@@ -848,7 +832,7 @@ describe("Table", () => {
 
       it("should continue notifying other subscribers when one throws", () => {
         const onError = vi.fn();
-        const table = new query.Table<string, string>(onError);
+        const table = new query.Table<string, string>({ onError });
         const listener1 = vi.fn(() => {
           throw new Error("First listener error");
         });
@@ -870,7 +854,7 @@ describe("Table", () => {
 
       it("should handle errors from multiple subscribers", () => {
         const onError = vi.fn();
-        const table = new query.Table<string, string>(onError);
+        const table = new query.Table<string, string>({ onError });
         const listener1 = vi.fn(() => {
           throw new Error("First error");
         });
@@ -896,7 +880,7 @@ describe("Table", () => {
 
     describe("Delete Events", () => {
       it("should notify subscribers when a value is deleted", () => {
-        const table = new query.Table<string, string>(noopError);
+        const table = new query.Table<string, string>({ onError: noopError });
         const listener = vi.fn();
 
         table.subscribe(listener);
@@ -907,7 +891,7 @@ describe("Table", () => {
       });
 
       it("should notify only for specific key when key filter is provided", () => {
-        const table = new query.Table<string, string>(noopError);
+        const table = new query.Table<string, string>({ onError: noopError });
         const listener1 = vi.fn();
         const listener2 = vi.fn();
 
@@ -927,7 +911,7 @@ describe("Table", () => {
       });
 
       it("should remove subscriber when destructor is called", () => {
-        const table = new query.Table<string, string>(noopError);
+        const table = new query.Table<string, string>({ onError: noopError });
         const listener = vi.fn();
 
         table.set("key1", "value1");
@@ -943,7 +927,7 @@ describe("Table", () => {
 
       it("should call the error sink when a subscriber throws on delete", () => {
         const onError = vi.fn();
-        const table = new query.Table<string, string>(onError);
+        const table = new query.Table<string, string>({ onError });
         const error = new Error("Delete listener error");
         table.set("key1", "value1");
         const listener = vi.fn((event: query.TableEvent<string, string>) => {
@@ -961,7 +945,7 @@ describe("Table", () => {
 
       it("should continue notifying other subscribers when one throws", () => {
         const onError = vi.fn();
-        const table = new query.Table<string, string>(onError);
+        const table = new query.Table<string, string>({ onError });
         table.set("key1", "value1");
         const listener1 = vi.fn((event: query.TableEvent<string, string>) => {
           if (event.variant === "delete") throw new Error("First delete error");
@@ -983,7 +967,7 @@ describe("Table", () => {
       });
 
       it("should notify subscribers for each item deleted by filter", () => {
-        const table = new query.Table<string, number>(noopError);
+        const table = new query.Table<string, number>({ onError: noopError });
         const listener = vi.fn();
 
         table.set("a", 1);
@@ -1000,7 +984,7 @@ describe("Table", () => {
       });
 
       it("should notify key-specific subscribers only for matching filtered deletes", () => {
-        const table = new query.Table<string, number>(noopError);
+        const table = new query.Table<string, number>({ onError: noopError });
         const listenerA = vi.fn();
         const listenerB = vi.fn();
         const listenerC = vi.fn();
@@ -1021,7 +1005,7 @@ describe("Table", () => {
       });
 
       it("should not notify any subscribers when filter matches nothing", () => {
-        const table = new query.Table<string, number>(noopError);
+        const table = new query.Table<string, number>({ onError: noopError });
         const listener = vi.fn();
 
         table.set("a", 1);
@@ -1035,7 +1019,7 @@ describe("Table", () => {
       });
 
       it("should handle filter delete with mixed subscriber types", () => {
-        const table = new query.Table<string, string>(noopError);
+        const table = new query.Table<string, string>({ onError: noopError });
         const globalListener = vi.fn();
         const specificListener = vi.fn();
 
@@ -1067,7 +1051,7 @@ describe("Table", () => {
 
     describe("Equality Silencing", () => {
       it("should not notify subscribers when the set value deep-equals the row", () => {
-        const table = new query.Table<string, { name: string }>(noopError);
+        const table = new query.Table<string, { name: string }>({ onError: noopError });
         const listener = vi.fn();
 
         table.subscribe(listener);
@@ -1079,7 +1063,7 @@ describe("Table", () => {
       });
 
       it("should notify subscribers when the set value differs", () => {
-        const table = new query.Table<string, { name: string }>(noopError);
+        const table = new query.Table<string, { name: string }>({ onError: noopError });
         const listener = vi.fn();
 
         table.set("key1", { name: "a" });
@@ -1094,10 +1078,10 @@ describe("Table", () => {
       });
 
       it("should respect a custom equal override", () => {
-        const table = new query.Table<string, string>(
-          noopError,
-          (a, b) => a.toLowerCase() === b.toLowerCase(),
-        );
+        const table = new query.Table<string, string>({
+          onError: noopError,
+          equal: (a, b) => a.toLowerCase() === b.toLowerCase(),
+        });
         const listener = vi.fn();
 
         table.subscribe(listener);
@@ -1114,7 +1098,7 @@ describe("Table", () => {
           key: string;
           value: string;
         }
-        const table = new query.Table<string, KeyedValue>(noopError);
+        const table = new query.Table<string, KeyedValue>({ onError: noopError });
         const listener = vi.fn();
 
         table.set([{ key: "key1", value: "a" }]);
@@ -1143,7 +1127,7 @@ describe("Table", () => {
       }
 
       it("should handle object state", () => {
-        const table = new query.Table<string, User>(noopError);
+        const table = new query.Table<string, User>({ onError: noopError });
         const user: User = { id: "1", name: "John", age: 30 };
 
         table.set("user1", user);
@@ -1151,7 +1135,7 @@ describe("Table", () => {
       });
 
       it("should update nested properties with setter function", () => {
-        const table = new query.Table<string, User>(noopError);
+        const table = new query.Table<string, User>({ onError: noopError });
         const user: User = { id: "1", name: "John", age: 30 };
 
         table.set("user1", user);
@@ -1171,20 +1155,20 @@ describe("Table", () => {
       }
 
       it("should merge the partial into the existing row", () => {
-        const table = new query.Table<string, User>(noopError);
+        const table = new query.Table<string, User>({ onError: noopError });
         table.set("user1", { id: "1", name: "John", age: 30 });
         query.partialUpdate(table, "user1", { age: 31 });
         expect(table.get("user1")).toEqual({ id: "1", name: "John", age: 31 });
       });
 
       it("should be a no-op when the row is absent", () => {
-        const table = new query.Table<string, User>(noopError);
+        const table = new query.Table<string, User>({ onError: noopError });
         query.partialUpdate(table, "missing", { age: 31 });
         expect(table.get("missing")).toBeUndefined();
       });
 
       it("should return a rollback that restores the prior value", () => {
-        const table = new query.Table<string, User>(noopError);
+        const table = new query.Table<string, User>({ onError: noopError });
         table.set("user1", { id: "1", name: "John", age: 30 });
         const rollback = query.partialUpdate(table, "user1", { age: 31 });
         rollback();
@@ -1194,8 +1178,8 @@ describe("Table", () => {
 
     describe("Table Independence", () => {
       it("keeps rows isolated between separate tables", () => {
-        const table1 = new query.Table<string, record.Keyed<string>>(noopError);
-        const table2 = new query.Table<string, record.Keyed<string>>(noopError);
+        const table1 = new query.Table<string, record.Keyed<string>>({ onError: noopError });
+        const table2 = new query.Table<string, record.Keyed<string>>({ onError: noopError });
 
         table1.set([{ key: "key1" }]);
         table2.set([{ key: "key2" }]);
@@ -1207,76 +1191,89 @@ describe("Table", () => {
     });
   });
 
-  describe("orderByKeys", () => {
-    interface Item {
-      key: number;
+  describe("retrieve", () => {
+    interface Item extends record.Keyed<string> {
+      key: string;
       name: string;
     }
-    const getKey = (i: Item) => i.key;
+    const item = (key: string, name: string): Item => ({ key, name });
+    const fetchTable = (
+      fetch: (keys: string[]) => Promise<Item[]>,
+      hydrate?: "set" | "if-absent",
+    ) => new query.Table<string, Item>({ onError: noopError, fetch, hydrate });
 
-    it("should return items in the order of the input keys", () => {
-      const items: Item[] = [
-        { key: 3, name: "c" },
-        { key: 1, name: "a" },
-        { key: 2, name: "b" },
-      ];
-      const ordered = query.orderByKeys([1, 2, 3], items, getKey);
-      expect(ordered.map((i) => i.name)).toEqual(["a", "b", "c"]);
+    it("should serve cached rows without touching the fetch", async () => {
+      const fetch = vi.fn(async () => []);
+      const table = fetchTable(fetch);
+      table.set([item("a", "one"), item("b", "two")]);
+      const results = await table.retrieve(["a", "b"]);
+      expect(results.map((i) => i.name)).toEqual(["one", "two"]);
+      expect(fetch).not.toHaveBeenCalled();
     });
 
-    it("should drop keys that have no corresponding item", () => {
-      const items: Item[] = [
-        { key: 1, name: "a" },
-        { key: 3, name: "c" },
-      ];
-      const ordered = query.orderByKeys([1, 2, 3], items, getKey);
-      expect(ordered.map((i) => i.name)).toEqual(["a", "c"]);
+    it("should fetch only the missing keys and hydrate them", async () => {
+      const fetch = vi.fn(async (keys: string[]) =>
+        keys.map((k) => item(k, `${k}-fetched`)),
+      );
+      const table = fetchTable(fetch);
+      table.set([item("a", "cached")]);
+      const results = await table.retrieve(["a", "b"]);
+      expect(fetch).toHaveBeenCalledWith(["b"]);
+      expect(results.map((i) => i.name)).toEqual(["cached", "b-fetched"]);
+      expect(table.get("b")).toEqual(item("b", "b-fetched"));
     });
 
-    it("should deduplicate repeated keys", () => {
-      const items: Item[] = [
-        { key: 1, name: "a" },
-        { key: 2, name: "b" },
-      ];
-      const ordered = query.orderByKeys([1, 2, 1, 2, 1], items, getKey);
-      expect(ordered.map((i) => i.name)).toEqual(["a", "b"]);
+    it("should return rows in input key order", async () => {
+      const fetch = vi.fn(async (keys: string[]) =>
+        [...keys].reverse().map((k) => item(k, k)),
+      );
+      const table = fetchTable(fetch);
+      const results = await table.retrieve(["c", "a", "b"]);
+      expect(results.map((i) => i.key)).toEqual(["c", "a", "b"]);
     });
 
-    it("should return an empty array when keys is empty", () => {
-      const items: Item[] = [{ key: 1, name: "a" }];
-      expect(query.orderByKeys([], items, getKey)).toEqual([]);
+    it("should deduplicate repeated keys", async () => {
+      const fetch = async (keys: string[]) => keys.map((k) => item(k, k));
+      const table = fetchTable(fetch);
+      const results = await table.retrieve(["a", "b", "a", "b", "a"]);
+      expect(results.map((i) => i.key)).toEqual(["a", "b"]);
     });
 
-    it("should return an empty array when items is empty", () => {
-      expect(query.orderByKeys([1, 2, 3], [], getKey)).toEqual([]);
+    it("should omit keys the fetch does not return", async () => {
+      const fetch = async (keys: string[]) =>
+        keys.filter((k) => k !== "gone").map((k) => item(k, k));
+      const table = fetchTable(fetch);
+      const results = await table.retrieve(["a", "gone", "b"]);
+      expect(results.map((i) => i.key)).toEqual(["a", "b"]);
     });
 
-    it("should ignore items whose key is not present in keys", () => {
-      const items: Item[] = [
-        { key: 1, name: "a" },
-        { key: 99, name: "x" },
-      ];
-      const ordered = query.orderByKeys([1], items, getKey);
-      expect(ordered.map((i) => i.name)).toEqual(["a"]);
+    it("should refetch every key with refresh, overwriting cached rows", async () => {
+      const fetch = vi.fn(async (keys: string[]) =>
+        keys.map((k) => item(k, `${k}-fresh`)),
+      );
+      const table = fetchTable(fetch);
+      table.set([item("a", "stale")]);
+      const results = await table.retrieve(["a"], { refresh: true });
+      expect(fetch).toHaveBeenCalledWith(["a"]);
+      expect(results).toEqual([item("a", "a-fresh")]);
     });
 
-    it("should support string keys", () => {
-      const items = [
-        { key: "b", name: "two" },
-        { key: "a", name: "one" },
-      ];
-      const ordered = query.orderByKeys(["a", "b"], items, (i) => i.key);
-      expect(ordered.map((i) => i.name)).toEqual(["one", "two"]);
+    it("should not clobber existing rows under if-absent hydration", async () => {
+      const fetch = async (keys: string[]) => keys.map((k) => item(k, `${k}-fetched`));
+      const table = fetchTable(fetch, "if-absent");
+      table.set([item("a", "local-edit")]);
+      // "a" is cached so only "b" is fetched; a second call that force-misses
+      // shows if-absent leaving the local row alone.
+      await table.retrieve(["a", "b"]);
+      expect(table.get("a")).toEqual(item("a", "local-edit"));
+      expect(table.get("b")).toEqual(item("b", "b-fetched"));
     });
 
-    it("should keep the first occurrence when items contains duplicate keys", () => {
-      const items: Item[] = [
-        { key: 1, name: "first" },
-        { key: 1, name: "second" },
-      ];
-      const ordered = query.orderByKeys([1], items, getKey);
-      // Map.set with the same key keeps the last value written — confirming contract.
-      expect(ordered).toEqual([{ key: 1, name: "second" }]);
+    it("should serve cached rows only when the table has no fetch", async () => {
+      const table = new query.Table<string, Item>({ onError: noopError });
+      table.set([item("a", "one")]);
+      const results = await table.retrieve(["a", "missing"]);
+      expect(results.map((i) => i.key)).toEqual(["a"]);
     });
   });
 });
@@ -1286,7 +1283,7 @@ describe("Tombstones", () => {
     key: string;
     name: string;
   }
-  const newTable = () => new query.Table<string, Doc>(noopError);
+  const newTable = () => new query.Table<string, Doc>({ onError: noopError });
 
   it("should report unknown for a never-seen key", () => {
     const table = newTable();
@@ -1329,11 +1326,14 @@ describe("Tombstones", () => {
     expect(table.get("k1")).toEqual({ key: "k1", name: "b" });
   });
 
-  it("should clear the tombstone on setIfAbsent", () => {
-    const table = newTable();
+  it("should clear the tombstone on an if-absent ingest", () => {
+    const table = new query.Table<string, Doc>({
+      onError: noopError,
+      hydrate: "if-absent",
+    });
     table.set("k1", { key: "k1", name: "a" });
     table.delete("k1");
-    table.setIfAbsent({ key: "k1", name: "c" });
+    table.ingest({ key: "k1", name: "c" });
     expect(table.status("k1")).toBe("present");
     expect(table.getTombstone("k1")).toBeUndefined();
   });
@@ -1369,11 +1369,4 @@ describe("Tombstones", () => {
     expect(table.getTombstone("k1")?.corpse).toEqual({ key: "k1", name: "a" });
   });
 
-  it("should clear tombstones on clear", () => {
-    const table = newTable();
-    table.set("k1", { key: "k1", name: "a" });
-    table.delete("k1");
-    table.clear();
-    expect(table.status("k1")).toBe("unknown");
-  });
 });

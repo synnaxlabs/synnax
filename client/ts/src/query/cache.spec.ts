@@ -74,11 +74,36 @@ const makeEngine = (openStreamer?: framer.StreamOpener) =>
     onInternalError: vi.fn(),
   });
 
+// Fails on every read with a non-EOF error, forcing a reopen.
+const failingStreamer = (): framer.Streamer => ({
+  keys: [],
+  update: async () => {},
+  close: () => {},
+  next: async () => {
+    throw new Error("conn dropped");
+  },
+  read: async () => {
+    throw new Error("conn dropped");
+  },
+  [Symbol.asyncIterator]() {
+    return this as AsyncIterator<framer.Frame>;
+  },
+});
+
+/** An engine whose first stream drops immediately, forcing one reopen. */
+const makeReopeningEngine = () => {
+  let opens = 0;
+  return makeEngine(async (): Promise<framer.Streamer> => {
+    opens++;
+    if (opens === 1) return failingStreamer();
+    return new MockStreamer();
+  });
+};
+
 describe("Cache", () => {
-  describe("detached", () => {
+  describe("detached (null openStreamer)", () => {
     it("creates purely local tables", () => {
       const cache = new query.Cache({ openStreamer: null });
-      expect(cache.detached).toBe(true);
       const table = cache.createTable<string, number>({ name: "docs" });
       table.set("a", 1);
       expect(table.get("a")).toEqual(1);
@@ -111,17 +136,13 @@ describe("Cache", () => {
       await cache.close();
     });
 
-    it("throws when adding listeners to a foreign table", () => {
+    it("throws when registering a reaction after streaming has started", async () => {
       const cache = makeEngine();
-      const foreign = new query.Table<string, Doc>(vi.fn());
-      expect(() => cache.addListeners(foreign)).toThrow("not created by this cache");
-    });
-
-    it("throws when adding listeners after streaming has started", async () => {
-      const cache = makeEngine();
-      const table = cache.createTable({ name: "docs" });
+      cache.createTable({ name: "docs" });
       await cache.ensureStreaming();
-      expect(() => cache.addListeners(table)).toThrow("after streaming");
+      expect(() =>
+        cache.listen({ channel: "late", schema: z.string(), onChange: vi.fn() }),
+      ).toThrow("after streaming");
       await cache.close();
     });
 
@@ -187,51 +208,73 @@ describe("Cache", () => {
       await cache.close();
     });
 
-    it("routes streamed changes into the listener's table", async () => {
+    it("routes streamed changes into the table via a declared set listener", async () => {
       const schema = z.object({ key: z.string(), name: z.string() });
       const opener = async () =>
         new MockStreamer([
           new framer.Frame({ docs_set: new Series([{ key: "k1", name: "remote" }]) }),
         ]);
       const cache = makeEngine(opener);
-      const table = cache.createTable<string, Doc>({ name: "docs" });
-      cache.addListeners(table, {
-        channel: "docs_set",
-        schema,
-        onChange: (changed) => table.set(changed.key, changed),
+      const table = cache.createTable<string, Doc>({
+        name: "docs",
+        listen: [query.createSetListener("docs_set", schema)],
       });
       await cache.ensureStreaming();
       await expect.poll(() => table.get("k1")).toEqual({ key: "k1", name: "remote" });
       await cache.close();
     });
 
+    it("routes streamed deletions via a declared delete listener", async () => {
+      const opener = async () =>
+        new MockStreamer([new framer.Frame({ docs_delete: new Series(["k1"]) })]);
+      const cache = makeEngine(opener);
+      const table = cache.createTable<string, Doc>({
+        name: "docs",
+        listen: [query.createDeleteListener("docs_delete", z.string())],
+      });
+      table.set("k1", { key: "k1", name: "a" });
+      await cache.ensureStreaming();
+      await expect.poll(() => table.get("k1")).toBeUndefined();
+      await cache.close();
+    });
+
+    it("refetches announced keys via a declared fetch listener", async () => {
+      const fetch = vi.fn(async (keys: string[]) =>
+        keys.map((k) => ({ key: k, name: `${k}-fresh` })),
+      );
+      const opener = async () =>
+        new MockStreamer([new framer.Frame({ docs_set: new Series(["k1"]) })]);
+      const cache = makeEngine(opener);
+      const table = cache.createTable<string, Doc>({
+        name: "docs",
+        fetch,
+        listen: [query.createFetchListener("docs_set", z.string())],
+      });
+      table.set("k1", { key: "k1", name: "stale" });
+      await cache.ensureStreaming();
+      await expect.poll(() => table.get("k1")).toEqual({ key: "k1", name: "k1-fresh" });
+      expect(fetch).toHaveBeenCalledWith(["k1"]);
+      await cache.close();
+    });
+
+    it("delivers channel reactions registered via listen", async () => {
+      const opener = async () =>
+        new MockStreamer([new framer.Frame({ commands: new Series(["start"]) })]);
+      const cache = makeEngine(opener);
+      const onChange = vi.fn();
+      cache.listen({ channel: "commands", schema: z.string(), onChange });
+      await cache.ensureStreaming();
+      await expect.poll(() => onChange.mock.calls.length).toBe(1);
+      expect(onChange).toHaveBeenCalledWith("start");
+      await cache.close();
+    });
+
     it("bumps the epoch and reconciles after a stream reopen", async () => {
-      let opens = 0;
-      const refetch = vi.fn(async (keys: string[]) =>
+      const fetch = vi.fn(async (keys: string[]) =>
         keys.filter((k) => k !== "gone").map((k) => ({ key: k, name: `${k}-fresh` })),
       );
-      // Fails on first read with a non-EOF error, forcing a reopen.
-      const failing: framer.Streamer = {
-        keys: [],
-        update: async () => {},
-        close: () => {},
-        next: async () => {
-          throw new Error("conn dropped");
-        },
-        read: async () => {
-          throw new Error("conn dropped");
-        },
-        [Symbol.asyncIterator]() {
-          return this;
-        },
-      };
-      const opener = async (): Promise<framer.Streamer> => {
-        opens++;
-        if (opens === 1) return failing;
-        return new MockStreamer();
-      };
-      const cache = makeEngine(opener);
-      const table = cache.createTable<string, Doc>({ name: "docs", refetch });
+      const cache = makeReopeningEngine();
+      const table = cache.createTable<string, Doc>({ name: "docs", fetch });
       table.set([
         { key: "kept", name: "stale" },
         { key: "gone", name: "deleted-on-server" },
@@ -241,8 +284,8 @@ describe("Cache", () => {
       await cache.ensureStreaming();
       await expect.poll(() => cache.epoch).toBe(2);
       expect(epochs).toEqual([1, 2]);
-      await expect.poll(() => refetch.mock.calls.length).toBeGreaterThan(0);
-      expect(refetch).toHaveBeenCalledWith(["kept", "gone"]);
+      await expect.poll(() => fetch.mock.calls.length).toBeGreaterThan(0);
+      expect(fetch).toHaveBeenCalledWith(["kept", "gone"]);
       await expect.poll(() => table.status("gone")).toBe("tombstoned");
       expect(table.getTombstone("gone")?.corpse).toEqual({
         key: "gone",
@@ -253,43 +296,48 @@ describe("Cache", () => {
     });
   });
 
-  describe("reconcile", () => {
-    it("skips tables without a refetch", async () => {
-      const cache = makeEngine();
+  describe("reconciliation after reopen", () => {
+    it("leaves tables without a fetch untouched", async () => {
+      const cache = makeReopeningEngine();
       const table = cache.createTable<string, Doc>({ name: "docs" });
       table.set("k1", { key: "k1", name: "a" });
-      await cache.reconcile();
+      await cache.ensureStreaming();
+      await expect.poll(() => cache.epoch).toBe(2);
       expect(table.get("k1")).toEqual({ key: "k1", name: "a" });
+      await cache.close();
     });
 
-    it("skips refetch when the table is empty", async () => {
-      const refetch = vi.fn(async () => []);
-      const cache = makeEngine();
-      cache.createTable({ name: "docs", refetch });
-      await cache.reconcile();
-      expect(refetch).not.toHaveBeenCalled();
+    it("skips the fetch when the table is empty", async () => {
+      const fetch = vi.fn(async () => []);
+      const cache = makeReopeningEngine();
+      cache.createTable({ name: "docs", fetch });
+      await cache.ensureStreaming();
+      await expect.poll(() => cache.epoch).toBe(2);
+      expect(fetch).not.toHaveBeenCalled();
+      await cache.close();
     });
 
-    it("continues reconciling other tables when one refetch fails", async () => {
-      const cache = makeEngine();
-      const goodRefetch = vi.fn(async (keys: string[]) =>
+    it("continues reconciling other tables when one fetch fails", async () => {
+      const cache = makeReopeningEngine();
+      const goodFetch = vi.fn(async (keys: string[]) =>
         keys.map((k) => ({ key: k, name: "fresh" })),
       );
       const bad = cache.createTable<string, Doc>({
         name: "bad",
-        refetch: async () => {
+        fetch: async () => {
           throw new Error("network");
         },
       });
       const good = cache.createTable<string, Doc>({
         name: "good",
-        refetch: goodRefetch,
+        fetch: goodFetch,
       });
       bad.set("b1", { key: "b1", name: "a" });
       good.set("g1", { key: "g1", name: "stale" });
-      await cache.reconcile();
-      expect(good.get("g1")).toEqual({ key: "g1", name: "fresh" });
+      await cache.ensureStreaming();
+      await expect.poll(() => good.get("g1")).toEqual({ key: "g1", name: "fresh" });
       expect(bad.get("b1")).toEqual({ key: "b1", name: "a" });
+      await cache.close();
     });
   });
 });

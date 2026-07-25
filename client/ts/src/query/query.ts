@@ -22,21 +22,23 @@ import { type Data, type FetchOptions, type Params } from "@/query/types";
 
 /**
  * Deterministically serializes a query to a stable string. Keys are sorted
- * recursively so `{a: 1, b: 2}` and `{b: 2, a: 1}` collapse to the same key.
- * Class instances implementing {@link primitive.Hashable} delegate to their
- * `hash()` method; plain objects and arrays recurse structurally.
+ * recursively so `{a: 1, b: 2}` and `{b: 2, a: 1}` collapse to the same key,
+ * and explicitly-undefined fields hash like absent ones (matching JSON
+ * semantics). Class instances implementing {@link primitive.Hashable}
+ * delegate to their `hash()` method; plain objects and arrays recurse
+ * structurally.
  */
-export const hashQuery = (query: Params): string => {
+export const hash = (query: Params): string => {
   if (query === null) return "null";
   if (query === undefined) return "undefined";
   if (typeof query === "bigint") return `${query.toString()}n`;
   if (typeof query !== "object") return JSON.stringify(query);
   if (primitive.isHashable(query)) return query.hash();
-  if (Array.isArray(query)) return `[${query.map(hashQuery).join(",")}]`;
-  const entries = Object.entries(query as Record<string, Params>).sort(([a], [b]) =>
-    a < b ? -1 : a > b ? 1 : 0,
-  );
-  return `{${entries.map(([k, v]) => `${JSON.stringify(k)}:${hashQuery(v)}`).join(",")}}`;
+  if (Array.isArray(query)) return `[${query.map(hash).join(",")}]`;
+  const entries = Object.entries(query as Record<string, Params>)
+    .filter(([, v]) => v !== undefined)
+    .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0));
+  return `{${entries.map(([k, v]) => `${JSON.stringify(k)}:${hash(v)}`).join(",")}}`;
 };
 
 /**
@@ -53,6 +55,17 @@ export type Cached<D extends Data> =
  */
 export interface ChangeHandler<D extends Data> {
   (result: Cached<D> | undefined): void;
+}
+
+/**
+ * The read surface of one query space: fetch, subscribe, snapshot. The public
+ * face of every answer space, including the named spaces domain clients
+ * expose (children, parents, kv).
+ */
+export interface Retrieves<Q extends Params, D extends Data> {
+  retrieve: (query: Q, options?: FetchOptions) => Promise<D>;
+  onChange: (query: Q, handler: ChangeHandler<D>) => destructor.Destructor;
+  getCached: (query: Q) => Cached<D> | undefined;
 }
 
 /**
@@ -129,22 +142,12 @@ export interface QueriesParams<
   /** Foreign tables whose events affect this space's answers. */
   watch?: WatchEntry<Q, K>[];
   /**
-   * Backfills the primary table for keys a watch projection surfaced that the
-   * table is missing, so membership can be rechecked. Omit when watches only
-   * touch existing members.
-   */
-  hydrate?: (keys: K[]) => Promise<void>;
-  /**
    * Marks a space whose answer addresses one record and cannot compose an
    * empty membership: rule-2 eviction of the last member flips the entry to
    * deleted (when the row tombstoned) or invalidates it, instead of
    * composing []. Leave unset for spaces where [] is a valid answer.
    */
   single?: boolean;
-  /** Orders admitted members. Without it, rule-2 admissions append. */
-  sort?: (a: V, b: V) => number;
-  /** Debounce for rule-3 refetches. Defaults to 100ms. */
-  debounce?: TimeSpan;
 }
 
 /** Wiring an {@link Queries} space receives from the cache that owns it. */
@@ -237,7 +240,7 @@ export class Queries<
    * query. May be stale for queries nothing subscribes to.
    */
   getCached(query: Q): Cached<D> | undefined {
-    const entry = this.entries.get(hashQuery(query));
+    const entry = this.entries.get(hash(query));
     if (entry != null) {
       const cached = this.cachedOf(entry);
       if (cached != null) return cached;
@@ -293,11 +296,11 @@ export class Queries<
   }
 
   private ensure(query: Q): Entry<Q, K, D> {
-    const hash = hashQuery(query);
-    let entry = this.entries.get(hash);
+    const hashed = hash(query);
+    let entry = this.entries.get(hashed);
     if (entry == null) {
       entry = { query, state: { variant: "unfetched" }, handlers: new Set() };
-      this.entries.set(hash, entry);
+      this.entries.set(hashed, entry);
     }
     return entry;
   }
@@ -415,7 +418,7 @@ export class Queries<
 
   private scheduleRefetch(entry: Entry<Q, K, D>): void {
     if (entry.refetchTimer != null) clearTimeout(entry.refetchTimer);
-    const wait = (this.params.debounce ?? DEFAULT_DEBOUNCE).milliseconds;
+    const wait = DEFAULT_DEBOUNCE.milliseconds;
     entry.refetchTimer = setTimeout(() => {
       entry.refetchTimer = undefined;
       this.refetch(entry);
@@ -504,7 +507,7 @@ export class Queries<
 
   private recheck(entry: Entry<Q, K, D>, key: K): void {
     if (entry.state.variant !== "ready") return;
-    const { table, matches, sort } = this.params;
+    const { table, matches } = this.params;
     const keys = entry.state.keys;
     const member = keys.includes(key);
     const rec = table.get(key);
@@ -514,15 +517,7 @@ export class Queries<
     }
     const m = matches!(rec, entry.query);
     if (m && !member) {
-      const next = [...keys, key];
-      if (sort != null)
-        next.sort((a, b) => {
-          const ra = table.get(a);
-          const rb = table.get(b);
-          if (ra == null || rb == null) return 0;
-          return sort(ra, rb);
-        });
-      entry.state = { variant: "ready", keys: next };
+      entry.state = { variant: "ready", keys: [...keys, key] };
       return this.touch(entry);
     }
     if (!m && member) return this.evict(entry, keys, key);
@@ -530,12 +525,14 @@ export class Queries<
   }
 
   private recheckMany(entry: Entry<Q, K, D>, keys: K[]): void {
-    const { table, hydrate } = this.params;
+    const { table } = this.params;
     keys.forEach((key) => this.recheck(entry, key));
-    if (hydrate == null) return;
     const missing = keys.filter((key) => table.status(key) === "unknown");
     if (missing.length === 0) return;
-    hydrate(missing)
+    // Backfill through the table's fetch so membership can be rechecked;
+    // fetch-less tables serve cached rows only and the recheck is a no-op.
+    table
+      .retrieve(missing)
       .then(() => missing.forEach((key) => this.recheck(entry, key)))
       .catch((exc: unknown) =>
         this.report(exc, `failed to hydrate ${this.params.name} answers`),
