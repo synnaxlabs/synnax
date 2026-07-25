@@ -100,7 +100,9 @@ describe("Status", () => {
 
       expect(s.key).toBe("child-status");
 
-      const resources = await client.ontology.children.retrieve({ ids: parentOntologyID });
+      const resources = await client.ontology.children.retrieve({
+        ids: parentOntologyID,
+      });
 
       const statusResource = resources.find((r) => r.id.key === "child-status");
       expect(statusResource).toBeDefined();

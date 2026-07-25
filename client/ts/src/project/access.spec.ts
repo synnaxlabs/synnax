@@ -27,9 +27,9 @@ describe("project", () => {
         name: "test",
         layout: {},
       });
-      await expect(userClient.projects.retrieve({ key: randomProject.key })).rejects.toThrow(
-        AuthError,
-      );
+      await expect(
+        userClient.projects.retrieve({ key: randomProject.key }),
+      ).rejects.toThrow(AuthError);
     });
 
     it("should allow the caller to retrieve projects with the correct policy", async () => {
@@ -84,9 +84,9 @@ describe("project", () => {
         layout: {},
       });
       await userClient.projects.delete(randomProject.key);
-      await expect(userClient.projects.retrieve({ key: randomProject.key })).rejects.toThrow(
-        NotFoundError,
-      );
+      await expect(
+        userClient.projects.retrieve({ key: randomProject.key }),
+      ).rejects.toThrow(NotFoundError);
     });
 
     it("should deny access when no delete policy exists", async () => {

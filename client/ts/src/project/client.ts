@@ -88,7 +88,10 @@ export class Client extends query.Retriever<typeof retrieveReqZ, Key, Project> {
   }
 
   async create(project: New, opts?: query.WriteOptions<Project[]>): Promise<Project>;
-  async create(projects: New[], opts?: query.WriteOptions<Project[]>): Promise<Project[]>;
+  async create(
+    projects: New[],
+    opts?: query.WriteOptions<Project[]>,
+  ): Promise<Project[]>;
   async create(
     projects: New | New[],
     opts: query.WriteOptions<Project[]> = {},
