@@ -32,6 +32,7 @@ cc_library(
         "//arc/cpp/stl/stateful",
         "//arc/cpp/stl/strings",
         "//arc/cpp/stl/time",
+        "//arc/cpp/stl/variable",
         "//x/cpp/control",
         "//x/cpp/thread",
     ],
