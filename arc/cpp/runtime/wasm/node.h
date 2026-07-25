@@ -163,7 +163,7 @@ public:
         // Alignments are summed to guarantee uniqueness across different input
         // sources.
         x::telem::Alignment alignment_sum;
-        x::telem::TimeRange time_range;
+        x::telem::TimeRange time_range{x::telem::TimeStamp(0), x::telem::TimeStamp(0)};
         for (size_t i = 0; i < this->ir.inputs.size(); i++) {
             if (!this->ir.inputs[i].value.is_null() || this->chan_inputs[i] ||
                 this->var_inputs[i])
