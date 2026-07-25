@@ -117,7 +117,7 @@ public:
     }
 
     void reset() override {
-        this->state.reset();
+        this->state.absorb_inputs();
         this->value = std::nullopt;
         this->last_sent = std::nullopt;
         this->last_changed = x::telem::TimeStamp(0);

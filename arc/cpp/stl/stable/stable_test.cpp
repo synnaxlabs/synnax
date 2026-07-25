@@ -387,6 +387,33 @@ TEST(StableForTest, ResetClearsState) {
     EXPECT_FALSE(changed);
 }
 
+/// @brief Values written while the stage was inactive do not fire after reset.
+TEST(StableForTest, ResetIgnoresDataWrittenWhileInactive) {
+    TestSetup setup(x::telem::SECOND.nanoseconds());
+    x::telem::TimeStamp current_time(0);
+    StableFor node(
+        ASSERT_NIL_P(StableForInputs::create(setup.ir.nodes[1].inputs)),
+        setup.make_stable_node(),
+        0,
+        make_now(current_time)
+    );
+
+    auto source = setup.make_source_node();
+    write_source(source, {5}, {x::telem::SECOND.nanoseconds()});
+    auto ctx = make_context();
+    ASSERT_NIL(node.next(ctx));
+
+    auto inactive = setup.make_source_node();
+    write_source(inactive, {9}, {2 * x::telem::SECOND.nanoseconds()});
+    node.reset();
+
+    bool changed = false;
+    current_time = x::telem::TimeStamp(10 * x::telem::SECOND.nanoseconds());
+    ctx.mark_changed = [&](size_t) { changed = true; };
+    ASSERT_NIL(node.next(ctx));
+    EXPECT_FALSE(changed);
+}
+
 /// @brief Empty input doesn't crash or emit.
 TEST(StableForTest, HandlesEmptyInput) {
     TestSetup setup(x::telem::SECOND.nanoseconds());
