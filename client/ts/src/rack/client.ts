@@ -204,9 +204,12 @@ export class Client extends query.Retriever<
 
   async delete(keys: Key | Key[], opts: query.WriteOptions = {}): Promise<void> {
     const keysArr = array.toArray(keys);
+    const drop = () => [
+      ontology.deleteCachedResources(this.ontology, ontologyID(keysArr)),
+      this.store.delete(keysArr),
+    ];
     const rollback = new destructor.Chain();
-    rollback.add(ontology.deleteCachedResources(this.ontology, ontologyID(keysArr)));
-    rollback.add(this.store.delete(keysArr));
+    rollback.add(...drop());
     await opts.onOptimistic?.();
     await rollback.guard(
       async () =>
@@ -217,18 +220,22 @@ export class Client extends query.Retriever<
           deleteResZ,
         ),
     );
-    this.store.delete(keysArr);
+    drop();
   }
 
   async rename(key: Key, name: string, opts: query.WriteOptions = {}): Promise<void> {
+    const rename = () => [
+      query.partialUpdate(this.store, key, { name }),
+      ontology.renameCachedResource(this.ontology, ontologyID(key), name),
+    ];
     const rollback = new destructor.Chain();
-    rollback.add(query.partialUpdate(this.store, key, { name }));
-    rollback.add(ontology.renameCachedResource(this.ontology, ontologyID(key), name));
+    rollback.add(...rename());
     await opts.onOptimistic?.();
     await rollback.guard(async () => {
       const r = await this.retrieve({ key });
       await this.create({ ...r.payload, name });
     });
+    rename();
   }
 
   async create(rack: New): Promise<Rack>;

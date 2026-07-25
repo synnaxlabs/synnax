@@ -316,12 +316,14 @@ export class Client extends query.Retriever<
   async rename(key: Key, name: string, opts: query.WriteOptions = {}): Promise<void> {
     const tsk = await this.retrieveTask(key);
     if (tsk != null) await this.taskClient.rename(tsk.key, name);
+    const rename = () => query.partialUpdate(this.store, key, { name });
     const rollback = new destructor.Chain();
-    rollback.add(query.partialUpdate(this.store, key, { name }));
+    rollback.add(rename());
     await opts.onOptimistic?.();
     await rollback.guard(
       async () => await this.sendDispatch(key, id.create(), [renameAction({ name })]),
     );
+    rename();
   }
 
   private async retrieveTask(key: Key): Promise<task.Task | null> {
@@ -338,13 +340,15 @@ export class Client extends query.Retriever<
 
   async delete(keys: Key | Key[], opts: query.WriteOptions = {}): Promise<void> {
     const keysArr = array.toArray(keys);
+    const drop = () => this.store.delete(keysArr);
     const rollback = new destructor.Chain();
-    rollback.add(this.store.delete(keysArr));
+    rollback.add(drop());
     await opts.onOptimistic?.();
     await rollback.guard(
       async () =>
         await this.client.send("/arc/delete", { keys: keysArr }, deleteReqZ, emptyResZ),
     );
+    drop();
   }
 
   /** Subscribes to every arc delete delivered to the cache. */

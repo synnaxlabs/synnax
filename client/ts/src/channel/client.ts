@@ -620,16 +620,17 @@ export class Client extends query.Retriever<
     const { normalized, variant } = analyzeParams(params);
     if (variant === "keys") {
       const keys = normalized;
-      const rollback = new destructor.Chain();
       const ids = ontologyID(keys);
-      rollback.add(ontology.deleteCachedRelationships(this.ontology, ids));
-      rollback.add(this.store.delete(keys));
-      rollback.add(this.ontology.resources.delete(ontology.idToString(ids)));
+      const drop = () => [
+        ontology.deleteCachedRelationships(this.ontology, ids),
+        this.store.delete(keys),
+        this.ontology.resources.delete(ontology.idToString(ids)),
+      ];
+      const rollback = new destructor.Chain();
+      rollback.add(...drop());
       await opts.onOptimistic?.();
       await rollback.guard(async () => await this.writer.delete({ keys }));
-      // Re-applied after success: a stale streamer echo may have resurrected
-      // an optimistically deleted entry while the send was in flight.
-      this.store.delete(keys);
+      drop();
       return;
     }
     const names = normalized;
@@ -647,17 +648,19 @@ export class Client extends query.Retriever<
   ): Promise<void> {
     const keysArr = array.toArray(keys);
     const namesArr = array.toArray(names);
+    const rename = () =>
+      keysArr.flatMap((key, i) => {
+        const name = namesArr[i];
+        return [
+          this.renameThrough(key, name),
+          ontology.renameCachedResource(this.ontology, ontologyID(key), name),
+        ];
+      });
     const rollback = new destructor.Chain();
-    keysArr.forEach((key, i) => {
-      const name = namesArr[i];
-      rollback.add(this.renameThrough(key, name));
-      rollback.add(ontology.renameCachedResource(this.ontology, ontologyID(key), name));
-    });
+    rollback.add(...rename());
     await opts.onOptimistic?.();
     await rollback.guard(async () => await this.writer.rename(keysArr, namesArr));
-    // Re-applied after success: a stale streamer echo may have clobbered the
-    // optimistic write while the send was in flight.
-    keysArr.forEach((key, i) => this.renameThrough(key, namesArr[i]));
+    rename();
   }
 
   /** Renames the cached channel, skipping when absent. Returns a rollback. */

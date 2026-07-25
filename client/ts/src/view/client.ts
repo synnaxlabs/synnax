@@ -109,22 +109,29 @@ export class Client extends query.Retriever<typeof retrieveRequestZ, Key, View> 
 
   async rename(key: Key, name: string, opts: query.WriteOptions = {}): Promise<void> {
     const v = await this.retrieve({ key });
+    const rename = () => [
+      query.partialUpdate(this.store, key, { name }),
+      ontology.renameCachedResource(this.ontology, ontologyID(key), name),
+    ];
     const rollback = new destructor.Chain();
-    rollback.add(query.partialUpdate(this.store, key, { name }));
-    rollback.add(ontology.renameCachedResource(this.ontology, ontologyID(key), name));
+    rollback.add(...rename());
     await opts.onOptimistic?.();
     await rollback.guard(async () => {
       await this.create({ ...v, name });
     });
+    rename();
   }
 
   async delete(keys: Key | Key[], opts: query.WriteOptions = {}): Promise<void> {
     const keysArr = array.toArray(keys);
-    const rollback = new destructor.Chain();
     const ids = ontologyID(keysArr);
-    rollback.add(ontology.deleteCachedRelationships(this.ontology, ids));
-    rollback.add(this.store.delete(keysArr));
-    rollback.add(this.ontology.resources.delete(ontology.idToString(ids)));
+    const drop = () => [
+      ontology.deleteCachedRelationships(this.ontology, ids),
+      this.store.delete(keysArr),
+      this.ontology.resources.delete(ontology.idToString(ids)),
+    ];
+    const rollback = new destructor.Chain();
+    rollback.add(...drop());
     await opts.onOptimistic?.();
     await rollback.guard(
       async () =>
@@ -135,7 +142,7 @@ export class Client extends query.Retriever<typeof retrieveRequestZ, Key, View> 
           emptyResZ,
         ),
     );
-    this.store.delete(keysArr);
+    drop();
   }
 
   /** Subscribes to every view set delivered to the cache. */

@@ -165,24 +165,23 @@ export class Client extends query.Retriever<typeof retrieveRequestZ, Key, Label>
 
   async delete(keys: Key | Key[], opts: query.WriteOptions = {}): Promise<void> {
     const keysArr = array.toArray(keys);
-    const rollback = new destructor.Chain();
-    rollback.add(this.store.delete(keysArr));
-    rollback.add(
+    const drop = () => [
+      this.store.delete(keysArr),
       this.relationships.delete(
         (r) =>
           r.type === LABELED_BY_ONTOLOGY_RELATIONSHIP_TYPE &&
           r.to.type === "label" &&
           keysArr.includes(r.to.key),
       ),
-    );
+    ];
+    const rollback = new destructor.Chain();
+    rollback.add(...drop());
     await opts.onOptimistic?.();
     await rollback.guard(
       async () =>
         await this.client.send("/label/delete", { keys: keysArr }, deleteReqZ, emptyResZ),
     );
-    // Re-applied after success: a stale streamer echo may have resurrected
-    // an optimistically deleted entry while the send was in flight.
-    this.store.delete(keysArr);
+    drop();
   }
 
   private async execRetrieve(params: RetrieveMultipleParams): Promise<Label[]> {

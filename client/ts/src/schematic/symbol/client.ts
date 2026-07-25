@@ -156,8 +156,9 @@ export class Client extends query.Retriever<typeof retrieveRequestZ, Key, Symbol
   }
 
   async rename(key: Key, name: string, opts: query.WriteOptions = {}): Promise<void> {
+    const rename = () => query.partialUpdate(this.store, key, { name });
     const rollback = new destructor.Chain();
-    rollback.add(query.partialUpdate(this.store, key, { name }));
+    rollback.add(rename());
     await opts.onOptimistic?.();
     await rollback.guard(
       async () =>
@@ -168,15 +169,14 @@ export class Client extends query.Retriever<typeof retrieveRequestZ, Key, Symbol
           emptyResZ,
         ),
     );
-    // Re-applied after success: a stale streamer echo may have clobbered the
-    // optimistic write while the send was in flight.
-    query.partialUpdate(this.store, key, { name });
+    rename();
   }
 
   async delete(keys: Key | Key[], opts: query.WriteOptions = {}): Promise<void> {
     const keysArr = array.toArray(keys);
+    const drop = () => this.store.delete(keysArr);
     const rollback = new destructor.Chain();
-    rollback.add(this.store.delete(keysArr));
+    rollback.add(drop());
     await opts.onOptimistic?.();
     await rollback.guard(
       async () =>
@@ -187,7 +187,7 @@ export class Client extends query.Retriever<typeof retrieveRequestZ, Key, Symbol
           emptyResZ,
         ),
     );
-    this.store.delete(keysArr);
+    drop();
     this.ontology.relationships.delete(
       (r) =>
         r.type === ontology.PARENT_OF_RELATIONSHIP_TYPE &&

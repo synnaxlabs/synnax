@@ -162,11 +162,12 @@ export class Client extends query.Retriever<
     newUsername: string,
     opts: query.WriteOptions = {},
   ): Promise<void> {
-    const rollback = new destructor.Chain();
-    rollback.add(query.partialUpdate(this.store, key, { username: newUsername }));
-    rollback.add(
+    const update = () => [
+      query.partialUpdate(this.store, key, { username: newUsername }),
       ontology.renameCachedResource(this.ontology, ontologyID(key), newUsername),
-    );
+    ];
+    const rollback = new destructor.Chain();
+    rollback.add(...update());
     await opts.onOptimistic?.();
     await rollback.guard(
       async () =>
@@ -177,6 +178,7 @@ export class Client extends query.Retriever<
           changeUsernameResZ,
         ),
     );
+    update();
   }
 
   async rename(
@@ -209,9 +211,12 @@ export class Client extends query.Retriever<
   async delete(keys: Key[], opts?: query.WriteOptions): Promise<void>;
   async delete(keys: Key | Key[], opts: query.WriteOptions = {}): Promise<void> {
     const keysArr = array.toArray(keys);
+    const drop = () => [
+      ontology.deleteCachedResources(this.ontology, ontologyID(keysArr)),
+      this.store.delete(keysArr),
+    ];
     const rollback = new destructor.Chain();
-    rollback.add(ontology.deleteCachedResources(this.ontology, ontologyID(keysArr)));
-    rollback.add(this.store.delete(keysArr));
+    rollback.add(...drop());
     await opts.onOptimistic?.();
     await rollback.guard(
       async () =>
@@ -222,6 +227,7 @@ export class Client extends query.Retriever<
           deleteResZ,
         ),
     );
+    drop();
   }
 
   private async execRetrieve(params: RetrieveParams): Promise<User[]> {

@@ -241,13 +241,14 @@ export class Client extends query.Retriever<
 
   async delete(keys: Key | Key[], opts: query.WriteOptions = {}): Promise<void> {
     const keysArr = array.toArray(keys);
-    const rollback = new destructor.Chain();
-    rollback.add(this.store.delete(keysArr));
-    rollback.add(
+    const drop = () => [
+      this.store.delete(keysArr),
       this.ontology.relationships.delete((r) =>
         keysArr.some((key) => label.matchLabeledBy(r, ontologyID(key))),
       ),
-    );
+    ];
+    const rollback = new destructor.Chain();
+    rollback.add(...drop());
     await opts.onOptimistic?.();
     await rollback.guard(
       async () =>
@@ -258,9 +259,7 @@ export class Client extends query.Retriever<
           emptyResZ,
         ),
     );
-    // Re-applied after success: a stale streamer echo may have resurrected
-    // an optimistically deleted entry while the send was in flight.
-    this.store.delete(keysArr);
+    drop();
   }
 
   /** Subscribes to every status set delivered to the cache. */

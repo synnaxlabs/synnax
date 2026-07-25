@@ -112,17 +112,18 @@ export class Client extends query.Retriever<typeof retrieveReqZ, Key, Project> {
   }
 
   async rename(key: Key, name: string, opts: query.WriteOptions = {}): Promise<void> {
+    const rename = () => [
+      query.partialUpdate(this.store, key, { name }),
+      ontology.renameCachedResource(this.ontology, ontologyID(key), name),
+    ];
     const rollback = new destructor.Chain();
-    rollback.add(query.partialUpdate(this.store, key, { name }));
-    rollback.add(ontology.renameCachedResource(this.ontology, ontologyID(key), name));
+    rollback.add(...rename());
     await opts.onOptimistic?.();
     await rollback.guard(
       async () =>
         await this.client.send("/project/rename", { key, name }, renameReqZ, emptyResZ),
     );
-    // Re-applied after success: a stale streamer echo may have clobbered the
-    // optimistic write while the send was in flight.
-    query.partialUpdate(this.store, key, { name });
+    rename();
   }
 
   async setLayout(
@@ -149,9 +150,12 @@ export class Client extends query.Retriever<typeof retrieveReqZ, Key, Project> {
   async delete(keys: Key[], opts?: query.WriteOptions): Promise<void>;
   async delete(keys: Key | Key[], opts: query.WriteOptions = {}): Promise<void> {
     const keysArr = array.toArray(keys);
+    const drop = () => [
+      ontology.deleteCachedResources(this.ontology, ontologyID(keysArr)),
+      this.store.delete(keysArr),
+    ];
     const rollback = new destructor.Chain();
-    rollback.add(ontology.deleteCachedResources(this.ontology, ontologyID(keysArr)));
-    rollback.add(this.store.delete(keysArr));
+    rollback.add(...drop());
     await opts.onOptimistic?.();
     await rollback.guard(
       async () =>
@@ -162,7 +166,7 @@ export class Client extends query.Retriever<typeof retrieveReqZ, Key, Project> {
           emptyResZ,
         ),
     );
-    this.store.delete(keysArr);
+    drop();
   }
 
   /** Subscribes to every project delete delivered to the cache. */
@@ -188,7 +192,4 @@ export class Client extends query.Retriever<typeof retrieveReqZ, Key, Project> {
     );
     return res.projects;
   }
-
-
-
 }

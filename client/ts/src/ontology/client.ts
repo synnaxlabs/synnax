@@ -286,8 +286,6 @@ export class Client extends query.Retriever<
     await rollback.guard(
       async () => await this.writer.moveChildren(from, to, ...children),
     );
-    // Re-applied after success: a stale streamer echo may have clobbered the
-    // optimistic writes while the send was in flight.
     move();
   }
 

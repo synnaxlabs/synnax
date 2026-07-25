@@ -519,17 +519,16 @@ export class Client extends query.Retriever<
   }
 
   async rename(key: Key, name: Name, opts: query.WriteOptions = {}): Promise<void> {
-    const rename = () =>
+    const rename = () => [
       this.store.set(key, (p) =>
         p == null ? undefined : this.sugarOne({ ...p.payload, name }),
-      );
+      ),
+      ontology.renameCachedResource(this.ontology, ontologyID(key), name),
+    ];
     const rollbacks = new destructor.Chain();
-    rollbacks.add(rename());
-    rollbacks.add(ontology.renameCachedResource(this.ontology, ontologyID(key), name));
+    rollbacks.add(...rename());
     await opts.onOptimistic?.();
     await rollbacks.guard(async () => await this.writer.rename(key, name));
-    // Re-applied after success: a stale streamer echo may have clobbered the
-    // optimistic write while the send was in flight.
     rename();
   }
 

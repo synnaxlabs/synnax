@@ -143,13 +143,17 @@ export class Client extends query.Retriever<typeof retrieveReqZ, Key, Table> {
   }
 
   async rename(key: Key, name: string, opts: query.WriteOptions = {}): Promise<void> {
+    const rename = () => [
+      query.partialUpdate(this.store, key, { name }),
+      ontology.renameCachedResource(this.ontology, ontologyID(key), name),
+    ];
     const rollback = new destructor.Chain();
-    rollback.add(query.partialUpdate(this.store, key, { name }));
-    rollback.add(ontology.renameCachedResource(this.ontology, ontologyID(key), name));
+    rollback.add(...rename());
     await opts.onOptimistic?.();
     await rollback.guard(
       async () => await this.sendDispatch(key, "", [renameAction({ name })]),
     );
+    rename();
   }
 
   /**
@@ -244,10 +248,12 @@ export class Client extends query.Retriever<typeof retrieveReqZ, Key, Table> {
 
   async delete(keys: Key | Key[], opts: query.WriteOptions = {}): Promise<void> {
     const keysArr = array.toArray(keys);
-    const rollback = new destructor.Chain();
-    rollback.add(
+    const drop = () => [
       ontology.deleteCachedRelationships(this.ontology, ontologyID(keysArr)),
-    );
+      this.store.delete(keysArr),
+    ];
+    const rollback = new destructor.Chain();
+    rollback.add(...drop());
     await opts.onOptimistic?.();
     await rollback.guard(
       async () =>
@@ -258,7 +264,7 @@ export class Client extends query.Retriever<typeof retrieveReqZ, Key, Table> {
           emptyResZ,
         ),
     );
-    this.store.delete(keysArr);
+    drop();
   }
 
   /** Subscribes to every table delete delivered to the cache. */
