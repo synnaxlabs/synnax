@@ -119,7 +119,7 @@ export const { useRetrieve: useRetrieveGroupID } = Flux.createRetrieve<
 >({
   name: "Device Group",
   retrieve: async ({ client }) => {
-    const res = await client.ontology.retrieveChildren(ontology.ROOT_ID);
+    const res = await client.ontology.children.retrieve({ ids: ontology.ROOT_ID });
     return res.find((r) => r.name === "Devices")?.id;
   },
 });

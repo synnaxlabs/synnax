@@ -31,10 +31,11 @@ export type RetrieveQuery = { key: panel.Key };
 export const { useRetrieve, useEnsureRetrieved, useRetrieveEffect } =
   Flux.createRetrieve<RetrieveQuery, panel.Panel>({
     name: RESOURCE_NAME,
-    retrieve: async ({ client, query: { key } }) => await client.panels.retrieve(key),
+    retrieve: async ({ client, query: { key } }) =>
+      await client.panels.retrieve({ key }),
     subscribe: ({ client, query: { key } }, handler) =>
-      client.panels.onChange(key, handler),
-    getCached: ({ client, query: { key } }) => client.panels.getCached(key),
+      client.panels.onChange({ key }, handler),
+    getCached: ({ client, query: { key } }) => client.panels.getCached({ key }),
   });
 
 export type RetrieveByProjectQuery = { project: project.Key };
@@ -59,14 +60,14 @@ export interface SelectKeyParams {
 }
 
 const requirePanel = (client: Client | null, key: panel.Key): panel.Panel => {
-  const cached = client?.panels.getCached(key);
+  const cached = client?.panels.getCached({ key });
   if (cached == null || cached.variant === "deleted")
     throw new NotFoundError(`Panel with key ${key} not found`);
   return cached.data;
 };
 
 const getPanel = (client: Client | null, key: panel.Key): panel.Panel | undefined => {
-  const cached = client?.panels.getCached(key);
+  const cached = client?.panels.getCached({ key });
   if (cached == null || cached.variant === "deleted") return undefined;
   return cached.data;
 };
@@ -74,7 +75,7 @@ const getPanel = (client: Client | null, key: panel.Key): panel.Panel | undefine
 const subscribe = (
   { client, args: { key } }: Flux.SelectorParams<SelectKeyParams>,
   notify: () => void,
-) => (client == null ? () => {} : client.panels.onChange(key, notify));
+) => (client == null ? () => {} : client.panels.onChange({ key }, notify));
 
 export interface SelectTabContentParams {
   key: panel.Key;
@@ -340,9 +341,10 @@ export interface ListParams extends Pick<panel.RetrieveRequest, "offset" | "limi
 export const useList = Flux.createList<ListParams, panel.Key, panel.Panel>({
   name: PLURAL_RESOURCE_NAME,
   retrieve: async ({ client, query }) => await client.panels.retrieve(query),
-  retrieveByKey: async ({ client, key }) => await client.panels.retrieve(key),
+  retrieveByKey: async ({ client, key }) => await client.panels.retrieve({ key }),
   subscribe: ({ client, query }, handler) => client.panels.onChange(query, handler),
-  subscribeByKey: ({ client, key }, handler) => client.panels.onChange(key, handler),
+  subscribeByKey: ({ client, key }, handler) =>
+    client.panels.onChange({ key }, handler),
   getCached: ({ client, query }) => client.panels.getCached(query),
 });
 

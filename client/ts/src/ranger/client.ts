@@ -63,65 +63,54 @@ const createTables = (
   cache: query.Cache,
   sugarOne: (payload: Payload) => Range,
   relationships: query.Table<string, ontology.Relationship>,
-  refetch: (keys: Key[]) => Promise<Range[]>,
+  fetch: (keys: Key[]) => Promise<Range[]>,
   backfill: (rel: ontology.Relationship) => Promise<void>,
 ): Stores => {
   const ranges = cache.createTable<Key, Range>({
     name: "ranges",
     equal: (a, b) => deep.equal(a.payload, b.payload),
-    refetch,
+    fetch,
+    listen: [
+      // Labels and parents are composed from the relationship tables on read,
+      // so the event only carries the base payload; enriched fields are
+      // preserved.
+      query.createSetListener(SET_CHANNEL_NAME, payloadZ, {
+        value: (changed, prev) =>
+          sugarOne({ ...changed, labels: prev?.labels, parent: prev?.parent }),
+      }),
+      query.createDeleteListener(DELETE_CHANNEL_NAME, keyZ),
+    ],
   });
-  // Labels and parents are composed from the relationship tables on read, so
-  // the event only carries the base payload; enriched fields are preserved.
-  const setListener: query.ChannelListener<typeof payloadZ> = {
-    channel: SET_CHANNEL_NAME,
-    schema: payloadZ,
-    onChange: (changed) =>
-      ranges.set(changed.key, (p) =>
-        sugarOne({ ...changed, labels: p?.labels, parent: p?.parent }),
-      ),
-  };
-  const deleteListener: query.ChannelListener<typeof keyZ> = {
-    channel: DELETE_CHANNEL_NAME,
-    schema: keyZ,
-    onChange: (changed) => ranges.delete(changed),
-  };
-  cache.addListeners(ranges, setListener, deleteListener);
 
   // Fetches missing relationship targets so compositions and membership
   // checks can see them.
-  const relationshipSet: query.ChannelListener<typeof ontology.relationshipZ> = {
-    channel: ontology.RELATIONSHIP_SET_CHANNEL_NAME,
-    schema: ontology.relationshipZ,
-    onChange: async (changed) => await backfill(changed),
-  };
-  cache.addListeners(relationships, relationshipSet);
+  relationships.subscribe((event) => {
+    if (event.variant === "set") void backfill(event.value).catch(cache.onError);
+  });
 
-  const kvPairs = cache.createTable<string, kv.Pair>({ name: "range_kv" });
-  const kvSetListener: query.ChannelListener<typeof kv.pairZ> = {
-    channel: kv.SET_CHANNEL_NAME,
-    schema: kv.pairZ,
-    onChange: (changed) => kvPairs.set(kv.createPairKey(changed), changed),
-  };
-  const kvDeleteListener: query.ChannelListener<typeof kvDeleteZ> = {
-    channel: kv.DELETE_CHANNEL_NAME,
-    schema: kvDeleteZ,
-    onChange: (changed) => kvPairs.delete(kv.createPairKey(changed)),
-  };
-  cache.addListeners(kvPairs, kvSetListener, kvDeleteListener);
+  const kvPairs = cache.createTable<string, kv.Pair>({
+    name: "range_kv",
+    listen: [
+      query.createSetListener(kv.SET_CHANNEL_NAME, kv.pairZ, {
+        key: (changed) => kv.createPairKey(changed),
+      }),
+      query.createDeleteListener(kv.DELETE_CHANNEL_NAME, kvDeleteZ, {
+        key: (changed) => kv.createPairKey(changed),
+      }),
+    ],
+  });
 
-  const aliases = cache.createTable<string, alias.Alias>({ name: "range_aliases" });
-  const aliasSetListener: query.ChannelListener<typeof alias.aliasZ> = {
-    channel: alias.SET_CHANNEL_NAME,
-    schema: alias.aliasZ,
-    onChange: (changed) => aliases.set(alias.createKey(changed), changed),
-  };
-  const aliasDeleteListener: query.ChannelListener<typeof aliasDeleteZ> = {
-    channel: alias.DELETE_CHANNEL_NAME,
-    schema: aliasDeleteZ,
-    onChange: (changed) => aliases.delete(alias.createKey(changed)),
-  };
-  cache.addListeners(aliases, aliasSetListener, aliasDeleteListener);
+  const aliases = cache.createTable<string, alias.Alias>({
+    name: "range_aliases",
+    listen: [
+      query.createSetListener(alias.SET_CHANNEL_NAME, alias.aliasZ, {
+        key: (changed) => alias.createKey(changed),
+      }),
+      query.createDeleteListener(alias.DELETE_CHANNEL_NAME, aliasDeleteZ, {
+        key: (changed) => alias.createKey(changed),
+      }),
+    ],
+  });
   return { ranges, kvPairs, aliases };
 };
 
@@ -219,7 +208,8 @@ export class Range {
 
   async retrieveChildren(): Promise<Range[]> {
     const res = (
-      await this.ontologyClient.retrieveChildren(this.ontologyID, {
+      await this.ontologyClient.children.retrieve({
+        ids: this.ontologyID,
         excludeFieldData: true,
         types: ["range"],
       })
@@ -279,8 +269,16 @@ const retrieveParamsZ = retrieveRequestZ
 
 export type RetrieveParams = z.input<typeof retrieveParamsZ>;
 
-/** Every retrieve shape addressing more than one range. */
-type RetrieveMultipleParams = Exclude<RetrieveParams, Key | Name>;
+/** Canonicalizes every retrieve shape addressing more than one range. */
+const retrieveMultiParamsZ = retrieveRequestZ
+  .or(keyZ.array().transform((keys) => ({ keys })))
+  .or(
+    z
+      .string()
+      .array()
+      .transform((names) => ({ names })),
+  )
+  .or(TimeRange.z.transform((timeRange) => ({ overlapsWith: timeRange })));
 
 const retrieveResZ = z.object({ ranges: payloadZ.array().default(() => []) });
 
@@ -289,13 +287,6 @@ const BASE_REQUEST: Partial<RetrieveRequest> = {
   includeLabels: true,
   includeParent: true,
 };
-
-/** Query fields only the server can evaluate. */
-const SERVER_FIELDS = ["searchTerm", "limit", "offset"] as const;
-
-/** Normalizes non-single retrieve params into a canonical, hashable request. */
-const normalizeRequest = (params: RetrieveMultipleParams): RetrieveRequest =>
-  retrieveParamsZ.parse(params);
 
 const isKeysOnly = (req: RetrieveRequest): req is RetrieveRequest & { keys: Key[] } =>
   primitive.isNonZero(req.keys) &&
@@ -366,15 +357,24 @@ const watchLabels = <Q extends query.Params>(
   );
 
 export class Client extends query.Retriever<
-  Key | Name,
-  RetrieveMultipleParams,
-  Key | Name,
-  RetrieveRequest,
-  Range
+  typeof retrieveMultiParamsZ,
+  Key,
+  Range,
+  Range,
+  Key | Name
 > {
   readonly type: string = "range";
   /** The range alias table; injected into sibling clients at wiring. */
   readonly aliases: query.Table<string, alias.Alias>;
+  /** Cached queries for the children of a range, keyed by the parent's key. */
+  readonly children: query.Retrieves<Key, Range[]>;
+  /**
+   * Cached queries for the closest range parent of a resource, keyed by the
+   * child's ontology ID.
+   */
+  readonly parent: query.Retrieves<ontology.ID, Range | null>;
+  /** Cached queries for a range's KV metadata pairs, keyed by the range's key. */
+  readonly kv: query.Retrieves<Key, kv.Pair[]>;
   private readonly frameClient: framer.Client;
   private readonly writer: Writer;
   private readonly unaryClient: UnaryClient;
@@ -385,11 +385,6 @@ export class Client extends query.Retriever<
   private readonly kvPairs: query.Table<string, kv.Pair>;
   private readonly labels: query.Table<label.Key, label.Label>;
   private readonly ontology: ontology.Stores;
-  private readonly answers: {
-    children: query.Queries<Key, Range[], Key, Range>;
-    parent: query.Queries<ontology.ID, Range | null, Key, Range>;
-    kv: query.Queries<Key, kv.Pair[], string, kv.Pair>;
-  };
 
   constructor(
     frameClient: framer.Client,
@@ -406,41 +401,40 @@ export class Client extends query.Retriever<
       cache,
       (payload) => this.sugarOne(payload),
       relationships,
-      async (keys) => await this.execRetrieve({ keys, ignoreNotFoundError: true }),
+      async (keys) => await this.fetchThrough(keys),
       async (rel) => await this.ensureRelationshipTargets(rel),
     );
-    super({
-      single: cache.queries({
-        name: "range",
-        table: ranges,
-        fetch: async (query) => [(await this.fetchSingle(query)).key],
-        compose: ([record]) => this.composeOne(record),
-        keyOf: (query) => (keyZ.safeParse(query).success ? query : null),
-        matches: (r, query) => r.key === query || r.name === query,
-        single: true,
-        watch: [
-          watchRelationships<Key | Name>(relationships),
-          watchLabels<Key | Name>(labels, relationships),
-        ],
-      }),
-      request: cache.queries({
-        name: "ranges",
-        table: ranges,
-        fetch: async (query) => (await this.fetchRequest(query)).map((r) => r.key),
-        compose: (records) => records.map((r) => this.composeOne(r)),
+    const single = cache.queries<Key | Name, Range, Key, Range>({
+      name: "range",
+      table: ranges,
+      fetch: async (query) => [(await this.fetchSingle(query)).key],
+      compose: ([record]) => this.composeOne(record),
+      keyOf: (query) => (keyZ.safeParse(query).success ? query : null),
+      matches: (r, query) => r.key === query || r.name === query,
+      single: true,
+      watch: [
+        watchRelationships<Key | Name>(relationships),
+        watchLabels<Key | Name>(labels, relationships),
+      ],
+    });
+    super(cache, {
+      name: "range",
+      table: ranges,
+      request: {
+        schema: retrieveMultiParamsZ,
+        fetch: async (query) => await this.fetchRequest(query),
         matches: (r, query) => this.requestMatches(r, query),
-        serverFields: SERVER_FIELDS,
         watch: [
           watchRelationships<RetrieveRequest>(relationships),
           watchLabels<RetrieveRequest>(labels, relationships),
         ],
-        hydrate: async (keys) => {
-          await this.fetchKeys(keys);
-        },
-      }),
-      isSingle: (params) => typeof params === "string",
-      normalizeSingle: (params) => params,
-      normalizeRequest,
+      },
+      compose: (r) => this.composeOne(r),
+      single: {
+        is: (params) => typeof params === "string",
+        normalize: (params) => params,
+        space: single as query.Retrieves<query.Params, Range>,
+      },
     });
     this.frameClient = frameClient;
     this.writer = writer;
@@ -453,64 +447,55 @@ export class Client extends query.Retriever<
     this.store = ranges;
     this.kvPairs = kvPairs;
     this.aliases = aliases;
-    this.answers = {
-      children: cache.queries({
-        name: "child ranges",
-        table: this.store,
-        fetch: async (query) => (await this.fetchChildren(query)).map((r) => r.key),
-        compose: (records) => records.map((r) => this.composeOne(r)),
-        matches: (r, query) => {
-          const parent = ontology.cachedParentID(
-            this.ontology.relationships,
-            ontologyID(r.key),
-          );
-          return parent != null && ontology.idsEqual(parent, ontologyID(query));
-        },
-        watch: [
-          watchRelationships<Key>(this.ontology.relationships),
-          watchLabels<Key>(this.labels, this.ontology.relationships),
-        ],
-        hydrate: async (keys) => {
-          await this.fetchKeys(keys);
-        },
-      }),
-      parent: cache.queries({
-        name: "parent range",
-        table: this.store,
-        fetch: async (query) => {
-          const range = await this.fetchParent(query);
-          return range == null ? [] : [range.key];
-        },
-        compose: (records) => (records[0] == null ? null : this.composeOne(records[0])),
-        matches: (r, query) => {
-          const parent = ontology.cachedParentID(this.ontology.relationships, query);
-          return parent != null && parent.type === "range" && parent.key === r.key;
-        },
-        watch: [
-          query.watch<ontology.ID, Key, string, ontology.Relationship>(
-            this.ontology.relationships,
-            (event, query) => {
-              const rel = relOfEvent(event);
-              if (isParentChange(rel, query))
-                return rel.from.type === "range" ? [rel.from.key] : "refetch";
-              return affectedRangeKeys(rel);
-            },
-          ),
-          watchLabels<ontology.ID>(this.labels, this.ontology.relationships),
-        ],
-        hydrate: async (keys) => {
-          await this.fetchKeys(keys);
-        },
-      }),
-      kv: cache.queries({
-        name: "range metadata",
-        table: this.kvPairs,
-        fetch: async (query) =>
-          (await this.fetchKV(query)).map((p) => kv.createPairKey(p)),
-        compose: (records) => records,
-        matches: (pair, query) => pair.range === query,
-      }),
-    };
+    this.children = cache.queries<Key, Range[], Key, Range>({
+      name: "child ranges",
+      table: this.store,
+      fetch: async (query) => (await this.fetchChildren(query)).map((r) => r.key),
+      compose: (records) => records.map((r) => this.composeOne(r)),
+      matches: (r, query) => {
+        const parent = ontology.cachedParentID(
+          this.ontology.relationships,
+          ontologyID(r.key),
+        );
+        return parent != null && ontology.idsEqual(parent, ontologyID(query));
+      },
+      watch: [
+        watchRelationships<Key>(this.ontology.relationships),
+        watchLabels<Key>(this.labels, this.ontology.relationships),
+      ],
+    });
+    this.parent = cache.queries<ontology.ID, Range | null, Key, Range>({
+      name: "parent range",
+      table: this.store,
+      fetch: async (query) => {
+        const range = await this.fetchParent(query);
+        return range == null ? [] : [range.key];
+      },
+      compose: (records) => (records[0] == null ? null : this.composeOne(records[0])),
+      matches: (r, query) => {
+        const parent = ontology.cachedParentID(this.ontology.relationships, query);
+        return parent != null && parent.type === "range" && parent.key === r.key;
+      },
+      watch: [
+        query.watch<ontology.ID, Key, string, ontology.Relationship>(
+          this.ontology.relationships,
+          (event, query) => {
+            const rel = relOfEvent(event);
+            if (isParentChange(rel, query))
+              return rel.from.type === "range" ? [rel.from.key] : "refetch";
+            return affectedRangeKeys(rel);
+          },
+        ),
+        watchLabels<ontology.ID>(this.labels, this.ontology.relationships),
+      ],
+    });
+    this.kv = cache.queries<Key, kv.Pair[], string, kv.Pair>({
+      name: "range metadata",
+      table: this.kvPairs,
+      fetch: async (query) => (await this.fetchKV(query)).map((p) => kv.createPairKey(p)),
+      compose: (records) => records,
+      matches: (pair, query) => pair.range === query,
+    });
   }
 
   async create(range: New): Promise<Range>;
@@ -534,17 +519,16 @@ export class Client extends query.Retriever<
   }
 
   async rename(key: Key, name: Name, opts: query.WriteOptions = {}): Promise<void> {
-    const rename = () =>
+    const rename = () => [
       this.store.set(key, (p) =>
         p == null ? undefined : this.sugarOne({ ...p.payload, name }),
-      );
+      ),
+      ontology.renameCachedResource(this.ontology, ontologyID(key), name),
+    ];
     const rollbacks = new destructor.Chain();
-    rollbacks.add(rename());
-    rollbacks.add(ontology.renameCachedResource(this.ontology, ontologyID(key), name));
+    rollbacks.add(...rename());
     await opts.onOptimistic?.();
     await rollbacks.guard(async () => await this.writer.rename(key, name));
-    // Re-applied after success: a stale streamer echo may have clobbered the
-    // optimistic write while the send was in flight.
     rename();
   }
 
@@ -562,24 +546,6 @@ export class Client extends query.Retriever<
     // The branches narrow params onto different base overloads.
     if (typeof params === "string") return await super.retrieve(params);
     return await super.retrieve(params);
-  }
-
-  /** Cached queries for the children of a range, keyed by the parent's key. */
-  get children(): query.Queries<Key, Range[], Key, Range> {
-    return this.answers.children;
-  }
-
-  /**
-   * Cached queries for the closest range parent of a resource, keyed by the
-   * child's ontology ID.
-   */
-  get parent(): query.Queries<ontology.ID, Range | null, Key, Range> {
-    return this.answers.parent;
-  }
-
-  /** Cached queries for a range's KV metadata pairs, keyed by the range's key. */
-  get kv(): query.Queries<Key, kv.Pair[], string, kv.Pair> {
-    return this.answers.kv;
   }
 
   private async execRetrieve(params: RetrieveParams): Promise<Range[]> {
@@ -654,23 +620,17 @@ export class Client extends query.Retriever<
   }
 
   /**
-   * Fetches the given keys, serving composed cached entries and fetching only
-   * the misses. Preserves the caller's key order.
+   * Fetches the given keys with labels and parents included, writing them and
+   * their relationships through. Powers the table's fetch primitive.
    */
-  private async fetchKeys(keys: Key[]): Promise<Range[]> {
-    const results: Range[] = [];
-    const misses: Key[] = [];
-    for (const key of keys) {
-      const cached = this.store.get(key);
-      if (cached != null) results.push(this.composeOne(cached));
-      else misses.push(key);
-    }
-    if (misses.length > 0) {
-      const fetched = await this.execRetrieve({ ...BASE_REQUEST, keys: misses });
-      fetched.forEach((r) => this.writeThrough(r));
-      results.push(...fetched);
-    }
-    return query.orderByKeys(keys, results, (r) => r.key);
+  private async fetchThrough(keys: Key[]): Promise<Range[]> {
+    const ranges = await this.execRetrieve({
+      ...BASE_REQUEST,
+      keys,
+      ignoreNotFoundError: true,
+    });
+    ranges.forEach((r) => this.writeThrough(r));
+    return ranges;
   }
 
   private async fetchSingle(query: Key | Name): Promise<Range> {
@@ -697,12 +657,12 @@ export class Client extends query.Retriever<
     }
     if (rel.type === ontology.PARENT_OF_RELATIONSHIP_TYPE) {
       if (rel.from.type !== "range" || this.store.has(rel.from.key)) return;
-      await this.fetchKeys([rel.from.key]);
+      await this.store.retrieve([rel.from.key]);
     }
   }
 
   private async fetchRequest(query: RetrieveRequest): Promise<Range[]> {
-    if (isKeysOnly(query)) return await this.fetchKeys(query.keys);
+    if (isKeysOnly(query)) return await this.store.retrieve(query.keys);
     const ranges = await this.execRetrieve({ ...BASE_REQUEST, ...query });
     ranges.forEach((r) => this.writeThrough(r));
     return ranges;
@@ -730,18 +690,19 @@ export class Client extends query.Retriever<
   }
 
   private async fetchChildren(query: Key): Promise<Range[]> {
-    const resources = await this.ontologyClient.retrieveChildren(ontologyID(query), {
+    const resources = await this.ontologyClient.children.retrieve({
+      ids: ontologyID(query),
       types: ["range"],
     });
     if (resources.length === 0) return [];
-    return await this.fetchKeys(resources.map(({ id: { key } }) => key));
+    return await this.store.retrieve(resources.map(({ id: { key } }) => key));
   }
 
   private async fetchParent(query: ontology.ID): Promise<Range | null> {
-    const res = await this.ontologyClient.retrieveParents(query);
+    const res = await this.ontologyClient.parents.retrieve({ ids: query });
     const parent = res.find(({ id: { type } }) => type === "range");
     if (parent == null) return null;
-    const [range] = await this.fetchKeys([parent.id.key]);
+    const [range] = await this.store.retrieve([parent.id.key]);
     return range ?? null;
   }
 
@@ -762,7 +723,7 @@ export class Client extends query.Retriever<
 
   /** Returns the parent of the given range, or null when it has none. */
   async retrieveParent(range: Key): Promise<Range | null> {
-    return await this.answers.parent.retrieve(ontologyID(range));
+    return await this.parent.retrieve(ontologyID(range));
   }
 
   sugarOntologyResource(resource: ontology.Resource): Range {

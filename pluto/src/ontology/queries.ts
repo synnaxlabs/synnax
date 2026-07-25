@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { ontology } from "@synnaxlabs/client";
+import { ontology, type Synnax as Client } from "@synnaxlabs/client";
 import { useEffect } from "react";
 
 import { Flux } from "@/flux";
@@ -50,14 +50,8 @@ type DependentQuery = List.PagerParams & {
   id?: ontology.ID;
 };
 
-const dependentRequest = (
-  direction: ontology.RelationshipDirection,
-  id: ontology.ID,
-): ontology.RetrieveRequest => ({
-  ids: [id],
-  children: direction === "to",
-  parents: direction === "from",
-});
+const dependentSpace = (client: Client, direction: ontology.RelationshipDirection) =>
+  direction === "to" ? client.ontology.children : client.ontology.parents;
 
 export const createDependentsListHook = (
   direction: ontology.RelationshipDirection,
@@ -67,18 +61,17 @@ export const createDependentsListHook = (
     name,
     retrieve: async ({ client, query: { id } }) => {
       if (id == null) return [];
-      if (direction === "to") return await client.ontology.retrieveChildren(id);
-      return await client.ontology.retrieveParents(id);
+      return await dependentSpace(client, direction).retrieve({ ids: id });
     },
     retrieveByKey: async ({ client, key }) =>
       await client.ontology.retrieve(ontology.idZ.parse(key)),
     subscribe: ({ client, query: { id } }, handler) => {
       if (id == null) return () => {};
-      return client.ontology.onChange(dependentRequest(direction, id), handler);
+      return dependentSpace(client, direction).onChange({ ids: id }, handler);
     },
     getCached: ({ client, query: { id } }) => {
       if (id == null) return undefined;
-      return client.ontology.getCached(dependentRequest(direction, id));
+      return dependentSpace(client, direction).getCached({ ids: id });
     },
     subscribeByKey: ({ client, key }, handler) =>
       client.ontology.onChange(ontology.idZ.parse(key), handler),
@@ -137,11 +130,11 @@ export const {
 } = Flux.createRetrieve<RetrieveChildrenQuery, ontology.Resource[]>({
   name: RESOURCE_RESOURCE_NAME,
   retrieve: async ({ client, query: { id, ...options } }) =>
-    await client.ontology.retrieveChildren(id, options),
+    await client.ontology.children.retrieve({ ids: id, ...options }),
   subscribe: ({ client, query: { id, ...options } }, handler) =>
-    client.ontology.onChange({ ids: [id], ...options, children: true }, handler),
+    client.ontology.children.onChange({ ids: id, ...options }, handler),
   getCached: ({ client, query: { id, ...options } }) =>
-    client.ontology.getCached({ ids: [id], ...options, children: true }),
+    client.ontology.children.getCached({ ids: id, ...options }),
 });
 
 type RetrieveResourceQuery = {
@@ -153,8 +146,9 @@ export const {
   useRetrieveObservable: useRetrieveObservableResource,
 } = Flux.createRetrieve<RetrieveResourceQuery, ontology.Resource[]>({
   name: RESOURCE_RESOURCE_NAME,
-  retrieve: async ({ client, query: { ids } }) => await client.ontology.retrieve(ids),
+  retrieve: async ({ client, query: { ids } }) =>
+    await client.ontology.retrieve({ ids }),
   subscribe: ({ client, query: { ids } }, handler) =>
-    client.ontology.onChange(ids, handler),
-  getCached: ({ client, query: { ids } }) => client.ontology.getCached(ids),
+    client.ontology.onChange({ ids }, handler),
+  getCached: ({ client, query: { ids } }) => client.ontology.getCached({ ids }),
 });

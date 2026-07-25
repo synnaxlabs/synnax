@@ -348,10 +348,10 @@ describe("queries", () => {
       await waitFor(() => expect(result.current.variant).toEqual("success"));
 
       // Verify role changed via direct API call
-      const parents = await client.ontology.retrieveParents(
-        user.ontologyID(testUser.key),
-        { types: ["role"] },
-      );
+      const parents = await client.ontology.parents.retrieve({
+        ids: user.ontologyID(testUser.key),
+        types: ["role"],
+      });
       expect(parents.length).toEqual(1);
       expect(parents[0].id.key).toEqual(role2.key);
     });
@@ -388,10 +388,10 @@ describe("queries", () => {
       await waitFor(() => expect(result.current.variant).toEqual("success"));
 
       // Verify role assigned
-      const parents = await client.ontology.retrieveParents(
-        user.ontologyID(testUser.key),
-        { types: ["role"] },
-      );
+      const parents = await client.ontology.parents.retrieve({
+        ids: user.ontologyID(testUser.key),
+        types: ["role"],
+      });
       expect(parents.length).toEqual(1);
       expect(parents[0].id.key).toEqual(role.key);
     });

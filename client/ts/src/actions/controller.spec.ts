@@ -58,7 +58,7 @@ const setupStore = (
 ) => {
   const errors: Error[] = [];
   const onError = (error: Error) => errors.push(error);
-  const docs = new Table<string, Doc>(onError);
+  const docs = new Table<string, Doc>({ onError });
   const controller = new Controller<string, Doc, Action>({
     store: docs,
     onError,
@@ -766,7 +766,8 @@ describe("actions.Controller", () => {
         ["a"],
       );
       docs.delete(["k1", "k2"]);
-      expect(docs.has(["k1", "k2"])).toBe(false);
+      expect(docs.has("k1")).toBe(false);
+      expect(docs.has("k2")).toBe(false);
       expect(controller.hasUndo("k1")).toBe(false);
       expect(controller.hasUndo("k2")).toBe(false);
     });

@@ -39,7 +39,7 @@ interface Harness {
 // Binds the production dispatch controller to a controllable network send,
 // exposed through the same Domain surface client.schematics implements.
 const createHarness = (send: SendFn): Harness => {
-  const docs = new query.Table<schematic.Key, schematic.Schematic>(onError);
+  const docs = new query.Table<schematic.Key, schematic.Schematic>({ onError });
   const controller = new actions.Controller<
     schematic.Key,
     schematic.Schematic,
@@ -693,7 +693,8 @@ describe("Flux.createDispatch", () => {
       schematic.Action
     >({ domain: (client) => client.schematics });
 
-    // Reads server truth: an unsubscribed retrieve always refetches.
+    // Second client observing the same cluster. Cached-first reads converge to
+    // server truth via broadcast, so post-mutation assertions poll.
     const raw = createTestClient();
 
     const createLiveSchem = async (): Promise<schematic.Schematic> => {
@@ -724,7 +725,9 @@ describe("Flux.createDispatch", () => {
         });
       });
       expect(ok).toBe(true);
-      expect(await serverPosition(schem.key)).toEqual({ x: 7, y: 8 });
+      await expect
+        .poll(async () => await serverPosition(schem.key))
+        .toEqual({ x: 7, y: 8 });
       expect(client.schematics.hasUndo(schem.key)).toBe(true);
     }, 15000);
 
@@ -813,12 +816,16 @@ describe("Flux.createDispatch", () => {
         ok = await tx.commit();
       });
       expect(ok).toBe(true);
-      expect(await serverPosition(schem.key)).toEqual({ x: 2, y: 2 });
+      await expect
+        .poll(async () => await serverPosition(schem.key))
+        .toEqual({ x: 2, y: 2 });
       expect(client.schematics.hasUndo(schem.key)).toBe(true);
       await act(async () => {
         await client.schematics.undo(schem.key);
       });
-      expect(await serverPosition(schem.key)).toEqual({ x: 0, y: 0 });
+      await expect
+        .poll(async () => await serverPosition(schem.key))
+        .toEqual({ x: 0, y: 0 });
       expect(client.schematics.hasUndo(schem.key)).toBe(false);
     }, 15000);
   });

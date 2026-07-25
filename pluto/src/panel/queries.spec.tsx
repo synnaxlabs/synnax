@@ -241,7 +241,7 @@ describe("Panel queries", () => {
         await result.current.updateAsync({ key, name: "parented-panel", parent });
       });
 
-      const children = await client.ontology.retrieveChildren(parent);
+      const children = await client.ontology.children.retrieve({ ids: parent });
       expect(children.map((c) => c.id.key)).toContain(key);
     });
   });
@@ -386,7 +386,7 @@ describe("Panel queries", () => {
       });
       await waitFor(() => expect(result.current.variant).toEqual("success"));
 
-      const fetched = await client.panels.retrieve(target.key);
+      const fetched = await client.panels.retrieve({ key: target.key });
       expect(fetched.name).toEqual("after-rename");
     });
   });
@@ -401,7 +401,7 @@ describe("Panel queries", () => {
       });
       await waitFor(() => expect(result.current.variant).toEqual("success"));
 
-      await expect(client.panels.retrieve(target.key)).rejects.toThrow();
+      await expect(client.panels.retrieve({ key: target.key })).rejects.toThrow();
     });
 
     it("should delete multiple panels at once", async () => {
@@ -414,8 +414,8 @@ describe("Panel queries", () => {
       });
       await waitFor(() => expect(result.current.variant).toEqual("success"));
 
-      await expect(client.panels.retrieve(a.key)).rejects.toThrow();
-      await expect(client.panels.retrieve(b.key)).rejects.toThrow();
+      await expect(client.panels.retrieve({ key: a.key })).rejects.toThrow();
+      await expect(client.panels.retrieve({ key: b.key })).rejects.toThrow();
     });
   });
 
@@ -437,7 +437,7 @@ describe("Panel queries", () => {
         expect(leafTabKeys(result.current.retrieve.data?.root)).toEqual([tab.key]),
       );
 
-      const fresh = await client.panels.retrieve(created.key);
+      const fresh = await client.panels.retrieve({ key: created.key });
       expect(fresh.root).toEqual(result.current.retrieve.data?.root);
     });
 
@@ -471,7 +471,7 @@ describe("Panel queries", () => {
         expect(leafTabKeys(root?.last)).toEqual([tabB.key]);
       });
 
-      const fresh = await client.panels.retrieve(created.key);
+      const fresh = await client.panels.retrieve({ key: created.key });
       expect(fresh.root).toEqual(result.current.retrieve.data?.root);
     });
 
@@ -500,7 +500,7 @@ describe("Panel queries", () => {
         expect(asSplit(result.current.retrieve.data?.root)?.size).toEqual(0.25),
       );
 
-      const fresh = await client.panels.retrieve(created.key);
+      const fresh = await client.panels.retrieve({ key: created.key });
       expect(asSplit(fresh.root)?.size).toEqual(0.25);
     });
 
@@ -531,7 +531,7 @@ describe("Panel queries", () => {
         expect(leafTabKeys(root?.last)).toEqual([tabA.key]);
       });
 
-      const fresh = await client.panels.retrieve(created.key);
+      const fresh = await client.panels.retrieve({ key: created.key });
       expect(fresh.root).toEqual(result.current.retrieve.data?.root);
     });
 
@@ -564,7 +564,7 @@ describe("Panel queries", () => {
         expect(leafTabKeys(root)).toEqual([tab.key]);
       });
 
-      const fresh = await client.panels.retrieve(created.key);
+      const fresh = await client.panels.retrieve({ key: created.key });
       expect(fresh.root).toEqual(result.current.retrieve.data?.root);
     });
 
@@ -598,7 +598,7 @@ describe("Panel queries", () => {
         expect(leafTabKeys(root)).toEqual([tabB.key]);
       });
 
-      const fresh = await client.panels.retrieve(created.key);
+      const fresh = await client.panels.retrieve({ key: created.key });
       expect(fresh.root).toEqual(result.current.retrieve.data?.root);
     });
 
@@ -630,7 +630,7 @@ describe("Panel queries", () => {
       expect(updated?.type).toEqual("docs");
       expect(updated?.args).toEqual({ path: "/intro" });
 
-      const fresh = await client.panels.retrieve(created.key);
+      const fresh = await client.panels.retrieve({ key: created.key });
       const freshTab = asView(panel.findTab(fresh.root, tab.key));
       expect(freshTab?.type).toEqual("docs");
       expect(freshTab?.args).toEqual({ path: "/intro" });
@@ -657,7 +657,7 @@ describe("Panel queries", () => {
       const updated = panel.findTab(result.current.retrieve.data!.root, tab.key);
       expect(updated).toEqual({ variant: "resource", key: tab.key, resource });
 
-      const fresh = await client.panels.retrieve(created.key);
+      const fresh = await client.panels.retrieve({ key: created.key });
       expect(panel.findTab(fresh.root, tab.key)).toEqual(updated);
     });
   });
@@ -1387,7 +1387,7 @@ describe("Panel queries", () => {
       expect(result.current.variant).toEqual("leaf");
 
       const [tabA, tabB] = [newTab(), newTab()];
-      await writer.panels.retrieve(created.key);
+      await writer.panels.retrieve({ key: created.key });
       await writer.panels.dispatch(created.key, [
         panel.insertTab({ tab: tabA, targetLeaf: panel.ROOT_NODE_KEY }),
         panel.insertTab({ tab: tabB, targetLeaf: panel.ROOT_NODE_KEY }),

@@ -483,7 +483,9 @@ describe("Status queries", () => {
         });
       });
 
-      const resources = await client.ontology.retrieveChildren(parentOntologyID);
+      const resources = await client.ontology.children.retrieve({
+        ids: parentOntologyID,
+      });
 
       const statusResource = resources.find((r) => r.id.key === "child-hook-test");
       expect(statusResource).toBeDefined();

@@ -403,9 +403,9 @@ describe("Arc queries", () => {
           expect(result.current.variant).toEqual("success");
         });
         const createdArc = await client.arcs.retrieve({ name });
-        const children = await client.ontology.retrieveChildren(
-          arc.ontologyID(createdArc.key),
-        );
+        const children = await client.ontology.children.retrieve({
+          ids: arc.ontologyID(createdArc.key),
+        });
         const taskChildren = children.filter((c) => c.id.type === "task");
         expect(taskChildren).toHaveLength(0);
       });
@@ -430,10 +430,10 @@ describe("Arc queries", () => {
         await waitFor(async () => {
           expect(result.current.variant).toEqual("success");
           const createdArc = await client.arcs.retrieve({ key });
-          const children = await client.ontology.retrieveChildren(
-            arc.ontologyID(createdArc.key),
-            { types: ["task"] },
-          );
+          const children = await client.ontology.children.retrieve({
+            ids: arc.ontologyID(createdArc.key),
+            types: ["task"],
+          });
           expect(children).toHaveLength(1);
         });
       });
@@ -458,10 +458,10 @@ describe("Arc queries", () => {
         await waitFor(async () => {
           expect(result.current.variant).toEqual("success");
           const createdArc = await client.arcs.retrieve({ key });
-          const children = await client.ontology.retrieveChildren(
-            arc.ontologyID(createdArc.key),
-            { types: ["task"] },
-          );
+          const children = await client.ontology.children.retrieve({
+            ids: arc.ontologyID(createdArc.key),
+            types: ["task"],
+          });
           expect(children).toHaveLength(1);
           const taskKey = children[0].id.key;
           const retrievedTask = await client.tasks.retrieve({ key: taskKey });
@@ -496,9 +496,9 @@ describe("Arc queries", () => {
 
           await waitFor(async () => {
             expect(result.current.variant).toEqual("success");
-            const children = await client.ontology.retrieveChildren(
-              arc.ontologyID(existingArc.key),
-            );
+            const children = await client.ontology.children.retrieve({
+              ids: arc.ontologyID(existingArc.key),
+            });
             const taskChildren = children.filter((c) => c.id.type === "task");
             expect(taskChildren).toHaveLength(1);
             expect(task.rackKey(taskChildren[0].id.key)).toBe(testRack.key);
@@ -529,10 +529,10 @@ describe("Arc queries", () => {
           await waitFor(async () => {
             expect(createResult.current.variant).toEqual("success");
             const createdArc = await client.arcs.retrieve({ key: arcKey });
-            const childrenBefore = await client.ontology.retrieveChildren(
-              arc.ontologyID(createdArc.key),
-              { types: ["task"] },
-            );
+            const childrenBefore = await client.ontology.children.retrieve({
+              ids: arc.ontologyID(createdArc.key),
+              types: ["task"],
+            });
             expect(childrenBefore).toHaveLength(1);
             originalTaskKey = childrenBefore[0].id.key;
           });
@@ -552,10 +552,10 @@ describe("Arc queries", () => {
 
           await waitFor(async () => {
             expect(updateResult.current.variant).toEqual("success");
-            const childrenAfter = await client.ontology.retrieveChildren(
-              arc.ontologyID(arcKey),
-              { types: ["task"] },
-            );
+            const childrenAfter = await client.ontology.children.retrieve({
+              ids: arc.ontologyID(arcKey),
+              types: ["task"],
+            });
             expect(childrenAfter).toHaveLength(1);
             expect(childrenAfter[0].id.key).toBe(originalTaskKey);
           });
@@ -584,10 +584,10 @@ describe("Arc queries", () => {
           let originalTaskKey: task.Key = "";
           await waitFor(async () => {
             expect(createResult.current.variant).toEqual("success");
-            const childrenBefore = await client.ontology.retrieveChildren(
-              arc.ontologyID(arcKey),
-              { types: ["task"] },
-            );
+            const childrenBefore = await client.ontology.children.retrieve({
+              ids: arc.ontologyID(arcKey),
+              types: ["task"],
+            });
             expect(childrenBefore).toHaveLength(1);
             originalTaskKey = childrenBefore[0].id.key;
             expect(task.rackKey(originalTaskKey)).toBe(rack1.key);
@@ -608,10 +608,10 @@ describe("Arc queries", () => {
 
           await waitFor(async () => {
             expect(updateResult.current.variant).toEqual("success");
-            const childrenAfter = await client.ontology.retrieveChildren(
-              arc.ontologyID(arcKey),
-              { types: ["task"] },
-            );
+            const childrenAfter = await client.ontology.children.retrieve({
+              ids: arc.ontologyID(arcKey),
+              types: ["task"],
+            });
             expect(childrenAfter).toHaveLength(1);
             const newTaskKey = childrenAfter[0].id.key;
             expect(newTaskKey).not.toBe(originalTaskKey);
@@ -644,10 +644,10 @@ describe("Arc queries", () => {
           let originalTaskKey: task.Key = "";
           await waitFor(async () => {
             expect(createResult.current.variant).toEqual("success");
-            const childrenBefore = await client.ontology.retrieveChildren(
-              arc.ontologyID(arcKey),
-              { types: ["task"] },
-            );
+            const childrenBefore = await client.ontology.children.retrieve({
+              ids: arc.ontologyID(arcKey),
+              types: ["task"],
+            });
             expect(childrenBefore).toHaveLength(1);
             originalTaskKey = childrenBefore[0].id.key;
           });

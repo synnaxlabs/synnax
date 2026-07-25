@@ -7,12 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type record, TimeSpan } from "@synnaxlabs/x";
+import { type record } from "@synnaxlabs/x";
 import { describe, expect, it, vi } from "vitest";
 
 import { NotFoundError } from "@/errors";
 import { query } from "@/query";
-import { type AnswersHooks } from "@/query/query";
+import { type AnswersHooks, Queries } from "@/query/query";
 
 const wait = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
 
@@ -26,7 +26,7 @@ type Q = { k: string };
 const qA: Q = { k: "a" };
 const qB: Q = { k: "b" };
 
-const newTable = () => new query.Table<string, Rec>(() => {});
+const newTable = () => new query.Table<string, Rec>({ onError: () => {} });
 
 /** Rule-1 space: the query addresses one record by key; answers compose to
  *  that record's value. */
@@ -35,7 +35,7 @@ const singleSpace = (
   fetch: (query: Q) => Promise<string[]>,
   hooks?: AnswersHooks,
 ) =>
-  new query.Queries<Q, number, string, Rec>(
+  new Queries<Q, number, string, Rec>(
     {
       name: "thing",
       table,
@@ -47,46 +47,45 @@ const singleSpace = (
     hooks,
   );
 
-describe("hashQuery", () => {
+describe("hash", () => {
   it("collapses key orderings to the same hash", () => {
-    expect(query.hashQuery({ a: 1, b: 2 })).toEqual(query.hashQuery({ b: 2, a: 1 }));
+    expect(query.hash({ a: 1, b: 2 })).toEqual(query.hash({ b: 2, a: 1 }));
   });
 
   it("preserves array order", () => {
-    expect(query.hashQuery([1, 2, 3])).not.toEqual(query.hashQuery([3, 2, 1]));
+    expect(query.hash([1, 2, 3])).not.toEqual(query.hash([3, 2, 1]));
   });
 
   it("hashes nested objects recursively", () => {
-    expect(query.hashQuery({ a: { x: 1, y: 2 } })).toEqual(
-      query.hashQuery({ a: { y: 2, x: 1 } }),
+    expect(query.hash({ a: { x: 1, y: 2 } })).toEqual(
+      query.hash({ a: { y: 2, x: 1 } }),
     );
   });
 
   it("hashes null and primitives", () => {
-    expect(query.hashQuery(null)).toEqual("null");
-    expect(query.hashQuery(undefined)).toEqual("undefined");
-    expect(query.hashQuery(42)).toEqual("42");
-    expect(query.hashQuery("x")).toEqual('"x"');
+    expect(query.hash(null)).toEqual("null");
+    expect(query.hash(undefined)).toEqual("undefined");
+    expect(query.hash(42)).toEqual("42");
+    expect(query.hash("x")).toEqual('"x"');
   });
 
-  it("disambiguates null, undefined, and absent fields", () => {
-    const hNull = query.hashQuery(null);
-    const hUndef = query.hashQuery(undefined);
-    expect(hNull).not.toEqual(hUndef);
+  it("disambiguates null from undefined at the top level", () => {
+    expect(query.hash(null)).not.toEqual(query.hash(undefined));
+  });
 
-    const nestedNull = query.hashQuery({ a: null });
-    const nestedUndef = query.hashQuery({ a: undefined });
-    const absent = query.hashQuery({});
-    expect(nestedNull).not.toEqual(nestedUndef);
+  it("keeps null fields distinct from absent while folding undefined", () => {
+    const nestedNull = query.hash({ a: null });
+    const nestedUndef = query.hash({ a: undefined });
+    const absent = query.hash({});
     expect(nestedNull).not.toEqual(absent);
-    expect(nestedUndef).not.toEqual(absent);
+    expect(nestedUndef).toEqual(absent);
   });
 
   it("hashes bigints without throwing and disambiguates from same-valued numbers", () => {
-    expect(query.hashQuery(42n)).toEqual("42n");
-    expect(query.hashQuery(42n)).not.toEqual(query.hashQuery(42));
-    expect(query.hashQuery({ k: 42n })).toEqual('{"k":42n}');
-    expect(() => query.hashQuery({ k: 9007199254740993n })).not.toThrow();
+    expect(query.hash(42n)).toEqual("42n");
+    expect(query.hash(42n)).not.toEqual(query.hash(42));
+    expect(query.hash({ k: 42n })).toEqual('{"k":42n}');
+    expect(() => query.hash({ k: 9007199254740993n })).not.toThrow();
   });
 
   it("delegates to primitive.Hashable.hash() for class instances", () => {
@@ -96,8 +95,8 @@ describe("hashQuery", () => {
         return `tag:${this.v}`;
       }
     }
-    expect(query.hashQuery({ id: new TaggedID("abc") })).toEqual('{"id":tag:abc}');
-    expect(query.hashQuery(new TaggedID("xyz"))).toEqual("tag:xyz");
+    expect(query.hash({ id: new TaggedID("abc") })).toEqual('{"id":tag:abc}');
+    expect(query.hash(new TaggedID("xyz"))).toEqual("tag:xyz");
   });
 
   it("produces stable hashes across instances representing the same value", () => {
@@ -107,8 +106,8 @@ describe("hashQuery", () => {
         return this.v.toString();
       }
     }
-    expect(query.hashQuery({ k: new Wrapper(7) })).toEqual(
-      query.hashQuery({ k: new Wrapper(7) }),
+    expect(query.hash({ k: new Wrapper(7) })).toEqual(
+      query.hash({ k: new Wrapper(7) }),
     );
   });
 });
@@ -176,7 +175,7 @@ describe("Answers", () => {
         table.set("a", rec("a", 7));
         return ["a"];
       });
-      const answers = new query.Queries<Record<string, number>, number, string, Rec>({
+      const answers = new Queries<Record<string, number>, number, string, Rec>({
         name: "thing",
         table,
         fetch,
@@ -201,7 +200,7 @@ describe("Answers", () => {
         table.set("a", rec("a", 7));
         return ["a"];
       });
-      const answers = new query.Queries<{ k: Wrapper }, number, string, Rec>({
+      const answers = new Queries<{ k: Wrapper }, number, string, Rec>({
         name: "thing",
         table,
         fetch,
@@ -555,7 +554,7 @@ describe("Answers", () => {
       table: query.Table<string, Rec>,
       fetch: (query: Q) => Promise<string[]>,
     ) =>
-      new query.Queries<Q, number, string, Rec>({
+      new Queries<Q, number, string, Rec>({
         name: "thing",
         table,
         fetch,
@@ -611,15 +610,13 @@ describe("Answers", () => {
     const listSpace = (
       table: query.Table<string, Rec>,
       fetch: (query: ListQ) => Promise<string[]>,
-      sort?: (a: Rec, b: Rec) => number,
     ) =>
-      new query.Queries<ListQ, Rec[], string, Rec>({
+      new Queries<ListQ, Rec[], string, Rec>({
         name: "things",
         table,
         fetch,
         compose: (records) => records,
         matches: (r, q) => r.value >= q.min,
-        sort,
       });
 
     it("admits a record that starts matching the query", async () => {
@@ -670,16 +667,12 @@ describe("Answers", () => {
       });
     });
 
-    it("orders admitted members with the configured sort", async () => {
+    it("appends admitted members in event order", async () => {
       const table = newTable();
-      const answers = listSpace(
-        table,
-        async () => {
-          table.set("b", rec("b", 2));
-          return ["b"];
-        },
-        (a, b) => a.value - b.value,
-      );
+      const answers = listSpace(table, async () => {
+        table.set("b", rec("b", 2));
+        return ["b"];
+      });
       const handler = vi.fn();
       answers.onChange({ min: 0 }, handler);
       await answers.retrieve({ min: 0 });
@@ -687,7 +680,7 @@ describe("Answers", () => {
       table.set("c", rec("c", 1));
       expect(handler).toHaveBeenLastCalledWith({
         variant: "changed",
-        data: [rec("c", 1), rec("b", 2), rec("a", 3)],
+        data: [rec("b", 2), rec("a", 3), rec("c", 1)],
       });
     });
   });
@@ -698,14 +691,13 @@ describe("Answers", () => {
       table: query.Table<string, Rec>,
       fetch: (query: SearchQ) => Promise<string[]>,
     ) =>
-      new query.Queries<SearchQ, Rec[], string, Rec>({
+      new Queries<SearchQ, Rec[], string, Rec>({
         name: "things",
         table,
         fetch,
         compose: (records) => records,
         matches: () => true,
         serverFields: ["searchTerm"],
-        debounce: TimeSpan.milliseconds(5),
       });
 
     it("refetches wholesale after a debounced table change", async () => {
@@ -726,7 +718,7 @@ describe("Answers", () => {
     it("coalesces rapid table changes into a single refetch", async () => {
       const table = newTable();
       const fetch = vi.fn(async () => {
-        table.setIfAbsent(rec("a", 1));
+        table.set([rec("a", 1)]);
         return ["a"];
       });
       const answers = searchSpace(table, fetch);
@@ -746,11 +738,14 @@ describe("Answers", () => {
       key: string;
     }
 
-    it("rechecks and hydrates keys surfaced by a foreign-table projection", async () => {
-      const primary = newTable();
-      const foreign = new query.Table<string, Rel>(() => {});
+    it("rechecks and backfills keys surfaced by a foreign-table projection", async () => {
+      const primary = new query.Table<string, Rec>({
+        onError: () => {},
+        fetch: async (keys) => keys.map((k) => rec(k, 10)),
+      });
+      const foreign = new query.Table<string, Rel>({ onError: () => {} });
       foreign.set("a", { key: "a" });
-      const answers = new query.Queries<{ tag: string }, Rec[], string, Rec>({
+      const answers = new Queries<{ tag: string }, Rec[], string, Rec>({
         name: "things",
         table: primary,
         fetch: async () => {
@@ -760,9 +755,6 @@ describe("Answers", () => {
         compose: (records) => records,
         matches: (r) => foreign.has(r.key),
         watch: [query.watch(foreign, (event) => [event.key])],
-        hydrate: async (keys) => {
-          primary.set(keys.map((k) => rec(k, 10)));
-        },
       });
       const handler = vi.fn();
       answers.onChange({ tag: "t" }, handler);
@@ -785,19 +777,18 @@ describe("Answers", () => {
 
     it("schedules a wholesale refetch when a watch projects refetch", async () => {
       const table = newTable();
-      const foreign = new query.Table<string, Rel>(() => {});
+      const foreign = new query.Table<string, Rel>({ onError: () => {} });
       const fetch = vi.fn(async () => {
         table.set("a", rec("a", 1));
         return ["a"];
       });
-      const answers = new query.Queries<Q, number, string, Rec>({
+      const answers = new Queries<Q, number, string, Rec>({
         name: "thing",
         table,
         fetch,
         compose: (records) => records[0]?.value ?? 0,
         keyOf: (query) => query.k,
         watch: [query.watch(foreign, () => "refetch")],
-        debounce: TimeSpan.milliseconds(5),
       });
       answers.onChange(qA, vi.fn());
       await answers.retrieve(qA);

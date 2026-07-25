@@ -27,7 +27,7 @@ export interface WriteOptions<T = void> {
 
 /**
  * Plain-data shape used to address a record in the cache query system. Queries
- * are hashed by {@link hashQuery} to produce stable cache keys, so they must be
+ * are hashed by {@link hash} to produce stable cache keys, so they must be
  * primitives, arrays of queries, plain string-keyed objects of queries, or
  * class instances implementing {@link primitive.Hashable}. Maps, Sets, Dates,
  * and non-Hashable class instances are rejected at compile time because their

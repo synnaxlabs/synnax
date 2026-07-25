@@ -80,11 +80,12 @@ const retrieveForSubject = async (
   subject: ontology.ID,
 ): Promise<access.policy.Policy[]> => {
   const policies = await client.access.policies.retrieve({ for: subject });
-  await client.ontology.retrieveParents(subject, { types: ["role"] });
+  await client.ontology.parents.retrieve({ ids: subject, types: ["role"] });
   await Promise.all(
     policies.map(
       async (p) =>
-        await client.ontology.retrieveParents(access.policy.ontologyID(p.key), {
+        await client.ontology.parents.retrieve({
+          ids: access.policy.ontologyID(p.key),
           types: ["role"],
         }),
     ),

@@ -30,7 +30,6 @@ import {
 import { ontology } from "@/ontology";
 import { project } from "@/project";
 import { query } from "@/query";
-import { checkForMultipleOrNoResults } from "@/util/retrieve";
 
 export const SET_CHANNEL_NAME = "sy_lineplot_set";
 export const DELETE_CHANNEL_NAME = "sy_lineplot_delete";
@@ -68,13 +67,7 @@ const requestFilter = (req: RetrieveRequest): ((p: LinePlot) => boolean) => {
   return (p) => keySet.has(p.key);
 };
 
-export class Client extends query.Retriever<
-  RetrieveSingleParams,
-  RetrieveMultipleParams,
-  Key,
-  RetrieveRequest,
-  LinePlot
-> {
+export class Client extends query.Retriever<typeof retrieveReqZ, Key, LinePlot> {
   private readonly client: UnaryClient;
   private readonly store: query.Table<Key, LinePlot>;
   private readonly ontology: ontology.Stores;
@@ -85,10 +78,14 @@ export class Client extends query.Retriever<
     cache: query.Cache,
     ontologyStores: ontology.Stores,
   ) {
+    // Dispatch mutates documents server-side, so fetched copies never clobber
+    // a doc holding locally replayed edits: the table hydrates if-absent.
     const store = cache.createTable<Key, LinePlot>({
       name: "lineplots",
-      refetch: async (keys) =>
+      hydrate: "if-absent",
+      fetch: async (keys) =>
         await this.execRetrieve({ keys, ignoreNotFoundError: true }),
+      listen: [query.createDeleteListener(DELETE_CHANNEL_NAME, keyZ)],
     });
     const dispatcher = new actions.Controller<Key, LinePlot, Action>({
       store,
@@ -96,35 +93,15 @@ export class Client extends query.Retriever<
       reduce: reduceAll,
       kindOf,
     });
-    const del: query.ChannelListener<typeof keyZ> = {
-      channel: DELETE_CHANNEL_NAME,
-      schema: keyZ,
-      onChange: (changed) => store.delete(changed),
-    };
-    cache.addListeners(
-      store,
-      del,
-      dispatcher.listener(SET_CHANNEL_NAME, scopedActionZ),
-    );
-    super({
-      single: cache.queries({
-        name: "line plot",
-        table: store,
-        fetch: async (query) => [await this.fetchSingle(query)].map((p) => p.key),
-        compose: (records) => records[0],
-        keyOf: (query) => query,
-        single: true,
-      }),
-      request: cache.queries({
-        name: "line plots",
-        table: store,
-        fetch: async (query) => (await this.fetchRequest(query)).map((p) => p.key),
-        compose: (records) => records,
-        matches: (plot, query) => requestFilter(query)(plot),
-      }),
-      isSingle: (params) => "key" in params,
-      normalizeSingle: ({ key }) => key,
-      normalizeRequest: (params) => retrieveReqZ.parse(params),
+    cache.listen(dispatcher.listener(SET_CHANNEL_NAME, scopedActionZ));
+    super(cache, {
+      name: "line plot",
+      table: store,
+      request: {
+        schema: retrieveReqZ,
+        fetch: async (req) => await this.execRetrieve(req),
+        matches: (plot, req) => requestFilter(req)(plot),
+      },
     });
     this.client = client;
     this.store = store;
@@ -165,13 +142,18 @@ export class Client extends query.Retriever<
     return isMany ? res.linePlots : res.linePlots[0];
   }
 
-  async rename(key: Key, name: string): Promise<void> {
+  async rename(key: Key, name: string, opts: query.WriteOptions = {}): Promise<void> {
+    const rename = () => [
+      query.partialUpdate(this.store, key, { name }),
+      ontology.renameCachedResource(this.ontology, ontologyID(key), name),
+    ];
     const rollback = new destructor.Chain();
-    rollback.add(query.partialUpdate(this.store, key, { name }));
-    rollback.add(ontology.renameCachedResource(this.ontology, ontologyID(key), name));
+    rollback.add(...rename());
+    await opts.onOptimistic?.();
     await rollback.guard(
       async () => await this.sendDispatch(key, "", [renameAction({ name })]),
     );
+    rename();
   }
 
   /**
@@ -252,11 +234,12 @@ export class Client extends query.Retriever<
 
   async delete(keys: Key | Key[], opts: query.WriteOptions = {}): Promise<void> {
     const keysArr = array.toArray(keys);
-    const rollback = new destructor.Chain();
-    rollback.add(
+    const drop = () => [
       ontology.deleteCachedRelationships(this.ontology, ontologyID(keysArr)),
-    );
-    rollback.add(this.store.delete(keysArr));
+      this.store.delete(keysArr),
+    ];
+    const rollback = new destructor.Chain();
+    rollback.add(...drop());
     await opts.onOptimistic?.();
     await rollback.guard(
       async () =>
@@ -267,6 +250,7 @@ export class Client extends query.Retriever<
           emptyResZ,
         ),
     );
+    drop();
   }
 
   /** Subscribes to every line plot delete delivered to the cache. */
@@ -276,31 +260,13 @@ export class Client extends query.Retriever<
     });
   }
 
-  private async execRetrieve(
-    params: RetrieveSingleParams | RetrieveMultipleParams,
-  ): Promise<LinePlot[]> {
+  private async execRetrieve(params: RetrieveMultipleParams): Promise<LinePlot[]> {
     const res = await this.client.send(
       "/lineplot/retrieve",
       params,
-      retrieveParamsZ,
+      retrieveReqZ,
       retrieveResZ,
     );
     return res.linePlots;
-  }
-
-  // Dispatch mutates documents server-side, so a cached copy is only as fresh
-  // as the streamer. Fetches always hit the network; setIfAbsent hydrates the
-  // table without clobbering a doc holding locally replayed edits.
-  private async fetchSingle(query: Key): Promise<LinePlot> {
-    const plots = await this.execRetrieve({ key: query });
-    checkForMultipleOrNoResults("LinePlot", query, plots, true);
-    this.store.setIfAbsent(plots);
-    return plots[0];
-  }
-
-  private async fetchRequest(query: RetrieveRequest): Promise<LinePlot[]> {
-    const plots = await this.execRetrieve(query);
-    this.store.setIfAbsent(plots);
-    return plots;
   }
 }
