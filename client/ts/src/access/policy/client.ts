@@ -21,7 +21,6 @@ import {
 } from "@/access/policy/types.gen";
 import { ontology } from "@/ontology";
 import { query } from "@/query";
-import { checkForMultipleOrNoResults } from "@/util/retrieve";
 
 export const SET_CHANNEL_NAME = "sy_policy_set";
 export const DELETE_CHANNEL_NAME = "sy_policy_delete";
@@ -34,10 +33,6 @@ const retrieveRequestZ = z.object({
   internal: z.boolean().optional(),
 });
 
-const keyRetrieveRequestZ = z
-  .object({ key: keyZ })
-  .transform(({ key }) => ({ keys: [key] }));
-
 const listRetrieveParamsZ = z.union([
   z
     .object({ for: ontology.idZ })
@@ -48,12 +43,8 @@ const listRetrieveParamsZ = z.union([
   retrieveRequestZ,
 ]);
 
-export type RetrieveSingleParams = z.input<typeof keyRetrieveRequestZ>;
+export type RetrieveSingleParams = { key: Key };
 export type RetrieveMultipleParams = z.input<typeof listRetrieveParamsZ>;
-
-const retrieveParamsZ = z.union([keyRetrieveRequestZ, listRetrieveParamsZ]);
-
-export type RetrieveParams = z.input<typeof retrieveParamsZ>;
 
 interface RetrieveRequest extends z.infer<typeof retrieveRequestZ> {}
 
@@ -79,16 +70,6 @@ const deleteResZ = z.object({});
  */
 const SERVER_FIELDS = ["subjects", "limit", "offset"] as const;
 
-const normalizeRequest = (params: RetrieveMultipleParams): RetrieveRequest =>
-  listRetrieveParamsZ.parse(params);
-
-const isKeysOnly = (req: RetrieveRequest): req is RetrieveRequest & { keys: Key[] } =>
-  primitive.isNonZero(req.keys) &&
-  req.subjects == null &&
-  req.internal == null &&
-  req.limit == null &&
-  req.offset == null;
-
 /**
  * Client-side matching for a request: key sets and the internal flag.
  * Server-computed shapes (subjects, pagination) never reach this filter; they
@@ -103,27 +84,9 @@ const requestFilter = (req: RetrieveRequest): ((p: Policy) => boolean) => {
   };
 };
 
-const createTable = (cache: query.Cache): query.Table<Key, Policy> => {
-  const table = cache.createTable<Key, Policy>({ name: "policies" });
-  const set: query.ChannelListener<typeof policyZ> = {
-    channel: SET_CHANNEL_NAME,
-    schema: policyZ,
-    onChange: (changed) => table.set(changed),
-  };
-  const del: query.ChannelListener<typeof keyZ> = {
-    channel: DELETE_CHANNEL_NAME,
-    schema: keyZ,
-    onChange: (changed) => table.delete(changed),
-  };
-  cache.addListeners(table, set, del);
-  return table;
-};
-
 export class Client extends query.Retriever<
-  RetrieveSingleParams,
-  RetrieveMultipleParams,
+  typeof listRetrieveParamsZ,
   Key,
-  RetrieveRequest,
   Policy
 > {
   private readonly client: UnaryClient;
@@ -135,27 +98,23 @@ export class Client extends query.Retriever<
     cache: query.Cache,
     ontologyStores: ontology.Stores,
   ) {
-    const store = createTable(cache);
-    super({
-      single: cache.queries({
-        name: "policy",
-        table: store,
-        fetch: async (query) => [await this.fetchSingle(query)].map((p) => p.key),
-        compose: (records) => records[0],
-        keyOf: (query) => query,
-        single: true,
-      }),
-      request: cache.queries({
-        name: "policies",
-        table: store,
-        fetch: async (query) => (await this.fetchRequest(query)).map((p) => p.key),
-        compose: (records) => records,
-        matches: (policy, query) => requestFilter(query)(policy),
+    const store = cache.createTable<Key, Policy>({
+      name: "policies",
+      fetch: async (keys) => await this.execRetrieve({ keys }),
+      listen: [
+        query.createSetListener(SET_CHANNEL_NAME, policyZ),
+        query.createDeleteListener(DELETE_CHANNEL_NAME, keyZ),
+      ],
+    });
+    super(cache, {
+      name: "policy",
+      table: store,
+      request: {
+        schema: listRetrieveParamsZ,
+        fetch: async (req) => await this.execRetrieve(req),
+        matches: (policy, req) => requestFilter(req)(policy),
         serverFields: SERVER_FIELDS,
-      }),
-      isSingle: (params) => "key" in params,
-      normalizeSingle: ({ key }) => key,
-      normalizeRequest,
+      },
     });
     this.client = client;
     this.store = store;
@@ -181,9 +140,12 @@ export class Client extends query.Retriever<
   async delete(keys: Key | Key[], opts: query.WriteOptions = {}): Promise<void> {
     const keysArr = array.toArray(keys);
     const ids = ontologyID(keysArr);
+    const drop = () => [
+      ontology.deleteCachedResources(this.ontology, ids),
+      this.store.delete(keysArr),
+    ];
     const rollback = new destructor.Chain();
-    rollback.add(ontology.deleteCachedResources(this.ontology, ids));
-    rollback.add(this.store.delete(keysArr));
+    rollback.add(...drop());
     await opts.onOptimistic?.();
     await rollback.guard(
       async () =>
@@ -194,7 +156,7 @@ export class Client extends query.Retriever<
           deleteResZ,
         ),
     );
-    this.store.delete(keysArr);
+    drop();
     this.ontology.relationships.delete((r) =>
       ids.some((id) => ontology.idsEqual(r.from, id) || ontology.idsEqual(r.to, id)),
     );
@@ -202,58 +164,26 @@ export class Client extends query.Retriever<
 
   async rename(key: Key, name: string, opts: query.WriteOptions = {}): Promise<void> {
     const existing = await this.retrieve({ key });
+    const rename = () => [
+      query.partialUpdate(this.store, key, { name }),
+      ontology.renameCachedResource(this.ontology, ontologyID(key), name),
+    ];
     const rollback = new destructor.Chain();
-    rollback.add(query.partialUpdate(this.store, key, { name }));
-    rollback.add(ontology.renameCachedResource(this.ontology, ontologyID(key), name));
+    rollback.add(...rename());
     await opts.onOptimistic?.();
     await rollback.guard(async () => {
       await this.create({ ...existing, name });
     });
+    rename();
   }
 
-  private async execRetrieve(params: RetrieveParams): Promise<Policy[]> {
+  private async execRetrieve(params: RetrieveRequest): Promise<Policy[]> {
     const res = await this.client.send(
       "/access/policy/retrieve",
       params,
-      retrieveParamsZ,
+      retrieveRequestZ,
       retrieveResZ,
     );
     return res.policies;
-  }
-
-  /**
-   * Fetches the given keys, serving cached entries and fetching only the
-   * misses. Preserves the caller's key order.
-   */
-  private async fetchKeys(keys: Key[]): Promise<Policy[]> {
-    const results: Policy[] = [];
-    const misses: Key[] = [];
-    for (const key of keys) {
-      const cached = this.store.get(key);
-      if (cached != null) results.push(cached);
-      else misses.push(key);
-    }
-    if (misses.length > 0) {
-      const fetched = await this.execRetrieve({ keys: misses });
-      this.store.set(fetched);
-      results.push(...fetched);
-    }
-    return query.orderByKeys(keys, results, (p) => p.key);
-  }
-
-  private async fetchSingle(query: Key): Promise<Policy> {
-    const cached = this.store.get(query);
-    if (cached != null) return cached;
-    const policies = await this.execRetrieve({ key: query });
-    checkForMultipleOrNoResults("Policy", query, policies, true);
-    this.store.set(policies);
-    return policies[0];
-  }
-
-  private async fetchRequest(query: RetrieveRequest): Promise<Policy[]> {
-    if (isKeysOnly(query)) return await this.fetchKeys(query.keys);
-    const policies = await this.execRetrieve(query);
-    this.store.set(policies);
-    return policies;
   }
 }

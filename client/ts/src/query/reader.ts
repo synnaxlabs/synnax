@@ -7,50 +7,104 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type destructor } from "@synnaxlabs/x";
+import { type destructor, type record, type state } from "@synnaxlabs/x";
+import type z from "zod";
 
-import { type Cached, type ChangeHandler } from "@/query/query";
-import { type Data, type Params } from "@/query/types";
+import { NotFoundError } from "@/errors";
+import { type Cache } from "@/query/cache";
+import {
+  type Cached,
+  type ChangeHandler,
+  type Retrieves,
+  type WatchEntry,
+} from "@/query/query";
+import { type Table } from "@/query/table";
+import { type Data, type FetchOptions, type Params } from "@/query/types";
 
-/** The read surface of one answer space: fetch, subscribe, snapshot. */
-export interface Retrieves<Q extends Params, D extends Data> {
-  retrieve: (query: Q) => Promise<D>;
-  onChange: (query: Q, handler: ChangeHandler<D>) => destructor.Destructor;
-  getCached: (query: Q) => Cached<D> | undefined;
-}
+/** Query fields only the server can evaluate, shared by most request shapes. */
+const DEFAULT_SERVER_FIELDS = ["searchTerm", "limit", "offset"] as const;
 
+/**
+ * True for requests that address keys and nothing else: a non-empty `keys`
+ * field with every other field nullish. Such requests resolve through the
+ * table's fetch primitive instead of the request fetch.
+ */
+const isKeysOnly = (query: unknown): query is { keys: unknown[] } => {
+  if (typeof query !== "object" || query === null || Array.isArray(query))
+    return false;
+  const { keys } = query as { keys?: unknown };
+  if (!Array.isArray(keys) || keys.length === 0) return false;
+  return Object.entries(query).every(([k, v]) => k === "keys" || v == null);
+};
+
+/**
+ * Declaration of a domain client's read surface. The single space is derived
+ * from the table and its fetch: `{ key }` params resolve one record, with
+ * deletion flipping the answer to deleted. Declare `single` only when the
+ * domain's single query is richer than a key.
+ */
 export interface RetrieverParams<
-  SingleParams,
-  MultiParams,
-  SingleQuery extends Params,
-  MultiQuery extends Params,
-  V extends Data,
+  Z extends z.ZodType<Params>,
+  K extends record.Key,
+  V extends state.State & record.Keyed<K>,
+  D extends Data = V,
+  SP = { key: K },
 > {
-  /** The space answering queries that address exactly one record. */
-  single: Retrieves<SingleQuery, V>;
-  /** The space answering every other query shape. */
-  request: Retrieves<MultiQuery, V[]>;
-  /** Whether the params address exactly one record. */
-  isSingle: (params: SingleParams | MultiParams) => boolean;
-  /** Canonicalizes single params so equivalent queries hash identically. */
-  normalizeSingle: (params: SingleParams) => SingleQuery;
-  /** Canonicalizes multi params. Usually the request schema's parse. */
-  normalizeRequest: (params: MultiParams) => MultiQuery;
+  /** Resource name used in error messages, e.g. "range". */
+  name: string;
+  /** The table owning this domain's record content. */
+  table: Table<K, V>;
+  /** The space answering every non-single query shape. */
+  request: {
+    /**
+     * Parses and canonicalizes request params so equivalent queries hash
+     * identically; its output type is the space's query type.
+     */
+    schema: Z;
+    /**
+     * Fetches matching records from the cluster. Keys-only requests never
+     * reach it; they resolve through the table's fetch. Results hydrate the
+     * table under its declared mode.
+     */
+    fetch: (
+      query: z.output<Z>,
+      options?: FetchOptions,
+    ) => Promise<Array<V & record.Keyed<K>>>;
+    /** Rule 2: whether a record satisfies the query. Pure; no network. */
+    matches?: (record: V, query: z.output<Z>) => boolean;
+    /** Overrides {@link DEFAULT_SERVER_FIELDS} for this request shape. */
+    serverFields?: readonly string[];
+    /** Foreign tables whose events affect this space's answers. */
+    watch?: Array<WatchEntry<z.output<Z>, K>>;
+  };
+  /**
+   * Per-record enrichment applied to every answer, receiving the normalized
+   * query the record answers. Defaults to identity.
+   */
+  compose?: (record: V, query: Params) => D;
+  /** Custom single space for domains whose single query is richer than a key. */
+  single?: {
+    /** Whether the params address exactly one record. */
+    is: (params: unknown) => boolean;
+    /** Canonicalizes single params so equivalent queries hash identically. */
+    normalize: (params: SP) => Params;
+    /** The space answering single queries, built via the cache. */
+    space: Retrieves<Params, D>;
+  };
 }
 
 /**
  * A domain client's cached read surface, routing each query to the single or
- * multi answer space. The arity of the result follows the query: params
+ * request answer space. The arity of the result follows the query: params
  * addressing one record yield a record, every other shape yields an array.
  *
- * Extend it and call `super` with the two spaces:
+ * Extend it and call `super(cache, { ... })`:
  *
  * ```ts
- * export class Client extends cache.Reader<Single, Multi, Key, Request, Policy> {
- *   constructor(cache: cache.Cache) {
- *     const store = createTable(cache);
- *     super({ single: cache.answers({ table: store, ... }), request: ..., ... });
- *     this.store = store;
+ * export class Client extends query.Retriever<typeof requestZ, Key, Label> {
+ *   constructor(client: UnaryClient, cache: query.Cache) {
+ *     const store = cache.createTable({ ... });
+ *     super(cache, { name: "label", table: store, request: { ... } });
  *   }
  * }
  * ```
@@ -59,53 +113,106 @@ export interface RetrieverParams<
  * `this` is unavailable until it returns. Closures may reference `this`: an
  * arrow captures it lexically and does not read it until called.
  *
- * A domain needing more than routing overrides the method and delegates to
- * `super` for the cached path.
+ * The read surface is not designed for overriding: a domain with more query
+ * kinds exposes them as named {@link Retrieves} members instead.
  */
 export abstract class Retriever<
-  SingleParams,
-  MultiParams,
-  SingleQuery extends Params,
-  MultiQuery extends Params,
-  V extends Data,
+  Z extends z.ZodType<Params>,
+  K extends record.Key,
+  V extends state.State & record.Keyed<K>,
+  D extends Data = V,
+  SP = { key: K },
 > {
-  private readonly reads: RetrieverParams<
-    SingleParams,
-    MultiParams,
-    SingleQuery,
-    MultiQuery,
-    V
-  >;
+  private readonly singleSpace: Retrieves<Params, D>;
+  private readonly requestSpace: Retrieves<Params, D[]>;
+  private readonly isSingle: (params: unknown) => boolean;
+  private readonly normalizeSingle: (params: SP) => Params;
+  private readonly normalizeRequest: (params: z.input<Z>) => Params;
 
-  constructor(
-    reads: RetrieverParams<SingleParams, MultiParams, SingleQuery, MultiQuery, V>,
-  ) {
-    this.reads = reads;
+  constructor(cache: Cache, params: RetrieverParams<Z, K, V, D, SP>) {
+    const { name, table, request, compose, single } = params;
+    const composeOne =
+      compose ?? ((record: V, _query: Params) => record as unknown as D);
+    this.requestSpace = cache.queries<Params, D[], K, V>({
+      name,
+      table,
+      fetch: async (query, options) => {
+        if (isKeysOnly(query))
+          return (await table.retrieve(query.keys as K[])).map((r) => r.key);
+        const records = await request.fetch(query as z.output<Z>, options);
+        table.ingest(records);
+        return records.map((r) => r.key);
+      },
+      compose: (records, q) => records.map((r) => composeOne(r, q)),
+      matches:
+        request.matches == null
+          ? undefined
+          : (record, query) => request.matches!(record, query as z.output<Z>),
+      serverFields: request.serverFields ?? DEFAULT_SERVER_FIELDS,
+      watch: request.watch as WatchEntry<Params, K>[] | undefined,
+    });
+    this.normalizeRequest = (p) => request.schema.parse(p);
+    if (single != null) {
+      this.singleSpace = single.space;
+      this.isSingle = single.is;
+      this.normalizeSingle = single.normalize;
+    } else {
+      this.singleSpace = cache.queries<K, D, K, V>({
+        name,
+        table,
+        fetch: async (key) => {
+          const records = await table.retrieve([key]);
+          if (records.length === 0)
+            throw new NotFoundError(`${name} with key ${key} not found`);
+          return [key];
+        },
+        compose: (records, q) => composeOne(records[0], q),
+        keyOf: (query) => query,
+        single: true,
+      }) as Retrieves<Params, D>;
+      this.isSingle = (p) => typeof p === "object" && p !== null && "key" in p;
+      this.normalizeSingle = ((p: { key: K }) => p.key) as unknown as (
+        params: SP,
+      ) => Params;
+    }
   }
 
   /**
    * Reads the record the params address, or every record matching them.
    * Serves the cache when the answer is fresh, fetching otherwise.
+   * @throws {NotFoundError} if a single-record query matches nothing or the
+   * record was deleted.
    */
-  retrieve(params: SingleParams): Promise<V>;
-  retrieve(params: MultiParams): Promise<V[]>;
-  async retrieve(params: SingleParams | MultiParams): Promise<V | V[]> {
-    const { space, query } = this.route(params);
-    return await space.retrieve(query);
+  retrieve(params: SP, options?: FetchOptions): Promise<D>;
+  retrieve(params: z.input<Z>, options?: FetchOptions): Promise<D[]>;
+  async retrieve(params: SP | z.input<Z>, options?: FetchOptions): Promise<D | D[]> {
+    if (this.isSingle(params))
+      return await this.singleSpace.retrieve(this.normalizeSingle(params as SP), options);
+    return await this.requestSpace.retrieve(
+      this.normalizeRequest(params as z.input<Z>),
+      options,
+    );
   }
 
   /**
    * Subscribes to changes in the cached answer to the given query. The handler
    * fires on every change or deletion. Returns a destructor that unsubscribes.
    */
-  onChange(params: SingleParams, handler: ChangeHandler<V>): destructor.Destructor;
-  onChange(params: MultiParams, handler: ChangeHandler<V[]>): destructor.Destructor;
+  onChange(params: SP, handler: ChangeHandler<D>): destructor.Destructor;
+  onChange(params: z.input<Z>, handler: ChangeHandler<D[]>): destructor.Destructor;
   onChange(
-    params: SingleParams | MultiParams,
-    handler: ChangeHandler<V> | ChangeHandler<V[]>,
+    params: SP | z.input<Z>,
+    handler: ChangeHandler<D> | ChangeHandler<D[]>,
   ): destructor.Destructor {
-    const { space, query } = this.route(params);
-    return space.onChange(query, handler as ChangeHandler<V | V[]>);
+    if (this.isSingle(params))
+      return this.singleSpace.onChange(
+        this.normalizeSingle(params as SP),
+        handler as ChangeHandler<D>,
+      );
+    return this.requestSpace.onChange(
+      this.normalizeRequest(params as z.input<Z>),
+      handler as ChangeHandler<D[]>,
+    );
   }
 
   /**
@@ -113,24 +220,11 @@ export abstract class Retriever<
    * or undefined when nothing is cached. May be stale for unsubscribed
    * queries.
    */
-  getCached(params: SingleParams): Cached<V> | undefined;
-  getCached(params: MultiParams): Cached<V[]> | undefined;
-  getCached(params: SingleParams | MultiParams): Cached<V> | Cached<V[]> | undefined {
-    const { space, query } = this.route(params);
-    return space.getCached(query) as Cached<V> | Cached<V[]> | undefined;
-  }
-
-  // Routing is the one place the single/multi correlation is known.
-  // TypeScript cannot carry it across separate parameters, so the casts that
-  // would otherwise appear in every domain client live only here.
-  private route(params: SingleParams | MultiParams): {
-    space: Retrieves<SingleQuery | MultiQuery, V | V[]>;
-    query: SingleQuery | MultiQuery;
-  } {
-    type Either = Retrieves<SingleQuery | MultiQuery, V | V[]>;
-    const { single, request, isSingle, normalizeSingle, normalizeRequest } = this.reads;
-    return isSingle(params)
-      ? { space: single as Either, query: normalizeSingle(params as SingleParams) }
-      : { space: request as Either, query: normalizeRequest(params as MultiParams) };
+  getCached(params: SP): Cached<D> | undefined;
+  getCached(params: z.input<Z>): Cached<D[]> | undefined;
+  getCached(params: SP | z.input<Z>): Cached<D> | Cached<D[]> | undefined {
+    if (this.isSingle(params))
+      return this.singleSpace.getCached(this.normalizeSingle(params as SP));
+    return this.requestSpace.getCached(this.normalizeRequest(params as z.input<Z>));
   }
 }

@@ -33,20 +33,13 @@ const usernameRetrieveRequestZ = z
   })
   .transform(({ username }) => ({ usernames: [username] }));
 
-const usernamesRetrieveRequestZ = z
-  .object({
-    usernames: z.string().array(),
-  })
-  .transform(({ usernames }) => ({ usernames }));
-
 export type KeyRetrieveRequest = z.input<typeof keyRetrieveRequestZ>;
 export type UsernameRetrieveRequest = z.input<typeof usernameRetrieveRequestZ>;
-export type UsernamesRetrieveRequest = z.input<typeof usernamesRetrieveRequestZ>;
+export type UsernamesRetrieveRequest = { usernames: string[] };
 
 const retrieveParamsZ = z.union([
   keyRetrieveRequestZ,
   usernameRetrieveRequestZ,
-  usernamesRetrieveRequestZ,
   retrieveRequestZ,
 ]);
 
@@ -74,19 +67,8 @@ export const DELETE_CHANNEL_NAME = "sy_user_delete";
 
 type SingleParams = KeyRetrieveRequest | UsernameRetrieveRequest;
 
-const isSingleParams = (params: RetrieveParams): params is SingleParams =>
-  "key" in params || "username" in params;
-
 const singleIdentifier = (params: SingleParams): string =>
   "key" in params ? `key ${params.key}` : `username ${params.username}`;
-
-const normalizeRequest = (params: RetrieveParams): RetrieveRequest =>
-  "usernames" in params && !("keys" in params)
-    ? { usernames: params.usernames }
-    : (params as RetrieveRequest);
-
-const isKeysOnly = (req: RetrieveRequest): req is RetrieveRequest & { keys: Key[] } =>
-  primitive.isNonZero(req.keys) && req.usernames == null;
 
 const requestFilter = (req: RetrieveRequest): ((u: User) => boolean) => {
   const keySet = primitive.isNonZero(req.keys) ? new Set(req.keys) : undefined;
@@ -101,11 +83,11 @@ const requestFilter = (req: RetrieveRequest): ((u: User) => boolean) => {
 };
 
 export class Client extends query.Retriever<
-  SingleParams,
-  RetrieveParams,
-  SingleParams,
-  RetrieveRequest,
-  User
+  typeof retrieveRequestZ,
+  Key,
+  User,
+  User,
+  SingleParams
 > {
   private readonly client: UnaryClient;
   private readonly store: query.Table<Key, User>;
@@ -116,28 +98,45 @@ export class Client extends query.Retriever<
     cache: query.Cache,
     ontologyStores: ontology.Stores,
   ) {
-    const store = cache.createTable<Key, User>({ name: "users" });
-    super({
-      single: cache.queries({
-        name: "user",
-        table: store,
-        fetch: async (query) => [await this.fetchSingle(query)].map((u) => u.key),
-        compose: (records) => records[0],
-        keyOf: (query) => ("key" in query ? query.key : null),
-        matches: (u, query) =>
-          "key" in query ? u.key === query.key : u.username === query.username,
-        single: true,
-      }),
-      request: cache.queries({
-        name: "users",
-        table: store,
-        fetch: async (query) => (await this.fetchRequest(query)).map((u) => u.key),
-        compose: (records) => records,
-        matches: (u, query) => requestFilter(query)(u),
-      }),
-      isSingle: isSingleParams,
-      normalizeSingle: (params) => params,
-      normalizeRequest,
+    const store = cache.createTable<Key, User>({
+      name: "users",
+      fetch: async (keys) => await this.execRetrieve({ keys }),
+    });
+    const single = cache.queries<SingleParams, User, Key, User>({
+      name: "user",
+      table: store,
+      fetch: async (params) => {
+        if (!("key" in params)) {
+          const [cached] = store.get((u) => u.username === params.username);
+          if (cached != null) return [cached.key];
+        }
+        const users = await this.execRetrieve(params);
+        checkSingle(params, users);
+        store.ingest(users);
+        return users.map((u) => u.key);
+      },
+      compose: (records) => records[0],
+      keyOf: (params) => ("key" in params ? params.key : null),
+      matches: (u, params) =>
+        "key" in params ? u.key === params.key : u.username === params.username,
+      single: true,
+    });
+    super(cache, {
+      name: "user",
+      table: store,
+      request: {
+        schema: retrieveRequestZ,
+        fetch: async (req) => await this.execRetrieve(req),
+        matches: (u, req) => requestFilter(req)(u),
+      },
+      single: {
+        is: (params) =>
+          typeof params === "object" &&
+          params !== null &&
+          ("key" in params || "username" in params),
+        normalize: (params) => params,
+        space: single as query.Retrieves<query.Params, User>,
+      },
     });
     this.client = client;
     this.store = store;
@@ -158,33 +157,66 @@ export class Client extends query.Retriever<
     return isMany ? res.users : res.users[0];
   }
 
-  async changeUsername(key: Key, newUsername: string): Promise<void> {
-    await this.client.send(
-      "/user/change-username",
-      { key, username: newUsername },
-      changeUsernameReqZ,
-      changeUsernameResZ,
+  async changeUsername(
+    key: Key,
+    newUsername: string,
+    opts: query.WriteOptions = {},
+  ): Promise<void> {
+    const update = () => [
+      query.partialUpdate(this.store, key, { username: newUsername }),
+      ontology.renameCachedResource(this.ontology, ontologyID(key), newUsername),
+    ];
+    const rollback = new destructor.Chain();
+    rollback.add(...update());
+    await opts.onOptimistic?.();
+    await rollback.guard(
+      async () =>
+        await this.client.send(
+          "/user/change-username",
+          { key, username: newUsername },
+          changeUsernameReqZ,
+          changeUsernameResZ,
+        ),
     );
-    this.mergeThrough(key, { username: newUsername });
-    ontology.renameCachedResource(this.ontology, ontologyID(key), newUsername);
+    update();
   }
 
-  async rename(key: Key, firstName?: string, lastName?: string): Promise<void> {
-    await this.client.send(
-      "/user/rename",
-      { key, firstName, lastName },
-      renameReqZ,
-      renameResZ,
+  async rename(
+    key: Key,
+    firstName?: string,
+    lastName?: string,
+    opts: query.WriteOptions = {},
+  ): Promise<void> {
+    const rollback = new destructor.Chain();
+    rollback.add(
+      query.partialUpdate(
+        this.store,
+        key,
+        record.purgeUndefined({ firstName, lastName }),
+      ),
     );
-    this.mergeThrough(key, { firstName, lastName });
+    await opts.onOptimistic?.();
+    await rollback.guard(
+      async () =>
+        await this.client.send(
+          "/user/rename",
+          { key, firstName, lastName },
+          renameReqZ,
+          renameResZ,
+        ),
+    );
   }
 
   async delete(key: Key, opts?: query.WriteOptions): Promise<void>;
   async delete(keys: Key[], opts?: query.WriteOptions): Promise<void>;
   async delete(keys: Key | Key[], opts: query.WriteOptions = {}): Promise<void> {
     const keysArr = array.toArray(keys);
+    const drop = () => [
+      ontology.deleteCachedResources(this.ontology, ontologyID(keysArr)),
+      this.store.delete(keysArr),
+    ];
     const rollback = new destructor.Chain();
-    rollback.add(ontology.deleteCachedResources(this.ontology, ontologyID(keysArr)));
+    rollback.add(...drop());
     await opts.onOptimistic?.();
     await rollback.guard(
       async () =>
@@ -195,14 +227,7 @@ export class Client extends query.Retriever<
           deleteResZ,
         ),
     );
-    this.store.delete(keysArr);
-  }
-
-  // Undefined fields are dropped: the server keeps prior values for them.
-  private mergeThrough(key: Key, changes: Partial<User>): void {
-    const prev = this.store.get(key);
-    if (prev != null)
-      this.store.set(key, { ...prev, ...record.purgeUndefined(changes) });
+    drop();
   }
 
   private async execRetrieve(params: RetrieveParams): Promise<User[]> {
@@ -213,47 +238,6 @@ export class Client extends query.Retriever<
       retrieveResZ,
     );
     return res.users;
-  }
-
-  /**
-   * Fetches the given keys, serving cached entries and fetching only the
-   * misses. Preserves the caller's key order.
-   */
-  private async fetchKeys(keys: Key[]): Promise<User[]> {
-    const results: User[] = [];
-    const misses: Key[] = [];
-    for (const key of keys) {
-      const cached = this.store.get(key);
-      if (cached != null) results.push(cached);
-      else misses.push(key);
-    }
-    if (misses.length > 0) {
-      const fetched = await this.execRetrieve({ keys: misses });
-      this.store.set(fetched);
-      results.push(...fetched);
-    }
-    return query.orderByKeys(keys, results, (u) => u.key);
-  }
-
-  private async fetchSingle(query: SingleParams): Promise<User> {
-    if ("key" in query) {
-      const cached = this.store.get(query.key);
-      if (cached != null) return cached;
-    } else {
-      const [cached] = this.store.get((u) => u.username === query.username);
-      if (cached != null) return cached;
-    }
-    const users = await this.execRetrieve(query);
-    checkSingle(query, users);
-    this.store.set(users);
-    return users[0];
-  }
-
-  private async fetchRequest(query: RetrieveRequest): Promise<User[]> {
-    if (isKeysOnly(query)) return await this.fetchKeys(query.keys);
-    const users = await this.execRetrieve(query);
-    this.store.set(users);
-    return users;
   }
 }
 

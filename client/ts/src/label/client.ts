@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type UnaryClient } from "@synnaxlabs/freighter";
-import { array, primitive } from "@synnaxlabs/x";
+import { array, destructor, primitive } from "@synnaxlabs/x";
 import z from "zod";
 
 import { LABELED_BY_ONTOLOGY_RELATIONSHIP_TYPE } from "@/label/payload";
@@ -16,7 +16,6 @@ import { matchLabeledBy } from "@/label/store";
 import { type Key, keyZ, type Label, labelZ, type New } from "@/label/types.gen";
 import { ontology } from "@/ontology";
 import { query } from "@/query";
-import { checkForMultipleOrNoResults } from "@/util/retrieve";
 
 export const SET_CHANNEL_NAME = "sy_label_set";
 export const DELETE_CHANNEL_NAME = "sy_label_delete";
@@ -46,58 +45,13 @@ const retrieveRequestZ = z.object({
   ignoreNotFoundError: z.boolean().optional(),
 });
 
-const singleRetrieveParamsZ = z
-  .object({ key: keyZ })
-  .transform(({ key }) => ({ keys: [key] }));
-
-const retrieveParamsZ = z.union([singleRetrieveParamsZ, retrieveRequestZ]);
-
-export type RetrieveParams = z.input<typeof retrieveParamsZ>;
-export type RetrieveSingleParams = z.input<typeof singleRetrieveParamsZ>;
+export type RetrieveSingleParams = { key: Key };
 export type RetrieveMultipleParams = z.input<typeof retrieveRequestZ>;
+export type RetrieveParams = RetrieveSingleParams | RetrieveMultipleParams;
 
 interface RetrieveRequest extends z.infer<typeof retrieveRequestZ> {}
 
-/** Query fields only the server can evaluate. */
-const SERVER_FIELDS = ["searchTerm", "limit", "offset"] as const;
-
-const normalizeRequest = (params: RetrieveMultipleParams): RetrieveRequest =>
-  retrieveRequestZ.parse(params);
-
-const isKeysOnly = (req: RetrieveRequest): req is RetrieveRequest & { keys: Key[] } =>
-  primitive.isNonZero(req.keys) &&
-  req.names == null &&
-  req.for == null &&
-  req.searchTerm == null &&
-  req.limit == null &&
-  req.offset == null;
-
-const createTable = (
-  cache: query.Cache,
-  refetch: (keys: Key[]) => Promise<Label[]>,
-): query.Table<Key, Label> => {
-  const table = cache.createTable<Key, Label>({ name: "labels", refetch });
-  const set: query.ChannelListener<typeof labelZ> = {
-    channel: SET_CHANNEL_NAME,
-    schema: labelZ,
-    onChange: table.set.bind(table),
-  };
-  const del: query.ChannelListener<typeof keyZ> = {
-    channel: DELETE_CHANNEL_NAME,
-    schema: keyZ,
-    onChange: table.delete.bind(table),
-  };
-  cache.addListeners(table, set, del);
-  return table;
-};
-
-export class Client extends query.Retriever<
-  RetrieveSingleParams,
-  RetrieveMultipleParams,
-  Key,
-  RetrieveRequest,
-  Label
-> {
+export class Client extends query.Retriever<typeof retrieveRequestZ, Key, Label> {
   readonly type: string = "label";
   /** The label record table; injected into sibling clients at wiring. */
   readonly store: query.Table<Key, Label>;
@@ -109,141 +63,135 @@ export class Client extends query.Retriever<
     cache: query.Cache,
     relationships: query.Table<string, ontology.Relationship>,
   ) {
-    const store = createTable(
-      cache,
-      async (keys) => await this.execRetrieve({ keys, ignoreNotFoundError: true }),
-    );
-    super({
-      single: cache.queries({
-        name: "label",
-        table: store,
-        fetch: async (query) => [await this.fetchSingle(query)].map((l) => l.key),
-        compose: (records) => records[0],
-        keyOf: (query) => query,
-        single: true,
-      }),
-      request: cache.queries({
-        name: "labels",
-        table: store,
-        fetch: async (query) => (await this.fetchRequest(query)).map((l) => l.key),
-        compose: (records) => records,
-        matches: (label, query) => this.requestFilter(query)(label),
-        serverFields: SERVER_FIELDS,
+    const store = cache.createTable<Key, Label>({
+      name: "labels",
+      fetch: async (keys) =>
+        await this.execRetrieve({ keys, ignoreNotFoundError: true }),
+      listen: [
+        query.createSetListener(SET_CHANNEL_NAME, labelZ),
+        query.createDeleteListener(DELETE_CHANNEL_NAME, keyZ),
+      ],
+    });
+    super(cache, {
+      name: "label",
+      table: store,
+      request: {
+        schema: retrieveRequestZ,
+        fetch: async (req) => await this.execRetrieve(req),
+        matches: (label, req) => this.requestFilter(req)(label),
         watch: [
-          query.watch(relationships, (event, query: RetrieveRequest) => {
-            if (query.for == null) return null;
+          query.watch(relationships, (event, req: RetrieveRequest) => {
+            if (req.for == null) return null;
             const rel =
               event.variant === "set"
                 ? event.value
                 : ontology.relationshipZ.parse(event.key);
-            if (!matchLabeledBy(rel, query.for)) return null;
+            if (!matchLabeledBy(rel, req.for)) return null;
             return [rel.to.key];
           }),
         ],
-        hydrate: async (keys) => {
-          await this.fetchKeys(keys);
-        },
-      }),
-      isSingle: (params) => "key" in params,
-      normalizeSingle: ({ key }) => key,
-      normalizeRequest,
+      },
     });
     this.client = client;
     this.relationships = relationships;
     this.store = store;
   }
 
-  async label(id: ontology.ID, labels: Key[], opts: SetOptions = {}): Promise<void> {
-    await this.client.send(
-      "/label/set",
-      { id, labels, replace: opts.replace },
-      setReqZ,
-      emptyResZ,
-    );
-    if (opts.replace === true) this.relationships.delete((r) => matchLabeledBy(r, id));
+  async label(
+    id: ontology.ID,
+    labels: Key[],
+    opts: SetOptions & query.WriteOptions = {},
+  ): Promise<void> {
+    const rollback = new destructor.Chain();
+    if (opts.replace === true)
+      rollback.add(this.relationships.delete((r) => matchLabeledBy(r, id)));
     labels.forEach((key) => {
       const rel = labeledByRel(id, key);
-      this.relationships.set(ontology.relationshipToString(rel), rel);
+      rollback.add(this.relationships.set(ontology.relationshipToString(rel), rel));
     });
-  }
-
-  async remove(id: ontology.ID, labels: Key[]): Promise<void> {
-    await this.client.send("/label/remove", { id, labels }, removeReqZ, emptyResZ);
-    this.relationships.delete(
-      (r) => matchLabeledBy(r, id) && labels.includes(r.to.key),
+    await opts.onOptimistic?.();
+    await rollback.guard(
+      async () =>
+        await this.client.send(
+          "/label/set",
+          { id, labels, replace: opts.replace },
+          setReqZ,
+          emptyResZ,
+        ),
     );
   }
 
-  async create(label: New): Promise<Label>;
-  async create(labels: New[]): Promise<Label[]>;
-  async create(labels: New | New[]): Promise<Label | Label[]> {
+  async remove(
+    id: ontology.ID,
+    labels: Key[],
+    opts: query.WriteOptions = {},
+  ): Promise<void> {
+    const rollback = new destructor.Chain();
+    rollback.add(
+      this.relationships.delete(
+        (r) => matchLabeledBy(r, id) && labels.includes(r.to.key),
+      ),
+    );
+    await opts.onOptimistic?.();
+    await rollback.guard(
+      async () =>
+        await this.client.send("/label/remove", { id, labels }, removeReqZ, emptyResZ),
+    );
+  }
+
+  async create(label: New, opts?: query.WriteOptions<Label[]>): Promise<Label>;
+  async create(labels: New[], opts?: query.WriteOptions<Label[]>): Promise<Label[]>;
+  async create(
+    labels: New | New[],
+    opts: query.WriteOptions<Label[]> = {},
+  ): Promise<Label | Label[]> {
     const isMany = Array.isArray(labels);
-    const res = await this.client.send(
-      "/label/create",
-      { labels: array.toArray(labels) },
-      createReqZ,
-      createResZ,
+    const optimistic = array.toArray(labels).map((l) => labelZ.parse(l));
+    const rollback = new destructor.Chain();
+    rollback.add(this.store.set(optimistic));
+    await opts.onOptimistic?.(optimistic);
+    const res = await rollback.guard(
+      async () =>
+        await this.client.send(
+          "/label/create",
+          { labels: optimistic },
+          createReqZ,
+          createResZ,
+        ),
     );
     this.store.set(res.labels);
     return isMany ? res.labels : res.labels[0];
   }
 
-  async delete(keys: Key | Key[]): Promise<void> {
+  async delete(keys: Key | Key[], opts: query.WriteOptions = {}): Promise<void> {
     const keysArr = array.toArray(keys);
-    await this.client.send("/label/delete", { keys: keysArr }, deleteReqZ, emptyResZ);
-    this.store.delete(keysArr);
-    this.relationships.delete(
-      (r) =>
-        r.type === LABELED_BY_ONTOLOGY_RELATIONSHIP_TYPE &&
-        r.to.type === "label" &&
-        keysArr.includes(r.to.key),
+    const drop = () => [
+      this.store.delete(keysArr),
+      this.relationships.delete(
+        (r) =>
+          r.type === LABELED_BY_ONTOLOGY_RELATIONSHIP_TYPE &&
+          r.to.type === "label" &&
+          keysArr.includes(r.to.key),
+      ),
+    ];
+    const rollback = new destructor.Chain();
+    rollback.add(...drop());
+    await opts.onOptimistic?.();
+    await rollback.guard(
+      async () =>
+        await this.client.send("/label/delete", { keys: keysArr }, deleteReqZ, emptyResZ),
     );
+    drop();
   }
 
-  private async execRetrieve(params: RetrieveParams): Promise<Label[]> {
+  private async execRetrieve(params: RetrieveMultipleParams): Promise<Label[]> {
     const res = await this.client.send(
       "/label/retrieve",
       params,
-      retrieveParamsZ,
+      retrieveRequestZ,
       retrieveResponseZ,
     );
     return res.labels;
-  }
-
-  /**
-   * Fetches the given keys, serving cached entries and fetching only the
-   * misses. Preserves the caller's key order.
-   */
-  private async fetchKeys(keys: Key[]): Promise<Label[]> {
-    const results: Label[] = [];
-    const misses: Key[] = [];
-    for (const key of keys) {
-      const cached = this.store.get(key);
-      if (cached != null) results.push(cached);
-      else misses.push(key);
-    }
-    if (misses.length > 0) {
-      const fetched = await this.execRetrieve({ keys: misses });
-      this.store.set(fetched);
-      results.push(...fetched);
-    }
-    return query.orderByKeys(keys, results, (l) => l.key);
-  }
-
-  private async fetchSingle(query: Key): Promise<Label> {
-    const cached = this.store.get(query);
-    if (cached != null) return cached;
-    const labels = await this.execRetrieve({ keys: [query] });
-    checkForMultipleOrNoResults("Label", query, labels, true);
-    this.store.set(labels);
-    return labels[0];
-  }
-
-  private async fetchRequest(query: RetrieveRequest): Promise<Label[]> {
-    if (isKeysOnly(query)) return await this.fetchKeys(query.keys);
-    const labels = await this.execRetrieve(query);
-    this.store.set(labels);
-    return labels;
   }
 
   /**
