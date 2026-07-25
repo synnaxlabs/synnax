@@ -66,19 +66,22 @@ public:
         func(func),
         str_state(std::move(str_state)),
         is_entry_node(arc::ir::is_entry_node(prog, node)) {
+        const auto &func_ir = prog.function(node.type);
         this->inputs.resize(node.inputs.size());
         this->offsets.resize(node.outputs.size());
-        this->string_inputs.resize(node.inputs.size());
-        this->chan_inputs.resize(node.inputs.size());
         this->var_inputs.resize(node.inputs.size());
-        for (size_t i = 0; i < node.inputs.size(); i++) {
-            this->string_inputs[i] = node.inputs[i].type.kind == types::Kind::String;
-            this->chan_inputs[i] = node.inputs[i].type.kind == types::Kind::Chan;
+        for (size_t i = 0; i < node.inputs.size(); i++)
             this->var_inputs[i] = node.inputs[i].type.kind == types::Kind::VarRef;
+        this->string_inputs.resize(func_ir.inputs.size());
+        this->chan_inputs.resize(func_ir.inputs.size());
+        for (size_t i = 0; i < func_ir.inputs.size(); i++) {
+            this->string_inputs[i] = func_ir.inputs[i].type.kind == types::Kind::String;
+            this->chan_inputs[i] = func_ir.inputs[i].type.kind == types::Kind::Chan;
         }
-        this->string_outputs.resize(node.outputs.size());
-        for (size_t i = 0; i < node.outputs.size(); i++)
-            this->string_outputs[i] = node.outputs[i].type.kind == types::Kind::String;
+        this->string_outputs.resize(func_ir.outputs.size());
+        for (size_t i = 0; i < func_ir.outputs.size(); i++)
+            this->string_outputs[i] = func_ir.outputs[i].type.kind ==
+                                      types::Kind::String;
         if (const auto [idx, err] = this->state.resolve_input("$sel"); !err)
             this->sel_idx = idx;
     }
