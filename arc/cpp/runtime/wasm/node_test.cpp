@@ -19,6 +19,7 @@
 
 #include "arc/cpp/runtime/errors/errors.h"
 #include "arc/cpp/runtime/state/state.h"
+#include "arc/cpp/runtime/testutil/compile.h"
 #include "arc/cpp/runtime/wasm/factory.h"
 #include "arc/cpp/runtime/wasm/module.h"
 #include "arc/cpp/runtime/wasm/node.h"
@@ -37,24 +38,6 @@ std::mt19937 gen_rand = random_generator("Node Tests");
 std::string random_name(const std::string &prefix) {
     std::uniform_int_distribution<> dis(10000, 99999);
     return prefix + std::to_string(dis(gen_rand));
-}
-
-/// @brief Compiles an Arc program via the Synnax client.
-arc::program::Program
-compile_arc(const synnax::Synnax &client, const std::string &source) {
-    auto arc = synnax::arc::Arc{
-        .name = random_name("test_arc"),
-        .mode = synnax::arc::MODE_TEXT
-    };
-    arc.text.raw = source;
-    if (const auto create_err = client.arcs.create(arc))
-        throw std::runtime_error("Failed to create arc: " + create_err.message());
-
-    synnax::arc::RetrieveOptions opts;
-    opts.compile = true;
-    auto [compiled, err] = client.arcs.retrieve_by_key(arc.key, opts);
-    if (err) throw std::runtime_error("Failed to compile arc: " + err.message());
-    return *compiled.program;
 }
 
 /// @brief Finds the IR node with the given type in the module.
@@ -115,7 +98,7 @@ T call_func(
     auto channel_st = std::make_shared<stl::channels::State>();
     auto stl_modules = build_stl_modules(channel_st, str_st, series_st, var_st);
 
-    auto mod = compile_arc(client, func_def);
+    auto mod = testutil::compile_text(client, func_def);
     auto wasm_mod = ASSERT_NIL_P(
         wasm::Module::open({
             .program = mod,
@@ -146,7 +129,7 @@ func double(val f32) f32 {
 }
 )" + ch.name + " -> double{}";
 
-    auto mod = compile_arc(client, source);
+    auto mod = testutil::compile_text(client, source);
     auto wasm_mod = ASSERT_NIL_P(wasm::Module::open({.program = mod}));
     wasm::Factory factory(wasm_mod);
 
@@ -167,7 +150,7 @@ func double(val f32) f32 {
 }
 )" + ch.name + " -> double{}";
 
-    auto mod = compile_arc(client, source);
+    auto mod = testutil::compile_text(client, source);
     auto wasm_mod = ASSERT_NIL_P(wasm::Module::open({.program = mod}));
     wasm::Factory factory(wasm_mod);
 
@@ -199,7 +182,7 @@ func double(val f32) f32 {
 }
 )" + ch.name + " -> double{}";
 
-    auto mod = compile_arc(client, source);
+    auto mod = testutil::compile_text(client, source);
     auto wasm_mod = ASSERT_NIL_P(wasm::Module::open({.program = mod}));
     wasm::Factory factory(wasm_mod);
 
@@ -231,7 +214,7 @@ func double(val f32) f32 {
 }
 )" + ch.name + " -> double{}";
 
-    auto mod = compile_arc(client, source);
+    auto mod = testutil::compile_text(client, source);
     auto wasm_mod = ASSERT_NIL_P(wasm::Module::open({.program = mod}));
     const auto *func_node = find_node_by_type(mod, "double");
     ASSERT_NE(func_node, nullptr);
@@ -281,7 +264,7 @@ func double(val f32) f32 {
 }
 )" + input_name + " -> double{}";
 
-    auto mod = compile_arc(client, source);
+    auto mod = testutil::compile_text(client, source);
     auto wasm_mod = ASSERT_NIL_P(wasm::Module::open({.program = mod}));
     const auto *func_node = find_node_by_type(mod, "double");
     ASSERT_NE(func_node, nullptr);
@@ -382,7 +365,7 @@ func double(val f32) f32 {
 )" + input_name + " -> double{} -> " +
                                output_name;
 
-    auto mod = compile_arc(client, source);
+    auto mod = testutil::compile_text(client, source);
     auto wasm_mod = ASSERT_NIL_P(wasm::Module::open({.program = mod}));
     const auto *func_node = find_node_by_type(mod, "double");
     ASSERT_NE(func_node, nullptr);
@@ -484,7 +467,7 @@ func divide_by_zero(val i32) i32 {
 )" + input_name + " -> divide_by_zero{} -> " +
                                output_name;
 
-    auto mod = compile_arc(client, source);
+    auto mod = testutil::compile_text(client, source);
     auto wasm_mod = ASSERT_NIL_P(wasm::Module::open({.program = mod}));
     const auto *func_node = find_node_by_type(mod, "divide_by_zero");
     ASSERT_NE(func_node, nullptr);
@@ -544,7 +527,7 @@ func double(val f32) f32 {
 }
 )" + ch.name + " -> double{}";
 
-    auto mod = compile_arc(client, source);
+    auto mod = testutil::compile_text(client, source);
     auto wasm_mod = ASSERT_NIL_P(wasm::Module::open({.program = mod}));
     const auto *func_node = find_node_by_type(mod, "double");
     ASSERT_NE(func_node, nullptr);
@@ -595,7 +578,7 @@ func passthrough(val f32) f32 {
 )" + input_name + " -> passthrough{} -> " +
                                output_name;
 
-    auto mod = compile_arc(client, source);
+    auto mod = testutil::compile_text(client, source);
     auto wasm_mod = ASSERT_NIL_P(wasm::Module::open({.program = mod}));
     const auto *func_node = find_node_by_type(mod, "passthrough");
     ASSERT_NE(func_node, nullptr);
@@ -664,7 +647,7 @@ func constant() i64 {
 }
 constant{} -> )" + output_name;
 
-    auto mod = compile_arc(client, source);
+    auto mod = testutil::compile_text(client, source);
     auto wasm_mod = ASSERT_NIL_P(wasm::Module::open({.program = mod}));
     const auto *func_node = find_node_by_type(mod, "constant");
     ASSERT_NE(func_node, nullptr);
@@ -749,7 +732,7 @@ func double(val i64) i64 {
 )" + input_name + " -> double{} -> " +
                                output_name;
 
-    auto mod = compile_arc(client, source);
+    auto mod = testutil::compile_text(client, source);
     auto wasm_mod = ASSERT_NIL_P(wasm::Module::open({.program = mod}));
     const auto *func_node = find_node_by_type(mod, "double");
     ASSERT_NE(func_node, nullptr);
@@ -838,7 +821,7 @@ func counter() i64 {
 }
 counter{} -> )" + output_name;
 
-    auto mod = compile_arc(client, source);
+    auto mod = testutil::compile_text(client, source);
     auto wasm_mod = ASSERT_NIL_P(wasm::Module::open({.program = mod}));
     const auto *func_node = find_node_by_type(mod, "counter");
     ASSERT_NE(func_node, nullptr);
@@ -902,7 +885,7 @@ func counter() i64 {
 }
 counter{} -> )" + output_name;
 
-    auto mod = compile_arc(client, source);
+    auto mod = testutil::compile_text(client, source);
     auto wasm_mod = ASSERT_NIL_P(wasm::Module::open({.program = mod}));
     const auto *func_node = find_node_by_type(mod, "counter");
     ASSERT_NE(func_node, nullptr);
@@ -968,7 +951,7 @@ func counter() i64 {
 }
 counter{} -> )" + output_name;
 
-    auto mod = compile_arc(client, source);
+    auto mod = testutil::compile_text(client, source);
     auto wasm_mod = ASSERT_NIL_P(wasm::Module::open({.program = mod}));
     const auto *func_node = find_node_by_type(mod, "counter");
     ASSERT_NE(func_node, nullptr);
@@ -1047,7 +1030,7 @@ func add_config{x i32}(y i32) i32 {
 )" + input_name + " -> add_config{x=10} -> " +
                                output_name;
 
-    auto mod = compile_arc(client, source);
+    auto mod = testutil::compile_text(client, source);
     auto wasm_mod = ASSERT_NIL_P(wasm::Module::open({.program = mod}));
     const auto *func_node = find_node_by_type(mod, "add_config");
     ASSERT_NE(func_node, nullptr);
@@ -1140,7 +1123,7 @@ func multi_config{a i32, b i32}(c i32) i32 {
 )" + input_name + " -> multi_config{a=5, b=10} -> " +
                                output_name;
 
-    auto mod = compile_arc(client, source);
+    auto mod = testutil::compile_text(client, source);
     auto wasm_mod = ASSERT_NIL_P(wasm::Module::open({.program = mod}));
     const auto *func_node = find_node_by_type(mod, "multi_config");
     ASSERT_NE(func_node, nullptr);
@@ -1237,7 +1220,7 @@ func counter(trigger i64) i64 {
                                output_a_name + "\n" + trigger_name +
                                " -> counter{} -> " + output_b_name;
 
-    auto mod = compile_arc(client, source);
+    auto mod = testutil::compile_text(client, source);
 
     auto channel_st = std::make_shared<stl::channels::State>(
         std::vector<state::ChannelDigest>{
@@ -1395,7 +1378,7 @@ func read_chan{ch chan f32}(trigger u8) f32 {
 )" + trigger_name +
                                " -> read_chan{ch=" + data_name + "} -> " + output_name;
 
-    auto mod = compile_arc(client, source);
+    auto mod = testutil::compile_text(client, source);
 
     // Verify the node's channels.read includes the config param channel.
     const auto *func_node = find_node_by_type(mod, "read_chan");
@@ -1547,7 +1530,7 @@ func str_len(s str) i64 {
     auto channel_st = std::make_shared<stl::channels::State>();
     auto stl_modules = build_stl_modules(channel_st, str_st, series_st, var_st);
 
-    auto mod = compile_arc(client, source);
+    auto mod = testutil::compile_text(client, source);
     auto wasm_mod = ASSERT_NIL_P(
         wasm::Module::open({
             .program = mod,
@@ -1675,7 +1658,7 @@ func labeler(x i64) (label str, value i64) {
     auto channel_st = std::make_shared<stl::channels::State>();
     auto stl_modules = build_stl_modules(channel_st, str_st, series_st, var_st);
 
-    auto mod = compile_arc(client, source);
+    auto mod = testutil::compile_text(client, source);
     auto wasm_mod = ASSERT_NIL_P(
         wasm::Module::open({
             .program = mod,
@@ -1792,7 +1775,7 @@ func qstr_len(s str) i64 {
     auto channel_st = std::make_shared<stl::channels::State>();
     auto stl_modules = build_stl_modules(channel_st, str_st, series_st, var_st);
 
-    auto mod = compile_arc(client, source);
+    auto mod = testutil::compile_text(client, source);
     auto wasm_mod = ASSERT_NIL_P(
         wasm::Module::open({
             .program = mod,
@@ -1884,7 +1867,7 @@ produce_str{} -> )" + output_name;
     auto channel_st = std::make_shared<stl::channels::State>();
     auto stl_modules = build_stl_modules(channel_st, str_st, series_st, var_st);
 
-    auto mod = compile_arc(client, source);
+    auto mod = testutil::compile_text(client, source);
     auto wasm_mod = ASSERT_NIL_P(
         wasm::Module::open({
             .program = mod,
@@ -1953,7 +1936,7 @@ produce_str{} -> )" + output_name;
     auto channel_st = std::make_shared<stl::channels::State>();
     auto stl_modules = build_stl_modules(channel_st, str_st, series_st, var_st);
 
-    auto mod = compile_arc(client, source);
+    auto mod = testutil::compile_text(client, source);
     auto wasm_mod = ASSERT_NIL_P(
         wasm::Module::open({
             .program = mod,
@@ -2049,7 +2032,7 @@ func concat_len(a str, b str) i64 {
     auto channel_st = std::make_shared<stl::channels::State>();
     auto stl_modules = build_stl_modules(channel_st, str_st, series_st, var_st);
 
-    auto mod = compile_arc(client, source);
+    auto mod = testutil::compile_text(client, source);
     auto wasm_mod = ASSERT_NIL_P(
         wasm::Module::open({
             .program = mod,
@@ -2719,7 +2702,7 @@ func loop_state(trigger i64) i64 {
     auto var_st = std::make_shared<stl::stateful::Variables>();
     auto stl_modules = build_stl_modules(channel_st, str_st, series_st, var_st);
 
-    auto mod = compile_arc(client, source);
+    auto mod = testutil::compile_text(client, source);
     auto state = std::make_shared<state::State>(
         state::Config{
             .ir = (static_cast<arc::ir::IR>(mod)),
@@ -2817,7 +2800,7 @@ func double(val f32) f32 {
 }
 )" + ch.name + " -> double{}";
 
-    auto mod = compile_arc(client, source);
+    auto mod = testutil::compile_text(client, source);
 
     // Corrupt the output type to simulate an unresolved type
     for (auto &fn: mod.functions)
@@ -2846,7 +2829,7 @@ func sum2(x i32, y i32) i32 {
     auto channel_st = std::make_shared<stl::channels::State>();
     auto stl_modules = build_stl_modules(channel_st, str_st, series_st, var_st);
 
-    auto mod = compile_arc(client, func_def);
+    auto mod = testutil::compile_text(client, func_def);
     auto wasm_mod = ASSERT_NIL_P(
         wasm::Module::open({.program = mod, .modules = stl_modules, .strings = str_st})
     );
