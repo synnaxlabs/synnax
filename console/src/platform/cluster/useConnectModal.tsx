@@ -49,7 +49,7 @@ export const useConnectModal = Modals.create<ConnectModalParams>(
     const dispatch = Session.useDispatch();
     const isEdit = clusterKey != null;
     const existing = Session.Cluster.useSelectState(clusterKey);
-    const [connState, setConnState] = useState<connection.State | null>(null);
+    const [connStatus, setConnStatus] = useState<connection.Status | null>(null);
     const [loading, setLoading] = useState<"test" | "submit" | null>(null);
     const names = Session.Cluster.useSelectAllNames();
     const formSchema = baseFormSchema.check(({ value: { name }, issues }) => {
@@ -82,11 +82,11 @@ export const useConnectModal = Modals.create<ConnectModalParams>(
       handleError(async () => {
         if (!methods.validate()) return;
         const data = methods.value();
-        setConnState(null);
+        setConnStatus(null);
         setLoading("submit");
-        const state = await checkConnection(data);
+        const status = await checkConnection(data);
         setLoading(null);
-        setConnState(state);
+        setConnStatus(status);
         if (isEdit && existing != null && clusterKey != null) {
           dispatch(
             Session.Cluster.set({
@@ -96,15 +96,15 @@ export const useConnectModal = Modals.create<ConnectModalParams>(
               password: existing.password,
             }),
           );
-          if (state.clusterKey && state.clusterKey !== clusterKey)
+          if (status.details.clusterKey && status.details.clusterKey !== clusterKey)
             dispatch(
               Session.Cluster.changeKey({
                 oldKey: clusterKey,
-                newKey: state.clusterKey,
+                newKey: status.details.clusterKey,
               }),
             );
         } else {
-          const key = state.clusterKey || uuid.create();
+          const key = status.details.clusterKey || uuid.create();
           dispatch(Session.Cluster.set({ ...data, key, username: "", password: "" }));
         }
         close();
@@ -134,9 +134,9 @@ export const useConnectModal = Modals.create<ConnectModalParams>(
         </Form.Form>
         <Modals.Footer>
           <Nav.Bar.Start gap="small">
-            {connState != null ? (
-              <Status.Summary variant={connState.variant}>
-                {connState.variant === "success" ? "Connected" : connState.message}
+            {connStatus != null ? (
+              <Status.Summary variant={connStatus.variant}>
+                {connStatus.variant === "success" ? "Connected" : connStatus.message}
               </Status.Summary>
             ) : (
               <Triggers.SaveHelpText action={isEdit ? "Save" : "Connect"} noBar />

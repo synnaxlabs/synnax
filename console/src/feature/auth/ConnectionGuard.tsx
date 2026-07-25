@@ -63,20 +63,23 @@ export const ConnectionGuard = ({
   nav = true,
 }: ConnectionGuardProps): ReactNode => {
   const client = Synnax.use();
-  const state = Synnax.useConnectionState();
-  const coldLoading = state.epoch === 0 && state.variant === "loading";
+  const status = Synnax.useConnectionStatus();
+  const coldLoading = status.details.epoch === 0 && status.variant === "loading";
   const graceElapsed = useDelayedTrue(coldLoading, GRACE);
   if (client == null) return children;
-  if (state.variant === "error" && state.reason === "auth") return <Login nav={nav} />;
+  if (status.variant === "error" && status.details.reason === "auth")
+    return <Login nav={nav} />;
   const coldUnreachable =
-    state.epoch === 0 && state.variant === "error" && state.reason === "unreachable";
+    status.details.epoch === 0 &&
+    status.variant === "error" &&
+    status.details.reason === "unreachable";
   if (coldUnreachable || (coldLoading && graceElapsed))
-    return <Takeover client={client} state={state} nav={nav} />;
+    return <Takeover client={client} status={status} nav={nav} />;
   return children;
 };
 
 interface RetryStatusProps {
-  retry: NonNullable<connection.State["retry"]>;
+  retry: NonNullable<connection.Details["retry"]>;
 }
 
 const RetryStatus = ({ retry }: RetryStatusProps): ReactElement => {
@@ -98,11 +101,11 @@ const RetryStatus = ({ retry }: RetryStatusProps): ReactElement => {
 
 interface TakeoverProps {
   client: Client;
-  state: connection.State;
+  status: connection.Status;
   nav: boolean;
 }
 
-const Takeover = ({ client, state, nav }: TakeoverProps): ReactElement => {
+const Takeover = ({ client, status, nav }: TakeoverProps): ReactElement => {
   const activeKey = Session.Cluster.useSelectSelectedKey();
   const cluster = Session.Cluster.useSelectState(activeKey ?? undefined);
   const dispatch = Session.useDispatch();
@@ -168,8 +171,10 @@ const Takeover = ({ client, state, nav }: TakeoverProps): ReactElement => {
               )}
             </Flex.Box>
             <Flex.Box y gap="small" align="center">
-              <Status.Summary variant={state.variant} message={state.message} />
-              {state.retry != null && <RetryStatus retry={state.retry} />}
+              <Status.Summary variant={status.variant} message={status.message} />
+              {status.details.retry != null && (
+                <RetryStatus retry={status.details.retry} />
+              )}
             </Flex.Box>
             <Flex.Box x gap="small" align="center">
               <Button.Button

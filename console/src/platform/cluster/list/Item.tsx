@@ -30,7 +30,7 @@ interface ListItemProps extends List.ItemProps<string> {
   loading: boolean;
 }
 
-const LABELS: Record<connection.State["variant"], string> = {
+const LABELS: Record<connection.Status["variant"], string> = {
   success: "Connected",
   info: "Connected",
   loading: "Connecting",
@@ -39,25 +39,25 @@ const LABELS: Record<connection.State["variant"], string> = {
   disabled: "Disconnected",
 };
 
-const useConnectionState = ({
+const useConnectionStatus = ({
   host,
   port,
   secure,
-}: Session.Cluster.Cluster): connection.State | null => {
-  const [state, setState] = useState<connection.State | null>(null);
+}: Session.Cluster.Cluster): connection.Status | null => {
+  const [status, setStatus] = useState<connection.Status | null>(null);
   useAsyncEffect(
     async (signal) => {
-      const s = await checkConnection({
+      const next = await checkConnection({
         host,
         port,
         secure,
         retry: { maxRetries: 0 },
       });
-      if (!signal.aborted) setState(s);
+      if (!signal.aborted) setStatus(next);
     },
     [host, port, secure],
   );
-  return state;
+  return status;
 };
 
 const Base = ({
@@ -72,8 +72,8 @@ const Base = ({
     if (!validateName(value) || item == null) return;
     dispatch(Session.Cluster.rename({ key: item.key, name: value }));
   };
-  const state = useConnectionState(item);
-  let statusVariant = state?.variant ?? "disabled";
+  const status = useConnectionStatus(item);
+  let statusVariant = status?.variant ?? "disabled";
   let statusMessage = LABELS[statusVariant];
   if (loading) {
     statusMessage = "Connecting";
@@ -101,9 +101,9 @@ const Base = ({
           className={CSS.BE("cluster-list-item", "name")}
         />
         <Flex.Box x>
-          {state?.nodeVersion != null && (
+          {status?.details.nodeVersion != null && (
             <Text.Text size="tiny" color={9}>
-              v{state.nodeVersion}
+              v{status.details.nodeVersion}
             </Text.Text>
           )}
           <Text.Text size="tiny" color={9}>
@@ -112,7 +112,7 @@ const Base = ({
         </Flex.Box>
       </Flex.Box>
       <Tooltip.Dialog>
-        <Text.Text level="h5">{state?.message}</Text.Text>
+        <Text.Text level="h5">{status?.message}</Text.Text>
         <Status.Summary variant={statusVariant} message={statusMessage} />
       </Tooltip.Dialog>
     </List.Item>

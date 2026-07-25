@@ -18,7 +18,10 @@ import { Session } from "@/session";
 // demo cluster that is already defined in the initial slice state.
 export const useSyncClusterKey = () => {
   const activeClusterKey = Session.Cluster.useSelectSelectedKey();
-  const { clusterKey, variant } = Synnax.useConnectionState();
+  const {
+    variant,
+    details: { clusterKey },
+  } = Synnax.useConnectionStatus();
   const dispatch = Session.useDispatch();
   useEffect(() => {
     if (

@@ -66,7 +66,7 @@ const shouldNotCreate = (): never => {
 const update = (provider: aether.Component, key: string, props: SynnaxParams | null) =>
   provider._updateState({
     path: [key],
-    state: { props, state: null },
+    state: { props },
     type: synnax.Provider.TYPE,
     create: shouldNotCreate,
   });
