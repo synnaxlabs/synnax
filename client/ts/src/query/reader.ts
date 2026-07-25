@@ -77,8 +77,11 @@ export interface RetrieverParams<
     /** Foreign tables whose events affect this space's answers. */
     watch?: Array<WatchEntry<z.output<Z>, K>>;
   };
-  /** Per-record enrichment applied to every answer. Defaults to identity. */
-  compose?: (record: V) => D;
+  /**
+   * Per-record enrichment applied to every answer, receiving the normalized
+   * query the record answers. Defaults to identity.
+   */
+  compose?: (record: V, query: Params) => D;
   /** Custom single space for domains whose single query is richer than a key. */
   single?: {
     /** Whether the params address exactly one record. */
@@ -128,7 +131,8 @@ export abstract class Retriever<
 
   constructor(cache: Cache, params: RetrieverParams<Z, K, V, D, SP>) {
     const { name, table, request, compose, single } = params;
-    const composeOne = compose ?? ((record: V) => record as unknown as D);
+    const composeOne =
+      compose ?? ((record: V, _query: Params) => record as unknown as D);
     this.requestSpace = cache.queries<Params, D[], K, V>({
       name,
       table,
@@ -139,7 +143,7 @@ export abstract class Retriever<
         table.ingest(records);
         return records.map((r) => r.key);
       },
-      compose: (records) => records.map(composeOne),
+      compose: (records, q) => records.map((r) => composeOne(r, q)),
       matches:
         request.matches == null
           ? undefined
@@ -162,7 +166,7 @@ export abstract class Retriever<
             throw new NotFoundError(`${name} with key ${key} not found`);
           return [key];
         },
-        compose: (records) => composeOne(records[0]),
+        compose: (records, q) => composeOne(records[0], q),
         keyOf: (query) => query,
         single: true,
       }) as Retrieves<Params, D>;
