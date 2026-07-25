@@ -70,9 +70,17 @@ func (db *DB) index() *index.Domain {
 
 func (db *DB) SetIndex(idx *index.Domain) { db.idx = idx }
 
-// NextLeadingAlignment reserves and returns the next leading-region domain index from
-// this channel's counter, keeping alignment monotonic across writer sessions.
-func (db *DB) NextLeadingAlignment() uint32 { return db.leadingAlignment.Add(1) }
+// WriteCursor returns the alignment a channel indexed by this one should stamp a write
+// starting at ts with. When a writer holds the region covering ts, the cursor is that
+// writer's next write position, so the indexed channel lands in the same sample space as
+// the timestamps it is being written against. Otherwise a fresh leading domain is
+// reserved, keeping the data ordered after everything already persisted.
+func (db *DB) WriteCursor(ts telem.TimeStamp) telem.Alignment {
+	if cw, ok := db.controller.ResourceAt(ts.Range(ts + 1)); ok {
+		return cw.loadAlignment()
+	}
+	return telem.NewAlignment(db.leadingAlignment.Add(1), 0)
+}
 
 // LeadingControlState returns the first chronological gate in this unary database.
 func (db *DB) LeadingControlState() *control.State {

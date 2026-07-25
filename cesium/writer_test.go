@@ -544,6 +544,64 @@ var _ = Describe("Writer Behavior", func() {
 							Expect(sCtx.Wait()).To(Succeed())
 							Expect(w2.Close()).To(Succeed())
 						})
+
+						It("Should align a co-written index and data channel while an index-less writer holds the data channel open", func(ctx SpecContext) {
+							var (
+								idx  = GenerateChannelKey()
+								data = GenerateChannelKey()
+							)
+							Expect(db.CreateChannel(
+								ctx,
+								cesium.Channel{Key: idx, Name: "Borges", IsIndex: true, DataType: telem.TimeStampT},
+								cesium.Channel{Key: data, Name: "Cortazar", Index: idx, DataType: telem.Int64T},
+							)).To(Succeed())
+
+							s := MustSucceed(db.NewStreamer(ctx, cesium.StreamerConfig{
+								Channels: []cesium.ChannelKey{idx, data},
+							}))
+							in, out := confluence.Attach(s, 4)
+							sCtx, cancel := signal.WithCancel(ctx)
+							defer cancel()
+							s.Flow(sCtx)
+
+							By("Opening an index-less writer on the data channel and leaving it open")
+							wData := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
+								Channels:       []cesium.ChannelKey{data},
+								Start:          10 * telem.SecondTS,
+								ControlSubject: control.Subject{Key: "index-less"},
+								Authorities:    []control.Authority{control.Authority(100)},
+							}))
+							defer func() { Expect(wData.Close()).To(Succeed()) }()
+
+							By("Opening a co-writer over both channels, which joins the data channel's region")
+							wBoth := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
+								Channels:       []cesium.ChannelKey{idx, data},
+								Start:          10 * telem.SecondTS,
+								ControlSubject: control.Subject{Key: "co-writer"},
+								Authorities: []control.Authority{
+									control.AuthorityAbsolute,
+									control.AuthorityAbsolute,
+								},
+							}))
+							MustSucceed(wBoth.Write(telem.MultiFrame(
+								[]cesium.ChannelKey{idx, data},
+								[]telem.Series{
+									telem.NewSeriesSecondsTSV(10, 11, 12),
+									telem.NewSeriesV[int64](1, 2, 3),
+								},
+							)))
+							MustSucceed(wBoth.Commit())
+
+							var fr cesium.StreamerResponse
+							Eventually(out.Outlet()).Should(Receive(&fr))
+							Expect(fr.Frame.Get(idx).Series[0].Alignment).
+								To(Equal(fr.Frame.Get(data).Series[0].Alignment),
+									"an index and the data written alongside it must share an alignment "+
+										"even when the data channel's control region was opened by someone else")
+							in.Close()
+							Expect(sCtx.Wait()).To(Succeed())
+							Expect(wBoth.Close()).To(Succeed())
+						})
 					})
 				})
 
