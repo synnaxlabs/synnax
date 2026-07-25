@@ -137,7 +137,9 @@ describe("Schematic.useRangeSnapshot", () => {
       state: createState([createResource(id, s.name)]),
     });
     await waitFor(async () => {
-      const children = await client.ontology.children.retrieve({ ids: ranger.ontologyID(rng.key) });
+      const children = await client.ontology.children.retrieve({
+        ids: ranger.ontologyID(rng.key),
+      });
       expect(children.map((c) => c.name)).toContain(`${s.name} (Snapshot)`);
     });
     await waitFor(() =>

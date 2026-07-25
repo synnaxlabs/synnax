@@ -24,7 +24,9 @@ describe("project toolbar", () => {
     const roots = await client.ontology.children.retrieve({ ids: ontology.ROOT_ID });
     const projectsGroup = roots.find((r) => r.name === "Projects");
     if (projectsGroup == null) throw new Error("Projects group not found");
-    const [firstChild] = await client.ontology.children.retrieve({ ids: projectsGroup.id });
+    const [firstChild] = await client.ontology.children.retrieve({
+      ids: projectsGroup.id,
+    });
     await renderToolbar(Project.TOOLBAR.content, { client });
     expect(screen.getByText("Projects")).toBeTruthy();
     expect(await screen.findByText(firstChild.name)).toBeTruthy();

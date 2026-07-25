@@ -154,7 +154,9 @@ describe("Schematic.Symbol.useImportGroup", () => {
       ).toBe(true),
     );
     const root = await client.schematics.symbols.retrieveGroup();
-    const groups = await client.ontology.children.retrieve({ ids: group.ontologyID(root.key) });
+    const groups = await client.ontology.children.retrieve({
+      ids: group.ontologyID(root.key),
+    });
     const created = groups.find((g) => g.name === groupName);
     if (created == null) throw new Error("imported group not found");
     expect(await childNames(created.id)).toContain(symbolName);

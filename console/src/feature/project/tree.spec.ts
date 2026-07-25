@@ -103,7 +103,9 @@ describe("project ontology service", () => {
 
   it("should select the project when the row is double-clicked", async () => {
     const p = await createProject();
-    const [parent] = await client.ontology.parents.retrieve({ ids: project.ontologyID(p.key) });
+    const [parent] = await client.ontology.parents.retrieve({
+      ids: project.ontologyID(p.key),
+    });
     const { store } = await renderOntologyTree({
       client,
       root: parent.id,

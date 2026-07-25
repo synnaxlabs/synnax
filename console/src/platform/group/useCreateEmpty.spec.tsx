@@ -99,7 +99,9 @@ describe("useCreateEmpty", () => {
       commitTextEdit(editable, name);
     });
     await waitFor(async () => {
-      const children = await client.ontology.children.retrieve({ ids: group.ontologyID(child.key) });
+      const children = await client.ontology.children.retrieve({
+        ids: group.ontologyID(child.key),
+      });
       const created = children.find((c) => c.name === name);
       expect(created).toBeDefined();
       expect(created?.id.type).toBe("group");

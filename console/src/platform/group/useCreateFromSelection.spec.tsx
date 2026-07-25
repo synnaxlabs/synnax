@@ -78,7 +78,9 @@ describe("useCreateFromSelection", () => {
       expect(created).toBeDefined();
       newKey = created?.id.key ?? "";
     });
-    const grouped = await client.ontology.children.retrieve({ ids: group.ontologyID(newKey) });
+    const grouped = await client.ontology.children.retrieve({
+      ids: group.ontologyID(newKey),
+    });
     expect(grouped.map((c) => c.id.key).sort()).toEqual([a.key, b.key].sort());
   });
 
@@ -119,7 +121,9 @@ describe("useCreateFromSelection", () => {
       expect(subChildren[0].name).toBe(name);
       newKey = subChildren[0].id.key;
     });
-    const grouped = await client.ontology.children.retrieve({ ids: group.ontologyID(newKey) });
+    const grouped = await client.ontology.children.retrieve({
+      ids: group.ontologyID(newKey),
+    });
     expect(grouped.map((c) => c.id.key).sort()).toEqual([a.key, b.key].sort());
   });
 

@@ -74,7 +74,9 @@ describe("Tree.MultipleSelectionContextMenu", () => {
       newKey = created?.id.key ?? "";
     });
     await waitFor(async () => {
-      const grouped = await client.ontology.children.retrieve({ ids: group.ontologyID(newKey) });
+      const grouped = await client.ontology.children.retrieve({
+        ids: group.ontologyID(newKey),
+      });
       const keys = grouped.map((c) => c.id.key);
       expect(keys).toContain(child.key);
       expect(keys).toContain(range.key);

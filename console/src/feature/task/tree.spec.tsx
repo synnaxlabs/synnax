@@ -213,7 +213,9 @@ describe("task ontology", () => {
       store.dispatch(Session.Range.select(rng.key));
       fireEvent.click(await screen.findByText(`Snapshot to ${rng.name}`));
       await waitFor(async () => {
-        const children = await client.ontology.children.retrieve({ ids: rng.ontologyID });
+        const children = await client.ontology.children.retrieve({
+          ids: rng.ontologyID,
+        });
         expect(children.some((c) => c.id.type === "task")).toBe(true);
       });
     });

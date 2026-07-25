@@ -52,7 +52,9 @@ const renderCreate = (
 
 const expectParent = async (key: string, projectKey: project.Key) =>
   await waitFor(async () => {
-    const parents = await client.ontology.parents.retrieve({ ids: lineplot.ontologyID(key) });
+    const parents = await client.ontology.parents.retrieve({
+      ids: lineplot.ontologyID(key),
+    });
     expect(
       parents.some((p) => p.id.type === "project" && p.id.key === projectKey),
     ).toBe(true);

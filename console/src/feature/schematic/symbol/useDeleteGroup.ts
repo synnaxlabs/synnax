@@ -24,7 +24,9 @@ export const useDeleteGroup = (): ((group: group.Group) => void) => {
         const confirmed = await confirmDelete(g);
         if (!confirmed) return;
         if (client == null) throw new DisconnectedError();
-        const children = await client.ontology.children.retrieve({ ids: group.ontologyID(g.key) });
+        const children = await client.ontology.children.retrieve({
+          ids: group.ontologyID(g.key),
+        });
         const symbolKeys = children
           .filter((c: ontology.Resource) => c.id.type === "schematic_symbol")
           .map((c: ontology.Resource) => c.id.key);

@@ -164,7 +164,9 @@ describe("Schematic toolbar Symbols", () => {
     fireEvent.click(screen.getByRole("button", { name: "Save" }));
     const root = await client.schematics.symbols.retrieveGroup();
     await waitFor(async () => {
-      const children = await client.ontology.children.retrieve({ ids: group.ontologyID(root.key) });
+      const children = await client.ontology.children.retrieve({
+        ids: group.ontologyID(root.key),
+      });
       expect(children.map((c) => c.name)).toContain(name);
     });
   });

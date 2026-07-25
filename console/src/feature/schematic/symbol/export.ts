@@ -39,7 +39,9 @@ const exportGroup = async ({
   confirm,
 }: ExportGroupParams): Promise<void> => {
   if (client == null) throw new DisconnectedError();
-  const children = await client.ontology.children.retrieve({ ids: group.ontologyID(key) });
+  const children = await client.ontology.children.retrieve({
+    ids: group.ontologyID(key),
+  });
   const symbolKeys = children
     .filter((c) => c.id.type === "schematic_symbol")
     .map((c) => c.id.key);
