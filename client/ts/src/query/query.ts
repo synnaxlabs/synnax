@@ -35,7 +35,7 @@ export const hash = (query: Params): string => {
   if (typeof query !== "object") return JSON.stringify(query);
   if (primitive.isHashable(query)) return query.hash();
   if (Array.isArray(query)) return `[${query.map(hash).join(",")}]`;
-  const entries = Object.entries(query as Record<string, Params>)
+  const entries = Object.entries(query)
     .filter(([, v]) => v !== undefined)
     .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0));
   return `{${entries.map(([k, v]) => `${JSON.stringify(k)}:${hash(v)}`).join(",")}}`;
@@ -429,8 +429,8 @@ export class Queries<
     const { serverFields } = this.params;
     if (serverFields == null || serverFields.length === 0) return false;
     if (typeof query !== "object" || query === null) return false;
-    return serverFields.some(
-      (field) => (query as Record<string, unknown>)[field] != null,
+    return Object.entries(query).some(
+      ([field, value]) => value != null && serverFields.includes(field),
     );
   }
 

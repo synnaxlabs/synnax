@@ -84,7 +84,7 @@ export interface RetrieverParams<
   /** Custom single space for domains whose single query is richer than a key. */
   single?: {
     /** Whether the params address exactly one record. */
-    is: (params: unknown) => boolean;
+    is: (params: unknown) => params is SP;
     /** Canonicalizes single params so equivalent queries hash identically. */
     normalize: (params: SP) => Params;
     /** The space answering single queries, built via the cache. */
@@ -123,10 +123,10 @@ export abstract class Retriever<
   SP = { key: K },
 > {
   private readonly singleSpace: Retrieves<Params, D>;
-  private readonly requestSpace: Retrieves<Params, D[]>;
-  private readonly isSingle: (params: unknown) => boolean;
+  private readonly requestSpace: Retrieves<z.output<Z>, D[]>;
+  private readonly isSingle: (params: unknown) => params is SP;
   private readonly normalizeSingle: (params: SP) => Params;
-  private readonly normalizeRequest: (params: z.input<Z>) => Params;
+  private readonly normalizeRequest: (params: z.input<Z>) => z.output<Z>;
 
   constructor(cache: Cache, params: RetrieverParams<Z, K, V, D, SP>) {
     const {
@@ -143,23 +143,20 @@ export abstract class Retriever<
       serverFields = DEFAULT_SERVER_FIELDS,
       watch,
     } = request;
-    this.requestSpace = cache.queries<Params, D[], K, V>({
+    this.requestSpace = cache.queries<z.output<Z>, D[], K, V>({
       name,
       table,
       fetch: async (query, options) => {
         if (isKeysOnly(query))
           return (await table.retrieve(query.keys as K[])).map((r) => r.key);
-        const records = await fetch(query as z.output<Z>, options);
+        const records = await fetch(query, options);
         table.ingest(records);
         return records.map((r) => r.key);
       },
       compose: (records, q) => records.map((r) => compose(r, q)),
-      matches:
-        matches == null
-          ? undefined
-          : (record, query) => matches(record, query as z.output<Z>),
+      matches,
       serverFields,
-      watch: watch as WatchEntry<Params, K>[] | undefined,
+      watch,
     });
     this.normalizeRequest = (p) => schema.parse(p);
     if (single != null) {
@@ -180,7 +177,7 @@ export abstract class Retriever<
         keyOf: (query) => query,
         single: true,
       }) as Retrieves<Params, D>;
-      this.isSingle = (p) => typeof p === "object" && p !== null && "key" in p;
+      this.isSingle = (p): p is SP => typeof p === "object" && p !== null && "key" in p;
       this.normalizeSingle = ((p: { key: K }) => p.key) as unknown as (
         params: SP,
       ) => Params;
@@ -197,14 +194,8 @@ export abstract class Retriever<
   retrieve(params: z.input<Z>, options?: FetchOptions): Promise<D[]>;
   async retrieve(params: SP | z.input<Z>, options?: FetchOptions): Promise<D | D[]> {
     if (this.isSingle(params))
-      return await this.singleSpace.retrieve(
-        this.normalizeSingle(params as SP),
-        options,
-      );
-    return await this.requestSpace.retrieve(
-      this.normalizeRequest(params as z.input<Z>),
-      options,
-    );
+      return await this.singleSpace.retrieve(this.normalizeSingle(params), options);
+    return await this.requestSpace.retrieve(this.normalizeRequest(params), options);
   }
 
   /**
@@ -219,11 +210,11 @@ export abstract class Retriever<
   ): destructor.Destructor {
     if (this.isSingle(params))
       return this.singleSpace.onChange(
-        this.normalizeSingle(params as SP),
+        this.normalizeSingle(params),
         handler as ChangeHandler<D>,
       );
     return this.requestSpace.onChange(
-      this.normalizeRequest(params as z.input<Z>),
+      this.normalizeRequest(params),
       handler as ChangeHandler<D[]>,
     );
   }
@@ -237,7 +228,7 @@ export abstract class Retriever<
   getCached(params: z.input<Z>): Cached<D[]> | undefined;
   getCached(params: SP | z.input<Z>): Cached<D> | Cached<D[]> | undefined {
     if (this.isSingle(params))
-      return this.singleSpace.getCached(this.normalizeSingle(params as SP));
-    return this.requestSpace.getCached(this.normalizeRequest(params as z.input<Z>));
+      return this.singleSpace.getCached(this.normalizeSingle(params));
+    return this.requestSpace.getCached(this.normalizeRequest(params));
   }
 }

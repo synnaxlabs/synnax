@@ -10,6 +10,8 @@
 import { array, deep, destructor, type record, state, TimeStamp } from "@synnaxlabs/x";
 import type z from "zod";
 
+import { type Listener } from "@/query/streamer";
+
 /** A deleted row's last known value, kept for restore and deletion UX. */
 export interface Tombstone<Value> {
   /** The row's value at the moment it was deleted. */
@@ -159,9 +161,7 @@ export class Table<
     return () => rollbacks.reverse().forEach((r) => r());
   }
 
-  private setIfAbsent(
-    values: Array<Value & record.Keyed<Key>>,
-  ): destructor.Destructor {
+  private setIfAbsent(values: Array<Value & record.Keyed<Key>>): destructor.Destructor {
     const rollbacks: destructor.Destructor[] = [];
     values.forEach((val) => {
       if (this.rows.has(val.key)) return;
@@ -189,9 +189,7 @@ export class Table<
   get(key: Key): Value | undefined;
   get(keys: Key[]): Value[];
   get(filter: (value: Value) => boolean): Value[];
-  get(
-    keys?: Key | Key[] | ((value: Value) => boolean),
-  ): Value | Value[] | undefined {
+  get(keys?: Key | Key[] | ((value: Value) => boolean)): Value | Value[] | undefined {
     if (keys === undefined) return Array.from(this.rows.values());
     if (typeof keys === "function") return Array.from(this.rows.values()).filter(keys);
     if (Array.isArray(keys))
@@ -201,6 +199,11 @@ export class Table<
 
   has(key: Key): boolean {
     return this.rows.has(key);
+  }
+
+  /** Returns the key of every live row. */
+  keys(): Key[] {
+    return Array.from(this.rows.keys());
   }
 
   /**
@@ -320,24 +323,13 @@ export class Table<
  * {@link createDeleteListener}, or {@link createFetchListener}; bound to its
  * table by the cache.
  */
-export type ListenerSpec<
+export interface ListenerSpec<
   Key extends record.Key = record.Key,
   Value extends state.State = state.State,
-> =
-  | {
-      kind: "set";
-      channel: string;
-      schema: z.ZodType;
-      key: (changed: unknown) => Key;
-      value: (changed: unknown, prev: Value | undefined) => Value | null | undefined;
-    }
-  | {
-      kind: "delete";
-      channel: string;
-      schema: z.ZodType;
-      key: (changed: unknown) => Key;
-    }
-  | { kind: "fetch"; channel: string; schema: z.ZodType };
+> {
+  /** Binds the declaration to the owning table as a raw channel listener. */
+  bind: (table: Table<Key, Value>) => Listener;
+}
 
 /**
  * Declares that the channel broadcasts records to mirror into the table.
@@ -356,19 +348,21 @@ export const createSetListener = <
     key?: (changed: z.output<Z>) => Key;
     value?: (changed: z.output<Z>, prev: Value | undefined) => Value | null | undefined;
   } = {},
-): ListenerSpec<Key, Value> => ({
-  kind: "set",
-  channel,
-  schema,
-  key:
-    opts.key != null
-      ? (changed) => opts.key!(changed as z.output<Z>)
-      : (changed) => (changed as record.Keyed<Key>).key,
-  value:
-    opts.value != null
-      ? (changed, prev) => opts.value!(changed as z.output<Z>, prev)
-      : (changed) => changed as Value,
-});
+): ListenerSpec<Key, Value> => {
+  const {
+    key = (changed) => (changed as record.Keyed<Key>).key,
+    value = (changed) => changed as Value,
+  } = opts;
+  return {
+    bind: (table): Listener<Z> => ({
+      channel,
+      schema,
+      onChange: (changed) => {
+        table.set(key(changed), (prev) => value(changed, prev) ?? undefined);
+      },
+    }),
+  };
+};
 
 /**
  * Declares that the channel broadcasts deletions to mirror into the table.
@@ -382,28 +376,39 @@ export const createDeleteListener = <
   channel: string,
   schema: Z,
   opts: { key?: (changed: z.output<Z>) => Key } = {},
-): ListenerSpec<Key, Value> => ({
-  kind: "delete",
-  channel,
-  schema,
-  key:
-    opts.key != null
-      ? (changed) => opts.key!(changed as z.output<Z>)
-      : (changed) => changed as Key,
-});
+): ListenerSpec<Key, Value> => {
+  const { key = (changed) => changed as Key } = opts;
+  return {
+    bind: (table): Listener<Z> => ({
+      channel,
+      schema,
+      onChange: (changed) => {
+        table.delete(key(changed));
+      },
+    }),
+  };
+};
 
 /**
  * Declares that the channel announces keys whose records changed. Announced
  * keys are refetched through the table's fetch and overwrite their rows.
  */
 export const createFetchListener = <
-  Z extends z.ZodType,
+  Z extends z.ZodType<Key | Key[]>,
   Key extends record.Key = record.Key,
   Value extends state.State = state.State,
 >(
   channel: string,
   schema: Z,
-): ListenerSpec<Key, Value> => ({ kind: "fetch", channel, schema });
+): ListenerSpec<Key, Value> => ({
+  bind: (table): Listener<Z> => ({
+    channel,
+    schema,
+    onChange: async (changed) => {
+      await table.retrieve(array.toArray(changed), { refresh: true });
+    },
+  }),
+});
 
 export const partialUpdate = <Key extends record.Key, Value extends object>(
   table: Table<Key, Value>,
