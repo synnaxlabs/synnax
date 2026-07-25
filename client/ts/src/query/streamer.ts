@@ -12,7 +12,20 @@ import type z from "zod";
 
 import { NotFoundError } from "@/errors";
 import { type framer } from "@/framer";
-import { type ChannelListener } from "@/query/table";
+
+/**
+ * A raw channel reaction: parses frames from the channel with the schema and
+ * invokes onChange per parsed value. Mirror listeners bind to this shape
+ * internally; domains register reactions via the cache's listen.
+ */
+export interface Listener<Z extends z.ZodType = z.ZodType> {
+  /** The name of the Synnax channel to listen to */
+  channel: string;
+  /** Zod schema for parsing and validating channel data */
+  schema: Z;
+  /** Callback function invoked when the channel data changes */
+  onChange(this: void, changed: z.output<Z>): Promise<unknown> | unknown;
+}
 
 /**
  * Sorts channel names to ensure deletions are processed before other changes.
@@ -62,7 +75,7 @@ export interface StreamerParams {
   /** Receives frame-handling and listener errors. */
   onError: (error: Error) => void;
   /** The channel listeners to drive with streamed changes. */
-  listeners: ChannelListener[];
+  listeners: Listener[];
   /** Function to open the change stream */
   openStreamer: StreamOpener;
   /**
@@ -112,7 +125,7 @@ export const createStreamer = ({
   };
   const open = async (): Promise<ObservableStream> => {
     const channels = unique.unique(allListeners.map(({ channel }) => channel));
-    const listenersForChannels: Record<string, ChannelListener<z.ZodType>[]> = {};
+    const listenersForChannels: Record<string, Listener<z.ZodType>[]> = {};
     allListeners.forEach((lis) => {
       const { channel } = lis;
       listenersForChannels[channel] = [...(listenersForChannels[channel] || []), lis];
