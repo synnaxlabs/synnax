@@ -86,9 +86,9 @@ export const useForm = Flux.createForm<FormQuery, typeof formSchema>({
   retrieve: async ({ client, query: { key }, reset }) => {
     if (key == null) return;
     const symbol = await client.schematics.symbols.retrieve({ key });
-    const parents = await client.ontology.retrieveParents(
-      schematic.symbol.ontologyID(key),
-    );
+    const parents = await client.ontology.parents.retrieve({
+      ids: schematic.symbol.ontologyID(key),
+    });
     reset({
       version: 1,
       name: symbol.name,

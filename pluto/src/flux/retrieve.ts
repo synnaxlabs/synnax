@@ -381,7 +381,7 @@ const suspendOnFetch = <Query extends query.Params, Data extends query.Data>(
     local: LocalCache<Data>;
   },
 ): Data => {
-  const hash = query.hashQuery(params.query);
+  const hash = query.hash(params.query);
   const settled = local.settled.get(hash);
   if (settled != null) {
     if ("error" in settled) throw settled.error;

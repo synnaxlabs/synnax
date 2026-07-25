@@ -267,7 +267,7 @@ export const createList =
 
     const openPage = useCallback(
       (q: Query, keys: Key[]): void => {
-        const hash = query.hashQuery(q);
+        const hash = query.hash(q);
         const existing = pagesRef.current.find((p) => p.hash === hash);
         if (existing != null) {
           existing.keys = keys;

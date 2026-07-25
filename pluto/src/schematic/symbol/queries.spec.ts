@@ -284,9 +284,9 @@ describe("Symbol queries", () => {
       expect(retrieved.name).toBe("created-symbol");
       expect(retrieved.data.svg).toBe("<svg>created</svg>");
 
-      const children = await client.ontology.retrieveChildren(
-        group.ontologyID(parent.key),
-      );
+      const children = await client.ontology.children.retrieve({
+        ids: group.ontologyID(parent.key),
+      });
       expect(children.length).toBe(1);
       expect(children[0].id.key).toBe(retrieved.key);
       expect(children[0].name).toBe("created-symbol");

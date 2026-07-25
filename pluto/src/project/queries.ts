@@ -22,10 +22,11 @@ export type RetrieveQuery = {
 
 export const { useRetrieve } = Flux.createRetrieve<RetrieveQuery, project.Project>({
   name: RESOURCE_NAME,
-  retrieve: async ({ client, query: { key } }) => await client.projects.retrieve(key),
+  retrieve: async ({ client, query: { key } }) =>
+    await client.projects.retrieve({ key }),
   subscribe: ({ client, query: { key } }, handler) =>
-    client.projects.onChange(key, handler),
-  getCached: ({ client, query: { key } }) => client.projects.getCached(key),
+    client.projects.onChange({ key }, handler),
+  getCached: ({ client, query: { key } }) => client.projects.getCached({ key }),
 });
 
 export type ListParams = Pick<project.RetrieveRequest, "keys" | "offset" | "limit">;
@@ -33,10 +34,11 @@ export type ListParams = Pick<project.RetrieveRequest, "keys" | "offset" | "limi
 export const useList = Flux.createList<ListParams, project.Key, project.Project>({
   name: PLURAL_RESOURCE_NAME,
   retrieve: async ({ client, query }) => await client.projects.retrieve(query),
-  retrieveByKey: async ({ client, key }) => await client.projects.retrieve(key),
+  retrieveByKey: async ({ client, key }) => await client.projects.retrieve({ key }),
   subscribe: ({ client, query }, handler) => client.projects.onChange(query, handler),
   getCached: ({ client, query }) => client.projects.getCached(query),
-  subscribeByKey: ({ client, key }, handler) => client.projects.onChange(key, handler),
+  subscribeByKey: ({ client, key }, handler) =>
+    client.projects.onChange({ key }, handler),
 });
 
 export type DeleteParams = project.Key | project.Key[];
@@ -76,7 +78,7 @@ export const { useRetrieve: useRetrieveGroupID } = Flux.createRetrieve<
 >({
   name: "Project Group",
   retrieve: async ({ client }) => {
-    const res = await client.ontology.retrieveChildren(ontology.ROOT_ID);
+    const res = await client.ontology.children.retrieve({ ids: ontology.ROOT_ID });
     return res.find((r) => r.name === "Projects")?.id;
   },
 });
@@ -94,7 +96,7 @@ export const useForm = Flux.createForm<Partial<RetrieveQuery>, typeof formSchema
   initialValues: INITIAL_VALUES,
   retrieve: async ({ client, query: { key }, reset }) => {
     if (key == null) return;
-    reset(await client.projects.retrieve(key));
+    reset(await client.projects.retrieve({ key }));
   },
   update: async ({ client, value, set }) => {
     const res = await client.projects.create(value());
@@ -129,7 +131,8 @@ const collectChildren = async (
   types: ontology.ResourceType[],
   exclude?: string,
 ): Promise<record.KeyedNamed[]> => {
-  const children = await client.ontology.retrieveChildren(parentID, {
+  const children = await client.ontology.children.retrieve({
+    ids: parentID,
     types: [...types, "group"],
   });
   const results: record.KeyedNamed[] = [];
@@ -145,7 +148,7 @@ const findProjectAncestor = async (
   client: Flux.RetrieveParams<RetrieveChildrenQuery>["client"],
   resourceID: ontology.ID,
 ): Promise<ontology.ID | null> => {
-  const parents = await client.ontology.retrieveParents(resourceID);
+  const parents = await client.ontology.parents.retrieve({ ids: resourceID });
   for (const parent of parents) {
     if (parent.id.type === "project") return parent.id;
     if (parent.id.type === "group") return await findProjectAncestor(client, parent.id);

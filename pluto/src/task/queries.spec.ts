@@ -571,9 +571,9 @@ describe("queries", () => {
 
       await waitFor(() => expect(result.current.variant).toEqual("success"));
 
-      const children = await client.ontology.retrieveChildren(
-        group.ontologyID(parentGroup.key),
-      );
+      const children = await client.ontology.children.retrieve({
+        ids: group.ontologyID(parentGroup.key),
+      });
       expect(children.length).toBeGreaterThan(0);
 
       const snapshotChild = children.find(

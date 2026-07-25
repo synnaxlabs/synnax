@@ -83,7 +83,8 @@ const retrieveUserRole = async (
   client: Synnax,
   userKey: user.Key,
 ): Promise<access.role.Key | undefined> => {
-  const parents = await client.ontology.retrieveParents(user.ontologyID(userKey), {
+  const parents = await client.ontology.parents.retrieve({
+    ids: user.ontologyID(userKey),
     types: ["role"],
   });
   return parents.at(0)?.id.key;
