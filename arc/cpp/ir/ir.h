@@ -36,6 +36,12 @@ inline const Node *find_node(const IR &ir, const std::string &key) {
     return nullptr;
 }
 
+/// @brief reports whether n is an entry node: it has no incoming edges and
+/// reads no channels. Entry nodes fire once per activation.
+inline bool is_entry_node(const IR &ir, const Node &n) {
+    return ir.edges_to(n.key).empty() && n.channels.read.empty();
+}
+
 /// @brief builds a leaf Member referencing the node with the given key.
 inline Member node_member(std::string key) {
     Member m;
