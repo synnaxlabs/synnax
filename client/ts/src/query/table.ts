@@ -10,28 +10,6 @@
 import { array, deep, destructor, type record, state, TimeStamp } from "@synnaxlabs/x";
 import type z from "zod";
 
-/// Reorders the given items to match the order of keys, dropping any key that
-/// has no corresponding item and deduplicating repeated keys. Used by
-/// multi-retrieve query implementations to preserve the caller's input key order
-/// across cached + freshly-fetched items.
-export const orderByKeys = <K extends record.Key, V>(
-  keys: K[],
-  items: V[],
-  getKey: (v: V) => K,
-): V[] => {
-  const byKey = new Map<K, V>();
-  for (const item of items) byKey.set(getKey(item), item);
-  const ordered: V[] = [];
-  const seen = new Set<K>();
-  for (const key of keys) {
-    if (seen.has(key)) continue;
-    seen.add(key);
-    const item = byKey.get(key);
-    if (item != null) ordered.push(item);
-  }
-  return ordered;
-};
-
 /** A deleted row's last known value, kept for restore and deletion UX. */
 export interface Tombstone<Value> {
   /** The row's value at the moment it was deleted. */
@@ -62,6 +40,30 @@ export interface TableSubscriber<
   (event: TableEvent<Key, Value>): void;
 }
 
+/** Construction arguments for a {@link Table}. */
+export interface TableParams<
+  Key extends record.Key = record.Key,
+  Value extends state.State = state.State,
+> {
+  /** Receives subscriber and fetch errors that have no caller to throw to. */
+  onError: (error: Error) => void;
+  /** Overrides the deep-equality default used to silence redundant sets. */
+  equal?: (a: Value, b: Value, key: Key) => boolean;
+  /**
+   * Fetches the current records for the given keys from the cluster,
+   * returning only the rows that still exist. Powers {@link Table.retrieve},
+   * key-announce listeners, and reconciliation. Omit for tables with no
+   * server backing (they are skipped by all three).
+   */
+  fetch?: (keys: Key[]) => Promise<Array<Value & record.Keyed<Key>>>;
+  /**
+   * How fetched records hydrate the table: "set" (default) overwrites rows,
+   * "if-absent" preserves existing rows. Dispatch-backed document tables use
+   * "if-absent" so fetches never clobber locally replayed edits.
+   */
+  hydrate?: "set" | "if-absent";
+}
+
 /**
  * The sole owner of one resource's record content and tombstones. Everything
  * else in the cache holds keys into it: answers store key lists, dispatch
@@ -83,13 +85,16 @@ export class Table<
   >();
   private readonly onError: (error: Error) => void;
   private readonly equal: (a: Value, b: Value, key: Key) => boolean;
+  private readonly fetchRows?: (
+    keys: Key[],
+  ) => Promise<Array<Value & record.Keyed<Key>>>;
+  private readonly hydrateMode: "set" | "if-absent";
 
-  constructor(
-    onError: (error: Error) => void,
-    equal: (a: Value, b: Value, key: Key) => boolean = (a, b) => deep.equal(a, b),
-  ) {
+  constructor({ onError, equal, fetch, hydrate }: TableParams<Key, Value>) {
     this.onError = onError;
-    this.equal = equal;
+    this.equal = equal ?? ((a, b) => deep.equal(a, b));
+    this.fetchRows = fetch;
+    this.hydrateMode = hydrate ?? "set";
   }
 
   private setOne(
@@ -144,18 +149,11 @@ export class Table<
     return () => rollbacks.reverse().forEach((r) => r());
   }
 
-  /**
-   * Sets the given value(s) only for keys not already present, leaving
-   * existing rows untouched. Use this to hydrate from a bulk fetch without
-   * clobbering rows that already hold live state (e.g. a document with
-   * unsynced local edits).
-   * @returns A rollback that removes the rows this call inserted.
-   */
-  setIfAbsent(
-    values: (Value & record.Keyed<Key>) | Array<Value & record.Keyed<Key>>,
+  private setIfAbsent(
+    values: Array<Value & record.Keyed<Key>>,
   ): destructor.Destructor {
     const rollbacks: destructor.Destructor[] = [];
-    array.toArray(values).forEach((val) => {
+    values.forEach((val) => {
       if (this.rows.has(val.key)) return;
       const rollback = this.setOne(val.key, val);
       if (rollback != null) rollbacks.push(rollback);
@@ -163,34 +161,85 @@ export class Table<
     return () => rollbacks.reverse().forEach((r) => r());
   }
 
+  /**
+   * Writes fetched records into the table under its declared hydrate mode:
+   * "set" overwrites rows, "if-absent" leaves existing rows untouched.
+   * @returns A rollback that undoes the rows this call wrote.
+   */
+  ingest(
+    values: (Value & record.Keyed<Key>) | Array<Value & record.Keyed<Key>>,
+  ): destructor.Destructor {
+    const arr = array.toArray(values);
+    if (this.hydrateMode === "if-absent") return this.setIfAbsent(arr);
+    return this.set(arr);
+  }
+
+  /** Returns every row in the table. */
+  get(): Value[];
   get(key: Key): Value | undefined;
-  get(keys: Key[] | ((value: Value) => boolean)): Value[];
-  get(keys: Key | Key[] | ((value: Value) => boolean)): Value | Value[] | undefined {
+  get(keys: Key[]): Value[];
+  get(filter: (value: Value) => boolean): Value[];
+  get(
+    keys?: Key | Key[] | ((value: Value) => boolean),
+  ): Value | Value[] | undefined {
+    if (keys === undefined) return Array.from(this.rows.values());
     if (typeof keys === "function") return Array.from(this.rows.values()).filter(keys);
     if (Array.isArray(keys))
       return keys.map((key) => this.rows.get(key)).filter((e) => e != null) as Value[];
     return this.rows.get(keys);
   }
 
-  list(): Value[] {
-    return Array.from(this.rows.values());
-  }
-
-  has(key: Key | Key[]): boolean {
-    if (Array.isArray(key)) return key.every((k) => this.rows.has(k));
+  has(key: Key): boolean {
     return this.rows.has(key);
   }
 
-  /** Returns the presence of the given key: present, tombstoned, or unknown. */
+  /**
+   * Returns the presence of the given key: present, tombstoned, or unknown.
+   * Cache-internal surface: consumed by the query machinery, not domain code.
+   */
   status(key: Key): RowStatus {
     if (this.rows.has(key)) return "present";
     if (this.tombstones.has(key)) return "tombstoned";
     return "unknown";
   }
 
-  /** Returns the tombstone for the given key, or undefined if none exists. */
+  /**
+   * Returns the tombstone for the given key, or undefined if none exists.
+   * Cache-internal surface: consumed by the query machinery, not domain code.
+   */
   getTombstone(key: Key): Tombstone<Value> | undefined {
     return this.tombstones.get(key);
+  }
+
+  /**
+   * Resolves the given keys to records: serves cached rows and fetches the
+   * misses through the table's fetch, hydrating results under the declared
+   * mode. With refresh, every key is fetched regardless of presence. Returns
+   * the table's rows for the found keys in input order, deduplicated; keys
+   * the cluster no longer has are omitted. Tables without a fetch serve
+   * cached rows only.
+   */
+  async retrieve(keys: Key[], opts: { refresh?: boolean } = {}): Promise<Value[]> {
+    const { fetchRows } = this;
+    if (fetchRows != null) {
+      const misses =
+        opts.refresh === true ? keys : keys.filter((key) => !this.rows.has(key));
+      if (misses.length > 0) {
+        const fetched = await fetchRows(misses);
+        if (fetched.length > 0)
+          if (opts.refresh === true) this.set(fetched);
+          else this.ingest(fetched);
+      }
+    }
+    const seen = new Set<Key>();
+    const results: Value[] = [];
+    for (const key of keys) {
+      if (seen.has(key)) continue;
+      seen.add(key);
+      const row = this.rows.get(key);
+      if (row != null) results.push(row);
+    }
+    return results;
   }
 
   /**
@@ -230,13 +279,6 @@ export class Table<
       });
   }
 
-  clear() {
-    const keys = [...this.rows.keys(), ...this.tombstones.keys()];
-    this.rows.clear();
-    this.tombstones.clear();
-    keys.forEach((key) => this.notify({ variant: "delete", key }));
-  }
-
   /**
    * Subscribes to row changes. With a key, only changes to that row fire.
    * @returns A destructor that unsubscribes.
@@ -263,40 +305,97 @@ export class Table<
 }
 
 /**
- * Configuration for listening to changes on a specific Synnax channel.
- *
- * @template Z - Zod schema type for validating channel data
+ * A mirror listener declaration: keeps the owning table current from one
+ * stream channel. Built with {@link createSetListener},
+ * {@link createDeleteListener}, or {@link createFetchListener}; bound to its
+ * table by the cache.
  */
-export interface ChannelListener<Z extends z.ZodType = z.ZodType> {
-  /** The name of the Synnax channel to listen to */
-  channel: string;
-  /** Zod schema for parsing and validating channel data */
-  schema: Z;
-  /** Callback function invoked when the channel data changes */
-  onChange: (changed: z.output<Z>) => Promise<unknown> | unknown;
-}
-
-/**
- * Configuration for a single {@link Table}.
- */
-export interface TableConfig<
+export type ListenerSpec<
   Key extends record.Key = record.Key,
   Value extends state.State = state.State,
-> {
-  /** Names the table in diagnostics (reconciliation errors). */
-  name: string;
-  /** Overrides the deep-equality default used to silence redundant sets. */
-  equal?: (a: Value, b: Value, key: Key) => boolean;
-  /**
-   * Fetches the current value of the given keys, returning only the rows
-   * that still exist. Used by epoch reconciliation: keys missing from the
-   * result are tombstoned, returned values refresh the table. Tables without
-   * a refetch are skipped during reconciliation.
-   */
-  refetch?: (keys: Key[]) => Promise<Array<Value & record.Keyed<Key>>>;
-}
+> =
+  | {
+      kind: "set";
+      channel: string;
+      schema: z.ZodType;
+      key: (changed: unknown) => Key;
+      value: (changed: unknown, prev: Value | undefined) => Value | null | undefined;
+    }
+  | {
+      kind: "delete";
+      channel: string;
+      schema: z.ZodType;
+      key: (changed: unknown) => Key;
+    }
+  | { kind: "fetch"; channel: string; schema: z.ZodType };
 
-export const partialUpdate = <Key extends record.Key, Value extends Record<any, any>>(
+/**
+ * Declares that the channel broadcasts records to mirror into the table.
+ * By default the parsed record keys itself (`changed.key`) and is stored
+ * as-is; `key` derives the row key, `value` transforms the record and may
+ * merge with the previous row (return null/undefined to skip the write).
+ */
+export const createSetListener = <
+  Z extends z.ZodType,
+  Key extends record.Key = record.Key,
+  Value extends state.State = state.State,
+>(
+  channel: string,
+  schema: Z,
+  opts: {
+    key?: (changed: z.output<Z>) => Key;
+    value?: (changed: z.output<Z>, prev: Value | undefined) => Value | null | undefined;
+  } = {},
+): ListenerSpec<Key, Value> => ({
+  kind: "set",
+  channel,
+  schema,
+  key:
+    opts.key != null
+      ? (changed) => opts.key!(changed as z.output<Z>)
+      : (changed) => (changed as record.Keyed<Key>).key,
+  value:
+    opts.value != null
+      ? (changed, prev) => opts.value!(changed as z.output<Z>, prev)
+      : (changed) => changed as Value,
+});
+
+/**
+ * Declares that the channel broadcasts deletions to mirror into the table.
+ * By default the parsed value is the row key; `key` derives it instead.
+ */
+export const createDeleteListener = <
+  Z extends z.ZodType,
+  Key extends record.Key = record.Key,
+  Value extends state.State = state.State,
+>(
+  channel: string,
+  schema: Z,
+  opts: { key?: (changed: z.output<Z>) => Key } = {},
+): ListenerSpec<Key, Value> => ({
+  kind: "delete",
+  channel,
+  schema,
+  key:
+    opts.key != null
+      ? (changed) => opts.key!(changed as z.output<Z>)
+      : (changed) => changed as Key,
+});
+
+/**
+ * Declares that the channel announces keys whose records changed. Announced
+ * keys are refetched through the table's fetch and overwrite their rows.
+ */
+export const createFetchListener = <
+  Z extends z.ZodType,
+  Key extends record.Key = record.Key,
+  Value extends state.State = state.State,
+>(
+  channel: string,
+  schema: Z,
+): ListenerSpec<Key, Value> => ({ kind: "fetch", channel, schema });
+
+export const partialUpdate = <Key extends record.Key, Value extends object>(
   table: Table<Key, Value>,
   key: Key,
   value: Partial<Value>,

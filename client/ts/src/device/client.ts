@@ -116,19 +116,6 @@ const normalizeSingle = ({ key, includeStatus }: RetrieveSingleParams): SingleQu
 const stripStatus = ({ status: _, ...device }: Device): Omit<Device, "status"> =>
   device;
 
-const isKeysOnly = (req: RetrieveRequest): req is RetrieveRequest & { keys: Key[] } =>
-  primitive.isNonZero(req.keys) &&
-  req.names == null &&
-  req.makes == null &&
-  req.models == null &&
-  req.locations == null &&
-  req.racks == null &&
-  req.searchTerm == null &&
-  req.limit == null &&
-  req.offset == null &&
-  req.includeStatus !== true &&
-  req.includeParent !== true;
-
 /**
  * Client-side matching for a request: key, name, make, model, location, and
  * rack sets. Server-computed shapes (search, pagination, parent resolution)
@@ -170,30 +157,12 @@ const affectedDeviceKeys = (
   return [key];
 };
 
-const createTable = (cache: query.Cache): query.Table<Key, Omit<Device, "status">> => {
-  // Explicitly omit 'status' from the device type to make sure we aren't storing two
-  // copies of the statuses in the store.
-  const table = cache.createTable<Key, Omit<Device, "status">>({ name: "devices" });
-  const set: query.ChannelListener<typeof genericDeviceZ> = {
-    channel: SET_CHANNEL_NAME,
-    schema: genericDeviceZ,
-    onChange: ({ status: _, ...device }) => table.set(device),
-  };
-  const del: query.ChannelListener<typeof keyZ> = {
-    channel: DELETE_CHANNEL_NAME,
-    schema: keyZ,
-    onChange: (changed) => table.delete(changed),
-  };
-  cache.addListeners(table, set, del);
-  return table;
-};
-
 export class Client extends query.Retriever<
-  RetrieveSingleParams,
-  RetrieveMultipleParams,
-  SingleQuery,
-  RetrieveRequest,
-  Device
+  typeof retrieveRequestZ,
+  Key,
+  Omit<Device, "status">,
+  Device,
+  RetrieveSingleParams
 > {
   private readonly client: UnaryClient;
   private readonly store: query.Table<Key, Omit<Device, "status">>;
@@ -206,36 +175,50 @@ export class Client extends query.Retriever<
     statusStore: query.Table<status.Key, status.Status>,
     ontologyStores: ontology.Stores,
   ) {
-    const store = createTable(cache);
+    // Explicitly omit 'status' from the device type to make sure we aren't
+    // storing two copies of the statuses in the store.
+    const store = cache.createTable<Key, Omit<Device, "status">>({
+      name: "devices",
+      fetch: async (keys) => await this.fetchThrough({ keys }),
+      listen: [
+        query.createSetListener(SET_CHANNEL_NAME, genericDeviceZ, {
+          value: ({ status: _, ...device }) => device,
+        }),
+        query.createDeleteListener(DELETE_CHANNEL_NAME, keyZ),
+      ],
+    });
     const statusWatch = <Q extends { includeStatus?: boolean }>() =>
-      query.watch(statusStore, (event, query: Q) => {
-        if (query.includeStatus !== true) return null;
+      query.watch(statusStore, (event, q: Q) => {
+        if (q.includeStatus !== true) return null;
         return affectedDeviceKeys(event);
       });
-    super({
-      single: cache.queries({
-        name: "device",
-        table: store,
-        fetch: async (query) => [(await this.fetchSingle(query)).key],
-        compose: ([record], query) =>
-          this.compose(record, query.includeStatus === true),
-        keyOf: (query) => query.key,
-        single: true,
-        watch: [statusWatch<SingleQuery>()],
-      }),
-      request: cache.queries({
-        name: "devices",
-        table: store,
-        fetch: async (query) => (await this.fetchRequest(query)).map((d) => d.key),
-        compose: (records, query) =>
-          records.map((d) => this.compose(d, query.includeStatus === true)),
-        matches: (d, query) => requestFilter(query)(d),
+    const single = cache.queries<SingleQuery, Device, Key, Omit<Device, "status">>({
+      name: "device",
+      table: store,
+      fetch: async (q) => [(await this.fetchSingle(q)).key],
+      compose: ([record], q) => this.compose(record, q.includeStatus === true),
+      keyOf: (q) => q.key,
+      single: true,
+      watch: [statusWatch<SingleQuery>()],
+    });
+    super(cache, {
+      name: "device",
+      table: store,
+      request: {
+        schema: retrieveRequestZ,
+        fetch: async (req) => (await this.fetchThrough(req)).map(stripStatus),
+        matches: (d, req) => requestFilter(req)(d),
         serverFields: SERVER_FIELDS,
         watch: [statusWatch<RetrieveRequest>()],
-      }),
-      isSingle: (params) => "key" in params,
-      normalizeSingle,
-      normalizeRequest: (params) => retrieveRequestZ.parse(params),
+      },
+      compose: (record, q) =>
+        this.compose(record, (q as { includeStatus?: boolean }).includeStatus === true),
+      single: {
+        is: (params) =>
+          typeof params === "object" && params !== null && "key" in params,
+        normalize: normalizeSingle,
+        space: single as query.Retrieves<query.Params, Device>,
+      },
     });
     this.client = client;
     this.statusStore = statusStore;
@@ -351,9 +334,12 @@ export class Client extends query.Retriever<
 
   async delete(keys: Key | Key[], opts: query.WriteOptions = {}): Promise<void> {
     const keysArr = array.toArray(keys);
+    const drop = () => [
+      ontology.deleteCachedResources(this.ontology, ontologyID(keysArr)),
+      this.store.delete(keysArr),
+    ];
     const rollback = new destructor.Chain();
-    rollback.add(ontology.deleteCachedResources(this.ontology, ontologyID(keysArr)));
-    rollback.add(this.store.delete(keysArr));
+    rollback.add(...drop());
     await opts.onOptimistic?.();
     await rollback.guard(
       async () =>
@@ -364,7 +350,7 @@ export class Client extends query.Retriever<
           deleteResZ,
         ),
     );
-    this.store.delete(keysArr);
+    drop();
   }
 
   async rename(key: Key, name: string, opts: query.WriteOptions = {}): Promise<void> {
@@ -423,43 +409,23 @@ export class Client extends query.Retriever<
     return res.devices;
   }
 
-  /**
-   * Fetches the given keys, serving cached entries and fetching only the
-   * misses. Preserves the caller's key order.
-   */
-  private async fetchKeys(keys: Key[]): Promise<Device[]> {
-    const results: Device[] = [];
-    const misses: Key[] = [];
-    for (const key of keys) {
-      const cached = this.store.get(key);
-      if (cached != null) results.push(cached);
-      else misses.push(key);
-    }
-    if (misses.length > 0) {
-      const fetched = await this.execRetrieve({ keys: misses });
-      this.writeThrough(fetched);
-      results.push(...fetched);
-    }
-    return query.orderByKeys(keys, results, (d) => d.key);
-  }
-
-  private async fetchSingle(query: SingleQuery): Promise<Device> {
-    // A status-bearing hit needs both the record and its status cached.
-    if (query.includeStatus !== true) {
-      const cached = this.store.get(query.key);
-      if (cached != null) return cached;
-    }
-    const devices = await this.execRetrieve(query);
-    checkForMultipleOrNoResults("Device", query, devices, true);
-    this.writeThrough(devices);
-    return devices[0];
-  }
-
-  private async fetchRequest(query: RetrieveRequest): Promise<Device[]> {
-    if (isKeysOnly(query)) return await this.fetchKeys(query.keys);
-    const devices = await this.execRetrieve(query);
+  /** Fetches devices and writes their included statuses through the caches. */
+  private async fetchThrough(req: RetrieveRequest): Promise<Device[]> {
+    const devices = await this.execRetrieve(req);
     this.writeThrough(devices);
     return devices;
+  }
+
+  private async fetchSingle(q: SingleQuery): Promise<Device> {
+    // A status-bearing hit needs both the record and its status cached.
+    if (q.includeStatus !== true) {
+      const cached = this.store.get(q.key);
+      if (cached != null) return cached;
+    }
+    const devices = await this.execRetrieve(q);
+    checkForMultipleOrNoResults("Device", q, devices, true);
+    this.writeThrough(devices);
+    return devices[0];
   }
 }
 
