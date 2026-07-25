@@ -311,11 +311,11 @@ export class Queries<
     void this.hooks.ensureStreaming?.().catch((exc: unknown) => this.report(exc));
   }
 
-  private report(exc: unknown, message?: string): void {
-    const error = new Error(
-      message ?? `failed to maintain ${this.params.name} answers`,
-      { cause: exc },
-    );
+  private report(
+    exc: unknown,
+    message = `failed to maintain ${this.params.name} answers`,
+  ): void {
+    const error = new Error(message, { cause: exc });
     if (this.hooks.onError != null) this.hooks.onError(error);
     else console.error(error);
   }

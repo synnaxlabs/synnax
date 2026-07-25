@@ -7,7 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { array, type destructor, observe, type record, type state } from "@synnaxlabs/x";
+import {
+  array,
+  type destructor,
+  observe,
+  type record,
+  type state,
+} from "@synnaxlabs/x";
 import type z from "zod";
 
 import { Queries, type QueriesParams, type Retrieves } from "@/query/query";
@@ -32,7 +38,7 @@ export interface CacheParams {
    * streamer frame handling, and background reconciliation. Defaults to
    * console logging.
    */
-  onInternalError?: (error: Error) => void;
+  onError?: (error: Error) => void;
 }
 
 /** Configuration for a table owned by a {@link Cache}. */
@@ -64,7 +70,10 @@ const bindSpec = <Key extends record.Key, Value extends state.State>(
         channel,
         schema,
         onChange: (changed) => {
-          table.set(spec.key(changed), (prev) => spec.value(changed, prev) ?? undefined);
+          table.set(
+            spec.key(changed),
+            (prev) => spec.value(changed, prev) ?? undefined,
+          );
         },
       };
     case "delete":
@@ -121,22 +130,19 @@ export class Cache {
   private readonly reactions: Listener[] = [];
   private readonly spaces: Array<{ close: () => void }> = [];
   private readonly epochObserver = new observe.Observer<number>();
-  private readonly onInternalError: (error: Error) => void;
   private readonly openStreamer: StreamOpener | null;
   private streamer: Streamer | null = null;
   private epochCount = 0;
-
-  constructor({ openStreamer, onInternalError }: CacheParams) {
-    this.openStreamer = openStreamer;
-    this.onInternalError = onInternalError ?? ((error) => console.error(error));
-  }
 
   /**
    * Stable error sink for machinery built on this cache (dispatch
    * controllers, answer spaces).
    */
-  get onError(): (error: Error) => void {
-    return (error) => this.onInternalError(error);
+  readonly onError: (error: Error) => void;
+
+  constructor({ openStreamer, onError = console.error }: CacheParams) {
+    this.openStreamer = openStreamer;
+    this.onError = onError;
   }
 
   /**
@@ -155,8 +161,7 @@ export class Cache {
     this.entries.push({
       name,
       listeners: (listen ?? []).map((spec) => bindSpec(table, spec)),
-      reconcile:
-        config.fetch == null ? undefined : bindReconcile(table, config.fetch),
+      reconcile: config.fetch == null ? undefined : bindReconcile(table, config.fetch),
     });
     return table;
   }
@@ -243,7 +248,7 @@ export class Cache {
         try {
           await reconcile();
         } catch (exc) {
-          this.onInternalError(
+          this.onError(
             new Error(`failed to reconcile ${name} cache`, { cause: exc }),
           );
         }
@@ -255,7 +260,7 @@ export class Cache {
     this.epochCount++;
     this.epochObserver.notify(this.epochCount);
     this.reconcile().catch((exc: unknown) =>
-      this.onInternalError(
+      this.onError(
         new Error("failed to reconcile caches after reconnect", { cause: exc }),
       ),
     );

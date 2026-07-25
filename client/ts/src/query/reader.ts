@@ -30,8 +30,7 @@ const DEFAULT_SERVER_FIELDS = ["searchTerm", "limit", "offset"] as const;
  * table's fetch primitive instead of the request fetch.
  */
 const isKeysOnly = (query: unknown): query is { keys: unknown[] } => {
-  if (typeof query !== "object" || query === null || Array.isArray(query))
-    return false;
+  if (typeof query !== "object" || query === null || Array.isArray(query)) return false;
   const { keys } = query as { keys?: unknown };
   if (!Array.isArray(keys) || keys.length === 0) return false;
   return Object.entries(query).every(([k, v]) => k === "keys" || v == null);
@@ -130,28 +129,39 @@ export abstract class Retriever<
   private readonly normalizeRequest: (params: z.input<Z>) => Params;
 
   constructor(cache: Cache, params: RetrieverParams<Z, K, V, D, SP>) {
-    const { name, table, request, compose, single } = params;
-    const composeOne =
-      compose ?? ((record: V, _query: Params) => record as unknown as D);
+    const {
+      name,
+      table,
+      request,
+      compose = (record) => record as unknown as D,
+      single,
+    } = params;
+    const {
+      schema,
+      fetch,
+      matches,
+      serverFields = DEFAULT_SERVER_FIELDS,
+      watch,
+    } = request;
     this.requestSpace = cache.queries<Params, D[], K, V>({
       name,
       table,
       fetch: async (query, options) => {
         if (isKeysOnly(query))
           return (await table.retrieve(query.keys as K[])).map((r) => r.key);
-        const records = await request.fetch(query as z.output<Z>, options);
+        const records = await fetch(query as z.output<Z>, options);
         table.ingest(records);
         return records.map((r) => r.key);
       },
-      compose: (records, q) => records.map((r) => composeOne(r, q)),
+      compose: (records, q) => records.map((r) => compose(r, q)),
       matches:
-        request.matches == null
+        matches == null
           ? undefined
-          : (record, query) => request.matches!(record, query as z.output<Z>),
-      serverFields: request.serverFields ?? DEFAULT_SERVER_FIELDS,
-      watch: request.watch as WatchEntry<Params, K>[] | undefined,
+          : (record, query) => matches(record, query as z.output<Z>),
+      serverFields,
+      watch: watch as WatchEntry<Params, K>[] | undefined,
     });
-    this.normalizeRequest = (p) => request.schema.parse(p);
+    this.normalizeRequest = (p) => schema.parse(p);
     if (single != null) {
       this.singleSpace = single.space;
       this.isSingle = single.is;
@@ -166,7 +176,7 @@ export abstract class Retriever<
             throw new NotFoundError(`${name} with key ${key} not found`);
           return [key];
         },
-        compose: (records, q) => composeOne(records[0], q),
+        compose: (records, q) => compose(records[0], q),
         keyOf: (query) => query,
         single: true,
       }) as Retrieves<Params, D>;
@@ -187,7 +197,10 @@ export abstract class Retriever<
   retrieve(params: z.input<Z>, options?: FetchOptions): Promise<D[]>;
   async retrieve(params: SP | z.input<Z>, options?: FetchOptions): Promise<D | D[]> {
     if (this.isSingle(params))
-      return await this.singleSpace.retrieve(this.normalizeSingle(params as SP), options);
+      return await this.singleSpace.retrieve(
+        this.normalizeSingle(params as SP),
+        options,
+      );
     return await this.requestSpace.retrieve(
       this.normalizeRequest(params as z.input<Z>),
       options,

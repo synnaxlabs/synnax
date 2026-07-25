@@ -40,6 +40,12 @@ export interface TableSubscriber<
   (event: TableEvent<Key, Value>): void;
 }
 
+/**
+ * How fetched records hydrate a table: "set" overwrites rows, "if-absent"
+ * preserves existing rows.
+ */
+export type HydrateMode = "set" | "if-absent";
+
 /** Construction arguments for a {@link Table}. */
 export interface TableParams<
   Key extends record.Key = record.Key,
@@ -57,11 +63,10 @@ export interface TableParams<
    */
   fetch?: (keys: Key[]) => Promise<Array<Value & record.Keyed<Key>>>;
   /**
-   * How fetched records hydrate the table: "set" (default) overwrites rows,
-   * "if-absent" preserves existing rows. Dispatch-backed document tables use
+   * Hydration mode, "set" by default. Dispatch-backed document tables use
    * "if-absent" so fetches never clobber locally replayed edits.
    */
-  hydrate?: "set" | "if-absent";
+  hydrate?: HydrateMode;
 }
 
 /**
@@ -88,13 +93,18 @@ export class Table<
   private readonly fetchRows?: (
     keys: Key[],
   ) => Promise<Array<Value & record.Keyed<Key>>>;
-  private readonly hydrateMode: "set" | "if-absent";
+  private readonly hydrateMode: HydrateMode;
 
-  constructor({ onError, equal, fetch, hydrate }: TableParams<Key, Value>) {
+  constructor({
+    onError,
+    equal = deep.equal,
+    fetch,
+    hydrate = "set",
+  }: TableParams<Key, Value>) {
     this.onError = onError;
-    this.equal = equal ?? ((a, b) => deep.equal(a, b));
+    this.equal = equal;
     this.fetchRows = fetch;
-    this.hydrateMode = hydrate ?? "set";
+    this.hydrateMode = hydrate;
   }
 
   private setOne(
