@@ -492,7 +492,8 @@ export class Client extends query.Retriever<
     this.kv = cache.queries<Key, kv.Pair[], string, kv.Pair>({
       name: "range metadata",
       table: this.kvPairs,
-      fetch: async (query) => (await this.fetchKV(query)).map((p) => kv.createPairKey(p)),
+      fetch: async (query) =>
+        (await this.fetchKV(query)).map((p) => kv.createPairKey(p)),
       compose: (records) => records,
       matches: (pair, query) => pair.range === query,
     });
