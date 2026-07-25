@@ -214,7 +214,7 @@ export class Client extends query.Retriever<
       compose: (record, q) =>
         this.compose(record, (q as { includeStatus?: boolean }).includeStatus === true),
       single: {
-        is: (params) =>
+        is: (params): params is RetrieveSingleParams =>
           typeof params === "object" && params !== null && "key" in params,
         normalize: normalizeSingle,
         space: single as query.Retrieves<query.Params, Device>,
