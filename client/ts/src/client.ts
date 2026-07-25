@@ -114,9 +114,9 @@ export default class Synnax extends framer.Client {
   readonly cache: query.Cache;
   private readonly transport: Transport;
   private readonly connectionConfig: connection.Config;
-  private readonly connectionObserver = new observe.Observer<connection.State>();
+  private readonly connectionObserver = new observe.Observer<connection.Status>();
   private readonly prober: connection.Prober;
-  private connectionState: connection.State;
+  private connectionStatus: connection.Status;
   private versionWarned = false;
 
   /**
@@ -189,11 +189,11 @@ export default class Synnax extends framer.Client {
       clockSkewThreshold: new TimeSpan(clockSkewThreshold).abs(),
       requiresStream: parsedParams.cache,
     };
-    this.connectionState = connection.createInitialState(this.connectionConfig);
-    const connectionState = (): connection.State => this.connectionState;
+    this.connectionStatus = connection.createInitialStatus(this.connectionConfig);
+    const connectionStatus = (): connection.Status => this.connectionStatus;
     this.connection = {
-      get state(): connection.State {
-        return connectionState();
+      get status(): connection.Status {
+        return connectionStatus();
       },
       onChange: (callback) => this.connectionObserver.onChange(callback),
       retryNow: () => {
@@ -330,7 +330,7 @@ export default class Synnax extends framer.Client {
    * configured retry budget, or when the client is closed while waiting.
    * @throws {Error} if the timeout elapses first.
    */
-  async connect({ timeout }: ConnectOptions = {}): Promise<connection.State> {
+  async connect({ timeout }: ConnectOptions = {}): Promise<connection.Status> {
     return await connection.awaitConnected(this.connection, timeout);
   }
 
@@ -353,11 +353,11 @@ export default class Synnax extends framer.Client {
    */
   private dispatchConnectionEvent(event: connection.Event): void {
     const [next, changed] = connection.advance(
-      this.connectionState,
+      this.connectionStatus,
       event,
       this.connectionConfig,
     );
-    this.connectionState = next;
+    this.connectionStatus = next;
     if (changed) this.connectionObserver.notify(next);
     if (event.type === "probe.success") this.warnOnProbe(next.details);
     // reachable but the stream is still dark: re-demand it, in case its own
@@ -413,7 +413,7 @@ export default class Synnax extends framer.Client {
   private shortCircuitMiddleware(): Middleware {
     const EXEMPT = [connection.CHECK_ENDPOINT, auth.LOGIN_ENDPOINT];
     return async (ctx, next) => {
-      const { variant, details } = this.connectionState;
+      const { variant, details } = this.connectionStatus;
       if (
         variant === "error" &&
         details.reason === "unreachable" &&
@@ -443,7 +443,7 @@ export interface CheckConnectionParams extends Pick<
 /** Runs a one-shot connectivity probe against the given cluster address. */
 export const checkConnection = async (
   params: CheckConnectionParams,
-): Promise<connection.State> => {
+): Promise<connection.Status> => {
   const { host, port, secure, name, retry } = params;
   const retryConfig = zod.parse(breaker.breakerConfigZ.optional(), retry);
   const endpoint = new url.URL({ host, port: Number(port) });
@@ -456,7 +456,7 @@ export const checkConnection = async (
     clockSkewThreshold: TimeSpan.seconds(1),
     requiresStream: false,
   };
-  const initial = connection.createInitialState(config);
+  const initial = connection.createInitialStatus(config);
   try {
     const info = await new connection.Client(transport.unary).check();
     return connection.reduce(initial, { type: "probe.success", info }, config);

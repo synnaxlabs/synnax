@@ -138,7 +138,9 @@ describe("connectToCluster", () => {
 describe("useLink", () => {
   it("should resolve the active cluster's managed client", async () => {
     const c = testClient();
-    const { clusterKey } = await c.connect();
+    const {
+      details: { clusterKey },
+    } = await c.connect();
     const { wrapper } = await createConnectedConsoleWrapper({
       client: null,
       connParams: {

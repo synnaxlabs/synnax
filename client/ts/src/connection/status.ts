@@ -47,11 +47,11 @@ export const detailsZ = z.object({
 export interface Details extends z.infer<typeof detailsZ> {}
 
 /**
- * The connection state: a standard status whose details carry the connection's
+ * The connection status: a standard status whose details carry the connection's
  * facts. Renders anywhere a status does, with no translation.
  */
-export const stateZ = status.statusZ({ details: detailsZ });
-export type State = status.Status<typeof detailsZ>;
+export const statusZ = status.statusZ({ details: detailsZ });
+export type Status = status.Status<typeof detailsZ>;
 
 export const DEFAULT_DETAILS: Details = {
   authenticated: false,
@@ -65,8 +65,8 @@ export const DEFAULT_DETAILS: Details = {
   retry: null,
 };
 
-/** The state of a client that does not exist. */
-export const DEFAULT_STATE: State = {
+/** The status of a client that does not exist. */
+export const DEFAULT_STATUS: Status = {
   key: "connection",
   name: "Connection",
   variant: "disabled",
@@ -81,7 +81,7 @@ export const DEFAULT_ESCALATE_AFTER = 4;
 
 export interface Config {
   clientVersion: string;
-  /** Human-readable cluster name for state messages. */
+  /** Human-readable cluster name for status messages. */
   name?: string;
   escalateAfter: number;
   clockSkewThreshold: TimeSpan;
@@ -90,14 +90,14 @@ export interface Config {
 }
 
 /**
- * The consumer-facing view of a client's connection. Read {@link Handle.state}
+ * The consumer-facing view of a client's connection. Read {@link Handle.status}
  * or subscribe via {@link Handle.onChange}; the client owns every transition.
  */
 export interface Handle {
-  /** The current connection state. */
-  readonly state: State;
-  /** Subscribes to state changes. Returns a destructor that unsubscribes. */
-  onChange: (callback: (state: State) => void) => destructor.Destructor;
+  /** The current connection status. */
+  readonly status: Status;
+  /** Subscribes to status changes. Returns a destructor that unsubscribes. */
+  onChange: (callback: (status: Status) => void) => destructor.Destructor;
   /**
    * Resets the retry backoff and probes immediately. Auth and incompatibility
    * errors are not cleared: those rest until the user supplies something new.
@@ -105,23 +105,23 @@ export interface Handle {
   retryNow: () => void;
 }
 
-const isSettled = ({ variant }: State): boolean =>
+const isSettled = ({ variant }: Status): boolean =>
   variant === "success" || variant === "error" || variant === "disabled";
 
 /**
  * Resolves once the connection reaches success. Rejects with the stored failure
- * when it settles on an error variant or is closed. The current state is
+ * when it settles on an error variant or is closed. The current status is
  * evaluated first, so an already-connected handle resolves without waiting.
  * @throws {Error} if the timeout elapses first.
  */
 export const awaitConnected = async (
   handle: Handle,
   timeout?: CrudeTimeSpan,
-): Promise<State> => {
-  const state = await observe.until(handle, () => handle.state, isSettled, timeout);
-  if (state.variant !== "success")
-    throw state.details.error ?? new DisconnectedError(state.message);
-  return state;
+): Promise<Status> => {
+  const settled = await observe.until(handle, () => handle.status, isSettled, timeout);
+  if (settled.variant !== "success")
+    throw settled.details.error ?? new DisconnectedError(settled.message);
+  return settled;
 };
 
 /** The facts a single connectivity probe yields. */
@@ -133,7 +133,7 @@ export interface Info {
 }
 
 /**
- * Everything that can move the connection state. The client is the only
+ * Everything that can move the connection status. The client is the only
  * producer: the probe and retry events come from its prober, the stream events
  * from its change stream, the auth events from its login middleware.
  */
@@ -158,25 +158,25 @@ const UNREACHABLE = "Cannot reach cluster";
 const connectedMessage = ({ name }: Config): string =>
   `Connected to ${name ?? "cluster"}`;
 
-/** The state a freshly constructed client starts in. */
-export const createInitialState = (config: Config): State => ({
-  ...DEFAULT_STATE,
+/** The status a freshly constructed client starts in. */
+export const createInitialStatus = (config: Config): Status => ({
+  ...DEFAULT_STATUS,
   key: id.create(),
-  name: config.name ?? DEFAULT_STATE.name,
+  name: config.name ?? DEFAULT_STATUS.name,
   time: TimeStamp.now(),
   variant: "loading",
   message: `Connecting to ${config.name ?? "cluster"}...`,
   details: { ...DEFAULT_DETAILS, clientVersion: config.clientVersion },
 });
 
-interface Changes extends Partial<Omit<State, "details">> {
+interface Changes extends Partial<Omit<Status, "details">> {
   details?: Partial<Details>;
 }
 
-const update = (state: State, changes: Changes): State => ({
-  ...state,
+const update = (prev: Status, changes: Changes): Status => ({
+  ...prev,
   ...changes,
-  details: { ...state.details, ...changes.details },
+  details: { ...prev.details, ...changes.details },
 });
 
 const isCompatible = (
@@ -190,7 +190,7 @@ const isCompatible = (
     checkPatch: false,
   });
 
-const reduceProbeSuccess = (state: State, info: Info, config: Config): State => {
+const reduceProbeSuccess = (prev: Status, info: Info, config: Config): Status => {
   const facts: Partial<Details> = {
     clusterKey: info.clusterKey,
     nodeVersion: info.nodeVersion,
@@ -202,122 +202,122 @@ const reduceProbeSuccess = (state: State, info: Info, config: Config): State => 
   };
   // reachable but the stream is still dark: the client re-demands it and we
   // stay degraded until it reports live
-  if (config.requiresStream && !state.details.streamLive)
-    return update(state, { details: facts });
-  if (state.variant === "success")
-    return update(state, { details: { ...facts, retry: null } });
-  return update(state, {
+  if (config.requiresStream && !prev.details.streamLive)
+    return update(prev, { details: facts });
+  if (prev.variant === "success")
+    return update(prev, { details: { ...facts, retry: null } });
+  return update(prev, {
     variant: "success",
     message: connectedMessage(config),
     details: { ...facts, reason: undefined, error: undefined, retry: null },
   });
 };
 
-const reduceAuthFailure = (state: State, error: Error): State =>
-  update(state, {
+const reduceAuthFailure = (prev: Status, error: Error): Status =>
+  update(prev, {
     variant: "error",
     message: error.message,
     details: { reason: "auth", error, authenticated: false, retry: null },
   });
 
 const reduceProbeFailure = (
-  state: State,
+  prev: Status,
   error: Error,
   attempt: number,
   config: Config,
-): State => {
-  if (AuthError.matches(error)) return reduceAuthFailure(state, error);
-  const escalating = state.variant === "loading" || state.variant === "warning";
+): Status => {
+  if (AuthError.matches(error)) return reduceAuthFailure(prev, error);
+  const escalating = prev.variant === "loading" || prev.variant === "warning";
   if (escalating && attempt >= config.escalateAfter)
-    return update(state, {
+    return update(prev, {
       variant: "error",
       message: error.message ?? UNREACHABLE,
       details: { reason: "unreachable", error },
     });
-  if (state.variant === "success")
-    return update(state, {
+  if (prev.variant === "success")
+    return update(prev, {
       variant: "warning",
       message: RECONNECTING,
       details: { error },
     });
-  return update(state, { details: { error } });
+  return update(prev, { details: { error } });
 };
 
-const reduceStreamLive = (state: State, config: Config): State => {
-  const parked = state.variant === "error" && state.details.reason !== "unreachable";
-  if (parked) return update(state, { details: { streamLive: true } });
-  return update(state, {
+const reduceStreamLive = (prev: Status, config: Config): Status => {
+  const parked = prev.variant === "error" && prev.details.reason !== "unreachable";
+  if (parked) return update(prev, { details: { streamLive: true } });
+  return update(prev, {
     variant: "success",
     message: connectedMessage(config),
     details: { streamLive: true, reason: undefined, error: undefined, retry: null },
   });
 };
 
-const reduceStreamDrop = (state: State, error?: Error): State => {
-  if (state.variant !== "success")
-    return update(state, { details: { streamLive: false } });
-  return update(state, {
+const reduceStreamDrop = (prev: Status, error?: Error): Status => {
+  if (prev.variant !== "success")
+    return update(prev, { details: { streamLive: false } });
+  return update(prev, {
     variant: "warning",
     message: RECONNECTING,
     details: { streamLive: false, error },
   });
 };
 
-const reduceRetryExhausted = (state: State): State => {
-  if (state.variant !== "loading" && state.variant !== "warning")
-    return update(state, { details: { retry: null } });
-  return update(state, {
+const reduceRetryExhausted = (prev: Status): Status => {
+  if (prev.variant !== "loading" && prev.variant !== "warning")
+    return update(prev, { details: { retry: null } });
+  return update(prev, {
     variant: "error",
-    message: state.details.error?.message ?? UNREACHABLE,
+    message: prev.details.error?.message ?? UNREACHABLE,
     details: { reason: "unreachable", retry: null },
   });
 };
 
 /**
- * Folds an event into the connection state. Pure: every transition in the
+ * Folds an event into the connection status. Pure: every transition in the
  * lifecycle lives here and nowhere else. `disabled` is terminal.
  */
-export const reduce = (state: State, event: Event, config: Config): State => {
-  if (state.variant === "disabled") return state;
+export const reduce = (prev: Status, event: Event, config: Config): Status => {
+  if (prev.variant === "disabled") return prev;
   switch (event.type) {
     case "probe.success":
-      return reduceProbeSuccess(state, event.info, config);
+      return reduceProbeSuccess(prev, event.info, config);
     case "probe.failure":
-      return reduceProbeFailure(state, event.error, event.attempt, config);
+      return reduceProbeFailure(prev, event.error, event.attempt, config);
     case "stream.live":
-      return reduceStreamLive(state, config);
+      return reduceStreamLive(prev, config);
     case "stream.drop":
-      return reduceStreamDrop(state, event.error);
+      return reduceStreamDrop(prev, event.error);
     case "auth.success":
-      return update(state, { details: { authenticated: true } });
+      return update(prev, { details: { authenticated: true } });
     case "auth.failure":
-      return reduceAuthFailure(state, event.error);
+      return reduceAuthFailure(prev, event.error);
     case "epoch.advanced":
-      return update(state, { details: { epoch: event.epoch } });
+      return update(prev, { details: { epoch: event.epoch } });
     case "retry.scheduled":
-      return update(state, {
+      return update(prev, {
         details: { retry: { attempt: event.attempt, nextAt: event.nextAt } },
       });
     case "retry.exhausted":
-      return reduceRetryExhausted(state);
+      return reduceRetryExhausted(prev);
     case "retry.requested":
       // deliberately does not clear auth or incompatibility: those rest until
       // the user supplies something new
-      if (state.variant !== "error" || state.details.reason !== "unreachable")
-        return state;
-      return update(state, {
+      if (prev.variant !== "error" || prev.details.reason !== "unreachable")
+        return prev;
+      return update(prev, {
         variant: "loading",
         message: CONNECTING,
         details: { reason: undefined },
       });
     case "credentials.replaced":
-      return update(state, {
+      return update(prev, {
         variant: "loading",
         message: CONNECTING,
         details: { reason: undefined, error: undefined },
       });
     case "closed":
-      return update(state, {
+      return update(prev, {
         variant: "disabled",
         message: "Closed",
         details: { reason: undefined, streamLive: false, retry: null },
@@ -329,7 +329,7 @@ export const reduce = (state: State, event: Event, config: Config): State => {
  * Whether the change is worth notifying observers about. Error objects, raw
  * skew, and the next-probe timestamp move silently.
  */
-export const materialChange = (prev: State, next: State): boolean =>
+export const materialChange = (prev: Status, next: Status): boolean =>
   next.variant !== prev.variant ||
   next.message !== prev.message ||
   next.details.reason !== prev.details.reason ||
@@ -342,16 +342,16 @@ export const materialChange = (prev: State, next: State): boolean =>
   next.details.retry?.attempt !== prev.details.retry?.attempt;
 
 /**
- * Folds the event and stamps the state's time when the result is worth
+ * Folds the event and stamps the status time when the result is worth
  * publishing.
- * @returns the next state and whether observers should be notified.
+ * @returns the next status and whether observers should be notified.
  */
 export const advance = (
-  state: State,
+  prev: Status,
   event: Event,
   config: Config,
-): [State, boolean] => {
-  const next = reduce(state, event, config);
-  if (!materialChange(state, next)) return [next, false];
+): [Status, boolean] => {
+  const next = reduce(prev, event, config);
+  if (!materialChange(prev, next)) return [next, false];
   return [{ ...next, time: TimeStamp.now() }, true];
 };

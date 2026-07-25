@@ -11,7 +11,7 @@ import { type UnaryClient } from "@synnaxlabs/freighter";
 import { ClockSkewCalculator, TimeStamp } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { type Info } from "@/connection/state";
+import { type Info } from "@/connection/status";
 
 export const CHECK_ENDPOINT = "/connectivity/check";
 

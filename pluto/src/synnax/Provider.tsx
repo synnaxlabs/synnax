@@ -26,12 +26,12 @@ import { Status } from "@/status/base";
 import { synnax } from "@/synnax/aether";
 
 export interface ContextValue extends synnax.ContextValue {
-  state: connection.State;
+  status: connection.Status;
 }
 
 const ZERO_CONTEXT_VALUE: ContextValue = {
   ...synnax.ZERO_CONTEXT_VALUE,
-  state: connection.DEFAULT_STATE,
+  status: connection.DEFAULT_STATUS,
 };
 
 const [Context, useContext] = context.create({
@@ -41,7 +41,7 @@ const [Context, useContext] = context.create({
 
 export const use = () => useContext().client;
 
-export const useConnectionState = () => useContext().state;
+export const useConnectionStatus = () => useContext().status;
 
 export interface ProviderProps extends PropsWithChildren {
   connParams?: SynnaxParams;
@@ -64,8 +64,11 @@ export const clockSkewDetailsSchema = z.object({
 
 export interface StatusDetails extends z.infer<typeof statusDetailsSchema> {}
 
-const addClockSkewStatus = (addStatus: Status.Adder, state: connection.State): void => {
-  const skew = state.details.clockSkew;
+const addClockSkewStatus = (
+  addStatus: Status.Adder,
+  status: connection.Status,
+): void => {
+  const skew = status.details.clockSkew;
   const direction = skew.valueOf() > 0n ? "ahead of" : "behind";
   addStatus<typeof clockSkewDetailsSchema>({
     variant: "warning",
@@ -83,20 +86,20 @@ const addClockSkewStatus = (addStatus: Status.Adder, state: connection.State): v
 
 const addVersionMismatchStatus = (
   addStatus: Status.Adder,
-  state: connection.State,
+  status: connection.Status,
 ): void => {
   const oldServer =
-    state.details.nodeVersion == null ||
-    migrate.semVerOlder(state.details.nodeVersion, state.details.clientVersion);
+    status.details.nodeVersion == null ||
+    migrate.semVerOlder(status.details.nodeVersion, status.details.clientVersion);
   addStatus<typeof statusDetailsSchema>({
     variant: "warning",
     message: "Incompatible Core version",
-    description: `Core version ${state.details.nodeVersion != null ? `${state.details.nodeVersion} ` : ""}is ${oldServer ? "older" : "newer"} than client version ${state.details.clientVersion}. Compatibility issues may arise.`,
+    description: `Core version ${status.details.nodeVersion != null ? `${status.details.nodeVersion} ` : ""}is ${oldServer ? "older" : "newer"} than client version ${status.details.clientVersion}. Compatibility issues may arise.`,
     details: {
       type: SERVER_VERSION_MISMATCH,
       oldServer,
-      nodeVersion: state.details.nodeVersion,
-      clientVersion: state.details.clientVersion,
+      nodeVersion: status.details.nodeVersion,
+      clientVersion: status.details.clientVersion,
     },
   });
 };
@@ -109,7 +112,7 @@ export const TestProvider = ({ children, client }: TestProviderProps): ReactElem
   const { path } = Aether.useUnidirectional({
     type: synnax.Provider.TYPE,
     schema: synnax.Provider.stateZ,
-    state: { props: null, state: null },
+    state: { props: null },
   });
   const value = useMemo(() => ({ ...ZERO_CONTEXT_VALUE, client }), [client]);
   return (
@@ -126,7 +129,7 @@ export const Provider = ({ children, connParams }: ProviderProps): ReactElement 
   const { path } = Aether.useUnidirectional({
     type: synnax.Provider.TYPE,
     schema: synnax.Provider.stateZ,
-    state: { props: connParams ?? null, state: null },
+    state: { props: connParams ?? null },
   });
 
   const addStatus = Status.useAdder();
@@ -134,22 +137,22 @@ export const Provider = ({ children, connParams }: ProviderProps): ReactElement 
   const versionWarned = useRef(false);
 
   const handleChange = useCallback(
-    (connState: connection.State) => {
-      const prev = ref.current.state;
+    (connStatus: connection.Status) => {
+      const prev = ref.current.status;
       if (
-        prev.variant !== connState.variant ||
-        prev.details.reason !== connState.details.reason
+        prev.variant !== connStatus.variant ||
+        prev.details.reason !== connStatus.details.reason
       )
-        addStatus({ variant: connState.variant, message: connState.message });
-      if (connState.variant === "success") {
-        if (connState.details.clockSkewExceeded)
-          addClockSkewStatus(addStatus, connState);
-        if (!connState.details.clientServerCompatible && !versionWarned.current) {
+        addStatus({ variant: connStatus.variant, message: connStatus.message });
+      if (connStatus.variant === "success") {
+        if (connStatus.details.clockSkewExceeded)
+          addClockSkewStatus(addStatus, connStatus);
+        if (!connStatus.details.clientServerCompatible && !versionWarned.current) {
           versionWarned.current = true;
-          addVersionMismatchStatus(addStatus, connState);
+          addVersionMismatchStatus(addStatus, connStatus);
         }
       }
-      setState((prev) => ({ ...prev, state: connState }));
+      setState((prev) => ({ ...prev, status: connStatus }));
     },
     [addStatus],
   );
@@ -161,7 +164,7 @@ export const Provider = ({ children, connParams }: ProviderProps): ReactElement 
     }
     versionWarned.current = false;
     const client = new Synnax({ ...connParams, onInternalError: handleError });
-    setState({ client, state: client.connection.state });
+    setState({ client, status: client.connection.status });
     const detach = client.connection.onChange(handleChange);
     return () => {
       detach();

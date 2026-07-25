@@ -79,29 +79,29 @@ export const List = ({ value, onChange, ...rest }: ListProps): ReactElement => {
     handleError(async () => {
       try {
         setTesting(key);
-        const state = await checkConnection({
+        const status = await checkConnection({
           host: cluster.host,
           port: cluster.port,
           secure: cluster.secure,
           name: cluster.name,
         });
-        if (state.variant === "success") {
+        if (status.variant === "success") {
           addStatus({
             variant: "success",
             message: `Connected to ${cluster.name}`,
           });
-          if (state.details.clusterKey && state.details.clusterKey !== key)
+          if (status.details.clusterKey && status.details.clusterKey !== key)
             dispatch(
               Session.Cluster.changeKey({
                 oldKey: key,
-                newKey: state.details.clusterKey,
+                newKey: status.details.clusterKey,
               }),
             );
         } else
           addStatus({
             variant: "error",
             message: `Failed to connect to ${cluster.name}`,
-            description: state.message,
+            description: status.message,
           });
       } finally {
         setTesting(null);

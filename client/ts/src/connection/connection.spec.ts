@@ -15,7 +15,6 @@ import { z } from "zod";
 import { auth } from "@/auth";
 import { connection } from "@/connection";
 import { AuthError } from "@/errors";
-import { type status } from "@/status";
 import { TEST_CLIENT_PARAMS } from "@/testutil";
 import { Transport } from "@/transport";
 
@@ -65,22 +64,22 @@ const createInfo = (overrides: Partial<connection.Info> = {}): connection.Info =
   ...overrides,
 });
 
-/** Folds events over an initial state, mirroring the client's dispatch. */
+/** Folds events over an initial status, mirroring the client's dispatch. */
 const apply = (
   config: connection.Config,
   ...events: connection.Event[]
-): connection.State =>
+): connection.Status =>
   events.reduce(
-    (state, event) => connection.reduce(state, event, config),
-    connection.createInitialState(config),
+    (status, event) => connection.reduce(status, event, config),
+    connection.createInitialStatus(config),
   );
 
 interface Harness {
-  readonly state: connection.State;
+  readonly status: connection.Status;
   readonly handle: connection.Handle;
   readonly prober: connection.Prober;
   dispatch: (event: connection.Event) => void;
-  connect: (timeout?: TimeSpan) => Promise<connection.State>;
+  connect: (timeout?: TimeSpan) => Promise<connection.Status>;
   stop: () => Promise<void>;
 }
 
@@ -94,13 +93,13 @@ const createHarness = (
   retry: breaker.Config = FAST_RETRY,
 ): Harness => {
   const config = createConfig(overrides);
-  let state = connection.createInitialState(config);
-  const observer = new observe.Observer<connection.State>();
+  let status = connection.createInitialStatus(config);
+  const observer = new observe.Observer<connection.Status>();
   const dispatch = (event: connection.Event): void => {
-    const prev = state;
-    state = connection.reduce(prev, event, config);
-    if (connection.materialChange(prev, state)) observer.notify(state);
-    prober.setMode(connection.modeFor(state));
+    const prev = status;
+    status = connection.reduce(prev, event, config);
+    if (connection.materialChange(prev, status)) observer.notify(status);
+    prober.setMode(connection.modeFor(status));
   };
   const prober = new connection.Prober({
     client: new connection.Client(unary),
@@ -109,8 +108,8 @@ const createHarness = (
     emit: dispatch,
   });
   const handle: connection.Handle = {
-    get state() {
-      return state;
+    get status() {
+      return status;
     },
     onChange: (callback) => observer.onChange(callback),
     retryNow: () => {
@@ -120,8 +119,8 @@ const createHarness = (
   };
   prober.start();
   return {
-    get state() {
-      return state;
+    get status() {
+      return status;
     },
     handle,
     prober,
@@ -135,22 +134,22 @@ const createHarness = (
   };
 };
 
-const waitForState = async (
+const waitForStatus = async (
   handle: connection.Handle,
-  predicate: (state: connection.State) => boolean,
+  predicate: (status: connection.Status) => boolean,
   timeout: TimeSpan = TimeSpan.seconds(5),
-): Promise<connection.State> => {
-  if (predicate(handle.state)) return handle.state;
-  return await new Promise<connection.State>((resolve, reject) => {
+): Promise<connection.Status> => {
+  if (predicate(handle.status)) return handle.status;
+  return await new Promise<connection.Status>((resolve, reject) => {
     const timer = setTimeout(() => {
       detach();
-      reject(new Error("timed out waiting for connection state"));
+      reject(new Error("timed out waiting for connection status"));
     }, timeout.milliseconds);
-    const detach = handle.onChange((state) => {
-      if (!predicate(state)) return;
+    const detach = handle.onChange((status) => {
+      if (!predicate(status)) return;
       clearTimeout(timer);
       detach();
-      resolve(state);
+      resolve(status);
     });
   });
 };
@@ -163,36 +162,36 @@ describe("connection", () => {
       expect(info.nodeVersion).not.toBeUndefined();
     });
 
-    it("should fold a probe into a connected state", async () => {
+    it("should fold a probe into a connected status", async () => {
       const config = createConfig();
       const info = await new connection.Client(liveUnary()).check();
-      const state = apply(config, { type: "probe.success", info });
-      expect(state.variant).toEqual("success");
-      expect(state.details.authenticated).toBe(true);
-      expect(z.uuid().safeParse(state.details.clusterKey).success).toBe(true);
+      const status = apply(config, { type: "probe.success", info });
+      expect(status.variant).toEqual("success");
+      expect(status.details.authenticated).toBe(true);
+      expect(z.uuid().safeParse(status.details.clusterKey).success).toBe(true);
     });
 
     it("should pull the server and client versions", async () => {
       const config = createConfig();
       const info = await new connection.Client(liveUnary()).check();
-      const state = apply(config, { type: "probe.success", info });
-      expect(state.details.clientServerCompatible).toBe(true);
-      expect(state.details.clientVersion).toBe(__VERSION__);
+      const status = apply(config, { type: "probe.success", info });
+      expect(status.details.clientServerCompatible).toBe(true);
+      expect(status.details.clientVersion).toBe(__VERSION__);
     });
 
-    it("should adjust state if the server is too old", async () => {
+    it("should adjust status if the server is too old", async () => {
       const config = createConfig({ clientVersion: "50000.0.0" });
       const info = await new connection.Client(liveUnary()).check();
-      const state = apply(config, { type: "probe.success", info });
-      expect(state.details.clientServerCompatible).toBe(false);
-      expect(state.details.clientVersion).toBe("50000.0.0");
+      const status = apply(config, { type: "probe.success", info });
+      expect(status.details.clientServerCompatible).toBe(false);
+      expect(status.details.clientVersion).toBe("50000.0.0");
     });
 
-    it("should adjust state if the server is too new", async () => {
+    it("should adjust status if the server is too new", async () => {
       const config = createConfig({ clientVersion: "0.0.0" });
       const info = await new connection.Client(liveUnary()).check();
-      const state = apply(config, { type: "probe.success", info });
-      expect(state.details.clientServerCompatible).toBe(false);
+      const status = apply(config, { type: "probe.success", info });
+      expect(status.details.clientServerCompatible).toBe(false);
     });
 
     it("should propagate transport failures", async () => {
@@ -208,37 +207,37 @@ describe("connection", () => {
       const client = new connection.Client(
         mockUnary(() => TimeStamp.now().add(TimeSpan.hours(1))),
       );
-      const state = apply(config, {
+      const status = apply(config, {
         type: "probe.success",
         info: await client.check(),
       });
-      expect(state.details.clockSkewExceeded).toBe(true);
-      expect(state.details.clockSkew.valueOf()).not.toBe(0n);
+      expect(status.details.clockSkewExceeded).toBe(true);
+      expect(status.details.clockSkew.valueOf()).not.toBe(0n);
     });
 
     it("should not flag skew within threshold", async () => {
       const config = createConfig({ clockSkewThreshold: TimeSpan.seconds(1) });
       const client = new connection.Client(mockUnary(() => TimeStamp.now()));
-      const state = apply(config, {
+      const status = apply(config, {
         type: "probe.success",
         info: await client.check(),
       });
-      expect(state.details.clockSkewExceeded).toBe(false);
+      expect(status.details.clockSkewExceeded).toBe(false);
     });
   });
 
   describe("reduce", () => {
     it("should start in loading", () => {
-      expect(connection.createInitialState(createConfig()).variant).toEqual("loading");
+      expect(connection.createInitialStatus(createConfig()).variant).toEqual("loading");
     });
 
     it("should reach success on a probe when no stream is required", () => {
-      const state = apply(createConfig(), {
+      const status = apply(createConfig(), {
         type: "probe.success",
         info: createInfo(),
       });
-      expect(state.variant).toEqual("success");
-      expect(state.details.clusterKey).toEqual("test-cluster");
+      expect(status.variant).toEqual("success");
+      expect(status.details.clusterKey).toEqual("test-cluster");
     });
 
     it("should stay loading until the stream comes up when one is required", () => {
@@ -331,12 +330,12 @@ describe("connection", () => {
     });
 
     it("should treat an auth error from the probe as an auth failure", () => {
-      const state = apply(createConfig(), {
+      const status = apply(createConfig(), {
         type: "probe.failure",
         error: new AuthError("bad password"),
         attempt: 1,
       });
-      expect(state.details.reason).toEqual("auth");
+      expect(status.details.reason).toEqual("auth");
     });
 
     it("should clear error(unreachable) on retry.requested", () => {
@@ -353,18 +352,18 @@ describe("connection", () => {
 
     it("should publish retry progress", () => {
       const nextAt = TimeStamp.now().add(TimeSpan.seconds(5));
-      const state = apply(createConfig(), {
+      const status = apply(createConfig(), {
         type: "retry.scheduled",
         attempt: 3,
         nextAt,
       });
-      expect(state.details.retry?.attempt).toEqual(3);
-      expect(state.details.retry?.nextAt.valueOf()).toEqual(nextAt.valueOf());
+      expect(status.details.retry?.attempt).toEqual(3);
+      expect(status.details.retry?.nextAt.valueOf()).toEqual(nextAt.valueOf());
     });
 
-    it("should mirror epochs into the state", () => {
+    it("should mirror epochs into the status", () => {
       const config = createConfig();
-      expect(connection.createInitialState(config).details.epoch).toBe(0);
+      expect(connection.createInitialStatus(config).details.epoch).toBe(0);
       expect(apply(config, { type: "epoch.advanced", epoch: 2 }).details.epoch).toBe(2);
     });
 
@@ -395,11 +394,11 @@ describe("connection", () => {
   describe("modeFor", () => {
     it("should map variants onto probe modes", () => {
       const config = createConfig();
-      const initial = connection.createInitialState(config);
+      const initial = connection.createInitialStatus(config);
       const withReason = (
-        variant: status.Variant,
+        variant: connection.Status["variant"],
         reason?: connection.Reason,
-      ): connection.State => ({
+      ): connection.Status => ({
         ...initial,
         variant,
         details: { ...initial.details, reason },
@@ -416,16 +415,16 @@ describe("connection", () => {
   describe("Prober", () => {
     it("should reach success against a live cluster", async () => {
       const harness = createHarness(liveUnary());
-      const state = await harness.connect(TimeSpan.seconds(5));
-      expect(state.variant).toEqual("success");
+      const status = await harness.connect(TimeSpan.seconds(5));
+      expect(status.variant).toEqual("success");
       await harness.stop();
     });
 
     it("should escalate to error(unreachable) after the escalation budget", async () => {
       const harness = createHarness(failingUnary(), { escalateAfter: 2 });
       await expect(harness.connect(TimeSpan.seconds(5))).rejects.toThrow();
-      expect(harness.state.variant).toEqual("error");
-      expect(harness.state.details.reason).toEqual("unreachable");
+      expect(harness.status.variant).toEqual("error");
+      expect(harness.status.details.reason).toEqual("unreachable");
       await harness.stop();
     });
 
@@ -443,10 +442,13 @@ describe("connection", () => {
         use: vi.fn(),
       };
       const harness = createHarness(unary, { escalateAfter: 1 });
-      await waitForState(harness.handle, (s) => s.variant === "error");
+      await waitForStatus(harness.handle, (s) => s.variant === "error");
       failing = false;
-      const state = await waitForState(harness.handle, (s) => s.variant === "success");
-      expect(state.details.reason).toBeUndefined();
+      const status = await waitForStatus(
+        harness.handle,
+        (s) => s.variant === "success",
+      );
+      expect(status.details.reason).toBeUndefined();
       await harness.stop();
     });
 
@@ -460,8 +462,8 @@ describe("connection", () => {
           maxRetries: 3,
         },
       );
-      await waitForState(harness.handle, (s) => s.variant === "error");
-      await waitForState(harness.handle, (s) => s.details.retry == null);
+      await waitForStatus(harness.handle, (s) => s.variant === "error");
+      await waitForStatus(harness.handle, (s) => s.details.retry == null);
       const send = unary.send as ReturnType<typeof vi.fn>;
       const calls = send.mock.calls.length;
       await new Promise((resolve) => setTimeout(resolve, 20));
@@ -475,9 +477,9 @@ describe("connection", () => {
     it("should stop probing once the connection is closed", async () => {
       const unary = failingUnary();
       const harness = createHarness(unary, { escalateAfter: 1 });
-      await waitForState(harness.handle, (s) => s.variant === "error");
+      await waitForStatus(harness.handle, (s) => s.variant === "error");
       await harness.stop();
-      expect(harness.state.variant).toEqual("disabled");
+      expect(harness.status.variant).toEqual("disabled");
       const send = unary.send as ReturnType<typeof vi.fn>;
       const calls = send.mock.calls.length;
       await new Promise((resolve) => setTimeout(resolve, 20));
@@ -487,7 +489,7 @@ describe("connection", () => {
     it("should idle rather than probe while parked on an auth error", async () => {
       const unary = mockUnary(() => TimeStamp.now());
       const harness = createHarness(unary);
-      await waitForState(harness.handle, (s) => s.variant === "success");
+      await waitForStatus(harness.handle, (s) => s.variant === "success");
       harness.dispatch({ type: "auth.failure", error: new AuthError("bad password") });
       const send = unary.send as ReturnType<typeof vi.fn>;
       const calls = send.mock.calls.length;
@@ -500,14 +502,14 @@ describe("connection", () => {
   describe("handle", () => {
     it("should notify on transitions and support unsubscribe", async () => {
       const harness = createHarness(mockUnary(() => TimeStamp.now()));
-      const states: connection.State[] = [];
-      const detach = harness.handle.onChange((state) => states.push(state));
-      await waitForState(harness.handle, (s) => s.variant === "success");
-      expect(states.some((s) => s.variant === "success")).toBe(true);
-      const count = states.length;
+      const observed: connection.Status[] = [];
+      const detach = harness.handle.onChange((status) => observed.push(status));
+      await waitForStatus(harness.handle, (s) => s.variant === "success");
+      expect(observed.some((s) => s.variant === "success")).toBe(true);
+      const count = observed.length;
       detach();
       harness.dispatch({ type: "stream.drop", error: new Error("dropped") });
-      expect(states.length).toBe(count);
+      expect(observed.length).toBe(count);
       await harness.stop();
     });
 

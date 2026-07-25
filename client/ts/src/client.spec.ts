@@ -106,7 +106,7 @@ describe("connect", () => {
   it("should recover from an auth failure via reauthenticate", async () => {
     const client = createTestClient({ password: "definitely-wrong" });
     await expect(client.connect()).rejects.toThrow(AuthError);
-    expect(client.connection.state.details.reason).toEqual("auth");
+    expect(client.connection.status.details.reason).toEqual("auth");
     client.reauthenticate({
       username: TEST_CLIENT_PARAMS.username,
       password: TEST_CLIENT_PARAMS.password,
@@ -133,7 +133,7 @@ describe("connect", () => {
     const client = createTestClient();
     await client.connect();
     client.close();
-    expect(client.connection.state.variant).toEqual("disabled");
+    expect(client.connection.status.variant).toEqual("disabled");
   });
 });
 
@@ -144,7 +144,7 @@ describe("short circuit", () => {
       retry: FAST_RETRY,
     });
     await expect(client.connect()).rejects.toThrow();
-    expect(client.connection.state.details.reason).toEqual("unreachable");
+    expect(client.connection.status.details.reason).toEqual("unreachable");
     const start = performance.now();
     await expect(client.channels.retrieve(["missing"])).rejects.toThrow(
       DisconnectedError,

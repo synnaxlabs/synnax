@@ -17,13 +17,13 @@ import {
 } from "@synnaxlabs/x";
 
 import { type Client } from "@/connection/client";
-import { type Event, type State } from "@/connection/state";
+import { type Event, type Status } from "@/connection/status";
 
 /** How hard the prober is working. */
 export type Mode = "probing" | "heartbeat" | "idle";
 
 /** The mode a given connection state calls for. */
-export const modeFor = ({ variant, details }: State): Mode => {
+export const modeFor = ({ variant, details }: Status): Mode => {
   switch (variant) {
     case "success":
       return "heartbeat";

@@ -9,4 +9,4 @@
 
 export * from "@/connection/client";
 export * from "@/connection/prober";
-export * from "@/connection/state";
+export * from "@/connection/status";
