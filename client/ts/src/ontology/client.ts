@@ -217,7 +217,8 @@ export class Client extends query.Retriever<
         matches: (resource, req) => requestFilter(req)(resource),
       },
       single: {
-        is: (params) => typeof params === "object" && params !== null && "key" in params,
+        is: (params): params is ID =>
+          typeof params === "object" && params !== null && "key" in params,
         normalize: (id) => idToString(id),
         space: single as query.Retrieves<query.Params, Resource>,
       },

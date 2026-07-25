@@ -164,7 +164,7 @@ export class Client extends query.Retriever<
       },
       compose: (record) => this.compose(record),
       single: {
-        is: (params) =>
+        is: (params): params is SingleRetrieveParams =>
           typeof params === "object" && params !== null && "key" in params,
         normalize: ({ key }) => key,
         space: single as query.Retrieves<query.Params, Status>,

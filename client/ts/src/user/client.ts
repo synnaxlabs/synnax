@@ -130,7 +130,7 @@ export class Client extends query.Retriever<
         matches: (u, req) => requestFilter(req)(u),
       },
       single: {
-        is: (params) =>
+        is: (params): params is SingleParams =>
           typeof params === "object" &&
           params !== null &&
           ("key" in params || "username" in params),
