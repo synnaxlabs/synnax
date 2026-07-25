@@ -11,6 +11,7 @@ nextURL: "/reference/control/arc/reference/statements"
 ---
 
 import { Divider, Note } from "@synnaxlabs/pluto";
+import { Arc } from "@/components";
 import { mdxOverrides } from "@/components/mdxOverrides";
 
 export const components = mdxOverrides;
@@ -154,29 +155,34 @@ sensor -> split{} -> {
 
 ## Calling Functions
 
-Arc has two calling conventions depending on context.
+Arc has two calling conventions depending on context: parentheses inside function
+bodies, and braces to instantiate a function in a flow statement.
 
-### In Function Bodies
+<Arc.Tabs client:load>
 
-Inside function bodies, call functions with parentheses:
+<Fragment slot="flow">
 
 ```arc
-func outer(x f64) f64 {
-    y := inner(x) // function call
-    z := clamp(y, 0.0, 100.0)
-    return z
+stage main {
+    // sensor value feeds the trigger
+    sensor -> filter{threshold=50.0} -> output
 }
 ```
 
-### In Flows
+</Fragment>
 
-In flow statements, instantiate functions with braces:
+<Fragment slot="function">
 
 ```arc
-sensor -> filter{threshold=50.0} -> output
+func outer(x f64) f64 {
+    y := inner(x, 0.0, 100.0) // function call
+    return y
+}
 ```
 
-The incoming sensor value feeds the function's trigger.
+</Fragment>
+
+</Arc.Tabs>
 
 <Divider.Divider x />
 
