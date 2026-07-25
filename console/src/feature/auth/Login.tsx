@@ -61,7 +61,7 @@ export interface LoginProps {
  */
 export const Login = ({ nav = true }: LoginProps): ReactElement => {
   const client = Synnax.use();
-  const connState = Synnax.useConnectionState();
+  const connStatus = Synnax.useConnectionStatus();
   const servingCluster = Cluster.detectConnection();
   const clusters = Session.Cluster.useSelectMany();
   const activeKey = Session.Cluster.useSelectSelectedKey();
@@ -157,10 +157,10 @@ export const Login = ({ nav = true }: LoginProps): ReactElement => {
                 <Flex.Box gap="small" align="center">
                   {client != null && (
                     <Flex.Box className={CSS.BE("login", "status")}>
-                      {connState.message !== "" && (
+                      {connStatus.message !== "" && (
                         <Status.Summary
-                          variant={connState.variant}
-                          message={connState.message}
+                          variant={connStatus.variant}
+                          message={connStatus.message}
                         />
                       )}
                     </Flex.Box>
