@@ -27,7 +27,7 @@ describe("project", () => {
         name: "test",
         layout: {},
       });
-      await expect(userClient.projects.retrieve(randomProject.key)).rejects.toThrow(
+      await expect(userClient.projects.retrieve({ key: randomProject.key })).rejects.toThrow(
         AuthError,
       );
     });
@@ -42,7 +42,7 @@ describe("project", () => {
         name: "test",
         layout: {},
       });
-      const retrieved = await userClient.projects.retrieve(randomProject.key);
+      const retrieved = await userClient.projects.retrieve({ key: randomProject.key });
       expect(retrieved.key).toBe(randomProject.key);
       expect(retrieved.name).toBe(randomProject.name);
     });
@@ -84,7 +84,7 @@ describe("project", () => {
         layout: {},
       });
       await userClient.projects.delete(randomProject.key);
-      await expect(userClient.projects.retrieve(randomProject.key)).rejects.toThrow(
+      await expect(userClient.projects.retrieve({ key: randomProject.key })).rejects.toThrow(
         NotFoundError,
       );
     });

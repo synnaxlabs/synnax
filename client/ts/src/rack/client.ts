@@ -92,19 +92,10 @@ const normalizeSingle = (params: RetrieveSingleParams): SingleQuery => {
 /** The table never holds statuses; the status table is their single home. */
 const stripStatus = ({ status: _, ...rack }: Payload): Omit<Payload, "status"> => rack;
 
-const isSingleParams = (params: RetrieveParams): params is RetrieveSingleParams =>
-  "key" in params || "name" in params;
-
-const isKeysOnly = (req: RetrieveRequest): req is RetrieveRequest & { keys: Key[] } =>
-  primitive.isNonZero(req.keys) &&
-  req.names == null &&
-  req.integration == null &&
-  req.searchTerm == null &&
-  req.embedded == null &&
-  req.hostIsNode == null &&
-  req.limit == null &&
-  req.offset == null &&
-  req.includeStatus !== true;
+const isSingleParams = (params: unknown): params is RetrieveSingleParams =>
+  typeof params === "object" &&
+  params !== null &&
+  ("key" in params || "name" in params);
 
 /**
  * Client-side matching for a request: key and name sets and payload-held
@@ -141,28 +132,12 @@ const affectedRackKeys = (
   return parsed.success ? [parsed.data] : null;
 };
 
-const createTable = (cache: query.Cache): query.Table<Key, Omit<Payload, "status">> => {
-  const table = cache.createTable<Key, Omit<Payload, "status">>({ name: "racks" });
-  const set: query.ChannelListener<typeof payloadZ> = {
-    channel: SET_CHANNEL_NAME,
-    schema: payloadZ,
-    onChange: ({ status: _, ...rack }) => table.set(rack),
-  };
-  const del: query.ChannelListener<typeof keyZ> = {
-    channel: DELETE_CHANNEL_NAME,
-    schema: keyZ,
-    onChange: (changed) => table.delete(changed),
-  };
-  cache.addListeners(table, set, del);
-  return table;
-};
-
 export class Client extends query.Retriever<
-  RetrieveSingleParams,
-  RetrieveMultipleParams,
-  SingleQuery,
-  RetrieveRequest,
-  Rack
+  typeof retrieveReqZ,
+  Key,
+  Omit<Payload, "status">,
+  Rack,
+  RetrieveSingleParams
 > {
   private readonly client: UnaryClient;
   private readonly tasks: task.Client;
@@ -177,38 +152,48 @@ export class Client extends query.Retriever<
     statusStore: query.Table<status.Key, status.Status>,
     ontologyStores: ontology.Stores,
   ) {
-    const store = createTable(cache);
+    const store = cache.createTable<Key, Omit<Payload, "status">>({
+      name: "racks",
+      fetch: async (keys) => (await this.fetchThrough({ keys })).map(stripStatus),
+      listen: [
+        query.createSetListener(SET_CHANNEL_NAME, payloadZ, {
+          value: ({ status: _, ...rack }) => rack,
+        }),
+        query.createDeleteListener(DELETE_CHANNEL_NAME, keyZ),
+      ],
+    });
     const statusWatch = <Q extends { includeStatus?: boolean }>() =>
-      query.watch(statusStore, (event, query: Q) => {
-        if (query.includeStatus !== true) return null;
+      query.watch(statusStore, (event, q: Q) => {
+        if (q.includeStatus !== true) return null;
         return affectedRackKeys(event);
       });
-    super({
-      single: cache.queries({
-        name: "rack",
-        table: store,
-        fetch: async (query) => [(await this.fetchSingle(query)).key],
-        compose: ([record], query) =>
-          this.compose(record, query.includeStatus === true),
-        keyOf: (query) => ("key" in query ? query.key : null),
-        matches: (r, query) =>
-          "key" in query ? r.key === query.key : r.name === query.name,
-        single: true,
-        watch: [statusWatch<SingleQuery>()],
-      }),
-      request: cache.queries({
-        name: "racks",
-        table: store,
-        fetch: async (query) => (await this.fetchRequest(query)).map((r) => r.key),
-        compose: (records, query) =>
-          records.map((r) => this.compose(r, query.includeStatus === true)),
-        matches: (r, query) => requestFilter(query)(r),
+    const single = cache.queries<SingleQuery, Rack, Key, Omit<Payload, "status">>({
+      name: "rack",
+      table: store,
+      fetch: async (q) => [(await this.fetchSingle(q)).key],
+      compose: ([record], q) => this.compose(record, q.includeStatus === true),
+      keyOf: (q) => ("key" in q ? q.key : null),
+      matches: (r, q) => ("key" in q ? r.key === q.key : r.name === q.name),
+      single: true,
+      watch: [statusWatch<SingleQuery>()],
+    });
+    super(cache, {
+      name: "rack",
+      table: store,
+      request: {
+        schema: retrieveReqZ,
+        fetch: async (req) => (await this.fetchThrough(req)).map(stripStatus),
+        matches: (r, req) => requestFilter(req)(r),
         serverFields: SERVER_FIELDS,
         watch: [statusWatch<RetrieveRequest>()],
-      }),
-      isSingle: isSingleParams,
-      normalizeSingle,
-      normalizeRequest: (params) => multiRetrieveParamsZ.parse(params),
+      },
+      compose: (record, q) =>
+        this.compose(record, (q as { includeStatus?: boolean }).includeStatus === true),
+      single: {
+        is: isSingleParams,
+        normalize: normalizeSingle,
+        space: single as query.Retrieves<query.Params, Rack>,
+      },
     });
     this.client = client;
     this.tasks = taskClient;
@@ -315,44 +300,24 @@ export class Client extends query.Retriever<
     return res.racks;
   }
 
-  /**
-   * Fetches the given keys, serving cached entries and fetching only the
-   * misses. Preserves the caller's key order.
-   */
-  private async fetchKeys(keys: Key[]): Promise<Rack[]> {
-    const results: Rack[] = [];
-    const misses: Key[] = [];
-    for (const key of keys) {
-      const cached = this.store.get(key);
-      if (cached != null) results.push(this.sugar(cached));
-      else misses.push(key);
-    }
-    if (misses.length > 0) {
-      const fetched = await this.execRetrieve({ keys: misses });
-      this.writeThrough(fetched);
-      results.push(...this.sugar(fetched));
-    }
-    return query.orderByKeys(keys, results, (r) => r.key);
+  /** Fetches racks and writes their included statuses through the caches. */
+  private async fetchThrough(req: RetrieveRequest): Promise<Payload[]> {
+    const racks = await this.execRetrieve(req);
+    this.writeThrough(racks);
+    return racks;
   }
 
-  private async fetchSingle(query: SingleQuery): Promise<Rack> {
+  private async fetchSingle(q: SingleQuery): Promise<Rack> {
     // Names are not unique, so only key queries can be served from the table.
     // A status-bearing hit needs both the record and its status cached.
-    if ("key" in query && query.includeStatus !== true) {
-      const cached = this.store.get(query.key);
+    if ("key" in q && q.includeStatus !== true) {
+      const cached = this.store.get(q.key);
       if (cached != null) return this.sugar(cached);
     }
-    const racks = await this.execRetrieve(query);
-    checkForMultipleOrNoResults("Rack", query, racks, true);
+    const racks = await this.execRetrieve(q);
+    checkForMultipleOrNoResults("Rack", q, racks, true);
     this.writeThrough(racks);
     return this.sugar(racks[0]);
-  }
-
-  private async fetchRequest(query: RetrieveRequest): Promise<Rack[]> {
-    if (isKeysOnly(query)) return await this.fetchKeys(query.keys);
-    const racks = await this.execRetrieve(query);
-    this.writeThrough(racks);
-    return this.sugar(racks);
   }
 }
 

@@ -31,7 +31,6 @@ import {
   type Schematic,
   schematicZ,
 } from "@/schematic/types.gen";
-import { checkForMultipleOrNoResults } from "@/util/retrieve";
 
 export const SET_CHANNEL_NAME = "sy_schematic_set";
 export const DELETE_CHANNEL_NAME = "sy_schematic_delete";
@@ -80,13 +79,7 @@ const requestFilter = (req: RetrieveRequest): ((s: Schematic) => boolean) => {
   return (s) => keySet == null || keySet.has(s.key);
 };
 
-export class Client extends query.Retriever<
-  RetrieveSingleParams,
-  RetrieveMultipleParams,
-  Key,
-  RetrieveRequest,
-  Schematic
-> {
+export class Client extends query.Retriever<typeof retrieveReqZ, Key, Schematic> {
   readonly symbols: symbol.Client;
   private readonly client: UnaryClient;
   private readonly store: query.Table<Key, Schematic>;
@@ -99,10 +92,14 @@ export class Client extends query.Retriever<
     cache: query.Cache,
     ontologyStores: ontology.Stores,
   ) {
+    // Dispatch mutates documents server-side, so fetched copies never clobber
+    // a doc holding locally replayed edits: the table hydrates if-absent.
     const store = cache.createTable<Key, Schematic>({
       name: "schematics",
-      refetch: async (keys) =>
+      hydrate: "if-absent",
+      fetch: async (keys) =>
         await this.execRetrieve({ keys, ignoreNotFoundError: true }),
+      listen: [query.createDeleteListener(DELETE_CHANNEL_NAME, keyZ)],
     });
     const dispatcher = new actions.Controller<Key, Schematic, Action>({
       store,
@@ -110,35 +107,15 @@ export class Client extends query.Retriever<
       reduce: reduceAll,
       kindOf,
     });
-    const del: query.ChannelListener<typeof keyZ> = {
-      channel: DELETE_CHANNEL_NAME,
-      schema: keyZ,
-      onChange: (changed) => store.delete(changed),
-    };
-    cache.addListeners(
-      store,
-      del,
-      dispatcher.listener(SET_CHANNEL_NAME, scopedActionZ),
-    );
-    super({
-      single: cache.queries({
-        name: "schematic",
-        table: store,
-        fetch: async (query) => [await this.fetchSingle(query)].map((s) => s.key),
-        compose: (records) => records[0],
-        keyOf: (query) => query,
-        single: true,
-      }),
-      request: cache.queries({
-        name: "schematics",
-        table: store,
-        fetch: async (query) => (await this.fetchRequest(query)).map((s) => s.key),
-        compose: (records) => records,
-        matches: (schematic, query) => requestFilter(query)(schematic),
-      }),
-      isSingle: (params) => "key" in params,
-      normalizeSingle: ({ key }) => key,
-      normalizeRequest: (params) => retrieveReqZ.parse(params),
+    cache.listen(dispatcher.listener(SET_CHANNEL_NAME, scopedActionZ));
+    super(cache, {
+      name: "schematic",
+      table: store,
+      request: {
+        schema: retrieveReqZ,
+        fetch: async (req) => await this.execRetrieve(req),
+        matches: (schematic, req) => requestFilter(req)(schematic),
+      },
     });
     this.client = client;
     this.symbols = new symbol.Client(client, ontologyClient, cache, ontologyStores);
@@ -180,10 +157,11 @@ export class Client extends query.Retriever<
     return isMany ? res.schematics : res.schematics[0];
   }
 
-  async rename(key: Key, name: string): Promise<void> {
+  async rename(key: Key, name: string, opts: query.WriteOptions = {}): Promise<void> {
     const rollback = new destructor.Chain();
     rollback.add(query.partialUpdate(this.store, key, { name }));
     rollback.add(ontology.renameCachedResource(this.ontology, ontologyID(key), name));
+    await opts.onOptimistic?.();
     await rollback.guard(
       async () => await this.sendDispatch(key, "", [renameAction({ name })]),
     );
@@ -309,31 +287,13 @@ export class Client extends query.Retriever<
     return res.schematic;
   }
 
-  private async execRetrieve(
-    params: RetrieveSingleParams | RetrieveMultipleParams,
-  ): Promise<Schematic[]> {
+  private async execRetrieve(params: RetrieveMultipleParams): Promise<Schematic[]> {
     const res = await this.client.send(
       "/schematic/retrieve",
       params,
-      retrieveParamsZ,
+      retrieveReqZ,
       retrieveResZ,
     );
     return res.schematics;
-  }
-
-  // Dispatch mutates documents server-side, so a cached copy is only as fresh
-  // as the streamer. Fetches always hit the network; setIfAbsent hydrates the
-  // table without clobbering a doc holding locally replayed edits.
-  private async fetchSingle(query: Key): Promise<Schematic> {
-    const schematics = await this.execRetrieve({ key: query });
-    checkForMultipleOrNoResults("Schematic", query, schematics, true);
-    this.store.setIfAbsent(schematics);
-    return schematics[0];
-  }
-
-  private async fetchRequest(query: RetrieveRequest): Promise<Schematic[]> {
-    const schematics = await this.execRetrieve(query);
-    this.store.setIfAbsent(schematics);
-    return schematics;
   }
 }

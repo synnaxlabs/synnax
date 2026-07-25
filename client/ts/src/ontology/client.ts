@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type UnaryClient } from "@synnaxlabs/freighter";
-import { deep, destructor, primitive, strings } from "@synnaxlabs/x";
+import { deep, destructor, primitive } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { NotFoundError } from "@/errors";
@@ -39,7 +39,7 @@ import {
 import { Writer } from "@/ontology/writer";
 import { query } from "@/query";
 
-const retrieveReqZ = z.object({
+const wireReqZ = z.object({
   ids: idZ.array().optional(),
   children: z.boolean().optional(),
   parents: z.boolean().optional(),
@@ -50,11 +50,11 @@ const retrieveReqZ = z.object({
   offset: z.int().optional(),
   ignoreNotFoundError: z.boolean().optional(),
 });
-export interface RetrieveRequest extends z.infer<typeof retrieveReqZ> {}
+export interface RetrieveRequest extends z.infer<typeof wireReqZ> {}
 
 export interface RetrieveOptions extends Pick<
   RetrieveRequest,
-  "excludeFieldData" | "types" | "children" | "parents"
+  "excludeFieldData" | "types"
 > {}
 
 const retrieveResZ = z.object({ resources: resourceZ.array() });
@@ -68,8 +68,6 @@ const parentRel = (from: ID, to: ID): Relationship => ({
 /** A retrieve request with IDs normalized to stable, sorted strings. */
 type NormalizedRequest = {
   ids?: string[];
-  children?: boolean;
-  parents?: boolean;
   excludeFieldData?: boolean;
   types?: ResourceType[];
   searchTerm?: string;
@@ -87,20 +85,15 @@ type DependentRequest = {
   excludeFieldData?: boolean;
 };
 
-type DependentOptions = Pick<
-  RetrieveRequest,
-  "types" | "searchTerm" | "offset" | "limit" | "excludeFieldData"
->;
-
-/** Query fields only the server can evaluate. Dependent flags reach the
- *  request space only in shapes it cannot check locally. */
-const REQUEST_SERVER_FIELDS = [
-  "searchTerm",
-  "limit",
-  "offset",
-  "children",
-  "parents",
-] as const;
+/** Query addressing the children or parents of a set of resources. */
+export type DependentParams = {
+  ids: ID | ID[];
+  types?: ResourceType[];
+  searchTerm?: string;
+  offset?: number;
+  limit?: number;
+  excludeFieldData?: boolean;
+};
 
 const DEPENDENT_SERVER_FIELDS = ["searchTerm", "limit", "offset"] as const;
 
@@ -109,7 +102,7 @@ const normalizeIDs = (ids: ID | ID[]): string[] =>
 
 const normalizeDependents = (
   ids: ID | ID[],
-  options?: DependentOptions,
+  options?: Omit<DependentParams, "ids">,
 ): DependentRequest => {
   const out: DependentRequest = { ids: normalizeIDs(ids) };
   const { types, searchTerm, offset, limit, excludeFieldData } = options ?? {};
@@ -121,29 +114,32 @@ const normalizeDependents = (
   return out;
 };
 
-const normalizeRequest = (req: RetrieveRequest): NormalizedRequest => {
-  const out: NormalizedRequest = {};
-  if (req.ids != null) out.ids = normalizeIDs(req.ids);
-  if (req.children != null) out.children = req.children;
-  if (req.parents != null) out.parents = req.parents;
-  if (req.excludeFieldData != null) out.excludeFieldData = req.excludeFieldData;
-  if (req.types != null) out.types = [...req.types].sort();
-  if (req.searchTerm != null) out.searchTerm = req.searchTerm;
-  if (req.limit != null) out.limit = req.limit;
-  if (req.offset != null) out.offset = req.offset;
-  return out;
-};
+const retrieveRequestZ = z
+  .object({
+    ids: idZ.array().optional(),
+    excludeFieldData: z.boolean().optional(),
+    types: resourceTypeZ.array().optional(),
+    searchTerm: z.string().optional(),
+    limit: z.int().optional(),
+    offset: z.int().optional(),
+  })
+  .transform((req): NormalizedRequest => {
+    const out: NormalizedRequest = {};
+    if (req.ids != null) out.ids = normalizeIDs(req.ids);
+    if (req.excludeFieldData != null) out.excludeFieldData = req.excludeFieldData;
+    if (req.types != null) out.types = [...req.types].sort();
+    if (req.searchTerm != null) out.searchTerm = req.searchTerm;
+    if (req.limit != null) out.limit = req.limit;
+    if (req.offset != null) out.offset = req.offset;
+    return out;
+  });
 
-// Type filters and dependent flags change the server's answer, so only plain
-// single reads are served by the single query space.
-const isSingleCacheable = (options?: RetrieveOptions): boolean =>
-  options == null ||
-  (options.children !== true && options.parents !== true && options.types == null);
+export type RetrieveParams = z.input<typeof retrieveRequestZ>;
 
 /**
  * Client-side matching for a request: exact for id and type sets.
- * Server-computed shapes (search, limit/offset, dependents) never reach this
- * filter; they refetch instead.
+ * Server-computed shapes (search, limit/offset) never reach this filter; they
+ * refetch instead.
  */
 const requestFilter = (req: NormalizedRequest): ((r: Resource) => boolean) => {
   const idSet = primitive.isNonZero(req.ids) ? new Set(req.ids) : undefined;
@@ -155,106 +151,82 @@ const requestFilter = (req: NormalizedRequest): ((r: Resource) => boolean) => {
   };
 };
 
-type Routed =
-  | { space: "children" | "parents"; query: DependentRequest }
-  | { space: "request"; query: NormalizedRequest };
-
-const createTables = (
-  cache: query.Cache,
-  refetch: (keys: string[]) => Promise<Resource[]>,
-): Stores => {
-  const relationships = cache.createTable<string, Relationship>({
-    name: "relationships",
-    equal: (a, b) =>
-      idsEqual(a.from, b.from) && idsEqual(a.to, b.to) && a.type === b.type,
-  });
-  const relationshipSet: query.ChannelListener<typeof relationshipZ> = {
-    channel: RELATIONSHIP_SET_CHANNEL_NAME,
-    schema: relationshipZ,
-    onChange: (changed) => relationships.set(relationshipToString(changed), changed),
-  };
-  const relationshipDelete: query.ChannelListener<typeof relationshipZ> = {
-    channel: RELATIONSHIP_DELETE_CHANNEL_NAME,
-    schema: relationshipZ,
-    onChange: (changed) => relationships.delete(relationshipToString(changed)),
-  };
-  cache.addListeners(relationships, relationshipSet, relationshipDelete);
-
-  const resources = cache.createTable<string, Resource>({
-    name: "resources",
-    equal: (a, b) => deep.equal(a, b),
-    // Reconciliation refetches must bypass the query cache.
-    refetch,
-  });
-  const resourceSet: query.ChannelListener<typeof resourceZ> = {
-    channel: RESOURCE_SET_CHANNEL_NAME,
-    schema: resourceZ,
-    onChange: (changed) =>
-      resources.set(changed.key, (p) => (p == null ? changed : { ...p, ...changed })),
-  };
-  const resourceDelete: query.ChannelListener<typeof idZ> = {
-    channel: RESOURCE_DELETE_CHANNEL_NAME,
-    schema: idZ,
-    // The store is keyed by the full "type:key" string, not the bare key.
-    onChange: (changed) => resources.delete(idToString(changed)),
-  };
-  cache.addListeners(resources, resourceSet, resourceDelete);
-  return { relationships, resources };
-};
-
 /** The main client class for executing queries against a Synnax cluster ontology */
 export class Client extends query.Retriever<
-  ID,
-  ID[] | RetrieveRequest,
+  typeof retrieveRequestZ,
   string,
-  NormalizedRequest,
-  Resource
+  Resource,
+  Resource,
+  ID
 > {
   readonly type: string = "ontology";
   /** The ontology tables injected into sibling domain clients at wiring. */
   readonly stores: Stores;
+  /** Cached read surface for the children of a set of resources. */
+  readonly children: query.Retrieves<DependentParams, Resource[]>;
+  /** Cached read surface for the parents of a set of resources. */
+  readonly parents: query.Retrieves<DependentParams, Resource[]>;
   private readonly client: UnaryClient;
   private readonly writer: Writer;
-  private readonly answers: {
-    children: query.Queries<DependentRequest, Resource[], string, Resource>;
-    parents: query.Queries<DependentRequest, Resource[], string, Resource>;
-  };
 
   constructor(unary: UnaryClient, cache: query.Cache) {
-    const stores = createTables(
-      cache,
-      async (keys) =>
+    const relationships = cache.createTable<string, Relationship>({
+      name: "relationships",
+      equal: (a, b) =>
+        idsEqual(a.from, b.from) && idsEqual(a.to, b.to) && a.type === b.type,
+      listen: [
+        query.createSetListener(RELATIONSHIP_SET_CHANNEL_NAME, relationshipZ, {
+          key: (changed) => relationshipToString(changed),
+        }),
+        query.createDeleteListener(RELATIONSHIP_DELETE_CHANNEL_NAME, relationshipZ, {
+          key: (changed) => relationshipToString(changed),
+        }),
+      ],
+    });
+    const resources = cache.createTable<string, Resource>({
+      name: "resources",
+      equal: (a, b) => deep.equal(a, b),
+      // Fetches bypass the query cache: sibling domain deletes never write
+      // through to the resource store, so cached entries may be stale.
+      fetch: async (keys) =>
         await this.execRetrieve({ ids: parseIDs(keys), ignoreNotFoundError: true }),
-    );
-    super({
-      single: cache.queries({
-        name: "resource",
-        table: stores.resources,
-        fetch: async (query) => [(await this.fetchSingle(query)).key],
-        compose: (records) => records[0],
-        keyOf: (query) => query,
-        single: true,
-      }),
-      request: cache.queries({
-        name: "resources",
-        table: stores.resources,
-        fetch: async (query) => (await this.fetchRequest(query)).map((r) => r.key),
-        compose: (records) => records,
-        matches: (resource, query) => requestFilter(query)(resource),
-        serverFields: REQUEST_SERVER_FIELDS,
-      }),
-      isSingle: (params) => !Array.isArray(params) && "key" in params,
-      normalizeSingle: (params) => idToString(params),
-      normalizeRequest: (params) =>
-        normalizeRequest(Array.isArray(params) ? { ids: params } : params),
+      listen: [
+        query.createSetListener(RESOURCE_SET_CHANNEL_NAME, resourceZ, {
+          value: (changed, prev) => (prev == null ? changed : { ...prev, ...changed }),
+        }),
+        // The store is keyed by the full "type:key" string, not the bare key.
+        query.createDeleteListener(RESOURCE_DELETE_CHANNEL_NAME, idZ, {
+          key: (changed) => idToString(changed),
+        }),
+      ],
+    });
+    const single = cache.queries<string, Resource, string, Resource>({
+      name: "resource",
+      table: resources,
+      fetch: async (q) => [(await this.fetchSingle(q)).key],
+      compose: (records) => records[0],
+      keyOf: (q) => q,
+      single: true,
+    });
+    super(cache, {
+      name: "resource",
+      table: resources,
+      request: {
+        schema: retrieveRequestZ,
+        fetch: async (req) => await this.fetchRequest(req),
+        matches: (resource, req) => requestFilter(req)(resource),
+      },
+      single: {
+        is: (params) => typeof params === "object" && params !== null && "key" in params,
+        normalize: (id) => idToString(id),
+        space: single as query.Retrieves<query.Params, Resource>,
+      },
     });
     this.client = unary;
     this.writer = new Writer(unary);
-    this.stores = stores;
-    this.answers = {
-      children: this.dependentAnswers(cache, "children", "to"),
-      parents: this.dependentAnswers(cache, "parents", "from"),
-    };
+    this.stores = { relationships, resources };
+    this.children = this.dependentSurface(cache, "children", "to");
+    this.parents = this.dependentSurface(cache, "parents", "from");
   }
 
   /** Read surface of the relationship cache. */
@@ -265,118 +237,6 @@ export class Client extends query.Retriever<
   /** Read surface of the resource cache. */
   get resources(): query.Table<string, Resource> {
     return this.stores.resources;
-  }
-
-  /**
-   * Retrieves the resource in the ontology with the given ID.
-   * @param id - The ID of the resource to retrieve.
-   * @param options - Additional options for the retrieval.
-   * @param options.excludeFieldData - Whether to exclude the field data of the resource
-   * in the results.
-   * @returns The resource with the given ID.
-   * @throws {NotFoundError} If no resource is found with the given ID.
-   */
-  async retrieve(id: ID, options?: RetrieveOptions): Promise<Resource>;
-
-  /**
-   * Retrieves the resources in the ontology with the given IDs.
-   *
-   * @param ids - The IDs of the resources to retrieve.
-   * @param options - Additional options for the retrieval.
-   * @param options.excludeFieldData - Whether to exclude the field data of the
-   * resources in the results.
-   * @returns The resources with the given IDs.
-   * @throws {NotFoundError} If no resource is found with any of the given IDs.
-   */
-  async retrieve(ids: ID[], options?: RetrieveOptions): Promise<Resource[]>;
-
-  async retrieve(params: RetrieveRequest): Promise<Resource[]>;
-
-  async retrieve(
-    ids: ID | ID[] | RetrieveRequest,
-    options?: RetrieveOptions,
-  ): Promise<Resource | Resource[]> {
-    if (!Array.isArray(ids) && typeof ids === "object" && !("key" in ids))
-      return await this.routeRetrieve(ids);
-    const parsedIDs = parseIDs(ids);
-    if (!Array.isArray(ids) && isSingleCacheable(options))
-      return await super.retrieve(parsedIDs[0]);
-    const resources = await this.routeRetrieve({ ids: parsedIDs, ...options });
-    if (Array.isArray(ids)) return resources;
-    if (resources.length === 0)
-      throw new NotFoundError(
-        `No resource found with ID ${strings.naturalLanguageJoin(
-          parsedIDs.map((id) => idToString(id)),
-        )}`,
-      );
-    return resources[0];
-  }
-
-  /**
-   * Retrieves the children of the resources with the given IDs.
-   * @param ids - The IDs of the resources whose children to retrieve.
-   * @param options - Additional options for the retrieval.
-   * the results.
-   * @returns The children of the resources with the given IDs.
-   */
-  async retrieveChildren(
-    ids: ID | ID[],
-    options?: RetrieveOptions,
-  ): Promise<Resource[]> {
-    return await this.answers.children.retrieve(normalizeDependents(ids, options));
-  }
-
-  /**
-   * Retrieves the parents of the resources with the given IDs.
-   *
-   * @param ids - the IDs of the resources whose parents to retrieve
-   * @param options - additional options for the retrieval
-   * @param options.excludeFieldData - whether to exclude the field data of the parents
-   * in the results
-   * @returns the parents of the resources with the given IDs
-   */
-  async retrieveParents(
-    ids: ID | ID[],
-    options?: RetrieveOptions,
-  ): Promise<Resource[]> {
-    return await this.answers.parents.retrieve(normalizeDependents(ids, options));
-  }
-
-  /**
-   * Subscribes to changes in the cached answer to the given query. Single
-   * queries deliver a resource; every other shape delivers the matching
-   * resources.
-   */
-  onChange(params: ID, handler: query.ChangeHandler<Resource>): destructor.Destructor;
-  onChange(
-    params: ID[] | RetrieveRequest,
-    handler: query.ChangeHandler<Resource[]>,
-  ): destructor.Destructor;
-  onChange(
-    params: ID | ID[] | RetrieveRequest,
-    handler: query.ChangeHandler<Resource> | query.ChangeHandler<Resource[]>,
-  ): destructor.Destructor {
-    if (!Array.isArray(params) && "key" in params)
-      return super.onChange(params, handler as query.ChangeHandler<Resource>);
-    const routed = this.routeRequest(Array.isArray(params) ? { ids: params } : params);
-    const h = handler as query.ChangeHandler<Resource[]>;
-    if (routed.space === "request") return super.onChange(params, h);
-    return this.answers[routed.space].onChange(routed.query, h);
-  }
-
-  /**
-   * Returns the cached answer to the given query without touching the
-   * network, or undefined when nothing is cached.
-   */
-  getCached(params: ID): query.Cached<Resource> | undefined;
-  getCached(params: ID[] | RetrieveRequest): query.Cached<Resource[]> | undefined;
-  getCached(
-    params: ID | ID[] | RetrieveRequest,
-  ): query.Cached<Resource> | query.Cached<Resource[]> | undefined {
-    if (!Array.isArray(params) && "key" in params) return super.getCached(params);
-    const routed = this.routeRequest(Array.isArray(params) ? { ids: params } : params);
-    if (routed.space === "request") return super.getCached(params);
-    return this.answers[routed.space].getCached(routed.query);
   }
 
   /**
@@ -459,62 +319,40 @@ export class Client extends query.Retriever<
     });
   }
 
-  private routeRequest(request: RetrieveRequest): Routed {
-    const { ids } = request;
-    const hasIDs = ids != null && ids.length > 0;
-    if (hasIDs && request.children === true && request.parents !== true)
-      return {
-        space: "children",
-        query: normalizeDependents(ids, request),
-      };
-    if (hasIDs && request.parents === true && request.children !== true)
-      return {
-        space: "parents",
-        query: normalizeDependents(ids, request),
-      };
-    return { space: "request", query: normalizeRequest(request) };
+  /** Merges a fetched resource with cached field data it may lack. */
+  private mergeFieldData(r: Resource): Resource {
+    const p = this.resources.get(r.key);
+    return p == null ? r : { ...r, data: r.data ?? p.data };
   }
 
-  private async routeRetrieve(request: RetrieveRequest): Promise<Resource[]> {
-    const routed = this.routeRequest(request);
-    if (routed.space === "request") return await super.retrieve(request);
-    return await this.answers[routed.space].retrieve(routed.query);
-  }
-
-  /** Writes fetched resources without clobbering cached field data. */
   private writeResources(resources: Resource[]): void {
-    resources.forEach((r) =>
-      this.resources.set(r.key, (p) =>
-        p == null ? r : { ...r, data: r.data ?? p.data },
-      ),
-    );
+    this.resources.set(resources.map((r) => this.mergeFieldData(r)));
   }
 
   // Resources are deleted through other domain clients whose write-through
   // never reaches the resource store, so fetches always hit the network
   // rather than serving a possibly stale cached entry.
-  private async fetchSingle(query: string): Promise<Resource> {
-    const resources = await this.execRetrieve({ ids: [idZ.parse(query)] });
+  private async fetchSingle(q: string): Promise<Resource> {
+    const resources = await this.execRetrieve({ ids: [idZ.parse(q)] });
     if (resources.length === 0)
-      throw new NotFoundError(`No resource found with ID ${query}`);
+      throw new NotFoundError(`No resource found with ID ${q}`);
     this.writeResources(resources);
     return resources[0];
   }
 
-  private async fetchRequest(query: NormalizedRequest): Promise<Resource[]> {
-    const { ids, ...rest } = query;
+  private async fetchRequest(req: NormalizedRequest): Promise<Resource[]> {
+    const { ids, ...rest } = req;
     const resources = await this.execRetrieve(
       ids == null ? rest : { ids: parseIDs(ids), ...rest },
     );
-    this.writeResources(resources);
-    return resources;
+    return resources.map((r) => this.mergeFieldData(r));
   }
 
   private async fetchDependents(
-    query: DependentRequest,
+    q: DependentRequest,
     direction: RelationshipDirection,
   ): Promise<Resource[]> {
-    const { ids, ...rest } = query;
+    const { ids, ...rest } = q;
     const resources = await this.execRetrieve({
       ids: parseIDs(ids),
       children: direction === "to",
@@ -534,50 +372,53 @@ export class Client extends query.Retriever<
     return resources;
   }
 
-  private dependentAnswers(
+  private dependentSurface(
     cache: query.Cache,
     name: string,
     direction: RelationshipDirection,
-  ): query.Queries<DependentRequest, Resource[], string, Resource> {
+  ): query.Retrieves<DependentParams, Resource[]> {
     const anchor = oppositeRelationshipDirection(direction);
-    return cache.queries({
+    const space = cache.queries<DependentRequest, Resource[], string, Resource>({
       name,
       table: this.resources,
-      fetch: async (query) =>
-        (await this.fetchDependents(query, direction)).map((r) => r.key),
+      fetch: async (q) => (await this.fetchDependents(q, direction)).map((r) => r.key),
       compose: (records) => records,
-      matches: (resource, query) => this.isDependent(resource, query, direction),
+      matches: (resource, q) => this.isDependent(resource, q, direction),
       serverFields: DEPENDENT_SERVER_FIELDS,
       watch: [
-        query.watch(this.relationships, (event, query: DependentRequest) => {
+        query.watch(this.relationships, (event, q: DependentRequest) => {
           const rel =
             event.variant === "set" ? event.value : relationshipZ.parse(event.key);
           if (rel.type !== PARENT_OF_RELATIONSHIP_TYPE) return null;
-          if (!query.ids.includes(idToString(rel[anchor]))) return null;
-          if (query.types != null && !query.types.includes(rel[direction].type))
-            return null;
+          if (!q.ids.includes(idToString(rel[anchor]))) return null;
+          if (q.types != null && !q.types.includes(rel[direction].type)) return null;
           return [idToString(rel[direction])];
         }),
       ],
-      hydrate: async (keys) => {
-        await this.fetchRequest({ ids: keys });
-      },
     });
+    return {
+      retrieve: async ({ ids, ...options }, opts) =>
+        await space.retrieve(normalizeDependents(ids, options), opts),
+      onChange: ({ ids, ...options }, handler) =>
+        space.onChange(normalizeDependents(ids, options), handler),
+      getCached: ({ ids, ...options }) =>
+        space.getCached(normalizeDependents(ids, options)),
+    };
   }
 
   /** Whether a cached relationship makes the resource a dependent of the query. */
   private isDependent(
     resource: Resource,
-    query: DependentRequest,
+    q: DependentRequest,
     direction: RelationshipDirection,
   ): boolean {
-    if (query.types != null && !query.types.includes(resource.id.type)) return false;
+    if (q.types != null && !q.types.includes(resource.id.type)) return false;
     const anchor = oppositeRelationshipDirection(direction);
     return (
       this.relationships.get(
         (rel) =>
           rel.type === PARENT_OF_RELATIONSHIP_TYPE &&
-          query.ids.includes(idToString(rel[anchor])) &&
+          q.ids.includes(idToString(rel[anchor])) &&
           idsEqual(rel[direction], resource.id),
       ).length > 0
     );
@@ -587,7 +428,7 @@ export class Client extends query.Retriever<
     const { resources } = await this.client.send(
       "/ontology/retrieve",
       request,
-      retrieveReqZ,
+      wireReqZ,
       retrieveResZ,
     );
     return resources;

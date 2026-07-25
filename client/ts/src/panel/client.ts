@@ -30,7 +30,6 @@ import {
   TYPE_ONTOLOGY_ID,
 } from "@/panel/types.gen";
 import { query } from "@/query";
-import { checkForMultipleOrNoResults } from "@/util/retrieve";
 
 export const SET_CHANNEL_NAME = "sy_panel_set";
 export const DELETE_CHANNEL_NAME = "sy_panel_delete";
@@ -51,9 +50,6 @@ const retrieveResZ = z.object({ panels: panelZ.array().default(() => []) });
 const createResZ = z.object({ panels: panelZ.array() });
 const emptyResZ = z.object({});
 
-/** Query fields only the server can evaluate. */
-const SERVER_FIELDS = ["searchTerm", "limit", "offset"] as const;
-
 const isChildOf = (rel: ontology.Relationship, parent: ontology.ID): boolean =>
   ontology.matchRelationship(rel, {
     from: parent,
@@ -70,16 +66,7 @@ const requestFilter = (req: RetrieveRequest): ((p: Panel) => boolean) => {
   return (p) => keySet == null || keySet.has(p.key);
 };
 
-const toRequest = (params: Key[] | RetrieveRequest): RetrieveRequest =>
-  retrieveReqZ.parse(Array.isArray(params) ? { keys: params } : params);
-
-export class Client extends query.Retriever<
-  Key,
-  Key[] | RetrieveRequest,
-  Key,
-  RetrieveRequest,
-  Panel
-> {
+export class Client extends query.Retriever<typeof retrieveReqZ, Key, Panel> {
   private readonly client: UnaryClient;
   private readonly store: query.Table<Key, Panel>;
   private readonly dispatcher: actions.Controller<Key, Panel, Action>;
@@ -92,10 +79,14 @@ export class Client extends query.Retriever<
     cache: query.Cache,
     ontologyStores: ontology.Stores,
   ) {
+    // Dispatch mutates documents server-side, so fetched copies never clobber
+    // a doc holding locally replayed edits: the table hydrates if-absent.
     const store = cache.createTable<Key, Panel>({
       name: "panels",
-      refetch: async (keys) =>
+      hydrate: "if-absent",
+      fetch: async (keys) =>
         await this.execRetrieve({ keys, ignoreNotFoundError: true }),
+      listen: [query.createDeleteListener(DELETE_CHANNEL_NAME, keyZ)],
     });
     const dispatcher = new actions.Controller<Key, Panel, Action>({
       store,
@@ -103,52 +94,28 @@ export class Client extends query.Retriever<
       reduce: reduceAll,
       kindOf,
     });
-    const del: query.ChannelListener<typeof keyZ> = {
-      channel: DELETE_CHANNEL_NAME,
-      schema: keyZ,
-      onChange: (changed) => store.delete(changed),
-    };
-    cache.addListeners(
-      store,
-      del,
-      dispatcher.listener(SET_CHANNEL_NAME, scopedActionZ),
-    );
-    super({
-      single: cache.queries({
-        name: "panel",
-        table: store,
-        fetch: async (query) => [await this.fetchSingle(query)].map((p) => p.key),
-        compose: (records) => records[0],
-        keyOf: (query) => query,
-        single: true,
-      }),
-      request: cache.queries({
-        name: "panels",
-        table: store,
-        fetch: async (query) => (await this.fetchRequest(query)).map((p) => p.key),
-        compose: (records) => records,
-        matches: (panel, query) =>
-          requestFilter(query)(panel) &&
-          (query.parent == null || this.isCachedChild(query.parent, panel.key)),
-        serverFields: SERVER_FIELDS,
+    cache.listen(dispatcher.listener(SET_CHANNEL_NAME, scopedActionZ));
+    super(cache, {
+      name: "panel",
+      table: store,
+      request: {
+        schema: retrieveReqZ,
+        fetch: async (req) => await this.fetchRequest(req),
+        matches: (panel, req) =>
+          requestFilter(req)(panel) &&
+          (req.parent == null || this.isCachedChild(req.parent, panel.key)),
         watch: [
-          query.watch(ontologyStores.relationships, (event, query: RetrieveRequest) => {
-            if (query.parent == null) return null;
+          query.watch(ontologyStores.relationships, (event, req: RetrieveRequest) => {
+            if (req.parent == null) return null;
             const rel =
               event.variant === "set"
                 ? event.value
                 : ontology.relationshipZ.parse(event.key);
-            if (!isChildOf(rel, query.parent)) return null;
+            if (!isChildOf(rel, req.parent)) return null;
             return [rel.to.key];
           }),
         ],
-        hydrate: async (keys) => {
-          this.store.setIfAbsent(await this.execRetrieve({ keys }));
-        },
-      }),
-      isSingle: (params) => typeof params === "string",
-      normalizeSingle: (key) => key,
-      normalizeRequest: toRequest,
+      },
     });
     this.client = client;
     this.ontologyClient = ontologyClient;
@@ -159,7 +126,7 @@ export class Client extends query.Retriever<
 
   /** All panels currently in the cache. */
   listCached(): Panel[] {
-    return this.store.list();
+    return this.store.get();
   }
 
   private isCachedChild(parent: ontology.ID, key: Key): boolean {
@@ -342,30 +309,19 @@ export class Client extends query.Retriever<
     return res.panels;
   }
 
-  // Dispatch mutates documents server-side, so a cached copy is only as fresh
-  // as the streamer. Fetches always hit the network; setIfAbsent hydrates the
-  // table without clobbering a doc holding locally replayed edits.
-  private async fetchSingle(query: Key): Promise<Panel> {
-    const panels = await this.execRetrieve({ keys: [query] });
-    checkForMultipleOrNoResults("Panel", query, panels, true);
-    this.store.setIfAbsent(panels);
-    return panels[0];
-  }
-
   // Parent queries resolve membership through the ontology graph, then fetch
   // the member panels; the panel retrieve endpoint knows nothing of parents.
-  private async fetchRequest(query: RetrieveRequest): Promise<Panel[]> {
-    const { parent, ...rest } = query;
+  private async fetchRequest(req: RetrieveRequest): Promise<Panel[]> {
+    const { parent, ...rest } = req;
     if (parent != null) {
-      const children = await this.ontologyClient.retrieveChildren(parent, {
+      const children = await this.ontologyClient.children.retrieve({
+        ids: parent,
         types: [TYPE_ONTOLOGY_ID.type],
       });
       const keys = children.map(({ id }) => id.key);
       if (keys.length === 0) return [];
       rest.keys = keys;
     }
-    const panels = await this.execRetrieve(rest);
-    this.store.setIfAbsent(panels);
-    return panels;
+    return await this.execRetrieve(rest);
   }
 }

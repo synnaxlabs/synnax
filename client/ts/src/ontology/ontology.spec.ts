@@ -140,7 +140,7 @@ describe("Ontology", () => {
         parent: group.ontologyID(g.key),
         name: name2,
       });
-      const children = await client.ontology.retrieveChildren(group.ontologyID(g.key));
+      const children = await client.ontology.children.retrieve({ ids: group.ontologyID(g.key) });
       expect(children.length).toEqual(1);
       expect(children[0].name).toEqual(name2);
     });
@@ -152,7 +152,7 @@ describe("Ontology", () => {
         parent: group.ontologyID(g.key),
         name: name2,
       });
-      const parents = await client.ontology.retrieveParents(group.ontologyID(g2.key));
+      const parents = await client.ontology.parents.retrieve({ ids: group.ontologyID(g2.key) });
       expect(parents.length).toEqual(1);
       expect(parents[0].name).toEqual(name);
     });
@@ -181,7 +181,7 @@ describe("Ontology", () => {
         group.ontologyID(g.key),
         group.ontologyID(g2.key),
       );
-      const children = await client.ontology.retrieveChildren(group.ontologyID(g.key));
+      const children = await client.ontology.children.retrieve({ ids: group.ontologyID(g.key) });
       expect(children.length).toEqual(1);
       expect(children[0].name).toEqual(name2);
     });
@@ -201,7 +201,7 @@ describe("Ontology", () => {
         group.ontologyID(g.key),
         group.ontologyID(g2.key),
       );
-      const children = await client.ontology.retrieveChildren(group.ontologyID(g.key));
+      const children = await client.ontology.children.retrieve({ ids: group.ontologyID(g.key) });
       expect(children.length).toEqual(0);
     });
     test("move children", async () => {
@@ -212,7 +212,7 @@ describe("Ontology", () => {
         parent: ontology.ROOT_ID,
         name: name2,
       });
-      const oldRootLength = (await client.ontology.retrieveChildren(ontology.ROOT_ID))
+      const oldRootLength = (await client.ontology.children.retrieve({ ids: ontology.ROOT_ID }))
         .length;
 
       await client.ontology.moveChildren(
@@ -221,9 +221,9 @@ describe("Ontology", () => {
         group.ontologyID(g2.key),
       );
 
-      const children = await client.ontology.retrieveChildren(group.ontologyID(g.key));
+      const children = await client.ontology.children.retrieve({ ids: group.ontologyID(g.key) });
       expect(children.length).toEqual(1);
-      const newRootLength = (await client.ontology.retrieveChildren(ontology.ROOT_ID))
+      const newRootLength = (await client.ontology.children.retrieve({ ids: ontology.ROOT_ID }))
         .length;
       expect(newRootLength).toEqual(oldRootLength - 1);
     });
@@ -235,7 +235,7 @@ describe("Ontology", () => {
     // writes in these specs are always observed.
     beforeAll(async () => await client.cache.ensureStreaming());
 
-    describe("retrieveChildren", () => {
+    describe("children", () => {
       it("reflects remote child changes on an unsubscribed repeat retrieve", async () => {
         const parent = await client.groups.create({
           parent: ontology.ROOT_ID,
@@ -247,13 +247,13 @@ describe("Ontology", () => {
           name: randomName(),
         });
         const childID = group.ontologyID(child.key);
-        expect(await client.ontology.retrieveChildren(parentID)).toHaveLength(0);
+        expect(await client.ontology.children.retrieve({ ids: parentID })).toHaveLength(0);
         await remote.ontology.addChildren(parentID, childID);
         // Unsubscribed queries hold no frozen answer: repeat retrieves refetch
         // and converge on the remote change once it streams in.
         await expect
           .poll(async () =>
-            (await client.ontology.retrieveChildren(parentID)).some(
+            (await client.ontology.children.retrieve({ ids: parentID })).some(
               (r) => r.id.key === child.key,
             ),
           )
@@ -261,7 +261,7 @@ describe("Ontology", () => {
         await remote.ontology.removeChildren(parentID, childID);
         await expect
           .poll(async () =>
-            (await client.ontology.retrieveChildren(parentID)).some(
+            (await client.ontology.children.retrieve({ ids: parentID })).some(
               (r) => r.id.key === child.key,
             ),
           )
@@ -280,10 +280,10 @@ describe("Ontology", () => {
           parent: parentID,
           name: randomName(),
         });
-        const query = { ids: [parentID], children: true };
-        expect(client.ontology.getCached(query)).toBeUndefined();
-        await client.ontology.retrieveChildren(parentID);
-        const cached = client.ontology.getCached(query);
+        const query = { ids: parentID };
+        expect(client.ontology.children.getCached(query)).toBeUndefined();
+        await client.ontology.children.retrieve(query);
+        const cached = client.ontology.children.getCached(query);
         expect(cached?.variant).toEqual("changed");
         if (cached?.variant === "changed")
           expect(cached.data.some((r) => r.id.key === child.key)).toBe(true);
@@ -297,18 +297,18 @@ describe("Ontology", () => {
           name: randomName(),
         });
         const parentID = group.ontologyID(parent.key);
-        const query = { ids: [parentID], children: true };
+        const query = { ids: parentID };
         const handler = vi.fn();
-        const off = client.ontology.onChange(query, handler);
+        const off = client.ontology.children.onChange(query, handler);
         try {
-          expect(await client.ontology.retrieveChildren(parentID)).toHaveLength(0);
+          expect(await client.ontology.children.retrieve(query)).toHaveLength(0);
           const child = await remote.groups.create({
             parent: parentID,
             name: randomName(),
           });
           await expect
             .poll(() => {
-              const cached = client.ontology.getCached(query);
+              const cached = client.ontology.children.getCached(query);
               return (
                 cached?.variant === "changed" &&
                 cached.data.some((r) => r.id.key === child.key)

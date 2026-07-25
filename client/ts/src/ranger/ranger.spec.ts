@@ -129,7 +129,9 @@ describe("range", () => {
         timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(1)),
         parent: parentRange,
       });
-      const children = await client.ontology.retrieveChildren(parentRange.ontologyID);
+      const children = await client.ontology.children.retrieve({
+        ids: parentRange.ontologyID,
+      });
       expect(children).toHaveLength(1);
     });
   });

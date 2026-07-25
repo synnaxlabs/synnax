@@ -23,7 +23,6 @@ import { type Key, keyZ, type Log, logZ, type New, ontologyID } from "@/log/type
 import { ontology } from "@/ontology";
 import { project } from "@/project";
 import { query } from "@/query";
-import { checkForMultipleOrNoResults } from "@/util/retrieve";
 
 export const SET_CHANNEL_NAME = "sy_log_set";
 export const DELETE_CHANNEL_NAME = "sy_log_delete";
@@ -61,13 +60,7 @@ const requestFilter = (req: RetrieveRequest): ((l: Log) => boolean) => {
   return (l) => keySet.has(l.key);
 };
 
-export class Client extends query.Retriever<
-  RetrieveSingleParams,
-  RetrieveMultipleParams,
-  Key,
-  RetrieveRequest,
-  Log
-> {
+export class Client extends query.Retriever<typeof retrieveReqZ, Key, Log> {
   private readonly client: UnaryClient;
   private readonly store: query.Table<Key, Log>;
   private readonly ontology: ontology.Stores;
@@ -78,10 +71,14 @@ export class Client extends query.Retriever<
     cache: query.Cache,
     ontologyStores: ontology.Stores,
   ) {
+    // Dispatch mutates documents server-side, so fetched copies never clobber
+    // a doc holding locally replayed edits: the table hydrates if-absent.
     const store = cache.createTable<Key, Log>({
       name: "logs",
-      refetch: async (keys) =>
+      hydrate: "if-absent",
+      fetch: async (keys) =>
         await this.execRetrieve({ keys, ignoreNotFoundError: true }),
+      listen: [query.createDeleteListener(DELETE_CHANNEL_NAME, keyZ)],
     });
     const dispatcher = new actions.Controller<Key, Log, Action>({
       store,
@@ -89,35 +86,15 @@ export class Client extends query.Retriever<
       reduce: reduceAll,
       kindOf,
     });
-    const del: query.ChannelListener<typeof keyZ> = {
-      channel: DELETE_CHANNEL_NAME,
-      schema: keyZ,
-      onChange: (changed) => store.delete(changed),
-    };
-    cache.addListeners(
-      store,
-      del,
-      dispatcher.listener(SET_CHANNEL_NAME, scopedActionZ),
-    );
-    super({
-      single: cache.queries({
-        name: "log",
-        table: store,
-        fetch: async (query) => [await this.fetchSingle(query)].map((l) => l.key),
-        compose: (records) => records[0],
-        keyOf: (query) => query,
-        single: true,
-      }),
-      request: cache.queries({
-        name: "logs",
-        table: store,
-        fetch: async (query) => (await this.fetchRequest(query)).map((l) => l.key),
-        compose: (records) => records,
-        matches: (log, query) => requestFilter(query)(log),
-      }),
-      isSingle: (params) => "key" in params,
-      normalizeSingle: ({ key }) => key,
-      normalizeRequest: (params) => retrieveReqZ.parse(params),
+    cache.listen(dispatcher.listener(SET_CHANNEL_NAME, scopedActionZ));
+    super(cache, {
+      name: "log",
+      table: store,
+      request: {
+        schema: retrieveReqZ,
+        fetch: async (req) => await this.execRetrieve(req),
+        matches: (log, req) => requestFilter(req)(log),
+      },
     });
     this.client = client;
     this.store = store;
@@ -158,10 +135,11 @@ export class Client extends query.Retriever<
     return isMany ? res.logs : res.logs[0];
   }
 
-  async rename(key: Key, name: string): Promise<void> {
+  async rename(key: Key, name: string, opts: query.WriteOptions = {}): Promise<void> {
     const rollback = new destructor.Chain();
     rollback.add(query.partialUpdate(this.store, key, { name }));
     rollback.add(ontology.renameCachedResource(this.ontology, ontologyID(key), name));
+    await opts.onOptimistic?.();
     await rollback.guard(
       async () => await this.sendDispatch(key, "", [renameAction({ name })]),
     );
@@ -276,31 +254,13 @@ export class Client extends query.Retriever<
     });
   }
 
-  private async execRetrieve(
-    params: RetrieveSingleParams | RetrieveMultipleParams,
-  ): Promise<Log[]> {
+  private async execRetrieve(params: RetrieveMultipleParams): Promise<Log[]> {
     const res = await this.client.send(
       "/log/retrieve",
       params,
-      retrieveParamsZ,
+      retrieveReqZ,
       retrieveResZ,
     );
     return res.logs;
-  }
-
-  // Dispatch mutates documents server-side, so a cached copy is only as fresh
-  // as the streamer. Fetches always hit the network; setIfAbsent hydrates the
-  // table without clobbering a doc holding locally replayed edits.
-  private async fetchSingle(query: Key): Promise<Log> {
-    const logs = await this.execRetrieve({ key: query });
-    checkForMultipleOrNoResults("Log", query, logs, true);
-    this.store.setIfAbsent(logs);
-    return logs[0];
-  }
-
-  private async fetchRequest(query: RetrieveRequest): Promise<Log[]> {
-    const logs = await this.execRetrieve(query);
-    this.store.setIfAbsent(logs);
-    return logs;
   }
 }

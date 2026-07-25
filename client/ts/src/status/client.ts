@@ -75,52 +75,12 @@ export interface SetOptions {
 
 const BASE_REQUEST: Partial<RetrieveRequest> = { includeLabels: true };
 
-/** Query fields only the server can evaluate. */
-const SERVER_FIELDS = ["searchTerm", "limit", "offset"] as const;
-
-const normalizeRequest = (params: MultiRetrieveParams): RetrieveRequest =>
-  retrieveRequestZ.parse(params);
-
-const isKeysOnly = (req: RetrieveRequest): req is RetrieveRequest & { keys: Key[] } =>
-  primitive.isNonZero(req.keys) &&
-  req.searchTerm == null &&
-  req.hasLabels == null &&
-  req.variants == null &&
-  req.limit == null &&
-  req.offset == null;
-
-const createTable = (
-  cache: query.Cache,
-  relationships: query.Table<string, ontology.Relationship>,
-  labels: query.Table<label.Key, label.Label>,
-): query.Table<Key, Status> => {
-  const table = cache.createTable<Key, Status>({ name: "statuses" });
-  const set: query.ChannelListener<ReturnType<typeof statusZ>> = {
-    channel: SET_CHANNEL_NAME,
-    schema: statusZ(),
-    onChange: (changed) =>
-      table.set(changed.key, (p) => {
-        const next = { ...p, ...changed };
-        const id = ontologyID(changed.key);
-        next.labels = label.cachedLabelsOf(relationships, labels, id);
-        return next;
-      }),
-  };
-  const del: query.ChannelListener<typeof keyZ> = {
-    channel: DELETE_CHANNEL_NAME,
-    schema: keyZ,
-    onChange: (changed) => table.delete(changed),
-  };
-  cache.addListeners(table, set, del);
-  return table;
-};
-
 export class Client extends query.Retriever<
-  SingleRetrieveParams,
-  MultiRetrieveParams,
+  typeof retrieveRequestZ,
   Key,
-  RetrieveRequest,
-  Status
+  Status,
+  Status,
+  SingleRetrieveParams
 > {
   readonly type: string = "status";
   /** The status record table; injected into sibling clients at wiring. */
@@ -138,39 +98,53 @@ export class Client extends query.Retriever<
     ontologyStores: ontology.Stores,
     labelClient?: label.Client,
   ) {
-    const store = createTable(cache, ontologyStores.relationships, labels);
-    super({
-      single: cache.queries({
-        name: "status",
-        table: store,
-        fetch: async (query) => [(await this.fetchSingle(query)).key],
-        compose: (records) => this.compose(records[0]),
-        keyOf: (query) => query,
-        single: true,
+    const { relationships } = ontologyStores;
+    const store = cache.createTable<Key, Status>({
+      name: "statuses",
+      fetch: async (keys) => await this.fetchThrough({ keys }),
+      listen: [
+        query.createSetListener(SET_CHANNEL_NAME, statusZ(), {
+          value: (changed, prev) => {
+            const next = { ...prev, ...changed };
+            const id = ontologyID(changed.key);
+            next.labels = label.cachedLabelsOf(relationships, labels, id);
+            return next;
+          },
+        }),
+        query.createDeleteListener(DELETE_CHANNEL_NAME, keyZ),
+      ],
+    });
+    const single = cache.queries<Key, Status, Key, Status>({
+      name: "status",
+      table: store,
+      fetch: async (key) => [(await this.fetchSingle(key)).key],
+      compose: (records) => this.compose(records[0]),
+      keyOf: (key) => key,
+      single: true,
+      watch: [
+        query.watch(relationships, (event, key: Key) => {
+          const rel =
+            event.variant === "set"
+              ? event.value
+              : ontology.relationshipZ.parse(event.key);
+          if (!label.matchLabeledBy(rel, ontologyID(key))) return null;
+          if (event.variant === "set") this.ensureLabel(rel);
+          return [key];
+        }),
+        query.watch(labels, (event, key: Key) =>
+          this.isLabeledBy(key, event.key) ? [key] : null,
+        ),
+      ],
+    });
+    super(cache, {
+      name: "status",
+      table: store,
+      request: {
+        schema: retrieveRequestZ,
+        fetch: async (req) => await this.fetchThrough(req),
+        matches: (status, req) => this.requestFilter(req)(status),
         watch: [
-          query.watch(ontologyStores.relationships, (event, query: Key) => {
-            const rel =
-              event.variant === "set"
-                ? event.value
-                : ontology.relationshipZ.parse(event.key);
-            if (!label.matchLabeledBy(rel, ontologyID(query))) return null;
-            if (event.variant === "set") this.ensureLabel(rel);
-            return [query];
-          }),
-          query.watch(labels, (event, query: Key) =>
-            this.isLabeledBy(query, event.key) ? [query] : null,
-          ),
-        ],
-      }),
-      request: cache.queries({
-        name: "statuses",
-        table: store,
-        fetch: async (query) => (await this.fetchRequest(query)).map((s) => s.key),
-        compose: (records) => records.map((s) => this.compose(s)),
-        matches: (status, query) => this.requestFilter(query)(status),
-        serverFields: SERVER_FIELDS,
-        watch: [
-          query.watch(ontologyStores.relationships, (event, _: RetrieveRequest) => {
+          query.watch(relationships, (event, _: RetrieveRequest) => {
             const rel =
               event.variant === "set"
                 ? event.value
@@ -187,13 +161,14 @@ export class Client extends query.Retriever<
             this.statusesLabeledBy(event.key),
           ),
         ],
-        hydrate: async (keys) => {
-          await this.fetchKeys(keys);
-        },
-      }),
-      isSingle: (params) => "key" in params,
-      normalizeSingle: ({ key }) => key,
-      normalizeRequest,
+      },
+      compose: (record) => this.compose(record),
+      single: {
+        is: (params) =>
+          typeof params === "object" && params !== null && "key" in params,
+        normalize: ({ key }) => key,
+        space: single as query.Retrieves<query.Params, Status>,
+      },
     });
     this.client = client;
     this.labelClient = labelClient;
@@ -264,13 +239,28 @@ export class Client extends query.Retriever<
     });
   }
 
-  async delete(keys: Key | Key[]): Promise<void> {
+  async delete(keys: Key | Key[], opts: query.WriteOptions = {}): Promise<void> {
     const keysArr = array.toArray(keys);
-    await this.client.send("/status/delete", { keys: keysArr }, deleteReqZ, emptyResZ);
-    this.store.delete(keysArr);
-    this.ontology.relationships.delete((r) =>
-      keysArr.some((key) => label.matchLabeledBy(r, ontologyID(key))),
+    const rollback = new destructor.Chain();
+    rollback.add(this.store.delete(keysArr));
+    rollback.add(
+      this.ontology.relationships.delete((r) =>
+        keysArr.some((key) => label.matchLabeledBy(r, ontologyID(key))),
+      ),
     );
+    await opts.onOptimistic?.();
+    await rollback.guard(
+      async () =>
+        await this.client.send(
+          "/status/delete",
+          { keys: keysArr },
+          deleteReqZ,
+          emptyResZ,
+        ),
+    );
+    // Re-applied after success: a stale streamer echo may have resurrected
+    // an optimistically deleted entry while the send was in flight.
+    this.store.delete(keysArr);
   }
 
   /** Subscribes to every status set delivered to the cache. */
@@ -325,32 +315,18 @@ export class Client extends query.Retriever<
     });
   }
 
-  /**
-   * Fetches the given keys, serving cached entries and fetching only the
-   * misses. Preserves the caller's key order.
-   */
-  private async fetchKeys(keys: Key[]): Promise<Status[]> {
-    const results: Status[] = [];
-    const misses: Key[] = [];
-    for (const key of keys) {
-      const cached = this.store.get(key);
-      if (cached != null) results.push(cached);
-      else misses.push(key);
-    }
-    if (misses.length > 0) {
-      const fetched = await this.execRetrieve({ ...BASE_REQUEST, keys: misses });
-      fetched.forEach((s) => this.writeThrough(s));
-      results.push(...fetched);
-    }
-    return query.orderByKeys(keys, results, (s) => s.key);
+  /** Fetches statuses and writes their included labels through the caches. */
+  private async fetchThrough(req: RetrieveRequest): Promise<Status[]> {
+    const statuses = await this.execRetrieve({ ...BASE_REQUEST, ...req });
+    statuses.forEach((s) => this.writeThrough(s));
+    return statuses;
   }
 
-  private async fetchSingle(query: Key): Promise<Status> {
-    const cached = this.store.get(query);
+  private async fetchSingle(key: Key): Promise<Status> {
+    const cached = this.store.get(key);
     if (cached != null) return cached;
-    const statuses = await this.execRetrieve({ ...BASE_REQUEST, keys: [query] });
-    checkForMultipleOrNoResults("Status", query, statuses, true);
-    this.writeThrough(statuses[0]);
+    const statuses = await this.fetchThrough({ keys: [key] });
+    checkForMultipleOrNoResults("Status", key, statuses, true);
     return statuses[0];
   }
 
@@ -390,13 +366,6 @@ export class Client extends query.Retriever<
           r.to.key === labelKey,
       )
       .map((r) => r.from.key);
-  }
-
-  private async fetchRequest(query: RetrieveRequest): Promise<Status[]> {
-    if (isKeysOnly(query)) return await this.fetchKeys(query.keys);
-    const statuses = await this.execRetrieve({ ...BASE_REQUEST, ...query });
-    statuses.forEach((s) => this.writeThrough(s));
-    return statuses;
   }
 
   /**

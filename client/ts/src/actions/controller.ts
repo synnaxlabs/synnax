@@ -221,7 +221,10 @@ export class Controller<Key extends record.Key, State extends query.Data, Action
     this.docs = opts.store;
     // Undo states are rebuilt objects on every update; comparing them would
     // be pure waste, so equality is disabled.
-    this.undos = new Table<Key, UndoState<Action>>(this.params.onError, () => false);
+    this.undos = new Table<Key, UndoState<Action>>({
+      onError: this.params.onError,
+      equal: () => false,
+    });
     // Stacks are session-local: when a document is deleted (tombstoned), its
     // dispatch bookkeeping goes with it.
     this.docs.subscribe((event) => {
@@ -577,12 +580,12 @@ export class Controller<Key extends record.Key, State extends query.Data, Action
 
   /**
    * Builds a channel listener that applies broadcast action frames from the
-   * given channel to this controller. Registered onto the owning table.
+   * given channel to this controller. Registered via {@link query.Cache.listen}.
    */
   listener(
     channel: string,
     schema: z.ZodType<Frame<Key, Action>>,
-  ): query.ChannelListener<z.ZodType<Frame<Key, Action>>> {
+  ): query.Listener<z.ZodType<Frame<Key, Action>>> {
     return {
       channel,
       schema,
