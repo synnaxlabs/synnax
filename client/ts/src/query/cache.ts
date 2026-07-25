@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { array, type destructor, observe, type record, type state } from "@synnaxlabs/x";
+import type z from "zod";
 
 import { Queries, type QueriesParams, type Retrieves } from "@/query/query";
 import {
@@ -165,7 +166,7 @@ export class Cache {
    * (dispatch wires, cross-table side effects). Same pre-streaming
    * constraint as {@link createTable}.
    */
-  listen(listener: Listener): void {
+  listen<Z extends z.ZodType>(listener: Listener<Z>): void {
     if (this.streamer != null)
       throw new Error(
         `cannot listen to ${listener.channel} after streaming has started`,
