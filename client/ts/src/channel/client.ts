@@ -405,7 +405,7 @@ export class Client extends query.Retriever<
         return rangeKey == null ? ch : this.composeAlias(ch.payload, rangeKey);
       },
       single: {
-        is: (params) =>
+        is: (params): params is RetrieveSingleParams =>
           typeof params === "object" && params !== null && "key" in params,
         normalize: normalizeSingle,
         space: single as query.Retrieves<query.Params, Channel>,

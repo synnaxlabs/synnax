@@ -183,7 +183,7 @@ export default class Synnax extends framer.Client {
             return new framer.ObservableStreamer(hardened);
           }
         : null,
-      onInternalError: parsedParams.onInternalError,
+      onError: parsedParams.onInternalError,
     });
     this.cache = cache;
     this.connection = new connection.Machine({

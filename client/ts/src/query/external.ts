@@ -28,6 +28,7 @@ export {
   createDeleteListener,
   createFetchListener,
   createSetListener,
+  type HydrateMode,
   type ListenerSpec,
   partialUpdate,
   type RowStatus,
