@@ -129,9 +129,8 @@ export interface RegisterParams<
 }
 
 /** Per-component operations returned by {@link Store.register}: typed setState, delete,
- * and method callers. A handle is scoped to the registration that produced it — once a
- * same-path re-registration displaces that registration, every operation on the stale
- * handle becomes a no-op (async invokes reject). */
+ * and method callers. Scoped to the registration that produced it: once a same-path
+ * re-registration displaces that entry, every operation no-ops (async invokes reject). */
 export interface Handle<
   StateSchema extends z.ZodType<state.State, state.State>,
   Methods extends aether.MethodsSchema = aether.EmptyMethodsSchema,
@@ -430,11 +429,9 @@ export class Store {
     if (entry == null)
       throw new UnexpectedError(`[aether.store] missing entry for id ${id}`);
 
-    // Every operation checks that `entry` is still the live registration for `id`.
-    // A same-path re-registration (StrictMode remount, or a component re-parenting
-    // in a single commit) replaces the entry, and stale handles from the displaced
-    // instance must become no-ops — most critically delete, which would otherwise
-    // tear down the new instance's registration when the old instance unmounts.
+    // Guard every operation on entry identity: a same-path re-registration
+    // (StrictMode remount, single-commit re-parent) replaces the entry, and the
+    // displaced instance's stale delete must not tear down its successor.
     const setState = (
       next: RawSetArg<StateSchema>,
       transfer: Transferable[] = [],
@@ -472,20 +469,19 @@ export class Store {
       ),
     ): Promise<unknown> =>
       new Promise((resolve, reject) => {
-        const e = this.getEntry<StateSchema>(id);
-        if (e !== entry || e.controller.signal.aborted)
+        if (this.entries.get(id) !== entry || entry.controller.signal.aborted)
           return reject(new Error("Component deleted"));
         const invokeKey = this.invokeTracker.nextKey(id);
         this.invokeTracker.track(
           invokeKey,
           resolve,
           reject,
-          AbortSignal.any([signal, e.controller.signal]),
+          AbortSignal.any([signal, entry.controller.signal]),
         );
         this.send({
           variant: "invoke_request",
           key: invokeKey,
-          path: e.path,
+          path: entry.path,
           method,
           args,
         });

@@ -1779,10 +1779,9 @@ describe("Aether Main", () => {
       expect(snapshot).toThrow(/missing entry/);
     });
     it("should survive re-parenting under the same aether path in a single commit", async () => {
-      // A table keys its rows by index, so deleting row A re-parents row B's cells:
-      // React mounts a fresh cell instance (registering at the same path during
-      // render) and then unmounts the old instance, whose cleanup must not clobber
-      // the new registration.
+      // Index-keyed rows re-parent surviving cells on row deletion: React mounts a
+      // fresh instance (registering at the same path during render) before the old
+      // instance's unmount cleanup runs, which must not clobber the new registration.
       const [Provider, root] = await newProvider();
       let observedX: number | null = null;
       const Cell = () => {
