@@ -7,9 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type label, type query } from "@synnaxlabs/client";
+import { type label, NotFoundError, type query } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
-import { color } from "@synnaxlabs/x";
+import { color, TimeSpan } from "@synnaxlabs/x";
 import { act, render, renderHook, waitFor } from "@testing-library/react";
 import { type ReactElement, useCallback, useState } from "react";
 import { describe, expect, it, vi } from "vitest";
@@ -499,6 +499,148 @@ describe("useRetrieveSuspended", () => {
 
     await waitFor(() => expect(utils.queryByTestId("value")?.textContent).toBe("2"));
     expect(retrieve).toHaveBeenCalledTimes(2);
+  });
+
+  describe("not-found wait", () => {
+    interface Harness {
+      utils: ReturnType<typeof render>;
+      retrieve: ReturnType<typeof vi.fn>;
+      push: (result: query.Cached<number> | undefined) => void;
+    }
+
+    // Renders a suspending read whose fetch rejects with NotFoundError while
+    // the domain cache is empty, so the read enters the pending wait.
+    const renderNotFound = async (key: string): Promise<Harness> => {
+      let cached: query.Cached<number> | undefined;
+      let handler: query.ChangeHandler<number> | null = null;
+      const retrieve = vi.fn(async (): Promise<number> => {
+        throw new NotFoundError("no such number");
+      });
+      const { useRetrieveSuspended } = Flux.createRetrieve<{ key: string }, number>({
+        name: "Number",
+        retrieve,
+        subscribe: (_, h) => {
+          handler = h;
+          return () => {};
+        },
+        getCached: () => cached,
+      });
+
+      const Display = (): ReactElement => {
+        const value = useRetrieveSuspended({ key });
+        return <div data-testid="value">{value}</div>;
+      };
+
+      let utils!: ReturnType<typeof render>;
+      await act(async () => {
+        utils = render(
+          <Wrapper>
+            <Errors.SuspenseBoundary
+              loading={<div>waiting</div>}
+              FallbackComponent={({ error }) => (
+                <div data-testid="error">{error.message}</div>
+              )}
+            >
+              <Display />
+            </Errors.SuspenseBoundary>
+          </Wrapper>,
+        );
+      });
+      return {
+        utils,
+        retrieve,
+        push: (result) => {
+          cached = result;
+          handler?.(result);
+        },
+      };
+    };
+
+    it("stays suspended on not-found and resolves when the document appears", async () => {
+      const { utils, push } = await renderNotFound("nf-wait");
+      expect(utils.queryByText("waiting")).toBeTruthy();
+      expect(utils.queryByTestId("error")).toBeNull();
+
+      await act(async () => {
+        push({ variant: "changed", data: 21 });
+      });
+
+      await waitFor(() => expect(utils.queryByTestId("value")?.textContent).toBe("21"));
+    });
+
+    it("rejects with the not-found error after the wait expires, without refetching", async () => {
+      vi.useFakeTimers();
+      try {
+        const { utils, retrieve } = await renderNotFound("nf-timeout");
+        expect(utils.queryByText("waiting")).toBeTruthy();
+
+        await act(async () => {
+          vi.advanceTimersByTime(TimeSpan.seconds(6).milliseconds);
+          await Promise.resolve();
+        });
+
+        expect(utils.queryByTestId("error")?.textContent).toBe(
+          "Failed to retrieve Number",
+        );
+        expect(retrieve).toHaveBeenCalledTimes(1);
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
+    it("rejects with a deleted error when a tombstone arrives during the wait", async () => {
+      const { utils, push } = await renderNotFound("nf-tombstone");
+      expect(utils.queryByText("waiting")).toBeTruthy();
+
+      await act(async () => {
+        push({ variant: "deleted", corpse: 3 });
+      });
+
+      await waitFor(() =>
+        expect(utils.queryByTestId("error")?.textContent).toBe("Number was deleted"),
+      );
+    });
+
+    it("settles a not-found immediately when the query has no subscription", async () => {
+      const retrieve = vi.fn(async (): Promise<number> => {
+        throw new NotFoundError("no such number");
+      });
+      const { useRetrieveSuspended } = Flux.createRetrieve<{ key: string }, number>({
+        name: "Number",
+        retrieve,
+        getCached: () => undefined,
+      });
+
+      const Display = (): ReactElement => {
+        const value = useRetrieveSuspended({ key: "nf-unsubscribed" });
+        return <div>{value}</div>;
+      };
+
+      let utils!: ReturnType<typeof render>;
+      await act(async () => {
+        utils = render(
+          <Wrapper>
+            <Errors.SuspenseBoundary
+              loading={<div>waiting</div>}
+              FallbackComponent={({ error }) => (
+                <div data-testid="error">{error.message}</div>
+              )}
+            >
+              <Display />
+            </Errors.SuspenseBoundary>
+          </Wrapper>,
+        );
+      });
+
+      await act(async () => {
+        await Promise.resolve();
+      });
+
+      expect(utils.queryByTestId("error")?.textContent).toBe(
+        "Failed to retrieve Number",
+      );
+      expect(retrieve).toHaveBeenCalledTimes(1);
+    });
   });
 });
 

@@ -19,6 +19,7 @@ import (
 )
 
 const (
+	ActionTypeCreate         = "create"
 	ActionTypeRename         = "rename"
 	ActionTypeInsertTab      = "insert_tab"
 	ActionTypeRemoveTab      = "remove_tab"
@@ -28,6 +29,12 @@ const (
 	ActionTypeSetTabResource = "set_tab_resource"
 	ActionTypeSetTabView     = "set_tab_view"
 )
+
+// CreatePayload replaces the document with the given created state. Emitted by the
+// server on create so remote caches ingest new documents; clients never dispatch it.
+type CreatePayload struct {
+	Panel Panel `json:"panel" msgpack:"panel"`
+}
 
 // RenamePayload renames the panel. When the panel is owned by a user (draft), the
 // writer promotes it to project ownership in the same transaction.
@@ -111,6 +118,7 @@ type SetTabViewPayload struct {
 // the variant; the matching pointer field carries the payload and others are nil.
 type Action struct {
 	Type           string                 `json:"type" msgpack:"type"`
+	Create         *CreatePayload         `json:"create,omitempty" msgpack:"create,omitempty"`
 	Rename         *RenamePayload         `json:"rename,omitempty" msgpack:"rename,omitempty"`
 	InsertTab      *InsertTabPayload      `json:"insert_tab,omitempty" msgpack:"insert_tab,omitempty"`
 	RemoveTab      *RemoveTabPayload      `json:"remove_tab,omitempty" msgpack:"remove_tab,omitempty"`
@@ -130,6 +138,11 @@ func Reduce(state Panel, actions ...Action) (Panel, error) {
 	var err error
 	for _, a := range actions {
 		switch a.Type {
+		case ActionTypeCreate:
+			if a.Create == nil {
+				return state, union.MissingPayload(a.Type)
+			}
+			state, err = a.Create.Handle(state)
 		case ActionTypeRename:
 			if a.Rename == nil {
 				return state, union.MissingPayload(a.Type)
@@ -178,6 +191,11 @@ func Reduce(state Panel, actions ...Action) (Panel, error) {
 		}
 	}
 	return state, nil
+}
+
+// NewCreateAction wraps a CreatePayload in an Action envelope.
+func NewCreateAction(p CreatePayload) Action {
+	return Action{Type: ActionTypeCreate, Create: &p}
 }
 
 // NewRenameAction wraps a RenamePayload in an Action envelope.

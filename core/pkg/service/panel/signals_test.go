@@ -72,15 +72,22 @@ var _ = Describe("Signals", func() {
 		Expect(writer.Dispatch(ctx, p.Key, "dk-1", []panel.Action{
 			panel.NewRenameAction(panel.RenamePayload{Name: "renamed"}),
 		})).To(Succeed())
-		var res framer.StreamerResponse
-		Eventually(responses.Outlet(), time.Second*5).Should(Receive(&res))
 		var decoded []actions.Scoped[panel.Key, panel.Action]
-		for sample := range res.Frame.SeriesAt(0).Samples() {
-			var sa actions.Scoped[panel.Key, panel.Action]
-			Expect(json.Unmarshal(sample, &sa)).To(Succeed())
-			decoded = append(decoded, sa)
+		for len(decoded) < 2 {
+			var res framer.StreamerResponse
+			Eventually(responses.Outlet(), time.Second*5).Should(Receive(&res))
+			for sample := range res.Frame.SeriesAt(0).Samples() {
+				var sa actions.Scoped[panel.Key, panel.Action]
+				Expect(json.Unmarshal(sample, &sa)).To(Succeed())
+				decoded = append(decoded, sa)
+			}
 		}
-		Expect(decoded).ToNot(BeEmpty())
+		created := decoded[0]
+		Expect(created.Key).To(Equal(p.Key))
+		Expect(created.DispatchKey).To(BeEmpty())
+		Expect(created.Actions).To(HaveLen(1))
+		Expect(created.Actions[0].Type).To(Equal(panel.ActionTypeCreate))
+		Expect(created.Actions[0].Create.Panel.Key).To(Equal(p.Key))
 		last := decoded[len(decoded)-1]
 		Expect(last.Key).To(Equal(p.Key))
 		Expect(last.DispatchKey).To(Equal("dk-1"))

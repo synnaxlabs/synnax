@@ -61,6 +61,9 @@ func (w Writer) Create(ctx context.Context, a *Arc) error {
 	if err = w.table.NewCreate().Entry(a).Exec(ctx, w.tx); err != nil {
 		return err
 	}
+	w.dispatcher.Notify(
+		ctx, a.Key, "", []Action{NewCreateAction(CreatePayload{Arc: *a})},
+	)
 	otgID := OntologyID(a.Key)
 	if !exists {
 		if err = w.otgWriter.DefineResources(ctx, otgID); err != nil {

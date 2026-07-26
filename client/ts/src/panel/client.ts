@@ -13,7 +13,7 @@ import { z } from "zod";
 
 import { actions } from "@/actions";
 import { ontology } from "@/ontology";
-import { kindOf, reduceAll } from "@/panel/actions";
+import { createOf, kindOf, reduceAll } from "@/panel/actions";
 import {
   type Action,
   dispatchReqZ,
@@ -93,6 +93,7 @@ export class Client extends query.Retriever<typeof retrieveReqZ, Key, Panel> {
       onError: cache.onError,
       reduce: reduceAll,
       kindOf,
+      createOf,
     });
     cache.listen(dispatcher.listener(SET_CHANNEL_NAME, scopedActionZ));
     super(cache, {

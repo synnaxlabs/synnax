@@ -9,7 +9,7 @@
 
 import "@/feature/panel/Mosaic.css";
 
-import { ontology, type panel } from "@synnaxlabs/client";
+import { NotFoundError, ontology, type panel } from "@synnaxlabs/client";
 import {
   Breadcrumb,
   Button,
@@ -96,12 +96,36 @@ const DeletedContent = (props: Errors.FallbackProps): ReactElement => {
   return <DeletedResourceContent {...props} />;
 };
 
-const ContentFallback = (props: Errors.FallbackProps): ReactElement =>
-  Flux.DeletedError.matches(props.error) ? (
-    <DeletedContent {...props} />
-  ) : (
-    <Errors.Fallback {...props} />
+// A reference can permanently outrun its document: the retrieve's not-found
+// wait expired without a create broadcast. Offer to close the tab.
+const NotFoundResourceContent = (): ReactElement => {
+  const resource = Panel.useSelectTabResource({});
+  const closeTabs = Panel.useCloseResourceTabs();
+  return (
+    <Flex.Box grow align="center" justify="center" gap="small">
+      <Icon.Warning />
+      <Text.Text>This resource could not be found</Text.Text>
+      <Button.Button onClick={() => closeTabs(resource)}>Close</Button.Button>
+    </Flex.Box>
   );
+};
+
+const NotFoundContent = (props: Errors.FallbackProps): ReactElement => {
+  const variant = Panel.useSelectTabVariant({});
+  if (variant !== "resource") return <Errors.Fallback {...props} />;
+  return <NotFoundResourceContent />;
+};
+
+// The not-found wait rejects with a wrapper whose cause carries the typed
+// error, so the cause is matched alongside the error itself.
+const isNotFound = (error: Error): boolean =>
+  NotFoundError.matches(error) || NotFoundError.matches(error.cause);
+
+const ContentFallback = (props: Errors.FallbackProps): ReactElement => {
+  if (Flux.DeletedError.matches(props.error)) return <DeletedContent {...props} />;
+  if (isNotFound(props.error)) return <NotFoundContent {...props} />;
+  return <Errors.Fallback {...props} />;
+};
 
 const TabName = (): ReactElement => {
   const { Name } = useTab();

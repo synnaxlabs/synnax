@@ -52,6 +52,9 @@ func (w Writer) Create(ctx context.Context, projectKey project.Key, t *Table) er
 	if err = w.tbl.NewCreate().Entry(t).Exec(ctx, w.tx); err != nil {
 		return err
 	}
+	w.dispatcher.Notify(
+		ctx, t.Key, "", []Action{NewCreateAction(CreatePayload{Table: *t})},
+	)
 	if exists {
 		return nil
 	}

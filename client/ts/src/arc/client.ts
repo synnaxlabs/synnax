@@ -16,7 +16,7 @@ import { array, deep, destructor, errors, id, primitive } from "@synnaxlabs/x";
 import { z } from "zod/v4";
 
 import { actions } from "@/actions";
-import { isUndoable, kindOf, reduceAll } from "@/arc/actions";
+import { createOf, isUndoable, kindOf, reduceAll } from "@/arc/actions";
 import {
   type Action,
   dispatchReqZ,
@@ -190,6 +190,7 @@ export class Client extends query.Retriever<
       reduce: reduceAll,
       isUndoable,
       kindOf,
+      createOf,
     });
     cache.listen(dispatcher.listener(SET_CHANNEL_NAME, scopedActionZ));
     const single = cache.queries<SingleRetrieveParams, Arc, Key, Arc>({

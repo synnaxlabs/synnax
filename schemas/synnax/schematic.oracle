@@ -92,6 +92,16 @@ Schematic struct {
         @ts preserve_case
     }
 
+    action Create {
+        schematic Schematic
+
+        @doc value """
+            replaces the document with the given created state. Emitted by the
+            server on create so remote caches ingest new documents; clients
+            never dispatch it.
+        """
+    }
+
     action Rename {
         name string
 
