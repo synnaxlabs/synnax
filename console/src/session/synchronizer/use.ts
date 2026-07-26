@@ -43,7 +43,7 @@ export const use = (synchronizers: Synchronizers): void => {
       void (async () => {
         for (const [key, synchronizer] of entriesRef.current)
           try {
-            await synchronizer.reconcile?.(params);
+            await synchronizer.reconcile(params);
           } catch (err) {
             console.error(`${key} reconcile failed`, err);
           }

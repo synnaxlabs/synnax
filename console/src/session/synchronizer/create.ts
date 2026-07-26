@@ -27,7 +27,10 @@ export interface Params<S = unknown, A extends Action = UnknownAction> {
  * The host runs reconcile at client-ready and on every epoch bump, and mounts
  * listen once per client, tearing it down on client swap or unmount.
  */
-export interface Synchronizer<S = unknown, A extends Action = UnknownAction> {
+// The any defaults erase the store shape at the registry boundary: the host
+// always calls with the full session store, which satisfies every
+// synchronizer's slice-composed S.
+export interface Synchronizer<S = any, A extends Action = any> {
   /** Idempotent boundary repair. Pulls state at call time. */
   reconcile: (params: Params<S, A>) => void | Promise<void>;
   /** Mounts steady-state subscriptions: client feeds and store watches. */
@@ -38,10 +41,7 @@ export interface Synchronizer<S = unknown, A extends Action = UnknownAction> {
  * Builds a synchronizer. The hook body only captures context (flux handles,
  * adders); execution timing belongs to the host.
  */
-export type Use<S = unknown, A extends Action = UnknownAction> = () => Synchronizer<
-  S,
-  A
->;
+export type Use<S = any, A extends Action = any> = () => Synchronizer<S, A>;
 
 /**
  * Synchronizer hooks keyed by name, mounted in declaration order by the host.
