@@ -12,6 +12,7 @@ import { render, waitFor } from "@testing-library/react";
 import {
   Component,
   type FC,
+  Fragment,
   type PropsWithChildren,
   type ReactNode,
   StrictMode,
@@ -1776,6 +1777,46 @@ describe("Aether Main", () => {
       unsubscribe();
       // No subscribers and no entry: cache is cleared.
       expect(snapshot).toThrow(/missing entry/);
+    });
+    it("should survive re-parenting under the same aether path in a single commit", async () => {
+      // A table keys its rows by index, so deleting row A re-parents row B's cells:
+      // React mounts a fresh cell instance (registering at the same path during
+      // render) and then unmounts the old instance, whose cleanup must not clobber
+      // the new registration.
+      const [Provider, root] = await newProvider();
+      let observedX: number | null = null;
+      const Cell = () => {
+        const [, state] = Aether.use({
+          type: ExampleLeaf.TYPE,
+          schema: exampleProps,
+          initialState: { x: 1 },
+          aetherKey: "cell-b2",
+        });
+        observedX = state.x;
+        return null;
+      };
+      const Rows = ({ rows }: { rows: string[][] }) => (
+        <>
+          {rows.map((cells, i) => (
+            <Fragment key={i}>{cells.includes("b2") && <Cell />}</Fragment>
+          ))}
+        </>
+      );
+      const result = render(
+        <Provider>
+          <Rows rows={[["a1"], ["b2"]]} />
+        </Provider>,
+      );
+      await expect.poll(() => root.children.length === 1).toBe(true);
+      result.rerender(
+        <Provider>
+          <Rows rows={[["b2"]]} />
+        </Provider>,
+      );
+      await expect.poll(() => root.children.length === 1).toBe(true);
+      const leaf = root.children[0] as ExampleLeaf;
+      leaf.setState({ x: 42 });
+      await expect.poll(() => observedX === 42).toBe(true);
     });
   });
 });

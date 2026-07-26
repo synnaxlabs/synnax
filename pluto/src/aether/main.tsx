@@ -164,9 +164,13 @@ export const useLifecycle = <
   });
   const { methods } = handleRef.current;
 
+  // Unmount via the handle, not store.unregister(path): when a component
+  // re-parents in a single commit (e.g. table rows keyed by index), the new
+  // instance registers at the same path during render before this cleanup
+  // runs, and a path-based unregister would tear down that fresh registration.
   useLayoutEffect(
     () => () => {
-      ctx.store.unregister(path);
+      handleRef.current?.delete();
       handleRef.current = null;
     },
     [ctx.store, path],
