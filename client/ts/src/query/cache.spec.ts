@@ -340,4 +340,65 @@ describe("Cache", () => {
       await cache.close();
     });
   });
+
+  describe("reset", () => {
+    it("clears every table and returns the epoch to 0", async () => {
+      const cache = makeEngine();
+      const table = cache.createTable<string, Doc>({ name: "docs" });
+      table.set("k1", { key: "k1", name: "a" });
+      table.set("k2", { key: "k2", name: "b" });
+      table.delete("k2");
+      await cache.ensureStreaming();
+      expect(cache.epoch).toBe(1);
+      const epochs: number[] = [];
+      cache.onEpoch((epoch) => epochs.push(epoch));
+      await cache.reset();
+      expect(cache.epoch).toBe(0);
+      expect(epochs).toEqual([0]);
+      expect(table.get()).toEqual([]);
+      expect(table.status("k1")).toEqual("unknown");
+      expect(table.status("k2")).toEqual("unknown");
+      await cache.close();
+    });
+
+    it("reopens the stream on the next demand and returns to epoch 1", async () => {
+      const cache = makeEngine();
+      cache.createTable<string, Doc>({ name: "docs" });
+      await cache.ensureStreaming();
+      expect(cache.epoch).toBe(1);
+      await cache.reset();
+      await cache.ensureStreaming();
+      expect(cache.epoch).toBe(1);
+      await cache.close();
+    });
+
+    it("invalidates answer spaces so subscribers refetch", async () => {
+      const cache = makeEngine();
+      const table = cache.createTable<string, Doc>({ name: "docs" });
+      const space = cache.queries<string, Doc, string, Doc>({
+        name: "docs",
+        table,
+        fetch: async (key) => {
+          table.set(key, { key, name: "fetched" });
+          return [key];
+        },
+        compose: (records) => records[0],
+        keyOf: (query) => query,
+        single: true,
+      });
+      await space.retrieve("k1");
+      expect(space.getCached("k1")?.variant).toEqual("changed");
+      const results: Array<query.Cached<Doc> | undefined> = [];
+      const detach = space.onChange("k1", (result) => results.push(result));
+      await cache.reset();
+      expect(results).toEqual([undefined]);
+      expect(space.getCached("k1")).toBeUndefined();
+      await expect(space.retrieve("k1")).resolves.toEqual({
+        key: "k1",
+        name: "fetched",
+      });
+      detach();
+      await cache.close();
+    });
+  });
 });

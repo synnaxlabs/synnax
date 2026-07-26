@@ -361,7 +361,8 @@ export const useObservableRetrieve = <
 /**
  * Fetch dedup and settled answers for queries the domain client does not
  * cache. Entries persist until the next fetch of the same query replaces
- * them; domain-cached queries never populate `settled`.
+ * them; domain-cached queries never populate `settled`. Scoped per client so
+ * a settled error never outlives the client whose fetch produced it.
  */
 interface LocalCache<Data> {
   inFlight: Map<string, Promise<Data>>;
@@ -370,8 +371,20 @@ interface LocalCache<Data> {
 
 interface UseSuspendedParams<Query extends query.Params, Data extends query.Data> {
   query: Query;
-  local: LocalCache<Data>;
+  locals: WeakMap<Client, LocalCache<Data>>;
 }
+
+const localFor = <Data extends query.Data>(
+  locals: WeakMap<Client, LocalCache<Data>>,
+  client: Client,
+): LocalCache<Data> => {
+  let local = locals.get(client);
+  if (local == null) {
+    local = { inFlight: new Map(), settled: new Map() };
+    locals.set(client, local);
+  }
+  return local;
+};
 
 const NOOP_SUBSCRIBE = () => () => {};
 
@@ -461,11 +474,7 @@ const suspendOnFetch = <Query extends query.Params, Data extends query.Data>(
         // A domain-cached not-found stays pending: the reference may have
         // outrun its document's create broadcast, which the subscription will
         // deliver. Everything else settles.
-        if (
-          subscribe != null &&
-          getCached != null &&
-          NotFoundError.matches(cause)
-        )
+        if (subscribe != null && getCached != null && NotFoundError.matches(cause))
           return awaitCreation(params, {
             name,
             error,
@@ -489,7 +498,7 @@ const suspendOnFetch = <Query extends query.Params, Data extends query.Data>(
 
 const useSuspended = <Query extends query.Params, Data extends query.Data>({
   query,
-  local,
+  locals,
   name,
   retrieve,
   subscribe,
@@ -502,6 +511,7 @@ const useSuspended = <Query extends query.Params, Data extends query.Data>({
   if (client == null)
     throw new DisconnectedError(`Cannot retrieve ${name}: no Core connected.`);
 
+  const local = localFor(locals, client);
   const params = { client, query: memoQuery };
 
   const cached = useSyncExternalStore(
@@ -525,7 +535,7 @@ const useSuspended = <Query extends query.Params, Data extends query.Data>({
 
 const useEnsure = <Query extends query.Params, Data extends query.Data>({
   query,
-  local,
+  locals,
   name,
   retrieve,
   subscribe,
@@ -538,6 +548,7 @@ const useEnsure = <Query extends query.Params, Data extends query.Data>({
   if (client == null)
     throw new DisconnectedError(`Cannot retrieve ${name}: no Core connected.`);
 
+  const local = localFor(locals, client);
   const params = { client, query: memoQuery };
 
   const cached = getCached?.(params);
@@ -551,7 +562,7 @@ const useEnsure = <Query extends query.Params, Data extends query.Data>({
 export const createRetrieve = <Query extends query.Params, Data extends query.Data>(
   createParams: CreateRetrieveParams<Query, Data>,
 ): CreateRetrieveReturn<Query, Data> => {
-  const local: LocalCache<Data> = { inFlight: new Map(), settled: new Map() };
+  const locals = new WeakMap<Client, LocalCache<Data>>();
   return {
     useRetrieve: (
       query: Query,
@@ -563,7 +574,7 @@ export const createRetrieve = <Query extends query.Params, Data extends query.Da
     useRetrieveObservable: (params: UseRetrieveObservableParams<Query, Data>) =>
       useObservableRetrieve({ ...params, ...createParams }),
     useRetrieveSuspended: (query: Query) =>
-      useSuspended({ ...createParams, query, local }),
-    useEnsureRetrieved: (query: Query) => useEnsure({ ...createParams, query, local }),
+      useSuspended({ ...createParams, query, locals }),
+    useEnsureRetrieved: (query: Query) => useEnsure({ ...createParams, query, locals }),
   };
 };

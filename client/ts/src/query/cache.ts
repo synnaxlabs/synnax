@@ -50,6 +50,7 @@ interface TableEntry {
   name: string;
   listeners: Listener[];
   reconcile?: () => Promise<void>;
+  clear: () => void;
 }
 
 /**
@@ -85,7 +86,7 @@ const bindReconcile =
 export class Cache {
   private readonly entries: TableEntry[] = [];
   private readonly reactions: Listener[] = [];
-  private readonly spaces: Array<{ close: () => void }> = [];
+  private readonly spaces: Array<{ close: () => void; invalidate: () => void }> = [];
   private readonly epochObserver = new observe.Observer<number>();
   private readonly openStreamer: StreamOpener | null;
   private streamer: Streamer | null = null;
@@ -119,6 +120,7 @@ export class Cache {
       name,
       listeners: (listen ?? []).map((spec) => spec.bind(table)),
       reconcile: config.fetch == null ? undefined : bindReconcile(table, config.fetch),
+      clear: () => table.clear(),
     });
     return table;
   }
@@ -164,19 +166,28 @@ export class Cache {
   async ensureStreaming(): Promise<void> {
     const { openStreamer } = this;
     if (openStreamer == null) return;
-    this.streamer ??= createStreamer({
-      openStreamer,
-      listeners: [
-        ...this.entries.flatMap(({ listeners }) => listeners),
-        ...this.reactions,
-      ],
-      onError: this.onError,
-      onOpen: () => {
-        this.epochCount = 1;
-        this.epochObserver.notify(this.epochCount);
-      },
-      onReopen: () => this.bumpEpoch(),
-    });
+    if (this.streamer == null) {
+      // A reset can retire the streamer while its open is in flight; a
+      // retired streamer's lifecycle callbacks must not touch the epoch.
+      const streamer = createStreamer({
+        openStreamer,
+        listeners: [
+          ...this.entries.flatMap(({ listeners }) => listeners),
+          ...this.reactions,
+        ],
+        onError: this.onError,
+        onOpen: () => {
+          if (this.streamer !== streamer) return;
+          this.epochCount = 1;
+          this.epochObserver.notify(this.epochCount);
+        },
+        onReopen: () => {
+          if (this.streamer !== streamer) return;
+          this.bumpEpoch();
+        },
+      });
+      this.streamer = streamer;
+    }
     await this.streamer.demand();
   }
 
@@ -209,6 +220,24 @@ export class Cache {
         }
       }),
     );
+  }
+
+  /**
+   * Discards every cached row, tombstone, and answer, closes the change
+   * stream so it reopens fresh, and returns the epoch to 0. Called when the
+   * cluster behind the connection is replaced: no cached record, corpse, or
+   * answer remains meaningful, so nothing is tombstoned or diffed.
+   */
+  async reset(): Promise<void> {
+    const { streamer } = this;
+    this.streamer = null;
+    // Drain the retired stream first so a late frame cannot repopulate the
+    // tables cleared below.
+    await streamer?.close();
+    this.entries.forEach(({ clear }) => clear());
+    this.spaces.forEach((space) => space.invalidate());
+    this.epochCount = 0;
+    this.epochObserver.notify(0);
   }
 
   private bumpEpoch(): void {

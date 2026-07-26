@@ -154,8 +154,8 @@ export interface QueriesParams<
 export interface AnswersHooks {
   /** Started (not awaited) on reads and subscriptions to open change delivery. */
   ensureStreaming?: () => Promise<void>;
-  /** Subscribes to connection-epoch bumps; maintained answers refetch on bump. */
-  onEpoch?: (callback: () => void) => destructor.Destructor;
+  /** Subscribes to connection-epoch changes; maintained answers refetch on bump. */
+  onEpoch?: (callback: (epoch: number) => void) => destructor.Destructor;
   /** Reports maintenance errors that have no caller to throw to. */
   onError?: (error: Error) => void;
 }
@@ -204,7 +204,10 @@ export class Queries<
   constructor(params: QueriesParams<Q, D, K, V>, hooks: AnswersHooks = {}) {
     this.params = params;
     this.hooks = hooks;
-    this.detachEpoch = hooks.onEpoch?.(() => {
+    this.detachEpoch = hooks.onEpoch?.((epoch) => {
+      // 0 is a return to cold (cluster replacement): the fresh stream's own
+      // epoch bump refetches, not the reset itself.
+      if (epoch === 0) return;
       this.entries.forEach((entry) => {
         if (entry.teardown != null) this.refetch(entry);
       });
@@ -283,6 +286,30 @@ export class Queries<
         entry.refetchTimer = undefined;
       }
     };
+  }
+
+  /**
+   * Resets every answer to unfetched and notifies subscribers that their
+   * answer was invalidated, so the next read refetches. Maintenance
+   * subscriptions stay mounted. Called by the cache when the cluster behind
+   * the connection is replaced.
+   */
+  invalidate(): void {
+    this.entries.forEach((entry) => {
+      if (entry.refetchTimer != null) {
+        clearTimeout(entry.refetchTimer);
+        entry.refetchTimer = undefined;
+      }
+      entry.state = { variant: "unfetched" };
+      entry.snapshot = undefined;
+      entry.handlers.forEach((handler) => {
+        try {
+          handler(undefined);
+        } catch (exc) {
+          this.report(exc, `failed to notify ${this.params.name} answer subscriber`);
+        }
+      });
+    });
   }
 
   /** Detaches the epoch subscription. Entries and handlers are dropped. */

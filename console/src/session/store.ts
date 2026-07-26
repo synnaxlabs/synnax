@@ -85,6 +85,7 @@ export const ZERO_STATE: State = {
   [Panel.SLICE_NAME]: Panel.ZERO_SLICE_STATE,
   [Log.SLICE_NAME]: Log.ZERO_SLICE_STATE,
   [LinePlot.SLICE_NAME]: LinePlot.ZERO_SLICE_STATE,
+  [Persist.SLICE_NAME]: Persist.ZERO_SLICE_STATE,
   [Project.SLICE_NAME]: Project.ZERO_SLICE_STATE,
   [Range.SLICE_NAME]: Range.ZERO_SLICE_STATE,
   [Schematic.SLICE_NAME]: Schematic.ZERO_SLICE_STATE,
@@ -104,6 +105,7 @@ const combinedReducer = combineReducers({
   [Panel.SLICE_NAME]: Panel.reducer,
   [Log.SLICE_NAME]: Log.reducer,
   [LinePlot.SLICE_NAME]: LinePlot.reducer,
+  [Persist.SLICE_NAME]: Persist.reducer,
   [Project.SLICE_NAME]: Project.reducer,
   [Range.SLICE_NAME]: Range.reducer,
   [Schematic.SLICE_NAME]: Schematic.reducer,
@@ -134,6 +136,7 @@ export interface State {
   [Haul.SLICE_NAME]: Haul.SliceState;
   [Log.SLICE_NAME]: Log.SliceState;
   [LinePlot.SLICE_NAME]: LinePlot.SliceState;
+  [Persist.SLICE_NAME]: Persist.SliceState;
   [Project.SLICE_NAME]: Project.SliceState;
   [Nav.SLICE_NAME]: Nav.SliceState;
   [Panel.SLICE_NAME]: Panel.SliceState;
@@ -179,6 +182,8 @@ export interface CreateStoreOptions extends Partial<
   >
 > {
   enablePersistence?: boolean;
+  /** Overrides the persistence KV store. Tests inject an in-memory KV. */
+  openKV?: Persist.KVOpener;
 }
 
 export const createStore = async (opts: CreateStoreOptions = {}): Promise<Store> => {
@@ -187,6 +192,7 @@ export const createStore = async (opts: CreateStoreOptions = {}): Promise<Store>
     enablePrerender = !IS_DEV,
     debug = false,
     enablePersistence = true,
+    openKV,
   } = opts;
   let { preloadedState } = opts;
   const middleware: Middleware[] = [...BASE_MIDDLEWARE];
@@ -197,6 +203,7 @@ export const createStore = async (opts: CreateStoreOptions = {}): Promise<Store>
       getContext: getPersistContext,
       migrators: PERSIST_MIGRATORS,
       exclude: PERSIST_EXCLUDE,
+      openKV,
     });
     preloadedState ??= persist.initialState;
     middleware.push(persist.middleware);

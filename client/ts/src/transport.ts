@@ -20,6 +20,12 @@ import { binary, type breaker, type url } from "@synnaxlabs/x";
 export class Transport {
   readonly url: url.URL;
   readonly unary: UnaryClient;
+  /**
+   * The unary client without the breaker's retry wrapper, for callers that
+   * own their retry policy (the connection prober). Shares middleware with
+   * {@link unary}.
+   */
+  readonly unaryNoRetry: UnaryClient;
   readonly file: FileTransport;
   readonly stream: WebSocketClient;
   readonly secure: boolean;
@@ -34,6 +40,7 @@ export class Transport {
     // one-shot ReadableStream that cannot be re-sent on a retry.
     const http = new HTTPClient(this.url, codec, this.secure);
     this.unary = unaryWithBreaker(http, breakerCfg);
+    this.unaryNoRetry = http;
     this.file = http;
     this.stream = new WebSocketClient(this.url, codec, this.secure);
   }

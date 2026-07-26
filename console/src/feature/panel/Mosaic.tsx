@@ -236,6 +236,29 @@ const EmptyContent = (): ReactElement => (
   </Flex.Box>
 );
 
+// Last resort for a panel document that failed to load: the reconcile pass
+// should have pruned dead references before the mosaic rendered. Close
+// removes the reference the way the prune would have.
+const PanelFallback = (props: Errors.FallbackProps): ReactElement => {
+  const { error } = props;
+  const selected = Session.Panel.useSelectSelected();
+  const dispatch = useDispatch();
+  if (!Flux.DeletedError.matches(error) && !isNotFound(error))
+    return <Errors.Fallback {...props} />;
+  const name = corpseName(error);
+  return (
+    <Flex.Box grow align="center" justify="center" gap="small">
+      <Icon.Warning />
+      <Text.Text>{name ?? "This panel"} could not be found</Text.Text>
+      {selected != null && (
+        <Button.Button onClick={() => dispatch(Session.Panel.remove(selected))}>
+          Close
+        </Button.Button>
+      )}
+    </Flex.Box>
+  );
+};
+
 export interface MosaicProps {
   onCreateTab: () => panel.NewTab;
 }
@@ -244,8 +267,10 @@ export const Mosaic = ({ onCreateTab }: MosaicProps): ReactElement => {
   const selected = Session.Panel.useSelectSelected();
   if (selected == null) return <EmptyContent />;
   return (
-    <Panel.Suspended panelKey={selected}>
-      <Internal onCreateTab={onCreateTab} />
-    </Panel.Suspended>
+    <Errors.SuspenseBoundary key={selected} FallbackComponent={PanelFallback}>
+      <Panel.Suspended panelKey={selected}>
+        <Internal onCreateTab={onCreateTab} />
+      </Panel.Suspended>
+    </Errors.SuspenseBoundary>
   );
 };

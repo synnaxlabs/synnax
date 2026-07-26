@@ -800,38 +800,38 @@ describe("Answers", () => {
   describe("epochs", () => {
     it("refetches maintained answers on an epoch bump", async () => {
       const table = newTable();
-      let bump: () => void = () => {};
+      let bump: (epoch: number) => void = () => {};
       const fetch = vi.fn(async () => {
         table.set("a", rec("a", 1));
         return ["a"];
       });
       const answers = singleSpace(table, fetch, {
-        onEpoch: (callback: () => void) => {
+        onEpoch: (callback: (epoch: number) => void) => {
           bump = callback;
           return () => {};
         },
       });
       answers.onChange(qA, vi.fn());
       await answers.retrieve(qA);
-      bump();
+      bump(2);
       await expect.poll(() => fetch.mock.calls.length).toBe(2);
     });
 
     it("does not refetch unmaintained answers on an epoch bump", async () => {
       const table = newTable();
-      let bump: () => void = () => {};
+      let bump: (epoch: number) => void = () => {};
       const fetch = vi.fn(async () => {
         table.set("a", rec("a", 1));
         return ["a"];
       });
       const answers = singleSpace(table, fetch, {
-        onEpoch: (callback: () => void) => {
+        onEpoch: (callback: (epoch: number) => void) => {
           bump = callback;
           return () => {};
         },
       });
       await answers.retrieve(qA);
-      bump();
+      bump(2);
       await wait(10);
       expect(fetch).toHaveBeenCalledTimes(1);
     });

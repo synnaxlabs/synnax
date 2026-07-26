@@ -105,6 +105,44 @@ describe("Synchronizer.use", () => {
     expect(destroyed).toBe(true);
   });
 
+  it("should report verified only after a full pass completes", async () => {
+    let release: () => void = () => {};
+    const gate = new Promise<void>((resolve) => (release = resolve));
+    const { wrapper } = await createConsoleWrapper({ client });
+    const { result } = renderHook(
+      () =>
+        Synchronizer.use({
+          useSlow: () => ({
+            reconcile: async () => {
+              await gate;
+            },
+          }),
+        }),
+      { wrapper },
+    );
+    expect(result.current).toBe(false);
+    release();
+    await waitFor(() => expect(result.current).toBe(true));
+  });
+
+  it("should reset verified when the epoch returns to 0", async () => {
+    const local = createTestClient();
+    try {
+      const { wrapper } = await createConsoleWrapper({ client: local });
+      const { result } = renderHook(
+        () => Synchronizer.use({ useNoop: () => ({ reconcile: () => {} }) }),
+        { wrapper },
+      );
+      await waitFor(() => expect(result.current).toBe(true));
+      await local.cache.reset();
+      await waitFor(() => expect(result.current).toBe(false));
+      await local.cache.ensureStreaming();
+      await waitFor(() => expect(result.current).toBe(true));
+    } finally {
+      local.close();
+    }
+  });
+
   it("should not invoke anything without a client", async () => {
     const calls: string[] = [];
     const { wrapper } = await createConsoleWrapper({ client: null });

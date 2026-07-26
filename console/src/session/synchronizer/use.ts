@@ -9,7 +9,7 @@
 
 import { type UnknownAction } from "@reduxjs/toolkit";
 import { Synnax } from "@synnaxlabs/pluto";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useStore } from "react-redux";
 
 import {
@@ -22,10 +22,14 @@ import {
  * Mounts the given synchronizers in a single effect. Listeners mount before
  * the first reconcile; reconciles run sequentially in declaration order at
  * client-ready and on every epoch bump. Remounts only on client change.
+ * @returns whether a full reconcile pass has completed since the last
+ * return-to-cold: false until the first pass finishes, reset on client change
+ * and on the epoch returning to 0 (cluster replacement).
  */
-export const use = (synchronizers: Synchronizers): void => {
+export const use = (synchronizers: Synchronizers): boolean => {
   const store = useStore<unknown, UnknownAction>();
   const client = Synnax.use();
+  const [verified, setVerified] = useState(false);
   const entries: [string, Synchronizer][] = Object.entries(synchronizers).map(
     ([key, useSynchronizer]) => [key, useSynchronizer()],
   );
@@ -35,11 +39,16 @@ export const use = (synchronizers: Synchronizers): void => {
   entriesRef.current = entries;
   useEffect(() => {
     if (client == null) return;
+    setVerified(false);
     const params: Params = { client, store };
+    // A pass finishing after its cold reset must not count: it verified
+    // against a cluster the client no longer mirrors.
+    let generation = 0;
     const destructors = entriesRef.current.flatMap(
       ([, { listen }]) => listen?.(params) ?? [],
     );
     const reconcile = (): void => {
+      const gen = generation;
       void (async () => {
         for (const [key, synchronizer] of entriesRef.current)
           try {
@@ -47,10 +56,30 @@ export const use = (synchronizers: Synchronizers): void => {
           } catch (err) {
             console.error(`${key} reconcile failed`, err);
           }
+        if (gen === generation) setVerified(true);
       })();
     };
+    // The host demands the change stream it verifies against: with no stream
+    // the epoch never leaves 0 and the workspace never settles.
     if (client.cache.epoch > 0) reconcile();
-    destructors.push(client.cache.onEpoch(reconcile));
-    return () => destructors.forEach((destroy) => destroy());
+    else
+      client.cache
+        .ensureStreaming()
+        .catch((err: unknown) => console.error("failed to open change stream", err));
+    destructors.push(
+      client.cache.onEpoch((epoch) => {
+        if (epoch === 0) {
+          generation++;
+          setVerified(false);
+          return;
+        }
+        reconcile();
+      }),
+    );
+    return () => {
+      generation++;
+      destructors.forEach((destroy) => destroy());
+    };
   }, [client, store]);
+  return verified;
 };

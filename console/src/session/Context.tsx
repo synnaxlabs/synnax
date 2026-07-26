@@ -57,8 +57,10 @@ const WINDOW_SYNCHRONIZERS: Synchronizer.Synchronizers = Panel.WINDOW_SYNCHRONIZ
 /**
  * Mounts the session synchronizers for this window. Must be called below the
  * Pluto providers, in every window.
+ * @returns whether a full reconcile pass has completed since the last
+ * return-to-cold.
  */
-export const useSynchronizers = (): void =>
+export const useSynchronizers = (): boolean =>
   Synchronizer.use(
     Runtime.isMainWindow()
       ? { ...WINDOW_SYNCHRONIZERS, ...MAIN_SYNCHRONIZERS }

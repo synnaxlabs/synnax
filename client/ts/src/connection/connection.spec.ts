@@ -367,6 +367,52 @@ describe("connection", () => {
       expect(apply(config, { type: "epoch.advanced", epoch: 2 }).details.epoch).toBe(2);
     });
 
+    it("should return to first contact on cluster replacement", () => {
+      const config = createConfig({ requiresStream: true });
+      const connected = apply(
+        config,
+        { type: "probe.success", info: createInfo() },
+        { type: "stream.live" },
+        { type: "epoch.advanced", epoch: 1 },
+      );
+      expect(connected.variant).toEqual("success");
+      const replaced = connection.reduce(
+        connected,
+        {
+          type: "cluster.replaced",
+          info: createInfo({ clusterKey: "other-cluster" }),
+        },
+        config,
+      );
+      expect(replaced.variant).toEqual("loading");
+      expect(replaced.details.clusterKey).toEqual("other-cluster");
+      expect(replaced.details.epoch).toBe(0);
+      expect(replaced.details.streamLive).toBe(false);
+      expect(replaced.details.retry).toBeNull();
+    });
+
+    it("should clear a parked error on cluster replacement", () => {
+      const config = createConfig();
+      const parked = apply(
+        config,
+        { type: "probe.success", info: createInfo() },
+        { type: "probe.failure", error: new Error("gone"), attempt: 10 },
+        { type: "retry.exhausted" },
+      );
+      expect(parked.variant).toEqual("error");
+      const replaced = connection.reduce(
+        parked,
+        {
+          type: "cluster.replaced",
+          info: createInfo({ clusterKey: "other-cluster" }),
+        },
+        config,
+      );
+      expect(replaced.variant).toEqual("loading");
+      expect(replaced.details.reason).toBeUndefined();
+      expect(replaced.details.error).toBeUndefined();
+    });
+
     it("should become disabled on close and stay there", () => {
       const config = createConfig();
       const closed = apply(config, { type: "closed" });

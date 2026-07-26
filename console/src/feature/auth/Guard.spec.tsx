@@ -100,12 +100,14 @@ describe("auth guard", () => {
     pinLocationOrigin("http://localhost:9090");
     const { wrapper, store } = await createSessionConsoleWrapper({ client: null });
     render(
-      <Auth.Guard>
-        <Auth.ConnectionGuard>
-          <Cluster.ConnectionBadge />
-          <span>authenticated content</span>
-        </Auth.ConnectionGuard>
-      </Auth.Guard>,
+      <Session.Settled.Provider>
+        <Auth.Guard>
+          <Auth.ConnectionGuard>
+            <Cluster.ConnectionBadge />
+            <span>authenticated content</span>
+          </Auth.ConnectionGuard>
+        </Auth.Guard>
+      </Session.Settled.Provider>,
       { wrapper },
     );
     submitCredentials("synnax", uniqueName("wrong"));
@@ -121,8 +123,58 @@ describe("auth guard", () => {
       () => expect(document.querySelector(".pluto--status-success")).toBeTruthy(),
       { timeout: 10000 },
     );
-    expect(screen.getByText("authenticated content")).toBeTruthy();
+    // The login sequence swaps the cluster and project partitions in turn;
+    // the workspace settles once the second swap hydrates.
+    expect(
+      await screen.findByText("authenticated content", {}, { timeout: 10000 }),
+    ).toBeTruthy();
     expect(screen.queryByText(/invalid credentials/i)).toBeNull();
-    expect(Session.Cluster.selectSelectedKey(store.getState())).toBe(key);
+    // The synchronizer adopts the server-issued key, renaming the failed
+    // login's entry in place rather than minting a duplicate.
+    const selected = Session.Cluster.selectSelectedKey(store.getState());
+    expect(selected).toBeDefined();
+    expect(selected).not.toBe(key);
+    const keys = Session.Cluster.selectMany(store.getState())
+      .map(({ key: k }) => k)
+      .filter((k) => k !== "DEMO");
+    expect(keys).toEqual([selected]);
+  });
+
+  it("should surface connection trouble at a cold start against an unreachable cluster", async () => {
+    const DEAD_KEY = "dead";
+    const { wrapper } = await createSessionConsoleWrapper({
+      client: null,
+      preloadedState: {
+        [Session.Cluster.SLICE_NAME]: {
+          ...Session.Cluster.ZERO_SLICE_STATE,
+          clusters: {
+            [DEAD_KEY]: {
+              key: DEAD_KEY,
+              name: "Dead",
+              host: "localhost",
+              port: 9098,
+              username: "synnax",
+              password: "seldon",
+              secure: false,
+            },
+          },
+          selected: DEAD_KEY,
+        },
+      },
+    });
+    render(
+      <Session.Settled.Provider>
+        <Auth.Guard>
+          <Auth.ConnectionGuard>
+            <span>authenticated content</span>
+          </Auth.ConnectionGuard>
+        </Auth.Guard>
+      </Session.Settled.Provider>,
+      { wrapper },
+    );
+    expect(await screen.findByText("Retry Now", {}, { timeout: 10000 })).toBeTruthy();
+    expect(screen.getAllByText("localhost:9098").length).toBeGreaterThan(0);
+    expect(screen.queryByText("Preparing your workspace...")).toBeNull();
+    expect(screen.queryByText("authenticated content")).toBeNull();
   });
 });

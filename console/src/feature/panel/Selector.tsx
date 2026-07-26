@@ -12,6 +12,7 @@ import {
   Access,
   Button,
   CSS as PCSS,
+  Errors,
   type Flux,
   Haul,
   Icon,
@@ -89,7 +90,17 @@ interface TabProps {
   tabKey: panel.Key;
 }
 
-const Tab = ({ tabKey }: TabProps): ReactElement => {
+// A pill whose panel vanished between the list answer and the retrieve
+// renders nothing; the by-project subscription evicts the key right after.
+const TabFallback = (): null => null;
+
+const Tab = ({ tabKey }: TabProps): ReactElement => (
+  <Errors.SuspenseBoundary FallbackComponent={TabFallback}>
+    <TabContent tabKey={tabKey} />
+  </Errors.SuspenseBoundary>
+);
+
+const TabContent = ({ tabKey }: TabProps): ReactElement => {
   Panel.useEnsureRetrieved({ key: tabKey });
   const name = Panel.useSelectName({ key: tabKey });
   const { update: rename } = Panel.useRename();
