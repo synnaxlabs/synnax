@@ -80,19 +80,19 @@
                 opacity 0.05s linear,
                 transform 0.15s linear;
         }
-        /* Anchored to the window shell's content box (position: relative), so the
-           hover position matches the docked layout in every window. */
+        /* Viewport-positioned (the canvas forbids positioned ancestors); each window
+           shell sets the inset vars to match its chrome. */
         position: absolute;
         z-index: 200;
         &.pluto--location-bottom {
-            bottom: 0;
-            left: 0;
-            right: 0;
+            bottom: var(--nav-drawer-inset-bottom, 0);
+            left: var(--nav-drawer-inset-left, 0);
+            right: var(--nav-drawer-inset-right, 0);
         }
         &.pluto--location-left {
-            left: 0;
-            top: 0;
-            bottom: 0;
+            left: var(--nav-drawer-inset-left, 0);
+            top: var(--nav-drawer-inset-top, 0);
+            bottom: var(--nav-drawer-inset-bottom, 0);
         }
     }
     &.pluto--hidden {
@@ -104,50 +104,5 @@
             opacity: 0;
             transform: translateX(-2rem);
         }
-    }
-}
-
-.console--os-windows {
-    --top-left-edge-bar-width-large: 475px;
-    --top-right-edge-bar-width-large: 500px;
-    --top-left-edge-bar-width-medium: 290px;
-    --top-right-edge-bar-width-medium: 450px;
-    --top-left-edge-bar-width-small: fit-content;
-    --top-right-edge-bar-width-small: fit-content;
-}
-
-.console--os-macos {
-    --top-left-edge-bar-width-large: 450px;
-    --top-right-edge-bar-width-large: 450px;
-    --top-left-edge-bar-width-medium: 275px;
-    --top-right-edge-bar-width-medium: 350px;
-    --top-left-edge-bar-width-small: fit-content;
-    --top-right-edge-bar-width-small: fit-content;
-}
-
-.console-nav__bar.pluto--location-top {
-    --left-edge-bar-width: var(--top-left-edge-bar-width-large);
-    --right-edge-bar-width: var(--top-right-edge-bar-width-large);
-
-    & > .pluto--start {
-        width: var(--left-edge-bar-width);
-    }
-
-    & > .pluto--end {
-        width: var(--right-edge-bar-width);
-    }
-}
-
-@media (max-width: 1400px) {
-    .console-nav__bar.pluto--location-top {
-        --left-edge-bar-width: var(--top-left-edge-bar-width-medium);
-        --right-edge-bar-width: var(--top-right-edge-bar-width-medium);
-    }
-}
-
-@media (max-width: 700px) {
-    .console-nav__bar.pluto--location-top {
-        --left-edge-bar-width: var(--top-left-edge-bar-width-small);
-        --right-edge-bar-width: var(--top-right-edge-bar-width-small);
     }
 }

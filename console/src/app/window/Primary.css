@@ -12,6 +12,11 @@
 .console-main__content {
     padding-right: 1rem;
     padding-bottom: 1rem;
+    /* Hover drawer insets: left bar + gap, top bar, and the content padding. */
+    --nav-drawer-inset-left: 8.5rem;
+    --nav-drawer-inset-top: 6.5rem;
+    --nav-drawer-inset-right: 1rem;
+    --nav-drawer-inset-bottom: 1rem;
 }
 
 .console-main__column {
