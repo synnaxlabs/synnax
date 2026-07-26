@@ -306,9 +306,7 @@ describe("Panel Slice", () => {
       expect(Panel.selectSelected(state)).toBeUndefined();
     });
 
-    // Regression: remove previously cleared the selection only when the panel list
-    // became empty, leaving a dangling selected key when other panels remained.
-    it("should clear the selection when the selected panel is removed while others remain", () => {
+    it("should fall back to another panel when the selected one is removed", () => {
       const state = run(
         Panel.select({ key: PANEL }),
         Panel.internalSelectTab({ key: PANEL, tabKey: TAB, otherTabKeys: [TAB] }),
@@ -319,7 +317,7 @@ describe("Panel Slice", () => {
         }),
         Panel.remove(PANEL),
       );
-      expect(Panel.selectSelected(state)).toBeUndefined();
+      expect(Panel.selectSelected(state)).toEqual(OTHER_PANEL);
       expect(Panel.selectSelectedTabs(state, OTHER_PANEL)).toEqual([OTHER_TAB]);
     });
 

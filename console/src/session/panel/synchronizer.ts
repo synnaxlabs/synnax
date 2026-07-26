@@ -55,7 +55,12 @@ const selectActiveWindowSelected = (state: StoreState): panel.Key | undefined =>
   return state.panels.windows[windowKey]?.selected;
 };
 
-const applySelection = (store: RequiredStore, keys: panel.Key[]): void => {
+const applySelection = ({ client, store }: Params, candidates: panel.Key[]): void => {
+  // A retrieve can race a delete and return an already-deleted panel; the
+  // local tombstone is authoritative.
+  const keys = candidates.filter(
+    (key) => client.panels.getCached({ key })?.variant !== "deleted",
+  );
   const state = store.getState();
   const windowKey = Drift.selectWindowKey(state);
   if (windowKey == null) return;
@@ -68,7 +73,8 @@ const applySelection = (store: RequiredStore, keys: panel.Key[]): void => {
   store.dispatch(select({ key: keys[0], windowKey }));
 };
 
-const repairSelection = async ({ client, store }: Params): Promise<void> => {
+const repairSelection = async (params: Params): Promise<void> => {
+  const { client, store } = params;
   const projectKey = store.getState().project.selected;
   if (projectKey == null) return;
   const panels = await client.panels.retrieve({
@@ -76,7 +82,7 @@ const repairSelection = async ({ client, store }: Params): Promise<void> => {
   });
   if (store.getState().project.selected !== projectKey) return;
   applySelection(
-    store,
+    params,
     panels.map(({ key }) => key),
   );
 };
@@ -102,7 +108,7 @@ const selection: Synchronizer.Synchronizer<RequiredStoreState, RequiredAction> =
         (result) => {
           if (result == null || result.variant === "deleted") return repair();
           applySelection(
-            store,
+            params,
             result.data.map(({ key }) => key),
           );
         },

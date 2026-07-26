@@ -182,6 +182,37 @@ describe("useReconcileSelection", () => {
     await waitFor(() => expect(selectedPanel(store)).toEqual(pan.key));
   });
 
+  // Regression: the delete flow prunes session state before the cluster delete,
+  // so the empty selection triggers a repair whose retrieve races the delete and
+  // resolves post-tombstone still holding the corpse; it must never be selected.
+  it("never selects the corpse when deleting the last panel", async () => {
+    const proj = await createProject();
+    const pan = await createProjectPanel(proj.key);
+    const store = await createStoreWithProject(proj.key);
+    await mountSelection(store);
+    await waitFor(() => expect(selectedPanel(store)).toEqual(pan.key));
+    const violations: panel.Key[] = [];
+    const unsubscribe = store.subscribe(() => {
+      const selected = selectedPanel(store);
+      if (selected == null) return;
+      if (client.panels.getCached({ key: selected })?.variant === "deleted")
+        violations.push(selected);
+    });
+    await act(async () => {
+      store.dispatch(Session.Panel.remove(pan.key));
+      await client.panels.delete(pan.key);
+      // The racing repair retrieve resolves after the delete; give every
+      // in-flight repair a full round-trip to land before judging.
+      await client.panels.retrieve({ parent: project.ontologyID(proj.key) });
+      await client.panels.retrieve({ parent: project.ontologyID(proj.key) });
+    });
+    await waitFor(() => {
+      expect(violations).toEqual([]);
+      expect(selectedPanel(store)).toBeUndefined();
+    });
+    unsubscribe();
+  });
+
   it("repairs the selection when the active project changes", async () => {
     const [projA, projB] = [await createProject(), await createProject()];
     const panA = await createProjectPanel(projA.key);

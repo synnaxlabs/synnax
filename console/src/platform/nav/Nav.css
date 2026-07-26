@@ -35,28 +35,10 @@
         }
     }
 
-    &.pluto--location-top {
-        .synnax-logo {
-            height: 3.5rem;
-            margin-right: 1.5rem;
-        }
-    }
-
-    &.pluto--location-left {
-        .pluto-menu-item::after {
-            left: -1.5rem;
-            border-top-right-radius: 0.5rem;
-            border-bottom-right-radius: 0.5rem;
-        }
-        .synnax-logo {
-            width: 5rem;
-        }
-    }
-
-    &.pluto--location-right .pluto-menu-item::after {
-        right: -1.5rem;
-        border-top-left-radius: 0.5rem;
-        border-bottom-left-radius: 0.5rem;
+    &.pluto--location-left .pluto-menu-item::after {
+        left: -1.5rem;
+        border-top-right-radius: 0.5rem;
+        border-bottom-right-radius: 0.5rem;
     }
 
     .pluto-navbar__content {
@@ -77,27 +59,9 @@
     padding-left: 2rem;
 }
 
-.console--os-windows .console-nav__bar.pluto--direction-x,
-.console-mosaic__bar.console-nav__bar.pluto--direction-x {
+.console--os-windows .console-nav__bar.pluto--direction-x {
     padding-right: 1rem;
     padding-left: 2.5rem;
-    & .synnax-logo {
-        margin-right: 0.75rem;
-    }
-}
-
-.console--os-windows .console-mosaic__bar.pluto--direction-x {
-    padding-left: 1rem;
-}
-
-.console-mosaic__bar.console-nav__bar.pluto--direction-x {
-    .pluto--start {
-        justify-content: flex-end !important;
-        flex-direction: row-reverse !important;
-    }
-    & .synnax-logo {
-        display: none;
-    }
 }
 
 .console-nav__drawer {
@@ -116,17 +80,19 @@
                 opacity 0.05s linear,
                 transform 0.15s linear;
         }
+        /* Anchored to the window shell's content box (position: relative), so the
+           hover position matches the docked layout in every window. */
         position: absolute;
         z-index: 200;
         &.pluto--location-bottom {
-            bottom: 1rem;
-            width: calc(100vw - 8rem - 1px);
-            left: calc(8rem - 2px);
+            bottom: 0;
+            left: 0;
+            right: 0;
         }
         &.pluto--location-left {
-            left: 8.5rem;
-            top: 6rem;
-            height: calc(100vh - 6rem - 0.5rem);
+            left: 0;
+            top: 0;
+            bottom: 0;
         }
     }
     &.pluto--hidden {
@@ -183,8 +149,5 @@
     .console-nav__bar.pluto--location-top {
         --left-edge-bar-width: var(--top-left-edge-bar-width-small);
         --right-edge-bar-width: var(--top-right-edge-bar-width-small);
-        & > .pluto--location-center {
-            justify-content: start !important;
-        }
     }
 }

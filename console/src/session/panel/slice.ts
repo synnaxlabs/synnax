@@ -151,8 +151,11 @@ const { actions, reducer } = createSlice({
       const removed = array.toArray(keys);
       Object.values(state.windows).forEach((win) => {
         removed.forEach((key) => delete win.panels[key]);
-        if (win.selected != null && removed.includes(win.selected))
-          win.selected = undefined;
+        if (win.selected != null && removed.includes(win.selected)) {
+          const remaining = Object.keys(win.panels);
+          win.selected =
+            remaining.length > 0 ? remaining[remaining.length - 1] : undefined;
+        }
       });
     },
     reset: () => ZERO_SLICE_STATE,
