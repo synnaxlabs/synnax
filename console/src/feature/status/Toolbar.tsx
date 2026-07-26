@@ -23,7 +23,7 @@ import {
   Telem,
   Text,
 } from "@synnaxlabs/pluto";
-import { type ReactElement, useEffect, useState } from "react";
+import { type ReactElement, useState } from "react";
 
 import { Explorer } from "@/feature/status/explorer";
 import { contextMenu } from "@/feature/status/list/ContextMenu";
@@ -72,10 +72,6 @@ const List = (): ReactElement => {
 const ListItem = (props: BaseList.ItemProps<status.Key>) => {
   const { itemKey } = props;
   const q = Status.useRetrieve({ key: itemKey });
-  const dispatch = Session.useDispatch();
-  useEffect(() => {
-    if (q.variant === "error") dispatch(Session.Status.removeFavorites([itemKey]));
-  }, [q.variant, dispatch, itemKey]);
   if (q.variant !== "success") return null;
   const item = q.data;
   if (item == null) return null;

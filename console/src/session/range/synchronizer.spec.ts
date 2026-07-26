@@ -40,7 +40,9 @@ describe("Range.SYNCHRONIZERS", () => {
       client,
       preloadedState: preloadedFor(range),
     });
-    renderHook(() => Session.Range.SYNCHRONIZERS.useSyncRanges(), { wrapper });
+    renderHook(() => Session.Synchronizer.use(Session.Range.SYNCHRONIZERS), {
+      wrapper,
+    });
     const nextName = id.create();
     await client.ranges.rename(range.key, nextName);
     await waitFor(() => {
@@ -56,7 +58,9 @@ describe("Range.SYNCHRONIZERS", () => {
       client,
       preloadedState: preloadedFor(range),
     });
-    renderHook(() => Session.Range.SYNCHRONIZERS.useSyncRanges(), { wrapper });
+    renderHook(() => Session.Synchronizer.use(Session.Range.SYNCHRONIZERS), {
+      wrapper,
+    });
     expect(Session.Range.selectState(store.getState(), range.key)).toBeDefined();
     await client.ranges.delete(range.key);
     await waitFor(() => {

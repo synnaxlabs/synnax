@@ -7,16 +7,28 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { panel } from "@synnaxlabs/client";
+import { panel, project } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
+import { Drift } from "@synnaxlabs/drift";
 import { uuid } from "@synnaxlabs/x";
 import { act, waitFor } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { beforeAll, describe, expect, it } from "vitest";
 
 import { Session } from "@/session";
-import { renderHookWithConsole, type TestStore, uniqueName } from "@/testutil";
+import {
+  createTestStore,
+  renderHookWithConsole,
+  type TestStore,
+  uniqueName,
+} from "@/testutil";
 
 const client = createTestClient();
+
+beforeAll(async () => {
+  // Epoch events only fire on a live change stream; open it up front so the
+  // mount-time reconcile runs deterministically.
+  await client.cache.ensureStreaming();
+});
 
 const leaf = (...tabKeys: string[]): panel.Node => ({
   variant: "leaf",
@@ -35,7 +47,11 @@ const selectTab = (store: TestStore, key: panel.Key, tabKey: panel.TabKey): void
 
 const mount = async () =>
   await renderHookWithConsole(
-    () => Session.Panel.WINDOW_SYNCHRONIZERS.useReconcileTabSelections(),
+    () =>
+      Session.Synchronizer.use({
+        useReconcileTabSelections:
+          Session.Panel.WINDOW_SYNCHRONIZERS.useReconcileTabSelections,
+      }),
     { client },
   );
 
@@ -94,5 +110,131 @@ describe("Panel.WINDOW_SYNCHRONIZERS", () => {
         tab,
       ]);
     });
+  });
+});
+
+const createProject = async (): Promise<project.Project> =>
+  await client.projects.create({ name: uniqueName("project"), layout: {} });
+
+const createProjectPanel = async (projectKey: project.Key): Promise<panel.Panel> =>
+  await client.panels.create({
+    key: uuid.create(),
+    name: uniqueName("panel"),
+    parent: project.ontologyID(projectKey),
+    root: leaf(uuid.create()),
+  });
+
+const selectedPanel = (store: TestStore): panel.Key | undefined =>
+  store.getState().panels.windows[Drift.MAIN_WINDOW]?.selected;
+
+describe("useReconcileSelection", () => {
+  const mountSelection = async (store: TestStore) =>
+    await renderHookWithConsole(
+      () =>
+        Session.Synchronizer.use({
+          useReconcileSelection:
+            Session.Panel.WINDOW_SYNCHRONIZERS.useReconcileSelection,
+        }),
+      { client, store },
+    );
+
+  const createStoreWithProject = async (
+    projectKey: project.Key,
+    selected?: panel.Key,
+  ): Promise<TestStore> => {
+    const store = await createTestStore();
+    store.dispatch(Session.Project.select(projectKey));
+    if (selected != null)
+      store.dispatch(
+        Session.Panel.select({ key: selected, windowKey: Drift.MAIN_WINDOW }),
+      );
+    return store;
+  };
+
+  it("selects the project's first panel when the window has no selection", async () => {
+    const proj = await createProject();
+    const pan = await createProjectPanel(proj.key);
+    const store = await createStoreWithProject(proj.key);
+    await mountSelection(store);
+    await waitFor(() => expect(selectedPanel(store)).toEqual(pan.key));
+  });
+
+  it("repairs a selection that points outside the active project", async () => {
+    const proj = await createProject();
+    const pan = await createProjectPanel(proj.key);
+    const store = await createStoreWithProject(proj.key, uuid.create());
+    await mountSelection(store);
+    await waitFor(() => expect(selectedPanel(store)).toEqual(pan.key));
+  });
+
+  it("clears the selection when the project has no panels", async () => {
+    const proj = await createProject();
+    const store = await createStoreWithProject(proj.key, uuid.create());
+    await mountSelection(store);
+    await waitFor(() => expect(selectedPanel(store)).toBeUndefined());
+  });
+
+  it("adopts the project's first panel when one is created while none is selected", async () => {
+    const proj = await createProject();
+    const store = await createStoreWithProject(proj.key);
+    await mountSelection(store);
+    const pan = await createProjectPanel(proj.key);
+    await waitFor(() => expect(selectedPanel(store)).toEqual(pan.key));
+  });
+
+  it("repairs the selection when the active project changes", async () => {
+    const [projA, projB] = [await createProject(), await createProject()];
+    const panA = await createProjectPanel(projA.key);
+    const panB = await createProjectPanel(projB.key);
+    const store = await createStoreWithProject(projA.key, panA.key);
+    await mountSelection(store);
+    act(() => {
+      store.dispatch(Session.Project.select(projB.key));
+    });
+    await waitFor(() => expect(selectedPanel(store)).toEqual(panB.key));
+  });
+});
+
+describe("useSyncWindowTitle", () => {
+  const windowTitle = (store: TestStore): string | undefined =>
+    Drift.selectWindows(store.getState()).find(({ key }) => key === Drift.MAIN_WINDOW)
+      ?.title;
+
+  const mountTitle = async () =>
+    await renderHookWithConsole(
+      () =>
+        Session.Synchronizer.use({
+          useSyncWindowTitle: Session.Panel.WINDOW_SYNCHRONIZERS.useSyncWindowTitle,
+        }),
+      { client },
+    );
+
+  it("sets the window title to the selected panel's name", async () => {
+    const proj = await createProject();
+    const pan = await createProjectPanel(proj.key);
+    const { store } = await mountTitle();
+    act(() => {
+      store.dispatch(
+        Session.Panel.select({ key: pan.key, windowKey: Drift.MAIN_WINDOW }),
+      );
+    });
+    await waitFor(() => expect(windowTitle(store)).toEqual(pan.name));
+  });
+
+  it("tracks the selected panel's rename", async () => {
+    const proj = await createProject();
+    const pan = await createProjectPanel(proj.key);
+    const { store } = await mountTitle();
+    act(() => {
+      store.dispatch(
+        Session.Panel.select({ key: pan.key, windowKey: Drift.MAIN_WINDOW }),
+      );
+    });
+    await waitFor(() => expect(windowTitle(store)).toEqual(pan.name));
+    const next = uniqueName("renamed");
+    await act(async () => {
+      await client.panels.rename(pan.key, next);
+    });
+    await waitFor(() => expect(windowTitle(store)).toEqual(next));
   });
 });

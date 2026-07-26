@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { remove } from "@/session/schematic/slice";
+import { remove, type StoreState } from "@/session/schematic/slice";
 import { Synchronizer } from "@/session/synchronizer";
 
 export const SYNCHRONIZERS: Synchronizer.Synchronizers = {
@@ -17,7 +17,7 @@ export const SYNCHRONIZERS: Synchronizer.Synchronizers = {
       (await client.schematics.retrieve({ keys, ignoreNotFoundError: true })).map(
         ({ key }) => key,
       ),
-    selectKeys: (state) => Object.keys(state.schematic.schematics),
+    selectKeys: (state: StoreState) => Object.keys(state.schematic.schematics),
     remove: (keys) => remove({ keys }),
   }),
 };

@@ -12,16 +12,18 @@ import { useInitializerRef } from "@synnaxlabs/pluto";
 import { type ReactNode } from "react";
 
 import { Arc } from "@/session/arc";
+import { Cluster } from "@/session/cluster";
 import { LinePlot } from "@/session/lineplot";
 import { Log } from "@/session/log";
 import { Modals } from "@/session/modals";
 import { Panel } from "@/session/panel";
 import { Project } from "@/session/project";
 import { Range } from "@/session/range";
+import { Runtime } from "@/session/runtime";
 import { Schematic } from "@/session/schematic";
 import { Status } from "@/session/status";
 import { createStore } from "@/session/store";
-import { type Synchronizer } from "@/session/synchronizer";
+import { Synchronizer } from "@/session/synchronizer";
 import { Table } from "@/session/table";
 
 export interface ContextProps {
@@ -37,8 +39,9 @@ export const Context = ({ children }: ContextProps) => {
   );
 };
 
-const SYNCHRONIZERS: Synchronizer.Synchronizers = {
+const MAIN_SYNCHRONIZERS: Synchronizer.Synchronizers = {
   ...Arc.SYNCHRONIZERS,
+  ...Cluster.SYNCHRONIZERS,
   ...LinePlot.SYNCHRONIZERS,
   ...Log.SYNCHRONIZERS,
   ...Panel.SYNCHRONIZERS,
@@ -49,23 +52,15 @@ const SYNCHRONIZERS: Synchronizer.Synchronizers = {
   ...Table.SYNCHRONIZERS,
 };
 
-/**
- * Mounts every registered session synchronizer hook. Must be called below the
- * Pluto providers, in the main window only.
- */
-export const useSynchronizers = (): void => {
-  Object.values(SYNCHRONIZERS).forEach((useSynchronizer) => useSynchronizer());
-};
-
-const WINDOW_SYNCHRONIZERS: Synchronizer.Synchronizers = {
-  ...Panel.WINDOW_SYNCHRONIZERS,
-};
+const WINDOW_SYNCHRONIZERS: Synchronizer.Synchronizers = Panel.WINDOW_SYNCHRONIZERS;
 
 /**
- * Mounts every window-scoped synchronizer hook. Must be called below the Pluto
- * providers, in every window: each window converges its own state off its own
- * cache feed.
+ * Mounts the session synchronizers for this window. Must be called below the
+ * Pluto providers, in every window.
  */
-export const useWindowSynchronizers = (): void => {
-  Object.values(WINDOW_SYNCHRONIZERS).forEach((useSynchronizer) => useSynchronizer());
-};
+export const useSynchronizers = (): void =>
+  Synchronizer.use(
+    Runtime.isMainWindow()
+      ? { ...WINDOW_SYNCHRONIZERS, ...MAIN_SYNCHRONIZERS }
+      : WINDOW_SYNCHRONIZERS,
+  );

@@ -7,39 +7,16 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Dispatch } from "@reduxjs/toolkit";
-import { type ranger } from "@synnaxlabs/client";
-import { Ranger, Synnax } from "@synnaxlabs/pluto";
-import { useCallback } from "react";
-import { useDispatch, useStore } from "react-redux";
+import {
+  type Action,
+  remove,
+  type StoreState,
+  updateRemote,
+} from "@/session/range/slice";
+import { type Synchronizer } from "@/session/synchronizer";
 
-import { remove, updateRemote } from "@/session/range/slice";
-// Type-only: a value import of the store would cycle through its domain barrels.
-import type { Action, State } from "@/session/store";
-import { Synchronizer } from "@/session/synchronizer";
-
-const useSyncRanges = (): void => {
-  const dispatch = useDispatch<Dispatch<Action>>();
-  const store = useStore<State>();
-  const client = Synnax.use();
-  const handleRangeSet = useCallback(
-    ({ timeRange, ...rest }: ranger.Payload): void => {
-      dispatch(
-        updateRemote({ ...rest, parent: undefined, timeRange: timeRange.numeric }),
-      );
-    },
-    [dispatch],
-  );
-  Ranger.useSetSynchronizer(handleRangeSet);
-  const handleRangeDelete = useCallback(
-    (key: ranger.Key) => {
-      dispatch(remove({ keys: [key] }));
-    },
-    [dispatch],
-  );
-  Ranger.useDeleteSynchronizer(handleRangeDelete);
-  Synchronizer.useEpochSweep(async () => {
-    if (client == null) return;
+const syncRanges: Synchronizer.Synchronizer<StoreState, Action> = {
+  reconcile: async ({ client, store }) => {
     // Unpersisted ranges are local-only; only cluster-backed ones can vanish.
     const keys = store
       .getState()
@@ -49,8 +26,24 @@ const useSyncRanges = (): void => {
     const found = await client.ranges.retrieve({ keys, ignoreNotFoundError: true });
     const foundKeys = new Set(found.map(({ key }) => key));
     const missing = keys.filter((key) => !foundKeys.has(key));
-    if (missing.length > 0) dispatch(remove({ keys: missing }));
-  });
+    if (missing.length > 0) store.dispatch(remove({ keys: missing }));
+  },
+  listen: ({ client, store }) => {
+    const removeOnSet = client.ranges.onSet(({ payload: { timeRange, ...rest } }) => {
+      store.dispatch(
+        updateRemote({ ...rest, parent: undefined, timeRange: timeRange.numeric }),
+      );
+    });
+    const removeOnDelete = client.ranges.onDelete((key) =>
+      store.dispatch(remove({ keys: [key] })),
+    );
+    return () => {
+      removeOnSet();
+      removeOnDelete();
+    };
+  },
 };
 
-export const SYNCHRONIZERS: Synchronizer.Synchronizers = { useSyncRanges };
+export const SYNCHRONIZERS: Synchronizer.Synchronizers = {
+  useSyncRanges: () => syncRanges,
+};

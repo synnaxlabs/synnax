@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { createSlice } from "@reduxjs/toolkit";
+import { type Drift } from "@synnaxlabs/drift";
 import z from "zod";
 
 import { Window } from "@/session/window";
@@ -42,7 +43,7 @@ export interface SliceState extends z.output<typeof sliceStateZ> {}
 
 export const SLICE_NAME = "nav";
 
-export interface StoreState {
+export interface StoreState extends Drift.StoreState {
   [SLICE_NAME]: SliceState;
 }
 

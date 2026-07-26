@@ -12,9 +12,10 @@ import { Synnax } from "@synnaxlabs/pluto";
 import { renderHook, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
-import { Cluster } from "@/platform/cluster";
 import { createCluster, createClusterState } from "@/platform/cluster/testutil";
 import { Session } from "@/session";
+import { SYNCHRONIZERS } from "@/session/cluster/synchronizer";
+import { Synchronizer } from "@/session/synchronizer";
 import { createConnectedConsoleWrapper, renderHookWithConsole } from "@/testutil";
 
 const retrieveServerClusterKey = async (): Promise<string> => {
@@ -25,7 +26,7 @@ const retrieveServerClusterKey = async (): Promise<string> => {
 };
 
 const useSyncWithConnectionState = () => {
-  Cluster.useSyncClusterKey();
+  Synchronizer.use(SYNCHRONIZERS);
   return Synnax.useConnectionStatus();
 };
 

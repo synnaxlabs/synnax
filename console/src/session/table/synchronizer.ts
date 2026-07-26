@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { Synchronizer } from "@/session/synchronizer";
-import { remove } from "@/session/table/slice";
+import { remove, type StoreState } from "@/session/table/slice";
 
 export const SYNCHRONIZERS: Synchronizer.Synchronizers = {
   usePruneDeletedTables: Synchronizer.create({
@@ -17,7 +17,7 @@ export const SYNCHRONIZERS: Synchronizer.Synchronizers = {
       (await client.tables.retrieve({ keys, ignoreNotFoundError: true })).map(
         ({ key }) => key,
       ),
-    selectKeys: (state) => Object.keys(state.table.tables),
+    selectKeys: (state: StoreState) => Object.keys(state.table.tables),
     remove: (keys) => remove({ keys }),
   }),
 };

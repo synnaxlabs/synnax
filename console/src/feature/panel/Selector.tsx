@@ -8,7 +8,6 @@
 // included in the file licenses/APL.txt.
 
 import { panel, project } from "@synnaxlabs/client";
-import { Drift } from "@synnaxlabs/drift";
 import {
   Access,
   Button,
@@ -22,7 +21,7 @@ import {
   Text,
 } from "@synnaxlabs/pluto";
 import { array } from "@synnaxlabs/x";
-import { type ReactElement, useCallback, useEffect, useMemo } from "react";
+import { type ReactElement, useCallback, useMemo } from "react";
 import { useDispatch } from "react-redux";
 
 import { createPillHaulItem } from "@/feature/panel/haul";
@@ -137,23 +136,6 @@ export const Selector = (): ReactElement | null => {
     () => create({ name: "New Panel", parent: project.ontologyID(projectKey) }),
     [create, projectKey],
   );
-
-  // The OS window list identifies a window by what it shows.
-  const selectedName = panels.find(({ key }) => key === selected)?.name;
-  useEffect(() => {
-    if (selectedName != null) dispatch(Drift.setWindowTitle({ title: selectedName }));
-  }, [selectedName, dispatch]);
-
-  // The session's selection outlives the project it was made in, so a panel outside the
-  // active project must never stay selected.
-  useEffect(() => {
-    if (selected != null && keys.includes(selected)) return;
-    if (keys.length === 0) {
-      if (selected != null) dispatch(Session.Panel.clearSelected({}));
-      return;
-    }
-    dispatch(Session.Panel.select({ key: keys[0] }));
-  }, [selected, keys, dispatch]);
 
   const contextMenu = useCallback<NonNullable<Menu.ContextMenuProps["menu"]>>(
     (props) => <ContextMenu {...props} panels={panels} />,

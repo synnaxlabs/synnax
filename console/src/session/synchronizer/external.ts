@@ -8,4 +8,5 @@
 // included in the file licenses/APL.txt.
 
 export * from "@/session/synchronizer/create";
-export * from "@/session/synchronizer/useEpochSweep";
+export * from "@/session/synchronizer/use";
+export * from "@/session/synchronizer/watch";

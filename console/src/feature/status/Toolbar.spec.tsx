@@ -11,7 +11,7 @@ import { status } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { uuid } from "@synnaxlabs/x";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { beforeAll, describe, expect, it } from "vitest";
 
 import { Status } from "@/feature/status";
 import { Modals } from "@/platform/modals";
@@ -25,6 +25,19 @@ import {
 
 const client = createTestClient();
 
+beforeAll(async () => {
+  // Epoch events only fire on a live change stream; open it up front so the
+  // mount-time favorites sweep runs deterministically.
+  await client.cache.ensureStreaming();
+});
+
+// Favorite eviction lives in the status synchronizer, mounted app-wide in
+// production; the toolbar only renders what survives.
+const Synchronizers = (): null => {
+  Session.Synchronizer.use(Session.Status.SYNCHRONIZERS);
+  return null;
+};
+
 const renderToolbar = async (favorites: status.Key[] = []): Promise<TestStore> => {
   const { wrapper, store } = await createConsoleWrapper({
     client,
@@ -34,6 +47,7 @@ const renderToolbar = async (favorites: status.Key[] = []): Promise<TestStore> =
   });
   render(
     <>
+      <Synchronizers />
       {Status.TOOLBAR.content}
       <Modals.Stack />
     </>,

@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { remove } from "@/session/lineplot/slice";
+import { remove, type StoreState } from "@/session/lineplot/slice";
 import { Synchronizer } from "@/session/synchronizer";
 
 export const SYNCHRONIZERS: Synchronizer.Synchronizers = {
@@ -17,7 +17,7 @@ export const SYNCHRONIZERS: Synchronizer.Synchronizers = {
       (await client.lineplots.retrieve({ keys, ignoreNotFoundError: true })).map(
         ({ key }) => key,
       ),
-    selectKeys: (state) => Object.keys(state.line.plots),
+    selectKeys: (state: StoreState) => Object.keys(state.line.plots),
     remove: (keys) => remove({ keys }),
   }),
 };

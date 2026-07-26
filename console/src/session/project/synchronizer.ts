@@ -10,7 +10,7 @@
 import { NotFoundError } from "@synnaxlabs/client";
 import { errors } from "@synnaxlabs/x";
 
-import { clearSelected } from "@/session/project/slice";
+import { clearSelected, type StoreState } from "@/session/project/slice";
 import { Synchronizer } from "@/session/synchronizer";
 
 export const SYNCHRONIZERS: Synchronizer.Synchronizers = {
@@ -27,7 +27,8 @@ export const SYNCHRONIZERS: Synchronizer.Synchronizers = {
         }
       return existing;
     },
-    selectKeys: ({ project: { selected } }) => (selected == null ? [] : [selected]),
+    selectKeys: ({ project: { selected } }: StoreState) =>
+      selected == null ? [] : [selected],
     remove: () => clearSelected(),
   }),
 };

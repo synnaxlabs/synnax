@@ -7,45 +7,37 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Dispatch } from "@reduxjs/toolkit";
-import { type status } from "@synnaxlabs/client";
-import { Status, Synnax, useAsyncEffect } from "@synnaxlabs/pluto";
-import { useCallback, useEffectEvent } from "react";
-import { useDispatch } from "react-redux";
+import { Status } from "@synnaxlabs/pluto";
+import { useMemo } from "react";
 
-import { filterFavoritesToKeys, removeFavorites } from "@/session/status/slice";
-// Type-only: a value import of the store would cycle through its domain barrels.
-import type { Action } from "@/session/store";
-import { Synchronizer } from "@/session/synchronizer";
+import {
+  type Action,
+  filterFavoritesToKeys,
+  removeFavorites,
+} from "@/session/status/slice";
+import { type Synchronizer } from "@/session/synchronizer";
 
-const useSyncStatuses = (): void => {
-  const dispatch = useDispatch<Dispatch<Action>>();
+const useSyncStatuses: Synchronizer.Use<unknown, Action> = () => {
   const addStatus = Status.useAdder();
-  const listQuery = Status.useList();
-  const client = Synnax.use();
-  const onVariantChange = useEffectEvent(() => {
-    if (listQuery.variant !== "success") return;
-    dispatch(filterFavoritesToKeys(listQuery.data));
-  });
-  useAsyncEffect(
-    async (signal) => {
-      await listQuery.retrieveAsync({}, { signal });
-      onVariantChange();
-    },
-    [listQuery.retrieveAsync, client?.key],
+  return useMemo(
+    () => ({
+      reconcile: async ({ client, store }) => {
+        const statuses = await client.statuses.retrieve({});
+        store.dispatch(filterFavoritesToKeys(statuses.map(({ key }) => key)));
+      },
+      listen: ({ client, store }) => {
+        const removeOnSet = client.statuses.onSet(addStatus);
+        const removeOnDelete = client.statuses.onDelete((key) =>
+          store.dispatch(removeFavorites(key)),
+        );
+        return () => {
+          removeOnSet();
+          removeOnDelete();
+        };
+      },
+    }),
+    [addStatus],
   );
-  Status.useSetSynchronizer(addStatus);
-  const handleDelete = useCallback(
-    (key: status.Key) => {
-      dispatch(removeFavorites(key));
-    },
-    [dispatch],
-  );
-  Status.useDeleteSynchronizer(handleDelete);
-  Synchronizer.useEpochSweep(async () => {
-    await listQuery.retrieveAsync({});
-    onVariantChange();
-  });
 };
 
 export const SYNCHRONIZERS: Synchronizer.Synchronizers = { useSyncStatuses };

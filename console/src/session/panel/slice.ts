@@ -9,6 +9,7 @@
 
 import { createSlice, type Dispatch, type PayloadAction } from "@reduxjs/toolkit";
 import { panel } from "@synnaxlabs/client";
+import { type Drift } from "@synnaxlabs/drift";
 import { Panel } from "@synnaxlabs/pluto";
 import { array, compare, type require } from "@synnaxlabs/x";
 import { useCallback } from "react";
@@ -41,7 +42,7 @@ export const sliceStateZ = z.object({
 
 export interface SliceState extends z.output<typeof sliceStateZ> {}
 
-export interface StoreState {
+export interface StoreState extends Drift.StoreState {
   [SLICE_NAME]: SliceState;
 }
 

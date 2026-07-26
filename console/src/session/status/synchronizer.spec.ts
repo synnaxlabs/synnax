@@ -35,7 +35,9 @@ describe("Status.SYNCHRONIZERS", () => {
       client,
       preloadedState: favoritesState([stat.key]),
     });
-    renderHook(() => Session.Status.SYNCHRONIZERS.useSyncStatuses(), { wrapper });
+    renderHook(() => Session.Synchronizer.use(Session.Status.SYNCHRONIZERS), {
+      wrapper,
+    });
     expect(Session.Status.selectFavorites(store.getState())).toContain(stat.key);
     await client.statuses.delete(stat.key);
     await waitFor(() => {

@@ -19,6 +19,7 @@ import { Provider } from "react-redux";
 import { describe, expect, it } from "vitest";
 
 import { Panel } from "@/session/panel";
+import { Synchronizer } from "@/session/synchronizer";
 import { createConsoleWrapper, type TestStore } from "@/testutil";
 
 const rootReducer = combineReducers({
@@ -417,7 +418,10 @@ describe("panel selectors", () => {
       const { Wrapper, store } = await setup({ client });
       const { result } = renderHook(
         () => {
-          Panel.WINDOW_SYNCHRONIZERS.useReconcileTabSelections();
+          Synchronizer.use({
+            useReconcileTabSelections:
+              Panel.WINDOW_SYNCHRONIZERS.useReconcileTabSelections,
+          });
           return Panel.useSelectIsTabVisible(PANEL, TAB);
         },
         { wrapper: Wrapper },

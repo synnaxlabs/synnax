@@ -7,59 +7,84 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Dispatch } from "@reduxjs/toolkit";
-import { type Synnax as Client } from "@synnaxlabs/client";
-import { Synnax } from "@synnaxlabs/pluto";
+import { type Action, type Store, type UnknownAction } from "@reduxjs/toolkit";
+import { type Synnax } from "@synnaxlabs/client";
 import { type destructor } from "@synnaxlabs/x";
-import { useEffect } from "react";
-import { useDispatch, useStore } from "react-redux";
-
-// Type-only: a value import of the store would cycle through its domain barrels.
-import type { Action, State } from "@/session/store";
-import { useEpochSweep } from "@/session/synchronizer/useEpochSweep";
 
 /**
- * Synchronizer hooks keyed by name. Merged and mounted once via
- * useSynchronizers. A session slice holding cluster references without an
- * entry here is a structural omission.
+ * Dependencies the host hands to every synchronizer callback. S and A are the
+ * synchronizer's slice-composed store shape, never the root store types.
  */
-export type Synchronizers = Record<string, () => void>;
-
-export interface CreateParams {
-  /** Subscribes to the resource type's delete signal. */
-  onDelete: (client: Client, handler: (key: string) => void) => destructor.Destructor;
-  /** Returns the subset of keys that still exist in the cluster. */
-  retrieveExisting: (client: Client, keys: string[]) => Promise<string[]>;
-  /** Reads the session's referenced keys. */
-  selectKeys: (state: State) => string[];
-  /** Builds the repair action pruning the given keys. */
-  remove: (keys: string[]) => Action;
+export interface Params<S = unknown, A extends Action = UnknownAction> {
+  /** Connected client. The host only invokes callbacks while one exists. */
+  client: Synnax;
+  /** Session store, for state pulls, subscriptions, and dispatch. */
+  store: Store<S, A>;
 }
 
 /**
- * Builds a synchronizer hook that prunes session references to deleted
- * resources: live delete events while connected, and an existence sweep on
- * every reconnect for deletes missed during the gap.
+ * Lifecycle callbacks keeping session state consistent with the cluster.
+ * The host runs reconcile at client-ready and on every epoch bump, and mounts
+ * listen once per client, tearing it down on client swap or unmount.
  */
-export const create =
-  ({ onDelete, retrieveExisting, selectKeys, remove }: CreateParams): (() => void) =>
-  () => {
-    const dispatch = useDispatch<Dispatch<Action>>();
-    const store = useStore<State>();
-    const client = Synnax.use();
-    useEffect(() => {
-      if (client == null) return;
-      return onDelete(client, (key) => {
-        if (!selectKeys(store.getState()).includes(key)) return;
-        dispatch(remove([key]));
-      });
-    }, [client, dispatch, store]);
-    useEpochSweep(async () => {
-      if (client == null) return;
+export interface Synchronizer<S = unknown, A extends Action = UnknownAction> {
+  /** Idempotent boundary repair. Pulls state at call time. */
+  reconcile: (params: Params<S, A>) => void | Promise<void>;
+  /** Mounts steady-state subscriptions: client feeds and store watches. */
+  listen?: (params: Params<S, A>) => destructor.Destructor;
+}
+
+/**
+ * Builds a synchronizer. The hook body only captures context (flux handles,
+ * adders); execution timing belongs to the host.
+ */
+export type Use<S = unknown, A extends Action = UnknownAction> = () => Synchronizer<
+  S,
+  A
+>;
+
+/**
+ * Synchronizer hooks keyed by name, mounted in declaration order by the host.
+ * A session slice holding cluster references without an entry in a registry
+ * is a structural omission.
+ */
+export type Synchronizers = Record<string, Use>;
+
+export interface CreateParams<S, A extends Action> {
+  /** Subscribes to the resource type's delete signal. */
+  onDelete: (client: Synnax, handler: (key: string) => void) => destructor.Destructor;
+  /** Returns the subset of keys that still exist in the cluster. */
+  retrieveExisting: (client: Synnax, keys: string[]) => Promise<string[]>;
+  /** Reads the session's referenced keys. */
+  selectKeys: (state: S) => string[];
+  /** Builds the repair action pruning the given keys. */
+  remove: (keys: string[]) => A;
+}
+
+/**
+ * Builds a synchronizer that prunes session references to deleted resources:
+ * live delete events while connected, and an existence sweep at every
+ * boundary for deletes missed during the gap.
+ */
+export const create = <S, A extends Action>({
+  onDelete,
+  retrieveExisting,
+  selectKeys,
+  remove,
+}: CreateParams<S, A>): Use<S, A> => {
+  const synchronizer: Synchronizer<S, A> = {
+    reconcile: async ({ client, store }) => {
       const keys = selectKeys(store.getState());
       if (keys.length === 0) return;
       const existing = new Set(await retrieveExisting(client, keys));
       const missing = keys.filter((key) => !existing.has(key));
-      if (missing.length > 0) dispatch(remove(missing));
-    });
+      if (missing.length > 0) store.dispatch(remove(missing));
+    },
+    listen: ({ client, store }) =>
+      onDelete(client, (key) => {
+        if (!selectKeys(store.getState()).includes(key)) return;
+        store.dispatch(remove([key]));
+      }),
   };
+  return () => synchronizer;
+};

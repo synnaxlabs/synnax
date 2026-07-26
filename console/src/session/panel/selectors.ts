@@ -24,8 +24,6 @@ import {
 } from "@/session/panel/slice";
 import { Select } from "@/session/select";
 
-interface RequiredStoreState extends StoreState, Drift.StoreState {}
-
 /** @returns the panel slice state. */
 export const selectSliceState = (state: StoreState): SliceState => state[SLICE_NAME];
 
@@ -33,13 +31,13 @@ export const selectSliceState = (state: StoreState): SliceState => state[SLICE_N
  * @returns the panel state for the active Drift window, or the zero window state when
  * the window has no panel state yet.
  */
-export const selectWindowState = (state: RequiredStoreState): WindowState => {
+export const selectWindowState = (state: StoreState): WindowState => {
   const windowKey = Drift.selectWindowKey(state);
   if (windowKey == null) return ZERO_WINDOW_STATE;
   return selectSliceState(state).windows[windowKey] ?? ZERO_WINDOW_STATE;
 };
 
-const selectState = (state: RequiredStoreState, key?: panel.Key): State => {
+const selectState = (state: StoreState, key?: panel.Key): State => {
   const win = selectWindowState(state);
   key ??= win.selected;
   if (key == null) return ZERO_STATE;
@@ -52,15 +50,15 @@ const selectState = (state: RequiredStoreState, key?: panel.Key): State => {
  * selected panel is used. Returns an empty array when the panel has no state.
  */
 export const selectSelectedTabs = (
-  state: RequiredStoreState,
+  state: StoreState,
   key?: panel.Key,
 ): panel.TabKey[] => selectState(state, key).selectedTabs;
 
 /** @returns the active window's selected panel key, if any. */
-export const selectSelected = (state: RequiredStoreState): panel.Key | undefined =>
+export const selectSelected = (state: StoreState): panel.Key | undefined =>
   selectWindowState(state).selected;
 
-const selectOverlaid = (state: RequiredStoreState): boolean =>
+const selectOverlaid = (state: StoreState): boolean =>
   selectWindowState(state).isOverlaid;
 
 /**
@@ -71,18 +69,18 @@ const selectOverlaid = (state: RequiredStoreState): boolean =>
 export const useSelectSelectedTabs = (key?: panel.Key): panel.TabKey[] => {
   const scoped = Panel.useOptionalKey(key);
   return Select.useMemo(
-    (state: RequiredStoreState) => selectSelectedTabs(state, scoped),
+    (state: StoreState) => selectSelectedTabs(state, scoped),
     [scoped],
   );
 };
 
 /** @returns true if any tab is overlaid (focused into a modal) on the active window. */
 export const useSelectOverlaid = (): boolean =>
-  Select.useMemo((state: RequiredStoreState) => selectOverlaid(state), []);
+  Select.useMemo((state: StoreState) => selectOverlaid(state), []);
 
 /** @returns a getter for whether any tab is overlaid on the active window. */
 export const useGetIsOverlaid = (): (() => boolean) => {
-  const store = useStore<RequiredStoreState>();
+  const store = useStore<StoreState>();
   return useCallback(() => selectOverlaid(store.getState()), [store]);
 };
 
@@ -99,17 +97,14 @@ export const useSelectIsTabOverlaid = (
   tabKey?: panel.TabKey,
 ): boolean => {
   tabKey = Panel.useOptionalTabKey(tabKey);
-  const overlaid = Select.useMemo(
-    (state: RequiredStoreState) => selectOverlaid(state),
-    [],
-  );
+  const overlaid = Select.useMemo((state: StoreState) => selectOverlaid(state), []);
   const focused = useSelectFocusedTab(key);
   return tabKey != null && overlaid && focused === tabKey;
 };
 
 /** @returns a getter for the active window's selected panel key, if any. */
 export const useGetSelected = (): (() => panel.Key | undefined) => {
-  const store = useStore<RequiredStoreState>();
+  const store = useStore<StoreState>();
   return useCallback(() => selectSelected(store.getState()), [store]);
 };
 
@@ -139,7 +134,7 @@ export const useSelectFocusedTab = (key?: panel.Key): panel.TabKey | undefined =
  */
 export const useGetFocusedTab = (): ((key?: panel.Key) => panel.TabKey | undefined) => {
   const scoped = Panel.useOptionalKey();
-  const store = useStore<RequiredStoreState>();
+  const store = useStore<StoreState>();
   return useCallback(
     (key: panel.Key | undefined = scoped) =>
       selectSelectedTabs(store.getState(), key)[0],

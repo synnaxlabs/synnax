@@ -408,12 +408,19 @@ describe("Persist.middleware", () => {
     await edit(seed, "fresh");
     let releaseStale: (() => void) | undefined;
     const staleGate = new Promise<void>((resolve) => (releaseStale = resolve));
-    // Holds the cluster partition read so its swap is still in flight when the project
-    // swap starts and finishes.
-    let gateArmed = false;
+    const gateHit = vi.fn();
+    const gateDone = vi.fn();
+    // Holds the slow cluster's state read so its swap is still in flight when the next
+    // switch starts and finishes. The version pointer stays readable so persists pass.
     const gated: Persist.SugaredKV = {
       get: async <V>(key: string): Promise<V | null> => {
-        if (gateArmed && key.startsWith("cluster.c1")) await staleGate;
+        if (key.startsWith("cluster.slow") && !key.endsWith("version")) {
+          gateHit();
+          await staleGate;
+          const value = await store.get<V>(key);
+          gateDone();
+          return value;
+        }
         return await store.get<V>(key);
       },
       set: async (key, value) => await store.set(key, value),
@@ -422,18 +429,22 @@ describe("Persist.middleware", () => {
       clear: async () => await store.clear(),
     };
     const driver = await createDriver(store, { openKV: () => gated });
-    gateArmed = true;
     driver.dispatch(
       { type: "cluster/select" },
-      { ...ZERO_MOCK_STATE, cluster: { selected: "c1" } },
+      { ...driver.getState(), cluster: { selected: "slow" }, project: {} },
     );
-    driver.dispatch({ type: "project/select" }, STATE);
+    await vi.waitFor(() => expect(gateHit).toHaveBeenCalled());
+    driver.dispatch(
+      { type: "cluster/select" },
+      { ...driver.getState(), cluster: { selected: "c2" }, project: {} },
+    );
     await driver.settle();
-    expect(driver.getState().work.value).toEqual("fresh");
+    expect(driver.dispatched.mock.calls.length).toBe(1);
     releaseStale?.();
-    // The slow cluster swap resolved last; hydrating it would wipe the newer project
-    // selection with its stale slices.
-    await expect.poll(() => driver.dispatched.mock.calls.length).toBe(1);
+    // The released read is the stale swap's last async hop, so once it lands the swap
+    // has fully resolved. Its hydrate would clobber the newer cluster's slices.
+    await vi.waitFor(() => expect(gateDone).toHaveBeenCalled());
+    expect(driver.dispatched.mock.calls.length).toBe(1);
   });
 
   it("should coalesce rapid dispatches into a single persist when debounced", async () => {

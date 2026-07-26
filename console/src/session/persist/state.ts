@@ -84,17 +84,99 @@ export type Action = ReturnType<
   typeof revertState | typeof clearState | typeof hydrate
 >;
 
-const GLOBAL_PARTITION = "global";
-const clusterPartitionBase = (cluster: string): string => `cluster.${cluster}`;
-const projectPartitionBase = (cluster: string, project: string): string =>
-  `project.${cluster}.${project}`;
-
-const partitionStateKey = (base: string, version: number): string =>
-  `${base}.${version}`;
-const partitionVersionKey = (base: string): string => `${base}.version`;
-
 /** Versions kept per partition before the ring wraps. */
 const HISTORY_LENGTH = 4;
+
+const nextVersion = (v: number): number => (v + 1) % HISTORY_LENGTH;
+const prevVersion = (v: number): number => (v - 1 + HISTORY_LENGTH) % HISTORY_LENGTH;
+
+/**
+ * A group of slices stored under one key prefix, with a bounded ring of versions
+ * behind a pointer key. Owns how the group's bytes round-trip: ring advancement,
+ * migration on read, and stepping the pointer back on revert.
+ */
+class Partition<S extends object> {
+  private readonly db: SugaredKV;
+  private readonly base: string;
+  private readonly slices: Array<SliceKey<S>>;
+  private readonly migrators: SliceMigrators<S>;
+
+  constructor(
+    db: SugaredKV,
+    base: string,
+    slices: Array<SliceKey<S>>,
+    migrators: SliceMigrators<S>,
+  ) {
+    this.db = db;
+    this.base = base;
+    this.slices = slices;
+    this.migrators = migrators;
+  }
+
+  /** Read the slices at the current ring version, migrated. */
+  async read(): Promise<Partial<S>> {
+    const version = await this.readVersion();
+    const data = (await this.db.get(this.stateKey(version))) as Partial<S> | null;
+    const out: Partial<S> = {};
+    if (data == null) return out;
+    this.slices.forEach((key) => {
+      const migrated = this.migrateSlice(key, data[key]);
+      if (migrated != null) out[key] = migrated as S[typeof key];
+    });
+    return out;
+  }
+
+  /** Write the state's slices into the next ring slot and advance the pointer. */
+  async write(state: S): Promise<void> {
+    const version = nextVersion(await this.readVersion());
+    const data: Partial<S> = {};
+    this.slices.forEach((key) => {
+      data[key] = state[key];
+    });
+    await this.db.set(this.stateKey(version), data).catch((err: unknown) => {
+      console.error(
+        `failed to write partition ${this.base} at version ${version}`,
+        err,
+      );
+    });
+    await this.setVersion(version);
+  }
+
+  /** Step the ring pointer back one version. */
+  async revert(): Promise<void> {
+    await this.setVersion(prevVersion(await this.readVersion()));
+  }
+
+  private stateKey(version: number): string {
+    return `${this.base}.${version}`;
+  }
+
+  private versionKey(): string {
+    return `${this.base}.version`;
+  }
+
+  private async readVersion(): Promise<number> {
+    const stored = (await this.db.get(this.versionKey())) as StateVersionValue | null;
+    return stored?.version ?? 0;
+  }
+
+  private async setVersion(version: number): Promise<void> {
+    await this.db.set(this.versionKey(), { version }).catch((err: unknown) => {
+      console.error(`failed to bump version of partition ${this.base}`, err);
+    });
+  }
+
+  private migrateSlice(key: SliceKey<S>, raw: unknown): unknown {
+    const migrator = this.migrators[key];
+    if (migrator == null || raw == null) return raw;
+    try {
+      return migrator(raw);
+    } catch (err) {
+      console.error(`failed to migrate slice ${key}. using its initial state.`, err);
+      return null;
+    }
+  }
+}
 
 /**
  * Clear the entire store and reload the page.
@@ -122,7 +204,6 @@ class Engine<S extends object> {
   private readonly getContext: (state: S) => Context;
   private readonly migrators: SliceMigrators<S>;
   private readonly exclude: Array<ExcludeFn<S>>;
-  private readonly versions = new Map<string, number>();
 
   /**
    * Opens an engine over the persisted store and composes the state it holds for the
@@ -157,19 +238,8 @@ class Engine<S extends object> {
   async persist(rawState: S, context: Context): Promise<void> {
     let state = deep.copy(rawState);
     this.exclude.forEach((exclude) => (state = exclude(state)));
-    await this.writePartition(state, this.scopes.global, GLOBAL_PARTITION);
-    if (context.cluster == null) return;
-    await this.writePartition(
-      state,
-      this.scopes.cluster,
-      clusterPartitionBase(context.cluster),
-    );
-    if (context.project == null) return;
-    await this.writePartition(
-      state,
-      this.scopes.project,
-      projectPartitionBase(context.cluster, context.project),
-    );
+    for (const partition of this.activePartitions(context))
+      await partition.write(state);
   }
 
   /**
@@ -186,12 +256,7 @@ class Engine<S extends object> {
     let project = context.project;
     if (includeCluster) {
       const clusterSlices =
-        context.cluster == null
-          ? {}
-          : await this.readPartition(
-              this.scopes.cluster,
-              clusterPartitionBase(context.cluster),
-            );
+        context.cluster == null ? {} : await this.cluster(context.cluster).read();
       this.fill(out, this.scopes.cluster, clusterSlices);
       // The target cluster's partition records which project was last active.
       project = this.getContext({ ...state, ...out }).project;
@@ -199,127 +264,64 @@ class Engine<S extends object> {
     const projectSlices =
       context.cluster == null || project == null
         ? {}
-        : await this.readPartition(
-            this.scopes.project,
-            projectPartitionBase(context.cluster, project),
-          );
+        : await this.project(context.cluster, project).read();
     this.fill(out, this.scopes.project, projectSlices);
     return out;
   }
 
   /** Step every active partition back one version. */
   async revert(context: Context): Promise<void> {
-    const bases = [GLOBAL_PARTITION];
-    if (context.cluster != null) {
-      bases.push(clusterPartitionBase(context.cluster));
-      if (context.project != null)
-        bases.push(projectPartitionBase(context.cluster, context.project));
-    }
-    for (const base of bases)
-      await this.setVersion(base, this.prevVersion(await this.readVersion(base)));
+    for (const partition of this.activePartitions(context)) await partition.revert();
   }
 
   /** Clear the entire store. */
   async clear(): Promise<void> {
     await this.db.clear();
-    this.versions.clear();
   }
 
   // The global partition names the selected cluster, whose partition names the active
   // project, whose partition holds the workspace.
   private async compose(): Promise<void> {
     const state = deep.copy(this.initial);
-    Object.assign(
-      state,
-      await this.readPartition(this.scopes.global, GLOBAL_PARTITION),
-    );
+    Object.assign(state, await this.global().read());
     const { cluster } = this.getContext(state);
-    if (cluster != null)
-      Object.assign(
-        state,
-        await this.readPartition(this.scopes.cluster, clusterPartitionBase(cluster)),
-      );
+    if (cluster != null) Object.assign(state, await this.cluster(cluster).read());
     const context = this.getContext(state);
     if (context.cluster != null && context.project != null)
-      Object.assign(
-        state,
-        await this.readPartition(
-          this.scopes.project,
-          projectPartitionBase(context.cluster, context.project),
-        ),
-      );
+      Object.assign(state, await this.project(context.cluster, context.project).read());
     this.initialState = state;
     this.context = context;
   }
 
-  private nextVersion(v: number): number {
-    return (v + 1) % HISTORY_LENGTH;
+  private global(): Partition<S> {
+    return new Partition(this.db, "global", this.scopes.global, this.migrators);
   }
 
-  private prevVersion(v: number): number {
-    return (v - 1 + HISTORY_LENGTH) % HISTORY_LENGTH;
+  private cluster(key: string): Partition<S> {
+    return new Partition(
+      this.db,
+      `cluster.${key}`,
+      this.scopes.cluster,
+      this.migrators,
+    );
   }
 
-  private async readVersion(base: string): Promise<number> {
-    const cached = this.versions.get(base);
-    if (cached != null) return cached;
-    const stored = (await this.db.get(
-      partitionVersionKey(base),
-    )) as StateVersionValue | null;
-    const version = stored?.version ?? 0;
-    this.versions.set(base, version);
-    return version;
+  private project(cluster: string, project: string): Partition<S> {
+    return new Partition(
+      this.db,
+      `project.${cluster}.${project}`,
+      this.scopes.project,
+      this.migrators,
+    );
   }
 
-  private async setVersion(base: string, version: number): Promise<void> {
-    this.versions.set(base, version);
-    await this.db.set(partitionVersionKey(base), { version }).catch((err: unknown) => {
-      console.error(`failed to bump version of partition ${base}`, err);
-    });
-  }
-
-  private migrateSlice(key: SliceKey<S>, raw: unknown): unknown {
-    const migrator = this.migrators[key];
-    if (migrator == null || raw == null) return raw;
-    try {
-      return migrator(raw);
-    } catch (err) {
-      console.error(`failed to migrate slice ${key}. using its initial state.`, err);
-      return null;
-    }
-  }
-
-  private async readPartition(
-    slices: Array<SliceKey<S>>,
-    base: string,
-  ): Promise<Partial<S>> {
-    const version = await this.readVersion(base);
-    const data = (await this.db.get(
-      partitionStateKey(base, version),
-    )) as Partial<S> | null;
-    const out: Partial<S> = {};
-    if (data == null) return out;
-    slices.forEach((key) => {
-      const migrated = this.migrateSlice(key, data[key]);
-      if (migrated != null) out[key] = migrated as S[typeof key];
-    });
+  /** The partitions the given context reaches: global, then cluster, then project. */
+  private activePartitions({ cluster, project }: Context): Array<Partition<S>> {
+    const out = [this.global()];
+    if (cluster == null) return out;
+    out.push(this.cluster(cluster));
+    if (project != null) out.push(this.project(cluster, project));
     return out;
-  }
-
-  private async writePartition(
-    state: S,
-    slices: Array<SliceKey<S>>,
-    base: string,
-  ): Promise<void> {
-    const version = this.nextVersion(await this.readVersion(base));
-    const data: Partial<S> = {};
-    slices.forEach((key) => {
-      data[key] = state[key];
-    });
-    await this.db.set(partitionStateKey(base, version), data).catch((err: unknown) => {
-      console.error(`failed to write partition ${base} at version ${version}`, err);
-    });
-    await this.setVersion(base, version);
   }
 
   private fill(out: Partial<S>, slices: Array<SliceKey<S>>, data: Partial<S>): void {
