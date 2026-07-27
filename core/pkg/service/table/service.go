@@ -48,9 +48,9 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	Search *search.Index
-	// Signals is used to propagate changes to tables throughout the cluster. When
-	// nil, the service does not broadcast action sequences and gorp delete events
-	// are not published. Dispatch still applies actions to local state.
+	// Signals is used to propagate changes to tables throughout the cluster. When nil,
+	// the service does not broadcast action sequences and gorp delete events are not
+	// published. Dispatch still applies actions to local state.
 	//
 	// [OPTIONAL] - Defaults to nil, which disables signal broadcasting.
 	Signals *signals.Provider

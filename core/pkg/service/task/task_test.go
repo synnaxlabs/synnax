@@ -192,9 +192,9 @@ var _ = Describe("Task", Ordered, func() {
 
 	Describe("Export", func() {
 		It("Should export a task's config flat with version, type, and name", func(ctx SpecContext) {
-			// Create the task on a dedicated rack so this committed write does not shift
-			// the shared testRack key counter that the Ordered key-assignment specs assert
-			// against.
+			// Create the task on a dedicated rack so this committed write does not
+			// shift the shared testRack key counter that the Ordered key-assignment
+			// specs assert against.
 			exportRack := &rack.Rack{Name: "Export Rack"}
 			Expect(rackService.NewWriter(nil).Create(ctx, exportRack)).To(Succeed())
 			t := &task.Task{

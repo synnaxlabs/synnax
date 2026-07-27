@@ -64,7 +64,7 @@ type ServiceConfig struct {
 	Search *search.Index
 	// Signals is used to broadcast collaborative-edit actions to the cluster.
 	//
-	// [OPTIONAL]
+	// [OPTIONAL] - Defaults to nil.
 	Signals *signals.Provider
 	// ImEx is the import/export registry the arc service registers itself with as the
 	// exporter for arc resources during OpenService.
@@ -74,12 +74,12 @@ type ServiceConfig struct {
 	// TextSweepQuiescence is how long an arc's text must go unedited before its
 	// tombstoned characters become eligible to be reclaimed.
 	//
-	// [OPTIONAL] - Defaults to defaultTextSweepQuiescence.
+	// [OPTIONAL] - Defaults to 5 seconds
 	TextSweepQuiescence telem.TimeSpan
 	// TextSweepThreshold is the number of tombstoned characters that must accumulate
 	// before a sweep is broadcast.
 	//
-	// [OPTIONAL] - Defaults to defaultTextSweepThreshold.
+	// [OPTIONAL] - Defaults to 128.
 	TextSweepThreshold int
 	// Now returns the current cluster time. It gates the text sweeper's quiescence
 	// check and is injectable for testing.
@@ -87,18 +87,12 @@ type ServiceConfig struct {
 	// [OPTIONAL] - Defaults to telem.Now.
 	Now func() telem.TimeStamp
 	// Instrumentation is used for logging, tracing, and metrics.
+	//
+	// [OPTIONAL] - Defaults to noop instrumentation.
 	alamos.Instrumentation
 }
 
-var (
-	_ config.Config[ServiceConfig] = ServiceConfig{}
-	// DefaultServiceConfig holds the default values for a ServiceConfig.
-	DefaultServiceConfig = ServiceConfig{
-		TextSweepQuiescence: defaultTextSweepQuiescence,
-		TextSweepThreshold:  defaultTextSweepThreshold,
-		Now:                 telem.Now,
-	}
-)
+var _ config.Config[ServiceConfig] = ServiceConfig{}
 
 // Override implements config.Config.
 func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
@@ -210,7 +204,11 @@ func (s *Service) CompileProgram(ctx context.Context, key Key) (Arc, error) {
 // configuration will be used as an override for the previous configuration in the list.
 // See the ConfigValues struct for information on which fields should be set.
 func OpenService(ctx context.Context, configs ...ServiceConfig) (s *Service, err error) {
-	cfg, err := config.New(DefaultServiceConfig, configs...)
+	cfg, err := config.New(ServiceConfig{
+		TextSweepQuiescence: 5 * telem.Second,
+		TextSweepThreshold:  128,
+		Now:                 telem.Now,
+	}, configs...)
 	if err != nil {
 		return nil, err
 	}
