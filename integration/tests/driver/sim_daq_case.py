@@ -65,5 +65,6 @@ class SimDaqCase(TestCase):
         try:
             super().teardown()
         finally:
-            if getattr(self, "sim_daq", None) is not None:
-                self.sim_daq.stop()
+            sim_daq = getattr(self, "sim_daq", None)
+            if sim_daq is not None:
+                sim_daq.stop()
