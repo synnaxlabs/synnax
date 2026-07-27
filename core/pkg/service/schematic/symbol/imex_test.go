@@ -39,6 +39,7 @@ var _ = Describe("ImEx", Ordered, func() {
 	// DB, whose retrieve specs count every symbol.
 	var svc *symbol.Service
 	BeforeAll(func(ctx SpecContext) {
+		ShouldNotLeakGoroutines()
 		exportDB := DeferClose(gorp.Wrap(memkv.New()))
 		otg := MustOpen(ontology.Open(ctx, ontology.Config{DB: exportDB}))
 		searchIdx := MustOpen(search.OpenIndex())
