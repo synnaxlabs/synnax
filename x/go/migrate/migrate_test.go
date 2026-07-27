@@ -53,7 +53,7 @@ func noop(key string) *mockMigration {
 func failing(key string) *mockMigration {
 	return &mockMigration{
 		key: key,
-		fn: func(_ context.Context, _ alamos.Instrumentation) error {
+		fn: func(context.Context, alamos.Instrumentation) error {
 			return errors.New("boom")
 		},
 	}
