@@ -156,7 +156,9 @@ std::pair<Node, x::errors::Error> State::node(const std::string &key) {
                 input_source_idx[i] = idx;
                 accumulated[i].source = idx;
                 accumulated[i].last_timestamp = x::telem::TimeStamp(0);
-                accumulated[i].consumed = true;
+                // Starting armed lets an OnReset input, which preserves this flag,
+                // fire on its first arrival.
+                accumulated[i].consumed = false;
             }
         } else {
             ir::Handle synthetic_handle("__default_" + key + "_" + param.name, "out");
