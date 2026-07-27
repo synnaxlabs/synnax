@@ -68,8 +68,10 @@ export const synnaxParamsZ = z.object({
    * streamer frame handling, background reconciliation). Defaults to console
    * logging.
    */
+  // output is unknown, not void: strict void validation would make a
+  // caller's `(e) => list.push(e)` throw at error-report time
   onInternalError: z
-    .function({ input: z.tuple([z.instanceof(Error)]), output: z.void() })
+    .function({ input: z.tuple([z.instanceof(Error)]), output: z.unknown() })
     .optional(),
 });
 
@@ -167,8 +169,12 @@ export default class Synnax extends framer.Client {
               channels,
               breaker,
               () => {
-                onReopen?.();
+                // stream.live first: onReopen's reconcile fetches must not hit
+                // the unreachable short circuit. The reopened address may lead
+                // to a replaced cluster, so probe for identity immediately.
                 this.dispatchConnectionEvent({ type: "stream.live" });
+                this.prober.retryNow();
+                onReopen?.();
               },
               (error) => this.dispatchConnectionEvent({ type: "stream.drop", error }),
             );

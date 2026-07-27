@@ -91,6 +91,7 @@ const createHarness = (
   unary: UnaryClient,
   overrides: Partial<connection.Config> = {},
   retry: breaker.Config = FAST_RETRY,
+  heartbeatInterval: TimeSpan = TimeSpan.milliseconds(20),
 ): Harness => {
   const config = createConfig(overrides);
   let status = connection.createInitialStatus(config);
@@ -104,7 +105,7 @@ const createHarness = (
   const prober = new connection.Prober({
     client: new connection.Client(unary),
     retry,
-    heartbeatInterval: TimeSpan.milliseconds(20),
+    heartbeatInterval,
     emit: dispatch,
   });
   const handle: connection.Handle = {
@@ -248,6 +249,24 @@ describe("connection", () => {
       const live = connection.reduce(probed, { type: "stream.live" }, config);
       expect(live.variant).toEqual("success");
       expect(live.details.streamLive).toBe(true);
+    });
+
+    it("should lift error(unreachable) to warning on probe success with a dark stream", () => {
+      const config = createConfig({ requiresStream: true, escalateAfter: 1 });
+      const error = new Unreachable({ message: "server down" });
+      const parked = apply(config, { type: "probe.failure", error, attempt: 1 });
+      expect(parked.variant).toEqual("error");
+      // reachable again: the error must lift, or its short circuit starves
+      // the stream reopen that success waits on
+      const probed = connection.reduce(
+        parked,
+        { type: "probe.success", info: createInfo() },
+        config,
+      );
+      expect(probed.variant).toEqual("warning");
+      expect(probed.details.reason).toBeUndefined();
+      const live = connection.reduce(probed, { type: "stream.live" }, config);
+      expect(live.variant).toEqual("success");
     });
 
     it("should escalate to error(unreachable) after the escalation budget", () => {
@@ -516,6 +535,23 @@ describe("connection", () => {
       expect(send.mock.calls.length).toBe(calls);
       harness.handle.retryNow();
       await new Promise((resolve) => setTimeout(resolve, 20));
+      expect(send.mock.calls.length).toBeGreaterThan(calls);
+      await harness.stop();
+    });
+
+    it("should probe immediately on retryNow while in heartbeat mode", async () => {
+      const unary = mockUnary(() => TimeStamp.now());
+      const harness = createHarness(unary, {}, FAST_RETRY, TimeSpan.seconds(60));
+      await waitForStatus(harness.handle, (s) => s.variant === "success");
+      const send = unary.send as ReturnType<typeof vi.fn>;
+      // the mode switch into heartbeat may fire one buffered probe; settle
+      // before measuring quiescence
+      await new Promise((resolve) => setTimeout(resolve, 30));
+      const calls = send.mock.calls.length;
+      await new Promise((resolve) => setTimeout(resolve, 30));
+      expect(send.mock.calls.length).toBe(calls);
+      harness.prober.retryNow();
+      await new Promise((resolve) => setTimeout(resolve, 30));
       expect(send.mock.calls.length).toBeGreaterThan(calls);
       await harness.stop();
     });

@@ -8,11 +8,12 @@
 // included in the file licenses/APL.txt.
 
 import { EOF } from "@synnaxlabs/freighter";
-import { type record, Series } from "@synnaxlabs/x";
+import { type record, Series, TimeSpan } from "@synnaxlabs/x";
 import { describe, expect, it, vi } from "vitest";
 import z from "zod";
 
 import { type channel } from "@/channel";
+import { NotFoundError } from "@/errors";
 import { framer } from "@/framer";
 import { query } from "@/query";
 
@@ -61,7 +62,8 @@ const wrapOpener =
     const hardened = await framer.HardenedStreamer.open(
       opener,
       channels,
-      undefined,
+      // near-zero backoff so forced reopens land within poll timeouts
+      { baseInterval: TimeSpan.milliseconds(1) },
       onReopen,
     );
     onOpen?.();
@@ -314,6 +316,50 @@ describe("Cache", () => {
       await cache.ensureStreaming();
       await expect.poll(() => cache.epoch).toBe(2);
       expect(fetch).not.toHaveBeenCalled();
+      await cache.close();
+    });
+
+    it("probes keys individually when a strict fetch rejects the batch", async () => {
+      const fetch = vi.fn(async (keys: string[]) => {
+        if (keys.includes("gone"))
+          throw new NotFoundError("Docs with keys [gone] not found");
+        return keys.map((k) => ({ key: k, name: `${k}-fresh` }));
+      });
+      const cache = makeReopeningEngine();
+      const table = cache.createTable<string, Doc>({ name: "docs", fetch });
+      table.set([
+        { key: "kept", name: "stale" },
+        { key: "gone", name: "deleted-on-server" },
+      ]);
+      await cache.ensureStreaming();
+      await expect.poll(() => table.status("gone")).toBe("tombstoned");
+      expect(table.get("kept")).toEqual({ key: "kept", name: "kept-fresh" });
+      await cache.close();
+    });
+
+    it("tombstones every key when the whole batch has vanished", async () => {
+      const onError = vi.fn();
+      let opens = 0;
+      const cache = new query.Cache({
+        openStreamer: wrapOpener(async (): Promise<framer.Streamer> => {
+          opens++;
+          if (opens === 1) return failingStreamer();
+          return new MockStreamer();
+        }),
+        onError,
+      });
+      const fetch = vi.fn(async (keys: string[]): Promise<Doc[]> => {
+        throw new NotFoundError(`Docs with keys [${keys.join(",")}] not found`);
+      });
+      const table = cache.createTable<string, Doc>({ name: "docs", fetch });
+      table.set([
+        { key: "a", name: "one" },
+        { key: "b", name: "two" },
+      ]);
+      await cache.ensureStreaming();
+      await expect.poll(() => table.status("a")).toBe("tombstoned");
+      expect(table.status("b")).toBe("tombstoned");
+      expect(onError).not.toHaveBeenCalled();
       await cache.close();
     });
 

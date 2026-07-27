@@ -170,6 +170,9 @@ describe.skipIf(!existsSync(BINARY))("cluster replacement reconciliation", () =>
     return { adopted, projectKey: project.key };
   };
 
+  // The bound is deliberately tight: replacement detection must come from the
+  // probe backoff (capped at 5s) or the stream-reopen probe, never from
+  // waiting out the 30s heartbeat.
   const expectRecovered = async (
     { store, result }: Harness,
     adopted: string,
@@ -182,7 +185,7 @@ describe.skipIf(!existsSync(BINARY))("cluster replacement reconciliation", () =>
         expect(Session.Persist.selectSwapping(state)).toBe(false);
         expect(result.current.settled).toBe(true);
       },
-      { timeout: 45000 },
+      { timeout: 20000 },
     );
   };
 

@@ -204,9 +204,18 @@ const probeFacts = (info: Info, config: Config): Partial<Details> => ({
 const reduceProbeSuccess = (prev: Status, info: Info, config: Config): Status => {
   const facts = probeFacts(info, config);
   // reachable but the stream is still dark: the client re-demands it and we
-  // stay degraded until it reports live
-  if (config.requiresStream && !prev.details.streamLive)
+  // stay degraded until it reports live. A parked unreachable error must
+  // lift to warning: the short circuit it drives would starve the very
+  // stream reopen this state waits on.
+  if (config.requiresStream && !prev.details.streamLive) {
+    if (prev.variant === "error" && prev.details.reason === "unreachable")
+      return update(prev, {
+        variant: "warning",
+        message: RECONNECTING,
+        details: { ...facts, reason: undefined, error: undefined, retry: null },
+      });
     return update(prev, { details: facts });
+  }
   if (prev.variant === "success")
     return update(prev, { details: { ...facts, retry: null } });
   return update(prev, {
