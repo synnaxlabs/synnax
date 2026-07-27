@@ -27,7 +27,6 @@ const Internal = (): ReactElement => {
   const selected = Session.Log.useSelectSelectedToolbarTab();
   const name = Log.useSelectName();
   const key = Log.useKey();
-  const handleExport = Export.use();
   const handleTabSelect = useCallback(
     (tab: string) =>
       dispatch(
@@ -46,9 +45,7 @@ const Internal = (): ReactElement => {
           <Base.Title icon={<Icon.Log />}>{name}</Base.Title>
           <Flex.Box x align="center" empty>
             <Flex.Box x empty className={CSS.BE("log-toolbar", "actions")}>
-              <Export.ToolbarButton
-                onExport={() => handleExport(log.ontologyID(key))}
-              />
+              <Export.ToolbarButton getID={() => log.ontologyID(key)} />
               <Cluster.CopyLinkToolbarButton
                 name={name}
                 ontologyID={log.ontologyID(key)}

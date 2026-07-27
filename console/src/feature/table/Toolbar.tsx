@@ -37,7 +37,6 @@ import { Session } from "@/session";
 
 const Internal = (): ReactElement => {
   const key = Table.useKey();
-  const handleExport = Export.use();
   const name = Table.useSelectName();
   const editable = Session.Table.useSelectEditable();
   const selectedCellKeys = Session.Table.useSelectSelectedCellKeys();
@@ -67,7 +66,7 @@ const Internal = (): ReactElement => {
           </Breadcrumb.Breadcrumb>
         </Flex.Box>
         <Flex.Box x className={CSS.BE("table", "toolbar-buttons")} empty>
-          <Export.ToolbarButton onExport={() => handleExport(table.ontologyID(key))} />
+          <Export.ToolbarButton getID={() => table.ontologyID(key)} />
           <Cluster.CopyLinkToolbarButton
             name={name}
             ontologyID={table.ontologyID(key)}

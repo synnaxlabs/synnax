@@ -60,7 +60,6 @@ const Internal = (): ReactElement => {
   const activeTab = Session.Schematic.useSelectActiveToolbarTab();
   const name = Schematic.useSelectName();
   const { isCurrentlyEditable, canEdit } = Session.Schematic.useSelectEditable();
-  const handleExport = Export.use();
   const selected = Session.Schematic.useSelectSelected();
   const singleSelectedConfig = Schematic.useSelectElementConfig({
     elKey: selected.length === 1 ? selected[0] : "",
@@ -99,9 +98,7 @@ const Internal = (): ReactElement => {
           </Breadcrumb.Breadcrumb>
           <Flex.Box x align="center" empty>
             <Flex.Box x empty className={CSS.BE("schematic", "toolbar", "actions")}>
-              <Export.ToolbarButton
-                onExport={() => handleExport(schematic.ontologyID(key))}
-              />
+              <Export.ToolbarButton getID={() => schematic.ontologyID(key)} />
               <Cluster.CopyLinkToolbarButton
                 name={name}
                 ontologyID={schematic.ontologyID(key)}

@@ -58,7 +58,6 @@ export const Toolbar = (): ReactElement | null => {
   const singleNodeKey = selected.length === 1 ? selected[0] : "";
   const singleConfig = Arc.useSelectNodeConfig({ nodeKey: singleNodeKey });
   const name = Arc.useSelectName();
-  const handleExport = Export.use();
   const selectedName =
     singleConfig != null
       ? (Arc.Graph.Node.REGISTRY[singleConfig.type]?.name ?? null)
@@ -87,7 +86,7 @@ export const Toolbar = (): ReactElement | null => {
         </Breadcrumb.Breadcrumb>
         <Flex.Box x align="center" empty>
           <Flex.Box x empty className={CSS.BE("arc-toolbar", "actions")}>
-            <Export.ToolbarButton onExport={() => handleExport(arc.ontologyID(key))} />
+            <Export.ToolbarButton getID={() => arc.ontologyID(key)} />
             <Cluster.CopyLinkToolbarButton
               name={name}
               ontologyID={arc.ontologyID(key)}

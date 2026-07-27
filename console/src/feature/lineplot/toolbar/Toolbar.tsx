@@ -37,7 +37,6 @@ const Internal = (): ReactElement => {
   const key = LinePlot.useKey();
   const name = LinePlot.useSelectName();
   const dispatch = Session.useDispatch();
-  const handleExport = Export.use();
   const activeTab = Session.LinePlot.useSelectActiveToolbarTab();
   const hasUpdatePermission = Access.useUpdateGranted(lineplot.ontologyID(key));
   const handleTabSelect = useCallback(
@@ -68,9 +67,7 @@ const Internal = (): ReactElement => {
               >
                 <Icon.CSV />
               </Button.Button>
-              <Export.ToolbarButton
-                onExport={() => handleExport(lineplot.ontologyID(key))}
-              />
+              <Export.ToolbarButton getID={() => lineplot.ontologyID(key)} />
               <Cluster.CopyLinkToolbarButton
                 name={name}
                 ontologyID={lineplot.ontologyID(key)}
