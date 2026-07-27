@@ -7,58 +7,49 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package symbol_test
+package v0_test
 
 import (
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/synnax/pkg/service/schematic/symbol"
-	v0 "github.com/synnaxlabs/synnax/pkg/service/schematic/symbol/migrations/v0"
+	"github.com/synnaxlabs/synnax/pkg/service/schematic/symbol/versions/legacy"
+	v0 "github.com/synnaxlabs/synnax/pkg/service/schematic/symbol/versions/v0"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/kv/memkv"
-	"github.com/synnaxlabs/x/migrate"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
 var _ = Describe("MigrateSymbol", func() {
-	// seedV0 writes a symbol in the untyped v0 storage shape, exactly as the
+	// seedLegacy writes a symbol in the untyped legacy storage shape, exactly as the
 	// pre-SY-4504 server persisted it.
-	seedV0 := func(ctx SpecContext, db *gorp.DB, s v0.Symbol) v0.Symbol {
-		t := MustOpen(gorp.OpenTable[uuid.UUID, v0.Symbol](
-			ctx, gorp.TableConfig[uuid.UUID, v0.Symbol]{DB: db},
+	seedLegacy := func(ctx SpecContext, db *gorp.DB, s legacy.Symbol) legacy.Symbol {
+		t := MustOpen(gorp.OpenTable[uuid.UUID, legacy.Symbol](
+			ctx, gorp.TableConfig[uuid.UUID, legacy.Symbol]{DB: db},
 		))
 		Expect(t.NewCreate().Entry(&s).Exec(ctx, db)).To(Succeed())
 		return s
 	}
 
-	// openMigrated opens the current symbol table with the migration wired in,
-	// driving the v0 -> typed lift end-to-end through gorp.
-	openMigrated := func(ctx SpecContext, db *gorp.DB) *gorp.Table[symbol.Key, symbol.Symbol] {
-		return MustOpen(gorp.OpenTable[symbol.Key, symbol.Symbol](
-			ctx, gorp.TableConfig[symbol.Key, symbol.Symbol]{
-				DB: db,
-				Migrations: []migrate.Migration{
-					gorp.NewEntryMigration[symbol.Key, symbol.Key, v0.Symbol, symbol.Symbol](
-						"v0_typed_symbol",
-						symbol.MigrateSymbol,
-					),
-				},
-			},
+	// openMigrated opens the v0 symbol table with the migration chain wired in, driving
+	// the legacy -> typed lift end-to-end through gorp.
+	openMigrated := func(ctx SpecContext, db *gorp.DB) *gorp.Table[v0.Key, v0.Symbol] {
+		return MustOpen(gorp.OpenTable[v0.Key, v0.Symbol](
+			ctx, gorp.TableConfig[v0.Key, v0.Symbol]{DB: db, Migrations: v0.Migrations},
 		))
 	}
 
-	retrieve := func(ctx SpecContext, db *gorp.DB, t *gorp.Table[symbol.Key, symbol.Symbol], key symbol.Key) symbol.Symbol {
-		var got symbol.Symbol
+	retrieve := func(ctx SpecContext, db *gorp.DB, t *gorp.Table[v0.Key, v0.Symbol], key v0.Key) v0.Symbol {
+		var got v0.Symbol
 		Expect(t.NewRetrieve().
-			Where(gorp.MatchKeys[symbol.Key, symbol.Symbol](key)).
+			Where(gorp.MatchKeys[v0.Key, v0.Symbol](key)).
 			Entry(&got).Exec(ctx, db)).To(Succeed())
 		return got
 	}
 
-	It("Should lift an untyped v0 symbol into the typed Symbol on retrieve", func(ctx SpecContext) {
+	It("Should lift an untyped legacy symbol into the typed Symbol on retrieve", func(ctx SpecContext) {
 		db := DeferClose(gorp.Wrap(memkv.New()))
-		seed := seedV0(ctx, db, v0.Symbol{
+		seed := seedLegacy(ctx, db, legacy.Symbol{
 			Key:  uuid.New(),
 			Name: "pump",
 			Data: map[string]any{
@@ -97,9 +88,9 @@ var _ = Describe("MigrateSymbol", func() {
 		Expect(region.Selectors).To(ConsistOf(".body"))
 	})
 
-	It("Should default the scale and stamp the version when unset in v0", func(ctx SpecContext) {
+	It("Should default the scale and stamp the version when unset in legacy data", func(ctx SpecContext) {
 		db := DeferClose(gorp.Wrap(memkv.New()))
-		seed := seedV0(ctx, db, v0.Symbol{
+		seed := seedLegacy(ctx, db, legacy.Symbol{
 			Key:  uuid.New(),
 			Name: "bare",
 			Data: map[string]any{"svg": "<svg/>", "variant": "sensor"},

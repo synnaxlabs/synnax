@@ -29,6 +29,14 @@ func TestGoMarshal(t *testing.T) {
 	RunSpecs(t, "Plugin Go Marshal Suite")
 }
 
+// unversionedOptions disables the versions/vN requirement for specs that exercise
+// codec mechanics on ad-hoc unversioned schemas.
+func unversionedOptions() marshal.Options {
+	opts := marshal.DefaultOptions()
+	opts.RequireVersioned = false
+	return opts
+}
+
 var _ = Describe("Go Marshal Plugin", func() {
 	var (
 		ctx           context.Context
@@ -39,7 +47,7 @@ var _ = Describe("Go Marshal Plugin", func() {
 	BeforeEach(func() {
 		ctx = context.Background()
 		loader = NewMockFileLoader()
-		marshalPlugin = marshal.New(marshal.DefaultOptions())
+		marshalPlugin = marshal.New(unversionedOptions())
 	})
 
 	Describe("Generate", func() {
@@ -867,7 +875,7 @@ var _ = Describe("Union Codecs", func() {
 
 	BeforeEach(func() {
 		loader = NewMockFileLoader()
-		marshalPlugin = marshal.New(marshal.DefaultOptions())
+		marshalPlugin = marshal.New(unversionedOptions())
 	})
 
 	It("Should generate a binary wrapper codec with base and payload delegation", func(ctx SpecContext) {
@@ -1050,7 +1058,7 @@ var _ = Describe("Recursive Codecs", func() {
 
 	BeforeEach(func() {
 		loader = NewMockFileLoader()
-		marshalPlugin = marshal.New(marshal.DefaultOptions())
+		marshalPlugin = marshal.New(unversionedOptions())
 	})
 
 	It("Should guard a recursive struct's decode with a depth limit", func(ctx SpecContext) {
@@ -1142,7 +1150,7 @@ var _ = Describe("Version-Laid-Out Packages", func() {
 	BeforeEach(func() {
 		ctx = context.Background()
 		loader = NewMockFileLoader()
-		marshalPlugin = marshal.New(marshal.DefaultOptions())
+		marshalPlugin = marshal.New(unversionedOptions())
 	})
 
 	It("Should emit the codec and its test into types/vN", func() {
@@ -1475,9 +1483,27 @@ var _ = Describe("Same-Named Entries Across Namespaces", func() {
 			Linked struct { view panel.View }
 		`
 		resp := MustGenerate(ctx, source, "view", loader,
-			marshal.New(marshal.DefaultOptions()))
+			marshal.New(unversionedOptions()))
 		ExpectContent(resp, "core/pkg/service/view/codec.gen.go").
 			ToContain("View) EncodeOrc")
+	})
+})
+
+var _ = Describe("Versioned codec requirement", func() {
+	It("Should reject a marshalled type outside a versions/vN package", func(ctx SpecContext) {
+		loader := NewMockFileLoader()
+		source := `
+			@go output "core/pkg/service/thing"
+			Key = uuid
+			Thing struct {
+				key  Key {@key}
+				name string
+				@go marshal
+			}
+		`
+		req := MustGenerateRequest(ctx, source, "thing", loader)
+		Expect(marshal.New(marshal.DefaultOptions()).Generate(req)).
+			Error().To(MatchError(ContainSubstring("must be versioned")))
 	})
 })
 

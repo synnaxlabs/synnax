@@ -11,9 +11,17 @@
 
 package spatial
 
-import (
-	"github.com/synnaxlabs/x/spatial/versions"
-	spatial "github.com/synnaxlabs/x/spatial/versions/v0"
+import "github.com/synnaxlabs/x/spatial/versions"
+
+// OuterLocation is a position indicator for elements anchored to the outer edge of a
+// container. Used for orientation and positioning of UI elements.
+type OuterLocation = versions.OuterLocation
+
+const (
+	OuterLocationTop    OuterLocation = versions.OuterLocationTop
+	OuterLocationRight  OuterLocation = versions.OuterLocationRight
+	OuterLocationBottom OuterLocation = versions.OuterLocationBottom
+	OuterLocationLeft   OuterLocation = versions.OuterLocationLeft
 )
 
 // XY is a 2D coordinate point with x and y values. Used for positioning elements in
@@ -63,6 +71,9 @@ type StickyUnits = versions.StickyUnits
 // configurable units (pixels or decimal fractions).
 type StickyXY = versions.StickyXY
 
+// Viewport is the camera state of a viewport.
+type Viewport = versions.Viewport
+
 // Decimal is a normalized value in [0, 1] expressed as a decimal fraction of a whole,
 // such as a container's extent.
 type Decimal = versions.Decimal
@@ -71,42 +82,6 @@ type Decimal = versions.Decimal
 // The TypeScript binding is generic over T so callers can express bounds over either
 // number or bigint values; other languages emit a concrete float64-based type.
 type Bounds = versions.Bounds
-
-// OuterLocation is a position indicator for elements anchored to the outer edge of a
-// container. Used for orientation and positioning of UI elements.
-type OuterLocation string
-
-const (
-	OuterLocationTop    OuterLocation = "top"
-	OuterLocationRight  OuterLocation = "right"
-	OuterLocationBottom OuterLocation = "bottom"
-	OuterLocationLeft   OuterLocation = "left"
-)
-
-// IsValid reports whether o is one of the defined OuterLocation values.
-func (o OuterLocation) IsValid() bool {
-	switch o {
-	case OuterLocationTop, OuterLocationRight, OuterLocationBottom, OuterLocationLeft:
-		return true
-	default:
-		return false
-	}
-}
-
-// Viewport is the camera state of a viewport.
-type Viewport struct {
-	// Zoom is the zoom level where 1.0 equals 100%.
-	Zoom float64 `json:"zoom" msgpack:"zoom"`
-	// Position is the (x, y) pan offset of the viewport.
-	Position spatial.XY `json:"position" msgpack:"position"`
-}
-
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (v *Viewport) ApplyDefaults() {
-	if v.Zoom == 0 {
-		v.Zoom = 1
-	}
-}
 
 // Location is a position indicator covering the four outer edges of a container and its
 // center.

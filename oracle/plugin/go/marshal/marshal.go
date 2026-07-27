@@ -16,6 +16,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"sort"
+	"strings"
 
 	"github.com/synnaxlabs/oracle/plugin"
 	"github.com/synnaxlabs/oracle/plugin/domain"
@@ -37,6 +38,10 @@ type Options struct {
 	FileNamePattern     string
 	TestFileNamePattern string
 	GenerateTests       bool
+	// RequireVersioned rejects codecs targeting a package outside versions/vN so
+	// persisted wire formats stay pinned to an immutable shape. Disabled by unit
+	// tests that exercise codec mechanics on ad-hoc unversioned schemas.
+	RequireVersioned bool
 }
 
 // DefaultOptions returns the default plugin options.
@@ -45,6 +50,7 @@ func DefaultOptions() Options {
 		FileNamePattern:     "codec.gen.go",
 		TestFileNamePattern: "codec_gen_test.go",
 		GenerateTests:       true,
+		RequireVersioned:    true,
 	}
 }
 
@@ -142,6 +148,29 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 	}
 	for goPath := range flexByPkg {
 		allPkgs.Add(goPath)
+	}
+
+	// A codec pins a persisted wire format to a type shape, so every marshalled type
+	// must live in a versions/vN package where that shape is immutable. A codec target
+	// outside versions/vN means the type (or one it persists) is missing @go version.
+	if p.Options.RequireVersioned {
+		for goPath := range allPkgs {
+			if isVersionedPath(goPath) {
+				continue
+			}
+			names := make([]string, 0, len(merged[goPath])+len(flexByPkg[goPath]))
+			for _, t := range merged[goPath] {
+				names = append(names, naming.GetGoName(t))
+			}
+			for _, f := range flexByPkg[goPath] {
+				names = append(names, f.GoName)
+			}
+			sort.Strings(names)
+			return nil, errors.Newf(
+				"cannot generate a codec for %s in %s: @go marshal types must be versioned; add @go version to them",
+				strings.Join(names, ", "), goPath,
+			)
+		}
 	}
 
 	// Generate one file per package in sorted order for deterministic output.
@@ -261,4 +290,10 @@ func GenerateCodecFile(
 
 func resolveGoImportPath(outputPath, repoRoot string) (string, error) {
 	return gomod.ResolveImportPath(outputPath, repoRoot, gomod.DefaultModulePrefix), nil
+}
+
+// isVersionedPath reports whether goPath is a versions/vN package (its parent
+// directory is "versions"), the only place a codec may be generated.
+func isVersionedPath(goPath string) bool {
+	return filepath.Base(filepath.Dir(goPath)) == "versions"
 }

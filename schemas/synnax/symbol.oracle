@@ -13,7 +13,8 @@ import "schemas/x/spatial"
 @go output "core/pkg/service/schematic/symbol"
 
 Key = uuid {
-    @doc value "is a unique identifier for a schematic symbol."
+    @go version 0
+    @doc value  "is a unique identifier for a schematic symbol."
 }
 
 Region struct {
@@ -33,7 +34,8 @@ Region struct {
         @doc value "is an optional fill color in hex format (#RRGGBB)."
     }
 
-    @doc value """
+    @go version 0
+    @doc value  """
         is a visual styling area within a symbol state, targeting specific SVG
         elements for dynamic coloring.
     """
@@ -50,7 +52,8 @@ State struct {
         @doc value "contains style regions defining visual appearance for this state."
     }
 
-    @doc value """
+    @go version 0
+    @doc value  """
         is a named visual state of a symbol with regional styling configurations.
     """
 }
@@ -66,7 +69,8 @@ Handle struct {
         @doc value "is the direction the handle faces (top, right, bottom, left)."
     }
 
-    @doc value """
+    @go version 0
+    @doc value  """
         is a connection point on a symbol for linking to other diagram elements.
     """
 }
@@ -96,7 +100,8 @@ Spec struct {
         @doc value "is an optional viewport configuration for symbol preview rendering."
     }
 
-    @doc value """
+    @go version 0
+    @doc value  """
         is the complete symbol definition including geometry, states, handles, and
         rendering properties.
     """
@@ -125,4 +130,5 @@ Symbol struct {
     @ontology type "schematic_symbol"
     @create
     @go marshal
+    @go version    0
 }
