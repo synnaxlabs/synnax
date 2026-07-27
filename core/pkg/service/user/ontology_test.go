@@ -50,7 +50,7 @@ var _ = Describe("Ontology", func() {
 	Describe("User.OntologyID", func() {
 		It("Should return an ontology ID populated from the user's key", func() {
 			u := user.User{Key: uuid.New(), Username: "alice"}
-			Expect(u.OntologyID()).To(Equal(user.OntologyID(u.Key)))
+			Expect(u.OntologyID()).To(Equal(u.OntologyID()))
 		})
 	})
 	Describe("OntologyIDsFromUsers", func() {

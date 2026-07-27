@@ -9,10 +9,10 @@
 
 @ts output "client/ts/src/table"
 @go output "core/pkg/service/table"
-@pb
 
 Key = uuid {
-    @doc value "is a unique identifier for a table, represented as a UUID."
+    @go version 2
+    @doc value  "is a unique identifier for a table, represented as a UUID."
 }
 
 Cell struct {
@@ -36,7 +36,8 @@ Cell struct {
         @ts preserve_case
     }
 
-    @doc value "is a single cell in a table, identified by key and variant."
+    @go version 2
+    @doc value  "is a single cell in a table, identified by key and variant."
 }
 
 CellTemplate struct extends Cell {
@@ -61,7 +62,8 @@ Row struct {
         """
     }
 
-    @doc value "is a single row in a table, with height and ordered cell keys."
+    @go version 2
+    @doc value  "is a single row in a table, with height and ordered cell keys."
 }
 
 Column struct {
@@ -69,7 +71,8 @@ Column struct {
         @doc value "is the width of the column in pixels."
     }
 
-    @doc value "is a single column in a table, with width."
+    @go version 2
+    @doc value  "is a single column in a table, with width."
 }
 
 Table struct {
@@ -222,6 +225,7 @@ Table struct {
         """
     }
 
+    @go version    2
     @doc value     """
         is a tabular data display component for viewing structured telemetry
         data. Tables support multiple columns, channel data sources, and

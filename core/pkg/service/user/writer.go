@@ -58,7 +58,7 @@ func (w Writer) create(ctx context.Context, u User) (User, error) {
 	if err := w.table.NewCreate().Entry(&u).Exec(ctx, w.tx); err != nil {
 		return User{}, err
 	}
-	if err := w.otg.DefineResources(ctx, OntologyID(u.Key)); err != nil {
+	if err := w.otg.DefineResources(ctx, u.OntologyID()); err != nil {
 		return User{}, err
 	}
 	return u, nil

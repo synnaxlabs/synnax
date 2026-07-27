@@ -58,7 +58,7 @@ func (w Writer) Create(ctx context.Context, projectKey project.Key, t *Table) er
 	if exists {
 		return nil
 	}
-	otgID := OntologyID(t.Key)
+	otgID := t.OntologyID()
 	if err = w.otgWriter.DefineResources(ctx, otgID); err != nil {
 		return err
 	}

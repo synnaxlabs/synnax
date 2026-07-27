@@ -56,7 +56,7 @@ func (w Writer) Create(
 	w.dispatcher.Notify(
 		ctx, p.Key, "", []Action{NewCreateAction(CreatePayload{Panel: *p})},
 	)
-	otgID := OntologyID(p.Key)
+	otgID := p.OntologyID()
 	if err := w.otg.DefineResources(ctx, otgID); err != nil {
 		return err
 	}

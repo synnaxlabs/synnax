@@ -16,7 +16,8 @@ import "schemas/x/telem"
 @go output "core/pkg/service/log"
 
 Key = uuid {
-    @doc value "is a unique identifier for a log, represented as a UUID."
+    @go version 3
+    @doc value  "is a unique identifier for a log, represented as a UUID."
 }
 
 TimestampConfig struct {
@@ -27,7 +28,8 @@ TimestampConfig struct {
         @doc value "is the time zone used when rendering timestamps."
     }
 
-    @doc value "is per-channel timestamp display configuration."
+    @go version 3
+    @doc value  "is per-channel timestamp display configuration."
 }
 
 ChannelEntry struct {
@@ -58,7 +60,8 @@ ChannelEntry struct {
         @doc value "is the per-channel timestamp display configuration."
     }
 
-    @doc value "is a per-channel display configuration entry within a log."
+    @go version 3
+    @doc value  "is a per-channel display configuration entry within a log."
 }
 
 Log struct {
@@ -233,6 +236,7 @@ Log struct {
         @doc value "controls whether the receipt timestamp column is hidden."
     }
 
+    @go version    3
     @doc value     """
         is a timestamped event and message logging component. Logs display
         chronological records of events, system messages, and audit trails with

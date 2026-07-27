@@ -9,57 +9,11 @@
 
 package rack
 
-import (
-	"strconv"
-
-	"github.com/synnaxlabs/synnax/pkg/service/node"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
-	"github.com/synnaxlabs/x/gorp"
-)
-
-// Key is a unique identifier for a rack. Each rack is leased to a particular
-// node in the cluster. Why this over a UUID?
-//
-// The reason comes down to task configuration and communication mechanisms. Task
-// configuration signals are passed down through gossip operations, which are much
-// slower than regular channel communication. This means that gossip propagation
-// through a large cluster means that it can take 15s+ for a task to be received and
-// configured by a rack. By leasing a rack to the node it connects to, we can minimize
-// the number of hops and the time it takes for a task to be configured.
-//
-// The downside is that it makes it challenging to move tasks between racks.
-//
-// The first 16 bits are the node key, and the last 16 bits are a unique, sequential
-// key for the rack on the node.
+import "github.com/synnaxlabs/synnax/pkg/service/node"
 
 // NewKey instantiates a new rack key from its node and local key components.
 func NewKey(node node.Key, localKey uint16) Key {
 	return Key(uint32(node)<<16 | uint32(localKey))
 }
 
-// Node returns the node that the rack is leased to.
-func (k Key) Node() node.Key { return node.Key(k >> 16) }
-
-// LocalKey returns unique key for the rack on its leaseholder node.
-func (k Key) LocalKey() uint16 { return uint16(uint32(k) & 0xFFFF) }
-
-// OntologyID returns the unique ontology identifier for the rack.
-func (k Key) OntologyID() ontology.ID { return OntologyID(k) }
-
-// IsZero returns true if the key is invalid i.e. it's Node or LocalKey is zero.
-func (k Key) IsZero() bool { return k == 0 }
-
-// String implements fmt.Stringer.
-func (k Key) String() string { return strconv.Itoa(int(k)) }
-
-var _ gorp.Entry[Key] = Rack{}
-
-// GorpKey implements gorp.Entry.
-func (r Rack) GorpKey() Key { return r.Key }
-
-// SetOptions implements gorp.Entry.
-func (r Rack) SetOptions() []any { return []any{r.Key.Node()} }
-
-func StatusKey(k Key) string {
-	return OntologyID(k).String()
-}
+func StatusKey(k Key) string { return k.OntologyID().String() }

@@ -16,7 +16,8 @@ import "schemas/x/color"
 @pb
 
 Key = uuid {
-    @doc value "is a unique identifier for a label, represented as a UUID."
+    @go version 0
+    @doc value  "is a unique identifier for a label, represented as a UUID."
 }
 
 Label struct {
@@ -32,6 +33,7 @@ Label struct {
         @doc value "is the display color for visual identification of the label."
     }
 
+    @go version 0
     @doc value  """
         is a tagging and categorization entity with a name and associated color.
         Labels can be attached to resources like ranges for organization and

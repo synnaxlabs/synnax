@@ -42,6 +42,13 @@ var _ = Describe("Format", func() {
 			Expect(result).To(ContainSubstring("import \"a.oracle\""))
 			Expect(result).To(ContainSubstring("import \"b.oracle\""))
 		})
+
+		It("should sort imports alphabetically", func() {
+			result := format("import \"c.oracle\"\nimport \"a.oracle\"\nimport \"b.oracle\"\n")
+			Expect(result).To(Equal(
+				"import \"a.oracle\"\nimport \"b.oracle\"\nimport \"c.oracle\"\n",
+			))
+		})
 	})
 
 	Describe("Struct Definitions", func() {
