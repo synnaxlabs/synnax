@@ -76,8 +76,8 @@ var _ = Describe("Service", func() {
 			testDB := DeferClose(gorp.Wrap(memkv.New()))
 			testOtg := MustOpen(ontology.Open(ctx, ontology.Config{DB: testDB}))
 			testSearchIdx := MustOpen(search.OpenIndex())
-			// cfg1 omits the DB; cfg2 supplies it. OpenService merges later configs over
-			// earlier ones, so the service opens only because cfg2 fills the gap.
+			// cfg1 omits the DB; cfg2 supplies it. OpenService merges later configs
+			// over earlier ones, so the service opens only because cfg2 fills the gap.
 			cfg1 := symbol.ServiceConfig{
 				Ontology: testOtg,
 				Search:   testSearchIdx,

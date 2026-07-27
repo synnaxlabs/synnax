@@ -54,8 +54,8 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	Search *search.Index
-	// ImEx is the import/export registry the symbol service registers itself with as the
-	// exporter for symbol resources during OpenService.
+	// ImEx is the import/export registry the symbol service registers itself with as
+	// the exporter for symbol resources during OpenService.
 	//
 	// [REQUIRED]
 	ImEx *imex.Service
@@ -130,8 +130,8 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	return s, nil
 }
 
-// NewWriter opens a new writer for creating, updating, and deleting symbols in Synnax. If
-// tx is provided, the writer will use that transaction. If tx is nil, the Writer
+// NewWriter opens a new writer for creating, updating, and deleting symbols in Synnax.
+// If tx is provided, the writer will use that transaction. If tx is nil, the Writer
 // will execute the operations directly on the underlying gorp.DB.
 func (s *Service) NewWriter(tx gorp.Tx) Writer {
 	tx = gorp.OverrideTx(s.cfg.DB, tx)

@@ -35,8 +35,8 @@ func wireRoundTrip(env imex.Envelope) imex.Envelope {
 }
 
 var _ = Describe("ImEx", Ordered, func() {
-	// A self-contained service keeps the committed export symbol out of the shared suite
-	// DB, whose retrieve specs count every symbol.
+	// A self-contained service keeps the committed export symbol out of the shared
+	// suite DB, whose retrieve specs count every symbol.
 	var svc *symbol.Service
 	BeforeAll(func(ctx SpecContext) {
 		ShouldNotLeakGoroutines()
