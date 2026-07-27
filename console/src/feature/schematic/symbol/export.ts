@@ -7,7 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { DisconnectedError, group, type Synnax as Client } from "@synnaxlabs/client";
+import {
+  DisconnectedError,
+  group,
+  schematic,
+  type Synnax as Client,
+} from "@synnaxlabs/client";
 import { Status, Synnax } from "@synnaxlabs/pluto";
 import { useCallback } from "react";
 
@@ -16,35 +21,11 @@ import { Export } from "@/platform/export";
 import { Modals } from "@/platform/modals";
 import { Runtime } from "@/platform/runtime";
 
-const FILTERS: Runtime.FileFilter[] = [{ name: "JSON", extensions: ["json"] }];
-
-// Symbols have no server-side exporter, so a single symbol is serialized client-side
-// rather than through client.imex.export.
 export const useExport = (): ((key: string) => void) => {
-  const client = Synnax.use();
-  const handleError = Status.useErrorHandler();
-  const addStatus = Status.useAdder();
+  const handleExport = Export.use();
   return useCallback(
-    (key: string) => {
-      let name: string | undefined;
-      handleError(
-        async () => {
-          if (client == null) throw new DisconnectedError();
-          const symbol = await client.schematics.symbols.retrieve({ key });
-          name = symbol.name;
-          const location = await Runtime.saveFile({
-            title: `Export ${name}`,
-            defaultName: `${name}.json`,
-            filters: FILTERS,
-            contents: JSON.stringify(symbol),
-          });
-          if (location == null) return;
-          addStatus({ variant: "success", message: `Exported ${name} to ${location}` });
-        },
-        `Failed to export ${name ?? "symbol"}`,
-      );
-    },
-    [client, handleError, addStatus],
+    (key: string) => handleExport(schematic.symbol.ontologyID(key)),
+    [handleExport],
   );
 };
 
@@ -106,7 +87,11 @@ const exportGroup = async ({
     symbols: await Promise.all(
       symbols.map(async (symbol) => {
         const fileName = `${Export.sanitizeFileName(symbol.name)}_${symbol.key.slice(0, 8)}.json`;
-        await directory.writeText(fileName, JSON.stringify(symbol));
+        const { data } = await Export.fetchFile(
+          client,
+          schematic.symbol.ontologyID(symbol.key),
+        );
+        await directory.writeText(fileName, data);
         return { file: fileName, key: symbol.key, name: symbol.name };
       }),
     ),

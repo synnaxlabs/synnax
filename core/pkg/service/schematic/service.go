@@ -127,6 +127,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 		Group:           cfg.Group,
 		Signals:         cfg.Signals,
 		Search:          cfg.Search,
+		ImEx:            cfg.ImEx,
 	}); !ok(err, s.Symbol) {
 		return nil, err
 	}

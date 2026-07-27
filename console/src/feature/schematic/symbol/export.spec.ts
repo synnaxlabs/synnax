@@ -65,7 +65,8 @@ describe("Schematic.Symbol.useExport", () => {
     const contents = JSON.parse(
       new TextDecoder().decode(await downloads.blobs[0].arrayBuffer()),
     );
-    expect(contents).toMatchObject({ key: symbol.key, name });
+    // The Core serializes the symbol into the flat imex envelope, which drops the key.
+    expect(contents).toMatchObject({ name, type: "schematic_symbol" });
     expect(contents.data.svg).toBe(symbol.data.svg);
   });
 });
@@ -102,7 +103,7 @@ describe("Schematic.Symbol.useExportGroup", () => {
       if (entry == null) throw new Error(`manifest missing symbol ${symbol.name}`);
       const written = picker.files.get(entry.file);
       if (written == null) throw new Error(`symbol file ${entry.file} not written`);
-      expect(JSON.parse(written)).toMatchObject({ key: symbol.key });
+      expect(JSON.parse(written)).toMatchObject({ name: symbol.name });
     }
   });
 
