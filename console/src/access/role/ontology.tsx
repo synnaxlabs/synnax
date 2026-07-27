@@ -62,10 +62,18 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   );
 };
 
+const ROLE_ICONS: Record<string, Icon.ReactElement> = {
+  Owner: <Icon.Settings />,
+  Engineer: <Icon.Safety />,
+  Operator: <Icon.Control />,
+  Viewer: <Icon.Visible />,
+  Host: <Icon.TerminalOutline />,
+};
+
 export const ONTOLOGY_SERVICE: Ontology.Service = {
   ...Ontology.NOOP_SERVICE,
   type: "role",
-  icon: <Icon.Role />,
+  icon: ({ name }) => ROLE_ICONS[name] ?? <Icon.Role />,
   TreeContextMenu,
   hasChildren: true,
   canDrop: ({ items }) => {
