@@ -87,6 +87,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		HealthCheckInterval: 10 * telem.Millisecond,
 		Search:              searchIdx,
 	}))
+	imexSvc := imex.NewService()
 	taskSvc := MustOpen(task.OpenService(ctx, task.ServiceConfig{
 		DB:       db,
 		Ontology: otg,
@@ -94,7 +95,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Rack:     rackSvc,
 		Status:   statusSvc,
 		Search:   searchIdx,
-		ImEx:     imex.NewService(),
+		ImEx:     imexSvc,
 	}))
 	channelSvc := MustOpen(channel.OpenService(ctx, channel.ServiceConfig{
 		Channel:      node.Channel,
@@ -111,7 +112,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Channel:  channelSvc,
 		Task:     taskSvc,
 		Search:   searchIdx,
-		ImEx:     imex.NewService(),
+		ImEx:     imexSvc,
 	}))
 	authSvc := MustOpen(auth.OpenService(ctx, auth.ServiceConfig{DB: db}))
 	userSvc := MustOpen(user.OpenService(ctx, user.ServiceConfig{

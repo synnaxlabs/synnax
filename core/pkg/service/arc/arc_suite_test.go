@@ -92,6 +92,7 @@ var (
 			HealthCheckInterval: 10 * telem.Millisecond,
 			Search:              searchIdx,
 		}))
+		imexSvc := imex.NewService()
 		taskSvc = MustOpen(task.OpenService(ctx, task.ServiceConfig{
 			DB:       db,
 			Ontology: otg,
@@ -99,7 +100,7 @@ var (
 			Rack:     rackSvc,
 			Status:   statusSvc,
 			Search:   searchIdx,
-			ImEx:     imex.NewService(),
+			ImEx:     imexSvc,
 		}))
 		testRack = &rack.Rack{Name: "Test Rack"}
 		Expect(rackSvc.NewWriter(db).Create(ctx, testRack)).To(Succeed())
@@ -109,7 +110,7 @@ var (
 			Channel:             channelSvc,
 			Task:                taskSvc,
 			Search:              searchIdx,
-			ImEx:                imex.NewService(),
+			ImEx:                imexSvc,
 			TextSweepQuiescence: 5 * telem.Second,
 			TextSweepThreshold:  1,
 			Now:                 func() telem.TimeStamp { return arcClock() },
