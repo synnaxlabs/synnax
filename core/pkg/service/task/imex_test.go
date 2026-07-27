@@ -38,10 +38,11 @@ var _ = Describe("ImEx", Ordered, func() {
 		testRack *rack.Rack
 	)
 	BeforeAll(func(ctx SpecContext) {
+		ShouldNotLeakGoroutines()
 		db := DeferClose(gorp.Wrap(memkv.New()))
 		otg := MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
 		searchIdx := MustOpen(search.OpenIndex())
-		g := MustOpen(group.OpenService(ctx, group.ServiceConfig{
+		groupSvc := MustOpen(group.OpenService(ctx, group.ServiceConfig{
 			DB:       db,
 			Ontology: otg,
 			Search:   searchIdx,
@@ -49,31 +50,31 @@ var _ = Describe("ImEx", Ordered, func() {
 		labelSvc := MustOpen(label.OpenService(ctx, label.ServiceConfig{
 			DB:       db,
 			Ontology: otg,
-			Group:    g,
+			Group:    groupSvc,
 			Search:   searchIdx,
 		}))
-		statSvc := MustOpen(status.OpenService(ctx, status.ServiceConfig{
+		statusSvc := MustOpen(status.OpenService(ctx, status.ServiceConfig{
 			DB:       db,
 			Ontology: otg,
-			Group:    g,
+			Group:    groupSvc,
 			Label:    labelSvc,
 			Search:   searchIdx,
 		}))
 		rackSvc = MustOpen(rack.OpenService(ctx, rack.ServiceConfig{
 			DB:                  db,
 			Ontology:            otg,
-			Group:               g,
+			Group:               groupSvc,
 			HostProvider:        mock.NewStaticHostProvider(1),
-			Status:              statSvc,
+			Status:              statusSvc,
 			HealthCheckInterval: 10 * telem.Millisecond,
 			Search:              searchIdx,
 		}))
 		svc = MustOpen(task.OpenService(ctx, task.ServiceConfig{
 			DB:       db,
 			Ontology: otg,
-			Group:    g,
+			Group:    groupSvc,
 			Rack:     rackSvc,
-			Status:   statSvc,
+			Status:   statusSvc,
 			Search:   searchIdx,
 			ImEx:     imex.NewService(),
 		}))
