@@ -106,8 +106,8 @@ struct Config {
            << "  " << x::log::SHALE() << "password" << x::log::RESET() << ": "
            << x::log::sensitive_string(cfg.password) << "\n"
            << "  " << x::log::SHALE() << "secure" << x::log::RESET() << ": "
-           << x::log::bool_to_str(cfg.is_secure()) << "\n";
-        if (!cfg.is_secure()) return os;
+           << x::log::bool_to_str(cfg.secure) << "\n";
+        if (!cfg.secure) return os;
         os << "  " << x::log::SHALE() << "ca_cert_file" << x::log::RESET() << ": "
            << x::path::resolve_relative(cfg.ca_cert_file) << "\n"
            << "  " << x::log::SHALE() << "client_cert_file" << x::log::RESET() << ": "
@@ -116,10 +116,6 @@ struct Config {
            << x::path::resolve_relative(cfg.client_key_file) << "\n";
         return os;
     }
-
-    /// @brief returns true if the configuration uses TLS encryption to secure
-    /// communications with the cluster.
-    [[nodiscard]] bool is_secure() const { return this->secure; }
 
     /// @brief returns the address of the cluster in the form "host:port".
     [[nodiscard]]
@@ -177,7 +173,7 @@ public:
           cfg.ca_cert_file,
           cfg.client_cert_file,
           cfg.client_key_file,
-          cfg.is_secure()),
+          cfg.secure),
         channels(this->t.chan_retrieve, this->t.chan_create),
         auth([&]() -> std::shared_ptr<auth::Middleware> {
             auto mw = std::make_shared<auth::Middleware>(

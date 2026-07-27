@@ -27,32 +27,9 @@ synnax::Config load(const std::string &json) {
 }
 
 /// @brief a fresh config is insecure.
-TEST(ConfigIsSecure, InsecureByDefault) {
+TEST(ConfigSecure, InsecureByDefault) {
     const synnax::Config cfg;
-    EXPECT_FALSE(cfg.is_secure());
-}
-
-/// @brief the secure flag alone uses the public trust store.
-TEST(ConfigIsSecure, FlagWithoutCAFile) {
-    synnax::Config cfg;
-    cfg.secure = true;
-    EXPECT_TRUE(cfg.is_secure());
-    EXPECT_TRUE(cfg.ca_cert_file.empty());
-}
-
-/// @brief naming a CA file does not by itself enable TLS.
-TEST(ConfigIsSecure, CAFileWithoutFlag) {
-    synnax::Config cfg;
-    cfg.ca_cert_file = "/certs/ca.crt";
-    EXPECT_FALSE(cfg.is_secure());
-}
-
-/// @brief flag and CA file together are secure.
-TEST(ConfigIsSecure, FlagAndCAFile) {
-    synnax::Config cfg;
-    cfg.secure = true;
-    cfg.ca_cert_file = "/certs/ca.crt";
-    EXPECT_TRUE(cfg.is_secure());
+    EXPECT_FALSE(cfg.secure);
 }
 
 /// @brief secure persists across a save/load.
@@ -61,7 +38,6 @@ TEST(ConfigPersist, SecureFlagTrue) {
     cfg.secure = true;
     const auto loaded = load(cfg.to_json().dump());
     EXPECT_TRUE(loaded.secure);
-    EXPECT_TRUE(loaded.is_secure());
 }
 
 /// @brief insecure persists across a save/load.
@@ -70,7 +46,6 @@ TEST(ConfigPersist, SecureFlagFalse) {
     cfg.secure = false;
     const auto loaded = load(cfg.to_json().dump());
     EXPECT_FALSE(loaded.secure);
-    EXPECT_FALSE(loaded.is_secure());
 }
 
 /// @brief every field survives the round-trip.
@@ -96,14 +71,12 @@ TEST(ConfigPersist, AllFields) {
     EXPECT_EQ(loaded.client_key_file, "/certs/client.key");
     EXPECT_TRUE(loaded.secure);
     EXPECT_EQ(loaded.max_retries, 9);
-    EXPECT_TRUE(loaded.is_secure());
 }
 
 /// @brief a pre-flag config with only a CA loads secure.
 TEST(ConfigOverride, LegacySecureViaCAFile) {
     const auto cfg = load(R"({"ca_cert_file":"/certs/ca.crt"})");
     EXPECT_TRUE(cfg.secure);
-    EXPECT_TRUE(cfg.is_secure());
 }
 
 /// @brief a pre-flag config with only a client certificate and key loads secure.
@@ -130,7 +103,6 @@ TEST(ConfigOverride, ExplicitFlagOverridesInference) {
 TEST(ConfigOverride, LegacyInsecure) {
     const auto cfg = load(R"({"username":"op"})");
     EXPECT_FALSE(cfg.secure);
-    EXPECT_FALSE(cfg.is_secure());
 }
 
 /// @brief absent keys keep their defaults.
@@ -138,7 +110,7 @@ TEST(ConfigOverride, EmptyKeepsDefaults) {
     const auto cfg = load("{}");
     EXPECT_EQ(cfg.host, "localhost");
     EXPECT_EQ(cfg.port, 9090);
-    EXPECT_FALSE(cfg.is_secure());
+    EXPECT_FALSE(cfg.secure);
 }
 
 /// @brief present keys override, absent keys are untouched.
