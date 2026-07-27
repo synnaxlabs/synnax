@@ -9,11 +9,15 @@
 
 import { ontology, table } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
+import { type Status } from "@synnaxlabs/pluto";
+import { uuid } from "@synnaxlabs/x";
 import { act, renderHook } from "@testing-library/react";
+import { type PropsWithChildren, type ReactElement } from "react";
 import { describe, expect, it } from "vitest";
 
 import { Panel } from "@/platform/panel";
 import {
+  CaptureStatuses,
   createConsoleWrapper,
   resolveFocusedTab,
   selectTestProject,
@@ -35,5 +39,27 @@ describe("Panel.useOpenResource", () => {
     const tab = await resolveFocusedTab(store, client);
     if (tab.variant !== "resource") throw new Error("expected a resource tab");
     expect(tab.resource).toEqual(id);
+  });
+
+  it("opens the tab without retrieving the resource", async () => {
+    const { wrapper: Wrapper, store } = await createConsoleWrapper({ client });
+    await selectTestProject(store, client);
+    let statuses: Status.NotificationSpec[] = [];
+    const wrapper = ({ children }: PropsWithChildren): ReactElement => (
+      <Wrapper>
+        {children}
+        <CaptureStatuses onStatuses={(s) => (statuses = s)} />
+      </Wrapper>
+    );
+    const { result } = renderHook(() => Panel.useOpenResource(), { wrapper });
+    // The id references nothing on the cluster, so any retrieval fails loudly.
+    const id = table.ontologyID(uuid.create());
+    await act(async () => {
+      result.current(ontology.resourceZ.parse({ id, name: uniqueName("ghost") }));
+    });
+    const tab = await resolveFocusedTab(store, client);
+    if (tab.variant !== "resource") throw new Error("expected a resource tab");
+    expect(tab.resource).toEqual(id);
+    expect(statuses).toEqual([]);
   });
 });
