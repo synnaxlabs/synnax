@@ -22,8 +22,8 @@ import (
 )
 
 var _ = Describe("Migration", func() {
-	// seedV0 writes a symbol in the untyped v0 storage shape, exactly as the pre-SY-4504
-	// server persisted it.
+	// seedV0 writes a symbol in the untyped v0 storage shape, exactly as the
+	// pre-SY-4504 server persisted it.
 	seedV0 := func(ctx SpecContext, db *gorp.DB, s v0.Symbol) v0.Symbol {
 		t := MustOpen(gorp.OpenTable(
 			ctx, gorp.TableConfig[uuid.UUID, v0.Symbol]{DB: db},
