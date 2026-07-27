@@ -8,17 +8,11 @@
 // included in the file licenses/APL.txt.
 
 import {
-  arc,
   DisconnectedError,
-  lineplot,
-  log,
   type ontology,
   type panel,
   project,
-  schematic,
   type Synnax as Client,
-  table,
-  task,
 } from "@synnaxlabs/client";
 import { Status, Synnax } from "@synnaxlabs/pluto";
 import { strings } from "@synnaxlabs/x";
@@ -60,13 +54,13 @@ const retrievePanels = async (
 // no endpoint to ask which types are exportable, so we hardcode the list here. Keep in
 // sync with the RegisterExporter calls in core/pkg/service until such an endpoint
 // exists.
-const EXPORTABLE_TYPES = new Set<string>([
-  arc.TYPE_ONTOLOGY_ID.type,
-  lineplot.TYPE_ONTOLOGY_ID.type,
-  log.TYPE_ONTOLOGY_ID.type,
-  schematic.TYPE_ONTOLOGY_ID.type,
-  table.TYPE_ONTOLOGY_ID.type,
-  task.TYPE_ONTOLOGY_ID.type,
+const EXPORTABLE_TYPES = new Set<ontology.ResourceType>([
+  "arc",
+  "lineplot",
+  "log",
+  "schematic",
+  "table",
+  "task",
 ]);
 
 export interface ExportContext {
