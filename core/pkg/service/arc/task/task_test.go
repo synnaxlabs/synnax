@@ -1688,25 +1688,25 @@ var _ = Describe("Task", Ordered, func() {
 					IsIndex:  true,
 					DataType: telem.TimeStampT,
 				}
-				Expect(dist.Channel.Create(ctx, idxCh)).To(Succeed())
+				Expect(channelWriter.Create(ctx, idxCh)).To(Succeed())
 				p3 := &channel.Channel{
 					Name:       "trig_align_p3_" + suffix,
 					LocalIndex: idxCh.LocalKey,
 					DataType:   telem.Float32T,
 				}
-				Expect(dist.Channel.Create(ctx, p3)).To(Succeed())
+				Expect(channelWriter.Create(ctx, p3)).To(Succeed())
 				goCh := &channel.Channel{
 					Name:     "trig_align_go_" + suffix,
 					Virtual:  true,
 					DataType: telem.Uint8T,
 				}
-				Expect(dist.Channel.Create(ctx, goCh)).To(Succeed())
+				Expect(channelWriter.Create(ctx, goCh)).To(Succeed())
 				marker := &channel.Channel{
 					Name:     "trig_align_marker_" + suffix,
 					Virtual:  true,
 					DataType: telem.Uint8T,
 				}
-				Expect(dist.Channel.Create(ctx, marker)).To(Succeed())
+				Expect(channelWriter.Create(ctx, marker)).To(Succeed())
 
 				prog := arc.Text{
 					Raw: fmt.Sprintf(`
@@ -1733,7 +1733,7 @@ var _ = Describe("Task", Ordered, func() {
 				defer func() { Expect(t.Stop()).To(Succeed()) }()
 
 				By("Streaming p3 above the threshold from the sim session")
-				sim1 := MustSucceed(dist.Framer.OpenWriter(ctx, framer.WriterConfig{
+				sim1 := MustSucceed(framerSvc.OpenWriter(ctx, framer.WriterConfig{
 					Keys:  channel.Keys{idxCh.Key(), p3.Key()},
 					Start: 10 * telem.SecondTS,
 				}))
@@ -1748,7 +1748,7 @@ var _ = Describe("Task", Ordered, func() {
 				Expect(sim1.Close()).To(Succeed())
 
 				By("Extending the index to cover the index-less sessions")
-				wIdx := MustSucceed(dist.Framer.OpenWriter(ctx, framer.WriterConfig{
+				wIdx := MustSucceed(framerSvc.OpenWriter(ctx, framer.WriterConfig{
 					Keys:  channel.Keys{idxCh.Key()},
 					Start: 14 * telem.SecondTS,
 				}))
@@ -1760,7 +1760,7 @@ var _ = Describe("Task", Ordered, func() {
 
 				enterWatch := func() {
 					time.Sleep(50 * time.Millisecond)
-					goW := MustSucceed(dist.Framer.OpenWriter(ctx, framer.WriterConfig{
+					goW := MustSucceed(framerSvc.OpenWriter(ctx, framer.WriterConfig{
 						Keys:  channel.Keys{goCh.Key()},
 						Start: telem.Now(),
 					}))
@@ -1776,7 +1776,7 @@ var _ = Describe("Task", Ordered, func() {
 
 				By("Running index-less sessions on p3")
 				for i := range rogueSessions {
-					wR := MustSucceed(dist.Framer.OpenWriter(ctx, framer.WriterConfig{
+					wR := MustSucceed(framerSvc.OpenWriter(ctx, framer.WriterConfig{
 						Keys:  channel.Keys{p3.Key()},
 						Start: telem.TimeStamp(15+i) * telem.SecondTS,
 					}))
@@ -1794,7 +1794,7 @@ var _ = Describe("Task", Ordered, func() {
 				}
 
 				By("Resuming the sim session with p3 below the threshold")
-				sim2 := MustSucceed(dist.Framer.OpenWriter(ctx, framer.WriterConfig{
+				sim2 := MustSucceed(framerSvc.OpenWriter(ctx, framer.WriterConfig{
 					Keys:  channel.Keys{idxCh.Key(), p3.Key()},
 					Start: 40 * telem.SecondTS,
 				}))
@@ -1810,7 +1810,7 @@ var _ = Describe("Task", Ordered, func() {
 					Eventually(p3Out).Should(Receive())
 				}
 
-				Eventually(markerOut, "5s").Should(Receive(),
+				Eventually(markerOut, time.Second*5).Should(Receive(),
 					"cooldown transition never fired: on{} trigger stalled after index-less sessions")
 			},
 			Entry("with a single writer session", 0, false),
