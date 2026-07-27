@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package channel_test
+package graph_test
 
 import (
 	"context"
@@ -20,24 +20,79 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
+	"github.com/synnaxlabs/synnax/pkg/service/channel/calculation"
+	"github.com/synnaxlabs/synnax/pkg/service/channel/calculation/graph"
+	"github.com/synnaxlabs/synnax/pkg/service/group"
+	"github.com/synnaxlabs/synnax/pkg/service/label"
+	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/search"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
+var (
+	svc           *channel.Service
+	svcCfg        channel.ServiceConfig
+	channelWriter channel.Writer
+)
+
+// serviceConfig builds a channel ServiceConfig for the node, opening the ontology,
+// search, group, label, and status services the channel service depends on.
+func serviceConfig(ctx context.Context, node mock.Node) channel.ServiceConfig {
+	GinkgoHelper()
+	otg := MustOpen(ontology.Open(ctx, ontology.Config{DB: node.DB}))
+	searchIdx := MustOpen(search.OpenIndex())
+	groupSvc := MustOpen(group.OpenService(ctx, group.ServiceConfig{
+		DB:       node.DB,
+		Ontology: otg,
+		Search:   searchIdx,
+	}))
+	labelSvc := MustOpen(label.OpenService(ctx, label.ServiceConfig{
+		DB:       node.DB,
+		Ontology: otg,
+		Group:    groupSvc,
+		Search:   searchIdx,
+	}))
+	statusSvc := MustOpen(status.OpenService(ctx, status.ServiceConfig{
+		DB:       node.DB,
+		Group:    groupSvc,
+		Ontology: otg,
+		Label:    labelSvc,
+		Search:   searchIdx,
+	}))
+	return channel.ServiceConfig{
+		Channel:      node.Channel,
+		DB:           node.DB,
+		HostProvider: node.Cluster,
+		Ontology:     otg,
+		Group:        groupSvc,
+		Search:       searchIdx,
+		Status:       statusSvc,
+	}
+}
+
+var _ = BeforeSuite(func(ctx SpecContext) {
+	ShouldNotLeakGoroutines()
+	node := mock.NewNode(ctx)
+	svcCfg = serviceConfig(ctx, node)
+	svc = MustOpen(channel.OpenService(ctx, svcCfg))
+	channelWriter = svc.NewWriter(nil)
+})
+
 func fetchCalcStatus(
 	ctx context.Context,
 	statusSvc *status.Service,
 	key channel.Key,
-) (channel.CalculationStatus, bool) {
-	var statuses []channel.CalculationStatus
+) (calculation.Status, bool) {
+	var statuses []calculation.Status
 	err := status.NewRetrieve[types.Nil](statusSvc).
-		Where(status.MatchKeys[types.Nil](channel.CalculationStatusKey(key))).
+		Where(status.MatchKeys[types.Nil](calculation.StatusKey(key))).
 		Entries(&statuses).
 		Exec(ctx, nil)
 	if err != nil || len(statuses) == 0 {
-		return channel.CalculationStatus{}, false
+		return calculation.Status{}, false
 	}
 	return statuses[0], true
 }
@@ -46,8 +101,8 @@ func expectCalcStatus(
 	ctx context.Context,
 	statusSvc *status.Service,
 	key channel.Key,
-) channel.CalculationStatus {
-	var result channel.CalculationStatus
+) calculation.Status {
+	var result calculation.Status
 	Eventually(func() bool {
 		s, ok := fetchCalcStatus(ctx, statusSvc, key)
 		if ok && s.Variant == status.VariantError {
@@ -168,7 +223,7 @@ func staleAtRest(
 	Expect(ch.DataType).To(Equal(stale))
 }
 
-var _ = Describe("Calculation Graph", func() {
+var _ = Describe("Graph", func() {
 
 	Describe("Hydration", func() {
 
@@ -877,7 +932,7 @@ var _ = Describe("Calculation Graph", func() {
 			By("Restoring st_ow_a and deleting st_ow_b so the error becomes a different one")
 			createDep(ctx, channelWriter, "st_ow_a")
 			deleteDep(ctx, channelWriter, "st_ow_b")
-			var s2 channel.CalculationStatus
+			var s2 calculation.Status
 			Eventually(func() bool {
 				s, ok := fetchCalcStatus(ctx, svcCfg.Status, calc.Key())
 				if ok && s.Description != s1.Description {
@@ -928,6 +983,25 @@ var _ = Describe("Calculation Graph", func() {
 				_, ok := fetchCalcStatus(ctx, cfg.Status, calc.Key())
 				return ok
 			}, 250*time.Millisecond, 25*time.Millisecond).Should(BeFalse())
+		})
+
+		It("Should fail to open with missing config", func(ctx SpecContext) {
+			Expect(graph.Open(ctx)).Error().
+				To(MatchError(ContainSubstring("must be non-nil")))
+		})
+
+		It("Should fail to open with nil Channels", func(ctx SpecContext) {
+			Expect(graph.Open(ctx, graph.Config{
+				DB:     svcCfg.DB,
+				Status: svcCfg.Status,
+			})).Error().To(MatchError(ContainSubstring("channels: must be non-nil")))
+		})
+
+		It("Should fail to open with nil DB and Status", func(ctx SpecContext) {
+			Expect(graph.Open(ctx, graph.Config{})).Error().To(SatisfyAll(
+				MatchError(ContainSubstring("db: must be non-nil")),
+				MatchError(ContainSubstring("status: must be non-nil")),
+			))
 		})
 	})
 

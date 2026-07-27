@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package channel
+package calculation
 
 import (
 	"context"
@@ -20,6 +20,8 @@ import (
 	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
+	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
+	"github.com/synnaxlabs/synnax/pkg/service/channel/versions"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/set"
@@ -35,25 +37,25 @@ type resolver struct {
 	unresolved set.Set[string]
 }
 
-// CalculationAnalyzer parses and type-checks calculated channel expressions. It caches
+// Analyzer parses and type-checks calculated channel expressions. It caches
 // previously analyzed channels so that later expressions can reference them by name
-// without hitting the backing symbol resolver. CalculationAnalyzer is not safe for
-// concurrent use.
-type CalculationAnalyzer struct {
+// without hitting the backing symbol resolver. Analyzer is not safe for concurrent
+// use.
+type Analyzer struct {
 	resolver *resolver
 	cfg      parser.Config
 }
 
-// NewCalculationAnalyzer returns an Analyzer that falls back to symbolResolver for
-// symbols not yet in the internal cache.
-func NewCalculationAnalyzer(
+// NewAnalyzer returns an Analyzer that falls back to symbolResolver for symbols not
+// yet in the internal cache.
+func NewAnalyzer(
 	symbolResolver arc.SymbolResolver,
 	cfgs ...parser.Config,
-) *CalculationAnalyzer {
+) *Analyzer {
 	r := &resolver{SymbolResolver: symbolResolver}
 	r.temp.keys = make(map[int]*symbol.Symbol)
 	r.temp.names = make(map[string]*symbol.Symbol)
-	return &CalculationAnalyzer{resolver: r, cfg: parser.ConfigOf(cfgs...)}
+	return &Analyzer{resolver: r, cfg: parser.ConfigOf(cfgs...)}
 }
 
 func (r *resolver) Resolve(ctx context.Context, name string) (*symbol.Symbol, error) {
@@ -74,9 +76,9 @@ func (r *resolver) Resolve(ctx context.Context, name string) (*symbol.Symbol, er
 	return sym, resolveErr
 }
 
-// CalculationAnalysisResult holds the output of a calculation analysis. On error,
-// Unresolved may be populated even though ChanDataType and Deps are zero-valued.
-type CalculationAnalysisResult struct {
+// AnalysisResult holds the output of a calculation analysis. On error, Unresolved may
+// be populated even though ChanDataType and Deps are zero-valued.
+type AnalysisResult struct {
 	// ChanDataType is the inferred type of the expression when combined with
 	// operations. For example, a derivative operation will convert the channels return
 	// type to Float64.
@@ -84,7 +86,7 @@ type CalculationAnalysisResult struct {
 	// ExpressionReturnType is the inferred type of the calculated expression itself.
 	ExpressionReturnType types.Type
 	// Deps lists the keys of channels read by the expression.
-	Deps Keys
+	Deps channel.Keys
 	// Unresolved lists symbol names that could not be resolved during analysis.
 	Unresolved []string
 }
@@ -92,19 +94,19 @@ type CalculationAnalysisResult struct {
 // Analyze parses the channel's expression, infers its return type, and extracts the set
 // of channel dependencies. The analyzed channel is cached so that subsequent calls can
 // reference it by name or key.
-func (a *CalculationAnalyzer) Analyze(
+func (a *Analyzer) Analyze(
 	ctx context.Context,
-	ch Channel,
-) (CalculationAnalysisResult, error) {
+	ch versions.Channel,
+) (AnalysisResult, error) {
 	a.resolver.unresolved = make(set.Set[string])
 	t, err := parser.ParseBlock(fmt.Sprintf("{%s}", ch.Expression), a.cfg)
 	if err != nil {
-		return CalculationAnalysisResult{}, err
+		return AnalysisResult{}, err
 	}
 	aCtx := acontext.NewRoot(ctx, t, arc.NewRoot(a.resolver)).WithConfig(a.cfg)
 	dataType := statement.AnalyzeFunctionBody(aCtx)
 	if !aCtx.Diagnostics.Ok() {
-		return CalculationAnalysisResult{
+		return AnalysisResult{
 			Unresolved: a.resolver.unresolved.Slice(),
 		}, aCtx.Diagnostics
 	}
@@ -119,19 +121,19 @@ func (a *CalculationAnalyzer) Analyze(
 		a.resolver.temp.keys[intKey] = s
 	}
 	a.resolver.temp.names[s.Name] = s
-	var deps Keys
+	var deps channel.Keys
 	funcScope, scopeErr := aCtx.Scope.GetChildByParserRule(t)
 	if scopeErr == nil {
 		for k := range funcScope.Channels.Read {
-			deps = append(deps, Key(k))
+			deps = append(deps, versions.Key(k))
 		}
 	}
 	inferredDataType := dataType.ToTelem()
 	if len(ch.Operations) > 0 &&
-		ch.Operations[len(ch.Operations)-1].Type == OperationTypeDerivative {
+		ch.Operations[len(ch.Operations)-1].Type == versions.OperationTypeDerivative {
 		inferredDataType = telem.Float64T
 	}
-	return CalculationAnalysisResult{
+	return AnalysisResult{
 		ChanDataType:         inferredDataType,
 		Deps:                 deps,
 		ExpressionReturnType: dataType,

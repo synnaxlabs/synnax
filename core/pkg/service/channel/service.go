@@ -18,6 +18,8 @@ import (
 	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
+	"github.com/synnaxlabs/synnax/pkg/service/channel/calculation"
+	"github.com/synnaxlabs/synnax/pkg/service/channel/calculation/graph"
 	"github.com/synnaxlabs/synnax/pkg/service/channel/verification"
 	"github.com/synnaxlabs/synnax/pkg/service/channel/versions"
 	"github.com/synnaxlabs/synnax/pkg/service/cluster"
@@ -32,6 +34,7 @@ import (
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/service"
 	"github.com/synnaxlabs/x/set"
+	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/types"
 	"github.com/synnaxlabs/x/validate"
 )
@@ -181,7 +184,12 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	s.mu.externalNonVirtualSet.Insert(KeysFromChannels(externalNonVirtualChannels)...)
 	cfg.Ontology.RegisterService(s)
 	cfg.Search.RegisterService(s)
-	if g, err := s.openCalculationGraph(ctx); !ok(err, g) {
+	if g, err := graph.Open(ctx, graph.Config{
+		Instrumentation: cfg.Child("calculation.graph"),
+		DB:              cfg.DB,
+		Channels:        graphChannels{svc: s},
+		Status:          cfg.Status,
+	}); !ok(err, g) {
 		return nil, err
 	}
 	return s, nil
@@ -246,6 +254,51 @@ func (s *Service) NewArcSymbolResolver(tx gorp.Tx) arc.SymbolResolver {
 	return &symbolResolver{svc: s, tx: tx}
 }
 
+// graphChannels adapts the Service to the calculation graph's Channels interface
+// without exposing graph-specific operations on the Service itself.
+type graphChannels struct{ svc *Service }
+
+var _ graph.Channels = graphChannels{}
+
+func (g graphChannels) RetrieveCalculated(
+	ctx context.Context,
+	tx gorp.Tx,
+) ([]Channel, error) {
+	var channels []Channel
+	err := g.svc.NewRetrieve().
+		Where(MatchCalculated()).
+		Entries(&channels).
+		Exec(ctx, tx)
+	return channels, err
+}
+
+func (g graphChannels) Retrieve(
+	ctx context.Context,
+	tx gorp.Tx,
+	key Key,
+) (Channel, error) {
+	var ch Channel
+	err := g.svc.NewRetrieve().Where(MatchKeys(key)).Entry(&ch).Exec(ctx, tx)
+	return ch, err
+}
+
+func (g graphChannels) ChangeDataType(
+	ctx context.Context,
+	tx gorp.Tx,
+	key Key,
+	dataType telem.DataType,
+) error {
+	return g.svc.NewWriter(tx).ChangeDataType(ctx, key, dataType)
+}
+
+func (g graphChannels) NewAnalyzer(tx gorp.Tx) *calculation.Analyzer {
+	return g.svc.newAnalyzer(tx)
+}
+
+func (g graphChannels) Observe() observe.Observable[gorp.TxReader[Key, Channel]] {
+	return g.svc.Observe()
+}
+
 // freeIndexResolver adapts the Service to the distribution framer writer's
 // FreeIndexResolver interface without exposing resolution on the Service itself.
 type freeIndexResolver struct{ svc *Service }
@@ -281,13 +334,19 @@ func (s *Service) FreeIndexResolver() writer.FreeIndexResolver {
 func (s *Service) NewWriter(tx gorp.Tx) Writer {
 	tx = s.db.OverrideTx(tx)
 	return Writer{
-		svc: s,
-		tx:  tx,
-		otg: s.cfg.Ontology.NewWriter(tx),
-		analyzer: NewCalculationAnalyzer(s.NewArcSymbolResolver(tx), parser.Config{
-			AllowDashedNames: !s.ShouldValidateNames(),
-		}),
+		svc:      s,
+		tx:       tx,
+		otg:      s.cfg.Ontology.NewWriter(tx),
+		analyzer: s.newAnalyzer(tx),
 	}
+}
+
+// newAnalyzer returns an expression analyzer whose symbol resolution is scoped to tx
+// (nil resolves against the service DB directly).
+func (s *Service) newAnalyzer(tx gorp.Tx) *calculation.Analyzer {
+	return calculation.NewAnalyzer(s.NewArcSymbolResolver(tx), parser.Config{
+		AllowDashedNames: !s.ShouldValidateNames(),
+	})
 }
 
 // ShouldValidateNames reports whether channel-name validation is enabled.

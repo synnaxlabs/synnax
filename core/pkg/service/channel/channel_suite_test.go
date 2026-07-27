@@ -29,7 +29,6 @@ import (
 
 var (
 	svc           *channel.Service
-	svcCfg        channel.ServiceConfig
 	channelWriter channel.Writer
 )
 
@@ -111,6 +110,6 @@ func openService(
 var _ = BeforeSuite(func(ctx SpecContext) {
 	ShouldNotLeakGoroutines()
 	node := mock.NewNode(ctx)
-	svc, svcCfg = openService(ctx, node)
+	svc, _ = openService(ctx, node)
 	channelWriter = svc.NewWriter(nil)
 })

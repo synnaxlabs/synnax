@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package channel_test
+package calculation_test
 
 import (
 	. "github.com/onsi/ginkgo/v2"
@@ -16,7 +16,8 @@ import (
 	"github.com/synnaxlabs/arc/symbol"
 	. "github.com/synnaxlabs/arc/symbol/testutil"
 	"github.com/synnaxlabs/arc/types"
-	"github.com/synnaxlabs/synnax/pkg/service/channel"
+	"github.com/synnaxlabs/synnax/pkg/service/channel/calculation"
+	"github.com/synnaxlabs/synnax/pkg/service/channel/versions"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -24,15 +25,15 @@ import (
 var _ = Describe("Analyze", func() {
 	Describe("Type Inference", func() {
 		It("Should infer the correct type for integer literal expressions", func(ctx SpecContext) {
-			a := channel.NewCalculationAnalyzer(StaticResolver{})
-			ch := channel.Channel{Name: "calc", Expression: "return 1 + 2"}
+			a := calculation.NewAnalyzer(StaticResolver{})
+			ch := versions.Channel{Name: "calc", Expression: "return 1 + 2"}
 			res := MustSucceed(a.Analyze(ctx, ch))
 			Expect(res.ChanDataType).To(Equal(telem.Int64T))
 		})
 
 		It("Should infer the correct type for float literal expressions", func(ctx SpecContext) {
-			a := channel.NewCalculationAnalyzer(StaticResolver{})
-			ch := channel.Channel{Name: "calc", Expression: "return 1.0 + 2.0"}
+			a := calculation.NewAnalyzer(StaticResolver{})
+			ch := versions.Channel{Name: "calc", Expression: "return 1.0 + 2.0"}
 			res := MustSucceed(a.Analyze(ctx, ch))
 			Expect(res.ChanDataType).To(Equal(telem.Float64T))
 		})
@@ -41,8 +42,8 @@ var _ = Describe("Analyze", func() {
 			r := StaticResolver{
 				{Name: "sensor", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 10},
 			}
-			a := channel.NewCalculationAnalyzer(r)
-			ch := channel.Channel{Name: "calc", Expression: "return sensor * 2.0"}
+			a := calculation.NewAnalyzer(r)
+			ch := versions.Channel{Name: "calc", Expression: "return sensor * 2.0"}
 			res := MustSucceed(a.Analyze(ctx, ch))
 			Expect(res.ChanDataType).To(Equal(telem.Float32T))
 		})
@@ -51,8 +52,8 @@ var _ = Describe("Analyze", func() {
 			r := StaticResolver{
 				{Name: "sensor", Kind: symbol.KindChannel, Type: types.Chan(types.I64()), ID: 10},
 			}
-			a := channel.NewCalculationAnalyzer(r)
-			ch := channel.Channel{Name: "calc", Expression: "return sensor + 1"}
+			a := calculation.NewAnalyzer(r)
+			ch := versions.Channel{Name: "calc", Expression: "return sensor + 1"}
 			res := MustSucceed(a.Analyze(ctx, ch))
 			Expect(res.ChanDataType).To(Equal(telem.Int64T))
 		})
@@ -62,8 +63,8 @@ var _ = Describe("Analyze", func() {
 				{Name: "a", Kind: symbol.KindChannel, Type: types.Chan(types.F64()), ID: 10},
 				{Name: "b", Kind: symbol.KindChannel, Type: types.Chan(types.F64()), ID: 20},
 			}
-			a := channel.NewCalculationAnalyzer(r)
-			ch := channel.Channel{Name: "calc", Expression: "return a + b"}
+			a := calculation.NewAnalyzer(r)
+			ch := versions.Channel{Name: "calc", Expression: "return a + b"}
 			res := MustSucceed(a.Analyze(ctx, ch))
 			Expect(res.ChanDataType).To(Equal(telem.Float64T))
 		})
@@ -72,11 +73,11 @@ var _ = Describe("Analyze", func() {
 			r := StaticResolver{
 				{Name: "ox-pt-1", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 10},
 			}
-			a := channel.NewCalculationAnalyzer(
+			a := calculation.NewAnalyzer(
 				r,
 				parser.Config{AllowDashedNames: true},
 			)
-			ch := channel.Channel{Name: "calc", Expression: "return ox-pt-1 * 2.0"}
+			ch := versions.Channel{Name: "calc", Expression: "return ox-pt-1 * 2.0"}
 			res := MustSucceed(a.Analyze(ctx, ch))
 			Expect(res.ChanDataType).To(Equal(telem.Float32T))
 		})
@@ -84,8 +85,8 @@ var _ = Describe("Analyze", func() {
 
 	Describe("Deps", func() {
 		It("Should return no deps for a pure literal expression", func(ctx SpecContext) {
-			a := channel.NewCalculationAnalyzer(StaticResolver{})
-			ch := channel.Channel{Name: "calc", Expression: "return 1 + 2"}
+			a := calculation.NewAnalyzer(StaticResolver{})
+			ch := versions.Channel{Name: "calc", Expression: "return 1 + 2"}
 			res := MustSucceed(a.Analyze(ctx, ch))
 			Expect(res.Deps).To(BeEmpty())
 		})
@@ -94,10 +95,10 @@ var _ = Describe("Analyze", func() {
 			r := StaticResolver{
 				{Name: "sensor", Kind: symbol.KindChannel, Type: types.Chan(types.F64()), ID: 10},
 			}
-			a := channel.NewCalculationAnalyzer(r)
-			ch := channel.Channel{Name: "calc", Expression: "return sensor * 2.0"}
+			a := calculation.NewAnalyzer(r)
+			ch := versions.Channel{Name: "calc", Expression: "return sensor * 2.0"}
 			res := MustSucceed(a.Analyze(ctx, ch))
-			Expect(res.Deps).To(ConsistOf(channel.Key(10)))
+			Expect(res.Deps).To(ConsistOf(versions.Key(10)))
 		})
 
 		It("Should return keys for multiple referenced channels", func(ctx SpecContext) {
@@ -105,32 +106,32 @@ var _ = Describe("Analyze", func() {
 				{Name: "a", Kind: symbol.KindChannel, Type: types.Chan(types.F64()), ID: 10},
 				{Name: "b", Kind: symbol.KindChannel, Type: types.Chan(types.F64()), ID: 20},
 			}
-			a := channel.NewCalculationAnalyzer(r)
-			ch := channel.Channel{Name: "calc", Expression: "return a + b"}
+			a := calculation.NewAnalyzer(r)
+			ch := versions.Channel{Name: "calc", Expression: "return a + b"}
 			res := MustSucceed(a.Analyze(ctx, ch))
-			Expect(res.Deps).To(ConsistOf(channel.Key(10), channel.Key(20)))
+			Expect(res.Deps).To(ConsistOf(versions.Key(10), versions.Key(20)))
 		})
 
 		It("Should not duplicate a channel referenced multiple times", func(ctx SpecContext) {
 			r := StaticResolver{
 				{Name: "sensor", Kind: symbol.KindChannel, Type: types.Chan(types.F64()), ID: 10},
 			}
-			a := channel.NewCalculationAnalyzer(r)
-			ch := channel.Channel{Name: "calc", Expression: "return sensor + sensor"}
+			a := calculation.NewAnalyzer(r)
+			ch := versions.Channel{Name: "calc", Expression: "return sensor + sensor"}
 			res := MustSucceed(a.Analyze(ctx, ch))
-			Expect(res.Deps).To(ConsistOf(channel.Key(10)))
+			Expect(res.Deps).To(ConsistOf(versions.Key(10)))
 		})
 
 		It("Should resolve deps from the temp cache for previously analyzed channels", func(ctx SpecContext) {
-			a := channel.NewCalculationAnalyzer(StaticResolver{})
-			first := channel.Channel{
+			a := calculation.NewAnalyzer(StaticResolver{})
+			first := versions.Channel{
 				Name:        "first",
 				Expression:  "return 1.0",
 				Leaseholder: 1,
 				LocalKey:    5,
 			}
 			MustSucceed(a.Analyze(ctx, first))
-			second := channel.Channel{
+			second := versions.Channel{
 				Name:       "second",
 				Expression: "return first + 1.0",
 			}
@@ -141,15 +142,15 @@ var _ = Describe("Analyze", func() {
 
 	Describe("Channel Caching", func() {
 		It("Should resolve a previously analyzed channel by name", func(ctx SpecContext) {
-			a := channel.NewCalculationAnalyzer(StaticResolver{})
-			sensor := channel.Channel{
+			a := calculation.NewAnalyzer(StaticResolver{})
+			sensor := versions.Channel{
 				Name:        "sensor",
 				Expression:  "return 1.0",
 				Leaseholder: 1,
 				LocalKey:    1,
 			}
 			MustSucceed(a.Analyze(ctx, sensor))
-			calc := channel.Channel{
+			calc := versions.Channel{
 				Name:        "calc",
 				Expression:  "return sensor + 1.0",
 				Leaseholder: 1,
@@ -160,22 +161,22 @@ var _ = Describe("Analyze", func() {
 		})
 
 		It("Should cache multiple channels and resolve a chain of dependencies", func(ctx SpecContext) {
-			a := channel.NewCalculationAnalyzer(StaticResolver{})
-			first := channel.Channel{
+			a := calculation.NewAnalyzer(StaticResolver{})
+			first := versions.Channel{
 				Name:        "first",
 				Expression:  "return 1.0",
 				Leaseholder: 1,
 				LocalKey:    5,
 			}
 			MustSucceed(a.Analyze(ctx, first))
-			second := channel.Channel{
+			second := versions.Channel{
 				Name:        "second",
 				Expression:  "return first + 1.0",
 				Leaseholder: 1,
 				LocalKey:    6,
 			}
 			MustSucceed(a.Analyze(ctx, second))
-			third := channel.Channel{
+			third := versions.Channel{
 				Name:        "third",
 				Expression:  "return first + second",
 				Leaseholder: 1,
@@ -186,13 +187,13 @@ var _ = Describe("Analyze", func() {
 		})
 
 		It("Should still resolve by name when the channel has key 0", func(ctx SpecContext) {
-			a := channel.NewCalculationAnalyzer(StaticResolver{})
-			sensor := channel.Channel{
+			a := calculation.NewAnalyzer(StaticResolver{})
+			sensor := versions.Channel{
 				Name:       "sensor",
 				Expression: "return 1.0",
 			}
 			MustSucceed(a.Analyze(ctx, sensor))
-			calc := channel.Channel{
+			calc := versions.Channel{
 				Name:       "calc",
 				Expression: "return sensor + 1.0",
 			}
@@ -203,29 +204,29 @@ var _ = Describe("Analyze", func() {
 
 	Describe("Error Handling", func() {
 		It("Should return an error for invalid syntax", func(ctx SpecContext) {
-			a := channel.NewCalculationAnalyzer(StaticResolver{})
-			ch := channel.Channel{Name: "calc", Expression: "return {{invalid"}
+			a := calculation.NewAnalyzer(StaticResolver{})
+			ch := versions.Channel{Name: "calc", Expression: "return {{invalid"}
 			Expect(a.Analyze(ctx, ch)).Error().To(MatchError(ContainSubstring("extraneous input")))
 		})
 
 		It("Should return an error for an undefined channel reference", func(ctx SpecContext) {
-			a := channel.NewCalculationAnalyzer(StaticResolver{})
-			ch := channel.Channel{Name: "calc", Expression: "return nonexistent + 1"}
+			a := calculation.NewAnalyzer(StaticResolver{})
+			ch := versions.Channel{Name: "calc", Expression: "return nonexistent + 1"}
 			res, err := a.Analyze(ctx, ch)
 			Expect(err).To(MatchError(ContainSubstring("undefined symbol")))
 			Expect(res.Unresolved).To(ConsistOf("nonexistent"))
 		})
 
 		It("Should return zero CalculationAnalysisResult on parse error", func(ctx SpecContext) {
-			a := channel.NewCalculationAnalyzer(StaticResolver{})
-			ch := channel.Channel{Name: "calc", Expression: "return {{invalid"}
+			a := calculation.NewAnalyzer(StaticResolver{})
+			ch := versions.Channel{Name: "calc", Expression: "return {{invalid"}
 			Expect(a.Analyze(ctx, ch)).Error().
 				To(MatchError(ContainSubstring("extraneous input")))
 		})
 
 		It("Should return unresolved names on analysis error", func(ctx SpecContext) {
-			a := channel.NewCalculationAnalyzer(StaticResolver{})
-			ch := channel.Channel{Name: "calc", Expression: "return nonexistent + 1"}
+			a := calculation.NewAnalyzer(StaticResolver{})
+			ch := versions.Channel{Name: "calc", Expression: "return nonexistent + 1"}
 			res, err := a.Analyze(ctx, ch)
 			Expect(err).To(MatchError(ContainSubstring("undefined symbol")))
 			Expect(res.ChanDataType).To(Equal(telem.UnknownT))
@@ -238,12 +239,12 @@ var _ = Describe("Analyze", func() {
 			r := StaticResolver{
 				{Name: "sensor", Kind: symbol.KindChannel, Type: types.Chan(types.I32()), ID: 1},
 			}
-			a := channel.NewCalculationAnalyzer(r)
-			ch := channel.Channel{
+			a := calculation.NewAnalyzer(r)
+			ch := versions.Channel{
 				Name:       "deriv_calc",
 				Expression: "return sensor",
-				Operations: []channel.Operation{
-					{Type: channel.OperationTypeDerivative},
+				Operations: []versions.Operation{
+					{Type: versions.OperationTypeDerivative},
 				},
 			}
 			res := MustSucceed(a.Analyze(ctx, ch))
@@ -255,12 +256,12 @@ var _ = Describe("Analyze", func() {
 			r := StaticResolver{
 				{Name: "sensor2", Kind: symbol.KindChannel, Type: types.Chan(types.I32()), ID: 2},
 			}
-			a := channel.NewCalculationAnalyzer(r)
-			ch := channel.Channel{
+			a := calculation.NewAnalyzer(r)
+			ch := versions.Channel{
 				Name:       "avg_calc",
 				Expression: "return sensor2",
-				Operations: []channel.Operation{
-					{Type: channel.OperationTypeAvg},
+				Operations: []versions.Operation{
+					{Type: versions.OperationTypeAvg},
 				},
 			}
 			res := MustSucceed(a.Analyze(ctx, ch))
@@ -274,8 +275,8 @@ var _ = Describe("Analyze", func() {
 			r := StaticResolver{
 				{Name: "external", Kind: symbol.KindChannel, Type: types.Chan(types.F64()), ID: 100},
 			}
-			a := channel.NewCalculationAnalyzer(r)
-			ch := channel.Channel{Name: "calc", Expression: "return external * 2.0"}
+			a := calculation.NewAnalyzer(r)
+			ch := versions.Channel{Name: "calc", Expression: "return external * 2.0"}
 			res := MustSucceed(a.Analyze(ctx, ch))
 			Expect(res.ChanDataType).To(Equal(telem.Float64T))
 		})

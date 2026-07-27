@@ -17,6 +17,7 @@ import (
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
+	"github.com/synnaxlabs/synnax/pkg/service/channel/calculation"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/node"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
@@ -40,7 +41,7 @@ type Writer struct {
 	svc      *Service
 	tx       gorp.Tx
 	otg      ontology.Writer
-	analyzer *CalculationAnalyzer
+	analyzer *calculation.Analyzer
 }
 
 type createOptions struct {
