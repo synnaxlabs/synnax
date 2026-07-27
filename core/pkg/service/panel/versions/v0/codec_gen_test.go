@@ -340,9 +340,6 @@ func FuzzDecodeLeaf(f *testing.F) {
 		if err := redecoded.EncodeOrc(w2); err != nil {
 			t.Fatalf("re-encode failed: %v", err)
 		}
-		// Compare re-encoded bytes rather than the decoded values: encoding is
-		// deterministic and byte-stable even for float payloads that break value
-		// equality (a decoded NaN re-encodes to identical bytes but NaN != NaN).
 		if !bytes.Equal(w1.Bytes(), w2.Bytes()) {
 			t.Fatal("round-trip instability: re-encoding the decoded value is not byte-stable")
 		}
@@ -386,9 +383,6 @@ func FuzzDecodeNode(f *testing.F) {
 		if err := redecoded.EncodeOrc(w2); err != nil {
 			t.Fatalf("re-encode failed: %v", err)
 		}
-		// Compare re-encoded bytes rather than the decoded values: encoding is
-		// deterministic and byte-stable even for float payloads that break value
-		// equality (a decoded NaN re-encodes to identical bytes but NaN != NaN).
 		if !bytes.Equal(w1.Bytes(), w2.Bytes()) {
 			t.Fatal("round-trip instability: re-encoding the decoded value is not byte-stable")
 		}
@@ -440,9 +434,6 @@ func FuzzDecodePanel(f *testing.F) {
 		if err := redecoded.EncodeOrc(w2); err != nil {
 			t.Fatalf("re-encode failed: %v", err)
 		}
-		// Compare re-encoded bytes rather than the decoded values: encoding is
-		// deterministic and byte-stable even for float payloads that break value
-		// equality (a decoded NaN re-encodes to identical bytes but NaN != NaN).
 		if !bytes.Equal(w1.Bytes(), w2.Bytes()) {
 			t.Fatal("round-trip instability: re-encoding the decoded value is not byte-stable")
 		}
@@ -491,9 +482,6 @@ func FuzzDecodeSplit(f *testing.F) {
 		if err := redecoded.EncodeOrc(w2); err != nil {
 			t.Fatalf("re-encode failed: %v", err)
 		}
-		// Compare re-encoded bytes rather than the decoded values: encoding is
-		// deterministic and byte-stable even for float payloads that break value
-		// equality (a decoded NaN re-encodes to identical bytes but NaN != NaN).
 		if !bytes.Equal(w1.Bytes(), w2.Bytes()) {
 			t.Fatal("round-trip instability: re-encoding the decoded value is not byte-stable")
 		}
@@ -540,9 +528,6 @@ func FuzzDecodeTab(f *testing.F) {
 		if err := redecoded.EncodeOrc(w2); err != nil {
 			t.Fatalf("re-encode failed: %v", err)
 		}
-		// Compare re-encoded bytes rather than the decoded values: encoding is
-		// deterministic and byte-stable even for float payloads that break value
-		// equality (a decoded NaN re-encodes to identical bytes but NaN != NaN).
 		if !bytes.Equal(w1.Bytes(), w2.Bytes()) {
 			t.Fatal("round-trip instability: re-encoding the decoded value is not byte-stable")
 		}
@@ -586,9 +571,6 @@ func FuzzDecodeTabBase(f *testing.F) {
 		if err := redecoded.EncodeOrc(w2); err != nil {
 			t.Fatalf("re-encode failed: %v", err)
 		}
-		// Compare re-encoded bytes rather than the decoded values: encoding is
-		// deterministic and byte-stable even for float payloads that break value
-		// equality (a decoded NaN re-encodes to identical bytes but NaN != NaN).
 		if !bytes.Equal(w1.Bytes(), w2.Bytes()) {
 			t.Fatal("round-trip instability: re-encoding the decoded value is not byte-stable")
 		}
@@ -632,9 +614,6 @@ func FuzzDecodeView(f *testing.F) {
 		if err := redecoded.EncodeOrc(w2); err != nil {
 			t.Fatalf("re-encode failed: %v", err)
 		}
-		// Compare re-encoded bytes rather than the decoded values: encoding is
-		// deterministic and byte-stable even for float payloads that break value
-		// equality (a decoded NaN re-encodes to identical bytes but NaN != NaN).
 		if !bytes.Equal(w1.Bytes(), w2.Bytes()) {
 			t.Fatal("round-trip instability: re-encoding the decoded value is not byte-stable")
 		}
