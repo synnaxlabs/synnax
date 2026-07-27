@@ -16,13 +16,37 @@ import { Export } from "@/platform/export";
 import { Modals } from "@/platform/modals";
 import { Runtime } from "@/platform/runtime";
 
-export const extract: Export.Extractor = async (key, { client }) => {
-  if (client == null) throw new DisconnectedError();
-  const symbol = await client.schematics.symbols.retrieve({ key });
-  return { data: JSON.stringify(symbol), name: symbol.name };
-};
+const FILTERS: Runtime.FileFilter[] = [{ name: "JSON", extensions: ["json"] }];
 
-export const useExport = () => Export.use(extract, "symbol");
+// Symbols have no server-side exporter, so a single symbol is serialized client-side
+// rather than through client.imex.export.
+export const useExport = (): ((key: string) => void) => {
+  const client = Synnax.use();
+  const handleError = Status.useErrorHandler();
+  const addStatus = Status.useAdder();
+  return useCallback(
+    (key: string) => {
+      let name: string | undefined;
+      handleError(
+        async () => {
+          if (client == null) throw new DisconnectedError();
+          const symbol = await client.schematics.symbols.retrieve({ key });
+          name = symbol.name;
+          const location = await Runtime.saveFile({
+            title: `Export ${name}`,
+            defaultName: `${name}.json`,
+            filters: FILTERS,
+            contents: JSON.stringify(symbol),
+          });
+          if (location == null) return;
+          addStatus({ variant: "success", message: `Exported ${name} to ${location}` });
+        },
+        `Failed to export ${name ?? "symbol"}`,
+      );
+    },
+    [client, handleError, addStatus],
+  );
+};
 
 interface ExportGroupParams {
   client: Client | null;

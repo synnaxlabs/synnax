@@ -15,6 +15,7 @@ import (
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
+	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/search"
@@ -64,6 +65,11 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	Search *search.Index
+	// ImEx is the import/export registry the task service registers itself with as the
+	// exporter for task resources during OpenService.
+	//
+	// [OPTIONAL]
+	ImEx *imex.Service
 	// Instrumentation is used for logging, tracing, and metrics.
 	//
 	// [OPTIONAL] - Defaults to noop instrumentation.
@@ -82,6 +88,7 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Status = override.Nil(c.Status, other.Status)
 	c.Channel = override.Nil(c.Channel, other.Channel)
 	c.Search = override.Nil(c.Search, other.Search)
+	c.ImEx = override.Nil(c.ImEx, other.ImEx)
 	return c
 }
 
@@ -138,6 +145,9 @@ func OpenService(ctx context.Context, configs ...ServiceConfig) (s *Service, err
 	}
 	cfg.Ontology.RegisterService(s)
 	cfg.Search.RegisterService(s)
+	if cfg.ImEx != nil {
+		cfg.ImEx.RegisterExporter(s)
+	}
 	s.cleanupInternalOntologyResources(ctx)
 	if cfg.Channel != nil {
 		cmdCh := channel.Channel{

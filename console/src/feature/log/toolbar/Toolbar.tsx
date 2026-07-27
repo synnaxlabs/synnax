@@ -13,7 +13,6 @@ import { log } from "@synnaxlabs/client";
 import { Flex, Icon, Log, Panel as PPanel, Tabs } from "@synnaxlabs/pluto";
 import { type ReactElement, useCallback } from "react";
 
-import { useExport } from "@/feature/log/export";
 import { Channels } from "@/feature/log/toolbar/Channels";
 import { Properties } from "@/feature/log/toolbar/Properties";
 import { Cluster } from "@/platform/cluster";
@@ -28,7 +27,7 @@ const Internal = (): ReactElement => {
   const selected = Session.Log.useSelectSelectedToolbarTab();
   const name = Log.useSelectName();
   const key = Log.useKey();
-  const handleExport = useExport();
+  const handleExport = Export.use();
   const handleTabSelect = useCallback(
     (tab: string) =>
       dispatch(
@@ -47,7 +46,7 @@ const Internal = (): ReactElement => {
           <Base.Title icon={<Icon.Log />}>{name}</Base.Title>
           <Flex.Box x align="center" empty>
             <Flex.Box x empty className={CSS.BE("log-toolbar", "actions")}>
-              <Export.ToolbarButton onExport={() => handleExport(key)} />
+              <Export.ToolbarButton onExport={() => handleExport(log.ontologyID(key))} />
               <Cluster.CopyLinkToolbarButton
                 name={name}
                 ontologyID={log.ontologyID(key)}

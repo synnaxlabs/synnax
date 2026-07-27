@@ -359,7 +359,7 @@ const ContextMenu = ({
   const addStatus = Status.useAdder();
   const copyLinkToClipboard = Cluster.useCopyLinkToClipboard();
 
-  const handleExport = PlatformTask.useExport();
+  const handleExport = Export.use();
   const handleLink = useCallback(
     (key: task.Key) => {
       const name = selectedTasks.find((t) => t.key === key)?.name;
@@ -449,7 +449,7 @@ const ContextMenu = ({
       )}
       {isSingle && (
         <>
-          <Export.ContextMenuItem onClick={() => handleExport(keys[0])} />
+          <Export.ContextMenuItem onClick={() => handleExport(task.ontologyID(keys[0]))} />
           <Link.CopyContextMenuItem onClick={() => handleLink(keys[0])} />
           <Menu.Divider />
         </>

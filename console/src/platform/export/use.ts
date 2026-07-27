@@ -7,42 +7,69 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import {
+  DisconnectedError,
+  type ontology,
+  type Synnax as Client,
+} from "@synnaxlabs/client";
 import { Status, Synnax } from "@synnaxlabs/pluto";
 import { useCallback } from "react";
+import { z } from "zod";
 
-import { type Extractor } from "@/platform/export/extractor";
 import { Runtime } from "@/platform/runtime";
-import { Session } from "@/session";
 
 const FILTERS: Runtime.FileFilter[] = [{ name: "JSON", extensions: ["json"] }];
 
-export const use = (extract: Extractor, type: string): ((key: string) => void) => {
+const envelopeZ = z.object({ name: z.string() });
+
+/** A serialized resource ready to be written to disk. */
+export interface File {
+  data: string;
+  name: string;
+}
+
+/**
+ * Streams the Core-serialized envelope for the resource identified by id and returns its
+ * bytes together with the resource name promoted from the envelope. The Core owns
+ * serialization and versioning, so the returned bytes are exactly the file's contents.
+ */
+export const fetchFile = async (client: Client, id: ontology.ID): Promise<File> => {
+  const stream = await client.imex.export(id, { encoding: "JSON" });
+  const data = await new Response(stream).text();
+  return { data, name: envelopeZ.parse(JSON.parse(data)).name };
+};
+
+/**
+ * Returns a callback that exports the resource identified by the given ontology ID,
+ * streaming its Core-serialized envelope to a file the user picks.
+ */
+export const use = (): ((id: ontology.ID) => void) => {
   const client = Synnax.use();
-  const store = Session.useStore();
   const handleError = Status.useErrorHandler();
   const addStatus = Status.useAdder();
   return useCallback(
-    (key: string) => {
+    (id: ontology.ID) => {
       let name: string | undefined;
       handleError(
         async () => {
-          const extractorReturn = await extract(key, { store, client });
-          name = extractorReturn.name;
+          if (client == null) throw new DisconnectedError();
+          const file = await fetchFile(client, id);
+          name = file.name;
           const location = await Runtime.saveFile({
             title: `Export ${name}`,
             defaultName: `${name}.json`,
             filters: FILTERS,
-            contents: extractorReturn.data,
+            contents: file.data,
           });
           if (location == null) return;
           addStatus({
             variant: "success",
-            message: `Exported ${name ?? type} to ${location}`,
+            message: `Exported ${name} to ${location}`,
           });
         },
-        `Failed to export ${name ?? type}`,
+        `Failed to export ${name ?? id.type}`,
       );
     },
-    [client, store, handleError, extract, type],
+    [client, handleError, addStatus],
   );
 };

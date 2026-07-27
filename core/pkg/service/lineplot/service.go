@@ -15,6 +15,7 @@ import (
 
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
+	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	v55 "github.com/synnaxlabs/synnax/pkg/service/lineplot/migrations/v55"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/search"
@@ -47,6 +48,10 @@ type ServiceConfig struct {
 	// successful Writer.Dispatch broadcasts a ScopedAction onto the
 	// sy_lineplot_set channel, and deletes flow through sy_lineplot_delete.
 	Signals *signals.Provider
+	// ImEx is the import/export registry the line plot service registers itself with as
+	// the exporter for line plot resources during OpenService.
+	// [OPTIONAL]
+	ImEx *imex.Service
 }
 
 var (
@@ -63,6 +68,7 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Ontology = override.Nil(c.Ontology, other.Ontology)
 	c.Search = override.Nil(c.Search, other.Search)
 	c.Signals = override.Nil(c.Signals, other.Signals)
+	c.ImEx = override.Nil(c.ImEx, other.ImEx)
 	return c
 }
 
@@ -112,6 +118,9 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	}
 	cfg.Ontology.RegisterService(s)
 	cfg.Search.RegisterService(s)
+	if cfg.ImEx != nil {
+		cfg.ImEx.RegisterExporter(s)
+	}
 	if cfg.Signals != nil {
 		var sig stdio.Closer
 		if sig, err = actions.PublishSignals(ctx, actions.SignalsConfig[Key, Action]{

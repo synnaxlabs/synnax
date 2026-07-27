@@ -29,16 +29,11 @@ const client: Synnax = createTestClient();
 interface CreateExportContextParams {
   store: TestStore;
   confirmResult?: boolean;
-  extractors?: Record<
-    string,
-    (key: string, ctx: unknown) => Promise<{ data: string; name: string }>
-  >;
 }
 
 const createExportContext = ({
   store,
   confirmResult = true,
-  extractors = {},
 }: CreateExportContextParams): {
   ctx: Project.ExportContext;
   statuses: status.Crude[];
@@ -53,7 +48,6 @@ const createExportContext = ({
     handleError: createExecutingHandleError((message, exc) => {
       console.error(message, exc);
     }),
-    extractors,
     addStatus: (s) => void statuses.push(s),
   };
   return { ctx, statuses, confirm };
@@ -82,29 +76,26 @@ describe("project export", () => {
 
   it("should export the active project's panels and component files", async () => {
     const p = await client.projects.create({ name: uniqueName("proj"), layout: {} });
-    const logKey = uuid.create();
-    const exported = await createPanelWithLog(p.key, logKey);
+    const logName = uniqueName("log");
+    const createdLog = await client.logs.create(p.key, { name: logName });
+    const exported = await createPanelWithLog(p.key, createdLog.key);
     const store = await createTestStore({
       preloadedState: {
         [Session.Project.SLICE_NAME]: { version: 0, selected: p.key },
       },
     });
     const writes = installPickedDirectory();
-    const extractor = vi
-      .fn()
-      .mockResolvedValue({ data: '{"type":"log"}', name: "My Log" });
-    const { ctx, statuses } = createExportContext({
-      store,
-      extractors: { log: extractor },
-    });
+    const { ctx, statuses } = createExportContext({ store });
     Project.export_(null, ctx);
     await waitFor(() => expect(writes.has(Project.PANELS_FILE_NAME)).toBe(true));
-    await waitFor(() => expect(writes.has("My Log.json")).toBe(true));
+    await waitFor(() => expect(writes.has(`${logName}.json`)).toBe(true));
     const panels = JSON.parse(
       writes.get(Project.PANELS_FILE_NAME) ?? "[]",
     ) as panel.Panel[];
     expect(panels.map(({ key }) => key)).toContain(exported.key);
-    expect(extractor).toHaveBeenCalledWith(logKey, { store, client });
+    // The Core serializes the log server-side, so the file carries the log's name.
+    const exportedLog = JSON.parse(writes.get(`${logName}.json`) ?? "{}");
+    expect(exportedLog.name).toEqual(logName);
     await waitFor(() =>
       expect(
         statuses.some((s) => s.variant === "success" && s.message?.includes(p.name)),

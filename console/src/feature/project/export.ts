@@ -54,13 +54,12 @@ export interface ExportContext {
   store: Store;
   confirm: Modals.PromptConfirm;
   handleError: Status.ErrorHandler;
-  extractors: Export.Extractors;
   addStatus: Status.Adder;
 }
 
 export const export_ = (
   key: string | null,
-  { client, store, confirm, handleError, extractors, addStatus }: ExportContext,
+  { client, store, confirm, handleError, addStatus }: ExportContext,
 ): void => {
   let name: string = "project"; // default name for error message
   handleError(async () => {
@@ -94,15 +93,16 @@ export const export_ = (
     const namesSet = new Set<string>();
     const fileInfos: Export.File[] = [];
     await Promise.all(
-      Array.from(resources.values()).map(async ({ type, key }) => {
-        const extractor = extractors[type];
-        if (extractor == null) return;
-        const { data, name } = await extractor(key, { store, client });
+      Array.from(resources.values()).map(async (id) => {
+        // The Core has no exporter for some resource types a tab can reference (e.g.
+        // channels); skip those rather than failing the whole project export.
+        const file = await Export.fetchFile(client, id).catch(() => null);
+        if (file == null) return;
         const fileName = Export.sanitizeFileName(
-          strings.deduplicateFileName(name, namesSet),
+          strings.deduplicateFileName(file.name, namesSet),
         );
         namesSet.add(fileName);
-        fileInfos.push({ data, name: fileName });
+        fileInfos.push({ data: file.data, name: fileName });
       }),
     );
     await directory.writeText(PANELS_FILE_NAME, JSON.stringify(panels));
@@ -122,7 +122,6 @@ export const useExport = (): ((key: string | null) => void) => {
   const addStatus = Status.useAdder();
   const store = Session.useStore();
   const confirm = Modals.useConfirm();
-  const extractors = Export.useExtractors();
   return (key: string | null) =>
-    export_(key, { client, store, confirm, handleError, extractors, addStatus });
+    export_(key, { client, store, confirm, handleError, addStatus });
 };

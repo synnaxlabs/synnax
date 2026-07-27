@@ -96,6 +96,13 @@ Dependencies are explicit, injected inputs — never reached for ambiently. All 
 
 ## Comments (all languages)
 
+**Wrap comment prose at 88 columns by hand.** No formatter reflows comment text —
+Prettier, Ruff, gofmt, and clang-format all leave `//`/`#` prose untouched — so an
+over-long comment line silently passes the format check and ships. After writing or
+editing any comment, verify no line exceeds 88 columns, and re-flow the whole paragraph
+when a mid-line edit pushes a line over. Watch multi-byte runes (em dash `—`, curly
+quotes): byte-count tools overcount, so measure characters.
+
 ### 🚨 KEEP COMMENTS SHORT. THIS IS THE #1 VIOLATION. 🚨
 
 **Claude sessions consistently write comments that are TOO LONG. Treat length itself as

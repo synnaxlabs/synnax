@@ -16,6 +16,7 @@ import (
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
+	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	v55 "github.com/synnaxlabs/synnax/pkg/service/schematic/migrations/v55"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic/symbol"
@@ -51,6 +52,10 @@ type ServiceConfig struct {
 	// Search is the search index for fuzzy searching schematics.
 	// [REQUIRED]
 	Search *search.Index
+	// ImEx is the import/export registry the schematic service registers itself with as
+	// the exporter for schematic resources during OpenService.
+	// [OPTIONAL]
+	ImEx *imex.Service
 }
 
 var (
@@ -67,6 +72,7 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Group = override.Nil(c.Group, other.Group)
 	c.Signals = override.Nil(c.Signals, other.Signals)
 	c.Search = override.Nil(c.Search, other.Search)
+	c.ImEx = override.Nil(c.ImEx, other.ImEx)
 	return c
 }
 
@@ -117,6 +123,9 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	}
 	cfg.Ontology.RegisterService(s)
 	cfg.Search.RegisterService(s)
+	if cfg.ImEx != nil {
+		cfg.ImEx.RegisterExporter(s)
+	}
 	if s.Symbol, err = symbol.OpenService(ctx, symbol.ServiceConfig{
 		Instrumentation: cfg.Child("symbol"),
 		DB:              cfg.DB,

@@ -27,7 +27,6 @@ import {
 import { color, deep, record, type text } from "@synnaxlabs/x";
 import { type ReactElement, useCallback, useMemo } from "react";
 
-import { useExport } from "@/feature/table/export";
 import { Cluster } from "@/platform/cluster";
 import { CSS } from "@/platform/css";
 import { Empty } from "@/platform/empty";
@@ -38,7 +37,7 @@ import { Session } from "@/session";
 
 const Internal = (): ReactElement => {
   const key = Table.useKey();
-  const handleExport = useExport();
+  const handleExport = Export.use();
   const name = Table.useSelectName();
   const editable = Session.Table.useSelectEditable();
   const selectedCellKeys = Session.Table.useSelectSelectedCellKeys();
@@ -68,7 +67,7 @@ const Internal = (): ReactElement => {
           </Breadcrumb.Breadcrumb>
         </Flex.Box>
         <Flex.Box x className={CSS.BE("table", "toolbar-buttons")} empty>
-          <Export.ToolbarButton onExport={() => handleExport(key)} />
+          <Export.ToolbarButton onExport={() => handleExport(table.ontologyID(key))} />
           <Cluster.CopyLinkToolbarButton
             name={name}
             ontologyID={table.ontologyID(key)}

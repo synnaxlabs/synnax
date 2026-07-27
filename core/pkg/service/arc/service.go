@@ -25,6 +25,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/arc/ranges"
 	"github.com/synnaxlabs/synnax/pkg/service/arc/status"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
+	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/search"
 	"github.com/synnaxlabs/synnax/pkg/service/signals"
@@ -67,6 +68,11 @@ type ServiceConfig struct {
 	//
 	// [OPTIONAL]
 	Signals *signals.Provider
+	// ImEx is the import/export registry the arc service registers itself with as the
+	// exporter for arc resources during OpenService.
+	//
+	// [OPTIONAL]
+	ImEx *imex.Service
 	// TextSweepQuiescence is how long an arc's text must go unedited before its
 	// tombstoned characters become eligible to be reclaimed.
 	//
@@ -105,6 +111,7 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Channel = override.Nil(c.Channel, other.Channel)
 	c.Task = override.Nil(c.Task, other.Task)
 	c.Signals = override.Nil(c.Signals, other.Signals)
+	c.ImEx = override.Nil(c.ImEx, other.ImEx)
 	c.TextSweepQuiescence = override.Numeric(c.TextSweepQuiescence, other.TextSweepQuiescence)
 	c.TextSweepThreshold = override.Numeric(c.TextSweepThreshold, other.TextSweepThreshold)
 	c.Now = override.Nil(c.Now, other.Now)
@@ -238,6 +245,9 @@ func OpenService(ctx context.Context, configs ...ServiceConfig) (s *Service, err
 	}
 	cfg.Ontology.RegisterService(s)
 	cfg.Search.RegisterService(s)
+	if cfg.ImEx != nil {
+		cfg.ImEx.RegisterExporter(s)
+	}
 	if cfg.Signals != nil {
 		var sig io.Closer
 		if sig, err = actions.PublishSignals(ctx, actions.SignalsConfig[Key, Action]{

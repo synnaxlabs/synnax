@@ -15,6 +15,7 @@ import (
 
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
+	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/search"
 	"github.com/synnaxlabs/synnax/pkg/service/signals"
@@ -46,6 +47,10 @@ type ServiceConfig struct {
 	// nil, the service does not broadcast action sequences and gorp delete events
 	// are not published. Dispatch still applies actions to local state.
 	Signals *signals.Provider
+	// ImEx is the import/export registry the table service registers itself with as the
+	// exporter for table resources during OpenService.
+	// [OPTIONAL]
+	ImEx *imex.Service
 }
 
 var (
@@ -61,6 +66,7 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Ontology = override.Nil(c.Ontology, other.Ontology)
 	c.Search = override.Nil(c.Search, other.Search)
 	c.Signals = override.Nil(c.Signals, other.Signals)
+	c.ImEx = override.Nil(c.ImEx, other.ImEx)
 	return c
 }
 
@@ -110,6 +116,9 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	}
 	cfg.Ontology.RegisterService(s)
 	cfg.Search.RegisterService(s)
+	if cfg.ImEx != nil {
+		cfg.ImEx.RegisterExporter(s)
+	}
 	if cfg.Signals != nil {
 		var sig stdio.Closer
 		if sig, err = actions.PublishSignals(ctx, actions.SignalsConfig[Key, Action]{
