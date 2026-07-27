@@ -52,7 +52,7 @@ func (w Writer) Create(ctx context.Context, projectKey project.Key, lp *LinePlot
 	if exists {
 		return nil
 	}
-	otgID := OntologyID(lp.Key)
+	otgID := lp.OntologyID()
 	if err := w.otg.DefineResources(ctx, otgID); err != nil {
 		return err
 	}

@@ -12,6 +12,8 @@
 package channel
 
 import (
+	"strconv"
+
 	servicechannel "github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/node"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
@@ -19,7 +21,6 @@ import (
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
 	gotypes "go/types"
-	"strconv"
 )
 
 // Status is channel-specific status information.
@@ -33,23 +34,23 @@ type Channel struct {
 	Key servicechannel.Key `json:"key" msgpack:"key"`
 	// Name is the human-readable channel name.
 	Name servicechannel.Name `json:"name" msgpack:"name"`
-	// Leaseholder is the node that holds the lease for this channel. Mostly for internal
-	// use.
+	// Leaseholder is the node that holds the lease for this channel. Mostly for
+	// internal use.
 	Leaseholder node.Key `json:"leaseholder" msgpack:"leaseholder"`
-	// DataType is the data type of samples stored in this channel (e.g., Float64, Int32,
-	// TimeStamp).
+	// DataType is the data type of samples stored in this channel (e.g., Float64,
+	// Int32, TimeStamp).
 	DataType telem.DataType `json:"data_type" msgpack:"data_type"`
-	// IsIndex is true if this is an index channel. Index channels must have int64 values
-	// (TIMESTAMP data type) written in ascending order, and are most commonly unix
-	// nanosecond timestamps.
+	// IsIndex is true if this is an index channel. Index channels must have int64
+	// values (TIMESTAMP data type) written in ascending order, and are most commonly
+	// unix nanosecond timestamps.
 	IsIndex bool `json:"is_index" msgpack:"is_index"`
-	// Index is the channel used to index this channel's values, associating each value with
-	// a timestamp.
+	// Index is the channel used to index this channel's values, associating each value
+	// with a timestamp.
 	Index servicechannel.Key `json:"index" msgpack:"index"`
 	// Alias is an optional alternate name for the channel within a specific context.
 	Alias *string `json:"alias,omitempty" msgpack:"alias,omitempty"`
-	// Virtual is true if this channel does not store data in the database but can still be
-	// used for streaming purposes.
+	// Virtual is true if this channel does not store data in the database but can still
+	// be used for streaming purposes.
 	Virtual bool `json:"virtual" msgpack:"virtual"`
 	// Internal is true if this is a system channel hidden from normal user queries.
 	Internal bool `json:"internal" msgpack:"internal"`
@@ -59,13 +60,15 @@ type Channel struct {
 	// Operations contains optional aggregation operations (min, max, avg) applied to
 	// channel data over time or triggered by a reset channel.
 	Operations []servicechannel.Operation `json:"operations,omitzero" msgpack:"operations,omitzero"`
-	// Concurrency sets the policy for concurrent writes to the channel's data. Only virtual
-	// channels can have a policy of shared concurrency.
+	// Concurrency sets the policy for concurrent writes to the channel's data. Only
+	// virtual channels can have a policy of shared concurrency.
 	Concurrency control.Concurrency `json:"concurrency" msgpack:"concurrency"`
 	// Status is the current operational status of the channel.
 	Status *Status `json:"status,omitempty" msgpack:"status,omitempty"`
 }
 
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
 func (c Channel) Validate() error {
 	v := validate.New("Channel")
 	for i := range c.Operations {

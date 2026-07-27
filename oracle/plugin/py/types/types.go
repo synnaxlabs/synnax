@@ -107,7 +107,7 @@ func generatePyFile(
 		data.imports.addPydantic("BaseModel")
 	}
 
-	skip := func(typ resolution.Type) bool { return omit.IsType(typ, "py") }
+	skip := func(typ resolution.Type) bool { return omit.IsSkipped(typ, "py") }
 	rawKeyFields := key.Collect(structs, table, skip)
 	keyFields := convertKeyFields(rawKeyFields, data)
 	allStructs := lo.Filter(table.StructTypes(), func(typ resolution.Type, _ int) bool {
@@ -512,8 +512,9 @@ func processStruct(
 		return sd
 	}
 
-	// Check for py domain omit
-	if domain.HasExprFromType(entry, "py", "omit") {
+	// Check for py domain omit or hand-written implementation
+	if domain.HasExprFromType(entry, "py", "omit") ||
+		domain.HasExprFromType(entry, "py", "hand") {
 		sd.Skip = true
 		return sd
 	}

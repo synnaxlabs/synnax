@@ -44,15 +44,13 @@ func KeysFromOntologyIDs(ids []ontology.ID) ([]Key, error) {
 
 // OntologyIDsFromSymbols returns the ontology IDs of the symbols.
 func OntologyIDsFromSymbols(symbols []Symbol) []ontology.ID {
-	return lo.Map(symbols, func(s Symbol, _ int) ontology.ID {
-		return OntologyID(s.Key)
-	})
+	return lo.Map(symbols, func(s Symbol, _ int) ontology.ID { return s.OntologyID() })
 }
 
 var schema = zyn.Object(map[string]zyn.Schema{"key": zyn.UUID(), "name": zyn.String()})
 
 func newResource(s Symbol) ontology.Resource {
-	return ontology.NewResource(schema, OntologyID(s.Key), s.Name, s)
+	return ontology.NewResource(schema, s.OntologyID(), s.Name, s)
 }
 
 type change = xchange.Change[Key, Symbol]

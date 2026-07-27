@@ -230,10 +230,7 @@ func (db *DB) newStreamWriter(ctx context.Context, cfgs ...WriterConfig) (w *str
 		}
 	}()
 
-	makeUnaryConfig := func(
-		i int,
-		domainAlignment uint32,
-	) unary.WriterConfig {
+	makeUnaryConfig := func(i int) unary.WriterConfig {
 		return unary.WriterConfig{
 			Subject:                  cfg.ControlSubject,
 			ErrOnUnauthorizedOpen:    cfg.ErrOnUnauthorized,
@@ -242,16 +239,16 @@ func (db *DB) newStreamWriter(ctx context.Context, cfgs ...WriterConfig) (w *str
 			Start:                    cfg.Start,
 			Persist:                  new(cfg.Mode.Persist()),
 			Authority:                cfg.authority(i),
-			AlignmentDomainIndex:     domainAlignment,
 		}
 	}
 
 	// Two passes:
-	//   Pass 1: Open virtual writers and index-channel writers. Index channels are
-	//     always fixed-density; opening them first gives us the domain alignment that
-	//     indexed data writers will share in pass 2.
+	//   Pass 1: Open virtual writers and index-channel writers.
 	//   Pass 2: Open all non-index unary writers (both fixed-density and
-	//     variable-length), using the domain alignment from the shared index writer.
+	//     variable-length) and attach them to the appropriate idxWriter group.
+	// Alignment is not decided here. Data channels resolve it from their index on every
+	// write, so a writer that joins an existing control region cannot end up in a
+	// different alignment space than the index it is being written against.
 	for i, key := range cfg.Channels {
 		u, isUnary := db.mu.dbs.unary[key]
 		v, isVirtual := db.mu.dbs.virtual[key]
@@ -277,12 +274,7 @@ func (db *DB) newStreamWriter(ctx context.Context, cfgs ...WriterConfig) (w *str
 			}
 		} else {
 			var uW *unary.Writer
-			uW, transfer, err = u.OpenWriter(
-				ctx,
-				// A domain alignment of 0 lets the writer choose the domain alignment,
-				// which is what we want for an index.
-				makeUnaryConfig(i, 0),
-			)
+			uW, transfer, err = u.OpenWriter(ctx, makeUnaryConfig(i))
 			if err != nil {
 				return nil, err
 			}
@@ -292,7 +284,6 @@ func (db *DB) newStreamWriter(ctx context.Context, cfgs ...WriterConfig) (w *str
 				return nil, err
 			}
 			idxW.writingToIdx = true
-			idxW.domainAlignment = uW.DomainIndex()
 			idxW.internal[key] = &unaryWriterState{Writer: *uW}
 			domainWriters[u.Channel().Index] = idxW
 			if *cfg.AutoIndex {
@@ -326,7 +317,7 @@ func (db *DB) newStreamWriter(ctx context.Context, cfgs ...WriterConfig) (w *str
 			uW       *unary.Writer
 			transfer control.Transfer
 		)
-		uW, transfer, err = u.OpenWriter(ctx, makeUnaryConfig(i, idxW.domainAlignment))
+		uW, transfer, err = u.OpenWriter(ctx, makeUnaryConfig(i))
 		if err != nil {
 			return nil, err
 		}
@@ -427,6 +418,7 @@ func (db *DB) openDomainIdxWriter(
 	w := &idxWriter{internal: make(map[ChannelKey]*unaryWriterState)}
 	w.idx.ch = u.Channel()
 	w.idx.Domain = u.Index()
+	w.idx.db = &u
 	w.idx.highWaterMark = cfg.Start
 	w.idx.autoStampClock = cfg.Start
 	w.writingToIdx = false

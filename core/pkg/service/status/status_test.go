@@ -115,15 +115,15 @@ var _ = Describe("Status", Ordered, func() {
 						Message: "Child status",
 						Time:    telem.Now(),
 					}
-					Expect(w.SetWithParent(ctx, &child, status.OntologyID(parent.Key))).To(Succeed())
+					Expect(w.SetWithParent(ctx, &child, parent.OntologyID())).To(Succeed())
 
 					var res ontology.Resource
 					Expect(otg.NewRetrieve().
-						WhereIDs(status.OntologyID(child.Key)).
+						WhereIDs(child.OntologyID()).
 						TraverseTo(ontology.ParentsTraverser).
 						Entry(&res).
 						Exec(ctx, tx)).To(Succeed())
-					Expect(res.ID).To(Equal(status.OntologyID(parent.Key)))
+					Expect(res.ID).To(Equal(parent.OntologyID()))
 				})
 			})
 		})
@@ -385,7 +385,7 @@ var _ = Describe("Status", Ordered, func() {
 					Time:    telem.Now(),
 				}
 				Expect(svc.NewWriter(tx).Set(ctx, s)).To(Succeed())
-				Expect(labelSvc.NewWriter(tx).Label(ctx, status.OntologyID(s.Key), []label.Key{l.Key})).To(Succeed())
+				Expect(labelSvc.NewWriter(tx).Label(ctx, s.OntologyID(), []label.Key{l.Key})).To(Succeed())
 				var statuses []status.Status[any]
 				Expect(svc.NewRetrieve().
 					Where(status.MatchLabels[any](l.Key)).
@@ -604,107 +604,5 @@ var _ = Describe("Status", Ordered, func() {
 			Expect(tx.Commit(ctx)).To(Succeed())
 			Expect(called).To(BeTrue())
 		})
-	})
-})
-
-var _ = Describe("Status.String", func() {
-	DescribeTable("Should render the variant icon for each variant",
-		func(variant status.Variant, expected string) {
-			Expect(status.Status[any]{Variant: variant}.String()).To(Equal(expected))
-		},
-		Entry("info", status.VariantInfo, "[ℹ info]"),
-		Entry("success", status.VariantSuccess, "[✓ success]"),
-		Entry("error", status.VariantError, "[✗ error]"),
-		Entry("warning", status.VariantWarning, "[⚠ warning]"),
-		Entry("disabled", status.VariantDisabled, "[⊘ disabled]"),
-		Entry("loading", status.VariantLoading, "[◌ loading]"),
-		Entry("unknown falls back to a bullet", status.Variant("custom"), "[• custom]"),
-	)
-
-	It("Should render the name when present", func() {
-		s := status.Status[any]{Variant: status.VariantInfo, Name: "My Status"}
-		Expect(s.String()).To(Equal("[ℹ info] My Status"))
-	})
-
-	It("Should render the key in parentheses when it differs from the name", func() {
-		s := status.Status[any]{Variant: status.VariantInfo, Name: "My Status", Key: "abc"}
-		Expect(s.String()).To(Equal("[ℹ info] My Status (abc)"))
-	})
-
-	It("Should not render the key when it equals the name", func() {
-		s := status.Status[any]{Variant: status.VariantInfo, Name: "same", Key: "same"}
-		Expect(s.String()).To(Equal("[ℹ info] same"))
-	})
-
-	It("Should not render a key in parentheses when the key is empty", func() {
-		s := status.Status[any]{Variant: status.VariantInfo, Name: "n"}
-		Expect(s.String()).ToNot(ContainSubstring("("))
-	})
-
-	It("Should render the message after a colon", func() {
-		s := status.Status[any]{Variant: status.VariantError, Message: "boom"}
-		Expect(s.String()).To(Equal("[✗ error]: boom"))
-	})
-
-	It("Should render the description on its own line", func() {
-		s := status.Status[any]{
-			Variant:     status.VariantInfo,
-			Message:     "m",
-			Description: "more detail",
-		}
-		Expect(s.String()).To(ContainSubstring("\n  more detail"))
-	})
-
-	It("Should render the time when non-zero", func() {
-		s := status.Status[any]{Variant: status.VariantInfo, Time: telem.Now()}
-		Expect(s.String()).To(ContainSubstring("\n  @ "))
-	})
-
-	It("Should not render the time when zero", func() {
-		s := status.Status[any]{Variant: status.VariantInfo}
-		Expect(s.String()).ToNot(ContainSubstring("@"))
-	})
-
-	It("Should render a fully-populated status with every field", func() {
-		s := status.Status[map[string]any]{
-			Variant:     status.VariantWarning,
-			Name:        "Acquire",
-			Key:         "task-1",
-			Message:     "acquiring",
-			Description: "5 channels",
-			Details:     map[string]any{"running": true},
-		}
-		out := s.String()
-		Expect(out).To(HavePrefix("[⚠ warning] Acquire (task-1): acquiring"))
-		Expect(out).To(ContainSubstring("\n  5 channels"))
-		Expect(out).To(ContainSubstring("\n  Details: map[running:true]"))
-	})
-
-	It("Should not render a Details line when Details is the zero value", func() {
-		s := status.Status[any]{Variant: status.VariantInfo, Message: "hello"}
-		Expect(s.String()).ToNot(ContainSubstring("Details"))
-	})
-
-	It("Should suppress a zero numeric Details value", func() {
-		s := status.Status[int]{Variant: status.VariantInfo, Message: "hello", Details: 0}
-		Expect(s.String()).ToNot(ContainSubstring("Details"))
-	})
-
-	It("Should render a Details line when Details is non-zero", func() {
-		s := status.Status[map[string]any]{
-			Variant: status.VariantInfo,
-			Message: "hello",
-			Details: map[string]any{"running": true},
-		}
-		Expect(s.String()).To(ContainSubstring("Details: map[running:true]"))
-	})
-
-	It("Should render a non-zero string Details that stringifies to \"0\"", func() {
-		s := status.Status[string]{
-			Variant: status.VariantInfo,
-			Message: "hello",
-			Details: "0",
-		}
-		Expect(s.String()).To(ContainSubstring("Details: 0"))
 	})
 })

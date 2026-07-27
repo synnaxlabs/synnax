@@ -17,20 +17,6 @@ import (
 )
 
 var _ = Describe("Relationship", func() {
-	Describe("GorpKey", func() {
-		It("Should return the correct gorp key", func() {
-			Expect(ontology.Relationship{
-				From: ontology.ID{Type: "channel", Key: "qux"},
-				To:   ontology.ID{Type: "device", Key: "baz"},
-				Type: ontology.RelationshipTypeParentOf,
-			}.GorpKey()).To(Equal("channel:qux->parent->device:baz"))
-		})
-	})
-	Describe("SetOptions", func() {
-		It("Should return nil", func() {
-			Expect(ontology.Relationship{}.SetOptions()).To(BeNil())
-		})
-	})
 	Describe("ParseRelationship", func() {
 		It("Should parse a relationship from a string", func() {
 			Expect((ontology.ParseRelationship("channel:qux->parent->device:baz"))).

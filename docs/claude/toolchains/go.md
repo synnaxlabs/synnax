@@ -239,7 +239,14 @@ when the code fails for the wrong reason. Always identify the error:
 `MatchError(sentinel)`, `MatchError(ContainSubstring("..."))`, or both via
 `SatisfyAll(...)`.
 
-### Rule 9: Every suite wires goroutine leak detection
+### Rule 9: No export_test.go
+
+Never create `export_test.go` files (or any pattern that re-exports unexported
+identifiers for tests). Tests exercise the public API; if a behavior is only reachable
+through an unexported symbol, test it through the exported surface that uses it, or
+reconsider whether the symbol should exist.
+
+### Rule 10: Every suite wires goroutine leak detection
 
 Every `*_suite_test.go` must call one of the two leak checkers from
 `github.com/synnaxlabs/x/testutil`, no exceptions:

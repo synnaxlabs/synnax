@@ -93,10 +93,10 @@ var _ = Describe("Writer", func() {
 			Expect(svc.NewWriter(tx).Create(ctx, &p)).To(Succeed())
 			var resource ontology.Resource
 			Expect(otg.NewRetrieve().
-				WhereIDs(panel.OntologyID(p.Key)).
+				WhereIDs(p.OntologyID()).
 				Entry(&resource).
 				Exec(ctx, tx)).To(Succeed())
-			Expect(resource.ID).To(Equal(panel.OntologyID(p.Key)))
+			Expect(resource.ID).To(Equal(p.OntologyID()))
 			Expect(resource.Name).To(Equal("test"))
 		})
 
@@ -106,7 +106,7 @@ var _ = Describe("Writer", func() {
 			Expect(otg.RelationshipExists(ctx, tx, ontology.Relationship{
 				From: parentID,
 				Type: ontology.RelationshipTypeParentOf,
-				To:   panel.OntologyID(p.Key),
+				To:   p.OntologyID(),
 			})).To(BeTrue())
 		})
 
@@ -116,7 +116,7 @@ var _ = Describe("Writer", func() {
 			Expect(otg.RelationshipExists(ctx, tx, ontology.Relationship{
 				From: parentID,
 				Type: ontology.RelationshipTypeParentOf,
-				To:   panel.OntologyID(p.Key),
+				To:   p.OntologyID(),
 			})).To(BeFalse())
 		})
 
@@ -124,7 +124,7 @@ var _ = Describe("Writer", func() {
 			p := panel.Panel{Name: "draft"}
 			Expect(svc.NewWriter(tx).Create(ctx, &p)).To(Succeed())
 			Expect(otg.NewRetrieve().
-				WhereIDs(panel.OntologyID(p.Key)).
+				WhereIDs(p.OntologyID()).
 				Entry(&ontology.Resource{}).
 				Exec(ctx, tx)).To(Succeed())
 		})
@@ -199,7 +199,7 @@ var _ = Describe("Writer", func() {
 			p := panel.Panel{Name: "to-delete", Parent: &parentID}
 			Expect(svc.NewWriter(tx).Create(ctx, &p)).To(Succeed())
 			Expect(svc.NewWriter(tx).Delete(ctx, p.Key)).To(Succeed())
-			Expect(otg.NewRetrieve().WhereIDs(panel.OntologyID(p.Key)).
+			Expect(otg.NewRetrieve().WhereIDs(p.OntologyID()).
 				Entry(&ontology.Resource{}).Exec(ctx, tx)).To(MatchError(query.ErrNotFound))
 		})
 

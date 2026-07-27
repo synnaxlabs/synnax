@@ -24,7 +24,7 @@ import (
 )
 
 // Create copies all .oracle files from schemasDir into snapshotsDir/v{version}/,
-// preserving subdirectory structure. Skips the .snapshots directory itself.
+// preserving subdirectory structure. Skips the snapshots directory itself.
 func Create(schemasDir, snapshotsDir string, version int) error {
 	destDir := filepath.Join(snapshotsDir, fmt.Sprintf("v%d", version))
 	return filepath.Walk(schemasDir, func(path string, info os.FileInfo, err error) error {
@@ -32,7 +32,7 @@ func Create(schemasDir, snapshotsDir string, version int) error {
 			return err
 		}
 		// Skip the snapshots directory itself.
-		if info.IsDir() && filepath.Base(path) == ".snapshots" {
+		if info.IsDir() && path == filepath.Join(schemasDir, "snapshots") {
 			return filepath.SkipDir
 		}
 		if info.IsDir() || !strings.HasSuffix(info.Name(), ".oracle") {

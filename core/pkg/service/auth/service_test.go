@@ -104,3 +104,18 @@ var _ = Describe("Service", func() {
 		})
 	})
 })
+
+var _ = Describe("SecureCredentials", func() {
+	Describe("GorpKey", func() {
+		It("Should return the username", func() {
+			Expect(auth.SecureCredentials{Username: "root"}.GorpKey()).
+				To(Equal("root"))
+		})
+	})
+
+	Describe("SetOptions", func() {
+		It("Should return no options", func() {
+			Expect(auth.SecureCredentials{}.SetOptions()).To(BeNil())
+		})
+	})
+})

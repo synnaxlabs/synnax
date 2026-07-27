@@ -120,7 +120,7 @@ const (
 	DirectionBackward Direction = 2
 )
 
-// RawTraversal is a callback that operates on raw orc-encoded relationship bytes. It
+// RawTraversal is a callback that operates on raw Orc-encoded relationship bytes. It
 // checks whether the row matches any of the target IDs and, if so, appends the
 // resulting ID to nextIDs. This avoids decoding the relationship entirely.
 type RawTraversal func(data []byte, nextIDs *[]ID) error
