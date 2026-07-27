@@ -47,7 +47,6 @@ func Migrate(ctx context.Context, cfg Config) (set.Set[string], error) {
 	var (
 		seen    = make(set.Set[string], len(cfg.Migrations))
 		pending = make([]Migration, 0, len(cfg.Migrations))
-		keys    = make([]string, 0, len(cfg.Migrations))
 	)
 	for _, m := range cfg.Migrations {
 		k := m.Key()
@@ -57,20 +56,23 @@ func Migrate(ctx context.Context, cfg Config) (set.Set[string], error) {
 		seen.Add(k)
 		if !cfg.Applied.Contains(k) {
 			pending = append(pending, m)
-			keys = append(keys, k)
 		}
 	}
 	if len(pending) == 0 {
 		cfg.L.Info("all migrations already applied", zap.Int("applied", len(cfg.Applied)))
 		return cfg.Applied, nil
 	}
+	pendingKeys := make([]string, len(pending))
+	for i, m := range pending {
+		pendingKeys[i] = m.Key()
+	}
 	cfg.L.Info(
 		"running migrations",
 		zap.Strings("already_applied", cfg.Applied.Slice()),
-		zap.Strings("pending", keys),
+		zap.Strings("pending", pendingKeys),
 	)
-	for i, m := range pending {
-		key := keys[i]
+	for _, m := range pending {
+		key := m.Key()
 		cfg.L.Info("running migration", zap.String("migration", key))
 		if err := m.Run(ctx, cfg.Instrumentation); err != nil {
 			cfg.L.Error("migration failed", zap.String("migration", key), zap.Error(err))
