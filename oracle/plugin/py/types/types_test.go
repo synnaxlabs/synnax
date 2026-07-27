@@ -607,7 +607,7 @@ var _ = Describe("Python Types Plugin", func() {
 				@py output "client/py/synnax/telem"
 
 				TimeSpan int64 {
-					@py omit
+					@py hand
 				}
 			`)
 			source := `
@@ -922,7 +922,7 @@ var _ = Describe("Python Types Plugin", func() {
 		})
 
 		Context("@omit directive", func() {
-			It("Should skip types with @py omit directive", func(ctx SpecContext) {
+			It("Should skip types with @py hand directive", func(ctx SpecContext) {
 				source := `
 					@py output "out"
 
@@ -933,7 +933,7 @@ var _ = Describe("Python Types Plugin", func() {
 
 					InternalState struct {
 						cache record
-						@py omit
+						@py hand
 					}
 				`
 				resp := MustGenerate(ctx, source, "user", loader, typesPlugin)
@@ -942,7 +942,7 @@ var _ = Describe("Python Types Plugin", func() {
 				Expect(content).NotTo(ContainSubstring(`InternalState`))
 			})
 
-			It("Should skip enums with @py omit directive", func(ctx SpecContext) {
+			It("Should skip enums with @py hand directive", func(ctx SpecContext) {
 				source := `
 					@py output "out"
 
@@ -954,7 +954,7 @@ var _ = Describe("Python Types Plugin", func() {
 					DebugLevel enum {
 						verbose = 0
 						trace = 1
-						@py omit
+						@py hand
 					}
 				`
 				resp := MustGenerate(ctx, source, "status", loader, typesPlugin)
@@ -964,7 +964,7 @@ var _ = Describe("Python Types Plugin", func() {
 			})
 		})
 
-		Context("ontology with @py omit", func() {
+		Context("ontology with @py hand", func() {
 			It("Should generate ontology_id even when the struct is omitted", func(ctx SpecContext) {
 				source := `
 					@py output "out"
@@ -974,7 +974,7 @@ var _ = Describe("Python Types Plugin", func() {
 					Policy struct {
 						key Key @key
 						name string
-						@py omit
+						@py hand
 						@ontology type "policy"
 					}
 				`

@@ -31,9 +31,7 @@ func OntologyID(key Key) ontology.ID {
 
 // OntologyIDsFromDevices returns the ontology IDs for the given devices.
 func OntologyIDsFromDevices(devices []Device) []ontology.ID {
-	return lo.Map(devices, func(d Device, _ int) ontology.ID {
-		return OntologyID(d.Key)
-	})
+	return lo.Map(devices, func(d Device, _ int) ontology.ID { return d.OntologyID() })
 }
 
 // OntologyIDs returns the ontology IDs for the given keys.
@@ -57,7 +55,7 @@ var schema = zyn.Object(map[string]zyn.Schema{
 })
 
 func newResource(d Device) ontology.Resource {
-	return ontology.NewResource(schema, OntologyID(d.Key), d.Name, d)
+	return ontology.NewResource(schema, d.OntologyID(), d.Name, d)
 }
 
 var (

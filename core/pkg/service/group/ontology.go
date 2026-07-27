@@ -22,6 +22,7 @@ import (
 	"github.com/synnaxlabs/x/gorp"
 	xiter "github.com/synnaxlabs/x/iter"
 	"github.com/synnaxlabs/x/observe"
+	"github.com/synnaxlabs/x/zyn"
 )
 
 func OntologyID(key Key) ontology.ID {
@@ -33,11 +34,16 @@ func OntologyIDs(keys []Key) []ontology.ID {
 }
 
 func OntologyIDsFromGroups(groups []Group) []ontology.ID {
-	return lo.Map(groups, func(g Group, _ int) ontology.ID { return OntologyID(g.Key) })
+	return lo.Map(groups, func(g Group, _ int) ontology.ID { return g.OntologyID() })
 }
 
+var schema = zyn.Object(map[string]zyn.Schema{
+	"key":  zyn.UUID(),
+	"name": zyn.String(),
+})
+
 func newResource(g Group) ontology.Resource {
-	return ontology.NewResource(schema, OntologyID(g.Key), g.Name, g)
+	return ontology.NewResource(schema, g.OntologyID(), g.Name, g)
 }
 
 type change = xchange.Change[Key, Group]

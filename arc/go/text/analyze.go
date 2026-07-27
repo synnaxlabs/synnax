@@ -1561,10 +1561,8 @@ func (p *flowChainProcessor) edgeKind() ir.EdgeKind {
 	if p.lastOpIndex < 0 || p.lastOpIndex >= len(children) {
 		return ir.EdgeKindContinuous
 	}
-	if opCtx, ok := children[p.lastOpIndex].(parser.IFlowOperatorContext); ok && opCtx.TRANSITION() != nil {
-		return ir.EdgeKindConditional
-	}
-	return ir.EdgeKindContinuous
+	op, _ := children[p.lastOpIndex].(parser.IFlowOperatorContext)
+	return flowOperatorEdgeKind(op)
 }
 
 // injectImplicitTriggers creates channel read nodes for all channels referenced
@@ -1956,6 +1954,26 @@ func processInlineBody(
 	return scope, true
 }
 
+// flowOperatorEdgeKind maps a flow operator to its edge kind:
+// `=>` conditional, `->` continuous.
+func flowOperatorEdgeKind(op parser.IFlowOperatorContext) ir.EdgeKind {
+	if op != nil && op.TRANSITION() != nil {
+		return ir.EdgeKindConditional
+	}
+	return ir.EdgeKindContinuous
+}
+
+// routingEntryEdgeKinds returns the edge kind feeding each flow node, aligned to
+// entry.AllFlowNode() (`=>` conditional, `->` continuous).
+func routingEntryEdgeKinds(entry parser.IRoutingEntryContext) []ir.EdgeKind {
+	kinds := make([]ir.EdgeKind, len(entry.AllFlowNode()))
+	kinds[0] = ir.EdgeKindContinuous
+	for i, op := range entry.AllFlowOperator() {
+		kinds[i+1] = flowOperatorEdgeKind(op)
+	}
+	return kinds
+}
+
 func analyzeOutputRoutingTable(
 	ctx acontext.Context[parser.IRoutingTableContext],
 	sourceNode ir.Node,
@@ -1990,6 +2008,7 @@ func analyzeOutputRoutingTable(
 			targetParamName = entry.IDENTIFIER(1).GetText()
 		}
 
+		edgeKinds := routingEntryEdgeKinds(entry)
 		sourceOutput := ir.Handle{Node: sourceNode.Key, Param: outputName}
 		prevOutputHandle := sourceOutput
 		for i, flowNode := range flowNodes {
@@ -2016,7 +2035,7 @@ func analyzeOutputRoutingTable(
 			edges = append(edges, ir.Edge{
 				Source: prevOutputHandle,
 				Target: node.input,
-				Kind:   ir.EdgeKindContinuous,
+				Kind:   edgeKinds[i],
 			})
 
 			if isLast && targetParamName != "" {

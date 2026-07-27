@@ -34,6 +34,7 @@ import (
 	"github.com/synnaxlabs/oracle/paths"
 	"github.com/synnaxlabs/oracle/plugin"
 	"github.com/synnaxlabs/oracle/resolution"
+	"github.com/synnaxlabs/oracle/snapshot"
 	"github.com/synnaxlabs/x/diagnostics"
 	"github.com/synnaxlabs/x/errors"
 	"golang.org/x/sync/errgroup"
@@ -245,6 +246,14 @@ func generate(ctx context.Context, r *Result, opts Options, workers int) error {
 	start := time.Now()
 	defer func() { r.Timings.Generate = time.Since(start) }()
 
+	// Versioned type packages consult historical snapshots to decide which
+	// types alias their predecessor version. The loader is lazy and cached, so
+	// plugins that never call it pay nothing.
+	snapshotVersion, loadSnapshot, err := snapshot.TableLoader(ctx, opts.RepoRoot)
+	if err != nil {
+		return err
+	}
+
 	levels := topoLevels(opts.Plugins)
 	var mu sync.Mutex
 	for _, level := range levels {
@@ -256,8 +265,10 @@ func generate(ctx context.Context, r *Result, opts Options, workers int) error {
 					return err
 				}
 				req := &plugin.Request{
-					Resolutions: r.Resolutions,
-					RepoRoot:    opts.RepoRoot,
+					Resolutions:     r.Resolutions,
+					RepoRoot:        opts.RepoRoot,
+					SnapshotVersion: snapshotVersion,
+					LoadSnapshot:    loadSnapshot,
 				}
 				for _, depName := range p.Requires() {
 					dep := opts.Plugins.Get(depName)

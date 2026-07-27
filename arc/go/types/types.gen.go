@@ -11,124 +11,67 @@
 
 package types
 
-// Params is a collection of named, typed parameters for function inputs or outputs.
-type Params []Param
+import "github.com/synnaxlabs/arc/types/versions"
 
 // Kind is the type category for Arc's type system, including primitives, compound
 // types, and meta-types.
-type Kind uint8
-
-//go:generate stringer -type=Kind
+type Kind = versions.Kind
 
 const (
-	KindInvalid Kind = iota
-	KindU8
-	KindU16
-	KindU32
-	KindU64
-	KindI8
-	KindI16
-	KindI32
-	KindI64
-	KindF32
-	KindF64
-	KindString
-	KindChan
-	KindSeries
-	KindVariable
-	KindNumericConstant
-	KindIntegerConstant
-	KindFloatConstant
-	KindExactIntegerFloatConstant
-	KindFunction
-	KindSequence
-	KindStage
-	KindVarRef
+	KindInvalid                   Kind = versions.KindInvalid
+	KindU8                        Kind = versions.KindU8
+	KindU16                       Kind = versions.KindU16
+	KindU32                       Kind = versions.KindU32
+	KindU64                       Kind = versions.KindU64
+	KindI8                        Kind = versions.KindI8
+	KindI16                       Kind = versions.KindI16
+	KindI32                       Kind = versions.KindI32
+	KindI64                       Kind = versions.KindI64
+	KindF32                       Kind = versions.KindF32
+	KindF64                       Kind = versions.KindF64
+	KindString                    Kind = versions.KindString
+	KindChan                      Kind = versions.KindChan
+	KindSeries                    Kind = versions.KindSeries
+	KindVariable                  Kind = versions.KindVariable
+	KindNumericConstant           Kind = versions.KindNumericConstant
+	KindIntegerConstant           Kind = versions.KindIntegerConstant
+	KindFloatConstant             Kind = versions.KindFloatConstant
+	KindExactIntegerFloatConstant Kind = versions.KindExactIntegerFloatConstant
+	KindFunction                  Kind = versions.KindFunction
+	KindSequence                  Kind = versions.KindSequence
+	KindStage                     Kind = versions.KindStage
+	KindVarRef                    Kind = versions.KindVarRef
 )
 
 // ChanDirection indicates read/write direction for channel-typed parameters.
-type ChanDirection uint8
-
-//go:generate stringer -type=ChanDirection
+type ChanDirection = versions.ChanDirection
 
 const (
-	ChanDirectionNone ChanDirection = iota
-	ChanDirectionRead
-	ChanDirectionWrite
+	ChanDirectionNone  ChanDirection = versions.ChanDirectionNone
+	ChanDirectionRead  ChanDirection = versions.ChanDirectionRead
+	ChanDirectionWrite ChanDirection = versions.ChanDirectionWrite
 )
 
 // FunctionProperties contains common parameter definitions for function-like types.
-type FunctionProperties struct {
-	// Inputs contains input parameter definitions.
-	Inputs Params `json:"inputs,omitzero" msgpack:"inputs,omitzero"`
-	// Outputs contains output parameter definitions.
-	Outputs Params `json:"outputs,omitzero" msgpack:"outputs,omitzero"`
-}
+type FunctionProperties = versions.FunctionProperties
 
 // Type is a type in Arc's type system with optional element type for compounds,
 // physical units, and constraints.
-type Type struct {
-	FunctionProperties
-	// Kind is the type category (primitive, compound, or meta-type).
-	Kind Kind `json:"kind" msgpack:"kind"`
-	// Name is the type name for variables and user-defined types.
-	Name string `json:"name" msgpack:"name"`
-	// Elem is the element type for compound types (chan, series).
-	Elem *Type `json:"elem,omitempty" msgpack:"elem,omitempty"`
-	// Unit is the physical unit metadata for dimensional analysis.
-	Unit *Unit `json:"unit,omitempty" msgpack:"unit,omitempty"`
-	// Constraint is the type constraint for type variables.
-	Constraint *Type `json:"constraint,omitempty" msgpack:"constraint,omitempty"`
-	// ChanDirection indicates read/write direction for channel-typed parameters.
-	ChanDirection ChanDirection `json:"chan_direction" msgpack:"chan_direction"`
-}
+type Type = versions.Type
 
 // Param is a named, typed parameter with optional default value.
-type Param struct {
-	// Name is the parameter name.
-	Name string `json:"name" msgpack:"name"`
-	// Type is the parameter type.
-	Type Type `json:"type" msgpack:"type"`
-	// Value is an optional default value.
-	Value any `json:"value" msgpack:"value"`
-}
+type Param = versions.Param
+
+// Params is a collection of named, typed parameters for function inputs or outputs.
+type Params = versions.Params
 
 // Channels contains channel declarations for reading from and writing to Synnax
 // channels.
-type Channels struct {
-	// Read contains readable channel indices mapped to parameter names.
-	Read map[uint32]string `json:"read,omitzero" msgpack:"read,omitzero"`
-	// Write contains writable channel indices mapped to parameter names.
-	Write map[uint32]string `json:"write,omitzero" msgpack:"write,omitzero"`
-}
+type Channels = versions.Channels
 
 // Dimensions contains physical dimension exponents for dimensional analysis (SI base
 // quantities).
-type Dimensions struct {
-	// Length is the length dimension exponent (meters).
-	Length int8 `json:"length" msgpack:"length"`
-	// Mass is the mass dimension exponent (kilograms).
-	Mass int8 `json:"mass" msgpack:"mass"`
-	// Time is the time dimension exponent (seconds).
-	Time int8 `json:"time" msgpack:"time"`
-	// Current is the electric current dimension exponent (amperes).
-	Current int8 `json:"current" msgpack:"current"`
-	// Temperature is the temperature dimension exponent (kelvin).
-	Temperature int8 `json:"temperature" msgpack:"temperature"`
-	// Angle is the angle dimension exponent (radians).
-	Angle int8 `json:"angle" msgpack:"angle"`
-	// Count is the count dimension exponent (dimensionless quantity).
-	Count int8 `json:"count" msgpack:"count"`
-	// Data is the data size dimension exponent (bytes).
-	Data int8 `json:"data" msgpack:"data"`
-}
+type Dimensions = versions.Dimensions
 
 // Unit is a physical unit with dimensions and scale factor for unit-aware computation.
-type Unit struct {
-	// Dimensions contains physical dimension exponents.
-	Dimensions Dimensions `json:"dimensions" msgpack:"dimensions"`
-	// Scale is the scale factor relative to SI base units.
-	Scale float64 `json:"scale" msgpack:"scale"`
-	// Name is the unit name (e.g., 'psi', 'ns', 'm/s').
-	Name string `json:"name" msgpack:"name"`
-}
+type Unit = versions.Unit

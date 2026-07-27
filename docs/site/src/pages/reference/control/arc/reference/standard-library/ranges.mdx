@@ -9,6 +9,7 @@ nextURL: "/reference/control/arc/reference/standard-library/status"
 ---
 
 import { Note, Icon, Text } from "@synnaxlabs/pluto";
+import { Arc } from "@/components";
 import Details from "@/components/details/Details.astro";
 import { mdxOverrides } from "@/components/mdxOverrides";
 
@@ -35,13 +36,29 @@ shown as "In Progress"), and outputs the new range key.
 
 </Details>
 
-```arc
-ranges.create{name="Terminal Count", color="#3bc454"} -> key_ch
+<Arc.Tabs client:load>
 
+<Fragment slot="flow">
+
+```arc
+sequence ranges_create {
+  ranges.create{name="Terminal Count", color="#3bc454"} -> range_key
+}
+```
+
+</Fragment>
+
+<Fragment slot="function">
+
+```arc
 func ranges_create() {
   range_key := ranges.create("Terminal Count", parent_key, "#3bc454")
 }
 ```
+
+</Fragment>
+
+</Arc.Tabs>
 
 ## `end`
 
@@ -59,10 +76,26 @@ range key.
 
 </Details>
 
-```arc
-trigger -> ranges.end{key=range_key}
+<Arc.Tabs client:load>
 
+<Fragment slot="flow">
+
+```arc
+sequence ranges_end {
+  trigger -> ranges.end{key=range_key}
+}
+```
+
+</Fragment>
+
+<Fragment slot="function">
+
+```arc
 func ranges_end() {
     ranges.end(range_key)
 }
 ```
+
+</Fragment>
+
+</Arc.Tabs>

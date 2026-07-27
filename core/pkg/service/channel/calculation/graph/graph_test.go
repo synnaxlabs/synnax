@@ -20,6 +20,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
+	"github.com/synnaxlabs/synnax/pkg/service/channel/calculation"
 	graph "github.com/synnaxlabs/synnax/pkg/service/channel/calculation/graph"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
@@ -82,20 +83,20 @@ func openGraph(ctx context.Context) *graph.Graph {
 	}))
 }
 
-func fetchStatus(ctx context.Context, key channel.Key) (status.Status[types.Nil], bool) {
-	var statuses []status.Status[types.Nil]
+func fetchStatus(ctx context.Context, key channel.Key) (calculation.Status, bool) {
+	var statuses []calculation.Status
 	err := status.NewRetrieve[types.Nil](statusSvc).
 		Where(status.MatchKeys[types.Nil](channel.OntologyID(key).String())).
 		Entries(&statuses).
 		Exec(ctx, nil)
 	if err != nil || len(statuses) == 0 {
-		return status.Status[types.Nil]{}, false
+		return calculation.Status{}, false
 	}
 	return statuses[0], true
 }
 
-func expectStatus(ctx context.Context, key channel.Key) status.Status[types.Nil] {
-	var result status.Status[types.Nil]
+func expectStatus(ctx context.Context, key channel.Key) calculation.Status {
+	var result calculation.Status
 	Eventually(func() bool {
 		s, ok := fetchStatus(ctx, key)
 		if ok && s.Variant == status.VariantError {
@@ -882,7 +883,7 @@ var _ = Describe("Graph", func() {
 			By("Restoring st_ow_a and deleting st_ow_b so the error becomes a different one")
 			createDep(ctx, "st_ow_a")
 			deleteDep(ctx, "st_ow_b")
-			var s2 status.Status[types.Nil]
+			var s2 calculation.Status
 			Eventually(func() bool {
 				s, ok := fetchStatus(ctx, calc.Key())
 				if ok && s.Description != s1.Description {
