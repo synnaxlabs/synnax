@@ -26,10 +26,13 @@ namespace x::cli {
 /// @param message the message to display to the user.
 /// @param default_value optional default value to use if input is empty
 /// @param hide_input whether to hide the input (for passwords)
+/// @return the default, or empty, if in is exhausted first.
 inline std::string prompt(
     const std::string &message,
     std::optional<std::string> default_value = std::nullopt,
-    bool hide_input = false
+    bool hide_input = false,
+    std::istream &in = std::cin,
+    std::ostream &out = std::cout
 ) {
     while (true) {
         std::string prompt_text = message;
@@ -53,11 +56,11 @@ inline std::string prompt(
 #endif
 
         std::string input;
-        std::cout << prompt_text;
-        std::getline(std::cin, input);
+        out << prompt_text;
+        std::getline(in, input);
 
         if (hide_input) {
-            std::cout << std::endl;
+            out << std::endl;
 #ifdef _WIN32
             SetConsoleMode(h_stdin, mode);
 #else
@@ -68,6 +71,7 @@ inline std::string prompt(
 
         if (!input.empty() || default_value.has_value())
             return input.empty() ? *default_value : input;
+        if (!in) return "";
     }
 }
 
@@ -75,22 +79,30 @@ inline std::string prompt(
 /// @param message the confirmation message to display to the user.
 /// @param default_value optional default value to use if input is empty
 /// @return true if the user confirms (Y/y), false if denied (N/n).
-inline bool
-confirm(const std::string &message, std::optional<bool> default_value = std::nullopt) {
+inline bool confirm(
+    const std::string &message,
+    std::optional<bool> default_value = std::nullopt,
+    std::istream &in = std::cin,
+    std::ostream &out = std::cout
+) {
     while (true) {
         std::string input = prompt(
             message + " (Y/N)",
             default_value.has_value()
                 ? std::optional<std::string>(default_value.value() ? "Y" : "N")
-                : std::nullopt
+                : std::nullopt,
+            false,
+            in,
+            out
         );
+        if (!in) return default_value.value_or(false);
         if (input.empty() || input.size() > 1) continue;
         const char response = static_cast<char>(
             std::toupper(static_cast<unsigned char>(input[0]))
         );
         if (response == 'Y') return true;
         if (response == 'N') return false;
-        std::cout << "Please enter Y or N" << std::endl;
+        out << "Please enter Y or N" << std::endl;
     }
 }
 
@@ -98,9 +110,14 @@ confirm(const std::string &message, std::optional<bool> default_value = std::nul
 /// @tparam T the numeric type (int, float, double, etc.)
 /// @param message the message to display to the user.
 /// @param default_value optional default value to use if input is empty
+/// @return the default, or a zeroed T, if in is exhausted first.
 template<typename T>
-inline T
-prompt(const std::string &message, std::optional<T> default_value = std::nullopt) {
+inline T prompt(
+    const std::string &message,
+    std::optional<T> default_value = std::nullopt,
+    std::istream &in = std::cin,
+    std::ostream &out = std::cout
+) {
     static_assert(
         std::is_arithmetic_v<T>,
         "Template parameter T must be an arithmetic type"
@@ -109,7 +126,7 @@ prompt(const std::string &message, std::optional<T> default_value = std::nullopt
         std::string prompt_text = message;
         std::string default_str = "";
         if (default_value.has_value()) default_str = std::to_string(*default_value);
-        std::string input = prompt(prompt_text, default_str);
+        std::string input = prompt(prompt_text, default_str, false, in, out);
         try {
             if constexpr (std::is_same_v<T, int>)
                 return std::stoi(input);
@@ -124,7 +141,8 @@ prompt(const std::string &message, std::optional<T> default_value = std::nullopt
             else
                 static_assert(sizeof(T) == 0, "Unsupported numeric type");
         } catch (const std::exception &) {
-            std::cout << "Invalid input: please enter a valid number" << std::endl;
+            if (!in) return default_value.value_or(T{});
+            out << "Invalid input: please enter a valid number" << std::endl;
         }
     }
 }
