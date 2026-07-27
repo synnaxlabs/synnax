@@ -17,6 +17,7 @@ import (
 	v1 "github.com/synnaxlabs/synnax/pkg/service/schematic/symbol/versions/v1"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/kv/memkv"
+	"github.com/synnaxlabs/x/migrate"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -24,7 +25,7 @@ var _ = Describe("MigrateSymbol", func() {
 	// seedV0 writes a symbol in the untyped v0 storage shape, exactly as the pre-SY-4504
 	// server persisted it.
 	seedV0 := func(ctx SpecContext, db *gorp.DB, s v0.Symbol) v0.Symbol {
-		t := MustOpen(gorp.OpenTable[uuid.UUID, v0.Symbol](
+		t := MustOpen(gorp.OpenTable(
 			ctx, gorp.TableConfig[uuid.UUID, v0.Symbol]{DB: db},
 		))
 		Expect(t.NewCreate().Entry(&s).Exec(ctx, db)).To(Succeed())
@@ -34,8 +35,11 @@ var _ = Describe("MigrateSymbol", func() {
 	// openMigrated opens the v1 symbol table with the migration chain wired in, driving
 	// the v0 -> typed lift end-to-end through gorp.
 	openMigrated := func(ctx SpecContext, db *gorp.DB) *gorp.Table[v1.Key, v1.Symbol] {
-		return MustOpen(gorp.OpenTable[v1.Key, v1.Symbol](
-			ctx, gorp.TableConfig[v1.Key, v1.Symbol]{DB: db, Migrations: v1.Migrations},
+		return MustOpen(gorp.OpenTable(
+			ctx, gorp.TableConfig[v1.Key, v1.Symbol]{
+				DB:         db,
+				Migrations: []migrate.Migration{v1.Migration},
+			},
 		))
 	}
 

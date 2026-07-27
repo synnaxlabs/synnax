@@ -7,12 +7,19 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package versions
+package v0_test
 
 import (
-	v1 "github.com/synnaxlabs/synnax/pkg/service/schematic/symbol/versions/v1"
-	"github.com/synnaxlabs/x/migrate"
+	"testing"
+
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
+	. "github.com/synnaxlabs/x/testutil"
 )
 
-// Migrations is the ordered migration chain for stored symbols.
-var Migrations = []migrate.Migration{v1.Migration}
+func TestSymbolV0(t *testing.T) {
+	RegisterFailHandler(Fail)
+	RunSpecs(t, "Service Schematic Symbol v0 Suite")
+}
+
+var _ = ShouldNotLeakGoroutinesPerSpec()

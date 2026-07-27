@@ -16,17 +16,10 @@ import (
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
-	"github.com/synnaxlabs/x/migrate"
 )
 
-// Migrations is the ordered migration chain that lifts stored symbols into the v1
-// typed shape.
-var Migrations = []migrate.Migration{
-	gorp.NewEntryMigration[Key, Key, v0.Symbol, Symbol](
-		"v1_typed_symbol",
-		MigrateSymbol,
-	),
-}
+// Migration lifts stored symbols out of the untyped v0 shape into the v1 typed shape.
+var Migration = gorp.NewEntryMigration("v1_typed_symbol", MigrateSymbol)
 
 // MigrateSymbol lifts a symbol persisted in the untyped v0 shape into the v1 Symbol,
 // decoding the specification map into a typed Spec and stamping the schema version. The

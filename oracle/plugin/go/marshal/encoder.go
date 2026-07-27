@@ -478,6 +478,16 @@ func callPath(getPath string) string {
 	return getPath
 }
 
+// valuePath strips the redundant outer parentheses an optional field's deref
+// path carries so a scalar value reads as *d.Foo rather than (*d.Foo). Unlike
+// callPath it keeps the leading star, since the value itself is passed on.
+func valuePath(getPath string) string {
+	if strings.HasPrefix(getPath, "(*") && strings.HasSuffix(getPath, ")") {
+		return getPath[1 : len(getPath)-1]
+	}
+	return getPath
+}
+
 // typeIsRecursive reports whether decoding typ can re-enter its own codec,
 // through struct fields (including inherited ones) or through a union's bases
 // and variant payloads. Recursive codecs guard DecodeOrc with a depth limit.
@@ -886,17 +896,21 @@ func (b *encoderBuilder) processLeaf(
 		return err
 	}
 	ind := b.indent()
+	// Scalar leaves pass the value on directly, so a parenthesized optional deref
+	// reads better without the redundant parens (*d.Foo, not (*d.Foo)). uuid keeps
+	// getPath because it slice-indexes the value: (*d.Foo)[:] must stay parenthesized.
+	valPath := valuePath(getPath)
 
 	switch primName {
 	case "string":
 		if goTypeCast != "" {
 			b.encodeLines = append(b.encodeLines,
-				ind+fmt.Sprintf("w.String(string(%s))", getPath))
+				ind+fmt.Sprintf("w.String(string(%s))", valPath))
 			b.decodeLine(
 				ind + fmt.Sprintf("{ v, err := r.String(); if err != nil { return err }; %s = %s(v) }", setPath, goTypeCast))
 		} else {
 			b.encodeLines = append(b.encodeLines,
-				ind+fmt.Sprintf("w.String(%s)", getPath))
+				ind+fmt.Sprintf("w.String(%s)", valPath))
 			b.decodeWithErr(
 				ind + fmt.Sprintf("if %s, err = r.String(); err != nil { return err }", setPath))
 		}
@@ -910,7 +924,7 @@ func (b *encoderBuilder) processLeaf(
 	case "record", "any":
 		b.needsJSON = true
 		b.encodeLines = append(b.encodeLines,
-			ind+fmt.Sprintf("{ b, err := json.Marshal(%s)", getPath),
+			ind+fmt.Sprintf("{ b, err := json.Marshal(%s)", valPath),
 			ind+"\tif err != nil { return err }",
 			ind+"\tw.WriteWithLen(b) }",
 		)
@@ -922,9 +936,9 @@ func (b *encoderBuilder) processLeaf(
 	case "bytes":
 		// Write a presence bit to distinguish nil from empty byte slices.
 		b.encodeLines = append(b.encodeLines,
-			ind+fmt.Sprintf("w.Bool(%s != nil)", getPath),
-			ind+fmt.Sprintf("if %s != nil {", getPath),
-			ind+fmt.Sprintf("\tw.WriteWithLen(%s)", getPath),
+			ind+fmt.Sprintf("w.Bool(%s != nil)", valPath),
+			ind+fmt.Sprintf("if %s != nil {", valPath),
+			ind+fmt.Sprintf("\tw.WriteWithLen(%s)", valPath),
 			ind+"}",
 		)
 		b.decodeLines = append(b.decodeLines,
@@ -936,30 +950,30 @@ func (b *encoderBuilder) processLeaf(
 
 	case "bool":
 		b.encodeLines = append(b.encodeLines,
-			ind+fmt.Sprintf("w.Bool(%s)", getPath))
+			ind+fmt.Sprintf("w.Bool(%s)", valPath))
 		b.decodeWithErr(
 			ind + fmt.Sprintf("if %s, err = r.Bool(); err != nil { return err }", setPath))
 
 	case "int8":
-		b.addIntLeaf(ind, getPath, setPath, goTypeCast, "Int8", "int8", "int8(%s)")
+		b.addIntLeaf(ind, valPath, setPath, goTypeCast, "Int8", "int8", "int8(%s)")
 	case "int16":
-		b.addIntLeaf(ind, getPath, setPath, goTypeCast, "Int16", "int16", "int16(%s)")
+		b.addIntLeaf(ind, valPath, setPath, goTypeCast, "Int16", "int16", "int16(%s)")
 	case "int32":
-		b.addIntLeaf(ind, getPath, setPath, goTypeCast, "Int32", "int32", "int32(%s)")
+		b.addIntLeaf(ind, valPath, setPath, goTypeCast, "Int32", "int32", "int32(%s)")
 	case "int64":
-		b.addIntLeaf(ind, getPath, setPath, goTypeCast, "Int64", "int64", "int64(%s)")
+		b.addIntLeaf(ind, valPath, setPath, goTypeCast, "Int64", "int64", "int64(%s)")
 	case "uint8":
-		b.addIntLeaf(ind, getPath, setPath, goTypeCast, "Uint8", "uint8", "uint8(%s)")
+		b.addIntLeaf(ind, valPath, setPath, goTypeCast, "Uint8", "uint8", "uint8(%s)")
 	case "uint12", "uint16":
-		b.addIntLeaf(ind, getPath, setPath, goTypeCast, "Uint16", "uint16", "uint16(%s)")
+		b.addIntLeaf(ind, valPath, setPath, goTypeCast, "Uint16", "uint16", "uint16(%s)")
 	case "uint20", "uint32":
-		b.addIntLeaf(ind, getPath, setPath, goTypeCast, "Uint32", "uint32", "uint32(%s)")
+		b.addIntLeaf(ind, valPath, setPath, goTypeCast, "Uint32", "uint32", "uint32(%s)")
 	case "uint64":
-		b.addIntLeaf(ind, getPath, setPath, goTypeCast, "Uint64", "uint64", "uint64(%s)")
+		b.addIntLeaf(ind, valPath, setPath, goTypeCast, "Uint64", "uint64", "uint64(%s)")
 	case "float32":
-		b.addIntLeaf(ind, getPath, setPath, goTypeCast, "Float32", "float32", "float32(%s)")
+		b.addIntLeaf(ind, valPath, setPath, goTypeCast, "Float32", "float32", "float32(%s)")
 	case "float64":
-		b.addIntLeaf(ind, getPath, setPath, goTypeCast, "Float64", "float64", "float64(%s)")
+		b.addIntLeaf(ind, valPath, setPath, goTypeCast, "Float64", "float64", "float64(%s)")
 
 	default:
 		return errors.Newf("unsupported primitive type: %s", primName)

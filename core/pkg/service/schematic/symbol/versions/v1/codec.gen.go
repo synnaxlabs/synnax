@@ -58,13 +58,13 @@ func (rv Region) EncodeOrc(w *orc.Writer) error {
 	}
 	if rv.StrokeColor != nil {
 		w.Bool(true)
-		w.String((*rv.StrokeColor))
+		w.String(*rv.StrokeColor)
 	} else {
 		w.Bool(false)
 	}
 	if rv.FillColor != nil {
 		w.Bool(true)
-		w.String((*rv.FillColor))
+		w.String(*rv.FillColor)
 	} else {
 		w.Bool(false)
 	}
