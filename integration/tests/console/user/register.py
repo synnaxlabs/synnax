@@ -12,7 +12,7 @@
 from console.case import ConsoleCase
 from x import random_name
 
-BUILTIN_ROLES = ["Owner", "Engineer", "Operator", "Viewer"]
+BUILTIN_ROLES = ["Owner", "Engineer", "Host", "Operator", "Viewer"]
 PASSWORD = "testpassword123"
 
 
