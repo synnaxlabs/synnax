@@ -8,6 +8,7 @@
 # included in the file licenses/APL.txt.
 
 load("@rules_cc//cc:cc_library.bzl", "cc_library")
+load("@rules_cc//cc:cc_test.bzl", "cc_test")
 
 cc_library(
     name = "variable",
@@ -23,5 +24,19 @@ cc_library(
         "//arc/cpp/stl",
         "//x/cpp/errors",
         "//x/cpp/telem",
+    ],
+)
+
+cc_test(
+    name = "variable_test",
+    srcs = ["variable_test.cpp"],
+    deps = [
+        ":variable",
+        "//arc/cpp/ir",
+        "//arc/cpp/runtime/errors",
+        "//arc/cpp/runtime/state",
+        "//x/cpp/telem",
+        "//x/cpp/test",
+        "@googletest//:gtest_main",
     ],
 )
