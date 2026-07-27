@@ -78,4 +78,3 @@ cc_library(
         "//x/cpp/telem",
     ],
 )
-
