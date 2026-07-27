@@ -16,4 +16,4 @@ import (
 )
 
 // Migrations is the ordered migration chain for stored lineplots.
-var Migrations = append([]migrate.Migration{v5.Migration}, v6.Migrations...)
+var Migrations = []migrate.Migration{v5.Migration, v6.Migration}

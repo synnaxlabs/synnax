@@ -42,7 +42,7 @@ var _ = Describe("v0 -> v1 Range migration", func() {
 			DB:        db,
 			Namespace: "Range",
 			Migrations: append(
-				append([]migrate.Migration{v0Applied}, v0Chain[1:]...), v1.Migrations...,
+				append([]migrate.Migration{v0Applied}, v0Chain[1:]...), v1.Migration,
 			),
 		})).To(Succeed())
 		out := make(map[v1.Key]v1.Range, len(seeds))

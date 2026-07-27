@@ -16,4 +16,4 @@ import (
 )
 
 // Migrations is the ordered migration chain for stored schematics.
-var Migrations = append([]migrate.Migration{v6.Migration}, v7.Migrations...)
+var Migrations = []migrate.Migration{v6.Migration, v7.Migration}

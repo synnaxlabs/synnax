@@ -14,15 +14,14 @@ import (
 
 	v0 "github.com/synnaxlabs/synnax/pkg/service/ranger/versions/v0"
 	"github.com/synnaxlabs/x/gorp"
-	"github.com/synnaxlabs/x/migrate"
 )
 
-// colorNullableMigration converts every range from the Orc value-color layout (Color
-// stored inline) to the current nullable layout (Color a presence-flagged pointer). A
+// Migration converts every range from the Orc value-color layout (Color stored
+// inline) to the current nullable layout (Color a presence-flagged pointer). A
 // zero stored color denoted "no color" under the value layout, so it maps to nil. It
 // runs after the codec migration so it always reads the deterministic value-color
 // encoding that migration leaves behind.
-var colorNullableMigration = gorp.NewEntryMigration(
+var Migration = gorp.NewEntryMigration(
 	"range_color_nullable",
 	func(_ context.Context, old v0.Range) (Range, error) {
 		rng := Range{Key: old.Key, Name: old.Name, TimeRange: old.TimeRange}
@@ -33,6 +32,3 @@ var colorNullableMigration = gorp.NewEntryMigration(
 		return rng, nil
 	},
 )
-
-// Migrations is the ordered set of migrations introduced at this version.
-var Migrations = []migrate.Migration{colorNullableMigration}

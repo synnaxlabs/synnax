@@ -58,7 +58,7 @@ func migrateSeed(ctx SpecContext, seed v6.Schematic) v7.Schematic {
 	Expect(gorp.Migrate(ctx, gorp.MigrateConfig{
 		DB:         db,
 		Namespace:  "Schematic",
-		Migrations: append([]migrate.Migration{v6.Migration}, v7.Migrations...),
+		Migrations: []migrate.Migration{v6.Migration, v7.Migration},
 	})).To(Succeed())
 	var got v7.Schematic
 	Expect(gorp.NewRetrieve[v7.Key, v7.Schematic]().

@@ -19,7 +19,6 @@ import (
 	v5 "github.com/synnaxlabs/synnax/pkg/service/lineplot/versions/v5"
 	"github.com/synnaxlabs/x/color"
 	"github.com/synnaxlabs/x/gorp"
-	"github.com/synnaxlabs/x/migrate"
 	"github.com/synnaxlabs/x/spatial"
 	"github.com/synnaxlabs/x/text"
 )
@@ -165,11 +164,6 @@ func migrateRules(in []v0.Rule) []Rule {
 	return out
 }
 
-// liftMigration lifts stored line plots from the v5 blob layout to the typed v6
+// Migration lifts stored line plots from the v5 blob layout to the typed v6
 // shape.
-var liftMigration = gorp.NewEntryMigration(
-	"v55_lift_typed_lineplot", migrateLinePlot,
-)
-
-// Migrations is the ordered set of migrations introduced at this version.
-var Migrations = []migrate.Migration{liftMigration}
+var Migration = gorp.NewEntryMigration("v55_lift_typed_lineplot", migrateLinePlot)

@@ -17,7 +17,6 @@ import (
 	v2 "github.com/synnaxlabs/synnax/pkg/service/log/versions/v2"
 	"github.com/synnaxlabs/x/color"
 	"github.com/synnaxlabs/x/gorp"
-	"github.com/synnaxlabs/x/migrate"
 )
 
 // MigrateLog lifts the previous log snapshot (v2, {Key, Name, Data}) into the v3
@@ -83,10 +82,5 @@ func parseColor(hex string) color.Color {
 	return c
 }
 
-// liftMigration lifts stored logs from the v2 blob layout to the typed v3 shape.
-var liftMigration = gorp.NewEntryMigration(
-	"v55_lift_typed_log", MigrateLog,
-)
-
-// Migrations is the ordered set of migrations introduced at this version.
-var Migrations = []migrate.Migration{liftMigration}
+// Migration lifts stored logs from the v2 blob layout to the typed v3 shape.
+var Migration = gorp.NewEntryMigration("v55_lift_typed_log", MigrateLog)
