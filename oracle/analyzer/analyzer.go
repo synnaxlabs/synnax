@@ -12,9 +12,11 @@ package analyzer
 import (
 	"context"
 	"maps"
+	"path/filepath"
 	"strconv"
 	"strings"
 
+	"github.com/antlr4-go/antlr/v4"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/oracle/parser"
 	"github.com/synnaxlabs/oracle/resolution"
@@ -79,6 +81,7 @@ func Analyze(
 		return nil, diag
 	}
 	detectRecursiveTypes(table)
+	validateDomainOmits(table, diag)
 	return table, diag
 }
 
@@ -110,7 +113,32 @@ func AnalyzeSource(
 		return nil, diag
 	}
 	detectRecursiveTypes(table)
+	validateDomainOmits(table, diag)
 	return table, diag
+}
+
+// usedQualifiers collects the package qualifiers the file references: every
+// identifier immediately followed by a dot, in any position (type references,
+// extends clauses, domain expressions).
+func usedQualifiers(ast parser.ISchemaContext) set.Set[string] {
+	used := make(set.Set[string])
+	stream, ok := ast.GetParser().GetTokenStream().(*antlr.CommonTokenStream)
+	if !ok {
+		return used
+	}
+	var defaultChan []antlr.Token
+	for _, tok := range stream.GetAllTokens() {
+		if tok.GetChannel() == antlr.TokenDefaultChannel {
+			defaultChan = append(defaultChan, tok)
+		}
+	}
+	for i := 0; i+1 < len(defaultChan); i++ {
+		if defaultChan[i].GetTokenType() == parser.OracleLexerIDENT &&
+			defaultChan[i+1].GetTokenType() == parser.OracleLexerDOT {
+			used.Add(defaultChan[i].GetText())
+		}
+	}
+	return used
 }
 
 func analyze(c *analysisCtx) {
@@ -142,8 +170,14 @@ func analyze(c *analysisCtx) {
 		}
 	}
 
+	used := usedQualifiers(c.ast)
 	for _, imp := range c.ast.AllImportStmt() {
 		path := strings.Trim(imp.STRING_LIT().GetText(), `"`)
+		if !used.Contains(filepath.Base(path)) {
+			d := diagnostics.Errorf(imp, "unused import %q", path)
+			d.File = c.filePath
+			c.diag.Add(d)
+		}
 		if c.table.IsImported(path) {
 			continue
 		}
@@ -181,6 +215,9 @@ func analyze(c *analysisCtx) {
 		typ := &types[i]
 		resolveTypeRefs(c, typ)
 	}
+	validateDeadOutputs(c, types)
+	validateFileVersion(c)
+	validateVersionArgs(c, types)
 	for _, typ := range types {
 		for i, t := range c.table.Types {
 			if t.QualifiedName == typ.QualifiedName {

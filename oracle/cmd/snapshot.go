@@ -49,7 +49,7 @@ func runSnapshot(_ *cobra.Command) error {
 	}
 
 	schemasDir := filepath.Join(repoRoot, "schemas")
-	snapshotsDir := filepath.Join(schemasDir, ".snapshots")
+	snapshotsDir := filepath.Join(schemasDir, "snapshots")
 
 	if err := snapshot.Create(schemasDir, snapshotsDir, coreVersion); err != nil {
 		return errors.Wrap(err, "failed to create schema snapshot")

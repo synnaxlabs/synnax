@@ -11,98 +11,40 @@
 
 package channel
 
-import (
-	"github.com/synnaxlabs/synnax/pkg/service/node"
-	"github.com/synnaxlabs/x/control"
-	"github.com/synnaxlabs/x/telem"
-	"github.com/synnaxlabs/x/validate"
-	"strconv"
-)
+import "github.com/synnaxlabs/synnax/pkg/service/channel/versions"
+
+// Key is a unique identifier for a channel in the Synnax database. Composed of a node
+// key (first 12 bits) and a local key (last 20 bits), enabling distributed assignment
+// while maintaining global uniqueness.
+type Key = versions.Key
+
+// LocalKey is a 20-bit unsigned integer representing the locally-unique portion of a
+// channel key within a node. Combined with a node.Key to form the global channel Key.
+type LocalKey = versions.LocalKey
 
 // Name is a human-readable name for a channel. Must start with a letter or underscore
 // and contain only letters, digits, and underscores. Names are not guaranteed to be
 // unique across channels.
-type Name = string
+type Name = versions.Name
 
 // OperationType is the type of aggregation operation to apply to channel data over
 // time.
-type OperationType string
+type OperationType = versions.OperationType
 
 const (
-	OperationTypeMin        OperationType = "min"
-	OperationTypeMax        OperationType = "max"
-	OperationTypeAvg        OperationType = "avg"
-	OperationTypeNone       OperationType = "none"
-	OperationTypeDerivative OperationType = "derivative"
+	OperationTypeMin        OperationType = versions.OperationTypeMin
+	OperationTypeMax        OperationType = versions.OperationTypeMax
+	OperationTypeAvg        OperationType = versions.OperationTypeAvg
+	OperationTypeNone       OperationType = versions.OperationTypeNone
+	OperationTypeDerivative OperationType = versions.OperationTypeDerivative
 )
-
-// IsValid reports whether o is one of the defined OperationType values.
-func (o OperationType) IsValid() bool {
-	switch o {
-	case OperationTypeMin, OperationTypeMax, OperationTypeAvg, OperationTypeNone, OperationTypeDerivative:
-		return true
-	default:
-		return false
-	}
-}
 
 // Operation defines an aggregation operation applied to channel data. Operations
 // calculate min, max, or average values over a time duration or triggered by a reset
 // channel.
-type Operation struct {
-	// Type is the aggregation operation type: min, max, avg, or none.
-	Type OperationType `json:"type" msgpack:"type"`
-	// ResetChannel is the channel key that triggers reset of the aggregation. If 0,
-	// duration-based reset is used.
-	ResetChannel Key `json:"reset_channel" msgpack:"reset_channel"`
-	// Duration is the time window for aggregation when reset_channel is 0.
-	Duration telem.TimeSpan `json:"duration" msgpack:"duration"`
-}
-
-func (o Operation) Validate() error {
-	v := validate.New("Operation")
-	v.Ternaryf("type", !o.Type.IsValid(), "invalid type: %v", o.Type)
-	return v.Error()
-}
+type Operation = versions.Operation
 
 // Channel is an internal representation of a channel containing all storage and
 // cluster-routing metadata. This type is used internally by the server; clients should
 // use APIChannel instead.
-type Channel struct {
-	// Name is the human-readable channel name.
-	Name Name `json:"name" msgpack:"name"`
-	// Leaseholder is the node that holds the lease for this channel and is authorized to
-	// accept writes.
-	Leaseholder node.Key `json:"leaseholder" msgpack:"leaseholder"`
-	// DataType is the data type of samples stored in this channel.
-	DataType telem.DataType `json:"data_type" msgpack:"data_type"`
-	// IsIndex is true if this channel is an index channel. Index channels must have int64
-	// values (TIMESTAMP data type) written in ascending order, and are most commonly unix
-	// nanosecond timestamps.
-	IsIndex bool `json:"is_index" msgpack:"is_index"`
-	// LocalKey is the locally-unique portion of this channel's key.
-	LocalKey LocalKey `json:"local_key" msgpack:"local_key"`
-	// LocalIndex is the channel used to index this channel's values, associating each value
-	// with a timestamp.
-	LocalIndex LocalKey `json:"local_index" msgpack:"local_index"`
-	// Virtual is true if this channel does not persist data and is used only for streaming.
-	Virtual bool `json:"virtual" msgpack:"virtual"`
-	// Concurrency sets the policy for concurrent writes to the channel's data. Only virtual
-	// channels can have a policy of shared concurrency.
-	Concurrency control.Concurrency `json:"concurrency" msgpack:"concurrency"`
-	// Internal is true if this is a system channel hidden from normal user queries.
-	Internal bool `json:"internal" msgpack:"internal"`
-	// Operations contains aggregation operations applied to this channel's data.
-	Operations []Operation `json:"operations,omitzero" msgpack:"operations,omitzero"`
-	// Expression is an Arc expression for calculated channels. If set, the channel is
-	// automatically configured as virtual.
-	Expression string `json:"expression" msgpack:"expression"`
-}
-
-func (c Channel) Validate() error {
-	v := validate.New("Channel")
-	for i := range c.Operations {
-		v.Exec(func() error { return validate.PathedError(c.Operations[i].Validate(), "operations", strconv.Itoa(i)) })
-	}
-	return v.Error()
-}
+type Channel = versions.Channel

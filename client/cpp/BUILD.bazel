@@ -8,6 +8,7 @@
 # included in the file licenses/APL.txt.
 
 load("@rules_cc//cc:cc_library.bzl", "cc_library")
+load("@rules_cc//cc:cc_test.bzl", "cc_test")
 
 cc_library(
     name = "synnax",
@@ -41,5 +42,17 @@ cc_library(
         "@glog",
         "@grpc//:grpc++",
         "@nlohmann_json//:json",
+    ],
+)
+
+cc_test(
+    name = "synnax_test",
+    size = "small",
+    srcs = ["synnax_test.cpp"],
+    deps = [
+        "//client/cpp:synnax",
+        "//core/pkg/transport/grpc:api_grpc",
+        "//x/cpp/json",
+        "@googletest//:gtest_main",
     ],
 )

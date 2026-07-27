@@ -329,7 +329,7 @@ Indexes live on the per-service `Service` struct. The `OpenService` pattern is:
 
 ```go
 func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
-    cfg, err := config.New(DefaultServiceConfig, cfgs...)
+    cfg, err := config.New(ServiceConfig{}, cfgs...)
     if err != nil {
         return nil, err
     }
