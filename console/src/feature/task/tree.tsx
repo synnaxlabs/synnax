@@ -80,7 +80,6 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
   const resources = getResource(ids);
   const handleDelete = useDelete(props);
   const handleLink = Cluster.useCopyLinkToClipboard();
-  const handleExport = Export.use();
   const snap = useRangeSnapshot();
   const range = Session.Range.useSelectState();
   const group = Group.useCreateFromSelection();
@@ -143,7 +142,7 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
               handleLink({ name: resources[0].name, ontologyID: resources[0].id })
             }
           />
-          <Export.ContextMenuItem onClick={() => handleExport(ids[0])} />
+          <Export.MenuItem id={ids[0]} />
           <Menu.Divider />
         </>
       )}

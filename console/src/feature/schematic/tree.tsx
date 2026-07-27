@@ -125,7 +125,6 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
   const hasUpdatePermission = Access.useUpdateGranted(ids);
   const handleCopy = useCopy(props);
   const snapshot = useRangeSnapshot();
-  const handleExport = Export.use();
   const handleLink = Cluster.useCopyLinkToClipboard();
   const rename = useRename(props);
   const group = Group.useCreateFromSelection();
@@ -157,7 +156,7 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
           <Menu.Divider />
         </>
       )}
-      <Export.ContextMenuItem onClick={() => handleExport(first.id)} />
+      <Export.MenuItem id={first.id} />
       <Link.CopyContextMenuItem
         onClick={() => handleLink({ name: first.name, ontologyID: firstID })}
       />
