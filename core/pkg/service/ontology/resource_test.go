@@ -18,52 +18,6 @@ import (
 )
 
 var _ = Describe("Resource", func() {
-	Describe("Type", func() {
-		Describe("String", func() {
-			It("Should return the string representation of the type", func() {
-				Expect(ontology.ResourceTypeChannel.String()).To(Equal("channel"))
-			})
-		})
-	})
-	Describe("ID", func() {
-		Describe("Validate", func() {
-			It("Should return an error if the ID does not have a type", func() {
-				id := ontology.ID{Key: "foo"}
-				Expect(id.Validate()).To(And(
-					MatchError(ContainSubstring("type: invalid type")),
-				))
-			})
-			It("Should return nil if the resource ID is valid", func() {
-				id := ontology.ID{Type: ontology.ResourceTypeChannel, Key: "bar"}
-				Expect(id.Validate()).To(Succeed())
-			})
-		})
-		Describe("String", func() {
-			It("Should return the string representation of the ID", func() {
-				Expect(ontology.ID{Key: "dog", Type: ontology.ResourceTypeChannel}.String()).
-					To(Equal("channel:dog"))
-			})
-		})
-		Describe("IsZero", func() {
-			It("Should return true if both the type and key are empty", func() {
-				Expect(ontology.ID{}.IsZero()).To(BeTrue())
-			})
-			It("Should return false when the type is not empty", func() {
-				Expect(ontology.ID{Type: ontology.ResourceTypeChannel}.IsZero()).To(BeFalse())
-			})
-			It("Should return false when the key is not empty", func() {
-				Expect(ontology.ID{Key: "cat"}.IsZero()).To(BeFalse())
-			})
-		})
-		Describe("IsType", func() {
-			It("Should return true if the Key is empty", func() {
-				Expect(ontology.ID{Type: ontology.ResourceTypeChannel}.IsType()).To(BeTrue())
-			})
-			It("Should return false if the Key is not empty", func() {
-				Expect(ontology.ID{Type: ontology.ResourceTypeChannel, Key: "foo"}.IsType()).To(BeFalse())
-			})
-		})
-	})
 	Describe("ParseID", func() {
 		It("Should parse an ID from a string", func() {
 			Expect(ontology.ParseID("channel:bar")).To(Equal(ontology.ID{

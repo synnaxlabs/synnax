@@ -53,7 +53,7 @@ var _ = Describe("Select", func() {
 						Target: ir.Handle{Node: "select", Param: ir.DefaultOutputParam},
 					}},
 				},
-				Functions: []graph.Function{
+				Functions: []ir.Function{
 					{
 						Key: "source",
 						Outputs: types.Params{
@@ -113,7 +113,7 @@ var _ = Describe("Select", func() {
 						Target: ir.Handle{Node: "select", Param: ir.DefaultOutputParam},
 					}},
 				},
-				Functions: []graph.Function{
+				Functions: []ir.Function{
 					{
 						Key: "source",
 						Outputs: types.Params{
@@ -402,7 +402,7 @@ var _ = Describe("Select", func() {
 						Target: ir.Handle{Node: "select", Param: ir.DefaultOutputParam},
 					}},
 				},
-				Functions: []graph.Function{
+				Functions: []ir.Function{
 					{
 						Key: "source",
 						Outputs: types.Params{
@@ -450,7 +450,7 @@ var _ = Describe("Select", func() {
 						Target: ir.Handle{Node: "select", Param: ir.DefaultOutputParam},
 					}},
 				},
-				Functions: []graph.Function{
+				Functions: []ir.Function{
 					{
 						Key: "source",
 						Outputs: types.Params{

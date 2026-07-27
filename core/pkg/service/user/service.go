@@ -7,6 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+// Package user provides the user management for the Synnax cluster. user includes a
+// service for managing users, a writer for creating and updating users, and a reader
+// for reading users. Authentication and authorization of users is done separately in
+// package auth.
 package user
 
 import (
@@ -19,10 +23,10 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/search"
 	"github.com/synnaxlabs/synnax/pkg/service/signals"
+	"github.com/synnaxlabs/synnax/pkg/service/user/versions"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/gorp"
 	xio "github.com/synnaxlabs/x/io"
-	"github.com/synnaxlabs/x/migrate"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/service"
 	"github.com/synnaxlabs/x/validate"
@@ -125,10 +129,8 @@ func OpenService(
 	cleanup, ok := service.NewOpener(ctx, &s.closer)
 	defer func() { err = cleanup(err) }()
 	if s.table, err = gorp.OpenTable(ctx, gorp.TableConfig[Key, User]{
-		DB: cfg.DB,
-		Migrations: []migrate.Migration{
-			gorp.CodecMigration[Key, User]("msgpack_to_orc"),
-		},
+		DB:              cfg.DB,
+		Migrations:      versions.Migrations,
 		Indexes:         s.indexes.all(),
 		Instrumentation: cfg.Instrumentation,
 	}); !ok(err, s.table) {

@@ -63,7 +63,7 @@ var _ = Describe("StableFor", func() {
 					Target: ir.Handle{Node: "stable", Param: ir.DefaultInputParam},
 				}},
 			},
-			Functions: []graph.Function{
+			Functions: []ir.Function{
 				{
 					Key: "source",
 					Outputs: types.Params{
@@ -296,7 +296,7 @@ var _ = Describe("StableFor", func() {
 			currentTime = 0
 			// Send multiple values, ending with 7 at 0.4s (400ms)
 			*source.Output(0) = telem.NewSeriesV[uint8](3, 4, 5, 6, 7)
-			*source.OutputTime(0) = telem.NewSeriesV[telem.TimeStamp](
+			*source.OutputTime(0) = telem.NewSeriesV(
 				0,
 				telem.SecondTS/10,   // 0.1s = 100ms
 				telem.SecondTS/5,    // 0.2s = 200ms
@@ -362,7 +362,7 @@ var _ = Describe("StableFor", func() {
 			currentTime = 0
 			// Send same value multiple times
 			*source.Output(0) = telem.NewSeriesV[uint8](5, 5, 5, 5)
-			*source.OutputTime(0) = telem.NewSeriesV[telem.TimeStamp](
+			*source.OutputTime(0) = telem.NewSeriesV(
 				0,
 				telem.SecondTS/10,   // 0.1s = 100ms
 				telem.SecondTS/5,    // 0.2s = 200ms
@@ -414,7 +414,7 @@ var _ = Describe("StableFor", func() {
 						Target: ir.Handle{Node: "stable", Param: ir.DefaultInputParam},
 					}},
 				},
-				Functions: []graph.Function{
+				Functions: []ir.Function{
 					{
 						Key: "source",
 						Outputs: types.Params{
@@ -584,8 +584,8 @@ var _ = Describe("Variable duration", func() {
 		}
 	}
 	ingest := func(v uint8, at telem.TimeStamp) {
-		*s.Node("source").Output(0) = telem.NewSeriesV[uint8](v)
-		*s.Node("source").OutputTime(0) = telem.NewSeriesV[telem.TimeStamp](at)
+		*s.Node("source").Output(0) = telem.NewSeriesV(v)
+		*s.Node("source").OutputTime(0) = telem.NewSeriesV(at)
 	}
 	next := func(ctx SpecContext, n node.Node) bool {
 		fired := false

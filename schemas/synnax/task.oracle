@@ -16,6 +16,7 @@ import "schemas/synnax/status"
 @pb
 
 Key uint64 {
+    @go version   1
     @doc value    """
         is a composite identifier for a task. The high 32 bits contain the rack
         key, and the low 32 bits contain the local task key within that rack.
@@ -39,12 +40,14 @@ StatusDetails struct<Data? = record> {
         @doc value "contains task-specific status data."
     }
 
+    @go version        1
     @doc value         "contains task-specific status details including execution state."
     @ts concrete_types
 }
 
 Status<Data? = record> = status.Status<StatusDetails<Data>> {
-    @doc value """
+    @go version 1
+    @doc value  """
         is task-specific status information including execution state and task-specific data.
     """
 }
@@ -88,6 +91,7 @@ Task struct<
         @go marshal omit
     }
 
+    @go version    1
     @doc value     """
         is an executable unit of work in the Driver system. Tasks represent
         specific hardware operations such as reading sensor data, writing
