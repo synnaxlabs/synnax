@@ -18,7 +18,7 @@ import (
 )
 
 // Symbol is the untyped storage shape of a schematic symbol. The type name must stay
-// "Symbol" so it shares the gorp key prefix with the current symbol.Symbol.
+// "Symbol" so it shares the Gorp key prefix with the current symbol.Symbol.
 type Symbol struct {
 	// Data holds the symbol specification as raw decoded JSON.
 	Data map[string]any `json:"data" msgpack:"data"`
