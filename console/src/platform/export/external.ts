@@ -8,6 +8,5 @@
 // included in the file licenses/APL.txt.
 
 export * from "@/platform/export/ContextMenuItem";
-export * from "@/platform/export/sanitize";
 export * from "@/platform/export/ToolbarButton";
 export * from "@/platform/export/use";

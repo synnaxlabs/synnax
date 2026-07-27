@@ -9,31 +9,31 @@
 
 import { describe, expect, it } from "vitest";
 
-import { Export } from "@/platform/export";
+import { sanitizeFileName } from "@/strings/sanitizeFileName";
 
 describe("sanitizeFileName", () => {
   it("returns ordinary names unchanged", () => {
-    expect(Export.sanitizeFileName("My Project")).toEqual("My Project");
-    expect(Export.sanitizeFileName("metrics_2025")).toEqual("metrics_2025");
-    expect(Export.sanitizeFileName("name-with-dashes")).toEqual("name-with-dashes");
-    expect(Export.sanitizeFileName("file.json")).toEqual("file.json");
+    expect(sanitizeFileName("My Project")).toEqual("My Project");
+    expect(sanitizeFileName("metrics_2025")).toEqual("metrics_2025");
+    expect(sanitizeFileName("name-with-dashes")).toEqual("name-with-dashes");
+    expect(sanitizeFileName("file.json")).toEqual("file.json");
   });
 
   it("replaces forward and back slashes", () => {
-    expect(Export.sanitizeFileName("a/b")).toEqual("a_b");
-    expect(Export.sanitizeFileName("a\\b")).toEqual("a_b");
-    expect(Export.sanitizeFileName("path/to\\file")).toEqual("path_to_file");
+    expect(sanitizeFileName("a/b")).toEqual("a_b");
+    expect(sanitizeFileName("a\\b")).toEqual("a_b");
+    expect(sanitizeFileName("path/to\\file")).toEqual("path_to_file");
   });
 
   it("replaces Windows-reserved characters", () => {
-    expect(Export.sanitizeFileName('a<b>c:d"e|f?g*h')).toEqual("a_b_c_d_e_f_g_h");
+    expect(sanitizeFileName('a<b>c:d"e|f?g*h')).toEqual("a_b_c_d_e_f_g_h");
   });
 
   it("returns an empty string unchanged", () => {
-    expect(Export.sanitizeFileName("")).toEqual("");
+    expect(sanitizeFileName("")).toEqual("");
   });
 
   it("does not collapse repeated unsafe characters", () => {
-    expect(Export.sanitizeFileName("a///b")).toEqual("a___b");
+    expect(sanitizeFileName("a///b")).toEqual("a___b");
   });
 });

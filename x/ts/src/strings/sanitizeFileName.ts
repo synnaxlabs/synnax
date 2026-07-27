@@ -10,10 +10,9 @@
 const UNSAFE_FILE_NAME_CHARS = /[/\\<>:"|?*]/g;
 
 /**
- * Replaces characters that are unsafe in filenames across platforms (path
- * separators and Windows-reserved characters) with underscores. Used by
- * export flows that turn user-supplied names into directory and file names
- * on disk.
+ * Replaces characters that are unsafe in filenames across platforms (path separators
+ * and Windows-reserved characters) with underscores. Useful for turning user-supplied
+ * names into directory and file names on disk.
  */
 export const sanitizeFileName = (name: string): string =>
   name.replace(UNSAFE_FILE_NAME_CHARS, "_");

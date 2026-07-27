@@ -14,20 +14,13 @@ import {
   type Synnax as Client,
 } from "@synnaxlabs/client";
 import { Status, Synnax } from "@synnaxlabs/pluto";
+import { strings } from "@synnaxlabs/x";
 import { useCallback } from "react";
 
 import { type Symbol } from "@/feature/schematic/symbol";
 import { Export } from "@/platform/export";
 import { Modals } from "@/platform/modals";
 import { Runtime } from "@/platform/runtime";
-
-export const useExport = (): ((key: string) => void) => {
-  const handleExport = Export.use();
-  return useCallback(
-    (key: string) => handleExport(schematic.symbol.ontologyID(key)),
-    [handleExport],
-  );
-};
 
 interface ExportGroupParams {
   client: Client | null;
@@ -67,7 +60,7 @@ const exportGroup = async ({
 
   const directory = await Runtime.pickWritableDirectory({
     title: `Select a location to export ${name}`,
-    subdirectory: Export.sanitizeFileName(name),
+    subdirectory: strings.sanitizeFileName(name),
   });
   if (directory == null) return;
   if (directory.preExisted) {
@@ -86,7 +79,7 @@ const exportGroup = async ({
     name,
     symbols: await Promise.all(
       symbols.map(async (symbol) => {
-        const fileName = `${Export.sanitizeFileName(symbol.name)}_${symbol.key.slice(0, 8)}.json`;
+        const fileName = `${strings.sanitizeFileName(symbol.name)}_${symbol.key.slice(0, 8)}.json`;
         const { data } = await Export.fetchFile(
           client,
           schematic.symbol.ontologyID(symbol.key),

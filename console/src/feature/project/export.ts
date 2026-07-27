@@ -71,7 +71,7 @@ export const export_ = (
     const panels = await retrievePanels(client, targetKey);
     const directory = await Runtime.pickWritableDirectory({
       title: `Select a location to export ${name}`,
-      subdirectory: Export.sanitizeFileName(name),
+      subdirectory: strings.sanitizeFileName(name),
     });
     if (directory == null) return;
     if (
@@ -98,7 +98,7 @@ export const export_ = (
         // channels); skip those rather than failing the whole project export.
         const file = await Export.fetchFile(client, id).catch(() => null);
         if (file == null) return;
-        const fileName = Export.sanitizeFileName(
+        const fileName = strings.sanitizeFileName(
           strings.deduplicateFileName(file.name, namesSet),
         );
         namesSet.add(fileName);
