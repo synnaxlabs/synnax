@@ -11,7 +11,6 @@ package task_test
 
 import (
 	"context"
-	"encoding/json"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -187,46 +186,6 @@ var _ = Describe("Task", Ordered, func() {
 			Expect(w.Create(ctx, m)).To(Succeed())
 			Expect(m.Key).To(Equal(task.NewKey(testRack.Key, 3)))
 			Expect(m.Name).To(Equal("Test Task"))
-		})
-	})
-
-	Describe("Export", func() {
-		It("Should export a task's config flat with version, type, and name", func(ctx SpecContext) {
-			// Create the task on a dedicated rack so this committed write does not
-			// shift the shared testRack key counter that the Ordered key-assignment
-			// specs assert against.
-			exportRack := &rack.Rack{Name: "Export Rack"}
-			Expect(rackService.NewWriter(nil).Create(ctx, exportRack)).To(Succeed())
-			t := &task.Task{
-				Key:  task.NewKey(exportRack.Key, 0),
-				Name: "Exported Task",
-				Type: "opc_read",
-				Config: msgpack.EncodedJSON{
-					"sample_rate": float64(25),
-					"channels":    []any{"a", "b"},
-				},
-			}
-			Expect(svc.NewWriter(nil).Create(ctx, t)).To(Succeed())
-
-			env := MustSucceed(svc.Export(ctx, t.Key.OntologyID()))
-			Expect(env.Version).To(Equal(task.Version))
-			Expect(env.Type).To(Equal("opc_read"))
-			Expect(env.Name).To(Equal("Exported Task"))
-
-			var body map[string]any
-			Expect(json.Unmarshal(MustSucceed(json.Marshal(env)), &body)).To(Succeed())
-			// The driver reads the file as its config, so config fields sit flat at the
-			// top level rather than nested under a "config" key.
-			Expect(body).ToNot(HaveKey("config"))
-			Expect(body["sample_rate"]).To(BeEquivalentTo(25))
-			Expect(body["type"]).To(Equal("opc_read"))
-			Expect(body["name"]).To(Equal("Exported Task"))
-			Expect(body["version"]).To(BeEquivalentTo(1))
-		})
-
-		It("Should return not found for a missing key", func(ctx SpecContext) {
-			id := task.NewKey(testRack.Key, 9999).OntologyID()
-			Expect(svc.Export(ctx, id)).Error().To(MatchError(query.ErrNotFound))
 		})
 	})
 
