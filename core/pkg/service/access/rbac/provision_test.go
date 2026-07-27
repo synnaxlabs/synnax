@@ -40,7 +40,7 @@ var _ = Describe("Provision", func() {
 				Expect(rbacSvc.Role.NewRetrieve().Where(role.MatchNames(name)).Entry(&r).Exec(ctx, tx)).To(Succeed())
 				var policies []ontology.Resource
 				Expect(otg.NewRetrieve().
-					WhereIDs(role.OntologyID(r.Key)).
+					WhereIDs(r.OntologyID()).
 					TraverseTo(ontology.ChildrenTraverser).
 					Entries(&policies).
 					Exec(ctx, tx)).To(Succeed())
@@ -80,8 +80,8 @@ var _ = Describe("Provision", func() {
 
 			// Simulate stale DB by stripping objects in a committed transaction
 			staleTx := db.OpenTx()
-			Expect(gorp.NewUpdate[uuid.UUID, policy.Policy]().
-				Where(gorp.MatchKeys[uuid.UUID, policy.Policy](ownerPolicy.Key)).
+			Expect(gorp.NewUpdate[policy.Key, policy.Policy]().
+				Where(gorp.MatchKeys[policy.Key, policy.Policy](ownerPolicy.Key)).
 				Change(func(_ gorp.Context, p policy.Policy) policy.Policy {
 					p.Objects = p.Objects[:1]
 					return p

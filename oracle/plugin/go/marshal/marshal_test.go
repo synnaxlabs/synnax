@@ -15,7 +15,9 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/oracle/analyzer"
 	"github.com/synnaxlabs/oracle/plugin/go/marshal"
+	"github.com/synnaxlabs/oracle/resolution"
 	. "github.com/synnaxlabs/oracle/testutil"
 	"github.com/synnaxlabs/x/encoding/orc"
 	"github.com/synnaxlabs/x/errors"
@@ -76,7 +78,7 @@ var _ = Describe("Go Marshal Plugin", func() {
 						type string
 						key string
 
-						@go omit
+						@go hand
 					}
 
 					Outer struct {
@@ -188,6 +190,64 @@ var _ = Describe("Go Marshal Plugin", func() {
 			})
 		})
 
+		Context("generic type argument used only in a json_only field", func() {
+			It("Should not generate a codec for the argument type", func() {
+				source := `
+					@go output "core/pkg/test"
+					@pb
+
+					Details struct {
+						count int32
+					}
+
+					Wrapper struct<D?> {
+						name string
+						details D {
+							@go marshal json_only
+						}
+
+						@go marshal
+					}
+
+					Holder struct {
+						wrapped Wrapper<Details>
+
+						@go marshal
+					}
+				`
+				resp := MustGenerate(ctx, source, "test", loader, marshalPlugin)
+				ExpectContent(resp, "codec.gen.go").
+					ToContain("Holder) EncodeOrc", "Wrapper[").
+					ToNotContain("Details) EncodeOrc", "Details) DecodeOrc")
+			})
+		})
+
+		Context("struct type referenced only by an omitted field", func() {
+			It("Should not generate a codec for the omitted field's type", func() {
+				source := `
+					@go output "core/pkg/test"
+					@pb
+
+					Payload struct {
+						data string
+					}
+
+					Record struct {
+						name string
+						payload Payload? {
+							@go marshal omit
+						}
+
+						@go marshal
+					}
+				`
+				resp := MustGenerate(ctx, source, "test", loader, marshalPlugin)
+				ExpectContent(resp, "codec.gen.go").
+					ToContain("Record) EncodeOrc").
+					ToNotContain("Payload) EncodeOrc", "Payload) DecodeOrc")
+			})
+		})
+
 		Context("generic struct with nil type arg via alias", func() {
 			It("Should skip nil-typed fields and resolve defaulted type params", func() {
 				source := `
@@ -291,7 +351,7 @@ var _ = Describe("Go Marshal Plugin", func() {
 						key  string
 						type string
 
-						@go omit
+						@go hand
 					}
 
 					Nodes = Node[]
@@ -343,7 +403,7 @@ var _ = Describe("Go Marshal Plugin", func() {
 					Details struct {
 						reason string
 
-						@go omit
+						@go hand
 					}
 
 					MyWrapper = Wrapper<Details>
@@ -560,7 +620,7 @@ var _ = Describe("Go Marshal Plugin", func() {
 
 					Inner struct {
 						name string
-						@go omit
+						@go hand
 					}
 
 					Test struct {
@@ -1072,6 +1132,62 @@ var _ = Describe("Recursive Codecs", func() {
 	})
 })
 
+var _ = Describe("Version-Laid-Out Packages", func() {
+	var (
+		ctx           context.Context
+		loader        *MockFileLoader
+		marshalPlugin *marshal.Plugin
+	)
+
+	BeforeEach(func() {
+		ctx = context.Background()
+		loader = NewMockFileLoader()
+		marshalPlugin = marshal.New(marshal.DefaultOptions())
+	})
+
+	It("Should emit the codec and its test into types/vN", func() {
+		source := `
+			@go output "out"
+			@pb
+
+			Entry struct {
+			    @go version 3
+				key uuid @key
+				name string
+				@go marshal
+			}
+		`
+		resp := MustGenerate(ctx, source, "test", loader, marshalPlugin)
+		ExpectContent(resp, "out/versions/v3/codec.gen.go").
+			ToBeValidGoSource().
+			ToContain(
+				"package v3",
+				"func (e Entry) EncodeOrc(w *orc.Writer",
+			)
+		ExpectContent(resp, "out/versions/v3/codec_gen_test.go").
+			ToBeValidGoSource().
+			ToContain("package v3_test")
+	})
+
+	It("Should leave non-versioned packages at the package root", func() {
+		source := `
+			@go output "core/pkg/test"
+			@go marshal
+			@pb
+
+			Test struct {
+				key uuid @key
+				name string
+			}
+		`
+		resp := MustGenerate(ctx, source, "test", loader, marshalPlugin)
+		Expect(resp.Files[0].Path).To(Equal("core/pkg/test/codec.gen.go"))
+		ExpectContent(resp, "core/pkg/test/codec.gen.go").
+			ToContain("package test").
+			ToNotContain("types/v")
+	})
+})
+
 // The rt* fixtures mirror the exact shape the generator emits for a
 // discriminated union wrapper codec (binary discriminator tag followed by the
 // variant's base and payload codecs), locking the runtime semantics the
@@ -1283,6 +1399,85 @@ var _ = Describe("Recursive Codec Depth Guard", func() {
 		r.ResetBytes(w.Bytes())
 		var out rtNode
 		Expect(out.DecodeOrc(r)).To(MatchError(orc.ErrRecursionDepth))
+	})
+})
+
+var _ = Describe("Predecessor Aliasing", func() {
+	It("Should skip codecs for types aliased to the predecessor version", func(ctx SpecContext) {
+		loader := NewMockFileLoader()
+		oldSource := `
+			@go output "out"
+			Inner struct {
+			    @go version 0
+			    value int32
+			}
+			Entry struct {
+			    @go version 0
+				name string
+				inner Inner
+				@go marshal
+			}
+		`
+		newSource := `
+			@go output "out"
+			Inner struct {
+			    @go version 1
+			    value int32
+			}
+			Entry struct {
+			    @go version 1
+				name string
+				label string
+				inner Inner
+				@go marshal
+			}
+		`
+		req := MustGenerateRequest(ctx, newSource, "test", loader)
+		req.SnapshotVersion = 56
+		req.LoadSnapshot = func(version int) (*resolution.Table, error) {
+			if version != 56 {
+				return nil, nil
+			}
+			table, diag := analyzer.AnalyzeSource(
+				ctx, oldSource, "test", NewMockFileLoader(),
+			)
+			if diag != nil && !diag.Ok() {
+				return nil, diag
+			}
+			return table, nil
+		}
+		resp := MustSucceed(marshal.New(marshal.DefaultOptions()).Generate(req))
+		ExpectContent(resp, "out/versions/v1/codec.gen.go").
+			ToContain("func (e Entry) EncodeOrc").
+			ToNotContain("func (i Inner) EncodeOrc")
+	})
+})
+
+var _ = Describe("Same-Named Entries Across Namespaces", func() {
+	It("Should emit each entry's codec at its own path", func(ctx SpecContext) {
+		loader := NewMockFileLoader()
+		loader.Add("schemas/panel", `
+			@go output "core/pkg/service/panel"
+			View struct {
+				name string
+			}
+		`)
+		source := `
+			import "schemas/panel"
+
+			@go output "core/pkg/service/view"
+			Key = uuid
+			View struct {
+				key  Key {@key}
+				name string
+				@go marshal
+			}
+			Linked struct { view panel.View }
+		`
+		resp := MustGenerate(ctx, source, "view", loader,
+			marshal.New(marshal.DefaultOptions()))
+		ExpectContent(resp, "core/pkg/service/view/codec.gen.go").
+			ToContain("View) EncodeOrc")
 	})
 })
 

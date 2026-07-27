@@ -63,7 +63,7 @@ func (w Writer) Create(ctx context.Context, r *Range) error {
 	if err = w.table.NewCreate().Entry(r).Exec(ctx, w.tx); err != nil {
 		return err
 	}
-	otgID := OntologyID(r.Key)
+	otgID := r.OntologyID()
 	if err = w.otgWriter.DefineResources(ctx, otgID); err != nil {
 		return err
 	}

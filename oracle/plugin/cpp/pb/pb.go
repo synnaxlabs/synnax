@@ -67,10 +67,10 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 		if !hasPBFlag(entry) {
 			continue
 		}
-		if omit.IsType(entry, "pb") {
+		if omit.IsSkipped(entry, "pb") {
 			continue
 		}
-		if omit.IsType(entry, "cpp") {
+		if omit.IsSkipped(entry, "cpp") {
 			continue
 		}
 
@@ -91,7 +91,7 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 		if cppOutputPath == "" {
 			continue
 		}
-		if omit.IsType(entry, "cpp") || omit.IsType(entry, "pb") {
+		if omit.IsSkipped(entry, "cpp") || omit.IsSkipped(entry, "pb") {
 			continue
 		}
 		if !hasPBFlag(entry) || !hasExplicitPBName(entry) {
@@ -113,7 +113,7 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 
 	standaloneEnums := make(map[string][]resolution.Type)
 	for _, e := range req.Resolutions.EnumTypes() {
-		if omit.IsType(e, "cpp") || omit.IsType(e, "pb") {
+		if omit.IsSkipped(e, "cpp") || omit.IsSkipped(e, "pb") {
 			continue
 		}
 		if !hasPBFlag(e) {
@@ -123,9 +123,7 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 		if enumPath == "" {
 			continue
 		}
-		if _, exists := outputStructs[enumPath]; !exists {
-			standaloneEnums[enumPath] = append(standaloneEnums[enumPath], e)
-		}
+		standaloneEnums[enumPath] = append(standaloneEnums[enumPath], e)
 	}
 	for path := range standaloneEnums {
 		found := slices.Contains(outputOrder, path)
@@ -153,12 +151,12 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 
 		enums := enum.CollectReferenced(structs, req.Resolutions)
 
-		if len(structs) == 0 {
-			if standalone, ok := standaloneEnums[outputPath]; ok {
-				enums = append(enums, standalone...)
-				if len(standalone) > 0 {
-					namespace = standalone[0].Namespace
-				}
+		// Standalone pb enums must translate even when no sibling pb struct
+		// references them: cross-namespace callers resolve the translator here.
+		if standalone, ok := standaloneEnums[outputPath]; ok {
+			enums = append(enums, standalone...)
+			if namespace == "" && len(standalone) > 0 {
+				namespace = standalone[0].Namespace
 			}
 		}
 
@@ -237,10 +235,10 @@ func (p *Plugin) generateProto(
 	}
 
 	for _, s := range structs {
-		if omit.IsType(s, "pb") {
+		if omit.IsSkipped(s, "pb") {
 			continue
 		}
-		if omit.IsType(s, "cpp") {
+		if omit.IsSkipped(s, "cpp") {
 			continue
 		}
 		form, ok := s.Form.(resolution.StructForm)
@@ -263,7 +261,7 @@ func (p *Plugin) generateProto(
 	}
 
 	for _, e := range enums {
-		if omit.IsType(e, "cpp") || omit.IsType(e, "pb") {
+		if omit.IsSkipped(e, "cpp") || omit.IsSkipped(e, "pb") {
 			continue
 		}
 		if e.Namespace != namespace {
@@ -290,7 +288,7 @@ func (p *Plugin) generateProto(
 		if output.GetPath(dt, "cpp") != outputPath {
 			continue
 		}
-		if omit.IsType(dt, "cpp") || omit.IsType(dt, "pb") {
+		if omit.IsSkipped(dt, "cpp") || omit.IsSkipped(dt, "pb") {
 			continue
 		}
 		if !hasPBFlag(dt) || !hasExplicitPBName(dt) {
@@ -820,7 +818,7 @@ func (p *Plugin) generateDistinctConversion(
 		}
 	}
 
-	if omit.IsType(resolved, "cpp") {
+	if omit.IsSkipped(resolved, "cpp") {
 		return fmt.Sprintf("%s(this->%s.to_proto())", pbSetter, cppFieldName),
 			fmt.Sprintf("cpp.%s = %s::from_proto(pb.%s());", cppFieldName, cppName, pbAccessorName)
 	}

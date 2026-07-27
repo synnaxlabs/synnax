@@ -29,7 +29,7 @@ import (
 // feeder node "f" edged into its second param.
 func registerState(ctx SpecContext) *node.ProgramState {
 	g := graph.Graph{
-		Functions: []graph.Function{
+		Functions: []ir.Function{
 			{
 				Key:     "feeder",
 				Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.I64()}},
@@ -62,7 +62,7 @@ func registerState(ctx SpecContext) *node.ProgramState {
 // value, with sel fed from a register stand-in "selsrc".
 func exprReadState(ctx SpecContext) *node.ProgramState {
 	g := graph.Graph{
-		Functions: []graph.Function{
+		Functions: []ir.Function{
 			{
 				Key:     "d",
 				Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.I64()}},
@@ -106,7 +106,7 @@ func exprReadState(ctx SpecContext) *node.ProgramState {
 
 // emit writes data and a second-precision timestamp to a node's first output.
 func emit[T telem.Sample](n *node.State, value T, seconds telem.TimeStamp) {
-	*n.Output(0) = telem.NewSeriesV[T](value)
+	*n.Output(0) = telem.NewSeriesV(value)
 	*n.OutputTime(0) = telem.NewSeriesSecondsTSV(seconds)
 }
 
@@ -351,7 +351,7 @@ var _ = Describe("Variable", func() {
 			)
 			BeforeEach(func(ctx SpecContext) {
 				g := graph.Graph{
-					Functions: []graph.Function{
+					Functions: []ir.Function{
 						{
 							Key: "feeder",
 							Outputs: types.Params{
@@ -519,7 +519,7 @@ var _ = Describe("Variable", func() {
 
 		It("Should emit the sole derivation when no sel input exists", func(ctx SpecContext) {
 			g := graph.Graph{
-				Functions: []graph.Function{
+				Functions: []ir.Function{
 					{
 						Key:     "d",
 						Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.I64()}},

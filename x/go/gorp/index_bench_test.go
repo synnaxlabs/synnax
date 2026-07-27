@@ -77,10 +77,10 @@ func BenchmarkLookupSetup(b *testing.B) {
 			b.ReportAllocs()
 			b.ResetTimer()
 			for i := 0; i < b.N; i++ {
-				nameIdx := gorp.NewLookupIndex[int32, indexBenchEntry, string](
+				nameIdx := gorp.NewLookupIndex(
 					"name", func(e *indexBenchEntry) string { return e.Name },
 				)
-				table, err := gorp.OpenTable[int32, indexBenchEntry](
+				table, err := gorp.OpenTable(
 					ctx,
 					gorp.TableConfig[int32, indexBenchEntry]{
 						DB:      db,
@@ -110,10 +110,10 @@ func BenchmarkLookupQueryViaIndex(b *testing.B) {
 				Entries(&entries).Exec(ctx, db); err != nil {
 				b.Fatal(err)
 			}
-			nameIdx := gorp.NewLookupIndex[int32, indexBenchEntry, string](
+			nameIdx := gorp.NewLookupIndex(
 				"name", func(e *indexBenchEntry) string { return e.Name },
 			)
-			table, err := gorp.OpenTable[int32, indexBenchEntry](
+			table, err := gorp.OpenTable(
 				ctx,
 				gorp.TableConfig[int32, indexBenchEntry]{
 					DB:      db,
@@ -156,7 +156,7 @@ func BenchmarkLookupQueryViaScan(b *testing.B) {
 				Entries(&entries).Exec(ctx, db); err != nil {
 				b.Fatal(err)
 			}
-			table, err := gorp.OpenTable[int32, indexBenchEntry](
+			table, err := gorp.OpenTable(
 				ctx,
 				gorp.TableConfig[int32, indexBenchEntry]{DB: db},
 			)
@@ -199,10 +199,10 @@ func BenchmarkLookupObserverUpdate(b *testing.B) {
 				Entries(&entries).Exec(ctx, db); err != nil {
 				b.Fatal(err)
 			}
-			nameIdx := gorp.NewLookupIndex[int32, indexBenchEntry, string](
+			nameIdx := gorp.NewLookupIndex(
 				"name", func(e *indexBenchEntry) string { return e.Name },
 			)
-			table, err := gorp.OpenTable[int32, indexBenchEntry](
+			table, err := gorp.OpenTable(
 				ctx,
 				gorp.TableConfig[int32, indexBenchEntry]{
 					DB:      db,
@@ -249,10 +249,10 @@ func BenchmarkSortedSetup(b *testing.B) {
 			b.ReportAllocs()
 			b.ResetTimer()
 			for i := 0; i < b.N; i++ {
-				scoreIdx := gorp.NewSortedIndex[int32, indexBenchEntry, int64](
+				scoreIdx := gorp.NewSortedIndex(
 					"score", func(e *indexBenchEntry) int64 { return e.Score },
 				)
-				table, err := gorp.OpenTable[int32, indexBenchEntry](
+				table, err := gorp.OpenTable(
 					ctx,
 					gorp.TableConfig[int32, indexBenchEntry]{
 						DB:      db,
@@ -284,10 +284,10 @@ func BenchmarkSortedObserverUpdate(b *testing.B) {
 				Entries(&entries).Exec(ctx, db); err != nil {
 				b.Fatal(err)
 			}
-			scoreIdx := gorp.NewSortedIndex[int32, indexBenchEntry, int64](
+			scoreIdx := gorp.NewSortedIndex(
 				"score", func(e *indexBenchEntry) int64 { return e.Score },
 			)
-			table, err := gorp.OpenTable[int32, indexBenchEntry](
+			table, err := gorp.OpenTable(
 				ctx,
 				gorp.TableConfig[int32, indexBenchEntry]{
 					DB:      db,
@@ -335,13 +335,13 @@ func compositionFixture(b *testing.B, size int) (
 		Entries(&entries).Exec(ctx, db); err != nil {
 		b.Fatal(err)
 	}
-	nameIdx := gorp.NewLookupIndex[int32, indexBenchEntry, string](
+	nameIdx := gorp.NewLookupIndex(
 		"name", func(e *indexBenchEntry) string { return e.Name },
 	)
-	categoryIdx := gorp.NewLookupIndex[int32, indexBenchEntry, string](
+	categoryIdx := gorp.NewLookupIndex(
 		"category", func(e *indexBenchEntry) string { return e.Category },
 	)
-	table, err := gorp.OpenTable[int32, indexBenchEntry](
+	table, err := gorp.OpenTable(
 		ctx,
 		gorp.TableConfig[int32, indexBenchEntry]{
 			DB: db,
@@ -404,7 +404,7 @@ func BenchmarkComposeAndScan(b *testing.B) {
 				Entries(&entries).Exec(ctx, db); err != nil {
 				b.Fatal(err)
 			}
-			table, err := gorp.OpenTable[int32, indexBenchEntry](
+			table, err := gorp.OpenTable(
 				ctx,
 				gorp.TableConfig[int32, indexBenchEntry]{DB: db},
 			)
