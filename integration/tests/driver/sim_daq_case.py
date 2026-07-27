@@ -62,6 +62,9 @@ class SimDaqCase(TestCase):
 
     def teardown(self) -> None:
         """Stop the simulator during teardown."""
-        super().teardown()
-        if hasattr(self, "sim_daq") and self.sim_daq is not None:
-            self.sim_daq.stop()
+        try:
+            super().teardown()
+        finally:
+            sim_daq = getattr(self, "sim_daq", None)
+            if sim_daq is not None:
+                sim_daq.stop()

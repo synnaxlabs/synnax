@@ -9,10 +9,12 @@
 
 import threading
 import time
+from typing import cast
 
 import pytest
 
 import synnax as sy
+from synnax.control.controller import Controller, RemainsTrueFor
 
 
 def create_valve_set(
@@ -98,34 +100,39 @@ class TestController:
         assert assertions["seq_second_ack"]
 
     def test_remains_true_for_false(self, client: sy.Synnax):
-        """Test that the controller can wait for a condition to be true for a certain amount of time"""
+        """Should return False when the condition stops holding during the window."""
         press_end_cmd_time, press_en_cmd, press_en, daq_time = create_valve_set(client)
 
         assertions = dict()
+        acked = threading.Event()
+        stop = threading.Event()
 
         def sequence(ev: threading.Event):
             # Wait for the simulated DAQ to boot up
             ev.wait()
-            with client.control.acquire(
-                name="Basic Valve Toggle",
-                read=[press_en.key],
-                write=[press_en_cmd.key],
-            ) as auto:
-                auto[press_en_cmd.key] = True
-                assertions["seq_first_ack"] = auto.wait_until(
-                    lambda c: c[press_en.key],
-                    timeout=2 * sy.TimeSpan.SECOND,
-                )
-                auto[press_en_cmd.key] = False
-                assertions["seq_second_ack"] = auto.wait_until(
-                    lambda c: not c[press_en.key],
-                    timeout=2 * sy.TimeSpan.SECOND,
-                )
-                remained_true = auto.remains_true_for(
-                    lambda c: not c[press_en.key],
-                    duration=100 * sy.TimeSpan.MILLISECOND,
-                )
-                assertions["remained_true"] = remained_true
+            try:
+                with client.control.acquire(
+                    name="Basic Valve Toggle",
+                    read=[press_en.key],
+                    write=[press_en_cmd.key],
+                ) as auto:
+                    auto[press_en_cmd.key] = True
+                    assertions["seq_first_ack"] = auto.wait_until(
+                        lambda c: c[press_en.key],
+                        timeout=2 * sy.TimeSpan.SECOND,
+                    )
+                    auto[press_en_cmd.key] = False
+                    assertions["seq_second_ack"] = auto.wait_until(
+                        lambda c: not c[press_en.key],
+                        timeout=2 * sy.TimeSpan.SECOND,
+                    )
+                    acked.set()
+                    assertions["remained_true"] = auto.remains_true_for(
+                        lambda c: not c[press_en.key],
+                        duration=100 * sy.TimeSpan.MILLISECOND,
+                    )
+            finally:
+                stop.set()
 
         def daq(ev: threading.Event):
             with client.control.acquire(
@@ -134,13 +141,24 @@ class TestController:
                 write=[press_en.key],
             ) as auto:
                 ev.set()
-                auto.wait_until(lambda c: c[press_en_cmd.key])
+                auto.wait_until(
+                    lambda c: c[press_en_cmd.key], timeout=5 * sy.TimeSpan.SECOND
+                )
                 auto[press_en.key] = True
-                auto.wait_until(lambda c: not c[press_en_cmd.key])
-                auto[press_en.key] = False
-                auto[press_en.key] = False
-                auto.sleep(50 * sy.TimeSpan.MILLISECOND)
-                auto[press_en.key] = True
+                auto.wait_until(
+                    lambda c: not c[press_en_cmd.key], timeout=5 * sy.TimeSpan.SECOND
+                )
+                # Keep publishing closed-valve samples until the sequence has observed
+                # the acknowledgement, so the second wait_until always fires, then keep
+                # publishing open-valve samples until the sequence finishes, so the
+                # observation window is guaranteed to see the condition fail no matter
+                # when it starts.
+                while not acked.is_set() and not stop.is_set():
+                    auto[press_en.key] = False
+                    auto.sleep(5 * sy.TimeSpan.MILLISECOND)
+                while not stop.is_set():
+                    auto[press_en.key] = True
+                    auto.sleep(5 * sy.TimeSpan.MILLISECOND)
 
         ev = threading.Event()
         t1 = threading.Thread(target=sequence, kwargs={"ev": ev})
@@ -157,34 +175,37 @@ class TestController:
         assert not assertions["remained_true"]
 
     def test_remains_true_for_true(self, client: sy.Synnax):
-        """Test that the controller can wait for a condition to be true for a certain amount of time"""
+        """Should return True when the condition holds for the entire window."""
         press_end_cmd_time, press_en_cmd, press_en, daq_time = create_valve_set(client)
 
         assertions = dict()
+        stop = threading.Event()
 
         def sequence(ev: threading.Event):
             # Wait for the simulated DAQ to boot up
             ev.wait()
-            with client.control.acquire(
-                name="Basic Valve Toggle",
-                read=[press_en.key],
-                write=[press_en_cmd.key],
-            ) as auto:
-                auto[press_en_cmd.key] = True
-                assertions["seq_first_ack"] = auto.wait_until(
-                    lambda c: c[press_en.key],
-                    timeout=2 * sy.TimeSpan.SECOND,
-                )
-                auto[press_en_cmd.key] = False
-                assertions["seq_second_ack"] = auto.wait_until(
-                    lambda c: not c[press_en.key],
-                    timeout=2 * sy.TimeSpan.SECOND,
-                )
-                remained_true = auto.remains_true_for(
-                    lambda c: not c[press_en.key],
-                    duration=100 * sy.TimeSpan.MILLISECOND,
-                )
-                assertions["remained_true"] = remained_true
+            try:
+                with client.control.acquire(
+                    name="Basic Valve Toggle",
+                    read=[press_en.key],
+                    write=[press_en_cmd.key],
+                ) as auto:
+                    auto[press_en_cmd.key] = True
+                    assertions["seq_first_ack"] = auto.wait_until(
+                        lambda c: c[press_en.key],
+                        timeout=2 * sy.TimeSpan.SECOND,
+                    )
+                    auto[press_en_cmd.key] = False
+                    assertions["seq_second_ack"] = auto.wait_until(
+                        lambda c: not c[press_en.key],
+                        timeout=2 * sy.TimeSpan.SECOND,
+                    )
+                    assertions["remained_true"] = auto.remains_true_for(
+                        lambda c: not c[press_en.key],
+                        duration=100 * sy.TimeSpan.MILLISECOND,
+                    )
+            finally:
+                stop.set()
 
         def daq(ev: threading.Event):
             with client.control.acquire(
@@ -193,13 +214,19 @@ class TestController:
                 write=[press_en.key],
             ) as auto:
                 ev.set()
-                auto.wait_until(lambda c: c[press_en_cmd.key])
+                auto.wait_until(
+                    lambda c: c[press_en_cmd.key], timeout=5 * sy.TimeSpan.SECOND
+                )
                 auto[press_en.key] = True
-                auto.wait_until(lambda c: not c[press_en_cmd.key])
-                auto[press_en.key] = False
-                auto[press_en.key] = False
-                auto.sleep(50 * sy.TimeSpan.MILLISECOND)
-                auto[press_en.key] = False
+                auto.wait_until(
+                    lambda c: not c[press_en_cmd.key], timeout=5 * sy.TimeSpan.SECOND
+                )
+                # Keep publishing closed-valve samples until the sequence finishes, so
+                # the observation window always contains samples no matter when it
+                # starts.
+                while not stop.is_set():
+                    auto[press_en.key] = False
+                    auto.sleep(5 * sy.TimeSpan.MILLISECOND)
 
         ev = threading.Event()
         t1 = threading.Thread(target=sequence, kwargs={"ev": ev})
@@ -216,43 +243,49 @@ class TestController:
         assert assertions["remained_true"]
 
     def test_remains_true_for_target_percent(self, client: sy.Synnax):
-        """Test that the controller can wait for a condition to be true for a certain amount of time"""
+        """Should return True when the condition holds for more than the target
+        percentage of the window."""
         press_end_cmd_time, press_en_cmd, press_en, daq_time = create_valve_set(client)
 
         assertions = dict()
+        acked = threading.Event()
+        stop = threading.Event()
 
         def sequence(ev: threading.Event):
             # Wait for the simulated DAQ to boot up
             ev.wait()
-            with client.control.acquire(
-                name="Basic Valve Toggle",
-                read=[press_en.key],
-                write=[press_en_cmd.key],
-            ) as auto:
-                auto[press_en_cmd.key] = True
-                assertions["seq_first_ack"] = auto.wait_until(
-                    lambda c: c[press_en.key],
-                    timeout=2 * sy.TimeSpan.SECOND,
-                )
-                auto[press_en_cmd.key] = False
-                assertions["seq_second_ack"] = auto.wait_until(
-                    lambda c: not c[press_en.key],
-                    timeout=2 * sy.TimeSpan.SECOND,
-                )
-                c = 0
+            try:
+                with client.control.acquire(
+                    name="Basic Valve Toggle",
+                    read=[press_en.key],
+                    write=[press_en_cmd.key],
+                ) as auto:
+                    auto[press_en_cmd.key] = True
+                    assertions["seq_first_ack"] = auto.wait_until(
+                        lambda c: c[press_en.key],
+                        timeout=2 * sy.TimeSpan.SECOND,
+                    )
+                    auto[press_en_cmd.key] = False
+                    assertions["seq_second_ack"] = auto.wait_until(
+                        lambda c: not c[press_en.key],
+                        timeout=2 * sy.TimeSpan.SECOND,
+                    )
+                    acked.set()
+                    c = 0
 
-                def is_closed(auto):
-                    nonlocal c
-                    c += 1
-                    return not auto[press_en.key]
+                    def is_closed(auto):
+                        nonlocal c
+                        c += 1
+                        return not auto[press_en.key]
 
-                remained_true = auto.remains_true_for(
-                    is_closed,
-                    duration=100 * sy.TimeSpan.MILLISECOND,
-                    percentage=0.5,
-                )
-                assertions["remained_true"] = remained_true
-                assertions["remained_true_count"] = c
+                    assertions["remained_true"] = auto.remains_true_for(
+                        is_closed,
+                        duration=100 * sy.TimeSpan.MILLISECOND,
+                        percentage=0.5,
+                    )
+                    assertions["remained_true_count"] = c
+            finally:
+                stop.set()
 
         def daq(ev: threading.Event):
             with client.control.acquire(
@@ -261,17 +294,28 @@ class TestController:
                 write=[press_en.key],
             ) as auto:
                 ev.set()
-                auto.wait_until(lambda c: c[press_en_cmd.key])
+                auto.wait_until(
+                    lambda c: c[press_en_cmd.key], timeout=5 * sy.TimeSpan.SECOND
+                )
                 auto[press_en.key] = True
-                auto.wait_until(lambda c: not c[press_en_cmd.key])
-                auto[press_en.key] = False
-                auto[press_en.key] = False
-                auto[press_en.key] = True
-                auto[press_en.key] = False
-                auto[press_en.key] = True
-                auto[press_en.key] = True
-                auto[press_en.key] = False
-                auto[press_en.key] = False
+                auto.wait_until(
+                    lambda c: not c[press_en_cmd.key], timeout=5 * sy.TimeSpan.SECOND
+                )
+                # Keep publishing closed-valve samples until the sequence has observed
+                # the acknowledgement, so the second wait_until always fires. Then keep
+                # the valve closed for three out of every four samples (75% closed,
+                # comfortably above the 50% target) until the sequence finishes.
+                # Starting the pattern with its closed run right as the observation
+                # window opens means even a heavily-truncated window sees a
+                # closed-dominated prefix of the pattern.
+                while not acked.is_set() and not stop.is_set():
+                    auto[press_en.key] = False
+                    auto.sleep(5 * sy.TimeSpan.MILLISECOND)
+                i = 0
+                while not stop.is_set():
+                    auto[press_en.key] = i % 4 == 3
+                    i += 1
+                    auto.sleep(5 * sy.TimeSpan.MILLISECOND)
 
         ev = threading.Event()
         t1 = threading.Thread(target=sequence, kwargs={"ev": ev})
@@ -286,6 +330,7 @@ class TestController:
         assert assertions["seq_first_ack"]
         assert assertions["seq_second_ack"]
         assert assertions["remained_true"]
+        assert assertions["remained_true_count"] > 0
 
     def test_wait_while(self, client: sy.Synnax):
         """Test that the controller can wait for a condition to be true for a certain amount of time"""
@@ -461,3 +506,59 @@ class TestController:
 
         assert assertions["seq_one_first_ack"] is False
         assert assertions["seq_one_second_ack"] is True
+
+
+@pytest.mark.control
+class TestRemainsTrueForProcessor:
+    """Unit tests for the RemainsTrueFor percentage logic, independent of streaming
+    timing."""
+
+    # The callbacks under test never touch the controller, so a bare sentinel stands in
+    # for it.
+    _state = cast(Controller, object())
+
+    def _run(self, results: list[bool], percentage: float) -> RemainsTrueFor:
+        it = iter(results)
+        processor = RemainsTrueFor(lambda _: next(it), percentage)
+        for _ in results:
+            processor.process(self._state)
+        return processor
+
+    def test_all_true_meets_full_target(self) -> None:
+        """Should never set the exit event and track a 100% true rate."""
+        processor = self._run([True, True, True], percentage=1)
+        assert not processor.event.is_set()
+        assert processor.count == 3
+        assert processor.actual == 1
+
+    def test_partial_true_meets_lower_target(self) -> None:
+        """Should track the running percentage of true results."""
+        processor = self._run([True, False, True, True], percentage=0.5)
+        assert not processor.event.is_set()
+        assert processor.count == 4
+        assert processor.actual == pytest.approx(0.75)
+
+    def test_partial_true_below_target(self) -> None:
+        """Should report an actual percentage below the target."""
+        processor = self._run([False, False, True, False], percentage=0.5)
+        assert not processor.event.is_set()
+        assert processor.count == 4
+        assert processor.actual == pytest.approx(0.25)
+
+    def test_exits_immediately_on_false_when_target_is_full(self) -> None:
+        """Should set the exit event as soon as the condition fails when the target
+        percentage is 1."""
+        processor = self._run([True, False], percentage=1)
+        assert processor.event.is_set()
+        assert processor.count == 1
+
+    def test_captures_callback_exception(self) -> None:
+        """Should capture an exception raised by the callback and exit."""
+
+        def boom(_: Controller) -> bool:
+            raise ValueError("boom")
+
+        processor = RemainsTrueFor(boom, percentage=1)
+        processor.process(self._state)
+        assert isinstance(processor.exc, ValueError)
+        assert processor.event.is_set()
