@@ -9,7 +9,7 @@
 
 package versions
 
-import v0 "github.com/synnaxlabs/synnax/pkg/service/schematic/symbol/versions/v0"
+import v1 "github.com/synnaxlabs/synnax/pkg/service/schematic/symbol/versions/v1"
 
 // Migrations is the ordered migration chain for stored symbols.
-var Migrations = v0.Migrations
+var Migrations = v1.Migrations
