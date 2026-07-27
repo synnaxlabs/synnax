@@ -448,7 +448,7 @@ const ContextMenu = ({
       )}
       {isSingle && (
         <>
-          <Export.MenuItem id={task.ontologyID(keys[0])} />
+          <Export.MenuItem getID={() => task.ontologyID(keys[0])} />
           <Link.CopyContextMenuItem onClick={() => handleLink(keys[0])} />
           <Menu.Divider />
         </>

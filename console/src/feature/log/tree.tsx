@@ -67,7 +67,7 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
       {(hasUpdatePermission || hasDeletePermission) && <Menu.Divider />}
       {isSingle && (
         <>
-          <Export.MenuItem id={ids[0]} />
+          <Export.MenuItem getID={() => ids[0]} />
           <Link.CopyContextMenuItem
             onClick={() => handleLink({ name: firstResource.name, ontologyID: ids[0] })}
           />

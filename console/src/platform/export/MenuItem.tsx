@@ -17,16 +17,16 @@ import {
 import { use } from "@/platform/export/use";
 
 export interface MenuItemProps extends Omit<ContextMenuItemProps, "onClick" | "id"> {
-  /** The ontology ID of the resource to export. */
-  id: ontology.ID;
+  /** Resolves the ontology ID to export, evaluated when the item is clicked. */
+  getID: () => ontology.ID;
 }
 
 /**
- * A context-menu item wired to export the resource with the given ontology ID. Prefer
- * this over ContextMenuItem, the presentational primitive that custom flows (e.g.
- * multi-resource or directory exports) use with their own onClick.
+ * A context-menu item wired to export the resource identified by getID. Prefer this over
+ * ContextMenuItem, the presentational primitive that custom flows (e.g. multi-resource
+ * or directory exports) use with their own onClick.
  */
-export const MenuItem = ({ id, ...rest }: MenuItemProps): ReactElement => {
+export const MenuItem = ({ getID, ...rest }: MenuItemProps): ReactElement => {
   const handleExport = use();
-  return <ContextMenuItem onClick={() => handleExport(id)} {...rest} />;
+  return <ContextMenuItem onClick={() => handleExport(getID())} {...rest} />;
 };

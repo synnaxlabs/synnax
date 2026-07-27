@@ -142,7 +142,7 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
               handleLink({ name: resources[0].name, ontologyID: resources[0].id })
             }
           />
-          <Export.MenuItem id={ids[0]} />
+          <Export.MenuItem getID={() => ids[0]} />
           <Menu.Divider />
         </>
       )}

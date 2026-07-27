@@ -21,7 +21,7 @@ describe("Export.MenuItem", () => {
   it("renders an Export menu entry for the given id", async () => {
     await renderWithConsole(
       <Menu.Menu>
-        <Export.MenuItem id={ID} />
+        <Export.MenuItem getID={() => ID} />
       </Menu.Menu>,
     );
     expect(screen.getByText("Export")).toBeTruthy();
