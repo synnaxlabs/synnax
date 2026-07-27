@@ -195,7 +195,7 @@ func (e *Envelope) unmarshal(m map[string]any, raw []byte, codec encoding.Codec)
 // unmarshal back through one of the UnmarshalX methods first.
 //
 // ctx is forwarded to the codec; xjson.Codec ignores it, but other in-tree codecs
-// (msgpack, future YAML/TOML) may use it for tracing or cancellation.
+// (MessagePack, future YAML/TOML) may use it for tracing or cancellation.
 //
 // Decode is a free function because Go does not support generic methods; it becomes (e
 // Envelope) Decode[T](ctx) when the language does.

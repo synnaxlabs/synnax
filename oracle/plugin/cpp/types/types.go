@@ -90,7 +90,7 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 
 	enumOutputPaths := make(map[string][]resolution.Type)
 	for _, e := range req.Resolutions.EnumTypes() {
-		if omit.IsType(e, "cpp") {
+		if omit.IsSkipped(e, "cpp") {
 			continue
 		}
 		enumPath := enum.FindOutputPath(e, req.Resolutions, "cpp")
@@ -203,7 +203,7 @@ func (p *Plugin) generateFile(
 	declaredNames := make(set.Set[string])
 
 	for _, e := range enums {
-		if e.Namespace == namespace && !omit.IsType(e, "cpp") {
+		if e.Namespace == namespace && !omit.IsSkipped(e, "cpp") {
 			data.Enums = append(data.Enums, p.processEnum(e))
 		}
 	}
@@ -240,7 +240,7 @@ func (p *Plugin) generateFile(
 
 	var sortedTypes []resolution.Type
 	for _, typ := range allSortedTypes {
-		if !omit.IsType(typ, "cpp") {
+		if !omit.IsSkipped(typ, "cpp") {
 			sortedTypes = append(sortedTypes, typ)
 		}
 	}
@@ -430,7 +430,7 @@ func (p *Plugin) processTypeDef(td resolution.Type, data *templateData) typeDefD
 			}
 		}
 
-		if hasPBFlag(td) && !omit.IsType(td, "pb") && hasExplicitPBName(td) {
+		if hasPBFlag(td) && !omit.IsSkipped(td, "pb") && hasExplicitPBName(td) {
 			pbOutputPath := output.GetPBPath(td)
 			if pbOutputPath != "" {
 				pbName := getPBName(td)
@@ -517,7 +517,7 @@ func (p *Plugin) aliasTargetToCpp(typeRef resolution.TypeRef, data *templateData
 	}
 
 	name := resolved.Name
-	isOmitted := omit.IsType(resolved, "cpp")
+	isOmitted := omit.IsSkipped(resolved, "cpp")
 	targetOutputPath := output.GetPath(resolved, "cpp")
 
 	var cppInclude string
@@ -641,7 +641,7 @@ func (p *Plugin) processStruct(entry resolution.Type, data *templateData) struct
 		data.includes.addSystem("type_traits")
 	}
 
-	if hasPBFlag(entry) && !omit.IsType(entry, "pb") {
+	if hasPBFlag(entry) && !omit.IsSkipped(entry, "pb") {
 		pbOutputPath := output.GetPBPath(entry)
 		if pbOutputPath != "" {
 			pbName := getPBName(entry)
@@ -1024,7 +1024,7 @@ func (p *Plugin) primitiveToCpp(primitive string, data *templateData) string {
 func (p *Plugin) resolveStructType(resolved resolution.Type, typeArgs []resolution.TypeRef, data *templateData) string {
 	name := resolved.Name
 	var cppInclude string
-	isOmitted := omit.IsType(resolved, "cpp")
+	isOmitted := omit.IsSkipped(resolved, "cpp")
 
 	if cppDomain, ok := resolved.Domains["cpp"]; ok {
 		for _, expr := range cppDomain.Expressions {
@@ -1390,7 +1390,7 @@ func (p *Plugin) extractOntology(
 	table *resolution.Table,
 	data *templateData,
 ) *ontologyData {
-	skip := func(typ resolution.Type) bool { return omit.IsType(typ, "cpp") }
+	skip := func(typ resolution.Type) bool { return omit.IsSkipped(typ, "cpp") }
 	rawKeyFields := key.Collect(structs, table, skip)
 	ontData := ontology.Extract(structs, rawKeyFields, skip)
 	if ontData == nil || len(rawKeyFields) == 0 {

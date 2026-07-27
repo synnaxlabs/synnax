@@ -18,7 +18,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/panel"
-	"github.com/synnaxlabs/synnax/pkg/service/user"
 	"github.com/synnaxlabs/x/query"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -52,7 +51,7 @@ var _ = Describe("Service.Create", func() {
 	It("Should create the panels under the provided parent", func(ctx SpecContext) {
 		u := newUser(ctx)
 		p := panel.Panel{Key: uuid.New(), Name: "with-parent", Parent: &parentID}
-		grant(ctx, user.OntologyID(u.Key), access.ActionCreate,
+		grant(ctx, u.OntologyID(), access.ActionCreate,
 			ontology.ID{Type: ontology.ResourceTypePanel}, parentID)
 		res := MustSucceed(apiSvc.Create(authedCtx(ctx, u), nil, CreateRequest{
 			Panels: []panel.Panel{p},
@@ -69,19 +68,19 @@ var _ = Describe("Service.Create", func() {
 	It("Should parent a parent-less panel to the creating user as a draft", func(ctx SpecContext) {
 		u := newUser(ctx)
 		p := panel.Panel{Key: uuid.New(), Name: "draft"}
-		grant(ctx, user.OntologyID(u.Key), access.ActionCreate,
+		grant(ctx, u.OntologyID(), access.ActionCreate,
 			ontology.ID{Type: ontology.ResourceTypePanel})
 		Expect(apiSvc.Create(authedCtx(ctx, u), nil, CreateRequest{
 			Panels: []panel.Panel{p},
 		})).Error().To(Succeed())
-		Expect(hasParent(ctx, user.OntologyID(u.Key), p.Key)).To(BeTrue())
+		Expect(hasParent(ctx, u.OntologyID(), p.Key)).To(BeTrue())
 	})
 })
 
 var _ = Describe("Service.Retrieve", func() {
 	It("Should return the panels matching the requested keys", func(ctx SpecContext) {
 		p := createPanel(ctx, "retrievable")
-		grant(ctx, user.OntologyID(author.Key), access.ActionRetrieve, panel.OntologyID(p.Key))
+		grant(ctx, author.OntologyID(), access.ActionRetrieve, p.OntologyID())
 		res := MustSucceed(apiSvc.Retrieve(authedCtx(ctx, author), RetrieveRequest{
 			Keys: []panel.Key{p.Key},
 		}))
@@ -100,8 +99,8 @@ var _ = Describe("Service.Retrieve", func() {
 	It("Should honor the limit and offset bounds", func(ctx SpecContext) {
 		a := createPanel(ctx, "page-a")
 		b := createPanel(ctx, "page-b")
-		grant(ctx, user.OntologyID(author.Key), access.ActionRetrieve,
-			panel.OntologyID(a.Key), panel.OntologyID(b.Key))
+		grant(ctx, author.OntologyID(), access.ActionRetrieve,
+			a.OntologyID(), b.OntologyID())
 		res := MustSucceed(apiSvc.Retrieve(authedCtx(ctx, author), RetrieveRequest{
 			Keys:   []panel.Key{a.Key, b.Key},
 			Limit:  1,
@@ -123,7 +122,7 @@ var _ = Describe("Service.Dispatch", func() {
 
 	It("Should apply the action sequence to the target panel", func(ctx SpecContext) {
 		p := createPanel(ctx, "dispatch-ok")
-		grant(ctx, user.OntologyID(author.Key), access.ActionUpdate, panel.OntologyID(p.Key))
+		grant(ctx, author.OntologyID(), access.ActionUpdate, p.OntologyID())
 		Expect(apiSvc.Dispatch(authedCtx(ctx, author), nil, DispatchRequest{
 			Key:         p.Key,
 			DispatchKey: "sess-1",
@@ -148,7 +147,7 @@ var _ = Describe("Service.Delete", func() {
 
 	It("Should delete the panels with the given keys", func(ctx SpecContext) {
 		p := createPanel(ctx, "deletable")
-		grant(ctx, user.OntologyID(author.Key), access.ActionDelete, panel.OntologyID(p.Key))
+		grant(ctx, author.OntologyID(), access.ActionDelete, p.OntologyID())
 		Expect(apiSvc.Delete(authedCtx(ctx, author), nil, DeleteRequest{
 			Keys: []panel.Key{p.Key},
 		})).Error().To(Succeed())

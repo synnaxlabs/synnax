@@ -12,6 +12,7 @@
 package formatter
 
 import (
+	"sort"
 	"strings"
 
 	"github.com/antlr4-go/antlr/v4"
@@ -153,9 +154,24 @@ func (f *formatter) formatSchema(ctx parser.ISchemaContext) {
 		f.newline()
 	}
 
-	// Format imports
-	for _, imp := range ctx.AllImportStmt() {
-		f.formatImport(imp)
+	// Format imports in alphabetical order. Comments in the import region are
+	// emitted up front so reordering cannot drop or duplicate them.
+	imports := ctx.AllImportStmt()
+	if len(imports) > 0 {
+		f.emitCommentsBefore(imports[len(imports)-1].GetStart().GetTokenIndex())
+		sorted := make([]parser.IImportStmtContext, len(imports))
+		copy(sorted, imports)
+		sort.Slice(sorted, func(i, j int) bool {
+			return sorted[i].STRING_LIT().GetText() < sorted[j].STRING_LIT().GetText()
+		})
+		maxStop := f.lastTokenIdx
+		for _, imp := range sorted {
+			f.formatImport(imp)
+			if stop := imp.GetStop().GetTokenIndex(); stop > maxStop {
+				maxStop = stop
+			}
+		}
+		f.lastTokenIdx = maxStop
 	}
 
 	// Blank line after imports
@@ -1170,6 +1186,36 @@ func (f *formatter) formatEnumValue(ctx parser.IEnumValueContext, alignTo int) {
 		f.write(ctx.INT_LIT().GetText())
 	} else if ctx.STRING_LIT() != nil {
 		f.write(ctx.STRING_LIT().GetText())
+	}
+	if body := ctx.EnumValueBody(); body != nil {
+		f.writeLine(" {")
+		f.currentIndent++
+		maxPrefixLen := 0
+		for _, dom := range body.AllDomain() {
+			prefixLen := 1 + len(dom.IDENT().GetText())
+			if dom.DomainContent() != nil && dom.DomainContent().Expression() != nil {
+				expr := dom.DomainContent().Expression()
+				prefixLen += 1 + len(expr.IDENT().GetText())
+			}
+			if prefixLen > maxPrefixLen {
+				maxPrefixLen = prefixLen
+			}
+		}
+		for _, dom := range body.AllDomain() {
+			f.emitCommentsBefore(dom.GetStart().GetTokenIndex())
+			f.writeIndent()
+			f.write("@")
+			f.write(dom.IDENT().GetText())
+			if dom.DomainContent() != nil {
+				f.write(" ")
+				f.formatDomainContentAligned(dom.DomainContent(), true, maxPrefixLen, 1+len(dom.IDENT().GetText()))
+			}
+			f.newline()
+			f.lastTokenIdx = dom.GetStop().GetTokenIndex()
+		}
+		f.currentIndent--
+		f.writeIndent()
+		f.write("}")
 	}
 	f.newline()
 	f.lastTokenIdx = ctx.GetStop().GetTokenIndex()
