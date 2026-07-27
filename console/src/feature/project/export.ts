@@ -94,7 +94,7 @@ export const export_ = (
     const fileInfos: Export.File[] = [];
     await Promise.all(
       Array.from(resources.values()).map(async (id) => {
-        // The Core cannot export every resource type a tab can reference (e.g. channels
+        // The Core cannot export every resource type a tab can reference (e.g. ranges
         // have no exporter). Log and skip a resource that fails rather than failing the
         // whole project export.
         const file = await Export.fetchFile(client, id).catch((exc: unknown) => {
