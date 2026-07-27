@@ -12,10 +12,11 @@
 package symbol
 
 import (
+	"strconv"
+
 	"github.com/google/uuid"
 	"github.com/synnaxlabs/x/spatial"
 	"github.com/synnaxlabs/x/validate"
-	"strconv"
 )
 
 // Key is a unique identifier for a schematic symbol.
@@ -56,6 +57,8 @@ type Handle struct {
 	Orientation spatial.OuterLocation `json:"orientation" msgpack:"orientation"`
 }
 
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
 func (h Handle) Validate() error {
 	v := validate.New("Handle")
 	v.Ternaryf("orientation", !h.Orientation.IsValid(), "invalid orientation: %v", h.Orientation)
@@ -77,10 +80,12 @@ type Spec struct {
 	Scale float64 `json:"scale" msgpack:"scale"`
 	// ScaleStroke indicates whether stroke width scales with the symbol size.
 	ScaleStroke bool `json:"scale_stroke" msgpack:"scale_stroke"`
-	// PreviewViewport is an optional viewport configuration for symbol preview rendering.
+	// PreviewViewport is an optional viewport configuration for symbol preview
+	// rendering.
 	PreviewViewport *spatial.Viewport `json:"preview_viewport,omitempty" msgpack:"preview_viewport,omitempty"`
 }
 
+// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (s *Spec) ApplyDefaults() {
 	if s.Scale == 0 {
 		s.Scale = 1
@@ -90,6 +95,8 @@ func (s *Spec) ApplyDefaults() {
 	}
 }
 
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
 func (s Spec) Validate() error {
 	v := validate.New("Spec")
 	validate.NotEmptyString(v, "svg", s.Svg)
@@ -113,6 +120,7 @@ type Symbol struct {
 	Data Spec `json:"data" msgpack:"data"`
 }
 
+// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (s *Symbol) ApplyDefaults() {
 	if s.Version == 0 {
 		s.Version = 1
@@ -120,6 +128,8 @@ func (s *Symbol) ApplyDefaults() {
 	s.Data.ApplyDefaults()
 }
 
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
 func (s Symbol) Validate() error {
 	v := validate.New("Symbol")
 	validate.NotEmptyString(v, "name", s.Name)

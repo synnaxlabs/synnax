@@ -1003,6 +1003,13 @@ func (b *testValueBuilder) goTypeName(typ resolution.Type) (string, error) {
 		return "", err
 	}
 	alias := naming.DerivePackageAlias(goPath, b.packageName)
+	// A versioned sub-package (…/versions/v0) aliases to its bare resource name,
+	// which shadows that resource's root package or another already-imported
+	// package sharing the name. Disambiguate with the version-suffixed alias,
+	// matching the migration import convention (spatialv0).
+	if b.aliasCollides(importPath, alias) {
+		alias = naming.DeriveVersionedAlias(goPath, b.packageName)
+	}
 	actualPkg := filepath.Base(importPath)
 	if alias == actualPkg {
 		if _, ok := b.imports[importPath]; !ok {
@@ -1016,6 +1023,27 @@ func (b *testValueBuilder) goTypeName(typ resolution.Type) (string, error) {
 		qualifier = existing
 	}
 	return qualifier + "." + goName, nil
+}
+
+// aliasCollides reports whether alias would shadow the package under test or an
+// already-registered import other than importPath. An import stored with an
+// empty alias qualifies under its bare package name.
+func (b *testValueBuilder) aliasCollides(importPath, alias string) bool {
+	if alias == b.packageName {
+		return true
+	}
+	for path, existing := range b.imports {
+		if path == importPath {
+			continue
+		}
+		if existing == "" {
+			existing = filepath.Base(path)
+		}
+		if existing == alias {
+			return true
+		}
+	}
+	return false
 }
 
 func (b *testValueBuilder) goSliceElemType(typ resolution.Type) (string, error) {

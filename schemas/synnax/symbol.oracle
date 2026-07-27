@@ -124,4 +124,5 @@ Symbol struct {
     """
     @ontology type "schematic_symbol"
     @create
+    @go marshal
 }
