@@ -62,16 +62,14 @@ public:
         credentials = SslCredentials(opts);
     }
 
-    /// @brief instantiates the GRPC pool to use TLS encryption. When secure is true
-    /// with an empty ca_path, the system trust store verifies the server. The client
-    /// certificate and key are loaded from the provided paths when non-empty.
+    /// @brief instantiates the GRPC pool to use TLS encryption. An empty ca_path
+    /// verifies the server against the system trust store. The client certificate and
+    /// key are loaded from the provided paths when non-empty.
     Pool(
         const std::string &ca_path,
         const std::string &cert_path,
-        const std::string &key_path,
-        const bool secure
+        const std::string &key_path
     ) {
-        if (!secure) return;
         ::grpc::SslCredentialsOptions opts;
         if (!ca_path.empty()) {
             auto [pem_root_certs, err] = x::fs::read_file(ca_path);
