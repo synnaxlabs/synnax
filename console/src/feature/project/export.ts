@@ -8,11 +8,17 @@
 // included in the file licenses/APL.txt.
 
 import {
+  arc,
   DisconnectedError,
+  lineplot,
+  log,
   type ontology,
   type panel,
   project,
+  schematic,
   type Synnax as Client,
+  table,
+  task,
 } from "@synnaxlabs/client";
 import { Status, Synnax } from "@synnaxlabs/pluto";
 import { strings } from "@synnaxlabs/x";
@@ -48,6 +54,20 @@ const retrievePanels = async (
   if (keys.length === 0) return [];
   return await client.panels.retrieve(keys);
 };
+
+// HACK: a client-side mirror of the resource types the Core registers exporters for. A
+// panel tab can reference types the Core cannot export (e.g. ranges), and the Core has
+// no endpoint to ask which types are exportable, so we hardcode the list here. Keep in
+// sync with the RegisterExporter calls in core/pkg/service until such an endpoint
+// exists.
+const EXPORTABLE_TYPES = new Set<string>([
+  arc.TYPE_ONTOLOGY_ID.type,
+  lineplot.TYPE_ONTOLOGY_ID.type,
+  log.TYPE_ONTOLOGY_ID.type,
+  schematic.TYPE_ONTOLOGY_ID.type,
+  table.TYPE_ONTOLOGY_ID.type,
+  task.TYPE_ONTOLOGY_ID.type,
+]);
 
 export interface ExportContext {
   client: Client | null;
@@ -93,21 +113,16 @@ export const export_ = (
     const namesSet = new Set<string>();
     const fileInfos: Export.File[] = [];
     await Promise.all(
-      Array.from(resources.values()).map(async (id) => {
-        // The Core cannot export every resource type a tab can reference (e.g. ranges
-        // have no exporter). Log and skip a resource that fails rather than failing the
-        // whole project export.
-        const file = await Export.fetchFile(client, id).catch((exc: unknown) => {
-          console.error(`failed to export ${id.type} ${id.key}`, exc);
-          return null;
-        });
-        if (file == null) return;
-        const fileName = strings.sanitizeFileName(
-          strings.deduplicateFileName(file.name, namesSet),
-        );
-        namesSet.add(fileName);
-        fileInfos.push({ data: file.data, name: fileName });
-      }),
+      Array.from(resources.values())
+        .filter(({ type }) => EXPORTABLE_TYPES.has(type))
+        .map(async (id) => {
+          const file = await Export.fetchFile(client, id);
+          const fileName = strings.sanitizeFileName(
+            strings.deduplicateFileName(file.name, namesSet),
+          );
+          namesSet.add(fileName);
+          fileInfos.push({ data: file.data, name: fileName });
+        }),
     );
     await directory.writeText(PANELS_FILE_NAME, JSON.stringify(panels));
     await Promise.all(
