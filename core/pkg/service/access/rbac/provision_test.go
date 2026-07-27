@@ -70,10 +70,7 @@ var _ = Describe("Provision", func() {
 					})).To(Succeed())
 				}
 			},
-			Entry("channel", ontology.ResourceTypeChannel),
 			Entry("range", ontology.ResourceTypeRange),
-			Entry("framer", ontology.ResourceTypeFramer),
-			Entry("range alias", ontology.ResourceTypeRangeAlias),
 			Entry("rack", ontology.ResourceTypeRack),
 			Entry("device", ontology.ResourceTypeDevice),
 			Entry("task", ontology.ResourceTypeTask),
@@ -89,6 +86,7 @@ var _ = Describe("Provision", func() {
 					Objects: []ontology.ID{{Type: t, Key: "test-key"}},
 				})).To(MatchError(access.ErrDenied))
 			},
+			Entry("range alias", ontology.ResourceTypeRangeAlias),
 			Entry("label", ontology.ResourceTypeLabel),
 			Entry("log", ontology.ResourceTypeLog),
 			Entry("node", ontology.ResourceTypeNode),
@@ -105,6 +103,38 @@ var _ = Describe("Provision", func() {
 			Entry("builtin", ontology.ResourceTypeBuiltin),
 		)
 
+		DescribeTable("grants only retrieve on channels",
+			func(ctx SpecContext, action access.Action, matcher OmegaMatcher) {
+				Expect(rbacSvc.NewEnforcer(tx).Enforce(ctx, access.Request{
+					Subject: subject,
+					Action:  action,
+					Objects: []ontology.ID{
+						{Type: ontology.ResourceTypeChannel, Key: "test-key"},
+					},
+				})).To(matcher)
+			},
+			Entry("retrieve", access.ActionRetrieve, Succeed()),
+			Entry("create", access.ActionCreate, MatchError(access.ErrDenied)),
+			Entry("update", access.ActionUpdate, MatchError(access.ErrDenied)),
+			Entry("delete", access.ActionDelete, MatchError(access.ErrDenied)),
+		)
+
+		DescribeTable("grants writes and reads on framers, but not deletes",
+			func(ctx SpecContext, action access.Action, matcher OmegaMatcher) {
+				Expect(rbacSvc.NewEnforcer(tx).Enforce(ctx, access.Request{
+					Subject: subject,
+					Action:  action,
+					Objects: []ontology.ID{
+						{Type: ontology.ResourceTypeFramer, Key: "test-key"},
+					},
+				})).To(matcher)
+			},
+			Entry("create", access.ActionCreate, Succeed()),
+			Entry("retrieve", access.ActionRetrieve, Succeed()),
+			Entry("update", access.ActionUpdate, MatchError(access.ErrDenied)),
+			Entry("delete", access.ActionDelete, MatchError(access.ErrDenied)),
+		)
+
 		It("Should attach exactly the driver resource types to the edit policy", func(ctx SpecContext) {
 			var p policy.Policy
 			Expect(rbacSvc.Policy.NewRetrieve().
@@ -113,10 +143,7 @@ var _ = Describe("Provision", func() {
 				Exec(ctx, tx)).To(Succeed())
 			Expect(p.Actions).To(ConsistOf(access.AllActions))
 			Expect(p.Objects).To(ConsistOf(
-				ontology.ID{Type: ontology.ResourceTypeChannel},
 				ontology.ID{Type: ontology.ResourceTypeRange},
-				ontology.ID{Type: ontology.ResourceTypeFramer},
-				ontology.ID{Type: ontology.ResourceTypeRangeAlias},
 				ontology.ID{Type: ontology.ResourceTypeRack},
 				ontology.ID{Type: ontology.ResourceTypeDevice},
 				ontology.ID{Type: ontology.ResourceTypeTask},

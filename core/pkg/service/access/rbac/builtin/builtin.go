@@ -116,10 +116,7 @@ var (
 		{
 			Name: "Host Edit Access",
 			Objects: []ontology.ID{
-				{Type: ontology.ResourceTypeChannel},
 				{Type: ontology.ResourceTypeRange},
-				{Type: ontology.ResourceTypeFramer},
-				{Type: ontology.ResourceTypeRangeAlias},
 				{Type: ontology.ResourceTypeRack},
 				{Type: ontology.ResourceTypeDevice},
 				{Type: ontology.ResourceTypeTask},
@@ -127,6 +124,21 @@ var (
 				{Type: ontology.ResourceTypeStatus},
 			},
 			Actions:  access.AllActions,
+			Internal: true,
+		},
+		{
+			Name:     "Host Channel View Access",
+			Objects:  []ontology.ID{{Type: ontology.ResourceTypeChannel}},
+			Actions:  []access.Action{access.ActionRetrieve},
+			Internal: true,
+		},
+		{
+			Name:    "Host Framer Access",
+			Objects: []ontology.ID{{Type: ontology.ResourceTypeFramer}},
+			Actions: []access.Action{
+				access.ActionCreate,
+				access.ActionRetrieve,
+			},
 			Internal: true,
 		},
 	}
