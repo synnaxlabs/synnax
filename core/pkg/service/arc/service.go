@@ -69,7 +69,7 @@ type ServiceConfig struct {
 	// ImEx is the import/export registry the arc service registers itself with as the
 	// exporter for arc resources during OpenService.
 	//
-	// [OPTIONAL]
+	// [REQUIRED]
 	ImEx *imex.Service
 	// TextSweepQuiescence is how long an arc's text must go unedited before its
 	// tombstoned characters become eligible to be reclaimed.
@@ -124,6 +124,7 @@ func (c ServiceConfig) Validate() error {
 	validate.NotNil(v, "channel", c.Channel)
 	validate.NotNil(v, "task", c.Task)
 	validate.NotNil(v, "search", c.Search)
+	validate.NotNil(v, "imex", c.ImEx)
 	return v.Error()
 }
 
@@ -229,9 +230,7 @@ func OpenService(ctx context.Context, configs ...ServiceConfig) (s *Service, err
 	}
 	cfg.Ontology.RegisterService(s)
 	cfg.Search.RegisterService(s)
-	if cfg.ImEx != nil {
-		cfg.ImEx.RegisterExporter(s)
-	}
+	cfg.ImEx.RegisterExporter(s)
 	if cfg.Signals != nil {
 		var sig io.Closer
 		if sig, err = actions.PublishSignals(ctx, actions.SignalsConfig[Key, Action]{

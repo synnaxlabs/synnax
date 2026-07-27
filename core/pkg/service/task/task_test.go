@@ -18,6 +18,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
+	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/node"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
@@ -83,6 +84,7 @@ var _ = Describe("Task", Ordered, func() {
 			Rack:     rackService,
 			Status:   stat,
 			Search:   searchIdx,
+			ImEx:     imex.NewService(),
 		}))
 		testRack = &rack.Rack{Name: "Test Rack"}
 		Expect(rackService.NewWriter(db).Create(ctx, testRack)).To(Succeed())
@@ -190,8 +192,13 @@ var _ = Describe("Task", Ordered, func() {
 
 	Describe("Export", func() {
 		It("Should export a task's config flat with version, type, and name", func(ctx SpecContext) {
+			// Create the task on a dedicated rack so this committed write does not shift
+			// the shared testRack key counter that the Ordered key-assignment specs assert
+			// against.
+			exportRack := &rack.Rack{Name: "Export Rack"}
+			Expect(rackService.NewWriter(nil).Create(ctx, exportRack)).To(Succeed())
 			t := &task.Task{
-				Key:  task.NewKey(testRack.Key, 0),
+				Key:  task.NewKey(exportRack.Key, 0),
 				Name: "Exported Task",
 				Type: "opc_read",
 				Config: msgpack.EncodedJSON{
@@ -201,7 +208,7 @@ var _ = Describe("Task", Ordered, func() {
 			}
 			Expect(svc.NewWriter(nil).Create(ctx, t)).To(Succeed())
 
-			env := MustSucceed(svc.Export(ctx, task.OntologyID(t.Key)))
+			env := MustSucceed(svc.Export(ctx, t.Key.OntologyID()))
 			Expect(env.Version).To(Equal(task.Version))
 			Expect(env.Type).To(Equal("opc_read"))
 			Expect(env.Name).To(Equal("Exported Task"))
@@ -218,7 +225,7 @@ var _ = Describe("Task", Ordered, func() {
 		})
 
 		It("Should return not found for a missing key", func(ctx SpecContext) {
-			id := task.OntologyID(task.NewKey(testRack.Key, 9999))
+			id := task.NewKey(testRack.Key, 9999).OntologyID()
 			Expect(svc.Export(ctx, id)).Error().To(MatchError(query.ErrNotFound))
 		})
 	})

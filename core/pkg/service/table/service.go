@@ -32,23 +32,32 @@ import (
 // ServiceConfig is the configuration for opening a table service.
 type ServiceConfig struct {
 	// Instrumentation for logging, tracing, and metrics.
+	//
+	// [OPTIONAL] - Defaults to noop instrumentation.
 	alamos.Instrumentation
 	// DB is the database that the table service will store tables in.
+	//
 	// [REQUIRED]
 	DB *gorp.DB
 	// Ontology is used to define relationships between tables and other entities in the
 	// Synnax resource graph.
+	//
+	// [REQUIRED]
 	Ontology *ontology.Ontology
 	// Search is the search index for fuzzy searching tables.
+	//
 	// [REQUIRED]
 	Search *search.Index
 	// Signals is used to propagate changes to tables throughout the cluster. When
 	// nil, the service does not broadcast action sequences and gorp delete events
 	// are not published. Dispatch still applies actions to local state.
+	//
+	// [OPTIONAL] - Defaults to nil, which disables signal broadcasting.
 	Signals *signals.Provider
 	// ImEx is the import/export registry the table service registers itself with as the
 	// exporter for table resources during OpenService.
-	// [OPTIONAL]
+	//
+	// [REQUIRED]
 	ImEx *imex.Service
 }
 
@@ -71,12 +80,13 @@ func (c ServiceConfig) Validate() error {
 	validate.NotNil(v, "db", c.DB)
 	validate.NotNil(v, "ontology", c.Ontology)
 	validate.NotNil(v, "search", c.Search)
+	validate.NotNil(v, "imex", c.ImEx)
 	return v.Error()
 }
 
 // Service is the primary service for retrieving and modifying tables from Synnax.
 type Service struct {
-	ServiceConfig
+	cfg    ServiceConfig
 	closer io.MultiCloser
 	table  *gorp.Table[Key, Table]
 	state  *actions.State[Key, Action]
@@ -90,7 +100,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	if err != nil {
 		return nil, err
 	}
-	s = &Service{ServiceConfig: cfg, state: actions.NewState[Key, Action]()}
+	s = &Service{cfg: cfg, state: actions.NewState[Key, Action]()}
 	cleanup, ok := service.NewOpener(ctx, &s.closer)
 	defer func() { err = cleanup(err) }()
 	if s.table, err = gorp.OpenTable(ctx, gorp.TableConfig[Key, Table]{
@@ -102,9 +112,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	}
 	cfg.Ontology.RegisterService(s)
 	cfg.Search.RegisterService(s)
-	if cfg.ImEx != nil {
-		cfg.ImEx.RegisterExporter(s)
-	}
+	cfg.ImEx.RegisterExporter(s)
 	if cfg.Signals != nil {
 		var sig stdio.Closer
 		if sig, err = actions.PublishSignals(ctx, actions.SignalsConfig[Key, Action]{
@@ -141,11 +149,11 @@ func (s *Service) OnAction(
 // If tx is provided, the writer will use that transaction. If tx is nil, the Writer
 // will execute the operations directly on the underlying gorp.DB.
 func (s *Service) NewWriter(tx gorp.Tx) Writer {
-	tx = gorp.OverrideTx(s.DB, tx)
+	tx = gorp.OverrideTx(s.cfg.DB, tx)
 	return Writer{
 		tx:         tx,
-		otgWriter:  s.Ontology.NewWriter(tx),
-		otg:        s.Ontology,
+		otgWriter:  s.cfg.Ontology.NewWriter(tx),
+		otg:        s.cfg.Ontology,
 		tbl:        s.table,
 		dispatcher: s.state.Dispatcher(),
 	}
@@ -155,6 +163,6 @@ func (s *Service) NewWriter(tx gorp.Tx) Writer {
 func (s *Service) NewRetrieve() Retrieve {
 	return Retrieve{
 		gorp:   s.table.NewRetrieve(),
-		baseTX: s.DB,
+		baseTX: s.cfg.DB,
 	}
 }

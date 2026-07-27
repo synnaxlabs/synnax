@@ -66,7 +66,7 @@ type ServiceConfig struct {
 	// ImEx is the import/export registry the task service registers itself with as the
 	// exporter for task resources during OpenService.
 	//
-	// [OPTIONAL]
+	// [REQUIRED]
 	ImEx *imex.Service
 	// Instrumentation is used for logging, tracing, and metrics.
 	//
@@ -99,6 +99,7 @@ func (c ServiceConfig) Validate() error {
 	validate.NotNil(v, "rack", c.Rack)
 	validate.NotNil(v, "status", c.Status)
 	validate.NotNil(v, "search", c.Search)
+	validate.NotNil(v, "imex", c.ImEx)
 	return v.Error()
 }
 
@@ -137,9 +138,7 @@ func OpenService(ctx context.Context, configs ...ServiceConfig) (s *Service, err
 	}
 	cfg.Ontology.RegisterService(s)
 	cfg.Search.RegisterService(s)
-	if cfg.ImEx != nil {
-		cfg.ImEx.RegisterExporter(s)
-	}
+	cfg.ImEx.RegisterExporter(s)
 	s.cleanupInternalOntologyResources(ctx)
 	if cfg.Channel != nil {
 		cmdCh := channel.Channel{

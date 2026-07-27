@@ -32,24 +32,32 @@ import (
 // ServiceConfig is the configuration for opening a line plot service.
 type ServiceConfig struct {
 	// Instrumentation for logging, tracing, and metrics.
+	//
+	// [OPTIONAL] - Defaults to noop instrumentation.
 	alamos.Instrumentation
 	// DB is the database that the line plot service will store line plots in.
+	//
 	// [REQUIRED]
 	DB *gorp.DB
 	// Ontology is used to define relationships between line plots and other entities in
 	// the Synnax resource graph.
+	//
 	// [REQUIRED]
 	Ontology *ontology.Ontology
 	// Search is the search index for fuzzy searching line plots.
+	//
 	// [REQUIRED]
 	Search *search.Index
-	// Signals is the optional cluster signals provider. When set, every
-	// successful Writer.Dispatch broadcasts a ScopedAction onto the
-	// sy_lineplot_set channel, and deletes flow through sy_lineplot_delete.
+	// Signals is the cluster signals provider. When set, every successful
+	// Writer.Dispatch broadcasts a ScopedAction onto the sy_lineplot_set channel, and
+	// deletes flow through sy_lineplot_delete.
+	//
+	// [OPTIONAL] - Defaults to nil, which disables signal broadcasting.
 	Signals *signals.Provider
 	// ImEx is the import/export registry the line plot service registers itself with as
 	// the exporter for line plot resources during OpenService.
-	// [OPTIONAL]
+	//
+	// [REQUIRED]
 	ImEx *imex.Service
 }
 
@@ -72,12 +80,13 @@ func (c ServiceConfig) Validate() error {
 	validate.NotNil(v, "db", c.DB)
 	validate.NotNil(v, "ontology", c.Ontology)
 	validate.NotNil(v, "search", c.Search)
+	validate.NotNil(v, "imex", c.ImEx)
 	return v.Error()
 }
 
 // Service is the primary service for retrieving and modifying line plots from Synnax.
 type Service struct {
-	ServiceConfig
+	cfg    ServiceConfig
 	closer io.MultiCloser
 	table  *gorp.Table[Key, LinePlot]
 	state  *actions.State[Key, Action]
@@ -91,7 +100,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	if err != nil {
 		return nil, err
 	}
-	s = &Service{ServiceConfig: cfg, state: actions.NewState[Key, Action]()}
+	s = &Service{cfg: cfg, state: actions.NewState[Key, Action]()}
 	cleanup, ok := service.NewOpener(ctx, &s.closer)
 	defer func() { err = cleanup(err) }()
 	if s.table, err = gorp.OpenTable(ctx, gorp.TableConfig[Key, LinePlot]{
@@ -103,9 +112,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	}
 	cfg.Ontology.RegisterService(s)
 	cfg.Search.RegisterService(s)
-	if cfg.ImEx != nil {
-		cfg.ImEx.RegisterExporter(s)
-	}
+	cfg.ImEx.RegisterExporter(s)
 	if cfg.Signals != nil {
 		var sig stdio.Closer
 		if sig, err = actions.PublishSignals(ctx, actions.SignalsConfig[Key, Action]{
@@ -137,14 +144,14 @@ func (s *Service) OnAction(
 	return s.state.OnAction(handler)
 }
 
-// NewWriter opens a new writer for creating, updating, and deleting line plots in Synnax. If
-// tx is nil, the writer will perform operations directly against the underlying gorp.DB provided
-// to the line plot service. If tx is provided, the writer will use that transaction.
+// NewWriter opens a new writer for creating, updating, and deleting line plots in
+// Synnax. If tx is provided, the writer uses that transaction; if tx is nil, it
+// executes operations directly against the underlying gorp.DB.
 func (s *Service) NewWriter(tx gorp.Tx) Writer {
-	tx = gorp.OverrideTx(s.DB, tx)
+	tx = gorp.OverrideTx(s.cfg.DB, tx)
 	return Writer{
 		tx:         tx,
-		otg:        s.Ontology.NewWriter(tx),
+		otg:        s.cfg.Ontology.NewWriter(tx),
 		table:      s.table,
 		dispatcher: s.state.Dispatcher(),
 	}
@@ -154,6 +161,6 @@ func (s *Service) NewWriter(tx gorp.Tx) Writer {
 func (s *Service) NewRetrieve() Retrieve {
 	return Retrieve{
 		gorp:   s.table.NewRetrieve(),
-		baseTX: s.DB,
+		baseTX: s.cfg.DB,
 	}
 }

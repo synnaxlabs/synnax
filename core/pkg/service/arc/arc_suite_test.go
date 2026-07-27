@@ -18,6 +18,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
+	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
@@ -98,6 +99,7 @@ var (
 			Rack:     rackSvc,
 			Status:   statusSvc,
 			Search:   searchIdx,
+			ImEx:     imex.NewService(),
 		}))
 		testRack = &rack.Rack{Name: "Test Rack"}
 		Expect(rackSvc.NewWriter(db).Create(ctx, testRack)).To(Succeed())
@@ -107,6 +109,7 @@ var (
 			Channel:             channelSvc,
 			Task:                taskSvc,
 			Search:              searchIdx,
+			ImEx:                imex.NewService(),
 			TextSweepQuiescence: 5 * telem.Second,
 			TextSweepThreshold:  1,
 			Now:                 func() telem.TimeStamp { return arcClock() },

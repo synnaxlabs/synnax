@@ -25,6 +25,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
+	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
@@ -93,6 +94,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Rack:     rackSvc,
 		Status:   statusSvc,
 		Search:   searchIdx,
+		ImEx:     imex.NewService(),
 	}))
 	channelSvc := MustOpen(channel.OpenService(ctx, channel.ServiceConfig{
 		Channel:      node.Channel,
@@ -109,6 +111,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Channel:  channelSvc,
 		Task:     taskSvc,
 		Search:   searchIdx,
+		ImEx:     imex.NewService(),
 	}))
 	authSvc := MustOpen(auth.OpenService(ctx, auth.ServiceConfig{DB: db}))
 	userSvc := MustOpen(user.OpenService(ctx, user.ServiceConfig{
