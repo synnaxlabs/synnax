@@ -40,7 +40,7 @@ func OntologyIDs(keys []Key) []ontology.ID {
 // OntologyIDsFromSchematics returns the ontology IDs of the schematics.
 func OntologyIDsFromSchematics(schematics []Schematic) []ontology.ID {
 	return lo.Map(schematics, func(s Schematic, _ int) ontology.ID {
-		return OntologyID(s.Key)
+		return s.OntologyID()
 	})
 }
 
@@ -51,7 +51,7 @@ var schema = zyn.Object(map[string]zyn.Schema{
 })
 
 func newResource(s Schematic) ontology.Resource {
-	return ontology.NewResource(schema, OntologyID(s.Key), s.Name, s)
+	return ontology.NewResource(schema, s.OntologyID(), s.Name, s)
 }
 
 type change = xchange.Change[Key, Schematic]

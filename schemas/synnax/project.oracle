@@ -10,10 +10,10 @@
 @ts output "client/ts/src/project"
 @py output "client/py/synnax/project"
 @go output "core/pkg/service/project"
-@pb
 
 Key = uuid {
-    @doc value "is a unique identifier for a project, represented as a UUID."
+    @go version 1
+    @doc value  "is a unique identifier for a project, represented as a UUID."
 }
 
 Project struct {
@@ -34,6 +34,7 @@ Project struct {
         @ts preserve_case
     }
 
+    @go version    1
     @doc value     """
         is a named, persistable container that stores the layout and organization
         of the Console application. Projects allow users to save and restore

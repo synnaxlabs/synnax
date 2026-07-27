@@ -16,12 +16,12 @@ import (
 	"github.com/google/uuid"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/alamos"
+	"github.com/synnaxlabs/synnax/pkg/service/group/versions"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/search"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
-	"github.com/synnaxlabs/x/migrate"
 	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/query"
@@ -35,10 +35,7 @@ type ServiceConfig struct {
 	Search   *search.Index
 }
 
-var (
-	_                    config.Config[ServiceConfig] = ServiceConfig{}
-	DefaultServiceConfig                              = ServiceConfig{}
-)
+var _ config.Config[ServiceConfig] = ServiceConfig{}
 
 // Override implements ServiceConfig.
 func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
@@ -65,13 +62,13 @@ type Service struct {
 }
 
 func OpenService(ctx context.Context, configs ...ServiceConfig) (*Service, error) {
-	cfg, err := config.New(DefaultServiceConfig, configs...)
+	cfg, err := config.New(ServiceConfig{}, configs...)
 	if err != nil {
 		return nil, err
 	}
-	table, err := gorp.OpenTable[Key, Group](ctx, gorp.TableConfig[Key, Group]{
+	table, err := gorp.OpenTable(ctx, gorp.TableConfig[Key, Group]{
 		DB:              cfg.DB,
-		Migrations:      []migrate.Migration{gorp.CodecMigration[Key, Group]("msgpack_to_orc")},
+		Migrations:      versions.Migrations,
 		Instrumentation: cfg.Instrumentation,
 	})
 	if err != nil {
@@ -135,7 +132,7 @@ func (w Writer) Create(
 	parent ontology.ID,
 ) (Group, error) {
 	g := Group{Key: uuid.New(), Name: name}
-	id := OntologyID(g.Key)
+	id := g.OntologyID()
 	if err := w.table.NewCreate().Entry(&g).Exec(ctx, w.tx); err != nil {
 		return Group{}, err
 	}
@@ -163,7 +160,7 @@ func (w Writer) CreateWithKey(
 	if g.Key == uuid.Nil {
 		g.Key = uuid.New()
 	}
-	id := OntologyID(g.Key)
+	id := g.OntologyID()
 	if err := w.table.NewCreate().Entry(&g).Exec(ctx, w.tx); err != nil {
 		return Group{}, err
 	}

@@ -127,8 +127,8 @@ var _ = Describe("Label", Ordered, func() {
 				Color: color.MustFromHex("#000000"),
 			}
 			Expect(w.Create(ctx, labeled)).To(Succeed())
-			Expect(w.Label(ctx, label.OntologyID(labeled.Key), []label.Key{l.Key})).To(Succeed())
-			labels := MustSucceed(svc.RetrieveFor(ctx, label.OntologyID(labeled.Key), tx))
+			Expect(w.Label(ctx, labeled.OntologyID(), []label.Key{l.Key})).To(Succeed())
+			labels := MustSucceed(svc.RetrieveFor(ctx, labeled.OntologyID(), tx))
 			Expect(labels).To(HaveLen(1))
 			Expect(labels[0].Key).To(Equal(l.Key))
 		})
@@ -210,12 +210,12 @@ var _ = Describe("Label", Ordered, func() {
 				Color: color.MustFromHex("#000000"),
 			}
 			Expect(w.Create(ctx, labeled)).To(Succeed())
-			Expect(w.Label(ctx, label.OntologyID(labeled.Key), []label.Key{l.Key})).To(Succeed())
-			labels := MustSucceed(svc.RetrieveFor(ctx, label.OntologyID(labeled.Key), tx))
+			Expect(w.Label(ctx, labeled.OntologyID(), []label.Key{l.Key})).To(Succeed())
+			labels := MustSucceed(svc.RetrieveFor(ctx, labeled.OntologyID(), tx))
 			Expect(labels).To(HaveLen(1))
 			Expect(labels[0].Key).To(Equal(l.Key))
-			Expect(w.RemoveLabel(ctx, label.OntologyID(labeled.Key), []label.Key{l.Key})).To(Succeed())
-			labels = MustSucceed(svc.RetrieveFor(ctx, label.OntologyID(labeled.Key), tx))
+			Expect(w.RemoveLabel(ctx, labeled.OntologyID(), []label.Key{l.Key})).To(Succeed())
+			labels = MustSucceed(svc.RetrieveFor(ctx, labeled.OntologyID(), tx))
 			Expect(labels).To(BeEmpty())
 		})
 	})
@@ -231,12 +231,12 @@ var _ = Describe("Label", Ordered, func() {
 				Color: color.MustFromHex("#000000"),
 			}
 			Expect(w.Create(ctx, labeled)).To(Succeed())
-			Expect(w.Label(ctx, label.OntologyID(labeled.Key), []label.Key{l.Key})).To(Succeed())
-			labels := MustSucceed(svc.RetrieveFor(ctx, label.OntologyID(labeled.Key), tx))
+			Expect(w.Label(ctx, labeled.OntologyID(), []label.Key{l.Key})).To(Succeed())
+			labels := MustSucceed(svc.RetrieveFor(ctx, labeled.OntologyID(), tx))
 			Expect(labels).To(HaveLen(1))
 			Expect(labels[0].Key).To(Equal(l.Key))
-			Expect(w.Clear(ctx, label.OntologyID(labeled.Key))).To(Succeed())
-			labels = MustSucceed(svc.RetrieveFor(ctx, label.OntologyID(labeled.Key), tx))
+			Expect(w.Clear(ctx, labeled.OntologyID())).To(Succeed())
+			labels = MustSucceed(svc.RetrieveFor(ctx, labeled.OntologyID(), tx))
 			Expect(labels).To(BeEmpty())
 		})
 	})

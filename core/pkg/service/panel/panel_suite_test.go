@@ -105,7 +105,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Search:   searchIdx,
 	}))
 	parent := MustSucceed(userSvc.NewWriter(nil).Create(ctx, user.User{Username: "panel-parent"}))
-	parentID = user.OntologyID(parent.Key)
+	parentID = parent.OntologyID()
 })
 
 var _ = BeforeEach(func() { tx = DeferClose(db.OpenTx()) })

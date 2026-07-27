@@ -11,49 +11,22 @@
 
 package rack
 
-import (
-	"github.com/synnaxlabs/synnax/pkg/service/status"
-	"github.com/synnaxlabs/x/validate"
-)
+import "github.com/synnaxlabs/synnax/pkg/service/rack/versions"
 
 // Key is a composite identifier for a rack. The high 16 bits contain the node key, and
 // the low 16 bits contain the local sequential key. Racks are leased to specific nodes
 // because task configuration signals are passed through gossip operations, which can
 // take 15s+ to propagate through a large cluster. This structure minimizes hops and
 // configuration latency.
-type Key uint32
-
-// Status is rack-specific status information including operational state.
-type Status = status.Status[StatusDetails]
+type Key = versions.Key
 
 // StatusDetails contains rack-specific status details.
-type StatusDetails struct {
-	// Rack is the key of the rack this status pertains to.
-	Rack Key `json:"rack" msgpack:"rack"`
-}
+type StatusDetails = versions.StatusDetails
+
+// Status is rack-specific status information including operational state.
+type Status = versions.Status
 
 // Rack is a collection container for hardware devices and tasks running on a specific
 // cluster node. Racks serve as the integration point between the Synnax server and
 // physical hardware via the Driver system.
-type Rack struct {
-	// Key is the composite identifier for this rack.
-	Key Key `json:"key" msgpack:"key"`
-	// Name is a human-readable name for the rack.
-	Name string `json:"name" msgpack:"name"`
-	// TaskCounter is an internal counter used for generating unique local task keys.
-	TaskCounter uint32 `json:"task_counter" msgpack:"task_counter"`
-	// Embedded is true if this rack is embedded within the Synnax server process.
-	Embedded bool `json:"embedded" msgpack:"embedded"`
-	// Status is the current operational status of the rack.
-	Status *Status `json:"status,omitempty" msgpack:"status,omitempty"`
-	// Integrations is the list of hardware integrations this rack supports (e.g., "ni",
-	// "opc", "labjack"). An empty or nil list means the rack supports no integrations.
-	Integrations []string `json:"integrations,omitzero" msgpack:"integrations,omitzero"`
-}
-
-func (r Rack) Validate() error {
-	v := validate.New("Rack")
-	validate.NonZero(v, "key", r.Key)
-	validate.NotEmptyString(v, "name", r.Name)
-	return v.Error()
-}
+type Rack = versions.Rack
