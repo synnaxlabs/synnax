@@ -13,7 +13,6 @@ package pb
 
 import (
 	"encoding/json"
-	"github.com/synnaxlabs/synnax/pkg/service/status"
 	statuspb "github.com/synnaxlabs/synnax/pkg/service/status/pb"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"google.golang.org/protobuf/encoding/protojson"
@@ -159,7 +158,7 @@ func TaskToPB(
 	}
 	if r.Status != nil {
 		var err error
-		pb.Status, err = statuspb.StatusToPB[task.StatusDetails]((status.Status[task.StatusDetails])(*r.Status), StatusDetailsToPBAny)
+		pb.Status, err = statuspb.StatusToPB(*r.Status, StatusDetailsToPBAny)
 		if err != nil {
 			return nil, err
 		}
@@ -182,11 +181,11 @@ func TaskFromPB(
 	r.Internal = pb.Internal
 	r.Snapshot = pb.Snapshot
 	if pb.Status != nil {
-		val, err := statuspb.StatusFromPB[task.StatusDetails](pb.Status, StatusDetailsFromPBAny)
+		val, err := statuspb.StatusFromPB(pb.Status, StatusDetailsFromPBAny)
 		if err != nil {
 			return task.Task{}, err
 		}
-		r.Status = (*task.Status)(&val)
+		r.Status = &val
 	}
 	return r, nil
 }

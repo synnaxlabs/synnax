@@ -90,6 +90,6 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 // passes.
 func rootCtx(ctx SpecContext) freighter.Context {
 	fctx := freighter.Context{Context: ctx, Params: freighter.Params{}}
-	fctx.Set("Subject", user.OntologyID(root.Key))
+	fctx.Set("Subject", root.OntologyID())
 	return fctx
 }

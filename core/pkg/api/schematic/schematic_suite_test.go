@@ -99,7 +99,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 // the ctx argument to api.Service methods so auth.GetSubject succeeds.
 func authedCtx(ctx SpecContext, u user.User) freighter.Context {
 	fctx := freighter.Context{Context: ctx, Params: freighter.Params{}}
-	fctx.Set("Subject", user.OntologyID(u.Key))
+	fctx.Set("Subject", u.OntologyID())
 	return fctx
 }
 

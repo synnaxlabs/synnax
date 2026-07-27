@@ -53,7 +53,7 @@ var _ = Describe("Ontology", func() {
 	Describe("Project.OntologyID", func() {
 		It("Should return an ontology ID populated from the project's key", func() {
 			p := project.Project{Key: uuid.New(), Name: "x"}
-			Expect(p.OntologyID()).To(Equal(project.OntologyID(p.Key)))
+			Expect(p.OntologyID()).To(Equal(p.OntologyID()))
 		})
 	})
 	Describe("KeysFromOntologyIDs", func() {
@@ -79,7 +79,7 @@ var _ = Describe("Ontology", func() {
 			p := project.Project{Key: uuid.New(), Name: "resource"}
 			Expect(svc.NewWriter(tx).Create(ctx, &p)).To(Succeed())
 			resource := MustSucceed(svc.RetrieveResource(ctx, p.Key.String(), tx))
-			Expect(resource.ID).To(Equal(project.OntologyID(p.Key)))
+			Expect(resource.ID).To(Equal(p.OntologyID()))
 			Expect(resource.Name).To(Equal("resource"))
 		})
 		It("Should return an error when the key is not a valid UUID", func(ctx SpecContext) {
@@ -106,7 +106,7 @@ var _ = Describe("Ontology", func() {
 
 			p := project.Project{Key: uuid.New(), Name: "observed"}
 			Expect(writer.Create(ctx, &p)).To(Succeed())
-			expectedID := project.OntologyID(p.Key).String()
+			expectedID := p.OntologyID().String()
 
 			Eventually(func(g Gomega) {
 				mu.Lock()

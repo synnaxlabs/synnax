@@ -39,10 +39,10 @@ type Writer struct {
 	table *gorp.Table[Key, Rack]
 }
 
-func resolveStatus(r *Rack) *status.Status[StatusDetails] {
+func resolveStatus(r *Rack) *Status {
 	if r.Status == nil {
-		return &status.Status[StatusDetails]{
-			Key:     OntologyID(r.Key).String(),
+		return &Status{
+			Key:     r.OntologyID().String(),
 			Name:    r.Name,
 			Time:    telem.Now(),
 			Variant: status.VariantWarning,
@@ -50,8 +50,8 @@ func resolveStatus(r *Rack) *status.Status[StatusDetails] {
 			Details: StatusDetails{Rack: r.Key},
 		}
 	}
-	stat := status.Status[StatusDetails](*r.Status)
-	stat.Key = OntologyID(r.Key).String()
+	stat := *r.Status
+	stat.Key = r.OntologyID().String()
 	stat.Details.Rack = r.Key
 	stat.Name = r.Name
 	return &stat
@@ -63,10 +63,10 @@ func resolveStatus(r *Rack) *status.Status[StatusDetails] {
 // driver has already reported; it is only written when no row exists.
 func (w Writer) healStatus(
 	ctx context.Context,
-	stat *status.Status[StatusDetails],
+	stat *Status,
 ) error {
-	if exists, err := gorp.NewRetrieve[string, status.Status[StatusDetails]]().
-		Where(gorp.MatchKeys[string, status.Status[StatusDetails]](stat.Key)).
+	if exists, err := gorp.NewRetrieve[string, Status]().
+		Where(gorp.MatchKeys[string, Status](stat.Key)).
 		Exists(ctx, w.tx); err != nil || exists {
 		return err
 	}
@@ -90,7 +90,7 @@ func (w Writer) Create(ctx context.Context, r *Rack) error {
 	if err = w.table.NewCreate().Entry(r).Exec(ctx, w.tx); err != nil {
 		return err
 	}
-	otgID := OntologyID(r.Key)
+	otgID := r.OntologyID()
 	if err = w.otg.DefineResources(ctx, otgID); err != nil {
 		return err
 	}
@@ -130,7 +130,7 @@ func (w Writer) DeleteGuard(ctx context.Context, key Key, guard gorp.GuardFunc[K
 	if err := w.table.NewDelete().Where(gorp.MatchKeys[Key, Rack](key)).Guard(guard).Exec(ctx, w.tx); err != nil {
 		return err
 	}
-	return w.status.Delete(ctx, OntologyID(key).String())
+	return w.status.Delete(ctx, key.OntologyID().String())
 }
 
 // NewTaskKey returns a new, unique key for the task on the provided rack.

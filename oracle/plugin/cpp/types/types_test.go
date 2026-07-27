@@ -520,7 +520,7 @@ var _ = Describe("C++ Types Plugin", func() {
 			Expect(content).NotTo(MatchRegexp(`\bstd::optional<std::uint8_t> default[^_]`))
 		})
 
-		It("Should handle @cpp omit", func(ctx SpecContext) {
+		It("Should handle @cpp hand", func(ctx SpecContext) {
 			source := `
 				@cpp output "client/cpp/rack"
 
@@ -532,7 +532,7 @@ var _ = Describe("C++ Types Plugin", func() {
 				Internal struct {
 					data string
 
-					@cpp omit
+					@cpp hand
 				}
 			`
 			table, diag := analyzer.AnalyzeSource(ctx, source, "rack", loader)
@@ -681,7 +681,7 @@ var _ = Describe("C++ Types Plugin", func() {
 					variant V
 					details Details?
 
-					@cpp omit
+					@cpp hand
 				}
 
 				GoStatus struct<Details?> extends Status<Details, Variant> {
@@ -1092,7 +1092,7 @@ var _ = Describe("C++ Types Plugin", func() {
 		It("Should handle cross-namespace references to handwritten types", func(ctx SpecContext) {
 			// First, set up the "status" namespace with an omitted type
 			statusSource := `
-				@cpp omit
+				@cpp hand
 				@cpp include "x/cpp/status/status.h"
 
 				Status struct<D?> {
@@ -1565,15 +1565,15 @@ var _ = Describe("C++ Types Plugin", func() {
 					@cpp output "x/cpp/telem"
 
 					TimeStamp int64 {
-						@cpp omit
+						@cpp hand
 					}
 
 					TimeSpan int64 {
-						@cpp omit
+						@cpp hand
 					}
 
 					Rate float64 {
-						@cpp omit
+						@cpp hand
 					}
 				`)
 				source := `
@@ -1603,7 +1603,7 @@ var _ = Describe("C++ Types Plugin", func() {
 					@cpp output "x/cpp/telem"
 
 					TimeStamp int64 {
-						@cpp omit
+						@cpp hand
 					}
 				`)
 				source := `
