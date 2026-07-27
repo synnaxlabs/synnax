@@ -29,8 +29,8 @@ export interface File {
 }
 
 /**
- * Streams the Core-serialized envelope for the resource identified by id and returns its
- * bytes together with the resource name promoted from the envelope. The Core owns
+ * Streams the Core-serialized envelope for the resource identified by id and returns
+ * its bytes together with the resource name promoted from the envelope. The Core owns
  * serialization and versioning, so the returned bytes are exactly the file's contents.
  */
 export const fetchFile = async (client: Client, id: ontology.ID): Promise<File> => {
