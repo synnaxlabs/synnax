@@ -17,7 +17,7 @@ import (
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/builtin"
-	policy "github.com/synnaxlabs/synnax/pkg/service/access/rbac/policy/migrations/v0"
+	policy "github.com/synnaxlabs/synnax/pkg/service/access/rbac/policy/versions/v0"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
@@ -25,19 +25,22 @@ import (
 	"github.com/synnaxlabs/x/migrate"
 )
 
-// MigrationConfig contains the dependencies needed by the Phase 2 migration.
+// MigrationConfig is the configuration for NewMigration.
 type MigrationConfig struct {
-	User     *user.Service
+	// User retrieves the users whose legacy permission flags are converted.
+	User *user.Service
+	// Ontology holds the user-role relationships the migration creates.
 	Ontology *ontology.Ontology
-	Role     *role.Service
-	Roles    builtin.ProvisionResult
+	// Role resolves the built-in roles assigned to migrated users.
+	Role *role.Service
+	// Roles is the set of provisioned built-in roles to assign.
+	Roles builtin.ProvisionResult
 }
 
-// Migration (Phase 2) reads the persisted user-to-policy mapping from KV
-// (written by Phase 1 in the policy package), queries users for their RootUser
-// flag, determines the appropriate role for each user, and creates the ontology
-// relationships.
-func Migration(cfg MigrationConfig) migrate.Migration {
+// Migration (Phase 2) reads the persisted user-to-policy mapping from KV (written by
+// Phase 1 in the policy package), queries users for their RootUser flag, determines the
+// appropriate role for each user, and creates the ontology relationships.
+func NewMigration(cfg MigrationConfig) migrate.Migration {
 	return gorp.NewMigration(
 		"v0.permission_assignment",
 		func(ctx context.Context, tx gorp.Tx, _ alamos.Instrumentation) error {
@@ -62,7 +65,7 @@ func Migration(cfg MigrationConfig) migrate.Migration {
 			roleWriter := cfg.Role.NewWriter(tx, true)
 			otgWriter := cfg.Ontology.NewWriter(tx)
 			for _, u := range users {
-				userOntologyID := user.OntologyID(u.Key)
+				userOntologyID := u.OntologyID()
 				policies := policyByUser[userOntologyID.String()]
 				roleKey := determineRole(u, policies, cfg.Roles)
 				if err = otgWriter.DeleteRelationships(ctx, ontology.Relationship{
@@ -86,8 +89,8 @@ func Migration(cfg MigrationConfig) migrate.Migration {
 }
 
 // determineRole maps a legacy user to a built-in role. Operator is the intentional
-// default because all pre-RBAC users had write access. Viewer is not used here
-// since no legacy deployment had read-only users.
+// default because all pre-RBAC users had write access. Viewer is not used here since no
+// legacy deployment had read-only users.
 func determineRole(u user.User, policies []policy.Policy, roles builtin.ProvisionResult) uuid.UUID {
 	if u.RootUser {
 		return roles.OwnerKey

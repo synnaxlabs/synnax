@@ -56,7 +56,7 @@ func newTestConfig(ctx context.Context, nodeType string) node.Config {
 	g := graph.Graph{
 		Nodes:     []graph.Node{{Key: "n1"}},
 		Inputs:    map[string]msgpack.EncodedJSON{"n1": {"type": nodeType}},
-		Functions: []graph.Function{{Key: nodeType}},
+		Functions: []ir.Function{{Key: nodeType}},
 	}
 	analyzed, _ := graph.Analyze(ctx, g, symbol.NewRoot(nil, nil))
 	s := node.New(analyzed)
@@ -184,7 +184,7 @@ var _ = Describe("Node", func() {
 				g      = graph.Graph{
 					Nodes:     []graph.Node{{Key: "test"}},
 					Inputs:    map[string]msgpack.EncodedJSON{"test": {"type": "constant"}},
-					Functions: []graph.Function{{Key: "constant"}},
+					Functions: []ir.Function{{Key: "constant"}},
 				}
 				analyzed, _ = graph.Analyze(ctx, g, nil)
 				s           = node.New(analyzed)

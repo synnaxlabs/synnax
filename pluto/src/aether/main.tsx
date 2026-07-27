@@ -164,9 +164,12 @@ export const useLifecycle = <
   });
   const { methods } = handleRef.current;
 
+  // Delete via the handle, not by path: on a single-commit re-parent the
+  // successor registers at this path during render, before this cleanup runs,
+  // and a path-based unregister would tear it down.
   useLayoutEffect(
     () => () => {
-      ctx.store.unregister(path);
+      handleRef.current?.delete();
       handleRef.current = null;
     },
     [ctx.store, path],

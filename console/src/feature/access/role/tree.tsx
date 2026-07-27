@@ -60,9 +60,17 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
   );
 };
 
+const ROLE_ICONS: Record<string, Icon.ReactElement> = {
+  Owner: <Icon.Settings />,
+  Engineer: <Icon.Safety />,
+  Operator: <Icon.Control />,
+  Viewer: <Icon.Visible />,
+  Host: <Icon.TerminalOutline />,
+};
+
 const TreeItem = Tree.createItem({
   type: "role",
-  icon: <Icon.Role />,
+  icon: ({ name }) => ROLE_ICONS[name] ?? <Icon.Role />,
   ContextMenu: TreeContextMenu,
   hasChildren: true,
   canDrop: ({ items }) => {

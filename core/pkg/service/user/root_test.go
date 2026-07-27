@@ -59,7 +59,7 @@ func createUser(
 		if err := gorp.WrapWriter[user.Key, user.User](tx).Set(ctx, u); err != nil {
 			return err
 		}
-		return otg.NewWriter(tx).DefineResources(ctx, user.OntologyID(u.Key))
+		return otg.NewWriter(tx).DefineResources(ctx, u.OntologyID())
 	})).To(Succeed())
 	return u
 }
@@ -79,7 +79,7 @@ func createUserRecordOnly(
 		if err := gorp.WrapWriter[user.Key, user.User](tx).Set(ctx, u); err != nil {
 			return err
 		}
-		return otg.NewWriter(tx).DefineResources(ctx, user.OntologyID(u.Key))
+		return otg.NewWriter(tx).DefineResources(ctx, u.OntologyID())
 	})).To(Succeed())
 	return u
 }

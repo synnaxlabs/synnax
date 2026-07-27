@@ -12,9 +12,8 @@ package pb_test
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	. "github.com/synnaxlabs/x/testutil"
-
 	"github.com/synnaxlabs/x/pb"
+	. "github.com/synnaxlabs/x/testutil"
 	"google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/structpb"
 	"google.golang.org/protobuf/types/known/wrapperspb"

@@ -11,9 +11,7 @@
 
 package table
 
-import (
-	"github.com/synnaxlabs/x/union"
-)
+import "github.com/synnaxlabs/x/union"
 
 const (
 	ActionTypeRename     = "rename"

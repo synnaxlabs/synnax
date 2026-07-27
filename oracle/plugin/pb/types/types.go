@@ -135,7 +135,7 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 		}
 		var kept []resolution.Type
 		for _, e := range enums {
-			if !omit.IsType(e, "pb") {
+			if !omit.IsSkipped(e, "pb") {
 				kept = append(kept, e)
 			}
 		}
@@ -185,7 +185,7 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 func hasEmittableType(structs, enums, unions []resolution.Type) bool {
 	for _, group := range [][]resolution.Type{structs, enums, unions} {
 		if slices.ContainsFunc(group, func(t resolution.Type) bool {
-			return !omit.IsType(t, "pb")
+			return !omit.IsSkipped(t, "pb")
 		}) {
 			return true
 		}
@@ -223,13 +223,13 @@ func (p *Plugin) generateFile(
 	}
 
 	for _, e := range enums {
-		if e.Namespace == namespace && !omit.IsType(e, "pb") {
+		if e.Namespace == namespace && !omit.IsSkipped(e, "pb") {
 			data.Enums = append(data.Enums, p.processEnum(e))
 		}
 	}
 
 	for _, entry := range structs {
-		if omit.IsType(entry, "pb") {
+		if omit.IsSkipped(entry, "pb") {
 			continue
 		}
 		msg, err := p.processStruct(entry, data)
@@ -242,7 +242,7 @@ func (p *Plugin) generateFile(
 	}
 
 	for _, entry := range unions {
-		if omit.IsType(entry, "pb") {
+		if omit.IsSkipped(entry, "pb") {
 			continue
 		}
 		msg, err := p.processUnion(entry, data)

@@ -14,7 +14,8 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
-	v55 "github.com/synnaxlabs/synnax/pkg/service/log/migrations/v55"
+	v2 "github.com/synnaxlabs/synnax/pkg/service/log/versions/v2"
+	v3 "github.com/synnaxlabs/synnax/pkg/service/log/versions/v3"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/gorp"
@@ -73,7 +74,7 @@ func (s *Service) Import(
 	if err = s.NewWriter(tx).Create(ctx, opts.Project, &l); err != nil {
 		return ontology.ID{}, err
 	}
-	return OntologyID(l.Key), nil
+	return l.OntologyID(), nil
 }
 
 func (s *Service) decodeImport(ctx context.Context, env imex.Envelope) (Log, error) {
@@ -85,7 +86,7 @@ func (s *Service) decodeImport(ctx context.Context, env imex.Envelope) (Log, err
 		if err != nil {
 			return Log{}, err
 		}
-		return MigrateLog(ctx, v55.Log{Name: env.Name, Data: body})
+		return v3.MigrateLog(ctx, v2.Log{Name: env.Name, Data: body})
 	default:
 		return Log{}, imex.NewErrUnsupportedVersion(
 			string(s.Type()), env.Version, Version,

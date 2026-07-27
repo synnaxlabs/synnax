@@ -117,7 +117,7 @@ var _ = Describe("OpenService", func() {
 	It("Should register itself with the configured ImEx registry on open", func(ctx SpecContext) {
 		l := log.Log{Name: "auto-registered"}
 		Expect(svc.NewWriter(nil).Create(ctx, proj.Key, &l)).To(Succeed())
-		env := MustSucceed(imexSvc.Export(ctx, log.OntologyID(l.Key)))
+		env := MustSucceed(imexSvc.Export(ctx, l.OntologyID()))
 		Expect(env.Type).To(Equal("log"))
 	})
 

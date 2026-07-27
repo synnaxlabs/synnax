@@ -48,7 +48,7 @@ var _ = Describe("OP", func() {
 					Target: ir.Handle{Node: "op", Param: ir.RHSInputParam},
 				}},
 			},
-			Functions: []graph.Function{
+			Functions: []ir.Function{
 				{
 					Key: "lhs",
 					Outputs: types.Params{
@@ -129,7 +129,7 @@ var _ = Describe("OP", func() {
 					Target: ir.Handle{Node: "op", Param: ir.DefaultInputParam},
 				}},
 			},
-			Functions: []graph.Function{
+			Functions: []ir.Function{
 				{
 					Key: "input",
 					Outputs: types.Params{
@@ -181,7 +181,7 @@ var _ = Describe("OP", func() {
 						Target: ir.Handle{Node: "op", Param: ir.RHSInputParam},
 					}},
 				},
-				Functions: []graph.Function{
+				Functions: []ir.Function{
 					{
 						Key: "lhs",
 						Outputs: types.Params{
@@ -237,7 +237,7 @@ var _ = Describe("OP", func() {
 						Target: ir.Handle{Node: "op", Param: ir.RHSInputParam},
 					}},
 				},
-				Functions: []graph.Function{
+				Functions: []ir.Function{
 					{
 						Key: "lhs",
 						Outputs: types.Params{
@@ -294,7 +294,7 @@ var _ = Describe("OP", func() {
 						Target: ir.Handle{Node: "op", Param: ir.RHSInputParam},
 					}},
 				},
-				Functions: []graph.Function{
+				Functions: []ir.Function{
 					{
 						Key: "lhs",
 						Outputs: types.Params{
@@ -351,7 +351,7 @@ var _ = Describe("OP", func() {
 						Target: ir.Handle{Node: "op", Param: ir.RHSInputParam},
 					}},
 				},
-				Functions: []graph.Function{
+				Functions: []ir.Function{
 					{
 						Key: "lhs",
 						Outputs: types.Params{
@@ -408,7 +408,7 @@ var _ = Describe("OP", func() {
 						Target: ir.Handle{Node: "op", Param: ir.RHSInputParam},
 					}},
 				},
-				Functions: []graph.Function{
+				Functions: []ir.Function{
 					{
 						Key: "lhs",
 						Outputs: types.Params{
@@ -464,7 +464,7 @@ var _ = Describe("OP", func() {
 						Target: ir.Handle{Node: "op", Param: ir.RHSInputParam},
 					}},
 				},
-				Functions: []graph.Function{
+				Functions: []ir.Function{
 					{
 						Key: "lhs",
 						Outputs: types.Params{
