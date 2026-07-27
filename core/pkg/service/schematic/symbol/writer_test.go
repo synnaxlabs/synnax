@@ -36,6 +36,25 @@ var _ = Describe("Writer", func() {
 			Expect(sym.Key).ToNot(Equal(uuid.Nil))
 		})
 
+		It("Should apply schema defaults for omitted fields", func(ctx SpecContext) {
+			sym := symbol.Symbol{
+				Name: "defaults",
+				Data: symbol.Spec{SVG: "<svg/>", Variant: "valve"},
+			}
+			Expect(svc.NewWriter(tx).Create(ctx, &sym, proj.OntologyID())).To(Succeed())
+			// Defaults are stamped on the caller's struct.
+			Expect(sym.Version).To(Equal(uint32(1)))
+			Expect(sym.Data.Scale).To(Equal(1.0))
+
+			var res symbol.Symbol
+			Expect(svc.NewRetrieve().
+				Where(symbol.MatchKeys(sym.Key)).
+				Entry(&res).
+				Exec(ctx, tx)).To(Succeed())
+			Expect(res.Version).To(Equal(uint32(1)))
+			Expect(res.Data.Scale).To(Equal(1.0))
+		})
+
 		It("Should create a Symbol with a predefined key", func(ctx SpecContext) {
 			key := uuid.New()
 			sym := symbol.Symbol{

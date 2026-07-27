@@ -37,6 +37,7 @@ func (w Writer) Create(
 	s *Symbol,
 	parent ontology.ID,
 ) (err error) {
+	s.ApplyDefaults()
 	var exists bool
 	if s.Key == uuid.Nil {
 		s.Key = uuid.New()
