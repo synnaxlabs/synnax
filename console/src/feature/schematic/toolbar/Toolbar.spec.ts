@@ -95,7 +95,7 @@ describe("Schematic.Toolbar", () => {
     it("downloads the schematic as a typed JSON export", async () => {
       const downloads = captureBrowserDownloads();
       const name = uniqueName("export");
-      const { key, result } = await renderSchematic(Schematic.Toolbar, {
+      const { result } = await renderSchematic(Schematic.Toolbar, {
         schematic: { name },
         sessionState: { editable: true },
       });
@@ -106,12 +106,9 @@ describe("Schematic.Toolbar", () => {
       const contents = JSON.parse(
         new TextDecoder().decode(await downloads.blobs[0].arrayBuffer()),
       );
-      expect(contents).toMatchObject({
-        key,
-        name,
-        type: "schematic",
-        version: "6.0.0",
-      });
+      // The Core serializes the schematic into the flat imex envelope: numeric version,
+      // and the resource key is dropped.
+      expect(contents).toMatchObject({ name, type: "schematic", version: 6 });
     });
   });
 });
