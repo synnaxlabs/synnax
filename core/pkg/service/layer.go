@@ -22,7 +22,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/auth/token"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
-	calcgraph "github.com/synnaxlabs/synnax/pkg/service/channel/calculation/graph"
 	channelsignals "github.com/synnaxlabs/synnax/pkg/service/channel/signals"
 	"github.com/synnaxlabs/synnax/pkg/service/channel/verification"
 	"github.com/synnaxlabs/synnax/pkg/service/device"
@@ -290,14 +289,6 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		ValidateNames:    cfg.ValidateChannelNames,
 		Status:           l.Status,
 	}); !ok(err, l.Channel) {
-		return nil, err
-	}
-	if closer, err := calcgraph.Open(ctx, calcgraph.Config{
-		Instrumentation: cfg.Child("channel.calculation.graph"),
-		DB:              cfg.Distribution.DB,
-		Channel:         l.Channel,
-		Status:          l.Status,
-	}); !ok(err, closer) {
 		return nil, err
 	}
 	if l.Framer, err = framer.OpenService(

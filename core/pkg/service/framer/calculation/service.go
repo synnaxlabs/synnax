@@ -19,7 +19,6 @@ import (
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
-	"github.com/synnaxlabs/synnax/pkg/service/channel/calculation"
 	"github.com/synnaxlabs/synnax/pkg/service/channel/calculation/compiler"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation/calculator"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation/graph"
@@ -41,7 +40,7 @@ import (
 var legacyStatusChannels = []string{"sy_calculation_status", "sy_calculation_state"}
 
 // Status is an alias for the calculation status type.
-type Status = calculation.Status
+type Status = channel.CalculationStatus
 
 // ServiceConfig is the configuration for opening the calculation service.
 type ServiceConfig struct {
@@ -155,7 +154,7 @@ func (s *Service) setStatus(
 			continue
 		}
 		s.cfg.L.Warn(st.String())
-		statusKey := calculation.StatusKey(chKey)
+		statusKey := channel.CalculationStatusKey(chKey)
 		if err = s.statusWriter.Set(ctx, &Status{
 			Key:         statusKey,
 			Name:        st.Name,

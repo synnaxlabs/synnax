@@ -10,6 +10,9 @@
 package graph_test
 
 import (
+	"context"
+	"time"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
@@ -28,6 +31,19 @@ var (
 	channelSvc    *channel.Service
 	channelWriter channel.Writer
 )
+
+// storedDataType returns the DataType currently persisted for the channel, or an
+// empty DataType while the retrieval fails.
+func storedDataType(ctx context.Context, key channel.Key) telem.DataType {
+	var ch channel.Channel
+	if err := channelSvc.NewRetrieve().
+		Where(channel.MatchKeys(key)).
+		Entry(&ch).
+		Exec(ctx, nil); err != nil {
+		return ""
+	}
+	return ch.DataType
+}
 
 var _ = BeforeSuite(func(ctx SpecContext) {
 	ShouldNotLeakGoroutines()
@@ -617,12 +633,19 @@ var _ = Describe("Graph", func() {
 			calc1.Expression = "return f64(cascade_raw * 1.0)"
 			calc1.DataType = telem.Float64T
 			Expect(channelWriter.Create(ctx, &calc1)).To(Succeed())
-			// The update should trigger recompilation of calc2. Since calc2's
-			// stored DataType is f32 but calc1 now provides f64, the expression
-			// `cascade_calc1 * 2` resolves to f64 which doesn't match calc2's
-			// f32 return type. The graph should surface this as an error.
-			Expect(g.Update(ctx, calc1)).
-				Error().To(MatchError(ContainSubstring("cannot return")))
+			// The channel service's calculation graph reacts to the commit and
+			// repairs calc2's stored DataType to f64. Wait for the repair so
+			// Update deterministically compiles against the repaired type.
+			Eventually(func() telem.DataType {
+				return storedDataType(ctx, calc2.Key())
+			}, 2*time.Second, 10*time.Millisecond).Should(Equal(telem.Float64T))
+			Expect(g.Update(ctx, calc1)).To(Succeed())
+			// calc2 was recompiled against the repaired type.
+			for _, mod := range g.CalculateFlat() {
+				if mod.Channel.Key() == calc2.Key() {
+					Expect(mod.Channel.DataType).To(Equal(telem.Float64T))
+				}
+			}
 		})
 		It("Should cascade recompilation through a three-level chain", func(ctx SpecContext) {
 			raw := channel.Channel{Name: "chain3_raw", DataType: telem.Float64T, Virtual: true}
@@ -655,14 +678,21 @@ var _ = Describe("Graph", func() {
 			Expect(g.Add(ctx, calc3)).To(Succeed())
 			Expect(g.CalculateFlat()).To(HaveLen(3))
 
-			// Change calc1 to f32 output. This should cascade through
-			// calc2 and calc3 and fail because calc2 declares f64 return
-			// but calc1 now provides f32.
+			// Change calc1 to f32 output. The channel service's calculation
+			// graph cascades the repair through calc2 and calc3, then Update
+			// recompiles both against the repaired types.
 			calc1.Expression = "return f32(chain3_raw)"
 			calc1.DataType = telem.Float32T
 			Expect(channelWriter.Create(ctx, &calc1)).To(Succeed())
-			err := g.Update(ctx, calc1)
-			Expect(err).To(HaveOccurred())
+			Eventually(func() telem.DataType {
+				return storedDataType(ctx, calc3.Key())
+			}, 2*time.Second, 10*time.Millisecond).Should(Equal(telem.Float32T))
+			Expect(g.Update(ctx, calc1)).To(Succeed())
+			for _, mod := range g.CalculateFlat() {
+				if k := mod.Channel.Key(); k == calc2.Key() || k == calc3.Key() {
+					Expect(mod.Channel.DataType).To(Equal(telem.Float32T))
+				}
+			}
 		})
 		It("Should cascade recompilation through a diamond dependency", func(ctx SpecContext) {
 			raw := channel.Channel{Name: "diamond_raw", DataType: telem.Float64T, Virtual: true}

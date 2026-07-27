@@ -29,6 +29,7 @@ import (
 
 var (
 	svc           *channel.Service
+	svcCfg        channel.ServiceConfig
 	channelWriter channel.Writer
 )
 
@@ -77,12 +78,13 @@ func serviceConfig(ctx context.Context, node mock.Node) channel.ServiceConfig {
 // openService opens a channel service for the node and creates the node's internal
 // control channel, mirroring what the service layer's OpenLayer does in production.
 // Tests rely on the control channel for their local-key and channel-count expectations.
-// Extra configs override the derived distribution-layer fields.
+// Extra configs override the derived distribution-layer fields. The returned
+// ServiceConfig exposes the opened dependency services.
 func openService(
 	ctx context.Context,
 	node mock.Node,
 	cfgs ...channel.ServiceConfig,
-) (*channel.Service, *ontology.Ontology) {
+) (*channel.Service, channel.ServiceConfig) {
 	GinkgoHelper()
 	cfg := serviceConfig(ctx, node)
 	channelSvc := MustOpen(channel.OpenService(
@@ -103,12 +105,12 @@ func openService(
 		ctx, controlCh.Key(), controlCh.Name,
 	)).To(Succeed())
 	Expect(cfg.Search.Initialize(ctx)).To(Succeed())
-	return channelSvc, cfg.Ontology
+	return channelSvc, cfg
 }
 
 var _ = BeforeSuite(func(ctx SpecContext) {
 	ShouldNotLeakGoroutines()
 	node := mock.NewNode(ctx)
-	svc, _ = openService(ctx, node)
+	svc, svcCfg = openService(ctx, node)
 	channelWriter = svc.NewWriter(nil)
 })

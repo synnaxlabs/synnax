@@ -7,28 +7,27 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package calculation
+package channel
 
 import (
 	"go/types"
 
-	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/telem"
 )
 
-// Status is a calculated channel status entry.
-type Status = status.Status[types.Nil]
+// CalculationStatus is a calculated channel status entry.
+type CalculationStatus = status.Status[types.Nil]
 
-// StatusKey returns the status key for the given channel key.
-func StatusKey(key channel.Key) string {
-	return channel.OntologyID(key).String()
+// CalculationStatusKey returns the status key for the given channel key.
+func CalculationStatusKey(key Key) string {
+	return OntologyID(key).String()
 }
 
-// StatusFromError builds an error status for a calculated channel.
-func StatusFromError(key channel.Key, name string, msg string, err error) *Status {
-	return &Status{
-		Key:         StatusKey(key),
+// CalculationStatusFromError builds an error status for a calculated channel.
+func CalculationStatusFromError(key Key, name string, msg string, err error) *CalculationStatus {
+	return &CalculationStatus{
+		Key:         CalculationStatusKey(key),
 		Name:        name,
 		Variant:     status.VariantError,
 		Message:     msg,

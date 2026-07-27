@@ -171,7 +171,9 @@ var _ = Describe("Writer", func() {
 		BeforeAll(func(ctx SpecContext) {
 			ShouldNotLeakGoroutines()
 			dist = mock.NewNode(ctx)
-			svc, otg = openService(ctx, dist)
+			var cfg channel.ServiceConfig
+			svc, cfg = openService(ctx, dist)
+			otg = cfg.Ontology
 			channelWriter = svc.NewWriter(nil)
 		})
 		Context("Single channel", func() {
@@ -1281,11 +1283,12 @@ var _ = Describe("Writer", func() {
 	Describe("ChangeDataType", Ordered, func() {
 		var (
 			svc           *channel.Service
+			cfg           channel.ServiceConfig
 			channelWriter channel.Writer
 		)
 		BeforeAll(func(ctx SpecContext) {
 			ShouldNotLeakGoroutines()
-			svc, _ = openService(ctx, mock.NewNode(ctx))
+			svc, cfg = openService(ctx, mock.NewNode(ctx))
 			channelWriter = svc.NewWriter(nil)
 		})
 		It("Should change the data type of a calculated channel", func(ctx SpecContext) {
@@ -1296,9 +1299,13 @@ var _ = Describe("Writer", func() {
 				Expression: "return 1",
 			}
 			Expect(channelWriter.Create(ctx, &base)).To(Succeed())
-			Expect(channelWriter.ChangeDataType(ctx, base.Key(), telem.Float32T)).To(Succeed())
+			// Run inside an uncommitted tx: on commit the calculation graph would
+			// re-infer the expression's type and repair the change right back.
+			tx := cfg.DB.OpenTx()
+			DeferClose(tx)
+			Expect(svc.NewWriter(tx).ChangeDataType(ctx, base.Key(), telem.Float32T)).To(Succeed())
 			var retrieved channel.Channel
-			Expect(svc.NewRetrieve().Where(channel.MatchKeys(base.Key())).Entry(&retrieved).Exec(ctx, nil)).To(Succeed())
+			Expect(svc.NewRetrieve().Where(channel.MatchKeys(base.Key())).Entry(&retrieved).Exec(ctx, tx)).To(Succeed())
 			Expect(retrieved.DataType).To(Equal(telem.Float32T))
 		})
 		It("Should return a validation error when changing the data type of a non-calculated channel", func(ctx SpecContext) {

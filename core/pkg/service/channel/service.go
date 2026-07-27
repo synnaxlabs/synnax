@@ -121,7 +121,9 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 // Service is the top-level channel service. It owns the channel metadata table,
 // retrieval, ontology and search integration, and the create/delete/rename
 // orchestration, driving the distribution-layer allocator for key assignment and
-// storage. It also infers DataTypes for calculated channels on write.
+// storage. It also infers DataTypes for calculated channels on write and maintains
+// the calculated channel dependency graph, reactively re-inspecting dependents as
+// channels change.
 type Service struct {
 	cfg     ServiceConfig
 	db      *gorp.DB
@@ -179,6 +181,9 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	s.mu.externalNonVirtualSet.Insert(KeysFromChannels(externalNonVirtualChannels)...)
 	cfg.Ontology.RegisterService(s)
 	cfg.Search.RegisterService(s)
+	if g, err := s.openCalculationGraph(ctx); !ok(err, g) {
+		return nil, err
+	}
 	return s, nil
 }
 
