@@ -152,7 +152,10 @@ class NotificationsClient:
 
         close_btn = notification.locator(".pluto-notification__silence")
         if close_btn.count() > 0:
-            close_btn.dispatch_event("click")
+            try:
+                close_btn.dispatch_event("click", timeout=2000)
+            except PlaywrightTimeoutError:
+                return False
             return True
         return False
 

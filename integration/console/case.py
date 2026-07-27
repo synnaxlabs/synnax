@@ -44,6 +44,7 @@ class ConsoleCase(TestCase):
     console: Console
 
     def setup(self) -> None:
+        self._cleanup_pages: list[str] = []
         env_headed = os.environ.get("PLAYWRIGHT_CONSOLE_HEADED", "0") == "1"
         headed = self.params.get("headed", env_headed)
         slow_mo = self.params.get("slow_mo", 0)
@@ -113,14 +114,13 @@ class ConsoleCase(TestCase):
         # Selecting workspace restores tabs
         self.console.close_all_tabs()
         self.console.notifications.close_connection()
-        self._cleanup_pages: list[str] = []
 
     def teardown(self) -> None:
         # Stop and persist the trace before cleanup; cleanup may mutate page state
         # in ways that mask the failure we want to capture.
         self._stop_tracing()
 
-        if self._cleanup_pages:
+        if getattr(self, "_cleanup_pages", None):
             try:
                 self.console.workspace.delete_pages(self._cleanup_pages)
             except PlaywrightTimeoutError:
