@@ -10,6 +10,7 @@
 import "schemas/x/spatial"
 
 @ts output "client/ts/src/schematic/symbol"
+@go output "core/pkg/service/schematic/symbol"
 
 Key = uuid {
     @doc value "is a unique identifier for a schematic symbol."
