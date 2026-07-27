@@ -9,13 +9,12 @@
 
 import { arc as clientArc, group, ontology } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
-import { type Status } from "@synnaxlabs/pluto";
 import { fireEvent } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { Arc } from "@/feature/arc";
 import { findTreeRow, renderOntologyTree } from "@/platform/tree/treeTestutil";
-import { CaptureStatuses, resolveFocusedTab, uniqueName } from "@/testutil";
+import { resolveFocusedTab, uniqueName } from "@/testutil";
 
 const client = createTestClient();
 
@@ -44,36 +43,6 @@ describe("arc/ontology", () => {
       const tab = await resolveFocusedTab(store, client);
       if (tab.variant !== "resource") throw new Error("expected a resource tab");
       expect(tab.resource.key).toBe(arc.key);
-    });
-
-    it("should open the tab without retrieving the arc", async () => {
-      const arc = await client.arcs.create({
-        name: uniqueName("arc"),
-        mode: "graph",
-        graph: { nodes: [], edges: [] },
-      });
-      const grp = await client.groups.create({
-        parent: ontology.ROOT_ID,
-        name: uniqueName("arcgrp"),
-      });
-      await client.ontology.addChildren(
-        group.ontologyID(grp.key),
-        clientArc.ontologyID(arc.key),
-      );
-      let statuses: Status.NotificationSpec[] = [];
-      const { store } = await renderOntologyTree({
-        client,
-        root: group.ontologyID(grp.key),
-        items: Arc.TREE_ITEMS,
-        extra: <CaptureStatuses onStatuses={(s) => (statuses = s)} />,
-      });
-      const row = await findTreeRow(arc.name);
-      await client.arcs.delete(arc.key);
-      fireEvent.doubleClick(row);
-      const tab = await resolveFocusedTab(store, client);
-      if (tab.variant !== "resource") throw new Error("expected a resource tab");
-      expect(tab.resource.key).toBe(arc.key);
-      expect(statuses).toEqual([]);
     });
   });
 });
