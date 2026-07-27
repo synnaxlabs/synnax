@@ -9,6 +9,7 @@
 
 #include "gtest/gtest.h"
 
+#include "x/cpp/mem/indirect.h"
 #include "x/cpp/mem/local_shared.h"
 #include "x/cpp/test/test.h"
 
@@ -564,5 +565,157 @@ TEST(StableConstructionTest, ErrorsWhenInputMissing) {
         ),
         x::errors::NOT_FOUND
     );
+}
+
+/// @brief wires source -> stable with a var-bound duration: value holds the declared
+/// initial and set_duration writes the variable's live slot. The IR and state outlive
+/// the node, so a VarDuration must stay put for the test's duration.
+class VarDuration {
+    ir::IR prog;
+    runtime::state::State state;
+
+public:
+    x::telem::TimeStamp current_time{0};
+    StableFor node;
+
+    explicit VarDuration(const x::telem::TimeSpan initial):
+        prog(build_ir(initial)),
+        state(
+            runtime::state::Config{.ir = prog, .channels = {}},
+            runtime::errors::noop_handler
+        ),
+        node(
+            ASSERT_NIL_P(StableForInputs::create(this->prog.nodes[2].inputs)),
+            ASSERT_NIL_P(this->state.node("stable")),
+            ASSERT_NIL_P(this->prog.nodes[2].resolve_input(ir::default_input_param)),
+            make_now(this->current_time)
+        ) {}
+
+    VarDuration(const VarDuration &) = delete;
+    VarDuration &operator=(const VarDuration &) = delete;
+
+    void set_duration(const x::telem::TimeSpan d) {
+        auto v = ASSERT_NIL_P(this->state.node("v"));
+        *v.output(0) = x::telem::Series(d.nanoseconds());
+    }
+
+    void ingest(const uint8_t v, const x::telem::TimeStamp at) {
+        auto source = ASSERT_NIL_P(this->state.node("source"));
+        write_source(source, {v}, {at.nanoseconds()});
+    }
+
+    runtime::state::Node handle(const std::string &key) {
+        return ASSERT_NIL_P(this->state.node(key));
+    }
+
+    bool next() {
+        bool fired = false;
+        auto ctx = make_context();
+        ctx.mark_changed = [&fired](size_t) { fired = true; };
+        EXPECT_FALSE(this->node.next(ctx));
+        return fired;
+    }
+
+private:
+    static ir::IR build_ir(const x::telem::TimeSpan initial) {
+        types::Param source_out;
+        source_out.name = ir::default_output_param;
+        source_out.type = types::Type{.kind = types::Kind::U8};
+        ir::Node source;
+        source.key = "source";
+        source.type = "source";
+        source.outputs.push_back(source_out);
+
+        types::Param var_out;
+        var_out.name = ir::default_output_param;
+        var_out.type = types::Type{.kind = types::Kind::I64};
+        ir::Node v;
+        v.key = "v";
+        v.type = "variable";
+        v.outputs.push_back(var_out);
+
+        types::Param duration;
+        duration.name = "duration";
+        duration.type = types::Type{
+            .kind = types::Kind::VarRef,
+            .name = "v",
+            .elem = x::mem::indirect<types::Type>(types::Type{.kind = types::Kind::I64})
+        };
+        duration.value = initial.nanoseconds();
+        types::Param in;
+        in.name = ir::default_input_param;
+        in.type = types::Type{.kind = types::Kind::U8};
+        types::Param out;
+        out.name = ir::default_output_param;
+        out.type = types::Type{.kind = types::Kind::U8};
+        ir::Node stable;
+        stable.key = "stable";
+        stable.type = "stable_for";
+        stable.inputs.push_back(duration);
+        stable.inputs.push_back(in);
+        stable.outputs.push_back(out);
+
+        ir::IR ir;
+        ir.nodes.push_back(source);
+        ir.nodes.push_back(v);
+        ir.nodes.push_back(stable);
+        ir.edges.emplace_back(
+            ir::Handle("source", ir::default_output_param),
+            ir::Handle("stable", ir::default_input_param),
+            ir::EdgeKind::Continuous
+        );
+        return ir;
+    }
+};
+
+TEST(StableForVarDurationTest, HonorsTheDeclaredInitialBeforeAnyWrite) {
+    VarDuration t(x::telem::SECOND);
+    t.ingest(5, x::telem::TimeStamp(x::telem::SECOND));
+    t.current_time = x::telem::TimeStamp(x::telem::SECOND);
+    EXPECT_FALSE(t.next());
+    t.current_time = x::telem::TimeStamp(x::telem::SECOND + x::telem::SECOND / 2);
+    EXPECT_FALSE(t.next());
+    t.current_time = x::telem::TimeStamp(2 * x::telem::SECOND);
+    EXPECT_TRUE(t.next());
+}
+
+TEST(StableForVarDurationTest, AdoptsAShorteningWriteAtTheNextWindowNotMidWindow) {
+    VarDuration t(10 * x::telem::SECOND);
+    t.ingest(5, x::telem::TimeStamp(x::telem::SECOND));
+    t.current_time = x::telem::TimeStamp(x::telem::SECOND);
+    EXPECT_FALSE(t.next());
+    t.set_duration(x::telem::SECOND);
+    // The in-flight window completes under its starting 10s.
+    t.current_time = x::telem::TimeStamp(2 * x::telem::SECOND);
+    EXPECT_FALSE(t.next());
+    t.current_time = x::telem::TimeStamp(11 * x::telem::SECOND);
+    EXPECT_TRUE(t.next());
+    // The next window latches the shortened 1s.
+    t.ingest(7, x::telem::TimeStamp(12 * x::telem::SECOND));
+    t.current_time = x::telem::TimeStamp(12 * x::telem::SECOND);
+    EXPECT_FALSE(t.next());
+    t.current_time = x::telem::TimeStamp(13 * x::telem::SECOND);
+    EXPECT_TRUE(t.next());
+}
+
+TEST(StableForVarDurationTest, AdoptsALengtheningWriteAtTheNextWindowNotMidWindow) {
+    VarDuration t(x::telem::SECOND);
+    t.ingest(5, x::telem::TimeStamp(x::telem::SECOND));
+    t.current_time = x::telem::TimeStamp(x::telem::SECOND);
+    EXPECT_FALSE(t.next());
+    t.set_duration(10 * x::telem::SECOND);
+    // The in-flight window completes under its starting 1s.
+    t.current_time = x::telem::TimeStamp(2 * x::telem::SECOND);
+    EXPECT_TRUE(t.next());
+    // The next window latches the lengthened 10s.
+    t.ingest(7, x::telem::TimeStamp(3 * x::telem::SECOND));
+    t.current_time = x::telem::TimeStamp(3 * x::telem::SECOND);
+    EXPECT_FALSE(t.next());
+    t.current_time = x::telem::TimeStamp(4 * x::telem::SECOND);
+    EXPECT_FALSE(t.next());
+    t.current_time = x::telem::TimeStamp(13 * x::telem::SECOND);
+    EXPECT_TRUE(t.next());
+    const auto output = t.handle("stable").output(0);
+    EXPECT_EQ(output->values<uint8_t>(), std::vector<uint8_t>{7});
 }
 }

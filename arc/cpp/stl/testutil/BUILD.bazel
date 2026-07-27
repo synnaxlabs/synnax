@@ -8,11 +8,10 @@
 # included in the file licenses/APL.txt.
 
 load("@rules_cc//cc:cc_library.bzl", "cc_library")
-load("@rules_cc//cc:cc_test.bzl", "cc_test")
 
 cc_library(
-    name = "time",
-    hdrs = ["time.h"],
+    name = "testutil",
+    hdrs = ["testutil.h"],
     copts = select({
         "@platforms//os:windows": ["/wd4201"],
         "//conditions:default": [],
@@ -20,35 +19,12 @@ cc_library(
     visibility = ["//visibility:public"],
     deps = [
         "//arc/cpp/ir",
-        "//arc/cpp/runtime/loop",
-        "//arc/cpp/runtime/node",
-        "//arc/cpp/runtime/state",
-        "//arc/cpp/stl",
-        "//x/cpp/errors",
-        "//x/cpp/telem",
-    ],
-)
-
-cc_test(
-    name = "time_test",
-    srcs = ["time_test.cpp"],
-    copts = select({
-        "@platforms//os:windows": ["/wd4201"],
-        "//conditions:default": [],
-    }),
-    tags = ["requires-core"],
-    deps = [
-        ":time",
-        "//arc/cpp/ir",
         "//arc/cpp/runtime/errors",
-        "//arc/cpp/runtime/loop",
         "//arc/cpp/runtime/node",
         "//arc/cpp/runtime/state",
-        "//arc/cpp/runtime/testutil:compile",
-        "//client/cpp:synnax",
-        "//client/cpp/testutil",
+        "//arc/cpp/types",
+        "//x/cpp/json",
         "//x/cpp/mem",
-        "//x/cpp/test",
-        "@googletest//:gtest_main",
+        "//x/cpp/telem",
     ],
 )

@@ -230,8 +230,11 @@ public:
         size_t channel_idx = NO_CHANNEL;
         if (const auto [idx, terr] = cfg.state.resolve_input("channel"); !terr)
             channel_idx = idx;
-        const auto &ch_param = cfg.node.inputs["channel"];
-        auto ch_sv = types::to_sample_value(ch_param.value, ch_param.type);
+        std::optional<x::telem::SampleValue> ch_sv;
+        if (const auto [idx, perr] = cfg.node.resolve_input("channel"); !perr) {
+            const auto &ch_param = cfg.node.inputs[idx];
+            ch_sv = types::to_sample_value(ch_param.value, ch_param.type);
+        }
         // An unbound source or sink requires its channel key as an input value.
         // An alias-bound source or sink takes its key from the binding edge at
         // runtime.
