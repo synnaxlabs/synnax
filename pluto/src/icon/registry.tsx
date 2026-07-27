@@ -76,6 +76,7 @@ import {
   IoNotificationsOff,
   IoShapes,
   IoTerminal,
+  IoTerminalOutline,
   IoTime,
   IoTvOutline,
 } from "react-icons/io5";
@@ -493,6 +494,7 @@ export const Heart = wrapSVGIcon(IoMdHeart, "heart");
 export const StrokeWidth = wrapSVGIcon(BsBorderWidth, "stroke-width");
 export const Downsample = wrapSVGIcon(MdBlurLinear, "downsample");
 export const Terminal = wrapSVGIcon(IoTerminal, "terminal");
+export const TerminalOutline = wrapSVGIcon(IoTerminalOutline, "terminal-outline");
 export const Map = wrapSVGIcon(MdOutlineMap, "map");
 export const Linear = wrapSVGIcon(MdOutlineLinearScale, "linear");
 export const None = wrapSVGIcon(TbCircleDashed, "none");
@@ -671,6 +673,7 @@ const icons = {
   None,
   Constant,
   Terminal,
+  TerminalOutline,
   Arc,
   ArcFlow,
   ArcFunc,
