@@ -15,5 +15,5 @@ import (
 	"github.com/synnaxlabs/x/migrate"
 )
 
-// Migrations is the ordered migration chain for stored lineplots.
+// Migrations is the ordered migration chain for stored line plots.
 var Migrations = []migrate.Migration{v5.Migration, v6.Migration}

@@ -26,6 +26,6 @@ func migrateDevice(ctx context.Context, old v0.Device) (Device, error) {
 	return autoMigrateDevice(ctx, old)
 }
 
-// Migration lifts stored devices from v0 to v1, dropping the persisted status
-// and parent fields.
+// Migration lifts stored devices from v0 to v1, dropping the persisted status and
+// parent fields.
 var Migration = gorp.NewEntryMigration("v54_drop_status_parent", migrateDevice)

@@ -25,7 +25,7 @@ import (
 
 type mockMigration struct {
 	key string
-	fn  func(ctx context.Context, ins alamos.Instrumentation) error
+	fn  func(context.Context, alamos.Instrumentation) error
 }
 
 func (m *mockMigration) Key() string { return m.key }
@@ -36,7 +36,7 @@ func (m *mockMigration) Run(ctx context.Context, ins alamos.Instrumentation) err
 func newMock(key string, order *[]string) *mockMigration {
 	return &mockMigration{
 		key: key,
-		fn: func(_ context.Context, _ alamos.Instrumentation) error {
+		fn: func(context.Context, alamos.Instrumentation) error {
 			*order = append(*order, key)
 			return nil
 		},
@@ -46,7 +46,7 @@ func newMock(key string, order *[]string) *mockMigration {
 func noop(key string) *mockMigration {
 	return &mockMigration{
 		key: key,
-		fn:  func(_ context.Context, _ alamos.Instrumentation) error { return nil },
+		fn:  func(context.Context, alamos.Instrumentation) error { return nil },
 	}
 }
 

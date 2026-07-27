@@ -185,7 +185,8 @@ func newMigration(cfg MigrationConfig) migrate.Migration {
 	)
 }
 
-// codecMigration re-encodes stored ranges from MessagePack to the Orc value-color layout.
+// codecMigration re-encodes stored ranges from MessagePack to the Orc value-color
+// layout.
 var codecMigration = gorp.CodecMigration[Key, Range]("msgpack_to_orc")
 
 // NewMigrations returns the ordered set of migrations introduced at this version.

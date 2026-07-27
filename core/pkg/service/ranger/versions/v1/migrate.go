@@ -16,11 +16,11 @@ import (
 	"github.com/synnaxlabs/x/gorp"
 )
 
-// Migration converts every range from the Orc value-color layout (Color stored
-// inline) to the current nullable layout (Color a presence-flagged pointer). A
-// zero stored color denoted "no color" under the value layout, so it maps to nil. It
-// runs after the codec migration so it always reads the deterministic value-color
-// encoding that migration leaves behind.
+// Migration converts every range from the Orc value-color layout (Color stored inline)
+// to the current nullable layout (Color a presence-flagged pointer). A zero stored
+// color denoted "no color" under the value layout, so it maps to nil. It runs after the
+// codec migration so it always reads the deterministic value-color encoding that
+// migration leaves behind.
 var Migration = gorp.NewEntryMigration(
 	"range_color_nullable",
 	func(_ context.Context, old v0.Range) (Range, error) {

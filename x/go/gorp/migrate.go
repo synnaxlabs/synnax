@@ -20,14 +20,14 @@ import (
 
 // migration is a versioned schema migration that transforms entries stored in gorp.
 type migration struct {
-	// key is the migration's unique identifier, recorded in the
-	// applied-migrations set once the migration runs successfully.
+	// key is the migration's unique identifier, recorded in the applied-migrations set
+	// once the migration runs successfully.
 	key string
-	// tx is the gorp transaction the migration runs against. Bound by
-	// setMigrationTx just before Migrate executes.
+	// tx is the gorp transaction the migration runs against. Bound by setMigrationTx
+	// just before Migrate executes.
 	tx Tx
 	// fn is the migration body.
-	fn func(ctx context.Context, tx Tx, ins alamos.Instrumentation) error
+	fn func(context.Context, Tx, alamos.Instrumentation) error
 }
 
 var _ migrate.Migration = (*migration)(nil)
@@ -42,8 +42,8 @@ func (m *migration) Run(ctx context.Context, ins alamos.Instrumentation) error {
 
 const migrationProgressMax = 1000
 
-// progressLogger emits periodic info-level progress messages during a
-// long-running migration.
+// progressLogger emits periodic info-level progress messages during a long-running
+// migration.
 type progressLogger struct {
 	// ins is the instrumentation used to emit progress logs.
 	ins alamos.Instrumentation
@@ -63,8 +63,8 @@ func (p *progressLogger) logProgress() {
 	}
 }
 
-// shouldLogProgress returns true at logarithmically spaced intervals
-// (1, 10, 100, 1000) then every 1000 entries after that.
+// shouldLogProgress returns true at logarithmically spaced intervals (1, 10, 100, 1000)
+// then every 1000 entries after that.
 func (p *progressLogger) shouldLogProgress() bool {
 	if p.count <= 0 {
 		return false
@@ -82,54 +82,55 @@ func (p *progressLogger) shouldLogProgress() bool {
 }
 
 // NewEntryMigration creates a migration that iterates over all entries with the
-// configured prefix, decodes each as type I, transforms it to type O via the
-// transform function, and encodes the result. Both decoding and encoding use
-// the DB's codec from MigrationContext.
+// configured prefix, decodes each as type I, transforms it to type O via the transform
+// function, and encodes the result. Both decoding and encoding use the DB's codec from
+// MigrationContext.
 func NewEntryMigration[IK Key, OK Key, I Entry[IK], O Entry[OK]](
 	key string,
-	transform func(ctx context.Context, old I) (O, error),
+	transform func(context.Context, I) (O, error),
 ) migrate.Migration {
-	return NewMigration(key, func(ctx context.Context, tx Tx, ins alamos.Instrumentation) (err error) {
-		var (
-			reader   = WrapReader[IK, I](tx)
-			writer   = WrapWriter[OK, O](tx)
-			logger   = &progressLogger{key: key, ins: ins}
-			newEntry O
-		)
-		iter, err := reader.OpenIterator(IterOptions{})
-		if err != nil {
-			return err
-		}
-		defer func() {
-			err = errors.Combine(err, iter.Close())
-		}()
-		for iter.First(); iter.Valid(); iter.Next() {
-			logger.logProgress()
-			old := iter.Value(ctx)
-			if err = iter.Error(); err != nil {
-				return err
-			}
-			newEntry, err = transform(ctx, *old)
+	return NewMigration(
+		key,
+		func(ctx context.Context, tx Tx, ins alamos.Instrumentation) (err error) {
+			var (
+				reader   = WrapReader[IK, I](tx)
+				writer   = WrapWriter[OK, O](tx)
+				logger   = &progressLogger{key: key, ins: ins}
+				newEntry O
+			)
+			iter, err := reader.OpenIterator(IterOptions{})
 			if err != nil {
-				return errors.Wrapf(err, "entry %v (transform)", (*old).GorpKey())
-			}
-			if err = writer.Set(ctx, newEntry); err != nil {
 				return err
 			}
-		}
-		return err
+			defer func() { err = errors.Combine(err, iter.Close()) }()
+			for iter.First(); iter.Valid(); iter.Next() {
+				logger.logProgress()
+				old := iter.Value(ctx)
+				if err = iter.Error(); err != nil {
+					return err
+				}
+				newEntry, err = transform(ctx, *old)
+				if err != nil {
+					return errors.Wrapf(err, "entry %v (transform)", (*old).GorpKey())
+				}
+				if err = writer.Set(ctx, newEntry); err != nil {
+					return err
+				}
+			}
+			return err
 
-	})
+		},
+	)
 }
 
-// NewMigration creates a migration that receives a fully wrapped gorp.Tx,
-// allowing arbitrary read/write operations on the store.
+// NewMigration creates a migration that receives a fully wrapped gorp.Tx, allowing
+// arbitrary read/write operations on the store.
 //
-// The returned migrate.Migration will ONLY work properly when run within the
-// context of gorp.OpenTable or gorp.Migrate.
+// The returned migrate.Migration will ONLY work properly when run within the context of
+// gorp.OpenTable or gorp.Migrate.
 func NewMigration(
 	key string,
-	fn func(ctx context.Context, tx Tx, ins alamos.Instrumentation) error,
+	fn func(context.Context, Tx, alamos.Instrumentation) error,
 ) migrate.Migration {
 	return &migration{key: key, fn: fn}
 }
@@ -146,20 +147,17 @@ type MigrateConfig struct {
 	alamos.Instrumentation
 	// DB is the gorp DB to migrate.
 	DB *DB
-	// Namespace scopes the applied-migrations record key. Must be
-	// stable across runs so previously applied migrations are not
-	// re-run.
+	// Namespace scopes the applied-migrations record key. Must be stable across runs so
+	// previously applied migrations are not re-run.
 	Namespace string
-	// Migrations is the ordered set of migrations to consider.
-	// Migrations whose key is already in the applied set are skipped.
+	// Migrations is the ordered set of migrations to consider. Migrations whose key is
+	// already in the applied set are skipped.
 	Migrations []migrate.Migration
 }
 
 func Migrate(ctx context.Context, cfg MigrateConfig) (err error) {
 	txn := cfg.DB.OpenTx()
-	defer func() {
-		err = errors.Combine(err, txn.Close())
-	}()
+	defer func() { err = errors.Combine(err, txn.Close()) }()
 	for _, mig := range cfg.Migrations {
 		setMigrationTx(mig, txn)
 	}
@@ -182,26 +180,27 @@ func Migrate(ctx context.Context, cfg MigrateConfig) (err error) {
 }
 
 func CodecMigration[K Key, E Entry[K]](key string) migrate.Migration {
-	return NewMigration(key, func(ctx context.Context, tx Tx, ins alamos.Instrumentation) (err error) {
-		writer := WrapWriter[K, E](tx)
-		logger := &progressLogger{key: key, ins: ins}
-		iter, err := WrapReader[K, E](tx).OpenIterator(IterOptions{})
-		if err != nil {
-			return err
-		}
-		defer func() {
-			err = errors.Combine(err, iter.Close())
-		}()
-		for iter.First(); iter.Valid(); iter.Next() {
-			v := iter.Value(ctx)
-			logger.logProgress()
-			if err = iter.Error(); err != nil {
+	return NewMigration(
+		key,
+		func(ctx context.Context, tx Tx, ins alamos.Instrumentation) (err error) {
+			writer := WrapWriter[K, E](tx)
+			logger := &progressLogger{key: key, ins: ins}
+			iter, err := WrapReader[K, E](tx).OpenIterator(IterOptions{})
+			if err != nil {
 				return err
 			}
-			if err = writer.Set(ctx, *v); err != nil {
-				return err
+			defer func() { err = errors.Combine(err, iter.Close()) }()
+			for iter.First(); iter.Valid(); iter.Next() {
+				v := iter.Value(ctx)
+				logger.logProgress()
+				if err = iter.Error(); err != nil {
+					return err
+				}
+				if err = writer.Set(ctx, *v); err != nil {
+					return err
+				}
 			}
-		}
-		return nil
-	})
+			return nil
+		},
+	)
 }
