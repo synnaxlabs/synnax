@@ -1153,7 +1153,7 @@ var _ = Describe("Version-Laid-Out Packages", func() {
 		marshalPlugin = marshal.New(unversionedOptions())
 	})
 
-	It("Should emit the codec and its test into types/vN", func() {
+	It("Should emit the codec and its test into versions/vN", func() {
 		source := `
 			@go output "out"
 			@pb
@@ -1504,6 +1504,23 @@ var _ = Describe("Versioned codec requirement", func() {
 		req := MustGenerateRequest(ctx, source, "thing", loader)
 		Expect(marshal.New(marshal.DefaultOptions()).Generate(req)).
 			Error().To(MatchError(ContainSubstring("must be versioned")))
+	})
+
+	It("Should accept a marshalled type in a versions/vN package", func(ctx SpecContext) {
+		loader := NewMockFileLoader()
+		source := `
+			@go output "core/pkg/service/thing"
+			Thing struct {
+				@go version 2
+				key  uuid @key
+				name string
+				@go marshal
+			}
+		`
+		resp := MustGenerate(ctx, source, "thing", loader,
+			marshal.New(marshal.DefaultOptions()))
+		ExpectContent(resp, "core/pkg/service/thing/versions/v2/codec.gen.go").
+			ToContain("Thing) EncodeOrc")
 	})
 })
 

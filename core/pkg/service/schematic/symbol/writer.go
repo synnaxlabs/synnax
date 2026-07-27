@@ -38,6 +38,9 @@ func (w Writer) Create(
 	parent ontology.ID,
 ) (err error) {
 	s.ApplyDefaults()
+	if err = s.Validate(); err != nil {
+		return err
+	}
 	var exists bool
 	if s.Key == uuid.Nil {
 		s.Key = uuid.New()

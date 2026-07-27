@@ -24,14 +24,16 @@ var _ = Describe("Retrieve", func() {
 		sym1 = symbol.Symbol{
 			Name: "symbol-1",
 			Data: symbol.Spec{
-				SVG:    "<svg>1</svg>",
-				States: []symbol.State{{Key: "default", Name: "default"}},
+				SVG:     "<svg>1</svg>",
+				Variant: "valve",
+				States:  []symbol.State{{Key: "default", Name: "default"}},
 			},
 		}
 		sym2 = symbol.Symbol{
 			Name: "symbol-2",
 			Data: symbol.Spec{
-				SVG: "<svg>2</svg>",
+				SVG:     "<svg>2</svg>",
+				Variant: "valve",
 				States: []symbol.State{
 					{Key: "default", Name: "default"},
 					{Key: "active", Name: "active"},
@@ -41,7 +43,8 @@ var _ = Describe("Retrieve", func() {
 		sym3 = symbol.Symbol{
 			Name: "symbol-3",
 			Data: symbol.Spec{
-				SVG: "<svg>3</svg>",
+				SVG:     "<svg>3</svg>",
+				Variant: "valve",
 				States: []symbol.State{
 					{Key: "default", Name: "default"},
 					{Key: "active", Name: "active"},
@@ -102,7 +105,7 @@ var _ = Describe("Retrieve", func() {
 			// Create a symbol without transaction
 			symNoTx := symbol.Symbol{
 				Name: "no-tx-symbol",
-				Data: symbol.Spec{SVG: "<svg>no-tx</svg>"},
+				Data: symbol.Spec{SVG: "<svg>no-tx</svg>", Variant: "valve"},
 			}
 			Expect(svc.NewWriter(nil).Create(ctx, &symNoTx, proj.OntologyID())).To(Succeed())
 
@@ -135,7 +138,8 @@ var _ = Describe("Retrieve", func() {
 
 		It("Should handle large data correctly", func(ctx SpecContext) {
 			largeData := symbol.Spec{
-				SVG: "<svg>" + string(make([]byte, 10000)) + "</svg>",
+				SVG:     "<svg>" + string(make([]byte, 10000)) + "</svg>",
+				Variant: "valve",
 			}
 			for i := range 100 {
 				largeData.States = append(largeData.States, symbol.State{
