@@ -19,10 +19,10 @@ import (
 	"github.com/synnaxlabs/x/validate"
 )
 
-// magic is the 3-byte header written at the start of every ORC-encoded payload.
-// It allows quick format detection without trial decoding. The bytes spell "ORC"
-// in ASCII and do not conflict with msgpack (0x80-0xdf, 0xc0-0xd3) or JSON
-// (0x22-0x7b) leading bytes.
+// magic is the 3-byte header written at the start of every ORC-encoded payload. It
+// allows quick format detection without trial decoding. The bytes spell "ORC" in ASCII
+// and do not conflict with MessagePack (0x80-0xdf, 0xc0-0xd3) or JSON (0x22-0x7b)
+// leading bytes.
 const magicLen = 3
 
 var magic = [magicLen]byte{0x4F, 0x52, 0x43}
@@ -58,7 +58,7 @@ var (
 	readerPool = sync.Pool{New: func() any { return NewReader(nil) }}
 )
 
-// Codec is an orc implementation of encoding.Codec that requires all values to
+// Codec is an Orc implementation of encoding.Codec that requires all values to
 // implement SelfEncoder/SelfDecoder.
 var Codec = &codec{}
 
@@ -66,9 +66,9 @@ type codec struct {
 	fallback encoding.Codec
 }
 
-// NewCodec returns an orc codec that falls back to the given codec when a value
-// does not implement SelfEncoder (on encode) or when the data lacks the orc magic
-// header (on decode).
+// NewCodec returns an Orc codec that falls back to the given codec when a value does
+// not implement SelfEncoder (on encode) or when the data lacks the Orc magic header (on
+// decode).
 func NewCodec(fallback encoding.Codec) encoding.Codec {
 	return &codec{fallback: fallback}
 }

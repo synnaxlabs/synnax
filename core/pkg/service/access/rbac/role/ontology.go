@@ -41,7 +41,7 @@ var schema = zyn.Object(map[string]zyn.Schema{
 })
 
 func newResource(r Role) ontology.Resource {
-	return ontology.NewResource(schema, OntologyID(r.Key), r.Name, r)
+	return ontology.NewResource(schema, r.OntologyID(), r.Name, r)
 }
 
 type change = xchange.Change[Key, Role]

@@ -1861,7 +1861,7 @@ var _ = Describe("TS Types Plugin", func() {
 		})
 
 		Context("@omit directive", func() {
-			It("Should skip types with @ts omit directive", func(ctx SpecContext) {
+			It("Should skip types with @ts hand directive", func(ctx SpecContext) {
 				source := `
 					@ts output "out"
 
@@ -1872,7 +1872,7 @@ var _ = Describe("TS Types Plugin", func() {
 
 					InternalState struct {
 						cache record
-						@ts omit
+						@ts hand
 					}
 				`
 				resp := MustGenerate(ctx, source, "user", loader, typesPlugin)
@@ -1882,7 +1882,7 @@ var _ = Describe("TS Types Plugin", func() {
 				Expect(content).NotTo(ContainSubstring(`InternalState`))
 			})
 
-			It("Should skip enums with @ts omit directive", func(ctx SpecContext) {
+			It("Should skip enums with @ts hand directive", func(ctx SpecContext) {
 				source := `
 					@ts output "out"
 
@@ -1894,7 +1894,7 @@ var _ = Describe("TS Types Plugin", func() {
 					DebugLevel enum {
 						verbose = 0
 						trace = 1
-						@ts omit
+						@ts hand
 					}
 				`
 				resp := MustGenerate(ctx, source, "status", loader, typesPlugin)
@@ -2446,11 +2446,11 @@ var _ = Describe("TS Types Plugin", func() {
 					@ts output "x/ts/src/telem"
 
 					TimeSpan int64 {
-						@ts omit
+						@ts hand
 					}
 
 					Rate float64 {
-						@ts omit
+						@ts hand
 					}
 				`)
 			})
