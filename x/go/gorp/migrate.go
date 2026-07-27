@@ -15,7 +15,6 @@ import (
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/migrate"
-	"github.com/synnaxlabs/x/set"
 	"go.uber.org/zap"
 )
 
@@ -27,9 +26,6 @@ type migration struct {
 	// tx is the gorp transaction the migration runs against. Bound by
 	// setMigrationTx just before Migrate executes.
 	tx Tx
-	// dependencies lists keys of other migrations that must run before
-	// this one.
-	dependencies set.Set[string]
 	// fn is the migration body.
 	fn func(ctx context.Context, tx Tx, ins alamos.Instrumentation) error
 }
@@ -38,9 +34,6 @@ var _ migrate.Migration = (*migration)(nil)
 
 // Key implements migrate.Migration.
 func (m *migration) Key() string { return m.key }
-
-// Dependencies implements migrate.Migration.
-func (m *migration) Dependencies() set.Set[string] { return m.dependencies }
 
 // Run implements migrate.Migration.
 func (m *migration) Run(ctx context.Context, ins alamos.Instrumentation) error {
@@ -95,7 +88,6 @@ func (p *progressLogger) shouldLogProgress() bool {
 func NewEntryMigration[IK Key, OK Key, I Entry[IK], O Entry[OK]](
 	key string,
 	transform func(ctx context.Context, old I) (O, error),
-	deps ...string,
 ) migrate.Migration {
 	return NewMigration(key, func(ctx context.Context, tx Tx, ins alamos.Instrumentation) (err error) {
 		var (
@@ -127,7 +119,7 @@ func NewEntryMigration[IK Key, OK Key, I Entry[IK], O Entry[OK]](
 		}
 		return err
 
-	}, deps...)
+	})
 }
 
 // NewMigration creates a migration that receives a fully wrapped gorp.Tx,
@@ -138,13 +130,12 @@ func NewEntryMigration[IK Key, OK Key, I Entry[IK], O Entry[OK]](
 func NewMigration(
 	key string,
 	fn func(ctx context.Context, tx Tx, ins alamos.Instrumentation) error,
-	deps ...string,
 ) migrate.Migration {
-	return &migration{key: key, fn: fn, dependencies: set.New(deps...)}
+	return &migration{key: key, fn: fn}
 }
 
 func setMigrationTx(mig migrate.Migration, tx Tx) {
-	if tMig, ok := migrate.Unwrap(mig).(*migration); ok {
+	if tMig, ok := mig.(*migration); ok {
 		tMig.tx = tx
 	}
 }
@@ -190,7 +181,7 @@ func Migrate(ctx context.Context, cfg MigrateConfig) (err error) {
 	return txn.Commit(ctx)
 }
 
-func CodecMigration[K Key, E Entry[K]](key string, deps ...string) migrate.Migration {
+func CodecMigration[K Key, E Entry[K]](key string) migrate.Migration {
 	return NewMigration(key, func(ctx context.Context, tx Tx, ins alamos.Instrumentation) (err error) {
 		writer := WrapWriter[K, E](tx)
 		logger := &progressLogger{key: key, ins: ins}
@@ -212,5 +203,5 @@ func CodecMigration[K Key, E Entry[K]](key string, deps ...string) migrate.Migra
 			}
 		}
 		return nil
-	}, deps...)
+	})
 }

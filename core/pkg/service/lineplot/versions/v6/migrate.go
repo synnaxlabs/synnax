@@ -168,7 +168,7 @@ func migrateRules(in []v0.Rule) []Rule {
 // liftMigration lifts stored line plots from the v5 blob layout to the typed v6
 // shape.
 var liftMigration = gorp.NewEntryMigration(
-	"v55_lift_typed_lineplot", migrateLinePlot, v5.Migration.Key(),
+	"v55_lift_typed_lineplot", migrateLinePlot,
 )
 
 // Migrations is the ordered set of migrations introduced at this version.

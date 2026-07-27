@@ -85,7 +85,7 @@ func parseColor(hex string) color.Color {
 
 // liftMigration lifts stored logs from the v2 blob layout to the typed v3 shape.
 var liftMigration = gorp.NewEntryMigration(
-	"v55_lift_typed_log", MigrateLog, v2.Migration.Key(),
+	"v55_lift_typed_log", MigrateLog,
 )
 
 // Migrations is the ordered set of migrations introduced at this version.

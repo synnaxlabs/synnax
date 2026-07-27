@@ -75,7 +75,7 @@ func migrateCells(in map[string]v0.Cell) map[string]Cell {
 
 // liftMigration lifts stored tables from the v1 blob layout to the typed v2 shape.
 var liftMigration = gorp.NewEntryMigration(
-	"v55_lift_typed_table", migrateTable, v1.Migration.Key(),
+	"v55_lift_typed_table", migrateTable,
 )
 
 // Migrations is the ordered set of migrations introduced at this version.

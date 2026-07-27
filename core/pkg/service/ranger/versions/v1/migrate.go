@@ -17,13 +17,10 @@ import (
 	"github.com/synnaxlabs/x/migrate"
 )
 
-// v0Migrations resolves the final v0 migration key this version depends on.
-var v0Migrations = v0.NewMigrations(v0.MigrationConfig{})
-
 // colorNullableMigration converts every range from the Orc value-color layout (Color
 // stored inline) to the current nullable layout (Color a presence-flagged pointer). A
 // zero stored color denoted "no color" under the value layout, so it maps to nil. It
-// depends on the codec migration so it always reads the deterministic value-color
+// runs after the codec migration so it always reads the deterministic value-color
 // encoding that migration leaves behind.
 var colorNullableMigration = gorp.NewEntryMigration(
 	"range_color_nullable",
@@ -35,7 +32,6 @@ var colorNullableMigration = gorp.NewEntryMigration(
 		}
 		return rng, nil
 	},
-	v0Migrations[len(v0Migrations)-1].Key(),
 )
 
 // Migrations is the ordered set of migrations introduced at this version.

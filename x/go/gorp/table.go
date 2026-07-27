@@ -131,11 +131,9 @@ func OpenTable[K Key, E Entry[K]](
 	ctx context.Context,
 	cfg TableConfig[K, E],
 ) (_ *Table[K, E], err error) {
-	wrapped := make([]migrate.Migration, len(cfg.Migrations)+1)
-	copy(wrapped[1:], cfg.Migrations)
-	wrapped[0] = normalizeKeysMigration[K, E]()
-	withDeps := migrate.AllWithAddedDeps(wrapped[1:], normalizeKeysMigrationKey)
-	copy(wrapped[1:], withDeps)
+	wrapped := make([]migrate.Migration, 0, len(cfg.Migrations)+1)
+	wrapped = append(wrapped, normalizeKeysMigration[K, E]())
+	wrapped = append(wrapped, cfg.Migrations...)
 	if err = Migrate(ctx, MigrateConfig{
 		DB:              cfg.DB,
 		Namespace:       types.Name[E](),

@@ -266,7 +266,7 @@ func stringOrEmpty(s *string) string {
 
 // liftMigration lifts stored schematics from the v6 blob layout to the typed v7 shape.
 var liftMigration = gorp.NewEntryMigration(
-	"v55_lift_typed_schematic", migrateSchematic, v6.Migration.Key(),
+	"v55_lift_typed_schematic", migrateSchematic,
 )
 
 // Migrations is the ordered set of migrations introduced at this version.
