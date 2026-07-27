@@ -305,6 +305,7 @@ std::vector<AuthorityChange> State::flush_authority_changes() {
 }
 
 void Node::init_input(size_t param_index, const Series &data, const Series &time) {
+    if (param_index >= this->inputs.size()) return;
     if (this->accumulated[param_index].source == NO_SOURCE) return;
     auto &src = this->state.values[this->accumulated[param_index].source];
     src.data = data;

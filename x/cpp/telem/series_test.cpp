@@ -2280,6 +2280,16 @@ TEST(SeriesCopyFrom, ReusesTheReceiversBufferAcrossCopies) {
     ASSERT_EQ(dst.values<int64_t>(), std::vector<int64_t>({7}));
 }
 
+/// @brief copy_from() should replace a shared buffer instead of writing through it.
+TEST(SeriesCopyFrom, ReplacesABufferSharedViaShallowCopy) {
+    Series dst(std::vector<int64_t>{1, 2, 3});
+    const Series shared = dst.shallow_copy();
+    dst.copy_from(Series(std::vector<int64_t>{7, 8, 9}));
+    ASSERT_NE(dst.data(), shared.data());
+    ASSERT_EQ(shared.values<int64_t>(), std::vector<int64_t>({1, 2, 3}));
+    ASSERT_EQ(dst.values<int64_t>(), std::vector<int64_t>({7, 8, 9}));
+}
+
 /// @brief copy_from() should work with variable density types.
 TEST(SeriesCopyFrom, WorksWithVariableDensityTypes) {
     const Series src(std::vector<std::string>{"foo", "bar"});

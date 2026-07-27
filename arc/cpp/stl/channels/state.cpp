@@ -137,17 +137,13 @@ void State::write_series(
     this->write_value(key, data, time);
 }
 
-void State::clear_reads() {
+void State::flush_into(x::telem::Frame &out) {
     for (auto &series_vec: this->reads | std::views::values) {
         if (series_vec.size() <= 1) continue;
         auto last = std::move(series_vec.back());
         series_vec.clear();
         series_vec.push_back(std::move(last));
     }
-}
-
-void State::flush_into(x::telem::Frame &out) {
-    this->clear_reads();
     for (const auto key: this->active_write_keys) {
         auto it = this->writes.find(key);
         if (it == this->writes.end() || it->second == nullptr || it->second->empty())

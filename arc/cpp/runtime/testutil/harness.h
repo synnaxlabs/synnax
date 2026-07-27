@@ -57,6 +57,8 @@ class Harness {
     std::shared_ptr<wasm::Module> wasm_module;
     std::unique_ptr<scheduler::Scheduler> sched;
     x::telem::Alignment alignment;
+    /// @brief holds writes drained by advance() until the next flush().
+    mutable x::telem::Frame pending;
 
 public:
     Harness(const synnax::Synnax &client, const std::string &source):
@@ -192,15 +194,16 @@ public:
         this->node_state->ingest(fr);
     }
 
-    [[nodiscard]] x::telem::Frame flush() const {
-        x::telem::Frame fr;
-        this->node_state->flush_into(fr);
-        return fr;
-    }
+    /// @brief drains the cycle's writes into the pending frame, matching what the
+    /// runtime loop does after every tick.
+    void drain() const { this->node_state->flush_into(this->pending); }
 
-    /// @brief clears accumulated channel read buffers while preserving the latest
-    /// series for each channel.
-    void clear_reads() const { this->channel_state->clear_reads(); }
+    [[nodiscard]] x::telem::Frame flush() const {
+        this->node_state->flush_into(this->pending);
+        auto out = std::move(this->pending);
+        this->pending = x::telem::Frame();
+        return out;
+    }
 
     [[nodiscard]] x::telem::Series
     output(const std::string &node_key, const size_t param_idx) const {

@@ -201,6 +201,39 @@ func double(val f32) f32 {
     ASSERT_NE(node, nullptr);
 }
 
+/// @brief Factory::create rejects a node whose params do not match its signature.
+TEST(FactoryTest, CreateReturnsErrorWhenParamsMismatchSignature) {
+    const auto client = new_test_client();
+    const auto ch = ASSERT_NIL_P(
+        client.channels.create(random_name("input"), x::telem::FLOAT32_T, true)
+    );
+
+    const std::string source = R"(
+func double(val f32) f32 {
+    return val * 2.0
+}
+)" + ch.name + " -> double{}";
+
+    auto mod = testutil::compile_text(client, source);
+    auto wasm_mod = ASSERT_NIL_P(wasm::Module::open({.program = mod}));
+    wasm::Factory factory(wasm_mod);
+
+    const auto *func_node = find_node_by_type(mod, "double");
+    ASSERT_NE(func_node, nullptr);
+
+    state::State state(
+        state::Config{.ir = (static_cast<arc::ir::IR>(mod)), .channels = {}},
+        arc::runtime::errors::noop_handler
+    );
+    auto node_state = ASSERT_NIL_P(state.node(func_node->key));
+
+    const arc::ir::IR prog = static_cast<arc::ir::IR>(mod);
+    auto mismatched = *func_node;
+    mismatched.outputs.clear();
+    node::Config cfg(prog, mismatched, std::move(node_state));
+    ASSERT_OCCURRED_AS_P(factory.create(std::move(cfg)), x::errors::VALIDATION);
+}
+
 /// @brief Node::next returns early and doesn't mark outputs when no inputs refreshed.
 TEST(NodeTest, NextReturnsEarlyWhenNoInputsRefreshed) {
     const auto client = new_test_client();

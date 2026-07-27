@@ -64,6 +64,9 @@ inline std::string dispatch_set(
 inline x::errors::Error
 validate_string(const ::arc::types::Params &params, const std::string &name) {
     const auto &p = params[name];
+    // A var-bound param takes its value from the variable at fire time, so the
+    // declared initial carries no contract.
+    if (p.type.kind == ::arc::types::Kind::VarRef) return x::errors::NIL;
     const auto sv = ::arc::types::to_sample_value(p.value, p.type);
     if (sv.has_value() && std::holds_alternative<std::string>(*sv))
         return x::errors::NIL;

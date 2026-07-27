@@ -68,7 +68,7 @@ public:
     /// @brief ticks the scheduler with the given elapsed time.
     void advance(const x::telem::TimeSpan elapsed) {
         this->harness.tick(elapsed);
-        this->harness.clear_reads();
+        this->harness.drain();
     }
 
     /// @brief ticks the scheduler long enough for the on-channel-read -> entry -> step
