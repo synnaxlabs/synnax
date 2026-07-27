@@ -97,6 +97,10 @@ public:
 
     void write_series(types::ChannelKey key, const Series &data, const Series &time);
 
+    /// @brief clears accumulated channel read buffers while preserving the latest
+    /// series for each channel.
+    void clear_reads();
+
     /// @brief flushes read and write state directly into the provided frame, avoiding
     /// intermediate allocations.
     void flush_into(x::telem::Frame &out);

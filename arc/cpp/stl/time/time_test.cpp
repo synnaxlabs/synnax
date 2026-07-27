@@ -1421,13 +1421,6 @@ TEST(WaitVarTest, StaysOneShotAfterAShorteningWrite) {
     );
 }
 
-/// @brief replaces every occurrence of from in s with to.
-std::string replace_all(std::string s, const std::string &from, const std::string &to) {
-    for (size_t at = s.find(from); at != std::string::npos; at = s.find(from, at))
-        s.replace(at, from.size(), to);
-    return s;
-}
-
 /// @brief compiles source and creates every timer node through a fresh time Host,
 /// returning the resulting base_interval. The %a% and %b% placeholders stand in for
 /// the channels the sources write to.
@@ -1441,7 +1434,11 @@ compile_base(const synnax::Synnax &client, const std::string &source) {
     );
     const auto prog = runtime::testutil::compile_text(
         client,
-        replace_all(replace_all("import time\n" + source, "%a%", a.name), "%b%", b.name)
+        runtime::testutil::replace_all(
+            runtime::testutil::replace_all("import time\n" + source, "%a%", a.name),
+            "%b%",
+            b.name
+        )
     );
     auto factory = std::make_shared<Module>();
     runtime::state::State s(

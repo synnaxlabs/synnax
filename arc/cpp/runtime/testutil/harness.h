@@ -198,6 +198,10 @@ public:
         return fr;
     }
 
+    /// @brief clears accumulated channel read buffers while preserving the latest
+    /// series for each channel.
+    void clear_reads() const { this->channel_state->clear_reads(); }
+
     [[nodiscard]] x::telem::Series
     output(const std::string &node_key, const size_t param_idx) const {
         auto [n, err] = this->node_state->node(node_key);
