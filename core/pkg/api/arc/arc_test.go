@@ -19,7 +19,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	arc "github.com/synnaxlabs/synnax/pkg/service/arc"
-	"github.com/synnaxlabs/synnax/pkg/service/user"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/spatial"
 	. "github.com/synnaxlabs/x/testutil"
@@ -40,7 +39,7 @@ func createArc(ctx context.Context, name string) arc.Arc {
 var _ = Describe("Service.Retrieve", func() {
 	It("Should omit missing keys from a multi-key retrieve instead of failing", func(ctx SpecContext) {
 		a := createArc(ctx, "partial-survivor")
-		grantOn(ctx, user.OntologyID(author.Key), access.ActionRetrieve, arc.OntologyID(a.Key))
+		grantOn(ctx, author.OntologyID(), access.ActionRetrieve, arc.OntologyID(a.Key))
 		res := MustSucceed(apiSvc.Retrieve(authedCtx(ctx, author), RetrieveRequest{
 			Keys:                []arc.Key{a.Key, uuid.New()},
 			IgnoreNotFoundError: true,
@@ -73,7 +72,7 @@ var _ = Describe("Service.Dispatch", func() {
 
 		It("Should accept the request when the subject's policy permits update on the target Arc", func(ctx SpecContext) {
 			a := createArc(ctx, "with-policy")
-			grantUpdateOn(ctx, user.OntologyID(author.Key), arc.OntologyID(a.Key))
+			grantUpdateOn(ctx, author.OntologyID(), a.OntologyID())
 			Expect(apiSvc.Dispatch(authedCtx(ctx, author), db, DispatchRequest{
 				Key:         a.Key,
 				DispatchKey: "sess-1",
@@ -92,7 +91,7 @@ var _ = Describe("Service.Dispatch", func() {
 		It("Should reject when the subject's policy targets a different Arc", func(ctx SpecContext) {
 			a := createArc(ctx, "policy-target")
 			b := createArc(ctx, "no-policy-target")
-			grantUpdateOn(ctx, user.OntologyID(author.Key), arc.OntologyID(a.Key))
+			grantUpdateOn(ctx, author.OntologyID(), a.OntologyID())
 			Expect(apiSvc.Dispatch(authedCtx(ctx, author), db, DispatchRequest{
 				Key:         b.Key,
 				DispatchKey: "sess-1",
@@ -106,7 +105,7 @@ var _ = Describe("Service.Dispatch", func() {
 	Describe("delegation to Writer.Dispatch", func() {
 		It("Should apply a multi-action sequence to the target Arc", func(ctx SpecContext) {
 			a := createArc(ctx, "multi-action")
-			grantUpdateOn(ctx, user.OntologyID(author.Key), arc.OntologyID(a.Key))
+			grantUpdateOn(ctx, author.OntologyID(), a.OntologyID())
 			Expect(apiSvc.Dispatch(authedCtx(ctx, author), db, DispatchRequest{
 				Key:         a.Key,
 				DispatchKey: "sess-1",
@@ -126,7 +125,7 @@ var _ = Describe("Service.Dispatch", func() {
 
 		It("Should bubble up query.ErrNotFound when the target Arc does not exist", func(ctx SpecContext) {
 			missing := uuid.New()
-			grantUpdateOn(ctx, user.OntologyID(author.Key), arc.OntologyID(missing))
+			grantUpdateOn(ctx, author.OntologyID(), arc.OntologyID(missing))
 			Expect(apiSvc.Dispatch(authedCtx(ctx, author), db, DispatchRequest{
 				Key:         missing,
 				DispatchKey: "sess-1",
@@ -140,7 +139,7 @@ var _ = Describe("Service.Dispatch", func() {
 	Describe("subject identity propagation", func() {
 		It("Should pass the DispatchKey verbatim into the action observer", func(ctx SpecContext) {
 			a := createArc(ctx, "session-propagation")
-			grantUpdateOn(ctx, user.OntologyID(author.Key), arc.OntologyID(a.Key))
+			grantUpdateOn(ctx, author.OntologyID(), a.OntologyID())
 			seen := make(chan scopedAction, 1)
 			DeferCleanup(arcSvc.OnAction(func(_ context.Context, sa scopedAction) {
 				seen <- sa

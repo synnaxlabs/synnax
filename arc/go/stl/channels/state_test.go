@@ -95,9 +95,9 @@ var _ = Describe("ProgramState", func() {
 		})
 
 		It("Should handle ingestion of channels not in digests", func() {
-			s.Ingest(telem.UnaryFrame[uint32](999, telem.NewSeriesV[float64](1.0)))
+			s.Ingest(telem.UnaryFrame[uint32](999, telem.NewSeriesV(1.0)))
 			ser := MustBeOk(s.ReadValue(999))
-			Expect(ser).To(telem.MatchSeries(telem.NewSeriesV[float64](1.0)))
+			Expect(ser).To(telem.MatchSeries(telem.NewSeriesV(1.0)))
 		})
 
 		It("Should handle an empty frame without panicking", func() {
@@ -106,14 +106,14 @@ var _ = Describe("ProgramState", func() {
 
 		It("Should handle series with boundary float values", func() {
 			s.Ingest(telem.UnaryFrame[uint32](
-				5, telem.NewSeriesV[float64](math.MaxFloat64, math.SmallestNonzeroFloat64, math.Inf(1), math.Inf(-1)),
+				5, telem.NewSeriesV(math.MaxFloat64, math.SmallestNonzeroFloat64, math.Inf(1), math.Inf(-1)),
 			))
 			ser := MustBeOk(s.ReadValue(5))
 			Expect(ser.Len()).To(Equal(int64(4)))
 		})
 
 		It("Should handle series with NaN values", func() {
-			s.Ingest(telem.UnaryFrame[uint32](5, telem.NewSeriesV[float64](math.NaN())))
+			s.Ingest(telem.UnaryFrame[uint32](5, telem.NewSeriesV(math.NaN())))
 			ser := MustBeOk(s.ReadValue(5))
 			Expect(ser.Len()).To(Equal(int64(1)))
 			Expect(math.IsNaN(telem.ValueAt[float64](ser, 0))).To(BeTrue())
@@ -162,7 +162,7 @@ var _ = Describe("ProgramState", func() {
 
 		It("Should return the latest series after many ingestions", func() {
 			for i := range 100 {
-				s.Ingest(telem.UnaryFrame[uint32](3, telem.NewSeriesV[int32](int32(i))))
+				s.Ingest(telem.UnaryFrame[uint32](3, telem.NewSeriesV(int32(i))))
 			}
 			ser := MustBeOk(s.ReadValue(3))
 			Expect(telem.ValueAt[int32](ser, 0)).To(Equal(int32(99)))
@@ -205,11 +205,11 @@ var _ = Describe("ProgramState", func() {
 		})
 
 		It("Should handle writes to channels not in digests", func() {
-			s.WriteValue(888, telem.NewSeriesV[float64](3.14))
+			s.WriteValue(888, telem.NewSeriesV(3.14))
 			fr, changed := s.Flush(telem.Frame[uint32]{})
 			Expect(changed).To(BeTrue())
 			Expect(fr.Get(888).Series[0]).To(
-				telem.MatchSeries(telem.NewSeriesV[float64](3.14)),
+				telem.MatchSeries(telem.NewSeriesV(3.14)),
 			)
 		})
 	})
@@ -322,7 +322,7 @@ var _ = Describe("ProgramState", func() {
 		})
 
 		It("Should write time to index channel", func() {
-			data := telem.NewSeriesV[float64](9.9)
+			data := telem.NewSeriesV(9.9)
 			time := telem.NewSeriesSecondsTSV(500)
 			s.WriteChannel(5, data, time)
 			fr, _ := s.Flush(telem.Frame[uint32]{})

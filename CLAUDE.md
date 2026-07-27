@@ -16,6 +16,10 @@ telemetry. Monorepo:
 - **Oracle** (`/oracle/`, Go) generates Go/TS/Python/C++/proto bindings from `.oracle`
   schemas in `/schemas/`. Never hand-edit generated code. See `oracle/CLAUDE.md`.
 
+Arc, Cesium, Aspen, Core, Console, Pluto, Freighter, Alamos, Gorp, Drift, Driver,
+Oracle, and X are proper nouns — capitalize them in prose (comments, docs, commit
+messages, PRs).
+
 ## Documentation
 
 Language and component rules auto-load from package-root `CLAUDE.md` stubs when you

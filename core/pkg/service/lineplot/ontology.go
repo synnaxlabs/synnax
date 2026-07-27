@@ -38,7 +38,7 @@ func OntologyIDs(keys []Key) []ontology.ID {
 // OntologyIDsFromLinePlots returns the ontology IDs of the schematics.
 func OntologyIDsFromLinePlots(linePlots []LinePlot) []ontology.ID {
 	return lo.Map(linePlots, func(linePlot LinePlot, _ int) ontology.ID {
-		return OntologyID(linePlot.Key)
+		return linePlot.OntologyID()
 	})
 }
 
@@ -47,7 +47,7 @@ var schema = zyn.Object(map[string]zyn.Schema{"key": zyn.UUID(), "name": zyn.Str
 func newResource(linePlot LinePlot) ontology.Resource {
 	return ontology.NewResource(
 		schema,
-		OntologyID(linePlot.Key),
+		linePlot.OntologyID(),
 		linePlot.Name,
 		linePlot,
 	)

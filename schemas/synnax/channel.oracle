@@ -7,10 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import "schemas/x/telem"
 import "schemas/synnax/node"
-import "schemas/x/control"
 import "schemas/synnax/status"
+import "schemas/x/control"
+import "schemas/x/telem"
 
 @ts output  "client/ts/src/channel"
 @py output  "client/py/synnax/channel"
@@ -24,7 +24,7 @@ Key uint32 {
         assignment while maintaining global uniqueness.
     """
     @go output    "core/pkg/service/channel"
-    @go omit
+    @go hand
     @ts to_number
 }
 
@@ -35,12 +35,13 @@ LocalKey uint20 {
         Key.
     """
     @go output "core/pkg/service/channel"
-    @go omit
+    @go hand
     @py omit
     @cpp omit
 }
 
 Name = string {
+    @go version        0
     @doc value         """
         is a human-readable name for a channel. Must start with a letter or
         underscore and contain only letters, digits, and underscores. Names are
@@ -57,8 +58,9 @@ OperationType enum {
     none       = "none"
     derivative = "derivative"
 
-    @doc value "is the type of aggregation operation to apply to channel data over time."
-    @go output "core/pkg/service/channel"
+    @go version 0
+    @doc value  "is the type of aggregation operation to apply to channel data over time."
+    @go output  "core/pkg/service/channel"
     @pb
 }
 
@@ -76,12 +78,13 @@ Operation struct {
         @doc value "is the time window for aggregation when reset_channel is 0."
     }
 
-    @doc value """
+    @go version 0
+    @doc value  """
         defines an aggregation operation applied to channel data. Operations
         calculate min, max, or average values over a time duration or triggered
         by a reset channel.
     """
-    @go output "core/pkg/service/channel"
+    @go output  "core/pkg/service/channel"
     @pb
 }
 
@@ -152,13 +155,14 @@ Channel struct {
     @go output     "core/pkg/service/channel"
     @go marshal
     @go migrate
+    @go version    0
     @retrieve
     @retrieve key  "Key"
     @search
     @ontology type "channel"
-    @py omit
-    @ts omit
-    @cpp omit
+    @py hand
+    @ts hand
+    @cpp hand
     @pb
 }
 

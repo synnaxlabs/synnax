@@ -42,9 +42,6 @@ func KeysFromOntologyIDs(ids []ontology.ID) (Keys, error) {
 	})
 }
 
-// OntologyID returns the ontology.ID for the channel.
-func (c Channel) OntologyID() ontology.ID { return OntologyID(c.Key()) }
-
 // OntologyIDsFromChannels returns the ontology.ID for each channel.
 func OntologyIDsFromChannels(chs []Channel) []ontology.ID {
 	return lo.Map(chs, func(item Channel, _ int) ontology.ID {
@@ -63,27 +60,6 @@ var schema = zyn.Object(map[string]zyn.Schema{
 	"virtual":     zyn.Bool(),
 	"expression":  zyn.String(),
 })
-
-// ToPayload returns a map representation of the channel for use in ontology resources
-// and signal marshaling. The "operations" key is omitted when the channel has no
-// operations.
-func (c Channel) ToPayload() map[string]any {
-	p := map[string]any{
-		"key":         c.Key(),
-		"name":        c.Name,
-		"leaseholder": c.Leaseholder,
-		"is_index":    c.IsIndex,
-		"index":       c.Index(),
-		"data_type":   c.DataType,
-		"internal":    c.Internal,
-		"virtual":     c.Virtual,
-		"expression":  c.Expression,
-	}
-	if len(c.Operations) > 0 {
-		p["operations"] = c.Operations
-	}
-	return p
-}
 
 func newResource(c Channel) ontology.Resource {
 	return ontology.NewResource(schema, OntologyID(c.Key()), c.Name, c.ToPayload())

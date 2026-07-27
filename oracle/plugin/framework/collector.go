@@ -39,7 +39,7 @@ func NewCollector(domain string, req *plugin.Request) *Collector {
 	return &Collector{
 		entries:       make([]PathEntry, 0),
 		pathFunc:      func(typ resolution.Type) string { return output.GetPath(typ, domain) },
-		skipFunc:      func(typ resolution.Type) bool { return omit.IsType(typ, domain) },
+		skipFunc:      func(typ resolution.Type) bool { return omit.IsSkipped(typ, domain) },
 		validatePaths: req.RepoRoot != "",
 		request:       req,
 	}

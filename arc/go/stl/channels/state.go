@@ -13,7 +13,7 @@ import (
 	"slices"
 
 	"github.com/synnaxlabs/x/telem"
-	xunsafe "github.com/synnaxlabs/x/unsafe"
+	"github.com/synnaxlabs/x/unsafe"
 )
 
 // Digest provides metadata about a channel for state initialization.
@@ -190,7 +190,7 @@ func appendFixedWriteSample[T telem.FixedSample](cs *ProgramState, key uint32, v
 	sampleStart := len(acc.Data)
 	acc.Data = slices.Grow(acc.Data, den)
 	acc.Data = acc.Data[:sampleStart+den]
-	xunsafe.CastSlice[byte, T](acc.Data)[sampleStart/den] = value
+	unsafe.CastSlice[byte, T](acc.Data)[sampleStart/den] = value
 	cs.writes[key] = acc
 }
 

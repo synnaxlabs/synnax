@@ -324,6 +324,51 @@ var _ = Describe("Diagnostics", func() {
 			expected := "1:0 error: first error\n2:10 warning: a warning"
 			Expect(d.String()).To(Equal(expected))
 		})
+
+		It("Should prefix the source file when set", func() {
+			var d diagnostics.Diagnostics
+			d.Add(diagnostics.Diagnostic{
+				File:     "schemas/synnax/ranger.oracle",
+				Start:    diagnostics.Position{Line: 10, Col: 5},
+				Severity: diagnostics.SeverityError,
+				Message:  "undefined symbol",
+			})
+			Expect(d.String()).To(Equal(
+				"schemas/synnax/ranger.oracle 10:5 error: undefined symbol",
+			))
+		})
+
+		It("Should prefix the source file on coded diagnostics", func() {
+			var d diagnostics.Diagnostics
+			d.Add(diagnostics.Diagnostic{
+				File:     "schemas/x/telem.oracle",
+				Code:     "E100",
+				Start:    diagnostics.Position{Line: 3, Col: 1},
+				Severity: diagnostics.SeverityWarning,
+				Message:  "deprecated field",
+			})
+			Expect(d.String()).To(Equal(
+				"schemas/x/telem.oracle 3:1 warning [E100]: deprecated field",
+			))
+		})
+
+		It("Should only prefix diagnostics that carry a file", func() {
+			var d diagnostics.Diagnostics
+			d.Add(diagnostics.Diagnostic{
+				File:     "schemas/x/color.oracle",
+				Start:    diagnostics.Position{Line: 1, Col: 0},
+				Severity: diagnostics.SeverityError,
+				Message:  "first error",
+			})
+			d.Add(diagnostics.Diagnostic{
+				Start:    diagnostics.Position{Line: 2, Col: 10},
+				Severity: diagnostics.SeverityWarning,
+				Message:  "a warning",
+			})
+			expected := "schemas/x/color.oracle 1:0 error: first error\n" +
+				"2:10 warning: a warning"
+			Expect(d.String()).To(Equal(expected))
+		})
 	})
 
 	Describe("Add methods with nil context", func() {

@@ -987,4 +987,71 @@ var _ = Describe("Control", func() {
 			}
 		})
 	})
+
+	Describe("ResourceAt", func() {
+		at := func(ts telem.TimeStamp) telem.TimeRange { return ts.Range(ts + 1) }
+		openAt := func(value int, tr telem.TimeRange) *control.Gate[testResource] {
+			cfg, _ := baseConfig(value)
+			cfg.TimeRange = tr
+			cfg.Subject.Key = fmt.Sprintf("gate-%d", value)
+			g, _ := MustSucceed2(c.OpenGate(cfg))
+			return g
+		}
+
+		It("Should return the resource held by the region covering the time range", func() {
+			// Opened out of chronological order so that a lookup keyed off insertion
+			// order or sort position resolves a different region than the correct one.
+			openAt(2, (20 * telem.SecondTS).Range(30*telem.SecondTS))
+			openAt(1, (0 * telem.SecondTS).Range(10*telem.SecondTS))
+			openAt(3, (40 * telem.SecondTS).Range(50*telem.SecondTS))
+			Expect(MustBeOk(c.ResourceAt(at(5 * telem.SecondTS)))).To(Equal(testResource{value: 1}))
+			Expect(MustBeOk(c.ResourceAt(at(25 * telem.SecondTS)))).To(Equal(testResource{value: 2}))
+			Expect(MustBeOk(c.ResourceAt(at(45 * telem.SecondTS)))).To(Equal(testResource{value: 3}))
+		})
+
+		It("Should resolve a region that the time range only partially overlaps", func() {
+			openAt(1, (10 * telem.SecondTS).Range(20*telem.SecondTS))
+			Expect(MustBeOk(c.ResourceAt((5 * telem.SecondTS).Range(15 * telem.SecondTS)))).
+				To(Equal(testResource{value: 1}))
+			Expect(MustBeOk(c.ResourceAt((15 * telem.SecondTS).Range(25 * telem.SecondTS)))).
+				To(Equal(testResource{value: 1}))
+		})
+
+		It("Should report no resource for a time range falling between regions", func() {
+			openAt(1, (0 * telem.SecondTS).Range(10*telem.SecondTS))
+			openAt(2, (20 * telem.SecondTS).Range(30*telem.SecondTS))
+			Expect(c.ResourceAt(at(15 * telem.SecondTS))).To(Equal(testResource{}))
+		})
+
+		It("Should report no resource for a time range past every region", func() {
+			openAt(1, (0 * telem.SecondTS).Range(10*telem.SecondTS))
+			Expect(c.ResourceAt(at(50 * telem.SecondTS))).To(Equal(testResource{}))
+		})
+
+		It("Should report no resource when the controller holds no regions", func() {
+			Expect(c.ResourceAt(at(5 * telem.SecondTS))).To(Equal(testResource{}))
+		})
+
+		It("Should report no resource once the region's last gate is released", func() {
+			g := openAt(1, (0 * telem.SecondTS).Range(10*telem.SecondTS))
+			Expect(MustBeOk(c.ResourceAt(at(5 * telem.SecondTS)))).To(Equal(testResource{value: 1}))
+			g.Release()
+			Expect(c.ResourceAt(at(5 * telem.SecondTS))).To(Equal(testResource{}))
+		})
+
+		It("Should return the shared resource to every gate bound to the same region", func() {
+			cfg, createCount := baseConfig(1)
+			cfg.TimeRange = (0 * telem.SecondTS).Range(20 * telem.SecondTS)
+			MustSucceed2(c.OpenGate(cfg))
+			second, _ := baseConfig(2)
+			second.TimeRange = (10 * telem.SecondTS).Range(30 * telem.SecondTS)
+			second.Subject.Key = "second"
+			MustSucceed2(c.OpenGate(second))
+			// The second gate joined the first gate's region, so its OpenResource is
+			// never called and both stamps resolve to the resource opened for the first.
+			Expect(createCount()).To(Equal(1))
+			Expect(MustBeOk(c.ResourceAt(at(5 * telem.SecondTS)))).To(Equal(testResource{value: 1}))
+			Expect(MustBeOk(c.ResourceAt(at(25 * telem.SecondTS)))).To(Equal(testResource{value: 1}))
+		})
+	})
 })

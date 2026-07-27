@@ -11,9 +11,7 @@
 
 package pb
 
-import (
-	"github.com/synnaxlabs/x/color"
-)
+import "github.com/synnaxlabs/x/color"
 
 // ColorToPB converts Color to Color.
 func ColorToPB(r color.Color) (*Color, error) {
