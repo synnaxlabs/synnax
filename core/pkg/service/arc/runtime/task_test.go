@@ -1309,4 +1309,147 @@ var _ = Describe("Task", Ordered, func() {
 			Expect(foundValid).To(BeTrue(), "Expected to receive valid output (5) after error")
 		})
 	})
+
+	Describe("Channel Trigger Alignment", func() {
+		// Stage-entry Reset anchors the trigger's mark to the last buffered series, so
+		// index-less sessions poison it only when buffered before watch entry; the
+		// while-watching entry covers the injection ordering after entry.
+		DescribeTable("fires channel-triggered transitions across writer sessions",
+			func(ctx SpecContext, rogueSessions int, roguesAfterEntry bool) {
+				suffix := uuid.NewString()[:8]
+				idxCh := &channel.Channel{
+					Name:     "trig_align_idx_" + suffix,
+					IsIndex:  true,
+					DataType: telem.TimeStampT,
+				}
+				Expect(dist.Channel.Create(ctx, idxCh)).To(Succeed())
+				p3 := &channel.Channel{
+					Name:       "trig_align_p3_" + suffix,
+					LocalIndex: idxCh.LocalKey,
+					DataType:   telem.Float32T,
+				}
+				Expect(dist.Channel.Create(ctx, p3)).To(Succeed())
+				goCh := &channel.Channel{
+					Name:     "trig_align_go_" + suffix,
+					Virtual:  true,
+					DataType: telem.Uint8T,
+				}
+				Expect(dist.Channel.Create(ctx, goCh)).To(Succeed())
+				marker := &channel.Channel{
+					Name:     "trig_align_marker_" + suffix,
+					Virtual:  true,
+					DataType: telem.Uint8T,
+				}
+				Expect(dist.Channel.Create(ctx, marker)).To(Succeed())
+
+				prog := arc.Text{
+					Raw: fmt.Sprintf(`
+						sequence cooldown {
+							stage watch {
+								(%s < 10) => done
+							}
+							stage done {
+								1 -> %s
+							}
+						}
+
+						%s => cooldown
+					`, p3.Name, marker.Name, goCh.Name),
+				}
+
+				p3Out, closeP3 := openTestStreamer(ctx, channel.Keys{p3.Key()}, 10)
+				defer closeP3()
+				markerOut, closeMarker := openTestStreamer(ctx, channel.Keys{marker.Key()}, 2)
+				defer closeMarker()
+
+				t := newTask(ctx, newTextFactory(ctx, prog))
+				Expect(t.Exec(ctx, task.Command{Type: "start"})).To(Succeed())
+				defer func() { Expect(t.Stop()).To(Succeed()) }()
+
+				By("Streaming p3 above the threshold from the sim session")
+				sim1 := MustSucceed(dist.Framer.OpenWriter(ctx, framer.WriterConfig{
+					Keys:  channel.Keys{idxCh.Key(), p3.Key()},
+					Start: 10 * telem.SecondTS,
+				}))
+				Expect(sim1.Write(frame.NewMulti(
+					[]channel.Key{idxCh.Key(), p3.Key()},
+					[]telem.Series{
+						telem.NewSeriesSecondsTSV(10, 11, 12, 13),
+						telem.NewSeriesV[float32](500, 500, 500, 500),
+					},
+				))).To(BeTrue())
+				Eventually(p3Out).Should(Receive())
+				Expect(sim1.Close()).To(Succeed())
+
+				By("Extending the index to cover the index-less sessions")
+				wIdx := MustSucceed(dist.Framer.OpenWriter(ctx, framer.WriterConfig{
+					Keys:  channel.Keys{idxCh.Key()},
+					Start: 14 * telem.SecondTS,
+				}))
+				Expect(wIdx.Write(frame.NewUnary(
+					idxCh.Key(),
+					telem.NewSeriesSecondsTSV(14, 15, 16, 17, 18, 19, 20, 21, 22, 23),
+				))).To(BeTrue())
+				Expect(wIdx.Close()).To(Succeed())
+
+				enterWatch := func() {
+					time.Sleep(50 * time.Millisecond)
+					goW := MustSucceed(dist.Framer.OpenWriter(ctx, framer.WriterConfig{
+						Keys:  channel.Keys{goCh.Key()},
+						Start: telem.Now(),
+					}))
+					Expect(goW.Write(frame.NewUnary(goCh.Key(), telem.NewSeriesV[uint8](1)))).To(BeTrue())
+					Expect(goW.Close()).To(Succeed())
+					time.Sleep(50 * time.Millisecond)
+				}
+
+				if roguesAfterEntry {
+					By("Entering the watch stage before the index-less sessions")
+					enterWatch()
+				}
+
+				By("Running index-less sessions on p3")
+				for i := range rogueSessions {
+					wR := MustSucceed(dist.Framer.OpenWriter(ctx, framer.WriterConfig{
+						Keys:  channel.Keys{p3.Key()},
+						Start: telem.TimeStamp(15+i) * telem.SecondTS,
+					}))
+					Expect(wR.Write(frame.NewUnary(
+						p3.Key(),
+						telem.NewSeriesV[float32](500),
+					))).To(BeTrue())
+					Eventually(p3Out).Should(Receive())
+					Expect(wR.Close()).To(Succeed())
+				}
+
+				if !roguesAfterEntry {
+					By("Entering the watch stage with the index-less sessions buffered")
+					enterWatch()
+				}
+
+				By("Resuming the sim session with p3 below the threshold")
+				sim2 := MustSucceed(dist.Framer.OpenWriter(ctx, framer.WriterConfig{
+					Keys:  channel.Keys{idxCh.Key(), p3.Key()},
+					Start: 40 * telem.SecondTS,
+				}))
+				defer func() { Expect(sim2.Close()).To(Succeed()) }()
+				for i := range 2 {
+					Expect(sim2.Write(frame.NewMulti(
+						[]channel.Key{idxCh.Key(), p3.Key()},
+						[]telem.Series{
+							telem.NewSeriesSecondsTSV(telem.TimeStamp(40 + i)),
+							telem.NewSeriesV[float32](0.01),
+						},
+					))).To(BeTrue())
+					Eventually(p3Out).Should(Receive())
+				}
+
+				Eventually(markerOut, "5s").Should(Receive(),
+					"cooldown transition never fired: on{} trigger stalled after index-less sessions")
+			},
+			Entry("with a single writer session", 0, false),
+			Entry("after index-less sessions on the trigger channel", 6, false),
+			Entry("with index-less sessions injected while watching", 6, true),
+		)
+	})
 })

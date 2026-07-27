@@ -71,6 +71,44 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 					Expect(t.Occurred()).To(BeTrue())
 					Expect(db.LeadingControlState()).To(BeNil())
 				})
+				Specify("WriteCursor", func(ctx SpecContext) {
+					By("Reserving a fresh leading domain when nothing controls the channel")
+					Expect(db.WriteCursor(0)).To(Equal(alignment.Leading(1, 0)))
+					Expect(db.WriteCursor(0)).To(Equal(alignment.Leading(2, 0)))
+					w, t := MustSucceed2(db.OpenWriter(ctx, unary.WriterConfig{
+						Start:   telem.TimeStamp(0),
+						Subject: control.Subject{Key: "leading"},
+					}))
+					Expect(t.Occurred()).To(BeTrue())
+
+					By("Tracking the controlling writer's next write position")
+					Expect(MustSucceed(w.Write(telem.NewSeriesSecondsTSV(0)))).
+						To(Equal(alignment.Leading(3, 0)))
+					Expect(db.WriteCursor(0)).To(Equal(alignment.Leading(3, 1)))
+					Expect(MustSucceed(w.Write(telem.NewSeriesSecondsTSV(1, 2)))).
+						To(Equal(alignment.Leading(3, 1)))
+					Expect(db.WriteCursor(0)).To(Equal(alignment.Leading(3, 3)))
+
+					t = MustSucceed(w.Close())
+					Expect(t.Occurred()).To(BeTrue())
+				})
+				Specify("WriteCursor only tracks the region covering the timestamp", func(ctx SpecContext) {
+					w, t := MustSucceed2(db.OpenWriter(ctx, unary.WriterConfig{
+						Start:   telem.TimeStamp(0),
+						End:     5 * telem.SecondTS,
+						Subject: control.Subject{Key: "bounded"},
+					}))
+					Expect(t.Occurred()).To(BeTrue())
+					MustSucceed(w.Write(telem.NewSeriesSecondsTSV(0, 1, 2)))
+
+					By("Tracking the bounded region for a timestamp inside it")
+					Expect(db.WriteCursor(1 * telem.SecondTS)).To(Equal(alignment.Leading(1, 3)))
+
+					By("Reserving a fresh domain for a timestamp the region does not cover")
+					Expect(db.WriteCursor(10 * telem.SecondTS)).To(Equal(alignment.Leading(2, 0)))
+					t = MustSucceed(w.Close())
+					Expect(t.Occurred()).To(BeTrue())
+				})
 				Describe("Open", func() {
 					It("Should not allow opening a writer if the specified end timestamp is before the start", func(ctx SpecContext) {
 						_, _, err := db.OpenWriter(ctx, unary.WriterConfig{Start: 10, End: 3, Subject: control.Subject{Key: "foo"}})
