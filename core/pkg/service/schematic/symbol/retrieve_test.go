@@ -24,14 +24,14 @@ var _ = Describe("Retrieve", func() {
 		sym1 = symbol.Symbol{
 			Name: "symbol-1",
 			Data: symbol.Spec{
-				Svg:    "<svg>1</svg>",
+				SVG:    "<svg>1</svg>",
 				States: []symbol.State{{Key: "default", Name: "default"}},
 			},
 		}
 		sym2 = symbol.Symbol{
 			Name: "symbol-2",
 			Data: symbol.Spec{
-				Svg: "<svg>2</svg>",
+				SVG: "<svg>2</svg>",
 				States: []symbol.State{
 					{Key: "default", Name: "default"},
 					{Key: "active", Name: "active"},
@@ -41,7 +41,7 @@ var _ = Describe("Retrieve", func() {
 		sym3 = symbol.Symbol{
 			Name: "symbol-3",
 			Data: symbol.Spec{
-				Svg: "<svg>3</svg>",
+				SVG: "<svg>3</svg>",
 				States: []symbol.State{
 					{Key: "default", Name: "default"},
 					{Key: "active", Name: "active"},
@@ -63,7 +63,7 @@ var _ = Describe("Retrieve", func() {
 				Exec(ctx, tx)).To(Succeed())
 			Expect(retrieved.Key).To(Equal(sym1.Key))
 			Expect(retrieved.Name).To(Equal(sym1.Name))
-			Expect(retrieved.Data.Svg).To(Equal(sym1.Data.Svg))
+			Expect(retrieved.Data.SVG).To(Equal(sym1.Data.SVG))
 		})
 
 		It("Should retrieve multiple symbols by keys", func(ctx SpecContext) {
@@ -102,7 +102,7 @@ var _ = Describe("Retrieve", func() {
 			// Create a symbol without transaction
 			symNoTx := symbol.Symbol{
 				Name: "no-tx-symbol",
-				Data: symbol.Spec{Svg: "<svg>no-tx</svg>"},
+				Data: symbol.Spec{SVG: "<svg>no-tx</svg>"},
 			}
 			Expect(svc.NewWriter(nil).Create(ctx, &symNoTx, proj.OntologyID())).To(Succeed())
 
@@ -135,7 +135,7 @@ var _ = Describe("Retrieve", func() {
 
 		It("Should handle large data correctly", func(ctx SpecContext) {
 			largeData := symbol.Spec{
-				Svg: "<svg>" + string(make([]byte, 10000)) + "</svg>",
+				SVG: "<svg>" + string(make([]byte, 10000)) + "</svg>",
 			}
 			for i := range 100 {
 				largeData.States = append(largeData.States, symbol.State{
@@ -158,7 +158,7 @@ var _ = Describe("Retrieve", func() {
 				Where(symbol.MatchKeys(largeSym.Key)).
 				Entry(&retrieved).
 				Exec(ctx, tx)).To(Succeed())
-			Expect(retrieved.Data.Svg).To(Equal(largeData.Svg))
+			Expect(retrieved.Data.SVG).To(Equal(largeData.SVG))
 		})
 	})
 })

@@ -12,8 +12,8 @@
 package v0_test
 
 import (
+	"bytes"
 	"github.com/google/uuid"
-	"reflect"
 	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -93,7 +93,7 @@ var _ = Describe("Codec", func() {
 				Expect(decoded).To(Equal(original))
 			},
 			Entry("fully populated", v0.Spec{
-				Svg: "test_1",
+				SVG: "test_1",
 				States: []v0.State{
 					{
 						Key:  "test_3",
@@ -122,7 +122,7 @@ var _ = Describe("Codec", func() {
 				PreviewViewport: new(spatial.Viewport{Zoom: 21.5, Position: spatial.XY{X: 23.5, Y: 24.5}}),
 			}),
 			Entry("zero values", v0.Spec{
-				Svg:             "",
+				SVG:             "",
 				States:          nil,
 				Variant:         "",
 				Handles:         nil,
@@ -131,7 +131,7 @@ var _ = Describe("Codec", func() {
 				PreviewViewport: nil,
 			}),
 			Entry("empty collections", v0.Spec{
-				Svg:             "test_1",
+				SVG:             "test_1",
 				States:          []v0.State{},
 				Variant:         "test_3",
 				Handles:         []v0.Handle{},
@@ -193,7 +193,7 @@ var _ = Describe("Codec", func() {
 				Version: 3,
 				Name:    "test_3",
 				Data: v0.Spec{
-					Svg: "test_5",
+					SVG: "test_5",
 					States: []v0.State{
 						{
 							Key:  "test_7",
@@ -227,7 +227,7 @@ var _ = Describe("Codec", func() {
 				Version: 0,
 				Name:    "",
 				Data: v0.Spec{
-					Svg:             "",
+					SVG:             "",
 					States:          nil,
 					Variant:         "",
 					Handles:         nil,
@@ -286,7 +286,7 @@ func BenchmarkEncodeDecodeRegion(b *testing.B) {
 
 func BenchmarkEncodeDecodeSpec(b *testing.B) {
 	seed := v0.Spec{
-		Svg: "test_1",
+		SVG: "test_1",
 		States: []v0.State{
 			{
 				Key:  "test_3",
@@ -364,7 +364,7 @@ func BenchmarkEncodeDecodeSymbol(b *testing.B) {
 		Version: 3,
 		Name:    "test_3",
 		Data: v0.Spec{
-			Svg: "test_5",
+			SVG: "test_5",
 			States: []v0.State{
 				{
 					Key:  "test_7",
@@ -453,11 +453,11 @@ func FuzzDecodeHandle(f *testing.F) {
 		if err := redecoded.EncodeOrc(w2); err != nil {
 			t.Fatalf("re-encode failed: %v", err)
 		}
-		if w1.Len() != w2.Len() {
-			t.Fatalf("encoded length differs between cycles: w1=%d w2=%d", w1.Len(), w2.Len())
-		}
-		if !reflect.DeepEqual(decoded, redecoded) {
-			t.Fatal("round-trip mismatch: decoded values differ after re-encode/re-decode cycle")
+		// Compare re-encoded bytes rather than the decoded values: encoding is
+		// deterministic and byte-stable even for float payloads that break value
+		// equality (a decoded NaN re-encodes to identical bytes but NaN != NaN).
+		if !bytes.Equal(w1.Bytes(), w2.Bytes()) {
+			t.Fatal("round-trip instability: re-encoding the decoded value is not byte-stable")
 		}
 	})
 }
@@ -525,11 +525,11 @@ func FuzzDecodeRegion(f *testing.F) {
 		if err := redecoded.EncodeOrc(w2); err != nil {
 			t.Fatalf("re-encode failed: %v", err)
 		}
-		if w1.Len() != w2.Len() {
-			t.Fatalf("encoded length differs between cycles: w1=%d w2=%d", w1.Len(), w2.Len())
-		}
-		if !reflect.DeepEqual(decoded, redecoded) {
-			t.Fatal("round-trip mismatch: decoded values differ after re-encode/re-decode cycle")
+		// Compare re-encoded bytes rather than the decoded values: encoding is
+		// deterministic and byte-stable even for float payloads that break value
+		// equality (a decoded NaN re-encodes to identical bytes but NaN != NaN).
+		if !bytes.Equal(w1.Bytes(), w2.Bytes()) {
+			t.Fatal("round-trip instability: re-encoding the decoded value is not byte-stable")
 		}
 	})
 }
@@ -537,7 +537,7 @@ func FuzzDecodeRegion(f *testing.F) {
 func FuzzDecodeSpec(f *testing.F) {
 	{
 		seed := v0.Spec{
-			Svg: "test_1",
+			SVG: "test_1",
 			States: []v0.State{
 				{
 					Key:  "test_3",
@@ -573,7 +573,7 @@ func FuzzDecodeSpec(f *testing.F) {
 	}
 	{
 		seed := v0.Spec{
-			Svg:             "",
+			SVG:             "",
 			States:          nil,
 			Variant:         "",
 			Handles:         nil,
@@ -589,7 +589,7 @@ func FuzzDecodeSpec(f *testing.F) {
 	}
 	{
 		seed := v0.Spec{
-			Svg:             "test_1",
+			SVG:             "test_1",
 			States:          []v0.State{},
 			Variant:         "test_3",
 			Handles:         []v0.Handle{},
@@ -623,11 +623,11 @@ func FuzzDecodeSpec(f *testing.F) {
 		if err := redecoded.EncodeOrc(w2); err != nil {
 			t.Fatalf("re-encode failed: %v", err)
 		}
-		if w1.Len() != w2.Len() {
-			t.Fatalf("encoded length differs between cycles: w1=%d w2=%d", w1.Len(), w2.Len())
-		}
-		if !reflect.DeepEqual(decoded, redecoded) {
-			t.Fatal("round-trip mismatch: decoded values differ after re-encode/re-decode cycle")
+		// Compare re-encoded bytes rather than the decoded values: encoding is
+		// deterministic and byte-stable even for float payloads that break value
+		// equality (a decoded NaN re-encodes to identical bytes but NaN != NaN).
+		if !bytes.Equal(w1.Bytes(), w2.Bytes()) {
+			t.Fatal("round-trip instability: re-encoding the decoded value is not byte-stable")
 		}
 	})
 }
@@ -697,11 +697,11 @@ func FuzzDecodeState(f *testing.F) {
 		if err := redecoded.EncodeOrc(w2); err != nil {
 			t.Fatalf("re-encode failed: %v", err)
 		}
-		if w1.Len() != w2.Len() {
-			t.Fatalf("encoded length differs between cycles: w1=%d w2=%d", w1.Len(), w2.Len())
-		}
-		if !reflect.DeepEqual(decoded, redecoded) {
-			t.Fatal("round-trip mismatch: decoded values differ after re-encode/re-decode cycle")
+		// Compare re-encoded bytes rather than the decoded values: encoding is
+		// deterministic and byte-stable even for float payloads that break value
+		// equality (a decoded NaN re-encodes to identical bytes but NaN != NaN).
+		if !bytes.Equal(w1.Bytes(), w2.Bytes()) {
+			t.Fatal("round-trip instability: re-encoding the decoded value is not byte-stable")
 		}
 	})
 }
@@ -713,7 +713,7 @@ func FuzzDecodeSymbol(f *testing.F) {
 			Version: 3,
 			Name:    "test_3",
 			Data: v0.Spec{
-				Svg: "test_5",
+				SVG: "test_5",
 				States: []v0.State{
 					{
 						Key:  "test_7",
@@ -754,7 +754,7 @@ func FuzzDecodeSymbol(f *testing.F) {
 			Version: 0,
 			Name:    "",
 			Data: v0.Spec{
-				Svg:             "",
+				SVG:             "",
 				States:          nil,
 				Variant:         "",
 				Handles:         nil,
@@ -789,11 +789,11 @@ func FuzzDecodeSymbol(f *testing.F) {
 		if err := redecoded.EncodeOrc(w2); err != nil {
 			t.Fatalf("re-encode failed: %v", err)
 		}
-		if w1.Len() != w2.Len() {
-			t.Fatalf("encoded length differs between cycles: w1=%d w2=%d", w1.Len(), w2.Len())
-		}
-		if !reflect.DeepEqual(decoded, redecoded) {
-			t.Fatal("round-trip mismatch: decoded values differ after re-encode/re-decode cycle")
+		// Compare re-encoded bytes rather than the decoded values: encoding is
+		// deterministic and byte-stable even for float payloads that break value
+		// equality (a decoded NaN re-encodes to identical bytes but NaN != NaN).
+		if !bytes.Equal(w1.Bytes(), w2.Bytes()) {
+			t.Fatal("round-trip instability: re-encoding the decoded value is not byte-stable")
 		}
 	})
 }

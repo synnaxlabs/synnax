@@ -12,7 +12,7 @@
 package v0_test
 
 import (
-	"reflect"
+	"bytes"
 	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -169,11 +169,11 @@ func FuzzDecodeID(f *testing.F) {
 		if err := redecoded.EncodeOrc(w2); err != nil {
 			t.Fatalf("re-encode failed: %v", err)
 		}
-		if w1.Len() != w2.Len() {
-			t.Fatalf("encoded length differs between cycles: w1=%d w2=%d", w1.Len(), w2.Len())
-		}
-		if !reflect.DeepEqual(decoded, redecoded) {
-			t.Fatal("round-trip mismatch: decoded values differ after re-encode/re-decode cycle")
+		// Compare re-encoded bytes rather than the decoded values: encoding is
+		// deterministic and byte-stable even for float payloads that break value
+		// equality (a decoded NaN re-encodes to identical bytes but NaN != NaN).
+		if !bytes.Equal(w1.Bytes(), w2.Bytes()) {
+			t.Fatal("round-trip instability: re-encoding the decoded value is not byte-stable")
 		}
 	})
 }
@@ -223,11 +223,11 @@ func FuzzDecodeRelationship(f *testing.F) {
 		if err := redecoded.EncodeOrc(w2); err != nil {
 			t.Fatalf("re-encode failed: %v", err)
 		}
-		if w1.Len() != w2.Len() {
-			t.Fatalf("encoded length differs between cycles: w1=%d w2=%d", w1.Len(), w2.Len())
-		}
-		if !reflect.DeepEqual(decoded, redecoded) {
-			t.Fatal("round-trip mismatch: decoded values differ after re-encode/re-decode cycle")
+		// Compare re-encoded bytes rather than the decoded values: encoding is
+		// deterministic and byte-stable even for float payloads that break value
+		// equality (a decoded NaN re-encodes to identical bytes but NaN != NaN).
+		if !bytes.Equal(w1.Bytes(), w2.Bytes()) {
+			t.Fatal("round-trip instability: re-encoding the decoded value is not byte-stable")
 		}
 	})
 }
@@ -269,11 +269,11 @@ func FuzzDecodeResource(f *testing.F) {
 		if err := redecoded.EncodeOrc(w2); err != nil {
 			t.Fatalf("re-encode failed: %v", err)
 		}
-		if w1.Len() != w2.Len() {
-			t.Fatalf("encoded length differs between cycles: w1=%d w2=%d", w1.Len(), w2.Len())
-		}
-		if !reflect.DeepEqual(decoded, redecoded) {
-			t.Fatal("round-trip mismatch: decoded values differ after re-encode/re-decode cycle")
+		// Compare re-encoded bytes rather than the decoded values: encoding is
+		// deterministic and byte-stable even for float payloads that break value
+		// equality (a decoded NaN re-encodes to identical bytes but NaN != NaN).
+		if !bytes.Equal(w1.Bytes(), w2.Bytes()) {
+			t.Fatal("round-trip instability: re-encoding the decoded value is not byte-stable")
 		}
 	})
 }

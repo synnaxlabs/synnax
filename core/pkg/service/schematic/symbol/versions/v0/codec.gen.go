@@ -129,7 +129,7 @@ func (rv *Region) DecodeOrc(r *orc.Reader) error {
 
 // EncodeOrc writes the value to w in the Orc binary format.
 func (s Spec) EncodeOrc(w *orc.Writer) error {
-	w.String(s.Svg)
+	w.String(s.SVG)
 	w.Bool(s.States != nil)
 	if s.States != nil {
 		w.Uint32(uint32(len(s.States)))
@@ -165,7 +165,7 @@ func (s Spec) EncodeOrc(w *orc.Writer) error {
 // DecodeOrc reads the value from r in the Orc binary format.
 func (s *Spec) DecodeOrc(r *orc.Reader) error {
 	var err error
-	if s.Svg, err = r.String(); err != nil {
+	if s.SVG, err = r.String(); err != nil {
 		return err
 	}
 	{

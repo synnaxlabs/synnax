@@ -147,7 +147,7 @@ var _ = Describe("Service", func() {
 				for range 10 {
 					sym := symbol.Symbol{
 						Name: "concurrent-write",
-						Data: symbol.Spec{Svg: "<svg>...</svg>"},
+						Data: symbol.Spec{SVG: "<svg>...</svg>"},
 					}
 					Expect(svc.NewWriter(nil).Create(ctx, &sym, proj.OntologyID())).To(Succeed())
 					Expect(svc.NewWriter(nil).Delete(ctx, sym.Key)).To(Succeed())

@@ -68,8 +68,8 @@ func (h Handle) Validate() error {
 // Spec is the complete symbol definition including geometry, states, handles, and
 // rendering properties.
 type Spec struct {
-	// Svg is the SVG markup defining the symbol's visual geometry.
-	Svg string `json:"svg" msgpack:"svg"`
+	// SVG is the SVG markup defining the symbol's visual geometry.
+	SVG string `json:"svg" msgpack:"svg"`
 	// States contains available visual states with regional styling configurations.
 	States []State `json:"states,omitzero" msgpack:"states,omitzero"`
 	// Variant is the symbol variant or category identifier (e.g., 'sensor', 'valve').
@@ -99,7 +99,7 @@ func (s *Spec) ApplyDefaults() {
 // schema constraints.
 func (s Spec) Validate() error {
 	v := validate.New("Spec")
-	validate.NotEmptyString(v, "svg", s.Svg)
+	validate.NotEmptyString(v, "svg", s.SVG)
 	validate.NotEmptyString(v, "variant", s.Variant)
 	for i := range s.Handles {
 		v.Exec(func() error { return validate.PathedError(s.Handles[i].Validate(), "handles", strconv.Itoa(i)) })

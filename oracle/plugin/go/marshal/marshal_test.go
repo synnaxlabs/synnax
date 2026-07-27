@@ -29,8 +29,8 @@ func TestGoMarshal(t *testing.T) {
 	RunSpecs(t, "Plugin Go Marshal Suite")
 }
 
-// unversionedOptions disables the versions/vN requirement for specs that exercise
-// codec mechanics on ad-hoc unversioned schemas.
+// unversionedOptions disables the versions/vN requirement for specs that exercise codec
+// mechanics on ad-hoc unversioned schemas.
 func unversionedOptions() marshal.Options {
 	opts := marshal.DefaultOptions()
 	opts.RequireVersioned = false

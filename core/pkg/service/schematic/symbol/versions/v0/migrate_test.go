@@ -75,7 +75,7 @@ var _ = Describe("MigrateSymbol", func() {
 		Expect(got.Key).To(Equal(seed.Key))
 		Expect(got.Name).To(Equal("pump"))
 		Expect(got.Version).To(Equal(uint32(1)))
-		Expect(got.Data.Svg).To(Equal("<svg>x</svg>"))
+		Expect(got.Data.SVG).To(Equal("<svg>x</svg>"))
 		Expect(got.Data.Variant).To(Equal("valve"))
 		Expect(got.Data.Scale).To(Equal(2.0))
 		Expect(got.Data.ScaleStroke).To(BeTrue())

@@ -39,8 +39,8 @@ type Options struct {
 	TestFileNamePattern string
 	GenerateTests       bool
 	// RequireVersioned rejects codecs targeting a package outside versions/vN so
-	// persisted wire formats stay pinned to an immutable shape. Disabled by unit
-	// tests that exercise codec mechanics on ad-hoc unversioned schemas.
+	// persisted wire formats stay pinned to an immutable shape. Disabled by unit tests
+	// that exercise codec mechanics on ad-hoc unversioned schemas.
 	RequireVersioned bool
 }
 
@@ -292,8 +292,8 @@ func resolveGoImportPath(outputPath, repoRoot string) (string, error) {
 	return gomod.ResolveImportPath(outputPath, repoRoot, gomod.DefaultModulePrefix), nil
 }
 
-// isVersionedPath reports whether goPath is a versions/vN package (its parent
-// directory is "versions"), the only place a codec may be generated.
+// isVersionedPath reports whether goPath is a versions/vN package (its parent directory
+// is "versions"), the only place a codec may be generated.
 func isVersionedPath(goPath string) bool {
 	return filepath.Base(filepath.Dir(goPath)) == "versions"
 }
