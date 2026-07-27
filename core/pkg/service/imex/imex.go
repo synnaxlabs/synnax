@@ -233,6 +233,9 @@ func Decode[T any](ctx context.Context, e Envelope) (T, error) {
 // A top-level `key` field is always dropped from the body: envelopes do not carry
 // resource-local identity today, and importers mint a fresh key on the way in.
 func Encode[T any](env *Envelope, data T) error {
+	// The map branch exists only for the task exporter, whose config is an opaque
+	// object it merges flat rather than a Go struct. Once task configs are strongly
+	// typed, this assertion (and its test) can go: every caller passes a struct.
 	body, ok := any(data).(map[string]any)
 	if !ok {
 		var err error
