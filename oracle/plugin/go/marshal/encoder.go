@@ -478,9 +478,9 @@ func callPath(getPath string) string {
 	return getPath
 }
 
-// valuePath strips the redundant outer parentheses an optional field's deref
-// path carries so a scalar value reads as *d.Foo rather than (*d.Foo). Unlike
-// callPath it keeps the leading star, since the value itself is passed on.
+// valuePath strips the redundant outer parentheses an optional field's deref path
+// carries so a scalar value reads as *d.Foo rather than (*d.Foo). Unlike callPath it
+// keeps the leading star, since the value itself is passed on.
 func valuePath(getPath string) string {
 	if strings.HasPrefix(getPath, "(*") && strings.HasSuffix(getPath, ")") {
 		return getPath[1 : len(getPath)-1]
@@ -896,9 +896,9 @@ func (b *encoderBuilder) processLeaf(
 		return err
 	}
 	ind := b.indent()
-	// Scalar leaves pass the value on directly, so a parenthesized optional deref
-	// reads better without the redundant parens (*d.Foo, not (*d.Foo)). uuid keeps
-	// getPath because it slice-indexes the value: (*d.Foo)[:] must stay parenthesized.
+	// Scalar leaves pass the value on directly, so a parenthesized optional deref reads
+	// better without the redundant parens (*d.Foo, not (*d.Foo)). uuid keeps getPath
+	// because it slice-indexes the value: (*d.Foo)[:] must stay parenthesized.
 	valPath := valuePath(getPath)
 
 	switch primName {
