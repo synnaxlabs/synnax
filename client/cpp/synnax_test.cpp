@@ -40,12 +40,11 @@ TEST(ConfigIsSecure, FlagWithoutCAFile) {
     EXPECT_TRUE(cfg.ca_cert_file.empty());
 }
 
-/// @brief a CA file implies secure (backward compatibility).
+/// @brief naming a CA file does not by itself enable TLS.
 TEST(ConfigIsSecure, CAFileWithoutFlag) {
     synnax::Config cfg;
     cfg.ca_cert_file = "/certs/ca.crt";
-    EXPECT_FALSE(cfg.secure);
-    EXPECT_TRUE(cfg.is_secure());
+    EXPECT_FALSE(cfg.is_secure());
 }
 
 /// @brief flag and CA file together are secure.
@@ -103,8 +102,28 @@ TEST(ConfigPersist, AllFields) {
 /// @brief a pre-flag config with only a CA loads secure.
 TEST(ConfigOverride, LegacySecureViaCAFile) {
     const auto cfg = load(R"({"ca_cert_file":"/certs/ca.crt"})");
-    EXPECT_FALSE(cfg.secure);
+    EXPECT_TRUE(cfg.secure);
     EXPECT_TRUE(cfg.is_secure());
+}
+
+/// @brief a pre-flag config with only a client certificate and key loads secure.
+TEST(ConfigOverride, LegacySecureViaClientCert) {
+    const auto cfg = load(
+        R"({"client_cert_file":"/c/client.crt","client_key_file":"/c/client.key"})"
+    );
+    EXPECT_TRUE(cfg.secure);
+}
+
+/// @brief a client certificate without its key does not imply secure.
+TEST(ConfigOverride, LegacyClientCertWithoutKey) {
+    const auto cfg = load(R"({"client_cert_file":"/certs/client.crt"})");
+    EXPECT_FALSE(cfg.secure);
+}
+
+/// @brief an explicit secure flag wins over the certificate inference.
+TEST(ConfigOverride, ExplicitFlagOverridesInference) {
+    const auto cfg = load(R"({"ca_cert_file":"/certs/ca.crt","secure":false})");
+    EXPECT_FALSE(cfg.secure);
 }
 
 /// @brief a pre-flag config with no CA loads insecure.
@@ -140,6 +159,7 @@ TEST(ConfigStream, InsecureOmitsCertLines) {
 /// @brief a secure config prints the cert-file lines.
 TEST(ConfigStream, SecureIncludesCertLines) {
     synnax::Config cfg;
+    cfg.secure = true;
     cfg.ca_cert_file = "/certs/ca.crt";
     std::ostringstream os;
     os << cfg;
