@@ -118,7 +118,6 @@ func NewEntryMigration[IK Key, OK Key, I Entry[IK], O Entry[OK]](
 				}
 			}
 			return err
-
 		},
 	)
 }
