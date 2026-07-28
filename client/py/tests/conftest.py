@@ -7,11 +7,10 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-import random
-
 import pytest
 
 import synnax as sy
+from x.strings import random_name
 
 HOST = "localhost"
 PORT = 9090
@@ -37,7 +36,7 @@ def client() -> sy.Synnax:
 
 @pytest.fixture
 def indexed_pair(client: sy.Synnax) -> tuple[sy.Channel, sy.Channel]:
-    v = random.randint(0, 1000000)
+    v = random_name()
     idx = client.channels.create(
         name=f"test_{v}_time",
         is_index=True,
@@ -53,7 +52,7 @@ def indexed_pair(client: sy.Synnax) -> tuple[sy.Channel, sy.Channel]:
 
 @pytest.fixture
 def virtual_channel(client: sy.Synnax) -> sy.Channel:
-    v = random.randint(0, 1000000)
+    v = random_name()
     return client.channels.create(
         name=f"test_{v}_virtual",
         virtual=True,

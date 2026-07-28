@@ -21,10 +21,8 @@ import (
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
-	"github.com/synnaxlabs/x/graph"
 	"github.com/synnaxlabs/x/kv/memkv"
 	"github.com/synnaxlabs/x/migrate"
-	"github.com/synnaxlabs/x/query"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -201,7 +199,7 @@ var _ = Describe("Migrate", func() {
 				e.Data = e.Data + "_raw"
 				w := gorp.WrapWriter[int32, entryV1](tx)
 				return w.Set(ctx, e)
-			}, "typed_transform")
+			})
 			Expect(migrateWithEntryV1(ctx, testDB, []migrate.Migration{m1, m2})).To(Succeed())
 			r := gorp.WrapReader[int32, entryV1](testDB)
 			Expect(MustSucceed(r.Get(ctx, 1)).Data).To(Equal("mixed_typed_raw"))
@@ -227,8 +225,8 @@ var _ = Describe("Migrate", func() {
 		})
 	})
 
-	Describe("Dependencies", func() {
-		It("Should order migrations respecting declared dependencies", func(ctx SpecContext) {
+	Describe("Ordering", func() {
+		It("Should run migrations in list order", func(ctx SpecContext) {
 			testDB := gorp.Wrap(memkv.New())
 			defer func() { Expect(testDB.Close()).To(Succeed()) }()
 			var order []string
@@ -239,96 +237,16 @@ var _ = Describe("Migrate", func() {
 			m2 := gorp.NewMigration("beta", func(_ context.Context, _ gorp.Tx, _ alamos.Instrumentation) error {
 				order = append(order, "beta")
 				return nil
-			}, "alpha")
+			})
 			m3 := gorp.NewMigration("gamma", func(_ context.Context, _ gorp.Tx, _ alamos.Instrumentation) error {
 				order = append(order, "gamma")
 				return nil
-			}, "beta")
-			Expect(migrateWithEntryV1(ctx, testDB, []migrate.Migration{m3, m2, m1})).To(Succeed())
+			})
+			Expect(migrateWithEntryV1(ctx, testDB, []migrate.Migration{m1, m2, m3})).To(Succeed())
 			Expect(order).To(Equal([]string{"alpha", "beta", "gamma"}))
 		})
 
-		It("Should treat already-applied dependencies as satisfied", func(ctx SpecContext) {
-			testDB := gorp.Wrap(memkv.New())
-			defer func() { Expect(testDB.Close()).To(Succeed()) }()
-			var order []string
-			m1 := gorp.NewMigration("first", func(_ context.Context, _ gorp.Tx, _ alamos.Instrumentation) error {
-				order = append(order, "first")
-				return nil
-			})
-			Expect(migrateWithEntryV1(ctx, testDB, []migrate.Migration{m1})).To(Succeed())
-			Expect(order).To(Equal([]string{"first"}))
-			m2 := gorp.NewMigration("second", func(_ context.Context, _ gorp.Tx, _ alamos.Instrumentation) error {
-				order = append(order, "second")
-				return nil
-			}, "first")
-			Expect(migrateWithEntryV1(ctx, testDB, []migrate.Migration{m1, m2})).To(Succeed())
-			Expect(order).To(Equal([]string{"first", "second"}))
-		})
-
-		It("Should detect cyclic dependencies", func(ctx SpecContext) {
-			testDB := gorp.Wrap(memkv.New())
-			defer func() { Expect(testDB.Close()).To(Succeed()) }()
-			m1 := gorp.NewMigration(
-				"a",
-				func(_ context.Context, _ gorp.Tx, _ alamos.Instrumentation) error { return nil },
-				"b",
-			)
-			m2 := gorp.NewMigration(
-				"b",
-				func(_ context.Context, _ gorp.Tx, _ alamos.Instrumentation) error { return nil },
-				"a",
-			)
-			Expect(migrateWithEntryV1(ctx, testDB, []migrate.Migration{m1, m2})).
-				To(MatchError(graph.ErrCyclicDependency))
-		})
-
-		It("Should return error for missing dependency", func(ctx SpecContext) {
-			testDB := gorp.Wrap(memkv.New())
-			defer func() { Expect(testDB.Close()).To(Succeed()) }()
-			m1 := gorp.NewMigration(
-				"orphan",
-				func(_ context.Context, _ gorp.Tx, _ alamos.Instrumentation) error { return nil },
-				"nonexistent",
-			)
-			Expect(migrateWithEntryV1(ctx, testDB, []migrate.Migration{m1})).
-				To(MatchError(query.ErrNotFound))
-		})
-
-		It("Should work with migrations that do not declare dependencies", func(ctx SpecContext) {
-			testDB := gorp.Wrap(memkv.New())
-			defer func() { Expect(testDB.Close()).To(Succeed()) }()
-			var order []string
-			m1 := gorp.NewMigration("plain_a", func(_ context.Context, _ gorp.Tx, _ alamos.Instrumentation) error {
-				order = append(order, "plain_a")
-				return nil
-			})
-			m2 := gorp.NewMigration("plain_b", func(_ context.Context, _ gorp.Tx, _ alamos.Instrumentation) error {
-				order = append(order, "plain_b")
-				return nil
-			})
-			Expect(migrateWithEntryV1(ctx, testDB, []migrate.Migration{m1, m2})).To(Succeed())
-			Expect(order).To(Equal([]string{"plain_a", "plain_b"}))
-		})
-
-		It("Should preserve insertion order for migrations without dependencies "+
-			"when mixed with dependency-declaring migrations", func(ctx SpecContext) {
-			testDB := gorp.Wrap(memkv.New())
-			defer func() { Expect(testDB.Close()).To(Succeed()) }()
-			var order []string
-			m1 := gorp.NewMigration("no_dep", func(_ context.Context, _ gorp.Tx, _ alamos.Instrumentation) error {
-				order = append(order, "no_dep")
-				return nil
-			})
-			m2 := gorp.NewMigration("has_dep", func(_ context.Context, _ gorp.Tx, _ alamos.Instrumentation) error {
-				order = append(order, "has_dep")
-				return nil
-			}, "no_dep")
-			Expect(migrateWithEntryV1(ctx, testDB, []migrate.Migration{m2, m1})).To(Succeed())
-			Expect(order).To(Equal([]string{"no_dep", "has_dep"}))
-		})
-
-		It("Should respect dependencies declared on an entry migration", func(ctx SpecContext) {
+		It("Should run an entry migration after an earlier raw migration", func(ctx SpecContext) {
 			testDB := gorp.Wrap(memkv.New())
 			defer func() { Expect(testDB.Close()).To(Succeed()) }()
 			w := gorp.WrapWriter[int32, entryV1](testDB)
@@ -339,15 +257,14 @@ var _ = Describe("Migrate", func() {
 				return nil
 			})
 			entry := gorp.NewEntryMigration(
-				"entry_dep",
+				"entry_after",
 				func(_ context.Context, old entryV1) (entryV1, error) {
-					order = append(order, "entry_dep")
+					order = append(order, "entry_after")
 					return entryV1{ID: old.ID, Data: old.Data + "_done"}, nil
 				},
-				"base",
 			)
-			Expect(migrateWithEntryV1(ctx, testDB, []migrate.Migration{entry, base})).To(Succeed())
-			Expect(order).To(Equal([]string{"base", "entry_dep"}))
+			Expect(migrateWithEntryV1(ctx, testDB, []migrate.Migration{base, entry})).To(Succeed())
+			Expect(order).To(Equal([]string{"base", "entry_after"}))
 			r := gorp.WrapReader[int32, entryV1](testDB)
 			Expect(MustSucceed(r.Get(ctx, 1)).Data).To(Equal("x_done"))
 		})
