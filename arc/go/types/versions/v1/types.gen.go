@@ -46,12 +46,15 @@ const (
 )
 
 // ChanDirection indicates read/write direction for channel-typed parameters.
-type ChanDirection = v0.ChanDirection
+type ChanDirection uint8
+
+//go:generate stringer -type=ChanDirection
 
 const (
-	ChanDirectionNone  ChanDirection = v0.ChanDirectionNone
-	ChanDirectionRead  ChanDirection = v0.ChanDirectionRead
-	ChanDirectionWrite ChanDirection = v0.ChanDirectionWrite
+	ChanDirectionNone ChanDirection = iota
+	ChanDirectionRead
+	ChanDirectionWrite
+	ChanDirectionReadWrite
 )
 
 // FunctionProperties contains common parameter definitions for function-like types.

@@ -43,6 +43,7 @@ export enum ChanDirection {
   none = 0,
   read = 1,
   write = 2,
+  read_write = 3,
 }
 export const chanDirectionZ = z.enum(ChanDirection);
 

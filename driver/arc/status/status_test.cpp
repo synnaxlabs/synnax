@@ -11,6 +11,7 @@
 #include <memory>
 #include <string>
 #include <utility>
+#include <variant>
 #include <vector>
 
 #include "gtest/gtest.h"
@@ -21,6 +22,7 @@
 #include "arc/cpp/runtime/errors/errors.h"
 #include "arc/cpp/runtime/node/factory.h"
 #include "arc/cpp/runtime/state/state.h"
+#include "arc/cpp/stl/testutil/testutil.h"
 #include "driver/arc/status/status.h"
 
 namespace driver::arc::status {
@@ -70,6 +72,27 @@ namespace {
     out.type = out_type;
     node.outputs = ::arc::types::Params{out};
     return node;
+}
+
+::arc::types::Param str_input(const std::string &name) {
+    ::arc::types::Param p;
+    p.name = name;
+    p.type = ::arc::types::Type{.kind = ::arc::types::Kind::String};
+    return p;
+}
+
+// set_spec declares the set native's input shape for building test configs.
+::arc::stl::testutil::NodeSpec set_spec() {
+    ::arc::types::Param out;
+    out.name = ::arc::ir::default_output_param;
+    out.type = ::arc::types::Type{.kind = ::arc::types::Kind::String};
+    ::arc::stl::testutil::NodeSpec spec;
+    spec.type = "set";
+    spec.outputs.push_back(std::move(out));
+    spec.inputs.push_back(str_input("key_or_name"));
+    spec.inputs.push_back(str_input("message"));
+    spec.inputs.push_back(str_input("variant"));
+    return spec;
 }
 
 // recordingReporter pushes reported messages into the provided vector.
@@ -167,6 +190,30 @@ TEST(StatusModuleTest, ReturnsNotFoundForUnknownType) {
     );
     EXPECT_EQ(created, nullptr);
     EXPECT_EQ(err, x::errors::NOT_FOUND);
+}
+
+TEST(SetStatusTest, ReadsAVarBoundMessageAtFireTime) {
+    auto client = std::make_shared<synnax::Synnax>(new_test_client());
+    std::vector<std::string> calls;
+    const auto name = unique_name("var_msg_");
+    const auto f = set_spec().config(
+        {name,
+         std::shared_ptr<::arc::stl::testutil::VarBinding>(
+             ::arc::stl::testutil::var_of<std::string>("live message")
+         ),
+         "info"}
+    );
+    Module module(client, recordingReporter(&calls));
+    auto created = ASSERT_NIL_P(module.create(f.make_config()));
+
+    auto ctx = make_context();
+    ASSERT_NIL(created->next(ctx));
+
+    const auto node = f.make_node();
+    const auto new_key = std::get<std::string>((*node.output(0)).at(0));
+    const auto retrieved = ASSERT_NIL_P(client->statuses.retrieve(new_key));
+    EXPECT_EQ(retrieved.message, "live message");
+    EXPECT_TRUE(calls.empty());
 }
 
 TEST(SetStatusTest, NextWritesResolvedKeyToOutput) {
