@@ -11,6 +11,7 @@ package freighter
 
 import (
 	"context"
+
 	"github.com/synnaxlabs/x/address"
 )
 

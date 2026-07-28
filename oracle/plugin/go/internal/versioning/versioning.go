@@ -17,8 +17,8 @@ package versioning
 
 import (
 	"fmt"
-	"github.com/synnaxlabs/oracle/domain/omit"
 
+	"github.com/synnaxlabs/oracle/domain/omit"
 	"github.com/synnaxlabs/oracle/plugin/domain"
 	"github.com/synnaxlabs/oracle/plugin/output"
 	"github.com/synnaxlabs/oracle/resolution"

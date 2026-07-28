@@ -53,6 +53,12 @@ linters:
           ShouldNotLeakGoroutinesPerSpec, and every BeforeSuite/BeforeAll must call
           ShouldNotLeakGoroutines first.
 formatters:
+  enable:
+    - gci
+  settings:
+    gci:
+      no-inline-comments: true
+      no-prefix-comments: true
   exclusions:
     warn-unused: true
     generated: strict

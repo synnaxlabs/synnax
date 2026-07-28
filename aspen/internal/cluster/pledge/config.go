@@ -10,6 +10,8 @@
 package pledge
 
 import (
+	"time"
+
 	"github.com/google/uuid"
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/aspen/internal/node"
@@ -18,7 +20,6 @@ import (
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/validate"
-	"time"
 )
 
 type (

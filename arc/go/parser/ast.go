@@ -13,7 +13,6 @@ import (
 	"strings"
 
 	"github.com/antlr4-go/antlr/v4"
-
 	"github.com/synnaxlabs/x/set"
 )
 
