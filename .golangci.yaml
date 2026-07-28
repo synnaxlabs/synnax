@@ -52,3 +52,7 @@ linters:
           Enforces goroutine leak checks in Ginkgo suites: every suite must register
           ShouldNotLeakGoroutinesPerSpec, and every BeforeSuite/BeforeAll must call
           ShouldNotLeakGoroutines first.
+formatters:
+  exclusions:
+    warn-unused: true
+    generated: strict
