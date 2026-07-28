@@ -15,8 +15,9 @@ import (
 	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/x/errors"
-	"github.com/synnaxlabs/x/lsp/protocol"
 	"github.com/synnaxlabs/x/query"
+	"go.lsp.dev/protocol"
+	"go.lsp.dev/uri"
 	"go.uber.org/zap"
 )
 
@@ -49,7 +50,7 @@ func isRenameable(sym *symbol.Symbol, err error) bool {
 func (s *Server) PrepareRename(
 	ctx context.Context,
 	params *protocol.PrepareRenameParams,
-) (*protocol.Range, error) {
+) (protocol.PrepareRenameResult, error) {
 	doc, ok := s.getDocument(params.TextDocument.URI)
 	if !ok || doc.IR.Symbols == nil {
 		return nil, nil
@@ -59,7 +60,10 @@ func (s *Server) PrepareRename(
 		return nil, nil
 	}
 	s.logUnexpectedSymbolError(sym, err)
-	return doc.getWordRangeAtPosition(params.Position), nil
+	if r := doc.getWordRangeAtPosition(params.Position); r != nil {
+		return r, nil
+	}
+	return nil, nil
 }
 
 func (s *Server) Rename(
@@ -89,7 +93,7 @@ func (s *Server) Rename(
 		}
 	}
 	return &protocol.WorkspaceEdit{
-		Changes: map[protocol.DocumentURI][]protocol.TextEdit{
+		Changes: map[uri.URI][]protocol.TextEdit{
 			params.TextDocument.URI: edits,
 		},
 	}, nil

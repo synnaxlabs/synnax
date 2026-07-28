@@ -15,7 +15,6 @@ import {
   WRITE_TYPE,
 } from "@/feature/opc/task/types";
 import { Write, WriteSelectable } from "@/feature/opc/task/Write";
-import { type Export } from "@/platform/export";
 import { type Import } from "@/platform/import";
 import { type Panel } from "@/platform/panel";
 import { type Selector } from "@/platform/selector";
@@ -25,11 +24,6 @@ export * from "@/feature/opc/task/commands";
 export * from "@/feature/opc/task/Read";
 export * from "@/feature/opc/task/types";
 export * from "@/feature/opc/task/Write";
-
-export const EXTRACTORS: Export.Extractors = {
-  [READ_TYPE]: Task.extract,
-  [WRITE_TYPE]: Task.extract,
-};
 
 export const FILE_INGESTERS: Import.FileIngesters = {
   [READ_TYPE]: Task.createIngester(READ_SCHEMAS.config, READ_TYPE),
