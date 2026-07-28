@@ -52,5 +52,13 @@ jobs:
         working-directory: client/py
         run: uv build
 
+      - name: Prune already-published distributions
+        run: python scripts/prune_published.py
+
       - name: Publish
-        run: uv publish --check-url https://pypi.org/simple/
+        run: |
+          if compgen -G "dist/*.whl" > /dev/null || compgen -G "dist/*.tar.gz" > /dev/null; then
+            uv publish --check-url https://pypi.org/simple/
+          else
+            echo "All distributions already published; nothing to upload."
+          fi
