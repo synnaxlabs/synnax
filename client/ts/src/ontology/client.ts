@@ -30,11 +30,11 @@ import {
   resourceZ,
 } from "@/ontology/payload";
 import {
+  Cache,
   RELATIONSHIP_DELETE_CHANNEL_NAME,
   RELATIONSHIP_SET_CHANNEL_NAME,
   RESOURCE_DELETE_CHANNEL_NAME,
   RESOURCE_SET_CHANNEL_NAME,
-  type Stores,
 } from "@/ontology/store";
 import { Writer } from "@/ontology/writer";
 import { query } from "@/query";
@@ -151,6 +151,11 @@ const requestFilter = (req: NormalizedRequest): ((r: Resource) => boolean) => {
   };
 };
 
+export interface ClientParams {
+  unary: UnaryClient;
+  cache: query.Cache;
+}
+
 /** The main client class for executing queries against a Synnax cluster ontology */
 export class Client extends query.Retriever<
   typeof retrieveRequestZ,
@@ -160,16 +165,17 @@ export class Client extends query.Retriever<
   ID
 > {
   readonly type: string = "ontology";
-  /** The ontology tables injected into sibling domain clients at wiring. */
-  readonly stores: Stores;
+  /** Read surface of the ontology record tables. */
+  readonly cache: Cache;
   /** Cached read surface for the children of a set of resources. */
   readonly children: query.Retrieves<DependentParams, Resource[]>;
   /** Cached read surface for the parents of a set of resources. */
   readonly parents: query.Retrieves<DependentParams, Resource[]>;
-  private readonly client: UnaryClient;
+  private readonly cfg: ClientParams;
   private readonly writer: Writer;
 
-  constructor(unary: UnaryClient, cache: query.Cache) {
+  constructor(cfg: ClientParams) {
+    const { unary, cache } = cfg;
     const relationships = cache.createTable<string, Relationship>({
       name: "relationships",
       equal: (a, b) =>
@@ -223,21 +229,11 @@ export class Client extends query.Retriever<
         space: single as query.Retrieves<query.Params, Resource>,
       },
     });
-    this.client = unary;
+    this.cfg = cfg;
     this.writer = new Writer(unary);
-    this.stores = { relationships, resources };
+    this.cache = new Cache(relationships, resources);
     this.children = this.dependentSurface(cache, "children", "to");
     this.parents = this.dependentSurface(cache, "parents", "from");
-  }
-
-  /** Read surface of the relationship cache. */
-  get relationships(): query.Table<string, Relationship> {
-    return this.stores.relationships;
-  }
-
-  /** Read surface of the resource cache. */
-  get resources(): query.Table<string, Resource> {
-    return this.stores.resources;
   }
 
   /**
@@ -249,7 +245,7 @@ export class Client extends query.Retriever<
     await this.writer.addChildren(id, ...children);
     children.forEach((child) => {
       const rel = parentRel(id, child);
-      this.relationships.set(relationshipToString(rel), rel);
+      this.cache.relationships.set(relationshipToString(rel), rel);
     });
   }
 
@@ -261,7 +257,7 @@ export class Client extends query.Retriever<
   async removeChildren(id: ID, ...children: ID[]): Promise<void> {
     await this.writer.removeChildren(id, ...children);
     children.forEach((child) =>
-      this.relationships.delete(relationshipToString(parentRel(id, child))),
+      this.cache.relationships.delete(relationshipToString(parentRel(id, child))),
     );
   }
 
@@ -274,11 +270,11 @@ export class Client extends query.Retriever<
   async moveChildren(from: ID, to: ID, ...children: ID[]): Promise<void> {
     const move = (): destructor.Destructor[] => {
       const deletions = children.map((child) =>
-        this.relationships.delete(relationshipToString(parentRel(from, child))),
+        this.cache.relationships.delete(relationshipToString(parentRel(from, child))),
       );
       const insertions = children.map((child) => {
         const rel = parentRel(to, child);
-        return this.relationships.set(relationshipToString(rel), rel);
+        return this.cache.relationships.set(relationshipToString(rel), rel);
       });
       return [...deletions, ...insertions];
     };
@@ -292,40 +288,40 @@ export class Client extends query.Retriever<
 
   /** Subscribes to every resource set delivered to the cache. */
   onResourceSet(handler: (resource: Resource) => void): destructor.Destructor {
-    return this.resources.subscribe((event) => {
+    return this.cache.resources.subscribe((event) => {
       if (event.variant === "set") handler(event.value);
     });
   }
 
   /** Subscribes to every resource delete delivered to the cache. */
   onResourceDelete(handler: (id: ID) => void): destructor.Destructor {
-    return this.resources.subscribe((event) => {
+    return this.cache.resources.subscribe((event) => {
       if (event.variant === "delete") handler(idZ.parse(event.key));
     });
   }
 
   /** Subscribes to every relationship set delivered to the cache. */
   onRelationshipSet(handler: (rel: Relationship) => void): destructor.Destructor {
-    return this.relationships.subscribe((event) => {
+    return this.cache.relationships.subscribe((event) => {
       if (event.variant === "set") handler(event.value);
     });
   }
 
   /** Subscribes to every relationship delete delivered to the cache. */
   onRelationshipDelete(handler: (rel: Relationship) => void): destructor.Destructor {
-    return this.relationships.subscribe((event) => {
+    return this.cache.relationships.subscribe((event) => {
       if (event.variant === "delete") handler(relationshipZ.parse(event.key));
     });
   }
 
   /** Merges a fetched resource with cached field data it may lack. */
   private mergeFieldData(r: Resource): Resource {
-    const p = this.resources.get(r.key);
+    const p = this.cache.resources.get(r.key);
     return p == null ? r : { ...r, data: r.data ?? p.data };
   }
 
   private writeResources(resources: Resource[]): void {
-    this.resources.set(resources.map((r) => this.mergeFieldData(r)));
+    this.cache.resources.set(resources.map((r) => this.mergeFieldData(r)));
   }
 
   // Resources are deleted through other domain clients whose write-through
@@ -365,7 +361,7 @@ export class Client extends query.Retriever<
       const anchor = idZ.parse(ids[0]);
       resources.forEach(({ id }) => {
         const rel = direction === "to" ? parentRel(anchor, id) : parentRel(id, anchor);
-        this.relationships.set(relationshipToString(rel), rel);
+        this.cache.relationships.set(relationshipToString(rel), rel);
       });
     }
     return resources;
@@ -379,13 +375,13 @@ export class Client extends query.Retriever<
     const anchor = oppositeRelationshipDirection(direction);
     const space = cache.queries<DependentRequest, Resource[], string, Resource>({
       name,
-      table: this.resources,
+      table: this.cache.resources,
       fetch: async (q) => (await this.fetchDependents(q, direction)).map((r) => r.key),
       compose: (records) => records,
       matches: (resource, q) => this.isDependent(resource, q, direction),
       serverFields: DEPENDENT_SERVER_FIELDS,
       watch: [
-        query.watch(this.relationships, (event, q: DependentRequest) => {
+        query.watch(this.cache.relationships, (event, q: DependentRequest) => {
           const rel =
             event.variant === "set" ? event.value : relationshipZ.parse(event.key);
           if (rel.type !== PARENT_OF_RELATIONSHIP_TYPE) return null;
@@ -414,7 +410,7 @@ export class Client extends query.Retriever<
     if (q.types != null && !q.types.includes(resource.id.type)) return false;
     const anchor = oppositeRelationshipDirection(direction);
     return (
-      this.relationships.get(
+      this.cache.relationships.get(
         (rel) =>
           rel.type === PARENT_OF_RELATIONSHIP_TYPE &&
           q.ids.includes(idToString(rel[anchor])) &&
@@ -424,7 +420,7 @@ export class Client extends query.Retriever<
   }
 
   private async execRetrieve(request: RetrieveRequest): Promise<Resource[]> {
-    const { resources } = await this.client.send(
+    const { resources } = await this.cfg.unary.send(
       "/ontology/retrieve",
       request,
       wireReqZ,

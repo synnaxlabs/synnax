@@ -320,6 +320,17 @@ const requestFilter = (req: NormalizedRequest): ((ch: Channel) => boolean) => {
  * class should not be instantiated directly, and instead should be used through the
  * `channels` property of an {@link Synnax} client.
  */
+export interface ClientParams {
+  framer: framer.Client;
+  retriever: Retriever;
+  unary: UnaryClient;
+  writer: Writer;
+  statuses: status.Client;
+  ranges: ranger.Client;
+  cache: query.Cache;
+  ontology: ontology.Client;
+}
+
 export class Client extends query.Retriever<
   typeof retrieveRequestZ,
   Key,
@@ -327,29 +338,15 @@ export class Client extends query.Retriever<
   Channel,
   RetrieveSingleParams
 > {
-  private readonly frameClient: framer.Client;
-  private readonly client: UnaryClient;
+  private readonly cfg: ClientParams;
   readonly retriever: Retriever;
   readonly writer: Writer;
-  private readonly statuses?: status.Client;
-  private readonly ranges?: ranger.Client;
   private readonly store: query.Table<Key, Channel>;
-  private readonly statusStore: query.Table<status.Key, status.Status>;
-  private readonly aliasStore: query.Table<string, ranger.alias.Alias>;
-  private readonly ontology: ontology.Stores;
 
-  constructor(
-    frameClient: framer.Client,
-    retriever: Retriever,
-    client: UnaryClient,
-    writer: Writer,
-    statuses: status.Client | undefined,
-    ranges: ranger.Client | undefined,
-    cache: query.Cache,
-    statusStore: query.Table<status.Key, status.Status>,
-    aliasStore: query.Table<string, ranger.alias.Alias>,
-    ontologyStores: ontology.Stores,
-  ) {
+  constructor(cfg: ClientParams) {
+    const { retriever, writer, statuses, ranges, cache } = cfg;
+    const statusStore = statuses.store;
+    const aliasStore = ranges.aliases;
     const sugar = (payload: Payload): Channel => this.sugar(payload);
     const store = cache.createTable<Key, Channel>({
       name: "channels",
@@ -411,15 +408,9 @@ export class Client extends query.Retriever<
         space: single as query.Retrieves<query.Params, Channel>,
       },
     });
-    this.frameClient = frameClient;
+    this.cfg = cfg;
     this.retriever = retriever;
-    this.client = client;
     this.writer = writer;
-    this.statuses = statuses;
-    this.ranges = ranges;
-    this.statusStore = statusStore;
-    this.aliasStore = aliasStore;
-    this.ontology = ontologyStores;
     this.store = store;
   }
 
@@ -622,9 +613,9 @@ export class Client extends query.Retriever<
       const keys = normalized;
       const ids = ontologyID(keys);
       const drop = () => [
-        ontology.deleteCachedRelationships(this.ontology, ids),
+        this.cfg.ontology.cache.deleteRelationships(ids),
         this.store.delete(keys),
-        this.ontology.resources.delete(ontology.idToString(ids)),
+        this.cfg.ontology.cache.resources.delete(ontology.idToString(ids)),
       ];
       const rollback = new destructor.Chain();
       rollback.add(...drop());
@@ -653,7 +644,7 @@ export class Client extends query.Retriever<
         const name = namesArr[i];
         return [
           this.renameThrough(key, name),
-          ontology.renameCachedResource(this.ontology, ontologyID(key), name),
+          this.cfg.ontology.cache.renameResource(ontologyID(key), name),
         ];
       });
     const rollback = new destructor.Chain();
@@ -692,14 +683,14 @@ export class Client extends query.Retriever<
   sugar(payload: Payload): Channel;
   sugar(payloads: Payload[]): Channel[];
   sugar(payloads: Payload | Payload[]): Channel | Channel[] {
-    const { frameClient } = this;
+    const { framer: frameClient } = this.cfg;
     if (Array.isArray(payloads))
       return payloads.map((p) => new Channel({ ...p, frameClient }));
     return new Channel({ ...payloads, frameClient });
   }
 
   async retrieveGroup(): Promise<group.Group> {
-    const res = await this.client.send(
+    const res = await this.cfg.unary.send(
       "/channel/retrieve-group",
       {},
       retrieveGroupReqZ,
@@ -708,27 +699,17 @@ export class Client extends query.Retriever<
     return res.group;
   }
 
-  private requireStatuses(): status.Client {
-    if (this.statuses == null)
-      throw new Error("cache is disabled on this client (cache: false)");
-    return this.statuses;
-  }
-
-  private requireRanges(): ranger.Client {
-    if (this.ranges == null)
-      throw new Error("cache is disabled on this client (cache: false)");
-    return this.ranges;
-  }
-
   /** Rebuilds a cached channel with its cached status and alias attached. */
   private compose(payload: Payload, rangeKey?: ranger.Key): Channel {
     const next: Payload = { ...payload, status: undefined, alias: undefined };
     if (isCalculated(payload)) {
-      const parsed = statusZ.safeParse(this.statusStore.get(statusKey(payload.key)));
+      const parsed = statusZ.safeParse(
+        this.cfg.statuses.store.get(statusKey(payload.key)),
+      );
       if (parsed.success) next.status = parsed.data;
     }
     if (rangeKey != null)
-      next.alias = this.aliasStore.get(
+      next.alias = this.cfg.ranges.aliases.get(
         createKey({ range: rangeKey, channel: payload.key }),
       )?.alias;
     return this.sugar(next);
@@ -737,25 +718,27 @@ export class Client extends query.Retriever<
   private composeAlias(payload: Payload, rangeKey: ranger.Key): Channel {
     return this.sugar({
       ...payload,
-      alias: this.aliasStore.get(createKey({ range: rangeKey, channel: payload.key }))
-        ?.alias,
+      alias: this.cfg.ranges.aliases.get(
+        createKey({ range: rangeKey, channel: payload.key }),
+      )?.alias,
     });
   }
 
   /** Fetches aliases under the range for keys the alias store has no entry for. */
   private async ensureAliases(rangeKey: ranger.Key, keys: Key[]): Promise<void> {
     const missing = keys.filter(
-      (key) => !this.aliasStore.has(createKey({ range: rangeKey, channel: key })),
+      (key) =>
+        !this.cfg.ranges.aliases.has(createKey({ range: rangeKey, channel: key })),
     );
     if (missing.length === 0) return;
-    const fetched = await this.requireRanges().retrieveAliases(rangeKey, missing);
+    const fetched = await this.cfg.ranges.retrieveAliases(rangeKey, missing);
     Object.entries(fetched).forEach(([channel, alias]) => {
       const entry: ranger.alias.Alias = {
         range: rangeKey,
         channel: Number(channel),
         alias,
       };
-      this.aliasStore.set(createKey(entry), entry);
+      this.cfg.ranges.aliases.set(createKey(entry), entry);
     });
   }
 
@@ -770,9 +753,9 @@ export class Client extends query.Retriever<
     }
     // A cached calculated channel without a cached status is ambiguous: the
     // status may not exist, or may simply never have been fetched.
-    if (ch.isCalculated && !this.statusStore.has(statusKey(key)))
+    if (ch.isCalculated && !this.cfg.statuses.store.has(statusKey(key)))
       try {
-        await this.requireStatuses().retrieve({ key: statusKey(key) });
+        await this.cfg.statuses.retrieve({ key: statusKey(key) });
       } catch (e) {
         if (!NotFoundError.matches(e)) throw errors.fromUnknown(e);
       }
