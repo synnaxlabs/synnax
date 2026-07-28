@@ -30,7 +30,7 @@ var generatedLangs = []string{"go", "ts", "py", "cpp"}
 //  2. A file-level @lang output where every declared type omits the language —
 //     with no hand-written anchors or actions — generates nothing and should
 //     be removed.
-func validateDomainOmits(table *resolution.Table, diag *FileDiagnostics) {
+func validateDomainOmits(table *resolution.Table, diag *diagnostics.Files) {
 	for _, lang := range generatedLangs {
 		validateOmitRefs(table, lang, diag)
 	}
@@ -39,7 +39,7 @@ func validateDomainOmits(table *resolution.Table, diag *FileDiagnostics) {
 func validateOmitRefs(
 	table *resolution.Table,
 	lang string,
-	diag *FileDiagnostics,
+	diag *diagnostics.Files,
 ) {
 	for _, t := range table.Types {
 		if getPath(t, lang) == "" || omit.IsSkipped(t, lang) {

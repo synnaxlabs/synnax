@@ -27,7 +27,7 @@ import (
 type analysisCtx struct {
 	context.Context
 	fileDomains map[string]resolution.Domain
-	diag        *FileDiagnostics
+	diag        *diagnostics.Files
 	table       *resolution.Table
 	loader      FileLoader
 	ast         parser.ISchemaContext
@@ -42,8 +42,8 @@ func Analyze(
 	ctx context.Context,
 	files []string,
 	loader FileLoader,
-) (*resolution.Table, *FileDiagnostics) {
-	diag := NewFileDiagnostics()
+) (*resolution.Table, *diagnostics.Files) {
+	diag := diagnostics.NewFiles()
 	table := resolution.NewTable()
 
 	for _, file := range files {
@@ -87,8 +87,8 @@ func AnalyzeSource(
 	ctx context.Context,
 	source, namespace string,
 	loader FileLoader,
-) (*resolution.Table, *FileDiagnostics) {
-	diag := NewFileDiagnostics()
+) (*resolution.Table, *diagnostics.Files) {
+	diag := diagnostics.NewFiles()
 	table := resolution.NewTable()
 
 	ast, parseDiag := parser.Parse(source)

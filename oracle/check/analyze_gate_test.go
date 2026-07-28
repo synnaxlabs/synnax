@@ -12,15 +12,14 @@ package check_test
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/oracle/analyzer"
 	"github.com/synnaxlabs/oracle/check"
 	"github.com/synnaxlabs/oracle/pipeline"
 	"github.com/synnaxlabs/x/diagnostics"
 	"go.lsp.dev/protocol"
 )
 
-func fileDiag(d diagnostics.Diagnostic) *analyzer.FileDiagnostics {
-	diag := analyzer.NewFileDiagnostics()
+func fileDiag(d diagnostics.Diagnostic) *diagnostics.Files {
+	diag := diagnostics.NewFiles()
 	diag.Report("schemas/x.oracle", d)
 	return diag
 }
@@ -28,7 +27,7 @@ func fileDiag(d diagnostics.Diagnostic) *analyzer.FileDiagnostics {
 var _ = Describe("AnalyzeGate", func() {
 	It("passes when diagnostics are empty", func(ctx SpecContext) {
 		gate := check.NewAnalyzeGate(false)
-		r := &pipeline.Result{Diagnostics: analyzer.NewFileDiagnostics()}
+		r := &pipeline.Result{Diagnostics: diagnostics.NewFiles()}
 		Expect(gate.Run(ctx, r, check.Env{}).Status).To(Equal(check.StatusPass))
 	})
 

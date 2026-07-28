@@ -81,7 +81,7 @@ type Result struct {
 	Sources          map[string][]byte
 	FormattedSources map[string][]byte
 	Resolutions      *resolution.Table
-	Diagnostics      *analyzer.FileDiagnostics
+	Diagnostics      *diagnostics.Files
 	Outputs          map[string][]plugin.File
 	// Deletions holds repo-relative paths of files plugins requested be
 	// removed from disk (e.g. when migrate retargets a transform). Keyed
@@ -126,7 +126,7 @@ func Run(ctx context.Context, opts Options) (*Result, error) {
 		FormattedSources: make(map[string][]byte, len(opts.Schemas)),
 		Outputs:          make(map[string][]plugin.File),
 		Deletions:        make(map[string][]string),
-		Diagnostics:      analyzer.NewFileDiagnostics(),
+		Diagnostics:      diagnostics.NewFiles(),
 	}
 	sort.Strings(r.Schemas)
 

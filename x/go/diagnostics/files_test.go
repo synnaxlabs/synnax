@@ -7,17 +7,16 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package analyzer_test
+package diagnostics_test
 
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/oracle/analyzer"
 	"github.com/synnaxlabs/x/diagnostics"
 )
 
-var _ = Describe("FileDiagnostics", func() {
-	var fd *analyzer.FileDiagnostics
+var _ = Describe("Files", func() {
+	var fd *diagnostics.Files
 
 	errAt := func(msg string) diagnostics.Diagnostic {
 		return diagnostics.Errorf(nil, "%s", msg)
@@ -26,7 +25,7 @@ var _ = Describe("FileDiagnostics", func() {
 		return diagnostics.Warningf(nil, "%s", msg)
 	}
 
-	BeforeEach(func() { fd = analyzer.NewFileDiagnostics() })
+	BeforeEach(func() { fd = diagnostics.NewFiles() })
 
 	Describe("Empty and Ok", func() {
 		It("Should be empty and ok with no diagnostics", func() {
@@ -79,7 +78,7 @@ var _ = Describe("FileDiagnostics", func() {
 	Describe("Combine", func() {
 		It("Should fold another collection preserving file grouping", func() {
 			fd.Report("a.oracle", errAt("from a"))
-			other := analyzer.NewFileDiagnostics()
+			other := diagnostics.NewFiles()
 			other.Report("a.oracle", errAt("from a"))
 			other.Report("b.oracle", warnAt("from b"))
 			fd.Combine(other)
