@@ -13,6 +13,17 @@ package versions
 
 import "github.com/synnaxlabs/x/spatial/versions/v0"
 
+// OuterLocation is a position indicator for elements anchored to the outer edge of a
+// container. Used for orientation and positioning of UI elements.
+type OuterLocation = v0.OuterLocation
+
+const (
+	OuterLocationTop    OuterLocation = v0.OuterLocationTop
+	OuterLocationRight  OuterLocation = v0.OuterLocationRight
+	OuterLocationBottom OuterLocation = v0.OuterLocationBottom
+	OuterLocationLeft   OuterLocation = v0.OuterLocationLeft
+)
+
 // XY is a 2D coordinate point with x and y values. Used for positioning elements in
 // two-dimensional space.
 type XY = v0.XY
@@ -59,6 +70,9 @@ type StickyUnits = v0.StickyUnits
 // StickyXY is a position that can be anchored to different corners of a container with
 // configurable units (pixels or decimal fractions).
 type StickyXY = v0.StickyXY
+
+// Viewport is the camera state of a viewport.
+type Viewport = v0.Viewport
 
 // Decimal is a normalized value in [0, 1] expressed as a decimal fraction of a whole,
 // such as a container's extent.

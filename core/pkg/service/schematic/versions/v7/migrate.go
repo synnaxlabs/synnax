@@ -21,7 +21,6 @@ import (
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
-	"github.com/synnaxlabs/x/migrate"
 	"github.com/synnaxlabs/x/spatial"
 )
 
@@ -264,10 +263,5 @@ func stringOrEmpty(s *string) string {
 	return *s
 }
 
-// liftMigration lifts stored schematics from the v6 blob layout to the typed v7 shape.
-var liftMigration = gorp.NewEntryMigration(
-	"v55_lift_typed_schematic", migrateSchematic, v6.Migration.Key(),
-)
-
-// Migrations is the ordered set of migrations introduced at this version.
-var Migrations = []migrate.Migration{liftMigration}
+// Migration lifts stored schematics from the v6 blob layout to the typed v7 shape.
+var Migration = gorp.NewEntryMigration("v55_lift_typed_schematic", migrateSchematic)
