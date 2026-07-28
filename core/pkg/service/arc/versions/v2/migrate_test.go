@@ -209,8 +209,8 @@ var _ = Describe("MigrateArc", func() {
 })
 
 // migrateFromV1 runs the v2 migration over a gorp-seeded v1 arc and returns the
-// migrated current Arc. The v1 chain is marked applied with no-op migrations so the v2
-// migration's dependency resolves.
+// migrated current Arc. The v1 chain is marked applied with no-op migrations so only
+// the v2 migration runs.
 func migrateFromV1(ctx SpecContext, seed v1.Arc) v2.Arc {
 	db := DeferClose(gorp.Wrap(memkv.New()))
 	MustSucceed(gorp.OpenTable(ctx, gorp.TableConfig[v1.Key, v1.Arc]{DB: db}))

@@ -116,6 +116,27 @@ func (sxy *StickyXY) DecodeOrc(r *orc.Reader) error {
 }
 
 // EncodeOrc writes the value to w in the Orc binary format.
+func (vv Viewport) EncodeOrc(w *orc.Writer) error {
+	w.Float64(float64(vv.Zoom))
+	if err := vv.Position.EncodeOrc(w); err != nil {
+		return err
+	}
+	return nil
+}
+
+// DecodeOrc reads the value from r in the Orc binary format.
+func (vv *Viewport) DecodeOrc(r *orc.Reader) error {
+	var err error
+	if vv.Zoom, err = r.Float64(); err != nil {
+		return err
+	}
+	if err = vv.Position.DecodeOrc(r); err != nil {
+		return err
+	}
+	return nil
+}
+
+// EncodeOrc writes the value to w in the Orc binary format.
 func (xy XY) EncodeOrc(w *orc.Writer) error {
 	w.Float64(float64(xy.X))
 	w.Float64(float64(xy.Y))

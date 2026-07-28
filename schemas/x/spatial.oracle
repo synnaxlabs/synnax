@@ -18,7 +18,8 @@ OuterLocation enum {
     bottom = "bottom"
     left   = "left"
 
-    @doc value """
+    @go version 0
+    @doc value  """
         is a position indicator for elements anchored to the outer edge of a
         container. Used for orientation and positioning of UI elements.
     """
@@ -141,7 +142,8 @@ Viewport struct {
         @doc value "is the (x, y) pan offset of the viewport."
     }
 
-    @doc value "is the camera state of a viewport."
+    @go version 0
+    @doc value  "is the camera state of a viewport."
 }
 
 AngularDirection enum {

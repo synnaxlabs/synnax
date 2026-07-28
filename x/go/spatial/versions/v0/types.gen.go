@@ -13,6 +13,27 @@ package v0
 
 import "github.com/synnaxlabs/x/validate"
 
+// OuterLocation is a position indicator for elements anchored to the outer edge of a
+// container. Used for orientation and positioning of UI elements.
+type OuterLocation string
+
+const (
+	OuterLocationTop    OuterLocation = "top"
+	OuterLocationRight  OuterLocation = "right"
+	OuterLocationBottom OuterLocation = "bottom"
+	OuterLocationLeft   OuterLocation = "left"
+)
+
+// IsValid reports whether o is one of the defined OuterLocation values.
+func (o OuterLocation) IsValid() bool {
+	switch o {
+	case OuterLocationTop, OuterLocationRight, OuterLocationBottom, OuterLocationLeft:
+		return true
+	default:
+		return false
+	}
+}
+
 // XY is a 2D coordinate point with x and y values. Used for positioning elements in
 // two-dimensional space.
 type XY struct {
@@ -165,6 +186,21 @@ func (s StickyXY) Validate() error {
 	v.Exec(func() error { return validate.PathedError(s.Root.Validate(), "root") })
 	v.Exec(func() error { return validate.PathedError(s.Units.Validate(), "units") })
 	return v.Error()
+}
+
+// Viewport is the camera state of a viewport.
+type Viewport struct {
+	// Zoom is the zoom level where 1.0 equals 100%.
+	Zoom float64 `json:"zoom" msgpack:"zoom"`
+	// Position is the (x, y) pan offset of the viewport.
+	Position XY `json:"position" msgpack:"position"`
+}
+
+// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
+func (v *Viewport) ApplyDefaults() {
+	if v.Zoom == 0 {
+		v.Zoom = 1
+	}
 }
 
 // Decimal is a normalized value in [0, 1] expressed as a decimal fraction of a whole,

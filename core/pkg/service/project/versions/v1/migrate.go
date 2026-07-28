@@ -230,31 +230,26 @@ func collectEntries[K gorp.Key, E gorp.Entry[K]](
 	return out, iter.Error()
 }
 
-// workspaceToProjectMigration lifts stored workspaces into projects. It depends on the
+// workspaceToProjectMigration lifts stored workspaces into projects. It runs after the
 // codec migration so it always reads Orc-encoded entries.
-var workspaceToProjectMigration = migrate.WithAddedDeps(
-	gorp.NewMigration("v56_migrate_workspace_to_project", migrateWorkspaceToProject),
-	v0.Migration.Key(),
+var workspaceToProjectMigration = gorp.NewMigration(
+	"v56_migrate_workspace_to_project", migrateWorkspaceToProject,
 )
 
 // layoutsToStagingMigration stages each project's legacy layout blob for the panel
 // service to adopt.
-var layoutsToStagingMigration = migrate.WithAddedDeps(
-	gorp.NewMigration("v56_stage_project_layouts", migrateLayoutsToStaging),
-	workspaceToProjectMigration.Key(),
+var layoutsToStagingMigration = gorp.NewMigration(
+	"v56_stage_project_layouts", migrateLayoutsToStaging,
 )
 
 // removeAuthorRelationshipsMigration drops the legacy author relationships projects
 // held in the ontology.
 func removeAuthorRelationshipsMigration(otg *ontology.Ontology) migrate.Migration {
-	return migrate.WithAddedDeps(
-		gorp.NewMigration(
-			"v56_remove_project_author_relationships",
-			func(ctx context.Context, tx gorp.Tx, _ alamos.Instrumentation) error {
-				return removeAuthorRelationships(ctx, tx, otg)
-			},
-		),
-		workspaceToProjectMigration.Key(),
+	return gorp.NewMigration(
+		"v56_remove_project_author_relationships",
+		func(ctx context.Context, tx gorp.Tx, _ alamos.Instrumentation) error {
+			return removeAuthorRelationships(ctx, tx, otg)
+		},
 	)
 }
 

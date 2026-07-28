@@ -52,13 +52,13 @@ func legacyStatusConfigString(config msgpack.EncodedJSON, key, def string) strin
 // dropProgramStatusMigration lifts stored arcs from v0 to v1, dropping the persisted
 // program status.
 var dropProgramStatusMigration = gorp.NewEntryMigration(
-	"v54_drop_program_status", migrateArc, v0.Migration.Key(),
+	"v54_drop_program_status", migrateArc,
 )
 
 // renameSetStatusMigration renames legacy set_status graph nodes onto the current node
 // type.
 var renameSetStatusMigration = gorp.NewEntryMigration(
-	"v55_rename_set_status", renameSetStatus, dropProgramStatusMigration.Key(),
+	"v55_rename_set_status", renameSetStatus,
 )
 
 // Migrations is the ordered set of migrations introduced at this version.

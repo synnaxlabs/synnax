@@ -447,7 +447,7 @@ var _ = Describe("migrate create with existing migrations", Ordered, func() {
 
 	AfterAll(func() { cleanup() })
 
-	It("should depend on the latest existing version", func() {
+	It("should scaffold into the latest existing version directory", func() {
 		cmd := NewRootCmd()
 		MustSucceed(executeCommand(cmd, "migrate", "create", "fix_index",
 			"--service", "core/pkg/service/user"))
@@ -457,7 +457,7 @@ var _ = Describe("migrate create with existing migrations", Ordered, func() {
 		Expect(migrationFile).To(BeAnExistingFile())
 
 		content := string(MustSucceed(os.ReadFile(migrationFile)))
-		Expect(content).To(ContainSubstring("v53_schema_migration"))
+		Expect(content).To(ContainSubstring(`gorp.NewMigration("fix_index"`))
 	})
 })
 
