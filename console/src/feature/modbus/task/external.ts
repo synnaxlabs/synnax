@@ -15,7 +15,6 @@ import {
   WRITE_TYPE,
 } from "@/feature/modbus/task/types";
 import { Write, WriteSelectable } from "@/feature/modbus/task/Write";
-import { type Export } from "@/platform/export";
 import { type Import } from "@/platform/import";
 import { type Panel } from "@/platform/panel";
 import { type Selector } from "@/platform/selector";
@@ -25,11 +24,6 @@ export * from "@/feature/modbus/task/commands";
 export * from "@/feature/modbus/task/Read";
 export * from "@/feature/modbus/task/types";
 export * from "@/feature/modbus/task/Write";
-
-export const EXTRACTORS: Export.Extractors = {
-  [READ_TYPE]: Task.extract,
-  [WRITE_TYPE]: Task.extract,
-};
 
 export const FILE_INGESTERS: Import.FileIngesters = {
   [READ_TYPE]: Task.createIngester(READ_SCHEMAS.config, READ_TYPE),

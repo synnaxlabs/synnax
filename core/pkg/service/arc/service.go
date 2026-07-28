@@ -24,6 +24,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/arc/status"
 	"github.com/synnaxlabs/synnax/pkg/service/arc/versions"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
+	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/search"
 	"github.com/synnaxlabs/synnax/pkg/service/signals"
@@ -63,17 +64,22 @@ type ServiceConfig struct {
 	Search *search.Index
 	// Signals is used to broadcast collaborative-edit actions to the cluster.
 	//
-	// [OPTIONAL]
+	// [OPTIONAL] - Defaults to nil.
 	Signals *signals.Provider
+	// ImEx is the import/export registry the arc service registers itself with as the
+	// exporter for arc resources during OpenService.
+	//
+	// [REQUIRED]
+	ImEx *imex.Service
 	// TextSweepQuiescence is how long an arc's text must go unedited before its
 	// tombstoned characters become eligible to be reclaimed.
 	//
-	// [OPTIONAL] - Defaults to defaultTextSweepQuiescence.
+	// [OPTIONAL] - Defaults to 5 seconds
 	TextSweepQuiescence telem.TimeSpan
 	// TextSweepThreshold is the number of tombstoned characters that must accumulate
 	// before a sweep is broadcast.
 	//
-	// [OPTIONAL] - Defaults to defaultTextSweepThreshold.
+	// [OPTIONAL] - Defaults to 128.
 	TextSweepThreshold int
 	// Now returns the current cluster time. It gates the text sweeper's quiescence
 	// check and is injectable for testing.
@@ -81,18 +87,12 @@ type ServiceConfig struct {
 	// [OPTIONAL] - Defaults to telem.Now.
 	Now func() telem.TimeStamp
 	// Instrumentation is used for logging, tracing, and metrics.
+	//
+	// [OPTIONAL] - Defaults to noop instrumentation.
 	alamos.Instrumentation
 }
 
-var (
-	_ config.Config[ServiceConfig] = ServiceConfig{}
-	// DefaultServiceConfig holds the default values for a ServiceConfig.
-	DefaultServiceConfig = ServiceConfig{
-		TextSweepQuiescence: defaultTextSweepQuiescence,
-		TextSweepThreshold:  defaultTextSweepThreshold,
-		Now:                 telem.Now,
-	}
-)
+var _ config.Config[ServiceConfig] = ServiceConfig{}
 
 // Override implements config.Config.
 func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
@@ -103,6 +103,7 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Channel = override.Nil(c.Channel, other.Channel)
 	c.Task = override.Nil(c.Task, other.Task)
 	c.Signals = override.Nil(c.Signals, other.Signals)
+	c.ImEx = override.Nil(c.ImEx, other.ImEx)
 	c.TextSweepQuiescence = override.Numeric(c.TextSweepQuiescence, other.TextSweepQuiescence)
 	c.TextSweepThreshold = override.Numeric(c.TextSweepThreshold, other.TextSweepThreshold)
 	c.Now = override.Nil(c.Now, other.Now)
@@ -117,6 +118,7 @@ func (c ServiceConfig) Validate() error {
 	validate.NotNil(v, "channel", c.Channel)
 	validate.NotNil(v, "task", c.Task)
 	validate.NotNil(v, "search", c.Search)
+	validate.NotNil(v, "imex", c.ImEx)
 	return v.Error()
 }
 
@@ -202,7 +204,11 @@ func (s *Service) CompileProgram(ctx context.Context, key Key) (Arc, error) {
 // configuration will be used as an override for the previous configuration in the list.
 // See the ConfigValues struct for information on which fields should be set.
 func OpenService(ctx context.Context, configs ...ServiceConfig) (s *Service, err error) {
-	cfg, err := config.New(DefaultServiceConfig, configs...)
+	cfg, err := config.New(ServiceConfig{
+		TextSweepQuiescence: 5 * telem.Second,
+		TextSweepThreshold:  128,
+		Now:                 telem.Now,
+	}, configs...)
 	if err != nil {
 		return nil, err
 	}
@@ -222,6 +228,7 @@ func OpenService(ctx context.Context, configs ...ServiceConfig) (s *Service, err
 	}
 	cfg.Ontology.RegisterService(s)
 	cfg.Search.RegisterService(s)
+	cfg.ImEx.RegisterExporter(s)
 	if cfg.Signals != nil {
 		var sig io.Closer
 		if sig, err = actions.PublishSignals(ctx, actions.SignalsConfig[Key, Action]{

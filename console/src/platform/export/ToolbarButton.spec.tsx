@@ -7,24 +7,27 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { type ontology } from "@synnaxlabs/client";
 import { fireEvent, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 import { Export } from "@/platform/export";
 import { renderWithConsole } from "@/testutil";
 
+const getID = (): ontology.ID => ({ type: "log", key: "k" });
+
 describe("Export.ToolbarButton", () => {
-  it("invokes onExport when clicked", async () => {
-    const onExport = vi.fn();
-    await renderWithConsole(<Export.ToolbarButton onExport={onExport} />);
+  it("resolves the id to export when clicked", async () => {
+    const resolve = vi.fn(getID);
+    await renderWithConsole(<Export.ToolbarButton getID={resolve} />);
     fireEvent.click(screen.getByRole("button"));
-    expect(onExport).toHaveBeenCalledTimes(1);
+    expect(resolve).toHaveBeenCalledTimes(1);
   });
 
   it("forwards the disabled prop, suppressing the click", async () => {
-    const onExport = vi.fn();
-    await renderWithConsole(<Export.ToolbarButton onExport={onExport} disabled />);
+    const resolve = vi.fn(getID);
+    await renderWithConsole(<Export.ToolbarButton getID={resolve} disabled />);
     fireEvent.click(screen.getByRole("button"));
-    expect(onExport).not.toHaveBeenCalled();
+    expect(resolve).not.toHaveBeenCalled();
   });
 });

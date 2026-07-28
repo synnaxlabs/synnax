@@ -18,6 +18,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
+	. "github.com/synnaxlabs/synnax/pkg/service/imex/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/log"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/x/color"
@@ -26,16 +27,6 @@ import (
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
-
-// wireRoundTrip marshals env to JSON and unmarshals it back, binding the codec that
-// Decode needs. Export-side envelopes carry a body but no codec, so a decode of an
-// exported envelope (and the import path generally) must first pass through the wire.
-func wireRoundTrip(env imex.Envelope) imex.Envelope {
-	b := MustSucceed(json.Marshal(env))
-	var out imex.Envelope
-	Expect(json.Unmarshal(b, &out)).To(Succeed())
-	return out
-}
 
 // loadEnvelope reads a wire-format envelope fixture from versions/testdata and
 // unmarshals it into an imex.Envelope, binding the codec that Decode needs. The
@@ -69,7 +60,7 @@ var _ = Describe("ImEx", func() {
 			Expect(env.Type).To(Equal("log"))
 			Expect(env.Name).To(Equal("exported"))
 
-			decoded := MustSucceed(imex.Decode[log.Log](ctx, wireRoundTrip(env)))
+			decoded := MustSucceed(imex.Decode[log.Log](ctx, WireRoundTrip(env)))
 			Expect(decoded.Name).To(Equal("exported"))
 			Expect(decoded.TimestampPrecision).To(Equal(int32(2)))
 			Expect(decoded.HideChannelNames).To(BeTrue())
@@ -225,7 +216,7 @@ var _ = Describe("ImEx", func() {
 				HideReceiptTimestamp: true,
 			})
 			env := MustSucceed(imexSvc.Export(ctx, original.OntologyID()))
-			id := MustSucceed(imexSvc.Import(ctx, db, wireRoundTrip(env), imex.ImportOptions{}))
+			id := MustSucceed(imexSvc.Import(ctx, db, WireRoundTrip(env), imex.ImportOptions{}))
 
 			key := MustSucceed(uuid.Parse(id.Key))
 			var res log.Log

@@ -28,7 +28,6 @@ import { Group } from "@/platform/group";
 import { Link } from "@/platform/link";
 import { Panel } from "@/platform/panel";
 import { Range } from "@/platform/range";
-import { Task as PlatformTask } from "@/platform/task";
 import { Tree } from "@/platform/tree";
 import { Session } from "@/session";
 
@@ -81,7 +80,7 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
   const resources = getResource(ids);
   const handleDelete = useDelete(props);
   const handleLink = Cluster.useCopyLinkToClipboard();
-  const handleExport = PlatformTask.useExport();
+  const handleExport = Export.use();
   const snap = useRangeSnapshot();
   const range = Session.Range.useSelectState();
   const group = Group.useCreateFromSelection();
@@ -144,7 +143,7 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
               handleLink({ name: resources[0].name, ontologyID: resources[0].id })
             }
           />
-          <Export.ContextMenuItem onClick={() => handleExport(ids[0].key)} />
+          <Export.ContextMenuItem onClick={() => handleExport(ids[0])} />
           <Menu.Divider />
         </>
       )}

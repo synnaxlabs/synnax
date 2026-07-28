@@ -10,12 +10,10 @@
 import { lineplot } from "@synnaxlabs/client";
 import { Icon, LinePlot as Base } from "@synnaxlabs/pluto";
 
-import { extract } from "@/feature/lineplot/export";
 import { ingest } from "@/feature/lineplot/import";
 import { LinePlot } from "@/feature/lineplot/LinePlot";
 import { Selectable } from "@/feature/lineplot/Selectable";
 import { Toolbar } from "@/feature/lineplot/toolbar";
-import { type Export } from "@/platform/export";
 import { type Import } from "@/platform/import";
 import { Panel } from "@/platform/panel";
 import { type Selector } from "@/platform/selector";
@@ -31,8 +29,6 @@ export * from "@/feature/lineplot/useTriggerHold";
 export * from "@/platform/lineplot/external";
 
 const TAB_TYPE = lineplot.TYPE_ONTOLOGY_ID.type;
-
-export const EXTRACTORS: Export.Extractors = { [TAB_TYPE]: extract };
 
 export const FILE_INGESTERS: Import.FileIngesters = { [TAB_TYPE]: ingest };
 

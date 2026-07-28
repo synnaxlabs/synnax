@@ -42,59 +42,32 @@ jobs:
         with:
           python-version-file: client/py/pyproject.toml
 
-      - name: Diff Changes
-        uses: dorny/paths-filter@v4
-        id: filter
-        with:
-          base: ${{ github.ref }}
-          filters: |
-            shared: &shared
-              - .github/workflows/deploy.py.yaml
-              - pyproject.toml
-              - uv.lock
-              - uv.toml
-            alamos: &alamos
-              - *shared
-              - alamos/py/**
-            x: &x
-              - *shared
-              - x/py/**
-            freighter: &freighter
-              - *shared
-              - *alamos
-              - *x
-              - freighter/py/**
-            client:
-              - *shared
-              - *freighter
-              - client/py/**
-
       - name: Pin internal dependency constraints
         run: ./scripts/pin_internal_deps.sh
 
-      - name: Publish Alamos
-        if: steps.filter.outputs.alamos == 'true'
+      - name: Build Alamos
         working-directory: alamos/py
         run: uv build
 
-      - name: Publish X
-        if: steps.filter.outputs.x == 'true'
+      - name: Build X
         working-directory: x/py
         run: uv build
 
-      - name: Publish Freighter
-        if: steps.filter.outputs.freighter == 'true'
+      - name: Build Freighter
         working-directory: freighter/py
         run: uv build
 
-      - name: Publish Client
-        if: steps.filter.outputs.client == 'true'
+      - name: Build Client
         working-directory: client/py
         run: uv build
 
-      - name: Publish Code
-        if:
-          steps.filter.outputs.alamos == 'true' || steps.filter.outputs.x == 'true' ||
-          steps.filter.outputs.freighter == 'true' || steps.filter.outputs.client ==
-          'true'
-        run: uv publish
+      - name: Prune already-published distributions
+        run: python scripts/prune_published.py
+
+      - name: Publish
+        run: |
+          if compgen -G "dist/*.whl" > /dev/null || compgen -G "dist/*.tar.gz" > /dev/null; then
+            uv publish --check-url https://pypi.org/simple/
+          else
+            echo "All distributions already published; nothing to upload."
+          fi
