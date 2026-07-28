@@ -12,6 +12,7 @@ import {
   type ontology,
   panel,
   project,
+  query,
   type Synnax as Client,
   UnexpectedError,
 } from "@synnaxlabs/client";
@@ -61,15 +62,15 @@ export interface SelectKeyParams {
 
 const requirePanel = (client: Client | null, key: panel.Key): panel.Panel => {
   const cached = client?.panels.getCached({ key });
-  if (cached == null || cached.variant === "deleted")
+  if (cached == null || query.Deleted.matches(cached))
     throw new NotFoundError(`Panel with key ${key} not found`);
-  return cached.data;
+  return cached;
 };
 
 const getPanel = (client: Client | null, key: panel.Key): panel.Panel | undefined => {
   const cached = client?.panels.getCached({ key });
-  if (cached == null || cached.variant === "deleted") return undefined;
-  return cached.data;
+  if (cached == null || query.Deleted.matches(cached)) return undefined;
+  return cached;
 };
 
 const subscribe = (

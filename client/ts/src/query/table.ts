@@ -10,15 +10,8 @@
 import { array, deep, destructor, type record, state, TimeStamp } from "@synnaxlabs/x";
 import type z from "zod";
 
+import { Deleted } from "@/query/deleted";
 import { type Listener } from "@/query/streamer";
-
-/** A deleted row's last known value, kept for restore and deletion UX. */
-export interface Tombstone<Value> {
-  /** The row's value at the moment it was deleted. */
-  corpse: Value;
-  /** When the deletion was applied to this table. */
-  deletedAt: TimeStamp;
-}
 
 /**
  * Presence of a key in a table: "present" when a live row exists, "tombstoned"
@@ -85,7 +78,7 @@ export class Table<
   Value extends state.State = state.State,
 > {
   private readonly rows = new Map<Key, Value>();
-  private readonly tombstones = new Map<Key, Tombstone<Value>>();
+  private readonly tombstones = new Map<Key, Deleted<Value>>();
   private readonly subscribers = new Map<
     TableSubscriber<Key, Value>,
     Key | undefined
@@ -220,7 +213,7 @@ export class Table<
    * Returns the tombstone for the given key, or undefined if none exists.
    * Cache-internal surface: consumed by the query machinery, not domain code.
    */
-  getTombstone(key: Key): Tombstone<Value> | undefined {
+  getTombstone(key: Key): Deleted<Value> | undefined {
     return this.tombstones.get(key);
   }
 
@@ -278,8 +271,7 @@ export class Table<
 
     toDelete.forEach(({ key: k, value }) => {
       this.rows.delete(k);
-      if (value != null)
-        this.tombstones.set(k, { corpse: value, deletedAt: TimeStamp.now() });
+      if (value != null) this.tombstones.set(k, new Deleted(value, TimeStamp.now()));
       this.notify({ variant: "delete", key: k });
     });
 

@@ -400,18 +400,26 @@ export class Client extends query.Retriever<
       async (keys) => await this.fetchThrough(keys),
       async (rel) => await this.ensureRelationshipTargets(rel),
     );
+    const composed = cache.derive<Key, Range, Range>({
+      name: "range.composed",
+      source: ranges,
+      compose: (record) => this.composeOne(record),
+      equal: (a, b) => deep.equal(a.payload, b.payload),
+      watch: [
+        query.deriveWatch(relationships, (event) =>
+          affectedRangeKeys(relOfEvent(event)),
+        ),
+        query.deriveWatch(labels, (event) => rangesWithLabel(relationships, event.key)),
+      ],
+    });
     const single = cache.queries<Key | Name, Range, Key, Range>({
       name: "range",
-      table: ranges,
+      table: composed,
       fetch: async (query) => [(await this.fetchSingle(query)).key],
-      compose: ([record]) => this.composeOne(record),
+      compose: ([record]) => record,
       keyOf: (query) => (keyZ.safeParse(query).success ? query : null),
       matches: (r, query) => r.key === query || r.name === query,
       single: true,
-      watch: [
-        watchRelationships<Key | Name>(relationships),
-        watchLabels<Key | Name>(labels, relationships),
-      ],
     });
     super(cache, {
       name: "range",
@@ -435,26 +443,23 @@ export class Client extends query.Retriever<
     this.aliases = aliases;
     this.children = cache.queries<Key, Range[], Key, Range>({
       name: "child ranges",
-      table: this.store,
+      table: composed,
       fetch: async (query) => (await this.fetchChildren(query)).map((r) => r.key),
-      compose: (records) => records.map((r) => this.composeOne(r)),
+      compose: (records) => records,
       matches: (r, query) => {
         const parent = this.cfg.ontology.cache.parentID(ontologyID(r.key));
         return parent != null && ontology.idsEqual(parent, ontologyID(query));
       },
-      watch: [
-        watchRelationships<Key>(this.cfg.ontology.cache.relationships),
-        watchLabels<Key>(this.cfg.labels.store, this.cfg.ontology.cache.relationships),
-      ],
+      watch: [watchRelationships<Key>(this.cfg.ontology.cache.relationships)],
     });
     this.parent = cache.queries<ontology.ID, Range | null, Key, Range>({
       name: "parent range",
-      table: this.store,
+      table: composed,
       fetch: async (query) => {
         const range = await this.fetchParent(query);
         return range == null ? [] : [range.key];
       },
-      compose: (records) => (records[0] == null ? null : this.composeOne(records[0])),
+      compose: (records) => records[0] ?? null,
       matches: (r, query) => {
         const parent = this.cfg.ontology.cache.parentID(query);
         return parent != null && parent.type === "range" && parent.key === r.key;
@@ -468,10 +473,6 @@ export class Client extends query.Retriever<
               return rel.from.type === "range" ? [rel.from.key] : "refetch";
             return affectedRangeKeys(rel);
           },
-        ),
-        watchLabels<ontology.ID>(
-          this.cfg.labels.store,
-          this.cfg.ontology.cache.relationships,
         ),
       ],
     });

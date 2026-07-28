@@ -10,12 +10,16 @@
 import {
   access,
   type ontology,
+  query,
   type Synnax,
   UnexpectedError,
   user,
 } from "@synnaxlabs/client";
 
 import { Flux } from "@/flux";
+
+// Bound at module scope: hooks bind `query` to the caller's params object.
+const { Deleted } = query;
 
 const PERMISSION_PLURAL_RESOURCE_NAME = "Permissions";
 
@@ -67,8 +71,8 @@ export const isGranted = ({
   const sub = resolveSubject(client, subject);
   if (sub == null) return false;
   const cached = client.access.policies.getCached({ for: sub });
-  if (cached?.variant !== "changed") return false;
-  return access.allowRequest({ subject: sub, objects, action }, cached.data);
+  if (cached === undefined || Deleted.matches(cached)) return false;
+  return access.allowRequest({ subject: sub, objects, action }, cached);
 };
 
 export interface IsGrantedExtensionParams extends Omit<IsGrantedParams, "query"> {}
@@ -109,13 +113,14 @@ const { useRetrieve: useGrantedBase } = Flux.createRetrieve<PermissionsQuery, bo
     const cached = client.access.policies.getCached({ for: sub });
     // Only notify when the grant itself flips: policy churn that cannot
     // change the answer must not re-render consumers.
-    let prev = cached?.variant === "changed" ? evaluate(cached.data) : undefined;
+    let prev =
+      cached === undefined || Deleted.matches(cached) ? undefined : evaluate(cached);
     return client.access.policies.onChange({ for: sub }, (result) => {
-      if (result?.variant !== "changed") return;
-      const next = evaluate(result.data);
+      if (result === undefined || Deleted.matches(result)) return;
+      const next = evaluate(result);
       if (next === prev) return;
       prev = next;
-      handler({ variant: "changed", data: next });
+      handler(next);
     });
   },
 });

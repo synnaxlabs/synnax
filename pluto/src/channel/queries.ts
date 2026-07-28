@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { channel, DataType, type group, type ranger } from "@synnaxlabs/client";
+import { channel, DataType, type group, query, type ranger } from "@synnaxlabs/client";
 import { array, control, type optional, TimeSpan } from "@synnaxlabs/x";
 import { z } from "zod";
 
@@ -130,7 +130,8 @@ const formMountListeners: Flux.CreateFormParams<
 >["mountListeners"] = ({ client, query: { key, rangeKey }, reset }) => {
   if (key == null) return [];
   return client.channels.onChange({ key, rangeKey }, (result) => {
-    if (result?.variant === "changed") reset(channelToFormValues(result.data));
+    if (result !== undefined && !query.Deleted.matches(result))
+      reset(channelToFormValues(result));
   });
 };
 

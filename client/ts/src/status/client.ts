@@ -110,27 +110,22 @@ export class Client extends query.Retriever<
         query.createDeleteListener(DELETE_CHANNEL_NAME, keyZ),
       ],
     });
+    const composed = cache.derive<Key, Status, Status>({
+      name: "status.composed",
+      source: store,
+      compose: (record) => this.compose(record),
+      watch: [
+        query.deriveWatch(relationships, (event) => this.affectedKeys(event)),
+        query.deriveWatch(labels.store, (event) => this.statusesLabeledBy(event.key)),
+      ],
+    });
     const single = cache.queries<Key, Status, Key, Status>({
       name: "status",
-      table: store,
+      table: composed,
       fetch: async (key) => [(await this.fetchSingle(key)).key],
-      compose: (records) => this.compose(records[0]),
+      compose: (records) => records[0],
       keyOf: (key) => key,
       single: true,
-      watch: [
-        query.watch(relationships, (event, key: Key) => {
-          const rel =
-            event.variant === "set"
-              ? event.value
-              : ontology.relationshipZ.parse(event.key);
-          if (!label.matchLabeledBy(rel, ontologyID(key))) return null;
-          if (event.variant === "set") this.ensureLabel(rel);
-          return [key];
-        }),
-        query.watch(labels.store, (event, key: Key) =>
-          this.isLabeledBy(key, event.key) ? [key] : null,
-        ),
-      ],
     });
     super(cache, {
       name: "status",
@@ -140,19 +135,9 @@ export class Client extends query.Retriever<
         fetch: async (req) => await this.fetchThrough(req),
         matches: (status, req) => this.requestFilter(req)(status),
         watch: [
-          query.watch(relationships, (event, _: RetrieveRequest) => {
-            const rel =
-              event.variant === "set"
-                ? event.value
-                : ontology.relationshipZ.parse(event.key);
-            if (
-              rel.type !== label.LABELED_BY_ONTOLOGY_RELATIONSHIP_TYPE ||
-              rel.from.type !== "status"
-            )
-              return null;
-            if (event.variant === "set") this.ensureLabel(rel);
-            return [rel.from.key];
-          }),
+          query.watch(relationships, (event, _: RetrieveRequest) =>
+            this.affectedKeys(event),
+          ),
           query.watch(labels.store, (event) => this.statusesLabeledBy(event.key)),
         ],
       },
@@ -345,6 +330,21 @@ export class Client extends query.Retriever<
         to: label.ontologyID(labelKey),
       }),
     );
+  }
+
+  /** Statuses whose labels the relationship event changes; backfills the label. */
+  private affectedKeys(
+    event: query.TableEvent<string, ontology.Relationship>,
+  ): Key[] | null {
+    const rel =
+      event.variant === "set" ? event.value : ontology.relationshipZ.parse(event.key);
+    if (
+      rel.type !== label.LABELED_BY_ONTOLOGY_RELATIONSHIP_TYPE ||
+      rel.from.type !== "status"
+    )
+      return null;
+    if (event.variant === "set") this.ensureLabel(rel);
+    return [rel.from.key];
   }
 
   /** Returns the keys of cached statuses labeled by the given label. */

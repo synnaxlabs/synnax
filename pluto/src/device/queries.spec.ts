@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { device, NotFoundError, status } from "@synnaxlabs/client";
-import { createTestClient } from "@synnaxlabs/client/testutil";
+import { createTestClient, isLive } from "@synnaxlabs/client/testutil";
 import { id, type record } from "@synnaxlabs/x";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { type PropsWithChildren } from "react";
@@ -954,12 +954,8 @@ describe("queries", () => {
       expect(devices).toHaveLength(2);
       expect(devices.map((d) => d.key)).toContain(dev1.key);
       expect(devices.map((d) => d.key)).toContain(dev2.key);
-      expect(client.devices.getCached({ keys: [dev1.key] })?.variant).toEqual(
-        "changed",
-      );
-      expect(client.devices.getCached({ keys: [dev2.key] })?.variant).toEqual(
-        "changed",
-      );
+      expect(isLive(client.devices.getCached({ keys: [dev1.key] }))).toBe(true);
+      expect(isLive(client.devices.getCached({ keys: [dev2.key] }))).toBe(true);
     });
 
     it("should return all cached devices when all are in the store", async () => {
@@ -1043,9 +1039,12 @@ describe("queries", () => {
 
   describe("single retrieve", () => {
     it("should return an undefined status when a cached device has no status", async () => {
-      const rack = await client.racks.create({ name: "test" });
+      // A cold client: cached answers carry status whenever one is already
+      // in the cache, so absence is only deterministic with nothing cached.
+      const cold = createTestClient();
+      const rack = await cold.racks.create({ name: "test" });
       const key = id.create();
-      await client.devices.create({
+      await cold.devices.create({
         key,
         rack: rack.key,
         name: "cached_no_status",
@@ -1055,7 +1054,7 @@ describe("queries", () => {
         configured: true,
         properties: {},
       });
-      const dev = await client.devices.retrieve({ key, includeStatus: false });
+      const dev = await cold.devices.retrieve({ key, includeStatus: false });
       expect(dev.key).toEqual(key);
       expect(dev.status).toBeUndefined();
     });

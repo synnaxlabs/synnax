@@ -539,7 +539,7 @@ describe("list", () => {
     });
   });
 
-  const changed = <E,>(data: E[]): query.Cached<E[]> => ({ variant: "changed", data });
+  const changed = <E,>(data: E[]): query.Cached<E[]> => data;
 
   describe("getCached", () => {
     it("should use cached data as initial state when available", () => {
@@ -1292,12 +1292,10 @@ describe("list", () => {
         answers,
         push: (clientKey, docs) => {
           answers[clientKey] = docs;
-          subs.get(clientKey)?.forEach((h) => h({ variant: "changed", data: docs }));
+          subs.get(clientKey)?.forEach((h) => h(docs));
         },
         pushItem: (clientKey, doc) => {
-          itemSubs
-            .get(`${clientKey}:${doc.key}`)
-            ?.forEach((h) => h({ variant: "changed", data: doc }));
+          itemSubs.get(`${clientKey}:${doc.key}`)?.forEach((h) => h(doc));
         },
         subscribe: (clientKey, handler) => {
           const set = subs.get(clientKey) ?? new Set();

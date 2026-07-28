@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ontology, type query, type rack, task } from "@synnaxlabs/client";
+import { type ontology, query, type rack, task } from "@synnaxlabs/client";
 import { array, type optional } from "@synnaxlabs/x";
 import { useCallback } from "react";
 import { z } from "zod";
@@ -49,8 +49,8 @@ export const [useSelectName, useGetName] = Flux.createSelector<SelectKeyParams, 
       client == null ? () => {} : client.tasks.onChange({ key }, notify),
     select: ({ client, args: { key } }) => {
       const cached = client?.tasks.getCached({ key });
-      if (cached == null || cached.variant === "deleted") return "Task";
-      return cached.data.name;
+      if (cached == null || query.Deleted.matches(cached)) return "Task";
+      return cached.name;
     },
   },
 );
@@ -193,12 +193,12 @@ export const createForm = <S extends task.Schemas = task.Schemas>({
     mountListeners: ({ client, query: { key }, set }) => {
       if (key == null) return [];
       return client.tasks.onChange({ key }, (result) => {
-        if (result?.variant !== "changed") return;
-        resetFormValues(set, result.data.payload as task.Payload<S>);
-        if (result.data.status != null)
+        if (result === undefined || query.Deleted.matches(result)) return;
+        resetFormValues(set, result.payload as task.Payload<S>);
+        if (result.status != null)
           set(
             "status",
-            task.statusZ(z.unknown().optional()).parse(result.data.status),
+            task.statusZ(z.unknown().optional()).parse(result.status),
             RESET_OPTIONS,
           );
       });
