@@ -61,6 +61,9 @@ export const createPanelWrapper = async ({
     project ??
     (await client.projects.create({ name: uniqueName("project"), layout: {} })).key;
   resolvedStore.dispatch(Session.Project.select(projectKey));
+  // A scoped panel renders because it is the window's selected panel; tab
+  // focus/visibility selectors require that term.
+  if (panelKey != null) resolvedStore.dispatch(Session.Panel.select({ key: panelKey }));
   const wrapper = ({ children }: PropsWithChildren): ReactElement => {
     let inner: ReactNode = children;
     if (tabKey != null)

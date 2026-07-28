@@ -240,7 +240,7 @@ describe("panel selectors", () => {
   });
 
   describe("useSelectIsTabFocused", () => {
-    it("should be true only for the panel's focused tab", async () => {
+    it("should be true only for the selected panel's focused tab", async () => {
       const { Wrapper, store } = await setup();
       const { result } = renderHook(
         () => ({
@@ -252,9 +252,26 @@ describe("panel selectors", () => {
       act(() => {
         selectTab(store, PANEL, OTHER_TAB);
         selectTab(store, PANEL, TAB);
+        store.dispatch(Panel.select({ key: PANEL }));
       });
       expect(result.current.focused).toBe(true);
       expect(result.current.other).toBe(false);
+    });
+
+    it("should be false when the tab's panel is not the window's selected panel", async () => {
+      const { Wrapper, store } = await setup();
+      const { result } = renderHook(() => Panel.useSelectIsTabFocused(PANEL, TAB), {
+        wrapper: Wrapper,
+      });
+      act(() => {
+        selectTab(store, PANEL, TAB);
+        store.dispatch(Panel.select({ key: OTHER_PANEL }));
+      });
+      expect(result.current).toBe(false);
+      act(() => {
+        store.dispatch(Panel.select({ key: PANEL }));
+      });
+      expect(result.current).toBe(true);
     });
 
     it("should be false when no tab resolves", async () => {
@@ -276,9 +293,14 @@ describe("panel selectors", () => {
       expect(get()).toBe(false);
       act(() => {
         selectTab(store, PANEL, TAB);
+        store.dispatch(Panel.select({ key: PANEL }));
       });
       expect(get()).toBe(true);
       expect(get(PANEL, OTHER_TAB)).toBe(false);
+      act(() => {
+        store.dispatch(Panel.select({ key: OTHER_PANEL }));
+      });
+      expect(get()).toBe(false);
     });
   });
 
@@ -326,6 +348,7 @@ describe("panel selectors", () => {
       act(() => {
         selectTab(store, PANEL, OTHER_TAB);
         selectTab(store, PANEL, TAB);
+        store.dispatch(Panel.select({ key: PANEL }));
       });
       expect(result.current.focused).toBe(false);
       act(() => {
@@ -359,6 +382,7 @@ describe("panel selectors", () => {
       );
       act(() => {
         selectTab(store, PANEL, TAB);
+        store.dispatch(Panel.select({ key: PANEL }));
       });
       expect(result.current.selected).toBe(true);
       expect(result.current.unselected).toBe(false);
@@ -376,6 +400,7 @@ describe("panel selectors", () => {
       act(() => {
         selectTab(store, PANEL, OTHER_TAB);
         selectTab(store, PANEL, TAB);
+        store.dispatch(Panel.select({ key: PANEL }));
         store.dispatch(Panel.startOverlaying({}));
       });
       expect(result.current.focused).toBe(true);
@@ -390,10 +415,10 @@ describe("panel selectors", () => {
       expect(result.current).toBe(false);
     });
 
-    // Regression: the visibility check previously read the raw key parameter, so an
-    // omitted key inside a panel scope fell back to the window's selected panel
-    // instead of the scope's panel.
-    it("should read the scope panel's selection, not the window's selected panel", async () => {
+    // Regression: this previously read only the scoped panel's tab selection, so a
+    // mounted-but-unselected panel's tabs stayed visible and kept rendering into the
+    // shared canvas once panels were kept alive across switches.
+    it("should hide every tab of a panel that is not the window's selected panel", async () => {
       const { Wrapper, store } = await setup({ scope: PANEL });
       const { result } = renderHook(
         () => ({
@@ -406,6 +431,13 @@ describe("panel selectors", () => {
         selectTab(store, PANEL, TAB);
         selectTab(store, OTHER_PANEL, OTHER_TAB);
         store.dispatch(Panel.select({ key: OTHER_PANEL }));
+      });
+      // OTHER_TAB is the selected tab of the window's selected panel, but not a tab
+      // of the scoped panel: it must not leak visibility into this scope.
+      expect(result.current.scoped).toBe(false);
+      expect(result.current.foreign).toBe(false);
+      act(() => {
+        store.dispatch(Panel.select({ key: PANEL }));
       });
       expect(result.current.scoped).toBe(true);
       expect(result.current.foreign).toBe(false);
@@ -428,6 +460,7 @@ describe("panel selectors", () => {
       );
       act(() => {
         selectTab(store, PANEL, OTHER_TAB);
+        store.dispatch(Panel.select({ key: PANEL }));
       });
       await act(async () => {
         await client.panels.create(
