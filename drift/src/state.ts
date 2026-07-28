@@ -28,6 +28,8 @@ export interface SliceState {
   windows: Record<string, WindowState>;
   labelKeys: Record<string, string>;
   keyLabels: Record<string, string>;
+  /** The ordinal the next reserved window receives. Only ever increments. */
+  nextOrdinal: number;
 }
 
 export interface Config {
@@ -142,6 +144,7 @@ export const ZERO_SLICE_STATE: SliceState = {
       ...INITIAL_WINDOW_STATE,
       key: MAIN_WINDOW,
       reserved: true,
+      ordinal: 1,
     },
   },
   labelKeys: {
@@ -150,6 +153,7 @@ export const ZERO_SLICE_STATE: SliceState = {
   keyLabels: {
     main: MAIN_WINDOW,
   },
+  nextOrdinal: 2,
 };
 
 export const assignLabel = <T extends MaybeKeyPayload | LabelPayload>(
@@ -260,6 +264,9 @@ const reduceCreateWindow = (
     ([, w]) => !w.reserved,
   ) ?? [null, null];
 
+  const ordinal = s.nextOrdinal;
+  s.nextOrdinal += 1;
+
   // If we have an available pre-rendered window, use it.
   if (availableLabel != null) {
     log(s.config.debug, "using available pre-rendered window");
@@ -270,6 +277,7 @@ const reduceCreateWindow = (
       focusCount: 1,
       focus: true,
       ...payload,
+      ordinal,
     };
     s.labelKeys[availableLabel] = payload.key;
     s.keyLabels[payload.key] = availableLabel;
@@ -281,6 +289,7 @@ const reduceCreateWindow = (
       ...INITIAL_WINDOW_STATE,
       ...payload,
       reserved: true,
+      ordinal,
     };
     s.labelKeys[label] = key;
     s.keyLabels[key] = label;
@@ -510,7 +519,34 @@ export const restoreWindows = (current: SliceState, stored: SliceState): SliceSt
     labelKeys[label] = win.key;
     keyLabels[win.key] = label;
   });
-  return { ...current, windows, labelKeys, keyLabels };
+  const next: SliceState = {
+    ...current,
+    windows,
+    labelKeys,
+    keyLabels,
+    nextOrdinal: Math.max(current.nextOrdinal, stored.nextOrdinal ?? 0),
+  };
+  ensureOrdinals(next);
+  return next;
+};
+
+/**
+ * Raises nextOrdinal past every assigned ordinal so new windows never collide,
+ * and gives reserved windows missing one (state persisted before ordinals
+ * existed) the next available number. Replaces entries in s.windows; never
+ * mutates the window objects themselves.
+ */
+export const ensureOrdinals = (s: SliceState): void => {
+  let next = s.nextOrdinal ?? 1;
+  Object.values(s.windows).forEach(({ ordinal }) => {
+    if (ordinal != null && ordinal >= next) next = ordinal + 1;
+  });
+  Object.entries(s.windows).forEach(([label, win]) => {
+    if (!win.reserved || win.ordinal != null) return;
+    s.windows[label] = { ...win, ordinal: next };
+    next += 1;
+  });
+  s.nextOrdinal = next;
 };
 
 /**

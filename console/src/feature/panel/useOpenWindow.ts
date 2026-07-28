@@ -25,12 +25,23 @@ export interface OpenWindow {
  */
 export const useOpenWindow = (): OpenWindow => {
   const dispatch = Session.useDispatch();
+  const store = Session.useStore();
   return useCallback(
     (key, props) => {
       const windowKey = id.create();
       dispatch(Drift.createWindow({ ...props, key: windowKey }));
+      // Seeds the identity title at creation, before the new window's own
+      // synchronizer can run, so a claimed pre-render never shows Tauri's
+      // default title.
+      const ordinal = Drift.selectWindowAttribute(
+        store.getState(),
+        windowKey,
+        "ordinal",
+      );
+      if (ordinal != null)
+        dispatch(Drift.setWindowTitle({ key: windowKey, title: `Window ${ordinal}` }));
       if (key != null) dispatch(Session.Panel.select({ windowKey, key }));
     },
-    [dispatch],
+    [dispatch, store],
   );
 };

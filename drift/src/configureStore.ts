@@ -23,6 +23,7 @@ import { type Runtime } from "@/runtime";
 import {
   type Action,
   closeWindow,
+  ensureOrdinals,
   internalSetInitial,
   setWindowStage,
   SLICE_NAME,
@@ -210,5 +211,6 @@ export const resetInitialState = <S extends StoreState>(
         return [key, window];
       }),
   );
+  ensureOrdinals(drift);
   return state;
 };

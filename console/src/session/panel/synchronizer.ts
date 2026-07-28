@@ -138,13 +138,25 @@ const selection: Synchronizer.Synchronizer<RequiredStoreState, RequiredAction> =
   },
 };
 
-// The OS window list identifies a window by what it shows.
+// The OS window list identifies a window by a stable identity plus what it
+// shows: "Main - Ops", "2 - Ops". With nothing selected the identity stands
+// alone as "Synnax" for the main window and "Window N" elsewhere.
 const syncTitle = ({ client, store }: Params): void => {
-  const selected = selectActiveWindowSelected(store.getState());
-  if (selected == null) return;
-  const cached = client.panels.getCached({ key: selected });
-  if (cached == null || query.Deleted.matches(cached)) return;
-  store.dispatch(Drift.setWindowTitle({ title: cached.name }));
+  const state = store.getState();
+  const win = Drift.selectWindow(state);
+  // Pre-rendered windows run the app too; they are invisible and unnumbered.
+  if (win == null || !win.reserved || win.ordinal == null) return;
+  const isMain = win.key === Drift.MAIN_WINDOW;
+  let name: string | undefined;
+  const selected = selectActiveWindowSelected(state);
+  if (selected != null) {
+    const cached = client.panels.getCached({ key: selected });
+    if (cached != null && !query.Deleted.matches(cached)) name = cached.name;
+  }
+  let title: string;
+  if (name != null) title = `${isMain ? "Main" : win.ordinal} - ${name}`;
+  else title = isMain ? "Synnax" : `Window ${win.ordinal}`;
+  store.dispatch(Drift.setWindowTitle({ title }));
 };
 
 const windowTitle: Synchronizer.Synchronizer<RequiredStoreState, RequiredAction> = {
@@ -152,8 +164,7 @@ const windowTitle: Synchronizer.Synchronizer<RequiredStoreState, RequiredAction>
   listen: (params) => {
     const { client, store } = params;
     const removeOnSet = client.panels.onSet((pan) => {
-      if (selectActiveWindowSelected(store.getState()) === pan.key)
-        store.dispatch(Drift.setWindowTitle({ title: pan.name }));
+      if (selectActiveWindowSelected(store.getState()) === pan.key) syncTitle(params);
     });
     const unwatchSelected = Synchronizer.watch(store, selectActiveWindowSelected, () =>
       syncTitle(params),

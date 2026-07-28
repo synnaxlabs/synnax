@@ -9,7 +9,13 @@
 
 import { describe, expect, it } from "vitest";
 
-import { restoreWindows, type SliceState, ZERO_SLICE_STATE } from "@/state";
+import {
+  createWindow,
+  reducer,
+  restoreWindows,
+  type SliceState,
+  ZERO_SLICE_STATE,
+} from "@/state";
 import {
   INITIAL_PRERENDER_WINDOW_STATE,
   INITIAL_WINDOW_STATE,
@@ -35,9 +41,51 @@ const sliceState = (windows: Record<string, WindowState>): SliceState => {
   return { ...ZERO_SLICE_STATE, windows, labelKeys, keyLabels };
 };
 
+describe("createWindow", () => {
+  const noPrerender: SliceState = {
+    ...ZERO_SLICE_STATE,
+    config: { ...ZERO_SLICE_STATE.config, enablePrerender: false },
+  };
+
+  it("should assign increasing ordinals to freshly created windows", () => {
+    let s = noPrerender;
+    s = reducer(s, createWindow({ key: "a", label: "la", prerenderLabel: "pa" }));
+    s = reducer(s, createWindow({ key: "b", label: "lb", prerenderLabel: "pb" }));
+    expect(s.windows.la.ordinal).toEqual(2);
+    expect(s.windows.lb.ordinal).toEqual(3);
+    expect(s.nextOrdinal).toEqual(4);
+  });
+
+  it("should assign an ordinal when claiming a pre-rendered window", () => {
+    const s = sliceState({
+      [MAIN_WINDOW]: reserved(MAIN_WINDOW, { ordinal: 1 }),
+      spare: { ...INITIAL_PRERENDER_WINDOW_STATE },
+    });
+    const next = reducer(
+      s,
+      createWindow({ key: "a", label: "la", prerenderLabel: "pa" }),
+    );
+    expect(next.windows.spare.key).toEqual("a");
+    expect(next.windows.spare.ordinal).toEqual(2);
+    expect(next.nextOrdinal).toEqual(3);
+  });
+
+  it("should not consume an ordinal when focusing an existing window", () => {
+    let s = noPrerender;
+    s = reducer(s, createWindow({ key: "a", label: "la", prerenderLabel: "pa" }));
+    const before = s.nextOrdinal;
+    s = reducer(s, createWindow({ key: "a", label: "lx", prerenderLabel: "px" }));
+    expect(s.nextOrdinal).toEqual(before);
+    expect(s.windows.la.ordinal).toEqual(2);
+  });
+});
+
 describe("restoreWindows", () => {
   it("should keep the live main window instead of the stored one", () => {
-    const live = reserved(MAIN_WINDOW, { size: { width: 100, height: 100 } });
+    const live = reserved(MAIN_WINDOW, {
+      size: { width: 100, height: 100 },
+      ordinal: 1,
+    });
     const next = restoreWindows(
       sliceState({ [MAIN_WINDOW]: live }),
       sliceState({
@@ -88,6 +136,32 @@ describe("restoreWindows", () => {
     );
     expect(next.labelKeys).toEqual({ [MAIN_WINDOW]: MAIN_WINDOW, incoming: "new" });
     expect(next.keyLabels).toEqual({ [MAIN_WINDOW]: MAIN_WINDOW, new: "incoming" });
+  });
+
+  it("should carry the higher of the live and stored counters", () => {
+    const main = () => reserved(MAIN_WINDOW, { ordinal: 1 });
+    const current = { ...sliceState({ [MAIN_WINDOW]: main() }), nextOrdinal: 4 };
+    const stored = { ...sliceState({ [MAIN_WINDOW]: main() }), nextOrdinal: 7 };
+    expect(restoreWindows(current, stored).nextOrdinal).toEqual(7);
+  });
+
+  it("should raise the counter past every restored ordinal", () => {
+    const next = restoreWindows(
+      sliceState({ [MAIN_WINDOW]: reserved(MAIN_WINDOW, { ordinal: 1 }) }),
+      sliceState({ incoming: reserved("new", { ordinal: 5 }) }),
+    );
+    expect(next.windows.incoming?.ordinal).toEqual(5);
+    expect(next.nextOrdinal).toEqual(6);
+  });
+
+  it("should number restored windows persisted before ordinals existed", () => {
+    const next = restoreWindows(
+      sliceState({ [MAIN_WINDOW]: reserved(MAIN_WINDOW, { ordinal: 1 }) }),
+      sliceState({ a: reserved("a"), b: reserved("b") }),
+    );
+    const assigned = [next.windows.a?.ordinal, next.windows.b?.ordinal];
+    expect(assigned).toEqual([2, 3]);
+    expect(next.nextOrdinal).toEqual(4);
   });
 
   it("should keep the live label and config", () => {
