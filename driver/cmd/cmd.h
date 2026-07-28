@@ -22,12 +22,11 @@
 #include <iostream>
 #include <string>
 
-#include "glog/logging.h"
-
 #include "client/cpp/synnax.h"
 #include "x/cpp/log/log.h"
 #include "x/cpp/shutdown/shutdown.h"
 
+#include "absl/log/log.h"
 #include "core/pkg/version/version.h"
 #include "driver/cmd/cmd.h"
 #include "driver/daemon/daemon.h"

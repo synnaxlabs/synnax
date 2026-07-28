@@ -12,8 +12,6 @@
 #include <memory>
 #include <thread>
 
-#include "glog/logging.h"
-
 #include "x/cpp/breaker/breaker.h"
 #include "x/cpp/errors/errors.h"
 #include "x/cpp/json/json.h"
@@ -21,6 +19,8 @@
 #include "x/cpp/notify/notify.h"
 #include "x/cpp/telem/telem.h"
 #include "x/cpp/thread/rt/rt.h"
+
+#include "absl/log/log.h"
 
 namespace arc::runtime::loop {
 /// @brief Named constants for timing parameters used across loop implementations.

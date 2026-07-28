@@ -16,8 +16,7 @@
 #include <unordered_map>
 #include <vector>
 
-#include "glog/logging.h"
-
+#include "absl/log/log.h"
 #include "driver/ethercat/errors/errors.h"
 #include "driver/ethercat/master/master.h"
 #include "driver/ethercat/pdo/pdo.h"

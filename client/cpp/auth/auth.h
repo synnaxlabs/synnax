@@ -13,13 +13,12 @@
 #include <mutex>
 #include <string>
 
-#include "glog/logging.h"
-
 #include "freighter/cpp/freighter.h"
 #include "x/cpp/errors/errors.h"
 #include "x/cpp/telem/telem.h"
 #include "x/cpp/uuid/uuid.h"
 
+#include "absl/log/log.h"
 #include "core/pkg/transport/grpc/auth/auth.pb.h"
 
 namespace synnax::auth {

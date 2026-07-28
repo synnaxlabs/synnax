@@ -16,10 +16,10 @@
 #include <fstream>
 #include <thread>
 
-#include "glog/logging.h"
 #include <signal.h>
 #include <sys/stat.h>
 
+#include "absl/log/log.h"
 #include "driver/daemon/daemon.h"
 
 namespace fs = std::filesystem;
@@ -392,7 +392,6 @@ void notify_watchdog() {
 }
 
 void run(const Config &config, int argc, char *argv[]) {
-    google::SetLogDestination(google::INFO, "/var/log/synnax-driver");
     update_status(Status::INITIALIZING, "Starting daemon");
     update_status(Status::READY, "Daemon ready");
     try {

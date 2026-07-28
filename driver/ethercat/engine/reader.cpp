@@ -9,8 +9,8 @@
 
 #include <algorithm>
 
-#include "glog/logging.h"
-
+#include "absl/log/check.h"
+#include "absl/log/log.h"
 #include "driver/ethercat/engine/engine.h"
 #include "driver/ethercat/errors/errors.h"
 #include "driver/ethercat/telem/telem.h"

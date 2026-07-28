@@ -14,9 +14,9 @@
 #include <thread>
 #include <vector>
 
-#include "glog/logging.h"
-
 #include "x/cpp/thread/rt/rt.h"
+
+#include "absl/log/log.h"
 
 namespace x::thread::rt {
 namespace {

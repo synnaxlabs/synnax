@@ -12,9 +12,10 @@
 #include <thread>
 
 /// external
-#include "glog/logging.h"
 #include "open62541/client_config_default.h"
 #include "open62541/client_highlevel.h"
+
+#include "absl/log/log.h"
 
 /// internal
 #include "driver/opc/connection/connection.h"

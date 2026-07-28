@@ -9,12 +9,12 @@
 
 #pragma once
 
-#include "glog/logging.h"
 #include "grpc/grpc.h"
 
 #include "freighter/cpp/freighter.h"
 #include "x/cpp/fs/fs.h"
 
+#include "absl/log/log.h"
 #include "grpcpp/channel.h"
 #include "grpcpp/client_context.h"
 #include "grpcpp/security/credentials.h"

@@ -9,8 +9,7 @@
 
 #pragma once
 
-#include "glog/logging.h"
-
+#include "absl/log/log.h"
 #include "driver/common/read_task.h"
 #include "driver/ni/daqmx/sugared.h"
 

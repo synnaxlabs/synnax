@@ -11,11 +11,10 @@
 #include <thread>
 #include <utility>
 
-#include "glog/logging.h"
-
 #include "x/cpp/json/json.h"
 #include "x/cpp/log/log.h"
 
+#include "absl/log/log.h"
 #include "driver/task/task.h"
 
 namespace driver::task {

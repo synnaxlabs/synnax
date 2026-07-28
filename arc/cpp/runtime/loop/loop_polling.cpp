@@ -10,11 +10,10 @@
 #include <chrono>
 #include <thread>
 
-#include "glog/logging.h"
-
 #include "x/cpp/loop/loop.h"
 #include "x/cpp/telem/telem.h"
 
+#include "absl/log/log.h"
 #include "arc/cpp/runtime/loop/loop.h"
 
 namespace arc::runtime::loop {

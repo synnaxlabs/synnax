@@ -11,10 +11,9 @@
 #include <ranges>
 #include <utility>
 
-#include "glog/logging.h"
-
 #include "x/cpp/telem/telem.h"
 
+#include "absl/log/log.h"
 #include "driver/ethercat/scan_task.h"
 
 namespace driver::ethercat {

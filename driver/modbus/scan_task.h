@@ -14,10 +14,9 @@
 #include <utility>
 #include <vector>
 
-#include "glog/logging.h"
-
 #include "x/cpp/json/json.h"
 
+#include "absl/log/log.h"
 #include "driver/common/scan_task.h"
 #include "driver/modbus/device/device.h"
 #include "driver/modbus/modbus.h"

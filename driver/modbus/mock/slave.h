@@ -37,8 +37,8 @@
 
 #include "driver/modbus/util/util.h"
 
-/// glog
-#include "glog/logging.h"
+/// abseil
+#include "absl/log/log.h"
 
 namespace driver::modbus::mock {
 /// @brief Configuration for a mock Modbus slave

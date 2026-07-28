@@ -17,10 +17,10 @@
 #include <unordered_map>
 #include <vector>
 
-#include "glog/logging.h"
-
 #include "x/cpp/errors/errors.h"
 
+#include "absl/log/check.h"
+#include "absl/log/log.h"
 #include "arc/cpp/ir/ir.h"
 #include "arc/cpp/runtime/errors/errors.h"
 #include "arc/cpp/runtime/node/node.h"

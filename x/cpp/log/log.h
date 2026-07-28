@@ -11,11 +11,19 @@
 
 #include <string>
 
-#include "glog/logging.h"
+#include "absl/log/log.h"
 
 namespace x::log {
+/// @brief initializes absl logging and installs a stderr sink that colors WARNING
+/// lines yellow and ERROR/FATAL lines red when enable_color is true. Call once at
+/// process start, before other threads log.
+void init(bool enable_color);
+
+/// @brief returns whether ANSI color output is enabled.
+bool color_enabled();
+
 inline std::string get_color(const std::string &color) {
-    return FLAGS_colorlogtostderr ? color : "";
+    return color_enabled() ? color : "";
 }
 
 inline std::string RED() {

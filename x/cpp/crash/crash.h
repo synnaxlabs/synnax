@@ -27,8 +27,8 @@ constexpr int MAX_FRAMES = 64;
 ///   - Unhandled C++ exceptions, via std::set_terminate. The active exception's
 ///     what() message is included when available.
 ///
-/// In both cases a stack trace is written to stderr (the same stream glog logs to)
-/// and the process is then terminated with its normal crash semantics: on POSIX the
+/// In both cases a stack trace is written to stderr (the same stream the driver logs
+/// to) and the process is then terminated with its normal crash semantics: on POSIX the
 /// triggering signal is re-raised against the default handler so a core dump and
 /// 128+signal exit code are still produced.
 ///

@@ -42,7 +42,7 @@ cc_library(
         "//x/cpp/crash",
         "//x/cpp/log",
         "//x/cpp/shutdown",
-        "@gflags",
-        "@glog",
+        "@abseil-cpp//absl/log",
+        "@abseil-cpp//absl/log:globals",
     ],
 )

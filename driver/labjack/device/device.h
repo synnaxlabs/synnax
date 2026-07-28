@@ -12,8 +12,7 @@
 #include <map>
 #include <mutex>
 
-#include "glog/logging.h"
-
+#include "absl/log/log.h"
 #include "driver/labjack/ljm/LabJackM.h"
 #include "driver/labjack/ljm/api.h"
 #include "driver/labjack/ljm/errors.h"

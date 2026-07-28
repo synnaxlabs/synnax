@@ -8,7 +8,6 @@
 // included in the file licenses/APL.txt.
 
 /// external
-#include "glog/logging.h"
 #include "mbedtls/error.h"
 #include "mbedtls/x509_crt.h"
 #include "open62541/client_config_default.h"
@@ -17,6 +16,7 @@
 
 #include "x/cpp/errors/errors.h"
 
+#include "absl/log/log.h"
 #include "driver/opc/connection/connection.h"
 #include "driver/opc/errors/errors.h"
 #include "driver/task/task.h"
@@ -32,9 +32,9 @@ ClientDeleter client_deleter() {
     };
 }
 
-/// @brief intercepts OPC UA log messages and forwards them to glog. Also inserts a
-/// prefix for each message that is extracted from the log context. This function
-/// will fail silently if the log context is not a string.
+/// @brief intercepts OPC UA log messages and forwards them to the driver log. Also
+/// inserts a prefix for each message that is extracted from the log context. This
+/// function will fail silently if the log context is not a string.
 void custom_logger(
     void *_,
     const UA_LogLevel level,

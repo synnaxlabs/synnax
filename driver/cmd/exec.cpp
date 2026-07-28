@@ -8,7 +8,9 @@
 // included in the file licenses/APL.txt.
 
 #include "x/cpp/crash/crash.h"
+#include "x/cpp/log/log.h"
 
+#include "absl/log/globals.h"
 #include "driver/cmd/cmd.h"
 
 namespace driver::cmd {
@@ -36,13 +38,10 @@ void print_usage() {
 }
 
 int exec(const int argc, char *argv[]) {
-    google::InitGoogleLogging(argv[0]);
     x::crash::install("synnax-driver");
     auto args = x::args::Parser(argc, argv);
-    const bool disable_color = args.flag("--no-color");
-    FLAGS_logtostderr = true;
-    FLAGS_colorlogtostderr = !disable_color;
-    if (args.flag("--debug")) FLAGS_v = 2;
+    x::log::init(!args.flag("--no-color"));
+    if (args.flag("--debug")) absl::SetGlobalVLogLevel(2);
     VLOG(1) << "debug logging enabled";
     const std::string command = args.at(1, "command name required");
     if (args.error()) {

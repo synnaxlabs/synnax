@@ -15,10 +15,10 @@
 #include <iomanip>
 #include <memory>
 
-#include "glog/logging.h"
-
 #include "x/cpp/errors/errors.h"
 #include "x/cpp/telem/telem.h"
+
+#include "absl/log/log.h"
 
 namespace x::breaker {
 /// @brief tells the breaker to retry infinitely.

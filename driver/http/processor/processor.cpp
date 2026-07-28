@@ -10,8 +10,7 @@
 #include <string>
 #include <utility>
 
-#include "glog/logging.h"
-
+#include "absl/log/log.h"
 #include "driver/http/errors/errors.h"
 #include "driver/http/processor/processor.h"
 
