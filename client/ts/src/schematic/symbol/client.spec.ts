@@ -14,7 +14,7 @@ import { group } from "@/group";
 import { ontology } from "@/ontology";
 import { type query } from "@/query";
 import { type schematic } from "@/schematic";
-import { createTestClient } from "@/testutil";
+import { createTestClient, isLive } from "@/testutil";
 
 const client = createTestClient();
 
@@ -192,7 +192,7 @@ describe("Symbol Client", () => {
       });
       const answers: schematic.symbol.Symbol[][] = [];
       const stop = client.schematics.symbols.onChange({ parent }, (cached) => {
-        if (cached?.variant === "changed") answers.push(cached.data);
+        if (isLive(cached)) answers.push(cached);
       });
       try {
         await client.schematics.symbols.retrieve({ parent });
@@ -234,9 +234,7 @@ describe("Symbol Client", () => {
         ) as schematic.symbol.Symbol;
         await client.schematics.symbols.delete(doomed.key);
         await expect
-          .poll(() =>
-            latest?.variant === "changed" ? latest.data.map((s) => s.name) : undefined,
-          )
+          .poll(() => (isLive(latest) ? latest.map((s) => s.name) : undefined))
           .toEqual(["keep"]);
       } finally {
         stop();

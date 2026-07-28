@@ -12,8 +12,8 @@ import { beforeAll, describe, expect, it, test, vi } from "vitest";
 
 import { Channel } from "@/channel/client";
 import { NotFoundError } from "@/errors";
-import { type query } from "@/query";
-import { createTestClient } from "@/testutil";
+import { query } from "@/query";
+import { createTestClient, expectDeleted, expectLive, isLive } from "@/testutil";
 
 const client = createTestClient();
 const remote = createTestClient();
@@ -400,9 +400,8 @@ describe("cached reads", () => {
   describe("getCached", () => {
     it("serves a key query straight from the record written by create", async () => {
       const ch = await createVirtual();
-      const cached = client.channels.getCached({ key: ch.key });
-      expect(cached?.variant).toEqual("changed");
-      if (cached?.variant === "changed") expect(cached.data.name).toEqual(ch.name);
+      const cached = expectLive(client.channels.getCached({ key: ch.key }));
+      expect(cached.name).toEqual(ch.name);
     });
   });
 
@@ -418,7 +417,7 @@ describe("cached reads", () => {
         await expect
           .poll(() => {
             const cached = client.channels.getCached({ key: ch.key });
-            return cached?.variant === "changed" && cached.data.name === renamed;
+            return isLive(cached) && cached.name === renamed;
           })
           .toBe(true);
         expect(handler).toHaveBeenCalled();
@@ -435,11 +434,10 @@ describe("cached reads", () => {
         await client.channels.retrieve(ch.key);
         await remote.channels.delete(ch.key);
         await expect
-          .poll(() => client.channels.getCached({ key: ch.key })?.variant)
-          .toBe("deleted");
-        const last = results.at(-1);
-        expect(last?.variant).toEqual("deleted");
-        if (last?.variant === "deleted") expect(last.corpse.name).toEqual(ch.name);
+          .poll(() => query.Deleted.matches(client.channels.getCached({ key: ch.key })))
+          .toBe(true);
+        const last = expectDeleted(results.at(-1));
+        expect(last.corpse.name).toEqual(ch.name);
         await expect(client.channels.retrieve(ch.key)).rejects.toThrow("deleted");
       } finally {
         off();
@@ -471,14 +469,14 @@ describe("cached reads", () => {
         await expect
           .poll(() => {
             const cached = client.channels.getCached(query);
-            return cached?.variant === "changed" ? cached.data.alias : undefined;
+            return isLive(cached) ? cached.alias : undefined;
           })
           .toBe(alias);
         await remote.ranges.deleteAlias(rng.key, ch.key);
         await expect
           .poll(() => {
             const cached = client.channels.getCached(query);
-            return cached?.variant === "changed" ? cached.data.alias : undefined;
+            return isLive(cached) ? cached.alias : undefined;
           })
           .toBeUndefined();
       } finally {

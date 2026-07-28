@@ -11,7 +11,8 @@ import { id } from "@synnaxlabs/x";
 import { beforeAll, describe, expect, it, vi } from "vitest";
 
 import { label } from "@/label";
-import { createTestClient } from "@/testutil";
+import { query } from "@/query";
+import { createTestClient, expectDeleted, expectLive, isLive } from "@/testutil";
 
 const client = createTestClient();
 
@@ -97,9 +98,8 @@ describe("cached reads", () => {
       name: `qry-${id.create()}`,
       color: "#E774D0",
     });
-    const cached = client.labels.getCached({ key: lbl.key });
-    expect(cached?.variant).toEqual("changed");
-    if (cached?.variant === "changed") expect(cached.data.name).toEqual(lbl.name);
+    const cached = expectLive(client.labels.getCached({ key: lbl.key }));
+    expect(cached.name).toEqual(lbl.name);
   });
 
   it("delivers a remote delete as a deleted result carrying the corpse", async () => {
@@ -112,10 +112,10 @@ describe("cached reads", () => {
       await client.labels.retrieve({ key: lbl.key });
       await remote.labels.delete(lbl.key);
       await expect
-        .poll(() => client.labels.getCached({ key: lbl.key })?.variant)
-        .toBe("deleted");
-      const cached = client.labels.getCached({ key: lbl.key });
-      if (cached?.variant === "deleted") expect(cached.corpse.name).toEqual(lbl.name);
+        .poll(() => query.Deleted.matches(client.labels.getCached({ key: lbl.key })))
+        .toBe(true);
+      const cached = expectDeleted(client.labels.getCached({ key: lbl.key }));
+      expect(cached.corpse.name).toEqual(lbl.name);
       await expect(client.labels.retrieve({ key: lbl.key })).rejects.toThrow("deleted");
     } finally {
       off();
@@ -139,18 +139,14 @@ describe("cached reads", () => {
       await expect
         .poll(() => {
           const cached = client.labels.getCached(query);
-          return (
-            cached?.variant === "changed" && cached.data.some((l) => l.key === lbl.key)
-          );
+          return isLive(cached) && cached.some((l) => l.key === lbl.key);
         })
         .toBe(true);
       await remote.labels.remove(label.ontologyID(item.key), [lbl.key]);
       await expect
         .poll(() => {
           const cached = client.labels.getCached(query);
-          return (
-            cached?.variant === "changed" && cached.data.every((l) => l.key !== lbl.key)
-          );
+          return isLive(cached) && cached.every((l) => l.key !== lbl.key);
         })
         .toBe(true);
     } finally {
@@ -169,14 +165,14 @@ describe("store", () => {
     await expect
       .poll(() => {
         const cached = client.labels.getCached({ key: created.key });
-        return cached?.variant === "changed" ? cached.data.name : undefined;
+        return isLive(cached) ? cached.name : undefined;
       })
       .toEqual(created.name);
     await client.labels.delete(created.key);
     await expect
-      .poll(() => client.labels.getCached({ key: created.key })?.variant)
-      .toBe("deleted");
-    const cached = client.labels.getCached({ key: created.key });
-    if (cached?.variant === "deleted") expect(cached.corpse.name).toEqual(created.name);
+      .poll(() => query.Deleted.matches(client.labels.getCached({ key: created.key })))
+      .toBe(true);
+    const cached = expectDeleted(client.labels.getCached({ key: created.key }));
+    expect(cached.corpse.name).toEqual(created.name);
   });
 });

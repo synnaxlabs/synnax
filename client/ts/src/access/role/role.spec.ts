@@ -12,8 +12,8 @@ import { beforeAll, describe, expect, it, vi } from "vitest";
 
 import { type role } from "@/access/role";
 import { NotFoundError } from "@/errors";
-import { type query } from "@/query";
-import { createTestClient } from "@/testutil";
+import { query } from "@/query";
+import { createTestClient, expectDeleted, expectLive, isLive } from "@/testutil";
 
 const client = createTestClient();
 
@@ -135,9 +135,8 @@ describe("cached reads", () => {
   describe("getCached", () => {
     it("serves a key query straight from the record written by create", async () => {
       const r = await createRole();
-      const cached = client.access.roles.getCached({ key: r.key });
-      expect(cached?.variant).toEqual("changed");
-      if (cached?.variant === "changed") expect(cached.data.name).toEqual(r.name);
+      const cached = expectLive(client.access.roles.getCached({ key: r.key }));
+      expect(cached.name).toEqual(r.name);
     });
   });
 
@@ -153,7 +152,7 @@ describe("cached reads", () => {
         await expect
           .poll(() => {
             const cached = client.access.roles.getCached({ key: r.key });
-            return cached?.variant === "changed" && cached.data.name === renamed;
+            return isLive(cached) && cached.name === renamed;
           })
           .toBe(true);
         expect(handler).toHaveBeenCalled();
@@ -172,11 +171,12 @@ describe("cached reads", () => {
         await client.access.roles.retrieve({ key: r.key });
         await remote.access.roles.delete(r.key);
         await expect
-          .poll(() => client.access.roles.getCached({ key: r.key })?.variant)
-          .toBe("deleted");
-        const last = results.at(-1);
-        expect(last?.variant).toEqual("deleted");
-        if (last?.variant === "deleted") expect(last.corpse.name).toEqual(r.name);
+          .poll(() =>
+            query.Deleted.matches(client.access.roles.getCached({ key: r.key })),
+          )
+          .toBe(true);
+        const last = expectDeleted(results.at(-1));
+        expect(last.corpse.name).toEqual(r.name);
         await expect(client.access.roles.retrieve({ key: r.key })).rejects.toThrow(
           "deleted",
         );

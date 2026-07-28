@@ -19,9 +19,9 @@ import {
 import { beforeAll, describe, expect, it, vi } from "vitest";
 
 import { NotFoundError } from "@/errors";
-import { type query } from "@/query";
+import { query } from "@/query";
 import { ranger } from "@/ranger";
-import { createTestClient } from "@/testutil";
+import { createTestClient, expectDeleted, expectLive, isLive } from "@/testutil";
 
 const client = createTestClient();
 
@@ -394,9 +394,8 @@ describe("cached reads", () => {
   describe("getCached", () => {
     it("serves a key query straight from the record written by create", async () => {
       const rng = await createRange();
-      const cached = client.ranges.getCached(rng.key);
-      expect(cached?.variant).toEqual("changed");
-      if (cached?.variant === "changed") expect(cached.data.name).toEqual(rng.name);
+      const cached = expectLive(client.ranges.getCached(rng.key));
+      expect(cached.name).toEqual(rng.name);
     });
   });
 
@@ -412,7 +411,7 @@ describe("cached reads", () => {
         await expect
           .poll(() => {
             const cached = client.ranges.getCached(rng.key);
-            return cached?.variant === "changed" && cached.data.name === renamed;
+            return isLive(cached) && cached.name === renamed;
           })
           .toBe(true);
         expect(handler).toHaveBeenCalled();
@@ -429,11 +428,10 @@ describe("cached reads", () => {
         await client.ranges.retrieve(rng.key);
         await remote.ranges.delete(rng.key);
         await expect
-          .poll(() => client.ranges.getCached(rng.key)?.variant)
-          .toBe("deleted");
-        const last = results.at(-1);
-        expect(last?.variant).toEqual("deleted");
-        if (last?.variant === "deleted") expect(last.corpse.name).toEqual(rng.name);
+          .poll(() => query.Deleted.matches(client.ranges.getCached(rng.key)))
+          .toBe(true);
+        const last = expectDeleted(results.at(-1));
+        expect(last.corpse.name).toEqual(rng.name);
         await expect(client.ranges.retrieve(rng.key)).rejects.toThrow("deleted");
       } finally {
         off();
@@ -454,8 +452,7 @@ describe("cached reads", () => {
           .poll(() => {
             const cached = client.ranges.getCached(rng.key);
             return (
-              cached?.variant === "changed" &&
-              (cached.data.labels ?? []).some((l) => l.key === lbl.key)
+              isLive(cached) && (cached.labels ?? []).some((l) => l.key === lbl.key)
             );
           })
           .toBe(true);
@@ -477,10 +474,7 @@ describe("cached reads", () => {
         await expect
           .poll(() => {
             const cached = client.ranges.children.getCached(parent.key);
-            return (
-              cached?.variant === "changed" &&
-              cached.data.some((c) => c.key === second.key)
-            );
+            return isLive(cached) && cached.some((c) => c.key === second.key);
           })
           .toBe(true);
       } finally {
@@ -496,7 +490,7 @@ describe("cached reads", () => {
       const res = await client.ranges.retrieveParent(child.key);
       expect(res?.key).toEqual(parent.key);
       const cached = client.ranges.parent.getCached(ranger.ontologyID(child.key));
-      expect(cached?.variant).toEqual("changed");
+      expect(expectLive(cached)?.key).toEqual(parent.key);
     });
   });
 
@@ -519,20 +513,14 @@ describe("cached reads", () => {
         await expect
           .poll(() => {
             const cached = client.ranges.getCached(query);
-            return (
-              cached?.variant === "changed" &&
-              cached.data.some((r) => r.key === late.key)
-            );
+            return isLive(cached) && cached.some((r) => r.key === late.key);
           })
           .toBe(true);
         await client.labels.remove(ranger.ontologyID(labeled.key), [lbl.key]);
         await expect
           .poll(() => {
             const cached = client.ranges.getCached(query);
-            return (
-              cached?.variant === "changed" &&
-              cached.data.every((r) => r.key !== labeled.key)
-            );
+            return isLive(cached) && cached.every((r) => r.key !== labeled.key);
           })
           .toBe(true);
       } finally {
@@ -556,8 +544,7 @@ describe("cached reads", () => {
           .poll(() => {
             const cached = client.ranges.kv.getCached(rng.key);
             return (
-              cached?.variant === "changed" &&
-              cached.data.some((p) => p.key === "baz" && p.value === "qux")
+              isLive(cached) && cached.some((p) => p.key === "baz" && p.value === "qux")
             );
           })
           .toBe(true);
@@ -565,9 +552,7 @@ describe("cached reads", () => {
         await expect
           .poll(() => {
             const cached = client.ranges.kv.getCached(rng.key);
-            return (
-              cached?.variant === "changed" && cached.data.every((p) => p.key !== "foo")
-            );
+            return isLive(cached) && cached.every((p) => p.key !== "foo");
           })
           .toBe(true);
       } finally {
@@ -584,14 +569,14 @@ describe("store", () => {
     await expect
       .poll(() => {
         const cached = client.ranges.getCached(range.key);
-        return cached?.variant === "changed" ? cached.data.name : undefined;
+        return isLive(cached) ? cached.name : undefined;
       })
       .toEqual(range.name);
     await client.ranges.delete(range.key);
     await expect
-      .poll(() => client.ranges.getCached(range.key)?.variant)
-      .toBe("deleted");
-    const cached = client.ranges.getCached(range.key);
-    if (cached?.variant === "deleted") expect(cached.corpse.name).toEqual(range.name);
+      .poll(() => query.Deleted.matches(client.ranges.getCached(range.key)))
+      .toBe(true);
+    const cached = expectDeleted(client.ranges.getCached(range.key));
+    expect(cached.corpse.name).toEqual(range.name);
   });
 });

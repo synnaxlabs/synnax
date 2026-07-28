@@ -12,8 +12,14 @@ import { beforeAll, describe, expect, it, vi } from "vitest";
 
 import { policy } from "@/access/policy";
 import { AuthError, NotFoundError } from "@/errors";
-import { type query } from "@/query";
-import { createTestClient, createTestClientWithPolicy } from "@/testutil";
+import { query } from "@/query";
+import {
+  createTestClient,
+  createTestClientWithPolicy,
+  expectDeleted,
+  expectLive,
+  isLive,
+} from "@/testutil";
 
 const client = createTestClient();
 
@@ -190,9 +196,8 @@ describe("cached reads", () => {
   describe("getCached", () => {
     it("serves a key query straight from the record written by create", async () => {
       const p = await createPolicy();
-      const cached = client.access.policies.getCached({ key: p.key });
-      expect(cached?.variant).toEqual("changed");
-      if (cached?.variant === "changed") expect(cached.data.name).toEqual(p.name);
+      const cached = expectLive(client.access.policies.getCached({ key: p.key }));
+      expect(cached.name).toEqual(p.name);
     });
   });
 
@@ -208,7 +213,7 @@ describe("cached reads", () => {
         await expect
           .poll(() => {
             const cached = client.access.policies.getCached({ key: p.key });
-            return cached?.variant === "changed" && cached.data.name === renamed;
+            return isLive(cached) && cached.name === renamed;
           })
           .toBe(true);
         expect(handler).toHaveBeenCalled();
@@ -227,11 +232,12 @@ describe("cached reads", () => {
         await client.access.policies.retrieve({ key: p.key });
         await remote.access.policies.delete(p.key);
         await expect
-          .poll(() => client.access.policies.getCached({ key: p.key })?.variant)
-          .toBe("deleted");
-        const last = results.at(-1);
-        expect(last?.variant).toEqual("deleted");
-        if (last?.variant === "deleted") expect(last.corpse.name).toEqual(p.name);
+          .poll(() =>
+            query.Deleted.matches(client.access.policies.getCached({ key: p.key })),
+          )
+          .toBe(true);
+        const last = expectDeleted(results.at(-1));
+        expect(last.corpse.name).toEqual(p.name);
         await expect(client.access.policies.retrieve({ key: p.key })).rejects.toThrow(
           "deleted",
         );

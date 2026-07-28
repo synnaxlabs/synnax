@@ -11,8 +11,9 @@ import { id, uuid } from "@synnaxlabs/x";
 import { describe, expect, it, test } from "vitest";
 
 import { NotFoundError, ValidationError } from "@/errors";
+import { query } from "@/query";
 import { schematic } from "@/schematic";
-import { createTestClient } from "@/testutil";
+import { createTestClient, expectDeleted } from "@/testutil";
 
 const newProjectSchematic = async (client: ReturnType<typeof createTestClient>) => {
   const proj = await client.projects.create({ name: "dispatch", layout: {} });
@@ -328,9 +329,11 @@ describe("store", () => {
     });
     await client.schematics.delete(created.key);
     await expect
-      .poll(() => client.schematics.getCached({ key: created.key })?.variant)
-      .toBe("deleted");
-    const cached = client.schematics.getCached({ key: created.key });
-    if (cached?.variant === "deleted") expect(cached.corpse.name).toEqual(created.name);
+      .poll(() =>
+        query.Deleted.matches(client.schematics.getCached({ key: created.key })),
+      )
+      .toBe(true);
+    const cached = expectDeleted(client.schematics.getCached({ key: created.key }));
+    expect(cached.corpse.name).toEqual(created.name);
   });
 });
