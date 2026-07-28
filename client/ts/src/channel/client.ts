@@ -54,6 +54,7 @@ import { ontology } from "@/ontology";
 import { query } from "@/query";
 import { type ranger } from "@/ranger";
 import { createKey, decodeDeleteChange } from "@/ranger/alias/payload";
+import { keyZ as rangerKeyZ } from "@/ranger/types.gen";
 import { status } from "@/status";
 import { checkForMultipleOrNoResults } from "@/util/retrieve";
 
@@ -239,8 +240,15 @@ type NormalizedRequest = z.infer<typeof retrieveRequestZ>;
 const stripComposed = ({ alias: _alias, status: _status, ...rest }: Payload): Payload =>
   rest;
 
-const normalizeSingle = ({ key, rangeKey }: RetrieveSingleParams) =>
+const normalizeSingle = ({
+  key,
+  rangeKey,
+}: RetrieveSingleParams): RetrieveSingleParams =>
   rangeKey == null ? { key } : { key, rangeKey };
+
+const singleParamsZ = z
+  .strictObject({ key: z.uint32(), rangeKey: rangerKeyZ.optional() })
+  .transform(normalizeSingle);
 
 const onlyRangeKey = (options?: RetrieveOptions): boolean =>
   options == null ||
@@ -336,6 +344,7 @@ export class Client extends query.Retriever<
   Key,
   Channel,
   Channel,
+  RetrieveSingleParams,
   RetrieveSingleParams
 > {
   private readonly cfg: ClientParams;
@@ -401,12 +410,7 @@ export class Client extends query.Retriever<
         const { rangeKey } = query as NormalizedRequest;
         return rangeKey == null ? ch : this.composeAlias(ch.payload, rangeKey);
       },
-      single: {
-        is: (params): params is RetrieveSingleParams =>
-          typeof params === "object" && params !== null && "key" in params,
-        normalize: normalizeSingle,
-        space: single as query.Retrieves<query.Params, Channel>,
-      },
+      single: { schema: singleParamsZ, space: single },
     });
     this.cfg = cfg;
     this.retriever = retriever;
