@@ -8,12 +8,19 @@
 // included in the file licenses/APL.txt.
 
 import { type UnaryClient, Unreachable } from "@synnaxlabs/freighter";
-import { type breaker, observe, TimeSpan, TimeStamp, url } from "@synnaxlabs/x";
+import { type breaker, TimeSpan, TimeStamp, url } from "@synnaxlabs/x";
 import { describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 
 import { auth } from "@/auth";
 import { connection } from "@/connection";
+import { modeFor, probe } from "@/connection/client";
+import {
+  createInitialStatus,
+  type Event,
+  materialChange,
+  reduce,
+} from "@/connection/status";
 import { AuthError } from "@/errors";
 import { TEST_CLIENT_PARAMS } from "@/testutil";
 import { Transport } from "@/transport";
@@ -51,7 +58,7 @@ const createConfig = (
 ): connection.Config => ({
   clientVersion: __VERSION__,
   name: "test-cluster",
-  escalateAfter: connection.DEFAULT_ESCALATE_AFTER,
+  escalateAfter: 4,
   clockSkewThreshold: TimeSpan.seconds(1),
   requiresStream: false,
   ...overrides,
@@ -65,75 +72,26 @@ const createInfo = (overrides: Partial<connection.Info> = {}): connection.Info =
 });
 
 /** Folds events over an initial status, mirroring the client's dispatch. */
-const apply = (
-  config: connection.Config,
-  ...events: connection.Event[]
-): connection.Status =>
+const apply = (config: connection.Config, ...events: Event[]): connection.Status =>
   events.reduce(
-    (status, event) => connection.reduce(status, event, config),
-    connection.createInitialStatus(config),
+    (status, event) => reduce(status, event, config),
+    createInitialStatus(config),
   );
 
-interface Harness {
-  readonly status: connection.Status;
-  readonly handle: connection.Handle;
-  readonly prober: connection.Prober;
-  dispatch: (event: connection.Event) => void;
-  connect: (timeout?: TimeSpan) => Promise<connection.Status>;
-  stop: () => Promise<void>;
-}
-
-/**
- * Composes the reducer, the prober, and an observer exactly as the client does,
- * so loop-level behavior is exercised through the same wiring production uses.
- */
-const createHarness = (
+const createClient = (
   unary: UnaryClient,
-  overrides: Partial<connection.Config> = {},
+  overrides: Partial<connection.ClientParams> = {},
   retry: breaker.Config = FAST_RETRY,
   heartbeatInterval: TimeSpan = TimeSpan.milliseconds(20),
-): Harness => {
-  const config = createConfig(overrides);
-  let status = connection.createInitialStatus(config);
-  const observer = new observe.Observer<connection.Status>();
-  const dispatch = (event: connection.Event): void => {
-    const prev = status;
-    status = connection.reduce(prev, event, config);
-    if (connection.materialChange(prev, status)) observer.notify(status);
-    prober.setMode(connection.modeFor(status));
-  };
-  const prober = new connection.Prober({
-    client: new connection.Client(unary),
+): connection.Client =>
+  new connection.Client({
+    unary,
+    address: "localhost:9090",
+    name: "test-cluster",
     retry,
     heartbeatInterval,
-    emit: dispatch,
+    ...overrides,
   });
-  const handle: connection.Handle = {
-    get status() {
-      return status;
-    },
-    onChange: (callback) => observer.onChange(callback),
-    retryNow: () => {
-      dispatch({ type: "retry.requested" });
-      prober.retryNow();
-    },
-  };
-  prober.start();
-  return {
-    get status() {
-      return status;
-    },
-    handle,
-    prober,
-    dispatch,
-    connect: async (timeout?: TimeSpan) =>
-      await connection.awaitConnected(handle, timeout),
-    stop: async () => {
-      dispatch({ type: "closed" });
-      await prober.stop();
-    },
-  };
-};
 
 const waitForStatus = async (
   handle: connection.Handle,
@@ -155,17 +113,20 @@ const waitForStatus = async (
   });
 };
 
+const sleep = async (span: TimeSpan): Promise<void> =>
+  await new Promise((resolve) => setTimeout(resolve, span.milliseconds));
+
 describe("connection", () => {
-  describe("Client", () => {
+  describe("probe", () => {
     it("should probe the cluster", async () => {
-      const info = await new connection.Client(liveUnary()).check();
+      const info = await probe(liveUnary());
       expect(z.uuid().safeParse(info.clusterKey).success).toBe(true);
       expect(info.nodeVersion).not.toBeUndefined();
     });
 
     it("should fold a probe into a connected status", async () => {
       const config = createConfig();
-      const info = await new connection.Client(liveUnary()).check();
+      const info = await probe(liveUnary());
       const status = apply(config, { type: "probe.success", info });
       expect(status.variant).toEqual("success");
       expect(status.details.authenticated).toBe(true);
@@ -174,7 +135,7 @@ describe("connection", () => {
 
     it("should pull the server and client versions", async () => {
       const config = createConfig();
-      const info = await new connection.Client(liveUnary()).check();
+      const info = await probe(liveUnary());
       const status = apply(config, { type: "probe.success", info });
       expect(status.details.clientServerCompatible).toBe(true);
       expect(status.details.clientVersion).toBe(__VERSION__);
@@ -182,7 +143,7 @@ describe("connection", () => {
 
     it("should adjust status if the server is too old", async () => {
       const config = createConfig({ clientVersion: "50000.0.0" });
-      const info = await new connection.Client(liveUnary()).check();
+      const info = await probe(liveUnary());
       const status = apply(config, { type: "probe.success", info });
       expect(status.details.clientServerCompatible).toBe(false);
       expect(status.details.clientVersion).toBe("50000.0.0");
@@ -190,27 +151,37 @@ describe("connection", () => {
 
     it("should adjust status if the server is too new", async () => {
       const config = createConfig({ clientVersion: "0.0.0" });
-      const info = await new connection.Client(liveUnary()).check();
+      const info = await probe(liveUnary());
       const status = apply(config, { type: "probe.success", info });
       expect(status.details.clientServerCompatible).toBe(false);
     });
 
     it("should propagate transport failures", async () => {
-      await expect(new connection.Client(failingUnary()).check()).rejects.toThrow(
-        Unreachable,
-      );
+      await expect(probe(failingUnary())).rejects.toThrow(Unreachable);
+    });
+  });
+
+  describe("check", () => {
+    it("should return a success status against a live cluster", async () => {
+      const status = await connection.check(liveUnary(), { name: "test-cluster" });
+      expect(status.variant).toEqual("success");
+      expect(status.details.authenticated).toBe(true);
+    });
+
+    it("should return an error status against a dead cluster", async () => {
+      const status = await connection.check(failingUnary());
+      expect(status.variant).toEqual("error");
+      expect(status.details.reason).toEqual("unreachable");
     });
   });
 
   describe("clock skew", () => {
     it("should detect clock skew exceeding threshold", async () => {
       const config = createConfig({ clockSkewThreshold: TimeSpan.seconds(1) });
-      const client = new connection.Client(
-        mockUnary(() => TimeStamp.now().add(TimeSpan.hours(1))),
-      );
+      const unary = mockUnary(() => TimeStamp.now().add(TimeSpan.hours(1)));
       const status = apply(config, {
         type: "probe.success",
-        info: await client.check(),
+        info: await probe(unary),
       });
       expect(status.details.clockSkewExceeded).toBe(true);
       expect(status.details.clockSkew.valueOf()).not.toBe(0n);
@@ -218,10 +189,10 @@ describe("connection", () => {
 
     it("should not flag skew within threshold", async () => {
       const config = createConfig({ clockSkewThreshold: TimeSpan.seconds(1) });
-      const client = new connection.Client(mockUnary(() => TimeStamp.now()));
+      const unary = mockUnary(() => TimeStamp.now());
       const status = apply(config, {
         type: "probe.success",
-        info: await client.check(),
+        info: await probe(unary),
       });
       expect(status.details.clockSkewExceeded).toBe(false);
     });
@@ -229,7 +200,7 @@ describe("connection", () => {
 
   describe("reduce", () => {
     it("should start in loading", () => {
-      expect(connection.createInitialStatus(createConfig()).variant).toEqual("loading");
+      expect(createInitialStatus(createConfig()).variant).toEqual("loading");
     });
 
     it("should reach success on a probe when no stream is required", () => {
@@ -246,7 +217,7 @@ describe("connection", () => {
       const probed = apply(config, { type: "probe.success", info: createInfo() });
       expect(probed.variant).toEqual("loading");
       expect(probed.details.authenticated).toBe(true);
-      const live = connection.reduce(probed, { type: "stream.live" }, config);
+      const live = reduce(probed, { type: "stream.live" }, config);
       expect(live.variant).toEqual("success");
       expect(live.details.streamLive).toBe(true);
     });
@@ -258,14 +229,14 @@ describe("connection", () => {
       expect(parked.variant).toEqual("error");
       // reachable again: the error must lift, or its short circuit starves
       // the stream reopen that success waits on
-      const probed = connection.reduce(
+      const probed = reduce(
         parked,
         { type: "probe.success", info: createInfo() },
         config,
       );
       expect(probed.variant).toEqual("warning");
       expect(probed.details.reason).toBeUndefined();
-      const live = connection.reduce(probed, { type: "stream.live" }, config);
+      const live = reduce(probed, { type: "stream.live" }, config);
       expect(live.variant).toEqual("success");
     });
 
@@ -274,7 +245,7 @@ describe("connection", () => {
       const error = new Unreachable({ message: "server down" });
       const first = apply(config, { type: "probe.failure", error, attempt: 1 });
       expect(first.variant).toEqual("loading");
-      const second = connection.reduce(
+      const second = reduce(
         first,
         { type: "probe.failure", error, attempt: 2 },
         config,
@@ -287,7 +258,7 @@ describe("connection", () => {
       const config = createConfig({ escalateAfter: 100 });
       const error = new Unreachable({ message: "server down" });
       const failed = apply(config, { type: "probe.failure", error, attempt: 1 });
-      const exhausted = connection.reduce(failed, { type: "retry.exhausted" }, config);
+      const exhausted = reduce(failed, { type: "retry.exhausted" }, config);
       expect(exhausted.variant).toEqual("error");
       expect(exhausted.details.reason).toEqual("unreachable");
       expect(exhausted.details.retry).toBeNull();
@@ -301,21 +272,21 @@ describe("connection", () => {
         { type: "stream.live" },
       );
       expect(connected.variant).toEqual("success");
-      const dropped = connection.reduce(
+      const dropped = reduce(
         connected,
         { type: "stream.drop", error: new Error("socket died") },
         config,
       );
       expect(dropped.variant).toEqual("warning");
       expect(dropped.details.streamLive).toBe(false);
-      const reopened = connection.reduce(dropped, { type: "stream.live" }, config);
+      const reopened = reduce(dropped, { type: "stream.live" }, config);
       expect(reopened.variant).toEqual("success");
     });
 
     it("should degrade to warning when a heartbeat fails while connected", () => {
       const config = createConfig();
       const connected = apply(config, { type: "probe.success", info: createInfo() });
-      const degraded = connection.reduce(
+      const degraded = reduce(
         connected,
         {
           type: "probe.failure",
@@ -336,14 +307,10 @@ describe("connection", () => {
       expect(rejected.variant).toEqual("error");
       expect(rejected.details.reason).toEqual("auth");
       expect(rejected.details.authenticated).toBe(false);
-      const retrying = connection.reduce(rejected, { type: "retry.requested" }, config);
+      const retrying = reduce(rejected, { type: "retry.requested" }, config);
       expect(retrying.variant).toEqual("error");
       expect(retrying.details.reason).toEqual("auth");
-      const replaced = connection.reduce(
-        rejected,
-        { type: "credentials.replaced" },
-        config,
-      );
+      const replaced = reduce(rejected, { type: "credentials.replaced" }, config);
       expect(replaced.variant).toEqual("loading");
       expect(replaced.details.reason).toBeUndefined();
     });
@@ -365,7 +332,7 @@ describe("connection", () => {
         attempt: 1,
       });
       expect(failed.details.reason).toEqual("unreachable");
-      const retrying = connection.reduce(failed, { type: "retry.requested" }, config);
+      const retrying = reduce(failed, { type: "retry.requested" }, config);
       expect(retrying.variant).toEqual("loading");
     });
 
@@ -382,11 +349,11 @@ describe("connection", () => {
 
     it("should mirror epochs into the status", () => {
       const config = createConfig();
-      expect(connection.createInitialStatus(config).details.epoch).toBe(0);
+      expect(createInitialStatus(config).details.epoch).toBe(0);
       expect(apply(config, { type: "epoch.advanced", epoch: 2 }).details.epoch).toBe(2);
     });
 
-    it("should return to first contact on cluster replacement", () => {
+    it("should return to first contact when a probe answers with a new cluster", () => {
       const config = createConfig({ requiresStream: true });
       const connected = apply(
         config,
@@ -395,10 +362,10 @@ describe("connection", () => {
         { type: "epoch.advanced", epoch: 1 },
       );
       expect(connected.variant).toEqual("success");
-      const replaced = connection.reduce(
+      const replaced = reduce(
         connected,
         {
-          type: "cluster.replaced",
+          type: "probe.success",
           info: createInfo({ clusterKey: "other-cluster" }),
         },
         config,
@@ -419,10 +386,10 @@ describe("connection", () => {
         { type: "retry.exhausted" },
       );
       expect(parked.variant).toEqual("error");
-      const replaced = connection.reduce(
+      const replaced = reduce(
         parked,
         {
-          type: "cluster.replaced",
+          type: "probe.success",
           info: createInfo({ clusterKey: "other-cluster" }),
         },
         config,
@@ -436,30 +403,109 @@ describe("connection", () => {
       const config = createConfig();
       const closed = apply(config, { type: "closed" });
       expect(closed.variant).toEqual("disabled");
-      const after = connection.reduce(
+      const after = reduce(
         closed,
         { type: "probe.success", info: createInfo() },
         config,
       );
       expect(after).toBe(closed);
     });
+  });
 
-    it("should not notify on immaterial changes", () => {
-      const config = createConfig();
-      const connected = apply(config, { type: "probe.success", info: createInfo() });
-      const again = connection.reduce(
-        connected,
-        { type: "probe.success", info: createInfo() },
-        config,
+  describe("materialChange", () => {
+    const config = createConfig();
+    const base = apply(config, { type: "probe.success", info: createInfo() });
+    const withStatus = (changes: Partial<connection.Status>): connection.Status => ({
+      ...base,
+      ...changes,
+    });
+    const withDetails = (changes: Partial<connection.Details>): connection.Status => ({
+      ...base,
+      details: { ...base.details, ...changes },
+    });
+
+    it("should ignore the timestamp", () => {
+      const next = withStatus({ time: TimeStamp.now().add(TimeSpan.hours(1)) });
+      expect(materialChange(base, next)).toBe(false);
+    });
+
+    it("should ignore raw clock skew jitter", () => {
+      const next = withDetails({ clockSkew: TimeSpan.milliseconds(7) });
+      expect(materialChange(base, next)).toBe(false);
+    });
+
+    it("should not notify on repeated identical probes", () => {
+      const again = reduce(base, { type: "probe.success", info: createInfo() }, config);
+      expect(materialChange(base, again)).toBe(false);
+    });
+
+    it("should ignore error identity churn", () => {
+      const a = withDetails({ error: new Unreachable({ message: "down" }) });
+      const b = withDetails({ error: new Unreachable({ message: "down" }) });
+      expect(materialChange(a, b)).toBe(false);
+    });
+
+    it("should ignore value-equal timestamps in retry", () => {
+      const nextAt = TimeStamp.now();
+      const a = withDetails({ retry: { attempt: 1, nextAt } });
+      const b = withDetails({ retry: { attempt: 1, nextAt: new TimeStamp(nextAt) } });
+      expect(materialChange(a, b)).toBe(false);
+    });
+
+    it("should notify on every other field", () => {
+      const nextAt = TimeStamp.now();
+      const flips: [string, connection.Status][] = [
+        ["variant", withStatus({ variant: "warning" })],
+        ["message", withStatus({ message: "other" })],
+        ["description", withStatus({ description: "other" })],
+        ["reason", withDetails({ reason: "auth" })],
+        ["error", withDetails({ error: new Error("appeared") })],
+        ["authenticated", withDetails({ authenticated: false })],
+        ["streamLive", withDetails({ streamLive: true })],
+        ["epoch", withDetails({ epoch: 7 })],
+        ["clusterKey", withDetails({ clusterKey: "other-cluster" })],
+        ["clientVersion", withDetails({ clientVersion: "9.9.9" })],
+        ["nodeVersion", withDetails({ nodeVersion: "9.9.9" })],
+        ["clientServerCompatible", withDetails({ clientServerCompatible: false })],
+        ["clockSkewExceeded", withDetails({ clockSkewExceeded: true })],
+        ["retry", withDetails({ retry: { attempt: 1, nextAt } })],
+      ];
+      flips.forEach(([field, next]) =>
+        expect(materialChange(base, next), field).toBe(true),
       );
-      expect(connection.materialChange(connected, again)).toBe(false);
+      const scheduled = withDetails({ retry: { attempt: 1, nextAt } });
+      const bumped = withDetails({ retry: { attempt: 2, nextAt } });
+      expect(materialChange(scheduled, bumped), "retry.attempt").toBe(true);
+      const delayed = withDetails({
+        retry: { attempt: 1, nextAt: nextAt.add(TimeSpan.seconds(5)) },
+      });
+      expect(materialChange(scheduled, delayed), "retry.nextAt").toBe(true);
+    });
+
+    // forces every new Details field to be classified as material or excluded
+    it("should account for every details field", () => {
+      const classified = [
+        "reason",
+        "error",
+        "authenticated",
+        "streamLive",
+        "epoch",
+        "clusterKey",
+        "clientVersion",
+        "nodeVersion",
+        "clientServerCompatible",
+        "clockSkew",
+        "clockSkewExceeded",
+        "retry",
+      ];
+      expect(Object.keys(base.details).sort()).toEqual([...classified].sort());
     });
   });
 
   describe("modeFor", () => {
     it("should map variants onto probe modes", () => {
       const config = createConfig();
-      const initial = connection.createInitialStatus(config);
+      const initial = createInitialStatus(config);
       const withReason = (
         variant: connection.Status["variant"],
         reason?: connection.Reason,
@@ -468,29 +514,29 @@ describe("connection", () => {
         variant,
         details: { ...initial.details, reason },
       });
-      expect(connection.modeFor(initial)).toEqual("probing");
-      expect(connection.modeFor(withReason("success"))).toEqual("heartbeat");
-      expect(connection.modeFor(withReason("warning"))).toEqual("probing");
-      expect(connection.modeFor(withReason("error", "unreachable"))).toEqual("probing");
-      expect(connection.modeFor(withReason("error", "auth"))).toEqual("idle");
-      expect(connection.modeFor({ ...initial, variant: "disabled" })).toEqual("idle");
+      expect(modeFor(initial)).toEqual("probing");
+      expect(modeFor(withReason("success"))).toEqual("heartbeat");
+      expect(modeFor(withReason("warning"))).toEqual("probing");
+      expect(modeFor(withReason("error", "unreachable"))).toEqual("probing");
+      expect(modeFor(withReason("error", "auth"))).toEqual("idle");
+      expect(modeFor({ ...initial, variant: "disabled" })).toEqual("idle");
     });
   });
 
-  describe("Prober", () => {
+  describe("Client", () => {
     it("should reach success against a live cluster", async () => {
-      const harness = createHarness(liveUnary());
-      const status = await harness.connect(TimeSpan.seconds(5));
+      const client = createClient(liveUnary());
+      const status = await client.connect(TimeSpan.seconds(5));
       expect(status.variant).toEqual("success");
-      await harness.stop();
+      await client.close();
     });
 
     it("should escalate to error(unreachable) after the escalation budget", async () => {
-      const harness = createHarness(failingUnary(), { escalateAfter: 2 });
-      await expect(harness.connect(TimeSpan.seconds(5))).rejects.toThrow();
-      expect(harness.status.variant).toEqual("error");
-      expect(harness.status.details.reason).toEqual("unreachable");
-      await harness.stop();
+      const client = createClient(failingUnary(), { escalateAfter: 2 });
+      await expect(client.connect(TimeSpan.seconds(5))).rejects.toThrow();
+      expect(client.status.variant).toEqual("error");
+      expect(client.status.details.reason).toEqual("unreachable");
+      await client.close();
     });
 
     it("should keep probing after escalation and self-heal", async () => {
@@ -506,116 +552,199 @@ describe("connection", () => {
         }),
         use: vi.fn(),
       };
-      const harness = createHarness(unary, { escalateAfter: 1 });
-      await waitForStatus(harness.handle, (s) => s.variant === "error");
+      const client = createClient(unary, { escalateAfter: 1 });
+      await waitForStatus(client, (s) => s.variant === "error");
       failing = false;
-      const status = await waitForStatus(
-        harness.handle,
-        (s) => s.variant === "success",
-      );
+      const status = await waitForStatus(client, (s) => s.variant === "success");
       expect(status.details.reason).toBeUndefined();
-      await harness.stop();
+      await client.close();
     });
 
     it("should park in error(unreachable) when a finite budget exhausts", async () => {
       const unary = failingUnary();
-      const harness = createHarness(
+      const client = createClient(
         unary,
         { escalateAfter: 2 },
-        {
-          ...FAST_RETRY,
-          maxRetries: 3,
-        },
+        { ...FAST_RETRY, maxRetries: 3 },
       );
-      await waitForStatus(harness.handle, (s) => s.variant === "error");
-      await waitForStatus(harness.handle, (s) => s.details.retry == null);
+      await waitForStatus(client, (s) => s.variant === "error");
+      await waitForStatus(client, (s) => s.details.retry == null);
       const send = unary.send as ReturnType<typeof vi.fn>;
       const calls = send.mock.calls.length;
-      await new Promise((resolve) => setTimeout(resolve, 20));
+      await sleep(TimeSpan.milliseconds(20));
       expect(send.mock.calls.length).toBe(calls);
-      harness.handle.retryNow();
-      await new Promise((resolve) => setTimeout(resolve, 20));
+      client.retryNow();
+      await sleep(TimeSpan.milliseconds(20));
       expect(send.mock.calls.length).toBeGreaterThan(calls);
-      await harness.stop();
+      await client.close();
     });
 
     it("should probe immediately on retryNow while in heartbeat mode", async () => {
       const unary = mockUnary(() => TimeStamp.now());
-      const harness = createHarness(unary, {}, FAST_RETRY, TimeSpan.seconds(60));
-      await waitForStatus(harness.handle, (s) => s.variant === "success");
+      const client = createClient(unary, {}, FAST_RETRY, TimeSpan.seconds(60));
+      await waitForStatus(client, (s) => s.variant === "success");
       const send = unary.send as ReturnType<typeof vi.fn>;
       // the mode switch into heartbeat may fire one buffered probe; settle
       // before measuring quiescence
-      await new Promise((resolve) => setTimeout(resolve, 30));
+      await sleep(TimeSpan.milliseconds(30));
       const calls = send.mock.calls.length;
-      await new Promise((resolve) => setTimeout(resolve, 30));
+      await sleep(TimeSpan.milliseconds(30));
       expect(send.mock.calls.length).toBe(calls);
-      harness.prober.retryNow();
-      await new Promise((resolve) => setTimeout(resolve, 30));
+      client.retryNow();
+      await sleep(TimeSpan.milliseconds(30));
       expect(send.mock.calls.length).toBeGreaterThan(calls);
-      await harness.stop();
+      await client.close();
     });
 
     it("should stop probing once the connection is closed", async () => {
       const unary = failingUnary();
-      const harness = createHarness(unary, { escalateAfter: 1 });
-      await waitForStatus(harness.handle, (s) => s.variant === "error");
-      await harness.stop();
-      expect(harness.status.variant).toEqual("disabled");
+      const client = createClient(unary, { escalateAfter: 1 });
+      await waitForStatus(client, (s) => s.variant === "error");
+      await client.close();
+      expect(client.status.variant).toEqual("disabled");
       const send = unary.send as ReturnType<typeof vi.fn>;
       const calls = send.mock.calls.length;
-      await new Promise((resolve) => setTimeout(resolve, 20));
+      await sleep(TimeSpan.milliseconds(20));
       expect(send.mock.calls.length).toBe(calls);
     });
 
     it("should idle rather than probe while parked on an auth error", async () => {
       const unary = mockUnary(() => TimeStamp.now());
-      const harness = createHarness(unary);
-      await waitForStatus(harness.handle, (s) => s.variant === "success");
-      harness.dispatch({ type: "auth.failure", error: new AuthError("bad password") });
+      const client = createClient(unary);
+      await waitForStatus(client, (s) => s.variant === "success");
+      client.notify({ type: "auth.failure", error: new AuthError("bad password") });
       const send = unary.send as ReturnType<typeof vi.fn>;
       const calls = send.mock.calls.length;
-      await new Promise((resolve) => setTimeout(resolve, 60));
+      await sleep(TimeSpan.milliseconds(60));
       expect(send.mock.calls.length).toBe(calls);
-      await harness.stop();
+      await client.close();
+    });
+
+    it("should resume probing when credentials are replaced", async () => {
+      const unary = mockUnary(() => TimeStamp.now());
+      const client = createClient(unary);
+      await waitForStatus(client, (s) => s.variant === "success");
+      client.notify({ type: "auth.failure", error: new AuthError("bad password") });
+      const send = unary.send as ReturnType<typeof vi.fn>;
+      const calls = send.mock.calls.length;
+      await sleep(TimeSpan.milliseconds(30));
+      expect(send.mock.calls.length).toBe(calls);
+      client.notify({ type: "credentials.replaced" });
+      await waitForStatus(client, (s) => s.variant === "success");
+      expect(send.mock.calls.length).toBeGreaterThan(calls);
+      await client.close();
+    });
+
+    it("should discard an in-flight probe from before a mode change", async () => {
+      let rejectProbe: ((error: Error) => void) | undefined;
+      const unary: UnaryClient = {
+        send: vi.fn().mockImplementation(
+          async () =>
+            await new Promise((_, reject) => {
+              rejectProbe = reject;
+            }),
+        ),
+        use: vi.fn(),
+      };
+      const client = createClient(
+        unary,
+        { requiresStream: true },
+        FAST_RETRY,
+        TimeSpan.seconds(60),
+      );
+      const send = unary.send as ReturnType<typeof vi.fn>;
+      while (send.mock.calls.length === 0) await sleep(TimeSpan.milliseconds(1));
+      client.notify({ type: "stream.live" });
+      expect(client.status.variant).toEqual("success");
+      // the probe issued before the stream came up fails late: it was aimed
+      // at the old state and must not degrade the new one
+      rejectProbe?.(new Unreachable({ message: "stale" }));
+      await sleep(TimeSpan.milliseconds(20));
+      expect(client.status.variant).toEqual("success");
+      const closing = client.close();
+      rejectProbe?.(new Unreachable({ message: "shutdown" }));
+      await closing;
+    });
+
+    it("should reset then re-demand the stream on cluster replacement", async () => {
+      const calls: string[] = [];
+      let key = "first";
+      const unary: UnaryClient = {
+        send: vi.fn().mockImplementation(async () => ({
+          clusterKey: key,
+          nodeVersion: __VERSION__,
+          nodeTime: TimeStamp.now(),
+        })),
+        use: vi.fn(),
+      };
+      const client = createClient(
+        unary,
+        {
+          stream: {
+            reset: async () => {
+              calls.push("reset");
+            },
+            ensure: async () => {
+              calls.push("ensure");
+            },
+          },
+        },
+        FAST_RETRY,
+        TimeSpan.milliseconds(5),
+      );
+      await waitForStatus(client, (s) => s.details.clusterKey === "first");
+      key = "second";
+      await waitForStatus(client, (s) => s.details.clusterKey === "second");
+      while (calls.length < 2) await sleep(TimeSpan.milliseconds(1));
+      expect(calls.slice(0, 2)).toEqual(["reset", "ensure"]);
+      await client.close();
+    });
+
+    it("should re-demand a dark stream on each probe", async () => {
+      const ensured = vi.fn(async () => {});
+      const unary = mockUnary(() => TimeStamp.now());
+      const client = createClient(unary, {
+        requiresStream: true,
+        stream: { reset: async () => {}, ensure: ensured },
+      });
+      await waitForStatus(client, (s) => s.details.authenticated);
+      while (ensured.mock.calls.length === 0) await sleep(TimeSpan.milliseconds(1));
+      expect(client.status.variant).toEqual("loading");
+      client.notify({ type: "stream.live" });
+      expect(client.status.variant).toEqual("success");
+      await client.close();
     });
   });
 
   describe("handle", () => {
     it("should notify on transitions and support unsubscribe", async () => {
-      const harness = createHarness(mockUnary(() => TimeStamp.now()));
+      const client = createClient(mockUnary(() => TimeStamp.now()));
       const observed: connection.Status[] = [];
-      const detach = harness.handle.onChange((status) => observed.push(status));
-      await waitForStatus(harness.handle, (s) => s.variant === "success");
+      const detach = client.onChange((status) => observed.push(status));
+      await waitForStatus(client, (s) => s.variant === "success");
       expect(observed.some((s) => s.variant === "success")).toBe(true);
       const count = observed.length;
       detach();
-      harness.dispatch({ type: "stream.drop", error: new Error("dropped") });
+      client.notify({ type: "stream.drop", error: new Error("dropped") });
       expect(observed.length).toBe(count);
-      await harness.stop();
+      await client.close();
     });
 
     it("should reject connect with the stored auth error", async () => {
-      const harness = createHarness(failingUnary());
-      harness.dispatch({
-        type: "auth.failure",
-        error: new AuthError("bad password"),
-      });
-      await expect(harness.connect()).rejects.toThrow(AuthError);
-      await harness.stop();
+      const client = createClient(failingUnary());
+      client.notify({ type: "auth.failure", error: new AuthError("bad password") });
+      await expect(client.connect()).rejects.toThrow(AuthError);
+      await client.close();
     });
 
     it("should time out connect against a dead cluster", async () => {
-      const harness = createHarness(
+      const client = createClient(
         failingUnary(),
         { escalateAfter: Infinity },
-        {
-          ...FAST_RETRY,
-          maxRetries: Infinity,
-        },
+        { ...FAST_RETRY, maxRetries: Infinity },
       );
-      await expect(harness.connect(TimeSpan.milliseconds(50))).rejects.toThrow();
-      await harness.stop();
+      await expect(client.connect(TimeSpan.milliseconds(50))).rejects.toThrow();
+      await client.close();
     });
   });
 });
