@@ -421,10 +421,10 @@ func latestTable(
 // marker (see versioning.Pinned).
 func VersionPinned(t resolution.Type) bool { return versioning.Pinned(t) }
 
-// PersistedClosure returns the qualified names of every type reachable from a
-// @go marshal root through stored references: non-omitted struct fields,
-// extends, type arguments, alias targets, distinct bases, and union variants.
-// Types outside the closure never reach a table's wire format.
+// PersistedClosure returns the qualified names of every type reachable from a @go
+// marshal root through stored references: non-omitted struct fields, extends, type
+// arguments, alias targets, distinct bases, and union variants. Types outside the
+// closure never reach a table's wire format.
 func PersistedClosure(table *resolution.Table) set.Set[string] {
 	closure := make(set.Set[string])
 	var walkType func(t resolution.Type)

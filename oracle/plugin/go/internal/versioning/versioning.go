@@ -143,9 +143,9 @@ func CurrentPathMap(table *resolution.Table) (map[string]string, error) {
 	return pathMap, nil
 }
 
-// RewriteCurrent returns a table with every version-laid-out package's
-// @go output rewritten to its current versions/vN sub-path, plus the applied
-// path map keyed by original path.
+// RewriteCurrent returns a table with every version-laid-out package's @go output
+// rewritten to its current versions/vN sub-path, plus the applied path map keyed by
+// original path.
 func RewriteCurrent(table *resolution.Table) (*resolution.Table, map[string]string, error) {
 	pathMap, err := CurrentPathMap(table)
 	if err != nil {

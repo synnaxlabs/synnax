@@ -47,15 +47,14 @@ func (m *Manager) AddImport(path, name string) {
 	s.Add(name)
 }
 
-// SynnaxImports returns Synnax workspace imports (paths starting with
-// @synnaxlabs/), sorted by path with each NamedImport's names sorted
-// alphabetically.
+// SynnaxImports returns Synnax workspace imports (paths starting with @synnaxlabs/),
+// sorted by path with each NamedImport's names sorted alphabetically.
 func (m *Manager) SynnaxImports() []NamedImport {
 	return m.filter(func(p string) bool { return strings.HasPrefix(p, "@synnaxlabs/") })
 }
 
 // ExternalNamedImports returns third-party imports — paths that are neither
-// @synnaxlabs/* nor @/* — sorted by path.
+// "@synnaxlabs/*" nor "@/*" — sorted by path.
 func (m *Manager) ExternalNamedImports() []NamedImport {
 	return m.filter(func(p string) bool {
 		return !strings.HasPrefix(p, "@/") && !strings.HasPrefix(p, "@synnaxlabs/")

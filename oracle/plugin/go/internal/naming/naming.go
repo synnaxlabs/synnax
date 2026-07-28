@@ -67,8 +67,8 @@ func ToPascalCase(s string) string {
 	return result
 }
 
-// GetFieldName returns the Go field name for a schema field. It checks for a
-// @go name override first, then falls back to ToPascalCase of the field name.
+// GetFieldName returns the Go field name for a schema field. It checks for a @go name
+// override first, then falls back to ToPascalCase of the field name.
 func GetFieldName(f resolution.Field) string {
 	if override := domain.GetStringFromField(f, "go", "name"); override != "" {
 		return override

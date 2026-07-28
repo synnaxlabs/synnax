@@ -57,6 +57,8 @@ formatters:
     - gci
     - gofmt
     - gofumpt
+    - goimports
+    - swaggo
   settings:
     gci:
       no-inline-comments: true

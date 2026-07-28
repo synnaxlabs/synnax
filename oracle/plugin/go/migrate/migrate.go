@@ -215,10 +215,10 @@ func (g *generation) scaffoldPath(path string) error {
 	return g.scaffoldIncoming(path, b, roots, oldEntryTypes, diff, rewrittenOld)
 }
 
-// pathDiff computes the schema diff for a path's freeze, walking from its
-// @go migrate entries when present and from every keyed struct otherwise.
-// Codec-only bumps (no shape change) synthesize a full-copy diff for each
-// root so the passthrough auto-copy still generates.
+// pathDiff computes the schema diff for a path's freeze, walking from its @go migrate
+// entries when present and from every keyed struct otherwise. Codec-only bumps (no
+// shape change) synthesize a full-copy diff for each root so the passthrough auto-copy
+// still generates.
 func (g *generation) pathDiff(
 	path string,
 	roots map[string]resolution.Type,

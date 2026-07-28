@@ -117,7 +117,7 @@ type filterInfo struct {
 	GoName     string // PascalCase
 	GoType     string // resolved Go type (full type, including Array<...> if a slice)
 	ElemGoType string // resolved Go type of the slice element (only set when IsSlice)
-	IsScalar   bool   // @filter scalar or bool type
+	IsScalar   bool   // filter	scalar or bool type
 	IsBool     bool   // underlying primitive is bool
 	IsSlice    bool   // field is a slice/array; emit a contains-style filter
 	// IndexFieldName is the camelCase field name on the per-Retrieve indexes
@@ -149,7 +149,7 @@ type retrieveInfo struct {
 	KeyType                     string
 	KeyPrimitive                string
 	HasSearch                   bool
-	IsCustom                    bool // @retrieve custom - user defines the struct
+	IsCustom                    bool //	"@retrieve"	custom - user defines the struct
 	OntologyType                string
 	KeysFromOntologyIDsHasError bool
 	Filters                     []filterInfo
