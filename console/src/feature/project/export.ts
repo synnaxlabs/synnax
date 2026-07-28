@@ -49,18 +49,31 @@ const retrievePanels = async (
   return await client.panels.retrieve({ keys });
 };
 
+// HACK: a client-side mirror of the resource types the Core registers exporters for. A
+// panel tab can reference types the Core cannot export (e.g. ranges), and the Core has
+// no endpoint to ask which types are exportable, so we hardcode the list here. Keep in
+// sync with the RegisterExporter calls in core/pkg/service until such an endpoint
+// exists.
+const EXPORTABLE_TYPES = new Set<ontology.ResourceType>([
+  "arc",
+  "lineplot",
+  "log",
+  "schematic",
+  "table",
+  "task",
+]);
+
 export interface ExportContext {
   client: Client | null;
   store: Store;
   confirm: Modals.PromptConfirm;
   handleError: Status.ErrorHandler;
-  extractors: Export.Extractors;
   addStatus: Status.Adder;
 }
 
 export const export_ = (
   key: string | null,
-  { client, store, confirm, handleError, extractors, addStatus }: ExportContext,
+  { client, store, confirm, handleError, addStatus }: ExportContext,
 ): void => {
   let name: string = "project"; // default name for error message
   handleError(async () => {
@@ -72,7 +85,7 @@ export const export_ = (
     const panels = await retrievePanels(client, targetKey);
     const directory = await Runtime.pickWritableDirectory({
       title: `Select a location to export ${name}`,
-      subdirectory: Export.sanitizeFileName(name),
+      subdirectory: strings.sanitizeFileName(name),
     });
     if (directory == null) return;
     if (
@@ -92,18 +105,18 @@ export const export_ = (
       ids.forEach((id) => resources.set(`${id.type}:${id.key}`, id));
     });
     const namesSet = new Set<string>();
-    const fileInfos: Export.File[] = [];
+    const fileInfos: Export.FileData[] = [];
     await Promise.all(
-      Array.from(resources.values()).map(async ({ type, key }) => {
-        const extractor = extractors[type];
-        if (extractor == null) return;
-        const { data, name } = await extractor(key, { store, client });
-        const fileName = Export.sanitizeFileName(
-          strings.deduplicateFileName(name, namesSet),
-        );
-        namesSet.add(fileName);
-        fileInfos.push({ data, name: fileName });
-      }),
+      Array.from(resources.values())
+        .filter(({ type }) => EXPORTABLE_TYPES.has(type))
+        .map(async (id) => {
+          const file = await Export.fetchFileData(client, id);
+          const fileName = strings.sanitizeFileName(
+            strings.deduplicateFileName(file.name, namesSet),
+          );
+          namesSet.add(fileName);
+          fileInfos.push({ data: file.data, name: fileName });
+        }),
     );
     await directory.writeText(PANELS_FILE_NAME, JSON.stringify(panels));
     await Promise.all(
@@ -122,7 +135,6 @@ export const useExport = (): ((key: string | null) => void) => {
   const addStatus = Status.useAdder();
   const store = Session.useStore();
   const confirm = Modals.useConfirm();
-  const extractors = Export.useExtractors();
   return (key: string | null) =>
-    export_(key, { client, store, confirm, handleError, extractors, addStatus });
+    export_(key, { client, store, confirm, handleError, addStatus });
 };
