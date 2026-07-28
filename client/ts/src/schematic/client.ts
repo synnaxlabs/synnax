@@ -79,7 +79,7 @@ const requestFilter = (req: RetrieveRequest): ((s: Schematic) => boolean) => {
   return (s) => keySet == null || keySet.has(s.key);
 };
 
-export interface ClientParams {
+export interface ClientConfig {
   unary: UnaryClient;
   ontology: ontology.Client;
   cache: query.Cache;
@@ -88,12 +88,12 @@ export interface ClientParams {
 
 export class Client extends query.Retriever<typeof retrieveReqZ, Key, Schematic> {
   readonly symbols: symbol.Client;
-  private readonly unary: UnaryClient;
+  private readonly cfg: ClientConfig;
   private readonly store: query.Table<Key, Schematic>;
-  private readonly ontologyStores: ontology.Stores;
   private readonly dispatcher: actions.Controller<Key, Schematic, Action>;
 
-  constructor({ unary, ontology, cache, ontologyStores }: ClientParams) {
+  constructor(cfg: ClientConfig) {
+    const { cache } = cfg;
     // Dispatch mutates documents server-side, so fetched copies never clobber
     // a doc holding locally replayed edits: the table hydrates if-absent.
     const store = cache.createTable<Key, Schematic>({
@@ -119,11 +119,10 @@ export class Client extends query.Retriever<typeof retrieveReqZ, Key, Schematic>
         matches: (schematic, req) => requestFilter(req)(schematic),
       },
     });
-    this.unary = unary;
-    this.symbols = new symbol.Client({ unary, ontology, cache, ontologyStores });
+    this.cfg = cfg;
+    this.symbols = new symbol.Client(cfg);
     this.store = store;
     this.dispatcher = dispatcher;
-    this.ontologyStores = ontologyStores;
   }
 
   async create(
@@ -148,7 +147,7 @@ export class Client extends query.Retriever<typeof retrieveReqZ, Key, Schematic>
     await opts.onOptimistic?.(optimistic);
     const res = await rollback.guard(
       async () =>
-        await this.unary.send(
+        await this.cfg.unary.send(
           "/schematic/create",
           { project, schematics: optimistic },
           createReqZ,
@@ -162,7 +161,7 @@ export class Client extends query.Retriever<typeof retrieveReqZ, Key, Schematic>
   async rename(key: Key, name: string, opts: query.WriteOptions = {}): Promise<void> {
     const rename = () => [
       query.partialUpdate(this.store, key, { name }),
-      ontology.renameCachedResource(this.ontologyStores, ontologyID(key), name),
+      ontology.renameCachedResource(this.cfg.ontologyStores, ontologyID(key), name),
     ];
     const rollback = new destructor.Chain();
     rollback.add(...rename());
@@ -253,7 +252,7 @@ export class Client extends query.Retriever<typeof retrieveReqZ, Key, Schematic>
     dispatchKey: string,
     actions: Action[],
   ): Promise<void> {
-    await this.unary.send(
+    await this.cfg.unary.send(
       "/schematic/dispatch",
       { key, dispatchKey, actions },
       dispatchReqZ,
@@ -264,7 +263,7 @@ export class Client extends query.Retriever<typeof retrieveReqZ, Key, Schematic>
   async delete(keys: Key | Key[], opts: query.WriteOptions = {}): Promise<void> {
     const keysArr = array.toArray(keys);
     const drop = () => [
-      ontology.deleteCachedRelationships(this.ontologyStores, ontologyID(keysArr)),
+      ontology.deleteCachedRelationships(this.cfg.ontologyStores, ontologyID(keysArr)),
       this.store.delete(keysArr),
     ];
     const rollback = new destructor.Chain();
@@ -272,7 +271,7 @@ export class Client extends query.Retriever<typeof retrieveReqZ, Key, Schematic>
     await opts.onOptimistic?.();
     await rollback.guard(
       async () =>
-        await this.unary.send(
+        await this.cfg.unary.send(
           "/schematic/delete",
           { keys: keysArr },
           deleteReqZ,
@@ -290,13 +289,18 @@ export class Client extends query.Retriever<typeof retrieveReqZ, Key, Schematic>
   }
 
   async copy(params: CopyParams): Promise<Schematic> {
-    const res = await this.unary.send("/schematic/copy", params, copyReqZ, copyResZ);
+    const res = await this.cfg.unary.send(
+      "/schematic/copy",
+      params,
+      copyReqZ,
+      copyResZ,
+    );
     this.store.set(res.schematic);
     return res.schematic;
   }
 
   private async execRetrieve(params: RetrieveMultipleParams): Promise<Schematic[]> {
-    const res = await this.unary.send(
+    const res = await this.cfg.unary.send(
       "/schematic/retrieve",
       params,
       retrieveReqZ,

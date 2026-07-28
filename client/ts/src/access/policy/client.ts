@@ -84,18 +84,18 @@ const requestFilter = (req: RetrieveRequest): ((p: Policy) => boolean) => {
   };
 };
 
-export interface ClientParams {
+export interface ClientConfig {
   unary: UnaryClient;
   cache: query.Cache;
   ontologyStores: ontology.Stores;
 }
 
 export class Client extends query.Retriever<typeof listRetrieveParamsZ, Key, Policy> {
-  private readonly unary: UnaryClient;
+  private readonly cfg: ClientConfig;
   private readonly store: query.Table<Key, Policy>;
-  private readonly ontologyStores: ontology.Stores;
 
-  constructor({ unary, cache, ontologyStores }: ClientParams) {
+  constructor(cfg: ClientConfig) {
+    const { cache } = cfg;
     const store = cache.createTable<Key, Policy>({
       name: "policies",
       fetch: async (keys) => await this.execRetrieve({ keys }),
@@ -114,16 +114,15 @@ export class Client extends query.Retriever<typeof listRetrieveParamsZ, Key, Pol
         serverFields: SERVER_FIELDS,
       },
     });
-    this.unary = unary;
+    this.cfg = cfg;
     this.store = store;
-    this.ontologyStores = ontologyStores;
   }
 
   async create(policy: New): Promise<Policy>;
   async create(policies: New[]): Promise<Policy[]>;
   async create(policies: CreateParams): Promise<Policy | Policy[]> {
     const isMany = Array.isArray(policies);
-    const res = await this.unary.send(
+    const res = await this.cfg.unary.send(
       "/access/policy/create",
       policies,
       createParamsZ,
@@ -139,7 +138,7 @@ export class Client extends query.Retriever<typeof listRetrieveParamsZ, Key, Pol
     const keysArr = array.toArray(keys);
     const ids = ontologyID(keysArr);
     const drop = () => [
-      ontology.deleteCachedResources(this.ontologyStores, ids),
+      ontology.deleteCachedResources(this.cfg.ontologyStores, ids),
       this.store.delete(keysArr),
     ];
     const rollback = new destructor.Chain();
@@ -147,7 +146,7 @@ export class Client extends query.Retriever<typeof listRetrieveParamsZ, Key, Pol
     await opts.onOptimistic?.();
     await rollback.guard(
       async () =>
-        await this.unary.send(
+        await this.cfg.unary.send(
           "/access/policy/delete",
           { keys: keysArr },
           deleteReqZ,
@@ -155,7 +154,7 @@ export class Client extends query.Retriever<typeof listRetrieveParamsZ, Key, Pol
         ),
     );
     drop();
-    this.ontologyStores.relationships.delete((r) =>
+    this.cfg.ontologyStores.relationships.delete((r) =>
       ids.some((id) => ontology.idsEqual(r.from, id) || ontology.idsEqual(r.to, id)),
     );
   }
@@ -164,7 +163,7 @@ export class Client extends query.Retriever<typeof listRetrieveParamsZ, Key, Pol
     const existing = await this.retrieve({ key });
     const rename = () => [
       query.partialUpdate(this.store, key, { name }),
-      ontology.renameCachedResource(this.ontologyStores, ontologyID(key), name),
+      ontology.renameCachedResource(this.cfg.ontologyStores, ontologyID(key), name),
     ];
     const rollback = new destructor.Chain();
     rollback.add(...rename());
@@ -176,7 +175,7 @@ export class Client extends query.Retriever<typeof listRetrieveParamsZ, Key, Pol
   }
 
   private async execRetrieve(params: RetrieveRequest): Promise<Policy[]> {
-    const res = await this.unary.send(
+    const res = await this.cfg.unary.send(
       "/access/policy/retrieve",
       params,
       retrieveRequestZ,

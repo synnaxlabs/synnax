@@ -70,15 +70,15 @@ export interface ImportOptions extends Options {
  * - Tauri/Console: read the picked file into a Blob to import, and hand the export
  *   stream to the Console's downloadStream helper.
  */
-export interface ClientParams {
+export interface ClientConfig {
   file: FileTransport;
 }
 
 export class Client {
-  private readonly file: FileTransport;
+  private readonly cfg: ClientConfig;
 
-  constructor({ file }: ClientParams) {
-    this.file = file;
+  constructor(cfg: ClientConfig) {
+    this.cfg = cfg;
   }
 
   /**
@@ -97,7 +97,7 @@ export class Client {
     source: UploadBody,
     { encoding, ...params }: ImportOptions,
   ): Promise<ontology.ID> {
-    return await this.file.upload(
+    return await this.cfg.file.upload(
       "/imex/import",
       source,
       { encoding, params, paramsSchema: importParamsZ },
@@ -116,6 +116,6 @@ export class Client {
    * @returns the serialized resource as a stream of bytes.
    */
   async export(id: ontology.ID, options: Options): Promise<ReadableStream<Uint8Array>> {
-    return await this.file.download("/imex/export", id, ontology.idZ, options);
+    return await this.cfg.file.download("/imex/export", id, ontology.idZ, options);
   }
 }

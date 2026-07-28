@@ -12,20 +12,20 @@ import { framer } from "@/framer";
 
 export const CONTROL_STATE_CHANNEL_NAME = "sy_node_1_control";
 
-export interface ClientParams {
+export interface ClientConfig {
   framer: framer.Client;
 }
 
 export class Client {
-  private readonly framer: framer.Client;
+  private readonly cfg: ClientConfig;
 
-  constructor({ framer }: ClientParams) {
-    this.framer = framer;
+  constructor(cfg: ClientConfig) {
+    this.cfg = cfg;
   }
 
   async openStateTracker(): Promise<StateTracker> {
     const stream = await framer.HardenedStreamer.open(
-      async (p) => await this.framer.openStreamer(p),
+      async (p) => await this.cfg.framer.openStreamer(p),
       CONTROL_STATE_CHANNEL_NAME,
     );
     return new StateTracker(stream);

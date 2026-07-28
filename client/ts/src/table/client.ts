@@ -67,19 +67,19 @@ const requestFilter = (req: RetrieveRequest): ((t: Table) => boolean) => {
   return (t) => keySet.has(t.key);
 };
 
-export interface ClientParams {
+export interface ClientConfig {
   unary: UnaryClient;
   cache: query.Cache;
   ontologyStores: ontology.Stores;
 }
 
 export class Client extends query.Retriever<typeof retrieveReqZ, Key, Table> {
-  private readonly unary: UnaryClient;
+  private readonly cfg: ClientConfig;
   private readonly store: query.Table<Key, Table>;
-  private readonly ontologyStores: ontology.Stores;
   private readonly dispatcher: actions.Controller<Key, Table, Action>;
 
-  constructor({ unary, cache, ontologyStores }: ClientParams) {
+  constructor(cfg: ClientConfig) {
+    const { cache } = cfg;
     // Dispatch mutates documents server-side, so fetched copies never clobber
     // a doc holding locally replayed edits: the table hydrates if-absent.
     const store = cache.createTable<Key, Table>({
@@ -105,10 +105,9 @@ export class Client extends query.Retriever<typeof retrieveReqZ, Key, Table> {
         matches: (table, req) => requestFilter(req)(table),
       },
     });
-    this.unary = unary;
+    this.cfg = cfg;
     this.store = store;
     this.dispatcher = dispatcher;
-    this.ontologyStores = ontologyStores;
   }
 
   async create(
@@ -133,7 +132,7 @@ export class Client extends query.Retriever<typeof retrieveReqZ, Key, Table> {
     await opts.onOptimistic?.(optimistic);
     const res = await rollback.guard(
       async () =>
-        await this.unary.send(
+        await this.cfg.unary.send(
           "/table/create",
           { project, tables: optimistic },
           createReqZ,
@@ -147,7 +146,7 @@ export class Client extends query.Retriever<typeof retrieveReqZ, Key, Table> {
   async rename(key: Key, name: string, opts: query.WriteOptions = {}): Promise<void> {
     const rename = () => [
       query.partialUpdate(this.store, key, { name }),
-      ontology.renameCachedResource(this.ontologyStores, ontologyID(key), name),
+      ontology.renameCachedResource(this.cfg.ontologyStores, ontologyID(key), name),
     ];
     const rollback = new destructor.Chain();
     rollback.add(...rename());
@@ -240,7 +239,7 @@ export class Client extends query.Retriever<typeof retrieveReqZ, Key, Table> {
     dispatchKey: string,
     actions: Action[],
   ): Promise<void> {
-    await this.unary.send(
+    await this.cfg.unary.send(
       "/table/dispatch",
       { key, dispatchKey, actions },
       dispatchReqZ,
@@ -251,7 +250,7 @@ export class Client extends query.Retriever<typeof retrieveReqZ, Key, Table> {
   async delete(keys: Key | Key[], opts: query.WriteOptions = {}): Promise<void> {
     const keysArr = array.toArray(keys);
     const drop = () => [
-      ontology.deleteCachedRelationships(this.ontologyStores, ontologyID(keysArr)),
+      ontology.deleteCachedRelationships(this.cfg.ontologyStores, ontologyID(keysArr)),
       this.store.delete(keysArr),
     ];
     const rollback = new destructor.Chain();
@@ -259,7 +258,7 @@ export class Client extends query.Retriever<typeof retrieveReqZ, Key, Table> {
     await opts.onOptimistic?.();
     await rollback.guard(
       async () =>
-        await this.unary.send(
+        await this.cfg.unary.send(
           "/table/delete",
           { keys: keysArr },
           deleteReqZ,
@@ -277,7 +276,7 @@ export class Client extends query.Retriever<typeof retrieveReqZ, Key, Table> {
   }
 
   private async execRetrieve(params: RetrieveMultipleParams): Promise<Table[]> {
-    const res = await this.unary.send(
+    const res = await this.cfg.unary.send(
       "/table/retrieve",
       params,
       retrieveReqZ,

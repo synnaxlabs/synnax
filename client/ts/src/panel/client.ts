@@ -66,7 +66,7 @@ const requestFilter = (req: RetrieveRequest): ((p: Panel) => boolean) => {
   return (p) => keySet == null || keySet.has(p.key);
 };
 
-export interface ClientParams {
+export interface ClientConfig {
   unary: UnaryClient;
   ontology: ontology.Client;
   cache: query.Cache;
@@ -74,18 +74,12 @@ export interface ClientParams {
 }
 
 export class Client extends query.Retriever<typeof retrieveReqZ, Key, Panel> {
-  private readonly unary: UnaryClient;
+  private readonly cfg: ClientConfig;
   private readonly store: query.Table<Key, Panel>;
   private readonly dispatcher: actions.Controller<Key, Panel, Action>;
-  private readonly ontology: ontology.Client;
-  private readonly ontologyStores: ontology.Stores;
 
-  constructor({
-    unary,
-    ontology: ontologyClient,
-    cache,
-    ontologyStores,
-  }: ClientParams) {
+  constructor(cfg: ClientConfig) {
+    const { cache, ontologyStores } = cfg;
     // Dispatch mutates documents server-side, so fetched copies never clobber
     // a doc holding locally replayed edits: the table hydrates if-absent.
     const store = cache.createTable<Key, Panel>({
@@ -124,9 +118,7 @@ export class Client extends query.Retriever<typeof retrieveReqZ, Key, Panel> {
         ],
       },
     });
-    this.unary = unary;
-    this.ontology = ontologyClient;
-    this.ontologyStores = ontologyStores;
+    this.cfg = cfg;
     this.store = store;
     this.dispatcher = dispatcher;
   }
@@ -137,7 +129,7 @@ export class Client extends query.Retriever<typeof retrieveReqZ, Key, Panel> {
   }
 
   private isCachedChild(parent: ontology.ID, key: Key): boolean {
-    return this.ontologyStores.relationships.has(
+    return this.cfg.ontologyStores.relationships.has(
       ontology.relationshipToString({
         from: parent,
         type: ontology.PARENT_OF_RELATIONSHIP_TYPE,
@@ -163,7 +155,7 @@ export class Client extends query.Retriever<typeof retrieveReqZ, Key, Panel> {
     const latest = optimistic.map((p) => this.store.get(p.key) ?? p);
     const res = await rollback.guard(
       async () =>
-        await this.unary.send(
+        await this.cfg.unary.send(
           "/panel/create",
           { panels: latest },
           createReqZ,
@@ -177,7 +169,7 @@ export class Client extends query.Retriever<typeof retrieveReqZ, Key, Panel> {
   async rename(key: Key, name: string): Promise<void> {
     const rename = () => [
       query.partialUpdate(this.store, key, { name }),
-      ontology.renameCachedResource(this.ontologyStores, ontologyID(key), name),
+      ontology.renameCachedResource(this.cfg.ontologyStores, ontologyID(key), name),
     ];
     const rollback = new destructor.Chain();
     rollback.add(...rename());
@@ -269,7 +261,7 @@ export class Client extends query.Retriever<typeof retrieveReqZ, Key, Panel> {
     dispatchKey: string,
     actions: Action[],
   ): Promise<void> {
-    await this.unary.send(
+    await this.cfg.unary.send(
       "/panel/dispatch",
       { key, dispatchKey, actions },
       dispatchReqZ,
@@ -282,7 +274,7 @@ export class Client extends query.Retriever<typeof retrieveReqZ, Key, Panel> {
   async delete(keys: Key | Key[], opts: query.WriteOptions = {}): Promise<void> {
     const keysArr = array.toArray(keys);
     const drop = () => [
-      ontology.deleteCachedResources(this.ontologyStores, ontologyID(keysArr)),
+      ontology.deleteCachedResources(this.cfg.ontologyStores, ontologyID(keysArr)),
       this.store.delete(keysArr),
     ];
     const rollback = new destructor.Chain();
@@ -290,7 +282,7 @@ export class Client extends query.Retriever<typeof retrieveReqZ, Key, Panel> {
     await opts.onOptimistic?.();
     await rollback.guard(
       async () =>
-        await this.unary.send(
+        await this.cfg.unary.send(
           "/panel/delete",
           { keys: keysArr },
           deleteReqZ,
@@ -315,7 +307,7 @@ export class Client extends query.Retriever<typeof retrieveReqZ, Key, Panel> {
   }
 
   private async execRetrieve(req: RetrieveRequest): Promise<Panel[]> {
-    const res = await this.unary.send(
+    const res = await this.cfg.unary.send(
       "/panel/retrieve",
       req,
       retrieveReqZ,
@@ -329,7 +321,7 @@ export class Client extends query.Retriever<typeof retrieveReqZ, Key, Panel> {
   private async fetchRequest(req: RetrieveRequest): Promise<Panel[]> {
     const { parent, ...rest } = req;
     if (parent != null) {
-      const children = await this.ontology.children.retrieve({
+      const children = await this.cfg.ontology.children.retrieve({
         ids: parent,
         types: [TYPE_ONTOLOGY_ID.type],
       });

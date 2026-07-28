@@ -141,11 +141,11 @@ export default class Synnax extends framer.Client {
       connectivityPollFrequency,
       clockSkewThreshold,
       secure,
-      retry: breaker,
+      retry,
     } = parsedParams;
     const transport = new Transport(
       new url.URL({ host, port: Number(port) }),
-      breaker,
+      retry,
       secure,
     );
     transport.use(errorsMiddleware);
@@ -157,7 +157,7 @@ export default class Synnax extends framer.Client {
             const hardened = await framer.HardenedStreamer.open(
               (config) => this.openStreamer(config),
               channels,
-              breaker,
+              retry,
               () => onReopen?.(),
             );
             // Reads start when the ObservableStreamer is constructed below,
@@ -195,7 +195,6 @@ export default class Synnax extends framer.Client {
     this.statuses = new status.Client({
       unary,
       cache,
-      labelStore: this.labels.store,
       ontologyStores,
       labels: this.labels,
     });
@@ -216,8 +215,6 @@ export default class Synnax extends framer.Client {
       statuses: this.statuses,
       ranges: this.ranges,
       cache,
-      statusStore: this.statuses.store,
-      aliasStore: this.ranges.aliases,
       ontologyStores,
     });
     this.control = new control.Client({ framer: this });

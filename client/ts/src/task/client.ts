@@ -320,7 +320,7 @@ const matchesSingle = (t: Omit<Task, "status">, query: SingleRequest): boolean =
   return false;
 };
 
-export interface ClientParams {
+export interface ClientConfig {
   unary: UnaryClient;
   framer: framer.Client;
   ontology: ontology.Client;
@@ -338,14 +338,10 @@ export class Client extends query.Retriever<
 > {
   /** The task record table; injected into sibling clients at wiring. */
   readonly store: query.Table<Key, Omit<Task, "status">>;
-  private readonly unary: UnaryClient;
-  private readonly framer: framer.Client;
-  private readonly ontology: ontology.Client;
-  private readonly ranges: ranger.Client;
-  private readonly statusStore: query.Table<status.Key, status.Status>;
-  private readonly ontologyStores: ontology.Stores;
+  private readonly cfg: ClientConfig;
 
-  constructor({ unary, framer, ontology, ranges, cache, statusStore }: ClientParams) {
+  constructor(cfg: ClientConfig) {
+    const { cache, statusStore } = cfg;
     const store = cache.createTable<Key, Omit<Task, "status">>({
       name: "tasks",
       equal: (a, b) => deep.equal(a.payload, b.payload),
@@ -398,12 +394,7 @@ export class Client extends query.Retriever<
         space: single as query.Retrieves<query.Params, Task>,
       },
     });
-    this.unary = unary;
-    this.framer = framer;
-    this.ontology = ontology;
-    this.ranges = ranges;
-    this.statusStore = statusStore;
-    this.ontologyStores = ontology.stores;
+    this.cfg = cfg;
     this.store = store;
   }
 
@@ -420,7 +411,7 @@ export class Client extends query.Retriever<
     const isSingle = !Array.isArray(task);
     const createReq = createReqZ(schemas);
     const createRes = createResZ(schemas);
-    const res = await this.unary.send(
+    const res = await this.cfg.unary.send(
       "/task/create",
       { tasks: array.toArray(task) },
       createReq,
@@ -434,16 +425,16 @@ export class Client extends query.Retriever<
   async delete(keys: Key | Key[], opts: query.WriteOptions = {}): Promise<void> {
     const keysArr = array.toArray(keys);
     const drop = () => [
-      ontology.deleteCachedResources(this.ontologyStores, ontologyID(keysArr)),
+      ontology.deleteCachedResources(this.cfg.ontology.stores, ontologyID(keysArr)),
       this.store.delete(keysArr),
-      this.statusStore.delete(keysArr.map((k) => statusKey(k))),
+      this.cfg.statusStore.delete(keysArr.map((k) => statusKey(k))),
     ];
     const rollback = new destructor.Chain();
     rollback.add(...drop());
     await opts.onOptimistic?.();
     await rollback.guard(
       async () =>
-        await this.unary.send(
+        await this.cfg.unary.send(
           "/task/delete",
           { keys: keysArr },
           deleteReqZ,
@@ -458,7 +449,7 @@ export class Client extends query.Retriever<
       this.store.set(key, (p) =>
         p == null ? undefined : this.sugar({ ...p.payload, name }),
       ),
-      ontology.renameCachedResource(this.ontologyStores, ontologyID(key), name),
+      ontology.renameCachedResource(this.cfg.ontology.stores, ontologyID(key), name),
     ];
     const rollback = new destructor.Chain();
     rollback.add(...rename());
@@ -499,7 +490,7 @@ export class Client extends query.Retriever<
 
   async copy(key: Key, name: string, snapshot: boolean): Promise<Task> {
     const copyRes = copyResZ();
-    const response = await this.unary.send(
+    const response = await this.cfg.unary.send(
       "/task/copy",
       { key, name, snapshot },
       copyReqZ,
@@ -517,15 +508,15 @@ export class Client extends query.Retriever<
   }
 
   async retrieveSnapshottedTo(taskKey: Key): Promise<ontology.Resource | null> {
-    if (this.ontology == null) throw new Error("Task not created");
-    return await retrieveSnapshottedTo(taskKey, this.ontology);
+    if (this.cfg.ontology == null) throw new Error("Task not created");
+    return await retrieveSnapshottedTo(taskKey, this.cfg.ontology);
   }
 
   private async execRetrieve<S extends Schemas = Schemas>(
     params: RetrieveParams,
     schemas?: S,
   ): Promise<Task<S>[]> {
-    const res = await this.unary.send(
+    const res = await this.cfg.unary.send(
       "/task/retrieve",
       params,
       retrieveParamsZ,
@@ -547,7 +538,7 @@ export class Client extends query.Retriever<
   // because the status table holds every domain's statuses generically.
   private latestStatusOf(key: Key): Status | undefined {
     const taskKey = statusKey(key);
-    const candidates = this.statusStore
+    const candidates = this.cfg.statusStore
       .get((s) => s.key === taskKey || status.detailsOf(s)?.task === key)
       .map((s) => statusZ().safeParse(s))
       .filter((p) => p.success)
@@ -561,14 +552,14 @@ export class Client extends query.Retriever<
   /** Writes a fetched task and its included status. */
   private writeThrough(task: Task): void {
     this.store.set(task);
-    if (task.status != null) this.statusStore.set(task.status);
+    if (task.status != null) this.cfg.statusStore.set(task.status);
   }
 
   /** Fetches tasks with statuses and writes the statuses through. */
   private async fetchThrough(req: RetrieveRequest): Promise<Task[]> {
     const tasks = await this.execRetrieve({ ...req, includeStatus: true });
     tasks.forEach((t) => {
-      if (t.status != null) this.statusStore.set(t.status);
+      if (t.status != null) this.cfg.statusStore.set(t.status);
     });
     return tasks;
   }
@@ -580,7 +571,7 @@ export class Client extends query.Retriever<
       [cached] = this.store.get((t) => t.name === q.names?.[0]);
     // A cached task without a cached status is ambiguous: the task may have
     // no status or the status may not have synced. Only both count as a hit.
-    if (cached != null && this.statusStore.has(statusKey(cached.key)))
+    if (cached != null && this.cfg.statusStore.has(statusKey(cached.key)))
       return this.compose(cached);
     const tasks = await this.execRetrieve({ ...q, includeStatus: true });
     checkForMultipleOrNoResults("Task", q, tasks, true);
@@ -610,9 +601,9 @@ export class Client extends query.Retriever<
             status,
           },
           schemas,
-          this.framer,
-          this.ontology,
-          this.ranges,
+          this.cfg.framer,
+          this.cfg.ontology,
+          this.cfg.ranges,
         ),
     );
     return isSingle ? res[0] : res;
@@ -626,8 +617,8 @@ export class Client extends query.Retriever<
     params: ExecuteCommandParams | ExecuteCommandsParams,
   ): Promise<string | string[]> {
     if ("commands" in params)
-      return await executeCommands({ ...params, frameClient: this.framer });
-    return await executeCommand({ ...params, frameClient: this.framer });
+      return await executeCommands({ ...params, frameClient: this.cfg.framer });
+    return await executeCommand({ ...params, frameClient: this.cfg.framer });
   }
 
   async executeCommandSync<StatusData extends z.ZodType = z.ZodNever>(
@@ -650,7 +641,7 @@ export class Client extends query.Retriever<
       };
       return await executeCommandsSync({
         ...params,
-        frameClient: this.framer,
+        frameClient: this.cfg.framer,
         name: retrieveNames,
       });
     }
@@ -660,7 +651,7 @@ export class Client extends query.Retriever<
       return t.name;
     };
     return await executeCommandSync({
-      frameClient: this.framer,
+      frameClient: this.cfg.framer,
       name: retrieveName,
       ...params,
     });

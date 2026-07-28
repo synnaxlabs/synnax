@@ -356,7 +356,7 @@ const watchLabels = <Q extends query.Params>(
     rangesWithLabel(relationships, event.key),
   );
 
-export interface ClientParams {
+export interface ClientConfig {
   framer: framer.Client;
   writer: Writer;
   unary: UnaryClient;
@@ -385,26 +385,12 @@ export class Client extends query.Retriever<
   readonly parent: query.Retrieves<ontology.ID, Range | null>;
   /** Cached queries for a range's KV metadata pairs, keyed by the range's key. */
   readonly kv: query.Retrieves<Key, kv.Pair[]>;
-  private readonly framer: framer.Client;
-  private readonly writer: Writer;
-  private readonly unary: UnaryClient;
-  private readonly channels: channel.Retriever;
-  private readonly labels: label.Client;
-  private readonly ontology: ontology.Client;
+  private readonly cfg: ClientConfig;
   private readonly store: query.Table<Key, Range>;
   private readonly kvPairs: query.Table<string, kv.Pair>;
-  private readonly labelStore: query.Table<label.Key, label.Label>;
-  private readonly ontologyStores: ontology.Stores;
 
-  constructor({
-    framer,
-    writer,
-    unary,
-    channels,
-    labels: labelClient,
-    ontology: ontologyClient,
-    cache,
-  }: ClientParams) {
+  constructor(cfg: ClientConfig) {
+    const { labels: labelClient, ontology: ontologyClient, cache } = cfg;
     const labels = labelClient.store;
     const { relationships } = ontologyClient.stores;
     const { ranges, kvPairs, aliases } = createTables(
@@ -446,14 +432,7 @@ export class Client extends query.Retriever<
         space: single as query.Retrieves<query.Params, Range>,
       },
     });
-    this.framer = framer;
-    this.writer = writer;
-    this.unary = unary;
-    this.channels = channels;
-    this.labels = labelClient;
-    this.ontology = ontologyClient;
-    this.labelStore = labels;
-    this.ontologyStores = ontologyClient.stores;
+    this.cfg = cfg;
     this.store = ranges;
     this.kvPairs = kvPairs;
     this.aliases = aliases;
@@ -464,14 +443,14 @@ export class Client extends query.Retriever<
       compose: (records) => records.map((r) => this.composeOne(r)),
       matches: (r, query) => {
         const parent = ontology.cachedParentID(
-          this.ontologyStores.relationships,
+          this.cfg.ontology.stores.relationships,
           ontologyID(r.key),
         );
         return parent != null && ontology.idsEqual(parent, ontologyID(query));
       },
       watch: [
-        watchRelationships<Key>(this.ontologyStores.relationships),
-        watchLabels<Key>(this.labelStore, this.ontologyStores.relationships),
+        watchRelationships<Key>(this.cfg.ontology.stores.relationships),
+        watchLabels<Key>(this.cfg.labels.store, this.cfg.ontology.stores.relationships),
       ],
     });
     this.parent = cache.queries<ontology.ID, Range | null, Key, Range>({
@@ -484,14 +463,14 @@ export class Client extends query.Retriever<
       compose: (records) => (records[0] == null ? null : this.composeOne(records[0])),
       matches: (r, query) => {
         const parent = ontology.cachedParentID(
-          this.ontologyStores.relationships,
+          this.cfg.ontology.stores.relationships,
           query,
         );
         return parent != null && parent.type === "range" && parent.key === r.key;
       },
       watch: [
         query.watch<ontology.ID, Key, string, ontology.Relationship>(
-          this.ontologyStores.relationships,
+          this.cfg.ontology.stores.relationships,
           (event, query) => {
             const rel = relOfEvent(event);
             if (isParentChange(rel, query))
@@ -499,7 +478,10 @@ export class Client extends query.Retriever<
             return affectedRangeKeys(rel);
           },
         ),
-        watchLabels<ontology.ID>(this.labelStore, this.ontologyStores.relationships),
+        watchLabels<ontology.ID>(
+          this.cfg.labels.store,
+          this.cfg.ontology.stores.relationships,
+        ),
       ],
     });
     this.kv = cache.queries<Key, kv.Pair[], string, kv.Pair>({
@@ -517,7 +499,7 @@ export class Client extends query.Retriever<
   async create(ranges: New | New[]): Promise<Range | Range[]> {
     const single = !Array.isArray(ranges);
     const news = array.toArray(ranges);
-    const res = this.sugarMany(await this.writer.create(news));
+    const res = this.sugarMany(await this.cfg.writer.create(news));
     res.forEach((r, i) => {
       this.writeThrough(r);
       const parent = news[i]?.parent;
@@ -527,7 +509,10 @@ export class Client extends query.Retriever<
         type: ontology.PARENT_OF_RELATIONSHIP_TYPE,
         to: ontologyID(r.key),
       };
-      this.ontologyStores.relationships.set(ontology.relationshipToString(rel), rel);
+      this.cfg.ontology.stores.relationships.set(
+        ontology.relationshipToString(rel),
+        rel,
+      );
     });
     return single ? res[0] : res;
   }
@@ -537,18 +522,18 @@ export class Client extends query.Retriever<
       this.store.set(key, (p) =>
         p == null ? undefined : this.sugarOne({ ...p.payload, name }),
       ),
-      ontology.renameCachedResource(this.ontologyStores, ontologyID(key), name),
+      ontology.renameCachedResource(this.cfg.ontology.stores, ontologyID(key), name),
     ];
     const rollbacks = new destructor.Chain();
     rollbacks.add(...rename());
     await opts.onOptimistic?.();
-    await rollbacks.guard(async () => await this.writer.rename(key, name));
+    await rollbacks.guard(async () => await this.cfg.writer.rename(key, name));
     rename();
   }
 
   async delete(key: Key | Key[]): Promise<void> {
     const keys = array.toArray(key);
-    await this.writer.delete(keys);
+    await this.cfg.writer.delete(keys);
     this.store.delete(keys);
   }
 
@@ -563,7 +548,7 @@ export class Client extends query.Retriever<
   }
 
   private async execRetrieve(params: RetrieveParams): Promise<Range[]> {
-    const { ranges } = await this.unary.send(
+    const { ranges } = await this.cfg.unary.send(
       "/range/retrieve",
       params,
       retrieveParamsZ,
@@ -587,23 +572,26 @@ export class Client extends query.Retriever<
   }
 
   private createAliasClient(key: Key): AliasClient {
-    return new AliasClient(key, this.unary);
+    return new AliasClient(key, this.cfg.unary);
   }
 
   private createKVClient(key: Key): KVClient {
-    return new KVClient(key, this.unary, this.kvPairs);
+    return new KVClient(key, this.cfg.unary, this.kvPairs);
   }
 
   /** Rebuilds a cached range with its cached labels and parent attached. */
   private composeOne(cached: Range): Range {
     const id = ontologyID(cached.key);
     const labels = label.cachedLabelsOf(
-      this.ontologyStores.relationships,
-      this.labelStore,
+      this.cfg.ontology.stores.relationships,
+      this.cfg.labels.store,
       id,
     );
     const next: Payload = { ...cached.payload, labels };
-    const parentID = ontology.cachedParentID(this.ontologyStores.relationships, id);
+    const parentID = ontology.cachedParentID(
+      this.cfg.ontology.stores.relationships,
+      id,
+    );
     if (parentID == null) delete next.parent;
     else {
       const parent = this.store.get(parentID.key);
@@ -617,14 +605,17 @@ export class Client extends query.Retriever<
     this.store.set(range);
     const id = ontologyID(range.key);
     if (range.labels != null) {
-      this.labelStore.set(range.labels);
+      this.cfg.labels.store.set(range.labels);
       range.labels.forEach((l) => {
         const rel: ontology.Relationship = {
           from: id,
           type: label.LABELED_BY_ONTOLOGY_RELATIONSHIP_TYPE,
           to: label.ontologyID(l.key),
         };
-        this.ontologyStores.relationships.set(ontology.relationshipToString(rel), rel);
+        this.cfg.ontology.stores.relationships.set(
+          ontology.relationshipToString(rel),
+          rel,
+        );
       });
     }
     if (range.parent != null) {
@@ -633,7 +624,10 @@ export class Client extends query.Retriever<
         type: ontology.PARENT_OF_RELATIONSHIP_TYPE,
         to: id,
       };
-      this.ontologyStores.relationships.set(ontology.relationshipToString(rel), rel);
+      this.cfg.ontology.stores.relationships.set(
+        ontology.relationshipToString(rel),
+        rel,
+      );
     }
   }
 
@@ -668,9 +662,9 @@ export class Client extends query.Retriever<
    */
   private async ensureRelationshipTargets(rel: ontology.Relationship): Promise<void> {
     if (rel.type === label.LABELED_BY_ONTOLOGY_RELATIONSHIP_TYPE) {
-      if (rel.to.type !== "label" || this.labelStore.has(rel.to.key)) return;
-      const fetched = await this.labels.retrieve({ key: rel.to.key });
-      this.labelStore.set(rel.to.key, fetched);
+      if (rel.to.type !== "label" || this.cfg.labels.store.has(rel.to.key)) return;
+      const fetched = await this.cfg.labels.retrieve({ key: rel.to.key });
+      this.cfg.labels.store.set(rel.to.key, fetched);
       return;
     }
     if (rel.type === ontology.PARENT_OF_RELATIONSHIP_TYPE) {
@@ -697,8 +691,8 @@ export class Client extends query.Retriever<
       return false;
     if (primitive.isNonZero(req.hasLabels)) {
       const labels = label.cachedLabelsOf(
-        this.ontologyStores.relationships,
-        this.labelStore,
+        this.cfg.ontology.stores.relationships,
+        this.cfg.labels.store,
         ontologyID(r.key),
       );
       const wanted = new Set(req.hasLabels);
@@ -708,7 +702,7 @@ export class Client extends query.Retriever<
   }
 
   private async fetchChildren(query: Key): Promise<Range[]> {
-    const resources = await this.ontology.children.retrieve({
+    const resources = await this.cfg.ontology.children.retrieve({
       ids: ontologyID(query),
       types: ["range"],
     });
@@ -717,7 +711,7 @@ export class Client extends query.Retriever<
   }
 
   private async fetchParent(query: ontology.ID): Promise<Range | null> {
-    const res = await this.ontology.parents.retrieve({ ids: query });
+    const res = await this.cfg.ontology.parents.retrieve({ ids: query });
     const parent = res.find(({ id: { type } }) => type === "range");
     if (parent == null) return null;
     const [range] = await this.store.retrieve([parent.id.key]);
@@ -780,12 +774,12 @@ export class Client extends query.Retriever<
 
   sugarOne(payload: Payload): Range {
     return new Range(payload, {
-      frameClient: this.framer,
+      frameClient: this.cfg.framer,
       kv: this.createKVClient(payload.key),
       aliaser: this.createAliasClient(payload.key),
-      channels: this.channels,
-      labelClient: this.labels,
-      ontologyClient: this.ontology,
+      channels: this.cfg.channels,
+      labelClient: this.cfg.labels,
+      ontologyClient: this.cfg.ontology,
       rangeClient: this,
     });
   }

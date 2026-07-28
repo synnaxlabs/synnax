@@ -132,7 +132,7 @@ const affectedRackKeys = (
   return parsed.success ? [parsed.data] : null;
 };
 
-export interface ClientParams {
+export interface ClientConfig {
   unary: UnaryClient;
   tasks: task.Client;
   cache: query.Cache;
@@ -147,13 +147,11 @@ export class Client extends query.Retriever<
   Rack,
   RetrieveSingleParams
 > {
-  private readonly unary: UnaryClient;
-  private readonly tasks: task.Client;
+  private readonly cfg: ClientConfig;
   private readonly store: query.Table<Key, Omit<Payload, "status">>;
-  private readonly statusStore: query.Table<status.Key, status.Status>;
-  private readonly ontologyStores: ontology.Stores;
 
-  constructor({ unary, tasks, cache, statusStore, ontologyStores }: ClientParams) {
+  constructor(cfg: ClientConfig) {
+    const { cache, statusStore } = cfg;
     const store = cache.createTable<Key, Omit<Payload, "status">>({
       name: "racks",
       fetch: async (keys) => (await this.fetchThrough({ keys })).map(stripStatus),
@@ -197,17 +195,14 @@ export class Client extends query.Retriever<
         space: single as query.Retrieves<query.Params, Rack>,
       },
     });
-    this.unary = unary;
-    this.tasks = tasks;
-    this.statusStore = statusStore;
-    this.ontologyStores = ontologyStores;
+    this.cfg = cfg;
     this.store = store;
   }
 
   async delete(keys: Key | Key[], opts: query.WriteOptions = {}): Promise<void> {
     const keysArr = array.toArray(keys);
     const drop = () => [
-      ontology.deleteCachedResources(this.ontologyStores, ontologyID(keysArr)),
+      ontology.deleteCachedResources(this.cfg.ontologyStores, ontologyID(keysArr)),
       this.store.delete(keysArr),
     ];
     const rollback = new destructor.Chain();
@@ -215,7 +210,7 @@ export class Client extends query.Retriever<
     await opts.onOptimistic?.();
     await rollback.guard(
       async () =>
-        await this.unary.send(
+        await this.cfg.unary.send(
           "/rack/delete",
           { keys: keysArr },
           deleteReqZ,
@@ -228,7 +223,7 @@ export class Client extends query.Retriever<
   async rename(key: Key, name: string, opts: query.WriteOptions = {}): Promise<void> {
     const rename = () => [
       query.partialUpdate(this.store, key, { name }),
-      ontology.renameCachedResource(this.ontologyStores, ontologyID(key), name),
+      ontology.renameCachedResource(this.cfg.ontologyStores, ontologyID(key), name),
     ];
     const rollback = new destructor.Chain();
     rollback.add(...rename());
@@ -244,7 +239,7 @@ export class Client extends query.Retriever<
   async create(racks: New[]): Promise<Rack[]>;
   async create(rack: New | New[]): Promise<Rack | Rack[]> {
     const isSingle = !Array.isArray(rack);
-    const res = await this.unary.send(
+    const res = await this.cfg.unary.send(
       "/rack/create",
       { racks: array.toArray(rack) },
       createReqZ,
@@ -263,7 +258,15 @@ export class Client extends query.Retriever<
       .toArray(payloads)
       .map(
         ({ key, name, status, integrations, taskCounter, embedded }) =>
-          new Rack(key, name, this.tasks, status, integrations, taskCounter, embedded),
+          new Rack(
+            key,
+            name,
+            this.cfg.tasks,
+            status,
+            integrations,
+            taskCounter,
+            embedded,
+          ),
       );
     return isSingle ? sugared[0] : sugared;
   }
@@ -280,7 +283,7 @@ export class Client extends query.Retriever<
   // whose details reference the rack; the freshest wins.
   private latestStatusOf(key: Key): Status | undefined {
     const rackKey = statusKey(key);
-    const candidates = this.statusStore
+    const candidates = this.cfg.statusStore
       .get((s) => s.key === rackKey || status.detailsOf(s)?.rack === key)
       .map((s) => statusZ.safeParse(s))
       .filter((p) => p.success)
@@ -295,12 +298,12 @@ export class Client extends query.Retriever<
   private writeThrough(racks: Payload[]): void {
     this.store.set(racks.map(stripStatus));
     racks.forEach(({ status: st }) => {
-      if (st != null) this.statusStore.set(st);
+      if (st != null) this.cfg.statusStore.set(st);
     });
   }
 
   private async execRetrieve(params: RetrieveParams): Promise<Payload[]> {
-    const res = await this.unary.send(
+    const res = await this.cfg.unary.send(
       "/rack/retrieve",
       params,
       retrieveParamsZ,

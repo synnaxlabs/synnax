@@ -84,7 +84,7 @@ const matchChildRel = (rel: ontology.Relationship, parent: ontology.ID): boolean
     to: { type: "schematic_symbol" },
   });
 
-export interface ClientParams {
+export interface ClientConfig {
   unary: UnaryClient;
   ontology: ontology.Client;
   cache: query.Cache;
@@ -92,17 +92,11 @@ export interface ClientParams {
 }
 
 export class Client extends query.Retriever<typeof retrieveRequestZ, Key, Symbol> {
-  private readonly unary: UnaryClient;
-  private readonly ontology: ontology.Client;
+  private readonly cfg: ClientConfig;
   private readonly store: query.Table<Key, Symbol>;
-  private readonly ontologyStores: ontology.Stores;
 
-  constructor({
-    unary,
-    ontology: ontologyClient,
-    cache,
-    ontologyStores,
-  }: ClientParams) {
+  constructor(cfg: ClientConfig) {
+    const { cache, ontologyStores } = cfg;
     const store = cache.createTable<Key, Symbol>({
       name: "schematicSymbols",
       fetch: async (keys) => await this.execRetrieve({ keys }),
@@ -132,10 +126,8 @@ export class Client extends query.Retriever<typeof retrieveRequestZ, Key, Symbol
         ],
       },
     });
-    this.unary = unary;
-    this.ontology = ontologyClient;
+    this.cfg = cfg;
     this.store = store;
-    this.ontologyStores = ontologyStores;
   }
 
   async create(options: CreateParams): Promise<Symbol>;
@@ -145,7 +137,7 @@ export class Client extends query.Retriever<typeof retrieveRequestZ, Key, Symbol
   ): Promise<Symbol | Symbol[]> {
     const isMany = "symbols" in options;
     const symbols = isMany ? options.symbols : [options];
-    const res = await this.unary.send(
+    const res = await this.cfg.unary.send(
       "/schematic/symbol/create",
       { symbols, parent: options.parent },
       createReqZ,
@@ -153,7 +145,7 @@ export class Client extends query.Retriever<typeof retrieveRequestZ, Key, Symbol
     );
     // Relationships first: parent-scoped answers check membership when the
     // symbol write lands.
-    const rels = this.ontologyStores.relationships;
+    const rels = this.cfg.ontologyStores.relationships;
     res.symbols.forEach((s) => {
       const rel = childRel(options.parent, s.key);
       rels.set(ontology.relationshipToString(rel), rel);
@@ -169,7 +161,7 @@ export class Client extends query.Retriever<typeof retrieveRequestZ, Key, Symbol
     await opts.onOptimistic?.();
     await rollback.guard(
       async () =>
-        await this.unary.send(
+        await this.cfg.unary.send(
           "/schematic/symbol/rename",
           { key, name },
           renameReqZ,
@@ -187,7 +179,7 @@ export class Client extends query.Retriever<typeof retrieveRequestZ, Key, Symbol
     await opts.onOptimistic?.();
     await rollback.guard(
       async () =>
-        await this.unary.send(
+        await this.cfg.unary.send(
           "/schematic/symbol/delete",
           { keys: keysArr },
           deleteReqZ,
@@ -195,7 +187,7 @@ export class Client extends query.Retriever<typeof retrieveRequestZ, Key, Symbol
         ),
     );
     drop();
-    this.ontologyStores.relationships.delete(
+    this.cfg.ontologyStores.relationships.delete(
       (r) =>
         r.type === ontology.PARENT_OF_RELATIONSHIP_TYPE &&
         r.to.type === "schematic_symbol" &&
@@ -204,7 +196,7 @@ export class Client extends query.Retriever<typeof retrieveRequestZ, Key, Symbol
   }
 
   async retrieveGroup(): Promise<group.Group> {
-    const res = await this.unary.send(
+    const res = await this.cfg.unary.send(
       "/schematic/symbol/retrieve-group",
       {},
       retrieveGroupReqZ,
@@ -216,7 +208,7 @@ export class Client extends query.Retriever<typeof retrieveRequestZ, Key, Symbol
   private async execRetrieve(
     params: RetrieveSingleParams | z.input<typeof wireRetrieveRequestZ>,
   ): Promise<Symbol[]> {
-    const res = await this.unary.send(
+    const res = await this.cfg.unary.send(
       "/schematic/symbol/retrieve",
       params,
       retrieveParamsZ,
@@ -229,7 +221,7 @@ export class Client extends query.Retriever<typeof retrieveRequestZ, Key, Symbol
   private async resolveChildKeys(parent: ontology.ID): Promise<Key[]> {
     // The children space writes the parent relationships through, so
     // membership checks in requestFilter see them.
-    const children = await this.ontology.children.retrieve({
+    const children = await this.cfg.ontology.children.retrieve({
       ids: parent,
       types: ["schematic_symbol"],
     });
@@ -260,7 +252,7 @@ export class Client extends query.Retriever<typeof retrieveRequestZ, Key, Symbol
   }
 
   private isChildOf(parent: ontology.ID, key: Key): boolean {
-    return this.ontologyStores.relationships.has(
+    return this.cfg.ontologyStores.relationships.has(
       ontology.relationshipToString(childRel(parent, key)),
     );
   }

@@ -51,7 +51,7 @@ export type RetrieveParams = RetrieveSingleParams | RetrieveMultipleParams;
 
 interface RetrieveRequest extends z.infer<typeof retrieveRequestZ> {}
 
-export interface ClientParams {
+export interface ClientConfig {
   unary: UnaryClient;
   cache: query.Cache;
   relationships: query.Table<string, ontology.Relationship>;
@@ -61,10 +61,10 @@ export class Client extends query.Retriever<typeof retrieveRequestZ, Key, Label>
   readonly type: string = "label";
   /** The label record table; injected into sibling clients at wiring. */
   readonly store: query.Table<Key, Label>;
-  private readonly unary: UnaryClient;
-  private readonly relationships: query.Table<string, ontology.Relationship>;
+  private readonly cfg: ClientConfig;
 
-  constructor({ unary, cache, relationships }: ClientParams) {
+  constructor(cfg: ClientConfig) {
+    const { cache, relationships } = cfg;
     const store = cache.createTable<Key, Label>({
       name: "labels",
       fetch: async (keys) =>
@@ -94,8 +94,7 @@ export class Client extends query.Retriever<typeof retrieveRequestZ, Key, Label>
         ],
       },
     });
-    this.unary = unary;
-    this.relationships = relationships;
+    this.cfg = cfg;
     this.store = store;
   }
 
@@ -106,15 +105,15 @@ export class Client extends query.Retriever<typeof retrieveRequestZ, Key, Label>
   ): Promise<void> {
     const rollback = new destructor.Chain();
     if (opts.replace === true)
-      rollback.add(this.relationships.delete((r) => matchLabeledBy(r, id)));
+      rollback.add(this.cfg.relationships.delete((r) => matchLabeledBy(r, id)));
     labels.forEach((key) => {
       const rel = labeledByRel(id, key);
-      rollback.add(this.relationships.set(ontology.relationshipToString(rel), rel));
+      rollback.add(this.cfg.relationships.set(ontology.relationshipToString(rel), rel));
     });
     await opts.onOptimistic?.();
     await rollback.guard(
       async () =>
-        await this.unary.send(
+        await this.cfg.unary.send(
           "/label/set",
           { id, labels, replace: opts.replace },
           setReqZ,
@@ -130,14 +129,19 @@ export class Client extends query.Retriever<typeof retrieveRequestZ, Key, Label>
   ): Promise<void> {
     const rollback = new destructor.Chain();
     rollback.add(
-      this.relationships.delete(
+      this.cfg.relationships.delete(
         (r) => matchLabeledBy(r, id) && labels.includes(r.to.key),
       ),
     );
     await opts.onOptimistic?.();
     await rollback.guard(
       async () =>
-        await this.unary.send("/label/remove", { id, labels }, removeReqZ, emptyResZ),
+        await this.cfg.unary.send(
+          "/label/remove",
+          { id, labels },
+          removeReqZ,
+          emptyResZ,
+        ),
     );
   }
 
@@ -154,7 +158,7 @@ export class Client extends query.Retriever<typeof retrieveRequestZ, Key, Label>
     await opts.onOptimistic?.(optimistic);
     const res = await rollback.guard(
       async () =>
-        await this.unary.send(
+        await this.cfg.unary.send(
           "/label/create",
           { labels: optimistic },
           createReqZ,
@@ -169,7 +173,7 @@ export class Client extends query.Retriever<typeof retrieveRequestZ, Key, Label>
     const keysArr = array.toArray(keys);
     const drop = () => [
       this.store.delete(keysArr),
-      this.relationships.delete(
+      this.cfg.relationships.delete(
         (r) =>
           r.type === LABELED_BY_ONTOLOGY_RELATIONSHIP_TYPE &&
           r.to.type === "label" &&
@@ -181,7 +185,7 @@ export class Client extends query.Retriever<typeof retrieveRequestZ, Key, Label>
     await opts.onOptimistic?.();
     await rollback.guard(
       async () =>
-        await this.unary.send(
+        await this.cfg.unary.send(
           "/label/delete",
           { keys: keysArr },
           deleteReqZ,
@@ -192,7 +196,7 @@ export class Client extends query.Retriever<typeof retrieveRequestZ, Key, Label>
   }
 
   private async execRetrieve(params: RetrieveMultipleParams): Promise<Label[]> {
-    const res = await this.unary.send(
+    const res = await this.cfg.unary.send(
       "/label/retrieve",
       params,
       retrieveRequestZ,
@@ -218,7 +222,9 @@ export class Client extends query.Retriever<typeof retrieveRequestZ, Key, Label>
   }
 
   private isLabelOf(id: ontology.ID, key: Key): boolean {
-    return this.relationships.has(ontology.relationshipToString(labeledByRel(id, key)));
+    return this.cfg.relationships.has(
+      ontology.relationshipToString(labeledByRel(id, key)),
+    );
   }
 }
 

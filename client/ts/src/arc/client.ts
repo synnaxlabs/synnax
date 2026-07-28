@@ -148,7 +148,7 @@ const affectedTaskKeys = (
   return keys.length === 0 ? null : keys;
 };
 
-export interface ClientParams {
+export interface ClientConfig {
   unary: UnaryClient;
   stream: StreamClient;
   ontology: ontology.Client;
@@ -164,25 +164,13 @@ export class Client extends query.Retriever<
   Arc,
   SingleRetrieveParams
 > {
-  private readonly unary: UnaryClient;
-  private readonly stream: StreamClient;
+  private readonly cfg: ClientConfig;
   private readonly dispatcher: actions.Controller<Key, Arc, Action>;
-  private readonly ontology: ontology.Client;
-  private readonly tasks: task.Client;
   private readonly store: query.Table<Key, Arc>;
-  private readonly statusStore: query.Table<status.Key, status.Status>;
-  private readonly taskStore: query.Table<task.Key, Omit<task.Task, "status">>;
-  private readonly ontologyStores: ontology.Stores;
   private readonly taskAnswers: query.Retrieves<Key, task.Task | null>;
 
-  constructor({
-    unary,
-    stream,
-    ontology: ontologyClient,
-    tasks,
-    cache,
-    statusStore,
-  }: ClientParams) {
+  constructor(cfg: ClientConfig) {
+    const { cache } = cfg;
     // Fetched copies never clobber a doc holding locally replayed edits: the
     // table hydrates if-absent, and hydrate() decides when a fresh network
     // doc replaces the cached one.
@@ -225,13 +213,7 @@ export class Client extends query.Retriever<
         space: single as query.Retrieves<query.Params, Arc>,
       },
     });
-    this.unary = unary;
-    this.stream = stream;
-    this.ontology = ontologyClient;
-    this.tasks = tasks;
-    this.statusStore = statusStore;
-    this.taskStore = tasks.store;
-    this.ontologyStores = ontologyClient.stores;
+    this.cfg = cfg;
     this.store = store;
     this.dispatcher = dispatcher;
     this.taskAnswers = cache.queries<
@@ -241,7 +223,7 @@ export class Client extends query.Retriever<
       Omit<task.Task, "status">
     >({
       name: "arc task",
-      table: this.taskStore,
+      table: this.cfg.tasks.store,
       fetch: async (q) => {
         const tsk = await this.fetchTask(q);
         return tsk == null ? [] : [tsk.key];
@@ -249,7 +231,7 @@ export class Client extends query.Retriever<
       compose: (records) =>
         records.length === 0 ? null : this.composeTask(records[0]),
       matches: (t, q) =>
-        this.ontologyStores.relationships.has(
+        this.cfg.ontology.stores.relationships.has(
           ontology.relationshipToString({
             from: ontologyID(q),
             type: ontology.PARENT_OF_RELATIONSHIP_TYPE,
@@ -257,7 +239,7 @@ export class Client extends query.Retriever<
           }),
         ),
       watch: [
-        query.watch(this.ontologyStores.relationships, (event, q: Key) => {
+        query.watch(this.cfg.ontology.stores.relationships, (event, q: Key) => {
           const rel =
             event.variant === "set"
               ? event.value
@@ -265,7 +247,7 @@ export class Client extends query.Retriever<
           if (!isTaskChild(rel, q)) return null;
           return [rel.to.key];
         }),
-        query.watch(this.statusStore, (event) => affectedTaskKeys(event)),
+        query.watch(this.cfg.statusStore, (event) => affectedTaskKeys(event)),
       ],
     });
   }
@@ -288,7 +270,7 @@ export class Client extends query.Retriever<
       if (key != null) {
         const tsk = await this.retrieveTask(key);
         if (tsk != null)
-          if (task.rackKey(tsk.key) !== rack) await this.tasks.delete([tsk.key]);
+          if (task.rackKey(tsk.key) !== rack) await this.cfg.tasks.delete([tsk.key]);
           else taskKey = tsk.key;
       }
       taskKeys.set(i, taskKey);
@@ -299,7 +281,7 @@ export class Client extends query.Retriever<
     await opts.onOptimistic?.(optimistic);
     const res = await rollback.guard(
       async () =>
-        await this.unary.send(
+        await this.cfg.unary.send(
           "/arc/create",
           { arcs: optimistic },
           createReqZ,
@@ -309,7 +291,7 @@ export class Client extends query.Retriever<
     this.store.set(res.arcs);
     for (const [i, taskKey] of taskKeys) {
       const created = res.arcs[i];
-      const newTsk = await this.tasks.create(
+      const newTsk = await this.cfg.tasks.create(
         {
           key: taskKey,
           name: created.name,
@@ -319,7 +301,7 @@ export class Client extends query.Retriever<
         },
         TASK_SCHEMAS,
       );
-      await this.ontology.addChildren(
+      await this.cfg.ontology.addChildren(
         ontologyID(created.key),
         task.ontologyID(newTsk.key),
       );
@@ -329,7 +311,7 @@ export class Client extends query.Retriever<
 
   async rename(key: Key, name: string, opts: query.WriteOptions = {}): Promise<void> {
     const tsk = await this.retrieveTask(key);
-    if (tsk != null) await this.tasks.rename(tsk.key, name);
+    if (tsk != null) await this.cfg.tasks.rename(tsk.key, name);
     const rename = () => query.partialUpdate(this.store, key, { name });
     const rollback = new destructor.Chain();
     rollback.add(rename());
@@ -360,7 +342,12 @@ export class Client extends query.Retriever<
     await opts.onOptimistic?.();
     await rollback.guard(
       async () =>
-        await this.unary.send("/arc/delete", { keys: keysArr }, deleteReqZ, emptyResZ),
+        await this.cfg.unary.send(
+          "/arc/delete",
+          { keys: keysArr },
+          deleteReqZ,
+          emptyResZ,
+        ),
     );
     drop();
   }
@@ -373,7 +360,7 @@ export class Client extends query.Retriever<
   }
 
   async openLSP(): Promise<Stream<typeof lspMessageZ, typeof lspMessageZ>> {
-    return await this.stream.stream("/arc/lsp", lspMessageZ, lspMessageZ);
+    return await this.cfg.stream.stream("/arc/lsp", lspMessageZ, lspMessageZ);
   }
 
   /**
@@ -458,7 +445,7 @@ export class Client extends query.Retriever<
     dispatchKey: string,
     actions: Action[],
   ): Promise<void> {
-    await this.unary.send(
+    await this.cfg.unary.send(
       "/arc/dispatch",
       { key, dispatchKey, actions },
       dispatchReqZ,
@@ -467,7 +454,7 @@ export class Client extends query.Retriever<
   }
 
   private async execRetrieve(params: RetrieveParams): Promise<Arc[]> {
-    const res = await this.unary.send(
+    const res = await this.cfg.unary.send(
       "/arc/retrieve",
       params,
       retrieveParamsZ,
@@ -505,18 +492,18 @@ export class Client extends query.Retriever<
    * parsed because the status table holds every domain's statuses generically.
    */
   private composeTask(cached: Omit<task.Task, "status">): task.Task {
-    const cachedStatus = this.statusStore.get(task.statusKey(cached.key));
+    const cachedStatus = this.cfg.statusStore.get(task.statusKey(cached.key));
     const payload = cached.payload;
-    if (cachedStatus == null) return this.tasks.sugar(payload);
+    if (cachedStatus == null) return this.cfg.tasks.sugar(payload);
     const parsed = task.statusZ().safeParse(cachedStatus);
-    if (!parsed.success) return this.tasks.sugar(payload);
-    return this.tasks.sugar({ ...payload, status: parsed.data });
+    if (!parsed.success) return this.cfg.tasks.sugar(payload);
+    return this.cfg.tasks.sugar({ ...payload, status: parsed.data });
   }
 
   private async fetchTask(arcKey: Key): Promise<task.Task | null> {
     let children: ontology.Resource[];
     try {
-      children = await this.ontology.children.retrieve({
+      children = await this.cfg.ontology.children.retrieve({
         ids: ontologyID(arcKey),
         types: ["task"],
       });
@@ -527,6 +514,6 @@ export class Client extends query.Retriever<
     }
     const child = children[0];
     if (child == null) return null;
-    return await this.tasks.retrieve({ key: child.id.key });
+    return await this.cfg.tasks.retrieve({ key: child.id.key });
   }
 }
