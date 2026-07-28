@@ -185,7 +185,6 @@ export default class Synnax extends framer.Client {
     this.transport = transport;
     const unary = this.transport.unary;
     this.ontology = new ontology.Client({ unary, cache });
-    const rangeWriter = new ranger.Writer(unary);
     this.labels = new label.Client({ unary, cache, ontology: this.ontology });
     this.statuses = new status.Client({
       unary,
@@ -195,7 +194,6 @@ export default class Synnax extends framer.Client {
     });
     this.ranges = new ranger.Client({
       framer: this,
-      writer: rangeWriter,
       unary,
       channels: chRetriever,
       labels: this.labels,

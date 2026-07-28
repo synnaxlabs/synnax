@@ -39,7 +39,7 @@ import {
   type Payload,
   payloadZ,
 } from "@/ranger/types.gen";
-import { type Writer } from "@/ranger/writer";
+import { Writer } from "@/ranger/writer";
 import { checkForMultipleOrNoResults } from "@/util/retrieve";
 
 export const SET_CHANNEL_NAME = "sy_range_set";
@@ -358,7 +358,6 @@ const watchLabels = <Q extends query.Params>(
 
 export interface ClientConfig {
   framer: framer.Client;
-  writer: Writer;
   unary: UnaryClient;
   channels: channel.Retriever;
   labels: label.Client;
@@ -386,6 +385,7 @@ export class Client extends query.Retriever<
   /** Cached queries for a range's KV metadata pairs, keyed by the range's key. */
   readonly kv: query.Retrieves<Key, kv.Pair[]>;
   private readonly cfg: ClientConfig;
+  private readonly writer: Writer;
   private readonly store: query.Table<Key, Range>;
   private readonly kvPairs: query.Table<string, kv.Pair>;
 
@@ -433,6 +433,7 @@ export class Client extends query.Retriever<
       },
     });
     this.cfg = cfg;
+    this.writer = new Writer(cfg.unary);
     this.store = ranges;
     this.kvPairs = kvPairs;
     this.aliases = aliases;
@@ -493,7 +494,7 @@ export class Client extends query.Retriever<
   async create(ranges: New | New[]): Promise<Range | Range[]> {
     const single = !Array.isArray(ranges);
     const news = array.toArray(ranges);
-    const res = this.sugarMany(await this.cfg.writer.create(news));
+    const res = this.sugarMany(await this.writer.create(news));
     res.forEach((r, i) => {
       this.writeThrough(r);
       const parent = news[i]?.parent;
@@ -521,13 +522,13 @@ export class Client extends query.Retriever<
     const rollbacks = new destructor.Chain();
     rollbacks.add(...rename());
     await opts.onOptimistic?.();
-    await rollbacks.guard(async () => await this.cfg.writer.rename(key, name));
+    await rollbacks.guard(async () => await this.writer.rename(key, name));
     rename();
   }
 
   async delete(key: Key | Key[]): Promise<void> {
     const keys = array.toArray(key);
-    await this.cfg.writer.delete(keys);
+    await this.writer.delete(keys);
     this.store.delete(keys);
   }
 
