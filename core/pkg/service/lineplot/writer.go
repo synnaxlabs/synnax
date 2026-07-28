@@ -49,6 +49,9 @@ func (w Writer) Create(ctx context.Context, projectKey project.Key, lp *LinePlot
 	if err := w.table.NewCreate().Entry(lp).Exec(ctx, w.tx); err != nil {
 		return err
 	}
+	w.dispatcher.Notify(
+		ctx, lp.Key, "", []Action{NewCreateAction(CreatePayload{LinePlot: *lp})},
+	)
 	if exists {
 		return nil
 	}

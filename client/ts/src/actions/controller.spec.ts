@@ -21,6 +21,7 @@ interface Doc {
 type Action =
   | { type: "set"; key: string; value: number }
   | { type: "tag"; key: string; tag: string }
+  | { type: "create"; doc: Doc }
   | { type: "noop" };
 
 const reducer: Reducer<Doc, Action> = (state, actions) => {
@@ -65,6 +66,7 @@ const setupStore = (
     reduce: reducer,
     isUndoable: opts.isUndoable,
     kindOf: opts.kindOf,
+    createOf: (a) => (a.type === "create" ? a.doc : undefined),
     coalesceWindow: opts.coalesceWindow,
     stackCap: opts.stackCap,
     preprocess: opts.preprocess,
@@ -619,6 +621,47 @@ describe("actions.Controller", () => {
         { type: "set", key: "a", value: 1 },
       ]);
       expect(docs.get("missing")).toBeUndefined();
+    });
+
+    it("ingests a create-headed frame for a doc it has never cached", () => {
+      const { docs, controller } = setupStore();
+      controller.applyRemote("fresh", 1, "", [
+        { type: "create", doc: { values: { a: 1 } } },
+        { type: "set", key: "b", value: 2 },
+      ]);
+      expect(docs.get("fresh")).toEqual({ values: { a: 1, b: 2 } });
+    });
+
+    it("drops a create frame for a doc it already caches", () => {
+      const { docs, controller } = setupStore();
+      prime(docs, "k", { a: 0 });
+      // Locally edited after creation; the late create echo must not revert.
+      controller.replay("k", [{ type: "set", key: "a", value: 7 }]);
+      controller.applyRemote("k", 1, "", [
+        { type: "create", doc: { values: { a: 0 } } },
+      ]);
+      expect(docs.get("k")).toEqual({ values: { a: 7 } });
+    });
+
+    it("applies trailing actions after dropping the create for a cached doc", () => {
+      const { docs, controller } = setupStore();
+      prime(docs, "k", { a: 0 });
+      controller.applyRemote("k", 1, "", [
+        { type: "create", doc: { values: { a: 9 } } },
+        { type: "set", key: "b", value: 2 },
+      ]);
+      expect(docs.get("k")).toEqual({ values: { a: 0, b: 2 } });
+    });
+
+    it("orders dispatch frames after the create that seeded the doc", () => {
+      const { docs, controller } = setupStore();
+      controller.applyRemote("fresh", 1, "", [
+        { type: "create", doc: { values: { a: 1 } } },
+      ]);
+      controller.applyRemote("fresh", 2, "f-1", [
+        { type: "set", key: "a", value: 5 },
+      ]);
+      expect(docs.get("fresh")).toEqual({ values: { a: 5 } });
     });
 
     it("drops echoes whose seq does not exceed the high-water mark", () => {

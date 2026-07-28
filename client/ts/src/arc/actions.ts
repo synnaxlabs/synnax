@@ -34,6 +34,11 @@ const sameEndpoints = (a: ir.Edge, source: ir.Handle, target: ir.Handle): boolea
   a.target.param === target.param;
 
 const handlers: Handlers = {
+  create: (state, payload) => {
+    Object.assign(state, payload.arc);
+    return { inverse: [], targets: [payload.arc.key] };
+  },
+
   rename: (state, payload) => {
     const oldName = state.name;
     state.name = payload.name;
@@ -160,6 +165,11 @@ const handlers: Handlers = {
 };
 
 export const reduceAll = createReduceAll(handlers);
+
+// createOf hands the dispatch controller the document carried by a create
+// action so frames for never-cached documents ingest instead of drop.
+export const createOf = (action: Action) =>
+  action.type === "create" ? action.create.arc : undefined;
 
 // isUndoable reports whether an action should push onto the undo stack. Graph mutations
 // are user-driven and undoable; collaborative text edits are not (they carry no inverse

@@ -55,6 +55,11 @@ import { reconcileLines } from "@/lineplot/line";
 // the specific channel/range/axis/line/rule so concurrent edits to distinct
 // resources neither coalesce nor invalidate each other's undoables.
 const handlers: Handlers = {
+  create: (state, payload) => {
+    Object.assign(state, payload.linePlot);
+    return { inverse: [], targets: [payload.linePlot.key] };
+  },
+
   rename: (state, payload) => {
     const oldName = state.name;
     state.name = payload.name;
@@ -472,6 +477,11 @@ const handlers: Handlers = {
 };
 
 export const reduceAll = createReduceAll(handlers);
+
+// createOf hands the dispatch controller the document carried by a create
+// action so frames for never-cached documents ingest instead of drop.
+export const createOf = (action: Action) =>
+  action.type === "create" ? action.create.linePlot : undefined;
 
 // Drag streams (axis bounds, rule position, line style, legend) coalesce into
 // one undo entry within the coalesce window. Single-target actions key by their

@@ -21,6 +21,11 @@ import (
 	"github.com/synnaxlabs/x/telem"
 )
 
+// Handle replaces the document with its created state.
+func (p CreatePayload) Handle(Arc) (Arc, error) {
+	return p.Arc, nil
+}
+
 // Handle replaces the Arc module's name.
 func (p RenamePayload) Handle(state Arc) (Arc, error) {
 	state.Name = p.Name

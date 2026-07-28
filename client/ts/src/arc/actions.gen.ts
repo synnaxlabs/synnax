@@ -15,7 +15,17 @@ import { z } from "zod";
 import { actions } from "@/actions";
 import { graph } from "@/arc/graph";
 import { ir } from "@/arc/ir";
-import { type Arc, keyZ } from "@/arc/types.gen";
+import { type Arc, arcZ, keyZ } from "@/arc/types.gen";
+
+/**
+ * Create replaces the document with the given created state. Emitted by the server on
+ * create so remote caches ingest new documents; clients never dispatch it.
+ */
+export const createPayloadZ = z.object({
+  arc: arcZ,
+});
+
+export type CreatePayload = z.infer<typeof createPayloadZ>;
 
 /** Rename renames the Arc module. */
 export const renamePayloadZ = z.object({
@@ -134,6 +144,7 @@ export const forgetCharsPayloadZ = z.object({
 export type ForgetCharsPayload = z.infer<typeof forgetCharsPayloadZ>;
 
 export const actionZ = z.discriminatedUnion("type", [
+  z.object({ type: z.literal("create"), create: createPayloadZ }),
   z.object({ type: z.literal("rename"), rename: renamePayloadZ }),
   z.object({ type: z.literal("set_node"), setNode: setNodePayloadZ }),
   z.object({
@@ -154,6 +165,11 @@ export const actionZ = z.discriminatedUnion("type", [
 ]);
 
 export type Action = z.infer<typeof actionZ>;
+
+export const create = (payload: z.input<typeof createPayloadZ>): Action => ({
+  type: "create",
+  create: createPayloadZ.parse(payload),
+});
 
 export const rename = (payload: z.input<typeof renamePayloadZ>): Action => ({
   type: "rename",
@@ -221,6 +237,7 @@ export type HandlerResult = actions.HandlerResult<Action>;
 export type ReduceAllResult = actions.ReduceAllResult<Arc, Action>;
 
 export interface Handlers {
+  create: (state: Draft<Arc>, payload: CreatePayload) => HandlerResult;
   rename: (state: Draft<Arc>, payload: RenamePayload) => HandlerResult;
   setNode: (state: Draft<Arc>, payload: SetNodePayload) => HandlerResult;
   setNodePosition: (
@@ -240,6 +257,8 @@ export interface Handlers {
 export const createReduceAll = (handlers: Handlers) =>
   actions.createReduceAll<Arc, Action>((state, action) => {
     switch (action.type) {
+      case "create":
+        return handlers.create(state, action.create);
       case "rename":
         return handlers.rename(state, action.rename);
       case "set_node":

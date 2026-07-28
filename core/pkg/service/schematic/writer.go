@@ -55,6 +55,9 @@ func (w Writer) Create(
 	if err = w.table.NewCreate().Entry(s).Exec(ctx, w.tx); err != nil {
 		return
 	}
+	w.dispatcher.Notify(
+		ctx, s.Key, "", []Action{NewCreateAction(CreatePayload{Schematic: *s})},
+	)
 	if exists {
 		return
 	}

@@ -174,6 +174,11 @@ export interface ControllerParams<
   preprocess?: (state: State, actions: Action[]) => Action[];
   isUndoable?: (action: Action) => boolean;
   kindOf?: (actions: Action[]) => string;
+  /**
+   * Returns the document carried by a create action, undefined otherwise.
+   * Lets remote frames for never-cached documents ingest instead of drop.
+   */
+  createOf?: (action: Action) => State | undefined;
   coalesceWindow?: TimeSpan;
   stackCap?: number;
 }
@@ -215,6 +220,7 @@ export class Controller<Key extends record.Key, State extends query.Data, Action
       preprocess: opts.preprocess ?? ((_, a) => a),
       isUndoable: opts.isUndoable ?? (() => true),
       kindOf: opts.kindOf ?? (() => "default"),
+      createOf: opts.createOf ?? (() => undefined),
       coalesceWindow: opts.coalesceWindow ?? DEFAULT_COALESCE_WINDOW,
       stackCap: opts.stackCap ?? DEFAULT_STACK_CAP,
     };
@@ -538,6 +544,17 @@ export class Controller<Key extends record.Key, State extends query.Data, Action
       if (seq <= last) return;
       this.lastAppliedSeq.set(key, seq);
     }
+    // Create frames carry no dispatch key, so the originator cannot recognize
+    // its own echo; applying one to a cached doc would revert local edits to
+    // the creation state. Drop the create and keep any trailing actions.
+    if (
+      actions.length > 0 &&
+      this.params.createOf(actions[0]) != null &&
+      this.docs.get(key) != null
+    ) {
+      actions = actions.slice(1);
+      if (actions.length === 0) return;
+    }
     const bucket = this.outstandingDispatches.get(key);
     const ownEntry = bucket?.get(dispatchKey);
     const isOwnEcho = ownEntry != null;
@@ -558,7 +575,15 @@ export class Controller<Key extends record.Key, State extends query.Data, Action
       // and converge to the same value.
       for (const entry of bucket.values()) entry.disturbed = true;
     const current = this.docs.get(key);
-    if (current == null) return;
+    if (current == null) {
+      // A create-headed frame seeds the document; anything else predates our
+      // knowledge of the doc and is unreconstructable, so it drops.
+      const created = actions.length > 0 ? this.params.createOf(actions[0]) : undefined;
+      if (created == null) return;
+      const { next } = this.params.reduce(created, actions.slice(1));
+      this.docs.set(key, next);
+      return;
+    }
     const { next, targets } = this.params.reduce(current, actions);
     this.docs.set(key, next);
     if (!isOwnEcho) this.markRemoteTouched(key, targets);

@@ -15,7 +15,7 @@ import { actions } from "@/actions";
 import { ontology } from "@/ontology";
 import { project } from "@/project";
 import { query } from "@/query";
-import { kindOf, reduceAll } from "@/table/actions";
+import { createOf, kindOf, reduceAll } from "@/table/actions";
 import {
   type Action,
   dispatchReqZ,
@@ -92,6 +92,7 @@ export class Client extends query.Retriever<typeof retrieveReqZ, Key, Table> {
       onError: cache.onError,
       reduce: reduceAll,
       kindOf,
+      createOf,
     });
     cache.listen(dispatcher.listener(SET_CHANNEL_NAME, scopedActionZ));
     super(cache, {

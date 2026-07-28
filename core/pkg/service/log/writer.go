@@ -56,6 +56,9 @@ func (w Writer) Create(ctx context.Context, projectKey project.Key, l *Log) erro
 	if err = w.table.NewCreate().Entry(l).Exec(ctx, w.tx); err != nil {
 		return err
 	}
+	w.dispatcher.Notify(
+		ctx, l.Key, "", []Action{NewCreateAction(CreatePayload{Log: *l})},
+	)
 	if exists {
 		return nil
 	}

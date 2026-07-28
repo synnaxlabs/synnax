@@ -15,6 +15,11 @@ import (
 	"github.com/synnaxlabs/x/encoding/msgpack"
 )
 
+// Handle replaces the document with its created state.
+func (p CreatePayload) Handle(Schematic) (Schematic, error) {
+	return p.Schematic, nil
+}
+
 // Handle replaces the schematic's name.
 func (p RenamePayload) Handle(state Schematic) (Schematic, error) {
 	state.Name = p.Name
