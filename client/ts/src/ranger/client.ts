@@ -426,11 +426,7 @@ export class Client extends query.Retriever<
         ],
       },
       compose: (r) => this.composeOne(r),
-      single: {
-        is: (params) => typeof params === "string",
-        normalize: (params) => params,
-        space: single as query.Retrieves<query.Params, Range>,
-      },
+      single: { schema: z.string(), space: single },
     });
     this.cfg = cfg;
     this.writer = new Writer(cfg.unary);

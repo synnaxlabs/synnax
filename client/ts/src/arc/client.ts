@@ -80,10 +80,10 @@ const retrieveParamsZ = z.union([singleRetrieveParamsZ, retrieveReqZ]);
 
 export type RetrieveParams = z.input<typeof retrieveParamsZ>;
 
-const isSingleParams = (params: unknown): params is SingleRetrieveParams =>
-  typeof params === "object" &&
-  params !== null &&
-  ("key" in params || "name" in params);
+const singleQueryZ = z.union([
+  z.strictObject({ key: keyZ, includeStatus: z.boolean().optional() }),
+  z.strictObject({ name: z.string(), includeStatus: z.boolean().optional() }),
+]);
 
 export interface CreateParams extends New {
   /** Rack to deploy the arc on. Ensures a deployment task exists for it. */
@@ -162,6 +162,7 @@ export class Client extends query.Retriever<
   Key,
   Arc,
   Arc,
+  SingleRetrieveParams,
   SingleRetrieveParams
 > {
   private readonly cfg: ClientParams;
@@ -207,11 +208,7 @@ export class Client extends query.Retriever<
           (await this.execRetrieve(req)).map((a) => this.hydrate(a)),
         matches: (a, req) => requestFilter(req)(a),
       },
-      single: {
-        is: isSingleParams,
-        normalize: (params) => params,
-        space: single as query.Retrieves<query.Params, Arc>,
-      },
+      single: { schema: singleQueryZ, space: single },
     });
     this.cfg = cfg;
     this.store = store;

@@ -112,6 +112,10 @@ const SERVER_FIELDS = ["searchTerm", "limit", "offset", "includeParent"] as cons
 const normalizeSingle = ({ key, includeStatus }: RetrieveSingleParams): SingleQuery =>
   includeStatus === true ? { key, includeStatus: true } : { key };
 
+const singleQueryZ = z
+  .strictObject({ key: keyZ, includeStatus: z.boolean().optional() })
+  .transform(normalizeSingle);
+
 /** The table never holds statuses; the status table is their single home. */
 const stripStatus = ({ status: _, ...device }: Device): Omit<Device, "status"> =>
   device;
@@ -169,7 +173,8 @@ export class Client extends query.Retriever<
   Key,
   Omit<Device, "status">,
   Device,
-  RetrieveSingleParams
+  RetrieveSingleParams,
+  SingleQuery
 > {
   private readonly cfg: ClientParams;
   private readonly store: query.Table<Key, Omit<Device, "status">>;
@@ -214,12 +219,7 @@ export class Client extends query.Retriever<
       },
       compose: (record, q) =>
         this.compose(record, (q as { includeStatus?: boolean }).includeStatus === true),
-      single: {
-        is: (params): params is RetrieveSingleParams =>
-          typeof params === "object" && params !== null && "key" in params,
-        normalize: normalizeSingle,
-        space: single as query.Retrieves<query.Params, Device>,
-      },
+      single: { schema: singleQueryZ, space: single },
     });
     this.cfg = cfg;
     this.store = store;

@@ -238,11 +238,7 @@ describe("Retriever", () => {
           name: "thing",
           table: store,
           request: { schema: requestZ, fetch: async () => [] },
-          single: {
-            is: (params) => typeof params === "string",
-            normalize: (params) => params,
-            space: single as query.Retrieves<query.Params, Thing>,
-          },
+          single: { schema: z.string(), space: single },
         });
       }
     }
