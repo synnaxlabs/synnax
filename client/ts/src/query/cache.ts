@@ -60,6 +60,12 @@ interface TableEntry {
   reset: () => void;
 }
 
+/** The cache-facing lifecycle of an answer space, generics erased. */
+interface Space {
+  close: () => void;
+  reset: () => void;
+}
+
 /**
  * Retrieves by key are strict: a batch containing any vanished key rejects
  * with NotFound instead of returning the survivors. Falls back to probing
@@ -121,7 +127,7 @@ const bindReconcile =
 export class Cache {
   private readonly entries: TableEntry[] = [];
   private readonly reactions: Listener[] = [];
-  private readonly spaces: Array<{ close: () => void; reset: () => void }> = [];
+  private readonly spaces: Space[] = [];
   private readonly epochObserver = new observe.Observer<number>();
   private readonly openStreamer: StreamOpener | null;
   private streamer: Streamer | null = null;
