@@ -1378,3 +1378,35 @@ describe("Tombstones", () => {
     expect(table.getTombstone("k1")?.corpse).toEqual({ key: "k1", name: "a" });
   });
 });
+
+describe("clear", () => {
+  interface Doc extends record.Keyed<string> {
+    key: string;
+    name: string;
+  }
+  const newTable = () => new query.Table<string, Doc>({ onError: noopError });
+
+  it("should drop every row and tombstone without notifying", () => {
+    const table = newTable();
+    const subscriber = vi.fn();
+    table.subscribe(subscriber);
+    table.set("k1", { key: "k1", name: "a" });
+    table.set("k2", { key: "k2", name: "b" });
+    table.delete("k2");
+    subscriber.mockClear();
+    table.clear();
+    expect(subscriber).not.toHaveBeenCalled();
+    expect(table.get()).toEqual([]);
+    expect(table.status("k1")).toBe("unknown");
+    expect(table.status("k2")).toBe("unknown");
+    expect(table.getTombstone("k2")).toBeUndefined();
+  });
+
+  it("should accept new rows after clearing", () => {
+    const table = newTable();
+    table.set("k1", { key: "k1", name: "a" });
+    table.clear();
+    table.set("k1", { key: "k1", name: "b" });
+    expect(table.get("k1")).toEqual({ key: "k1", name: "b" });
+  });
+});
