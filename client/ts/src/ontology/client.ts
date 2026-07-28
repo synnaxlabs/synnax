@@ -136,6 +136,10 @@ const retrieveRequestZ = z
 
 export type RetrieveParams = z.input<typeof retrieveRequestZ>;
 
+const singleParamsZ = z
+  .strictObject({ type: resourceTypeZ, key: z.string() })
+  .transform((id) => idToString(id));
+
 /**
  * Client-side matching for a request: exact for id and type sets.
  * Server-computed shapes (search, limit/offset) never reach this filter; they
@@ -222,12 +226,7 @@ export class Client extends query.Retriever<
         fetch: async (req) => await this.fetchRequest(req),
         matches: (resource, req) => requestFilter(req)(resource),
       },
-      single: {
-        is: (params): params is ID =>
-          typeof params === "object" && params !== null && "key" in params,
-        normalize: (id) => idToString(id),
-        space: single as query.Retrieves<query.Params, Resource>,
-      },
+      single: { schema: singleParamsZ, space: single },
     });
     this.cfg = cfg;
     this.writer = new Writer(unary);

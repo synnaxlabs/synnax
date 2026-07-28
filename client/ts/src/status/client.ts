@@ -158,10 +158,12 @@ export class Client extends query.Retriever<
       },
       compose: (record) => this.compose(record),
       single: {
-        is: (params): params is SingleRetrieveParams =>
-          typeof params === "object" && params !== null && "key" in params,
-        normalize: ({ key }) => key,
-        space: single as query.Retrieves<query.Params, Status>,
+        // includeLabels does not change a query's identity: cached fetches
+        // always request labels, so only the key participates in hashing.
+        schema: z
+          .strictObject({ key: keyZ, includeLabels: z.boolean().optional() })
+          .transform(({ key }) => key),
+        space: single,
       },
     });
     this.cfg = cfg;
