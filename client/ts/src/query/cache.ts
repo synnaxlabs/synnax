@@ -57,7 +57,13 @@ interface TableEntry {
   name: string;
   listeners: Listener[];
   reconcile?: () => Promise<void>;
-  clear: () => void;
+  reset: () => void;
+}
+
+/** The cache-facing lifecycle of an answer space, generics erased. */
+interface Space {
+  close: () => void;
+  reset: () => void;
 }
 
 /**
@@ -121,7 +127,7 @@ const bindReconcile =
 export class Cache {
   private readonly entries: TableEntry[] = [];
   private readonly reactions: Listener[] = [];
-  private readonly spaces: Array<{ close: () => void; invalidate: () => void }> = [];
+  private readonly spaces: Space[] = [];
   private readonly epochObserver = new observe.Observer<number>();
   private readonly openStreamer: StreamOpener | null;
   private streamer: Streamer | null = null;
@@ -155,7 +161,7 @@ export class Cache {
       name,
       listeners: (listen ?? []).map((spec) => spec.bind(table)),
       reconcile: config.fetch == null ? undefined : bindReconcile(table, config.fetch),
-      clear: () => table.clear(),
+      reset: () => table.reset(),
     });
     return table;
   }
@@ -274,8 +280,8 @@ export class Cache {
     } catch (exc) {
       console.error("failed to close retired stream", exc);
     }
-    this.entries.forEach(({ clear }) => clear());
-    this.spaces.forEach((space) => space.invalidate());
+    this.entries.forEach(({ reset }) => reset());
+    this.spaces.forEach((space) => space.reset());
     this.epochCount = 0;
     this.epochObserver.notify(0);
   }
