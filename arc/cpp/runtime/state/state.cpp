@@ -292,4 +292,8 @@ void Node::set_current_node_key(const std::string &key) {
     this->state.set_current_node_key(key);
 }
 
+void Node::clear_node(const std::string &key) {
+    this->state.clear_node(key);
+}
+
 }
