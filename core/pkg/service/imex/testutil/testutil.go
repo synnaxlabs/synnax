@@ -18,9 +18,8 @@ import (
 	"github.com/synnaxlabs/x/testutil"
 )
 
-// WireRoundTrip marshals env to JSON and back, binding the codec Decode needs.
-// Exported envelopes carry a body but no codec, so a decode must first pass through
-// the wire.
+// WireRoundTrip marshals env to JSON and back, binding the codec Decode needs. Exported
+// envelopes carry a body but no codec, so a decode must first pass through the wire.
 func WireRoundTrip(env imex.Envelope) imex.Envelope {
 	b := testutil.MustSucceed(json.Marshal(env))
 	var out imex.Envelope
