@@ -331,8 +331,8 @@ export class Client extends query.Retriever<
   private readonly client: UnaryClient;
   readonly retriever: Retriever;
   readonly writer: Writer;
-  private readonly statuses?: status.Client;
-  private readonly ranges?: ranger.Client;
+  private readonly statuses: status.Client;
+  private readonly ranges: ranger.Client;
   private readonly store: query.Table<Key, Channel>;
   private readonly statusStore: query.Table<status.Key, status.Status>;
   private readonly aliasStore: query.Table<string, ranger.alias.Alias>;
@@ -343,8 +343,8 @@ export class Client extends query.Retriever<
     retriever: Retriever,
     client: UnaryClient,
     writer: Writer,
-    statuses: status.Client | undefined,
-    ranges: ranger.Client | undefined,
+    statuses: status.Client,
+    ranges: ranger.Client,
     cache: query.Cache,
     statusStore: query.Table<status.Key, status.Status>,
     aliasStore: query.Table<string, ranger.alias.Alias>,
@@ -708,18 +708,6 @@ export class Client extends query.Retriever<
     return res.group;
   }
 
-  private requireStatuses(): status.Client {
-    if (this.statuses == null)
-      throw new Error("cache is disabled on this client (cache: false)");
-    return this.statuses;
-  }
-
-  private requireRanges(): ranger.Client {
-    if (this.ranges == null)
-      throw new Error("cache is disabled on this client (cache: false)");
-    return this.ranges;
-  }
-
   /** Rebuilds a cached channel with its cached status and alias attached. */
   private compose(payload: Payload, rangeKey?: ranger.Key): Channel {
     const next: Payload = { ...payload, status: undefined, alias: undefined };
@@ -748,7 +736,7 @@ export class Client extends query.Retriever<
       (key) => !this.aliasStore.has(createKey({ range: rangeKey, channel: key })),
     );
     if (missing.length === 0) return;
-    const fetched = await this.requireRanges().retrieveAliases(rangeKey, missing);
+    const fetched = await this.ranges.retrieveAliases(rangeKey, missing);
     Object.entries(fetched).forEach(([channel, alias]) => {
       const entry: ranger.alias.Alias = {
         range: rangeKey,
@@ -772,7 +760,7 @@ export class Client extends query.Retriever<
     // status may not exist, or may simply never have been fetched.
     if (ch.isCalculated && !this.statusStore.has(statusKey(key)))
       try {
-        await this.requireStatuses().retrieve({ key: statusKey(key) });
+        await this.statuses.retrieve({ key: statusKey(key) });
       } catch (e) {
         if (!NotFoundError.matches(e)) throw errors.fromUnknown(e);
       }
