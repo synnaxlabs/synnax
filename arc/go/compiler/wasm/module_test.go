@@ -30,7 +30,7 @@ var _ = Describe("WASM Module", func() {
 			mod := wasm.NewModule()
 			bytes := mod.Generate()
 			// Check magic number: 0x00 0x61 0x73 0x6d (\0asm)
-			Expect(bytes[0:4]).To(Equal([]byte{0x00, 0x61, 0x73, 0x6d}))
+			Expect(bytes[:4]).To(Equal([]byte{0x00, 0x61, 0x73, 0x6d}))
 			// Check version: 1 (little-endian)
 			Expect(bytes[4:8]).To(Equal([]byte{0x01, 0x00, 0x00, 0x00}))
 		})
@@ -341,7 +341,7 @@ var _ = Describe("WASM Module", func() {
 			bytes := mod.Generate()
 
 			// Verify magic and version
-			Expect(bytes[0:4]).To(Equal([]byte{0x00, 0x61, 0x73, 0x6d}))
+			Expect(bytes[:4]).To(Equal([]byte{0x00, 0x61, 0x73, 0x6d}))
 			Expect(bytes[4:8]).To(Equal([]byte{0x01, 0x00, 0x00, 0x00}))
 
 			// Verify sections are present
@@ -402,7 +402,7 @@ var _ = Describe("WASM Module", func() {
 			bytes := mod.Generate()
 			Expect(bytes).ToNot(BeEmpty())
 			// Should have magic, version, type section, import section
-			Expect(bytes[0:4]).To(Equal([]byte{0x00, 0x61, 0x73, 0x6d}))
+			Expect(bytes[:4]).To(Equal([]byte{0x00, 0x61, 0x73, 0x6d}))
 		})
 
 		It("Should handle module with only types", func() {
@@ -415,7 +415,7 @@ var _ = Describe("WASM Module", func() {
 
 			bytes := mod.Generate()
 			// Should have magic, version, type section
-			Expect(bytes[0:4]).To(Equal([]byte{0x00, 0x61, 0x73, 0x6d}))
+			Expect(bytes[:4]).To(Equal([]byte{0x00, 0x61, 0x73, 0x6d}))
 		})
 
 		It("Should handle multiple functions with same type", func() {

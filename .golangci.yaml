@@ -55,10 +55,19 @@ linters:
 formatters:
   enable:
     - gci
+    - gofmt
   settings:
     gci:
       no-inline-comments: true
       no-prefix-comments: true
+    gofmt:
+      rewrite-rules:
+        - pattern: "interface{}"
+          replacement: "any"
+        - pattern: "a[b:len(a)]"
+          replacement: "a[b:]"
+        - pattern: "a[0:b]"
+          replacement: "a[:b]"
   exclusions:
     warn-unused: true
     generated: strict
