@@ -37,11 +37,18 @@ def parse_name_version(filename: str) -> tuple[str, str]:
     name component never contains a hyphen and splitting on ``-`` is safe.
     """
     if filename.endswith(".whl"):
-        name, version = filename.split("-")[:2]
+        parts = filename.removesuffix(".whl").split("-")
+        if len(parts) not in (5, 6):
+            raise ValueError(f"malformed wheel file name: {filename}")
+        name, version = parts[:2]
     elif filename.endswith(".tar.gz"):
-        name, version = filename.removesuffix(".tar.gz").rsplit("-", 1)
+        name, _, version = filename.removesuffix(".tar.gz").rpartition("-")
+        if not name:
+            raise ValueError(f"malformed sdist file name: {filename}")
     else:
         raise ValueError(f"unrecognized distribution file: {filename}")
+    if not version[:1].isdigit():
+        raise ValueError(f"unable to parse version from file name: {filename}")
     return re.sub(r"[-_.]+", "-", name).lower(), version
 
 
