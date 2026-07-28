@@ -28,10 +28,11 @@ import (
 	"github.com/synnaxlabs/x/diagnostics"
 	"github.com/synnaxlabs/x/errors"
 	lsp "github.com/synnaxlabs/x/lsp"
-	"github.com/synnaxlabs/x/lsp/protocol"
 	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/validate"
+	"go.lsp.dev/protocol"
+	"go.lsp.dev/uri"
 	"go.uber.org/zap"
 )
 
@@ -118,14 +119,14 @@ func (c Config) Validate() error {
 	return v.Error()
 }
 
-var translateCfg = lsp.TranslateConfig{Source: "arc-analyzer"}
+const translateSource = "arc-analyzer"
 
 // Server implements the Language Server Protocol for arc
 type Server struct {
-	lsp.NoopServer
+	protocol.UnimplementedServer
 	capabilities             protocol.ServerCapabilities
-	client                   lsp.Client
-	documents                map[protocol.DocumentURI]*Document
+	client                   protocol.Client
+	documents                map[uri.URI]*Document
 	cfg                      Config
 	mu                       sync.RWMutex
 	republishMu              sync.Mutex
@@ -144,14 +145,14 @@ func New(cfgs ...Config) (*Server, error) {
 	}
 	return &Server{
 		cfg:       cfg,
-		documents: make(map[protocol.DocumentURI]*Document),
+		documents: make(map[uri.URI]*Document),
 		capabilities: protocol.ServerCapabilities{
-			TextDocumentSync: protocol.TextDocumentSyncOptions{
-				OpenClose: true,
-				Change:    protocol.TextDocumentSyncKindIncremental,
-				Save:      &protocol.SaveOptions{IncludeText: false},
+			TextDocumentSync: &protocol.TextDocumentSyncOptions{
+				OpenClose: new(true),
+				Change:    new(protocol.TextDocumentSyncKindIncremental),
+				Save:      &protocol.SaveOptions{IncludeText: new(false)},
 			},
-			HoverProvider: true,
+			HoverProvider: protocol.Boolean(true),
 			CompletionProvider: &protocol.CompletionOptions{
 				TriggerCharacters: []string{
 					parser.LiteralCOLON,
@@ -164,29 +165,30 @@ func New(cfgs ...Config) (*Server, error) {
 					parser.LiteralDOT,
 				},
 			},
-			DefinitionProvider:              true,
-			DocumentSymbolProvider:          true,
-			DocumentFormattingProvider:      true,
-			DocumentRangeFormattingProvider: true,
-			FoldingRangeProvider:            true,
+			DefinitionProvider:              protocol.Boolean(true),
+			DocumentFormattingProvider:      protocol.Boolean(true),
+			DocumentRangeFormattingProvider: protocol.Boolean(true),
+			FoldingRangeProvider:            protocol.Boolean(true),
 			CodeActionProvider: &protocol.CodeActionOptions{
-				CodeActionKinds: []protocol.CodeActionKind{protocol.QuickFix},
-			},
-			RenameProvider: protocol.RenameOptions{
-				PrepareProvider: true,
-			},
-			SemanticTokensProvider: map[string]any{
-				"legend": protocol.SemanticTokensLegend{
-					TokenTypes: lsp.ConvertToSemanticTokenTypes(semanticTokenTypes),
+				CodeActionKinds: []protocol.CodeActionKind{
+					protocol.CodeActionKindQuickFix,
 				},
-				"full": true,
+			},
+			RenameProvider: &protocol.RenameOptions{
+				PrepareProvider: new(true),
+			},
+			SemanticTokensProvider: &protocol.SemanticTokensOptions{
+				Legend: protocol.SemanticTokensLegend{
+					TokenTypes: semanticTokenTypes,
+				},
+				Full: protocol.Boolean(true),
 			},
 		},
 	}, nil
 }
 
 // SetClient sets the LSP client for sending notifications
-func (s *Server) SetClient(client lsp.Client) {
+func (s *Server) SetClient(client protocol.Client) {
 	s.client = client
 	if s.cfg.OnExternalChange != nil {
 		s.externalChangeDisconnect = s.cfg.OnExternalChange.OnChange(func(ctx context.Context, _ struct{}) {
@@ -202,14 +204,6 @@ func (s *Server) SetClient(client lsp.Client) {
 	}
 }
 
-// Logger returns the server's logger
-func (s *Server) Logger() *zap.Logger {
-	if s.cfg.L == nil {
-		return zap.NewNop()
-	}
-	return s.cfg.L.Zap()
-}
-
 // getDocument returns an immutable snapshot of the document with the given URI, and
 // true if found, or nil and false if not found. The returned *Document is a copy taken
 // under the read lock, so callers may read its fields (IR, Content, Diagnostics, ...)
@@ -217,10 +211,10 @@ func (s *Server) Logger() *zap.Logger {
 // the write lock, and a reader holding the snapshot is unaffected. Callers must not
 // mutate the returned document — writes do not reach the live document and would be
 // lost.
-func (s *Server) getDocument(uri protocol.DocumentURI) (*Document, bool) {
+func (s *Server) getDocument(docURI uri.URI) (*Document, bool) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
-	doc, ok := s.documents[uri]
+	doc, ok := s.documents[docURI]
 	if !ok {
 		return nil, false
 	}
@@ -236,7 +230,10 @@ func (s *Server) Initialize(
 	s.cfg.L.Debug("initializing Arc LSP", zap.String("client", params.ClientInfo.Name))
 	return &protocol.InitializeResult{
 		Capabilities: s.capabilities,
-		ServerInfo:   &protocol.ServerInfo{Name: "arc-lsp", Version: "0.1.0"},
+		ServerInfo: protocol.ServerInfo{
+			Name:    "arc-lsp",
+			Version: protocol.NewOptional("0.1.0"),
+		},
 	}, nil
 }
 
@@ -244,6 +241,23 @@ func (s *Server) Initialize(
 func (s *Server) Initialized(context.Context, *protocol.InitializedParams) error {
 	s.cfg.L.Debug("Arc LSP initialized")
 	return nil
+}
+
+// DocumentSymbol returns an empty result. Existing clients probe this method without
+// checking capabilities; the embedded UnimplementedServer would error instead.
+func (s *Server) DocumentSymbol(
+	context.Context,
+	*protocol.DocumentSymbolParams,
+) (protocol.DocumentSymbolResult, error) {
+	return nil, nil
+}
+
+// Symbols returns an empty result; see DocumentSymbol.
+func (s *Server) Symbols(
+	context.Context,
+	*protocol.WorkspaceSymbolParams,
+) (protocol.WorkspaceSymbolResult, error) {
+	return nil, nil
 }
 
 // Shutdown handles the shutdown request.
@@ -275,15 +289,15 @@ func (s *Server) DidOpen(
 	ctx context.Context,
 	params *protocol.DidOpenTextDocumentParams,
 ) error {
-	uri := params.TextDocument.URI
-	s.cfg.L.Debug("document opened", zap.String("uri", string(uri)))
-	metadata := extractMetadataFromURI(uri)
+	docURI := params.TextDocument.URI
+	s.cfg.L.Debug("document opened", zap.String("uri", string(docURI)))
+	metadata := extractMetadataFromURI(docURI)
 	s.cfg.L.Debug("file meta-data",
-		zap.String("uri", string(uri)),
+		zap.String("uri", string(docURI)),
 		zap.Bool("hasMetadata", metadata != nil),
 		zap.Bool("isBlock", metadata != nil && metadata.isFunctionBlock))
 	doc := &Document{
-		URI:      uri,
+		URI:      docURI,
 		Version:  params.TextDocument.Version,
 		Content:  params.TextDocument.Text,
 		metadata: metadata,
@@ -291,17 +305,17 @@ func (s *Server) DidOpen(
 	deb, err := debounce.New(debounce.Config{
 		Delay:    s.cfg.DebounceDelay,
 		MaxDelay: s.cfg.MaxDebounceDelay,
-		Callback: func(ctx context.Context) { s.runAnalysis(ctx, doc, uri) },
+		Callback: func(ctx context.Context) { s.runAnalysis(ctx, doc, docURI) },
 	})
 	if err != nil {
 		return errors.Wrap(err, "create document debouncer")
 	}
 	doc.debouncer = deb
 	s.mu.Lock()
-	s.documents[uri] = doc
+	s.documents[docURI] = doc
 	s.mu.Unlock()
 
-	s.publishDiagnostics(ctx, uri, params.TextDocument.Text)
+	s.publishDiagnostics(ctx, docURI, params.TextDocument.Text)
 
 	return nil
 }
@@ -311,21 +325,17 @@ func (s *Server) DidChange(
 	_ context.Context,
 	params *protocol.DidChangeTextDocumentParams,
 ) error {
-	uri := params.TextDocument.URI
-	s.cfg.L.Debug("Document changed", zap.String("uri", string(uri)))
+	docURI := params.TextDocument.URI
+	s.cfg.L.Debug("Document changed", zap.String("uri", string(docURI)))
 
 	s.mu.Lock()
-	doc, ok := s.documents[uri]
+	doc, ok := s.documents[docURI]
 	if !ok {
 		s.mu.Unlock()
 		return nil
 	}
 	for _, change := range params.ContentChanges {
-		if lsp.IsFullReplacement(change) {
-			doc.Content = change.Text
-		} else {
-			doc.Content = lsp.ApplyIncrementalChange(doc.Content, change)
-		}
+		doc.Content = lsp.ApplyIncrementalChange(doc.Content, change)
 	}
 	doc.Version = params.TextDocument.Version
 	s.mu.Unlock()
@@ -339,11 +349,11 @@ func (s *Server) DidSave(
 	ctx context.Context,
 	params *protocol.DidSaveTextDocumentParams,
 ) error {
-	uri := params.TextDocument.URI
-	s.cfg.L.Debug("Document saved", zap.String("uri", string(uri)))
+	docURI := params.TextDocument.URI
+	s.cfg.L.Debug("Document saved", zap.String("uri", string(docURI)))
 
 	s.mu.RLock()
-	doc, ok := s.documents[uri]
+	doc, ok := s.documents[docURI]
 	if !ok {
 		s.mu.RUnlock()
 		return nil
@@ -352,7 +362,7 @@ func (s *Server) DidSave(
 	s.mu.RUnlock()
 
 	doc.debouncer.Stop()
-	s.publishDiagnostics(ctx, uri, content)
+	s.publishDiagnostics(ctx, docURI, content)
 	return nil
 }
 
@@ -361,28 +371,36 @@ func (s *Server) DidClose(
 	ctx context.Context,
 	params *protocol.DidCloseTextDocumentParams,
 ) error {
-	uri := params.TextDocument.URI
-	s.cfg.L.Debug("Document closed", zap.String("uri", string(uri)))
+	docURI := params.TextDocument.URI
+	s.cfg.L.Debug("Document closed", zap.String("uri", string(docURI)))
 
 	s.mu.Lock()
-	doc, ok := s.documents[uri]
-	delete(s.documents, uri)
+	doc, ok := s.documents[docURI]
+	delete(s.documents, docURI)
 	s.mu.Unlock()
 
 	if ok {
 		doc.debouncer.Stop()
 	}
 
-	return s.client.PublishDiagnostics(ctx, &protocol.PublishDiagnosticsParams{
-		URI:         uri,
+	// A notification handler error fails the jsonrpc2 v1 connection; log it instead.
+	if err := s.client.PublishDiagnostics(ctx, &protocol.PublishDiagnosticsParams{
+		URI:         docURI,
 		Diagnostics: []protocol.Diagnostic{},
-	})
+	}); err != nil {
+		s.cfg.L.Error(
+			"failed to clear diagnostics",
+			zap.Error(err),
+			zap.String("uri", string(docURI)),
+		)
+	}
+	return nil
 }
 
 func (s *Server) runAnalysis(
 	ctx context.Context,
 	doc *Document,
-	uri protocol.DocumentURI,
+	docURI uri.URI,
 ) {
 	if ctx.Err() != nil {
 		return
@@ -399,27 +417,27 @@ func (s *Server) runAnalysis(
 	}
 
 	s.mu.Lock()
-	if _, ok := s.documents[uri]; ok {
+	if _, ok := s.documents[docURI]; ok {
 		doc.IR = docIR
 		doc.Diagnostics = docDiag
 	}
 	s.mu.Unlock()
 
 	if err := s.client.PublishDiagnostics(ctx, &protocol.PublishDiagnosticsParams{
-		URI:         uri,
+		URI:         docURI,
 		Diagnostics: pDiagnostics,
 	}); err != nil {
 		s.cfg.L.Error(
 			"failed to publish diagnostics",
 			zap.Error(err),
-			zap.String("uri", string(uri)),
+			zap.String("uri", string(docURI)),
 		)
 	}
 
-	s.refreshSemanticTokens(ctx, uri)
+	s.refreshSemanticTokens(ctx, docURI)
 }
 
-func (s *Server) refreshSemanticTokens(ctx context.Context, uri protocol.DocumentURI) {
+func (s *Server) refreshSemanticTokens(ctx context.Context, docURI uri.URI) {
 	if s.client == nil {
 		return
 	}
@@ -428,7 +446,7 @@ func (s *Server) refreshSemanticTokens(ctx context.Context, uri protocol.Documen
 		s.cfg.L.Warn(
 			"failed to refresh semantic tokens",
 			zap.Error(err),
-			zap.String("uri", string(uri)),
+			zap.String("uri", string(docURI)),
 		)
 	}
 }
@@ -452,24 +470,24 @@ func (s *Server) analyze(
 		wrappedContent := fmt.Sprintf("{%s}", content)
 		t, err := parser.ParseBlock(wrappedContent, cfg)
 		if err != nil {
-			pDiagnostics = lsp.TranslateDiagnostics(*err, translateCfg)
+			pDiagnostics = lsp.TranslateDiagnostics(*err, translateSource)
 		} else {
 			aCtx := acontext.NewRoot(ctx, t, s.cfg.NewRoot()).WithConfig(cfg)
 			statement.AnalyzeFunctionBody(aCtx)
 			docIR = ir.IR{Symbols: aCtx.Scope}
 			docDiag = *aCtx.Diagnostics
-			pDiagnostics = lsp.TranslateDiagnostics(docDiag, translateCfg)
+			pDiagnostics = lsp.TranslateDiagnostics(docDiag, translateSource)
 		}
 	} else {
 		t, diag := text.Parse(text.Text{Raw: content}, cfg)
 		if diag != nil {
-			pDiagnostics = lsp.TranslateDiagnostics(*diag, translateCfg)
+			pDiagnostics = lsp.TranslateDiagnostics(*diag, translateSource)
 		} else {
 			analyzedIR, analysisDiag := text.Analyze(ctx, t, s.cfg.NewRoot(), cfg)
 			docIR = analyzedIR
 			if analysisDiag != nil {
 				docDiag = *analysisDiag
-				pDiagnostics = lsp.TranslateDiagnostics(docDiag, translateCfg)
+				pDiagnostics = lsp.TranslateDiagnostics(docDiag, translateSource)
 			}
 		}
 	}
@@ -480,11 +498,11 @@ func (s *Server) analyze(
 // DidSave, and republish where immediate feedback is expected.
 func (s *Server) publishDiagnostics(
 	ctx context.Context,
-	uri protocol.DocumentURI,
+	docURI uri.URI,
 	content string,
 ) {
 	s.mu.RLock()
-	doc, ok := s.documents[uri]
+	doc, ok := s.documents[docURI]
 	if !ok {
 		s.mu.RUnlock()
 		return
@@ -495,20 +513,20 @@ func (s *Server) publishDiagnostics(
 	pDiagnostics, docIR, docDiag := s.analyze(ctx, content, isBlock)
 
 	s.mu.Lock()
-	if _, stillOpen := s.documents[uri]; stillOpen {
+	if _, stillOpen := s.documents[docURI]; stillOpen {
 		doc.IR = docIR
 		doc.Diagnostics = docDiag
 	}
 	s.mu.Unlock()
 
 	if err := s.client.PublishDiagnostics(ctx, &protocol.PublishDiagnosticsParams{
-		URI:         uri,
+		URI:         docURI,
 		Diagnostics: pDiagnostics,
 	}); err != nil {
 		s.cfg.L.Error(
 			"failed to publish diagnostics",
 			zap.Error(err),
-			zap.String("uri", string(uri)),
+			zap.String("uri", string(docURI)),
 		)
 	}
 }
@@ -517,13 +535,13 @@ func (s *Server) publishDiagnostics(
 // This is called when external state changes (e.g., channels are created or deleted).
 func (s *Server) republishAllDiagnostics(ctx context.Context) {
 	s.mu.RLock()
-	docs := make(map[protocol.DocumentURI]string, len(s.documents))
-	for uri, doc := range s.documents {
-		docs[uri] = doc.Content
+	docs := make(map[uri.URI]string, len(s.documents))
+	for docURI, doc := range s.documents {
+		docs[docURI] = doc.Content
 	}
 	s.mu.RUnlock()
-	for uri, content := range docs {
-		s.publishDiagnostics(ctx, uri, content)
+	for docURI, content := range docs {
+		s.publishDiagnostics(ctx, docURI, content)
 	}
 	s.refreshSemanticTokens(ctx, "")
 }

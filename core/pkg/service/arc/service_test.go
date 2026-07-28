@@ -20,11 +20,11 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/x/encoding/msgpack"
-	"github.com/synnaxlabs/x/lsp/protocol"
 	. "github.com/synnaxlabs/x/lsp/testutil"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
+	"go.lsp.dev/uri"
 )
 
 var _ = Describe("CompileProgram", func() {
@@ -115,10 +115,10 @@ var _ = Describe("NewLSP", func() {
 		client := &MockClient{}
 		server.SetClient(client)
 
-		uri := protocol.DocumentURI("file:///test.arc")
+		uri := uri.URI("file:///test.arc")
 		OpenArcDocument(server, ctx, uri, "func test() {\n\tx := test_lsp_channel\n}")
 		Expect(client.Diagnostics()).To(HaveLen(1))
-		Expect(client.Diagnostics()[0].Message).To(ContainSubstring("undefined symbol"))
+		Expect(DiagnosticMessage(client.Diagnostics()[0])).To(ContainSubstring("undefined symbol"))
 
 		ch := channel.Channel{Name: "test_lsp_channel", DataType: telem.Float32T, Virtual: true}
 		Expect(channelSvc.NewWriter(nil).Create(ctx, &ch)).To(Succeed())

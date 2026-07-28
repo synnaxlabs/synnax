@@ -11,7 +11,6 @@ import { log, ontology } from "@synnaxlabs/client";
 import { Access, Icon, Log, Menu, Mosaic } from "@synnaxlabs/pluto";
 import { array } from "@synnaxlabs/x";
 
-import { useExport } from "@/feature/log/export";
 import { Cluster } from "@/platform/cluster";
 import { ContextMenu } from "@/platform/context-menu";
 import { Export } from "@/platform/export";
@@ -44,7 +43,7 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
   } = props;
   const handleDelete = useDelete(props);
   const handleLink = Cluster.useCopyLinkToClipboard();
-  const handleExport = useExport();
+  const handleExport = Export.use();
   const rename = useRename(props);
   const group = Group.useCreateFromSelection();
   const hasUpdatePermission = Access.useUpdateGranted(ids);
@@ -69,7 +68,7 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
       {(hasUpdatePermission || hasDeletePermission) && <Menu.Divider />}
       {isSingle && (
         <>
-          <Export.ContextMenuItem onClick={() => handleExport(ids[0].key)} />
+          <Export.ContextMenuItem onClick={() => handleExport(ids[0])} />
           <Link.CopyContextMenuItem
             onClick={() => handleLink({ name: firstResource.name, ontologyID: ids[0] })}
           />

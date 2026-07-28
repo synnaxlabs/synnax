@@ -30,7 +30,7 @@ var generatedLangs = []string{"go", "ts", "py", "cpp"}
 //  2. A file-level @lang output where every declared type omits the language —
 //     with no hand-written anchors or actions — generates nothing and should
 //     be removed.
-func validateDomainOmits(table *resolution.Table, diag *diagnostics.Diagnostics) {
+func validateDomainOmits(table *resolution.Table, diag *diagnostics.Files) {
 	for _, lang := range generatedLangs {
 		validateOmitRefs(table, lang, diag)
 	}
@@ -39,7 +39,7 @@ func validateDomainOmits(table *resolution.Table, diag *diagnostics.Diagnostics)
 func validateOmitRefs(
 	table *resolution.Table,
 	lang string,
-	diag *diagnostics.Diagnostics,
+	diag *diagnostics.Files,
 ) {
 	for _, t := range table.Types {
 		if getPath(t, lang) == "" || omit.IsSkipped(t, lang) {
@@ -64,8 +64,7 @@ func validateOmitRefs(
 						"%s generates for %s but %s references %s, which is omitted in %s",
 						t.QualifiedName, lang, context, resolved.QualifiedName, lang,
 					)
-					d.File = t.Namespace + ".oracle"
-					diag.Add(d)
+					diag.Report(t.Namespace+".oracle", d)
 				}
 			}
 			visit(ref)
@@ -110,8 +109,7 @@ func validateFileVersion(c *analysisCtx) {
 			"%s declares @go version file-level; declare it per type instead",
 			c.namespace,
 		)
-		d.File = c.filePath
-		c.diag.Add(d)
+		c.report(d)
 	}
 }
 
@@ -140,8 +138,7 @@ func validateVersionArgs(c *analysisCtx, types []resolution.Type) {
 			"%s has a malformed @go version; expected `version <int>` or `version <int> pinned`",
 			t.QualifiedName,
 		)
-		d.File = c.filePath
-		c.diag.Add(d)
+		c.report(d)
 	}
 }
 
@@ -182,8 +179,7 @@ func validateDeadOutputs(
 				"every type in %s omits %s; remove the @%s output declaration",
 				c.namespace, lang, lang,
 			)
-			d.File = c.filePath
-			c.diag.Add(d)
+			c.report(d)
 		}
 	}
 }
