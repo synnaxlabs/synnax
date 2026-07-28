@@ -11,7 +11,7 @@ import { type UnaryClient } from "@synnaxlabs/freighter";
 import { array, strings } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { NotFoundError, QueryError } from "@/errors";
+import { QueryError } from "@/errors";
 import {
   type ID,
   idToString,
@@ -88,7 +88,7 @@ export class Client {
     const resources = await this.execRetrieve({ ids: parsedIDs, ...options });
     if (Array.isArray(ids)) return resources;
     if (resources.length === 0)
-      throw new NotFoundError(
+      throw new QueryError(
         `No resource found with ID ${strings.naturalLanguageJoin(
           parsedIDs.map((id) => idToString(id)),
         )}`,
