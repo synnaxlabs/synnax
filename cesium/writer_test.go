@@ -1008,7 +1008,7 @@ var _ = Describe("Writer Behavior", func() {
 							[]cesium.ChannelKey{idx, fixed, variable},
 							[]telem.Series{
 								telem.NewSeriesSecondsTSV(20, 21, 22, 23),
-								telem.NewSeriesV[float64](1.1, 2.2, 3.3, 4.4),
+								telem.NewSeriesV(1.1, 2.2, 3.3, 4.4),
 								telem.NewSeriesV("a", "b", "c", "d"),
 							},
 						))).To(Succeed())
@@ -1136,6 +1136,33 @@ var _ = Describe("Writer Behavior", func() {
 						Expect(w.Write(telem.MultiFrame(
 							[]cesium.ChannelKey{data},
 							[]telem.Series{telem.NewSeriesV[int64](1)},
+						))).To(BeTrue())
+						Expect(w.Commit()).Error().To(SatisfyAll(
+							MatchError(validate.ErrValidation),
+							MatchError(ContainSubstring("cannot be resolved to an exact sample")),
+						))
+						Expect(w.Close()).To(MatchError(validate.ErrValidation))
+					})
+					Specify("Multi-sample commit without index whose start is not an index sample", func(ctx SpecContext) {
+						var (
+							idx  = GenerateChannelKey()
+							data = GenerateChannelKey()
+						)
+						Expect(db.CreateChannel(ctx,
+							cesium.Channel{Key: idx, Name: "inexact-multi-idx", IsIndex: true, DataType: telem.TimeStampT},
+							cesium.Channel{Key: data, Name: "inexact-multi-data", Index: idx, DataType: telem.Int64T},
+						)).To(Succeed())
+						Expect(db.Write(ctx, 80*telem.SecondTS, telem.MultiFrame(
+							[]cesium.ChannelKey{idx},
+							[]telem.Series{telem.NewSeriesSecondsTSV(80, 81, 82, 83)},
+						))).To(Succeed())
+						w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
+							Channels: []cesium.ChannelKey{data},
+							Start:    80*telem.SecondTS + 500*telem.MillisecondTS,
+						}))
+						Expect(w.Write(telem.MultiFrame(
+							[]cesium.ChannelKey{data},
+							[]telem.Series{telem.NewSeriesV[int64](1, 2)},
 						))).To(BeTrue())
 						Expect(w.Commit()).Error().To(SatisfyAll(
 							MatchError(validate.ErrValidation),
