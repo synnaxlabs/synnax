@@ -88,7 +88,6 @@ export interface ClientConfig {
   unary: UnaryClient;
   ontology: ontology.Client;
   cache: query.Cache;
-  ontologyStores: ontology.Stores;
 }
 
 export class Client extends query.Retriever<typeof retrieveRequestZ, Key, Symbol> {
@@ -96,7 +95,7 @@ export class Client extends query.Retriever<typeof retrieveRequestZ, Key, Symbol
   private readonly store: query.Table<Key, Symbol>;
 
   constructor(cfg: ClientConfig) {
-    const { cache, ontologyStores } = cfg;
+    const { cache, ontology: ontologyClient } = cfg;
     const store = cache.createTable<Key, Symbol>({
       name: "schematicSymbols",
       fetch: async (keys) => await this.execRetrieve({ keys }),
@@ -114,15 +113,18 @@ export class Client extends query.Retriever<typeof retrieveRequestZ, Key, Symbol
         matches: (sym, req) => this.requestFilter(req)(sym),
         serverFields: SERVER_FIELDS,
         watch: [
-          query.watch(ontologyStores.relationships, (event, req: RetrieveRequest) => {
-            if (req.parent == null) return null;
-            const rel =
-              event.variant === "set"
-                ? event.value
-                : ontology.relationshipZ.parse(event.key);
-            if (!matchChildRel(rel, req.parent)) return null;
-            return [rel.to.key];
-          }),
+          query.watch(
+            ontologyClient.cache.relationships,
+            (event, req: RetrieveRequest) => {
+              if (req.parent == null) return null;
+              const rel =
+                event.variant === "set"
+                  ? event.value
+                  : ontology.relationshipZ.parse(event.key);
+              if (!matchChildRel(rel, req.parent)) return null;
+              return [rel.to.key];
+            },
+          ),
         ],
       },
     });
@@ -145,7 +147,7 @@ export class Client extends query.Retriever<typeof retrieveRequestZ, Key, Symbol
     );
     // Relationships first: parent-scoped answers check membership when the
     // symbol write lands.
-    const rels = this.cfg.ontologyStores.relationships;
+    const rels = this.cfg.ontology.cache.relationships;
     res.symbols.forEach((s) => {
       const rel = childRel(options.parent, s.key);
       rels.set(ontology.relationshipToString(rel), rel);
@@ -187,7 +189,7 @@ export class Client extends query.Retriever<typeof retrieveRequestZ, Key, Symbol
         ),
     );
     drop();
-    this.cfg.ontologyStores.relationships.delete(
+    this.cfg.ontology.cache.relationships.delete(
       (r) =>
         r.type === ontology.PARENT_OF_RELATIONSHIP_TYPE &&
         r.to.type === "schematic_symbol" &&
@@ -252,7 +254,7 @@ export class Client extends query.Retriever<typeof retrieveRequestZ, Key, Symbol
   }
 
   private isChildOf(parent: ontology.ID, key: Key): boolean {
-    return this.cfg.ontologyStores.relationships.has(
+    return this.cfg.ontology.cache.relationships.has(
       ontology.relationshipToString(childRel(parent, key)),
     );
   }

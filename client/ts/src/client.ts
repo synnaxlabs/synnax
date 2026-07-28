@@ -185,17 +185,12 @@ export default class Synnax extends framer.Client {
     this.transport = transport;
     const unary = this.transport.unary;
     this.ontology = new ontology.Client({ unary, cache });
-    const ontologyStores = this.ontology.stores;
     const rangeWriter = new ranger.Writer(unary);
-    this.labels = new label.Client({
-      unary,
-      cache,
-      relationships: ontologyStores.relationships,
-    });
+    this.labels = new label.Client({ unary, cache, ontology: this.ontology });
     this.statuses = new status.Client({
       unary,
       cache,
-      ontologyStores,
+      ontology: this.ontology,
       labels: this.labels,
     });
     this.ranges = new ranger.Client({
@@ -215,12 +210,12 @@ export default class Synnax extends framer.Client {
       statuses: this.statuses,
       ranges: this.ranges,
       cache,
-      ontologyStores,
+      ontology: this.ontology,
     });
     this.control = new control.Client({ framer: this });
-    this.access = new access.Client({ unary, cache, ontologyStores });
-    this.users = new user.Client({ unary, cache, ontologyStores });
-    this.projects = new project.Client({ unary, cache, ontologyStores });
+    this.access = new access.Client({ unary, cache, ontology: this.ontology });
+    this.users = new user.Client({ unary, cache, ontology: this.ontology });
+    this.projects = new project.Client({ unary, cache, ontology: this.ontology });
     this.tasks = new task.Client({
       unary,
       framer: this,
@@ -234,13 +229,13 @@ export default class Synnax extends framer.Client {
       tasks: this.tasks,
       cache,
       statusStore: this.statuses.store,
-      ontologyStores,
+      ontology: this.ontology,
     });
     this.devices = new device.Client({
       unary,
       cache,
       statusStore: this.statuses.store,
-      ontologyStores,
+      ontology: this.ontology,
     });
     this.arcs = new arc.Client({
       unary,
@@ -250,27 +245,24 @@ export default class Synnax extends framer.Client {
       cache,
       statusStore: this.statuses.store,
     });
-    this.views = new view.Client({ unary, cache, ontologyStores });
+    this.views = new view.Client({ unary, cache, ontology: this.ontology });
     this.schematics = new schematic.Client({
       unary,
       ontology: this.ontology,
       cache,
-      ontologyStores,
     });
-    this.lineplots = new lineplot.Client({ unary, cache, ontologyStores });
+    this.lineplots = new lineplot.Client({ unary, cache, ontology: this.ontology });
     this.panels = new panel.Client({
       unary,
       ontology: this.ontology,
       cache,
-      ontologyStores,
     });
-    this.logs = new log.Client({ unary, cache, ontologyStores });
-    this.tables = new table.Client({ unary, cache, ontologyStores });
+    this.logs = new log.Client({ unary, cache, ontology: this.ontology });
+    this.tables = new table.Client({ unary, cache, ontology: this.ontology });
     this.groups = new group.Client({
       unary,
       ontology: this.ontology,
       cache,
-      ontologyStores,
     });
     this.imex = new imex.Client({ file: this.transport.file });
   }

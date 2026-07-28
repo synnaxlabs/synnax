@@ -70,7 +70,6 @@ export interface ClientConfig {
   unary: UnaryClient;
   ontology: ontology.Client;
   cache: query.Cache;
-  ontologyStores: ontology.Stores;
 }
 
 export class Client extends query.Retriever<typeof retrieveReqZ, Key, Panel> {
@@ -79,7 +78,7 @@ export class Client extends query.Retriever<typeof retrieveReqZ, Key, Panel> {
   private readonly dispatcher: actions.Controller<Key, Panel, Action>;
 
   constructor(cfg: ClientConfig) {
-    const { cache, ontologyStores } = cfg;
+    const { cache, ontology: ontologyClient } = cfg;
     // Dispatch mutates documents server-side, so fetched copies never clobber
     // a doc holding locally replayed edits: the table hydrates if-absent.
     const store = cache.createTable<Key, Panel>({
@@ -106,15 +105,18 @@ export class Client extends query.Retriever<typeof retrieveReqZ, Key, Panel> {
           requestFilter(req)(panel) &&
           (req.parent == null || this.isCachedChild(req.parent, panel.key)),
         watch: [
-          query.watch(ontologyStores.relationships, (event, req: RetrieveRequest) => {
-            if (req.parent == null) return null;
-            const rel =
-              event.variant === "set"
-                ? event.value
-                : ontology.relationshipZ.parse(event.key);
-            if (!isChildOf(rel, req.parent)) return null;
-            return [rel.to.key];
-          }),
+          query.watch(
+            ontologyClient.cache.relationships,
+            (event, req: RetrieveRequest) => {
+              if (req.parent == null) return null;
+              const rel =
+                event.variant === "set"
+                  ? event.value
+                  : ontology.relationshipZ.parse(event.key);
+              if (!isChildOf(rel, req.parent)) return null;
+              return [rel.to.key];
+            },
+          ),
         ],
       },
     });
@@ -129,7 +131,7 @@ export class Client extends query.Retriever<typeof retrieveReqZ, Key, Panel> {
   }
 
   private isCachedChild(parent: ontology.ID, key: Key): boolean {
-    return this.cfg.ontologyStores.relationships.has(
+    return this.cfg.ontology.cache.relationships.has(
       ontology.relationshipToString({
         from: parent,
         type: ontology.PARENT_OF_RELATIONSHIP_TYPE,
@@ -169,7 +171,7 @@ export class Client extends query.Retriever<typeof retrieveReqZ, Key, Panel> {
   async rename(key: Key, name: string): Promise<void> {
     const rename = () => [
       query.partialUpdate(this.store, key, { name }),
-      ontology.renameCachedResource(this.cfg.ontologyStores, ontologyID(key), name),
+      this.cfg.ontology.cache.renameResource(ontologyID(key), name),
     ];
     const rollback = new destructor.Chain();
     rollback.add(...rename());
@@ -274,7 +276,7 @@ export class Client extends query.Retriever<typeof retrieveReqZ, Key, Panel> {
   async delete(keys: Key | Key[], opts: query.WriteOptions = {}): Promise<void> {
     const keysArr = array.toArray(keys);
     const drop = () => [
-      ontology.deleteCachedResources(this.cfg.ontologyStores, ontologyID(keysArr)),
+      this.cfg.ontology.cache.deleteResources(ontologyID(keysArr)),
       this.store.delete(keysArr),
     ];
     const rollback = new destructor.Chain();

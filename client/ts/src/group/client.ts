@@ -57,7 +57,6 @@ export interface ClientConfig {
   unary: UnaryClient;
   ontology: ontology.Client;
   cache: query.Cache;
-  ontologyStores: ontology.Stores;
 }
 
 export class Client extends query.Retriever<
@@ -69,7 +68,7 @@ export class Client extends query.Retriever<
   private readonly store: query.Table<Key, Group>;
 
   constructor(cfg: ClientConfig) {
-    const { cache, ontologyStores } = cfg;
+    const { cache, ontology: ontologyClient } = cfg;
     const store = cache.createTable<Key, Group>({
       name: "groups",
       fetch: async (keys) => await this.execRetrieveKeys(keys),
@@ -86,14 +85,17 @@ export class Client extends query.Retriever<
         fetch: async (req) => await this.fetchChildren(req),
         matches: (g, req) => this.isCachedChild(req.parent, g.key),
         watch: [
-          query.watch(ontologyStores.relationships, (event, req: ChildrenRequest) => {
-            const rel =
-              event.variant === "set"
-                ? event.value
-                : ontology.relationshipZ.parse(event.key);
-            if (!isChildOf(rel, req.parent)) return null;
-            return [rel.to.key];
-          }),
+          query.watch(
+            ontologyClient.cache.relationships,
+            (event, req: ChildrenRequest) => {
+              const rel =
+                event.variant === "set"
+                  ? event.value
+                  : ontology.relationshipZ.parse(event.key);
+              if (!isChildOf(rel, req.parent)) return null;
+              return [rel.to.key];
+            },
+          ),
         ],
       },
     });
@@ -114,14 +116,14 @@ export class Client extends query.Retriever<
       type: ontology.PARENT_OF_RELATIONSHIP_TYPE,
       to: ontologyID(res.group.key),
     };
-    this.cfg.ontologyStores.relationships.set(ontology.relationshipToString(rel), rel);
+    this.cfg.ontology.cache.relationships.set(ontology.relationshipToString(rel), rel);
     return res.group;
   }
 
   async rename(key: Key, name: string, opts: query.WriteOptions = {}): Promise<void> {
     const rename = () => [
       query.partialUpdate(this.store, key, { name }),
-      ontology.renameCachedResource(this.cfg.ontologyStores, ontologyID(key), name),
+      this.cfg.ontology.cache.renameResource(ontologyID(key), name),
     ];
     const rollback = new destructor.Chain();
     rollback.add(...rename());
@@ -157,7 +159,7 @@ export class Client extends query.Retriever<
   }
 
   private isCachedChild(parent: ontology.ID, key: Key): boolean {
-    return this.cfg.ontologyStores.relationships.has(
+    return this.cfg.ontology.cache.relationships.has(
       ontology.relationshipToString({
         from: parent,
         type: ontology.PARENT_OF_RELATIONSHIP_TYPE,
@@ -187,7 +189,7 @@ export class Client extends query.Retriever<
       types: ["group"],
     });
     const groups = res.map((r) => groupZ.parse(r.data));
-    const rels = this.cfg.ontologyStores.relationships;
+    const rels = this.cfg.ontology.cache.relationships;
     groups.forEach((g) => {
       const rel: ontology.Relationship = {
         from: parent,

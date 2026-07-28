@@ -12,7 +12,7 @@ import { array, destructor, primitive } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { actions } from "@/actions";
-import { ontology } from "@/ontology";
+import { type ontology } from "@/ontology";
 import { project } from "@/project";
 import { query } from "@/query";
 import { kindOf, reduceAll } from "@/schematic/actions";
@@ -83,7 +83,6 @@ export interface ClientConfig {
   unary: UnaryClient;
   ontology: ontology.Client;
   cache: query.Cache;
-  ontologyStores: ontology.Stores;
 }
 
 export class Client extends query.Retriever<typeof retrieveReqZ, Key, Schematic> {
@@ -161,7 +160,7 @@ export class Client extends query.Retriever<typeof retrieveReqZ, Key, Schematic>
   async rename(key: Key, name: string, opts: query.WriteOptions = {}): Promise<void> {
     const rename = () => [
       query.partialUpdate(this.store, key, { name }),
-      ontology.renameCachedResource(this.cfg.ontologyStores, ontologyID(key), name),
+      this.cfg.ontology.cache.renameResource(ontologyID(key), name),
     ];
     const rollback = new destructor.Chain();
     rollback.add(...rename());
@@ -263,7 +262,7 @@ export class Client extends query.Retriever<typeof retrieveReqZ, Key, Schematic>
   async delete(keys: Key | Key[], opts: query.WriteOptions = {}): Promise<void> {
     const keysArr = array.toArray(keys);
     const drop = () => [
-      ontology.deleteCachedRelationships(this.cfg.ontologyStores, ontologyID(keysArr)),
+      this.cfg.ontology.cache.deleteRelationships(ontologyID(keysArr)),
       this.store.delete(keysArr),
     ];
     const rollback = new destructor.Chain();

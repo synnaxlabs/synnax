@@ -54,7 +54,7 @@ interface RetrieveRequest extends z.infer<typeof retrieveRequestZ> {}
 export interface ClientConfig {
   unary: UnaryClient;
   cache: query.Cache;
-  relationships: query.Table<string, ontology.Relationship>;
+  ontology: ontology.Client;
 }
 
 export class Client extends query.Retriever<typeof retrieveRequestZ, Key, Label> {
@@ -64,7 +64,8 @@ export class Client extends query.Retriever<typeof retrieveRequestZ, Key, Label>
   private readonly cfg: ClientConfig;
 
   constructor(cfg: ClientConfig) {
-    const { cache, relationships } = cfg;
+    const { cache, ontology: ontologyClient } = cfg;
+    const { relationships } = ontologyClient.cache;
     const store = cache.createTable<Key, Label>({
       name: "labels",
       fetch: async (keys) =>
@@ -105,10 +106,17 @@ export class Client extends query.Retriever<typeof retrieveRequestZ, Key, Label>
   ): Promise<void> {
     const rollback = new destructor.Chain();
     if (opts.replace === true)
-      rollback.add(this.cfg.relationships.delete((r) => matchLabeledBy(r, id)));
+      rollback.add(
+        this.cfg.ontology.cache.relationships.delete((r) => matchLabeledBy(r, id)),
+      );
     labels.forEach((key) => {
       const rel = labeledByRel(id, key);
-      rollback.add(this.cfg.relationships.set(ontology.relationshipToString(rel), rel));
+      rollback.add(
+        this.cfg.ontology.cache.relationships.set(
+          ontology.relationshipToString(rel),
+          rel,
+        ),
+      );
     });
     await opts.onOptimistic?.();
     await rollback.guard(
@@ -129,7 +137,7 @@ export class Client extends query.Retriever<typeof retrieveRequestZ, Key, Label>
   ): Promise<void> {
     const rollback = new destructor.Chain();
     rollback.add(
-      this.cfg.relationships.delete(
+      this.cfg.ontology.cache.relationships.delete(
         (r) => matchLabeledBy(r, id) && labels.includes(r.to.key),
       ),
     );
@@ -173,7 +181,7 @@ export class Client extends query.Retriever<typeof retrieveRequestZ, Key, Label>
     const keysArr = array.toArray(keys);
     const drop = () => [
       this.store.delete(keysArr),
-      this.cfg.relationships.delete(
+      this.cfg.ontology.cache.relationships.delete(
         (r) =>
           r.type === LABELED_BY_ONTOLOGY_RELATIONSHIP_TYPE &&
           r.to.type === "label" &&
@@ -222,7 +230,7 @@ export class Client extends query.Retriever<typeof retrieveRequestZ, Key, Label>
   }
 
   private isLabelOf(id: ontology.ID, key: Key): boolean {
-    return this.cfg.relationships.has(
+    return this.cfg.ontology.cache.relationships.has(
       ontology.relationshipToString(labeledByRel(id, key)),
     );
   }

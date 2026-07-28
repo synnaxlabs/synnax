@@ -87,7 +87,7 @@ const requestFilter = (req: RetrieveRequest): ((p: Policy) => boolean) => {
 export interface ClientConfig {
   unary: UnaryClient;
   cache: query.Cache;
-  ontologyStores: ontology.Stores;
+  ontology: ontology.Client;
 }
 
 export class Client extends query.Retriever<typeof listRetrieveParamsZ, Key, Policy> {
@@ -138,7 +138,7 @@ export class Client extends query.Retriever<typeof listRetrieveParamsZ, Key, Pol
     const keysArr = array.toArray(keys);
     const ids = ontologyID(keysArr);
     const drop = () => [
-      ontology.deleteCachedResources(this.cfg.ontologyStores, ids),
+      this.cfg.ontology.cache.deleteResources(ids),
       this.store.delete(keysArr),
     ];
     const rollback = new destructor.Chain();
@@ -154,7 +154,7 @@ export class Client extends query.Retriever<typeof listRetrieveParamsZ, Key, Pol
         ),
     );
     drop();
-    this.cfg.ontologyStores.relationships.delete((r) =>
+    this.cfg.ontology.cache.relationships.delete((r) =>
       ids.some((id) => ontology.idsEqual(r.from, id) || ontology.idsEqual(r.to, id)),
     );
   }
@@ -163,7 +163,7 @@ export class Client extends query.Retriever<typeof listRetrieveParamsZ, Key, Pol
     const existing = await this.retrieve({ key });
     const rename = () => [
       query.partialUpdate(this.store, key, { name }),
-      ontology.renameCachedResource(this.cfg.ontologyStores, ontologyID(key), name),
+      this.cfg.ontology.cache.renameResource(ontologyID(key), name),
     ];
     const rollback = new destructor.Chain();
     rollback.add(...rename());

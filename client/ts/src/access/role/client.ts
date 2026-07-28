@@ -105,7 +105,7 @@ const assignmentRel = (role: Key, userKey: user.Key): ontology.Relationship => (
 export interface ClientConfig {
   unary: UnaryClient;
   cache: query.Cache;
-  ontologyStores: ontology.Stores;
+  ontology: ontology.Client;
 }
 
 export class Client extends query.Retriever<typeof retrieveRequestZ, Key, Role> {
@@ -154,7 +154,7 @@ export class Client extends query.Retriever<typeof retrieveRequestZ, Key, Role> 
     const keysArr = array.toArray(params);
     const ids = ontologyID(keysArr);
     const drop = () => [
-      ontology.deleteCachedResources(this.cfg.ontologyStores, ids),
+      this.cfg.ontology.cache.deleteResources(ids),
       this.store.delete(keysArr),
     ];
     const rollback = new destructor.Chain();
@@ -170,7 +170,7 @@ export class Client extends query.Retriever<typeof retrieveRequestZ, Key, Role> 
         ),
     );
     drop();
-    this.cfg.ontologyStores.relationships.delete((r) =>
+    this.cfg.ontology.cache.relationships.delete((r) =>
       ids.some((id) => ontology.idsEqual(r.from, id) || ontology.idsEqual(r.to, id)),
     );
   }
@@ -179,7 +179,7 @@ export class Client extends query.Retriever<typeof retrieveRequestZ, Key, Role> 
     const existing = await this.retrieve({ key });
     const rename = () => [
       query.partialUpdate(this.store, key, { name }),
-      ontology.renameCachedResource(this.cfg.ontologyStores, ontologyID(key), name),
+      this.cfg.ontology.cache.renameResource(ontologyID(key), name),
     ];
     const rollback = new destructor.Chain();
     rollback.add(...rename());
@@ -194,7 +194,7 @@ export class Client extends query.Retriever<typeof retrieveRequestZ, Key, Role> 
     const rel = assignmentRel(params.role, params.user);
     const rollback = new destructor.Chain();
     rollback.add(
-      this.cfg.ontologyStores.relationships.set(
+      this.cfg.ontology.cache.relationships.set(
         ontology.relationshipToString(rel),
         rel,
       ),
@@ -214,7 +214,7 @@ export class Client extends query.Retriever<typeof retrieveRequestZ, Key, Role> 
   async unassign(params: UnassignParams, opts: query.WriteOptions = {}): Promise<void> {
     const rollback = new destructor.Chain();
     rollback.add(
-      this.cfg.ontologyStores.relationships.delete(
+      this.cfg.ontology.cache.relationships.delete(
         ontology.relationshipToString(assignmentRel(params.role, params.user)),
       ),
     );

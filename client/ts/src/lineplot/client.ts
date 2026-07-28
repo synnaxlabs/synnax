@@ -27,7 +27,7 @@ import {
   type New,
   ontologyID,
 } from "@/lineplot/types.gen";
-import { ontology } from "@/ontology";
+import { type ontology } from "@/ontology";
 import { project } from "@/project";
 import { query } from "@/query";
 
@@ -70,7 +70,7 @@ const requestFilter = (req: RetrieveRequest): ((p: LinePlot) => boolean) => {
 export interface ClientConfig {
   unary: UnaryClient;
   cache: query.Cache;
-  ontologyStores: ontology.Stores;
+  ontology: ontology.Client;
 }
 
 export class Client extends query.Retriever<typeof retrieveReqZ, Key, LinePlot> {
@@ -146,7 +146,7 @@ export class Client extends query.Retriever<typeof retrieveReqZ, Key, LinePlot> 
   async rename(key: Key, name: string, opts: query.WriteOptions = {}): Promise<void> {
     const rename = () => [
       query.partialUpdate(this.store, key, { name }),
-      ontology.renameCachedResource(this.cfg.ontologyStores, ontologyID(key), name),
+      this.cfg.ontology.cache.renameResource(ontologyID(key), name),
     ];
     const rollback = new destructor.Chain();
     rollback.add(...rename());
@@ -248,7 +248,7 @@ export class Client extends query.Retriever<typeof retrieveReqZ, Key, LinePlot> 
   async delete(keys: Key | Key[], opts: query.WriteOptions = {}): Promise<void> {
     const keysArr = array.toArray(keys);
     const drop = () => [
-      ontology.deleteCachedRelationships(this.cfg.ontologyStores, ontologyID(keysArr)),
+      this.cfg.ontology.cache.deleteRelationships(ontologyID(keysArr)),
       this.store.delete(keysArr),
     ];
     const rollback = new destructor.Chain();

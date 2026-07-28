@@ -425,7 +425,7 @@ export class Client extends query.Retriever<
   async delete(keys: Key | Key[], opts: query.WriteOptions = {}): Promise<void> {
     const keysArr = array.toArray(keys);
     const drop = () => [
-      ontology.deleteCachedResources(this.cfg.ontology.stores, ontologyID(keysArr)),
+      this.cfg.ontology.cache.deleteResources(ontologyID(keysArr)),
       this.store.delete(keysArr),
       this.cfg.statusStore.delete(keysArr.map((k) => statusKey(k))),
     ];
@@ -449,7 +449,7 @@ export class Client extends query.Retriever<
       this.store.set(key, (p) =>
         p == null ? undefined : this.sugar({ ...p.payload, name }),
       ),
-      ontology.renameCachedResource(this.cfg.ontology.stores, ontologyID(key), name),
+      this.cfg.ontology.cache.renameResource(ontologyID(key), name),
     ];
     const rollback = new destructor.Chain();
     rollback.add(...rename());

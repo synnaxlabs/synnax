@@ -17,7 +17,7 @@ import { type query } from "@/query";
 export interface ClientConfig {
   unary: UnaryClient;
   cache: query.Cache;
-  ontologyStores: ontology.Stores;
+  ontology: ontology.Client;
 }
 
 export class Client {

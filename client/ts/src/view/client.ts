@@ -64,7 +64,7 @@ const requestFilter = (req: RetrieveRequest): ((v: View) => boolean) => {
 export interface ClientConfig {
   unary: UnaryClient;
   cache: query.Cache;
-  ontologyStores: ontology.Stores;
+  ontology: ontology.Client;
 }
 
 export class Client extends query.Retriever<typeof retrieveRequestZ, Key, View> {
@@ -112,7 +112,7 @@ export class Client extends query.Retriever<typeof retrieveRequestZ, Key, View> 
     const v = await this.retrieve({ key });
     const rename = () => [
       query.partialUpdate(this.store, key, { name }),
-      ontology.renameCachedResource(this.cfg.ontologyStores, ontologyID(key), name),
+      this.cfg.ontology.cache.renameResource(ontologyID(key), name),
     ];
     const rollback = new destructor.Chain();
     rollback.add(...rename());
@@ -127,9 +127,9 @@ export class Client extends query.Retriever<typeof retrieveRequestZ, Key, View> 
     const keysArr = array.toArray(keys);
     const ids = ontologyID(keysArr);
     const drop = () => [
-      ontology.deleteCachedRelationships(this.cfg.ontologyStores, ids),
+      this.cfg.ontology.cache.deleteRelationships(ids),
       this.store.delete(keysArr),
-      this.cfg.ontologyStores.resources.delete(ontology.idToString(ids)),
+      this.cfg.ontology.cache.resources.delete(ontology.idToString(ids)),
     ];
     const rollback = new destructor.Chain();
     rollback.add(...drop());

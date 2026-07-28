@@ -161,7 +161,7 @@ export interface ClientConfig {
   unary: UnaryClient;
   cache: query.Cache;
   statusStore: query.Table<status.Key, status.Status>;
-  ontologyStores: ontology.Stores;
+  ontology: ontology.Client;
 }
 
 export class Client extends query.Retriever<
@@ -334,7 +334,7 @@ export class Client extends query.Retriever<
   async delete(keys: Key | Key[], opts: query.WriteOptions = {}): Promise<void> {
     const keysArr = array.toArray(keys);
     const drop = () => [
-      ontology.deleteCachedResources(this.cfg.ontologyStores, ontologyID(keysArr)),
+      this.cfg.ontology.cache.deleteResources(ontologyID(keysArr)),
       this.store.delete(keysArr),
     ];
     const rollback = new destructor.Chain();

@@ -328,7 +328,7 @@ export interface ClientConfig {
   statuses: status.Client;
   ranges: ranger.Client;
   cache: query.Cache;
-  ontologyStores: ontology.Stores;
+  ontology: ontology.Client;
 }
 
 export class Client extends query.Retriever<
@@ -613,9 +613,9 @@ export class Client extends query.Retriever<
       const keys = normalized;
       const ids = ontologyID(keys);
       const drop = () => [
-        ontology.deleteCachedRelationships(this.cfg.ontologyStores, ids),
+        this.cfg.ontology.cache.deleteRelationships(ids),
         this.store.delete(keys),
-        this.cfg.ontologyStores.resources.delete(ontology.idToString(ids)),
+        this.cfg.ontology.cache.resources.delete(ontology.idToString(ids)),
       ];
       const rollback = new destructor.Chain();
       rollback.add(...drop());
@@ -644,7 +644,7 @@ export class Client extends query.Retriever<
         const name = namesArr[i];
         return [
           this.renameThrough(key, name),
-          ontology.renameCachedResource(this.cfg.ontologyStores, ontologyID(key), name),
+          this.cfg.ontology.cache.renameResource(ontologyID(key), name),
         ];
       });
     const rollback = new destructor.Chain();

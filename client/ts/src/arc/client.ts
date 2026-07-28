@@ -231,7 +231,7 @@ export class Client extends query.Retriever<
       compose: (records) =>
         records.length === 0 ? null : this.composeTask(records[0]),
       matches: (t, q) =>
-        this.cfg.ontology.stores.relationships.has(
+        this.cfg.ontology.cache.relationships.has(
           ontology.relationshipToString({
             from: ontologyID(q),
             type: ontology.PARENT_OF_RELATIONSHIP_TYPE,
@@ -239,7 +239,7 @@ export class Client extends query.Retriever<
           }),
         ),
       watch: [
-        query.watch(this.cfg.ontology.stores.relationships, (event, q: Key) => {
+        query.watch(this.cfg.ontology.cache.relationships, (event, q: Key) => {
           const rel =
             event.variant === "set"
               ? event.value

@@ -77,7 +77,7 @@ const BASE_REQUEST: Partial<RetrieveRequest> = { includeLabels: true };
 export interface ClientConfig {
   unary: UnaryClient;
   cache: query.Cache;
-  ontologyStores: ontology.Stores;
+  ontology: ontology.Client;
   labels: label.Client;
 }
 
@@ -93,8 +93,8 @@ export class Client extends query.Retriever<
   private readonly cfg: ClientConfig;
 
   constructor(cfg: ClientConfig) {
-    const { cache, ontologyStores, labels } = cfg;
-    const { relationships } = ontologyStores;
+    const { cache, ontology: ontologyClient, labels } = cfg;
+    const { relationships } = ontologyClient.cache;
     const store = cache.createTable<Key, Status>({
       name: "statuses",
       fetch: async (keys) => await this.fetchThrough({ keys }),
@@ -223,7 +223,7 @@ export class Client extends query.Retriever<
     const rollback = new destructor.Chain();
     rollback.add(
       this.store.set(renamed),
-      ontology.renameCachedResource(this.cfg.ontologyStores, ontologyID(key), name),
+      this.cfg.ontology.cache.renameResource(ontologyID(key), name),
     );
     await opts.onOptimistic?.();
     await rollback.guard(async () => await this.set(renamed));
@@ -233,7 +233,7 @@ export class Client extends query.Retriever<
     const keysArr = array.toArray(keys);
     const drop = () => [
       this.store.delete(keysArr),
-      this.cfg.ontologyStores.relationships.delete((r) =>
+      this.cfg.ontology.cache.relationships.delete((r) =>
         keysArr.some((key) => label.matchLabeledBy(r, ontologyID(key))),
       ),
     ];
@@ -281,7 +281,7 @@ export class Client extends query.Retriever<
   /** Rebuilds a cached status with its cached labels attached. */
   private compose(cached: Status): Status {
     const labels = label.cachedLabelsOf(
-      this.cfg.ontologyStores.relationships,
+      this.cfg.ontology.cache.relationships,
       this.cfg.labels.store,
       ontologyID(cached.key),
     );
@@ -300,7 +300,7 @@ export class Client extends query.Retriever<
         type: label.LABELED_BY_ONTOLOGY_RELATIONSHIP_TYPE,
         to: label.ontologyID(l.key),
       };
-      this.cfg.ontologyStores.relationships.set(
+      this.cfg.ontology.cache.relationships.set(
         ontology.relationshipToString(rel),
         rel,
       );
@@ -339,7 +339,7 @@ export class Client extends query.Retriever<
 
   /** Reports whether the status is labeled by the given label. */
   private isLabeledBy(status: Key, labelKey: label.Key): boolean {
-    return this.cfg.ontologyStores.relationships.has(
+    return this.cfg.ontology.cache.relationships.has(
       ontology.relationshipToString({
         from: ontologyID(status),
         type: label.LABELED_BY_ONTOLOGY_RELATIONSHIP_TYPE,
@@ -350,7 +350,7 @@ export class Client extends query.Retriever<
 
   /** Returns the keys of cached statuses labeled by the given label. */
   private statusesLabeledBy(labelKey: label.Key): Key[] {
-    return this.cfg.ontologyStores.relationships
+    return this.cfg.ontology.cache.relationships
       .get(
         (r) =>
           r.type === label.LABELED_BY_ONTOLOGY_RELATIONSHIP_TYPE &&
