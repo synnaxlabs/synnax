@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type device } from "@synnaxlabs/client";
+import { type device, query } from "@synnaxlabs/client";
 import { Device, Flux } from "@synnaxlabs/pluto";
 import { array, primitive } from "@synnaxlabs/x";
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -45,8 +45,8 @@ export const [useSelectEnabledState] = Flux.createSelector<
   select: ({ client, args: { keys } }) => {
     if (client == null || keys.length === 0) return EMPTY_SLAVES;
     const cached = client.devices.getCached({ keys });
-    if (cached?.variant !== "changed") return EMPTY_SLAVES;
-    return cached.data as unknown as SlaveDevice[];
+    if (cached == null || query.Deleted.matches(cached)) return EMPTY_SLAVES;
+    return cached as unknown as SlaveDevice[];
   },
   transform: (devices) => {
     const disabledCount = devices.filter((d) => !d.properties?.enabled).length;

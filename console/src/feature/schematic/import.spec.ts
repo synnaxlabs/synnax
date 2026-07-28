@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { schematic } from "@synnaxlabs/client";
-import { createTestClient } from "@synnaxlabs/client/testutil";
+import { createTestClient, expectLive } from "@synnaxlabs/client/testutil";
 import { color, type record } from "@synnaxlabs/x";
 import { describe, expect, it, vi } from "vitest";
 
@@ -410,8 +410,7 @@ describe("schematic import", () => {
       expect(created.name).toBe(name);
       expect(created.nodes).toHaveLength(1);
       const cached = client.schematics.getCached({ key: id.key });
-      if (cached?.variant !== "changed") throw new Error("expected a cached schematic");
-      expect(cached.data.name).toBe(name);
+      expect(expectLive(cached).name).toBe(name);
     });
 
     it("rejects the import when the permission cache has no grant", async () => {

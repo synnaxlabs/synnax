@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { schematic } from "@synnaxlabs/client";
+import { query, schematic } from "@synnaxlabs/client";
 import { Status, Synnax } from "@synnaxlabs/pluto";
 import { useCallback, useMemo } from "react";
 
@@ -44,7 +44,9 @@ export const useHandleNodeClickAction = (schematicKey: string): NodeClickHandler
       if (ui == null || ui.editable || retrieve == null) return;
       const cached = client?.schematics.getCached({ key: schematicKey });
       const config =
-        cached?.variant === "changed" ? cached.data.configs?.[nodeId] : undefined;
+        cached != null && !query.Deleted.matches(cached)
+          ? cached.configs?.[nodeId]
+          : undefined;
       if (
         config?.variant !== "offPageReference" ||
         typeof config.page !== "string" ||
