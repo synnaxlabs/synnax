@@ -9,6 +9,7 @@
 
 import {
   type CrudeTimeSpan,
+  deep,
   type destructor,
   id,
   migrate,
@@ -134,12 +135,11 @@ export interface Info {
 
 /**
  * Everything that can move the connection status. The client is the only
- * producer: the probe and retry events come from its prober, the stream events
- * from its change stream, the auth events from its login middleware.
+ * producer: probe and retry events come from its own loop, the rest arrive as
+ * outside facts through its notify inbox.
  */
 export type Event =
   | { type: "probe.success"; info: Info }
-  | { type: "cluster.replaced"; info: Info }
   | { type: "probe.failure"; error: Error; attempt: number }
   | { type: "stream.live" }
   | { type: "stream.drop"; error?: Error }
@@ -202,6 +202,9 @@ const probeFacts = (info: Info, config: Config): Partial<Details> => ({
 });
 
 const reduceProbeSuccess = (prev: Status, info: Info, config: Config): Status => {
+  const { clusterKey } = prev.details;
+  if (clusterKey !== "" && info.clusterKey !== clusterKey)
+    return reduceClusterReplaced(prev, info, config);
   const facts = probeFacts(info, config);
   // reachable but the stream is still dark: the client re-demands it and we
   // stay degraded until it reports live. A parked unreachable error must
@@ -225,9 +228,9 @@ const reduceProbeSuccess = (prev: Status, info: Info, config: Config): Status =>
   });
 };
 
-// The cluster answering at the connection's address is not the one previously
-// contacted. Everything learned from the old cluster is void, so the machine
-// returns to first contact: loading at epoch 0 with a dark stream.
+// The cluster answering the probe is not the one previously contacted.
+// Everything learned from the old cluster is void, so the machine returns to
+// first contact: loading at epoch 0 with a dark stream.
 const reduceClusterReplaced = (prev: Status, info: Info, config: Config): Status =>
   update(prev, {
     variant: "loading",
@@ -311,8 +314,6 @@ export const reduce = (prev: Status, event: Event, config: Config): Status => {
   switch (event.type) {
     case "probe.success":
       return reduceProbeSuccess(prev, event.info, config);
-    case "cluster.replaced":
-      return reduceClusterReplaced(prev, event.info, config);
     case "probe.failure":
       return reduceProbeFailure(prev, event.error, event.attempt, config);
     case "stream.live":
@@ -356,21 +357,17 @@ export const reduce = (prev: Status, event: Event, config: Config): Status => {
   }
 };
 
-/**
- * Whether the change is worth notifying observers about. Error objects, raw
- * skew, and the next-probe timestamp move silently.
- */
+// Fields that legitimately churn without meaning anything: the stamp moves on
+// every advance and raw skew jitters on every successful probe. Everything
+// else is material, so new fields notify by default.
+const comparable = ({ time: _, ...rest }: Status): unknown => ({
+  ...rest,
+  details: { ...rest.details, clockSkew: undefined },
+});
+
+/** Whether the change is worth notifying observers about. */
 export const materialChange = (prev: Status, next: Status): boolean =>
-  next.variant !== prev.variant ||
-  next.message !== prev.message ||
-  next.details.reason !== prev.details.reason ||
-  next.details.authenticated !== prev.details.authenticated ||
-  next.details.streamLive !== prev.details.streamLive ||
-  next.details.epoch !== prev.details.epoch ||
-  next.details.clusterKey !== prev.details.clusterKey ||
-  next.details.clientServerCompatible !== prev.details.clientServerCompatible ||
-  next.details.clockSkewExceeded !== prev.details.clockSkewExceeded ||
-  next.details.retry?.attempt !== prev.details.retry?.attempt;
+  !deep.equal(comparable(prev), comparable(next));
 
 /**
  * Folds the event and stamps the status time when the result is worth

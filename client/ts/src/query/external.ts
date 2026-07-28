@@ -17,7 +17,7 @@ export {
   watch,
   type WatchEntry,
 } from "@/query/query";
-export { Retriever, type RetrieverParams } from "@/query/reader";
+export { Retriever, type RetrieverParams } from "@/query/retriever";
 export {
   type Listener,
   type ObservableStream,
