@@ -22,6 +22,7 @@ import z from "zod";
 import { Aether } from "@/aether";
 import { context } from "@/context";
 import { useCombinedStateAndRef } from "@/hooks";
+import { useMemoDeepEqual } from "@/memo";
 import { Status } from "@/status/base";
 import { synnax } from "@/synnax/aether";
 
@@ -122,7 +123,13 @@ export const TestProvider = ({ children, client }: TestProviderProps): ReactElem
   );
 };
 
-export const Provider = ({ children, connParams }: ProviderProps): ReactElement => {
+export const Provider = ({
+  children,
+  connParams: connParamsProp,
+}: ProviderProps): ReactElement => {
+  // The client's lifetime keys on param content: a content-equal rewrite of
+  // the params object (state hydration) must not tear down the connection.
+  const connParams = useMemoDeepEqual(connParamsProp);
   const [state, setState, ref] =
     useCombinedStateAndRef<ContextValue>(ZERO_CONTEXT_VALUE);
 
