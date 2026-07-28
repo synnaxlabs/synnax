@@ -57,14 +57,16 @@ fn set_transparent_titlebar(win: &Window, transparent: bool) {
 
     window.setTitlebarAppearsTransparent(true);
 
+    // Hide rather than remove: AppKit re-attaches removed standard buttons when it
+    // relays out the titlebar (e.g. on setTitle), while hidden instances stay hidden.
     if let Some(close) = window.standardWindowButton(NSWindowButton::CloseButton) {
-        close.removeFromSuperview();
+        close.setHidden(true);
     }
     if let Some(miniaturize) = window.standardWindowButton(NSWindowButton::MiniaturizeButton) {
-        miniaturize.removeFromSuperview();
+        miniaturize.setHidden(true);
     }
     if let Some(zoom) = window.standardWindowButton(NSWindowButton::ZoomButton) {
-        zoom.removeFromSuperview();
+        zoom.setHidden(true);
     }
 }
 
