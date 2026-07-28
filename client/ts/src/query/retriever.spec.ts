@@ -13,6 +13,7 @@ import z from "zod";
 
 import { NotFoundError, ValidationError } from "@/errors";
 import { query } from "@/query";
+import { Deleted } from "@/query/deleted";
 
 interface Thing extends record.Keyed<string> {
   key: string;
@@ -56,6 +57,13 @@ class Client extends query.Retriever<typeof requestZ, string, Thing> {
   readonly store: query.Table<string, Thing>;
 }
 
+const expectDeleted = <D extends query.Data>(
+  value: query.Cached<D> | undefined,
+): Deleted<D> => {
+  if (!Deleted.matches<D>(value)) throw new Error("expected a deleted answer");
+  return value;
+};
+
 describe("Retriever", () => {
   describe("derived single space", () => {
     it("resolves a { key } param to one record through the table fetch", async () => {
@@ -94,10 +102,7 @@ describe("Retriever", () => {
       const handler = vi.fn();
       const stop = client.onChange({ key: "a" }, handler);
       client.store.delete("a");
-      expect(handler).toHaveBeenLastCalledWith({
-        variant: "deleted",
-        corpse: thing("a"),
-      });
+      expect(expectDeleted(handler.mock.lastCall?.[0]).corpse).toEqual(thing("a"));
       await expect(client.retrieve({ key: "a" })).rejects.toThrow(NotFoundError);
       stop();
     });
@@ -109,10 +114,7 @@ describe("Retriever", () => {
         async () => [],
       );
       client.store.set([thing("a")]);
-      expect(client.getCached({ key: "a" })).toEqual({
-        variant: "changed",
-        data: thing("a"),
-      });
+      expect(client.getCached({ key: "a" })).toEqual(thing("a"));
     });
   });
 
@@ -155,10 +157,7 @@ describe("Retriever", () => {
       const stop = client.onChange({ minSize: 3 }, handler);
       await client.retrieve({ minSize: 3 });
       client.store.set([thing("b", 4)]);
-      expect(handler).toHaveBeenLastCalledWith({
-        variant: "changed",
-        data: [thing("a", 5), thing("b", 4)],
-      });
+      expect(handler).toHaveBeenLastCalledWith([thing("a", 5), thing("b", 4)]);
       stop();
     });
 
