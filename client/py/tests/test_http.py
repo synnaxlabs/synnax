@@ -7,11 +7,10 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from random import randint
-
 import pytest
 
 import synnax as sy
+from x.strings import random_name
 
 
 @pytest.mark.http
@@ -789,7 +788,7 @@ class TestHTTPDevicePropertyUpdates:
         )
         device = client.devices.create(device)
 
-        suffix = randint(0, 100000)
+        suffix = random_name()
         time_ch = client.channels.create(
             name=f"http_time_{suffix}",
             data_type=sy.DataType.TIMESTAMP,
@@ -847,7 +846,7 @@ class TestHTTPDevicePropertyUpdates:
         )
         device = client.devices.create(device)
 
-        suffix = randint(0, 100000)
+        suffix = random_name()
         cmd_time = client.channels.create(
             name=f"http_cmd_time_{suffix}",
             data_type=sy.DataType.TIMESTAMP,

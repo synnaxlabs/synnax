@@ -57,7 +57,6 @@ class ForceBridgeTwoPointLinear(Analog):
         electrical_value_two: float | None = None,
         **kwargs: Any,
     ) -> None:
-
         super().__init__(
             layout=layout,
             name=name,
