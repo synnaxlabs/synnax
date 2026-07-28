@@ -12,7 +12,7 @@ import { beforeAll, describe, expect, it, test, vi } from "vitest";
 
 import { group } from "@/group";
 import { ontology } from "@/ontology";
-import { createTestClient } from "@/testutil";
+import { createTestClient, expectLive, isLive } from "@/testutil";
 
 const client = createTestClient();
 const remote = createTestClient();
@@ -297,10 +297,8 @@ describe("Ontology", () => {
         const query = { ids: parentID };
         expect(client.ontology.children.getCached(query)).toBeUndefined();
         await client.ontology.children.retrieve(query);
-        const cached = client.ontology.children.getCached(query);
-        expect(cached?.variant).toEqual("changed");
-        if (cached?.variant === "changed")
-          expect(cached.data.some((r) => r.id.key === child.key)).toBe(true);
+        const cached = expectLive(client.ontology.children.getCached(query));
+        expect(cached.some((r) => r.id.key === child.key)).toBe(true);
       });
     });
 
@@ -323,10 +321,7 @@ describe("Ontology", () => {
           await expect
             .poll(() => {
               const cached = client.ontology.children.getCached(query);
-              return (
-                cached?.variant === "changed" &&
-                cached.data.some((r) => r.id.key === child.key)
-              );
+              return isLive(cached) && cached.some((r) => r.id.key === child.key);
             })
             .toBe(true);
           expect(handler).toHaveBeenCalled();

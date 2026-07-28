@@ -492,7 +492,7 @@ describe("Cache", () => {
         single: true,
       });
       await space.retrieve("k1");
-      expect(space.getCached("k1")?.variant).toEqual("changed");
+      expect(space.getCached("k1")).toEqual({ key: "k1", name: "fetched" });
       const results: Array<query.Cached<Doc> | undefined> = [];
       const detach = space.onChange("k1", (result) => results.push(result));
       await cache.reset();

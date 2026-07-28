@@ -12,9 +12,17 @@ import { describe, expect, it, vi } from "vitest";
 
 import { NotFoundError } from "@/errors";
 import { query } from "@/query";
+import { Deleted } from "@/query/deleted";
 import { type AnswersHooks, Queries } from "@/query/query";
 
 const wait = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
+
+const expectDeleted = <D extends query.Data>(
+  value: query.Cached<D> | undefined,
+): Deleted<D> => {
+  if (!Deleted.matches<D>(value)) throw new Error("expected a deleted answer");
+  return value;
+};
 
 interface Rec extends record.Keyed<string> {
   key: string;
@@ -295,7 +303,7 @@ describe("Answers", () => {
       table.set("a", rec("a", 4));
       resolve(["a"]);
       await promise;
-      expect(answers.getCached(qA)).toEqual({ variant: "changed", data: 4 });
+      expect(answers.getCached(qA)).toEqual(4);
     });
 
     it("returns a referentially stable answer between changes", async () => {
@@ -316,7 +324,7 @@ describe("Answers", () => {
       table.set("a", rec("a", 9));
       const fetch = vi.fn(async () => ["a"]);
       const answers = singleSpace(table, fetch);
-      expect(answers.getCached(qA)).toEqual({ variant: "changed", data: 9 });
+      expect(answers.getCached(qA)).toEqual(9);
       expect(fetch).not.toHaveBeenCalled();
     });
 
@@ -325,7 +333,7 @@ describe("Answers", () => {
       table.set("a", rec("a", 9));
       table.delete("a");
       const answers = singleSpace(table, async () => ["a"]);
-      expect(answers.getCached(qA)).toEqual({ variant: "deleted", corpse: 9 });
+      expect(expectDeleted(answers.getCached(qA)).corpse).toEqual(9);
     });
 
     it("produces a new answer object after a change", async () => {
@@ -340,7 +348,7 @@ describe("Answers", () => {
       table.set("a", rec("a", 2));
       const second = answers.getCached(qA);
       expect(second).not.toBe(first);
-      expect(second).toEqual({ variant: "changed", data: 2 });
+      expect(second).toEqual(2);
     });
   });
 
@@ -355,8 +363,8 @@ describe("Answers", () => {
       answers.onChange(qA, handler);
       await answers.retrieve(qA);
       table.set("a", rec("a", 2));
-      expect(handler).toHaveBeenCalledWith({ variant: "changed", data: 2 });
-      expect(answers.getCached(qA)).toEqual({ variant: "changed", data: 2 });
+      expect(handler).toHaveBeenCalledWith(2);
+      expect(answers.getCached(qA)).toEqual(2);
     });
 
     it("composes setter updates against the previous row", async () => {
@@ -368,7 +376,7 @@ describe("Answers", () => {
       answers.onChange(qA, vi.fn());
       await answers.retrieve(qA);
       table.set("a", (prev) => prev && { ...prev, value: prev.value + 5 });
-      expect(answers.getCached(qA)).toEqual({ variant: "changed", data: 15 });
+      expect(answers.getCached(qA)).toEqual(15);
     });
 
     it("scopes notifications by query", async () => {
@@ -408,7 +416,7 @@ describe("Answers", () => {
       const handler = vi.fn();
       answers.onChange(qA, handler);
       await answers.retrieve(qA);
-      expect(handler).toHaveBeenCalledWith({ variant: "changed", data: 8 });
+      expect(handler).toHaveBeenCalledWith(8);
     });
 
     it("does not fire on fetch failure", async () => {
@@ -428,8 +436,8 @@ describe("Answers", () => {
       const answers = singleSpace(table, fetch);
       const handler = vi.fn();
       answers.onChange(qA, handler);
-      expect(handler).toHaveBeenCalledWith({ variant: "changed", data: 4 });
-      expect(answers.getCached(qA)).toEqual({ variant: "changed", data: 4 });
+      expect(handler).toHaveBeenCalledWith(4);
+      expect(answers.getCached(qA)).toEqual(4);
       expect(await answers.retrieve(qA)).toEqual(4);
       expect(fetch).not.toHaveBeenCalled();
     });
@@ -441,8 +449,8 @@ describe("Answers", () => {
       const answers = singleSpace(table, async () => ["a"]);
       const handler = vi.fn();
       answers.onChange(qA, handler);
-      expect(handler).toHaveBeenCalledWith({ variant: "deleted", corpse: 4 });
-      expect(answers.getCached(qA)).toEqual({ variant: "deleted", corpse: 4 });
+      expect(expectDeleted(handler.mock.lastCall?.[0]).corpse).toEqual(4);
+      expect(expectDeleted(answers.getCached(qA)).corpse).toEqual(4);
     });
 
     it("does not seed when the table has no row for the key", () => {
@@ -489,7 +497,7 @@ describe("Answers", () => {
       answers.onChange(qA, handler);
       await answers.retrieve(qA);
       table.set("a", rec("a", 2));
-      expect(handler).toHaveBeenCalledWith({ variant: "changed", data: 2 });
+      expect(handler).toHaveBeenCalledWith(2);
     });
   });
 
@@ -504,8 +512,8 @@ describe("Answers", () => {
       answers.onChange(qA, handler);
       await answers.retrieve(qA);
       table.delete("a");
-      expect(handler).toHaveBeenCalledWith({ variant: "deleted", corpse: 6 });
-      expect(answers.getCached(qA)).toEqual({ variant: "deleted", corpse: 6 });
+      expect(expectDeleted(handler.mock.lastCall?.[0]).corpse).toEqual(6);
+      expect(expectDeleted(answers.getCached(qA)).corpse).toEqual(6);
     });
 
     it("flips back to changed when the record is re-set", async () => {
@@ -519,8 +527,8 @@ describe("Answers", () => {
       await answers.retrieve(qA);
       table.delete("a");
       table.set("a", rec("a", 7));
-      expect(handler).toHaveBeenLastCalledWith({ variant: "changed", data: 7 });
-      expect(answers.getCached(qA)).toEqual({ variant: "changed", data: 7 });
+      expect(handler).toHaveBeenLastCalledWith(7);
+      expect(answers.getCached(qA)).toEqual(7);
     });
 
     it("invalidates when there is no corpse to retain", () => {
@@ -592,7 +600,7 @@ describe("Answers", () => {
       answers.onChange(qA, handler);
       await answers.retrieve(qA);
       table.delete("a");
-      expect(handler).toHaveBeenLastCalledWith({ variant: "deleted", corpse: 6 });
+      expect(expectDeleted(handler.mock.lastCall?.[0]).corpse).toEqual(6);
     });
 
     it("does not notify while the entry is unfetched", () => {
@@ -629,10 +637,7 @@ describe("Answers", () => {
       answers.onChange({ min: 3 }, handler);
       await answers.retrieve({ min: 3 });
       table.set("b", rec("b", 4));
-      expect(handler).toHaveBeenLastCalledWith({
-        variant: "changed",
-        data: [rec("a", 5), rec("b", 4)],
-      });
+      expect(handler).toHaveBeenLastCalledWith([rec("a", 5), rec("b", 4)]);
     });
 
     it("evicts a record that stops matching the query", async () => {
@@ -645,10 +650,7 @@ describe("Answers", () => {
       answers.onChange({ min: 3 }, handler);
       await answers.retrieve({ min: 3 });
       table.set("a", rec("a", 1));
-      expect(handler).toHaveBeenLastCalledWith({
-        variant: "changed",
-        data: [rec("b", 4)],
-      });
+      expect(handler).toHaveBeenLastCalledWith([rec("b", 4)]);
     });
 
     it("notifies when a member's content changes without membership change", async () => {
@@ -661,10 +663,7 @@ describe("Answers", () => {
       answers.onChange({ min: 3 }, handler);
       await answers.retrieve({ min: 3 });
       table.set("a", rec("a", 6));
-      expect(handler).toHaveBeenLastCalledWith({
-        variant: "changed",
-        data: [rec("a", 6)],
-      });
+      expect(handler).toHaveBeenLastCalledWith([rec("a", 6)]);
     });
 
     it("appends admitted members in event order", async () => {
@@ -678,10 +677,7 @@ describe("Answers", () => {
       await answers.retrieve({ min: 0 });
       table.set("a", rec("a", 3));
       table.set("c", rec("c", 1));
-      expect(handler).toHaveBeenLastCalledWith({
-        variant: "changed",
-        data: [rec("b", 2), rec("a", 3), rec("c", 1)],
-      });
+      expect(handler).toHaveBeenLastCalledWith([rec("b", 2), rec("a", 3), rec("c", 1)]);
     });
   });
 
@@ -763,14 +759,14 @@ describe("Answers", () => {
       await expect
         .poll(() => {
           const cached = answers.getCached({ tag: "t" });
-          return cached?.variant === "changed" ? cached.data : [];
+          return cached != null && !Deleted.matches(cached) ? cached : [];
         })
         .toEqual([rec("a", 1), rec("b", 10)]);
       foreign.delete("a");
       await expect
         .poll(() => {
           const cached = answers.getCached({ tag: "t" });
-          return cached?.variant === "changed" ? cached.data : [];
+          return cached != null && !Deleted.matches(cached) ? cached : [];
         })
         .toEqual([rec("b", 10)]);
     });
@@ -873,7 +869,107 @@ describe("Answers", () => {
       table.set("a", rec("a", 99));
       resolve(["a"]);
       await promise;
-      expect(answers.getCached(qA)).toEqual({ variant: "changed", data: 99 });
+      expect(answers.getCached(qA)).toEqual(99);
     });
+  });
+});
+
+describe("referential stability", () => {
+  interface Doc extends record.Keyed<string> {
+    key: string;
+    name: string;
+  }
+  const doc = (key: string, name: string): Doc => ({ key, name });
+  const newDocTable = () => new query.Table<string, Doc>({ onError: () => {} });
+  /** Identity-compose single space: the answer is the table row itself. */
+  const identitySpace = (
+    table: query.Table<string, Doc>,
+    fetch: (query: Q) => Promise<string[]>,
+  ) =>
+    new Queries<Q, Doc, string, Doc>({
+      name: "doc",
+      table,
+      fetch,
+      compose: (records) => records[0],
+      keyOf: (query) => query.k,
+      single: true,
+    });
+
+  it("returns the table row itself for identity composes", () => {
+    const table = newDocTable();
+    const row = doc("a", "one");
+    table.set("a", row);
+    const answers = identitySpace(table, async () => ["a"]);
+    expect(answers.getCached(qA)).toBe(row);
+  });
+
+  it("returns the same reference across repeated entry-less reads", () => {
+    const table = newDocTable();
+    table.set("a", doc("a", "one"));
+    const answers = identitySpace(table, async () => ["a"]);
+    expect(answers.getCached(qA)).toBe(answers.getCached(qA));
+  });
+
+  it("returns a new row reference only after the row changes", async () => {
+    const table = newDocTable();
+    const first = doc("a", "one");
+    const answers = identitySpace(table, async () => {
+      table.set("a", first);
+      return ["a"];
+    });
+    answers.onChange(qA, vi.fn());
+    await answers.retrieve(qA);
+    expect(answers.getCached(qA)).toBe(first);
+    const second = doc("a", "two");
+    table.set("a", second);
+    expect(answers.getCached(qA)).toBe(second);
+  });
+
+  it("returns the same Deleted instance across repeated reads", () => {
+    const table = newDocTable();
+    const row = doc("a", "one");
+    table.set("a", row);
+    table.delete("a");
+    const answers = identitySpace(table, async () => ["a"]);
+    const first = expectDeleted(answers.getCached(qA));
+    expect(answers.getCached(qA)).toBe(first);
+    expect(first.corpse).toBe(row);
+  });
+
+  it("interns composed corpses so non-identity deleted answers are stable", () => {
+    const table = newTable();
+    table.set("a", rec("a", 9));
+    table.delete("a");
+    const answers = singleSpace(table, async () => ["a"]);
+    const first = expectDeleted(answers.getCached(qA));
+    expect(answers.getCached(qA)).toBe(first);
+    expect(first.corpse).toEqual(9);
+  });
+
+  it("delivers bare rows and interned Deleted instances through onChange", async () => {
+    const table = newDocTable();
+    const answers = identitySpace(table, async () => {
+      table.set("a", doc("a", "one"));
+      return ["a"];
+    });
+    const handler = vi.fn();
+    answers.onChange(qA, handler);
+    await answers.retrieve(qA);
+    const next = doc("a", "two");
+    table.set("a", next);
+    expect(handler.mock.lastCall?.[0]).toBe(next);
+    table.delete("a");
+    expect(handler.mock.lastCall?.[0]).toBe(answers.getCached(qA));
+    expect(expectDeleted(handler.mock.lastCall?.[0]).corpse).toBe(next);
+  });
+
+  it("brands deleted answers so matches rejects live data", () => {
+    const table = newDocTable();
+    const row = doc("a", "one");
+    table.set("a", row);
+    const answers = identitySpace(table, async () => ["a"]);
+    expect(Deleted.matches(answers.getCached(qA))).toBe(false);
+    table.delete("a");
+    expect(Deleted.matches(answers.getCached(qA))).toBe(true);
   });
 });

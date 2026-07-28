@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type UnaryClient } from "@synnaxlabs/freighter";
-import { array, destructor, primitive, TimeStamp } from "@synnaxlabs/x";
+import { array, deep, destructor, primitive, TimeStamp } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { ontology } from "@/ontology";
@@ -165,20 +165,22 @@ export class Client extends query.Retriever<
         query.createDeleteListener(DELETE_CHANNEL_NAME, keyZ),
       ],
     });
-    const statusWatch = <Q extends { includeStatus?: boolean }>() =>
-      query.watch(statusStore, (event, q: Q) => {
-        if (q.includeStatus !== true) return null;
-        return affectedRackKeys(event);
-      });
-    const single = cache.queries<SingleQuery, Rack, Key, Omit<Payload, "status">>({
+    // Composed rows always carry status; includeStatus only gates fetch flags.
+    const composed = cache.derive<Key, Omit<Payload, "status">, Rack>({
+      name: "rack.composed",
+      source: store,
+      compose: (record) => this.compose(record, true),
+      equal: (a, b) => deep.equal(a.payload, b.payload),
+      watch: [query.deriveWatch(statusStore, (event) => affectedRackKeys(event))],
+    });
+    const single = cache.queries<SingleQuery, Rack, Key, Rack>({
       name: "rack",
-      table: store,
+      table: composed,
       fetch: async (q) => [(await this.fetchSingle(q)).key],
-      compose: ([record], q) => this.compose(record, q.includeStatus === true),
+      compose: (records) => records[0],
       keyOf: (q) => ("key" in q ? q.key : null),
       matches: (r, q) => ("key" in q ? r.key === q.key : r.name === q.name),
       single: true,
-      watch: [statusWatch<SingleQuery>()],
     });
     super(cache, {
       name: "rack",
@@ -188,7 +190,12 @@ export class Client extends query.Retriever<
         fetch: async (req) => (await this.fetchThrough(req)).map(stripStatus),
         matches: (r, req) => requestFilter(req)(r),
         serverFields: SERVER_FIELDS,
-        watch: [statusWatch<RetrieveRequest>()],
+        watch: [
+          query.watch(statusStore, (event, q: RetrieveRequest) => {
+            if (q.includeStatus !== true) return null;
+            return affectedRackKeys(event);
+          }),
+        ],
       },
       compose: (record, q) =>
         this.compose(record, (q as { includeStatus?: boolean }).includeStatus === true),
