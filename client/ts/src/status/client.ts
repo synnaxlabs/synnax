@@ -158,10 +158,10 @@ export class Client extends query.Retriever<
       },
       compose: (record) => this.compose(record),
       single: {
-        is: (params): params is SingleRetrieveParams =>
-          typeof params === "object" && params !== null && "key" in params,
-        normalize: ({ key }) => key,
-        space: single as query.Retrieves<query.Params, Status>,
+        schema: z
+          .strictObject({ key: keyZ, includeLabels: z.boolean().optional() })
+          .transform(({ key }) => key),
+        space: single,
       },
     });
     this.cfg = cfg;
