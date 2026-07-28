@@ -158,8 +158,6 @@ export class Client extends query.Retriever<
       },
       compose: (record) => this.compose(record),
       single: {
-        // includeLabels does not change a query's identity: cached fetches
-        // always request labels, so only the key participates in hashing.
         schema: z
           .strictObject({ key: keyZ, includeLabels: z.boolean().optional() })
           .transform(({ key }) => key),
