@@ -10,7 +10,7 @@
 import { type destructor, type record, type state } from "@synnaxlabs/x";
 import type z from "zod";
 
-import { NotFoundError } from "@/errors";
+import { NotFoundError, ValidationError } from "@/errors";
 import { type Cache } from "@/query/cache";
 import {
   type Cached,
@@ -165,9 +165,17 @@ export abstract class Retriever<
     if (single != null) {
       this.singleSpace = single.space;
       const singleSchema = single.schema;
+      // Params carrying `key` that fail the single schema are malformed
+      // single queries; falling through would silently fetch every record.
       this.trySingle = (p) => {
         const res = singleSchema.safeParse(p);
-        return res.success ? { query: res.data } : null;
+        if (res.success) return { query: res.data };
+        if (typeof p === "object" && p !== null && "key" in p)
+          throw new ValidationError(
+            `${name} params contain 'key' but do not match the single-query ` +
+              `schema: ${res.error.issues.map((i) => i.message).join("; ")}`,
+          );
+        return null;
       };
     } else {
       // The default path binds SN = K: `{ key }` params resolve through the
@@ -197,6 +205,8 @@ export abstract class Retriever<
    * Serves the cache when the answer is fresh, fetching otherwise.
    * @throws {NotFoundError} if a single-record query matches nothing or the
    * record was deleted.
+   * @throws {ValidationError} if params contain `key` but fail the
+   * single-query schema.
    */
   retrieve(params: SP, options?: FetchOptions): Promise<D>;
   retrieve(params: z.input<Z>, options?: FetchOptions): Promise<D[]>;
