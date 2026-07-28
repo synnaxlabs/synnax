@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { panel, project } from "@synnaxlabs/client";
+import { panel, project, query } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { Drift } from "@synnaxlabs/drift";
 import { uuid } from "@synnaxlabs/x";
@@ -195,7 +195,7 @@ describe("useReconcileSelection", () => {
     const unsubscribe = store.subscribe(() => {
       const selected = selectedPanel(store);
       if (selected == null) return;
-      if (client.panels.getCached({ key: selected })?.variant === "deleted")
+      if (query.Deleted.matches(client.panels.getCached({ key: selected })))
         violations.push(selected);
     });
     await act(async () => {
