@@ -294,7 +294,7 @@ export class Queries<
    * subscriptions stay mounted. Called by the cache when the cluster behind
    * the connection is replaced.
    */
-  invalidate(): void {
+  reset(): void {
     this.entries.forEach((entry) => {
       if (entry.refetchTimer != null) {
         clearTimeout(entry.refetchTimer);
