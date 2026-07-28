@@ -139,6 +139,7 @@ export interface Info {
  */
 export type Event =
   | { type: "probe.success"; info: Info }
+  | { type: "cluster.replaced"; info: Info }
   | { type: "probe.failure"; error: Error; attempt: number }
   | { type: "stream.live" }
   | { type: "stream.drop"; error?: Error }
@@ -190,20 +191,31 @@ const isCompatible = (
     checkPatch: false,
   });
 
+const probeFacts = (info: Info, config: Config): Partial<Details> => ({
+  clusterKey: info.clusterKey,
+  nodeVersion: info.nodeVersion,
+  // the probe traverses the auth middleware, so a response is proof of auth
+  authenticated: true,
+  clockSkew: info.clockSkew,
+  clockSkewExceeded: info.clockSkew.abs().greaterThan(config.clockSkewThreshold),
+  clientServerCompatible: isCompatible(info.nodeVersion, config.clientVersion),
+});
+
 const reduceProbeSuccess = (prev: Status, info: Info, config: Config): Status => {
-  const facts: Partial<Details> = {
-    clusterKey: info.clusterKey,
-    nodeVersion: info.nodeVersion,
-    // the probe traverses the auth middleware, so a response is proof of auth
-    authenticated: true,
-    clockSkew: info.clockSkew,
-    clockSkewExceeded: info.clockSkew.abs().greaterThan(config.clockSkewThreshold),
-    clientServerCompatible: isCompatible(info.nodeVersion, config.clientVersion),
-  };
+  const facts = probeFacts(info, config);
   // reachable but the stream is still dark: the client re-demands it and we
-  // stay degraded until it reports live
-  if (config.requiresStream && !prev.details.streamLive)
+  // stay degraded until it reports live. A parked unreachable error must
+  // lift to warning: the short circuit it drives would starve the very
+  // stream reopen this state waits on.
+  if (config.requiresStream && !prev.details.streamLive) {
+    if (prev.variant === "error" && prev.details.reason === "unreachable")
+      return update(prev, {
+        variant: "warning",
+        message: RECONNECTING,
+        details: { ...facts, reason: undefined, error: undefined, retry: null },
+      });
     return update(prev, { details: facts });
+  }
   if (prev.variant === "success")
     return update(prev, { details: { ...facts, retry: null } });
   return update(prev, {
@@ -212,6 +224,23 @@ const reduceProbeSuccess = (prev: Status, info: Info, config: Config): Status =>
     details: { ...facts, reason: undefined, error: undefined, retry: null },
   });
 };
+
+// The cluster answering at the connection's address is not the one previously
+// contacted. Everything learned from the old cluster is void, so the machine
+// returns to first contact: loading at epoch 0 with a dark stream.
+const reduceClusterReplaced = (prev: Status, info: Info, config: Config): Status =>
+  update(prev, {
+    variant: "loading",
+    message: `Connecting to ${config.name ?? "cluster"}...`,
+    details: {
+      ...probeFacts(info, config),
+      streamLive: false,
+      epoch: 0,
+      reason: undefined,
+      error: undefined,
+      retry: null,
+    },
+  });
 
 const reduceAuthFailure = (prev: Status, error: Error): Status =>
   update(prev, {
@@ -282,6 +311,8 @@ export const reduce = (prev: Status, event: Event, config: Config): Status => {
   switch (event.type) {
     case "probe.success":
       return reduceProbeSuccess(prev, event.info, config);
+    case "cluster.replaced":
+      return reduceClusterReplaced(prev, event.info, config);
     case "probe.failure":
       return reduceProbeFailure(prev, event.error, event.attempt, config);
     case "stream.live":

@@ -169,8 +169,12 @@ export default class Synnax extends framer.Client {
               channels,
               breaker,
               () => {
-                onReopen?.();
+                // stream.live first: onReopen's reconcile fetches must not hit
+                // the unreachable short circuit. The reopened address may lead
+                // to a replaced cluster, so probe for identity immediately.
                 this.dispatchConnectionEvent({ type: "stream.live" });
+                this.prober.retryNow();
+                onReopen?.();
               },
               (error) => this.dispatchConnectionEvent({ type: "stream.drop", error }),
             );
@@ -204,7 +208,7 @@ export default class Synnax extends framer.Client {
       },
     };
     this.prober = new connection.Prober({
-      client: new connection.Client(transport.unary),
+      client: new connection.Client(transport.unaryNoRetry),
       retry: breaker,
       heartbeatInterval: connectivityPollFrequency,
       emit: (event) => this.dispatchConnectionEvent(event),
@@ -214,8 +218,11 @@ export default class Synnax extends framer.Client {
       this.dispatchConnectionEvent({ type: "epoch.advanced", epoch }),
     );
     transport.unary.use(this.shortCircuitMiddleware());
+    // The auth client fails fast: login retries belong to the request that
+    // triggered them (the breaker-wrapped unary or the prober), never stacked
+    // beneath it.
     this.auth = new auth.Client(
-      transport.unary,
+      transport.unaryNoRetry,
       { username, password },
       {
         onSuccess: () => this.dispatchConnectionEvent({ type: "auth.success" }),
@@ -354,6 +361,14 @@ export default class Synnax extends framer.Client {
    * the transition's side effects. The sole entry point for every feeder.
    */
   private dispatchConnectionEvent(event: connection.Event): void {
+    // A probe answered by a different cluster than previously contacted is a
+    // replacement, not a reconnection: the address now leads somewhere new.
+    if (
+      event.type === "probe.success" &&
+      this.connectionStatus.details.clusterKey !== "" &&
+      event.info.clusterKey !== this.connectionStatus.details.clusterKey
+    )
+      event = { type: "cluster.replaced", info: event.info };
     const [next, changed] = connection.advance(
       this.connectionStatus,
       event,
@@ -361,7 +376,19 @@ export default class Synnax extends framer.Client {
     );
     this.connectionStatus = next;
     if (changed) this.connectionObserver.notify(next);
-    if (event.type === "probe.success") this.warnOnProbe(next.details);
+    if (event.type === "probe.success" || event.type === "cluster.replaced")
+      this.warnOnProbe(next.details);
+    if (event.type === "cluster.replaced")
+      this.cache
+        .reset()
+        .then(async () => await this.cache.ensureStreaming())
+        .catch((err: unknown) =>
+          this.params.onInternalError?.(
+            new Error("failed to reset cache after cluster replacement", {
+              cause: err,
+            }),
+          ),
+        );
     // reachable but the stream is still dark: re-demand it, in case its own
     // retry budget was exhausted
     if (
