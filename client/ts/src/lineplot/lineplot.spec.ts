@@ -90,10 +90,10 @@ describe("store", () => {
       await client.connect();
       const plot = await seedPlot();
       await expect
-        .poll(() => remote.lineplots.getCached({ key: plot.key })?.variant)
-        .toBe("changed");
+        .poll(() => isLive(remote.lineplots.getCached({ key: plot.key })))
+        .toBe(true);
       const cached = remote.lineplots.getCached({ key: plot.key });
-      if (cached?.variant === "changed") expect(cached.data.name).toEqual(plot.name);
+      if (isLive(cached)) expect(cached.name).toEqual(plot.name);
     } finally {
       remote.close();
     }

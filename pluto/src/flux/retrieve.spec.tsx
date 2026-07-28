@@ -562,7 +562,7 @@ describe("useRetrieveSuspended", () => {
       expect(utils.queryByTestId("error")).toBeNull();
 
       await act(async () => {
-        push({ variant: "changed", data: 21 });
+        push(21);
       });
 
       await waitFor(() => expect(utils.queryByTestId("value")?.textContent).toBe("21"));
@@ -593,7 +593,7 @@ describe("useRetrieveSuspended", () => {
       expect(utils.queryByText("waiting")).toBeTruthy();
 
       await act(async () => {
-        push({ variant: "deleted", corpse: 3 });
+        push(new query.Deleted(3, TimeStamp.now()));
       });
 
       await waitFor(() =>

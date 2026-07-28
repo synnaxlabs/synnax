@@ -426,17 +426,18 @@ const awaitCreation = <Query extends query.Params, Data extends query.Data>(
       reject(error);
     }, NOT_FOUND_WAIT.milliseconds);
     disconnect = subscribe(params, (result) => {
-      if (result == null) return;
+      if (result === undefined) return;
       finish();
-      if (result.variant === "changed") resolve(result.data);
-      else reject(new DeletedError(`${name} was deleted`, result.corpse));
+      if (Deleted.matches<Data>(result))
+        reject(new DeletedError(`${name} was deleted`, result.corpse));
+      else resolve(result);
     });
     // The document may have landed between the failed fetch and the
     // subscription mounting.
     const cached = getCached(params);
-    if (cached?.variant === "changed") {
+    if (cached !== undefined && !Deleted.matches<Data>(cached)) {
       finish();
-      resolve(cached.data);
+      resolve(cached);
     }
   });
 
