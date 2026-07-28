@@ -1197,4 +1197,30 @@ describe("openStreamer", () => {
       expect(onChange.mock.calls.length).toBeGreaterThanOrEqual(1);
     });
   });
+
+  describe("demand", () => {
+    it("retries the open after a failed demand", async () => {
+      const onOpen = vi.fn();
+      let opens = 0;
+      const streamer = createStreamer(
+        createStreamerArgs({
+          onOpen,
+          openStreamer: async (channels, hooks) => {
+            opens++;
+            if (opens === 1) throw new Error("cluster unreachable");
+            return await wrapOpener(async () => new MockHardenedStreamer([]))(
+              channels,
+              hooks,
+            );
+          },
+        }),
+      );
+      await expect(streamer.demand()).rejects.toThrow("cluster unreachable");
+      expect(onOpen).not.toHaveBeenCalled();
+      await expect(streamer.demand()).resolves.toBeUndefined();
+      expect(opens).toBe(2);
+      expect(onOpen).toHaveBeenCalledTimes(1);
+      await streamer.close();
+    });
+  });
 });
