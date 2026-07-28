@@ -20,10 +20,10 @@ import (
 	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
+	xlsp "github.com/synnaxlabs/x/lsp"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/validate"
 	"go.lsp.dev/jsonrpc2"
-	"go.lsp.dev/protocol"
 )
 
 type JSONRPCMessage struct {
@@ -146,7 +146,7 @@ func ServeFreighter(ctx context.Context, cfgs ...Config) (err error) {
 		maxContentLength: cfg.MaxContentLength,
 		ready:            make(chan struct{}),
 	}
-	_, conn, client := protocol.NewServer(ctx, cfg.Server, adapter)
+	conn, client := xlsp.NewConn(ctx, cfg.Server, adapter)
 	defer func() {
 		err = errors.Combine(err, conn.Close())
 	}()

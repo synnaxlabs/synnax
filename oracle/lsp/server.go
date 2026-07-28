@@ -90,7 +90,7 @@ func (g *gatedStream) Read(ctx context.Context) (jsonrpc2.Message, int64, error)
 // Serve starts the LSP server on the given ReadWriteCloser (typically xos.StdIO).
 func (s *Server) Serve(ctx context.Context, rwc io.ReadWriteCloser) error {
 	stream := &gatedStream{Stream: jsonrpc2.NewStream(rwc), ready: make(chan struct{})}
-	_, conn, client := protocol.NewServer(ctx, s, stream)
+	conn, client := xlsp.NewConn(ctx, s, stream)
 	s.client = client
 	close(stream.ready)
 	<-conn.Done()

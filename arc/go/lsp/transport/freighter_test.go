@@ -12,11 +12,13 @@ package transport_test
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/alamos"
+	"github.com/synnaxlabs/arc/formatter"
 	"github.com/synnaxlabs/arc/lsp"
 	"github.com/synnaxlabs/arc/lsp/transport"
 	"github.com/synnaxlabs/arc/symbol"
@@ -162,6 +164,53 @@ var _ = Describe("Freighter Transport", func() {
 
 			sendRequest(2, "shutdown", nil)
 			receiveResponse(2)
+		})
+	})
+
+	Describe("Notification ordering", func() {
+		// Each didChange replaces the span of its predecessor's text, so the edits
+		// are only correct when applied in wire order. The formatting probe reveals
+		// the server's final content.
+		It("Should apply rapid incremental didChange edits in wire order", func(ctx SpecContext) {
+			sendRequest(1, "initialize", map[string]any{
+				"clientInfo": map[string]any{"name": "test-client"},
+			})
+			receiveResponse(1)
+			docURI := "file:///ordering.arc"
+			content := "x:=0"
+			sendNotification("textDocument/didOpen", map[string]any{
+				"textDocument": map[string]any{
+					"uri":        docURI,
+					"languageId": "arc",
+					"version":    1,
+					"text":       content,
+				},
+			})
+			for i := 1; i <= 100; i++ {
+				next := fmt.Sprintf("x:=%d", 1000+i)
+				sendNotification("textDocument/didChange", map[string]any{
+					"textDocument": map[string]any{"uri": docURI, "version": i + 1},
+					"contentChanges": []map[string]any{{
+						"range": map[string]any{
+							"start": map[string]any{"line": 0, "character": 0},
+							"end":   map[string]any{"line": 0, "character": len(content)},
+						},
+						"text": next,
+					}},
+				})
+				content = next
+			}
+			sendRequest(2, "textDocument/formatting", map[string]any{
+				"textDocument": map[string]any{"uri": docURI},
+				"options":      map[string]any{"tabSize": 4, "insertSpaces": true},
+			})
+			response := receiveResponse(2)
+			result, ok := response["result"].([]any)
+			Expect(ok).To(BeTrue(), "formatting should return edits")
+			Expect(result).To(HaveLen(1))
+			edit, ok := result[0].(map[string]any)
+			Expect(ok).To(BeTrue())
+			Expect(edit["newText"]).To(Equal(formatter.Format(content)))
 		})
 	})
 
