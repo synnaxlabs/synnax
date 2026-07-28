@@ -23,23 +23,33 @@ var _ = Describe("Retrieve", func() {
 	BeforeEach(func(ctx SpecContext) {
 		sym1 = symbol.Symbol{
 			Name: "symbol-1",
-			Data: map[string]any{
-				"svg":    "<svg>1</svg>",
-				"states": []string{"default"},
+			Data: symbol.Spec{
+				SVG:     "<svg>1</svg>",
+				Variant: "valve",
+				States:  []symbol.State{{Key: "default", Name: "default"}},
 			},
 		}
 		sym2 = symbol.Symbol{
 			Name: "symbol-2",
-			Data: map[string]any{
-				"svg":    "<svg>2</svg>",
-				"states": []string{"default", "active"},
+			Data: symbol.Spec{
+				SVG:     "<svg>2</svg>",
+				Variant: "valve",
+				States: []symbol.State{
+					{Key: "default", Name: "default"},
+					{Key: "active", Name: "active"},
+				},
 			},
 		}
 		sym3 = symbol.Symbol{
 			Name: "symbol-3",
-			Data: map[string]any{
-				"svg":    "<svg>3</svg>",
-				"states": []string{"default", "active", "error"},
+			Data: symbol.Spec{
+				SVG:     "<svg>3</svg>",
+				Variant: "valve",
+				States: []symbol.State{
+					{Key: "default", Name: "default"},
+					{Key: "active", Name: "active"},
+					{Key: "error", Name: "error"},
+				},
 			},
 		}
 		Expect(svc.NewWriter(tx).Create(ctx, &sym1, proj.OntologyID())).To(Succeed())
@@ -56,7 +66,7 @@ var _ = Describe("Retrieve", func() {
 				Exec(ctx, tx)).To(Succeed())
 			Expect(retrieved.Key).To(Equal(sym1.Key))
 			Expect(retrieved.Name).To(Equal(sym1.Name))
-			Expect(retrieved.Data["svg"]).To(Equal(sym1.Data["svg"]))
+			Expect(retrieved.Data.SVG).To(Equal(sym1.Data.SVG))
 		})
 
 		It("Should retrieve multiple symbols by keys", func(ctx SpecContext) {
@@ -95,7 +105,7 @@ var _ = Describe("Retrieve", func() {
 			// Create a symbol without transaction
 			symNoTx := symbol.Symbol{
 				Name: "no-tx-symbol",
-				Data: map[string]any{"svg": "<svg>no-tx</svg>"},
+				Data: symbol.Spec{SVG: "<svg>no-tx</svg>", Variant: "valve"},
 			}
 			Expect(svc.NewWriter(nil).Create(ctx, &symNoTx, proj.OntologyID())).To(Succeed())
 
@@ -127,16 +137,17 @@ var _ = Describe("Retrieve", func() {
 		})
 
 		It("Should handle large data correctly", func(ctx SpecContext) {
-			largeData := map[string]any{
-				"svg":     "<svg>" + string(make([]byte, 10000)) + "</svg>",
-				"states":  []string{},
-				"regions": []map[string]any{},
+			largeData := symbol.Spec{
+				SVG:     "<svg>" + string(make([]byte, 10000)) + "</svg>",
+				Variant: "valve",
 			}
 			for i := range 100 {
-				largeData["states"] = append(largeData["states"].([]string), "state"+string(rune(i)))
-				largeData["regions"] = append(largeData["regions"].([]map[string]any), map[string]any{
-					"id":   "region" + string(rune(i)),
-					"type": "input",
+				largeData.States = append(largeData.States, symbol.State{
+					Key:  "state" + string(rune(i)),
+					Name: "state" + string(rune(i)),
+					Regions: []symbol.Region{
+						{Key: "region" + string(rune(i)), Name: "input"},
+					},
 				})
 			}
 
@@ -151,7 +162,7 @@ var _ = Describe("Retrieve", func() {
 				Where(symbol.MatchKeys(largeSym.Key)).
 				Entry(&retrieved).
 				Exec(ctx, tx)).To(Succeed())
-			Expect(retrieved.Data["svg"]).To(Equal(largeData["svg"]))
+			Expect(retrieved.Data.SVG).To(Equal(largeData.SVG))
 		})
 	})
 })
