@@ -90,25 +90,24 @@ describe("breaker", () => {
     expect(mockSleep).toHaveBeenNthCalledWith(3, TimeSpan.seconds(2));
   });
 
-  it("should add at most the jitter fraction to each wait", async () => {
+  it("should shift each wait by at most the jitter fraction in either direction", async () => {
     const mockSleep = vi.fn();
     const brk = new breaker.Breaker({
       baseInterval: TimeSpan.seconds(1),
-      maxRetries: 10,
+      maxRetries: 50,
       jitter: 0.5,
       sleepFn: mockSleep,
     });
 
-    for (let i = 0; i < 5; i++) await brk.wait();
+    for (let i = 0; i < 50; i++) await brk.wait();
 
-    for (const [slept] of mockSleep.mock.calls as [TimeSpan][]) {
-      expect(slept.milliseconds).toBeGreaterThanOrEqual(
-        TimeSpan.seconds(1).milliseconds,
-      );
-      expect(slept.milliseconds).toBeLessThanOrEqual(
-        TimeSpan.seconds(1.5).milliseconds,
-      );
+    const slept = (mockSleep.mock.calls as [TimeSpan][]).map(([s]) => s.milliseconds);
+    for (const ms of slept) {
+      expect(ms).toBeGreaterThanOrEqual(TimeSpan.seconds(0.5).milliseconds);
+      expect(ms).toBeLessThanOrEqual(TimeSpan.seconds(1.5).milliseconds);
     }
+    expect(slept.some((ms) => ms < TimeSpan.seconds(1).milliseconds)).toBe(true);
+    expect(slept.some((ms) => ms > TimeSpan.seconds(1).milliseconds)).toBe(true);
   });
 
   it("should support unbounded retries", async () => {
