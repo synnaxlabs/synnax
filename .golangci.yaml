@@ -68,6 +68,14 @@ formatters:
           replacement: "a[b:]"
         - pattern: "a[0:b]"
           replacement: "a[:b]"
+        - pattern: "time.Now().Sub(a)"
+          replacement: "time.Since(a)"
+        - pattern: "a.Sub(time.Now())"
+          replacement: "time.Until(a)"
+        - pattern: "strings.Replace(a, b, c, -1)"
+          replacement: "strings.ReplaceAll(a, b, c)"
+        - pattern: "!(a == b)"
+          replacement: "a != b"
   exclusions:
     warn-unused: true
     generated: strict
