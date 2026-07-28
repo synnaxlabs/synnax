@@ -13,6 +13,16 @@
     animation: none !important;
 }
 
+/* Hosts the selected panel's kept-alive subtree; unselected panels stay mounted
+ * against detached portal elements. Must stay unpositioned: a positioned ancestor
+ * lifts the panel above the fixed canvases, hiding every plot's pixels. */
+.console-panel__host {
+    display: flex;
+    flex: 1 1 0;
+    min-width: 0;
+    min-height: 0;
+}
+
 .console-panel__tab-content {
     position: relative;
     min-height: 0;
