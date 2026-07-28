@@ -11,7 +11,7 @@ import { type record } from "@synnaxlabs/x";
 import { describe, expect, it, vi } from "vitest";
 import z from "zod";
 
-import { NotFoundError } from "@/errors";
+import { NotFoundError, ValidationError } from "@/errors";
 import { query } from "@/query";
 
 interface Thing extends record.Keyed<string> {
@@ -249,6 +249,71 @@ describe("Retriever", () => {
       const result = await client.retrieve("name:a");
       expect(result).toEqual(thing("a"));
       expect(fetchKeys).toHaveBeenCalledWith(["a"]);
+    });
+
+    describe("malformed single params", () => {
+      class StrictSingleClient extends query.Retriever<
+        typeof requestZ,
+        string,
+        Thing,
+        Thing,
+        { key: string }
+      > {
+        constructor(
+          cache: query.Cache,
+          fetchKeys: (keys: string[]) => Promise<Thing[]>,
+          fetchRequest: (req: Request) => Promise<Thing[]>,
+        ) {
+          const store = cache.createTable<string, Thing>({
+            name: "things",
+            fetch: fetchKeys,
+          });
+          const single = cache.queries<string, Thing, string, Thing>({
+            name: "thing",
+            table: store,
+            fetch: async (key) => {
+              const records = await fetchKeys([key]);
+              store.ingest(records);
+              return records.map((r) => r.key);
+            },
+            compose: (records) => records[0],
+            single: true,
+          });
+          super(cache, {
+            name: "thing",
+            table: store,
+            request: {
+              schema: requestZ,
+              fetch: async (req) => await fetchRequest(req),
+            },
+            single: {
+              schema: z.strictObject({ key: z.string() }).transform(({ key }) => key),
+              space: single,
+            },
+          });
+        }
+      }
+
+      it("rejects key-bearing params that fail the single schema", async () => {
+        const fetchRequest = vi.fn(async () => []);
+        const client = new StrictSingleClient(
+          newCache(),
+          async (keys) => keys.map((k) => thing(k)),
+          fetchRequest,
+        );
+        await expect(
+          client.retrieve({ key: "a", detailsSchema: undefined } as never),
+        ).rejects.toThrow(ValidationError);
+        expect(fetchRequest).not.toHaveBeenCalled();
+      });
+
+      it("routes a clean { key } param through the single space", async () => {
+        const fetchKeys = vi.fn(async (keys: string[]) => keys.map((k) => thing(k)));
+        const client = new StrictSingleClient(newCache(), fetchKeys, async () => []);
+        const result = await client.retrieve({ key: "a" });
+        expect(result).toEqual(thing("a"));
+        expect(fetchKeys).toHaveBeenCalledWith(["a"]);
+      });
     });
   });
 });

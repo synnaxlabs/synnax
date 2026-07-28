@@ -125,6 +125,25 @@ describe("Status", () => {
       expect(retrieved.variant).toBe(created.variant);
     });
 
+    it("should retrieve a single status when detailsSchema is explicitly undefined", async () => {
+      const created = await client.statuses.set({
+        name: "Undefined Schema Test",
+        key: "undefined-schema-test",
+        variant: "info",
+        message: "Test undefined schema",
+        time: TimeStamp.now(),
+      });
+
+      const retrieved = await client.statuses.retrieve({
+        key: "undefined-schema-test",
+        includeLabels: true,
+        detailsSchema: undefined,
+      });
+      expect(Array.isArray(retrieved)).toBe(false);
+      expect(retrieved.key).toBe(created.key);
+      expect(retrieved.name).toBe(created.name);
+    });
+
     it("should retrieve multiple statuses by keys", async () => {
       await client.statuses.set([
         {
