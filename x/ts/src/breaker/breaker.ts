@@ -14,9 +14,8 @@ import { type CrudeTimeSpan, TimeSpan } from "@/telem";
 
 /** Paces a retry loop on capped, optionally jittered exponential backoff. */
 export class Breaker {
-  private readonly config: Omit<Required<Config>, "baseInterval" | "maxInterval"> & {
-    baseInterval: TimeSpan;
-    maxInterval: TimeSpan;
+  private readonly config: Required<z.infer<typeof breakerConfigZ>> & {
+    sleepFn: (duration: TimeSpan) => Promise<void>;
   };
   private retries: number;
   private interval: TimeSpan;
@@ -75,10 +74,7 @@ export const breakerConfigZ = z.object({
 });
 
 /** Configures a {@link Breaker}. */
-export interface Config extends Omit<
-  z.infer<typeof breakerConfigZ>,
-  "baseInterval" | "maxInterval"
-> {
+export interface Config extends z.input<typeof breakerConfigZ> {
   /** Duration of the first wait. Defaults to 1 second. */
   baseInterval?: CrudeTimeSpan;
   /** Ceiling on the scaled retry interval. Defaults to unbounded. */
