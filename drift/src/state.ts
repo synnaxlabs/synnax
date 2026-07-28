@@ -402,6 +402,9 @@ const reduceSetWindowProps = (
   a: PayloadAction<RuntimeSetWindowProsPayload>,
 ): void => {
   const prev = s.windows[a.payload.label];
+  // An unreserved pre-render stays untouched: being claimed is the only way it
+  // gains props, and the only way it may ever become visible.
+  if (prev == null || !prev.reserved) return;
   const deepPartialEqual = deep.partialEqual(prev, a.payload);
   if (!deepPartialEqual) s.windows[a.payload.label] = { ...prev, ...a.payload };
 };
