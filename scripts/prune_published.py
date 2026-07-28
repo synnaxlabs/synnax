@@ -30,7 +30,12 @@ from pathlib import Path
 
 def parse_name_version(filename: str) -> tuple[str, str]:
     """Extracts the PEP 503 normalized project name and version from a wheel or
-    sdist file name."""
+    sdist file name.
+
+    Wheel (PEP 427) and sdist (PEP 625) file names escape the project name by
+    replacing runs of ``-_.`` with ``_`` (e.g. synnax-x -> synnax_x), so the
+    name component never contains a hyphen and splitting on ``-`` is safe.
+    """
     if filename.endswith(".whl"):
         name, version = filename.split("-")[:2]
     elif filename.endswith(".tar.gz"):
