@@ -1,0 +1,29 @@
+name: Test - Scripts
+
+on:
+  pull_request:
+    paths:
+      - .github/workflows/test.scripts.yaml
+      - scripts/**
+  push:
+    branches:
+      - main
+      - rc
+    paths:
+      - .github/workflows/test.scripts.yaml
+      - scripts/**
+  workflow_dispatch:
+
+jobs:
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v6
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v8.1.0
+
+      - name: Run Tests
+        run: uvx pytest scripts
