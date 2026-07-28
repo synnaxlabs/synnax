@@ -89,13 +89,15 @@ const normalizeSingle = (params: RetrieveSingleParams): SingleQuery => {
   return params.includeStatus === true ? { ...base, includeStatus: true } : base;
 };
 
+const singleQueryZ = z
+  .union([
+    z.strictObject({ key: keyZ, includeStatus: z.boolean().optional() }),
+    z.strictObject({ name: z.string(), includeStatus: z.boolean().optional() }),
+  ])
+  .transform(normalizeSingle);
+
 /** The table never holds statuses; the status table is their single home. */
 const stripStatus = ({ status: _, ...rack }: Payload): Omit<Payload, "status"> => rack;
-
-const isSingleParams = (params: unknown): params is RetrieveSingleParams =>
-  typeof params === "object" &&
-  params !== null &&
-  ("key" in params || "name" in params);
 
 /**
  * Client-side matching for a request: key and name sets and payload-held
@@ -145,7 +147,8 @@ export class Client extends query.Retriever<
   Key,
   Omit<Payload, "status">,
   Rack,
-  RetrieveSingleParams
+  RetrieveSingleParams,
+  SingleQuery
 > {
   private readonly cfg: ClientParams;
   private readonly store: query.Table<Key, Omit<Payload, "status">>;
@@ -189,11 +192,7 @@ export class Client extends query.Retriever<
       },
       compose: (record, q) =>
         this.compose(record, (q as { includeStatus?: boolean }).includeStatus === true),
-      single: {
-        is: isSingleParams,
-        normalize: normalizeSingle,
-        space: single as query.Retrieves<query.Params, Rack>,
-      },
+      single: { schema: singleQueryZ, space: single },
     });
     this.cfg = cfg;
     this.store = store;

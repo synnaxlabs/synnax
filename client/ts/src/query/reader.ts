@@ -48,6 +48,7 @@ export interface RetrieverParams<
   V extends state.State & record.Keyed<K>,
   D extends Data = V,
   SP = { key: K },
+  SN extends Params = K,
 > {
   /** Resource name used in error messages, e.g. "range". */
   name: string;
@@ -83,12 +84,14 @@ export interface RetrieverParams<
   compose?: (record: V, query: Params) => D;
   /** Custom single space for domains whose single query is richer than a key. */
   single?: {
-    /** Whether the params address exactly one record. */
-    is: (params: unknown) => params is SP;
-    /** Canonicalizes single params so equivalent queries hash identically. */
-    normalize: (params: SP) => Params;
+    /**
+     * Discriminates and canonicalizes single params: parse success routes the
+     * query to the single space, and the output is the space's query. Object
+     * schemas must reject unknown keys so request params fall through.
+     */
+    schema: z.ZodType<SN, SP>;
     /** The space answering single queries, built via the cache. */
-    space: Retrieves<Params, D>;
+    space: Retrieves<SN, D>;
   };
 }
 
@@ -121,14 +124,14 @@ export abstract class Retriever<
   V extends state.State & record.Keyed<K>,
   D extends Data = V,
   SP = { key: K },
+  SN extends Params = K,
 > {
-  private readonly singleSpace: Retrieves<Params, D>;
+  private readonly singleSpace: Retrieves<SN, D>;
   private readonly requestSpace: Retrieves<z.output<Z>, D[]>;
-  private readonly isSingle: (params: unknown) => params is SP;
-  private readonly normalizeSingle: (params: SP) => Params;
-  private readonly normalizeRequest: (params: z.input<Z>) => z.output<Z>;
+  private readonly trySingle: (params: unknown) => { query: SN } | null;
+  private readonly normalizeRequest: (params: unknown) => z.output<Z>;
 
-  constructor(cache: Cache, params: RetrieverParams<Z, K, V, D, SP>) {
+  constructor(cache: Cache, params: RetrieverParams<Z, K, V, D, SP, SN>) {
     const {
       name,
       table,
@@ -161,9 +164,14 @@ export abstract class Retriever<
     this.normalizeRequest = (p) => schema.parse(p);
     if (single != null) {
       this.singleSpace = single.space;
-      this.isSingle = single.is;
-      this.normalizeSingle = single.normalize;
+      const singleSchema = single.schema;
+      this.trySingle = (p) => {
+        const res = singleSchema.safeParse(p);
+        return res.success ? { query: res.data } : null;
+      };
     } else {
+      // The default path binds SN = K: `{ key }` params resolve through the
+      // table's fetch. The casts are the one seam the defaults can't prove.
       this.singleSpace = cache.queries<K, D, K, V>({
         name,
         table,
@@ -177,10 +185,10 @@ export abstract class Retriever<
         keyOf: (query) => query,
         single: true,
       }) as Retrieves<Params, D>;
-      this.isSingle = (p): p is SP => typeof p === "object" && p !== null && "key" in p;
-      this.normalizeSingle = ((p: { key: K }) => p.key) as unknown as (
-        params: SP,
-      ) => Params;
+      this.trySingle = (p) =>
+        typeof p === "object" && p !== null && "key" in p
+          ? { query: (p as { key: K }).key as Params as SN }
+          : null;
     }
   }
 
@@ -193,8 +201,8 @@ export abstract class Retriever<
   retrieve(params: SP, options?: FetchOptions): Promise<D>;
   retrieve(params: z.input<Z>, options?: FetchOptions): Promise<D[]>;
   async retrieve(params: SP | z.input<Z>, options?: FetchOptions): Promise<D | D[]> {
-    if (this.isSingle(params))
-      return await this.singleSpace.retrieve(this.normalizeSingle(params), options);
+    const single = this.trySingle(params);
+    if (single != null) return await this.singleSpace.retrieve(single.query, options);
     return await this.requestSpace.retrieve(this.normalizeRequest(params), options);
   }
 
@@ -208,11 +216,9 @@ export abstract class Retriever<
     params: SP | z.input<Z>,
     handler: ChangeHandler<D> | ChangeHandler<D[]>,
   ): destructor.Destructor {
-    if (this.isSingle(params))
-      return this.singleSpace.onChange(
-        this.normalizeSingle(params),
-        handler as ChangeHandler<D>,
-      );
+    const single = this.trySingle(params);
+    if (single != null)
+      return this.singleSpace.onChange(single.query, handler as ChangeHandler<D>);
     return this.requestSpace.onChange(
       this.normalizeRequest(params),
       handler as ChangeHandler<D[]>,
@@ -227,8 +233,8 @@ export abstract class Retriever<
   getCached(params: SP): Cached<D> | undefined;
   getCached(params: z.input<Z>): Cached<D[]> | undefined;
   getCached(params: SP | z.input<Z>): Cached<D> | Cached<D[]> | undefined {
-    if (this.isSingle(params))
-      return this.singleSpace.getCached(this.normalizeSingle(params));
+    const single = this.trySingle(params);
+    if (single != null) return this.singleSpace.getCached(single.query);
     return this.requestSpace.getCached(this.normalizeRequest(params));
   }
 }

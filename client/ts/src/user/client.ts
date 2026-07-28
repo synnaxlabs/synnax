@@ -67,6 +67,11 @@ export const DELETE_CHANNEL_NAME = "sy_user_delete";
 
 type SingleParams = KeyRetrieveRequest | UsernameRetrieveRequest;
 
+const singleParamsZ = z.union([
+  z.strictObject({ key: keyZ }),
+  z.strictObject({ username: z.string() }),
+]);
+
 const singleIdentifier = (params: SingleParams): string =>
   "key" in params ? `key ${params.key}` : `username ${params.username}`;
 
@@ -93,6 +98,7 @@ export class Client extends query.Retriever<
   Key,
   User,
   User,
+  SingleParams,
   SingleParams
 > {
   private readonly cfg: ClientParams;
@@ -131,14 +137,7 @@ export class Client extends query.Retriever<
         fetch: async (req) => await this.execRetrieve(req),
         matches: (u, req) => requestFilter(req)(u),
       },
-      single: {
-        is: (params): params is SingleParams =>
-          typeof params === "object" &&
-          params !== null &&
-          ("key" in params || "username" in params),
-        normalize: (params) => params,
-        space: single as query.Retrieves<query.Params, User>,
-      },
+      single: { schema: singleParamsZ, space: single },
     });
     this.cfg = cfg;
     this.store = store;
