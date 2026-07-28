@@ -21,7 +21,7 @@ import {
   Tabs,
   Text,
 } from "@synnaxlabs/pluto";
-import { array } from "@synnaxlabs/x";
+import { array, uuid } from "@synnaxlabs/x";
 import { type ReactElement, useCallback, useMemo } from "react";
 import { useDispatch } from "react-redux";
 
@@ -143,10 +143,11 @@ export const Selector = (): ReactElement | null => {
   );
 
   const { update: create } = Panel.useCreate();
-  const handleCreate = useCallback(
-    () => create({ name: "New Panel", parent: project.ontologyID(projectKey) }),
-    [create, projectKey],
-  );
+  const handleCreate = useCallback(() => {
+    const key = uuid.create();
+    create({ key, name: "New Panel", parent: project.ontologyID(projectKey) });
+    dispatch(Session.Panel.select({ key }));
+  }, [create, dispatch, projectKey]);
 
   const contextMenu = useCallback<NonNullable<Menu.ContextMenuProps["menu"]>>(
     (props) => <ContextMenu {...props} panels={panels} />,
