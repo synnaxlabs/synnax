@@ -53,22 +53,22 @@ const isChildOf = (rel: ontology.Relationship, parent: ontology.ID): boolean =>
     to: { type: "group" },
   });
 
+export interface ClientParams {
+  unary: UnaryClient;
+  ontology: ontology.Client;
+  cache: query.Cache;
+}
+
 export class Client extends query.Retriever<
   typeof retrieveChildrenParamsZ,
   Key,
   Group
 > {
-  client: UnaryClient;
-  private readonly ontologyClient?: ontology.Client;
+  private readonly cfg: ClientParams;
   private readonly store: query.Table<Key, Group>;
-  private readonly ontology: ontology.Stores;
 
-  constructor(
-    client: UnaryClient,
-    ontologyClient: ontology.Client | undefined,
-    cache: query.Cache,
-    ontologyStores: ontology.Stores,
-  ) {
+  constructor(cfg: ClientParams) {
+    const { cache, ontology: ontologyClient } = cfg;
     const store = cache.createTable<Key, Group>({
       name: "groups",
       fetch: async (keys) => await this.execRetrieveKeys(keys),
@@ -85,25 +85,26 @@ export class Client extends query.Retriever<
         fetch: async (req) => await this.fetchChildren(req),
         matches: (g, req) => this.isCachedChild(req.parent, g.key),
         watch: [
-          query.watch(ontologyStores.relationships, (event, req: ChildrenRequest) => {
-            const rel =
-              event.variant === "set"
-                ? event.value
-                : ontology.relationshipZ.parse(event.key);
-            if (!isChildOf(rel, req.parent)) return null;
-            return [rel.to.key];
-          }),
+          query.watch(
+            ontologyClient.cache.relationships,
+            (event, req: ChildrenRequest) => {
+              const rel =
+                event.variant === "set"
+                  ? event.value
+                  : ontology.relationshipZ.parse(event.key);
+              if (!isChildOf(rel, req.parent)) return null;
+              return [rel.to.key];
+            },
+          ),
         ],
       },
     });
-    this.client = client;
-    this.ontologyClient = ontologyClient;
+    this.cfg = cfg;
     this.store = store;
-    this.ontology = ontologyStores;
   }
 
   async create(params: CreateParams): Promise<Group> {
-    const res = await this.client.send(
+    const res = await this.cfg.unary.send(
       "/ontology/create-group",
       params,
       createReqZ,
@@ -115,21 +116,21 @@ export class Client extends query.Retriever<
       type: ontology.PARENT_OF_RELATIONSHIP_TYPE,
       to: ontologyID(res.group.key),
     };
-    this.ontology.relationships.set(ontology.relationshipToString(rel), rel);
+    this.cfg.ontology.cache.relationships.set(ontology.relationshipToString(rel), rel);
     return res.group;
   }
 
   async rename(key: Key, name: string, opts: query.WriteOptions = {}): Promise<void> {
     const rename = () => [
       query.partialUpdate(this.store, key, { name }),
-      ontology.renameCachedResource(this.ontology, ontologyID(key), name),
+      this.cfg.ontology.cache.renameResource(ontologyID(key), name),
     ];
     const rollback = new destructor.Chain();
     rollback.add(...rename());
     await opts.onOptimistic?.();
     await rollback.guard(
       async () =>
-        await this.client.send(
+        await this.cfg.unary.send(
           "/ontology/rename-group",
           { key, name },
           renameReqZ,
@@ -147,7 +148,7 @@ export class Client extends query.Retriever<
     await opts.onOptimistic?.();
     await rollback.guard(
       async () =>
-        await this.client.send(
+        await this.cfg.unary.send(
           "/ontology/delete-group",
           { keys: keysArr },
           deleteReqZ,
@@ -158,7 +159,7 @@ export class Client extends query.Retriever<
   }
 
   private isCachedChild(parent: ontology.ID, key: Key): boolean {
-    return this.ontology.relationships.has(
+    return this.cfg.ontology.cache.relationships.has(
       ontology.relationshipToString({
         from: parent,
         type: ontology.PARENT_OF_RELATIONSHIP_TYPE,
@@ -168,9 +169,9 @@ export class Client extends query.Retriever<
   }
 
   private requireOntology(): ontology.Client {
-    if (this.ontologyClient == null)
+    if (this.cfg.ontology == null)
       throw new Error("ontology client is not available on this client");
-    return this.ontologyClient;
+    return this.cfg.ontology;
   }
 
   private async execRetrieveKeys(keys: Key[]): Promise<Group[]> {
@@ -188,7 +189,7 @@ export class Client extends query.Retriever<
       types: ["group"],
     });
     const groups = res.map((r) => groupZ.parse(r.data));
-    const rels = this.ontology.relationships;
+    const rels = this.cfg.ontology.cache.relationships;
     groups.forEach((g) => {
       const rel: ontology.Relationship = {
         from: parent,
