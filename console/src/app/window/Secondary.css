@@ -11,7 +11,7 @@
 
 .console-secondary {
     margin: 0 1rem 1rem 1rem;
-    --nav-drawer-inset-left: 1rem;
-    --nav-drawer-inset-right: 1rem;
-    --nav-drawer-inset-bottom: 1rem;
+    --bottom-drawer-inset-left: 1rem;
+    --bottom-drawer-inset-right: 1rem;
+    --bottom-drawer-inset-bottom: 1rem;
 }
