@@ -10,6 +10,7 @@
 import { Button, Icon, Nav, OS } from "@synnaxlabs/pluto";
 import { type ReactElement, useCallback } from "react";
 
+import { useBottomActions } from "@/app/nav/bar/bottom";
 import { Toolbars } from "@/app/toolbars";
 import { Cluster } from "@/feature/cluster";
 import { Docs } from "@/feature/docs";
@@ -20,23 +21,34 @@ import { CSS } from "@/platform/css";
 import { Nav as PlatformNav } from "@/platform/nav";
 import { User } from "@/platform/user";
 import { Window } from "@/platform/window";
-import { Session } from "@/session";
 
 const BottomToggleButton = (): ReactElement => {
-  const dispatch = Session.useDispatch();
-  const toggle = useCallback(() => dispatch(Session.Nav.toggleBottom({})), []);
+  const { select, toggle, pin, startHover, stopHover } = useBottomActions();
+  const { onClick, onMouseEnter, onMouseLeave } = PlatformNav.useItem({
+    trigger: Toolbars.BOTTOM.trigger,
+    bar: "top",
+    onStartHover: startHover,
+    onStopHover: stopHover,
+    onToggle: toggle,
+    onPin: pin,
+  });
+  const handleClick = useCallback(() => {
+    onClick();
+    select();
+  }, [onClick, select]);
   return (
     <Button.Button
       variant="outlined"
       className={CSS.BE("mosaic", "controls-button")}
-      onClick={toggle}
+      onClick={handleClick}
+      onMouseEnter={onMouseEnter}
+      onMouseLeave={onMouseLeave}
       justify="center"
       size="small"
       contrast={2}
       color={9}
       weight={450}
-      trigger={Toolbars.BOTTOM.trigger}
-      triggerIndicator
+      triggerIndicator={Toolbars.BOTTOM.trigger}
     >
       <Icon.Visualize />
       Controls

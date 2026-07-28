@@ -10,40 +10,24 @@
 import { Nav } from "@synnaxlabs/pluto";
 import { type ReactElement, useCallback } from "react";
 
+import { useBottomActions } from "@/app/nav/bar/bottom";
 import { Palette } from "@/app/palette";
 import { Toolbars } from "@/app/toolbars";
 import { Nav as PlatformNav } from "@/platform/nav";
 import { Session } from "@/session";
 
 const BottomMenu = () => {
-  const dispatch = Session.useDispatch();
   const visible = Session.Nav.useSelectBottomVisible();
-  const handleSelect = useCallback(
-    () => dispatch(Session.Nav.selectBottom({})),
-    [dispatch],
-  );
-  const handleToggle = useCallback(
-    () => dispatch(Session.Nav.toggleBottom({})),
-    [dispatch],
-  );
-  const handlePin = useCallback(() => dispatch(Session.Nav.showBottom({})), [dispatch]);
-  const handleStartHover = useCallback(
-    () => dispatch(Session.Nav.startBottomHover({})),
-    [dispatch],
-  );
-  const handlestopHover = useCallback(
-    () => dispatch(Session.Nav.stopBottomHover({})),
-    [dispatch],
-  );
+  const { select, toggle, pin, startHover, stopHover } = useBottomActions();
   return (
     <PlatformNav.Menu
       items={Toolbars.BOTTOM}
       selected={visible ? Toolbars.BOTTOM.key : undefined}
-      onSelect={handleSelect}
-      onToggle={handleToggle}
-      onPin={handlePin}
-      onStartHover={handleStartHover}
-      onStopHover={handlestopHover}
+      onSelect={select}
+      onToggle={toggle}
+      onPin={pin}
+      onStartHover={startHover}
+      onStopHover={stopHover}
     />
   );
 };
