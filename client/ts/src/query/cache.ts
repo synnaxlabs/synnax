@@ -17,6 +17,7 @@ import {
 import type z from "zod";
 
 import { NotFoundError } from "@/errors";
+import { bindDerived, type DeriveParams } from "@/query/derived";
 import { Queries, type QueriesParams, type Retrieves } from "@/query/query";
 import {
   createStreamer,
@@ -40,6 +41,18 @@ export interface CacheParams {
    * console logging.
    */
   onError?: (error: Error) => void;
+}
+
+/** Configuration for a derived table owned by a {@link Cache}. */
+export interface DerivedConfig<
+  Key extends record.Key,
+  Value extends state.State & record.Keyed<Key>,
+  Composed extends state.State & record.Keyed<Key>,
+> extends DeriveParams<Key, Value, Composed> {
+  /** Names the table in diagnostics. */
+  name: string;
+  /** Overrides the deep-equality default used to silence redundant sets. */
+  equal?: (a: Composed, b: Composed, key: Key) => boolean;
 }
 
 /** Configuration for a table owned by a {@link Cache}. */
@@ -128,6 +141,7 @@ export class Cache {
   private readonly entries: TableEntry[] = [];
   private readonly reactions: Listener[] = [];
   private readonly spaces: Space[] = [];
+  private readonly detachers: destructor.Destructor[] = [];
   private readonly epochObserver = new observe.Observer<number>();
   private readonly openStreamer: StreamOpener | null;
   private streamer: Streamer | null = null;
@@ -163,6 +177,29 @@ export class Cache {
       reconcile: config.fetch == null ? undefined : bindReconcile(table, config.fetch),
       reset: () => table.reset(),
     });
+    return table;
+  }
+
+  /**
+   * Creates a table materialized from another table owned by this cache.
+   * Composed rows are replaced on source and watch events, so row identity
+   * changes exactly when composition changes; misses on read fetch through
+   * the source. Resets with the cache. No stream listeners of its own, so
+   * it may be created at any time.
+   */
+  derive<
+    Key extends record.Key,
+    Value extends state.State & record.Keyed<Key>,
+    Composed extends state.State & record.Keyed<Key>,
+  >(config: DerivedConfig<Key, Value, Composed>): Table<Key, Composed> {
+    const { name, source, compose, watch, equal } = config;
+    const table = new Table<Key, Composed>({
+      onError: this.onError,
+      equal,
+      fetch: async (keys) => (await source.retrieve(keys)).map(compose),
+    });
+    this.detachers.push(bindDerived(table, { source, compose, watch }));
+    this.entries.push({ name, listeners: [], reset: () => table.reset() });
     return table;
   }
 
@@ -301,6 +338,7 @@ export class Cache {
    * A no-op for the stream when streaming never started.
    */
   async close(): Promise<void> {
+    this.detachers.forEach((detach) => detach());
     this.spaces.forEach((space) => space.close());
     if (this.streamer == null) return;
     await this.streamer.close();

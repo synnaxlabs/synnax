@@ -13,7 +13,7 @@ import { describe, expect, it } from "vitest";
 import { type rack } from "@/rack";
 import { statusKey } from "@/rack/client";
 import { status } from "@/status";
-import { createTestClient } from "@/testutil";
+import { createTestClient, isLive } from "@/testutil";
 
 const client = createTestClient();
 
@@ -175,7 +175,7 @@ describe("Rack", () => {
       await client.racks.retrieve(query);
       const seen: rack.Rack[] = [];
       const stop = client.racks.onChange(query, (cached) => {
-        if (cached?.variant === "changed") seen.push(cached.data);
+        if (isLive(cached)) seen.push(cached);
       });
       try {
         await client.statuses.set(
@@ -200,7 +200,7 @@ describe("Rack", () => {
       await client.racks.retrieve(query);
       const seen: rack.Rack[][] = [];
       const stop = client.racks.onChange(query, (cached) => {
-        if (cached?.variant === "changed") seen.push(cached.data);
+        if (isLive(cached)) seen.push(cached);
       });
       try {
         await client.statuses.set(

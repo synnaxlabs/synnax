@@ -12,7 +12,7 @@ import { beforeAll, describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 
 import { device } from "@/device";
-import { createTestClient } from "@/testutil";
+import { createTestClient, expectLive, isLive } from "@/testutil";
 
 const client = createTestClient();
 
@@ -486,8 +486,8 @@ describe("Device", async () => {
         await expect
           .poll(() => {
             const cached = client.devices.getCached(query);
-            if (cached?.variant !== "changed") return undefined;
-            return cached.data.status?.message;
+            if (!isLive(cached)) return undefined;
+            return cached.status?.message;
           })
           .toBe("device degraded");
       } finally {
@@ -521,8 +521,8 @@ describe("Device", async () => {
         await expect
           .poll(() => {
             const cached = client.devices.getCached(query);
-            if (cached?.variant !== "changed") return undefined;
-            return cached.data.find((d) => d.key === dev.key)?.status?.message;
+            if (!isLive(cached)) return undefined;
+            return cached.find((d) => d.key === dev.key)?.status?.message;
           })
           .toBe("device has issues");
       } finally {
@@ -553,12 +553,9 @@ describe("Device", async () => {
         properties: {},
       });
       await client.devices.retrieve({ keys: [d1.key, d2.key] });
-      const cached = client.devices.getCached({ makes: [make] });
-      expect(cached?.variant).toEqual("changed");
-      if (cached?.variant === "changed") {
-        expect(cached.data.map((d) => d.key)).toContain(d1.key);
-        expect(cached.data.map((d) => d.key)).not.toContain(d2.key);
-      }
+      const cached = expectLive(client.devices.getCached({ makes: [make] }));
+      expect(cached.map((d) => d.key)).toContain(d1.key);
+      expect(cached.map((d) => d.key)).not.toContain(d2.key);
     });
 
     it("does not approximate server-computed query shapes", async () => {

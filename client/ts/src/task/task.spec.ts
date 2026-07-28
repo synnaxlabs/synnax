@@ -13,7 +13,7 @@ import { z } from "zod";
 
 import { ontology } from "@/ontology";
 import { task } from "@/task";
-import { createTestClient } from "@/testutil";
+import { createTestClient, isLive } from "@/testutil";
 
 const client = createTestClient();
 
@@ -676,8 +676,8 @@ describe("Task", async () => {
         await expect
           .poll(() => {
             const cached = client.tasks.getCached(query);
-            if (cached?.variant !== "changed") return undefined;
-            return cached.data.status?.message;
+            if (!isLive(cached)) return undefined;
+            return cached.status?.message;
           })
           .toBe("task failed");
       } finally {
@@ -706,8 +706,8 @@ describe("Task", async () => {
         await expect
           .poll(() => {
             const cached = client.tasks.getCached(query);
-            if (cached?.variant !== "changed") return undefined;
-            return cached.data.find((v) => v.key === t.key)?.status?.message;
+            if (!isLive(cached)) return undefined;
+            return cached.find((v) => v.key === t.key)?.status?.message;
           })
           .toBe("task degraded");
       } finally {
