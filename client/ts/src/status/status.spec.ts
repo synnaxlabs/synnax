@@ -489,6 +489,26 @@ describe("fromException", () => {
       "Saving failed: Failed to parse task config",
     );
   });
+
+  it("should surface the cause chain as the description", () => {
+    const err = new Error("failed to reconcile projects cache", {
+      cause: new Error("projects not found", { cause: new Error("query") }),
+    });
+    const s = status.fromException(err);
+    expect(s.message).toBe("failed to reconcile projects cache");
+    expect(s.description).toBe("projects not found: query");
+  });
+
+  it("should append the cause chain after a caller-provided message", () => {
+    const err = new Error("outer", { cause: new Error("inner") });
+    const s = status.fromException(err, "Saving failed");
+    expect(s.message).toBe("Saving failed");
+    expect(s.description).toBe("outer: inner");
+  });
+
+  it("should leave the description empty without a cause or message", () => {
+    expect(status.fromException(new Error("boom")).description).toBe("");
+  });
 });
 
 describe("keepVariants", () => {
