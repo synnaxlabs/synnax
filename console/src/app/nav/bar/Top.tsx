@@ -35,7 +35,8 @@ const BottomToggleButton = (): ReactElement => {
       contrast={2}
       color={9}
       weight={450}
-      triggerIndicator={Toolbars.BOTTOM.trigger}
+      trigger={Toolbars.BOTTOM.trigger}
+      triggerIndicator
     >
       <Icon.Visualize />
       Controls

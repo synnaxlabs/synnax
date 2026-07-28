@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { Triggers } from "@synnaxlabs/pluto";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
@@ -55,13 +56,26 @@ describe("app/nav/bar/Top", () => {
       expect(bottom(store).hover).toBe(true);
     });
 
-    it("should drop the hover on a second toggle, keeping the drawer pinned", async () => {
+    it("should toggle the bottom drawer on the V trigger", async () => {
+      const { store } = await renderBar(
+        <Triggers.Provider>
+          <Bar.Top secondary />
+        </Triggers.Provider>,
+        withActiveProject(),
+      );
+      await screen.findByText("Controls", {});
+      fireEvent.keyDown(document.body, { code: "KeyV" });
+      fireEvent.keyUp(document.body, { code: "KeyV" });
+      await waitFor(() => expect(bottom(store).visible).toBe(true));
+    });
+
+    it("should close the drawer on a second toggle", async () => {
       const { store } = await renderBar(<Bar.Top secondary />, withActiveProject());
       const button = await screen.findByText("Controls", {});
       fireEvent.click(button);
       fireEvent.click(button);
-      await waitFor(() => expect(bottom(store).hover).toBe(false));
-      expect(bottom(store).visible).toBe(true);
+      await waitFor(() => expect(bottom(store).visible).toBe(false));
+      expect(bottom(store).hover).toBe(false);
     });
   });
 });

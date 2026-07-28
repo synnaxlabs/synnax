@@ -32,7 +32,7 @@ export const useTriggerHold = (): void => {
         const key = getFocusedKey();
         if (key != null) dispatch(Session.LinePlot.setControlHold({ key }));
       },
-      [dispatch, flat],
+      [dispatch, getFocusedKey],
     ),
   });
 };

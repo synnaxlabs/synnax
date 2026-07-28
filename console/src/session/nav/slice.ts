@@ -123,12 +123,8 @@ const { actions, reducer } = createSlice({
       bottom.hover = false;
     }),
     toggleBottom: withKey<Window.OptionalKeyParams, SliceState>(({ bottom }) => {
-      if (bottom.visible && !bottom.hover) bottom.visible = false;
-      else if (bottom.visible && bottom.hover) bottom.hover = false;
-      else {
-        bottom.visible = true;
-        bottom.hover = true;
-      }
+      bottom.visible = !bottom.visible;
+      bottom.hover = bottom.visible;
     }),
     startBottomHover: withKey<Window.OptionalKeyParams, SliceState>(({ bottom }) => {
       if (bottom.visible && !bottom.hover) return;

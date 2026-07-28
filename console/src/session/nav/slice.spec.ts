@@ -252,9 +252,9 @@ describe("Nav Slice", () => {
         expect(s.bottom().hover).toBe(true);
       });
 
-      it("should drop only the hover when toggled while hovered", () => {
+      it("should hide the bottom nav when toggled while hovered", () => {
         const s = run(Nav.toggleBottom({}), Nav.toggleBottom({}));
-        expect(s.bottomVisible()).toBe(true);
+        expect(s.bottomVisible()).toBe(false);
         expect(s.bottom().hover).toBe(false);
       });
 
