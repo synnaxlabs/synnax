@@ -145,7 +145,7 @@ func (s *forNode) refreshDuration() {
 }
 
 func (s *forNode) Reset() {
-	s.State.Reset()
+	s.AbsorbInputs()
 	s.value = nil
 	s.lastSent = nil
 	s.lastChanged = 0
