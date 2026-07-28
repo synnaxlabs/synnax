@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { table as clientTable } from "@synnaxlabs/client";
+import { expectLive } from "@synnaxlabs/client/testutil";
 import { type record } from "@synnaxlabs/x";
 import { describe, expect, it, vi } from "vitest";
 
@@ -194,8 +195,7 @@ describe("table ingest", () => {
     expect(created.name).toBe(name);
     expect(created.rows).toHaveLength(1);
     const cached = client.tables.getCached({ key: id.key });
-    if (cached?.variant !== "changed") throw new Error("expected a cached table");
-    expect(cached.data.name).toBe(name);
+    expect(expectLive(cached).name).toBe(name);
   });
 
   it("rejects the import when the permission cache has no grant", async () => {

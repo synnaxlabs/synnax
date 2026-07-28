@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { lineplot as clientLineplot, type lineplot } from "@synnaxlabs/client";
+import { expectLive } from "@synnaxlabs/client/testutil";
 import { box, dimensions, xy } from "@synnaxlabs/x";
 import { describe, expect, it, vi } from "vitest";
 
@@ -316,8 +317,7 @@ describe("lineplot ingest", () => {
     expect(created.name).toBe(name);
     expect(created.channels.y1).toEqual([65538]);
     const cached = client.lineplots.getCached({ key: spec.resource.key });
-    if (cached?.variant !== "changed") throw new Error("expected a cached plot");
-    expect(cached.data.name).toBe(name);
+    expect(expectLive(cached).name).toBe(name);
   });
 
   it("rejects the import when the permission cache has no grant", async () => {

@@ -7,7 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type framer, panel, type Synnax as Client, task } from "@synnaxlabs/client";
+import {
+  type framer,
+  panel,
+  query,
+  type Synnax as Client,
+  task,
+} from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { Drift } from "@synnaxlabs/drift";
 import { Form as PForm, Panel as PlutoPanel, type Status } from "@synnaxlabs/pluto";
@@ -137,8 +143,8 @@ export const selectViewArgs = (
   tabKey: panel.TabKey = tabKeys[0],
 ): record.Unknown | null => {
   const cached = client.panels.getCached({ key: panelKey });
-  if (cached == null || cached.variant === "deleted") return null;
-  const tab = panel.findTab(cached.data.root, tabKey);
+  if (cached == null || query.Deleted.matches(cached)) return null;
+  const tab = panel.findTab(cached.root, tabKey);
   return tab?.variant === "view" ? tab.args : null;
 };
 

@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { group, ontology, status } from "@synnaxlabs/client";
-import { createTestClient } from "@synnaxlabs/client/testutil";
+import { createTestClient, isLive } from "@synnaxlabs/client/testutil";
 import { id, TimeStamp, uuid } from "@synnaxlabs/x";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { type FC, type PropsWithChildren } from "react";
@@ -1048,7 +1048,7 @@ describe("Status queries", () => {
       expect(statuses.map((s) => s.key)).toContain(status1.key);
       expect(statuses.map((s) => s.key)).toContain(status2.key);
       const cached = client.statuses.getCached({ keys: [status1.key, status2.key] });
-      expect(cached?.variant).toEqual("changed");
+      expect(isLive(cached)).toBe(true);
     });
 
     it("should return all cached statuses when all are cached", async () => {

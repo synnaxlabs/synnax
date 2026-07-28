@@ -12,6 +12,7 @@ import {
   type log,
   NotFoundError,
   type project,
+  query,
   type Synnax as Client,
 } from "@synnaxlabs/client";
 import { compare, uuid } from "@synnaxlabs/x";
@@ -43,9 +44,9 @@ export interface SelectKeyParams {
 
 const requireLog = (client: Client | null, key: log.Key): log.Log => {
   const cached = client?.logs.getCached({ key });
-  if (cached == null || cached.variant === "deleted")
+  if (cached == null || query.Deleted.matches(cached))
     throw new NotFoundError(`Log with key ${key} not found`);
-  return cached.data;
+  return cached;
 };
 
 const subscribe = (

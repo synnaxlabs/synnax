@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { arc } from "@synnaxlabs/client";
+import { arc, query } from "@synnaxlabs/client";
 import { uuid } from "@synnaxlabs/x";
 
 import { useDispatch } from "@/arc/queries";
@@ -36,10 +36,10 @@ export const useClipboard = ({
     edgeKey: (edge) => edge.key,
     getSnapshot: () => {
       const cached = client?.arcs.getCached({ key });
-      if (cached == null || cached.variant === "deleted") return null;
+      if (cached == null || query.Deleted.matches(cached)) return null;
       const {
         graph: { nodes, edges, inputs },
-      } = cached.data;
+      } = cached;
       return { nodes, edges, configs: inputs };
     },
     apply: ({ nodes, edges, newKeys }) => {

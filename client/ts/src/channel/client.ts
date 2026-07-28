@@ -323,6 +323,17 @@ const requestFilter = (req: NormalizedRequest): ((ch: Channel) => boolean) => {
   };
 };
 
+// Channel statuses live in the status table under the "channel:<key>" status
+// key.
+const affectedChannelKeys = (
+  event: query.TableEvent<status.Key, status.Status>,
+): Key[] | null => {
+  const [type, key] = event.key.split(":");
+  if (type !== "channel" || !primitive.isNonZero(key)) return null;
+  const parsed = keyZ.safeParse(key);
+  return parsed.success ? [parsed.data] : null;
+};
+
 /**
  * The main client class for executing channel operations against a Synnax Core. This
  * class should not be instantiated directly, and instead should be used through the
@@ -369,17 +380,25 @@ export class Client extends query.Retriever<
         query.createDeleteListener(DELETE_CHANNEL_NAME, keyZ),
       ],
     });
+    const composed = cache.derive<Key, Channel, Channel>({
+      name: "channel.composed",
+      source: store,
+      compose: (record) => this.compose(record.payload),
+      equal: (a, b) => deep.equal(a.payload, b.payload),
+      watch: [query.deriveWatch(statusStore, (event) => affectedChannelKeys(event))],
+    });
     const single = cache.queries<RetrieveSingleParams, Channel, Key, Channel>({
       name: "channel",
-      table: store,
+      table: composed,
       fetch: async (query) => [(await this.fetchSingle(query)).key],
-      compose: (records, query) => this.compose(records[0].payload, query.rangeKey),
+      // Composed rows carry status; the read-time step only glues the alias.
+      compose: (records, query) =>
+        query.rangeKey == null
+          ? records[0]
+          : this.composeAlias(records[0].payload, query.rangeKey),
       keyOf: (query) => query.key,
       single: true,
       watch: [
-        query.watch(statusStore, (event, query: RetrieveSingleParams) =>
-          event.key === statusKey(query.key) ? [query.key] : null,
-        ),
         query.watch(aliasStore, (event, query: RetrieveSingleParams) => {
           if (query.rangeKey == null) return null;
           const aliasKey = createKey({ range: query.rangeKey, channel: query.key });
@@ -604,7 +623,7 @@ export class Client extends query.Retriever<
       return undefined;
     const matches = this.store.get(requestFilter(req));
     if (matches.length === 0) return undefined;
-    return { variant: "changed", data: matches };
+    return matches;
   }
 
   /***
@@ -703,8 +722,8 @@ export class Client extends query.Retriever<
     return res.group;
   }
 
-  /** Rebuilds a cached channel with its cached status and alias attached. */
-  private compose(payload: Payload, rangeKey?: ranger.Key): Channel {
+  /** Rebuilds a cached channel with its cached status attached. */
+  private compose(payload: Payload): Channel {
     const next: Payload = { ...payload, status: undefined, alias: undefined };
     if (isCalculated(payload)) {
       const parsed = statusZ.safeParse(
@@ -712,10 +731,6 @@ export class Client extends query.Retriever<
       );
       if (parsed.success) next.status = parsed.data;
     }
-    if (rangeKey != null)
-      next.alias = this.cfg.ranges.aliases.get(
-        createKey({ range: rangeKey, channel: payload.key }),
-      )?.alias;
     return this.sugar(next);
   }
 

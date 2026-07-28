@@ -11,6 +11,7 @@ import {
   lineplot,
   NotFoundError,
   type project,
+  query,
   type Synnax as Client,
 } from "@synnaxlabs/client";
 import { color, compare, DataType, primitive, type require, uuid } from "@synnaxlabs/x";
@@ -46,9 +47,9 @@ const requireLinePlot = (
   key: lineplot.Key,
 ): lineplot.LinePlot => {
   const cached = client?.lineplots.getCached({ key });
-  if (cached == null || cached.variant === "deleted")
+  if (cached == null || query.Deleted.matches(cached))
     throw new NotFoundError(`Line plot with key ${key} not found`);
-  return cached.data;
+  return cached;
 };
 
 const subscribe = (

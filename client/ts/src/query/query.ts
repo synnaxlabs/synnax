@@ -17,6 +17,7 @@ import {
 } from "@synnaxlabs/x";
 
 import { NotFoundError } from "@/errors";
+import { Deleted } from "@/query/deleted";
 import { type Table, type TableEvent } from "@/query/table";
 import { type Data, type FetchOptions, type Params } from "@/query/types";
 
@@ -43,11 +44,11 @@ export const hash = (query: Params): string => {
 
 /**
  * A cached answer as delivered to consumers: the query's current data, or the
- * last value of a record that was deleted. A corpse is never delivered as bare
- * data, so deletion cannot be mistaken for a live result.
+ * {@link Deleted} corpse of a record that was deleted. A corpse is never
+ * delivered as bare data, so deletion cannot be mistaken for a live result.
+ * Narrow with {@link Deleted.matches}.
  */
-export type Cached<D extends Data> =
-  { variant: "changed"; data: D } | { variant: "deleted"; corpse: D };
+export type Cached<D extends Data> = D | Deleted<D>;
 
 /**
  * Receives the new cached answer for a query. `undefined` means the answer was
@@ -172,8 +173,6 @@ type EntryState<K extends record.Key, D extends Data> =
 interface Entry<Q extends Params, K extends record.Key, D extends Data> {
   query: Q;
   state: EntryState<K, D>;
-  /** Memoized view for referential stability; invalidated on every change. */
-  snapshot?: Cached<D>;
   handlers: Set<ChangeHandler<D>>;
   /** Rule teardown; present exactly while the entry is maintained. */
   teardown?: destructor.Destructor[];
@@ -197,6 +196,9 @@ export class Queries<
   V extends state.State = state.State,
 > {
   private readonly entries = new Map<string, Entry<Q, K, D>>();
+  /** Composed corpses interned per tombstone and query, so deleted answers
+   *  stay referentially stable. Identity composes reuse the tombstone. */
+  private readonly corpses = new WeakMap<Deleted<V>, Map<string, Deleted<D>>>();
   private readonly params: QueriesParams<Q, D, K, V>;
   private readonly hooks: AnswersHooks;
   private readonly detachEpoch?: destructor.Destructor;
@@ -253,15 +255,11 @@ export class Queries<
     const key = this.params.keyOf?.(query);
     if (key == null) return undefined;
     const { table } = this.params;
-    const status = table.status(key);
-    if (status === "present")
-      return { variant: "changed", data: this.compose([key], query) };
-    if (status === "tombstoned") {
-      const corpse = table.getTombstone(key)?.corpse;
-      if (corpse == null) return undefined;
-      return { variant: "deleted", corpse: this.params.compose([corpse], query) };
-    }
-    return undefined;
+    const row = table.get(key);
+    if (row != null) return this.params.compose([row], query);
+    const tombstone = table.getTombstone(key);
+    if (tombstone == null) return undefined;
+    return this.deletedOf(tombstone, query);
   }
 
   /**
@@ -280,7 +278,6 @@ export class Queries<
       if (entry.handlers.size > 0) return;
       entry.teardown?.forEach((d) => d());
       entry.teardown = undefined;
-      entry.snapshot = undefined;
       if (entry.refetchTimer != null) {
         clearTimeout(entry.refetchTimer);
         entry.refetchTimer = undefined;
@@ -301,7 +298,6 @@ export class Queries<
         entry.refetchTimer = undefined;
       }
       entry.state = { variant: "unfetched" };
-      entry.snapshot = undefined;
       entry.handlers.forEach((handler) => {
         try {
           handler(undefined);
@@ -354,35 +350,35 @@ export class Queries<
 
   private cachedOf(entry: Entry<Q, K, D>): Cached<D> | undefined {
     const { state } = entry;
-    if (state.variant === "ready") {
-      if (entry.teardown == null)
-        return { variant: "changed", data: this.compose(state.keys, entry.query) };
-      entry.snapshot ??= {
-        variant: "changed",
-        data: this.compose(state.keys, entry.query),
-      };
-      return entry.snapshot;
-    }
+    if (state.variant === "ready") return this.compose(state.keys, entry.query);
     if (state.variant === "deleted") {
-      const corpse = this.params.table.getTombstone(state.key)?.corpse;
-      if (corpse == null) return undefined;
-      if (entry.teardown == null)
-        return {
-          variant: "deleted",
-          corpse: this.params.compose([corpse], entry.query),
-        };
-      entry.snapshot ??= {
-        variant: "deleted",
-        corpse: this.params.compose([corpse], entry.query),
-      };
-      return entry.snapshot;
+      const tombstone = this.params.table.getTombstone(state.key);
+      if (tombstone == null) return undefined;
+      return this.deletedOf(tombstone, entry.query);
     }
     return undefined;
   }
 
-  /** Invalidates the memoized view and notifies every subscriber. */
+  private deletedOf(tombstone: Deleted<V>, query: Q): Deleted<D> {
+    const hashed = hash(query);
+    let perTombstone = this.corpses.get(tombstone);
+    if (perTombstone == null) {
+      perTombstone = new Map();
+      this.corpses.set(tombstone, perTombstone);
+    }
+    let deleted = perTombstone.get(hashed);
+    if (deleted == null) {
+      deleted = new Deleted(
+        this.params.compose([tombstone.corpse], query),
+        tombstone.deletedAt,
+      );
+      perTombstone.set(hashed, deleted);
+    }
+    return deleted;
+  }
+
+  /** Notifies every subscriber with the entry's current answer. */
   private touch(entry: Entry<Q, K, D>): void {
-    entry.snapshot = undefined;
     if (entry.handlers.size === 0) return;
     const result = this.cachedOf(entry);
     entry.handlers.forEach((handler) => {

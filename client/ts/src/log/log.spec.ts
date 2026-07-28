@@ -11,7 +11,8 @@ import { id, uuid } from "@synnaxlabs/x";
 import { describe, expect, it, test } from "vitest";
 
 import { NotFoundError } from "@/errors";
-import { createTestClient } from "@/testutil";
+import { query } from "@/query";
+import { createTestClient, expectDeleted } from "@/testutil";
 
 const client = createTestClient();
 
@@ -53,9 +54,9 @@ describe("store", () => {
     const log = await client.logs.create(project.key, { name: `log-${id.create()}` });
     await client.logs.delete(log.key);
     await expect
-      .poll(() => client.logs.getCached({ key: log.key })?.variant)
-      .toBe("deleted");
-    const cached = client.logs.getCached({ key: log.key });
-    if (cached?.variant === "deleted") expect(cached.corpse.name).toEqual(log.name);
+      .poll(() => query.Deleted.matches(client.logs.getCached({ key: log.key })))
+      .toBe(true);
+    const cached = expectDeleted(client.logs.getCached({ key: log.key }));
+    expect(cached.corpse.name).toEqual(log.name);
   });
 });

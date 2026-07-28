@@ -10,6 +10,7 @@
 import {
   NotFoundError,
   type project,
+  query,
   type Synnax as Client,
   type table,
 } from "@synnaxlabs/client";
@@ -43,15 +44,15 @@ export interface SelectKeyParams {
 
 const requireTable = (client: Client | null, key: table.Key): table.Table => {
   const cached = client?.tables.getCached({ key });
-  if (cached == null || cached.variant === "deleted")
+  if (cached == null || query.Deleted.matches(cached))
     throw new NotFoundError(`Table with key ${key} not found`);
-  return cached.data;
+  return cached;
 };
 
 const getTable = (client: Client | null, key: table.Key): table.Table | undefined => {
   const cached = client?.tables.getCached({ key });
-  if (cached == null || cached.variant === "deleted") return undefined;
-  return cached.data;
+  if (cached == null || query.Deleted.matches(cached)) return undefined;
+  return cached;
 };
 
 const subscribe = (

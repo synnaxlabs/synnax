@@ -193,19 +193,20 @@ export class Client extends query.Retriever<
         query.createDeleteListener(DELETE_CHANNEL_NAME, keyZ),
       ],
     });
-    const statusWatch = <Q extends { includeStatus?: boolean }>() =>
-      query.watch(statusStore, (event, q: Q) => {
-        if (q.includeStatus !== true) return null;
-        return affectedDeviceKeys(event);
-      });
-    const single = cache.queries<SingleQuery, Device, Key, Omit<Device, "status">>({
+    // Composed rows always carry status; includeStatus only gates fetch flags.
+    const composed = cache.derive<Key, Omit<Device, "status">, Device>({
+      name: "device.composed",
+      source: store,
+      compose: (record) => this.compose(record, true),
+      watch: [query.deriveWatch(statusStore, (event) => affectedDeviceKeys(event))],
+    });
+    const single = cache.queries<SingleQuery, Device, Key, Device>({
       name: "device",
-      table: store,
+      table: composed,
       fetch: async (q) => [(await this.fetchSingle(q)).key],
-      compose: ([record], q) => this.compose(record, q.includeStatus === true),
+      compose: (records) => records[0],
       keyOf: (q) => q.key,
       single: true,
-      watch: [statusWatch<SingleQuery>()],
     });
     super(cache, {
       name: "device",
@@ -215,7 +216,12 @@ export class Client extends query.Retriever<
         fetch: async (req) => (await this.fetchThrough(req)).map(stripStatus),
         matches: (d, req) => requestFilter(req)(d),
         serverFields: SERVER_FIELDS,
-        watch: [statusWatch<RetrieveRequest>()],
+        watch: [
+          query.watch(statusStore, (event, q: RetrieveRequest) => {
+            if (q.includeStatus !== true) return null;
+            return affectedDeviceKeys(event);
+          }),
+        ],
       },
       compose: (record, q) =>
         this.compose(record, (q as { includeStatus?: boolean }).includeStatus === true),
@@ -287,7 +293,7 @@ export class Client extends query.Retriever<
       return undefined;
     const matches = this.store.get(requestFilter(req));
     if (matches.length === 0) return undefined;
-    return { variant: "changed", data: matches };
+    return matches;
   }
 
   async create(device: New): Promise<Device>;

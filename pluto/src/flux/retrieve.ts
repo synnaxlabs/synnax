@@ -30,6 +30,9 @@ import { useMemoDeepEqual } from "@/memo";
 import { useAdder } from "@/status/base/Aggregator";
 import { Synnax } from "@/synnax";
 
+// Bound at module scope: hooks bind `query` to the caller's params object.
+const { Deleted } = query;
+
 export interface RetrieveParams<Query extends query.Params> {
   client: Client;
   query: Query;
@@ -228,18 +231,17 @@ const useObservableBase = <Query extends query.Params, Data extends query.Data>(
   const addStatus = useAdder();
   const handleCacheChange = useCallback(
     (result: query.Cached<Data> | undefined) => {
-      const query = queryRef.current;
-      if (query == null || result == null) return;
-      if (result.variant === "changed")
-        onChange(successResult(`retrieved ${name}`, result.data), query);
-      else
+      const current = queryRef.current;
+      if (current == null || result === undefined) return;
+      if (Deleted.matches<Data>(result))
         onChange(
           errorResult(
             `retrieve ${name}`,
             new DeletedError(`${name} was deleted`, result.corpse),
           ),
-          query,
+          current,
         );
+      else onChange(successResult(`retrieved ${name}`, result), current);
     },
     [onChange, name],
   );
@@ -525,9 +527,11 @@ const useSuspended = <Query extends query.Params, Data extends query.Data>({
     useCallback(() => getCached?.(params), [client, memoQuery]),
   );
 
-  if (cached?.variant === "changed") return cached.data;
-  if (cached?.variant === "deleted")
-    throw new DeletedError(`${name} was deleted`, cached.corpse);
+  if (cached !== undefined) {
+    if (Deleted.matches<Data>(cached))
+      throw new DeletedError(`${name} was deleted`, cached.corpse);
+    return cached;
+  }
   const derived = deriveCached?.(params);
   if (derived != null) return derived;
   return suspendOnFetch(params, { name, retrieve, subscribe, getCached, local });
@@ -552,9 +556,11 @@ const useEnsure = <Query extends query.Params, Data extends query.Data>({
   const params = { client, query: memoQuery };
 
   const cached = getCached?.(params);
-  if (cached?.variant === "changed") return;
-  if (cached?.variant === "deleted")
-    throw new DeletedError(`${name} was deleted`, cached.corpse);
+  if (cached !== undefined) {
+    if (Deleted.matches<Data>(cached))
+      throw new DeletedError(`${name} was deleted`, cached.corpse);
+    return;
+  }
   if (deriveCached?.(params) != null) return;
   suspendOnFetch(params, { name, retrieve, subscribe, getCached, local });
 };

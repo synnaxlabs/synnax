@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { query } from "@synnaxlabs/client";
 import { useCallback, useMemo } from "react";
 
 import { NAME } from "@/arc/language";
@@ -26,8 +27,8 @@ export const Editor = () => {
   // for the editor's lifetime, materializing the value and translating edits to operations.
   const text = useMemo<CollabText | null>(() => {
     const cached = client?.arcs.getCached({ key: resourceKey });
-    if (cached == null || cached.variant === "deleted") return null;
-    const doc = cached.data.text.doc;
+    if (cached == null || query.Deleted.matches(cached)) return null;
+    const doc = cached.text.doc;
     return doc != null ? CollabText.bootstrap(doc) : null;
   }, [client, resourceKey, hasText]);
 
@@ -47,8 +48,8 @@ export const Editor = () => {
     (handle: Code.EditorHandle | null) => {
       if (handle == null || text == null || client == null) return;
       return client.arcs.onChange({ key: resourceKey }, (cached) => {
-        if (cached?.variant !== "changed") return;
-        text.sync(cached.data.text.doc);
+        if (cached === undefined || query.Deleted.matches(cached)) return;
+        text.sync(cached.text.doc);
         handle.setValue(text.value());
       });
     },
