@@ -25,61 +25,58 @@ export const RESOURCE_DELETE_CHANNEL_NAME = "sy_ontology_resource_delete";
 export const RELATIONSHIP_SET_CHANNEL_NAME = "sy_ontology_relationship_set";
 export const RELATIONSHIP_DELETE_CHANNEL_NAME = "sy_ontology_relationship_delete";
 
-/** The ontology tables shared across domain clients. */
-export interface Stores {
-  relationships: query.Table<string, Relationship>;
-  resources: query.Table<string, Resource>;
+/** The ontology record tables: resources and the relationships between them. */
+export class Cache {
+  readonly relationships: query.Table<string, Relationship>;
+  readonly resources: query.Table<string, Resource>;
+
+  constructor(
+    relationships: query.Table<string, Relationship>,
+    resources: query.Table<string, Resource>,
+  ) {
+    this.relationships = relationships;
+    this.resources = resources;
+  }
+
+  /** Returns the cached parent ID of the given ontology ID, or null if unknown. */
+  parentID(id: ID): ID | null {
+    const res = this.relationships.get((r) =>
+      matchRelationship(r, { type: PARENT_OF_RELATIONSHIP_TYPE, to: id }),
+    );
+    if (res.length === 0) return null;
+    return res[0].from;
+  }
+
+  /**
+   * Optimistically renames the cached resource for the given ID. Returns a
+   * rollback restoring the prior name. A no-op when the resource isn't cached.
+   */
+  renameResource(id: ID, name: string): destructor.Destructor {
+    return query.partialUpdate(this.resources, idToString(id), { name });
+  }
+
+  /**
+   * Optimistically drops every cached relationship touching the given IDs.
+   * Returns a rollback restoring them.
+   */
+  deleteRelationships(ids: ID | ID[]): destructor.Destructor {
+    const idsArr = Array.isArray(ids) ? ids : [ids];
+    return this.relationships.delete((rel) =>
+      idsArr.some((id) => idsEqual(rel.to, id) || idsEqual(rel.from, id)),
+    );
+  }
+
+  /**
+   * Optimistically drops the cached resources for the given IDs along with
+   * every relationship touching them. Returns a rollback restoring both.
+   */
+  deleteResources(ids: ID | ID[]): destructor.Destructor {
+    const idsArr = Array.isArray(ids) ? ids : [ids];
+    const undoRels = this.deleteRelationships(idsArr);
+    const undoResources = this.resources.delete(idToString(idsArr));
+    return () => {
+      undoResources();
+      undoRels();
+    };
+  }
 }
-
-/** Returns the cached parent ID of the given ontology ID, or null if unknown. */
-export const cachedParentID = (
-  relationships: query.Table<string, Relationship>,
-  id: ID,
-): ID | null => {
-  const res = relationships.get((r) =>
-    matchRelationship(r, { type: PARENT_OF_RELATIONSHIP_TYPE, to: id }),
-  );
-  if (res.length === 0) return null;
-  return res[0].from;
-};
-
-/**
- * Optimistically renames the cached resource for the given ID. Returns a
- * rollback restoring the prior name. A no-op when the resource isn't cached.
- */
-export const renameCachedResource = (
-  { resources }: Stores,
-  id: ID,
-  name: string,
-): destructor.Destructor => query.partialUpdate(resources, idToString(id), { name });
-
-/**
- * Optimistically drops every cached relationship touching the given IDs.
- * Returns a rollback restoring them.
- */
-export const deleteCachedRelationships = (
-  { relationships }: Stores,
-  ids: ID | ID[],
-): destructor.Destructor => {
-  const idsArr = Array.isArray(ids) ? ids : [ids];
-  return relationships.delete((rel) =>
-    idsArr.some((id) => idsEqual(rel.to, id) || idsEqual(rel.from, id)),
-  );
-};
-
-/**
- * Optimistically drops the cached resources for the given IDs along with every
- * relationship touching them. Returns a rollback restoring both.
- */
-export const deleteCachedResources = (
-  stores: Stores,
-  ids: ID | ID[],
-): destructor.Destructor => {
-  const idsArr = Array.isArray(ids) ? ids : [ids];
-  const undoRels = deleteCachedRelationships(stores, idsArr);
-  const undoResources = stores.resources.delete(idToString(idsArr));
-  return () => {
-    undoResources();
-    undoRels();
-  };
-};

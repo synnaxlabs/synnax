@@ -141,7 +141,7 @@ const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
 
   const getResourceByKey = useCallback(
     (key: string): ontology.Resource | undefined =>
-      client?.ontology.resources.get(key) ?? placeholdersRef.current.get(key),
+      client?.ontology.cache.resources.get(key) ?? placeholdersRef.current.get(key),
     [client],
   );
 
