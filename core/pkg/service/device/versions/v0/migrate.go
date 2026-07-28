@@ -96,9 +96,7 @@ func newMigration(cfg MigrationConfig) migrate.Migration {
 }
 
 // codecMigration re-encodes stored devices from MessagePack to Orc.
-var codecMigration = gorp.CodecMigration[Key, Device](
-	"msgpack_to_orc", newMigration(MigrationConfig{}).Key(),
-)
+var codecMigration = gorp.CodecMigration[Key, Device]("msgpack_to_orc")
 
 // NewMigrations returns the ordered set of migrations introduced at this version.
 func NewMigrations(cfg MigrationConfig) []migrate.Migration {
