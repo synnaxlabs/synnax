@@ -356,6 +356,16 @@ const watchLabels = <Q extends query.Params>(
     rangesWithLabel(relationships, event.key),
   );
 
+export interface ClientParams {
+  framer: framer.Client;
+  writer: Writer;
+  unary: UnaryClient;
+  channels: channel.Retriever;
+  labels: label.Client;
+  ontology: ontology.Client;
+  cache: query.Cache;
+}
+
 export class Client extends query.Retriever<
   typeof retrieveMultiParamsZ,
   Key,
@@ -375,26 +385,26 @@ export class Client extends query.Retriever<
   readonly parent: query.Retrieves<ontology.ID, Range | null>;
   /** Cached queries for a range's KV metadata pairs, keyed by the range's key. */
   readonly kv: query.Retrieves<Key, kv.Pair[]>;
-  private readonly frameClient: framer.Client;
+  private readonly framer: framer.Client;
   private readonly writer: Writer;
-  private readonly unaryClient: UnaryClient;
+  private readonly unary: UnaryClient;
   private readonly channels: channel.Retriever;
-  private readonly labelClient: label.Client;
-  private readonly ontologyClient: ontology.Client;
+  private readonly labels: label.Client;
+  private readonly ontology: ontology.Client;
   private readonly store: query.Table<Key, Range>;
   private readonly kvPairs: query.Table<string, kv.Pair>;
-  private readonly labels: query.Table<label.Key, label.Label>;
-  private readonly ontology: ontology.Stores;
+  private readonly labelStore: query.Table<label.Key, label.Label>;
+  private readonly ontologyStores: ontology.Stores;
 
-  constructor(
-    frameClient: framer.Client,
-    writer: Writer,
-    unary: UnaryClient,
-    channels: channel.Retriever,
-    labelClient: label.Client,
-    ontologyClient: ontology.Client,
-    cache: query.Cache,
-  ) {
+  constructor({
+    framer,
+    writer,
+    unary,
+    channels,
+    labels: labelClient,
+    ontology: ontologyClient,
+    cache,
+  }: ClientParams) {
     const labels = labelClient.store;
     const { relationships } = ontologyClient.stores;
     const { ranges, kvPairs, aliases } = createTables(
@@ -436,14 +446,14 @@ export class Client extends query.Retriever<
         space: single as query.Retrieves<query.Params, Range>,
       },
     });
-    this.frameClient = frameClient;
+    this.framer = framer;
     this.writer = writer;
-    this.unaryClient = unary;
+    this.unary = unary;
     this.channels = channels;
-    this.labelClient = labelClient;
-    this.ontologyClient = ontologyClient;
-    this.labels = labels;
-    this.ontology = ontologyClient.stores;
+    this.labels = labelClient;
+    this.ontology = ontologyClient;
+    this.labelStore = labels;
+    this.ontologyStores = ontologyClient.stores;
     this.store = ranges;
     this.kvPairs = kvPairs;
     this.aliases = aliases;
@@ -454,14 +464,14 @@ export class Client extends query.Retriever<
       compose: (records) => records.map((r) => this.composeOne(r)),
       matches: (r, query) => {
         const parent = ontology.cachedParentID(
-          this.ontology.relationships,
+          this.ontologyStores.relationships,
           ontologyID(r.key),
         );
         return parent != null && ontology.idsEqual(parent, ontologyID(query));
       },
       watch: [
-        watchRelationships<Key>(this.ontology.relationships),
-        watchLabels<Key>(this.labels, this.ontology.relationships),
+        watchRelationships<Key>(this.ontologyStores.relationships),
+        watchLabels<Key>(this.labelStore, this.ontologyStores.relationships),
       ],
     });
     this.parent = cache.queries<ontology.ID, Range | null, Key, Range>({
@@ -473,12 +483,15 @@ export class Client extends query.Retriever<
       },
       compose: (records) => (records[0] == null ? null : this.composeOne(records[0])),
       matches: (r, query) => {
-        const parent = ontology.cachedParentID(this.ontology.relationships, query);
+        const parent = ontology.cachedParentID(
+          this.ontologyStores.relationships,
+          query,
+        );
         return parent != null && parent.type === "range" && parent.key === r.key;
       },
       watch: [
         query.watch<ontology.ID, Key, string, ontology.Relationship>(
-          this.ontology.relationships,
+          this.ontologyStores.relationships,
           (event, query) => {
             const rel = relOfEvent(event);
             if (isParentChange(rel, query))
@@ -486,7 +499,7 @@ export class Client extends query.Retriever<
             return affectedRangeKeys(rel);
           },
         ),
-        watchLabels<ontology.ID>(this.labels, this.ontology.relationships),
+        watchLabels<ontology.ID>(this.labelStore, this.ontologyStores.relationships),
       ],
     });
     this.kv = cache.queries<Key, kv.Pair[], string, kv.Pair>({
@@ -514,7 +527,7 @@ export class Client extends query.Retriever<
         type: ontology.PARENT_OF_RELATIONSHIP_TYPE,
         to: ontologyID(r.key),
       };
-      this.ontology.relationships.set(ontology.relationshipToString(rel), rel);
+      this.ontologyStores.relationships.set(ontology.relationshipToString(rel), rel);
     });
     return single ? res[0] : res;
   }
@@ -524,7 +537,7 @@ export class Client extends query.Retriever<
       this.store.set(key, (p) =>
         p == null ? undefined : this.sugarOne({ ...p.payload, name }),
       ),
-      ontology.renameCachedResource(this.ontology, ontologyID(key), name),
+      ontology.renameCachedResource(this.ontologyStores, ontologyID(key), name),
     ];
     const rollbacks = new destructor.Chain();
     rollbacks.add(...rename());
@@ -550,7 +563,7 @@ export class Client extends query.Retriever<
   }
 
   private async execRetrieve(params: RetrieveParams): Promise<Range[]> {
-    const { ranges } = await this.unaryClient.send(
+    const { ranges } = await this.unary.send(
       "/range/retrieve",
       params,
       retrieveParamsZ,
@@ -574,19 +587,23 @@ export class Client extends query.Retriever<
   }
 
   private createAliasClient(key: Key): AliasClient {
-    return new AliasClient(key, this.unaryClient);
+    return new AliasClient(key, this.unary);
   }
 
   private createKVClient(key: Key): KVClient {
-    return new KVClient(key, this.unaryClient, this.kvPairs);
+    return new KVClient(key, this.unary, this.kvPairs);
   }
 
   /** Rebuilds a cached range with its cached labels and parent attached. */
   private composeOne(cached: Range): Range {
     const id = ontologyID(cached.key);
-    const labels = label.cachedLabelsOf(this.ontology.relationships, this.labels, id);
+    const labels = label.cachedLabelsOf(
+      this.ontologyStores.relationships,
+      this.labelStore,
+      id,
+    );
     const next: Payload = { ...cached.payload, labels };
-    const parentID = ontology.cachedParentID(this.ontology.relationships, id);
+    const parentID = ontology.cachedParentID(this.ontologyStores.relationships, id);
     if (parentID == null) delete next.parent;
     else {
       const parent = this.store.get(parentID.key);
@@ -600,14 +617,14 @@ export class Client extends query.Retriever<
     this.store.set(range);
     const id = ontologyID(range.key);
     if (range.labels != null) {
-      this.labels.set(range.labels);
+      this.labelStore.set(range.labels);
       range.labels.forEach((l) => {
         const rel: ontology.Relationship = {
           from: id,
           type: label.LABELED_BY_ONTOLOGY_RELATIONSHIP_TYPE,
           to: label.ontologyID(l.key),
         };
-        this.ontology.relationships.set(ontology.relationshipToString(rel), rel);
+        this.ontologyStores.relationships.set(ontology.relationshipToString(rel), rel);
       });
     }
     if (range.parent != null) {
@@ -616,7 +633,7 @@ export class Client extends query.Retriever<
         type: ontology.PARENT_OF_RELATIONSHIP_TYPE,
         to: id,
       };
-      this.ontology.relationships.set(ontology.relationshipToString(rel), rel);
+      this.ontologyStores.relationships.set(ontology.relationshipToString(rel), rel);
     }
   }
 
@@ -651,9 +668,9 @@ export class Client extends query.Retriever<
    */
   private async ensureRelationshipTargets(rel: ontology.Relationship): Promise<void> {
     if (rel.type === label.LABELED_BY_ONTOLOGY_RELATIONSHIP_TYPE) {
-      if (rel.to.type !== "label" || this.labels.has(rel.to.key)) return;
-      const fetched = await this.labelClient.retrieve({ key: rel.to.key });
-      this.labels.set(rel.to.key, fetched);
+      if (rel.to.type !== "label" || this.labelStore.has(rel.to.key)) return;
+      const fetched = await this.labels.retrieve({ key: rel.to.key });
+      this.labelStore.set(rel.to.key, fetched);
       return;
     }
     if (rel.type === ontology.PARENT_OF_RELATIONSHIP_TYPE) {
@@ -680,8 +697,8 @@ export class Client extends query.Retriever<
       return false;
     if (primitive.isNonZero(req.hasLabels)) {
       const labels = label.cachedLabelsOf(
-        this.ontology.relationships,
-        this.labels,
+        this.ontologyStores.relationships,
+        this.labelStore,
         ontologyID(r.key),
       );
       const wanted = new Set(req.hasLabels);
@@ -691,7 +708,7 @@ export class Client extends query.Retriever<
   }
 
   private async fetchChildren(query: Key): Promise<Range[]> {
-    const resources = await this.ontologyClient.children.retrieve({
+    const resources = await this.ontology.children.retrieve({
       ids: ontologyID(query),
       types: ["range"],
     });
@@ -700,7 +717,7 @@ export class Client extends query.Retriever<
   }
 
   private async fetchParent(query: ontology.ID): Promise<Range | null> {
-    const res = await this.ontologyClient.parents.retrieve({ ids: query });
+    const res = await this.ontology.parents.retrieve({ ids: query });
     const parent = res.find(({ id: { type } }) => type === "range");
     if (parent == null) return null;
     const [range] = await this.store.retrieve([parent.id.key]);
@@ -763,12 +780,12 @@ export class Client extends query.Retriever<
 
   sugarOne(payload: Payload): Range {
     return new Range(payload, {
-      frameClient: this.frameClient,
+      frameClient: this.framer,
       kv: this.createKVClient(payload.key),
       aliaser: this.createAliasClient(payload.key),
       channels: this.channels,
-      labelClient: this.labelClient,
-      ontologyClient: this.ontologyClient,
+      labelClient: this.labels,
+      ontologyClient: this.ontology,
       rangeClient: this,
     });
   }

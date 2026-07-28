@@ -14,16 +14,18 @@ import { role } from "@/access/role";
 import { type ontology } from "@/ontology";
 import { type query } from "@/query";
 
+export interface ClientParams {
+  unary: UnaryClient;
+  cache: query.Cache;
+  ontologyStores: ontology.Stores;
+}
+
 export class Client {
   readonly policies: policy.Client;
   readonly roles: role.Client;
 
-  constructor(
-    client: UnaryClient,
-    cache: query.Cache,
-    ontologyStores: ontology.Stores,
-  ) {
-    this.policies = new policy.Client(client, cache, ontologyStores);
-    this.roles = new role.Client(client, cache, ontologyStores);
+  constructor(params: ClientParams) {
+    this.policies = new policy.Client(params);
+    this.roles = new role.Client(params);
   }
 }

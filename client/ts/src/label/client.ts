@@ -51,18 +51,20 @@ export type RetrieveParams = RetrieveSingleParams | RetrieveMultipleParams;
 
 interface RetrieveRequest extends z.infer<typeof retrieveRequestZ> {}
 
+export interface ClientParams {
+  unary: UnaryClient;
+  cache: query.Cache;
+  relationships: query.Table<string, ontology.Relationship>;
+}
+
 export class Client extends query.Retriever<typeof retrieveRequestZ, Key, Label> {
   readonly type: string = "label";
   /** The label record table; injected into sibling clients at wiring. */
   readonly store: query.Table<Key, Label>;
-  private readonly client: UnaryClient;
+  private readonly unary: UnaryClient;
   private readonly relationships: query.Table<string, ontology.Relationship>;
 
-  constructor(
-    client: UnaryClient,
-    cache: query.Cache,
-    relationships: query.Table<string, ontology.Relationship>,
-  ) {
+  constructor({ unary, cache, relationships }: ClientParams) {
     const store = cache.createTable<Key, Label>({
       name: "labels",
       fetch: async (keys) =>
@@ -92,7 +94,7 @@ export class Client extends query.Retriever<typeof retrieveRequestZ, Key, Label>
         ],
       },
     });
-    this.client = client;
+    this.unary = unary;
     this.relationships = relationships;
     this.store = store;
   }
@@ -112,7 +114,7 @@ export class Client extends query.Retriever<typeof retrieveRequestZ, Key, Label>
     await opts.onOptimistic?.();
     await rollback.guard(
       async () =>
-        await this.client.send(
+        await this.unary.send(
           "/label/set",
           { id, labels, replace: opts.replace },
           setReqZ,
@@ -135,7 +137,7 @@ export class Client extends query.Retriever<typeof retrieveRequestZ, Key, Label>
     await opts.onOptimistic?.();
     await rollback.guard(
       async () =>
-        await this.client.send("/label/remove", { id, labels }, removeReqZ, emptyResZ),
+        await this.unary.send("/label/remove", { id, labels }, removeReqZ, emptyResZ),
     );
   }
 
@@ -152,7 +154,7 @@ export class Client extends query.Retriever<typeof retrieveRequestZ, Key, Label>
     await opts.onOptimistic?.(optimistic);
     const res = await rollback.guard(
       async () =>
-        await this.client.send(
+        await this.unary.send(
           "/label/create",
           { labels: optimistic },
           createReqZ,
@@ -179,7 +181,7 @@ export class Client extends query.Retriever<typeof retrieveRequestZ, Key, Label>
     await opts.onOptimistic?.();
     await rollback.guard(
       async () =>
-        await this.client.send(
+        await this.unary.send(
           "/label/delete",
           { keys: keysArr },
           deleteReqZ,
@@ -190,7 +192,7 @@ export class Client extends query.Retriever<typeof retrieveRequestZ, Key, Label>
   }
 
   private async execRetrieve(params: RetrieveMultipleParams): Promise<Label[]> {
-    const res = await this.client.send(
+    const res = await this.unary.send(
       "/label/retrieve",
       params,
       retrieveRequestZ,

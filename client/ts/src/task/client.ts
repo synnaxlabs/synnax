@@ -320,6 +320,15 @@ const matchesSingle = (t: Omit<Task, "status">, query: SingleRequest): boolean =
   return false;
 };
 
+export interface ClientParams {
+  unary: UnaryClient;
+  framer: framer.Client;
+  ontology: ontology.Client;
+  ranges: ranger.Client;
+  cache: query.Cache;
+  statusStore: query.Table<status.Key, status.Status>;
+}
+
 export class Client extends query.Retriever<
   typeof cacheRetrieveReqZ,
   Key,
@@ -329,21 +338,14 @@ export class Client extends query.Retriever<
 > {
   /** The task record table; injected into sibling clients at wiring. */
   readonly store: query.Table<Key, Omit<Task, "status">>;
-  private readonly client: UnaryClient;
-  private readonly frameClient: framer.Client;
-  private readonly ontologyClient: ontology.Client;
-  private readonly rangeClient: ranger.Client;
+  private readonly unary: UnaryClient;
+  private readonly framer: framer.Client;
+  private readonly ontology: ontology.Client;
+  private readonly ranges: ranger.Client;
   private readonly statusStore: query.Table<status.Key, status.Status>;
-  private readonly ontology: ontology.Stores;
+  private readonly ontologyStores: ontology.Stores;
 
-  constructor(
-    client: UnaryClient,
-    frameClient: framer.Client,
-    ontologyClient: ontology.Client,
-    rangeClient: ranger.Client,
-    cache: query.Cache,
-    statusStore: query.Table<status.Key, status.Status>,
-  ) {
+  constructor({ unary, framer, ontology, ranges, cache, statusStore }: ClientParams) {
     const store = cache.createTable<Key, Omit<Task, "status">>({
       name: "tasks",
       equal: (a, b) => deep.equal(a.payload, b.payload),
@@ -396,12 +398,12 @@ export class Client extends query.Retriever<
         space: single as query.Retrieves<query.Params, Task>,
       },
     });
-    this.client = client;
-    this.frameClient = frameClient;
-    this.ontologyClient = ontologyClient;
-    this.rangeClient = rangeClient;
+    this.unary = unary;
+    this.framer = framer;
+    this.ontology = ontology;
+    this.ranges = ranges;
     this.statusStore = statusStore;
-    this.ontology = ontologyClient.stores;
+    this.ontologyStores = ontology.stores;
     this.store = store;
   }
 
@@ -418,7 +420,7 @@ export class Client extends query.Retriever<
     const isSingle = !Array.isArray(task);
     const createReq = createReqZ(schemas);
     const createRes = createResZ(schemas);
-    const res = await this.client.send(
+    const res = await this.unary.send(
       "/task/create",
       { tasks: array.toArray(task) },
       createReq,
@@ -432,7 +434,7 @@ export class Client extends query.Retriever<
   async delete(keys: Key | Key[], opts: query.WriteOptions = {}): Promise<void> {
     const keysArr = array.toArray(keys);
     const drop = () => [
-      ontology.deleteCachedResources(this.ontology, ontologyID(keysArr)),
+      ontology.deleteCachedResources(this.ontologyStores, ontologyID(keysArr)),
       this.store.delete(keysArr),
       this.statusStore.delete(keysArr.map((k) => statusKey(k))),
     ];
@@ -441,7 +443,7 @@ export class Client extends query.Retriever<
     await opts.onOptimistic?.();
     await rollback.guard(
       async () =>
-        await this.client.send(
+        await this.unary.send(
           "/task/delete",
           { keys: keysArr },
           deleteReqZ,
@@ -456,7 +458,7 @@ export class Client extends query.Retriever<
       this.store.set(key, (p) =>
         p == null ? undefined : this.sugar({ ...p.payload, name }),
       ),
-      ontology.renameCachedResource(this.ontology, ontologyID(key), name),
+      ontology.renameCachedResource(this.ontologyStores, ontologyID(key), name),
     ];
     const rollback = new destructor.Chain();
     rollback.add(...rename());
@@ -497,7 +499,7 @@ export class Client extends query.Retriever<
 
   async copy(key: Key, name: string, snapshot: boolean): Promise<Task> {
     const copyRes = copyResZ();
-    const response = await this.client.send(
+    const response = await this.unary.send(
       "/task/copy",
       { key, name, snapshot },
       copyReqZ,
@@ -515,15 +517,15 @@ export class Client extends query.Retriever<
   }
 
   async retrieveSnapshottedTo(taskKey: Key): Promise<ontology.Resource | null> {
-    if (this.ontologyClient == null) throw new Error("Task not created");
-    return await retrieveSnapshottedTo(taskKey, this.ontologyClient);
+    if (this.ontology == null) throw new Error("Task not created");
+    return await retrieveSnapshottedTo(taskKey, this.ontology);
   }
 
   private async execRetrieve<S extends Schemas = Schemas>(
     params: RetrieveParams,
     schemas?: S,
   ): Promise<Task<S>[]> {
-    const res = await this.client.send(
+    const res = await this.unary.send(
       "/task/retrieve",
       params,
       retrieveParamsZ,
@@ -608,9 +610,9 @@ export class Client extends query.Retriever<
             status,
           },
           schemas,
-          this.frameClient,
-          this.ontologyClient,
-          this.rangeClient,
+          this.framer,
+          this.ontology,
+          this.ranges,
         ),
     );
     return isSingle ? res[0] : res;
@@ -624,8 +626,8 @@ export class Client extends query.Retriever<
     params: ExecuteCommandParams | ExecuteCommandsParams,
   ): Promise<string | string[]> {
     if ("commands" in params)
-      return await executeCommands({ ...params, frameClient: this.frameClient });
-    return await executeCommand({ ...params, frameClient: this.frameClient });
+      return await executeCommands({ ...params, frameClient: this.framer });
+    return await executeCommand({ ...params, frameClient: this.framer });
   }
 
   async executeCommandSync<StatusData extends z.ZodType = z.ZodNever>(
@@ -648,7 +650,7 @@ export class Client extends query.Retriever<
       };
       return await executeCommandsSync({
         ...params,
-        frameClient: this.frameClient,
+        frameClient: this.framer,
         name: retrieveNames,
       });
     }
@@ -658,7 +660,7 @@ export class Client extends query.Retriever<
       return t.name;
     };
     return await executeCommandSync({
-      frameClient: this.frameClient,
+      frameClient: this.framer,
       name: retrieveName,
       ...params,
     });

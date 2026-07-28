@@ -157,6 +157,13 @@ const affectedDeviceKeys = (
   return [key];
 };
 
+export interface ClientParams {
+  unary: UnaryClient;
+  cache: query.Cache;
+  statusStore: query.Table<status.Key, status.Status>;
+  ontologyStores: ontology.Stores;
+}
+
 export class Client extends query.Retriever<
   typeof retrieveRequestZ,
   Key,
@@ -164,17 +171,12 @@ export class Client extends query.Retriever<
   Device,
   RetrieveSingleParams
 > {
-  private readonly client: UnaryClient;
+  private readonly unary: UnaryClient;
   private readonly store: query.Table<Key, Omit<Device, "status">>;
   private readonly statusStore: query.Table<status.Key, status.Status>;
-  private readonly ontology: ontology.Stores;
+  private readonly ontologyStores: ontology.Stores;
 
-  constructor(
-    client: UnaryClient,
-    cache: query.Cache,
-    statusStore: query.Table<status.Key, status.Status>,
-    ontologyStores: ontology.Stores,
-  ) {
+  constructor({ unary, cache, statusStore, ontologyStores }: ClientParams) {
     // Explicitly omit 'status' from the device type to make sure we aren't
     // storing two copies of the statuses in the store.
     const store = cache.createTable<Key, Omit<Device, "status">>({
@@ -220,9 +222,9 @@ export class Client extends query.Retriever<
         space: single as query.Retrieves<query.Params, Device>,
       },
     });
-    this.client = client;
+    this.unary = unary;
     this.statusStore = statusStore;
-    this.ontology = ontologyStores;
+    this.ontologyStores = ontologyStores;
     this.store = store;
   }
 
@@ -322,7 +324,7 @@ export class Client extends query.Retriever<
     schemas?: DeviceSchemas,
   ): Promise<Device | Device[]> {
     const isSingle = !Array.isArray(devices);
-    const res = await this.client.send(
+    const res = await this.unary.send(
       "/device/create",
       { devices: array.toArray(devices) },
       createReqZ(schemas),
@@ -335,7 +337,7 @@ export class Client extends query.Retriever<
   async delete(keys: Key | Key[], opts: query.WriteOptions = {}): Promise<void> {
     const keysArr = array.toArray(keys);
     const drop = () => [
-      ontology.deleteCachedResources(this.ontology, ontologyID(keysArr)),
+      ontology.deleteCachedResources(this.ontologyStores, ontologyID(keysArr)),
       this.store.delete(keysArr),
     ];
     const rollback = new destructor.Chain();
@@ -343,7 +345,7 @@ export class Client extends query.Retriever<
     await opts.onOptimistic?.();
     await rollback.guard(
       async () =>
-        await this.client.send(
+        await this.unary.send(
           "/device/delete",
           { keys: keysArr },
           deleteReqZ,
@@ -400,7 +402,7 @@ export class Client extends query.Retriever<
     params: RetrieveParams,
     schemas?: DeviceSchemas,
   ): Promise<Device[]> {
-    const res = await this.client.send(
+    const res = await this.unary.send(
       "/device/retrieve",
       params,
       retrieveParamsZ,

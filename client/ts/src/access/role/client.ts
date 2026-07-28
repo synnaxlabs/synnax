@@ -102,16 +102,18 @@ const assignmentRel = (role: Key, userKey: user.Key): ontology.Relationship => (
   to: user.ontologyID(userKey),
 });
 
-export class Client extends query.Retriever<typeof retrieveRequestZ, Key, Role> {
-  private readonly client: UnaryClient;
-  private readonly store: query.Table<Key, Role>;
-  private readonly ontology: ontology.Stores;
+export interface ClientParams {
+  unary: UnaryClient;
+  cache: query.Cache;
+  ontologyStores: ontology.Stores;
+}
 
-  constructor(
-    client: UnaryClient,
-    cache: query.Cache,
-    ontologyStores: ontology.Stores,
-  ) {
+export class Client extends query.Retriever<typeof retrieveRequestZ, Key, Role> {
+  private readonly unary: UnaryClient;
+  private readonly store: query.Table<Key, Role>;
+  private readonly ontologyStores: ontology.Stores;
+
+  constructor({ unary, cache, ontologyStores }: ClientParams) {
     const store = cache.createTable<Key, Role>({
       name: "roles",
       fetch: async (keys) => await this.execRetrieve({ keys }),
@@ -130,16 +132,16 @@ export class Client extends query.Retriever<typeof retrieveRequestZ, Key, Role> 
         serverFields: SERVER_FIELDS,
       },
     });
-    this.client = client;
+    this.unary = unary;
     this.store = store;
-    this.ontology = ontologyStores;
+    this.ontologyStores = ontologyStores;
   }
 
   async create(role: New): Promise<Role>;
   async create(roles: New[]): Promise<Role[]>;
   async create(roles: New | New[]): Promise<Role | Role[]> {
     const isMany = Array.isArray(roles);
-    const res = await this.client.send(
+    const res = await this.unary.send(
       "/access/role/create",
       roles,
       createParamsZ,
@@ -153,7 +155,7 @@ export class Client extends query.Retriever<typeof retrieveRequestZ, Key, Role> 
     const keysArr = array.toArray(params);
     const ids = ontologyID(keysArr);
     const drop = () => [
-      ontology.deleteCachedResources(this.ontology, ids),
+      ontology.deleteCachedResources(this.ontologyStores, ids),
       this.store.delete(keysArr),
     ];
     const rollback = new destructor.Chain();
@@ -161,15 +163,10 @@ export class Client extends query.Retriever<typeof retrieveRequestZ, Key, Role> 
     await opts.onOptimistic?.();
     await rollback.guard(
       async () =>
-        await this.client.send(
-          "/access/role/delete",
-          params,
-          deleteParamsZ,
-          deleteResZ,
-        ),
+        await this.unary.send("/access/role/delete", params, deleteParamsZ, deleteResZ),
     );
     drop();
-    this.ontology.relationships.delete((r) =>
+    this.ontologyStores.relationships.delete((r) =>
       ids.some((id) => ontology.idsEqual(r.from, id) || ontology.idsEqual(r.to, id)),
     );
   }
@@ -178,7 +175,7 @@ export class Client extends query.Retriever<typeof retrieveRequestZ, Key, Role> 
     const existing = await this.retrieve({ key });
     const rename = () => [
       query.partialUpdate(this.store, key, { name }),
-      ontology.renameCachedResource(this.ontology, ontologyID(key), name),
+      ontology.renameCachedResource(this.ontologyStores, ontologyID(key), name),
     ];
     const rollback = new destructor.Chain();
     rollback.add(...rename());
@@ -193,26 +190,26 @@ export class Client extends query.Retriever<typeof retrieveRequestZ, Key, Role> 
     const rel = assignmentRel(params.role, params.user);
     const rollback = new destructor.Chain();
     rollback.add(
-      this.ontology.relationships.set(ontology.relationshipToString(rel), rel),
+      this.ontologyStores.relationships.set(ontology.relationshipToString(rel), rel),
     );
     await opts.onOptimistic?.();
     await rollback.guard(
       async () =>
-        await this.client.send("/access/role/assign", params, assignReqZ, assignResZ),
+        await this.unary.send("/access/role/assign", params, assignReqZ, assignResZ),
     );
   }
 
   async unassign(params: UnassignParams, opts: query.WriteOptions = {}): Promise<void> {
     const rollback = new destructor.Chain();
     rollback.add(
-      this.ontology.relationships.delete(
+      this.ontologyStores.relationships.delete(
         ontology.relationshipToString(assignmentRel(params.role, params.user)),
       ),
     );
     await opts.onOptimistic?.();
     await rollback.guard(
       async () =>
-        await this.client.send(
+        await this.unary.send(
           "/access/role/unassign",
           params,
           unassignReqZ,
@@ -222,7 +219,7 @@ export class Client extends query.Retriever<typeof retrieveRequestZ, Key, Role> 
   }
 
   private async execRetrieve(params: RetrieveMultipleParams): Promise<Role[]> {
-    const res = await this.client.send(
+    const res = await this.unary.send(
       "/access/role/retrieve",
       params,
       retrieveRequestZ,

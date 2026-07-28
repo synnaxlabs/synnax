@@ -150,7 +150,7 @@ export default class Synnax extends framer.Client {
     );
     transport.use(errorsMiddleware);
     const chRetriever = new channel.ClusterRetriever(transport.unary);
-    super(transport.stream, transport.unary, chRetriever);
+    super({ stream: transport.stream, unary: transport.unary, retriever: chRetriever });
     const cache = new query.Cache({
       openStreamer: parsedParams.cache
         ? async (channels, { onOpen, onReopen }) => {
@@ -183,98 +183,99 @@ export default class Synnax extends framer.Client {
     this.createdAt = TimeStamp.now();
     this.params = parsedParams;
     this.transport = transport;
-    this.ontology = new ontology.Client(this.transport.unary, cache);
+    const unary = this.transport.unary;
+    this.ontology = new ontology.Client({ unary, cache });
     const ontologyStores = this.ontology.stores;
-    const rangeWriter = new ranger.Writer(this.transport.unary);
-    this.labels = new label.Client(
-      this.transport.unary,
+    const rangeWriter = new ranger.Writer(unary);
+    this.labels = new label.Client({
+      unary,
       cache,
-      ontologyStores.relationships,
-    );
-    this.statuses = new status.Client(
-      this.transport.unary,
+      relationships: ontologyStores.relationships,
+    });
+    this.statuses = new status.Client({
+      unary,
       cache,
-      this.labels.store,
+      labelStore: this.labels.store,
       ontologyStores,
-      this.labels,
-    );
-    this.ranges = new ranger.Client(
-      this,
-      rangeWriter,
-      this.transport.unary,
-      chRetriever,
-      this.labels,
-      this.ontology,
+      labels: this.labels,
+    });
+    this.ranges = new ranger.Client({
+      framer: this,
+      writer: rangeWriter,
+      unary,
+      channels: chRetriever,
+      labels: this.labels,
+      ontology: this.ontology,
       cache,
-    );
-    this.channels = new channel.Client(
-      this,
-      chRetriever,
-      transport.unary,
-      chCreator,
-      this.statuses,
-      this.ranges,
+    });
+    this.channels = new channel.Client({
+      framer: this,
+      retriever: chRetriever,
+      unary,
+      writer: chCreator,
+      statuses: this.statuses,
+      ranges: this.ranges,
       cache,
-      this.statuses.store,
-      this.ranges.aliases,
+      statusStore: this.statuses.store,
+      aliasStore: this.ranges.aliases,
       ontologyStores,
-    );
-    this.control = new control.Client(this);
-    this.access = new access.Client(this.transport.unary, cache, ontologyStores);
-    this.users = new user.Client(this.transport.unary, cache, ontologyStores);
-    this.projects = new project.Client(this.transport.unary, cache, ontologyStores);
-    this.tasks = new task.Client(
-      this.transport.unary,
-      this,
-      this.ontology,
-      this.ranges,
+    });
+    this.control = new control.Client({ framer: this });
+    this.access = new access.Client({ unary, cache, ontologyStores });
+    this.users = new user.Client({ unary, cache, ontologyStores });
+    this.projects = new project.Client({ unary, cache, ontologyStores });
+    this.tasks = new task.Client({
+      unary,
+      framer: this,
+      ontology: this.ontology,
+      ranges: this.ranges,
       cache,
-      this.statuses.store,
-    );
-    this.racks = new rack.Client(
-      this.transport.unary,
-      this.tasks,
+      statusStore: this.statuses.store,
+    });
+    this.racks = new rack.Client({
+      unary,
+      tasks: this.tasks,
       cache,
-      this.statuses.store,
+      statusStore: this.statuses.store,
       ontologyStores,
-    );
-    this.devices = new device.Client(
-      this.transport.unary,
+    });
+    this.devices = new device.Client({
+      unary,
       cache,
-      this.statuses.store,
+      statusStore: this.statuses.store,
       ontologyStores,
-    );
-    this.arcs = new arc.Client(
-      this.transport.unary,
-      this.transport.stream,
-      this.ontology,
-      this.tasks,
+    });
+    this.arcs = new arc.Client({
+      unary,
+      stream: this.transport.stream,
+      ontology: this.ontology,
+      tasks: this.tasks,
       cache,
-      this.statuses.store,
-    );
-    this.views = new view.Client(this.transport.unary, cache, ontologyStores);
-    this.schematics = new schematic.Client(
-      this.transport.unary,
-      this.ontology,
-      cache,
-      ontologyStores,
-    );
-    this.lineplots = new lineplot.Client(this.transport.unary, cache, ontologyStores);
-    this.panels = new panel.Client(
-      this.transport.unary,
-      this.ontology,
+      statusStore: this.statuses.store,
+    });
+    this.views = new view.Client({ unary, cache, ontologyStores });
+    this.schematics = new schematic.Client({
+      unary,
+      ontology: this.ontology,
       cache,
       ontologyStores,
-    );
-    this.logs = new log.Client(this.transport.unary, cache, ontologyStores);
-    this.tables = new table.Client(this.transport.unary, cache, ontologyStores);
-    this.groups = new group.Client(
-      this.transport.unary,
-      this.ontology,
+    });
+    this.lineplots = new lineplot.Client({ unary, cache, ontologyStores });
+    this.panels = new panel.Client({
+      unary,
+      ontology: this.ontology,
       cache,
       ontologyStores,
-    );
-    this.imex = new imex.Client(this.transport.file);
+    });
+    this.logs = new log.Client({ unary, cache, ontologyStores });
+    this.tables = new table.Client({ unary, cache, ontologyStores });
+    this.groups = new group.Client({
+      unary,
+      ontology: this.ontology,
+      cache,
+      ontologyStores,
+    });
+    this.imex = new imex.Client({ file: this.transport.file });
   }
 
   close(): void {

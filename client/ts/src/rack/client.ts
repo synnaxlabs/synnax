@@ -132,6 +132,14 @@ const affectedRackKeys = (
   return parsed.success ? [parsed.data] : null;
 };
 
+export interface ClientParams {
+  unary: UnaryClient;
+  tasks: task.Client;
+  cache: query.Cache;
+  statusStore: query.Table<status.Key, status.Status>;
+  ontologyStores: ontology.Stores;
+}
+
 export class Client extends query.Retriever<
   typeof retrieveReqZ,
   Key,
@@ -139,19 +147,13 @@ export class Client extends query.Retriever<
   Rack,
   RetrieveSingleParams
 > {
-  private readonly client: UnaryClient;
+  private readonly unary: UnaryClient;
   private readonly tasks: task.Client;
   private readonly store: query.Table<Key, Omit<Payload, "status">>;
   private readonly statusStore: query.Table<status.Key, status.Status>;
-  private readonly ontology: ontology.Stores;
+  private readonly ontologyStores: ontology.Stores;
 
-  constructor(
-    client: UnaryClient,
-    taskClient: task.Client,
-    cache: query.Cache,
-    statusStore: query.Table<status.Key, status.Status>,
-    ontologyStores: ontology.Stores,
-  ) {
+  constructor({ unary, tasks, cache, statusStore, ontologyStores }: ClientParams) {
     const store = cache.createTable<Key, Omit<Payload, "status">>({
       name: "racks",
       fetch: async (keys) => (await this.fetchThrough({ keys })).map(stripStatus),
@@ -195,17 +197,17 @@ export class Client extends query.Retriever<
         space: single as query.Retrieves<query.Params, Rack>,
       },
     });
-    this.client = client;
-    this.tasks = taskClient;
+    this.unary = unary;
+    this.tasks = tasks;
     this.statusStore = statusStore;
-    this.ontology = ontologyStores;
+    this.ontologyStores = ontologyStores;
     this.store = store;
   }
 
   async delete(keys: Key | Key[], opts: query.WriteOptions = {}): Promise<void> {
     const keysArr = array.toArray(keys);
     const drop = () => [
-      ontology.deleteCachedResources(this.ontology, ontologyID(keysArr)),
+      ontology.deleteCachedResources(this.ontologyStores, ontologyID(keysArr)),
       this.store.delete(keysArr),
     ];
     const rollback = new destructor.Chain();
@@ -213,7 +215,7 @@ export class Client extends query.Retriever<
     await opts.onOptimistic?.();
     await rollback.guard(
       async () =>
-        await this.client.send(
+        await this.unary.send(
           "/rack/delete",
           { keys: keysArr },
           deleteReqZ,
@@ -226,7 +228,7 @@ export class Client extends query.Retriever<
   async rename(key: Key, name: string, opts: query.WriteOptions = {}): Promise<void> {
     const rename = () => [
       query.partialUpdate(this.store, key, { name }),
-      ontology.renameCachedResource(this.ontology, ontologyID(key), name),
+      ontology.renameCachedResource(this.ontologyStores, ontologyID(key), name),
     ];
     const rollback = new destructor.Chain();
     rollback.add(...rename());
@@ -242,7 +244,7 @@ export class Client extends query.Retriever<
   async create(racks: New[]): Promise<Rack[]>;
   async create(rack: New | New[]): Promise<Rack | Rack[]> {
     const isSingle = !Array.isArray(rack);
-    const res = await this.client.send(
+    const res = await this.unary.send(
       "/rack/create",
       { racks: array.toArray(rack) },
       createReqZ,
@@ -298,7 +300,7 @@ export class Client extends query.Retriever<
   }
 
   private async execRetrieve(params: RetrieveParams): Promise<Payload[]> {
-    const res = await this.client.send(
+    const res = await this.unary.send(
       "/rack/retrieve",
       params,
       retrieveParamsZ,

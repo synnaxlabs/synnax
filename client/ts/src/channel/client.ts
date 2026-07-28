@@ -320,6 +320,19 @@ const requestFilter = (req: NormalizedRequest): ((ch: Channel) => boolean) => {
  * class should not be instantiated directly, and instead should be used through the
  * `channels` property of an {@link Synnax} client.
  */
+export interface ClientParams {
+  framer: framer.Client;
+  retriever: Retriever;
+  unary: UnaryClient;
+  writer: Writer;
+  statuses: status.Client;
+  ranges: ranger.Client;
+  cache: query.Cache;
+  statusStore: query.Table<status.Key, status.Status>;
+  aliasStore: query.Table<string, ranger.alias.Alias>;
+  ontologyStores: ontology.Stores;
+}
+
 export class Client extends query.Retriever<
   typeof retrieveRequestZ,
   Key,
@@ -327,8 +340,8 @@ export class Client extends query.Retriever<
   Channel,
   RetrieveSingleParams
 > {
-  private readonly frameClient: framer.Client;
-  private readonly client: UnaryClient;
+  private readonly framer: framer.Client;
+  private readonly unary: UnaryClient;
   readonly retriever: Retriever;
   readonly writer: Writer;
   private readonly statuses: status.Client;
@@ -336,20 +349,20 @@ export class Client extends query.Retriever<
   private readonly store: query.Table<Key, Channel>;
   private readonly statusStore: query.Table<status.Key, status.Status>;
   private readonly aliasStore: query.Table<string, ranger.alias.Alias>;
-  private readonly ontology: ontology.Stores;
+  private readonly ontologyStores: ontology.Stores;
 
-  constructor(
-    frameClient: framer.Client,
-    retriever: Retriever,
-    client: UnaryClient,
-    writer: Writer,
-    statuses: status.Client,
-    ranges: ranger.Client,
-    cache: query.Cache,
-    statusStore: query.Table<status.Key, status.Status>,
-    aliasStore: query.Table<string, ranger.alias.Alias>,
-    ontologyStores: ontology.Stores,
-  ) {
+  constructor({
+    framer,
+    retriever,
+    unary,
+    writer,
+    statuses,
+    ranges,
+    cache,
+    statusStore,
+    aliasStore,
+    ontologyStores,
+  }: ClientParams) {
     const sugar = (payload: Payload): Channel => this.sugar(payload);
     const store = cache.createTable<Key, Channel>({
       name: "channels",
@@ -411,15 +424,15 @@ export class Client extends query.Retriever<
         space: single as query.Retrieves<query.Params, Channel>,
       },
     });
-    this.frameClient = frameClient;
+    this.framer = framer;
     this.retriever = retriever;
-    this.client = client;
+    this.unary = unary;
     this.writer = writer;
     this.statuses = statuses;
     this.ranges = ranges;
     this.statusStore = statusStore;
     this.aliasStore = aliasStore;
-    this.ontology = ontologyStores;
+    this.ontologyStores = ontologyStores;
     this.store = store;
   }
 
@@ -622,9 +635,9 @@ export class Client extends query.Retriever<
       const keys = normalized;
       const ids = ontologyID(keys);
       const drop = () => [
-        ontology.deleteCachedRelationships(this.ontology, ids),
+        ontology.deleteCachedRelationships(this.ontologyStores, ids),
         this.store.delete(keys),
-        this.ontology.resources.delete(ontology.idToString(ids)),
+        this.ontologyStores.resources.delete(ontology.idToString(ids)),
       ];
       const rollback = new destructor.Chain();
       rollback.add(...drop());
@@ -653,7 +666,7 @@ export class Client extends query.Retriever<
         const name = namesArr[i];
         return [
           this.renameThrough(key, name),
-          ontology.renameCachedResource(this.ontology, ontologyID(key), name),
+          ontology.renameCachedResource(this.ontologyStores, ontologyID(key), name),
         ];
       });
     const rollback = new destructor.Chain();
@@ -692,14 +705,14 @@ export class Client extends query.Retriever<
   sugar(payload: Payload): Channel;
   sugar(payloads: Payload[]): Channel[];
   sugar(payloads: Payload | Payload[]): Channel | Channel[] {
-    const { frameClient } = this;
+    const { framer: frameClient } = this;
     if (Array.isArray(payloads))
       return payloads.map((p) => new Channel({ ...p, frameClient }));
     return new Channel({ ...payloads, frameClient });
   }
 
   async retrieveGroup(): Promise<group.Group> {
-    const res = await this.client.send(
+    const res = await this.unary.send(
       "/channel/retrieve-group",
       {},
       retrieveGroupReqZ,

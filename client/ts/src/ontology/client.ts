@@ -151,6 +151,11 @@ const requestFilter = (req: NormalizedRequest): ((r: Resource) => boolean) => {
   };
 };
 
+export interface ClientParams {
+  unary: UnaryClient;
+  cache: query.Cache;
+}
+
 /** The main client class for executing queries against a Synnax cluster ontology */
 export class Client extends query.Retriever<
   typeof retrieveRequestZ,
@@ -166,10 +171,10 @@ export class Client extends query.Retriever<
   readonly children: query.Retrieves<DependentParams, Resource[]>;
   /** Cached read surface for the parents of a set of resources. */
   readonly parents: query.Retrieves<DependentParams, Resource[]>;
-  private readonly client: UnaryClient;
+  private readonly unary: UnaryClient;
   private readonly writer: Writer;
 
-  constructor(unary: UnaryClient, cache: query.Cache) {
+  constructor({ unary, cache }: ClientParams) {
     const relationships = cache.createTable<string, Relationship>({
       name: "relationships",
       equal: (a, b) =>
@@ -223,7 +228,7 @@ export class Client extends query.Retriever<
         space: single as query.Retrieves<query.Params, Resource>,
       },
     });
-    this.client = unary;
+    this.unary = unary;
     this.writer = new Writer(unary);
     this.stores = { relationships, resources };
     this.children = this.dependentSurface(cache, "children", "to");
@@ -424,7 +429,7 @@ export class Client extends query.Retriever<
   }
 
   private async execRetrieve(request: RetrieveRequest): Promise<Resource[]> {
-    const { resources } = await this.client.send(
+    const { resources } = await this.unary.send(
       "/ontology/retrieve",
       request,
       wireReqZ,
