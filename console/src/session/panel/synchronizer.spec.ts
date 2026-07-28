@@ -227,20 +227,21 @@ describe("useReconcileSelection", () => {
 });
 
 describe("useSyncWindowTitle", () => {
-  const windowTitle = (store: TestStore): string | undefined =>
-    Drift.selectWindows(store.getState()).find(({ key }) => key === Drift.MAIN_WINDOW)
-      ?.title;
+  const windowTitle = (
+    store: TestStore,
+    key: string = Drift.MAIN_WINDOW,
+  ): string | undefined => Drift.selectWindow(store.getState(), key)?.title;
 
-  const mountTitle = async () =>
+  const mountTitle = async (store?: TestStore) =>
     await renderHookWithConsole(
       () =>
         Session.Synchronizer.use({
           useSyncWindowTitle: Session.Panel.WINDOW_SYNCHRONIZERS.useSyncWindowTitle,
         }),
-      { client },
+      { client, store },
     );
 
-  it("sets the window title to the selected panel's name", async () => {
+  it("titles the main window with its identity and the selected panel's name", async () => {
     const proj = await createProject();
     const pan = await createProjectPanel(proj.key);
     const { store } = await mountTitle();
@@ -249,7 +250,7 @@ describe("useSyncWindowTitle", () => {
         Session.Panel.select({ key: pan.key, windowKey: Drift.MAIN_WINDOW }),
       );
     });
-    await waitFor(() => expect(windowTitle(store)).toEqual(pan.name));
+    await waitFor(() => expect(windowTitle(store)).toEqual(`Main - ${pan.name}`));
   });
 
   it("tracks the selected panel's rename", async () => {
@@ -261,11 +262,74 @@ describe("useSyncWindowTitle", () => {
         Session.Panel.select({ key: pan.key, windowKey: Drift.MAIN_WINDOW }),
       );
     });
-    await waitFor(() => expect(windowTitle(store)).toEqual(pan.name));
+    await waitFor(() => expect(windowTitle(store)).toEqual(`Main - ${pan.name}`));
     const next = uniqueName("renamed");
     await act(async () => {
       await client.panels.rename(pan.key, next);
     });
-    await waitFor(() => expect(windowTitle(store)).toEqual(next));
+    await waitFor(() => expect(windowTitle(store)).toEqual(`Main - ${next}`));
+  });
+
+  it("falls back to Synnax when the main window has no selection", async () => {
+    const { store } = await mountTitle();
+    await waitFor(() => expect(windowTitle(store)).toEqual("Synnax"));
+  });
+
+  it("restores the fallback when the selection clears", async () => {
+    const proj = await createProject();
+    const pan = await createProjectPanel(proj.key);
+    const { store } = await mountTitle();
+    act(() => {
+      store.dispatch(
+        Session.Panel.select({ key: pan.key, windowKey: Drift.MAIN_WINDOW }),
+      );
+    });
+    await waitFor(() => expect(windowTitle(store)).toEqual(`Main - ${pan.name}`));
+    act(() => {
+      store.dispatch(Session.Panel.clearSelected({ windowKey: Drift.MAIN_WINDOW }));
+    });
+    await waitFor(() => expect(windowTitle(store)).toEqual("Synnax"));
+  });
+
+  const AUX_LABEL = "aux";
+  const AUX_KEY = "aux-key";
+
+  const auxWindow: Drift.WindowState = {
+    key: AUX_KEY,
+    stage: "created",
+    processCount: 0,
+    reserved: true,
+    focusCount: 0,
+    centerCount: 0,
+    ordinal: 2,
+  };
+
+  const createAuxStore = async (): Promise<TestStore> =>
+    await createTestStore({
+      windowLabel: AUX_LABEL,
+      preloadedState: {
+        drift: {
+          ...Session.ZERO_STATE.drift,
+          windows: { ...Session.ZERO_STATE.drift.windows, [AUX_LABEL]: auxWindow },
+          labelKeys: { ...Session.ZERO_STATE.drift.labelKeys, [AUX_LABEL]: AUX_KEY },
+          keyLabels: { ...Session.ZERO_STATE.drift.keyLabels, [AUX_KEY]: AUX_LABEL },
+          nextOrdinal: 3,
+        },
+      },
+    });
+
+  it("titles a secondary window with its ordinal", async () => {
+    const proj = await createProject();
+    const pan = await createProjectPanel(proj.key);
+    const store = await createAuxStore();
+    await mountTitle(store);
+    act(() => {
+      store.dispatch(Session.Panel.select({ key: pan.key, windowKey: AUX_KEY }));
+    });
+    await waitFor(() => expect(windowTitle(store, AUX_KEY)).toEqual(`2 - ${pan.name}`));
+    act(() => {
+      store.dispatch(Session.Panel.clearSelected({ windowKey: AUX_KEY }));
+    });
+    await waitFor(() => expect(windowTitle(store, AUX_KEY)).toEqual("Window 2"));
   });
 });

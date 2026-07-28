@@ -150,6 +150,8 @@ export type ConsolePreloadedState = Partial<Session.State>;
 
 export interface ConsoleTestProviderOptions {
   preloadedState?: ConsolePreloadedState;
+  /** Label of the window the store believes it runs in; defaults to main. */
+  windowLabel?: string;
 }
 
 /**
@@ -160,9 +162,9 @@ export interface ConsoleTestProviderOptions {
  * is the one console store — every render helper below is backed by it.
  */
 export const createTestStore = async (options: ConsoleTestProviderOptions = {}) => {
-  const { preloadedState } = options;
+  const { preloadedState, windowLabel } = options;
   return await Drift.configureStore({
-    runtime: new Drift.NoopRuntime(),
+    runtime: new Drift.NoopRuntime(windowLabel),
     reducer: Session.reducer,
     preloadedState: deep.copy({ ...Session.ZERO_STATE, ...preloadedState }),
     middleware: (getDefault) => getDefault().concat(...Session.BASE_MIDDLEWARE),
