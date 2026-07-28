@@ -22,7 +22,9 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/project"
 	"github.com/synnaxlabs/synnax/pkg/service/table"
 	xconfig "github.com/synnaxlabs/x/config"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
+	"github.com/synnaxlabs/x/query"
 )
 
 type Service struct {
@@ -94,7 +96,8 @@ func (s *Service) Dispatch(
 
 type (
 	RetrieveRequest struct {
-		Keys []table.Key `json:"keys" msgpack:"keys"`
+		Keys                []table.Key `json:"keys" msgpack:"keys"`
+		IgnoreNotFoundError bool        `json:"ignore_not_found_error" msgpack:"ignore_not_found_error"`
 	}
 	RetrieveResponse struct {
 		Tables []table.Table `json:"tables,omitzero" msgpack:"tables,omitzero"`
@@ -106,8 +109,12 @@ func (s *Service) Retrieve(
 	req RetrieveRequest,
 ) (RetrieveResponse, error) {
 	var res RetrieveResponse
-	if err := s.internal.NewRetrieve().
-		Where(table.MatchKeys(req.Keys...)).Entries(&res.Tables).Exec(ctx, nil); err != nil {
+	err := s.internal.NewRetrieve().
+		Where(table.MatchKeys(req.Keys...)).Entries(&res.Tables).Exec(ctx, nil)
+	if req.IgnoreNotFoundError && err != nil {
+		err = errors.Skip(err, query.ErrNotFound)
+	}
+	if err != nil {
 		return RetrieveResponse{}, err
 	}
 	if err := s.access.NewEnforcer(nil).Enforce(ctx, access.Request{

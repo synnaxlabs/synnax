@@ -103,21 +103,30 @@ func authedCtx(ctx SpecContext, u user.User) freighter.Context {
 	return fctx
 }
 
-// grantUpdateOn creates a policy granting ActionUpdate on the given objects to
-// a fresh role and assigns the role to the given subject. Writes commit
-// directly to the database so the api.Service.Dispatch enforcer (which reads
-// committed state with no transaction) can observe them.
-func grantUpdateOn(ctx SpecContext, subject ontology.ID, objects ...ontology.ID) {
+// grantOn creates a policy granting the given action on the given objects to a
+// fresh role and assigns the role to the given subject. Writes commit directly
+// to the database so the api enforcers (which read committed state with no
+// transaction) can observe them.
+func grantOn(
+	ctx SpecContext,
+	subject ontology.ID,
+	action access.Action,
+	objects ...ontology.ID,
+) {
 	roleWriter := rbacSvc.Role.NewWriter(nil, true)
 	policyWriter := rbacSvc.Policy.NewWriter(nil, true)
-	r := &role.Role{Name: "update-" + uuid.New().String(), Description: "test"}
+	r := &role.Role{Name: string(action) + "-" + uuid.New().String(), Description: "test"}
 	Expect(roleWriter.Create(ctx, r)).To(Succeed())
 	p := &policy.Policy{
-		Name:    "update-policy-" + uuid.New().String(),
+		Name:    string(action) + "-policy-" + uuid.New().String(),
 		Objects: objects,
-		Actions: []access.Action{access.ActionUpdate},
+		Actions: []access.Action{action},
 	}
 	Expect(policyWriter.Create(ctx, p)).To(Succeed())
 	Expect(policyWriter.SetOnRole(ctx, r.Key, p.Key)).To(Succeed())
 	Expect(roleWriter.AssignRole(ctx, subject, r.Key)).To(Succeed())
+}
+
+func grantUpdateOn(ctx SpecContext, subject ontology.ID, objects ...ontology.ID) {
+	grantOn(ctx, subject, access.ActionUpdate, objects...)
 }
