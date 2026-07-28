@@ -29,18 +29,18 @@ import { ontology } from "@/ontology";
 export const ontologyID = ontology.createIDFactory<string>("framer");
 export const TYPE_ONTOLOGY_ID = ontologyID("");
 
-export interface ClientConfig {
+export interface ClientParams {
   stream: WebSocketClient;
   unary: UnaryClient;
   retriever: channel.Retriever;
 }
 
 export class Client {
-  private readonly cfg: ClientConfig;
+  private readonly cfg: ClientParams;
   private readonly deleter: Deleter;
   private readonly reader: Reader;
 
-  constructor(cfg: ClientConfig) {
+  constructor(cfg: ClientParams) {
     const { stream, unary, retriever } = cfg;
     this.cfg = cfg;
     this.deleter = new Deleter(unary);

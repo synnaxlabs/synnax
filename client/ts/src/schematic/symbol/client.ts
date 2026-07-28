@@ -84,17 +84,17 @@ const matchChildRel = (rel: ontology.Relationship, parent: ontology.ID): boolean
     to: { type: "schematic_symbol" },
   });
 
-export interface ClientConfig {
+export interface ClientParams {
   unary: UnaryClient;
   ontology: ontology.Client;
   cache: query.Cache;
 }
 
 export class Client extends query.Retriever<typeof retrieveRequestZ, Key, Symbol> {
-  private readonly cfg: ClientConfig;
+  private readonly cfg: ClientParams;
   private readonly store: query.Table<Key, Symbol>;
 
-  constructor(cfg: ClientConfig) {
+  constructor(cfg: ClientParams) {
     const { cache, ontology: ontologyClient } = cfg;
     const store = cache.createTable<Key, Symbol>({
       name: "schematicSymbols",

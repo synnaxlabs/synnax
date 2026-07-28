@@ -82,7 +82,7 @@ const requestFilter = (req: RetrieveRequest): ((u: User) => boolean) => {
   };
 };
 
-export interface ClientConfig {
+export interface ClientParams {
   unary: UnaryClient;
   cache: query.Cache;
   ontology: ontology.Client;
@@ -95,10 +95,10 @@ export class Client extends query.Retriever<
   User,
   SingleParams
 > {
-  private readonly cfg: ClientConfig;
+  private readonly cfg: ClientParams;
   private readonly store: query.Table<Key, User>;
 
-  constructor(cfg: ClientConfig) {
+  constructor(cfg: ClientParams) {
     const { cache } = cfg;
     const store = cache.createTable<Key, User>({
       name: "users",

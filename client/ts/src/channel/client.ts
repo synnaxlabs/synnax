@@ -320,7 +320,7 @@ const requestFilter = (req: NormalizedRequest): ((ch: Channel) => boolean) => {
  * class should not be instantiated directly, and instead should be used through the
  * `channels` property of an {@link Synnax} client.
  */
-export interface ClientConfig {
+export interface ClientParams {
   framer: framer.Client;
   retriever: Retriever;
   unary: UnaryClient;
@@ -338,12 +338,12 @@ export class Client extends query.Retriever<
   Channel,
   RetrieveSingleParams
 > {
-  private readonly cfg: ClientConfig;
+  private readonly cfg: ClientParams;
   readonly retriever: Retriever;
   readonly writer: Writer;
   private readonly store: query.Table<Key, Channel>;
 
-  constructor(cfg: ClientConfig) {
+  constructor(cfg: ClientParams) {
     const { retriever, writer, statuses, ranges, cache } = cfg;
     const statusStore = statuses.store;
     const aliasStore = ranges.aliases;

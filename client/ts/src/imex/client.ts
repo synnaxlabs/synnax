@@ -70,14 +70,14 @@ export interface ImportOptions extends Options {
  * - Tauri/Console: read the picked file into a Blob to import, and hand the export
  *   stream to the Console's downloadStream helper.
  */
-export interface ClientConfig {
+export interface ClientParams {
   file: FileTransport;
 }
 
 export class Client {
-  private readonly cfg: ClientConfig;
+  private readonly cfg: ClientParams;
 
-  constructor(cfg: ClientConfig) {
+  constructor(cfg: ClientParams) {
     this.cfg = cfg;
   }
 

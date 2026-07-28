@@ -51,7 +51,7 @@ export type RetrieveParams = RetrieveSingleParams | RetrieveMultipleParams;
 
 interface RetrieveRequest extends z.infer<typeof retrieveRequestZ> {}
 
-export interface ClientConfig {
+export interface ClientParams {
   unary: UnaryClient;
   cache: query.Cache;
   ontology: ontology.Client;
@@ -61,9 +61,9 @@ export class Client extends query.Retriever<typeof retrieveRequestZ, Key, Label>
   readonly type: string = "label";
   /** The label record table; injected into sibling clients at wiring. */
   readonly store: query.Table<Key, Label>;
-  private readonly cfg: ClientConfig;
+  private readonly cfg: ClientParams;
 
-  constructor(cfg: ClientConfig) {
+  constructor(cfg: ClientParams) {
     const { cache, ontology: ontologyClient } = cfg;
     const { relationships } = ontologyClient.cache;
     const store = cache.createTable<Key, Label>({
