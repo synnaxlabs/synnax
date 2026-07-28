@@ -44,7 +44,13 @@ const channelNameSort = (a: string, b: string) => {
   return 0;
 };
 
-/** An opened change stream: frame notifications plus close. */
+/**
+ * An opened change stream: frame notifications plus close.
+ *
+ * TODO: exists only because a concrete framer.ObservableStreamer would close
+ * the import cycle query -> framer -> channel -> query. Re-architect the
+ * cache to remove it.
+ */
 export interface ObservableStream {
   onChange: (handler: (frame: framer.Frame) => void) => void;
   close: () => Promise<void>;
@@ -63,6 +69,9 @@ export interface StreamOpenerHooks {
 /**
  * Opens a change stream over the given channels. Injected at construction so
  * the cache carries no dependency on the streaming transport.
+ *
+ * TODO: exists for the same import cycle as {@link ObservableStream}; remove
+ * both when the cache is re-architected.
  */
 export interface StreamOpener {
   (channels: string[], hooks: StreamOpenerHooks): Promise<ObservableStream>;
