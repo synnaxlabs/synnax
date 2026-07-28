@@ -32,13 +32,13 @@ afterEach(() => {
 const streamOf = (data: string): ReadableStream<Uint8Array> =>
   new Response(data).body as ReadableStream<Uint8Array>;
 
-describe("Export.fetchFile", () => {
+describe("Export.fetchFileData", () => {
   it("streams the envelope and promotes its name", async () => {
     const body = JSON.stringify({ version: 1, type: "lineplot", name: "My Plot" });
     const exportFn = vi.fn().mockResolvedValue(streamOf(body));
     const client = { imex: { export: exportFn } } as unknown as Client;
     const id = lineplot.ontologyID("plot-1");
-    const file = await Export.fetchFile(client, id);
+    const file = await Export.fetchFileData(client, id);
     expect(file).toEqual({ data: body, name: "My Plot" });
     expect(exportFn).toHaveBeenCalledWith(id, { encoding: "JSON" });
   });

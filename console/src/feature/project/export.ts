@@ -105,12 +105,12 @@ export const export_ = (
       ids.forEach((id) => resources.set(`${id.type}:${id.key}`, id));
     });
     const namesSet = new Set<string>();
-    const fileInfos: Export.File[] = [];
+    const fileInfos: Export.FileData[] = [];
     await Promise.all(
       Array.from(resources.values())
         .filter(({ type }) => EXPORTABLE_TYPES.has(type))
         .map(async (id) => {
-          const file = await Export.fetchFile(client, id);
+          const file = await Export.fetchFileData(client, id);
           const fileName = strings.sanitizeFileName(
             strings.deduplicateFileName(file.name, namesSet),
           );

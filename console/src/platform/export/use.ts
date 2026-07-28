@@ -23,7 +23,7 @@ const FILTERS: Runtime.FileFilter[] = [{ name: "JSON", extensions: ["json"] }];
 const envelopeZ = z.object({ name: z.string() });
 
 /** A serialized resource ready to be written to disk. */
-export interface File {
+export interface FileData {
   data: string;
   name: string;
 }
@@ -33,7 +33,10 @@ export interface File {
  * its bytes together with the resource name promoted from the envelope. The Core owns
  * serialization and versioning, so the returned bytes are exactly the file's contents.
  */
-export const fetchFile = async (client: Client, id: ontology.ID): Promise<File> => {
+export const fetchFileData = async (
+  client: Client,
+  id: ontology.ID,
+): Promise<FileData> => {
   const stream = await client.imex.export(id, { encoding: "JSON" });
   const data = await new Response(stream).text();
   return { data, name: envelopeZ.parse(JSON.parse(data)).name };
@@ -53,7 +56,7 @@ export const use = (): ((id: ontology.ID) => void) => {
       handleError(
         async () => {
           if (client == null) throw new DisconnectedError();
-          const file = await fetchFile(client, id);
+          const file = await fetchFileData(client, id);
           name = file.name;
           const location = await Runtime.saveFile({
             title: `Export ${name}`,

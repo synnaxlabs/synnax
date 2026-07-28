@@ -10,26 +10,16 @@
 package schematic_test
 
 import (
-	"encoding/json"
-
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
+	. "github.com/synnaxlabs/synnax/pkg/service/imex/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic"
 	"github.com/synnaxlabs/x/query"
 	. "github.com/synnaxlabs/x/testutil"
 )
-
-// wireRoundTrip marshals env to JSON and back, binding the codec Decode needs. Exported
-// envelopes carry a body but no codec, so a decode must first pass through the wire.
-func wireRoundTrip(env imex.Envelope) imex.Envelope {
-	b := MustSucceed(json.Marshal(env))
-	var out imex.Envelope
-	Expect(json.Unmarshal(b, &out)).To(Succeed())
-	return out
-}
 
 var _ = Describe("ImEx", func() {
 	Describe("Export", func() {
@@ -41,7 +31,7 @@ var _ = Describe("ImEx", func() {
 			Expect(env.Type).To(Equal("schematic"))
 			Expect(env.Name).To(Equal("exported"))
 
-			decoded := MustSucceed(imex.Decode[schematic.Schematic](ctx, wireRoundTrip(env)))
+			decoded := MustSucceed(imex.Decode[schematic.Schematic](ctx, WireRoundTrip(env)))
 			Expect(decoded.Name).To(Equal("exported"))
 			Expect(decoded.Snapshot).To(BeTrue())
 		})

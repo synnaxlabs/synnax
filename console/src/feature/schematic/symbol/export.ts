@@ -80,7 +80,7 @@ const exportGroup = async ({
     symbols: await Promise.all(
       symbols.map(async (symbol) => {
         const fileName = `${strings.sanitizeFileName(symbol.name)}_${symbol.key.slice(0, 8)}.json`;
-        const { data } = await Export.fetchFile(
+        const { data } = await Export.fetchFileData(
           client,
           schematic.symbol.ontologyID(symbol.key),
         );

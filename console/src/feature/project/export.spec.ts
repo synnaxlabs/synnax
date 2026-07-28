@@ -100,7 +100,6 @@ describe("project export", () => {
       writes.get(Project.PANELS_FILE_NAME) ?? "[]",
     ) as panel.Panel[];
     expect(panels.map(({ key }) => key)).toContain(exported.key);
-    // The Core serializes the log server-side, so the file carries the log's name.
     const exportedLog = JSON.parse(writes.get(`${logName}.json`) ?? "{}");
     expect(exportedLog.name).toEqual(logName);
     await waitFor(() =>
@@ -145,7 +144,6 @@ describe("project export", () => {
     await waitFor(() =>
       expect(statuses.some((s) => s.variant === "success")).toBe(true),
     );
-    // The range tab is skipped: only the panels file and the log are written.
     expect(writes.size).toBe(2);
   });
 

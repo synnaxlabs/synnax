@@ -64,7 +64,6 @@ describe("exporting a symbol", () => {
     const contents = JSON.parse(
       new TextDecoder().decode(await downloads.blobs[0].arrayBuffer()),
     );
-    // The Core serializes the symbol into the flat imex envelope, which drops the key.
     expect(contents).toMatchObject({ name, type: "schematic_symbol" });
     expect(contents.data.svg).toBe(symbol.data.svg);
   });

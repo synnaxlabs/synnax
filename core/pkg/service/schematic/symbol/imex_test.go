@@ -10,59 +10,38 @@
 package symbol_test
 
 import (
-	"encoding/json"
-
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
+	. "github.com/synnaxlabs/synnax/pkg/service/imex/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic/symbol"
-	"github.com/synnaxlabs/synnax/pkg/service/search"
-	"github.com/synnaxlabs/x/gorp"
-	"github.com/synnaxlabs/x/kv/memkv"
 	"github.com/synnaxlabs/x/query"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
-// wireRoundTrip marshals env to JSON and back, binding the codec Decode needs. Exported
-// envelopes carry a body but no codec, so a decode must first pass through the wire.
-func wireRoundTrip(env imex.Envelope) imex.Envelope {
-	b := MustSucceed(json.Marshal(env))
-	var out imex.Envelope
-	Expect(json.Unmarshal(b, &out)).To(Succeed())
-	return out
-}
-
-var _ = Describe("ImEx", Ordered, func() {
-	// A self-contained service keeps the committed export symbol out of the shared
-	// suite DB, whose retrieve specs count every symbol.
-	var svc *symbol.Service
-	BeforeAll(func(ctx SpecContext) {
-		ShouldNotLeakGoroutines()
-		exportDB := DeferClose(gorp.Wrap(memkv.New()))
-		otg := MustOpen(ontology.Open(ctx, ontology.Config{DB: exportDB}))
-		searchIdx := MustOpen(search.OpenIndex())
-		svc = MustOpen(symbol.OpenService(ctx, symbol.ServiceConfig{
-			DB:       exportDB,
-			Ontology: otg,
-			Search:   searchIdx,
-			ImEx:     imex.NewService(),
-		}))
-	})
-
+var _ = Describe("ImEx", func() {
 	Describe("Export", func() {
 		It("Should export a symbol as a versioned envelope", func(ctx SpecContext) {
-			sym := symbol.Symbol{Name: "exported", Data: map[string]any{"svg": "<svg/>"}}
-			Expect(svc.NewWriter(nil).Create(ctx, &sym, ontology.RootID)).To(Succeed())
+			sym := symbol.Symbol{
+				Name: "exported",
+				Data: symbol.Spec{SVG: "<svg/>", Variant: "valve"},
+			}
+			// Export reads committed data, so the symbol is created outside the
+			// per-spec tx and must be deleted to keep the shared DB's counts intact.
+			Expect(svc.NewWriter(nil).Create(ctx, &sym, proj.OntologyID())).To(Succeed())
+			DeferCleanup(func(ctx SpecContext) {
+				Expect(svc.NewWriter(nil).Delete(ctx, sym.Key)).To(Succeed())
+			})
 			env := MustSucceed(svc.Export(ctx, symbol.OntologyID(sym.Key)))
 			Expect(env.Version).To(Equal(symbol.Version))
 			Expect(env.Type).To(Equal("schematic_symbol"))
 			Expect(env.Name).To(Equal("exported"))
 
-			decoded := MustSucceed(imex.Decode[symbol.Symbol](ctx, wireRoundTrip(env)))
+			decoded := MustSucceed(imex.Decode[symbol.Symbol](ctx, WireRoundTrip(env)))
 			Expect(decoded.Name).To(Equal("exported"))
-			Expect(decoded.Data).To(HaveKeyWithValue("svg", "<svg/>"))
+			Expect(decoded.Data.SVG).To(Equal("<svg/>"))
 		})
 
 		It("Should return not found for a missing key", func(ctx SpecContext) {
