@@ -10,4 +10,5 @@
 export * from "@/testutil/access";
 export * from "@/testutil/channels";
 export * from "@/testutil/client";
+export * from "@/testutil/query";
 export * from "@/testutil/telem";

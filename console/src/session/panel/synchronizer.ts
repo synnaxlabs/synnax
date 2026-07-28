@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type Store } from "@reduxjs/toolkit";
-import { panel, project } from "@synnaxlabs/client";
+import { panel, project, query } from "@synnaxlabs/client";
 import { Drift } from "@synnaxlabs/drift";
 import { type destructor } from "@synnaxlabs/x";
 
@@ -59,7 +59,7 @@ const applySelection = ({ client, store }: Params, candidates: panel.Key[]): voi
   // A retrieve can race a delete and return an already-deleted panel; the
   // local tombstone is authoritative.
   const keys = candidates.filter(
-    (key) => client.panels.getCached({ key })?.variant !== "deleted",
+    (key) => !query.Deleted.matches(client.panels.getCached({ key })),
   );
   const state = store.getState();
   const windowKey = Drift.selectWindowKey(state);
@@ -106,10 +106,10 @@ const selection: Synchronizer.Synchronizer<RequiredStoreState, RequiredAction> =
       removeQuery = client.panels.onChange(
         { parent: project.ontologyID(projectKey) },
         (result) => {
-          if (result == null || result.variant === "deleted") return repair();
+          if (result == null || query.Deleted.matches(result)) return repair();
           applySelection(
             params,
-            result.data.map(({ key }) => key),
+            result.map(({ key }) => key),
           );
         },
       );
@@ -143,8 +143,8 @@ const syncTitle = ({ client, store }: Params): void => {
   const selected = selectActiveWindowSelected(store.getState());
   if (selected == null) return;
   const cached = client.panels.getCached({ key: selected });
-  if (cached == null || cached.variant === "deleted") return;
-  store.dispatch(Drift.setWindowTitle({ title: cached.data.name }));
+  if (cached == null || query.Deleted.matches(cached)) return;
+  store.dispatch(Drift.setWindowTitle({ title: cached.name }));
 };
 
 const windowTitle: Synchronizer.Synchronizer<RequiredStoreState, RequiredAction> = {
@@ -210,8 +210,8 @@ const tabSelections: Synchronizer.Synchronizer<RequiredStoreState, RequiredActio
       (selected) => {
         if (selected == null) return;
         const cached = client.panels.getCached({ key: selected });
-        if (cached == null || cached.variant === "deleted") return;
-        reconcileTabs(store, cached.data);
+        if (cached == null || query.Deleted.matches(cached)) return;
+        reconcileTabs(store, cached);
       },
     );
     return () => {

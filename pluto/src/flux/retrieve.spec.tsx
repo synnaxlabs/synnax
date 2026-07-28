@@ -7,9 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type label, NotFoundError, type query } from "@synnaxlabs/client";
+import { type label, NotFoundError, query } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
-import { color, TimeSpan } from "@synnaxlabs/x";
+import { color, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { act, render, renderHook, waitFor } from "@testing-library/react";
 import { type ReactElement, useCallback, useState } from "react";
 import { describe, expect, it, vi } from "vitest";
@@ -121,7 +121,7 @@ describe("retrieve", () => {
           expect(handler).not.toBeNull();
         });
         act(() => {
-          handler?.({ variant: "changed", data: { ...ch, name: "Test Label 2" } });
+          handler?.({ ...ch, name: "Test Label 2" });
         });
         await waitFor(
           () => {
@@ -156,7 +156,7 @@ describe("retrieve", () => {
         });
         await waitFor(() => expect(result.current.variant).toEqual("success"));
         act(() => {
-          handler?.({ variant: "deleted", corpse: ch });
+          handler?.(new query.Deleted(ch, TimeStamp.now()));
         });
         await waitFor(() => {
           expect(result.current.variant).toEqual("error");
@@ -353,7 +353,7 @@ describe("useRetrieveSuspended", () => {
 
   it("resolves synchronously without suspending when the cache hits", async () => {
     const retrieve = vi.fn(async () => 99);
-    const cached: query.Cached<number> = { variant: "changed", data: 42 };
+    const cached: query.Cached<number> = 42;
     const { useRetrieveSuspended } = Flux.createRetrieve<{ key: string }, number>({
       name: "Number",
       retrieve,
@@ -418,7 +418,7 @@ describe("useRetrieveSuspended", () => {
       () =>
         new Promise<number>((resolve) => {
           resolveRetrieve = (value) => {
-            cached = { variant: "changed", data: value };
+            cached = value;
             resolve(value);
           };
         }),
@@ -461,7 +461,7 @@ describe("useRetrieveSuspended", () => {
     let cached: query.Cached<number> | undefined;
     const retrieve = vi.fn(async () => {
       const value = retrieve.mock.calls.length;
-      cached = { variant: "changed", data: value };
+      cached = value;
       return value;
     });
     const { useRetrieveSuspended } = Flux.createRetrieve<{ key: string }, number>({
@@ -562,7 +562,7 @@ describe("useRetrieveSuspended", () => {
       expect(utils.queryByTestId("error")).toBeNull();
 
       await act(async () => {
-        push({ variant: "changed", data: 21 });
+        push(21);
       });
 
       await waitFor(() => expect(utils.queryByTestId("value")?.textContent).toBe("21"));
@@ -593,7 +593,7 @@ describe("useRetrieveSuspended", () => {
       expect(utils.queryByText("waiting")).toBeTruthy();
 
       await act(async () => {
-        push({ variant: "deleted", corpse: 3 });
+        push(new query.Deleted(3, TimeStamp.now()));
       });
 
       await waitFor(() =>
@@ -650,7 +650,7 @@ describe("useEnsureRetrieved", () => {
     const { useEnsureRetrieved } = Flux.createRetrieve<{ key: string }, number>({
       name: "Number",
       retrieve,
-      getCached: () => ({ variant: "changed", data: 5 }),
+      getCached: () => 5,
     });
 
     const Display = (): ReactElement => {

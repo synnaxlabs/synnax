@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { view } from "@synnaxlabs/client";
+import { query, view } from "@synnaxlabs/client";
 import { type optional } from "@synnaxlabs/x";
 import { useEffect } from "react";
 import { type z } from "zod";
@@ -72,7 +72,7 @@ export const useForm = Flux.createForm<FormQuery, typeof formSchema>({
   mountListeners: ({ client, query: { key }, reset }) => {
     if (key == null) return [];
     return client.views.onChange({ key }, (result) => {
-      if (result?.variant === "changed") reset(result.data);
+      if (result != null && !query.Deleted.matches(result)) reset(result);
     });
   },
 });

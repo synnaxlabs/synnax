@@ -11,6 +11,7 @@ import {
   NotFoundError,
   type ontology,
   type project,
+  query,
   schematic,
   type Synnax as Client,
 } from "@synnaxlabs/client";
@@ -49,9 +50,9 @@ const requireSchematic = (
   key: schematic.Key,
 ): schematic.Schematic => {
   const cached = client?.schematics.getCached({ key });
-  if (cached == null || cached.variant === "deleted")
+  if (cached == null || query.Deleted.matches(cached))
     throw new NotFoundError(`Schematic with key ${key} not found`);
-  return cached.data;
+  return cached;
 };
 
 const getSchematic = (
@@ -59,8 +60,8 @@ const getSchematic = (
   key: schematic.Key,
 ): schematic.Schematic | undefined => {
   const cached = client?.schematics.getCached({ key });
-  if (cached == null || cached.variant === "deleted") return undefined;
-  return cached.data;
+  if (cached == null || query.Deleted.matches(cached)) return undefined;
+  return cached;
 };
 
 const subscribe = (
@@ -292,8 +293,8 @@ export const useAddNode = () => {
       if (Node.isCustomConfig(config) && specKey != null) {
         config.specKey = specKey;
         const sym = client?.schematics.symbols.getCached({ key: specKey });
-        if (config.label != null && sym?.variant === "changed")
-          config.label.label = sym.data.name;
+        if (config.label != null && sym != null && !query.Deleted.matches(sym))
+          config.label.label = sym.name;
       }
       dispatch(
         schematic.setNode({

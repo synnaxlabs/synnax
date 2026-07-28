@@ -214,20 +214,23 @@ export class Client extends query.Retriever<
     this.cfg = cfg;
     this.store = store;
     this.dispatcher = dispatcher;
-    this.taskAnswers = cache.queries<
-      Key,
-      task.Task | null,
-      task.Key,
-      Omit<task.Task, "status">
-    >({
+    const composedTasks = cache.derive<task.Key, Omit<task.Task, "status">, task.Task>({
+      name: "arc.task.composed",
+      source: this.cfg.tasks.store,
+      compose: (record) => this.composeTask(record),
+      equal: (a, b) => deep.equal(a.payload, b.payload),
+      watch: [
+        query.deriveWatch(this.cfg.statusStore, (event) => affectedTaskKeys(event)),
+      ],
+    });
+    this.taskAnswers = cache.queries<Key, task.Task | null, task.Key, task.Task>({
       name: "arc task",
-      table: this.cfg.tasks.store,
+      table: composedTasks,
       fetch: async (q) => {
         const tsk = await this.fetchTask(q);
         return tsk == null ? [] : [tsk.key];
       },
-      compose: (records) =>
-        records.length === 0 ? null : this.composeTask(records[0]),
+      compose: (records) => records[0] ?? null,
       matches: (t, q) =>
         this.cfg.ontology.cache.relationships.has(
           ontology.relationshipToString({
@@ -245,7 +248,6 @@ export class Client extends query.Retriever<
           if (!isTaskChild(rel, q)) return null;
           return [rel.to.key];
         }),
-        query.watch(this.cfg.statusStore, (event) => affectedTaskKeys(event)),
       ],
     });
   }

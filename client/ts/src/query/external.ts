@@ -7,7 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-export { Cache, type CacheParams, type TableConfig } from "@/query/cache";
+export {
+  Cache,
+  type CacheParams,
+  type DerivedConfig,
+  type TableConfig,
+} from "@/query/cache";
+export { Deleted } from "@/query/deleted";
+export { type DeriveWatch, deriveWatch } from "@/query/derived";
 export {
   type Cached,
   type ChangeHandler,
@@ -36,7 +43,6 @@ export {
   type TableEvent,
   type TableParams,
   type TableSubscriber,
-  type Tombstone,
 } from "@/query/table";
 export {
   type Data,

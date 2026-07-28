@@ -658,9 +658,7 @@ describe("actions.Controller", () => {
       controller.applyRemote("fresh", 1, "", [
         { type: "create", doc: { values: { a: 1 } } },
       ]);
-      controller.applyRemote("fresh", 2, "f-1", [
-        { type: "set", key: "a", value: 5 },
-      ]);
+      controller.applyRemote("fresh", 2, "f-1", [{ type: "set", key: "a", value: 5 }]);
       expect(docs.get("fresh")).toEqual({ values: { a: 5 } });
     });
 

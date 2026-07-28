@@ -13,7 +13,8 @@ import { describe, expect, it, test } from "vitest";
 import { NotFoundError } from "@/errors";
 import { rename } from "@/lineplot/actions.gen";
 import { type LinePlot } from "@/lineplot/types.gen";
-import { createTestClient } from "@/testutil";
+import { query } from "@/query";
+import { createTestClient, expectDeleted, isLive } from "@/testutil";
 
 const client = createTestClient();
 
@@ -63,7 +64,7 @@ const seedPlot = async (): Promise<LinePlot> => {
 
 const cachedName = (key: LinePlot["key"]): string | undefined => {
   const cached = client.lineplots.getCached({ key });
-  return cached?.variant === "changed" ? cached.data.name : undefined;
+  return isLive(cached) ? cached.name : undefined;
 };
 
 describe("store", () => {
@@ -72,10 +73,10 @@ describe("store", () => {
     const plot = await seedPlot();
     await client.lineplots.delete(plot.key);
     await expect
-      .poll(() => client.lineplots.getCached({ key: plot.key })?.variant)
-      .toBe("deleted");
-    const cached = client.lineplots.getCached({ key: plot.key });
-    if (cached?.variant === "deleted") expect(cached.corpse.name).toEqual(plot.name);
+      .poll(() => query.Deleted.matches(client.lineplots.getCached({ key: plot.key })))
+      .toBe(true);
+    const cached = expectDeleted(client.lineplots.getCached({ key: plot.key }));
+    expect(cached.corpse.name).toEqual(plot.name);
   });
 
   // Regression: a document created by another client must materialize in this
@@ -89,10 +90,10 @@ describe("store", () => {
       await client.connect();
       const plot = await seedPlot();
       await expect
-        .poll(() => remote.lineplots.getCached({ key: plot.key })?.variant)
-        .toBe("changed");
+        .poll(() => isLive(remote.lineplots.getCached({ key: plot.key })))
+        .toBe(true);
       const cached = remote.lineplots.getCached({ key: plot.key });
-      if (cached?.variant === "changed") expect(cached.data.name).toEqual(plot.name);
+      if (isLive(cached)) expect(cached.name).toEqual(plot.name);
     } finally {
       remote.close();
     }
