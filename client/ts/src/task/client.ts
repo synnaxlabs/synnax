@@ -246,9 +246,9 @@ export type RetrieveMultipleParams = z.input<typeof multiRetrieveParamsZ>;
 const retrieveParamsZ = z.union([singleRetrieveParamsZ, multiRetrieveParamsZ]);
 export type RetrieveParams = z.input<typeof retrieveParamsZ>;
 
-interface SingleRequest extends Partial<
+type SingleRequest = Partial<
   Pick<z.infer<typeof retrieveReqZ>, "keys" | "names" | "types" | "rack">
-> {}
+>;
 
 // includeStatus does not change a query's identity: cached fetches always
 // request it, so it is stripped before hashing.
@@ -258,6 +258,14 @@ const normalizeSingle = (params: RetrieveSingleParams): SingleRequest => {
   const { includeStatus: _, ...rest } = parsed;
   return rest;
 };
+
+const singleQueryZ = z
+  .union([
+    z.strictObject({ key: keyZ, includeStatus: z.boolean().optional() }),
+    z.strictObject({ name: z.string(), includeStatus: z.boolean().optional() }),
+    z.strictObject({ type: z.string(), rack: rackKeyZ.optional() }),
+  ])
+  .transform(normalizeSingle);
 
 // includeStatus does not change a request's identity either: cached fetches
 // always request it, so the schema strips it before hashing.
@@ -334,7 +342,8 @@ export class Client extends query.Retriever<
   Key,
   Omit<Task, "status">,
   Task,
-  RetrieveSingleParams
+  RetrieveSingleParams,
+  SingleRequest
 > {
   /** The task record table; injected into sibling clients at wiring. */
   readonly store: query.Table<Key, Omit<Task, "status">>;
@@ -387,12 +396,7 @@ export class Client extends query.Retriever<
         watch: [query.watch(statusStore, (event) => affectedTaskKeys(event))],
       },
       compose: (record) => this.compose(record),
-      single: {
-        is: (params): params is RetrieveSingleParams =>
-          singleRetrieveParamsZ.safeParse(params).success,
-        normalize: normalizeSingle,
-        space: single as query.Retrieves<query.Params, Task>,
-      },
+      single: { schema: singleQueryZ, space: single },
     });
     this.cfg = cfg;
     this.store = store;
