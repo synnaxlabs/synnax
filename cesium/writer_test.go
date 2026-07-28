@@ -1133,10 +1133,10 @@ var _ = Describe("Writer Behavior", func() {
 							Channels: []cesium.ChannelKey{data},
 							Start:    70*telem.SecondTS + 500*telem.MillisecondTS,
 						}))
-						MustSucceed(w.Write(telem.MultiFrame(
+						Expect(w.Write(telem.MultiFrame(
 							[]cesium.ChannelKey{data},
 							[]telem.Series{telem.NewSeriesV[int64](1)},
-						)))
+						))).To(BeTrue())
 						Expect(w.Commit()).Error().To(SatisfyAll(
 							MatchError(validate.ErrValidation),
 							MatchError(ContainSubstring("cannot be resolved to an exact sample")),
