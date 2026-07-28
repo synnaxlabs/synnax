@@ -835,6 +835,26 @@ describe("Answers", () => {
       await wait(10);
       expect(fetch).toHaveBeenCalledTimes(1);
     });
+
+    it("does not refetch maintained answers when the epoch returns to 0", async () => {
+      const table = newTable();
+      let bump: (epoch: number) => void = () => {};
+      const fetch = vi.fn(async () => {
+        table.set("a", rec("a", 1));
+        return ["a"];
+      });
+      const answers = singleSpace(table, fetch, {
+        onEpoch: (callback: (epoch: number) => void) => {
+          bump = callback;
+          return () => {};
+        },
+      });
+      answers.onChange(qA, vi.fn());
+      await answers.retrieve(qA);
+      bump(0);
+      await wait(10);
+      expect(fetch).toHaveBeenCalledTimes(1);
+    });
   });
 
   describe("identity-gated settle", () => {

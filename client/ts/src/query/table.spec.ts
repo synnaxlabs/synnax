@@ -1379,7 +1379,7 @@ describe("Tombstones", () => {
   });
 });
 
-describe("clear", () => {
+describe("reset", () => {
   interface Doc extends record.Keyed<string> {
     key: string;
     name: string;
@@ -1394,7 +1394,7 @@ describe("clear", () => {
     table.set("k2", { key: "k2", name: "b" });
     table.delete("k2");
     subscriber.mockClear();
-    table.clear();
+    table.reset();
     expect(subscriber).not.toHaveBeenCalled();
     expect(table.get()).toEqual([]);
     expect(table.status("k1")).toBe("unknown");
@@ -1402,10 +1402,10 @@ describe("clear", () => {
     expect(table.getTombstone("k2")).toBeUndefined();
   });
 
-  it("should accept new rows after clearing", () => {
+  it("should accept new rows after a reset", () => {
     const table = newTable();
     table.set("k1", { key: "k1", name: "a" });
-    table.clear();
+    table.reset();
     table.set("k1", { key: "k1", name: "b" });
     expect(table.get("k1")).toEqual({ key: "k1", name: "b" });
   });
