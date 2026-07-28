@@ -418,7 +418,7 @@ describe("Cache", () => {
       await cache.close();
     });
 
-    it("invalidates answer spaces so subscribers refetch", async () => {
+    it("resets answer spaces so subscribers refetch", async () => {
       const cache = makeEngine();
       const table = cache.createTable<string, Doc>({ name: "docs" });
       const space = cache.queries<string, Doc, string, Doc>({
