@@ -157,6 +157,13 @@ const affectedDeviceKeys = (
   return [key];
 };
 
+export interface ClientParams {
+  unary: UnaryClient;
+  cache: query.Cache;
+  statusStore: query.Table<status.Key, status.Status>;
+  ontology: ontology.Client;
+}
+
 export class Client extends query.Retriever<
   typeof retrieveRequestZ,
   Key,
@@ -164,17 +171,11 @@ export class Client extends query.Retriever<
   Device,
   RetrieveSingleParams
 > {
-  private readonly client: UnaryClient;
+  private readonly cfg: ClientParams;
   private readonly store: query.Table<Key, Omit<Device, "status">>;
-  private readonly statusStore: query.Table<status.Key, status.Status>;
-  private readonly ontology: ontology.Stores;
 
-  constructor(
-    client: UnaryClient,
-    cache: query.Cache,
-    statusStore: query.Table<status.Key, status.Status>,
-    ontologyStores: ontology.Stores,
-  ) {
+  constructor(cfg: ClientParams) {
+    const { cache, statusStore } = cfg;
     // Explicitly omit 'status' from the device type to make sure we aren't
     // storing two copies of the statuses in the store.
     const store = cache.createTable<Key, Omit<Device, "status">>({
@@ -220,9 +221,7 @@ export class Client extends query.Retriever<
         space: single as query.Retrieves<query.Params, Device>,
       },
     });
-    this.client = client;
-    this.statusStore = statusStore;
-    this.ontology = ontologyStores;
+    this.cfg = cfg;
     this.store = store;
   }
 
@@ -322,7 +321,7 @@ export class Client extends query.Retriever<
     schemas?: DeviceSchemas,
   ): Promise<Device | Device[]> {
     const isSingle = !Array.isArray(devices);
-    const res = await this.client.send(
+    const res = await this.cfg.unary.send(
       "/device/create",
       { devices: array.toArray(devices) },
       createReqZ(schemas),
@@ -335,7 +334,7 @@ export class Client extends query.Retriever<
   async delete(keys: Key | Key[], opts: query.WriteOptions = {}): Promise<void> {
     const keysArr = array.toArray(keys);
     const drop = () => [
-      ontology.deleteCachedResources(this.ontology, ontologyID(keysArr)),
+      this.cfg.ontology.cache.deleteResources(ontologyID(keysArr)),
       this.store.delete(keysArr),
     ];
     const rollback = new destructor.Chain();
@@ -343,7 +342,7 @@ export class Client extends query.Retriever<
     await opts.onOptimistic?.();
     await rollback.guard(
       async () =>
-        await this.client.send(
+        await this.cfg.unary.send(
           "/device/delete",
           { keys: keysArr },
           deleteReqZ,
@@ -381,7 +380,7 @@ export class Client extends query.Retriever<
   /** Rebuilds a cached device, attaching its cached status when requested. */
   private compose(cached: Omit<Device, "status">, includeStatus: boolean): Device {
     if (!includeStatus) return cached;
-    const st = this.statusStore.get(statusKey(cached.key));
+    const st = this.cfg.statusStore.get(statusKey(cached.key));
     if (st == null) return cached;
     const parsed = statusZ.safeParse(st);
     if (!parsed.success) return cached;
@@ -392,7 +391,7 @@ export class Client extends query.Retriever<
   private writeThrough(devices: Device[]): void {
     this.store.set(devices.map(stripStatus));
     devices.forEach(({ status: st }) => {
-      if (st != null) this.statusStore.set(st);
+      if (st != null) this.cfg.statusStore.set(st);
     });
   }
 
@@ -400,7 +399,7 @@ export class Client extends query.Retriever<
     params: RetrieveParams,
     schemas?: DeviceSchemas,
   ): Promise<Device[]> {
-    const res = await this.client.send(
+    const res = await this.cfg.unary.send(
       "/device/retrieve",
       params,
       retrieveParamsZ,

@@ -20,7 +20,7 @@ import {
   scopedActionZ,
 } from "@/log/actions.gen";
 import { type Key, keyZ, type Log, logZ, type New, ontologyID } from "@/log/types.gen";
-import { ontology } from "@/ontology";
+import { type ontology } from "@/ontology";
 import { project } from "@/project";
 import { query } from "@/query";
 
@@ -60,17 +60,19 @@ const requestFilter = (req: RetrieveRequest): ((l: Log) => boolean) => {
   return (l) => keySet.has(l.key);
 };
 
+export interface ClientParams {
+  unary: UnaryClient;
+  cache: query.Cache;
+  ontology: ontology.Client;
+}
+
 export class Client extends query.Retriever<typeof retrieveReqZ, Key, Log> {
-  private readonly client: UnaryClient;
+  private readonly cfg: ClientParams;
   private readonly store: query.Table<Key, Log>;
-  private readonly ontology: ontology.Stores;
   private readonly dispatcher: actions.Controller<Key, Log, Action>;
 
-  constructor(
-    client: UnaryClient,
-    cache: query.Cache,
-    ontologyStores: ontology.Stores,
-  ) {
+  constructor(cfg: ClientParams) {
+    const { cache } = cfg;
     // Dispatch mutates documents server-side, so fetched copies never clobber
     // a doc holding locally replayed edits: the table hydrates if-absent.
     const store = cache.createTable<Key, Log>({
@@ -96,10 +98,9 @@ export class Client extends query.Retriever<typeof retrieveReqZ, Key, Log> {
         matches: (log, req) => requestFilter(req)(log),
       },
     });
-    this.client = client;
+    this.cfg = cfg;
     this.store = store;
     this.dispatcher = dispatcher;
-    this.ontology = ontologyStores;
   }
 
   async create(
@@ -124,7 +125,7 @@ export class Client extends query.Retriever<typeof retrieveReqZ, Key, Log> {
     await opts.onOptimistic?.(optimistic);
     const res = await rollback.guard(
       async () =>
-        await this.client.send(
+        await this.cfg.unary.send(
           "/log/create",
           { project, logs: optimistic },
           createReqZ,
@@ -138,7 +139,7 @@ export class Client extends query.Retriever<typeof retrieveReqZ, Key, Log> {
   async rename(key: Key, name: string, opts: query.WriteOptions = {}): Promise<void> {
     const rename = () => [
       query.partialUpdate(this.store, key, { name }),
-      ontology.renameCachedResource(this.ontology, ontologyID(key), name),
+      this.cfg.ontology.cache.renameResource(ontologyID(key), name),
     ];
     const rollback = new destructor.Chain();
     rollback.add(...rename());
@@ -229,7 +230,7 @@ export class Client extends query.Retriever<typeof retrieveReqZ, Key, Log> {
     dispatchKey: string,
     actions: Action[],
   ): Promise<void> {
-    await this.client.send(
+    await this.cfg.unary.send(
       "/log/dispatch",
       { key, dispatchKey, actions },
       dispatchReqZ,
@@ -240,7 +241,7 @@ export class Client extends query.Retriever<typeof retrieveReqZ, Key, Log> {
   async delete(keys: Key | Key[], opts: query.WriteOptions = {}): Promise<void> {
     const keysArr = array.toArray(keys);
     const drop = () => [
-      ontology.deleteCachedRelationships(this.ontology, ontologyID(keysArr)),
+      this.cfg.ontology.cache.deleteRelationships(ontologyID(keysArr)),
       this.store.delete(keysArr),
     ];
     const rollback = new destructor.Chain();
@@ -248,7 +249,12 @@ export class Client extends query.Retriever<typeof retrieveReqZ, Key, Log> {
     await opts.onOptimistic?.();
     await rollback.guard(
       async () =>
-        await this.client.send("/log/delete", { keys: keysArr }, deleteReqZ, emptyResZ),
+        await this.cfg.unary.send(
+          "/log/delete",
+          { keys: keysArr },
+          deleteReqZ,
+          emptyResZ,
+        ),
     );
     drop();
   }
@@ -261,7 +267,7 @@ export class Client extends query.Retriever<typeof retrieveReqZ, Key, Log> {
   }
 
   private async execRetrieve(params: RetrieveMultipleParams): Promise<Log[]> {
-    const res = await this.client.send(
+    const res = await this.cfg.unary.send(
       "/log/retrieve",
       params,
       retrieveReqZ,

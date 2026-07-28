@@ -82,6 +82,12 @@ const requestFilter = (req: RetrieveRequest): ((u: User) => boolean) => {
   };
 };
 
+export interface ClientParams {
+  unary: UnaryClient;
+  cache: query.Cache;
+  ontology: ontology.Client;
+}
+
 export class Client extends query.Retriever<
   typeof retrieveRequestZ,
   Key,
@@ -89,15 +95,11 @@ export class Client extends query.Retriever<
   User,
   SingleParams
 > {
-  private readonly client: UnaryClient;
+  private readonly cfg: ClientParams;
   private readonly store: query.Table<Key, User>;
-  private readonly ontology: ontology.Stores;
 
-  constructor(
-    client: UnaryClient,
-    cache: query.Cache,
-    ontologyStores: ontology.Stores,
-  ) {
+  constructor(cfg: ClientParams) {
+    const { cache } = cfg;
     const store = cache.createTable<Key, User>({
       name: "users",
       fetch: async (keys) => await this.execRetrieve({ keys }),
@@ -138,16 +140,15 @@ export class Client extends query.Retriever<
         space: single as query.Retrieves<query.Params, User>,
       },
     });
-    this.client = client;
+    this.cfg = cfg;
     this.store = store;
-    this.ontology = ontologyStores;
   }
 
   async create(user: New): Promise<User>;
   async create(users: New[]): Promise<User[]>;
   async create(users: New | New[]): Promise<User | User[]> {
     const isMany = Array.isArray(users);
-    const res = await this.client.send(
+    const res = await this.cfg.unary.send(
       "/user/create",
       { users: array.toArray(users) },
       createReqZ,
@@ -164,14 +165,14 @@ export class Client extends query.Retriever<
   ): Promise<void> {
     const update = () => [
       query.partialUpdate(this.store, key, { username: newUsername }),
-      ontology.renameCachedResource(this.ontology, ontologyID(key), newUsername),
+      this.cfg.ontology.cache.renameResource(ontologyID(key), newUsername),
     ];
     const rollback = new destructor.Chain();
     rollback.add(...update());
     await opts.onOptimistic?.();
     await rollback.guard(
       async () =>
-        await this.client.send(
+        await this.cfg.unary.send(
           "/user/change-username",
           { key, username: newUsername },
           changeUsernameReqZ,
@@ -198,7 +199,7 @@ export class Client extends query.Retriever<
     await opts.onOptimistic?.();
     await rollback.guard(
       async () =>
-        await this.client.send(
+        await this.cfg.unary.send(
           "/user/rename",
           { key, firstName, lastName },
           renameReqZ,
@@ -212,7 +213,7 @@ export class Client extends query.Retriever<
   async delete(keys: Key | Key[], opts: query.WriteOptions = {}): Promise<void> {
     const keysArr = array.toArray(keys);
     const drop = () => [
-      ontology.deleteCachedResources(this.ontology, ontologyID(keysArr)),
+      this.cfg.ontology.cache.deleteResources(ontologyID(keysArr)),
       this.store.delete(keysArr),
     ];
     const rollback = new destructor.Chain();
@@ -220,7 +221,7 @@ export class Client extends query.Retriever<
     await opts.onOptimistic?.();
     await rollback.guard(
       async () =>
-        await this.client.send(
+        await this.cfg.unary.send(
           "/user/delete",
           { keys: keysArr },
           deleteReqZ,
@@ -231,7 +232,7 @@ export class Client extends query.Retriever<
   }
 
   private async execRetrieve(params: RetrieveParams): Promise<User[]> {
-    const res = await this.client.send(
+    const res = await this.cfg.unary.send(
       "/user/retrieve",
       params,
       retrieveParamsZ,
