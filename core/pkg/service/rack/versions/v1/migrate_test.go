@@ -42,7 +42,7 @@ var _ = Describe("MigrateRack", func() {
 			DB:        db,
 			Namespace: "Rack",
 			Migrations: append(
-				append([]migrate.Migration{v0Applied}, v0Chain[1:]...), v1.Migrations...,
+				append([]migrate.Migration{v0Applied}, v0Chain[1:]...), v1.Migration,
 			),
 		})).To(Succeed())
 		var got v1.Rack

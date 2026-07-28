@@ -9,10 +9,7 @@
 
 package v1
 
-import (
-	v0 "github.com/synnaxlabs/synnax/pkg/service/access/rbac/policy/versions/v0"
-	"github.com/synnaxlabs/x/gorp"
-)
+import "github.com/synnaxlabs/x/gorp"
 
 // Migration re-encodes stored policies from MessagePack to Orc.
-var Migration = gorp.CodecMigration[Key, Policy]("msgpack_to_orc", v0.Migration.Key())
+var Migration = gorp.CodecMigration[Key, Policy]("msgpack_to_orc")

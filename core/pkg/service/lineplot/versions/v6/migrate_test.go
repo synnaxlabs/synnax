@@ -55,7 +55,7 @@ func migrateSeed(ctx SpecContext, seed v5.LinePlot) v6.LinePlot {
 	Expect(gorp.Migrate(ctx, gorp.MigrateConfig{
 		DB:         db,
 		Namespace:  "LinePlot",
-		Migrations: append([]migrate.Migration{v5.Migration}, v6.Migrations...),
+		Migrations: []migrate.Migration{v5.Migration, v6.Migration},
 	})).To(Succeed())
 	var got v6.LinePlot
 	Expect(gorp.NewRetrieve[v6.Key, v6.LinePlot]().
