@@ -47,6 +47,17 @@ describe("middleware", () => {
         mw((action) => action)({ type: "DA@test://test" });
         expect(runtime.emissions).toEqual([]);
       });
+      it("should not emit an action an inner middleware swallowed", async () => {
+        const store = { getState: () => state, dispatch: vi.fn() };
+        const runtime = new MockRuntime(false);
+        const mw = middleware(runtime)(store);
+        const next = (action: unknown) =>
+          (action as { type: string }).type === "dropped" ? undefined : action;
+        mw(next)({ type: "dropped" });
+        mw(next)({ type: "kept" });
+        await expect.poll(() => runtime.emissions.length).toEqual(1);
+        expect(runtime.emissions[0].action).toEqual({ type: "kept" });
+      });
     });
     describe("'nexting' actions", () => {
       it("should next an action if it has not been emitted by 'self' ", () => {

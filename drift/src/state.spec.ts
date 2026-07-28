@@ -13,6 +13,7 @@ import {
   createWindow,
   reducer,
   restoreWindows,
+  runtimeSetWindowProps,
   type SliceState,
   ZERO_SLICE_STATE,
 } from "@/state";
@@ -77,6 +78,41 @@ describe("createWindow", () => {
     s = reducer(s, createWindow({ key: "a", label: "lx", prerenderLabel: "px" }));
     expect(s.nextOrdinal).toEqual(before);
     expect(s.windows.la.ordinal).toEqual(2);
+  });
+});
+
+describe("setWindowProps", () => {
+  const withPrerender = (): SliceState =>
+    sliceState({
+      [MAIN_WINDOW]: reserved(MAIN_WINDOW, { ordinal: 1 }),
+      pre: { ...INITIAL_PRERENDER_WINDOW_STATE },
+    });
+
+  it("should ignore writes to an unreserved pre-rendered window", () => {
+    const next = reducer(
+      withPrerender(),
+      runtimeSetWindowProps({ label: "pre", visible: true }),
+    );
+    expect(next.windows.pre.visible).toEqual(false);
+  });
+
+  it("should ignore runtime prop echoes on an unreserved window", () => {
+    const next = reducer(
+      withPrerender(),
+      runtimeSetWindowProps({ label: "pre", minimized: true }),
+    );
+    expect(next.windows.pre.minimized).toBeUndefined();
+  });
+
+  it("should apply props once the window is claimed", () => {
+    let s = reducer(
+      withPrerender(),
+      createWindow({ key: "a", label: "la", prerenderLabel: "pa" }),
+    );
+    expect(s.windows.pre.reserved).toEqual(true);
+    expect(s.windows.pre.visible).toEqual(true);
+    s = reducer(s, runtimeSetWindowProps({ label: "pre", position: { x: 5, y: 5 } }));
+    expect(s.windows.pre.position).toEqual({ x: 5, y: 5 });
   });
 });
 
