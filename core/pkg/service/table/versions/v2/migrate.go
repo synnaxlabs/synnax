@@ -17,7 +17,6 @@ import (
 	v1 "github.com/synnaxlabs/synnax/pkg/service/table/versions/v1"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/gorp"
-	"github.com/synnaxlabs/x/migrate"
 )
 
 // migrateTable transforms the previous Table snapshot (v1) into the v2 strongly-typed
@@ -73,10 +72,5 @@ func migrateCells(in map[string]v0.Cell) map[string]Cell {
 	return out
 }
 
-// liftMigration lifts stored tables from the v1 blob layout to the typed v2 shape.
-var liftMigration = gorp.NewEntryMigration(
-	"v55_lift_typed_table", migrateTable, v1.Migration.Key(),
-)
-
-// Migrations is the ordered set of migrations introduced at this version.
-var Migrations = []migrate.Migration{liftMigration}
+// Migration lifts stored tables from the v1 blob layout to the typed v2 shape.
+var Migration = gorp.NewEntryMigration("v55_lift_typed_table", migrateTable)

@@ -27,6 +27,4 @@ func migrateArc(ctx context.Context, old v1.Arc) (Arc, error) {
 
 // Migration lifts stored arcs from v1 to v2, converting deploy state to the live
 // representation.
-var Migration = gorp.NewEntryMigration(
-	"v56_to_live", migrateArc, "v55_rename_set_status",
-)
+var Migration = gorp.NewEntryMigration("v56_to_live", migrateArc)

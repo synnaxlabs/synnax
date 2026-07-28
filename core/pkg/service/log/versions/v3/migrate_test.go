@@ -278,7 +278,7 @@ var _ = Describe("MigrateLog", func() {
 			Expect(gorp.Migrate(ctx, gorp.MigrateConfig{
 				DB:         db,
 				Namespace:  "Log",
-				Migrations: append([]migrate.Migration{v2.Migration}, v3.Migrations...),
+				Migrations: []migrate.Migration{v2.Migration, v3.Migration},
 			})).To(Succeed())
 
 			var got v3.Log

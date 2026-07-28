@@ -16,4 +16,4 @@ import (
 )
 
 // Migrations is the ordered migration chain for stored tables.
-var Migrations = append([]migrate.Migration{v1.Migration}, v2.Migrations...)
+var Migrations = []migrate.Migration{v1.Migration, v2.Migration}
