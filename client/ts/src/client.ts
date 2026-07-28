@@ -7,13 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Middleware } from "@synnaxlabs/freighter";
 import {
   breaker,
   type CrudeTimeSpan,
-  errors,
-  migrate,
-  observe,
   TimeSpan,
   TimeStamp,
   url,
@@ -29,7 +25,7 @@ import { channel } from "@/channel";
 import { connection } from "@/connection";
 import { control } from "@/control";
 import { device } from "@/device";
-import { DisconnectedError, errorsMiddleware } from "@/errors";
+import { errorsMiddleware } from "@/errors";
 import { framer } from "@/framer";
 import { group } from "@/group";
 import { imex } from "@/imex";
@@ -115,11 +111,7 @@ export default class Synnax extends framer.Client {
   readonly imex: imex.Client;
   readonly cache: query.Cache;
   private readonly transport: Transport;
-  private readonly connectionConfig: connection.Config;
-  private readonly connectionObserver = new observe.Observer<connection.Status>();
-  private readonly prober: connection.Prober;
-  private connectionStatus: connection.Status;
-  private versionWarned = false;
+  private readonly conn: connection.Client;
 
   /**
    * The version of the client.
@@ -170,64 +162,48 @@ export default class Synnax extends framer.Client {
               retry,
               () => {
                 // stream.live first: onReopen's reconcile fetches must not hit
-                // the unreachable short circuit. The reopened address may lead
-                // to a replaced cluster, so probe for identity immediately.
-                this.dispatchConnectionEvent({ type: "stream.live" });
-                this.prober.retryNow();
+                // the unreachable short circuit
+                this.conn.notify({ type: "stream.live" });
                 onReopen?.();
               },
-              (error) => this.dispatchConnectionEvent({ type: "stream.drop", error }),
+              (error) => this.conn.notify({ type: "stream.drop", error }),
             );
             // Reads start when the ObservableStreamer is constructed below,
             // so onOpen fires strictly before any frame or reconnect.
             onOpen?.();
-            this.dispatchConnectionEvent({ type: "stream.live" });
+            this.conn.notify({ type: "stream.live" });
             return new framer.ObservableStreamer(hardened);
           }
         : null,
       onError: parsedParams.onInternalError,
     });
     this.cache = cache;
-    this.connectionConfig = {
-      clientVersion: __VERSION__,
+    this.conn = new connection.Client({
+      unary: transport.unaryNoRetry,
+      address: `${host}:${Number(port)}`,
       name: parsedParams.name,
-      escalateAfter: connection.DEFAULT_ESCALATE_AFTER,
       clockSkewThreshold: new TimeSpan(clockSkewThreshold).abs(),
       requiresStream: parsedParams.cache,
-    };
-    this.connectionStatus = connection.createInitialStatus(this.connectionConfig);
-    const connectionStatus = (): connection.Status => this.connectionStatus;
-    this.connection = {
-      get status(): connection.Status {
-        return connectionStatus();
-      },
-      onChange: (callback) => this.connectionObserver.onChange(callback),
-      retryNow: () => {
-        this.dispatchConnectionEvent({ type: "retry.requested" });
-        this.prober.retryNow();
-      },
-    };
-    this.prober = new connection.Prober({
-      client: new connection.Client(transport.unaryNoRetry),
       retry,
       heartbeatInterval: connectivityPollFrequency,
-      emit: (event) => this.dispatchConnectionEvent(event),
+      stream: {
+        reset: async () => await cache.reset(),
+        ensure: async () => await cache.ensureStreaming(),
+      },
       onInternalError: parsedParams.onInternalError,
     });
-    cache.onEpoch((epoch) =>
-      this.dispatchConnectionEvent({ type: "epoch.advanced", epoch }),
-    );
-    transport.unary.use(this.shortCircuitMiddleware());
+    this.connection = this.conn;
+    cache.onEpoch((epoch) => this.conn.notify({ type: "epoch.advanced", epoch }));
+    transport.unary.use(this.conn.middleware());
     // The auth client fails fast: login retries belong to the request that
-    // triggered them (the breaker-wrapped unary or the prober), never stacked
-    // beneath it.
+    // triggered them (the breaker-wrapped unary or the probe loop), never
+    // stacked beneath it.
     this.auth = new auth.Client(
       transport.unaryNoRetry,
       { username, password },
       {
-        onSuccess: () => this.dispatchConnectionEvent({ type: "auth.success" }),
-        onFailure: (error) =>
-          this.dispatchConnectionEvent({ type: "auth.failure", error }),
+        onSuccess: () => this.conn.notify({ type: "auth.success" }),
+        onFailure: (error) => this.conn.notify({ type: "auth.failure", error }),
       },
     );
     transport.use(this.auth.middleware());
@@ -316,7 +292,6 @@ export default class Synnax extends framer.Client {
       cache,
     });
     this.imex = new imex.Client({ file: this.transport.file });
-    this.prober.start();
   }
 
   /**
@@ -328,119 +303,18 @@ export default class Synnax extends framer.Client {
    * @throws {Error} if the timeout elapses first.
    */
   async connect({ timeout }: ConnectOptions = {}): Promise<connection.Status> {
-    return await connection.awaitConnected(this.connection, timeout);
+    return await this.conn.connect(timeout);
   }
 
   /** Supplies new credentials after an auth failure and resumes connecting. */
   reauthenticate(credentials: auth.Credentials): void {
     this.auth.setCredentials(credentials);
-    this.dispatchConnectionEvent({ type: "credentials.replaced" });
-    this.prober.retryNow();
+    this.conn.notify({ type: "credentials.replaced" });
   }
 
   close(): void {
-    this.dispatchConnectionEvent({ type: "closed" });
-    this.prober.stop().catch(console.error);
+    this.conn.close().catch(console.error);
     this.cache.close().catch(console.error);
-  }
-
-  /**
-   * Folds an event into the connection state, notifies observers, and applies
-   * the transition's side effects. The sole entry point for every feeder.
-   */
-  private dispatchConnectionEvent(event: connection.Event): void {
-    // A probe answered by a different cluster than previously contacted is a
-    // replacement, not a reconnection: the address now leads somewhere new.
-    if (
-      event.type === "probe.success" &&
-      this.connectionStatus.details.clusterKey !== "" &&
-      event.info.clusterKey !== this.connectionStatus.details.clusterKey
-    )
-      event = { type: "cluster.replaced", info: event.info };
-    const [next, changed] = connection.advance(
-      this.connectionStatus,
-      event,
-      this.connectionConfig,
-    );
-    this.connectionStatus = next;
-    if (changed) this.connectionObserver.notify(next);
-    if (event.type === "probe.success" || event.type === "cluster.replaced")
-      this.warnOnProbe(next.details);
-    if (event.type === "cluster.replaced")
-      this.cache
-        .reset()
-        .then(async () => await this.cache.ensureStreaming())
-        .catch((err: unknown) =>
-          this.params.onInternalError?.(
-            new Error("failed to reset cache after cluster replacement", {
-              cause: err,
-            }),
-          ),
-        );
-    // reachable but the stream is still dark: re-demand it, in case its own
-    // retry budget was exhausted
-    if (
-      event.type === "probe.success" &&
-      this.connectionConfig.requiresStream &&
-      !next.details.streamLive
-    )
-      this.cache
-        .ensureStreaming()
-        .catch((err: unknown) =>
-          this.params.onInternalError?.(
-            new Error("failed to bring up change stream", { cause: err }),
-          ),
-        );
-    this.prober.setMode(connection.modeFor(next));
-  }
-
-  private warnOnProbe({
-    clockSkew,
-    clockSkewExceeded,
-    clientServerCompatible,
-    clientVersion,
-    nodeVersion,
-  }: connection.Details): void {
-    if (clockSkewExceeded) {
-      const direction = clockSkew.valueOf() > 0n ? "ahead of" : "behind";
-      console.warn(
-        `Measured excessive clock skew between this host and the Synnax Core. ` +
-          `This host is ${direction} the Synnax Core by approximately ` +
-          `${clockSkew.abs().toString()}.`,
-      );
-    }
-    if (clientServerCompatible || this.versionWarned) return;
-    this.versionWarned = true;
-    const clientIsNewer =
-      nodeVersion == null || migrate.semVerNewer(clientVersion, nodeVersion);
-    const toUpgrade = clientIsNewer ? "Core" : "client";
-    console.warn(
-      `The Synnax Core version ${nodeVersion != null ? `${nodeVersion} ` : ""}is too ` +
-        `${clientIsNewer ? "old" : "new"} for client version ${clientVersion}.\n` +
-        `  This may cause compatibility issues. We recommend updating the ${toUpgrade}. For more information, see\n` +
-        `  https://docs.synnaxlabs.com/reference/client/resources/troubleshooting#old-${toUpgrade.toLowerCase()}-version`,
-    );
-  }
-
-  /**
-   * Rejects unary requests instantly while the client knows the cluster is
-   * unreachable, instead of burning the transport's retry budget per call.
-   * The probe and login targets are exempt so the connection can heal.
-   */
-  private shortCircuitMiddleware(): Middleware {
-    const EXEMPT = [connection.CHECK_ENDPOINT, auth.LOGIN_ENDPOINT];
-    return async (ctx, next) => {
-      const { variant, details } = this.connectionStatus;
-      if (
-        variant === "error" &&
-        details.reason === "unreachable" &&
-        !EXEMPT.some((target) => ctx.target.endsWith(target))
-      )
-        throw new DisconnectedError(
-          `Cannot reach cluster at ${this.params.host}:${this.params.port}`,
-        );
-      return await next(ctx);
-    };
   }
 }
 
@@ -466,23 +340,5 @@ export const checkConnection = async (
   const endpoint = new url.URL({ host, port: Number(port) });
   const transport = new Transport(endpoint, retryConfig, secure);
   transport.use(errorsMiddleware);
-  const config: connection.Config = {
-    clientVersion: __VERSION__,
-    name,
-    escalateAfter: 1,
-    clockSkewThreshold: TimeSpan.seconds(1),
-    requiresStream: false,
-  };
-  const initial = connection.createInitialStatus(config);
-  try {
-    const info = await new connection.Client(transport.unary).check();
-    return connection.reduce(initial, { type: "probe.success", info }, config);
-  } catch (err) {
-    const event: connection.Event = {
-      type: "probe.failure",
-      error: errors.fromUnknown(err),
-      attempt: 1,
-    };
-    return connection.reduce(initial, event, config);
-  }
+  return await connection.check(transport.unary, { name });
 };
