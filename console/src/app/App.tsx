@@ -35,21 +35,23 @@ export const App = ({ workerURL }: AppProps): ReactElement => {
     <Errors.OverlayWithoutStore>
       <Session.Context>
         <Pluto.Context workerURL={workerURL}>
-          <Errors.OverlayWithStore>
-            <Panel.Context>
-              <Tree.Context>
-                <Range.Context>
-                  <Imex.Context>
-                    <Task.Context>
-                      <Vis.Canvas>
-                        <Window.Window />
-                      </Vis.Canvas>
-                    </Task.Context>
-                  </Imex.Context>
-                </Range.Context>
-              </Tree.Context>
-            </Panel.Context>
-          </Errors.OverlayWithStore>
+          <Session.Settled.Provider>
+            <Errors.OverlayWithStore>
+              <Panel.Context>
+                <Tree.Context>
+                  <Range.Context>
+                    <Imex.Context>
+                      <Task.Context>
+                        <Vis.Canvas>
+                          <Window.Window />
+                        </Vis.Canvas>
+                      </Task.Context>
+                    </Imex.Context>
+                  </Range.Context>
+                </Tree.Context>
+              </Panel.Context>
+            </Errors.OverlayWithStore>
+          </Session.Settled.Provider>
         </Pluto.Context>
       </Session.Context>
     </Errors.OverlayWithoutStore>

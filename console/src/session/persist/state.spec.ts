@@ -87,9 +87,11 @@ const createDriver = async (
   const { initialState, middleware } = await openPersist(store, overrides);
   let state = initialState ?? ZERO_MOCK_STATE;
   let settled = 0;
+  let hydrates = 0;
   const next = vi.fn((action: unknown) => action);
   const dispatched = vi.fn((action: unknown) => {
     if (!Persist.hydrate.match(action)) return;
+    hydrates++;
     state = { ...state, ...(action.payload as Partial<MockState>) };
     run(action);
   });
@@ -106,10 +108,8 @@ const createDriver = async (
     },
     /** Waits for the swap in flight to hydrate. */
     settle: async () => {
-      await vi.waitFor(() =>
-        expect(dispatched.mock.calls.length).toBeGreaterThan(settled),
-      );
-      settled = dispatched.mock.calls.length;
+      await vi.waitFor(() => expect(hydrates).toBeGreaterThan(settled));
+      settled = hydrates;
     },
     /** Reopens the store to see what production has written so far. */
     composed: async () => (await openPersist(store)).initialState,
@@ -368,6 +368,18 @@ describe("Persist.middleware", () => {
     );
   });
 
+  it("should mark the swap window with beginSwap before hydrate", async () => {
+    const driver = await createDriver(new kv.MockAsync());
+    await enter(driver, CTX);
+    const calls = driver.dispatched.mock.calls.map(
+      ([action]) => (action as { type: string }).type,
+    );
+    const begin = calls.indexOf(Persist.beginSwap.type);
+    const hydrated = calls.indexOf(Persist.hydrate.type);
+    expect(begin).toBeGreaterThanOrEqual(0);
+    expect(hydrated).toBeGreaterThan(begin);
+  });
+
   it("should swap only the project partition when the cluster is unchanged", async () => {
     const driver = await createDriver(new kv.MockAsync());
     await enter(driver, CTX);
@@ -439,12 +451,16 @@ describe("Persist.middleware", () => {
       { ...driver.getState(), cluster: { selected: "c2" }, project: {} },
     );
     await driver.settle();
-    expect(driver.dispatched.mock.calls.length).toBe(1);
+    const hydrates = (): number =>
+      driver.dispatched.mock.calls.filter(
+        ([action]) => (action as { type: string }).type === Persist.hydrate.type,
+      ).length;
+    expect(hydrates()).toBe(1);
     releaseStale?.();
     // The released read is the stale swap's last async hop, so once it lands the swap
     // has fully resolved. Its hydrate would clobber the newer cluster's slices.
     await vi.waitFor(() => expect(gateDone).toHaveBeenCalled());
-    expect(driver.dispatched.mock.calls.length).toBe(1);
+    expect(hydrates()).toBe(1);
   });
 
   it("should coalesce rapid dispatches into a single persist when debounced", async () => {

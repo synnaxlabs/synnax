@@ -80,8 +80,19 @@ export const clearState = createAction("persist/clearState");
  * Dispatched by the persistence middleware, applied by a root reducer wrapper.
  */
 export const hydrate = createAction<record.Unknown>("persist/hydrate");
+/**
+ * Marks the start of a partition swap. Between this and the closing hydrate
+ * (or endSwap on failure) the store holds the outgoing context's slices.
+ */
+export const beginSwap = createAction("persist/beginSwap");
+/** Clears the swap mark when a failed swap will never hydrate. */
+export const endSwap = createAction("persist/endSwap");
 export type Action = ReturnType<
-  typeof revertState | typeof clearState | typeof hydrate
+  | typeof revertState
+  | typeof clearState
+  | typeof hydrate
+  | typeof beginSwap
+  | typeof endSwap
 >;
 
 /** Versions kept per partition before the ring wraps. */
@@ -386,6 +397,7 @@ const createMiddleware = <S extends object>(
           current = ctx;
           swapping = true;
           const gen = ++swapGen;
+          store.dispatch(beginSwap());
           engine
             .persist(state, old)
             .then(async () => {
@@ -395,7 +407,10 @@ const createMiddleware = <S extends object>(
               store.dispatch(hydrate(loaded as record.Unknown));
             })
             .catch((err: unknown) => {
-              if (gen === swapGen) swapping = false;
+              if (gen === swapGen) {
+                swapping = false;
+                store.dispatch(endSwap());
+              }
               console.error("failed to swap session context", err);
             });
         } else void debouncedPersist();

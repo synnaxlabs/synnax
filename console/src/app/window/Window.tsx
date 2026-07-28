@@ -33,7 +33,6 @@ export const Window = memo((): ReactElement | null => {
   const isMain = Session.Runtime.isMainWindow();
   const os = OS.use({ default: "Windows" });
   const dispatch = Session.useDispatch();
-  Session.useSynchronizers();
   useEffect(() => {
     dispatch(
       Drift.setWindowProps({

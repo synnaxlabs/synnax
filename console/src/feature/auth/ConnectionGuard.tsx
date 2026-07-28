@@ -33,30 +33,13 @@ export interface ConnectionGuardProps extends PropsWithChildren {
   nav?: boolean;
 }
 
-/** How long a cold connect may stay in loading before the takeover mounts. */
-const GRACE = TimeSpan.milliseconds(500);
-
-/** True once active has been continuously true for the given delay. */
-const useDelayedTrue = (active: boolean, delay: TimeSpan): boolean => {
-  const [delayed, setDelayed] = useState(false);
-  useEffect(() => {
-    if (!active) {
-      setDelayed(false);
-      return;
-    }
-    const timeout = setTimeout(() => setDelayed(true), delay.milliseconds);
-    return () => clearTimeout(timeout);
-  }, [active, delay.milliseconds]);
-  return delayed;
-};
-
 /**
- * Blacks out the workspace while the active cluster is unusable. Rejected
- * credentials return to the login surface at any warmth; a cluster that has
- * never been reached this session (cold) shows a connecting takeover while
- * coming up or retrying. A fast connect never flashes the takeover: cold
- * loading renders children until it has persisted past a grace period. Warm
- * unreachable degradation renders children intact.
+ * Blacks out the workspace while the active cluster is unusable or the
+ * session is in structural doubt. Rejected credentials return to the login
+ * surface at any warmth. Until the session settles a single splash renders
+ * instead of the workspace: connecting before first contact, connection
+ * trouble with error detail and actions once a probe fails, preparing once
+ * the cluster is reached. Warm degradation renders children intact.
  */
 export const ConnectionGuard = ({
   children,
@@ -64,18 +47,55 @@ export const ConnectionGuard = ({
 }: ConnectionGuardProps): ReactNode => {
   const client = Synnax.use();
   const status = Synnax.useConnectionStatus();
-  const coldLoading = status.details.epoch === 0 && status.variant === "loading";
-  const graceElapsed = useDelayedTrue(coldLoading, GRACE);
+  const settled = Session.Settled.use();
   if (client == null) return children;
   if (status.variant === "error" && status.details.reason === "auth")
     return <Login nav={nav} />;
-  const coldUnreachable =
-    status.details.epoch === 0 &&
-    status.variant === "error" &&
-    status.details.reason === "unreachable";
-  if (coldUnreachable || (coldLoading && graceElapsed))
-    return <Takeover client={client} status={status} nav={nav} />;
+  if (!settled) return <Splash client={client} status={status} nav={nav} />;
   return children;
+};
+
+interface SplashProps {
+  client: Client;
+  status: connection.Status;
+  nav: boolean;
+}
+
+const Splash = ({ client, status, nav }: SplashProps): ReactElement => {
+  const { variant, details } = status;
+  const connecting = details.epoch === 0;
+  const troubled =
+    connecting &&
+    (variant === "error" || details.error != null || details.retry != null);
+  return (
+    <Flex.Box y empty className={CSS.B("login")}>
+      {nav && <LoginNav />}
+      <Flex.Box
+        y
+        align="center"
+        justify="center"
+        background={1}
+        gap="huge"
+        grow
+        data-tauri-drag-region
+        className={CSS.BE("login", "content")}
+      >
+        <Logo
+          variant="title"
+          className={CSS.BE("login", "logo")}
+          data-tauri-drag-region
+        />
+        {troubled ? (
+          <Trouble client={client} status={status} />
+        ) : (
+          <Status.Summary
+            variant="loading"
+            message={connecting ? status.message : "Preparing your workspace..."}
+          />
+        )}
+      </Flex.Box>
+    </Flex.Box>
+  );
 };
 
 interface RetryStatusProps {
@@ -99,18 +119,18 @@ const RetryStatus = ({ retry }: RetryStatusProps): ReactElement => {
   );
 };
 
-interface TakeoverProps {
+interface TroubleProps {
   client: Client;
   status: connection.Status;
-  nav: boolean;
 }
 
-const Takeover = ({ client, status, nav }: TakeoverProps): ReactElement => {
+const Trouble = ({ client, status }: TroubleProps): ReactElement => {
   const activeKey = Session.Cluster.useSelectSelectedKey();
   const cluster = Session.Cluster.useSelectState(activeKey ?? undefined);
   const dispatch = Session.useDispatch();
   const logout = Session.useLogout();
   const openConnect = Cluster.useConnectModal();
+  const { error, retry } = status.details;
 
   const handleSelect = useCallback(
     (key?: string) => {
@@ -120,82 +140,61 @@ const Takeover = ({ client, status, nav }: TakeoverProps): ReactElement => {
   );
 
   return (
-    <Flex.Box y empty className={CSS.B("login")}>
-      {nav && <LoginNav />}
+    <Flex.Box
+      pack
+      x
+      className={CSS.BE("login", "container")}
+      grow={false}
+      rounded={1.5}
+      background={0}
+    >
+      <Cluster.List
+        className={CSS.BE("login", "list")}
+        value={activeKey ?? undefined}
+        onChange={handleSelect}
+      />
       <Flex.Box
         y
+        gap="huge"
+        className={CSS.BE("login", "form")}
+        bordered
+        grow
+        shrink={false}
         align="center"
         justify="center"
-        background={1}
-        gap="huge"
-        grow
-        data-tauri-drag-region
-        className={CSS.BE("login", "content")}
       >
-        <Logo
-          variant="title"
-          className={CSS.BE("login", "logo")}
-          data-tauri-drag-region
-        />
-        <Flex.Box
-          pack
-          x
-          className={CSS.BE("login", "container")}
-          grow={false}
-          rounded={1.5}
-          background={0}
-        >
-          <Cluster.List
-            className={CSS.BE("login", "list")}
-            value={activeKey ?? undefined}
-            onChange={handleSelect}
-          />
-          <Flex.Box
-            y
-            gap="huge"
-            className={CSS.BE("login", "form")}
-            bordered
-            grow
-            shrink={false}
-            align="center"
-            justify="center"
-          >
-            <Flex.Box y gap="small" align="center">
-              <Text.Text level="h2" color={11} weight={450}>
-                {cluster?.name ?? "Cluster"}
-              </Text.Text>
-              {cluster != null && (
-                <Text.Text color={9}>
-                  {cluster.host}:{cluster.port}
-                </Text.Text>
-              )}
-            </Flex.Box>
-            <Flex.Box y gap="small" align="center">
-              <Status.Summary variant={status.variant} message={status.message} />
-              {status.details.retry != null && (
-                <RetryStatus retry={status.details.retry} />
-              )}
-            </Flex.Box>
-            <Flex.Box x gap="small" align="center">
-              <Button.Button
-                variant="filled"
-                onClick={() => client.connection.retryNow()}
-              >
-                Retry Now
-              </Button.Button>
-              {activeKey != null && (
-                <Button.Button
-                  variant="outlined"
-                  onClick={() => openConnect({ clusterKey: activeKey })}
-                >
-                  Edit Connection
-                </Button.Button>
-              )}
-              <Button.Button variant="outlined" onClick={logout}>
-                Log Out
-              </Button.Button>
-            </Flex.Box>
-          </Flex.Box>
+        <Flex.Box y gap="small" align="center">
+          <Text.Text level="h2" color={11} weight={450}>
+            {cluster?.name ?? "Cluster"}
+          </Text.Text>
+          {cluster != null && (
+            <Text.Text color={9}>
+              {cluster.host}:{cluster.port}
+            </Text.Text>
+          )}
+        </Flex.Box>
+        <Flex.Box y gap="small" align="center">
+          <Status.Summary variant={status.variant} message={status.message} />
+          {error != null && error.message !== status.message && (
+            <Text.Text color={9}>{error.message}</Text.Text>
+          )}
+          {retry != null && <RetryStatus retry={retry} />}
+        </Flex.Box>
+        <Flex.Box x gap="small" align="center">
+          <Button.Button variant="filled" onClick={() => client.connection.retryNow()}>
+            Retry Now
+          </Button.Button>
+          {activeKey != null && (
+            <Button.Button
+              variant="outlined"
+              onClick={() => openConnect({ clusterKey: activeKey })}
+            >
+              Edit Connection
+            </Button.Button>
+          )}
+          <Button.Button variant="outlined" onClick={logout}>
+            Log Out
+          </Button.Button>
         </Flex.Box>
       </Flex.Box>
     </Flex.Box>
