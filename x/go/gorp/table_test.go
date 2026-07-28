@@ -152,7 +152,7 @@ var _ = Describe("Table", func() {
 		})
 	})
 
-	Describe("Migration dependency ordering", func() {
+	Describe("Migration ordering", func() {
 		It("Should run user migrations after normalize_keys", func(ctx SpecContext) {
 			testKV := memkv.New()
 			testDB := gorp.Wrap(testKV)

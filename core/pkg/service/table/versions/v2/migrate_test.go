@@ -60,7 +60,7 @@ func migrateSeed(ctx SpecContext, seed v1.Table) v2.Table {
 	Expect(gorp.Migrate(ctx, gorp.MigrateConfig{
 		DB:         db,
 		Namespace:  "Table",
-		Migrations: append([]migrate.Migration{v1.Migration}, v2.Migrations...),
+		Migrations: []migrate.Migration{v1.Migration, v2.Migration},
 	})).To(Succeed())
 	var got v2.Table
 	Expect(gorp.NewRetrieve[v2.Key, v2.Table]().
@@ -252,7 +252,7 @@ var _ = Describe("MigrateTable", func() {
 			Expect(gorp.Migrate(ctx, gorp.MigrateConfig{
 				DB:         db,
 				Namespace:  "Table",
-				Migrations: append([]migrate.Migration{v1.Migration}, v2.Migrations...),
+				Migrations: []migrate.Migration{v1.Migration, v2.Migration},
 			})).To(MatchError(ContainSubstring("table data")))
 		})
 	})
