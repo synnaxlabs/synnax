@@ -7,6 +7,7 @@
 # License, use of this software will be governed by the Apache License, Version 2.0,
 # included in the file licenses/APL.txt.
 
+load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
 load("@rules_cc//cc:cc_library.bzl", "cc_library")
 load("@rules_cc//cc:cc_test.bzl", "cc_test")
 
@@ -35,6 +36,25 @@ cc_library(
         "//arc/cpp/stl/variable",
         "//x/cpp/control",
         "//x/cpp/thread",
+    ],
+)
+
+cc_binary(
+    name = "program_bench",
+    srcs = ["program_bench.cpp"],
+    copts = select({
+        "@platforms//os:windows": ["/wd4201"],
+        "//conditions:default": [],
+    }),
+    tags = ["requires-core"],
+    deps = [
+        "//arc/cpp/runtime/testutil:compile",
+        "//arc/cpp/runtime/testutil:harness",
+        "//client/cpp:synnax",
+        "//client/cpp/testutil",
+        "//x/cpp/bench",
+        "//x/cpp/telem",
+        "@google_benchmark//:benchmark_main",
     ],
 )
 
