@@ -13,7 +13,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/x/lsp"
-	"github.com/synnaxlabs/x/lsp/protocol"
+	"go.lsp.dev/protocol"
 )
 
 var _ = Describe("Document", func() {
@@ -49,40 +49,11 @@ var _ = Describe("Document", func() {
 		})
 	})
 
-	Describe("IsFullReplacement", func() {
-		It("Should detect a full replacement", func() {
-			change := protocol.TextDocumentContentChangeEvent{Text: "new content"}
-			Expect(lsp.IsFullReplacement(change)).To(BeTrue())
-		})
-
-		It("Should detect an incremental change", func() {
-			change := protocol.TextDocumentContentChangeEvent{
-				Range: &protocol.Range{
-					Start: protocol.Position{Line: 0, Character: 0},
-					End:   protocol.Position{Line: 0, Character: 5},
-				},
-				Text: "world",
-			}
-			Expect(lsp.IsFullReplacement(change)).To(BeFalse())
-		})
-
-		It("Should detect an insertion at position (0,0) as incremental", func() {
-			change := protocol.TextDocumentContentChangeEvent{
-				Range: &protocol.Range{
-					Start: protocol.Position{Line: 0, Character: 0},
-					End:   protocol.Position{Line: 0, Character: 0},
-				},
-				Text: "\n",
-			}
-			Expect(lsp.IsFullReplacement(change)).To(BeFalse())
-		})
-	})
-
 	Describe("ApplyIncrementalChange", func() {
 		It("Should apply a single edit", func() {
 			content := "hello world"
-			change := protocol.TextDocumentContentChangeEvent{
-				Range: &protocol.Range{
+			change := &protocol.TextDocumentContentChangePartial{
+				Range: protocol.Range{
 					Start: protocol.Position{Line: 0, Character: 6},
 					End:   protocol.Position{Line: 0, Character: 11},
 				},
@@ -93,8 +64,8 @@ var _ = Describe("Document", func() {
 
 		It("Should apply an insertion", func() {
 			content := "helloworld"
-			change := protocol.TextDocumentContentChangeEvent{
-				Range: &protocol.Range{
+			change := &protocol.TextDocumentContentChangePartial{
+				Range: protocol.Range{
 					Start: protocol.Position{Line: 0, Character: 5},
 					End:   protocol.Position{Line: 0, Character: 5},
 				},
@@ -105,8 +76,8 @@ var _ = Describe("Document", func() {
 
 		It("Should apply a deletion", func() {
 			content := "hello world"
-			change := protocol.TextDocumentContentChangeEvent{
-				Range: &protocol.Range{
+			change := &protocol.TextDocumentContentChangePartial{
+				Range: protocol.Range{
 					Start: protocol.Position{Line: 0, Character: 5},
 					End:   protocol.Position{Line: 0, Character: 6},
 				},
@@ -117,8 +88,8 @@ var _ = Describe("Document", func() {
 
 		It("Should apply a multi-line edit", func() {
 			content := "line1\nline2\nline3"
-			change := protocol.TextDocumentContentChangeEvent{
-				Range: &protocol.Range{
+			change := &protocol.TextDocumentContentChangePartial{
+				Range: protocol.Range{
 					Start: protocol.Position{Line: 1, Character: 0},
 					End:   protocol.Position{Line: 1, Character: 5},
 				},
@@ -128,8 +99,8 @@ var _ = Describe("Document", func() {
 		})
 
 		It("Should handle empty document", func() {
-			change := protocol.TextDocumentContentChangeEvent{
-				Range: &protocol.Range{
+			change := &protocol.TextDocumentContentChangePartial{
+				Range: protocol.Range{
 					Start: protocol.Position{Line: 0, Character: 0},
 					End:   protocol.Position{Line: 0, Character: 0},
 				},
@@ -140,8 +111,8 @@ var _ = Describe("Document", func() {
 
 		It("Should handle cross-line replacement", func() {
 			content := "line1\nline2\nline3"
-			change := protocol.TextDocumentContentChangeEvent{
-				Range: &protocol.Range{
+			change := &protocol.TextDocumentContentChangePartial{
+				Range: protocol.Range{
 					Start: protocol.Position{Line: 0, Character: 3},
 					End:   protocol.Position{Line: 2, Character: 2},
 				},
@@ -151,29 +122,17 @@ var _ = Describe("Document", func() {
 		})
 	})
 
-	Describe("SplitLines", func() {
-		It("Should split Unix-style endings", func() {
-			Expect(lsp.SplitLines("a\nb\nc")).To(Equal([]string{"a", "b", "c"}))
-		})
-
-		It("Should normalize Windows-style endings", func() {
-			Expect(lsp.SplitLines("a\r\nb\r\nc")).To(Equal([]string{"a", "b", "c"}))
-		})
-
-		It("Should handle mixed endings", func() {
-			Expect(lsp.SplitLines("a\nb\r\nc")).To(Equal([]string{"a", "b", "c"}))
-		})
-
-		It("Should return a single-element slice for no newlines", func() {
-			Expect(lsp.SplitLines("hello")).To(Equal([]string{"hello"}))
-		})
-	})
-
 	Describe("GetLine", func() {
 		It("Should return the requested line", func() {
 			line, ok := lsp.GetLine("first\nsecond\nthird", 1)
 			Expect(ok).To(BeTrue())
 			Expect(line).To(Equal("second"))
+		})
+
+		It("Should normalize Windows-style endings", func() {
+			line, ok := lsp.GetLine("a\r\nb\r\nc", 1)
+			Expect(ok).To(BeTrue())
+			Expect(line).To(Equal("b"))
 		})
 
 		It("Should return false for out-of-bounds line", func() {
@@ -219,43 +178,6 @@ var _ = Describe("Document", func() {
 
 		It("Should extract word from multi-line content", func() {
 			Expect(lsp.GetWordAtPosition("first\nsecond", protocol.Position{Line: 1, Character: 2})).To(Equal("second"))
-		})
-	})
-
-	Describe("GetQualifiedWordAtPosition", func() {
-		It("Should include dots in the word", func() {
-			Expect(lsp.GetQualifiedWordAtPosition(
-				"math.pow(2, 3)",
-				protocol.Position{Line: 0, Character: 6},
-			)).To(Equal("math.pow"))
-		})
-
-		It("Should return the full qualified name when cursor is on the module part", func() {
-			Expect(lsp.GetQualifiedWordAtPosition(
-				"math.pow(2, 3)",
-				protocol.Position{Line: 0, Character: 2},
-			)).To(Equal("math.pow"))
-		})
-
-		It("Should return a bare word when there is no dot", func() {
-			Expect(lsp.GetQualifiedWordAtPosition(
-				"hello world",
-				protocol.Position{Line: 0, Character: 2},
-			)).To(Equal("hello"))
-		})
-
-		It("Should return empty for position beyond line", func() {
-			Expect(lsp.GetQualifiedWordAtPosition(
-				"hi",
-				protocol.Position{Line: 0, Character: 10},
-			)).To(Equal(""))
-		})
-
-		It("Should handle multi-segment dots", func() {
-			Expect(lsp.GetQualifiedWordAtPosition(
-				"a.b.c",
-				protocol.Position{Line: 0, Character: 2},
-			)).To(Equal("a.b.c"))
 		})
 	})
 

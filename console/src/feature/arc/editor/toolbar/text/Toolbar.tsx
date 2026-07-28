@@ -13,7 +13,6 @@ import { arc } from "@synnaxlabs/client";
 import { Arc, Breadcrumb, Flex, Icon, Text } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
-import { useExport } from "@/feature/arc/export";
 import { Cluster } from "@/platform/cluster";
 import { CSS } from "@/platform/css";
 import { Export } from "@/platform/export";
@@ -22,7 +21,6 @@ import { Toolbar as Base } from "@/platform/toolbar";
 export const Toolbar = (): ReactElement => {
   const key = Arc.useKey();
   const name = Arc.useSelectName(key);
-  const handleExport = useExport();
   return (
     <>
       <Base.Header>
@@ -33,7 +31,7 @@ export const Toolbar = (): ReactElement => {
           </Breadcrumb.Segment>
         </Breadcrumb.Breadcrumb>
         <Flex.Box x align="center" empty className={CSS.BE("arc-toolbar", "actions")}>
-          <Export.ToolbarButton onExport={() => handleExport(key)} />
+          <Export.ToolbarButton getID={() => arc.ontologyID(key)} />
           <Cluster.CopyLinkToolbarButton name={name} ontologyID={arc.ontologyID(key)} />
         </Flex.Box>
       </Base.Header>

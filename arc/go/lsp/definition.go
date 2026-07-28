@@ -12,10 +12,10 @@ package lsp
 import (
 	"context"
 
-	"github.com/synnaxlabs/x/lsp/protocol"
+	"go.lsp.dev/protocol"
 )
 
-func (s *Server) Definition(ctx context.Context, params *protocol.DefinitionParams) ([]protocol.Location, error) {
+func (s *Server) Definition(ctx context.Context, params *protocol.DefinitionParams) (protocol.DefinitionResult, error) {
 	doc, ok := s.getDocument(params.TextDocument.URI)
 	if !ok || doc.IR.Symbols == nil {
 		return nil, nil
@@ -29,5 +29,6 @@ func (s *Server) Definition(ctx context.Context, params *protocol.DefinitionPara
 	if location == nil {
 		return nil, nil
 	}
-	return doc.toDocLocations([]protocol.Location{*location}), nil
+	locations := doc.toDocLocations([]protocol.Location{*location})
+	return protocol.LocationSlice(locations), nil
 }

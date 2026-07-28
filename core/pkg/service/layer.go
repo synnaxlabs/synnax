@@ -413,6 +413,7 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	}); !ok(err, l.Project) {
 		return nil, err
 	}
+	l.ImEx = imex.NewService()
 	if l.Schematic, err = schematic.OpenService(ctx, schematic.ServiceConfig{
 		Instrumentation: cfg.Child("schematic"),
 		DB:              cfg.Distribution.DB,
@@ -420,6 +421,7 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		Search:          l.Search,
 		Group:           l.Group,
 		Signals:         l.Signals,
+		ImEx:            l.ImEx,
 	}); !ok(err, l.Schematic) {
 		return nil, err
 	}
@@ -429,10 +431,10 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		Ontology:        l.Ontology,
 		Search:          l.Search,
 		Signals:         l.Signals,
+		ImEx:            l.ImEx,
 	}); !ok(err, l.LinePlot) {
 		return nil, err
 	}
-	l.ImEx = imex.NewService()
 	if l.Log, err = log.OpenService(ctx, log.ServiceConfig{
 		Instrumentation: cfg.Child("log"),
 		DB:              cfg.Distribution.DB,
@@ -458,6 +460,7 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		Ontology:        l.Ontology,
 		Search:          l.Search,
 		Signals:         l.Signals,
+		ImEx:            l.ImEx,
 	}); !ok(err, l.Table) {
 		return nil, err
 	}
@@ -500,6 +503,7 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		Channel:         l.Channel,
 		Rack:            l.Rack,
 		Status:          l.Status,
+		ImEx:            l.ImEx,
 	}); !ok(err, l.Task) {
 		return nil, err
 	}
@@ -520,6 +524,7 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 			Channel:         l.Channel,
 			Task:            l.Task,
 			Signals:         l.Signals,
+			ImEx:            l.ImEx,
 		},
 	); !ok(err, l.Arc) {
 		return nil, err

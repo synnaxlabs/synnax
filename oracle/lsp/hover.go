@@ -13,7 +13,7 @@ import (
 	"context"
 	"strings"
 
-	"github.com/synnaxlabs/x/lsp/protocol"
+	"go.lsp.dev/protocol"
 )
 
 var hoverDocs = map[string]string{
@@ -134,7 +134,7 @@ func (s *Server) Hover(_ context.Context, params *protocol.HoverParams) (*protoc
 
 	if docStr, ok := hoverDocs[word]; ok {
 		return &protocol.Hover{
-			Contents: protocol.MarkupContent{Kind: protocol.Markdown, Value: docStr},
+			Contents: &protocol.MarkupContent{Kind: protocol.MarkupKindMarkdown, Value: docStr},
 		}, nil
 	}
 

@@ -21,8 +21,8 @@ import (
 	"github.com/synnaxlabs/arc/symbol"
 	. "github.com/synnaxlabs/arc/symbol/testutil"
 	"github.com/synnaxlabs/arc/types"
-	"github.com/synnaxlabs/x/diagnostics"
 	. "github.com/synnaxlabs/x/testutil"
+	"go.lsp.dev/protocol"
 )
 
 var resolver = []symbol.Symbol{
@@ -1935,7 +1935,7 @@ sequence main {
 			Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
 			// Should have warning about unassigned output
 			Expect(*ctx.Diagnostics).To(HaveLen(1))
-			Expect((*ctx.Diagnostics)[0].Severity).To(Equal(diagnostics.SeverityWarning))
+			Expect((*ctx.Diagnostics)[0].Severity).To(Equal(protocol.DiagnosticSeverityWarning))
 			Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("never assigned"))
 		})
 
@@ -2417,7 +2417,7 @@ var _ = Describe("Flow Sink Type Compatibility", func() {
 
 	type mismatchCase struct {
 		source     string
-		line       int
+		line       uint32
 		substrings []string
 	}
 
@@ -2428,24 +2428,24 @@ var _ = Describe("Flow Sink Type Compatibility", func() {
 			analyzer.AnalyzeProgram(ctx)
 			Expect(ctx.Diagnostics.Ok()).To(BeFalse(), ctx.Diagnostics.String())
 			diag := (*ctx.Diagnostics)[0]
-			Expect(diag.Start.Line).To(Equal(tc.line))
+			Expect(diag.Range.Start.Line).To(Equal(tc.line))
 			for _, s := range tc.substrings {
 				Expect(diag.Message).To(ContainSubstring(s))
 			}
 		},
 		Entry("value variable source", mismatchCase{
 			source:     "z := 3\n\nz -> log_str",
-			line:       3,
+			line:       2,
 			substrings: []string{"z value type", "does not match channel log_str value type str"},
 		}),
 		Entry("channel source", mismatchCase{
 			source:     "num_f64 -> log_str",
-			line:       1,
+			line:       0,
 			substrings: []string{"num_f64 value type f64", "does not match channel log_str value type str"},
 		}),
 		Entry("expression source", mismatchCase{
 			source:     "num_f64 + 1.0 -> log_str",
-			line:       1,
+			line:       0,
 			substrings: []string{"expression type", "does not match channel log_str value type str"},
 		}),
 	)
