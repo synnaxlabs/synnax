@@ -10,12 +10,10 @@
 import { log } from "@synnaxlabs/client";
 import { Icon, Log as Base } from "@synnaxlabs/pluto";
 
-import { extract } from "@/feature/log/export";
 import { ingest } from "@/feature/log/import";
 import { Log } from "@/feature/log/Log";
 import { Selectable } from "@/feature/log/Selectable";
 import { Toolbar } from "@/feature/log/toolbar";
-import { type Export } from "@/platform/export";
 import { type Import } from "@/platform/import";
 import { Panel } from "@/platform/panel";
 import { type Selector } from "@/platform/selector";
@@ -30,8 +28,6 @@ export * from "@/feature/log/tree";
 export * from "@/platform/log/external";
 
 const TAB_TYPE = log.TYPE_ONTOLOGY_ID.type;
-
-export const EXTRACTORS: Export.Extractors = { [TAB_TYPE]: extract };
 
 export const FILE_INGESTERS: Import.FileIngesters = { [TAB_TYPE]: ingest };
 

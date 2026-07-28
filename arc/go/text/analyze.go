@@ -1257,10 +1257,7 @@ func analyzeExpression(
 		d := diagnostics.Errorf(
 			ctx.AST,
 			"functions in flow statements use {} not ()",
-		)
-		d.Notes = append(d.Notes, diagnostics.Note{
-			Message: fmt.Sprintf("did you mean: %s{}?", exprText),
-		})
+		).WithNote(fmt.Sprintf("did you mean: %s{}?", exprText))
 		ctx.Diagnostics.Add(d)
 		return nodeResult{}, false
 	}

@@ -22,7 +22,6 @@ import {
 import { array, strings } from "@synnaxlabs/x";
 import { useCallback } from "react";
 
-import { useExport } from "@/feature/schematic/export";
 import { Symbol } from "@/feature/schematic/symbol";
 import { Cluster } from "@/platform/cluster";
 import { ContextMenu } from "@/platform/context-menu";
@@ -126,7 +125,7 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
   const hasUpdatePermission = Access.useUpdateGranted(ids);
   const handleCopy = useCopy(props);
   const snapshot = useRangeSnapshot();
-  const handleExport = useExport();
+  const handleExport = Export.use();
   const handleLink = Cluster.useCopyLinkToClipboard();
   const rename = useRename(props);
   const group = Group.useCreateFromSelection();
@@ -158,7 +157,7 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
           <Menu.Divider />
         </>
       )}
-      <Export.ContextMenuItem onClick={() => handleExport(first.id.key)} />
+      <Export.ContextMenuItem onClick={() => handleExport(first.id)} />
       <Link.CopyContextMenuItem
         onClick={() => handleLink({ name: first.name, ontologyID: firstID })}
       />

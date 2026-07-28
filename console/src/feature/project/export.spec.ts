@@ -7,7 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { log, type panel, project, type status, type Synnax } from "@synnaxlabs/client";
+import {
+  log,
+  type panel,
+  project,
+  ranger,
+  type status,
+  type Synnax,
+} from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { uuid } from "@synnaxlabs/x";
 import { act, waitFor } from "@testing-library/react";
@@ -29,16 +36,11 @@ const client: Synnax = createTestClient();
 interface CreateExportContextParams {
   store: TestStore;
   confirmResult?: boolean;
-  extractors?: Record<
-    string,
-    (key: string, ctx: unknown) => Promise<{ data: string; name: string }>
-  >;
 }
 
 const createExportContext = ({
   store,
   confirmResult = true,
-  extractors = {},
 }: CreateExportContextParams): {
   ctx: Project.ExportContext;
   statuses: status.Crude[];
@@ -53,7 +55,6 @@ const createExportContext = ({
     handleError: createExecutingHandleError((message, exc) => {
       console.error(message, exc);
     }),
-    extractors,
     addStatus: (s) => void statuses.push(s),
   };
   return { ctx, statuses, confirm };
@@ -82,34 +83,68 @@ describe("project export", () => {
 
   it("should export the active project's panels and component files", async () => {
     const p = await client.projects.create({ name: uniqueName("proj"), layout: {} });
-    const logKey = uuid.create();
-    const exported = await createPanelWithLog(p.key, logKey);
+    const logName = uniqueName("log");
+    const createdLog = await client.logs.create(p.key, { name: logName });
+    const exported = await createPanelWithLog(p.key, createdLog.key);
     const store = await createTestStore({
       preloadedState: {
         [Session.Project.SLICE_NAME]: { version: 0, selected: p.key },
       },
     });
     const writes = installPickedDirectory();
-    const extractor = vi
-      .fn()
-      .mockResolvedValue({ data: '{"type":"log"}', name: "My Log" });
-    const { ctx, statuses } = createExportContext({
-      store,
-      extractors: { log: extractor },
-    });
+    const { ctx, statuses } = createExportContext({ store });
     Project.export_(null, ctx);
     await waitFor(() => expect(writes.has(Project.PANELS_FILE_NAME)).toBe(true));
-    await waitFor(() => expect(writes.has("My Log.json")).toBe(true));
+    await waitFor(() => expect(writes.has(`${logName}.json`)).toBe(true));
     const panels = JSON.parse(
       writes.get(Project.PANELS_FILE_NAME) ?? "[]",
     ) as panel.Panel[];
     expect(panels.map(({ key }) => key)).toContain(exported.key);
-    expect(extractor).toHaveBeenCalledWith(logKey, { store, client });
+    const exportedLog = JSON.parse(writes.get(`${logName}.json`) ?? "{}");
+    expect(exportedLog.name).toEqual(logName);
     await waitFor(() =>
       expect(
         statuses.some((s) => s.variant === "success" && s.message?.includes(p.name)),
       ).toBe(true),
     );
+  });
+
+  it("should skip tabs referencing types the Core cannot export", async () => {
+    const p = await client.projects.create({ name: uniqueName("proj"), layout: {} });
+    const logName = uniqueName("log");
+    const createdLog = await client.logs.create(p.key, { name: logName });
+    await client.panels.create({
+      name: "Main",
+      root: {
+        variant: "leaf",
+        tabs: [
+          {
+            variant: "resource",
+            key: uuid.create(),
+            resource: log.ontologyID(createdLog.key),
+          },
+          {
+            variant: "resource",
+            key: uuid.create(),
+            resource: ranger.ontologyID(uuid.create()),
+          },
+        ],
+      },
+      parent: project.ontologyID(p.key),
+    });
+    const store = await createTestStore({
+      preloadedState: {
+        [Session.Project.SLICE_NAME]: { version: 0, selected: p.key },
+      },
+    });
+    const writes = installPickedDirectory();
+    const { ctx, statuses } = createExportContext({ store });
+    Project.export_(null, ctx);
+    await waitFor(() => expect(writes.has(`${logName}.json`)).toBe(true));
+    await waitFor(() =>
+      expect(statuses.some((s) => s.variant === "success")).toBe(true),
+    );
+    expect(writes.size).toBe(2);
   });
 
   it("should abort the export when the user declines to replace", async () => {
@@ -136,7 +171,8 @@ describe("project export", () => {
       name: uniqueName("proj"),
       layout: {},
     });
-    await createPanelWithLog(target.key, uuid.create());
+    const l = await client.logs.create(target.key, { name: uniqueName("log") });
+    await createPanelWithLog(target.key, l.key);
     const store = await createTestStore({
       preloadedState: {
         [Session.Project.SLICE_NAME]: { version: 0, selected: "other" },

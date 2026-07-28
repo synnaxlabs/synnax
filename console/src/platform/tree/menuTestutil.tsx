@@ -12,7 +12,6 @@ import { Haul } from "@synnaxlabs/pluto";
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import { type PropsWithChildren, type ReactElement, type ReactNode } from "react";
 
-import { Export } from "@/platform/export";
 import { Import } from "@/platform/import";
 import { Modals } from "@/platform/modals";
 import { Tree } from "@/platform/tree";
@@ -74,10 +73,8 @@ export const renderTreeContextMenu = async (
   const { wrapper } = await createConsoleWrapper({ client, store: resolvedStore });
   render(
     <Import.FileIngestersProvider fileIngesters={{}}>
-      <Export.ExtractorsProvider extractors={{}}>
-        <TreeContextMenu {...props} />
-        <Modals.Stack />
-      </Export.ExtractorsProvider>
+      <TreeContextMenu {...props} />
+      <Modals.Stack />
     </Import.FileIngestersProvider>,
     { wrapper },
   );
