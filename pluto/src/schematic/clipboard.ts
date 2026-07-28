@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { schematic } from "@synnaxlabs/client";
+import { query, schematic } from "@synnaxlabs/client";
 import { uuid } from "@synnaxlabs/x";
 
 import { useSingleDispatch } from "@/schematic/queries";
@@ -36,8 +36,8 @@ export const useClipboard = ({
     edgeKey: (edge) => edge.key,
     getSnapshot: () => {
       const cached = client?.schematics.getCached({ key });
-      if (cached == null || cached.variant === "deleted") return null;
-      const { nodes, edges, configs } = cached.data;
+      if (cached == null || query.Deleted.matches(cached)) return null;
+      const { nodes, edges, configs } = cached;
       return { nodes, edges, configs };
     },
     apply: ({ nodes, edges, newKeys }) => {

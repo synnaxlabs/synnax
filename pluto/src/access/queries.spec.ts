@@ -20,6 +20,7 @@ import {
 import {
   createTestClient,
   createTestClientWithPolicy,
+  isLive,
 } from "@synnaxlabs/client/testutil";
 import { id } from "@synnaxlabs/x";
 import { renderHook, waitFor } from "@testing-library/react";
@@ -36,8 +37,7 @@ const subjectOf = (c: Synnax): ontology.ID => {
 
 const cachedPoliciesOf = (c: Synnax): access.policy.Policy[] => {
   const cached = c.access.policies.getCached({ for: subjectOf(c) });
-  if (cached?.variant !== "changed") return [];
-  return cached.data;
+  return isLive(cached) ? cached : [];
 };
 
 describe("Access Queries", () => {
@@ -184,7 +184,7 @@ describe("Access Queries", () => {
       });
       // Wait until the link reaches the cache (event delivered)...
       await waitFor(() => {
-        const rels = userClient.ontology.relationships.get(
+        const rels = userClient.ontology.cache.relationships.get(
           (rel) => rel.to.type === "project" && rel.to.key === proj.key,
         );
         expect(rels.length).toBeGreaterThan(0);
@@ -662,7 +662,7 @@ describe("Access Queries", () => {
       const policy = result.current.data!.find((p) => p.name === policyName);
       expect(policy).toBeDefined();
       const policyID = access.policy.ontologyID(policy!.key);
-      const relationships = userClient.ontology.relationships.get(
+      const relationships = userClient.ontology.cache.relationships.get(
         (r) => r.from.type === "role" && r.to.type === "policy",
       );
       expect(relationships.length).toBeGreaterThan(0);

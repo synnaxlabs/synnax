@@ -11,6 +11,7 @@ import {
   label,
   NotFoundError,
   type ontology,
+  query,
   ranger,
   type Synnax as Client,
 } from "@synnaxlabs/client";
@@ -118,8 +119,8 @@ export const {
     const ranges: ranger.Range[] = [];
     for (const key of keys) {
       const cached = client.ranges.getCached(key);
-      if (cached == null || cached.variant === "deleted") return undefined;
-      ranges.push(cached.data);
+      if (cached == null || query.Deleted.matches(cached)) return undefined;
+      ranges.push(cached);
     }
     return ranges;
   },
@@ -183,7 +184,8 @@ export const useForm = Flux.createForm<FormQuery, typeof formSchema>({
   mountListeners: ({ client, query: { key }, reset }) => {
     if (key == null) return [];
     return client.ranges.onChange(key, (result) => {
-      if (result?.variant === "changed") reset(toFormValues(result.data));
+      if (result !== undefined && !query.Deleted.matches(result))
+        reset(toFormValues(result));
     });
   },
 });
@@ -314,9 +316,9 @@ export const { useUpdate: useRename } = Flux.createUpdate<RenameParams>({
 
 const requireRange = (client: Client | null, key: ranger.Key): ranger.Range => {
   const cached = client?.ranges.getCached(key);
-  if (cached == null || cached.variant === "deleted")
+  if (cached == null || query.Deleted.matches(cached))
     throw new NotFoundError(`Range with key ${key} not found`);
-  return cached.data;
+  return cached;
 };
 
 export interface SelectKeyParams {

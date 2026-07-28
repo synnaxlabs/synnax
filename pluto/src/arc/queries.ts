@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { arc, NotFoundError, type Synnax, type task } from "@synnaxlabs/client";
+import { arc, NotFoundError, query, type Synnax, type task } from "@synnaxlabs/client";
 import { compare, type optional, primitive, type record, xy } from "@synnaxlabs/x";
 import { useCallback } from "react";
 import z from "zod";
@@ -42,15 +42,15 @@ export interface SelectKeyParams {
 
 const requireArc = (client: Synnax | null, key: arc.Key): arc.Arc => {
   const cached = client?.arcs.getCached({ key });
-  if (cached == null || cached.variant === "deleted")
+  if (cached == null || query.Deleted.matches(cached))
     throw new NotFoundError(`Arc with key ${key} not found`);
-  return cached.data;
+  return cached;
 };
 
 const getArc = (client: Synnax | null, key: arc.Key): arc.Arc | undefined => {
   const cached = client?.arcs.getCached({ key });
-  if (cached == null || cached.variant === "deleted") return undefined;
-  return cached.data;
+  if (cached == null || query.Deleted.matches(cached)) return undefined;
+  return cached;
 };
 
 const subscribe = (
@@ -226,7 +226,7 @@ export const useForm = Flux.createForm<Partial<RetrieveQuery>, typeof formSchema
     // Prefer the cached copy: it may hold locally replayed edits ahead of the
     // server.
     const cached = client.arcs.getCached({ key });
-    if (cached?.variant === "changed") return reset(cached.data);
+    if (cached !== undefined && !query.Deleted.matches(cached)) return reset(cached);
     reset(await client.arcs.retrieve({ key, ...rest }));
   },
   update: async ({ client, value, reset }) => {

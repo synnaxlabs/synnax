@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { label, type ontology, type Synnax as Client } from "@synnaxlabs/client";
+import { label, type ontology, query, type Synnax as Client } from "@synnaxlabs/client";
 import { color } from "@synnaxlabs/x";
 import type z from "zod";
 
@@ -87,7 +87,7 @@ export const useForm = Flux.createForm<FormQuery, typeof formSchema>({
   mountListeners: ({ client, query: { key }, reset }) => {
     if (key == null) return [];
     return client.labels.onChange({ key }, (result) => {
-      if (result?.variant === "changed") reset(result.data);
+      if (result !== undefined && !query.Deleted.matches(result)) reset(result);
     });
   },
 });

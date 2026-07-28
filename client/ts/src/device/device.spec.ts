@@ -135,7 +135,10 @@ describe("Device", async () => {
 
     describe("status", () => {
       it("should not include status by default", async () => {
-        const d = await client.devices.create({
+        // A cold client: cached answers carry status whenever one is already
+        // in the cache, so absence is only deterministic with nothing cached.
+        const cold = createTestClient();
+        const d = await cold.devices.create({
           key: id.create(),
           rack: testRack.key,
           location: "Dev1",
@@ -145,7 +148,7 @@ describe("Device", async () => {
           properties: { cat: "dog" },
         });
 
-        const retrieved = await client.devices.retrieve({ key: d.key });
+        const retrieved = await cold.devices.retrieve({ key: d.key });
         expect(retrieved.status).toBeUndefined();
       });
 

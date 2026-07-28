@@ -7,13 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import {
-  label,
-  type ontology,
-  type query,
-  status,
-  TimeStamp,
-} from "@synnaxlabs/client";
+import { label, type ontology, query, status, TimeStamp } from "@synnaxlabs/client";
 import { primitive, uuid } from "@synnaxlabs/x";
 import { useEffect } from "react";
 import type z from "zod";
@@ -156,8 +150,8 @@ export const useForm = Flux.createForm<Partial<RetrieveQuery>, typeof formSchema
   mountListeners: ({ client, query: { key }, reset }) => {
     if (primitive.isZero(key)) return [];
     return client.statuses.onChange({ key }, (result) => {
-      if (result?.variant !== "changed") return;
-      const { labels, ...rest } = result.data;
+      if (result === undefined || query.Deleted.matches(result)) return;
+      const { labels, ...rest } = result;
       reset({ ...rest, labels: labels?.map((l) => l.key) ?? [] });
     });
   },
