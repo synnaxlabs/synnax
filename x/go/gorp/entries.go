@@ -201,8 +201,10 @@ func (e *Entries[K, E]) ensureCap(n int) {
 	*e.entries = (*e.entries)[:0]
 }
 
-const magicPrefix = "gorp."
-const migrationVersionPrefix = "gorp.migration."
+const (
+	magicPrefix            = "gorp."
+	migrationVersionPrefix = "gorp.migration."
+)
 
 // keyCodec encodes and decodes primary keys to and from prefixed
 // pebble keys for entry type E.

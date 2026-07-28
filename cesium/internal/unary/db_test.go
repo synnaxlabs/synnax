@@ -89,7 +89,6 @@ var _ = Describe("DB Metadata Operations", func() {
 			})
 
 			Describe("SetIndexKeyInMeta", func() {
-
 				AfterEach(func() {
 					Expect(indexDB.Close()).To(Succeed())
 					Expect(dataDB.Close()).To(Succeed())
@@ -168,7 +167,6 @@ var _ = Describe("DB Metadata Operations", func() {
 					Expect(indexDB.Size()).To(Equal(expectedSize))
 				})
 			})
-
 		})
 	}
 
@@ -188,7 +186,6 @@ var _ = Describe("DB Metadata Operations", func() {
 		})
 
 		It("Should return an error when methods are called on a closed DB", func(ctx SpecContext) {
-
 			Expect(db.Close()).To(Succeed())
 			Expect(db.RenameChannelInMeta(ctx, "new_name")).To(MatchError(unary.ErrDBClosed))
 			Expect(db.SetChannelKeyInMeta(ctx, GenerateChannelKey())).To(MatchError(unary.ErrDBClosed))

@@ -300,7 +300,7 @@ func FormatBufOutputs(
 		if string(batch[i].Content) == string(f.Content) {
 			continue
 		}
-		if err := os.WriteFile(files[i], f.Content, 0644); err != nil {
+		if err := os.WriteFile(files[i], f.Content, 0o644); err != nil {
 			return written, errors.Wrapf(err, "write %s", files[i])
 		}
 		written++

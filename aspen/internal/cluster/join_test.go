@@ -29,7 +29,6 @@ import (
 
 var _ = Describe("Open", func() {
 	Context("Valid Properties", func() {
-
 		var (
 			gossipNet *mock.Network[gossip.Message, gossip.Message]
 			pledgeNet *mock.Network[pledge.Request, pledge.Response]
@@ -41,9 +40,7 @@ var _ = Describe("Open", func() {
 		})
 
 		Context("Name Cluster", func() {
-
 			It("Should correctly join the Cluster", func(ctx SpecContext) {
-
 				By("Initializing the Cluster correctly")
 				gossipT1 := gossipNet.UnaryServer("")
 				pledgeT1 := pledgeNet.UnaryServer(gossipT1.Address)
@@ -92,13 +89,10 @@ var _ = Describe("Open", func() {
 				Expect(clusterOne.Close()).To(Succeed())
 				Expect(clusterTwo.Close()).To(Succeed())
 			})
-
 		})
 
 		Context("Existing Cluster in Storage", func() {
-
 			It("Should restart Cluster activities using the persisted state", func(ctx SpecContext) {
-
 				gossipT1 := gossipNet.UnaryServer("")
 				pledgeT1 := pledgeNet.UnaryServer(gossipT1.Address)
 				clusterOne := MustSucceed(cluster.Open(
@@ -303,9 +297,7 @@ var _ = Describe("Open", func() {
 				Expect(clusterTwoAgain.Close()).To(Succeed())
 				Expect(kvDB.Close()).To(Succeed())
 			})
-
 		})
-
 	})
 
 	Context("Invalid Properties", func() {

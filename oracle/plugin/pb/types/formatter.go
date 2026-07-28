@@ -20,7 +20,7 @@ var PbFormatter = resolver.NewFormatter(resolver.PbFormatterConfig)
 
 type PbImportResolver struct{}
 
-func (r *PbImportResolver) ResolveImport(outputPath string, ctx *resolver.Context) (importPath string, qualifier string, shouldImport bool) {
+func (r *PbImportResolver) ResolveImport(outputPath string, ctx *resolver.Context) (importPath, qualifier string, shouldImport bool) {
 	protoPath := outputPath + "/types.gen.proto"
 	parts := strings.Split(outputPath, "/")
 	qualifier = parts[len(parts)-1]

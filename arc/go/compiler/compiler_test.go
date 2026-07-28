@@ -425,7 +425,7 @@ var _ = Describe("Compiler", func() {
 		It("Should compile channel writes with high channel keys", func(ctx SpecContext) {
 			var writtenValue uint32
 			bindMockChannelModule(ctx, r, map[string]any{
-				"write_u8": func(_ context.Context, _ uint32, val uint32) {
+				"write_u8": func(_ context.Context, _, val uint32) {
 					writtenValue = val
 				},
 			})
@@ -3746,7 +3746,6 @@ var _ = Describe("Compiler", func() {
 			result := math.Float64frombits(results[0])
 			Expect(result).To(BeNumerically("~", 4.7746, 0.001))
 		})
-
 	})
 
 	Describe("Exact user reproduction from data dump", func() {

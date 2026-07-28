@@ -67,7 +67,6 @@ var _ = Describe("Group", Ordered, func() {
 			child := MustSucceed(w.Create(ctx, "child", parent.OntologyID()))
 			Expect(child.Name).To(Equal("child"))
 		})
-
 	})
 
 	Describe("Retrieve", func() {

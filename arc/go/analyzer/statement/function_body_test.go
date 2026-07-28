@@ -80,7 +80,7 @@ var _ = Describe("AnalyzeFunctionBody", func() {
 		})
 
 		DescribeTable("channel type inference with integer constants",
-			func(bCtx SpecContext, code string, chanName string, chanType types.Type, expected types.Type) {
+			func(bCtx SpecContext, code, chanName string, chanType, expected types.Type) {
 				globalResolver := []symbol.Symbol{
 					{
 						Name: "condition",
@@ -266,7 +266,7 @@ var _ = Describe("AnalyzeFunctionBody", func() {
 		)
 
 		DescribeTable("incompatible types produce errors",
-			func(bCtx SpecContext, code string, expectedErrSubstring string) {
+			func(bCtx SpecContext, code, expectedErrSubstring string) {
 				block := MustSucceed(parser.ParseBlock(code))
 				ctx := createContext(bCtx, block)
 				statement.AnalyzeFunctionBody(ctx)

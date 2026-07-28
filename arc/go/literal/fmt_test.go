@@ -338,10 +338,14 @@ var _ = Describe("ValidateSpec", func() {
 		t    types.Type
 	}
 	intTypes := []namedType{
-		{"i8", types.I8()}, {"i16", types.I16()},
-		{"i32", types.I32()}, {"i64", types.I64()},
-		{"u8", types.U8()}, {"u16", types.U16()},
-		{"u32", types.U32()}, {"u64", types.U64()},
+		{"i8", types.I8()},
+		{"i16", types.I16()},
+		{"i32", types.I32()},
+		{"i64", types.I64()},
+		{"u8", types.U8()},
+		{"u16", types.U16()},
+		{"u32", types.U32()},
+		{"u64", types.U64()},
 	}
 	floatTypes := []namedType{{"f32", types.F32()}, {"f64", types.F64()}}
 	stringType := namedType{"string", types.String()}

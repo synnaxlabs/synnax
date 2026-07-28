@@ -26,7 +26,6 @@ import (
 
 var _ = Describe("Membership", Serial, Ordered, func() {
 	Describe("Bootstrap Cluster", func() {
-
 		It("Should correctly bootstrap a cluster", func(ctx SpecContext) {
 			db := MustSucceed(aspen.Open(
 				ctx,
@@ -103,11 +102,9 @@ var _ = Describe("Membership", Serial, Ordered, func() {
 			By("Safely closing the database")
 			Expect(db.Close()).To(Succeed())
 		})
-
 	})
 
 	Describe("Concurrent Pledges", func() {
-
 		It("Should correctly join many nodes to the cluster concurrently", func(ctx SpecContext) {
 			numNodes := 10
 			wg := sync.WaitGroup{}
@@ -146,7 +143,6 @@ var _ = Describe("Membership", Serial, Ordered, func() {
 				Expect(db.Close()).To(Succeed())
 			}
 		})
-
 	})
 
 	Describe("Joining, Dying, and Rejoining", func() {
@@ -214,5 +210,4 @@ var _ = Describe("Membership", Serial, Ordered, func() {
 			})
 		})
 	})
-
 })

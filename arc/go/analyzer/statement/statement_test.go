@@ -1583,7 +1583,7 @@ var _ = Describe("Statement", func() {
 
 		Context("series assignment compatibility", func() {
 			DescribeTable("should reject structural mismatches",
-				func(bCtx SpecContext, code string, errorSubstring string) {
+				func(bCtx SpecContext, code, errorSubstring string) {
 					block := MustSucceed(parser.ParseBlock(code))
 					ctx := context.NewRoot(bCtx, block, NewRoot(nil))
 					setupFunctionContext(ctx)
@@ -2100,7 +2100,7 @@ var _ = Describe("Statement", func() {
 
 		Context("series assignment compatibility", func() {
 			DescribeTable("should reject structural mismatches",
-				func(bCtx SpecContext, code string, errorSubstring string) {
+				func(bCtx SpecContext, code, errorSubstring string) {
 					block := MustSucceed(parser.ParseBlock(code))
 					ctx := context.NewRoot(bCtx, block, NewRoot(nil))
 					setupFunctionContext(ctx)

@@ -84,5 +84,4 @@ var _ = Describe("Address", func() {
 			}
 		})
 	})
-
 })

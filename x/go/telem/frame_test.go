@@ -3596,7 +3596,6 @@ var _ = Describe("Frame", func() {
 				Expect(decoded).To(Equal(original))
 			})
 		}
-
 	})
 
 	Describe("Len", func() {

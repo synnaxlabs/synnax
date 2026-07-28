@@ -199,5 +199,4 @@ func main() {
 			Expect(locations).To(BeNil())
 		})
 	})
-
 })

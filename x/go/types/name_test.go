@@ -21,13 +21,17 @@ type customNamed struct{}
 
 func (c customNamed) CustomTypeName() string { return "CustomName" }
 
-type regularType struct{}
-type yEndingType struct{}
+type (
+	regularType struct{}
+	yEndingType struct{}
+)
 
-type box struct{}
-type class struct{}
-type bus struct{}
-type catch struct{}
+type (
+	box   struct{}
+	class struct{}
+	bus   struct{}
+	catch struct{}
+)
 
 type testInterface interface {
 	DoSomething()

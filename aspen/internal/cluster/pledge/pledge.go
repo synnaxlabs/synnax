@@ -282,7 +282,7 @@ func (j *juror) verdict(ctx context.Context, req Request) (err error) {
 	if slices.Contains(j.approvals, req.Key) {
 		j.L.Warn("juror rejected proposal. already approved for a different pledge", logID)
 		err = errProposalRejected
-		return
+		return err
 	}
 	if req.Key <= highestNodeID(j.Candidates()) {
 		j.L.Warn("juror rejected proposal. id out of range", logID)
@@ -290,7 +290,7 @@ func (j *juror) verdict(ctx context.Context, req Request) (err error) {
 	}
 	j.approvals = append(j.approvals, req.Key)
 	j.L.Debug("juror approved proposal", logID)
-	return
+	return err
 }
 
 func highestNodeID(candidates node.Group) node.Key { return lo.Max(lo.Keys(candidates)) }

@@ -49,8 +49,8 @@ var _ = Describe("GeneratedGate", func() {
 	}
 
 	It("passes when on-disk content matches generated output", func(ctx SpecContext) {
-		Expect(os.MkdirAll(filepath.Join(repoRoot, "out"), 0755)).To(Succeed())
-		Expect(os.WriteFile(filepath.Join(repoRoot, "out", "x.gen.go"), []byte("hi"), 0644)).To(Succeed())
+		Expect(os.MkdirAll(filepath.Join(repoRoot, "out"), 0o755)).To(Succeed())
+		Expect(os.WriteFile(filepath.Join(repoRoot, "out", "x.gen.go"), []byte("hi"), 0o644)).To(Succeed())
 		gate := check.NewGeneratedGate(formatters, 1)
 		report := gate.Run(ctx, resultWith([]plugin.File{
 			{Path: "out/x.gen.go", Content: []byte("hi")},
@@ -68,8 +68,8 @@ var _ = Describe("GeneratedGate", func() {
 	})
 
 	It("flags content mismatch and includes diff when requested", func(ctx SpecContext) {
-		Expect(os.MkdirAll(filepath.Join(repoRoot, "out"), 0755)).To(Succeed())
-		Expect(os.WriteFile(filepath.Join(repoRoot, "out", "x.gen.go"), []byte("old"), 0644)).To(Succeed())
+		Expect(os.MkdirAll(filepath.Join(repoRoot, "out"), 0o755)).To(Succeed())
+		Expect(os.WriteFile(filepath.Join(repoRoot, "out", "x.gen.go"), []byte("old"), 0o644)).To(Succeed())
 		gate := check.NewGeneratedGate(formatters, 1)
 		report := gate.Run(ctx, resultWith([]plugin.File{
 			{Path: "out/x.gen.go", Content: []byte("new")},
@@ -81,8 +81,8 @@ var _ = Describe("GeneratedGate", func() {
 	})
 
 	It("captures per-file formatter failures without aborting the gate", func(ctx SpecContext) {
-		Expect(os.MkdirAll(filepath.Join(repoRoot, "out"), 0755)).To(Succeed())
-		Expect(os.WriteFile(filepath.Join(repoRoot, "out", "ok.gen.go"), []byte("hi"), 0644)).To(Succeed())
+		Expect(os.MkdirAll(filepath.Join(repoRoot, "out"), 0o755)).To(Succeed())
+		Expect(os.WriteFile(filepath.Join(repoRoot, "out", "ok.gen.go"), []byte("hi"), 0o644)).To(Succeed())
 		formatters.Register(".bad", &erroringFormatter{})
 		gate := check.NewGeneratedGate(formatters, 1)
 		report := gate.Run(ctx, resultWith([]plugin.File{

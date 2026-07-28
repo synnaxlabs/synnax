@@ -28,7 +28,6 @@ import (
 )
 
 var _ = Describe("Control", func() {
-
 	// setAuthority declares the native's input shape for building test configs.
 	setAuthority := NodeSpec{Type: "set_authority", Inputs: types.Params{
 		{Name: "value", Type: types.U8()},

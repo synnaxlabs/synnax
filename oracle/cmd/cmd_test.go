@@ -24,7 +24,7 @@ var _ = Describe("readCoreVersion", func() {
 	BeforeEach(func() {
 		repoRoot = MustSucceed(os.MkdirTemp("", "repo"))
 		versionDir := filepath.Join(repoRoot, "core", "pkg", "version")
-		Expect(os.MkdirAll(versionDir, 0755)).To(Succeed())
+		Expect(os.MkdirAll(versionDir, 0o755)).To(Succeed())
 	})
 
 	AfterEach(func() {
@@ -34,7 +34,7 @@ var _ = Describe("readCoreVersion", func() {
 	It("should parse a standard version", func() {
 		Expect(os.WriteFile(
 			filepath.Join(repoRoot, "core", "pkg", "version", "VERSION"),
-			[]byte("0.53.4"), 0644,
+			[]byte("0.53.4"), 0o644,
 		)).To(Succeed())
 		v := MustSucceed(readCoreVersion(repoRoot))
 		Expect(v).To(Equal(53))
@@ -43,7 +43,7 @@ var _ = Describe("readCoreVersion", func() {
 	It("should handle major version > 0", func() {
 		Expect(os.WriteFile(
 			filepath.Join(repoRoot, "core", "pkg", "version", "VERSION"),
-			[]byte("2.10.0"), 0644,
+			[]byte("2.10.0"), 0o644,
 		)).To(Succeed())
 		v := MustSucceed(readCoreVersion(repoRoot))
 		Expect(v).To(Equal(2010))
@@ -52,7 +52,7 @@ var _ = Describe("readCoreVersion", func() {
 	It("should handle version with trailing newline", func() {
 		Expect(os.WriteFile(
 			filepath.Join(repoRoot, "core", "pkg", "version", "VERSION"),
-			[]byte("0.53.4\n"), 0644,
+			[]byte("0.53.4\n"), 0o644,
 		)).To(Succeed())
 		v := MustSucceed(readCoreVersion(repoRoot))
 		Expect(v).To(Equal(53))
@@ -66,7 +66,7 @@ var _ = Describe("readCoreVersion", func() {
 	It("should error on invalid version format", func() {
 		Expect(os.WriteFile(
 			filepath.Join(repoRoot, "core", "pkg", "version", "VERSION"),
-			[]byte("invalid"), 0644,
+			[]byte("invalid"), 0o644,
 		)).To(Succeed())
 		_, err := readCoreVersion(repoRoot)
 		Expect(err).To(HaveOccurred())
@@ -76,7 +76,7 @@ var _ = Describe("readCoreVersion", func() {
 	It("should error on non-numeric major version", func() {
 		Expect(os.WriteFile(
 			filepath.Join(repoRoot, "core", "pkg", "version", "VERSION"),
-			[]byte("abc.53.4"), 0644,
+			[]byte("abc.53.4"), 0o644,
 		)).To(Succeed())
 		_, err := readCoreVersion(repoRoot)
 		Expect(err).To(HaveOccurred())
@@ -86,7 +86,7 @@ var _ = Describe("readCoreVersion", func() {
 	It("should error on non-numeric minor version", func() {
 		Expect(os.WriteFile(
 			filepath.Join(repoRoot, "core", "pkg", "version", "VERSION"),
-			[]byte("0.abc.4"), 0644,
+			[]byte("0.abc.4"), 0o644,
 		)).To(Succeed())
 		_, err := readCoreVersion(repoRoot)
 		Expect(err).To(HaveOccurred())
@@ -114,7 +114,7 @@ var _ = Describe("writeFileIfChanged", func() {
 
 	It("should overwrite a file with different content", func() {
 		path := filepath.Join(tmpDir, "existing.go")
-		Expect(os.WriteFile(path, []byte("old content"), 0644)).To(Succeed())
+		Expect(os.WriteFile(path, []byte("old content"), 0o644)).To(Succeed())
 		Expect(writeFileIfChanged(path, []byte("new content"))).To(Succeed())
 		content := string(MustSucceed(os.ReadFile(path)))
 		Expect(content).To(Equal("new content"))
@@ -122,7 +122,7 @@ var _ = Describe("writeFileIfChanged", func() {
 
 	It("should not write when content is identical", func() {
 		path := filepath.Join(tmpDir, "same.go")
-		Expect(os.WriteFile(path, []byte("unchanged"), 0644)).To(Succeed())
+		Expect(os.WriteFile(path, []byte("unchanged"), 0o644)).To(Succeed())
 		info := MustSucceed(os.Stat(path))
 		origModTime := info.ModTime()
 
@@ -156,17 +156,17 @@ var _ = Describe("findMigrationVersions", func() {
 	})
 
 	It("should find version directories", func() {
-		Expect(os.MkdirAll(filepath.Join(migrationsDir, "v53"), 0755)).To(Succeed())
-		Expect(os.MkdirAll(filepath.Join(migrationsDir, "v54"), 0755)).To(Succeed())
+		Expect(os.MkdirAll(filepath.Join(migrationsDir, "v53"), 0o755)).To(Succeed())
+		Expect(os.MkdirAll(filepath.Join(migrationsDir, "v54"), 0o755)).To(Succeed())
 
 		versions := MustSucceed(findMigrationVersions(migrationsDir))
 		Expect(versions).To(ConsistOf(53, 54))
 	})
 
 	It("should ignore non-version entries", func() {
-		Expect(os.MkdirAll(filepath.Join(migrationsDir, "v10"), 0755)).To(Succeed())
-		Expect(os.MkdirAll(filepath.Join(migrationsDir, "other"), 0755)).To(Succeed())
-		Expect(os.WriteFile(filepath.Join(migrationsDir, "file.txt"), []byte("x"), 0644)).To(Succeed())
+		Expect(os.MkdirAll(filepath.Join(migrationsDir, "v10"), 0o755)).To(Succeed())
+		Expect(os.MkdirAll(filepath.Join(migrationsDir, "other"), 0o755)).To(Succeed())
+		Expect(os.WriteFile(filepath.Join(migrationsDir, "file.txt"), []byte("x"), 0o644)).To(Succeed())
 
 		versions := MustSucceed(findMigrationVersions(migrationsDir))
 		Expect(versions).To(Equal([]int{10}))

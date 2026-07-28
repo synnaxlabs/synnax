@@ -30,7 +30,7 @@ var _ = Describe("str() typecast end-to-end runtime", func() {
 	}
 
 	DescribeTable("compiles, runs, and writes the expected string to a string channel",
-		func(ctx SpecContext, source string, expected string) {
+		func(ctx SpecContext, source, expected string) {
 			resolver := channelSymbols(map[string]channelDef{
 				"trig": {types.U8(), 100},
 				"log":  {types.String(), 101},
@@ -226,7 +226,7 @@ var _ = Describe("str() typecast end-to-end runtime", func() {
 	)
 
 	DescribeTable("uses str() as an inline typecast stage in a flow chain",
-		func(ctx SpecContext, source string, expected string) {
+		func(ctx SpecContext, source, expected string) {
 			resolver := channelSymbols(map[string]channelDef{
 				"log_mem": {types.String(), 101},
 			})
@@ -281,7 +281,7 @@ time.interval{50ms} -> `+source+` -> log_mem`, resolver,
 	)
 
 	DescribeTable("concatenates a prefix and suffix around str() of a literal in a flow chain",
-		func(ctx SpecContext, expr string, expected string) {
+		func(ctx SpecContext, expr, expected string) {
 			resolver := channelSymbols(map[string]channelDef{
 				"log_mem": {types.String(), 101},
 			})

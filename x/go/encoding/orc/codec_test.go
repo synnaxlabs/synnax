@@ -156,7 +156,7 @@ var _ = Describe("Codec", func() {
 	})
 
 	Describe("Fallback", func() {
-		var c = orc.NewCodec(json.Codec)
+		c := orc.NewCodec(json.Codec)
 
 		Describe("Encode", func() {
 			It("Should fall back to JSON for non-SelfEncoder values", func(ctx SpecContext) {

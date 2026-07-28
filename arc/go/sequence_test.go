@@ -1789,7 +1789,6 @@ var _ = Describe("Sequence", func() {
 			Expect(lastU8(out, 103)).To(Equal(uint8(1)),
 				"quadruply-nested inline body must activate via the chain of inline selects")
 		})
-
 	})
 
 	Describe("Inline flow target bodies", func() {

@@ -164,7 +164,7 @@ func NewHost(
 	}
 	builder := rt.NewHostModuleBuilder(Name)
 	builder = builder.NewFunctionBuilder().
-		WithFunc(func(_ context.Context, ptr uint32, length uint32) uint32 {
+		WithFunc(func(_ context.Context, ptr, length uint32) uint32 {
 			if h.memory == nil {
 				return 0
 			}
@@ -175,7 +175,7 @@ func NewHost(
 			return s.Create(string(data))
 		}).Export("from_literal")
 	builder = builder.NewFunctionBuilder().
-		WithFunc(func(_ context.Context, h1 uint32, h2 uint32) uint32 {
+		WithFunc(func(_ context.Context, h1, h2 uint32) uint32 {
 			s1, ok1 := s.Get(h1)
 			s2, ok2 := s.Get(h2)
 			if !ok1 || !ok2 {
@@ -184,7 +184,7 @@ func NewHost(
 			return s.Create(s1 + s2)
 		}).Export("concat")
 	builder = builder.NewFunctionBuilder().
-		WithFunc(func(_ context.Context, h1 uint32, h2 uint32) uint32 {
+		WithFunc(func(_ context.Context, h1, h2 uint32) uint32 {
 			s1, ok1 := s.Get(h1)
 			s2, ok2 := s.Get(h2)
 			if ok1 && ok2 && s1 == s2 {

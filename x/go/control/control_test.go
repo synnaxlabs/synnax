@@ -113,7 +113,6 @@ var _ = Describe("State", func() {
 			It("Should return true when from is not nil and to is nil", func() {
 				Expect(control.Transfer[string]{From: &state1, To: nil}.IsRelease()).To(BeTrue())
 			})
-
 		})
 
 		Describe("IsTransfer", func() {
@@ -192,5 +191,4 @@ var _ = Describe("State", func() {
 			})
 		})
 	})
-
 })

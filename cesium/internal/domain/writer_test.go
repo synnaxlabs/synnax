@@ -32,7 +32,8 @@ func extractPointer(f xfs.File) (p struct {
 	fileKey uint16
 	offset  uint32
 	length  uint32
-}) {
+},
+) {
 	b := make([]byte, 26)
 	MustSucceed(f.Read(b))
 	p.Start = telem.TimeStamp(binary.LittleEndian.Uint64(b[:8]))
@@ -41,7 +42,7 @@ func extractPointer(f xfs.File) (p struct {
 	p.offset = binary.LittleEndian.Uint32(b[18:22])
 	p.length = binary.LittleEndian.Uint32(b[22:26])
 
-	return
+	return p
 }
 
 func fileSizes(info []os.FileInfo) (sizes []telem.Size) {

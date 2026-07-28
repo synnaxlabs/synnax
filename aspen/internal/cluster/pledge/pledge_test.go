@@ -78,7 +78,6 @@ var _ = Describe("PledgeServer", func() {
 	})
 
 	Describe("PledgeServer", func() {
-
 		Context("No nodes Responding", func() {
 			It("Should submit round robin proposals at scaled intervals", func(ctx SpecContext) {
 				const numTransports = 4
@@ -289,9 +288,6 @@ var _ = Describe("PledgeServer", func() {
 				wg.Wait()
 				Expect(lo.Uniq(ids)).To(HaveLen(numPledges))
 			})
-
 		})
-
 	})
-
 })

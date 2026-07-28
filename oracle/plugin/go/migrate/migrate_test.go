@@ -1355,9 +1355,9 @@ var _ = Describe("Go Migrate Plugin", func() {
 			It("Should leave helpers.go in the outgoing version package", func() {
 				tmpDir := GinkgoT().TempDir()
 				v1Dir := tmpDir + "/out/versions/v1"
-				Expect(os.MkdirAll(v1Dir, 0755)).To(Succeed())
+				Expect(os.MkdirAll(v1Dir, 0o755)).To(Succeed())
 				helpers := "package v1\n\nfunc Helper() string { return \"h\" }\n"
-				Expect(os.WriteFile(v1Dir+"/helpers.go", []byte(helpers), 0644)).
+				Expect(os.WriteFile(v1Dir+"/helpers.go", []byte(helpers), 0o644)).
 					To(Succeed())
 
 				oldSchema := `

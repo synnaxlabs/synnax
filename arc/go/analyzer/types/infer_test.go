@@ -155,7 +155,7 @@ var _ = Describe("Type Inference", func() {
 		)
 
 		DescribeTable("literal type inference",
-			func(bCtx SpecContext, expr string, expectedKind types.Kind, constraintKind types.Kind) {
+			func(bCtx SpecContext, expr string, expectedKind, constraintKind types.Kind) {
 				t := inferExprType(bCtx, testResolver, expr)
 				Expect(t.Kind).To(Equal(expectedKind))
 				if constraintKind != types.KindInvalid {
@@ -695,7 +695,7 @@ var _ = Describe("Type Inference", func() {
 		)
 
 		DescribeTable("composite types",
-			func(decl string, expectedKind types.Kind, expectedElemKind types.Kind) {
+			func(decl string, expectedKind, expectedElemKind types.Kind) {
 				typeCtx := parseTypeFromDecl(decl)
 				t := MustSucceed(atypes.InferFromTypeContext(typeCtx))
 				Expect(t.Kind).To(Equal(expectedKind))

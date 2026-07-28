@@ -46,29 +46,29 @@ func setupMiniRepo(version string, schemas map[string]string) (string, func()) {
 	repoDir := MustSucceed(os.MkdirTemp("", "oracle-test-repo"))
 
 	// Create .git so paths.RepoRoot() finds this as the repo root.
-	Expect(os.MkdirAll(filepath.Join(repoDir, ".git"), 0755)).To(Succeed())
+	Expect(os.MkdirAll(filepath.Join(repoDir, ".git"), 0o755)).To(Succeed())
 
 	// Create VERSION file.
 	versionDir := filepath.Join(repoDir, "core", "pkg", "version")
-	Expect(os.MkdirAll(versionDir, 0755)).To(Succeed())
-	Expect(os.WriteFile(filepath.Join(versionDir, "VERSION"), []byte(version), 0644)).To(Succeed())
+	Expect(os.MkdirAll(versionDir, 0o755)).To(Succeed())
+	Expect(os.WriteFile(filepath.Join(versionDir, "VERSION"), []byte(version), 0o644)).To(Succeed())
 
 	// Create schema files.
 	schemasDir := filepath.Join(repoDir, "schemas")
-	Expect(os.MkdirAll(schemasDir, 0755)).To(Succeed())
+	Expect(os.MkdirAll(schemasDir, 0o755)).To(Succeed())
 	for name, content := range schemas {
 		path := filepath.Join(schemasDir, name)
-		Expect(os.MkdirAll(filepath.Dir(path), 0755)).To(Succeed())
-		Expect(os.WriteFile(path, []byte(content), 0644)).To(Succeed())
+		Expect(os.MkdirAll(filepath.Dir(path), 0o755)).To(Succeed())
+		Expect(os.WriteFile(path, []byte(content), 0o644)).To(Succeed())
 	}
 
 	// Create a minimal license template so format.Default can build a
 	// formatter registry. Required by the check command, which builds
 	// the registry to run the generated-drift gate.
 	licenseDir := filepath.Join(repoDir, "licenses", "headers")
-	Expect(os.MkdirAll(licenseDir, 0755)).To(Succeed())
+	Expect(os.MkdirAll(licenseDir, 0o755)).To(Succeed())
 	Expect(os.WriteFile(filepath.Join(licenseDir, "template.txt"),
-		[]byte("Copyright {{YEAR}} Test Inc.\n"), 0644)).To(Succeed())
+		[]byte("Copyright {{YEAR}} Test Inc.\n"), 0o644)).To(Succeed())
 
 	// cd into the repo so paths.RepoRoot() finds it.
 	Expect(os.Chdir(repoDir)).To(Succeed())
@@ -157,9 +157,7 @@ var _ = Describe("check command", Ordered, func() {
 })
 
 var _ = Describe("check command with no schemas", Ordered, func() {
-	var (
-		cleanup func()
-	)
+	var cleanup func()
 
 	BeforeAll(func() {
 		ShouldNotLeakGoroutines()
@@ -199,7 +197,6 @@ var _ = Describe("fmt command", Ordered, func() {
 })
 
 var _ = Describe("fmt command with nested schema folders", Ordered, func() {
-
 	BeforeAll(func() {
 		ShouldNotLeakGoroutines()
 		// Schemas live in subdirectories (arc/synnax/x); the no-arg fmt default must
@@ -228,7 +225,6 @@ var _ = Describe("fmt command with nested schema folders", Ordered, func() {
 })
 
 var _ = Describe("fmt command with explicit file arguments", Ordered, func() {
-
 	BeforeAll(func() {
 		ShouldNotLeakGoroutines()
 		// Two unformatted schemas in different subfolders. Passing an explicit path
@@ -268,11 +264,11 @@ var _ = Describe("fmt command discovery error", Ordered, func() {
 			"synnax/user.oracle": "User struct {\n    key uuid\n}\n",
 		})
 		locked := filepath.Join(repoDir, "schemas", "locked")
-		Expect(os.MkdirAll(locked, 0755)).To(Succeed())
-		Expect(os.Chmod(locked, 0000)).To(Succeed())
+		Expect(os.MkdirAll(locked, 0o755)).To(Succeed())
+		Expect(os.Chmod(locked, 0o000)).To(Succeed())
 		DeferCleanup(func() {
 			if locked != "" {
-				Expect(os.Chmod(locked, 0755)).To(Succeed())
+				Expect(os.Chmod(locked, 0o755)).To(Succeed())
 			}
 			if cleanup != nil {
 				cleanup()
@@ -288,7 +284,6 @@ var _ = Describe("fmt command discovery error", Ordered, func() {
 })
 
 var _ = Describe("fmt command argument error", Ordered, func() {
-
 	BeforeAll(func() {
 		ShouldNotLeakGoroutines()
 		_, cleanup := setupMiniRepo("0.53.4", map[string]string{
@@ -364,7 +359,7 @@ var _ = Describe("migrate create command", Ordered, func() {
 		})
 		// Create a service directory to act as CWD for migrate create.
 		svcDir := filepath.Join(repoDir, "core", "pkg", "service", "user")
-		Expect(os.MkdirAll(svcDir, 0755)).To(Succeed())
+		Expect(os.MkdirAll(svcDir, 0o755)).To(Succeed())
 	})
 
 	AfterAll(func() { cleanup() })
@@ -403,7 +398,7 @@ var _ = Describe("migrate command with nested schema folders", Ordered, func() {
 			"x/telem.oracle":     "Rate struct {\n    hz float64\n}\n",
 		})
 		svcDir := filepath.Join(repoDir, "core", "pkg", "service", "user")
-		Expect(os.MkdirAll(svcDir, 0755)).To(Succeed())
+		Expect(os.MkdirAll(svcDir, 0o755)).To(Succeed())
 		DeferCleanup(func() { cleanup() })
 	})
 
@@ -440,9 +435,9 @@ var _ = Describe("migrate create with existing migrations", Ordered, func() {
 			"user.oracle": "User struct {\n    key uuid\n}\n",
 		})
 		svcDir := filepath.Join(repoDir, "core", "pkg", "service", "user")
-		Expect(os.MkdirAll(svcDir, 0755)).To(Succeed())
+		Expect(os.MkdirAll(svcDir, 0o755)).To(Succeed())
 		// Create a pre-existing migration version directory.
-		Expect(os.MkdirAll(filepath.Join(svcDir, "migrations", "v53"), 0755)).To(Succeed())
+		Expect(os.MkdirAll(filepath.Join(svcDir, "migrations", "v53"), 0o755)).To(Succeed())
 	})
 
 	AfterAll(func() { cleanup() })
@@ -606,8 +601,8 @@ var _ = Describe("syncOutputs", func() {
 
 	It("should skip unchanged files", func(ctx SpecContext) {
 		outDir := filepath.Join(tmpDir, "out")
-		Expect(os.MkdirAll(outDir, 0755)).To(Succeed())
-		Expect(os.WriteFile(filepath.Join(outDir, "types.gen.go"), []byte("package out"), 0644)).To(Succeed())
+		Expect(os.MkdirAll(outDir, 0o755)).To(Succeed())
+		Expect(os.WriteFile(filepath.Join(outDir, "types.gen.go"), []byte("package out"), 0o644)).To(Succeed())
 
 		result := resultWith(map[string][]plugin.File{
 			"test": {{Path: "out/types.gen.go", Content: []byte("package out")}},
@@ -619,8 +614,8 @@ var _ = Describe("syncOutputs", func() {
 
 	It("should overwrite files with different content", func(ctx SpecContext) {
 		outDir := filepath.Join(tmpDir, "out")
-		Expect(os.MkdirAll(outDir, 0755)).To(Succeed())
-		Expect(os.WriteFile(filepath.Join(outDir, "types.gen.go"), []byte("old"), 0644)).To(Succeed())
+		Expect(os.MkdirAll(outDir, 0o755)).To(Succeed())
+		Expect(os.WriteFile(filepath.Join(outDir, "types.gen.go"), []byte("old"), 0o644)).To(Succeed())
 
 		result := resultWith(map[string][]plugin.File{
 			"test": {{Path: "out/types.gen.go", Content: []byte("new")}},

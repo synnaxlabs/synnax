@@ -185,5 +185,4 @@ var _ = Describe("Format String Compilation", func() {
 			Expect(err.Error()).To(ContainSubstring("unmatched"))
 		})
 	})
-
 })

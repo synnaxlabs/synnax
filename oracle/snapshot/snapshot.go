@@ -43,14 +43,14 @@ func Create(schemasDir, snapshotsDir string, version int) error {
 			return errors.Wrapf(err, "failed to compute relative path for %s", path)
 		}
 		dst := filepath.Join(destDir, rel)
-		if err := os.MkdirAll(filepath.Dir(dst), 0755); err != nil {
+		if err := os.MkdirAll(filepath.Dir(dst), 0o755); err != nil {
 			return errors.Wrapf(err, "failed to create directory for %s", dst)
 		}
 		data, err := os.ReadFile(path)
 		if err != nil {
 			return errors.Wrapf(err, "failed to read %s", path)
 		}
-		return os.WriteFile(dst, data, 0644)
+		return os.WriteFile(dst, data, 0o644)
 	})
 }
 

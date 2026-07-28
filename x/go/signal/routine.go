@@ -408,7 +408,7 @@ func (r *routine) goRun(f func(context.Context) error) {
 					err = r.ctx.Err()
 				}
 				err = r.runPostlude(err)
-				return
+				return err
 			})
 		})
 	}

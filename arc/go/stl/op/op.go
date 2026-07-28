@@ -29,10 +29,10 @@ func NewHost() *Host { return &Host{} }
 
 func resolveBinary(s *node.State) (lhs, rhs int, err error) {
 	if lhs, err = s.ResolveInput(ir.LHSInputParam); err != nil {
-		return
+		return lhs, rhs, err
 	}
 	rhs, err = s.ResolveInput(ir.RHSInputParam)
-	return
+	return lhs, rhs, err
 }
 
 func (h *Host) Create(_ context.Context, cfg node.Config) (node.Node, error) {

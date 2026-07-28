@@ -78,5 +78,4 @@ var _ = Describe("Transport", func() {
 		)).To(Equal(types.Nil{}))
 		Expect(received).To(Equal(channel.Keys{9}))
 	})
-
 })

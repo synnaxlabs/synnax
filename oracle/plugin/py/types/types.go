@@ -551,7 +551,7 @@ func processStruct(
 
 	// Handle struct extension with Pydantic inheritance (supports multiple parents)
 	if len(form.Extends) > 0 {
-		var allParentsValid = true
+		allParentsValid := true
 		for _, extendsRef := range form.Extends {
 			parent, ok := extendsRef.Resolve(table)
 			if !ok {
@@ -1216,7 +1216,7 @@ func sizedIntBounds(
 	return b, ok
 }
 
-func addCrossNamespaceImport(modulePath string, typeName string, data *templateData) string {
+func addCrossNamespaceImport(modulePath, typeName string, data *templateData) string {
 	parts := strings.Split(modulePath, ".")
 	if len(parts) >= 2 {
 		parentPath := strings.Join(parts[:len(parts)-1], ".")
@@ -1485,31 +1485,37 @@ func (m *importManager) addUUID(name string) {
 		m.uuid = append(m.uuid, name)
 	}
 }
+
 func (m *importManager) addTyping(name string) {
 	if !lo.Contains(m.typing, name) {
 		m.typing = append(m.typing, name)
 	}
 }
+
 func (m *importManager) addEnum(name string) {
 	if !lo.Contains(m.enum, name) {
 		m.enum = append(m.enum, name)
 	}
 }
+
 func (m *importManager) addPydantic(name string) {
 	if !lo.Contains(m.pydantic, name) {
 		m.pydantic = append(m.pydantic, name)
 	}
 }
+
 func (m *importManager) addSynnax(name string) {
 	if !lo.Contains(m.synnax, name) {
 		m.synnax = append(m.synnax, name)
 	}
 }
+
 func (m *importManager) addOntology(name string) {
 	if !lo.Contains(m.ontology, name) {
 		m.ontology = append(m.ontology, name)
 	}
 }
+
 func (m *importManager) addNamespace(alias, path string) {
 	if !lo.ContainsBy(m.namespaces, func(n namespaceImportData) bool { return n.Alias == alias }) {
 		m.namespaces = append(m.namespaces, namespaceImportData{Alias: alias, Path: path})

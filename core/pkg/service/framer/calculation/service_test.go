@@ -147,7 +147,6 @@ var _ = Describe("Calculation", Ordered, func() {
 	})
 
 	Describe("Calculation Patterns", func() {
-
 		Specify("Single Virtual Channel as Base", func(ctx SpecContext) {
 			bases := []channel.Channel{{
 				Name:     UniqueChannelName(),
@@ -494,7 +493,8 @@ var _ = Describe("Calculation", Ordered, func() {
 			base := channel.Channel{
 				Name:     UniqueChannelName(),
 				DataType: telem.Int64T,
-				Virtual:  true}
+				Virtual:  true,
+			}
 			Expect(channelWriter.Create(ctx, &base)).To(Succeed())
 			calc := channel.Channel{
 				Name:        UniqueChannelName(),

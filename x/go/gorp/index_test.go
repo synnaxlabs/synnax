@@ -108,9 +108,7 @@ func (f *failOnceDB) OpenIterator(opts kv.IteratorOptions) (kv.Iterator, error) 
 }
 
 var _ = Describe("Index", func() {
-	var (
-		idxDB *gorp.DB
-	)
+	var idxDB *gorp.DB
 	BeforeEach(func() {
 		idxDB = gorp.Wrap(memkv.New())
 	})

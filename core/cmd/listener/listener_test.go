@@ -26,7 +26,7 @@ import (
 	. "github.com/synnaxlabs/x/testutil"
 )
 
-func listenerObj(address string, source string) map[string]any {
+func listenerObj(address, source string) map[string]any {
 	return map[string]any{
 		"address": address,
 		"cert":    map[string]any{"source": source},

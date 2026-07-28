@@ -46,7 +46,7 @@ type ParsedLine struct {
 // driver log line. prevCaller is returned as Caller for continuation lines
 // that lack their own caller information. The returned strings are substrings
 // of line and share its backing memory.
-func ParseLine(line string, prevCaller string) ParsedLine {
+func ParseLine(line, prevCaller string) ParsedLine {
 	p := ParsedLine{Level: line[0], Caller: prevCaller}
 
 	firstClose := strings.IndexByte(line, ']')

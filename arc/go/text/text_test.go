@@ -4270,7 +4270,6 @@ time.wait{duration=500ms} -> output`
 				Expect(alarm.Activation.Node).To(Equal(demuxNode.Key))
 				Expect(alarm.Activation.Param).To(Equal("high"))
 			})
-
 		})
 
 		Context("Direct Stage Targeting", func() {

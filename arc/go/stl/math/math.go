@@ -196,11 +196,11 @@ func NewHost(ctx context.Context, rt wazero.Runtime) (*Host, error) {
 	builder = bindI64Pow[uint64](builder, "u64")
 	builder = bindI64Pow[int64](builder, "i64")
 	builder = builder.NewFunctionBuilder().
-		WithFunc(func(_ context.Context, base float32, exp float32) float32 {
+		WithFunc(func(_ context.Context, base, exp float32) float32 {
 			return float32(math.Pow(float64(base), float64(exp)))
 		}).Export("pow_f32")
 	builder = builder.NewFunctionBuilder().
-		WithFunc(func(_ context.Context, base float64, exp float64) float64 {
+		WithFunc(func(_ context.Context, base, exp float64) float64 {
 			return math.Pow(base, exp)
 		}).Export("pow_f64")
 
@@ -479,7 +479,7 @@ type i64Powable interface {
 // unreachable through this interface.
 func bindI32Pow[T i32Powable](builder wazero.HostModuleBuilder, suffix string) wazero.HostModuleBuilder {
 	return builder.NewFunctionBuilder().
-		WithFunc(func(_ context.Context, base uint32, exp uint32) uint32 {
+		WithFunc(func(_ context.Context, base, exp uint32) uint32 {
 			return uint32(xmath.IntPow(T(base), int(exp)))
 		}).Export("pow_" + suffix)
 }
@@ -488,7 +488,7 @@ func bindI32Pow[T i32Powable](builder wazero.HostModuleBuilder, suffix string) w
 // Same unsigned exponent representation as bindI32Pow.
 func bindI64Pow[T i64Powable](builder wazero.HostModuleBuilder, suffix string) wazero.HostModuleBuilder {
 	return builder.NewFunctionBuilder().
-		WithFunc(func(_ context.Context, base uint64, exp uint64) uint64 {
+		WithFunc(func(_ context.Context, base, exp uint64) uint64 {
 			return uint64(xmath.IntPow(T(base), int(exp)))
 		}).Export("pow_" + suffix)
 }

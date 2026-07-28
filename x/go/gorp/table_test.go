@@ -288,9 +288,7 @@ var _ = Describe("Table", func() {
 	})
 
 	Describe("Custom Codec", func() {
-		var (
-			table *gorp.Table[int32, entry]
-		)
+		var table *gorp.Table[int32, entry]
 		BeforeEach(func(ctx SpecContext) {
 			table = MustSucceed(gorp.OpenTable(ctx, gorp.TableConfig[int32, entry]{
 				DB: db,

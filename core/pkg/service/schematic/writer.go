@@ -46,17 +46,17 @@ func (w Writer) Create(
 	} else {
 		exists, err = w.table.NewRetrieve().Where(gorp.MatchKeys[Key, Schematic](s.Key)).Exists(ctx, w.tx)
 		if err != nil {
-			return
+			return err
 		}
 	}
 	if err = s.Validate(); err != nil {
-		return
+		return err
 	}
 	if err = w.table.NewCreate().Entry(s).Exec(ctx, w.tx); err != nil {
-		return
+		return err
 	}
 	if exists {
-		return
+		return err
 	}
 	otgID := s.OntologyID()
 	if err := w.otgWriter.DefineResources(ctx, otgID); err != nil {

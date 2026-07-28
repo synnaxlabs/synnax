@@ -54,7 +54,7 @@ func (w *Writer) Write(frame Frame) (authorized bool, err error) {
 		return false, err
 	}
 	authorized = !*w.cfg.Sync || res.Authorized
-	return
+	return authorized, err
 }
 
 func (w *Writer) Commit() (telem.TimeStamp, error) {
@@ -78,7 +78,7 @@ func (w *Writer) exec(req WriterRequest, sync bool) (res WriterResponse, err err
 	case w.requests.Inlet() <- req:
 	}
 	if !sync {
-		return
+		return res, err
 	}
 	for res = range w.responses.Outlet() {
 		if res.Err != nil {

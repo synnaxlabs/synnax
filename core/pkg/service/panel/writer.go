@@ -51,7 +51,7 @@ func (w Writer) Create(
 		return err
 	}
 	if err = w.table.NewCreate().Entry(p).Exec(ctx, w.tx); err != nil {
-		return
+		return err
 	}
 	otgID := p.OntologyID()
 	if err := w.otg.DefineResources(ctx, otgID); err != nil {

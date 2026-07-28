@@ -31,7 +31,7 @@ type Change[K, V any] struct {
 	Variant Variant
 }
 
-func Map[K comparable, V comparable](
+func Map[K, V comparable](
 	prev,
 	next map[K]V,
 	equal func(prev, next V) bool,

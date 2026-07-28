@@ -44,7 +44,6 @@ func (s scenario) Close() error { return s.close.Close() }
 
 var _ = Describe("Relay", func() {
 	Describe("Happy Path", Ordered, func() {
-
 		scenarios := []func(context.Context) scenario{
 			gatewayOnlyScenario,
 			peerOnlyScenario,
@@ -625,6 +624,7 @@ func peerOnlyScenario(ctx context.Context) scenario {
 		close:    cluster,
 	}
 }
+
 func mixedScenario(ctx context.Context) scenario {
 	channels := newChannelSet()
 	cluster := mock.OpenCluster(ctx, 3)

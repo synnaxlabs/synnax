@@ -47,7 +47,6 @@ func analyzeAndExpectErrorWithResolver(bCtx SpecContext, source string, resolver
 }
 
 var _ = Describe("Analyzer Integration", func() {
-
 	Describe("Cross-Scope Symbol Resolution", func() {
 		It("Should diagnose a variable declaration that shadows a function name", func(bCtx SpecContext) {
 			prog := MustSucceed(parser.Parse(`

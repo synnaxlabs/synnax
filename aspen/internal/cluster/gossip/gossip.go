@@ -60,7 +60,7 @@ func (g *Gossip) GossipOnce(ctx context.Context) (err error) {
 	if peer.Address != "" {
 		err = g.GossipOnceWith(ctx, peer.Address)
 	}
-	return
+	return err
 }
 
 func (g *Gossip) GossipOnceWith(ctx context.Context, addr address.Address) error {
@@ -116,7 +116,6 @@ func (g *Gossip) sync(sync Message) (ack Message) {
 	}
 
 	for _, n := range snap.Nodes {
-
 		// If we have a node that the initiator doesn't have,
 		// send it to them.
 		if _, ok := sync.Digests[n.Key]; !ok {

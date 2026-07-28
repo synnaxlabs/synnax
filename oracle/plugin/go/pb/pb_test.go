@@ -1772,7 +1772,6 @@ var _ = Describe("Go PB Plugin", func() {
 						"if r.Anchor != (test.Anchor{}) {",
 					)
 			})
-
 		})
 
 		Context("cross-namespace struct reference", func() {

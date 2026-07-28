@@ -35,7 +35,6 @@ var _ = Describe("Retrieve", func() {
 	})
 
 	Describe("Query State", func() {
-
 		Describe("HasLimit", func() {
 			It("Should return false when no limit is set", func() {
 				q := gorp.NewRetrieve[int32, entry]()

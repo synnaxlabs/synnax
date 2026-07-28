@@ -314,7 +314,7 @@ func bindI32[T i32Compatible](
 			return uint32(telem.ValueAt[T](series, -1))
 		}).Export("read_" + suffix)
 	builder = builder.NewFunctionBuilder().
-		WithFunc(func(_ context.Context, chID uint32, val uint32) {
+		WithFunc(func(_ context.Context, chID, val uint32) {
 			appendFixedWriteSample(cs, chID, T(val))
 			cs.writeIndexedTimestamp(chID)
 		}).Export("write_" + suffix)
@@ -392,7 +392,7 @@ func bindStr(builder wazero.HostModuleBuilder, cs *ProgramState, ss *strings.Pro
 			return ss.Create(unmarshaled[len(unmarshaled)-1])
 		}).Export("read_str")
 	builder = builder.NewFunctionBuilder().
-		WithFunc(func(_ context.Context, chID uint32, handle uint32) {
+		WithFunc(func(_ context.Context, chID, handle uint32) {
 			str, ok := ss.Get(handle)
 			if !ok {
 				return

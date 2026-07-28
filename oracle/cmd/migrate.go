@@ -208,8 +208,8 @@ func writeFileIfChanged(path string, content []byte) error {
 		return nil
 	}
 	dir := filepath.Dir(path)
-	if err := os.MkdirAll(dir, 0755); err != nil {
+	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return err
 	}
-	return os.WriteFile(path, content, 0644)
+	return os.WriteFile(path, content, 0o644)
 }

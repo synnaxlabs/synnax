@@ -741,7 +741,7 @@ func (p *Plugin) processStruct(entry resolution.Type, table *resolution.Table, d
 	// UnifiedFields. Typeless overrides are already resolved by the analyzer.
 	if len(form.Extends) > 0 && !resolver.HasDomainOmissions(form) {
 		// Collect all parent schema names for merge chaining
-		var allParentsValid = true
+		allParentsValid := true
 		for _, extendsRef := range form.Extends {
 			parentType, ok := extendsRef.Resolve(table)
 			if !ok {
@@ -1799,7 +1799,7 @@ func (p *Plugin) typeRefToTS(typeRef *resolution.TypeRef, table *resolution.Tabl
 	return p.typeRefToTSInternal(typeRef, table, data, false, needsTypeImports)
 }
 
-func (p *Plugin) typeRefToTSInternal(typeRef *resolution.TypeRef, table *resolution.Table, data *templateData, forStructArg bool, needsTypeImports bool) string {
+func (p *Plugin) typeRefToTSInternal(typeRef *resolution.TypeRef, table *resolution.Table, data *templateData, forStructArg, needsTypeImports bool) string {
 	if typeRef == nil {
 		return "unknown"
 	}
@@ -1958,8 +1958,10 @@ var primitiveZodTypes = map[string]primitiveMapping{
 	"bytes":              {schema: "z.instanceof(Uint8Array)"},
 }
 
-const xPackageName = "@synnaxlabs/x"
-const xPathPrefix = "x/ts/src"
+const (
+	xPackageName = "@synnaxlabs/x"
+	xPathPrefix  = "x/ts/src"
+)
 
 var primitiveZodSchemaTypes = map[string]string{
 	"uuid":               "z.ZodString",

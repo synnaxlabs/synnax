@@ -27,7 +27,7 @@ func DeriveWASMCoordinates(
 	ctx context.Context,
 	scope *symbol.Symbol,
 	ref pendingRef,
-) (wasmModule string, wasmFuncName string) {
+) (wasmModule, wasmFuncName string) {
 	if ref.module == "" {
 		panic("DeriveWASMCoordinates called on local reference: " + ref.name)
 	}

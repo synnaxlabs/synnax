@@ -24,5 +24,4 @@ var _ = Describe("Resource", func() {
 			))
 		})
 	})
-
 })

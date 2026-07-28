@@ -389,7 +389,6 @@ var _ = Describe("TS Types Plugin", func() {
 				Entry("record", "record", "record.unknownZ().default(() => ({}))"),
 				Entry("bytes", "bytes", "z.instanceof(Uint8Array)"),
 			)
-
 		})
 
 		Context("@ts to_number directive", func() {

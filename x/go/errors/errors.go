@@ -97,7 +97,7 @@ func UnwrapMulti(err error) []error {
 //  3. otherErr if err is nil.
 //  4. if err and otherErr are non-nil, attaches otherErr as a secondary error. See
 //     WithSecondaryError for details on how the secondary error is presented.
-func Combine(err error, otherErr error) error {
+func Combine(err, otherErr error) error {
 	return errors.CombineErrors(err, otherErr)
 }
 

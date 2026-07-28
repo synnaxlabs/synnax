@@ -37,7 +37,7 @@ func (b *BufFormat) Format(ctx context.Context, content []byte, absPath string) 
 	}
 	defer func() { _ = os.RemoveAll(dir) }()
 	tmpFile := filepath.Join(dir, filepath.Base(absPath))
-	if err := os.WriteFile(tmpFile, content, 0644); err != nil {
+	if err := os.WriteFile(tmpFile, content, 0o644); err != nil {
 		return nil, errors.Wrap(err, "write temp proto")
 	}
 	c := exec.CommandContext(ctx, "buf", "format", tmpFile)

@@ -121,7 +121,7 @@ func runMigrateCreate(name string) (err error) {
 
 	vDir := fmt.Sprintf("v%d", effectiveVersion)
 	migrationDir := filepath.Join(repoRoot, servicePath, "migrations", vDir)
-	if err := os.MkdirAll(migrationDir, 0755); err != nil {
+	if err := os.MkdirAll(migrationDir, 0o755); err != nil {
 		return errors.Wrapf(err, "failed to create migration directory")
 	}
 

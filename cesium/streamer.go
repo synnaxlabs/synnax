@@ -76,10 +76,9 @@ func (db *DB) NewStreamer(ctx context.Context, cfg StreamerConfig) (Streamer[Str
 		passThroughStreamerRequestTranslator,
 		passThroughStreamerResponseTranslator,
 	)
-
 }
 
-func NewTranslatedStreamer[I any, O any](
+func NewTranslatedStreamer[I, O any](
 	db *DB,
 	cfg StreamerConfig,
 	translateRequest func(I) StreamerRequest,

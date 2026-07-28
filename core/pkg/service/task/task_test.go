@@ -109,7 +109,7 @@ var _ = Describe("Task", Ordered, func() {
 		})
 	})
 	Describe("Key msgpack decoding", func() {
-		var codec = msgpack.Codec
+		codec := msgpack.Codec
 		DescribeTable("Should decode task.Key from various types",
 			func(ctx SpecContext, value any, expected task.Key) {
 				data := MustSucceed(codec.Encode(ctx, value))
@@ -213,7 +213,6 @@ var _ = Describe("Task", Ordered, func() {
 	})
 
 	Describe("Copy", func() {
-
 		It("Should copy a task", func(ctx SpecContext) {
 			m := &task.Task{
 				Key:  task.NewKey(testRack.Key, 0),
@@ -238,7 +237,6 @@ var _ = Describe("Task", Ordered, func() {
 			Expect(t.Key).To(Equal(task.NewKey(testRack.Key, 9)))
 			Expect(t.Snapshot).To(BeTrue())
 		})
-
 	})
 
 	Describe("Retrieve", func() {

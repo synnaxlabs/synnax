@@ -44,7 +44,8 @@ var _ = Describe("Retrieve", Ordered, func() {
 					Virtual:  true,
 					DataType: telem.Float32T,
 					Name:     UniqueChannelName(),
-				}}
+				},
+			}
 			Expect(writer.CreateMany(ctx, &created)).To(Succeed())
 
 			var resChannels []channel.Channel
@@ -165,7 +166,6 @@ var _ = Describe("Retrieve", Ordered, func() {
 				Entries(&resChannels).
 				Exec(ctx, nil)).To(MatchError(query.ErrNotFound))
 		})
-
 	})
 	Describe("MatchCalculated", func() {
 		It("Should only return calculated channels", func(ctx SpecContext) {

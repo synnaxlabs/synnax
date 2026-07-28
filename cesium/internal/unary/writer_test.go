@@ -538,7 +538,8 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 				It("Should not allow operations on a closed writer", func(ctx SpecContext) {
 					w, t := MustSucceed2(db.OpenWriter(ctx, unary.WriterConfig{
 						Start:   10 * telem.SecondTS,
-						Subject: control.Subject{Key: "foo"}},
+						Subject: control.Subject{Key: "foo"},
+					},
 					))
 					Expect(t.Occurred()).To(BeTrue())
 					MustSucceed(w.Close())
@@ -554,7 +555,8 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 					Expect(db.Close()).To(Succeed())
 					_, _, err := db.OpenWriter(ctx, unary.WriterConfig{
 						Start:   10 * telem.SecondTS,
-						Subject: control.Subject{Key: "foo"}},
+						Subject: control.Subject{Key: "foo"},
+					},
 					)
 					Expect(err).To(MatchError(unary.ErrDBClosed))
 					Expect(err).To(MatchError(ContainSubstring("channel [gauss]<%d>", key)))

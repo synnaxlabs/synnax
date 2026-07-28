@@ -56,6 +56,7 @@ formatters:
   enable:
     - gci
     - gofmt
+    - gofumpt
   settings:
     gci:
       no-inline-comments: true
@@ -76,6 +77,8 @@ formatters:
           replacement: "strings.ReplaceAll(a, b, c)"
         - pattern: "!(a == b)"
           replacement: "a != b"
+    gofumpt:
+      extra-rules: true
   exclusions:
     warn-unused: true
     generated: strict

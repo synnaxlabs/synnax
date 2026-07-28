@@ -402,7 +402,7 @@ func isTriviaToken(t antlr.Token) bool {
 // buildReplacementName returns the dotted reference the user should write
 // for repl, preferring an existing module alias when one is in scope and
 // falling back to repl's canonical QualifiedName otherwise.
-func buildReplacementName(symbols *symbol.Symbol, repl *symbol.Symbol) string {
+func buildReplacementName(symbols, repl *symbol.Symbol) string {
 	if repl.Parent == nil || repl.Parent.Kind != symbol.KindModule {
 		return repl.QualifiedName()
 	}

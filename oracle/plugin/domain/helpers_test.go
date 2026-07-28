@@ -19,7 +19,8 @@ import (
 func makeDomains(entries ...struct {
 	domain string
 	exprs  []resolution.Expression
-}) map[string]resolution.Domain {
+},
+) map[string]resolution.Domain {
 	result := make(map[string]resolution.Domain)
 	for _, e := range entries {
 		result[e.domain] = resolution.Domain{

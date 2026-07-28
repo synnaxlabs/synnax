@@ -72,7 +72,6 @@ var _ = Describe("OtelProvider", func() {
 				}))
 				Expect(prov.NodePrivate()).ToNot(BeNil())
 			})
-
 		})
 		Describe("VerifyCoreCert", func() {
 			It("Should accept a certificate signed by the Core CA", func() {

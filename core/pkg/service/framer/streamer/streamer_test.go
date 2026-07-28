@@ -145,7 +145,6 @@ var _ = Describe("Streamer", Ordered, func() {
 				LocalIndex: indexCh.LocalKey,
 			}
 			Expect(channelWriter.Create(ctx, dataCh2)).To(Succeed())
-
 		})
 
 		It("Should receive calculated values", func(ctx SpecContext) {

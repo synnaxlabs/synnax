@@ -78,7 +78,6 @@ var _ = Describe("Retrieve", func() {
 	})
 	Describe("Multi Clause", func() {
 		Describe("Parental Traversal", func() {
-
 			It("Should retrieve the parent of a resource", func(ctx SpecContext) {
 				a := newSampleType("A")
 				b := newSampleType("B")

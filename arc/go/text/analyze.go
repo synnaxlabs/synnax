@@ -1742,7 +1742,7 @@ func analyzeFlow(
 	ctx acontext.Context[parser.IFlowStatementContext],
 	kg *keyGenerator,
 	shell *shellBuilder,
-) (nodes []ir.Node, edges []ir.Edge, inlineMembers []ir.Member, transitionEmitted bool, ok bool) {
+) (nodes []ir.Node, edges []ir.Edge, inlineMembers []ir.Member, transitionEmitted, ok bool) {
 	p := newFlowChainProcessor(ctx, kg, shell)
 	for i, child := range ctx.AST.GetChildren() {
 		switch c := child.(type) {

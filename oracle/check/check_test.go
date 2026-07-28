@@ -102,11 +102,13 @@ var _ = Describe("Render", func() {
 	r := &check.Report{
 		Gates: []check.GateReport{
 			{Gate: "format", Status: check.StatusPass, Elapsed: time.Millisecond},
-			{Gate: "analyze", Status: check.StatusFail, Elapsed: time.Millisecond,
+			{
+				Gate: "analyze", Status: check.StatusFail, Elapsed: time.Millisecond,
 				Findings: []check.Finding{{
 					Path: "schemas/x.oracle", Line: 10, Severity: check.SeverityError,
 					Message: "boom", FixHint: "fix it",
-				}}},
+				}},
+			},
 		},
 		TotalRun: 2, TotalPassed: 1, TotalFailed: 1, Elapsed: time.Millisecond,
 	}

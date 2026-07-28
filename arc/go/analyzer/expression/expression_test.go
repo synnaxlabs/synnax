@@ -190,7 +190,7 @@ var _ = Describe("Expressions", func() {
 		)
 
 		DescribeTable("invalid arithmetic operations on strings",
-			func(ctx SpecContext, code string, operator string) {
+			func(ctx SpecContext, code, operator string) {
 				expectOperatorTypeError(ctx, code, "str", operator)
 			},
 			Entry("subtract", `
@@ -217,7 +217,7 @@ var _ = Describe("Expressions", func() {
 		)
 
 		DescribeTable("invalid logical operations on non-booleans",
-			func(ctx SpecContext, code string, typeName, operator string) {
+			func(ctx SpecContext, code, typeName, operator string) {
 				expectOperatorTypeError(ctx, code, typeName, operator)
 			},
 			Entry("AND on i32", `
@@ -237,7 +237,7 @@ var _ = Describe("Expressions", func() {
 		)
 
 		DescribeTable("type mismatch errors",
-			func(ctx SpecContext, code string, expectedErrSubstring string) {
+			func(ctx SpecContext, code, expectedErrSubstring string) {
 				expectFailure(ctx, code, nil, expectedErrSubstring)
 			},
 			Entry("mixed type arithmetic", `
@@ -464,7 +464,7 @@ var _ = Describe("Expressions", func() {
 		)
 
 		DescribeTable("invalid unary operations",
-			func(ctx SpecContext, code string, expectedErrSubstring string) {
+			func(ctx SpecContext, code, expectedErrSubstring string) {
 				expectFailure(ctx, code, nil, expectedErrSubstring)
 			},
 			Entry("negation on string", `
@@ -670,7 +670,7 @@ var _ = Describe("Expressions", func() {
 		)
 
 		DescribeTable("invalid function calls",
-			func(ctx SpecContext, code string, expectedErrSubstring string) {
+			func(ctx SpecContext, code, expectedErrSubstring string) {
 				expectFailure(ctx, code, nil, expectedErrSubstring)
 			},
 			Entry("undefined function", `
@@ -894,7 +894,7 @@ var _ = Describe("Expressions", func() {
 		)
 
 		DescribeTable("invalid optional parameter calls",
-			func(ctx SpecContext, code string, expectedErrSubstring string) {
+			func(ctx SpecContext, code, expectedErrSubstring string) {
 				expectFailure(ctx, code, nil, expectedErrSubstring)
 			},
 			Entry("missing required argument", `
@@ -1172,7 +1172,7 @@ var _ = Describe("Expressions", func() {
 		}
 
 		DescribeTable("literal extraction",
-			func(code string, expectedText string) {
+			func(code, expectedText string) {
 				expr := getExpr(code)
 				lit := parser.GetLiteral(expr)
 				if expectedText == "" {
@@ -1222,7 +1222,7 @@ var _ = Describe("Expressions", func() {
 		)
 
 		DescribeTable("invalid power expressions",
-			func(ctx SpecContext, code string, expectedErrSubstring string) {
+			func(ctx SpecContext, code, expectedErrSubstring string) {
 				expectFailure(ctx, code, nil, expectedErrSubstring)
 			},
 			Entry("dimensioned base with variable exponent", `
@@ -1302,7 +1302,7 @@ var _ = Describe("Expressions", func() {
 		)
 
 		DescribeTable("invalid unit operations",
-			func(ctx SpecContext, code string, expectedErrSubstring string) {
+			func(ctx SpecContext, code, expectedErrSubstring string) {
 				expectFailure(ctx, code, nil, expectedErrSubstring)
 			},
 			Entry("addition of incompatible units", `
@@ -1579,7 +1579,7 @@ var _ = Describe("Expressions", func() {
 		)
 
 		DescribeTable("invalid qualified calls",
-			func(ctx SpecContext, code string, expectedMsg string) {
+			func(ctx SpecContext, code, expectedMsg string) {
 				expectFailure(ctx, code, nil, expectedMsg)
 			},
 			Entry("undefined module without import", `

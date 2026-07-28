@@ -19,31 +19,31 @@ import (
 
 // If returns the override value if the condition is true, otherwise it returns the
 // base value.
-func If[T any](base T, override T, condition bool) T {
+func If[T any](base, override T, condition bool) T {
 	return lo.Ternary(condition, override, base)
 }
 
 // Numeric returns the override value if it is not zero, otherwise it returns the
 // base value.
-func Numeric[N types.Numeric](base N, override N) N {
+func Numeric[N types.Numeric](base, override N) N {
 	return If(base, override, override != 0)
 }
 
 // String returns the override value if it is not empty, otherwise it returns the
 // base value.
-func String[T ~string](base T, override T) T {
+func String[T ~string](base, override T) T {
 	return If(base, override, override != "")
 }
 
 // Zero returns the override if its IsZero method returns false, otherwise it returns the
 // base value.
-func Zero[T Zeroable](base T, override T) T {
+func Zero[T Zeroable](base, override T) T {
 	return If(base, override, !override.IsZero())
 }
 
 // Nil returns the override value if it is not nil, otherwise it returns the base value.
 // Both values must be interfaces or pointers, and Nil will panic if they are not.
-func Nil[T any](base T, override T) T {
+func Nil[T any](base, override T) T {
 	overrideV := reflect.ValueOf(override)
 	return If(
 		base,
@@ -54,13 +54,13 @@ func Nil[T any](base T, override T) T {
 
 // Slice returns the override value if it is not empty, otherwise it returns the
 // base value.
-func Slice[T any](base []T, override []T) []T {
+func Slice[T any](base, override []T) []T {
 	return If(base, override, len(override) > 0)
 }
 
 // UUID returns the override value if it is not the zero value, otherwise it returns the
 // base value.
-func UUID(base uuid.UUID, override uuid.UUID) uuid.UUID {
+func UUID(base, override uuid.UUID) uuid.UUID {
 	return If(base, override, override != uuid.Nil)
 }
 

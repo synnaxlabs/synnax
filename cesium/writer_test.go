@@ -156,7 +156,6 @@ var _ = Describe("Writer Behavior", func() {
 							Expect(sCtx.Wait()).To(Succeed())
 							Expect(w.Close()).To(Succeed())
 						})
-
 					})
 
 					Context("Index-less Data Write Alignment", func() {
@@ -945,7 +944,6 @@ var _ = Describe("Writer Behavior", func() {
 						Expect(f.SeriesAt(1).Data).To(Equal(telem.NewSeriesV[int64](10, 11, 13, 17).Data))
 					})
 					It("Should not write an empty frame", func(ctx SpecContext) {
-
 						var (
 							idx  = GenerateChannelKey()
 							data = GenerateChannelKey()
@@ -1361,7 +1359,6 @@ var _ = Describe("Writer Behavior", func() {
 								Expect(binary.LittleEndian.Uint64(buf[:8])).To(Equal(uint64(10 * telem.SecondTS)))
 								Expect(binary.LittleEndian.Uint64(buf[8:16])).To(Equal(uint64(12*telem.SecondTS + 1)))
 								Expect(binary.LittleEndian.Uint32(buf[22:26])).To(Equal(uint32(16)))
-
 							})
 
 							It("Should auto persist every second when the interval is not set", func(ctx SpecContext) {
@@ -2162,7 +2159,6 @@ var _ = Describe("Writer Behavior", func() {
 				})
 
 				Context("Missing Channel", func() {
-
 					Specify("Frame With Index Channel but without Data Channel", func(ctx SpecContext) {
 						w := MustSucceed(db.OpenWriter(
 							ctx,
@@ -2307,7 +2303,7 @@ var _ = Describe("Writer Behavior", func() {
 
 			Describe("Data Type Errors", func() {
 				Specify("Invalid Data Type for series", func(ctx SpecContext) {
-					var dtErrKey = GenerateChannelKey()
+					dtErrKey := GenerateChannelKey()
 					Expect(db.CreateChannel(
 						ctx,
 						cesium.Channel{
@@ -2374,7 +2370,7 @@ var _ = Describe("Writer Behavior", func() {
 
 			Describe("Virtual Channel", func() {
 				It("Should write to virtual channel", func(ctx SpecContext) {
-					var virtual1 = GenerateChannelKey()
+					virtual1 := GenerateChannelKey()
 					By("Creating a channel")
 					Expect(db.CreateChannel(
 						ctx,
@@ -2643,7 +2639,6 @@ var _ = Describe("Writer Behavior", func() {
 				})
 			})
 		})
-
 	}
 })
 

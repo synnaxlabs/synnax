@@ -74,7 +74,7 @@ var _ = Describe("AST Utilities", func() {
 
 	Describe("GetLiteral", func() {
 		DescribeTable("extracts literal text",
-			func(code string, expected string) {
+			func(code, expected string) {
 				lit := parser.GetLiteral(parseExpr(code))
 				Expect(lit).NotTo(BeNil())
 				Expect(lit.GetText()).To(Equal(expected))
@@ -153,7 +153,7 @@ var _ = Describe("AST Utilities", func() {
 
 	Describe("GetExpressionText", func() {
 		DescribeTable("extracts source text",
-			func(code string, expected string) {
+			func(code, expected string) {
 				Expect(parser.GetExpressionText(parseExpr(code))).To(Equal(expected))
 			},
 			Entry("identifier", "foo", "foo"),

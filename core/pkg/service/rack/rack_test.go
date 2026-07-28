@@ -121,7 +121,7 @@ var _ = Describe("Rack", Ordered, func() {
 		})
 	})
 	Describe("Key msgpack decoding", func() {
-		var codec = msgpack.Codec
+		codec := msgpack.Codec
 		DescribeTable("Should decode rack.Key from various types",
 			func(ctx SpecContext, value any, expected rack.Key) {
 				data := MustSucceed(codec.Encode(ctx, value))
@@ -528,7 +528,6 @@ var _ = Describe("Rack", Ordered, func() {
 				}
 				Expect(keys[i] - keys[i-1]).To(BeEquivalentTo(1))
 			}
-
 		})
 	})
 

@@ -301,7 +301,7 @@ var _ = Describe("Reducer", func() {
 		template := table.CellTemplate{Variant: "text"}
 
 		DescribeTable("removes fully-selected axes and resets surviving cells",
-			func(selection []string, wantRows int, wantCols int, wantRow0 []string) {
+			func(selection []string, wantRows, wantCols int, wantRow0 []string) {
 				out := MustSucceed(table.Reduce(create3x3(), table.NewEraseCellsAction(table.EraseCellsPayload{
 					Cells: selection, Template: template,
 				})))

@@ -147,7 +147,7 @@ func formatFile(path string) (formatResult, error) {
 		return formatResultChanged, nil
 	}
 
-	if err := os.WriteFile(path, []byte(formatted), 0644); err != nil {
+	if err := os.WriteFile(path, []byte(formatted), 0o644); err != nil {
 		return formatResultUnchanged, err
 	}
 

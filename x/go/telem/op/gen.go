@@ -630,7 +630,7 @@ func main() {
 	}
 
 	formatted := lo.Must(format.Source([]byte(buf.String())))
-	lo.Must0(os.WriteFile("op_generated.go", formatted, 0644))
+	lo.Must0(os.WriteFile("op_generated.go", formatted, 0o644))
 
 	fmt.Println("Generated op_generated.go successfully")
 }

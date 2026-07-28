@@ -80,7 +80,7 @@ func (l *Logger) child(meta InstrumentationMeta) (nl *Logger) {
 	if l != nil {
 		nl = &Logger{zap: l.zap.Named(meta.Key), config: l.config}
 	}
-	return
+	return nl
 }
 
 // Debug logs a message at the Debug level with the given fields.

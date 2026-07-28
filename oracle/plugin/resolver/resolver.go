@@ -18,7 +18,7 @@ import (
 // It allows the resolver to add imports when resolving cross-namespace types.
 type ImportAdder interface {
 	// AddImport adds an import with the given category, path, and optional alias.
-	AddImport(category string, path string, alias string)
+	AddImport(category, path, alias string)
 }
 
 // TypeFormatter formats type strings for a specific language.
@@ -41,7 +41,7 @@ type TypeFormatter interface {
 type ImportResolver interface {
 	// ResolveImport returns the import information for a type in a different namespace.
 	// Returns (importPath, qualifier, shouldImport).
-	ResolveImport(outputPath string, ctx *Context) (importPath string, qualifier string, shouldImport bool)
+	ResolveImport(outputPath string, ctx *Context) (importPath, qualifier string, shouldImport bool)
 }
 
 // Resolver resolves Oracle type references to language-specific type strings.

@@ -210,7 +210,6 @@ trig -> f{}`
 			Entry("integer literal :d", `f"{123:d}"`),
 			Entry("float literal :.2f", `f"{3.14:.2f}"`),
 		)
-
 	})
 
 	Describe("Multiple ':' in placeholder (last ':' is the spec separator)", func() {

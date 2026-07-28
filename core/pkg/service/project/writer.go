@@ -33,10 +33,10 @@ func (w Writer) Create(
 		p.Key = uuid.New()
 	}
 	if err = p.Validate(); err != nil {
-		return
+		return err
 	}
 	if err = w.table.NewCreate().Entry(p).Exec(ctx, w.tx); err != nil {
-		return
+		return err
 	}
 	otgID := p.OntologyID()
 	if err := w.otg.DefineResources(ctx, otgID); err != nil {

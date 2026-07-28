@@ -435,7 +435,6 @@ var _ = Describe("Task", Ordered, func() {
 			Expect(stat.Message).To(Equal("Task started successfully"))
 			Expect(stat.Details.Running).To(BeTrue())
 		})
-
 	})
 
 	Describe("FactoryConfig", func() {
@@ -630,7 +629,6 @@ var _ = Describe("Task", Ordered, func() {
 				g.Expect(stat.Variant).To(BeEquivalentTo("error"))
 			}).Should(Succeed())
 		})
-
 	})
 
 	Describe("Sequence with consecutive status.set steps", func() {

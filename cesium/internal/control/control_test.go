@@ -255,7 +255,6 @@ var _ = Describe("Control", func() {
 		})
 
 		Describe("Authorization, Transfer, and Release", func() {
-
 			Context("One Gate", func() {
 				It("Should authorize the gate with absolute control", func() {
 					cfg, createCount := baseConfig(10)
@@ -509,7 +508,6 @@ var _ = Describe("Control", func() {
 							Expect(g1.Authorize()).Error().
 								To(MatchError(xcontrol.ErrUnauthorized))
 						})
-
 					})
 
 					Context("Open gate 2 with equal authority, release gate 1", func() {
@@ -534,7 +532,6 @@ var _ = Describe("Control", func() {
 							Expect(t.IsTransfer()).To(BeTrue())
 							Expect(v.value).To(Equal(1))
 						})
-
 					})
 
 					Context("Open gate 2 with higher authority, release gate 1", func() {
@@ -591,7 +588,6 @@ var _ = Describe("Control", func() {
 							Expect(g1.Authorize()).Error().To(MatchError(xcontrol.ErrUnauthorized))
 							MustSucceed(g2.Authorize())
 						})
-
 					})
 
 					Context("Release both gates", func() {
@@ -773,7 +769,6 @@ var _ = Describe("Control", func() {
 							Expect(g2.Authorize()).Error().To(MatchError(xcontrol.ErrUnauthorized))
 							MustSucceed(g3.Authorize())
 						})
-
 					})
 
 					Context("Open gate 1 highest, gate 2 medium, gate 3 lowest, release g1", func() {
@@ -813,7 +808,6 @@ var _ = Describe("Control", func() {
 					})
 				})
 			})
-
 		})
 
 		Describe("Authority Transfer With SetAuthority", func() {
@@ -938,7 +932,6 @@ var _ = Describe("Control", func() {
 
 			MustSucceed(g2.Authorize())
 		})
-
 	})
 
 	Context("Concurrent Open and Close", func() {

@@ -647,7 +647,7 @@ var _ = Describe("Formatter", func() {
 	})
 
 	DescribeTable("Comment Edge Cases",
-		func(input string, shouldContain string) {
+		func(input, shouldContain string) {
 			result := formatter.Format(input)
 			Expect(result).To(ContainSubstring(shouldContain))
 		},

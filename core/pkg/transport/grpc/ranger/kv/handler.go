@@ -61,7 +61,8 @@ func (getRequestTranslator) Forward(
 	r kv.GetRequest,
 ) (*GetRequest, error) {
 	return &GetRequest{
-		Range: r.Range.String(), Keys: r.Keys}, nil
+		Range: r.Range.String(), Keys: r.Keys,
+	}, nil
 }
 
 func (getRequestTranslator) Backward(

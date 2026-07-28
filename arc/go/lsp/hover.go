@@ -370,7 +370,7 @@ func (s *Server) extractDocComment(content string, sym *symbol.Symbol) string {
 	return cleanDocComment(commentTokens)
 }
 
-func hasCodeBetween(tokens []antlr.Token, fromIndex int, targetLine int) bool {
+func hasCodeBetween(tokens []antlr.Token, fromIndex, targetLine int) bool {
 	startLine := tokens[fromIndex].GetLine()
 	commentText := tokens[fromIndex].GetText()
 	endLine := startLine

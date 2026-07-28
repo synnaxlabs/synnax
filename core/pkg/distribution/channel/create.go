@@ -38,7 +38,7 @@ func (s *Service) Create(ctx context.Context, channels []Channel) ([]Channel, er
 		func(i int) node.Key { return out[i].Lease() },
 	)
 	for target, indices := range indicesByTarget {
-		chs := lo.Map(indices, func(i int, _ int) Channel { return out[i] })
+		chs := lo.Map(indices, func(i, _ int) Channel { return out[i] })
 		var err error
 		switch {
 		case target == host:

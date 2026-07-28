@@ -577,8 +577,14 @@ var _ = Describe("Channel", func() {
 		BeforeEach(func(ctx SpecContext) {
 			g := graph.Graph{
 				Nodes: []graph.Node{
-					{Key: "s0"}, {Key: "s1"}, {Key: "s2"}, {Key: "s3"},
-					{Key: "s4"}, {Key: "s5"}, {Key: "s6"}, {Key: "s7"},
+					{Key: "s0"},
+					{Key: "s1"},
+					{Key: "s2"},
+					{Key: "s3"},
+					{Key: "s4"},
+					{Key: "s5"},
+					{Key: "s6"},
+					{Key: "s7"},
 				},
 				Inputs: map[string]msgpack.EncodedJSON{
 					"s0": {"type": "on"}, "s1": {"type": "on"},
@@ -1197,22 +1203,34 @@ var _ = Describe("Channel", func() {
 						"write2": {"type": "write2"},
 					},
 					Edges: graph.Edges{
-						{Edge: ir.Edge{Source: ir.Handle{Node: "read1", Param: ir.DefaultOutputParam},
-							Target: ir.Handle{Node: "write1", Param: ir.DefaultInputParam}}},
-						{Edge: ir.Edge{Source: ir.Handle{Node: "read2", Param: ir.DefaultOutputParam},
-							Target: ir.Handle{Node: "write2", Param: ir.DefaultInputParam}}},
+						{Edge: ir.Edge{
+							Source: ir.Handle{Node: "read1", Param: ir.DefaultOutputParam},
+							Target: ir.Handle{Node: "write1", Param: ir.DefaultInputParam},
+						}},
+						{Edge: ir.Edge{
+							Source: ir.Handle{Node: "read2", Param: ir.DefaultOutputParam},
+							Target: ir.Handle{Node: "write2", Param: ir.DefaultInputParam},
+						}},
 					},
 					Functions: []ir.Function{
 						{Key: "on", Outputs: types.Params{
-							{Name: ir.DefaultOutputParam, Type: types.F32()}}},
+							{Name: ir.DefaultOutputParam, Type: types.F32()},
+						}},
 						{Key: "on2", Outputs: types.Params{
-							{Name: ir.DefaultOutputParam, Type: types.F64()}}},
-						{Key: "write", Inputs: types.Params{
-							{Name: ir.DefaultInputParam, Type: types.F32()}},
-							Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.U8()}}},
-						{Key: "write2", Inputs: types.Params{
-							{Name: ir.DefaultInputParam, Type: types.F64()}},
-							Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.U8()}}},
+							{Name: ir.DefaultOutputParam, Type: types.F64()},
+						}},
+						{
+							Key: "write", Inputs: types.Params{
+								{Name: ir.DefaultInputParam, Type: types.F32()},
+							},
+							Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.U8()}},
+						},
+						{
+							Key: "write2", Inputs: types.Params{
+								{Name: ir.DefaultInputParam, Type: types.F64()},
+							},
+							Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.U8()}},
+						},
 					},
 				}
 				channelState := channels.NewProgramState([]channels.Digest{

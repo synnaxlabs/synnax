@@ -163,7 +163,7 @@ var _ = Describe("Type", func() {
 
 	Describe("UnwrapChan", func() {
 		DescribeTable("should unwrap channel types to their element type",
-			func(t types.Type, expected types.Type) {
+			func(t, expected types.Type) {
 				Expect(t.UnwrapChan()).To(Equal(expected))
 			},
 			Entry("chan i32 -> i32", types.Chan(types.I32()), types.I32()),
@@ -212,7 +212,7 @@ var _ = Describe("Type", func() {
 		)
 
 		DescribeTable("should handle edge cases",
-			func(t types.Type, expected types.Type) {
+			func(t, expected types.Type) {
 				Expect(t.UnwrapChan()).To(Equal(expected))
 			},
 			Entry("invalid type", types.Type{}, types.Type{}),

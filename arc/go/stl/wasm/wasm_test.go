@@ -139,7 +139,7 @@ func (h *testHarness) Close(ctx context.Context) {
 	Expect(h.wasmRT.Close(ctx)).To(Succeed())
 }
 
-func (h *testHarness) SetInput(nodeKey string, idx int, data telem.Series, time telem.Series) {
+func (h *testHarness) SetInput(nodeKey string, idx int, data, time telem.Series) {
 	n := h.state.Node(nodeKey)
 	*n.Output(idx) = data
 	*n.OutputTime(idx) = time
@@ -1064,7 +1064,6 @@ trigger_ch -> emit_period{period=1s}
 				return len(a + b)
 			}`, nil, int32(11)),
 		)
-
 	})
 
 	Describe("^ Operator (math.pow)", func() {
@@ -1270,7 +1269,6 @@ trigger_ch -> emit_period{period=1s}
 			Expect(changed.Contains(ir.DefaultOutputParam)).To(BeTrue())
 			Expect(telem.UnmarshalSeries[float64](h.Output("neg_cf", 0))).To(Equal([]float64{-1.5, 2.5, -3.5}))
 		})
-
 	})
 
 	Describe("String Channel Input", func() {

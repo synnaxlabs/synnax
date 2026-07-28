@@ -75,7 +75,7 @@ var _ = Describe("Index Persist", Ordered, func() {
 					i := db.OpenIterator(domain.IterRange(telem.TimeRangeMax))
 					Expect(i.SeekFirst(ctx)).To(BeTrue())
 					r := MustSucceed(i.OpenReader(ctx))
-					var buf = make([]byte, 2)
+					buf := make([]byte, 2)
 
 					MustSucceed(r.ReadAt(buf, 0))
 					Expect(buf).To(Equal([]byte{10, 11}))
@@ -131,7 +131,6 @@ var _ = Describe("Index Persist", Ordered, func() {
 					Expect(i.SeekFirst(ctx)).To(BeFalse())
 					Expect(i.Close()).To(Succeed())
 				})
-
 			})
 		})
 	}

@@ -78,9 +78,11 @@ var _ = Describe("Rename", func() {
 
 		It("should return nil for global/builtin symbols", func(ctx SpecContext) {
 			server = MustSucceed(lsp.New(lsp.Config{NewRoot: func() *symbol.Symbol {
-				return NewRoot(nil, symbol.Symbol{Name: "myGlobal",
+				return NewRoot(nil, symbol.Symbol{
+					Name: "myGlobal",
 					Type: types.I32(),
-					Kind: symbol.KindVariable})
+					Kind: symbol.KindVariable,
+				})
 			}}))
 			server.SetClient(&MockClient{})
 
@@ -241,9 +243,11 @@ func main() {
 
 		It("should return nil for global/builtin symbols", func(ctx SpecContext) {
 			server = MustSucceed(lsp.New(lsp.Config{NewRoot: func() *symbol.Symbol {
-				return NewRoot(nil, symbol.Symbol{Name: "myGlobal",
+				return NewRoot(nil, symbol.Symbol{
+					Name: "myGlobal",
 					Type: types.I32(),
-					Kind: symbol.KindVariable})
+					Kind: symbol.KindVariable,
+				})
 			}}))
 			server.SetClient(&MockClient{})
 

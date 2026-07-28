@@ -26,7 +26,8 @@ import (
 
 var _ = Describe("OP", func() {
 	DescribeTable("Outputs", func(
-		ctx SpecContext, t string, lhs, lhsTime, rhs, rhsTime, output, outputTime telem.Series) {
+		ctx SpecContext, t string, lhs, lhsTime, rhs, rhsTime, output, outputTime telem.Series,
+	) {
 		g := graph.Graph{
 			Nodes: []graph.Node{
 				{Key: "lhs"},
@@ -113,7 +114,8 @@ var _ = Describe("OP", func() {
 		Entry("Uint8 AND - second false", "and", telem.NewSeriesV[uint8](1, 1, 1), telem.NewSeriesSecondsTSV(1, 2, 3), telem.NewSeriesV[uint8](0, 0, 0), telem.NewSeriesSecondsTSV(1, 2, 3), telem.NewSeriesV[uint8](0, 0, 0), telem.NewSeriesSecondsTSV(1, 2, 3)),
 	)
 	DescribeTable("Unary Outputs", func(
-		ctx SpecContext, t string, input, inputTime, output, outputTime telem.Series) {
+		ctx SpecContext, t string, input, inputTime, output, outputTime telem.Series,
+	) {
 		g := graph.Graph{
 			Nodes: []graph.Node{
 				{Key: "input"},

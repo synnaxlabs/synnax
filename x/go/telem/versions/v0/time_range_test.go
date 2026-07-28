@@ -93,7 +93,6 @@ var _ = Describe("TimeRange", func() {
 	})
 
 	Describe("BoundBy", func() {
-
 		It("Should bound the time range to the provided constraints", func() {
 			tr := v0.TimeRange{
 				Start: v0.TimeStamp(v0.Second),
@@ -106,11 +105,9 @@ var _ = Describe("TimeRange", func() {
 			bounded := tr.BoundBy(bound)
 			Expect(bounded.Start).To(Equal(bound.Start))
 			Expect(bounded.End).To(Equal(bound.End))
-
 		})
 
 		It("Should bound the time range even if the start is after the end", func() {
-
 			tr := v0.TimeRange{
 				Start: v0.TimeStamp(v0.Second * 4),
 				End:   v0.TimeStamp(v0.Second),
@@ -268,7 +265,6 @@ var _ = Describe("TimeRange", func() {
 				Expect(tr.OverlapsWith(tr2)).To(BeTrue())
 			})
 		})
-
 	})
 
 	Describe("Swap", func() {
@@ -321,7 +317,6 @@ var _ = Describe("TimeRange", func() {
 			intersection := tr.Intersection(tr2)
 			Expect(intersection).To(Equal(v0.TimeRangeZero))
 		})
-
 	})
 
 	DescribeTable("Split", func(
@@ -380,7 +375,6 @@ var _ = Describe("TimeRange", func() {
 	})
 
 	Describe("Union", func() {
-
 		Specify("Overlap, first before second", func() {
 			tr := (0 * v0.SecondTS).Range(5 * v0.SecondTS)
 			tr2 := (3 * v0.SecondTS).Range(8 * v0.SecondTS)
@@ -412,6 +406,5 @@ var _ = Describe("TimeRange", func() {
 			Expect(union.Start).To(Equal(1 * v0.SecondTS))
 			Expect(union.End).To(Equal(8 * v0.SecondTS))
 		})
-
 	})
 })

@@ -407,7 +407,6 @@ var _ = Describe("Python Types Plugin", func() {
 				Entry("record", "record", "dict[str, Any] = Field(default_factory=dict)"),
 				Entry("bytes", "bytes", "bytes"),
 			)
-
 		})
 
 		It("Should handle optional key and password fields", func(ctx SpecContext) {

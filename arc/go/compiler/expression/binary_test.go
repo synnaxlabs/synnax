@@ -873,18 +873,20 @@ var _ = Describe("Binary Operations", func() {
 			Entry(
 				"complex: (literal * channel) + (literal * channel)",
 				"2 * a + 3 * b",
-				[]symbol.Symbol{{
-					Name: "a",
-					Kind: symbol.KindChannel,
-					Type: types.Chan(types.F64()),
-					ID:   0,
-				},
+				[]symbol.Symbol{
+					{
+						Name: "a",
+						Kind: symbol.KindChannel,
+						Type: types.Chan(types.F64()),
+						ID:   0,
+					},
 					{
 						Name: "b",
 						Kind: symbol.KindChannel,
 						Type: types.Chan(types.F64()),
 						ID:   1,
-					}},
+					},
+				},
 				types.F64(),
 				OpF64Const,
 				float64(2),
@@ -906,18 +908,20 @@ var _ = Describe("Binary Operations", func() {
 			Entry(
 				"complex: (channel + literal) > (channel - literal)",
 				"a + 5 > b - 3",
-				[]symbol.Symbol{{
-					Name: "a",
-					Kind: symbol.KindChannel,
-					Type: types.Chan(types.F64()),
-					ID:   0,
-				},
+				[]symbol.Symbol{
+					{
+						Name: "a",
+						Kind: symbol.KindChannel,
+						Type: types.Chan(types.F64()),
+						ID:   0,
+					},
 					{
 						Name: "b",
 						Kind: symbol.KindChannel,
 						Type: types.Chan(types.F64()),
 						ID:   1,
-					}},
+					},
+				},
 				types.U8(),
 				OpI32Const,
 				int32(0),
@@ -996,18 +1000,20 @@ var _ = Describe("Binary Operations", func() {
 			Entry(
 				"complex: channel - literal + channel",
 				"x - 10 + y",
-				[]symbol.Symbol{{
-					Name: "x",
-					Kind: symbol.KindChannel,
-					Type: types.Chan(types.F64()),
-					ID:   0,
-				},
+				[]symbol.Symbol{
+					{
+						Name: "x",
+						Kind: symbol.KindChannel,
+						Type: types.Chan(types.F64()),
+						ID:   0,
+					},
 					{
 						Name: "y",
 						Kind: symbol.KindChannel,
 						Type: types.Chan(types.F64()),
 						ID:   1,
-					}},
+					},
+				},
 				types.F64(),
 				OpI32Const,
 				int32(0),

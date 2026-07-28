@@ -27,10 +27,10 @@ var _ = Describe("Default Registry", func() {
 		DeferCleanup(func() {
 			Expect(os.RemoveAll(repoRoot)).To(Succeed())
 		})
-		Expect(os.MkdirAll(filepath.Join(repoRoot, "licenses", "headers"), 0755)).To(Succeed())
+		Expect(os.MkdirAll(filepath.Join(repoRoot, "licenses", "headers"), 0o755)).To(Succeed())
 		Expect(os.WriteFile(
 			filepath.Join(repoRoot, "licenses/headers/template.txt"),
-			[]byte("Copyright {{YEAR}} Synnax Labs, Inc.\n"), 0644,
+			[]byte("Copyright {{YEAR}} Synnax Labs, Inc.\n"), 0o644,
 		)).To(Succeed())
 	})
 

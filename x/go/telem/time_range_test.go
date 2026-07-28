@@ -23,5 +23,4 @@ var _ = Describe("TimeRange", func() {
 			Expect(tr.End).To(Equal(telem.SecondTS * 5))
 		})
 	})
-
 })

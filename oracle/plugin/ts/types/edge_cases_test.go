@@ -89,7 +89,6 @@ var _ = Describe("Edge Cases", func() {
 			content := MustContentOf(resp, "types.gen.ts")
 			Expect(content).To(ContainSubstring("variantZ"))
 		})
-
 	})
 
 	Describe("Auto-generated key defaults", func() {

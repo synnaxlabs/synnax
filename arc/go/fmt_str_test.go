@@ -531,5 +531,4 @@ var _ = Describe("format-string end-to-end runtime", func() {
 			Expect(lastString(out, 101)).To(Equal(`C:\logs\{abc}.txt`))
 		})
 	})
-
 })

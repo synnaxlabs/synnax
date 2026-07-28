@@ -247,7 +247,6 @@ var _ = Describe("Channel", Ordered, func() {
 						Expect(ch.Key).To(Equal(unaryKeyNew))
 						Expect(f.Close()).To(Succeed())
 					})
-
 				})
 
 				It("Should rekey a virtual channel into another", func(ctx SpecContext) {

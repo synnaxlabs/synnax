@@ -171,9 +171,7 @@ func makeStale(ctx context.Context, ch channel.Channel, stale telem.DataType) {
 }
 
 var _ = Describe("Graph", func() {
-
 	Describe("Open / Hydration", func() {
-
 		It("Should open successfully with no calculated channels", func(ctx SpecContext) {
 			bases := []channel.Channel{
 				{Name: "hy_base1", DataType: telem.Int64T, Virtual: true},
@@ -410,7 +408,6 @@ var _ = Describe("Graph", func() {
 	})
 
 	Describe("Reactive Change Handling", func() {
-
 		Context("Creating Channels", func() {
 			It("Should inspect a new valid calculated channel", func(ctx SpecContext) {
 				openGraph(ctx)

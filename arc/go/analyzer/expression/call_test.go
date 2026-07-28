@@ -37,7 +37,7 @@ var _ = Describe("AnalyzeCall", func() {
 		)
 
 		DescribeTable("invalid argument counts",
-			func(ctx SpecContext, code string, expectedMsg string) {
+			func(ctx SpecContext, code, expectedMsg string) {
 				expectFailure(ctx, code, nil, expectedMsg)
 			},
 			Entry("missing required argument", `
@@ -57,7 +57,7 @@ var _ = Describe("AnalyzeCall", func() {
 
 	Describe("Argument types", func() {
 		DescribeTable("type mismatches",
-			func(ctx SpecContext, code string, expectedMsg string) {
+			func(ctx SpecContext, code, expectedMsg string) {
 				expectFailure(ctx, code, nil, expectedMsg)
 			},
 			Entry("string literal to i32 parameter", `

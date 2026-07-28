@@ -98,7 +98,7 @@ func (r *region[R]) open(cfg GateConfig[R]) (g *Gate[R], t Transfer, err error) 
 			r.curr.Subject(),
 		)
 		g = nil
-		return
+		return g, t, err
 	}
 	r.gates.Add(g)
 	r.counter++

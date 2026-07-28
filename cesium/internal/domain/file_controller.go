@@ -392,7 +392,7 @@ func (fc *fileController) hasWriter(fileKey uint16) bool {
 // removes it from the writer pool to prevent a writer from opening on it during GC.
 // Returns whether GC can proceed and whether the file was in the unopened set (so
 // the caller can restore it on a no-op).
-func (fc *fileController) prepareForGC(fileKey uint16) (canGC bool, wasUnopened bool) {
+func (fc *fileController) prepareForGC(fileKey uint16) (canGC, wasUnopened bool) {
 	fc.writers.Lock()
 	defer fc.writers.Unlock()
 	if _, ok := fc.writers.open[fileKey]; ok {

@@ -39,7 +39,6 @@ func fixedOverflowChecker(limit int) channel.IntOverflowChecker {
 }
 
 var _ = Describe("Writer", func() {
-
 	// The external non-virtual channel set the writer maintains for overflow
 	// enforcement is not directly observable, so these specs exercise it indirectly
 	// through the overflow limit: only external non-virtual channels should count
@@ -286,7 +285,6 @@ var _ = Describe("Writer", func() {
 				Expect(ch.Key().Lease()).To(Equal(node.Key(1)))
 			})
 			Describe("OverwriteIfNameExists", func() {
-
 				It("Should overwrite the channel if it already exists by name and the new channel has different properties than the old one", func(ctx SpecContext) {
 					name := UniqueChannelName()
 					ch := channel.Channel{
@@ -804,7 +802,6 @@ var _ = Describe("Writer", func() {
 					Expect(resChannels[1].Name).To(Equal("UpdatedName"))
 				})
 		})
-
 	})
 
 	Context("Name Validation Disabled", func() {
@@ -1091,7 +1088,6 @@ var _ = Describe("Writer", func() {
 				Expect(resChannels[2].Name).To(Equal(names[2]))
 			})
 		})
-
 	})
 
 	Describe("Limit", Ordered, func() {

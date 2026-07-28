@@ -31,7 +31,6 @@ var _ = Describe("Log", func() {
 	})
 
 	Describe("Basic Logging", func() {
-
 		var (
 			logger *alamos.Logger
 			buffer *bytes.Buffer

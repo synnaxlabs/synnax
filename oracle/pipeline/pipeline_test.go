@@ -45,21 +45,19 @@ func (p *stubPlugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 }
 
 var _ = Describe("pipeline.Run", func() {
-	var (
-		repoRoot string
-	)
+	var repoRoot string
 
 	BeforeEach(func() {
 		repoRoot = MustSucceed(os.MkdirTemp("", "pipeline"))
 		DeferCleanup(func() {
 			Expect(os.RemoveAll(repoRoot)).To(Succeed())
 		})
-		Expect(os.MkdirAll(filepath.Join(repoRoot, "schemas"), 0755)).To(Succeed())
+		Expect(os.MkdirAll(filepath.Join(repoRoot, "schemas"), 0o755)).To(Succeed())
 	})
 
 	writeSchema := func(name, body string) string {
 		rel := "schemas/" + name + ".oracle"
-		Expect(os.WriteFile(filepath.Join(repoRoot, rel), []byte(body), 0644)).To(Succeed())
+		Expect(os.WriteFile(filepath.Join(repoRoot, rel), []byte(body), 0o644)).To(Succeed())
 		return rel
 	}
 
@@ -103,7 +101,7 @@ Grown struct {
 }
 `)
 		snapDir := filepath.Join(repoRoot, "schemas", "snapshots", "v1")
-		Expect(os.MkdirAll(snapDir, 0755)).To(Succeed())
+		Expect(os.MkdirAll(snapDir, 0o755)).To(Succeed())
 		Expect(os.WriteFile(filepath.Join(snapDir, "thing.oracle"), []byte(`
 @go output "x/go/thing"
 Stable struct {
@@ -114,7 +112,7 @@ Grown struct {
     @go version 0
     value int32
 }
-`), 0644)).To(Succeed())
+`), 0o644)).To(Succeed())
 
 		registry := plugin.NewRegistry()
 		Expect(registry.Register(gotypes.New(gotypes.DefaultOptions()))).To(Succeed())
@@ -168,8 +166,8 @@ WithThing struct {
 	It("resolves imports across nested schema folders", func(ctx SpecContext) {
 		writeNested := func(rel, body string) {
 			abs := filepath.Join(repoRoot, rel)
-			Expect(os.MkdirAll(filepath.Dir(abs), 0755)).To(Succeed())
-			Expect(os.WriteFile(abs, []byte(body), 0644)).To(Succeed())
+			Expect(os.MkdirAll(filepath.Dir(abs), 0o755)).To(Succeed())
+			Expect(os.WriteFile(abs, []byte(body), 0o644)).To(Succeed())
 		}
 		writeNested("schemas/x/telem.oracle", `
 @go output "x/go/telem"
@@ -257,9 +255,9 @@ var _ = Describe("pipeline.DiscoverSchemas", func() {
 		DeferCleanup(func() {
 			Expect(os.RemoveAll(repoRoot)).To(Succeed())
 		})
-		Expect(os.MkdirAll(filepath.Join(repoRoot, "schemas"), 0755)).To(Succeed())
+		Expect(os.MkdirAll(filepath.Join(repoRoot, "schemas"), 0o755)).To(Succeed())
 		for _, name := range []string{"c.oracle", "a.oracle", "b.oracle"} {
-			Expect(os.WriteFile(filepath.Join(repoRoot, "schemas", name), []byte(""), 0644)).To(Succeed())
+			Expect(os.WriteFile(filepath.Join(repoRoot, "schemas", name), []byte(""), 0o644)).To(Succeed())
 		}
 		got := MustSucceed(pipeline.DiscoverSchemas(repoRoot))
 		Expect(got).To(Equal([]string{"schemas/a.oracle", "schemas/b.oracle", "schemas/c.oracle"}))
@@ -272,8 +270,8 @@ var _ = Describe("pipeline.DiscoverSchemas", func() {
 		})
 		write := func(rel string) {
 			abs := filepath.Join(repoRoot, rel)
-			Expect(os.MkdirAll(filepath.Dir(abs), 0755)).To(Succeed())
-			Expect(os.WriteFile(abs, []byte(""), 0644)).To(Succeed())
+			Expect(os.MkdirAll(filepath.Dir(abs), 0o755)).To(Succeed())
+			Expect(os.WriteFile(abs, []byte(""), 0o644)).To(Succeed())
 		}
 		write("schemas/x/telem.oracle")
 		write("schemas/synnax/channel.oracle")
@@ -293,8 +291,8 @@ var _ = Describe("pipeline.DiscoverSchemas", func() {
 		})
 		write := func(rel string) {
 			abs := filepath.Join(repoRoot, rel)
-			Expect(os.MkdirAll(filepath.Dir(abs), 0755)).To(Succeed())
-			Expect(os.WriteFile(abs, []byte(""), 0644)).To(Succeed())
+			Expect(os.MkdirAll(filepath.Dir(abs), 0o755)).To(Succeed())
+			Expect(os.WriteFile(abs, []byte(""), 0o644)).To(Succeed())
 		}
 		write("schemas/synnax/channel.oracle")
 		write("schemas/snapshots/v56/channel.oracle")
@@ -317,10 +315,10 @@ var _ = Describe("pipeline.DiscoverSchemas", func() {
 		}
 		repoRoot := MustSucceed(os.MkdirTemp("", "discover"))
 		locked := filepath.Join(repoRoot, "schemas", "locked")
-		Expect(os.MkdirAll(locked, 0755)).To(Succeed())
-		Expect(os.Chmod(locked, 0000)).To(Succeed())
+		Expect(os.MkdirAll(locked, 0o755)).To(Succeed())
+		Expect(os.Chmod(locked, 0o000)).To(Succeed())
 		DeferCleanup(func() {
-			Expect(os.Chmod(locked, 0755)).To(Succeed())
+			Expect(os.Chmod(locked, 0o755)).To(Succeed())
 			Expect(os.RemoveAll(repoRoot)).To(Succeed())
 		})
 

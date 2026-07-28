@@ -1062,5 +1062,4 @@ var _ = Describe("Vectorized Operations", func() {
 			Expect(telem.UnmarshalSeries[float64](output)).To(Equal([]float64{-100, -200, -300}))
 		})
 	})
-
 })

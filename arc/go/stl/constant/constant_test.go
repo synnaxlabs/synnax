@@ -93,7 +93,8 @@ var _ = Describe("Constant", func() {
 						Name:  "value",
 						Type:  types.I64(),
 						Value: 100,
-					}}},
+					}},
+				},
 				State: s.Node("const"),
 			}
 			Expect(MustSucceed(factory.Create(ctx, cfg))).ToNot(BeNil())
@@ -106,7 +107,8 @@ var _ = Describe("Constant", func() {
 						Name:  "value",
 						Type:  types.U8(),
 						Value: uint8(255),
-					}}},
+					}},
+				},
 				State: s.Node("const"),
 			}
 			Expect(MustSucceed(factory.Create(ctx, cfg))).ToNot(BeNil())

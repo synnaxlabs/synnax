@@ -125,7 +125,7 @@ func (db *DB) ControlStates() (u ControlUpdate) {
 	db.mu.RLock()
 	defer db.mu.RUnlock()
 	if !db.digestsConfigured() {
-		return
+		return u
 	}
 	u.Transfers = make([]control.Transfer, 0, len(db.mu.dbs.unary)+len(db.mu.dbs.virtual))
 	for _, d := range db.mu.dbs.unary {

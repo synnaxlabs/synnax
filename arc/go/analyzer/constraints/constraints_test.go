@@ -131,7 +131,8 @@ var _ = Describe("Constraint System", func() {
 			var (
 				tv    = types.Variable("T", nil)
 				props = types.FunctionProperties{
-					Outputs: types.Params{{Name: "result", Type: tv}}}
+					Outputs: types.Params{{Name: "result", Type: tv}},
+				}
 				fnType = types.Function(props)
 			)
 			system.Substitutions["T"] = types.I64()
@@ -146,7 +147,8 @@ var _ = Describe("Constraint System", func() {
 			var (
 				tv    = types.Variable("T", nil)
 				props = types.FunctionProperties{
-					Inputs: types.Params{{Name: "threshold", Type: tv}}}
+					Inputs: types.Params{{Name: "threshold", Type: tv}},
+				}
 				fnType = types.Function(props)
 			)
 			system.Substitutions["T"] = types.F64()

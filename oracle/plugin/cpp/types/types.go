@@ -698,7 +698,7 @@ func (p *Plugin) processTypeParam(tp resolution.TypeParam, data *templateData) t
 // the C++ type string and the underlying primitive type (if any).
 // Returns empty string if no explicit default is needed (e.g., for types with
 // proper default constructors like std::string, std::vector, std::optional).
-func cppDefaultValue(cppType string, underlyingPrimitive string) string {
+func cppDefaultValue(cppType, underlyingPrimitive string) string {
 	if strings.Contains(cppType, "::telem::TimeStamp") {
 		return "x::telem::TimeStamp(0)"
 	}

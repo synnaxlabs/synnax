@@ -1020,7 +1020,6 @@ var _ = Describe("Graph", func() {
 					_, diagnostics := graph.Analyze(ctx, g, NewGraphRoot(nil))
 					Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 				})
-
 			})
 		})
 
@@ -1132,7 +1131,6 @@ var _ = Describe("Graph", func() {
 					"node 'n1' function type must be a string, got int"),
 			)
 		})
-
 	})
 
 	Describe("Qualified Module Names", func() {
@@ -1275,6 +1273,5 @@ var _ = Describe("Graph", func() {
 			Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 			Expect(inter.Nodes).To(HaveLen(2))
 		})
-
 	})
 })

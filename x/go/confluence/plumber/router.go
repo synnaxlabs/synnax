@@ -79,7 +79,7 @@ func (m MultiRouter[V]) MustRoute(p *Pipeline) {
 
 func (m MultiRouter[V]) linear(p *Pipeline) error {
 	stream := cfs.NewStream[V](m.Capacity)
-	return m.iterAddresses(func(from address.Address, to address.Address) error {
+	return m.iterAddresses(func(from, to address.Address) error {
 		return route(p, from, to, stream)
 	})
 }

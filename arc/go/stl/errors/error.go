@@ -56,7 +56,7 @@ func NewHost(ctx context.Context, rt wazero.Runtime, memory api.Memory) (*Host, 
 	}
 	builder := rt.NewHostModuleBuilder(name)
 	builder = builder.NewFunctionBuilder().
-		WithFunc(func(_ context.Context, ptr uint32, length uint32) {
+		WithFunc(func(_ context.Context, ptr, length uint32) {
 			if h.memory == nil {
 				panic("arc panic (memory not set)")
 			}

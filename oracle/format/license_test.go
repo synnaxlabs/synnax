@@ -30,8 +30,8 @@ var _ = Describe("License", func() {
 		DeferCleanup(func() {
 			Expect(os.RemoveAll(repoRoot)).To(Succeed())
 		})
-		Expect(os.MkdirAll(filepath.Join(repoRoot, "licenses", "headers"), 0755)).To(Succeed())
-		Expect(os.WriteFile(filepath.Join(repoRoot, "licenses/headers/template.txt"), []byte(fakeTemplate), 0644)).To(Succeed())
+		Expect(os.MkdirAll(filepath.Join(repoRoot, "licenses", "headers"), 0o755)).To(Succeed())
+		Expect(os.WriteFile(filepath.Join(repoRoot, "licenses/headers/template.txt"), []byte(fakeTemplate), 0o644)).To(Succeed())
 	})
 
 	It("Should prepend a slash header to a Go file with no header", func(ctx SpecContext) {

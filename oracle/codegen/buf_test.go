@@ -31,13 +31,13 @@ func fixture() string {
 	DeferCleanup(func() {
 		Expect(os.RemoveAll(root)).To(Succeed())
 	})
-	Expect(os.MkdirAll(filepath.Join(root, "x"), 0755)).To(Succeed())
-	Expect(os.WriteFile(filepath.Join(root, "buf.yaml"), []byte("version: v2\n"), 0644)).To(Succeed())
-	Expect(os.WriteFile(filepath.Join(root, "buf.gen.yaml"), []byte("version: v2\n"), 0644)).To(Succeed())
+	Expect(os.MkdirAll(filepath.Join(root, "x"), 0o755)).To(Succeed())
+	Expect(os.WriteFile(filepath.Join(root, "buf.yaml"), []byte("version: v2\n"), 0o644)).To(Succeed())
+	Expect(os.WriteFile(filepath.Join(root, "buf.gen.yaml"), []byte("version: v2\n"), 0o644)).To(Succeed())
 	Expect(os.WriteFile(
 		filepath.Join(root, "x", "a.proto"),
 		[]byte(`syntax = "proto3";`+"\n"+`package x;`+"\n"),
-		0644,
+		0o644,
 	)).To(Succeed())
 	return root
 }
@@ -68,7 +68,7 @@ var _ = Describe("RunBufGenerate", func() {
 		Expect(os.WriteFile(
 			filepath.Join(root, "x", "a.proto"),
 			[]byte(`syntax = "proto3";`+"\n"+`package x;`+"\n"+`message M {}`+"\n"),
-			0644,
+			0o644,
 		)).To(Succeed())
 
 		result := MustSucceed(codegen.RunBufGenerate(ctx, root, nil, cache))

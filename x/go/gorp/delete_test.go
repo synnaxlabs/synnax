@@ -80,6 +80,5 @@ var _ = Describe("Delete", func() {
 				}).Exec(ctx, tx)).To(MatchError(validate.ErrValidation))
 			Expect(gorp.NewRetrieve[int32, entry]().Where(gorp.MatchKeys[int32, entry](22)).Exists(ctx, tx)).To(BeTrue())
 		})
-
 	})
 })

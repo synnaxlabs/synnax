@@ -206,7 +206,6 @@ var _ = Describe("ImEx", func() {
 					MatchError(ContainSubstring("decode envelope body")),
 				)
 			})
-
 		})
 
 		Describe("Encode", func() {

@@ -18,9 +18,7 @@ import (
 )
 
 var _ = Describe("Testutil", func() {
-	var (
-		rt *testutil.Runtime
-	)
+	var rt *testutil.Runtime
 
 	BeforeEach(func(ctx SpecContext) {
 		rt = testutil.NewRuntime(ctx)

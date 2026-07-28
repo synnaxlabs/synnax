@@ -226,5 +226,4 @@ var _ = Describe("Dispatch", Ordered, func() {
 			})
 		})
 	})
-
 })

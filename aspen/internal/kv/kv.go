@@ -54,7 +54,7 @@ func (d *DB) Set(
 		return err
 	}
 	err = b.Commit(ctx)
-	return
+	return err
 }
 
 func (d *DB) Delete(
@@ -68,7 +68,7 @@ func (d *DB) Delete(
 		return err
 	}
 	err = b.Commit(ctx)
-	return
+	return err
 }
 
 func (d *DB) OpenTx() xkv.Tx {

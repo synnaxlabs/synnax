@@ -1656,7 +1656,7 @@ var _ = Describe("Statement Compiler", func() {
 	})
 
 	Describe("Chan-typed Input Parameter Operations", func() {
-		compileWithChanInput := func(bCtx SpecContext, source string, inputName string, inputType types.Type) []byte {
+		compileWithChanInput := func(bCtx SpecContext, source, inputName string, inputType types.Type) []byte {
 			block := MustSucceed(parser.ParseBlock("{" + source + "}"))
 			aCtx := acontext.NewRoot(bCtx, block, NewRoot(nil))
 			fnScope := MustSucceed(aCtx.Scope.Add(aCtx, symbol.Symbol{

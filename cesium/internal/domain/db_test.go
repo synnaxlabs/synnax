@@ -69,7 +69,6 @@ var _ = Describe("DB", func() {
 					Expect(db.Close()).To(MatchError(resource.ErrOpen))
 					Expect(w.Close()).To(Succeed())
 					Expect(db.Close()).To(Succeed())
-
 				})
 			})
 

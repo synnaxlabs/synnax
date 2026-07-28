@@ -70,7 +70,7 @@ func WriteConfig() error {
 		return nil
 	}
 	dir := ConfigDir()
-	if err := os.MkdirAll(dir, 0755); err != nil {
+	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return err
 	}
 
@@ -87,7 +87,7 @@ func WriteConfig() error {
 	if err != nil {
 		return err
 	}
-	return os.WriteFile(ConfigPath(), data, 0644)
+	return os.WriteFile(ConfigPath(), data, 0o644)
 }
 
 // Is returns true if the current process is running as a Windows Service.
@@ -192,7 +192,6 @@ func uninstall() (err error) {
 		err = errors.Combine(err, errors.Wrapf(s.Close(), "failed to close %s handle", name))
 	}()
 	return errors.Wrapf(s.Delete(), "failed to delete %s", name)
-
 }
 
 func start() (err error) {

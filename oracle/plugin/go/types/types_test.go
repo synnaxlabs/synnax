@@ -114,7 +114,6 @@ var _ = Describe("Go Types Plugin", func() {
 				Expect(content).To(ContainSubstring("Labels []uuid.UUID `json:\"labels,omitzero\" msgpack:\"labels,omitzero\"`"))
 				Expect(content).To(ContainSubstring("Tags []string `json:\"tags,omitzero\" msgpack:\"tags,omitzero\"`"))
 			})
-
 		})
 
 		Context("naming conventions", func() {
@@ -172,7 +171,6 @@ var _ = Describe("Go Types Plugin", func() {
 				Expect(content).To(ContainSubstring(`json:"ir"`))
 				Expect(content).To(ContainSubstring(`json:"cpu_id"`))
 			})
-
 		})
 
 		Context("primitive type mappings", func() {
@@ -370,7 +368,6 @@ var _ = Describe("Go Types Plugin", func() {
 				content := string(resp.Files[0].Content)
 				Expect(content).NotTo(ContainSubstring(`import (`))
 			})
-
 		})
 
 		Context("documentation", func() {
@@ -409,7 +406,6 @@ var _ = Describe("Go Types Plugin", func() {
 				// first_name has no doc, so no comment for it
 				Expect(content).NotTo(ContainSubstring(`// FirstName`))
 			})
-
 		})
 
 		Context("enums", func() {
@@ -605,7 +601,6 @@ var _ = Describe("Go Types Plugin", func() {
 				Expect(content).To(ContainSubstring(`func (a AxisKey) IsValid() bool {`))
 				Expect(content).To(ContainSubstring(`type YAxisKey string`))
 			})
-
 		})
 
 		Context("map types", func() {
@@ -631,7 +626,6 @@ var _ = Describe("Go Types Plugin", func() {
 				Expect(content).To(ContainSubstring(`Settings map[string]string`))
 				Expect(content).To(ContainSubstring(`Counts map[string]int32`))
 			})
-
 		})
 
 		Context("generics", func() {
@@ -703,7 +697,6 @@ var _ = Describe("Go Types Plugin", func() {
 				Expect(content).To(ContainSubstring(`type Container[K comparable] struct {`))
 				Expect(content).To(ContainSubstring(`Key K`))
 			})
-
 		})
 
 		Context("type aliases", func() {
@@ -796,7 +789,6 @@ var _ = Describe("Go Types Plugin", func() {
 				Expect(content).To(ContainSubstring(`// Key is the unique identifier for the label.`))
 				Expect(content).To(ContainSubstring(`type Key =`))
 			})
-
 		})
 
 		Context("type references", func() {
@@ -919,7 +911,6 @@ var _ = Describe("Go Types Plugin", func() {
 				Expect(taskContent).To(ContainSubstring(`"github.com/synnaxlabs/synnax/core/status"`))
 				Expect(taskContent).To(ContainSubstring(`Variant status.Variant`))
 			})
-
 		})
 
 		Context("struct embedding (extends)", func() {
@@ -1251,7 +1242,6 @@ var _ = Describe("Go Types Plugin", func() {
 				// shared should NOT be present (omitted)
 				Expect(content).NotTo(MatchRegexp(`C struct \{[^}]*Shared`))
 			})
-
 		})
 
 		Context("declaration ordering", func() {
@@ -1416,7 +1406,6 @@ var _ = Describe("Go Types Plugin", func() {
 				Expect(content).To(ContainSubstring("Settings map[string]string `json:\"settings,omitzero\" msgpack:\"settings,omitzero\"`"))
 				Expect(content).To(ContainSubstring("Blob []byte `json:\"blob\" msgpack:\"blob\"`"))
 			})
-
 		})
 
 		Context("regression tests", func() {
@@ -1635,7 +1624,6 @@ var _ = Describe("Go Types Plugin", func() {
 				Expect(content).To(ContainSubstring("\tIR\n"))
 				Expect(content).NotTo(ContainSubstring("\tInternalIR\n"))
 			})
-
 		})
 
 		Context("extra fields and imports", func() {
@@ -2859,8 +2847,8 @@ var _ = Describe("Frozen Predecessor Baseline", func() {
 		resp := MustGenerate(ctx, oldSource, "test", loader, goPlugin)
 		content := MustContentOf(resp, path)
 		abs := filepath.Join(tmpDir, path)
-		Expect(os.MkdirAll(filepath.Dir(abs), 0755)).To(Succeed())
-		Expect(os.WriteFile(abs, []byte(content), 0644)).To(Succeed())
+		Expect(os.MkdirAll(filepath.Dir(abs), 0o755)).To(Succeed())
+		Expect(os.WriteFile(abs, []byte(content), 0o644)).To(Succeed())
 	}
 
 	const oldSource = `
@@ -2937,7 +2925,7 @@ var _ = Describe("Frozen Predecessor Baseline", func() {
 			"Name string `json:\"name,omitempty\" msgpack:\"name,omitempty\"`",
 			1,
 		)
-		Expect(os.WriteFile(abs, []byte(drifted), 0644)).To(Succeed())
+		Expect(os.WriteFile(abs, []byte(drifted), 0o644)).To(Succeed())
 		resp := MustGenerate(ctx, newSource, "test", loader, goPlugin)
 		ExpectContent(resp, "out/versions/v1/types.gen.go").
 			ToContain("type Stable struct", "type Mode = v0.Mode").
@@ -2952,7 +2940,7 @@ var _ = Describe("Frozen Predecessor Baseline", func() {
 		abs := filepath.Join(tmpDir, "out/versions/v0/types.gen.go")
 		appended := string(MustSucceed(os.ReadFile(abs))) +
 			"\nfunc (s Stable) GorpKey() string { return s.Name }\n"
-		Expect(os.WriteFile(abs, []byte(appended), 0644)).To(Succeed())
+		Expect(os.WriteFile(abs, []byte(appended), 0o644)).To(Succeed())
 		resp := MustGenerate(ctx, newSource, "test", loader, goPlugin)
 		ExpectContent(resp, "out/versions/v1/types.gen.go").
 			ToContain("type Stable = v0.Stable").
@@ -2961,11 +2949,11 @@ var _ = Describe("Frozen Predecessor Baseline", func() {
 
 	It("Should alias against a fully hand-written predecessor package", func(ctx SpecContext) {
 		v0Dir := filepath.Join(tmpDir, "out/versions/v0")
-		Expect(os.MkdirAll(v0Dir, 0755)).To(Succeed())
+		Expect(os.MkdirAll(v0Dir, 0o755)).To(Succeed())
 		Expect(os.WriteFile(filepath.Join(v0Dir, "out.go"), []byte(
 			"package v0\n\ntype Key uint64\n\n"+
 				"func (k Key) String() string { return \"\" }\n",
-		), 0644)).To(Succeed())
+		), 0o644)).To(Succeed())
 		resp := MustGenerate(ctx, `
 			@go output "out"
 			Key uint64 {
@@ -3015,18 +3003,18 @@ var _ = Describe("Frozen Predecessor Baseline", func() {
 		// v0 defines Key by hand; frozen v1 aliases it; the candidate v2 must
 		// alias v1 rather than re-defining Key.
 		v0Dir := filepath.Join(tmpDir, "out/versions/v0")
-		Expect(os.MkdirAll(v0Dir, 0755)).To(Succeed())
+		Expect(os.MkdirAll(v0Dir, 0o755)).To(Succeed())
 		Expect(os.WriteFile(filepath.Join(v0Dir, "out.go"), []byte(
 			"package v0\n\ntype Key uint64\n",
-		), 0644)).To(Succeed())
+		), 0o644)).To(Succeed())
 		v1Dir := filepath.Join(tmpDir, "out/versions/v1")
-		Expect(os.MkdirAll(v1Dir, 0755)).To(Succeed())
+		Expect(os.MkdirAll(v1Dir, 0o755)).To(Succeed())
 		Expect(os.WriteFile(filepath.Join(v1Dir, "types.gen.go"), []byte(
 			"package v1\n\nimport v0 \"github.com/synnaxlabs/synnax/out/versions/v0\"\n\n"+
 				"type Key = v0.Key\n\ntype Entry struct {\n"+
 				"\tKey Key `json:\"key\" msgpack:\"key\"`\n"+
 				"\tName string `json:\"name\" msgpack:\"name\"`\n}\n",
-		), 0644)).To(Succeed())
+		), 0o644)).To(Succeed())
 		resp := MustGenerate(ctx, `
 			@go output "out"
 			Key uint64 {

@@ -165,7 +165,7 @@ func (idx *index) searchLE(ctx context.Context, ts telem.TimeStamp) (i int) {
 		i, _ = idx.unprotectedSearch(ts.SpanRange(0))
 	})
 	span.End()
-	return
+	return i
 }
 
 func (idx *index) searchGE(ctx context.Context, ts telem.TimeStamp) (i int) {
@@ -182,7 +182,7 @@ func (idx *index) searchGE(ctx context.Context, ts telem.TimeStamp) (i int) {
 		}
 	})
 	span.End()
-	return
+	return i
 }
 
 func (idx *index) getGE(ctx context.Context, ts telem.TimeStamp) (ptr pointer, ok bool) {

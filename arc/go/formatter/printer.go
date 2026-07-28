@@ -140,7 +140,7 @@ func (p *printer) isLastTokenOnLine(tok antlr.Token, idx int, tokens []antlr.Tok
 	return nextTok.GetLine() != tokLine
 }
 
-func (p *printer) separateTokens(tokens []antlr.Token) (visible []antlr.Token, comments []antlr.Token) {
+func (p *printer) separateTokens(tokens []antlr.Token) (visible, comments []antlr.Token) {
 	for _, tok := range tokens {
 		switch tok.GetTokenType() {
 		case parser.ArcLexerSINGLE_LINE_COMMENT, parser.ArcLexerMULTI_LINE_COMMENT:
@@ -151,7 +151,7 @@ func (p *printer) separateTokens(tokens []antlr.Token) (visible []antlr.Token, c
 			visible = append(visible, tok)
 		}
 	}
-	return
+	return visible, comments
 }
 
 func (p *printer) emitLeadingCommentsPreFetched(comments []antlr.Token) {
@@ -1094,7 +1094,7 @@ func (p *printer) inCollapsedImportParen() bool {
 		p.importCollapseDepths.Contains(len(p.parenContextStack))
 }
 
-func (p *printer) needsNewlineAfter(tokType int, idx int, tokens []antlr.Token) bool {
+func (p *printer) needsNewlineAfter(tokType, idx int, tokens []antlr.Token) bool {
 	if idx+1 >= len(tokens) {
 		return false
 	}

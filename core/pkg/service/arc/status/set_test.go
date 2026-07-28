@@ -146,7 +146,6 @@ var _ = Describe("Symbols", func() {
 				Expect(sym.Type.Outputs[0].Type).To(Equal(types.String()))
 			})
 		})
-
 	})
 })
 

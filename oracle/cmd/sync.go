@@ -180,7 +180,7 @@ func writeSchemaSources(result *pipeline.Result, repoRoot string) (int, error) {
 			continue
 		}
 		abs := paths.Resolve(rel, repoRoot)
-		if err := os.WriteFile(abs, canonical, 0644); err != nil {
+		if err := os.WriteFile(abs, canonical, 0o644); err != nil {
 			return formatted, errors.Wrapf(err, "failed to write %s", abs)
 		}
 		formatted++
@@ -296,10 +296,10 @@ func syncOutputs(
 				mu.Unlock()
 				return nil
 			}
-			if err := os.MkdirAll(filepath.Dir(p.AbsPath), 0755); err != nil {
+			if err := os.MkdirAll(filepath.Dir(p.AbsPath), 0o755); err != nil {
 				return errors.Wrapf(err, "mkdir %s", filepath.Dir(p.AbsPath))
 			}
-			if err := os.WriteFile(p.AbsPath, canonical, 0644); err != nil {
+			if err := os.WriteFile(p.AbsPath, canonical, 0o644); err != nil {
 				return errors.Wrapf(err, "write %s", p.AbsPath)
 			}
 			mu.Lock()

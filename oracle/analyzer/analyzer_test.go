@@ -40,9 +40,7 @@ func domainExprNames(d resolution.Domain) []string {
 }
 
 var _ = Describe("Analyzer", func() {
-	var (
-		loader *MockFileLoader
-	)
+	var loader *MockFileLoader
 
 	BeforeEach(func() {
 		loader = NewMockFileLoader()

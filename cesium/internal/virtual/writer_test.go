@@ -100,7 +100,6 @@ var _ = Describe("Write", func() {
 				t = MustSucceed(w.Close())
 				Expect(t.Occurred()).To(BeTrue())
 			})
-
 		})
 
 		Describe("Close", func() {
@@ -129,7 +128,6 @@ var _ = Describe("Write", func() {
 				Expect(w.Write(telem.NewSeriesSecondsTSV(10, 11, 12))).
 					Error().To(MatchError(virtual.ErrWriterClosed))
 			})
-
 		})
 
 		Describe("FS Interaction", func() {

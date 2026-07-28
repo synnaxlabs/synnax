@@ -271,7 +271,6 @@ var _ = Describe("Writer", func() {
 			Expect(parents).To(BeEmpty())
 		})
 	})
-
 })
 
 var _ = Describe("Retrieve", func() {

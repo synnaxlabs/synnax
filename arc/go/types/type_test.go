@@ -180,7 +180,6 @@ var _ = Describe("Types", func() {
 			result := types.FromTelem(telem.UnknownT)
 			Expect(result.Kind).To(Equal(types.KindInvalid))
 		})
-
 	})
 
 	Describe("StructuralMatch", func() {

@@ -829,7 +829,6 @@ var _ = Describe("Calculator", Ordered, func() {
 	})
 
 	Describe("Group", func() {
-
 		It("Should aggregate ReadFrom keys from all calculators", func(ctx SpecContext) {
 			idx := []channel.Channel{{Name: UniqueChannelName(), DataType: telem.TimeStampT, IsIndex: true}}
 			b1 := []channel.Channel{{Name: UniqueChannelName(), DataType: telem.Int64T}}

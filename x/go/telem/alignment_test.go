@@ -28,6 +28,7 @@ var _ = Describe("NewAlignment", func() {
 		Expect(uint64(telem.NewAlignment(0, 0))).To(Equal(uint64(0)))
 	})
 })
+
 var _ = Describe("Alignment", func() {
 	Describe("DomainIndex", func() {
 		It("Should return the domain index held in the upper 32 bits", func() {

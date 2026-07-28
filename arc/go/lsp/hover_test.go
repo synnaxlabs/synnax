@@ -34,7 +34,7 @@ var _ = Describe("Hover", func() {
 	})
 
 	DescribeTable("keyword hover",
-		func(ctx SpecContext, content string, char uint32, expectedTitle string, expectedSubstring string) {
+		func(ctx SpecContext, content string, char uint32, expectedTitle, expectedSubstring string) {
 			OpenArcDocument(server, ctx, uri, content)
 			hover := Hover(server, ctx, uri, 0, char)
 			Expect(hover).ToNot(BeNil())
@@ -704,9 +704,11 @@ func add(a i32, b i32) i32 {
 	Describe("GlobalResolver", func() {
 		It("should provide hover for global variables from GlobalResolver", func(ctx SpecContext) {
 			server = MustSucceed(lsp.New(lsp.Config{NewRoot: func() *symbol.Symbol {
-				return NewRoot(nil, symbol.Symbol{Name: "myGlobal",
+				return NewRoot(nil, symbol.Symbol{
+					Name: "myGlobal",
 					Type: types.I32(),
-					Kind: symbol.KindVariable})
+					Kind: symbol.KindVariable,
+				})
 			}}))
 			server.SetClient(&MockClient{})
 
@@ -929,9 +931,11 @@ func add(a i32, b i32) i32 {
 
 		It("should tokenize channel variables as channel type", func(ctx SpecContext) {
 			server = MustSucceed(lsp.New(lsp.Config{NewRoot: func() *symbol.Symbol {
-				return NewRoot(nil, symbol.Symbol{Name: "sensorData",
+				return NewRoot(nil, symbol.Symbol{
+					Name: "sensorData",
 					Type: types.Chan(types.F64()),
-					Kind: symbol.KindChannel})
+					Kind: symbol.KindChannel,
+				})
 			}}))
 			server.SetClient(&MockClient{})
 

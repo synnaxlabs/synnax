@@ -54,7 +54,7 @@ func (ams *AbstractMultiSource[V]) SendToEachWithTimeout(
 	t time.Duration,
 	timer *time.Timer,
 ) error {
-	var timedOutInlet = -1
+	timedOutInlet := -1
 	for i, inlet := range ams.Out {
 		select {
 		case <-ctx.Done():
@@ -139,7 +139,6 @@ func (aas *AbstractAddressableSource[O]) SendToEach(ctx context.Context, v O) er
 		}
 	}
 	return nil
-
 }
 
 // CloseInlets closes all Inlet(sink) provided to AbstractAddressableSource.OutTo.

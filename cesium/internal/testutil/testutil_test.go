@@ -95,7 +95,6 @@ var _ = Describe("Test Util Test", func() {
 					subsubsub1list := lo.Map(MustSucceed(sub1.List("subsub1/subsubsub1")), infoToName)
 					subsubsub2list := lo.Map(MustSucceed(sub2.List("subsub1/subsubsub1")), infoToName)
 					Expect(subsubsub1list).To(Equal(subsubsub2list))
-
 				})
 			})
 		}

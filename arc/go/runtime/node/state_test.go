@@ -819,7 +819,6 @@ var _ = Describe("ProgramState", func() {
 				Expect(combiner.RefreshInputs()).To(BeFalse())
 			})
 		})
-
 	})
 
 	Describe("Optional Input Parameters", func() {
@@ -1994,7 +1993,6 @@ var _ = Describe("ProgramState", func() {
 			Expect(node.NumericInput[uint8](build().Node("c"), "nope")).To(BeZero())
 		})
 	})
-
 })
 
 // newLinkedState builds src (i32 output) -> dst (i32 input) and returns the state.

@@ -25,8 +25,10 @@ var numConstraint = types.NumericConstraint()
 
 func tv() types.Type { return types.Variable("T", &numConstraint) }
 
-var i32 = types.I32()
-var i64 = types.I64()
+var (
+	i32 = types.I32()
+	i64 = types.I64()
+)
 
 var lenDoc = doc.New(
 	doc.Paragraph("Returns the length of a series or string as i64."),
@@ -165,7 +167,7 @@ func NewHost(
 			return 0
 		}).Export("len")
 	builder = builder.NewFunctionBuilder().
-		WithFunc(func(_ context.Context, handle uint32, start uint32, end uint32) uint32 {
+		WithFunc(func(_ context.Context, handle, start, end uint32) uint32 {
 			ser, ok := s.Get(handle)
 			if !ok {
 				return 0
@@ -253,7 +255,7 @@ func bindI32Type[T i32Scalar](
 			return s.Store(telem.MakeSeries(dt, int(length)))
 		}).Export("create_empty_" + suffix)
 	builder = builder.NewFunctionBuilder().
-		WithFunc(func(_ context.Context, handle uint32, index uint32, value uint32) uint32 {
+		WithFunc(func(_ context.Context, handle, index, value uint32) uint32 {
 			if ser, ok := s.Get(handle); ok {
 				if int64(index) < ser.Len() {
 					telem.SetValueAt[T](ser, int(index), T(value))
@@ -262,7 +264,7 @@ func bindI32Type[T i32Scalar](
 			return handle
 		}).Export("set_element_" + suffix)
 	builder = builder.NewFunctionBuilder().
-		WithFunc(func(_ context.Context, handle uint32, index uint32) uint32 {
+		WithFunc(func(_ context.Context, handle, index uint32) uint32 {
 			if ser, ok := s.Get(handle); ok {
 				if int64(index) < ser.Len() {
 					return uint32(telem.ValueAt[T](ser, int(index)))
@@ -299,7 +301,7 @@ func bindElementOpsI32[T i32Scalar](
 	} {
 		fn := entry.fn
 		builder = builder.NewFunctionBuilder().
-			WithFunc(func(_ context.Context, handle uint32, scalar uint32) uint32 {
+			WithFunc(func(_ context.Context, handle, scalar uint32) uint32 {
 				ser, ok := s.Get(handle)
 				if !ok {
 					return 0
@@ -319,7 +321,7 @@ func bindElementOpsI32[T i32Scalar](
 	} {
 		fn := entry.fn
 		builder = builder.NewFunctionBuilder().
-			WithFunc(func(_ context.Context, scalar uint32, handle uint32) uint32 {
+			WithFunc(func(_ context.Context, scalar, handle uint32) uint32 {
 				ser, ok := s.Get(handle)
 				if !ok {
 					return 0
@@ -331,7 +333,7 @@ func bindElementOpsI32[T i32Scalar](
 	}
 	// Reverse add and mul are commutative - reuse add/mul scalar ops
 	builder = builder.NewFunctionBuilder().
-		WithFunc(func(_ context.Context, scalar uint32, handle uint32) uint32 {
+		WithFunc(func(_ context.Context, scalar, handle uint32) uint32 {
 			ser, ok := s.Get(handle)
 			if !ok {
 				return 0
@@ -341,7 +343,7 @@ func bindElementOpsI32[T i32Scalar](
 			return s.Store(result)
 		}).Export("element_radd_" + suffix)
 	builder = builder.NewFunctionBuilder().
-		WithFunc(func(_ context.Context, scalar uint32, handle uint32) uint32 {
+		WithFunc(func(_ context.Context, scalar, handle uint32) uint32 {
 			ser, ok := s.Get(handle)
 			if !ok {
 				return 0
@@ -372,7 +374,7 @@ func bindCompareScalarI32[T i32Scalar](
 	} {
 		fn := entry.fn
 		builder = builder.NewFunctionBuilder().
-			WithFunc(func(_ context.Context, handle uint32, scalar uint32) uint32 {
+			WithFunc(func(_ context.Context, handle, scalar uint32) uint32 {
 				ser, ok := s.Get(handle)
 				if !ok {
 					return 0
@@ -405,7 +407,7 @@ func bindSeriesOps[T any](
 		fn := entry.fn
 		opName := entry.op
 		builder = builder.NewFunctionBuilder().
-			WithFunc(func(_ context.Context, h1 uint32, h2 uint32) uint32 {
+			WithFunc(func(_ context.Context, h1, h2 uint32) uint32 {
 				s1, ok1 := s.Get(h1)
 				s2, ok2 := s.Get(h2)
 				if !ok1 || !ok2 {
@@ -441,7 +443,7 @@ func bindCompareOps[T any](
 	} {
 		fn := entry.fn
 		builder = builder.NewFunctionBuilder().
-			WithFunc(func(_ context.Context, h1 uint32, h2 uint32) uint32 {
+			WithFunc(func(_ context.Context, h1, h2 uint32) uint32 {
 				s1, ok1 := s.Get(h1)
 				s2, ok2 := s.Get(h2)
 				if !ok1 || !ok2 {
@@ -490,7 +492,7 @@ func bindI64Type[T uint64 | int64](
 			return s.Store(telem.MakeSeries(dt, int(length)))
 		}).Export("create_empty_" + suffix)
 	builder = builder.NewFunctionBuilder().
-		WithFunc(func(_ context.Context, handle uint32, index uint32, value uint64) uint32 {
+		WithFunc(func(_ context.Context, handle, index uint32, value uint64) uint32 {
 			if ser, ok := s.Get(handle); ok {
 				if int64(index) < ser.Len() {
 					telem.SetValueAt[T](ser, int(index), T(value))
@@ -499,7 +501,7 @@ func bindI64Type[T uint64 | int64](
 			return handle
 		}).Export("set_element_" + suffix)
 	builder = builder.NewFunctionBuilder().
-		WithFunc(func(_ context.Context, handle uint32, index uint32) uint64 {
+		WithFunc(func(_ context.Context, handle, index uint32) uint64 {
 			if ser, ok := s.Get(handle); ok {
 				if int64(index) < ser.Len() {
 					return uint64(telem.ValueAt[T](ser, int(index)))
@@ -618,7 +620,7 @@ func bindFloatType[T float32 | float64](
 			return s.Store(telem.MakeSeries(dt, int(length)))
 		}).Export("create_empty_" + suffix)
 	builder = builder.NewFunctionBuilder().
-		WithFunc(func(_ context.Context, handle uint32, index uint32, value T) uint32 {
+		WithFunc(func(_ context.Context, handle, index uint32, value T) uint32 {
 			if ser, ok := s.Get(handle); ok {
 				if int64(index) < ser.Len() {
 					telem.SetValueAt[T](ser, int(index), value)
@@ -627,7 +629,7 @@ func bindFloatType[T float32 | float64](
 			return handle
 		}).Export("set_element_" + suffix)
 	builder = builder.NewFunctionBuilder().
-		WithFunc(func(_ context.Context, handle uint32, index uint32) T {
+		WithFunc(func(_ context.Context, handle, index uint32) T {
 			if ser, ok := s.Get(handle); ok {
 				if int64(index) < ser.Len() {
 					return telem.ValueAt[T](ser, int(index))
