@@ -15,7 +15,6 @@ import { type ReactElement, useCallback } from "react";
 
 import { Stages } from "@/feature/arc/editor/toolbar/graph/Nodes";
 import { Properties } from "@/feature/arc/editor/toolbar/graph/Properties";
-import { useExport } from "@/feature/arc/export";
 import { Cluster } from "@/platform/cluster";
 import { CSS } from "@/platform/css";
 import { Export } from "@/platform/export";
@@ -59,7 +58,6 @@ export const Toolbar = (): ReactElement | null => {
   const singleNodeKey = selected.length === 1 ? selected[0] : "";
   const singleConfig = Arc.useSelectNodeConfig({ nodeKey: singleNodeKey });
   const name = Arc.useSelectName();
-  const handleExport = useExport();
   const selectedName =
     singleConfig != null
       ? (Arc.Graph.Node.REGISTRY[singleConfig.type]?.name ?? null)
@@ -88,7 +86,7 @@ export const Toolbar = (): ReactElement | null => {
         </Breadcrumb.Breadcrumb>
         <Flex.Box x align="center" empty>
           <Flex.Box x empty className={CSS.BE("arc-toolbar", "actions")}>
-            <Export.ToolbarButton onExport={() => handleExport(key)} />
+            <Export.ToolbarButton getID={() => arc.ontologyID(key)} />
             <Cluster.CopyLinkToolbarButton
               name={name}
               ontologyID={arc.ontologyID(key)}

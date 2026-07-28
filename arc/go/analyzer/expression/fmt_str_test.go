@@ -25,6 +25,7 @@ import (
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/diagnostics"
 	. "github.com/synnaxlabs/x/testutil"
+	"go.lsp.dev/protocol"
 )
 
 var _ = Describe("Format String Analyzer Diagnostics", func() {
@@ -49,7 +50,7 @@ var _ = Describe("Format String Analyzer Diagnostics", func() {
 	findError := func(diags diagnostics.Diagnostics, substr string) *diagnostics.Diagnostic {
 		for i := range diags {
 			d := diags[i]
-			if d.Severity == diagnostics.SeverityError && strings.Contains(d.Message, substr) {
+			if d.Severity == protocol.DiagnosticSeverityError && strings.Contains(d.Message, substr) {
 				return &d
 			}
 		}
@@ -59,7 +60,7 @@ var _ = Describe("Format String Analyzer Diagnostics", func() {
 	countErrors := func(diags diagnostics.Diagnostics, substr string) int {
 		n := 0
 		for _, d := range diags {
-			if d.Severity == diagnostics.SeverityError && strings.Contains(d.Message, substr) {
+			if d.Severity == protocol.DiagnosticSeverityError && strings.Contains(d.Message, substr) {
 				n++
 			}
 		}
@@ -142,10 +143,10 @@ trig -> f{}`
 			d := findError(diags, `placeholder "undeclared"`)
 			Expect(d).ToNot(BeNil(),
 				"expected a placeholder type diagnostic naming \"undeclared\"; got:\n%s", diags.String())
-			Expect(d.Start.Line).To(Equal(2))
-			Expect(d.End.Line).To(Equal(2))
-			Expect(d.Start.Col).To(Equal(16), "span should start at the '{' column")
-			Expect(d.End.Col).To(Equal(28), "span should end one past the '}' column")
+			Expect(d.Range.Start.Line).To(Equal(uint32(1)))
+			Expect(d.Range.End.Line).To(Equal(uint32(1)))
+			Expect(d.Range.Start.Character).To(Equal(uint32(16)), "span should start at the '{' column")
+			Expect(d.Range.End.Character).To(Equal(uint32(28)), "span should end one past the '}' column")
 		})
 	})
 
@@ -282,11 +283,11 @@ trig -> f{}`
 		It("anchors a placeholder spec error on the same line as the literal", func(specCtx SpecContext) {
 			code := "func f() {\n    log = f\"{chStr:d}\"\n}\ntrig -> f{}"
 			d := expectError(specCtx, code, "invalid format spec")
-			Expect(d.Start.Line).To(Equal(2),
-				"expected diagnostic on line 2, got line %d (col %d)", d.Start.Line, d.Start.Col)
-			Expect(d.End.Line).To(BeNumerically(">=", d.Start.Line))
-			if d.End.Line == d.Start.Line {
-				Expect(d.End.Col).To(BeNumerically(">", d.Start.Col),
+			Expect(d.Range.Start.Line).To(Equal(uint32(1)),
+				"expected diagnostic on line 2, got line %d (col %d)", d.Range.Start.Line, d.Range.Start.Character)
+			Expect(d.Range.End.Line).To(BeNumerically(">=", d.Range.Start.Line))
+			if d.Range.End.Line == d.Range.Start.Line {
+				Expect(d.Range.End.Character).To(BeNumerically(">", d.Range.Start.Character),
 					"expected nonzero placeholder span")
 			}
 		})
@@ -294,17 +295,17 @@ trig -> f{}`
 		It("anchors a placeholder spec error on a later line for a multi-line format string", func(specCtx SpecContext) {
 			code := "func f() {\n    log = f`line1\nline2\n{chStr:d}`\n}\ntrig -> f{}"
 			d := expectError(specCtx, code, "invalid format spec")
-			Expect(d.Start.Line).To(Equal(4),
+			Expect(d.Range.Start.Line).To(Equal(uint32(3)),
 				"expected diagnostic on line 4 (third line of literal), got line %d col %d",
-				d.Start.Line, d.Start.Col)
+				d.Range.Start.Line, d.Range.Start.Character)
 		})
 
 		It("anchors a placeholder error past the opening quote on a single-line literal", func(specCtx SpecContext) {
 			code := "func f() {\n    log = f\"pre {chStr:d} post\"\n}\ntrig -> f{}"
 			d := expectError(specCtx, code, "invalid format spec")
-			Expect(d.Start.Line).To(Equal(2))
-			Expect(d.Start.Col).To(BeNumerically(">", 11),
-				"placeholder column %d should be past the opening quote", d.Start.Col)
+			Expect(d.Range.Start.Line).To(Equal(uint32(1)))
+			Expect(d.Range.Start.Character).To(BeNumerically(">", 11),
+				"placeholder column %d should be past the opening quote", d.Range.Start.Character)
 		})
 	})
 

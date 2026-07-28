@@ -18,15 +18,16 @@ import (
 	"github.com/synnaxlabs/x/debounce"
 	"github.com/synnaxlabs/x/diagnostics"
 	lsp "github.com/synnaxlabs/x/lsp"
-	"github.com/synnaxlabs/x/lsp/protocol"
+	"go.lsp.dev/protocol"
+	"go.lsp.dev/uri"
 )
 
 type documentMetadata struct {
 	isFunctionBlock bool
 }
 
-func extractMetadataFromURI(uri protocol.DocumentURI) *documentMetadata {
-	uriStr := string(uri)
+func extractMetadataFromURI(docURI uri.URI) *documentMetadata {
+	uriStr := string(docURI)
 	return &documentMetadata{
 		isFunctionBlock: strings.HasPrefix(uriStr, "arc://block/"),
 	}
@@ -35,7 +36,7 @@ func extractMetadataFromURI(uri protocol.DocumentURI) *documentMetadata {
 type Document struct {
 	metadata    *documentMetadata
 	Content     string
-	URI         protocol.DocumentURI
+	URI         uri.URI
 	IR          ir.IR
 	Diagnostics diagnostics.Diagnostics
 	Version     int32

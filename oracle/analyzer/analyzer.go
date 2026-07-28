@@ -27,7 +27,7 @@ import (
 type analysisCtx struct {
 	context.Context
 	fileDomains map[string]resolution.Domain
-	diag        *diagnostics.Diagnostics
+	diag        *diagnostics.Files
 	table       *resolution.Table
 	loader      FileLoader
 	ast         parser.ISchemaContext
@@ -35,12 +35,15 @@ type analysisCtx struct {
 	namespace   string
 }
 
+// report records a diagnostic against the file currently being analyzed.
+func (c *analysisCtx) report(d diagnostics.Diagnostic) { c.diag.Report(c.filePath, d) }
+
 func Analyze(
 	ctx context.Context,
 	files []string,
 	loader FileLoader,
-) (*resolution.Table, *diagnostics.Diagnostics) {
-	diag := &diagnostics.Diagnostics{}
+) (*resolution.Table, *diagnostics.Files) {
+	diag := diagnostics.NewFiles()
 	table := resolution.NewTable()
 
 	for _, file := range files {
@@ -52,17 +55,12 @@ func Analyze(
 
 		source, filePath, err := loader.Load(file)
 		if err != nil {
-			d := diagnostics.Errorf(nil, "failed to load file: %v", err)
-			d.File = file
-			diag.Add(d)
+			diag.Report(file, diagnostics.Errorf(nil, "failed to load file: %v", err))
 			continue
 		}
 		ast, parseDiag := parser.Parse(source)
 		if parseDiag != nil && !parseDiag.Ok() {
-			for i := range *parseDiag {
-				(*parseDiag)[i].File = filePath
-			}
-			diag.Merge(*parseDiag)
+			diag.MergeFile(filePath, *parseDiag)
 			continue
 		}
 		c := &analysisCtx{
@@ -89,13 +87,13 @@ func AnalyzeSource(
 	ctx context.Context,
 	source, namespace string,
 	loader FileLoader,
-) (*resolution.Table, *diagnostics.Diagnostics) {
-	diag := &diagnostics.Diagnostics{}
+) (*resolution.Table, *diagnostics.Files) {
+	diag := diagnostics.NewFiles()
 	table := resolution.NewTable()
 
 	ast, parseDiag := parser.Parse(source)
 	if parseDiag != nil && !parseDiag.Ok() {
-		diag.Merge(*parseDiag)
+		diag.MergeFile(namespace+".oracle", *parseDiag)
 		return nil, diag
 	}
 	c := &analysisCtx{
@@ -174,9 +172,7 @@ func analyze(c *analysisCtx) {
 	for _, imp := range c.ast.AllImportStmt() {
 		path := strings.Trim(imp.STRING_LIT().GetText(), `"`)
 		if !used.Contains(filepath.Base(path)) {
-			d := diagnostics.Errorf(imp, "unused import %q", path)
-			d.File = c.filePath
-			c.diag.Add(d)
+			c.report(diagnostics.Errorf(imp, "unused import %q", path))
 		}
 		if c.table.IsImported(path) {
 			continue
@@ -184,17 +180,12 @@ func analyze(c *analysisCtx) {
 		c.table.MarkImported(path)
 		source, filePath, err := c.loader.Load(path)
 		if err != nil {
-			d := diagnostics.Errorf(imp, "failed to import %s: %v", path, err)
-			d.File = c.filePath
-			c.diag.Add(d)
+			c.report(diagnostics.Errorf(imp, "failed to import %s: %v", path, err))
 			continue
 		}
 		ast, parseDiag := parser.Parse(source)
 		if parseDiag != nil && !parseDiag.Ok() {
-			for i := range *parseDiag {
-				(*parseDiag)[i].File = filePath
-			}
-			c.diag.Merge(*parseDiag)
+			c.diag.MergeFile(filePath, *parseDiag)
 			continue
 		}
 		ic := &analysisCtx{
@@ -373,15 +364,13 @@ func validateFieldOverrides(c *analysisCtx, typ resolution.Type) {
 			d := diagnostics.Errorf(nil,
 				"field %q in struct %s declares no type and overrides no parent field",
 				f.Name, typ.Name)
-			d.File = c.filePath
-			c.diag.Add(d)
+			c.report(d)
 		}
 		if len(f.OmittedDomains) > 0 {
 			d := diagnostics.Errorf(nil,
 				"field %q in struct %s removes a domain with -@ but overrides no parent field",
 				f.Name, typ.Name)
-			d.File = c.filePath
-			c.diag.Add(d)
+			c.report(d)
 		}
 	}
 }
@@ -417,8 +406,7 @@ func finalizeEnumExtensions(c *analysisCtx) {
 // declares typ.
 func addTypeDiag(c *analysisCtx, typ resolution.Type, format string, args ...any) {
 	d := diagnostics.Errorf(nil, format, args...)
-	d.File = typ.FilePath
-	c.diag.Add(d)
+	c.diag.Report(typ.FilePath, d)
 }
 
 // effectiveEnumValues returns an enum's fully-resolved members: the union of the
@@ -640,8 +628,7 @@ func collectStructFull(c *analysisCtx, def *parser.StructFullContext) {
 	qname := c.namespace + "." + name
 	if _, exists := c.table.Get(qname); exists {
 		d := diagnostics.Errorf(def, "duplicate type definition: %s", qname)
-		d.File = c.filePath
-		c.diag.Add(d)
+		c.report(d)
 		return
 	}
 
@@ -723,8 +710,7 @@ func collectAction(
 		field := collectField(c, f, typeParams, &hasKeyDomain)
 		if !field.HasType() {
 			d := diagnostics.Errorf(f, "action %s field %q must declare a type", action.Name, field.Name)
-			d.File = c.filePath
-			c.diag.Add(d)
+			c.report(d)
 		}
 		action.Fields = append(action.Fields, field)
 	}
@@ -745,8 +731,7 @@ func collectStructAlias(c *analysisCtx, def *parser.StructAliasContext) {
 
 	if _, exists := c.table.Get(qname); exists {
 		d := diagnostics.Errorf(def, "duplicate type definition: %s", qname)
-		d.File = c.filePath
-		c.diag.Add(d)
+		c.report(d)
 		return
 	}
 
@@ -1092,16 +1077,14 @@ func collectUnion(c *analysisCtx, def parser.IUnionDefContext) {
 		d := diagnostics.Errorf(def,
 			"union %s: expected 'on' before the discriminator field, got %q",
 			name, idents[1].GetText())
-		d.File = c.filePath
-		c.diag.Add(d)
+		c.report(d)
 		return
 	}
 	discriminator := idents[2].GetText()
 	qname := c.namespace + "." + name
 	if _, exists := c.table.Get(qname); exists {
 		d := diagnostics.Errorf(def, "duplicate type definition: %s", qname)
-		d.File = c.filePath
-		c.diag.Add(d)
+		c.report(d)
 		return
 	}
 
@@ -1199,15 +1182,13 @@ func collectInlineVariant(
 			d := diagnostics.Errorf(fo,
 				"union %s variant %q: field omissions are not supported in inline variant bodies",
 				unionName, variantName)
-			d.File = c.filePath
-			c.diag.Add(d)
+			c.report(d)
 		}
 		for _, a := range body.AllActionDef() {
 			d := diagnostics.Errorf(a,
 				"union %s variant %q: actions are not supported in inline variant bodies",
 				unionName, variantName)
-			d.File = c.filePath
-			c.diag.Add(d)
+			c.report(d)
 		}
 		for _, d := range body.AllDomain() {
 			de := collectDomain(d)
@@ -1221,8 +1202,7 @@ func collectInlineVariant(
 		d := diagnostics.Errorf(def,
 			"union %s variant %q: inline payload name %s collides with an existing type",
 			unionName, variantName, qname)
-		d.File = c.filePath
-		c.diag.Add(d)
+		c.report(d)
 		return variant
 	}
 	domains := make(map[string]resolution.Domain)
@@ -1260,8 +1240,7 @@ func collectEnum(c *analysisCtx, def parser.IEnumDefContext) {
 	qname := c.namespace + "." + name
 	if _, exists := c.table.Get(qname); exists {
 		d := diagnostics.Errorf(def, "duplicate type definition: %s", qname)
-		d.File = c.filePath
-		c.diag.Add(d)
+		c.report(d)
 		return
 	}
 
@@ -1331,8 +1310,7 @@ func collectTypeDef(c *analysisCtx, def parser.ITypeDefDefContext) {
 	qname := c.namespace + "." + name
 	if _, exists := c.table.Get(qname); exists {
 		d := diagnostics.Errorf(def, "duplicate type definition: %s", qname)
-		d.File = c.filePath
-		c.diag.Add(d)
+		c.report(d)
 		return
 	}
 
@@ -1484,8 +1462,7 @@ func resolveTypeRef(c *analysisCtx, currentType *resolution.Type, ref *resolutio
 		ref.Name = typ.QualifiedName
 	} else {
 		d := diagnostics.Warningf(nil, "unresolved type: %s", ref.Name)
-		d.File = c.filePath
-		c.diag.Add(d)
+		c.report(d)
 	}
 
 	for i := range ref.TypeArgs {
@@ -1555,8 +1532,7 @@ func validateExtends(c *analysisCtx, typ resolution.Type) {
 			d := diagnostics.Errorf(nil,
 				"struct %s extends unresolved type at position %d: %s",
 				typ.Name, i+1, extendsRef.Name)
-			d.File = c.filePath
-			c.diag.Add(d)
+			c.report(d)
 			continue
 		}
 		parentForm, ok := parent.Form.(resolution.StructForm)
@@ -1564,14 +1540,12 @@ func validateExtends(c *analysisCtx, typ resolution.Type) {
 			d := diagnostics.Errorf(nil,
 				"struct %s extends non-struct type at position %d: %s",
 				typ.Name, i+1, parent.Name)
-			d.File = c.filePath
-			c.diag.Add(d)
+			c.report(d)
 			continue
 		}
 		if parent.QualifiedName == typ.QualifiedName {
 			d := diagnostics.Errorf(nil, "struct %s cannot extend itself", typ.Name)
-			d.File = c.filePath
-			c.diag.Add(d)
+			c.report(d)
 			continue
 		}
 		if len(parentForm.TypeParams) > 0 {
@@ -1585,16 +1559,14 @@ func validateExtends(c *analysisCtx, typ resolution.Type) {
 				d := diagnostics.Errorf(nil,
 					"struct %s extends %s but provides %d type arguments (need at least %d)",
 					typ.Name, parent.Name, len(extendsRef.TypeArgs), requiredParams)
-				d.File = c.filePath
-				c.diag.Add(d)
+				c.report(d)
 			}
 		}
 	}
 
 	if hasCircularInheritance(typ, c.table, make(set.Set[string])) {
 		d := diagnostics.Errorf(nil, "circular inheritance detected: struct %s", typ.Name)
-		d.File = c.filePath
-		c.diag.Add(d)
+		c.report(d)
 		return
 	}
 
@@ -1613,8 +1585,7 @@ func validateExtends(c *analysisCtx, typ resolution.Type) {
 			d := diagnostics.Errorf(nil,
 				"cannot omit field %q: not found in any parent struct",
 				omitted)
-			d.File = c.filePath
-			c.diag.Add(d)
+			c.report(d)
 		}
 	}
 }
@@ -1634,8 +1605,7 @@ func validateActionExtends(c *analysisCtx, typ resolution.Type) {
 				d := diagnostics.Errorf(nil,
 					"action %s extends unresolved type at position %d: %s",
 					action.Name, i+1, ext.Name)
-				d.File = c.filePath
-				c.diag.Add(d)
+				c.report(d)
 				continue
 			}
 			parentForm, ok := parent.Form.(resolution.StructForm)
@@ -1643,8 +1613,7 @@ func validateActionExtends(c *analysisCtx, typ resolution.Type) {
 				d := diagnostics.Errorf(nil,
 					"action %s extends non-struct type at position %d: %s",
 					action.Name, i+1, parent.Name)
-				d.File = c.filePath
-				c.diag.Add(d)
+				c.report(d)
 				continue
 			}
 			requiredParams := 0
@@ -1657,8 +1626,7 @@ func validateActionExtends(c *analysisCtx, typ resolution.Type) {
 				d := diagnostics.Errorf(nil,
 					"action %s extends %s but provides %d type arguments (need at least %d)",
 					action.Name, parent.Name, len(ext.TypeArgs), requiredParams)
-				d.File = c.filePath
-				c.diag.Add(d)
+				c.report(d)
 			}
 		}
 	}
@@ -1758,16 +1726,14 @@ func validateTypeParams(c *analysisCtx, typ resolution.Type) {
 			d := diagnostics.Errorf(nil,
 				"type parameter %s of %s constrained by 'numeric' requires a default (e.g. = float64); the constraint cannot be expressed concretely in Go, C++, Python, or Proto",
 				tp.Name, typ.Name)
-			d.File = c.filePath
-			c.diag.Add(d)
+			c.report(d)
 			continue
 		}
 		if !resolution.IsNumberPrimitive(tp.Default.Name) {
 			d := diagnostics.Errorf(nil,
 				"type parameter %s of %s constrained by 'numeric' has non-numeric default %q; default must be a number primitive (int*, uint*, float32, float64)",
 				tp.Name, typ.Name, tp.Default.Name)
-			d.File = c.filePath
-			c.diag.Add(d)
+			c.report(d)
 		}
 	}
 }
@@ -1792,8 +1758,7 @@ func validateUnion(c *analysisCtx, typ resolution.Type) {
 
 	if len(form.Variants) == 0 {
 		d := diagnostics.Errorf(nil, "union %s has no variants", typ.Name)
-		d.File = c.filePath
-		c.diag.Add(d)
+		c.report(d)
 		return
 	}
 
@@ -1803,15 +1768,13 @@ func validateUnion(c *analysisCtx, typ resolution.Type) {
 			d := diagnostics.Errorf(nil,
 				"union %s declares a variant value %q that collides with the discriminator field name; the generated per-variant and discriminator type names would clash",
 				typ.Name, variant.Name)
-			d.File = c.filePath
-			c.diag.Add(d)
+			c.report(d)
 		}
 		if seenValues.Contains(variant.Name) {
 			d := diagnostics.Errorf(nil,
 				"union %s declares duplicate variant value %q",
 				typ.Name, variant.Name)
-			d.File = c.filePath
-			c.diag.Add(d)
+			c.report(d)
 		}
 		seenValues.Add(variant.Name)
 	}
@@ -1823,16 +1786,14 @@ func validateUnion(c *analysisCtx, typ resolution.Type) {
 			d := diagnostics.Errorf(nil,
 				"union %s extends unresolved type at position %d: %s",
 				typ.Name, i+1, baseRef.Name)
-			d.File = c.filePath
-			c.diag.Add(d)
+			c.report(d)
 			continue
 		}
 		if _, isStruct := base.Form.(resolution.StructForm); !isStruct {
 			d := diagnostics.Errorf(nil,
 				"union %s extends non-struct type at position %d: %s",
 				typ.Name, i+1, base.Name)
-			d.File = c.filePath
-			c.diag.Add(d)
+			c.report(d)
 			continue
 		}
 		for _, f := range resolution.UnifiedFields(base, c.table) {
@@ -1844,16 +1805,14 @@ func validateUnion(c *analysisCtx, typ resolution.Type) {
 		d := diagnostics.Errorf(nil,
 			"union %s base struct declares the discriminator field %q, which is owned by the union",
 			typ.Name, form.Discriminator)
-		d.File = c.filePath
-		c.diag.Add(d)
+		c.report(d)
 	}
 
 	if baseFields.Contains("variant") {
 		d := diagnostics.Errorf(nil,
 			"union %s base struct declares a field named \"variant\", which is reserved for the union's generated protobuf oneof",
 			typ.Name)
-		d.File = c.filePath
-		c.diag.Add(d)
+		c.report(d)
 	}
 
 	for _, variant := range form.Variants {
@@ -1862,16 +1821,14 @@ func validateUnion(c *analysisCtx, typ resolution.Type) {
 			d := diagnostics.Errorf(nil,
 				"union %s variant %q references unresolved type: %s",
 				typ.Name, variant.Name, variant.Type.Name)
-			d.File = c.filePath
-			c.diag.Add(d)
+			c.report(d)
 			continue
 		}
 		if _, isStruct := variantType.Form.(resolution.StructForm); !isStruct {
 			d := diagnostics.Errorf(nil,
 				"union %s variant %q must reference a struct type, got: %s",
 				typ.Name, variant.Name, variantType.QualifiedName)
-			d.File = c.filePath
-			c.diag.Add(d)
+			c.report(d)
 			continue
 		}
 		for _, f := range resolution.UnifiedFields(variantType, c.table) {
@@ -1879,8 +1836,7 @@ func validateUnion(c *analysisCtx, typ resolution.Type) {
 				d := diagnostics.Errorf(nil,
 					"union %s variant %q (%s) declares the discriminator field %q, which is owned by the union",
 					typ.Name, variant.Name, variantType.QualifiedName, form.Discriminator)
-				d.File = c.filePath
-				c.diag.Add(d)
+				c.report(d)
 				break
 			}
 		}

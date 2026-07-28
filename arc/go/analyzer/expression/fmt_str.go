@@ -18,6 +18,7 @@ import (
 	basetypes "github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/diagnostics"
 	"github.com/synnaxlabs/x/errors"
+	"go.lsp.dev/protocol"
 )
 
 // AnalyzeFmtStrLiteral parses a format-string token (STR_LITERAL or
@@ -41,7 +42,10 @@ func AnalyzeFmtStrLiteral[T antlr.ParserRuleContext](
 	}
 	sym := strTerm.GetSymbol()
 	bodyOff := bodyOffset(text, flags)
-	base := diagnostics.Position{Line: sym.GetLine(), Col: sym.GetColumn() + bodyOff}
+	base := protocol.Position{
+		Line:      uint32(sym.GetLine() - 1),
+		Character: uint32(sym.GetColumn() + bodyOff),
+	}
 	AnalyzeFmtStrSegments(ctx, body, base, ctx.AST)
 }
 
@@ -63,7 +67,7 @@ func bodyOffset(text string, _ literal.StringFlags) int {
 func AnalyzeFmtStrSegments[T antlr.ParserRuleContext](
 	ctx context.Context[T],
 	body string,
-	base diagnostics.Position,
+	base protocol.Position,
 	anchor antlr.ParserRuleContext,
 ) []literal.FmtStrSegment {
 	segments, err := literal.FmtStrParse(body)
@@ -75,8 +79,8 @@ func AnalyzeFmtStrSegments[T antlr.ParserRuleContext](
 		if !seg.IsPlaceholder {
 			continue
 		}
-		segStart := base.Advance(body, seg.Start)
-		segEnd := base.Advance(body, seg.End)
+		segStart := diagnostics.Advance(base, body, seg.Start)
+		segEnd := diagnostics.Advance(base, body, seg.End)
 		emit := func(d diagnostics.Diagnostic) {
 			ctx.Diagnostics.Add(d.WithRange(segStart, segEnd))
 		}
