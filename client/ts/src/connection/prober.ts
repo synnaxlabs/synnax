@@ -40,7 +40,9 @@ export const modeFor = ({ variant, details }: Status): Mode => {
 
 export const DEFAULT_RETRY: breaker.Config = {
   baseInterval: TimeSpan.seconds(1),
-  maxInterval: TimeSpan.seconds(30),
+  // probes are one cheap request: a low cap keeps a returned cluster from
+  // going unnoticed while backoff is escalated
+  maxInterval: TimeSpan.seconds(5),
   maxRetries: Infinity,
   scale: 2,
   jitter: 0.25,

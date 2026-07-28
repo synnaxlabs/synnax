@@ -293,6 +293,16 @@ export class Table<
   }
 
   /**
+   * Discards every row and tombstone without notifying subscribers. Called
+   * only by the cache's reset, which invalidates the answer spaces itself:
+   * per-row delete events would masquerade as deletions of live records.
+   */
+  clear(): void {
+    this.rows.clear();
+    this.tombstones.clear();
+  }
+
+  /**
    * Subscribes to row changes. With a key, only changes to that row fire.
    * @returns A destructor that unsubscribes.
    */
