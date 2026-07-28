@@ -176,18 +176,17 @@ export class Client extends query.Retriever<
   async retrieve<DetailsSchema extends z.ZodType = z.ZodNever>(
     params: RetrieveParams & { detailsSchema?: DetailsSchema },
   ): Promise<Status<DetailsSchema> | Status<DetailsSchema>[]> {
-    const isSingle = "key" in params;
+    const { detailsSchema, ...rest } = params;
+    const isSingle = "key" in rest;
     // Schema-parametrized retrieves validate details for one caller; their
     // results are not shared through the cache.
-    if (params.detailsSchema != null) {
+    if (detailsSchema != null) {
       const statuses = await this.execRetrieve<DetailsSchema>(params);
       checkForMultipleOrNoResults("Status", params, statuses, isSingle);
       return isSingle ? statuses[0] : statuses;
     }
-    if (isSingle) return (await super.retrieve(params)) as Status<DetailsSchema>;
-    return (await super.retrieve(
-      params as MultiRetrieveParams,
-    )) as Status<DetailsSchema>[];
+    if (isSingle) return (await super.retrieve(rest)) as Status<DetailsSchema>;
+    return (await super.retrieve(rest)) as Status<DetailsSchema>[];
   }
 
   async set<DetailsSchema extends z.ZodType>(
