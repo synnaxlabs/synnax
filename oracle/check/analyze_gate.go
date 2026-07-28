@@ -15,6 +15,7 @@ import (
 
 	"github.com/synnaxlabs/oracle/pipeline"
 	"github.com/synnaxlabs/x/diagnostics"
+	"go.lsp.dev/protocol"
 )
 
 // AnalyzeGate surfaces every analyzer diagnostic the pipeline collected.
@@ -42,11 +43,18 @@ func (g AnalyzeGate) Run(_ context.Context, p *pipeline.Result, _ Env) GateRepor
 	start := time.Now()
 	r := GateReport{Gate: g.Name(), Status: StatusPass}
 	if p.Diagnostics != nil {
-		for _, d := range *p.Diagnostics {
+		p.Diagnostics.Each(func(file string, d diagnostics.Diagnostic) {
+			// Positions are 0-indexed; render 1-indexed, with 0 meaning no location.
+			// Positioned diagnostics always set a non-zero End, so a zero Range means
+			// unpositioned even for a diagnostic starting at 0:0.
+			var line int
+			if d.Range != (protocol.Range{}) {
+				line = int(d.Range.Start.Line) + 1
+			}
 			f := Finding{
-				Path:     d.File,
-				Line:     d.Start.Line,
-				Col:      d.Start.Col,
+				Path:     file,
+				Line:     line,
+				Col:      int(d.Range.Start.Character),
 				Message:  d.Message,
 				Severity: severityFromDiagnostic(d.Severity, g.WarningsAsErrors),
 				FixHint:  hintFromNotes(d.Notes),
@@ -55,17 +63,17 @@ func (g AnalyzeGate) Run(_ context.Context, p *pipeline.Result, _ Env) GateRepor
 			if f.Severity == SeverityError {
 				r.Status = StatusFail
 			}
-		}
+		})
 	}
 	r.Elapsed = time.Since(start)
 	return r
 }
 
-func severityFromDiagnostic(s diagnostics.Severity, warningsAsErrors bool) Severity {
+func severityFromDiagnostic(s protocol.DiagnosticSeverity, warningsAsErrors bool) Severity {
 	switch s {
-	case diagnostics.SeverityError:
+	case protocol.DiagnosticSeverityError:
 		return SeverityError
-	case diagnostics.SeverityWarning:
+	case protocol.DiagnosticSeverityWarning:
 		if warningsAsErrors {
 			return SeverityError
 		}
@@ -75,7 +83,7 @@ func severityFromDiagnostic(s diagnostics.Severity, warningsAsErrors bool) Sever
 	}
 }
 
-func hintFromNotes(notes []diagnostics.Note) string {
+func hintFromNotes(notes []protocol.DiagnosticRelatedInformation) string {
 	if len(notes) == 0 {
 		return ""
 	}

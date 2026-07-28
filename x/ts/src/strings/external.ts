@@ -8,4 +8,5 @@
 // included in the file licenses/APL.txt.
 
 export * from "@/strings/deduplicateFileName";
+export * from "@/strings/sanitizeFileName";
 export * from "@/strings/strings";

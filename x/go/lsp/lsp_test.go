@@ -14,77 +14,76 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/x/diagnostics"
 	"github.com/synnaxlabs/x/lsp"
-	"github.com/synnaxlabs/x/lsp/protocol"
+	"go.lsp.dev/protocol"
 )
 
 var _ = Describe("LSP", func() {
-	Describe("Severity", func() {
-		It("Should convert error severity", func() {
-			Expect(lsp.Severity(diagnostics.SeverityError)).To(Equal(protocol.DiagnosticSeverityError))
-		})
-
-		It("Should convert warning severity", func() {
-			Expect(lsp.Severity(diagnostics.SeverityWarning)).To(Equal(protocol.DiagnosticSeverityWarning))
-		})
-
-		It("Should convert info severity", func() {
-			Expect(lsp.Severity(diagnostics.SeverityInfo)).To(Equal(protocol.DiagnosticSeverityInformation))
-		})
-
-		It("Should convert hint severity", func() {
-			Expect(lsp.Severity(diagnostics.SeverityHint)).To(Equal(protocol.DiagnosticSeverityHint))
-		})
-	})
-
 	Describe("TranslateDiagnostics", func() {
-		cfg := lsp.TranslateConfig{Source: "test-analyzer"}
+		const source = "test-analyzer"
+
+		It("Should copy the diagnostic severity through unchanged", func() {
+			var d diagnostics.Diagnostics
+			d.Add(diagnostics.Diagnostic{
+				Severity: protocol.DiagnosticSeverityWarning,
+				Message:  "m",
+			})
+			Expect(lsp.TranslateDiagnostics(d, source)[0].Severity).
+				To(Equal(protocol.DiagnosticSeverityWarning))
+		})
 
 		It("Should return empty slice for empty diagnostics", func() {
 			var d diagnostics.Diagnostics
-			result := lsp.TranslateDiagnostics(d, cfg)
+			result := lsp.TranslateDiagnostics(d, source)
 			Expect(result).To(BeEmpty())
 		})
 
-		It("Should convert 1-indexed lines to 0-indexed", func() {
+		It("Should copy the already-0-indexed range straight through", func() {
 			var d diagnostics.Diagnostics
 			d.Add(diagnostics.Diagnostic{
-				Start:    diagnostics.Position{Line: 5, Col: 3},
-				End:      diagnostics.Position{Line: 5, Col: 10},
-				Severity: diagnostics.SeverityError,
+				Range: protocol.Range{
+					Start: protocol.Position{Line: 5, Character: 3},
+					End:   protocol.Position{Line: 5, Character: 10},
+				},
+				Severity: protocol.DiagnosticSeverityError,
 				Message:  "test error",
 			})
-			result := lsp.TranslateDiagnostics(d, cfg)
+			result := lsp.TranslateDiagnostics(d, source)
 			Expect(result).To(HaveLen(1))
-			Expect(result[0].Range.Start.Line).To(Equal(uint32(4)))
-			Expect(result[0].Range.Start.Character).To(Equal(uint32(3)))
-			Expect(result[0].Range.End.Line).To(Equal(uint32(4)))
-			Expect(result[0].Range.End.Character).To(Equal(uint32(10)))
+			Expect(result[0].Range.Start).To(Equal(protocol.Position{Line: 5, Character: 3}))
+			Expect(result[0].Range.End).To(Equal(protocol.Position{Line: 5, Character: 10}))
 		})
 
 		It("Should set source from config", func() {
 			var d diagnostics.Diagnostics
 			d.Add(diagnostics.Errorf(nil, "error"))
-			result := lsp.TranslateDiagnostics(d, cfg)
-			Expect(result[0].Source).To(Equal("test-analyzer"))
+			result := lsp.TranslateDiagnostics(d, source)
+			Expect(result[0].Source).To(Equal(protocol.NewOptional("test-analyzer")))
 		})
 
 		It("Should include error code when present", func() {
 			var d diagnostics.Diagnostics
 			d.Add(diagnostics.Errorf(nil, "error").WithCode("TEST001"))
-			result := lsp.TranslateDiagnostics(d, cfg)
-			Expect(result[0].Code).To(Equal("TEST001"))
+			result := lsp.TranslateDiagnostics(d, source)
+			Expect(result[0].Code).To(Equal(protocol.String("TEST001")))
 		})
 
 		It("Should convert notes to related information", func() {
 			var d diagnostics.Diagnostics
 			d.Add(diagnostics.Diagnostic{
-				Start:    diagnostics.Position{Line: 1, Col: 0},
-				End:      diagnostics.Position{Line: 1, Col: 5},
-				Severity: diagnostics.SeverityError,
+				Range: protocol.Range{
+					Start: protocol.Position{Line: 1, Character: 0},
+					End:   protocol.Position{Line: 1, Character: 5},
+				},
+				Severity: protocol.DiagnosticSeverityError,
 				Message:  "error",
-				Notes:    []diagnostics.Note{{Message: "related note", Start: diagnostics.Position{Line: 3, Col: 2}}},
+				Notes: []protocol.DiagnosticRelatedInformation{{
+					Message: "related note",
+					Location: protocol.Location{Range: protocol.Range{
+						Start: protocol.Position{Line: 3, Character: 2},
+					}},
+				}},
 			})
-			result := lsp.TranslateDiagnostics(d, cfg)
+			result := lsp.TranslateDiagnostics(d, source)
 			Expect(result[0].RelatedInformation).To(HaveLen(1))
 			Expect(result[0].RelatedInformation[0].Message).To(Equal("related note"))
 		})
@@ -92,29 +91,13 @@ var _ = Describe("LSP", func() {
 		It("Should handle zero-line diagnostics safely", func() {
 			var d diagnostics.Diagnostics
 			d.Add(diagnostics.Diagnostic{
-				Start:    diagnostics.Position{Line: 0, Col: 0},
-				Severity: diagnostics.SeverityError,
+				Range:    protocol.Range{Start: protocol.Position{Line: 0, Character: 0}},
+				Severity: protocol.DiagnosticSeverityError,
 				Message:  "zero line",
 			})
-			result := lsp.TranslateDiagnostics(d, cfg)
+			result := lsp.TranslateDiagnostics(d, source)
 			Expect(result).To(HaveLen(1))
 			Expect(result[0].Range.Start.Line).To(Equal(uint32(0)))
-		})
-	})
-
-	Describe("ConvertToSemanticTokenTypes", func() {
-		It("Should convert string slice to protocol types", func() {
-			types := []string{"keyword", "variable", "function"}
-			result := lsp.ConvertToSemanticTokenTypes(types)
-			Expect(result).To(HaveLen(3))
-			Expect(result[0]).To(Equal(protocol.SemanticTokenTypes("keyword")))
-			Expect(result[1]).To(Equal(protocol.SemanticTokenTypes("variable")))
-			Expect(result[2]).To(Equal(protocol.SemanticTokenTypes("function")))
-		})
-
-		It("Should return empty slice for empty input", func() {
-			result := lsp.ConvertToSemanticTokenTypes(nil)
-			Expect(result).To(BeEmpty())
 		})
 	})
 

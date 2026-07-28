@@ -13,8 +13,9 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	. "github.com/synnaxlabs/arc/lsp/testutil"
-	"github.com/synnaxlabs/x/lsp/protocol"
 	. "github.com/synnaxlabs/x/testutil"
+	"go.lsp.dev/protocol"
+	"go.lsp.dev/uri"
 )
 
 var _ = Describe("FoldingRange", func() {
@@ -23,26 +24,22 @@ var _ = Describe("FoldingRange", func() {
 			server, uri := SetupTestServer()
 			OpenArcDocument(server, ctx, uri, "func test() {\n\tx := 1\n}")
 
-			ranges := MustSucceed(server.FoldingRange(ctx, &protocol.FoldingRangeParams{
-				TextDocumentPositionParams: protocol.TextDocumentPositionParams{
-					TextDocument: protocol.TextDocumentIdentifier{URI: uri},
-				},
+			ranges := MustSucceed(server.FoldingRanges(ctx, &protocol.FoldingRangeParams{
+				TextDocument: protocol.TextDocumentIdentifier{URI: uri},
 			}))
 
 			Expect(ranges).To(HaveLen(1))
 			Expect(ranges[0].StartLine).To(Equal(uint32(0)))
 			Expect(ranges[0].EndLine).To(Equal(uint32(2)))
-			Expect(ranges[0].Kind).To(Equal(protocol.RegionFoldingRange))
+			Expect(ranges[0].Kind).To(Equal(protocol.FoldingRangeKindRegion))
 		})
 
 		It("Should return folding ranges for multiple functions", func(ctx SpecContext) {
 			server, uri := SetupTestServer()
 			OpenArcDocument(server, ctx, uri, "func foo() {\n\tx := 1\n}\n\nfunc bar() {\n\ty := 2\n}")
 
-			ranges := MustSucceed(server.FoldingRange(ctx, &protocol.FoldingRangeParams{
-				TextDocumentPositionParams: protocol.TextDocumentPositionParams{
-					TextDocument: protocol.TextDocumentIdentifier{URI: uri},
-				},
+			ranges := MustSucceed(server.FoldingRanges(ctx, &protocol.FoldingRangeParams{
+				TextDocument: protocol.TextDocumentIdentifier{URI: uri},
 			}))
 
 			Expect(ranges).To(HaveLen(2))
@@ -56,10 +53,8 @@ var _ = Describe("FoldingRange", func() {
 			server, uri := SetupTestServer()
 			OpenArcDocument(server, ctx, uri, "func test() { x := 1 }")
 
-			ranges := MustSucceed(server.FoldingRange(ctx, &protocol.FoldingRangeParams{
-				TextDocumentPositionParams: protocol.TextDocumentPositionParams{
-					TextDocument: protocol.TextDocumentIdentifier{URI: uri},
-				},
+			ranges := MustSucceed(server.FoldingRanges(ctx, &protocol.FoldingRangeParams{
+				TextDocument: protocol.TextDocumentIdentifier{URI: uri},
 			}))
 
 			Expect(ranges).To(BeEmpty())
@@ -71,10 +66,8 @@ var _ = Describe("FoldingRange", func() {
 			server, uri := SetupTestServer()
 			OpenArcDocument(server, ctx, uri, "sequence main {\n\tstage first {\n\t}\n}")
 
-			ranges := MustSucceed(server.FoldingRange(ctx, &protocol.FoldingRangeParams{
-				TextDocumentPositionParams: protocol.TextDocumentPositionParams{
-					TextDocument: protocol.TextDocumentIdentifier{URI: uri},
-				},
+			ranges := MustSucceed(server.FoldingRanges(ctx, &protocol.FoldingRangeParams{
+				TextDocument: protocol.TextDocumentIdentifier{URI: uri},
 			}))
 
 			Expect(ranges).ToNot(BeEmpty())
@@ -92,10 +85,8 @@ var _ = Describe("FoldingRange", func() {
 			server, uri := SetupTestServer()
 			OpenArcDocument(server, ctx, uri, "sequence main {\n\tstage first {\n\t}\n\tstage second {\n\t}\n}")
 
-			ranges := MustSucceed(server.FoldingRange(ctx, &protocol.FoldingRangeParams{
-				TextDocumentPositionParams: protocol.TextDocumentPositionParams{
-					TextDocument: protocol.TextDocumentIdentifier{URI: uri},
-				},
+			ranges := MustSucceed(server.FoldingRanges(ctx, &protocol.FoldingRangeParams{
+				TextDocument: protocol.TextDocumentIdentifier{URI: uri},
 			}))
 
 			Expect(len(ranges)).To(BeNumerically(">=", 3))
@@ -107,10 +98,8 @@ var _ = Describe("FoldingRange", func() {
 			server, uri := SetupTestServer()
 			OpenArcDocument(server, ctx, uri, "func test() {\n\tfor i := range(10) {\n\t\tx := i\n\t}\n}")
 
-			ranges := MustSucceed(server.FoldingRange(ctx, &protocol.FoldingRangeParams{
-				TextDocumentPositionParams: protocol.TextDocumentPositionParams{
-					TextDocument: protocol.TextDocumentIdentifier{URI: uri},
-				},
+			ranges := MustSucceed(server.FoldingRanges(ctx, &protocol.FoldingRangeParams{
+				TextDocument: protocol.TextDocumentIdentifier{URI: uri},
 			}))
 
 			Expect(len(ranges)).To(BeNumerically(">=", 2))
@@ -118,7 +107,7 @@ var _ = Describe("FoldingRange", func() {
 			for _, r := range ranges {
 				if r.StartLine == 1 && r.EndLine == 3 {
 					hasLoopRange = true
-					Expect(r.Kind).To(Equal(protocol.RegionFoldingRange))
+					Expect(r.Kind).To(Equal(protocol.FoldingRangeKindRegion))
 					break
 				}
 			}
@@ -129,10 +118,8 @@ var _ = Describe("FoldingRange", func() {
 			server, uri := SetupTestServer()
 			OpenArcDocument(server, ctx, uri, "func test() {\n\tfor i := range(10) { x := i }\n}")
 
-			ranges := MustSucceed(server.FoldingRange(ctx, &protocol.FoldingRangeParams{
-				TextDocumentPositionParams: protocol.TextDocumentPositionParams{
-					TextDocument: protocol.TextDocumentIdentifier{URI: uri},
-				},
+			ranges := MustSucceed(server.FoldingRanges(ctx, &protocol.FoldingRangeParams{
+				TextDocument: protocol.TextDocumentIdentifier{URI: uri},
 			}))
 
 			for _, r := range ranges {
@@ -147,10 +134,8 @@ var _ = Describe("FoldingRange", func() {
 			server, uri := SetupTestServer()
 			OpenArcDocument(server, ctx, uri, "")
 
-			ranges := MustSucceed(server.FoldingRange(ctx, &protocol.FoldingRangeParams{
-				TextDocumentPositionParams: protocol.TextDocumentPositionParams{
-					TextDocument: protocol.TextDocumentIdentifier{URI: uri},
-				},
+			ranges := MustSucceed(server.FoldingRanges(ctx, &protocol.FoldingRangeParams{
+				TextDocument: protocol.TextDocumentIdentifier{URI: uri},
 			}))
 
 			Expect(ranges).To(BeEmpty())
@@ -159,10 +144,8 @@ var _ = Describe("FoldingRange", func() {
 		It("Should return empty ranges for unknown document", func(ctx SpecContext) {
 			server, _ := SetupTestServer()
 
-			ranges := MustSucceed(server.FoldingRange(ctx, &protocol.FoldingRangeParams{
-				TextDocumentPositionParams: protocol.TextDocumentPositionParams{
-					TextDocument: protocol.TextDocumentIdentifier{URI: "file:///unknown.arc"},
-				},
+			ranges := MustSucceed(server.FoldingRanges(ctx, &protocol.FoldingRangeParams{
+				TextDocument: protocol.TextDocumentIdentifier{URI: "file:///unknown.arc"},
 			}))
 
 			Expect(ranges).To(BeEmpty())
@@ -170,13 +153,11 @@ var _ = Describe("FoldingRange", func() {
 
 		It("Should handle block URIs", func(ctx SpecContext) {
 			server, _ := SetupTestServer()
-			blockURI := protocol.DocumentURI("arc://block/test")
+			blockURI := uri.URI("arc://block/test")
 			OpenArcDocument(server, ctx, blockURI, "if x > 0 {\n\ty := 1\n}")
 
-			ranges := MustSucceed(server.FoldingRange(ctx, &protocol.FoldingRangeParams{
-				TextDocumentPositionParams: protocol.TextDocumentPositionParams{
-					TextDocument: protocol.TextDocumentIdentifier{URI: blockURI},
-				},
+			ranges := MustSucceed(server.FoldingRanges(ctx, &protocol.FoldingRangeParams{
+				TextDocument: protocol.TextDocumentIdentifier{URI: blockURI},
 			}))
 
 			Expect(ranges).ToNot(BeNil())

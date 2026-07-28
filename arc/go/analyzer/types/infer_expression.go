@@ -21,6 +21,7 @@ import (
 	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/diagnostics"
+	"go.lsp.dev/protocol"
 	"go.uber.org/zap"
 )
 
@@ -115,10 +116,12 @@ func checkMinusSpacing(ctx context.Context[parser.IAdditiveExpressionContext]) {
 			op.GetStop()+1 == right.GetStart().GetStart() {
 			col := op.GetColumn()
 			ctx.Diagnostics.Add(diagnostics.Diagnostic{
-				Severity: diagnostics.SeverityError,
+				Severity: protocol.DiagnosticSeverityError,
 				Message:  "subtraction requires whitespace on both sides of '-'",
-				Start:    diagnostics.Position{Line: op.GetLine(), Col: col},
-				End:      diagnostics.Position{Line: op.GetLine(), Col: col + len(op.GetText())},
+				Range: protocol.Range{
+					Start: protocol.Position{Line: uint32(op.GetLine() - 1), Character: uint32(col)},
+					End:   protocol.Position{Line: uint32(op.GetLine() - 1), Character: uint32(col + len(op.GetText()))},
+				},
 			})
 		}
 	}

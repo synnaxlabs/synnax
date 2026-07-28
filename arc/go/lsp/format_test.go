@@ -14,14 +14,15 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/arc/lsp"
 	. "github.com/synnaxlabs/arc/lsp/testutil"
-	"github.com/synnaxlabs/x/lsp/protocol"
 	. "github.com/synnaxlabs/x/testutil"
+	"go.lsp.dev/protocol"
+	"go.lsp.dev/uri"
 )
 
 var _ = Describe("Formatting", func() {
 	var (
 		server *lsp.Server
-		uri    protocol.DocumentURI
+		uri    uri.URI
 	)
 
 	BeforeEach(func() {
