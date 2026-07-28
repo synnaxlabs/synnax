@@ -1116,6 +1116,33 @@ var _ = Describe("Writer Behavior", func() {
 						f := MustSucceed(db.Read(ctx, (60 * telem.SecondTS).Range(62*telem.SecondTS), data))
 						Expect(telem.UnmarshalSeries[string](f.Get(data).Series[0])).To(Equal([]string{"x", "y"}))
 					})
+					Specify("Commit without index whose start is not an index sample", func(ctx SpecContext) {
+						var (
+							idx  = GenerateChannelKey()
+							data = GenerateChannelKey()
+						)
+						Expect(db.CreateChannel(ctx,
+							cesium.Channel{Key: idx, Name: "inexact-idx", IsIndex: true, DataType: telem.TimeStampT},
+							cesium.Channel{Key: data, Name: "inexact-data", Index: idx, DataType: telem.Int64T},
+						)).To(Succeed())
+						Expect(db.Write(ctx, 70*telem.SecondTS, telem.MultiFrame(
+							[]cesium.ChannelKey{idx},
+							[]telem.Series{telem.NewSeriesSecondsTSV(70, 71, 72)},
+						))).To(Succeed())
+						w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
+							Channels: []cesium.ChannelKey{data},
+							Start:    70*telem.SecondTS + 500*telem.MillisecondTS,
+						}))
+						MustSucceed(w.Write(telem.MultiFrame(
+							[]cesium.ChannelKey{data},
+							[]telem.Series{telem.NewSeriesV[int64](1)},
+						)))
+						Expect(w.Commit()).Error().To(SatisfyAll(
+							MatchError(validate.ErrValidation),
+							MatchError(ContainSubstring("cannot be resolved to an exact sample")),
+						))
+						Expect(w.Close()).To(MatchError(validate.ErrValidation))
+					})
 				})
 
 				Describe("Auto-commit", func() {
