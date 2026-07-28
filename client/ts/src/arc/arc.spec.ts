@@ -13,7 +13,7 @@ import { describe, expect, it, vi } from "vitest";
 import { arc } from "@/arc";
 import { status } from "@/status";
 import { task } from "@/task";
-import { createTestClient } from "@/testutil";
+import { createTestClient, expectLive, isLive } from "@/testutil";
 
 const client = createTestClient();
 
@@ -108,7 +108,7 @@ describe("arc", () => {
       expect(res?.key).toEqual(tsk.key);
       expect(res?.config).toEqual({ value: "test" });
       const cached = client.arcs.task.getCached(created.key);
-      expect(cached?.variant).toEqual("changed");
+      expect(expectLive(cached)?.key).toEqual(tsk.key);
     });
 
     it("delivers a task attached while subscribed", async () => {
@@ -120,7 +120,7 @@ describe("arc", () => {
         await expect
           .poll(() => {
             const cached = client.arcs.task.getCached(created.key);
-            return cached?.variant === "changed" && cached.data?.key === tsk.key;
+            return isLive(cached) && cached?.key === tsk.key;
           })
           .toBe(true);
       } finally {
@@ -149,9 +149,9 @@ describe("arc", () => {
           .poll(() => {
             const cached = client.arcs.task.getCached(created.key);
             return (
-              cached?.variant === "changed" &&
-              cached.data?.status?.variant === "error" &&
-              cached.data.status.message === "Task failed"
+              isLive(cached) &&
+              cached?.status?.variant === "error" &&
+              cached.status.message === "Task failed"
             );
           })
           .toBe(true);

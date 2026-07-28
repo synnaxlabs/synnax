@@ -376,15 +376,21 @@ export class Client extends query.Retriever<
         });
       },
     });
-    const single = cache.queries<SingleRequest, Task, Key, Omit<Task, "status">>({
+    const composed = cache.derive<Key, Omit<Task, "status">, Task>({
+      name: "task.composed",
+      source: store,
+      compose: (record) => this.compose(record),
+      equal: (a, b) => deep.equal(a.payload, b.payload),
+      watch: [query.deriveWatch(statusStore, (event) => affectedTaskKeys(event))],
+    });
+    const single = cache.queries<SingleRequest, Task, Key, Task>({
       name: "task",
-      table: store,
+      table: composed,
       fetch: async (q) => [(await this.fetchSingle(q)).key],
-      compose: (records) => this.compose(records[0]),
+      compose: (records) => records[0],
       keyOf: (q) => (primitive.isNonZero(q.keys) ? q.keys[0] : null),
       matches: matchesSingle,
       single: true,
-      watch: [query.watch(statusStore, (event) => affectedTaskKeys(event))],
     });
     super(cache, {
       name: "task",

@@ -14,7 +14,7 @@ import z from "zod";
 import { group } from "@/group";
 import { ontology } from "@/ontology";
 import { status } from "@/status";
-import { createTestClient } from "@/testutil";
+import { createTestClient, isLive } from "@/testutil";
 
 const client = createTestClient();
 
@@ -376,19 +376,14 @@ describe("Status", () => {
         await expect
           .poll(() => {
             const cached = client.statuses.getCached(query);
-            return (
-              cached?.variant === "changed" && cached.data.some((s) => s.key === joiner)
-            );
+            return isLive(cached) && cached.some((s) => s.key === joiner);
           })
           .toBe(true);
         await client.labels.remove(status.ontologyID(member), [lbl.key]);
         await expect
           .poll(() => {
             const cached = client.statuses.getCached(query);
-            return (
-              cached?.variant === "changed" &&
-              !cached.data.some((s) => s.key === member)
-            );
+            return isLive(cached) && !cached.some((s) => s.key === member);
           })
           .toBe(true);
       } finally {

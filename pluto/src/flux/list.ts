@@ -35,6 +35,9 @@ import {
 } from "@/hooks";
 import { Synnax } from "@/synnax";
 
+// Bound at module scope: hooks bind `query` to the caller's params object.
+const { Deleted } = query;
+
 export interface GetItem<K extends record.Key, E extends record.Keyed<K>> {
   (key: K): E | undefined;
   (keys: K[]): E[];
@@ -162,8 +165,8 @@ export const createList =
         client,
         query,
       });
-      if (cached?.variant !== "changed") return undefined;
-      let items = cached.data.filter(filterRef.current);
+      if (cached === undefined || Deleted.matches(cached)) return undefined;
+      let items = cached.filter(filterRef.current);
       if (sortRef.current != null) items = [...items].sort(sortRef.current);
       if (items.length === 0) return undefined;
       items.forEach((v) => dataRef.current.set(v.key, v));
@@ -231,10 +234,9 @@ export const createList =
 
     const handleItemChange = useCallback(
       (key: Key, cached: query.Cached<Data> | undefined) => {
-        if (cached == null) return;
-        if (cached.variant === "changed")
-          dataRef.current.set(key, filterRef.current(cached.data) ? cached.data : null);
-        else dataRef.current.set(key, null);
+        if (cached === undefined) return;
+        if (Deleted.matches<Data>(cached)) dataRef.current.set(key, null);
+        else dataRef.current.set(key, filterRef.current(cached) ? cached : null);
         notifyListeners(key);
       },
       [notifyListeners],
@@ -281,8 +283,8 @@ export const createList =
               query: q,
             },
             (cached: query.Cached<Data[]> | undefined) => {
-              if (cached?.variant !== "changed") return;
-              applyPageAnswer(page, cached.data);
+              if (cached === undefined || Deleted.matches(cached)) return;
+              applyPageAnswer(page, cached);
             },
           );
         pagesRef.current.push(page);

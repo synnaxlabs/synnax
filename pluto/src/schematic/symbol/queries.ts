@@ -7,7 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type group, NotFoundError, ontology, schematic } from "@synnaxlabs/client";
+import {
+  type group,
+  NotFoundError,
+  ontology,
+  query,
+  schematic,
+} from "@synnaxlabs/client";
 
 import { Flux } from "@/flux";
 
@@ -105,9 +111,9 @@ export const useForm = Flux.createForm<FormQuery, typeof formSchema>({
   mountListeners: ({ client, query: { key }, reset, get }) => {
     if (key == null) return [];
     return client.schematics.symbols.onChange({ key }, (result) => {
-      if (result?.variant !== "changed") return;
+      if (result == null || query.Deleted.matches(result)) return;
       reset({
-        ...result.data,
+        ...result,
         parent:
           get<ontology.ID>("parent", { optional: true })?.value ?? ontology.ROOT_ID,
       });

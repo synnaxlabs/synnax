@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { table } from "@synnaxlabs/client";
+import { query, table } from "@synnaxlabs/client";
 import { type record, uuid } from "@synnaxlabs/x";
 import { type ClipboardEventHandler, useCallback } from "react";
 
@@ -67,8 +67,8 @@ export const useClipboard = ({
 
   const getTable = useCallback((): table.Table | undefined => {
     const cached = client?.tables.getCached({ key });
-    if (cached == null || cached.variant === "deleted") return undefined;
-    return cached.data;
+    if (cached == null || query.Deleted.matches(cached)) return undefined;
+    return cached;
   }, [client, key]);
 
   const handleCopy = useCallback<ClipboardEventHandler>(
