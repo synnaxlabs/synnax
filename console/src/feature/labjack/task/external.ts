@@ -15,7 +15,6 @@ import {
   WRITE_TYPE,
 } from "@/feature/labjack/task/types";
 import { Write, WriteSelectable } from "@/feature/labjack/task/Write";
-import { type Export } from "@/platform/export";
 import { type Import } from "@/platform/import";
 import { type Panel } from "@/platform/panel";
 import { type Selector } from "@/platform/selector";
@@ -27,11 +26,6 @@ export * from "@/feature/labjack/task/SelectInputChannelTypeField";
 export * from "@/feature/labjack/task/SelectOutputChannelType";
 export * from "@/feature/labjack/task/types";
 export * from "@/feature/labjack/task/Write";
-
-export const EXTRACTORS: Export.Extractors = {
-  [READ_TYPE]: Task.extract,
-  [WRITE_TYPE]: Task.extract,
-};
 
 export const FILE_INGESTERS: Import.FileIngesters = {
   [READ_TYPE]: Task.createIngester(READ_SCHEMAS.config, READ_TYPE),

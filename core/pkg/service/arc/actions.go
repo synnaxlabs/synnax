@@ -175,15 +175,6 @@ func (p ForgetCharsPayload) Handle(state Arc) (Arc, error) {
 	return state, nil
 }
 
-const (
-	// defaultTextSweepQuiescence is how long an arc's text must go unedited before its
-	// tombstoned characters become eligible to be forgotten.
-	defaultTextSweepQuiescence = 5 * telem.Second
-	// defaultTextSweepThreshold is the number of tombstoned characters that must
-	// accumulate before a sweep is worth broadcasting.
-	defaultTextSweepThreshold = 128
-)
-
 // lastEdits records the cluster time of each arc's most recent character edit. The
 // timestamp only gates the text sweeper's quiescence check; it never replicates and
 // need not survive a node restart, so it is held in memory rather than persisted on the

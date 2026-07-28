@@ -16,6 +16,7 @@ import (
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
+	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic/symbol"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic/versions"
@@ -33,6 +34,8 @@ import (
 // ServiceConfig is the configuration for opening a schematic service.
 type ServiceConfig struct {
 	// Instrumentation for logging, tracing, and metrics.
+	//
+	// [OPTIONAL] - Defaults to noop instrumentation.
 	alamos.Instrumentation
 	// DB is the database that the schematic service will store schematics in.
 	//
@@ -56,6 +59,11 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	Search *search.Index
+	// ImEx is the import/export registry the schematic service registers itself with as
+	// the exporter for schematic resources during OpenService.
+	//
+	// [REQUIRED]
+	ImEx *imex.Service
 }
 
 var _ config.Config[ServiceConfig] = ServiceConfig{}
@@ -68,6 +76,7 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Group = override.Nil(c.Group, other.Group)
 	c.Signals = override.Nil(c.Signals, other.Signals)
 	c.Search = override.Nil(c.Search, other.Search)
+	c.ImEx = override.Nil(c.ImEx, other.ImEx)
 	return c
 }
 
@@ -77,12 +86,13 @@ func (c ServiceConfig) Validate() error {
 	validate.NotNil(v, "db", c.DB)
 	validate.NotNil(v, "ontology", c.Ontology)
 	validate.NotNil(v, "search", c.Search)
+	validate.NotNil(v, "imex", c.ImEx)
 	return v.Error()
 }
 
 // Service is the primary service for retrieving and modifying schematics from Synnax.
 type Service struct {
-	ServiceConfig
+	cfg    ServiceConfig
 	Symbol *symbol.Service
 	closer io.MultiCloser
 	table  *gorp.Table[Key, Schematic]
@@ -97,7 +107,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	if err != nil {
 		return nil, err
 	}
-	s = &Service{ServiceConfig: cfg, state: actions.NewState[Key, Action]()}
+	s = &Service{cfg: cfg, state: actions.NewState[Key, Action]()}
 	cleanup, ok := service.NewOpener(ctx, &s.closer)
 	defer func() { err = cleanup(err) }()
 	if s.table, err = gorp.OpenTable(ctx, gorp.TableConfig[Key, Schematic]{
@@ -109,6 +119,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	}
 	cfg.Ontology.RegisterService(s)
 	cfg.Search.RegisterService(s)
+	cfg.ImEx.RegisterExporter(s)
 	if s.Symbol, err = symbol.OpenService(ctx, symbol.ServiceConfig{
 		Instrumentation: cfg.Child("symbol"),
 		DB:              cfg.DB,
@@ -116,6 +127,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 		Group:           cfg.Group,
 		Signals:         cfg.Signals,
 		Search:          cfg.Search,
+		ImEx:            cfg.ImEx,
 	}); !ok(err, s.Symbol) {
 		return nil, err
 	}
@@ -154,11 +166,11 @@ func (s *Service) OnAction(
 // Synnax. If tx is provided, the writer will use that transaction. If tx is nil, the
 // Writer will execute the operations directly on the underlying gorp.DB.
 func (s *Service) NewWriter(tx gorp.Tx) Writer {
-	tx = gorp.OverrideTx(s.DB, tx)
+	tx = gorp.OverrideTx(s.cfg.DB, tx)
 	return Writer{
 		tx:         tx,
-		otgWriter:  s.Ontology.NewWriter(tx),
-		otg:        s.Ontology,
+		otgWriter:  s.cfg.Ontology.NewWriter(tx),
+		otg:        s.cfg.Ontology,
 		table:      s.table,
 		dispatcher: s.state.Dispatcher(),
 	}
@@ -166,5 +178,5 @@ func (s *Service) NewWriter(tx gorp.Tx) Writer {
 
 // NewRetrieve opens a new query build for retrieving schematics from Synnax.
 func (s *Service) NewRetrieve() Retrieve {
-	return Retrieve{gorp: s.table.NewRetrieve(), baseTX: s.DB}
+	return Retrieve{gorp: s.table.NewRetrieve(), baseTX: s.cfg.DB}
 }

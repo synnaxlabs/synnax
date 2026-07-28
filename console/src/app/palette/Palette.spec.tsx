@@ -13,7 +13,6 @@ import { describe, expect, it } from "vitest";
 
 import { Palette } from "@/app/palette";
 import { Docs } from "@/feature/docs";
-import { Export } from "@/platform/export";
 import { Import } from "@/platform/import";
 import { Modals } from "@/platform/modals";
 import {
@@ -31,10 +30,8 @@ const renderAppPalette = async () => {
   await selectTestProject(store, client);
   render(
     <Import.FileIngestersProvider fileIngesters={{}}>
-      <Export.ExtractorsProvider extractors={{}}>
-        <Palette.Palette />
-        <Modals.Stack />
-      </Export.ExtractorsProvider>
+      <Palette.Palette />
+      <Modals.Stack />
     </Import.FileIngestersProvider>,
     { wrapper },
   );

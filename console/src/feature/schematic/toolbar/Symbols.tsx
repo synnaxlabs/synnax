@@ -29,10 +29,7 @@ import { id, uuid } from "@synnaxlabs/x";
 import { type ReactElement, useCallback, useEffect, useMemo, useState } from "react";
 
 import { Symbol } from "@/feature/schematic/symbol";
-import {
-  useExport as useExportSymbol,
-  useExportGroup,
-} from "@/feature/schematic/symbol/export";
+import { useExportGroup } from "@/feature/schematic/symbol/export";
 import {
   useImport as useImportSymbol,
   useImportGroup,
@@ -184,7 +181,7 @@ const RemoteSymbolListContextMenu = ({
   });
   const openEdit = Symbol.Edit.useModal();
   const renameModal = Modals.useRename();
-  const exportSymbol = useExportSymbol();
+  const exportSymbol = Export.use();
   const rename = Schematic.Symbol.useRename({
     beforeUpdate: async ({ data }) => {
       const { name } = data;
@@ -221,7 +218,9 @@ const RemoteSymbolListContextMenu = ({
         <Icon.Edit />
         Edit
       </Menu.Item>
-      <Export.ContextMenuItem onClick={() => exportSymbol(firstKey)} />
+      <Export.ContextMenuItem
+        onClick={() => exportSymbol(schematic.symbol.ontologyID(firstKey))}
+      />
     </ContextMenu.Menu>
   );
 };
