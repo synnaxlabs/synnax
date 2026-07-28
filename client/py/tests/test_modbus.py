@@ -7,12 +7,11 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from random import randint
-
 import pytest
 from pydantic import ValidationError
 
 import synnax as sy
+from x.strings import random_name
 
 
 @pytest.mark.modbus
@@ -562,7 +561,7 @@ class TestModbusDevicePropertyUpdates:
         device = client.devices.create(device)
 
         # Create channels
-        suffix = randint(0, 100000)
+        suffix = random_name()
         time_ch = client.channels.create(
             name=f"modbus_time_{suffix}",
             data_type=sy.DataType.TIMESTAMP,
@@ -644,7 +643,7 @@ class TestModbusDevicePropertyUpdates:
         device = client.devices.create(device)
 
         # Create command channels
-        random_id = randint(0, 100000)
+        random_id = random_name()
         cmd_time = client.channels.create(
             name=f"cmd_time_{random_id}",
             data_type=sy.DataType.TIMESTAMP,
