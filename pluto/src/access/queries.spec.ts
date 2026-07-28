@@ -184,7 +184,7 @@ describe("Access Queries", () => {
       });
       // Wait until the link reaches the cache (event delivered)...
       await waitFor(() => {
-        const rels = userClient.ontology.relationships.get(
+        const rels = userClient.ontology.cache.relationships.get(
           (rel) => rel.to.type === "project" && rel.to.key === proj.key,
         );
         expect(rels.length).toBeGreaterThan(0);
@@ -662,7 +662,7 @@ describe("Access Queries", () => {
       const policy = result.current.data!.find((p) => p.name === policyName);
       expect(policy).toBeDefined();
       const policyID = access.policy.ontologyID(policy!.key);
-      const relationships = userClient.ontology.relationships.get(
+      const relationships = userClient.ontology.cache.relationships.get(
         (r) => r.from.type === "role" && r.to.type === "policy",
       );
       expect(relationships.length).toBeGreaterThan(0);

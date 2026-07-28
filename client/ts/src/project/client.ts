@@ -11,7 +11,7 @@ import { type UnaryClient } from "@synnaxlabs/freighter";
 import { array, caseconv, destructor, primitive, record } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { ontology } from "@/ontology";
+import { type ontology } from "@/ontology";
 import {
   type Key,
   keyZ,
@@ -55,16 +55,18 @@ const requestFilter = (req: RetrieveRequest): ((p: Project) => boolean) => {
   return (p) => keySet == null || keySet.has(p.key);
 };
 
-export class Client extends query.Retriever<typeof retrieveReqZ, Key, Project> {
-  private readonly client: UnaryClient;
-  private readonly store: query.Table<Key, Project>;
-  private readonly ontology: ontology.Stores;
+export interface ClientParams {
+  unary: UnaryClient;
+  cache: query.Cache;
+  ontology: ontology.Client;
+}
 
-  constructor(
-    client: UnaryClient,
-    cache: query.Cache,
-    ontologyStores: ontology.Stores,
-  ) {
+export class Client extends query.Retriever<typeof retrieveReqZ, Key, Project> {
+  private readonly cfg: ClientParams;
+  private readonly store: query.Table<Key, Project>;
+
+  constructor(cfg: ClientParams) {
+    const { cache } = cfg;
     const store = cache.createTable<Key, Project>({
       name: "projects",
       fetch: async (keys) => await this.execRetrieve({ keys }),
@@ -82,8 +84,7 @@ export class Client extends query.Retriever<typeof retrieveReqZ, Key, Project> {
         matches: (project, req) => requestFilter(req)(project),
       },
     });
-    this.client = client;
-    this.ontology = ontologyStores;
+    this.cfg = cfg;
     this.store = store;
   }
 
@@ -103,7 +104,7 @@ export class Client extends query.Retriever<typeof retrieveReqZ, Key, Project> {
     await opts.onOptimistic?.(optimistic);
     const res = await rollback.guard(
       async () =>
-        await this.client.send(
+        await this.cfg.unary.send(
           "/project/create",
           { projects: optimistic },
           createReqZ,
@@ -117,14 +118,19 @@ export class Client extends query.Retriever<typeof retrieveReqZ, Key, Project> {
   async rename(key: Key, name: string, opts: query.WriteOptions = {}): Promise<void> {
     const rename = () => [
       query.partialUpdate(this.store, key, { name }),
-      ontology.renameCachedResource(this.ontology, ontologyID(key), name),
+      this.cfg.ontology.cache.renameResource(ontologyID(key), name),
     ];
     const rollback = new destructor.Chain();
     rollback.add(...rename());
     await opts.onOptimistic?.();
     await rollback.guard(
       async () =>
-        await this.client.send("/project/rename", { key, name }, renameReqZ, emptyResZ),
+        await this.cfg.unary.send(
+          "/project/rename",
+          { key, name },
+          renameReqZ,
+          emptyResZ,
+        ),
     );
     rename();
   }
@@ -139,7 +145,7 @@ export class Client extends query.Retriever<typeof retrieveReqZ, Key, Project> {
     await opts.onOptimistic?.();
     await rollback.guard(
       async () =>
-        await this.client.send(
+        await this.cfg.unary.send(
           "/project/set-layout",
           { key, layout },
           setLayoutReqZ,
@@ -154,7 +160,7 @@ export class Client extends query.Retriever<typeof retrieveReqZ, Key, Project> {
   async delete(keys: Key | Key[], opts: query.WriteOptions = {}): Promise<void> {
     const keysArr = array.toArray(keys);
     const drop = () => [
-      ontology.deleteCachedResources(this.ontology, ontologyID(keysArr)),
+      this.cfg.ontology.cache.deleteResources(ontologyID(keysArr)),
       this.store.delete(keysArr),
     ];
     const rollback = new destructor.Chain();
@@ -162,7 +168,7 @@ export class Client extends query.Retriever<typeof retrieveReqZ, Key, Project> {
     await opts.onOptimistic?.();
     await rollback.guard(
       async () =>
-        await this.client.send(
+        await this.cfg.unary.send(
           "/project/delete",
           { keys: keysArr },
           deleteReqZ,
@@ -187,7 +193,7 @@ export class Client extends query.Retriever<typeof retrieveReqZ, Key, Project> {
   }
 
   private async execRetrieve(req: RetrieveRequest): Promise<Project[]> {
-    const res = await this.client.send(
+    const res = await this.cfg.unary.send(
       "/project/retrieve",
       req,
       retrieveReqZ,

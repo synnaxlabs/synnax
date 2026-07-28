@@ -29,19 +29,20 @@ import { ontology } from "@/ontology";
 export const ontologyID = ontology.createIDFactory<string>("framer");
 export const TYPE_ONTOLOGY_ID = ontologyID("");
 
+export interface ClientParams {
+  stream: WebSocketClient;
+  unary: UnaryClient;
+  retriever: channel.Retriever;
+}
+
 export class Client {
-  private readonly streamClient: WebSocketClient;
-  private readonly retriever: channel.Retriever;
+  private readonly cfg: ClientParams;
   private readonly deleter: Deleter;
   private readonly reader: Reader;
 
-  constructor(
-    stream: WebSocketClient,
-    unary: UnaryClient,
-    retriever: channel.Retriever,
-  ) {
-    this.streamClient = stream;
-    this.retriever = retriever;
+  constructor(cfg: ClientParams) {
+    const { stream, unary, retriever } = cfg;
+    this.cfg = cfg;
     this.deleter = new Deleter(unary);
     this.reader = new Reader(retriever, stream);
   }
@@ -59,7 +60,13 @@ export class Client {
     channels: channel.Params,
     opts?: IteratorConfig,
   ): Promise<Iterator> {
-    return await Iterator._open(tr, channels, this.retriever, this.streamClient, opts);
+    return await Iterator._open(
+      tr,
+      channels,
+      this.cfg.retriever,
+      this.cfg.stream,
+      opts,
+    );
   }
 
   /**
@@ -70,7 +77,7 @@ export class Client {
    * @returns a new {@link Writer}.
    */
   async openWriter(config: WriterConfig): Promise<Writer> {
-    return await Writer._open(this.retriever, this.streamClient, config);
+    return await Writer._open(this.cfg.retriever, this.cfg.stream, config);
   }
 
   /**
@@ -85,7 +92,7 @@ export class Client {
    *
    */
   async openStreamer(config: StreamerConfig): Promise<Streamer> {
-    return await openStreamer(this.retriever, this.streamClient, config);
+    return await openStreamer(this.cfg.retriever, this.cfg.stream, config);
   }
 
   async write(

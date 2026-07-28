@@ -61,16 +61,18 @@ const requestFilter = (req: RetrieveRequest): ((v: View) => boolean) => {
   };
 };
 
-export class Client extends query.Retriever<typeof retrieveRequestZ, Key, View> {
-  private readonly client: UnaryClient;
-  private readonly store: query.Table<Key, View>;
-  private readonly ontology: ontology.Stores;
+export interface ClientParams {
+  unary: UnaryClient;
+  cache: query.Cache;
+  ontology: ontology.Client;
+}
 
-  constructor(
-    client: UnaryClient,
-    cache: query.Cache,
-    ontologyStores: ontology.Stores,
-  ) {
+export class Client extends query.Retriever<typeof retrieveRequestZ, Key, View> {
+  private readonly cfg: ClientParams;
+  private readonly store: query.Table<Key, View>;
+
+  constructor(cfg: ClientParams) {
+    const { cache } = cfg;
     const store = cache.createTable<Key, View>({
       name: "views",
       fetch: async (keys) => await this.execRetrieve({ keys }),
@@ -88,8 +90,7 @@ export class Client extends query.Retriever<typeof retrieveRequestZ, Key, View> 
         matches: (view, req) => requestFilter(req)(view),
       },
     });
-    this.client = client;
-    this.ontology = ontologyStores;
+    this.cfg = cfg;
     this.store = store;
   }
 
@@ -97,7 +98,7 @@ export class Client extends query.Retriever<typeof retrieveRequestZ, Key, View> 
   async create(views: New[]): Promise<View[]>;
   async create(views: New | New[]): Promise<View | View[]> {
     const isMany = Array.isArray(views);
-    const res = await this.client.send(
+    const res = await this.cfg.unary.send(
       "/view/create",
       { views: array.toArray(views) },
       createReqZ,
@@ -111,7 +112,7 @@ export class Client extends query.Retriever<typeof retrieveRequestZ, Key, View> 
     const v = await this.retrieve({ key });
     const rename = () => [
       query.partialUpdate(this.store, key, { name }),
-      ontology.renameCachedResource(this.ontology, ontologyID(key), name),
+      this.cfg.ontology.cache.renameResource(ontologyID(key), name),
     ];
     const rollback = new destructor.Chain();
     rollback.add(...rename());
@@ -126,16 +127,16 @@ export class Client extends query.Retriever<typeof retrieveRequestZ, Key, View> 
     const keysArr = array.toArray(keys);
     const ids = ontologyID(keysArr);
     const drop = () => [
-      ontology.deleteCachedRelationships(this.ontology, ids),
+      this.cfg.ontology.cache.deleteRelationships(ids),
       this.store.delete(keysArr),
-      this.ontology.resources.delete(ontology.idToString(ids)),
+      this.cfg.ontology.cache.resources.delete(ontology.idToString(ids)),
     ];
     const rollback = new destructor.Chain();
     rollback.add(...drop());
     await opts.onOptimistic?.();
     await rollback.guard(
       async () =>
-        await this.client.send(
+        await this.cfg.unary.send(
           "/view/delete",
           { keys: keysArr },
           deleteReqZ,
@@ -160,7 +161,7 @@ export class Client extends query.Retriever<typeof retrieveRequestZ, Key, View> 
   }
 
   private async execRetrieve(params: RetrieveMultipleParams): Promise<View[]> {
-    const res = await this.client.send(
+    const res = await this.cfg.unary.send(
       "/view/retrieve",
       params,
       retrieveRequestZ,
