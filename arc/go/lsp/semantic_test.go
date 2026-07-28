@@ -17,9 +17,10 @@ import (
 	"github.com/synnaxlabs/arc/symbol"
 	. "github.com/synnaxlabs/arc/symbol/testutil"
 	"github.com/synnaxlabs/arc/types"
-	"github.com/synnaxlabs/x/lsp/protocol"
 	. "github.com/synnaxlabs/x/lsp/testutil"
 	. "github.com/synnaxlabs/x/testutil"
+	"go.lsp.dev/protocol"
+	"go.lsp.dev/uri"
 )
 
 // Token type ids must mirror the iota constants in arc/go/lsp/semantic.go.
@@ -89,7 +90,7 @@ func filterByType(tokens []decodedToken, tokenType uint32) []decodedToken {
 var _ = Describe("Semantic Tokens", func() {
 	var (
 		server *lsp.Server
-		uri    protocol.DocumentURI
+		uri    uri.URI
 	)
 
 	BeforeEach(func() {
@@ -559,16 +560,14 @@ func cat() {
 
 	Describe("Legend", func() {
 		It("pins the tail of the semantic token types legend", func(ctx SpecContext) {
-			result := MustSucceed(server.Initialize(ctx, &protocol.InitializeParams{
-				ClientInfo: &protocol.ClientInfo{Name: "test"},
-			}))
-			provider, ok := result.Capabilities.SemanticTokensProvider.(map[string]any)
-			Expect(ok).To(BeTrue())
-			legend, ok := provider["legend"].(protocol.SemanticTokensLegend)
-			Expect(ok).To(BeTrue())
+			result := MustSucceed(server.Initialize(ctx, &protocol.InitializeParams{}))
+			provider, ok := result.Capabilities.SemanticTokensProvider.(*protocol.SemanticTokensOptions)
+			Expect(ok).To(BeTrue(), "expected *protocol.SemanticTokensOptions, got %T",
+				result.Capabilities.SemanticTokensProvider)
+			legend := provider.Legend
 			Expect(legend.TokenTypes).ToNot(BeEmpty())
 			n := len(legend.TokenTypes)
-			Expect(string(legend.TokenTypes[n-1])).To(Equal("channelVariable"))
+			Expect(legend.TokenTypes[n-1]).To(Equal("channelVariable"))
 			Expect(uint32(n - 1)).To(Equal(tokenTypeChannelVariable))
 		})
 	})

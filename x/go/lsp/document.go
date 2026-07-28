@@ -10,9 +10,10 @@
 package lsp
 
 import (
+	"fmt"
 	"strings"
 
-	"github.com/synnaxlabs/x/lsp/protocol"
+	"go.lsp.dev/protocol"
 )
 
 // PositionToOffset converts an LSP line/character position to a byte offset
@@ -35,42 +36,38 @@ func PositionToOffset(content string, pos protocol.Position) int {
 	return offset
 }
 
-// IsFullReplacement detects whether a content change event represents a
-// full-document replacement (no range specified).
-func IsFullReplacement(
-	change protocol.TextDocumentContentChangeEvent,
-) bool {
-	return change.Range == nil
-}
-
-// ApplyIncrementalChange splices a single incremental change into the
-// document content and returns the updated string.
+// ApplyIncrementalChange splices a single incremental change into the document content
+// and returns the updated string. Panics on a change variant outside the sealed union.
 func ApplyIncrementalChange(
 	content string,
 	change protocol.TextDocumentContentChangeEvent,
 ) string {
-	if change.Range == nil {
-		return change.Text
+	switch ev := change.(type) {
+	case *protocol.TextDocumentContentChangeWholeDocument:
+		return ev.Text
+	case *protocol.TextDocumentContentChangePartial:
+		start := PositionToOffset(content, ev.Range.Start)
+		end := PositionToOffset(content, ev.Range.End)
+		var b strings.Builder
+		b.Grow(start + len(ev.Text) + len(content) - end)
+		b.WriteString(content[:start])
+		b.WriteString(ev.Text)
+		b.WriteString(content[end:])
+		return b.String()
+	default:
+		panic(fmt.Sprintf("unhandled TextDocumentContentChangeEvent variant %T", change))
 	}
-	start := PositionToOffset(content, change.Range.Start)
-	end := PositionToOffset(content, change.Range.End)
-	var b strings.Builder
-	b.Grow(start + len(change.Text) + len(content) - end)
-	b.WriteString(content[:start])
-	b.WriteString(change.Text)
-	b.WriteString(content[end:])
-	return b.String()
 }
 
-// SplitLines normalizes \r\n to \n and splits the content into lines.
-func SplitLines(content string) []string {
+// splitLines normalizes \r\n to \n and splits the content into lines.
+func splitLines(content string) []string {
 	content = strings.ReplaceAll(content, "\r\n", "\n")
 	return strings.Split(content, "\n")
 }
 
 // GetLine returns the line at the given 0-indexed line number.
 func GetLine(content string, line uint32) (string, bool) {
-	lines := SplitLines(content)
+	lines := splitLines(content)
 	if int(line) >= len(lines) {
 		return "", false
 	}
@@ -100,31 +97,7 @@ func GetWordAtPosition(content string, pos protocol.Position) string {
 	return line[start:end]
 }
 
-func isQualifiedWordChar(c byte) bool {
-	return IsWordChar(c) || c == '.'
-}
-
-// GetQualifiedWordAtPosition extracts the word at the given position,
-// treating dots as word characters so that qualified names like "math.pow"
-// are returned as a single word.
-func GetQualifiedWordAtPosition(
-	content string,
-	pos protocol.Position,
-) string {
-	line, ok := GetLine(content, pos.Line)
-	if !ok || int(pos.Character) >= len(line) {
-		return ""
-	}
-	start := int(pos.Character)
-	end := int(pos.Character)
-	for start > 0 && isQualifiedWordChar(line[start-1]) {
-		start--
-	}
-	for end < len(line) && isQualifiedWordChar(line[end]) {
-		end++
-	}
-	return line[start:end]
-}
+func isQualifiedWordChar(c byte) bool { return IsWordChar(c) || c == '.' }
 
 // GetQualifiedPrefixWordAtPosition extracts the qualifier chain ending at
 // the cursor word. The left walk crosses dots so a qualifier prefix is

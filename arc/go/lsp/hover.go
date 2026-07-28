@@ -21,7 +21,8 @@ import (
 	"github.com/synnaxlabs/arc/types"
 	lsp "github.com/synnaxlabs/x/lsp"
 	"github.com/synnaxlabs/x/lsp/doc"
-	"github.com/synnaxlabs/x/lsp/protocol"
+	"go.lsp.dev/protocol"
+	"go.lsp.dev/uri"
 	"go.uber.org/zap"
 )
 
@@ -62,8 +63,8 @@ func (s *Server) Hover(
 		contents := s.getOperatorHoverContents(operator)
 		if contents != "" {
 			return &protocol.Hover{
-				Contents: protocol.MarkupContent{
-					Kind:  protocol.Markdown,
+				Contents: &protocol.MarkupContent{
+					Kind:  protocol.MarkupKindMarkdown,
 					Value: contents,
 				},
 			}, nil
@@ -111,8 +112,8 @@ func (s *Server) Hover(
 	}
 
 	return &protocol.Hover{
-		Contents: protocol.MarkupContent{
-			Kind:  protocol.Markdown,
+		Contents: &protocol.MarkupContent{
+			Kind:  protocol.MarkupKindMarkdown,
 			Value: contents,
 		},
 	}, nil
@@ -615,7 +616,7 @@ func formatModuleMembersList(sym *symbol.Symbol) []string {
 
 // symbolToLocation converts a symbol to an LSP Location pointing to its definition
 func (s *Server) symbolToLocation(
-	uri protocol.DocumentURI,
+	docURI uri.URI,
 	sym *symbol.Symbol,
 ) *protocol.Location {
 	if sym.AST == nil {
@@ -628,7 +629,7 @@ func (s *Server) symbolToLocation(
 	line := uint32(start.GetLine() - 1)
 	col := uint32(start.GetColumn())
 	return &protocol.Location{
-		URI: uri,
+		URI: docURI,
 		Range: protocol.Range{
 			Start: protocol.Position{Line: line, Character: col},
 			End:   protocol.Position{Line: line, Character: col + uint32(len(sym.Name))},

@@ -17,6 +17,7 @@ import (
 	"github.com/synnaxlabs/oracle/analyzer"
 	"github.com/synnaxlabs/oracle/resolution"
 	. "github.com/synnaxlabs/oracle/testutil"
+	"github.com/synnaxlabs/x/diagnostics"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -3054,5 +3055,57 @@ var _ = Describe("Analyzer", func() {
 			Expect(tags.Elements[0].StringValue).To(Equal("a"))
 			Expect(tags.Elements[1].StringValue).To(Equal("b"))
 		})
+	})
+})
+
+var _ = Describe("Analyze", func() {
+	var loader *MockFileLoader
+
+	BeforeEach(func() { loader = NewMockFileLoader() })
+
+	It("Should analyze multiple files into one table", func(ctx SpecContext) {
+		loader.Add("label", `
+			Label struct {
+				key uuid @key
+				name string
+			}
+		`).Add("ranger", `
+			Range struct {
+				key uuid @key
+				name string
+			}
+		`)
+		table, diag := analyzer.Analyze(ctx, []string{"label", "ranger"}, loader)
+		Expect(diag.Ok()).To(BeTrue())
+		Expect(table.MustGet("label.Label").Name).To(Equal("Label"))
+		Expect(table.MustGet("ranger.Range").Name).To(Equal("Range"))
+	})
+
+	It("Should analyze a file only once when listed twice", func(ctx SpecContext) {
+		loader.Add("label", `
+			Label struct {
+				key uuid @key
+			}
+		`)
+		table, diag := analyzer.Analyze(ctx, []string{"label", "label.oracle"}, loader)
+		Expect(diag.Ok()).To(BeTrue())
+		Expect(table.MustGet("label.Label").Name).To(Equal("Label"))
+	})
+
+	It("Should report a load failure under the requested file", func(ctx SpecContext) {
+		Expect(analyzer.Analyze(ctx, []string{"missing"}, loader)).Error().
+			To(MatchError(ContainSubstring("failed to load file")))
+	})
+
+	It("Should report parse errors under the loaded file path", func(ctx SpecContext) {
+		loader.Add("broken", "Label struct {{{{")
+		table, diag := analyzer.Analyze(ctx, []string{"broken"}, loader)
+		Expect(table).To(BeNil())
+		Expect(diag.Ok()).To(BeFalse())
+		var files []string
+		diag.Each(func(file string, _ diagnostics.Diagnostic) {
+			files = append(files, file)
+		})
+		Expect(files).To(ContainElement("broken.oracle"))
 	})
 })
