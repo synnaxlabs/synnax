@@ -27,7 +27,6 @@ import {
   ontologyID,
   type Panel,
   panelZ,
-  TYPE_ONTOLOGY_ID,
 } from "@/panel/types.gen";
 import { query } from "@/query";
 
@@ -54,7 +53,7 @@ const isChildOf = (rel: ontology.Relationship, parent: ontology.ID): boolean =>
   ontology.matchRelationship(rel, {
     from: parent,
     type: ontology.PARENT_OF_RELATIONSHIP_TYPE,
-    to: { type: TYPE_ONTOLOGY_ID.type },
+    to: { type: "panel" },
   });
 
 /**
@@ -325,7 +324,7 @@ export class Client extends query.Retriever<typeof retrieveReqZ, Key, Panel> {
     if (parent != null) {
       const children = await this.cfg.ontology.children.retrieve({
         ids: parent,
-        types: [TYPE_ONTOLOGY_ID.type],
+        types: ["panel"],
       });
       const keys = children.map(({ id }) => id.key);
       if (keys.length === 0) return [];
