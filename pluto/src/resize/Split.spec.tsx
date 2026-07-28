@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { fireEvent, render } from "@testing-library/react";
+import { act, fireEvent, render } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { Resize } from "@/resize";
@@ -34,10 +34,10 @@ const handleOf = (c: ReturnType<typeof render>): HTMLElement => {
 const panesOf = (c: ReturnType<typeof render>): HTMLElement[] =>
   Array.from(c.container.querySelectorAll<HTMLElement>(".pluto-resize"));
 
-const drag = (
+const drag = async (
   c: ReturnType<typeof render>,
   { from, to }: { from: number; to: number },
-): void => {
+): Promise<void> => {
   // Cursor.useDrag captures the pointer on the handle, then tracks moves/up on window
   // (capture bubbles them up). The from -> to distance must exceed the activation
   // threshold for the drag to begin.
@@ -49,6 +49,11 @@ const drag = (
     clientY: 0,
   });
   fireEvent.pointerMove(window, { pointerId: 1, clientX: to, clientY: 0 });
+  // Moves are coalesced onto the next animation frame; let one land before release.
+  await act(
+    async () =>
+      await new Promise<void>((resolve) => requestAnimationFrame(() => resolve())),
+  );
   fireEvent.pointerUp(window, { pointerId: 1, clientX: to, clientY: 0 });
 };
 
@@ -76,38 +81,38 @@ describe("Resize.Split", () => {
     expect(c.container.querySelectorAll(".pluto-resize__handle")).toHaveLength(1);
   });
 
-  it("should grow the first pane when the handle is dragged forward", () => {
+  it("should grow the first pane when the handle is dragged forward", async () => {
     const onResize = vi.fn();
     const c = renderSplit({ size: 0.5, onResize });
-    drag(c, { from: 500, to: 600 });
+    await drag(c, { from: 500, to: 600 });
     expect(lastSize(onResize)).toBeCloseTo(0.6);
   });
 
-  it("should shrink the first pane when the handle is dragged backward", () => {
+  it("should shrink the first pane when the handle is dragged backward", async () => {
     const onResize = vi.fn();
     const c = renderSplit({ size: 0.5, onResize });
-    drag(c, { from: 500, to: 350 });
+    await drag(c, { from: 500, to: 350 });
     expect(lastSize(onResize)).toBeCloseTo(0.35);
   });
 
-  it("should clamp the first pane to the minimum size", () => {
+  it("should clamp the first pane to the minimum size", async () => {
     const onResize = vi.fn();
     const c = renderSplit({ size: 0.5, minSize: 100, onResize });
-    drag(c, { from: 500, to: -10000 });
+    await drag(c, { from: 500, to: -10000 });
     expect(lastSize(onResize)).toBeCloseTo(100 / PARENT_SIZE);
   });
 
-  it("should clamp so the second pane keeps the minimum size", () => {
+  it("should clamp so the second pane keeps the minimum size", async () => {
     const onResize = vi.fn();
     const c = renderSplit({ size: 0.5, minSize: 100, onResize });
-    drag(c, { from: 500, to: 10000 });
+    await drag(c, { from: 500, to: 10000 });
     expect(lastSize(onResize)).toBeCloseTo(1 - 100 / PARENT_SIZE);
   });
 
-  it("should commit the final ratio once on drag end", () => {
+  it("should commit the final ratio once on drag end", async () => {
     const onResizeEnd = vi.fn();
     const c = renderSplit({ size: 0.5, onResizeEnd });
-    drag(c, { from: 500, to: 600 });
+    await drag(c, { from: 500, to: 600 });
     expect(onResizeEnd).toHaveBeenCalledTimes(1);
     expect(lastSize(onResizeEnd)).toBeCloseTo(0.6);
   });

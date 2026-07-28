@@ -154,6 +154,7 @@ const Content = (): ReactElement => {
         modalPosition="slammed"
         variant="modal"
         background={isOverlaid ? 0 : undefined}
+        className={CSS.BE("panel", "tab-frame")}
       >
         <Dialog.Dialog
           passthrough

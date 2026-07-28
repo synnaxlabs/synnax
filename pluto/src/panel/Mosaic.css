@@ -14,3 +14,9 @@
     height: 100%;
     position: relative;
 }
+
+/* Single-child pass-through: block spares WebKit a level of per-frame flex
+   re-measurement while a pane or drawer resizes. */
+.pluto-mosaic__leaf > .pluto-tabs > .pluto-tabs__content {
+    display: block;
+}
