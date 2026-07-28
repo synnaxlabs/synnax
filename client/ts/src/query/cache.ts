@@ -7,9 +7,16 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type destructor, observe, type record, type state } from "@synnaxlabs/x";
+import {
+  type destructor,
+  errors,
+  observe,
+  type record,
+  type state,
+} from "@synnaxlabs/x";
 import type z from "zod";
 
+import { NotFoundError } from "@/errors";
 import { Queries, type QueriesParams, type Retrieves } from "@/query/query";
 import {
   createStreamer,
@@ -50,7 +57,36 @@ interface TableEntry {
   name: string;
   listeners: Listener[];
   reconcile?: () => Promise<void>;
+  clear: () => void;
 }
+
+/**
+ * Retrieves by key are strict: a batch containing any vanished key rejects
+ * with NotFound instead of returning the survivors. Falls back to probing
+ * keys one at a time so survivors are still distinguishable.
+ */
+const fetchSurvivors = async <Key extends record.Key, Value extends state.State>(
+  fetch: NonNullable<TableParams<Key, Value>["fetch"]>,
+  keys: Key[],
+): Promise<Value[]> => {
+  try {
+    return await fetch(keys);
+  } catch (exc) {
+    if (!NotFoundError.matches(exc)) throw errors.fromUnknown(exc);
+  }
+  if (keys.length === 1) return [];
+  const probed = await Promise.all(
+    keys.map(async (key) => {
+      try {
+        return await fetch([key]);
+      } catch (exc) {
+        if (NotFoundError.matches(exc)) return [];
+        throw errors.fromUnknown(exc);
+      }
+    }),
+  );
+  return probed.flat();
+};
 
 /**
  * Binds a table's reconcile pass: refreshes rows that still exist on the
@@ -64,7 +100,7 @@ const bindReconcile =
   async () => {
     const keys = table.keys();
     if (keys.length === 0) return;
-    const values = await fetch(keys);
+    const values = await fetchSurvivors(fetch, keys);
     const present = new Set<Key>(values.map(({ key }) => key));
     const vanished = keys.filter((k) => !present.has(k));
     if (vanished.length > 0) table.delete(vanished);
@@ -85,7 +121,7 @@ const bindReconcile =
 export class Cache {
   private readonly entries: TableEntry[] = [];
   private readonly reactions: Listener[] = [];
-  private readonly spaces: Array<{ close: () => void }> = [];
+  private readonly spaces: Array<{ close: () => void; invalidate: () => void }> = [];
   private readonly epochObserver = new observe.Observer<number>();
   private readonly openStreamer: StreamOpener | null;
   private streamer: Streamer | null = null;
@@ -119,6 +155,7 @@ export class Cache {
       name,
       listeners: (listen ?? []).map((spec) => spec.bind(table)),
       reconcile: config.fetch == null ? undefined : bindReconcile(table, config.fetch),
+      clear: () => table.clear(),
     });
     return table;
   }
@@ -164,19 +201,28 @@ export class Cache {
   async ensureStreaming(): Promise<void> {
     const { openStreamer } = this;
     if (openStreamer == null) return;
-    this.streamer ??= createStreamer({
-      openStreamer,
-      listeners: [
-        ...this.entries.flatMap(({ listeners }) => listeners),
-        ...this.reactions,
-      ],
-      onError: this.onError,
-      onOpen: () => {
-        this.epochCount = 1;
-        this.epochObserver.notify(this.epochCount);
-      },
-      onReopen: () => this.bumpEpoch(),
-    });
+    if (this.streamer == null) {
+      // A reset can retire the streamer while its open is in flight; a
+      // retired streamer's lifecycle callbacks must not touch the epoch.
+      const streamer = createStreamer({
+        openStreamer,
+        listeners: [
+          ...this.entries.flatMap(({ listeners }) => listeners),
+          ...this.reactions,
+        ],
+        onError: this.onError,
+        onOpen: () => {
+          if (this.streamer !== streamer) return;
+          this.epochCount = 1;
+          this.epochObserver.notify(this.epochCount);
+        },
+        onReopen: () => {
+          if (this.streamer !== streamer) return;
+          this.bumpEpoch();
+        },
+      });
+      this.streamer = streamer;
+    }
     await this.streamer.demand();
   }
 
@@ -209,6 +255,29 @@ export class Cache {
         }
       }),
     );
+  }
+
+  /**
+   * Discards every cached row, tombstone, and answer, closes the change
+   * stream so it reopens fresh, and returns the epoch to 0. Called when the
+   * cluster behind the connection is replaced: no cached record, corpse, or
+   * answer remains meaningful, so nothing is tombstoned or diffed.
+   */
+  async reset(): Promise<void> {
+    const { streamer } = this;
+    this.streamer = null;
+    // Drain the retired stream first so a late frame cannot repopulate the
+    // tables cleared below. A close failure must not block the reset: the
+    // stream is retired either way.
+    try {
+      await streamer?.close();
+    } catch (exc) {
+      console.error("failed to close retired stream", exc);
+    }
+    this.entries.forEach(({ clear }) => clear());
+    this.spaces.forEach((space) => space.invalidate());
+    this.epochCount = 0;
+    this.epochObserver.notify(0);
   }
 
   private bumpEpoch(): void {
