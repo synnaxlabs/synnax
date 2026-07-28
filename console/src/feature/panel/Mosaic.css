@@ -13,6 +13,12 @@
     animation: none !important;
 }
 
+/* Single-child pass-through: block spares WebKit a level of per-frame flex
+   re-measurement while a pane or drawer resizes. */
+.console-panel__tab-frame {
+    display: block;
+}
+
 /* Hosts the selected panel's kept-alive subtree; unselected panels stay mounted
  * against detached portal elements. Must stay unpositioned: a positioned ancestor
  * lifts the panel above the fixed canvases, hiding every plot's pixels. */
