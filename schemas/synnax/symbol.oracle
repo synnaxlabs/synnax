@@ -131,4 +131,5 @@ Symbol struct {
     @create
     @go marshal
     @go version    1
+    @go imex
 }

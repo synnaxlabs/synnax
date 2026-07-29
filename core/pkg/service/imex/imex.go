@@ -215,6 +215,21 @@ func Decode[T any](ctx context.Context, e Envelope) (T, error) {
 	return t, nil
 }
 
+// BodyNamed reports whether the envelope body carries a top-level `name` field.
+// Every typed export does (Encode enforces it); legacy Console-state files never
+// do, so importers use this to discriminate the two families at console-era
+// versions. Distinct from Envelope.Name, which the import service may have
+// filled from the caller-supplied file name.
+func BodyNamed(ctx context.Context, e Envelope) (bool, error) {
+	peek, err := Decode[struct {
+		Name *string `json:"name"`
+	}](ctx, e)
+	if err != nil {
+		return false, err
+	}
+	return peek.Name != nil, nil
+}
+
 // Encode is the symmetric inverse of Decode. The caller supplies an envelope carrying
 // the desired Version, Type, and (optionally) Name headers; Encode reduces data to a
 // codec-independent map[string]any and stamps the merged body onto the envelope. A

@@ -1,0 +1,9 @@
+{
+  "version": "1.0.0",
+  "type": "table",
+  "key": "11111111-2222-3333-4444-555555555555",
+  "name": "Console Typed",
+  "rows": [{ "size": 25, "cells": ["c1"] }],
+  "columns": [{ "size": 90 }],
+  "cells": { "c1": { "key": "c1", "variant": "text", "props": { "fooBar": 1 } } }
+}

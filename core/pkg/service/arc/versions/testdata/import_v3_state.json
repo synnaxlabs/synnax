@@ -1,0 +1,27 @@
+{
+  "key": "abc123",
+  "version": "3.0.0",
+  "type": "arc",
+  "graph": {
+    "editable": true,
+    "fitViewOnResize": false,
+    "viewport": { "position": { "x": 0, "y": 0 }, "zoom": 1 },
+    "selected": []
+  },
+  "pendingUpload": {
+    "mode": "graph",
+    "graph": {
+      "nodes": [{ "key": "n1", "position": { "x": 3, "y": 4 } }],
+      "edges": [
+        {
+          "key": "e1",
+          "source": { "node": "n1", "param": "o" },
+          "target": { "node": "n2", "param": "i" },
+          "kind": 1
+        }
+      ],
+      "inputs": { "n1": { "type": "constant", "value": 7 } }
+    },
+    "text": { "raw": "x = 1" }
+  }
+}

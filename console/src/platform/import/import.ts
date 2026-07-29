@@ -39,10 +39,22 @@ export const ingestComponent = async (
     type = data.type;
   if (type != null) {
     const ingest = fileIngesters[type];
+    if (ingest == null) throw new Error(`${ctx.fileName} has an unknown type: ${type}`);
     await ingest(data, ctx);
     return;
   }
-  for (const ingest of Object.values(fileIngesters))
+  // Typeless files are legacy Console-state exports. Ingesters with a matcher
+  // claim their shapes outright; the rest are tried and reject foreign payloads
+  // with a ZodError.
+  const ingesters = Object.values(fileIngesters);
+  if (typeof data === "object" && data != null)
+    for (const ingest of ingesters)
+      if (ingest.match?.(data as Record<string, unknown>) === true) {
+        await ingest(data, ctx);
+        return;
+      }
+  for (const ingest of ingesters) {
+    if (ingest.match != null) continue;
     try {
       await ingest(data, ctx);
       return;
@@ -50,6 +62,7 @@ export const ingestComponent = async (
       if (e instanceof ZodError) continue;
       else throw errors.fromUnknown(e);
     }
+  }
   throw new Error(`${ctx.fileName} cannot be imported.`);
 };
 

@@ -226,4 +226,5 @@ Table struct {
     @create
     @go marshal
     @go migrate
+    @go imex
 }

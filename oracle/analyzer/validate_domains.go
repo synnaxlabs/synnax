@@ -142,6 +142,41 @@ func validateVersionArgs(c *analysisCtx, types []resolution.Type) {
 	}
 }
 
+// validateImex errors on malformed @go imex declarations: the marker is
+// per-type, takes no arguments, and requires a @go version on the same type.
+func validateImex(c *analysisCtx, types []resolution.Type) {
+	if dom, ok := c.fileDomains["go"]; ok {
+		if _, has := dom.Expressions.Find("imex"); has {
+			c.report(diagnostics.Errorf(nil,
+				"%s declares @go imex file-level; declare it per type instead",
+				c.namespace,
+			))
+			return
+		}
+	}
+	for _, t := range types {
+		dom, ok := t.Domains["go"]
+		if !ok {
+			continue
+		}
+		expr, ok := dom.Expressions.Find("imex")
+		if !ok {
+			continue
+		}
+		if len(expr.Values) > 0 {
+			c.report(diagnostics.Errorf(nil,
+				"%s has a malformed @go imex; the marker takes no arguments",
+				t.QualifiedName,
+			))
+		}
+		if _, versioned := dom.Expressions.Find("version"); !versioned {
+			c.report(diagnostics.Errorf(nil,
+				"%s declares @go imex without @go version", t.QualifiedName,
+			))
+		}
+	}
+}
+
 // validateDeadOutputs errors when a file declares a language output that
 // nothing uses: every type omits the language and none is hand-written.
 func validateDeadOutputs(

@@ -10,6 +10,9 @@
 package symbol_test
 
 import (
+	"encoding/json"
+	"os"
+
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -20,6 +23,15 @@ import (
 	"github.com/synnaxlabs/x/query"
 	. "github.com/synnaxlabs/x/testutil"
 )
+
+// loadEnvelope reads a wire-format envelope fixture from versions/testdata and
+// unmarshals it into an imex.Envelope, binding the codec that Decode needs.
+func loadEnvelope(path string) imex.Envelope {
+	raw := MustSucceed(os.ReadFile(path))
+	var env imex.Envelope
+	Expect(json.Unmarshal(raw, &env)).To(Succeed())
+	return env
+}
 
 var _ = Describe("ImEx", func() {
 	Describe("Export", func() {
@@ -55,6 +67,98 @@ var _ = Describe("ImEx", func() {
 		It("Should error on an invalid UUID key", func(ctx SpecContext) {
 			id := ontology.ID{Type: ontology.ResourceTypeSchematicSymbol, Key: "not-a-uuid"}
 			Expect(svc.Export(ctx, id)).Error().To(MatchError(ContainSubstring("UUID")))
+		})
+	})
+
+	Describe("Import", func() {
+		// Imports run on the per-spec tx so created rows roll back and the shared
+		// DB's symbol counts stay intact for the other specs.
+		importAndRetrieve := func(ctx SpecContext, path string) symbol.Symbol {
+			id := MustSucceed(imexSvc.Import(
+				ctx, tx, loadEnvelope(path), imex.ImportOptions{},
+			))
+			Expect(id.Type).To(Equal(ontology.ResourceTypeSchematicSymbol))
+			key := MustSucceed(uuid.Parse(id.Key))
+			var res symbol.Symbol
+			Expect(svc.NewRetrieve().
+				Where(symbol.MatchKeys(key)).
+				Entry(&res).
+				Exec(ctx, tx)).To(Succeed())
+			return res
+		}
+
+		It("Should import a server export carrying snake_case keys", func(ctx SpecContext) {
+			res := importAndRetrieve(ctx, "versions/testdata/import_v1.json")
+			Expect(res.Name).To(Equal("Server Symbol"))
+			Expect(res.Version).To(Equal(uint32(1)))
+			Expect(res.Data.SVG).To(Equal("<svg><rect/></svg>"))
+			Expect(res.Data.Variant).To(Equal("valve"))
+			Expect(res.Data.ScaleStroke).To(BeTrue())
+		})
+
+		It("Should import a Console export carrying camelCase keys", func(ctx SpecContext) {
+			res := importAndRetrieve(ctx, "versions/testdata/import_console.json")
+			Expect(res.Name).To(Equal("Console Symbol"))
+			Expect(res.Data.Variant).To(Equal("sensor"))
+			Expect(res.Data.Scale).To(Equal(2.0))
+			Expect(res.Data.ScaleStroke).To(BeTrue())
+		})
+
+		It("Should parent the imported symbol under the permanent symbol group", func(ctx SpecContext) {
+			id := MustSucceed(imexSvc.Import(
+				ctx, tx,
+				loadEnvelope("versions/testdata/import_v1.json"),
+				imex.ImportOptions{},
+			))
+			Expect(otg.RelationshipExists(ctx, tx, ontology.Relationship{
+				From: svc.Group().OntologyID(),
+				Type: ontology.RelationshipTypeParentOf,
+				To:   id,
+			})).To(BeTrue())
+		})
+
+		It("Should reject an envelope newer than the supported version", func(ctx SpecContext) {
+			Expect(imexSvc.Import(ctx, tx,
+				loadEnvelope("versions/testdata/import_bad_version.json"),
+				imex.ImportOptions{},
+			)).Error().To(SatisfyAll(
+				MatchError(ContainSubstring("schematic_symbol version 99")),
+				MatchError(ContainSubstring("newer than this Core supports")),
+			))
+		})
+
+		It("Should generate a fresh key, discarding the key on the wire", func(ctx SpecContext) {
+			id := MustSucceed(imexSvc.Import(ctx, tx,
+				loadEnvelope("versions/testdata/import_v1.json"), imex.ImportOptions{},
+			))
+			Expect(id.Key).ToNot(Equal("11111111-2222-3333-4444-555555555555"))
+		})
+	})
+
+	Describe("Round trip", func() {
+		It("Should preserve symbol content through export then import", func(ctx SpecContext) {
+			original := symbol.Symbol{
+				Name: "round-trip",
+				Data: symbol.Spec{SVG: "<svg/>", Variant: "valve", ScaleStroke: true},
+			}
+			Expect(svc.NewWriter(nil).Create(ctx, &original, proj.OntologyID())).
+				To(Succeed())
+			DeferCleanup(func(ctx SpecContext) {
+				Expect(svc.NewWriter(nil).Delete(ctx, original.Key)).To(Succeed())
+			})
+			env := MustSucceed(svc.Export(ctx, symbol.OntologyID(original.Key)))
+			id := MustSucceed(imexSvc.Import(
+				ctx, tx, WireRoundTrip(env), imex.ImportOptions{},
+			))
+			key := MustSucceed(uuid.Parse(id.Key))
+			Expect(key).ToNot(Equal(original.Key))
+			var res symbol.Symbol
+			Expect(svc.NewRetrieve().
+				Where(symbol.MatchKeys(key)).
+				Entry(&res).
+				Exec(ctx, tx)).To(Succeed())
+			Expect(res.Name).To(Equal("round-trip"))
+			Expect(res.Data).To(Equal(original.Data))
 		})
 	})
 })

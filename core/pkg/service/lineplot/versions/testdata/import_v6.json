@@ -1,0 +1,20 @@
+{
+  "version": 6,
+  "type": "lineplot",
+  "key": "11111111-2222-3333-4444-555555555555",
+  "name": "Server Typed",
+  "title": { "level": "h4", "visible": true },
+  "legend": { "hidden": false, "position": { "x": 50, "y": 50 } },
+  "channels": { "x1": 0, "x2": 0, "y1": [1, 2], "y2": [], "y3": [], "y4": [] },
+  "ranges": { "x1": ["recent"], "x2": [] },
+  "lines": [
+    {
+      "key": "l1",
+      "color": "#ff0000",
+      "stroke_width": 2.5,
+      "downsample": 1,
+      "downsample_mode": "decimate"
+    }
+  ],
+  "rules": []
+}

@@ -600,4 +600,5 @@ LinePlot struct {
     @retrieve
     @go marshal
     @go migrate
+    @go imex
 }

@@ -15,12 +15,10 @@ import (
 	"github.com/google/uuid"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/x/gorp"
 )
 
-// Version is the per-schema version stamped on every exported symbol envelope.
-const Version imex.Version = 1
-
-var _ imex.Exporter = (*Service)(nil)
+var _ imex.ImportExporter = (*Service)(nil)
 
 // Export retrieves the symbol identified by id and serializes it as an imex.Envelope
 // stamped with Version. It returns query.ErrNotFound if no symbol exists for id.Key.
@@ -41,4 +39,36 @@ func (s *Service) Export(ctx context.Context, id ontology.ID) (imex.Envelope, er
 		return imex.Envelope{}, err
 	}
 	return env, nil
+}
+
+// Import decodes the envelope into a Symbol and persists it on tx, returning the
+// ontology.ID of the newly-created symbol. The exported key is discarded and a fresh
+// one is generated so that importing always materializes a new resource. Imported
+// symbols are created under the service's permanent symbol group; opts.Project does
+// not apply to symbols. Console-written files carry camelCase keys and the same
+// envelope version as server exports (the symbol's persisted version field doubles as
+// the envelope version), so every body decodes through the camelCase-tolerant path.
+func (s *Service) Import(
+	ctx context.Context,
+	tx gorp.Tx,
+	env imex.Envelope,
+	_ imex.ImportOptions,
+) (ontology.ID, error) {
+	if env.Version > Version {
+		return ontology.ID{}, imex.NewErrUnsupportedVersion(
+			string(s.Type()), env.Version, Version,
+		)
+	}
+	sym, err := imex.DecodeCamel[Symbol](ctx, env)
+	if err != nil {
+		return ontology.ID{}, err
+	}
+	sym.Key = uuid.Nil
+	// env.Name is the resolved resource name: the body's name when present, or the
+	// caller-supplied file name fallback applied by the imex service.
+	sym.Name = env.Name
+	if err = s.NewWriter(tx).Create(ctx, &sym, s.group.OntologyID()); err != nil {
+		return ontology.ID{}, err
+	}
+	return sym.OntologyID(), nil
 }

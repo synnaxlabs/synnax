@@ -16,182 +16,43 @@ import { createFileIngesterContext } from "@/platform/import/testutil";
 import { type Panel } from "@/platform/panel";
 import { createGrantedFluxStore, uniqueName } from "@/testutil";
 
-const LATEST_VERSION = "3.0.0";
-
-const zeroGraph = {
-  editable: true,
-  fitViewOnResize: false,
-  viewport: { position: { x: 0, y: 0 }, zoom: 1 },
-  selected: [],
-  nodes: [],
-  edges: [],
-};
-
-// A legacy v1 console-state export: a versioned redux shape that parks node props inline
-// under graph.props. The migration chain rewrites set_status and lifts each prop into the
-// pendingUpload graph configs map (function type moving from "key" to "type").
-const v1State = (props: Record<string, Record<string, unknown>>) => ({
-  key: "test",
-  version: "1.0.0",
-  remoteCreated: false,
-  graph: { ...zeroGraph, props },
-  text: { raw: "x = 1" },
-  mode: "graph",
-});
-
-describe("arc import", () => {
-  describe("anyStateZ", () => {
-    it("should migrate a v0 state to the latest version", () => {
-      const v0 = {
-        key: "test",
-        version: "0.0.0",
-        remoteCreated: false,
-        graph: { ...zeroGraph, props: {} },
-        text: { raw: "" },
-        mode: "graph",
-      };
-      expect(Arc.anyStateZ.parse(v0).version).toBe(LATEST_VERSION);
-    });
-
-    it("should migrate a v1 state to the latest version", () => {
-      expect(Arc.anyStateZ.parse(v1State({})).version).toBe(LATEST_VERSION);
-    });
-
-    it("should parse a latest-version state as-is", () => {
-      const v3 = {
-        key: "test",
-        version: LATEST_VERSION,
-        graph: {
-          editable: true,
-          fitViewOnResize: false,
-          viewport: { position: { x: 0, y: 0 }, zoom: 1 },
-          selected: [],
-        },
-      };
-      expect(Arc.anyStateZ.parse(v3).version).toBe(LATEST_VERSION);
-    });
-  });
-
-  describe("set_status rewrite into pendingUpload", () => {
-    it("should rewrite a set_status node with all legacy fields", () => {
-      const migrated = Arc.anyStateZ.parse(
-        v1State({
-          n1: {
-            key: "set_status",
-            statusKey: "alarm",
-            variant: "warning",
-            message: "overpressure",
-          },
-        }),
-      );
-      expect(migrated.pendingUpload?.graph.inputs.n1).toEqual({
-        type: "status.set",
-        key_or_name: "alarm",
-        variant: "warning",
-        message: "overpressure",
-      });
-    });
-
-    it("should default missing legacy fields when rewriting set_status", () => {
-      const migrated = Arc.anyStateZ.parse(v1State({ n1: { key: "set_status" } }));
-      expect(migrated.pendingUpload?.graph.inputs.n1).toEqual({
-        type: "status.set",
-        key_or_name: "",
-        variant: "success",
-        message: "",
-      });
-    });
-
-    it("should pass through non-set_status nodes, moving key to type", () => {
-      const migrated = Arc.anyStateZ.parse(
-        v1State({ n1: { key: "channel.read", channel: 42 } }),
-      );
-      expect(migrated.pendingUpload?.graph.inputs.n1).toEqual({
-        type: "channel.read",
-        channel: 42,
-      });
-    });
-  });
-
-  describe("parseImport", () => {
-    it("should build an Arc create payload from a legacy export", () => {
-      const result = Arc.parseImport(
-        v1State({ n1: { key: "channel.read", channel: 42 } }),
-        "Imported Arc",
-      );
-      expect(result.name).toBe("Imported Arc");
-      expect(result.mode).toBe("graph");
-      expect(result.graph?.inputs?.n1).toEqual({ type: "channel.read", channel: 42 });
-      expect(result.text?.raw).toBe("x = 1");
-    });
-
-    it("should parse a current typed Arc export through arcZ", () => {
-      const current = arc.arcZ.parse({
-        key: "0f8b2c9e-1234-4f2a-9c3d-abcdefabcdef",
-        name: "Typed Arc",
-        mode: "text",
-        text: { raw: "x = 1" },
-      });
-      const result = Arc.parseImport(current);
-      expect(result.name).toBe("Typed Arc");
-      expect(result.mode).toBe("text");
-      expect(result).not.toHaveProperty("key");
-    });
-
-    it("should prefer the fallback name over a typed export's name", () => {
-      const current = arc.arcZ.parse({
-        key: "0f8b2c9e-1234-4f2a-9c3d-abcdefabcdef",
-        name: "Typed Arc",
-        mode: "graph",
-        graph: { nodes: [], edges: [] },
-      });
-      expect(Arc.parseImport(current, "Renamed").name).toBe("Renamed");
-    });
-
-    it("should reject a latest-version console state with no parked graph", () => {
-      const v3 = {
-        key: "test",
-        version: LATEST_VERSION,
-        graph: {
-          editable: true,
-          fitViewOnResize: false,
-          viewport: { position: { x: 0, y: 0 }, zoom: 1 },
-          selected: [],
-        },
-      };
-      expect(() => Arc.parseImport(v3)).toThrow("Imported Arc has no graph data");
-    });
-  });
-
-  describe("ingest", () => {
+describe("ingest", () => {
+  it("should create the arc on the cluster and open it as a tab", async () => {
     const client = createTestClient();
+    const original = await client.arcs.create({
+      name: uniqueName("arc"),
+      mode: "graph",
+    });
+    const stream = await client.imex.export(arc.ontologyID(original.key), {
+      encoding: "JSON",
+    });
+    const data = JSON.parse(await new Response(stream).text());
+    const store = await createGrantedFluxStore(client, arc.TYPE_ONTOLOGY_ID, "update");
+    const openTab = vi.fn<Panel.OpenTab>();
+    const id = await Arc.ingest(
+      data,
+      createFileIngesterContext({ openTab, store, client }),
+    );
+    if (id == null) throw new Error("ingest returned no id");
+    expect(openTab).toHaveBeenCalledWith({ variant: "resource", resource: id });
+    const created = await client.arcs.retrieve({ key: id.key });
+    expect(created.name).toBe(original.name);
+  });
 
-    it("should create the arc on the cluster and open it as a tab", async () => {
-      const store = await createGrantedFluxStore(
-        client,
-        arc.TYPE_ONTOLOGY_ID,
-        "update",
+  // The matcher pins the frozen legacy Console state shapes: if it stops claiming
+  // them, typeless legacy files become unimportable; if it over-claims, foreign
+  // files import as blank arcs.
+  describe("match", () => {
+    it("should claim legacy Console arc states", () => {
+      expect(Arc.ingest.match?.({ graph: {}, text: { raw: "" }, mode: "graph" })).toBe(
+        true,
       );
-      const openTab = vi.fn<Panel.OpenTab>();
-      const name = uniqueName("imported");
-      const id = await Arc.ingest(
-        v1State({ n1: { key: "channel.read", channel: 1 } }),
-        createFileIngesterContext({ name, openTab, store, client }),
-      );
-      expect(openTab).toHaveBeenCalledTimes(1);
-      if (id == null) throw new Error("ingest returned no ontology id");
-      const created = await client.arcs.retrieve({ key: id.key });
-      expect(created.name).toBe(name);
-      expect(store.arcs.get(id.key)?.name).toBe(name);
+      expect(Arc.ingest.match?.({ graph: {}, pendingUpload: {} })).toBe(true);
     });
 
-    it("should reject the import when the permission cache has no grant", async () => {
-      await expect(
-        Arc.ingest(
-          v1State({}),
-          createFileIngesterContext({ name: "denied", client: null }),
-        ),
-      ).rejects.toThrow("You do not have permission to import Arc automations");
+    it("should not claim other resources' states", () => {
+      expect(Arc.ingest.match?.({ nodes: [], edges: [], props: {} })).toBe(false);
+      expect(Arc.ingest.match?.({ graph: {} })).toBe(false);
     });
   });
 });

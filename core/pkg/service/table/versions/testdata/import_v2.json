@@ -1,0 +1,9 @@
+{
+  "version": 2,
+  "type": "table",
+  "key": "11111111-2222-3333-4444-555555555555",
+  "name": "Server Typed",
+  "rows": [{ "size": 30, "cells": ["c1"] }],
+  "columns": [{ "size": 100 }],
+  "cells": { "c1": { "key": "c1", "variant": "text", "props": { "value": "hi" } } }
+}

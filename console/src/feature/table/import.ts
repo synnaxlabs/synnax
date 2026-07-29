@@ -9,153 +9,39 @@
 
 import { DisconnectedError, table } from "@synnaxlabs/client";
 import { Access } from "@synnaxlabs/pluto";
-import { migrate, type record } from "@synnaxlabs/x";
-import { z } from "zod";
 
 import { type Import } from "@/platform/import";
 
-const STATE_MIGRATION_NAME = "table.state";
+// Typeless files are legacy Console states: v0 persists the structural model
+// inline (layout/cells), v1 carries selectedCells/hideIndicators alongside an
+// optional pendingUpload. The markers are frozen — they describe historical file
+// shapes.
+const match = (data: Record<string, unknown>): boolean =>
+  ("layout" in data && "cells" in data) ||
+  "selectedCells" in data ||
+  "hideIndicators" in data;
 
-const V0_VERSION = "0.0.0";
-
-// These schemas are a frozen snapshot of the layout/cell shapes that shipped at
-// state version 0.0.0, when the structural model still lived in console state.
-const v0CellLayoutZ = z.object({ key: z.string() });
-const v0RowLayoutZ = z.object({ size: z.number(), cells: z.array(v0CellLayoutZ) });
-const v0ColLayoutZ = z.object({ size: z.number() });
-const v0CellStateZ = z.object({
-  key: z.string(),
-  variant: z.string(),
-  selected: z.boolean(),
-  props: z.unknown(),
-});
-
-const v0StateZ = z.object({
-  key: z.string(),
-  version: z.literal(V0_VERSION),
-  lastSelected: z.string().nullable(),
-  editable: z.boolean(),
-  layout: z.object({ rows: z.array(v0RowLayoutZ), columns: v0ColLayoutZ.array() }),
-  cells: z.record(z.string(), v0CellStateZ),
-  remoteCreated: z.boolean(),
-});
-interface V0State extends z.infer<typeof v0StateZ> {}
-
-const V1_VERSION = "1.0.0";
-
-// pendingUploadZ is the table payload needed to upload a legacy v0 table. name
-// is omitted because the live name is sourced separately, not from the payload.
-const pendingUploadZ = table.tableZ.omit({ name: true });
-interface PendingUpload extends z.infer<typeof pendingUploadZ> {}
-
-const v1StateZ = z.object({
-  key: z.string(),
-  version: z.literal(V1_VERSION),
-  lastSelected: z.string().nullable(),
-  editable: z.boolean(),
-  selectedCells: z.array(z.string()).default([]),
-  hideIndicators: z.boolean().default(false),
-  pendingUpload: pendingUploadZ.optional(),
-});
-interface V1State extends z.infer<typeof v1StateZ> {}
-
-const ZERO_STATE: V1State = {
-  key: "",
-  version: V1_VERSION,
-  lastSelected: null,
-  editable: true,
-  selectedCells: [],
-  hideIndicators: false,
-  pendingUpload: undefined,
-};
-
-const buildPendingUpload = (state: V0State): PendingUpload => ({
-  key: state.key,
-  rows: state.layout.rows.map((r) => ({
-    size: r.size,
-    cells: r.cells.map((c) => c.key),
-  })),
-  columns: state.layout.columns,
-  cells: Object.fromEntries(
-    Object.entries(state.cells).map(([k, c]) => [
-      k,
-      {
-        key: c.key,
-        variant: c.variant,
-        props: (c.props as record.Unknown) ?? {},
-      },
-    ]),
-  ),
-});
-
-// v1StateMigration drops the per-cell selected flag and parks v0's structural
-// model in pendingUpload when the table is not yet remoteCreated. remoteCreated
-// tables already have authoritative data on the server, so pendingUpload stays
-// undefined for those.
-const v1StateMigration = migrate.createMigration<V0State, V1State>({
-  name: STATE_MIGRATION_NAME,
-  migrate: (state) => ({
-    key: state.key,
-    version: V1_VERSION,
-    lastSelected: state.lastSelected,
-    editable: state.editable,
-    selectedCells: [],
-    hideIndicators: false,
-    pendingUpload: state.remoteCreated ? undefined : buildPendingUpload(state),
-  }),
-});
-
-type AnyState = V0State | V1State;
-
-const STATE_MIGRATIONS: migrate.Migrations = {
-  [V0_VERSION]: v1StateMigration,
-};
-
-export const migrateState = migrate.migrator<AnyState, V1State>({
-  name: STATE_MIGRATION_NAME,
-  migrations: STATE_MIGRATIONS,
-  def: ZERO_STATE,
-});
-
-// anyStateZ parses either a v0 or v1 state blob and returns a uniform v1 state.
-// v0 inputs flow through the migration ladder, so pendingUpload is populated
-// when the source carried unsynced structural data.
-export const anyStateZ = z.union([v1StateZ, v0StateZ]).transform(migrateState);
-
-export const parseImport = (
-  data: unknown,
-  fallbackName: string | undefined,
-): table.New => {
-  // Legacy console-state exports are tried first because their schemas are strict: they
-  // require a version literal plus the console-only lastSelected / editable / layout
-  // fields, so a current typed export never matches and falls through to the direct
-  // branch. The typed tableZ is the opposite — it strips unknown keys and defaults rows
-  // / columns / cells to empty, so trying it first silently accepts a legacy file,
-  // drops its structural model, and yields a table with no rows or columns (a blank
-  // import).
-  if (typeof data === "object" && data != null) {
-    const legacy = anyStateZ.safeParse({ ...data, remoteCreated: false });
-    if (legacy.success) {
-      if (legacy.data.pendingUpload == null)
-        throw new Error("Imported table has no structural data");
-      const { key: _key, rows, columns, cells } = legacy.data.pendingUpload;
-      return { name: fallbackName ?? "Table", rows, columns, cells };
-    }
-  }
-  const { key: _key, ...rest } = table.tableZ.parse(data);
-  return { ...rest, name: fallbackName ?? rest.name };
-};
-
+// The Core owns table envelope decoding, legacy-version migration, file-name
+// naming, and project parenting, so the file's bytes are streamed up nearly
+// untouched — the type field is injected when absent, since legacy Console states
+// never carried one — and the table is created under the project in one call.
 export const ingest: Import.FileIngester = async (
   data,
-  { name, openTab, store, client, projectKey },
+  { openTab, store, client, projectKey, fileName },
 ) => {
-  if (!Access.updateGranted({ id: table.TYPE_ONTOLOGY_ID, store, client }))
+  if (!Access.createGranted({ id: table.TYPE_ONTOLOGY_ID, store, client }))
     throw new Error("You do not have permission to import tables");
   if (client == null) throw new DisconnectedError();
-  const newPayload = parseImport(data, name);
-  const created = await client.tables.create(projectKey, newPayload);
-  store.tables.set(created.key, created);
-  openTab({ variant: "resource", resource: table.ontologyID(created.key) });
-  return table.ontologyID(created.key);
+  const body =
+    typeof data === "object" && data != null
+      ? { type: table.TYPE_ONTOLOGY_ID.type, ...data }
+      : data;
+  const id = await client.imex.import(JSON.stringify(body), {
+    encoding: "JSON",
+    fileName,
+    project: projectKey,
+  });
+  openTab({ variant: "resource", resource: id });
+  return id;
 };
+ingest.match = match;

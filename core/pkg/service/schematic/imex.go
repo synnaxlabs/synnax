@@ -15,12 +15,20 @@ import (
 	"github.com/google/uuid"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	v6 "github.com/synnaxlabs/synnax/pkg/service/schematic/versions/v6"
+	v7 "github.com/synnaxlabs/synnax/pkg/service/schematic/versions/v7"
+	"github.com/synnaxlabs/x/encoding/msgpack"
+	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/gorp"
+	"github.com/synnaxlabs/x/validate"
 )
 
-// Version is the per-schema version stamped on every exported schematic envelope.
-const Version imex.Version = 6
+// lastStateVersion is the final Console state version ("6.0.0" files). A v6
+// state parks the document under pendingUpload; earlier states embed it inline
+// and ride the storage lift's legacy chain.
+const lastStateVersion imex.Version = 6
 
-var _ imex.Exporter = (*Service)(nil)
+var _ imex.ImportExporter = (*Service)(nil)
 
 // Export retrieves the schematic identified by id and serializes it as an imex.Envelope
 // stamped with Version. It returns query.ErrNotFound if no schematic exists for id.Key.
@@ -41,4 +49,100 @@ func (s *Service) Export(ctx context.Context, id ontology.ID) (imex.Envelope, er
 		return imex.Envelope{}, err
 	}
 	return env, nil
+}
+
+// Import decodes the envelope into a Schematic and persists it on tx, returning the
+// ontology.ID of the newly-created schematic. The exported key is discarded and a
+// fresh one is generated so that importing always materializes a new resource. When
+// opts.Project is non-zero the schematic is created within that project exactly as a
+// regular create would be. Envelopes older than Version are Console-era files —
+// camelCase typed exports or console states — and are lifted forward; an envelope
+// newer than Version is rejected with a path-scoped validation error.
+func (s *Service) Import(
+	ctx context.Context,
+	tx gorp.Tx,
+	env imex.Envelope,
+	opts imex.ImportOptions,
+) (ontology.ID, error) {
+	sch, err := s.decodeImport(ctx, env)
+	if err != nil {
+		return ontology.ID{}, err
+	}
+	sch.Key = uuid.Nil
+	// env.Name is the resolved resource name: the body's name when present, or the
+	// caller-supplied file name fallback applied by the imex service.
+	sch.Name = env.Name
+	if err = s.NewWriter(tx).Create(ctx, opts.Project, &sch); err != nil {
+		return ontology.ID{}, err
+	}
+	return OntologyID(sch.Key), nil
+}
+
+// stateV6 is the slice of the v6 Console state the importer needs: the document
+// body parked under pendingUpload when a schematic was never uploaded.
+type stateV6 struct {
+	PendingUpload *stateV6Document `json:"pending_upload"`
+}
+
+// stateV6Document mirrors the typed Schematic body fields as they appear inside
+// a v6 Console state's pendingUpload.
+type stateV6Document struct {
+	Snapshot bool                           `json:"snapshot"`
+	Nodes    []Node                         `json:"nodes"`
+	Edges    []Edge                         `json:"edges"`
+	Configs  map[string]msgpack.EncodedJSON `json:"configs"`
+}
+
+func (s *Service) decodeImport(
+	ctx context.Context,
+	env imex.Envelope,
+) (Schematic, error) {
+	switch {
+	case env.Version > Version:
+		return Schematic{}, imex.NewErrUnsupportedVersion(
+			string(s.Type()), env.Version, Version,
+		)
+	case env.Version == Version:
+		return imex.Decode[Schematic](ctx, env)
+	}
+	named, err := imex.BodyNamed(ctx, env)
+	if err != nil {
+		return Schematic{}, err
+	}
+	// Console-era typed exports ("6.0.0"-stamped or versionless) carry the current
+	// shape with camelCase keys; console states never carry a name.
+	if named {
+		return imex.DecodeCamel[Schematic](ctx, env)
+	}
+	if env.Version == lastStateVersion {
+		st, err := imex.DecodeCamel[stateV6](ctx, env)
+		if err != nil {
+			return Schematic{}, err
+		}
+		if st.PendingUpload == nil {
+			return Schematic{}, errors.Wrap(
+				validate.ErrValidation, "schematic file has no document data",
+			)
+		}
+		p := st.PendingUpload
+		return Schematic{
+			Snapshot: p.Snapshot, Nodes: p.Nodes, Edges: p.Edges, Configs: p.Configs,
+		}, nil
+	}
+	// v0-v5 console states embed the document inline: ride the storage lift, which
+	// dispatches on the version string inside the body.
+	type snapshotPeek struct {
+		Snapshot bool `json:"snapshot"`
+	}
+	peek, err := imex.Decode[snapshotPeek](ctx, env)
+	if err != nil {
+		return Schematic{}, err
+	}
+	body, err := imex.Decode[msgpack.EncodedJSON](ctx, env)
+	if err != nil {
+		return Schematic{}, err
+	}
+	return v7.MigrateSchematic(ctx, v6.Schematic{
+		Name: env.Name, Snapshot: peek.Snapshot, Data: body,
+	})
 }

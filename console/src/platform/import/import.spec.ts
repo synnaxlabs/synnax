@@ -55,4 +55,35 @@ describe("ingestComponent", () => {
     ).rejects.toThrow("disk on fire");
     expect(second).not.toHaveBeenCalled();
   });
+
+  it("throws an unknown-type error when typed data has no registered ingester", async () => {
+    const log = vi.fn();
+    const badCtx = createFileIngesterContext({ fileName: "mystery.json" });
+    await expect(
+      Import.ingestComponent({ type: "unheard_of" }, { log }, badCtx),
+    ).rejects.toThrow("mystery.json has an unknown type: unheard_of");
+    expect(log).not.toHaveBeenCalled();
+  });
+
+  it("routes untyped data to the ingester whose matcher claims it", async () => {
+    const claimed = Object.assign(vi.fn(), {
+      match: (d: Record<string, unknown>) => "nodes" in d,
+    });
+    const unclaimed = Object.assign(vi.fn(), { match: () => false });
+    const tried = vi.fn();
+    const data = { nodes: [] };
+    await Import.ingestComponent(data, { unclaimed, claimed, tried }, ctx);
+    expect(claimed).toHaveBeenCalledWith(data, ctx);
+    expect(unclaimed).not.toHaveBeenCalled();
+    expect(tried).not.toHaveBeenCalled();
+  });
+
+  it("never falls back to trying a matcher-declaring ingester on untyped data", async () => {
+    const server = Object.assign(vi.fn(), { match: () => false });
+    const clientSide = vi.fn().mockResolvedValue(undefined);
+    const data = { key: "no-type-field" };
+    await Import.ingestComponent(data, { server, clientSide }, ctx);
+    expect(server).not.toHaveBeenCalled();
+    expect(clientSide).toHaveBeenCalledWith(data, ctx);
+  });
 });

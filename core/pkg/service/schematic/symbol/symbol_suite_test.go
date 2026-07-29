@@ -31,11 +31,12 @@ func TestSymbol(t *testing.T) {
 }
 
 var (
-	db   *gorp.DB
-	otg  *ontology.Ontology
-	proj project.Project
-	svc  *symbol.Service
-	tx   gorp.Tx
+	db      *gorp.DB
+	otg     *ontology.Ontology
+	proj    project.Project
+	svc     *symbol.Service
+	imexSvc *imex.Service
+	tx      gorp.Tx
 )
 
 var _ = BeforeSuite(func(ctx SpecContext) {
@@ -54,12 +55,13 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Group:    groupSvc,
 		Search:   searchIdx,
 	}))
+	imexSvc = imex.NewService()
 	svc = MustOpen(symbol.OpenService(ctx, symbol.ServiceConfig{
 		DB:       db,
 		Ontology: otg,
 		Group:    groupSvc,
 		Search:   searchIdx,
-		ImEx:     imex.NewService(),
+		ImEx:     imexSvc,
 	}))
 	proj.Name = "test-project"
 	Expect(projectSvc.NewWriter(nil).Create(ctx, &proj)).To(Succeed())

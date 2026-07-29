@@ -23,7 +23,7 @@ import (
 	"github.com/synnaxlabs/x/text"
 )
 
-// migrateLinePlot transforms the previous line plot snapshot (v5) into the v6
+// MigrateLinePlot transforms the previous line plot snapshot (v5) into the v6
 // strongly-typed LinePlot. autoMigrateLinePlot handles the trivially-copyable
 // gorp-entry fields (Key, Name); the body fields are sourced from the per-plot blob the
 // console used to persist alongside those gorp fields, after legacy.MigrateData walks
@@ -32,7 +32,7 @@ import (
 // dropped; they live on the console slice and never reach the server. v0 is the last
 // snapshot in which LinePlot.Data is untyped; future migrations transform one typed
 // snapshot into another and never need this blob handling.
-func migrateLinePlot(ctx context.Context, old v5.LinePlot) (LinePlot, error) {
+func MigrateLinePlot(ctx context.Context, old v5.LinePlot) (LinePlot, error) {
 	out, err := autoMigrateLinePlot(ctx, old)
 	if err != nil {
 		return LinePlot{}, err
@@ -165,4 +165,4 @@ func migrateRules(in []v0.Rule) []Rule {
 }
 
 // Migration lifts stored line plots from the v5 blob layout to the typed v6 shape.
-var Migration = gorp.NewEntryMigration("v55_lift_typed_lineplot", migrateLinePlot)
+var Migration = gorp.NewEntryMigration("v55_lift_typed_lineplot", MigrateLinePlot)

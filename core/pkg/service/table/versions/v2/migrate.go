@@ -19,13 +19,13 @@ import (
 	"github.com/synnaxlabs/x/gorp"
 )
 
-// migrateTable transforms the previous Table snapshot (v1) into the v2 strongly-typed
+// MigrateTable transforms the previous Table snapshot (v1) into the v2 strongly-typed
 // Table. autoMigrateTable handles the trivially-copyable Gorp-entry fields (Key, Name);
 // the structural fields (Rows, Columns, Cells) are sourced from the opaque blob the
 // Console used to persist alongside those fields, after legacy.MigrateData decodes it
 // as v0.Data. v0 is the last snapshot in which Table.Data is untyped; future migrations
 // transform one typed snapshot into another and never need this blob handling.
-func migrateTable(ctx context.Context, old v1.Table) (Table, error) {
+func MigrateTable(ctx context.Context, old v1.Table) (Table, error) {
 	out, err := autoMigrateTable(ctx, old)
 	if err != nil {
 		return Table{}, err
@@ -73,4 +73,4 @@ func migrateCells(in map[string]v0.Cell) map[string]Cell {
 }
 
 // Migration lifts stored tables from the v1 blob layout to the typed v2 shape.
-var Migration = gorp.NewEntryMigration("v55_lift_typed_table", migrateTable)
+var Migration = gorp.NewEntryMigration("v55_lift_typed_table", MigrateTable)

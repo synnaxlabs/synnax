@@ -33,10 +33,11 @@ func TestTable(t *testing.T) {
 var _ = ShouldNotLeakGoroutinesPerSpec()
 
 var (
-	db   *gorp.DB
-	proj project.Project
-	svc  *table.Service
-	tx   gorp.Tx
+	db      *gorp.DB
+	proj    project.Project
+	svc     *table.Service
+	imexSvc *imex.Service
+	tx      gorp.Tx
 )
 
 var (
@@ -58,11 +59,12 @@ var (
 				Search:   searchIdx,
 			}))
 		)
+		imexSvc = imex.NewService()
 		svc = MustOpen(table.OpenService(ctx, table.ServiceConfig{
 			DB:       db,
 			Ontology: otg,
 			Search:   searchIdx,
-			ImEx:     imex.NewService(),
+			ImEx:     imexSvc,
 		}))
 		proj.Name = "test-project"
 		Expect(projectSvc.NewWriter(nil).Create(ctx, &proj)).To(Succeed())

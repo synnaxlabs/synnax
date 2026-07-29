@@ -1,0 +1,12 @@
+{
+  "version": "6.0.0",
+  "type": "schematic",
+  "selected": [],
+  "controlStatus": "released",
+  "authority": 1,
+  "legend": { "visible": true, "position": { "x": 50, "y": 50 }, "colors": {} },
+  "toolbar": { "activeTab": "symbols", "selectedSymbolGroup": "general" },
+  "editable": false,
+  "fitViewOnResize": false,
+  "viewport": { "position": { "x": 0, "y": 0 }, "zoom": 1, "mode": "select" }
+}

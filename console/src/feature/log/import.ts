@@ -12,9 +12,15 @@ import { Access } from "@synnaxlabs/pluto";
 
 import { type Import } from "@/platform/import";
 
+// Typeless files are legacy Console states, which persist channels as an array
+// (bare keys at v0, config objects at v1); no other resource's state does. The
+// marker is frozen — it describes historical file shapes.
+const match = (data: Record<string, unknown>): boolean => Array.isArray(data.channels);
+
 // The Core owns log envelope decoding, legacy-version migration, file-name naming, and
-// project parenting, so the file's bytes are streamed up untouched and the log is
-// created under the project in a single network call.
+// project parenting, so the file's bytes are streamed up nearly untouched — the type
+// field is injected when absent, since legacy Console states never carried one — and
+// the log is created under the project in a single network call.
 export const ingest: Import.FileIngester = async (
   data,
   { openTab, store, client, projectKey, fileName },
@@ -22,7 +28,11 @@ export const ingest: Import.FileIngester = async (
   if (!Access.createGranted({ id: log.TYPE_ONTOLOGY_ID, store, client }))
     throw new Error("You do not have permission to import logs");
   if (client == null) throw new DisconnectedError();
-  const id = await client.imex.import(JSON.stringify(data), {
+  const body =
+    typeof data === "object" && data != null
+      ? { type: log.TYPE_ONTOLOGY_ID.type, ...data }
+      : data;
+  const id = await client.imex.import(JSON.stringify(body), {
     encoding: "JSON",
     fileName,
     project: projectKey,
@@ -30,3 +40,4 @@ export const ingest: Import.FileIngester = async (
   openTab({ variant: "resource", resource: id });
   return id;
 };
+ingest.match = match;

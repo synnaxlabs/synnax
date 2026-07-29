@@ -1,0 +1,20 @@
+{
+  "version": 3,
+  "type": "arc",
+  "key": "11111111-2222-3333-4444-555555555555",
+  "name": "Server Typed",
+  "mode": "graph",
+  "graph": {
+    "nodes": [{ "key": "n1", "position": { "x": 1, "y": 2 } }],
+    "edges": [
+      {
+        "key": "e1",
+        "source": { "node": "n1", "param": "out" },
+        "target": { "node": "n2", "param": "in" },
+        "kind": 1
+      }
+    ],
+    "inputs": { "n1": { "type": "constant", "value": 42 } }
+  },
+  "text": { "raw": "" }
+}

@@ -115,6 +115,62 @@ var _ = Describe("Analyzer", func() {
 		})
 	})
 
+	Describe("ImEx marker", func() {
+		It("Should accept a bare @go imex on a versioned type", func(ctx SpecContext) {
+			source := `
+				@go output "out"
+				Entry struct {
+					value int32
+					@go version 2
+					@go imex
+				}
+			`
+			_, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+			Expect(diag.Ok()).To(BeTrue())
+		})
+
+		It("Should error when @go imex carries arguments", func(ctx SpecContext) {
+			source := `
+				@go output "out"
+				Entry struct {
+					value int32
+					@go version 2
+					@go imex 2
+				}
+			`
+			_, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+			Expect(diag.Ok()).To(BeFalse())
+			Expect(diag.String()).To(ContainSubstring("malformed @go imex"))
+		})
+
+		It("Should error when @go imex lacks a @go version", func(ctx SpecContext) {
+			source := `
+				@go output "out"
+				Entry struct {
+					value int32
+					@go imex
+				}
+			`
+			_, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+			Expect(diag.Ok()).To(BeFalse())
+			Expect(diag.String()).To(ContainSubstring("@go imex without @go version"))
+		})
+
+		It("Should error when @go imex is declared file-level", func(ctx SpecContext) {
+			source := `
+				@go output "out"
+				@go imex
+				Entry struct {
+					value int32
+					@go version 2
+				}
+			`
+			_, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+			Expect(diag.Ok()).To(BeFalse())
+			Expect(diag.String()).To(ContainSubstring("declare it per type"))
+		})
+	})
+
 	Describe("Domain omission", func() {
 		It("Should error when a generating type references an omitted type", func(ctx SpecContext) {
 			source := `

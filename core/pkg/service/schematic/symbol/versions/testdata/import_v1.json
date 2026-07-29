@@ -1,0 +1,12 @@
+{
+  "version": 1,
+  "type": "schematic_symbol",
+  "key": "11111111-2222-3333-4444-555555555555",
+  "name": "Server Symbol",
+  "data": {
+    "svg": "<svg><rect/></svg>",
+    "variant": "valve",
+    "scale": 1,
+    "scale_stroke": true
+  }
+}

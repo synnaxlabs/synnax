@@ -1,0 +1,11 @@
+{
+  "key": "abc123",
+  "version": "3.0.0",
+  "type": "arc",
+  "graph": {
+    "editable": false,
+    "fitViewOnResize": false,
+    "viewport": { "position": { "x": 0, "y": 0 }, "zoom": 1 },
+    "selected": []
+  }
+}

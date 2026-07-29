@@ -1,0 +1,16 @@
+{
+  "type": "lineplot",
+  "key": "11111111-2222-3333-4444-555555555555",
+  "name": "Console Typed",
+  "title": { "level": "h4", "visible": true },
+  "channels": { "x1": 0, "x2": 0, "y1": [3], "y2": [], "y3": [], "y4": [] },
+  "ranges": { "x1": ["recent"], "x2": [] },
+  "axes": {
+    "y1": {
+      "key": "y1",
+      "label": "speed",
+      "manualBounds": { "lower": true, "upper": false },
+      "tickSpacing": 75
+    }
+  }
+}

@@ -1,0 +1,34 @@
+{
+  "key": "abc123",
+  "version": "5.0.0",
+  "type": "lineplot",
+  "remoteCreated": false,
+  "mode": "zoom",
+  "selectedRules": [],
+  "hiddenLines": [],
+  "pendingUpload": {
+    "key": "abc123",
+    "title": { "level": "h4", "visible": true },
+    "legend": { "hidden": false, "position": { "x": 10, "y": 20 } },
+    "channels": { "x1": 0, "x2": 0, "y1": [7], "y2": [], "y3": [], "y4": [] },
+    "ranges": { "x1": ["recent"], "x2": [] },
+    "axes": {
+      "y1": {
+        "key": "y1",
+        "label": "speed",
+        "manualBounds": { "lower": true, "upper": false },
+        "tickSpacing": 75
+      }
+    },
+    "lines": [
+      {
+        "key": "l1",
+        "color": "#00ff00",
+        "strokeWidth": 4,
+        "downsample": 1,
+        "downsampleMode": "decimate"
+      }
+    ],
+    "rules": []
+  }
+}

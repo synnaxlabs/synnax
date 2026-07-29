@@ -1,0 +1,21 @@
+{
+  "key": "abc123",
+  "version": "0.0.0",
+  "type": "table",
+  "lastSelected": null,
+  "editable": true,
+  "remoteCreated": false,
+  "layout": {
+    "rows": [{ "size": 30, "cells": [{ "key": "c1" }, { "key": "c2" }] }],
+    "columns": [{ "size": 100 }, { "size": 120 }]
+  },
+  "cells": {
+    "c1": {
+      "key": "c1",
+      "variant": "text",
+      "selected": false,
+      "props": { "fooBar": 3 }
+    },
+    "c2": { "key": "c2", "variant": "value", "selected": true, "props": {} }
+  }
+}

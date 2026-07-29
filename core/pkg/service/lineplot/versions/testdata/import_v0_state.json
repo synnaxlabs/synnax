@@ -1,0 +1,47 @@
+{
+  "key": "abc123",
+  "version": "0.0.0",
+  "type": "lineplot",
+  "remoteCreated": false,
+  "title": { "level": "p", "visible": true },
+  "legend": { "visible": true },
+  "channels": { "x1": 0, "x2": 0, "y1": [9], "y2": [], "y3": [], "y4": [] },
+  "ranges": { "x1": ["recent"], "x2": [] },
+  "axes": {
+    "renderTrigger": 0,
+    "hasHadChannelSet": true,
+    "axes": {
+      "y1": {
+        "key": "y1",
+        "label": "pressure",
+        "labelDirection": "x",
+        "labelLevel": "small",
+        "bounds": { "lower": 0, "upper": 100 },
+        "autoBounds": { "lower": false, "upper": true },
+        "tickSpacing": 75
+      }
+    }
+  },
+  "lines": [
+    {
+      "key": "l1",
+      "color": "#ff0000",
+      "strokeWidth": 2,
+      "downsample": 1,
+      "downsampleMode": "decimate"
+    }
+  ],
+  "rules": [
+    {
+      "key": "r1",
+      "label": "max",
+      "color": "#00ff00",
+      "axis": "y1",
+      "lineWidth": 1,
+      "lineDash": 5,
+      "units": "psi",
+      "position": 42,
+      "selected": true
+    }
+  ]
+}

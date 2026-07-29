@@ -1,0 +1,26 @@
+{
+  "key": "abc123",
+  "version": "3.0.0",
+  "type": "schematic",
+  "editable": true,
+  "fitViewOnResize": false,
+  "snapshot": false,
+  "remoteCreated": true,
+  "viewport": { "position": { "x": 0, "y": 0 }, "zoom": 1 },
+  "nodes": [
+    { "key": "n1", "position": { "x": 5, "y": 6 }, "zIndex": 3, "type": "valve" }
+  ],
+  "edges": [
+    {
+      "key": "e1",
+      "source": "n1",
+      "target": "n2",
+      "sourceHandle": "a",
+      "targetHandle": "b"
+    }
+  ],
+  "props": { "n1": { "key": "valve", "color": "#ff0000" } },
+  "control": "released",
+  "legend": { "visible": true },
+  "viewportMode": "select"
+}

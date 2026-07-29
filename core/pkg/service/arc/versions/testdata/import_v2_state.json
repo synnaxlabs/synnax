@@ -1,0 +1,23 @@
+{
+  "key": "abc123",
+  "version": "2.0.0",
+  "type": "arc",
+  "remoteCreated": false,
+  "graph": {
+    "editable": true,
+    "fitViewOnResize": false,
+    "viewport": { "position": { "x": 0, "y": 0 }, "zoom": 1 },
+    "selected": [],
+    "nodes": [{ "key": "n1", "position": { "x": 5, "y": 6 } }],
+    "edges": [
+      {
+        "key": "e1",
+        "source": { "node": "n1", "param": "out" },
+        "target": { "node": "n2", "param": "in" }
+      }
+    ],
+    "props": { "n1": { "key": "status.set", "key_or_name": "st2" } }
+  },
+  "text": { "raw": "" },
+  "mode": "text"
+}

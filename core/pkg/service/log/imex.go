@@ -21,9 +21,9 @@ import (
 	"github.com/synnaxlabs/x/gorp"
 )
 
-// Version is the per-schema version stamped on every exported log envelope and the
-// highest version the importer accepts.
-const Version imex.Version = 2
+// typedVersion is the first envelope version whose body is the typed Log rather
+// than a legacy Console state.
+const typedVersion imex.Version = 2
 
 var _ imex.ImportExporter = (*Service)(nil)
 
@@ -79,17 +79,17 @@ func (s *Service) Import(
 
 func (s *Service) decodeImport(ctx context.Context, env imex.Envelope) (Log, error) {
 	switch {
-	case env.Version == Version:
+	case env.Version > Version:
+		return Log{}, imex.NewErrUnsupportedVersion(
+			string(s.Type()), env.Version, Version,
+		)
+	case env.Version >= typedVersion:
 		return imex.Decode[Log](ctx, env)
-	case env.Version < Version:
+	default:
 		body, err := imex.Decode[msgpack.EncodedJSON](ctx, env)
 		if err != nil {
 			return Log{}, err
 		}
 		return v3.MigrateLog(ctx, v2.Log{Name: env.Name, Data: body})
-	default:
-		return Log{}, imex.NewErrUnsupportedVersion(
-			string(s.Type()), env.Version, Version,
-		)
 	}
 }
