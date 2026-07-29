@@ -11,10 +11,12 @@
 //
 // The IR represents a compiled Arc program as a dataflow graph consisting of:
 //
-//   - Functions: Template definitions for reusable computations (stages and user functions)
+//   - Functions: Template definitions for reusable computations (stages and user
+//     functions)
 //   - Nodes: Instantiated functions with concrete configuration values
 //   - Edges: Dataflow connections between node parameters (Handle-to-Handle mappings)
-//   - Strata: Execution stratification for deterministic, glitch-free reactive execution
+//   - Strata: Execution stratification for deterministic, glitch-free reactive
+//     execution
 //
 // The IR serves as the bridge between the semantic analyzer (which produces a symbol
 // table and type information) and the WebAssembly compiler (which generates executable

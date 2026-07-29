@@ -122,7 +122,7 @@ type filterInfo struct {
 	GoName     string // PascalCase
 	GoType     string // resolved Go type (full type, including Array<...> if a slice)
 	ElemGoType string // resolved Go type of the slice element (only set when IsSlice)
-	IsScalar   bool   // filter	scalar or bool type
+	IsScalar   bool   // the @filter field is a scalar or bool type
 	IsBool     bool   // underlying primitive is bool
 	IsSlice    bool   // field is a slice/array; emit a contains-style filter
 	// IndexFieldName is the camelCase field name on the per-Retrieve indexes
@@ -154,7 +154,7 @@ type retrieveInfo struct {
 	KeyType                     string
 	KeyPrimitive                string
 	HasSearch                   bool
-	IsCustom                    bool //	"@retrieve"	custom - user defines the struct
+	IsCustom                    bool // user defines the struct (@retrieve custom)
 	OntologyType                string
 	KeysFromOntologyIDsHasError bool
 	Filters                     []filterInfo
@@ -549,10 +549,10 @@ func (r Retrieve) OrderBy(o Order) Retrieve {
 {{- range $idx := $ret.Indexes}}
 {{- if $idx.IsSorted}}
 
-// OrderBy{{$idx.GoName}} returns an Order that walks {{$ret.GoName | toLower |
-// pluralize}} via the {{$idx.FieldName}} sorted index in the given direction. Pass an
-// optional cursor to resume pagination after a previously visited value; the cursor is
-// type-checked at the call site.
+// OrderBy{{$idx.GoName}} returns an Order that walks
+// {{$ret.GoName | toLower | pluralize}} via the {{$idx.FieldName}} sorted index in
+// the given direction. Pass an optional cursor to resume pagination after a
+// previously visited value; the cursor is type-checked at the call site.
 func OrderBy{{$idx.GoName}}(dir gorp.Direction, cursor ...{{$idx.GoType}}) Order {
 	return func(r Retrieve) gorp.OrderQuery[{{$ret.KeyType}}, {{$ret.GoName}}] {
 		q := r.indexes.{{$idx.StructField}}.Ordered(dir)
@@ -602,10 +602,11 @@ func Not(f Filter) Filter {
 // Search sets a fuzzy search term that Retrieve will use to filter results.
 func (r Retrieve) Search(term string) Retrieve { r.searchTerm = term; return r }
 {{end}}
-// MatchKeys returns a filter that restricts results to {{$ret.GoName | toLower |
-// pluralize}} whose key matches any of the provided values. Composing MatchKeys at the
-// top level of a Where clause (i.e. r.Where(MatchKeys(...))) dispatches Exec to the
-// multi-get fast path; composing inside Or / Not falls back to a full scan.
+// MatchKeys returns a filter that restricts results to
+// {{$ret.GoName | toLower | pluralize}} whose key matches any of the provided
+// values. Composing MatchKeys at the top level of a Where clause (i.e.
+// r.Where(MatchKeys(...))) dispatches Exec to the multi-get fast path; composing
+// inside Or / Not falls back to a full scan.
 func MatchKeys(keys ...{{$ret.KeyType}}) Filter {
 	return func(_ Retrieve) gorp.Filter[{{$ret.KeyType}}, {{$ret.GoName}}] {
 		return gorp.MatchKeys[{{$ret.KeyType}}, {{$ret.GoName}}](keys...)
@@ -627,8 +628,9 @@ func Match{{.GoName}}(v bool) Filter {
 	}
 }
 {{else if .IsSlice}}
-// Match{{.GoName | singularize}} returns a filter for {{$ret.GoName | toLower |
-// pluralize}} whose {{.GoName}} contains the provided value.
+// Match{{.GoName | singularize}} returns a filter for
+// {{$ret.GoName | toLower | pluralize}} whose {{.GoName}} contains the provided
+// value.
 func Match{{.GoName | singularize}}(v {{.ElemGoType}}) Filter {
 	return func(_ Retrieve) gorp.Filter[{{$ret.KeyType}}, {{$ret.GoName}}] {
 		return gorp.Match(func(_ gorp.Context, e *{{$ret.GoName}}) (bool, error) {
@@ -651,8 +653,9 @@ func Match{{.GoName}}(v {{.GoType}}) Filter {
 	}
 }
 {{else}}
-// Match{{.GoName | pluralize}} returns a filter for {{$ret.GoName | toLower |
-// pluralize}} whose {{.GoName}} matches any of the provided values.
+// Match{{.GoName | pluralize}} returns a filter for
+// {{$ret.GoName | toLower | pluralize}} whose {{.GoName}} matches any of the
+// provided values.
 func Match{{.GoName | pluralize}}(vals ...{{.GoType}}) Filter {
 	return func(r Retrieve) gorp.Filter[{{$ret.KeyType}}, {{$ret.GoName}}] {
 {{- if .IndexFieldName}}

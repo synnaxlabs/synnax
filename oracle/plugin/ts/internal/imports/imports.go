@@ -53,8 +53,8 @@ func (m *Manager) SynnaxImports() []NamedImport {
 	return m.filter(func(p string) bool { return strings.HasPrefix(p, "@synnaxlabs/") })
 }
 
-// ExternalNamedImports returns third-party imports — paths that are neither
-// "@synnaxlabs/*" nor "@/*" — sorted by path.
+// ExternalNamedImports returns third-party imports — paths that are
+// neither @synnaxlabs/* nor @/* — sorted by path.
 func (m *Manager) ExternalNamedImports() []NamedImport {
 	return m.filter(func(p string) bool {
 		return !strings.HasPrefix(p, "@/") && !strings.HasPrefix(p, "@synnaxlabs/")

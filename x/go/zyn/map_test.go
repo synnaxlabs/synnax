@@ -40,8 +40,7 @@ var _ = Describe("Map", func() {
 			Expect(schema.Parse(data, &dest)).To(Succeed())
 			Expect(
 				dest,
-			).To(Equal(map[string]bool{"enabled": true, "visible": false}))
-			//nolint:set
+			).To(Equal(map[string]bool{"enabled": true, "visible": false})) //nolint:set
 		})
 		Specify("empty map", func() {
 			schema := zyn.Map(zyn.String(), zyn.String())
