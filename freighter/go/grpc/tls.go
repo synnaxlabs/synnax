@@ -57,20 +57,30 @@ const (
 // its ServerHandshake method. If the given connection is not a cmux.MuxConn, or if the
 // underlying connection is not a TLS connection, MuxCredentials will panic
 // in development mode and return an error in production mode.
-func (c *MuxCredentials) ServerHandshake(conn net.Conn) (net.Conn, credentials.AuthInfo, error) {
+func (c *MuxCredentials) ServerHandshake(
+	conn net.Conn,
+) (net.Conn, credentials.AuthInfo, error) {
 	muxConn, ok := conn.(*cmux.MuxConn)
 	if !ok {
-		c.L.DPanic(muxCredentialsNonMuxMsg, zap.String("type", conn.RemoteAddr().Network()))
+		c.L.DPanic(
+			muxCredentialsNonMuxMsg,
+			zap.String("type", conn.RemoteAddr().Network()),
+		)
 		return nil, nil, errors.New(muxCredentialsNonMuxMsg)
 	}
 	tlsConn, ok := muxConn.Conn.(*tls.Conn)
 	if !ok {
-		c.L.DPanic(muxCredentialsNonTLSMsg, zap.String("type", conn.RemoteAddr().Network()))
+		c.L.DPanic(
+			muxCredentialsNonTLSMsg,
+			zap.String("type", conn.RemoteAddr().Network()),
+		)
 		return nil, nil, errors.New(muxCredentialsNonTLSMsg)
 	}
 	return conn, credentials.TLSInfo{
-		State:          tlsConn.ConnectionState(),
-		CommonAuthInfo: credentials.CommonAuthInfo{SecurityLevel: credentials.PrivacyAndIntegrity},
+		State: tlsConn.ConnectionState(),
+		CommonAuthInfo: credentials.CommonAuthInfo{
+			SecurityLevel: credentials.PrivacyAndIntegrity,
+		},
 	}, nil
 }
 

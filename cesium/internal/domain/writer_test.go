@@ -46,12 +46,16 @@ func extractPointer(f xfs.File) (p struct {
 }
 
 func fileSizes(info []os.FileInfo) (sizes []telem.Size) {
-	return lo.Map(info, func(info os.FileInfo, _ int) (sz telem.Size) { return telem.Size(info.Size()) })
+	return lo.Map(
+		info,
+		func(info os.FileInfo, _ int) (sz telem.Size) { return telem.Size(info.Size()) },
+	)
 }
 
 func filterDataFiles(info []os.FileInfo) []os.FileInfo {
 	return lo.Filter(info, func(item os.FileInfo, _ int) bool {
-		return item.Name() != "counter.domain" && item.Name() != "index.domain" && item.Name() != "tombstone.domain"
+		return item.Name() != "counter.domain" && item.Name() != "index.domain" &&
+			item.Name() != "tombstone.domain"
 	})
 }
 
@@ -74,7 +78,15 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 			})
 			Describe("Happiest of paths", func() {
 				It("Should work with a preset end", func(ctx SpecContext) {
-					w := MustSucceed(db.OpenWriter(ctx, domain.WriterConfig{Start: 10 * telem.SecondTS, End: 100 * telem.SecondTS}))
+					w := MustSucceed(
+						db.OpenWriter(
+							ctx,
+							domain.WriterConfig{
+								Start: 10 * telem.SecondTS,
+								End:   100 * telem.SecondTS,
+							},
+						),
+					)
 					Expect(w.Write([]byte{10, 11, 12, 13, 14})).To(Equal(5))
 					Expect(w.Len()).To(Equal(int64(5)))
 					Expect(w.Commit(ctx, 14*telem.SecondTS+1)).To(Succeed())
@@ -83,16 +95,24 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 					Expect(w.Commit(ctx, 19*telem.SecondTS+1)).To(Succeed())
 					Expect(w.Write([]byte{100, 101, 102, 103, 104})).To(Equal(5))
 					Expect(w.Len()).To(Equal(int64(15)))
-					Expect(w.Commit(ctx, 104*telem.SecondTS+1)).To(MatchError(ContainSubstring("cannot be greater than preset end timestamp")))
+					Expect(
+						w.Commit(ctx, 104*telem.SecondTS+1),
+					).To(MatchError(ContainSubstring("cannot be greater than preset end timestamp")))
 					Expect(w.Close()).To(Succeed())
 				})
 			})
 			Describe("Closed database", func() {
-				It("Should not allow opening a writer on a closed database", func(ctx SpecContext) {
-					Expect(db.Close()).To(Succeed())
-					_, err := db.OpenWriter(ctx, domain.WriterConfig{Start: 10 * telem.SecondTS})
-					Expect(err).To(MatchError(domain.ErrDBClosed))
-				})
+				It(
+					"Should not allow opening a writer on a closed database",
+					func(ctx SpecContext) {
+						Expect(db.Close()).To(Succeed())
+						_, err := db.OpenWriter(
+							ctx,
+							domain.WriterConfig{Start: 10 * telem.SecondTS},
+						)
+						Expect(err).To(MatchError(domain.ErrDBClosed))
+					},
+				)
 			})
 			Describe("Start Validation", func() {
 				Context("No domain overlap", func() {
@@ -122,154 +142,225 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 			})
 			Describe("CheckFileSizeAndMaybeSwitchFile", func() {
 				Context("No preset end", func() {
-					It("Should start writing to a new file when one file is full", func(ctx SpecContext) {
-						fs2 := openFS()
-						db2 := MustSucceed(domain.Open(domain.Config{
-							FS:              fs2,
-							FileSize:        10 * telem.Byte,
-							Instrumentation: PanicLogger(),
-						}))
+					It(
+						"Should start writing to a new file when one file is full",
+						func(ctx SpecContext) {
+							fs2 := openFS()
+							db2 := MustSucceed(domain.Open(domain.Config{
+								FS:              fs2,
+								FileSize:        10 * telem.Byte,
+								Instrumentation: PanicLogger(),
+							}))
 
-						By("Writing some telemetry")
-						w := MustSucceed(db2.OpenWriter(ctx, domain.WriterConfig{Start: 1 * telem.SecondTS}))
-						Expect(w.Write([]byte{1, 2, 3, 4, 5})).To(Equal(5))
-						l := MustSucceed(fs2.List(""))
-						l = lo.Filter(l, func(item os.FileInfo, _ int) bool {
-							return item.Name() != "counter.domain" && item.Name() != "index.domain" && item.Name() != "tombstone.domain"
-						})
-						Expect(l).To(HaveLen(1))
-						Expect(l[0].Size()).To(Equal(int64(telem.Byte * 5)))
-						Expect(w.Commit(ctx, 5*telem.SecondTS+1)).To(Succeed())
+							By("Writing some telemetry")
+							w := MustSucceed(
+								db2.OpenWriter(
+									ctx,
+									domain.WriterConfig{Start: 1 * telem.SecondTS},
+								),
+							)
+							Expect(w.Write([]byte{1, 2, 3, 4, 5})).To(Equal(5))
+							l := MustSucceed(fs2.List(""))
+							l = lo.Filter(l, func(item os.FileInfo, _ int) bool {
+								return item.Name() != "counter.domain" &&
+									item.Name() != "index.domain" &&
+									item.Name() != "tombstone.domain"
+							})
+							Expect(l).To(HaveLen(1))
+							Expect(l[0].Size()).To(Equal(int64(telem.Byte * 5)))
+							Expect(w.Commit(ctx, 5*telem.SecondTS+1)).To(Succeed())
 
-						By("Asserting that it should not switch file when the file is not oversize")
-						Expect(w.Write([]byte{6, 7, 8, 9, 10, 11})).To(Equal(6))
-						l = MustSucceed(fs2.List(""))
-						l = lo.Filter(l, func(item os.FileInfo, _ int) bool {
-							return item.Name() != "counter.domain" && item.Name() != "index.domain" && item.Name() != "tombstone.domain"
-						})
-						Expect(l).To(HaveLen(1))
-						Expect(l[0].Size()).To(Equal(int64(telem.Byte * 11)))
-						Expect(w.Commit(ctx, 11*telem.SecondTS+1)).To(Succeed())
+							By(
+								"Asserting that it should not switch file when the file is not oversize",
+							)
+							Expect(w.Write([]byte{6, 7, 8, 9, 10, 11})).To(Equal(6))
+							l = MustSucceed(fs2.List(""))
+							l = lo.Filter(l, func(item os.FileInfo, _ int) bool {
+								return item.Name() != "counter.domain" &&
+									item.Name() != "index.domain" &&
+									item.Name() != "tombstone.domain"
+							})
+							Expect(l).To(HaveLen(1))
+							Expect(l[0].Size()).To(Equal(int64(telem.Byte * 11)))
+							Expect(w.Commit(ctx, 11*telem.SecondTS+1)).To(Succeed())
 
-						By("Asserting that it should switch files when the file is oversize")
-						Expect(w.Write([]byte{21, 22, 23})).To(Equal(3))
-						Expect(w.Commit(ctx, 23*telem.SecondTS+1)).To(Succeed())
-						l = MustSucceed(fs2.List(""))
-						l = lo.Filter(l, func(item os.FileInfo, _ int) bool {
-							return item.Name() != "counter.domain" && item.Name() != "index.domain" && item.Name() != "tombstone.domain"
-						})
-						Expect(l).To(HaveLen(2))
-						sizes := lo.Map(l, func(info os.FileInfo, _ int) (sz int64) { return info.Size() })
-						Expect(sizes).To(ConsistOf(int64(telem.Byte*11), int64(telem.Byte*3)))
+							By(
+								"Asserting that it should switch files when the file is oversize",
+							)
+							Expect(w.Write([]byte{21, 22, 23})).To(Equal(3))
+							Expect(w.Commit(ctx, 23*telem.SecondTS+1)).To(Succeed())
+							l = MustSucceed(fs2.List(""))
+							l = lo.Filter(l, func(item os.FileInfo, _ int) bool {
+								return item.Name() != "counter.domain" &&
+									item.Name() != "index.domain" &&
+									item.Name() != "tombstone.domain"
+							})
+							Expect(l).To(HaveLen(2))
+							sizes := lo.Map(
+								l,
+								func(info os.FileInfo, _ int) (sz int64) { return info.Size() },
+							)
+							Expect(
+								sizes,
+							).To(ConsistOf(int64(telem.Byte*11), int64(telem.Byte*3)))
 
-						By("Asserting the data is stored as expected")
-						i := db2.OpenIterator(domain.IterRange(telem.TimeRangeMax))
-						Expect(i.SeekFirst(ctx)).To(BeTrue())
-						Expect(i.TimeRange()).To(Equal((1 * telem.SecondTS).Range(11*telem.SecondTS + 1)))
-						Expect(i.Size()).To(Equal(telem.Byte * 11))
+							By("Asserting the data is stored as expected")
+							i := db2.OpenIterator(domain.IterRange(telem.TimeRangeMax))
+							Expect(i.SeekFirst(ctx)).To(BeTrue())
+							Expect(
+								i.TimeRange(),
+							).To(Equal((1 * telem.SecondTS).Range(11*telem.SecondTS + 1)))
+							Expect(i.Size()).To(Equal(telem.Byte * 11))
 
-						Expect(i.Next()).To(BeTrue())
-						Expect(i.TimeRange()).To(Equal((11*telem.SecondTS + 1).Range(23*telem.SecondTS + 1)))
-						Expect(i.Size()).To(Equal(telem.Byte * 3))
+							Expect(i.Next()).To(BeTrue())
+							Expect(
+								i.TimeRange(),
+							).To(Equal((11*telem.SecondTS + 1).Range(23*telem.SecondTS + 1)))
+							Expect(i.Size()).To(Equal(telem.Byte * 3))
 
-						By("Closing resources")
-						Expect(i.Close()).To(Succeed())
-						Expect(w.Close()).To(Succeed())
-						Expect(db2.Close()).To(Succeed())
-					})
+							By("Closing resources")
+							Expect(i.Close()).To(Succeed())
+							Expect(w.Close()).To(Succeed())
+							Expect(db2.Close()).To(Succeed())
+						},
+					)
 
-					It("Should work when the file size exceeds the limit by just 1", func(ctx SpecContext) {
-						fs2 := openFS()
-						db2 := MustSucceed(domain.Open(domain.Config{
-							FS:              fs2,
-							FileSize:        5 * telem.Byte,
-							Instrumentation: PanicLogger(),
-						}))
+					It(
+						"Should work when the file size exceeds the limit by just 1",
+						func(ctx SpecContext) {
+							fs2 := openFS()
+							db2 := MustSucceed(domain.Open(domain.Config{
+								FS:              fs2,
+								FileSize:        5 * telem.Byte,
+								Instrumentation: PanicLogger(),
+							}))
 
-						By("Writing some telemetry")
-						w := MustSucceed(db2.OpenWriter(ctx, domain.WriterConfig{Start: 1 * telem.SecondTS}))
-						Expect(w.Write([]byte{1, 2, 3, 4, 5})).To(Equal(5))
-						l := MustSucceed(fs2.List(""))
-						l = lo.Filter(l, func(item os.FileInfo, _ int) bool {
-							return item.Name() != "counter.domain" && item.Name() != "index.domain" && item.Name() != "tombstone.domain"
-						})
-						Expect(l).To(HaveLen(1))
-						Expect(l[0].Size()).To(Equal(int64(telem.Byte * 5)))
-						Expect(w.Commit(ctx, 5*telem.SecondTS+1)).To(Succeed())
+							By("Writing some telemetry")
+							w := MustSucceed(
+								db2.OpenWriter(
+									ctx,
+									domain.WriterConfig{Start: 1 * telem.SecondTS},
+								),
+							)
+							Expect(w.Write([]byte{1, 2, 3, 4, 5})).To(Equal(5))
+							l := MustSucceed(fs2.List(""))
+							l = lo.Filter(l, func(item os.FileInfo, _ int) bool {
+								return item.Name() != "counter.domain" &&
+									item.Name() != "index.domain" &&
+									item.Name() != "tombstone.domain"
+							})
+							Expect(l).To(HaveLen(1))
+							Expect(l[0].Size()).To(Equal(int64(telem.Byte * 5)))
+							Expect(w.Commit(ctx, 5*telem.SecondTS+1)).To(Succeed())
 
-						By("Asserting that it should switch files when the file is oversize")
-						Expect(w.Write([]byte{21, 22, 23})).To(Equal(3))
-						Expect(w.Commit(ctx, 23*telem.SecondTS+1)).To(Succeed())
-						l = MustSucceed(fs2.List(""))
-						l = lo.Filter(l, func(item os.FileInfo, _ int) bool {
-							return item.Name() != "counter.domain" && item.Name() != "index.domain" && item.Name() != "tombstone.domain"
-						})
-						Expect(l).To(HaveLen(2))
-						Expect(lo.Map(l, func(info os.FileInfo, _ int) (sz int64) { return info.Size() })).To(ConsistOf(int64(5), int64(3)))
+							By(
+								"Asserting that it should switch files when the file is oversize",
+							)
+							Expect(w.Write([]byte{21, 22, 23})).To(Equal(3))
+							Expect(w.Commit(ctx, 23*telem.SecondTS+1)).To(Succeed())
+							l = MustSucceed(fs2.List(""))
+							l = lo.Filter(l, func(item os.FileInfo, _ int) bool {
+								return item.Name() != "counter.domain" &&
+									item.Name() != "index.domain" &&
+									item.Name() != "tombstone.domain"
+							})
+							Expect(l).To(HaveLen(2))
+							Expect(
+								lo.Map(
+									l,
+									func(info os.FileInfo, _ int) (sz int64) { return info.Size() },
+								),
+							).To(ConsistOf(int64(5), int64(3)))
 
-						By("Asserting the data is stored as expected")
-						i := db2.OpenIterator(domain.IterRange(telem.TimeRangeMax))
-						Expect(i.SeekFirst(ctx)).To(BeTrue())
-						Expect(i.TimeRange()).To(Equal((1 * telem.SecondTS).Range(5*telem.SecondTS + 1)))
-						Expect(i.Size()).To(Equal(telem.Byte * 5))
+							By("Asserting the data is stored as expected")
+							i := db2.OpenIterator(domain.IterRange(telem.TimeRangeMax))
+							Expect(i.SeekFirst(ctx)).To(BeTrue())
+							Expect(
+								i.TimeRange(),
+							).To(Equal((1 * telem.SecondTS).Range(5*telem.SecondTS + 1)))
+							Expect(i.Size()).To(Equal(telem.Byte * 5))
 
-						Expect(i.Next()).To(BeTrue())
-						Expect(i.TimeRange()).To(Equal((5*telem.SecondTS + 1).Range(23*telem.SecondTS + 1)))
-						Expect(i.Size()).To(Equal(telem.Byte * 3))
+							Expect(i.Next()).To(BeTrue())
+							Expect(
+								i.TimeRange(),
+							).To(Equal((5*telem.SecondTS + 1).Range(23*telem.SecondTS + 1)))
+							Expect(i.Size()).To(Equal(telem.Byte * 3))
 
-						By("Closing resources")
-						Expect(i.Close()).To(Succeed())
-						Expect(w.Close()).To(Succeed())
-						Expect(db2.Close()).To(Succeed())
-					})
+							By("Closing resources")
+							Expect(i.Close()).To(Succeed())
+							Expect(w.Close()).To(Succeed())
+							Expect(db2.Close()).To(Succeed())
+						},
+					)
 				})
 
 				Context("With preset end", func() {
-					It("Should start writing to a new file when one file is full", func(ctx SpecContext) {
-						fs2 := openFS()
-						db2 := MustSucceed(domain.Open(domain.Config{
-							FS:              fs2,
-							FileSize:        10 * telem.Byte,
-							Instrumentation: PanicLogger(),
-						}))
+					It(
+						"Should start writing to a new file when one file is full",
+						func(ctx SpecContext) {
+							fs2 := openFS()
+							db2 := MustSucceed(domain.Open(domain.Config{
+								FS:              fs2,
+								FileSize:        10 * telem.Byte,
+								Instrumentation: PanicLogger(),
+							}))
 
-						By("Writing some telemetry")
-						w := MustSucceed(db2.OpenWriter(ctx, domain.WriterConfig{Start: 1 * telem.SecondTS, End: 100 * telem.SecondTS}))
-						Expect(w.Write([]byte{1, 2, 3, 4, 5})).To(Equal(5))
-						Expect(w.Commit(ctx, 5*telem.SecondTS+1)).To(Succeed())
-						l := filterDataFiles(MustSucceed(fs2.List("")))
-						Expect(l).To(HaveLen(1))
-						Expect(l[0].Size()).To(Equal(int64(telem.Byte * 5)))
+							By("Writing some telemetry")
+							w := MustSucceed(
+								db2.OpenWriter(
+									ctx,
+									domain.WriterConfig{
+										Start: 1 * telem.SecondTS,
+										End:   100 * telem.SecondTS,
+									},
+								),
+							)
+							Expect(w.Write([]byte{1, 2, 3, 4, 5})).To(Equal(5))
+							Expect(w.Commit(ctx, 5*telem.SecondTS+1)).To(Succeed())
+							l := filterDataFiles(MustSucceed(fs2.List("")))
+							Expect(l).To(HaveLen(1))
+							Expect(l[0].Size()).To(Equal(int64(telem.Byte * 5)))
 
-						By("Asserting that it should not switch file when the file is not oversize")
-						Expect(w.Write([]byte{6, 7, 8, 9, 10, 11})).To(Equal(6))
-						l = filterDataFiles(MustSucceed(fs2.List("")))
-						Expect(l).To(HaveLen(1))
-						Expect(l[0].Size()).To(Equal(int64(telem.Byte * 11)))
-						Expect(w.Commit(ctx, 11*telem.SecondTS+1)).To(Succeed())
+							By(
+								"Asserting that it should not switch file when the file is not oversize",
+							)
+							Expect(w.Write([]byte{6, 7, 8, 9, 10, 11})).To(Equal(6))
+							l = filterDataFiles(MustSucceed(fs2.List("")))
+							Expect(l).To(HaveLen(1))
+							Expect(l[0].Size()).To(Equal(int64(telem.Byte * 11)))
+							Expect(w.Commit(ctx, 11*telem.SecondTS+1)).To(Succeed())
 
-						By("Asserting that it should switch files when the file is oversize")
-						Expect(w.Write([]byte{21, 22, 23})).To(Equal(3))
-						Expect(w.Commit(ctx, 23*telem.SecondTS+1)).To(Succeed())
-						l = filterDataFiles(MustSucceed(fs2.List("")))
-						Expect(l).To(HaveLen(2))
-						Expect(fileSizes(l)).To(ConsistOf(telem.Byte*11, telem.Byte*3))
+							By(
+								"Asserting that it should switch files when the file is oversize",
+							)
+							Expect(w.Write([]byte{21, 22, 23})).To(Equal(3))
+							Expect(w.Commit(ctx, 23*telem.SecondTS+1)).To(Succeed())
+							l = filterDataFiles(MustSucceed(fs2.List("")))
+							Expect(l).To(HaveLen(2))
+							Expect(
+								fileSizes(l),
+							).To(ConsistOf(telem.Byte*11, telem.Byte*3))
 
-						By("Asserting the data is stored as expected")
-						i := db2.OpenIterator(domain.IterRange(telem.TimeRangeMax))
-						Expect(i.SeekFirst(ctx)).To(BeTrue())
-						Expect(i.TimeRange()).To(Equal((1 * telem.SecondTS).Range(11*telem.SecondTS + 1)))
-						Expect(i.Size()).To(Equal(telem.Byte * 11))
+							By("Asserting the data is stored as expected")
+							i := db2.OpenIterator(domain.IterRange(telem.TimeRangeMax))
+							Expect(i.SeekFirst(ctx)).To(BeTrue())
+							Expect(
+								i.TimeRange(),
+							).To(Equal((1 * telem.SecondTS).Range(11*telem.SecondTS + 1)))
+							Expect(i.Size()).To(Equal(telem.Byte * 11))
 
-						Expect(i.Next()).To(BeTrue())
-						Expect(i.TimeRange()).To(Equal((11*telem.SecondTS + 1).Range(100 * telem.SecondTS)))
-						Expect(i.Size()).To(Equal(telem.Byte * 3))
+							Expect(i.Next()).To(BeTrue())
+							Expect(
+								i.TimeRange(),
+							).To(Equal((11*telem.SecondTS + 1).Range(100 * telem.SecondTS)))
+							Expect(i.Size()).To(Equal(telem.Byte * 3))
 
-						By("Closing resources")
-						Expect(i.Close()).To(Succeed())
-						Expect(w.Close()).To(Succeed())
-						Expect(db2.Close()).To(Succeed())
-					})
+							By("Closing resources")
+							Expect(i.Close()).To(Succeed())
+							Expect(w.Close()).To(Succeed())
+							Expect(db2.Close()).To(Succeed())
+						},
+					)
 				})
 			})
 			Describe("End Validation", func() {
@@ -295,24 +386,31 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 							Start: 4 * telem.SecondTS,
 						}))
 						MustSucceed(w.Write([]byte{1, 2, 3, 4, 5, 6}))
-						Expect(w.Commit(ctx, 15*telem.SecondTS)).To(MatchError(domain.ErrWriteConflict))
+						Expect(
+							w.Commit(ctx, 15*telem.SecondTS),
+						).To(MatchError(domain.ErrWriteConflict))
 						Expect(w.Close()).To(Succeed())
 					})
-					It("Should fail to commit an update to a writer", func(ctx SpecContext) {
-						w := MustSucceed(db.OpenWriter(ctx, domain.WriterConfig{
-							Start: 10 * telem.SecondTS,
-						}))
-						MustSucceed(w.Write([]byte{1, 2, 3, 4, 5, 6}))
-						Expect(w.Commit(ctx, 20*telem.SecondTS)).To(Succeed())
-						Expect(w.Close()).To(Succeed())
-						w = MustSucceed(db.OpenWriter(ctx, domain.WriterConfig{
-							Start: 4 * telem.SecondTS,
-						}))
-						MustSucceed(w.Write([]byte{1, 2, 3, 4}))
-						Expect(w.Commit(ctx, 8*telem.SecondTS)).To(Succeed())
-						Expect(w.Commit(ctx, 15*telem.SecondTS)).To(MatchError(domain.ErrWriteConflict))
-						Expect(w.Close()).To(Succeed())
-					})
+					It(
+						"Should fail to commit an update to a writer",
+						func(ctx SpecContext) {
+							w := MustSucceed(db.OpenWriter(ctx, domain.WriterConfig{
+								Start: 10 * telem.SecondTS,
+							}))
+							MustSucceed(w.Write([]byte{1, 2, 3, 4, 5, 6}))
+							Expect(w.Commit(ctx, 20*telem.SecondTS)).To(Succeed())
+							Expect(w.Close()).To(Succeed())
+							w = MustSucceed(db.OpenWriter(ctx, domain.WriterConfig{
+								Start: 4 * telem.SecondTS,
+							}))
+							MustSucceed(w.Write([]byte{1, 2, 3, 4}))
+							Expect(w.Commit(ctx, 8*telem.SecondTS)).To(Succeed())
+							Expect(
+								w.Commit(ctx, 15*telem.SecondTS),
+							).To(MatchError(domain.ErrWriteConflict))
+							Expect(w.Close()).To(Succeed())
+						},
+					)
 				})
 				Context("Writing past preset end", func() {
 					It("Should fail to commit", func(ctx SpecContext) {
@@ -321,26 +419,36 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 							End:   20 * telem.SecondTS,
 						}))
 						MustSucceed(w.Write([]byte{1, 2, 3, 4, 5, 6}))
-						Expect(w.Commit(ctx, 30*telem.SecondTS)).To(MatchError(ContainSubstring("commit timestamp %s cannot be greater than preset end timestamp %s", 30*telem.SecondTS, 20*telem.SecondTS)))
+						Expect(
+							w.Commit(ctx, 30*telem.SecondTS),
+						).To(MatchError(ContainSubstring("commit timestamp %s cannot be greater than preset end timestamp %s", 30*telem.SecondTS, 20*telem.SecondTS)))
 						Expect(w.Close()).To(Succeed())
 					})
 				})
 				Context("Commit at start", func() {
-					It("Should fail to commit if data was written", func(ctx SpecContext) {
-						w := MustSucceed(db.OpenWriter(ctx, domain.WriterConfig{
-							Start: 10 * telem.SecondTS,
-						}))
-						MustSucceed(w.Write([]byte{1, 2, 3, 4, 5, 6}))
-						Expect(w.Commit(ctx, 10*telem.SecondTS)).To(MatchError(validate.ErrValidation))
-						Expect(w.Close()).To(Succeed())
-					})
-					It("Should not fail to commit if no data was written", func(ctx SpecContext) {
-						w := MustSucceed(db.OpenWriter(ctx, domain.WriterConfig{
-							Start: 10 * telem.SecondTS,
-						}))
-						Expect(w.Commit(ctx, 10*telem.SecondTS)).To(Succeed())
-						Expect(w.Close()).To(Succeed())
-					})
+					It(
+						"Should fail to commit if data was written",
+						func(ctx SpecContext) {
+							w := MustSucceed(db.OpenWriter(ctx, domain.WriterConfig{
+								Start: 10 * telem.SecondTS,
+							}))
+							MustSucceed(w.Write([]byte{1, 2, 3, 4, 5, 6}))
+							Expect(
+								w.Commit(ctx, 10*telem.SecondTS),
+							).To(MatchError(validate.ErrValidation))
+							Expect(w.Close()).To(Succeed())
+						},
+					)
+					It(
+						"Should not fail to commit if no data was written",
+						func(ctx SpecContext) {
+							w := MustSucceed(db.OpenWriter(ctx, domain.WriterConfig{
+								Start: 10 * telem.SecondTS,
+							}))
+							Expect(w.Commit(ctx, 10*telem.SecondTS)).To(Succeed())
+							Expect(w.Close()).To(Succeed())
+						},
+					)
 				})
 				Context("Commit before start", func() {
 					It("Should fail to commit", func(ctx SpecContext) {
@@ -348,7 +456,9 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 							Start: 10 * telem.SecondTS,
 						}))
 						MustSucceed(w.Write([]byte{1, 2, 3, 4, 5, 6}))
-						Expect(w.Commit(ctx, 5*telem.SecondTS)).To(MatchError(validate.ErrValidation))
+						Expect(
+							w.Commit(ctx, 5*telem.SecondTS),
+						).To(MatchError(validate.ErrValidation))
 						Expect(w.Close()).To(Succeed())
 					})
 				})
@@ -369,16 +479,19 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 					})
 				})
 				Context("Multi Commit", func() {
-					It("Should correctly commit a writer multiple times", func(ctx SpecContext) {
-						w := MustSucceed(db.OpenWriter(ctx, domain.WriterConfig{
-							Start: 10 * telem.SecondTS,
-						}))
-						MustSucceed(w.Write([]byte{1, 2, 3, 4, 5, 6}))
-						Expect(w.Commit(ctx, 20*telem.SecondTS)).To(Succeed())
-						MustSucceed(w.Write([]byte{1, 2, 3, 4, 5, 6}))
-						Expect(w.Commit(ctx, 30*telem.SecondTS)).To(Succeed())
-						Expect(w.Close()).To(Succeed())
-					})
+					It(
+						"Should correctly commit a writer multiple times",
+						func(ctx SpecContext) {
+							w := MustSucceed(db.OpenWriter(ctx, domain.WriterConfig{
+								Start: 10 * telem.SecondTS,
+							}))
+							MustSucceed(w.Write([]byte{1, 2, 3, 4, 5, 6}))
+							Expect(w.Commit(ctx, 20*telem.SecondTS)).To(Succeed())
+							MustSucceed(w.Write([]byte{1, 2, 3, 4, 5, 6}))
+							Expect(w.Commit(ctx, 30*telem.SecondTS)).To(Succeed())
+							Expect(w.Close()).To(Succeed())
+						},
+					)
 					Context("Commit before previous commit", func() {
 						It("Should fail to commit", func(ctx SpecContext) {
 							w := MustSucceed(db.OpenWriter(ctx, domain.WriterConfig{
@@ -386,224 +499,318 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 							}))
 							MustSucceed(w.Write([]byte{1, 2, 3, 4, 5, 6}))
 							Expect(w.Commit(ctx, 15*telem.SecondTS)).To(Succeed())
-							Expect(w.Commit(ctx, 14*telem.SecondTS)).To(MatchError(validate.ErrValidation))
+							Expect(
+								w.Commit(ctx, 14*telem.SecondTS),
+							).To(MatchError(validate.ErrValidation))
 							Expect(w.Close()).To(Succeed())
 						})
 					})
 				})
 				Context("Concurrent Writes", func() {
-					It("Should fail to commit all but one of the writes", func(ctx SpecContext) {
-						writerCount := 20
-						errors := make([]error, writerCount)
-						writers := make([]*domain.Writer, writerCount)
-						var wg sync.WaitGroup
-						wg.Add(writerCount)
-						for i := range writerCount {
-							writers[i] = MustSucceed(db.OpenWriter(ctx, domain.WriterConfig{
-								Start: 10 * telem.SecondTS,
-							}))
-						}
-						for i, w := range writers {
-							go func(i int, w *domain.Writer) {
-								defer wg.Done()
-								MustSucceed(w.Write([]byte{1, 2, 3, 4, 5, 6}))
-								errors[i] = w.Commit(ctx, 15*telem.SecondTS)
-								Expect(w.Close()).To(Succeed())
-							}(i, w)
-						}
-						wg.Wait()
+					It(
+						"Should fail to commit all but one of the writes",
+						func(ctx SpecContext) {
+							writerCount := 20
+							errors := make([]error, writerCount)
+							writers := make([]*domain.Writer, writerCount)
+							var wg sync.WaitGroup
+							wg.Add(writerCount)
+							for i := range writerCount {
+								writers[i] = MustSucceed(
+									db.OpenWriter(ctx, domain.WriterConfig{
+										Start: 10 * telem.SecondTS,
+									}),
+								)
+							}
+							for i, w := range writers {
+								go func(i int, w *domain.Writer) {
+									defer wg.Done()
+									MustSucceed(w.Write([]byte{1, 2, 3, 4, 5, 6}))
+									errors[i] = w.Commit(ctx, 15*telem.SecondTS)
+									Expect(w.Close()).To(Succeed())
+								}(i, w)
+							}
+							wg.Wait()
 
-						occurred := lo.Filter(errors, func(err error, i int) bool {
-							return err != nil
-						})
-						Expect(occurred).To(HaveLen(writerCount - 1))
-						for _, err := range occurred {
-							Expect(err).To(MatchError(domain.ErrWriteConflict))
-						}
-					})
+							occurred := lo.Filter(errors, func(err error, i int) bool {
+								return err != nil
+							})
+							Expect(occurred).To(HaveLen(writerCount - 1))
+							for _, err := range occurred {
+								Expect(err).To(MatchError(domain.ErrWriteConflict))
+							}
+						},
+					)
 				})
 			})
 			Describe("AutoPersist", func() {
-				It("Should persist to disk every subsequent call after the set time interval", func(ctx SpecContext) {
-					By("Replacing the DB with a recorder-wrapped FS")
-					Expect(db.Close()).To(Succeed())
-					rec := xfs.NewRecorder(fs)
-					db = MustSucceed(domain.Open(domain.Config{
-						FS:              rec,
-						Instrumentation: PanicLogger(),
-					}))
+				It(
+					"Should persist to disk every subsequent call after the set time interval",
+					func(ctx SpecContext) {
+						By("Replacing the DB with a recorder-wrapped FS")
+						Expect(db.Close()).To(Succeed())
+						rec := xfs.NewRecorder(fs)
+						db = MustSucceed(domain.Open(domain.Config{
+							FS:              rec,
+							Instrumentation: PanicLogger(),
+						}))
 
-					By("Opening a writer")
-					w := MustSucceed(db.OpenWriter(ctx, domain.WriterConfig{Start: 10 * telem.SecondTS, AutoIndexPersistInterval: 50 * telem.Millisecond}))
+						By("Opening a writer")
+						w := MustSucceed(
+							db.OpenWriter(
+								ctx,
+								domain.WriterConfig{
+									Start:                    10 * telem.SecondTS,
+									AutoIndexPersistInterval: 50 * telem.Millisecond,
+								},
+							),
+						)
 
-					By("Writing some data and committing it right after")
-					rec.Reset()
-					MustSucceed(w.Write([]byte{6, 7, 8, 9, 10}))
-					Expect(w.Commit(ctx, 20*telem.SecondTS+1)).To(Succeed())
+						By("Writing some data and committing it right after")
+						rec.Reset()
+						MustSucceed(w.Write([]byte{6, 7, 8, 9, 10}))
+						Expect(w.Commit(ctx, 20*telem.SecondTS+1)).To(Succeed())
 
-					MustSucceed(w.Write([]byte{11, 12, 13, 14, 15}))
-					Expect(w.Commit(ctx, 25*telem.SecondTS+1)).To(Succeed())
+						MustSucceed(w.Write([]byte{11, 12, 13, 14, 15}))
+						Expect(w.Commit(ctx, 25*telem.SecondTS+1)).To(Succeed())
 
-					By("Asserting the in-interval commits did not write the index file")
-					Expect(rec.Count(xfs.MatchOp(xfs.OpWrite, xfs.OpWriteAt), xfs.MatchName("index.domain"))).
-						To(BeZero())
+						By(
+							"Asserting the in-interval commits did not write the index file",
+						)
+						Expect(
+							rec.Count(
+								xfs.MatchOp(xfs.OpWrite, xfs.OpWriteAt),
+								xfs.MatchName("index.domain"),
+							),
+						).
+							To(BeZero())
 
-					By("Sleeping for some time")
-					time.Sleep(time.Duration(50 * telem.Millisecond))
-					rec.Reset()
-					MustSucceed(w.Write([]byte{16, 17, 18, 19, 20}))
-					Expect(w.Commit(ctx, 30*telem.SecondTS+1)).To(Succeed())
+						By("Sleeping for some time")
+						time.Sleep(time.Duration(50 * telem.Millisecond))
+						rec.Reset()
+						MustSucceed(w.Write([]byte{16, 17, 18, 19, 20}))
+						Expect(w.Commit(ctx, 30*telem.SecondTS+1)).To(Succeed())
 
-					By("Asserting the post-interval commit wrote the index file")
-					Expect(rec.Count(xfs.MatchOp(xfs.OpWrite, xfs.OpWriteAt), xfs.MatchName("index.domain"))).
-						To(BeNumerically(">", 0))
+						By("Asserting the post-interval commit wrote the index file")
+						Expect(
+							rec.Count(
+								xfs.MatchOp(xfs.OpWrite, xfs.OpWriteAt),
+								xfs.MatchName("index.domain"),
+							),
+						).
+							To(BeNumerically(">", 0))
 
-					f := MustSucceed(rec.Open("index.domain", os.O_RDONLY))
-					p := extractPointer(f)
-					Expect(p.End).To(Equal(30*telem.SecondTS + 1))
-					Expect(p.length).To(Equal(uint32(15)))
+						f := MustSucceed(rec.Open("index.domain", os.O_RDONLY))
+						p := extractPointer(f)
+						Expect(p.End).To(Equal(30*telem.SecondTS + 1))
+						Expect(p.length).To(Equal(uint32(15)))
 
-					Expect(f.Close()).To(Succeed())
-					Expect(w.Close()).To(Succeed())
-				})
+						Expect(f.Close()).To(Succeed())
+						Expect(w.Close()).To(Succeed())
+					},
+				)
 
-				It("Should persist to disk every time when the interval is set to always persist", func(ctx SpecContext) {
-					By("Opening a writer")
-					w := MustSucceed(db.OpenWriter(ctx, domain.WriterConfig{Start: 10 * telem.SecondTS, AutoIndexPersistInterval: domain.AlwaysIndexPersistOnAutoCommit}))
+				It(
+					"Should persist to disk every time when the interval is set to always persist",
+					func(ctx SpecContext) {
+						By("Opening a writer")
+						w := MustSucceed(
+							db.OpenWriter(
+								ctx,
+								domain.WriterConfig{
+									Start:                    10 * telem.SecondTS,
+									AutoIndexPersistInterval: domain.AlwaysIndexPersistOnAutoCommit,
+								},
+							),
+						)
 
-					By("Writing some data and committing it")
-					MustSucceed(w.Write([]byte{1, 2, 3, 4, 5}))
-					Expect(w.Commit(ctx, 15*telem.SecondTS+1)).To(Succeed())
+						By("Writing some data and committing it")
+						MustSucceed(w.Write([]byte{1, 2, 3, 4, 5}))
+						Expect(w.Commit(ctx, 15*telem.SecondTS+1)).To(Succeed())
 
-					By("Asserting that the previous commit has been persisted")
-					f := MustSucceed(fs.Open("index.domain", os.O_RDONLY))
-					p := extractPointer(f)
-					Expect(f.Close()).To(Succeed())
-					Expect(p.End).To(Equal(15*telem.SecondTS + 1))
-					Expect(p.length).To(Equal(uint32(5)))
+						By("Asserting that the previous commit has been persisted")
+						f := MustSucceed(fs.Open("index.domain", os.O_RDONLY))
+						p := extractPointer(f)
+						Expect(f.Close()).To(Succeed())
+						Expect(p.End).To(Equal(15*telem.SecondTS + 1))
+						Expect(p.length).To(Equal(uint32(5)))
 
-					By("Writing some data and committing it with auto persist right after")
-					MustSucceed(w.Write([]byte{6, 7, 8, 9, 10}))
-					Expect(w.Commit(ctx, 20*telem.SecondTS+1)).To(Succeed())
+						By(
+							"Writing some data and committing it with auto persist right after",
+						)
+						MustSucceed(w.Write([]byte{6, 7, 8, 9, 10}))
+						Expect(w.Commit(ctx, 20*telem.SecondTS+1)).To(Succeed())
 
-					By("Asserting that the previous commit has been persisted")
-					f = MustSucceed(fs.Open("index.domain", os.O_RDONLY))
-					p = extractPointer(f)
-					Expect(f.Close()).To(Succeed())
-					Expect(p.End).To(Equal(20*telem.SecondTS + 1))
-					Expect(p.length).To(Equal(uint32(10)))
+						By("Asserting that the previous commit has been persisted")
+						f = MustSucceed(fs.Open("index.domain", os.O_RDONLY))
+						p = extractPointer(f)
+						Expect(f.Close()).To(Succeed())
+						Expect(p.End).To(Equal(20*telem.SecondTS + 1))
+						Expect(p.length).To(Equal(uint32(10)))
 
-					By("Writing some data and committing it with auto persist right after")
-					MustSucceed(w.Write([]byte{11, 12, 13, 14, 15}))
-					Expect(w.Commit(ctx, 25*telem.SecondTS+1)).To(Succeed())
+						By(
+							"Writing some data and committing it with auto persist right after",
+						)
+						MustSucceed(w.Write([]byte{11, 12, 13, 14, 15}))
+						Expect(w.Commit(ctx, 25*telem.SecondTS+1)).To(Succeed())
 
-					By("Asserting that the previous commits have not been persisted")
-					f = MustSucceed(fs.Open("index.domain", os.O_RDONLY))
-					p = extractPointer(f)
-					Expect(f.Close()).To(Succeed())
-					Expect(p.End).To(Equal(25*telem.SecondTS + 1))
-					Expect(p.length).To(Equal(uint32(15)))
+						By(
+							"Asserting that the previous commits have not been persisted",
+						)
+						f = MustSucceed(fs.Open("index.domain", os.O_RDONLY))
+						p = extractPointer(f)
+						Expect(f.Close()).To(Succeed())
+						Expect(p.End).To(Equal(25*telem.SecondTS + 1))
+						Expect(p.length).To(Equal(uint32(15)))
 
-					Expect(w.Close()).To(Succeed())
-				})
+						Expect(w.Close()).To(Succeed())
+					},
+				)
 
-				It("Should persist any unpersisted, but committed (stranded) data on close", func(ctx SpecContext) {
-					By("Opening a writer")
-					w := MustSucceed(db.OpenWriter(ctx, domain.WriterConfig{Start: 10 * telem.SecondTS, AutoIndexPersistInterval: 10 * telem.Second}))
+				It(
+					"Should persist any unpersisted, but committed (stranded) data on close",
+					func(ctx SpecContext) {
+						By("Opening a writer")
+						w := MustSucceed(
+							db.OpenWriter(
+								ctx,
+								domain.WriterConfig{
+									Start:                    10 * telem.SecondTS,
+									AutoIndexPersistInterval: 10 * telem.Second,
+								},
+							),
+						)
 
-					By("Writing some data and committing it")
-					MustSucceed(w.Write([]byte{1, 2, 3, 4, 5}))
-					Expect(w.Commit(ctx, 15*telem.SecondTS+1)).To(Succeed())
+						By("Writing some data and committing it")
+						MustSucceed(w.Write([]byte{1, 2, 3, 4, 5}))
+						Expect(w.Commit(ctx, 15*telem.SecondTS+1)).To(Succeed())
 
-					By("Writing some data and committing it")
-					MustSucceed(w.Write([]byte{6, 7, 8, 9, 10}))
-					Expect(w.Commit(ctx, 20*telem.SecondTS+1)).To(Succeed())
+						By("Writing some data and committing it")
+						MustSucceed(w.Write([]byte{6, 7, 8, 9, 10}))
+						Expect(w.Commit(ctx, 20*telem.SecondTS+1)).To(Succeed())
 
-					By("Closing the writer")
-					Expect(w.Close()).To(Succeed())
+						By("Closing the writer")
+						Expect(w.Close()).To(Succeed())
 
-					By("Asserting that the commit has been persisted")
-					f := MustSucceed(fs.Open("index.domain", os.O_RDONLY))
-					p := extractPointer(f)
-					Expect(f.Close()).To(Succeed())
-					Expect(p.End).To(Equal(20*telem.SecondTS + 1))
-					Expect(p.length).To(Equal(uint32(10)))
+						By("Asserting that the commit has been persisted")
+						f := MustSucceed(fs.Open("index.domain", os.O_RDONLY))
+						p := extractPointer(f)
+						Expect(f.Close()).To(Succeed())
+						Expect(p.End).To(Equal(20*telem.SecondTS + 1))
+						Expect(p.length).To(Equal(uint32(10)))
 
-					Expect(w.Close()).To(Succeed())
-				})
+						Expect(w.Close()).To(Succeed())
+					},
+				)
 
-				It("Should always persist if auto commit is not enabled, no matter the interval", func(ctx SpecContext) {
-					By("Opening a writer")
-					w := MustSucceed(db.OpenWriter(ctx, domain.WriterConfig{
-						Start:                    10 * telem.SecondTS,
-						AutoIndexPersistInterval: 1 * telem.Hour,
-						EnableAutoCommit:         new(false),
-					}))
+				It(
+					"Should always persist if auto commit is not enabled, no matter the interval",
+					func(ctx SpecContext) {
+						By("Opening a writer")
+						w := MustSucceed(db.OpenWriter(ctx, domain.WriterConfig{
+							Start:                    10 * telem.SecondTS,
+							AutoIndexPersistInterval: 1 * telem.Hour,
+							EnableAutoCommit:         new(false),
+						}))
 
-					By("Writing some data and committing it")
-					MustSucceed(w.Write([]byte{1, 2, 3, 4, 5}))
-					Expect(w.Commit(ctx, 15*telem.SecondTS+1)).To(Succeed())
+						By("Writing some data and committing it")
+						MustSucceed(w.Write([]byte{1, 2, 3, 4, 5}))
+						Expect(w.Commit(ctx, 15*telem.SecondTS+1)).To(Succeed())
 
-					By("Writing some data and committing it")
-					MustSucceed(w.Write([]byte{6, 7, 8, 9, 10}))
-					Expect(w.Commit(ctx, 20*telem.SecondTS+1)).To(Succeed())
+						By("Writing some data and committing it")
+						MustSucceed(w.Write([]byte{6, 7, 8, 9, 10}))
+						Expect(w.Commit(ctx, 20*telem.SecondTS+1)).To(Succeed())
 
-					By("Asserting that the commit has been persisted")
-					f := MustSucceed(fs.Open("index.domain", os.O_RDONLY))
-					p := extractPointer(f)
-					Expect(f.Close()).To(Succeed())
-					Expect(p.End).To(Equal(20*telem.SecondTS + 1))
-					Expect(p.length).To(Equal(uint32(10)))
+						By("Asserting that the commit has been persisted")
+						f := MustSucceed(fs.Open("index.domain", os.O_RDONLY))
+						p := extractPointer(f)
+						Expect(f.Close()).To(Succeed())
+						Expect(p.End).To(Equal(20*telem.SecondTS + 1))
+						Expect(p.length).To(Equal(uint32(10)))
 
-					By("Closing the writer")
-					Expect(w.Close()).To(Succeed())
-				})
+						By("Closing the writer")
+						Expect(w.Close()).To(Succeed())
+					},
+				)
 
-				It("Should not write the index file on commits within the persist interval", func(ctx SpecContext) {
-					Expect(db.Close()).To(Succeed())
-					rec := xfs.NewRecorder(fs)
-					db = MustSucceed(domain.Open(domain.Config{
-						FS:              rec,
-						FileSize:        1 * telem.Megabyte,
-						Instrumentation: PanicLogger(),
-					}))
+				It(
+					"Should not write the index file on commits within the persist interval",
+					func(ctx SpecContext) {
+						Expect(db.Close()).To(Succeed())
+						rec := xfs.NewRecorder(fs)
+						db = MustSucceed(domain.Open(domain.Config{
+							FS:              rec,
+							FileSize:        1 * telem.Megabyte,
+							Instrumentation: PanicLogger(),
+						}))
 
-					w := MustSucceed(db.OpenWriter(ctx, domain.WriterConfig{
-						Start:                    100 * telem.SecondTS,
-						AutoIndexPersistInterval: 1 * telem.Hour,
-					}))
-					rec.Reset()
+						w := MustSucceed(db.OpenWriter(ctx, domain.WriterConfig{
+							Start:                    100 * telem.SecondTS,
+							AutoIndexPersistInterval: 1 * telem.Hour,
+						}))
+						rec.Reset()
 
-					MustSucceed(w.Write([]byte{1, 2, 3, 4, 5}))
-					Expect(w.Commit(ctx, 110*telem.SecondTS+1)).To(Succeed())
-					MustSucceed(w.Write([]byte{6, 7, 8, 9, 10}))
-					Expect(w.Commit(ctx, 120*telem.SecondTS+1)).To(Succeed())
-					// Within the persist interval, the index file should not be
-					// touched by commits. Snapshot the count before Close since
-					// Close itself flushes any unpersisted state.
-					indexWrites := rec.Count(xfs.MatchOp(xfs.OpWrite, xfs.OpWriteAt), xfs.MatchName("index.domain"))
-					Expect(w.Close()).To(Succeed())
-					Expect(indexWrites).To(BeZero())
-				})
+						MustSucceed(w.Write([]byte{1, 2, 3, 4, 5}))
+						Expect(w.Commit(ctx, 110*telem.SecondTS+1)).To(Succeed())
+						MustSucceed(w.Write([]byte{6, 7, 8, 9, 10}))
+						Expect(w.Commit(ctx, 120*telem.SecondTS+1)).To(Succeed())
+						// Within the persist interval, the index file should not be
+						// touched by commits. Snapshot the count before Close since
+						// Close itself flushes any unpersisted state.
+						indexWrites := rec.Count(
+							xfs.MatchOp(xfs.OpWrite, xfs.OpWriteAt),
+							xfs.MatchName("index.domain"),
+						)
+						Expect(w.Close()).To(Succeed())
+						Expect(indexWrites).To(BeZero())
+					},
+				)
 			})
 			Describe("Close", func() {
-				It("Should not allow operations on a closed writer", func(ctx SpecContext) {
-					w := MustSucceed(db.OpenWriter(ctx, domain.WriterConfig{Start: 10 * telem.SecondTS}))
-					Expect(w.Close()).To(Succeed())
-					Expect(w.Commit(ctx, telem.TimeStampMax)).Error().To(MatchError(domain.ErrWriterClosed))
-					Expect(w.Write([]byte{1, 2, 3})).Error().To(MatchError(domain.ErrWriterClosed))
-					Expect(w.Close()).To(Succeed())
-				})
+				It(
+					"Should not allow operations on a closed writer",
+					func(ctx SpecContext) {
+						w := MustSucceed(
+							db.OpenWriter(
+								ctx,
+								domain.WriterConfig{Start: 10 * telem.SecondTS},
+							),
+						)
+						Expect(w.Close()).To(Succeed())
+						Expect(
+							w.Commit(ctx, telem.TimeStampMax),
+						).Error().
+							To(MatchError(domain.ErrWriterClosed))
+						Expect(
+							w.Write([]byte{1, 2, 3}),
+						).Error().
+							To(MatchError(domain.ErrWriterClosed))
+						Expect(w.Close()).To(Succeed())
+					},
+				)
 
-				It("Should not open a writer on a closed database", func(ctx SpecContext) {
-					Expect(db.Close()).To(Succeed())
-					_, err := db.OpenWriter(ctx, domain.WriterConfig{Start: 10 * telem.SecondTS})
-					Expect(err).To(MatchError(domain.ErrDBClosed))
-				})
+				It(
+					"Should not open a writer on a closed database",
+					func(ctx SpecContext) {
+						Expect(db.Close()).To(Succeed())
+						_, err := db.OpenWriter(
+							ctx,
+							domain.WriterConfig{Start: 10 * telem.SecondTS},
+						)
+						Expect(err).To(MatchError(domain.ErrDBClosed))
+					},
+				)
 
 				It("Should not write on a closed database", func(ctx SpecContext) {
 					Expect(db.Close()).To(Succeed())
-					Expect(domain.Write(ctx, db, telem.TimeStamp(0).Range(telem.TimeStamp(1)), []byte{1, 2, 3})).To(MatchError(domain.ErrDBClosed))
+					Expect(
+						domain.Write(
+							ctx,
+							db,
+							telem.TimeStamp(0).Range(telem.TimeStamp(1)),
+							[]byte{1, 2, 3},
+						),
+					).To(MatchError(domain.ErrDBClosed))
 				})
 			})
 		})

@@ -387,7 +387,11 @@ var _ = Describe("Object", func() {
 					"LastName":  zyn.String(),
 					"Age":       zyn.Number(),
 				})
-				data := map[string]any{"firstName": "John", "lastName": "Doe", "age": 42}
+				data := map[string]any{
+					"firstName": "John",
+					"lastName":  "Doe",
+					"age":       42,
+				}
 				Expect(schema.Dump(data)).To(Equal(map[string]any{
 					"first_name": "John",
 					"last_name":  "Doe",

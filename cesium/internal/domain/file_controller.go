@@ -123,7 +123,9 @@ func (fc *fileController) scanUnopenedFiles() (set.Set[uint16], error) {
 // a handle for a closed file (writers.unopened).
 // 3. If no unopened files are available, then the file controller creates a new file
 // handle to a new file, as governed by counter.
-func (fc *fileController) acquireWriter(ctx context.Context) (uint16, int64, xio.TrackedWriteCloser, error) {
+func (fc *fileController) acquireWriter(
+	ctx context.Context,
+) (uint16, int64, xio.TrackedWriteCloser, error) {
 	ctx, span := fc.T.Bench(ctx, "acquire_writer")
 	defer span.End()
 
@@ -173,7 +175,9 @@ func (fc *fileController) acquireWriter(ctx context.Context) (uint16, int64, xio
 // newWriter creates a new writing file handle from the file controller: it first
 // attempts to create a file handle for files from the directory that are not at
 // capacity. If there is none, it creates a new file and increments the counter.
-func (fc *fileController) newWriter(ctx context.Context) (*controlledWriter, int64, error) {
+func (fc *fileController) newWriter(
+	ctx context.Context,
+) (*controlledWriter, int64, error) {
 	_, span := fc.T.Bench(ctx, "new_writer")
 	fc.writers.Lock()
 
@@ -224,7 +228,11 @@ func (fc *fileController) newWriter(ctx context.Context) (*controlledWriter, int
 		}
 		w := controlledWriter{
 			TrackedWriteCloser: base,
-			controllerEntry:    newPoolEntry(lastFileKey, fc.release, fc.Instrumentation),
+			controllerEntry: newPoolEntry(
+				lastFileKey,
+				fc.release,
+				fc.Instrumentation,
+			),
 		}
 		fc.writers.open[lastFileKey] = w
 		delete(fc.writers.unopened, lastFileKey)
@@ -260,7 +268,10 @@ func (fc *fileController) newWriter(ctx context.Context) (*controlledWriter, int
 	return &w, 0, nil
 }
 
-func (fc *fileController) acquireReader(ctx context.Context, key uint16) (*controlledReader, error) {
+func (fc *fileController) acquireReader(
+	ctx context.Context,
+	key uint16,
+) (*controlledReader, error) {
 	ctx, span := fc.T.Bench(ctx, "acquire_reader")
 	defer span.End()
 
@@ -301,7 +312,10 @@ func (fc *fileController) acquireReader(ctx context.Context, key uint16) (*contr
 	return fc.acquireReader(ctx, key)
 }
 
-func (fc *fileController) newReader(ctx context.Context, key uint16) (*controlledReader, error) {
+func (fc *fileController) newReader(
+	ctx context.Context,
+	key uint16,
+) (*controlledReader, error) {
 	_, span := fc.T.Bench(ctx, "new_reader")
 	defer span.End()
 	file, err := fc.FS.Open(
@@ -532,7 +546,11 @@ type controllerEntry struct {
 	fileKey uint16
 }
 
-func newPoolEntry(key uint16, release chan struct{}, ins alamos.Instrumentation) controllerEntry {
+func newPoolEntry(
+	key uint16,
+	release chan struct{},
+	ins alamos.Instrumentation,
+) controllerEntry {
 	ce := controllerEntry{
 		ins:     ins,
 		release: release,

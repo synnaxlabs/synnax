@@ -112,7 +112,8 @@ func (r *region[R]) shouldBeInControl(candidate *Gate[R]) bool {
 	// Three cases here: no one is in control, provided-gate has higher authority,
 	// a provided gate has equal authority and a higher position.
 	higherAuth := candidate.authority > r.curr.authority
-	betterPos := candidate.authority == r.curr.authority && candidate.position < r.curr.position
+	betterPos := candidate.authority == r.curr.authority &&
+		candidate.position < r.curr.position
 	return higherAuth || betterPos
 }
 

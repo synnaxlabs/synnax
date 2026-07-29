@@ -22,7 +22,10 @@ type CppImportResolver struct {
 	FilePattern string
 }
 
-func (r *CppImportResolver) ResolveImport(outputPath string, ctx *resolver.Context) (importPath, qualifier string, shouldImport bool) {
+func (r *CppImportResolver) ResolveImport(
+	outputPath string,
+	ctx *resolver.Context,
+) (importPath, qualifier string, shouldImport bool) {
 	includePath := fmt.Sprintf("%s/%s", outputPath, r.FilePattern)
 	return includePath, "", true
 }

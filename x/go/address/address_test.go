@@ -72,14 +72,18 @@ var _ = Describe("Address", func() {
 			addr := address.Rand()
 			// UUID v4 format: 8-4-4-4-12 characters
 			Expect(addr.String()).To(HaveLen(36))
-			Expect(addr.String()).To(MatchRegexp(`^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$`))
+			Expect(
+				addr.String(),
+			).To(MatchRegexp(`^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$`))
 		})
 
 		It("Should generate unique addresses", func() {
 			seen := make(set.Set[string])
 			for range 1000 {
 				addr := address.Rand()
-				Expect(seen.Contains(addr.String())).To(BeFalse(), "Generated duplicate address")
+				Expect(
+					seen.Contains(addr.String()),
+				).To(BeFalse(), "Generated duplicate address")
 				seen.Add(addr.String())
 			}
 		})

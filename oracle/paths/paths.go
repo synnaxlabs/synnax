@@ -55,7 +55,10 @@ func findGitRoot(startPath string) (string, error) {
 
 		parent := filepath.Dir(current)
 		if parent == current {
-			return "", errors.Newf("oracle must be run within a git repository: no .git entry found in %s or any parent", startPath)
+			return "", errors.Newf(
+				"oracle must be run within a git repository: no .git entry found in %s or any parent",
+				startPath,
+			)
 		}
 		current = parent
 	}
@@ -122,7 +125,10 @@ func ValidateOutput(path, repoRoot string) error {
 
 	// Check for path traversal patterns
 	if strings.Contains(path, "..") {
-		return errors.Newf("output path %q contains path traversal (..) which is not allowed", path)
+		return errors.Newf(
+			"output path %q contains path traversal (..) which is not allowed",
+			path,
+		)
 	}
 
 	// Check for absolute paths (should be repo-relative)

@@ -60,7 +60,11 @@ func WithFS(fs xfs.FS) Option { return func(o *options) { o.fs = fs } }
 
 // WithGCConfig sets the garbage collection configuration for the DB. See the GCConfig
 // struct for more details.
-func WithGCConfig(config GCConfig) Option { return func(o *options) { o.gcCfg = config } }
+func WithGCConfig(
+	config GCConfig,
+) Option {
+	return func(o *options) { o.gcCfg = config }
+}
 
 // WithInstrumentation sets the instrumentation the DB will use for logging, tracing,
 // etc. Defaults to noop instrumentation.
@@ -72,4 +76,8 @@ func WithInstrumentation(i alamos.Instrumentation) Option {
 // size, in bytes, for a writer to be created on a file. Note while that a file's size
 // may still exceed this value, it is not likely to exceed by much with frequent
 // commits. Defaults to 1GB
-func WithFileSizeCap(cap telem.Size) Option { return func(o *options) { o.fileSize = cap } }
+func WithFileSizeCap(
+	cap telem.Size,
+) Option {
+	return func(o *options) { o.fileSize = cap }
+}

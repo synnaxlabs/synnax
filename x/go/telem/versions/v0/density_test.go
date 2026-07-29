@@ -28,9 +28,12 @@ var _ = Describe("Density", func() {
 	})
 
 	Describe("Size", func() {
-		It("Should return the number of bytes occupied by the given sample count", func() {
-			Expect(v0.Bit64.Size(2)).To(Equal(v0.Size(16)))
-		})
+		It(
+			"Should return the number of bytes occupied by the given sample count",
+			func() {
+				Expect(v0.Bit64.Size(2)).To(Equal(v0.Size(16)))
+			},
+		)
 		It("Should panic if the density if unknown", func() {
 			Expect(func() {
 				v0.UnknownDensity.Size(16)

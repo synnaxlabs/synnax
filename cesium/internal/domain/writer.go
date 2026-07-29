@@ -80,7 +80,11 @@ func (w WriterConfig) Domain() telem.TimeRange {
 
 func (w WriterConfig) Validate() error {
 	v := validate.New("domain.writer_config")
-	v.Ternary("end", w.End.Before(w.Start), "end timestamp must be after or equal to start timestamp")
+	v.Ternary(
+		"end",
+		w.End.Before(w.Start),
+		"end timestamp must be after or equal to start timestamp",
+	)
 	return nil
 }
 
@@ -88,7 +92,10 @@ func (w WriterConfig) Override(other WriterConfig) WriterConfig {
 	w.Start = override.Zero(w.Start, other.Start)
 	w.End = override.Zero(w.End, other.End)
 	w.EnableAutoCommit = override.Nil(w.EnableAutoCommit, other.EnableAutoCommit)
-	w.AutoIndexPersistInterval = override.Zero(w.AutoIndexPersistInterval, other.AutoIndexPersistInterval)
+	w.AutoIndexPersistInterval = override.Zero(
+		w.AutoIndexPersistInterval,
+		other.AutoIndexPersistInterval,
+	)
 	w.OnRollover = override.Nil(w.OnRollover, other.OnRollover)
 	return w
 }
@@ -238,7 +245,8 @@ func (w *Writer) Commit(ctx context.Context, end telem.TimeStamp) error {
 		now = telem.Now()
 		// the only time we do not shouldPersist is when EnableAutoCommit and the interval is
 		// not met yet.
-		shouldPersist = !*w.EnableAutoCommit || w.lastIndexPersist.Span(now) >= w.AutoIndexPersistInterval
+		shouldPersist = !*w.EnableAutoCommit ||
+			w.lastIndexPersist.Span(now) >= w.AutoIndexPersistInterval
 	)
 
 	if *w.EnableAutoCommit && w.AutoIndexPersistInterval > 0 && shouldPersist {
@@ -248,7 +256,11 @@ func (w *Writer) Commit(ctx context.Context, end telem.TimeStamp) error {
 	return w.commit(ctx, end, shouldPersist)
 }
 
-func (w *Writer) commit(ctx context.Context, end telem.TimeStamp, shouldPersist bool) error {
+func (w *Writer) commit(
+	ctx context.Context,
+	end telem.TimeStamp,
+	shouldPersist bool,
+) error {
 	ctx, span := w.T.Prod(ctx, "commit")
 	defer span.End()
 
@@ -350,10 +362,22 @@ func (w *Writer) Close() error {
 
 func (w *Writer) validateCommitRange(end telem.TimeStamp, switchingFile bool) error {
 	if !w.prevCommit.IsZero() && !switchingFile && end.Before(w.prevCommit) {
-		return errors.Wrapf(validate.ErrValidation, "commit timestamp %s must not be less than the previous commit timestamp %s: it is less by a time span of %v", end, w.prevCommit, end.Span(w.prevCommit))
+		return errors.Wrapf(
+			validate.ErrValidation,
+			"commit timestamp %s must not be less than the previous commit timestamp %s: it is less by a time span of %v",
+			end,
+			w.prevCommit,
+			end.Span(w.prevCommit),
+		)
 	}
 	if !w.Start.Before(end) {
-		return errors.Wrapf(validate.ErrValidation, "commit timestamp %s must be strictly greater than the starting timestamp %s: it is less by a time span of %v", end, w.Start, end.Span(w.Start))
+		return errors.Wrapf(
+			validate.ErrValidation,
+			"commit timestamp %s must be strictly greater than the starting timestamp %s: it is less by a time span of %v",
+			end,
+			w.Start,
+			end.Span(w.Start),
+		)
 	}
 	return nil
 }

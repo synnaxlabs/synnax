@@ -28,7 +28,12 @@ type fixedGate struct {
 }
 
 func (g *fixedGate) Name() string { return g.name }
-func (g *fixedGate) Run(_ context.Context, _ *pipeline.Result, _ check.Env) check.GateReport {
+
+func (g *fixedGate) Run(
+	_ context.Context,
+	_ *pipeline.Result,
+	_ check.Env,
+) check.GateReport {
 	return check.GateReport{
 		Gate:    g.name,
 		Status:  g.status,

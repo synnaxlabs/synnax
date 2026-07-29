@@ -76,7 +76,12 @@ func NewRoot(resolver SymbolResolver, extras ...*symbol.Symbol) *symbol.Symbol {
 // against root. root must have its ambient prelude populated by the
 // caller. Graph mode auto-imports modules; callers do not need to call
 // symbol.AutoImportModules themselves — CompileGraph does it.
-func CompileGraph(ctx context.Context, g Graph, root *symbol.Symbol, opts ...Option) (Program, error) {
+func CompileGraph(
+	ctx context.Context,
+	g Graph,
+	root *symbol.Symbol,
+	opts ...Option,
+) (Program, error) {
 	o := newOptions(opts)
 	graphWithAST, err := graph.Parse(g, o.cfg)
 	if err != nil {
@@ -96,7 +101,12 @@ func CompileGraph(ctx context.Context, g Graph, root *symbol.Symbol, opts ...Opt
 
 // CompileText parses, analyzes, and compiles a text-mode program against
 // root. root must have its ambient prelude populated by the caller.
-func CompileText(ctx context.Context, t Text, root *symbol.Symbol, opts ...Option) (Program, error) {
+func CompileText(
+	ctx context.Context,
+	t Text,
+	root *symbol.Symbol,
+	opts ...Option,
+) (Program, error) {
 	o := newOptions(opts)
 	textWithAST, err := text.Parse(t, o.cfg)
 	if err != nil {

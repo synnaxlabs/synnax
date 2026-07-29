@@ -70,12 +70,18 @@ type unaryServer[RQ, RS freighter.Payload] struct {
 func (s *unaryServer[RQ, RS]) Report() alamos.Report {
 	return alamos.Report{
 		"protocol": unaryProtocol,
-		"acceptedContentTypes": lo.Map(s.requestDecoders, func(d http.Decoder, _ int) string {
-			return d.ContentType()
-		}),
-		"emittedContentTypes": lo.Map(s.responseEncoders, func(e http.Encoder, _ int) string {
-			return e.ContentType()
-		}),
+		"acceptedContentTypes": lo.Map(
+			s.requestDecoders,
+			func(d http.Decoder, _ int) string {
+				return d.ContentType()
+			},
+		),
+		"emittedContentTypes": lo.Map(
+			s.responseEncoders,
+			func(e http.Encoder, _ int) string {
+				return e.ContentType()
+			},
+		),
 	}
 }
 

@@ -146,7 +146,11 @@ func (s *streamer) Flow(ctx signal.Context, opts ...confluence.Option) {
 				return ctx.Err()
 			case <-ack:
 			}
-			if err := signal.SendUnderContext(ctx, s.Out.Inlet(), Response{}); err != nil {
+			if err := signal.SendUnderContext(
+				ctx,
+				s.Out.Inlet(),
+				Response{},
+			); err != nil {
 				return err
 			}
 		}
@@ -165,7 +169,11 @@ func (s *streamer) Flow(ctx signal.Context, opts ...confluence.Option) {
 					Key:     s.addr,
 					Value:   req,
 				}}
-				if err := signal.SendUnderContext(ctx, s.demands.Inlet(), d); err != nil {
+				if err := signal.SendUnderContext(
+					ctx,
+					s.demands.Inlet(),
+					d,
+				); err != nil {
 					return err
 				}
 			case r := <-responses.Outlet():
@@ -174,7 +182,11 @@ func (s *streamer) Flow(ctx signal.Context, opts ...confluence.Option) {
 				}
 				if filtered := r.Frame.KeepKeys(s.cfg.Keys); !filtered.Empty() {
 					res := Response{Frame: filtered, Group: r.Group}
-					if err := signal.SendUnderContext(ctx, s.Out.Inlet(), res); err != nil {
+					if err := signal.SendUnderContext(
+						ctx,
+						s.Out.Inlet(),
+						res,
+					); err != nil {
 						return err
 					}
 				}

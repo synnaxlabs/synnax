@@ -29,7 +29,11 @@ type AbstractMultiSource[V Value] struct {
 }
 
 // OutTo implements the Source interface.
-func (ams *AbstractMultiSource[V]) OutTo(inlets ...Inlet[V]) { ams.Out = append(ams.Out, inlets...) }
+func (ams *AbstractMultiSource[V]) OutTo(
+	inlets ...Inlet[V],
+) {
+	ams.Out = append(ams.Out, inlets...)
+}
 
 // SendToEach sends the provided value to each Inlet in the Source.
 func (ams *AbstractMultiSource[V]) SendToEach(ctx context.Context, v V) error {
@@ -66,7 +70,11 @@ func (ams *AbstractMultiSource[V]) SendToEachWithTimeout(
 		}
 	}
 	if timedOutInlet >= 0 {
-		return errors.Wrapf(timeout.ErrTimeout, "timed out sending to inlet %s", ams.Out[timedOutInlet].InletAddress())
+		return errors.Wrapf(
+			timeout.ErrTimeout,
+			"timed out sending to inlet %s",
+			ams.Out[timedOutInlet].InletAddress(),
+		)
 	}
 	return nil
 }
@@ -114,17 +122,28 @@ func (aas *AbstractAddressableSource[O]) OutTo(inlets ...Inlet[O]) {
 	}
 	for _, inlet := range inlets {
 		if inlet.InletAddress() == "" {
-			panic("[confluence.AbstractAddressableSource] - inlet must have a valid address")
+			panic(
+				"[confluence.AbstractAddressableSource] - inlet must have a valid address",
+			)
 		}
 		if _, ok := aas.Out[inlet.InletAddress()]; ok && aas.PanicOnDuplicateAddress {
-			panic(fmt.Sprintf("[confluence.AbstractAddressableSource] - duplicate address %sink", inlet.InletAddress()))
+			panic(
+				fmt.Sprintf(
+					"[confluence.AbstractAddressableSource] - duplicate address %sink",
+					inlet.InletAddress(),
+				),
+			)
 		}
 		aas.Out[inlet.InletAddress()] = inlet
 	}
 }
 
 // Send sends a value to the target address.
-func (aas *AbstractAddressableSource[O]) Send(ctx context.Context, target address.Address, v O) error {
+func (aas *AbstractAddressableSource[O]) Send(
+	ctx context.Context,
+	target address.Address,
+	v O,
+) error {
 	inlet, ok := aas.Out[target]
 	if !ok {
 		return address.NewTargetNotFoundError(target)

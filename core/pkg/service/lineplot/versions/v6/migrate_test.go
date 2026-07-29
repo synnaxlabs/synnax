@@ -100,20 +100,25 @@ var _ = Describe("MigrateLinePlot", func() {
 			Entry("v4 full", "v4_full.json"),
 		)
 
-		It("Should produce the canonical output when called directly", func(ctx SpecContext) {
-			blob := loadFixture("v4_full.json")
-			out := migrateSeed(ctx, v5.LinePlot{
-				Key: fixedKey, Name: "v4_full.json", Data: blob,
-			})
-			assertMigrated("v4_full.json", out)
-		})
+		It(
+			"Should produce the canonical output when called directly",
+			func(ctx SpecContext) {
+				blob := loadFixture("v4_full.json")
+				out := migrateSeed(ctx, v5.LinePlot{
+					Key: fixedKey, Name: "v4_full.json", Data: blob,
+				})
+				assertMigrated("v4_full.json", out)
+			},
+		)
 	})
 
 	Describe("storage integration", func() {
-		It("Should lift a v4 wire-format blob into the typed LinePlot on retrieve", func(ctx SpecContext) {
-			key := uuid.New()
-			got := migrateSeed(ctx, v5.LinePlot{
-				Key: key, Name: "Tank Pressure", Data: jsonMap(`{
+		It(
+			"Should lift a v4 wire-format blob into the typed LinePlot on retrieve",
+			func(ctx SpecContext) {
+				key := uuid.New()
+				got := migrateSeed(ctx, v5.LinePlot{
+					Key: key, Name: "Tank Pressure", Data: jsonMap(`{
 					"version": "4.0.0",
 					"key": "p1",
 					"remoteCreated": true,
@@ -139,24 +144,27 @@ var _ = Describe("MigrateLinePlot", func() {
 					"measure": {"mode": "one"},
 					"annotations": {"visible": true}
 				}`),
-			})
-			Expect(got.Key).To(Equal(key))
-			Expect(got.Name).To(Equal("Tank Pressure"))
-			Expect(got.Title.Level).To(Equal(text.LevelH4))
-			Expect(got.Channels.X1).To(BeEquivalentTo(1))
-			Expect(got.Channels.Y1).To(ConsistOf(BeEquivalentTo(10)))
-			Expect(got.Axes.X1.Type).NotTo(BeNil())
-			Expect(*got.Axes.X1.Type).To(Equal(v6.TickTypeTime))
-			Expect(got.Axes.Y1.Type).To(BeNil())
-			Expect(got.Lines).To(HaveLen(1))
-			Expect(got.Lines[0].Label).NotTo(BeNil())
-			Expect(*got.Lines[0].Label).To(Equal("P1"))
-		})
+				})
+				Expect(got.Key).To(Equal(key))
+				Expect(got.Name).To(Equal("Tank Pressure"))
+				Expect(got.Title.Level).To(Equal(text.LevelH4))
+				Expect(got.Channels.X1).To(BeEquivalentTo(1))
+				Expect(got.Channels.Y1).To(ConsistOf(BeEquivalentTo(10)))
+				Expect(got.Axes.X1.Type).NotTo(BeNil())
+				Expect(*got.Axes.X1.Type).To(Equal(v6.TickTypeTime))
+				Expect(got.Axes.Y1.Type).To(BeNil())
+				Expect(got.Lines).To(HaveLen(1))
+				Expect(got.Lines[0].Label).NotTo(BeNil())
+				Expect(*got.Lines[0].Label).To(Equal("P1"))
+			},
+		)
 
-		It("Should chain a legacy v0 blob through every migration step on retrieve", func(ctx SpecContext) {
-			key := uuid.New()
-			got := migrateSeed(ctx, v5.LinePlot{
-				Key: key, Name: "Legacy", Data: jsonMap(`{
+		It(
+			"Should chain a legacy v0 blob through every migration step on retrieve",
+			func(ctx SpecContext) {
+				key := uuid.New()
+				got := migrateSeed(ctx, v5.LinePlot{
+					Key: key, Name: "Legacy", Data: jsonMap(`{
 					"version": "0.0.0",
 					"key": "p0",
 					"remoteCreated": false,
@@ -175,23 +183,24 @@ var _ = Describe("MigrateLinePlot", func() {
 					"lines": [],
 					"rules": []
 				}`),
-			})
-			Expect(got.Key).To(Equal(key))
-			// v1 lift forces the legend shown, so the typed Hidden is false, and sets
-			// default position.
-			Expect(got.Legend.Hidden).To(BeFalse())
-			Expect(got.Legend.Position.X).To(Equal(50.0))
-			Expect(got.Legend.Position.Units).NotTo(BeNil())
-			Expect(got.Legend.Position.Units.X).To(BeEquivalentTo("px"))
-			// v2 lift sets x-axes to "time" and flips y-axes labelDirection to "y".
-			Expect(got.Axes.X1.Type).NotTo(BeNil())
-			Expect(*got.Axes.X1.Type).To(Equal(v6.TickTypeTime))
-			Expect(got.Axes.X2.Type).NotTo(BeNil())
-			Expect(*got.Axes.X2.Type).To(Equal(v6.TickTypeTime))
-			Expect(got.Axes.Y1.LabelDirection).To(BeEquivalentTo("y"))
-			Expect(got.Axes.Y4.LabelDirection).To(BeEquivalentTo("y"))
-			Expect(got.Axes.Y1.Type).To(BeNil())
-		})
+				})
+				Expect(got.Key).To(Equal(key))
+				// v1 lift forces the legend shown, so the typed Hidden is false, and sets
+				// default position.
+				Expect(got.Legend.Hidden).To(BeFalse())
+				Expect(got.Legend.Position.X).To(Equal(50.0))
+				Expect(got.Legend.Position.Units).NotTo(BeNil())
+				Expect(got.Legend.Position.Units.X).To(BeEquivalentTo("px"))
+				// v2 lift sets x-axes to "time" and flips y-axes labelDirection to "y".
+				Expect(got.Axes.X1.Type).NotTo(BeNil())
+				Expect(*got.Axes.X1.Type).To(Equal(v6.TickTypeTime))
+				Expect(got.Axes.X2.Type).NotTo(BeNil())
+				Expect(*got.Axes.X2.Type).To(Equal(v6.TickTypeTime))
+				Expect(got.Axes.Y1.LabelDirection).To(BeEquivalentTo("y"))
+				Expect(got.Axes.Y4.LabelDirection).To(BeEquivalentTo("y"))
+				Expect(got.Axes.Y1.Type).To(BeNil())
+			},
+		)
 	})
 
 	// Each spec asserts a single reshape rule. Keep one concern per spec so failures
@@ -204,30 +213,48 @@ var _ = Describe("MigrateLinePlot", func() {
 			})
 		}
 
-		It("Should cast Title.Level into the typed text.Level enum", func(ctx SpecContext) {
-			out := migrateV4(ctx, `"title": {"level": "h2", "visible": true}`)
-			Expect(out.Title.Level).To(Equal(text.LevelH2))
-			Expect(out.Title.Visible).To(BeTrue())
-		})
+		It(
+			"Should cast Title.Level into the typed text.Level enum",
+			func(ctx SpecContext) {
+				out := migrateV4(ctx, `"title": {"level": "h2", "visible": true}`)
+				Expect(out.Title.Level).To(Equal(text.LevelH2))
+				Expect(out.Title.Visible).To(BeTrue())
+			},
+		)
 
-		It("Should pass Legend.Position root and units through as typed values", func(ctx SpecContext) {
-			out := migrateV4(ctx, `"legend": {"visible": true, "position": {"x": 12, "y": 34, "root": {"x": "right", "y": "bottom"}, "units": {"x": "decimal", "y": "decimal"}}}`)
-			Expect(out.Legend.Position.X).To(Equal(12.0))
-			Expect(out.Legend.Position.Root.X).To(BeEquivalentTo("right"))
-			Expect(out.Legend.Position.Root.Y).To(BeEquivalentTo("bottom"))
-			Expect(out.Legend.Position.Units.X).To(BeEquivalentTo("decimal"))
-		})
+		It(
+			"Should pass Legend.Position root and units through as typed values",
+			func(ctx SpecContext) {
+				out := migrateV4(
+					ctx,
+					`"legend": {"visible": true, "position": {"x": 12, "y": 34, "root": {"x": "right", "y": "bottom"}, "units": {"x": "decimal", "y": "decimal"}}}`,
+				)
+				Expect(out.Legend.Position.X).To(Equal(12.0))
+				Expect(out.Legend.Position.Root.X).To(BeEquivalentTo("right"))
+				Expect(out.Legend.Position.Root.Y).To(BeEquivalentTo("bottom"))
+				Expect(out.Legend.Position.Units.X).To(BeEquivalentTo("decimal"))
+			},
+		)
 
-		It("Should default Legend.Position root and units when the wire omits them", func(ctx SpecContext) {
-			out := migrateV4(ctx, `"legend": {"visible": true, "position": {"x": 0, "y": 0}}`)
-			Expect(out.Legend.Position.Root.X).To(BeEquivalentTo("left"))
-			Expect(out.Legend.Position.Root.Y).To(BeEquivalentTo("top"))
-			Expect(out.Legend.Position.Units.X).To(BeEquivalentTo("px"))
-			Expect(out.Legend.Position.Units.Y).To(BeEquivalentTo("px"))
-		})
+		It(
+			"Should default Legend.Position root and units when the wire omits them",
+			func(ctx SpecContext) {
+				out := migrateV4(
+					ctx,
+					`"legend": {"visible": true, "position": {"x": 0, "y": 0}}`,
+				)
+				Expect(out.Legend.Position.Root.X).To(BeEquivalentTo("left"))
+				Expect(out.Legend.Position.Root.Y).To(BeEquivalentTo("top"))
+				Expect(out.Legend.Position.Units.X).To(BeEquivalentTo("px"))
+				Expect(out.Legend.Position.Units.Y).To(BeEquivalentTo("px"))
+			},
+		)
 
 		It("Should preserve Channels arrays per axis", func(ctx SpecContext) {
-			out := migrateV4(ctx, `"channels": {"x1": 99, "x2": 0, "y1": [10, 11], "y2": [12], "y3": [], "y4": []}`)
+			out := migrateV4(
+				ctx,
+				`"channels": {"x1": 99, "x2": 0, "y1": [10, 11], "y2": [12], "y3": [], "y4": []}`,
+			)
 			Expect(out.Channels.X1).To(BeEquivalentTo(99))
 			Expect(out.Channels.Y1).To(HaveExactElements(
 				BeEquivalentTo(10), BeEquivalentTo(11),
@@ -236,82 +263,109 @@ var _ = Describe("MigrateLinePlot", func() {
 		})
 
 		It("Should preserve Ranges arrays per x-axis", func(ctx SpecContext) {
-			out := migrateV4(ctx, `"ranges": {"x1": ["00000000-0000-0000-0000-00000000000a"], "x2": []}`)
+			out := migrateV4(
+				ctx,
+				`"ranges": {"x1": ["00000000-0000-0000-0000-00000000000a"], "x2": []}`,
+			)
 			Expect(out.Ranges.X1).To(HaveLen(1))
 			Expect(out.Ranges.X1[0]).To(Equal("00000000-0000-0000-0000-00000000000a"))
 		})
 
-		It("Should drop Axes wrapper bookkeeping but preserve per-axis config", func(ctx SpecContext) {
-			out := migrateV4(ctx, `"axes": {"renderTrigger": 99, "hasHadChannelSet": true, "axes": {
+		It(
+			"Should drop Axes wrapper bookkeeping but preserve per-axis config",
+			func(ctx SpecContext) {
+				out := migrateV4(
+					ctx,
+					`"axes": {"renderTrigger": 99, "hasHadChannelSet": true, "axes": {
 				"x1": {"key": "x1", "label": "t", "labelDirection": "x", "labelLevel": "small", "bounds": {"lower": 1, "upper": 2}, "autoBounds": {"lower": false, "upper": true}, "tickSpacing": 60, "type": "time"},
 				"x2": {"key": "x2", "label": "", "labelDirection": "x", "labelLevel": "small", "bounds": {"lower": 0, "upper": 0}, "autoBounds": {"lower": true, "upper": true}, "tickSpacing": 75},
 				"y1": {"key": "y1", "label": "", "labelDirection": "y", "labelLevel": "small", "bounds": {"lower": 0, "upper": 0}, "autoBounds": {"lower": true, "upper": true}, "tickSpacing": 75},
 				"y2": {"key": "y2", "label": "", "labelDirection": "y", "labelLevel": "small", "bounds": {"lower": 0, "upper": 0}, "autoBounds": {"lower": true, "upper": true}, "tickSpacing": 75},
 				"y3": {"key": "y3", "label": "", "labelDirection": "y", "labelLevel": "small", "bounds": {"lower": 0, "upper": 0}, "autoBounds": {"lower": true, "upper": true}, "tickSpacing": 75},
 				"y4": {"key": "y4", "label": "", "labelDirection": "y", "labelLevel": "small", "bounds": {"lower": 0, "upper": 0}, "autoBounds": {"lower": true, "upper": true}, "tickSpacing": 75}
-			}}`)
-			Expect(out.Axes.X1.Label).To(Equal("t"))
-			Expect(out.Axes.X1.Bounds.Lower).To(Equal(1.0))
-			Expect(out.Axes.X1.ManualBounds.Upper).To(BeFalse())
-			Expect(out.Axes.X1.ManualBounds.Lower).To(BeTrue())
-			Expect(out.Axes.X1.TickSpacing).To(Equal(60.0))
-		})
+			}}`,
+				)
+				Expect(out.Axes.X1.Label).To(Equal("t"))
+				Expect(out.Axes.X1.Bounds.Lower).To(Equal(1.0))
+				Expect(out.Axes.X1.ManualBounds.Upper).To(BeFalse())
+				Expect(out.Axes.X1.ManualBounds.Lower).To(BeTrue())
+				Expect(out.Axes.X1.TickSpacing).To(Equal(60.0))
+			},
+		)
 
 		It("Should leave Axis.Type nil when the wire omits it", func(ctx SpecContext) {
-			out := migrateV4(ctx, `"axes": {"renderTrigger": 0, "hasHadChannelSet": false, "axes": {
+			out := migrateV4(
+				ctx,
+				`"axes": {"renderTrigger": 0, "hasHadChannelSet": false, "axes": {
 				"x1": {"key": "x1", "label": "", "labelDirection": "x", "labelLevel": "small", "bounds": {"lower": 0, "upper": 0}, "autoBounds": {"lower": true, "upper": true}, "tickSpacing": 75},
 				"x2": {"key": "x2", "label": "", "labelDirection": "x", "labelLevel": "small", "bounds": {"lower": 0, "upper": 0}, "autoBounds": {"lower": true, "upper": true}, "tickSpacing": 75},
 				"y1": {"key": "y1", "label": "", "labelDirection": "y", "labelLevel": "small", "bounds": {"lower": 0, "upper": 0}, "autoBounds": {"lower": true, "upper": true}, "tickSpacing": 75},
 				"y2": {"key": "y2", "label": "", "labelDirection": "y", "labelLevel": "small", "bounds": {"lower": 0, "upper": 0}, "autoBounds": {"lower": true, "upper": true}, "tickSpacing": 75},
 				"y3": {"key": "y3", "label": "", "labelDirection": "y", "labelLevel": "small", "bounds": {"lower": 0, "upper": 0}, "autoBounds": {"lower": true, "upper": true}, "tickSpacing": 75},
 				"y4": {"key": "y4", "label": "", "labelDirection": "y", "labelLevel": "small", "bounds": {"lower": 0, "upper": 0}, "autoBounds": {"lower": true, "upper": true}, "tickSpacing": 75}
-			}}`)
+			}}`,
+			)
 			Expect(out.Axes.X1.Type).To(BeNil())
 			Expect(out.Axes.Y1.Type).To(BeNil())
 		})
 
-		It("Should preserve Line.Label as nil when the wire omits it", func(ctx SpecContext) {
-			out := migrateV4(ctx, `"lines": [
+		It(
+			"Should preserve Line.Label as nil when the wire omits it",
+			func(ctx SpecContext) {
+				out := migrateV4(ctx, `"lines": [
 				{"key": "l1", "color": "#ff0000", "strokeWidth": 2, "downsample": 1, "downsampleMode": "decimate"}
 			]`)
-			Expect(out.Lines).To(HaveLen(1))
-			Expect(out.Lines[0].Label).To(BeNil())
-		})
+				Expect(out.Lines).To(HaveLen(1))
+				Expect(out.Lines[0].Label).To(BeNil())
+			},
+		)
 
-		It("Should preserve Line.Label as a pointer to the override when present", func(ctx SpecContext) {
-			out := migrateV4(ctx, `"lines": [
+		It(
+			"Should preserve Line.Label as a pointer to the override when present",
+			func(ctx SpecContext) {
+				out := migrateV4(ctx, `"lines": [
 				{"key": "l1", "label": "custom", "color": "#ff0000", "strokeWidth": 2, "downsample": 1, "downsampleMode": "decimate"}
 			]`)
-			Expect(out.Lines[0].Label).NotTo(BeNil())
-			Expect(*out.Lines[0].Label).To(Equal("custom"))
-		})
+				Expect(out.Lines[0].Label).NotTo(BeNil())
+				Expect(*out.Lines[0].Label).To(Equal("custom"))
+			},
+		)
 
-		It("Should cast Line.DownsampleMode into the typed enum", func(ctx SpecContext) {
-			out := migrateV4(ctx, `"lines": [
+		It(
+			"Should cast Line.DownsampleMode into the typed enum",
+			func(ctx SpecContext) {
+				out := migrateV4(ctx, `"lines": [
 				{"key": "l1", "color": "#ff0000", "strokeWidth": 1, "downsample": 4, "downsampleMode": "average"}
 			]`)
-			Expect(out.Lines[0].DownsampleMode).To(Equal(v6.DownsampleModeAverage))
-		})
+				Expect(out.Lines[0].DownsampleMode).To(Equal(v6.DownsampleModeAverage))
+			},
+		)
 
-		It("Should drop the wire-only Rule.Selected field when projecting to the typed Rule", func(ctx SpecContext) {
-			out := migrateV4(ctx, `"rules": [
+		It(
+			"Should drop the wire-only Rule.Selected field when projecting to the typed Rule",
+			func(ctx SpecContext) {
+				out := migrateV4(ctx, `"rules": [
 				{"selected": true, "key": "r1", "label": "max", "color": "#0000ff", "axis": "y1", "lineWidth": 1, "lineDash": 2, "units": "psi", "position": 4.5}
 			]`)
-			Expect(out.Rules).To(HaveLen(1))
-			Expect(out.Rules[0].Key).To(Equal("r1"))
-			Expect(out.Rules[0].Axis).To(Equal(v6.AxisKeyY1))
-			Expect(out.Rules[0].Position).To(Equal(4.5))
-		})
+				Expect(out.Rules).To(HaveLen(1))
+				Expect(out.Rules[0].Key).To(Equal("r1"))
+				Expect(out.Rules[0].Axis).To(Equal(v6.AxisKeyY1))
+				Expect(out.Rules[0].Position).To(Equal(4.5))
+			},
+		)
 
-		It("Should pass through the gorp-entry fields (key, name)", func(ctx SpecContext) {
-			key := uuid.New()
-			out := migrateSeed(ctx, v5.LinePlot{
-				Key: key, Name: "tank-1",
-				Data: jsonMap(`{"version": "4.0.0"}`),
-			})
-			Expect(out.Key).To(Equal(key))
-			Expect(out.Name).To(Equal("tank-1"))
-		})
+		It(
+			"Should pass through the gorp-entry fields (key, name)",
+			func(ctx SpecContext) {
+				key := uuid.New()
+				out := migrateSeed(ctx, v5.LinePlot{
+					Key: key, Name: "tank-1",
+					Data: jsonMap(`{"version": "4.0.0"}`),
+				})
+				Expect(out.Key).To(Equal(key))
+				Expect(out.Name).To(Equal("tank-1"))
+			},
+		)
 
 		It("Should handle a nil data blob without erroring", func(ctx SpecContext) {
 			out := migrateSeed(ctx, v5.LinePlot{

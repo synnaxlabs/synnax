@@ -38,14 +38,23 @@ func (ts *ObservableTransformPublisher[V, T]) Flow(ctx signal.Context, opts ...O
 	remove := ts.OnChange(func(_ context.Context, v V) {
 		t, ok, err := ts.Transform(ctx, v)
 		if err != nil {
-			ts.L.Error(fmt.Sprintf("observable transform publisher: transform error: %s", err))
+			ts.L.Error(
+				fmt.Sprintf("observable transform publisher: transform error: %s", err),
+			)
 			return
 		}
 		if !ok {
 			return
 		}
-		if err = signal.SendUnderContext(ctx, ts.Out.Inlet(), t); err != nil && ctx.Err() == nil {
-			ts.L.Error(fmt.Sprintf("observable transform publisher: send error: %s", err))
+		if err = signal.SendUnderContext(
+			ctx,
+			ts.Out.Inlet(),
+			t,
+		); err != nil &&
+			ctx.Err() == nil {
+			ts.L.Error(
+				fmt.Sprintf("observable transform publisher: send error: %s", err),
+			)
 		}
 	})
 	ctx.Go(func(ctx context.Context) error {

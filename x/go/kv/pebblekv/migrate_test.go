@@ -44,7 +44,9 @@ var _ = Describe("Migrate", func() {
 			}))
 			Expect(db.Close()).To(Succeed())
 
-			requiresMigration := MustSucceed(pebblekv.RequiresMigration(dbPath, vfs.Default))
+			requiresMigration := MustSucceed(
+				pebblekv.RequiresMigration(dbPath, vfs.Default),
+			)
 			Expect(requiresMigration).To(BeFalse())
 		})
 
@@ -57,14 +59,18 @@ var _ = Describe("Migrate", func() {
 			}))
 			Expect(oldDB.Close()).To(Succeed())
 
-			requiresMigration := MustSucceed(pebblekv.RequiresMigration(dbPath, vfs.Default))
+			requiresMigration := MustSucceed(
+				pebblekv.RequiresMigration(dbPath, vfs.Default),
+			)
 			Expect(requiresMigration).To(BeTrue())
 		})
 
 		It("should return false for non-existent database", func() {
 			nonExistentPath := filepath.Join(tempDir, "non-existent")
 
-			required := MustSucceed(pebblekv.RequiresMigration(nonExistentPath, vfs.Default))
+			required := MustSucceed(
+				pebblekv.RequiresMigration(nonExistentPath, vfs.Default),
+			)
 			Expect(required).To(BeFalse())
 		})
 	})
@@ -82,7 +88,9 @@ var _ = Describe("Migrate", func() {
 
 			Expect(oldDB.Close()).To(Succeed())
 
-			requiresMigration := MustSucceed(pebblekv.RequiresMigration(dbPath, vfs.Default))
+			requiresMigration := MustSucceed(
+				pebblekv.RequiresMigration(dbPath, vfs.Default),
+			)
 			Expect(requiresMigration).To(BeTrue())
 
 			Expect(pebblekv.Migrate(dbPath, alamos.Instrumentation{})).To(Succeed())
@@ -98,7 +106,9 @@ var _ = Describe("Migrate", func() {
 			Expect(closer.Close()).To(Succeed())
 			Expect(newDB.Close()).To(Succeed())
 
-			requiresMigration = MustSucceed(pebblekv.RequiresMigration(dbPath, vfs.Default))
+			requiresMigration = MustSucceed(
+				pebblekv.RequiresMigration(dbPath, vfs.Default),
+			)
 			Expect(requiresMigration).To(BeFalse())
 		})
 
@@ -127,7 +137,9 @@ var _ = Describe("Migrate", func() {
 			Expect(db.Close()).To(Succeed())
 
 			// Should not require migration
-			requiresMigration := MustSucceed(pebblekv.RequiresMigration(dbPath, vfs.Default))
+			requiresMigration := MustSucceed(
+				pebblekv.RequiresMigration(dbPath, vfs.Default),
+			)
 			Expect(requiresMigration).To(BeFalse())
 
 			// Migration should still succeed (no-op)
@@ -185,7 +197,9 @@ var _ = Describe("Migrate", func() {
 			Expect(oldDB.Close()).To(Succeed())
 
 			// Should require migration (v1 newest to v2 newest)
-			requiresMigration := MustSucceed(pebblekv.RequiresMigration(dbPath, vfs.Default))
+			requiresMigration := MustSucceed(
+				pebblekv.RequiresMigration(dbPath, vfs.Default),
+			)
 			Expect(requiresMigration).To(BeTrue())
 
 			// Migration should succeed
@@ -203,7 +217,9 @@ var _ = Describe("Migrate", func() {
 			Expect(verifyDB.Close()).To(Succeed())
 
 			// Should no longer require migration
-			requiresMigration = MustSucceed(pebblekv.RequiresMigration(dbPath, vfs.Default))
+			requiresMigration = MustSucceed(
+				pebblekv.RequiresMigration(dbPath, vfs.Default),
+			)
 			Expect(requiresMigration).To(BeFalse())
 		})
 
@@ -220,7 +236,9 @@ var _ = Describe("Migrate", func() {
 			// Verify initial format is old
 			dbDesc := MustSucceed(pebble.Peek(dbPath, vfs.Default))
 			initialFormat := dbDesc.FormatMajorVersion
-			Expect(uint64(initialFormat)).To(BeNumerically("<", uint64(pebble.FormatMinSupported)))
+			Expect(
+				uint64(initialFormat),
+			).To(BeNumerically("<", uint64(pebble.FormatMinSupported)))
 
 			// Migrate
 			Expect(pebblekv.Migrate(dbPath, alamos.Instrumentation{})).To(Succeed())

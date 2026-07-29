@@ -42,10 +42,20 @@ func (e *StaleError) Error() string {
 	}
 
 	var sb strings.Builder
-	_, _ = fmt.Fprintf(&sb, "plugin '%s' has %d stale file(s):\n", e.Plugin, len(e.Files))
+	_, _ = fmt.Fprintf(
+		&sb,
+		"plugin '%s' has %d stale file(s):\n",
+		e.Plugin,
+		len(e.Files),
+	)
 	for _, f := range e.Files {
 		if f.GenTime.IsZero() {
-			_, _ = fmt.Fprintf(&sb, "  - %s (missing, source: %s)\n", f.Generated, f.Schema)
+			_, _ = fmt.Fprintf(
+				&sb,
+				"  - %s (missing, source: %s)\n",
+				f.Generated,
+				f.Schema,
+			)
 		} else {
 			_, _ = fmt.Fprintf(&sb, "  - %s (modified: %s, source %s modified: %s)\n",
 				f.Generated, f.GenTime.Format(time.RFC3339),
@@ -68,7 +78,10 @@ type DependencyStaleError struct {
 func (e *DependencyStaleError) Error() string {
 	return fmt.Sprintf(
 		"plugin '%s' requires '%s' to be up-to-date.\n\n  %s\n  Run: oracle generate -p %s",
-		e.Plugin, e.Dependency, e.Reason, e.Dependency,
+		e.Plugin,
+		e.Dependency,
+		e.Reason,
+		e.Dependency,
 	)
 }
 

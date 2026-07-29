@@ -67,6 +67,9 @@ var _ = Describe("Ruff Formatter", func() {
 		absFile, _ := installRuffFixture()
 		raw := []byte("def foo(:\n")
 		r := &format.Ruff{Bin: "ruff"}
-		Expect(r.Format(ctx, raw, absFile)).Error().To(MatchError(ContainSubstring("ruff")))
+		Expect(
+			r.Format(ctx, raw, absFile),
+		).Error().
+			To(MatchError(ContainSubstring("ruff")))
 	})
 })

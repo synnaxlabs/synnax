@@ -47,7 +47,9 @@ func (i IteratorConfig) Validate() error { return nil }
 
 var (
 	_                     config.Config[IteratorConfig] = IteratorConfig{}
-	DefaultIteratorConfig                               = IteratorConfig{AutoChunkSize: 1e5}
+	DefaultIteratorConfig                               = IteratorConfig{
+		AutoChunkSize: 1e5,
+	}
 )
 
 func IterRange(tr telem.TimeRange) IteratorConfig {
@@ -420,7 +422,8 @@ func (i *Iterator) insert(series telem.Series) {
 	if series.Len() == 0 {
 		return
 	}
-	if i.frame.Empty() || i.frame.SeriesAt(-1).TimeRange.End.BeforeEq(series.TimeRange.Start) {
+	if i.frame.Empty() ||
+		i.frame.SeriesAt(-1).TimeRange.End.BeforeEq(series.TimeRange.Start) {
 		i.frame = i.frame.Append(i.Channel.Key, series)
 	} else {
 		i.frame = i.frame.Prepend(i.Channel.Key, series)
@@ -516,7 +519,9 @@ func (i *Iterator) approximateStart(ctx context.Context) (
 // range and the end of the current iterator view. If the end of the current view is
 // after the end of the range, the returned value will be the number of samples in the
 // range.
-func (i *Iterator) approximateEnd(ctx context.Context) (endApprox index.DistanceApproximation, err error) {
+func (i *Iterator) approximateEnd(
+	ctx context.Context,
+) (endApprox index.DistanceApproximation, err error) {
 	total, err := i.resolver.domainSampleCount(ctx, i.internal)
 	if err != nil {
 		return index.DistanceApproximation{}, err

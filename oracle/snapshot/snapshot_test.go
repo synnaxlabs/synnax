@@ -112,7 +112,9 @@ var _ = Describe("LatestVersion", func() {
 	})
 
 	It("should return 0 when the directory does not exist", func() {
-		v := MustSucceed(snapshot.LatestVersion(filepath.Join(snapshotsDir, "nonexistent")))
+		v := MustSucceed(
+			snapshot.LatestVersion(filepath.Join(snapshotsDir, "nonexistent")),
+		)
 		Expect(v).To(Equal(0))
 	})
 
@@ -149,8 +151,12 @@ var _ = Describe("Files", func() {
 	})
 
 	It("should return sorted oracle files", func() {
-		Expect(os.WriteFile(filepath.Join(snapshotDir, "b.oracle"), []byte("B"), 0o644)).To(Succeed())
-		Expect(os.WriteFile(filepath.Join(snapshotDir, "a.oracle"), []byte("A"), 0o644)).To(Succeed())
+		Expect(
+			os.WriteFile(filepath.Join(snapshotDir, "b.oracle"), []byte("B"), 0o644),
+		).To(Succeed())
+		Expect(
+			os.WriteFile(filepath.Join(snapshotDir, "a.oracle"), []byte("A"), 0o644),
+		).To(Succeed())
 
 		files := MustSucceed(snapshot.Files(snapshotDir))
 		Expect(files).To(HaveLen(2))
@@ -161,7 +167,9 @@ var _ = Describe("Files", func() {
 	It("should include files in subdirectories", func() {
 		subDir := filepath.Join(snapshotDir, "sub")
 		Expect(os.MkdirAll(subDir, 0o755)).To(Succeed())
-		Expect(os.WriteFile(filepath.Join(subDir, "nested.oracle"), []byte("N"), 0o644)).To(Succeed())
+		Expect(
+			os.WriteFile(filepath.Join(subDir, "nested.oracle"), []byte("N"), 0o644),
+		).To(Succeed())
 
 		files := MustSucceed(snapshot.Files(snapshotDir))
 		Expect(files).To(HaveLen(1))
@@ -169,8 +177,16 @@ var _ = Describe("Files", func() {
 	})
 
 	It("should ignore non-oracle files", func() {
-		Expect(os.WriteFile(filepath.Join(snapshotDir, "schema.oracle"), []byte("S"), 0o644)).To(Succeed())
-		Expect(os.WriteFile(filepath.Join(snapshotDir, "readme.md"), []byte("R"), 0o644)).To(Succeed())
+		Expect(
+			os.WriteFile(
+				filepath.Join(snapshotDir, "schema.oracle"),
+				[]byte("S"),
+				0o644,
+			),
+		).To(Succeed())
+		Expect(
+			os.WriteFile(filepath.Join(snapshotDir, "readme.md"), []byte("R"), 0o644),
+		).To(Succeed())
 
 		files := MustSucceed(snapshot.Files(snapshotDir))
 		Expect(files).To(HaveLen(1))

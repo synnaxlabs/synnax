@@ -78,7 +78,15 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 type pyFileGenerator struct{}
 
 func (g *pyFileGenerator) GenerateFile(ctx *framework.GenerateContext) (string, error) {
-	content, err := generatePyFile(ctx.Namespace, ctx.OutputPath, ctx.Structs, ctx.Enums, ctx.TypeDefs, ctx.Unions, ctx.Table)
+	content, err := generatePyFile(
+		ctx.Namespace,
+		ctx.OutputPath,
+		ctx.Structs,
+		ctx.Enums,
+		ctx.TypeDefs,
+		ctx.Unions,
+		ctx.Table,
+	)
 	if err != nil {
 		return "", err
 	}
@@ -235,7 +243,12 @@ func convertKeyFields(fields []key.Field, data *templateData) []keyFieldData {
 	return result
 }
 
-func extractOntology(types []resolution.Type, rawFields []key.Field, keyFields []keyFieldData, skip ontology.SkipFunc) *ontologyData {
+func extractOntology(
+	types []resolution.Type,
+	rawFields []key.Field,
+	keyFields []keyFieldData,
+	skip ontology.SkipFunc,
+) *ontologyData {
 	data := ontology.Extract(types, rawFields, skip)
 	if data == nil || len(keyFields) == 0 {
 		return nil
@@ -316,7 +329,12 @@ func typeDefRefsSameNamespaceType(td resolution.Type, table *resolution.Table) b
 // loading, which requires a model_rebuild() call. References to types defined
 // earlier in the file or in imported (cross-namespace) modules are already
 // resolvable and need no rebuild.
-func structHasForwardRef(typ resolution.Type, selfIdx int, typePos map[string]int, table *resolution.Table) bool {
+func structHasForwardRef(
+	typ resolution.Type,
+	selfIdx int,
+	typePos map[string]int,
+	table *resolution.Table,
+) bool {
 	var refs func(ref resolution.TypeRef) bool
 	refs = func(ref resolution.TypeRef) bool {
 		if ref.Name == "Array" || ref.Name == "Map" {
@@ -353,7 +371,11 @@ func structHasForwardRef(typ resolution.Type, selfIdx int, typePos map[string]in
 	return false
 }
 
-func processTypeDef(typ resolution.Type, table *resolution.Table, data *templateData) typeDefData {
+func processTypeDef(
+	typ resolution.Type,
+	table *resolution.Table,
+	data *templateData,
+) typeDefData {
 	switch form := typ.Form.(type) {
 	case resolution.DistinctForm:
 		data.imports.addTyping("TypeAlias")
@@ -377,7 +399,11 @@ func processTypeDef(typ resolution.Type, table *resolution.Table, data *template
 	}
 }
 
-func processTypeParam(tp resolution.TypeParam, table *resolution.Table, data *templateData) typeParamData {
+func processTypeParam(
+	tp resolution.TypeParam,
+	table *resolution.Table,
+	data *templateData,
+) typeParamData {
 	tpd := typeParamData{
 		Name:       tp.Name,
 		IsOptional: tp.Optional,
@@ -388,7 +414,11 @@ func processTypeParam(tp resolution.TypeParam, table *resolution.Table, data *te
 	return tpd
 }
 
-func constraintToPython(constraint resolution.TypeRef, table *resolution.Table, data *templateData) string {
+func constraintToPython(
+	constraint resolution.TypeRef,
+	table *resolution.Table,
+	data *templateData,
+) string {
 	if resolution.IsConstraint(constraint.Name) {
 		return ""
 	}
@@ -437,7 +467,12 @@ func containsTypeVar(typeVars []typeVarData, name string) bool {
 	return false
 }
 
-func typeDefBaseToPython(typeRef resolution.TypeRef, currentNamespace string, table *resolution.Table, data *templateData) string {
+func typeDefBaseToPython(
+	typeRef resolution.TypeRef,
+	currentNamespace string,
+	table *resolution.Table,
+	data *templateData,
+) string {
 	if resolution.IsPrimitive(typeRef.Name) {
 		return primitiveToPython(typeRef.Name, data)
 	}
@@ -573,7 +608,10 @@ func processStruct(
 				flat := resolution.UnifiedFields(entry, table)
 				sd.Fields = make([]fieldData, 0, len(flat))
 				for _, field := range flat {
-					sd.Fields = append(sd.Fields, processField(field, table, data, keyFields, form.OmittedFields))
+					sd.Fields = append(
+						sd.Fields,
+						processField(field, table, data, keyFields, form.OmittedFields),
+					)
 					if hashableKey(field) {
 						sd.KeyField = field.Name
 					}
@@ -635,13 +673,25 @@ func processStruct(
 						continue
 					}
 					if childField, ok := childFieldsByName[pf.Name]; ok {
-						fd := processField(childField, table, data, keyFields, form.OmittedFields)
+						fd := processField(
+							childField,
+							table,
+							data,
+							keyFields,
+							form.OmittedFields,
+						)
 						sd.Fields = append(sd.Fields, fd)
 						if hashableKey(childField) {
 							sd.KeyField = childField.Name
 						}
 					} else {
-						fd := processField(pf, table, data, keyFields, form.OmittedFields)
+						fd := processField(
+							pf,
+							table,
+							data,
+							keyFields,
+							form.OmittedFields,
+						)
 						sd.Fields = append(sd.Fields, fd)
 						if hashableKey(pf) {
 							sd.KeyField = pf.Name
@@ -654,7 +704,13 @@ func processStruct(
 					if addedFields.Contains(field.Name) {
 						continue
 					}
-					fd := processField(field, table, data, keyFields, form.OmittedFields)
+					fd := processField(
+						field,
+						table,
+						data,
+						keyFields,
+						form.OmittedFields,
+					)
 					sd.Fields = append(sd.Fields, fd)
 					if hashableKey(field) {
 						sd.KeyField = field.Name
@@ -700,7 +756,13 @@ func processStruct(
 						// name is in OmittedFields. A hand-built default here
 						// would drop the parent's default and make an excluded
 						// defaulted field wrongly required.
-						fd := processField(pf, table, data, keyFields, form.OmittedFields)
+						fd := processField(
+							pf,
+							table,
+							data,
+							keyFields,
+							form.OmittedFields,
+						)
 						sd.Fields = append(sd.Fields, fd)
 						break
 					}
@@ -730,7 +792,12 @@ func getPyName(typ resolution.Type) string {
 // buildExtendsExpr builds the Python extends expression for a parent class.
 // If the parent has type params and type args are provided,
 // it returns something like "Status[D, V]" instead of just "Status".
-func buildExtendsExpr(extendsRef resolution.TypeRef, parent resolution.Type, table *resolution.Table, data *templateData) string {
+func buildExtendsExpr(
+	extendsRef resolution.TypeRef,
+	parent resolution.Type,
+	table *resolution.Table,
+	data *templateData,
+) string {
 	baseName := getPyName(parent)
 
 	// A base class defined in another schema module must be imported and
@@ -740,7 +807,11 @@ func buildExtendsExpr(extendsRef resolution.TypeRef, parent resolution.Type, tab
 		if outputPath == "" {
 			outputPath = parent.Namespace
 		}
-		baseName = addCrossNamespaceImport(toPythonModulePath(outputPath), baseName, data)
+		baseName = addCrossNamespaceImport(
+			toPythonModulePath(outputPath),
+			baseName,
+			data,
+		)
 	}
 
 	// Check if parent is generic
@@ -797,7 +868,13 @@ func processField(
 
 	baseType := typeToPython(field.Type, table, data)
 	validateDomain := field.Domains["validate"]
-	fieldConstraints := collectValidation(validateDomain, field.Default, field.Type, table, data)
+	fieldConstraints := collectValidation(
+		validateDomain,
+		field.Default,
+		field.Type,
+		table,
+		data,
+	)
 
 	if bounds, ok := sizedIntBounds(field.Type, table); ok {
 		hasGe := lo.ContainsBy(fieldConstraints, func(c string) bool {
@@ -846,7 +923,13 @@ func processField(
 		}
 	}
 
-	fd.Default = buildDefault(field, fieldConstraints, fd.Alias, data, isOptionalTypeParam)
+	fd.Default = buildDefault(
+		field,
+		fieldConstraints,
+		fd.Alias,
+		data,
+		isOptionalTypeParam,
+	)
 
 	return fd
 }
@@ -889,7 +972,10 @@ func buildDefault(
 	if isAnyOptional {
 		if hasConstraints {
 			data.imports.addPydantic("Field")
-			return fmt.Sprintf(" = Field(default=None, %s)", strings.Join(constraints, ", "))
+			return fmt.Sprintf(
+				" = Field(default=None, %s)",
+				strings.Join(constraints, ", "),
+			)
 		}
 		return " = None"
 	}
@@ -920,14 +1006,22 @@ func collectValidation(
 		return nil
 	}
 	var constraints []string
-	isString := resolution.IsPrimitive(typeRef.Name) && resolution.IsStringPrimitive(typeRef.Name)
-	isNumber := resolution.IsPrimitive(typeRef.Name) && resolution.IsNumberPrimitive(typeRef.Name)
+	isString := resolution.IsPrimitive(typeRef.Name) &&
+		resolution.IsStringPrimitive(typeRef.Name)
+	isNumber := resolution.IsPrimitive(typeRef.Name) &&
+		resolution.IsNumberPrimitive(typeRef.Name)
 	if isString {
 		if rules.MinLength != nil {
-			constraints = append(constraints, fmt.Sprintf("min_length=%d", *rules.MinLength))
+			constraints = append(
+				constraints,
+				fmt.Sprintf("min_length=%d", *rules.MinLength),
+			)
 		}
 		if rules.MaxLength != nil {
-			constraints = append(constraints, fmt.Sprintf("max_length=%d", *rules.MaxLength))
+			constraints = append(
+				constraints,
+				fmt.Sprintf("max_length=%d", *rules.MaxLength),
+			)
 		}
 	}
 	if isNumber {
@@ -961,14 +1055,26 @@ func collectValidation(
 				constraints = append(constraints, "default=UUID(int=0)")
 			} else if wrapper := resolveDistinctWrapper(typeRef, table, data); wrapper != "" {
 				// Wrap int defaults in the distinct type constructor (e.g., TimeSpan(0))
-				constraints = append(constraints, fmt.Sprintf("default=%s(%d)", wrapper, defaultVal.IntValue))
+				constraints = append(
+					constraints,
+					fmt.Sprintf("default=%s(%d)", wrapper, defaultVal.IntValue),
+				)
 			} else {
-				constraints = append(constraints, fmt.Sprintf("default=%d", defaultVal.IntValue))
+				constraints = append(
+					constraints,
+					fmt.Sprintf("default=%d", defaultVal.IntValue),
+				)
 			}
 		case resolution.ValueKindFloat:
-			constraints = append(constraints, fmt.Sprintf("default=%f", defaultVal.FloatValue))
+			constraints = append(
+				constraints,
+				fmt.Sprintf("default=%f", defaultVal.FloatValue),
+			)
 		case resolution.ValueKindString:
-			constraints = append(constraints, fmt.Sprintf("default=%q", defaultVal.StringValue))
+			constraints = append(
+				constraints,
+				fmt.Sprintf("default=%q", defaultVal.StringValue),
+			)
 		case resolution.ValueKindIdent:
 			// Handle identifier-based defaults like "now" for timestamps
 			if defaultVal.IdentValue == "now" && isTimeStampType(typeRef, table) {
@@ -985,10 +1091,17 @@ func collectValidation(
 					constraints = append(constraints, "default_factory=uuid4")
 				} else if isString || primitive == "string" {
 					data.imports.addUUID("uuid4")
-					constraints = append(constraints, "default_factory=lambda: str(uuid4())")
+					constraints = append(
+						constraints,
+						"default_factory=lambda: str(uuid4())",
+					)
 				}
 			}
-			if ev, ok := validation.ResolveEnumVariant(defaultVal.IdentValue, typeRef, table); ok {
+			if ev, ok := validation.ResolveEnumVariant(
+				defaultVal.IdentValue,
+				typeRef,
+				table,
+			); ok {
 				variantRef := enumVariantToPython(ev, table, data)
 				constraints = append(constraints, fmt.Sprintf("default=%s", variantRef))
 			}
@@ -997,7 +1110,13 @@ func collectValidation(
 			if len(defaultVal.Elements) == 0 {
 				constraints = append(constraints, "default_factory=list")
 			} else {
-				constraints = append(constraints, fmt.Sprintf("default_factory=lambda: %s", pyDefaultLiteral(typeRef, *defaultVal, table, data)))
+				constraints = append(
+					constraints,
+					fmt.Sprintf(
+						"default_factory=lambda: %s",
+						pyDefaultLiteral(typeRef, *defaultVal, table, data),
+					),
+				)
 			}
 		case resolution.ValueKindStruct:
 			// Records (dict[str, Any]) and maps are mutable dicts, so they use
@@ -1008,11 +1127,23 @@ func collectValidation(
 				if len(defaultVal.Fields) == 0 {
 					constraints = append(constraints, "default_factory=dict")
 				} else {
-					constraints = append(constraints, fmt.Sprintf("default_factory=lambda: %s", pyDefaultLiteral(typeRef, *defaultVal, table, data)))
+					constraints = append(
+						constraints,
+						fmt.Sprintf(
+							"default_factory=lambda: %s",
+							pyDefaultLiteral(typeRef, *defaultVal, table, data),
+						),
+					)
 				}
 			} else {
 				// Models are mutable, so they must use default_factory, never default=.
-				constraints = append(constraints, fmt.Sprintf("default_factory=lambda: %s", pyDefaultLiteral(typeRef, *defaultVal, table, data)))
+				constraints = append(
+					constraints,
+					fmt.Sprintf(
+						"default_factory=lambda: %s",
+						pyDefaultLiteral(typeRef, *defaultVal, table, data),
+					),
+				)
 			}
 		}
 	}
@@ -1022,7 +1153,12 @@ func collectValidation(
 // pyDefaultLiteral renders a default value as a Python literal. typeRef is the
 // declared type of the value, used to resolve enum variants, array element
 // types, and nested struct field types. Arrays and structs recurse.
-func pyDefaultLiteral(typeRef resolution.TypeRef, val resolution.ExpressionValue, table *resolution.Table, data *templateData) string {
+func pyDefaultLiteral(
+	typeRef resolution.TypeRef,
+	val resolution.ExpressionValue,
+	table *resolution.Table,
+	data *templateData,
+) string {
 	switch val.Kind {
 	case resolution.ValueKindString:
 		return fmt.Sprintf("%q", val.StringValue)
@@ -1048,7 +1184,11 @@ func pyDefaultLiteral(typeRef resolution.TypeRef, val resolution.ExpressionValue
 		}
 		return "[" + strings.Join(parts, ", ") + "]"
 	case resolution.ValueKindStruct:
-		if kind, _ := resolution.CollectionKind(typeRef, table); typeRef.Name == "record" || kind == "Map" {
+		if kind, _ := resolution.CollectionKind(
+			typeRef,
+			table,
+		); typeRef.Name == "record" ||
+			kind == "Map" {
 			return pyRecordLiteral(val, table, data)
 		}
 		return pyStructLiteral(typeRef, val, table, data)
@@ -1059,13 +1199,24 @@ func pyDefaultLiteral(typeRef resolution.TypeRef, val resolution.ExpressionValue
 // pyRecordLiteral renders a record default as a Python dict literal. Record
 // values carry no declared field types, so each entry's value is rendered from
 // its own kind.
-func pyRecordLiteral(val resolution.ExpressionValue, table *resolution.Table, data *templateData) string {
+func pyRecordLiteral(
+	val resolution.ExpressionValue,
+	table *resolution.Table,
+	data *templateData,
+) string {
 	if len(val.Fields) == 0 {
 		return "{}"
 	}
 	parts := make([]string, 0, len(val.Fields))
 	for _, fv := range val.Fields {
-		parts = append(parts, fmt.Sprintf("%q: %s", fv.Name, pyDefaultLiteral(resolution.TypeRef{}, fv.Value, table, data)))
+		parts = append(
+			parts,
+			fmt.Sprintf(
+				"%q: %s",
+				fv.Name,
+				pyDefaultLiteral(resolution.TypeRef{}, fv.Value, table, data),
+			),
+		)
 	}
 	return "{" + strings.Join(parts, ", ") + "}"
 }
@@ -1073,7 +1224,12 @@ func pyRecordLiteral(val resolution.ExpressionValue, table *resolution.Table, da
 // pyStructLiteral renders a struct default as a Python model constructor call,
 // resolving each field's value against its declared type in the struct named by
 // typeRef.
-func pyStructLiteral(typeRef resolution.TypeRef, val resolution.ExpressionValue, table *resolution.Table, data *templateData) string {
+func pyStructLiteral(
+	typeRef resolution.TypeRef,
+	val resolution.ExpressionValue,
+	table *resolution.Table,
+	data *templateData,
+) string {
 	resolved, ok := typeRef.Resolve(table)
 	if !ok {
 		return "None"
@@ -1084,7 +1240,11 @@ func pyStructLiteral(typeRef resolution.TypeRef, val resolution.ExpressionValue,
 		if outputPath == "" {
 			outputPath = resolved.Namespace
 		}
-		className = addCrossNamespaceImport(toPythonModulePath(outputPath), className, data)
+		className = addCrossNamespaceImport(
+			toPythonModulePath(outputPath),
+			className,
+			data,
+		)
 	}
 	fieldsByName := map[string]resolution.Field{}
 	for _, f := range resolution.UnifiedFields(resolved, table) {
@@ -1092,7 +1252,14 @@ func pyStructLiteral(typeRef resolution.TypeRef, val resolution.ExpressionValue,
 	}
 	parts := make([]string, 0, len(val.Fields))
 	for _, fv := range val.Fields {
-		parts = append(parts, fmt.Sprintf("%s=%s", keywords.Escape(fv.Name), pyDefaultLiteral(fieldsByName[fv.Name].Type, fv.Value, table, data)))
+		parts = append(
+			parts,
+			fmt.Sprintf(
+				"%s=%s",
+				keywords.Escape(fv.Name),
+				pyDefaultLiteral(fieldsByName[fv.Name].Type, fv.Value, table, data),
+			),
+		)
 	}
 	return className + "(" + strings.Join(parts, ", ") + ")"
 }
@@ -1106,7 +1273,11 @@ func pyArrayElementType(typeRef resolution.TypeRef) resolution.TypeRef {
 	return typeRef
 }
 
-func enumVariantToPython(ev validation.EnumVariant, table *resolution.Table, data *templateData) string {
+func enumVariantToPython(
+	ev validation.EnumVariant,
+	table *resolution.Table,
+	data *templateData,
+) string {
 	// String-valued enums are emitted as a Literal alias with no runtime class to
 	// dot into, so reference the variant's string value directly (the field's type
 	// is that Literal). Only integer enums become IntEnum classes whose members can
@@ -1151,7 +1322,11 @@ func isUUIDType(typeRef resolution.TypeRef, table *resolution.Table) bool {
 // resolveDistinctWrapper returns the Python type name for a distinct type that wraps
 // a primitive, or empty string if the type is not a distinct wrapper. This is used to
 // wrap default values in the constructor (e.g., TimeSpan(0) instead of just 0).
-func resolveDistinctWrapper(typeRef resolution.TypeRef, table *resolution.Table, data *templateData) string {
+func resolveDistinctWrapper(
+	typeRef resolution.TypeRef,
+	table *resolution.Table,
+	data *templateData,
+) string {
 	if resolution.IsPrimitive(typeRef.Name) {
 		return ""
 	}
@@ -1179,9 +1354,11 @@ func isTimeStampType(typeRef resolution.TypeRef, table *resolution.Table) bool {
 	}
 	switch form := typ.Form.(type) {
 	case resolution.DistinctForm:
-		return form.Base.Name == "TimeStamp" || strings.HasSuffix(form.Base.Name, ".TimeStamp")
+		return form.Base.Name == "TimeStamp" ||
+			strings.HasSuffix(form.Base.Name, ".TimeStamp")
 	case resolution.AliasForm:
-		return form.Target.Name == "TimeStamp" || strings.HasSuffix(form.Target.Name, ".TimeStamp")
+		return form.Target.Name == "TimeStamp" ||
+			strings.HasSuffix(form.Target.Name, ".TimeStamp")
 	}
 	return false
 }
@@ -1297,7 +1474,8 @@ func typeToPython(
 			structForm := resolved.Form.(resolution.StructForm)
 			var args []string
 			for i, arg := range typeRef.TypeArgs {
-				if i < len(structForm.TypeParams) && structForm.TypeParams[i].HasDefault() {
+				if i < len(structForm.TypeParams) &&
+					structForm.TypeParams[i].HasDefault() {
 					continue
 				}
 				args = append(args, typeToPython(arg, table, data))
@@ -1366,7 +1544,8 @@ func typeRefToPythonAlias(
 	// Array and map alias targets (e.g. Nodes = Node[], Authorities = map<...>) are
 	// builtin generics that do not resolve to a struct, so handle them here rather
 	// than falling through to the scalar/struct path below.
-	if typeRef.Name == "Array" && len(typeRef.TypeArgs) > 0 && typeRef.ArraySize == nil {
+	if typeRef.Name == "Array" && len(typeRef.TypeArgs) > 0 &&
+		typeRef.ArraySize == nil {
 		return fmt.Sprintf("list[%s]", typeToPython(typeRef.TypeArgs[0], table, data))
 	}
 	if typeRef.Name == "Map" && len(typeRef.TypeArgs) >= 2 {
@@ -1517,8 +1696,14 @@ func (m *importManager) addOntology(name string) {
 }
 
 func (m *importManager) addNamespace(alias, path string) {
-	if !lo.ContainsBy(m.namespaces, func(n namespaceImportData) bool { return n.Alias == alias }) {
-		m.namespaces = append(m.namespaces, namespaceImportData{Alias: alias, Path: path})
+	if !lo.ContainsBy(
+		m.namespaces,
+		func(n namespaceImportData) bool { return n.Alias == alias },
+	) {
+		m.namespaces = append(
+			m.namespaces,
+			namespaceImportData{Alias: alias, Path: path},
+		)
 	}
 }
 
@@ -1773,7 +1958,10 @@ var templateFuncs = template.FuncMap{
 	"hasTypeParams":          hasTypeParams,
 }
 
-var fileTemplate = template.Must(template.New("python").Funcs(templateFuncs).Parse(`# Code generated by Oracle. DO NOT EDIT.
+var fileTemplate = template.Must(
+	template.New("python").
+		Funcs(templateFuncs).
+		Parse(`# Code generated by Oracle. DO NOT EDIT.
 
 from __future__ import annotations
 {{- if .UUIDImports }}
@@ -1957,4 +2145,5 @@ ONTOLOGY_TYPE = ID(type="{{ .Ontology.TypeName }}")
 def ontology_id(key: {{ .Ontology.KeyType }}) -> ID:
     return ID(type="{{ .Ontology.TypeName }}", key=str(key))
 {{- end }}
-`))
+`),
+)

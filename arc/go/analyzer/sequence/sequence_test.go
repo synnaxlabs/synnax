@@ -202,7 +202,8 @@ var _ = Describe("Sequence Analyzer", func() {
 	})
 
 	Describe("Scoped Variables", func() {
-		DescribeTable("Valid",
+		DescribeTable(
+			"Valid",
 			analyzeAndExpectSuccess,
 			Entry("variable declared in a sequence body", `
 				sequence main {
@@ -258,14 +259,17 @@ var _ = Describe("Sequence Analyzer", func() {
 					}
 				}
 			`),
-			Entry("rebinding a channel read/write to a same-type channel in a sequence body", `
+			Entry(
+				"rebinding a channel read/write to a same-type channel in a sequence body",
+				`
 				sequence main {
 					p := pressure
 					p = valve_cmd
 					stage s1 {
 					}
 				}
-			`),
+			`,
+			),
 			Entry("nested sequence reads a variable from the enclosing sequence", `
 				sequence main {
 					counter := 0
@@ -288,7 +292,9 @@ var _ = Describe("Sequence Analyzer", func() {
 
 		DescribeTable("Invalid",
 			func(bCtx SpecContext, source, expectedError string) {
-				Expect(analyzeAndExpectError(bCtx, source)).To(ContainSubstring(expectedError))
+				Expect(
+					analyzeAndExpectError(bCtx, source),
+				).To(ContainSubstring(expectedError))
 			},
 			Entry("shadowing a variable inherited from the enclosing sequence", `
 				sequence main {
@@ -489,7 +495,9 @@ var _ = Describe("Sequence Analyzer", func() {
 
 		DescribeTable("Invalid",
 			func(bCtx SpecContext, source, expectedError string) {
-				Expect(analyzeAndExpectError(bCtx, source)).To(ContainSubstring(expectedError))
+				Expect(
+					analyzeAndExpectError(bCtx, source),
+				).To(ContainSubstring(expectedError))
 			},
 			Entry("type mismatch feeding an expression into a variable sink", `
 				sequence main {
@@ -530,7 +538,8 @@ var _ = Describe("Sequence Analyzer", func() {
 	})
 
 	Describe("Top-Level Stages", func() {
-		DescribeTable("Valid Top-Level Stages",
+		DescribeTable(
+			"Valid Top-Level Stages",
 			analyzeAndExpectSuccess,
 			Entry("named top-level stage", `
 				stage main {
@@ -564,13 +573,16 @@ var _ = Describe("Sequence Analyzer", func() {
 					start_cmd -> stage { 1 -> abort_btn }
 				}
 			`),
-			Entry("top-level stage containing a nested sequence with inline flow target", `
+			Entry(
+				"top-level stage containing a nested sequence with inline flow target",
+				`
 				stage main {
 					sequence inner {
 						start_cmd -> stage { 1 -> abort_btn }
 					}
 				}
-			`),
+			`,
+			),
 		)
 	})
 

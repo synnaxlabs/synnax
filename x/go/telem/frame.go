@@ -276,7 +276,7 @@ var (
 // serializableFrame is a helper type for serializing the Frame to encoded
 // representations.
 type serializableFrame[K comparable] struct {
-	Keys   []K      `json:"keys" msgpack:"keys"`
+	Keys   []K      `json:"keys"   msgpack:"keys"`
 	Series []Series `json:"series" msgpack:"series"`
 }
 

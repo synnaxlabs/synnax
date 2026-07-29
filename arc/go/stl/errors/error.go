@@ -32,7 +32,10 @@ func NewSymbols() []*symbol.Symbol {
 		Exec:     symbol.ExecWASM,
 		Internal: true,
 		Type: types.Function(types.FunctionProperties{
-			Inputs: types.Params{{Name: "ptr", Type: types.I32()}, {Name: "len", Type: types.I32()}},
+			Inputs: types.Params{
+				{Name: "ptr", Type: types.I32()},
+				{Name: "len", Type: types.I32()},
+			},
 		}),
 		Trigger: symbol.TriggerOnly,
 	})

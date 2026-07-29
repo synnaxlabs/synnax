@@ -56,7 +56,10 @@ func (d *DeltaTransformMultiplier[I, O]) Flow(ctx signal.Context, opts ...Option
 	d.GoRange(ctx, d.transformAndMultiply, o.Signal...)
 }
 
-func (d *DeltaTransformMultiplier[I, O]) transformAndMultiply(ctx context.Context, i I) error {
+func (d *DeltaTransformMultiplier[I, O]) transformAndMultiply(
+	ctx context.Context,
+	i I,
+) error {
 	o, ok, err := d.Transform(ctx, i)
 	if !ok || err != nil {
 		return err

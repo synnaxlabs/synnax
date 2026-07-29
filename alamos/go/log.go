@@ -180,10 +180,17 @@ var _ zapcore.Core = (*customCore)(nil)
 func (c customCore) Enabled(level zapcore.Level) bool { return c.c.Enabled(level) }
 
 // With implements zapcore.Core.
-func (c customCore) With(fields []zapcore.Field) zapcore.Core { return &customCore{c.c.With(fields)} }
+func (c customCore) With(
+	fields []zapcore.Field,
+) zapcore.Core {
+	return &customCore{c.c.With(fields)}
+}
 
 // Check implements zapcore.Core.
-func (c customCore) Check(entry zapcore.Entry, entry2 *zapcore.CheckedEntry) *zapcore.CheckedEntry {
+func (c customCore) Check(
+	entry zapcore.Entry,
+	entry2 *zapcore.CheckedEntry,
+) *zapcore.CheckedEntry {
 	// Make sure that zap uses our custom core.
 	if c.Enabled(entry.Level) {
 		return entry2.AddCore(entry, c)

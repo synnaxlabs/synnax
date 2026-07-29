@@ -91,7 +91,9 @@ func synthesizeCreateTypes(c *analysisCtx) {
 	}
 	for _, t := range created {
 		if err := c.table.Add(t); err != nil {
-			c.diag.Add(diagnostics.Errorf(nil, "failed to synthesize New type: %v", err))
+			c.diag.Add(
+				diagnostics.Errorf(nil, "failed to synthesize New type: %v", err),
+			)
 		}
 	}
 }
@@ -100,7 +102,10 @@ func synthesizeCreateTypes(c *analysisCtx) {
 // shared base structs (its Extends), which the derived New omits. Only shared-base fields
 // are eligible: they appear in every variant, so a non-distributive Omit over the union
 // input type is sound. Variant-specific @output fields are not projected out.
-func unionCreateOmittedFields(form resolution.UnionForm, table *resolution.Table) []string {
+func unionCreateOmittedFields(
+	form resolution.UnionForm,
+	table *resolution.Table,
+) []string {
 	var omitted []string
 	for _, ext := range form.Extends {
 		base, ok := ext.Resolve(table)
@@ -139,7 +144,11 @@ func newTypeDomains(base resolution.Type) map[string]resolution.Domain {
 		"py":  {Name: "py", Expressions: resolution.Expressions{{Name: "omit"}}},
 	}
 	tsExprs := inheritedNewExpressions(base, "ts")
-	tsExprs = append(tsExprs, resolution.Expression{Name: "use_input"}, resolution.Expression{Name: "type_only"})
+	tsExprs = append(
+		tsExprs,
+		resolution.Expression{Name: "use_input"},
+		resolution.Expression{Name: "type_only"},
+	)
 	domains["ts"] = resolution.Domain{Name: "ts", Expressions: tsExprs}
 	return domains
 }
@@ -148,7 +157,10 @@ func newTypeDomains(base resolution.Type) map[string]resolution.Domain {
 // the `name` expression removed, so a synthesized New inherits output paths, omission,
 // and behavioral flags but emits under its own name rather than the base's. Returns an
 // empty slice when the base has no such domain.
-func inheritedNewExpressions(base resolution.Type, domain string) resolution.Expressions {
+func inheritedNewExpressions(
+	base resolution.Type,
+	domain string,
+) resolution.Expressions {
 	d, ok := base.Domains[domain]
 	if !ok {
 		return resolution.Expressions{}

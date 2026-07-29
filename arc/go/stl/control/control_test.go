@@ -43,8 +43,10 @@ var _ = Describe("Control", func() {
 	Describe("NewModule", func() {
 		It("Should create factory with state", func(ctx SpecContext) {
 			g := graph.Graph{
-				Nodes:     []graph.Node{{Key: "set_auth"}},
-				Inputs:    map[string]msgpack.EncodedJSON{"set_auth": {"type": "set_authority"}},
+				Nodes: []graph.Node{{Key: "set_auth"}},
+				Inputs: map[string]msgpack.EncodedJSON{
+					"set_auth": {"type": "set_authority"},
+				},
 				Functions: []ir.Function{{Key: "set_authority"}},
 			}
 			inter, diagnostics := graph.Analyze(ctx, g, NewGraphRoot(nil))
@@ -63,8 +65,10 @@ var _ = Describe("Control", func() {
 		)
 		BeforeEach(func(ctx SpecContext) {
 			g := graph.Graph{
-				Nodes:     []graph.Node{{Key: "set_auth"}},
-				Inputs:    map[string]msgpack.EncodedJSON{"set_auth": {"type": "set_authority"}},
+				Nodes: []graph.Node{{Key: "set_auth"}},
+				Inputs: map[string]msgpack.EncodedJSON{
+					"set_auth": {"type": "set_authority"},
+				},
 				Functions: []ir.Function{{Key: "set_authority"}},
 			}
 			analyzed, diagnostics := graph.Analyze(ctx, g, NewGraphRoot(nil))
@@ -79,12 +83,15 @@ var _ = Describe("Control", func() {
 			varCfg := setAuthority.Config(NewVarInput[uint8](200), uint32(42))
 			Expect(MustSucceed(factory.Create(ctx, varCfg))).ToNot(BeNil())
 		})
-		It("Should create node for control.set_authority via CompoundFactory", func(ctx SpecContext) {
-			compound := node.CompoundFactory{factory}
-			cfg := constConfig(ctx, 200, 42)
-			cfg.Node.Type = "control.set_authority"
-			Expect(MustSucceed(compound.Create(ctx, cfg))).ToNot(BeNil())
-		})
+		It(
+			"Should create node for control.set_authority via CompoundFactory",
+			func(ctx SpecContext) {
+				compound := node.CompoundFactory{factory}
+				cfg := constConfig(ctx, 200, 42)
+				cfg.Node.Type = "control.set_authority"
+				Expect(MustSucceed(compound.Create(ctx, cfg))).ToNot(BeNil())
+			},
+		)
 		It("Should return NotFound for unknown type", func(ctx SpecContext) {
 			cfg := node.Config{
 				Node:  ir.Node{Type: "unknown"},
@@ -95,8 +102,10 @@ var _ = Describe("Control", func() {
 		It("Should error when an input value is invalid", func(ctx SpecContext) {
 			cfg := node.Config{
 				Node: ir.Node{
-					Type:   "set_authority",
-					Inputs: types.Params{{Name: "value", Type: types.U8(), Value: []any{1}}},
+					Type: "set_authority",
+					Inputs: types.Params{
+						{Name: "value", Type: types.U8(), Value: []any{1}},
+					},
 				},
 				State: s.Node("set_auth"),
 			}
@@ -118,7 +127,9 @@ var _ = Describe("Control", func() {
 
 		DescribeTable("Should buffer a per-channel authority change",
 			func(ctx SpecContext, value, channel any) {
-				n := MustSucceed(factory.Create(ctx, setAuthority.Config(value, channel)))
+				n := MustSucceed(
+					factory.Create(ctx, setAuthority.Config(value, channel)),
+				)
 				n.Next(node.Context{Context: ctx, MarkChanged: func(int) {}})
 				changes := authorityState.Flush()
 				Expect(changes).To(HaveLen(1))
@@ -132,7 +143,9 @@ var _ = Describe("Control", func() {
 
 		DescribeTable("Should buffer a global authority change",
 			func(ctx SpecContext, value, channel any) {
-				n := MustSucceed(factory.Create(ctx, setAuthority.Config(value, channel)))
+				n := MustSucceed(
+					factory.Create(ctx, setAuthority.Config(value, channel)),
+				)
 				n.Next(node.Context{Context: ctx, MarkChanged: func(int) {}})
 				changes := authorityState.Flush()
 				Expect(changes).To(HaveLen(1))
@@ -145,7 +158,9 @@ var _ = Describe("Control", func() {
 
 		DescribeTable("Should fire only once before Reset",
 			func(ctx SpecContext, value, channel any) {
-				n := MustSucceed(factory.Create(ctx, setAuthority.Config(value, channel)))
+				n := MustSucceed(
+					factory.Create(ctx, setAuthority.Config(value, channel)),
+				)
 				nCtx := node.Context{Context: ctx, MarkChanged: func(int) {}}
 				n.Next(nCtx)
 				n.Next(nCtx)
@@ -160,7 +175,9 @@ var _ = Describe("Control", func() {
 
 		DescribeTable("Should not call MarkChanged",
 			func(ctx SpecContext, value, channel any) {
-				n := MustSucceed(factory.Create(ctx, setAuthority.Config(value, channel)))
+				n := MustSucceed(
+					factory.Create(ctx, setAuthority.Config(value, channel)),
+				)
 				n.Next(node.Context{Context: ctx, MarkChanged: func(int) {
 					// setAuthority declares no outputs; MarkChanged should never fire.
 					outputs = append(outputs, "called")
@@ -180,44 +197,53 @@ var _ = Describe("Control", func() {
 			Expect(*changes[0].Channel).To(Equal(uint32(42)))
 		})
 
-		It("Should use the var's declared initial before any write", func(ctx SpecContext) {
-			cfg := setAuthority.Config(NewVarInput[uint8](5), uint32(42))
-			n := MustSucceed(factory.Create(ctx, cfg))
-			n.Next(node.Context{Context: ctx, MarkChanged: func(int) {}})
-			changes := authorityState.Flush()
-			Expect(changes).To(HaveLen(1))
-			Expect(changes[0].Authority).To(Equal(uint8(5)))
-		})
+		It(
+			"Should use the var's declared initial before any write",
+			func(ctx SpecContext) {
+				cfg := setAuthority.Config(NewVarInput[uint8](5), uint32(42))
+				n := MustSucceed(factory.Create(ctx, cfg))
+				n.Next(node.Context{Context: ctx, MarkChanged: func(int) {}})
+				changes := authorityState.Flush()
+				Expect(changes).To(HaveLen(1))
+				Expect(changes[0].Authority).To(Equal(uint8(5)))
+			},
+		)
 
-		It("Should not re-fire when the var changes without a Reset", func(ctx SpecContext) {
-			v := NewVarInput[uint8](1)
-			cfg := setAuthority.Config(v, uint32(42))
-			v.Set(77)
-			n := MustSucceed(factory.Create(ctx, cfg))
-			nCtx := node.Context{Context: ctx, MarkChanged: func(int) {}}
-			n.Next(nCtx)
-			v.Set(33)
-			n.Next(nCtx)
-			changes := authorityState.Flush()
-			Expect(changes).To(HaveLen(1))
-			Expect(changes[0].Authority).To(Equal(uint8(77)))
-		})
+		It(
+			"Should not re-fire when the var changes without a Reset",
+			func(ctx SpecContext) {
+				v := NewVarInput[uint8](1)
+				cfg := setAuthority.Config(v, uint32(42))
+				v.Set(77)
+				n := MustSucceed(factory.Create(ctx, cfg))
+				nCtx := node.Context{Context: ctx, MarkChanged: func(int) {}}
+				n.Next(nCtx)
+				v.Set(33)
+				n.Next(nCtx)
+				changes := authorityState.Flush()
+				Expect(changes).To(HaveLen(1))
+				Expect(changes[0].Authority).To(Equal(uint8(77)))
+			},
+		)
 
-		It("Should read the latest var value on re-fire after Reset", func(ctx SpecContext) {
-			v := NewVarInput[uint8](1)
-			cfg := setAuthority.Config(v, uint32(42))
-			v.Set(77)
-			n := MustSucceed(factory.Create(ctx, cfg))
-			nCtx := node.Context{Context: ctx, MarkChanged: func(int) {}}
-			n.Next(nCtx)
-			Expect(authorityState.Flush()[0].Authority).To(Equal(uint8(77)))
-			n.Reset()
-			v.Set(33)
-			n.Next(nCtx)
-			changes := authorityState.Flush()
-			Expect(changes).To(HaveLen(1))
-			Expect(changes[0].Authority).To(Equal(uint8(33)))
-		})
+		It(
+			"Should read the latest var value on re-fire after Reset",
+			func(ctx SpecContext) {
+				v := NewVarInput[uint8](1)
+				cfg := setAuthority.Config(v, uint32(42))
+				v.Set(77)
+				n := MustSucceed(factory.Create(ctx, cfg))
+				nCtx := node.Context{Context: ctx, MarkChanged: func(int) {}}
+				n.Next(nCtx)
+				Expect(authorityState.Flush()[0].Authority).To(Equal(uint8(77)))
+				n.Reset()
+				v.Set(33)
+				n.Next(nCtx)
+				changes := authorityState.Flush()
+				Expect(changes).To(HaveLen(1))
+				Expect(changes[0].Authority).To(Equal(uint8(33)))
+			},
+		)
 	})
 
 	Describe("Reset", func() {
@@ -232,7 +258,9 @@ var _ = Describe("Control", func() {
 
 		DescribeTable("Should allow re-fire after Reset",
 			func(ctx SpecContext, value, channel any) {
-				n := MustSucceed(factory.Create(ctx, setAuthority.Config(value, channel)))
+				n := MustSucceed(
+					factory.Create(ctx, setAuthority.Config(value, channel)),
+				)
 				nCtx := node.Context{Context: ctx, MarkChanged: func(int) {}}
 				n.Next(nCtx)
 				changes := authorityState.Flush()
@@ -248,7 +276,9 @@ var _ = Describe("Control", func() {
 
 		DescribeTable("Should produce same authority on re-fire",
 			func(ctx SpecContext, value, channel any) {
-				n := MustSucceed(factory.Create(ctx, setAuthority.Config(value, channel)))
+				n := MustSucceed(
+					factory.Create(ctx, setAuthority.Config(value, channel)),
+				)
 				nCtx := node.Context{Context: ctx, MarkChanged: func(int) {}}
 				n.Next(nCtx)
 				first := authorityState.Flush()
@@ -288,20 +318,30 @@ var _ = Describe("Control", func() {
 			Expect(sym.Name).To(Equal("set_authority"))
 			Expect(sym.Kind).To(Equal(symbol.KindFunction))
 		})
-		It("Should expose qualified control.set_authority symbol", func(ctx SpecContext) {
-			mod := MustSucceed(root.Resolve(ctx, "control", symbol.IncludeInternal))
-			sym := MustSucceed(mod.Resolve(ctx, "set_authority", symbol.IncludeInternal))
-			Expect(sym.Name).To(Equal("set_authority"))
-			Expect(sym.Kind).To(Equal(symbol.KindFunction))
-		})
-		It("Should declare unified inputs with an activation trigger", func(ctx SpecContext) {
-			sym := bare(ctx, "set_authority")
-			Expect(sym.Type.Inputs).To(HaveLen(3))
-			Expect(sym.Type.Inputs[0].Name).To(Equal(ir.DefaultOutputParam))
-			Expect(sym.Type.Inputs[0].Value).To(Equal(uint8(0)))
-			Expect(sym.Type.Inputs[1].Name).To(Equal("value"))
-			Expect(sym.Type.Inputs[2].Name).To(Equal("channel"))
-			Expect(sym.Trigger).To(Equal(symbol.TriggerInput(ir.DefaultOutputParam)))
-		})
+		It(
+			"Should expose qualified control.set_authority symbol",
+			func(ctx SpecContext) {
+				mod := MustSucceed(root.Resolve(ctx, "control", symbol.IncludeInternal))
+				sym := MustSucceed(
+					mod.Resolve(ctx, "set_authority", symbol.IncludeInternal),
+				)
+				Expect(sym.Name).To(Equal("set_authority"))
+				Expect(sym.Kind).To(Equal(symbol.KindFunction))
+			},
+		)
+		It(
+			"Should declare unified inputs with an activation trigger",
+			func(ctx SpecContext) {
+				sym := bare(ctx, "set_authority")
+				Expect(sym.Type.Inputs).To(HaveLen(3))
+				Expect(sym.Type.Inputs[0].Name).To(Equal(ir.DefaultOutputParam))
+				Expect(sym.Type.Inputs[0].Value).To(Equal(uint8(0)))
+				Expect(sym.Type.Inputs[1].Name).To(Equal("value"))
+				Expect(sym.Type.Inputs[2].Name).To(Equal("channel"))
+				Expect(
+					sym.Trigger,
+				).To(Equal(symbol.TriggerInput(ir.DefaultOutputParam)))
+			},
+		)
 	})
 })

@@ -41,7 +41,10 @@ type TypeFormatter interface {
 type ImportResolver interface {
 	// ResolveImport returns the import information for a type in a different namespace.
 	// Returns (importPath, qualifier, shouldImport).
-	ResolveImport(outputPath string, ctx *Context) (importPath, qualifier string, shouldImport bool)
+	ResolveImport(
+		outputPath string,
+		ctx *Context,
+	) (importPath, qualifier string, shouldImport bool)
 }
 
 // Resolver resolves Oracle type references to language-specific type strings.
@@ -122,7 +125,10 @@ func (r *Resolver) resolveUnionType(resolved resolution.Type, ctx *Context) stri
 	if targetOutputPath == "" {
 		return r.Formatter.FallbackType()
 	}
-	importPath, qualifier, shouldImport := r.ImportResolver.ResolveImport(targetOutputPath, ctx)
+	importPath, qualifier, shouldImport := r.ImportResolver.ResolveImport(
+		targetOutputPath,
+		ctx,
+	)
 	if shouldImport {
 		r.ImportAdder.AddImport("internal", importPath, qualifier)
 	}
@@ -130,7 +136,11 @@ func (r *Resolver) resolveUnionType(resolved resolution.Type, ctx *Context) stri
 }
 
 // resolveStructType resolves a struct type to a language-specific string.
-func (r *Resolver) resolveStructType(resolved resolution.Type, typeArgs []resolution.TypeRef, ctx *Context) string {
+func (r *Resolver) resolveStructType(
+	resolved resolution.Type,
+	typeArgs []resolution.TypeRef,
+	ctx *Context,
+) string {
 	typeName := ctx.GetTypeName(resolved)
 
 	// Build type arguments, filtering out those that correspond to defaulted params
@@ -164,7 +174,10 @@ func (r *Resolver) resolveStructType(resolved resolution.Type, typeArgs []resolu
 		return r.Formatter.FallbackType()
 	}
 
-	importPath, qualifier, shouldImport := r.ImportResolver.ResolveImport(targetOutputPath, ctx)
+	importPath, qualifier, shouldImport := r.ImportResolver.ResolveImport(
+		targetOutputPath,
+		ctx,
+	)
 	if shouldImport {
 		r.ImportAdder.AddImport("internal", importPath, qualifier)
 	}
@@ -187,7 +200,10 @@ func (r *Resolver) resolveEnumType(resolved resolution.Type, ctx *Context) strin
 		return r.Formatter.FallbackType()
 	}
 
-	importPath, qualifier, shouldImport := r.ImportResolver.ResolveImport(targetOutputPath, ctx)
+	importPath, qualifier, shouldImport := r.ImportResolver.ResolveImport(
+		targetOutputPath,
+		ctx,
+	)
 	if shouldImport {
 		r.ImportAdder.AddImport("internal", importPath, qualifier)
 	}
@@ -210,7 +226,10 @@ func (r *Resolver) resolveDistinctType(resolved resolution.Type, ctx *Context) s
 		return r.Formatter.FallbackType()
 	}
 
-	importPath, qualifier, shouldImport := r.ImportResolver.ResolveImport(targetOutputPath, ctx)
+	importPath, qualifier, shouldImport := r.ImportResolver.ResolveImport(
+		targetOutputPath,
+		ctx,
+	)
 	if shouldImport {
 		r.ImportAdder.AddImport("internal", importPath, qualifier)
 	}
@@ -220,7 +239,11 @@ func (r *Resolver) resolveDistinctType(resolved resolution.Type, ctx *Context) s
 
 // resolveAliasType resolves an alias type to a language-specific string.
 // Unlike expanding the target, this uses the alias name directly.
-func (r *Resolver) resolveAliasType(resolved resolution.Type, typeArgs []resolution.TypeRef, ctx *Context) string {
+func (r *Resolver) resolveAliasType(
+	resolved resolution.Type,
+	typeArgs []resolution.TypeRef,
+	ctx *Context,
+) string {
 	typeName := ctx.GetTypeName(resolved)
 
 	// Build type arguments, filtering out those that correspond to defaulted params
@@ -251,7 +274,10 @@ func (r *Resolver) resolveAliasType(resolved resolution.Type, typeArgs []resolut
 		return r.Formatter.FallbackType()
 	}
 
-	importPath, qualifier, shouldImport := r.ImportResolver.ResolveImport(targetOutputPath, ctx)
+	importPath, qualifier, shouldImport := r.ImportResolver.ResolveImport(
+		targetOutputPath,
+		ctx,
+	)
 	if shouldImport {
 		r.ImportAdder.AddImport("internal", importPath, qualifier)
 	}

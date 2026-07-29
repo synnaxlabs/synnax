@@ -243,7 +243,12 @@ func RefersTo(ref TypeRef, targetQualifiedName string, table *Table) bool {
 	return refersTo(ref, targetQualifiedName, table, set.New[string]())
 }
 
-func refersTo(ref TypeRef, targetQN string, table *Table, visited set.Set[string]) bool {
+func refersTo(
+	ref TypeRef,
+	targetQN string,
+	table *Table,
+	visited set.Set[string],
+) bool {
 	if ref.Name == targetQN {
 		return true
 	}

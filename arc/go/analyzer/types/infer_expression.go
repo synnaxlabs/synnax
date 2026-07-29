@@ -33,7 +33,9 @@ func InferFromExpression(ctx context.Context[parser.IExpressionContext]) types.T
 	return types.Type{}
 }
 
-func InferLogicalOr(ctx context.Context[parser.ILogicalOrExpressionContext]) types.Type {
+func InferLogicalOr(
+	ctx context.Context[parser.ILogicalOrExpressionContext],
+) types.Type {
 	ands := ctx.AST.AllLogicalAndExpression()
 	if len(ands) > 1 {
 		return types.U8()
@@ -44,7 +46,9 @@ func InferLogicalOr(ctx context.Context[parser.ILogicalOrExpressionContext]) typ
 	return types.Type{}
 }
 
-func InferLogicalAnd(ctx context.Context[parser.ILogicalAndExpressionContext]) types.Type {
+func InferLogicalAnd(
+	ctx context.Context[parser.ILogicalAndExpressionContext],
+) types.Type {
 	equalities := ctx.AST.AllEqualityExpression()
 	if len(equalities) > 1 {
 		return types.U8()
@@ -66,7 +70,9 @@ func InferEquality(ctx context.Context[parser.IEqualityExpressionContext]) types
 	return types.Type{}
 }
 
-func InferRelational(ctx context.Context[parser.IRelationalExpressionContext]) types.Type {
+func InferRelational(
+	ctx context.Context[parser.IRelationalExpressionContext],
+) types.Type {
 	additives := ctx.AST.AllAdditiveExpression()
 	if len(additives) > 1 {
 		return types.U8()
@@ -84,7 +90,8 @@ func inferBinaryType(elemType, nextElem types.Type) (types.Type, bool) {
 	// Only early-return on incompatibility when both types are concrete.
 	// When either is a type variable (literal), we must keep iterating
 	// to discover later concrete types that determine the actual type.
-	bothConcrete := elemType.Kind != types.KindVariable && nextElem.Kind != types.KindVariable
+	bothConcrete := elemType.Kind != types.KindVariable &&
+		nextElem.Kind != types.KindVariable
 	if bothConcrete && !Compatible(elemType, nextElem) {
 		return elemType, true
 	}
@@ -119,8 +126,14 @@ func checkMinusSpacing(ctx context.Context[parser.IAdditiveExpressionContext]) {
 				Severity: protocol.DiagnosticSeverityError,
 				Message:  "subtraction requires whitespace on both sides of '-'",
 				Range: protocol.Range{
-					Start: protocol.Position{Line: uint32(op.GetLine() - 1), Character: uint32(col)},
-					End:   protocol.Position{Line: uint32(op.GetLine() - 1), Character: uint32(col + len(op.GetText()))},
+					Start: protocol.Position{
+						Line:      uint32(op.GetLine() - 1),
+						Character: uint32(col),
+					},
+					End: protocol.Position{
+						Line:      uint32(op.GetLine() - 1),
+						Character: uint32(col + len(op.GetText())),
+					},
 				},
 			})
 		}
@@ -146,7 +159,8 @@ func InferAdditive(ctx context.Context[parser.IAdditiveExpressionContext]) types
 				if nextElem.Kind != types.KindVariable {
 					elemType = nextElem
 				}
-				bothConcrete := elemType.Kind != types.KindVariable && nextElem.Kind != types.KindVariable
+				bothConcrete := elemType.Kind != types.KindVariable &&
+					nextElem.Kind != types.KindVariable
 				if bothConcrete && !Compatible(elemType, nextElem) {
 					if isSeries {
 						return types.Series(elemType)
@@ -172,7 +186,9 @@ func InferAdditive(ctx context.Context[parser.IAdditiveExpressionContext]) types
 	return InferMultiplicative(context.Child(ctx, multiplicatives[0]))
 }
 
-func InferMultiplicative(ctx context.Context[parser.IMultiplicativeExpressionContext]) types.Type {
+func InferMultiplicative(
+	ctx context.Context[parser.IMultiplicativeExpressionContext],
+) types.Type {
 	powers := ctx.AST.AllPowerExpression()
 	if len(powers) == 0 {
 		return types.Type{}
@@ -190,7 +206,8 @@ func InferMultiplicative(ctx context.Context[parser.IMultiplicativeExpressionCon
 				if nextElem.Kind != types.KindVariable {
 					elemType = nextElem
 				}
-				bothConcrete := elemType.Kind != types.KindVariable && nextElem.Kind != types.KindVariable
+				bothConcrete := elemType.Kind != types.KindVariable &&
+					nextElem.Kind != types.KindVariable
 				if bothConcrete && !Compatible(elemType, nextElem) {
 					resultType := lo.Ternary(isSeries, types.Series(elemType), elemType)
 					ctx.TypeMap[ctx.AST] = resultType
@@ -234,10 +251,14 @@ func InferPower(ctx context.Context[parser.IPowerExpressionContext]) types.Type 
 	return types.Type{}
 }
 
-func InferFromUnaryExpression(ctx context.Context[parser.IUnaryExpressionContext]) types.Type {
+func InferFromUnaryExpression(
+	ctx context.Context[parser.IUnaryExpressionContext],
+) types.Type {
 	if ctx.AST.UnaryExpression() != nil {
 		// Unary operator (- or not) - unwrap channels in the operand
-		return InferFromUnaryExpression(context.Child(ctx, ctx.AST.UnaryExpression())).Unwrap()
+		return InferFromUnaryExpression(
+			context.Child(ctx, ctx.AST.UnaryExpression()),
+		).Unwrap()
 	}
 	if postfix := ctx.AST.PostfixExpression(); postfix != nil {
 		return inferPostfixType(context.Child(ctx, postfix))
@@ -245,7 +266,9 @@ func InferFromUnaryExpression(ctx context.Context[parser.IUnaryExpressionContext
 	return types.Type{}
 }
 
-func inferPostfixType(ctx context.Context[parser.IPostfixExpressionContext]) types.Type {
+func inferPostfixType(
+	ctx context.Context[parser.IPostfixExpressionContext],
+) types.Type {
 	if primary := ctx.AST.PrimaryExpression(); primary != nil {
 		primaryType := inferPrimaryType(context.Child(ctx, primary))
 
@@ -273,7 +296,9 @@ func inferPostfixType(ctx context.Context[parser.IPostfixExpressionContext]) typ
 	return types.Type{}
 }
 
-func inferPrimaryType(ctx context.Context[parser.IPrimaryExpressionContext]) types.Type {
+func inferPrimaryType(
+	ctx context.Context[parser.IPrimaryExpressionContext],
+) types.Type {
 	if qid := ctx.AST.QualifiedIdentifier(); qid != nil {
 		head, tail := parser.QualifiedNameParts(qid)
 		headSym, err := ctx.Scope.Resolve(ctx, head)
@@ -335,7 +360,9 @@ func inferLiteralType(ctx context.Context[parser.ILiteralContext]) types.Type {
 	return t
 }
 
-func inferSeriesLiteralType(ctx context.Context[parser.ISeriesLiteralContext]) types.Type {
+func inferSeriesLiteralType(
+	ctx context.Context[parser.ISeriesLiteralContext],
+) types.Type {
 	exprList := ctx.AST.ExpressionList()
 	if exprList == nil {
 		line := ctx.AST.GetStart().GetLine()
@@ -431,7 +458,8 @@ func literalsCompatible(t1, t2 types.Type) bool {
 		if t1.Constraint == nil || t2.Constraint == nil {
 			return true
 		}
-		return isNumericConstraint(t1.Constraint.Kind) && isNumericConstraint(t2.Constraint.Kind)
+		return isNumericConstraint(t1.Constraint.Kind) &&
+			isNumericConstraint(t2.Constraint.Kind)
 	}
 	if t1.Kind == types.KindVariable {
 		return constraintAccepts(t1.Constraint, t2)
@@ -463,7 +491,8 @@ func numericConstraintsCompatible(k1, k2 types.Kind) bool {
 	if k1 == types.KindNumericConstant || k2 == types.KindNumericConstant {
 		return isNumericConstraint(k1) && isNumericConstraint(k2)
 	}
-	if k1 == types.KindExactIntegerFloatConstant || k2 == types.KindExactIntegerFloatConstant {
+	if k1 == types.KindExactIntegerFloatConstant ||
+		k2 == types.KindExactIntegerFloatConstant {
 		return isNumericConstraint(k1) && isNumericConstraint(k2)
 	}
 	// IntegerConstraint and FloatConstraint are NOT compatible with each other
@@ -479,7 +508,9 @@ func constraintAccepts(constraint *types.Type, concreteType types.Type) bool {
 		return true
 	}
 	switch constraint.Kind {
-	case types.KindNumericConstant, types.KindIntegerConstant, types.KindExactIntegerFloatConstant:
+	case types.KindNumericConstant,
+		types.KindIntegerConstant,
+		types.KindExactIntegerFloatConstant:
 		return concreteType.IsNumeric()
 	case types.KindFloatConstant:
 		return concreteType.IsFloat()
@@ -530,7 +561,8 @@ func inferNumericLiteralType(
 		ctx.AST,
 		"literal type variable",
 	); err != nil {
-		zap.S().DPanicf("unexpected error registering type variable with itself: %v", err)
+		zap.S().
+			DPanicf("unexpected error registering type variable with itself: %v", err)
 	}
 	ctx.TypeMap[ctx.AST] = tv
 	return tv
@@ -549,7 +581,9 @@ func resolveLiteralConstraint(t types.Type) types.Type {
 		result := types.I64()
 		result.Unit = t.Unit
 		return result
-	case types.KindFloatConstant, types.KindNumericConstant, types.KindExactIntegerFloatConstant:
+	case types.KindFloatConstant,
+		types.KindNumericConstant,
+		types.KindExactIntegerFloatConstant:
 		result := types.F64()
 		result.Unit = t.Unit
 		return result

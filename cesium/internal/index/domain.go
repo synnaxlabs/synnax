@@ -147,11 +147,15 @@ func (i *Domain) Distance(
 		// the total number of samples traversed as we move through domains
 		totalTraversed int64
 		// Distance from the end of the domain to the start approximation.
-		startToFirstEnd = Between(domainLen-startApprox.Upper, domainLen-startApprox.Lower)
+		startToFirstEnd = Between(
+			domainLen-startApprox.Upper,
+			domainLen-startApprox.Lower,
+		)
 	)
 
 	for {
-		if !iter.Next() || (continuous && !effectiveDomainTR.ContainsRange(iter.TimeRange())) {
+		if !iter.Next() ||
+			(continuous && !effectiveDomainTR.ContainsRange(iter.TimeRange())) {
 			if continuous {
 				err = NewDiscontinuousTRError(tr)
 				return approx, alignment, err
@@ -160,7 +164,10 @@ func (i *Domain) Distance(
 				startToFirstEnd.Lower+totalTraversed,
 				startToFirstEnd.Upper+totalTraversed,
 			)
-			alignment = telem.NewAlignment(iter.Position(), uint32(sampleCount(iter.Size())))
+			alignment = telem.NewAlignment(
+				iter.Position(),
+				uint32(sampleCount(iter.Size())),
+			)
 			return approx, alignment, err
 		}
 		if iter.TimeRange().ContainsStamp(tr.End) {
@@ -215,7 +222,11 @@ func (i *Domain) zeroStamp(
 	iter := i.DB.OpenIterator(domain.IterRange(ref.Range(ref + 1)))
 	defer func() { err = errors.Combine(err, iter.Close()) }()
 	if !iter.SeekFirst(ctx) {
-		err = errors.Wrapf(domain.ErrRangeNotFound, "cannot find stamp start timestamp %s", ref)
+		err = errors.Wrapf(
+			domain.ErrRangeNotFound,
+			"cannot find stamp start timestamp %s",
+			ref,
+		)
 		return approx, err
 	}
 	var r *domain.Reader
@@ -285,7 +296,10 @@ func (i *Domain) forwardStamp(
 	if continuous {
 		if (startApprox.Exact() && startApprox.Lower+offset >= effectiveDomainLen) ||
 			(!startApprox.Exact() && startApprox.Lower+offset >= effectiveDomainLen-1) {
-			err = NewDiscontinuousOffsetError(startApprox.Upper+offset, effectiveDomainLen)
+			err = NewDiscontinuousOffsetError(
+				startApprox.Upper+offset,
+				effectiveDomainLen,
+			)
 			return approx, err
 		}
 	}
@@ -353,7 +367,10 @@ func (i *Domain) approximateStamp(
 	// back to read the lower bound.
 	if !iter.Prev() {
 		i.L.DPanic("iterator prev failed in stamp")
-		return TimeStampApproximation{}, NewDiscontinuousOffsetError(endOffset, effectiveDomainLen)
+		return TimeStampApproximation{}, NewDiscontinuousOffsetError(
+			endOffset,
+			effectiveDomainLen,
+		)
 	}
 	if err = r.Close(); err != nil {
 		return TimeStampApproximation{}, err
@@ -471,7 +488,9 @@ func (i *Domain) backwardStamp(
 // resolveForwardEffectiveDomainTR returns the TimeRange and length of the underlying domain(s).
 // The effective domain can be many continuous domains as long as they're immediately
 // continuous, i.e., the end of one domain is the start of the other.
-func resolveForwardEffectiveDomainTR(i *domain.Iterator) (effectiveDomainBounds telem.TimeRange, effectiveDomainLen int64) {
+func resolveForwardEffectiveDomainTR(
+	i *domain.Iterator,
+) (effectiveDomainBounds telem.TimeRange, effectiveDomainLen int64) {
 	effectiveDomainBounds = i.TimeRange()
 	effectiveDomainLen = sampleCount(i.Size())
 	for {
@@ -492,7 +511,9 @@ func resolveForwardEffectiveDomainTR(i *domain.Iterator) (effectiveDomainBounds 
 // resolveForwardEffectiveDomainTR returns the TimeRange and length of the underlying domain(s).
 // The effective domain can be many continuous domains as long as they're immediately
 // continuous, i.e., the end of one domain is the start of the other.
-func resolveBackwardEffectiveDomainTR(i *domain.Iterator) (effectiveDomainBounds telem.TimeRange, effectiveDomainLen int64) {
+func resolveBackwardEffectiveDomainTR(
+	i *domain.Iterator,
+) (effectiveDomainBounds telem.TimeRange, effectiveDomainLen int64) {
 	effectiveDomainBounds = i.TimeRange()
 	effectiveDomainLen = sampleCount(i.Size())
 
@@ -513,7 +534,10 @@ func resolveBackwardEffectiveDomainTR(i *domain.Iterator) (effectiveDomainBounds
 
 // search returns an approximation for the number of samples before a given timestamp. If the
 // timestamp exists in the underlying index, the approximation will be exact.
-func (i *Domain) search(ts telem.TimeStamp, r *domain.Reader) (Approximation[int64], error) {
+func (i *Domain) search(
+	ts telem.TimeStamp,
+	r *domain.Reader,
+) (Approximation[int64], error) {
 	var (
 		start int64
 		end   = sampleCount(r.Size()) - 1
@@ -545,7 +569,11 @@ func newStampReader() func(r io.ReaderAt, offset telem.Size) (telem.TimeStamp, e
 			return 0, err
 		}
 		if len(buf) != n {
-			err := errors.Newf("[domain.index] unexpected failure to read %d bytes for timestamp lookup, only received %d", n, len(buf))
+			err := errors.Newf(
+				"[domain.index] unexpected failure to read %d bytes for timestamp lookup, only received %d",
+				n,
+				len(buf),
+			)
 			zap.S().DPanic(err)
 			return 0, err
 		}

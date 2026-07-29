@@ -107,7 +107,11 @@ o:
 
 type MapTargetedSender[M freighter.Payload] map[address.Address]freighter.StreamSenderCloser[M]
 
-func (s MapTargetedSender[M]) Send(_ context.Context, target address.Address, msg M) error {
+func (s MapTargetedSender[M]) Send(
+	_ context.Context,
+	target address.Address,
+	msg M,
+) error {
 	sender, ok := s[target]
 	if !ok {
 		return address.NewTargetNotFoundError(target)

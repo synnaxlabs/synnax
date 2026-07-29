@@ -135,7 +135,10 @@ func MarshalVariableSample(sample []byte) []byte {
 }
 
 func marshalVariable[T VariableSample](data []T) []byte {
-	total := lo.SumBy(data, func(v T) int64 { return int64(len(v)) + variableLengthPrefixSize })
+	total := lo.SumBy(
+		data,
+		func(v T) int64 { return int64(len(v)) + variableLengthPrefixSize },
+	)
 	b := make([]byte, total)
 	offset := 0
 	for _, d := range data {
@@ -321,7 +324,18 @@ func CastNumeric[T NumericSample](value any) T {
 
 func castToString(value any) string {
 	switch v := value.(type) {
-	case int, int8, int16, int32, int64, uint, uint8, uint16, uint32, uint64, TimeStamp, TimeSpan:
+	case int,
+		int8,
+		int16,
+		int32,
+		int64,
+		uint,
+		uint8,
+		uint16,
+		uint32,
+		uint64,
+		TimeStamp,
+		TimeSpan:
 		return fmt.Sprintf("%d", v)
 	case float32, float64:
 		return fmt.Sprintf("%g", v)

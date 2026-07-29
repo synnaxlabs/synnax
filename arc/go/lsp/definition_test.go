@@ -52,23 +52,29 @@ func main() {
 
 			Expect(locations).To(HaveLen(1))
 			Expect(locations[0].URI).To(Equal(uri))
-			Expect(locations[0].Range.Start.Line).To(Equal(uint32(0))) // Line 0: func add
+			Expect(
+				locations[0].Range.Start.Line,
+			).To(Equal(uint32(0)))
+			// Line 0: func add
 			// Column should be at "func" keyword or function name
 		})
 
-		It("should jump to function definition when hovering over declaration", func(ctx SpecContext) {
-			content := `func multiply(x f64, y f64) f64 {
+		It(
+			"should jump to function definition when hovering over declaration",
+			func(ctx SpecContext) {
+				content := `func multiply(x f64, y f64) f64 {
     return x * y
 }`
-			OpenArcDocument(server, ctx, uri, content)
+				OpenArcDocument(server, ctx, uri, content)
 
-			// Click on 'multiply' in the declaration itself
-			locations := Definition(server, ctx, uri, 0, 7) // func m|ultiply
+				// Click on 'multiply' in the declaration itself
+				locations := Definition(server, ctx, uri, 0, 7) // func m|ultiply
 
-			Expect(locations).To(HaveLen(1))
-			Expect(locations[0].URI).To(Equal(uri))
-			Expect(locations[0].Range.Start.Line).To(Equal(uint32(0)))
-		})
+				Expect(locations).To(HaveLen(1))
+				Expect(locations[0].URI).To(Equal(uri))
+				Expect(locations[0].Range.Start.Line).To(Equal(uint32(0)))
+			},
+		)
 	})
 
 	Describe("Stage Definitions", func() {
@@ -104,7 +110,10 @@ func main() {
 
 			Expect(locations).To(HaveLen(1))
 			Expect(locations[0].URI).To(Equal(uri))
-			Expect(locations[0].Range.Start.Line).To(Equal(uint32(1))) // Line 1: x i32 := 42
+			Expect(
+				locations[0].Range.Start.Line,
+			).To(Equal(uint32(1)))
+			// Line 1: x i32 := 42
 		})
 
 		It("should jump to stateful variable declaration", func(ctx SpecContext) {
@@ -120,24 +129,33 @@ func main() {
 
 			Expect(locations).To(HaveLen(1))
 			Expect(locations[0].URI).To(Equal(uri))
-			Expect(locations[0].Range.Start.Line).To(Equal(uint32(1))) // Line 1: count u32 $= 0
+			Expect(
+				locations[0].Range.Start.Line,
+			).To(Equal(uint32(1)))
+			// Line 1: count u32 $= 0
 		})
 	})
 
 	Describe("Parameter Definitions", func() {
-		It("should jump to parameter declaration from function body", func(ctx SpecContext) {
-			content := `func multiply(x f64, y f64) f64 {
+		It(
+			"should jump to parameter declaration from function body",
+			func(ctx SpecContext) {
+				content := `func multiply(x f64, y f64) f64 {
     return x * y
 }`
-			OpenArcDocument(server, ctx, uri, content)
+				OpenArcDocument(server, ctx, uri, content)
 
-			// Click on 'x' in the return statement
-			locations := Definition(server, ctx, uri, 1, 11) // x| * y
+				// Click on 'x' in the return statement
+				locations := Definition(server, ctx, uri, 1, 11) // x| * y
 
-			Expect(locations).To(HaveLen(1))
-			Expect(locations[0].URI).To(Equal(uri))
-			Expect(locations[0].Range.Start.Line).To(Equal(uint32(0))) // Line 0: func multiply(x f64, y f64)
-		})
+				Expect(locations).To(HaveLen(1))
+				Expect(locations[0].URI).To(Equal(uri))
+				Expect(
+					locations[0].Range.Start.Line,
+				).To(Equal(uint32(0)))
+				// Line 0: func multiply(x f64, y f64)
+			},
+		)
 	})
 
 	Describe("Edge Cases", func() {
@@ -181,22 +199,25 @@ func main() {
 	})
 
 	Describe("GlobalResolver", func() {
-		It("should return nil for global variables attached to the ambient (no AST)", func(ctx SpecContext) {
-			server = MustSucceed(lsp.New(lsp.Config{NewRoot: func() *symbol.Symbol {
-				return NewRoot(nil, symbol.Symbol{
-					Name: "myGlobal",
-					Type: types.I32(),
-					Kind: symbol.KindVariable,
-				})
-			}}))
-			server.SetClient(&MockClient{})
+		It(
+			"should return nil for global variables attached to the ambient (no AST)",
+			func(ctx SpecContext) {
+				server = MustSucceed(lsp.New(lsp.Config{NewRoot: func() *symbol.Symbol {
+					return NewRoot(nil, symbol.Symbol{
+						Name: "myGlobal",
+						Type: types.I32(),
+						Kind: symbol.KindVariable,
+					})
+				}}))
+				server.SetClient(&MockClient{})
 
-			content := "func test() i32 {\n    return myGlobal\n}"
-			OpenArcDocument(server, ctx, uri, content)
+				content := "func test() i32 {\n    return myGlobal\n}"
+				OpenArcDocument(server, ctx, uri, content)
 
-			// Try to jump to definition of myGlobal - GlobalResolver symbols have no AST
-			locations := Definition(server, ctx, uri, 1, 12) // myGl|obal
-			Expect(locations).To(BeNil())
-		})
+				// Try to jump to definition of myGlobal - GlobalResolver symbols have no AST
+				locations := Definition(server, ctx, uri, 1, 12) // myGl|obal
+				Expect(locations).To(BeNil())
+			},
+		)
 	})
 })

@@ -98,27 +98,39 @@ var _ = Describe("Rack", Ordered, func() {
 		writer = svc.NewWriter(tx)
 	})
 	Describe("Key", func() {
-		It("Should correctly construct a key from its components", func(ctx SpecContext) {
-			k := rack.NewKey(1, 2)
-			Expect(k.Node()).To(Equal(node.Key(1)))
-			Expect(k).To(Equal(rack.Key(1<<16 | 2)))
-		})
+		It(
+			"Should correctly construct a key from its components",
+			func(ctx SpecContext) {
+				k := rack.NewKey(1, 2)
+				Expect(k.Node()).To(Equal(node.Key(1)))
+				Expect(k).To(Equal(rack.Key(1<<16 | 2)))
+			},
+		)
 	})
 	Describe("StatusKey", func() {
-		It("Should return the ontology ID string for a rack key", func(ctx SpecContext) {
-			k := rack.NewKey(1, 2)
-			statusKey := rack.StatusKey(k)
-			Expect(statusKey).To(Equal(k.OntologyID().String()))
-		})
-		It("Should return consistent status keys for the same rack key", func(ctx SpecContext) {
-			k := rack.NewKey(5, 10)
-			Expect(rack.StatusKey(k)).To(Equal(rack.StatusKey(k)))
-		})
-		It("Should return different status keys for different rack keys", func(ctx SpecContext) {
-			k1 := rack.NewKey(1, 1)
-			k2 := rack.NewKey(1, 2)
-			Expect(rack.StatusKey(k1)).ToNot(Equal(rack.StatusKey(k2)))
-		})
+		It(
+			"Should return the ontology ID string for a rack key",
+			func(ctx SpecContext) {
+				k := rack.NewKey(1, 2)
+				statusKey := rack.StatusKey(k)
+				Expect(statusKey).To(Equal(k.OntologyID().String()))
+			},
+		)
+		It(
+			"Should return consistent status keys for the same rack key",
+			func(ctx SpecContext) {
+				k := rack.NewKey(5, 10)
+				Expect(rack.StatusKey(k)).To(Equal(rack.StatusKey(k)))
+			},
+		)
+		It(
+			"Should return different status keys for different rack keys",
+			func(ctx SpecContext) {
+				k1 := rack.NewKey(1, 1)
+				k2 := rack.NewKey(1, 2)
+				Expect(rack.StatusKey(k1)).ToNot(Equal(rack.StatusKey(k2)))
+			},
+		)
 	})
 	Describe("Key msgpack decoding", func() {
 		codec := msgpack.Codec
@@ -138,30 +150,36 @@ var _ = Describe("Rack", Ordered, func() {
 			Entry("float64", float64(65537), rack.Key(65537)),
 			Entry("float32", float32(1234), rack.Key(1234)),
 		)
-		It("Should decode StatusDetails with rack key as float64", func(ctx SpecContext) {
-			type statusDetailsWithFloat struct {
-				Rack float64 `msgpack:"rack"`
-			}
-			original := statusDetailsWithFloat{
-				Rack: float64(65537),
-			}
-			data := MustSucceed(codec.Encode(ctx, original))
-			var decoded rack.StatusDetails
-			Expect(codec.Decode(ctx, data, &decoded)).To(Succeed())
-			Expect(decoded.Rack).To(Equal(rack.Key(65537)))
-		})
-		It("Should decode StatusDetails with rack key as string", func(ctx SpecContext) {
-			type statusDetailsWithString struct {
-				Rack string `msgpack:"rack"`
-			}
-			original := statusDetailsWithString{
-				Rack: "65537",
-			}
-			data := MustSucceed(codec.Encode(ctx, original))
-			var decoded rack.StatusDetails
-			Expect(codec.Decode(ctx, data, &decoded)).To(Succeed())
-			Expect(decoded.Rack).To(Equal(rack.Key(65537)))
-		})
+		It(
+			"Should decode StatusDetails with rack key as float64",
+			func(ctx SpecContext) {
+				type statusDetailsWithFloat struct {
+					Rack float64 `msgpack:"rack"`
+				}
+				original := statusDetailsWithFloat{
+					Rack: float64(65537),
+				}
+				data := MustSucceed(codec.Encode(ctx, original))
+				var decoded rack.StatusDetails
+				Expect(codec.Decode(ctx, data, &decoded)).To(Succeed())
+				Expect(decoded.Rack).To(Equal(rack.Key(65537)))
+			},
+		)
+		It(
+			"Should decode StatusDetails with rack key as string",
+			func(ctx SpecContext) {
+				type statusDetailsWithString struct {
+					Rack string `msgpack:"rack"`
+				}
+				original := statusDetailsWithString{
+					Rack: "65537",
+				}
+				data := MustSucceed(codec.Encode(ctx, original))
+				var decoded rack.StatusDetails
+				Expect(codec.Decode(ctx, data, &decoded)).To(Succeed())
+				Expect(decoded.Rack).To(Equal(rack.Key(65537)))
+			},
+		)
 	})
 	Describe("Create", func() {
 		It("Should create a rack and assign it a key", func(ctx SpecContext) {
@@ -177,7 +195,10 @@ var _ = Describe("Rack", Ordered, func() {
 		})
 		It("Should return an error if the rack has no name", func(ctx SpecContext) {
 			r := &rack.Rack{}
-			Expect(writer.Create(ctx, r)).Error().To(MatchError(ContainSubstring("name")))
+			Expect(
+				writer.Create(ctx, r),
+			).Error().
+				To(MatchError(ContainSubstring("name")))
 		})
 	})
 	Describe("CreateMany", func() {
@@ -201,19 +222,37 @@ var _ = Describe("Rack", Ordered, func() {
 			r := &rack.Rack{Name: "rack3"}
 			Expect(writer.Create(ctx, r)).To(Succeed())
 			var res rack.Rack
-			Expect(svc.NewRetrieve().Where(rack.MatchKeys(r.Key)).Entry(&res).Exec(ctx, tx)).To(Succeed())
+			Expect(
+				svc.NewRetrieve().
+					Where(rack.MatchKeys(r.Key)).
+					Entry(&res).
+					Exec(ctx, tx),
+			).To(Succeed())
 			Expect(res).To(Equal(*r))
 		})
-		It("Should retrieve racks where the host is the rack's node", func(ctx SpecContext) {
-			r := &rack.Rack{Name: "rack4"}
-			Expect(writer.Create(ctx, r)).To(Succeed())
-			var res rack.Rack
-			Expect(svc.NewRetrieve().Where(rack.MatchNodeIsHost(true)).Entry(&res).Exec(ctx, tx)).To(Succeed())
-			Expect(res).To(Equal(*r))
-		})
+		It(
+			"Should retrieve racks where the host is the rack's node",
+			func(ctx SpecContext) {
+				r := &rack.Rack{Name: "rack4"}
+				Expect(writer.Create(ctx, r)).To(Succeed())
+				var res rack.Rack
+				Expect(
+					svc.NewRetrieve().
+						Where(rack.MatchNodeIsHost(true)).
+						Entry(&res).
+						Exec(ctx, tx),
+				).To(Succeed())
+				Expect(res).To(Equal(*r))
+			},
+		)
 		It("Should only retrieve embedded racks", func(ctx SpecContext) {
 			var res rack.Rack
-			Expect(svc.NewRetrieve().Where(rack.MatchEmbedded(true)).Entry(&res).Exec(ctx, tx)).To(Succeed())
+			Expect(
+				svc.NewRetrieve().
+					Where(rack.MatchEmbedded(true)).
+					Entry(&res).
+					Exec(ctx, tx),
+			).To(Succeed())
 			Expect(res.Embedded).To(BeTrue())
 		})
 		Describe("Count", func() {
@@ -226,80 +265,116 @@ var _ = Describe("Rack", Ordered, func() {
 				newCount := MustSucceed(svc.NewRetrieve().Count(ctx, tx))
 				Expect(newCount).To(Equal(initialCount + 2))
 			})
-			It("Should return the count of racks matching a key filter", func(ctx SpecContext) {
-				r := &rack.Rack{Name: "count-specific-rack"}
-				Expect(writer.Create(ctx, r)).To(Succeed())
-				count := MustSucceed(svc.NewRetrieve().Where(rack.MatchKeys(r.Key)).Count(ctx, tx))
-				Expect(count).To(Equal(1))
-			})
+			It(
+				"Should return the count of racks matching a key filter",
+				func(ctx SpecContext) {
+					r := &rack.Rack{Name: "count-specific-rack"}
+					Expect(writer.Create(ctx, r)).To(Succeed())
+					count := MustSucceed(
+						svc.NewRetrieve().Where(rack.MatchKeys(r.Key)).Count(ctx, tx),
+					)
+					Expect(count).To(Equal(1))
+				},
+			)
 		})
 		Describe("MatchName", func() {
 			It("Should retrieve a rack by its exact name", func(ctx SpecContext) {
 				r := &rack.Rack{Name: "unique-rack-name"}
 				Expect(writer.Create(ctx, r)).To(Succeed())
 				var res rack.Rack
-				Expect(svc.NewRetrieve().Where(rack.MatchNames("unique-rack-name")).Entry(&res).Exec(ctx, tx)).To(Succeed())
+				Expect(
+					svc.NewRetrieve().
+						Where(rack.MatchNames("unique-rack-name")).
+						Entry(&res).
+						Exec(ctx, tx),
+				).To(Succeed())
 				Expect(res.Key).To(Equal(r.Key))
 				Expect(res.Name).To(Equal("unique-rack-name"))
 			})
-			It("Should return not found when name does not match", func(ctx SpecContext) {
-				r := &rack.Rack{Name: "existing-rack"}
-				Expect(writer.Create(ctx, r)).To(Succeed())
-				var res rack.Rack
-				Expect(svc.NewRetrieve().
-					Where(rack.MatchNames("nonexistent-rack")).
-					Entry(&res).
-					Exec(ctx, tx)).Error().To(MatchError(query.ErrNotFound))
-			})
+			It(
+				"Should return not found when name does not match",
+				func(ctx SpecContext) {
+					r := &rack.Rack{Name: "existing-rack"}
+					Expect(writer.Create(ctx, r)).To(Succeed())
+					var res rack.Rack
+					Expect(svc.NewRetrieve().
+						Where(rack.MatchNames("nonexistent-rack")).
+						Entry(&res).
+						Exec(ctx, tx)).Error().To(MatchError(query.ErrNotFound))
+				},
+			)
 			It("Should filter among multiple racks correctly", func(ctx SpecContext) {
 				r1 := &rack.Rack{Name: "filter-rack-alpha"}
 				r2 := &rack.Rack{Name: "filter-rack-beta"}
 				Expect(writer.Create(ctx, r1)).To(Succeed())
 				Expect(writer.Create(ctx, r2)).To(Succeed())
 				var res rack.Rack
-				Expect(svc.NewRetrieve().Where(rack.MatchNames("filter-rack-beta")).Entry(&res).Exec(ctx, tx)).To(Succeed())
+				Expect(
+					svc.NewRetrieve().
+						Where(rack.MatchNames("filter-rack-beta")).
+						Entry(&res).
+						Exec(ctx, tx),
+				).To(Succeed())
 				Expect(res.Key).To(Equal(r2.Key))
 				Expect(res.Name).To(Equal("filter-rack-beta"))
 			})
 		})
 		Describe("MatchIntegration", func() {
-			It("Should retrieve a rack that supports the requested integration", func(ctx SpecContext) {
-				r := &rack.Rack{Name: "ni-rack", Integrations: []string{"ni", "opc"}}
-				Expect(writer.Create(ctx, r)).To(Succeed())
-				var res []rack.Rack
-				Expect(svc.NewRetrieve().
-					Where(rack.MatchIntegration("ni")).
-					Entries(&res).
-					Exec(ctx, tx)).To(Succeed())
-				Expect(res).ToNot(BeEmpty())
-				Expect(slices.ContainsFunc(res, func(r rack.Rack) bool {
-					return r.Name == "ni-rack"
-				})).To(BeTrue())
-			})
-			It("Should not return racks missing the requested integration", func(ctx SpecContext) {
-				r := &rack.Rack{Name: "opc-only-rack", Integrations: []string{"opc"}}
-				Expect(writer.Create(ctx, r)).To(Succeed())
-				var res []rack.Rack
-				Expect(svc.NewRetrieve().
-					Where(rack.MatchIntegration("ni")).
-					Entries(&res).
-					Exec(ctx, tx)).To(Succeed())
-				Expect(slices.ContainsFunc(res, func(r rack.Rack) bool {
-					return r.Name == "opc-only-rack"
-				})).To(BeFalse())
-			})
-			It("Should not return racks with empty integrations", func(ctx SpecContext) {
-				r := &rack.Rack{Name: "empty-integrations-rack", Integrations: []string{}}
-				Expect(writer.Create(ctx, r)).To(Succeed())
-				var res []rack.Rack
-				Expect(svc.NewRetrieve().
-					Where(rack.MatchIntegration("ni")).
-					Entries(&res).
-					Exec(ctx, tx)).To(Succeed())
-				Expect(slices.ContainsFunc(res, func(r rack.Rack) bool {
-					return r.Name == "empty-integrations-rack"
-				})).To(BeFalse())
-			})
+			It(
+				"Should retrieve a rack that supports the requested integration",
+				func(ctx SpecContext) {
+					r := &rack.Rack{
+						Name:         "ni-rack",
+						Integrations: []string{"ni", "opc"},
+					}
+					Expect(writer.Create(ctx, r)).To(Succeed())
+					var res []rack.Rack
+					Expect(svc.NewRetrieve().
+						Where(rack.MatchIntegration("ni")).
+						Entries(&res).
+						Exec(ctx, tx)).To(Succeed())
+					Expect(res).ToNot(BeEmpty())
+					Expect(slices.ContainsFunc(res, func(r rack.Rack) bool {
+						return r.Name == "ni-rack"
+					})).To(BeTrue())
+				},
+			)
+			It(
+				"Should not return racks missing the requested integration",
+				func(ctx SpecContext) {
+					r := &rack.Rack{
+						Name:         "opc-only-rack",
+						Integrations: []string{"opc"},
+					}
+					Expect(writer.Create(ctx, r)).To(Succeed())
+					var res []rack.Rack
+					Expect(svc.NewRetrieve().
+						Where(rack.MatchIntegration("ni")).
+						Entries(&res).
+						Exec(ctx, tx)).To(Succeed())
+					Expect(slices.ContainsFunc(res, func(r rack.Rack) bool {
+						return r.Name == "opc-only-rack"
+					})).To(BeFalse())
+				},
+			)
+			It(
+				"Should not return racks with empty integrations",
+				func(ctx SpecContext) {
+					r := &rack.Rack{
+						Name:         "empty-integrations-rack",
+						Integrations: []string{},
+					}
+					Expect(writer.Create(ctx, r)).To(Succeed())
+					var res []rack.Rack
+					Expect(svc.NewRetrieve().
+						Where(rack.MatchIntegration("ni")).
+						Entries(&res).
+						Exec(ctx, tx)).To(Succeed())
+					Expect(slices.ContainsFunc(res, func(r rack.Rack) bool {
+						return r.Name == "empty-integrations-rack"
+					})).To(BeFalse())
+				},
+			)
 			It("Should not return racks with nil integrations", func(ctx SpecContext) {
 				r := &rack.Rack{Name: "nil-integrations-rack"}
 				Expect(writer.Create(ctx, r)).To(Succeed())
@@ -314,37 +389,54 @@ var _ = Describe("Rack", Ordered, func() {
 			})
 		})
 		Describe("MatchNames", func() {
-			It("Should retrieve racks whose name matches any of the provided values", func(ctx SpecContext) {
-				r1 := &rack.Rack{Name: "names-alpha"}
-				r2 := &rack.Rack{Name: "names-beta"}
-				r3 := &rack.Rack{Name: "names-gamma"}
-				Expect(writer.Create(ctx, r1)).To(Succeed())
-				Expect(writer.Create(ctx, r2)).To(Succeed())
-				Expect(writer.Create(ctx, r3)).To(Succeed())
-				var res []rack.Rack
-				Expect(svc.NewRetrieve().
-					Where(rack.MatchNames("names-alpha", "names-gamma")).
-					Entries(&res).Exec(ctx, tx)).To(Succeed())
-				names := lo.Map(res, func(r rack.Rack, _ int) string { return r.Name })
-				Expect(names).To(ContainElements("names-alpha", "names-gamma"))
-				Expect(names).ToNot(ContainElement("names-beta"))
-			})
+			It(
+				"Should retrieve racks whose name matches any of the provided values",
+				func(ctx SpecContext) {
+					r1 := &rack.Rack{Name: "names-alpha"}
+					r2 := &rack.Rack{Name: "names-beta"}
+					r3 := &rack.Rack{Name: "names-gamma"}
+					Expect(writer.Create(ctx, r1)).To(Succeed())
+					Expect(writer.Create(ctx, r2)).To(Succeed())
+					Expect(writer.Create(ctx, r3)).To(Succeed())
+					var res []rack.Rack
+					Expect(svc.NewRetrieve().
+						Where(rack.MatchNames("names-alpha", "names-gamma")).
+						Entries(&res).Exec(ctx, tx)).To(Succeed())
+					names := lo.Map(
+						res,
+						func(r rack.Rack, _ int) string { return r.Name },
+					)
+					Expect(names).To(ContainElements("names-alpha", "names-gamma"))
+					Expect(names).ToNot(ContainElement("names-beta"))
+				},
+			)
 		})
 		Describe("MatchNode", func() {
-			It("Should retrieve racks on a specific cluster node", func(ctx SpecContext) {
-				r := &rack.Rack{Name: "node-rack"}
-				Expect(writer.Create(ctx, r)).To(Succeed())
-				var res []rack.Rack
-				Expect(svc.NewRetrieve().
-					Where(rack.MatchNode(r.Key.Node())).
-					Entries(&res).Exec(ctx, tx)).To(Succeed())
-				Expect(slices.ContainsFunc(res, func(rr rack.Rack) bool { return rr.Key == r.Key })).To(BeTrue())
-			})
+			It(
+				"Should retrieve racks on a specific cluster node",
+				func(ctx SpecContext) {
+					r := &rack.Rack{Name: "node-rack"}
+					Expect(writer.Create(ctx, r)).To(Succeed())
+					var res []rack.Rack
+					Expect(svc.NewRetrieve().
+						Where(rack.MatchNode(r.Key.Node())).
+						Entries(&res).Exec(ctx, tx)).To(Succeed())
+					Expect(
+						slices.ContainsFunc(
+							res,
+							func(rr rack.Rack) bool { return rr.Key == r.Key },
+						),
+					).To(BeTrue())
+				},
+			)
 		})
 		Describe("Combinators", func() {
 			It("Should compose filters with And", func(ctx SpecContext) {
 				hit := &rack.Rack{Name: "combo-and-hit", Integrations: []string{"ni"}}
-				miss := &rack.Rack{Name: "combo-and-miss", Integrations: []string{"opc"}}
+				miss := &rack.Rack{
+					Name:         "combo-and-miss",
+					Integrations: []string{"opc"},
+				}
 				Expect(writer.Create(ctx, hit)).To(Succeed())
 				Expect(writer.Create(ctx, miss)).To(Succeed())
 				var res []rack.Rack
@@ -384,17 +476,20 @@ var _ = Describe("Rack", Ordered, func() {
 				Expect(res).To(HaveLen(1))
 				Expect(res[0].Name).To(Equal("combo-not-opc"))
 			})
-			It("Should compose MatchNodeIsHost under And with MatchNames", func(ctx SpecContext) {
-				r := &rack.Rack{Name: "combo-host-rack"}
-				Expect(writer.Create(ctx, r)).To(Succeed())
-				var res []rack.Rack
-				Expect(svc.NewRetrieve().Where(rack.And(
-					rack.MatchNames("combo-host-rack"),
-					rack.MatchNodeIsHost(true),
-				)).Entries(&res).Exec(ctx, tx)).To(Succeed())
-				Expect(res).To(HaveLen(1))
-				Expect(res[0].Key).To(Equal(r.Key))
-			})
+			It(
+				"Should compose MatchNodeIsHost under And with MatchNames",
+				func(ctx SpecContext) {
+					r := &rack.Rack{Name: "combo-host-rack"}
+					Expect(writer.Create(ctx, r)).To(Succeed())
+					var res []rack.Rack
+					Expect(svc.NewRetrieve().Where(rack.And(
+						rack.MatchNames("combo-host-rack"),
+						rack.MatchNodeIsHost(true),
+					)).Entries(&res).Exec(ctx, tx)).To(Succeed())
+					Expect(res).To(HaveLen(1))
+					Expect(res[0].Key).To(Equal(r.Key))
+				},
+			)
 		})
 		Describe("Exists", func() {
 			It("Should return true when a rack matches", func(ctx SpecContext) {
@@ -413,7 +508,12 @@ var _ = Describe("Rack", Ordered, func() {
 		Describe("Limit and Offset", func() {
 			It("Should paginate results with Limit and Offset", func(ctx SpecContext) {
 				for i := range 4 {
-					Expect(writer.Create(ctx, &rack.Rack{Name: fmt.Sprintf("page-rack-%d", i)})).To(Succeed())
+					Expect(
+						writer.Create(
+							ctx,
+							&rack.Rack{Name: fmt.Sprintf("page-rack-%d", i)},
+						),
+					).To(Succeed())
 				}
 				var res []rack.Rack
 				Expect(svc.NewRetrieve().
@@ -426,40 +526,67 @@ var _ = Describe("Rack", Ordered, func() {
 			})
 		})
 		Describe("Search", func() {
-			It("Should execute the search path via Exec without error", func(ctx SpecContext) {
-				Expect(writer.Create(ctx, &rack.Rack{Name: "SearchableRackAlpha"})).To(Succeed())
-				var res []rack.Rack
-				Expect(svc.NewRetrieve().
-					Search("SearchableRackAlpha").
-					Entries(&res).
-					Exec(ctx, tx)).To(Succeed())
-			})
-			It("Should match committed entries through Count via the search path", func(ctx SpecContext) {
-				Expect(writer.Create(ctx, &rack.Rack{Name: "SearchableRackBeta"})).To(Succeed())
-				Expect(tx.Commit(ctx)).To(Succeed())
-				Eventually(func() int {
-					count, err := svc.NewRetrieve().Search("SearchableRackBeta").Count(ctx, nil)
-					Expect(err).ToNot(HaveOccurred())
-					return count
-				}).Should(BeNumerically(">=", 1))
-			})
-			It("Should match committed entries through Exists via the search path", func(ctx SpecContext) {
-				Expect(writer.Create(ctx, &rack.Rack{Name: "SearchableRackGamma"})).To(Succeed())
-				Expect(tx.Commit(ctx)).To(Succeed())
-				Eventually(func() bool {
-					exists, err := svc.NewRetrieve().Search("SearchableRackGamma").Exists(ctx, nil)
-					Expect(err).ToNot(HaveOccurred())
-					return exists
-				}).Should(BeTrue())
-			})
+			It(
+				"Should execute the search path via Exec without error",
+				func(ctx SpecContext) {
+					Expect(
+						writer.Create(ctx, &rack.Rack{Name: "SearchableRackAlpha"}),
+					).To(Succeed())
+					var res []rack.Rack
+					Expect(svc.NewRetrieve().
+						Search("SearchableRackAlpha").
+						Entries(&res).
+						Exec(ctx, tx)).To(Succeed())
+				},
+			)
+			It(
+				"Should match committed entries through Count via the search path",
+				func(ctx SpecContext) {
+					Expect(
+						writer.Create(ctx, &rack.Rack{Name: "SearchableRackBeta"}),
+					).To(Succeed())
+					Expect(tx.Commit(ctx)).To(Succeed())
+					Eventually(func() int {
+						count, err := svc.NewRetrieve().
+							Search("SearchableRackBeta").
+							Count(ctx, nil)
+						Expect(err).ToNot(HaveOccurred())
+						return count
+					}).Should(BeNumerically(">=", 1))
+				},
+			)
+			It(
+				"Should match committed entries through Exists via the search path",
+				func(ctx SpecContext) {
+					Expect(
+						writer.Create(ctx, &rack.Rack{Name: "SearchableRackGamma"}),
+					).To(Succeed())
+					Expect(tx.Commit(ctx)).To(Succeed())
+					Eventually(func() bool {
+						exists, err := svc.NewRetrieve().
+							Search("SearchableRackGamma").
+							Exists(ctx, nil)
+						Expect(err).ToNot(HaveOccurred())
+						return exists
+					}).Should(BeTrue())
+				},
+			)
 		})
 	})
 	Describe("Create with Integrations", func() {
 		It("Should persist integrations on the rack", func(ctx SpecContext) {
-			r := &rack.Rack{Name: "persist-integ-rack", Integrations: []string{"ni", "opc", "arc"}}
+			r := &rack.Rack{
+				Name:         "persist-integ-rack",
+				Integrations: []string{"ni", "opc", "arc"},
+			}
 			Expect(writer.Create(ctx, r)).To(Succeed())
 			var res rack.Rack
-			Expect(svc.NewRetrieve().Where(rack.MatchKeys(r.Key)).Entry(&res).Exec(ctx, tx)).To(Succeed())
+			Expect(
+				svc.NewRetrieve().
+					Where(rack.MatchKeys(r.Key)).
+					Entry(&res).
+					Exec(ctx, tx),
+			).To(Succeed())
 			Expect(res.Integrations).To(ConsistOf([]string{"ni", "opc", "arc"}))
 		})
 		It("Should update integrations on upsert", func(ctx SpecContext) {
@@ -468,7 +595,12 @@ var _ = Describe("Rack", Ordered, func() {
 			r.Integrations = []string{"opc", "modbus"}
 			Expect(writer.Create(ctx, r)).To(Succeed())
 			var res rack.Rack
-			Expect(svc.NewRetrieve().Where(rack.MatchKeys(r.Key)).Entry(&res).Exec(ctx, tx)).To(Succeed())
+			Expect(
+				svc.NewRetrieve().
+					Where(rack.MatchKeys(r.Key)).
+					Entry(&res).
+					Exec(ctx, tx),
+			).To(Succeed())
 			Expect(res.Integrations).To(ConsistOf([]string{"opc", "modbus"}))
 		})
 	})
@@ -478,7 +610,12 @@ var _ = Describe("Rack", Ordered, func() {
 			Expect(writer.Create(ctx, r)).To(Succeed())
 			Expect(writer.Delete(ctx, r.Key)).To(Succeed())
 			var res rack.Rack
-			Expect(svc.NewRetrieve().Where(rack.MatchKeys(r.Key)).Entry(&res).Exec(ctx, tx)).To(MatchError(query.ErrNotFound))
+			Expect(
+				svc.NewRetrieve().
+					Where(rack.MatchKeys(r.Key)).
+					Entry(&res).
+					Exec(ctx, tx),
+			).To(MatchError(query.ErrNotFound))
 			var deletedStatus rack.Status
 			Expect(status.NewRetrieve[rack.StatusDetails](stat).
 				Where(status.MatchKeys[rack.StatusDetails](r.OntologyID().String())).
@@ -491,7 +628,12 @@ var _ = Describe("Rack", Ordered, func() {
 		It("Should correctly create the node embedded rack", func(ctx SpecContext) {
 			Expect(svc.EmbeddedKey).ToNot(Equal(rack.Key(0)))
 			var embeddedRack rack.Rack
-			Expect(svc.NewRetrieve().Where(rack.MatchKeys(svc.EmbeddedKey)).Entry(&embeddedRack).Exec(ctx, tx)).To(Succeed())
+			Expect(
+				svc.NewRetrieve().
+					Where(rack.MatchKeys(svc.EmbeddedKey)).
+					Entry(&embeddedRack).
+					Exec(ctx, tx),
+			).To(Succeed())
 			Expect(embeddedRack.Embedded).To(BeTrue())
 		})
 	})
@@ -543,123 +685,155 @@ var _ = Describe("Rack", Ordered, func() {
 			Expect(s.Details.Rack).To(Equal(r.Key))
 		})
 
-		It("Should use the provided status when creating a rack", func(ctx SpecContext) {
-			providedStatus := &rack.Status{
-				Variant:     status.VariantSuccess,
-				Time:        telem.Now(),
-				Message:     "Custom status message",
-				Description: "Custom description",
-			}
-			r := rack.Rack{Name: "rack with custom status", Status: providedStatus}
-			Expect(noTxWriter.Create(ctx, &r)).To(Succeed())
-			s := MustSucceed(svc.RetrieveStatus(ctx, r.Key))
-			Expect(s.Message).To(Equal("Custom status message"))
-			Expect(s.Description).To(Equal("Custom description"))
-			Expect(s.Variant).To(Equal(status.VariantSuccess))
-			// Key should be auto-assigned to match ontology ID
-			Expect(s.Key).To(Equal(r.OntologyID().String()))
-			// Time should be auto-filled
-			Expect(s.Time).To(BeNumerically("~", telem.Now(), 3*telem.SecondTS))
-			// Name should be auto-filled from rack name
-			Expect(s.Name).To(Equal(r.Name))
-			// Details.Rack should be auto-filled
-			Expect(s.Details.Rack).To(Equal(r.Key))
-		})
+		It(
+			"Should use the provided status when creating a rack",
+			func(ctx SpecContext) {
+				providedStatus := &rack.Status{
+					Variant:     status.VariantSuccess,
+					Time:        telem.Now(),
+					Message:     "Custom status message",
+					Description: "Custom description",
+				}
+				r := rack.Rack{Name: "rack with custom status", Status: providedStatus}
+				Expect(noTxWriter.Create(ctx, &r)).To(Succeed())
+				s := MustSucceed(svc.RetrieveStatus(ctx, r.Key))
+				Expect(s.Message).To(Equal("Custom status message"))
+				Expect(s.Description).To(Equal("Custom description"))
+				Expect(s.Variant).To(Equal(status.VariantSuccess))
+				// Key should be auto-assigned to match ontology ID
+				Expect(s.Key).To(Equal(r.OntologyID().String()))
+				// Time should be auto-filled
+				Expect(s.Time).To(BeNumerically("~", telem.Now(), 3*telem.SecondTS))
+				// Name should be auto-filled from rack name
+				Expect(s.Name).To(Equal(r.Name))
+				// Details.Rack should be auto-filled
+				Expect(s.Details.Rack).To(Equal(r.Key))
+			},
+		)
 
-		It("Should return a validation error if provided status has empty variant", func(ctx SpecContext) {
-			providedStatus := &rack.Status{
-				Message: "Status with no variant",
-				Time:    telem.Now(),
-			}
-			r := rack.Rack{Name: "rack with invalid status", Status: providedStatus}
-			Expect(noTxWriter.Create(ctx, &r)).Error().To(MatchError(ContainSubstring("variant")))
-		})
-
-		It("Should restore a missing status row when the rack is re-configured", func(ctx SpecContext) {
-			r := rack.Rack{Name: "heal rack"}
-			Expect(writer.Create(ctx, &r)).To(Succeed())
-
-			Expect(status.NewWriter[rack.StatusDetails](stat, tx).
-				Delete(ctx, r.OntologyID().String())).To(Succeed())
-			Expect(status.NewRetrieve[rack.StatusDetails](stat).
-				Where(status.MatchKeys[rack.StatusDetails](r.OntologyID().String())).
-				Exec(ctx, tx)).To(MatchError(query.ErrNotFound))
-
-			reconfigured := rack.Rack{Key: r.Key, Name: r.Name}
-			Expect(writer.Create(ctx, &reconfigured)).To(Succeed())
-
-			var healed rack.Status
-			Expect(status.NewRetrieve[rack.StatusDetails](stat).
-				Where(status.MatchKeys[rack.StatusDetails](r.OntologyID().String())).
-				Entry(&healed).
-				Exec(ctx, tx)).To(Succeed())
-			Expect(healed.Details.Rack).To(Equal(r.Key))
-		})
-
-		It("Should not clobber a live status row on a no-op re-configure", func(ctx SpecContext) {
-			r := rack.Rack{
-				Name: "live status rack",
-				Status: &rack.Status{
-					Variant: status.VariantSuccess,
-					Message: "Rack is connected",
+		It(
+			"Should return a validation error if provided status has empty variant",
+			func(ctx SpecContext) {
+				providedStatus := &rack.Status{
+					Message: "Status with no variant",
 					Time:    telem.Now(),
-				},
-			}
-			Expect(writer.Create(ctx, &r)).To(Succeed())
+				}
+				r := rack.Rack{Name: "rack with invalid status", Status: providedStatus}
+				Expect(
+					noTxWriter.Create(ctx, &r),
+				).Error().
+					To(MatchError(ContainSubstring("variant")))
+			},
+		)
 
-			reconfigured := rack.Rack{Key: r.Key, Name: r.Name}
-			Expect(writer.Create(ctx, &reconfigured)).To(Succeed())
+		It(
+			"Should restore a missing status row when the rack is re-configured",
+			func(ctx SpecContext) {
+				r := rack.Rack{Name: "heal rack"}
+				Expect(writer.Create(ctx, &r)).To(Succeed())
 
-			var preserved rack.Status
-			Expect(status.NewRetrieve[rack.StatusDetails](stat).
-				Where(status.MatchKeys[rack.StatusDetails](r.OntologyID().String())).
-				Entry(&preserved).
-				Exec(ctx, tx)).To(Succeed())
-			Expect(preserved.Variant).To(Equal(status.VariantSuccess))
-			Expect(preserved.Message).To(Equal("Rack is connected"))
-		})
+				Expect(status.NewWriter[rack.StatusDetails](stat, tx).
+					Delete(ctx, r.OntologyID().String())).To(Succeed())
+				Expect(status.NewRetrieve[rack.StatusDetails](stat).
+					Where(status.MatchKeys[rack.StatusDetails](r.OntologyID().String())).
+					Exec(ctx, tx)).To(MatchError(query.ErrNotFound))
 
-		It("Should mark a rack as dead when it doesn't receive a status within the health check interval", func(ctx SpecContext) {
-			r := rack.Rack{Name: "dead test rack"}
-			Expect(noTxWriter.Create(ctx, &r)).To(Succeed())
+				reconfigured := rack.Rack{Key: r.Key, Name: r.Name}
+				Expect(writer.Create(ctx, &reconfigured)).To(Succeed())
 
-			Eventually(func(g Gomega) {
-				s := MustSucceed(svc.RetrieveStatus(ctx, r.Key))
-				g.Expect(s.Message).To(Equal("Synnax Driver on dead test rack not running"))
-				g.Expect(s.Variant).To(Equal(status.VariantWarning))
-				g.Expect(s.Time).To(BeNumerically("~", telem.Now(), 3*telem.SecondTS))
-				g.Expect(s.Key).To(ContainSubstring(string(ontology.ResourceTypeRack)))
-				g.Expect(s.Details.Rack).To(Equal(r.Key))
-				g.Expect(s.Description).To(ContainSubstring("Driver was last alive"))
-			}).Should(Succeed())
-		})
+				var healed rack.Status
+				Expect(status.NewRetrieve[rack.StatusDetails](stat).
+					Where(status.MatchKeys[rack.StatusDetails](r.OntologyID().String())).
+					Entry(&healed).
+					Exec(ctx, tx)).To(Succeed())
+				Expect(healed.Details.Rack).To(Equal(r.Key))
+			},
+		)
 
-		It("Should not mark a rack as dead when the status is actively updated", func(ctx SpecContext) {
-			// Freeze logical time so that, from the monitor's perspective, no time
-			// elapses after a rack reports healthy. The health check ticker keeps
-			// firing on the real clock, but now - lastUpdated stays zero, so an
-			// actively-updated rack must never be marked dead.
-			frozenNow.Store(int64(telem.Now()))
+		It(
+			"Should not clobber a live status row on a no-op re-configure",
+			func(ctx SpecContext) {
+				r := rack.Rack{
+					Name: "live status rack",
+					Status: &rack.Status{
+						Variant: status.VariantSuccess,
+						Message: "Rack is connected",
+						Time:    telem.Now(),
+					},
+				}
+				Expect(writer.Create(ctx, &r)).To(Succeed())
 
-			r := rack.Rack{Name: "active test rack"}
-			Expect(noTxWriter.Create(ctx, &r)).To(Succeed())
+				reconfigured := rack.Rack{Key: r.Key, Name: r.Name}
+				Expect(writer.Create(ctx, &reconfigured)).To(Succeed())
 
-			Expect(status.NewWriter[rack.StatusDetails](stat, nil).Set(ctx, &rack.Status{
-				Key:     r.OntologyID().String(),
-				Name:    r.Name,
-				Time:    telem.Now(),
-				Variant: status.VariantSuccess,
-				Message: "Running",
-				Details: rack.StatusDetails{Rack: r.Key},
-			})).To(Succeed())
+				var preserved rack.Status
+				Expect(status.NewRetrieve[rack.StatusDetails](stat).
+					Where(status.MatchKeys[rack.StatusDetails](r.OntologyID().String())).
+					Entry(&preserved).
+					Exec(ctx, tx)).To(Succeed())
+				Expect(preserved.Variant).To(Equal(status.VariantSuccess))
+				Expect(preserved.Message).To(Equal("Rack is connected"))
+			},
+		)
 
-			Consistently(func(g Gomega) {
-				s := MustSucceed(svc.RetrieveStatus(ctx, r.Key))
-				g.Expect(s.Message).To(Equal("Running"))
-				g.Expect(s.Variant).To(Equal(status.VariantSuccess))
-				g.Expect(s.Description).ToNot(ContainSubstring("Driver was last alive"))
-			}, 50*telem.Millisecond.Duration(), 5*telem.Millisecond.Duration()).Should(Succeed())
-		})
+		It(
+			"Should mark a rack as dead when it doesn't receive a status within the health check interval",
+			func(ctx SpecContext) {
+				r := rack.Rack{Name: "dead test rack"}
+				Expect(noTxWriter.Create(ctx, &r)).To(Succeed())
+
+				Eventually(func(g Gomega) {
+					s := MustSucceed(svc.RetrieveStatus(ctx, r.Key))
+					g.Expect(s.Message).
+						To(Equal("Synnax Driver on dead test rack not running"))
+					g.Expect(s.Variant).To(Equal(status.VariantWarning))
+					g.Expect(s.Time).
+						To(BeNumerically("~", telem.Now(), 3*telem.SecondTS))
+					g.Expect(s.Key).
+						To(ContainSubstring(string(ontology.ResourceTypeRack)))
+					g.Expect(s.Details.Rack).To(Equal(r.Key))
+					g.Expect(s.Description).
+						To(ContainSubstring("Driver was last alive"))
+				}).Should(Succeed())
+			},
+		)
+
+		It(
+			"Should not mark a rack as dead when the status is actively updated",
+			func(ctx SpecContext) {
+				// Freeze logical time so that, from the monitor's perspective, no time
+				// elapses after a rack reports healthy. The health check ticker keeps
+				// firing on the real clock, but now - lastUpdated stays zero, so an
+				// actively-updated rack must never be marked dead.
+				frozenNow.Store(int64(telem.Now()))
+
+				r := rack.Rack{Name: "active test rack"}
+				Expect(noTxWriter.Create(ctx, &r)).To(Succeed())
+
+				Expect(
+					status.NewWriter[rack.StatusDetails](
+						stat,
+						nil,
+					).Set(ctx, &rack.Status{
+						Key:     r.OntologyID().String(),
+						Name:    r.Name,
+						Time:    telem.Now(),
+						Variant: status.VariantSuccess,
+						Message: "Running",
+						Details: rack.StatusDetails{Rack: r.Key},
+					}),
+				).To(Succeed())
+
+				Consistently(func(g Gomega) {
+					s := MustSucceed(svc.RetrieveStatus(ctx, r.Key))
+					g.Expect(s.Message).To(Equal("Running"))
+					g.Expect(s.Variant).To(Equal(status.VariantSuccess))
+					g.Expect(s.Description).
+						ToNot(ContainSubstring("Driver was last alive"))
+
+				}, 50*telem.Millisecond.Duration(), 5*telem.Millisecond.Duration()).Should(Succeed())
+			},
+		)
 
 		It("Should dampen alerts after first dead check", func(ctx SpecContext) {
 			r := rack.Rack{Name: "dampening test rack"}
@@ -687,44 +861,60 @@ var _ = Describe("Rack", Ordered, func() {
 			countAfterFirst := getCount()
 			time.Sleep(50 * time.Millisecond)
 			Expect(getCount()).To(Equal(countAfterFirst))
-			Eventually(getCount, 200*time.Millisecond, 10*time.Millisecond).Should(BeNumerically(">", countAfterFirst))
+			Eventually(
+				getCount,
+				200*time.Millisecond,
+				10*time.Millisecond,
+			).Should(BeNumerically(">", countAfterFirst))
 		})
 
-		It("Should reset alert count when rack comes back alive", func(ctx SpecContext) {
-			r := rack.Rack{Name: "reset test rack"}
-			Expect(noTxWriter.Create(ctx, &r)).To(Succeed())
+		It(
+			"Should reset alert count when rack comes back alive",
+			func(ctx SpecContext) {
+				r := rack.Rack{Name: "reset test rack"}
+				Expect(noTxWriter.Create(ctx, &r)).To(Succeed())
 
-			var (
-				alertCount int
-				alertMu    sync.Mutex
-			)
-			getCount := func() int {
-				alertMu.Lock()
-				defer alertMu.Unlock()
-				return alertCount
-			}
-			disconnect := svc.OnSuspect(func(_ context.Context, s rack.Status) {
-				if s.Details.Rack == r.Key {
+				var (
+					alertCount int
+					alertMu    sync.Mutex
+				)
+				getCount := func() int {
 					alertMu.Lock()
-					alertCount++
-					alertMu.Unlock()
+					defer alertMu.Unlock()
+					return alertCount
 				}
-			})
-			defer disconnect()
+				disconnect := svc.OnSuspect(func(_ context.Context, s rack.Status) {
+					if s.Details.Rack == r.Key {
+						alertMu.Lock()
+						alertCount++
+						alertMu.Unlock()
+					}
+				})
+				defer disconnect()
 
-			Eventually(getCount).Should(Equal(1))
+				Eventually(getCount).Should(Equal(1))
 
-			Expect(status.NewWriter[rack.StatusDetails](stat, nil).Set(ctx, &rack.Status{
-				Key:     r.OntologyID().String(),
-				Name:    r.Name,
-				Time:    telem.Now(),
-				Variant: status.VariantSuccess,
-				Message: "Running",
-				Details: rack.StatusDetails{Rack: r.Key},
-			})).To(Succeed())
+				Expect(
+					status.NewWriter[rack.StatusDetails](
+						stat,
+						nil,
+					).Set(ctx, &rack.Status{
+						Key:     r.OntologyID().String(),
+						Name:    r.Name,
+						Time:    telem.Now(),
+						Variant: status.VariantSuccess,
+						Message: "Running",
+						Details: rack.StatusDetails{Rack: r.Key},
+					}),
+				).To(Succeed())
 
-			countAfterRecovery := getCount()
-			Eventually(getCount, 50*time.Millisecond, 5*time.Millisecond).Should(BeNumerically(">", countAfterRecovery))
-		})
+				countAfterRecovery := getCount()
+				Eventually(
+					getCount,
+					50*time.Millisecond,
+					5*time.Millisecond,
+				).Should(BeNumerically(">", countAfterRecovery))
+			},
+		)
 	})
 })

@@ -83,33 +83,38 @@ var _ = Describe("ImEx", Ordered, func() {
 	})
 
 	Describe("Export", func() {
-		It("Should export a task's config flat with version, type, and name", func(ctx SpecContext) {
-			t := &task.Task{
-				Key:  task.NewKey(testRack.Key, 0),
-				Name: "Exported Task",
-				Type: "opc_read",
-				Config: msgpack.EncodedJSON{
-					"sample_rate": float64(25),
-					"channels":    []any{"a", "b"},
-				},
-			}
-			Expect(svc.NewWriter(nil).Create(ctx, t)).To(Succeed())
+		It(
+			"Should export a task's config flat with version, type, and name",
+			func(ctx SpecContext) {
+				t := &task.Task{
+					Key:  task.NewKey(testRack.Key, 0),
+					Name: "Exported Task",
+					Type: "opc_read",
+					Config: msgpack.EncodedJSON{
+						"sample_rate": float64(25),
+						"channels":    []any{"a", "b"},
+					},
+				}
+				Expect(svc.NewWriter(nil).Create(ctx, t)).To(Succeed())
 
-			env := MustSucceed(svc.Export(ctx, t.Key.OntologyID()))
-			Expect(env.Version).To(Equal(task.Version))
-			Expect(env.Type).To(Equal("opc_read"))
-			Expect(env.Name).To(Equal("Exported Task"))
+				env := MustSucceed(svc.Export(ctx, t.Key.OntologyID()))
+				Expect(env.Version).To(Equal(task.Version))
+				Expect(env.Type).To(Equal("opc_read"))
+				Expect(env.Name).To(Equal("Exported Task"))
 
-			var body map[string]any
-			Expect(json.Unmarshal(MustSucceed(json.Marshal(env)), &body)).To(Succeed())
-			// The driver reads the file as its config, so config fields sit flat at the
-			// top level rather than nested under a "config" key.
-			Expect(body).ToNot(HaveKey("config"))
-			Expect(body["sample_rate"]).To(BeEquivalentTo(25))
-			Expect(body["type"]).To(Equal("opc_read"))
-			Expect(body["name"]).To(Equal("Exported Task"))
-			Expect(body["version"]).To(BeEquivalentTo(1))
-		})
+				var body map[string]any
+				Expect(
+					json.Unmarshal(MustSucceed(json.Marshal(env)), &body),
+				).To(Succeed())
+				// The driver reads the file as its config, so config fields sit flat at the
+				// top level rather than nested under a "config" key.
+				Expect(body).ToNot(HaveKey("config"))
+				Expect(body["sample_rate"]).To(BeEquivalentTo(25))
+				Expect(body["type"]).To(Equal("opc_read"))
+				Expect(body["name"]).To(Equal("Exported Task"))
+				Expect(body["version"]).To(BeEquivalentTo(1))
+			},
+		)
 
 		It("Should return not found for a missing key", func(ctx SpecContext) {
 			id := task.NewKey(testRack.Key, 9999).OntologyID()

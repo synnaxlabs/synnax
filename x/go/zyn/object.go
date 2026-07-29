@@ -79,7 +79,8 @@ func (o ObjectZ) initializeFields() ObjectZ {
 	if o.fields == nil {
 		o.fields = make(map[string]Schema)
 	}
-	if o.caseConversions.snake == nil || o.caseConversions.pascal == nil || o.caseConversions.camel == nil {
+	if o.caseConversions.snake == nil || o.caseConversions.pascal == nil ||
+		o.caseConversions.camel == nil {
 		o.caseConversions.snake = make(map[string]string)
 		o.caseConversions.pascal = make(map[string]string)
 		o.caseConversions.camel = make(map[string]string)

@@ -61,65 +61,101 @@ var _ = Describe("Ferrors", Ordered, func() {
 	})
 	Describe("Encode", func() {
 		Context("Internal is true", func() {
-			It("Should encode a custom error type into a payload", func(ctx SpecContext) {
-				pld := errors.Encode(ctx, errMyCustomOne, true)
-				Expect(pld.Type).To(Equal(myCustomErrorType))
-				Expect(pld.Data).To(Equal(errMyCustomOne.Error()))
-			})
-			It("Should encode an unknown error using cockroachdb's errors package", func(ctx SpecContext) {
-				pld := errors.Encode(ctx, errors.New("unknown"), true)
-				Expect(pld.Type).To(Equal(errors.TypeRoach))
-			})
+			It(
+				"Should encode a custom error type into a payload",
+				func(ctx SpecContext) {
+					pld := errors.Encode(ctx, errMyCustomOne, true)
+					Expect(pld.Type).To(Equal(myCustomErrorType))
+					Expect(pld.Data).To(Equal(errMyCustomOne.Error()))
+				},
+			)
+			It(
+				"Should encode an unknown error using cockroachdb's errors package",
+				func(ctx SpecContext) {
+					pld := errors.Encode(ctx, errors.New("unknown"), true)
+					Expect(pld.Type).To(Equal(errors.TypeRoach))
+				},
+			)
 		})
 		Context("Internal is false", func() {
-			It("Should encode a custom error type into a payload", func(ctx SpecContext) {
-				pld := errors.Encode(ctx, errMyCustomOne, false)
-				Expect(pld.Type).To(Equal(myCustomErrorType))
-				Expect(pld.Data).To(Equal(errMyCustomOne.Error()))
-			})
-			It("Should encode an unknown error into a human readable string", func(ctx SpecContext) {
-				pld := errors.Encode(ctx, errors.New("unknown"), false)
-				Expect(pld.Type).To(Equal(errors.TypeUnknown))
-				Expect(pld.Data).To(Equal("unknown"))
-			})
+			It(
+				"Should encode a custom error type into a payload",
+				func(ctx SpecContext) {
+					pld := errors.Encode(ctx, errMyCustomOne, false)
+					Expect(pld.Type).To(Equal(myCustomErrorType))
+					Expect(pld.Data).To(Equal(errMyCustomOne.Error()))
+				},
+			)
+			It(
+				"Should encode an unknown error into a human readable string",
+				func(ctx SpecContext) {
+					pld := errors.Encode(ctx, errors.New("unknown"), false)
+					Expect(pld.Type).To(Equal(errors.TypeUnknown))
+					Expect(pld.Data).To(Equal("unknown"))
+				},
+			)
 		})
 	})
 	Describe("Decode", func() {
 		Context("Internal is true", func() {
-			It("Should decode a custom error type from a payload", func(ctx SpecContext) {
-				pld := errors.Encode(ctx, errMyCustomOne, true)
-				err := errors.Decode(ctx, pld)
-				Expect(err).To(Equal(errMyCustomOne))
-			})
-			It("Should decode a nil error from a TypeNil typed payload", func(ctx SpecContext) {
-				pld := errors.Encode(ctx, nil, true)
-				Expect(errors.Decode(ctx, pld)).To(Succeed())
-			})
-			It("Should decode an unknown error using cockroachdb's errors package", func(ctx SpecContext) {
-				pld := errors.Encode(ctx, errors.New("unknown"), true)
-				Expect(errors.Decode(ctx, pld)).To(MatchError("unknown"))
-			})
+			It(
+				"Should decode a custom error type from a payload",
+				func(ctx SpecContext) {
+					pld := errors.Encode(ctx, errMyCustomOne, true)
+					err := errors.Decode(ctx, pld)
+					Expect(err).To(Equal(errMyCustomOne))
+				},
+			)
+			It(
+				"Should decode a nil error from a TypeNil typed payload",
+				func(ctx SpecContext) {
+					pld := errors.Encode(ctx, nil, true)
+					Expect(errors.Decode(ctx, pld)).To(Succeed())
+				},
+			)
+			It(
+				"Should decode an unknown error using cockroachdb's errors package",
+				func(ctx SpecContext) {
+					pld := errors.Encode(ctx, errors.New("unknown"), true)
+					Expect(errors.Decode(ctx, pld)).To(MatchError("unknown"))
+				},
+			)
 		})
 		Context("Internal is false", func() {
-			It("Should decode a custom error type from a payload", func(ctx SpecContext) {
-				pld := errors.Encode(ctx, errMyCustomOne, false)
-				Expect(errors.Decode(ctx, pld)).To(Equal(errMyCustomOne))
-			})
-			It("Should decode a nil error from a TypeNil typed payload", func(ctx SpecContext) {
-				pld := errors.Encode(ctx, nil, false)
-				Expect(errors.Decode(ctx, pld)).To(Succeed())
-			})
-			It("Should decode an unknown error into a human readable string", func(ctx SpecContext) {
-				pld := errors.Encode(ctx, errors.New("unknown"), false)
-				Expect(errors.Decode(ctx, pld)).To(MatchError("unknown"))
-			})
-			It("Should decode an error with no type into a human readable string", func(ctx SpecContext) {
-				Expect(errors.Decode(ctx, errors.Payload{Data: "cat"})).
-					To(MatchError(ContainSubstring("cat")))
-			})
-			It("Should decode a completely empty payload into a nil error", func(ctx SpecContext) {
-				Expect(errors.Decode(ctx, errors.Payload{})).To(Succeed())
-			})
+			It(
+				"Should decode a custom error type from a payload",
+				func(ctx SpecContext) {
+					pld := errors.Encode(ctx, errMyCustomOne, false)
+					Expect(errors.Decode(ctx, pld)).To(Equal(errMyCustomOne))
+				},
+			)
+			It(
+				"Should decode a nil error from a TypeNil typed payload",
+				func(ctx SpecContext) {
+					pld := errors.Encode(ctx, nil, false)
+					Expect(errors.Decode(ctx, pld)).To(Succeed())
+				},
+			)
+			It(
+				"Should decode an unknown error into a human readable string",
+				func(ctx SpecContext) {
+					pld := errors.Encode(ctx, errors.New("unknown"), false)
+					Expect(errors.Decode(ctx, pld)).To(MatchError("unknown"))
+				},
+			)
+			It(
+				"Should decode an error with no type into a human readable string",
+				func(ctx SpecContext) {
+					Expect(errors.Decode(ctx, errors.Payload{Data: "cat"})).
+						To(MatchError(ContainSubstring("cat")))
+				},
+			)
+			It(
+				"Should decode a completely empty payload into a nil error",
+				func(ctx SpecContext) {
+					Expect(errors.Decode(ctx, errors.Payload{})).To(Succeed())
+				},
+			)
 		})
 	})
 })

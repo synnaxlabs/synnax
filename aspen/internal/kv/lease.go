@@ -29,14 +29,19 @@ const nodeKeyDefaultLeaseholder node.Key = 0
 
 type leaseAllocator struct{ Config }
 
-func (la *leaseAllocator) allocate(ctx context.Context, op Operation) (Operation, error) {
+func (la *leaseAllocator) allocate(
+	ctx context.Context,
+	op Operation,
+) (Operation, error) {
 	lh, err := la.getLease(ctx, op.Key)
 	// If we get a nil error, that means this key has been set before.
 	if err == nil {
 		if op.Leaseholder == nodeKeyDefaultLeaseholder {
 			op.Leaseholder = lh
 			if lh == nodeKeyDefaultLeaseholder {
-				la.L.DPanic("Lease allocator returned unexpected node key 0 for leaseholder")
+				la.L.DPanic(
+					"Lease allocator returned unexpected node key 0 for leaseholder",
+				)
 			}
 		} else if lh != op.Leaseholder {
 			// If the Leaseholder doesn't match the previous Leaseholder,

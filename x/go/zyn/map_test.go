@@ -38,7 +38,10 @@ var _ = Describe("Map", func() {
 			data := map[string]any{"enabled": true, "visible": false}
 			var dest map[string]bool //nolint:set
 			Expect(schema.Parse(data, &dest)).To(Succeed())
-			Expect(dest).To(Equal(map[string]bool{"enabled": true, "visible": false})) //nolint:set
+			Expect(
+				dest,
+			).To(Equal(map[string]bool{"enabled": true, "visible": false}))
+			//nolint:set
 		})
 		Specify("empty map", func() {
 			schema := zyn.Map(zyn.String(), zyn.String())
@@ -66,13 +69,19 @@ var _ = Describe("Map", func() {
 	})
 	Describe("Validate", func() {
 		It("Should succeed for a valid map", func() {
-			Expect(zyn.Map(zyn.String(), zyn.String()).Validate(map[string]any{"k": "v"})).To(Succeed())
+			Expect(
+				zyn.Map(zyn.String(), zyn.String()).Validate(map[string]any{"k": "v"}),
+			).To(Succeed())
 		})
 		It("Should fail for a non-map", func() {
-			Expect(zyn.Map(zyn.String(), zyn.String()).Validate("not a map")).To(HaveOccurred())
+			Expect(
+				zyn.Map(zyn.String(), zyn.String()).Validate("not a map"),
+			).To(HaveOccurred())
 		})
 		It("Should succeed for optional nil", func() {
-			Expect(zyn.Map(zyn.String(), zyn.String()).Optional().Validate(nil)).To(Succeed())
+			Expect(
+				zyn.Map(zyn.String(), zyn.String()).Optional().Validate(nil),
+			).To(Succeed())
 		})
 		It("Should fail for required nil", func() {
 			Expect(zyn.Map(zyn.String(), zyn.String()).Validate(nil)).
@@ -92,17 +101,26 @@ var _ = Describe("Map", func() {
 	Describe("Invalid Inputs", func() {
 		Specify("non-map destination", func() {
 			var dest string
-			Expect(zyn.Map(zyn.String(), zyn.String()).Parse(map[string]any{"a": "1"}, &dest)).
+			Expect(
+				zyn.Map(zyn.String(), zyn.String()).
+					Parse(map[string]any{"a": "1"}, &dest),
+			).
 				To(MatchError(zyn.ErrInvalidDestinationType))
 		})
 		Specify("nil pointer destination", func() {
 			var dest *map[string]string
-			Expect(zyn.Map(zyn.String(), zyn.String()).Parse(map[string]any{"a": "1"}, dest)).
+			Expect(
+				zyn.Map(zyn.String(), zyn.String()).
+					Parse(map[string]any{"a": "1"}, dest),
+			).
 				To(MatchError(zyn.ErrInvalidDestinationType))
 		})
 		Specify("non-pointer destination", func() {
 			dest := map[string]string{}
-			Expect(zyn.Map(zyn.String(), zyn.String()).Parse(map[string]any{"a": "1"}, dest)).
+			Expect(
+				zyn.Map(zyn.String(), zyn.String()).
+					Parse(map[string]any{"a": "1"}, dest),
+			).
 				To(MatchError(zyn.ErrInvalidDestinationType))
 		})
 		Specify("non-map data", func() {
@@ -126,7 +144,9 @@ var _ = Describe("Map", func() {
 	Describe("Optional Fields", func() {
 		Specify("optional field with nil value", func() {
 			var dest map[string]string
-			Expect(zyn.Map(zyn.String(), zyn.String()).Optional().Parse(nil, &dest)).To(Succeed())
+			Expect(
+				zyn.Map(zyn.String(), zyn.String()).Optional().Parse(nil, &dest),
+			).To(Succeed())
 			Expect(dest).To(BeNil())
 		})
 		Specify("required field with nil value", func() {
@@ -149,7 +169,9 @@ var _ = Describe("Map", func() {
 			Expect(result).To(Equal(map[string]any{"x": int64(1), "y": int64(2)}))
 		})
 		Specify("empty map", func() {
-			result := MustSucceed(zyn.Map(zyn.String(), zyn.String()).Dump(map[string]string{}))
+			result := MustSucceed(
+				zyn.Map(zyn.String(), zyn.String()).Dump(map[string]string{}),
+			)
 			Expect(result).To(Equal(map[string]any{}))
 		})
 		Specify("map of objects", func() {
@@ -177,12 +199,16 @@ var _ = Describe("Map", func() {
 				To(MatchError(validate.ErrRequired))
 		})
 		Specify("optional nil value", func() {
-			result := MustSucceed(zyn.Map(zyn.String(), zyn.String()).Optional().Dump(nil))
+			result := MustSucceed(
+				zyn.Map(zyn.String(), zyn.String()).Optional().Dump(nil),
+			)
 			Expect(result).To(BeNil())
 		})
 		Specify("optional nil pointer", func() {
 			var m *map[string]string
-			result := MustSucceed(zyn.Map(zyn.String(), zyn.String()).Optional().Dump(m))
+			result := MustSucceed(
+				zyn.Map(zyn.String(), zyn.String()).Optional().Dump(m),
+			)
 			Expect(result).To(BeNil())
 		})
 		Specify("non-map value", func() {
@@ -212,7 +238,9 @@ var _ = Describe("Map", func() {
 		Specify("round-trip parse then dump", func() {
 			schema := zyn.Map(zyn.String(), zyn.String())
 			var dest map[string]string
-			Expect(schema.Parse(map[string]any{"a": "1", "b": "2"}, &dest)).To(Succeed())
+			Expect(
+				schema.Parse(map[string]any{"a": "1", "b": "2"}, &dest),
+			).To(Succeed())
 			result := MustSucceed(schema.Dump(dest))
 			Expect(result).To(Equal(map[string]any{"a": "1", "b": "2"}))
 		})
@@ -229,7 +257,9 @@ var _ = Describe("Map", func() {
 			Expect(mapShape.Value().DataType()).To(Equal(zyn.NumberT))
 		})
 		It("Should reflect optional", func() {
-			Expect(zyn.Map(zyn.String(), zyn.String()).Optional().Shape().Optional()).To(BeTrue())
+			Expect(
+				zyn.Map(zyn.String(), zyn.String()).Optional().Shape().Optional(),
+			).To(BeTrue())
 		})
 	})
 })

@@ -179,7 +179,11 @@ func (cs *ProgramState) writeIndexedTimestamp(key uint32) {
 	}
 }
 
-func appendFixedWriteSample[T telem.FixedSample](cs *ProgramState, key uint32, value T) {
+func appendFixedWriteSample[T telem.FixedSample](
+	cs *ProgramState,
+	key uint32,
+	value T,
+) {
 	dt := telem.InferDataType[T]()
 	acc, exists := cs.writes[key]
 	if !exists {

@@ -27,15 +27,28 @@ import (
 var ErrDiscontinuous = errors.New("discontinuous")
 
 func NewDiscontinuousTRError(tr telem.TimeRange) error {
-	return errors.Wrapf(ErrDiscontinuous, "the time range %s is not continuous in the index", tr)
+	return errors.Wrapf(
+		ErrDiscontinuous,
+		"the time range %s is not continuous in the index",
+		tr,
+	)
 }
 
 func NewDiscontinuousOffsetError(offset, domainLen int64) error {
-	return errors.Wrapf(ErrDiscontinuous, "failed to resolve position %d in continuous index of length %d", offset, domainLen)
+	return errors.Wrapf(
+		ErrDiscontinuous,
+		"failed to resolve position %d in continuous index of length %d",
+		offset,
+		domainLen,
+	)
 }
 
 func NewDiscontinuousStampError(stamp telem.TimeStamp) error {
-	return errors.Wrapf(ErrDiscontinuous, "the timestamp %s does not exist in the index", stamp)
+	return errors.Wrapf(
+		ErrDiscontinuous,
+		"the timestamp %s does not exist in the index",
+		stamp,
+	)
 }
 
 // ContinuousPolicy is a type alias for a boolean that indicates whether a domain

@@ -157,12 +157,21 @@ func formatFile(path string) (formatResult, error) {
 
 func printFileFormatted(path string) {
 	f := fileStyle.Render(path)
-	fmt.Printf("  %s %s %s\n", dimStyle.Render(symbolFile), successStyle.Render("formatted"), f)
+	fmt.Printf(
+		"  %s %s %s\n",
+		dimStyle.Render(symbolFile),
+		successStyle.Render("formatted"),
+		f,
+	)
 }
 
 func printFormatResult(formatted, unchanged int) {
 	if formatted == 0 {
-		fmt.Printf("%s %s\n", dimStyle.Render(symbolDot), dimStyle.Render("all files already formatted"))
+		fmt.Printf(
+			"%s %s\n",
+			dimStyle.Render(symbolDot),
+			dimStyle.Render("all files already formatted"),
+		)
 		return
 	}
 	f := countStyle.Render(fmt.Sprintf("%d", formatted))

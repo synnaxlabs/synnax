@@ -111,7 +111,10 @@ var _ = Describe("Check Utilities", func() {
 			staleErr, ok := result.(*plugin.StaleError)
 			Expect(ok).To(BeTrue())
 			Expect(staleErr.Files).To(HaveLen(1))
-			Expect(staleErr.Files[0].GenTime.IsZero()).To(BeTrue()) // Missing file has zero time
+			Expect(
+				staleErr.Files[0].GenTime.IsZero(),
+			).To(BeTrue())
+			// Missing file has zero time
 		})
 
 		It("Should handle multiple generated files", func() {

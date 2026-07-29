@@ -76,15 +76,18 @@ func PublishSignals[K comparable, A any](
 			}, true
 		},
 	}
-	closer, err := cfg.Provider.PublishFromObservable(ctx, signals.ObservablePublisherConfig{
-		Name:       fmt.Sprintf("%s_actions", cfg.Name),
-		Observable: translator,
-		SetChannel: channel.Channel{
-			Name:     fmt.Sprintf("sy_%s_set", cfg.Name),
-			DataType: telem.JSONT,
-			Internal: true,
+	closer, err := cfg.Provider.PublishFromObservable(
+		ctx,
+		signals.ObservablePublisherConfig{
+			Name:       fmt.Sprintf("%s_actions", cfg.Name),
+			Observable: translator,
+			SetChannel: channel.Channel{
+				Name:     fmt.Sprintf("sy_%s_set", cfg.Name),
+				DataType: telem.JSONT,
+				Internal: true,
+			},
 		},
-	})
+	)
 	if err != nil {
 		return nil, errors.Wrapf(err, "open action publisher for %s", cfg.Name)
 	}

@@ -186,7 +186,10 @@ func mergeDefaultOptions(o *options) {
 	// provide their own transport. Otherwise the eagerly-created pool would
 	// leak: nothing would reference it and nothing would close it.
 	if o.transport.Transport == nil {
-		pool := fgrpc.OpenPool("", grpc.WithTransportCredentials(insecure.NewCredentials()))
+		pool := fgrpc.OpenPool(
+			"",
+			grpc.WithTransportCredentials(insecure.NewCredentials()),
+		)
 		o.transport.ownedPool = pool
 		o.transport.Transport = grpct.New(pool)
 	}

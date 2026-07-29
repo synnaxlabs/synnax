@@ -69,7 +69,10 @@ func passThroughStreamerResponseTranslator(res StreamerResponse) StreamerRespons
 // NewStreamer opens a new Streamer using the given configuration. To start receiving
 // frames, call Streamer.Flow. The provided context is only used for opening the
 // streamer, and cancelling it has no implications after NewStreamer returns.
-func (db *DB) NewStreamer(ctx context.Context, cfg StreamerConfig) (Streamer[StreamerRequest, StreamerResponse], error) {
+func (db *DB) NewStreamer(
+	ctx context.Context,
+	cfg StreamerConfig,
+) (Streamer[StreamerRequest, StreamerResponse], error) {
 	return NewTranslatedStreamer(
 		db,
 		cfg,
@@ -103,7 +106,9 @@ type streamer[I any, O any] struct {
 	StreamerConfig
 }
 
-var _ Streamer[StreamerRequest, StreamerResponse] = (*streamer[StreamerRequest, StreamerResponse])(nil)
+var _ Streamer[StreamerRequest, StreamerResponse] = (*streamer[StreamerRequest, StreamerResponse])(
+	nil,
+)
 
 // Flow implements confluence.Flow.
 func (s *streamer[I, O]) Flow(sCtx signal.Context, opts ...confluence.Option) {
@@ -135,7 +140,9 @@ func (s *streamer[I, O]) Flow(sCtx signal.Context, opts ...confluence.Option) {
 					if err := signal.SendUnderContext(
 						ctx,
 						s.Out.Inlet(),
-						s.translateResponse(StreamerResponse{Frame: filtered, Group: rf.group}),
+						s.translateResponse(
+							StreamerResponse{Frame: filtered, Group: rf.group},
+						),
 					); err != nil {
 						return err
 					}

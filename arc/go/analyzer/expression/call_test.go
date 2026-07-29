@@ -75,13 +75,21 @@ var _ = Describe("AnalyzeCall", func() {
 	})
 
 	Describe("Channel arguments", func() {
-		It("Should dereference a channel argument to a value-typed parameter", func(ctx SpecContext) {
-			expectSuccess(ctx, `
+		It(
+			"Should dereference a channel argument to a value-typed parameter",
+			func(ctx SpecContext) {
+				expectSuccess(ctx, `
 				func read(x f32) f32 { return x }
 				func main() { result := read(temp) }
 			`, []symbol.Symbol{
-				{Name: "temp", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 10},
-			})
-		})
+					{
+						Name: "temp",
+						Kind: symbol.KindChannel,
+						Type: types.Chan(types.F32()),
+						ID:   10,
+					},
+				})
+			},
+		)
 	})
 })

@@ -89,62 +89,91 @@ var _ = Describe("State", func() {
 		}
 		Describe("IsAcquire", func() {
 			It("Should return false when from is not nil", func() {
-				Expect(control.Transfer[string]{From: &state1, To: &state2}.IsAcquire()).To(BeFalse())
+				Expect(
+					control.Transfer[string]{From: &state1, To: &state2}.IsAcquire(),
+				).To(BeFalse())
 			})
 
 			It("Should return false when both from and to are nil", func() {
-				Expect(control.Transfer[string]{From: nil, To: nil}.IsAcquire()).To(BeFalse())
+				Expect(
+					control.Transfer[string]{From: nil, To: nil}.IsAcquire(),
+				).To(BeFalse())
 			})
 
 			It("Should return true when from is nil and to is not nil", func() {
-				Expect(control.Transfer[string]{From: nil, To: &state2}.IsAcquire()).To(BeTrue())
+				Expect(
+					control.Transfer[string]{From: nil, To: &state2}.IsAcquire(),
+				).To(BeTrue())
 			})
 		})
 
 		Describe("IsRelease", func() {
 			It("Should return false when to is not nil", func() {
-				Expect(control.Transfer[string]{From: &state1, To: &state2}.IsRelease()).To(BeFalse())
+				Expect(
+					control.Transfer[string]{From: &state1, To: &state2}.IsRelease(),
+				).To(BeFalse())
 			})
 
 			It("Should return false when both from and to are nil", func() {
-				Expect(control.Transfer[string]{From: nil, To: nil}.IsRelease()).To(BeFalse())
+				Expect(
+					control.Transfer[string]{From: nil, To: nil}.IsRelease(),
+				).To(BeFalse())
 			})
 
 			It("Should return true when from is not nil and to is nil", func() {
-				Expect(control.Transfer[string]{From: &state1, To: nil}.IsRelease()).To(BeTrue())
+				Expect(
+					control.Transfer[string]{From: &state1, To: nil}.IsRelease(),
+				).To(BeTrue())
 			})
 		})
 
 		Describe("IsTransfer", func() {
 			It("Should return false when from is not nil and to is nil", func() {
-				Expect(control.Transfer[string]{From: &state1, To: nil}.IsTransfer()).To(BeFalse())
+				Expect(
+					control.Transfer[string]{From: &state1, To: nil}.IsTransfer(),
+				).To(BeFalse())
 			})
 
 			It("Should return false when both from and to is nil and is nil", func() {
-				Expect(control.Transfer[string]{From: nil, To: nil}.IsTransfer()).To(BeFalse())
+				Expect(
+					control.Transfer[string]{From: nil, To: nil}.IsTransfer(),
+				).To(BeFalse())
 			})
 
 			It("Should return false when from is nil and to is not nil", func() {
-				Expect(control.Transfer[string]{From: nil, To: &state2}.IsTransfer()).To(BeFalse())
+				Expect(
+					control.Transfer[string]{From: nil, To: &state2}.IsTransfer(),
+				).To(BeFalse())
 			})
 
 			It("Should return true when both from and to are not nil", func() {
-				Expect(control.Transfer[string]{From: &state1, To: &state2}.IsTransfer()).To(BeTrue())
+				Expect(
+					control.Transfer[string]{From: &state1, To: &state2}.IsTransfer(),
+				).To(BeTrue())
 			})
 
 			It("Should return false when both from and to are the same", func() {
-				Expect(control.Transfer[string]{From: &state2, To: &state2}.IsTransfer()).To(BeFalse())
+				Expect(
+					control.Transfer[string]{From: &state2, To: &state2}.IsTransfer(),
+				).To(BeFalse())
 			})
 		})
 
 		Describe("Occurred", func() {
 			It("Should return false when both to and from are nil", func() {
-				Expect(control.Transfer[string]{From: nil, To: nil}.Occurred()).To(BeFalse())
+				Expect(
+					control.Transfer[string]{From: nil, To: nil}.Occurred(),
+				).To(BeFalse())
 			})
 
-			It("Should return false when both the from and to states are the same", func() {
-				Expect(control.Transfer[string]{From: &state1, To: &state1}.Occurred()).To(BeFalse())
-			})
+			It(
+				"Should return false when both the from and to states are the same",
+				func() {
+					Expect(
+						control.Transfer[string]{From: &state1, To: &state1}.Occurred(),
+					).To(BeFalse())
+				},
+			)
 		})
 
 		Describe("String", func() {
@@ -186,7 +215,9 @@ var _ = Describe("State", func() {
 
 			Context("No Transfer", func() {
 				It("Should return a nicely formatted string", func() {
-					Expect(control.Transfer[string]{}.String()).To(Equal("no transfer occurred"))
+					Expect(
+						control.Transfer[string]{}.String(),
+					).To(Equal("no transfer occurred"))
 				})
 			})
 		})

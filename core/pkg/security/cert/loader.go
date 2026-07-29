@@ -161,7 +161,9 @@ func (l *Loader) LoadNodeTLS() (c *tls.Certificate, err error) {
 	return c, err
 }
 
-func (l *Loader) loadX509(certPath, keyPath string) (*x509.Certificate, crypto.PrivateKey, error) {
+func (l *Loader) loadX509(
+	certPath, keyPath string,
+) (*x509.Certificate, crypto.PrivateKey, error) {
 	c, err := l.loadTLS(certPath, keyPath)
 	if err != nil {
 		return nil, nil, err

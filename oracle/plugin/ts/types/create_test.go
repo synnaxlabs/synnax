@@ -25,8 +25,10 @@ var _ = Describe("Derived New from @create", func() {
 		typesPlugin = types.New(types.DefaultOptions())
 	})
 
-	It("Should generate a z.input New that omits @output fields", func(ctx SpecContext) {
-		source := `
+	It(
+		"Should generate a z.input New that omits @output fields",
+		func(ctx SpecContext) {
+			source := `
 			@ts output "client/ts/src/thing"
 
 			Thing struct {
@@ -36,16 +38,19 @@ var _ = Describe("Derived New from @create", func() {
 				@create
 			}
 		`
-		resp := MustGenerate(ctx, source, "thing", loader, typesPlugin)
-		ExpectContent(resp, "types.gen.ts").ToContain(
-			"export const thingZ",
-			`export interface New extends Omit<z.input<typeof thingZ>, "author"> {}`,
-		)
-		ExpectContent(resp, "types.gen.ts").ToNotContain("export const newZ")
-	})
+			resp := MustGenerate(ctx, source, "thing", loader, typesPlugin)
+			ExpectContent(resp, "types.gen.ts").ToContain(
+				"export const thingZ",
+				`export interface New extends Omit<z.input<typeof thingZ>, "author"> {}`,
+			)
+			ExpectContent(resp, "types.gen.ts").ToNotContain("export const newZ")
+		},
+	)
 
-	It("Should derive a generic factory New that partials defaulted fields and keeps non-defaulted keys required", func(ctx SpecContext) {
-		source := `
+	It(
+		"Should derive a generic factory New that partials defaulted fields and keeps non-defaulted keys required",
+		func(ctx SpecContext) {
+			source := `
 			@ts output "client/ts/src/thing"
 
 			Thing struct<Properties extends record = record> {
@@ -57,15 +62,18 @@ var _ = Describe("Derived New from @create", func() {
 				@ts concrete_types
 			}
 		`
-		resp := MustGenerate(ctx, source, "thing", loader, typesPlugin)
-		ExpectContent(resp, "types.gen.ts").ToContain(
-			`optional.Optional<Thing<Properties>, "configured">`,
-		)
-		ExpectContent(resp, "types.gen.ts").ToNotContain("export const newZ")
-	})
+			resp := MustGenerate(ctx, source, "thing", loader, typesPlugin)
+			ExpectContent(resp, "types.gen.ts").ToContain(
+				`optional.Optional<Thing<Properties>, "configured">`,
+			)
+			ExpectContent(resp, "types.gen.ts").ToNotContain("export const newZ")
+		},
+	)
 
-	It("Should re-project a conditional type-param field as z.input in the New", func(ctx SpecContext) {
-		source := `
+	It(
+		"Should re-project a conditional type-param field as z.input in the New",
+		func(ctx SpecContext) {
+			source := `
 			@ts output "client/ts/src/status"
 
 			Variant enum {
@@ -85,21 +93,24 @@ var _ = Describe("Derived New from @create", func() {
 				@create
 			}
 		`
-		resp := MustGenerate(ctx, source, "status", loader, typesPlugin)
-		// The output type keeps z.infer for its conditional field.
-		ExpectContent(resp, "types.gen.ts").ToContain(
-			`} & ([Details] extends [z.ZodNever] ? {} : { details?: z.infer<Details> });`,
-		)
-		// The New strips the field from its optional.Optional base and re-appends it
-		// as a z.input conditional.
-		ExpectContent(resp, "types.gen.ts").ToContain(
-			`export type New<Details extends z.ZodType = z.ZodNever, V extends z.ZodType<Variant> = typeof variantZ> = Omit<optional.Optional<Status<Details, V>, "key" | "name" | "time">, "details"> & ([Details] extends [z.ZodNever] ? {} : { details: z.input<Details> });`,
-		)
-		ExpectContent(resp, "types.gen.ts").ToNotContain("export const newZ")
-	})
+			resp := MustGenerate(ctx, source, "status", loader, typesPlugin)
+			// The output type keeps z.infer for its conditional field.
+			ExpectContent(resp, "types.gen.ts").ToContain(
+				`} & ([Details] extends [z.ZodNever] ? {} : { details?: z.infer<Details> });`,
+			)
+			// The New strips the field from its optional.Optional base and re-appends it
+			// as a z.input conditional.
+			ExpectContent(resp, "types.gen.ts").ToContain(
+				`export type New<Details extends z.ZodType = z.ZodNever, V extends z.ZodType<Variant> = typeof variantZ> = Omit<optional.Optional<Status<Details, V>, "key" | "name" | "time">, "details"> & ([Details] extends [z.ZodNever] ? {} : { details: z.input<Details> });`,
+			)
+			ExpectContent(resp, "types.gen.ts").ToNotContain("export const newZ")
+		},
+	)
 
-	It("Should project a nested @create field to its New with a non-generic details schema", func(ctx SpecContext) {
-		loader.Add("schemas/status", `
+	It(
+		"Should project a nested @create field to its New with a non-generic details schema",
+		func(ctx SpecContext) {
+			loader.Add("schemas/status", `
 			@ts output "client/ts/src/status"
 
 			Status struct<Details?> {
@@ -110,7 +121,7 @@ var _ = Describe("Derived New from @create", func() {
 				@create
 			}
 		`)
-		source := `
+			source := `
 			import "schemas/status"
 
 			@ts output "client/ts/src/device"
@@ -131,15 +142,18 @@ var _ = Describe("Derived New from @create", func() {
 				@create
 			}
 		`
-		resp := MustGenerate(ctx, source, "device", loader, typesPlugin)
-		ExpectContent(resp, "types.gen.ts").ToContain(
-			`export type New<Properties extends z.ZodType<record.Unknown> = z.ZodType<record.Unknown>> = optional.Optional<Omit<Device<Properties>, "status">, "key" | "configured"> & {`,
-			`status?: status.New<typeof deviceStatusDetailsZ>;`,
-		)
-	})
+			resp := MustGenerate(ctx, source, "device", loader, typesPlugin)
+			ExpectContent(resp, "types.gen.ts").ToContain(
+				`export type New<Properties extends z.ZodType<record.Unknown> = z.ZodType<record.Unknown>> = optional.Optional<Omit<Device<Properties>, "status">, "key" | "configured"> & {`,
+				`status?: status.New<typeof deviceStatusDetailsZ>;`,
+			)
+		},
+	)
 
-	It("Should project a nested @create field to its New with a generic details schema", func(ctx SpecContext) {
-		loader.Add("schemas/status", `
+	It(
+		"Should project a nested @create field to its New with a generic details schema",
+		func(ctx SpecContext) {
+			loader.Add("schemas/status", `
 			@ts output "client/ts/src/status"
 
 			Status struct<Details?> {
@@ -150,7 +164,7 @@ var _ = Describe("Derived New from @create", func() {
 				@create
 			}
 		`)
-		source := `
+			source := `
 			import "schemas/status"
 
 			@ts output "client/ts/src/task"
@@ -176,15 +190,18 @@ var _ = Describe("Derived New from @create", func() {
 				@create
 			}
 		`
-		resp := MustGenerate(ctx, source, "task", loader, typesPlugin)
-		ExpectContent(resp, "types.gen.ts").ToContain(
-			`export type New<S extends TaskSchemas = TaskSchemas> = optional.Optional<Omit<Task<S>, "status">, "key"> & {`,
-			`status?: status.New<ReturnType<typeof statusDetailsZ>>;`,
-		)
-	})
+			resp := MustGenerate(ctx, source, "task", loader, typesPlugin)
+			ExpectContent(resp, "types.gen.ts").ToContain(
+				`export type New<S extends TaskSchemas = TaskSchemas> = optional.Optional<Omit<Task<S>, "status">, "key"> & {`,
+				`status?: status.New<ReturnType<typeof statusDetailsZ>>;`,
+			)
+		},
+	)
 
-	It("Should derive a z.input New<Name> alias for a @create union", func(ctx SpecContext) {
-		source := `
+	It(
+		"Should derive a z.input New<Name> alias for a @create union",
+		func(ctx SpecContext) {
+			source := `
 			@ts output "client/ts/src/tab"
 
 			TabBase struct {
@@ -200,19 +217,22 @@ var _ = Describe("Derived New from @create", func() {
 				@create
 			}
 		`
-		resp := MustGenerate(ctx, source, "tab", loader, typesPlugin)
-		ExpectContent(resp, "types.gen.ts").ToContain(
-			"export const tabZ = z.discriminatedUnion(",
-			"export type NewTab = z.input<typeof tabZ>;",
-		)
-		ExpectContent(resp, "types.gen.ts").ToNotContain(
-			"export const newTabZ",
-			"interface NewTab",
-		)
-	})
+			resp := MustGenerate(ctx, source, "tab", loader, typesPlugin)
+			ExpectContent(resp, "types.gen.ts").ToContain(
+				"export const tabZ = z.discriminatedUnion(",
+				"export type NewTab = z.input<typeof tabZ>;",
+			)
+			ExpectContent(resp, "types.gen.ts").ToNotContain(
+				"export const newTabZ",
+				"interface NewTab",
+			)
+		},
+	)
 
-	It("Should derive New under its own name when the base is renamed", func(ctx SpecContext) {
-		source := `
+	It(
+		"Should derive New under its own name when the base is renamed",
+		func(ctx SpecContext) {
+			source := `
 			@ts output "client/ts/src/thing"
 
 			Thing struct {
@@ -223,14 +243,15 @@ var _ = Describe("Derived New from @create", func() {
 				@ts name "Payload"
 			}
 		`
-		resp := MustGenerate(ctx, source, "thing", loader, typesPlugin)
-		// The derived New must emit under its own name (New), referencing the base's
-		// renamed payloadZ schema, not re-emit a renamed payloadZ/Payload (which would
-		// be a duplicate symbol with an empty body).
-		ExpectContent(resp, "types.gen.ts").ToContain(
-			"export const payloadZ = z.object(",
-			`export interface New extends Omit<z.input<typeof payloadZ>, "author"> {}`,
-		)
-		ExpectContent(resp, "types.gen.ts").ToNotContain("export const newZ")
-	})
+			resp := MustGenerate(ctx, source, "thing", loader, typesPlugin)
+			// The derived New must emit under its own name (New), referencing the base's
+			// renamed payloadZ schema, not re-emit a renamed payloadZ/Payload (which would
+			// be a duplicate symbol with an empty body).
+			ExpectContent(resp, "types.gen.ts").ToContain(
+				"export const payloadZ = z.object(",
+				`export interface New extends Omit<z.input<typeof payloadZ>, "author"> {}`,
+			)
+			ExpectContent(resp, "types.gen.ts").ToNotContain("export const newZ")
+		},
+	)
 })

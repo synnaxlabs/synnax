@@ -99,7 +99,11 @@ func collectInput[T antlr.ParserRuleContext](
 			value, err := literal.Parse(acontext.Child(ctx, lit).AST, inputType)
 			if err != nil {
 				ctx.Diagnostics.Add(diagnostics.Error(
-					errors.Wrapf(err, "invalid default value for input parameter %s", inputName),
+					errors.Wrapf(
+						err,
+						"invalid default value for input parameter %s",
+						inputName,
+					),
 					lit,
 				))
 				continue
@@ -108,7 +112,9 @@ func collectInput[T antlr.ParserRuleContext](
 			seenOptional = true
 		} else if seenOptional {
 			ctx.Diagnostics.Add(diagnostics.Errorf(
-				cfg, "required input parameter %s cannot follow optional input parameters", inputName,
+				cfg,
+				"required input parameter %s cannot follow optional input parameters",
+				inputName,
 			))
 			continue
 		}
@@ -142,7 +148,11 @@ func collectInputs(
 			value, err := literal.Parse(acontext.Child(ctx, lit).AST, inputType)
 			if err != nil {
 				ctx.Diagnostics.Add(diagnostics.Error(
-					errors.Wrapf(err, "invalid default value for parameter %s", inputName),
+					errors.Wrapf(
+						err,
+						"invalid default value for parameter %s",
+						inputName,
+					),
 					lit,
 				))
 				continue
@@ -151,7 +161,9 @@ func collectInputs(
 			seenOptional = true
 		} else if seenOptional {
 			ctx.Diagnostics.Add(diagnostics.Errorf(
-				input, "required parameter %s cannot follow optional parameters", inputName,
+				input,
+				"required parameter %s cannot follow optional parameters",
+				inputName,
 			))
 			continue
 		}
@@ -175,7 +187,8 @@ func collectOutputs[T antlr.ParserRuleContext](
 	}
 
 	// Case 1: Single named output without parens (e.g., "result f64")
-	if identifier := outputType.IDENTIFIER(); identifier != nil && outputType.Type_() != nil {
+	if identifier := outputType.IDENTIFIER(); identifier != nil &&
+		outputType.Type_() != nil {
 		outputName := identifier.GetText()
 		outputTypeVal, _ := atypes.InferFromTypeContext(outputType.Type_())
 		*outputs = append(*outputs, types.Param{Name: outputName, Type: outputTypeVal})
@@ -185,7 +198,10 @@ func collectOutputs[T antlr.ParserRuleContext](
 	// Case 2: Unnamed single output (e.g., "f64")
 	if typeCtx := outputType.Type_(); typeCtx != nil {
 		outputTypeVal, _ := atypes.InferFromTypeContext(typeCtx)
-		*outputs = append(*outputs, types.Param{Name: ir.DefaultOutputParam, Type: outputTypeVal})
+		*outputs = append(
+			*outputs,
+			types.Param{Name: ir.DefaultOutputParam, Type: outputTypeVal},
+		)
 		return
 	}
 
@@ -197,7 +213,10 @@ func collectOutputs[T antlr.ParserRuleContext](
 			if typeCtx := namedOutput.Type_(); typeCtx != nil {
 				outputTypeVal, _ = atypes.InferFromTypeContext(typeCtx)
 			}
-			*outputs = append(*outputs, types.Param{Name: outputName, Type: outputTypeVal})
+			*outputs = append(
+				*outputs,
+				types.Param{Name: outputName, Type: outputTypeVal},
+			)
 		}
 	}
 }
@@ -231,7 +250,8 @@ func Analyze(ctx acontext.Context[parser.IFunctionDeclarationContext]) {
 			))
 		}
 		for _, output := range fn.Type.Outputs {
-			if output.Name != ir.DefaultOutputParam && !checkOutputAssignedInBlock(block, output.Name) {
+			if output.Name != ir.DefaultOutputParam &&
+				!checkOutputAssignedInBlock(block, output.Name) {
 				ctx.Diagnostics.Add(diagnostics.Warningf(ctx.AST,
 					"output '%s' is never assigned in function '%s'",
 					output.Name,
@@ -254,7 +274,8 @@ func addOutputsToScope[T antlr.ParserRuleContext](
 	}
 
 	// Case 1: Single named output without parens (e.g., "result f64")
-	if identifier := outputType.IDENTIFIER(); identifier != nil && outputType.Type_() != nil {
+	if identifier := outputType.IDENTIFIER(); identifier != nil &&
+		outputType.Type_() != nil {
 		outputName := identifier.GetText()
 		outputTypeVal, _ := atypes.InferFromTypeContext(outputType.Type_())
 		if _, err := scope.Add(ctx, symbol.Symbol{
@@ -310,7 +331,10 @@ func checkOutputAssignedInBlock(block parser.IBlockContext, outputName string) b
 	return false
 }
 
-func checkOutputAssignedInIfStmt(ifStmt parser.IIfStatementContext, outputName string) bool {
+func checkOutputAssignedInIfStmt(
+	ifStmt parser.IIfStatementContext,
+	outputName string,
+) bool {
 	if checkOutputAssignedInBlock(ifStmt.Block(), outputName) {
 		return true
 	}
@@ -346,7 +370,11 @@ func addInputsToScope(
 			value, err := literal.Parse(acontext.Child(ctx, lit).AST, inputType)
 			if err != nil {
 				ctx.Diagnostics.Add(diagnostics.Error(
-					errors.Wrapf(err, "invalid default value for parameter %s", inputName),
+					errors.Wrapf(
+						err,
+						"invalid default value for parameter %s",
+						inputName,
+					),
 					lit,
 				))
 			} else {
@@ -375,7 +403,8 @@ func BlockAlwaysReturns(block parser.IBlockContext) bool {
 		if statement.ReturnStatement() != nil {
 			return true
 		}
-		if ifStmt := statement.IfStatement(); ifStmt != nil && IfStmtAlwaysReturns(ifStmt) {
+		if ifStmt := statement.IfStatement(); ifStmt != nil &&
+			IfStmtAlwaysReturns(ifStmt) {
 			return true
 		}
 	}
@@ -416,7 +445,11 @@ func addInputToScope[T antlr.ParserRuleContext](
 			value, err := literal.Parse(acontext.Child(ctx, lit).AST, inputType)
 			if err != nil {
 				ctx.Diagnostics.Add(diagnostics.Error(
-					errors.Wrapf(err, "invalid default value for input parameter %s", inputName),
+					errors.Wrapf(
+						err,
+						"invalid default value for input parameter %s",
+						inputName,
+					),
 					lit,
 				))
 			} else {

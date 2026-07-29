@@ -19,14 +19,19 @@ import (
 
 var _ = Describe("Storage", func() {
 	ShouldNotLeakGoroutinesPerSpec()
-	DescribeTable("Name", func(ctx SpecContext, cfg ...storage.LayerConfig) {
-		b := mock.NewCluster(cfg...)
-		store := b.Provision(ctx)
-		Expect(store).NotTo(BeNil())
-		Expect(store.KV.Set(ctx, []byte("foo"), []byte("bar"))).To(Succeed())
-		Expect(b.Close()).To(Succeed())
-	},
+	DescribeTable(
+		"Name",
+		func(ctx SpecContext, cfg ...storage.LayerConfig) {
+			b := mock.NewCluster(cfg...)
+			store := b.Provision(ctx)
+			Expect(store).NotTo(BeNil())
+			Expect(store.KV.Set(ctx, []byte("foo"), []byte("bar"))).To(Succeed())
+			Expect(b.Close()).To(Succeed())
+		},
 		Entry("Memory-backed storage implementation"),
-		Entry("FS-backed storage implementation", storage.LayerConfig{InMemory: new(false), Dirname: "./tmp"}),
+		Entry(
+			"FS-backed storage implementation",
+			storage.LayerConfig{InMemory: new(false), Dirname: "./tmp"},
+		),
 	)
 })

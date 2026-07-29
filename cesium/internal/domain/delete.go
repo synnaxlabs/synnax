@@ -114,7 +114,11 @@ func (db *DB) Delete(
 	if exact {
 		end = db.idx.mu.pointers[endDomain]
 		db.idx.mu.RUnlock()
-		if endOffset, tr.End, err = calculateEndOffset(ctx, end.Start, tr.End); err != nil {
+		if endOffset, tr.End, err = calculateEndOffset(
+			ctx,
+			end.Start,
+			tr.End,
+		); err != nil {
 			return err
 		}
 		endOffset = telem.Size(end.size) - endOffset
@@ -161,7 +165,9 @@ func (db *DB) Delete(
 	}
 
 	// Remove old pointers.
-	db.idx.mu.pointers = append(db.idx.mu.pointers[:startDomain], db.idx.mu.pointers[endDomain+1:]...)
+	db.idx.mu.pointers = append(
+		db.idx.mu.pointers[:startDomain],
+		db.idx.mu.pointers[endDomain+1:]...)
 
 	if startOffset != 0 {
 		newPointers = append(newPointers, pointer{
@@ -381,7 +387,10 @@ func (db *DB) garbageCollectFile(key uint16, size int64) error {
 		defer db.idx.mu.Unlock()
 		for i, ptr := range db.idx.mu.pointers {
 			if ptr.fileKey == key {
-				if deltaOffset, ok := resolvePointerOffset(ptr.TimeRange, offsetDeltaMap); ok {
+				if deltaOffset, ok := resolvePointerOffset(
+					ptr.TimeRange,
+					offsetDeltaMap,
+				); ok {
 					db.idx.mu.pointers[i].offset = ptr.offset - deltaOffset
 				}
 			}
@@ -439,7 +448,11 @@ func validateDelete(
 		*endOffset = 0
 	}
 
-	startPtrLen, endPtrLen := telem.Size(idx.mu.pointers[startPosition].size), telem.Size(idx.mu.pointers[endPosition].size)
+	startPtrLen, endPtrLen := telem.Size(
+		idx.mu.pointers[startPosition].size,
+	), telem.Size(
+		idx.mu.pointers[endPosition].size,
+	)
 	if *startOffset > startPtrLen {
 		*startOffset = startPtrLen
 	}

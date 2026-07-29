@@ -42,7 +42,9 @@ var _ = Describe("CppFormatter", func() {
 
 	Describe("FormatGeneric", func() {
 		It("Should format generic types with angle brackets", func() {
-			Expect(f.FormatGeneric("Container", []string{"int", "string"})).To(Equal("Container<int, string>"))
+			Expect(
+				f.FormatGeneric("Container", []string{"int", "string"}),
+			).To(Equal("Container<int, string>"))
 		})
 
 		It("Should return base name when no type args", func() {
@@ -58,7 +60,9 @@ var _ = Describe("CppFormatter", func() {
 
 	Describe("FormatMap", func() {
 		It("Should format as std::unordered_map", func() {
-			Expect(f.FormatMap("string", "int")).To(Equal("std::unordered_map<string, int>"))
+			Expect(
+				f.FormatMap("string", "int"),
+			).To(Equal("std::unordered_map<string, int>"))
 		})
 	})
 
@@ -78,7 +82,10 @@ var _ = Describe("CppImportResolver", func() {
 
 	Describe("ResolveImport", func() {
 		It("Should return include path with file pattern", func() {
-			importPath, qualifier, shouldImport := r.ResolveImport("client/cpp/user", nil)
+			importPath, qualifier, shouldImport := r.ResolveImport(
+				"client/cpp/user",
+				nil,
+			)
 			Expect(importPath).To(Equal("client/cpp/user/types.gen.h"))
 			Expect(qualifier).To(Equal(""))
 			Expect(shouldImport).To(BeTrue())
@@ -265,7 +272,9 @@ var _ = Describe("C++ Types Plugin", func() {
 			content := string(resp.Files[0].Content)
 			// A trailing `?` makes the field optional, wrapped in std::optional.
 			Expect(content).To(ContainSubstring(`#include <optional>`))
-			Expect(content).To(ContainSubstring(`std::optional<std::uint32_t> task_counter;`))
+			Expect(
+				content,
+			).To(ContainSubstring(`std::optional<std::uint32_t> task_counter;`))
 			Expect(content).To(ContainSubstring(`std::optional<bool> embedded;`))
 		})
 
@@ -339,7 +348,9 @@ var _ = Describe("C++ Types Plugin", func() {
 
 			content := string(resp.Files[0].Content)
 			// A trailing `?` wraps the vector in std::optional.
-			Expect(content).To(ContainSubstring(`std::optional<std::vector<std::string>> tags;`))
+			Expect(
+				content,
+			).To(ContainSubstring(`std::optional<std::vector<std::string>> tags;`))
 		})
 
 		It("Should wrap optional arrays with std::optional", func(ctx SpecContext) {
@@ -362,7 +373,9 @@ var _ = Describe("C++ Types Plugin", func() {
 
 			content := string(resp.Files[0].Content)
 			// Optional array wraps the vector with std::optional
-			Expect(content).To(ContainSubstring(`std::optional<std::vector<std::string>> tags;`))
+			Expect(
+				content,
+			).To(ContainSubstring(`std::optional<std::vector<std::string>> tags;`))
 		})
 
 		It("Should handle record type", func(ctx SpecContext) {
@@ -408,11 +421,15 @@ var _ = Describe("C++ Types Plugin", func() {
 
 			content := string(resp.Files[0].Content)
 			Expect(content).To(ContainSubstring(`#include <unordered_map>`))
-			Expect(content).To(ContainSubstring(`std::unordered_map<std::string, std::string> metadata;`))
+			Expect(
+				content,
+			).To(ContainSubstring(`std::unordered_map<std::string, std::string> metadata;`))
 		})
 
-		It("Should handle struct extension with field flattening", func(ctx SpecContext) {
-			source := `
+		It(
+			"Should handle struct extension with field flattening",
+			func(ctx SpecContext) {
+				source := `
 				@cpp output "client/cpp/rack"
 
 				Rack struct {
@@ -426,23 +443,26 @@ var _ = Describe("C++ Types Plugin", func() {
 					-task_counter
 				}
 			`
-			table, diag := analyzer.AnalyzeSource(ctx, source, "rack", loader)
-			Expect(diag.Ok()).To(BeTrue())
+				table, diag := analyzer.AnalyzeSource(ctx, source, "rack", loader)
+				Expect(diag.Ok()).To(BeTrue())
 
-			req := &plugin.Request{
-				Resolutions: table,
-			}
+				req := &plugin.Request{
+					Resolutions: table,
+				}
 
-			resp := MustSucceed(cppPlugin.Generate(req))
+				resp := MustSucceed(cppPlugin.Generate(req))
 
-			content := string(resp.Files[0].Content)
-			// New struct should have flattened fields with key optional and task_counter omitted
-			Expect(content).To(ContainSubstring(`struct New {`))
-			Expect(content).To(ContainSubstring(`std::optional<std::uint32_t> key;`))
-			Expect(content).To(ContainSubstring(`std::string name;`))
-			// task_counter should be omitted from New
-			Expect(content).NotTo(MatchRegexp(`struct New \{[^}]*task_counter`))
-		})
+				content := string(resp.Files[0].Content)
+				// New struct should have flattened fields with key optional and task_counter omitted
+				Expect(content).To(ContainSubstring(`struct New {`))
+				Expect(
+					content,
+				).To(ContainSubstring(`std::optional<std::uint32_t> key;`))
+				Expect(content).To(ContainSubstring(`std::string name;`))
+				// task_counter should be omitted from New
+				Expect(content).NotTo(MatchRegexp(`struct New \{[^}]*task_counter`))
+			},
+		)
 
 		It("Should handle @cpp name override", func(ctx SpecContext) {
 			source := `
@@ -497,8 +517,10 @@ var _ = Describe("C++ Types Plugin", func() {
 			Expect(content).NotTo(ContainSubstring(`bool virtual`))
 		})
 
-		It("Should automatically escape C++ reserved keyword field names", func(ctx SpecContext) {
-			source := `
+		It(
+			"Should automatically escape C++ reserved keyword field names",
+			func(ctx SpecContext) {
+				source := `
 				@cpp output "arc/cpp/ir"
 
 				Authorities struct {
@@ -506,19 +528,22 @@ var _ = Describe("C++ Types Plugin", func() {
 					channels Map<uint32, uint8>
 				}
 			`
-			table, diag := analyzer.AnalyzeSource(ctx, source, "ir", loader)
-			Expect(diag.Ok()).To(BeTrue())
+				table, diag := analyzer.AnalyzeSource(ctx, source, "ir", loader)
+				Expect(diag.Ok()).To(BeTrue())
 
-			req := &plugin.Request{
-				Resolutions: table,
-			}
+				req := &plugin.Request{
+					Resolutions: table,
+				}
 
-			resp := MustSucceed(cppPlugin.Generate(req))
+				resp := MustSucceed(cppPlugin.Generate(req))
 
-			content := string(resp.Files[0].Content)
-			Expect(content).To(ContainSubstring(`default_`))
-			Expect(content).NotTo(MatchRegexp(`\bstd::optional<std::uint8_t> default[^_]`))
-		})
+				content := string(resp.Files[0].Content)
+				Expect(content).To(ContainSubstring(`default_`))
+				Expect(
+					content,
+				).NotTo(MatchRegexp(`\bstd::optional<std::uint8_t> default[^_]`))
+			},
+		)
 
 		It("Should handle @cpp hand", func(ctx SpecContext) {
 			source := `
@@ -573,8 +598,10 @@ var _ = Describe("C++ Types Plugin", func() {
 			Expect(content).To(ContainSubstring(`D details;`))
 		})
 
-		It("Should generate generic struct with type parameter field", func(ctx SpecContext) {
-			source := `
+		It(
+			"Should generate generic struct with type parameter field",
+			func(ctx SpecContext) {
+				source := `
 				@cpp output "client/cpp/status"
 
 				Status struct<D> {
@@ -582,24 +609,27 @@ var _ = Describe("C++ Types Plugin", func() {
 					details D
 				}
 			`
-			table, diag := analyzer.AnalyzeSource(ctx, source, "status", loader)
-			Expect(diag.Ok()).To(BeTrue())
+				table, diag := analyzer.AnalyzeSource(ctx, source, "status", loader)
+				Expect(diag.Ok()).To(BeTrue())
 
-			req := &plugin.Request{
-				Resolutions: table,
-			}
+				req := &plugin.Request{
+					Resolutions: table,
+				}
 
-			resp := MustSucceed(cppPlugin.Generate(req))
+				resp := MustSucceed(cppPlugin.Generate(req))
 
-			content := string(resp.Files[0].Content)
-			Expect(content).To(ContainSubstring(`template <typename D>`))
-			Expect(content).To(ContainSubstring(`struct Status {`))
-			Expect(content).To(ContainSubstring(`D details;`))
-			Expect(content).To(ContainSubstring(`#include <type_traits>`))
-		})
+				content := string(resp.Files[0].Content)
+				Expect(content).To(ContainSubstring(`template <typename D>`))
+				Expect(content).To(ContainSubstring(`struct Status {`))
+				Expect(content).To(ContainSubstring(`D details;`))
+				Expect(content).To(ContainSubstring(`#include <type_traits>`))
+			},
+		)
 
-		It("Should generate method declarations for generic struct", func(ctx SpecContext) {
-			source := `
+		It(
+			"Should generate method declarations for generic struct",
+			func(ctx SpecContext) {
+				source := `
 				@cpp output "client/cpp/status"
 
 				Status struct<D> {
@@ -607,19 +637,24 @@ var _ = Describe("C++ Types Plugin", func() {
 					details D
 				}
 			`
-			table, diag := analyzer.AnalyzeSource(ctx, source, "status", loader)
-			Expect(diag.Ok()).To(BeTrue())
+				table, diag := analyzer.AnalyzeSource(ctx, source, "status", loader)
+				Expect(diag.Ok()).To(BeTrue())
 
-			req := &plugin.Request{
-				Resolutions: table,
-			}
+				req := &plugin.Request{
+					Resolutions: table,
+				}
 
-			resp := MustSucceed(cppPlugin.Generate(req))
+				resp := MustSucceed(cppPlugin.Generate(req))
 
-			content := string(resp.Files[0].Content)
-			Expect(content).To(ContainSubstring(`static Status parse(x::json::Parser parser);`))
-			Expect(content).To(ContainSubstring(`[[nodiscard]] x::json::json to_json() const;`))
-		})
+				content := string(resp.Files[0].Content)
+				Expect(
+					content,
+				).To(ContainSubstring(`static Status parse(x::json::Parser parser);`))
+				Expect(
+					content,
+				).To(ContainSubstring(`[[nodiscard]] x::json::json to_json() const;`))
+			},
+		)
 
 		It("Should handle optional generic fields", func(ctx SpecContext) {
 			source := `
@@ -706,7 +741,9 @@ var _ = Describe("C++ Types Plugin", func() {
 			resp := MustSucceed(cppPlugin.Generate(req))
 
 			content := string(resp.Files[0].Content)
-			Expect(content).To(ContainSubstring(`template <typename Details = std::monostate>`))
+			Expect(
+				content,
+			).To(ContainSubstring(`template <typename Details = std::monostate>`))
 			Expect(content).To(ContainSubstring(`struct Status {`))
 			Expect(content).To(ContainSubstring(`#include <type_traits>`))
 		})
@@ -778,12 +815,16 @@ var _ = Describe("C++ Types Plugin", func() {
 
 			content := string(resp.Files[0].Content)
 			// Array distinct types should generate wrapper structs, not using aliases
-			Expect(content).To(ContainSubstring(`struct Params : private std::vector<Param>`))
+			Expect(
+				content,
+			).To(ContainSubstring(`struct Params : private std::vector<Param>`))
 			Expect(content).NotTo(ContainSubstring(`using Params = void;`))
 		})
 
-		It("Should handle array wrapper of structs used in other structs", func(ctx SpecContext) {
-			source := `
+		It(
+			"Should handle array wrapper of structs used in other structs",
+			func(ctx SpecContext) {
+				source := `
 				@cpp output "client/cpp/types"
 
 				Param struct {
@@ -798,24 +839,29 @@ var _ = Describe("C++ Types Plugin", func() {
 					outputs Params
 				}
 			`
-			table, diag := analyzer.AnalyzeSource(ctx, source, "types", loader)
-			Expect(diag.Ok()).To(BeTrue())
+				table, diag := analyzer.AnalyzeSource(ctx, source, "types", loader)
+				Expect(diag.Ok()).To(BeTrue())
 
-			req := &plugin.Request{
-				Resolutions: table,
-			}
+				req := &plugin.Request{
+					Resolutions: table,
+				}
 
-			resp := MustSucceed(cppPlugin.Generate(req))
+				resp := MustSucceed(cppPlugin.Generate(req))
 
-			content := string(resp.Files[0].Content)
-			// Array distinct types should generate wrapper structs
-			Expect(content).To(ContainSubstring(`struct Params : private std::vector<Param>`))
-			Expect(content).To(ContainSubstring(`Params inputs;`))
-			Expect(content).To(ContainSubstring(`Params outputs;`))
-		})
+				content := string(resp.Files[0].Content)
+				// Array distinct types should generate wrapper structs
+				Expect(
+					content,
+				).To(ContainSubstring(`struct Params : private std::vector<Param>`))
+				Expect(content).To(ContainSubstring(`Params inputs;`))
+				Expect(content).To(ContainSubstring(`Params outputs;`))
+			},
+		)
 
-		It("Should order array wrapper after its dependency struct", func(ctx SpecContext) {
-			source := `
+		It(
+			"Should order array wrapper after its dependency struct",
+			func(ctx SpecContext) {
+				source := `
 				@cpp output "client/cpp/types"
 
 				Param struct {
@@ -825,25 +871,28 @@ var _ = Describe("C++ Types Plugin", func() {
 
 				Params Param[]
 			`
-			table, diag := analyzer.AnalyzeSource(ctx, source, "types", loader)
-			Expect(diag.Ok()).To(BeTrue())
+				table, diag := analyzer.AnalyzeSource(ctx, source, "types", loader)
+				Expect(diag.Ok()).To(BeTrue())
 
-			req := &plugin.Request{
-				Resolutions: table,
-			}
+				req := &plugin.Request{
+					Resolutions: table,
+				}
 
-			resp := MustSucceed(cppPlugin.Generate(req))
+				resp := MustSucceed(cppPlugin.Generate(req))
 
-			content := string(resp.Files[0].Content)
-			// Param struct definition must appear before Params wrapper
-			paramDefIdx := strings.Index(content, "struct Param {")
-			paramsIdx := strings.Index(content, "struct Params : private")
-			Expect(paramDefIdx).To(BeNumerically("<", paramsIdx),
-				"Param struct definition should be declared before Params wrapper")
-		})
+				content := string(resp.Files[0].Content)
+				// Param struct definition must appear before Params wrapper
+				paramDefIdx := strings.Index(content, "struct Param {")
+				paramsIdx := strings.Index(content, "struct Params : private")
+				Expect(paramDefIdx).To(BeNumerically("<", paramsIdx),
+					"Param struct definition should be declared before Params wrapper")
+			},
+		)
 
-		It("Should generate forward declarations for structs before array wrappers", func(ctx SpecContext) {
-			source := `
+		It(
+			"Should generate forward declarations for structs before array wrappers",
+			func(ctx SpecContext) {
+				source := `
 				@cpp output "client/cpp/types"
 
 				Param struct {
@@ -853,26 +902,31 @@ var _ = Describe("C++ Types Plugin", func() {
 
 				Params Param[]
 			`
-			table, diag := analyzer.AnalyzeSource(ctx, source, "types", loader)
-			Expect(diag.Ok()).To(BeTrue())
+				table, diag := analyzer.AnalyzeSource(ctx, source, "types", loader)
+				Expect(diag.Ok()).To(BeTrue())
 
-			req := &plugin.Request{
-				Resolutions: table,
-			}
+				req := &plugin.Request{
+					Resolutions: table,
+				}
 
-			resp := MustSucceed(cppPlugin.Generate(req))
+				resp := MustSucceed(cppPlugin.Generate(req))
 
-			content := string(resp.Files[0].Content)
-			// Forward declaration must appear before array wrapper
-			fwdDeclIdx := strings.Index(content, "struct Param;")
-			wrapperIdx := strings.Index(content, "struct Params : private")
-			Expect(fwdDeclIdx).To(BeNumerically(">", -1), "Forward declaration should exist")
-			Expect(fwdDeclIdx).To(BeNumerically("<", wrapperIdx),
-				"Forward declaration should appear before array wrapper")
-		})
+				content := string(resp.Files[0].Content)
+				// Forward declaration must appear before array wrapper
+				fwdDeclIdx := strings.Index(content, "struct Param;")
+				wrapperIdx := strings.Index(content, "struct Params : private")
+				Expect(
+					fwdDeclIdx,
+				).To(BeNumerically(">", -1), "Forward declaration should exist")
+				Expect(fwdDeclIdx).To(BeNumerically("<", wrapperIdx),
+					"Forward declaration should appear before array wrapper")
+			},
+		)
 
-		It("Should handle cyclic dependencies with forward declarations", func(ctx SpecContext) {
-			source := `
+		It(
+			"Should handle cyclic dependencies with forward declarations",
+			func(ctx SpecContext) {
+				source := `
 				@cpp output "client/cpp/types"
 
 				FunctionProperties struct {
@@ -890,26 +944,31 @@ var _ = Describe("C++ Types Plugin", func() {
 
 				Params Param[]
 			`
-			table, diag := analyzer.AnalyzeSource(ctx, source, "types", loader)
-			Expect(diag.Ok()).To(BeTrue())
+				table, diag := analyzer.AnalyzeSource(ctx, source, "types", loader)
+				Expect(diag.Ok()).To(BeTrue())
 
-			req := &plugin.Request{
-				Resolutions: table,
-			}
+				req := &plugin.Request{
+					Resolutions: table,
+				}
 
-			resp := MustSucceed(cppPlugin.Generate(req))
+				resp := MustSucceed(cppPlugin.Generate(req))
 
-			content := string(resp.Files[0].Content)
-			// All structs should have forward declarations
-			Expect(content).To(ContainSubstring("struct FunctionProperties;"))
-			Expect(content).To(ContainSubstring("struct Type;"))
-			Expect(content).To(ContainSubstring("struct Param;"))
-			// Array wrapper should generate a struct, not a using alias
-			Expect(content).To(ContainSubstring("struct Params : private std::vector<Param>"))
-		})
+				content := string(resp.Files[0].Content)
+				// All structs should have forward declarations
+				Expect(content).To(ContainSubstring("struct FunctionProperties;"))
+				Expect(content).To(ContainSubstring("struct Type;"))
+				Expect(content).To(ContainSubstring("struct Param;"))
+				// Array wrapper should generate a struct, not a using alias
+				Expect(
+					content,
+				).To(ContainSubstring("struct Params : private std::vector<Param>"))
+			},
+		)
 
-		It("Should handle int enums with uint8_t underlying type", func(ctx SpecContext) {
-			source := `
+		It(
+			"Should handle int enums with uint8_t underlying type",
+			func(ctx SpecContext) {
+				source := `
 				@cpp output "client/cpp/status"
 
 				Variant enum {
@@ -922,24 +981,29 @@ var _ = Describe("C++ Types Plugin", func() {
 					variant Variant
 				}
 			`
-			table, diag := analyzer.AnalyzeSource(ctx, source, "status", loader)
-			Expect(diag.Ok()).To(BeTrue())
+				table, diag := analyzer.AnalyzeSource(ctx, source, "status", loader)
+				Expect(diag.Ok()).To(BeTrue())
 
-			req := &plugin.Request{
-				Resolutions: table,
-			}
+				req := &plugin.Request{
+					Resolutions: table,
+				}
 
-			resp := MustSucceed(cppPlugin.Generate(req))
+				resp := MustSucceed(cppPlugin.Generate(req))
 
-			content := string(resp.Files[0].Content)
-			Expect(content).To(ContainSubstring(`enum class Variant : std::uint8_t {`))
-			Expect(content).To(ContainSubstring(`Success = 0,`))
-			Expect(content).To(ContainSubstring(`Error = 1,`))
-			Expect(content).To(ContainSubstring(`Warning = 2,`))
-		})
+				content := string(resp.Files[0].Content)
+				Expect(
+					content,
+				).To(ContainSubstring(`enum class Variant : std::uint8_t {`))
+				Expect(content).To(ContainSubstring(`Success = 0,`))
+				Expect(content).To(ContainSubstring(`Error = 1,`))
+				Expect(content).To(ContainSubstring(`Warning = 2,`))
+			},
+		)
 
-		It("Should emit an extending enum as the union of its parents", func(ctx SpecContext) {
-			source := `
+		It(
+			"Should emit an extending enum as the union of its parents",
+			func(ctx SpecContext) {
+				source := `
 				@cpp output "client/cpp/lineplot"
 
 				XAxisKey enum {
@@ -958,17 +1022,22 @@ var _ = Describe("C++ Types Plugin", func() {
 					axis_key AxisKey
 				}
 			`
-			table, diag := analyzer.AnalyzeSource(ctx, source, "lineplot", loader)
-			Expect(diag.Ok()).To(BeTrue())
+				table, diag := analyzer.AnalyzeSource(ctx, source, "lineplot", loader)
+				Expect(diag.Ok()).To(BeTrue())
 
-			resp := MustSucceed(cppPlugin.Generate(&plugin.Request{Resolutions: table}))
-			content := string(resp.Files[0].Content)
-			Expect(content).To(ContainSubstring(`AXIS_KEY_X_1 = "x1";`))
-			Expect(content).To(ContainSubstring(`AXIS_KEY_Y_2 = "y2";`))
-		})
+				resp := MustSucceed(
+					cppPlugin.Generate(&plugin.Request{Resolutions: table}),
+				)
+				content := string(resp.Files[0].Content)
+				Expect(content).To(ContainSubstring(`AXIS_KEY_X_1 = "x1";`))
+				Expect(content).To(ContainSubstring(`AXIS_KEY_Y_2 = "y2";`))
+			},
+		)
 
-		It("Should use indirect for self-referential optional fields", func(ctx SpecContext) {
-			source := `
+		It(
+			"Should use indirect for self-referential optional fields",
+			func(ctx SpecContext) {
+				source := `
 				@cpp output "client/cpp/types"
 
 				Node struct {
@@ -977,26 +1046,29 @@ var _ = Describe("C++ Types Plugin", func() {
 					right Node?
 				}
 			`
-			table, diag := analyzer.AnalyzeSource(ctx, source, "types", loader)
-			Expect(diag.Ok()).To(BeTrue())
+				table, diag := analyzer.AnalyzeSource(ctx, source, "types", loader)
+				Expect(diag.Ok()).To(BeTrue())
 
-			req := &plugin.Request{
-				Resolutions: table,
-			}
+				req := &plugin.Request{
+					Resolutions: table,
+				}
 
-			resp := MustSucceed(cppPlugin.Generate(req))
+				resp := MustSucceed(cppPlugin.Generate(req))
 
-			content := string(resp.Files[0].Content)
-			// Self-referential fields should use x::mem::indirect, not optional
-			Expect(content).To(ContainSubstring(`x::mem::indirect<Node> left;`))
-			Expect(content).To(ContainSubstring(`x::mem::indirect<Node> right;`))
-			Expect(content).To(ContainSubstring(`#include "x/cpp/mem/indirect.h"`))
-			// Should NOT use std::optional for self-referential types
-			Expect(content).NotTo(ContainSubstring(`std::optional<Node>`))
-		})
+				content := string(resp.Files[0].Content)
+				// Self-referential fields should use x::mem::indirect, not optional
+				Expect(content).To(ContainSubstring(`x::mem::indirect<Node> left;`))
+				Expect(content).To(ContainSubstring(`x::mem::indirect<Node> right;`))
+				Expect(content).To(ContainSubstring(`#include "x/cpp/mem/indirect.h"`))
+				// Should NOT use std::optional for self-referential types
+				Expect(content).NotTo(ContainSubstring(`std::optional<Node>`))
+			},
+		)
 
-		It("Should use indirect for mutually recursive optional fields", func(ctx SpecContext) {
-			source := `
+		It(
+			"Should use indirect for mutually recursive optional fields",
+			func(ctx SpecContext) {
+				source := `
 				@cpp output "client/cpp/types"
 
 				A struct {
@@ -1006,20 +1078,23 @@ var _ = Describe("C++ Types Plugin", func() {
 					a A?
 				}
 			`
-			resp := MustGenerate(ctx, source, "types", loader, cppPlugin)
-			ExpectContent(resp, "types.gen.h").
-				ToContain(
-					`x::mem::indirect<B> b;`,
-					`x::mem::indirect<A> a;`,
-				).
-				ToNotContain(
-					`std::optional<A>`,
-					`std::optional<B>`,
-				)
-		})
+				resp := MustGenerate(ctx, source, "types", loader, cppPlugin)
+				ExpectContent(resp, "types.gen.h").
+					ToContain(
+						`x::mem::indirect<B> b;`,
+						`x::mem::indirect<A> a;`,
+					).
+					ToNotContain(
+						`std::optional<A>`,
+						`std::optional<B>`,
+					)
+			},
+		)
 
-		It("Should use indirect for cycles through array wrappers", func(ctx SpecContext) {
-			source := `
+		It(
+			"Should use indirect for cycles through array wrappers",
+			func(ctx SpecContext) {
+				source := `
 				@cpp output "client/cpp/types"
 
 				Node struct {
@@ -1030,14 +1105,17 @@ var _ = Describe("C++ Types Plugin", func() {
 					nodes Node[]
 				}
 			`
-			resp := MustGenerate(ctx, source, "types", loader, cppPlugin)
-			ExpectContent(resp, "types.gen.h").
-				ToContain(`x::mem::indirect<Parent> parent;`).
-				ToNotContain(`std::optional<Parent>`)
-		})
+				resp := MustGenerate(ctx, source, "types", loader, cppPlugin)
+				ExpectContent(resp, "types.gen.h").
+					ToContain(`x::mem::indirect<Parent> parent;`).
+					ToNotContain(`std::optional<Parent>`)
+			},
+		)
 
-		It("Should use indirect for cycles through a distinct struct wrapper", func(ctx SpecContext) {
-			source := `
+		It(
+			"Should use indirect for cycles through a distinct struct wrapper",
+			func(ctx SpecContext) {
+				source := `
 				@cpp output "client/cpp/types"
 
 				A struct {
@@ -1048,20 +1126,23 @@ var _ = Describe("C++ Types Plugin", func() {
 				}
 				BWrap B
 			`
-			resp := MustGenerate(ctx, source, "types", loader, cppPlugin)
-			ExpectContent(resp, "types.gen.h").
-				ToContain(
-					`x::mem::indirect<BWrap> b;`,
-					`x::mem::indirect<A> a;`,
-				).
-				ToNotContain(
-					`std::optional<BWrap>`,
-					`std::optional<A>`,
-				)
-		})
+				resp := MustGenerate(ctx, source, "types", loader, cppPlugin)
+				ExpectContent(resp, "types.gen.h").
+					ToContain(
+						`x::mem::indirect<BWrap> b;`,
+						`x::mem::indirect<A> a;`,
+					).
+					ToNotContain(
+						`std::optional<BWrap>`,
+						`std::optional<A>`,
+					)
+			},
+		)
 
-		It("Should use optional for non-self-referential optional fields", func(ctx SpecContext) {
-			source := `
+		It(
+			"Should use optional for non-self-referential optional fields",
+			func(ctx SpecContext) {
+				source := `
 				@cpp output "client/cpp/types"
 
 				Unit struct {
@@ -1074,24 +1155,27 @@ var _ = Describe("C++ Types Plugin", func() {
 					unit Unit?
 				}
 			`
-			table, diag := analyzer.AnalyzeSource(ctx, source, "types", loader)
-			Expect(diag.Ok()).To(BeTrue())
+				table, diag := analyzer.AnalyzeSource(ctx, source, "types", loader)
+				Expect(diag.Ok()).To(BeTrue())
 
-			req := &plugin.Request{
-				Resolutions: table,
-			}
+				req := &plugin.Request{
+					Resolutions: table,
+				}
 
-			resp := MustSucceed(cppPlugin.Generate(req))
+				resp := MustSucceed(cppPlugin.Generate(req))
 
-			content := string(resp.Files[0].Content)
-			// Non-self-referential optional fields should use std::optional
-			Expect(content).To(ContainSubstring(`std::optional<Unit> unit;`))
-			Expect(content).To(ContainSubstring(`#include <optional>`))
-		})
+				content := string(resp.Files[0].Content)
+				// Non-self-referential optional fields should use std::optional
+				Expect(content).To(ContainSubstring(`std::optional<Unit> unit;`))
+				Expect(content).To(ContainSubstring(`#include <optional>`))
+			},
+		)
 
-		It("Should handle cross-namespace references to handwritten types", func(ctx SpecContext) {
-			// First, set up the "status" namespace with an omitted type
-			statusSource := `
+		It(
+			"Should handle cross-namespace references to handwritten types",
+			func(ctx SpecContext) {
+				// First, set up the "status" namespace with an omitted type
+				statusSource := `
 				@cpp hand
 				@cpp include "x/cpp/status/status.h"
 
@@ -1100,10 +1184,10 @@ var _ = Describe("C++ Types Plugin", func() {
 					details D?
 				}
 			`
-			loader.Add("schemas/status", statusSource)
+				loader.Add("schemas/status", statusSource)
 
-			// Then, the "rack" namespace that references it
-			rackSource := `
+				// Then, the "rack" namespace that references it
+				rackSource := `
 				import "schemas/status"
 
 				@cpp output "client/cpp/rack"
@@ -1119,24 +1203,31 @@ var _ = Describe("C++ Types Plugin", func() {
 					status RackStatus?
 				}
 			`
-			table, diag := analyzer.AnalyzeSource(ctx, rackSource, "rack", loader)
-			Expect(diag.Ok()).To(BeTrue())
+				table, diag := analyzer.AnalyzeSource(ctx, rackSource, "rack", loader)
+				Expect(diag.Ok()).To(BeTrue())
 
-			req := &plugin.Request{
-				Resolutions: table,
-			}
+				req := &plugin.Request{
+					Resolutions: table,
+				}
 
-			resp := MustSucceed(cppPlugin.Generate(req))
-			Expect(resp.Files).To(HaveLen(1))
+				resp := MustSucceed(cppPlugin.Generate(req))
+				Expect(resp.Files).To(HaveLen(1))
 
-			content := string(resp.Files[0].Content)
-			Expect(content).To(ContainSubstring(`#include "x/cpp/status/status.h"`))
-			Expect(content).To(ContainSubstring(`using RackStatus = ::status::Status<StatusDetails>;`))
-			Expect(content).To(ContainSubstring(`std::optional<RackStatus> status;`))
-		})
+				content := string(resp.Files[0].Content)
+				Expect(content).To(ContainSubstring(`#include "x/cpp/status/status.h"`))
+				Expect(
+					content,
+				).To(ContainSubstring(`using RackStatus = ::status::Status<StatusDetails>;`))
+				Expect(
+					content,
+				).To(ContainSubstring(`std::optional<RackStatus> status;`))
+			},
+		)
 
-		It("Should not generate files for structs without @cpp output", func(ctx SpecContext) {
-			source := `
+		It(
+			"Should not generate files for structs without @cpp output",
+			func(ctx SpecContext) {
+				source := `
 				@go output "core/pkg/service/user"
 
 				User struct {
@@ -1144,16 +1235,17 @@ var _ = Describe("C++ Types Plugin", func() {
 					name string
 				}
 			`
-			table, diag := analyzer.AnalyzeSource(ctx, source, "user", loader)
-			Expect(diag.Ok()).To(BeTrue())
+				table, diag := analyzer.AnalyzeSource(ctx, source, "user", loader)
+				Expect(diag.Ok()).To(BeTrue())
 
-			req := &plugin.Request{
-				Resolutions: table,
-			}
+				req := &plugin.Request{
+					Resolutions: table,
+				}
 
-			resp := MustSucceed(cppPlugin.Generate(req))
-			Expect(resp.Files).To(BeEmpty())
-		})
+				resp := MustSucceed(cppPlugin.Generate(req))
+				Expect(resp.Files).To(BeEmpty())
+			},
+		)
 
 		Context("declaration and field order", func() {
 			It("Should preserve struct declaration order", func(ctx SpecContext) {
@@ -1222,10 +1314,12 @@ var _ = Describe("C++ Types Plugin", func() {
 		})
 
 		Describe("Namespace-based enum collection", func() {
-			It("Should include standalone enums in the same namespace as structs", func(ctx SpecContext) {
-				// This tests the fix for enums that are not referenced by struct fields
-				// but are in the same namespace and should be generated in the same file.
-				source := `
+			It(
+				"Should include standalone enums in the same namespace as structs",
+				func(ctx SpecContext) {
+					// This tests the fix for enums that are not referenced by struct fields
+					// but are in the same namespace and should be generated in the same file.
+					source := `
 					@cpp output "x/cpp/control"
 
 					Concurrency enum {
@@ -1238,22 +1332,25 @@ var _ = Describe("C++ Types Plugin", func() {
 						name string
 					}
 				`
-				resp := MustGenerate(ctx, source, "control", loader, cppPlugin)
+					resp := MustGenerate(ctx, source, "control", loader, cppPlugin)
 
-				// The Concurrency enum should be generated even though Subject
-				// doesn't reference it - they're in the same namespace
-				ExpectContent(resp, "types.gen.h").
-					ToContain(
-						"namespace x::control {",
-						"enum class Concurrency : std::uint8_t {",
-						"Exclusive = 0,",
-						"Shared = 1,",
-						"struct Subject {",
-					)
-			})
+					// The Concurrency enum should be generated even though Subject
+					// doesn't reference it - they're in the same namespace
+					ExpectContent(resp, "types.gen.h").
+						ToContain(
+							"namespace x::control {",
+							"enum class Concurrency : std::uint8_t {",
+							"Exclusive = 0,",
+							"Shared = 1,",
+							"struct Subject {",
+						)
+				},
+			)
 
-			It("Should include enums inherited from file-level output directive", func(ctx SpecContext) {
-				source := `
+			It(
+				"Should include enums inherited from file-level output directive",
+				func(ctx SpecContext) {
+					source := `
 					@cpp output "x/cpp/status"
 
 					Variant enum {
@@ -1265,20 +1362,23 @@ var _ = Describe("C++ Types Plugin", func() {
 						key uint32
 					}
 				`
-				resp := MustGenerate(ctx, source, "status", loader, cppPlugin)
+					resp := MustGenerate(ctx, source, "status", loader, cppPlugin)
 
-				ExpectContent(resp, "types.gen.h").
-					ToContain(
-						"enum class Variant : std::uint8_t {",
-						"struct Status {",
-					)
-			})
+					ExpectContent(resp, "types.gen.h").
+						ToContain(
+							"enum class Variant : std::uint8_t {",
+							"struct Status {",
+						)
+				},
+			)
 		})
 
 		Describe("Cross-namespace enum references", func() {
-			It("Should use namespace-qualified name for cross-namespace int enums", func(ctx SpecContext) {
-				// First, set up the "control" namespace with the enum
-				controlSource := `
+			It(
+				"Should use namespace-qualified name for cross-namespace int enums",
+				func(ctx SpecContext) {
+					// First, set up the "control" namespace with the enum
+					controlSource := `
 					@cpp output "x/cpp/control"
 
 					Concurrency enum {
@@ -1290,10 +1390,10 @@ var _ = Describe("C++ Types Plugin", func() {
 						key string
 					}
 				`
-				loader.Add("schemas/control", controlSource)
+					loader.Add("schemas/control", controlSource)
 
-				// Then, the "channel" namespace that references it
-				channelSource := `
+					// Then, the "channel" namespace that references it
+					channelSource := `
 					import "schemas/control"
 
 					@cpp output "client/cpp/channel"
@@ -1303,34 +1403,46 @@ var _ = Describe("C++ Types Plugin", func() {
 						concurrency control.Concurrency
 					}
 				`
-				table, diag := analyzer.AnalyzeSource(ctx, channelSource, "channel", loader)
-				Expect(diag.Ok()).To(BeTrue())
+					table, diag := analyzer.AnalyzeSource(
+						ctx,
+						channelSource,
+						"channel",
+						loader,
+					)
+					Expect(diag.Ok()).To(BeTrue())
 
-				req := &plugin.Request{
-					Resolutions: table,
-				}
-
-				resp := MustSucceed(cppPlugin.Generate(req))
-				// Both channel and control files are generated when importing
-				Expect(resp.Files).To(HaveLen(2))
-
-				// Find and check the channel file content
-				var channelContent string
-				for _, f := range resp.Files {
-					if strings.HasSuffix(f.Path, "client/cpp/channel/types.gen.h") {
-						channelContent = string(f.Content)
-						break
+					req := &plugin.Request{
+						Resolutions: table,
 					}
-				}
-				Expect(channelContent).NotTo(BeEmpty())
-				// Should include the control types header
-				Expect(channelContent).To(ContainSubstring(`#include "x/cpp/control/types.gen.h"`))
-				// Should use namespace-qualified enum type
-				Expect(channelContent).To(ContainSubstring(`::x::control::Concurrency concurrency`))
-			})
 
-			It("Should not namespace-qualify enums in the same namespace", func(ctx SpecContext) {
-				source := `
+					resp := MustSucceed(cppPlugin.Generate(req))
+					// Both channel and control files are generated when importing
+					Expect(resp.Files).To(HaveLen(2))
+
+					// Find and check the channel file content
+					var channelContent string
+					for _, f := range resp.Files {
+						if strings.HasSuffix(f.Path, "client/cpp/channel/types.gen.h") {
+							channelContent = string(f.Content)
+							break
+						}
+					}
+					Expect(channelContent).NotTo(BeEmpty())
+					// Should include the control types header
+					Expect(
+						channelContent,
+					).To(ContainSubstring(`#include "x/cpp/control/types.gen.h"`))
+					// Should use namespace-qualified enum type
+					Expect(
+						channelContent,
+					).To(ContainSubstring(`::x::control::Concurrency concurrency`))
+				},
+			)
+
+			It(
+				"Should not namespace-qualify enums in the same namespace",
+				func(ctx SpecContext) {
+					source := `
 					@cpp output "client/cpp/channel"
 
 					Concurrency enum {
@@ -1343,43 +1455,49 @@ var _ = Describe("C++ Types Plugin", func() {
 						concurrency Concurrency
 					}
 				`
-				resp := MustGenerate(ctx, source, "channel", loader, cppPlugin)
+					resp := MustGenerate(ctx, source, "channel", loader, cppPlugin)
 
-				ExpectContent(resp, "types.gen.h").
-					ToContain(
-						"enum class Concurrency : std::uint8_t {",
-						"Concurrency concurrency",
-					).
-					ToNotContain(
-						"::synnax::channel::Concurrency",
-					)
-			})
+					ExpectContent(resp, "types.gen.h").
+						ToContain(
+							"enum class Concurrency : std::uint8_t {",
+							"Concurrency concurrency",
+						).
+						ToNotContain(
+							"::synnax::channel::Concurrency",
+						)
+				},
+			)
 		})
 
 		Describe("Array Wrapper Generation", func() {
-			It("Should generate wrapper struct for array distinct types", func(ctx SpecContext) {
-				source := `
+			It(
+				"Should generate wrapper struct for array distinct types",
+				func(ctx SpecContext) {
+					source := `
 					@cpp output "arc/cpp/types"
 
 					Channels uint32[]
 				`
-				resp := MustGenerate(ctx, source, "types", loader, cppPlugin)
+					resp := MustGenerate(ctx, source, "types", loader, cppPlugin)
 
-				ExpectContent(resp, "types.gen.h").
-					ToContain(
-						"struct Channels : private std::vector<std::uint32_t>",
-						"using Base = std::vector<std::uint32_t>;",
-						"using Base::Base;",
-						"using Base::begin;",
-						"using Base::end;",
-						"using Base::size;",
-						"using Base::push_back;",
-						"using Base::operator[]",
-					)
-			})
+					ExpectContent(resp, "types.gen.h").
+						ToContain(
+							"struct Channels : private std::vector<std::uint32_t>",
+							"using Base = std::vector<std::uint32_t>;",
+							"using Base::Base;",
+							"using Base::begin;",
+							"using Base::end;",
+							"using Base::size;",
+							"using Base::push_back;",
+							"using Base::operator[]",
+						)
+				},
+			)
 
-			It("Should generate wrapper struct for array of structs", func(ctx SpecContext) {
-				source := `
+			It(
+				"Should generate wrapper struct for array of structs",
+				func(ctx SpecContext) {
+					source := `
 					@cpp output "arc/cpp/types"
 
 					Param struct {
@@ -1389,36 +1507,42 @@ var _ = Describe("C++ Types Plugin", func() {
 
 					Params Param[]
 				`
-				resp := MustGenerate(ctx, source, "types", loader, cppPlugin)
+					resp := MustGenerate(ctx, source, "types", loader, cppPlugin)
 
-				ExpectContent(resp, "types.gen.h").
-					ToContain(
-						"struct Params : private std::vector<Param>",
-						"using Base = std::vector<Param>;",
-					)
-			})
+					ExpectContent(resp, "types.gen.h").
+						ToContain(
+							"struct Params : private std::vector<Param>",
+							"using Base = std::vector<Param>;",
+						)
+				},
+			)
 
-			It("Should generate parse/to_json declarations for array wrappers", func(ctx SpecContext) {
-				source := `
+			It(
+				"Should generate parse/to_json declarations for array wrappers",
+				func(ctx SpecContext) {
+					source := `
 					@cpp output "arc/cpp/types"
 
 					Channels uint32[]
 				`
-				resp := MustGenerate(ctx, source, "types", loader, cppPlugin)
+					resp := MustGenerate(ctx, source, "types", loader, cppPlugin)
 
-				ExpectContent(resp, "types.gen.h").
-					ToContain(
-						"static Channels parse(x::json::Parser parser);",
-						"[[nodiscard]] x::json::json to_json() const;",
-					)
-			})
+					ExpectContent(resp, "types.gen.h").
+						ToContain(
+							"static Channels parse(x::json::Parser parser);",
+							"[[nodiscard]] x::json::json to_json() const;",
+						)
+				},
+			)
 
 			// Note: Proto declarations for array wrappers are tested in the pb plugin tests.
 			// The types plugin generates declarations when HasProto is set, which
 			// requires explicit @pb annotations on the type (tested in pb plugin).
 
-			It("Should support @cpp methods for custom methods on array wrappers", func(ctx SpecContext) {
-				source := `
+			It(
+				"Should support @cpp methods for custom methods on array wrappers",
+				func(ctx SpecContext) {
+					source := `
 					@cpp output "arc/cpp/types"
 					@cpp methods "std::optional<Param> get(const std::string& name) const"
 
@@ -1428,32 +1552,38 @@ var _ = Describe("C++ Types Plugin", func() {
 
 					Params Param[]
 				`
-				resp := MustGenerate(ctx, source, "types", loader, cppPlugin)
+					resp := MustGenerate(ctx, source, "types", loader, cppPlugin)
 
-				ExpectContent(resp, "types.gen.h").
-					ToContain(
-						"std::optional<Param> get(const std::string& name) const;",
-					)
-			})
+					ExpectContent(resp, "types.gen.h").
+						ToContain(
+							"std::optional<Param> get(const std::string& name) const;",
+						)
+				},
+			)
 
-			It("Should generate initializer_list constructor for array wrappers", func(ctx SpecContext) {
-				source := `
+			It(
+				"Should generate initializer_list constructor for array wrappers",
+				func(ctx SpecContext) {
+					source := `
 					@cpp output "arc/cpp/types"
 
 					Channels uint32[]
 				`
-				resp := MustGenerate(ctx, source, "types", loader, cppPlugin)
+					resp := MustGenerate(ctx, source, "types", loader, cppPlugin)
 
-				ExpectContent(resp, "types.gen.h").
-					ToContain(
-						"Channels(std::initializer_list<std::uint32_t> init) : Base(init) {}",
-					)
-			})
+					ExpectContent(resp, "types.gen.h").
+						ToContain(
+							"Channels(std::initializer_list<std::uint32_t> init) : Base(init) {}",
+						)
+				},
+			)
 		})
 
 		Context("documentation", func() {
-			It("Should generate doxygen comments from doc domain", func(ctx SpecContext) {
-				source := `
+			It(
+				"Should generate doxygen comments from doc domain",
+				func(ctx SpecContext) {
+					source := `
 					@cpp output "client/cpp/user"
 
 					User struct {
@@ -1470,18 +1600,21 @@ var _ = Describe("C++ Types Plugin", func() {
 						age int32
 					}
 				`
-				resp := MustGenerate(ctx, source, "user", loader, cppPlugin)
+					resp := MustGenerate(ctx, source, "user", loader, cppPlugin)
 
-				ExpectContent(resp, "types.gen.h").
-					ToContain(
-						"/// @brief User is a representation of a user in the system.",
-						"/// @brief key is the unique identifier for the user.",
-						"/// @brief name is the user's display name.",
-					)
-			})
+					ExpectContent(resp, "types.gen.h").
+						ToContain(
+							"/// @brief User is a representation of a user in the system.",
+							"/// @brief key is the unique identifier for the user.",
+							"/// @brief name is the user's display name.",
+						)
+				},
+			)
 
-			It("Should generate doxygen comments for type definitions", func(ctx SpecContext) {
-				source := `
+			It(
+				"Should generate doxygen comments for type definitions",
+				func(ctx SpecContext) {
+					source := `
 					@cpp output "client/cpp/node"
 
 					Key uint12 {
@@ -1492,19 +1625,22 @@ var _ = Describe("C++ Types Plugin", func() {
 						@doc value "is a list of node keys."
 					}
 				`
-				resp := MustGenerate(ctx, source, "node", loader, cppPlugin)
+					resp := MustGenerate(ctx, source, "node", loader, cppPlugin)
 
-				ExpectContent(resp, "types.gen.h").
-					ToContain(
-						"/// @brief Key is a 12-bit unsigned integer identifying a node.\nusing Key = std::uint16_t;",
-						"/// @brief Keys is a list of node keys.\nstruct Keys : private std::vector<Key> {",
-					)
-			})
+					ExpectContent(resp, "types.gen.h").
+						ToContain(
+							"/// @brief Key is a 12-bit unsigned integer identifying a node.\nusing Key = std::uint16_t;",
+							"/// @brief Keys is a list of node keys.\nstruct Keys : private std::vector<Key> {",
+						)
+				},
+			)
 		})
 
 		Context("enum variant defaults", func() {
-			It("Should generate default for same-namespace enum variant", func(ctx SpecContext) {
-				source := `
+			It(
+				"Should generate default for same-namespace enum variant",
+				func(ctx SpecContext) {
+					source := `
 					@cpp output "out"
 					@pb
 
@@ -1517,13 +1653,16 @@ var _ = Describe("C++ Types Plugin", func() {
 						mode Mode = ModeAutomatic
 					}
 				`
-				resp := MustGenerate(ctx, source, "config", loader, cppPlugin)
-				ExpectContent(resp, "types.gen.h").
-					ToContain(`Mode mode = Mode::Automatic`)
-			})
+					resp := MustGenerate(ctx, source, "config", loader, cppPlugin)
+					ExpectContent(resp, "types.gen.h").
+						ToContain(`Mode mode = Mode::Automatic`)
+				},
+			)
 
-			It("Should reference string enum defaults via their generated constants", func(ctx SpecContext) {
-				source := `
+			It(
+				"Should reference string enum defaults via their generated constants",
+				func(ctx SpecContext) {
+					source := `
 					@cpp output "out"
 
 					Units enum {
@@ -1535,14 +1674,17 @@ var _ = Describe("C++ Types Plugin", func() {
 						units Units = volts
 					}
 				`
-				resp := MustGenerate(ctx, source, "config", loader, cppPlugin)
-				content := ExpectContent(resp, "types.gen.h")
-				content.ToContain(`units = UNITS_VOLTS`)
-				content.ToNotContain(`Units::Volts`)
-			})
+					resp := MustGenerate(ctx, source, "config", loader, cppPlugin)
+					content := ExpectContent(resp, "types.gen.h")
+					content.ToContain(`units = UNITS_VOLTS`)
+					content.ToNotContain(`Units::Volts`)
+				},
+			)
 
-			It("Should emit scalar field defaults as member initializers", func(ctx SpecContext) {
-				source := `
+			It(
+				"Should emit scalar field defaults as member initializers",
+				func(ctx SpecContext) {
+					source := `
 					@cpp output "out"
 
 					Config struct {
@@ -1551,17 +1693,20 @@ var _ = Describe("C++ Types Plugin", func() {
 						label       string = "dflt"
 					}
 				`
-				resp := MustGenerate(ctx, source, "config", loader, cppPlugin)
-				ExpectContent(resp, "types.gen.h").
-					ToContain(
-						`bool enabled = false;`,
-						`double sample_rate = 10;`,
-						`std::string label = "dflt";`,
-					)
-			})
+					resp := MustGenerate(ctx, source, "config", loader, cppPlugin)
+					ExpectContent(resp, "types.gen.h").
+						ToContain(
+							`bool enabled = false;`,
+							`double sample_rate = 10;`,
+							`std::string label = "dflt";`,
+						)
+				},
+			)
 
-			It("Should wrap numeric defaults on telem-typed fields in their constructors", func(ctx SpecContext) {
-				loader.Add("schemas/telem", `
+			It(
+				"Should wrap numeric defaults on telem-typed fields in their constructors",
+				func(ctx SpecContext) {
+					loader.Add("schemas/telem", `
 					@cpp output "x/cpp/telem"
 
 					TimeStamp int64 {
@@ -1576,7 +1721,7 @@ var _ = Describe("C++ Types Plugin", func() {
 						@cpp hand
 					}
 				`)
-				source := `
+					source := `
 					import "schemas/telem"
 
 					@cpp output "out"
@@ -1588,25 +1733,28 @@ var _ = Describe("C++ Types Plugin", func() {
 						stream_rate telem.Rate = 2.5
 					}
 				`
-				resp := MustGenerate(ctx, source, "config", loader, cppPlugin)
-				ExpectContent(resp, "out/types.gen.h").
-					ToContain(
-						`duration = x::telem::TimeSpan(0);`,
-						`start = x::telem::TimeStamp(5);`,
-						`sample_rate = x::telem::Rate(10);`,
-						`stream_rate = x::telem::Rate(2.500000);`,
-					)
-			})
+					resp := MustGenerate(ctx, source, "config", loader, cppPlugin)
+					ExpectContent(resp, "out/types.gen.h").
+						ToContain(
+							`duration = x::telem::TimeSpan(0);`,
+							`start = x::telem::TimeStamp(5);`,
+							`sample_rate = x::telem::Rate(10);`,
+							`stream_rate = x::telem::Rate(2.500000);`,
+						)
+				},
+			)
 
-			It("Should map the now sentinel to TimeStamp::now and skip unrenderable sentinels", func(ctx SpecContext) {
-				loader.Add("schemas/telem", `
+			It(
+				"Should map the now sentinel to TimeStamp::now and skip unrenderable sentinels",
+				func(ctx SpecContext) {
+					loader.Add("schemas/telem", `
 					@cpp output "x/cpp/telem"
 
 					TimeStamp int64 {
 						@cpp hand
 					}
 				`)
-				source := `
+					source := `
 					import "schemas/telem"
 
 					@cpp output "out"
@@ -1616,17 +1764,20 @@ var _ = Describe("C++ Types Plugin", func() {
 						time telem.TimeStamp = now
 					}
 				`
-				resp := MustGenerate(ctx, source, "config", loader, cppPlugin)
-				content := ExpectContent(resp, "out/types.gen.h")
-				content.ToContain(
-					`std::string key;`,
-					`time = x::telem::TimeStamp::now();`,
-				)
-				content.ToNotContain(`= create;`, `= now;`)
-			})
+					resp := MustGenerate(ctx, source, "config", loader, cppPlugin)
+					content := ExpectContent(resp, "out/types.gen.h")
+					content.ToContain(
+						`std::string key;`,
+						`time = x::telem::TimeStamp::now();`,
+					)
+					content.ToNotContain(`= create;`, `= now;`)
+				},
+			)
 
-			It("Should generate default for cross-namespace enum variant", func(ctx SpecContext) {
-				loader.Add("schemas/control", `
+			It(
+				"Should generate default for cross-namespace enum variant",
+				func(ctx SpecContext) {
+					loader.Add("schemas/control", `
 					@cpp output "x/cpp/control"
 					@pb
 
@@ -1635,7 +1786,7 @@ var _ = Describe("C++ Types Plugin", func() {
 						shared    = 1
 					}
 				`)
-				source := `
+					source := `
 					import "schemas/control"
 
 					@cpp output "client/cpp/channel"
@@ -1645,10 +1796,11 @@ var _ = Describe("C++ Types Plugin", func() {
 						concurrency control.Concurrency = control.ConcurrencyExclusive
 					}
 				`
-				resp := MustGenerate(ctx, source, "channel", loader, cppPlugin)
-				ExpectContent(resp, "types.gen.h").
-					ToContain(`::x::control::Concurrency concurrency = ::x::control::Concurrency::Exclusive`)
-			})
+					resp := MustGenerate(ctx, source, "channel", loader, cppPlugin)
+					ExpectContent(resp, "types.gen.h").
+						ToContain(`::x::control::Concurrency concurrency = ::x::control::Concurrency::Exclusive`)
+				},
+			)
 
 			It("Should generate brace-init defaults for arrays", func(ctx SpecContext) {
 				source := `
@@ -1665,8 +1817,10 @@ var _ = Describe("C++ Types Plugin", func() {
 				Expect(content).To(ContainSubstring(`vals = {1.500000, 2.500000}`))
 			})
 
-			It("Should generate designated-initializer defaults for structs", func(ctx SpecContext) {
-				source := `
+			It(
+				"Should generate designated-initializer defaults for structs",
+				func(ctx SpecContext) {
+					source := `
 					@cpp output "out"
 
 					Point struct {
@@ -1678,10 +1832,11 @@ var _ = Describe("C++ Types Plugin", func() {
 						p Point = { x = 1, y = 2 }
 					}
 				`
-				resp := MustGenerate(ctx, source, "config", loader, cppPlugin)
-				content := MustContentOf(resp, "types.gen.h")
-				Expect(content).To(ContainSubstring(`p = {.x = 1, .y = 2}`))
-			})
+					resp := MustGenerate(ctx, source, "config", loader, cppPlugin)
+					content := MustContentOf(resp, "types.gen.h")
+					Expect(content).To(ContainSubstring(`p = {.x = 1, .y = 2}`))
+				},
+			)
 		})
 	})
 })
@@ -1697,8 +1852,10 @@ var _ = Describe("C++ Union Generation", func() {
 		cppPlugin = types.New(types.DefaultOptions())
 	})
 
-	It("Should generate variant structs and a std::variant alias", func(ctx SpecContext) {
-		source := `
+	It(
+		"Should generate variant structs and a std::variant alias",
+		func(ctx SpecContext) {
+			source := `
 			@cpp output "out"
 
 			LinearScale struct { slope float64 }
@@ -1711,21 +1868,24 @@ var _ = Describe("C++ Union Generation", func() {
 				@doc value "determines how raw values are transformed."
 			}
 		`
-		resp := MustGenerate(ctx, source, "ni", loader, cppPlugin)
-		ExpectContent(resp, "types.gen.h").
-			ToContain(
-				`struct ScaleLinear : public LinearScale {`,
-				`std::string type = "linear";`,
-				`struct ScaleNone : public NoneScale {`,
-				`std::string type = "none";`,
-				"/// @brief Scale determines how raw values are transformed.\nusing Scale = std::variant<ScaleLinear, ScaleNone>;",
-				`Scale parse_scale(x::json::Parser parser);`,
-				`[[nodiscard]] x::json::json to_json(const Scale& value);`,
-			)
-	})
+			resp := MustGenerate(ctx, source, "ni", loader, cppPlugin)
+			ExpectContent(resp, "types.gen.h").
+				ToContain(
+					`struct ScaleLinear : public LinearScale {`,
+					`std::string type = "linear";`,
+					`struct ScaleNone : public NoneScale {`,
+					`std::string type = "none";`,
+					"/// @brief Scale determines how raw values are transformed.\nusing Scale = std::variant<ScaleLinear, ScaleNone>;",
+					`Scale parse_scale(x::json::Parser parser);`,
+					`[[nodiscard]] x::json::json to_json(const Scale& value);`,
+				)
+		},
+	)
 
-	It("Should declare inline variant fields directly on the variant struct", func(ctx SpecContext) {
-		source := `
+	It(
+		"Should declare inline variant fields directly on the variant struct",
+		func(ctx SpecContext) {
+			source := `
 			@cpp output "out"
 
 			TabBase struct { key string }
@@ -1738,19 +1898,22 @@ var _ = Describe("C++ Union Generation", func() {
 				empty {}
 			}
 		`
-		resp := MustGenerate(ctx, source, "panel", loader, cppPlugin)
-		content := ExpectContent(resp, "types.gen.h")
-		content.ToContain(
-			`struct TabView : public TabBase, public Labeled {`,
-			`std::string type;`,
-			`struct TabEmpty : public TabBase {`,
-			`using Tab = std::variant<TabView, TabEmpty>;`,
-		)
-		content.ToNotContain("TabViewPayload")
-	})
+			resp := MustGenerate(ctx, source, "panel", loader, cppPlugin)
+			content := ExpectContent(resp, "types.gen.h")
+			content.ToContain(
+				`struct TabView : public TabBase, public Labeled {`,
+				`std::string type;`,
+				`struct TabEmpty : public TabBase {`,
+				`using Tab = std::variant<TabView, TabEmpty>;`,
+			)
+			content.ToNotContain("TabViewPayload")
+		},
+	)
 
-	It("Should omit the base list for a variant whose union and payload have no extends", func(ctx SpecContext) {
-		source := `
+	It(
+		"Should omit the base list for a variant whose union and payload have no extends",
+		func(ctx SpecContext) {
+			source := `
 			@cpp output "out"
 
 			Other struct { x int32 }
@@ -1761,14 +1924,17 @@ var _ = Describe("C++ Union Generation", func() {
 				}
 			}
 		`
-		resp := MustGenerate(ctx, source, "ni", loader, cppPlugin)
-		content := ExpectContent(resp, "types.gen.h")
-		content.ToContain(`struct DigitalInputChannel {`)
-		content.ToNotContain(`struct DigitalInputChannel : {`)
-	})
+			resp := MustGenerate(ctx, source, "ni", loader, cppPlugin)
+			content := ExpectContent(resp, "types.gen.h")
+			content.ToContain(`struct DigitalInputChannel {`)
+			content.ToNotContain(`struct DigitalInputChannel : {`)
+		},
+	)
 
-	It("Should inherit the union base and payload in every variant struct, not flatten", func(ctx SpecContext) {
-		source := `
+	It(
+		"Should inherit the union base and payload in every variant struct, not flatten",
+		func(ctx SpecContext) {
+			source := `
 			@cpp output "out"
 
 			BaseAIChan struct { port int32 }
@@ -1778,19 +1944,22 @@ var _ = Describe("C++ Union Generation", func() {
 				ai_voltage VoltageFields
 			}
 		`
-		resp := MustGenerate(ctx, source, "ni", loader, cppPlugin)
-		ExpectContent(resp, "types.gen.h").
-			ToContain(
-				`struct AIVoltageChannel : public BaseAIChan, public VoltageFields {`,
-				`std::string type = "ai_voltage";`,
-				`std::int32_t port = 0;`,
-				`double min_val = 0;`,
-				`using AIChannel = std::variant<AIVoltageChannel>;`,
-			)
-	})
+			resp := MustGenerate(ctx, source, "ni", loader, cppPlugin)
+			ExpectContent(resp, "types.gen.h").
+				ToContain(
+					`struct AIVoltageChannel : public BaseAIChan, public VoltageFields {`,
+					`std::string type = "ai_voltage";`,
+					`std::int32_t port = 0;`,
+					`double min_val = 0;`,
+					`using AIChannel = std::variant<AIVoltageChannel>;`,
+				)
+		},
+	)
 
-	It("Should resolve a union-typed field to the variant alias", func(ctx SpecContext) {
-		source := `
+	It(
+		"Should resolve a union-typed field to the variant alias",
+		func(ctx SpecContext) {
+			source := `
 			@cpp output "out"
 
 			LinearScale struct { slope float64 }
@@ -1805,10 +1974,11 @@ var _ = Describe("C++ Union Generation", func() {
 				customScale Scale
 			}
 		`
-		resp := MustGenerate(ctx, source, "ni", loader, cppPlugin)
-		ExpectContent(resp, "types.gen.h").
-			ToContain(`Scale custom_scale;`)
-	})
+			resp := MustGenerate(ctx, source, "ni", loader, cppPlugin)
+			ExpectContent(resp, "types.gen.h").
+				ToContain(`Scale custom_scale;`)
+		},
+	)
 })
 
 var _ = Describe("C++ Union Variant Doc Coverage", func() {
@@ -1822,8 +1992,10 @@ var _ = Describe("C++ Union Variant Doc Coverage", func() {
 		cppPlugin = types.New(types.DefaultOptions())
 	})
 
-	It("Should resolve a union field from an imported namespace", func(ctx SpecContext) {
-		loader.Add("schemas/scale", `
+	It(
+		"Should resolve a union field from an imported namespace",
+		func(ctx SpecContext) {
+			loader.Add("schemas/scale", `
 			@cpp output "client/cpp/scale"
 
 			LinearScale struct { slope float64 }
@@ -1834,7 +2006,7 @@ var _ = Describe("C++ Union Variant Doc Coverage", func() {
 				none   NoneScale
 			}
 		`)
-		source := `
+			source := `
 			import "schemas/scale"
 
 			@cpp output "client/cpp/ni"
@@ -1843,16 +2015,19 @@ var _ = Describe("C++ Union Variant Doc Coverage", func() {
 				custom_scale scale.Scale
 			}
 		`
-		resp := MustGenerate(ctx, source, "ni", loader, cppPlugin)
-		ExpectContent(resp, "types.gen.h").
-			ToContain(
-				`#include "client/cpp/scale/types.gen.h"`,
-				"::scale::Scale custom_scale;",
-			)
-	})
+			resp := MustGenerate(ctx, source, "ni", loader, cppPlugin)
+			ExpectContent(resp, "types.gen.h").
+				ToContain(
+					`#include "client/cpp/scale/types.gen.h"`,
+					"::scale::Scale custom_scale;",
+				)
+		},
+	)
 
-	It("Should render a per-variant doc comment on the variant struct", func(ctx SpecContext) {
-		source := `
+	It(
+		"Should render a per-variant doc comment on the variant struct",
+		func(ctx SpecContext) {
+			source := `
 			@cpp output "out"
 
 			LinearScale struct { slope float64 }
@@ -1865,13 +2040,16 @@ var _ = Describe("C++ Union Variant Doc Coverage", func() {
 				none NoneScale
 			}
 		`
-		resp := MustGenerate(ctx, source, "ni", loader, cppPlugin)
-		ExpectContent(resp, "types.gen.h").
-			ToContain("/// @brief ScaleLinear a linear scale.", "struct ScaleLinear : public LinearScale {")
-	})
+			resp := MustGenerate(ctx, source, "ni", loader, cppPlugin)
+			ExpectContent(resp, "types.gen.h").
+				ToContain("/// @brief ScaleLinear a linear scale.", "struct ScaleLinear : public LinearScale {")
+		},
+	)
 
-	It("Should route per-type cpp output overrides to their own file", func(ctx SpecContext) {
-		source := `
+	It(
+		"Should route per-type cpp output overrides to their own file",
+		func(ctx SpecContext) {
+			source := `
 			@cpp output "client/cpp/task"
 
 			Task struct { key string }
@@ -1881,14 +2059,15 @@ var _ = Describe("C++ Union Variant Doc Coverage", func() {
 				@cpp output "client/cpp/task/common"
 			}
 		`
-		resp := MustGenerate(ctx, source, "task", loader, cppPlugin)
-		taskContent := ExpectContent(resp, "client/cpp/task/types.gen.h")
-		taskContent.ToContain("struct Task {")
-		taskContent.ToNotContain("struct BaseConfig {")
-		commonContent := ExpectContent(resp, "client/cpp/task/common/types.gen.h")
-		commonContent.ToContain("struct BaseConfig {")
-		commonContent.ToNotContain("struct Task {")
-	})
+			resp := MustGenerate(ctx, source, "task", loader, cppPlugin)
+			taskContent := ExpectContent(resp, "client/cpp/task/types.gen.h")
+			taskContent.ToContain("struct Task {")
+			taskContent.ToNotContain("struct BaseConfig {")
+			commonContent := ExpectContent(resp, "client/cpp/task/common/types.gen.h")
+			commonContent.ToContain("struct BaseConfig {")
+			commonContent.ToNotContain("struct Task {")
+		},
+	)
 })
 
 var _ = ShouldNotLeakGoroutinesPerSpec()

@@ -60,7 +60,11 @@ func (w Writer) Create(
 	// Symbol already exists = delete incoming relationships and define new parent
 	// Symbol does not exist = define parent
 	if exists {
-		if err = w.otgWriter.DeleteIncomingRelationshipsOfType(ctx, otgID, ontology.RelationshipTypeParentOf); err != nil {
+		if err = w.otgWriter.DeleteIncomingRelationshipsOfType(
+			ctx,
+			otgID,
+			ontology.RelationshipTypeParentOf,
+		); err != nil {
 			return err
 		}
 	}
@@ -86,15 +90,20 @@ func (w Writer) CreateMany(
 
 // Rename renames the symbol with the given key to the provided name.
 func (w Writer) Rename(ctx context.Context, key Key, name string) error {
-	return w.table.NewUpdate().Where(MatchKeys(key)).Change(func(_ gorp.Context, s Symbol) Symbol {
-		s.Name = name
-		return s
-	}).Exec(ctx, w.tx)
+	return w.table.NewUpdate().
+		Where(MatchKeys(key)).
+		Change(func(_ gorp.Context, s Symbol) Symbol {
+			s.Name = name
+			return s
+		}).
+		Exec(ctx, w.tx)
 }
 
 // Delete deletes the symbols with the given keys.
 func (w Writer) Delete(ctx context.Context, keys ...Key) error {
-	if err := w.table.NewDelete().Where(MatchKeys(keys...)).Exec(ctx, w.tx); err != nil {
+	if err := w.table.NewDelete().
+		Where(MatchKeys(keys...)).
+		Exec(ctx, w.tx); err != nil {
 		return err
 	}
 	return w.otgWriter.DeleteResources(ctx, OntologyIDs(keys)...)

@@ -57,7 +57,9 @@ var _ = Describe("pipeline.Run", func() {
 
 	writeSchema := func(name, body string) string {
 		rel := "schemas/" + name + ".oracle"
-		Expect(os.WriteFile(filepath.Join(repoRoot, rel), []byte(body), 0o644)).To(Succeed())
+		Expect(
+			os.WriteFile(filepath.Join(repoRoot, rel), []byte(body), 0o644),
+		).To(Succeed())
 		return rel
 	}
 
@@ -87,8 +89,10 @@ Thing struct {
 		Expect(paths.Contains("out/widget_Thing.gen.go")).To(BeTrue())
 	})
 
-	It("supplies snapshots so versioned packages alias their predecessor", func(ctx SpecContext) {
-		writeSchema("thing", `
+	It(
+		"supplies snapshots so versioned packages alias their predecessor",
+		func(ctx SpecContext) {
+			writeSchema("thing", `
 @go output "x/go/thing"
 Stable struct {
     @go version 1
@@ -100,9 +104,9 @@ Grown struct {
     extra string
 }
 `)
-		snapDir := filepath.Join(repoRoot, "schemas", "snapshots", "v1")
-		Expect(os.MkdirAll(snapDir, 0o755)).To(Succeed())
-		Expect(os.WriteFile(filepath.Join(snapDir, "thing.oracle"), []byte(`
+			snapDir := filepath.Join(repoRoot, "schemas", "snapshots", "v1")
+			Expect(os.MkdirAll(snapDir, 0o755)).To(Succeed())
+			Expect(os.WriteFile(filepath.Join(snapDir, "thing.oracle"), []byte(`
 @go output "x/go/thing"
 Stable struct {
     @go version 0
@@ -114,39 +118,44 @@ Grown struct {
 }
 `), 0o644)).To(Succeed())
 
-		registry := plugin.NewRegistry()
-		Expect(registry.Register(gotypes.New(gotypes.DefaultOptions()))).To(Succeed())
-		schemas := MustSucceed(pipeline.DiscoverSchemas(repoRoot))
-		result := MustSucceed(pipeline.Run(ctx, pipeline.Options{
-			RepoRoot: repoRoot,
-			Schemas:  schemas,
-			Plugins:  registry,
-		}))
-		Expect(result.Diagnostics.Ok()).To(BeTrue())
+			registry := plugin.NewRegistry()
+			Expect(
+				registry.Register(gotypes.New(gotypes.DefaultOptions())),
+			).To(Succeed())
+			schemas := MustSucceed(pipeline.DiscoverSchemas(repoRoot))
+			result := MustSucceed(pipeline.Run(ctx, pipeline.Options{
+				RepoRoot: repoRoot,
+				Schemas:  schemas,
+				Plugins:  registry,
+			}))
+			Expect(result.Diagnostics.Ok()).To(BeTrue())
 
-		var current string
-		for _, f := range result.Outputs["go/types"] {
-			if f.Path == "x/go/thing/versions/v1/types.gen.go" {
-				current = string(f.Content)
+			var current string
+			for _, f := range result.Outputs["go/types"] {
+				if f.Path == "x/go/thing/versions/v1/types.gen.go" {
+					current = string(f.Content)
+				}
 			}
-		}
-		Expect(current).To(ContainSubstring("type Stable = v0.Stable"))
-		Expect(current).To(ContainSubstring("type Grown struct"))
-		Expect(current).NotTo(ContainSubstring("type Stable struct"))
-	})
+			Expect(current).To(ContainSubstring("type Stable = v0.Stable"))
+			Expect(current).To(ContainSubstring("type Grown struct"))
+			Expect(current).NotTo(ContainSubstring("type Stable struct"))
+		},
+	)
 
-	It("does not double-register types when a schema imports another", func(ctx SpecContext) {
-		// Regression test for the original `oracle check` bug: passing
-		// every schema as a top-level input AND letting the analyzer
-		// transitively resolve imports caused each type to be
-		// registered twice.
-		writeSchema("base", `
+	It(
+		"does not double-register types when a schema imports another",
+		func(ctx SpecContext) {
+			// Regression test for the original `oracle check` bug: passing
+			// every schema as a top-level input AND letting the analyzer
+			// transitively resolve imports caused each type to be
+			// registered twice.
+			writeSchema("base", `
 @go output "x/go/base"
 Thing struct {
     name string
 }
 `)
-		writeSchema("user", `
+			writeSchema("user", `
 import "schemas/base"
 
 @go output "x/go/user"
@@ -154,14 +163,15 @@ WithThing struct {
     thing base.Thing
 }
 `)
-		schemas := MustSucceed(pipeline.DiscoverSchemas(repoRoot))
-		result := MustSucceed(pipeline.Run(ctx, pipeline.Options{
-			RepoRoot: repoRoot,
-			Schemas:  schemas,
-		}))
-		Expect(result.Diagnostics.Ok()).To(BeTrue(),
-			"analyzer should not produce duplicate-definition errors for top-level + transitively-imported schemas")
-	})
+			schemas := MustSucceed(pipeline.DiscoverSchemas(repoRoot))
+			result := MustSucceed(pipeline.Run(ctx, pipeline.Options{
+				RepoRoot: repoRoot,
+				Schemas:  schemas,
+			}))
+			Expect(result.Diagnostics.Ok()).To(BeTrue(),
+				"analyzer should not produce duplicate-definition errors for top-level + transitively-imported schemas")
+		},
+	)
 
 	It("resolves imports across nested schema folders", func(ctx SpecContext) {
 		writeNested := func(rel, body string) {
@@ -203,35 +213,42 @@ Channel struct {
 		Expect(paths.Contains("out/channel_Channel.gen.go")).To(BeTrue())
 	})
 
-	It("produces byte-identical outputs across runs (determinism)", func(ctx SpecContext) {
-		writeSchema("a", `
+	It(
+		"produces byte-identical outputs across runs (determinism)",
+		func(ctx SpecContext) {
+			writeSchema("a", `
 @go output "x/go/a"
 X struct { name string }
 Y struct { name string }
 Z struct { name string }
 `)
-		writeSchema("b", `
+			writeSchema("b", `
 @go output "x/go/b"
 X struct { name string }
 `)
-		registry := plugin.NewRegistry()
-		Expect(registry.Register(&stubPlugin{name: "stub"})).To(Succeed())
+			registry := plugin.NewRegistry()
+			Expect(registry.Register(&stubPlugin{name: "stub"})).To(Succeed())
 
-		schemas := MustSucceed(pipeline.DiscoverSchemas(repoRoot))
-		opts := pipeline.Options{RepoRoot: repoRoot, Schemas: schemas, Plugins: registry}
-		first := MustSucceed(pipeline.Run(ctx, opts))
-		second := MustSucceed(pipeline.Run(ctx, opts))
+			schemas := MustSucceed(pipeline.DiscoverSchemas(repoRoot))
+			opts := pipeline.Options{
+				RepoRoot: repoRoot,
+				Schemas:  schemas,
+				Plugins:  registry,
+			}
+			first := MustSucceed(pipeline.Run(ctx, opts))
+			second := MustSucceed(pipeline.Run(ctx, opts))
 
-		Expect(first.Outputs["stub"]).To(HaveLen(len(second.Outputs["stub"])))
-		firstByPath := make(map[string][]byte)
-		for _, f := range first.Outputs["stub"] {
-			firstByPath[f.Path] = f.Content
-		}
-		for _, f := range second.Outputs["stub"] {
-			Expect(string(f.Content)).To(Equal(string(firstByPath[f.Path])),
-				"output for %s diverged between runs", f.Path)
-		}
-	})
+			Expect(first.Outputs["stub"]).To(HaveLen(len(second.Outputs["stub"])))
+			firstByPath := make(map[string][]byte)
+			for _, f := range first.Outputs["stub"] {
+				firstByPath[f.Path] = f.Content
+			}
+			for _, f := range second.Outputs["stub"] {
+				Expect(string(f.Content)).To(Equal(string(firstByPath[f.Path])),
+					"output for %s diverged between runs", f.Path)
+			}
+		},
+	)
 
 	It("rejects empty schema set", func(ctx SpecContext) {
 		_, err := pipeline.Run(ctx, pipeline.Options{
@@ -257,10 +274,18 @@ var _ = Describe("pipeline.DiscoverSchemas", func() {
 		})
 		Expect(os.MkdirAll(filepath.Join(repoRoot, "schemas"), 0o755)).To(Succeed())
 		for _, name := range []string{"c.oracle", "a.oracle", "b.oracle"} {
-			Expect(os.WriteFile(filepath.Join(repoRoot, "schemas", name), []byte(""), 0o644)).To(Succeed())
+			Expect(
+				os.WriteFile(
+					filepath.Join(repoRoot, "schemas", name),
+					[]byte(""),
+					0o644,
+				),
+			).To(Succeed())
 		}
 		got := MustSucceed(pipeline.DiscoverSchemas(repoRoot))
-		Expect(got).To(Equal([]string{"schemas/a.oracle", "schemas/b.oracle", "schemas/c.oracle"}))
+		Expect(
+			got,
+		).To(Equal([]string{"schemas/a.oracle", "schemas/b.oracle", "schemas/c.oracle"}))
 	})
 
 	It("recurses into subdirectories", func() {

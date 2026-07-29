@@ -502,14 +502,31 @@ func ReverseModuloScalar{{$.Type.Name}}(series telem.Series, scalar {{$.Type.GoT
 func main() {
 	tmpl := template.Must(template.New("funcs").Parse(funcTemplate))
 	unaryTmpl := template.Must(template.New("unary").Parse(unaryFuncTemplate))
-	reductionTmpl := template.Must(template.New("reduction").Parse(reductionFuncTemplate))
-	scalarArithTmpl := template.Must(template.New("scalarArith").Parse(scalarArithFuncTemplate))
-	reverseScalarArithTmpl := template.Must(template.New("reverseScalarArith").Parse(reverseScalarArithFuncTemplate))
-	scalarCompTmpl := template.Must(template.New("scalarComp").Parse(scalarCompFuncTemplate))
-	floatModuloTmpl := template.Must(template.New("floatModulo").Parse(floatModuloFuncTemplate))
-	floatModuloScalarTmpl := template.Must(template.New("floatModuloScalar").Parse(floatModuloScalarFuncTemplate))
-	floatReverseModuloScalarTmpl := template.Must(template.New("floatReverseModuloScalar").Parse(floatReverseModuloScalarFuncTemplate))
-	derivativeTmpl := template.Must(template.New("derivative").Parse(derivativeFuncTemplate))
+	reductionTmpl := template.Must(
+		template.New("reduction").Parse(reductionFuncTemplate),
+	)
+	scalarArithTmpl := template.Must(
+		template.New("scalarArith").Parse(scalarArithFuncTemplate),
+	)
+	reverseScalarArithTmpl := template.Must(
+		template.New("reverseScalarArith").Parse(reverseScalarArithFuncTemplate),
+	)
+	scalarCompTmpl := template.Must(
+		template.New("scalarComp").Parse(scalarCompFuncTemplate),
+	)
+	floatModuloTmpl := template.Must(
+		template.New("floatModulo").Parse(floatModuloFuncTemplate),
+	)
+	floatModuloScalarTmpl := template.Must(
+		template.New("floatModuloScalar").Parse(floatModuloScalarFuncTemplate),
+	)
+	floatReverseModuloScalarTmpl := template.Must(
+		template.New("floatReverseModuloScalar").
+			Parse(floatReverseModuloScalarFuncTemplate),
+	)
+	derivativeTmpl := template.Must(
+		template.New("derivative").Parse(derivativeFuncTemplate),
+	)
 
 	var buf strings.Builder
 	buf.WriteString(headerTemplate)

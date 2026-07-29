@@ -121,22 +121,34 @@ func NewSymbols() []*symbol.Symbol {
 	mod.AddChild(
 		symbol.InternalHostFunc(
 			"load",
-			types.Params{{Name: "id", Type: types.I32()}, {Name: "init", Type: types.Variable("T", &numConstraint)}},
+			types.Params{
+				{Name: "id", Type: types.I32()},
+				{Name: "init", Type: types.Variable("T", &numConstraint)},
+			},
 			types.Params{{Name: "value", Type: types.Variable("T", &numConstraint)}},
 		),
 		symbol.InternalHostFunc(
 			"store",
-			types.Params{{Name: "id", Type: types.I32()}, {Name: "value", Type: types.Variable("T", &numConstraint)}},
+			types.Params{
+				{Name: "id", Type: types.I32()},
+				{Name: "value", Type: types.Variable("T", &numConstraint)},
+			},
 			nil,
 		),
 		symbol.InternalHostFunc(
 			"load_series",
-			types.Params{{Name: "id", Type: types.I32()}, {Name: "init", Type: types.I32()}},
+			types.Params{
+				{Name: "id", Type: types.I32()},
+				{Name: "init", Type: types.I32()},
+			},
 			types.Params{{Name: "handle", Type: types.I32()}},
 		),
 		symbol.InternalHostFunc(
 			"store_series",
-			types.Params{{Name: "id", Type: types.I32()}, {Name: "handle", Type: types.I32()}},
+			types.Params{
+				{Name: "id", Type: types.I32()},
+				{Name: "handle", Type: types.I32()},
+			},
 			nil,
 		),
 	)

@@ -23,7 +23,8 @@ var _ = Describe("AST Utilities", func() {
 	}
 
 	Describe("IsLiteral", func() {
-		DescribeTable("true cases",
+		DescribeTable(
+			"true cases",
 			func(code string) { Expect(parser.IsLiteral(parseExpr(code))).To(BeTrue()) },
 			Entry("integer", "42"),
 			Entry("float", "3.14"),
@@ -39,7 +40,8 @@ var _ = Describe("AST Utilities", func() {
 			Entry("negated unit literal", "-5ms"),
 		)
 
-		DescribeTable("false cases",
+		DescribeTable(
+			"false cases",
 			func(code string) { Expect(parser.IsLiteral(parseExpr(code))).To(BeFalse()) },
 			Entry("addition", "1 + 2"),
 			Entry("logical not", "not 1"),
@@ -53,14 +55,16 @@ var _ = Describe("AST Utilities", func() {
 	})
 
 	Describe("IsNegatedLiteral", func() {
-		DescribeTable("true cases",
+		DescribeTable(
+			"true cases",
 			func(code string) { Expect(parser.IsNegatedLiteral(parseExpr(code))).To(BeTrue()) },
 			Entry("negated integer", "-1"),
 			Entry("negated float", "-3.14"),
 			Entry("negated unit literal", "-5ms"),
 		)
 
-		DescribeTable("false cases",
+		DescribeTable(
+			"false cases",
 			func(code string) { Expect(parser.IsNegatedLiteral(parseExpr(code))).To(BeFalse()) },
 			Entry("positive integer", "42"),
 			Entry("positive float", "3.14"),
@@ -97,7 +101,8 @@ var _ = Describe("AST Utilities", func() {
 	})
 
 	Describe("IsNumericLiteral", func() {
-		DescribeTable("true cases",
+		DescribeTable(
+			"true cases",
 			func(code string) { Expect(parser.IsNumericLiteral(parseExpr(code))).To(BeTrue()) },
 			Entry("integer", "42"),
 			Entry("float", "3.14"),
@@ -107,7 +112,8 @@ var _ = Describe("AST Utilities", func() {
 			Entry("unit literal", "5ms"),
 		)
 
-		DescribeTable("false cases",
+		DescribeTable(
+			"false cases",
 			func(code string) { Expect(parser.IsNumericLiteral(parseExpr(code))).To(BeFalse()) },
 			Entry("string", `"hello"`),
 			Entry("raw string", `r"hello"`),
@@ -120,7 +126,8 @@ var _ = Describe("AST Utilities", func() {
 	})
 
 	Describe("GetPrimaryExpression", func() {
-		DescribeTable("extracts primary",
+		DescribeTable(
+			"extracts primary",
 			func(code string, check func(parser.IPrimaryExpressionContext)) {
 				primary := parser.GetPrimaryExpression(parseExpr(code))
 				Expect(primary).NotTo(BeNil())
@@ -130,17 +137,24 @@ var _ = Describe("AST Utilities", func() {
 				Expect(p.IDENTIFIER().GetText()).To(Equal("foo"))
 			}),
 			Entry("integer literal", "42", func(p parser.IPrimaryExpressionContext) {
-				Expect(p.Literal().NumericLiteral().INTEGER_LITERAL().GetText()).To(Equal("42"))
+				Expect(
+					p.Literal().NumericLiteral().INTEGER_LITERAL().GetText(),
+				).To(Equal("42"))
 			}),
 			Entry("string literal", `"hi"`, func(p parser.IPrimaryExpressionContext) {
 				Expect(p.Literal().GetText()).To(Equal(`"hi"`))
 			}),
-			Entry("format string literal", `f"hi {x}"`, func(p parser.IPrimaryExpressionContext) {
-				Expect(p.Literal().GetText()).To(Equal(`f"hi {x}"`))
-			}),
+			Entry(
+				"format string literal",
+				`f"hi {x}"`,
+				func(p parser.IPrimaryExpressionContext) {
+					Expect(p.Literal().GetText()).To(Equal(`f"hi {x}"`))
+				},
+			),
 		)
 
-		DescribeTable("returns nil for expressions with operators",
+		DescribeTable(
+			"returns nil for expressions with operators",
 			func(code string) { Expect(parser.GetPrimaryExpression(parseExpr(code))).To(BeNil()) },
 			Entry("addition", "1 + 2"),
 			Entry("multiplication", "3 * 4"),
@@ -223,11 +237,14 @@ var _ = Describe("AST Utilities", func() {
 			Expect(entries[0].Path).To(Equal("math.trig"))
 		})
 
-		It("Should default alias to the last path segment on hierarchical paths", func() {
-			prog := MustSucceed(parser.Parse(`import math.trig`))
-			entries := parser.Imports(prog)
-			Expect(entries[0].Alias).To(Equal("trig"))
-		})
+		It(
+			"Should default alias to the last path segment on hierarchical paths",
+			func() {
+				prog := MustSucceed(parser.Parse(`import math.trig`))
+				entries := parser.Imports(prog)
+				Expect(entries[0].Alias).To(Equal("trig"))
+			},
+		)
 
 		It("Should preserve a hierarchical alias when AS is present", func() {
 			prog := MustSucceed(parser.Parse(`import math.trig as t`))

@@ -40,16 +40,26 @@ var _ = Describe("Delete", Ordered, func() {
 	})
 	It("Should skip storage deletes for a free channel", func(ctx SpecContext) {
 		out := MustSucceed(n.Channel.Create(ctx, []channel.Channel{
-			{Name: "free-delete", DataType: telem.Float32T, Leaseholder: node.KeyFree, Virtual: true},
+			{
+				Name:        "free-delete",
+				DataType:    telem.Float32T,
+				Leaseholder: node.KeyFree,
+				Virtual:     true,
+			},
 		}))
 		key := out[0].Key()
 		Expect(n.Channel.Delete(ctx, channel.Keys{key})).To(Succeed())
 	})
-	It("Should return an error when a key's leaseholder is not in the cluster", func(ctx SpecContext) {
-		Expect(n.Channel.Delete(ctx, channel.Keys{channel.NewKey(node.Key(99), 1)})).To(
-			MatchError(query.ErrNotFound),
-		)
-	})
+	It(
+		"Should return an error when a key's leaseholder is not in the cluster",
+		func(ctx SpecContext) {
+			Expect(
+				n.Channel.Delete(ctx, channel.Keys{channel.NewKey(node.Key(99), 1)}),
+			).To(
+				MatchError(query.ErrNotFound),
+			)
+		},
+	)
 
 	Context("Multi Node", Ordered, func() {
 		var (
@@ -65,7 +75,12 @@ var _ = Describe("Delete", Ordered, func() {
 
 		It("Should route deletion to the leaseholder", func(ctx SpecContext) {
 			out := MustSucceed(gateway.Channel.Create(ctx, []channel.Channel{
-				{Name: "remote-delete", DataType: telem.TimeStampT, IsIndex: true, Leaseholder: peer.Cluster.HostKey()},
+				{
+					Name:        "remote-delete",
+					DataType:    telem.TimeStampT,
+					IsIndex:     true,
+					Leaseholder: peer.Cluster.HostKey(),
+				},
 			}))
 			key := out[0].Key()
 			MustSucceed(peer.Storage.TS.RetrieveChannel(ctx, key.StorageKey()))
@@ -76,34 +91,71 @@ var _ = Describe("Delete", Ordered, func() {
 		})
 		It("Should delete both gateway and peer channels", func(ctx SpecContext) {
 			out := MustSucceed(gateway.Channel.Create(ctx, []channel.Channel{
-				{Name: "gateway-delete", DataType: telem.TimeStampT, IsIndex: true, Leaseholder: gateway.Cluster.HostKey()},
-				{Name: "peer-delete", DataType: telem.TimeStampT, IsIndex: true, Leaseholder: peer.Cluster.HostKey()},
+				{
+					Name:        "gateway-delete",
+					DataType:    telem.TimeStampT,
+					IsIndex:     true,
+					Leaseholder: gateway.Cluster.HostKey(),
+				},
+				{
+					Name:        "peer-delete",
+					DataType:    telem.TimeStampT,
+					IsIndex:     true,
+					Leaseholder: peer.Cluster.HostKey(),
+				},
 			}))
 			gatewayKey := out[0].Key()
 			peerKey := out[1].Key()
 			Expect(gateway.Channel.Delete(ctx, channel.Keys{gatewayKey})).To(Succeed())
 			Expect(peer.Channel.Delete(ctx, channel.Keys{peerKey})).To(Succeed())
-			Expect(gateway.Storage.TS.RetrieveChannel(ctx, gatewayKey.StorageKey())).Error().To(
-				MatchError(query.ErrNotFound),
-			)
-			Expect(peer.Storage.TS.RetrieveChannel(ctx, peerKey.StorageKey())).Error().To(
-				MatchError(query.ErrNotFound),
-			)
+			Expect(
+				gateway.Storage.TS.RetrieveChannel(ctx, gatewayKey.StorageKey()),
+			).Error().
+				To(
+					MatchError(query.ErrNotFound),
+				)
+			Expect(
+				peer.Storage.TS.RetrieveChannel(ctx, peerKey.StorageKey()),
+			).Error().
+				To(
+					MatchError(query.ErrNotFound),
+				)
 		})
-		It("Should route a mixed batch to each key's leaseholder", func(ctx SpecContext) {
-			out := MustSucceed(gateway.Channel.Create(ctx, []channel.Channel{
-				{Name: "mixed-gateway-delete", DataType: telem.TimeStampT, IsIndex: true, Leaseholder: gateway.Cluster.HostKey()},
-				{Name: "mixed-peer-delete", DataType: telem.TimeStampT, IsIndex: true, Leaseholder: peer.Cluster.HostKey()},
-			}))
-			gatewayKey := out[0].Key()
-			peerKey := out[1].Key()
-			Expect(gateway.Channel.Delete(ctx, channel.Keys{gatewayKey, peerKey})).To(Succeed())
-			Expect(gateway.Storage.TS.RetrieveChannel(ctx, gatewayKey.StorageKey())).Error().To(
-				MatchError(query.ErrNotFound),
-			)
-			Expect(peer.Storage.TS.RetrieveChannel(ctx, peerKey.StorageKey())).Error().To(
-				MatchError(query.ErrNotFound),
-			)
-		})
+		It(
+			"Should route a mixed batch to each key's leaseholder",
+			func(ctx SpecContext) {
+				out := MustSucceed(gateway.Channel.Create(ctx, []channel.Channel{
+					{
+						Name:        "mixed-gateway-delete",
+						DataType:    telem.TimeStampT,
+						IsIndex:     true,
+						Leaseholder: gateway.Cluster.HostKey(),
+					},
+					{
+						Name:        "mixed-peer-delete",
+						DataType:    telem.TimeStampT,
+						IsIndex:     true,
+						Leaseholder: peer.Cluster.HostKey(),
+					},
+				}))
+				gatewayKey := out[0].Key()
+				peerKey := out[1].Key()
+				Expect(
+					gateway.Channel.Delete(ctx, channel.Keys{gatewayKey, peerKey}),
+				).To(Succeed())
+				Expect(
+					gateway.Storage.TS.RetrieveChannel(ctx, gatewayKey.StorageKey()),
+				).Error().
+					To(
+						MatchError(query.ErrNotFound),
+					)
+				Expect(
+					peer.Storage.TS.RetrieveChannel(ctx, peerKey.StorageKey()),
+				).Error().
+					To(
+						MatchError(query.ErrNotFound),
+					)
+			},
+		)
 	})
 })

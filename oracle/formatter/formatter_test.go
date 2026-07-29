@@ -34,7 +34,9 @@ var _ = Describe("Format", func() {
 
 	Describe("Imports", func() {
 		It("should format a single import", func() {
-			Expect(format("import \"common.oracle\"\n")).To(Equal("import \"common.oracle\"\n"))
+			Expect(
+				format("import \"common.oracle\"\n"),
+			).To(Equal("import \"common.oracle\"\n"))
 		})
 
 		It("should format multiple imports", func() {
@@ -44,7 +46,9 @@ var _ = Describe("Format", func() {
 		})
 
 		It("should sort imports alphabetically", func() {
-			result := format("import \"c.oracle\"\nimport \"a.oracle\"\nimport \"b.oracle\"\n")
+			result := format(
+				"import \"c.oracle\"\nimport \"a.oracle\"\nimport \"b.oracle\"\n",
+			)
 			Expect(result).To(Equal(
 				"import \"a.oracle\"\nimport \"b.oracle\"\nimport \"c.oracle\"\n",
 			))
@@ -139,7 +143,9 @@ var _ = Describe("Format", func() {
 		It("should preserve multiple extends targets on an action", func() {
 			source := "Node struct {\n  action Update extends Named, Positioned {\n    key string\n  }\n}\n"
 			result := format(source)
-			Expect(result).To(ContainSubstring("action Update extends Named, Positioned {"))
+			Expect(
+				result,
+			).To(ContainSubstring("action Update extends Named, Positioned {"))
 		})
 
 		It("should preserve an extends clause on an action with an empty body", func() {
@@ -156,12 +162,15 @@ var _ = Describe("Format", func() {
 	})
 
 	Describe("Partial Field Overrides", func() {
-		It("should preserve a standalone optionality marker on a typeless override", func() {
-			result := format("Child struct extends Parent {\n  key?\n  note?\n}\n")
-			Expect(result).To(ContainSubstring("key?"))
-			Expect(result).To(ContainSubstring("note?"))
-			Expect(result).NotTo(ContainSubstring("key ?"))
-		})
+		It(
+			"should preserve a standalone optionality marker on a typeless override",
+			func() {
+				result := format("Child struct extends Parent {\n  key?\n  note?\n}\n")
+				Expect(result).To(ContainSubstring("key?"))
+				Expect(result).To(ContainSubstring("note?"))
+				Expect(result).NotTo(ContainSubstring("key ?"))
+			},
+		)
 
 		It("should preserve a typeless override that changes only the default", func() {
 			result := format("Child struct extends Parent {\n  count = 10\n}\n")
@@ -169,12 +178,16 @@ var _ = Describe("Format", func() {
 		})
 
 		It("should preserve a typeless override that adds a domain", func() {
-			result := format("Child struct extends Parent {\n  name @validate required\n}\n")
+			result := format(
+				"Child struct extends Parent {\n  name @validate required\n}\n",
+			)
 			Expect(result).To(ContainSubstring("name @validate required"))
 		})
 
 		It("should preserve a domain removal inline and in a body", func() {
-			result := format("Child struct extends Parent {\n  name -@validate\n  key? {\n    -@doc\n  }\n}\n")
+			result := format(
+				"Child struct extends Parent {\n  name -@validate\n  key? {\n    -@doc\n  }\n}\n",
+			)
 			Expect(result).To(ContainSubstring("name -@validate"))
 			Expect(result).To(ContainSubstring("-@doc"))
 		})
@@ -202,7 +215,9 @@ var _ = Describe("Format", func() {
 		})
 
 		It("should format an enum with string values", func() {
-			result := format("Status enum {\n  ACTIVE = \"active\"\n  INACTIVE = \"inactive\"\n}\n")
+			result := format(
+				"Status enum {\n  ACTIVE = \"active\"\n  INACTIVE = \"inactive\"\n}\n",
+			)
 			Expect(result).To(ContainSubstring("ACTIVE"))
 			Expect(result).To(ContainSubstring("\"active\""))
 		})
@@ -215,7 +230,9 @@ var _ = Describe("Format", func() {
 
 		It("should format an enum that extends others", func() {
 			result := format("AxisKey enum extends XAxisKey, YAxisKey {}\n")
-			Expect(result).To(ContainSubstring("AxisKey enum extends XAxisKey, YAxisKey {}"))
+			Expect(
+				result,
+			).To(ContainSubstring("AxisKey enum extends XAxisKey, YAxisKey {}"))
 		})
 
 		It("should format an enum with domains", func() {
@@ -240,7 +257,9 @@ var _ = Describe("Format", func() {
 		})
 
 		It("should format struct-level domains", func() {
-			result := format("User struct {\n  name string\n\n  @go output \"core/pkg/user\"\n}\n")
+			result := format(
+				"User struct {\n  name string\n\n  @go output \"core/pkg/user\"\n}\n",
+			)
 			Expect(result).To(ContainSubstring("@go output"))
 		})
 
@@ -249,12 +268,15 @@ var _ = Describe("Format", func() {
 			Expect(result).To(ContainSubstring("@validate required"))
 		})
 
-		It("should format struct-level domain blocks with multiple expressions", func() {
-			source := "User struct {\n  name string\n\n  @validate {\n    required\n    max_length 255\n  }\n}\n"
-			result := format(source)
-			Expect(result).To(ContainSubstring("required"))
-			Expect(result).To(ContainSubstring("max_length 255"))
-		})
+		It(
+			"should format struct-level domain blocks with multiple expressions",
+			func() {
+				source := "User struct {\n  name string\n\n  @validate {\n    required\n    max_length 255\n  }\n}\n"
+				result := format(source)
+				Expect(result).To(ContainSubstring("required"))
+				Expect(result).To(ContainSubstring("max_length 255"))
+			},
+		)
 
 		It("should format field body with brace-form domains", func() {
 			source := "User struct {\n  name string {\n    @validate required\n    @doc description \"The name\"\n  }\n}\n"
@@ -322,7 +344,9 @@ var _ = Describe("Format", func() {
 	Describe("Blank Lines", func() {
 		It("should insert blank line between imports and definitions", func() {
 			result := format("import \"common.oracle\"\nUser struct {}\n")
-			Expect(result).To(ContainSubstring("import \"common.oracle\"\n\nUser struct {}"))
+			Expect(
+				result,
+			).To(ContainSubstring("import \"common.oracle\"\n\nUser struct {}"))
 		})
 
 		It("should insert blank line between definitions", func() {
@@ -332,12 +356,18 @@ var _ = Describe("Format", func() {
 
 		It("should insert blank line between file domains and definitions", func() {
 			result := format("@go output \"core/pkg/user\"\nUser struct {}\n")
-			Expect(result).To(ContainSubstring("@go output \"core/pkg/user\"\n\nUser struct {}"))
+			Expect(
+				result,
+			).To(ContainSubstring("@go output \"core/pkg/user\"\n\nUser struct {}"))
 		})
 
 		It("should insert blank line between imports and file domains", func() {
-			result := format("import \"common.oracle\"\n@go output \"core/pkg/user\"\n\nUser struct {}\n")
-			Expect(result).To(ContainSubstring("import \"common.oracle\"\n\n@go output"))
+			result := format(
+				"import \"common.oracle\"\n@go output \"core/pkg/user\"\n\nUser struct {}\n",
+			)
+			Expect(
+				result,
+			).To(ContainSubstring("import \"common.oracle\"\n\n@go output"))
 		})
 	})
 
@@ -364,7 +394,9 @@ var _ = Describe("Format", func() {
 		})
 
 		It("should format type params with extends and default", func() {
-			result := format("Task<C extends record = record> struct {\n  config C\n}\n")
+			result := format(
+				"Task<C extends record = record> struct {\n  config C\n}\n",
+			)
 			Expect(result).To(ContainSubstring("extends record"))
 			Expect(result).To(ContainSubstring("= record"))
 		})
@@ -413,7 +445,9 @@ var _ = Describe("Format", func() {
 		})
 
 		It("should format type args on references", func() {
-			result := format("Response struct extends Base<string> {\n  data string\n}\n")
+			result := format(
+				"Response struct extends Base<string> {\n  data string\n}\n",
+			)
 			Expect(result).To(ContainSubstring("Base<string>"))
 		})
 
@@ -425,7 +459,9 @@ var _ = Describe("Format", func() {
 
 	Describe("Expression Values", func() {
 		It("should format integer expression values", func() {
-			result := format("User struct {\n  name string @validate max_length 255\n}\n")
+			result := format(
+				"User struct {\n  name string @validate max_length 255\n}\n",
+			)
 			Expect(result).To(ContainSubstring("max_length 255"))
 		})
 
@@ -440,7 +476,9 @@ var _ = Describe("Format", func() {
 		})
 
 		It("should format a field default before a brace body", func() {
-			result := format("Item struct {\n  count int32 = 7 {\n    @doc value \"is a counter.\"\n  }\n}\n")
+			result := format(
+				"Item struct {\n  count int32 = 7 {\n    @doc value \"is a counter.\"\n  }\n}\n",
+			)
 			Expect(result).To(ContainSubstring("count int32 = 7 {"))
 		})
 
@@ -455,42 +493,61 @@ var _ = Describe("Format", func() {
 		})
 
 		It("should format an empty struct default", func() {
-			result := format("Point struct {\n  x int32\n}\nItem struct {\n  p Point = {}\n}\n")
+			result := format(
+				"Point struct {\n  x int32\n}\nItem struct {\n  p Point = {}\n}\n",
+			)
 			Expect(result).To(ContainSubstring("p Point = {}"))
 		})
 
 		It("should format a populated struct default", func() {
-			result := format("Point struct {\n  x int32\n  y int32\n}\nItem struct {\n  p Point = { x = 1, y = 2 }\n}\n")
+			result := format(
+				"Point struct {\n  x int32\n  y int32\n}\nItem struct {\n  p Point = { x = 1, y = 2 }\n}\n",
+			)
 			Expect(result).To(ContainSubstring("p Point = { x = 1, y = 2 }"))
 		})
 
 		It("should format a nested struct default", func() {
-			result := format("Inner struct {\n  tags string[]\n}\nMid struct {\n  inner Inner\n}\nItem struct {\n  m Mid = { inner = { tags = [\"a\"] } }\n}\n")
-			Expect(result).To(ContainSubstring("m Mid = { inner = { tags = [\"a\"] } }"))
+			result := format(
+				"Inner struct {\n  tags string[]\n}\nMid struct {\n  inner Inner\n}\nItem struct {\n  m Mid = { inner = { tags = [\"a\"] } }\n}\n",
+			)
+			Expect(
+				result,
+			).To(ContainSubstring("m Mid = { inner = { tags = [\"a\"] } }"))
 		})
 
-		It("should break a struct default across lines when it overflows the line", func() {
-			src := "Inner struct {\n  one int32\n  two int32\n  three int32\n}\n" +
-				"Outer struct {\n  a Inner\n  b Inner\n  c Inner\n}\n" +
-				"Item struct {\n  o Outer = { a = { one = 1, two = 2, three = 3 }, b = { one = 1, two = 2, three = 3 }, c = { one = 1, two = 2, three = 3 } }\n}\n"
-			result := format(src)
-			Expect(result).To(ContainSubstring("o Outer = {\n"))
-			Expect(result).To(ContainSubstring("        a = { one = 1, two = 2, three = 3 },\n"))
-			Expect(result).To(ContainSubstring("        c = { one = 1, two = 2, three = 3 }\n"))
-			Expect(result).To(ContainSubstring("    }\n"))
-			Expect(result).ToNot(ContainSubstring("three = 3 },\n    }"))
-			Expect(format(result)).To(Equal(result))
-		})
+		It(
+			"should break a struct default across lines when it overflows the line",
+			func() {
+				src := "Inner struct {\n  one int32\n  two int32\n  three int32\n}\n" +
+					"Outer struct {\n  a Inner\n  b Inner\n  c Inner\n}\n" +
+					"Item struct {\n  o Outer = { a = { one = 1, two = 2, three = 3 }, b = { one = 1, two = 2, three = 3 }, c = { one = 1, two = 2, three = 3 } }\n}\n"
+				result := format(src)
+				Expect(result).To(ContainSubstring("o Outer = {\n"))
+				Expect(
+					result,
+				).To(ContainSubstring("        a = { one = 1, two = 2, three = 3 },\n"))
+				Expect(
+					result,
+				).To(ContainSubstring("        c = { one = 1, two = 2, three = 3 }\n"))
+				Expect(result).To(ContainSubstring("    }\n"))
+				Expect(result).ToNot(ContainSubstring("three = 3 },\n    }"))
+				Expect(format(result)).To(Equal(result))
+			},
+		)
 
 		It("should format qualified ident expression values", func() {
-			result := format("User struct {\n  role string @relation target access.Role\n}\n")
+			result := format(
+				"User struct {\n  role string @relation target access.Role\n}\n",
+			)
 			Expect(result).To(ContainSubstring("target access.Role"))
 		})
 	})
 
 	Describe("Union Definitions", func() {
 		It("should format an empty union", func() {
-			Expect(format("Empty union on type {}\n")).To(Equal("Empty union on type {}\n"))
+			Expect(
+				format("Empty union on type {}\n"),
+			).To(Equal("Empty union on type {}\n"))
 		})
 
 		It("should format a simple union with variants", func() {

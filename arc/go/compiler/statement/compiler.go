@@ -33,7 +33,9 @@ func Compile(ctx context.Context[parser.IStatementContext]) (diverged bool, err 
 		return true, compileBreakStatement(context.Child(ctx, ctx.AST.BreakStatement()))
 	}
 	if ctx.AST.ContinueStatement() != nil {
-		return true, compileContinueStatement(context.Child(ctx, ctx.AST.ContinueStatement()))
+		return true, compileContinueStatement(
+			context.Child(ctx, ctx.AST.ContinueStatement()),
+		)
 	}
 	if retStmt := ctx.AST.ReturnStatement(); retStmt != nil {
 		return true, compileReturnStatement(context.Child(ctx, retStmt))
@@ -46,7 +48,9 @@ func Compile(ctx context.Context[parser.IStatementContext]) (diverged bool, err 
 }
 
 // CompileBlock compiles a block and returns whether all paths diverged
-func CompileBlock(ctx context.Context[parser.IBlockContext]) (diverged bool, err error) {
+func CompileBlock(
+	ctx context.Context[parser.IBlockContext],
+) (diverged bool, err error) {
 	if ctx.AST == nil {
 		return false, nil
 	}

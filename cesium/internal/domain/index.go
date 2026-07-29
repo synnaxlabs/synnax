@@ -53,7 +53,12 @@ func (idx *index) insert(ctx context.Context, p pointer, persist bool) error {
 			i, overlap := idx.unprotectedSearch(p.TimeRange)
 			if overlap {
 				idx.mu.Unlock()
-				return span.Error(NewRangeWriteConflictError(p.TimeRange, idx.mu.pointers[i].TimeRange))
+				return span.Error(
+					NewRangeWriteConflictError(
+						p.TimeRange,
+						idx.mu.pointers[i].TimeRange,
+					),
+				)
 			}
 			insertAt = i + 1
 		}
@@ -125,14 +130,19 @@ func (idx *index) update(ctx context.Context, p pointer, persist bool) error {
 		idx.mu.Unlock()
 		return span.Error(NewRangeNotFoundError(p.TimeRange))
 	}
-	overlapsWithNext := updateAt != len(ptrs)-1 && ptrs[updateAt+1].OverlapsWith(p.TimeRange)
+	overlapsWithNext := updateAt != len(ptrs)-1 &&
+		ptrs[updateAt+1].OverlapsWith(p.TimeRange)
 	overlapsWithPrev := updateAt != 0 && ptrs[updateAt-1].OverlapsWith(p.TimeRange)
 	if overlapsWithPrev {
 		idx.mu.Unlock()
-		return span.Error(NewRangeWriteConflictError(p.TimeRange, ptrs[updateAt-1].TimeRange))
+		return span.Error(
+			NewRangeWriteConflictError(p.TimeRange, ptrs[updateAt-1].TimeRange),
+		)
 	} else if overlapsWithNext {
 		idx.mu.Unlock()
-		return span.Error(NewRangeWriteConflictError(p.TimeRange, ptrs[updateAt+1].TimeRange))
+		return span.Error(
+			NewRangeWriteConflictError(p.TimeRange, ptrs[updateAt+1].TimeRange),
+		)
 	} else {
 		sizeDelta := int64(p.size) - int64(oldP.size)
 		idx.mu.pointers[updateAt] = p
@@ -185,7 +195,10 @@ func (idx *index) searchGE(ctx context.Context, ts telem.TimeStamp) (i int) {
 	return i
 }
 
-func (idx *index) getGE(ctx context.Context, ts telem.TimeStamp) (ptr pointer, ok bool) {
+func (idx *index) getGE(
+	ctx context.Context,
+	ts telem.TimeStamp,
+) (ptr pointer, ok bool) {
 	_, span := idx.T.Bench(ctx, "domain/index.getGE")
 	idx.mu.RLock()
 	defer func() {

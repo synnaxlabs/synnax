@@ -27,10 +27,14 @@ const magicLen = 3
 
 var magic = [magicLen]byte{0x4F, 0x52, 0x43}
 
-var ErrInvalidFormat = errors.Wrap(validate.ErrValidation, "data was not encoded using orc")
+var ErrInvalidFormat = errors.Wrap(
+	validate.ErrValidation,
+	"data was not encoded using orc",
+)
 
 func validateMagic(data []byte) error {
-	if len(data) < len(magic) || data[0] != magic[0] || data[1] != magic[1] || data[2] != magic[2] {
+	if len(data) < len(magic) || data[0] != magic[0] || data[1] != magic[1] ||
+		data[2] != magic[2] {
 		return ErrInvalidFormat
 	}
 	return nil

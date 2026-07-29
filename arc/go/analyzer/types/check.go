@@ -52,13 +52,23 @@ func Check(
 	// Skip this check if either type is a variable - let the constraint system handle it
 	t1Wrapped := t1.Kind == types.KindChan || t1.Kind == types.KindSeries
 	t2Wrapped := t2.Kind == types.KindChan || t2.Kind == types.KindSeries
-	if t1Wrapped != t2Wrapped && t1.Kind != types.KindVariable && t2.Kind != types.KindVariable {
+	if t1Wrapped != t2Wrapped && t1.Kind != types.KindVariable &&
+		t2.Kind != types.KindVariable {
 		resolved1 := cs.ApplySubstitutions(t1)
 		resolved2 := cs.ApplySubstitutions(t2)
 		if reason != "" {
-			return errors.Newf("type mismatch in %s: cannot assign %v to %v", reason, resolved2, resolved1)
+			return errors.Newf(
+				"type mismatch in %s: cannot assign %v to %v",
+				reason,
+				resolved2,
+				resolved1,
+			)
 		}
-		return errors.Newf("type mismatch: cannot assign %v to %v", resolved2, resolved1)
+		return errors.Newf(
+			"type mismatch: cannot assign %v to %v",
+			resolved2,
+			resolved1,
+		)
 	}
 
 	if t1.Kind == types.KindVariable || t2.Kind == types.KindVariable {
@@ -77,10 +87,18 @@ func Check(
 
 // newTypeMismatchError creates a TypeMismatchError for type mismatches.
 // If both types are numeric, it includes a cast suggestion hint.
-func newTypeMismatchError(expected, actual types.Type, reason string) *TypeMismatchError {
+func newTypeMismatchError(
+	expected, actual types.Type,
+	reason string,
+) *TypeMismatchError {
 	var msg string
 	if reason != "" {
-		msg = fmt.Sprintf("type mismatch in %s: expected %v, got %v", reason, expected, actual)
+		msg = fmt.Sprintf(
+			"type mismatch in %s: expected %v, got %v",
+			reason,
+			expected,
+			actual,
+		)
 	} else {
 		msg = fmt.Sprintf("type mismatch: expected %v, got %v", expected, actual)
 	}
@@ -99,14 +117,17 @@ func concreteTypeForHint(t types.Type) string {
 		switch t.Constraint.Kind {
 		case types.KindIntegerConstant:
 			return "i64"
-		case types.KindFloatConstant, types.KindNumericConstant, types.KindExactIntegerFloatConstant:
+		case types.KindFloatConstant,
+			types.KindNumericConstant,
+			types.KindExactIntegerFloatConstant:
 			return "f64"
 		}
 	}
 	if t.Kind == types.KindIntegerConstant {
 		return "i64"
 	}
-	if t.Kind == types.KindFloatConstant || t.Kind == types.KindExactIntegerFloatConstant {
+	if t.Kind == types.KindFloatConstant ||
+		t.Kind == types.KindExactIntegerFloatConstant {
 		return "f64"
 	}
 	return t.String()

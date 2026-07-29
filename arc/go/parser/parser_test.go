@@ -31,12 +31,19 @@ var _ = Describe("Dashed identifier lexing", func() {
 	}
 
 	Context("enabled", func() {
-		DescribeTable("'-' joins identifiers, but not '->'/'-=' or non-identifiers",
+		DescribeTable(
+			"'-' joins identifiers, but not '->'/'-=' or non-identifiers",
 			func(src string, want []string) {
-				Expect(tokens(src, parser.Config{AllowDashedNames: true})).To(Equal(want))
+				Expect(
+					tokens(src, parser.Config{AllowDashedNames: true}),
+				).To(Equal(want))
 			},
 			Entry("internal dash", "a-b", []string{"a-b"}),
-			Entry("multiple dashes and digits", "sensor-1-raw", []string{"sensor-1-raw"}),
+			Entry(
+				"multiple dashes and digits",
+				"sensor-1-raw",
+				[]string{"sensor-1-raw"},
+			),
 			Entry("dash before digit", "a-1", []string{"a-1"}),
 			Entry("trailing dash", "log-", []string{"log-"}),
 			Entry("trailing dash before space", "a- b", []string{"a-", "b"}),
@@ -48,10 +55,22 @@ var _ = Describe("Dashed identifier lexing", func() {
 			Entry("spaced subtraction", "a - b", []string{"a", "-", "b"}),
 			Entry("spaced arrow", "a -> b", []string{"a", "->", "b"}),
 			Entry("digits do not start a dashed name", "1-2", []string{"1", "-", "2"}),
-			Entry("dashed name then spaced subtraction", "a-b - c", []string{"a-b", "-", "c"}),
-			Entry("subtraction between dashed names", "a-b - c-d", []string{"a-b", "-", "c-d"}),
+			Entry(
+				"dashed name then spaced subtraction",
+				"a-b - c",
+				[]string{"a-b", "-", "c"},
+			),
+			Entry(
+				"subtraction between dashed names",
+				"a-b - c-d",
+				[]string{"a-b", "-", "c-d"},
+			),
 			Entry("dashed name then arrow", "a-b->c", []string{"a-b", "->", "c"}),
-			Entry("dashed name then minus-assign", "a-b-=c", []string{"a-b", "-=", "c"}),
+			Entry(
+				"dashed name then minus-assign",
+				"a-b-=c",
+				[]string{"a-b", "-=", "c"},
+			),
 			Entry("leading dash then dashed name", "-a-b", []string{"-", "a-b"}),
 			Entry("trailing dash then arrow", "a- ->b", []string{"a-", "->", "b"}),
 		)
@@ -93,13 +112,17 @@ var _ = Describe("Parser", func() {
 				Expect(literal).NotTo(BeNil())
 				Expect(literal.NumericLiteral()).NotTo(BeNil())
 				Expect(literal.NumericLiteral().INTEGER_LITERAL()).NotTo(BeNil())
-				Expect(literal.NumericLiteral().INTEGER_LITERAL().GetText()).To(Equal("42"))
+				Expect(
+					literal.NumericLiteral().INTEGER_LITERAL().GetText(),
+				).To(Equal("42"))
 			})
 
 			It("Should parse float literals", func() {
 				expr := mustParseExpression("3.14")
 				literal := getPrimaryLiteral(expr)
-				Expect(literal.NumericLiteral().FLOAT_LITERAL().GetText()).To(Equal("3.14"))
+				Expect(
+					literal.NumericLiteral().FLOAT_LITERAL().GetText(),
+				).To(Equal("3.14"))
 			})
 		})
 
@@ -207,7 +230,9 @@ var _ = Describe("Parser", func() {
 			It("Should parse array indexing", func() {
 				expr := mustParseExpression("data[0]")
 				postfix := getPostfixExpression(expr)
-				Expect(postfix.PrimaryExpression().IDENTIFIER().GetText()).To(Equal("data"))
+				Expect(
+					postfix.PrimaryExpression().IDENTIFIER().GetText(),
+				).To(Equal("data"))
 				Expect(postfix.AllIndexOrSlice()).To(HaveLen(1))
 				index := postfix.IndexOrSlice(0)
 				Expect(index.LBRACKET()).NotTo(BeNil())
@@ -230,7 +255,9 @@ var _ = Describe("Parser", func() {
 				primary := parser.GetPrimaryExpression(expr)
 				Expect(primary.TypeCast()).NotTo(BeNil())
 				cast := primary.TypeCast()
-				Expect(cast.Type_().PrimitiveType().NumericType().FloatType().F32()).NotTo(BeNil())
+				Expect(
+					cast.Type_().PrimitiveType().NumericType().FloatType().F32(),
+				).NotTo(BeNil())
 				Expect(cast.Expression()).NotTo(BeNil())
 			})
 		})
@@ -310,11 +337,20 @@ func add(x f64, y f64) f64 {
 			Expect(params.AllTrigger()).To(HaveLen(2))
 
 			Expect(params.Trigger(0).IDENTIFIER().GetText()).To(Equal("x"))
-			Expect(params.Trigger(0).Type_().PrimitiveType().NumericType().FloatType().F64()).NotTo(BeNil())
+			Expect(
+				params.Trigger(0).
+					Type_().
+					PrimitiveType().
+					NumericType().
+					FloatType().
+					F64(),
+			).NotTo(BeNil())
 
 			returnType := funcDecl.OutputType()
 			Expect(returnType).NotTo(BeNil())
-			Expect(returnType.Type_().PrimitiveType().NumericType().FloatType().F64()).NotTo(BeNil())
+			Expect(
+				returnType.Type_().PrimitiveType().NumericType().FloatType().F64(),
+			).NotTo(BeNil())
 
 			block := funcDecl.Block()
 			Expect(block).NotTo(BeNil())
@@ -340,7 +376,14 @@ func process(input chan f64, output chan f64) {
 			param1 := params.Trigger(0)
 			Expect(param1.IDENTIFIER().GetText()).To(Equal("input"))
 			Expect(param1.Type_().ChannelType().CHAN()).NotTo(BeNil())
-			Expect(param1.Type_().ChannelType().PrimitiveType().NumericType().FloatType().F64()).NotTo(BeNil())
+			Expect(
+				param1.Type_().
+					ChannelType().
+					PrimitiveType().
+					NumericType().
+					FloatType().
+					F64(),
+			).NotTo(BeNil())
 
 			// Second parameter: output chan f64
 			param2 := params.Trigger(1)
@@ -397,7 +440,9 @@ func doubler{
 
 			returnType := taskDecl.OutputType()
 			Expect(returnType).NotTo(BeNil())
-			Expect(returnType.Type_().PrimitiveType().NumericType().FloatType().F64()).NotTo(BeNil())
+			Expect(
+				returnType.Type_().PrimitiveType().NumericType().FloatType().F64(),
+			).NotTo(BeNil())
 		})
 	})
 
@@ -553,7 +598,10 @@ any{ox_pt_1, ox_pt_2} -> average{} -> ox_pt_avg`)
 
 		It("Should fail parsing mixed named and anonymous input values", func() {
 			// Note: 'stage' is now a reserved keyword, so we use a different function name
-			Expect(parser.Parse(`myfunc{ox_pt_1, second: ox_pt_2} -> output`)).Error().To(MatchError(ContainSubstring("1:22 error: mismatched input")))
+			Expect(
+				parser.Parse(`myfunc{ox_pt_1, second: ox_pt_2} -> output`),
+			).Error().
+				To(MatchError(ContainSubstring("1:22 error: mismatched input")))
 		})
 	})
 
@@ -578,7 +626,9 @@ any{ox_pt_1, ox_pt_2} -> average{} -> ox_pt_avg`)
 				local := stmt.VariableDeclaration().LocalVariable()
 				Expect(local.IDENTIFIER().GetText()).To(Equal("voltage"))
 				Expect(local.Type_()).NotTo(BeNil())
-				Expect(local.Type_().PrimitiveType().NumericType().FloatType().F32()).NotTo(BeNil())
+				Expect(
+					local.Type_().PrimitiveType().NumericType().FloatType().F32(),
+				).NotTo(BeNil())
 			})
 
 			It("Should parse stateful variable declaration", func() {
@@ -628,18 +678,23 @@ any{ox_pt_1, ox_pt_2} -> average{} -> ox_pt_avg`)
 				Expect(assignStmt.VariableDeclaration()).To(BeNil())
 			})
 
-			It("Should distinguish between stateful declaration and assignment", func() {
-				// Stateful declaration with $=
-				declStmt := mustParseStatement("count $= 0")
-				Expect(declStmt.VariableDeclaration()).NotTo(BeNil())
-				Expect(declStmt.VariableDeclaration().StatefulVariable()).NotTo(BeNil())
-				Expect(declStmt.Assignment()).To(BeNil())
+			It(
+				"Should distinguish between stateful declaration and assignment",
+				func() {
+					// Stateful declaration with $=
+					declStmt := mustParseStatement("count $= 0")
+					Expect(declStmt.VariableDeclaration()).NotTo(BeNil())
+					Expect(
+						declStmt.VariableDeclaration().StatefulVariable(),
+					).NotTo(BeNil())
+					Expect(declStmt.Assignment()).To(BeNil())
 
-				// Assignment to stateful variable with =
-				assignStmt := mustParseStatement("count = count + 1")
-				Expect(assignStmt.Assignment()).NotTo(BeNil())
-				Expect(assignStmt.VariableDeclaration()).To(BeNil())
-			})
+					// Assignment to stateful variable with =
+					assignStmt := mustParseStatement("count = count + 1")
+					Expect(assignStmt.Assignment()).NotTo(BeNil())
+					Expect(assignStmt.VariableDeclaration()).To(BeNil())
+				},
+			)
 		})
 
 		Context("Control Flow", func() {
@@ -789,7 +844,10 @@ any{ox_pt_1, ox_pt_2} -> average{} -> ox_pt_avg`)
 
 				// Verify all else-if clauses
 				elseIfClauses := ifStmt.AllElseIfClause()
-				Expect(elseIfClauses).To(HaveLen(4)) // There are 4 else-if clauses (last one is just else)
+				Expect(
+					elseIfClauses,
+				).To(HaveLen(4))
+				// There are 4 else-if clauses (last one is just else)
 
 				// Check first else-if: x > 75
 				firstElseIf := elseIfClauses[0]
@@ -954,7 +1012,10 @@ any{ox_pt_1, ox_pt_2} -> average{} -> ox_pt_avg`)
 
 		Context("Error cases", func() {
 			It("Should report error for unclosed parenthesis", func() {
-				Expect(parser.ParseExpression("(2 + 3")).Error().To(MatchError(ContainSubstring("missing ')'")))
+				Expect(
+					parser.ParseExpression("(2 + 3"),
+				).Error().
+					To(MatchError(ContainSubstring("missing ')'")))
 			})
 
 			It("Should report error for invalid operators", func() {
@@ -965,7 +1026,10 @@ any{ox_pt_1, ox_pt_2} -> average{} -> ox_pt_avg`)
 			It("Should capture lexer errors for invalid tokens (regression)", func() {
 				// Regression test: lexer errors were not being captured properly
 				// Using && instead of 'and' should produce lexer token recognition errors
-				Expect(parser.ParseExpression("a > 5 && b < 10")).Error().To(MatchError(ContainSubstring("token recognition error at: '&'")))
+				Expect(
+					parser.ParseExpression("a > 5 && b < 10"),
+				).Error().
+					To(MatchError(ContainSubstring("token recognition error at: '&'")))
 			})
 
 			It("Should report error for double assignment", func() {
@@ -1014,15 +1078,18 @@ func broken() {
 		})
 
 		Context("String Literals", func() {
-			It("Should lex a backtick string spanning newlines as a single STR_LITERAL_MULTI token", func() {
-				expr := MustSucceed(parser.ParseExpression("`a\nb`"))
-				lit := parser.GetLiteral(expr)
-				Expect(lit).NotTo(BeNil())
-				multiTok := lit.STR_LITERAL_MULTI()
-				Expect(multiTok).NotTo(BeNil())
-				Expect(multiTok.GetText()).To(Equal("`a\nb`"))
-				Expect(lit.STR_LITERAL()).To(BeNil())
-			})
+			It(
+				"Should lex a backtick string spanning newlines as a single STR_LITERAL_MULTI token",
+				func() {
+					expr := MustSucceed(parser.ParseExpression("`a\nb`"))
+					lit := parser.GetLiteral(expr)
+					Expect(lit).NotTo(BeNil())
+					multiTok := lit.STR_LITERAL_MULTI()
+					Expect(multiTok).NotTo(BeNil())
+					Expect(multiTok.GetText()).To(Equal("`a\nb`"))
+					Expect(lit.STR_LITERAL()).To(BeNil())
+				},
+			)
 
 			It("Should lex an f-prefixed double-quoted string as STR_LITERAL", func() {
 				expr := MustSucceed(parser.ParseExpression(`f"hi {x}"`))
@@ -1034,25 +1101,33 @@ func broken() {
 				Expect(lit.STR_LITERAL_MULTI()).To(BeNil())
 			})
 
-			It("Should lex an rf-prefixed backtick string as STR_LITERAL_MULTI", func() {
-				expr := MustSucceed(parser.ParseExpression("rf`path: {p}\nraw: \\n`"))
-				lit := parser.GetLiteral(expr)
-				Expect(lit).NotTo(BeNil())
-				multiTok := lit.STR_LITERAL_MULTI()
-				Expect(multiTok).NotTo(BeNil())
-				Expect(multiTok.GetText()).To(Equal("rf`path: {p}\nraw: \\n`"))
-				Expect(lit.STR_LITERAL()).To(BeNil())
-			})
+			It(
+				"Should lex an rf-prefixed backtick string as STR_LITERAL_MULTI",
+				func() {
+					expr := MustSucceed(
+						parser.ParseExpression("rf`path: {p}\nraw: \\n`"),
+					)
+					lit := parser.GetLiteral(expr)
+					Expect(lit).NotTo(BeNil())
+					multiTok := lit.STR_LITERAL_MULTI()
+					Expect(multiTok).NotTo(BeNil())
+					Expect(multiTok.GetText()).To(Equal("rf`path: {p}\nraw: \\n`"))
+					Expect(lit.STR_LITERAL()).To(BeNil())
+				},
+			)
 
-			It("Should lex a raw string with embedded escapes as a single STR_LITERAL", func() {
-				expr := MustSucceed(parser.ParseExpression(`r"say \"hi\""`))
-				lit := parser.GetLiteral(expr)
-				Expect(lit).NotTo(BeNil())
-				tok := lit.STR_LITERAL()
-				Expect(tok).NotTo(BeNil())
-				Expect(tok.GetText()).To(Equal(`r"say \"hi\""`))
-				Expect(lit.STR_LITERAL_MULTI()).To(BeNil())
-			})
+			It(
+				"Should lex a raw string with embedded escapes as a single STR_LITERAL",
+				func() {
+					expr := MustSucceed(parser.ParseExpression(`r"say \"hi\""`))
+					lit := parser.GetLiteral(expr)
+					Expect(lit).NotTo(BeNil())
+					tok := lit.STR_LITERAL()
+					Expect(tok).NotTo(BeNil())
+					Expect(tok.GetText()).To(Equal(`r"say \"hi\""`))
+					Expect(lit.STR_LITERAL_MULTI()).To(BeNil())
+				},
+			)
 
 			It("Should lex an f-prefixed backtick string as STR_LITERAL_MULTI", func() {
 				expr := MustSucceed(parser.ParseExpression("f`v={x}\nt={t}`"))
@@ -1129,7 +1204,8 @@ func broken() {
 
 			It("Should return error for invalid block", func() {
 				Expect(parser.ParseBlock("{ x := := 5 }")).
-					Error().To(MatchError(ContainSubstring("1:7 error: extraneous input")))
+					Error().
+					To(MatchError(ContainSubstring("1:7 error: extraneous input")))
 			})
 
 			It("Should handle empty block", func() {
@@ -1300,14 +1376,18 @@ sensor -> demux{threshold=100} -> {
 				highTargets := entries[0].AllFlowNode()
 				Expect(highTargets).To(HaveLen(1))
 				Expect(highTargets[0].Function()).NotTo(BeNil())
-				Expect(highTargets[0].Function().IDENTIFIER().GetText()).To(Equal("alarm"))
+				Expect(
+					highTargets[0].Function().IDENTIFIER().GetText(),
+				).To(Equal("alarm"))
 
 				// Second entry: low -> logger{}
 				Expect(entries[1].IDENTIFIER(0).GetText()).To(Equal("low"))
 				lowTargets := entries[1].AllFlowNode()
 				Expect(lowTargets).To(HaveLen(1))
 				Expect(lowTargets[0].Function()).NotTo(BeNil())
-				Expect(lowTargets[0].Function().IDENTIFIER().GetText()).To(Equal("logger"))
+				Expect(
+					lowTargets[0].Function().IDENTIFIER().GetText(),
+				).To(Equal("logger"))
 			})
 
 			It("Should parse a => transition inside a routing case body", func() {
@@ -1367,7 +1447,9 @@ processor -> splitter{} -> {
 				targets := entries[0].AllFlowNode()
 				Expect(targets).To(HaveLen(1))
 				Expect(targets[0].Identifier()).NotTo(BeNil())
-				Expect(targets[0].Identifier().IDENTIFIER().GetText()).To(Equal("channel_a"))
+				Expect(
+					targets[0].Identifier().IDENTIFIER().GetText(),
+				).To(Equal("channel_a"))
 			})
 
 			It("Should parse flow without routing table", func() {
@@ -1401,49 +1483,68 @@ sensor -> state_router{} -> {
 				entry0Nodes := entries[0].AllFlowNode()
 				Expect(entry0Nodes).To(HaveLen(2))
 				Expect(entries[0].AllFlowOperator()).To(HaveLen(1))
-				Expect(entry0Nodes[0].Function().IDENTIFIER().GetText()).To(Equal("processor"))
-				Expect(entry0Nodes[1].Function().IDENTIFIER().GetText()).To(Equal("idle_display"))
+				Expect(
+					entry0Nodes[0].Function().IDENTIFIER().GetText(),
+				).To(Equal("processor"))
+				Expect(
+					entry0Nodes[1].Function().IDENTIFIER().GetText(),
+				).To(Equal("idle_display"))
 
 				// Second entry: active_out: controller{} -> actuator
 				Expect(entries[1].IDENTIFIER(0).GetText()).To(Equal("active_out"))
 				entry1Nodes := entries[1].AllFlowNode()
 				Expect(entry1Nodes).To(HaveLen(2))
 				Expect(entries[1].AllFlowOperator()).To(HaveLen(1))
-				Expect(entry1Nodes[0].Function().IDENTIFIER().GetText()).To(Equal("controller"))
-				Expect(entry1Nodes[1].Identifier().IDENTIFIER().GetText()).To(Equal("actuator"))
+				Expect(
+					entry1Nodes[0].Function().IDENTIFIER().GetText(),
+				).To(Equal("controller"))
+				Expect(
+					entry1Nodes[1].Identifier().IDENTIFIER().GetText(),
+				).To(Equal("actuator"))
 			})
 
-			It("Should parse routing table with chained nodes via => transition", func() {
-				prog := mustParseProgram(`
+			It(
+				"Should parse routing table with chained nodes via => transition",
+				func() {
+					prog := mustParseProgram(`
 sensor -> state_router{} -> {
     idle_out: processor{} => idle_display{},
     active_out: controller{} => actuator
 }`)
 
-				flow := prog.TopLevelItem(0).FlowStatement()
-				entries := flow.AllRoutingTable()[0].AllRoutingEntry()
-				Expect(entries).To(HaveLen(2))
+					flow := prog.TopLevelItem(0).FlowStatement()
+					entries := flow.AllRoutingTable()[0].AllRoutingEntry()
+					Expect(entries).To(HaveLen(2))
 
-				// First entry: idle_out: processor{} => idle_display{}
-				Expect(entries[0].IDENTIFIER(0).GetText()).To(Equal("idle_out"))
-				entry0Nodes := entries[0].AllFlowNode()
-				Expect(entry0Nodes).To(HaveLen(2))
-				ops0 := entries[0].AllFlowOperator()
-				Expect(ops0).To(HaveLen(1))
-				Expect(ops0[0].TRANSITION()).NotTo(BeNil())
-				Expect(entry0Nodes[0].Function().IDENTIFIER().GetText()).To(Equal("processor"))
-				Expect(entry0Nodes[1].Function().IDENTIFIER().GetText()).To(Equal("idle_display"))
+					// First entry: idle_out: processor{} => idle_display{}
+					Expect(entries[0].IDENTIFIER(0).GetText()).To(Equal("idle_out"))
+					entry0Nodes := entries[0].AllFlowNode()
+					Expect(entry0Nodes).To(HaveLen(2))
+					ops0 := entries[0].AllFlowOperator()
+					Expect(ops0).To(HaveLen(1))
+					Expect(ops0[0].TRANSITION()).NotTo(BeNil())
+					Expect(
+						entry0Nodes[0].Function().IDENTIFIER().GetText(),
+					).To(Equal("processor"))
+					Expect(
+						entry0Nodes[1].Function().IDENTIFIER().GetText(),
+					).To(Equal("idle_display"))
 
-				// Second entry: active_out: controller{} => actuator
-				Expect(entries[1].IDENTIFIER(0).GetText()).To(Equal("active_out"))
-				entry1Nodes := entries[1].AllFlowNode()
-				Expect(entry1Nodes).To(HaveLen(2))
-				ops1 := entries[1].AllFlowOperator()
-				Expect(ops1).To(HaveLen(1))
-				Expect(ops1[0].TRANSITION()).NotTo(BeNil())
-				Expect(entry1Nodes[0].Function().IDENTIFIER().GetText()).To(Equal("controller"))
-				Expect(entry1Nodes[1].Identifier().IDENTIFIER().GetText()).To(Equal("actuator"))
-			})
+					// Second entry: active_out: controller{} => actuator
+					Expect(entries[1].IDENTIFIER(0).GetText()).To(Equal("active_out"))
+					entry1Nodes := entries[1].AllFlowNode()
+					Expect(entry1Nodes).To(HaveLen(2))
+					ops1 := entries[1].AllFlowOperator()
+					Expect(ops1).To(HaveLen(1))
+					Expect(ops1[0].TRANSITION()).NotTo(BeNil())
+					Expect(
+						entry1Nodes[0].Function().IDENTIFIER().GetText(),
+					).To(Equal("controller"))
+					Expect(
+						entry1Nodes[1].Identifier().IDENTIFIER().GetText(),
+					).To(Equal("actuator"))
+				},
+			)
 
 			It("Should parse routing table with parameter mapping", func() {
 				prog := mustParseProgram(`
@@ -1465,7 +1566,9 @@ first{} -> {
 				Expect(entry0.IDENTIFIER(0).GetText()).To(Equal("outputA"))
 				entry0Nodes := entry0.AllFlowNode()
 				Expect(entry0Nodes).To(HaveLen(1))
-				Expect(entry0Nodes[0].Function().IDENTIFIER().GetText()).To(Equal("processor"))
+				Expect(
+					entry0Nodes[0].Function().IDENTIFIER().GetText(),
+				).To(Equal("processor"))
 				// Check trailing parameter name
 				Expect(entry0.AllIDENTIFIER()).To(HaveLen(2))
 				Expect(entry0.IDENTIFIER(1).GetText()).To(Equal("paramC"))
@@ -1475,76 +1578,86 @@ first{} -> {
 				Expect(entry1.IDENTIFIER(0).GetText()).To(Equal("outputB"))
 				entry1Nodes := entry1.AllFlowNode()
 				Expect(entry1Nodes).To(HaveLen(1))
-				Expect(entry1Nodes[0].Identifier().IDENTIFIER().GetText()).To(Equal("paramD"))
+				Expect(
+					entry1Nodes[0].Identifier().IDENTIFIER().GetText(),
+				).To(Equal("paramD"))
 				// No trailing parameter
 				Expect(entry1.AllIDENTIFIER()).To(HaveLen(1))
 			})
 
-			It("Should parse routing table with chained processing and parameter mapping", func() {
-				prog := mustParseProgram(`
+			It(
+				"Should parse routing table with chained processing and parameter mapping",
+				func() {
+					prog := mustParseProgram(`
 stage1{} -> {
     out1: filter{} -> amplifier{}: input,
     out2: processor{} -> converter{}: value
 } -> stage2{}`)
 
-				flow := prog.TopLevelItem(0).FlowStatement()
-				routingTable := flow.AllRoutingTable()[0]
-				entries := routingTable.AllRoutingEntry()
-				Expect(entries).To(HaveLen(2))
+					flow := prog.TopLevelItem(0).FlowStatement()
+					routingTable := flow.AllRoutingTable()[0]
+					entries := routingTable.AllRoutingEntry()
+					Expect(entries).To(HaveLen(2))
 
-				// First entry: out1: filter{} -> amplifier{}: input
-				entry0 := entries[0]
-				Expect(entry0.IDENTIFIER(0).GetText()).To(Equal("out1"))
-				Expect(entry0.AllFlowNode()).To(HaveLen(2))
-				Expect(entry0.AllFlowOperator()).To(HaveLen(1))
-				Expect(entry0.AllIDENTIFIER()).To(HaveLen(2))
-				Expect(entry0.IDENTIFIER(1).GetText()).To(Equal("input"))
+					// First entry: out1: filter{} -> amplifier{}: input
+					entry0 := entries[0]
+					Expect(entry0.IDENTIFIER(0).GetText()).To(Equal("out1"))
+					Expect(entry0.AllFlowNode()).To(HaveLen(2))
+					Expect(entry0.AllFlowOperator()).To(HaveLen(1))
+					Expect(entry0.AllIDENTIFIER()).To(HaveLen(2))
+					Expect(entry0.IDENTIFIER(1).GetText()).To(Equal("input"))
 
-				// Second entry: out2: processor{} -> converter{}: value
-				entry1 := entries[1]
-				Expect(entry1.IDENTIFIER(0).GetText()).To(Equal("out2"))
-				Expect(entry1.AllFlowNode()).To(HaveLen(2))
-				Expect(entry1.AllFlowOperator()).To(HaveLen(1))
-				Expect(entry1.AllIDENTIFIER()).To(HaveLen(2))
-				Expect(entry1.IDENTIFIER(1).GetText()).To(Equal("value"))
-			})
+					// Second entry: out2: processor{} -> converter{}: value
+					entry1 := entries[1]
+					Expect(entry1.IDENTIFIER(0).GetText()).To(Equal("out2"))
+					Expect(entry1.AllFlowNode()).To(HaveLen(2))
+					Expect(entry1.AllFlowOperator()).To(HaveLen(1))
+					Expect(entry1.AllIDENTIFIER()).To(HaveLen(2))
+					Expect(entry1.IDENTIFIER(1).GetText()).To(Equal("value"))
+				},
+			)
 
-			It("Should parse routing table with => chained processing and parameter mapping", func() {
-				prog := mustParseProgram(`
+			It(
+				"Should parse routing table with => chained processing and parameter mapping",
+				func() {
+					prog := mustParseProgram(`
 stage1{} -> {
     out1: filter{} => amplifier{}: input,
     out2: processor{} => converter{}: value
 } -> stage2{}`)
 
-				flow := prog.TopLevelItem(0).FlowStatement()
-				entries := flow.AllRoutingTable()[0].AllRoutingEntry()
-				Expect(entries).To(HaveLen(2))
+					flow := prog.TopLevelItem(0).FlowStatement()
+					entries := flow.AllRoutingTable()[0].AllRoutingEntry()
+					Expect(entries).To(HaveLen(2))
 
-				// First entry: out1: filter{} => amplifier{}: input
-				entry0 := entries[0]
-				Expect(entry0.IDENTIFIER(0).GetText()).To(Equal("out1"))
-				Expect(entry0.AllFlowNode()).To(HaveLen(2))
-				ops0 := entry0.AllFlowOperator()
-				Expect(ops0).To(HaveLen(1))
-				Expect(ops0[0].TRANSITION()).NotTo(BeNil())
-				Expect(entry0.AllIDENTIFIER()).To(HaveLen(2))
-				Expect(entry0.IDENTIFIER(1).GetText()).To(Equal("input"))
+					// First entry: out1: filter{} => amplifier{}: input
+					entry0 := entries[0]
+					Expect(entry0.IDENTIFIER(0).GetText()).To(Equal("out1"))
+					Expect(entry0.AllFlowNode()).To(HaveLen(2))
+					ops0 := entry0.AllFlowOperator()
+					Expect(ops0).To(HaveLen(1))
+					Expect(ops0[0].TRANSITION()).NotTo(BeNil())
+					Expect(entry0.AllIDENTIFIER()).To(HaveLen(2))
+					Expect(entry0.IDENTIFIER(1).GetText()).To(Equal("input"))
 
-				// Second entry: out2: processor{} => converter{}: value
-				entry1 := entries[1]
-				Expect(entry1.IDENTIFIER(0).GetText()).To(Equal("out2"))
-				Expect(entry1.AllFlowNode()).To(HaveLen(2))
-				ops1 := entry1.AllFlowOperator()
-				Expect(ops1).To(HaveLen(1))
-				Expect(ops1[0].TRANSITION()).NotTo(BeNil())
-				Expect(entry1.AllIDENTIFIER()).To(HaveLen(2))
-				Expect(entry1.IDENTIFIER(1).GetText()).To(Equal("value"))
-			})
+					// Second entry: out2: processor{} => converter{}: value
+					entry1 := entries[1]
+					Expect(entry1.IDENTIFIER(0).GetText()).To(Equal("out2"))
+					Expect(entry1.AllFlowNode()).To(HaveLen(2))
+					ops1 := entry1.AllFlowOperator()
+					Expect(ops1).To(HaveLen(1))
+					Expect(ops1[0].TRANSITION()).NotTo(BeNil())
+					Expect(entry1.AllIDENTIFIER()).To(HaveLen(2))
+					Expect(entry1.IDENTIFIER(1).GetText()).To(Equal("value"))
+				},
+			)
 		})
 
 		Context("Combined Multi-Output and Routing", func() {
-			It("Should parse complete example with multi-output func and routing", func() {
-				prog := mustParseProgram(`
+			It(
+				"Should parse complete example with multi-output func and routing",
+				func() {
+					prog := mustParseProgram(`
 func demux{
     threshold f64,
 } (value f32) (high f32, low f32) {
@@ -1560,21 +1673,22 @@ sensor -> demux{threshold=100.0} -> {
     low: logger{}
 }`)
 
-				// Check func declaration
-				stageDecl := prog.TopLevelItem(0).FunctionDeclaration()
-				Expect(stageDecl).NotTo(BeNil())
+					// Check func declaration
+					stageDecl := prog.TopLevelItem(0).FunctionDeclaration()
+					Expect(stageDecl).NotTo(BeNil())
 
-				multiOutput := stageDecl.OutputType().MultiOutputBlock()
-				Expect(multiOutput.AllNamedOutput()).To(HaveLen(2))
+					multiOutput := stageDecl.OutputType().MultiOutputBlock()
+					Expect(multiOutput.AllNamedOutput()).To(HaveLen(2))
 
-				// Check flow statement
-				flow := prog.TopLevelItem(1).FlowStatement()
-				Expect(flow).NotTo(BeNil())
+					// Check flow statement
+					flow := prog.TopLevelItem(1).FlowStatement()
+					Expect(flow).NotTo(BeNil())
 
-				allRoutingTables := flow.AllRoutingTable()
-				Expect(allRoutingTables).To(HaveLen(1))
-				Expect(allRoutingTables[0].AllRoutingEntry()).To(HaveLen(2))
-			})
+					allRoutingTables := flow.AllRoutingTable()
+					Expect(allRoutingTables).To(HaveLen(1))
+					Expect(allRoutingTables[0].AllRoutingEntry()).To(HaveLen(2))
+				},
+			)
 		})
 
 		Context("Input Routing Tables", func() {
@@ -1601,14 +1715,18 @@ sensor -> demux{threshold=100.0} -> {
 				entry0Targets := entries[0].AllFlowNode()
 				Expect(entry0Targets).To(HaveLen(1))
 				Expect(entry0Targets[0].Identifier()).NotTo(BeNil())
-				Expect(entry0Targets[0].Identifier().IDENTIFIER().GetText()).To(Equal("a"))
+				Expect(
+					entry0Targets[0].Identifier().IDENTIFIER().GetText(),
+				).To(Equal("a"))
 
 				// Second entry: sensor2 -> b
 				Expect(entries[1].IDENTIFIER(0).GetText()).To(Equal("sensor2"))
 				entry1Targets := entries[1].AllFlowNode()
 				Expect(entry1Targets).To(HaveLen(1))
 				Expect(entry1Targets[0].Identifier()).NotTo(BeNil())
-				Expect(entry1Targets[0].Identifier().IDENTIFIER().GetText()).To(Equal("b"))
+				Expect(
+					entry1Targets[0].Identifier().IDENTIFIER().GetText(),
+				).To(Equal("b"))
 			})
 
 			It("Should parse input routing with flow chains", func() {
@@ -1629,11 +1747,18 @@ sensor -> demux{threshold=100.0} -> {
 				// First entry: sensor1 -> lowpass{cutoff=0.5} -> a
 				entry0 := entries[0]
 				Expect(entry0.IDENTIFIER(0).GetText()).To(Equal("sensor1"))
-				Expect(entry0.AllFlowOperator()).To(HaveLen(1)) // sensor1 -> lowpass{} -> a
+				Expect(
+					entry0.AllFlowOperator(),
+				).To(HaveLen(1))
+				// sensor1 -> lowpass{} -> a
 				entry0Nodes := entry0.AllFlowNode()
 				Expect(entry0Nodes).To(HaveLen(2)) // lowpass{}, a
-				Expect(entry0Nodes[0].Function().IDENTIFIER().GetText()).To(Equal("lowpass"))
-				Expect(entry0Nodes[1].Identifier().IDENTIFIER().GetText()).To(Equal("a"))
+				Expect(
+					entry0Nodes[0].Function().IDENTIFIER().GetText(),
+				).To(Equal("lowpass"))
+				Expect(
+					entry0Nodes[1].Identifier().IDENTIFIER().GetText(),
+				).To(Equal("a"))
 
 				// Second entry: sensor2 -> scale{factor=2.0} -> b
 				entry1 := entries[1]
@@ -1641,8 +1766,12 @@ sensor -> demux{threshold=100.0} -> {
 				Expect(entry1.AllFlowOperator()).To(HaveLen(1))
 				entry1Nodes := entry1.AllFlowNode()
 				Expect(entry1Nodes).To(HaveLen(2))
-				Expect(entry1Nodes[0].Function().IDENTIFIER().GetText()).To(Equal("scale"))
-				Expect(entry1Nodes[1].Identifier().IDENTIFIER().GetText()).To(Equal("b"))
+				Expect(
+					entry1Nodes[0].Function().IDENTIFIER().GetText(),
+				).To(Equal("scale"))
+				Expect(
+					entry1Nodes[1].Identifier().IDENTIFIER().GetText(),
+				).To(Equal("b"))
 			})
 
 			It("Should parse input routing with => flow chains", func() {
@@ -1802,13 +1931,16 @@ sequence main {
 		})
 
 		Context("Optional Commas In Stage Bodies", func() {
-			DescribeTable("Should parse stage bodies with any mix of comma / newline separators",
+			DescribeTable(
+				"Should parse stage bodies with any mix of comma / newline separators",
 				func(code string, expectedItems int) {
 					prog := mustParseProgram(code)
 					seq := prog.TopLevelItem(0).SequenceDeclaration()
 					stages := allStageDecls(seq)
 					Expect(stages).To(HaveLen(1))
-					Expect(stages[0].StageBody().AllStageItem()).To(HaveLen(expectedItems))
+					Expect(
+						stages[0].StageBody().AllStageItem(),
+					).To(HaveLen(expectedItems))
 				},
 				Entry("newline-separated transitions, no commas", `
 sequence seq {
@@ -1840,7 +1972,11 @@ sequence seq {
         1 -> c
     }
 }`, 3),
-				Entry("comma-separated inline on one line", `sequence seq { stage s { 1 -> a, 1 -> b } }`, 2),
+				Entry(
+					"comma-separated inline on one line",
+					`sequence seq { stage s { 1 -> a, 1 -> b } }`,
+					2,
+				),
 				Entry("newline-separated with trailing comma still valid", `
 sequence seq {
     stage s {
@@ -1860,7 +1996,8 @@ sequence seq {
 		})
 
 		Context("Optional Commas In Stageless Sequence Bodies", func() {
-			DescribeTable("Should parse stageless sequence bodies with any mix of separators",
+			DescribeTable(
+				"Should parse stageless sequence bodies with any mix of separators",
 				func(code string, expectedItems int) {
 					prog := mustParseProgram(code)
 					seq := prog.TopLevelItem(0).SequenceDeclaration()
@@ -1871,7 +2008,11 @@ sequence main {
     1 -> valve_a
     1 -> valve_b
 }`, 2),
-				Entry("comma-separated on one line", `sequence main { 1 -> valve_a, 1 -> valve_b }`, 2),
+				Entry(
+					"comma-separated on one line",
+					`sequence main { 1 -> valve_a, 1 -> valve_b }`,
+					2,
+				),
 				Entry("comma-separated across multiple lines", `
 sequence main {
     1 -> valve_a,
@@ -1995,7 +2136,9 @@ func getPrimaryLiteral(expr parser.IExpressionContext) parser.ILiteralContext {
 	return primary.Literal()
 }
 
-func getPostfixExpression(expr parser.IExpressionContext) parser.IPostfixExpressionContext {
+func getPostfixExpression(
+	expr parser.IExpressionContext,
+) parser.IPostfixExpressionContext {
 	return getPowerExpression(expr).UnaryExpression().PostfixExpression()
 }
 
@@ -2003,27 +2146,39 @@ func getPowerExpression(expr parser.IExpressionContext) parser.IPowerExpressionC
 	return getMultiplicativeExpression(expr).PowerExpression(0)
 }
 
-func getMultiplicativeExpression(expr parser.IExpressionContext) parser.IMultiplicativeExpressionContext {
+func getMultiplicativeExpression(
+	expr parser.IExpressionContext,
+) parser.IMultiplicativeExpressionContext {
 	return getAdditiveExpression(expr).MultiplicativeExpression(0)
 }
 
-func getAdditiveExpression(expr parser.IExpressionContext) parser.IAdditiveExpressionContext {
+func getAdditiveExpression(
+	expr parser.IExpressionContext,
+) parser.IAdditiveExpressionContext {
 	return getRelationalExpression(expr).AdditiveExpression(0)
 }
 
-func getRelationalExpression(expr parser.IExpressionContext) parser.IRelationalExpressionContext {
+func getRelationalExpression(
+	expr parser.IExpressionContext,
+) parser.IRelationalExpressionContext {
 	return getEqualityExpression(expr).RelationalExpression(0)
 }
 
-func getEqualityExpression(expr parser.IExpressionContext) parser.IEqualityExpressionContext {
+func getEqualityExpression(
+	expr parser.IExpressionContext,
+) parser.IEqualityExpressionContext {
 	return getLogicalAndExpression(expr).EqualityExpression(0)
 }
 
-func getLogicalAndExpression(expr parser.IExpressionContext) parser.ILogicalAndExpressionContext {
+func getLogicalAndExpression(
+	expr parser.IExpressionContext,
+) parser.ILogicalAndExpressionContext {
 	return expr.LogicalOrExpression().LogicalAndExpression(0)
 }
 
-func allStageDecls(seq parser.ISequenceDeclarationContext) []parser.IStageDeclarationContext {
+func allStageDecls(
+	seq parser.ISequenceDeclarationContext,
+) []parser.IStageDeclarationContext {
 	var stages []parser.IStageDeclarationContext
 	for _, item := range seq.AllSequenceItem() {
 		if s := item.StageDeclaration(); s != nil {

@@ -129,13 +129,23 @@ func Open(ctx context.Context, cfgs ...Config) (_ *Calculator, err error) {
 		closers = append(closers, io.CloserFunc(func() error {
 			return wasmRT.Close(ctx)
 		}))
-		if statefulMod, err = stateful.NewHost(ctx, wasmRT, cs.series, cs.strings); err != nil {
+		if statefulMod, err = stateful.NewHost(
+			ctx,
+			wasmRT,
+			cs.series,
+			cs.strings,
+		); err != nil {
 			return nil, err
 		}
 		if _, err = series.NewHost(ctx, wasmRT, cs.series); err != nil {
 			return nil, err
 		}
-		if stringsMod, err = stlstrings.NewHost(ctx, wasmRT, cs.strings, nil); err != nil {
+		if stringsMod, err = stlstrings.NewHost(
+			ctx,
+			wasmRT,
+			cs.strings,
+			nil,
+		); err != nil {
 			return nil, err
 		}
 		if _, err = stlmath.NewHost(ctx, wasmRT); err != nil {

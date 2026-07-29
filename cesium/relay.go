@@ -55,7 +55,10 @@ var (
 // Override implements config.Config.
 func (sc DBStreamingConfig) Override(other DBStreamingConfig) DBStreamingConfig {
 	sc.BufferSize = override.Numeric(sc.BufferSize, other.BufferSize)
-	sc.SlowConsumerTimeout = override.Numeric(sc.SlowConsumerTimeout, other.SlowConsumerTimeout)
+	sc.SlowConsumerTimeout = override.Numeric(
+		sc.SlowConsumerTimeout,
+		other.SlowConsumerTimeout,
+	)
 	return sc
 }
 

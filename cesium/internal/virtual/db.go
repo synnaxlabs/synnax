@@ -151,7 +151,13 @@ func (db *DB) Close() error {
 	}
 	count := db.openWriters.Load()
 	if count > 0 {
-		err := db.wrapError(errors.Wrapf(resource.ErrOpen, "cannot close channel because there are %d unclosed writers accessing it", count))
+		err := db.wrapError(
+			errors.Wrapf(
+				resource.ErrOpen,
+				"cannot close channel because there are %d unclosed writers accessing it",
+				count,
+			),
+		)
 		db.closed.Store(false)
 		return err
 	}

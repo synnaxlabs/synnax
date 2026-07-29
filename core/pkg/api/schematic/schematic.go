@@ -48,7 +48,7 @@ func NewService(cfgs ...config.LayerConfig) (*Service, error) {
 type (
 	CreateRequest struct {
 		Schematics []schematic.Schematic `json:"schematics" msgpack:"schematics"`
-		Project    project.Key           `json:"project" msgpack:"project"`
+		Project    project.Key           `json:"project"    msgpack:"project"`
 	}
 	CreateResponse struct {
 		Schematics []schematic.Schematic `json:"schematics" msgpack:"schematics"`
@@ -67,7 +67,8 @@ func (s *Service) Create(
 	}); err != nil {
 		return CreateResponse{}, err
 	}
-	if err := s.internal.NewWriter(tx).CreateMany(ctx, req.Project, &req.Schematics); err != nil {
+	if err := s.internal.NewWriter(tx).
+		CreateMany(ctx, req.Project, &req.Schematics); err != nil {
 		return CreateResponse{}, err
 	}
 	return CreateResponse{Schematics: req.Schematics}, nil
@@ -99,7 +100,7 @@ func (s *Service) Dispatch(
 
 type (
 	RetrieveRequest struct {
-		Keys                []schematic.Key `json:"keys" msgpack:"keys"`
+		Keys                []schematic.Key `json:"keys"                   msgpack:"keys"`
 		IgnoreNotFoundError bool            `json:"ignore_not_found_error" msgpack:"ignore_not_found_error"`
 	}
 	RetrieveResponse struct {
@@ -151,8 +152,8 @@ func (s *Service) Delete(
 
 type (
 	CopyRequest struct {
-		Name     string        `json:"name" msgpack:"name"`
-		Key      schematic.Key `json:"key" msgpack:"key"`
+		Name     string        `json:"name"     msgpack:"name"`
+		Key      schematic.Key `json:"key"      msgpack:"key"`
 		Snapshot bool          `json:"snapshot" msgpack:"snapshot"`
 	}
 	CopyResponse struct {
@@ -173,7 +174,8 @@ func (s *Service) Copy(
 		return CopyResponse{}, err
 	}
 	var res CopyResponse
-	if err := s.internal.NewWriter(tx).Copy(ctx, req.Key, req.Name, req.Snapshot, &res.Schematic); err != nil {
+	if err := s.internal.NewWriter(tx).
+		Copy(ctx, req.Key, req.Name, req.Snapshot, &res.Schematic); err != nil {
 		return CopyResponse{}, err
 	}
 	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
@@ -188,7 +190,7 @@ func (s *Service) Copy(
 
 type (
 	CreateSymbolRequest struct {
-		Parent  ontology.ID     `json:"parent" msgpack:"parent"`
+		Parent  ontology.ID     `json:"parent"  msgpack:"parent"`
 		Symbols []symbol.Symbol `json:"symbols" msgpack:"symbols"`
 	}
 	CreateSymbolResponse struct {
@@ -228,7 +230,7 @@ func (s *Service) CreateSymbol(
 type (
 	RetrieveSymbolRequest struct {
 		SearchTerm string       `json:"search_term" msgpack:"search_term"`
-		Keys       []symbol.Key `json:"keys" msgpack:"keys"`
+		Keys       []symbol.Key `json:"keys"        msgpack:"keys"`
 	}
 	RetrieveSymbolResponse struct {
 		Symbols []symbol.Symbol `json:"symbols,omitzero" msgpack:"symbols,omitzero"`
@@ -262,7 +264,7 @@ func (s *Service) RetrieveSymbol(
 
 type RenameSymbolRequest struct {
 	Name string     `json:"name" msgpack:"name"`
-	Key  symbol.Key `json:"key" msgpack:"key"`
+	Key  symbol.Key `json:"key"  msgpack:"key"`
 }
 
 func (s *Service) RenameSymbol(

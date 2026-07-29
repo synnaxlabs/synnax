@@ -25,14 +25,22 @@ var _ = Describe("Get", func() {
 		},
 		Entry("doc domain with string value",
 			map[string]resolution.Domain{
-				"doc": {Expressions: []resolution.Expression{{
-					Name:   "value",
-					Values: []resolution.ExpressionValue{{StringValue: "User represents a system user."}},
-				}}},
+				"doc": {Expressions: []resolution.Expression{
+					{
+						Name: "value",
+						Values: []resolution.ExpressionValue{
+							{StringValue: "User represents a system user."},
+						},
+					},
+				}},
 			}, "User represents a system user."),
 		Entry("doc domain with expression name only",
 			map[string]resolution.Domain{
-				"doc": {Expressions: []resolution.Expression{{Name: "Inline documentation"}}},
+				"doc": {
+					Expressions: []resolution.Expression{
+						{Name: "Inline documentation"},
+					},
+				},
 			}, "Inline documentation"),
 		Entry("missing doc domain",
 			map[string]resolution.Domain{
@@ -40,17 +48,36 @@ var _ = Describe("Get", func() {
 			}, ""),
 		Entry("empty domains map", map[string]resolution.Domain{}, ""),
 		Entry("nil domains map", nil, ""),
-		Entry("doc domain with empty expressions",
-			map[string]resolution.Domain{"doc": {Expressions: []resolution.Expression{}}}, ""),
+		Entry(
+			"doc domain with empty expressions",
+			map[string]resolution.Domain{
+				"doc": {Expressions: []resolution.Expression{}},
+			},
+			"",
+		),
 		Entry("doc domain with empty values returns expression name",
 			map[string]resolution.Domain{
-				"doc": {Expressions: []resolution.Expression{{Name: "fallback", Values: []resolution.ExpressionValue{}}}},
+				"doc": {
+					Expressions: []resolution.Expression{
+						{Name: "fallback", Values: []resolution.ExpressionValue{}},
+					},
+				},
 			}, "fallback"),
 		Entry("takes first expression when multiple present",
 			map[string]resolution.Domain{
 				"doc": {Expressions: []resolution.Expression{
-					{Name: "first", Values: []resolution.ExpressionValue{{StringValue: "First doc"}}},
-					{Name: "second", Values: []resolution.ExpressionValue{{StringValue: "Second doc"}}},
+					{
+						Name: "first",
+						Values: []resolution.ExpressionValue{
+							{StringValue: "First doc"},
+						},
+					},
+					{
+						Name: "second",
+						Values: []resolution.ExpressionValue{
+							{StringValue: "Second doc"},
+						},
+					},
 				}},
 			}, "First doc"),
 	)
@@ -72,7 +99,9 @@ var _ = Describe("FormatGo", func() {
 		result := doc.FormatGo("output_memory_bases", longDoc)
 		lines := strings.Split(result, "\n")
 		for _, line := range lines {
-			Expect(len(line)).To(BeNumerically("<=", 88), "line exceeds 88 chars: %s", line)
+			Expect(
+				len(line),
+			).To(BeNumerically("<=", 88), "line exceeds 88 chars: %s", line)
 		}
 		Expect(len(lines)).To(BeNumerically(">", 1), "expected multiple lines")
 	})
@@ -82,7 +111,9 @@ var _ = Describe("FormatGo", func() {
 		result := doc.FormatGo("output_memory_bases", awkwardDoc)
 		lines := strings.SplitSeq(result, "\n")
 		for line := range lines {
-			Expect(len(line)).To(BeNumerically("<=", 88), "line exceeds 88 chars: %s", line)
+			Expect(
+				len(line),
+			).To(BeNumerically("<=", 88), "line exceeds 88 chars: %s", line)
 		}
 		// Verify that "functions, mapping" is not on its own short line
 		Expect(result).NotTo(ContainSubstring("// functions, mapping\n"))
@@ -118,7 +149,9 @@ var _ = Describe("FormatTS", func() {
 		lines := strings.Split(result, "\n")
 		Expect(len(lines)).To(BeNumerically(">", 1), "expected multiple lines")
 		for _, line := range lines {
-			Expect(len(line)).To(BeNumerically("<=", 88), "line exceeds 88 chars: %s", line)
+			Expect(
+				len(line),
+			).To(BeNumerically("<=", 88), "line exceeds 88 chars: %s", line)
 		}
 	})
 	It("should account for indentation when wrapping", func() {
@@ -126,7 +159,9 @@ var _ = Describe("FormatTS", func() {
 		result := doc.FormatTS("index", longDoc, 2)
 		lines := strings.SplitSeq(result, "\n")
 		for line := range lines {
-			Expect(2+len(line)).To(BeNumerically("<=", 88), "indented line exceeds 88 chars: %s", line)
+			Expect(
+				2+len(line),
+			).To(BeNumerically("<=", 88), "indented line exceeds 88 chars: %s", line)
 		}
 	})
 })
@@ -139,7 +174,9 @@ var _ = Describe("FormatPyDocstring", func() {
 		Expect(doc.FormatPyDocstring("Name", " ")).To(Equal(""))
 	})
 	It("should format single-line doc", func() {
-		Expect(doc.FormatPyDocstring("Name", "doc text")).To(Equal(`"""Name doc text"""`))
+		Expect(
+			doc.FormatPyDocstring("Name", "doc text"),
+		).To(Equal(`"""Name doc text"""`))
 	})
 	It("should format multi-line doc by normalizing newlines", func() {
 		result := doc.FormatPyDocstring("Name", "line1\nline2\nline3")
@@ -151,7 +188,9 @@ var _ = Describe("FormatPyDocstring", func() {
 		lines := strings.Split(result, "\n")
 		Expect(len(lines)).To(BeNumerically(">", 1), "expected multiple lines")
 		for _, line := range lines {
-			Expect(len(line)).To(BeNumerically("<=", 88), "line exceeds 88 chars: %s", line)
+			Expect(
+				len(line),
+			).To(BeNumerically("<=", 88), "line exceeds 88 chars: %s", line)
 		}
 	})
 })
@@ -177,7 +216,9 @@ var _ = Describe("FormatPyComment", func() {
 		lines := strings.Split(result, "\n")
 		Expect(len(lines)).To(BeNumerically(">", 1), "expected multiple lines")
 		for _, line := range lines {
-			Expect(len(line)).To(BeNumerically("<=", 88), "line exceeds 88 chars: %s", line)
+			Expect(
+				len(line),
+			).To(BeNumerically("<=", 88), "line exceeds 88 chars: %s", line)
 		}
 	})
 })
@@ -198,7 +239,9 @@ var _ = Describe("FormatCpp", func() {
 		result := doc.FormatCpp("output_memory_bases", longDoc)
 		lines := strings.Split(result, "\n")
 		for _, line := range lines {
-			Expect(len(line)).To(BeNumerically("<=", 88), "line exceeds 88 chars: %s", line)
+			Expect(
+				len(line),
+			).To(BeNumerically("<=", 88), "line exceeds 88 chars: %s", line)
 		}
 		Expect(len(lines)).To(BeNumerically(">", 1), "expected multiple lines")
 	})
@@ -207,7 +250,9 @@ var _ = Describe("FormatCpp", func() {
 		result := doc.FormatCpp("output_memory_bases", awkwardDoc)
 		lines := strings.SplitSeq(result, "\n")
 		for line := range lines {
-			Expect(len(line)).To(BeNumerically("<=", 88), "line exceeds 88 chars: %s", line)
+			Expect(
+				len(line),
+			).To(BeNumerically("<=", 88), "line exceeds 88 chars: %s", line)
 		}
 		// Verify that "functions, mapping" is not on its own short line
 		Expect(result).NotTo(ContainSubstring("/// functions, mapping\n"))
@@ -242,7 +287,9 @@ var _ = Describe("FormatProto", func() {
 		result := doc.FormatProto("output_memory_bases", longDoc)
 		lines := strings.SplitSeq(result, "\n")
 		for line := range lines {
-			Expect(len(line)).To(BeNumerically("<=", 88), "line exceeds 88 chars: %s", line)
+			Expect(
+				len(line),
+			).To(BeNumerically("<=", 88), "line exceeds 88 chars: %s", line)
 		}
 	})
 	It("should account for indentation when wrapping", func() {
@@ -250,7 +297,9 @@ var _ = Describe("FormatProto", func() {
 		result := doc.FormatProto("index", longDoc, 2)
 		lines := strings.SplitSeq(result, "\n")
 		for line := range lines {
-			Expect(2+len(line)).To(BeNumerically("<=", 88), "indented line exceeds 88 chars: %s", line)
+			Expect(
+				2+len(line),
+			).To(BeNumerically("<=", 88), "indented line exceeds 88 chars: %s", line)
 		}
 	})
 })
@@ -297,11 +346,16 @@ var _ = Describe("FormatPyDocstringGoogle", func() {
 		lines := strings.Split(result, "\n")
 		Expect(len(lines)).To(BeNumerically(">", 2), "expected wrapped lines")
 		for _, line := range lines {
-			Expect(len(line)).To(BeNumerically("<=", 88), "line exceeds 88 chars: %s", line)
+			Expect(
+				len(line),
+			).To(BeNumerically("<=", 88), "line exceeds 88 chars: %s", line)
 		}
 	})
 	It("should preserve paragraph breaks in class docs", func() {
-		result := doc.FormatPyDocstringGoogle("first paragraph.\n\nsecond paragraph.", nil)
+		result := doc.FormatPyDocstringGoogle(
+			"first paragraph.\n\nsecond paragraph.",
+			nil,
+		)
 		expected := `    """First paragraph.
 
     second paragraph.
@@ -340,11 +394,16 @@ var _ = Describe("FormatPyDocstringGoogle", func() {
 	})
 	It("should wrap long field docs to 88 characters including indentation", func() {
 		fields := []doc.FieldDoc{
-			{Name: "leaseholder", Doc: "is the node that holds the lease for this channel. Mostly for internal use."},
+			{
+				Name: "leaseholder",
+				Doc:  "is the node that holds the lease for this channel. Mostly for internal use.",
+			},
 		}
 		result := doc.FormatPyDocstringGoogle("", fields)
 		for line := range strings.SplitSeq(result, "\n") {
-			Expect(len(line)).To(BeNumerically("<=", 88), "line exceeds 88 chars: %s", line)
+			Expect(
+				len(line),
+			).To(BeNumerically("<=", 88), "line exceeds 88 chars: %s", line)
 		}
 		Expect(result).To(ContainSubstring("        leaseholder: Is the node"))
 		Expect(result).To(ContainSubstring("\n            "))

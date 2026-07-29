@@ -202,7 +202,12 @@ func (r *Reader) String() (string, error) {
 		return s, nil
 	}
 	if n > MaxStringLen {
-		return "", errors.Wrapf(ErrExceedStringLen, "length %d exceeds maximum %d", n, MaxStringLen)
+		return "", errors.Wrapf(
+			ErrExceedStringLen,
+			"length %d exceeds maximum %d",
+			n,
+			MaxStringLen,
+		)
 	}
 	buf := make([]byte, n)
 	if _, err = io.ReadFull(r.r, buf); err != nil {
@@ -220,7 +225,12 @@ func (r *Reader) CollectionLen() (uint32, error) {
 		return 0, err
 	}
 	if n > MaxCollectionLen {
-		return 0, errors.Wrapf(ErrExceedCollectionLen, "length %d exceeds maximum %d", n, MaxCollectionLen)
+		return 0, errors.Wrapf(
+			ErrExceedCollectionLen,
+			"length %d exceeds maximum %d",
+			n,
+			MaxCollectionLen,
+		)
 	}
 	return n, nil
 }

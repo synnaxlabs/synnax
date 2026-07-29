@@ -141,7 +141,12 @@ func (g *Gossip) ack(ctx context.Context, ack Message) (ack2 Message) {
 	return ack2
 }
 
-func (g *Gossip) ack2(ctx context.Context, ack2 Message) { g.Store.Merge(ctx, ack2.Nodes) }
+func (g *Gossip) ack2(
+	ctx context.Context,
+	ack2 Message,
+) {
+	g.Store.Merge(ctx, ack2.Nodes)
+}
 
 func RandomPeer(nodes node.Group, host node.Key) node.Node {
 	return rand.MapValue(nodes.WhereState(node.StateHealthy).WhereNot(host))

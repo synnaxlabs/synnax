@@ -57,8 +57,14 @@ var _ = Describe("Service", func() {
 	BeforeEach(func(ctx SpecContext) {
 		svc = MustOpen(auth.OpenService(ctx, auth.ServiceConfig{DB: db}))
 		creds = auth.Credentials{Username: uuid.NewString(), Password: "password"}
-		invalidPassCreds = auth.Credentials{Username: creds.Username, Password: "invalid"}
-		invalidUserCreds = auth.Credentials{Username: uuid.NewString(), Password: creds.Password}
+		invalidPassCreds = auth.Credentials{
+			Username: creds.Username,
+			Password: "invalid",
+		}
+		invalidUserCreds = auth.Credentials{
+			Username: uuid.NewString(),
+			Password: creds.Password,
+		}
 		Expect(svc.NewWriter(nil).Register(ctx, creds)).To(Succeed())
 	})
 
@@ -66,42 +72,69 @@ var _ = Describe("Service", func() {
 		It("Should return a nil error for valid credentials", func(ctx SpecContext) {
 			Expect(svc.Authenticate(ctx, nil, creds)).To(Succeed())
 		})
-		It("Should return an InvalidCredentials error when the password is wrong", func(ctx SpecContext) {
-			Expect(svc.Authenticate(ctx, nil, invalidPassCreds)).To(MatchError(auth.ErrInvalidCredentials))
-		})
-		It("Should return an InvalidCredentials error when the user can't be found", func(ctx SpecContext) {
-			Expect(svc.Authenticate(ctx, nil, invalidUserCreds)).To(MatchError(auth.ErrInvalidCredentials))
-		})
-		It("Should return a validation error when the username is empty", func(ctx SpecContext) {
-			Expect(svc.Authenticate(ctx, nil, auth.Credentials{Password: "password"})).To(
-				MatchError(ContainSubstring("username")),
-			)
-		})
-		It("Should return a validation error when the password is empty", func(ctx SpecContext) {
-			Expect(svc.Authenticate(ctx, nil, auth.Credentials{Username: uuid.NewString()})).To(
-				MatchError(ContainSubstring("password")),
-			)
-		})
-		It("Should read from the supplied tx so an in-flight password rotation is observed", func(ctx SpecContext) {
-			newPass := "rotated-" + uuid.NewString()
-			tx := DeferClose(db.OpenTx())
-			// Rotate the password inside the tx but do not commit.
-			Expect(svc.NewWriter(tx).ChangePassword(ctx, auth.Credentials{
-				Username: creds.Username,
-				Password: newPass,
-			})).To(Succeed())
-			// Inside the same tx, only the new password authenticates; the old one no
-			// longer does — proof that Authenticate observed the in-flight write.
-			Expect(svc.Authenticate(ctx, tx, auth.Credentials{
-				Username: creds.Username, Password: newPass,
-			})).To(Succeed())
-			Expect(svc.Authenticate(ctx, tx, creds)).To(
-				MatchError(auth.ErrInvalidCredentials),
-			)
-			// Outside the tx (against committed state), the original password still
-			// works because the rotation has not been committed.
-			Expect(svc.Authenticate(ctx, nil, creds)).To(Succeed())
-		})
+		It(
+			"Should return an InvalidCredentials error when the password is wrong",
+			func(ctx SpecContext) {
+				Expect(
+					svc.Authenticate(ctx, nil, invalidPassCreds),
+				).To(MatchError(auth.ErrInvalidCredentials))
+			},
+		)
+		It(
+			"Should return an InvalidCredentials error when the user can't be found",
+			func(ctx SpecContext) {
+				Expect(
+					svc.Authenticate(ctx, nil, invalidUserCreds),
+				).To(MatchError(auth.ErrInvalidCredentials))
+			},
+		)
+		It(
+			"Should return a validation error when the username is empty",
+			func(ctx SpecContext) {
+				Expect(
+					svc.Authenticate(ctx, nil, auth.Credentials{Password: "password"}),
+				).To(
+					MatchError(ContainSubstring("username")),
+				)
+			},
+		)
+		It(
+			"Should return a validation error when the password is empty",
+			func(ctx SpecContext) {
+				Expect(
+					svc.Authenticate(
+						ctx,
+						nil,
+						auth.Credentials{Username: uuid.NewString()},
+					),
+				).To(
+					MatchError(ContainSubstring("password")),
+				)
+			},
+		)
+		It(
+			"Should read from the supplied tx so an in-flight password rotation is observed",
+			func(ctx SpecContext) {
+				newPass := "rotated-" + uuid.NewString()
+				tx := DeferClose(db.OpenTx())
+				// Rotate the password inside the tx but do not commit.
+				Expect(svc.NewWriter(tx).ChangePassword(ctx, auth.Credentials{
+					Username: creds.Username,
+					Password: newPass,
+				})).To(Succeed())
+				// Inside the same tx, only the new password authenticates; the old one no
+				// longer does — proof that Authenticate observed the in-flight write.
+				Expect(svc.Authenticate(ctx, tx, auth.Credentials{
+					Username: creds.Username, Password: newPass,
+				})).To(Succeed())
+				Expect(svc.Authenticate(ctx, tx, creds)).To(
+					MatchError(auth.ErrInvalidCredentials),
+				)
+				// Outside the tx (against committed state), the original password still
+				// works because the rotation has not been committed.
+				Expect(svc.Authenticate(ctx, nil, creds)).To(Succeed())
+			},
+		)
 	})
 })
 

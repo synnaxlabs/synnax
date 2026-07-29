@@ -62,7 +62,11 @@ func newTestLogger() (*alamos.Logger, *syncBuffer) {
 	return logger, buffer
 }
 
-func openMockDriver(ctx context.Context, logger *alamos.Logger, overrides ...driver.Config) *driver.Driver {
+func openMockDriver(
+	ctx context.Context,
+	logger *alamos.Logger,
+	overrides ...driver.Config,
+) *driver.Driver {
 	base := driver.Config{
 		Instrumentation: alamos.New("test", alamos.WithLogger(logger)),
 		FS:              mockFS,
@@ -83,51 +87,60 @@ var _ = Describe("Open", func() {
 			Expect(d.Close()).To(Succeed())
 		})
 
-		It("Should return nil driver and kill the process promptly on timeout", func(ctx SpecContext) {
-			Expect(os.Setenv("MOCK_DELAY_MS", "30000")).To(Succeed())
-			defer func() { Expect(os.Unsetenv("MOCK_DELAY_MS")).To(Succeed()) }()
-			logger, _ := newTestLogger()
-			start := time.Now()
-			d, err := driver.Open(ctx, driver.Config{
-				Instrumentation: alamos.New("test", alamos.WithLogger(logger)),
-				FS:              mockFS,
-				Insecure:        new(true),
-				Address:         "localhost:9090",
-				ParentDirname:   GinkgoT().TempDir(),
-				StartTimeout:    100 * time.Millisecond,
-				StopTimeout:     500 * time.Millisecond,
-			})
-			elapsed := time.Since(start)
-			Expect(err).To(MatchError(ContainSubstring("timed out")))
-			Expect(d).To(BeNil())
-			// Open should return within StartTimeout + StopTimeout + some
-			// margin. With a 30s mock delay, exceeding 5s here would indicate
-			// the kill escalation is broken.
-			Expect(elapsed).To(BeNumerically("<", 5*time.Second))
-		})
+		It(
+			"Should return nil driver and kill the process promptly on timeout",
+			func(ctx SpecContext) {
+				Expect(os.Setenv("MOCK_DELAY_MS", "30000")).To(Succeed())
+				defer func() { Expect(os.Unsetenv("MOCK_DELAY_MS")).To(Succeed()) }()
+				logger, _ := newTestLogger()
+				start := time.Now()
+				d, err := driver.Open(ctx, driver.Config{
+					Instrumentation: alamos.New("test", alamos.WithLogger(logger)),
+					FS:              mockFS,
+					Insecure:        new(true),
+					Address:         "localhost:9090",
+					ParentDirname:   GinkgoT().TempDir(),
+					StartTimeout:    100 * time.Millisecond,
+					StopTimeout:     500 * time.Millisecond,
+				})
+				elapsed := time.Since(start)
+				Expect(err).To(MatchError(ContainSubstring("timed out")))
+				Expect(d).To(BeNil())
+				// Open should return within StartTimeout + StopTimeout + some
+				// margin. With a 30s mock delay, exceeding 5s here would indicate
+				// the kill escalation is broken.
+				Expect(elapsed).To(BeNumerically("<", 5*time.Second))
+			},
+		)
 
-		It("Should return timeout error when driver crashes on startup", func(ctx SpecContext) {
-			Expect(os.Setenv("MOCK_FAIL_START", "1")).To(Succeed())
-			defer func() { Expect(os.Unsetenv("MOCK_FAIL_START")).To(Succeed()) }()
-			logger, _ := newTestLogger()
-			d, err := driver.Open(ctx, driver.Config{
-				Instrumentation: alamos.New("test", alamos.WithLogger(logger)),
-				FS:              mockFS,
-				Insecure:        new(true),
-				Address:         "localhost:9090",
-				ParentDirname:   GinkgoT().TempDir(),
-				StartTimeout:    500 * time.Millisecond,
-				StopTimeout:     500 * time.Millisecond,
-			})
-			Expect(err).To(MatchError(ContainSubstring("timed out")))
-			Expect(d).To(BeNil())
-		})
+		It(
+			"Should return timeout error when driver crashes on startup",
+			func(ctx SpecContext) {
+				Expect(os.Setenv("MOCK_FAIL_START", "1")).To(Succeed())
+				defer func() { Expect(os.Unsetenv("MOCK_FAIL_START")).To(Succeed()) }()
+				logger, _ := newTestLogger()
+				d, err := driver.Open(ctx, driver.Config{
+					Instrumentation: alamos.New("test", alamos.WithLogger(logger)),
+					FS:              mockFS,
+					Insecure:        new(true),
+					Address:         "localhost:9090",
+					ParentDirname:   GinkgoT().TempDir(),
+					StartTimeout:    500 * time.Millisecond,
+					StopTimeout:     500 * time.Millisecond,
+				})
+				Expect(err).To(MatchError(ContainSubstring("timed out")))
+				Expect(d).To(BeNil())
+			},
+		)
 
-		It("Should return nil driver on config validation failure", func(ctx SpecContext) {
-			d, err := driver.Open(ctx, driver.Config{})
-			Expect(err).To(HaveOccurred())
-			Expect(d).To(BeNil())
-		})
+		It(
+			"Should return nil driver on config validation failure",
+			func(ctx SpecContext) {
+				d, err := driver.Open(ctx, driver.Config{})
+				Expect(err).To(HaveOccurred())
+				Expect(d).To(BeNil())
+			},
+		)
 
 		It("Should return a non-nil driver when disabled", func(ctx SpecContext) {
 			logger, _ := newTestLogger()
@@ -140,77 +153,92 @@ var _ = Describe("Open", func() {
 			Expect(d.Close()).To(Succeed())
 		})
 
-		It("Should return a non-nil no-op driver when the binary is unavailable", func(ctx SpecContext) {
-			logger, buffer := newTestLogger()
-			d := MustSucceed(driver.Open(ctx, driver.Config{
-				Instrumentation: alamos.New("test", alamos.WithLogger(logger)),
-				Insecure:        new(true),
-				Address:         "localhost:9090",
-				ParentDirname:   GinkgoT().TempDir(),
-			}))
-			Expect(d.Close()).To(Succeed())
-			Expect(buffer.String()).To(ContainSubstring(
-				"Core built without embedded Driver",
-			))
-		})
+		It(
+			"Should return a non-nil no-op driver when the binary is unavailable",
+			func(ctx SpecContext) {
+				logger, buffer := newTestLogger()
+				d := MustSucceed(driver.Open(ctx, driver.Config{
+					Instrumentation: alamos.New("test", alamos.WithLogger(logger)),
+					Insecure:        new(true),
+					Address:         "localhost:9090",
+					ParentDirname:   GinkgoT().TempDir(),
+				}))
+				Expect(d.Close()).To(Succeed())
+				Expect(buffer.String()).To(ContainSubstring(
+					"Core built without embedded Driver",
+				))
+			},
+		)
 
-		It("Should return an error when the restart policy config is invalid", func(ctx SpecContext) {
-			logger, _ := newTestLogger()
-			Expect(driver.Open(ctx, driver.Config{
-				Instrumentation:   alamos.New("test", alamos.WithLogger(logger)),
-				FS:                mockFS,
-				Insecure:          new(true),
-				Address:           "localhost:9090",
-				ParentDirname:     GinkgoT().TempDir(),
-				RestartMaxRetries: -1,
-			})).Error().To(MatchError(ContainSubstring("max_retries")))
-		})
+		It(
+			"Should return an error when the restart policy config is invalid",
+			func(ctx SpecContext) {
+				logger, _ := newTestLogger()
+				Expect(driver.Open(ctx, driver.Config{
+					Instrumentation:   alamos.New("test", alamos.WithLogger(logger)),
+					FS:                mockFS,
+					Insecure:          new(true),
+					Address:           "localhost:9090",
+					ParentDirname:     GinkgoT().TempDir(),
+					RestartMaxRetries: -1,
+				})).Error().To(MatchError(ContainSubstring("max_retries")))
+			},
+		)
 
-		It("Should wrap the startup error when the context is canceled", func(ctx SpecContext) {
-			canceledCtx, cancel := context.WithCancel(ctx)
-			cancel()
-			logger, _ := newTestLogger()
-			Expect(driver.Open(canceledCtx, driver.Config{
-				Instrumentation: alamos.New("test", alamos.WithLogger(logger)),
-				FS:              mockFS,
-				Insecure:        new(true),
-				Address:         "localhost:9090",
-				ParentDirname:   GinkgoT().TempDir(),
-				StartTimeout:    2 * time.Second,
-				StopTimeout:     500 * time.Millisecond,
-			})).Error().
-				To(MatchError(ContainSubstring("failed to start embedded Driver")))
-		})
+		It(
+			"Should wrap the startup error when the context is canceled",
+			func(ctx SpecContext) {
+				canceledCtx, cancel := context.WithCancel(ctx)
+				cancel()
+				logger, _ := newTestLogger()
+				Expect(driver.Open(canceledCtx, driver.Config{
+					Instrumentation: alamos.New("test", alamos.WithLogger(logger)),
+					FS:              mockFS,
+					Insecure:        new(true),
+					Address:         "localhost:9090",
+					ParentDirname:   GinkgoT().TempDir(),
+					StartTimeout:    2 * time.Second,
+					StopTimeout:     500 * time.Millisecond,
+				})).Error().
+					To(MatchError(ContainSubstring("failed to start embedded Driver")))
+			},
+		)
 	})
 
 	Describe("startup failures", func() {
-		It("Should fail to start when the binary is missing from the filesystem", func(ctx SpecContext) {
-			logger, _ := newTestLogger()
-			Expect(driver.Open(ctx, driver.Config{
-				Instrumentation: alamos.New("test", alamos.WithLogger(logger)),
-				FS:              fstest.MapFS{},
-				Insecure:        new(true),
-				Address:         "localhost:9090",
-				ParentDirname:   GinkgoT().TempDir(),
-				StartTimeout:    200 * time.Millisecond,
-				StopTimeout:     200 * time.Millisecond,
-			})).Error().To(MatchError(ContainSubstring("timed out")))
-		})
+		It(
+			"Should fail to start when the binary is missing from the filesystem",
+			func(ctx SpecContext) {
+				logger, _ := newTestLogger()
+				Expect(driver.Open(ctx, driver.Config{
+					Instrumentation: alamos.New("test", alamos.WithLogger(logger)),
+					FS:              fstest.MapFS{},
+					Insecure:        new(true),
+					Address:         "localhost:9090",
+					ParentDirname:   GinkgoT().TempDir(),
+					StartTimeout:    200 * time.Millisecond,
+					StopTimeout:     200 * time.Millisecond,
+				})).Error().To(MatchError(ContainSubstring("timed out")))
+			},
+		)
 
-		It("Should fail to start when the working directory cannot be created", func(ctx SpecContext) {
-			logger, _ := newTestLogger()
-			blocker := filepath.Join(GinkgoT().TempDir(), "blocker")
-			Expect(os.WriteFile(blocker, []byte("x"), 0o644)).To(Succeed())
-			Expect(driver.Open(ctx, driver.Config{
-				Instrumentation: alamos.New("test", alamos.WithLogger(logger)),
-				FS:              mockFS,
-				Insecure:        new(true),
-				Address:         "localhost:9090",
-				ParentDirname:   filepath.Join(blocker, "sub"),
-				StartTimeout:    200 * time.Millisecond,
-				StopTimeout:     200 * time.Millisecond,
-			})).Error().To(MatchError(ContainSubstring("timed out")))
-		})
+		It(
+			"Should fail to start when the working directory cannot be created",
+			func(ctx SpecContext) {
+				logger, _ := newTestLogger()
+				blocker := filepath.Join(GinkgoT().TempDir(), "blocker")
+				Expect(os.WriteFile(blocker, []byte("x"), 0o644)).To(Succeed())
+				Expect(driver.Open(ctx, driver.Config{
+					Instrumentation: alamos.New("test", alamos.WithLogger(logger)),
+					FS:              mockFS,
+					Insecure:        new(true),
+					Address:         "localhost:9090",
+					ParentDirname:   filepath.Join(blocker, "sub"),
+					StartTimeout:    200 * time.Millisecond,
+					StopTimeout:     200 * time.Millisecond,
+				})).Error().To(MatchError(ContainSubstring("timed out")))
+			},
+		)
 	})
 
 	Describe("behavior", func() {
@@ -224,22 +252,25 @@ var _ = Describe("Open", func() {
 })
 
 var _ = Describe("restart", func() {
-	It("Should restart and recover after transient startup crashes", func(ctx SpecContext) {
-		crashFile := filepath.Join(GinkgoT().TempDir(), "crashes")
-		Expect(os.WriteFile(crashFile, []byte("2"), 0o644)).To(Succeed())
-		Expect(os.Setenv("MOCK_CRASH_COUNT_FILE", crashFile)).To(Succeed())
-		defer func() { Expect(os.Unsetenv("MOCK_CRASH_COUNT_FILE")).To(Succeed()) }()
-		logger, buffer := newTestLogger()
-		d := openMockDriver(ctx, logger, driver.Config{
-			StartTimeout:        5 * time.Second,
-			RestartBaseInterval: time.Millisecond,
-			RestartMaxRetries:   10,
-		})
-		Expect(d).ToNot(BeNil())
-		Expect(d.Close()).To(Succeed())
-		Expect(strings.Count(buffer.String(), "exited unexpectedly")).
-			To(BeNumerically(">=", 2))
-	})
+	It(
+		"Should restart and recover after transient startup crashes",
+		func(ctx SpecContext) {
+			crashFile := filepath.Join(GinkgoT().TempDir(), "crashes")
+			Expect(os.WriteFile(crashFile, []byte("2"), 0o644)).To(Succeed())
+			Expect(os.Setenv("MOCK_CRASH_COUNT_FILE", crashFile)).To(Succeed())
+			defer func() { Expect(os.Unsetenv("MOCK_CRASH_COUNT_FILE")).To(Succeed()) }()
+			logger, buffer := newTestLogger()
+			d := openMockDriver(ctx, logger, driver.Config{
+				StartTimeout:        5 * time.Second,
+				RestartBaseInterval: time.Millisecond,
+				RestartMaxRetries:   10,
+			})
+			Expect(d).ToNot(BeNil())
+			Expect(d.Close()).To(Succeed())
+			Expect(strings.Count(buffer.String(), "exited unexpectedly")).
+				To(BeNumerically(">=", 2))
+		},
+	)
 
 	It("Should give up after exceeding the restart limit", func(ctx SpecContext) {
 		crashFile := filepath.Join(GinkgoT().TempDir(), "crashes")
@@ -270,25 +301,28 @@ var _ = Describe("restart", func() {
 		Expect(buffer.String()).ToNot(ContainSubstring("exited unexpectedly"))
 	})
 
-	It("Should not panic when a restarted driver re-signals startup", func(ctx SpecContext) {
-		Expect(os.Setenv("MOCK_EXIT_AFTER_MS", "100")).To(Succeed())
-		defer func() { Expect(os.Unsetenv("MOCK_EXIT_AFTER_MS")).To(Succeed()) }()
-		logger, buffer := newTestLogger()
-		d := openMockDriver(ctx, logger, driver.Config{
-			StartTimeout:        5 * time.Second,
-			RestartBaseInterval: time.Millisecond,
-		})
-		Expect(d).ToNot(BeNil())
-		// Each run starts then crashes, so the supervisor restarts and the restarted run
-		// re-emits "started successfully". The shared startup channel must not be closed
-		// twice: on the bug this panics in the pipe goroutine before the second startup
-		// line is logged, so the count never reaches two.
-		Eventually(func() int {
-			return strings.Count(buffer.String(), "started successfully")
-		}, 5*time.Second).Should(BeNumerically(">=", 2))
-		Expect(d.Close()).To(Succeed())
-		Expect(buffer.String()).ToNot(ContainSubstring("close of closed channel"))
-	})
+	It(
+		"Should not panic when a restarted driver re-signals startup",
+		func(ctx SpecContext) {
+			Expect(os.Setenv("MOCK_EXIT_AFTER_MS", "100")).To(Succeed())
+			defer func() { Expect(os.Unsetenv("MOCK_EXIT_AFTER_MS")).To(Succeed()) }()
+			logger, buffer := newTestLogger()
+			d := openMockDriver(ctx, logger, driver.Config{
+				StartTimeout:        5 * time.Second,
+				RestartBaseInterval: time.Millisecond,
+			})
+			Expect(d).ToNot(BeNil())
+			// Each run starts then crashes, so the supervisor restarts and the restarted run
+			// re-emits "started successfully". The shared startup channel must not be closed
+			// twice: on the bug this panics in the pipe goroutine before the second startup
+			// line is logged, so the count never reaches two.
+			Eventually(func() int {
+				return strings.Count(buffer.String(), "started successfully")
+			}, 5*time.Second).Should(BeNumerically(">=", 2))
+			Expect(d.Close()).To(Succeed())
+			Expect(buffer.String()).ToNot(ContainSubstring("close of closed channel"))
+		},
+	)
 })
 
 var _ = Describe("Close", func() {
@@ -306,14 +340,17 @@ var _ = Describe("Close", func() {
 			Expect(d.Close()).To(Succeed())
 		})
 
-		It("Should handle a driver crash after successful startup", func(ctx SpecContext) {
-			Expect(os.Setenv("MOCK_EXIT_AFTER_MS", "100")).To(Succeed())
-			defer func() { Expect(os.Unsetenv("MOCK_EXIT_AFTER_MS")).To(Succeed()) }()
-			logger, _ := newTestLogger()
-			d := openMockDriver(ctx, logger)
-			time.Sleep(200 * time.Millisecond)
-			Expect(d.Close()).To(Succeed())
-		})
+		It(
+			"Should handle a driver crash after successful startup",
+			func(ctx SpecContext) {
+				Expect(os.Setenv("MOCK_EXIT_AFTER_MS", "100")).To(Succeed())
+				defer func() { Expect(os.Unsetenv("MOCK_EXIT_AFTER_MS")).To(Succeed()) }()
+				logger, _ := newTestLogger()
+				d := openMockDriver(ctx, logger)
+				time.Sleep(200 * time.Millisecond)
+				Expect(d.Close()).To(Succeed())
+			},
+		)
 
 		It("Should be idempotent on a disabled driver", func(ctx SpecContext) {
 			logger, _ := newTestLogger()

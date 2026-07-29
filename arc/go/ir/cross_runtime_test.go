@@ -27,7 +27,9 @@ import (
 // failed to load on the driver's C++ runtime.
 const cppIRHeaderPath = "../../cpp/ir/ir.h"
 
-var cppStringConstRe = regexp.MustCompile(`inline const std::string (\w+)\s*=\s*"([^"]*)";`)
+var cppStringConstRe = regexp.MustCompile(
+	`inline const std::string (\w+)\s*=\s*"([^"]*)";`,
+)
 
 // parseCppStringConstants maps each `inline const std::string NAME = "VALUE";`
 // declaration in src to NAME->VALUE.
@@ -43,8 +45,12 @@ var _ = Describe("Cross-runtime IR contract", Ordered, func() {
 	var cppConstants map[string]string
 	BeforeAll(func() {
 		ShouldNotLeakGoroutines()
-		cppConstants = parseCppStringConstants(MustSucceed(os.ReadFile(cppIRHeaderPath)))
-		Expect(cppConstants).ToNot(BeEmpty(), "no string constants parsed from %s", cppIRHeaderPath)
+		cppConstants = parseCppStringConstants(
+			MustSucceed(os.ReadFile(cppIRHeaderPath)),
+		)
+		Expect(
+			cppConstants,
+		).ToNot(BeEmpty(), "no string constants parsed from %s", cppIRHeaderPath)
 	})
 
 	// When adding a shared IR param-name constant, define it on both sides and

@@ -118,7 +118,9 @@ var _ = Describe("GetStringFromField", func() {
 				}},
 			},
 		}))
-		Expect(domain.GetStringFromField(f, "validate", "pattern")).To(Equal("^[a-z]+$"))
+		Expect(
+			domain.GetStringFromField(f, "validate", "pattern"),
+		).To(Equal("^[a-z]+$"))
 	})
 })
 
@@ -161,7 +163,9 @@ var _ = Describe("GetAllStrings", func() {
 				},
 			},
 		})
-		Expect(domain.GetAllStringsFromType(t, "go", "field")).To(Equal([]string{"Name"}))
+		Expect(
+			domain.GetAllStringsFromType(t, "go", "field"),
+		).To(Equal([]string{"Name"}))
 	})
 
 	It("should collect ident values when string values are empty", func() {
@@ -175,7 +179,9 @@ var _ = Describe("GetAllStrings", func() {
 				},
 			},
 		})
-		Expect(domain.GetAllStringsFromType(t, "go", "field")).To(Equal([]string{"SomeIdent"}))
+		Expect(
+			domain.GetAllStringsFromType(t, "go", "field"),
+		).To(Equal([]string{"SomeIdent"}))
 	})
 })
 

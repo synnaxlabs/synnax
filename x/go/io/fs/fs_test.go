@@ -221,108 +221,114 @@ var _ = Describe("FS", func() {
 						Expect(buf).To(Equal([]byte("newnewold")))
 						Expect(f.Close()).To(Succeed())
 					})
-					It("Should work for a combination of APPEND and not APPEND", func() {
-						f := MustSucceed(
-							fs.Open("test_file.txt", os.O_CREATE|os.O_WRONLY),
-						)
-						Expect(f.Write([]byte("oldoldold"))).To(Equal(9))
-						Expect(f.Close()).To(Succeed())
+					It(
+						"Should work for a combination of APPEND and not APPEND",
+						func() {
+							f := MustSucceed(
+								fs.Open("test_file.txt", os.O_CREATE|os.O_WRONLY),
+							)
+							Expect(f.Write([]byte("oldoldold"))).To(Equal(9))
+							Expect(f.Close()).To(Succeed())
 
-						f = MustSucceed(fs.Open("test_file.txt", os.O_RDONLY))
-						stats := MustSucceed(fs.Stat("test_file.txt"))
-						Expect(stats.Size()).To(BeEquivalentTo(9))
-						buf := make([]byte, 9)
-						Expect(f.Read(buf)).To(Equal(9))
-						Expect(buf).To(Equal([]byte("oldoldold")))
-						Expect(f.Close()).To(Succeed())
+							f = MustSucceed(fs.Open("test_file.txt", os.O_RDONLY))
+							stats := MustSucceed(fs.Stat("test_file.txt"))
+							Expect(stats.Size()).To(BeEquivalentTo(9))
+							buf := make([]byte, 9)
+							Expect(f.Read(buf)).To(Equal(9))
+							Expect(buf).To(Equal([]byte("oldoldold")))
+							Expect(f.Close()).To(Succeed())
 
-						f = MustSucceed(fs.Open("test_file.txt", os.O_WRONLY))
-						Expect(f.Write([]byte("newnew"))).To(Equal(6))
-						Expect(f.Close()).To(Succeed())
+							f = MustSucceed(fs.Open("test_file.txt", os.O_WRONLY))
+							Expect(f.Write([]byte("newnew"))).To(Equal(6))
+							Expect(f.Close()).To(Succeed())
 
-						f = MustSucceed(fs.Open("test_file.txt", os.O_RDONLY))
-						stats = MustSucceed(fs.Stat("test_file.txt"))
-						Expect(stats.Size()).To(BeEquivalentTo(9))
-						Expect(f.Read(buf)).To(Equal(9))
-						Expect(buf).To(Equal([]byte("newnewold")))
-						Expect(f.Close()).To(Succeed())
+							f = MustSucceed(fs.Open("test_file.txt", os.O_RDONLY))
+							stats = MustSucceed(fs.Stat("test_file.txt"))
+							Expect(stats.Size()).To(BeEquivalentTo(9))
+							Expect(f.Read(buf)).To(Equal(9))
+							Expect(buf).To(Equal([]byte("newnewold")))
+							Expect(f.Close()).To(Succeed())
 
-						f = MustSucceed(
-							fs.Open("test_file.txt", os.O_WRONLY|os.O_APPEND),
-						)
-						Expect(f.Write([]byte("brandnew"))).To(Equal(8))
-						Expect(f.Write([]byte("haha"))).To(Equal(4))
-						Expect(f.Close()).To(Succeed())
+							f = MustSucceed(
+								fs.Open("test_file.txt", os.O_WRONLY|os.O_APPEND),
+							)
+							Expect(f.Write([]byte("brandnew"))).To(Equal(8))
+							Expect(f.Write([]byte("haha"))).To(Equal(4))
+							Expect(f.Close()).To(Succeed())
 
-						f = MustSucceed(fs.Open("test_file.txt", os.O_RDONLY))
-						stats = MustSucceed(fs.Stat("test_file.txt"))
-						Expect(stats.Size()).To(BeEquivalentTo(21))
-						buf = make([]byte, 21)
-						Expect(f.Read(buf)).To(Equal(21))
-						Expect(buf).To(Equal([]byte("newnewoldbrandnewhaha")))
-						Expect(f.Close()).To(Succeed())
+							f = MustSucceed(fs.Open("test_file.txt", os.O_RDONLY))
+							stats = MustSucceed(fs.Stat("test_file.txt"))
+							Expect(stats.Size()).To(BeEquivalentTo(21))
+							buf = make([]byte, 21)
+							Expect(f.Read(buf)).To(Equal(21))
+							Expect(buf).To(Equal([]byte("newnewoldbrandnewhaha")))
+							Expect(f.Close()).To(Succeed())
 
-						f = MustSucceed(fs.Open("test_file.txt", os.O_WRONLY))
-						Expect(f.Write([]byte("ipromise"))).To(Equal(8))
-						Expect(f.Write([]byte("n"))).To(Equal(1))
-						Expect(f.Write([]byte("e"))).To(Equal(1))
-						Expect(f.Write([]byte("w"))).To(Equal(1))
-						Expect(f.Close()).To(Succeed())
+							f = MustSucceed(fs.Open("test_file.txt", os.O_WRONLY))
+							Expect(f.Write([]byte("ipromise"))).To(Equal(8))
+							Expect(f.Write([]byte("n"))).To(Equal(1))
+							Expect(f.Write([]byte("e"))).To(Equal(1))
+							Expect(f.Write([]byte("w"))).To(Equal(1))
+							Expect(f.Close()).To(Succeed())
 
-						f = MustSucceed(fs.Open("test_file.txt", os.O_RDONLY))
-						stats = MustSucceed(fs.Stat("test_file.txt"))
-						Expect(stats.Size()).To(BeEquivalentTo(21))
-						buf = make([]byte, 21)
-						Expect(f.Read(buf)).To(Equal(21))
-						Expect(buf).To(Equal([]byte("ipromisenewandnewhaha")))
-						Expect(f.Close()).To(Succeed())
+							f = MustSucceed(fs.Open("test_file.txt", os.O_RDONLY))
+							stats = MustSucceed(fs.Stat("test_file.txt"))
+							Expect(stats.Size()).To(BeEquivalentTo(21))
+							buf = make([]byte, 21)
+							Expect(f.Read(buf)).To(Equal(21))
+							Expect(buf).To(Equal([]byte("ipromisenewandnewhaha")))
+							Expect(f.Close()).To(Succeed())
 
-						f = MustSucceed(
-							fs.Open("test_file.txt", os.O_WRONLY|os.O_APPEND),
-						)
-						Expect(f.Write([]byte("t"))).To(Equal(1))
-						Expect(f.Write([]byte("e"))).To(Equal(1))
-						Expect(f.Write([]byte("a"))).To(Equal(1))
-						Expect(f.Close()).To(Succeed())
+							f = MustSucceed(
+								fs.Open("test_file.txt", os.O_WRONLY|os.O_APPEND),
+							)
+							Expect(f.Write([]byte("t"))).To(Equal(1))
+							Expect(f.Write([]byte("e"))).To(Equal(1))
+							Expect(f.Write([]byte("a"))).To(Equal(1))
+							Expect(f.Close()).To(Succeed())
 
-						f = MustSucceed(fs.Open("test_file.txt", os.O_RDONLY))
-						stats = MustSucceed(fs.Stat("test_file.txt"))
-						Expect(stats.Size()).To(BeEquivalentTo(24))
-						buf = make([]byte, 24)
-						Expect(f.Read(buf)).To(Equal(24))
-						Expect(buf).To(Equal([]byte("ipromisenewandnewhahatea")))
-						Expect(f.Close()).To(Succeed())
-					})
+							f = MustSucceed(fs.Open("test_file.txt", os.O_RDONLY))
+							stats = MustSucceed(fs.Stat("test_file.txt"))
+							Expect(stats.Size()).To(BeEquivalentTo(24))
+							buf = make([]byte, 24)
+							Expect(f.Read(buf)).To(Equal(24))
+							Expect(buf).To(Equal([]byte("ipromisenewandnewhahatea")))
+							Expect(f.Close()).To(Succeed())
+						},
+					)
 				})
 				Describe("Truncate mode", func() {
-					It("Should truncate an existing file to zero length with O_TRUNC", func() {
-						f := MustSucceed(
-							fs.Open("test_file.txt", os.O_CREATE|os.O_WRONLY),
-						)
-						Expect(f.Write([]byte("original content"))).To(Equal(16))
-						Expect(f.Close()).To(Succeed())
+					It(
+						"Should truncate an existing file to zero length with O_TRUNC",
+						func() {
+							f := MustSucceed(
+								fs.Open("test_file.txt", os.O_CREATE|os.O_WRONLY),
+							)
+							Expect(f.Write([]byte("original content"))).To(Equal(16))
+							Expect(f.Close()).To(Succeed())
 
-						stats := MustSucceed(fs.Stat("test_file.txt"))
-						Expect(stats.Size()).To(BeEquivalentTo(16))
+							stats := MustSucceed(fs.Stat("test_file.txt"))
+							Expect(stats.Size()).To(BeEquivalentTo(16))
 
-						f = MustSucceed(
-							fs.Open("test_file.txt", os.O_WRONLY|os.O_TRUNC),
-						)
-						Expect(f.Close()).To(Succeed())
+							f = MustSucceed(
+								fs.Open("test_file.txt", os.O_WRONLY|os.O_TRUNC),
+							)
+							Expect(f.Close()).To(Succeed())
 
-						stats = MustSucceed(fs.Stat("test_file.txt"))
-						Expect(stats.Size()).To(BeZero())
+							stats = MustSucceed(fs.Stat("test_file.txt"))
+							Expect(stats.Size()).To(BeZero())
 
-						f = MustSucceed(fs.Open("test_file.txt", os.O_WRONLY))
-						Expect(f.Write([]byte("new content"))).To(Equal(11))
-						Expect(f.Close()).To(Succeed())
+							f = MustSucceed(fs.Open("test_file.txt", os.O_WRONLY))
+							Expect(f.Write([]byte("new content"))).To(Equal(11))
+							Expect(f.Close()).To(Succeed())
 
-						f = MustSucceed(fs.Open("test_file.txt", os.O_RDONLY))
-						buf := make([]byte, 11)
-						Expect(f.Read(buf)).To(Equal(11))
-						Expect(buf).To(Equal([]byte("new content")))
-						Expect(f.Close()).To(Succeed())
-					})
+							f = MustSucceed(fs.Open("test_file.txt", os.O_RDONLY))
+							buf := make([]byte, 11)
+							Expect(f.Read(buf)).To(Equal(11))
+							Expect(buf).To(Equal([]byte("new content")))
+							Expect(f.Close()).To(Succeed())
+						},
+					)
 
 					It("Should truncate and write in a single operation", func() {
 						f := MustSucceed(
@@ -379,17 +385,23 @@ var _ = Describe("FS", func() {
 				})
 			})
 			_ = Describe("Exists", func() {
-				It("Should return false if a file does not exist and true if it does", func() {
-					Expect(fs.Exists("yum.txt")).To(BeFalse())
-					f := MustSucceed(fs.Open("yum.txt", os.O_CREATE))
-					Expect(f.Close()).To(Succeed())
-					Expect(fs.Exists("yum.txt")).To(BeTrue())
-				})
-				It("Should return false if a directory does not exist and true if it does", func() {
-					Expect(fs.Exists("yum")).To(BeFalse())
-					Expect(fs.Sub("yum")).ToNot(BeNil())
-					Expect(fs.Exists("yum")).To(BeTrue())
-				})
+				It(
+					"Should return false if a file does not exist and true if it does",
+					func() {
+						Expect(fs.Exists("yum.txt")).To(BeFalse())
+						f := MustSucceed(fs.Open("yum.txt", os.O_CREATE))
+						Expect(f.Close()).To(Succeed())
+						Expect(fs.Exists("yum.txt")).To(BeTrue())
+					},
+				)
+				It(
+					"Should return false if a directory does not exist and true if it does",
+					func() {
+						Expect(fs.Exists("yum")).To(BeFalse())
+						Expect(fs.Sub("yum")).ToNot(BeNil())
+						Expect(fs.Exists("yum")).To(BeTrue())
+					},
+				)
 			})
 			Describe("List", func() {
 				It("Should provide a list of all the files and directories", func() {
@@ -459,20 +471,23 @@ var _ = Describe("FS", func() {
 				})
 			})
 			Describe("Truncate", func() {
-				It("Should truncate a file when the size is smaller than original", func() {
-					f := MustSucceed(fs.Open("b.txt", os.O_CREATE|os.O_RDWR))
-					Expect(f.Write([]byte("hello world"))).To(Equal(11))
-					Expect(f.Truncate(5)).To(Succeed())
-					stats := MustSucceed(f.Stat())
-					Expect(stats.Size()).To(BeEquivalentTo(5))
-					Expect(f.Close()).To(Succeed())
+				It(
+					"Should truncate a file when the size is smaller than original",
+					func() {
+						f := MustSucceed(fs.Open("b.txt", os.O_CREATE|os.O_RDWR))
+						Expect(f.Write([]byte("hello world"))).To(Equal(11))
+						Expect(f.Truncate(5)).To(Succeed())
+						stats := MustSucceed(f.Stat())
+						Expect(stats.Size()).To(BeEquivalentTo(5))
+						Expect(f.Close()).To(Succeed())
 
-					f = MustSucceed(fs.Open("b.txt", os.O_RDONLY))
-					buf := make([]byte, 5)
-					Expect(f.Read(buf)).To(Equal(5))
-					Expect(f.Close()).To(Succeed())
-					Expect(buf).To(Equal([]byte("hello")))
-				})
+						f = MustSucceed(fs.Open("b.txt", os.O_RDONLY))
+						buf := make([]byte, 5)
+						Expect(f.Read(buf)).To(Equal(5))
+						Expect(f.Close()).To(Succeed())
+						Expect(buf).To(Equal([]byte("hello")))
+					},
+				)
 				It("Should not reset the file handle after down-truncate", func() {
 					f := MustSucceed(fs.Open("b.txt", os.O_CREATE|os.O_RDWR))
 					Expect(f.Write([]byte("helloworld"))).To(Equal(10))
@@ -502,19 +517,22 @@ var _ = Describe("FS", func() {
 					Expect(f.Close()).To(Succeed())
 					Expect(buf).To(Equal([]byte("hehehehaha\x00\x00\x00\x00\x00")))
 				})
-				It("Should extend a file when the size is bigger than original", func() {
-					f := MustSucceed(fs.Open("d.txt", os.O_CREATE|os.O_RDWR))
-					Expect(f.Write([]byte("hello"))).To(Equal(5))
-					Expect(f.Truncate(10)).To(Succeed())
-					stats := MustSucceed(f.Stat())
-					Expect(stats.Size()).To(BeEquivalentTo(10))
-					Expect(f.Close()).To(Succeed())
-					f = MustSucceed(fs.Open("d.txt", os.O_RDONLY))
-					buf := make([]byte, 10)
-					Expect(f.Read(buf)).To(Equal(10))
-					Expect(f.Close()).To(Succeed())
-					Expect(buf).To(Equal([]byte("hello\x00\x00\x00\x00\x00")))
-				})
+				It(
+					"Should extend a file when the size is bigger than original",
+					func() {
+						f := MustSucceed(fs.Open("d.txt", os.O_CREATE|os.O_RDWR))
+						Expect(f.Write([]byte("hello"))).To(Equal(5))
+						Expect(f.Truncate(10)).To(Succeed())
+						stats := MustSucceed(f.Stat())
+						Expect(stats.Size()).To(BeEquivalentTo(10))
+						Expect(f.Close()).To(Succeed())
+						f = MustSucceed(fs.Open("d.txt", os.O_RDONLY))
+						buf := make([]byte, 10)
+						Expect(f.Read(buf)).To(Equal(10))
+						Expect(f.Close()).To(Succeed())
+						Expect(buf).To(Equal([]byte("hello\x00\x00\x00\x00\x00")))
+					},
+				)
 			})
 		})
 	}

@@ -71,21 +71,27 @@ var _ = Describe("DB Metadata Operations", func() {
 			})
 
 			Describe("SetChannelKeyInMeta", func() {
-				It("Should change both key and index when channel is an index", func(ctx SpecContext) {
-					newKey := GenerateChannelKey()
-					Expect(indexDB.SetChannelKeyInMeta(ctx, newKey)).To(Succeed())
-					ch := MustSucceed(meta.Read(ctx, indexDBfs, json.Codec))
-					Expect(ch.Key).To(Equal(newKey))
-					Expect(ch.Index).To(Equal(newKey))
-				})
+				It(
+					"Should change both key and index when channel is an index",
+					func(ctx SpecContext) {
+						newKey := GenerateChannelKey()
+						Expect(indexDB.SetChannelKeyInMeta(ctx, newKey)).To(Succeed())
+						ch := MustSucceed(meta.Read(ctx, indexDBfs, json.Codec))
+						Expect(ch.Key).To(Equal(newKey))
+						Expect(ch.Index).To(Equal(newKey))
+					},
+				)
 
-				It("Should change only the key when channel is not an index", func(ctx SpecContext) {
-					newKey := GenerateChannelKey()
-					Expect(dataDB.SetChannelKeyInMeta(ctx, newKey)).To(Succeed())
-					ch := MustSucceed(meta.Read(ctx, dataDBfs, json.Codec))
-					Expect(ch.Key).To(Equal(newKey))
-					Expect(ch.Index).To(Equal(indexDBKey))
-				})
+				It(
+					"Should change only the key when channel is not an index",
+					func(ctx SpecContext) {
+						newKey := GenerateChannelKey()
+						Expect(dataDB.SetChannelKeyInMeta(ctx, newKey)).To(Succeed())
+						ch := MustSucceed(meta.Read(ctx, dataDBfs, json.Codec))
+						Expect(ch.Key).To(Equal(newKey))
+						Expect(ch.Index).To(Equal(indexDBKey))
+					},
+				)
 			})
 
 			Describe("SetIndexKeyInMeta", func() {
@@ -95,27 +101,44 @@ var _ = Describe("DB Metadata Operations", func() {
 				})
 
 				Describe("Index Channel", func() {
-					It("Should set the index channel to a new key", func(ctx SpecContext) {
-						newIndexKey := GenerateChannelKey()
-						Expect(indexDB.Channel().Key).ToNot(Equal(newIndexKey))
-						Expect(indexDB.SetChannelKeyInMeta(ctx, newIndexKey)).To(Succeed())
-						Expect(indexDB.SetIndexKeyInMeta(ctx, newIndexKey)).To(Succeed())
-						Expect(indexDB.Channel().Key).To(Equal(newIndexKey))
-						Expect(indexDB.Channel().Index).To(Equal(newIndexKey))
-					})
+					It(
+						"Should set the index channel to a new key",
+						func(ctx SpecContext) {
+							newIndexKey := GenerateChannelKey()
+							Expect(indexDB.Channel().Key).ToNot(Equal(newIndexKey))
+							Expect(
+								indexDB.SetChannelKeyInMeta(ctx, newIndexKey),
+							).To(Succeed())
+							Expect(
+								indexDB.SetIndexKeyInMeta(ctx, newIndexKey),
+							).To(Succeed())
+							Expect(indexDB.Channel().Key).To(Equal(newIndexKey))
+							Expect(indexDB.Channel().Index).To(Equal(newIndexKey))
+						},
+					)
 
-					It("Should return an error when attempting to set an index key that is different than the channel key", func(ctx SpecContext) {
-						newIndexKey := GenerateChannelKey()
-						Expect(indexDB.SetIndexKeyInMeta(ctx, newIndexKey)).To(MatchError(ContainSubstring("index: index channel cannot be indexed by another channel")))
-					})
+					It(
+						"Should return an error when attempting to set an index key that is different than the channel key",
+						func(ctx SpecContext) {
+							newIndexKey := GenerateChannelKey()
+							Expect(
+								indexDB.SetIndexKeyInMeta(ctx, newIndexKey),
+							).To(MatchError(ContainSubstring("index: index channel cannot be indexed by another channel")))
+						},
+					)
 				})
 
 				Describe("Data Channel", func() {
-					It("Should set the data channel to a new key", func(ctx SpecContext) {
-						newIndexKey := GenerateChannelKey()
-						Expect(dataDB.SetIndexKeyInMeta(ctx, newIndexKey)).To(Succeed())
-						Expect(dataDB.Channel().Index).To(Equal(newIndexKey))
-					})
+					It(
+						"Should set the data channel to a new key",
+						func(ctx SpecContext) {
+							newIndexKey := GenerateChannelKey()
+							Expect(
+								dataDB.SetIndexKeyInMeta(ctx, newIndexKey),
+							).To(Succeed())
+							Expect(dataDB.Channel().Index).To(Equal(newIndexKey))
+						},
+					)
 				})
 			})
 
@@ -126,11 +149,14 @@ var _ = Describe("DB Metadata Operations", func() {
 					Expect(ch.Name).To(Equal("new_name"))
 				})
 
-				It("Should be a no-op when the name is the same", func(ctx SpecContext) {
-					Expect(dataDB.RenameChannelInMeta(ctx, "test")).To(Succeed())
-					ch := MustSucceed(meta.Read(ctx, dataDBfs, json.Codec))
-					Expect(ch.Name).To(Equal("test"))
-				})
+				It(
+					"Should be a no-op when the name is the same",
+					func(ctx SpecContext) {
+						Expect(dataDB.RenameChannelInMeta(ctx, "test")).To(Succeed())
+						ch := MustSucceed(meta.Read(ctx, dataDBfs, json.Codec))
+						Expect(ch.Name).To(Equal("test"))
+					},
+				)
 			})
 
 			Describe("Size", func() {
@@ -139,33 +165,39 @@ var _ = Describe("DB Metadata Operations", func() {
 					Expect(dataDB.Size()).To(Equal(telem.Size(0)))
 				})
 
-				It("Should return the correct size after writing data", func(ctx SpecContext) {
-					w, _ := MustSucceed2(indexDB.OpenWriter(ctx, unary.WriterConfig{
-						Start:   telem.TimeStamp(0),
-						Subject: control.Subject{Key: "size_test"},
-					}))
-					MustSucceed(w.Write(telem.NewSeriesSecondsTSV(0, 1, 2, 3, 4)))
-					MustSucceed(w.Commit(ctx))
-					MustSucceed(w.Close())
+				It(
+					"Should return the correct size after writing data",
+					func(ctx SpecContext) {
+						w, _ := MustSucceed2(indexDB.OpenWriter(ctx, unary.WriterConfig{
+							Start:   telem.TimeStamp(0),
+							Subject: control.Subject{Key: "size_test"},
+						}))
+						MustSucceed(w.Write(telem.NewSeriesSecondsTSV(0, 1, 2, 3, 4)))
+						MustSucceed(w.Commit(ctx))
+						MustSucceed(w.Close())
 
-					expectedSize := telem.Size(5 * telem.TimeStampT.Density())
-					Expect(indexDB.Size()).To(Equal(expectedSize))
-				})
+						expectedSize := telem.Size(5 * telem.TimeStampT.Density())
+						Expect(indexDB.Size()).To(Equal(expectedSize))
+					},
+				)
 
-				It("Should accumulate size across multiple writes", func(ctx SpecContext) {
-					w, _ := MustSucceed2(indexDB.OpenWriter(ctx, unary.WriterConfig{
-						Start:   telem.TimeStamp(0),
-						Subject: control.Subject{Key: "size_test"},
-					}))
-					MustSucceed(w.Write(telem.NewSeriesSecondsTSV(0, 1, 2)))
-					MustSucceed(w.Commit(ctx))
-					MustSucceed(w.Write(telem.NewSeriesSecondsTSV(3, 4)))
-					MustSucceed(w.Commit(ctx))
-					MustSucceed(w.Close())
+				It(
+					"Should accumulate size across multiple writes",
+					func(ctx SpecContext) {
+						w, _ := MustSucceed2(indexDB.OpenWriter(ctx, unary.WriterConfig{
+							Start:   telem.TimeStamp(0),
+							Subject: control.Subject{Key: "size_test"},
+						}))
+						MustSucceed(w.Write(telem.NewSeriesSecondsTSV(0, 1, 2)))
+						MustSucceed(w.Commit(ctx))
+						MustSucceed(w.Write(telem.NewSeriesSecondsTSV(3, 4)))
+						MustSucceed(w.Commit(ctx))
+						MustSucceed(w.Close())
 
-					expectedSize := telem.Size(5 * telem.TimeStampT.Density())
-					Expect(indexDB.Size()).To(Equal(expectedSize))
-				})
+						expectedSize := telem.Size(5 * telem.TimeStampT.Density())
+						Expect(indexDB.Size()).To(Equal(expectedSize))
+					},
+				)
 			})
 		})
 	}
@@ -185,36 +217,61 @@ var _ = Describe("DB Metadata Operations", func() {
 			}))
 		})
 
-		It("Should return an error when methods are called on a closed DB", func(ctx SpecContext) {
-			Expect(db.Close()).To(Succeed())
-			Expect(db.RenameChannelInMeta(ctx, "new_name")).To(MatchError(unary.ErrDBClosed))
-			Expect(db.SetChannelKeyInMeta(ctx, GenerateChannelKey())).To(MatchError(unary.ErrDBClosed))
-			Expect(db.SetIndexKeyInMeta(ctx, GenerateChannelKey())).To(MatchError(unary.ErrDBClosed))
-			Expect(db.SetChannelKeyInMeta(ctx, GenerateChannelKey())).To(MatchError(unary.ErrDBClosed))
-			Expect(db.Delete(ctx, telem.TimeRange{})).To(MatchError(unary.ErrDBClosed))
-			Expect(db.GarbageCollect(ctx)).To(MatchError(unary.ErrDBClosed))
-			Expect(db.HasDataFor(ctx, telem.TimeRangeMax)).Error().To(MatchError(unary.ErrDBClosed))
-			Expect(db.OpenWriter(ctx, unary.WriterConfig{})).Error().To(MatchError(unary.ErrDBClosed))
-			Expect(db.OpenIterator(unary.IteratorConfig{})).Error().To(MatchError(unary.ErrDBClosed))
-		})
+		It(
+			"Should return an error when methods are called on a closed DB",
+			func(ctx SpecContext) {
+				Expect(db.Close()).To(Succeed())
+				Expect(
+					db.RenameChannelInMeta(ctx, "new_name"),
+				).To(MatchError(unary.ErrDBClosed))
+				Expect(
+					db.SetChannelKeyInMeta(ctx, GenerateChannelKey()),
+				).To(MatchError(unary.ErrDBClosed))
+				Expect(
+					db.SetIndexKeyInMeta(ctx, GenerateChannelKey()),
+				).To(MatchError(unary.ErrDBClosed))
+				Expect(
+					db.SetChannelKeyInMeta(ctx, GenerateChannelKey()),
+				).To(MatchError(unary.ErrDBClosed))
+				Expect(
+					db.Delete(ctx, telem.TimeRange{}),
+				).To(MatchError(unary.ErrDBClosed))
+				Expect(db.GarbageCollect(ctx)).To(MatchError(unary.ErrDBClosed))
+				Expect(
+					db.HasDataFor(ctx, telem.TimeRangeMax),
+				).Error().
+					To(MatchError(unary.ErrDBClosed))
+				Expect(
+					db.OpenWriter(ctx, unary.WriterConfig{}),
+				).Error().
+					To(MatchError(unary.ErrDBClosed))
+				Expect(
+					db.OpenIterator(unary.IteratorConfig{}),
+				).Error().
+					To(MatchError(unary.ErrDBClosed))
+			},
+		)
 
-		It("Should return an error when a DB is closed while writers are still accessing it", func(ctx SpecContext) {
-			db := MustSucceed(unary.Open(ctx, unary.Config{
-				FS:        xfs.NewMem(),
-				MetaCodec: json.Codec,
-				Channel: channel.Channel{
-					Key:      GenerateChannelKey(),
-					Name:     "test",
-					DataType: telem.TimeStampT,
-					IsIndex:  true,
-				},
-			}))
-			writer, _ := MustSucceed2(db.OpenWriter(ctx, unary.WriterConfig{
-				Subject: control.Subject{Key: "string"},
-			}))
-			Expect(db.Close()).To(MatchError(resource.ErrOpen))
-			_ = MustSucceed(writer.Close())
-			Expect(db.Close()).To(Succeed())
-		})
+		It(
+			"Should return an error when a DB is closed while writers are still accessing it",
+			func(ctx SpecContext) {
+				db := MustSucceed(unary.Open(ctx, unary.Config{
+					FS:        xfs.NewMem(),
+					MetaCodec: json.Codec,
+					Channel: channel.Channel{
+						Key:      GenerateChannelKey(),
+						Name:     "test",
+						DataType: telem.TimeStampT,
+						IsIndex:  true,
+					},
+				}))
+				writer, _ := MustSucceed2(db.OpenWriter(ctx, unary.WriterConfig{
+					Subject: control.Subject{Key: "string"},
+				}))
+				Expect(db.Close()).To(MatchError(resource.ErrOpen))
+				_ = MustSucceed(writer.Close())
+				Expect(db.Close()).To(Succeed())
+			},
+		)
 	})
 })

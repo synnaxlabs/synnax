@@ -51,7 +51,10 @@ func (f *ConfigurableFormatter) FormatQualified(qualifier, typeName string) stri
 	return qualifier + f.config.QualifiedSep + typeName
 }
 
-func (f *ConfigurableFormatter) FormatGeneric(baseName string, typeArgs []string) string {
+func (f *ConfigurableFormatter) FormatGeneric(
+	baseName string,
+	typeArgs []string,
+) string {
 	if f.config.SkipGenerics || len(typeArgs) == 0 {
 		return baseName
 	}

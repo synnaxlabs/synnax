@@ -58,6 +58,7 @@ formatters:
     - gofmt
     - gofumpt
     - goimports
+    - golines
     - swaggo
   settings:
     gci:
@@ -81,6 +82,8 @@ formatters:
           replacement: "a != b"
     gofumpt:
       extra-rules: true
+    golines:
+      max-len: 88
   exclusions:
     warn-unused: true
     generated: strict

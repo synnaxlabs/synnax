@@ -57,117 +57,167 @@ func userHasSpecificRole(
 }
 
 var _ = Describe("Legacy Permission Migration", func() {
-	It("Should migrate users with legacy policies to correct roles", func(ctx SpecContext) {
-		// Set up a fresh DB with legacy data pre-seeded
-		db := DeferClose(gorp.Wrap(memkv.New()))
-		otg := MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
-		searchIdx := MustOpen(search.OpenIndex())
-		groupSvc := MustOpen(group.OpenService(ctx, group.ServiceConfig{
-			DB:       db,
-			Ontology: otg,
-			Search:   searchIdx,
-		}))
-		authSvc := MustOpen(auth.OpenService(ctx, auth.ServiceConfig{DB: db}))
-		userSvc := MustOpen(user.OpenService(ctx, user.ServiceConfig{
-			DB:              db,
-			Ontology:        otg,
-			Group:           groupSvc,
-			Search:          searchIdx,
-			Auth:            authSvc,
-			RootCredentials: auth.Credentials{Username: "root", Password: "p"},
-		}))
+	It(
+		"Should migrate users with legacy policies to correct roles",
+		func(ctx SpecContext) {
+			// Set up a fresh DB with legacy data pre-seeded
+			db := DeferClose(gorp.Wrap(memkv.New()))
+			otg := MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
+			searchIdx := MustOpen(search.OpenIndex())
+			groupSvc := MustOpen(group.OpenService(ctx, group.ServiceConfig{
+				DB:       db,
+				Ontology: otg,
+				Search:   searchIdx,
+			}))
+			authSvc := MustOpen(auth.OpenService(ctx, auth.ServiceConfig{DB: db}))
+			userSvc := MustOpen(user.OpenService(ctx, user.ServiceConfig{
+				DB:              db,
+				Ontology:        otg,
+				Group:           groupSvc,
+				Search:          searchIdx,
+				Auth:            authSvc,
+				RootCredentials: auth.Credentials{Username: "root", Password: "p"},
+			}))
 
-		// Create test users
-		tx := DeferClose(db.OpenTx())
-		w := userSvc.NewWriter(tx)
-		var rootUser user.User
-		Expect(userSvc.NewRetrieve().
-			Where(user.MatchUsernames("root")).
-			Entry(&rootUser).
-			Exec(ctx, tx)).To(Succeed())
-		adminUser := MustSucceed(w.Create(ctx, user.User{Username: "admin"}))
-		schematicUser := MustSucceed(w.Create(ctx, user.User{
-			Username: "schematicuser",
-		}))
-		regularUser := MustSucceed(w.Create(ctx, user.User{Username: "regular"}))
+			// Create test users
+			tx := DeferClose(db.OpenTx())
+			w := userSvc.NewWriter(tx)
+			var rootUser user.User
+			Expect(userSvc.NewRetrieve().
+				Where(user.MatchUsernames("root")).
+				Entry(&rootUser).
+				Exec(ctx, tx)).To(Succeed())
+			adminUser := MustSucceed(w.Create(ctx, user.User{Username: "admin"}))
+			schematicUser := MustSucceed(w.Create(ctx, user.User{
+				Username: "schematicuser",
+			}))
+			regularUser := MustSucceed(w.Create(ctx, user.User{Username: "regular"}))
 
-		// Seed legacy policies with Subjects field
-		adminPolicy := policyv0.Policy{
-			Key:      uuid.New(),
-			Subjects: []ontology.ID{adminUser.OntologyID()},
-			Objects: []ontology.ID{
-				{Type: ontology.ResourceTypeUser},
-				{Type: "policy"},
-			},
-			Actions: []access.Action{"all"},
-		}
-		schematicPolicy := policyv0.Policy{
-			Key:      uuid.New(),
-			Subjects: []ontology.ID{schematicUser.OntologyID()},
-			Objects:  []ontology.ID{{Type: "schematic"}},
-			Actions:  []access.Action{"all"},
-		}
-		writer := gorp.WrapWriter[uuid.UUID, policyv0.Policy](tx)
-		Expect(writer.Set(ctx, adminPolicy)).To(Succeed())
-		Expect(writer.Set(ctx, schematicPolicy)).To(Succeed())
-		Expect(tx.Commit(ctx)).To(Succeed())
-
-		policySvc := MustOpen(policy.OpenService(ctx, policy.ServiceConfig{
-			DB:       db,
-			Ontology: otg,
-			Search:   searchIdx,
-		}))
-		roleSvc := MustOpen(role.OpenService(ctx, role.ServiceConfig{
-			DB:       db,
-			Ontology: otg,
-			Group:    groupSvc,
-			Search:   searchIdx,
-		}))
-		builtinRoles := MustSucceed(builtin.Provision(ctx, db, policySvc, roleSvc))
-		Expect(gorp.Migrate(ctx, gorp.MigrateConfig{
-			DB:        db,
-			Namespace: "RBAC",
-			Migrations: []migrate.Migration{
-				v0.NewMigration(v0.MigrationConfig{
-					User:     userSvc,
-					Ontology: otg,
-					Role:     roleSvc,
-					Roles:    builtinRoles,
-				}),
-			},
-		})).To(Succeed())
-
-		// Look up the built-in role keys
-		tx2 := DeferClose(db.OpenTx())
-
-		var ownerRole role.Role
-		Expect(roleSvc.NewRetrieve().Where(role.MatchNames("Owner")).Entry(&ownerRole).Exec(ctx, tx2)).To(Succeed())
-		var engineerRole role.Role
-		Expect(roleSvc.NewRetrieve().Where(role.MatchNames("Engineer")).Entry(&engineerRole).Exec(ctx, tx2)).To(Succeed())
-		var operatorRole role.Role
-		Expect(roleSvc.NewRetrieve().Where(role.MatchNames("Operator")).Entry(&operatorRole).Exec(ctx, tx2)).To(Succeed())
-
-		// Root user -> Owner
-		Expect(userHasSpecificRole(ctx, tx2, otg, rootUser.OntologyID(), ownerRole.Key)).To(BeTrue())
-		// Admin policy user -> Owner
-		Expect(userHasSpecificRole(ctx, tx2, otg, adminUser.OntologyID(), ownerRole.Key)).To(BeTrue())
-		// Schematic policy user -> Engineer
-		Expect(userHasSpecificRole(ctx, tx2, otg, schematicUser.OntologyID(), engineerRole.Key)).To(BeTrue())
-		// Regular user -> Operator
-		Expect(userHasSpecificRole(ctx, tx2, otg, regularUser.OntologyID(), operatorRole.Key)).To(BeTrue())
-
-		// Legacy policies should be deleted
-		reader := gorp.WrapReader[uuid.UUID, policyv0.Policy](tx2)
-		iter := MustOpen(reader.OpenIterator(gorp.IterOptions{}))
-		legacyCount := 0
-		for iter.First(); iter.Valid(); iter.Next() {
-			v := iter.Value(ctx)
-			if v != nil && len(v.Subjects) > 0 {
-				legacyCount++
+			// Seed legacy policies with Subjects field
+			adminPolicy := policyv0.Policy{
+				Key:      uuid.New(),
+				Subjects: []ontology.ID{adminUser.OntologyID()},
+				Objects: []ontology.ID{
+					{Type: ontology.ResourceTypeUser},
+					{Type: "policy"},
+				},
+				Actions: []access.Action{"all"},
 			}
-		}
-		Expect(legacyCount).To(Equal(0))
-	})
+			schematicPolicy := policyv0.Policy{
+				Key:      uuid.New(),
+				Subjects: []ontology.ID{schematicUser.OntologyID()},
+				Objects:  []ontology.ID{{Type: "schematic"}},
+				Actions:  []access.Action{"all"},
+			}
+			writer := gorp.WrapWriter[uuid.UUID, policyv0.Policy](tx)
+			Expect(writer.Set(ctx, adminPolicy)).To(Succeed())
+			Expect(writer.Set(ctx, schematicPolicy)).To(Succeed())
+			Expect(tx.Commit(ctx)).To(Succeed())
+
+			policySvc := MustOpen(policy.OpenService(ctx, policy.ServiceConfig{
+				DB:       db,
+				Ontology: otg,
+				Search:   searchIdx,
+			}))
+			roleSvc := MustOpen(role.OpenService(ctx, role.ServiceConfig{
+				DB:       db,
+				Ontology: otg,
+				Group:    groupSvc,
+				Search:   searchIdx,
+			}))
+			builtinRoles := MustSucceed(builtin.Provision(ctx, db, policySvc, roleSvc))
+			Expect(gorp.Migrate(ctx, gorp.MigrateConfig{
+				DB:        db,
+				Namespace: "RBAC",
+				Migrations: []migrate.Migration{
+					v0.NewMigration(v0.MigrationConfig{
+						User:     userSvc,
+						Ontology: otg,
+						Role:     roleSvc,
+						Roles:    builtinRoles,
+					}),
+				},
+			})).To(Succeed())
+
+			// Look up the built-in role keys
+			tx2 := DeferClose(db.OpenTx())
+
+			var ownerRole role.Role
+			Expect(
+				roleSvc.NewRetrieve().
+					Where(role.MatchNames("Owner")).
+					Entry(&ownerRole).
+					Exec(ctx, tx2),
+			).To(Succeed())
+			var engineerRole role.Role
+			Expect(
+				roleSvc.NewRetrieve().
+					Where(role.MatchNames("Engineer")).
+					Entry(&engineerRole).
+					Exec(ctx, tx2),
+			).To(Succeed())
+			var operatorRole role.Role
+			Expect(
+				roleSvc.NewRetrieve().
+					Where(role.MatchNames("Operator")).
+					Entry(&operatorRole).
+					Exec(ctx, tx2),
+			).To(Succeed())
+
+			// Root user -> Owner
+			Expect(
+				userHasSpecificRole(
+					ctx,
+					tx2,
+					otg,
+					rootUser.OntologyID(),
+					ownerRole.Key,
+				),
+			).To(BeTrue())
+			// Admin policy user -> Owner
+			Expect(
+				userHasSpecificRole(
+					ctx,
+					tx2,
+					otg,
+					adminUser.OntologyID(),
+					ownerRole.Key,
+				),
+			).To(BeTrue())
+			// Schematic policy user -> Engineer
+			Expect(
+				userHasSpecificRole(
+					ctx,
+					tx2,
+					otg,
+					schematicUser.OntologyID(),
+					engineerRole.Key,
+				),
+			).To(BeTrue())
+			// Regular user -> Operator
+			Expect(
+				userHasSpecificRole(
+					ctx,
+					tx2,
+					otg,
+					regularUser.OntologyID(),
+					operatorRole.Key,
+				),
+			).To(BeTrue())
+
+			// Legacy policies should be deleted
+			reader := gorp.WrapReader[uuid.UUID, policyv0.Policy](tx2)
+			iter := MustOpen(reader.OpenIterator(gorp.IterOptions{}))
+			legacyCount := 0
+			for iter.First(); iter.Valid(); iter.Next() {
+				v := iter.Value(ctx)
+				if v != nil && len(v.Subjects) > 0 {
+					legacyCount++
+				}
+			}
+			Expect(legacyCount).To(Equal(0))
+		},
+	)
 
 	It("Should be idempotent across repeated runs", func(ctx SpecContext) {
 		db := DeferClose(gorp.Wrap(memkv.New()))

@@ -60,7 +60,9 @@ var _ = Describe("Node", func() {
 					},
 				}
 				for _, addr := range g.Addresses() {
-					Expect(addr).To(BeElementOf([]address.Address{"localhost:0", "localhost:1"}))
+					Expect(
+						addr,
+					).To(BeElementOf([]address.Address{"localhost:0", "localhost:1"}))
 				}
 			})
 		})

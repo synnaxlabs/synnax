@@ -19,11 +19,14 @@ import (
 )
 
 var _ = Describe("NewAlignment", func() {
-	It("Should construct the alignment from the given domain and sample indexes", func() {
-		align := telem.NewAlignment(2, 1)
-		Expect(align.SampleIndex()).To(Equal(uint32(1)))
-		Expect(align.DomainIndex()).To(Equal(uint32(2)))
-	})
+	It(
+		"Should construct the alignment from the given domain and sample indexes",
+		func() {
+			align := telem.NewAlignment(2, 1)
+			Expect(align.SampleIndex()).To(Equal(uint32(1)))
+			Expect(align.DomainIndex()).To(Equal(uint32(2)))
+		},
+	)
 	It("Should construct a zero alignment", func() {
 		Expect(uint64(telem.NewAlignment(0, 0))).To(Equal(uint64(0)))
 	})
@@ -65,18 +68,23 @@ var _ = Describe("Alignment", func() {
 			Expect(unmarshalled).To(Equal(telem.Alignment(123)))
 		})
 
-		It("Should return an error and leave the alignment untouched on invalid input", func() {
-			a := telem.NewAlignment(2, 1)
-			Expect(a.UnmarshalJSON([]byte(`"not-a-number"`))).To(
-				MatchError(ContainSubstring("invalid syntax")),
-			)
-			Expect(a).To(Equal(telem.NewAlignment(2, 1)))
-		})
+		It(
+			"Should return an error and leave the alignment untouched on invalid input",
+			func() {
+				a := telem.NewAlignment(2, 1)
+				Expect(a.UnmarshalJSON([]byte(`"not-a-number"`))).To(
+					MatchError(ContainSubstring("invalid syntax")),
+				)
+				Expect(a).To(Equal(telem.NewAlignment(2, 1)))
+			},
+		)
 	})
 
 	Describe("AddSamples", func() {
 		It("Should add to the alignment sample index", func() {
-			Expect(telem.NewAlignment(2, 1).AddSamples(3).SampleIndex()).To(Equal(uint32(4)))
+			Expect(
+				telem.NewAlignment(2, 1).AddSamples(3).SampleIndex(),
+			).To(Equal(uint32(4)))
 		})
 	})
 

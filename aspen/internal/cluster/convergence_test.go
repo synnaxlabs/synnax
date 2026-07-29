@@ -102,7 +102,10 @@ var _ = Describe("Convergence", func() {
 					Expect(c.HostKey()).To(Equal(node.Key(j + 1)))
 				}
 				for _, c := range clusters {
-					Eventually(c.Nodes, values.convergenceThreshold).Should(HaveLen(values.clusterSize))
+					Eventually(
+						c.Nodes,
+						values.convergenceThreshold,
+					).Should(HaveLen(values.clusterSize))
 				}
 			})
 		})

@@ -28,7 +28,11 @@ type ControlUpdate struct {
 
 // ConfigureControlUpdateChannel configures a channel to be the update channel for the
 // database. If the channel is not found, it is created.
-func (db *DB) ConfigureControlUpdateChannel(ctx context.Context, key ChannelKey, name string) error {
+func (db *DB) ConfigureControlUpdateChannel(
+	ctx context.Context,
+	key ChannelKey,
+	name string,
+) error {
 	if db.closed.Load() {
 		return ErrDBClosed
 	}
@@ -95,7 +99,10 @@ func (db *DB) updateControlDigests(
 	return signal.SendUnderContext(
 		ctx,
 		db.mu.digests.inlet.Inlet(),
-		WriterRequest{Command: WriterCommandWrite, Frame: db.ControlUpdateToFrame(ctx, u)},
+		WriterRequest{
+			Command: WriterCommandWrite,
+			Frame:   db.ControlUpdateToFrame(ctx, u),
+		},
 	)
 }
 
@@ -127,7 +134,11 @@ func (db *DB) ControlStates() (u ControlUpdate) {
 	if !db.digestsConfigured() {
 		return u
 	}
-	u.Transfers = make([]control.Transfer, 0, len(db.mu.dbs.unary)+len(db.mu.dbs.virtual))
+	u.Transfers = make(
+		[]control.Transfer,
+		0,
+		len(db.mu.dbs.unary)+len(db.mu.dbs.virtual),
+	)
 	for _, d := range db.mu.dbs.unary {
 		if s := d.LeadingControlState(); s != nil {
 			u.Transfers = append(u.Transfers, control.Transfer{To: s})

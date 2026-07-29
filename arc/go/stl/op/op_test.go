@@ -25,140 +25,439 @@ import (
 )
 
 var _ = Describe("OP", func() {
-	DescribeTable("Outputs", func(
-		ctx SpecContext, t string, lhs, lhsTime, rhs, rhsTime, output, outputTime telem.Series,
-	) {
-		g := graph.Graph{
-			Nodes: []graph.Node{
-				{Key: "lhs"},
-				{Key: "rhs"},
-				{Key: "op"},
-			},
-			Inputs: map[string]msgpack.EncodedJSON{
-				"lhs": {"type": "lhs"},
-				"rhs": {"type": "rhs"},
-				"op":  {"type": t},
-			},
-			Edges: graph.Edges{
-				{Edge: ir.Edge{
-					Source: ir.Handle{Node: "lhs", Param: ir.DefaultOutputParam},
-					Target: ir.Handle{Node: "op", Param: ir.LHSInputParam},
-				}},
-				{Edge: ir.Edge{
-					Source: ir.Handle{Node: "rhs", Param: ir.DefaultOutputParam},
-					Target: ir.Handle{Node: "op", Param: ir.RHSInputParam},
-				}},
-			},
-			Functions: []ir.Function{
-				{
-					Key: "lhs",
-					Outputs: types.Params{
-						{Name: ir.DefaultOutputParam, Type: types.FromTelem(lhs.DataType)},
+	DescribeTable(
+		"Outputs",
+		func(
+			ctx SpecContext, t string, lhs, lhsTime, rhs, rhsTime, output, outputTime telem.Series,
+		) {
+			g := graph.Graph{
+				Nodes: []graph.Node{
+					{Key: "lhs"},
+					{Key: "rhs"},
+					{Key: "op"},
+				},
+				Inputs: map[string]msgpack.EncodedJSON{
+					"lhs": {"type": "lhs"},
+					"rhs": {"type": "rhs"},
+					"op":  {"type": t},
+				},
+				Edges: graph.Edges{
+					{Edge: ir.Edge{
+						Source: ir.Handle{Node: "lhs", Param: ir.DefaultOutputParam},
+						Target: ir.Handle{Node: "op", Param: ir.LHSInputParam},
+					}},
+					{Edge: ir.Edge{
+						Source: ir.Handle{Node: "rhs", Param: ir.DefaultOutputParam},
+						Target: ir.Handle{Node: "op", Param: ir.RHSInputParam},
+					}},
+				},
+				Functions: []ir.Function{
+					{
+						Key: "lhs",
+						Outputs: types.Params{
+							{
+								Name: ir.DefaultOutputParam,
+								Type: types.FromTelem(lhs.DataType),
+							},
+						},
+					},
+					{
+						Key: "rhs",
+						Outputs: types.Params{
+							{
+								Name: ir.DefaultOutputParam,
+								Type: types.FromTelem(rhs.DataType),
+							},
+						},
 					},
 				},
-				{
-					Key: "rhs",
-					Outputs: types.Params{
-						{Name: ir.DefaultOutputParam, Type: types.FromTelem(rhs.DataType)},
-					},
-				},
-			},
-		}
-		analyzed, diagnostics := graph.Analyze(ctx, g, NewGraphRoot(nil))
-		Expect(diagnostics.Ok()).To(BeTrue())
-		s := node.New(analyzed)
-		lhsNode := s.Node("lhs")
-		rhsNode := s.Node("rhs")
-		*lhsNode.Output(0) = lhs
-		*lhsNode.OutputTime(0) = lhsTime
-		*rhsNode.Output(0) = rhs
-		*rhsNode.OutputTime(0) = rhsTime
-		c := MustSucceed(op.NewHost().Create(ctx, node.Config{
-			Node:  ir.Node{Type: t},
-			State: s.Node("op"),
-		}))
-		changed := make(set.Set[int])
-		c.Next(node.Context{Context: ctx, MarkChanged: func(i int) { changed.Add(i) }})
-		Expect(changed.Contains(0)).To(BeTrue())
-		Expect(*s.Node("op").Output(0)).To(telem.MatchSeries(output))
-		Expect(*s.Node("op").OutputTime(0)).To(telem.MatchSeries(outputTime))
-	},
-		Entry("Float32 GE", "ge", telem.NewSeriesV[float32](1, 2, 3), telem.NewSeriesSecondsTSV(1, 2, 3), telem.NewSeriesV[float32](0, 1, 5), telem.NewSeriesSecondsTSV(1, 2, 3), telem.NewSeriesV[uint8](1, 1, 0), telem.NewSeriesSecondsTSV(1, 2, 3)),
-		Entry("Float64 GE", "ge", telem.NewSeriesV[float64](2.5, 3.5, 1.5), telem.NewSeriesSecondsTSV(10, 20, 30), telem.NewSeriesV[float64](2.5, 3.0, 2.0), telem.NewSeriesSecondsTSV(10, 20, 30), telem.NewSeriesV[uint8](1, 1, 0), telem.NewSeriesSecondsTSV(10, 20, 30)),
-		Entry("Int64 GE", "ge", telem.NewSeriesV[int64](10, 20, 30), telem.NewSeriesSecondsTSV(5, 10, 15), telem.NewSeriesV[int64](5, 20, 35), telem.NewSeriesSecondsTSV(5, 10, 15), telem.NewSeriesV[uint8](1, 1, 0), telem.NewSeriesSecondsTSV(5, 10, 15)),
-		Entry("Uint32 GE", "ge", telem.NewSeriesV[uint32](100, 200, 150), telem.NewSeriesSecondsTSV(1, 2, 3), telem.NewSeriesV[uint32](100, 150, 200), telem.NewSeriesSecondsTSV(1, 2, 3), telem.NewSeriesV[uint8](1, 1, 0), telem.NewSeriesSecondsTSV(1, 2, 3)),
-		Entry("Float32 GT", "gt", telem.NewSeriesV[float32](5, 10, 15), telem.NewSeriesSecondsTSV(1, 2, 3), telem.NewSeriesV[float32](4, 10, 16), telem.NewSeriesSecondsTSV(1, 2, 3), telem.NewSeriesV[uint8](1, 0, 0), telem.NewSeriesSecondsTSV(1, 2, 3)),
-		Entry("Int32 GT", "gt", telem.NewSeriesV[int32](50, 60, 70), telem.NewSeriesSecondsTSV(10, 20, 30), telem.NewSeriesV[int32](40, 60, 80), telem.NewSeriesSecondsTSV(10, 20, 30), telem.NewSeriesV[uint8](1, 0, 0), telem.NewSeriesSecondsTSV(10, 20, 30)),
-		Entry("Uint64 GT", "gt", telem.NewSeriesV[uint64](1000, 2000, 3000), telem.NewSeriesSecondsTSV(5, 10, 15), telem.NewSeriesV[uint64](999, 2000, 3001), telem.NewSeriesSecondsTSV(5, 10, 15), telem.NewSeriesV[uint8](1, 0, 0), telem.NewSeriesSecondsTSV(5, 10, 15)),
-		Entry("Float64 LE", "le", telem.NewSeriesV[float64](1.5, 2.5, 3.5), telem.NewSeriesSecondsTSV(1, 2, 3), telem.NewSeriesV[float64](2.0, 2.5, 3.0), telem.NewSeriesSecondsTSV(1, 2, 3), telem.NewSeriesV[uint8](1, 1, 0), telem.NewSeriesSecondsTSV(1, 2, 3)),
-		Entry("Int16 LE", "le", telem.NewSeriesV[int16](10, 20, 30), telem.NewSeriesSecondsTSV(1, 2, 3), telem.NewSeriesV[int16](15, 20, 25), telem.NewSeriesSecondsTSV(1, 2, 3), telem.NewSeriesV[uint8](1, 1, 0), telem.NewSeriesSecondsTSV(1, 2, 3)),
-		Entry("Uint16 LE", "le", telem.NewSeriesV[uint16](100, 200, 300), telem.NewSeriesSecondsTSV(5, 10, 15), telem.NewSeriesV[uint16](150, 200, 250), telem.NewSeriesSecondsTSV(5, 10, 15), telem.NewSeriesV[uint8](1, 1, 0), telem.NewSeriesSecondsTSV(5, 10, 15)),
-		Entry("Float32 LT", "lt", telem.NewSeriesV[float32](1.0, 2.0, 3.0), telem.NewSeriesSecondsTSV(1, 2, 3), telem.NewSeriesV[float32](2.0, 2.0, 2.0), telem.NewSeriesSecondsTSV(1, 2, 3), telem.NewSeriesV[uint8](1, 0, 0), telem.NewSeriesSecondsTSV(1, 2, 3)),
-		Entry("Int8 LT", "lt", telem.NewSeriesV[int8](5, 10, 15), telem.NewSeriesSecondsTSV(1, 2, 3), telem.NewSeriesV[int8](10, 10, 10), telem.NewSeriesSecondsTSV(1, 2, 3), telem.NewSeriesV[uint8](1, 0, 0), telem.NewSeriesSecondsTSV(1, 2, 3)),
-		Entry("Uint8 LT", "lt", telem.NewSeriesV[uint8](1, 2, 3), telem.NewSeriesSecondsTSV(10, 20, 30), telem.NewSeriesV[uint8](2, 2, 2), telem.NewSeriesSecondsTSV(10, 20, 30), telem.NewSeriesV[uint8](1, 0, 0), telem.NewSeriesSecondsTSV(10, 20, 30)),
-		Entry("Float64 EQ", "eq", telem.NewSeriesV[float64](1.5, 2.5, 3.5), telem.NewSeriesSecondsTSV(1, 2, 3), telem.NewSeriesV[float64](1.5, 2.0, 3.5), telem.NewSeriesSecondsTSV(1, 2, 3), telem.NewSeriesV[uint8](1, 0, 1), telem.NewSeriesSecondsTSV(1, 2, 3)),
-		Entry("Int64 EQ", "eq", telem.NewSeriesV[int64](100, 200, 300), telem.NewSeriesSecondsTSV(5, 10, 15), telem.NewSeriesV[int64](100, 150, 300), telem.NewSeriesSecondsTSV(5, 10, 15), telem.NewSeriesV[uint8](1, 0, 1), telem.NewSeriesSecondsTSV(5, 10, 15)),
-		Entry("Uint32 EQ", "eq", telem.NewSeriesV[uint32](50, 60, 70), telem.NewSeriesSecondsTSV(1, 2, 3), telem.NewSeriesV[uint32](50, 65, 70), telem.NewSeriesSecondsTSV(1, 2, 3), telem.NewSeriesV[uint8](1, 0, 1), telem.NewSeriesSecondsTSV(1, 2, 3)),
-		Entry("Float32 NE", "ne", telem.NewSeriesV[float32](1.0, 2.0, 3.0), telem.NewSeriesSecondsTSV(1, 2, 3), telem.NewSeriesV[float32](1.0, 2.5, 3.0), telem.NewSeriesSecondsTSV(1, 2, 3), telem.NewSeriesV[uint8](0, 1, 0), telem.NewSeriesSecondsTSV(1, 2, 3)),
-		Entry("Int32 NE", "ne", telem.NewSeriesV[int32](10, 20, 30), telem.NewSeriesSecondsTSV(5, 10, 15), telem.NewSeriesV[int32](10, 25, 30), telem.NewSeriesSecondsTSV(5, 10, 15), telem.NewSeriesV[uint8](0, 1, 0), telem.NewSeriesSecondsTSV(5, 10, 15)),
-		Entry("Uint64 NE", "ne", telem.NewSeriesV[uint64](1000, 2000, 3000), telem.NewSeriesSecondsTSV(1, 2, 3), telem.NewSeriesV[uint64](1000, 2500, 3000), telem.NewSeriesSecondsTSV(1, 2, 3), telem.NewSeriesV[uint8](0, 1, 0), telem.NewSeriesSecondsTSV(1, 2, 3)),
-		Entry("Uint8 OR - all false", "or", telem.NewSeriesV[uint8](0, 0, 0), telem.NewSeriesSecondsTSV(1, 2, 3), telem.NewSeriesV[uint8](0, 0, 0), telem.NewSeriesSecondsTSV(1, 2, 3), telem.NewSeriesV[uint8](0, 0, 0), telem.NewSeriesSecondsTSV(1, 2, 3)),
-		Entry("Uint8 OR - all true", "or", telem.NewSeriesV[uint8](1, 1, 1), telem.NewSeriesSecondsTSV(1, 2, 3), telem.NewSeriesV[uint8](1, 1, 1), telem.NewSeriesSecondsTSV(1, 2, 3), telem.NewSeriesV[uint8](1, 1, 1), telem.NewSeriesSecondsTSV(1, 2, 3)),
-		Entry("Uint8 OR - mixed", "or", telem.NewSeriesV[uint8](0, 1, 0, 1), telem.NewSeriesSecondsTSV(1, 2, 3, 4), telem.NewSeriesV[uint8](0, 0, 1, 1), telem.NewSeriesSecondsTSV(1, 2, 3, 4), telem.NewSeriesV[uint8](0, 1, 1, 1), telem.NewSeriesSecondsTSV(1, 2, 3, 4)),
-		Entry("Uint8 OR - first true", "or", telem.NewSeriesV[uint8](1, 1, 1), telem.NewSeriesSecondsTSV(5, 10, 15), telem.NewSeriesV[uint8](0, 0, 0), telem.NewSeriesSecondsTSV(5, 10, 15), telem.NewSeriesV[uint8](1, 1, 1), telem.NewSeriesSecondsTSV(5, 10, 15)),
-		Entry("Uint8 OR - second true", "or", telem.NewSeriesV[uint8](0, 0, 0), telem.NewSeriesSecondsTSV(1, 2, 3), telem.NewSeriesV[uint8](1, 1, 1), telem.NewSeriesSecondsTSV(1, 2, 3), telem.NewSeriesV[uint8](1, 1, 1), telem.NewSeriesSecondsTSV(1, 2, 3)),
-		Entry("Uint8 AND - all false", "and", telem.NewSeriesV[uint8](0, 0, 0), telem.NewSeriesSecondsTSV(1, 2, 3), telem.NewSeriesV[uint8](0, 0, 0), telem.NewSeriesSecondsTSV(1, 2, 3), telem.NewSeriesV[uint8](0, 0, 0), telem.NewSeriesSecondsTSV(1, 2, 3)),
-		Entry("Uint8 AND - all true", "and", telem.NewSeriesV[uint8](1, 1, 1), telem.NewSeriesSecondsTSV(1, 2, 3), telem.NewSeriesV[uint8](1, 1, 1), telem.NewSeriesSecondsTSV(1, 2, 3), telem.NewSeriesV[uint8](1, 1, 1), telem.NewSeriesSecondsTSV(1, 2, 3)),
-		Entry("Uint8 AND - mixed", "and", telem.NewSeriesV[uint8](0, 1, 0, 1), telem.NewSeriesSecondsTSV(1, 2, 3, 4), telem.NewSeriesV[uint8](0, 0, 1, 1), telem.NewSeriesSecondsTSV(1, 2, 3, 4), telem.NewSeriesV[uint8](0, 0, 0, 1), telem.NewSeriesSecondsTSV(1, 2, 3, 4)),
-		Entry("Uint8 AND - first false", "and", telem.NewSeriesV[uint8](0, 0, 0), telem.NewSeriesSecondsTSV(5, 10, 15), telem.NewSeriesV[uint8](1, 1, 1), telem.NewSeriesSecondsTSV(5, 10, 15), telem.NewSeriesV[uint8](0, 0, 0), telem.NewSeriesSecondsTSV(5, 10, 15)),
-		Entry("Uint8 AND - second false", "and", telem.NewSeriesV[uint8](1, 1, 1), telem.NewSeriesSecondsTSV(1, 2, 3), telem.NewSeriesV[uint8](0, 0, 0), telem.NewSeriesSecondsTSV(1, 2, 3), telem.NewSeriesV[uint8](0, 0, 0), telem.NewSeriesSecondsTSV(1, 2, 3)),
+			}
+			analyzed, diagnostics := graph.Analyze(ctx, g, NewGraphRoot(nil))
+			Expect(diagnostics.Ok()).To(BeTrue())
+			s := node.New(analyzed)
+			lhsNode := s.Node("lhs")
+			rhsNode := s.Node("rhs")
+			*lhsNode.Output(0) = lhs
+			*lhsNode.OutputTime(0) = lhsTime
+			*rhsNode.Output(0) = rhs
+			*rhsNode.OutputTime(0) = rhsTime
+			c := MustSucceed(op.NewHost().Create(ctx, node.Config{
+				Node:  ir.Node{Type: t},
+				State: s.Node("op"),
+			}))
+			changed := make(set.Set[int])
+			c.Next(
+				node.Context{Context: ctx, MarkChanged: func(i int) { changed.Add(i) }},
+			)
+			Expect(changed.Contains(0)).To(BeTrue())
+			Expect(*s.Node("op").Output(0)).To(telem.MatchSeries(output))
+			Expect(*s.Node("op").OutputTime(0)).To(telem.MatchSeries(outputTime))
+		},
+		Entry(
+			"Float32 GE",
+			"ge",
+			telem.NewSeriesV[float32](1, 2, 3),
+			telem.NewSeriesSecondsTSV(1, 2, 3),
+			telem.NewSeriesV[float32](0, 1, 5),
+			telem.NewSeriesSecondsTSV(1, 2, 3),
+			telem.NewSeriesV[uint8](1, 1, 0),
+			telem.NewSeriesSecondsTSV(1, 2, 3),
+		),
+		Entry(
+			"Float64 GE",
+			"ge",
+			telem.NewSeriesV[float64](2.5, 3.5, 1.5),
+			telem.NewSeriesSecondsTSV(10, 20, 30),
+			telem.NewSeriesV[float64](2.5, 3.0, 2.0),
+			telem.NewSeriesSecondsTSV(10, 20, 30),
+			telem.NewSeriesV[uint8](1, 1, 0),
+			telem.NewSeriesSecondsTSV(10, 20, 30),
+		),
+		Entry(
+			"Int64 GE",
+			"ge",
+			telem.NewSeriesV[int64](10, 20, 30),
+			telem.NewSeriesSecondsTSV(5, 10, 15),
+			telem.NewSeriesV[int64](5, 20, 35),
+			telem.NewSeriesSecondsTSV(5, 10, 15),
+			telem.NewSeriesV[uint8](1, 1, 0),
+			telem.NewSeriesSecondsTSV(5, 10, 15),
+		),
+		Entry(
+			"Uint32 GE",
+			"ge",
+			telem.NewSeriesV[uint32](100, 200, 150),
+			telem.NewSeriesSecondsTSV(1, 2, 3),
+			telem.NewSeriesV[uint32](100, 150, 200),
+			telem.NewSeriesSecondsTSV(1, 2, 3),
+			telem.NewSeriesV[uint8](1, 1, 0),
+			telem.NewSeriesSecondsTSV(1, 2, 3),
+		),
+		Entry(
+			"Float32 GT",
+			"gt",
+			telem.NewSeriesV[float32](5, 10, 15),
+			telem.NewSeriesSecondsTSV(1, 2, 3),
+			telem.NewSeriesV[float32](4, 10, 16),
+			telem.NewSeriesSecondsTSV(1, 2, 3),
+			telem.NewSeriesV[uint8](1, 0, 0),
+			telem.NewSeriesSecondsTSV(1, 2, 3),
+		),
+		Entry(
+			"Int32 GT",
+			"gt",
+			telem.NewSeriesV[int32](50, 60, 70),
+			telem.NewSeriesSecondsTSV(10, 20, 30),
+			telem.NewSeriesV[int32](40, 60, 80),
+			telem.NewSeriesSecondsTSV(10, 20, 30),
+			telem.NewSeriesV[uint8](1, 0, 0),
+			telem.NewSeriesSecondsTSV(10, 20, 30),
+		),
+		Entry(
+			"Uint64 GT",
+			"gt",
+			telem.NewSeriesV[uint64](1000, 2000, 3000),
+			telem.NewSeriesSecondsTSV(5, 10, 15),
+			telem.NewSeriesV[uint64](999, 2000, 3001),
+			telem.NewSeriesSecondsTSV(5, 10, 15),
+			telem.NewSeriesV[uint8](1, 0, 0),
+			telem.NewSeriesSecondsTSV(5, 10, 15),
+		),
+		Entry(
+			"Float64 LE",
+			"le",
+			telem.NewSeriesV[float64](1.5, 2.5, 3.5),
+			telem.NewSeriesSecondsTSV(1, 2, 3),
+			telem.NewSeriesV[float64](2.0, 2.5, 3.0),
+			telem.NewSeriesSecondsTSV(1, 2, 3),
+			telem.NewSeriesV[uint8](1, 1, 0),
+			telem.NewSeriesSecondsTSV(1, 2, 3),
+		),
+		Entry(
+			"Int16 LE",
+			"le",
+			telem.NewSeriesV[int16](10, 20, 30),
+			telem.NewSeriesSecondsTSV(1, 2, 3),
+			telem.NewSeriesV[int16](15, 20, 25),
+			telem.NewSeriesSecondsTSV(1, 2, 3),
+			telem.NewSeriesV[uint8](1, 1, 0),
+			telem.NewSeriesSecondsTSV(1, 2, 3),
+		),
+		Entry(
+			"Uint16 LE",
+			"le",
+			telem.NewSeriesV[uint16](100, 200, 300),
+			telem.NewSeriesSecondsTSV(5, 10, 15),
+			telem.NewSeriesV[uint16](150, 200, 250),
+			telem.NewSeriesSecondsTSV(5, 10, 15),
+			telem.NewSeriesV[uint8](1, 1, 0),
+			telem.NewSeriesSecondsTSV(5, 10, 15),
+		),
+		Entry(
+			"Float32 LT",
+			"lt",
+			telem.NewSeriesV[float32](1.0, 2.0, 3.0),
+			telem.NewSeriesSecondsTSV(1, 2, 3),
+			telem.NewSeriesV[float32](2.0, 2.0, 2.0),
+			telem.NewSeriesSecondsTSV(1, 2, 3),
+			telem.NewSeriesV[uint8](1, 0, 0),
+			telem.NewSeriesSecondsTSV(1, 2, 3),
+		),
+		Entry(
+			"Int8 LT",
+			"lt",
+			telem.NewSeriesV[int8](5, 10, 15),
+			telem.NewSeriesSecondsTSV(1, 2, 3),
+			telem.NewSeriesV[int8](10, 10, 10),
+			telem.NewSeriesSecondsTSV(1, 2, 3),
+			telem.NewSeriesV[uint8](1, 0, 0),
+			telem.NewSeriesSecondsTSV(1, 2, 3),
+		),
+		Entry(
+			"Uint8 LT",
+			"lt",
+			telem.NewSeriesV[uint8](1, 2, 3),
+			telem.NewSeriesSecondsTSV(10, 20, 30),
+			telem.NewSeriesV[uint8](2, 2, 2),
+			telem.NewSeriesSecondsTSV(10, 20, 30),
+			telem.NewSeriesV[uint8](1, 0, 0),
+			telem.NewSeriesSecondsTSV(10, 20, 30),
+		),
+		Entry(
+			"Float64 EQ",
+			"eq",
+			telem.NewSeriesV[float64](1.5, 2.5, 3.5),
+			telem.NewSeriesSecondsTSV(1, 2, 3),
+			telem.NewSeriesV[float64](1.5, 2.0, 3.5),
+			telem.NewSeriesSecondsTSV(1, 2, 3),
+			telem.NewSeriesV[uint8](1, 0, 1),
+			telem.NewSeriesSecondsTSV(1, 2, 3),
+		),
+		Entry(
+			"Int64 EQ",
+			"eq",
+			telem.NewSeriesV[int64](100, 200, 300),
+			telem.NewSeriesSecondsTSV(5, 10, 15),
+			telem.NewSeriesV[int64](100, 150, 300),
+			telem.NewSeriesSecondsTSV(5, 10, 15),
+			telem.NewSeriesV[uint8](1, 0, 1),
+			telem.NewSeriesSecondsTSV(5, 10, 15),
+		),
+		Entry(
+			"Uint32 EQ",
+			"eq",
+			telem.NewSeriesV[uint32](50, 60, 70),
+			telem.NewSeriesSecondsTSV(1, 2, 3),
+			telem.NewSeriesV[uint32](50, 65, 70),
+			telem.NewSeriesSecondsTSV(1, 2, 3),
+			telem.NewSeriesV[uint8](1, 0, 1),
+			telem.NewSeriesSecondsTSV(1, 2, 3),
+		),
+		Entry(
+			"Float32 NE",
+			"ne",
+			telem.NewSeriesV[float32](1.0, 2.0, 3.0),
+			telem.NewSeriesSecondsTSV(1, 2, 3),
+			telem.NewSeriesV[float32](1.0, 2.5, 3.0),
+			telem.NewSeriesSecondsTSV(1, 2, 3),
+			telem.NewSeriesV[uint8](0, 1, 0),
+			telem.NewSeriesSecondsTSV(1, 2, 3),
+		),
+		Entry(
+			"Int32 NE",
+			"ne",
+			telem.NewSeriesV[int32](10, 20, 30),
+			telem.NewSeriesSecondsTSV(5, 10, 15),
+			telem.NewSeriesV[int32](10, 25, 30),
+			telem.NewSeriesSecondsTSV(5, 10, 15),
+			telem.NewSeriesV[uint8](0, 1, 0),
+			telem.NewSeriesSecondsTSV(5, 10, 15),
+		),
+		Entry(
+			"Uint64 NE",
+			"ne",
+			telem.NewSeriesV[uint64](1000, 2000, 3000),
+			telem.NewSeriesSecondsTSV(1, 2, 3),
+			telem.NewSeriesV[uint64](1000, 2500, 3000),
+			telem.NewSeriesSecondsTSV(1, 2, 3),
+			telem.NewSeriesV[uint8](0, 1, 0),
+			telem.NewSeriesSecondsTSV(1, 2, 3),
+		),
+		Entry(
+			"Uint8 OR - all false",
+			"or",
+			telem.NewSeriesV[uint8](0, 0, 0),
+			telem.NewSeriesSecondsTSV(1, 2, 3),
+			telem.NewSeriesV[uint8](0, 0, 0),
+			telem.NewSeriesSecondsTSV(1, 2, 3),
+			telem.NewSeriesV[uint8](0, 0, 0),
+			telem.NewSeriesSecondsTSV(1, 2, 3),
+		),
+		Entry(
+			"Uint8 OR - all true",
+			"or",
+			telem.NewSeriesV[uint8](1, 1, 1),
+			telem.NewSeriesSecondsTSV(1, 2, 3),
+			telem.NewSeriesV[uint8](1, 1, 1),
+			telem.NewSeriesSecondsTSV(1, 2, 3),
+			telem.NewSeriesV[uint8](1, 1, 1),
+			telem.NewSeriesSecondsTSV(1, 2, 3),
+		),
+		Entry(
+			"Uint8 OR - mixed",
+			"or",
+			telem.NewSeriesV[uint8](0, 1, 0, 1),
+			telem.NewSeriesSecondsTSV(1, 2, 3, 4),
+			telem.NewSeriesV[uint8](0, 0, 1, 1),
+			telem.NewSeriesSecondsTSV(1, 2, 3, 4),
+			telem.NewSeriesV[uint8](0, 1, 1, 1),
+			telem.NewSeriesSecondsTSV(1, 2, 3, 4),
+		),
+		Entry(
+			"Uint8 OR - first true",
+			"or",
+			telem.NewSeriesV[uint8](1, 1, 1),
+			telem.NewSeriesSecondsTSV(5, 10, 15),
+			telem.NewSeriesV[uint8](0, 0, 0),
+			telem.NewSeriesSecondsTSV(5, 10, 15),
+			telem.NewSeriesV[uint8](1, 1, 1),
+			telem.NewSeriesSecondsTSV(5, 10, 15),
+		),
+		Entry(
+			"Uint8 OR - second true",
+			"or",
+			telem.NewSeriesV[uint8](0, 0, 0),
+			telem.NewSeriesSecondsTSV(1, 2, 3),
+			telem.NewSeriesV[uint8](1, 1, 1),
+			telem.NewSeriesSecondsTSV(1, 2, 3),
+			telem.NewSeriesV[uint8](1, 1, 1),
+			telem.NewSeriesSecondsTSV(1, 2, 3),
+		),
+		Entry(
+			"Uint8 AND - all false",
+			"and",
+			telem.NewSeriesV[uint8](0, 0, 0),
+			telem.NewSeriesSecondsTSV(1, 2, 3),
+			telem.NewSeriesV[uint8](0, 0, 0),
+			telem.NewSeriesSecondsTSV(1, 2, 3),
+			telem.NewSeriesV[uint8](0, 0, 0),
+			telem.NewSeriesSecondsTSV(1, 2, 3),
+		),
+		Entry(
+			"Uint8 AND - all true",
+			"and",
+			telem.NewSeriesV[uint8](1, 1, 1),
+			telem.NewSeriesSecondsTSV(1, 2, 3),
+			telem.NewSeriesV[uint8](1, 1, 1),
+			telem.NewSeriesSecondsTSV(1, 2, 3),
+			telem.NewSeriesV[uint8](1, 1, 1),
+			telem.NewSeriesSecondsTSV(1, 2, 3),
+		),
+		Entry(
+			"Uint8 AND - mixed",
+			"and",
+			telem.NewSeriesV[uint8](0, 1, 0, 1),
+			telem.NewSeriesSecondsTSV(1, 2, 3, 4),
+			telem.NewSeriesV[uint8](0, 0, 1, 1),
+			telem.NewSeriesSecondsTSV(1, 2, 3, 4),
+			telem.NewSeriesV[uint8](0, 0, 0, 1),
+			telem.NewSeriesSecondsTSV(1, 2, 3, 4),
+		),
+		Entry(
+			"Uint8 AND - first false",
+			"and",
+			telem.NewSeriesV[uint8](0, 0, 0),
+			telem.NewSeriesSecondsTSV(5, 10, 15),
+			telem.NewSeriesV[uint8](1, 1, 1),
+			telem.NewSeriesSecondsTSV(5, 10, 15),
+			telem.NewSeriesV[uint8](0, 0, 0),
+			telem.NewSeriesSecondsTSV(5, 10, 15),
+		),
+		Entry(
+			"Uint8 AND - second false",
+			"and",
+			telem.NewSeriesV[uint8](1, 1, 1),
+			telem.NewSeriesSecondsTSV(1, 2, 3),
+			telem.NewSeriesV[uint8](0, 0, 0),
+			telem.NewSeriesSecondsTSV(1, 2, 3),
+			telem.NewSeriesV[uint8](0, 0, 0),
+			telem.NewSeriesSecondsTSV(1, 2, 3),
+		),
 	)
-	DescribeTable("Unary Outputs", func(
-		ctx SpecContext, t string, input, inputTime, output, outputTime telem.Series,
-	) {
-		g := graph.Graph{
-			Nodes: []graph.Node{
-				{Key: "input"},
-				{Key: "op"},
-			},
-			Inputs: map[string]msgpack.EncodedJSON{
-				"input": {"type": "input"},
-				"op":    {"type": t},
-			},
-			Edges: graph.Edges{
-				{Edge: ir.Edge{
-					Source: ir.Handle{Node: "input", Param: ir.DefaultOutputParam},
-					Target: ir.Handle{Node: "op", Param: ir.DefaultInputParam},
-				}},
-			},
-			Functions: []ir.Function{
-				{
-					Key: "input",
-					Outputs: types.Params{
-						{Name: ir.DefaultOutputParam, Type: types.FromTelem(input.DataType)},
+	DescribeTable(
+		"Unary Outputs",
+		func(
+			ctx SpecContext, t string, input, inputTime, output, outputTime telem.Series,
+		) {
+			g := graph.Graph{
+				Nodes: []graph.Node{
+					{Key: "input"},
+					{Key: "op"},
+				},
+				Inputs: map[string]msgpack.EncodedJSON{
+					"input": {"type": "input"},
+					"op":    {"type": t},
+				},
+				Edges: graph.Edges{
+					{Edge: ir.Edge{
+						Source: ir.Handle{Node: "input", Param: ir.DefaultOutputParam},
+						Target: ir.Handle{Node: "op", Param: ir.DefaultInputParam},
+					}},
+				},
+				Functions: []ir.Function{
+					{
+						Key: "input",
+						Outputs: types.Params{
+							{
+								Name: ir.DefaultOutputParam,
+								Type: types.FromTelem(input.DataType),
+							},
+						},
 					},
 				},
-			},
-		}
-		analyzed, diagnostics := graph.Analyze(ctx, g, NewGraphRoot(nil))
-		Expect(diagnostics.Ok()).To(BeTrue())
-		s := node.New(analyzed)
-		inputNode := s.Node("input")
-		*inputNode.Output(0) = input
-		*inputNode.OutputTime(0) = inputTime
-		c := MustSucceed(op.NewHost().Create(ctx, node.Config{
-			Node:  ir.Node{Type: t},
-			State: s.Node("op"),
-		}))
-		changed := make(set.Set[int])
-		c.Next(node.Context{Context: ctx, MarkChanged: func(i int) { changed.Add(i) }})
-		Expect(changed.Contains(0)).To(BeTrue())
-		Expect(*s.Node("op").Output(0)).To(telem.MatchSeries(output))
-		Expect(*s.Node("op").OutputTime(0)).To(telem.MatchSeries(outputTime))
-	},
-		Entry("Uint8 NOT - all false", "not", telem.NewSeriesV[uint8](0, 0, 0), telem.NewSeriesSecondsTSV(1, 2, 3), telem.NewSeriesV[uint8](255, 255, 255), telem.NewSeriesSecondsTSV(1, 2, 3)),
-		Entry("Uint8 NOT - all true", "not", telem.NewSeriesV[uint8](1, 1, 1), telem.NewSeriesSecondsTSV(1, 2, 3), telem.NewSeriesV[uint8](254, 254, 254), telem.NewSeriesSecondsTSV(1, 2, 3)),
-		Entry("Uint8 NOT - mixed", "not", telem.NewSeriesV[uint8](0, 1, 0, 1), telem.NewSeriesSecondsTSV(1, 2, 3, 4), telem.NewSeriesV[uint8](255, 254, 255, 254), telem.NewSeriesSecondsTSV(1, 2, 3, 4)),
+			}
+			analyzed, diagnostics := graph.Analyze(ctx, g, NewGraphRoot(nil))
+			Expect(diagnostics.Ok()).To(BeTrue())
+			s := node.New(analyzed)
+			inputNode := s.Node("input")
+			*inputNode.Output(0) = input
+			*inputNode.OutputTime(0) = inputTime
+			c := MustSucceed(op.NewHost().Create(ctx, node.Config{
+				Node:  ir.Node{Type: t},
+				State: s.Node("op"),
+			}))
+			changed := make(set.Set[int])
+			c.Next(
+				node.Context{Context: ctx, MarkChanged: func(i int) { changed.Add(i) }},
+			)
+			Expect(changed.Contains(0)).To(BeTrue())
+			Expect(*s.Node("op").Output(0)).To(telem.MatchSeries(output))
+			Expect(*s.Node("op").OutputTime(0)).To(telem.MatchSeries(outputTime))
+		},
+		Entry(
+			"Uint8 NOT - all false",
+			"not",
+			telem.NewSeriesV[uint8](0, 0, 0),
+			telem.NewSeriesSecondsTSV(1, 2, 3),
+			telem.NewSeriesV[uint8](255, 255, 255),
+			telem.NewSeriesSecondsTSV(1, 2, 3),
+		),
+		Entry(
+			"Uint8 NOT - all true",
+			"not",
+			telem.NewSeriesV[uint8](1, 1, 1),
+			telem.NewSeriesSecondsTSV(1, 2, 3),
+			telem.NewSeriesV[uint8](254, 254, 254),
+			telem.NewSeriesSecondsTSV(1, 2, 3),
+		),
+		Entry(
+			"Uint8 NOT - mixed",
+			"not",
+			telem.NewSeriesV[uint8](0, 1, 0, 1),
+			telem.NewSeriesSecondsTSV(1, 2, 3, 4),
+			telem.NewSeriesV[uint8](255, 254, 255, 254),
+			telem.NewSeriesSecondsTSV(1, 2, 3, 4),
+		),
 	)
 	Describe("Edge Cases", func() {
 		It("Should handle lhs longer than rhs", func(ctx SpecContext) {
@@ -212,7 +511,9 @@ var _ = Describe("OP", func() {
 				State: s.Node("op"),
 			}))
 			changed := make(set.Set[int])
-			c.Next(node.Context{Context: ctx, MarkChanged: func(i int) { changed.Add(i) }})
+			c.Next(
+				node.Context{Context: ctx, MarkChanged: func(i int) { changed.Add(i) }},
+			)
 			Expect(changed.Contains(0)).To(BeTrue())
 			result := *s.Node("op").Output(0)
 			Expect(result.Len()).To(Equal(int64(7)))
@@ -268,7 +569,9 @@ var _ = Describe("OP", func() {
 				State: s.Node("op"),
 			}))
 			changed := make(set.Set[int])
-			c.Next(node.Context{Context: ctx, MarkChanged: func(i int) { changed.Add(i) }})
+			c.Next(
+				node.Context{Context: ctx, MarkChanged: func(i int) { changed.Add(i) }},
+			)
 			Expect(changed.Contains(0)).To(BeTrue())
 			result := *s.Node("op").Output(0)
 			Expect(result.Len()).To(Equal(int64(5)))
@@ -325,7 +628,9 @@ var _ = Describe("OP", func() {
 				State: s.Node("op"),
 			}))
 			changed := make(set.Set[int])
-			c.Next(node.Context{Context: ctx, MarkChanged: func(i int) { changed.Add(i) }})
+			c.Next(
+				node.Context{Context: ctx, MarkChanged: func(i int) { changed.Add(i) }},
+			)
 			Expect(changed.Contains(0)).To(BeTrue())
 			result := *s.Node("op").Output(0)
 			Expect(result.Len()).To(Equal(int64(5)))
@@ -382,7 +687,9 @@ var _ = Describe("OP", func() {
 				State: s.Node("op"),
 			}))
 			changed := make(set.Set[int])
-			c.Next(node.Context{Context: ctx, MarkChanged: func(i int) { changed.Add(i) }})
+			c.Next(
+				node.Context{Context: ctx, MarkChanged: func(i int) { changed.Add(i) }},
+			)
 			Expect(changed.Contains(0)).To(BeTrue())
 			result := *s.Node("op").Output(0)
 			Expect(result.Len()).To(Equal(int64(5)))
@@ -439,9 +746,13 @@ var _ = Describe("OP", func() {
 				State: s.Node("op"),
 			}))
 			changed := make(set.Set[int])
-			c.Next(node.Context{Context: ctx, MarkChanged: func(i int) { changed.Add(i) }})
+			c.Next(
+				node.Context{Context: ctx, MarkChanged: func(i int) { changed.Add(i) }},
+			)
 			Expect(changed.Contains(0)).To(BeTrue())
-			Expect(*s.Node("op").Output(0)).To(telem.MatchSeries(telem.NewSeriesV[uint8](1)))
+			Expect(
+				*s.Node("op").Output(0),
+			).To(telem.MatchSeries(telem.NewSeriesV[uint8](1)))
 		})
 
 		It("Should handle logical AND with single values", func(ctx SpecContext) {
@@ -495,9 +806,13 @@ var _ = Describe("OP", func() {
 				State: s.Node("op"),
 			}))
 			changed := make(set.Set[int])
-			c.Next(node.Context{Context: ctx, MarkChanged: func(i int) { changed.Add(i) }})
+			c.Next(
+				node.Context{Context: ctx, MarkChanged: func(i int) { changed.Add(i) }},
+			)
 			Expect(changed.Contains(0)).To(BeTrue())
-			Expect(*s.Node("op").Output(0)).To(telem.MatchSeries(telem.NewSeriesV[uint8](1)))
+			Expect(
+				*s.Node("op").Output(0),
+			).To(telem.MatchSeries(telem.NewSeriesV[uint8](1)))
 		})
 	})
 })

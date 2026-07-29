@@ -219,7 +219,11 @@ func FormatPyComment(name, doc string) string {
 	}
 	firstPrefix := "# " + name + " "
 	subsequentPrefix := "# "
-	lines := wrapText(doc, maxLineWidth-len(firstPrefix), maxLineWidth-len(subsequentPrefix))
+	lines := wrapText(
+		doc,
+		maxLineWidth-len(firstPrefix),
+		maxLineWidth-len(subsequentPrefix),
+	)
 	var result []string
 	for i, line := range lines {
 		if i == 0 {

@@ -93,7 +93,10 @@ func Pledge(ctx context.Context, cfgs ...Config) (res Response, err error) {
 		case dur := <-t.C:
 			cfg.L.Info("pledging to peer", zap.Stringer("address", addr))
 
-			reqCtx, cancel := context.WithTimeout(context.Background(), cfg.RequestTimeout)
+			reqCtx, cancel := context.WithTimeout(
+				context.Background(),
+				cfg.RequestTimeout,
+			)
 
 			res, err = cfg.TransportClient.Send(reqCtx, addr, Request{Key: 0})
 
@@ -140,12 +143,14 @@ func Arbitrate(cfgs ...Config) error {
 
 func arbitrate(cfg Config) error {
 	j := &juror{Config: cfg}
-	cfg.TransportServer.BindHandler(func(ctx context.Context, req Request) (Response, error) {
-		if req.Key == 0 {
-			return (&responsible{Config: cfg}).propose(ctx)
-		}
-		return Response{}, j.verdict(ctx, req)
-	})
+	cfg.TransportServer.BindHandler(
+		func(ctx context.Context, req Request) (Response, error) {
+			if req.Key == 0 {
+				return (&responsible{Config: cfg}).propose(ctx)
+			}
+			return Response{}, j.verdict(ctx, req)
+		},
+	)
 	return nil
 }
 
@@ -233,7 +238,11 @@ func (r *responsible) idToPropose() node.Key {
 	return r._proposedKey
 }
 
-func (r *responsible) consultQuorum(ctx context.Context, key node.Key, quorum node.Group) error {
+func (r *responsible) consultQuorum(
+	ctx context.Context,
+	key node.Key,
+	quorum node.Group,
+) error {
 	reqCtx, cancel := context.WithTimeout(ctx, r.RequestTimeout)
 	defer cancel()
 	wg := errgroup.Group{}
@@ -280,7 +289,10 @@ func (j *juror) verdict(ctx context.Context, req Request) (err error) {
 	j.mu.Lock()
 	defer j.mu.Unlock()
 	if slices.Contains(j.approvals, req.Key) {
-		j.L.Warn("juror rejected proposal. already approved for a different pledge", logID)
+		j.L.Warn(
+			"juror rejected proposal. already approved for a different pledge",
+			logID,
+		)
 		err = errProposalRejected
 		return err
 	}
@@ -293,7 +305,11 @@ func (j *juror) verdict(ctx context.Context, req Request) (err error) {
 	return err
 }
 
-func highestNodeID(candidates node.Group) node.Key { return lo.Max(lo.Keys(candidates)) }
+func highestNodeID(
+	candidates node.Group,
+) node.Key {
+	return lo.Max(lo.Keys(candidates))
+}
 
 func introduceRandomJitter(retryInterval time.Duration) {
 	// sleep for a random percentage of the retry interval, somewhere between

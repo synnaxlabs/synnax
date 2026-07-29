@@ -110,7 +110,10 @@ func (s *Server) getDocument(docURI uri.URI) (*Document, bool) {
 }
 
 // Initialize handles the initialize request.
-func (s *Server) Initialize(_ context.Context, params *protocol.InitializeParams) (*protocol.InitializeResult, error) {
+func (s *Server) Initialize(
+	_ context.Context,
+	params *protocol.InitializeParams,
+) (*protocol.InitializeResult, error) {
 	return &protocol.InitializeResult{
 		Capabilities: s.capabilities,
 		ServerInfo: protocol.ServerInfo{
@@ -126,7 +129,10 @@ func (s *Server) Shutdown(_ context.Context) error {
 }
 
 // DidOpen handles opening a document.
-func (s *Server) DidOpen(ctx context.Context, params *protocol.DidOpenTextDocumentParams) error {
+func (s *Server) DidOpen(
+	ctx context.Context,
+	params *protocol.DidOpenTextDocumentParams,
+) error {
 	docURI := params.TextDocument.URI
 	s.mu.Lock()
 	s.documents[docURI] = &Document{
@@ -140,7 +146,10 @@ func (s *Server) DidOpen(ctx context.Context, params *protocol.DidOpenTextDocume
 }
 
 // DidChange handles document changes.
-func (s *Server) DidChange(ctx context.Context, params *protocol.DidChangeTextDocumentParams) error {
+func (s *Server) DidChange(
+	ctx context.Context,
+	params *protocol.DidChangeTextDocumentParams,
+) error {
 	docURI := params.TextDocument.URI
 	s.mu.Lock()
 	if doc, ok := s.documents[docURI]; ok {
@@ -163,7 +172,10 @@ func (s *Server) DidChange(ctx context.Context, params *protocol.DidChangeTextDo
 }
 
 // DidClose handles closing a document.
-func (s *Server) DidClose(ctx context.Context, params *protocol.DidCloseTextDocumentParams) error {
+func (s *Server) DidClose(
+	ctx context.Context,
+	params *protocol.DidCloseTextDocumentParams,
+) error {
 	docURI := params.TextDocument.URI
 	s.mu.Lock()
 	delete(s.documents, docURI)
@@ -177,7 +189,11 @@ func (s *Server) DidClose(ctx context.Context, params *protocol.DidCloseTextDocu
 }
 
 // publishDiagnostics parses the document and publishes diagnostics.
-func (s *Server) publishDiagnostics(ctx context.Context, docURI uri.URI, content string) {
+func (s *Server) publishDiagnostics(
+	ctx context.Context,
+	docURI uri.URI,
+	content string,
+) {
 	s.mu.Lock()
 	doc, ok := s.documents[docURI]
 	s.mu.Unlock()

@@ -224,8 +224,10 @@ type Layer struct {
 // BindTo binds the API layer to the provided Transport implementation.
 func (l *Layer) BindTo(t Transport) {
 	var (
-		tk                 = auth.TokenMiddleware(l.config.Service.Token)
-		instrumentation    = lo.Must(alamos.Middleware(alamos.Config{Instrumentation: l.config.Instrumentation}))
+		tk              = auth.TokenMiddleware(l.config.Service.Token)
+		instrumentation = lo.Must(
+			alamos.Middleware(alamos.Config{Instrumentation: l.config.Instrumentation}),
+		)
 		rec                = recovery.Middleware(l.config.Instrumentation)
 		insecureMiddleware = []freighter.Middleware{rec, instrumentation}
 		secureMiddleware   = make(
@@ -471,13 +473,17 @@ func (l *Layer) BindTo(t Transport) {
 	t.ProjectDelete.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Project.Delete))
 	t.ProjectRetrieve.BindHandler(l.Project.Retrieve)
 	t.ProjectRename.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Project.Rename))
-	t.ProjectSetLayout.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Project.SetLayout))
+	t.ProjectSetLayout.BindHandler(
+		fgorp.CreateWriteUnaryHandler(db, l.Project.SetLayout),
+	)
 
 	// SCHEMATIC
 	t.SchematicCreate.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Schematic.Create))
 	t.SchematicRetrieve.BindHandler(l.Schematic.Retrieve)
 	t.SchematicDelete.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Schematic.Delete))
-	t.SchematicDispatch.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Schematic.Dispatch))
+	t.SchematicDispatch.BindHandler(
+		fgorp.CreateWriteUnaryHandler(db, l.Schematic.Dispatch),
+	)
 	t.SchematicCopy.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Schematic.Copy))
 
 	// SCHEMATIC SYMBOL
@@ -494,7 +500,9 @@ func (l *Layer) BindTo(t Transport) {
 
 	// LINE PLOT
 	t.LinePlotCreate.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.LinePlot.Create))
-	t.LinePlotDispatch.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.LinePlot.Dispatch))
+	t.LinePlotDispatch.BindHandler(
+		fgorp.CreateWriteUnaryHandler(db, l.LinePlot.Dispatch),
+	)
 	t.LinePlotRetrieve.BindHandler(l.LinePlot.Retrieve)
 	t.LinePlotDelete.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.LinePlot.Delete))
 
@@ -547,10 +555,16 @@ func (l *Layer) BindTo(t Transport) {
 		fgorp.CreateWriteUnaryHandler(db, l.Access.DeletePolicy),
 	)
 	t.AccessRetrievePolicy.BindHandler(l.Access.RetrievePolicy)
-	t.AccessCreateRole.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Access.CreateRole))
-	t.AccessDeleteRole.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Access.DeleteRole))
+	t.AccessCreateRole.BindHandler(
+		fgorp.CreateWriteUnaryHandler(db, l.Access.CreateRole),
+	)
+	t.AccessDeleteRole.BindHandler(
+		fgorp.CreateWriteUnaryHandler(db, l.Access.DeleteRole),
+	)
 	t.AccessRetrieveRole.BindHandler(l.Access.RetrieveRole)
-	t.AccessAssignRole.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Access.AssignRole))
+	t.AccessAssignRole.BindHandler(
+		fgorp.CreateWriteUnaryHandler(db, l.Access.AssignRole),
+	)
 	t.AccessUnassignRole.BindHandler(
 		fgorp.CreateWriteUnaryHandler(db, l.Access.UnassignRole),
 	)

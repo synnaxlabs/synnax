@@ -51,7 +51,8 @@ func (w Writer[D]) SetWithParent(
 	if err := w.validate(*s); err != nil {
 		return err
 	}
-	exists, err := gorp.NewRetrieve[string, Status[D]]().Where(gorp.MatchKeys[string, Status[D]](s.Key)).Exists(ctx, w.tx)
+	exists, err := gorp.NewRetrieve[string, Status[D]]().Where(gorp.MatchKeys[string, Status[D]](s.Key)).
+		Exists(ctx, w.tx)
 	if err != nil {
 		return err
 	}
@@ -73,7 +74,11 @@ func (w Writer[D]) SetWithParent(
 		}); hasRel || err != nil {
 			return err
 		}
-		if err = w.otgWriter.DeleteIncomingRelationshipsOfType(ctx, otgID, ontology.RelationshipTypeParentOf); err != nil {
+		if err = w.otgWriter.DeleteIncomingRelationshipsOfType(
+			ctx,
+			otgID,
+			ontology.RelationshipTypeParentOf,
+		); err != nil {
 			return err
 		}
 		if err = w.otgWriter.DefineRelationships(

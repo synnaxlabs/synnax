@@ -27,7 +27,9 @@ var _ = Describe("Default Registry", func() {
 		DeferCleanup(func() {
 			Expect(os.RemoveAll(repoRoot)).To(Succeed())
 		})
-		Expect(os.MkdirAll(filepath.Join(repoRoot, "licenses", "headers"), 0o755)).To(Succeed())
+		Expect(
+			os.MkdirAll(filepath.Join(repoRoot, "licenses", "headers"), 0o755),
+		).To(Succeed())
 		Expect(os.WriteFile(
 			filepath.Join(repoRoot, "licenses/headers/template.txt"),
 			[]byte("Copyright {{YEAR}} Synnax Labs, Inc.\n"), 0o644,
@@ -35,8 +37,13 @@ var _ = Describe("Default Registry", func() {
 	})
 
 	It("Should propagate license-template read errors", func() {
-		Expect(os.Remove(filepath.Join(repoRoot, "licenses/headers/template.txt"))).To(Succeed())
-		Expect(format.Default(repoRoot)).Error().To(MatchError(ContainSubstring("license template")))
+		Expect(
+			os.Remove(filepath.Join(repoRoot, "licenses/headers/template.txt")),
+		).To(Succeed())
+		Expect(
+			format.Default(repoRoot),
+		).Error().
+			To(MatchError(ContainSubstring("license template")))
 	})
 
 	DescribeTable("Should register every supported extension",

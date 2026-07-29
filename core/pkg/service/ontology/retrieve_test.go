@@ -55,26 +55,41 @@ var _ = Describe("Retrieve", func() {
 		})
 	})
 	Describe("Exists", func() {
-		It("Should return true when the query matches a resource", func(ctx SpecContext) {
-			id := newSampleType("A")
-			Expect(w.DefineResources(ctx, id)).To(Succeed())
-			Expect(otg.NewRetrieve().WhereIDs(id).Exists(ctx, tx)).To(BeTrue())
-		})
-		It("Should return false when the query matches no resources", func(ctx SpecContext) {
-			Expect(otg.NewRetrieve().WhereIDs(newSampleType("nonexistent")).Exists(ctx, tx)).
-				To(BeFalse())
-		})
-		It("Should return true when a traversal matches a resource", func(ctx SpecContext) {
-			a := newSampleType("A")
-			b := newSampleType("B")
-			Expect(w.DefineResources(ctx, a)).To(Succeed())
-			Expect(w.DefineResources(ctx, b)).To(Succeed())
-			Expect(w.DefineRelationships(ctx, a, ontology.RelationshipTypeParentOf, b)).To(Succeed())
-			Expect(otg.NewRetrieve().
-				WhereIDs(a).
-				TraverseTo(ontology.ChildrenTraverser).
-				Exists(ctx, tx)).To(BeTrue())
-		})
+		It(
+			"Should return true when the query matches a resource",
+			func(ctx SpecContext) {
+				id := newSampleType("A")
+				Expect(w.DefineResources(ctx, id)).To(Succeed())
+				Expect(otg.NewRetrieve().WhereIDs(id).Exists(ctx, tx)).To(BeTrue())
+			},
+		)
+		It(
+			"Should return false when the query matches no resources",
+			func(ctx SpecContext) {
+				Expect(
+					otg.NewRetrieve().
+						WhereIDs(newSampleType("nonexistent")).
+						Exists(ctx, tx),
+				).
+					To(BeFalse())
+			},
+		)
+		It(
+			"Should return true when a traversal matches a resource",
+			func(ctx SpecContext) {
+				a := newSampleType("A")
+				b := newSampleType("B")
+				Expect(w.DefineResources(ctx, a)).To(Succeed())
+				Expect(w.DefineResources(ctx, b)).To(Succeed())
+				Expect(
+					w.DefineRelationships(ctx, a, ontology.RelationshipTypeParentOf, b),
+				).To(Succeed())
+				Expect(otg.NewRetrieve().
+					WhereIDs(a).
+					TraverseTo(ontology.ChildrenTraverser).
+					Exists(ctx, tx)).To(BeTrue())
+			},
+		)
 	})
 	Describe("Multi Clause", func() {
 		Describe("Parental Traversal", func() {
@@ -83,7 +98,9 @@ var _ = Describe("Retrieve", func() {
 				b := newSampleType("B")
 				Expect(w.DefineResources(ctx, a)).To(Succeed())
 				Expect(w.DefineResources(ctx, b)).To(Succeed())
-				Expect(w.DefineRelationships(ctx, a, ontology.RelationshipTypeParentOf, b)).To(Succeed())
+				Expect(
+					w.DefineRelationships(ctx, a, ontology.RelationshipTypeParentOf, b),
+				).To(Succeed())
 				var r ontology.Resource
 				Expect(otg.NewRetrieve().
 					WhereIDs(a).
@@ -96,38 +113,58 @@ var _ = Describe("Retrieve", func() {
 				Expect(res.Key).To(Equal("B"))
 			})
 
-			It("Should retrieve the parents of multiple resources", func(ctx SpecContext) {
-				a := newSampleType("A")
-				b := newSampleType("B")
-				c := newSampleType("C")
-				Expect(w.DefineResources(ctx, a)).To(Succeed())
-				Expect(w.DefineResources(ctx, b)).To(Succeed())
-				Expect(w.DefineResources(ctx, c)).To(Succeed())
-				Expect(w.DefineRelationships(ctx, a, ontology.RelationshipTypeParentOf, b)).To(Succeed())
-				Expect(w.DefineRelationships(ctx, a, ontology.RelationshipTypeParentOf, c)).To(Succeed())
-				var r []ontology.Resource
-				Expect(otg.NewRetrieve().
-					WhereIDs(a).
-					TraverseTo(ontology.ChildrenTraverser).
-					Entries(&r).
-					Exec(ctx, tx),
-				).To(Succeed())
-				var res Sample
-				Expect(schema.Parse(r[0].Data, &res)).To(Succeed())
-				Expect(res.Key).To(Equal("B"))
-				Expect(schema.Parse(r[1].Data, &res)).To(Succeed())
-				Expect(res.Key).To(Equal("C"))
-			})
+			It(
+				"Should retrieve the parents of multiple resources",
+				func(ctx SpecContext) {
+					a := newSampleType("A")
+					b := newSampleType("B")
+					c := newSampleType("C")
+					Expect(w.DefineResources(ctx, a)).To(Succeed())
+					Expect(w.DefineResources(ctx, b)).To(Succeed())
+					Expect(w.DefineResources(ctx, c)).To(Succeed())
+					Expect(
+						w.DefineRelationships(
+							ctx,
+							a,
+							ontology.RelationshipTypeParentOf,
+							b,
+						),
+					).To(Succeed())
+					Expect(
+						w.DefineRelationships(
+							ctx,
+							a,
+							ontology.RelationshipTypeParentOf,
+							c,
+						),
+					).To(Succeed())
+					var r []ontology.Resource
+					Expect(otg.NewRetrieve().
+						WhereIDs(a).
+						TraverseTo(ontology.ChildrenTraverser).
+						Entries(&r).
+						Exec(ctx, tx),
+					).To(Succeed())
+					var res Sample
+					Expect(schema.Parse(r[0].Data, &res)).To(Succeed())
+					Expect(res.Key).To(Equal("B"))
+					Expect(schema.Parse(r[1].Data, &res)).To(Succeed())
+					Expect(res.Key).To(Equal("C"))
+				},
+			)
 
-			It("Should return ErrNotFound when traversing children of a non-existent parent", func(ctx SpecContext) {
-				var r []ontology.Resource
-				err := otg.NewRetrieve().
-					WhereIDs(newSampleType("nonexistent")).
-					TraverseTo(ontology.ChildrenTraverser).
-					Entries(&r).
-					Exec(ctx, tx)
-				Expect(err).To(MatchError(query.ErrNotFound))
-			})
+			It(
+				"Should return ErrNotFound when traversing children of a non-existent parent",
+				func(ctx SpecContext) {
+					var r []ontology.Resource
+					err := otg.NewRetrieve().
+						WhereIDs(newSampleType("nonexistent")).
+						TraverseTo(ontology.ChildrenTraverser).
+						Entries(&r).
+						Exec(ctx, tx)
+					Expect(err).To(MatchError(query.ErrNotFound))
+				},
+			)
 
 			It("Should retrieve the grandparents of a resource", func(ctx SpecContext) {
 				a := newSampleType("A")
@@ -136,8 +173,12 @@ var _ = Describe("Retrieve", func() {
 				Expect(w.DefineResources(ctx, a)).To(Succeed())
 				Expect(w.DefineResources(ctx, b)).To(Succeed())
 				Expect(w.DefineResources(ctx, c)).To(Succeed())
-				Expect(w.DefineRelationships(ctx, a, ontology.RelationshipTypeParentOf, b)).To(Succeed())
-				Expect(w.DefineRelationships(ctx, b, ontology.RelationshipTypeParentOf, c)).To(Succeed())
+				Expect(
+					w.DefineRelationships(ctx, a, ontology.RelationshipTypeParentOf, b),
+				).To(Succeed())
+				Expect(
+					w.DefineRelationships(ctx, b, ontology.RelationshipTypeParentOf, c),
+				).To(Succeed())
 				var r ontology.Resource
 				Expect(otg.NewRetrieve().
 					WhereIDs(a).
@@ -151,131 +192,219 @@ var _ = Describe("Retrieve", func() {
 				Expect(res.Key).To(Equal("C"))
 			})
 
-			It("Should retrieve resources at intermediate and final clauses", func(ctx SpecContext) {
-				a := newSampleType("A")
-				b := newSampleType("B")
-				c := newSampleType("C")
-				Expect(w.DefineResources(ctx, a)).To(Succeed())
-				Expect(w.DefineResources(ctx, b)).To(Succeed())
-				Expect(w.DefineResources(ctx, c)).To(Succeed())
-				Expect(w.DefineRelationships(ctx, a, ontology.RelationshipTypeParentOf, b)).To(Succeed())
-				Expect(w.DefineRelationships(ctx, b, ontology.RelationshipTypeParentOf, c)).To(Succeed())
-				var intermediate []ontology.Resource
-				var final []ontology.Resource
-				Expect(otg.NewRetrieve().
-					WhereIDs(a).
-					TraverseTo(ontology.ChildrenTraverser).
-					Entries(&intermediate).
-					TraverseTo(ontology.ChildrenTraverser).
-					Entries(&final).
-					Exec(ctx, tx),
-				).To(Succeed())
-				Expect(intermediate).To(HaveLen(1))
-				Expect(final).To(HaveLen(1))
-				var res Sample
-				Expect(schema.Parse(intermediate[0].Data, &res)).To(Succeed())
-				Expect(res.Key).To(Equal("B"))
-				Expect(schema.Parse(final[0].Data, &res)).To(Succeed())
-				Expect(res.Key).To(Equal("C"))
-			})
+			It(
+				"Should retrieve resources at intermediate and final clauses",
+				func(ctx SpecContext) {
+					a := newSampleType("A")
+					b := newSampleType("B")
+					c := newSampleType("C")
+					Expect(w.DefineResources(ctx, a)).To(Succeed())
+					Expect(w.DefineResources(ctx, b)).To(Succeed())
+					Expect(w.DefineResources(ctx, c)).To(Succeed())
+					Expect(
+						w.DefineRelationships(
+							ctx,
+							a,
+							ontology.RelationshipTypeParentOf,
+							b,
+						),
+					).To(Succeed())
+					Expect(
+						w.DefineRelationships(
+							ctx,
+							b,
+							ontology.RelationshipTypeParentOf,
+							c,
+						),
+					).To(Succeed())
+					var intermediate []ontology.Resource
+					var final []ontology.Resource
+					Expect(otg.NewRetrieve().
+						WhereIDs(a).
+						TraverseTo(ontology.ChildrenTraverser).
+						Entries(&intermediate).
+						TraverseTo(ontology.ChildrenTraverser).
+						Entries(&final).
+						Exec(ctx, tx),
+					).To(Succeed())
+					Expect(intermediate).To(HaveLen(1))
+					Expect(final).To(HaveLen(1))
+					var res Sample
+					Expect(schema.Parse(intermediate[0].Data, &res)).To(Succeed())
+					Expect(res.Key).To(Equal("B"))
+					Expect(schema.Parse(final[0].Data, &res)).To(Succeed())
+					Expect(res.Key).To(Equal("C"))
+				},
+			)
 
-			It("Should retrieve the parent of a resource using ParentsTraverser", func(ctx SpecContext) {
-				a := newSampleType("A")
-				b := newSampleType("B")
-				Expect(w.DefineResources(ctx, a)).To(Succeed())
-				Expect(w.DefineResources(ctx, b)).To(Succeed())
-				Expect(w.DefineRelationships(ctx, a, ontology.RelationshipTypeParentOf, b)).To(Succeed())
-				var r ontology.Resource
-				Expect(otg.NewRetrieve().
-					WhereIDs(b).
-					TraverseTo(ontology.ParentsTraverser).
-					Entry(&r).
-					Exec(ctx, tx),
-				).To(Succeed())
-				var res Sample
-				Expect(schema.Parse(r.Data, &res)).To(Succeed())
-				Expect(res.Key).To(Equal("A"))
-			})
+			It(
+				"Should retrieve the parent of a resource using ParentsTraverser",
+				func(ctx SpecContext) {
+					a := newSampleType("A")
+					b := newSampleType("B")
+					Expect(w.DefineResources(ctx, a)).To(Succeed())
+					Expect(w.DefineResources(ctx, b)).To(Succeed())
+					Expect(
+						w.DefineRelationships(
+							ctx,
+							a,
+							ontology.RelationshipTypeParentOf,
+							b,
+						),
+					).To(Succeed())
+					var r ontology.Resource
+					Expect(otg.NewRetrieve().
+						WhereIDs(b).
+						TraverseTo(ontology.ParentsTraverser).
+						Entry(&r).
+						Exec(ctx, tx),
+					).To(Succeed())
+					var res Sample
+					Expect(schema.Parse(r.Data, &res)).To(Succeed())
+					Expect(res.Key).To(Equal("A"))
+				},
+			)
 
-			It("Should return no parents when a resource has none using ParentsTraverser", func(ctx SpecContext) {
-				orphan := newSampleType("orphan")
-				Expect(w.DefineResources(ctx, orphan)).To(Succeed())
-				var res []ontology.Resource
-				Expect(otg.NewRetrieve().
-					WhereIDs(orphan).
-					TraverseTo(ontology.ParentsTraverser).
-					Entries(&res).
-					Exec(ctx, tx),
-				).To(Succeed())
-				Expect(res).To(BeEmpty())
-			})
-			It("Should retrieve multiple parents of a resource using ParentsTraverser", func(ctx SpecContext) {
-				a := newSampleType("A")
-				b := newSampleType("B")
-				c := newSampleType("C")
-				Expect(w.DefineResources(ctx, a)).To(Succeed())
-				Expect(w.DefineResources(ctx, b)).To(Succeed())
-				Expect(w.DefineResources(ctx, c)).To(Succeed())
-				Expect(w.DefineRelationships(ctx, a, ontology.RelationshipTypeParentOf, c)).To(Succeed())
-				Expect(w.DefineRelationships(ctx, b, ontology.RelationshipTypeParentOf, c)).To(Succeed())
-				var r []ontology.Resource
-				Expect(otg.NewRetrieve().
-					WhereIDs(c).
-					TraverseTo(ontology.ParentsTraverser).
-					Entries(&r).
-					Exec(ctx, tx),
-				).To(Succeed())
-				Expect(r).To(HaveLen(2))
-				keys := lo.Map(r, func(res ontology.Resource, _ int) string {
-					var s Sample
-					lo.Must0(schema.Parse(res.Data, &s))
-					return s.Key
-				})
-				Expect(keys).To(ConsistOf("A", "B"))
-			})
+			It(
+				"Should return no parents when a resource has none using ParentsTraverser",
+				func(ctx SpecContext) {
+					orphan := newSampleType("orphan")
+					Expect(w.DefineResources(ctx, orphan)).To(Succeed())
+					var res []ontology.Resource
+					Expect(otg.NewRetrieve().
+						WhereIDs(orphan).
+						TraverseTo(ontology.ParentsTraverser).
+						Entries(&res).
+						Exec(ctx, tx),
+					).To(Succeed())
+					Expect(res).To(BeEmpty())
+				},
+			)
+			It(
+				"Should retrieve multiple parents of a resource using ParentsTraverser",
+				func(ctx SpecContext) {
+					a := newSampleType("A")
+					b := newSampleType("B")
+					c := newSampleType("C")
+					Expect(w.DefineResources(ctx, a)).To(Succeed())
+					Expect(w.DefineResources(ctx, b)).To(Succeed())
+					Expect(w.DefineResources(ctx, c)).To(Succeed())
+					Expect(
+						w.DefineRelationships(
+							ctx,
+							a,
+							ontology.RelationshipTypeParentOf,
+							c,
+						),
+					).To(Succeed())
+					Expect(
+						w.DefineRelationships(
+							ctx,
+							b,
+							ontology.RelationshipTypeParentOf,
+							c,
+						),
+					).To(Succeed())
+					var r []ontology.Resource
+					Expect(otg.NewRetrieve().
+						WhereIDs(c).
+						TraverseTo(ontology.ParentsTraverser).
+						Entries(&r).
+						Exec(ctx, tx),
+					).To(Succeed())
+					Expect(r).To(HaveLen(2))
+					keys := lo.Map(r, func(res ontology.Resource, _ int) string {
+						var s Sample
+						lo.Must0(schema.Parse(res.Data, &s))
+						return s.Key
+					})
+					Expect(keys).To(ConsistOf("A", "B"))
+				},
+			)
 
-			It("Should traverse grandparents using ParentsTraverser", func(ctx SpecContext) {
-				a := newSampleType("A")
-				b := newSampleType("B")
-				c := newSampleType("C")
-				Expect(w.DefineResources(ctx, a)).To(Succeed())
-				Expect(w.DefineResources(ctx, b)).To(Succeed())
-				Expect(w.DefineResources(ctx, c)).To(Succeed())
-				Expect(w.DefineRelationships(ctx, a, ontology.RelationshipTypeParentOf, b)).To(Succeed())
-				Expect(w.DefineRelationships(ctx, b, ontology.RelationshipTypeParentOf, c)).To(Succeed())
-				var r ontology.Resource
-				Expect(otg.NewRetrieve().
-					WhereIDs(c).
-					TraverseTo(ontology.ParentsTraverser).
-					TraverseTo(ontology.ParentsTraverser).
-					Entry(&r).
-					Exec(ctx, tx),
-				).To(Succeed())
-				var res Sample
-				Expect(schema.Parse(r.Data, &res)).To(Succeed())
-				Expect(res.Key).To(Equal("A"))
-			})
+			It(
+				"Should traverse grandparents using ParentsTraverser",
+				func(ctx SpecContext) {
+					a := newSampleType("A")
+					b := newSampleType("B")
+					c := newSampleType("C")
+					Expect(w.DefineResources(ctx, a)).To(Succeed())
+					Expect(w.DefineResources(ctx, b)).To(Succeed())
+					Expect(w.DefineResources(ctx, c)).To(Succeed())
+					Expect(
+						w.DefineRelationships(
+							ctx,
+							a,
+							ontology.RelationshipTypeParentOf,
+							b,
+						),
+					).To(Succeed())
+					Expect(
+						w.DefineRelationships(
+							ctx,
+							b,
+							ontology.RelationshipTypeParentOf,
+							c,
+						),
+					).To(Succeed())
+					var r ontology.Resource
+					Expect(otg.NewRetrieve().
+						WhereIDs(c).
+						TraverseTo(ontology.ParentsTraverser).
+						TraverseTo(ontology.ParentsTraverser).
+						Entry(&r).
+						Exec(ctx, tx),
+					).To(Succeed())
+					var res Sample
+					Expect(schema.Parse(r.Data, &res)).To(Succeed())
+					Expect(res.Key).To(Equal("A"))
+				},
+			)
 
-			It("Should retrieve the resources of a parent by their type", func(ctx SpecContext) {
-				a := newSampleType("A")
-				b := newSampleType("B")
-				c := newSampleType("C")
-				Expect(w.DefineResources(ctx, a)).To(Succeed())
-				Expect(w.DefineResources(ctx, b)).To(Succeed())
-				Expect(w.DefineResources(ctx, c)).To(Succeed())
-				Expect(w.DefineRelationships(ctx, a, ontology.RelationshipTypeParentOf, b)).To(Succeed())
-				Expect(w.DefineRelationships(ctx, a, ontology.RelationshipTypeParentOf, c)).To(Succeed())
-				Expect(w.DefineRelationships(ctx, b, ontology.RelationshipTypeParentOf, c)).To(Succeed())
-				var r []ontology.Resource
-				Expect(otg.NewRetrieve().
-					WhereIDs(a).
-					TraverseTo(ontology.ChildrenTraverser).
-					WhereTypes(ontology.ResourceTypeChannel).
-					Entries(&r).
-					Exec(ctx, tx),
-				).To(Succeed())
-				Expect(r).To(HaveLen(2))
-			})
+			It(
+				"Should retrieve the resources of a parent by their type",
+				func(ctx SpecContext) {
+					a := newSampleType("A")
+					b := newSampleType("B")
+					c := newSampleType("C")
+					Expect(w.DefineResources(ctx, a)).To(Succeed())
+					Expect(w.DefineResources(ctx, b)).To(Succeed())
+					Expect(w.DefineResources(ctx, c)).To(Succeed())
+					Expect(
+						w.DefineRelationships(
+							ctx,
+							a,
+							ontology.RelationshipTypeParentOf,
+							b,
+						),
+					).To(Succeed())
+					Expect(
+						w.DefineRelationships(
+							ctx,
+							a,
+							ontology.RelationshipTypeParentOf,
+							c,
+						),
+					).To(Succeed())
+					Expect(
+						w.DefineRelationships(
+							ctx,
+							b,
+							ontology.RelationshipTypeParentOf,
+							c,
+						),
+					).To(Succeed())
+					var r []ontology.Resource
+					Expect(otg.NewRetrieve().
+						WhereIDs(a).
+						TraverseTo(ontology.ChildrenTraverser).
+						WhereTypes(ontology.ResourceTypeChannel).
+						Entries(&r).
+						Exec(ctx, tx),
+					).To(Succeed())
+					Expect(r).To(HaveLen(2))
+				},
+			)
 		})
 	})
 
@@ -283,77 +412,106 @@ var _ = Describe("Retrieve", func() {
 		// Regression test for issue where intermediate clauses with filters
 		// but no bound entries would silently drop results because gorp.NewRetrieve
 		// created unbound entries that couldn't store query results.
-		It("Should traverse through intermediate filtered clauses without bound entries", func(ctx SpecContext) {
-			// Create a hierarchy: grandparent -> parent -> child
-			// We'll query: grandparent -> TraverseTo(Children) -> WhereTypes(sample) -> TraverseTo(Children) -> Entries
-			grandparent := newSampleType("grandparent")
-			parent := newSampleType("parent")
-			child := newSampleType("child")
+		It(
+			"Should traverse through intermediate filtered clauses without bound entries",
+			func(ctx SpecContext) {
+				// Create a hierarchy: grandparent -> parent -> child
+				// We'll query: grandparent -> TraverseTo(Children) -> WhereTypes(sample) -> TraverseTo(Children) -> Entries
+				grandparent := newSampleType("grandparent")
+				parent := newSampleType("parent")
+				child := newSampleType("child")
 
-			Expect(w.DefineResources(ctx, grandparent)).To(Succeed())
-			Expect(w.DefineResources(ctx, parent)).To(Succeed())
-			Expect(w.DefineResources(ctx, child)).To(Succeed())
-			Expect(w.DefineRelationships(ctx, grandparent, ontology.RelationshipTypeParentOf, parent)).To(Succeed())
-			Expect(w.DefineRelationships(ctx, parent, ontology.RelationshipTypeParentOf, child)).To(Succeed())
+				Expect(w.DefineResources(ctx, grandparent)).To(Succeed())
+				Expect(w.DefineResources(ctx, parent)).To(Succeed())
+				Expect(w.DefineResources(ctx, child)).To(Succeed())
+				Expect(
+					w.DefineRelationships(
+						ctx,
+						grandparent,
+						ontology.RelationshipTypeParentOf,
+						parent,
+					),
+				).To(Succeed())
+				Expect(
+					w.DefineRelationships(
+						ctx,
+						parent,
+						ontology.RelationshipTypeParentOf,
+						child,
+					),
+				).To(Succeed())
 
-			// This query pattern has an intermediate clause (WhereTypes) with no bound entries
-			var results []ontology.Resource
-			Expect(otg.NewRetrieve().
-				WhereIDs(grandparent).
-				TraverseTo(ontology.ChildrenTraverser).
-				WhereTypes(ontology.ResourceTypeChannel). // Intermediate filter, no Entries() bound
-				TraverseTo(ontology.ChildrenTraverser).
-				WhereTypes(ontology.ResourceTypeChannel).
-				Entries(&results). // Only final clause has entries
-				Exec(ctx, tx),
-			).To(Succeed())
+				// This query pattern has an intermediate clause (WhereTypes) with no bound entries
+				var results []ontology.Resource
+				Expect(otg.NewRetrieve().
+					WhereIDs(grandparent).
+					TraverseTo(ontology.ChildrenTraverser).
+					WhereTypes(ontology.ResourceTypeChannel).
+					// Intermediate filter, no Entries() bound
+					TraverseTo(ontology.ChildrenTraverser).
+					WhereTypes(ontology.ResourceTypeChannel).
+					Entries(&results). // Only final clause has entries
+					Exec(ctx, tx),
+				).To(Succeed())
 
-			Expect(results).To(HaveLen(1))
-			var res Sample
-			Expect(schema.Parse(results[0].Data, &res)).To(Succeed())
-			Expect(res.Key).To(Equal("child"))
-		})
+				Expect(results).To(HaveLen(1))
+				var res Sample
+				Expect(schema.Parse(results[0].Data, &res)).To(Succeed())
+				Expect(res.Key).To(Equal("child"))
+			},
+		)
 
-		It("Should traverse through multiple intermediate filtered clauses", func(ctx SpecContext) {
-			// Create a 4-level hierarchy: A -> B -> C -> D
-			a := newSampleType("level-A")
-			b := newSampleType("level-B")
-			c := newSampleType("level-C")
-			d := newSampleType("level-D")
+		It(
+			"Should traverse through multiple intermediate filtered clauses",
+			func(ctx SpecContext) {
+				// Create a 4-level hierarchy: A -> B -> C -> D
+				a := newSampleType("level-A")
+				b := newSampleType("level-B")
+				c := newSampleType("level-C")
+				d := newSampleType("level-D")
 
-			Expect(w.DefineResources(ctx, a)).To(Succeed())
-			Expect(w.DefineResources(ctx, b)).To(Succeed())
-			Expect(w.DefineResources(ctx, c)).To(Succeed())
-			Expect(w.DefineResources(ctx, d)).To(Succeed())
-			Expect(w.DefineRelationships(ctx, a, ontology.RelationshipTypeParentOf, b)).To(Succeed())
-			Expect(w.DefineRelationships(ctx, b, ontology.RelationshipTypeParentOf, c)).To(Succeed())
-			Expect(w.DefineRelationships(ctx, c, ontology.RelationshipTypeParentOf, d)).To(Succeed())
+				Expect(w.DefineResources(ctx, a)).To(Succeed())
+				Expect(w.DefineResources(ctx, b)).To(Succeed())
+				Expect(w.DefineResources(ctx, c)).To(Succeed())
+				Expect(w.DefineResources(ctx, d)).To(Succeed())
+				Expect(
+					w.DefineRelationships(ctx, a, ontology.RelationshipTypeParentOf, b),
+				).To(Succeed())
+				Expect(
+					w.DefineRelationships(ctx, b, ontology.RelationshipTypeParentOf, c),
+				).To(Succeed())
+				Expect(
+					w.DefineRelationships(ctx, c, ontology.RelationshipTypeParentOf, d),
+				).To(Succeed())
 
-			// Multiple intermediate clauses with filters, no bound entries
-			var results []ontology.Resource
-			Expect(otg.NewRetrieve().
-				WhereIDs(a).
-				TraverseTo(ontology.ChildrenTraverser).
-				WhereTypes(ontology.ResourceTypeChannel). // Intermediate filter #1
-				TraverseTo(ontology.ChildrenTraverser).
-				WhereTypes(ontology.ResourceTypeChannel). // Intermediate filter #2
-				TraverseTo(ontology.ChildrenTraverser).
-				Entries(&results). // Only final clause has entries
-				Exec(ctx, tx),
-			).To(Succeed())
+				// Multiple intermediate clauses with filters, no bound entries
+				var results []ontology.Resource
+				Expect(otg.NewRetrieve().
+					WhereIDs(a).
+					TraverseTo(ontology.ChildrenTraverser).
+					WhereTypes(ontology.ResourceTypeChannel). // Intermediate filter #1
+					TraverseTo(ontology.ChildrenTraverser).
+					WhereTypes(ontology.ResourceTypeChannel). // Intermediate filter #2
+					TraverseTo(ontology.ChildrenTraverser).
+					Entries(&results). // Only final clause has entries
+					Exec(ctx, tx),
+				).To(Succeed())
 
-			Expect(results).To(HaveLen(1))
-			var res Sample
-			Expect(schema.Parse(results[0].Data, &res)).To(Succeed())
-			Expect(res.Key).To(Equal("level-D"))
-		})
+				Expect(results).To(HaveLen(1))
+				var res Sample
+				Expect(schema.Parse(results[0].Data, &res)).To(Succeed())
+				Expect(res.Key).To(Equal("level-D"))
+			},
+		)
 	})
 
 	Describe("Limit + Offset", func() {
 		It("Should page through resources in order", func(ctx SpecContext) {
 			ids := make([]ontology.ID, 10)
 			for i := range ids {
-				Expect(w.DefineResources(ctx, newSampleType(strconv.Itoa(i)))).To(Succeed())
+				Expect(
+					w.DefineResources(ctx, newSampleType(strconv.Itoa(i))),
+				).To(Succeed())
 			}
 			var r []ontology.Resource
 			Expect(otg.NewRetrieve().
@@ -379,66 +537,87 @@ var _ = Describe("Retrieve", func() {
 	})
 
 	Describe("WhereTypes", func() {
-		It("Should retrieve resources of a single type using prefix matching", func(ctx SpecContext) {
-			a := newSampleType("type-filter-A")
-			b := newSampleType("type-filter-B")
-			Expect(w.DefineResources(ctx, a)).To(Succeed())
-			Expect(w.DefineResources(ctx, b)).To(Succeed())
-			var r []ontology.Resource
-			Expect(otg.NewRetrieve().
-				WhereTypes(ontology.ResourceTypeChannel).
-				Entries(&r).
-				Exec(ctx, tx),
-			).To(Succeed())
-			Expect(len(r)).To(BeNumerically(">=", 2))
-			types := lo.Map(r, func(res ontology.Resource, _ int) ontology.ResourceType {
-				return res.ID.Type
-			})
-			for _, t := range types {
-				Expect(t).To(Equal(ontology.ResourceTypeChannel))
-			}
-		})
+		It(
+			"Should retrieve resources of a single type using prefix matching",
+			func(ctx SpecContext) {
+				a := newSampleType("type-filter-A")
+				b := newSampleType("type-filter-B")
+				Expect(w.DefineResources(ctx, a)).To(Succeed())
+				Expect(w.DefineResources(ctx, b)).To(Succeed())
+				var r []ontology.Resource
+				Expect(otg.NewRetrieve().
+					WhereTypes(ontology.ResourceTypeChannel).
+					Entries(&r).
+					Exec(ctx, tx),
+				).To(Succeed())
+				Expect(len(r)).To(BeNumerically(">=", 2))
+				types := lo.Map(
+					r,
+					func(res ontology.Resource, _ int) ontology.ResourceType {
+						return res.ID.Type
+					},
+				)
+				for _, t := range types {
+					Expect(t).To(Equal(ontology.ResourceTypeChannel))
+				}
+			},
+		)
 
-		It("Should return empty results when filtering by non-existent type", func(ctx SpecContext) {
-			Expect(w.DefineResources(ctx, newSampleType("type-filter-C"))).To(Succeed())
-			nonExistentType := ontology.ResourceType("nonexistent")
-			var r []ontology.Resource
-			Expect(otg.NewRetrieve().
-				WhereTypes(nonExistentType).
-				Entries(&r).
-				Exec(ctx, tx),
-			).To(Succeed())
-			Expect(r).To(BeEmpty())
-		})
+		It(
+			"Should return empty results when filtering by non-existent type",
+			func(ctx SpecContext) {
+				Expect(
+					w.DefineResources(ctx, newSampleType("type-filter-C")),
+				).To(Succeed())
+				nonExistentType := ontology.ResourceType("nonexistent")
+				var r []ontology.Resource
+				Expect(otg.NewRetrieve().
+					WhereTypes(nonExistentType).
+					Entries(&r).
+					Exec(ctx, tx),
+				).To(Succeed())
+				Expect(r).To(BeEmpty())
+			},
+		)
 
-		It("Should retrieve resources matching any of multiple types using filter function", func(ctx SpecContext) {
-			a := newSampleType("multi-type-A")
-			b := newSampleType("multi-type-B")
-			Expect(w.DefineResources(ctx, a)).To(Succeed())
-			Expect(w.DefineResources(ctx, b)).To(Succeed())
-			otherType := ontology.ResourceType("other")
-			var r []ontology.Resource
-			Expect(otg.NewRetrieve().
-				WhereTypes(ontology.ResourceTypeChannel, otherType).
-				Entries(&r).
-				Exec(ctx, tx),
-			).To(Succeed())
-			Expect(len(r)).To(BeNumerically(">=", 2))
-			for _, res := range r {
-				Expect(res.ID.Type).To(BeElementOf(ontology.ResourceTypeChannel, otherType))
-			}
-		})
+		It(
+			"Should retrieve resources matching any of multiple types using filter function",
+			func(ctx SpecContext) {
+				a := newSampleType("multi-type-A")
+				b := newSampleType("multi-type-B")
+				Expect(w.DefineResources(ctx, a)).To(Succeed())
+				Expect(w.DefineResources(ctx, b)).To(Succeed())
+				otherType := ontology.ResourceType("other")
+				var r []ontology.Resource
+				Expect(otg.NewRetrieve().
+					WhereTypes(ontology.ResourceTypeChannel, otherType).
+					Entries(&r).
+					Exec(ctx, tx),
+				).To(Succeed())
+				Expect(len(r)).To(BeNumerically(">=", 2))
+				for _, res := range r {
+					Expect(
+						res.ID.Type,
+					).To(BeElementOf(ontology.ResourceTypeChannel, otherType))
+				}
+			},
+		)
 
-		It("Should return empty when none of the multiple types match", func(ctx SpecContext) {
-			Expect(w.DefineResources(ctx, newSampleType("multi-type-none"))).To(Succeed())
-			var r []ontology.Resource
-			Expect(otg.NewRetrieve().
-				WhereTypes(ontology.ResourceType("foo"), ontology.ResourceType("bar")).
-				Entries(&r).
-				Exec(ctx, tx),
-			).To(Succeed())
-			Expect(r).To(BeEmpty())
-		})
+		It(
+			"Should return empty when none of the multiple types match",
+			func(ctx SpecContext) {
+				Expect(
+					w.DefineResources(ctx, newSampleType("multi-type-none")),
+				).To(Succeed())
+				var r []ontology.Resource
+				Expect(otg.NewRetrieve().
+					WhereTypes(ontology.ResourceType("foo"), ontology.ResourceType("bar")).
+					Entries(&r).
+					Exec(ctx, tx),
+				).To(Succeed())
+				Expect(r).To(BeEmpty())
+			},
+		)
 
 		It("Should combine WhereTypes with WhereIDs", func(ctx SpecContext) {
 			a := newSampleType("combined-A")
@@ -459,47 +638,66 @@ var _ = Describe("Retrieve", func() {
 			Expect(ids).To(ContainElements(a, b))
 		})
 
-		It("Should filter out resources when WhereIDs and WhereTypes don't overlap using filter function", func(ctx SpecContext) {
-			a := newSampleType("no-overlap-A")
-			Expect(w.DefineResources(ctx, a)).To(Succeed())
-			var r []ontology.Resource
-			// Use multiple types to trigger filter function path (not prefix matching)
-			Expect(otg.NewRetrieve().
-				WhereIDs(a).
-				WhereTypes(ontology.ResourceType("different"), ontology.ResourceType("another")).
-				Entries(&r).
-				Exec(ctx, tx),
-			).To(Succeed())
-			Expect(r).To(BeEmpty())
-		})
+		It(
+			"Should filter out resources when WhereIDs and WhereTypes don't overlap using filter function",
+			func(ctx SpecContext) {
+				a := newSampleType("no-overlap-A")
+				Expect(w.DefineResources(ctx, a)).To(Succeed())
+				var r []ontology.Resource
+				// Use multiple types to trigger filter function path (not prefix matching)
+				Expect(otg.NewRetrieve().
+					WhereIDs(a).
+					WhereTypes(ontology.ResourceType("different"), ontology.ResourceType("another")).
+					Entries(&r).
+					Exec(ctx, tx),
+				).To(Succeed())
+				Expect(r).To(BeEmpty())
+			},
+		)
 
-		It("Should work with Limit when using single type prefix matching", func(ctx SpecContext) {
-			for i := range 5 {
-				Expect(w.DefineResources(ctx, newSampleType("limit-type-"+strconv.Itoa(i)))).To(Succeed())
-			}
-			var r []ontology.Resource
-			Expect(otg.NewRetrieve().
-				WhereTypes(ontology.ResourceTypeChannel).
-				Limit(3).
-				Entries(&r).
-				Exec(ctx, tx),
-			).To(Succeed())
-			Expect(r).To(HaveLen(3))
-		})
+		It(
+			"Should work with Limit when using single type prefix matching",
+			func(ctx SpecContext) {
+				for i := range 5 {
+					Expect(
+						w.DefineResources(
+							ctx,
+							newSampleType("limit-type-"+strconv.Itoa(i)),
+						),
+					).To(Succeed())
+				}
+				var r []ontology.Resource
+				Expect(otg.NewRetrieve().
+					WhereTypes(ontology.ResourceTypeChannel).
+					Limit(3).
+					Entries(&r).
+					Exec(ctx, tx),
+				).To(Succeed())
+				Expect(r).To(HaveLen(3))
+			},
+		)
 
-		It("Should work with Limit when using multiple types filter", func(ctx SpecContext) {
-			for i := range 5 {
-				Expect(w.DefineResources(ctx, newSampleType("limit-multi-"+strconv.Itoa(i)))).To(Succeed())
-			}
-			var r []ontology.Resource
-			Expect(otg.NewRetrieve().
-				WhereTypes(ontology.ResourceTypeChannel, ontology.ResourceType("other")).
-				Limit(3).
-				Entries(&r).
-				Exec(ctx, tx),
-			).To(Succeed())
-			Expect(r).To(HaveLen(3))
-		})
+		It(
+			"Should work with Limit when using multiple types filter",
+			func(ctx SpecContext) {
+				for i := range 5 {
+					Expect(
+						w.DefineResources(
+							ctx,
+							newSampleType("limit-multi-"+strconv.Itoa(i)),
+						),
+					).To(Succeed())
+				}
+				var r []ontology.Resource
+				Expect(otg.NewRetrieve().
+					WhereTypes(ontology.ResourceTypeChannel, ontology.ResourceType("other")).
+					Limit(3).
+					Entries(&r).
+					Exec(ctx, tx),
+				).To(Succeed())
+				Expect(r).To(HaveLen(3))
+			},
+		)
 	})
 
 	Describe("RelationshipPrefix", func() {
@@ -532,15 +730,18 @@ var _ = Describe("Retrieve", func() {
 			Expect(id.Key).To(Equal("42"))
 		})
 
-		It("Should read the ID at the current position, ignoring trailing data", func() {
-			w := orc.NewWriter(64)
-			w.String("device")
-			w.String("abc")
-			w.String("trailing")
-			id := ontology.ReadRawID(orc.Raw(w.Bytes()))
-			Expect(id.Type).To(Equal(ontology.ResourceTypeDevice))
-			Expect(id.Key).To(Equal("abc"))
-		})
+		It(
+			"Should read the ID at the current position, ignoring trailing data",
+			func() {
+				w := orc.NewWriter(64)
+				w.String("device")
+				w.String("abc")
+				w.String("trailing")
+				id := ontology.ReadRawID(orc.Raw(w.Bytes()))
+				Expect(id.Type).To(Equal(ontology.ResourceTypeDevice))
+				Expect(id.Key).To(Equal("abc"))
+			},
+		)
 
 		It("Should not panic on a malformed ID", func() {
 			w := orc.NewWriter(1)

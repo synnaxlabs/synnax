@@ -175,7 +175,11 @@ func createPanels(
 		if root == nil {
 			continue
 		}
-		pan := Panel{Key: uuid.New(), Name: panelName(slice.Layouts, windowKey), Root: *root}
+		pan := Panel{
+			Key:  uuid.New(),
+			Name: panelName(slice.Layouts, windowKey),
+			Root: *root,
+		}
 		if err := panelWriter.Set(ctx, pan); err != nil {
 			return err
 		}

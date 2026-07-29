@@ -202,7 +202,9 @@ func detectCallCycles(edges *[]acontext.CallEdge, diag *diagnostics.Diagnostics)
 		if !anySafe {
 			cycle, closingSite := findCycleInSCC(scc, sccSet, callGraph)
 			chain := strings.Join(cycle, " -> ")
-			diag.Add(diagnostics.Errorf(closingSite, "circular function call: %s", chain))
+			diag.Add(
+				diagnostics.Errorf(closingSite, "circular function call: %s", chain),
+			)
 		}
 	}
 }
@@ -210,7 +212,11 @@ func detectCallCycles(edges *[]acontext.CallEdge, diag *diagnostics.Diagnostics)
 // findCycleInSCC finds a simple cycle within the SCC for error reporting and returns
 // the cycle as a list of names (ending with the start node) and the closing call site.
 // O(|SCC| + edges within SCC). Only called for error SCCs.
-func findCycleInSCC(scc []string, sccSet set.Set[string], graph map[string][]callEdgeInfo) ([]string, antlr.ParserRuleContext) {
+func findCycleInSCC(
+	scc []string,
+	sccSet set.Set[string],
+	graph map[string][]callEdgeInfo,
+) ([]string, antlr.ParserRuleContext) {
 	start := scc[0]
 
 	if len(scc) == 1 {
@@ -257,7 +263,10 @@ func findCycleInSCC(scc []string, sccSet set.Set[string], graph map[string][]cal
 // blockAlwaysCalls returns true if every execution path through the block reaches at
 // least one of the given call sites. Mirrors blockAlwaysReturns in function.go.
 // O(S * K * D) where S = statements, K = call sites, D = AST depth.
-func blockAlwaysCalls(block parser.IBlockContext, sites []antlr.ParserRuleContext) bool {
+func blockAlwaysCalls(
+	block parser.IBlockContext,
+	sites []antlr.ParserRuleContext,
+) bool {
 	if block == nil {
 		return false
 	}
@@ -286,7 +295,10 @@ func blockAlwaysCalls(block parser.IBlockContext, sites []antlr.ParserRuleContex
 
 // ifAlwaysCalls returns true if all branches of the if-statement always reach a call
 // site. Mirrors ifStmtAlwaysReturns in function.go.
-func ifAlwaysCalls(ifStmt parser.IIfStatementContext, sites []antlr.ParserRuleContext) bool {
+func ifAlwaysCalls(
+	ifStmt parser.IIfStatementContext,
+	sites []antlr.ParserRuleContext,
+) bool {
 	if ifStmt.ElseClause() == nil || !blockAlwaysCalls(ifStmt.Block(), sites) {
 		return false
 	}
@@ -316,7 +328,10 @@ func ifSometimesReturns(ifStmt parser.IIfStatementContext) bool {
 }
 
 // stmtContainsSite checks if any call site is a descendant of the given statement.
-func stmtContainsSite(stmt parser.IStatementContext, sites []antlr.ParserRuleContext) bool {
+func stmtContainsSite(
+	stmt parser.IStatementContext,
+	sites []antlr.ParserRuleContext,
+) bool {
 	for _, site := range sites {
 		if isDescendant(site, stmt) {
 			return true
@@ -410,7 +425,8 @@ func addUnificationError(
 	err error,
 	fallbackCtx antlr.ParserRuleContext,
 ) {
-	if ue, ok := err.(*constraints.UnificationError); ok && ue.Constraint != nil && ue.Constraint.Source != nil {
+	if ue, ok := err.(*constraints.UnificationError); ok && ue.Constraint != nil &&
+		ue.Constraint.Source != nil {
 		diag.Add(diagnostics.Error(err, ue.Constraint.Source))
 	} else {
 		diag.Add(diagnostics.Error(err, fallbackCtx))

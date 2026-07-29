@@ -167,7 +167,10 @@ func DefaultConfig() Config {
 func (c Config) keyAuthorities() []keyAuthority {
 	authorities := make([]keyAuthority, len(c.Keys))
 	for i, key := range c.Keys {
-		authorities[i] = keyAuthority{key: key, authority: c.Authorities[i%len(c.Authorities)]}
+		authorities[i] = keyAuthority{
+			key:       key,
+			authority: c.Authorities[i%len(c.Authorities)],
+		}
 	}
 	return authorities
 }
@@ -206,16 +209,28 @@ func (c Config) Validate() error {
 
 // Override implements config.Config.
 func (c Config) Override(other Config) Config {
-	c.ControlSubject.Name = override.String(c.ControlSubject.Name, other.ControlSubject.Name)
-	c.ControlSubject.Key = override.String(c.ControlSubject.Key, other.ControlSubject.Key)
-	c.ControlSubject.Group = override.Numeric(c.ControlSubject.Group, other.ControlSubject.Group)
+	c.ControlSubject.Name = override.String(
+		c.ControlSubject.Name,
+		other.ControlSubject.Name,
+	)
+	c.ControlSubject.Key = override.String(
+		c.ControlSubject.Key,
+		other.ControlSubject.Key,
+	)
+	c.ControlSubject.Group = override.Numeric(
+		c.ControlSubject.Group,
+		other.ControlSubject.Group,
+	)
 	c.Keys = override.Slice(c.Keys, other.Keys.Unique())
 	c.Start = override.Zero(c.Start, other.Start)
 	c.Authorities = override.Slice(c.Authorities, other.Authorities)
 	c.ErrOnUnauthorized = override.Nil(c.ErrOnUnauthorized, other.ErrOnUnauthorized)
 	c.Mode = override.Numeric(c.Mode, other.Mode)
 	c.EnableAutoCommit = override.Nil(c.EnableAutoCommit, other.EnableAutoCommit)
-	c.AutoIndexPersistInterval = override.Numeric(c.AutoIndexPersistInterval, other.AutoIndexPersistInterval)
+	c.AutoIndexPersistInterval = override.Numeric(
+		c.AutoIndexPersistInterval,
+		other.AutoIndexPersistInterval,
+	)
 	c.Sync = override.Nil(c.Sync, other.Sync)
 	c.AutoIndex = override.Nil(c.AutoIndex, other.AutoIndex)
 	return c
@@ -330,7 +345,10 @@ const (
 // control the lifetime of goroutines spawned by the writer. If the given context is
 // cancelled, the writer will immediately abort all pending writes and return an error.
 func (s *Service) Open(ctx context.Context, cfgs ...Config) (*Writer, error) {
-	sCtx, cancel := signal.WithCancel(ctx, signal.WithInstrumentation(s.cfg.Instrumentation))
+	sCtx, cancel := signal.WithCancel(
+		ctx,
+		signal.WithInstrumentation(s.cfg.Instrumentation),
+	)
 	cfg, err := config.New(DefaultConfig(), cfgs...)
 	if err != nil {
 		return nil, err
@@ -367,8 +385,10 @@ func (s *Service) NewStream(ctx context.Context, cfgs ...Config) (StreamWriter, 
 	}
 
 	var (
-		hostKey           = s.cfg.HostResolver.HostKey()
-		batch             = proxy.BatchFactory[keyAuthority](hostKey).Batch(cfg.keyAuthorities())
+		hostKey = s.cfg.HostResolver.HostKey()
+		batch   = proxy.BatchFactory[keyAuthority](
+			hostKey,
+		).Batch(cfg.keyAuthorities())
 		pipe              = plumber.New()
 		receiverAddresses []address.Address
 		routeSequencerTo  address.Address

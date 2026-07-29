@@ -143,7 +143,10 @@ func (c GateConfig[R]) Override(other GateConfig[R]) GateConfig[R] {
 	c.TimeRange.End = override.Numeric(c.TimeRange.End, other.TimeRange.End)
 	c.OpenResource = override.Nil(c.OpenResource, other.OpenResource)
 	c.ErrIfControlled = override.Nil(c.ErrIfControlled, other.ErrIfControlled)
-	c.ErrOnUnauthorizedOpen = override.Nil(c.ErrOnUnauthorizedOpen, other.ErrOnUnauthorizedOpen)
+	c.ErrOnUnauthorizedOpen = override.Nil(
+		c.ErrOnUnauthorizedOpen,
+		other.ErrOnUnauthorizedOpen,
+	)
 	return c
 }
 
@@ -178,7 +181,9 @@ func (c *Controller[R]) ResourceAt(tr telem.TimeRange) (res R, ok bool) {
 // region does not exist, it will be created and cfg.OpenResource will be called.
 // If the region does exist, the new gate will be added to the authority chain for the
 // existing region.
-func (c *Controller[R]) OpenGate(cfg GateConfig[R]) (g *Gate[R], t Transfer, err error) {
+func (c *Controller[R]) OpenGate(
+	cfg GateConfig[R],
+) (g *Gate[R], t Transfer, err error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	if cfg, err = config.New(DefaultGateConfig[R](), cfg); err != nil {
@@ -191,7 +196,10 @@ func (c *Controller[R]) OpenGate(cfg GateConfig[R]) (g *Gate[R], t Transfer, err
 		if reg.timeRange.OverlapsWith(cfg.TimeRange) {
 			// v1 optimization: one writer can only overlap with one region at any given time.
 			if exists {
-				err = errors.Newf("encountered multiple control regions for time range %s", cfg.TimeRange)
+				err = errors.Newf(
+					"encountered multiple control regions for time range %s",
+					cfg.TimeRange,
+				)
 				c.L.DPanic(err.Error())
 				return nil, t, err
 			}

@@ -163,7 +163,11 @@ type Option func(*Instrumentation)
 func WithTracer(t *Tracer) Option { return func(ins *Instrumentation) { ins.T = t } }
 
 // WithReporter configures the instrumentation to use the given Reporter.
-func WithReporter(r *Reporter) Option { return func(ins *Instrumentation) { ins.R = r } }
+func WithReporter(
+	r *Reporter,
+) Option {
+	return func(ins *Instrumentation) { ins.R = r }
+}
 
 // WithLogger configures the instrumentation to use the given Logger.
 func WithLogger(l *Logger) Option { return func(ins *Instrumentation) { ins.L = l } }

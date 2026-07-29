@@ -177,7 +177,11 @@ func (s *Scheduler) NextDeadline() telem.TimeSpan { return s.nextDeadline }
 // Next executes one cycle of the reactive computation, re-walking until changes
 // settle. Nodes with pending changes execute in stratum order; sequential scopes
 // advance via their transitions; gated scopes activate when their handle fires.
-func (s *Scheduler) Next(ctx context.Context, elapsed telem.TimeSpan, reason rnode.RunReason) {
+func (s *Scheduler) Next(
+	ctx context.Context,
+	elapsed telem.TimeSpan,
+	reason rnode.RunReason,
+) {
 	s.nextDeadline = telem.TimeSpanMax
 	s.nodeCtx.Context = ctx
 	s.nodeCtx.Elapsed = elapsed

@@ -57,28 +57,41 @@ var _ = Describe("CacheGate", func() {
 		Expect(report.Findings[0].Message).To(ContainSubstring("does not exist"))
 	})
 
-	It("flags a cache hit whose canonical hash diverges from disk", func(ctx SpecContext) {
-		// The user's reported failure mode: cache says "fresh" but the
-		// on-disk bytes hash to something else (formatter version bump
-		// or hand edit). Sync would skip; this gate must catch it.
-		Expect(os.MkdirAll(filepath.Join(repoRoot, "out"), 0o755)).To(Succeed())
-		Expect(os.WriteFile(filepath.Join(repoRoot, "out", "x.gen.go"), []byte("stale"), 0o644)).To(Succeed())
-		cache := format.LoadCache(repoRoot)
-		content := []byte("hi")
-		cache.Put("out/x.gen.go", format.Entry{
-			Raw:       format.Hash(content),
-			Canonical: format.Hash([]byte("hi (canonical)")),
-		})
-		gate := check.NewCacheGate(cache)
-		report := gate.Run(ctx, resultWith(content), check.Env{RepoRoot: repoRoot})
-		Expect(report.Status).To(Equal(check.StatusFail))
-		Expect(report.Findings[0].Message).To(ContainSubstring("cached canonical hash"))
-	})
+	It(
+		"flags a cache hit whose canonical hash diverges from disk",
+		func(ctx SpecContext) {
+			// The user's reported failure mode: cache says "fresh" but the
+			// on-disk bytes hash to something else (formatter version bump
+			// or hand edit). Sync would skip; this gate must catch it.
+			Expect(os.MkdirAll(filepath.Join(repoRoot, "out"), 0o755)).To(Succeed())
+			Expect(
+				os.WriteFile(
+					filepath.Join(repoRoot, "out", "x.gen.go"),
+					[]byte("stale"),
+					0o644,
+				),
+			).To(Succeed())
+			cache := format.LoadCache(repoRoot)
+			content := []byte("hi")
+			cache.Put("out/x.gen.go", format.Entry{
+				Raw:       format.Hash(content),
+				Canonical: format.Hash([]byte("hi (canonical)")),
+			})
+			gate := check.NewCacheGate(cache)
+			report := gate.Run(ctx, resultWith(content), check.Env{RepoRoot: repoRoot})
+			Expect(report.Status).To(Equal(check.StatusFail))
+			Expect(
+				report.Findings[0].Message,
+			).To(ContainSubstring("cached canonical hash"))
+		},
+	)
 
 	It("passes when cache and disk are consistent", func(ctx SpecContext) {
 		Expect(os.MkdirAll(filepath.Join(repoRoot, "out"), 0o755)).To(Succeed())
 		canonical := []byte("hi (canonical)")
-		Expect(os.WriteFile(filepath.Join(repoRoot, "out", "x.gen.go"), canonical, 0o644)).To(Succeed())
+		Expect(
+			os.WriteFile(filepath.Join(repoRoot, "out", "x.gen.go"), canonical, 0o644),
+		).To(Succeed())
 		cache := format.LoadCache(repoRoot)
 		content := []byte("hi")
 		cache.Put("out/x.gen.go", format.Entry{
@@ -86,7 +99,9 @@ var _ = Describe("CacheGate", func() {
 			Canonical: format.Hash(canonical),
 		})
 		gate := check.NewCacheGate(cache)
-		Expect(gate.Run(ctx, resultWith(content), check.Env{RepoRoot: repoRoot}).Status).
+		Expect(
+			gate.Run(ctx, resultWith(content), check.Env{RepoRoot: repoRoot}).Status,
+		).
 			To(Equal(check.StatusPass))
 	})
 
@@ -94,9 +109,18 @@ var _ = Describe("CacheGate", func() {
 		// On a raw mismatch, sync would reformat - this is just a cache
 		// miss, not poisoning. The gate must not fail.
 		cache := format.LoadCache(repoRoot)
-		cache.Put("out/x.gen.go", format.Entry{Raw: "stale-hash", Canonical: "stale-canonical"})
+		cache.Put(
+			"out/x.gen.go",
+			format.Entry{Raw: "stale-hash", Canonical: "stale-canonical"},
+		)
 		gate := check.NewCacheGate(cache)
-		Expect(gate.Run(ctx, resultWith([]byte("hi")), check.Env{RepoRoot: repoRoot}).Status).
+		Expect(
+			gate.Run(
+				ctx,
+				resultWith([]byte("hi")),
+				check.Env{RepoRoot: repoRoot},
+			).Status,
+		).
 			To(Equal(check.StatusPass))
 	})
 })

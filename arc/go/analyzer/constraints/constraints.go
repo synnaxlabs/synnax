@@ -146,7 +146,10 @@ func (s *System) ApplySubstitutions(t types.Type) types.Type {
 	return s.applySubstitutions(t, make(set.Set[string]))
 }
 
-func (s *System) applySubstitutionsToParams(t types.Params, visited set.Set[string]) types.Params {
+func (s *System) applySubstitutionsToParams(
+	t types.Params,
+	visited set.Set[string],
+) types.Params {
 	t2 := slices.Clone(t)
 	for i, p := range t2 {
 		t2[i].Type = s.applySubstitutions(p.Type, visited)

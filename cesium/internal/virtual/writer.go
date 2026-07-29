@@ -52,12 +52,18 @@ func (cfg WriterConfig) Override(other WriterConfig) WriterConfig {
 	cfg.End = override.Zero(cfg.End, other.End)
 	cfg.Subject = override.If(cfg.Subject, other.Subject, other.Subject.Key != "")
 	cfg.Authority = override.Numeric(cfg.Authority, other.Authority)
-	cfg.ErrOnUnauthorizedOpen = override.Nil(cfg.ErrOnUnauthorizedOpen, other.ErrOnUnauthorizedOpen)
+	cfg.ErrOnUnauthorizedOpen = override.Nil(
+		cfg.ErrOnUnauthorizedOpen,
+		other.ErrOnUnauthorizedOpen,
+	)
 	return cfg
 }
 
 func (cfg WriterConfig) domain() telem.TimeRange {
-	return telem.TimeRange{Start: cfg.Start, End: lo.Ternary(cfg.End.IsZero(), telem.TimeStampMax, cfg.End)}
+	return telem.TimeRange{
+		Start: cfg.Start,
+		End:   lo.Ternary(cfg.End.IsZero(), telem.TimeStampMax, cfg.End),
+	}
 }
 
 type Writer struct {
@@ -78,7 +84,10 @@ type Writer struct {
 	closed bool
 }
 
-func (db *DB) OpenWriter(_ context.Context, cfgs ...WriterConfig) (w *Writer, transfer control.Transfer, err error) {
+func (db *DB) OpenWriter(
+	_ context.Context,
+	cfgs ...WriterConfig,
+) (w *Writer, transfer control.Transfer, err error) {
 	if db.closed.Load() {
 		err = ErrDBClosed
 		return nil, transfer, db.wrapError(err)
@@ -92,17 +101,19 @@ func (db *DB) OpenWriter(_ context.Context, cfgs ...WriterConfig) (w *Writer, tr
 		Channel:      db.cfg.Channel,
 		wrapError:    db.wrapError,
 	}
-	if w.control, transfer, err = db.controller.OpenGate(control.GateConfig[*controlResource]{
-		TimeRange:             cfg.domain(),
-		ErrOnUnauthorizedOpen: cfg.ErrOnUnauthorizedOpen,
-		Authority:             cfg.Authority,
-		Subject:               cfg.Subject,
-		OpenResource: func() (*controlResource, error) {
-			cr := &controlResource{ck: db.cfg.Channel.Key}
-			cr.storeAlignment(telem.NewAlignment(db.leadingAlignment.Add(1), 0))
-			return cr, nil
+	if w.control, transfer, err = db.controller.OpenGate(
+		control.GateConfig[*controlResource]{
+			TimeRange:             cfg.domain(),
+			ErrOnUnauthorizedOpen: cfg.ErrOnUnauthorizedOpen,
+			Authority:             cfg.Authority,
+			Subject:               cfg.Subject,
+			OpenResource: func() (*controlResource, error) {
+				cr := &controlResource{ck: db.cfg.Channel.Key}
+				cr.storeAlignment(telem.NewAlignment(db.leadingAlignment.Add(1), 0))
+				return cr, nil
+			},
 		},
-	}); err != nil {
+	); err != nil {
 		return nil, transfer, db.wrapError(err)
 	}
 	db.openWriters.Add(1)

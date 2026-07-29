@@ -51,7 +51,9 @@ func setupMiniRepo(version string, schemas map[string]string) (string, func()) {
 	// Create VERSION file.
 	versionDir := filepath.Join(repoDir, "core", "pkg", "version")
 	Expect(os.MkdirAll(versionDir, 0o755)).To(Succeed())
-	Expect(os.WriteFile(filepath.Join(versionDir, "VERSION"), []byte(version), 0o644)).To(Succeed())
+	Expect(
+		os.WriteFile(filepath.Join(versionDir, "VERSION"), []byte(version), 0o644),
+	).To(Succeed())
 
 	// Create schema files.
 	schemasDir := filepath.Join(repoDir, "schemas")
@@ -91,7 +93,9 @@ var _ = Describe("NewRootCmd", func() {
 		for _, sub := range cmd.Commands() {
 			names = append(names, sub.Name())
 		}
-		Expect(names).To(ContainElements("check", "fmt", "lsp", "migrate", "snapshot", "sync"))
+		Expect(
+			names,
+		).To(ContainElements("check", "fmt", "lsp", "migrate", "snapshot", "sync"))
 	})
 
 	It("should register migrate create as a subcommand of migrate", func() {
@@ -338,7 +342,13 @@ var _ = Describe("snapshot command", Ordered, func() {
 		cmd := NewRootCmd()
 		MustSucceed(executeCommand(cmd, "snapshot"))
 
-		snapshotFile := filepath.Join(repoDir, "schemas", "snapshots", "v53", "user.oracle")
+		snapshotFile := filepath.Join(
+			repoDir,
+			"schemas",
+			"snapshots",
+			"v53",
+			"user.oracle",
+		)
 		Expect(snapshotFile).To(BeAnExistingFile())
 
 		content := string(MustSucceed(os.ReadFile(snapshotFile)))
@@ -437,7 +447,9 @@ var _ = Describe("migrate create with existing migrations", Ordered, func() {
 		svcDir := filepath.Join(repoDir, "core", "pkg", "service", "user")
 		Expect(os.MkdirAll(svcDir, 0o755)).To(Succeed())
 		// Create a pre-existing migration version directory.
-		Expect(os.MkdirAll(filepath.Join(svcDir, "migrations", "v53"), 0o755)).To(Succeed())
+		Expect(
+			os.MkdirAll(filepath.Join(svcDir, "migrations", "v53"), 0o755),
+		).To(Succeed())
 	})
 
 	AfterAll(func() { cleanup() })
@@ -595,14 +607,22 @@ var _ = Describe("syncOutputs", func() {
 		Expect(sr.Written).To(HaveLen(1))
 		Expect(sr.Unchanged).To(BeEmpty())
 
-		content := string(MustSucceed(os.ReadFile(filepath.Join(tmpDir, "out", "types.gen.go"))))
+		content := string(
+			MustSucceed(os.ReadFile(filepath.Join(tmpDir, "out", "types.gen.go"))),
+		)
 		Expect(content).To(Equal("package out"))
 	})
 
 	It("should skip unchanged files", func(ctx SpecContext) {
 		outDir := filepath.Join(tmpDir, "out")
 		Expect(os.MkdirAll(outDir, 0o755)).To(Succeed())
-		Expect(os.WriteFile(filepath.Join(outDir, "types.gen.go"), []byte("package out"), 0o644)).To(Succeed())
+		Expect(
+			os.WriteFile(
+				filepath.Join(outDir, "types.gen.go"),
+				[]byte("package out"),
+				0o644,
+			),
+		).To(Succeed())
 
 		result := resultWith(map[string][]plugin.File{
 			"test": {{Path: "out/types.gen.go", Content: []byte("package out")}},
@@ -615,7 +635,9 @@ var _ = Describe("syncOutputs", func() {
 	It("should overwrite files with different content", func(ctx SpecContext) {
 		outDir := filepath.Join(tmpDir, "out")
 		Expect(os.MkdirAll(outDir, 0o755)).To(Succeed())
-		Expect(os.WriteFile(filepath.Join(outDir, "types.gen.go"), []byte("old"), 0o644)).To(Succeed())
+		Expect(
+			os.WriteFile(filepath.Join(outDir, "types.gen.go"), []byte("old"), 0o644),
+		).To(Succeed())
 
 		result := resultWith(map[string][]plugin.File{
 			"test": {{Path: "out/types.gen.go", Content: []byte("new")}},
@@ -625,15 +647,18 @@ var _ = Describe("syncOutputs", func() {
 		Expect(sr.ByPlugin["test"]).To(HaveLen(1))
 	})
 
-	It("should skip via cache on second sync with identical raw bytes", func(ctx SpecContext) {
-		result := resultWith(map[string][]plugin.File{
-			"test": {{Path: "out/types.gen.go", Content: []byte("package out")}},
-		})
-		sr1 := MustSucceed(syncOutputs(ctx, result, tmpDir, formatters, cache, 1))
-		Expect(sr1.Written).To(HaveLen(1))
+	It(
+		"should skip via cache on second sync with identical raw bytes",
+		func(ctx SpecContext) {
+			result := resultWith(map[string][]plugin.File{
+				"test": {{Path: "out/types.gen.go", Content: []byte("package out")}},
+			})
+			sr1 := MustSucceed(syncOutputs(ctx, result, tmpDir, formatters, cache, 1))
+			Expect(sr1.Written).To(HaveLen(1))
 
-		sr2 := MustSucceed(syncOutputs(ctx, result, tmpDir, formatters, cache, 1))
-		Expect(sr2.Written).To(BeEmpty())
-		Expect(sr2.Skipped).To(HaveLen(1))
-	})
+			sr2 := MustSucceed(syncOutputs(ctx, result, tmpDir, formatters, cache, 1))
+			Expect(sr2.Written).To(BeEmpty())
+			Expect(sr2.Skipped).To(HaveLen(1))
+		},
+	)
 })

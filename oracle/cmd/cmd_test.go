@@ -151,7 +151,9 @@ var _ = Describe("findMigrationVersions", func() {
 	})
 
 	It("should return nil for nonexistent directory", func() {
-		versions := MustSucceed(findMigrationVersions(filepath.Join(migrationsDir, "nonexistent")))
+		versions := MustSucceed(
+			findMigrationVersions(filepath.Join(migrationsDir, "nonexistent")),
+		)
 		Expect(versions).To(BeNil())
 	})
 
@@ -166,7 +168,9 @@ var _ = Describe("findMigrationVersions", func() {
 	It("should ignore non-version entries", func() {
 		Expect(os.MkdirAll(filepath.Join(migrationsDir, "v10"), 0o755)).To(Succeed())
 		Expect(os.MkdirAll(filepath.Join(migrationsDir, "other"), 0o755)).To(Succeed())
-		Expect(os.WriteFile(filepath.Join(migrationsDir, "file.txt"), []byte("x"), 0o644)).To(Succeed())
+		Expect(
+			os.WriteFile(filepath.Join(migrationsDir, "file.txt"), []byte("x"), 0o644),
+		).To(Succeed())
 
 		versions := MustSucceed(findMigrationVersions(migrationsDir))
 		Expect(versions).To(Equal([]int{10}))

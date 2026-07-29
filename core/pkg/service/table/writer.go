@@ -41,7 +41,9 @@ func (w Writer) Create(ctx context.Context, projectKey project.Key, t *Table) er
 	if t.Key == uuid.Nil {
 		t.Key = uuid.New()
 	} else {
-		exists, err = w.tbl.NewRetrieve().Where(gorp.MatchKeys[Key, Table](t.Key)).Exists(ctx, w.tx)
+		exists, err = w.tbl.NewRetrieve().
+			Where(gorp.MatchKeys[Key, Table](t.Key)).
+			Exists(ctx, w.tx)
 		if err != nil {
 			return err
 		}

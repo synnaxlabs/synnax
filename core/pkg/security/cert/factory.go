@@ -107,7 +107,10 @@ func (f *Factory) CreateCAPair() error {
 		}
 	} else {
 		if !*f.AllowKeyReuse {
-			return errors.Newf("CA key %s already exists, but reuse is not allowed", f.CAKeyPath)
+			return errors.Newf(
+				"CA key %s already exists, but reuse is not allowed",
+				f.CAKeyPath,
+			)
 		}
 		p, err := f.readPEM(f.CAKeyPath)
 		if err != nil {
@@ -195,7 +198,10 @@ func (f *Factory) SignNodeCert(hosts []address.Address) (*tls.Certificate, error
 	return &tls.Certificate{Certificate: [][]byte{b}, PrivateKey: nodeKey}, nil
 }
 
-func (f *Factory) signNodeCert(nodeKey *rsa.PrivateKey, hosts []address.Address) ([]byte, error) {
+func (f *Factory) signNodeCert(
+	nodeKey *rsa.PrivateKey,
+	hosts []address.Address,
+) ([]byte, error) {
 	ca, caPrivate, err := f.Loader.LoadCAPair()
 	if err != nil {
 		return nil, err
@@ -207,7 +213,10 @@ func (f *Factory) signNodeCert(nodeKey *rsa.PrivateKey, hosts []address.Address)
 	if err != nil {
 		return nil, err
 	}
-	base.ExtKeyUsage = []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth, x509.ExtKeyUsageClientAuth}
+	base.ExtKeyUsage = []x509.ExtKeyUsage{
+		x509.ExtKeyUsageServerAuth,
+		x509.ExtKeyUsageClientAuth,
+	}
 	for _, h := range hosts {
 		if ip := net.ParseIP(h.Host()); ip != nil {
 			base.IPAddresses = append(base.IPAddresses, ip)
@@ -229,7 +238,10 @@ func (f *Factory) writePEM(p string, block *pem.Block, multi bool) error {
 	return f.withFile(p, f.writeFlag(), func(file xfs.File) error {
 		blocks, err := xpem.ReadMany(file)
 		if len(blocks) > 0 && !multi {
-			return errors.Newf("file %s already contains a PEM block, and multi is false", p)
+			return errors.Newf(
+				"file %s already contains a PEM block, and multi is false",
+				p,
+			)
 		}
 		if err != nil {
 			return err

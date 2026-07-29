@@ -116,6 +116,8 @@ func (p *secureProvider) getNodeCert(*tls.ClientHelloInfo) (*tls.Certificate, er
 	return p.tls, nil
 }
 
-func (p *secureProvider) getClientCert(*tls.CertificateRequestInfo) (*tls.Certificate, error) {
+func (p *secureProvider) getClientCert(
+	*tls.CertificateRequestInfo,
+) (*tls.Certificate, error) {
 	return p.tls, nil
 }

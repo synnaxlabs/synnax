@@ -104,7 +104,10 @@ func (db *DB) HasDataFor(ctx context.Context, tr telem.TimeRange) (bool, error) 
 }
 
 // Read reads a Time Range of data at the unary level.
-func (db *DB) Read(ctx context.Context, tr telem.TimeRange) (frame channel.Frame, err error) {
+func (db *DB) Read(
+	ctx context.Context,
+	tr telem.TimeRange,
+) (frame channel.Frame, err error) {
 	defer func() { err = db.wrapError(err) }()
 	var iter *Iterator
 	if iter, err = db.OpenIterator(IterRange(tr)); err != nil {

@@ -55,8 +55,12 @@ func NewSymbols() []*symbol.Symbol {
 			Kind: symbol.KindFunction,
 			Exec: symbol.ExecFlow,
 			Type: types.Function(types.FunctionProperties{
-				Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.Variable("T", nil)}},
-				Inputs:  types.Params{{Name: "channel", Type: types.ReadChan(types.Variable("T", nil))}},
+				Outputs: types.Params{
+					{Name: ir.DefaultOutputParam, Type: types.Variable("T", nil)},
+				},
+				Inputs: types.Params{
+					{Name: "channel", Type: types.ReadChan(types.Variable("T", nil))},
+				},
 			}),
 			Trigger: symbol.TriggerOnly,
 		},
@@ -346,7 +350,10 @@ func bindI64[T i64Compatible](
 	return builder
 }
 
-func bindF32(builder wazero.HostModuleBuilder, cs *ProgramState) wazero.HostModuleBuilder {
+func bindF32(
+	builder wazero.HostModuleBuilder,
+	cs *ProgramState,
+) wazero.HostModuleBuilder {
 	builder = builder.NewFunctionBuilder().
 		WithFunc(func(_ context.Context, chID uint32) float32 {
 			series, ok := cs.ReadValue(chID)
@@ -362,7 +369,10 @@ func bindF32(builder wazero.HostModuleBuilder, cs *ProgramState) wazero.HostModu
 	return builder
 }
 
-func bindF64(builder wazero.HostModuleBuilder, cs *ProgramState) wazero.HostModuleBuilder {
+func bindF64(
+	builder wazero.HostModuleBuilder,
+	cs *ProgramState,
+) wazero.HostModuleBuilder {
 	builder = builder.NewFunctionBuilder().
 		WithFunc(func(_ context.Context, chID uint32) float64 {
 			series, ok := cs.ReadValue(chID)
@@ -378,7 +388,11 @@ func bindF64(builder wazero.HostModuleBuilder, cs *ProgramState) wazero.HostModu
 	return builder
 }
 
-func bindStr(builder wazero.HostModuleBuilder, cs *ProgramState, ss *strings.ProgramState) wazero.HostModuleBuilder {
+func bindStr(
+	builder wazero.HostModuleBuilder,
+	cs *ProgramState,
+	ss *strings.ProgramState,
+) wazero.HostModuleBuilder {
 	builder = builder.NewFunctionBuilder().
 		WithFunc(func(_ context.Context, chID uint32) uint32 {
 			series, ok := cs.ReadValue(chID)

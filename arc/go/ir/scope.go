@@ -47,7 +47,9 @@ func (s Scope) StringWithPrefix(prefix string) string {
 				isLastMember := j == len(stratum)-1
 				b.WriteString(childPrefix)
 				b.WriteString(tree.Prefix(isLastMember))
-				b.WriteString(m.stringWithPrefix(childPrefix + tree.Indent(isLastMember)))
+				b.WriteString(
+					m.stringWithPrefix(childPrefix + tree.Indent(isLastMember)),
+				)
 			}
 		}
 	} else {

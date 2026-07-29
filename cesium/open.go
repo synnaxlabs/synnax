@@ -115,11 +115,17 @@ func (db *DB) openUnary(ctx context.Context, ch Channel, fs fs.FS) error {
 	if u.Channel().Index != 0 && !u.Channel().IsIndex {
 		idxDB, ok := db.mu.dbs.unary[u.Channel().Index]
 		if !ok {
-			if err = db.openVirtualOrUnary(ctx, Channel{Key: u.Channel().Index}); err != nil {
+			if err = db.openVirtualOrUnary(
+				ctx,
+				Channel{Key: u.Channel().Index},
+			); err != nil {
 				return err
 			}
 			if idxDB, ok = db.mu.dbs.unary[u.Channel().Index]; !ok {
-				return validate.PathedError(indexChannelNotFoundError(u.Channel().Index), "index")
+				return validate.PathedError(
+					indexChannelNotFoundError(u.Channel().Index),
+					"index",
+				)
 			}
 		}
 		u.SetIndex(idxDB.Index())

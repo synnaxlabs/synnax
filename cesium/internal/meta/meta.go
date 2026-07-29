@@ -70,7 +70,11 @@ func Open(
 
 // Read reads the metadata file for a database whose data is kept in fs and is encoded
 // by the provided encoder.
-func Read(ctx context.Context, fs fs.FS, codec encoding.Decoder) (ch channel.Channel, err error) {
+func Read(
+	ctx context.Context,
+	fs fs.FS,
+	codec encoding.Decoder,
+) (ch channel.Channel, err error) {
 	s, err := fs.Stat("")
 	if err != nil {
 		return channel.Channel{}, err
@@ -93,7 +97,12 @@ func Read(ctx context.Context, fs fs.FS, codec encoding.Decoder) (ch channel.Cha
 // Create creates the metadata file for a database whose data is kept in fs and is
 // encoded by the provided encoder. The provided channel should have all fields required
 // by the DB correctly set.
-func Create(ctx context.Context, fs fs.FS, codec encoding.Encoder, ch channel.Channel) (err error) {
+func Create(
+	ctx context.Context,
+	fs fs.FS,
+	codec encoding.Encoder,
+	ch channel.Channel,
+) (err error) {
 	if err = ch.Validate(); err != nil {
 		return err
 	}

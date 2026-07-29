@@ -41,14 +41,21 @@ type MiddlewareCollector struct {
 }
 
 // Exec maintains the middleware.Chain interface.
-func (mc *MiddlewareCollector) Exec(fCtx Context, finalizer middleware.Finalizer[Context, Context]) (Context, error) {
+func (mc *MiddlewareCollector) Exec(
+	fCtx Context,
+	finalizer middleware.Finalizer[Context, Context],
+) (Context, error) {
 	return mc.Chain.Exec(fCtx, FinalizerFunc(func(md Context) (Context, error) {
 		return finalizer.Finalize(md)
 	}))
 }
 
 // Use maintains the middleware.Collector interface.
-func (mc *MiddlewareCollector) Use(m ...Middleware) { mc.Chain = append(mc.Chain, m...) }
+func (mc *MiddlewareCollector) Use(
+	m ...Middleware,
+) {
+	mc.Chain = append(mc.Chain, m...)
+}
 
 // MiddlewareFunc is a utility type so that functions can implement Middleware.
 type MiddlewareFunc func(Context, Next) (Context, error)

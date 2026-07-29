@@ -75,7 +75,9 @@ func (p SetNodeInputsPayload) Handle(state Arc) (Arc, error) {
 func (p RemoveNodePayload) Handle(state Arc) (Arc, error) {
 	for i := range state.Graph.Nodes {
 		if state.Graph.Nodes[i].Key == p.Key {
-			state.Graph.Nodes = append(state.Graph.Nodes[:i], state.Graph.Nodes[i+1:]...)
+			state.Graph.Nodes = append(
+				state.Graph.Nodes[:i],
+				state.Graph.Nodes[i+1:]...)
 			break
 		}
 	}

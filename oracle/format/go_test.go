@@ -49,14 +49,17 @@ var _ = Describe("Go Formatter", func() {
 		Expect(string(out)).To(ContainSubstring("import (\n"))
 	})
 
-	It("Should preserve the alias when unwrapping a single import", func(ctx SpecContext) {
-		raw := []byte(
-			"package x\n\nimport (\n\tlatest \"fmt\"\n)\n\n" +
-				"func F() { latest.Println() }\n",
-		)
-		out := MustSucceed(format.NewGo().Format(ctx, raw, "/x/foo.go"))
-		Expect(string(out)).To(ContainSubstring("import latest \"fmt\"\n"))
-	})
+	It(
+		"Should preserve the alias when unwrapping a single import",
+		func(ctx SpecContext) {
+			raw := []byte(
+				"package x\n\nimport (\n\tlatest \"fmt\"\n)\n\n" +
+					"func F() { latest.Println() }\n",
+			)
+			out := MustSucceed(format.NewGo().Format(ctx, raw, "/x/foo.go"))
+			Expect(string(out)).To(ContainSubstring("import latest \"fmt\"\n"))
+		},
+	)
 
 	It("Should be idempotent", func(ctx SpecContext) {
 		raw := []byte("package x\n\nfunc Foo()    int {return  1}\n")
@@ -78,6 +81,9 @@ var Vs = []T{T{V: 1}, T{V: 2}}
 
 	It("Should surface errors on invalid Go input", func(ctx SpecContext) {
 		raw := []byte("package x\n\nfunc Foo( {\n")
-		Expect(format.NewGo().Format(ctx, raw, "/x/foo.go")).Error().To(MatchError(ContainSubstring("gofmt")))
+		Expect(
+			format.NewGo().Format(ctx, raw, "/x/foo.go"),
+		).Error().
+			To(MatchError(ContainSubstring("gofmt")))
 	})
 })

@@ -31,7 +31,10 @@ func (t *Tracer) Propagate(ctx context.Context, carrier TraceCarrier) {
 
 // Depropagate extracts a span from the given carrier and returns a new context with the
 // span attached.
-func (t *Tracer) Depropagate(ctx context.Context, carrier TraceCarrier) context.Context {
+func (t *Tracer) Depropagate(
+	ctx context.Context,
+	carrier TraceCarrier,
+) context.Context {
 	if t == nil {
 		return ctx
 	}

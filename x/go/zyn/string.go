@@ -26,7 +26,9 @@ type StringZ struct{ baseZ }
 // String creates a new string schema. This is the entry point for creating string
 // validation schemas.
 func String() StringZ {
-	s := StringZ{baseZ: baseZ{dataType: StringT, expectedType: reflect.TypeFor[string]()}}
+	s := StringZ{
+		baseZ: baseZ{dataType: StringT, expectedType: reflect.TypeFor[string]()},
+	}
 	s.wrapper = s
 	return s
 }

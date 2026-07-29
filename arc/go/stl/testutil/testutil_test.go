@@ -29,11 +29,14 @@ var _ = Describe("Testutil", func() {
 	})
 
 	Describe("Passthrough", func() {
-		It("Should panic when the host module is not instantiated", func(ctx SpecContext) {
-			Expect(func() {
-				rt.Passthrough(ctx, "nonexistent")
-			}).To(PanicWith(ContainSubstring("not instantiated")))
-		})
+		It(
+			"Should panic when the host module is not instantiated",
+			func(ctx SpecContext) {
+				Expect(func() {
+					rt.Passthrough(ctx, "nonexistent")
+				}).To(PanicWith(ContainSubstring("not instantiated")))
+			},
+		)
 	})
 
 	Describe("Call", func() {

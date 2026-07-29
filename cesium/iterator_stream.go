@@ -76,7 +76,10 @@ const (
 	IteratorCommandSetBounds
 )
 
-var validateIteratorCommand = validate.NewInclusiveBoundsChecker(IteratorCommandNext, IteratorCommandSetBounds)
+var validateIteratorCommand = validate.NewInclusiveBoundsChecker(
+	IteratorCommandNext,
+	IteratorCommandSetBounds,
+)
 
 // HasOps returns true if the IteratorCommand has any associated on disk operations.
 func (i IteratorCommand) HasOps() bool { return i <= IteratorCommandPrev }
@@ -164,34 +167,56 @@ func (s *streamIterator) Flow(sCtx signal.Context, opts ...confluence.Option) {
 	}, o.Signal...)
 }
 
-func (s *streamIterator) exec(ctx context.Context, req IteratorRequest) (ok bool, err error) {
+func (s *streamIterator) exec(
+	ctx context.Context,
+	req IteratorRequest,
+) (ok bool, err error) {
 	if err := validateIteratorCommand(req.Command); err != nil {
 		return false, err
 	}
 	switch req.Command {
 	case IteratorCommandNext:
-		ok = s.execWithResponse(req.SeqNum, func(i *unary.Iterator) bool { return i.Next(ctx, req.Span) })
+		ok = s.execWithResponse(
+			req.SeqNum,
+			func(i *unary.Iterator) bool { return i.Next(ctx, req.Span) },
+		)
 	case IteratorCommandPrev:
-		ok = s.execWithResponse(req.SeqNum, func(i *unary.Iterator) bool { return i.Prev(ctx, req.Span) })
+		ok = s.execWithResponse(
+			req.SeqNum,
+			func(i *unary.Iterator) bool { return i.Prev(ctx, req.Span) },
+		)
 	case IteratorCommandSeekFirst:
-		ok = s.execWithoutResponse(func(i *unary.Iterator) bool { return i.SeekFirst(ctx) })
+		ok = s.execWithoutResponse(
+			func(i *unary.Iterator) bool { return i.SeekFirst(ctx) },
+		)
 	case IteratorCommandSeekLast:
-		ok = s.execWithoutResponse(func(i *unary.Iterator) bool { return i.SeekLast(ctx) })
+		ok = s.execWithoutResponse(
+			func(i *unary.Iterator) bool { return i.SeekLast(ctx) },
+		)
 	case IterCommandSeekLE:
-		ok = s.execWithoutResponse(func(i *unary.Iterator) bool { return i.SeekLE(ctx, req.Stamp) })
+		ok = s.execWithoutResponse(
+			func(i *unary.Iterator) bool { return i.SeekLE(ctx, req.Stamp) },
+		)
 	case IteratorCommandSeekGE:
-		ok = s.execWithoutResponse(func(i *unary.Iterator) bool { return i.SeekGE(ctx, req.Stamp) })
+		ok = s.execWithoutResponse(
+			func(i *unary.Iterator) bool { return i.SeekGE(ctx, req.Stamp) },
+		)
 	case IteratorCommandValid:
 		ok = s.execWithoutResponse(func(i *unary.Iterator) bool { return i.Valid() })
 	case IteratorCommandError:
 		err = s.error()
 	case IteratorCommandSetBounds:
-		ok = s.execWithoutResponse(func(i *unary.Iterator) bool { i.SetBounds(req.Bounds); return true })
+		ok = s.execWithoutResponse(
+			func(i *unary.Iterator) bool { i.SetBounds(req.Bounds); return true },
+		)
 	}
 	return ok, err
 }
 
-func (s *streamIterator) execWithResponse(seqNum int, f func(i *unary.Iterator) bool) (ok bool) {
+func (s *streamIterator) execWithResponse(
+	seqNum int,
+	f func(i *unary.Iterator) bool,
+) (ok bool) {
 	for _, i := range s.internal {
 		if f(i) {
 			ok = true

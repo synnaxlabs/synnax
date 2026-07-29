@@ -104,7 +104,9 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Group:    groupSvc,
 		Search:   searchIdx,
 	}))
-	parent := MustSucceed(userSvc.NewWriter(nil).Create(ctx, user.User{Username: "panel-parent"}))
+	parent := MustSucceed(
+		userSvc.NewWriter(nil).Create(ctx, user.User{Username: "panel-parent"}),
+	)
 	parentID = parent.OntologyID()
 })
 

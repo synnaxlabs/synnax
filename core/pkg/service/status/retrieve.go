@@ -153,7 +153,10 @@ func MatchLabels[D any](matchLabels ...label.Key) Filter[D] {
 		if err != nil {
 			return false, err
 		}
-		labelKeys := lo.Map(labels, func(l label.Label, _ int) label.Key { return l.Key })
+		labelKeys := lo.Map(
+			labels,
+			func(l label.Label, _ int) label.Key { return l.Key },
+		)
 		return lo.ContainsBy(labelKeys, func(l label.Key) bool {
 			return lo.Contains(matchLabels, l)
 		}), nil

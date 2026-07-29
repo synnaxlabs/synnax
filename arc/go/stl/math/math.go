@@ -60,12 +60,19 @@ func createBaseSymbol(name string, doc doc.Doc) *symbol.Symbol {
 		Type: types.Function(types.FunctionProperties{
 			Inputs: types.Params{
 				{Name: ir.DefaultInputParam, Type: types.Variable("T", &numConstraint)},
-				{Name: durationInputParam, Type: types.TimeSpan(), Value: telem.TimeSpanZero},
+				{
+					Name:  durationInputParam,
+					Type:  types.TimeSpan(),
+					Value: telem.TimeSpanZero,
+				},
 				{Name: countInputParam, Type: types.I64(), Value: 0},
 				{Name: resetInputParam, Type: types.U8(), Value: 0},
 			},
 			Outputs: types.Params{
-				{Name: ir.DefaultOutputParam, Type: types.Variable("T", &numConstraint)},
+				{
+					Name: ir.DefaultOutputParam,
+					Type: types.Variable("T", &numConstraint),
+				},
 			},
 		}),
 		Trigger: symbol.TriggerInput(ir.DefaultInputParam),
@@ -81,11 +88,17 @@ var (
 		doc.Divider(),
 		doc.Paragraph("Reset after a fixed number of samples or a time window:"),
 		doc.Divider(),
-		doc.Code("arc", "sensor -> math.avg{count=100} -> output\nsensor -> math.avg{duration=5s} -> output"),
+		doc.Code(
+			"arc",
+			"sensor -> math.avg{count=100} -> output\nsensor -> math.avg{duration=5s} -> output",
+		),
 		doc.Divider(),
 		doc.Paragraph("An optional reset input clears the accumulated average:"),
 		doc.Divider(),
-		doc.Code("arc", "sensor -> math.avg{} -> output\nreset_signal -> math.avg{}.reset"),
+		doc.Code(
+			"arc",
+			"sensor -> math.avg{} -> output\nreset_signal -> math.avg{}.reset",
+		),
 	)
 	minDoc = doc.New(
 		doc.Paragraph("Tracks the running minimum of input values."),
@@ -94,7 +107,10 @@ var (
 		doc.Divider(),
 		doc.Paragraph("Reset after a fixed number of samples or a time window:"),
 		doc.Divider(),
-		doc.Code("arc", "sensor -> math.min{count=100} -> output\nsensor -> math.min{duration=5s} -> output"),
+		doc.Code(
+			"arc",
+			"sensor -> math.min{count=100} -> output\nsensor -> math.min{duration=5s} -> output",
+		),
 	)
 	maxDoc = doc.New(
 		doc.Paragraph("Tracks the running maximum of input values."),
@@ -103,15 +119,22 @@ var (
 		doc.Divider(),
 		doc.Paragraph("Reset after a fixed number of samples or a time window:"),
 		doc.Divider(),
-		doc.Code("arc", "sensor -> math.max{count=100} -> output\nsensor -> math.max{duration=5s} -> output"),
+		doc.Code(
+			"arc",
+			"sensor -> math.max{count=100} -> output\nsensor -> math.max{duration=5s} -> output",
+		),
 	)
 	derivativeDoc = doc.New(
-		doc.Paragraph("Computes the rate of change (derivative) of input values. Output is always f64."),
+		doc.Paragraph(
+			"Computes the rate of change (derivative) of input values. Output is always f64.",
+		),
 		doc.Divider(),
 		doc.Code("arc", "sensor -> math.derivative{} -> rate_output"),
 	)
 	moduleDoc = doc.New(
-		doc.Paragraph("Numerical primitives: running averages, running min/max, derivatives, and arithmetic helpers."),
+		doc.Paragraph(
+			"Numerical primitives: running averages, running min/max, derivatives, and arithmetic helpers.",
+		),
 	)
 )
 
@@ -122,8 +145,16 @@ func newPowSymbol() *symbol.Symbol {
 		Exec:     symbol.ExecWASM,
 		Internal: true,
 		Type: types.Function(types.FunctionProperties{
-			Inputs:  types.Params{{Name: "base", Type: types.Variable("T", &numConstraint)}, {Name: "exp", Type: types.Variable("T", &numConstraint)}},
-			Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.Variable("T", &numConstraint)}},
+			Inputs: types.Params{
+				{Name: "base", Type: types.Variable("T", &numConstraint)},
+				{Name: "exp", Type: types.Variable("T", &numConstraint)},
+			},
+			Outputs: types.Params{
+				{
+					Name: ir.DefaultOutputParam,
+					Type: types.Variable("T", &numConstraint),
+				},
+			},
 		}),
 		Trigger: symbol.TriggerOnly,
 	}
@@ -205,9 +236,24 @@ func NewHost(ctx context.Context, rt wazero.Runtime) (*Host, error) {
 		}).Export("pow_f64")
 
 	builder = bindI32Unary[int8](builder, "neg", "i8", func(a int8) int8 { return -a })
-	builder = bindI32Unary[int16](builder, "neg", "i16", func(a int16) int16 { return -a })
-	builder = bindI32Unary[int32](builder, "neg", "i32", func(a int32) int32 { return -a })
-	builder = bindI64Unary[int64](builder, "neg", "i64", func(a int64) int64 { return -a })
+	builder = bindI32Unary[int16](
+		builder,
+		"neg",
+		"i16",
+		func(a int16) int16 { return -a },
+	)
+	builder = bindI32Unary[int32](
+		builder,
+		"neg",
+		"i32",
+		func(a int32) int32 { return -a },
+	)
+	builder = bindI64Unary[int64](
+		builder,
+		"neg",
+		"i64",
+		func(a int64) int64 { return -a },
+	)
 	builder = bindF32Unary(builder, "neg", func(a float32) float32 { return -a })
 	builder = bindF64Unary(builder, "neg", func(a float64) float64 { return -a })
 
@@ -245,7 +291,10 @@ func (h *Host) Create(_ context.Context, nodeCfg node.Config) (node.Node, error)
 		)
 	}
 	var inputs WindowInputs
-	if err := windowInputsSchema.Parse(nodeCfg.Node.Inputs.ValueMap(), &inputs); err != nil {
+	if err := windowInputsSchema.Parse(
+		nodeCfg.Node.Inputs.ValueMap(),
+		&inputs,
+	); err != nil {
 		return nil, err
 	}
 	return &avgNode{
@@ -260,7 +309,7 @@ func (h *Host) Create(_ context.Context, nodeCfg node.Config) (node.Node, error)
 
 type WindowInputs struct {
 	Duration telem.TimeSpan `json:"duration" msgpack:"duration"`
-	Count    int64          `json:"count" msgpack:"count"`
+	Count    int64          `json:"count"    msgpack:"count"`
 }
 
 var windowInputsSchema = zyn.Object(map[string]zyn.Schema{
@@ -346,7 +395,8 @@ func (r *avgNode) Next(ctx node.Context) {
 	if r.resetIdx >= 0 {
 		resetData := r.Input(r.resetIdx)
 		alignment += resetData.Alignment
-		if !resetData.TimeRange.Start.IsZero() && (timeRange.Start.IsZero() || resetData.TimeRange.Start < timeRange.Start) {
+		if !resetData.TimeRange.Start.IsZero() &&
+			(timeRange.Start.IsZero() || resetData.TimeRange.Start < timeRange.Start) {
 			timeRange.Start = resetData.TimeRange.Start
 		}
 		if resetData.TimeRange.End > timeRange.End {
@@ -477,7 +527,10 @@ type i64Powable interface {
 // large positive values (e.g. -1 becomes 4294967295). On 64-bit platforms,
 // int(uint32(x)) is always non-negative, making the 0^(-n) panic in IntPow
 // unreachable through this interface.
-func bindI32Pow[T i32Powable](builder wazero.HostModuleBuilder, suffix string) wazero.HostModuleBuilder {
+func bindI32Pow[T i32Powable](
+	builder wazero.HostModuleBuilder,
+	suffix string,
+) wazero.HostModuleBuilder {
 	return builder.NewFunctionBuilder().
 		WithFunc(func(_ context.Context, base, exp uint32) uint32 {
 			return uint32(xmath.IntPow(T(base), int(exp)))
@@ -486,35 +539,54 @@ func bindI32Pow[T i32Powable](builder wazero.HostModuleBuilder, suffix string) w
 
 // bindI64Pow binds an integer power function for a WASM i64-compatible type.
 // Same unsigned exponent representation as bindI32Pow.
-func bindI64Pow[T i64Powable](builder wazero.HostModuleBuilder, suffix string) wazero.HostModuleBuilder {
+func bindI64Pow[T i64Powable](
+	builder wazero.HostModuleBuilder,
+	suffix string,
+) wazero.HostModuleBuilder {
 	return builder.NewFunctionBuilder().
 		WithFunc(func(_ context.Context, base, exp uint64) uint64 {
 			return uint64(xmath.IntPow(T(base), int(exp)))
 		}).Export("pow_" + suffix)
 }
 
-func bindI32Unary[T i32Powable](builder wazero.HostModuleBuilder, name, suffix string, fn func(T) T) wazero.HostModuleBuilder {
+func bindI32Unary[T i32Powable](
+	builder wazero.HostModuleBuilder,
+	name, suffix string,
+	fn func(T) T,
+) wazero.HostModuleBuilder {
 	return builder.NewFunctionBuilder().
 		WithFunc(func(_ context.Context, a uint32) uint32 {
 			return uint32(fn(T(a)))
 		}).Export(name + "_" + suffix)
 }
 
-func bindI64Unary[T i64Powable](builder wazero.HostModuleBuilder, name, suffix string, fn func(T) T) wazero.HostModuleBuilder {
+func bindI64Unary[T i64Powable](
+	builder wazero.HostModuleBuilder,
+	name, suffix string,
+	fn func(T) T,
+) wazero.HostModuleBuilder {
 	return builder.NewFunctionBuilder().
 		WithFunc(func(_ context.Context, a uint64) uint64 {
 			return uint64(fn(T(a)))
 		}).Export(name + "_" + suffix)
 }
 
-func bindF32Unary(builder wazero.HostModuleBuilder, name string, fn func(float32) float32) wazero.HostModuleBuilder {
+func bindF32Unary(
+	builder wazero.HostModuleBuilder,
+	name string,
+	fn func(float32) float32,
+) wazero.HostModuleBuilder {
 	return builder.NewFunctionBuilder().
 		WithFunc(func(_ context.Context, a float32) float32 {
 			return fn(a)
 		}).Export(name + "_f32")
 }
 
-func bindF64Unary(builder wazero.HostModuleBuilder, name string, fn func(float64) float64) wazero.HostModuleBuilder {
+func bindF64Unary(
+	builder wazero.HostModuleBuilder,
+	name string,
+	fn func(float64) float64,
+) wazero.HostModuleBuilder {
 	return builder.NewFunctionBuilder().
 		WithFunc(func(_ context.Context, a float64) float64 {
 			return fn(a)

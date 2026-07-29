@@ -74,7 +74,12 @@ var _ = Describe("Group", Ordered, func() {
 			created := MustSucceed(w.Create(ctx, "retrieve-test", ontology.RootID))
 
 			var g group.Group
-			Expect(svc.NewRetrieve().Where(group.MatchKeys(created.Key)).Entry(&g).Exec(ctx, nil)).To(Succeed())
+			Expect(
+				svc.NewRetrieve().
+					Where(group.MatchKeys(created.Key)).
+					Entry(&g).
+					Exec(ctx, nil),
+			).To(Succeed())
 			Expect(g).To(Equal(created))
 		})
 
@@ -84,7 +89,12 @@ var _ = Describe("Group", Ordered, func() {
 			g2 := MustSucceed(w.Create(ctx, "multi2", ontology.RootID))
 
 			var ret []group.Group
-			Expect(svc.NewRetrieve().Where(group.MatchKeys(g1.Key, g2.Key)).Entries(&ret).Exec(ctx, nil)).To(Succeed())
+			Expect(
+				svc.NewRetrieve().
+					Where(group.MatchKeys(g1.Key, g2.Key)).
+					Entries(&ret).
+					Exec(ctx, nil),
+			).To(Succeed())
 			Expect(ret).To(ConsistOf(g1, g2))
 		})
 
@@ -92,7 +102,12 @@ var _ = Describe("Group", Ordered, func() {
 			created := MustSucceed(w.Create(ctx, "name-test", ontology.RootID))
 
 			var g group.Group
-			Expect(svc.NewRetrieve().Where(group.MatchNames(created.Name)).Entry(&g).Exec(ctx, nil)).To(Succeed())
+			Expect(
+				svc.NewRetrieve().
+					Where(group.MatchNames(created.Name)).
+					Entry(&g).
+					Exec(ctx, nil),
+			).To(Succeed())
 			Expect(g).To(Equal(created))
 		})
 	})
@@ -105,7 +120,12 @@ var _ = Describe("Group", Ordered, func() {
 			Expect(w.Rename(ctx, created.Key, newName)).To(Succeed())
 
 			var g group.Group
-			Expect(svc.NewRetrieve().Where(group.MatchKeys(created.Key)).Entry(&g).Exec(ctx, nil)).To(Succeed())
+			Expect(
+				svc.NewRetrieve().
+					Where(group.MatchKeys(created.Key)).
+					Entry(&g).
+					Exec(ctx, nil),
+			).To(Succeed())
 			Expect(g.Name).To(Equal(newName))
 		})
 	})
@@ -126,14 +146,20 @@ var _ = Describe("Group", Ordered, func() {
 
 			Expect(w.Delete(ctx, created.Key)).To(Succeed())
 
-			Expect(svc.NewRetrieve().Where(group.MatchKeys(created.Key)).Entry(new(group.Group)).
-				Exec(ctx, nil)).To(HaveOccurred())
+			Expect(
+				svc.NewRetrieve().
+					Where(group.MatchKeys(created.Key)).
+					Entry(new(group.Group)).
+					Exec(ctx, nil),
+			).To(HaveOccurred())
 		})
 
 		It("Should delete multiple groups", func(ctx SpecContext) {
 			parent := MustSucceed(w.Create(ctx, "parent-for-deletion", ontology.RootID))
 
-			child := MustSucceed(w.Create(ctx, "child-for-deletion", parent.OntologyID()))
+			child := MustSucceed(
+				w.Create(ctx, "child-for-deletion", parent.OntologyID()),
+			)
 
 			Expect(w.Delete(ctx, child.Key)).To(Succeed())
 			Expect(w.Delete(ctx, parent.Key)).To(Succeed())
@@ -142,35 +168,61 @@ var _ = Describe("Group", Ordered, func() {
 				Entry(new(group.Group)).Exec(ctx, nil)).To(HaveOccurred())
 		})
 
-		It("Should allow batch deletion when parent is being deleted along with all of its children", func(ctx SpecContext) {
-			parent := MustSucceed(w.Create(ctx, "parent-batch-delete", ontology.RootID))
+		It(
+			"Should allow batch deletion when parent is being deleted along with all of its children",
+			func(ctx SpecContext) {
+				parent := MustSucceed(
+					w.Create(ctx, "parent-batch-delete", ontology.RootID),
+				)
 
-			child1 := MustSucceed(w.Create(ctx, "child1-batch-delete", parent.OntologyID()))
+				child1 := MustSucceed(
+					w.Create(ctx, "child1-batch-delete", parent.OntologyID()),
+				)
 
-			child2 := MustSucceed(w.Create(ctx, "child2-batch-delete", parent.OntologyID()))
+				child2 := MustSucceed(
+					w.Create(ctx, "child2-batch-delete", parent.OntologyID()),
+				)
 
-			Expect(w.Delete(ctx, child2.Key, parent.Key, child1.Key)).To(Succeed())
+				Expect(w.Delete(ctx, child2.Key, parent.Key, child1.Key)).To(Succeed())
 
-			var groups []group.Group
-			Expect(svc.NewRetrieve().Where(group.MatchKeys(child1.Key, child2.Key, parent.Key)).
-				Entries(&groups).Exec(ctx, nil)).
-				To(MatchError(query.ErrNotFound))
-			Expect(groups).To(BeEmpty())
-		})
+				var groups []group.Group
+				Expect(
+					svc.NewRetrieve().
+						Where(group.MatchKeys(child1.Key, child2.Key, parent.Key)).
+						Entries(&groups).
+						Exec(ctx, nil),
+				).
+					To(MatchError(query.ErrNotFound))
+				Expect(groups).To(BeEmpty())
+			},
+		)
 
-		It("Should allow deleting nested hierarchy when ordered leaf to root", func(ctx SpecContext) {
-			root := MustSucceed(w.Create(ctx, "root-nested", ontology.RootID))
-			level1 := MustSucceed(w.Create(ctx, "level1-nested", root.OntologyID()))
-			level2 := MustSucceed(w.Create(ctx, "level2-nested", level1.OntologyID()))
-			level3 := MustSucceed(w.Create(ctx, "level3-nested", level2.OntologyID()))
+		It(
+			"Should allow deleting nested hierarchy when ordered leaf to root",
+			func(ctx SpecContext) {
+				root := MustSucceed(w.Create(ctx, "root-nested", ontology.RootID))
+				level1 := MustSucceed(w.Create(ctx, "level1-nested", root.OntologyID()))
+				level2 := MustSucceed(
+					w.Create(ctx, "level2-nested", level1.OntologyID()),
+				)
+				level3 := MustSucceed(
+					w.Create(ctx, "level3-nested", level2.OntologyID()),
+				)
 
-			Expect(w.Delete(ctx, level3.Key, level2.Key, level1.Key, root.Key)).To(Succeed())
+				Expect(
+					w.Delete(ctx, level3.Key, level2.Key, level1.Key, root.Key),
+				).To(Succeed())
 
-			for _, key := range []uuid.UUID{root.Key, level1.Key, level2.Key, level3.Key} {
-				Expect(svc.NewRetrieve().Where(group.MatchKeys(key)).Entry(new(group.Group)).
-					Exec(ctx, nil)).To(HaveOccurred())
-			}
-		})
+				for _, key := range []uuid.UUID{root.Key, level1.Key, level2.Key, level3.Key} {
+					Expect(
+						svc.NewRetrieve().
+							Where(group.MatchKeys(key)).
+							Entry(new(group.Group)).
+							Exec(ctx, nil),
+					).To(HaveOccurred())
+				}
+			},
+		)
 	})
 
 	Describe("Observe", func() {
@@ -179,9 +231,10 @@ var _ = Describe("Group", Ordered, func() {
 			defer func() { Expect(tx.Close()).To(Succeed()) }()
 			w := svc.NewWriter(tx)
 			called := false
-			svc.Observe().OnChange(func(ctx context.Context, _ gorp.TxReader[group.Key, group.Group]) {
-				called = true
-			})
+			svc.Observe().
+				OnChange(func(ctx context.Context, _ gorp.TxReader[group.Key, group.Group]) {
+					called = true
+				})
 			MustSucceed(w.Create(ctx, "observe-test", ontology.RootID))
 			Expect(tx.Commit(ctx)).To(Succeed())
 			Expect(called).To(BeTrue())

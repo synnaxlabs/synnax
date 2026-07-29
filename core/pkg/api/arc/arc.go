@@ -128,13 +128,13 @@ func (s *Service) Dispatch(
 
 type (
 	RetrieveRequest struct {
-		SearchTerm          string    `json:"search_term" msgpack:"search_term"`
-		Keys                []arc.Key `json:"keys" msgpack:"keys"`
-		Names               []string  `json:"names" msgpack:"names"`
-		Limit               int       `json:"limit" msgpack:"limit"`
-		Offset              int       `json:"offset" msgpack:"offset"`
-		IncludeStatus       bool      `json:"include_status" msgpack:"include_status"`
-		Compile             bool      `json:"compile" msgpack:"compile"`
+		SearchTerm          string    `json:"search_term"            msgpack:"search_term"`
+		Keys                []arc.Key `json:"keys"                   msgpack:"keys"`
+		Names               []string  `json:"names"                  msgpack:"names"`
+		Limit               int       `json:"limit"                  msgpack:"limit"`
+		Offset              int       `json:"offset"                 msgpack:"offset"`
+		IncludeStatus       bool      `json:"include_status"         msgpack:"include_status"`
+		Compile             bool      `json:"compile"                msgpack:"compile"`
 		IgnoreNotFoundError bool      `json:"ignore_not_found_error" msgpack:"ignore_not_found_error"`
 	}
 	RetrieveResponse struct {

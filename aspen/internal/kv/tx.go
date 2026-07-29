@@ -109,7 +109,8 @@ func (b *tx) toRequests(ctx context.Context) ([]TxRequest, error) {
 		if op.Variant == change.VariantSet {
 			v, closer, err := b.Get(ctx, dig.Key)
 			if errors.Is(err, query.ErrNotFound) {
-				zap.S().Error("[aspen] - operation not found when batching tx", zap.String("key", string(dig.Key)))
+				zap.S().
+					Error("[aspen] - operation not found when batching tx", zap.String("key", string(dig.Key)))
 				continue
 			}
 			if err != nil {
@@ -206,7 +207,9 @@ func validateLeaseOption(maybeLease []any) (node.Key, error) {
 	if len(maybeLease) == 1 {
 		l, ok := maybeLease[0].(node.Key)
 		if !ok {
-			return 0, errors.New("[aspen] - Leaseholder option must be of type node.Name")
+			return 0, errors.New(
+				"[aspen] - Leaseholder option must be of type node.Name",
+			)
 		}
 		lease = l
 	}

@@ -31,13 +31,27 @@ import (
 // expressions referencing host functions (channels.write, series.add, ...).
 func FunctionScope(ctx context.Context) *symbol.Symbol {
 	root := symbol.NewRoot(nil, stl.NewSymbols())
-	s := testutil.MustSucceed(root.Add(ctx, symbol.Symbol{Name: "func", Kind: symbol.KindFunction, Type: arctypes.I32()}))
+	s := testutil.MustSucceed(
+		root.Add(
+			ctx,
+			symbol.Symbol{
+				Name: "func",
+				Kind: symbol.KindFunction,
+				Type: arctypes.I32(),
+			},
+		),
+	)
 	return testutil.MustSucceed(s.Add(ctx, symbol.Symbol{Kind: symbol.KindBlock}))
 }
 
 func NewContext(ctx context.Context) ccontext.Context[antlr.ParserRuleContext] {
 	scope := FunctionScope(ctx)
-	return ccontext.NewRoot(ctx, scope, make(map[antlr.ParserRuleContext]arctypes.Type), resolve.NewResolver())
+	return ccontext.NewRoot(
+		ctx,
+		scope,
+		make(map[antlr.ParserRuleContext]arctypes.Type),
+		resolve.NewResolver(),
+	)
 }
 
 // FinalizeContext calls FinalizeAndPatch on the context's Resolver and returns
@@ -204,7 +218,10 @@ func (m *opcodeMatcher) Match(actual any) (success bool, err error) {
 	case wasm.OPCodes:
 		actualOpcodes = v
 	default:
-		return false, errors.Newf("MatchOpcodes expects []byte or wasm.OPCodes, got %T", actual)
+		return false, errors.Newf(
+			"MatchOpcodes expects []byte or wasm.OPCodes, got %T",
+			actual,
+		)
 	}
 
 	if len(actualOpcodes) != len(m.expected) {
@@ -263,7 +280,14 @@ func (m *opcodeMatcher) FailureMessage(actual any) string {
 			marker = " ✓"
 		}
 
-		_, _ = fmt.Fprintf(&b, "%-4d  %-30s  %-30s%s\n", i, expectedStr, actualStr, marker)
+		_, _ = fmt.Fprintf(
+			&b,
+			"%-4d  %-30s  %-30s%s\n",
+			i,
+			expectedStr,
+			actualStr,
+			marker,
+		)
 	}
 
 	_, _ = fmt.Fprintf(&b, "\nExpected: %s\n", m.expected.String())
@@ -284,5 +308,8 @@ func (m *opcodeMatcher) NegatedFailureMessage(actual any) string {
 		return fmt.Sprintf("Expected not to match, but got invalid type %T", actual)
 	}
 
-	return fmt.Sprintf("Expected opcodes not to match, but they did:\n  %s", actualOpcodes.String())
+	return fmt.Sprintf(
+		"Expected opcodes not to match, but they did:\n  %s",
+		actualOpcodes.String(),
+	)
 }

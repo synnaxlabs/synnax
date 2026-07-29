@@ -108,7 +108,10 @@ func (t *Text) Snapshot() (inserts []Insert, deletes []Delete) {
 	var walk func(e *element, origin ID, side spatial.XLocation)
 	walk = func(e *element, origin ID, side spatial.XLocation) {
 		if e != t.root {
-			inserts = append(inserts, Insert{ID: e.id, Origin: origin, Side: side, Char: e.char})
+			inserts = append(
+				inserts,
+				Insert{ID: e.id, Origin: origin, Side: side, Char: e.char},
+			)
 			if e.deleted {
 				deletes = append(deletes, Delete{ID: e.id})
 			}

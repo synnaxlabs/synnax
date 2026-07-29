@@ -49,7 +49,10 @@ func wrapStreamWriter(cfg WriterConfig, internal StreamWriter) *Writer {
 }
 
 func (w *Writer) Write(frame Frame) (authorized bool, err error) {
-	res, err := w.exec(WriterRequest{Frame: frame, Command: WriterCommandWrite}, *w.cfg.Sync)
+	res, err := w.exec(
+		WriterRequest{Frame: frame, Command: WriterCommandWrite},
+		*w.cfg.Sync,
+	)
 	if err != nil {
 		return false, err
 	}
@@ -64,7 +67,10 @@ func (w *Writer) Commit() (telem.TimeStamp, error) {
 
 // SetAuthority is synchronous
 func (w *Writer) SetAuthority(cfg WriterConfig) error {
-	_, err := w.exec(WriterRequest{Config: cfg, Command: WriterCommandSetAuthority}, true)
+	_, err := w.exec(
+		WriterRequest{Config: cfg, Command: WriterCommandSetAuthority},
+		true,
+	)
 	return err
 }
 

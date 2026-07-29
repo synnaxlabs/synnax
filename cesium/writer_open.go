@@ -160,7 +160,10 @@ func (c WriterConfig) Override(other WriterConfig) WriterConfig {
 	c.Mode = override.Numeric(c.Mode, other.Mode)
 	c.Sync = override.Nil(c.Sync, other.Sync)
 	c.EnableAutoCommit = override.Nil(c.EnableAutoCommit, other.EnableAutoCommit)
-	c.AutoIndexPersistInterval = override.Zero(c.AutoIndexPersistInterval, other.AutoIndexPersistInterval)
+	c.AutoIndexPersistInterval = override.Zero(
+		c.AutoIndexPersistInterval,
+		other.AutoIndexPersistInterval,
+	)
 	c.AutoIndex = override.Nil(c.AutoIndex, other.AutoIndex)
 	return c
 }
@@ -173,7 +176,10 @@ func (c WriterConfig) authority(i int) xcontrol.Authority {
 }
 
 // NewStreamWriter implements DB.
-func (db *DB) NewStreamWriter(ctx context.Context, cfgs ...WriterConfig) (StreamWriter, error) {
+func (db *DB) NewStreamWriter(
+	ctx context.Context,
+	cfgs ...WriterConfig,
+) (StreamWriter, error) {
 	if db.closed.Load() {
 		return nil, ErrDBClosed
 	}
@@ -196,7 +202,10 @@ func (db *DB) OpenWriter(ctx context.Context, cfgs ...WriterConfig) (*Writer, er
 	return wrapStreamWriter(iw.WriterConfig, iw), nil
 }
 
-func (db *DB) newStreamWriter(ctx context.Context, cfgs ...WriterConfig) (w *streamWriter, err error) {
+func (db *DB) newStreamWriter(
+	ctx context.Context,
+	cfgs ...WriterConfig,
+) (w *streamWriter, err error) {
 	cfg, err := config.New(DefaultWriterConfig(), cfgs...)
 	if err != nil {
 		return nil, err
@@ -343,8 +352,11 @@ func (db *DB) newStreamWriter(ctx context.Context, cfgs ...WriterConfig) (w *str
 		WriterConfig: cfg,
 		internal:     make([]*idxWriter, 0, len(domainWriters)),
 		relay:        db.relay.inlet,
-		virtual:      &virtualWriter{internal: virtualWriters, digestKey: db.mu.digests.key},
-		keyToIdx:     keyToIdx,
+		virtual: &virtualWriter{
+			internal:  virtualWriters,
+			digestKey: db.mu.digests.key,
+		},
+		keyToIdx: keyToIdx,
 		updateDBControl: func(ctx context.Context, update ControlUpdate) error {
 			db.mu.RLock()
 			defer db.mu.RUnlock()

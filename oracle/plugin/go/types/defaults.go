@@ -86,7 +86,9 @@ func structDefaultFills(
 		}
 		selector := prefix + "." + naming.GetFieldName(f)
 		if comp.Value.Kind == resolution.ValueKindStruct {
-			fills = append(fills, structDefaultFills(selector, f.Type, comp.Value, data)...)
+			fills = append(
+				fills,
+				structDefaultFills(selector, f.Type, comp.Value, data)...)
 			continue
 		}
 		if fill, ok := scalarFill(selector, f.Type, &comp.Value, data); ok {
@@ -110,17 +112,29 @@ func scalarFill(
 		if d.StringValue == "" {
 			return defaultFillData{}, false
 		}
-		return defaultFillData{GoName: goName, ZeroLit: `""`, Expr: strconv.Quote(d.StringValue)}, true
+		return defaultFillData{
+			GoName:  goName,
+			ZeroLit: `""`,
+			Expr:    strconv.Quote(d.StringValue),
+		}, true
 	case resolution.ValueKindInt:
 		if d.IntValue == 0 {
 			return defaultFillData{}, false
 		}
-		return defaultFillData{GoName: goName, ZeroLit: "0", Expr: fmt.Sprintf("%d", d.IntValue)}, true
+		return defaultFillData{
+			GoName:  goName,
+			ZeroLit: "0",
+			Expr:    fmt.Sprintf("%d", d.IntValue),
+		}, true
 	case resolution.ValueKindFloat:
 		if d.FloatValue == 0 {
 			return defaultFillData{}, false
 		}
-		return defaultFillData{GoName: goName, ZeroLit: "0", Expr: strconv.FormatFloat(d.FloatValue, 'g', -1, 64)}, true
+		return defaultFillData{
+			GoName:  goName,
+			ZeroLit: "0",
+			Expr:    strconv.FormatFloat(d.FloatValue, 'g', -1, 64),
+		}, true
 	case resolution.ValueKindIdent:
 		ev, ok := validation.ResolveEnumVariant(d.IdentValue, typeRef, data.table)
 		if !ok {
@@ -133,7 +147,11 @@ func scalarFill(
 			return defaultFillData{}, false
 		}
 		enumType := stripPointer(data.resolver.ResolveTypeRef(typeRef, data.ctx))
-		return defaultFillData{GoName: goName, ZeroLit: `""`, Expr: enumType + naming.ToPascalCase(ev.Variant.Name)}, true
+		return defaultFillData{
+			GoName:  goName,
+			ZeroLit: `""`,
+			Expr:    enumType + naming.ToPascalCase(ev.Variant.Name),
+		}, true
 	}
 	return defaultFillData{}, false
 }
@@ -154,7 +172,10 @@ type constraintCheckData struct {
 // against the field type's underlying primitive so a distinct numeric type (e.g. a Key
 // over uint32) validates as a number. Optional fields are skipped: a bound on an absent
 // value is ambiguous.
-func goConstraintChecks(field resolution.Field, data *templateData) []constraintCheckData {
+func goConstraintChecks(
+	field resolution.Field,
+	data *templateData,
+) []constraintCheckData {
 	if field.Optional {
 		return nil
 	}
@@ -170,7 +191,12 @@ func goConstraintChecks(field resolution.Field, data *templateData) []constraint
 	jsonName := casing.FieldSnake(field.Name)
 	base := resolution.PrimitiveBase(field.Type, data.table)
 	check := func(kind, arg string) constraintCheckData {
-		return constraintCheckData{GoName: name, FieldName: jsonName, Kind: kind, Arg: arg}
+		return constraintCheckData{
+			GoName:    name,
+			FieldName: jsonName,
+			Kind:      kind,
+			Arg:       arg,
+		}
 	}
 	var checks []constraintCheckData
 	if resolution.IsStringPrimitive(base) {
@@ -178,10 +204,16 @@ func goConstraintChecks(field resolution.Field, data *templateData) []constraint
 		case rules.Required, rules.MinLength != nil && *rules.MinLength <= 1:
 			checks = append(checks, check("non_empty_string", ""))
 		case rules.MinLength != nil:
-			checks = append(checks, check("min_len", strconv.FormatInt(*rules.MinLength, 10)))
+			checks = append(
+				checks,
+				check("min_len", strconv.FormatInt(*rules.MinLength, 10)),
+			)
 		}
 		if rules.MaxLength != nil {
-			checks = append(checks, check("max_len", strconv.FormatInt(*rules.MaxLength, 10)))
+			checks = append(
+				checks,
+				check("max_len", strconv.FormatInt(*rules.MaxLength, 10)),
+			)
 		}
 	}
 	if resolution.IsNumberPrimitive(base) {
@@ -228,7 +260,10 @@ func goEnumCheck(field resolution.Field, data *templateData) (enumCheckData, boo
 	if form.IsIntEnum {
 		return enumCheckData{}, false
 	}
-	return enumCheckData{GoName: naming.GetFieldName(field), FieldName: field.Name}, true
+	return enumCheckData{
+		GoName:    naming.GetFieldName(field),
+		FieldName: field.Name,
+	}, true
 }
 
 // stripPointer removes a leading pointer marker from a resolved Go type.

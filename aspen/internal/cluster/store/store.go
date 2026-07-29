@@ -80,10 +80,12 @@ func transform(
 
 // New opens a new empty, invalid Store.
 func New(ctx context.Context) Store {
-	c := &core{Observable: lo.Must(store.WrapObservable(store.ObservableConfig[State, Change]{
-		Store:     store.New(_copy),
-		Transform: transform,
-	}))}
+	c := &core{
+		Observable: lo.Must(store.WrapObservable(store.ObservableConfig[State, Change]{
+			Store:     store.New(_copy),
+			Transform: transform,
+		})),
+	}
 	c.SetState(ctx, State{Nodes: make(node.Group)})
 	return c
 }

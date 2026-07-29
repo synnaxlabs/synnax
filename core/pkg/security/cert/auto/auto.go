@@ -28,7 +28,10 @@ const SourceType = "auto"
 // CA. It returns validate.ErrValidation if host is empty.
 func NewSource(ca *cert.Factory, host address.Address) (cert.Source, error) {
 	if host == "" {
-		return nil, errors.Wrap(validate.ErrValidation, "auto source requires a listener address")
+		return nil, errors.Wrap(
+			validate.ErrValidation,
+			"auto source requires a listener address",
+		)
 	}
 	return &source{ca: ca, host: host}, nil
 }

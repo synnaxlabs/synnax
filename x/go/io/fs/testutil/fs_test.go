@@ -46,13 +46,16 @@ var _ = Describe("FS Testutil", func() {
 			Expect(MustSucceed(fs.Exists("a.bin"))).To(BeTrue())
 		})
 
-		It("Should return a fresh FS on each call so callers cannot leak state across tests", func() {
-			a := OpenMem()
-			b := OpenMem()
-			fa := MustSucceed(a.Open("only-in-a.bin", os.O_CREATE|os.O_RDWR))
-			DeferClose(fa)
-			Expect(MustSucceed(b.Exists("only-in-a.bin"))).To(BeFalse())
-		})
+		It(
+			"Should return a fresh FS on each call so callers cannot leak state across tests",
+			func() {
+				a := OpenMem()
+				b := OpenMem()
+				fa := MustSucceed(a.Open("only-in-a.bin", os.O_CREATE|os.O_RDWR))
+				DeferClose(fa)
+				Expect(MustSucceed(b.Exists("only-in-a.bin"))).To(BeFalse())
+			},
+		)
 
 		It("Should leave nothing on disk", func() {
 			before := matchingTempDirs(TempDirPrefix())

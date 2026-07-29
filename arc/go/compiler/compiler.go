@@ -113,7 +113,8 @@ func Compile(ctx context.Context, program ir.IR, opts ...Option) (Output, error)
 		params := i.Inputs
 		var returnType types.Type
 		defaultOutput, hasDefaultOutput := i.Outputs.Get(ir.DefaultOutputParam)
-		hasNamedOutputs := len(i.Outputs) > 1 || (len(i.Outputs) == 1 && !hasDefaultOutput)
+		hasNamedOutputs := len(i.Outputs) > 1 ||
+			(len(i.Outputs) == 1 && !hasDefaultOutput)
 		if !hasNamedOutputs {
 			returnType = defaultOutput.Type
 		}
@@ -139,7 +140,15 @@ func Compile(ctx context.Context, program ir.IR, opts ...Option) (Output, error)
 			outputMemoryCounter += size
 		}
 
-		cf, err := compileItem(compCtx, i.Key, i.Body.AST, params, returnType, i.Outputs, outputMemoryBase)
+		cf, err := compileItem(
+			compCtx,
+			i.Key,
+			i.Body.AST,
+			params,
+			returnType,
+			i.Outputs,
+			outputMemoryBase,
+		)
 		if err != nil {
 			return Output{}, err
 		}
@@ -156,7 +165,10 @@ func Compile(ctx context.Context, program ir.IR, opts ...Option) (Output, error)
 	compCtx.Module.EnableMemory()
 	compCtx.Module.AddExport("memory", wasm.ExportKindMemory, 0)
 
-	return Output{WASM: compCtx.Module.Generate(), OutputMemoryBases: outputMemoryBases}, nil
+	return Output{
+		WASM:              compCtx.Module.Generate(),
+		OutputMemoryBases: outputMemoryBases,
+	}, nil
 }
 
 func compileItem(
@@ -196,11 +208,19 @@ func compileItem(
 	if blockCtx, ok := body.(parser.IBlockContext); ok {
 		_, err = statement.CompileBlock(ccontext.Child(ctx, blockCtx))
 		if err != nil {
-			return compiledFunction{}, errors.Wrapf(err, "failed to compile function '%s' body", ctx.Scope.Name)
+			return compiledFunction{}, errors.Wrapf(
+				err,
+				"failed to compile function '%s' body",
+				ctx.Scope.Name,
+			)
 		}
 	} else if exprCtx, ok := body.(parser.IExpressionContext); ok {
 		if err = compileExpression(ccontext.Child(ctx, exprCtx)); err != nil {
-			return compiledFunction{}, errors.Wrapf(err, "failed to compile expression '%s'", ctx.Scope.Name)
+			return compiledFunction{}, errors.Wrapf(
+				err,
+				"failed to compile expression '%s'",
+				ctx.Scope.Name,
+			)
 		}
 	} else {
 		return compiledFunction{}, errors.Newf("unsupported body type for '%s'", key)
@@ -274,7 +294,10 @@ func compileDispatcherSynthetic(
 	}
 	selSlot, ok := slots["$sel"]
 	if !ok {
-		return compiledFunction{}, errors.Newf("dispatcher %s has no $sel input", fn.Key)
+		return compiledFunction{}, errors.Newf(
+			"dispatcher %s has no $sel input",
+			fn.Key,
+		)
 	}
 	funcT := wasm.FunctionType{
 		Params:  params,

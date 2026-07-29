@@ -87,7 +87,14 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	}
 	cleanup, ok := service.NewOpener(ctx, &s.closer)
 	defer func() { err = cleanup(err) }()
-	if s.group, err = s.cfg.Group.CreateOrRetrieve(ctx, "Views", ontology.RootID); !ok(err, nil) {
+	if s.group, err = s.cfg.Group.CreateOrRetrieve(
+		ctx,
+		"Views",
+		ontology.RootID,
+	); !ok(
+		err,
+		nil,
+	) {
 		return nil, err
 	}
 	if s.table, err = gorp.OpenTable(ctx, gorp.TableConfig[Key, View]{

@@ -111,7 +111,14 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	); !ok(err, s.table) {
 		return nil, err
 	}
-	if s.group, err = cfg.Group.CreateOrRetrieve(ctx, "Statuses", ontology.RootID); !ok(err, nil) {
+	if s.group, err = cfg.Group.CreateOrRetrieve(
+		ctx,
+		"Statuses",
+		ontology.RootID,
+	); !ok(
+		err,
+		nil,
+	) {
 		return nil, err
 	}
 	cfg.Ontology.RegisterService(s)
@@ -139,7 +146,11 @@ func (s *Service) NewRetrieve() Retrieve[any] { return NewRetrieve[any](s) }
 
 // ResolveKeyOrName returns all statuses matching keyOrName, preferring an exact key match
 // over name matches. Read-only; callers enforce access on and write the result.
-func (s *Service) ResolveKeyOrName(ctx context.Context, tx gorp.Tx, keyOrName string) ([]Status[any], error) {
+func (s *Service) ResolveKeyOrName(
+	ctx context.Context,
+	tx gorp.Tx,
+	keyOrName string,
+) ([]Status[any], error) {
 	if keyOrName == "" {
 		return nil, errors.Wrap(validate.ErrValidation, "key_or_name is required")
 	}
@@ -153,7 +164,10 @@ func (s *Service) ResolveKeyOrName(ctx context.Context, tx gorp.Tx, keyOrName st
 		return nil, err
 	}
 	var matches []Status[any]
-	if err = s.NewRetrieve().Where(MatchNames[any](keyOrName)).Entries(&matches).Exec(ctx, tx); err != nil {
+	if err = s.NewRetrieve().
+		Where(MatchNames[any](keyOrName)).
+		Entries(&matches).
+		Exec(ctx, tx); err != nil {
 		return nil, err
 	}
 	return matches, nil

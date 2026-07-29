@@ -44,7 +44,9 @@ func (w Writer) Create(
 	if s.Key == uuid.Nil {
 		s.Key = uuid.New()
 	} else {
-		exists, err = w.table.NewRetrieve().Where(gorp.MatchKeys[Key, Schematic](s.Key)).Exists(ctx, w.tx)
+		exists, err = w.table.NewRetrieve().
+			Where(gorp.MatchKeys[Key, Schematic](s.Key)).
+			Exists(ctx, w.tx)
 		if err != nil {
 			return err
 		}
@@ -88,7 +90,10 @@ func (w Writer) CreateMany(
 	return nil
 }
 
-func (w Writer) findParentProject(ctx context.Context, key Key) (project.Key, bool, error) {
+func (w Writer) findParentProject(
+	ctx context.Context,
+	key Key,
+) (project.Key, bool, error) {
 	var res []ontology.Resource
 	if err := w.otg.NewRetrieve().
 		WhereIDs(OntologyID(key)).
@@ -190,7 +195,9 @@ func (w Writer) Delete(
 	ctx context.Context,
 	keys ...Key,
 ) error {
-	err := w.table.NewDelete().Where(gorp.MatchKeys[Key, Schematic](keys...)).Exec(ctx, w.tx)
+	err := w.table.NewDelete().
+		Where(gorp.MatchKeys[Key, Schematic](keys...)).
+		Exec(ctx, w.tx)
 	if err != nil {
 		return err
 	}

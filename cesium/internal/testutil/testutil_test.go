@@ -92,30 +92,42 @@ var _ = Describe("Test Util Test", func() {
 					subsub2list := lo.Map(MustSucceed(sub2.List("subsub1")), infoToName)
 					Expect(subsub1list).To(Equal(subsub2list))
 
-					subsubsub1list := lo.Map(MustSucceed(sub1.List("subsub1/subsubsub1")), infoToName)
-					subsubsub2list := lo.Map(MustSucceed(sub2.List("subsub1/subsubsub1")), infoToName)
+					subsubsub1list := lo.Map(
+						MustSucceed(sub1.List("subsub1/subsubsub1")),
+						infoToName,
+					)
+					subsubsub2list := lo.Map(
+						MustSucceed(sub2.List("subsub1/subsubsub1")),
+						infoToName,
+					)
 					Expect(subsubsub1list).To(Equal(subsubsub2list))
 				})
 			})
 		}
 	})
 
-	DescribeTable("GenerateFrameAndChannels", func(numIndex, numData, samplesPerDomain int) {
-		data, chs, keys := GenerateDataAndChannels(numIndex, numData, samplesPerDomain)
+	DescribeTable(
+		"GenerateFrameAndChannels",
+		func(numIndex, numData, samplesPerDomain int) {
+			data, chs, keys := GenerateDataAndChannels(
+				numIndex,
+				numData,
+				samplesPerDomain,
+			)
 
-		Expect(chs).To(HaveLen(numIndex + numData))
-		for i := range numIndex {
-			Expect(chs[i].IsIndex).To(BeTrue())
-			Expect(keys[i]).To(Equal(cesium.ChannelKey(i + 1)))
-		}
-		for i := numIndex; i < numIndex+numData; i++ {
-			Expect(chs[i].Index).To(Equal(cesium.ChannelKey((i+1)%numIndex + 1)))
-			Expect(keys[i]).To(Equal(cesium.ChannelKey(i + 1)))
-		}
+			Expect(chs).To(HaveLen(numIndex + numData))
+			for i := range numIndex {
+				Expect(chs[i].IsIndex).To(BeTrue())
+				Expect(keys[i]).To(Equal(cesium.ChannelKey(i + 1)))
+			}
+			for i := numIndex; i < numIndex+numData; i++ {
+				Expect(chs[i].Index).To(Equal(cesium.ChannelKey((i+1)%numIndex + 1)))
+				Expect(keys[i]).To(Equal(cesium.ChannelKey(i + 1)))
+			}
 
-		// Assert that the data channel has the right length
-		Expect(data.Len()).To(Equal(int64(samplesPerDomain)))
-	},
+			// Assert that the data channel has the right length
+			Expect(data.Len()).To(Equal(int64(samplesPerDomain)))
+		},
 		Entry("normal", 1, 2, 2),
 		Entry("many indices", 3, 5, 3),
 		Entry("more indices than data", 10, 5, 15),

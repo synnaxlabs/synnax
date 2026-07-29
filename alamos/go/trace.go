@@ -116,7 +116,11 @@ func (t *Tracer) Bench(ctx context.Context, key string) (context.Context, Span) 
 
 // Trace wraps the given context in a span with the given key and level. If the context
 // is already wrapped in a span, the span will be a child of the existing span.
-func (t *Tracer) Trace(ctx context.Context, key string, env Environment) (context.Context, Span) {
+func (t *Tracer) Trace(
+	ctx context.Context,
+	key string,
+	env Environment,
+) (context.Context, Span) {
 	if t == nil || !t.config.Filter(env, key) {
 		return ctx, nopSpan{}
 	}

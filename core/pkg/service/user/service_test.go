@@ -34,60 +34,91 @@ var _ = Describe("ServiceConfig", func() {
 		}
 	})
 	Describe("Override", func() {
-		It("Should take each required field from the override when the base is zero", func() {
-			result := user.ServiceConfig{}.Override(cfg)
-			Expect(result.DB).To(Equal(db))
-			Expect(result.Ontology).To(Equal(otg))
-			Expect(result.Group).To(Equal(groupSvc))
-			Expect(result.Search).To(Equal(searchIdx))
-			Expect(result.Auth).To(Equal(authSvc))
-		})
-		It("Should keep each required field from the base when the override is zero", func() {
-			result := cfg.Override(user.ServiceConfig{})
-			Expect(result.DB).To(Equal(db))
-			Expect(result.Ontology).To(Equal(otg))
-			Expect(result.Group).To(Equal(groupSvc))
-			Expect(result.Search).To(Equal(searchIdx))
-			Expect(result.Auth).To(Equal(authSvc))
-		})
+		It(
+			"Should take each required field from the override when the base is zero",
+			func() {
+				result := user.ServiceConfig{}.Override(cfg)
+				Expect(result.DB).To(Equal(db))
+				Expect(result.Ontology).To(Equal(otg))
+				Expect(result.Group).To(Equal(groupSvc))
+				Expect(result.Search).To(Equal(searchIdx))
+				Expect(result.Auth).To(Equal(authSvc))
+			},
+		)
+		It(
+			"Should keep each required field from the base when the override is zero",
+			func() {
+				result := cfg.Override(user.ServiceConfig{})
+				Expect(result.DB).To(Equal(db))
+				Expect(result.Ontology).To(Equal(otg))
+				Expect(result.Group).To(Equal(groupSvc))
+				Expect(result.Search).To(Equal(searchIdx))
+				Expect(result.Auth).To(Equal(authSvc))
+			},
+		)
 		It("Should take RootCredentials from the override when set", func() {
 			creds := auth.Credentials{Username: "u", Password: "p"}
 			result := cfg.Override(user.ServiceConfig{RootCredentials: creds})
 			Expect(result.RootCredentials).To(Equal(creds))
 		})
-		It("Should keep RootCredentials from the base when the override is zero", func() {
-			creds := auth.Credentials{Username: "u", Password: "p"}
-			cfg.RootCredentials = creds
-			result := cfg.Override(user.ServiceConfig{})
-			Expect(result.RootCredentials).To(Equal(creds))
-		})
+		It(
+			"Should keep RootCredentials from the base when the override is zero",
+			func() {
+				creds := auth.Credentials{Username: "u", Password: "p"}
+				cfg.RootCredentials = creds
+				result := cfg.Override(user.ServiceConfig{})
+				Expect(result.RootCredentials).To(Equal(creds))
+			},
+		)
 	})
 	Describe("Validate", func() {
 		It("Should succeed when every required field is set", func() {
 			Expect(cfg.Validate()).To(Succeed())
 		})
-		It("Should succeed without Auth when no root credentials are configured", func() {
-			cfg.Auth = nil
-			Expect(cfg.Validate()).To(Succeed())
-		})
+		It(
+			"Should succeed without Auth when no root credentials are configured",
+			func() {
+				cfg.Auth = nil
+				Expect(cfg.Validate()).To(Succeed())
+			},
+		)
 		It("Should require Auth when root credentials are configured", func() {
 			cfg.Auth = nil
 			cfg.RootCredentials = auth.Credentials{Username: "u", Password: "p"}
-			Expect(cfg.Validate()).To(MatchError(ContainSubstring("auth: must be non-nil")))
+			Expect(
+				cfg.Validate(),
+			).To(MatchError(ContainSubstring("auth: must be non-nil")))
 		})
 		It("Should reject root credentials with an empty password", func() {
 			cfg.RootCredentials = auth.Credentials{Username: "u", Password: ""}
 			Expect(cfg.Validate()).To(MatchError(ContainSubstring("password")))
 		})
-		DescribeTable("Should return an error when a required field is missing",
+		DescribeTable(
+			"Should return an error when a required field is missing",
 			func(mutate func(*user.ServiceConfig), errorMsg string) {
 				mutate(&cfg)
 				Expect(cfg.Validate()).To(MatchError(ContainSubstring(errorMsg)))
 			},
-			Entry("db", func(c *user.ServiceConfig) { c.DB = nil }, "db: must be non-nil"),
-			Entry("ontology", func(c *user.ServiceConfig) { c.Ontology = nil }, "ontology: must be non-nil"),
-			Entry("group", func(c *user.ServiceConfig) { c.Group = nil }, "group: must be non-nil"),
-			Entry("search", func(c *user.ServiceConfig) { c.Search = nil }, "search: must be non-nil"),
+			Entry(
+				"db",
+				func(c *user.ServiceConfig) { c.DB = nil },
+				"db: must be non-nil",
+			),
+			Entry(
+				"ontology",
+				func(c *user.ServiceConfig) { c.Ontology = nil },
+				"ontology: must be non-nil",
+			),
+			Entry(
+				"group",
+				func(c *user.ServiceConfig) { c.Group = nil },
+				"group: must be non-nil",
+			),
+			Entry(
+				"search",
+				func(c *user.ServiceConfig) { c.Search = nil },
+				"search: must be non-nil",
+			),
 		)
 	})
 })
@@ -130,9 +161,12 @@ var _ = Describe("Service", func() {
 				Entry(&u).Exec(ctx, tx)).To(Succeed())
 			Expect(u).To(Equal(created))
 		})
-		It("Should return an error if the username does not exist", func(ctx SpecContext) {
-			Expect(svc.NewRetrieve().Where(user.MatchUsernames("does-not-exist")).
-				Entry(&user.User{}).Exec(ctx, tx)).To(MatchError(query.ErrNotFound))
-		})
+		It(
+			"Should return an error if the username does not exist",
+			func(ctx SpecContext) {
+				Expect(svc.NewRetrieve().Where(user.MatchUsernames("does-not-exist")).
+					Entry(&user.User{}).Exec(ctx, tx)).To(MatchError(query.ErrNotFound))
+			},
+		)
 	})
 })

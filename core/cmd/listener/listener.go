@@ -97,7 +97,12 @@ func (cs Configs) Validate() error {
 	for i, c := range cs {
 		field := fmt.Sprintf("listeners[%d]", i)
 		v.Exec(func() error { return validate.PathedError(c.Validate(), field) })
-		v.Ternaryf(field+".address", seen.Contains(c.Address), "duplicate listener address %q", c.Address)
+		v.Ternaryf(
+			field+".address",
+			seen.Contains(c.Address),
+			"duplicate listener address %q",
+			c.Address,
+		)
 		seen.Add(c.Address)
 		if c.Advertise {
 			advertised++
@@ -169,7 +174,11 @@ func (cs Configs) Resolve(
 		}
 		if c.Address == advertised {
 			if err = p.VerifyCoreCert(src, advertised.Host()); err != nil {
-				return nil, errors.Wrapf(err, "advertised listener %q must serve a certificate the Core CA signs for that host; peers cannot verify it otherwise", c.Address)
+				return nil, errors.Wrapf(
+					err,
+					"advertised listener %q must serve a certificate the Core CA signs for that host; peers cannot verify it otherwise",
+					c.Address,
+				)
 			}
 		}
 		out[i] = server.Listener{Address: c.Address, TLS: p.TLSConfigFor(src)}

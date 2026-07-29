@@ -24,7 +24,11 @@ import (
 var _ = Describe("Log", func() {
 	Describe("NewLogger", func() {
 		It("Should correctly attach a new logger to the Instrumentation", func() {
-			logger := MustSucceed(alamos.NewLogger(alamos.LoggerConfig{ZapConfig: zap.NewDevelopmentConfig()}))
+			logger := MustSucceed(
+				alamos.NewLogger(
+					alamos.LoggerConfig{ZapConfig: zap.NewDevelopmentConfig()},
+				),
+			)
 			i := alamos.New("test", alamos.WithLogger(logger))
 			Expect(i.L).ToNot(BeNil())
 		})
@@ -39,16 +43,21 @@ var _ = Describe("Log", func() {
 		BeforeEach(func() {
 			config := zap.NewDevelopmentConfig()
 			config.OutputPaths = []string{"stdout"}
-			logger = MustSucceed(alamos.NewLogger(alamos.LoggerConfig{ZapConfig: config}))
+			logger = MustSucceed(
+				alamos.NewLogger(alamos.LoggerConfig{ZapConfig: config}),
+			)
 			buffer = &bytes.Buffer{}
-			zapLogger := logger.Zap().WithOptions(zap.WrapCore(func(core zapcore.Core) zapcore.Core {
-				return zapcore.NewCore(
-					zapcore.NewJSONEncoder(zap.NewDevelopmentEncoderConfig()),
-					zapcore.AddSync(buffer),
-					zapcore.DebugLevel,
-				)
-			}))
-			logger = MustSucceed(alamos.NewLogger(alamos.LoggerConfig{ZapLogger: zapLogger}))
+			zapLogger := logger.Zap().
+				WithOptions(zap.WrapCore(func(core zapcore.Core) zapcore.Core {
+					return zapcore.NewCore(
+						zapcore.NewJSONEncoder(zap.NewDevelopmentEncoderConfig()),
+						zapcore.AddSync(buffer),
+						zapcore.DebugLevel,
+					)
+				}))
+			logger = MustSucceed(
+				alamos.NewLogger(alamos.LoggerConfig{ZapLogger: zapLogger}),
+			)
 		})
 
 		It("Should handle WithOptions", func() {
@@ -207,7 +216,9 @@ var _ = Describe("Log", func() {
 
 		It("Should maintain core functionality", func() {
 			custom := alamos.CustomZapCore(core)
-			Expect(custom.With([]zapcore.Field{zap.String("key", "value")})).ToNot(BeNil())
+			Expect(
+				custom.With([]zapcore.Field{zap.String("key", "value")}),
+			).ToNot(BeNil())
 			Expect(custom.Sync()).To(Succeed())
 		})
 
@@ -226,7 +237,9 @@ var _ = Describe("Log", func() {
 		It("Should log with custom core", func() {
 			custom := alamos.CustomZapCore(core)
 			zapLogger := zap.New(custom)
-			newLogger := MustSucceed(alamos.NewLogger(alamos.LoggerConfig{ZapLogger: zapLogger}))
+			newLogger := MustSucceed(
+				alamos.NewLogger(alamos.LoggerConfig{ZapLogger: zapLogger}),
+			)
 			newLogger.Info("test message", zap.String("key", "value"))
 			Expect(buffer.String()).To(ContainSubstring("test message"))
 			Expect(buffer.String()).To(ContainSubstring("key"))

@@ -60,7 +60,10 @@ func (s *Service) Create(ctx context.Context, channels []Channel) ([]Channel, er
 	return out, nil
 }
 
-func (s *Service) createHandler(ctx context.Context, msg CreateMessage) (CreateMessage, error) {
+func (s *Service) createHandler(
+	ctx context.Context,
+	msg CreateMessage,
+) (CreateMessage, error) {
 	allocated, err := s.Create(ctx, msg.Channels)
 	if err != nil {
 		return CreateMessage{}, err
@@ -99,9 +102,11 @@ func (s *Service) allocateGateway(ctx context.Context, channels []Channel) error
 	if err := assignKeys(ctx, s.leasedCounter, channels); err != nil {
 		return err
 	}
-	return s.cfg.TS.CreateChannel(ctx, lo.Map(channels, func(c Channel, _ int) ts.Channel {
-		return c.Storage()
-	})...)
+	return s.cfg.TS.CreateChannel(
+		ctx,
+		lo.Map(channels, func(c Channel, _ int) ts.Channel {
+			return c.Storage()
+		})...)
 }
 
 // allocateFree assigns keys to free channels from the bootstrapper's counter. Free

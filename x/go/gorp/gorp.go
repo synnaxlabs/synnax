@@ -20,7 +20,12 @@ import (
 )
 
 // Wrap wraps the provided key-value database in a DB.
-func Wrap(kv kv.DB, opts ...Option) *DB { return &DB{DB: kv, options: newOptions(opts)} }
+func Wrap(
+	kv kv.DB,
+	opts ...Option,
+) *DB {
+	return &DB{DB: kv, options: newOptions(opts)}
+}
 
 // DB is a wrapper around a kv.DB that queries can be executed against. DB implements
 // the transaction (Tx) interface. Using a DB as a Tx will execute the query
@@ -72,7 +77,11 @@ func (db *DB) KV() kv.DB { return db.DB }
 
 // OverrideTx returns the override transaction if it is not nil. Otherwise,
 // it returns the base transaction.
-func OverrideTx(base, override Tx) Tx { return lo.Ternary(override != nil, override, base) }
+func OverrideTx(
+	base, override Tx,
+) Tx {
+	return lo.Ternary(override != nil, override, base)
+}
 
 // Tx extends the kv.Tx interface to provide gorp-required utilities for
 // executing a strongly-typed, atomic transaction against a DB. To open a

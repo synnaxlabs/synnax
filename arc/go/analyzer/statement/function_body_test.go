@@ -79,7 +79,8 @@ var _ = Describe("AnalyzeFunctionBody", func() {
 			Expect(inferredType).To(Equal(types.String()))
 		})
 
-		DescribeTable("channel type inference with integer constants",
+		DescribeTable(
+			"channel type inference with integer constants",
 			func(bCtx SpecContext, code, chanName string, chanType, expected types.Type) {
 				globalResolver := []symbol.Symbol{
 					{
@@ -117,112 +118,130 @@ var _ = Describe("AnalyzeFunctionBody", func() {
 			}`, "i32_chan", types.Chan(types.I32()), types.I32()),
 		)
 
-		It("should infer f32 from integer constant and f32 series", func(bCtx SpecContext) {
-			block := MustSucceed(parser.ParseBlock(`{
+		It(
+			"should infer f32 from integer constant and f32 series",
+			func(bCtx SpecContext) {
+				block := MustSucceed(parser.ParseBlock(`{
 				if (condition == 1) { return 0 }
 				return f32_series
 			}`))
-			globalResolver := []symbol.Symbol{
-				{
-					Name: "condition",
-					Kind: symbol.KindVariable,
-					Type: types.U8(),
-				},
-				{
-					Name: "f32_series",
-					Kind: symbol.KindVariable,
-					Type: types.Series(types.F32()),
-				},
-			}
-			ctx := createContextWithResolver(bCtx, block, globalResolver)
-			inferredType := analyzeBodySuccess(ctx)
-			Expect(inferredType).To(Equal(types.F32()))
-		})
+				globalResolver := []symbol.Symbol{
+					{
+						Name: "condition",
+						Kind: symbol.KindVariable,
+						Type: types.U8(),
+					},
+					{
+						Name: "f32_series",
+						Kind: symbol.KindVariable,
+						Type: types.Series(types.F32()),
+					},
+				}
+				ctx := createContextWithResolver(bCtx, block, globalResolver)
+				inferredType := analyzeBodySuccess(ctx)
+				Expect(inferredType).To(Equal(types.F32()))
+			},
+		)
 
-		It("should infer f32 from integer constant and plain f32 variable", func(bCtx SpecContext) {
-			block := MustSucceed(parser.ParseBlock(`{
+		It(
+			"should infer f32 from integer constant and plain f32 variable",
+			func(bCtx SpecContext) {
+				block := MustSucceed(parser.ParseBlock(`{
 				x f32 := 3.5
 				if (x > 0) { return 0 }
 				return x
 			}`))
-			ctx := createContext(bCtx, block)
-			inferredType := analyzeBodySuccess(ctx)
-			Expect(inferredType).To(Equal(types.F32()))
-		})
+				ctx := createContext(bCtx, block)
+				inferredType := analyzeBodySuccess(ctx)
+				Expect(inferredType).To(Equal(types.F32()))
+			},
+		)
 
-		It("should infer f32 from multiple integer constants and one f32 channel", func(bCtx SpecContext) {
-			block := MustSucceed(parser.ParseBlock(`{
+		It(
+			"should infer f32 from multiple integer constants and one f32 channel",
+			func(bCtx SpecContext) {
+				block := MustSucceed(parser.ParseBlock(`{
 				if (a == 1) { return 0 }
 				else if (a == 2) { return 1 }
 				else if (a == 3) { return 2 }
 				return f32_chan
 			}`))
-			globalResolver := []symbol.Symbol{
-				{Name: "a", Kind: symbol.KindVariable, Type: types.U8()},
-				{
-					Name: "f32_chan",
-					Kind: symbol.KindChannel,
-					Type: types.Chan(types.F32()),
-				},
-			}
-			ctx := createContextWithResolver(bCtx, block, globalResolver)
-			inferredType := analyzeBodySuccess(ctx)
-			Expect(inferredType).To(Equal(types.F32()))
-		})
+				globalResolver := []symbol.Symbol{
+					{Name: "a", Kind: symbol.KindVariable, Type: types.U8()},
+					{
+						Name: "f32_chan",
+						Kind: symbol.KindChannel,
+						Type: types.Chan(types.F32()),
+					},
+				}
+				ctx := createContextWithResolver(bCtx, block, globalResolver)
+				inferredType := analyzeBodySuccess(ctx)
+				Expect(inferredType).To(Equal(types.F32()))
+			},
+		)
 
-		It("should infer the correct type for channel and literal operations in power expressions", func(bCtx SpecContext) {
-			block := MustSucceed(parser.ParseBlock(`{ return f32_chan ^ 2 }`))
-			globalResolver := []symbol.Symbol{
-				{
-					Name: "f32_chan",
-					Kind: symbol.KindChannel,
-					Type: types.Chan(types.F32()),
-				},
-			}
-			ctx := createContextWithResolver(bCtx, block, globalResolver)
-			inferredType := analyzeBodySuccess(ctx)
-			Expect(inferredType).To(Equal(types.F32()))
-		})
+		It(
+			"should infer the correct type for channel and literal operations in power expressions",
+			func(bCtx SpecContext) {
+				block := MustSucceed(parser.ParseBlock(`{ return f32_chan ^ 2 }`))
+				globalResolver := []symbol.Symbol{
+					{
+						Name: "f32_chan",
+						Kind: symbol.KindChannel,
+						Type: types.Chan(types.F32()),
+					},
+				}
+				ctx := createContextWithResolver(bCtx, block, globalResolver)
+				inferredType := analyzeBodySuccess(ctx)
+				Expect(inferredType).To(Equal(types.F32()))
+			},
+		)
 
-		It("should infer f32 from float constant and f32 channel", func(bCtx SpecContext) {
-			block := MustSucceed(parser.ParseBlock(`{
+		It(
+			"should infer f32 from float constant and f32 channel",
+			func(bCtx SpecContext) {
+				block := MustSucceed(parser.ParseBlock(`{
 				if (condition == 1) { return 3.14 }
 				return f32_chan
 			}`))
-			globalResolver := []symbol.Symbol{
-				{
-					Name: "condition",
-					Kind: symbol.KindVariable,
-					Type: types.U8(),
-				},
-				{
-					Name: "f32_chan",
-					Kind: symbol.KindChannel,
-					Type: types.Chan(types.F32()),
-				},
-			}
-			ctx := createContextWithResolver(bCtx, block, globalResolver)
-			inferredType := analyzeBodySuccess(ctx)
-			Expect(inferredType).To(Equal(types.F32()))
-		})
+				globalResolver := []symbol.Symbol{
+					{
+						Name: "condition",
+						Kind: symbol.KindVariable,
+						Type: types.U8(),
+					},
+					{
+						Name: "f32_chan",
+						Kind: symbol.KindChannel,
+						Type: types.Chan(types.F32()),
+					},
+				}
+				ctx := createContextWithResolver(bCtx, block, globalResolver)
+				inferredType := analyzeBodySuccess(ctx)
+				Expect(inferredType).To(Equal(types.F32()))
+			},
+		)
 
-		It("should infer f32 from channel and plain variable of same type", func(bCtx SpecContext) {
-			block := MustSucceed(parser.ParseBlock(`{
+		It(
+			"should infer f32 from channel and plain variable of same type",
+			func(bCtx SpecContext) {
+				block := MustSucceed(parser.ParseBlock(`{
 				x f32 := 2.5
 				if (x > 0) { return f32_chan }
 				return x
 			}`))
-			globalResolver := []symbol.Symbol{
-				{
-					Name: "f32_chan",
-					Kind: symbol.KindChannel,
-					Type: types.Chan(types.F32()),
-				},
-			}
-			ctx := createContextWithResolver(bCtx, block, globalResolver)
-			inferredType := analyzeBodySuccess(ctx)
-			Expect(inferredType).To(Equal(types.F32()))
-		})
+				globalResolver := []symbol.Symbol{
+					{
+						Name: "f32_chan",
+						Kind: symbol.KindChannel,
+						Type: types.Chan(types.F32()),
+					},
+				}
+				ctx := createContextWithResolver(bCtx, block, globalResolver)
+				inferredType := analyzeBodySuccess(ctx)
+				Expect(inferredType).To(Equal(types.F32()))
+			},
+		)
 	})
 
 	Context("when unifying multiple return types", func() {
@@ -272,7 +291,9 @@ var _ = Describe("AnalyzeFunctionBody", func() {
 				statement.AnalyzeFunctionBody(ctx)
 				Expect(ctx.Diagnostics.Ok()).To(BeFalse())
 				Expect(*ctx.Diagnostics).To(HaveLen(1))
-				Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring(expectedErrSubstring))
+				Expect(
+					(*ctx.Diagnostics)[0].Message,
+				).To(ContainSubstring(expectedErrSubstring))
 			},
 			Entry("i32 and string", `{
 				x i32 := 1
@@ -380,21 +401,26 @@ var _ = Describe("AnalyzeFunctionBody", func() {
 	})
 
 	Context("edge cases", func() {
-		It("should handle return with no expression (void return)", func(bCtx SpecContext) {
-			block := MustSucceed(parser.ParseBlock(`{
+		It(
+			"should handle return with no expression (void return)",
+			func(bCtx SpecContext) {
+				block := MustSucceed(parser.ParseBlock(`{
 				x i32 := 1
 				if x > 0 { return }
 			}`))
-			ctx := createContext(bCtx, block)
-			inferredType := analyzeBodySuccess(ctx)
-			Expect(inferredType.IsValid()).To(BeFalse())
-		})
+				ctx := createContext(bCtx, block)
+				inferredType := analyzeBodySuccess(ctx)
+				Expect(inferredType.IsValid()).To(BeFalse())
+			},
+		)
 
 		It("should handle all same type returns", func(bCtx SpecContext) {
 			block := MustSucceed(parser.ParseBlock(`{ return 1 }`))
 			ctx := createContext(bCtx, block)
 			inferredType := analyzeBodySuccess(ctx)
-			Expect(inferredType.Kind).To(Or(Equal(types.KindVariable), Equal(types.KindI64)))
+			Expect(
+				inferredType.Kind,
+			).To(Or(Equal(types.KindVariable), Equal(types.KindI64)))
 		})
 
 		DescribeTable("integer size unification",
@@ -430,7 +456,9 @@ var _ = Describe("AnalyzeFunctionBody", func() {
 			statement.AnalyzeFunctionBody(ctx)
 			Expect(ctx.Diagnostics.Ok()).To(BeFalse())
 			Expect(*ctx.Diagnostics).ToNot(BeEmpty())
-			Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("undefined symbol"))
+			Expect(
+				(*ctx.Diagnostics)[0].Message,
+			).To(ContainSubstring("undefined symbol"))
 		})
 
 		It("should report type incompatibility clearly", func(bCtx SpecContext) {
@@ -444,7 +472,9 @@ var _ = Describe("AnalyzeFunctionBody", func() {
 			statement.AnalyzeFunctionBody(ctx)
 			Expect(ctx.Diagnostics.Ok()).To(BeFalse())
 			Expect(*ctx.Diagnostics).To(HaveLen(1))
-			Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("incompatible return types"))
+			Expect(
+				(*ctx.Diagnostics)[0].Message,
+			).To(ContainSubstring("incompatible return types"))
 		})
 	})
 

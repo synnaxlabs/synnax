@@ -61,7 +61,8 @@ var _ = Describe("Analysis", func() {
 
 		// Addition, subtraction, modulo, and comparisons require matching dimensions
 		Context("Dimension-Matching Operations", func() {
-			DescribeTable("should allow matching or dimensionless operands",
+			DescribeTable(
+				"should allow matching or dimensionless operands",
 				func(op, leftUnit, rightUnit string) {
 					ctx := testCtx()
 					left, right := makeType(leftUnit), makeType(rightUnit)
@@ -82,7 +83,12 @@ var _ = Describe("Analysis", func() {
 				Entry("greater than same dimensions", ">", "psi", "Pa"),
 				Entry("less than dimensionless", "<", "", ""),
 				Entry("equals dimensionless", "==", "", ""),
-				Entry("greater than or equal with unit to dimensionless", ">=", "psi", ""),
+				Entry(
+					"greater than or equal with unit to dimensionless",
+					">=",
+					"psi",
+					"",
+				),
 				Entry("not equals same dimensions", "!=", "m", "m"),
 				Entry("less than or equal same dimensions", "<=", "s", "ms"),
 			)
@@ -115,7 +121,8 @@ var _ = Describe("Analysis", func() {
 			Entry("dimensionless base with dimensionless exponent", "", "", true),
 		)
 
-		DescribeTable("invalid power operations",
+		DescribeTable(
+			"invalid power operations",
 			func(baseUnit, expUnit string, isLiteral bool, expectedErr error, msgSubstring string) {
 				base, exp := makeType(baseUnit), makeType(expUnit)
 				Expect(units.ValidatePowerOp(base, exp, isLiteral)).
@@ -167,12 +174,20 @@ var _ = Describe("Analysis", func() {
 			Entry("incompatible dimensions",
 				MustBeOk(units.Resolve("psi")), MustBeOk(units.Resolve("s")),
 				units.ErrIncompatibleDimensions, "cannot convert"),
-			Entry("nil to dimensioned",
-				nil, MustBeOk(units.Resolve("psi")),
-				units.ErrDimensions, "cannot convert between dimensioned and dimensionless"),
-			Entry("dimensioned to nil",
-				MustBeOk(units.Resolve("psi")), nil,
-				units.ErrDimensions, "cannot convert between dimensioned and dimensionless"),
+			Entry(
+				"nil to dimensioned",
+				nil,
+				MustBeOk(units.Resolve("psi")),
+				units.ErrDimensions,
+				"cannot convert between dimensioned and dimensionless",
+			),
+			Entry(
+				"dimensioned to nil",
+				MustBeOk(units.Resolve("psi")),
+				nil,
+				units.ErrDimensions,
+				"cannot convert between dimensioned and dimensionless",
+			),
 		)
 	})
 })

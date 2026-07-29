@@ -17,10 +17,13 @@ import (
 
 var _ = Describe("TimeRange", func() {
 	Describe("NewRangeSeconds", func() {
-		It("Should instantiate a time range between a particular starting number of seconds and ending number of seconds", func() {
-			tr := telem.NewRangeSeconds(1, 5)
-			Expect(tr.Start).To(Equal(telem.SecondTS * 1))
-			Expect(tr.End).To(Equal(telem.SecondTS * 5))
-		})
+		It(
+			"Should instantiate a time range between a particular starting number of seconds and ending number of seconds",
+			func() {
+				tr := telem.NewRangeSeconds(1, 5)
+				Expect(tr.Start).To(Equal(telem.SecondTS * 1))
+				Expect(tr.End).To(Equal(telem.SecondTS * 5))
+			},
+		)
 	})
 })

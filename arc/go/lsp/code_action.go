@@ -287,16 +287,28 @@ func deprecatedSymbolQuickFix(
 	tokenEndLine, tokenEndChar := tokenEndLineChar(token)
 	edits := []protocol.TextEdit{{
 		Range: protocol.Range{
-			Start: protocol.Position{Line: uint32(tokenStartLine), Character: uint32(tokenStartChar)},
-			End:   protocol.Position{Line: uint32(tokenEndLine), Character: uint32(tokenEndChar)},
+			Start: protocol.Position{
+				Line:      uint32(tokenStartLine),
+				Character: uint32(tokenStartChar),
+			},
+			End: protocol.Position{
+				Line:      uint32(tokenEndLine),
+				Character: uint32(tokenEndChar),
+			},
 		},
 		NewText: replacementName,
 	}}
 	if module := replacementModule(repl); module != "" {
-		edits = append(buildAutoImportEditFromSnapshot(snap.Content, snap.Symbols, module), edits...)
+		edits = append(
+			buildAutoImportEditFromSnapshot(snap.Content, snap.Symbols, module),
+			edits...)
 	}
 	return &protocol.CodeAction{
-		Title:       fmt.Sprintf("Replace '%s' with '%s'", token.GetText(), replacementName),
+		Title: fmt.Sprintf(
+			"Replace '%s' with '%s'",
+			token.GetText(),
+			replacementName,
+		),
 		Kind:        new(protocol.CodeActionKindQuickFix),
 		Diagnostics: []protocol.Diagnostic{diag},
 		IsPreferred: new(true),
@@ -458,7 +470,12 @@ func missingImportQuickFix(
 	if scope == nil {
 		return nil
 	}
-	if sym, err := scope.Resolve(ctx, name, symbol.WithoutUsageTracking); err == nil && sym != nil {
+	if sym, err := scope.Resolve(
+		ctx,
+		name,
+		symbol.WithoutUsageTracking,
+	); err == nil &&
+		sym != nil {
 		return nil
 	}
 	if !scope.IsAmbientModule(name) {

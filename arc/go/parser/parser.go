@@ -111,7 +111,10 @@ func Parse(source string, cfgs ...Config) (IProgramContext, *diagnostics.Diagnos
 // Example:
 //
 //	expr, err := parser.ParseExpression("(2 + 3) * 4")
-func ParseExpression(source string, cfgs ...Config) (IExpressionContext, *diagnostics.Diagnostics) {
+func ParseExpression(
+	source string,
+	cfgs ...Config,
+) (IExpressionContext, *diagnostics.Diagnostics) {
 	return parseWithContext(source, ConfigOf(cfgs...), (*ArcParser).Expression)
 }
 
@@ -124,7 +127,10 @@ func ParseExpression(source string, cfgs ...Config) (IExpressionContext, *diagno
 // Example:
 //
 //	stmt, err := parser.ParseStatement("total := total + 1")
-func ParseStatement(source string, cfgs ...Config) (IStatementContext, *diagnostics.Diagnostics) {
+func ParseStatement(
+	source string,
+	cfgs ...Config,
+) (IStatementContext, *diagnostics.Diagnostics) {
 	return parseWithContext(source, ConfigOf(cfgs...), (*ArcParser).Statement)
 }
 
@@ -136,7 +142,10 @@ func ParseStatement(source string, cfgs ...Config) (IStatementContext, *diagnost
 //	    x := 10
 //	    y := x * 2
 //	}`)
-func ParseBlock(source string, cfgs ...Config) (IBlockContext, *diagnostics.Diagnostics) {
+func ParseBlock(
+	source string,
+	cfgs ...Config,
+) (IBlockContext, *diagnostics.Diagnostics) {
 	return parseWithContext(source, ConfigOf(cfgs...), (*ArcParser).Block)
 }
 
@@ -189,7 +198,10 @@ func (e *errorListener) SyntaxError(
 		Severity: protocol.DiagnosticSeverityError,
 		Range: protocol.Range{
 			Start: protocol.Position{Line: uint32(line - 1), Character: uint32(column)},
-			End:   protocol.Position{Line: uint32(line - 1), Character: uint32(column + 1)},
+			End: protocol.Position{
+				Line:      uint32(line - 1),
+				Character: uint32(column + 1),
+			},
 		},
 		Message: msg,
 	})
