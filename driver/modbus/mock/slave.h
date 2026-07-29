@@ -35,10 +35,8 @@
 #include "x/cpp/errors/errors.h"
 #include "x/cpp/telem/telem.h"
 
-#include "driver/modbus/util/util.h"
-
-/// abseil
 #include "absl/log/log.h"
+#include "driver/modbus/util/util.h"
 
 namespace driver::modbus::mock {
 /// @brief Configuration for a mock Modbus slave

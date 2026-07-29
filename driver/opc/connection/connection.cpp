@@ -32,7 +32,7 @@ ClientDeleter client_deleter() {
     };
 }
 
-/// @brief intercepts OPC UA log messages and forwards them to the driver log. Also
+/// @brief intercepts OPC UA log messages and forwards them to the Driver log. Also
 /// inserts a prefix for each message that is extracted from the log context. This
 /// function will fail silently if the log context is not a string.
 void custom_logger(
