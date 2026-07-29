@@ -17,8 +17,7 @@
 
 namespace x::log {
 /// @brief absl::LogSink writing log lines to stderr. When constructed with color
-/// enabled, the whole line is colored by severity: WARNING yellow, ERROR and FATAL
-/// red.
+/// enabled, the whole line is colored by severity: WARNING yellow, ERROR and FATAL red.
 class StderrSink final : public absl::LogSink {
 public:
     explicit StderrSink(bool enable_color);

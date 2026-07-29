@@ -25,9 +25,9 @@ constexpr auto YELLOW_CODE = "\033[0;33m";
 constexpr auto RED_CODE = "\033[0;31m";
 constexpr auto RESET_CODE = "\033[m\n";
 
-/// Silences absl's default stderr output so registered sinks own everything the
-/// tests capture. init() is deliberately never called in this process: it can
-/// only run once, and these tests need sinks with both color settings.
+/// Silences absl's default stderr output so registered sinks own everything the tests
+/// capture. init() is deliberately never called in this process: it can only run once,
+/// and these tests need sinks with both color settings.
 void silence_default_stderr() {
     static const bool once = [] {
         absl::InitializeLog();
@@ -118,8 +118,8 @@ TEST(Log, testHelpersBeforeInit) {
 }
 
 /// @brief it should enable color and helper codes after init(true). Runs in a
-/// threadsafe death-test child: init is once-per-process, and the child must
-/// re-execute the binary so absl is not already initialized.
+/// threadsafe death-test child: init is once-per-process, and the child must re-execute
+/// the binary so absl is not already initialized.
 TEST(Log, testInitEnablesColor) {
     GTEST_FLAG_SET(death_test_style, "threadsafe");
     ASSERT_EXIT(
