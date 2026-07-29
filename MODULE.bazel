@@ -9,7 +9,7 @@
 
 module(name = "synnax")
 
-bazel_dep(name = "abseil-cpp", version = "20250814.1")
+bazel_dep(name = "abseil-cpp", version = "20260526.0")
 bazel_dep(name = "boost.uuid", version = "1.90.0.bcr.1")
 bazel_dep(name = "cpp-httplib", version = "0.46.0")
 bazel_dep(name = "curl", version = "8.12.0.bcr.1")
