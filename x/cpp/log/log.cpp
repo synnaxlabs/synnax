@@ -66,8 +66,8 @@ bool color_enabled() {
 void init(const bool enable_color) {
     absl::InitializeLog();
     color.store(enable_color, std::memory_order_relaxed);
-    // The default stderr sink would duplicate every line; silence it and let
-    // StderrSink own stderr output.
+    // The default stderr sink would duplicate every line; silence it and let StderrSink
+    // own stderr output.
     absl::SetStderrThreshold(absl::LogSeverityAtLeast::kInfinity);
     static StderrSink sink;
     absl::AddLogSink(&sink);
