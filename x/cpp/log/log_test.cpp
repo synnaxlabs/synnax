@@ -14,7 +14,10 @@
 
 #include "x/cpp/log/log.h"
 
+#include "absl/log/globals.h"
+#include "absl/log/initialize.h"
 #include "absl/log/log.h"
+#include "absl/log/log_sink_registry.h"
 
 namespace x::log {
 namespace {
@@ -22,49 +25,38 @@ constexpr auto YELLOW_CODE = "\033[0;33m";
 constexpr auto RED_CODE = "\033[0;31m";
 constexpr auto RESET_CODE = "\033[m\n";
 
-/// init installs a process-global sink and absl::InitializeLog can only run once, so
-/// every test shares a single colored initialization.
-void ensure_init() {
+/// Silences absl's default stderr output so registered sinks own everything the
+/// tests capture. init() is deliberately never called in this process: it can
+/// only run once, and these tests need sinks with both color settings.
+void silence_default_stderr() {
     static const bool once = [] {
-        init(true);
+        absl::InitializeLog();
+        absl::SetStderrThreshold(absl::LogSeverityAtLeast::kInfinity);
         return true;
     }();
     (void) once;
 }
 
-std::string capture(const std::function<void()> &fn) {
-    ensure_init();
+/// @brief registers a sink for the enclosing scope.
+struct Registered {
+    StderrSink sink;
+
+    explicit Registered(const bool color): sink(color) { absl::AddLogSink(&sink); }
+    ~Registered() { absl::RemoveLogSink(&sink); }
+};
+
+std::string capture(const bool color, const std::function<void()> &fn) {
+    silence_default_stderr();
+    const Registered reg(color);
     testing::internal::CaptureStderr();
     fn();
     return testing::internal::GetCapturedStderr();
 }
 }
 
-/// @brief it should report color as enabled after init(true).
-TEST(Log, testColorEnabled) {
-    ensure_init();
-    ASSERT_TRUE(color_enabled());
-}
-
-/// @brief it should pass color codes through when color is enabled.
-TEST(Log, testGetColor) {
-    ensure_init();
-    ASSERT_EQ(get_color("\033[1;31m"), "\033[1;31m");
-    ASSERT_EQ(RED(), "\033[1;31m");
-    ASSERT_EQ(GREEN(), "\033[1;32m");
-    ASSERT_EQ(RESET(), "\033[0m");
-}
-
-/// @brief it should write INFO lines without any color codes.
-TEST(Log, testInfoUncolored) {
-    const auto out = capture([] { LOG(INFO) << "plain info line"; });
-    ASSERT_NE(out.find("plain info line"), std::string::npos);
-    ASSERT_EQ(out.find("\033["), std::string::npos);
-}
-
 /// @brief it should color the entire WARNING line yellow.
 TEST(Log, testWarningYellow) {
-    const auto out = capture([] { LOG(WARNING) << "warning line"; });
+    const auto out = capture(true, [] { LOG(WARNING) << "warning line"; });
     ASSERT_TRUE(out.starts_with(YELLOW_CODE));
     ASSERT_TRUE(out.ends_with(RESET_CODE));
     ASSERT_NE(out.find("warning line"), std::string::npos);
@@ -72,16 +64,34 @@ TEST(Log, testWarningYellow) {
 
 /// @brief it should color the entire ERROR line red.
 TEST(Log, testErrorRed) {
-    const auto out = capture([] { LOG(ERROR) << "error line"; });
+    const auto out = capture(true, [] { LOG(ERROR) << "error line"; });
     ASSERT_TRUE(out.starts_with(RED_CODE));
     ASSERT_TRUE(out.ends_with(RESET_CODE));
     ASSERT_NE(out.find("error line"), std::string::npos);
 }
 
+/// @brief it should write INFO lines without color codes even when color is on.
+TEST(Log, testInfoUncolored) {
+    const auto out = capture(true, [] { LOG(INFO) << "plain info line"; });
+    ASSERT_NE(out.find("plain info line"), std::string::npos);
+    ASSERT_EQ(out.find("\033["), std::string::npos);
+}
+
+/// @brief it should write all lines uncolored when color is off.
+TEST(Log, testColorDisabled) {
+    const auto out = capture(false, [] {
+        LOG(WARNING) << "warning line";
+        LOG(ERROR) << "error line";
+    });
+    ASSERT_NE(out.find("warning line"), std::string::npos);
+    ASSERT_NE(out.find("error line"), std::string::npos);
+    ASSERT_EQ(out.find("\033["), std::string::npos);
+}
+
 /// @brief it should write each line exactly once, with the default stderr sink
 /// silenced.
 TEST(Log, testNoDuplicateLines) {
-    const auto out = capture([] { LOG(INFO) << "singular line"; });
+    const auto out = capture(true, [] { LOG(INFO) << "singular line"; });
     const auto first = out.find("singular line");
     ASSERT_NE(first, std::string::npos);
     ASSERT_EQ(out.find("singular line", first + 1), std::string::npos);
@@ -89,8 +99,67 @@ TEST(Log, testNoDuplicateLines) {
 
 /// @brief it should abort on FATAL with the message on stderr.
 TEST(Log, testFatalAborts) {
-    ensure_init();
-    ASSERT_DEATH(LOG(FATAL) << "fatal line", "fatal line");
+    silence_default_stderr();
+    ASSERT_DEATH(
+        {
+            const Registered reg(true);
+            LOG(FATAL) << "fatal line";
+        },
+        "fatal line"
+    );
+}
+
+/// @brief it should keep color disabled and helpers empty before init.
+TEST(Log, testHelpersBeforeInit) {
+    ASSERT_FALSE(color_enabled());
+    ASSERT_EQ(get_color("\033[1;31m"), "");
+    ASSERT_EQ(RED(), "");
+    ASSERT_EQ(RESET(), "");
+}
+
+/// @brief it should enable color and helper codes after init(true). Runs in a
+/// threadsafe death-test child: init is once-per-process, and the child must
+/// re-execute the binary so absl is not already initialized.
+TEST(Log, testInitEnablesColor) {
+    GTEST_FLAG_SET(death_test_style, "threadsafe");
+    ASSERT_EXIT(
+        {
+            init(true);
+            const bool ok = color_enabled() && RED() == "\033[1;31m" &&
+                            get_color("x") == "x";
+            std::exit(ok ? 0 : 1);
+        },
+        testing::ExitedWithCode(0),
+        ""
+    );
+}
+
+/// @brief it should leave color disabled after init(false).
+TEST(Log, testInitWithoutColor) {
+    GTEST_FLAG_SET(death_test_style, "threadsafe");
+    ASSERT_EXIT(
+        {
+            init(false);
+            const bool ok = !color_enabled() && RED() == "" && get_color("x") == "";
+            std::exit(ok ? 0 : 1);
+        },
+        testing::ExitedWithCode(0),
+        ""
+    );
+}
+
+/// @brief it should route LOG lines through the installed sink after init.
+TEST(Log, testInitInstallsSink) {
+    GTEST_FLAG_SET(death_test_style, "threadsafe");
+    ASSERT_EXIT(
+        {
+            init(true);
+            LOG(WARNING) << "wired through sink";
+            std::exit(0);
+        },
+        testing::ExitedWithCode(0),
+        "wired through sink"
+    );
 }
 
 /// @brief it should convert bools to their string names.

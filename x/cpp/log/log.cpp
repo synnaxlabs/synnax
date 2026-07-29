@@ -15,61 +15,58 @@
 #include "absl/base/log_severity.h"
 #include "absl/log/globals.h"
 #include "absl/log/initialize.h"
-#include "absl/log/log_entry.h"
-#include "absl/log/log_sink.h"
 #include "absl/log/log_sink_registry.h"
 
 namespace x::log {
 namespace {
-std::atomic<bool> color(false);
+std::atomic<bool> enabled(false);
+}
 
-/// @brief writes log lines to stderr, coloring the whole line by severity: WARNING
-/// yellow, ERROR and FATAL red.
-class StderrSink final : public absl::LogSink {
-public:
-    void Send(const absl::LogEntry &entry) override {
-        const char *code = nullptr;
-        if (color_enabled()) switch (entry.log_severity()) {
-                case absl::LogSeverity::kWarning:
-                    code = "\033[0;33m";
-                    break;
-                case absl::LogSeverity::kError:
-                case absl::LogSeverity::kFatal:
-                    code = "\033[0;31m";
-                    break;
-                default:
-                    break;
-            }
-        if (code == nullptr) {
-            const auto msg = entry.text_message_with_prefix_and_newline();
-            std::fwrite(msg.data(), 1, msg.size(), stderr);
-            return;
+StderrSink::StderrSink(const bool enable_color): color(enable_color) {}
+
+void StderrSink::Send(const absl::LogEntry &entry) {
+    const char *code = nullptr;
+    if (this->color) switch (entry.log_severity()) {
+            case absl::LogSeverity::kWarning:
+                code = "\033[0;33m";
+                break;
+            case absl::LogSeverity::kError:
+            case absl::LogSeverity::kFatal:
+                code = "\033[0;31m";
+                break;
+            default:
+                break;
         }
-        const auto msg = entry.text_message_with_prefix();
-        std::fprintf(
-            stderr,
-            "%s%.*s\033[m\n",
-            code,
-            static_cast<int>(msg.size()),
-            msg.data()
-        );
+    if (code == nullptr) {
+        const auto msg = entry.text_message_with_prefix_and_newline();
+        std::fwrite(msg.data(), 1, msg.size(), stderr);
+        return;
     }
+    const auto msg = entry.text_message_with_prefix();
+    std::fprintf(
+        stderr,
+        "%s%.*s\033[m\n",
+        code,
+        static_cast<int>(msg.size()),
+        msg.data()
+    );
+}
 
-    void Flush() override { std::fflush(stderr); }
-};
+void StderrSink::Flush() {
+    std::fflush(stderr);
 }
 
 bool color_enabled() {
-    return color.load(std::memory_order_relaxed);
+    return enabled.load(std::memory_order_relaxed);
 }
 
 void init(const bool enable_color) {
     absl::InitializeLog();
-    color.store(enable_color, std::memory_order_relaxed);
+    enabled.store(enable_color, std::memory_order_relaxed);
     // The default stderr sink would duplicate every line; silence it and let StderrSink
     // own stderr output.
     absl::SetStderrThreshold(absl::LogSeverityAtLeast::kInfinity);
-    static StderrSink sink;
+    static StderrSink sink(enable_color);
     absl::AddLogSink(&sink);
 }
 }

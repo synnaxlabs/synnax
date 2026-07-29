@@ -33,6 +33,9 @@ cc_test(
     deps = [
         ":log",
         "@abseil-cpp//absl/log",
+        "@abseil-cpp//absl/log:globals",
+        "@abseil-cpp//absl/log:initialize",
+        "@abseil-cpp//absl/log:log_sink_registry",
         "@googletest//:gtest_main",
     ],
 )
