@@ -23,8 +23,8 @@ namespace x::log {
 namespace {
 std::atomic<bool> color(false);
 
-/// @brief writes log lines to stderr, coloring the whole line by severity:
-/// WARNING yellow, ERROR and FATAL red.
+/// @brief writes log lines to stderr, coloring the whole line by severity: WARNING
+/// yellow, ERROR and FATAL red.
 class StderrSink final : public absl::LogSink {
 public:
     void Send(const absl::LogEntry &entry) override {

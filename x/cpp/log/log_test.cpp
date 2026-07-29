@@ -22,8 +22,8 @@ constexpr auto YELLOW_CODE = "\033[0;33m";
 constexpr auto RED_CODE = "\033[0;31m";
 constexpr auto RESET_CODE = "\033[m\n";
 
-/// init installs a process-global sink and absl::InitializeLog can only run
-/// once, so every test shares a single colored initialization.
+/// init installs a process-global sink and absl::InitializeLog can only run once, so
+/// every test shares a single colored initialization.
 void ensure_init() {
     static const bool once = [] {
         init(true);
