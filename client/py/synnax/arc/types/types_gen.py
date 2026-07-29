@@ -47,6 +47,7 @@ class ChanDirection(IntEnum):
     none = 0
     read = 1
     write = 2
+    read_write = 3
 
 
 class Channels(BaseModel):

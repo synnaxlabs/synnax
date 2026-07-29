@@ -47,9 +47,10 @@ const (
 type ChanDirection = v1.ChanDirection
 
 const (
-	ChanDirectionNone  ChanDirection = v1.ChanDirectionNone
-	ChanDirectionRead  ChanDirection = v1.ChanDirectionRead
-	ChanDirectionWrite ChanDirection = v1.ChanDirectionWrite
+	ChanDirectionNone      ChanDirection = v1.ChanDirectionNone
+	ChanDirectionRead      ChanDirection = v1.ChanDirectionRead
+	ChanDirectionWrite     ChanDirection = v1.ChanDirectionWrite
+	ChanDirectionReadWrite ChanDirection = v1.ChanDirectionReadWrite
 )
 
 // FunctionProperties contains common parameter definitions for function-like types.
