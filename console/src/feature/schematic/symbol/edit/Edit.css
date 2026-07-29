@@ -60,13 +60,13 @@
             border-color 0.2s ease-in,
             background-color 0.2s ease-in;
         &.console--dragging-over {
-            background-color: var(--pluto-gray-l2);
+            background-color: var(--pluto-gray-l4);
             border-color: var(--pluto-primary-z);
             border-width: 1px;
         }
         &.console--enabled:hover {
-            background-color: var(--pluto-gray-l1);
-            border-color: var(--pluto-gray-l3);
+            background-color: var(--pluto-gray-l4);
+            border-color: var(--pluto-gray-l7);
             cursor: pointer;
         }
     }
@@ -128,7 +128,7 @@
 
     .console-schematic__handle-arrow {
         position: absolute;
-        color: var(--pluto-gray-l8);
+        color: var(--pluto-gray-l9);
         pointer-events: none;
         width: round(1.666rem, 1px);
         height: round(1.666rem, 1px);

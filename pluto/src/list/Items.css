@@ -14,6 +14,7 @@
     overflow: auto;
     -webkit-user-select: none;
     transition: height 0.1s ease;
+    padding: 1rem;
 
     & > .pluto-list__virtualizer {
         width: 100%;
@@ -33,7 +34,7 @@
         }
 
         &::-webkit-scrollbar-thumb:hover {
-            background: var(--pluto-gray-l6);
+            background: var(--pluto-gray-l7);
         }
         & > .pluto-list__virtualizer {
             display: flex;

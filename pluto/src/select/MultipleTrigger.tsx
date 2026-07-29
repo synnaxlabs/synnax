@@ -182,7 +182,7 @@ export const MultipleTrigger = <
     >
       {value.length === 0 && (
         <Text.Text
-          color={8}
+          color={9}
           weight={400}
           className={CSS.B("select-multiple-trigger-placeholder")}
         >
@@ -199,12 +199,12 @@ export const MultipleTrigger = <
           enabled={visible}
           enabledLoc="bottom"
           disabledLoc="left"
-          color={8}
+          color={9}
         />
       )}
       {showAddButton && (
         <Button.Button variant={variant} onClick={toggle}>
-          <Icon.Add color={8} />
+          <Icon.Add color={9} />
         </Button.Button>
       )}
     </Tag.Tags>

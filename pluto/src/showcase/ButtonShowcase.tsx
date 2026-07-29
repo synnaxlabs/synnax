@@ -259,19 +259,19 @@ export const ButtonShowcase = () => (
             <Text.Text level="small" weight={500} style={{ marginBottom: "1rem" }}>
               Level 1
             </Text.Text>
-            <Button.Button contrast={1}>Hello</Button.Button>
+            <Button.Button>Hello</Button.Button>
           </Flex.Box>
           <Flex.Box y background={2} style={{ padding: "2rem" }} bordered rounded={1}>
             <Text.Text level="small" weight={500} style={{ marginBottom: "1rem" }}>
               Level 2
             </Text.Text>
-            <Button.Button contrast={2}>Hello</Button.Button>
+            <Button.Button>Hello</Button.Button>
           </Flex.Box>
           <Flex.Box y background={3} style={{ padding: "2rem" }} bordered rounded={1}>
             <Text.Text level="small" weight={500} style={{ marginBottom: "1rem" }}>
               Level 3
             </Text.Text>
-            <Button.Button contrast={3}>Hello</Button.Button>
+            <Button.Button>Hello</Button.Button>
           </Flex.Box>
         </Flex.Box>
       </SubcategorySection>

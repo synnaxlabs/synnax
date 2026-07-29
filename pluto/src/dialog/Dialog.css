@@ -13,6 +13,12 @@
     position: fixed;
     overflow: hidden;
 
+    /* Dialogs are elevated chrome: fills lighten even when the dialog is anchored
+       inside a recessed-chrome region. */
+    --pluto-fill-rest: var(--pluto-gray-l3);
+    --pluto-fill-hover: var(--pluto-gray-l4);
+    --pluto-fill-press: var(--pluto-gray-l5);
+
     & > .pluto-pack.pluto--rounded {
         --pluto-pack-br: 6px;
     }
@@ -30,7 +36,7 @@
             max-width: 100%;
             overflow: hidden;
             box-shadow: var(--pluto-shadow-v1);
-            border-radius: 1rem;
+            border-radius: 2rem;
             &.pluto-dialog--modal-position-shifted {
                 top: 8%;
             }

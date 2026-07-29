@@ -16,7 +16,7 @@ export const parseColor = (
   disabled?: boolean,
   crudeColor?: color.Crude,
 ): string | undefined => {
-  if (disabled === true) return "var(--pluto-gray-l7)";
+  if (disabled === true) return "var(--pluto-text-disabled)";
   if (crudeColor != null) return color.cssString(crudeColor);
   if (variant === "filled") return "var(--pluto-text-on-primary)";
   return undefined;

@@ -10,7 +10,7 @@
  */
 
 .pluto-tag {
-    border: var(--pluto-border-l5);
+    border: var(--pluto-border-l6);
     border-width: 0.5px;
     width: fit-content;
     will-change: transform;

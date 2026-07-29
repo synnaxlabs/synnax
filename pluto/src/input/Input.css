@@ -23,10 +23,35 @@
 
     &:focus-within:not(.pluto-btn--text):not(.pluto--status-warning):not(
             .pluto--status-error
-        ) {
+        ):not(.pluto--flush) {
         --pluto-border-color: rgb(var(--pluto-btn-color, var(--pluto-primary-z-rgb)));
         border-color: var(--pluto-border-color);
         box-shadow: inset 0 0 0 0.5px var(--pluto-border-color);
+    }
+
+    /* A flush input is its surface's sole keystroke target: no focus ring, taller
+       than a form field, content inset to align with the list rows below it. */
+    &.pluto--flush {
+        min-height: var(--pluto-height-large);
+
+        & input,
+        & textarea {
+            padding: 0 2rem;
+        }
+
+        & .pluto-input__placeholder {
+            padding-left: 2rem;
+            width: calc(100% - 2rem);
+        }
+
+        & .pluto-input__start-content {
+            padding-left: 1.5rem;
+            color: var(--pluto-gray-l9);
+        }
+
+        & .pluto-input__start-content + input {
+            padding-left: 1.5rem;
+        }
     }
 
     & input,
@@ -45,7 +70,7 @@
 
         &::placeholder,
         &::-webkit-input-placeholder {
-            color: var(--pluto-gray-l8);
+            color: var(--pluto-gray-l9);
             text-overflow: ellipsis;
             max-width: 100%;
         }
@@ -70,7 +95,7 @@
 
     .pluto-input__placeholder,
     .pluto-input__end-content {
-        color: var(--pluto-gray-l8);
+        color: var(--pluto-gray-l9);
     }
 
     .pluto-input__start-content {
@@ -87,7 +112,7 @@
         & .pluto-input__placeholder,
         & .pluto-input__end-content,
         & input::placeholder {
-            color: var(--pluto-gray-l6);
+            color: var(--pluto-text-disabled);
         }
     }
 

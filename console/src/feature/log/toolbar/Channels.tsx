@@ -184,7 +184,6 @@ const ChannelRow = ({ index, ch, config, disabled }: ChannelRowProps): ReactElem
           variant="text"
           ghost
           tooltip="Remove channel"
-          contrast={0}
         >
           <Icon.Close />
         </Button.Button>

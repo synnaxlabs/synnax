@@ -19,7 +19,6 @@ import {
   AiFillWarning,
   AiOutlineBorder,
   AiOutlineCheck,
-  AiOutlineClose,
   AiOutlineLoading,
   AiOutlineMinus,
   AiOutlineSync,
@@ -30,7 +29,6 @@ import {
   BsFillInfoSquareFill,
   BsLightbulbFill,
   BsShiftFill,
-  BsWindowStack,
 } from "react-icons/bs";
 import {
   FaAlignCenter,
@@ -55,14 +53,15 @@ import {
   FaGaugeHigh,
   FaGear,
   FaHelmetSafety,
+  FaPlus,
   FaXmark,
 } from "react-icons/fa6";
 import { FiTable } from "react-icons/fi";
 import { GiHamburgerMenu } from "react-icons/gi";
 import { GoNumber } from "react-icons/go";
 import { GrAttachment, GrDrag, GrPan, GrRotateRight } from "react-icons/gr";
-import { HiCursorClick, HiLightningBolt, HiOutlinePlus } from "react-icons/hi";
-import { HiSquare3Stack3D } from "react-icons/hi2";
+import { HiCursorClick, HiLightningBolt } from "react-icons/hi";
+import { HiSquare2Stack, HiSquare3Stack3D } from "react-icons/hi2";
 import {
   IoIosArrowRoundForward,
   IoMdColorFill,
@@ -262,14 +261,14 @@ export const Circle = wrapSVGIcon(MdFiberManualRecord, "circle");
 export const Square = wrapSVGIcon(MdSquare, "square");
 export const Edit = wrapSVGIcon(MdEdit, "edit");
 export const EditOff = wrapSVGIcon(MdEditOff, "edit-off");
-export const Add = wrapSVGIcon(HiOutlinePlus, "add");
+export const Add = wrapSVGIcon(FaPlus, "add");
 export const Subtract = wrapSVGIcon(AiOutlineMinus, "subtract");
 export const Copy = wrapSVGIcon(IoCopy, "copy");
 export const Cut = wrapSVGIcon(MdContentCut, "cut");
 export const Paste = wrapSVGIcon(MdContentPaste, "paste");
 export const Undo = wrapSVGIcon(MdUndo, "undo");
 export const Redo = wrapSVGIcon(MdRedo, "redo");
-export const Close = wrapSVGIcon(AiOutlineClose, "close");
+export const Close = wrapSVGIcon(FaXmark, "close");
 export const Info = wrapSVGIcon(BsFillInfoSquareFill, "info");
 export const Warning = wrapSVGIcon(AiFillWarning, "warning");
 export const Check = wrapSVGIcon(AiOutlineCheck, "check");
@@ -286,7 +285,7 @@ export const Acquire = wrapSVGIcon(FaStream, "acquire");
 export const Analyze = wrapSVGIcon(FaBezierCurve, "analyze");
 export const Concepts = wrapSVGIcon(BsLightbulbFill, "concepts");
 export const Visualize = wrapSVGIcon(MdAreaChart, "visualize");
-export const Panel = wrapSVGIcon(BsWindowStack, "panel");
+export const Panel = wrapSVGIcon(HiSquare2Stack, "panel");
 export const LinePlot = wrapSVGIcon(MdAreaChart, "line-plot");
 export const Expand = wrapSVGIcon(BiExpandAlt, "expand");
 export const Collapse = wrapSVGIcon(BiCollapseAlt, "collapse");

@@ -99,7 +99,6 @@ export const Notification = ({
             size="small"
             tooltip="Copy diagnostics"
             square
-            contrast={2}
             textColor={10}
           />
           <Button.Button

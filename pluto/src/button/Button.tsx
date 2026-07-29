@@ -24,8 +24,7 @@ import { Triggers } from "@/triggers";
 export type ElementType = "button" | "a" | "div" | "label" | "textarea";
 
 /** The variant of button */
-export type Variant =
-  "filled" | "outlined" | "text" | "suggestion" | "preview" | "shadow";
+export type Variant = "filled" | "outlined" | "text" | "preview" | "shadow";
 
 export interface ExtensionProps
   extends Omit<Text.ExtensionProps, "variant">, Tooltip.WrapProps {
@@ -34,7 +33,6 @@ export interface ExtensionProps
   triggerIndicator?: boolean | Triggers.Trigger;
   textColor?: Text.TextProps["color"];
   textVariant?: Text.Variant;
-  contrast?: Theming.Shade | false;
   disabled?: boolean;
   preventClick?: boolean;
   propagateClick?: boolean;
@@ -98,7 +96,6 @@ const Base = <E extends ElementType = "button">({
   textColor,
   textVariant,
   tabIndex,
-  contrast,
   children,
   defaultEl = "button",
   el,
@@ -194,7 +191,6 @@ const Base = <E extends ElementType = "button">({
       direction="x"
       className={CSS(
         CSS.B(MODULE_CLASS),
-        contrast != null && CSS.BM(MODULE_CLASS, `contrast-${contrast}`),
         preventClick === true && CSS.BM(MODULE_CLASS, "prevent-click"),
         variant !== "preview" && CSS.disabled(isDisabled),
         CSS.BM(MODULE_CLASS, variant),

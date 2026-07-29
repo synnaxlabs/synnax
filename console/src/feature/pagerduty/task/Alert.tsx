@@ -254,10 +254,9 @@ const Form: FC<Task.FormProps<AlertSchemas>> = () => {
           <Header.Actions>
             <Button.Button
               onClick={handleAdd}
-              variant="text"
-              contrast={2}
+              variant="filled"
               tooltip="Add alert"
-              sharp
+              size="small"
             >
               <Icon.Add />
             </Button.Button>

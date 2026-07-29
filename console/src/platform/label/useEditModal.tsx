@@ -198,7 +198,7 @@ export const useEditModal = Modals.create(() => {
             emptyContent={
               !newFormVisible && (
                 <Flex.Box center>
-                  <Text.Text level="h4" color={8}>
+                  <Text.Text level="h4" color={9}>
                     No labels created
                   </Text.Text>
                 </Flex.Box>

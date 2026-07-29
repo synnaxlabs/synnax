@@ -58,7 +58,7 @@ export const SelectFilters = ({ request, onRequestChange }: SelectFiltersProps) 
     <Dialog.Dialog
       background={1}
       className={CSS.B("range-select-filters-dialog")}
-      borderColor={5}
+      borderColor={6}
       pack={false}
     >
       <FilterContextMenu request={request} onRequestChange={onRequestChange} />
@@ -82,7 +82,7 @@ const HasLabelsFilter = ({ request }: HasLabelsFilterProps) => {
         size="small"
         className={CSS.B("range-has-labels-filter")}
         background={0}
-        borderColor={5}
+        borderColor={6}
         level="small"
         color={9}
       >

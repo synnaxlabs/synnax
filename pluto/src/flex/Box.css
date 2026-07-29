@@ -206,6 +206,14 @@
         border-color: var(--pluto-gray-l11);
     }
 
+    /* Declaring a canvas or raised surface resets the fill ladder, so panes nested
+       inside recessed chrome resume the standard upward fills. */
+    &.pluto--bg-0,
+    &.pluto--bg-1 {
+        --pluto-fill-rest: var(--pluto-gray-l3);
+        --pluto-fill-hover: var(--pluto-gray-l4);
+        --pluto-fill-press: var(--pluto-gray-l5);
+    }
     &.pluto--bg-0 {
         background-color: var(--pluto-gray-l0);
     }
@@ -288,10 +296,10 @@
         color: var(--pluto-primary-z);
     }
     &.pluto--status-disabled {
-        color: var(--pluto-gray-l8);
+        color: var(--pluto-text-disabled);
     }
     &.pluto--status-loading {
-        color: var(--pluto-gray-l8);
+        color: var(--pluto-gray-l9);
     }
 
     &.pluto--square {

@@ -41,7 +41,7 @@
         }
     }
     &.console--create {
-        background: var(--pluto-gray-l2);
+        background: var(--pluto-gray-l3);
         transition:
             height 0.2s ease,
             min-height 0.2s ease;

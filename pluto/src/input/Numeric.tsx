@@ -71,7 +71,6 @@ export const Numeric = ({
   units,
   size,
   color,
-  contrast,
   emptyValue,
   ...rest
 }: NumericProps): ReactElement => {
@@ -174,7 +173,6 @@ export const Numeric = ({
       onBlur={handleBlur}
       size={size}
       color={color}
-      contrast={contrast}
       {...rest}
     >
       {showDragHandle && (
@@ -187,7 +185,6 @@ export const Numeric = ({
           onBlur={handleBlur}
           size={size}
           color={color}
-          contrast={contrast}
           disabled={disabled}
         />
       )}

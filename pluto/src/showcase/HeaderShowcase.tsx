@@ -267,7 +267,7 @@ export const HeaderShowcase = () => (
           <Header.Header level="h3" style={{ padding: "2rem" }} background={1}>
             <Header.Title>Header with Custom Padding</Header.Title>
             <Header.Actions>
-              <Button.Button variant="text" contrast={1}>
+              <Button.Button variant="text">
                 <Icon.Settings />
               </Button.Button>
             </Header.Actions>
@@ -278,7 +278,7 @@ export const HeaderShowcase = () => (
               Theme Settings
             </Header.Title>
             <Header.Actions>
-              <Button.Button variant="filled" contrast={2} size="small">
+              <Button.Button variant="filled" size="small">
                 Apply
               </Button.Button>
             </Header.Actions>

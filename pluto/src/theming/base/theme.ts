@@ -144,19 +144,22 @@ const WARNING_HSLA: color.HSLA = [48, 90, 55, 1];
 
 // Grayscale
 
+// Both ramps are generated in OKLCH (hue 258, whisper chroma) with even
+// perceptual steps inside each band. Bands never overlap: a component fill is
+// always at least one step from any surface.
 const LIGHT_SCALE = [
-  "#FEFEFE", // l0 - background
-  "#FAFAFA", // l1 - large surfaces
-  "#F2F2F2", // l2 - small surfaces
-  "#ECECEC", // l3 - small surfaces hover
-  "#E4E4E4", // l4 - border 1
-  "#D1D1D1", // l5 - border 2
-  "#BCBCBC", // l6 - border 2 hover
-  "#ACACAC", // l7 - border 2 active
-  "#8F8F8F", // l8 - text 1
-  "#4F4F4F", // l9 - text 2
-  "#292929", // l10 - text 3
-  "#050505", // l11 - text 4
+  "#FDFDFF", // l0 - app canvas
+  "#F6F7F9", // l1 - raised surface
+  "#EFF1F4", // l2 - elevated chrome
+  "#E8EAED", // l3 - component rest fill
+  "#DFE2E6", // l4 - hover fill
+  "#D6D9DE", // l5 - pressed + selected fill
+  "#CCD0D5", // l6 - subtle separator
+  "#BBBEC3", // l7 - default control border
+  "#9EA2A7", // l8 - strong border
+  "#63666C", // l9 - secondary text (AA on all surfaces)
+  "#2E3034", // l10 - primary text
+  "#07080A", // l11 - emphatic text
 ];
 
 const lightGrayScale: GrayScale = Object.fromEntries(
@@ -189,7 +192,7 @@ const SYNNAX_BASE: ThemeSpec = {
       p2: "#96DEAE",
     },
     gray: lightGrayScale,
-    border: lightGrayScale.l4,
+    border: lightGrayScale.l6,
     error: {
       m2: color.fromHSLA(setLightness(ERROR_HSLA, 30)),
       m1: color.fromHSLA(setLightness(ERROR_HSLA, 40)),
@@ -228,7 +231,7 @@ const SYNNAX_BASE: ThemeSpec = {
     logo: "url(#synnax-linear-gradient)",
     white: "#FFFFFF",
     black: "#000000",
-    text: lightGrayScale.l11,
+    text: lightGrayScale.l10,
     textInverted: lightGrayScale.l0,
     textOnPrimary: lightGrayScale.l0,
     primaryText: "#3b82f6",
@@ -237,7 +240,7 @@ const SYNNAX_BASE: ThemeSpec = {
   },
   sizes: {
     base: baseSize,
-    border: { radius: 3, width: SUPPORTS_THIN_BORDER ? 0.5 : 1, thickWidth: 1 },
+    border: { radius: 4, width: SUPPORTS_THIN_BORDER ? 0.5 : 1, thickWidth: 1 },
     schematic: { elementStrokeWidth: 2 },
   },
   typography: {
@@ -260,18 +263,18 @@ export const SYNNAX_LIGHT: ThemeSpec = Object.freeze({
 });
 
 const DARK_SCALE = [
-  "#020202", // l0
-  "#080808", // l1
-  "#151515", // l2
-  "#202020", // l3
-  "#272727", // l4
-  "#3B3B3B", // l5
-  "#4A4A4A", // l6
-  "#5C5C5C", // l7
-  "#767676", // l8
-  "#959595", // l9
-  "#dadada", // l10
-  "#FAFAFA", // l11
+  "#040506", // l0 - app canvas
+  "#0A0B0D", // l1 - raised surface
+  "#111315", // l2 - elevated chrome
+  "#191C20", // l3 - component rest fill
+  "#23252A", // l4 - hover fill
+  "#2C2F34", // l5 - pressed + selected fill
+  "#36393F", // l6 - subtle separator
+  "#44484D", // l7 - default control border
+  "#5D6166", // l8 - strong border
+  "#A2A5A8", // l9 - secondary text (AA on all surfaces)
+  "#CFD1D4", // l10 - primary text
+  "#F1F2F3", // l11 - emphatic text
 ];
 
 const DARK_GRAY_SCALE: GrayScale = Object.fromEntries(
@@ -286,8 +289,8 @@ export const SYNNAX_DARK: ThemeSpec = Object.freeze({
     ...SYNNAX_BASE.colors,
     gray: DARK_GRAY_SCALE,
     logo: "var(--pluto-text-color)",
-    border: DARK_GRAY_SCALE.l4,
-    text: DARK_GRAY_SCALE.l11,
+    border: DARK_GRAY_SCALE.l6,
+    text: DARK_GRAY_SCALE.l10,
     textInverted: DARK_GRAY_SCALE.l0,
     textOnPrimary: DARK_GRAY_SCALE.l11,
     primaryText: "#93c5fd",

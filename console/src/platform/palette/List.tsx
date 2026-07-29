@@ -112,7 +112,6 @@ export const BaseList = <E extends record.Keyed<string>>({
         placeholder={inputPlaceholder}
         size="huge"
         autoFocus
-        contrast={3}
         onChange={handleSearch}
         borderColor={8}
         value={value}

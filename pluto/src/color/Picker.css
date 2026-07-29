@@ -10,7 +10,7 @@
  */
 
 .pluto-color-picker-container {
-    border: var(--pluto-border-l5) !important;
+    border: var(--pluto-border-l6) !important;
     border-radius: 1rem !important;
     width: 37rem !important;
     padding: 1.25rem;
@@ -34,7 +34,7 @@
         }
 
         & label {
-            color: var(--pluto-gray-l8) !important;
+            color: var(--pluto-gray-l9) !important;
             padding-top: 1rem !important;
             padding-bottom: 0 !important;
         }

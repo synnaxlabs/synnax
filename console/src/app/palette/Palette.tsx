@@ -99,7 +99,6 @@ export const Palette = (): ReactElement => {
           align="center"
           size="large"
           justify="center"
-          contrast={2}
           textColor={9}
           gap="small"
           full="x"

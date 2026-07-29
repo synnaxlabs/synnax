@@ -41,7 +41,7 @@ export const Frame = ({
     bordered
     pack
     rounded={1}
-    borderColor={6}
+    borderColor={7}
     background={1}
     onClick={expanded ? onContract : undefined}
     {...props}

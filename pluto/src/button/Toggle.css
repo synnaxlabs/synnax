@@ -9,9 +9,9 @@
  * included in the file licenses/APL.txt.
  */
 
-/* Selected segments speak the list-selection language (flat gray fill), not the
-   filled CTA variant. One step above list selection so the small segment reads. */
-.pluto-btn.pluto-select-btn.pluto--selected {
+/* A checked toggle is a selected state, not a CTA: it speaks the same selection
+   fill as Select.Button rather than the filled primary variant. */
+.pluto-btn.pluto-btn-toggle.pluto--checked {
     --pluto-bg: var(--pluto-selected-bg);
     --pluto-hover-bg: var(--pluto-selected-bg);
     --pluto-active-bg: var(--pluto-selected-active-bg);

@@ -81,19 +81,14 @@ export const Selector = (): ReactElement | null => {
         subscribe={subscribe}
         onFetchMore={() => retrieve({})}
       >
-        <Dialog.Trigger
-          size="medium"
-          className={CSS.B("trigger")}
-          contrast={2}
-          weight={400}
-        >
+        <Dialog.Trigger size="medium" className={CSS.B("trigger")} weight={400}>
           <Icon.Project key="project" />
           <ActiveName itemKey={activeKey} />
         </Dialog.Trigger>
         <Dialog.Dialog
           className={CSS.B("project-selector-dialog")}
           bordered={client == null}
-          borderColor={6}
+          borderColor={7}
         >
           <Flex.Box pack rounded>
             <Input.Text
@@ -105,7 +100,6 @@ export const Selector = (): ReactElement | null => {
                   Search projects
                 </>
               }
-              contrast={0}
               value={search}
               onChange={(v) => {
                 setSearch(v);
@@ -113,12 +107,12 @@ export const Selector = (): ReactElement | null => {
               }}
               full="x"
               className={CSS.B("project-selector-search")}
-              borderColor={6}
+              borderColor={7}
             />
             {hasCreatePermission && (
               <Button.Button
                 size="large"
-                variant="outlined"
+                variant="filled"
                 onClick={() => {
                   setDialogVisible(false);
                   openCreate();
@@ -126,14 +120,13 @@ export const Selector = (): ReactElement | null => {
                 gap="small"
                 tooltip="Create a new project"
                 tooltipLocation={{ y: "bottom" }}
-                borderColor={6}
               >
                 <Icon.Add />
                 New
               </Button.Button>
             )}
           </Flex.Box>
-          <List.Items bordered borderColor={6} grow>
+          <List.Items bordered borderColor={7} grow>
             {listItem}
           </List.Items>
         </Dialog.Dialog>

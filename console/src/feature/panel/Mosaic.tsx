@@ -221,9 +221,9 @@ const Internal = ({ onCreateTab }: MosaicProps): ReactElement => {
       onCreateTab={onCreateTab}
       resolveDroppedTab={resolveDroppedTab}
       extraMenuItems={extraMenuItems}
-      rounded={1}
+      rounded={2}
       bordered
-      borderColor={5}
+      borderColor={6}
       background={0}
       tabName={tabName}
     >

@@ -87,7 +87,7 @@ export const ListAndDetailsChannelItem = <K extends string>({
         gap="small"
         align={nameDirection === "x" ? "center" : "start"}
       >
-        <Text.Text color={8} weight={500} style={portStyle}>
+        <Text.Text color={9} weight={500} style={portStyle}>
           {port}
         </Text.Text>
         {hasIcon && (

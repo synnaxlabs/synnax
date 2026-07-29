@@ -336,7 +336,7 @@ const Content = ({ resource, icon: _, ...rest }: Tree.ContentProps) => {
           <Status.Indicator variant={statusVariant} />
         </Tooltip.Dialog>
       )}
-      {data.virtual && <Icon.Virtual color={8} />}
+      {data.virtual && <Icon.Virtual color={9} />}
     </PTree.Item>
   );
 };

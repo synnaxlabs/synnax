@@ -192,11 +192,15 @@ const Content = () => {
   return (
     <Menu.ContextMenu menu={contextMenu} {...menuProps}>
       <Toolbar.Content className={CSS(CSS.B("task-toolbar"), menuProps.className)}>
-        <Toolbar.Header padded>
+        <Toolbar.Header>
           <Toolbar.Title icon={<Icon.Task />}>Tasks</Toolbar.Title>
           {hasCreatePermission && (
             <Toolbar.Actions>
-              <Toolbar.Action tooltip="Create task" onClick={() => openSelector()}>
+              <Toolbar.Action
+                tooltip="Create task"
+                onClick={() => openSelector()}
+                variant="filled"
+              >
                 <Icon.Add />
               </Toolbar.Action>
             </Toolbar.Actions>

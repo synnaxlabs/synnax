@@ -32,7 +32,7 @@ export const Chips = (): ReactElement | null => {
         bordered
         className={CSS.BE("label", "filter-chips")}
         size="small"
-        borderColor={5}
+        borderColor={6}
         level="small"
       >
         <Icon.Label />

@@ -102,7 +102,7 @@ export const FileDrop = ({
       rounded={1}
       onClick={enabled ? handleFileSelect : undefined}
       {...dropProps}
-      borderColor={5}
+      borderColor={6}
       {...rest}
     >
       {enabled && (
@@ -112,7 +112,7 @@ export const FileDrop = ({
           center
           className={CSS.B("schematic-file-drop-overlay")}
         >
-          <Text.Text level="h1" color={7}>
+          <Text.Text level="h1" color={9}>
             <Icon.Import />
           </Text.Text>
           <Text.Text level="p" color={9}>

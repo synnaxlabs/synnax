@@ -280,21 +280,6 @@ describe("Button", () => {
     });
   });
 
-  describe("contrast", () => {
-    it("should not set the contrast class to the button when the contrast is not set or false", () => {
-      const c = render(<Button.Button>Hello</Button.Button>);
-      expect(c.getByText("Hello").className).not.toContain("contrast");
-    });
-    it("should set the contrast class to the button when the contrast is set", () => {
-      const c = render(<Button.Button contrast={0}>Hello</Button.Button>);
-      expect(c.getByText("Hello").className).toContain("pluto-btn--contrast-0");
-    });
-    it("should not set the contrast class to the button when the contrast is not set", () => {
-      const c = render(<Button.Button contrast={1}>Hello</Button.Button>);
-      expect(c.getByText("Hello").className).toContain("pluto-btn--contrast-1");
-    });
-  });
-
   describe("triggerIndicator", () => {
     it("should not display a trigger indicator when the triggerIndicator is not set", () => {
       const c = render(<Button.Button>Hello</Button.Button>);

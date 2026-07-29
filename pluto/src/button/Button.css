@@ -46,6 +46,11 @@
     layout shifting of internal content (especially icons) */
     z-index: 1;
 
+    &:focus-visible {
+        outline: 1px solid var(--pluto-primary-z);
+        outline-offset: 2px;
+    }
+
     &.pluto--direction-x {
         align-items: center;
     }
@@ -78,6 +83,8 @@
         padding: 0 1rem;
     }
     &.pluto-btn--filled {
+        border-radius: calc(var(--pluto-border-radius) + 2px);
+
         .pluto-text {
             color: var(--pluto-btn-text-color, var(--pluto-text-on-primary));
         }
@@ -125,10 +132,10 @@
         }
 
         &.pluto--disabled {
-            color: var(--pluto-gray-l6);
-            --pluto-bg: var(--pluto-gray-l2);
-            --pluto-color: var(--pluto-gray-l6);
-            --pluto-border-color: var(--pluto-gray-l4);
+            color: var(--pluto-text-disabled);
+            --pluto-bg: var(--pluto-gray-l3);
+            --pluto-color: var(--pluto-text-disabled);
+            --pluto-border-color: var(--pluto-gray-l6);
         }
 
         &::after {
@@ -145,21 +152,8 @@
             animation: delay var(--pluto-btn-delay) linear;
             width: 100%;
         }
-        &:focus-visible {
-            box-shadow:
-                0 0 0 2px var(--pluto-gray-l0),
-                0 0 0 3px var(--pluto-primary-z);
-            outline: none;
-        }
     }
 
-    &.pluto-btn--text,
-    &.pluto-btn--outlined {
-        &:focus-visible {
-            outline: none;
-            box-shadow: inset 0 0 0 1px var(--pluto-primary-z);
-        }
-    }
     &:not(.pluto--square) .pluto-trigger-indicator {
         margin-left: auto;
     }
@@ -187,7 +181,7 @@
             transition: opacity 0.1s ease-in-out;
             & .pluto-text--keyboard {
                 background: var(--pluto-gray-l0);
-                border-color: var(--pluto-gray-l5);
+                border-color: var(--pluto-gray-l7);
             }
         }
         &:hover .pluto-trigger-indicator {
@@ -210,43 +204,13 @@
     }
 
     &.pluto-btn--outlined {
-        --pluto-bg: var(--pluto-gray-l2);
-        --pluto-hover-bg: var(--pluto-gray-l3);
-        --pluto-active-bg: var(--pluto-gray-l4);
+        --pluto-bg: var(--pluto-fill-rest);
+        --pluto-hover-bg: var(--pluto-fill-hover);
+        --pluto-active-bg: var(--pluto-fill-press);
 
-        --pluto-border-color: var(--pluto-gray-l5);
-        --pluto-hover-border-color: var(--pluto-gray-l6);
-        --pluto-active-border-color: var(--pluto-gray-l7);
-
-        &.pluto-btn--contrast-1 {
-            --pluto-bg: var(--pluto-gray-l2);
-            --pluto-hover-bg: var(--pluto-gray-l3);
-            --pluto-active-bg: var(--pluto-gray-l4);
-
-            --pluto-border-color: var(--pluto-gray-l5);
-            --pluto-hover-border-color: var(--pluto-gray-l6);
-            --pluto-active-border-color: var(--pluto-gray-l7);
-        }
-
-        &.pluto-btn--contrast-2 {
-            --pluto-bg: var(--pluto-gray-l0);
-            --pluto-hover-bg: var(--pluto-gray-l1);
-            --pluto-active-bg: var(--pluto-gray-l2);
-
-            --pluto-border-color: var(--pluto-gray-l5);
-            --pluto-hover-border-color: var(--pluto-gray-l6);
-            --pluto-active-border-color: var(--pluto-gray-l7);
-        }
-
-        &.pluto-btn--contrast-3 {
-            --pluto-bg: var(--pluto-gray-l2);
-            --pluto-hover-bg: var(--pluto-gray-l3);
-            --pluto-active-bg: var(--pluto-gray-l4);
-
-            --pluto-border-color: var(--pluto-gray-l6);
-            --pluto-hover-border-color: var(--pluto-gray-l7);
-            --pluto-active-border-color: var(--pluto-gray-l8);
-        }
+        --pluto-border-color: var(--pluto-gray-l7);
+        --pluto-hover-border-color: var(--pluto-gray-l8);
+        --pluto-active-border-color: var(--pluto-gray-l8);
 
         &.pluto-btn--custom-color {
             --pluto-border-color: rgba(var(--pluto-btn-color), 1);
@@ -269,38 +233,19 @@
         }
 
         &.pluto--disabled {
-            color: var(--pluto-gray-l6);
-            --pluto-bg: var(--pluto-gray-l2);
-            --pluto-border-color: var(--pluto-gray-l4);
+            color: var(--pluto-text-disabled);
+            --pluto-bg: var(--pluto-gray-l3);
+            --pluto-border-color: var(--pluto-gray-l6);
         }
     }
 
     &.pluto-btn--text {
-        --pluto-hover-bg: var(--pluto-gray-l2);
-        --pluto-active-bg: var(--pluto-gray-l3);
+        --pluto-hover-bg: var(--pluto-fill-hover);
+        --pluto-active-bg: var(--pluto-fill-press);
         --pluto-border-color: var(--pluto-gray-l0);
 
-        &.pluto-btn--contrast-1 {
-            --pluto-bg: var(--pluto-gray-l1);
-            --pluto-hover-bg: var(--pluto-gray-l3);
-            --pluto-active-bg: var(--pluto-gray-l2);
-        }
-
-        &.pluto-btn--contrast-2 {
-            --pluto-bg: var(--pluto-gray-l2);
-            --pluto-hover-bg: var(--pluto-gray-l3);
-            --pluto-active-bg: var(--pluto-gray-l4);
-            --pluto-active-border-color: var(--pluto-gray-l5);
-        }
-
-        &.pluto-btn--contrast-3 {
-            --pluto-bg: var(--pluto-gray-l3);
-            --pluto-hover-bg: var(--pluto-gray-l6);
-            --pluto-active-border-color: var(--pluto-gray-l8);
-        }
-
         &.pluto--disabled {
-            color: var(--pluto-gray-l6);
+            color: var(--pluto-text-disabled);
         }
 
         &.pluto--status-warning {
@@ -314,38 +259,14 @@
 
     &.pluto-btn--shadow {
         --pluto-border-color: transparent;
-        --pluto-hover-bg: var(--pluto-gray-l2);
-        --pluto-active-bg: var(--pluto-gray-l4);
+        --pluto-hover-bg: var(--pluto-fill-hover);
+        --pluto-active-bg: var(--pluto-fill-press);
 
-        --pluto-hover-border-color: var(--pluto-gray-l5);
-        --pluto-active-border-color: var(--pluto-gray-l7);
-
-        &.pluto-btn--contrast-1 {
-            --pluto-bg: var(--pluto-gray-l1);
-            --pluto-hover-bg: var(--pluto-gray-l3);
-            --pluto-active-bg: var(--pluto-gray-l2);
-            --pluto-hover-border-color: var(--pluto-gray-l6);
-            --pluto-active-border-color: var(--pluto-gray-l7);
-        }
-
-        &.pluto-btn--contrast-2 {
-            --pluto-bg: var(--pluto-gray-l2);
-            --pluto-hover-bg: var(--pluto-gray-l0);
-            --pluto-active-bg: var(--pluto-gray-l2);
-            --pluto-hover-border-color: var(--pluto-gray-l5);
-            --pluto-active-border-color: var(--pluto-gray-l7);
-        }
-
-        &.pluto-btn--contrast-3 {
-            --pluto-bg: var(--pluto-gray-l3);
-            --pluto-hover-bg: var(--pluto-gray-l2);
-            --pluto-active-bg: var(--pluto-gray-l4);
-            --pluto-hover-border-color: var(--pluto-gray-l6);
-            --pluto-active-border-color: var(--pluto-gray-l8);
-        }
+        --pluto-hover-border-color: var(--pluto-gray-l7);
+        --pluto-active-border-color: var(--pluto-gray-l8);
 
         &.pluto--disabled {
-            color: var(--pluto-gray-l6);
+            color: var(--pluto-text-disabled);
         }
 
         &.pluto--status-warning {
@@ -354,11 +275,6 @@
 
         &.pluto--status-error {
             color: var(--pluto-error-p1);
-        }
-
-        &:focus-visible {
-            outline: none;
-            box-shadow: inset 0 0 0 1px var(--pluto-primary-z);
         }
     }
 
@@ -377,11 +293,10 @@
 
         &:focus-visible {
             outline: none;
-            box-shadow: none;
         }
 
         &.pluto--disabled {
-            color: var(--pluto-gray-l6);
+            color: var(--pluto-text-disabled);
         }
 
         &.pluto--status-warning {
@@ -400,13 +315,15 @@
 
     /* We use the flex selector that is always present in order to increase
      specificity of the hover and active states. */
+    /* pluto--focus-frozen marks a control whose pointer states freeze while it
+       holds focus: hover and press swap nothing until it blurs. */
     &:not(.pluto-btn--prevent-click, .pluto--disabled) {
-        &:is(:hover, .pluto--hovered) {
+        &:is(:hover, .pluto--hovered):not(.pluto--focus-frozen:focus-within) {
             --pluto-bg: var(--pluto-hover-bg);
             --pluto-border-color: var(--pluto-hover-border-color);
         }
 
-        &:active {
+        &:active:not(.pluto--focus-frozen:focus-within) {
             --pluto-bg: var(--pluto-active-bg);
             --pluto-border-color: var(--pluto-active-border-color);
         }

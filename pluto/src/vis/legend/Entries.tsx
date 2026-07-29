@@ -112,7 +112,6 @@ const Entry = ({
       {allowVisibleChange && onVisibleChange != null && (
         <Button.Button
           className={CSS.B("visible-toggle")}
-          contrast={background}
           onClick={() => onVisibleChange(key, !visible)}
           onDoubleClick={stopPropagation}
           size="tiny"

@@ -148,7 +148,6 @@ const MenuItem = ({
       key={key}
       itemKey={key}
       size="large"
-      contrast={2}
       triggerIndicator={trigger}
     >
       {icon}

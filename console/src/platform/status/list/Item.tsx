@@ -105,7 +105,7 @@ export const Item = (props: ItemProps): ReactElement | null => {
             >
               {time}
             </Telem.Text.TimeSpanSince>
-            <Icon.Time color={8} />
+            <Icon.Time color={9} />
           </Text.Text>
           <Button.Favorite isFavorite={isFavorite} onFavorite={handleFavorite} ghost />
         </Flex.Box>

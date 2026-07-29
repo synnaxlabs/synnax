@@ -50,7 +50,6 @@ const ArcModeSelectButton = ({
         CSS.BE("arc-create-modal", "mode-select-button"),
         PCSS.selected(selected),
       )}
-      contrast={2}
       onClick={onSelect}
       grow
       justify="start"

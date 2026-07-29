@@ -82,9 +82,8 @@ export const KeyValueEditor = <K extends string, V extends string | number>({
         {label}
         <Button.Button
           onClick={addRow}
-          variant="text"
+          variant="filled"
           tooltip={`Add ${label.toLowerCase()}`}
-          sharp
           size="small"
         >
           <Icon.Add />

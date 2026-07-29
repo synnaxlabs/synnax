@@ -332,19 +332,19 @@ export const InputShowcase = () => (
               <Text.Text level="small" weight={500} style={{ marginBottom: "1rem" }}>
                 Level 1
               </Text.Text>
-              <InputShowcaseText placeholder="Catalyst" endContent="m/s" contrast={1} />
+              <InputShowcaseText placeholder="Catalyst" endContent="m/s" />
             </Flex.Box>
             <Flex.Box y background={2} style={{ padding: "2rem" }} bordered rounded={1}>
               <Text.Text level="small" weight={500} style={{ marginBottom: "1rem" }}>
                 Level 2
               </Text.Text>
-              <InputShowcaseText placeholder="Catalyst" endContent="m/s" contrast={2} />
+              <InputShowcaseText placeholder="Catalyst" endContent="m/s" />
             </Flex.Box>
             <Flex.Box y background={3} style={{ padding: "2rem" }} bordered rounded={1}>
               <Text.Text level="small" weight={500} style={{ marginBottom: "1rem" }}>
                 Level 3
               </Text.Text>
-              <InputShowcaseText placeholder="Catalyst" contrast={3} />
+              <InputShowcaseText placeholder="Catalyst" />
             </Flex.Box>
           </Flex.Box>
         </Flex.Box>

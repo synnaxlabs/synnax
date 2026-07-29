@@ -23,7 +23,7 @@ export type HTMLInputProps = Omit<
   "size" | "onChange" | "value" | "children" | "placeholder" | "color"
 >;
 
-export type Variant = Exclude<Button.Variant, "filled" | "suggestion">;
+export type Variant = Exclude<Button.Variant, "filled">;
 
 export interface InputProps<I = unknown, O = I> extends HTMLInputProps, Control<I, O> {
   variant?: Variant;

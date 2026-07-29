@@ -55,13 +55,13 @@ const Internal = (): ReactElement => {
               {name}
             </Breadcrumb.Segment>
             {selectedCellPos != null && (
-              <Breadcrumb.Segment color={8}>
+              <Breadcrumb.Segment color={9}>
                 {Table.getCellColumn(selectedCellPos.x)}
                 {selectedCellPos.y + 1}
               </Breadcrumb.Segment>
             )}
             {liveCellCount > 1 && (
-              <Breadcrumb.Segment color={8}>{liveCellCount} cells</Breadcrumb.Segment>
+              <Breadcrumb.Segment color={9}>{liveCellCount} cells</Breadcrumb.Segment>
             )}
           </Breadcrumb.Breadcrumb>
         </Flex.Box>

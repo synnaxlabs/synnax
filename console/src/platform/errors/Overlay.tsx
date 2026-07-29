@@ -166,7 +166,6 @@ const FallBackRenderContent = <ExtraInfo extends record.Unknown = record.Unknown
           <OS.Controls
             visibleIfOS="Windows"
             forceOS={os}
-            contrast={0}
             onClose={() => {
               if (Session.Runtime.ENGINE === "tauri") void getCurrentWindow().close();
             }}

@@ -73,11 +73,18 @@ export const Button = <K extends record.Key = record.Key>({
   const { selected, onSelect } = useItemState<K>(itemKey);
   return (
     <Base.Toggle
+      checkedVariant="outlined"
       {...rest}
       id={itemKey.toString()}
       onChange={onSelect}
       value={selected}
-      className={CSS(className, selected && CONTEXT_SELECTED, CONTEXT_TARGET)}
+      className={CSS(
+        className,
+        CSS.B("select-btn"),
+        CSS.selected(selected),
+        selected && CONTEXT_SELECTED,
+        CONTEXT_TARGET,
+      )}
     />
   );
 };

@@ -22,11 +22,10 @@
         cursor: pointer;
     }
 
-    &:focus-within {
+    &:has(:focus-visible) {
         .pluto-input__checkbox-indicator {
-            box-shadow:
-                0 0 0 2px var(--pluto-gray-l0),
-                0 0 0 3px var(--pluto-primary-z);
+            outline: 1px solid var(--pluto-primary-z);
+            outline-offset: 2px;
         }
     }
 
@@ -46,8 +45,8 @@
         display: inline-block;
         width: round(2.666rem, 1px);
         height: round(2.666rem, 1px);
-        background: var(--pluto-gray-l1);
-        border: var(--pluto-border-l5);
+        background: var(--pluto-gray-l3);
+        border: var(--pluto-border-l6);
         border-radius: 0.5rem;
         transition:
             background-color 0.15s ease,
@@ -180,7 +179,7 @@
         .pluto-input__checkbox-indicator::after {
             border-color: color-mix(
                 in srgb,
-                var(--pluto-gray-l6),
+                var(--pluto-text-disabled),
                 var(--pluto-text-on-primary)
             );
         }

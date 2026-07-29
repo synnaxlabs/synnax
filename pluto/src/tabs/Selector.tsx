@@ -33,10 +33,9 @@ import { Triggers } from "@/triggers";
 /**
  * The visual variant of a tab selector.
  *
- * - `default`: flat strip with a bottom border and a primary-colored underline on the
- *   selected tab.
- * - `pill`: separated rounded buttons; the selected tab has a filled background and
- *   no underline.
+ * - `default`: rounded chip tabs on a borderless strip; the selected tab carries a
+ *   subtle fill.
+ * - `pill`: separated outlined rounded buttons.
  */
 export type Variant = "default" | "pill";
 
@@ -212,7 +211,6 @@ export const Selector = ({
   gap,
   ...rest
 }: SelectorProps): ReactElement => {
-  const isDefault = variant === "default";
   const internalRef = useRef<HTMLDivElement | null>(null);
   const combinedRef = useCombinedRefs(ref, internalRef);
   const dir: direction.Direction = Flex.parseDirection(direction, x, y) ?? "x";
@@ -385,8 +383,8 @@ export const Selector = ({
         )}
         size={size}
         align="center"
-        empty={empty ?? isDefault}
-        gap={gap ?? (isDefault ? undefined : "small")}
+        empty={empty}
+        gap={gap ?? "small"}
         direction={dir}
         onKeyDown={handleKeyDown}
         {...rest}

@@ -15,17 +15,10 @@ import {
 } from "react";
 
 import { Button } from "@/button";
-import { CSS } from "@/css";
-import { Menu } from "@/menu";
-import { Select } from "@/select";
-import { KEY_ATTRIBUTE, panelID, tabID, useFrameID } from "@/tabs/Frame";
-import { useSelectorContext } from "@/tabs/Selector";
-import { Triggers } from "@/triggers";
 
 const PILL_BUTTON_PROPS = {
   variant: "outlined",
   rounded: true,
-  contrast: 2,
   color: 1,
   textColor: 1,
 } as const;
@@ -33,8 +26,13 @@ const PILL_BUTTON_PROPS = {
 const DEFAULT_BUTTON_PROPS = {
   variant: "text",
   bordered: false,
-  sharp: true,
 } as const;
+import { CSS } from "@/css";
+import { Menu } from "@/menu";
+import { Select } from "@/select";
+import { KEY_ATTRIBUTE, panelID, tabID, useFrameID } from "@/tabs/Frame";
+import { useSelectorContext } from "@/tabs/Selector";
+import { Triggers } from "@/triggers";
 
 export interface TabProps extends Omit<Button.ButtonProps<"div">, "el" | "id"> {
   /** itemKey identifies the tab within its Frame's selection and content panels. */
@@ -102,6 +100,7 @@ export const Tab = ({
       justify="center"
       align="center"
       empty
+      square={false}
       preventClick={selected}
       onClick={handleClick}
       onKeyDown={handleKeyDown}

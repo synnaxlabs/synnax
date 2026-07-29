@@ -120,6 +120,7 @@ const TabContent = ({ tabKey }: TabProps): ReactElement => {
       onDragStart={handleDragStart}
       onDragEnd={onDragEnd}
     >
+      <Icon.Panel />
       <Text.Editable
         id={PCSS.B(`tab-${tabKey}`)}
         value={name}

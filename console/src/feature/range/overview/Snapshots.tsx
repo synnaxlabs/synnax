@@ -89,7 +89,7 @@ export const Snapshots: FC<SnapshotsProps> = ({ rangeKey }) => {
   if (status.variant === "error") return null;
   return (
     <Flex.Box y>
-      <Header.Header level="h4" borderColor={5}>
+      <Header.Header level="h4" borderColor={6}>
         <Header.Title>Snapshots</Header.Title>
       </Header.Header>
       <List.Frame

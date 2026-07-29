@@ -188,7 +188,7 @@ export const MetaData = ({ rangeKey }: MetaDataProps): ReactElement | null => {
   if (status.variant === "error") return null;
   return (
     <Flex.Box y empty className={CSS.BE("range", "metadata")}>
-      <Header.Header level="h4" borderColor={5}>
+      <Header.Header level="h4" borderColor={6}>
         <Header.Title>Metadata</Header.Title>
         <Header.Actions>
           <Button.Button variant="text" onClick={() => setNewFormVisible(true)}>

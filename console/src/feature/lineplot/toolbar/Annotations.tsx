@@ -95,7 +95,12 @@ const List = ({
       align="start"
     >
       <Flex.Box className={CSS.BE("line-plot", "toolbar", "annotations-add")}>
-        <Button.Button tooltip="Add Rule" onClick={onCreate} size="small">
+        <Button.Button
+          tooltip="Add Rule"
+          onClick={onCreate}
+          size="small"
+          variant="filled"
+        >
           <Icon.Add />
         </Button.Button>
       </Flex.Box>

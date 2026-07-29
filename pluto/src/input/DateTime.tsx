@@ -243,13 +243,13 @@ const AISelector = ({
           emptyContent={
             <Flex.Box empty grow align="center" justify="center">
               <Flex.Box y gap="tiny">
-                <Text.Text level="small" color="var(--pluto-gray-l7)">
+                <Text.Text level="small" color="var(--pluto-gray-l9)">
                   "April 1 at 2PM"
                 </Text.Text>
-                <Text.Text level="small" color="var(--pluto-gray-l7)">
+                <Text.Text level="small" color="var(--pluto-gray-l9)">
                   "Add 2 two hours"
                 </Text.Text>
-                <Text.Text level="small" color="var(--pluto-gray-l7)">
+                <Text.Text level="small" color="var(--pluto-gray-l9)">
                   "Next Friday"
                 </Text.Text>
               </Flex.Box>

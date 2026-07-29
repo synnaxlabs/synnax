@@ -13,6 +13,12 @@
     z-index: 3;
 }
 
+/* A selected pack segment's tinted border must win the negative-margin border
+   collapse against unselected neighbors. */
+.pluto--pack button:is(.pluto--selected, .pluto--checked) {
+    z-index: 2;
+}
+
 .pluto-input {
     z-index: 4;
 }
@@ -29,16 +35,31 @@
 }
 
 :root {
+    /* The interactive fill band. Surfaces may re-point these: elevated chrome sets
+       them to step toward the canvas (l0-l2) so its controls recess instead of
+       lighten; explicit surface classes reset them to this standard ladder. */
+    --pluto-fill-rest: var(--pluto-gray-l3);
+    --pluto-fill-hover: var(--pluto-gray-l4);
+    --pluto-fill-press: var(--pluto-gray-l5);
+
+    /* Selection fill for compact controls (segments, toggles): a gray fill
+       rotated toward the primary hue at unchanged lightness. List rows use a
+       softer variant of the same rotation. */
+    --pluto-selected-bg: var(--pluto-primary-z-20);
+    --pluto-selected-active-bg: var(--pluto-primary-z-30);
+    --pluto-selected-border-color: var(--pluto-primary-z-45);
+    --pluto-selected-color: var(--pluto-primary-p2);
+
     --pluto-border: var(--pluto-border-width) solid var(--pluto-border-color);
-    --pluto-border-l5: var(--pluto-border-width) solid var(--pluto-gray-l5);
+    --pluto-border-l6: var(--pluto-border-width) solid var(--pluto-gray-l6);
     --pluto-height-large: 5rem;
-    --pluto-height-medium: 4.5rem;
+    --pluto-height-medium: round(4.6667rem, 1px);
     --pluto-height-small: 4rem;
     --pluto-height-huge: 8rem;
     --pluto-height-tiny: 3.5rem;
     --pluto-btn-transition:
         background 0.15s ease-in-out, border-color 0.15s ease-in-out,
-        fill 0.15s ease-in-out, opacity 0.15s ease-in-out;
+        fill 0.15s ease-in-out, opacity 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
     --pluto-modal-animation: fade-in-zoom 0.15s ease-in-out;
     --pluto-dialog-animation: fade-in-zoom 0.1s ease-in-out;
 }

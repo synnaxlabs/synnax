@@ -49,7 +49,7 @@ const ParentRangeButton = ({
         Child Range of
       </Text.Text>
       <Button.Button
-        color={8}
+        color={9}
         variant="text"
         weight={400}
         gap="small"

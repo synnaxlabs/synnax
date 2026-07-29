@@ -7,9 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import "@/button/Toggle.css";
+
 import { type ReactElement } from "react";
 
 import { Button, type ButtonProps } from "@/button/Button";
+import { CSS } from "@/css";
 import { type Input } from "@/input";
 
 export interface ToggleProps
@@ -25,12 +28,14 @@ export const Toggle = ({
   value,
   onClick,
   onChange,
-  checkedVariant = "filled",
+  checkedVariant = "outlined",
   uncheckedVariant,
   rightClickToggle = false,
+  className,
   ...rest
 }: ToggleProps): ReactElement => (
   <Button
+    className={CSS(className, CSS.B("btn-toggle"), value && CSS.M("checked"))}
     onClick={(e) => {
       onClick?.(e);
       if (rightClickToggle) return;

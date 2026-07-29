@@ -27,10 +27,15 @@ const Actions = (): ReactElement | null => {
       <Toolbar.Action
         onClick={() => openCalculated()}
         tooltip="Create calculated channel"
+        variant="filled"
       >
         <Channel.CreateCalculatedIcon />
       </Toolbar.Action>
-      <Toolbar.Action onClick={() => openCreate()} tooltip="Create channel">
+      <Toolbar.Action
+        onClick={() => openCreate()}
+        tooltip="Create channel"
+        variant="filled"
+      >
         <Icon.Add />
       </Toolbar.Action>
     </Toolbar.Actions>
@@ -41,7 +46,7 @@ const Content = (): ReactElement => {
   const { data: g } = Channel.useRetrieveGroup({});
   return (
     <Toolbar.Content>
-      <Toolbar.Header padded>
+      <Toolbar.Header>
         <Toolbar.Title icon={<Icon.Channel />}>Channels</Toolbar.Title>
         <Actions />
       </Toolbar.Header>

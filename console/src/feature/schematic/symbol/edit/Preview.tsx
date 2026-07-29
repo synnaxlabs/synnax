@@ -243,7 +243,7 @@ export const Preview = ({
         >
           {spec.svg.length > 0 && (
             <Flex.Box x className={CSS.B("schematic-preview-controls")}>
-              <Text.Text level="small" color={7}>
+              <Text.Text level="small" color={9}>
                 {Math.round(zoom.value * 100)}%
               </Text.Text>
               <Button.Button

@@ -15,7 +15,7 @@
     left: 0;
     z-index: 11;
     pointer-events: none;
-    background: var(--pluto-gray-l0);
+    background: var(--pluto-gray-l2);
     border: var(--pluto-border);
     border-color: var(--pluto-gray-l6);
     border-radius: calc(var(--pluto-border-radius) * 2);

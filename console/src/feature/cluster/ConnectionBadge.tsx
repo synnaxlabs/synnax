@@ -36,7 +36,7 @@ export const ConnectionBadge = (): ReactElement => {
       <Text.Text
         status={variant}
         bordered
-        borderColor={5}
+        borderColor={6}
         background={variant !== "disabled" && 0}
         size="medium"
         rounded

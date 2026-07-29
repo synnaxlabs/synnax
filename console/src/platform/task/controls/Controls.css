@@ -30,7 +30,7 @@
         position: absolute;
         top: 1.5rem;
         right: 1.5rem;
-        color: var(--pluto-gray-l8);
+        color: var(--pluto-gray-l9);
         font-size: 2rem;
     }
 
@@ -85,7 +85,7 @@
             border-bottom: var(--pluto-border);
             min-height: auto;
             &:hover {
-                background: var(--pluto-gray-l1);
+                background: var(--pluto-gray-l4);
             }
         }
 

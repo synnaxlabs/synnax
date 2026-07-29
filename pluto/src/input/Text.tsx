@@ -38,6 +38,7 @@ export interface TextProps
   startContent?: ReactNode;
   onlyChangeOnBlur?: boolean;
   area?: boolean;
+  flush?: boolean;
 }
 
 /**
@@ -54,6 +55,8 @@ export interface TextProps
  * blurred while empty.
  * @param props.onlyChangeOnBlur - If true, the input will only call `onChange` when the
  * user blurs the input or the user presses 'Enter'.
+ * @param props.flush - Marks the input as its surface's sole keystroke target,
+ * removing the focus ring and widening the content inset.
  */
 export const Text = ({
   size = "medium",
@@ -74,7 +77,6 @@ export const Text = ({
   status,
   weight,
   style,
-  contrast,
   color: pColor,
   sharp,
   onlyChangeOnBlur = false,
@@ -101,6 +103,7 @@ export const Text = ({
   hideTooltip,
   ghost,
   area,
+  flush = false,
   propagateClick,
   ...rest
 }: TextProps): ReactElement => {
@@ -175,6 +178,8 @@ export const Text = ({
       align="center"
       className={CSS(
         CSS.B("input"),
+        CSS.M("focus-frozen"),
+        flush && CSS.M("flush"),
         CSS.disabled(disabled),
         status != null && CSS.M(status),
         className,
@@ -182,7 +187,6 @@ export const Text = ({
       size={size}
       level={level}
       color={pColor}
-      contrast={contrast}
       sharp={sharp}
       status={status}
       bordered={bordered}

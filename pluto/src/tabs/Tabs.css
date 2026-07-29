@@ -35,7 +35,7 @@
     }
 
     &::-webkit-scrollbar-thumb:hover {
-        background: var(--pluto-gray-l6);
+        background: var(--pluto-gray-l7);
     }
 }
 
@@ -107,10 +107,10 @@
     .pluto-tabs__tab {
         border: none;
         padding: 0;
+        position: relative;
+        border-radius: calc(var(--pluto-border-radius) + 2px);
         transition:
-            box-shadow 0.15s,
             background 0.15s ease-in-out,
-            border-color 0.15s ease-in-out,
             transform 0.15s ease;
 
         > .pluto-icon {
@@ -118,25 +118,21 @@
             margin-left: 1.5rem;
             margin-right: 1rem;
             color: var(--pluto-gray-l9);
+            transition: opacity 0.1s ease-in-out;
         }
 
         &:not(.pluto--selected) {
             &:hover {
-                background: var(--pluto-gray-l2);
-                .pluto-tabs__close {
-                    background: none;
-                }
+                background: var(--pluto-fill-hover);
             }
             &:active:not(:has(.pluto-tabs__close:active)) {
-                background: var(--pluto-gray-l3);
-                .pluto-tabs__close {
-                    background: none;
-                }
+                background: var(--pluto-fill-press);
             }
         }
 
-        &:has(.pluto-tabs__close) .pluto-text {
-            margin-right: 0;
+        &.pluto--selected {
+            background: var(--pluto-primary-z-15);
+            box-shadow: inset 0 0 0 var(--pluto-border-width) var(--pluto-primary-z-35);
         }
 
         &:has(> .pluto-icon) .pluto-text {
@@ -147,88 +143,123 @@
             flex: 1 1 auto !important;
             max-width: fit-content;
             overflow: hidden;
-            min-width: 80px;
+            min-width: 40px;
         }
 
-        &:not(.pluto--selected) .pluto-tabs__close {
-            background: none;
-            &:hover {
-                background: var(--pluto-gray-l4);
-            }
-            &:active {
-                background: var(--pluto-gray-l5);
-            }
-        }
-
+        /* The close button slides in over the leading icon on hover, so it reserves
+           no trailing space. Chromeless: hover feedback lives on the glyph alone. */
         .pluto-tabs__close {
-            opacity: 0;
-            right: 0;
-            margin-left: 1px !important;
+            position: absolute;
+            left: 0.25rem;
+            top: 50%;
+            transform: translateY(-50%);
+            min-height: 0;
+            width: 3rem;
+            height: 3rem;
+            padding: 0;
+            overflow: hidden;
+            background: none !important;
+            transition:
+                width 0.1s ease-out,
+                opacity 0.1s ease-out;
             & svg {
-                fill: var(--pluto-gray-l8);
+                fill: var(--pluto-gray-l9);
+                width: 2rem;
+                height: 2rem;
+                flex-shrink: 0;
+                transition:
+                    transform 0.1s ease-out,
+                    fill 0.1s ease-out;
+            }
+            &:hover svg {
+                fill: var(--pluto-gray-l11);
+            }
+            &:active svg {
+                fill: var(--pluto-error-z);
             }
         }
 
-        &.pluto--selected .pluto-tabs__close {
-            box-shadow: inset 0 -2px 0 var(--pluto-primary-z);
+        &:is(:not(:hover), :has([contenteditable="true"])) .pluto-tabs__close {
+            min-width: 0;
+            width: 0;
+            opacity: 0;
+            transition:
+                width 0.1s ease-in,
+                opacity 0.1s ease-in;
+            & svg {
+                transform: scale(0.9);
+            }
         }
 
-        &:is(:hover, .pluto--selected) .pluto-tabs__close {
-            opacity: 1;
+        &:hover:has(.pluto-tabs__close):not(:has([contenteditable="true"]))
+            > .pluto-icon {
+            opacity: 0;
         }
     }
 
     &.pluto--direction-x {
-        box-shadow: inset 0 calc(-1 * var(--pluto-border-width)) 0
-            var(--pluto-border-color);
-        z-index: 3;
+        padding: 0 0.75rem;
         .pluto-tabs__tab {
-            margin-bottom: -1px;
-            height: 100% !important;
+            min-height: 0 !important;
+            height: var(--pluto-height-small) !important;
             font-weight: 450;
-            &.pluto--selected {
-                --box-shadow: inset 0 -2px 0 var(--pluto-primary-z);
-                box-shadow: var(--box-shadow);
-                .pluto-btn-icon:hover {
-                    box-shadow: var(--box-shadow);
-                }
-            }
         }
     }
 
     &.pluto--direction-y {
-        border-right: var(--pluto-border);
         height: 100%;
+        padding: 0.75rem 0.5rem;
 
         .pluto-tabs__tab {
             justify-content: flex-start !important;
-            margin-right: -1px;
-            border-right: var(--pluto-border);
-
-            &.pluto--selected {
-                border-color: var(--pluto-primary-z);
-                --box-shadow: inset -1px 0 0 var(--pluto-primary-z);
-                box-shadow: var(--box-shadow);
-                .pluto-btn-icon,
-                .pluto-btn-icon:hover {
-                    box-shadow: var(--box-shadow);
-                }
-            }
         }
     }
 }
 
-.pluto-header .pluto-tabs__selector--default {
-    &.pluto--direction-x {
-        box-shadow: none;
+/* Chrome-style sizing with content growth: a pill sizes to its label when that
+   exceeds the standard width, pads out to the standard width when shorter, and
+   compresses back toward it once the strip fills. */
+.pluto-tabs__selector--pill .pluto-tabs__tab {
+    padding: 0 2rem;
+    transition:
+        background 0.15s ease-in-out,
+        border-color 0.15s ease-in-out,
+        transform 0.15s ease;
+    justify-content: flex-start;
+    text-align: left;
+    flex: 0 1 auto;
+    width: max-content;
+    min-width: 25rem;
+    overflow: hidden;
+    white-space: nowrap;
+
+    & .pluto-text {
+        margin: 0;
     }
+
+    & > .pluto-icon {
+        flex-shrink: 0;
+        margin-right: 1rem;
+        color: var(--pluto-gray-l9);
+    }
+
+    &.pluto--selected > .pluto-icon {
+        color: var(--pluto-gray-l11);
+    }
+}
+
+/* Only the selected pill shows its outline; the border stays in layout so
+   selection doesn't shift neighbors. */
+.pluto-tabs__selector--pill .pluto-tabs__tab:not(.pluto--selected) {
+    border-color: var(--pluto-gray-l5);
+    --pluto-bg: var(--pluto-gray-l4);
 }
 
 .pluto-tabs__tab .pluto-tabs__unsaved {
     flex-shrink: 0;
     height: 0.9em;
     width: 0.9em;
-    fill: var(--pluto-gray-l8);
+    fill: var(--pluto-gray-l9);
 }
 
 /* The dot occupies the close slot until the operator hovers, at which point the

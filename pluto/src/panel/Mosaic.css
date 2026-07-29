@@ -20,3 +20,19 @@
 .pluto-mosaic__leaf > .pluto-tabs > .pluto-tabs__content {
     display: block;
 }
+
+/* Mosaic strips have no bottom divider, so chips sit flush with the content edge:
+   a slightly taller strip with taller, bottom-aligned tabs. */
+.pluto-mosaic__leaf > .pluto-tabs > .pluto-tabs__selector--default.pluto--direction-x {
+    min-height: 5rem;
+
+    > .pluto-tabs__tab {
+        height: round(4.3333rem, 1px) !important;
+        align-self: flex-end;
+    }
+
+    /* A selected pane's tab reads a step quieter than the focused tab. */
+    > .pluto-tabs__tab.pluto--selected:not(.pluto--alt-color) .pluto-text {
+        color: var(--pluto-gray-l10);
+    }
+}
