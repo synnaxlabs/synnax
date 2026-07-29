@@ -147,7 +147,7 @@ const MenuItem = ({
       {...itemProps}
       key={key}
       itemKey={key}
-      size="large"
+      size="medium"
       triggerIndicator={trigger}
     >
       {icon}

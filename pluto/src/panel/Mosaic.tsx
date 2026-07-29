@@ -104,8 +104,8 @@ const Leaf = memo(
               <Tab key={tabKey} tabKey={tabKey} {...rest} />
             ))}
             <Flex.Box grow />
-            <Button.Button variant="text" sharp onClick={handleAdd}>
-              <Icon.Add />
+            <Button.Button variant="text" onClick={handleAdd}>
+              <Icon.Add color={10} />
             </Button.Button>
           </Tabs.Selector>
           <Tabs.Content grow>

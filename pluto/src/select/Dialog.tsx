@@ -12,11 +12,12 @@ import "@/select/Dialog.css";
 import { type status } from "@synnaxlabs/client";
 import { type record } from "@synnaxlabs/x";
 import { plural } from "pluralize";
-import { memo, type ReactElement, useMemo } from "react";
+import { memo, type ReactElement, type ReactNode, useMemo } from "react";
 import { type z } from "zod";
 
 import { CSS } from "@/css";
 import { Dialog as BaseDialog } from "@/dialog";
+import { Flex } from "@/flex";
 import { List } from "@/list";
 import { SearchInput, type SearchInputProps } from "@/select/SearchInput";
 import { Status } from "@/status/base";
@@ -29,6 +30,8 @@ export interface DialogProps<K extends record.Key>
     Pick<List.ItemsProps<K>, "emptyContent" | "children"> {
   status?: status.Status<z.ZodNever>;
   resourceName: string;
+  /** Pinned below the scrollable list; stays visible regardless of list length. */
+  footer?: ReactNode;
 }
 
 export interface DefaultEmptyContentProps extends Status.SummaryProps {
@@ -49,6 +52,7 @@ const Base = memo(
     status,
     resourceName,
     actions,
+    footer,
     className,
     ...rest
   }: DialogProps<K>) => {
@@ -87,16 +91,34 @@ const Base = memo(
             actions={actions}
           />
         )}
-        <List.Items
-          emptyContent={emptyContent}
-          bordered
-          borderColor={6}
-          grow
-          rounded
-          full="x"
-        >
-          {children}
-        </List.Items>
+        {footer == null || footer === false ? (
+          <List.Items
+            emptyContent={emptyContent}
+            bordered
+            borderColor={6}
+            grow
+            rounded
+            full="x"
+          >
+            {children}
+          </List.Items>
+        ) : (
+          <Flex.Box
+            y
+            empty
+            grow
+            className={CSS.BE("select", "body")}
+            bordered
+            borderColor={6}
+            rounded
+            full="x"
+          >
+            <List.Items emptyContent={emptyContent} grow full="x">
+              {children}
+            </List.Items>
+            {footer}
+          </Flex.Box>
+        )}
       </BaseDialog.Dialog>
     );
   },

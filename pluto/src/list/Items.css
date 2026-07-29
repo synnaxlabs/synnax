@@ -14,7 +14,9 @@
     overflow: auto;
     -webkit-user-select: none;
     transition: height 0.1s ease;
-    padding: 1rem;
+    &:not(.pluto--direction-x) {
+        padding: 1rem;
+    }
 
     & > .pluto-list__virtualizer {
         width: 100%;

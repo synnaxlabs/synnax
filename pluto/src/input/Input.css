@@ -29,10 +29,11 @@
         box-shadow: inset 0 0 0 0.5px var(--pluto-border-color);
     }
 
-    /* A flush input is its surface's sole keystroke target: no focus ring, taller
-       than a form field, content inset to align with the list rows below it. */
+    /* A flush input is its surface's sole keystroke target: no focus ring, at least
+       a form field's large height, content inset to align with the list rows below
+       it. */
     &.pluto--flush {
-        min-height: var(--pluto-height-large);
+        min-height: max(var(--pluto-height-large), var(--pluto-height, 0px));
 
         & input,
         & textarea {

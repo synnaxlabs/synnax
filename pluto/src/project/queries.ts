@@ -29,7 +29,10 @@ export const { useRetrieve } = Flux.createRetrieve<RetrieveQuery, project.Projec
   getCached: ({ client, query: { key } }) => client.projects.getCached({ key }),
 });
 
-export type ListParams = Pick<project.RetrieveRequest, "keys" | "offset" | "limit">;
+export type ListParams = Pick<
+  project.RetrieveRequest,
+  "keys" | "offset" | "limit" | "searchTerm"
+>;
 
 export const useList = Flux.createList<ListParams, project.Key, project.Project>({
   name: PLURAL_RESOURCE_NAME,

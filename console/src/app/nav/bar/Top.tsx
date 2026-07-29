@@ -15,7 +15,6 @@ import { Toolbars } from "@/app/toolbars";
 import { Cluster } from "@/feature/cluster";
 import { Docs } from "@/feature/docs";
 import { Panel } from "@/feature/panel";
-import { Project } from "@/feature/project";
 import { Version } from "@/feature/version";
 import { CSS } from "@/platform/css";
 import { Nav as PlatformNav } from "@/platform/nav";
@@ -64,10 +63,10 @@ export interface TopProps {
 export const Top = ({ secondary = false }: TopProps): ReactElement => {
   const os = OS.use();
   return (
-    <PlatformNav.Bar location="top" size="6.5rem" data-tauri-drag-region>
+    <PlatformNav.Bar location="top" size="7rem" data-tauri-drag-region>
       <Nav.Bar.Start data-tauri-drag-region gap="large">
         <Window.Controls visibleIfOS="macOS" forceOS={os} />
-        {secondary ? os === "Windows" && <BottomToggleButton /> : <Project.Selector />}
+        {secondary && os === "Windows" && <BottomToggleButton />}
         <Panel.Selector />
       </Nav.Bar.Start>
       <Nav.Bar.Content data-tauri-drag-region full="x" />

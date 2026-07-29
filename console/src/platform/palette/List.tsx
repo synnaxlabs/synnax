@@ -111,6 +111,7 @@ export const BaseList = <E extends record.Keyed<string>>({
         className={CSS(CSS.BE("palette", "input"))}
         placeholder={inputPlaceholder}
         size="huge"
+        flush
         autoFocus
         onChange={handleSearch}
         borderColor={8}

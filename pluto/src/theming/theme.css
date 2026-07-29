@@ -52,7 +52,7 @@
 
     --pluto-border: var(--pluto-border-width) solid var(--pluto-border-color);
     --pluto-border-l6: var(--pluto-border-width) solid var(--pluto-gray-l6);
-    --pluto-height-large: 5rem;
+    --pluto-height-large: 6rem;
     --pluto-height-medium: round(4.6667rem, 1px);
     --pluto-height-small: 4rem;
     --pluto-height-huge: 8rem;

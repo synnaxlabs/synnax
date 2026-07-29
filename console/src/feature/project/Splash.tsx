@@ -49,7 +49,7 @@ const listItem = Component.renderProp(
 const SplashNav = (): ReactElement => {
   const os = OS.use();
   return (
-    <PlatformNav.Bar location="top" size="6.5rem" bordered data-tauri-drag-region>
+    <PlatformNav.Bar location="top" size="7rem" bordered data-tauri-drag-region>
       <Nav.Bar.Start data-tauri-drag-region>
         <Window.Controls visibleIfOS="macOS" forceOS={os} />
       </Nav.Bar.Start>

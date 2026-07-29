@@ -137,7 +137,7 @@ const FallBackRenderContent = <ExtraInfo extends record.Unknown = record.Unknown
     <Flex.Box y className={CSS.B("error-overlay")}>
       <Nav.Bar
         location="top"
-        size="6.5rem"
+        size="7rem"
         bordered
         data-tauri-drag-region
         background={2}
