@@ -55,8 +55,9 @@ func newOptions(opts []Option) options {
 	return o
 }
 
-// WithAllowDashedNames permits '-' inside Arc channel-name identifiers (e.g. "sensor-1").
-// Off by default; enable only when Core runs with channel-name validation disabled.
+// WithAllowDashedNames permits '-' inside Arc channel-name identifiers (e.g.
+// "sensor-1"). Off by default; enable only when Core runs with channel-name validation
+// disabled.
 func WithAllowDashedNames(allow bool) Option {
 	return func(o *options) { o.cfg.AllowDashedNames = allow }
 }

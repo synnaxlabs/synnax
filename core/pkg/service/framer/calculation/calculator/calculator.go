@@ -78,11 +78,12 @@ func (c Config) Validate() error {
 	return v.Error()
 }
 
-// Open opens a new calculator that evaluates the Expression of the provided
-// channel. The requiredChannels provided must include ALL and ONLY the channels
-// corresponding to the keys specified in ch.Requires.
+// Open opens a new calculator that evaluates the Expression of the provided channel.
+// The requiredChannels provided must include ALL and ONLY the channels corresponding to
+// the keys specified in ch.Requires.
 //
-// The calculator must be closed by calling Close() after use, or memory leaks will occur.
+// The calculator must be closed by calling Close() after use, or memory leaks will
+// occur.
 func Open(ctx context.Context, cfgs ...Config) (_ *Calculator, err error) {
 	cfg, err := config.New(Config{}, cfgs...)
 	if err != nil {

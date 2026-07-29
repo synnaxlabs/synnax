@@ -113,10 +113,11 @@ func (g *Graph) Add(ctx context.Context, ch channel.Channel) error {
 	return g.addInternal(ctx, ch, true)
 }
 
-// Update recompiles a channel with a new expression and updates its dependencies and group assignment.
-// Preserves reference counts - use this when a channel's calculation changes but the same users are still requesting it.
-// If the channel's DataType changes, all downstream channels that depend on it are recompiled
-// in topological order.
+// Update recompiles a channel with a new expression and updates its dependencies and
+// group assignment. Preserves reference counts - use this when a channel's calculation
+// changes but the same users are still requesting it. If the channel's DataType
+// changes, all downstream channels that depend on it are recompiled in topological
+// order.
 func (g *Graph) Update(ctx context.Context, ch channel.Channel) error {
 	info, err := g.getChannelInfo(ch.Key())
 	if err != nil {
@@ -187,11 +188,11 @@ func (g *Graph) recompileDependents(ctx context.Context, changedKey channel.Key)
 	return nil
 }
 
-// collectDependentsTopological returns all channels in the graph that transitively depend on
-// root, ordered so that a channel always appears after all of its own
-// dependencies. This is a simple BFS followed by a reverse-post-order DFS over
-// the subset, which is cheap for the small graphs we operate on (tens to low
-// hundreds of channels).
+// collectDependentsTopological returns all channels in the graph that transitively
+// depend on root, ordered so that a channel always appears after all of its own
+// dependencies. This is a simple BFS followed by a reverse-post-order DFS over the
+// subset, which is cheap for the small graphs we operate on (tens to low hundreds of
+// channels).
 func (g *Graph) collectDependentsTopological(root channel.Key) []channel.Key {
 	// Build the set of all transitive dependents via BFS.
 	dependents := make(set.Set[channel.Key])
@@ -403,7 +404,8 @@ func (g *Graph) updateSingle(
 	return nil
 }
 
-// checkCircularDependency checks if adding a dependency would create a circular dependency.
+// checkCircularDependency checks if adding a dependency would create a circular
+// dependency.
 func (g *Graph) checkCircularDependency(source, target channel.Key) error {
 	if source == target {
 		err := errors.Newf(
@@ -465,7 +467,8 @@ func (g *Graph) checkCircularDependency(source, target channel.Key) error {
 	return checkDeps(target)
 }
 
-// recalculateGroupBaseDeps recalculates the base dependencies for a group based on its current members.
+// recalculateGroupBaseDeps recalculates the base dependencies for a group based on its
+// current members.
 func (g *Graph) recalculateGroupBaseDeps(ctx context.Context, groupID int) error {
 	group := g.groups[groupID]
 	if group == nil {
@@ -769,8 +772,9 @@ func (g *Graph) CalculateGrouped() map[int][]compiler.Module {
 	return result
 }
 
-// CalculateFlat returns all modules in a flat list sorted in topological order (dependencies first).
-// Unlike CalculateGrouped, this does not group modules and returns a single sorted list.
+// CalculateFlat returns all modules in a flat list sorted in topological order
+// (dependencies first). Unlike CalculateGrouped, this does not group modules and
+// returns a single sorted list.
 func (g *Graph) CalculateFlat() []compiler.Module {
 	if len(g.channels) == 0 {
 		return nil
@@ -831,7 +835,8 @@ func (g *Graph) CalculateFlat() []compiler.Module {
 	return sortedModules
 }
 
-// CalculatedKeys returns the set of all calculated channel keys managed by this allocator.
+// CalculatedKeys returns the set of all calculated channel keys managed by this
+// allocator.
 func (g *Graph) CalculatedKeys() set.Set[channel.Key] {
 	keys := make(set.Set[channel.Key])
 	for key := range g.channels {
@@ -978,8 +983,9 @@ func (g *Graph) fetchDependencyDiagnostics(
 	return deps
 }
 
-// formatDependencyTree builds a string representation of the full dependency tree for a channel.
-// Returns a string like: "ch1 → [calculated: ch2, ch3] → [base: ch4, ch5, ch6]"
+// formatDependencyTree builds a string representation of the full dependency tree for a
+// channel. Returns a string like: "ch1 → [calculated: ch2, ch3] → [base: ch4, ch5,
+// ch6]"
 func (g *Graph) formatDependencyTree(ctx context.Context, key channel.Key) string {
 	info := g.channels[key]
 	if info == nil {
@@ -1045,9 +1051,9 @@ func (g *groupInfo) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	return nil
 }
 
-// Remove decrements the explicit reference count for a channel.
-// When both explicit and dependency counts reach 0, removes the channel and cascades to dependencies.
-// Returns true if the channel was found in the graph (i.e., it was a calculated channel).
+// Remove decrements the explicit reference count for a channel. When both explicit and
+// dependency counts reach 0, removes the channel and cascades to dependencies. Returns
+// true if the channel was found in the graph (i.e., it was a calculated channel).
 func (g *Graph) Remove(key channel.Key) (bool, error) {
 	info, ok := g.channels[key]
 	if !ok {

@@ -247,8 +247,9 @@ var _ = Describe("Graph", func() {
 					Expect(inter.Nodes).To(HaveLen(3))
 					Expect(inter.Edges).To(HaveLen(2))
 
-					// Check that each node instance has concrete resolved types
-					// The func definition remains polymorphic, but each node gets concrete types
+					// Check that each node instance has concrete resolved types The
+					// func definition remains polymorphic, but each node gets concrete
+					// types
 					adderNode, _ := lo.Find(
 						inter.Nodes,
 						func(n ir.Node) bool { return n.Key == "adder" },
@@ -323,7 +324,8 @@ var _ = Describe("Graph", func() {
 					inter, diagnostics := graph.Analyze(ctx, g, NewGraphRoot(nil))
 					Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 
-					// Check that the multiplier node instance has concrete resolved types
+					// Check that the multiplier node instance has concrete resolved
+					// types
 					multiplierNode, _ := lo.Find(
 						inter.Nodes,
 						func(n ir.Node) bool { return n.Key == "multiplier" },
@@ -505,7 +507,8 @@ var _ = Describe("Graph", func() {
 					}
 					g = MustSucceed(graph.Parse(g))
 					_, diagnostics := graph.Analyze(ctx, g, NewGraphRoot(nil))
-					// This should fail because poly_add expects both parameters to be the same type T
+					// This should fail because poly_add expects both parameters to be
+					// the same type T
 					Expect(diagnostics.Ok()).To(BeFalse())
 					Expect(
 						diagnostics.String(),
@@ -894,7 +897,8 @@ var _ = Describe("Graph", func() {
 					// on -> ge.a, constant -> ge.b
 					// ge -> stable_for
 					// stable_for -> select
-					// status_success and status_error are fulfilled by input, not edges.
+					// status_success and status_error are fulfilled by input, not
+					// edges.
 					Expect(inter.Edges).To(HaveLen(4))
 
 					// Verify inputs were parsed correctly
@@ -904,7 +908,8 @@ var _ = Describe("Graph", func() {
 					).To(HaveKeyWithValue("duration", int(telem.Millisecond)))
 
 					// Verify polymorphic node instances have concrete resolved types
-					// func definitions stay polymorphic, but each node instance gets concrete types
+					// func definitions stay polymorphic, but each node instance gets
+					// concrete types
 
 					// The constant node should have concrete F64 type
 					// (since it connects to "ge" which receives F64 from "on")

@@ -371,9 +371,9 @@ var _ = Describe("Relay", func() {
 		It(
 			"Should deliver the open ack when the streamer subscribes only to gateway-leased channels",
 			func(ctx SpecContext) {
-				// Channels with no explicit leaseholder are assigned to the host node and
-				// are served by the gateway tap alongside free channels. This exercises the
-				// ack path for a demand whose keys are all host-leased.
+				// Channels with no explicit leaseholder are assigned to the host node
+				// and are served by the gateway tap alongside free channels. This
+				// exercises the ack path for a demand whose keys are all host-leased.
 				chs := MustSucceed(svc.Channel.Create(ctx, newChannelSet()))
 				keys := channel.KeysFromChannels(chs)
 
@@ -580,8 +580,8 @@ var _ = Describe("Relay", func() {
 				keys := channel.KeysFromChannels(chs)
 				unknown := channel.NewKey(node.KeyBootstrapper, 0xFFFFE)
 
-				// The streamer with the unknown key opens first, so its demand is the one
-				// that opens the shared gateway tap.
+				// The streamer with the unknown key opens first, so its demand is the
+				// one that opens the shared gateway tap.
 				mixed := MustSucceed(svc.Framer.NewStreamer(relay.StreamerConfig{
 					Keys:        append(channel.Keys{unknown}, keys...),
 					SendOpenAck: new(true),

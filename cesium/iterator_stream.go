@@ -90,9 +90,11 @@ func (i IteratorCommand) HasOps() bool { return i <= IteratorCommandPrev }
 type IteratorRequest struct {
 	// Command is the command to execute.
 	Command IteratorCommand
-	// Stamp should be set during a request to IteratorCommandSeekLE or IteratorCommandSeekGE.
+	// Stamp should be set during a request to IteratorCommandSeekLE or
+	// IteratorCommandSeekGE.
 	Stamp telem.TimeStamp
-	// Span should be set during a request to IteratorCommandNext or IteratorCommandPrev.
+	// Span should be set during a request to IteratorCommandNext or
+	// IteratorCommandPrev.
 	Span telem.TimeSpan
 	// Bounds should be set during a request to IteratorCommandSetBounds.
 	Bounds telem.TimeRange

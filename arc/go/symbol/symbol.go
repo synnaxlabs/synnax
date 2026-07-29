@@ -108,9 +108,11 @@ type Kind int
 const (
 	// KindVariable represents a regular variable within a function or block scope.
 	KindVariable Kind = iota
-	// KindStatefulVariable represents a variable that persists across reactive stage executions.
+	// KindStatefulVariable represents a variable that persists across reactive stage
+	// executions.
 	KindStatefulVariable
-	// KindChannel represents a channel type for inter-task communication via unbounded FIFO queues.
+	// KindChannel represents a channel type for inter-task communication via unbounded
+	// FIFO queues.
 	KindChannel
 	// KindFunction represents a function declaration.
 	KindFunction

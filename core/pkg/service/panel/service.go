@@ -109,9 +109,9 @@ func OpenService(
 
 func (s *Service) Close() error { return s.closer.Close() }
 
-// OnAction subscribes the given handler to the action stream emitted by Writer.Dispatch.
-// The handler runs synchronously inside Dispatch after the underlying transaction commits.
-// The returned Disconnect removes the handler.
+// OnAction subscribes the given handler to the action stream emitted by
+// Writer.Dispatch. The handler runs synchronously inside Dispatch after the underlying
+// transaction commits. The returned Disconnect removes the handler.
 func (s *Service) OnAction(
 	handler func(context.Context, actions.Scoped[Key, Action]),
 ) observe.Disconnect {

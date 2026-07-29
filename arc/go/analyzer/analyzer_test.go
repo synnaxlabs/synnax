@@ -21,7 +21,8 @@ import (
 	. "github.com/synnaxlabs/x/testutil"
 )
 
-// chResolver is the most common resolver used across tests: a single float32 channel "ch".
+// chResolver is the most common resolver used across tests: a single float32 channel
+// "ch".
 var chResolver = []symbol.Symbol{
 	{Name: "ch", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 10},
 }
@@ -370,8 +371,8 @@ var _ = Describe("Analyzer Integration", func() {
 		It(
 			"Should analyze a valid block without return statements",
 			func(bCtx SpecContext) {
-				// Note: AnalyzeBlock analyzes blocks in isolation without function context,
-				// so return statements may fail without proper scope setup.
+				// Note: AnalyzeBlock analyzes blocks in isolation without function
+				// context, so return statements may fail without proper scope setup.
 				prog := MustSucceed(parser.Parse(`
 				func test() {
 					x := 1

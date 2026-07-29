@@ -312,10 +312,10 @@ var _ = Describe("restart", func() {
 				RestartBaseInterval: time.Millisecond,
 			})
 			Expect(d).ToNot(BeNil())
-			// Each run starts then crashes, so the supervisor restarts and the restarted run
-			// re-emits "started successfully". The shared startup channel must not be closed
-			// twice: on the bug this panics in the pipe goroutine before the second startup
-			// line is logged, so the count never reaches two.
+			// Each run starts then crashes, so the supervisor restarts and the
+			// restarted run re-emits "started successfully". The shared startup channel
+			// must not be closed twice: on the bug this panics in the pipe goroutine
+			// before the second startup line is logged, so the count never reaches two.
 			Eventually(func() int {
 				return strings.Count(buffer.String(), "started successfully")
 			}, 5*time.Second).Should(BeNumerically(">=", 2))

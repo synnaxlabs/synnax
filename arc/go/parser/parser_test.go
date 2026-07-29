@@ -597,7 +597,8 @@ any{ox_pt_1, ox_pt_2} -> average{} -> ox_pt_avg`)
 		})
 
 		It("Should fail parsing mixed named and anonymous input values", func() {
-			// Note: 'stage' is now a reserved keyword, so we use a different function name
+			// Note: 'stage' is now a reserved keyword, so we use a different function
+			// name
 			Expect(
 				parser.Parse(`myfunc{ox_pt_1, second: ox_pt_2} -> output`),
 			).Error().
@@ -1024,8 +1025,8 @@ any{ox_pt_1, ox_pt_2} -> average{} -> ox_pt_avg`)
 			})
 
 			It("Should capture lexer errors for invalid tokens (regression)", func() {
-				// Regression test: lexer errors were not being captured properly
-				// Using && instead of 'and' should produce lexer token recognition errors
+				// Regression test: lexer errors were not being captured properly Using
+				// && instead of 'and' should produce lexer token recognition errors
 				Expect(
 					parser.ParseExpression("a > 5 && b < 10"),
 				).Error().

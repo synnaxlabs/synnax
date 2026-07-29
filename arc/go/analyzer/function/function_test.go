@@ -1296,7 +1296,8 @@ var _ = Describe("Function Analyzer", func() {
 			It(
 				"should diagnose duplicate output name without parentheses",
 				func(bCtx SpecContext) {
-					// This tests error handling when a named output conflicts with an existing symbol
+					// This tests error handling when a named output conflicts with an
+					// existing symbol
 					analyzeExpectError(bCtx, `
 					func compute{result f64}() result f64 {
 						result = 42.0

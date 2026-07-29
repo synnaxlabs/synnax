@@ -252,11 +252,11 @@ func (db *DB) calculateEndOffset(
 	sampleOffset = approxDist.Upper
 	if !approxDist.Exact() {
 		if !approxDist.StartExact && !approxDist.EndExact {
-			// If both start and end are inexact, sampleOffset is in between the two. (Note
-			// that the start is only inexact because of domain cutoff).
+			// If both start and end are inexact, sampleOffset is in between the two.
+			// (Note that the start is only inexact because of domain cutoff).
 			sampleOffset = (approxDist.Lower + approxDist.Upper) / 2
-			// We stamp to sampleOffset - 1 here since if we are approximating the start sampleOffset,
-			// we want to stamp the last written sample.
+			// We stamp to sampleOffset - 1 here since if we are approximating the start
+			// sampleOffset, we want to stamp the last written sample.
 			if approxStamp, err = db.index().Stamp(
 				ctx,
 				domainStart,

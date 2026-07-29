@@ -1032,7 +1032,8 @@ var _ = Describe("Statement Compiler", func() {
 
 			// Verify that bytecode contains correct sequence for indexed assignment:
 			// 1. Create series and store in local
-			// 2. For indexed assignment: get local, push index, push value, call set_element
+			// 2. For indexed assignment: get local, push index, push value, call
+			// 	  set_element
 			bytecode := FinalizeContext(ctx)
 
 			Expect(bytecode).To(ContainSubstring(string([]byte{byte(OpLocalGet)})))
@@ -1611,10 +1612,12 @@ var _ = Describe("Statement Compiler", func() {
 				`, resolver)
 
 					Expect(bytecode).To(MatchOpcodes(
-						// first_ref := sensor (global channel → store channel ID in local 0)
+						// first_ref := sensor (global channel → store channel ID in
+						// local 0)
 						OpI32Const, int32(100),
 						OpLocalSet, 0,
-						// second_ref := first_ref (chan-typed variable → copy channel ID, local 1)
+						// second_ref := first_ref (chan-typed variable → copy channel
+						// ID, local 1)
 						OpLocalGet, 0,
 						OpLocalSet, 1,
 						// value := 0.0 (local 2)
@@ -1649,7 +1652,8 @@ var _ = Describe("Statement Compiler", func() {
 						// local_ref := sensor (stores channel ID)
 						OpI32Const, int32(100),
 						OpLocalSet, 0,
-						// value f64 $= 0.0 (state ID = 1 because local_ref takes slot 0)
+						// value f64 $= 0.0 (state ID = 1 because local_ref takes slot
+						// 0)
 						OpI32Const, int32(1),
 						OpF64Const, float64(0.0),
 						OpCall, uint32(0),

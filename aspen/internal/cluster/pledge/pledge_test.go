@@ -88,10 +88,11 @@ var _ = Describe("PledgeServer", func() {
 					var (
 						peers []address.Address
 						count int
-						// Terminate once we've observed two full round-robin cycles rather
-						// than on a wall-clock deadline. A short deadline races with coarse
-						// timer resolution (notably on Windows), where the retry ticker's
-						// first tick can fire after the deadline, yielding zero attempts.
+						// Terminate once we've observed two full round-robin cycles
+						// rather than on a wall-clock deadline. A short deadline races
+						// with coarse timer resolution (notably on Windows), where the
+						// retry ticker's first tick can fire after the deadline,
+						// yielding zero attempts.
 						handler = func(_ context.Context, req pledge.Request) (pledge.Response, error) {
 							count++
 							if count >= 2*numTransports {

@@ -28,9 +28,9 @@ type Change struct {
 
 // Store is an interface representing a copy-on-read Store for managing cluster state.
 type Store interface {
-	// Observable allows the caller to react to state changes. This state is not diffed i.e.
-	// any call that modifies the state, even if no actual change occurs, will get sent to the
-	// Observable.
+	// Observable allows the caller to react to state changes. This state is not diffed
+	// i.e. any call that modifies the state, even if no actual change occurs, will get
+	// sent to the Observable.
 	store.Observable[State, Change]
 	// ClusterKey returns the cluster key.
 	ClusterKey() uuid.UUID
@@ -39,14 +39,14 @@ type Store interface {
 	// SetNode sets a node in state.
 	SetNode(context.Context, node.Node)
 	// GetNode returns a node from state. Returns false if the node is not found.
-	GetNode(key node.Key) (node.Node, bool)
-	// Merge merges a node.Group into State.Nodes by selecting nodes from group with heartbeats
-	// that are either not in State or are older than in State.
-	Merge(ctx context.Context, group node.Group)
+	GetNode(node.Key) (node.Node, bool)
+	// Merge merges a node.Group into State.Nodes by selecting nodes from group with
+	// heartbeats that are either not in State or are older than in State.
+	Merge(context.Context, node.Group)
 	// GetHost returns the host node of the Store.
 	GetHost() node.Node
 	// SetHost sets the host for the Store.
-	SetHost(ctx context.Context, node node.Node)
+	SetHost(context.Context, node.Node)
 }
 
 func _copy(s State) State {

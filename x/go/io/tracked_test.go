@@ -177,7 +177,8 @@ var _ = Describe("TrackedWriteCloser", func() {
 
 			Expect(tracked.Close()).To(Succeed())
 
-			// Clear the file variable to prevent AfterEach from trying to close it again
+			// Clear the file variable to prevent AfterEach from trying to close it
+			// again
 			file = nil
 		})
 	})

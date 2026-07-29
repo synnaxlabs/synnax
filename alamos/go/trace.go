@@ -46,7 +46,8 @@ type TracingConfig struct {
 	// [REQUIRED]
 	OtelPropagator propagation.TextMapPropagator
 	// Filter is a function that is called to determine if a span should be created for
-	// the given key and environment. If the filter returns false, the span will not be created.
+	// the given key and environment. If the filter returns false, the span will not be
+	// created.
 	Filter EnvironmentFilter
 }
 
@@ -85,9 +86,9 @@ type Tracer struct {
 	meta        InstrumentationMeta
 }
 
-// NewTracer initializes a new devTracer using the given configuration. If no configuration
-// is provided, NewTracer will return a validation error. If you want a no-op devTracer,
-// simply use a nil pointer.
+// NewTracer initializes a new devTracer using the given configuration. If no
+// configuration is provided, NewTracer will return a validation error. If you want a
+// no-op devTracer, simply use a nil pointer.
 func NewTracer(configs ...TracingConfig) (*Tracer, error) {
 	cfg, err := config.New(DefaultTracingConfig, configs...)
 	if err != nil {

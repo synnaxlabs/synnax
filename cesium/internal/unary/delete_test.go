@@ -1566,15 +1566,15 @@ var _ = Describe("Delete", func() {
 
 			Describe("Regression", func() {
 				// This test addresses a bug where if an index is split into two domains
-				// to describe a data channel, and a call to delete that crosses the
-				// two domains would result in a discontinuous error.
+				// to describe a data channel, and a call to delete that crosses the two
+				// domains would result in a discontinuous error.
 				//
 				// This was critical since while for smaller sample sizes, a data domain
 				// would not cross two indices, file cutoff makes this a very common
-				// case: writing float32 data, which has a higher density than TimeStamps,
-				// always gets cut off after Timestamp data. This makes it so that
-				// after enough samples, the index will almost always be split into two
-				// for one data domain.
+				// case: writing float32 data, which has a higher density than
+				// TimeStamps, always gets cut off after Timestamp data. This makes it
+				// so that after enough samples, the index will almost always be split
+				// into two for one data domain.
 				It(
 					"Should work when the index is split into two domains",
 					func(ctx SpecContext) {
@@ -1651,11 +1651,11 @@ var _ = Describe("Delete", func() {
 					},
 				)
 
-				// This test addresses a bug of the same origin as the previous one:
-				// it is important to realize that the start of the domain used to find
-				// the offset in delete is NOT necessarily the start of the domain in
-				// the index channel as well. Previously in the codebase we checked that
-				// the ensuing Stamp operation must be exact since we made that assumption,
+				// This test addresses a bug of the same origin as the previous one: it
+				// is important to realize that the start of the domain used to find the
+				// offset in delete is NOT necessarily the start of the domain in the
+				// index channel as well. Previously in the codebase we checked that the
+				// ensuing Stamp operation must be exact since we made that assumption,
 				// as a result, the codebase DPanic'ed when it did not need to.
 				It(
 					"Should work when the index approximation is not exact",
@@ -1743,8 +1743,8 @@ var _ = Describe("Delete", func() {
 					},
 				)
 
-				// This test addresses an edge case in the previous test, where we attempt
-				// to delete before the first element in a cut-off domain.
+				// This test addresses an edge case in the previous test, where we
+				// attempt to delete before the first element in a cut-off domain.
 				It(
 					"Should work when we delete before the first element in a cut-off domain",
 					func(ctx SpecContext) {

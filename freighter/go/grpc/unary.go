@@ -63,16 +63,17 @@ type UnaryServer[RQ, RQT, RS, RST freighter.Payload] struct {
 	// handler is the handler that will be called when a request is received.
 	handler func(context.Context, RQ) (RS, error)
 	freighter.MiddlewareCollector
-	// Internal indicates whether the service is for go-to-go communication only, allowing
-	// for more advanced error encoding that propagates stack traces, causes, etc.
+	// Internal indicates whether the service is for go-to-go communication only,
+	// allowing for more advanced error encoding that propagates stack traces, causes,
+	// etc.
 	Internal bool
 }
 
-func (u *UnaryClient[RQ, RQT, RS, RST]) Report() alamos.Report {
+func (*UnaryClient[RQ, RQT, RS, RST]) Report() alamos.Report {
 	return Reporter.Report()
 }
 
-func (u *UnaryServer[RQ, RQT, RS, RST]) Report() alamos.Report {
+func (*UnaryServer[RQ, RQT, RS, RST]) Report() alamos.Report {
 	return Reporter.Report()
 }
 

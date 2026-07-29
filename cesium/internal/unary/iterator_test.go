@@ -654,18 +654,21 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 
 							Expect(iter.Close()).To(Succeed())
 						})
-						// This spec was added due to a bug in the SeekFirst and SeekLast methods
-						// that would cause the iterator view to immediately go out of bounds,
-						// and then cause iter.Sample() to return duplicate data even after
-						// calling iter.Next(ctx, unary.AutoSpan)
+						// This spec was added due to a bug in the SeekFirst and
+						// SeekLast methods that would cause the iterator view to
+						// immediately go out of bounds, and then cause iter.Sample() to
+						// return duplicate data even after calling iter.Next(ctx,
+						// unary.AutoSpan)
 						//
-						// In this case (before the fix), calling iter.SeekFirst(ctx) would
-						// return an invalid view of (6 * telem.SecondTS).SpanRange(0), and then
-						// advancing the iterator the first time would cause it to go to
-						// (10 * telem.SecondTS).SpanRange(0), and then calling iter.Sample()
-						// would still return 2 values, and then calling Next(ctx, unary.AutoSpan)
-						// would advance the iterator to (10 * telem.SecondTS).SpanRange(2 * telem.Second),
-						// returning the same 2 values again.
+						// In this case (before the fix), calling iter.SeekFirst(ctx)
+						// would return an invalid view of (6 *
+						// telem.SecondTS).SpanRange(0), and then advancing the iterator
+						// the first time would cause it to go to (10 *
+						// telem.SecondTS).SpanRange(0), and then calling iter.Sample()
+						// would still return 2 values, and then calling Next(ctx,
+						// unary.AutoSpan) would advance the iterator to (10 *
+						// telem.SecondTS).SpanRange(2 * telem.Second), returning the
+						// same 2 values again.
 						//
 						// This spec asserts that this behavior is fixed.
 						Specify("Partial Domain 3 - Regression", func(ctx SpecContext) {
@@ -748,9 +751,10 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 
 							Expect(iter.Close()).To(Succeed())
 						})
-						// The problem mentioned in the above spec also arises in the SeekGE and
-						// SeekLE methods, for example, iter.SeekGE(ctx, 5*telem.SecondTS) would
-						// return true, but result in an invalid view of  (5 * telem.SecondTS).SpanRange(0)
+						// The problem mentioned in the above spec also arises in the
+						// SeekGE and SeekLE methods, for example, iter.SeekGE(ctx,
+						// 5*telem.SecondTS) would return true, but result in an invalid
+						// view of  (5 * telem.SecondTS).SpanRange(0)
 						Specify("Partial Domain 4 - Regression", func(ctx SpecContext) {
 							Expect(
 								unary.Write(
@@ -1332,10 +1336,11 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 							Specify(
 								"Multiple Domain - Forward - View in discontinuity",
 								func(ctx SpecContext) {
-									// This test is to address an error where if an iterator
-									// first moves to a discontinuity in the index (no data),
-									// then moves to a view that overlaps more than one domain,
-									// it is unable to parse the first domain in the second view.
+									// This test is to address an error where if an
+									// iterator first moves to a discontinuity in the
+									// index (no data), then moves to a view that
+									// overlaps more than one domain, it is unable to
+									// parse the first domain in the second view.
 									// 0  1  4  6 / 10  11  12 / 13  15  17
 									// 0  1  4  6 / 10  11  12 / 13  15  17
 									By("Opening an iterator")
@@ -1356,11 +1361,13 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 									).To(Equal((0 * telem.SecondTS).Range(6*telem.SecondTS + 1)))
 
 									By("Placing the iterator in the discontinuity")
-									// Iterator now has view [7*telem.SecondTS, 9*telem.SecondTS)
+									// Iterator now has view
+									// [7*telem.SecondTS, 9*telem.SecondTS)
 									Expect(iter.Next(ctx, 2*telem.Second)).To(BeFalse())
 
 									By("Moving it out")
-									// Iterator now has view [9*telem.SecondTS, 15*telem.SecondTS)
+									// Iterator now has view
+									// [9*telem.SecondTS, 15*telem.SecondTS)
 									Expect(iter.Next(ctx, 6*telem.Second)).To(BeTrue())
 									f = iter.Value()
 									Expect(f.Count()).To(Equal(2))
@@ -1377,7 +1384,8 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 										f.SeriesAt(1).TimeRange,
 									).To(Equal((13 * telem.SecondTS).Range(15 * telem.SecondTS)))
 
-									// Iterator now has view [15*telem.SecondTS, 20*telem.SecondTS)
+									// Iterator now has view
+									// [15*telem.SecondTS, 20*telem.SecondTS)
 									Expect(iter.Next(ctx, 5*telem.Second)).To(BeTrue())
 									f = iter.Value()
 									Expect(f.Count()).To(Equal(1))
@@ -1395,9 +1403,10 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 							Specify(
 								"Multiple Domain - Forward - uneven crossing",
 								func(ctx SpecContext) {
-									// This test addresses the bug where if an iterator reads
-									// a domain but does not read all of it, the internal
-									// iterator still moves on to the next domain.
+									// This test addresses the bug where if an iterator
+									// reads a domain but does not read all of it,
+									// the internal iterator still moves on to the
+									// next domain.
 									By("Opening an iterator")
 									i := MustSucceed(
 										db.OpenIterator(
@@ -1415,7 +1424,8 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 									Expect(i.SeekFirst(ctx)).To(BeTrue())
 									Expect(i.Valid()).To(BeFalse())
 
-									// Current iterator view: [2*telem.SecondTS, 11*telem.SecondTS)
+									// Current iterator view:
+									// [2*telem.SecondTS, 11*telem.SecondTS)
 									Expect(i.Next(ctx, 9*telem.Second)).To(BeTrue())
 									Expect(i.Value().Count()).To(Equal(2))
 									Expect(
@@ -1431,7 +1441,8 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 										i.Value().SeriesAt(1).TimeRange,
 									).To(Equal((10 * telem.SecondTS).Range(11 * telem.SecondTS)))
 
-									// Current iterator view: [11*telem.SecondTS, 14*telem.SecondTS)
+									// Current iterator view:
+									// [11*telem.SecondTS, 14*telem.SecondTS)
 									Expect(i.Next(ctx, 3*telem.Second)).To(BeTrue())
 									Expect(i.Value().Count()).To(Equal(2))
 									Expect(
@@ -1454,8 +1465,9 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 								},
 							)
 							Specify("View is full domain", func(ctx SpecContext) {
-								// This test tests that if a view is an entire domain, the
-								// iterator will not move on to the next domain unnecessarily.
+								// This test tests that if a view is an entire domain,
+								// the iterator will not move on to the next domain
+								// unnecessarily.
 								By("Opening an iterator")
 								i := MustSucceed(
 									db.OpenIterator(
@@ -1469,7 +1481,8 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 								Expect(i.SeekFirst(ctx)).To(BeTrue())
 								Expect(i.Valid()).To(BeFalse())
 
-								// Current iterator view: [0*telem.SecondTS, 13*telem.SecondTS)
+								// Current iterator view:
+								// [0*telem.SecondTS, 13*telem.SecondTS)
 								Expect(i.Next(ctx, 13*telem.Second)).To(BeTrue())
 								Expect(i.Value().Count()).To(Equal(2))
 								Expect(
@@ -1485,7 +1498,8 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 									i.Value().SeriesAt(1).TimeRange,
 								).To(Equal((10 * telem.SecondTS).Range(12*telem.SecondTS + 1)))
 
-								// Current iterator view: [13*telem.SecondTS, 14*telem.SecondTS+1)
+								// Current iterator view:
+								// [13*telem.SecondTS, 14*telem.SecondTS+1)
 								Expect(i.Next(ctx, 1*telem.Second+1)).To(BeTrue())
 								Expect(i.Value().Count()).To(Equal(1))
 								Expect(
@@ -1510,10 +1524,11 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 							Specify(
 								"Multiple Domain - Backward - view in discontinuity",
 								func(ctx SpecContext) {
-									// This test is to address an error where if an iterator
-									// first moves to a discontinuity in the index (no data),
-									// then moves to a view that overlaps more than one domain,
-									// it is unable to parse the first domain in the second view.
+									// This test is to address an error where if an
+									// iterator first moves to a discontinuity in the
+									// index (no data), then moves to a view that
+									// overlaps more than one domain, it is unable to
+									// parse the first domain in the second view.
 									By("Opening an iterator")
 									i := MustSucceed(
 										db.OpenIterator(
@@ -1526,7 +1541,8 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 									// 0  1  4  6 / 10  11  12 / 13  15  17
 
 									Expect(i.SeekLast(ctx)).To(BeTrue())
-									// Open iterator view: [10*telem.SecondTS+1, 17*telem.SecondTS+1)
+									// Open iterator view:
+									// [10*telem.SecondTS+1, 17*telem.SecondTS+1)
 									Expect(i.Prev(ctx, 7*telem.Second)).To(BeTrue())
 									Expect(i.Valid()).To(BeTrue())
 									Expect(i.Value().Count()).To(Equal(2))
@@ -1542,7 +1558,8 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 									Expect(
 										i.Value().SeriesAt(1).TimeRange,
 									).To(Equal((13 * telem.SecondTS).Range(17*telem.SecondTS + 1)))
-									// Open iterator view: [9*telem.SecondTS+1, 10*telem.SecondTS+1)
+									// Open iterator view:
+									// [9*telem.SecondTS+1, 10*telem.SecondTS+1)
 									Expect(i.Prev(ctx, 1*telem.Second)).To(BeTrue())
 									Expect(i.Value().Count()).To(Equal(1))
 									Expect(
@@ -1551,9 +1568,11 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 									Expect(
 										i.Value().SeriesAt(0).TimeRange,
 									).To(Equal((10 * telem.SecondTS).Range(10*telem.SecondTS + 1)))
-									// Open iterator view: [7*telem.SecondTS, 9*telem.SecondTS + 1)
+									// Open iterator view:
+									// [7*telem.SecondTS, 9*telem.SecondTS + 1)
 									Expect(i.Prev(ctx, 2*telem.Second+1)).To(BeFalse())
-									// Open iterator view: [-1*telem.SecondTS, 7*telem.SecondTS)
+									// Open iterator view:
+									// [-1*telem.SecondTS, 7*telem.SecondTS)
 									Expect(i.Prev(ctx, 8*telem.Second)).To(BeTrue())
 									Expect(i.Value().Count()).To(Equal(1))
 									Expect(
@@ -1571,9 +1590,10 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 							Specify(
 								"Multiple Domain - Backward - uneven crossing",
 								func(ctx SpecContext) {
-									// This test addresses the bug where if an iterator reads
-									// a domain but does not read all of it, the internal
-									// iterator still moves on to the previous domain.
+									// This test addresses the bug where if an iterator
+									// reads a domain but does not read all of it,
+									// the internal iterator still moves on to the
+									// previous domain.
 									By("Opening an iterator")
 									i := MustSucceed(
 										db.OpenIterator(unary.IteratorConfig{
@@ -1589,7 +1609,8 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 									Expect(i.SeekLast(ctx)).To(BeTrue())
 									Expect(i.Valid()).To(BeFalse())
 
-									// Current iterator view: [11*telem.SecondTS, 15*telem.SecondTS)
+									// Current iterator view:
+									// [11*telem.SecondTS, 15*telem.SecondTS)
 									Expect(i.Prev(ctx, 4*telem.Second)).To(BeTrue())
 									Expect(i.Value().Count()).To(Equal(2))
 									Expect(
@@ -1605,7 +1626,8 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 										i.Value().SeriesAt(1).TimeRange,
 									).To(Equal((13 * telem.SecondTS).Range(15 * telem.SecondTS)))
 
-									// Current iterator view: [4*telem.SecondTS, 11*telem.SecondTS)
+									// Current iterator view:
+									// [4*telem.SecondTS, 11*telem.SecondTS)
 									Expect(i.Prev(ctx, 7*telem.Second)).To(BeTrue())
 									Expect(i.Value().Count()).To(Equal(2))
 									Expect(
@@ -1628,8 +1650,9 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 								},
 							)
 							Specify("View is full domain", func(ctx SpecContext) {
-								// This test tests that if a view is an entire domain, the
-								// iterator will not move on to the next domain unnecessarily.
+								// This test tests that if a view is an entire domain,
+								// the iterator will not move on to the next domain
+								// unnecessarily.
 								By("Opening an iterator")
 								i := MustSucceed(
 									db.OpenIterator(
@@ -1643,7 +1666,8 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 								Expect(i.SeekLast(ctx)).To(BeTrue())
 								Expect(i.Valid()).To(BeFalse())
 
-								// Current iterator view: [12*telem.SecondTS + 1, 17*telem.SecondTS + 1)
+								// Current iterator view:
+								// [12*telem.SecondTS + 1, 17*telem.SecondTS + 1)
 								Expect(i.Prev(ctx, 5*telem.Second)).To(BeTrue())
 								Expect(i.Value().Count()).To(Equal(1))
 								Expect(
@@ -1653,7 +1677,8 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 									i.Value().SeriesAt(0).TimeRange,
 								).To(Equal((13 * telem.SecondTS).Range(17*telem.SecondTS + 1)))
 
-								// Current iterator view: [10*telem.SecondTS, 12*telem.SecondTS+1)
+								// Current iterator view:
+								// [10*telem.SecondTS, 12*telem.SecondTS+1)
 								Expect(i.Prev(ctx, 2*telem.Second+1)).To(BeTrue())
 								Expect(i.Value().Count()).To(Equal(1))
 								Expect(
@@ -1681,8 +1706,8 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 
 				Describe("Regressions", func() {
 					// This spec was added due to a bug in the line plotting mechanics
-					// due to misalignment between actually-related domains. Let's
-					// say you create an index and write a domain to it
+					// due to misalignment between actually-related domains. Let's say
+					// you create an index and write a domain to it
 					//
 					// idx [1, 2, 3, 4]
 					//
@@ -1691,15 +1716,16 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 					//
 					// idx [1, 2, 3, 4] [5, 6, 7, 8]
 					//
-					// the new domain will have alignment (1d0p - 1d3p). Then, we
-					// write to a data channel aligned at the second domain
+					// the new domain will have alignment (1d0p - 1d3p). Then, we write
+					// to a data channel aligned at the second domain
 					//
-					// idx [1, 2, 3, 4] [5, 6, 7, 8]
-					// data 			[8, 9, 10, 11]
+					// idx  [1, 2, 3, 4] [5, 6, 7, 8]
+					// data              [8, 9, 10, 11]
 					//
-					// the data domain will have alignment (0d0p - 0d3p), but it actually
-					// aligns with the index domain at (1d0p - 1d3p). This spec tests
-					// a fix made to ensure that the data domain has the alignment (1d0p - 1d3p)
+					// the data domain will have alignment (0d0p - 0d3p), but it
+					// actually aligns with the index domain at (1d0p - 1d3p). This spec
+					// tests a fix made to ensure that the data domain has the alignment
+					// (1d0p - 1d3p)
 					It(
 						"Should correctly define the alignment of a series when a domain has already been written to the index channel",
 						func(ctx SpecContext) {
@@ -1766,14 +1792,13 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 
 					// This test case is added due to a behavior change in the iterator.
 					// Originally, when SeekGE finds a domain that is greater than the
-					// provided timestamp but does not contain it, it leaves the iterator's
-					// view at the provided timestamp.
-					// For example, if the domains are [0-5] [10-15] [25-30], and we
-					// seekGE(20), the iterator's view is set at 20, meaning when we
-					// call next(3), we would read from [20, 23), resulting in a false
-					// next call. This is confusing for the caller since a next call
-					// following a seek call should read data, in this case, from
-					// [25, 28).
+					// provided timestamp but does not contain it, it leaves the
+					// iterator's view at the provided timestamp. For example, if the
+					// domains are [0-5] [10-15] [25-30], and we seekGE(20), the
+					// iterator's view is set at 20, meaning when we call next(3), we
+					// would read from [20, 23), resulting in a false next call. This is
+					// confusing for the caller since a next call following a seek call
+					// should read data, in this case, from [25, 28).
 					//
 					// A similar behavior adjustment is put in place for SeekLE as well.
 					It(
@@ -1996,11 +2021,11 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 							MustSucceed(w.Close())
 						})
 						AfterEach(func() { Expect(indexDB2.Close()).To(Succeed()) })
-						// The following regression test is used to assert that upon reading
-						// the second auto-span in a domain that begins with an inexact
-						// start (cut off), the iterator behaves properly. The broken
-						// behavior was that it was unable to find the correct start/end
-						// approximations due to the inexact start.
+						// The following regression test is used to assert that upon
+						// reading the second auto-span in a domain that begins with an
+						// inexact start (cut off), the iterator behaves properly. The
+						// broken behavior was that it was unable to find the correct
+						// start/end approximations due to the inexact start.
 						It(
 							"Should auto-span with a cut-off domain",
 							func(ctx SpecContext) {
@@ -2028,11 +2053,11 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 							},
 						)
 
-						// The following regression test is used to assert that upon reading
-						// the second auto-span in a domain that begins with an inexact
-						// start (cut off), the iterator behaves properly. The broken
-						// behavior was that it was unable to find the correct start/end
-						// approximations due to the inexact start.
+						// The following regression test is used to assert that upon
+						// reading the second auto-span in a domain that begins with an
+						// inexact start (cut off), the iterator behaves properly. The
+						// broken behavior was that it was unable to find the correct
+						// start/end approximations due to the inexact start.
 						It(
 							"Should call next properly with a cut-off domain",
 							func(ctx SpecContext) {

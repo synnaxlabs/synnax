@@ -25,15 +25,18 @@ type ImportAdder interface {
 type TypeFormatter interface {
 	// FormatQualified formats a qualified type name (e.g., "pkg.Type" or "pkg::Type").
 	FormatQualified(qualifier, typeName string) string
-	// FormatGeneric formats a generic type with arguments (e.g., "Type[T]" or "Type<T>").
+	// FormatGeneric formats a generic type with arguments (e.g., "Type[T]" or
+	// "Type<T>").
 	FormatGeneric(baseName string, typeArgs []string) string
 	// FormatArray formats a dynamic array type (e.g., "[]T" or "std::vector<T>").
 	FormatArray(elemType string) string
-	// FormatFixedArray formats a fixed-size array type (e.g., "[4]byte" or "std::array<T, 4>").
+	// FormatFixedArray formats a fixed-size array type (e.g., "[4]byte" or
+	// "std::array<T, 4>").
 	FormatFixedArray(elemType string, size int64) string
 	// FormatMap formats a map type (e.g., "map[K]V" or "std::unordered_map<K, V>").
 	FormatMap(keyType, valType string) string
-	// FallbackType returns the fallback type for unresolved references (e.g., "any" or "void").
+	// FallbackType returns the fallback type for unresolved references (e.g., "any" or
+	// "void").
 	FallbackType() string
 }
 

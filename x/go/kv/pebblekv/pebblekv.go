@@ -7,9 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-// All included pebble code is copyrighted by the cockroachdb team, and is licensed under
-// the BSD 3-Clause License. See the repository file license/BSD-3-Clause.txt for more
-// information.
+// All included pebble code is copyrighted by the cockroachdb team, and is licensed
+// under the BSD 3-Clause License. See the repository file license/BSD-3-Clause.txt for
+// more information.
 
 // Package pebblekv implements a wrapper around cockroachdb's pebble storage engine that
 // implements the kv.db interface. To use it, open a new pebble.DB and call Wrap() to
@@ -181,7 +181,8 @@ func (d db) apply(ctx context.Context, txn *tx) error {
 		return translateError(err)
 	}
 	if d.Observer != nil {
-		// We need to notify with a generator so that each subscriber gets a fresh reader.
+		// We need to notify with a generator so that each subscriber gets a fresh
+		// reader.
 		d.NotifyGenerator(ctx, txn.NewReader)
 	}
 	return nil

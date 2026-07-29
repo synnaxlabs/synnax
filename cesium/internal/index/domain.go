@@ -382,9 +382,9 @@ func (i *Domain) approximateStamp(
 	return Between(lowerTS, upperTS), err
 }
 
-// BackwardStamp calculates an approximate starting timestamp for a range given a known distance
-// in the number of samples, working backwards from the reference timestamp. This operation
-// is similar to Stamp but works in the reverse direction.
+// BackwardStamp calculates an approximate starting timestamp for a range given a known
+// distance in the number of samples, working backwards from the reference timestamp.
+// This operation is similar to Stamp but works in the reverse direction.
 func (i *Domain) backwardStamp(
 	ctx context.Context,
 	ref telem.TimeStamp,
@@ -485,9 +485,9 @@ func (i *Domain) backwardStamp(
 	)
 }
 
-// resolveForwardEffectiveDomainTR returns the TimeRange and length of the underlying domain(s).
-// The effective domain can be many continuous domains as long as they're immediately
-// continuous, i.e., the end of one domain is the start of the other.
+// resolveForwardEffectiveDomainTR returns the TimeRange and length of the underlying
+// domain(s). The effective domain can be many continuous domains as long as they're
+// immediately continuous, i.e., the end of one domain is the start of the other.
 func resolveForwardEffectiveDomainTR(
 	i *domain.Iterator,
 ) (effectiveDomainBounds telem.TimeRange, effectiveDomainLen int64) {
@@ -508,9 +508,9 @@ func resolveForwardEffectiveDomainTR(
 	}
 }
 
-// resolveForwardEffectiveDomainTR returns the TimeRange and length of the underlying domain(s).
-// The effective domain can be many continuous domains as long as they're immediately
-// continuous, i.e., the end of one domain is the start of the other.
+// resolveForwardEffectiveDomainTR returns the TimeRange and length of the underlying
+// domain(s). The effective domain can be many continuous domains as long as they're
+// immediately continuous, i.e., the end of one domain is the start of the other.
 func resolveBackwardEffectiveDomainTR(
 	i *domain.Iterator,
 ) (effectiveDomainBounds telem.TimeRange, effectiveDomainLen int64) {
@@ -532,8 +532,8 @@ func resolveBackwardEffectiveDomainTR(
 	}
 }
 
-// search returns an approximation for the number of samples before a given timestamp. If the
-// timestamp exists in the underlying index, the approximation will be exact.
+// search returns an approximation for the number of samples before a given timestamp.
+// If the timestamp exists in the underlying index, the approximation will be exact.
 func (i *Domain) search(
 	ts telem.TimeStamp,
 	r *domain.Reader,

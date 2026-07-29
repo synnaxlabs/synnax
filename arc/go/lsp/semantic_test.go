@@ -556,7 +556,8 @@ var _ = Describe("Semantic Tokens", func() {
 					"import time\n\nfunc cat() i64 { return time.now() }\n")
 				tokens := decodeSemanticTokens(SemanticTokens(server, ctx, uri).Data)
 				ns := filterByType(tokens, tokenTypeNamespace)
-				// One for the import declaration, one for the qualifier at the call site.
+				// One for the import declaration, one for the qualifier at the call
+				// site.
 				Expect(ns).To(HaveLen(2))
 				for _, t := range ns {
 					Expect(t.Length).To(Equal(uint32(4)))

@@ -460,7 +460,8 @@ var _ = Describe("setNode.Next", func() {
 			calls := rep.get()
 			Expect(calls).To(HaveLen(1))
 			Expect(calls[0].variant).To(Equal(status.VariantWarning))
-			// Exact format: `status.set: multiple statuses named "name"; updated first match (<uuid>)`.
+			// Exact format: `status.set: multiple statuses named "name"; updated first
+			// match (<uuid>)`.
 			re := regexp.MustCompile(
 				`^status\.set: multiple statuses named "[^"]+"; updated first match \([0-9a-f-]+\)$`,
 			)
@@ -578,7 +579,8 @@ var _ = Describe("Analyzer hooks", func() {
 		)
 
 		It("Should accept a valid variant", func(ctx SpecContext) {
-			// Variant hook only; trigger type wiring is orthogonal (not on this branch).
+			// Variant hook only; trigger type wiring is orthogonal (not on this
+			// branch).
 			parsed := MustSucceed(
 				text.Parse(
 					text.Text{

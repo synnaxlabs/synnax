@@ -15,8 +15,8 @@ import (
 )
 
 // Truncate returns a limited number of elements from the slice if the number is larger
-// than maxDisplayValues, splitting the values evenly between maxDisplayValues/2 in first
-// and maxDisplayValues/2 in last. If len(slice) is less than maxDisplayValues,
+// than maxDisplayValues, splitting the values evenly between maxDisplayValues/2 in
+// first and maxDisplayValues/2 in last. If len(slice) is less than maxDisplayValues,
 // returns the entire slice as first, and last is nil.
 func Truncate[T any](slice []T, maxDisplayValues int) (first, last []T) {
 	if len(slice) <= maxDisplayValues || maxDisplayValues <= 0 {

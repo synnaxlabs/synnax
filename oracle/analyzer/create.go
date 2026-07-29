@@ -15,12 +15,12 @@ import (
 )
 
 // synthesizeCreateTypes derives an input projection type for every struct or union
-// marked `@create`. The derived type extends the base (mirroring a struct's generic type
-// parameters) and omits every `@output` field, and carries `@ts use_input` plus `omit`
-// for Go, Python, protobuf, and C++, so the existing New codegen produces the input
-// projection only where it adds value: a `z.input` type in TypeScript, and nothing
-// elsewhere (where the base is reused, since its defaulted fields are already optional at
-// construction).
+// marked `@create`. The derived type extends the base (mirroring a struct's generic
+// type parameters) and omits every `@output` field, and carries `@ts use_input` plus
+// `omit` for Go, Python, protobuf, and C++, so the existing New codegen produces the
+// input projection only where it adds value: a `z.input` type in TypeScript, and
+// nothing elsewhere (where the base is reused, since its defaulted fields are already
+// optional at construction).
 //
 // A struct synthesizes the namespace-canonical `New` (one per namespace: a hand-written
 // New is respected, and only the first @create struct wins). A union synthesizes
@@ -99,9 +99,9 @@ func synthesizeCreateTypes(c *analysisCtx) {
 }
 
 // unionCreateOmittedFields returns the @output field names contributed by a union's
-// shared base structs (its Extends), which the derived New omits. Only shared-base fields
-// are eligible: they appear in every variant, so a non-distributive Omit over the union
-// input type is sound. Variant-specific @output fields are not projected out.
+// shared base structs (its Extends), which the derived New omits. Only shared-base
+// fields are eligible: they appear in every variant, so a non-distributive Omit over
+// the union input type is sound. Variant-specific @output fields are not projected out.
 func unionCreateOmittedFields(
 	form resolution.UnionForm,
 	table *resolution.Table,
@@ -134,7 +134,8 @@ func unionCreateOmittedFields(
 // projection adds nothing the base does not already provide.
 //
 // The base's `name` expression is deliberately dropped from the TS domain: the New is a
-// distinct sibling that emits under its own name (`New`), so it must not adopt the base's
+// distinct sibling that emits under its own name (`New`), so it must not adopt the
+// base's
 // renamed identifier (which would collide with the base).
 func newTypeDomains(base resolution.Type) map[string]resolution.Domain {
 	domains := map[string]resolution.Domain{

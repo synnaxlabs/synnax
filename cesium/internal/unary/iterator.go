@@ -161,8 +161,8 @@ func (i *Iterator) SeekGE(ctx context.Context, ts telem.TimeStamp) bool {
 		// If the provided ts is in the seeked domain, set the view to be ts.
 		i.seekReset(ts)
 	} else {
-		// Otherwise, set the view to the start of the seeked domain or bounds, whichever
-		// one is later.
+		// Otherwise, set the view to the start of the seeked domain or bounds,
+		// whichever one is later.
 		i.seekReset(i.internal.TimeRange().BoundBy(i.bounds).Start)
 	}
 	return ok

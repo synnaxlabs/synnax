@@ -69,7 +69,8 @@ var _ = Describe("C++ JSON Plugin", func() {
 
 					ExpectContent(resp, "json.gen.h").
 						ToContain(
-							// Should parse using the wrapper type which has its own parse method
+							// Should parse using the wrapper type which has its own
+							// parse method
 							`parser.field<Params>("inputs")`,
 							`parser.field<Params>("outputs")`,
 						)
@@ -125,7 +126,8 @@ var _ = Describe("C++ JSON Plugin", func() {
 
 				ExpectContent(resp, "json.gen.h").
 					ToContain(
-						// Optional (?) wrapper types still use field<> with wrapper type
+						// Optional (?) wrapper types still use field<> with wrapper
+						// type
 						`parser.field<Params>("inputs")`,
 						`parser.field<Params>("outputs")`,
 					)
@@ -150,7 +152,8 @@ var _ = Describe("C++ JSON Plugin", func() {
 
 					ExpectContent(resp, "json.gen.h").
 						ToContain(
-							// Self-referential fields use x::mem::indirect<T> with implicit nullptr default
+							// Self-referential fields use x::mem::indirect<T> with
+							// implicit nullptr default
 							`parser.field<x::mem::indirect<Node>>("left")`,
 							`parser.field<x::mem::indirect<Node>>("right")`,
 						)
@@ -299,7 +302,8 @@ var _ = Describe("C++ JSON Plugin", func() {
 
 					ExpectContent(resp, "json.gen.h").
 						ToContain(
-							// Optional struct fields use std::optional<T> with implicit nullopt default
+							// Optional struct fields use std::optional<T> with implicit
+							// nullopt default
 							`parser.field<std::optional<Unit>>("unit")`,
 						)
 				},
@@ -360,11 +364,13 @@ var _ = Describe("C++ JSON Plugin", func() {
 
 					ExpectContent(resp, "json.gen.h").
 						ToContain(
-							// FunctionProperties fields use wrapper type (optional uses bare type)
+							// FunctionProperties fields use wrapper type (optional uses
+							// bare type)
 							`parser.field<Params>("inputs")`,
 							`parser.field<Params>("outputs")`,
 							`parser.field<Params>("config")`,
-							// Type fields should use indirect<T> with implicit nullptr default
+							// Type fields should use indirect<T> with implicit nullptr
+							// default
 							`parser.field<x::mem::indirect<Type>>("elem")`,
 							`parser.field<x::mem::indirect<Type>>("constraint")`,
 						)
@@ -468,7 +474,8 @@ var _ = Describe("C++ JSON Plugin", func() {
 							// parse method uses parser.field<std::vector<StructType>>()
 							"inline Params Params::parse(x::json::Parser parser) {",
 							"for (auto& item : parser.field<std::vector<Param>>())",
-							// to_json method should call item.to_json() for each element
+							// to_json method should call item.to_json() for each
+							// element
 							"inline x::json::json Params::to_json() const {",
 							"j.push_back(item.to_json())",
 						)

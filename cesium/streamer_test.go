@@ -123,8 +123,8 @@ var _ = Describe("Streamer Behavior", func() {
 						r.Inlet() <- cesium.StreamerRequest{Channels: []cesium.ChannelKey{key}}
 
 						// The subscription update is applied asynchronously, so writes
-						// racing ahead of it are dropped. Retry with increasing timestamps
-						// until a frame comes through.
+						// racing ahead of it are dropped. Retry with increasing
+						// timestamps until a frame comes through.
 						var res cesium.StreamerResponse
 						ts := telem.TimeStamp(10)
 						Eventually(func(g Gomega) {
@@ -242,9 +242,9 @@ var _ = Describe("Streamer Behavior", func() {
 							Start:          10 * telem.SecondTS,
 						}))
 						var r cesium.StreamerResponse
-						// Move this into an eventual closure, as we may be getting latent
-						// control updates from other tests, so we just assert on updates
-						// until we get one that matches.
+						// Move this into an eventual closure, as we may be getting
+						// latent control updates from other tests, so we just assert on
+						// updates until we get one that matches.
 						Eventually(func(g Gomega) {
 							g.Eventually(o.Outlet()).Should(Receive(&r))
 							g.Expect(r.Frame.Count()).To(Equal(1))
@@ -363,8 +363,8 @@ var _ = Describe("Streamer Behavior", func() {
 						}
 
 						// The subscription update is applied asynchronously, so writes
-						// racing ahead of it are dropped. Retry with increasing timestamps
-						// until a frame comes through.
+						// racing ahead of it are dropped. Retry with increasing
+						// timestamps until a frame comes through.
 						var res cesium.StreamerResponse
 						ts := telem.TimeStamp(10)
 						Eventually(func(g Gomega) {

@@ -322,10 +322,10 @@ var _ = Describe("Iterator Behavior", func() {
 				})
 
 				Specify("Auto-Span", func() {
-					// Index1: [ 0  1  2 / _  4]  _  _  [7  _  9  /  10  _  12]   _   _  15
-					// Data1:  [10 11 12 / _ 14]  _  _ [17  _ 19  /  20  _  22]   _   _  25
-					// Index2: _  _  [2   3  _  _  6  _  8]  _  /  _  [11  12  13   _]  15
-					// Data2:  _  _  [2   3  _  _  6  _  8]  _  /  _  [11  12  13  _]  15
+					// Index1: [ 0  1  2 / _  4]  _  _  [7  _  9 / 10  _  12]  _  _  15
+					// Data1:  [10 11 12 / _ 14]  _  _ [17  _ 19 / 20  _  22]  _  _  25
+					// Index2: _  _ [2  3  _  _  6  _  8]  _  /  _  [11  12  13  _]  15
+					// Data2:  _  _ [2  3  _  _  6  _  8]  _  /  _  [11  12  13  _]  15
 					i = MustSucceed(db.OpenIterator(cesium.IteratorConfig{
 						Bounds:        telem.TimeRangeMax,
 						Channels:      []cesium.ChannelKey{data1Key, data2Key},

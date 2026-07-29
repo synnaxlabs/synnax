@@ -121,7 +121,8 @@ type fix struct {
 	language    string
 }
 
-// Fix creates a fix block with a description, code example, and language for syntax highlighting.
+// Fix creates a fix block with a description, code example, and language for syntax
+// highlighting.
 func Fix(description, codeExample, language string) Block {
 	return fix{description: description, code: codeExample, language: language}
 }

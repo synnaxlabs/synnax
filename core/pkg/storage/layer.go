@@ -7,9 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-// All included pebble code is copyrighted by the cockroachdb team, and is licensed under
-// the BSD 3-Clause License. See the repository file license/BSD-3-Clause.txt for more
-// information.
+// All included pebble code is copyrighted by the cockroachdb team, and is licensed
+// under the BSD 3-Clause License. See the repository file license/BSD-3-Clause.txt for
+// more information.
 
 // Package storage provides entities for managing node local storage. Synnax implements
 // two database classes for storing its data:
@@ -181,12 +181,12 @@ type Layer struct {
 // is invalid, Open returns a nil Layer and the configuration error.
 //
 // When LayerConfig.InMemory is false, Open acquires an exclusive lock on the directory
-// specified in LayerConfig.Dirname. If the lock cannot be acquired (commonly due to another
-// storage layer or unrelated process accessing it), then Open will return a nil Layer
-// and an error.
+// specified in LayerConfig.Dirname. If the lock cannot be acquired (commonly due to
+// another storage layer or unrelated process accessing it), then Open will return a nil
+// Layer and an error.
 //
-// If the returned error is nil, then the Layer must be closed after use. None of
-// the services in the Layer should be used after Close is called. It is the caller's
+// If the returned error is nil, then the Layer must be closed after use. None of the
+// services in the Layer should be used after Close is called. It is the caller's
 // responsibility to ensure that the Layer is not accessed after it is closed.
 func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	cfg, err := config.New(DefaultLayerConfig, cfgs...)

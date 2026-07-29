@@ -45,7 +45,8 @@ type SelfEncoder interface {
 	EncodeOrc(w *Writer) error
 }
 
-// SelfDecoder is implemented by types that can decode themselves from ORC binary format.
+// SelfDecoder is implemented by types that can decode themselves from ORC binary
+// format.
 type SelfDecoder interface {
 	DecodeOrc(r *Reader) error
 }

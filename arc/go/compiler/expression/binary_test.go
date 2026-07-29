@@ -501,7 +501,8 @@ var _ = Describe("Binary Operations", func() {
 			int32(5),
 			OpI32GeU,
 		),
-		// Comprehensive Type Coverage - u32 (addition, subtraction, multiplication not previously tested)
+		// Comprehensive Type Coverage - u32 (addition, subtraction, multiplication not
+		// previously tested)
 		Entry(
 			"u32 addition",
 			"u32(10) + u32(20)",
@@ -2591,7 +2592,8 @@ var _ = Describe("Binary Operations", func() {
 					OpF64Const, float64(2.5), OpLocalGet, 0, OpCall, uint32(0),
 				),
 
-				// Multiplication - uses series_element_rmul for stack order [scalar, handle]
+				// Multiplication - uses series_element_rmul for stack order [scalar,
+				// handle]
 				Entry("u8 scalar * u8 series", "5 * data",
 					[]symbol.Symbol{seriesSymbol("data", types.U8(), 0)},
 					types.Series(types.U8()),
@@ -2929,8 +2931,8 @@ var _ = Describe("Binary Operations", func() {
 
 		Describe("Series-Scalar Comparisons", func() {
 			// Note: The compiler currently uses series-series comparison functions for
-			// series-scalar comparisons (GetSeriesComparison, not GetSeriesScalarComparison).
-			// Tests reflect the actual compiler behavior.
+			// series-scalar comparisons (GetSeriesComparison, not
+			// GetSeriesScalarComparison). Tests reflect the actual compiler behavior.
 			DescribeTable("should emit correct opcodes for series-scalar comparisons",
 				expectSeriesExpression,
 

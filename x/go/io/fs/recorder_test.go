@@ -274,8 +274,9 @@ var _ = Describe("Recorder", func() {
 						MustSucceed(f.Write([]byte("hi")))
 						rec.Reset()
 
-						// Reading past the end of the file fails, but the recorder should
-						// still capture the attempt with the caller-requested length.
+						// Reading past the end of the file fails, but the recorder
+						// should still capture the attempt with the caller-requested
+						// length.
 						buf := make([]byte, 4)
 						_, _ = f.ReadAt(buf, 100)
 						Expect(rec.Filter(xfs.MatchName("a.bin"))).To(ConsistOf(

@@ -205,7 +205,8 @@ func collectOutputs[T antlr.ParserRuleContext](
 		return
 	}
 
-	// Case 3: Multiple or parenthesized outputs (e.g., "(result f64)" or "(a f64, b f64)")
+	// Case 3: Multiple or parenthesized outputs (e.g., "(result f64)" or "(a f64, b
+	// f64)")
 	if multiOutputBlock := outputType.MultiOutputBlock(); multiOutputBlock != nil {
 		for _, namedOutput := range multiOutputBlock.AllNamedOutput() {
 			outputName := namedOutput.IDENTIFIER().GetText()
@@ -221,10 +222,10 @@ func collectOutputs[T antlr.ParserRuleContext](
 	}
 }
 
-// Analyze performs semantic analysis on a function declaration.
-// This is called during the second pass after all declarations have been collected.
-// The function signature (inputs and outputs) is already populated by CollectDeclarations;
-// this function adds the parameters to the function's scope and analyzes the body.
+// Analyze performs semantic analysis on a function declaration. This is called during
+// the second pass after all declarations have been collected. The function signature
+// (inputs and outputs) is already populated by CollectDeclarations; this function adds
+// the parameters to the function's scope and analyzes the body.
 func Analyze(ctx acontext.Context[parser.IFunctionDeclarationContext]) {
 	name := ctx.AST.IDENTIFIER().GetText()
 	fn, err := ctx.Scope.Resolve(ctx, name)
@@ -294,7 +295,8 @@ func addOutputsToScope[T antlr.ParserRuleContext](
 		return
 	}
 
-	// Case 3: Multiple or parenthesized outputs (e.g., "(result f64)" or "(a f64, b f64)")
+	// Case 3: Multiple or parenthesized outputs (e.g., "(result f64)" or "(a f64, b
+	// f64)")
 	if multiOutputBlock := outputType.MultiOutputBlock(); multiOutputBlock != nil {
 		for _, namedOutput := range multiOutputBlock.AllNamedOutput() {
 			outputName := namedOutput.IDENTIFIER().GetText()

@@ -385,8 +385,9 @@ func processTypeDef(
 			IsDistinct: false,
 		}
 	case resolution.AliasForm:
-		// For alias types, use typeRefToPythonAlias to properly handle struct references
-		// with type arguments (e.g., status.Status<StatusDetails> -> status.Status[StatusDetails])
+		// For alias types, use typeRefToPythonAlias to properly handle struct
+		// references with type arguments (e.g., status.Status<StatusDetails> ->
+		// status.Status[StatusDetails])
 		data.imports.addTyping("TypeAlias")
 		return typeDefData{
 			Name:       typ.Name,
@@ -567,7 +568,8 @@ func processStruct(
 			tpd := processTypeParam(tp, table, data)
 			sd.TypeParams = append(sd.TypeParams, tpd)
 
-			// Collect TypeVars for module-level declaration (with or without constraints)
+			// Collect TypeVars for module-level declaration (with or without
+			// constraints)
 			if !containsTypeVar(data.TypeVars, tp.Name) {
 				data.TypeVars = append(data.TypeVars, typeVarData{
 					Name:       tp.Name,
@@ -820,7 +822,8 @@ func buildExtendsExpr(
 		return baseName
 	}
 
-	// Find which parent type params don't have defaults (those are the ones in Generic[])
+	// Find which parent type params don't have defaults (those are the ones in
+	// Generic[])
 	var activeParamIndices []int
 	for i, tp := range parentForm.TypeParams {
 		if !tp.HasDefault() {
@@ -1054,7 +1057,8 @@ func collectValidation(
 				data.imports.addUUID("UUID")
 				constraints = append(constraints, "default=UUID(int=0)")
 			} else if wrapper := resolveDistinctWrapper(typeRef, table, data); wrapper != "" {
-				// Wrap int defaults in the distinct type constructor (e.g., TimeSpan(0))
+				// Wrap int defaults in the distinct type constructor (e.g.,
+				// TimeSpan(0))
 				constraints = append(
 					constraints,
 					fmt.Sprintf("default=%s(%d)", wrapper, defaultVal.IntValue),
@@ -1082,8 +1086,8 @@ func collectValidation(
 			}
 			// Handle "create" for auto-generating keys. uuid keys generate a UUID
 			// object; string keys generate a stringified UUID. uuid is a string
-			// primitive, so check it first.
-			// Use key.ResolvePrimitive to handle type aliases like `Key distinct string`.
+			// primitive, so check it first. Use key.ResolvePrimitive to handle type
+			// aliases like `Key distinct string`.
 			primitive := key.ResolvePrimitive(typeRef, table)
 			if defaultVal.IdentValue == "create" {
 				if primitive == "uuid" {
@@ -1707,8 +1711,9 @@ func (m *importManager) addNamespace(alias, path string) {
 	}
 }
 
-// addModuleImport adds a module import and returns the alias to use for referencing types.
-// If the module name conflicts with a field name, an alias with underscore suffix is used.
+// addModuleImport adds a module import and returns the alias to use for referencing
+// types. If the module name conflicts with a field name, an alias with underscore
+// suffix is used.
 func (m *importManager) addModuleImport(parentPath, moduleName string) string {
 	// Check if we already have this module imported
 	for _, mod := range m.modules {
@@ -1782,7 +1787,8 @@ type typeDefData struct {
 	Name string
 	// BaseType is the Python base type (e.g., "int", "str").
 	BaseType string
-	// IsDistinct indicates whether to use NewType (true) or TypeAlias (false). Currently always false.
+	// IsDistinct indicates whether to use NewType (true) or TypeAlias (false).
+	// Currently always false.
 	IsDistinct bool
 }
 

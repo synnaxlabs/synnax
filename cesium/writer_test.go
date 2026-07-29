@@ -906,7 +906,8 @@ var _ = Describe("Writer Behavior", func() {
 									}
 									MustSucceed(w.Commit())
 									Expect(w.Close()).To(Succeed())
-									// Leave a gap so the next session opens a fresh region.
+									// Leave a gap so the next session opens a fresh
+									// region.
 									ts += telem.SecondTS
 								}
 								Expect(o.paired).To(BeNumerically(">", 0),
@@ -1068,10 +1069,10 @@ var _ = Describe("Writer Behavior", func() {
 										},
 									}),
 								)
-								// Auto-commit would resolve a commit end against the index on
-								// every write, and the index is still being written here, so
-								// this writer streams without committing, as a live data
-								// source does.
+								// Auto-commit would resolve a commit end against the
+								// index on every write, and the index is still being
+								// written here, so this writer streams without
+								// committing, as a live data source does.
 								wData := MustSucceed(
 									db.OpenWriter(ctx, cesium.WriterConfig{
 										Channels: []cesium.ChannelKey{d1},
@@ -2708,7 +2709,10 @@ var _ = Describe("Writer Behavior", func() {
 							)).To(Succeed())
 
 							w := MustSucceed(db2.OpenWriter(ctx, cesium.WriterConfig{
-								Channels:                 []cesium.ChannelKey{index, basic},
+								Channels: []cesium.ChannelKey{
+									index,
+									basic,
+								},
 								Start:                    10 * telem.SecondTS,
 								AutoIndexPersistInterval: cesium.AlwaysIndexPersistOnAutoCommit,
 							}))
@@ -2740,7 +2744,10 @@ var _ = Describe("Writer Behavior", func() {
 							Expect(w.Close()).To(Succeed())
 
 							w = MustSucceed(db2.OpenWriter(ctx, cesium.WriterConfig{
-								Channels:                 []cesium.ChannelKey{index, basic},
+								Channels: []cesium.ChannelKey{
+									index,
+									basic,
+								},
 								Start:                    17 * telem.SecondTS,
 								AutoIndexPersistInterval: cesium.AlwaysIndexPersistOnAutoCommit,
 							}))
@@ -2830,7 +2837,10 @@ var _ = Describe("Writer Behavior", func() {
 								"Asserting that upon writing to the channels, the writes go to appropriate files",
 							)
 							w = MustSucceed(db2.OpenWriter(ctx, cesium.WriterConfig{
-								Channels:                 []cesium.ChannelKey{index, basic},
+								Channels: []cesium.ChannelKey{
+									index,
+									basic,
+								},
 								Start:                    30 * telem.SecondTS,
 								AutoIndexPersistInterval: cesium.AlwaysIndexPersistOnAutoCommit,
 							}))
@@ -4181,9 +4191,10 @@ var _ = Describe("Writer Behavior", func() {
 const alignmentSeed = 0x5EED
 
 // alignmentObserver watches streamed frames and enforces the invariants live consumers
-// depend on. Leading alignment is a self-contained coordinate system: it is deliberately
-// not comparable to the alignment the same sample resolves to once persisted, so every
-// assertion here is relative to other streamed samples rather than to stored state.
+// depend on. Leading alignment is a self-contained coordinate system: it is
+// deliberately not comparable to the alignment the same sample resolves to once
+// persisted, so every assertion here is relative to other streamed samples rather than
+// to stored state.
 type alignmentObserver struct {
 	// upper records, per channel, the alignment one past the last streamed sample.
 	upper map[cesium.ChannelKey]telem.Alignment

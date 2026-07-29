@@ -57,11 +57,13 @@ type compiledFunction struct {
 	writer    *wasm.Writer
 }
 
-// Compile translates an Arc program from intermediate representation (IR) to WebAssembly bytecode.
+// Compile translates an Arc program from intermediate representation (IR) to
+// WebAssembly bytecode.
 //
-// The function processes each function and stage in the IR, allocating memory for multi-output
-// stages, compiling expressions and statements into WASM instructions, and generating a complete
-// WASM module with type signatures, imports, functions, and exports.
+// The function processes each function and stage in the IR, allocating memory for
+// multi-output stages, compiling expressions and statements into WASM instructions, and
+// generating a complete WASM module with type signatures, imports, functions, and
+// exports.
 //
 // Parameters:
 //   - ctx_: Go context for cancellation
@@ -70,10 +72,11 @@ type compiledFunction struct {
 //
 // Returns:
 //   - Output: Contains WASM bytecode and memory base addresses for multi-output stages
-//   - error: Compilation errors (type mismatches, undefined symbols, invalid operations)
+//   - error: Compilation errors (type mismatches, undefined symbols,
+//     invalid operations)
 //
-// The compiler maintains type safety by propagating type hints through expression compilation
-// and emitting type conversions when necessary.
+// The compiler maintains type safety by propagating type hints through expression
+// compilation and emitting type conversions when necessary.
 func Compile(ctx context.Context, program ir.IR, opts ...Option) (Output, error) {
 	o := &options{}
 	for _, opt := range opts {

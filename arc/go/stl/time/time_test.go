@@ -356,7 +356,8 @@ var _ = Describe("Time", func() {
 				// Reset the interval (simulates stage re-entry)
 				n.Reset()
 
-				// Third tick at 1.5s - should fire because Reset set lastFired = -period
+				// Third tick at 1.5s - should fire because Reset set lastFired =
+				// -period
 				changedOutputs = nil
 				n.Next(node.Context{
 					Context: ctx,
@@ -899,7 +900,8 @@ var _ = Describe("Time", func() {
 				Expect(selfChangedCalls).To(Equal(1))
 				Expect(changedOutputs).To(BeEmpty())
 
-				// Timer tick at 1s: should fire normally (wasn't starved by channel input)
+				// Timer tick at 1s: should fire normally (wasn't starved by channel
+				// input)
 				selfChangedCalls = 0
 				n.Next(node.Context{
 					Context: ctx,

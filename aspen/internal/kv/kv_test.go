@@ -349,7 +349,8 @@ var _ = Describe("txn", func() {
 							defer mu.Unlock()
 							seen = append(seen, slices.Collect(r)...)
 						})
-					// kv1 originates this write — host is leaseholder, must be filtered out.
+					// kv1 originates this write — host is leaseholder, must be
+					// filtered out.
 					Expect(kv1.Set(ctx, []byte("local"), []byte("v1"))).To(Succeed())
 					// kv2 originates this write — replicated to kv1, must pass through.
 					Expect(kv2.Set(ctx, []byte("remote"), []byte("v2"))).To(Succeed())

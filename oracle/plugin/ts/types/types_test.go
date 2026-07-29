@@ -583,7 +583,8 @@ var _ = Describe("TS Types Plugin", func() {
 				resp := MustSucceed(typesPlugin.Generate(req))
 
 				content := string(resp.Files[0].Content)
-				// Required arrays default a missing array to [] without double-wrapping z.array.
+				// Required arrays default a missing array to [] without double-wrapping
+				// z.array.
 				Expect(
 					content,
 				).To(ContainSubstring(`objects: z.uuid().array().default(() => [])`))
@@ -642,8 +643,8 @@ var _ = Describe("TS Types Plugin", func() {
 				resp := MustSucceed(typesPlugin.Generate(req))
 
 				content := string(resp.Files[0].Content)
-				// Required record fields default a missing record to {} (the server omits
-				// a nil record).
+				// Required record fields default a missing record to {} (the server
+				// omits a nil record).
 				Expect(
 					content,
 				).To(ContainSubstring(`layout: record.unknownZ().default(() => ({}))`))
@@ -671,7 +672,8 @@ var _ = Describe("TS Types Plugin", func() {
 				resp := MustSucceed(typesPlugin.Generate(req))
 
 				content := string(resp.Files[0].Content)
-				// Optional record fields use zod.nullToUndefined to convert null -> undefined
+				// Optional record fields use zod.nullToUndefined to convert null ->
+				// undefined
 				Expect(
 					content,
 				).To(ContainSubstring(`layout: zod.nullToUndefined(record.unknownZ())`))
@@ -729,7 +731,8 @@ var _ = Describe("TS Types Plugin", func() {
 				resp := MustSucceed(typesPlugin.Generate(req))
 
 				content := string(resp.Files[0].Content)
-				// Required record fields with preserve_case wrap with caseconv.preserveCase
+				// Required record fields with preserve_case wrap with
+				// caseconv.preserveCase
 				Expect(
 					content,
 				).To(ContainSubstring(`layout: caseconv.preserveCase(record.unknownZ().default(() => ({})))`))
@@ -760,7 +763,8 @@ var _ = Describe("TS Types Plugin", func() {
 				resp := MustSucceed(typesPlugin.Generate(req))
 
 				content := string(resp.Files[0].Content)
-				// Optional record fields with preserve_case wrap with caseconv.preserveCase
+				// Optional record fields with preserve_case wrap with
+				// caseconv.preserveCase
 				Expect(
 					content,
 				).To(ContainSubstring(`layout: caseconv.preserveCase(zod.nullToUndefined(record.unknownZ()))`))
@@ -791,7 +795,8 @@ var _ = Describe("TS Types Plugin", func() {
 				resp := MustSucceed(typesPlugin.Generate(req))
 
 				content := string(resp.Files[0].Content)
-				// Type parameter fields with preserve_case wrap with caseconv.preserveCase
+				// Type parameter fields with preserve_case wrap with
+				// caseconv.preserveCase
 				Expect(
 					content,
 				).To(ContainSubstring(`config: caseconv.preserveCase(config ?? record.unknownZ().default(() => ({})))`))
@@ -1314,11 +1319,13 @@ var _ = Describe("TS Types Plugin", func() {
 				resp := MustSucceed(typesPlugin.Generate(req))
 
 				content := string(resp.Files[0].Content)
-				// The 'type' field should use: type ?? z.string() since Type extends string
+				// The 'type' field should use: type ?? z.string() since Type extends
+				// string
 				Expect(
 					content,
 				).To(ContainSubstring(`type: type ?? z.string()`), "type field should use type param with fallback")
-				// The 'config' field should use fallback pattern since Config extends record
+				// The 'config' field should use fallback pattern since Config extends
+				// record
 				Expect(
 					content,
 				).To(ContainSubstring(`config: config ?? record.unknownZ().default(() => ({}))`), "config field should use type param with fallback")
@@ -1442,7 +1449,8 @@ var _ = Describe("TS Types Plugin", func() {
 				resp := MustSucceed(typesPlugin.Generate(req))
 
 				content := string(resp.Files[0].Content)
-				// Even with concrete_types, fields using type params should have the fallback pattern
+				// Even with concrete_types, fields using type params should have the
+				// fallback pattern
 				Expect(
 					content,
 				).To(ContainSubstring(`type: type ?? z.string()`), "type field should use type param with fallback even with concrete_types")
@@ -1955,8 +1963,9 @@ var _ = Describe("TS Types Plugin", func() {
 		It(
 			"Should generate type alias for generic struct reference",
 			func(ctx SpecContext) {
-				// Regression test: Status = status.Status<StatusDetails> should call the
-				// generic struct's factory function with the type argument, not return z.unknown()
+				// Regression test: Status = status.Status<StatusDetails> should call
+				// the generic struct's factory function with the type argument, not
+				// return z.unknown()
 				source := `
 				@ts output "out"
 
@@ -1982,7 +1991,8 @@ var _ = Describe("TS Types Plugin", func() {
 				resp := MustSucceed(typesPlugin.Generate(req))
 
 				content := string(resp.Files[0].Content)
-				// The alias should call the generic struct's factory function with the type arg
+				// The alias should call the generic struct's factory function with the
+				// type arg
 				Expect(
 					content,
 				).To(ContainSubstring(`export const rackStatusZ = statusZ(statusDetailsZ)`))
@@ -2017,7 +2027,8 @@ var _ = Describe("TS Types Plugin", func() {
 				resp := MustSucceed(typesPlugin.Generate(req))
 
 				content := string(resp.Files[0].Content)
-				// Array type aliases default a missing array to [] using the element schema.
+				// Array type aliases default a missing array to [] using the element
+				// schema.
 				Expect(
 					content,
 				).To(ContainSubstring(`export const stagesZ = stageZ.array().default(() => [])`))
@@ -2036,7 +2047,8 @@ var _ = Describe("TS Types Plugin", func() {
 			"Should not double-wrap arrays when using array helpers",
 			func(ctx SpecContext) {
 				// Regression test: arrays should not be wrapped twice with z.array()
-				// The array helpers (nullishToEmpty, nullToUndefined) expect element schemas
+				// The array helpers (nullishToEmpty, nullToUndefined) expect element
+				// schemas
 				source := `
 				@ts output "out"
 

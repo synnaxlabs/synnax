@@ -69,8 +69,8 @@ func (cfg WriterConfig) domain() telem.TimeRange {
 type Writer struct {
 	// onClose is called when the writer is closed.
 	onClose func()
-	// control stores the control gate held by the virtual writer, and used to track control
-	// handoff scenarios with other writers.
+	// control stores the control gate held by the virtual writer, and used to track
+	// control handoff scenarios with other writers.
 	control *control.Gate[*controlResource]
 	// wrapError is a function that wraps any error originating from this writer to
 	// provide context including the writer's channel key and name.

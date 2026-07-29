@@ -185,8 +185,8 @@ var _ = Describe("MigrateLinePlot", func() {
 				}`),
 				})
 				Expect(got.Key).To(Equal(key))
-				// v1 lift forces the legend shown, so the typed Hidden is false, and sets
-				// default position.
+				// v1 lift forces the legend shown, so the typed Hidden is false, and
+				// sets default position.
 				Expect(got.Legend.Hidden).To(BeFalse())
 				Expect(got.Legend.Position.X).To(Equal(50.0))
 				Expect(got.Legend.Position.Units).NotTo(BeNil())

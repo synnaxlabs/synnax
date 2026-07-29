@@ -50,8 +50,8 @@ func (la *leaseAllocator) allocate(
 		}
 	} else if errors.Is(err, query.ErrNotFound) && op.Variant == change.VariantSet {
 		if op.Leaseholder == nodeKeyDefaultLeaseholder {
-			// If we can't find the Leaseholder, and the op doesn't have a Leaseholder assigned,
-			// we assign the leaseAlloc to the cluster host.
+			// If we can't find the Leaseholder, and the op doesn't have a Leaseholder
+			// assigned, we assign the leaseAlloc to the cluster host.
 			op.Leaseholder = la.Cluster.HostKey()
 		}
 		// If we can't find the Leaseholder, and the op has a Leaseholder assigned,

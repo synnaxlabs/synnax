@@ -104,7 +104,8 @@ func channelKeyOf(sym *symbol.Symbol) int {
 	return sym.ID
 }
 
-// sameFunction reports whether a and b compile into the same unit (same enclosing function, or both module-level).
+// sameFunction reports whether a and b compile into the same unit (same enclosing
+// function, or both module-level).
 func sameFunction(a, b *symbol.Symbol) bool {
 	af, _ := a.ClosestAncestorOfKind(symbol.KindFunction)
 	bf, _ := b.ClosestAncestorOfKind(symbol.KindFunction)

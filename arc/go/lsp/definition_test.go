@@ -214,7 +214,8 @@ func main() {
 				content := "func test() i32 {\n    return myGlobal\n}"
 				OpenArcDocument(server, ctx, uri, content)
 
-				// Try to jump to definition of myGlobal - GlobalResolver symbols have no AST
+				// Try to jump to definition of myGlobal - GlobalResolver symbols have
+				// no AST
 				locations := Definition(server, ctx, uri, 1, 12) // myGl|obal
 				Expect(locations).To(BeNil())
 			},

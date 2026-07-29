@@ -317,9 +317,9 @@ var _ = Describe("Service", func() {
 			func(ctx SpecContext) {
 				// Per-envelope atomicity is now the caller's responsibility —
 				// Service.Import takes a single envelope on a single Tx, and the caller
-				// wraps the multi- envelope batch in db.WithTx. This test exercises that
-				// contract: the bad envelope causes the tx callback to return early, so the
-				// good envelope's write is rolled back along with it.
+				// wraps the multi- envelope batch in db.WithTx. This test exercises
+				// that contract: the bad envelope causes the tx callback to return
+				// early, so the good envelope's write is rolled back along with it.
 				err := db.WithTx(ctx, func(tx gorp.Tx) error {
 					if _, err := svc.Import(
 						ctx,

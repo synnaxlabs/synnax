@@ -22,7 +22,8 @@ var ErrRecursionDepth = errors.New("[orc] recursion depth exceeded")
 // ErrExceedStringLen is returned when a string length prefix exceeds MaxStringLen.
 var ErrExceedStringLen = errors.New("[orc] string length exceeded")
 
-// ErrExceedCollectionLen is returned when a collection length prefix exceeds MaxCollectionLen.
+// ErrExceedCollectionLen is returned when a collection length prefix exceeds
+// MaxCollectionLen.
 var ErrExceedCollectionLen = errors.New("[orc] collection length exceeded")
 
 // MaxStringLen is the maximum byte length of a string that can be decoded. In

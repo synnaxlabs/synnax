@@ -513,9 +513,10 @@ sequence main {
 	It(
 		"Should generate typed state imports for stateful variables",
 		func(ctx SpecContext) {
-			// Regression test: stateful variables must produce typed WASM imports
-			// like "state::load_i64", not bare "state::load". This mirrors the
-			// exact program used in the C++ NodeTest.StatefulVariablesAreIsolatedBetweenNodeInstances.
+			// Regression test: stateful variables must produce typed WASM imports like
+			// "state::load_i64", not bare "state::load". This mirrors the exact program
+			// used in the C++
+			// NodeTest.StatefulVariablesAreIsolatedBetweenNodeInstances.
 			channels := []arc.Symbol{
 				{
 					Name: "trigger",
@@ -554,7 +555,8 @@ trigger -> counter{} -> output_b
 
 			for _, imp := range imports {
 				if imp.module == "stateful" {
-					// Every state import must have a type suffix (e.g., load_i64, store_i64)
+					// Every state import must have a type suffix (e.g., load_i64,
+					// store_i64)
 					Expect(imp.name).ToNot(Equal("load"),
 						"state::load should be state::load_i64 (missing type suffix)")
 					Expect(imp.name).ToNot(Equal("store"),

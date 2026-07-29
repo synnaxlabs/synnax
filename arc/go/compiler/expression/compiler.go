@@ -225,7 +225,8 @@ func compileFunctionCallExpr(
 			return types.Type{}, errors.Wrapf(err, "argument %d", i)
 		}
 		concreteInputs[i].Type = argType
-		if paramType.Kind == types.KindVariable && argType.Kind != types.KindNumericConstant &&
+		if paramType.Kind == types.KindVariable &&
+			argType.Kind != types.KindNumericConstant &&
 			argType.Kind != types.KindIntegerConstant &&
 			argType.Kind != types.KindFloatConstant {
 			varMap[paramType.Name] = argType

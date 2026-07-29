@@ -3537,8 +3537,9 @@ var _ = Describe("Sequence", func() {
 				)
 				defer h.Close(ctx)
 
-				// Two scheduler passes settle each wait→s2→s1 re-entry; the logged value
-				// lags the increment by one activation, so activations log 0, 1, 2, ...
+				// Two scheduler passes settle each wait→s2→s1 re-entry; the logged
+				// value lags the increment by one activation, so activations log 0, 1,
+				// 2, ...
 				step := func(now telem.TimeSpan) {
 					h.Tick(ctx, now)
 					h.channelState.ClearReads()
@@ -4370,7 +4371,8 @@ var _ = Describe("Sequence", func() {
 					got = append(got, telem.UnmarshalSeries[uint8](s)...)
 				}
 			}
-			// Increments fire once per scope entry; reads fire only on unconsumed values.
+			// Increments fire once per scope entry; reads fire only on unconsumed
+			// values.
 			trigger(h, ctx, 100)
 			drain()
 			Expect(got).To(Equal([]uint8{0, 1}))

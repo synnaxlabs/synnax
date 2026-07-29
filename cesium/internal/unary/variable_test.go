@@ -369,7 +369,8 @@ var _ = Describe("Variable-length channel", func() {
 						defer func() { Expect(data.Close()).To(Succeed()) }()
 						data.SetIndex(idx.Index())
 
-						// Seed the index with enough timestamps to back two data domains.
+						// Seed the index with enough timestamps to back two data
+						// domains.
 						Expect(unary.Write(ctx, idx, 800*telem.SecondTS,
 							telem.NewSeriesSecondsTSV(800, 801, 802, 803, 804, 805),
 						)).To(Succeed())
@@ -379,8 +380,8 @@ var _ = Describe("Variable-length channel", func() {
 							Start:   800 * telem.SecondTS,
 							Subject: xcontrol.Subject{Key: "rollover-flush"},
 						}))
-						// First batch: enough length-prefixed bytes to push the data file
-						// past the 40-byte rollover threshold on the next commit.
+						// First batch: enough length-prefixed bytes to push the data
+						// file past the 40-byte rollover threshold on the next commit.
 						MustSucceed(iw.Write(telem.NewSeriesV(
 							"sampleA", "sampleB", "sampleC", "sampleD", "sampleE",
 						)))

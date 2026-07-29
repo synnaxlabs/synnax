@@ -35,8 +35,8 @@ type controlResource struct {
 	// bits) and sample index (lower 32 bits). This field is accessed atomically because
 	// Gate.Authorize and Gate.PeekResource return a shared pointer to this struct, and
 	// the region's RWMutex is released before the caller accesses the field. This means
-	// one goroutine may write alignment through Authorize while another reads it through
-	// PeekResource concurrently.
+	// one goroutine may write alignment through Authorize while another reads it
+	// through PeekResource concurrently.
 	alignment atomic.Uint64
 }
 
@@ -75,9 +75,9 @@ type Config struct {
 	// FS is the filesystem that the DB will use to store metadata about the channel.
 	// [REQUIRED]
 	FS fs.FS
-	// Channel that the database will operate on. This only needs to be set when creating
-	// a new database. If the database already exists, this field will be read from the
-	// DB's meta file.
+	// Channel that the database will operate on. This only needs to be set when
+	// creating a new database. If the database already exists, this field will be read
+	// from the DB's meta file.
 	Channel channel.Channel
 }
 

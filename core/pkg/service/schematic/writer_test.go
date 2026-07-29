@@ -136,7 +136,9 @@ var _ = Describe("Writer", func() {
 				Expect(
 					svc.NewWriter(tx).
 						Dispatch(ctx, snap.Key, "session-1", []schematic.Action{
-							schematic.NewRemoveNodeAction(schematic.RemoveNodePayload{Key: "n1"}),
+							schematic.NewRemoveNodeAction(
+								schematic.RemoveNodePayload{Key: "n1"},
+							),
 						}),
 				).To(MatchError(validate.ErrValidation))
 			},
@@ -153,7 +155,9 @@ var _ = Describe("Writer", func() {
 				Expect(
 					svc.NewWriter(tx).
 						Dispatch(ctx, snap.Key, "session-1", []schematic.Action{
-							schematic.NewRenameAction(schematic.RenamePayload{Name: "renamed-snap"}),
+							schematic.NewRenameAction(
+								schematic.RenamePayload{Name: "renamed-snap"},
+							),
 						}),
 				).To(Succeed())
 				var res schematic.Schematic
@@ -178,8 +182,12 @@ var _ = Describe("Writer", func() {
 				Expect(
 					svc.NewWriter(tx).
 						Dispatch(ctx, snap.Key, "session-1", []schematic.Action{
-							schematic.NewRenameAction(schematic.RenamePayload{Name: "renamed-snap"}),
-							schematic.NewRemoveNodeAction(schematic.RemoveNodePayload{Key: "n1"}),
+							schematic.NewRenameAction(
+								schematic.RenamePayload{Name: "renamed-snap"},
+							),
+							schematic.NewRemoveNodeAction(
+								schematic.RemoveNodePayload{Key: "n1"},
+							),
 						}),
 				).To(MatchError(validate.ErrValidation))
 				var res schematic.Schematic
@@ -200,8 +208,12 @@ var _ = Describe("Writer", func() {
 				Expect(
 					svc.NewWriter(tx).
 						Dispatch(ctx, s.Key, "session-1", []schematic.Action{
-							schematic.NewRemoveNodeAction(schematic.RemoveNodePayload{Key: "ghost"}),
-							schematic.NewRemoveEdgeAction(schematic.RemoveEdgePayload{Key: "ghost-edge"}),
+							schematic.NewRemoveNodeAction(
+								schematic.RemoveNodePayload{Key: "ghost"},
+							),
+							schematic.NewRemoveEdgeAction(
+								schematic.RemoveEdgePayload{Key: "ghost-edge"},
+							),
 						}),
 				).To(Succeed())
 				var res schematic.Schematic
@@ -270,11 +282,19 @@ var _ = Describe("Writer", func() {
 									Position: spatial.XY{X: 100, Y: 0},
 								},
 							}),
-							schematic.NewAddEdgeAction(schematic.AddEdgePayload{Edge: schematic.Edge{
-								Key:    "e1",
-								Source: schematic.Handle{Node: "pump", Param: "out"},
-								Target: schematic.Handle{Node: "valve", Param: "in"},
-							}}),
+							schematic.NewAddEdgeAction(
+								schematic.AddEdgePayload{Edge: schematic.Edge{
+									Key: "e1",
+									Source: schematic.Handle{
+										Node:  "pump",
+										Param: "out",
+									},
+									Target: schematic.Handle{
+										Node:  "valve",
+										Param: "in",
+									},
+								}},
+							),
 							schematic.NewSetConfigAction(schematic.SetConfigPayload{
 								Key:    "pump",
 								Config: msgpack.EncodedJSON{"label": "Main Pump"},
@@ -365,7 +385,9 @@ var _ = Describe("Writer", func() {
 				Expect(
 					svc.NewWriter(tx).
 						Dispatch(ctx, snap.Key, "client-xyz", []schematic.Action{
-							schematic.NewRemoveNodeAction(schematic.RemoveNodePayload{Key: "n1"}),
+							schematic.NewRemoveNodeAction(
+								schematic.RemoveNodePayload{Key: "n1"},
+							),
 						}),
 				).To(MatchError(validate.ErrValidation))
 				Expect(rec.Snapshot()).To(BeEmpty())
@@ -380,7 +402,9 @@ var _ = Describe("Writer", func() {
 				Expect(
 					svc.NewWriter(tx).
 						Dispatch(ctx, uuid.New(), "client-xyz", []schematic.Action{
-							schematic.NewRemoveNodeAction(schematic.RemoveNodePayload{Key: "n1"}),
+							schematic.NewRemoveNodeAction(
+								schematic.RemoveNodePayload{Key: "n1"},
+							),
 						}),
 				).To(MatchError(query.ErrNotFound))
 				Expect(rec.Snapshot()).To(BeEmpty())

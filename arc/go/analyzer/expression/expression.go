@@ -7,7 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-// Package expression implements type checking and semantic analysis for Arc expressions.
+// Package expression implements type checking and semantic analysis for Arc
+// expressions.
 package expression
 
 import (
@@ -212,9 +213,10 @@ func validateType[T, N antlr.ParserRuleContext](
 			continue
 		}
 
-		// Check dimensional compatibility first if either operand has units
-		// This must be checked even for type variables since the unit is known at parse time
-		// Note: Power operations (^) are handled separately in analyzePower via ValidatePowerOp.
+		// Check dimensional compatibility first if either operand has units This must
+		// be checked even for type variables since the unit is known at parse time
+		// Note: Power operations (^) are handled separately in analyzePower via
+		// ValidatePowerOp.
 		if firstType.Unit != nil || nextType.Unit != nil {
 			if !units.ValidateBinaryOp(ctx, opName, firstType, nextType) {
 				return

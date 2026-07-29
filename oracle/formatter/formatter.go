@@ -958,7 +958,8 @@ func (f *formatter) formatFieldWithBraces(
 	f.writeLine(" {")
 	f.currentIndent++
 
-	// Calculate alignment: max length of "@domain command" across both inline and body domains
+	// Calculate alignment: max length of "@domain command" across both inline and body
+	// domains
 	maxPrefixLen := 0
 	for _, dom := range inlineDomains {
 		prefixLen := 1 + len(dom.IDENT().GetText()) // "@" + domain name

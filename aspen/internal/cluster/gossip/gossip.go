@@ -109,7 +109,8 @@ func (g *Gossip) sync(sync Message) (ack Message) {
 			ack.Nodes[dig.Key] = n
 		}
 
-		// If we don't have the node or our version is out of date, add it to our digests.
+		// If we don't have the node or our version is out of date, add it to our
+		// digests.
 		if !ok || n.Heartbeat.YoungerThan(dig.Heartbeat) {
 			ack.Digests[dig.Key] = node.Digest{Key: dig.Key, Heartbeat: n.Heartbeat}
 		}

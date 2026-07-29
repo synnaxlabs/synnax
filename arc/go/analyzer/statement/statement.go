@@ -43,7 +43,8 @@ func AnalyzeBlock(ctx context.Context[parser.IBlockContext]) {
 	}
 }
 
-// Analyze validates a statement and dispatches to specialized handlers based on statement type.
+// Analyze validates a statement and dispatches to specialized handlers based on
+// statement type.
 func Analyze(ctx context.Context[parser.IStatementContext]) {
 	switch {
 	case ctx.AST.VariableDeclaration() != nil:
@@ -167,7 +168,8 @@ func rhsTracksChannel[T antlr.ParserRuleContext](
 	if isLiteralExpression(childCtx) {
 		return false
 	}
-	// A bare reference that resolves to a channel, channel-read/write, or channel-read variable.
+	// A bare reference that resolves to a channel, channel-read/write, or channel-read
+	// variable.
 	if primary := parser.GetPrimaryExpression(
 		expr,
 	); primary != nil &&
@@ -239,7 +241,8 @@ func analyzeVariableDeclarationType[ASTNode antlr.ParserRuleContext](
 					units.CheckAssignmentScaleSafety(ctx, exprType, varType, nil)
 				}
 
-				// If either type is a type variable, add a constraint instead of checking directly
+				// If either type is a type variable, add a constraint instead of
+				// checking directly
 				if exprType.Kind == types.KindVariable ||
 					varType.Kind == types.KindVariable {
 					if err := atypes.Check(
@@ -389,8 +392,9 @@ func getChannelSymbol(ctx context.Context[parser.IExpressionContext]) *symbol.Sy
 	if err != nil {
 		return nil
 	}
-	// Must be an actual channel symbol (KindChannel), not just a symbol with channel type.
-	// Input params with channel type (KindInput) should be read from, not aliased.
+	// Must be an actual channel symbol (KindChannel), not just a symbol with channel
+	// type. Input params with channel type (KindInput) should be read from, not
+	// aliased.
 	if sym.Kind == symbol.KindChannel && sym.Type.Kind == types.KindChan {
 		return sym
 	}
@@ -833,7 +837,8 @@ func analyzeReturnStatement(ctx context.Context[parser.IReturnStatementContext])
 		actualReturnType := atypes.InferFromExpression(context.Child(ctx, returnExpr).WithTypeHint(expectedReturnType)).
 			UnwrapChan()
 
-		// Check for void function first - this error applies even in type inference mode
+		// Check for void function first - this error applies even in type inference
+		// mode
 		if !expectedReturnType.IsValid() && !ctx.InTypeInferenceMode {
 			ctx.Diagnostics.Add(diagnostics.Errorf(
 				ctx.AST,
@@ -842,12 +847,14 @@ func analyzeReturnStatement(ctx context.Context[parser.IReturnStatementContext])
 			return
 		}
 
-		// Skip type compatibility validation in type inference mode - we're just collecting types
+		// Skip type compatibility validation in type inference mode - we're just
+		// collecting types
 		if ctx.InTypeInferenceMode {
 			return
 		}
 		if actualReturnType.IsValid() && expectedReturnType.IsValid() {
-			// If either type is a type variable, add a constraint instead of checking directly
+			// If either type is a type variable, add a constraint instead of checking
+			// directly
 			if actualReturnType.Kind == types.KindVariable ||
 				expectedReturnType.Kind == types.KindVariable {
 				if err = atypes.Check(
@@ -974,7 +981,8 @@ func analyzeChannelAssignment(
 			}
 		}
 	}
-	// Validate we're in a function context (channel writes only allowed in imperative context)
+	// Validate we're in a function context (channel writes only allowed in imperative
+	// context)
 	fn, fnErr := ctx.Scope.ClosestAncestorOfKind(symbol.KindFunction)
 	if errors.Skip(fnErr, query.ErrNotFound) != nil {
 		ctx.Diagnostics.Add(diagnostics.Error(fnErr, ctx.AST))
@@ -1105,7 +1113,8 @@ func analyzeIndexedAssignment(
 	}
 }
 
-// analyzeIndexedCompoundAssignment validates indexed compound assignment statements (series[i] += value)
+// analyzeIndexedCompoundAssignment validates indexed compound assignment statements
+// (series[i] += value)
 func analyzeIndexedCompoundAssignment(
 	ctx context.Context[parser.IAssignmentContext],
 	varScope *symbol.Symbol,
@@ -1184,8 +1193,8 @@ func analyzeIndexedCompoundAssignment(
 	}
 }
 
-// analyzeSeriesCompoundAssignment validates whole-series compound assignment (series += value)
-// Supports both series += scalar (broadcast) and series += series (element-wise)
+// analyzeSeriesCompoundAssignment validates whole-series compound assignment (series +=
+// value) Supports both series += scalar (broadcast) and series += series (element-wise)
 func analyzeSeriesCompoundAssignment(
 	ctx context.Context[parser.IAssignmentContext],
 	varScope *symbol.Symbol,
@@ -1585,7 +1594,8 @@ func getBlockReturnTypes(
 	return len(returnTypes) > 0, returnTypes
 }
 
-// unifyReturnTypes unifies multiple return types to find the smallest reasonable common type.
+// unifyReturnTypes unifies multiple return types to find the smallest reasonable common
+// type.
 func unifyReturnTypes(
 	returnTypes []types.Type,
 ) (types.Type, error) {
@@ -1805,7 +1815,8 @@ func resolveTypeVariableWithContext(
 		return tv
 	}
 	if tv.Constraint != nil && tv.Constraint.Kind == types.KindIntegerConstant {
-		// Check if any concrete type is a float - integer literals can be coerced to floats
+		// Check if any concrete type is a float - integer literals can be coerced to
+		// floats
 		for _, t := range concreteTypes {
 			if t.IsFloat() {
 				// Integer constant can be coerced to match the float type

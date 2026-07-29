@@ -939,8 +939,8 @@ var _ = Describe("Garbage Collection", Ordered, func() {
 						).To(Succeed())
 
 						// It's difficult to test that the new data actually went to a
-						// specific freed file – as they could go to any one of file 1, 2, 4
-						// since they are all below the file size limit.
+						// specific freed file – as they could go to any one of file 1,
+						// 2, 4 since they are all below the file size limit.
 
 						By("Asserting that the data did not change", func() {
 							i := db.OpenIterator(domain.IterRange(telem.TimeRangeMax))
@@ -1057,9 +1057,9 @@ var _ = Describe("Garbage Collection", Ordered, func() {
 				})
 
 				// This regression test is used to verify that when calling gcReaders()
-				// in garbage collection, the slice will be popped correctly. Previously,
-				// the slice was being popped while iterated, causing out-of-bounds
-				// errors.
+				// in garbage collection, the slice will be popped correctly.
+				// Previously, the slice was being popped while iterated, causing
+				// out-of-bounds errors.
 				Specify("Reader gc", func(ctx SpecContext) {
 					db = MustSucceed(domain.Open(domain.Config{
 						FS:              fs,

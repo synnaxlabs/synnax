@@ -211,10 +211,11 @@ var _ = Describe("Graph", func() {
 		It(
 			"Should set error status for an invalid expression at open",
 			func(ctx SpecContext) {
-				// A syntax error cannot exist at rest under strict creation; the graph's
-				// handling of an invalid expression is exercised via an unresolvable
-				// reference (a dependency deleted after the calc was created). Syntax-error
-				// analysis itself is covered by the analyzer and compiler suites.
+				// A syntax error cannot exist at rest under strict creation; the
+				// graph's handling of an invalid expression is exercised via an
+				// unresolvable reference (a dependency deleted after the calc was
+				// created). Syntax-error analysis itself is covered by the analyzer and
+				// compiler suites.
 				calc := createBrokenCalc(ctx, "hy_invalid", "hy_invalid_dep")
 				openGraph(ctx)
 				expectStatus(ctx, calc.Key())
@@ -1288,7 +1289,8 @@ var _ = Describe("Graph", func() {
 					defer GinkgoRecover()
 					defer wg.Done()
 					// References a stable base (not the one being deleted) so strict
-					// creation always succeeds regardless of how it races with the delete.
+					// creation always succeeds regardless of how it races with the
+					// delete.
 					newCalc := channel.Channel{
 						Name: "cc_race_calc2", DataType: telem.Int64T, Virtual: true,
 						Expression: "return cc_race_stable * 2",

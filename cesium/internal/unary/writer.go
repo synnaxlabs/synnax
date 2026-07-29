@@ -138,8 +138,8 @@ type controlledWriter struct {
 	// rather than only at region creation. This field is accessed atomically because
 	// Gate.Authorize and Gate.PeekResource return a shared pointer to this struct, and
 	// the region's RWMutex is released before the caller accesses the field. This means
-	// one goroutine may write alignment through Authorize while another reads it through
-	// PeekResource concurrently.
+	// one goroutine may write alignment through Authorize while another reads it
+	// through PeekResource concurrently.
 	alignment atomic.Uint64
 	// tracker holds per-domain offset state shared across every Writer that takes
 	// control of this resource. It is created once when the resource is opened and
@@ -175,9 +175,9 @@ type Writer struct {
 	// but not limited to density and index.
 	Channel channel.Channel
 	cfg     WriterConfig
-	// highWaterMark is a hot-path optimization when writing to an index channel. We can avoid
-	// unnecessary index lookups by keeping track of the highest timestamp written. Only
-	// valid when Channel.IsIndex is true.
+	// highWaterMark is a hot-path optimization when writing to an index channel. We can
+	// avoid unnecessary index lookups by keeping track of the highest timestamp
+	// written. Only valid when Channel.IsIndex is true.
 	highWaterMark telem.TimeStamp
 	// closed stores whether the writer is closed. Operations like Write and Commit do
 	// not succeed on closed writers.

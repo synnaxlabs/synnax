@@ -830,7 +830,6 @@ var _ = Describe("Rack", Ordered, func() {
 					g.Expect(s.Variant).To(Equal(status.VariantSuccess))
 					g.Expect(s.Description).
 						ToNot(ContainSubstring("Driver was last alive"))
-
 				}, 50*telem.Millisecond.Duration(), 5*telem.Millisecond.Duration()).Should(Succeed())
 			},
 		)

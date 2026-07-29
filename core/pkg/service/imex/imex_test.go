@@ -149,10 +149,11 @@ var _ = Describe("ImEx", func() {
 			It(
 				"Should preserve int64 precision on payload values past 2^53",
 				func(ctx SpecContext) {
-					// 1700000000000000000 is roughly a current Unix nanosecond timestamp,
-					// well past float64's 53-bit mantissa (9007199254740992). The previous
-					// float64-based decode lost the low-order bits; capturing raw bytes
-					// preserves them all the way to the typed decode.
+					// 1700000000000000000 is roughly a current Unix nanosecond
+					// timestamp, well past float64's 53-bit mantissa
+					// (9007199254740992). The previous float64-based decode lost the
+					// low-order bits; capturing raw bytes preserves them all the way to
+					// the typed decode.
 					const big int64 = 1700000000000000000
 					src := []byte(
 						`{"version":1,"type":"log","name":"n","ts":1700000000000000000}`,

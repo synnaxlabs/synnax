@@ -174,7 +174,8 @@ var _ = Describe("Project layout to panel migration", func() {
 									"key": 3,
 									"tabs": []any{
 										mosaicTab(logKey),
-										// Inline app view: no backing resource, dropped.
+										// Inline app view: no backing resource,
+										// dropped.
 										mosaicTab("docs"),
 										// Viz whose resource was deleted: dropped.
 										mosaicTab(staleKey),

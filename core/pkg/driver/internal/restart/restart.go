@@ -43,8 +43,8 @@ type Config struct {
 	// BaseInterval is the backoff before the first restart after an unexpected exit. It
 	// grows by Scale on each consecutive unexpected exit.
 	BaseInterval time.Duration
-	// Scale is the multiplicative growth of the backoff per consecutive unexpected exit.
-	// Must be >= 1.
+	// Scale is the multiplicative growth of the backoff per consecutive unexpected
+	// exit. Must be >= 1.
 	Scale float32
 	// MaxRetries caps the number of consecutive restarts before Decide returns GiveUp.
 	// The counter resets after a process runs longer than HealthyUptime.
@@ -82,12 +82,12 @@ func New(ctx context.Context, cfg Config) (*Policy, error) {
 	return &Policy{breaker: b, healthyUptime: healthy}, nil
 }
 
-// Decide reports what the supervisor should do after the managed process exits. expected
-// is true when the supervisor initiated the shutdown (a graceful stop), in which case
-// Decide returns Stop immediately. Otherwise the exit is treated as a failure: if uptime
-// is at least HealthyUptime the failure counter is reset first, then Decide waits out the
-// backoff and returns Restart, or returns GiveUp once MaxRetries consecutive failures are
-// reached (or the context is canceled).
+// Decide reports what the supervisor should do after the managed process exits.
+// expected is true when the supervisor initiated the shutdown (a graceful stop), in
+// which case Decide returns Stop immediately. Otherwise the exit is treated as a
+// failure: if uptime is at least HealthyUptime the failure counter is reset first, then
+// Decide waits out the backoff and returns Restart, or returns GiveUp once MaxRetries
+// consecutive failures are reached (or the context is canceled).
 func (p *Policy) Decide(expected bool, uptime time.Duration) Action {
 	if expected {
 		return Stop

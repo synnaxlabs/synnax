@@ -1175,8 +1175,9 @@ var _ = Describe("Control", func() {
 		It(
 			"Should return the resource held by the region covering the time range",
 			func() {
-				// Opened out of chronological order so that a lookup keyed off insertion
-				// order or sort position resolves a different region than the correct one.
+				// Opened out of chronological order so that a lookup keyed off
+				// insertion order or sort position resolves a different region than the
+				// correct one.
 				openAt(2, (20 * telem.SecondTS).Range(30*telem.SecondTS))
 				openAt(1, (0 * telem.SecondTS).Range(10*telem.SecondTS))
 				openAt(3, (40 * telem.SecondTS).Range(50*telem.SecondTS))
@@ -1248,8 +1249,9 @@ var _ = Describe("Control", func() {
 				second.TimeRange = (10 * telem.SecondTS).Range(30 * telem.SecondTS)
 				second.Subject.Key = "second"
 				MustSucceed2(c.OpenGate(second))
-				// The second gate joined the first gate's region, so its OpenResource is
-				// never called and both stamps resolve to the resource opened for the first.
+				// The second gate joined the first gate's region, so its OpenResource
+				// is never called and both stamps resolve to the resource opened for
+				// the first.
 				Expect(createCount()).To(Equal(1))
 				Expect(
 					MustBeOk(c.ResourceAt(at(5 * telem.SecondTS))),

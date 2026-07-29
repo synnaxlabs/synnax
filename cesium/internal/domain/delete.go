@@ -47,7 +47,7 @@ type OffsetResolver = func(
 //	endDomainIndex := db.index.find(tr.End)
 //	endOffset := calculateEndOffset(endDomainIndex)
 //	startOffset := calculateStartOffset(startDomainIndex)
-//	[...data, startDomain + startOffset, ...deleted..., endDomain + endOffset, ...data...]
+//	[...data, startDomain + startOffset, ...deleted..., endDomain + endOffset, ...data]
 //
 // The following requirements are placed on the variables:
 // 0 <= startPosition <= endPosition < len(db.mu.idx.pointers), and must both be valid
@@ -284,9 +284,9 @@ func (db *DB) garbageCollectFile(key uint16, size int64) error {
 		newOffset     uint32
 		tombstoneSize = size
 		ptrs          []pointer
-		// offsetDeltaMap maps each pointer (identified by the time range) to the difference
-		// between its new offset and its old offset. Note that time ranges are
-		// necessarily unique within a domain.
+		// offsetDeltaMap maps each pointer (identified by the time range) to the
+		// difference between its new offset and its old offset. Note that time ranges
+		// are necessarily unique within a domain.
 		offsetDeltaMap = make(map[telem.TimeRange]uint32)
 	)
 
@@ -461,7 +461,8 @@ func validateDelete(
 		*endOffset = endPtrLen
 	}
 
-	// If the startPosition is greater than end position and there are samples in between.
+	// If the startPosition is greater than end position and there are samples in
+	// between.
 	if startPosition > endPosition && (startPosition != endPosition+1 ||
 		*startOffset != 0 ||
 		*endOffset != 0) {

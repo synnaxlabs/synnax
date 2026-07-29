@@ -91,8 +91,8 @@ func analyzeNode(
 		return
 	}
 	// NEXT and inline stage/sequence declarations are resolved during sequence
-	// analysis, not here. The grammar guarantees flowNode is one of:
-	// identifier | function | expression | stageDeclaration | sequenceDeclaration | NEXT.
+	// analysis, not here. The grammar guarantees flowNode is one of: identifier |
+	// function | expression | stageDeclaration | sequenceDeclaration | NEXT.
 }
 
 func parseFunction(
@@ -743,10 +743,10 @@ func analyzeInputRoutingTable(
 			continue
 		}
 
-		// Analyze the flow chain: source (entry.IDENTIFIER) -> processing nodes -> parameter
-		// For type checking, we need to verify the output type of the chain matches paramType
-		// TODO: Implement full type checking for the flow chain
-		// See https://linear.app/synnax/issue/SY-3176/implement-full-type-checking-for-arc-flow-statements
+		// Analyze the flow chain: source (entry.IDENTIFIER) -> processing nodes ->
+		// parameter For type checking, we need to verify the output type of the chain
+		// matches paramType TODO: Implement full type checking for the flow chain See
+		// https://linear.app/synnax/issue/SY-3176/implement-full-type-checking-for-arc-flow-statements
 		_ = paramType
 
 		for i := 0; i < len(flowNodes)-1; i++ {
@@ -840,7 +840,8 @@ func analyzeRoutingTargetWithParam(
 			return
 		}
 
-		// Only do type checking for channels (sequences/stages accept any input for activation)
+		// Only do type checking for channels (sequences/stages accept any input for
+		// activation)
 		if idSym.Kind == symbol.KindChannel {
 			valueType := idSym.Type.Unwrap()
 			if err = atypes.Check(

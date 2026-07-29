@@ -81,13 +81,13 @@ func (p *Plugin) Check(*plugin.Request) error { return nil }
 
 // Generate produces Go type definitions for structs, enums, and typedefs with @go flag.
 // Version-laid-out packages (@go version + a keyed struct) emit their types into the
-// current versions/vN sub-package, with a root alias file re-exporting the surface. Types
-// whose shape is unchanged from the predecessor version alias it instead of being
-// re-defined. Version-laid-out packages pin persisted references to their
-// dependencies' current version directories (they must stay importable from frozen
-// packages); omitted fields and declarations outside the persisted closure resolve
-// to dependency roots and track the latest version, since they never reach the
-// stored wire format. Unversioned packages reference the root re-export surface.
+// current versions/vN sub-package, with a root alias file re-exporting the surface.
+// Types whose shape is unchanged from the predecessor version alias it instead of being
+// re-defined. Version-laid-out packages pin persisted references to their dependencies'
+// current version directories (they must stay importable from frozen packages); omitted
+// fields and declarations outside the persisted closure resolve to dependency roots and
+// track the latest version, since they never reach the stored wire format. Unversioned
+// packages reference the root re-export surface.
 func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 	rewritten, pathMap, err := versioning.RewriteCurrent(req.Resolutions)
 	if err != nil {
@@ -1228,7 +1228,8 @@ const (
 {{- end}}
 {{- if $enum.Values}}
 
-// IsValid reports whether {{$enum.Receiver}} is one of the defined {{$enum.Name}} values.
+// IsValid reports whether {{$enum.Receiver}} is one of the defined {{$enum.Name}}
+// values.
 func ({{$enum.Receiver}} {{$enum.Name}}) IsValid() bool {
 	switch {{$enum.Receiver}} {
 	case {{range $i, $v := $enum.Values}}{{if $i}}, {{end}}{{$enum.Name}}{{$v.Name}}{{end}}:

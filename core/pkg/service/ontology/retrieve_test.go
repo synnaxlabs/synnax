@@ -416,7 +416,8 @@ var _ = Describe("Retrieve", func() {
 			"Should traverse through intermediate filtered clauses without bound entries",
 			func(ctx SpecContext) {
 				// Create a hierarchy: grandparent -> parent -> child
-				// We'll query: grandparent -> TraverseTo(Children) -> WhereTypes(sample) -> TraverseTo(Children) -> Entries
+				// We'll query: grandparent -> TraverseTo(Children) ->
+				// WhereTypes(sample) -> TraverseTo(Children) -> Entries
 				grandparent := newSampleType("grandparent")
 				parent := newSampleType("parent")
 				child := newSampleType("child")
@@ -441,7 +442,8 @@ var _ = Describe("Retrieve", func() {
 					),
 				).To(Succeed())
 
-				// This query pattern has an intermediate clause (WhereTypes) with no bound entries
+				// This query pattern has an intermediate clause (WhereTypes) with no
+				// bound entries
 				var results []ontology.Resource
 				Expect(otg.NewRetrieve().
 					WhereIDs(grandparent).
@@ -644,7 +646,8 @@ var _ = Describe("Retrieve", func() {
 				a := newSampleType("no-overlap-A")
 				Expect(w.DefineResources(ctx, a)).To(Succeed())
 				var r []ontology.Resource
-				// Use multiple types to trigger filter function path (not prefix matching)
+				// Use multiple types to trigger filter function path (not prefix
+				// matching)
 				Expect(otg.NewRetrieve().
 					WhereIDs(a).
 					WhereTypes(ontology.ResourceType("different"), ontology.ResourceType("another")).

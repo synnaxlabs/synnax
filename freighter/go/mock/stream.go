@@ -173,8 +173,8 @@ func parseBuffers(buffers []int) (int, int) {
 }
 
 type ServerStream[RQ, RS freighter.Payload] struct {
-	// ctx is the context the ServerStream was started with. Yes, Yes! RQ know this is a bad
-	// practice, but in this case we're essentially using it as a data container,
+	// ctx is the context the ServerStream was started with. Yes, Yes! I know this is a
+	// bad practice, but in this case we're essentially using it as a data container,
 	// and we have a very good grasp on how it's used.
 	ctx          context.Context
 	requests     <-chan message[RQ]
@@ -241,8 +241,8 @@ func (s *ServerStream[RQ, RS]) exec(
 }
 
 type ClientStream[RQ, RS freighter.Payload] struct {
-	// ctx is the context the ServerStream was started with. Yes, Yes! I know this is a bad
-	// practice, but in this case we're essentially using it as a data container,
+	// ctx is the context the ServerStream was started with. Yes, Yes! I know this is a
+	// bad practice, but in this case we're essentially using it as a data container,
 	// and we have a very good grasp on how it's used.
 	ctx          context.Context
 	requests     chan<- message[RQ]
@@ -286,8 +286,9 @@ func (c *ClientStream[RQ, RS]) Receive() (res RS, err error) {
 	case <-c.ctx.Done():
 		return res, c.ctx.Err()
 	case msg := <-c.responses:
-		// If our message contains an error, that means the server serverClosed the stream (i.e. serverClosed chan
-		// is serverClosed), so we don't need explicitly listen for its closure.
+		// If our message contains an error, that means the server serverClosed the
+		// stream (i.e. serverClosed chan is serverClosed), so we don't need explicitly
+		// listen for its closure.
 		if msg.error.Type != errors.TypeEmpty {
 			if c.receiveErr == nil {
 				c.receiveErr = errors.Decode(c.ctx, msg.error)

@@ -44,7 +44,8 @@ var _ = Describe("Format", func() {
 			err := stderrors.New("standard error")
 			formatted := format.Object(err, 1)
 			Expect(formatted).To(ContainSubstring("standard error"))
-			// Should not contain stack trace header since std errors don't have stack traces
+			// Should not contain stack trace header since std errors don't have stack
+			// traces
 		})
 
 		It("should not affect non-error values", func() {

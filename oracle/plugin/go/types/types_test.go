@@ -1283,7 +1283,8 @@ var _ = Describe("Go Types Plugin", func() {
 					resp := MustSucceed(goPlugin.Generate(req))
 
 					content := string(resp.Files[0].Content)
-					// RackStatus should be generic and embed Status with passed type param
+					// RackStatus should be generic and embed Status with passed type
+					// param
 					Expect(
 						content,
 					).To(ContainSubstring(`type RackStatus[D any] struct {`))
@@ -1714,8 +1715,9 @@ var _ = Describe("Go Types Plugin", func() {
 			It(
 				"Should use alias type name in struct fields instead of expanded target",
 				func(ctx SpecContext) {
-					// Regression test: When a struct field references a type alias,
-					// the generated code should use the alias name, not expand to the target type.
+					// Regression test: When a struct field references a type alias, the
+					// generated code should use the alias name, not expand to the
+					// target type.
 					source := `
 					@go output "core/rack"
 
@@ -1748,8 +1750,9 @@ var _ = Describe("Go Types Plugin", func() {
 			)
 
 			It("Should use distinct type name in struct fields", func(ctx SpecContext) {
-				// Regression test: When a struct field references a distinct type,
-				// the generated code should use the distinct type name, not the underlying primitive.
+				// Regression test: When a struct field references a distinct type, the
+				// generated code should use the distinct type name, not the underlying
+				// primitive.
 				source := `
 					@go output "core/channel"
 
@@ -1778,8 +1781,9 @@ var _ = Describe("Go Types Plugin", func() {
 			It(
 				"Should respect @go name directive for embedded parent types",
 				func(ctx SpecContext) {
-					// Regression test: When a struct extends a parent with @go name directive,
-					// the generated embedded field should use the Go-specific name, not the schema name.
+					// Regression test: When a struct extends a parent with @go name
+					// directive, the generated embedded field should use the
+					// Go-specific name, not the schema name.
 					loader.Add("schemas/compiler.oracle", `
 					@go output "arc/go/compiler"
 
@@ -1829,8 +1833,9 @@ var _ = Describe("Go Types Plugin", func() {
 			It(
 				"Should respect @go name directive for same-namespace embedded types",
 				func(ctx SpecContext) {
-					// Regression test: When a struct extends a parent with @go name in same namespace,
-					// the generated embedded field should use the Go-specific name.
+					// Regression test: When a struct extends a parent with @go name in
+					// same namespace, the generated embedded field should use the
+					// Go-specific name.
 					source := `
 					@go output "arc/go/ir"
 
@@ -1854,7 +1859,8 @@ var _ = Describe("Go Types Plugin", func() {
 					resp := MustSucceed(goPlugin.Generate(req))
 
 					content := string(resp.Files[0].Content)
-					// The parent type should be named "IR" (from @go name), not "InternalIR"
+					// The parent type should be named "IR" (from @go name), not
+					// "InternalIR"
 					Expect(content).To(ContainSubstring("type IR struct {"))
 					// The child should embed "IR", not "InternalIR"
 					Expect(content).To(ContainSubstring("type ExtendedIR struct {"))

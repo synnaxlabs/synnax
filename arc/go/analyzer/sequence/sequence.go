@@ -24,7 +24,8 @@ import (
 	"github.com/synnaxlabs/x/diagnostics"
 )
 
-// rejectReactiveAssignment reports that '=' cannot mutate a variable in a reactive scope; a flow must be used instead.
+// rejectReactiveAssignment reports that '=' cannot mutate a variable in a reactive
+// scope; a flow must be used instead.
 func rejectReactiveAssignment(
 	d *diagnostics.Diagnostics,
 	assign parser.IAssignmentContext,
@@ -70,8 +71,9 @@ func analyzeReactiveAssignment[T antlr.ParserRuleContext](
 	}
 }
 
-// analyzeChannelReadWriteRebind checks that the channel read/write variable can be rebound to the channel named by assign's
-// right-hand side: the RHS must reference a channel whose value type matches the channel read/write variable.
+// analyzeChannelReadWriteRebind checks that the channel read/write variable can be
+// rebound to the channel named by assign's right-hand side: the RHS must reference a
+// channel whose value type matches the channel read/write variable.
 func analyzeChannelReadWriteRebind[T antlr.ParserRuleContext](
 	ctx context.Context[T],
 	assign parser.IAssignmentContext,
@@ -109,8 +111,8 @@ func analyzeChannelReadWriteRebind[T antlr.ParserRuleContext](
 	channelReadWrite.Channels.Write[key] = target.Name
 }
 
-// channelRebindTarget resolves expr to the global channel a channel read/write rebind targets,
-// reporting ok=false when expr is not a bare reference to a channel.
+// channelRebindTarget resolves expr to the global channel a channel read/write rebind
+// targets, reporting ok=false when expr is not a bare reference to a channel.
 func channelRebindTarget[T antlr.ParserRuleContext](
 	ctx context.Context[T],
 	expr parser.IExpressionContext,

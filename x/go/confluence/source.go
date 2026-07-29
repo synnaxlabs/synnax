@@ -104,18 +104,18 @@ func (aus *AbstractUnarySource[O]) OutTo(inlets ...Inlet[O]) {
 // CloseInlets implements the InletCloser interface.
 func (aus *AbstractUnarySource[O]) CloseInlets() { aus.Out.Close() }
 
-// AbstractAddressableSource is an implementation of a Source that stores its Inlet(sink) in an
-// addressable map. This is ideal for use cases where the address of an Inlet is
-// relevant to the routing of the value (such as a Switch).
+// AbstractAddressableSource is an implementation of a Source that stores its
+// Inlet(sink) in an addressable map. This is ideal for use cases where the address of
+// an Inlet is relevant to the routing of the value (such as a Switch).
 type AbstractAddressableSource[O Value] struct {
 	// Out is an address map of all Inlet(sink) reachable by the Source.
 	Out                     map[address.Address]Inlet[O]
 	PanicOnDuplicateAddress bool
 }
 
-// OutTo implements the Source interface. Inlets provided must have a valid InletAddress.
-// If two inlets are provided with the same address, the last Inlet will override the
-// previous one.
+// OutTo implements the Source interface. Inlets provided must have a valid
+// InletAddress. If two inlets are provided with the same address, the last Inlet will
+// override the previous one.
 func (aas *AbstractAddressableSource[O]) OutTo(inlets ...Inlet[O]) {
 	if aas.Out == nil {
 		aas.Out = make(map[address.Address]Inlet[O])

@@ -309,8 +309,8 @@ var _ = Describe("Type Inference", func() {
 						testResolver,
 						"1000 - temp_sensor + pressure",
 					)
-					// After adopting f32 from temp_sensor, pressure (f64) is incompatible,
-					// so inference returns early with f32
+					// After adopting f32 from temp_sensor, pressure (f64) is
+					// incompatible, so inference returns early with f32
 					Expect(t.Kind).To(Equal(types.KindF32))
 				},
 			)
@@ -369,8 +369,8 @@ var _ = Describe("Type Inference", func() {
 				"should reject mixed f32 and f64 when literal is first operand",
 				func(bCtx SpecContext) {
 					t := inferExprType(bCtx, testResolver, "2 * temp_sensor * pressure")
-					// After adopting f32 from temp_sensor, pressure (f64) is incompatible,
-					// so inference returns early with f32
+					// After adopting f32 from temp_sensor, pressure (f64) is
+					// incompatible, so inference returns early with f32
 					Expect(t.Kind).To(Equal(types.KindF32))
 				},
 			)

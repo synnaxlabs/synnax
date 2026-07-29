@@ -3601,7 +3601,8 @@ sensor -> stable.for{duration=1s} -> output`
 						Type: types.Chan(types.U8()),
 						ID:   100,
 					})
-					// Attach the status module to the ambient prelude so import resolves.
+					// Attach the status module to the ambient prelude so import
+					// resolves.
 					root.Parent.AddChild(statusModule)
 					source := `import status
 sensor -> status.set{status_key="alarm", variant="error", message="Bad"}`
@@ -3873,11 +3874,13 @@ time.wait{duration=500ms} -> output`
 					// Find the count_rising node
 					node := findNodeByKey(inter.Nodes, "count_rising_0")
 
-					// counter_1 should be in Read (stateful var is initialized from channel value)
+					// counter_1 should be in Read (stateful var is initialized from
+					// channel value)
 					Expect(
 						node.Channels.Read,
 					).To(HaveKey(uint32(10102)), "should read from counter_1")
-					// Write channels should be empty - we write to a stateful variable, not a channel
+					// Write channels should be empty - we write to a stateful variable,
+					// not a channel
 					Expect(
 						node.Channels.Write,
 					).To(BeEmpty(), "should not have any write channels")
@@ -8042,7 +8045,9 @@ time.wait{duration=500ms} -> output`
 		It(
 			"Should compile function with channel input param assigned to intermediate variable and written to",
 			func(ctx SpecContext) {
-				// Test that writing to an intermediate variable correctly tracks the channel
+				// Test that writing to an intermediate variable correctly tracks the
+				// channel:
+				//
 				// out := output (input param with channel type)
 				// out = value * 2.0 (write to channel through intermediate variable)
 				resolver := []symbol.Symbol{
@@ -8082,8 +8087,8 @@ time.wait{duration=500ms} -> output`
 				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 				Expect(ir.Nodes).To(HaveLen(3))
 
-				// The writer function node should have write_target (200) in Channels.Write
-				// NOT the intermediate variable's ID
+				// The writer function node should have write_target (200) in
+				// Channels.Write NOT the intermediate variable's ID
 				writerNode := ir.Nodes[1]
 				Expect(writerNode.Type).To(Equal("writer"))
 				Expect(writerNode.Channels.Write).To(HaveLen(1))
@@ -8097,7 +8102,9 @@ time.wait{duration=500ms} -> output`
 		It(
 			"Should compile function with global channel assigned to intermediate variable and written to",
 			func(ctx SpecContext) {
-				// Test that writing through an alias of a global channel correctly tracks the channel
+				// Test that writing through an alias of a global channel correctly
+				// tracks the channel
+				//
 				// out := output (global channel)
 				// out = value * 3.0 (write to channel through alias)
 				resolver := []symbol.Symbol{

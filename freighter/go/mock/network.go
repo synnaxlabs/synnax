@@ -52,7 +52,8 @@ type NetworkEntry[RQ, RS freighter.Payload] struct {
 }
 
 // UnaryServer returns a new freighter.Unary hosted at the given address. This transport
-// is not reachable by other hosts in the network until freighter.UnaryServer.ServeHTTP is called.
+// is not reachable by other hosts in the network until freighter.UnaryServer.ServeHTTP
+// is called.
 func (n *Network[RQ, RS]) UnaryServer(host address.Address) *UnaryServer[RQ, RS] {
 	n.mu.Lock()
 	defer n.mu.Unlock()

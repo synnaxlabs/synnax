@@ -64,7 +64,8 @@ func (ts *ObservableTransformPublisher[V, T]) Flow(ctx signal.Context, opts ...O
 	}, o.Signal...)
 }
 
-// ObservableSubscriber is a Sink that allows callers to subscribe to values passed to it.
+// ObservableSubscriber is a Sink that allows callers to subscribe to values passed to
+// it.
 type ObservableSubscriber[V Value] struct {
 	UnarySink[V]
 	observe.Observer[V]

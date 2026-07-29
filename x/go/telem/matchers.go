@@ -56,8 +56,8 @@ func MatchSeries(expected Series, opts ...SeriesMatcherOption) types.GomegaMatch
 
 // MatchWrittenSeries returns a Gomega matcher that compares two Series for equality,
 // but excludes TimeRange and Alignment fields by default. This is useful when comparing
-// Series that have been written to and read from storage, where these fields might differ
-// but the actual data remains the same.
+// Series that have been written to and read from storage, where these fields might
+// differ but the actual data remains the same.
 func MatchWrittenSeries(
 	expected Series,
 	opts ...SeriesMatcherOption,

@@ -8,11 +8,12 @@
 // included in the file licenses/APL.txt.
 
 // Package kv defines a general interface for a key-value store that provides support
-// for get/set/delete operations as well as basic read-iteration. This package should
-// be used as a boundary for separating an application from a specific storage implementation.
+// for get/set/delete operations as well as basic read-iteration. This package should be
+// used as a boundary for separating an application from a specific storage
+// implementation.
 //
-// It also provides additional utilities that leverage these interfaces to extend a key-value
-// store's functionality.
+// It also provides additional utilities that leverage these interfaces to extend a
+// key-value store's functionality.
 package kv
 
 import (

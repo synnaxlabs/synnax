@@ -52,8 +52,8 @@ func (w *Writer) Uint8(value uint8) int {
 	return 1
 }
 
-// Uint32 writes a new Uint32 to the buffer. If the buffer is at capacity, Uint32 returns 0.
-// Otherwise, Uint32 returns 4.
+// Uint32 writes a new Uint32 to the buffer. If the buffer is at capacity, Uint32
+// returns 0. Otherwise, Uint32 returns 4.
 func (w *Writer) Uint32(value uint32) int {
 	if w.offset+4 > len(w.buf) {
 		return 0
@@ -63,8 +63,8 @@ func (w *Writer) Uint32(value uint32) int {
 	return 4
 }
 
-// Uint64 writes a new Uint64 to the buffer. If the buffer is at capacity, Uint64 returns 0.
-// Otherwise, Uint64 returns 8.
+// Uint64 writes a new Uint64 to the buffer. If the buffer is at capacity, Uint64
+// returns 0. Otherwise, Uint64 returns 8.
 func (w *Writer) Uint64(value uint64) int {
 	if w.offset+8 > len(w.buf) {
 		return 0

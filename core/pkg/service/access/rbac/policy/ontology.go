@@ -35,7 +35,8 @@ func OntologyIDs(keys []Key) []ontology.ID {
 	return lo.Map(keys, func(k Key, _ int) ontology.ID { return OntologyID(k) })
 }
 
-// OntologyIDsFromPolicies constructs a slice of unique ontology.IDs for the given Policys.
+// OntologyIDsFromPolicies constructs a slice of unique ontology.IDs for the given
+// Policys.
 func OntologyIDsFromPolicies(policies []Policy) []ontology.ID {
 	return lo.Map(policies, func(p Policy, _ int) ontology.ID { return p.OntologyID() })
 }

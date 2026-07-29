@@ -306,9 +306,9 @@ var _ = Describe("Codec", func() {
 			func(ctx SpecContext) {
 				keys := channel.Keys{1, 2}
 				dataTypes := []telem.DataType{telem.Int64T, telem.Int64T}
-				// Channel 1 carries two contiguous series in the same leading domain, which
-				// is what the accumulation throttle produces when it batches several writes
-				// into one streamed frame.
+				// Channel 1 carries two contiguous series in the same leading domain,
+				// which is what the accumulation throttle produces when it batches
+				// several writes into one streamed frame.
 				s1a := telem.NewSeriesV[int64](1, 2)
 				s1a.Alignment = cesium.LeadingAlignment(4, 100) // [100, 102)
 				s1b := telem.NewSeriesV[int64](3, 4)
@@ -339,8 +339,9 @@ var _ = Describe("Codec", func() {
 						return 0
 					}
 				})
-				// The decoded series for channel 1 must cover [100, 104) with no overlap
-				// and no gap. A backward-overlap bug shows up as prev.Upper > next.Lower.
+				// The decoded series for channel 1 must cover [100, 104) with no
+				// overlap and no gap. A backward-overlap bug shows up as prev.Upper >
+				// next.Lower.
 				Expect(
 					ch1[0].AlignmentBounds().Lower,
 				).To(Equal(cesium.LeadingAlignment(4, 100)))
@@ -527,9 +528,9 @@ var _ = Describe("Codec", func() {
 				)
 				for i := range 60 {
 					// Churn the streamed key set the way mounting/unmounting schematic
-					// symbols does. The decoder is updated a beat before the encoder so a
-					// frame is sometimes encoded under a key set the decoder has already
-					// moved past (the seqNum-backlog path).
+					// symbols does. The decoder is updated a beat before the encoder so
+					// a frame is sometimes encoded under a key set the decoder has
+					// already moved past (the seqNum-backlog path).
 					switch i % 4 {
 					case 0:
 						Expect(dec.Update(ctx, both)).To(Succeed())
@@ -711,7 +712,8 @@ var _ = Describe("Codec", func() {
 				}
 				codec := codec.NewStatic(keys, dataTypes)
 
-				// Create frame with multiple series for the same channels in random order
+				// Create frame with multiple series for the same channels in random
+				// order
 				frame := frame.NewMulti(
 					channel.Keys{20, 10, 30, 10, 20, 30, 10},
 					[]telem.Series{
@@ -1131,17 +1133,17 @@ var _ = Describe("Codec", func() {
 			"Should not set the flag when the merged series count matches the state but the keys do not correspond 1-to-1",
 			func(ctx SpecContext) {
 				// Regression for SY-3556: multi-domain iterator frames produce multiple
-				// series for a single channel. When that count happens to equal the number
-				// of channels in the codec state, the encoder used to set
-				// allChannelsPresent=true and skip per-series keys, causing the decoder to
-				// read each series under the wrong state key.
+				// series for a single channel. When that count happens to equal the
+				// number of channels in the codec state, the encoder used to set
+				// allChannelsPresent=true and skip per-series keys, causing the decoder
+				// to read each series under the wrong state key.
 				keys := channel.Keys{1, 2}
 				dataTypes := []telem.DataType{telem.Int32T, telem.Float64T}
 				cd := codec.NewStatic(keys, dataTypes)
 
-				// Two series but BOTH for channel 2 (channel 1 has no data in this frame).
-				// len(merged) == len(state.keys) == 2, but the keys don't match the state
-				// ordering.
+				// Two series but BOTH for channel 2 (channel 1 has no data in this
+				// frame). len(merged) == len(state.keys) == 2, but the keys don't match
+				// the state ordering.
 				s1 := telem.NewSeriesV[float64](10)
 				s1.Alignment = 0
 				s2 := telem.NewSeriesV[float64](20, 21)
@@ -1164,10 +1166,10 @@ var _ = Describe("Codec", func() {
 		It(
 			"Should round-trip a multi-domain frame that spans every state channel",
 			func(ctx SpecContext) {
-				// The iterator's typical "across-domains" shape: each channel appears twice
-				// (one series per domain). len(merged) = 4 != 2 so allChannelsPresent must
-				// be false even before this fix, but the decoder still has to walk
-				// per-series keys correctly.
+				// The iterator's typical "across-domains" shape: each channel appears
+				// twice (one series per domain). len(merged) = 4 != 2 so
+				// allChannelsPresent must be false even before this fix, but the
+				// decoder still has to walk per-series keys correctly.
 				keys := channel.Keys{1, 2}
 				dataTypes := []telem.DataType{telem.TimeStampT, telem.Float64T}
 				cd := codec.NewStatic(keys, dataTypes)
@@ -1216,8 +1218,8 @@ var _ = Describe("Codec", func() {
 		It(
 			"Should return an error when the resolver returns the wrong number of data types",
 			func(ctx SpecContext) {
-				// Key 1 resolves but key 2 does not, so the resolver returns one data type
-				// for two keys.
+				// Key 1 resolves but key 2 does not, so the resolver returns one data
+				// type for two keys.
 				c := codec.NewDynamic(configResolver{
 					dataTypes: map[channel.Key]telem.DataType{1: telem.TimeStampT},
 				})

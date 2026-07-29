@@ -494,7 +494,8 @@ type unionBaseTranslatorData struct {
 
 // unionVariantTranslatorData holds data for one variant of a union translator.
 type unionVariantTranslatorData struct {
-	// GoVariantType is the qualified Go variant struct (e.g. "schematic.NodeConfigCap").
+	// GoVariantType is the qualified Go variant struct (e.g.
+	// "schematic.NodeConfigCap").
 	GoVariantType string
 	// PBWrapper is the protoc-generated oneof wrapper type (e.g. "NodeConfig_Cap").
 	PBWrapper string
@@ -2448,7 +2449,8 @@ type fieldTranslatorData struct {
 	PBName       string
 	ForwardExpr  string
 	BackwardExpr string
-	// BackwardCast is an optional cast for the backward assignment (e.g., "(*rack.Status)").
+	// BackwardCast is an optional cast for the backward assignment (e.g.,
+	// "(*rack.Status)").
 	BackwardCast     string
 	IsOptional       bool
 	IsOptionalStruct bool
@@ -2456,8 +2458,8 @@ type fieldTranslatorData struct {
 	// enum. Triggers the same val/&val backward dance as IsOptionalStruct so the
 	// pointer-typed Go field is populated from the value-returning EnumFromPB call.
 	IsOptionalEnum bool
-	// NeedsPtrConversion is true when a optional primitive needs type conversion
-	// (e.g., *uint8 <-> *uint32). The template must dereference, convert, and re-address.
+	// NeedsPtrConversion is true when a optional primitive needs type conversion (e.g.,
+	// *uint8 <-> *uint32). The template must dereference, convert, and re-address.
 	NeedsPtrConversion bool
 	// MapValueConversion holds the forward and backward conversion expressions for map
 	// value types that need conversion (e.g., uint8 <-> uint32). When set, the template
@@ -2556,9 +2558,9 @@ type anyHelperData struct {
 	PBType string
 }
 
-// delegationTranslatorData holds data for translators that delegate to an underlying type.
-// Used for DistinctForm types that wrap struct types - instead of generating independent
-// translators, we generate thin wrappers that cast and delegate.
+// delegationTranslatorData holds data for translators that delegate to an underlying
+// type. Used for DistinctForm types that wrap struct types - instead of generating
+// independent translators, we generate thin wrappers that cast and delegate.
 type delegationTranslatorData struct {
 	Name                       string
 	GoType                     string

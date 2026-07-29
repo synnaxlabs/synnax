@@ -73,15 +73,15 @@ func Wrapf(err error, format string, args ...any) error {
 // of errs, with a newline between each string. A stack trace is also retained.
 func Join(errs ...error) error { return errors.Join(errs...) }
 
-// multiCause is implemented by errors that carry more than one cause, such as the result
-// of Join. It mirrors the structural convention the standard library uses for multi-error
-// unwrapping (errors.Is and errors.As detect the same method set).
+// multiCause is implemented by errors that carry more than one cause, such as the
+// result of Join. It mirrors the structural convention the standard library uses for
+// multi-error unwrapping (errors.Is and errors.As detect the same method set).
 type multiCause interface{ Unwrap() []error }
 
 // UnwrapMulti returns the individual errors carried by a multi-cause error produced by
-// Join, or nil if err is not a multi-cause error. It looks through single-cause wrappers
-// (such as the stack wrapper Join adds) to find the underlying join, so callers do not
-// need to know how a joined error is layered.
+// Join, or nil if err is not a multi-cause error. It looks through single-cause
+// wrappers (such as the stack wrapper Join adds) to find the underlying join, so
+// callers do not need to know how a joined error is layered.
 func UnwrapMulti(err error) []error {
 	for e := err; e != nil; e = errors.Unwrap(e) {
 		if joined, ok := e.(multiCause); ok {

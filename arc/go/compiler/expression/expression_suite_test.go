@@ -134,7 +134,8 @@ func compileWithAnalyzer(
 	return FinalizeContext(compilerCtx), exprType
 }
 
-// expectSeriesExpression is a test helper for series operations that require symbol resolution
+// expectSeriesExpression is a test helper for series operations that require symbol
+// resolution.
 func expectSeriesExpression(
 	bCtx SpecContext,
 	expr string,

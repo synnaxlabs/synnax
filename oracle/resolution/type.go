@@ -297,11 +297,12 @@ func refersTo(
 }
 
 // PrimitiveBase follows ref through distinct-type and alias chains to the underlying
-// primitive type name (e.g. a distinct Key over uint32 resolves to "uint32"). It returns
-// the primitive name when ref bottoms out at a primitive, or "" when it does not (a
-// struct, union, builtin container, or unresolved reference). A reference whose surface
-// name is already a primitive is returned directly. Used to classify named numeric and
-// string types for validation, where the constraint applies to the underlying primitive.
+// primitive type name (e.g. a distinct Key over uint32 resolves to "uint32"). It
+// returns the primitive name when ref bottoms out at a primitive, or "" when it does
+// not (a struct, union, builtin container, or unresolved reference). A reference whose
+// surface name is already a primitive is returned directly. Used to classify named
+// numeric and string types for validation, where the constraint applies to the
+// underlying primitive.
 func PrimitiveBase(ref TypeRef, table *Table) string {
 	return primitiveBase(ref, table, set.New[string]())
 }
@@ -383,10 +384,10 @@ type TypeParam struct {
 	Optional   bool
 }
 
-// HasDefault returns true if the type parameter has a default value.
-// For languages that don't support literal type narrowing or advanced generics (Go, Python,
-// C++, Proto), type parameters with defaults should be skipped and substituted with
-// their default value instead.
+// HasDefault returns true if the type parameter has a default value. For languages that
+// don't support literal type narrowing or advanced generics (Go, Python, C++, Proto),
+// type parameters with defaults should be skipped and substituted with their default
+// value instead.
 func (tp TypeParam) HasDefault() bool {
 	return tp.Default != nil
 }

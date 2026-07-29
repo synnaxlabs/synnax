@@ -247,10 +247,10 @@ var _ = Describe("MigrateSchematic", func() {
 		It(
 			"Should clear degenerate short edges so they auto-route",
 			func(ctx SpecContext) {
-				// A single segment shorter than two stumps (real 0.55 edge, 11.88px) has no
-				// strippable middle; subtracting a full stump from each end would flip it
-				// into a self-crossing spur, so it is cleared to an empty (auto-routed)
-				// edge.
+				// A single segment shorter than two stumps (real 0.55 edge, 11.88px)
+				// has no strippable middle; subtracting a full stump from each end
+				// would flip it into a self-crossing spur, so it is cleared to an empty
+				// (auto-routed) edge.
 				out := migrateSeed(ctx, v6.Schematic{
 					Key: uuid.New(),
 					Data: jsonMap(`{

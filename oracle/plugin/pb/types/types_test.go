@@ -308,7 +308,8 @@ var _ = Describe("Plugin", func() {
 
 				content := string(resp.Files[0].Content)
 				Expect(content).To(ContainSubstring("enum Role"))
-				// Enum values should be prefixed with enum name per protobuf style guide
+				// Enum values should be prefixed with enum name per protobuf style
+				// guide
 				Expect(content).To(ContainSubstring("ROLE_ADMIN = 0;"))
 				Expect(content).To(ContainSubstring("ROLE_USER = 1;"))
 			},

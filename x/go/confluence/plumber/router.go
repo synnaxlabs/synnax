@@ -15,18 +15,19 @@ import (
 	cfs "github.com/synnaxlabs/x/confluence"
 )
 
-// Stitch is the method a Router  uses to stitch together the segments specified in its route.
+// Stitch is the method a Router  uses to stitch together the segments specified in its
+// route.
 type Stitch byte
 
 const (
-	// StitchUnary is the default stitching method. It means the router will create a single stream and connected
-	// it to all input sink and source segments.
+	// StitchUnary is the default stitching method. It means the router will create a
+	// single stream and connected it to all input sink and source segments.
 	StitchUnary Stitch = iota
-	// StitchWeave is a stitching method that means the router will create a stream for each unique combination of
-	// sink and source.
+	// StitchWeave is a stitching method that means the router will create a stream for
+	// each unique combination of sink and source.
 	StitchWeave
-	// StitchConvergent is a stitching where a router creates a stream for each sink and connects it
-	// to all input sources.
+	// StitchConvergent is a stitching where a router creates a stream for each sink and
+	// connects it to all input sources.
 	StitchConvergent
 )
 

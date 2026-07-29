@@ -19,7 +19,8 @@ import (
 	"github.com/synnaxlabs/x/validate"
 )
 
-// Config is the configuration for the aspen DB service. For default values, see DefaultConfig().
+// Config is the configuration for the aspen DB service. For default values, see
+// DefaultConfig().
 type Config struct {
 	// BatchTransportClient is used to send key-value NewStreamer to nodes.
 	// [Required]

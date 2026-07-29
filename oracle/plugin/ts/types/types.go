@@ -318,10 +318,10 @@ func (p *Plugin) generateFile(
 		data.AddImport("@/ontology", "ontology")
 	}
 
-	// Separate type definitions based on whether they have dependencies on schema types.
-	// Distinct types with only primitive bases can be output first (no sorting needed).
-	// Distinct types with non-primitive bases (e.g., Params Param[]) must be included
-	// in topological sorting along with aliases and structs.
+	// Separate type definitions based on whether they have dependencies on schema
+	// types. Distinct types with only primitive bases can be output first (no sorting
+	// needed). Distinct types with non-primitive bases (e.g., Params Param[]) must be
+	// included in topological sorting along with aliases and structs.
 	var primitiveTypeDefs []resolution.Type
 	var dependentTypeDefs []resolution.Type
 	for _, td := range typeDefs {
@@ -450,7 +450,8 @@ func (p *Plugin) extractOntology(
 	); override != "" {
 		primitive = override
 	}
-	// Also check if the key field's type itself has a @ts type override (e.g., Key uint64 { @ts type string })
+	// Also check if the key field's type itself has a @ts type override (e.g., Key
+	// uint64 { @ts type string })
 	if override := findKeyTypeTypeOverride(
 		structs,
 		data.KeyField.Name,
@@ -2708,7 +2709,8 @@ func (p *Plugin) applyValidation(
 			// Handle "create" for auto-generating keys. uuid keys generate a UUID
 			// via uuid.create(); string keys generate a short id via id.create().
 			// uuid is a string primitive, so check it first.
-			// Use key.ResolvePrimitive to handle type aliases like `Key distinct string`.
+			// Use key.ResolvePrimitive to handle type aliases like `Key distinct
+			// string`.
 			primitive := key.ResolvePrimitive(typeRef, table)
 			if defaultVal.IdentValue == "create" {
 				if primitive == "uuid" {

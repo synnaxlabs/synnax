@@ -190,8 +190,8 @@ type Transport struct {
 	ImExExport freighter.UnaryServer[imex.ExportRequest, imex.ExportResponse]
 }
 
-// Layer wraps all implemented API services into a single container. Protocol-specific Layer
-// implementations should use this struct during instantiation.
+// Layer wraps all implemented API services into a single container. Protocol-specific
+// Layer implementations should use this struct during instantiation.
 type Layer struct {
 	Project      *project.Service
 	LinePlot     *lineplot.Service

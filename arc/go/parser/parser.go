@@ -10,8 +10,8 @@
 //go:generate antlr4 -Dlanguage=Go -visitor -o . -package parser ArcLexer.g4 ArcParser.g4
 //go:generate go run gen_token_literals.go
 
-// Package parser provides parsing functionality for the Arc programming language.
-// It uses ANTLR4-generated parsers to convert Arc source code into abstract syntax trees.
+// Package parser provides parsing functionality for the Arc programming language. It
+// uses ANTLR4-generated parsers to convert Arc source code into abstract syntax trees.
 //
 // The parser supports parsing complete programs as well as individual expressions,
 // statements, and blocks for interactive use cases like REPLs or inline evaluation.
@@ -207,13 +207,13 @@ func (e *errorListener) SyntaxError(
 	})
 }
 
-// TokensAdjacent returns true if two tokens are adjacent with no whitespace between them.
-// This is used by the numericLiteral grammar rule to determine if an IDENTIFIER
-// immediately follows a numeric literal (making it a unit suffix like "300ms")
-// versus being separated by whitespace (making them separate tokens).
+// TokensAdjacent returns true if two tokens are adjacent with no whitespace between
+// them. This is used by the numericLiteral grammar rule to determine if an IDENTIFIER
+// immediately follows a numeric literal (making it a unit suffix like "300ms") versus
+// being separated by whitespace (making them separate tokens).
 //
-// The check uses character positions: if prev token ends at position X,
-// and next token starts at position X+1, they are adjacent.
+// The check uses character positions: if prev token ends at position X, and next token
+// starts at position X+1, they are adjacent.
 func (p *ArcParser) TokensAdjacent(prev, next antlr.Token) bool {
 	if prev == nil || next == nil {
 		return false

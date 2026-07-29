@@ -25,7 +25,8 @@ import (
 	"go.uber.org/zap"
 )
 
-// InferFromExpression determines the type of an Arc expression through recursive descent.
+// InferFromExpression determines the type of an Arc expression through recursive
+// descent.
 func InferFromExpression(ctx context.Context[parser.IExpressionContext]) types.Type {
 	if logicalOr := ctx.AST.LogicalOrExpression(); logicalOr != nil {
 		return InferLogicalOr(context.Child(ctx, logicalOr))
@@ -319,9 +320,10 @@ func inferPrimaryType(
 		}
 		if varScope, err := ctx.Scope.Resolve(ctx, text); err == nil {
 			if varScope.Type.Kind != types.KindInvalid {
-				// When a variable is referenced, resolve literal constraints to concrete types.
-				// This ensures `x := 10; x + 3.2` fails (x becomes i64, can't add float to int),
-				// while `2 + 3.2` (both fresh literals) can still promote to float.
+				// When a variable is referenced, resolve literal constraints to
+				// concrete types. This ensures `x := 10; x + 3.2` fails (x becomes i64,
+				// can't add float to int), while `2 + 3.2` (both fresh literals) can
+				// still promote to float.
 				return resolveLiteralConstraint(varScope.Type)
 			}
 		}
@@ -426,7 +428,8 @@ func inferSeriesLiteralType(
 	return t
 }
 
-// seriesElementCompatible checks if two types are compatible for use in the same series literal.
+// seriesElementCompatible checks if two types are compatible for use in the same series
+// literal.
 func seriesElementCompatible(t1, t2 types.Type) bool {
 	if t1.Kind == types.KindInvalid || t2.Kind == types.KindInvalid {
 		return false
@@ -449,7 +452,8 @@ func seriesElementCompatible(t1, t2 types.Type) bool {
 	return Compatible(t1, t2)
 }
 
-// literalsCompatible checks if two literal types can coexist in a series (int/float can mix).
+// literalsCompatible checks if two literal types can coexist in a series (int/float can
+// mix).
 func literalsCompatible(t1, t2 types.Type) bool {
 	if t1.Kind == types.KindInvalid || t2.Kind == types.KindInvalid {
 		return false
@@ -478,10 +482,11 @@ func isNumericConstraint(kind types.Kind) bool {
 		kind == types.KindExactIntegerFloatConstant
 }
 
-// numericConstraintsCompatible checks if two constraint kinds are compatible for series elements.
-// IntegerConstraint and FloatConstraint are NOT compatible - you cannot mix inferred int and
-// float variables in a series literal, consistent with how explicit i32 and f64 are rejected.
-// NumericConstant and ExactIntegerFloatConstant are compatible with both since they can adapt.
+// numericConstraintsCompatible checks if two constraint kinds are compatible for series
+// elements. IntegerConstraint and FloatConstraint are NOT compatible - you cannot mix
+// inferred int and float variables in a series literal, consistent with how explicit
+// i32 and f64 are rejected. NumericConstant and ExactIntegerFloatConstant are
+// compatible with both since they can adapt.
 func numericConstraintsCompatible(k1, k2 types.Kind) bool {
 	// Same constraint kind is always compatible
 	if k1 == k2 {
@@ -568,10 +573,10 @@ func inferNumericLiteralType(
 	return tv
 }
 
-// resolveLiteralConstraint converts a type variable with a literal constraint to a concrete type.
-// This is used when a variable is referenced in an expression to distinguish between:
-// - Direct literals (2 + 3.2) which can be promoted
-// - Variable references (x := 10; x + 3.2) which should fail
+// resolveLiteralConstraint converts a type variable with a literal constraint to a
+// concrete type. This is used when a variable is referenced in an expression to
+// distinguish between: - Direct literals (2 + 3.2) which can be promoted - Variable
+// references (x := 10; x + 3.2) which should fail
 func resolveLiteralConstraint(t types.Type) types.Type {
 	if t.Kind != types.KindVariable || t.Constraint == nil {
 		return t

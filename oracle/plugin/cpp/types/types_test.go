@@ -325,7 +325,8 @@ var _ = Describe("C++ Types Plugin", func() {
 			Expect(content).To(ContainSubstring(`#include <vector>`))
 			Expect(content).To(ContainSubstring(`std::vector<std::string> tags;`))
 			Expect(content).To(ContainSubstring(`std::vector<std::int32_t> values;`))
-			// Note: vectors don't get = {} default since they have a proper default constructor
+			// Note: vectors don't get = {} default since they have a proper default
+			// constructor
 		})
 
 		It("Should wrap optional arrays with std::optional", func(ctx SpecContext) {
@@ -453,7 +454,8 @@ var _ = Describe("C++ Types Plugin", func() {
 				resp := MustSucceed(cppPlugin.Generate(req))
 
 				content := string(resp.Files[0].Content)
-				// New struct should have flattened fields with key optional and task_counter omitted
+				// New struct should have flattened fields with key optional and
+				// task_counter omitted
 				Expect(content).To(ContainSubstring(`struct New {`))
 				Expect(
 					content,
@@ -489,7 +491,8 @@ var _ = Describe("C++ Types Plugin", func() {
 		})
 
 		It("Should handle @cpp name override for fields", func(ctx SpecContext) {
-			// This tests renaming a field, e.g., when the field name is a C++ reserved keyword
+			// This tests renaming a field, e.g., when the field name is a C++ reserved
+			// keyword
 			source := `
 				@cpp output "client/cpp/channel"
 
@@ -1301,7 +1304,8 @@ var _ = Describe("C++ Types Plugin", func() {
 				resp := MustSucceed(cppPlugin.Generate(req))
 
 				content := string(resp.Files[0].Content)
-				// Fields now have default values, so match the field names in declaration context
+				// Fields now have default values, so match the field names in
+				// declaration context
 				zebraIdx := strings.Index(content, "std::string zebra;")
 				appleIdx := strings.Index(content, "std::int32_t apple = 0;")
 				mangoIdx := strings.Index(content, "bool mango = false;")
@@ -1317,8 +1321,9 @@ var _ = Describe("C++ Types Plugin", func() {
 			It(
 				"Should include standalone enums in the same namespace as structs",
 				func(ctx SpecContext) {
-					// This tests the fix for enums that are not referenced by struct fields
-					// but are in the same namespace and should be generated in the same file.
+					// This tests the fix for enums that are not referenced by struct
+					// fields but are in the same namespace and should be generated in
+					// the same file.
 					source := `
 					@cpp output "x/cpp/control"
 
@@ -1535,9 +1540,10 @@ var _ = Describe("C++ Types Plugin", func() {
 				},
 			)
 
-			// Note: Proto declarations for array wrappers are tested in the pb plugin tests.
-			// The types plugin generates declarations when HasProto is set, which
-			// requires explicit @pb annotations on the type (tested in pb plugin).
+			// Note: Proto declarations for array wrappers are tested in the pb plugin
+			// tests. The types plugin generates declarations when HasProto is set,
+			// which requires explicit @pb annotations on the type (tested in pb
+			// plugin).
 
 			It(
 				"Should support @cpp methods for custom methods on array wrappers",

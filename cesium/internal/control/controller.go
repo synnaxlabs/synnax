@@ -31,8 +31,8 @@ type (
 	Transfer = control.Transfer[channel.Key]
 )
 
-// Resource represents some resource that can be controlled by a Gate. A Resource must have
-// a ChannelKey that represents the resource that is being controlled.
+// Resource represents some resource that can be controlled by a Gate. A Resource must
+// have a ChannelKey that represents the resource that is being controlled.
 type Resource interface {
 	// ChannelKey returns the key of the channel that is being controlled.
 	ChannelKey() channel.Key
@@ -62,12 +62,12 @@ func (c Config) Override(other Config) Config {
 	return c
 }
 
-// Controller controls access to a specified resource type over discrete time regions.
-// A Controller maintains a set of regions that occupy non-overlapping time ranges.
-// If the controller is open with control.ConcurrencyExclusive, each region can only have one
-// subject, managed by a Gate, controlling it at a single time. Each region manages
-// an independent set of gates that bid for control over the resource using a mix
-// of both first-come-first-serve precedence and specified control authorities
+// Controller controls access to a specified resource type over discrete time regions. A
+// Controller maintains a set of regions that occupy non-overlapping time ranges. If the
+// controller is open with control.ConcurrencyExclusive, each region can only have one
+// subject, managed by a Gate, controlling it at a single time. Each region manages an
+// independent set of gates that bid for control over the resource using a mix of both
+// first-come-first-serve precedence and specified control authorities
 // (control.Authority).
 type Controller[R Resource] struct {
 	Config
@@ -86,29 +86,35 @@ func New[R Resource](cfg Config) (*Controller[R], error) {
 
 // GateConfig is the configuration for opening a gate.
 type GateConfig[R Resource] struct {
-	// CreateResource is a callback that is called when the gate is opened. It should return
-	// the resource that is being controlled. This is used to create the resource in the
-	// database.
-	// [REQUIRED}
+	// CreateResource is a callback that is called when the gate is opened. It should
+	// return the resource that is being controlled. This is used to create the resource
+	// in the database.
+	//
+	// [REQUIRED]
 	OpenResource func() (R, error)
 	// ErrIfControlled indicates whether the controller should return an error if any
 	// other gates are currently controlling the resource.
+	//
 	// [OPTIONAL] Defaults to false.
 	ErrIfControlled *bool
-	// ErrOnUnauthorizedOpen indicates whether the controller should return an error
-	// if the gate does not immediately take control when it is opened.
+	// ErrOnUnauthorizedOpen indicates whether the controller should return an error if
+	// the gate does not immediately take control when it is opened.
+	//
 	// [OPTIONAL] Defaults to false.
 	ErrOnUnauthorizedOpen *bool
 	// Subject sets the identity of the gate, and is used to track changes in control
 	// within the db.
+	//
 	// [REQUIRED]
 	Subject control.Subject
-	// TimeRange sets the time range for the gate. Any subsequent calls to OpenGate
-	// with overlapping time ranges will bind themselves to the same control region.
+	// TimeRange sets the time range for the gate. Any subsequent calls to OpenGate with
+	// overlapping time ranges will bind themselves to the same control region.
+	//
 	// [REQUIRED]
 	TimeRange telem.TimeRange
 	// Authority sets the authority of the gate over the resource. For a complete
 	// discussion of authority, see the package level documentation.
+	//
 	// [REQUIRED]
 	Authority control.Authority
 }
@@ -194,7 +200,8 @@ func (c *Controller[R]) OpenGate(
 	for _, reg := range c.regions {
 		// Check if there is an existing region that overlaps with that time range.
 		if reg.timeRange.OverlapsWith(cfg.TimeRange) {
-			// v1 optimization: one writer can only overlap with one region at any given time.
+			// v1 optimization: one writer can only overlap with one region at any given
+			// time.
 			if exists {
 				err = errors.Newf(
 					"encountered multiple control regions for time range %s",

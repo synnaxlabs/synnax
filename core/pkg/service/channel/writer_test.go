@@ -136,9 +136,9 @@ var _ = Describe("Writer", func() {
 				),
 				).To(Succeed())
 
-				// The set now holds {idx, overwrite}. If the overwritten channel's key had
-				// been left behind, creating another external channel would push the count
-				// to 4 and trip the limit-of-3 overflow check.
+				// The set now holds {idx, overwrite}. If the overwritten channel's key
+				// had been left behind, creating another external channel would push
+				// the count to 4 and trip the limit-of-3 overflow check.
 				another := channel.Channel{
 					Name:        UniqueChannelName(),
 					DataType:    telem.Float64T,
@@ -682,9 +682,9 @@ var _ = Describe("Writer", func() {
 					Expect(channelWriter.Create(ctx, &calcCh)).To(Succeed())
 					originalIndex := calcCh.LocalIndex
 
-					// Deleting the calculated channel leaves its auto-created index behind;
-					// re-creating a calculated channel with the same name must reuse it
-					// rather than duplicating the index name.
+					// Deleting the calculated channel leaves its auto-created index
+					// behind; re-creating a calculated channel with the same name must
+					// reuse it rather than duplicating the index name.
 					Expect(channelWriter.Delete(ctx, calcCh.Key(), false)).To(Succeed())
 					recreated := channel.Channel{
 						Name:       name,
@@ -924,8 +924,8 @@ var _ = Describe("Writer", func() {
 					Expect(calcCh.DataType).To(Equal(telem.Float64T))
 					originalKey := calcCh.Key()
 
-					// 2. Update the expression. The DataType is always inferred from the
-					// expression, so the caller-provided DataType is ignored.
+					// 2. Update the expression. The DataType is always inferred from
+					// the expression, so the caller-provided DataType is ignored.
 					calcCh.Expression = "return 2.0"
 					calcCh.DataType = telem.Float32T
 					Expect(channelWriter.Create(ctx, &calcCh)).To(Succeed())
@@ -1564,14 +1564,14 @@ var _ = Describe("Writer", func() {
 				Expect(limitWriter.Create(ctx, &overLimitCh)).
 					To(MatchError(ContainSubstring("channel limit exceeded")))
 
-				// The rejected create must not leave an orphaned storage channel behind at
-				// the key it would have been allocated.
+				// The rejected create must not leave an orphaned storage channel behind
+				// at the key it would have been allocated.
 				nextKey := channel.NewKey(1, channels[limit-1].LocalKey+1)
 				Expect(dist.Storage.TS.RetrieveChannels(ctx, nextKey.StorageKey())).
 					Error().To(MatchError(ts.ErrChannelNotFound))
 
-				// The rejected create must not burn a local key: after freeing capacity,
-				// the next create receives the next sequential key.
+				// The rejected create must not burn a local key: after freeing
+				// capacity, the next create receives the next sequential key.
 				Expect(limitWriter.Delete(ctx, channels[0].Key(), false)).To(Succeed())
 				newCh := channel.Channel{
 					IsIndex:     true,

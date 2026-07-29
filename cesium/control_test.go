@@ -512,14 +512,16 @@ var _ = Describe("Control", func() {
 
 					// Set up:
 					// Auto-Commit Enabled On Both
-					// Writer 1: Virtual Channel, Persisted Channel, Persisted Channel Index
+					// Writer 1: Virtual Channel, Persisted Channel, Persisted Channel
+					// Index
 					// Writer 2: Persisted Channel, Persisted Channel Index
 					//
 					// Writer 1 starts of at authority 100 on all channels
 					// Writer 1 writes - confirm successful receive
 					// Writer 2 starts off at authority 0 on all channels
 					// Writer 2 changes to authority 200
-					// Writer 1 writes to virtual channel (no persisted) - confirm successful write
+					// Writer 1 writes to virtual channel (no persisted) - confirm
+					// successful write
 					Specify(
 						"One Virtual, One Persisted, Different Authorities, Partial Contention",
 						func() {

@@ -214,8 +214,10 @@ func compileIndexedAssignment(
 	return nil
 }
 
-// compileIndexedCompoundAssignment handles indexed compound assignment statements (series[i] += value)
-// Equivalent to: arr[i] = arr[i] op expr
+// compileIndexedCompoundAssignment handles indexed compound assignment statements
+// (series[i] += value).
+//
+//	Equivalent to: arr[i] = arr[i] op expr
 func compileIndexedCompoundAssignment(
 	ctx context.Context[parser.IAssignmentContext],
 	scope *symbol.Symbol,
@@ -277,7 +279,9 @@ func compileIndexedCompoundAssignment(
 	return nil
 }
 
-// compileSeriesCompoundAssignment handles whole-series compound assignment (series += value)
+// compileSeriesCompoundAssignment handles whole-series compound assignment (series +=
+// value).
+//
 // Equivalent to: series = series op expr (broadcast or element-wise)
 func compileSeriesCompoundAssignment(
 	ctx context.Context[parser.IAssignmentContext],

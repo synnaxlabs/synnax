@@ -66,7 +66,8 @@ func analyzeAndExpectSuccess(bCtx SpecContext, source string) {
 	Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
 }
 
-// analyzeAndExpectError parses the source, analyzes it, expects failure, and returns the first error message.
+// analyzeAndExpectError parses the source, analyzes it, expects failure, and returns
+// the first error message.
 func analyzeAndExpectError(bCtx SpecContext, source string) string {
 	ast := MustSucceed(parser.Parse(source))
 	ctx := context.NewRoot(bCtx, ast, NewRoot(nil, resolver...))

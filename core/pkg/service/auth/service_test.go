@@ -122,8 +122,9 @@ var _ = Describe("Service", func() {
 					Username: creds.Username,
 					Password: newPass,
 				})).To(Succeed())
-				// Inside the same tx, only the new password authenticates; the old one no
-				// longer does — proof that Authenticate observed the in-flight write.
+				// Inside the same tx, only the new password authenticates; the old one
+				// no longer does — proof that Authenticate observed the in-flight
+				// write.
 				Expect(svc.Authenticate(ctx, tx, auth.Credentials{
 					Username: creds.Username, Password: newPass,
 				})).To(Succeed())

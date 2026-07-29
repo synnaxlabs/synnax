@@ -348,9 +348,10 @@ var _ = Describe("Incremental Sync", func() {
 			baseline := client.PublishCount()
 
 			// Insert a newline at the very start of the document. The editor sends
-			// Range{(0,0)-(0,0)} with Text="\n". Because the protocol library deserializes
-			// an absent range to the same zero value, IsFullReplacement incorrectly treats
-			// this as a full replacement, wiping the document content to just "\n".
+			// Range{(0,0)-(0,0)} with Text="\n". Because the protocol library
+			// deserializes an absent range to the same zero value, IsFullReplacement
+			// incorrectly treats this as a full replacement, wiping the document
+			// content to just "\n".
 			Expect(server.DidChange(ctx, &protocol.DidChangeTextDocumentParams{
 				TextDocument: protocol.VersionedTextDocumentIdentifier{
 					TextDocumentIdentifier: protocol.TextDocumentIdentifier{
@@ -373,8 +374,8 @@ var _ = Describe("Incremental Sync", func() {
 				client.WaitForDiagnostics(baseline, 500*time.Millisecond),
 			).To(BeTrue())
 			// The document should now be "\nfunc test() {\n\tx := 42\n}". If
-			// IsFullReplacement incorrectly fires, it becomes just "\n" and semantic tokens
-			// will be empty.
+			// IsFullReplacement incorrectly fires, it becomes just "\n" and semantic
+			// tokens will be empty.
 			tokens := SemanticTokens(server, ctx, docURI)
 			Expect(tokens).ToNot(BeNil())
 			Expect(tokens.Data).ToNot(BeEmpty())
@@ -388,8 +389,8 @@ var _ = Describe("Incremental Sync", func() {
 			OpenArcDocument(server, ctx, docURI, program)
 			baseline := client.PublishCount()
 
-			// Simulate selecting from col 0 to the end of the first line and pressing Enter
-			// (replacing the selection with a newline).
+			// Simulate selecting from col 0 to the end of the first line and pressing
+			// Enter (replacing the selection with a newline).
 			Expect(server.DidChange(ctx, &protocol.DidChangeTextDocumentParams{
 				TextDocument: protocol.VersionedTextDocumentIdentifier{
 					TextDocumentIdentifier: protocol.TextDocumentIdentifier{
@@ -413,9 +414,9 @@ var _ = Describe("Incremental Sync", func() {
 			).To(BeTrue())
 
 			// After the edit the document is "\n\n    stage first {...". The exact
-			// diagnostics don't matter as much as verifying that the server still produces
-			// them (analysis didn't silently break). With the bug, the document would be
-			// wiped to just "\n".
+			// diagnostics don't matter as much as verifying that the server still
+			// produces them (analysis didn't silently break). With the bug, the
+			// document would be wiped to just "\n".
 			tokens := SemanticTokens(server, ctx, docURI)
 			Expect(tokens).ToNot(BeNil())
 			Expect(tokens.Data).ToNot(BeEmpty())

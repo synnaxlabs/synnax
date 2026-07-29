@@ -199,8 +199,8 @@ var _ = Describe("Open", func() {
 					Expect(clusterTwo.Host().Key).To(Equal(node.Key(2)))
 					Expect(clusterTwo.Close()).To(Succeed())
 
-					// Reopen with the default codec (JSON primary, msgpack+gob fallback),
-					// simulating an upgrade to v0.54+.
+					// Reopen with the default codec (JSON primary, msgpack+gob
+					// fallback), simulating an upgrade to v0.54+.
 					gossipT3 := gossipNet.UnaryServer(gossipT2.Address)
 					pledgeT3 := pledgeNet.UnaryServer(gossipT3.Address)
 					upgradedConfig := cluster.Config{

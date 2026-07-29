@@ -24,9 +24,9 @@ import (
 	. "github.com/synnaxlabs/x/testutil"
 )
 
-// indexedEntry is the test entry type used by the index suite. It carries two
-// indexable fields (Name, Category) and one orderable field (Score) so the
-// suite can exercise LookupIndex, SortedIndex, and OrderBy against realistic data shapes.
+// indexedEntry is the test entry type used by the index suite. It carries two indexable
+// fields (Name, Category) and one orderable field (Score) so the suite can exercise
+// LookupIndex, SortedIndex, and OrderBy against realistic data shapes.
 type indexedEntry struct {
 	ID       int32
 	Name     string

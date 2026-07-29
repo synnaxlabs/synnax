@@ -128,7 +128,8 @@ var _ = Describe("C++ PB Plugin", func() {
 
 					ExpectContent(resp, "proto.gen.h").
 						ToContain(
-							// Should use from_proto_repeated helper for struct arrays with explicit element type
+							// Should use from_proto_repeated helper for struct arrays
+							// with explicit element type
 							"x::pb::from_proto_repeated<Param>(cpp.inputs, pb.inputs())",
 							"x::pb::from_proto_repeated<Param>(cpp.outputs, pb.outputs())",
 						)
@@ -236,7 +237,8 @@ var _ = Describe("C++ PB Plugin", func() {
 
 					ExpectContent(resp, "proto.gen.h").
 						ToContain(
-							// Forward: check has_value(), call to_proto(), propagate error
+							// Forward: check has_value(), call to_proto(), propagate
+							// error
 							"if (this->unit.has_value())",
 							"this->unit->to_proto()",
 							"*pb.mutable_unit() = v",
@@ -402,7 +404,8 @@ var _ = Describe("C++ PB Plugin", func() {
 					Expect(content).ToNot(ContainSubstring(
 						"it->second : ",
 					))
-					// FromPB should not silently return a default in the switch default case
+					// FromPB should not silently return a default in the switch default
+					// case
 					Expect(content).ToNot(MatchRegexp(
 						`default: return "`,
 					))
@@ -477,7 +480,8 @@ var _ = Describe("C++ PB Plugin", func() {
 					resp := MustGenerate(ctx, source, "status", loader, pbPlugin)
 					content := MustContentOf(resp, "proto.gen.h")
 
-					// to_proto should return pair and check for errors from enum conversion
+					// to_proto should return pair and check for errors from enum
+					// conversion
 					Expect(content).To(ContainSubstring("std::pair<"))
 					Expect(content).To(ContainSubstring("to_proto() const"))
 					Expect(content).To(ContainSubstring("variant_to_pb"))
@@ -627,7 +631,8 @@ var _ = Describe("C++ PB Plugin", func() {
 			It(
 				"Should use wrapper messages for nested arrays via alias",
 				func(ctx SpecContext) {
-					// This tests the Strata pattern: Strata = Stratum[] where Stratum = string[]
+					// This tests the Strata pattern: Strata = Stratum[] where Stratum =
+					// string[]
 					source := `
 					@cpp output "arc/cpp/ir"
 					@pb output "arc/go/ir/pb"
@@ -645,7 +650,8 @@ var _ = Describe("C++ PB Plugin", func() {
 
 					ExpectContent(resp, "proto.gen.h").
 						ToContain(
-							// Forward: should get a wrapper via add_strata(), then add values
+							// Forward: should get a wrapper via add_strata(), then add
+							// values
 							"for (const auto& item : this->strata)",
 							"auto* wrapper = pb.add_strata()",
 							"for (const auto& v : item) wrapper->add_values(v)",
@@ -654,7 +660,8 @@ var _ = Describe("C++ PB Plugin", func() {
 							"cpp.strata.push_back({wrapper.values().begin(), wrapper.values().end()})",
 						).
 						ToNotContain(
-							// Should NOT directly add items (wrong API for nested arrays)
+							// Should NOT directly add items (wrong API for nested
+							// arrays)
 							"pb.add_strata(item)",
 						)
 				},
@@ -773,7 +780,8 @@ var _ = Describe("C++ PB Plugin", func() {
 
 					ExpectContent(resp, "proto.gen.h").
 						ToContain(
-							// Forward: delegate per-cell via to_proto with error propagation
+							// Forward: delegate per-cell via to_proto with error
+							// propagation
 							"for (const auto& item : this->cells)",
 							"auto* wrapper = pb.add_cells()",
 							"auto [v_pb, err] = v.to_proto()",
@@ -1323,8 +1331,8 @@ var _ = Describe("C++ PB Plugin", func() {
 						ToContain(`#include "x/cpp/telem/types.gen.h"`).
 						ToNotContain(
 							`#include "x/cpp/telem/json.gen.h"`,
-							// The target emits no proto.gen.h either: its conversions are
-							// hand-written next to the type.
+							// The target emits no proto.gen.h either: its conversions
+							// are hand-written next to the type.
 							`#include "x/cpp/telem/proto.gen.h"`,
 						)
 				},
@@ -1384,8 +1392,8 @@ var _ = Describe("C++ PB Plugin", func() {
 						ToContain(`#include "x/cpp/telem/types.gen.h"`).
 						ToNotContain(
 							`#include "x/cpp/telem/json.gen.h"`,
-							// The target emits no proto.gen.h either: its conversions are
-							// hand-written next to the type.
+							// The target emits no proto.gen.h either: its conversions
+							// are hand-written next to the type.
 							`#include "x/cpp/telem/proto.gen.h"`,
 						)
 				},
@@ -1481,8 +1489,9 @@ var _ = Describe("C++ PB Plugin", func() {
 
 					ExpectContent(resp, "proto.gen.h").
 						ToContain(
-							// generateDistinctConversion primitive branch routes through
-							// primitiveToProtoType — uint16 maps to uint32_t on the wire.
+							// generateDistinctConversion primitive branch routes
+							// through primitiveToProtoType — uint16 maps to uint32_t on
+							// the wire.
 							"pb.set_priority(static_cast<uint32_t>(this->priority))",
 							"cpp.priority = Priority(pb.priority())",
 						)

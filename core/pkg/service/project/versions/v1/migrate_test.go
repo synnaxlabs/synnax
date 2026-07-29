@@ -114,8 +114,8 @@ var _ = Describe("Workspace to project migration", func() {
 				).To(Succeed())
 			}
 
-			// Seed relationships: group -> each workspace, workspace -> line plot, and an
-			// unrelated group -> line plot that must be left untouched.
+			// Seed relationships: group -> each workspace, workspace -> line plot, and
+			// an unrelated group -> line plot that must be left untouched.
 			relTable := MustOpen(gorp.OpenTable(
 				ctx, gorp.TableConfig[string, ontology.Relationship]{DB: db},
 			))

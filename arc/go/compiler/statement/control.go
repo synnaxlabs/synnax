@@ -98,7 +98,8 @@ func compileIfStatement(
 		}
 		ctx.Writer.WriteEnd()
 
-		// Only add unreachable if we have a complete else clause and all branches diverged
+		// Only add unreachable if we have a complete else clause and all branches
+		// diverged
 		if hasElseClause && allBranchesDiverge {
 			ctx.Writer.WriteUnreachable()
 			return true, nil
@@ -149,7 +150,8 @@ func compileExpressionStatement(
 	if err != nil {
 		return types.Type{}, err
 	}
-	// Drop the result if the expression produced a value (statement-level expressions discard results)
+	// Drop the result if the expression produced a value (statement-level expressions
+	// discard results)
 	if exprType.IsValid() {
 		ctx.Writer.WriteOpcode(wasm.OpDrop)
 	}

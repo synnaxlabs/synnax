@@ -7,7 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-// Package diagnostics provides error, warning, and hint reporting for language analysis.
+// Package diagnostics provides error, warning, and hint reporting for language
+// analysis.
 package diagnostics
 
 import (
@@ -163,7 +164,8 @@ func (d Diagnostic) WithNote(note string) Diagnostic {
 	return d
 }
 
-// WithNoteAt returns a copy of the diagnostic with an additional note at the given position.
+// WithNoteAt returns a copy of the diagnostic with an additional note at the given
+// position.
 func (d Diagnostic) WithNoteAt(note string, pos protocol.Position) Diagnostic {
 	if note != "" {
 		d.Notes = append(d.Notes, protocol.DiagnosticRelatedInformation{

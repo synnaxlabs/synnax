@@ -549,10 +549,10 @@ func (r Retrieve) OrderBy(o Order) Retrieve {
 {{- range $idx := $ret.Indexes}}
 {{- if $idx.IsSorted}}
 
-// OrderBy{{$idx.GoName}} returns an Order that walks {{$ret.GoName | toLower | pluralize}} via the
-// {{$idx.FieldName}} sorted index in the given direction. Pass an optional
-// cursor to resume pagination after a previously visited value; the cursor
-// is type-checked at the call site.
+// OrderBy{{$idx.GoName}} returns an Order that walks {{$ret.GoName | toLower |
+// pluralize}} via the {{$idx.FieldName}} sorted index in the given direction. Pass an
+// optional cursor to resume pagination after a previously visited value; the cursor is
+// type-checked at the call site.
 func OrderBy{{$idx.GoName}}(dir gorp.Direction, cursor ...{{$idx.GoType}}) Order {
 	return func(r Retrieve) gorp.OrderQuery[{{$ret.KeyType}}, {{$ret.GoName}}] {
 		q := r.indexes.{{$idx.StructField}}.Ordered(dir)
@@ -602,9 +602,9 @@ func Not(f Filter) Filter {
 // Search sets a fuzzy search term that Retrieve will use to filter results.
 func (r Retrieve) Search(term string) Retrieve { r.searchTerm = term; return r }
 {{end}}
-// MatchKeys returns a filter that restricts results to {{$ret.GoName | toLower | pluralize}} whose key
-// matches any of the provided values. Composing MatchKeys at the top level
-// of a Where clause (i.e. r.Where(MatchKeys(...))) dispatches Exec to the
+// MatchKeys returns a filter that restricts results to {{$ret.GoName | toLower |
+// pluralize}} whose key matches any of the provided values. Composing MatchKeys at the
+// top level of a Where clause (i.e. r.Where(MatchKeys(...))) dispatches Exec to the
 // multi-get fast path; composing inside Or / Not falls back to a full scan.
 func MatchKeys(keys ...{{$ret.KeyType}}) Filter {
 	return func(_ Retrieve) gorp.Filter[{{$ret.KeyType}}, {{$ret.GoName}}] {
@@ -613,7 +613,8 @@ func MatchKeys(keys ...{{$ret.KeyType}}) Filter {
 }
 {{range .Filters}}
 {{- if .IsBool}}
-// Match{{.GoName}} returns a filter for {{$ret.GoName | toLower | pluralize}} by their {{.GoName}} field.
+// Match{{.GoName}} returns a filter for {{$ret.GoName | toLower | pluralize}} by their
+// {{.GoName}} field.
 func Match{{.GoName}}(v bool) Filter {
 	return func(r Retrieve) gorp.Filter[{{$ret.KeyType}}, {{$ret.GoName}}] {
 {{- if .IndexFieldName}}
@@ -626,7 +627,8 @@ func Match{{.GoName}}(v bool) Filter {
 	}
 }
 {{else if .IsSlice}}
-// Match{{.GoName | singularize}} returns a filter for {{$ret.GoName | toLower | pluralize}} whose {{.GoName}} contains the provided value.
+// Match{{.GoName | singularize}} returns a filter for {{$ret.GoName | toLower |
+// pluralize}} whose {{.GoName}} contains the provided value.
 func Match{{.GoName | singularize}}(v {{.ElemGoType}}) Filter {
 	return func(_ Retrieve) gorp.Filter[{{$ret.KeyType}}, {{$ret.GoName}}] {
 		return gorp.Match(func(_ gorp.Context, e *{{$ret.GoName}}) (bool, error) {
@@ -635,7 +637,8 @@ func Match{{.GoName | singularize}}(v {{.ElemGoType}}) Filter {
 	}
 }
 {{else if .IsScalar}}
-// Match{{.GoName}} returns a filter for {{$ret.GoName | toLower | pluralize}} whose {{.GoName}} matches the provided value.
+// Match{{.GoName}} returns a filter for {{$ret.GoName | toLower | pluralize}} whose
+// {{.GoName}} matches the provided value.
 func Match{{.GoName}}(v {{.GoType}}) Filter {
 	return func(r Retrieve) gorp.Filter[{{$ret.KeyType}}, {{$ret.GoName}}] {
 {{- if .IndexFieldName}}
@@ -648,7 +651,8 @@ func Match{{.GoName}}(v {{.GoType}}) Filter {
 	}
 }
 {{else}}
-// Match{{.GoName | pluralize}} returns a filter for {{$ret.GoName | toLower | pluralize}} whose {{.GoName}} matches any of the provided values.
+// Match{{.GoName | pluralize}} returns a filter for {{$ret.GoName | toLower |
+// pluralize}} whose {{.GoName}} matches any of the provided values.
 func Match{{.GoName | pluralize}}(vals ...{{.GoType}}) Filter {
 	return func(r Retrieve) gorp.Filter[{{$ret.KeyType}}, {{$ret.GoName}}] {
 {{- if .IndexFieldName}}
@@ -671,14 +675,16 @@ func (r Retrieve) Where(filter Filter) Retrieve {
 	return r
 }
 
-// Entry binds the provided {{$ret.GoName | toLower}} as the result container for the query. If
-// multiple {{$ret.GoName | toLower | pluralize}} match, the first one is used.
+// Entry binds the provided {{$ret.GoName | toLower}} as the result container for the
+// query. If multiple {{$ret.GoName | toLower | pluralize}} match, the first one is
+// used.
 func (r Retrieve) Entry(e *{{$ret.GoName}}) Retrieve {
 	r.gorp = r.gorp.Entry(e)
 	return r
 }
 
-// Entries binds the provided slice of {{$ret.GoName | toLower | pluralize}} as the result container for the query.
+// Entries binds the provided slice of {{$ret.GoName | toLower | pluralize}} as the
+// result container for the query.
 func (r Retrieve) Entries(es *[]{{$ret.GoName}}) Retrieve {
 	r.gorp = r.gorp.Entries(es)
 	return r
@@ -687,7 +693,8 @@ func (r Retrieve) Entries(es *[]{{$ret.GoName}}) Retrieve {
 // Limit sets the maximum number of {{$ret.GoName | toLower | pluralize}} to return.
 func (r Retrieve) Limit(limit int) Retrieve { r.gorp = r.gorp.Limit(limit); return r }
 
-// Offset sets the starting index of the {{$ret.GoName | toLower | pluralize}} to return.
+// Offset sets the starting index of the {{$ret.GoName | toLower | pluralize}} to
+// return.
 func (r Retrieve) Offset(offset int) Retrieve {
 	r.gorp = r.gorp.Offset(offset)
 	return r

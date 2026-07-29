@@ -83,9 +83,9 @@ var _ = Describe("Service", func() {
 			"Should roll back the auth row when user creation fails inside the tx",
 			func(ctx SpecContext) {
 				// Trigger a per-tx rollback by requesting two users whose usernames
-				// collide: the first auth row registers, then the second user-record create
-				// returns auth.ErrRepeatedUsername, which must roll back the first auth
-				// row.
+				// collide: the first auth row registers, then the second user-record
+				// create returns auth.ErrRepeatedUsername, which must roll back the
+				// first auth row.
 				username := "rollback-" + uuid.NewString()
 				tx := DeferClose(db.OpenTx())
 				Expect(apiSvc.Create(rootCtx(ctx), tx, apiuser.CreateRequest{

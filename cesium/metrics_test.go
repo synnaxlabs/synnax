@@ -139,7 +139,8 @@ var _ = Describe("Metrics", Ordered, func() {
 						))).To(Succeed())
 
 						m = subDB.Metrics()
-						// 5 timestamps (8 bytes each) + 5 int64s (8 bytes each) = 80 bytes
+						// 5 timestamps (8 bytes each) + 5 int64s (8 bytes each) = 80
+						// bytes
 						Expect(m.DiskSize).To(Equal(telem.Size(80)))
 					},
 				)

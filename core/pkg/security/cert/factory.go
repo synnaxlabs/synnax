@@ -151,7 +151,8 @@ func (f *Factory) CreateCAPairIfMissing() error {
 	return f.CreateCAPair()
 }
 
-// CreateNodePairIfMissing creates a new node certificate and its private key if they do not already exist.
+// CreateNodePairIfMissing creates a new node certificate and its private key if they do
+// not already exist.
 func (f *Factory) CreateNodePairIfMissing() error {
 	exists, err := f.FS.Exists(f.NodeCertPath)
 	if err != nil {

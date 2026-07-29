@@ -129,8 +129,8 @@ var _ = Describe("MigrateLog", func() {
 		"Should drop UI-only fields the console persisted alongside the typed body",
 		func(ctx SpecContext) {
 			// The console used to send `setData = { ...state, key: undefined }`, which
-			// included its toolbar state and persisted-state version. These must not appear
-			// on the typed Log.
+			// included its toolbar state and persisted-state version. These must not
+			// appear on the typed Log.
 			old := v2.Log{
 				Key:  uuid.New(),
 				Name: "with-noise",
@@ -206,8 +206,8 @@ var _ = Describe("MigrateLog", func() {
 	It(
 		"Should drop the body and keep Key+Name when the data blob is unparseable",
 		func(ctx SpecContext) {
-			// channel is required + must coerce to uint32; a string here can't recover via
-			// lenient enum parsing, so the catch-all in MigrateLog drops the body.
+			// channel is required + must coerce to uint32; a string here can't recover
+			// via lenient enum parsing, so the catch-all in MigrateLog drops the body.
 			old := v2.Log{
 				Key:  uuid.New(),
 				Name: "unparseable",

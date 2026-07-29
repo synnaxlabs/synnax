@@ -98,8 +98,8 @@ var _ = Describe("Derived New from @create", func() {
 			ExpectContent(resp, "types.gen.ts").ToContain(
 				`} & ([Details] extends [z.ZodNever] ? {} : { details?: z.infer<Details> });`,
 			)
-			// The New strips the field from its optional.Optional base and re-appends it
-			// as a z.input conditional.
+			// The New strips the field from its optional.Optional base and re-appends
+			// it as a z.input conditional.
 			ExpectContent(resp, "types.gen.ts").ToContain(
 				`export type New<Details extends z.ZodType = z.ZodNever, V extends z.ZodType<Variant> = typeof variantZ> = Omit<optional.Optional<Status<Details, V>, "key" | "name" | "time">, "details"> & ([Details] extends [z.ZodNever] ? {} : { details: z.input<Details> });`,
 			)
@@ -244,9 +244,9 @@ var _ = Describe("Derived New from @create", func() {
 			}
 		`
 			resp := MustGenerate(ctx, source, "thing", loader, typesPlugin)
-			// The derived New must emit under its own name (New), referencing the base's
-			// renamed payloadZ schema, not re-emit a renamed payloadZ/Payload (which would
-			// be a duplicate symbol with an empty body).
+			// The derived New must emit under its own name (New), referencing the
+			// base's renamed payloadZ schema, not re-emit a renamed payloadZ/Payload
+			// (which would be a duplicate symbol with an empty body).
 			ExpectContent(resp, "types.gen.ts").ToContain(
 				"export const payloadZ = z.object(",
 				`export interface New extends Omit<z.input<typeof payloadZ>, "author"> {}`,

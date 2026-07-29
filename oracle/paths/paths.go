@@ -155,9 +155,10 @@ func ValidateOutput(path, repoRoot string) error {
 	return nil
 }
 
-// RelativeImport calculates the relative import path from one repo-relative path to another.
-// Both paths should be repo-relative directory paths (not file paths).
-// Returns a path suitable for use in import statements (e.g., "./sibling" or "../parent/other").
+// RelativeImport calculates the relative import path from one repo-relative path to
+// another. Both paths should be repo-relative directory paths (not file paths). Returns
+// a path suitable for use in import statements (e.g., "./sibling" or
+// "../parent/other").
 func RelativeImport(from, to string) (string, error) {
 	if from == to {
 		return ".", nil

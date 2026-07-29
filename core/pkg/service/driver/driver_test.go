@@ -1235,8 +1235,8 @@ var _ = Describe("Driver", func() {
 				}
 				Expect(d1.Close()).To(Succeed())
 
-				// Open a new driver with a factory that blocks until all tasks are being
-				// configured concurrently.
+				// Open a new driver with a factory that blocks until all tasks are
+				// being configured concurrently.
 				factory := &mockFactory{
 					name: "test",
 					configureFunc: func(

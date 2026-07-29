@@ -692,11 +692,11 @@ var _ = Describe("Calculation", Ordered, func() {
 				rm := c.OpenRequestManager()
 				Expect(rm.Set(ctx, channel.Keys{calc.Key()})).To(Succeed())
 				// Delete the dependency, then rename the calc to force a write of its
-				// record. The runtime reacts to writes of the calc channel by recompiling
-				// it, which now fails because the dependency no longer resolves. Rename
-				// (unlike Create) persists the record without re-analyzing the expression,
-				// so the failure surfaces asynchronously as an error status rather than
-				// synchronously.
+				// record. The runtime reacts to writes of the calc channel by
+				// recompiling it, which now fails because the dependency no longer
+				// resolves. Rename (unlike Create) persists the record without
+				// re-analyzing the expression, so the failure surfaces asynchronously
+				// as an error status rather than synchronously.
 				Expect(channelWriter.Delete(ctx, base.Key(), false)).To(Succeed())
 				Expect(channelWriter.Rename(
 					ctx, calc.Key(), UniqueChannelName(), false),

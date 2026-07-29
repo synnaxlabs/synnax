@@ -77,8 +77,8 @@ var _ = Describe("Writer", func() {
 					Username: emptyPassUser,
 					Password: "",
 				})).To(MatchError(ContainSubstring("password")))
-				// Ensure no orphaned row was created: a subsequent Register with the same
-				// username and a real password must succeed.
+				// Ensure no orphaned row was created: a subsequent Register with the
+				// same username and a real password must succeed.
 				Expect(writer.Register(ctx, auth.Credentials{
 					Username: emptyPassUser,
 					Password: "password",

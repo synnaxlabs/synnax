@@ -29,10 +29,9 @@ type ParsedValue struct {
 	Type types.Type
 }
 
-// Parse parses a literal AST node and returns its value and type.
-// It supports numeric literals (integer, float, with optional unit suffix) and validates
-// type compatibility.
-// The targetType parameter specifies the expected type for conversion.
+// Parse parses a literal AST node and returns its value and type. It supports numeric
+// literals (integer, float, with optional unit suffix) and validates type
+// compatibility. The targetType parameter specifies the expected type for conversion.
 // Float-to-int conversions that lose precision will fail (matching Go semantics for
 // constant conversions).
 func Parse(
@@ -102,8 +101,9 @@ func ParseNumeric(
 	return ParseNumericSigned(numLit, numLit.MINUS() != nil, targetType)
 }
 
-// ParseNumericSigned parses numLit's magnitude and applies negate before the range check
-// and unit scaling, so type minimums like -128 for i8 fit and negated units keep sign.
+// ParseNumericSigned parses numLit's magnitude and applies negate before the range
+// check and unit scaling, so type minimums like -128 for i8 fit and negated units keep
+// sign.
 func ParseNumericSigned(
 	numLit parser.INumericLiteralContext,
 	negate bool,
@@ -153,8 +153,9 @@ func ParseNumericSigned(
 	return ParsedValue{}, errors.New("unknown numeric literal")
 }
 
-// parseNumericWithUnit handles numeric literals with unit suffixes (e.g., "300ms", "5km").
-// It looks up the unit, applies scale conversion, and returns the appropriate value.
+// parseNumericWithUnit handles numeric literals with unit suffixes (e.g., "300ms",
+// "5km"). It looks up the unit, applies scale conversion, and returns the appropriate
+// value.
 func parseNumericWithUnit(
 	numericValue float64,
 	isIntLiteral bool,
@@ -183,8 +184,8 @@ func parseNumericWithUnit(
 		return convertToTargetKind(siValue, targetType, unit)
 	}
 
-	// Default (no target type): use type inference
-	// int64 if scaled result is exact integer AND original literal was integer, else f64
+	// Default (no target type): use type inference int64 if scaled result is exact
+	// integer AND original literal was integer, else f64
 	siValue := numericValue * unit.Scale
 
 	resultType := types.Type{Unit: unit}
@@ -396,8 +397,8 @@ func parseFloatLiteral(value float64, targetType types.Type) (ParsedValue, error
 	}
 }
 
-// convertToTargetKind converts a float64 value to the target type's kind.
-// Uses Go-like constant conversion semantics: errors on fractional parts for integer types.
+// convertToTargetKind converts a float64 value to the target type's kind. Uses Go-like
+// constant conversion semantics: errors on fractional parts for integer types.
 func convertToTargetKind(
 	value float64,
 	targetType types.Type,
@@ -495,7 +496,8 @@ func IsExactInteger(value float64) bool {
 }
 
 // ParseConst parses a bare or single-negated literal against targetType, applying the
-// sign before the range check so type minimums like -128 for i8 fit. Errors on anything else.
+// sign before the range check so type minimums like -128 for i8 fit. Errors on anything
+// else.
 func ParseConst(
 	expr parser.IExpressionContext,
 	targetType types.Type,

@@ -576,7 +576,8 @@ func (c *Codec) encodeInternal(ctx context.Context, src framer.Frame) error {
 			c.encodeSorter.offset,
 		)
 	} else {
-		// No merging - create series info directly from sorted data using reusable slice
+		// No merging - create series info directly from sorted data using reusable
+		// slice
 		count := c.encodeSorter.offset
 		if cap(c.mergedSeriesResult) < count {
 			c.mergedSeriesResult = make([]mergedSeriesInfo, 0, count)

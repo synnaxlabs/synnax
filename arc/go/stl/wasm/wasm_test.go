@@ -316,7 +316,8 @@ func binaryOpGraph(
 	}
 }
 
-// expectOutput is a helper that executes a single-function graph and checks the first output element.
+// expectOutput is a helper that executes a single-function graph and checks the first
+// output element.
 func expectOutput[T telem.Sample](
 	ctx context.Context,
 	key string,
@@ -645,7 +646,8 @@ var _ = Describe("WASM", func() {
 			"Should isolate stateful variables between nodes of the same function",
 			func(ctx SpecContext) {
 				// This test verifies that two node instances of the same function type
-				// have separate state storage (important fix for node instance isolation)
+				// have separate state storage (important fix for node instance
+				// isolation)
 				g := arc.Graph{
 					Functions: []ir.Function{
 						{
@@ -2309,7 +2311,8 @@ trigger_ch -> emit_period{period=1s}
 					telem.NewSeriesSecondsTSV(2),
 				)
 
-				// Nodes with incoming edges should execute every time they have new input
+				// Nodes with incoming edges should execute every time they have new
+				// input
 				changed = h.NextChanged(ctx, n, "add")
 				Expect(changed.Contains(ir.DefaultOutputParam)).To(BeTrue())
 				Expect(
@@ -3271,9 +3274,9 @@ trigger_ch -> emit_period{period=1s}
 	})
 
 	Describe("Channel Input Parameter Arithmetic", func() {
-		// Regression test for: "cannot pop the 2nd f32 operand for f32.add:
-		// type mismatch: expected f32, but was i32"
-		// Bug occurred when reading from a channel input parameter and performing arithmetic.
+		// Regression test for: "cannot pop the 2nd f32 operand for f32.add: type
+		// mismatch: expected f32, but was i32" Bug occurred when reading from a channel
+		// input parameter and performing arithmetic.
 		It(
 			"Should read from channel input param and perform f32 arithmetic",
 			func(ctx SpecContext) {
@@ -3330,7 +3333,8 @@ trigger_ch -> emit_period{period=1s}
 			},
 		)
 
-		// Test matching the user's original example with stateful variable and conditional
+		// Test matching the user's original example with stateful variable and
+		// conditional
 		It(
 			"Should handle channel input param with stateful variable and conditional",
 			func(ctx SpecContext) {
@@ -3507,7 +3511,8 @@ trigger_ch -> emit_period{period=1s}
 				},
 			}
 
-			// Function that reads from two channel input params and writes their sum to a third
+			// Function that reads from two channel input params and writes their sum to
+			// a third
 			g := arc.Graph{
 				Functions: []ir.Function{
 					{
@@ -3747,8 +3752,8 @@ trigger_ch -> emit_period{period=1s}
 		It(
 			"Should handle mixed channel and non-channel input params",
 			func(ctx SpecContext) {
-				// This tests the tolerance_alarm pattern: some input params are channels,
-				// others are plain values (f32, i64)
+				// This tests the tolerance_alarm pattern: some input params are
+				// channels, others are plain values (f32, i64)
 				chans := []symbol.Symbol{
 					{
 						Name: "set_point_ch",
@@ -3758,7 +3763,8 @@ trigger_ch -> emit_period{period=1s}
 					},
 				}
 
-				// Simplified tolerance alarm: checks if value is above set_point + tolerance
+				// Simplified tolerance alarm: checks if value is above set_point +
+				// tolerance
 				g := arc.Graph{
 					Functions: []ir.Function{
 						{
@@ -4043,9 +4049,9 @@ input_val -> tolerance_alarm{tolerance_upper=10.0, tolerance_lower=5.0, set_poin
 		It(
 			"Should handle writing to channel through intermediate variable",
 			func(ctx SpecContext) {
-				// Test that writing to an intermediate variable correctly writes to the channel
-				// out := output (input param with channel type)
-				// out = value * 2.0 (write to channel through intermediate variable)
+				// Test that writing to an intermediate variable correctly writes to the
+				// channel out := output (input param with channel type) out = value *
+				// 2.0 (write to channel through intermediate variable)
 				chans := []symbol.Symbol{
 					{
 						Name: "input_ch",
@@ -4169,9 +4175,9 @@ input_ch -> writer{output=write_target} -> sink_ch
 		It(
 			"Should handle writing to channel through global channel read/write",
 			func(ctx SpecContext) {
-				// Test that writing through an alias of a global channel works correctly
-				// out := output_ch   (global channel read/write)
-				// out = value * 4.0  (write to channel through alias)
+				// Test that writing through an alias of a global channel works
+				// correctly out := output_ch   (global channel read/write) out = value
+				// * 4.0  (write to channel through alias)
 				chans := []symbol.Symbol{
 					{
 						Name: "input_ch",

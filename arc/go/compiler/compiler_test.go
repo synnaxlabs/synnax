@@ -1431,8 +1431,8 @@ var _ = Describe("Compiler", func() {
 		It(
 			"Should infer f32 from conditional return with integer constant and f32 value",
 			func(ctx SpecContext) {
-				// This tests the regression for SY-3195
-				// Integer constant (0) should be coerced to f32 when mixed with f32 returns
+				// This tests the regression for SY-3195 Integer constant (0) should be
+				// coerced to f32 when mixed with f32 returns
 				output := MustSucceed(compile(ctx, `
 			func conditionalReturn(condition u8, value f32) f32 {
 				if (condition == 1) {
@@ -3817,7 +3817,8 @@ var _ = Describe("Compiler", func() {
 				Expect(results).To(HaveLen(1))
 				assertResult(results[0], expected)
 			},
-			// AND operations (using comparisons since true/false aren't implemented as keywords)
+			// AND operations (using comparisons since true/false aren't implemented as
+			// keywords)
 			Entry(
 				"and true true",
 				`{ return i32(1) == i32(1) and i32(2) == i32(2) }`,

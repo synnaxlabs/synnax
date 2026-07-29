@@ -1257,16 +1257,17 @@ func (p *Plugin) buildGenericType(
 	return fmt.Sprintf("%s<%s>", baseName, strings.Join(args, ", "))
 }
 
-// isCppTemplateWithAllDefaults returns true if the type would be generated as a C++ template
-// AND all of its C++ template parameters have defaults.
+// isCppTemplateWithAllDefaults returns true if the type would be generated as a C++
+// template AND all of its C++ template parameters have defaults.
 //
 // A struct is a C++ template only if it has type params without explicit defaults.
-// Params with explicit defaults are substituted at code generation and don't become template params.
-// Optional params (without explicit defaults) DO become template params with implicit std::monostate default.
+// Params with explicit defaults are substituted at code generation and don't become
+// template params. Optional params (without explicit defaults) DO become template
+// params with implicit std::monostate default.
 //
-// This function returns true when:
-// - The type has at least one type param without explicit default (making it a C++ template)
-// - All such params are optional (giving them implicit defaults)
+// This function returns true when: - The type has at least one type param without
+// explicit default (making it a C++ template) - All such params are optional (giving
+// them implicit defaults)
 func isCppTemplateWithAllDefaults(t resolution.Type) bool {
 	form, ok := t.Form.(resolution.StructForm)
 	if !ok {
@@ -1342,7 +1343,8 @@ type ontologyData struct {
 	TypeName string
 	// KeyType is the C++ type name (e.g., "Key").
 	KeyType string
-	// KeyConversion is the expression to convert key to string (e.g., "std::to_string(key)" or "key").
+	// KeyConversion is the expression to convert key to string (e.g.,
+	// "std::to_string(key)" or "key").
 	KeyConversion string
 }
 
@@ -1488,8 +1490,8 @@ func (p *Plugin) resolveExtendsType(
 	return p.buildGenericType(name, extendsRef.TypeArgs, &parent, data)
 }
 
-// extractOntology extracts ontology metadata from structs that have both @ontology domain
-// and a field with @key annotation. Returns nil if no suitable struct is found.
+// extractOntology extracts ontology metadata from structs that have both @ontology
+// domain and a field with @key annotation. Returns nil if no suitable struct is found.
 func (p *Plugin) extractOntology(
 	structs []resolution.Type,
 	table *resolution.Table,

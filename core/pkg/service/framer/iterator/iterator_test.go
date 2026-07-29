@@ -198,7 +198,8 @@ var _ = Describe("StreamIterator", Ordered, func() {
 				It(
 					"Should correctly handle 2-level nesting (C → B → A)",
 					func(ctx SpecContext) {
-						// Create B: calculated channel that depends on concrete channel A (sensor_1)
+						// Create B: calculated channel that depends on concrete channel
+						// A (sensor_1)
 						calcB := &channel.Channel{
 							Name:       "calc_b",
 							DataType:   telem.Float32T,
@@ -206,7 +207,8 @@ var _ = Describe("StreamIterator", Ordered, func() {
 						}
 						Expect(channelWriter.Create(ctx, calcB)).To(Succeed())
 
-						// Create C: calculated channel that depends on calculated channel B
+						// Create C: calculated channel that depends on calculated
+						// channel B
 						calcC := &channel.Channel{
 							Name:       "calc_c",
 							DataType:   telem.Float32T,
@@ -214,7 +216,8 @@ var _ = Describe("StreamIterator", Ordered, func() {
 						}
 						Expect(channelWriter.Create(ctx, calcC)).To(Succeed())
 
-						// Open iterator requesting only the top-level calculated channel C
+						// Open iterator requesting only the top-level calculated
+						// channel C
 						iter := MustSucceed(iteratorSvc.Open(ctx, iterator.Config{
 							Keys:   []channel.Key{calcC.Key(), calcC.Index()},
 							Bounds: telem.TimeRangeMax,
@@ -223,10 +226,15 @@ var _ = Describe("StreamIterator", Ordered, func() {
 						Expect(iter.SeekFirst()).To(BeTrue())
 						Expect(iter.Next(iterator.AutoSpan)).To(BeTrue())
 
-						// Verify the calculated result
-						// sensor_1 has values [1, 2, 3, 4, 5] and [6, 7, 8, 9, 10]
-						// calc_b = sensor_1 * 2 = [2, 4, 6, 8, 10] and [12, 14, 16, 18, 20]
-						// calc_c = calc_b + 10 = [12, 14, 16, 18, 20] and [22, 24, 26, 28, 30]
+						// Verify the calculated result:
+						//
+						// sensor_1 = [[1, 2, 3, 4, 5], [6, 7, 8, 9, 10]]
+						//
+						// calc_b = sensor_1 * 2
+						//        = [[2, 4, 6, 8, 10], [12, 14, 16, 18, 20]]
+						//
+						// calc_c = calc_b + 10
+						//        = [[12, 14, 16, 18, 20], [22, 24, 26, 28, 30]]
 						v := iter.Value().Get(calcC.Key())
 						Expect(v.Series).To(HaveLen(2))
 						Expect(
@@ -286,7 +294,8 @@ var _ = Describe("StreamIterator", Ordered, func() {
 						}
 						Expect(channelWriter.Create(ctx, calcD)).To(Succeed())
 
-						// Open iterator requesting only the top-level calculated channel D
+						// Open iterator requesting only the top-level calculated
+						// channel D
 						iter := MustSucceed(iteratorSvc.Open(ctx, iterator.Config{
 							Keys:   []channel.Key{calcD.Key(), calcD.Index()},
 							Bounds: telem.TimeRangeMax,
@@ -297,9 +306,12 @@ var _ = Describe("StreamIterator", Ordered, func() {
 
 						// Verify the calculated result
 						// sensor_1 has values [1, 2, 3, 4, 5] and [6, 7, 8, 9, 10]
-						// calc_b = sensor_1 * 2 = [2, 4, 6, 8, 10] and [12, 14, 16, 18, 20]
-						// calc_c = calc_b + 5 = [7, 9, 11, 13, 15] and [17, 19, 21, 23, 25]
-						// calc_d = calc_c * 3 = [21, 27, 33, 39, 45] and [51, 57, 63, 69, 75]
+						// calc_b = sensor_1 * 2 = [2, 4, 6, 8, 10]
+						//   and [12, 14, 16, 18, 20]
+						// calc_c = calc_b + 5 = [7, 9, 11, 13, 15]
+						//   and [17, 19, 21, 23, 25]
+						// calc_d = calc_c * 3 = [21, 27, 33, 39, 45]
+						//   and [51, 57, 63, 69, 75]
 						v := iter.Value().Get(calcD.Key())
 						Expect(v.Series).To(HaveLen(2))
 						Expect(
@@ -365,7 +377,8 @@ var _ = Describe("StreamIterator", Ordered, func() {
 						}
 						Expect(channelWriter.Create(ctx, calcE)).To(Succeed())
 
-						// Open iterator requesting only the top-level calculated channel E
+						// Open iterator requesting only the top-level calculated
+						// channel E
 						iter := MustSucceed(iteratorSvc.Open(ctx, iterator.Config{
 							Keys:   []channel.Key{calcE.Key(), calcE.Index()},
 							Bounds: telem.TimeRangeMax,
@@ -376,9 +389,12 @@ var _ = Describe("StreamIterator", Ordered, func() {
 
 						// Verify the calculated result
 						// sensor_1 has values [1, 2, 3, 4, 5] and [6, 7, 8, 9, 10]
-						// calc_c = sensor_1 + 10 = [11, 12, 13, 14, 15] and [16, 17, 18, 19, 20]
-						// calc_d = sensor_1 * 5 = [5, 10, 15, 20, 25] and [30, 35, 40, 45, 50]
-						// calc_e = calc_c + calc_d = [16, 22, 28, 34, 40] and [46, 52, 58, 64, 70]
+						// calc_c = sensor_1 + 10 = [11, 12, 13, 14, 15]
+						//   and [16, 17, 18, 19, 20]
+						// calc_d = sensor_1 * 5 = [5, 10, 15, 20, 25]
+						//   and [30, 35, 40, 45, 50]
+						// calc_e = calc_c + calc_d = [16, 22, 28, 34, 40]
+						//   and [46, 52, 58, 64, 70]
 						v := iter.Value().Get(calcE.Key())
 						Expect(v.Series).To(HaveLen(2))
 						Expect(
@@ -390,7 +406,8 @@ var _ = Describe("StreamIterator", Ordered, func() {
 						Expect(
 							v.Series[1],
 						).To(telem.MatchSeriesDataV[float32](46, 52, 58, 64, 70))
-						// Note: Diamond pattern causes alignment increment, this is expected behavior
+						// Note: Diamond pattern causes alignment increment, this is
+						// expected behavior
 						Expect(
 							v.Series[1].Alignment,
 						).To(Equal(telem.NewAlignment(2, 0)))
@@ -403,7 +420,8 @@ var _ = Describe("StreamIterator", Ordered, func() {
 							v.Series[0].Alignment,
 						).To(Equal(telem.NewAlignment(0, 0)))
 						Expect(v.Series[1]).To(telem.MatchSeriesData(idxData.Series[1]))
-						// Note: Diamond pattern causes alignment increment, this is expected behavior
+						// Note: Diamond pattern causes alignment increment, this is
+						// expected behavior
 						Expect(
 							v.Series[1].Alignment,
 						).To(Equal(telem.NewAlignment(2, 0)))
@@ -445,8 +463,8 @@ var _ = Describe("StreamIterator", Ordered, func() {
 				It(
 					"Should handle mixed calculated and concrete channels",
 					func(ctx SpecContext) {
-						// This test verifies that requesting both calculated and concrete channels
-						// in the same iterator works correctly
+						// This test verifies that requesting both calculated and
+						// concrete channels in the same iterator works correctly
 
 						// Create a nested calculated channel
 						calcMixed := &channel.Channel{
@@ -464,7 +482,8 @@ var _ = Describe("StreamIterator", Ordered, func() {
 						}
 						Expect(channelWriter.Create(ctx, calcMixedNested)).To(Succeed())
 
-						// Request both concrete channels (sensor_1, sensor_2) and calculated channels
+						// Request both concrete channels (sensor_1, sensor_2) and
+						// calculated channels
 						iter := MustSucceed(iteratorSvc.Open(ctx, iterator.Config{
 							Keys: []channel.Key{
 								dataCh1.Key(),           // concrete: sensor_1
@@ -501,8 +520,10 @@ var _ = Describe("StreamIterator", Ordered, func() {
 						// Verify calculated channel has correct values
 						// sensor_1 = [1, 2, 3, 4, 5] and [6, 7, 8, 9, 10]
 						// sensor_2 = [-2, -3, -4, -5, -6] and [-3, -4, -5, -6, -7]
-						// calc_mixed = sensor_1 + sensor_2 = [-1, -1, -1, -1, -1] and [3, 3, 3, 3, 3]
-						// calc_mixed_nested = calc_mixed * 2 = [-2, -2, -2, -2, -2] and [6, 6, 6, 6, 6]
+						// calc_mixed = sensor_1 + sensor_2 = [-1, -1, -1, -1, -1]
+						//   and [3, 3, 3, 3, 3]
+						// calc_mixed_nested = calc_mixed * 2 = [-2, -2, -2, -2, -2]
+						//   and [6, 6, 6, 6, 6]
 						v = iter.Value().Get(calcMixedNested.Key())
 						Expect(v.Series).To(HaveLen(2))
 						Expect(
@@ -806,7 +827,8 @@ var _ = Describe("StreamIterator", Ordered, func() {
 						Expect(iter.SeekFirst()).To(BeTrue())
 						Expect(iter.Next(iterator.AutoSpan)).To(BeTrue())
 
-						// Verify concrete channel has original values with correct alignments
+						// Verify concrete channel has original values with correct
+						// alignments
 						concreteV := iter.Value().Get(threeDomainDataCh.Key())
 						Expect(concreteV.Series).To(HaveLen(3))
 						Expect(
@@ -858,7 +880,8 @@ var _ = Describe("StreamIterator", Ordered, func() {
 				It(
 					"Should correctly handle large gap between domains",
 					func(ctx SpecContext) {
-						// Create channels specifically for this test with large time gap
+						// Create channels specifically for this test with large time
+						// gap
 						gapIndexCh := &channel.Channel{
 							Name:     "gap_domain_time",
 							DataType: telem.TimeStampT,
@@ -1054,10 +1077,10 @@ var _ = Describe("StreamIterator", Ordered, func() {
 			It(
 				"Should correctly handle interleaved channels with different indexes",
 				func(ctx SpecContext) {
-					// Two channels with different indexes, written by different writers.
-					// The distribution framer may return data and index for each channel
-					// in separate response frames. The calculation transform merges them
-					// before passing to the calculator.
+					// Two channels with different indexes, written by different
+					// writers. The distribution framer may return data and index for
+					// each channel in separate response frames. The calculation
+					// transform merges them before passing to the calculator.
 					idxA := &channel.Channel{
 						Name:     "interleaved_time_a",
 						DataType: telem.TimeStampT,

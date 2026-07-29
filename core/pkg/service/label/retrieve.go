@@ -26,7 +26,8 @@ type Retrieve struct {
 	searchTerm string
 }
 
-// Search executes a fuzzy search for labels whose Name attribute matches the provided term.
+// Search executes a fuzzy search for labels whose Name attribute matches the provided
+// term.
 func (r Retrieve) Search(term string) Retrieve { r.searchTerm = term; return r }
 
 // Limit limits the number of results that Retrieve will return.

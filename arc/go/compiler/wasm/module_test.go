@@ -344,8 +344,8 @@ var _ = Describe("WASM Module", func() {
 			Expect(bytes[:4]).To(Equal([]byte{0x00, 0x61, 0x73, 0x6d}))
 			Expect(bytes[4:8]).To(Equal([]byte{0x01, 0x00, 0x00, 0x00}))
 
-			// Verify sections are present
-			// Type section (0x01), Import (0x02), Function (0x03), Memory (0x05), Export (0x07), Code (0x0a)
+			// Verify sections are present: Type section (0x01), Import (0x02), Function
+			// (0x03), Memory (0x05), Export (0x07), Code (0x0a)
 			Expect(bytes).To(ContainElement(byte(0x01))) // Type section
 			Expect(bytes).To(ContainElement(byte(0x02))) // Import section
 			Expect(bytes).To(ContainElement(byte(0x03))) // Function section

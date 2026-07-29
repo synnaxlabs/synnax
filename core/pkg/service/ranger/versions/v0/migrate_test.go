@@ -56,7 +56,8 @@ var _ = Describe("Migration", func() {
 		"should migrate subgroups to parent ranges and delete groups",
 		func(ctx SpecContext) {
 			// Open a bare Range table with only the codec transition migration. This
-			// simulates the state of the DB before the range_groups migration was added.
+			// simulates the state of the DB before the range_groups migration was
+			// added.
 			bareTable := MustSucceed(gorp.OpenTable(
 				ctx, gorp.TableConfig[v0.Key, v0.Range]{DB: db},
 			))

@@ -16,7 +16,8 @@ import (
 	"time"
 )
 
-// StaleFile describes a generated file that is out of date relative to its source schema.
+// StaleFile describes a generated file that is out of date relative to its source
+// schema.
 type StaleFile struct {
 	// GenTime is the modification time of the generated file (zero if missing)
 	GenTime time.Time
@@ -28,7 +29,8 @@ type StaleFile struct {
 	Schema string
 }
 
-// StaleError is returned when generated files are out of date with their source schemas.
+// StaleError is returned when generated files are out of date with their source
+// schemas.
 type StaleError struct {
 	// Plugin is the name of the plugin whose output is stale
 	Plugin string
@@ -65,7 +67,8 @@ func (e *StaleError) Error() string {
 	return sb.String()
 }
 
-// DependencyStaleError is returned when a plugin's required dependency has stale output.
+// DependencyStaleError is returned when a plugin's required dependency has stale
+// output.
 type DependencyStaleError struct {
 	// Reason is the underlying error from the dependency's Check()
 	Reason error

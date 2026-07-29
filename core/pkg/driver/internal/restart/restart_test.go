@@ -53,7 +53,8 @@ var _ = Describe("Policy", func() {
 			func(uptime time.Duration) {
 				p := instant(context.Background(), 1, time.Minute)
 				Expect(p.Decide(true, uptime)).To(Equal(restart.Stop))
-				// The retry budget is untouched: a later unexpected exit still restarts.
+				// The retry budget is untouched: a later unexpected exit still
+				// restarts.
 				Expect(p.Decide(false, time.Millisecond)).To(Equal(restart.Restart))
 			},
 			Entry("zero uptime", time.Duration(0)),

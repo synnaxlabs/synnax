@@ -91,7 +91,8 @@ func WASM(instructions ...any) []byte {
 				encoder.WriteLocalSet(instructions[i+1].(int))
 				i++ // Skip the operand
 			case wasm.OpCall:
-				// Use fixed 5-byte LEB128 to match WriteCallPlaceholder+PatchCall encoding
+				// Use fixed 5-byte LEB128 to match WriteCallPlaceholder+PatchCall
+				// encoding
 				encoder.WriteOpcode(wasm.OpCall)
 				switch v := instructions[i+1].(type) {
 				case uint32:
@@ -173,8 +174,9 @@ type opcodeMatcher struct {
 	expected wasm.OPCodes
 }
 
-// MatchOpcodes returns a Gomega matcher that compares two opcode sequences for equality.
-// It provides clear, readable failure messages that show the expected vs actual opcodes.
+// MatchOpcodes returns a Gomega matcher that compares two opcode sequences for
+// equality. It provides clear, readable failure messages that show the expected vs
+// actual opcodes.
 //
 // Example usage:
 //

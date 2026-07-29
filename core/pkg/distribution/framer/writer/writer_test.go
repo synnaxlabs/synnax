@@ -206,9 +206,9 @@ var _ = Describe("Writer", func() {
 					Start: 10 * telem.SecondTS,
 					Sync:  new(true),
 				})).Error().To(MatchError(query.ErrNotFound))
-				// A lower-authority writer can only take control of the peer channel once
-				// the remote writer opened by the failed mixed open has released it, so an
-				// authorized write proves the peer stream was cleaned up.
+				// A lower-authority writer can only take control of the peer channel
+				// once the remote writer opened by the failed mixed open has released
+				// it, so an authorized write proves the peer stream was cleaned up.
 				w := MustSucceed(dist.Framer.OpenWriter(ctx, writer.Config{
 					Keys:        []channel.Key{peerCh.Key()},
 					Start:       10 * telem.SecondTS,

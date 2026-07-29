@@ -283,8 +283,8 @@ func sortedImports(m map[string]string) []importEntry {
 }
 
 // GenerateCodecFile generates a complete codec file for the given entries using the
-// specified package name and output path context. This is used by the migrate plugin
-// to generate frozen codecs for old schema versions. Each entry gets EncodeOrc/DecodeOrc
+// specified package name and output path context. This is used by the migrate plugin to
+// generate frozen codecs for old schema versions. Each entry gets EncodeOrc/DecodeOrc
 // methods that implement the orc.SelfEncoder and orc.SelfDecoder interfaces.
 func GenerateCodecFile(
 	packageName string,

@@ -248,8 +248,8 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	FreeWrites confluence.Inlet[relay.Response]
-	// HostResolver is used to resolve the host address for nodes in the cluster in order
-	// to route writes.
+	// HostResolver is used to resolve the host address for nodes in the cluster in
+	// order to route writes.
 	//
 	// [REQUIRED]
 	HostResolver cluster.HostResolver
@@ -375,9 +375,9 @@ func (s *Service) Open(ctx context.Context, cfgs ...Config) (*Writer, error) {
 	}, nil
 }
 
-// NewStream opens a new StreamWriter using the given configuration. The provided context
-// is only used for opening the stream and is not used for concurrent flow control. The
-// context for managing flow control must be provided to StreamWriter.Flow.
+// NewStream opens a new StreamWriter using the given configuration. The provided
+// context is only used for opening the stream and is not used for concurrent flow
+// control. The context for managing flow control must be provided to StreamWriter.Flow.
 func (s *Service) NewStream(ctx context.Context, cfgs ...Config) (StreamWriter, error) {
 	cfg, err := config.New(DefaultConfig(), cfgs...)
 	if err != nil {

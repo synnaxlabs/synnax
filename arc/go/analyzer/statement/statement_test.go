@@ -1767,8 +1767,8 @@ var _ = Describe("Statement", func() {
 					b f64 := 2.0
 					x := [a, b]
 				}`),
-				// Inferred type variables - these should also be rejected for consistency
-				// with explicit type annotations above
+				// Inferred type variables - these should also be rejected for
+				// consistency with explicit type annotations above
 				Entry("inferred int and inferred float variables", `{
 					a := 5
 					b := 12.0
@@ -2360,8 +2360,8 @@ var _ = Describe("Statement", func() {
 					b f64 := 2.0
 					x := [a, b]
 				}`),
-				// Inferred type variables - these should also be rejected for consistency
-				// with explicit type annotations above
+				// Inferred type variables - these should also be rejected for
+				// consistency with explicit type annotations above
 				Entry("inferred int and inferred float variables", `{
 					a := 5
 					b := 12.0

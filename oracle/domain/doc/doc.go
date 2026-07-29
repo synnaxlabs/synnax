@@ -249,7 +249,8 @@ func FormatCpp(name, doc string) string {
 		return ""
 	}
 
-	// Calculate available width: "/// @brief Name " for first line, "/// " for subsequent
+	// Calculate available width: "/// @brief Name " for first line, "/// " for
+	// subsequent
 	firstPrefix := "/// @brief " + name + " "
 	subsequentPrefix := "/// "
 	firstLineWidth := maxLineWidth - len(firstPrefix)

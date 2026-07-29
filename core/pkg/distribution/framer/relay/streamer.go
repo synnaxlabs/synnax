@@ -127,8 +127,8 @@ func (s *streamer) Flow(ctx signal.Context, opts ...confluence.Option) {
 				Variant: change.VariantDelete,
 				Key:     s.addr,
 			}}
-			// If we add this in AttachClosables, it may not be closed at the end of
-			// if the caller does not use the confluence.CloseOutputInletsOnExit option, so
+			// If we add this in AttachClosables, it may not be closed at the end of if
+			// the caller does not use the confluence.CloseOutputInletsOnExit option, so
 			// we explicitly close it here.
 			s.demands.Close()
 		}()

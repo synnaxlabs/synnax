@@ -311,7 +311,8 @@ func ifAlwaysCalls(
 }
 
 // ifSometimesReturns returns true if any branch of the if-statement contains a return,
-// meaning some execution paths exit early and subsequent statements are not on all paths.
+// meaning some execution paths exit early and subsequent statements are not on all
+// paths.
 func ifSometimesReturns(ifStmt parser.IIfStatementContext) bool {
 	if function.BlockAlwaysReturns(ifStmt.Block()) {
 		return true

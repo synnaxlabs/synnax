@@ -35,8 +35,8 @@ func String[T ~string](base, override T) T {
 	return If(base, override, override != "")
 }
 
-// Zero returns the override if its IsZero method returns false, otherwise it returns the
-// base value.
+// Zero returns the override if its IsZero method returns false, otherwise it returns
+// the base value.
 func Zero[T Zeroable](base, override T) T {
 	return If(base, override, !override.IsZero())
 }

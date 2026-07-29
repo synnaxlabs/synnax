@@ -91,7 +91,8 @@ func extractSemanticTokens(ctx context.Context, content string, docIR ir.IR) []u
 	allTokens := tokenizeContent(content)
 	importIdents := importContextIdents(allTokens)
 	var tokens []lsp.Token
-	// Track prev/next token types so classifyToken can handle qualified names (e.g., control.set_authority).
+	// Track prev/next token types so classifyToken can handle qualified names (e.g.,
+	// control.set_authority).
 	for i, t := range allTokens {
 		if t.GetTokenType() == antlr.TokenEOF {
 			continue

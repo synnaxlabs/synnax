@@ -42,9 +42,9 @@ type enumCheckData struct {
 }
 
 // goDefaultFills returns the fills for a field's static default (RFC 0043 section 5). A
-// scalar default yields a single fill; a struct-literal default (e.g.
-// `x1 Axis = { key = AxisKeyX1 }`) yields one fill per non-zero leaf component, keyed by a
-// nested selector (X1.Key). It returns nil for fields with no default, nullable/optional
+// scalar default yields a single fill; a struct-literal default (e.g. `x1 Axis = { key
+// = AxisKeyX1 }`) yields one fill per non-zero leaf component, keyed by a nested
+// selector (X1.Key). It returns nil for fields with no default, nullable/optional
 // fields, defaults that equal the zero value (nothing to fill), and non-static defaults
 // such as create/now.
 func goDefaultFills(field resolution.Field, data *templateData) []defaultFillData {
@@ -63,7 +63,8 @@ func goDefaultFills(field resolution.Field, data *templateData) []defaultFillDat
 
 // structDefaultFills walks a struct-literal default, emitting a fill per non-zero leaf
 // component. prefix is the Go selector to the struct field (e.g. "X1"), structRef its
-// type, and val the literal. Nested struct components recurse with an extended selector.
+// type, and val the literal. Nested struct components recurse with an extended
+// selector.
 func structDefaultFills(
 	prefix string,
 	structRef resolution.TypeRef,
@@ -99,8 +100,9 @@ func structDefaultFills(
 }
 
 // scalarFill returns the fill assigning the scalar or enum default d to the Go selector
-// goName of type typeRef. It returns ok=false when d equals the type's zero value (nothing
-// to fill) or is an integer-enum default (whose zeroth member is the zero value).
+// goName of type typeRef. It returns ok=false when d equals the type's zero value
+// (nothing to fill) or is an integer-enum default (whose zeroth member is the zero
+// value).
 func scalarFill(
 	goName string,
 	typeRef resolution.TypeRef,
@@ -168,10 +170,10 @@ type constraintCheckData struct {
 	Arg string
 }
 
-// goConstraintChecks returns the @validate constraint assertions for a field, classified
-// against the field type's underlying primitive so a distinct numeric type (e.g. a Key
-// over uint32) validates as a number. Optional fields are skipped: a bound on an absent
-// value is ambiguous.
+// goConstraintChecks returns the @validate constraint assertions for a field,
+// classified against the field type's underlying primitive so a distinct numeric type
+// (e.g. a Key over uint32) validates as a number. Optional fields are skipped: a bound
+// on an absent value is ambiguous.
 func goConstraintChecks(
 	field resolution.Field,
 	data *templateData,
@@ -281,19 +283,20 @@ const (
 	recurseMap     recurseKind = "map"
 )
 
-// recurseStepData describes one nested call a generated method makes into a field (or an
-// embedded type) whose own type carries an ApplyDefaults/Validate method. JSONName is the
-// wire field name used as the Validate error path segment; it is empty for an embedded
-// type, whose fields are promoted to the embedder's level and so take no path segment.
+// recurseStepData describes one nested call a generated method makes into a field (or
+// an embedded type) whose own type carries an ApplyDefaults/Validate method. JSONName
+// is the wire field name used as the Validate error path segment; it is empty for an
+// embedded type, whose fields are promoted to the embedder's level and so take no path
+// segment.
 type recurseStepData struct {
 	GoName   string
 	JSONName string
 	Kind     recurseKind
 }
 
-// fieldHasOwn reports whether a field is itself a reason for its struct to emit a method,
-// independent of any nested type: a fillable static default for ApplyDefaults, an enum
-// membership check for Validate.
+// fieldHasOwn reports whether a field is itself a reason for its struct to emit a
+// method, independent of any nested type: a fillable static default for ApplyDefaults,
+// an enum membership check for Validate.
 type fieldHasOwn func(resolution.Field, *templateData) bool
 
 func defaultsHasOwn(f resolution.Field, data *templateData) bool {
@@ -339,10 +342,10 @@ func resolvesToMethodType(ref resolution.TypeRef, data *templateData) bool {
 	return false
 }
 
-// typeNeedsMethod reports whether the type named by ref emits a recursive method: it has
-// a field satisfying hasOwn, or a nested struct field, slice/array element, map value, or
-// union variant payload that (transitively) does. Generic types and type parameters never
-// emit a method. visited guards against cycles in recursive types.
+// typeNeedsMethod reports whether the type named by ref emits a recursive method: it
+// has a field satisfying hasOwn, or a nested struct field, slice/array element, map
+// value, or union variant payload that (transitively) does. Generic types and type
+// parameters never emit a method. visited guards against cycles in recursive types.
 func typeNeedsMethod(
 	ref resolution.TypeRef,
 	data *templateData,
@@ -397,8 +400,8 @@ func typeNeedsMethod(
 	return false
 }
 
-// hasSliceRecurse reports whether any step iterates a slice or array, which requires the
-// strconv import for the index path segment in a generated Validate method.
+// hasSliceRecurse reports whether any step iterates a slice or array, which requires
+// the strconv import for the index path segment in a generated Validate method.
 func hasSliceRecurse(steps []recurseStepData) bool {
 	for _, step := range steps {
 		if step.Kind == recurseSlice {

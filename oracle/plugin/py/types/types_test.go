@@ -944,8 +944,8 @@ var _ = Describe("Python Types Plugin", func() {
 			// C should inherit from both A and B
 			Expect(content).To(ContainSubstring(`class C(A, B):`))
 			Expect(content).To(ContainSubstring(`c: bool`))
-			// shared field should not be present in C (omitted)
-			// Note: Python inheritance doesn't explicitly omit, but the field shouldn't be redefined
+			// shared field should not be present in C (omitted) Note: Python
+			// inheritance doesn't explicitly omit, but the field shouldn't be redefined
 		})
 
 		It(

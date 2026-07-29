@@ -30,8 +30,8 @@ func (e *TypeMismatchError) Error() string { return e.Message }
 // GetHint implements diagnostics.HintProvider.
 func (e *TypeMismatchError) GetHint() string { return e.Hint }
 
-// Check verifies type compatibility between t1 and t2, adding constraints for type variables
-// or recursively checking wrapped types for channels and series.
+// Check verifies type compatibility between t1 and t2, adding constraints for type
+// variables or recursively checking wrapped types for channels and series.
 func Check(
 	cs *constraints.System,
 	t1, t2 types.Type,
@@ -48,8 +48,8 @@ func Check(
 		}
 	}
 
-	// Check for wrapped type mismatch (series vs scalar, chan vs scalar)
-	// Skip this check if either type is a variable - let the constraint system handle it
+	// Check for wrapped type mismatch (series vs scalar, chan vs scalar) Skip this
+	// check if either type is a variable - let the constraint system handle it
 	t1Wrapped := t1.Kind == types.KindChan || t1.Kind == types.KindSeries
 	t2Wrapped := t2.Kind == types.KindChan || t2.Kind == types.KindSeries
 	if t1Wrapped != t2Wrapped && t1.Kind != types.KindVariable &&
@@ -110,8 +110,8 @@ func newTypeMismatchError(
 	return &TypeMismatchError{Message: msg, Hint: hint}
 }
 
-// concreteTypeForHint returns a concrete type name for use in error hints.
-// Converts constraint kinds (integer, float) to their default concrete types (i64, f64).
+// concreteTypeForHint returns a concrete type name for use in error hints. Converts
+// constraint kinds (integer, float) to their default concrete types (i64, f64).
 func concreteTypeForHint(t types.Type) string {
 	if t.Kind == types.KindVariable && t.Constraint != nil {
 		switch t.Constraint.Kind {

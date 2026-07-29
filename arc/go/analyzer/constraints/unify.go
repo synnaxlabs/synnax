@@ -25,13 +25,16 @@ var (
 	ErrConstraints = errors.New("constraints")
 	// ErrCyclicType indicates a type variable occurs within its own substitution.
 	ErrCyclicType = errors.Wrap(ErrConstraints, "cyclic type dependency")
-	// ErrConstraintViolation indicates a type does not satisfy a type variable's constraint.
+	// ErrConstraintViolation indicates a type does not satisfy a type variable's
+	// constraint.
 	ErrConstraintViolation = errors.Wrap(ErrConstraints, "constraint violation")
 	// ErrUnresolvable indicates two types cannot be unified.
 	ErrUnresolvable = errors.Wrap(ErrConstraints, "types are not unifiable")
-	// ErrUnresolvedVariable indicates a type variable could not be resolved to a concrete type.
+	// ErrUnresolvedVariable indicates a type variable could not be resolved to a
+	// concrete type.
 	ErrUnresolvedVariable = errors.Wrap(ErrConstraints, "unresolved type variable")
-	// ErrConvergence indicates the unification algorithm did not converge within iteration limit.
+	// ErrConvergence indicates the unification algorithm did not converge within
+	// iteration limit.
 	ErrConvergence = errors.Wrap(ErrConstraints, "unification did not converge")
 )
 
@@ -45,7 +48,8 @@ type UnificationError struct {
 	Right types.Type
 	// Message is the user-facing error message.
 	Message string
-	// Hint provides an optional suggestion for fixing the error (e.g., type conversion).
+	// Hint provides an optional suggestion for fixing the error (e.g., type
+	// conversion).
 	Hint string
 }
 
@@ -143,8 +147,8 @@ func (s *System) UnifyConstraint(c Constraint) error {
 	return nil
 }
 
-// concreteTypeForHint returns a concrete type name for use in error hints.
-// Converts constraint kinds (integer, float) to their default concrete types (i64, f64).
+// concreteTypeForHint returns a concrete type name for use in error hints. Converts
+// constraint kinds (integer, float) to their default concrete types (i64, f64).
 func concreteTypeForHint(t types.Type) string {
 	if t.Kind == types.KindVariable && t.Constraint != nil {
 		switch t.Constraint.Kind {
@@ -283,9 +287,10 @@ func (s *System) unifyTypeVariableWithVisited(
 			)
 		}
 	} else if tv.Constraint.Kind == types.KindFloatConstant {
-		// Float constraint: in compatible context, only accept floats (not concrete integers).
-		// This ensures `x := 10; x + 3.2` fails (x is resolved to i64, can't add float literal).
-		// But `2 + 3.2` still works because both are type variables that can promote.
+		// Float constraint: in compatible context, only accept floats (not concrete
+		// integers). This ensures `x := 10; x + 3.2` fails (x is resolved to i64, can't
+		// add float literal). But `2 + 3.2` still works because both are type variables
+		// that can promote.
 		if !checkType.IsFloat() {
 			return errors.Wrapf(
 				ErrConstraintViolation,
@@ -303,8 +308,9 @@ func (s *System) unifyTypeVariableWithVisited(
 		}
 	}
 
-	// For constraint kinds (IntegerConstant, FloatConstant, NumericConstant, ExactIntegerFloatConstant),
-	// we've already validated compatibility above, so skip exact match check
+	// For constraint kinds (IntegerConstant, FloatConstant, NumericConstant,
+	// ExactIntegerFloatConstant), we've already validated compatibility above, so skip
+	// exact match check
 	isConstraintKind := tv.Constraint != nil &&
 		(tv.Constraint.Kind == types.KindIntegerConstant ||
 			tv.Constraint.Kind == types.KindFloatConstant ||

@@ -100,9 +100,9 @@ func (w WriterConfig) Override(other WriterConfig) WriterConfig {
 	return w
 }
 
-// Write writes the given data to the DB new telemetry domain occupying the provided time
-// range. If the time domain overlaps with any other domains in the DB, Write will return
-// an error.
+// Write writes the given data to the DB new telemetry domain occupying the provided
+// time range. If the time domain overlaps with any other domains in the DB, Write will
+// return an error.
 func Write(ctx context.Context, db *DB, tr telem.TimeRange, data []byte) (err error) {
 	w, err := db.OpenWriter(ctx, WriterConfig{Start: tr.Start, End: tr.End})
 	if err != nil {
@@ -137,7 +137,8 @@ type Writer struct {
 	internal io.TrackedWriteCloser
 	// onClose is called when the writer is closed.
 	onClose func()
-	// idx is the underlying index for the database that stores locations of domains in FS.
+	// idx is the underlying index for the database that stores locations of domains in
+	// FS.
 	idx *index
 	// fc is the file controller for the writer's FS.
 	fc *fileController
@@ -243,8 +244,8 @@ func (w *Writer) Write(p []byte) (int, error) {
 func (w *Writer) Commit(ctx context.Context, end telem.TimeStamp) error {
 	var (
 		now = telem.Now()
-		// the only time we do not shouldPersist is when EnableAutoCommit and the interval is
-		// not met yet.
+		// the only time we do not shouldPersist is when EnableAutoCommit and the
+		// interval is not met yet.
 		shouldPersist = !*w.EnableAutoCommit ||
 			w.lastIndexPersist.Span(now) >= w.AutoIndexPersistInterval
 	)

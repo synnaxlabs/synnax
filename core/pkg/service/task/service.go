@@ -175,8 +175,8 @@ func (s *Service) CommandChannelKey() channel.Key {
 	return s.commandChannelKey
 }
 
-// cleanupInternalOntologyResources purges existing internal task resources from the ontology.
-// we want to hide internal tasks from the user.
+// cleanupInternalOntologyResources purges existing internal task resources from the
+// ontology. we want to hide internal tasks from the user.
 func (s *Service) cleanupInternalOntologyResources(ctx context.Context) {
 	var tasks []Task
 	if err := s.NewRetrieve().

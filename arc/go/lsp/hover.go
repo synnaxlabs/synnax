@@ -229,7 +229,8 @@ var operatorDocs = map[string]string{
 	).Render(),
 }
 
-// keywordDocs contains pre-computed documentation for keywords, types, and built-in functions.
+// keywordDocs contains pre-computed documentation for keywords, types, and built-in
+// functions.
 var keywordDocs = map[string]string{
 	parser.LiteralFUNC: doc.New(
 		doc.TitleWithKind(parser.LiteralFUNC, "Keyword"),

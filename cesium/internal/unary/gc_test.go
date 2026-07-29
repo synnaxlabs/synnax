@@ -307,7 +307,8 @@ var _ = Describe("Garbage Collection", func() {
 
 					// 1: 10, 11, 12, 13, 14, 15, 16 (size = 56, tombstone size = 16)
 					// 2: 26 (size = 8, tombstone size = 48)
-					// 3: 34, 35, 36, 37, 38, 39, 40, 41 (size = 64, tombstone size = 32)
+					// 3: 34, 35, 36, 37, 38, 39, 40, 41 (size = 64, tombstone size =
+					// 32)
 
 					By("Expecting files 2 and 3 to garbage collect")
 					Expect(dataDB.GarbageCollect(ctx)).To(Succeed())

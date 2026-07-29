@@ -144,8 +144,8 @@ func (s *Service) NewWriter(tx gorp.Tx) Writer[any] { return NewWriter[any](s, t
 // NewRetrieve opens a new Retrieve query to fetch statuses from the database.
 func (s *Service) NewRetrieve() Retrieve[any] { return NewRetrieve[any](s) }
 
-// ResolveKeyOrName returns all statuses matching keyOrName, preferring an exact key match
-// over name matches. Read-only; callers enforce access on and write the result.
+// ResolveKeyOrName returns all statuses matching keyOrName, preferring an exact key
+// match over name matches. Read-only; callers enforce access on and write the result.
 func (s *Service) ResolveKeyOrName(
 	ctx context.Context,
 	tx gorp.Tx,
@@ -174,7 +174,8 @@ func (s *Service) ResolveKeyOrName(
 }
 
 // SetTarget builds the status a by-key-or-name set should write: the first match, or a
-// new UUID-keyed status named keyOrName when nothing matched, with the new fields applied.
+// new UUID-keyed status named keyOrName when nothing matched, with the new fields
+// applied.
 func SetTarget(matches []Status[any], keyOrName, message, variant string) Status[any] {
 	st := Status[any]{Key: uuid.NewString(), Name: keyOrName}
 	if len(matches) > 0 {
@@ -186,9 +187,10 @@ func SetTarget(matches []Status[any], keyOrName, message, variant string) Status
 	return st
 }
 
-// SetByKeyOrName updates the first status matching keyOrName by key or name, creating a new
-// status named keyOrName when none match. It returns the written key, reports multipleMatches
-// when more than one name matched, and returns a validate.ErrValidation for an unknown variant.
+// SetByKeyOrName updates the first status matching keyOrName by key or name, creating a
+// new status named keyOrName when none match. It returns the written key, reports
+// multipleMatches when more than one name matched, and returns a validate.ErrValidation
+// for an unknown variant.
 func (s *Service) SetByKeyOrName(
 	ctx context.Context,
 	keyOrName, message, variant string,

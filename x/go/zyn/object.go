@@ -34,7 +34,8 @@ type ObjectZ struct {
 var _ Schema = (*ObjectZ)(nil)
 
 // fieldByName finds a field in a struct by its name, supporting PascalCase, camelCase,
-// and snake_case. Tries direct name lookup first to avoid FieldByNameFunc closure allocation.
+// and snake_case. Tries direct name lookup first to avoid FieldByNameFunc closure
+// allocation.
 func (o ObjectZ) fieldByName(v reflect.Value, field string) reflect.Value {
 	pascal := o.caseConversions.pascal[field]
 	f := v.FieldByName(pascal)
@@ -93,8 +94,9 @@ func (o ObjectZ) initializeFields() ObjectZ {
 	return o
 }
 
-// Field adds a field to the object schema. The field name can be in PascalCase, camelCase,
-// or snake_case. The shape parameter defines the validation rules for the field.
+// Field adds a field to the object schema. The field name can be in PascalCase,
+// camelCase, or snake_case. The shape parameter defines the validation rules for the
+// field.
 func (o ObjectZ) Field(name string, shape Schema) ObjectZ {
 	o = o.initializeFields()
 	o.fields[name] = shape

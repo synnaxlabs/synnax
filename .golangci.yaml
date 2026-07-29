@@ -84,6 +84,7 @@ formatters:
       extra-rules: true
     golines:
       max-len: 88
+      shorten-comments: true
   exclusions:
     warn-unused: true
     generated: strict

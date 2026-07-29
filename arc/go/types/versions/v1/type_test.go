@@ -262,7 +262,8 @@ var _ = Describe("Type", func() {
 					Expect(t.IsNumeric()).To(BeFalse())
 				},
 				Entry("String", types.String()),
-				// Note: TimeStamp() and TimeSpan() are now i64 with units, so they ARE numeric
+				// Note: TimeStamp() and TimeSpan() are now i64 with units, so they ARE
+				// numeric.
 			)
 
 			It("Should check value type for channels", func() {

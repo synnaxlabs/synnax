@@ -433,7 +433,8 @@ var _ = Describe("Delete", Ordered, func() {
 						fixedOffset(2),
 						fixedOffset(3),
 					)).To(Succeed())
-					// at this point, pointer 0 splits into two: 10, 11 / 13, 14, 15, 16, ..., 19
+					// at this point, pointer 0 splits into two:
+					// 10, 11 / 13, 14, 15, 16, ..., 19
 					Expect(db.Delete(
 						ctx,
 						(11 * telem.SecondTS).Range(15*telem.SecondTS),

@@ -174,8 +174,8 @@ var _ = Describe("Status backfill", func() {
 			).To(Succeed())
 
 			// The backfill reads existing statuses as Status[StatusDetails]. This would
-			// fail without the flex DecodeMsgpack on the Key type because the task key is
-			// stored as a MessagePack float64.
+			// fail without the flex DecodeMsgpack on the Key type because the task key
+			// is stored as a MessagePack float64.
 			Expect(gorp.Migrate(ctx, gorp.MigrateConfig{
 				DB:         db,
 				Namespace:  "Task",

@@ -38,7 +38,8 @@ type TypeOrigin struct {
 	InferredAs string
 }
 
-// Constraint represents a type relationship that must hold for successful type checking.
+// Constraint represents a type relationship that must hold for successful type
+// checking.
 type Constraint struct {
 	// Source is the AST node that generated this constraint for error reporting.
 	Source antlr.ParserRuleContext
