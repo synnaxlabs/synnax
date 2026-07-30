@@ -22,7 +22,7 @@ import {
   reduce,
 } from "@/connection/status";
 import { AuthError, DisconnectedError } from "@/errors";
-import { TEST_CLIENT_PARAMS } from "@/testutil";
+import { TEST_CLIENT_PARAMS, waitForStatus } from "@/testutil";
 import { Transport } from "@/transport";
 
 const liveUnary = (): UnaryClient => {
@@ -117,26 +117,6 @@ const createClient = (
     heartbeatInterval,
     ...overrides,
   });
-
-const waitForStatus = async (
-  handle: connection.Handle,
-  predicate: (status: connection.Status) => boolean,
-  timeout: TimeSpan = TimeSpan.seconds(5),
-): Promise<connection.Status> => {
-  if (predicate(handle.status)) return handle.status;
-  return await new Promise<connection.Status>((resolve, reject) => {
-    const timer = setTimeout(() => {
-      detach();
-      reject(new Error("timed out waiting for connection status"));
-    }, timeout.milliseconds);
-    const detach = handle.onChange((status) => {
-      if (!predicate(status)) return;
-      clearTimeout(timer);
-      detach();
-      resolve(status);
-    });
-  });
-};
 
 const sleep = async (span: TimeSpan): Promise<void> =>
   await new Promise((resolve) => setTimeout(resolve, span.milliseconds));
