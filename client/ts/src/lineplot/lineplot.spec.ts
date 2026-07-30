@@ -86,7 +86,6 @@ describe("store", () => {
     const remote = createTestClient();
     try {
       await remote.connect();
-      await remote.cache.ensureStreaming();
       await client.connect();
       const plot = await seedPlot();
       await expect
