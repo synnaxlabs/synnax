@@ -277,7 +277,7 @@ describe("connection", () => {
       expect(live.details.streamLive).toBe(true);
     });
 
-    it("should lift error(unreachable) to warning on check success with a dark stream", () => {
+    it("should lift error(unreachable) to reconnecting on check success with a dark stream", () => {
       const config = createConfig({ requiresStream: true, escalateAfter: 1 });
       const error = new Unreachable({ message: "server down" });
       const parked = apply(config, { type: "check.failure", error, attempt: 1 });
@@ -289,7 +289,8 @@ describe("connection", () => {
         { type: "check.success", info: createInfo() },
         config,
       );
-      expect(checked.variant).toEqual("warning");
+      expect(checked.variant).toEqual("loading");
+      expect(checked.message).toEqual("Reconnecting");
       expect(checked.details.reason).toBeUndefined();
       const live = reduce(checked, { type: "stream.live" }, config);
       expect(live.variant).toEqual("success");
@@ -319,7 +320,7 @@ describe("connection", () => {
       expect(exhausted.details.retry).toBeNull();
     });
 
-    it("should transition success -> warning on stream drop and back on reopen", () => {
+    it("should transition success -> reconnecting on stream drop and back on reopen", () => {
       const config = createConfig({ requiresStream: true });
       const connected = apply(
         config,
@@ -332,13 +333,14 @@ describe("connection", () => {
         { type: "stream.drop", error: new Error("socket died") },
         config,
       );
-      expect(dropped.variant).toEqual("warning");
+      expect(dropped.variant).toEqual("loading");
+      expect(dropped.message).toEqual("Reconnecting");
       expect(dropped.details.streamLive).toBe(false);
       const reopened = reduce(dropped, { type: "stream.live" }, config);
       expect(reopened.variant).toEqual("success");
     });
 
-    it("should degrade to warning when a heartbeat fails while connected", () => {
+    it("should degrade to reconnecting when a heartbeat fails while connected", () => {
       const config = createConfig();
       const connected = apply(config, { type: "check.success", info: createInfo() });
       const degraded = reduce(
@@ -350,7 +352,8 @@ describe("connection", () => {
         },
         config,
       );
-      expect(degraded.variant).toEqual("warning");
+      expect(degraded.variant).toEqual("loading");
+      expect(degraded.message).toEqual("Reconnecting");
     });
 
     it("should enter error(auth) on auth failure and recover on new credentials", () => {
@@ -510,7 +513,7 @@ describe("connection", () => {
     it("should notify on every other field", () => {
       const nextAt = TimeStamp.now();
       const flips: [string, connection.Status][] = [
-        ["variant", withStatus({ variant: "warning" })],
+        ["variant", withStatus({ variant: "loading" })],
         ["message", withStatus({ message: "other" })],
         ["description", withStatus({ description: "other" })],
         ["reason", withDetails({ reason: "auth" })],
@@ -572,7 +575,6 @@ describe("connection", () => {
       });
       expect(modeFor(initial)).toEqual("checking");
       expect(modeFor(withReason("success"))).toEqual("heartbeat");
-      expect(modeFor(withReason("warning"))).toEqual("checking");
       expect(modeFor(withReason("error", "unreachable"))).toEqual("checking");
       expect(modeFor(withReason("error", "auth"))).toEqual("idle");
       expect(modeFor({ ...initial, variant: "disabled" })).toEqual("idle");
