@@ -44,6 +44,9 @@ export const detailsZ = z.object({
   clockSkew: TimeSpan.z,
   clockSkewExceeded: z.boolean(),
   retry: z.object({ attempt: z.number(), nextAt: TimeStamp.z }).nullable(),
+  // A probe is in flight right now. A process fact, not a judgment: the
+  // variant holds its verdict while attempts run beneath it.
+  probing: z.boolean(),
 });
 export interface Details extends z.infer<typeof detailsZ> {}
 
@@ -64,6 +67,7 @@ export const DEFAULT_DETAILS: Details = {
   clockSkew: TimeSpan.ZERO,
   clockSkewExceeded: false,
   retry: null,
+  probing: false,
 };
 
 /** The status of a client that does not exist. */
@@ -139,6 +143,7 @@ export interface Info {
  * outside facts through its notify inbox.
  */
 export type Event =
+  | { type: "probe.started" }
   | { type: "probe.success"; info: Info }
   | { type: "probe.failure"; error: Error; attempt: number }
   | { type: "stream.live" }
@@ -312,10 +317,16 @@ const reduceRetryExhausted = (prev: Status): Status => {
 export const reduce = (prev: Status, event: Event, config: Config): Status => {
   if (prev.variant === "disabled") return prev;
   switch (event.type) {
+    case "probe.started":
+      return update(prev, { details: { probing: true } });
     case "probe.success":
-      return reduceProbeSuccess(prev, event.info, config);
+      return update(reduceProbeSuccess(prev, event.info, config), {
+        details: { probing: false },
+      });
     case "probe.failure":
-      return reduceProbeFailure(prev, event.error, event.attempt, config);
+      return update(reduceProbeFailure(prev, event.error, event.attempt, config), {
+        details: { probing: false },
+      });
     case "stream.live":
       return reduceStreamLive(prev, config);
     case "stream.drop":
@@ -352,7 +363,7 @@ export const reduce = (prev: Status, event: Event, config: Config): Status => {
       return update(prev, {
         variant: "disabled",
         message: "Closed",
-        details: { reason: undefined, streamLive: false, retry: null },
+        details: { reason: undefined, streamLive: false, retry: null, probing: false },
       });
   }
 };

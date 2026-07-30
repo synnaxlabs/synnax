@@ -7,8 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { MAIN_WINDOW } from "@synnaxlabs/drift";
-import { act } from "@testing-library/react";
+import { Drift, MAIN_WINDOW } from "@synnaxlabs/drift";
+import { kv } from "@synnaxlabs/x";
+import { act, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { Session } from "@/session";
@@ -66,6 +67,38 @@ describe("useLogout", () => {
     expect(after[Nav.SLICE_NAME].windows[MAIN_WINDOW]?.bottom.visible ?? false).toBe(
       false,
     );
+  });
+
+  it("should not restore the project selection when logging back into the same cluster", async () => {
+    const db = new kv.MockAsync();
+    const store = await Session.createStore({
+      runtime: new Drift.NoopRuntime<Session.State, Session.Action>(),
+      enablePrerender: false,
+      openKV: () => db,
+    });
+    const { result } = await renderHookWithConsole(() => Session.useLogout(), {
+      store,
+    });
+    const settle = async () =>
+      await waitFor(() =>
+        expect(Session.Persist.selectSwapping(store.getState())).toBe(false),
+      );
+
+    act(() => store.dispatch(Cluster.select("LOCAL")));
+    await settle();
+    act(() => store.dispatch(Project.select(PROJECT_KEY)));
+    await settle();
+
+    act(() => result.current());
+    await settle();
+    expect(Cluster.selectSelectedKey(store.getState())).toBeUndefined();
+    expect(Project.selectOptionalSelected(store.getState())).toBeUndefined();
+
+    // Re-entering the cluster hydrates its persistence partition, which must
+    // not carry the pre-logout project selection back in.
+    act(() => store.dispatch(Cluster.select("LOCAL")));
+    await settle();
+    expect(Project.selectOptionalSelected(store.getState())).toBeUndefined();
   });
 
   it("should return a stable callback across renders", async () => {
