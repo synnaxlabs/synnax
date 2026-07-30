@@ -15,10 +15,10 @@ import { Toolbars } from "@/app/toolbars";
 import { Cluster } from "@/feature/cluster";
 import { Docs } from "@/feature/docs";
 import { Panel } from "@/feature/panel";
-import { Version } from "@/platform/version";
 import { CSS } from "@/platform/css";
 import { Nav as PlatformNav } from "@/platform/nav";
 import { User } from "@/platform/user";
+import { Version } from "@/platform/version";
 import { Window } from "@/platform/window";
 
 const BottomToggleButton = (): ReactElement => {

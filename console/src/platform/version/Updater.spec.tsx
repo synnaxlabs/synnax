@@ -28,8 +28,8 @@ vi.mock("@tauri-apps/plugin-updater", () => ({
 
 import { check } from "@tauri-apps/plugin-updater";
 
-import { Version } from "@/platform/version";
 import { renderWithModals } from "@/platform/modals/testutil";
+import { Version } from "@/platform/version";
 import { renderHookWithConsole } from "@/testutil";
 
 const checkMock = vi.mocked(check);

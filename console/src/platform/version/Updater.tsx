@@ -16,8 +16,8 @@ import {
 import { id, TimeSpan } from "@synnaxlabs/x";
 import { check } from "@tauri-apps/plugin-updater";
 
-import { useInfoModal } from "@/platform/version/useInfoModal";
 import { Notifications } from "@/platform/notifications";
+import { useInfoModal } from "@/platform/version/useInfoModal";
 import { Session } from "@/session";
 
 const STATUS_KEY_PREFIX = "versionUpdate";
