@@ -1138,8 +1138,9 @@ var _ = Describe("Writer Behavior", func() {
 							[]telem.Series{telem.NewSeriesV[int64](1)},
 						))).To(BeTrue())
 						Expect(w.Commit()).Error().To(SatisfyAll(
+							MatchError(index.ErrDiscontinuous),
 							MatchError(validate.ErrValidation),
-							MatchError(ContainSubstring("cannot be resolved to an exact sample")),
+							MatchError(ContainSubstring("does not exist in the index")),
 						))
 						Expect(w.Close()).To(MatchError(validate.ErrValidation))
 					})
@@ -1165,8 +1166,9 @@ var _ = Describe("Writer Behavior", func() {
 							[]telem.Series{telem.NewSeriesV[int64](1, 2)},
 						))).To(BeTrue())
 						Expect(w.Commit()).Error().To(SatisfyAll(
+							MatchError(index.ErrDiscontinuous),
 							MatchError(validate.ErrValidation),
-							MatchError(ContainSubstring("cannot be resolved to an exact sample")),
+							MatchError(ContainSubstring("does not exist in the index")),
 						))
 						Expect(w.Close()).To(MatchError(validate.ErrValidation))
 					})

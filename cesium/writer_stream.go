@@ -880,12 +880,7 @@ func (w *idxWriter) resolveCommitEnd(ctx context.Context) (index.TimeStampApprox
 	// there is no defined timestamp for the samples written by this writer. Committing
 	// anyway would use the approximation's zero-valued lower bound as the commit end.
 	if !approx.Exact() {
-		return approx, errors.Wrapf(
-			validate.ErrValidation,
-			"writer start %s cannot be resolved to an exact sample in index channel %v",
-			w.start,
-			w.idx.ch,
-		)
+		return approx, index.NewDiscontinuousStampError(w.start)
 	}
 	return approx, nil
 }
