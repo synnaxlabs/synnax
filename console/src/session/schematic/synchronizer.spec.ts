@@ -22,9 +22,9 @@ let proj: project.Project;
 
 beforeAll(async () => {
   proj = await client.projects.create({ name: uniqueName("project"), layout: {} });
-  // Epoch events only fire on a live change stream; open it up front so the
+  // Epoch events only fire on a live change stream; connect up front so the
   // mount-time sweep runs deterministically.
-  await client.cache.ensureStreaming();
+  await client.connect();
 });
 
 const createSchematic = async (): Promise<schematic.Schematic> =>

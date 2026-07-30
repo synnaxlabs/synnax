@@ -25,9 +25,9 @@ import {
 const client = createTestClient();
 
 beforeAll(async () => {
-  // Epoch events only fire on a live change stream; open it up front so the
+  // Epoch events only fire on a live change stream; connect up front so the
   // mount-time reconcile runs deterministically.
-  await client.cache.ensureStreaming();
+  await client.connect();
 });
 
 const leaf = (...tabKeys: string[]): panel.Node => ({
