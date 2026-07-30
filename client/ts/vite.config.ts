@@ -25,7 +25,7 @@ export default defineConfig({
         testutil: path.resolve(".", "src/testutil/index.ts"),
       },
     },
-    rolldownOptions: { external: ["zod", "vitest", /^@vitest\//] },
+    rolldownOptions: { external: ["zod", "vitest", /^@vitest\//, /^node:/] },
   },
   test: {
     globals: true,
