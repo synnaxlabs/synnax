@@ -9,6 +9,7 @@
 
 import { type connection } from "@synnaxlabs/client";
 import { TEST_CLIENT_PARAMS } from "@synnaxlabs/client/testutil";
+import { TimeSpan } from "@synnaxlabs/x";
 import { renderHook, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
@@ -40,6 +41,19 @@ describe("useCheckConnection", () => {
       }),
     );
     await waitFor(() => expect(result.current?.variant).toEqual("error"));
+  });
+
+  it("should keep probing on the interval while mounted", async () => {
+    const { result } = renderHook(() =>
+      Synnax.useCheckConnection(LIVE_PARAMS, TimeSpan.milliseconds(10)),
+    );
+    await waitFor(() => expect(result.current?.variant).toEqual("success"));
+    const first = result.current;
+    // A later poll replaces the status object, proving the loop keeps running.
+    await waitFor(() => {
+      expect(result.current?.variant).toEqual("success");
+      expect(result.current).not.toBe(first);
+    });
   });
 
   it("should not re-run the check for structurally equal params", async () => {
