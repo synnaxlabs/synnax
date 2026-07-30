@@ -9,6 +9,13 @@
 
 #include <atomic>
 #include <cstdio>
+#include <mutex>
+
+#ifdef _WIN32
+#include <io.h>
+#else
+#include <unistd.h>
+#endif
 
 #include "x/cpp/log/log.h"
 
@@ -60,13 +67,24 @@ bool color_enabled() {
     return enabled.load(std::memory_order_relaxed);
 }
 
+bool stderr_is_terminal() {
+#ifdef _WIN32
+    return _isatty(_fileno(stderr)) != 0;
+#else
+    return isatty(fileno(stderr)) != 0;
+#endif
+}
+
 void init(const bool enable_color) {
-    absl::InitializeLog();
-    enabled.store(enable_color, std::memory_order_relaxed);
-    // The default stderr sink would duplicate every line; silence it and let StderrSink
-    // own stderr output.
-    absl::SetStderrThreshold(absl::LogSeverityAtLeast::kInfinity);
-    static StderrSink sink(enable_color);
-    absl::AddLogSink(&sink);
+    static std::once_flag once;
+    std::call_once(once, [enable_color] {
+        absl::InitializeLog();
+        enabled.store(enable_color, std::memory_order_relaxed);
+        // The default stderr sink would duplicate every line; silence it and let
+        // StderrSink own stderr output.
+        absl::SetStderrThreshold(absl::LogSeverityAtLeast::kInfinity);
+        static StderrSink sink(enable_color);
+        absl::AddLogSink(&sink);
+    });
 }
 }

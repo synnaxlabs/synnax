@@ -40,7 +40,9 @@ void print_usage() {
 int exec(const int argc, char *argv[]) {
     x::crash::install("synnax-driver");
     auto args = x::args::Parser(argc, argv);
-    x::log::init(!args.flag("--no-color"));
+    // Color only when stderr is a terminal so ANSI codes never land in redirected
+    // log files (systemd journal, /var/log/synnax-driver.log on NI Linux RT).
+    x::log::init(!args.flag("--no-color") && x::log::stderr_is_terminal());
     if (args.flag("--debug")) absl::SetGlobalVLogLevel(2);
     VLOG(1) << "debug logging enabled";
     const std::string command = args.at(1, "command name required");

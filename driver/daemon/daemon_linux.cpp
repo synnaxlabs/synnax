@@ -43,9 +43,7 @@ StartLimitBurst=3
 
 [Service]
 Type=notify
-Environment=GLOG_logtostderr=1
-Environment=GLOG_v=1
-ExecStart=/usr/local/bin/synnax-driver internal-start
+ExecStart=/usr/local/bin/synnax-driver internal-start --debug
 User=synnax
 Group=synnax
 

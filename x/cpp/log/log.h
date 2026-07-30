@@ -30,11 +30,15 @@ private:
 };
 
 /// @brief initializes absl logging and installs a StderrSink in place of the default
-/// stderr output. Call once at process start, before other threads log.
+/// stderr output. Call at process start, before other threads log. Calls after the
+/// first are no-ops.
 void init(bool enable_color);
 
 /// @brief returns whether ANSI color output is enabled.
 bool color_enabled();
+
+/// @brief returns whether stderr is attached to a terminal.
+bool stderr_is_terminal();
 
 inline std::string get_color(const std::string &color) {
     return color_enabled() ? color : "";

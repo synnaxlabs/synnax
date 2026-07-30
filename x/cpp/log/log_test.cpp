@@ -148,6 +148,22 @@ TEST(Log, testInitWithoutColor) {
     );
 }
 
+/// @brief it should ignore calls to init after the first: no abort from
+/// re-initializing absl, no color change, and logging keeps flowing.
+TEST(Log, testInitTwiceIsNoOp) {
+    GTEST_FLAG_SET(death_test_style, "threadsafe");
+    ASSERT_EXIT(
+        {
+            init(true);
+            init(false);
+            LOG(WARNING) << "still logging";
+            std::exit(color_enabled() ? 0 : 1);
+        },
+        testing::ExitedWithCode(0),
+        "still logging"
+    );
+}
+
 /// @brief it should route LOG lines through the installed sink after init.
 TEST(Log, testInitInstallsSink) {
     GTEST_FLAG_SET(death_test_style, "threadsafe");
