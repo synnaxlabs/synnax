@@ -114,7 +114,7 @@ const useHeldChecking = (checking: boolean): boolean => {
 };
 
 interface CountdownCoreProps {
-  retry: NonNullable<connection.Details["retry"]>;
+  retry: NonNullable<connection.StatusDetails["retry"]>;
   checking: boolean;
 }
 
