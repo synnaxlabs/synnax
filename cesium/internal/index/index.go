@@ -24,8 +24,8 @@ import (
 )
 
 // ErrDiscontinuous is returned if the index has discontinuities across an evaluated
-// time range. It wraps validate.ErrValidation, so callers can match either the
-// specific discontinuity or the general validation shape.
+// time range. It wraps validate.ErrValidation, so callers can match either the specific
+// discontinuity or the general validation shape.
 var ErrDiscontinuous = errors.Wrap(validate.ErrValidation, "discontinuous")
 
 func NewDiscontinuousTRError(tr telem.TimeRange) error {
@@ -37,8 +37,8 @@ func NewDiscontinuousOffsetError(offset int64, domainLen int64) error {
 }
 
 // NewDiscontinuousStampError is returned when a timestamp cannot be resolved to an
-// exact sample in the index, whether because no domain contains it or because it
-// falls between two samples.
+// exact sample in the index, whether because no domain contains it or because it falls
+// between two samples.
 func NewDiscontinuousStampError(stamp telem.TimeStamp) error {
 	return errors.Wrapf(ErrDiscontinuous, "the timestamp %s does not exist in the index", stamp)
 }
