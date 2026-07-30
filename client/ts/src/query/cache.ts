@@ -7,16 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import {
-  type destructor,
-  errors,
-  observe,
-  type record,
-  type state,
-} from "@synnaxlabs/x";
+import { type destructor, observe, type record, type state } from "@synnaxlabs/x";
 import type z from "zod";
 
-import { NotFoundError } from "@/errors";
 import { bindDerived, type DeriveParams } from "@/query/derived";
 import { Queries, type QueriesParams, type Retrieves } from "@/query/query";
 import {
@@ -80,53 +73,6 @@ interface Space {
 }
 
 /**
- * Retrieves by key are strict: a batch containing any vanished key rejects
- * with NotFound instead of returning the survivors. Falls back to probing
- * keys one at a time so survivors are still distinguishable.
- */
-const fetchSurvivors = async <Key extends record.Key, Value extends state.State>(
-  fetch: NonNullable<TableParams<Key, Value>["fetch"]>,
-  keys: Key[],
-): Promise<Array<Keyed<Key, Value>>> => {
-  try {
-    return await fetch(keys);
-  } catch (exc) {
-    if (!NotFoundError.matches(exc)) throw errors.fromUnknown(exc);
-  }
-  if (keys.length === 1) return [];
-  const probed = await Promise.all(
-    keys.map(async (key) => {
-      try {
-        return await fetch([key]);
-      } catch (exc) {
-        if (NotFoundError.matches(exc)) return [];
-        throw errors.fromUnknown(exc);
-      }
-    }),
-  );
-  return probed.flat();
-};
-
-/**
- * Binds a table's reconcile pass: refreshes rows that still exist on the
- * cluster and tombstones rows that vanished.
- */
-const bindReconcile =
-  <Key extends record.Key, Value extends state.State>(
-    table: Table<Key, Value>,
-    fetch: NonNullable<TableParams<Key, Value>["fetch"]>,
-  ): (() => Promise<void>) =>
-  async () => {
-    const keys = table.keys();
-    if (keys.length === 0) return;
-    const values = await fetchSurvivors(fetch, keys);
-    const present = new Set<Key>(values.map(({ key }) => key));
-    const vanished = keys.filter((k) => !present.has(k));
-    if (vanished.length > 0) table.delete(vanished);
-    if (values.length > 0) table.set(values);
-  };
-
-/**
  * The client's local mirror of cluster state: keyed tables, the change-stream
  * loop, connection epochs, and reconciliation. Holds zero domain knowledge —
  * domain clients create their tables here and expose typed query spaces.
@@ -174,7 +120,7 @@ export class Cache {
     this.entries.push({
       name,
       listeners: (listen ?? []).map((spec) => spec.bind(table)),
-      reconcile: config.fetch == null ? undefined : bindReconcile(table, config.fetch),
+      reconcile: config.fetch == null ? undefined : async () => await table.reconcile(),
       reset: () => table.reset(),
     });
     return table;

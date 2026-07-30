@@ -601,6 +601,54 @@ describe("useRetrieveSuspended", () => {
       );
     });
 
+    it("tears down the subscription when it delivers a tombstone synchronously", async () => {
+      const tombstone = new query.Deleted<number>(3, TimeStamp.now());
+      let cached: query.Cached<number> | undefined;
+      const disconnect = vi.fn();
+      const retrieve = vi.fn(async (): Promise<number> => {
+        throw new NotFoundError("no such number");
+      });
+      const { useRetrieveSuspended } = Flux.createRetrieve<{ key: string }, number>({
+        name: "Number",
+        retrieve,
+        // A row tombstoned between the failed fetch and the subscription
+        // mounting answers during onChange itself, so the handler fires
+        // before the destructor is returned.
+        subscribe: (_, h) => {
+          cached = tombstone;
+          h(tombstone);
+          return disconnect;
+        },
+        getCached: () => cached,
+      });
+
+      const Display = (): ReactElement => {
+        const value = useRetrieveSuspended({ key: "nf-sync-tombstone" });
+        return <div data-testid="value">{value}</div>;
+      };
+
+      let utils!: ReturnType<typeof render>;
+      await act(async () => {
+        utils = render(
+          <Wrapper>
+            <Errors.SuspenseBoundary
+              loading={<div>waiting</div>}
+              FallbackComponent={({ error }) => (
+                <div data-testid="error">{error.message}</div>
+              )}
+            >
+              <Display />
+            </Errors.SuspenseBoundary>
+          </Wrapper>,
+        );
+      });
+
+      await waitFor(() =>
+        expect(utils.queryByTestId("error")?.textContent).toBe("Number was deleted"),
+      );
+      expect(disconnect).toHaveBeenCalled();
+    });
+
     it("settles a not-found immediately when the query has no subscription", async () => {
       const retrieve = vi.fn(async (): Promise<number> => {
         throw new NotFoundError("no such number");

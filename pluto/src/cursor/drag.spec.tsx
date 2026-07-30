@@ -193,14 +193,25 @@ describe("Cursor.useDrag", () => {
       expect(onMove).toHaveBeenCalledTimes(2);
     });
 
-    it("should drop a pending move when the drag ends first", async () => {
-      const onMove = vi.fn();
-      const el = renderTarget({ onMove });
+    it("should flush a pending move before the drag ends", async () => {
+      const calls: string[] = [];
+      const onMove = vi.fn((_: box.Box) => {
+        calls.push("move");
+      });
+      const onEnd = vi.fn(() => {
+        calls.push("end");
+      });
+      const el = renderTarget({ onMove, onEnd });
       down(el, { x: 0, y: 0 });
       move({ x: 50, y: 0 });
       up({ x: 50, y: 0 });
+      expect(onMove).toHaveBeenCalledTimes(1);
+      const b = onMove.mock.lastCall?.[0];
+      if (b == null) throw new Error("expected a flushed move");
+      expect(box.width(b)).toEqual(50);
+      expect(calls).toEqual(["move", "end"]);
       await frame();
-      expect(onMove).not.toHaveBeenCalled();
+      expect(onMove).toHaveBeenCalledTimes(1);
     });
   });
 
