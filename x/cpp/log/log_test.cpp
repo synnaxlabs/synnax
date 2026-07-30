@@ -148,8 +148,8 @@ TEST(Log, testInitWithoutColor) {
     );
 }
 
-/// @brief it should ignore calls to init after the first: no abort from
-/// re-initializing absl, no color change, and logging keeps flowing.
+/// @brief it should ignore calls to init after the first: no abort from re-initializing
+/// absl, no color change, and logging keeps flowing.
 TEST(Log, testInitTwiceIsNoOp) {
     GTEST_FLAG_SET(death_test_style, "threadsafe");
     ASSERT_EXIT(

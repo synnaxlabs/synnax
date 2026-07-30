@@ -24,10 +24,10 @@
 namespace driver::daemon {
 namespace {
 /// @brief stands in for the notification socket systemd provides to Type=notify
-/// services: binds an abstract unix datagram socket and points NOTIFY_SOCKET at it
-/// (the "@" prefix selects the abstract namespace, per sd_notify(3)). Abstract
-/// sockets avoid filesystem paths, which can exceed sun_path's 108-byte limit under
-/// Bazel test directories.
+/// services: binds an abstract unix datagram socket and points NOTIFY_SOCKET at it (the
+/// "@" prefix selects the abstract namespace, per sd_notify(3)). Abstract sockets avoid
+/// filesystem paths, which can exceed sun_path's 108-byte limit under Bazel test
+/// directories.
 class NotifySocket {
 public:
     explicit NotifySocket(const std::string &suffix):
@@ -71,8 +71,8 @@ private:
 };
 }
 
-/// @brief it should run the callback and report READY, watchdog liveness, and
-/// STOPPING to the service manager.
+/// @brief it should run the callback and report READY, watchdog liveness, and STOPPING
+/// to the service manager.
 TEST(Daemon, testRunNotifiesServiceManager) {
     const NotifySocket sock("notify");
     ASSERT_TRUE(sock.ok());
@@ -88,8 +88,8 @@ TEST(Daemon, testRunNotifiesServiceManager) {
     EXPECT_NE(msgs.find("STOPPING=1"), std::string::npos);
 }
 
-/// @brief it should report an error status when the callback throws, and still
-/// return instead of propagating.
+/// @brief it should report an error status when the callback throws, and still return
+/// instead of propagating.
 TEST(Daemon, testRunReportsCallbackError) {
     const NotifySocket sock("error");
     ASSERT_TRUE(sock.ok());
