@@ -15,7 +15,7 @@ import { Toolbars } from "@/app/toolbars";
 import { Cluster } from "@/feature/cluster";
 import { Docs } from "@/feature/docs";
 import { Panel } from "@/feature/panel";
-import { Version } from "@/feature/version";
+import { Version } from "@/platform/version";
 import { CSS } from "@/platform/css";
 import { Nav as PlatformNav } from "@/platform/nav";
 import { User } from "@/platform/user";

@@ -1,0 +1,231 @@
+/*
+ * Copyright 2026 Synnax Labs, Inc.
+ *
+ * Use of this software is governed by the Business Source License included in the file
+ * licenses/BSL.txt.
+ *
+ * As of the Change Date specified in that file, in accordance with the Business Source
+ * License, use of this software will be governed by the Apache License, Version 2.0,
+ * included in the file licenses/APL.txt.
+ */
+
+.console-shell {
+    height: 100%;
+    width: 100%;
+    overflow: hidden;
+    box-shadow: var(--pluto-shadow-v0);
+}
+
+.console-shell__content {
+    cursor: default;
+    position: relative;
+    /* Stacking context keeps the nebula's negative z-index above this surface's
+       fill instead of dropping behind it. */
+    z-index: 0;
+}
+
+.console-shell__logo {
+    height: 10rem;
+    cursor: default;
+}
+
+.console--logo-corner .console-shell__logo {
+    position: absolute;
+    top: 4rem;
+    left: 4rem;
+    height: 5rem;
+}
+
+.console-shell__stage {
+    position: relative;
+    z-index: 0;
+}
+
+/* ---------- ornaments ---------- */
+
+/* Echo: concentric outlines fading outward; radius tracks card radius + inset. */
+.console--ornament-echo .console-shell__stage::before,
+.console--ornament-echo .console-shell__stage::after {
+    content: "";
+    position: absolute;
+    pointer-events: none;
+}
+
+.console--ornament-echo .console-shell__stage::before {
+    inset: -2.5rem;
+    border: var(--pluto-border-width) solid
+        color-mix(in srgb, var(--pluto-gray-l7) 45%, transparent);
+    border-radius: 5.5rem;
+}
+
+.console--ornament-echo .console-shell__stage::after {
+    inset: -5.5rem;
+    border: var(--pluto-border-width) solid
+        color-mix(in srgb, var(--pluto-gray-l7) 20%, transparent);
+    border-radius: 8.5rem;
+}
+
+.console--ornament-dashed .console-shell__stage::before {
+    content: "";
+    position: absolute;
+    inset: -3rem;
+    border: var(--pluto-border-width) dashed var(--pluto-gray-l7);
+    border-radius: 6rem;
+    pointer-events: none;
+}
+
+.console-shell__orbits {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: 175%;
+    transform: translate(-50%, -50%);
+    color: var(--pluto-gray-l7);
+    pointer-events: none;
+    z-index: -1;
+}
+
+/* ---------- card ---------- */
+
+/* Every surface's card shares one fixed size so guard handoffs read as content
+   changes inside a stable frame, never as page swaps. */
+.console-shell__card {
+    position: relative;
+    width: 420px;
+    height: 480px;
+    overflow: hidden;
+    transition:
+        width 0.25s ease,
+        height 0.25s ease;
+}
+
+/* Surface swaps remount card content; the fade turns each swap into a
+   crossfade and keeps sub-250ms transients from ever reaching full opacity. */
+.console-shell__card > * {
+    animation: console-shell-reveal 0.25s ease;
+}
+
+@keyframes console-shell-reveal {
+    from {
+        opacity: 0;
+    }
+    to {
+        opacity: 1;
+    }
+}
+
+.console--card-surface .console-shell__card {
+    background: var(--pluto-gray-l0);
+    border: var(--pluto-border-width) solid var(--pluto-gray-l6);
+    box-shadow: var(--pluto-shadow-v2);
+}
+
+.console--card-frosted .console-shell__card {
+    background: color-mix(in srgb, var(--pluto-gray-l0) 15%, transparent);
+    -webkit-backdrop-filter: blur(0.75rem);
+    backdrop-filter: blur(0.75rem);
+    border: var(--pluto-border-width) solid var(--pluto-gray-l6);
+    box-shadow: var(--pluto-shadow-v2);
+}
+
+.console--card-outline .console-shell__card {
+    background: transparent;
+    border: var(--pluto-border-width) solid var(--pluto-gray-l7);
+}
+
+.console--card-none .console-shell__card {
+    background: transparent;
+    border: none;
+    box-shadow: none;
+}
+
+/* ---------- card shapes ---------- */
+
+.console--shape-sharp .console-shell__card {
+    border-radius: 1rem;
+}
+
+.console--shape-soft .console-shell__card {
+    border-radius: 3rem;
+}
+
+.console--shape-round .console-shell__card {
+    border-radius: 4rem;
+}
+
+/* Selector lists hosted by the card share one fixed height so the cluster and
+   project surfaces match. Doubled class beats bordered/background variants. */
+.console-shell__list.console-shell__list {
+    width: 100%;
+    height: 100%;
+    border: none;
+    background: transparent;
+}
+
+/* ---------- connection footer ---------- */
+
+.console-shell__footer {
+    position: absolute;
+    bottom: 3rem;
+    z-index: 1;
+}
+
+.console--footer-left {
+    left: 3rem;
+}
+
+.console--footer-right {
+    right: 3rem;
+}
+
+.console--footer-center {
+    left: 50%;
+    transform: translateX(-50%);
+}
+
+.console-shell__footer-dot {
+    font-size: 2.25rem;
+}
+
+.console--footer-chip {
+    padding: 1.75rem 3.5rem;
+    border-radius: 1.5rem;
+    border: var(--pluto-border-width) solid var(--pluto-gray-l6);
+    background: color-mix(in srgb, var(--pluto-gray-l0) 15%, transparent);
+    -webkit-backdrop-filter: blur(0.75rem);
+    backdrop-filter: blur(0.75rem);
+}
+
+.console--footer-bar {
+    left: 0;
+    right: 0;
+    bottom: 0;
+    transform: none;
+    padding: 1.5rem 3rem;
+    border-top: var(--pluto-border-width) solid var(--pluto-gray-l4);
+    background: color-mix(in srgb, var(--pluto-gray-l0) 15%, transparent);
+    -webkit-backdrop-filter: blur(0.75rem);
+    backdrop-filter: blur(0.75rem);
+}
+
+/* ---------- branding mark ---------- */
+
+.console-shell__mark-ring {
+    width: 12rem;
+    height: 12rem;
+    min-width: 12rem;
+    min-height: 12rem;
+    max-width: 12rem;
+    max-height: 12rem;
+    flex-shrink: 0;
+    border: var(--pluto-border-width) solid var(--pluto-gray-l7);
+    border-radius: 50%;
+    margin: 2rem 0 1rem;
+}
+
+/* The media Logo only implements its "auto" color class, which resolves this
+   var; the white/gradient color props are dead. Recolor through the var. */
+.console-shell__mark {
+    height: 5.5rem;
+    --pluto-logo-color: #fff;
+}

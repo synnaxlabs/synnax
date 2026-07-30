@@ -9,66 +9,43 @@
 
 import "@/feature/project/Splash.css";
 
-import { project, status, UnexpectedError } from "@synnaxlabs/client";
-import { Logo } from "@synnaxlabs/media";
+import { project, UnexpectedError } from "@synnaxlabs/client";
 import {
   Access,
   Button,
-  Component,
   Flex,
-  Form,
+  Header,
+  Icon,
   List,
-  Nav,
-  OS,
   Project as PProject,
   Select,
   Text,
 } from "@synnaxlabs/pluto";
 import { type ReactElement, useCallback, useEffect } from "react";
 
-import { Version } from "@/feature/version";
+import { listItem } from "@/feature/project/Selector";
 import { CSS } from "@/platform/css";
-import { Nav as PlatformNav } from "@/platform/nav";
-import { Triggers } from "@/platform/triggers";
-import { Window } from "@/platform/window";
+import { Empty } from "@/platform/empty";
+import { Project as PlatformProject } from "@/platform/project";
+import { Shell } from "@/platform/shell";
 import { Session } from "@/session";
 
-const listItem = Component.renderProp(
-  (props: List.ItemProps<project.Key>): ReactElement | null => {
-    const { itemKey } = props;
-    const p = List.useItem<project.Key, project.Project>(itemKey);
-    if (p == null) return null;
-    return (
-      <Select.ListItem {...props}>
-        <Text.Text>{p.name}</Text.Text>
-      </Select.ListItem>
-    );
-  },
-);
-
-const SplashNav = (): ReactElement => {
-  const os = OS.use();
-  return (
-    <PlatformNav.Bar location="top" size="7rem" bordered data-tauri-drag-region>
-      <Nav.Bar.Start data-tauri-drag-region>
-        <Window.Controls visibleIfOS="macOS" forceOS={os} />
-      </Nav.Bar.Start>
-      <Nav.Bar.End data-tauri-drag-region justify="end">
-        <Version.Badge />
-        <Window.Controls visibleIfOS="Windows" forceOS={os} />
-      </Nav.Bar.End>
-    </PlatformNav.Bar>
-  );
-};
-
+/**
+ * Full-window project picker shown when the session has no active project.
+ * Selecting a row activates it; the pinned footer opens the create modal.
+ */
 export const Splash = (): ReactElement => {
   const dispatch = Session.useDispatch();
+  const logout = Session.useLogout();
+  const activeClusterKey = Session.Cluster.useSelectSelectedKey();
+  const activeCluster = Session.Cluster.useSelectState(activeClusterKey ?? undefined);
   const hasRetrievePermission = Access.useRetrieveGranted(project.TYPE_ONTOLOGY_ID);
   const hasCreatePermission = Access.useCreateGranted(project.TYPE_ONTOLOGY_ID);
-  const { data, retrieve, getItem, subscribe } = PProject.useList();
+  const openCreate = PlatformProject.useCreateModal();
+  const { data, retrieve, getItem, subscribe, variant } = PProject.useList();
 
-  // The list pane only mounts once data is non-empty, so the initial fetch cannot
-  // rely on the pane's own onFetchMore.
+  // The items pane only mounts once data is non-empty, so the initial fetch
+  // cannot rely on its own onFetchMore.
   useEffect(() => {
     retrieve({});
   }, [retrieve]);
@@ -83,111 +60,65 @@ export const Splash = (): ReactElement => {
     [dispatch, getItem],
   );
 
-  const { form, save, variant } = PProject.useForm({
-    query: {},
-    initialValues: { name: "", layout: {} },
-    afterSave: ({ value }) => {
-      const { key } = value();
-      if (key == null) throw new UnexpectedError("Project key is null");
-      dispatch(Session.Project.select(key));
-    },
-  });
-
   return (
-    <Flex.Box y empty className={CSS.B("project-splash")}>
-      <SplashNav />
-      <Flex.Box
-        y
-        align="center"
-        justify="center"
-        background={1}
-        gap="huge"
-        grow
-        data-tauri-drag-region
-        className={CSS.BE("project-splash", "content")}
+    <Shell.Frame className={CSS.B("project-splash")} connection={activeCluster}>
+      <Select.Frame
+        data={data}
+        onChange={handleSelect}
+        getItem={getItem}
+        subscribe={subscribe}
+        onFetchMore={() => retrieve({})}
       >
-        <Logo
-          variant="title"
-          className={CSS.BE("project-splash", "logo")}
-          data-tauri-drag-region
-        />
         <Flex.Box
-          pack
-          x
-          className={CSS.BE("project-splash", "container")}
-          grow={false}
-          rounded={1.5}
-          background={0}
+          y
+          grow
+          empty
+          className={CSS(CSS.BE("shell", "list"), CSS.BE("project-splash", "list"))}
         >
-          {hasRetrievePermission && data.length > 0 && (
-            <Flex.Box y className={CSS.BE("project-splash", "list")} bordered empty>
-              <Flex.Box
-                align="center"
-                justify="center"
-                className={CSS.B("project-splash-list-header")}
+          <Header.Header gap="small" x className={CSS.BE("project-splash", "header")}>
+            <Header.Title level="h4" color={11}>
+              <Icon.Project />
+              Projects
+            </Header.Title>
+            <Header.Actions>
+              <Button.Button
+                variant="text"
+                size="small"
+                onClick={logout}
+                className={CSS.BE("project-splash", "logout")}
               >
-                <Text.Text level="h4" color={11} weight={450}>
-                  Open a Project
-                </Text.Text>
-              </Flex.Box>
-              <Select.Frame
-                data={data}
-                onChange={handleSelect}
-                getItem={getItem}
-                subscribe={subscribe}
-                onFetchMore={() => retrieve({})}
-              >
-                <List.Items grow bordered>
-                  {listItem}
-                </List.Items>
-              </Select.Frame>
-            </Flex.Box>
+                <Icon.Logout />
+                Log Out
+              </Button.Button>
+            </Header.Actions>
+          </Header.Header>
+          {hasRetrievePermission && data.length > 0 ? (
+            <List.Items grow className={CSS.BE("project-splash", "items")}>
+              {listItem}
+            </List.Items>
+          ) : variant === "success" ? (
+            <Empty.Action grow message="No projects created." />
+          ) : (
+            <Flex.Box grow />
           )}
-          <Flex.Box
-            y
-            align="center"
-            justify="center"
-            gap="huge"
-            className={CSS.BE("project-splash", "form")}
-            bordered
-            grow
-            shrink={false}
-          >
-            <Text.Text level="h2" color={11} weight={450}>
+          {hasCreatePermission ? (
+            <Button.Button
+              variant="text"
+              full="x"
+              justify="start"
+              onClick={() => openCreate()}
+              className={CSS.BE("project-splash", "create")}
+            >
+              <Icon.Add />
               New Project
+            </Button.Button>
+          ) : (
+            <Text.Text color={9} className={CSS.BE("project-splash", "denied")}>
+              You do not have permission to create a project.
             </Text.Text>
-            {hasCreatePermission ? (
-              <>
-                <Form.Form<typeof PProject.formSchema> {...form}>
-                  <Flex.Box y full="x" empty>
-                    <Form.TextField
-                      path="name"
-                      inputProps={{
-                        placeholder: "Project name",
-                        autoFocus: true,
-                        size: "large",
-                      }}
-                    />
-                  </Flex.Box>
-                </Form.Form>
-                <Button.Button
-                  onClick={() => save()}
-                  status={status.keepVariants(variant, "loading")}
-                  trigger={Triggers.SAVE}
-                  variant="filled"
-                  size="large"
-                >
-                  Create Project
-                </Button.Button>
-              </>
-            ) : (
-              <Text.Text level="p" color={9}>
-                You do not have permission to create a project.
-              </Text.Text>
-            )}
-          </Flex.Box>
+          )}
         </Flex.Box>
-      </Flex.Box>
-    </Flex.Box>
+      </Select.Frame>
+    </Shell.Frame>
   );
 };

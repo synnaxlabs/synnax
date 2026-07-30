@@ -14,5 +14,34 @@
 }
 
 .console-cluster-list__header {
-    padding: 0.666rem;
+    padding: 2.5rem 3rem;
+}
+
+/* The scroll region; keeps the add row pinned below it. */
+.console-cluster-list__items.console-cluster-list__items {
+    overflow-y: auto;
+    min-height: 0;
+    padding: 1.5rem;
+    gap: 1rem;
+}
+
+.console-cluster-list-item.console-cluster-list-item {
+    min-height: 9rem;
+    padding: 2rem 3rem;
+    border-radius: 1.5rem;
+}
+
+/* Pinned add row styled to read as the list's last row. */
+.pluto-btn.console-cluster-list__add {
+    margin: 0 1.5rem 1.5rem;
+    padding: 2rem 3rem;
+    width: auto;
+    min-height: 8rem;
+    border-radius: 1.5rem;
+    gap: 2rem;
+    color: var(--pluto-gray-l9);
+
+    &:hover {
+        color: var(--pluto-gray-l11);
+    }
 }

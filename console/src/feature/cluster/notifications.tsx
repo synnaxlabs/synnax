@@ -9,7 +9,7 @@
 
 import { Button, Status, Synnax } from "@synnaxlabs/pluto";
 
-import { Version } from "@/feature/version";
+import { Version } from "@/platform/version";
 import { type Notifications } from "@/platform/notifications";
 
 const isMismatch = (status: Notifications.NotificationProps["status"]): boolean => {

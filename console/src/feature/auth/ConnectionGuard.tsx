@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import "@/feature/auth/Login.css";
+import "@/feature/auth/ConnectionGuard.css";
 
 import { type connection, type Synnax as Client } from "@synnaxlabs/client";
 import { Logo } from "@synnaxlabs/media";
@@ -17,21 +17,15 @@ import {
   type PropsWithChildren,
   type ReactElement,
   type ReactNode,
-  useCallback,
   useEffect,
   useState,
 } from "react";
 
 import { Login } from "@/feature/auth/Login";
-import { LoginNav } from "@/feature/auth/LoginNav";
 import { Cluster } from "@/platform/cluster";
 import { CSS } from "@/platform/css";
+import { Shell } from "@/platform/shell";
 import { Session } from "@/session";
-
-export interface ConnectionGuardProps extends PropsWithChildren {
-  /** Renders the window nav chrome above the takeover. Off in child windows. */
-  nav?: boolean;
-}
 
 /**
  * Blacks out the workspace while the active cluster is unusable or the
@@ -41,50 +35,46 @@ export interface ConnectionGuardProps extends PropsWithChildren {
  * trouble with error detail and actions once a probe fails, preparing once
  * the cluster is reached. Warm degradation renders children intact.
  */
-export const ConnectionGuard = ({
-  children,
-  nav = true,
-}: ConnectionGuardProps): ReactNode => {
+export const ConnectionGuard = ({ children }: PropsWithChildren): ReactNode => {
   const client = Synnax.use();
   const status = Synnax.useConnectionStatus();
   const settled = Session.Settled.use();
   if (client == null) return children;
-  if (status.variant === "error" && status.details.reason === "auth")
-    return <Login nav={nav} />;
-  if (!settled) return <Splash client={client} status={status} nav={nav} />;
+  if (status.variant === "error" && status.details.reason === "auth") return <Login />;
+  if (!settled) return <Splash client={client} status={status} />;
   return children;
 };
 
 interface SplashProps {
   client: Client;
   status: connection.Status;
-  nav: boolean;
 }
 
-const Splash = ({ client, status, nav }: SplashProps): ReactElement => {
+const Splash = ({ client, status }: SplashProps): ReactElement => {
   const { variant, details } = status;
   const connecting = details.epoch === 0;
   const troubled =
     connecting &&
     (variant === "error" || details.error != null || details.retry != null);
+  // Fast connections settle before the reveal timer fires, so the splash stays
+  // an empty card instead of flashing a spinner for a few frames.
+  const [revealed, setRevealed] = useState(false);
+  useEffect(() => {
+    const timeout = setTimeout(() => setRevealed(true), 300);
+    return () => clearTimeout(timeout);
+  }, []);
   return (
-    <Flex.Box y empty className={CSS.B("login")}>
-      {nav && <LoginNav />}
+    <Shell.Frame className={CSS.B("connection")}>
       <Flex.Box
         y
         align="center"
         justify="center"
-        background={1}
         gap="huge"
-        grow
-        data-tauri-drag-region
-        className={CSS.BE("login", "content")}
+        className={CSS(CSS.BE("connection", "body"), revealed && CSS.M("revealed"))}
       >
-        <Logo
-          variant="title"
-          className={CSS.BE("login", "logo")}
-          data-tauri-drag-region
-        />
+        <Flex.Box center grow={false} className={CSS.BE("shell", "mark-ring")}>
+          <Logo variant="icon" className={CSS.BE("shell", "mark")} />
+        </Flex.Box>
         {troubled ? (
           <Trouble client={client} status={status} />
         ) : (
@@ -94,7 +84,7 @@ const Splash = ({ client, status, nav }: SplashProps): ReactElement => {
           />
         )}
       </Flex.Box>
-    </Flex.Box>
+    </Shell.Frame>
   );
 };
 
@@ -127,76 +117,60 @@ interface TroubleProps {
 const Trouble = ({ client, status }: TroubleProps): ReactElement => {
   const activeKey = Session.Cluster.useSelectSelectedKey();
   const cluster = Session.Cluster.useSelectState(activeKey ?? undefined);
-  const dispatch = Session.useDispatch();
   const logout = Session.useLogout();
   const openConnect = Cluster.useConnectModal();
   const { error, retry } = status.details;
-
-  const handleSelect = useCallback(
-    (key?: string) => {
-      if (key != null) dispatch(Session.Cluster.select(key));
-    },
-    [dispatch],
-  );
-
   return (
-    <Flex.Box
-      pack
-      x
-      className={CSS.BE("login", "container")}
-      grow={false}
-      rounded={1.5}
-      background={0}
-    >
-      <Cluster.List
-        className={CSS.BE("login", "list")}
-        value={activeKey ?? undefined}
-        onChange={handleSelect}
-      />
+    <>
       <Flex.Box
         y
-        gap="huge"
-        className={CSS.BE("login", "form")}
-        bordered
-        grow
-        shrink={false}
         align="center"
-        justify="center"
+        gap="tiny"
+        grow={false}
+        className={CSS.BE("connection", "target")}
       >
-        <Flex.Box y gap="small" align="center">
-          <Text.Text level="h2" color={11} weight={450}>
-            {cluster?.name ?? "Cluster"}
+        <Text.Text color={10} weight={500}>
+          {cluster?.name ?? "Cluster"}
+        </Text.Text>
+        {cluster != null && (
+          <Text.Text level="small" color={9}>
+            {cluster.host}:{cluster.port}
           </Text.Text>
-          {cluster != null && (
-            <Text.Text color={9}>
-              {cluster.host}:{cluster.port}
-            </Text.Text>
-          )}
-        </Flex.Box>
-        <Flex.Box y gap="small" align="center">
-          <Status.Summary variant={status.variant} message={status.message} />
-          {error != null && error.message !== status.message && (
-            <Text.Text color={9}>{error.message}</Text.Text>
-          )}
-          {retry != null && <RetryStatus retry={retry} />}
-        </Flex.Box>
-        <Flex.Box x gap="small" align="center">
-          <Button.Button variant="filled" onClick={() => client.connection.retryNow()}>
-            Retry Now
-          </Button.Button>
+        )}
+      </Flex.Box>
+      <Flex.Box y gap="small" align="center">
+        <Status.Summary variant={status.variant} message={status.message} />
+        {error != null && error.message !== status.message && (
+          <Text.Text color={9}>{error.message}</Text.Text>
+        )}
+        {retry != null && <RetryStatus retry={retry} />}
+      </Flex.Box>
+      <Flex.Box y gap="small" full="x">
+        <Button.Button
+          variant="filled"
+          size="large"
+          full="x"
+          justify="center"
+          onClick={() => client.connection.retryNow()}
+        >
+          Retry Now
+        </Button.Button>
+        <Flex.Box x gap="small" full="x">
           {activeKey != null && (
             <Button.Button
               variant="outlined"
+              grow
+              justify="center"
               onClick={() => openConnect({ clusterKey: activeKey })}
             >
               Edit Connection
             </Button.Button>
           )}
-          <Button.Button variant="outlined" onClick={logout}>
+          <Button.Button variant="outlined" grow justify="center" onClick={logout}>
             Log Out
           </Button.Button>
         </Flex.Box>
       </Flex.Box>
-    </Flex.Box>
+    </>
   );
 };

@@ -28,7 +28,7 @@ vi.mock("@tauri-apps/plugin-updater", () => ({
 
 import { check } from "@tauri-apps/plugin-updater";
 
-import { Version } from "@/feature/version";
+import { Version } from "@/platform/version";
 import { renderWithModals } from "@/platform/modals/testutil";
 import { renderHookWithConsole } from "@/testutil";
 

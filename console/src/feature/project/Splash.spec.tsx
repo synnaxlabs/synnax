@@ -14,6 +14,7 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { Project } from "@/feature/project";
+import { Modals } from "@/platform/modals";
 import { Session } from "@/session";
 import { createConsoleWrapper, renderWithConsole } from "@/testutil";
 
@@ -21,13 +22,13 @@ const client: Synnax = createTestClient();
 
 describe("project/Splash", () => {
   describe("without permissions", () => {
-    it("should hide the project list and create form when there is no client", async () => {
+    it("should hide the project list and create action when there is no client", async () => {
       await renderWithConsole(<Project.Splash />);
-      expect(screen.getByText("New Project")).toBeDefined();
+      expect(screen.getByText("Projects")).toBeDefined();
       expect(
         screen.getByText("You do not have permission to create a project."),
       ).toBeDefined();
-      expect(screen.queryByText("Open a Project")).toBeNull();
+      expect(screen.queryByText("New Project")).toBeNull();
     });
   });
 
@@ -48,15 +49,22 @@ describe("project/Splash", () => {
   });
 
   describe("creating a new project", () => {
-    it("should create the project on the server and activate it", async () => {
+    it("should open the create modal and activate the created project", async () => {
       const { wrapper, store } = await createConsoleWrapper({ client });
-      render(<Project.Splash />, { wrapper });
+      render(
+        <>
+          <Project.Splash />
+          <Modals.Stack />
+        </>,
+        { wrapper },
+      );
       const name = `proj-${id.create()}`;
 
-      fireEvent.change(await screen.findByPlaceholderText("Project name"), {
+      fireEvent.click(await screen.findByText("New Project"));
+      fireEvent.change(await screen.findByPlaceholderText("Project Name"), {
         target: { value: name },
       });
-      fireEvent.click(screen.getByText("Create Project"));
+      fireEvent.click(screen.getByRole("button", { name: "Create" }));
 
       const active = await waitFor(() => {
         const key = Session.Project.selectOptionalSelected(store.getState());

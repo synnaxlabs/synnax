@@ -163,11 +163,13 @@ export const List = ({ value, onChange, ...rest }: ListProps): ReactElement => {
             <Icon.Cluster />
             Cores
           </Header.Title>
-          <Button.Button onClick={() => openConnect()} variant="filled">
-            <Icon.Add />
-          </Button.Button>
         </Header.Header>
-        <Flex.Box empty onContextMenu={menuProps.open} grow>
+        <Flex.Box
+          empty
+          onContextMenu={menuProps.open}
+          grow
+          className={CSS.BE("cluster-list", "items")}
+        >
           {keys.length === 0 ? (
             <Empty.Action
               message="No Cores added."
@@ -186,6 +188,16 @@ export const List = ({ value, onChange, ...rest }: ListProps): ReactElement => {
             ))
           )}
         </Flex.Box>
+        <Button.Button
+          variant="text"
+          full="x"
+          justify="start"
+          onClick={() => openConnect()}
+          className={CSS.BE("cluster-list", "add")}
+        >
+          <Icon.Add />
+          Add a Core
+        </Button.Button>
       </Flex.Box>
     </Select.Frame>
   );

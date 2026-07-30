@@ -16,7 +16,7 @@ import {
 import { id, TimeSpan } from "@synnaxlabs/x";
 import { check } from "@tauri-apps/plugin-updater";
 
-import { useInfoModal } from "@/feature/version/useInfoModal";
+import { useInfoModal } from "@/platform/version/useInfoModal";
 import { Notifications } from "@/platform/notifications";
 import { Session } from "@/session";
 

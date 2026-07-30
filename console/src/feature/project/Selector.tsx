@@ -40,7 +40,7 @@ const stopClicksWhileEditing = (e: MouseEvent<HTMLDivElement>): void => {
   if ((e.target as HTMLElement).isContentEditable) e.stopPropagation();
 };
 
-const listItem = Component.renderProp(
+export const listItem = Component.renderProp(
   (props: List.ItemProps<project.Key>): ReactElement | null => {
     const { itemKey } = props;
     const proj = List.useItem<project.Key, project.Project>(itemKey);

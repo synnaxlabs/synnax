@@ -7,13 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import "@/feature/version/Badge.css";
+import "@/platform/version/Badge.css";
 
 import { Button } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
-import { useCheckForUpdates } from "@/feature/version/Updater";
-import { useInfoModal } from "@/feature/version/useInfoModal";
+import { useCheckForUpdates } from "@/platform/version/Updater";
+import { useInfoModal } from "@/platform/version/useInfoModal";
 import { Session } from "@/session";
 
 export const Badge = (): ReactElement => {

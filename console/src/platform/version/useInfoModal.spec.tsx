@@ -33,7 +33,7 @@ vi.mock("@tauri-apps/plugin-updater", () => ({
 }));
 vi.mock("@tauri-apps/plugin-process", () => ({ relaunch: mocks.relaunch }));
 
-import { Version } from "@/feature/version";
+import { Version } from "@/platform/version";
 import { renderWithModals } from "@/platform/modals/testutil";
 
 const Harness = (): ReactElement => {

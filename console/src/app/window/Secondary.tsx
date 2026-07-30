@@ -32,7 +32,7 @@ const SideEffect = (): null => {
  */
 export const Secondary = (): ReactElement => (
   <Auth.Guard>
-    <Auth.ConnectionGuard nav={false}>
+    <Auth.ConnectionGuard>
       <Project.Guard>
         <SideEffect />
         <Nav.Bar.Top secondary />
