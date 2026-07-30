@@ -21,10 +21,7 @@ import { Flex } from "@/flex";
 import { Icon } from "@/icon";
 import { Menu } from "@/menu";
 import { Mosaic as Base } from "@/mosaic";
-import { createTabDragPayload, parseTabDragPayload } from "@/panel/haul";
 import {
-  useDispatch,
-  useGetTab,
   useSelectLeafNode,
   useSelectNodeVariant,
   useSelectRoot,
@@ -32,7 +29,7 @@ import {
   useSelectTabKeys,
   useSingleDispatch,
 } from "@/panel/queries";
-import { Scope, TabScope } from "@/panel/scope";
+import { TabScope } from "@/panel/scope";
 import { Portal } from "@/portal";
 import { Select } from "@/select";
 import { Tabs } from "@/tabs";
@@ -58,11 +55,9 @@ interface TabProps extends Pick<MosaicProps, "tabName"> {
 
 const Tab = ({ tabKey, tabName, onClose }: TabProps): ReactElement => {
   const { startDrag, onDragEnd } = Base.useDragTab();
-  const key = Scope.use();
-  const getTab = useGetTab();
   const handleDragStart = useCallback<DragEventHandler<HTMLDivElement>>(
-    (e) => startDrag(e, tabKey, createTabDragPayload(key, getTab({ tabKey }))),
-    [tabKey, startDrag, key, getTab],
+    (e) => startDrag(e, tabKey),
+    [tabKey, startDrag],
   );
   const handleClose = useCallback(() => onClose(tabKey), [tabKey, onClose]);
   return (
@@ -235,33 +230,11 @@ export const Mosaic = ({
   ...rest
 }: MosaicProps): ReactElement | null => {
   const dispatch = useSingleDispatch();
-  const key = Scope.use();
-  const { dispatch: dispatchTo } = useDispatch();
 
-  // A tab dropped from another panel is removed there and inserted here: the two
-  // panels are separate documents, so the move is two dispatches (see the MoveTab
-  // contract in the panel schema). The insert runs first so a failed remove leaves
-  // the tab in both panels rather than nowhere.
   const handleDrop = useCallback(
-    ({ nodeKey, tabKey, location, index, data }: Base.OnDropProps) => {
-      const source = parseTabDragPayload(data);
-      if (source == null || source.panel === key) {
-        dispatch(panel.moveTab({ key: tabKey, targetLeaf: nodeKey, index, location }));
-        return;
-      }
-      dispatchTo({
-        key,
-        actions: panel.insertTab({
-          tab: source.tab,
-          targetLeaf: nodeKey,
-          index,
-          location,
-        }),
-      });
-      dispatchTo({ key: source.panel, actions: panel.removeTab({ key: tabKey }) });
-      onSelect?.(tabKey);
-    },
-    [dispatch, dispatchTo, key, onSelect],
+    ({ nodeKey, tabKey, location, index }: Base.OnDropProps) =>
+      dispatch(panel.moveTab({ key: tabKey, targetLeaf: nodeKey, index, location })),
+    [dispatch],
   );
 
   const handleResize = useCallback(
