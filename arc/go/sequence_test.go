@@ -2110,6 +2110,388 @@ var _ = Describe("Sequence", func() {
 			Expect(lastU8(out, 103)).To(Equal(uint8(1)))
 		})
 
+		It("Resets a function's stateful variable when its stage is re-entered", func(ctx SpecContext) {
+			resolver := channelSymbols(map[string]channelDef{
+				"start_cmd": {types.U8(), 100},
+				"go_b":      {types.U8(), 101},
+				"go_a":      {types.U8(), 102},
+				"tick":      {types.U8(), 103},
+				"count":     {types.U8(), 104},
+			})
+			h := newRuntimeHarness(ctx, `
+				func bump(v u8) u8 {
+				    n u8 $= 0
+				    n = n + 1
+				    return n
+				}
+				sequence main {
+				    stage a {
+				        tick -> bump{} -> count
+				        go_b => b
+				    }
+				    stage b {
+				        go_a => a
+				    }
+				}
+				start_cmd => main`, resolver,
+				channels.Digest{Key: 100, DataType: telem.Uint8T},
+				channels.Digest{Key: 101, DataType: telem.Uint8T},
+				channels.Digest{Key: 102, DataType: telem.Uint8T},
+				channels.Digest{Key: 103, DataType: telem.Uint8T},
+				channels.Digest{Key: 104, DataType: telem.Uint8T},
+			)
+			defer h.Close(ctx)
+
+			trigger(h, ctx, 100)
+
+			h.Ingest(103, telem.NewSeriesV[uint8](1))
+			advance(h, ctx, telem.Millisecond)
+			out, _ := h.Flush()
+			Expect(lastU8(out, 104)).To(Equal(uint8(1)))
+
+			h.Ingest(103, telem.NewSeriesV[uint8](1))
+			advance(h, ctx, telem.Millisecond)
+			out, _ = h.Flush()
+			Expect(lastU8(out, 104)).To(Equal(uint8(2)))
+
+			h.Ingest(101, telem.NewSeriesV[uint8](1))
+			advance(h, ctx, telem.Millisecond)
+			h.Flush()
+
+			h.Ingest(102, telem.NewSeriesV[uint8](1))
+			advance(h, ctx, telem.Millisecond)
+			h.Flush()
+
+			h.Ingest(103, telem.NewSeriesV[uint8](1))
+			advance(h, ctx, telem.Millisecond)
+			out, _ = h.Flush()
+			Expect(lastU8(out, 104)).To(Equal(uint8(1)), "stateful variable should reset when stage a is re-entered")
+		})
+
+		It("Holds a function's stateful variable while its stage stays active", func(ctx SpecContext) {
+			resolver := channelSymbols(map[string]channelDef{
+				"start_cmd": {types.U8(), 100},
+				"tick":      {types.U8(), 101},
+				"count":     {types.U8(), 102},
+			})
+			h := newRuntimeHarness(ctx, `
+				func bump(v u8) u8 {
+				    n u8 $= 0
+				    n = n + 1
+				    return n
+				}
+				sequence main {
+				    stage a {
+				        tick -> bump{} -> count
+				    }
+				}
+				start_cmd => main`, resolver,
+				channels.Digest{Key: 100, DataType: telem.Uint8T},
+				channels.Digest{Key: 101, DataType: telem.Uint8T},
+				channels.Digest{Key: 102, DataType: telem.Uint8T},
+			)
+			defer h.Close(ctx)
+
+			trigger(h, ctx, 100)
+			for i := uint8(1); i <= 5; i++ {
+				h.Ingest(101, telem.NewSeriesV[uint8](1))
+				advance(h, ctx, telem.Millisecond)
+				out, _ := h.Flush()
+				Expect(lastU8(out, 102)).To(Equal(i), "stateful variable must accumulate while stage a stays active")
+			}
+		})
+
+		It("Resets a function's stateful variable on every re-entry across repeated cycles", func(ctx SpecContext) {
+			resolver := channelSymbols(map[string]channelDef{
+				"start_cmd": {types.U8(), 100},
+				"go_b":      {types.U8(), 101},
+				"go_a":      {types.U8(), 102},
+				"tick":      {types.U8(), 103},
+				"count":     {types.U8(), 104},
+			})
+			h := newRuntimeHarness(ctx, `
+				func bump(v u8) u8 {
+				    n u8 $= 0
+				    n = n + 1
+				    return n
+				}
+				sequence main {
+				    stage a {
+				        tick -> bump{} -> count
+				        go_b => b
+				    }
+				    stage b {
+				        go_a => a
+				    }
+				}
+				start_cmd => main`, resolver,
+				channels.Digest{Key: 100, DataType: telem.Uint8T},
+				channels.Digest{Key: 101, DataType: telem.Uint8T},
+				channels.Digest{Key: 102, DataType: telem.Uint8T},
+				channels.Digest{Key: 103, DataType: telem.Uint8T},
+				channels.Digest{Key: 104, DataType: telem.Uint8T},
+			)
+			defer h.Close(ctx)
+
+			trigger(h, ctx, 100)
+
+			for cycle := 0; cycle < 4; cycle++ {
+				h.Ingest(103, telem.NewSeriesV[uint8](1))
+				advance(h, ctx, telem.Millisecond)
+				out, _ := h.Flush()
+				Expect(lastU8(out, 104)).To(Equal(uint8(1)), "cycle %d: stateful variable should start from 1", cycle)
+
+				h.Ingest(103, telem.NewSeriesV[uint8](1))
+				advance(h, ctx, telem.Millisecond)
+				out, _ = h.Flush()
+				Expect(lastU8(out, 104)).To(Equal(uint8(2)), "cycle %d: stateful variable should accumulate within the stage", cycle)
+
+				h.Ingest(101, telem.NewSeriesV[uint8](1))
+				advance(h, ctx, telem.Millisecond)
+				h.Flush()
+
+				h.Ingest(102, telem.NewSeriesV[uint8](1))
+				advance(h, ctx, telem.Millisecond)
+				h.Flush()
+			}
+		})
+
+		It("Resets every stateful variable in a function when its stage is re-entered", func(ctx SpecContext) {
+			resolver := channelSymbols(map[string]channelDef{
+				"start_cmd": {types.U8(), 100},
+				"go_b":      {types.U8(), 101},
+				"go_a":      {types.U8(), 102},
+				"tick":      {types.U8(), 103},
+				"sum_out":   {types.F32(), 104},
+			})
+			h := newRuntimeHarness(ctx, `
+				func accumulate(v u8) f32 {
+				    count u8 $= 0
+				    total f32 $= 0.0
+				    scale i64 $= 10
+				    count = count + 1
+				    total = total + f32(count) * f32(scale)
+				    return total
+				}
+				sequence main {
+				    stage a {
+				        tick -> accumulate{} -> sum_out
+				        go_b => b
+				    }
+				    stage b {
+				        go_a => a
+				    }
+				}
+				start_cmd => main`, resolver,
+				channels.Digest{Key: 100, DataType: telem.Uint8T},
+				channels.Digest{Key: 101, DataType: telem.Uint8T},
+				channels.Digest{Key: 102, DataType: telem.Uint8T},
+				channels.Digest{Key: 103, DataType: telem.Uint8T},
+				channels.Digest{Key: 104, DataType: telem.Float32T},
+			)
+			defer h.Close(ctx)
+
+			trigger(h, ctx, 100)
+
+			h.Ingest(103, telem.NewSeriesV[uint8](1))
+			advance(h, ctx, telem.Millisecond)
+			out, _ := h.Flush()
+			Expect(lastF32(out, 104)).To(Equal(float32(10)))
+
+			h.Ingest(103, telem.NewSeriesV[uint8](1))
+			advance(h, ctx, telem.Millisecond)
+			out, _ = h.Flush()
+			Expect(lastF32(out, 104)).To(Equal(float32(30)))
+
+			h.Ingest(101, telem.NewSeriesV[uint8](1))
+			advance(h, ctx, telem.Millisecond)
+			h.Flush()
+			h.Ingest(102, telem.NewSeriesV[uint8](1))
+			advance(h, ctx, telem.Millisecond)
+			h.Flush()
+
+			h.Ingest(103, telem.NewSeriesV[uint8](1))
+			advance(h, ctx, telem.Millisecond)
+			out, _ = h.Flush()
+			Expect(lastF32(out, 104)).To(Equal(float32(10)), "count and total must both reset when stage a is re-entered")
+		})
+
+		It("Resets a function's stateful string variable when its stage is re-entered", func(ctx SpecContext) {
+			resolver := channelSymbols(map[string]channelDef{
+				"start_cmd": {types.U8(), 100},
+				"go_b":      {types.U8(), 101},
+				"go_a":      {types.U8(), 102},
+				"tick":      {types.U8(), 103},
+				"log":       {types.String(), 104},
+			})
+			h := newRuntimeHarness(ctx, `
+				func trail(v u8) str {
+				    acc str $= "x"
+				    acc = acc + "x"
+				    return acc
+				}
+				sequence main {
+				    stage a {
+				        tick -> trail{} -> log
+				        go_b => b
+				    }
+				    stage b {
+				        go_a => a
+				    }
+				}
+				start_cmd => main`, resolver,
+				channels.Digest{Key: 100, DataType: telem.Uint8T},
+				channels.Digest{Key: 101, DataType: telem.Uint8T},
+				channels.Digest{Key: 102, DataType: telem.Uint8T},
+				channels.Digest{Key: 103, DataType: telem.Uint8T},
+				channels.Digest{Key: 104, DataType: telem.StringT},
+			)
+			defer h.Close(ctx)
+
+			trigger(h, ctx, 100)
+
+			h.Ingest(103, telem.NewSeriesV[uint8](1))
+			advance(h, ctx, telem.Millisecond)
+			out, _ := h.Flush()
+			Expect(lastString(out, 104)).To(Equal("xx"))
+
+			h.Ingest(103, telem.NewSeriesV[uint8](1))
+			advance(h, ctx, telem.Millisecond)
+			out, _ = h.Flush()
+			Expect(lastString(out, 104)).To(Equal("xxx"))
+
+			h.Ingest(101, telem.NewSeriesV[uint8](1))
+			advance(h, ctx, telem.Millisecond)
+			h.Flush()
+			h.Ingest(102, telem.NewSeriesV[uint8](1))
+			advance(h, ctx, telem.Millisecond)
+			h.Flush()
+
+			h.Ingest(103, telem.NewSeriesV[uint8](1))
+			advance(h, ctx, telem.Millisecond)
+			out, _ = h.Flush()
+			Expect(lastString(out, 104)).To(Equal("xx"), "stateful string should reset when stage a is re-entered")
+		})
+
+		It("Scopes the reset to the re-entered stage's own call site", func(ctx SpecContext) {
+			resolver := channelSymbols(map[string]channelDef{
+				"start_cmd":  {types.U8(), 100},
+				"go_b":       {types.U8(), 101},
+				"go_a":       {types.U8(), 102},
+				"tick":       {types.U8(), 103},
+				"staged_out": {types.U8(), 104},
+				"free_out":   {types.U8(), 105},
+			})
+			h := newRuntimeHarness(ctx, `
+				func bump(v u8) u8 {
+				    n u8 $= 0
+				    n = n + 1
+				    return n
+				}
+				sequence main {
+				    stage a {
+				        tick -> bump{} -> staged_out
+				        go_b => b
+				    }
+				    stage b {
+				        go_a => a
+				    }
+				}
+				tick -> bump{} -> free_out
+				start_cmd => main`, resolver,
+				channels.Digest{Key: 100, DataType: telem.Uint8T},
+				channels.Digest{Key: 101, DataType: telem.Uint8T},
+				channels.Digest{Key: 102, DataType: telem.Uint8T},
+				channels.Digest{Key: 103, DataType: telem.Uint8T},
+				channels.Digest{Key: 104, DataType: telem.Uint8T},
+				channels.Digest{Key: 105, DataType: telem.Uint8T},
+			)
+			defer h.Close(ctx)
+
+			trigger(h, ctx, 100)
+
+			h.Ingest(103, telem.NewSeriesV[uint8](1))
+			advance(h, ctx, telem.Millisecond)
+			out, _ := h.Flush()
+			Expect(lastU8(out, 104)).To(Equal(uint8(1)))
+			free1 := lastU8(out, 105)
+
+			h.Ingest(101, telem.NewSeriesV[uint8](1))
+			advance(h, ctx, telem.Millisecond)
+			h.Flush()
+			h.Ingest(102, telem.NewSeriesV[uint8](1))
+			advance(h, ctx, telem.Millisecond)
+			h.Flush()
+
+			h.Ingest(103, telem.NewSeriesV[uint8](1))
+			advance(h, ctx, telem.Millisecond)
+			out, _ = h.Flush()
+			Expect(lastU8(out, 104)).To(Equal(uint8(1)), "the staged call site should reset on re-entry")
+			Expect(lastU8(out, 105)).To(BeNumerically(">", free1),
+				"the root-scope call site is not inside the re-entered stage and must keep accumulating")
+		})
+
+		It("Resets a stateful variable in a nested sequence's stage on inner re-entry", func(ctx SpecContext) {
+			resolver := channelSymbols(map[string]channelDef{
+				"start_cmd": {types.U8(), 100},
+				"go_inner2": {types.U8(), 101},
+				"go_inner1": {types.U8(), 102},
+				"tick":      {types.U8(), 103},
+				"count":     {types.U8(), 104},
+			})
+			h := newRuntimeHarness(ctx, `
+				func bump(v u8) u8 {
+				    n u8 $= 0
+				    n = n + 1
+				    return n
+				}
+				sequence main {
+				    stage outer {
+				        sequence {
+				            stage inner1 {
+				                tick -> bump{} -> count
+				                go_inner2 => inner2
+				            }
+				            stage inner2 {
+				                go_inner1 => inner1
+				            }
+				        }
+				    }
+				}
+				start_cmd => main`, resolver,
+				channels.Digest{Key: 100, DataType: telem.Uint8T},
+				channels.Digest{Key: 101, DataType: telem.Uint8T},
+				channels.Digest{Key: 102, DataType: telem.Uint8T},
+				channels.Digest{Key: 103, DataType: telem.Uint8T},
+				channels.Digest{Key: 104, DataType: telem.Uint8T},
+			)
+			defer h.Close(ctx)
+
+			trigger(h, ctx, 100)
+
+			h.Ingest(103, telem.NewSeriesV[uint8](1))
+			advance(h, ctx, telem.Millisecond)
+			out, _ := h.Flush()
+			Expect(lastU8(out, 104)).To(Equal(uint8(1)))
+
+			h.Ingest(103, telem.NewSeriesV[uint8](1))
+			advance(h, ctx, telem.Millisecond)
+			out, _ = h.Flush()
+			Expect(lastU8(out, 104)).To(Equal(uint8(2)))
+
+			h.Ingest(101, telem.NewSeriesV[uint8](1))
+			advance(h, ctx, telem.Millisecond)
+			h.Flush()
+			h.Ingest(102, telem.NewSeriesV[uint8](1))
+			advance(h, ctx, telem.Millisecond)
+			h.Flush()
+
+			h.Ingest(103, telem.NewSeriesV[uint8](1))
+			advance(h, ctx, telem.Millisecond)
+			out, _ = h.Flush()
+			Expect(lastU8(out, 104)).To(Equal(uint8(1)), "stateful variable should reset when the inner stage is re-entered")
+		})
+
 		// wait{} countdown restarts when its enclosing stage is re-entered
 		// via a => name transition from a sibling stage. Threshold math:
 		//   BaseInterval = 500ms (only timer in the program)

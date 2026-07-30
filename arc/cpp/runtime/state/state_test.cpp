@@ -15,6 +15,9 @@
 #include "arc/cpp/runtime/errors/errors.h"
 #include "arc/cpp/runtime/state/state.h"
 #include "arc/cpp/stl/channels/state.h"
+#include "arc/cpp/stl/series/state.h"
+#include "arc/cpp/stl/stateful/state.h"
+#include "arc/cpp/stl/strings/state.h"
 
 namespace arc::runtime::state {
 
@@ -880,6 +883,61 @@ TEST(StateTest, ResetClearsBufferedAuthorityChanges) {
     s.set_authority(std::nullopt, 100);
     s.reset();
     EXPECT_TRUE(s.flush_authority_changes().empty());
+}
+
+/// @brief Builds a State over the given stateful variable store so tests can
+/// observe what State's node-scoped operations do to it.
+State create_state_with_vars(const std::shared_ptr<stl::stateful::Variables> &vars) {
+    arc::ir::Node ir_node;
+    ir_node.key = "test";
+    ir_node.type = "test";
+
+    arc::ir::Function fn;
+    fn.key = "test";
+
+    arc::ir::IR ir;
+    ir.nodes.push_back(ir_node);
+    ir.functions.push_back(fn);
+
+    const Config cfg{.ir = ir, .channels = {}};
+    return State(
+        cfg,
+        std::make_shared<stl::channels::State>(),
+        std::make_shared<stl::strings::State>(),
+        std::make_shared<stl::series::State>(),
+        vars,
+        arc::runtime::errors::noop_handler
+    );
+}
+
+TEST(StateTest, ClearNodeDiscardsStatefulVariablesForThatNode) {
+    auto vars = std::make_shared<stl::stateful::Variables>();
+    State s = create_state_with_vars(vars);
+
+    vars->set_current_node_key("node_a");
+    vars->store_i32(0, 100);
+    vars->set_current_node_key("node_b");
+    vars->store_i32(0, 200);
+
+    s.clear_node("node_a");
+
+    vars->set_current_node_key("node_a");
+    EXPECT_EQ(vars->load_i32(0, 0), 0);
+    vars->set_current_node_key("node_b");
+    EXPECT_EQ(vars->load_i32(0, 0), 200);
+}
+
+TEST(StateTest, NodeClearNodeDiscardsStatefulVariablesForThatNode) {
+    auto vars = std::make_shared<stl::stateful::Variables>();
+    State s = create_state_with_vars(vars);
+    auto node = ASSERT_NIL_P(s.node("test"));
+
+    vars->set_current_node_key("test");
+    vars->store_f64(0, 3.5);
+    EXPECT_DOUBLE_EQ(vars->load_f64(0, 0.0), 3.5);
+
+    node.clear_node("test");
+    EXPECT_DOUBLE_EQ(vars->load_f64(0, 9.5), 9.5);
 }
 
 }

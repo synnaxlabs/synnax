@@ -31,6 +31,7 @@ var _ node.Node = (*nodeImpl)(nil)
 // interface pattern as MemorySetter.
 type NodeKeySetter interface {
 	SetNodeKey(key string)
+	ClearNode(key string)
 }
 
 type result struct {
@@ -244,6 +245,9 @@ func (n *nodeImpl) Next(ctx node.Context) {
 func (n *nodeImpl) Reset() {
 	n.State.Reset()
 	n.initialized = false
+	if n.nodeKeySetter != nil {
+		n.nodeKeySetter.ClearNode(n.ir.Key)
+	}
 }
 
 func setValueAt(s telem.Series, i int, v uint64) {
