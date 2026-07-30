@@ -11,7 +11,7 @@ import { type Synnax as Client } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { breaker, TimeSpan } from "@synnaxlabs/x";
 import { renderHook, waitFor } from "@testing-library/react";
-import { afterAll, describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import { Cluster } from "@/feature/cluster";
 import { Session } from "@/session";
@@ -55,17 +55,6 @@ const instantPoll = (maxRetries = 1_000) =>
     sleepFn: async () => {},
   });
 
-const openClients: Client[] = [];
-const testClient = (params?: Parameters<typeof createTestClient>[0]): Client => {
-  const client = createTestClient(params);
-  openClients.push(client);
-  return client;
-};
-
-afterAll(() => {
-  openClients.forEach((c) => c.close());
-});
-
 describe("connectToCluster", () => {
   it("should throw if the cluster is unknown", async () => {
     const setActive = vi.fn();
@@ -82,7 +71,7 @@ describe("connectToCluster", () => {
 
   it("should return the managed client when already active", async () => {
     const setActive = vi.fn();
-    const active = testClient();
+    const active = createTestClient();
     const result = await Cluster.connectToCluster("a", {
       getState: () => createState(["a"], "a"),
       getClient: sequence(active),
@@ -95,8 +84,8 @@ describe("connectToCluster", () => {
 
   it("should switch clusters and resolve once the provider swaps clients", async () => {
     const setActive = vi.fn();
-    const prior = testClient();
-    const next = testClient();
+    const prior = createTestClient();
+    const next = createTestClient();
     const result = await Cluster.connectToCluster("b", {
       getState: () => createState(["a", "b"], "a"),
       getClient: sequence(prior, prior, next),
@@ -108,7 +97,7 @@ describe("connectToCluster", () => {
   });
 
   it("should reject with the client's typed error when the connection fails", async () => {
-    const dead = testClient({
+    const dead = createTestClient({
       port: 9999,
       retry: { baseInterval: TimeSpan.milliseconds(5), scale: 1, maxRetries: 1 },
     });
@@ -123,7 +112,7 @@ describe("connectToCluster", () => {
   });
 
   it("should throw when the provider never swaps clients", async () => {
-    const prior = testClient();
+    const prior = createTestClient();
     await expect(
       Cluster.connectToCluster("b", {
         getState: () => createState(["a", "b"], "a"),
@@ -137,7 +126,7 @@ describe("connectToCluster", () => {
 
 describe("useLink", () => {
   it("should resolve the active cluster's managed client", async () => {
-    const c = testClient();
+    const c = createTestClient();
     const {
       details: { clusterKey },
     } = await c.connect();

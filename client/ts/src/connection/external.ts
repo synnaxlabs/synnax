@@ -17,8 +17,8 @@ export {
 export {
   type Config,
   DEFAULT_STATUS,
-  type Details,
-  detailsZ,
+  type StatusDetails,
+  statusDetailsZ,
   type Handle,
   type Info,
   type Reason,

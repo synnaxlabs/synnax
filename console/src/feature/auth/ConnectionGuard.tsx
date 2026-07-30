@@ -99,7 +99,7 @@ const Splash = ({ client, status, nav }: SplashProps): ReactElement => {
 };
 
 interface RetryStatusProps {
-  retry: NonNullable<connection.Details["retry"]>;
+  retry: NonNullable<connection.StatusDetails["retry"]>;
 }
 
 const RetryStatus = ({ retry }: RetryStatusProps): ReactElement => {
