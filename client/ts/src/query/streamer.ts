@@ -7,10 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { Unreachable } from "@synnaxlabs/freighter";
 import { DataType, errors, unique } from "@synnaxlabs/x";
 import type z from "zod";
 
-import { NotFoundError } from "@/errors";
+import { DisconnectedError, NotFoundError } from "@/errors";
 import { type framer } from "@/framer";
 
 /**
@@ -130,6 +131,9 @@ export const createStreamer = ({
   let opened: Promise<ObservableStream> | null = null;
   const report = (exc: unknown, message: string) => {
     if (NotFoundError.matches(exc)) return;
+    // A connectivity failure mid-change is repaired by the reconcile that
+    // follows the stream's reopen, so it is churn, not a defect.
+    if (Unreachable.matches(exc) || DisconnectedError.matches(exc)) return;
     onError(new Error(message, { cause: exc }));
   };
   const open = async (): Promise<ObservableStream> => {
