@@ -8,29 +8,39 @@
 // included in the file licenses/APL.txt.
 
 import { connection } from "@synnaxlabs/client";
+import { type CrudeTimeSpan, sleep, TimeSpan } from "@synnaxlabs/x";
 import { useState } from "react";
 
 import { useAsyncEffect } from "@/hooks";
 import { useMemoDeepEqual } from "@/memo";
 
+const DEFAULT_INTERVAL = TimeSpan.seconds(5);
+
 /**
- * Runs a one-shot connectivity check against the given cluster address,
- * re-running whenever the params change by deep equality.
- * @returns null while the check is pending or params are absent.
+ * Continuously probes the given cluster address, re-checking every interval
+ * while mounted. A params change (by deep equality) restarts the loop; between
+ * re-checks the settled status stays in place.
+ * @returns null while the first check is pending or params are absent.
  */
 export const useCheckConnection = (
   params?: connection.CheckParams | null,
+  interval: CrudeTimeSpan = DEFAULT_INTERVAL,
 ): connection.Status | null => {
   const [status, setStatus] = useState<connection.Status | null>(null);
   const memoParams = useMemoDeepEqual(params ?? null);
+  const intervalMS = TimeSpan.fromMilliseconds(interval).milliseconds;
   useAsyncEffect(
     async (signal) => {
       setStatus(null);
       if (memoParams == null) return;
-      const next = await connection.check(memoParams);
-      if (!signal.aborted) setStatus(next);
+      while (!signal.aborted) {
+        const next = await connection.check(memoParams);
+        if (signal.aborted) return;
+        setStatus(next);
+        await sleep.sleep(intervalMS);
+      }
     },
-    [memoParams],
+    [memoParams, intervalMS],
   );
   return status;
 };
