@@ -50,3 +50,4 @@ export {
   type Params,
   type WriteOptions,
 } from "@/query/types";
+export { optimistic, type OptimisticParams } from "@/query/write";
