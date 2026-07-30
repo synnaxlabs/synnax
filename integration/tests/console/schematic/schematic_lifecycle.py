@@ -7,7 +7,6 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-import uuid
 from typing import Any
 
 import synnax as sy
@@ -23,17 +22,16 @@ def assert_exported_json(exported: dict[str, Any]) -> None:
     """Assert that the exported JSON has a valid structure.
 
     Validates:
-    - Root 'key' is a valid UUID format
+    - Envelope type is 'schematic' and the resource key is stripped
     - Version matches SCHEMATIC_VERSION
-    - Required keys exist: nodes, edges, props, viewport
+    - Required keys exist: nodes, edges, configs
     """
-    assert "key" in exported, "Exported JSON should contain 'key'"
-    try:
-        uuid.UUID(exported["key"])
-    except ValueError:
-        raise AssertionError(
-            f"Schematic key should be a valid UUID, got '{exported['key']}'"
-        )
+    assert exported.get("type") == "schematic", (
+        "Exported JSON should be a schematic envelope"
+    )
+    assert "key" not in exported, (
+        "Server-side export strips the resource key from the portable envelope"
+    )
 
     assert "version" in exported, "Exported JSON should contain 'version'"
     assert exported["version"] == SCHEMATIC_VERSION, (

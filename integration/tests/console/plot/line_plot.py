@@ -260,8 +260,12 @@ class LinePlot(ConsoleCase):
 
         exported = plot.export_json()
 
-        assert "key" in exported, "Exported JSON should contain 'key'"
-        assert len(exported["key"]) == 36, "Plot key should be a UUID"
+        assert exported.get("type") == "lineplot", (
+            "Exported JSON should be a lineplot envelope"
+        )
+        assert "key" not in exported, (
+            "Server-side export strips the resource key from the portable envelope"
+        )
         assert "channels" in exported, "Exported JSON should contain 'channels'"
         assert "y1" in exported["channels"], "Channels should include 'y1' axis"
 
@@ -316,8 +320,12 @@ class LinePlot(ConsoleCase):
 
         self.log("Testing export plot via context menu")
         exported = self.console.project.export_page(self.ctx_plot_name)
-        assert "key" in exported, "Exported JSON should contain 'key'"
-        assert len(exported["key"]) == 36, "Plot key should be a UUID"
+        assert exported.get("type") == "lineplot", (
+            "Exported JSON should be a lineplot envelope"
+        )
+        assert "key" not in exported, (
+            "Server-side export strips the resource key from the portable envelope"
+        )
         assert "channels" in exported, "Exported JSON should contain 'channels'"
 
         self.log("Testing rename plot via context menu")

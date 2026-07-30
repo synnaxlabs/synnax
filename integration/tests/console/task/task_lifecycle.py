@@ -181,6 +181,9 @@ class TaskLifecycle(SimulatorCase, ConsoleCase):
         assert exported["type"] == t.type, (
             f"Exported type should be '{t.type}', got '{exported['type']}'"
         )
+        assert "key" not in exported, (
+            "Server-side export strips the resource key from the portable envelope"
+        )
         assert "channels" in exported, "Exported JSON should contain 'channels'"
         assert len(exported["channels"]) > 0, "Exported channels should not be empty"
 

@@ -244,7 +244,12 @@ class CustomSymbols(ConsoleCase):
         toolbar.select_group(self.test_group_name)
         exported = toolbar.export_symbol(self.test_symbol_name)
 
-        assert "key" in exported, "Exported symbol should contain 'key'"
+        assert exported.get("type") == "schematic_symbol", (
+            "Exported JSON should be a schematic symbol envelope"
+        )
+        assert "key" not in exported, (
+            "Server-side export strips the resource key from the portable envelope"
+        )
         assert "name" in exported, "Exported symbol should contain 'name'"
         assert "data" in exported, "Exported symbol should contain 'data'"
         assert exported["name"] == self.test_symbol_name, (

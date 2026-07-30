@@ -254,8 +254,16 @@ class TableLifecycle(ConsoleCase):
         assert self.ctx_table_name is not None
         self.log("Testing export table via context menu")
         exported = self.console.project.export_page(self.ctx_table_name)
-        assert "key" in exported, "Exported JSON should contain 'key'"
-        assert len(exported["key"]) == 36, "Table key should be a UUID"
+        assert exported.get("type") == "table", (
+            "Exported JSON should be a table envelope"
+        )
+        assert exported.get("name") == self.ctx_table_name, (
+            f"Exported envelope name should match the table: expected "
+            f"{self.ctx_table_name!r}, got {exported.get('name')!r}"
+        )
+        assert "key" not in exported, (
+            "Server-side export strips the resource key from the portable envelope"
+        )
 
     def test_ctx_delete(self) -> None:
         """Test deleting a table via context menu."""
