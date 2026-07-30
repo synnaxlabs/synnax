@@ -149,14 +149,8 @@ func backfillStatuses(
 	if len(missingStatuses) == 0 {
 		return nil
 	}
-	ins.L.Info(
-		"creating unknown statuses for existing racks",
-		zap.Int("count", len(missingStatuses)),
-	)
-	return status.NewWriter[StatusDetails](
-		cfg.Status,
-		tx,
-	).SetMany(ctx, &missingStatuses)
+	ins.L.Info("creating unknown statuses for existing racks", zap.Int("count", len(missingStatuses)))
+	return status.NewWriter[StatusDetails](cfg.Status, tx).SetMany(ctx, &missingStatuses)
 }
 
 // codecMigration re-encodes stored racks from MessagePack to Orc.

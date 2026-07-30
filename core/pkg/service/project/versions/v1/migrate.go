@@ -53,11 +53,7 @@ func migrateLayoutsToStaging(
 		if err != nil {
 			return errors.Wrapf(err, "marshal layout for project %s", p.Key)
 		}
-		if err = tx.Set(
-			ctx,
-			[]byte(LegacyLayoutKVPrefix+p.Key.String()),
-			blob,
-		); err != nil {
+		if err = tx.Set(ctx, []byte(LegacyLayoutKVPrefix+p.Key.String()), blob); err != nil {
 			return err
 		}
 	}
@@ -74,11 +70,7 @@ const legacyWorkspaceType = ontology.ResourceType("workspace")
 // the renamed type: it re-keys each workspace resource node to project and rewrites
 // every relationship endpoint of type workspace to project. The whole transition runs
 // in one migration transaction, so it commits atomically.
-func migrateWorkspaceToProject(
-	ctx context.Context,
-	tx gorp.Tx,
-	_ alamos.Instrumentation,
-) error {
+func migrateWorkspaceToProject(ctx context.Context, tx gorp.Tx, _ alamos.Instrumentation) error {
 	if err := liftWorkspaces(ctx, tx); err != nil {
 		return err
 	}
@@ -171,8 +163,7 @@ func rewriteWorkspaceRelationships(ctx context.Context, tx gorp.Tx) error {
 		ctx,
 		gorp.WrapReader[string, ontology.Relationship](tx),
 		func(rel ontology.Relationship) bool {
-			return rel.From.Type == legacyWorkspaceType ||
-				rel.To.Type == legacyWorkspaceType
+			return rel.From.Type == legacyWorkspaceType || rel.To.Type == legacyWorkspaceType
 		},
 	)
 	if err != nil {
@@ -203,11 +194,7 @@ func rewriteWorkspaceRelationships(ctx context.Context, tx gorp.Tx) error {
 // parent is now the Projects group. This must run after the workspace-to-project
 // migration, which re-types the legacy user-to-workspace relationships to
 // user-to-project before they can be matched here.
-func removeAuthorRelationships(
-	ctx context.Context,
-	tx gorp.Tx,
-	otg *ontology.Ontology,
-) error {
+func removeAuthorRelationships(ctx context.Context, tx gorp.Tx, otg *ontology.Ontology) error {
 	stale, err := collectEntries(
 		ctx,
 		gorp.WrapReader[string, ontology.Relationship](tx),

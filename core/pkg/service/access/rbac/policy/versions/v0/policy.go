@@ -20,9 +20,9 @@ import (
 // policies directly with users. Used only for reading legacy data during migration.
 type Policy struct {
 	Subjects []ontology.ID   `json:"subjects" msgpack:"subjects"`
-	Objects  []ontology.ID   `json:"objects"  msgpack:"objects"`
-	Actions  []access.Action `json:"actions"  msgpack:"actions"`
-	Key      uuid.UUID       `json:"key"      msgpack:"key"`
+	Objects  []ontology.ID   `json:"objects" msgpack:"objects"`
+	Actions  []access.Action `json:"actions" msgpack:"actions"`
+	Key      uuid.UUID       `json:"key" msgpack:"key"`
 }
 
 var _ gorp.Entry[uuid.UUID] = Policy{}

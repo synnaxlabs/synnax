@@ -147,8 +147,7 @@ func (c *Color) DecodeMsgpack(dec *msgpack.Decoder) error {
 		return nil
 	}
 
-	if msgpcode.IsFixedArray(code) || code == msgpcode.Array16 ||
-		code == msgpcode.Array32 {
+	if msgpcode.IsFixedArray(code) || code == msgpcode.Array16 || code == msgpcode.Array32 {
 		arrLen, err := dec.DecodeArrayLen()
 		if err != nil {
 			return err
