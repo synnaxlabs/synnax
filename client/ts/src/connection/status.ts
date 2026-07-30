@@ -31,7 +31,7 @@ export type Reason = z.infer<typeof reasonZ>;
  * The fact vector beneath the connection's status variant. `reason` is present
  * iff the variant is "error".
  */
-export const detailsZ = z.object({
+export const statusDetailsZ = z.object({
   reason: reasonZ.optional(),
   error: z.instanceof(Error).optional(),
   authenticated: z.boolean(),
@@ -48,16 +48,16 @@ export const detailsZ = z.object({
   // variant holds its verdict while attempts run beneath it.
   checking: z.boolean(),
 });
-export interface Details extends z.infer<typeof detailsZ> {}
+export interface StatusDetails extends z.infer<typeof statusDetailsZ> {}
 
 /**
  * The connection status: a standard status whose details carry the connection's
  * facts. Renders anywhere a status does, with no translation.
  */
-export const statusZ = status.statusZ({ details: detailsZ });
-export type Status = status.Status<typeof detailsZ>;
+export const statusZ = status.statusZ({ details: statusDetailsZ });
+export type Status = status.Status<typeof statusDetailsZ>;
 
-export const DEFAULT_DETAILS: Details = {
+export const DEFAULT_STATUS_DETAILS: StatusDetails = {
   authenticated: false,
   streamLive: false,
   epoch: 0,
@@ -78,7 +78,7 @@ export const DEFAULT_STATUS: Status = {
   message: "Disconnected",
   description: "",
   time: TimeStamp.ZERO,
-  details: DEFAULT_DETAILS,
+  details: DEFAULT_STATUS_DETAILS,
 };
 
 /** Consecutive check failures before escalating to error(unreachable). */
@@ -172,11 +172,11 @@ export const createInitialStatus = (config: Config): Status => ({
   time: TimeStamp.now(),
   variant: "loading",
   message: `Connecting to ${config.name ?? "cluster"}`,
-  details: { ...DEFAULT_DETAILS, clientVersion: config.clientVersion },
+  details: { ...DEFAULT_STATUS_DETAILS, clientVersion: config.clientVersion },
 });
 
 interface Changes extends Partial<Omit<Status, "details">> {
-  details?: Partial<Details>;
+  details?: Partial<StatusDetails>;
 }
 
 const update = (prev: Status, changes: Changes): Status => ({
@@ -196,7 +196,7 @@ const isCompatible = (
     checkPatch: false,
   });
 
-const checkFacts = (info: Info, config: Config): Partial<Details> => ({
+const checkFacts = (info: Info, config: Config): Partial<StatusDetails> => ({
   clusterKey: info.clusterKey,
   nodeVersion: info.nodeVersion,
   // the check traverses the auth middleware, so a response is proof of auth

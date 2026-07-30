@@ -47,8 +47,8 @@ export interface RetrieverParams<
   K extends record.Key,
   V extends state.State & record.Keyed<K>,
   D extends Data = V,
-  SP = { key: K },
-  SN extends Params = K,
+  SingleInput = { key: K },
+  SingleQuery extends Params = K,
 > {
   /** Resource name used in error messages, e.g. "range". */
   name: string;
@@ -89,9 +89,9 @@ export interface RetrieverParams<
      * query to the single space, and the output is the space's query. Object
      * schemas must reject unknown keys so request params fall through.
      */
-    schema: z.ZodType<SN, SP>;
+    schema: z.ZodType<SingleQuery, SingleInput>;
     /** The space answering single queries, built via the cache. */
-    space: Retrieves<SN, D>;
+    space: Retrieves<SingleQuery, D>;
   };
 }
 
@@ -123,15 +123,18 @@ export abstract class Retriever<
   K extends record.Key,
   V extends state.State & record.Keyed<K>,
   D extends Data = V,
-  SP = { key: K },
-  SN extends Params = K,
+  SingleInput = { key: K },
+  SingleQuery extends Params = K,
 > {
-  private readonly singleSpace: Retrieves<SN, D>;
+  private readonly singleSpace: Retrieves<SingleQuery, D>;
   private readonly requestSpace: Retrieves<z.output<Z>, D[]>;
-  private readonly trySingle: (params: unknown) => { query: SN } | null;
+  private readonly trySingle: (params: unknown) => { query: SingleQuery } | null;
   private readonly normalizeRequest: (params: unknown) => z.output<Z>;
 
-  constructor(cache: Cache, params: RetrieverParams<Z, K, V, D, SP, SN>) {
+  constructor(
+    cache: Cache,
+    params: RetrieverParams<Z, K, V, D, SingleInput, SingleQuery>,
+  ) {
     const {
       name,
       table,
@@ -178,7 +181,7 @@ export abstract class Retriever<
         return null;
       };
     } else {
-      // The default path binds SN = K: `{ key }` params resolve through the
+      // The default path binds SingleQuery = K: `{ key }` params resolve through the
       // table's fetch. The casts are the one seam the defaults can't prove.
       this.singleSpace = cache.queries<K, D, K, V>({
         name,
@@ -195,7 +198,7 @@ export abstract class Retriever<
       }) as Retrieves<Params, D>;
       this.trySingle = (p) =>
         typeof p === "object" && p !== null && "key" in p
-          ? { query: (p as { key: K }).key as Params as SN }
+          ? { query: (p as { key: K }).key as Params as SingleQuery }
           : null;
     }
   }
@@ -208,9 +211,12 @@ export abstract class Retriever<
    * @throws {ValidationError} if params contain `key` but fail the
    * single-query schema.
    */
-  retrieve(params: SP, options?: FetchOptions): Promise<D>;
+  retrieve(params: SingleInput, options?: FetchOptions): Promise<D>;
   retrieve(params: z.input<Z>, options?: FetchOptions): Promise<D[]>;
-  async retrieve(params: SP | z.input<Z>, options?: FetchOptions): Promise<D | D[]> {
+  async retrieve(
+    params: SingleInput | z.input<Z>,
+    options?: FetchOptions,
+  ): Promise<D | D[]> {
     const single = this.trySingle(params);
     if (single != null) return await this.singleSpace.retrieve(single.query, options);
     return await this.requestSpace.retrieve(this.normalizeRequest(params), options);
@@ -220,10 +226,10 @@ export abstract class Retriever<
    * Subscribes to changes in the cached answer to the given query. The handler
    * fires on every change or deletion. Returns a destructor that unsubscribes.
    */
-  onChange(params: SP, handler: ChangeHandler<D>): destructor.Destructor;
+  onChange(params: SingleInput, handler: ChangeHandler<D>): destructor.Destructor;
   onChange(params: z.input<Z>, handler: ChangeHandler<D[]>): destructor.Destructor;
   onChange(
-    params: SP | z.input<Z>,
+    params: SingleInput | z.input<Z>,
     handler: ChangeHandler<D> | ChangeHandler<D[]>,
   ): destructor.Destructor {
     const single = this.trySingle(params);
@@ -240,9 +246,9 @@ export abstract class Retriever<
    * or undefined when nothing is cached. May be stale for unsubscribed
    * queries.
    */
-  getCached(params: SP): Cached<D> | undefined;
+  getCached(params: SingleInput): Cached<D> | undefined;
   getCached(params: z.input<Z>): Cached<D[]> | undefined;
-  getCached(params: SP | z.input<Z>): Cached<D> | Cached<D[]> | undefined {
+  getCached(params: SingleInput | z.input<Z>): Cached<D> | Cached<D[]> | undefined {
     const single = this.trySingle(params);
     if (single != null) return this.singleSpace.getCached(single.query);
     return this.requestSpace.getCached(this.normalizeRequest(params));
