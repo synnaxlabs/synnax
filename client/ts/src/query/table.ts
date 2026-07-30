@@ -7,9 +7,18 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { array, deep, destructor, type record, state, TimeStamp } from "@synnaxlabs/x";
+import {
+  array,
+  deep,
+  destructor,
+  errors,
+  type record,
+  state,
+  TimeStamp,
+} from "@synnaxlabs/x";
 import type z from "zod";
 
+import { NotFoundError } from "@/errors";
 import { Deleted } from "@/query/deleted";
 import { type Listener } from "@/query/streamer";
 
@@ -70,6 +79,34 @@ export interface TableParams<
    */
   hydrate?: HydrateMode;
 }
+
+/**
+ * Retrieves by key are strict: a batch containing any vanished key rejects
+ * with NotFound instead of returning the survivors. Falls back to probing
+ * keys one at a time so survivors are still distinguishable.
+ */
+const fetchSurvivors = async <Key extends record.Key, Value extends state.State>(
+  fetch: NonNullable<TableParams<Key, Value>["fetch"]>,
+  keys: Key[],
+): Promise<Array<Keyed<Key, Value>>> => {
+  try {
+    return await fetch(keys);
+  } catch (exc) {
+    if (!NotFoundError.matches(exc)) throw errors.fromUnknown(exc);
+  }
+  if (keys.length === 1) return [];
+  const probed = await Promise.all(
+    keys.map(async (key) => {
+      try {
+        return await fetch([key]);
+      } catch (exc) {
+        if (NotFoundError.matches(exc)) return [];
+        throw errors.fromUnknown(exc);
+      }
+    }),
+  );
+  return probed.flat();
+};
 
 /**
  * The sole owner of one resource's record content and tombstones. Everything
@@ -288,6 +325,27 @@ export class Table<
   }
 
   /**
+   * Re-checks every cached row against the cluster through the table's
+   * fetch: refreshes rows that still exist and tombstones rows that
+   * vanished. A no-op for empty tables and tables without a fetch.
+   */
+  async reconcile(): Promise<void> {
+    const { fetchRows } = this;
+    if (fetchRows == null) return;
+    const keys = this.keys();
+    if (keys.length === 0) return;
+    const gen = this.gen;
+    const values = await fetchSurvivors(fetchRows, keys);
+    // A reset mid-fetch means the cluster was replaced: writing the fetched
+    // rows would repopulate the cleared table with old-cluster records.
+    if (gen !== this.gen) return;
+    const present = new Set<Key>(values.map(({ key }) => key));
+    const vanished = keys.filter((k) => !present.has(k));
+    if (vanished.length > 0) this.delete(vanished);
+    if (values.length > 0) this.set(values);
+  }
+
+  /**
    * Discards every row and tombstone without notifying subscribers. Called
    * only by the cache's reset, which resets the answer spaces itself:
    * per-row delete events would masquerade as deletions of live records.
@@ -297,14 +355,6 @@ export class Table<
     this.gen++;
     this.rows.clear();
     this.tombstones.clear();
-  }
-
-  /**
-   * Bumped on every reset. Cache-internal surface: async writers capture it
-   * before a fetch and discard results if it moved.
-   */
-  get generation(): number {
-    return this.gen;
   }
 
   /**
