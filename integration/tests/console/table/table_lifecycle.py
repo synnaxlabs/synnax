@@ -257,6 +257,10 @@ class TableLifecycle(ConsoleCase):
         assert exported.get("type") == "table", (
             "Exported JSON should be a table envelope"
         )
+        version = exported.get("version")
+        assert isinstance(version, int) and version >= 1, (
+            f"Exported envelope version should be an int >= 1, got {version!r}"
+        )
         assert exported.get("name") == self.ctx_table_name, (
             f"Exported envelope name should match the table: expected "
             f"{self.ctx_table_name!r}, got {exported.get('name')!r}"

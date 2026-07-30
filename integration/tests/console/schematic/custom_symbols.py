@@ -247,6 +247,10 @@ class CustomSymbols(ConsoleCase):
         assert exported.get("type") == "schematic_symbol", (
             "Exported JSON should be a schematic symbol envelope"
         )
+        version = exported.get("version")
+        assert isinstance(version, int) and version >= 1, (
+            f"Exported envelope version should be an int >= 1, got {version!r}"
+        )
         assert "key" not in exported, (
             "Server-side export strips the resource key from the portable envelope"
         )

@@ -263,6 +263,10 @@ class LinePlot(ConsoleCase):
         assert exported.get("type") == "lineplot", (
             "Exported JSON should be a lineplot envelope"
         )
+        version = exported.get("version")
+        assert isinstance(version, int) and version >= 1, (
+            f"Exported envelope version should be an int >= 1, got {version!r}"
+        )
         assert "key" not in exported, (
             "Server-side export strips the resource key from the portable envelope"
         )
@@ -322,6 +326,10 @@ class LinePlot(ConsoleCase):
         exported = self.console.project.export_page(self.ctx_plot_name)
         assert exported.get("type") == "lineplot", (
             "Exported JSON should be a lineplot envelope"
+        )
+        version = exported.get("version")
+        assert isinstance(version, int) and version >= 1, (
+            f"Exported envelope version should be an int >= 1, got {version!r}"
         )
         assert "key" not in exported, (
             "Server-side export strips the resource key from the portable envelope"

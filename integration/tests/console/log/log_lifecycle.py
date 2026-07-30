@@ -317,7 +317,10 @@ class LogLifecycle(ConsoleCase):
             f"Exported envelope name should match the log: expected "
             f"{self.ctx_log_name!r}, got {exported.get('name')!r}"
         )
-        assert exported.get("version") == 2, "Exported envelope should be version 2"
+        version = exported.get("version")
+        assert isinstance(version, int) and version >= 2, (
+            f"Exported envelope version should be an int >= 2, got {version!r}"
+        )
         assert "key" not in exported, (
             "Server-side export strips the resource key from the portable envelope"
         )

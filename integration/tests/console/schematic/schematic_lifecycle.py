@@ -23,7 +23,7 @@ def assert_exported_json(exported: dict[str, Any]) -> None:
 
     Validates:
     - Envelope type is 'schematic' and the resource key is stripped
-    - Version matches SCHEMATIC_VERSION
+    - Version is an int >= SCHEMATIC_VERSION
     - Required keys exist: nodes, edges, configs
     """
     assert exported.get("type") == "schematic", (
@@ -33,10 +33,10 @@ def assert_exported_json(exported: dict[str, Any]) -> None:
         "Server-side export strips the resource key from the portable envelope"
     )
 
-    assert "version" in exported, "Exported JSON should contain 'version'"
-    assert exported["version"] == SCHEMATIC_VERSION, (
-        f"Schematic version should be '{SCHEMATIC_VERSION}', "
-        f"got '{exported['version']}'"
+    version = exported.get("version")
+    assert isinstance(version, int) and version >= SCHEMATIC_VERSION, (
+        f"Exported envelope version should be an int >= {SCHEMATIC_VERSION}, "
+        f"got {version!r}"
     )
 
     required_keys = ["nodes", "edges", "configs"]

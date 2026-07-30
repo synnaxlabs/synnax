@@ -181,6 +181,10 @@ class TaskLifecycle(SimulatorCase, ConsoleCase):
         assert exported["type"] == t.type, (
             f"Exported type should be '{t.type}', got '{exported['type']}'"
         )
+        version = exported.get("version")
+        assert isinstance(version, int) and version >= 1, (
+            f"Exported envelope version should be an int >= 1, got {version!r}"
+        )
         assert "key" not in exported, (
             "Server-side export strips the resource key from the portable envelope"
         )
