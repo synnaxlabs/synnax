@@ -174,7 +174,10 @@ public:
         return x::errors::NIL;
     }
 
-    void reset() override { this->initialized = false; }
+    void reset() override {
+        this->initialized = false;
+        this->state.clear_node(this->ir.key);
+    }
 
     [[nodiscard]] bool is_output_truthy(size_t output_idx) const override {
         return state.is_output_truthy(output_idx);

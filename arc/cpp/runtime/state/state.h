@@ -154,6 +154,8 @@ public:
     /// @brief Sets the current node key on the parent state for stateful variable
     /// isolation.
     void set_current_node_key(const std::string &key);
+
+    void clear_node(const std::string &key);
 };
 
 class State {
@@ -207,5 +209,7 @@ public:
     void set_current_node_key(const std::string &key) {
         this->vars->set_current_node_key(key);
     }
+
+    void clear_node(const std::string &key) { this->vars->clear_node(key); }
 };
 }
