@@ -119,7 +119,11 @@ const bindReconcile =
   async () => {
     const keys = table.keys();
     if (keys.length === 0) return;
+    const gen = table.generation;
     const values = await fetchSurvivors(fetch, keys);
+    // A reset mid-fetch means the cluster was replaced: writing the fetched
+    // rows would repopulate the cleared table with old-cluster records.
+    if (table.generation !== gen) return;
     const present = new Set<Key>(values.map(({ key }) => key));
     const vanished = keys.filter((k) => !present.has(k));
     if (vanished.length > 0) table.delete(vanished);

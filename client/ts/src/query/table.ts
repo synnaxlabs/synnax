@@ -94,6 +94,7 @@ export class Table<
   private readonly equal: (a: Value, b: Value, key: Key) => boolean;
   private readonly fetchRows?: (keys: Key[]) => Promise<Array<Keyed<Key, Value>>>;
   private readonly hydrateMode: HydrateMode;
+  private gen = 0;
 
   constructor({
     onError,
@@ -232,8 +233,9 @@ export class Table<
       const misses =
         opts.refresh === true ? keys : keys.filter((key) => !this.rows.has(key));
       if (misses.length > 0) {
+        const gen = this.gen;
         const fetched = await fetchRows(misses);
-        if (fetched.length > 0)
+        if (gen === this.gen && fetched.length > 0)
           if (opts.refresh === true) this.set(fetched);
           else this.ingest(fetched);
       }
@@ -289,10 +291,20 @@ export class Table<
    * Discards every row and tombstone without notifying subscribers. Called
    * only by the cache's reset, which resets the answer spaces itself:
    * per-row delete events would masquerade as deletions of live records.
+   * Fetches in flight when the reset runs discard their results.
    */
   reset(): void {
+    this.gen++;
     this.rows.clear();
     this.tombstones.clear();
+  }
+
+  /**
+   * Bumped on every reset. Cache-internal surface: async writers capture it
+   * before a fetch and discard results if it moved.
+   */
+  get generation(): number {
+    return this.gen;
   }
 
   /**
