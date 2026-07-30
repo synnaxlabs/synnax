@@ -674,9 +674,9 @@ var _ = Describe("Go Query Plugin", func() {
 					expectedDocPrefixes := []string{
 						"// Retrieve is used to retrieve Foo records",
 						"// Search sets a fuzzy search term",
-						"// MatchKeys returns a filter that restricts results to foos whose key",
-						"// MatchNames returns a filter for foos whose Name",
-						"// MatchActive returns a filter for foos by their Active",
+						"// MatchKeys returns a filter that restricts results to\n// foos whose key",
+						"// MatchNames returns a filter for\n// foos whose Name",
+						"// MatchActive returns a filter for foos by their\n// Active field",
 						"// Where applies the provided filter",
 						"// Entry binds the provided foo as the result",
 						"// Entries binds the provided slice of foos",

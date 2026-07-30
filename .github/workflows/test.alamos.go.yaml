@@ -17,7 +17,7 @@ on:
       - .golangci.yaml
       - alamos/go/**
       - codecov.yaml
-      - scripts/check_gofmt.sh
+      - scripts/check_go_generate.sh
       - x/go/**
   push:
     branches:
@@ -29,7 +29,7 @@ on:
       - .golangci.yaml
       - alamos/go/**
       - codecov.yaml
-      - scripts/check_gofmt.sh
+      - scripts/check_go_generate.sh
       - x/go/**
   workflow_dispatch:
 

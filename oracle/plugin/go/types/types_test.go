@@ -597,9 +597,9 @@ var _ = Describe("Go Types Plugin", func() {
 					)
 
 					content := string(resp.Files[0].Content)
-					Expect(
-						content,
-					).To(ContainSubstring(`// IsValid reports whether v is one of the defined Variant values.`))
+					Expect(content).To(ContainSubstring(
+						"// IsValid reports whether v is one of the defined Variant\n// values.",
+					))
 					Expect(
 						content,
 					).To(ContainSubstring(`func (v Variant) IsValid() bool {`))

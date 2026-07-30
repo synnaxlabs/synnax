@@ -16,13 +16,15 @@ on:
       - .bazelrc
       - .clang-format
       - .clang-format-ignore
+      - .github/workflows/build.docker.yaml
       - .github/workflows/test.arc.yaml
       - arc/**
       - alamos/go/**
       - MODULE.bazel
       - MODULE.bazel.lock
+      - integration/scripts/kill_synnax_processes.sh
       - scripts/check_clang_format.sh
-      - scripts/check_gofmt.sh
+      - scripts/install_clang_format.sh
       - scripts/sanitizers/**
       - vendor/wasmtime/**
       - x/cpp/**
@@ -36,13 +38,15 @@ on:
       - .bazelrc
       - .clang-format
       - .clang-format-ignore
+      - .github/workflows/build.docker.yaml
       - .github/workflows/test.arc.yaml
       - arc/**
       - alamos/go/**
       - MODULE.bazel
       - MODULE.bazel.lock
+      - integration/scripts/kill_synnax_processes.sh
       - scripts/check_clang_format.sh
-      - scripts/check_gofmt.sh
+      - scripts/install_clang_format.sh
       - scripts/sanitizers/**
       - vendor/wasmtime/**
       - x/cpp/**
