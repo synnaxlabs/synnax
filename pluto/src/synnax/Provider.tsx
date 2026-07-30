@@ -148,6 +148,7 @@ export const Provider = ({
       const prev = ref.current.status;
       if (
         prev.variant !== connStatus.variant ||
+        prev.message !== connStatus.message ||
         prev.details.reason !== connStatus.details.reason
       )
         addStatus({ variant: connStatus.variant, message: connStatus.message });

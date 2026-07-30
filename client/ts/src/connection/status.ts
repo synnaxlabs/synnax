@@ -213,12 +213,12 @@ const reduceCheckSuccess = (prev: Status, info: Info, config: Config): Status =>
   const facts = checkFacts(info, config);
   // reachable but the stream is still dark: the client re-demands it and we
   // stay degraded until it reports live. A parked unreachable error must
-  // lift to warning: the short circuit it drives would starve the very
+  // lift out of error: the short circuit it drives would starve the very
   // stream reopen this state waits on.
   if (config.requiresStream && !prev.details.streamLive) {
     if (prev.variant === "error" && prev.details.reason === "unreachable")
       return update(prev, {
-        variant: "warning",
+        variant: "loading",
         message: RECONNECTING,
         details: { ...facts, reason: undefined, error: undefined, retry: null },
       });
@@ -264,7 +264,7 @@ const reduceCheckFailure = (
   config: Config,
 ): Status => {
   if (AuthError.matches(error)) return reduceAuthFailure(prev, error);
-  const escalating = prev.variant === "loading" || prev.variant === "warning";
+  const escalating = prev.variant === "loading";
   if (escalating && attempt >= config.escalateAfter)
     return update(prev, {
       variant: "error",
@@ -273,7 +273,7 @@ const reduceCheckFailure = (
     });
   if (prev.variant === "success")
     return update(prev, {
-      variant: "warning",
+      variant: "loading",
       message: RECONNECTING,
       details: { error },
     });
@@ -294,15 +294,14 @@ const reduceStreamDrop = (prev: Status, error?: Error): Status => {
   if (prev.variant !== "success")
     return update(prev, { details: { streamLive: false } });
   return update(prev, {
-    variant: "warning",
+    variant: "loading",
     message: RECONNECTING,
     details: { streamLive: false, error },
   });
 };
 
 const reduceRetryExhausted = (prev: Status): Status => {
-  if (prev.variant !== "loading" && prev.variant !== "warning")
-    return update(prev, { details: { retry: null } });
+  if (prev.variant !== "loading") return update(prev, { details: { retry: null } });
   return update(prev, {
     variant: "error",
     message: prev.details.error?.message ?? UNREACHABLE,
