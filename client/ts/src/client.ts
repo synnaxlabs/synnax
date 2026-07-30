@@ -267,7 +267,13 @@ export default class Synnax extends framer.Client {
 
   close(): void {
     this.connectivity.stop();
-    this.cache.close().catch(console.error);
+    this.cache
+      .close()
+      .catch((err: unknown) =>
+        this.cache.onError(
+          new Error("failed to close the query cache", { cause: err }),
+        ),
+      );
   }
 }
 
