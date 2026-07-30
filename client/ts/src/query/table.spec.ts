@@ -1284,6 +1284,21 @@ describe("Table", () => {
       const results = await table.retrieve(["a", "missing"]);
       expect(results.map((i) => i.key)).toEqual(["a"]);
     });
+
+    it("should discard fetched rows when the table resets mid-fetch", async () => {
+      let release: (items: Item[]) => void = () => {};
+      const fetch = vi.fn(
+        async () => await new Promise<Item[]>((resolve) => (release = resolve)),
+      );
+      const table = fetchTable(fetch);
+      const pending = table.retrieve(["a"]);
+      table.reset();
+      release([item("a", "old-cluster")]);
+      const results = await pending;
+      expect(results).toEqual([]);
+      expect(table.get("a")).toBeUndefined();
+      expect(table.status("a")).toBe("unknown");
+    });
   });
 });
 
