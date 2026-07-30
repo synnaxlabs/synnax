@@ -11,31 +11,29 @@ import { color, text } from "@synnaxlabs/x";
 import { z } from "zod";
 
 const grayScaleZ = z.object({
-  // Main background surface
+  // App canvas
   l0: color.colorZ,
-  // Large surfaces to contrast against background
+  // Raised surface
   l1: color.colorZ,
-  // Small surfaces to contrast against background
+  // Elevated chrome
   l2: color.colorZ,
-  // Hover on small surfaces
+  // Component rest fill
   l3: color.colorZ,
-  // Border strength 1
+  // Hover fill
   l4: color.colorZ,
-  // Border strength 2
-  // Border strength 1 hover
+  // Pressed fill
   l5: color.colorZ,
-  // Border strength 2 hover
-  // Border strength 1 active
+  // Subtle separator
   l6: color.colorZ,
-  // Border strength 2 active
+  // Default control border
   l7: color.colorZ,
-  // Text strength 1
+  // Strong border
   l8: color.colorZ,
-  // Text strength 2
+  // Secondary text
   l9: color.colorZ,
-  // Text strength 3
+  // Primary text
   l10: color.colorZ,
-  // Text strength 4
+  // Emphatic text
   l11: color.colorZ,
 });
 
@@ -153,7 +151,7 @@ const LIGHT_SCALE = [
   "#EFF1F4", // l2 - elevated chrome
   "#E8EAED", // l3 - component rest fill
   "#DFE2E6", // l4 - hover fill
-  "#D6D9DE", // l5 - pressed + selected fill
+  "#D6D9DE", // l5 - pressed fill
   "#CCD0D5", // l6 - subtle separator
   "#BBBEC3", // l7 - default control border
   "#9EA2A7", // l8 - strong border
@@ -268,7 +266,7 @@ const DARK_SCALE = [
   "#111315", // l2 - elevated chrome
   "#191C20", // l3 - component rest fill
   "#23252A", // l4 - hover fill
-  "#2C2F34", // l5 - pressed + selected fill
+  "#2C2F34", // l5 - pressed fill
   "#36393F", // l6 - subtle separator
   "#44484D", // l7 - default control border
   "#5D6166", // l8 - strong border

@@ -1,3 +1,8 @@
+# 50 - Pluto Grayscale Rearchitecture
+
+**Feature Name**: Pluto Grayscale Rearchitecture <br /> **Status**: Implemented <br />
+**Start Date**: 2026-07-29 <br /> **Authors**: Emiliano Bonilla <br />
+
 # 0 - Summary
 
 This RFC re-architects the Pluto 12-slot gray ramp (`--pluto-gray-l0` through `l11`) for
@@ -9,12 +14,12 @@ the band roles and state rules are the contract.
 
 # 1 - Motivation
 
-A census of the current ramp found structural problems, not value problems:
+A census of the pre-redesign ramp found structural problems, not value problems:
 
 1. **Slots have no single role.** The light ramp's own comments label l4 through l7 as
-   borders, but l4 is a de facto pressed fill across the button variants
-   (`button/Button.css:215`), l6 carries five conflicting roles, and l7 has been
-   colonized as faint text. Tuning any slot for one consumer breaks another.
+   borders, but l4 is a de facto pressed fill across the button variants, l6 carries
+   five conflicting roles, and l7 has been colonized as faint text. Tuning any slot for
+   one consumer breaks another.
 2. **Surfaces and component fills share slots.** Elevated chrome and component rest fill
    both landed on l2, producing the invisible-control class of bugs (a silence button on
    an l2 surface with an l2 fill).
@@ -24,12 +29,11 @@ A census of the current ramp found structural problems, not value problems:
    (2.9:1 light, 4.0:1 dark); placeholders are not exempt under 1.4.3.
 4. **Seven press vocabularies and four keyboard-focus geometries** coexist, two
    components have no press feedback, and the focus halos paint their gap color with a
-   guessed surface level (`input/Switch.css:26` uses l1 where `input/Checkbox.css:25`
-   uses l0).
+   guessed surface level (Switch guesses l1 where Checkbox guesses l0).
 5. **The `contrast` prop is half machinery.** Only values 1 through 3 have CSS behind
-   them (`button/Button.css:221`), `filled` ignores it, and the only principled surface
-   link in the codebase is the `Menu.background` context.
-6. **Known bugs.** `theming/css.ts:57` generates the l9 alpha variants from l11, and
+   them, `filled` ignores it, and the only principled surface link in the codebase is
+   the `Menu.background` context.
+6. **Known bugs.** `theming/css.ts` generates the l9 alpha variants from l11, and
    `telem/control/Chip.tsx` references a nonexistent `--pluto-gray-l12`.
 
 # 2 - Vocabulary
@@ -53,9 +57,9 @@ A census of the current ramp found structural problems, not value problems:
 3. **Dark cockpit.** The dark canvas stays dark. Contrast comes from step spacing above
    the floor, not from lifting the floor to the industry cluster (Linear sits at OKLab L
    0.139, Radix slate at 0.179; we float l0 at ~0.115).
-4. **Quiet but present states.** Hover, press, and selection are each one ramp step,
-   expressed only through the variant-var protocol. No transforms, no opacity tricks, no
-   bespoke hexes.
+4. **Quiet but present states.** Hover, press, and selection are each one deliberate
+   step, expressed only through tokens. No transforms, no opacity tricks, no bespoke
+   hexes.
 5. **Whisper temperature.** The ramp carries a trace of the primary hue (OKLCH hue 258),
    strongest in the mid-tones, near zero at the extremes. Grays read warm-of-life
    without ever reading as blue.
@@ -74,7 +78,7 @@ A census of the current ramp found structural problems, not value problems:
 | l2   | Surface | Elevated chrome (dialogs, menus, toolbars)     |
 | l3   | Fill    | Component rest fill                            |
 | l4   | Fill    | Hover fill                                     |
-| l5   | Fill    | Pressed fill AND selected fill (merged)        |
+| l5   | Fill    | Pressed fill                                   |
 | l6   | Border  | Subtle separator (pane seams, dividers)        |
 | l7   | Border  | Default control border                         |
 | l8   | Border  | Strong border (hover, emphasis)                |
@@ -82,24 +86,24 @@ A census of the current ramp found structural problems, not value problems:
 | l10  | Text    | Primary body text                              |
 | l11  | Text    | Emphatic text (headings, selected rows)        |
 
-Pressed and selected share l5 deliberately: both mean "this is the active thing",
-matching Radix step 5 and the segmented-control tuning already landed on this branch.
-Disabled text is `--pluto-text-disabled` (l9 at 45% alpha), not a slot.
+Selection lives off the gray ramp entirely; see 4.5. Disabled text is
+`--pluto-text-disabled` (l9 at 45% alpha), not a slot.
 
 ## 4.1 - Value model
 
 Values are generated in OKLCH from four sliders: floor lightness, per-slot chroma, band
 step sizes, and text anchors. Even perceptual steps inside a band, deliberate jumps
-between bands. The generator and verification live in the working scripts; the
-checked-in theme carries the resulting hex literals with role comments.
+between bands. The generator and verification live in working scripts; the checked-in
+theme carries the resulting hex literals with role comments.
 
-Initial ramps (all slider-tunable, none interview-locked):
+The ramps (all slider-tunable, none interview-locked):
 
-Dark:
-`#040506 #0A0B0D #111315 #191C20 #23252A #2C2F34 #36393F #44484D #5D6166 #A2A5A8 #CFD1D4 #F1F2F3`
-
-Light:
-`#FDFDFF #F6F7F9 #EFF1F4 #E8EAED #DFE2E6 #D6D9DE #CCD0D5 #BBBEC3 #9EA2A7 #63666C #2E3034 #07080A`
+```
+Dark:  #040506 #0A0B0D #111315 #191C20 #23252A #2C2F34
+       #36393F #44484D #5D6166 #A2A5A8 #CFD1D4 #F1F2F3
+Light: #FDFDFF #F6F7F9 #EFF1F4 #E8EAED #DFE2E6 #D6D9DE
+       #CCD0D5 #BBBEC3 #9EA2A7 #63666C #2E3034 #07080A
+```
 
 Verified properties: dark surface and fill steps run 3.6 to 4.0 OKLab points (previously
 2 to 4 at an invisible floor), light surface steps 1.9 to 2.7 (previously 1.2 to 2.4),
@@ -110,7 +114,7 @@ above AA.
 ## 4.2 - Tint policy
 
 Whisper tint, hue-locked to the Synnax primary (`#3774D0`, OKLCH hue 258). Chroma runs
-0.002 to 0.010, peaking in the mid-tones. Rejected alternatives: pure gray (the current
+0.002 to 0.010, peaking in the mid-tones. Rejected alternatives: pure gray (the old
 ramp; reads dead), and assertive tint at Primer's chroma 0.014+ (visibly colors the UI
 and competes with schematic and channel colors, which need neutral backdrops to pop). A
 warmer light theme (Linear's 2026 refresh precedent) remains a tunable parameter, not a
@@ -124,62 +128,84 @@ pass-throughs), the `contrast-1/2/3` CSS blocks, and the dead emitted classes ar
 deleted. Call sites migrate to nothing.
 
 One escape hatch survives: the `Menu.background`-style context, the single principled
-surface link in the codebase, kept for chrome that must know it sits on elevated l2. Its
-consumers are re-derived against the new bands during migration. Rejected: a
-Spectrum-style contrast-indexed token matrix (13 grays per background layer); the
-machinery cost is not justified when the band model removes the problem by construction.
+surface link in the codebase, kept for chrome that must know it sits on elevated l2.
+Rejected: a Spectrum-style contrast-indexed token matrix (13 grays per background
+layer); the machinery cost is not justified when the band model removes the problem by
+construction.
 
 ## 4.4 - Press policy
 
 `:active` stays, with exactly one vocabulary: press is one ramp step past hover on the
-fill, expressed only via `--pluto-active-bg` in the variant-var protocol. Rest l3, hover
-l4, pressed l5 for filled-ish variants; text and shadow variants rest transparent and
-join the band at hover. All seven existing press vocabularies (hardcoded fills, opacity
-drops, transform nudges, borrowed hover states) collapse into this rule; components with
-no press feedback gain it. Linear's `scale(0.97)` flourish is rejected: fractional
-scaling shimmers 0.5px hairline borders, and press stays purely in the color system.
+fill. The fill band is exposed as three tokens (`--pluto-fill-rest`,
+`--pluto-fill-hover`, `--pluto-fill-press`, mapping l3, l4, l5) consumed through the
+variant-var protocol. A surface may re-point the ladder: elevated chrome steps it toward
+the canvas so its controls recess instead of lighten. Text and shadow variants rest
+transparent and join the band at hover. All seven old press vocabularies (hardcoded
+fills, opacity drops, transform nudges, borrowed hover states) collapse into this rule;
+components with no press feedback gain it. Linear's `scale(0.97)` flourish is rejected:
+fractional scaling shimmers 0.5px hairline borders, and press stays purely in the color
+system.
 
-## 4.5 - Focus model
+## 4.5 - Selection
+
+Selection is a dedicated token family, not a gray slot:
+
+- `--pluto-selected-bg`: `--pluto-primary-z-20`
+- `--pluto-selected-active-bg`: `--pluto-primary-z-30`
+- `--pluto-selected-border-color`: `--pluto-primary-z-45`
+- `--pluto-selected-color`: `--pluto-primary-p2`
+
+The fills are gray rotated toward the primary hue at unchanged lightness, so a selected
+segment or toggle is tonally quiet but unambiguously "on"; the glyph shifts to a primary
+tone and the border tints to match. List rows use a softer variant of the same rotation.
+
+The interview originally merged pressed and selected at l5, matching Radix step 5. On
+real controls the merge failed: a selected toggle in gray l5 was indistinguishable from
+a pressed one and read as disabled next to its unselected siblings. Selection moved to
+the tinted family after several showcase rounds; its exact feel is still open (section
+8).
+
+## 4.6 - Focus model
 
 Two treatments, one geometry each:
 
 1. **Editing focus** (text fields, `:focus-within`, always on): the existing border swap
-   to primary plus the inset 0.5px shadow (`input/Input.css:24`). `flush` inputs keep
-   suppressing it.
-2. **Keyboard focus** (everything else, `:focus-visible` only): one token,
+   to primary plus the inset 0.5px shadow. `flush` inputs keep suppressing it.
+2. **Keyboard focus** (everything else, `:focus-visible` only): one rule,
    `outline: 1px solid var(--pluto-primary-z); outline-offset: 2px`. The gap is
    transparent, so the painted-gap halos die along with their guessed gap colors. Primer
    and Radix Themes precedent; modern engines follow `border-radius` on outlines.
 
-## 4.6 - Migration map
+## 4.7 - Migration map
 
 Old slots map to new slots by the role the site was actually using:
 
-| Old slot (role as used)       | New slot |
-| ----------------------------- | -------- |
-| l0, l1, l2 as surfaces        | same     |
-| l1, l2 as component rest fill | l3       |
-| l2, l3 as hover fill          | l4       |
-| l3, l4 as pressed or selected | l5       |
-| l4, l5 as border              | l6 or l7 |
-| l6, l7 as border              | l7 or l8 |
-| l7, l8 as text or icon        | l9       |
-| l9 as secondary text          | l9       |
-| l10, l11 as text              | same     |
+| Old slot (role as used)       | New slot            |
+| ----------------------------- | ------------------- |
+| l0, l1, l2 as surfaces        | same                |
+| l1, l2 as component rest fill | l3                  |
+| l2, l3 as hover fill          | l4                  |
+| l3, l4 as pressed fill        | l5                  |
+| any slot as selected fill     | 4.5 selected tokens |
+| l4, l5 as border              | l6 or l7            |
+| l6, l7 as border              | l7 or l8            |
+| l7, l8 as text or icon        | l9                  |
+| l9 as secondary text          | l9                  |
+| l10, l11 as text              | same                |
 
 Alpha variants follow their base slot. Bug fixes ride along: the l9 alpha generation bug
-(`theming/css.ts:57`), the `--pluto-gray-l12` reference in `telem/control/Chip.tsx` and
-the spec that locks it in, and the stale "l3" comment in `select/Button.css`.
+in `theming/css.ts`, the `--pluto-gray-l12` reference in `telem/control/Chip.tsx` and
+the spec that locked it in, and the stale slot comment in `select/Button.css`.
 
-# 5 - Implementation Phases
+# 5 - Implementation
 
-Single-branch cutover, no coexistence. Ramp values and consumer migration land together
-because the role reassignment makes the old consumers wrong on the new values.
-
-1. New ramps, role comments, `--pluto-text-disabled`, css.ts fixes, theme regeneration.
-2. Consumer migration per the map (Pluto then Console), contrast deletion, press and
-   focus unification.
-3. Showcase iteration on the sliders with the user.
+Landed as a single-branch cutover, no coexistence: new ramps with role comments in
+`theming/base/theme.ts`, the fill and selection token families in `theming/theme.css`,
+`--pluto-text-disabled`, the css.ts and Chip fixes, contrast deletion, and the press and
+focus unification across Pluto and Console consumers. The keyboard-focus rule is
+declared by each adopting component rather than one global selector, so opting a
+component in stays a local change. Showcase iteration on the slider parameters
+continues; value changes are retunes, not re-architecture.
 
 # 6 - What This RFC Does Not Cover
 
@@ -193,8 +219,11 @@ because the role reassignment makes the old consumers wrong on the new values.
 - **Deep re-architecture over values-only retune.** A retune inherits the role
   conflicts; every slot keeps colliding consumers. The trade is a large one-time
   migration, and it is accepted.
-- **Pressed merges with selected at l5.** A dedicated selected slot would cost a border
-  slot and the two states never coexist on one element.
+- **Selection left the gray ramp.** The interview locked pressed and selected merged at
+  l5; implementation showed the merged gray selection reading as disabled on compact
+  controls, and selection landed as the primary-tinted token family (4.5). The trade is
+  real: selection is no longer a pure ramp step, and the tinted fills are one more token
+  family to maintain.
 - **Contrast prop deleted, not fixed.** Fixing it means maintaining a token matrix
   nobody else in our reference set carries. The trade: rare chrome needs the Menu-style
   surface context escape hatch.
@@ -206,6 +235,8 @@ because the role reassignment makes the old consumers wrong on the new values.
 
 # 8 - Open Questions
 
-All are slider parameters inside the locked shape, tuned visually in the showcase: exact
-floor lightness, per-slot chroma (including a possible warmer light theme), band step
-sizes, and text anchors.
+1. **Slider parameters.** Exact floor lightness, per-slot chroma (including a possible
+   warmer light theme), band step sizes, and text anchors are tuned visually in the
+   showcase inside the locked shape.
+2. **Selection feel.** The tinted family in 4.5 is the fifth variant tried and still
+   under visual tuning; the token names are the contract, their values are not.
