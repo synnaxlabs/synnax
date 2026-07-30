@@ -53,6 +53,24 @@ type Host struct {
 // entering a node.
 func (h *Host) SetNodeKey(key string) { h.currentNodeKey = key }
 
+// ClearNode discards all stateful variable slots held for the node with the
+// given key, so its variables re-initialize on the next load. Called by the
+// runtime when the stage containing the node is activated.
+func (h *Host) ClearNode(key string) {
+	delete(h.stateU8, key)
+	delete(h.stateU16, key)
+	delete(h.stateU32, key)
+	delete(h.stateU64, key)
+	delete(h.stateI8, key)
+	delete(h.stateI16, key)
+	delete(h.stateI32, key)
+	delete(h.stateI64, key)
+	delete(h.stateF32, key)
+	delete(h.stateF64, key)
+	delete(h.stateString, key)
+	delete(h.stateSeries, key)
+}
+
 // NewHost registers the state module's WASM host bindings with rt. The
 // stateful module's host functions allocate values through the series and
 // strings ProgramStates, so both must be supplied.

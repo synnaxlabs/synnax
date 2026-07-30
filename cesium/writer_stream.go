@@ -891,7 +891,17 @@ func (w *idxWriter) resolveCommitEnd(
 	if w.writingToIdx {
 		return index.Exactly(w.idx.highWaterMark), nil
 	}
-	return w.idx.Stamp(ctx, w.start, w.sampleCount-1, true)
+	approx, err := w.idx.Stamp(ctx, w.start, w.sampleCount-1, index.MustBeContinuous)
+	if err != nil {
+		return approx, err
+	}
+	// An inexact approximation means w.start is not an exact sample in the index, so
+	// there is no defined timestamp for the samples written by this writer. Committing
+	// anyway would use the approximation's zero-valued lower bound as the commit end.
+	if !approx.Exact() {
+		return approx, index.NewDiscontinuousStampError(w.start)
+	}
+	return approx, nil
 }
 
 type virtualWriter struct {

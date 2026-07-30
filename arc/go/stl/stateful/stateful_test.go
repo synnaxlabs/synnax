@@ -436,4 +436,259 @@ var _ = Describe("Vars", func() {
 			},
 		)
 	})
+
+	Describe("ClearNode", func() {
+		It(
+			"Should re-initialize a scalar variable on the next load",
+			func(ctx SpecContext) {
+				mod.SetNodeKey("node1")
+				rt.CallVoid(
+					ctx,
+					"stateful",
+					"store_i32",
+					testutil.U32(0),
+					testutil.U32(100),
+				)
+				Expect(
+					callU32(ctx, "load_i32", testutil.U32(0), testutil.U32(7)),
+				).To(Equal(uint32(100)))
+				mod.ClearNode("node1")
+				Expect(
+					callU32(ctx, "load_i32", testutil.U32(0), testutil.U32(7)),
+				).To(Equal(uint32(7)))
+			},
+		)
+
+		It("Should clear every scalar type held for the node", func(ctx SpecContext) {
+			mod.SetNodeKey("node1")
+			rt.CallVoid(ctx, "stateful", "store_u8", testutil.U32(0), testutil.U32(1))
+			rt.CallVoid(ctx, "stateful", "store_u16", testutil.U32(0), testutil.U32(2))
+			rt.CallVoid(ctx, "stateful", "store_u32", testutil.U32(0), testutil.U32(3))
+			rt.CallVoid(ctx, "stateful", "store_u64", testutil.U32(0), testutil.U64(4))
+			rt.CallVoid(ctx, "stateful", "store_i8", testutil.U32(0), testutil.U32(5))
+			rt.CallVoid(ctx, "stateful", "store_i16", testutil.U32(0), testutil.U32(6))
+			rt.CallVoid(ctx, "stateful", "store_i32", testutil.U32(0), testutil.U32(7))
+			rt.CallVoid(ctx, "stateful", "store_i64", testutil.U32(0), testutil.I64(8))
+			rt.CallVoid(
+				ctx,
+				"stateful",
+				"store_f32",
+				testutil.U32(0),
+				testutil.F32(9.5),
+			)
+			rt.CallVoid(
+				ctx,
+				"stateful",
+				"store_f64",
+				testutil.U32(0),
+				testutil.F64(10.5),
+			)
+
+			mod.ClearNode("node1")
+
+			Expect(
+				callU32(ctx, "load_u8", testutil.U32(0), testutil.U32(200)),
+			).To(Equal(uint32(200)))
+			Expect(
+				callU32(ctx, "load_u16", testutil.U32(0), testutil.U32(201)),
+			).To(Equal(uint32(201)))
+			Expect(
+				callU32(ctx, "load_u32", testutil.U32(0), testutil.U32(202)),
+			).To(Equal(uint32(202)))
+			Expect(
+				callU64(ctx, "load_u64", testutil.U32(0), testutil.U64(203)),
+			).To(Equal(uint64(203)))
+			Expect(
+				callU32(ctx, "load_i8", testutil.U32(0), testutil.U32(100)),
+			).To(Equal(uint32(100)))
+			Expect(
+				callU32(ctx, "load_i16", testutil.U32(0), testutil.U32(205)),
+			).To(Equal(uint32(205)))
+			Expect(
+				callU32(ctx, "load_i32", testutil.U32(0), testutil.U32(206)),
+			).To(Equal(uint32(206)))
+			Expect(
+				callU64(ctx, "load_i64", testutil.U32(0), testutil.I64(207)),
+			).To(Equal(uint64(207)))
+			Expect(
+				callF32(ctx, "load_f32", testutil.U32(0), testutil.F32(20.5)),
+			).To(Equal(float32(20.5)))
+			Expect(
+				callF64(ctx, "load_f64", testutil.U32(0), testutil.F64(21.5)),
+			).To(Equal(21.5))
+		})
+
+		It("Should clear every varID held for the node", func(ctx SpecContext) {
+			mod.SetNodeKey("node1")
+			rt.CallVoid(ctx, "stateful", "store_i32", testutil.U32(0), testutil.U32(10))
+			rt.CallVoid(ctx, "stateful", "store_i32", testutil.U32(1), testutil.U32(20))
+			rt.CallVoid(ctx, "stateful", "store_i32", testutil.U32(2), testutil.U32(30))
+			mod.ClearNode("node1")
+			Expect(
+				callU32(ctx, "load_i32", testutil.U32(0), testutil.U32(0)),
+			).To(Equal(uint32(0)))
+			Expect(
+				callU32(ctx, "load_i32", testutil.U32(1), testutil.U32(0)),
+			).To(Equal(uint32(0)))
+			Expect(
+				callU32(ctx, "load_i32", testutil.U32(2), testutil.U32(0)),
+			).To(Equal(uint32(0)))
+		})
+
+		It(
+			"Should leave state held for other node keys untouched",
+			func(ctx SpecContext) {
+				mod.SetNodeKey("node1")
+				rt.CallVoid(
+					ctx,
+					"stateful",
+					"store_i32",
+					testutil.U32(0),
+					testutil.U32(100),
+				)
+				mod.SetNodeKey("node2")
+				rt.CallVoid(
+					ctx,
+					"stateful",
+					"store_i32",
+					testutil.U32(0),
+					testutil.U32(200),
+				)
+
+				mod.ClearNode("node1")
+
+				mod.SetNodeKey("node1")
+				Expect(
+					callU32(ctx, "load_i32", testutil.U32(0), testutil.U32(0)),
+				).To(Equal(uint32(0)))
+				mod.SetNodeKey("node2")
+				Expect(
+					callU32(ctx, "load_i32", testutil.U32(0), testutil.U32(0)),
+				).To(Equal(uint32(200)))
+			},
+		)
+
+		It("Should clear string state", func(ctx SpecContext) {
+			mod.SetNodeKey("node1")
+			rt.CallVoid(
+				ctx,
+				"stateful",
+				"store_str",
+				testutil.U32(0),
+				testutil.U32(strS.Create("persisted")),
+			)
+			Expect(
+				MustBeOk(
+					strS.Get(
+						callU32(
+							ctx,
+							"load_str",
+							testutil.U32(0),
+							testutil.U32(strS.Create("fresh")),
+						),
+					),
+				),
+			).To(Equal("persisted"))
+			mod.ClearNode("node1")
+			Expect(
+				MustBeOk(
+					strS.Get(
+						callU32(
+							ctx,
+							"load_str",
+							testutil.U32(0),
+							testutil.U32(strS.Create("fresh")),
+						),
+					),
+				),
+			).To(Equal("fresh"))
+		})
+
+		It("Should clear series state", func(ctx SpecContext) {
+			mod.SetNodeKey("node1")
+			rt.CallVoid(
+				ctx,
+				"stateful",
+				"store_series_f64",
+				testutil.U32(0),
+				testutil.U32(seriesS.Store(telem.NewSeriesV(1.0, 2.0, 3.0))),
+			)
+			Expect(
+				MustBeOk(
+					seriesS.Get(
+						callU32(
+							ctx,
+							"load_series_f64",
+							testutil.U32(0),
+							testutil.U32(0),
+						),
+					),
+				).Len(),
+			).To(Equal(int64(3)))
+			mod.ClearNode("node1")
+			initH := seriesS.Store(telem.NewSeriesV(9.0))
+			Expect(
+				callU32(ctx, "load_series_f64", testutil.U32(0), testutil.U32(initH)),
+			).To(Equal(initH))
+		})
+
+		It(
+			"Should allow state to be re-established after a clear",
+			func(ctx SpecContext) {
+				mod.SetNodeKey("node1")
+				rt.CallVoid(
+					ctx,
+					"stateful",
+					"store_i32",
+					testutil.U32(0),
+					testutil.U32(100),
+				)
+				mod.ClearNode("node1")
+				rt.CallVoid(
+					ctx,
+					"stateful",
+					"store_i32",
+					testutil.U32(0),
+					testutil.U32(300),
+				)
+				Expect(
+					callU32(ctx, "load_i32", testutil.U32(0), testutil.U32(0)),
+				).To(Equal(uint32(300)))
+			},
+		)
+
+		It("Should be idempotent", func(ctx SpecContext) {
+			mod.SetNodeKey("node1")
+			rt.CallVoid(
+				ctx,
+				"stateful",
+				"store_i32",
+				testutil.U32(0),
+				testutil.U32(100),
+			)
+			mod.ClearNode("node1")
+			mod.ClearNode("node1")
+			Expect(
+				callU32(ctx, "load_i32", testutil.U32(0), testutil.U32(42)),
+			).To(Equal(uint32(42)))
+		})
+
+		It(
+			"Should be a no-op for a node key that holds no state",
+			func(ctx SpecContext) {
+				mod.SetNodeKey("node1")
+				rt.CallVoid(
+					ctx,
+					"stateful",
+					"store_i32",
+					testutil.U32(0),
+					testutil.U32(100),
+				)
+				mod.ClearNode("never-seen")
+				Expect(
+					callU32(ctx, "load_i32", testutil.U32(0), testutil.U32(0)),
+				).To(Equal(uint32(100)))
+			},
+		)
+	})
 })

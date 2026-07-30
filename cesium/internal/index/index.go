@@ -20,11 +20,13 @@ package index
 import (
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/telem"
+	"github.com/synnaxlabs/x/validate"
 )
 
 // ErrDiscontinuous is returned if the index has discontinuities across an evaluated
-// time range.
-var ErrDiscontinuous = errors.New("discontinuous")
+// time range. It wraps validate.ErrValidation, so callers can match either the specific
+// discontinuity or the general validation shape.
+var ErrDiscontinuous = errors.Wrap(validate.ErrValidation, "discontinuous")
 
 func NewDiscontinuousTRError(tr telem.TimeRange) error {
 	return errors.Wrapf(
@@ -43,6 +45,9 @@ func NewDiscontinuousOffsetError(offset, domainLen int64) error {
 	)
 }
 
+// NewDiscontinuousStampError is returned when a timestamp cannot be resolved to an
+// exact sample in the index, whether because no domain contains it or because it falls
+// between two samples.
 func NewDiscontinuousStampError(stamp telem.TimeStamp) error {
 	return errors.Wrapf(
 		ErrDiscontinuous,

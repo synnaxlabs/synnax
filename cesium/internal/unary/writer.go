@@ -376,12 +376,7 @@ func (w *Writer) commitWithEnd(
 			return 0, err
 		}
 		if !approx.Exact() {
-			return 0, errors.Wrapf(
-				validate.ErrValidation,
-				"writer start %s cannot be resolved in the index channel %v",
-				w.cfg.Start,
-				w.idx.Info(),
-			)
+			return 0, index.NewDiscontinuousStampError(w.cfg.Start)
 		}
 		// Add 1 to the end timestamp because the end timestamp is exclusive.
 		end = approx.Lower + 1
