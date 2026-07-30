@@ -7,9 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { panel, schematic } from "@synnaxlabs/client";
+import { type panel, schematic } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
-import { Drift } from "@synnaxlabs/drift";
 import { Icon, Menu } from "@synnaxlabs/pluto";
 import { uuid } from "@synnaxlabs/x";
 import {
@@ -160,54 +159,6 @@ describe("Panel.TabMenuItems", () => {
       await waitFor(() => expect(screen.getByText("Reload Console")).toBeTruthy());
       expect(screen.queryByText("Rename")).toBeNull();
       expect(screen.queryByText("Focus")).toBeNull();
-    });
-  });
-
-  describe("move to new window", () => {
-    it("mints a panel holding the tab and opens a window showing it", async () => {
-      const moved = resourceTab();
-      const stays = resourceTab();
-      const existing = await createServerPanel(client, {
-        variant: "leaf",
-        tabs: [moved, stays],
-      });
-      const { wrapper, store } = await createPanelWrapper({
-        client,
-        panelKey: existing.key,
-        tabKey: moved.key,
-      });
-      await primePanel(wrapper, existing.key);
-
-      const menu = renderMenu(wrapper, [moved.key]);
-      await waitFor(() => expect(screen.getByText("Move to New Window")).toBeTruthy());
-      await act(async () => {
-        fireEvent.click(screen.getByText("Move to New Window"));
-      });
-      // The production menu closes on click; the harness unmounts it so the menu's
-      // tab-scoped selectors don't re-evaluate against the now-removed tab.
-      menu.unmount();
-
-      let windowKey!: string;
-      await waitFor(() => {
-        const state = store.getState();
-        const win = Drift.selectWindows(state).find(
-          ({ key, reserved }) => key !== Drift.MAIN_WINDOW && reserved,
-        );
-        expect(win).toBeDefined();
-        windowKey = win!.key;
-        expect(state.panels.windows[windowKey]?.selected).toBeDefined();
-      });
-
-      const minted = store.getState().panels.windows[windowKey].selected!;
-      await waitFor(async () => {
-        const [src, dst] = await Promise.all([
-          client.panels.retrieve({ key: existing.key }),
-          client.panels.retrieve({ key: minted }),
-        ]);
-        expect(panel.findTab(src.root, moved.key)).toBeUndefined();
-        expect(panel.findTab(src.root, stays.key)).toBeDefined();
-        expect(panel.findTab(dst.root, moved.key)).toEqual(moved);
-      });
     });
   });
 });

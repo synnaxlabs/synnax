@@ -13,7 +13,6 @@ import {
   Button,
   CSS as PCSS,
   type Flux,
-  Haul,
   Icon,
   Menu,
   Panel,
@@ -24,8 +23,6 @@ import { array } from "@synnaxlabs/x";
 import { type ReactElement, useCallback, useMemo } from "react";
 import { useDispatch } from "react-redux";
 
-import { createPillHaulItem } from "@/feature/panel/haul";
-import { useOpenWindow } from "@/feature/panel/useOpenWindow";
 import { ContextMenu as CMenu } from "@/platform/context-menu";
 import { CSS } from "@/platform/css";
 import { Tree } from "@/platform/tree";
@@ -41,7 +38,6 @@ const ContextMenu = ({ keys, panels }: ContextMenuProps): ReactElement | null =>
   const hasDeletePermission = Access.useDeleteGranted(ids);
   const confirm = Tree.useConfirmDelete({ type: "Panel" });
   const dispatch = useDispatch();
-  const openWindow = useOpenWindow();
   const { update: del } = Panel.useDelete({
     beforeUpdate: useCallback(
       async ({ data }: Flux.BeforeUpdateParams<panel.Key | panel.Key[]>) => {
@@ -59,15 +55,6 @@ const ContextMenu = ({ keys, panels }: ContextMenuProps): ReactElement | null =>
   const [key] = keys;
   return (
     <CMenu.Menu>
-      {keys.length === 1 && (
-        <>
-          <Menu.Item itemKey="open-in-new-window" onClick={() => openWindow(key)}>
-            <Icon.OpenInNewWindow />
-            Open in New Window
-          </Menu.Item>
-          <Menu.Divider />
-        </>
-      )}
       {hasUpdatePermission && keys.length === 1 && (
         <>
           <CMenu.RenameItem onClick={() => Text.edit(PCSS.B(`tab-${key}`))} />
@@ -97,18 +84,8 @@ const Tab = ({ tabKey }: TabProps): ReactElement => {
     (name: string) => rename({ key: tabKey, name }),
     [tabKey, rename],
   );
-  const { startDrag, onDragEnd } = Haul.useDrag({ type: "PanelSelector" });
-  const handleDragStart = useCallback(
-    () => startDrag([createPillHaulItem(tabKey)]),
-    [startDrag, tabKey],
-  );
   return (
-    <Tabs.Tab
-      itemKey={tabKey}
-      draggable
-      onDragStart={handleDragStart}
-      onDragEnd={onDragEnd}
-    >
+    <Tabs.Tab itemKey={tabKey}>
       <Text.Editable
         id={PCSS.B(`tab-${tabKey}`)}
         value={name}

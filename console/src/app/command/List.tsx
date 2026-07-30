@@ -20,7 +20,6 @@ import { Import } from "@/feature/import";
 import { Label } from "@/feature/label";
 import { LinePlot } from "@/feature/lineplot";
 import { Log } from "@/feature/log";
-import { Panel } from "@/feature/panel";
 import { Persist } from "@/feature/persist";
 import { Project } from "@/feature/project";
 import { Range } from "@/feature/range";
@@ -42,7 +41,6 @@ const COMMANDS: Command.Command[] = [
   ...Label.COMMANDS,
   ...LinePlot.COMMANDS,
   ...Log.COMMANDS,
-  ...Panel.COMMANDS,
   ...Persist.COMMANDS,
   ...Range.COMMANDS,
   ...Schematic.COMMANDS,

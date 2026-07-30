@@ -18,7 +18,6 @@ import { Nav } from "@/app/nav";
 import { Triggers } from "@/app/triggers";
 import { Auth } from "@/feature/auth";
 import { Device } from "@/feature/device";
-import { Panel } from "@/feature/panel";
 import { Project } from "@/feature/project";
 import { CSS } from "@/platform/css";
 
@@ -27,12 +26,6 @@ const SideEffect = (): null => {
   Device.useListenForChanges();
   Link.useDeep();
   Triggers.use();
-  return null;
-};
-
-// Tear-off reads the required project selectors, so it mounts inside Project.Guard.
-const ProjectSideEffect = (): null => {
-  Panel.useTearOff();
   return null;
 };
 
@@ -46,7 +39,6 @@ export const Primary = (): ReactElement => (
     <Auth.Guard>
       <Auth.ConnectionGuard>
         <Project.Guard>
-          <ProjectSideEffect />
           <Nav.Bar.Top />
           <Flex.Box x gap="tiny" grow className={CSS.BE("main", "content")}>
             <Nav.Bar.Left />
