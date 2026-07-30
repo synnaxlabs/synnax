@@ -444,6 +444,26 @@ describe("Cache", () => {
       expect(bad.get("b1")).toEqual({ key: "b1", name: "a" });
       await cache.close();
     });
+
+    it("discards a reconcile that completes after a reset", async () => {
+      let release: (docs: Doc[]) => void = () => {};
+      const gate = new Promise<Doc[]>((resolve) => {
+        release = resolve;
+      });
+      const fetch = vi.fn(async () => await gate);
+      const cache = makeReopeningEngine();
+      const table = cache.createTable<string, Doc>({ name: "docs", fetch });
+      table.set([{ key: "kept", name: "stale" }]);
+      await cache.ensureStreaming();
+      await expect.poll(() => fetch.mock.calls.length).toBe(1);
+      await cache.reset();
+      release([{ key: "kept", name: "old-cluster" }]);
+      await gate;
+      await new Promise((resolve) => setTimeout(resolve, 5));
+      expect(table.get("kept")).toBeUndefined();
+      expect(table.keys()).toEqual([]);
+      await cache.close();
+    });
   });
 
   describe("reset", () => {
