@@ -21,6 +21,7 @@
 #include "arc/cpp/runtime/errors/errors.h"
 #include "arc/cpp/runtime/node/factory.h"
 #include "arc/cpp/runtime/state/state.h"
+#include "arc/cpp/stl/testutil/testutil.h"
 #include "driver/arc/ranges/ranges.h"
 
 namespace driver::arc::ranges {
@@ -65,6 +66,29 @@ namespace {
     out.type = ::arc::types::Type{.kind = ::arc::types::Kind::String};
     node.outputs = ::arc::types::Params{out};
     return node;
+}
+
+::arc::types::Param str_input(const std::string &name) {
+    ::arc::types::Param p;
+    p.name = name;
+    p.type = ::arc::types::Type{.kind = ::arc::types::Kind::String};
+    return p;
+}
+
+// create_spec declares the create native's input shape for building test configs.
+::arc::stl::testutil::NodeSpec create_spec() {
+    ::arc::types::Param out;
+    out.name = ::arc::ir::default_output_param;
+    out.type = ::arc::types::Type{.kind = ::arc::types::Kind::String};
+    ::arc::stl::testutil::NodeSpec spec;
+    spec.type = "create";
+    spec.outputs = ::arc::types::Params{out};
+    spec.inputs = ::arc::types::Params{
+        str_input("name"),
+        str_input("parent"),
+        str_input("color")
+    };
+    return spec;
 }
 
 // make_end_ir_node builds an `end` IR node with {key}.
@@ -272,6 +296,30 @@ TEST(CreateRangeTest, NextWarnsAndEmitsEmptyKeyOnInvalidParent) {
     ASSERT_NIL(created->next(ctx));
 
     EXPECT_EQ(output_key(s), "");
+    ASSERT_EQ(calls.size(), 1u);
+    EXPECT_NE(calls[0].find("ranges.create: invalid parent key"), std::string::npos);
+}
+
+TEST(CreateRangeTest, ReadsAVarBoundParentAtFireTime) {
+    auto client = std::make_shared<synnax::Synnax>(new_test_client());
+    std::vector<std::string> calls;
+    // The configured "" would succeed parentless; only the live slot value
+    // can produce this warning.
+    const auto f = create_spec().config(
+        {unique_name("cpp_var_parent_"),
+         std::shared_ptr<::arc::stl::testutil::VarBinding>(
+             ::arc::stl::testutil::var_of<std::string>("not-a-uuid")
+         ),
+         ""}
+    );
+    Module module(client, recordingReporter(&calls));
+    auto created = ASSERT_NIL_P(module.create(f.make_config()));
+
+    auto ctx = make_context();
+    ASSERT_NIL(created->next(ctx));
+
+    const auto node = f.make_node();
+    EXPECT_EQ(std::get<std::string>((*node.output(0)).at(0)), "");
     ASSERT_EQ(calls.size(), 1u);
     EXPECT_NE(calls[0].find("ranges.create: invalid parent key"), std::string::npos);
 }
