@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { panel, project } from "@synnaxlabs/client";
+import { panel } from "@synnaxlabs/client";
 import {
   Access,
   Button,
@@ -21,11 +21,12 @@ import {
   Tabs,
   Text,
 } from "@synnaxlabs/pluto";
-import { array, uuid } from "@synnaxlabs/x";
+import { array } from "@synnaxlabs/x";
 import { type ReactElement, useCallback, useMemo } from "react";
 import { useDispatch } from "react-redux";
 
 import { createPillHaulItem } from "@/feature/panel/haul";
+import { useCreate } from "@/feature/panel/useCreate";
 import { useOpenWindow } from "@/feature/panel/useOpenWindow";
 import { ContextMenu as CMenu } from "@/platform/context-menu";
 import { CSS } from "@/platform/css";
@@ -142,12 +143,7 @@ export const Selector = (): ReactElement | null => {
     [dispatch],
   );
 
-  const { update: create } = Panel.useCreate();
-  const handleCreate = useCallback(() => {
-    const key = uuid.create();
-    create({ key, name: "New Panel", parent: project.ontologyID(projectKey) });
-    dispatch(Session.Panel.select({ key }));
-  }, [create, dispatch, projectKey]);
+  const handleCreate = useCreate();
 
   const contextMenu = useCallback<NonNullable<Menu.ContextMenuProps["menu"]>>(
     (props) => <ContextMenu {...props} panels={panels} />,
