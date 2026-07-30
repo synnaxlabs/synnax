@@ -477,7 +477,9 @@ describe("connection", () => {
       ...base,
       ...changes,
     });
-    const withDetails = (changes: Partial<connection.Details>): connection.Status => ({
+    const withDetails = (
+      changes: Partial<connection.StatusDetails>,
+    ): connection.Status => ({
       ...base,
       details: { ...base.details, ...changes },
     });

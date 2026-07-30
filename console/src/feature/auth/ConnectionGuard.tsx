@@ -79,7 +79,7 @@ export const ConnectionGuard = ({
 };
 
 interface RetryStatusProps {
-  retry: NonNullable<connection.Details["retry"]>;
+  retry: NonNullable<connection.StatusDetails["retry"]>;
 }
 
 const RetryStatus = ({ retry }: RetryStatusProps): ReactElement => {
