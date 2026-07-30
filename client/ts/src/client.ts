@@ -109,7 +109,7 @@ export default class Synnax extends framer.Client {
   readonly tables: table.Client;
   readonly groups: group.Client;
   readonly imex: imex.Client;
-  readonly cache: query.Cache;
+  private readonly cache: query.Cache;
   private readonly transport: Transport;
   private readonly conn: connection.Client;
 

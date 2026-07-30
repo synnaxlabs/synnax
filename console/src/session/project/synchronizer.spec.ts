@@ -18,9 +18,9 @@ import { renderHookWithConsole, uniqueName } from "@/testutil";
 const client = createTestClient();
 
 beforeAll(async () => {
-  // Epoch events only fire on a live change stream; open it up front so the
+  // Epoch events only fire on a live change stream; connect up front so the
   // mount-time sweep runs deterministically.
-  await client.cache.ensureStreaming();
+  await client.connect();
 });
 
 const preloadWith = (selected: string): Partial<Session.State> => ({

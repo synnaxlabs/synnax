@@ -648,11 +648,11 @@ describe("store", () => {
   it("stays a detached, local-only cache when caching is disabled", async () => {
     const disabled = createTestClient({ cache: false });
     expect(() => disabled.ontology.cache.resources).not.toThrow();
-    expect(disabled.cache.epoch).toBe(0);
-    // Detached: ensureStreaming never opens a change stream, so the epoch
+    expect(disabled.connection.status.details.epoch).toBe(0);
+    // Detached: connecting succeeds without a change stream, so the epoch
     // never advances past 0.
-    await disabled.cache.ensureStreaming();
-    expect(disabled.cache.epoch).toBe(0);
+    await disabled.connect();
+    expect(disabled.connection.status.details.epoch).toBe(0);
     disabled.close();
   });
 });

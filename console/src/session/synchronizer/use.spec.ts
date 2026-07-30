@@ -7,7 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { createTestClient } from "@synnaxlabs/client/testutil";
+import { createSeverableProxy, createTestClient } from "@synnaxlabs/client/testutil";
+import { type breaker, TimeSpan } from "@synnaxlabs/x";
 import { renderHook, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
@@ -125,21 +126,38 @@ describe("Synchronizer.use", () => {
     await waitFor(() => expect(result.current).toBe(true));
   });
 
-  it("should reset verified when the epoch returns to 0", async () => {
-    const local = createTestClient();
+  it("should re-run reconciles when the connection epoch advances", async () => {
+    const retry: breaker.Config = {
+      baseInterval: TimeSpan.milliseconds(10),
+      maxInterval: TimeSpan.milliseconds(50),
+      scale: 1.5,
+    };
+    const proxy = await createSeverableProxy();
+    const local = createTestClient({ port: proxy.port, retry });
     try {
+      let reconciles = 0;
       const { wrapper } = await createConsoleWrapper({ client: local });
       const { result } = renderHook(
-        () => Synchronizer.use({ useNoop: () => ({ reconcile: () => {} }) }),
+        () =>
+          Synchronizer.use({
+            useCounter: () => ({
+              reconcile: () => {
+                reconciles++;
+              },
+            }),
+          }),
         { wrapper },
       );
       await waitFor(() => expect(result.current).toBe(true));
-      await local.cache.reset();
-      await waitFor(() => expect(result.current).toBe(false));
-      await local.cache.ensureStreaming();
+      const settled = reconciles;
+      await proxy.sever();
+      await proxy.restore();
+      // The reopened stream may have missed changes, so the host re-verifies.
+      await waitFor(() => expect(reconciles).toBeGreaterThan(settled));
       await waitFor(() => expect(result.current).toBe(true));
     } finally {
       local.close();
+      await proxy.close();
     }
   });
 
