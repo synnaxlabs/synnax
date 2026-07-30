@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type destructor, type record, type state } from "@synnaxlabs/x";
+import { type destructor, type record } from "@synnaxlabs/x";
 import type z from "zod";
 
 import { NotFoundError } from "@/errors";
@@ -18,7 +18,7 @@ import {
   type Retrieves,
   type WatchEntry,
 } from "@/query/query";
-import { type Table } from "@/query/table";
+import { type Keyed, type Table } from "@/query/table";
 import { type Data, type FetchOptions, type Params } from "@/query/types";
 
 /** Query fields only the server can evaluate, shared by most request shapes. */
@@ -36,19 +36,33 @@ const isKeysOnly = (query: unknown): query is { keys: unknown[] } => {
   return Object.entries(query).every(([k, v]) => k === "keys" || v == null);
 };
 
+interface ComposeProp<V, D> {
+  /**
+   * Per-record enrichment applied to every answer, receiving the normalized
+   * query the record answers. Defaults to identity.
+   */
+  compose: (record: V, query: Params) => D;
+}
+
+/** Optional only when a record is a valid answer as-is (V assignable to D):
+ *  the identity default is unsound for any narrower D. */
+type ComposeParam<V, D> = [V] extends [D]
+  ? Partial<ComposeProp<V, D>>
+  : ComposeProp<V, D>;
+
 /**
  * Declaration of a domain client's read surface. The single space is derived
  * from the table and its fetch: `{ key }` params resolve one record, with
  * deletion flipping the answer to deleted. Declare `single` only when the
  * domain's single query is richer than a key.
  */
-export interface RetrieverParams<
+export type RetrieverParams<
   Z extends z.ZodType<Params>,
   K extends record.Key,
-  V extends state.State & record.Keyed<K>,
+  V extends Keyed<K>,
   D extends Data = V,
-  SP = { key: K },
-> {
+  SingleParams = { key: K },
+> = ComposeParam<V, D> & {
   /** Resource name used in error messages, e.g. "range". */
   name: string;
   /** The table owning this domain's record content. */
@@ -65,10 +79,7 @@ export interface RetrieverParams<
      * reach it; they resolve through the table's fetch. Results hydrate the
      * table under its declared mode.
      */
-    fetch: (
-      query: z.output<Z>,
-      options?: FetchOptions,
-    ) => Promise<Array<V & record.Keyed<K>>>;
+    fetch: (query: z.output<Z>, options?: FetchOptions) => Promise<V[]>;
     /** Rule 2: whether a record satisfies the query. Pure; no network. */
     matches?: (record: V, query: z.output<Z>) => boolean;
     /** Overrides {@link DEFAULT_SERVER_FIELDS} for this request shape. */
@@ -76,21 +87,16 @@ export interface RetrieverParams<
     /** Foreign tables whose events affect this space's answers. */
     watch?: Array<WatchEntry<z.output<Z>, K>>;
   };
-  /**
-   * Per-record enrichment applied to every answer, receiving the normalized
-   * query the record answers. Defaults to identity.
-   */
-  compose?: (record: V, query: Params) => D;
   /** Custom single space for domains whose single query is richer than a key. */
   single?: {
     /** Whether the params address exactly one record. */
-    is: (params: unknown) => params is SP;
+    is: (params: unknown) => params is SingleParams;
     /** Canonicalizes single params so equivalent queries hash identically. */
-    normalize: (params: SP) => Params;
+    normalize: (params: SingleParams) => Params;
     /** The space answering single queries, built via the cache. */
     space: Retrieves<Params, D>;
   };
-}
+};
 
 /**
  * A domain client's cached read surface, routing each query to the single or
@@ -118,22 +124,22 @@ export interface RetrieverParams<
 export abstract class Retriever<
   Z extends z.ZodType<Params>,
   K extends record.Key,
-  V extends state.State & record.Keyed<K>,
+  V extends Keyed<K>,
   D extends Data = V,
-  SP = { key: K },
+  SingleParams = { key: K },
 > {
   private readonly singleSpace: Retrieves<Params, D>;
   private readonly requestSpace: Retrieves<z.output<Z>, D[]>;
-  private readonly isSingle: (params: unknown) => params is SP;
-  private readonly normalizeSingle: (params: SP) => Params;
+  private readonly isSingle: (params: unknown) => params is SingleParams;
+  private readonly normalizeSingle: (params: SingleParams) => Params;
   private readonly normalizeRequest: (params: z.input<Z>) => z.output<Z>;
 
-  constructor(cache: Cache, params: RetrieverParams<Z, K, V, D, SP>) {
+  constructor(cache: Cache, params: RetrieverParams<Z, K, V, D, SingleParams>) {
     const {
       name,
       table,
       request,
-      compose = (record) => record as unknown as D,
+      compose = (record: V) => record as unknown as D,
       single,
     } = params;
     const {
@@ -177,9 +183,10 @@ export abstract class Retriever<
         keyOf: (query) => query,
         single: true,
       }) as Retrieves<Params, D>;
-      this.isSingle = (p): p is SP => typeof p === "object" && p !== null && "key" in p;
+      this.isSingle = (p): p is SingleParams =>
+        typeof p === "object" && p !== null && "key" in p;
       this.normalizeSingle = ((p: { key: K }) => p.key) as unknown as (
-        params: SP,
+        params: SingleParams,
       ) => Params;
     }
   }
@@ -190,9 +197,12 @@ export abstract class Retriever<
    * @throws {NotFoundError} if a single-record query matches nothing or the
    * record was deleted.
    */
-  retrieve(params: SP, options?: FetchOptions): Promise<D>;
+  retrieve(params: SingleParams, options?: FetchOptions): Promise<D>;
   retrieve(params: z.input<Z>, options?: FetchOptions): Promise<D[]>;
-  async retrieve(params: SP | z.input<Z>, options?: FetchOptions): Promise<D | D[]> {
+  async retrieve(
+    params: SingleParams | z.input<Z>,
+    options?: FetchOptions,
+  ): Promise<D | D[]> {
     if (this.isSingle(params))
       return await this.singleSpace.retrieve(this.normalizeSingle(params), options);
     return await this.requestSpace.retrieve(this.normalizeRequest(params), options);
@@ -202,10 +212,10 @@ export abstract class Retriever<
    * Subscribes to changes in the cached answer to the given query. The handler
    * fires on every change or deletion. Returns a destructor that unsubscribes.
    */
-  onChange(params: SP, handler: ChangeHandler<D>): destructor.Destructor;
+  onChange(params: SingleParams, handler: ChangeHandler<D>): destructor.Destructor;
   onChange(params: z.input<Z>, handler: ChangeHandler<D[]>): destructor.Destructor;
   onChange(
-    params: SP | z.input<Z>,
+    params: SingleParams | z.input<Z>,
     handler: ChangeHandler<D> | ChangeHandler<D[]>,
   ): destructor.Destructor {
     if (this.isSingle(params))
@@ -224,9 +234,9 @@ export abstract class Retriever<
    * or undefined when nothing is cached. May be stale for unsubscribed
    * queries.
    */
-  getCached(params: SP): Cached<D> | undefined;
+  getCached(params: SingleParams): Cached<D> | undefined;
   getCached(params: z.input<Z>): Cached<D[]> | undefined;
-  getCached(params: SP | z.input<Z>): Cached<D> | Cached<D[]> | undefined {
+  getCached(params: SingleParams | z.input<Z>): Cached<D> | Cached<D[]> | undefined {
     if (this.isSingle(params))
       return this.singleSpace.getCached(this.normalizeSingle(params));
     return this.requestSpace.getCached(this.normalizeRequest(params));
