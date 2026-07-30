@@ -147,9 +147,10 @@ func (Kind) EnumDescriptor() ([]byte, []int) {
 type ChanDirection int32
 
 const (
-	ChanDirection_CHAN_DIRECTION_NONE  ChanDirection = 0
-	ChanDirection_CHAN_DIRECTION_READ  ChanDirection = 1
-	ChanDirection_CHAN_DIRECTION_WRITE ChanDirection = 2
+	ChanDirection_CHAN_DIRECTION_NONE       ChanDirection = 0
+	ChanDirection_CHAN_DIRECTION_READ       ChanDirection = 1
+	ChanDirection_CHAN_DIRECTION_WRITE      ChanDirection = 2
+	ChanDirection_CHAN_DIRECTION_READ_WRITE ChanDirection = 3
 )
 
 // Enum value maps for ChanDirection.
@@ -158,11 +159,13 @@ var (
 		0: "CHAN_DIRECTION_NONE",
 		1: "CHAN_DIRECTION_READ",
 		2: "CHAN_DIRECTION_WRITE",
+		3: "CHAN_DIRECTION_READ_WRITE",
 	}
 	ChanDirection_value = map[string]int32{
-		"CHAN_DIRECTION_NONE":  0,
-		"CHAN_DIRECTION_READ":  1,
-		"CHAN_DIRECTION_WRITE": 2,
+		"CHAN_DIRECTION_NONE":       0,
+		"CHAN_DIRECTION_READ":       1,
+		"CHAN_DIRECTION_WRITE":      2,
+		"CHAN_DIRECTION_READ_WRITE": 3,
 	}
 )
 
@@ -729,11 +732,12 @@ const file_arc_go_types_pb_types_proto_rawDesc = "" +
 	"\rKIND_SEQUENCE\x10\x16\x12\x0e\n" +
 	"\n" +
 	"KIND_STAGE\x10\x17\x12\x10\n" +
-	"\fKIND_VAR_REF\x10\x18*[\n" +
+	"\fKIND_VAR_REF\x10\x18*z\n" +
 	"\rChanDirection\x12\x17\n" +
 	"\x13CHAN_DIRECTION_NONE\x10\x00\x12\x17\n" +
 	"\x13CHAN_DIRECTION_READ\x10\x01\x12\x18\n" +
-	"\x14CHAN_DIRECTION_WRITE\x10\x02B\x94\x01\n" +
+	"\x14CHAN_DIRECTION_WRITE\x10\x02\x12\x1d\n" +
+	"\x19CHAN_DIRECTION_READ_WRITE\x10\x03B\x94\x01\n" +
 	"\x10com.arc.types.pbB\n" +
 	"TypesProtoP\x01Z\"github.com/synnaxlabs/arc/types/pb\xa2\x02\x03ATP\xaa\x02\fArc.Types.Pb\xca\x02\fArc\\Types\\Pb\xe2\x02\x18Arc\\Types\\Pb\\GPBMetadata\xea\x02\x0eArc::Types::Pbb\x06proto3"
 
