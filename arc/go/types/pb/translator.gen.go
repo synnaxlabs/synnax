@@ -430,6 +430,8 @@ func ChanDirectionToPB(v types.ChanDirection) (ChanDirection, error) {
 		return ChanDirection_CHAN_DIRECTION_READ, nil
 	case types.ChanDirectionWrite:
 		return ChanDirection_CHAN_DIRECTION_WRITE, nil
+	case types.ChanDirectionReadWrite:
+		return ChanDirection_CHAN_DIRECTION_READ_WRITE, nil
 	default:
 		return 0, errors.Newf("unrecognized types.ChanDirection value: %v", v)
 	}
@@ -444,6 +446,8 @@ func ChanDirectionFromPB(v ChanDirection) (types.ChanDirection, error) {
 		return types.ChanDirectionRead, nil
 	case ChanDirection_CHAN_DIRECTION_WRITE:
 		return types.ChanDirectionWrite, nil
+	case ChanDirection_CHAN_DIRECTION_READ_WRITE:
+		return types.ChanDirectionReadWrite, nil
 	default:
 		return 0, errors.Newf("unrecognized ChanDirection value: %v", v)
 	}
