@@ -9,17 +9,9 @@
 
 import "@/platform/cluster/list/List.css";
 
-import { checkConnection, type connection } from "@synnaxlabs/client";
-import {
-  Flex,
-  List,
-  Select,
-  Status,
-  Text,
-  Tooltip,
-  useAsyncEffect,
-} from "@synnaxlabs/pluto";
-import { memo, type ReactElement, useState } from "react";
+import { type connection } from "@synnaxlabs/client";
+import { Flex, List, Select, Status, Synnax, Text, Tooltip } from "@synnaxlabs/pluto";
+import { memo, type ReactElement } from "react";
 
 import { CSS } from "@/platform/css";
 import { Session } from "@/session";
@@ -39,27 +31,6 @@ const LABELS: Record<connection.Status["variant"], string> = {
   disabled: "Disconnected",
 };
 
-const useConnectionStatus = ({
-  host,
-  port,
-  secure,
-}: Session.Cluster.Cluster): connection.Status | null => {
-  const [status, setStatus] = useState<connection.Status | null>(null);
-  useAsyncEffect(
-    async (signal) => {
-      const next = await checkConnection({
-        host,
-        port,
-        secure,
-        retry: { maxRetries: 0 },
-      });
-      if (!signal.aborted) setStatus(next);
-    },
-    [host, port, secure],
-  );
-  return status;
-};
-
 const Base = ({
   validateName,
   item,
@@ -72,7 +43,12 @@ const Base = ({
     if (!validateName(value) || item == null) return;
     dispatch(Session.Cluster.rename({ key: item.key, name: value }));
   };
-  const status = useConnectionStatus(item);
+  const status = Synnax.useCheckConnection({
+    host: item.host,
+    port: item.port,
+    secure: item.secure,
+    retry: { maxRetries: 0 },
+  });
   let statusVariant = status?.variant ?? "disabled";
   let statusMessage = LABELS[statusVariant];
   if (loading) {

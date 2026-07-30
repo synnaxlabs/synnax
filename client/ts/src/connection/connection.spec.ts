@@ -163,15 +163,42 @@ describe("connection", () => {
 
   describe("check", () => {
     it("should return a success status against a live cluster", async () => {
-      const status = await connection.check(liveUnary(), { name: "test-cluster" });
+      const status = await connection.check({
+        host: TEST_CLIENT_PARAMS.host,
+        port: TEST_CLIENT_PARAMS.port,
+        name: "test-cluster",
+      });
       expect(status.variant).toEqual("success");
       expect(status.details.authenticated).toBe(true);
+      expect(z.uuid().safeParse(status.details.clusterKey).success).toBe(true);
     });
 
-    it("should return an error status against a dead cluster", async () => {
-      const status = await connection.check(failingUnary());
+    it("should include the client version in the check", async () => {
+      const status = await connection.check({
+        host: TEST_CLIENT_PARAMS.host,
+        port: TEST_CLIENT_PARAMS.port,
+      });
+      expect(status.details.clientVersion).toBeDefined();
+      expect(status.details.clientServerCompatible).toBe(true);
+    });
+
+    it("should return an error status against an unreachable host", async () => {
+      const status = await connection.check({
+        host: "invalid-host-that-does-not-exist",
+        port: 9999,
+        retry: { maxRetries: 0 },
+      });
       expect(status.variant).toEqual("error");
       expect(status.details.reason).toEqual("unreachable");
+    });
+
+    it("should return an error status against a dead port", async () => {
+      const status = await connection.check({
+        host: TEST_CLIENT_PARAMS.host,
+        port: 9999,
+        retry: { maxRetries: 0 },
+      });
+      expect(status.variant).toEqual("error");
     });
   });
 
@@ -201,6 +228,29 @@ describe("connection", () => {
   describe("reduce", () => {
     it("should start in loading", () => {
       expect(createInitialStatus(createConfig()).variant).toEqual("loading");
+    });
+
+    it("should track an in-flight probe without moving the variant", () => {
+      const config = createConfig({ escalateAfter: 1 });
+      const error = new Unreachable({ message: "server down" });
+      const parked = apply(config, { type: "probe.failure", error, attempt: 1 });
+      expect(parked.variant).toEqual("error");
+      const probing = reduce(parked, { type: "probe.started" }, config);
+      expect(probing.variant).toEqual("error");
+      expect(probing.details.probing).toBe(true);
+      const failed = reduce(
+        probing,
+        { type: "probe.failure", error, attempt: 2 },
+        config,
+      );
+      expect(failed.details.probing).toBe(false);
+      const succeeded = reduce(
+        probing,
+        { type: "probe.success", info: createInfo() },
+        config,
+      );
+      expect(succeeded.details.probing).toBe(false);
+      expect(succeeded.variant).toEqual("success");
     });
 
     it("should reach success on a probe when no stream is required", () => {
@@ -497,6 +547,7 @@ describe("connection", () => {
         "clockSkew",
         "clockSkewExceeded",
         "retry",
+        "probing",
       ];
       expect(Object.keys(base.details).sort()).toEqual([...classified].sort());
     });
