@@ -18,6 +18,7 @@ located at ``x/py/``.
 import os
 import re
 import uuid
+from typing import Any
 
 import synnax as sy
 
@@ -147,3 +148,33 @@ def assert_link_format(
             raise AssertionError(
                 f"Resource ID should be a valid UUID, got: {actual_id}"
             )
+
+
+def assert_envelope(
+    exported: dict[str, Any],
+    type: str,
+    min_version: int,
+    name: str | None = None,
+) -> None:
+    """Assert that a server-side export has the portable envelope shape.
+
+    :param exported: The decoded export JSON.
+    :param type: The expected envelope type (e.g., "lineplot", "schematic").
+    :param min_version: Floor for the envelope version — a floor, not an exact
+        match, so server-side version bumps don't break export tests.
+    :param name: Optional resource name the envelope must carry.
+    """
+    assert exported.get("type") == type, (
+        f"Envelope type should be {type!r}, got {exported.get('type')!r}"
+    )
+    version = exported.get("version")
+    assert isinstance(version, int) and version >= min_version, (
+        f"Envelope version should be an int >= {min_version}, got {version!r}"
+    )
+    assert "key" not in exported, (
+        "Server-side export strips the resource key from the portable envelope"
+    )
+    if name is not None:
+        assert exported.get("name") == name, (
+            f"Envelope name should be {name!r}, got {exported.get('name')!r}"
+        )

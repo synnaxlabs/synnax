@@ -10,7 +10,7 @@
 import synnax as sy
 from console.case import ConsoleCase
 from console.table import Table
-from framework.utils import assert_link_format, get_fixture_path
+from framework.utils import assert_envelope, assert_link_format, get_fixture_path
 from x import random_name
 
 
@@ -254,20 +254,7 @@ class TableLifecycle(ConsoleCase):
         assert self.ctx_table_name is not None
         self.log("Testing export table via context menu")
         exported = self.console.project.export_page(self.ctx_table_name)
-        assert exported.get("type") == "table", (
-            "Exported JSON should be a table envelope"
-        )
-        version = exported.get("version")
-        assert isinstance(version, int) and version >= 1, (
-            f"Exported envelope version should be an int >= 1, got {version!r}"
-        )
-        assert exported.get("name") == self.ctx_table_name, (
-            f"Exported envelope name should match the table: expected "
-            f"{self.ctx_table_name!r}, got {exported.get('name')!r}"
-        )
-        assert "key" not in exported, (
-            "Server-side export strips the resource key from the portable envelope"
-        )
+        assert_envelope(exported, type="table", min_version=1, name=self.ctx_table_name)
 
     def test_ctx_delete(self) -> None:
         """Test deleting a table via context menu."""

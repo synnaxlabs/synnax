@@ -12,7 +12,7 @@ import numpy as np
 import synnax as sy
 from console.case import ConsoleCase
 from console.plot import Plot
-from framework.utils import assert_link_format
+from framework.utils import assert_envelope, assert_link_format
 from x import random_name
 
 
@@ -260,16 +260,7 @@ class LinePlot(ConsoleCase):
 
         exported = plot.export_json()
 
-        assert exported.get("type") == "lineplot", (
-            "Exported JSON should be a lineplot envelope"
-        )
-        version = exported.get("version")
-        assert isinstance(version, int) and version >= 1, (
-            f"Exported envelope version should be an int >= 1, got {version!r}"
-        )
-        assert "key" not in exported, (
-            "Server-side export strips the resource key from the portable envelope"
-        )
+        assert_envelope(exported, type="lineplot", min_version=1, name=plot.page_name)
         assert "channels" in exported, "Exported JSON should contain 'channels'"
         assert "y1" in exported["channels"], "Channels should include 'y1' axis"
 
@@ -324,15 +315,8 @@ class LinePlot(ConsoleCase):
 
         self.log("Testing export plot via context menu")
         exported = self.console.project.export_page(self.ctx_plot_name)
-        assert exported.get("type") == "lineplot", (
-            "Exported JSON should be a lineplot envelope"
-        )
-        version = exported.get("version")
-        assert isinstance(version, int) and version >= 1, (
-            f"Exported envelope version should be an int >= 1, got {version!r}"
-        )
-        assert "key" not in exported, (
-            "Server-side export strips the resource key from the portable envelope"
+        assert_envelope(
+            exported, type="lineplot", min_version=1, name=self.ctx_plot_name
         )
         assert "channels" in exported, "Exported JSON should contain 'channels'"
 

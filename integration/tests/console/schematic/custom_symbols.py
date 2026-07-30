@@ -15,7 +15,7 @@ import synnax as sy
 from console.case import ConsoleCase
 from console.schematic import CustomSymbol, Schematic
 from console.schematic.symbol_toolbar import SymbolToolbar
-from framework.utils import get_fixture_path
+from framework.utils import assert_envelope, get_fixture_path
 from x import random_name
 
 TEST_SYMBOL_SVG = get_fixture_path("test_symbol.svg")
@@ -244,21 +244,13 @@ class CustomSymbols(ConsoleCase):
         toolbar.select_group(self.test_group_name)
         exported = toolbar.export_symbol(self.test_symbol_name)
 
-        assert exported.get("type") == "schematic_symbol", (
-            "Exported JSON should be a schematic symbol envelope"
+        assert_envelope(
+            exported,
+            type="schematic_symbol",
+            min_version=1,
+            name=self.test_symbol_name,
         )
-        version = exported.get("version")
-        assert isinstance(version, int) and version >= 1, (
-            f"Exported envelope version should be an int >= 1, got {version!r}"
-        )
-        assert "key" not in exported, (
-            "Server-side export strips the resource key from the portable envelope"
-        )
-        assert "name" in exported, "Exported symbol should contain 'name'"
         assert "data" in exported, "Exported symbol should contain 'data'"
-        assert exported["name"] == self.test_symbol_name, (
-            f"Exported symbol name should be '{self.test_symbol_name}'"
-        )
 
     def test_delete_symbol(self, toolbar: SymbolToolbar) -> None:
         """Test deleting a symbol via context menu."""

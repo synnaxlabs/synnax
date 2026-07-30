@@ -15,7 +15,7 @@ import synnax as sy
 from console.case import ConsoleCase
 from console.task_page import TaskPage
 from framework.run_with_connection import run_scripts
-from framework.utils import assert_link_format
+from framework.utils import assert_envelope, assert_link_format
 from tests.driver.simulator_case import SimulatorCase
 from x import random_name
 
@@ -177,17 +177,7 @@ class TaskLifecycle(SimulatorCase, ConsoleCase):
         t = TASKS[0]
         self.log(f"Testing: Export task '{t.name}'")
         exported = self.console.tasks.export_task(t.name)
-        assert "type" in exported, "Exported JSON should contain a 'type' field"
-        assert exported["type"] == t.type, (
-            f"Exported type should be '{t.type}', got '{exported['type']}'"
-        )
-        version = exported.get("version")
-        assert isinstance(version, int) and version >= 1, (
-            f"Exported envelope version should be an int >= 1, got {version!r}"
-        )
-        assert "key" not in exported, (
-            "Server-side export strips the resource key from the portable envelope"
-        )
+        assert_envelope(exported, type=t.type, min_version=1, name=t.name)
         assert "channels" in exported, "Exported JSON should contain 'channels'"
         assert len(exported["channels"]) > 0, "Exported channels should not be empty"
 

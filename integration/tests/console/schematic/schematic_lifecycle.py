@@ -14,7 +14,7 @@ from console.case import ConsoleCase
 from console.schematic import SCHEMATIC_VERSION, Button
 from console.schematic.off_page_reference import OffPageReference
 from console.schematic.schematic import Schematic
-from framework.utils import assert_link_format
+from framework.utils import assert_envelope, assert_link_format
 from x import random_name
 
 
@@ -22,23 +22,10 @@ def assert_exported_json(exported: dict[str, Any]) -> None:
     """Assert that the exported JSON has a valid structure.
 
     Validates:
-    - Envelope type is 'schematic' and the resource key is stripped
-    - Version is an int >= SCHEMATIC_VERSION
+    - Envelope shape: 'schematic' type, version >= SCHEMATIC_VERSION, key stripped
     - Required keys exist: nodes, edges, configs
     """
-    assert exported.get("type") == "schematic", (
-        "Exported JSON should be a schematic envelope"
-    )
-    assert "key" not in exported, (
-        "Server-side export strips the resource key from the portable envelope"
-    )
-
-    version = exported.get("version")
-    assert isinstance(version, int) and version >= SCHEMATIC_VERSION, (
-        f"Exported envelope version should be an int >= {SCHEMATIC_VERSION}, "
-        f"got {version!r}"
-    )
-
+    assert_envelope(exported, type="schematic", min_version=SCHEMATIC_VERSION)
     required_keys = ["nodes", "edges", "configs"]
     for key in required_keys:
         assert key in exported, f"Exported JSON should contain '{key}'"
