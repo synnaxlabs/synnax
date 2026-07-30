@@ -414,8 +414,10 @@ const awaitCreation = <Query extends query.Params, Data extends query.Data>(
   },
 ): Promise<Data> =>
   new Promise<Data>((resolve, reject) => {
+    let settled = false;
     let disconnect: destructor.Destructor = () => {};
     const finish = () => {
+      settled = true;
       clearTimeout(timer);
       disconnect();
       local.inFlight.delete(hash);
@@ -432,6 +434,9 @@ const awaitCreation = <Query extends query.Params, Data extends query.Data>(
         reject(new DeletedError(`${name} was deleted`, result.corpse));
       else resolve(result);
     });
+    // An already-answered query delivers during subscribe itself, before the
+    // destructor exists to be called; tear it down now.
+    if (settled) disconnect();
     // The document may have landed between the failed fetch and the
     // subscription mounting.
     const cached = getCached(params);

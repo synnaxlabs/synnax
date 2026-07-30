@@ -88,7 +88,12 @@ export const useDrag = ({ onMove, onStart, onEnd }: UseDragProps): UseDragStart 
         window.removeEventListener("pointermove", handleMove);
         window.removeEventListener("pointerup", handleEnd);
         window.removeEventListener("pointercancel", handleEnd);
-        if (frame != null) cancelAnimationFrame(frame);
+        // A move queued for the next frame must still reach onMove: consumers
+        // persist move-built state on end, and a release can outrun the frame.
+        if (frame != null) {
+          cancelAnimationFrame(frame);
+          flush();
+        }
         if (!started) return;
         if (el.hasPointerCapture(pointerId)) el.releasePointerCapture(pointerId);
         onEnd?.(box.construct(start, xy.construct(ee)), mouseKey, ee);
