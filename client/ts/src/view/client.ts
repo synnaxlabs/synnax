@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type UnaryClient } from "@synnaxlabs/freighter";
-import { array, destructor, primitive } from "@synnaxlabs/x";
+import { array, type destructor, primitive } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { ontology } from "@/ontology";
@@ -114,11 +114,12 @@ export class Client extends query.Retriever<typeof retrieveRequestZ, Key, View> 
       query.partialUpdate(this.store, key, { name }),
       this.cfg.ontology.cache.renameResource(ontologyID(key), name),
     ];
-    const rollback = new destructor.Chain();
-    rollback.add(...rename());
-    await opts.onOptimistic?.();
-    await rollback.guard(async () => {
-      await this.create({ ...v, name });
+    await query.optimistic({
+      rollbacks: rename(),
+      onOptimistic: opts.onOptimistic,
+      commit: async () => {
+        await this.create({ ...v, name });
+      },
     });
     rename();
   }
@@ -131,18 +132,17 @@ export class Client extends query.Retriever<typeof retrieveRequestZ, Key, View> 
       this.store.delete(keysArr),
       this.cfg.ontology.cache.resources.delete(ontology.idToString(ids)),
     ];
-    const rollback = new destructor.Chain();
-    rollback.add(...drop());
-    await opts.onOptimistic?.();
-    await rollback.guard(
-      async () =>
+    await query.optimistic({
+      rollbacks: drop(),
+      onOptimistic: opts.onOptimistic,
+      commit: async () =>
         await this.cfg.unary.send(
           "/view/delete",
           { keys: keysArr },
           deleteReqZ,
           emptyResZ,
         ),
-    );
+    });
     drop();
   }
 
