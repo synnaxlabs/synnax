@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type UnaryClient } from "@synnaxlabs/freighter";
-import { array, destructor, primitive, record } from "@synnaxlabs/x";
+import { array, primitive, record } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { MultipleFoundError, NotFoundError } from "@/errors";
@@ -166,18 +166,17 @@ export class Client extends query.Retriever<
       query.partialUpdate(this.store, key, { username: newUsername }),
       this.cfg.ontology.cache.renameResource(ontologyID(key), newUsername),
     ];
-    const rollback = new destructor.Chain();
-    rollback.add(...update());
-    await opts.onOptimistic?.();
-    await rollback.guard(
-      async () =>
+    await query.optimistic({
+      rollbacks: update(),
+      onOptimistic: opts.onOptimistic,
+      commit: async () =>
         await this.cfg.unary.send(
           "/user/change-username",
           { key, username: newUsername },
           changeUsernameReqZ,
           changeUsernameResZ,
         ),
-    );
+    });
     update();
   }
 
@@ -187,24 +186,23 @@ export class Client extends query.Retriever<
     lastName?: string,
     opts: query.WriteOptions = {},
   ): Promise<void> {
-    const rollback = new destructor.Chain();
-    rollback.add(
-      query.partialUpdate(
-        this.store,
-        key,
-        record.purgeUndefined({ firstName, lastName }),
-      ),
-    );
-    await opts.onOptimistic?.();
-    await rollback.guard(
-      async () =>
+    await query.optimistic({
+      rollbacks: [
+        query.partialUpdate(
+          this.store,
+          key,
+          record.purgeUndefined({ firstName, lastName }),
+        ),
+      ],
+      onOptimistic: opts.onOptimistic,
+      commit: async () =>
         await this.cfg.unary.send(
           "/user/rename",
           { key, firstName, lastName },
           renameReqZ,
           renameResZ,
         ),
-    );
+    });
   }
 
   async delete(key: Key, opts?: query.WriteOptions): Promise<void>;
@@ -215,18 +213,17 @@ export class Client extends query.Retriever<
       this.cfg.ontology.cache.deleteResources(ontologyID(keysArr)),
       this.store.delete(keysArr),
     ];
-    const rollback = new destructor.Chain();
-    rollback.add(...drop());
-    await opts.onOptimistic?.();
-    await rollback.guard(
-      async () =>
+    await query.optimistic({
+      rollbacks: drop(),
+      onOptimistic: opts.onOptimistic,
+      commit: async () =>
         await this.cfg.unary.send(
           "/user/delete",
           { keys: keysArr },
           deleteReqZ,
           deleteResZ,
         ),
-    );
+    });
     drop();
   }
 
