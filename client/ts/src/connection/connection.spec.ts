@@ -14,7 +14,7 @@ import { z } from "zod";
 
 import { auth } from "@/auth";
 import { connection } from "@/connection";
-import { modeFor, probe } from "@/connection/client";
+import { modeFor, sendCheck } from "@/connection/client";
 import {
   createInitialStatus,
   type Event,
@@ -52,9 +52,9 @@ const failingUnary = (): UnaryClient => ({
 });
 
 interface ScriptedUnary extends UnaryClient {
-  /** Marks the cluster unreachable (or reachable again) for later probes. */
+  /** Marks the cluster unreachable (or reachable again) for later checks. */
   setFailing: (failing: boolean) => void;
-  /** Changes the cluster key answered by later probes. */
+  /** Changes the cluster key answered by later checks. */
   setClusterKey: (key: string) => void;
 }
 
@@ -122,17 +122,17 @@ const sleep = async (span: TimeSpan): Promise<void> =>
   await new Promise((resolve) => setTimeout(resolve, span.milliseconds));
 
 describe("connection", () => {
-  describe("probe", () => {
-    it("should probe the cluster", async () => {
-      const info = await probe(liveUnary());
+  describe("sendCheck", () => {
+    it("should check the cluster", async () => {
+      const info = await sendCheck(liveUnary());
       expect(z.uuid().safeParse(info.clusterKey).success).toBe(true);
       expect(info.nodeVersion).not.toBeUndefined();
     });
 
-    it("should fold a probe into a connected status", async () => {
+    it("should fold a check into a connected status", async () => {
       const config = createConfig();
-      const info = await probe(liveUnary());
-      const status = apply(config, { type: "probe.success", info });
+      const info = await sendCheck(liveUnary());
+      const status = apply(config, { type: "check.success", info });
       expect(status.variant).toEqual("success");
       expect(status.details.authenticated).toBe(true);
       expect(z.uuid().safeParse(status.details.clusterKey).success).toBe(true);
@@ -140,29 +140,29 @@ describe("connection", () => {
 
     it("should pull the server and client versions", async () => {
       const config = createConfig();
-      const info = await probe(liveUnary());
-      const status = apply(config, { type: "probe.success", info });
+      const info = await sendCheck(liveUnary());
+      const status = apply(config, { type: "check.success", info });
       expect(status.details.clientServerCompatible).toBe(true);
       expect(status.details.clientVersion).toBe(__VERSION__);
     });
 
     it("should adjust status if the server is too old", async () => {
       const config = createConfig({ clientVersion: "50000.0.0" });
-      const info = await probe(liveUnary());
-      const status = apply(config, { type: "probe.success", info });
+      const info = await sendCheck(liveUnary());
+      const status = apply(config, { type: "check.success", info });
       expect(status.details.clientServerCompatible).toBe(false);
       expect(status.details.clientVersion).toBe("50000.0.0");
     });
 
     it("should adjust status if the server is too new", async () => {
       const config = createConfig({ clientVersion: "0.0.0" });
-      const info = await probe(liveUnary());
-      const status = apply(config, { type: "probe.success", info });
+      const info = await sendCheck(liveUnary());
+      const status = apply(config, { type: "check.success", info });
       expect(status.details.clientServerCompatible).toBe(false);
     });
 
     it("should propagate transport failures", async () => {
-      await expect(probe(failingUnary())).rejects.toThrow(Unreachable);
+      await expect(sendCheck(failingUnary())).rejects.toThrow(Unreachable);
     });
   });
 
@@ -212,8 +212,8 @@ describe("connection", () => {
       const config = createConfig({ clockSkewThreshold: TimeSpan.seconds(1) });
       const unary = mockUnary(() => TimeStamp.now().add(TimeSpan.hours(1)));
       const status = apply(config, {
-        type: "probe.success",
-        info: await probe(unary),
+        type: "check.success",
+        info: await sendCheck(unary),
       });
       expect(status.details.clockSkewExceeded).toBe(true);
       expect(status.details.clockSkew.valueOf()).not.toBe(0n);
@@ -223,8 +223,8 @@ describe("connection", () => {
       const config = createConfig({ clockSkewThreshold: TimeSpan.seconds(1) });
       const unary = mockUnary(() => TimeStamp.now());
       const status = apply(config, {
-        type: "probe.success",
-        info: await probe(unary),
+        type: "check.success",
+        info: await sendCheck(unary),
       });
       expect(status.details.clockSkewExceeded).toBe(false);
     });
@@ -235,32 +235,32 @@ describe("connection", () => {
       expect(createInitialStatus(createConfig()).variant).toEqual("loading");
     });
 
-    it("should track an in-flight probe without moving the variant", () => {
+    it("should track an in-flight check without moving the variant", () => {
       const config = createConfig({ escalateAfter: 1 });
       const error = new Unreachable({ message: "server down" });
-      const parked = apply(config, { type: "probe.failure", error, attempt: 1 });
+      const parked = apply(config, { type: "check.failure", error, attempt: 1 });
       expect(parked.variant).toEqual("error");
-      const probing = reduce(parked, { type: "probe.started" }, config);
-      expect(probing.variant).toEqual("error");
-      expect(probing.details.probing).toBe(true);
+      const checking = reduce(parked, { type: "check.started" }, config);
+      expect(checking.variant).toEqual("error");
+      expect(checking.details.checking).toBe(true);
       const failed = reduce(
-        probing,
-        { type: "probe.failure", error, attempt: 2 },
+        checking,
+        { type: "check.failure", error, attempt: 2 },
         config,
       );
-      expect(failed.details.probing).toBe(false);
+      expect(failed.details.checking).toBe(false);
       const succeeded = reduce(
-        probing,
-        { type: "probe.success", info: createInfo() },
+        checking,
+        { type: "check.success", info: createInfo() },
         config,
       );
-      expect(succeeded.details.probing).toBe(false);
+      expect(succeeded.details.checking).toBe(false);
       expect(succeeded.variant).toEqual("success");
     });
 
-    it("should reach success on a probe when no stream is required", () => {
+    it("should reach success on a check when no stream is required", () => {
       const status = apply(createConfig(), {
-        type: "probe.success",
+        type: "check.success",
         info: createInfo(),
       });
       expect(status.variant).toEqual("success");
@@ -269,40 +269,40 @@ describe("connection", () => {
 
     it("should stay loading until the stream comes up when one is required", () => {
       const config = createConfig({ requiresStream: true });
-      const probed = apply(config, { type: "probe.success", info: createInfo() });
-      expect(probed.variant).toEqual("loading");
-      expect(probed.details.authenticated).toBe(true);
-      const live = reduce(probed, { type: "stream.live" }, config);
+      const checked = apply(config, { type: "check.success", info: createInfo() });
+      expect(checked.variant).toEqual("loading");
+      expect(checked.details.authenticated).toBe(true);
+      const live = reduce(checked, { type: "stream.live" }, config);
       expect(live.variant).toEqual("success");
       expect(live.details.streamLive).toBe(true);
     });
 
-    it("should lift error(unreachable) to warning on probe success with a dark stream", () => {
+    it("should lift error(unreachable) to warning on check success with a dark stream", () => {
       const config = createConfig({ requiresStream: true, escalateAfter: 1 });
       const error = new Unreachable({ message: "server down" });
-      const parked = apply(config, { type: "probe.failure", error, attempt: 1 });
+      const parked = apply(config, { type: "check.failure", error, attempt: 1 });
       expect(parked.variant).toEqual("error");
       // reachable again: the error must lift, or its short circuit starves
       // the stream reopen that success waits on
-      const probed = reduce(
+      const checked = reduce(
         parked,
-        { type: "probe.success", info: createInfo() },
+        { type: "check.success", info: createInfo() },
         config,
       );
-      expect(probed.variant).toEqual("warning");
-      expect(probed.details.reason).toBeUndefined();
-      const live = reduce(probed, { type: "stream.live" }, config);
+      expect(checked.variant).toEqual("warning");
+      expect(checked.details.reason).toBeUndefined();
+      const live = reduce(checked, { type: "stream.live" }, config);
       expect(live.variant).toEqual("success");
     });
 
     it("should escalate to error(unreachable) after the escalation budget", () => {
       const config = createConfig({ escalateAfter: 2 });
       const error = new Unreachable({ message: "server down" });
-      const first = apply(config, { type: "probe.failure", error, attempt: 1 });
+      const first = apply(config, { type: "check.failure", error, attempt: 1 });
       expect(first.variant).toEqual("loading");
       const second = reduce(
         first,
-        { type: "probe.failure", error, attempt: 2 },
+        { type: "check.failure", error, attempt: 2 },
         config,
       );
       expect(second.variant).toEqual("error");
@@ -312,7 +312,7 @@ describe("connection", () => {
     it("should escalate when a finite retry budget exhausts", () => {
       const config = createConfig({ escalateAfter: 100 });
       const error = new Unreachable({ message: "server down" });
-      const failed = apply(config, { type: "probe.failure", error, attempt: 1 });
+      const failed = apply(config, { type: "check.failure", error, attempt: 1 });
       const exhausted = reduce(failed, { type: "retry.exhausted" }, config);
       expect(exhausted.variant).toEqual("error");
       expect(exhausted.details.reason).toEqual("unreachable");
@@ -323,7 +323,7 @@ describe("connection", () => {
       const config = createConfig({ requiresStream: true });
       const connected = apply(
         config,
-        { type: "probe.success", info: createInfo() },
+        { type: "check.success", info: createInfo() },
         { type: "stream.live" },
       );
       expect(connected.variant).toEqual("success");
@@ -340,11 +340,11 @@ describe("connection", () => {
 
     it("should degrade to warning when a heartbeat fails while connected", () => {
       const config = createConfig();
-      const connected = apply(config, { type: "probe.success", info: createInfo() });
+      const connected = apply(config, { type: "check.success", info: createInfo() });
       const degraded = reduce(
         connected,
         {
-          type: "probe.failure",
+          type: "check.failure",
           error: new Unreachable({ message: "gone" }),
           attempt: 1,
         },
@@ -370,9 +370,9 @@ describe("connection", () => {
       expect(replaced.details.reason).toBeUndefined();
     });
 
-    it("should treat an auth error from the probe as an auth failure", () => {
+    it("should treat an auth error from the check as an auth failure", () => {
       const status = apply(createConfig(), {
-        type: "probe.failure",
+        type: "check.failure",
         error: new AuthError("bad password"),
         attempt: 1,
       });
@@ -382,7 +382,7 @@ describe("connection", () => {
     it("should clear error(unreachable) on retry.requested", () => {
       const config = createConfig({ escalateAfter: 1 });
       const failed = apply(config, {
-        type: "probe.failure",
+        type: "check.failure",
         error: new Unreachable({ message: "server down" }),
         attempt: 1,
       });
@@ -408,11 +408,11 @@ describe("connection", () => {
       expect(apply(config, { type: "epoch.advanced", epoch: 2 }).details.epoch).toBe(2);
     });
 
-    it("should return to first contact when a probe answers with a new cluster", () => {
+    it("should return to first contact when a check answers with a new cluster", () => {
       const config = createConfig({ requiresStream: true });
       const connected = apply(
         config,
-        { type: "probe.success", info: createInfo() },
+        { type: "check.success", info: createInfo() },
         { type: "stream.live" },
         { type: "epoch.advanced", epoch: 1 },
       );
@@ -420,7 +420,7 @@ describe("connection", () => {
       const replaced = reduce(
         connected,
         {
-          type: "probe.success",
+          type: "check.success",
           info: createInfo({ clusterKey: "other-cluster" }),
         },
         config,
@@ -436,15 +436,15 @@ describe("connection", () => {
       const config = createConfig();
       const parked = apply(
         config,
-        { type: "probe.success", info: createInfo() },
-        { type: "probe.failure", error: new Error("gone"), attempt: 10 },
+        { type: "check.success", info: createInfo() },
+        { type: "check.failure", error: new Error("gone"), attempt: 10 },
         { type: "retry.exhausted" },
       );
       expect(parked.variant).toEqual("error");
       const replaced = reduce(
         parked,
         {
-          type: "probe.success",
+          type: "check.success",
           info: createInfo({ clusterKey: "other-cluster" }),
         },
         config,
@@ -460,7 +460,7 @@ describe("connection", () => {
       expect(closed.variant).toEqual("disabled");
       const after = reduce(
         closed,
-        { type: "probe.success", info: createInfo() },
+        { type: "check.success", info: createInfo() },
         config,
       );
       expect(after).toBe(closed);
@@ -469,7 +469,7 @@ describe("connection", () => {
 
   describe("materialChange", () => {
     const config = createConfig();
-    const base = apply(config, { type: "probe.success", info: createInfo() });
+    const base = apply(config, { type: "check.success", info: createInfo() });
     const withStatus = (changes: Partial<connection.Status>): connection.Status => ({
       ...base,
       ...changes,
@@ -489,8 +489,8 @@ describe("connection", () => {
       expect(materialChange(base, next)).toBe(false);
     });
 
-    it("should not notify on repeated identical probes", () => {
-      const again = reduce(base, { type: "probe.success", info: createInfo() }, config);
+    it("should not notify on repeated identical checks", () => {
+      const again = reduce(base, { type: "check.success", info: createInfo() }, config);
       expect(materialChange(base, again)).toBe(false);
     });
 
@@ -552,14 +552,14 @@ describe("connection", () => {
         "clockSkew",
         "clockSkewExceeded",
         "retry",
-        "probing",
+        "checking",
       ];
       expect(Object.keys(base.details).sort()).toEqual([...classified].sort());
     });
   });
 
   describe("modeFor", () => {
-    it("should map variants onto probe modes", () => {
+    it("should map variants onto check modes", () => {
       const config = createConfig();
       const initial = createInitialStatus(config);
       const withReason = (
@@ -570,10 +570,10 @@ describe("connection", () => {
         variant,
         details: { ...initial.details, reason },
       });
-      expect(modeFor(initial)).toEqual("probing");
+      expect(modeFor(initial)).toEqual("checking");
       expect(modeFor(withReason("success"))).toEqual("heartbeat");
-      expect(modeFor(withReason("warning"))).toEqual("probing");
-      expect(modeFor(withReason("error", "unreachable"))).toEqual("probing");
+      expect(modeFor(withReason("warning"))).toEqual("checking");
+      expect(modeFor(withReason("error", "unreachable"))).toEqual("checking");
       expect(modeFor(withReason("error", "auth"))).toEqual("idle");
       expect(modeFor({ ...initial, variant: "disabled" })).toEqual("idle");
     });
@@ -595,7 +595,7 @@ describe("connection", () => {
       await client.close();
     });
 
-    it("should keep probing after escalation and self-heal", async () => {
+    it("should keep checking after escalation and self-heal", async () => {
       const unary = createScriptedUnary({ failing: true });
       const client = createClient(unary, { escalateAfter: 1 });
       await waitForStatus(client, (s) => s.variant === "error");
@@ -624,12 +624,12 @@ describe("connection", () => {
       await client.close();
     });
 
-    it("should probe immediately on retryNow while in heartbeat mode", async () => {
+    it("should check immediately on retryNow while in heartbeat mode", async () => {
       const unary = mockUnary(() => TimeStamp.now());
       const client = createClient(unary, {}, FAST_RETRY, TimeSpan.seconds(60));
       await waitForStatus(client, (s) => s.variant === "success");
       const send = unary.send as ReturnType<typeof vi.fn>;
-      // the mode switch into heartbeat may fire one buffered probe; settle
+      // the mode switch into heartbeat may fire one buffered check; settle
       // before measuring quiescence
       await sleep(TimeSpan.milliseconds(30));
       const calls = send.mock.calls.length;
@@ -641,7 +641,7 @@ describe("connection", () => {
       await client.close();
     });
 
-    it("should stop probing once the connection is closed", async () => {
+    it("should stop checking once the connection is closed", async () => {
       const unary = failingUnary();
       const client = createClient(unary, { escalateAfter: 1 });
       await waitForStatus(client, (s) => s.variant === "error");
@@ -653,7 +653,7 @@ describe("connection", () => {
       expect(send.mock.calls.length).toBe(calls);
     });
 
-    it("should idle rather than probe while parked on an auth error", async () => {
+    it("should idle rather than check while parked on an auth error", async () => {
       const unary = mockUnary(() => TimeStamp.now());
       const client = createClient(unary);
       await waitForStatus(client, (s) => s.variant === "success");
@@ -665,7 +665,7 @@ describe("connection", () => {
       await client.close();
     });
 
-    it("should resume probing when credentials are replaced", async () => {
+    it("should resume checking when credentials are replaced", async () => {
       const unary = mockUnary(() => TimeStamp.now());
       const client = createClient(unary);
       await waitForStatus(client, (s) => s.variant === "success");
@@ -680,13 +680,13 @@ describe("connection", () => {
       await client.close();
     });
 
-    it("should discard an in-flight probe from before a mode change", async () => {
-      let rejectProbe: ((error: Error) => void) | undefined;
+    it("should discard an in-flight check from before a mode change", async () => {
+      let rejectCheck: ((error: Error) => void) | undefined;
       const unary: UnaryClient = {
         send: vi.fn().mockImplementation(
           async () =>
             await new Promise((_, reject) => {
-              rejectProbe = reject;
+              rejectCheck = reject;
             }),
         ),
         use: vi.fn(),
@@ -701,13 +701,13 @@ describe("connection", () => {
       while (send.mock.calls.length === 0) await sleep(TimeSpan.milliseconds(1));
       client.notify({ type: "stream.live" });
       expect(client.status.variant).toEqual("success");
-      // the probe issued before the stream came up fails late: it was aimed
+      // the check issued before the stream came up fails late: it was aimed
       // at the old state and must not degrade the new one
-      rejectProbe?.(new Unreachable({ message: "stale" }));
+      rejectCheck?.(new Unreachable({ message: "stale" }));
       await sleep(TimeSpan.milliseconds(20));
       expect(client.status.variant).toEqual("success");
       const closing = client.close();
-      rejectProbe?.(new Unreachable({ message: "shutdown" }));
+      rejectCheck?.(new Unreachable({ message: "shutdown" }));
       await closing;
     });
 
@@ -737,7 +737,7 @@ describe("connection", () => {
       await client.close();
     });
 
-    it("should re-demand a dark stream on each probe", async () => {
+    it("should re-demand a dark stream on each check", async () => {
       const ensured = vi.fn(async () => {});
       const unary = mockUnary(() => TimeStamp.now());
       const client = createClient(unary, {
@@ -842,7 +842,7 @@ describe("connection", () => {
       await client.close();
     });
 
-    it("should exempt the probe and login endpoints so the connection can heal", async () => {
+    it("should exempt the check and login endpoints so the connection can heal", async () => {
       const unary = createScriptedUnary({ failing: true });
       const client = createClient(unary, { escalateAfter: 1 });
       await waitForStatus(client, (s) => s.variant === "error");

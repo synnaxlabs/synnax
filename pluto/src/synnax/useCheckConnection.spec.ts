@@ -43,7 +43,7 @@ describe("useCheckConnection", () => {
     await waitFor(() => expect(result.current?.variant).toEqual("error"));
   });
 
-  it("should keep probing on the interval while mounted", async () => {
+  it("should keep checking on the interval while mounted", async () => {
     const { result } = renderHook(() =>
       Synnax.useCheckConnection(LIVE_PARAMS, TimeSpan.milliseconds(10)),
     );
