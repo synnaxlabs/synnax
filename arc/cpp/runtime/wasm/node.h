@@ -263,6 +263,7 @@ public:
     void reset() override {
         this->initialized = false;
         this->state.reset();
+        this->state.clear_node(this->ir.key);
     }
 
     [[nodiscard]] bool is_output_truthy(size_t output_idx) const override {
