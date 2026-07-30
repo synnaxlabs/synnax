@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type UnaryClient } from "@synnaxlabs/freighter";
-import { array, caseconv, destructor, primitive, record } from "@synnaxlabs/x";
+import { array, caseconv, type destructor, primitive, record } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { type ontology } from "@/ontology";
@@ -99,18 +99,17 @@ export class Client extends query.Retriever<typeof retrieveReqZ, Key, Project> {
   ): Promise<Project | Project[]> {
     const isMany = Array.isArray(projects);
     const optimistic = array.toArray(projects).map((p) => projectZ.parse(p));
-    const rollback = new destructor.Chain();
-    rollback.add(this.store.set(optimistic));
-    await opts.onOptimistic?.(optimistic);
-    const res = await rollback.guard(
-      async () =>
+    const res = await query.optimistic({
+      rollbacks: [this.store.set(optimistic)],
+      onOptimistic: () => opts.onOptimistic?.(optimistic),
+      commit: async () =>
         await this.cfg.unary.send(
           "/project/create",
           { projects: optimistic },
           createReqZ,
           createResZ,
         ),
-    );
+    });
     this.store.set(res.projects);
     return isMany ? res.projects : res.projects[0];
   }
@@ -120,18 +119,17 @@ export class Client extends query.Retriever<typeof retrieveReqZ, Key, Project> {
       query.partialUpdate(this.store, key, { name }),
       this.cfg.ontology.cache.renameResource(ontologyID(key), name),
     ];
-    const rollback = new destructor.Chain();
-    rollback.add(...rename());
-    await opts.onOptimistic?.();
-    await rollback.guard(
-      async () =>
+    await query.optimistic({
+      rollbacks: rename(),
+      onOptimistic: opts.onOptimistic,
+      commit: async () =>
         await this.cfg.unary.send(
           "/project/rename",
           { key, name },
           renameReqZ,
           emptyResZ,
         ),
-    );
+    });
     rename();
   }
 
@@ -140,18 +138,17 @@ export class Client extends query.Retriever<typeof retrieveReqZ, Key, Project> {
     layout: record.Unknown,
     opts: query.WriteOptions = {},
   ): Promise<void> {
-    const rollback = new destructor.Chain();
-    rollback.add(query.partialUpdate(this.store, key, { layout }));
-    await opts.onOptimistic?.();
-    await rollback.guard(
-      async () =>
+    await query.optimistic({
+      rollbacks: [query.partialUpdate(this.store, key, { layout })],
+      onOptimistic: opts.onOptimistic,
+      commit: async () =>
         await this.cfg.unary.send(
           "/project/set-layout",
           { key, layout },
           setLayoutReqZ,
           emptyResZ,
         ),
-    );
+    });
     this.mergeThrough(key, { layout });
   }
 
@@ -163,18 +160,17 @@ export class Client extends query.Retriever<typeof retrieveReqZ, Key, Project> {
       this.cfg.ontology.cache.deleteResources(ontologyID(keysArr)),
       this.store.delete(keysArr),
     ];
-    const rollback = new destructor.Chain();
-    rollback.add(...drop());
-    await opts.onOptimistic?.();
-    await rollback.guard(
-      async () =>
+    await query.optimistic({
+      rollbacks: drop(),
+      onOptimistic: opts.onOptimistic,
+      commit: async () =>
         await this.cfg.unary.send(
           "/project/delete",
           { keys: keysArr },
           deleteReqZ,
           emptyResZ,
         ),
-    );
+    });
     drop();
   }
 
