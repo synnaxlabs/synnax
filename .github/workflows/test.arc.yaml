@@ -20,6 +20,7 @@ on:
       - .github/workflows/test.arc.yaml
       - arc/**
       - alamos/go/**
+      - core/**
       - MODULE.bazel
       - MODULE.bazel.lock
       - integration/scripts/kill_synnax_processes.sh
@@ -42,6 +43,7 @@ on:
       - .github/workflows/test.arc.yaml
       - arc/**
       - alamos/go/**
+      - core/**
       - MODULE.bazel
       - MODULE.bazel.lock
       - integration/scripts/kill_synnax_processes.sh
