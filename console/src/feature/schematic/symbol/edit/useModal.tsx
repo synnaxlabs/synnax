@@ -61,7 +61,6 @@ export const useModal = Modals.create<ModalParams>(
     const { form, save } = Schematic.Symbol.useForm({
       query: { key: symbolKey },
       initialValues: {
-        version: 1,
         key: createKey,
         name: "",
         parent: parent ?? ontology.ROOT_ID,

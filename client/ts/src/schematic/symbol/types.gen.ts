@@ -85,14 +85,12 @@ export const specZ = z.object({
 export interface Spec extends z.infer<typeof specZ> {}
 
 /**
- * Symbol is a persisted schematic symbol with versioning, defining reusable visual
- * components for diagrams.
+ * Symbol is a persisted schematic symbol defining reusable visual components for
+ * diagrams.
  */
 export const symbolZ = z.object({
   /** key is the unique identifier for this symbol. */
   key: keyZ.default(uuid.create),
-  /** version is the symbol schema version for migration support. */
-  version: z.uint32().default(1),
   /** name is a human-readable name for the symbol. */
   name: z.string().min(1),
   /** data is the complete symbol specification. */

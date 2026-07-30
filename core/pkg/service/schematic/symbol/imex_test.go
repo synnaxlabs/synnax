@@ -88,9 +88,8 @@ var _ = Describe("ImEx", func() {
 		}
 
 		It("Should import a server export carrying snake_case keys", func(ctx SpecContext) {
-			res := importAndRetrieve(ctx, "versions/testdata/import_v1.json")
+			res := importAndRetrieve(ctx, "versions/testdata/import_v2.json")
 			Expect(res.Name).To(Equal("Server Symbol"))
-			Expect(res.Version).To(Equal(uint32(1)))
 			Expect(res.Data.SVG).To(Equal("<svg><rect/></svg>"))
 			Expect(res.Data.Variant).To(Equal("valve"))
 			Expect(res.Data.ScaleStroke).To(BeTrue())
@@ -121,7 +120,7 @@ var _ = Describe("ImEx", func() {
 		It("Should parent the imported symbol under the permanent symbol group", func(ctx SpecContext) {
 			id := MustSucceed(imexSvc.Import(
 				ctx, tx,
-				loadEnvelope("versions/testdata/import_v1.json"),
+				loadEnvelope("versions/testdata/import_v2.json"),
 				imex.ImportOptions{},
 			))
 			Expect(otg.RelationshipExists(ctx, tx, ontology.Relationship{
@@ -143,7 +142,7 @@ var _ = Describe("ImEx", func() {
 
 		It("Should generate a fresh key, discarding the key on the wire", func(ctx SpecContext) {
 			id := MustSucceed(imexSvc.Import(ctx, tx,
-				loadEnvelope("versions/testdata/import_v1.json"), imex.ImportOptions{},
+				loadEnvelope("versions/testdata/import_v2.json"), imex.ImportOptions{},
 			))
 			Expect(id.Key).ToNot(Equal("11111111-2222-3333-4444-555555555555"))
 		})

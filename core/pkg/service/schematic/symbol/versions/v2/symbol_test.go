@@ -7,13 +7,26 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package versions
+package v2_test
 
 import (
-	v1 "github.com/synnaxlabs/synnax/pkg/service/schematic/symbol/versions/v1"
+	"github.com/google/uuid"
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic/symbol/versions/v2"
-	"github.com/synnaxlabs/x/migrate"
 )
 
-// Migrations is the ordered migration chain for stored symbols.
-var Migrations = []migrate.Migration{v1.Migration, v2.Migration}
+var _ = Describe("Symbol", func() {
+	Describe("GorpKey", func() {
+		It("Should return the symbol's key", func() {
+			k := uuid.New()
+			Expect(v2.Symbol{Key: k}.GorpKey()).To(Equal(k))
+		})
+	})
+
+	Describe("SetOptions", func() {
+		It("Should return no options", func() {
+			Expect(v2.Symbol{}.SetOptions()).To(BeNil())
+		})
+	})
+})

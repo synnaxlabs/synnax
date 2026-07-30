@@ -14,7 +14,6 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/samber/lo"
-	"github.com/synnaxlabs/arc/graph"
 	graphv0 "github.com/synnaxlabs/arc/graph/versions/v0"
 	graphv1 "github.com/synnaxlabs/arc/graph/versions/v1"
 	irv0 "github.com/synnaxlabs/arc/ir/versions/v0"
@@ -24,9 +23,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/x/encoding/msgpack"
-	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
-	"github.com/synnaxlabs/x/validate"
 )
 
 var _ imex.ImportExporter = (*Service)(nil)
@@ -171,23 +168,6 @@ type consoleTyped struct {
 	Text  text.Text    `json:"text" msgpack:"text"`
 }
 
-// stateV3 is the slice of the "3.0.0" Console state the importer needs: the
-// document body parked under pendingUpload when an arc was never uploaded. v3
-// states share the current envelope version; the two are told apart by the typed
-// export's top-level name. The tag is camelCase because the file was written by
-// the Console.
-type stateV3 struct {
-	PendingUpload *stateV3Document `json:"pendingUpload" msgpack:"pendingUpload"`
-}
-
-// stateV3Document mirrors the typed Arc body fields as they appear inside a v3
-// Console state's pendingUpload.
-type stateV3Document struct {
-	Mode  Mode        `json:"mode"`
-	Graph graph.Graph `json:"graph"`
-	Text  text.Text   `json:"text"`
-}
-
 func (s *Service) decodeImport(ctx context.Context, env imex.Envelope) (Arc, error) {
 	if env.Version > Version {
 		return Arc{}, imex.NewErrUnsupportedVersion(
@@ -220,20 +200,8 @@ func (s *Service) decodeImport(ctx context.Context, env imex.Envelope) (Arc, err
 		}
 		return Arc{Mode: mode, Graph: g, Text: ct.Text}, nil
 	}
-	if env.Version == Version {
-		st, err := imex.Decode[stateV3](ctx, env)
-		if err != nil {
-			return Arc{}, err
-		}
-		if st.PendingUpload == nil {
-			return Arc{}, errors.Wrap(
-				validate.ErrValidation, "arc file has no graph data",
-			)
-		}
-		p := st.PendingUpload
-		return Arc{Mode: p.Mode, Graph: p.Graph, Text: p.Text}, nil
-	}
-	// "0.0.0".."2.0.0" console states embed the graph inline.
+	// "0.0.0".."2.0.0" console states embed the graph inline. Nothing newer
+	// exists: the shipped Console never wrote a later state format.
 	body, err := imex.Decode[msgpack.EncodedJSON](ctx, env)
 	if err != nil {
 		return Arc{}, err

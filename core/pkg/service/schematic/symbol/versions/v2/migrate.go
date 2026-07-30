@@ -7,13 +7,19 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package versions
+package v2
 
 import (
+	"context"
+
 	v1 "github.com/synnaxlabs/synnax/pkg/service/schematic/symbol/versions/v1"
-	"github.com/synnaxlabs/synnax/pkg/service/schematic/symbol/versions/v2"
-	"github.com/synnaxlabs/x/migrate"
+	"github.com/synnaxlabs/x/gorp"
 )
 
-// Migrations is the ordered migration chain for stored symbols.
-var Migrations = []migrate.Migration{v1.Migration, v2.Migration}
+// Migration drops the persisted version field: envelope versioning now lives on
+// the imex wire format alone.
+var Migration = gorp.NewEntryMigration("v2_drop_symbol_version", migrateSymbol)
+
+func migrateSymbol(_ context.Context, old v1.Symbol) (Symbol, error) {
+	return Symbol{Key: old.Key, Name: old.Name, Data: old.Data}, nil
+}

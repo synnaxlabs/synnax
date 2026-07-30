@@ -1,5 +1,5 @@
 {
-  "version": 1,
+  "version": 2,
   "type": "schematic_symbol",
   "key": "11111111-2222-3333-4444-555555555555",
   "name": "Server Symbol",
@@ -13,7 +13,9 @@
           {
             "key": "r1",
             "name": "Body",
-            "selectors": ["#body"],
+            "selectors": [
+              "#body"
+            ],
             "stroke_color": "#ff0000",
             "fill_color": "#00ff00"
           }
@@ -24,12 +26,21 @@
     "handles": [
       {
         "key": "h1",
-        "position": { "x": 0, "y": 0.5 },
+        "position": {
+          "x": 0,
+          "y": 0.5
+        },
         "orientation": "left"
       }
     ],
     "scale": 1,
     "scale_stroke": true,
-    "preview_viewport": { "position": { "x": 1, "y": 2 }, "zoom": 3 }
+    "preview_viewport": {
+      "position": {
+        "x": 1,
+        "y": 2
+      },
+      "zoom": 3
+    }
   }
 }

@@ -24,7 +24,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/x/query"
 	. "github.com/synnaxlabs/x/testutil"
-	"github.com/synnaxlabs/x/validate"
 )
 
 // loadEnvelope reads a wire-format envelope fixture from versions/testdata and
@@ -123,29 +122,6 @@ var _ = Describe("ImEx", func() {
 			Expect(fn.Inputs[0].Type.Kind).To(Equal(types.KindChan))
 			Expect(fn.Inputs[0].Type.ChanDirection).To(Equal(types.ChanDirectionRead))
 			Expect(fn.Inputs[0].Type.Elem.Kind).To(Equal(types.KindF64))
-		})
-
-		It("Should import a v3 Console state from its pendingUpload", func(ctx SpecContext) {
-			res := importAndRetrieve(
-				ctx, "versions/testdata/import_v3_state.json",
-				imex.ImportOptions{FileName: "My Arc.json"},
-			)
-			Expect(res.Name).To(Equal("My Arc"))
-			Expect(res.Mode).To(Equal(arc.ModeGraph))
-			Expect(res.Graph.Nodes[0].Key).To(Equal("n1"))
-			Expect(res.Graph.Edges[0].Kind).To(Equal(ir.EdgeKindContinuous))
-			Expect(res.Text.Materialize().Raw).To(Equal("x = 1"))
-			Expect(inputsOf(res, "n1")).To(HaveKeyWithValue("value", 7.0))
-		})
-
-		It("Should reject a v3 Console state with no graph data", func(ctx SpecContext) {
-			Expect(imexSvc.Import(ctx, db,
-				loadEnvelope("versions/testdata/import_v3_state_empty.json"),
-				imex.ImportOptions{FileName: "empty.json"},
-			)).Error().To(SatisfyAll(
-				MatchError(validate.ErrValidation),
-				MatchError(ContainSubstring("no graph data")),
-			))
 		})
 
 		It("Should import a v0 Console state, lifting flat edges and renaming set_status", func(ctx SpecContext) {
