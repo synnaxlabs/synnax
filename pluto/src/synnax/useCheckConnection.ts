@@ -17,9 +17,9 @@ import { useMemoDeepEqual } from "@/memo";
 const DEFAULT_INTERVAL = TimeSpan.seconds(5);
 
 /**
- * Continuously probes the given cluster address, re-checking every interval
- * while mounted. A params change (by deep equality) restarts the loop; between
- * re-checks the settled status stays in place.
+ * Continuously checks the given cluster address on the interval while mounted.
+ * A params change (by deep equality) restarts the loop; between checks the
+ * settled status stays in place.
  * @returns null while the first check is pending or params are absent.
  */
 export const useCheckConnection = (
