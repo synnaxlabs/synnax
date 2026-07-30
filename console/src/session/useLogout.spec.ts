@@ -84,9 +84,13 @@ describe("useLogout", () => {
         expect(Session.Persist.selectSwapping(store.getState())).toBe(false),
       );
 
-    act(() => store.dispatch(Cluster.select("LOCAL")));
+    act(() => {
+      store.dispatch(Cluster.select("LOCAL"));
+    });
     await settle();
-    act(() => store.dispatch(Project.select(PROJECT_KEY)));
+    act(() => {
+      store.dispatch(Project.select(PROJECT_KEY));
+    });
     await settle();
 
     act(() => result.current());
@@ -96,7 +100,9 @@ describe("useLogout", () => {
 
     // Re-entering the cluster hydrates its persistence partition, which must
     // not carry the pre-logout project selection back in.
-    act(() => store.dispatch(Cluster.select("LOCAL")));
+    act(() => {
+      store.dispatch(Cluster.select("LOCAL"));
+    });
     await settle();
     expect(Project.selectOptionalSelected(store.getState())).toBeUndefined();
   });
