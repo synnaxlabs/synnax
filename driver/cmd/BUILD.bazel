@@ -12,7 +12,12 @@ load("@rules_cc//cc:cc_library.bzl", "cc_library")
 cc_library(
     name = "cmd",
     srcs = [
+        "clear.cpp",
         "exec.cpp",
+        "login.cpp",
+        "service.cpp",
+        "start.cpp",
+        "version.cpp",
         "//core/pkg/version",
     ],
     hdrs = ["cmd.h"],

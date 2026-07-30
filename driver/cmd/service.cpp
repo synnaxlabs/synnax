@@ -1,0 +1,76 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+#include "x/cpp/args/args.h"
+#include "x/cpp/errors/errors.h"
+#include "x/cpp/log/log.h"
+
+#include "absl/log/log.h"
+#include "driver/cmd/cmd.h"
+#include "driver/daemon/daemon.h"
+
+namespace driver::cmd {
+int start(x::args::Parser &args);
+
+// Updated helper function with C++ strings
+int exec_svc_cmd(
+    const std::function<x::errors::Error()> &cmd,
+    const std::string &action,
+    const std::string &past_tense = ""
+) {
+    if (const auto err = cmd()) {
+        LOG(ERROR) << "" << x::log::RED() << "Failed to " << action << ": " << err
+                   << x::log::RESET();
+        return 1;
+    }
+    if (!past_tense.empty()) {
+        LOG(INFO) << "" << x::log::GREEN() << past_tense << " successfully"
+                  << x::log::RESET();
+    }
+    return 0;
+}
+
+int internal_start(const int argc, char *argv[]) {
+    daemon::Config config;
+    config.callback = [](const int cb_argc, char *cb_argv[]) {
+        auto cb_args = x::args::Parser(cb_argc, cb_argv);
+        start(cb_args);
+    };
+    daemon::run(config, argc, argv);
+    return 0;
+}
+
+int service_start(x::args::Parser &args) {
+    return exec_svc_cmd(daemon::start_service, "start", "started");
+}
+
+int service_stop(x::args::Parser &args) {
+    return exec_svc_cmd(daemon::stop_service, "stop", "stopped");
+}
+
+int service_restart(x::args::Parser &args) {
+    return exec_svc_cmd(daemon::restart_service, "restart", "restarted");
+}
+
+int service_install(x::args::Parser &args) {
+    return exec_svc_cmd(daemon::install_service, "install", "installed");
+}
+
+int service_uninstall(x::args::Parser &args) {
+    return exec_svc_cmd(daemon::uninstall_service, "uninstall", "uninstalled");
+}
+
+int service_view_logs(x::args::Parser &args) {
+    return exec_svc_cmd(daemon::view_logs, "view logs");
+}
+
+int service_status(x::args::Parser &args) {
+    return exec_svc_cmd(daemon::status, "status");
+}
+}
