@@ -88,11 +88,14 @@ export interface WatchEntry<Q extends Params, K extends record.Key> {
 export const watch = <
   Q extends Params,
   K extends record.Key,
-  FK extends record.Key,
-  FV extends state.State,
+  ForeignKey extends record.Key,
+  ForeignValue extends state.State,
 >(
-  table: Table<FK, FV>,
-  affects: (event: TableEvent<FK, FV>, query: Q) => K[] | "refetch" | null,
+  table: Table<ForeignKey, ForeignValue>,
+  affects: (
+    event: TableEvent<ForeignKey, ForeignValue>,
+    query: Q,
+  ) => K[] | "refetch" | null,
 ): WatchEntry<Q, K> => ({
   attach: (query, onEvent) =>
     table.subscribe((event) => {
@@ -157,7 +160,8 @@ export interface AnswersHooks {
   ensureStreaming?: () => Promise<void>;
   /** Subscribes to connection-epoch changes; maintained answers refetch on bump. */
   onEpoch?: (callback: (epoch: number) => void) => destructor.Destructor;
-  /** Reports maintenance errors that have no caller to throw to. */
+  /** Reports maintenance errors that have no caller to throw to. Defaults to
+   *  console logging. */
   onError?: (error: Error) => void;
 }
 
@@ -200,12 +204,14 @@ export class Queries<
    *  stay referentially stable. Identity composes reuse the tombstone. */
   private readonly corpses = new WeakMap<Deleted<V>, Map<string, Deleted<D>>>();
   private readonly params: QueriesParams<Q, D, K, V>;
-  private readonly hooks: AnswersHooks;
+  private readonly hooks: AnswersHooks & {
+    onError: NonNullable<AnswersHooks["onError"]>;
+  };
   private readonly detachEpoch?: destructor.Destructor;
 
   constructor(params: QueriesParams<Q, D, K, V>, hooks: AnswersHooks = {}) {
     this.params = params;
-    this.hooks = hooks;
+    this.hooks = { ...hooks, onError: hooks.onError ?? console.error };
     this.detachEpoch = hooks.onEpoch?.((epoch) => {
       // 0 is a return to cold (cluster replacement): the fresh stream's own
       // epoch bump refetches, not the reset itself.
@@ -338,9 +344,7 @@ export class Queries<
     exc: unknown,
     message = `failed to maintain ${this.params.name} answers`,
   ): void {
-    const error = new Error(message, { cause: exc });
-    if (this.hooks.onError != null) this.hooks.onError(error);
-    else console.error(error);
+    this.hooks.onError(new Error(message, { cause: exc }));
   }
 
   private compose(keys: K[], query: Q): D {

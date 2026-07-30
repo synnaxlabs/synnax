@@ -25,7 +25,7 @@ import {
   type Streamer,
   type StreamOpener,
 } from "@/query/streamer";
-import { type ListenerSpec, Table, type TableParams } from "@/query/table";
+import { type Keyed, type ListenerSpec, Table, type TableParams } from "@/query/table";
 import { type Data, type Params } from "@/query/types";
 
 export interface CacheParams {
@@ -46,8 +46,8 @@ export interface CacheParams {
 /** Configuration for a derived table owned by a {@link Cache}. */
 export interface DerivedConfig<
   Key extends record.Key,
-  Value extends state.State & record.Keyed<Key>,
-  Composed extends state.State & record.Keyed<Key>,
+  Value extends Keyed<Key>,
+  Composed extends Keyed<Key>,
 > extends DeriveParams<Key, Value, Composed> {
   /** Names the table in diagnostics. */
   name: string;
@@ -87,7 +87,7 @@ interface Space {
 const fetchSurvivors = async <Key extends record.Key, Value extends state.State>(
   fetch: NonNullable<TableParams<Key, Value>["fetch"]>,
   keys: Key[],
-): Promise<Value[]> => {
+): Promise<Array<Keyed<Key, Value>>> => {
   try {
     return await fetch(keys);
   } catch (exc) {
@@ -187,11 +187,9 @@ export class Cache {
    * the source. Resets with the cache. No stream listeners of its own, so
    * it may be created at any time.
    */
-  derive<
-    Key extends record.Key,
-    Value extends state.State & record.Keyed<Key>,
-    Composed extends state.State & record.Keyed<Key>,
-  >(config: DerivedConfig<Key, Value, Composed>): Table<Key, Composed> {
+  derive<Key extends record.Key, Value extends Keyed<Key>, Composed extends Keyed<Key>>(
+    config: DerivedConfig<Key, Value, Composed>,
+  ): Table<Key, Composed> {
     const { name, source, compose, watch, equal } = config;
     const table = new Table<Key, Composed>({
       onError: this.onError,
