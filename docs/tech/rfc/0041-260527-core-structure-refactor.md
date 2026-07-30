@@ -498,7 +498,7 @@ core/pkg/service/<resource>/
         └── <resource>.go            #  hand-written method receivers on <Resource>
                                      #  (e.g. func (<Resource>) OntologyID() ontology.ID;
                                      #   ontology.go's free OntologyID(Key) wraps it).
-                                     #  Stays with the version that defines <Resource> (RFC 0046)
+                                     #  Stays with the version that defines <Resource> (RFC 0047)
 ```
 
 A few file-level rules fall out of this layout:
@@ -558,7 +558,7 @@ package; per RFC 0033 §3.6, each `vN/` still imports nothing from the parent.
 
 ### 4.3.1 - Each Version Is Self-Contained
 
-_(Amended by [RFC 0046](./0046-260720-oracle-predecessor-chain-versioning.md) §4.5: a
+_(Amended by [RFC 0047](./0047-260720-oracle-predecessor-chain-versioning.md) §4.5: a
 version package presents a complete namespace, not a self-contained copy — types
 unchanged at a version are Go aliases into its predecessor.)_
 
@@ -991,7 +991,7 @@ Oracle emits one Go package per version into `<resource>/versions/vN/` (`types.g
 hosts the hand-written `<resource>.go` method file. At the package level Oracle emits
 `versions/types.gen.go` (the current selector) and `versions/decode.go` (version
 dispatch). Historical `vN/` directories carry their own hand-written method files —
-methods stay with their definer (RFC 0046).
+methods stay with their definer (RFC 0047).
 
 **There is no separate "freeze" command.** A version is locked when its `.oracle` file
 lives inside a committed snapshot folder (`schemas/v55/`, `schemas/v56/`, …);
@@ -1006,7 +1006,7 @@ immutable. Within a release, the WIP version of a given resource is whatever
 A version bump (whether hand-authored in `current/` or auto-triggered by codec
 divergence under a dep change, §4.3.3) is a single pass:
 
-_(Superseded by [RFC 0046](./0046-260720-oracle-predecessor-chain-versioning.md) §4.2:
+_(Superseded by [RFC 0047](./0047-260720-oracle-predecessor-chain-versioning.md) §4.2:
 the outgoing package freezes in place with no re-emission, the incoming package aliases
 unchanged types into it, and hand-written method files stay with their definer instead
 of moving forward.)_
@@ -1072,7 +1072,7 @@ instead of a duplicate API type that embeds the service type to bolt them on (§
 
 ## 5.3 - Uniform `versions/vN/` for Every Version, with Oracle-Moved `helpers.go`
 
-_(Amended by [RFC 0046](./0046-260720-oracle-predecessor-chain-versioning.md): method
+_(Amended by [RFC 0047](./0047-260720-oracle-predecessor-chain-versioning.md): method
 files no longer move at a bump — they stay in the version package that defines their
 receiver type, named for the resource rather than `helpers.go`.)_
 
@@ -1170,7 +1170,7 @@ Sequenced so that the lowest-risk, dependency-unblocking work lands first.
   `versions/types.gen.go` selectors re-export the current version and the package root
   re-exports the selector, hand-written types included, with schema docs transposed onto
   every re-export surface; version packages alias unchanged types into their
-  predecessors per RFC 0046. Descoped from this phase: generated `versions/decode.go`
+  predecessors per RFC 0047. Descoped from this phase: generated `versions/decode.go`
   dispatch (deferred to Phase 3, which has its only consumer), byte-divergence detection
   (dropped — see §5.6), the immutability-by-CI rule on snapshot folders (open parameter,
   along with making the advisory oracle CI check required), and stored-but-keyless
