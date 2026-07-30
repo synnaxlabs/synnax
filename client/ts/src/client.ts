@@ -196,7 +196,7 @@ export default class Synnax extends framer.Client {
     cache.onEpoch((epoch) => this.conn.notify({ type: "epoch.advanced", epoch }));
     transport.unary.use(this.conn.middleware());
     // The auth client fails fast: login retries belong to the request that
-    // triggered them (the breaker-wrapped unary or the probe loop), never
+    // triggered them (the breaker-wrapped unary or the check loop), never
     // stacked beneath it.
     this.auth = new auth.Client(
       transport.unaryNoRetry,

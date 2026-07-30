@@ -86,7 +86,7 @@ describe("downtime", () => {
         ({ variant, details }) => variant === "success" && details.streamLive,
       );
       expect(status.details.clusterKey).toBe(firstKey);
-      // A fresh write proves the unary path recovered, not just the probe loop.
+      // A fresh write proves the unary path recovered, not just the check loop.
       const recovered = await client.projects.create({ name: "recovered", layout: {} });
       expect(recovered.name).toBe("recovered");
       expect(internal.map(chainOf)).toEqual([]);
