@@ -14,5 +14,6 @@ export * from "@/feature/panel/Mosaic";
 export * from "@/feature/panel/Selector";
 export * from "@/feature/panel/Toolbar";
 export * from "@/feature/panel/tree";
+export * from "@/feature/panel/useCreate";
 export * from "@/feature/panel/useOpenWindow";
 export * from "@/feature/panel/useTearOff";
