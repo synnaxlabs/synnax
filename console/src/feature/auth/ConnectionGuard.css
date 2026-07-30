@@ -135,7 +135,7 @@
     position: absolute;
     inset: 0;
     border-radius: 50%;
-    border: var(--orbital-ring-width) solid rgba(255, 255, 255, 0.22);
+    border: var(--orbital-ring-width) solid var(--pluto-gray-l11-20);
     animation: console-orbital-spin var(--orbital-spin, 3s) linear infinite;
     animation-direction: var(--orbital-spin-dir, normal);
     transform-style: preserve-3d;
@@ -162,8 +162,8 @@
     border-radius: 50%;
     background: conic-gradient(
         transparent 0deg,
-        rgba(255, 255, 255, 0.06) 14deg,
-        rgba(255, 255, 255, 0.95) 70deg,
+        var(--pluto-gray-l11-5) 14deg,
+        var(--pluto-gray-l11-95) 70deg,
         transparent 72deg
     );
     mask: radial-gradient(

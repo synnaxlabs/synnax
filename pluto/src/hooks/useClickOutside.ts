@@ -54,8 +54,11 @@ export const useClickOutside = ({
     },
     [onClickOutside],
   );
+  // pointerdown instead of mousedown: Tauri's drag-region script calls
+  // stopImmediatePropagation on mousedown, which would swallow dismissal
+  // clicks landing on window drag regions.
   useEffect(() => {
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
+    document.addEventListener("pointerdown", handleClickOutside);
+    return () => document.removeEventListener("pointerdown", handleClickOutside);
   }, [handleClickOutside]);
 };

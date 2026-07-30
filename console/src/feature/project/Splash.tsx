@@ -16,13 +16,14 @@ import {
   Flex,
   Header,
   Icon,
+  Input,
   List,
   Menu,
   Project as PProject,
   Select,
   Text,
 } from "@synnaxlabs/pluto";
-import { type ReactElement, useCallback, useEffect } from "react";
+import { type ReactElement, useCallback, useEffect, useState } from "react";
 
 import { ContextMenu, listItem } from "@/feature/project/Selector";
 import { CSS } from "@/platform/css";
@@ -44,12 +45,22 @@ export const Splash = (): ReactElement => {
   const hasCreatePermission = Access.useCreateGranted(project.TYPE_ONTOLOGY_ID);
   const openCreate = PlatformProject.useCreateModal();
   const { data, retrieve, getItem, subscribe, variant } = PProject.useList();
+  const { fetchMore, search } = List.usePager({ retrieve, pageSize: 20 });
+  const [searchTerm, setSearchTerm] = useState("");
 
   // The items pane only mounts once data is non-empty, so the initial fetch
   // cannot rely on its own onFetchMore.
   useEffect(() => {
-    retrieve({});
-  }, [retrieve]);
+    fetchMore();
+  }, [fetchMore]);
+
+  const handleSearch = useCallback(
+    (term: string) => {
+      setSearchTerm(term);
+      search(term);
+    },
+    [search],
+  );
 
   const handleSelect = useCallback(
     (key: project.Key | null) => {
@@ -75,7 +86,7 @@ export const Splash = (): ReactElement => {
         onChange={handleSelect}
         getItem={getItem}
         subscribe={subscribe}
-        onFetchMore={() => retrieve({})}
+        onFetchMore={fetchMore}
       >
         <Flex.Box
           y
@@ -100,6 +111,19 @@ export const Splash = (): ReactElement => {
               </Button.Button>
             </Header.Actions>
           </Header.Header>
+          {hasRetrievePermission && (data.length > 0 || searchTerm !== "") && (
+            <Input.Text
+              value={searchTerm}
+              onChange={handleSearch}
+              placeholder="Search projects..."
+              startContent={<Icon.Search />}
+              autoFocus
+              flush
+              size="large"
+              full="x"
+              className={CSS.BE("project-splash", "search")}
+            />
+          )}
           {hasRetrievePermission && data.length > 0 ? (
             <List.Items
               grow
@@ -109,7 +133,12 @@ export const Splash = (): ReactElement => {
               {listItem}
             </List.Items>
           ) : variant === "success" ? (
-            <Empty.Action grow message="No projects created." />
+            <Empty.Action
+              grow
+              message={
+                searchTerm === "" ? "No projects created." : "No matching projects."
+              }
+            />
           ) : (
             <Flex.Box grow />
           )}

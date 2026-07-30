@@ -16,7 +16,7 @@ import { describe, expect, it } from "vitest";
 import { Project } from "@/feature/project";
 import { Modals } from "@/platform/modals";
 import { Session } from "@/session";
-import { createConsoleWrapper, renderWithConsole } from "@/testutil";
+import { createConsoleWrapper, renderWithConsole, uniqueName } from "@/testutil";
 
 const client: Synnax = createTestClient();
 
@@ -45,6 +45,43 @@ describe("project/Splash", () => {
         const active = Session.Project.selectOptionalSelected(store.getState());
         expect(active).toEqual(proj.key);
       });
+    });
+  });
+
+  describe("searching", () => {
+    it("should filter the list to matching projects and allow selecting one", async () => {
+      const first = uniqueName("hydrogen");
+      const second = uniqueName("xenon");
+      await client.projects.create({ name: first, layout: {} });
+      const created = await client.projects.create({ name: second, layout: {} });
+      const { wrapper, store } = await createConsoleWrapper({ client });
+      render(<Project.Splash />, { wrapper });
+
+      const input = await screen.findByPlaceholderText("Search projects...");
+      fireEvent.change(input, { target: { value: first } });
+      await screen.findByText(first);
+
+      fireEvent.change(input, { target: { value: second } });
+      await screen.findByText(second);
+      await waitFor(() => expect(screen.queryByText(first)).toBeNull());
+
+      fireEvent.click(screen.getByText(second));
+      await waitFor(() => {
+        const active = Session.Project.selectOptionalSelected(store.getState());
+        expect(active).toEqual(created.key);
+      });
+    });
+
+    it("should show a no-match message instead of the created-none empty state", async () => {
+      await client.projects.create({ name: uniqueName("krypton"), layout: {} });
+      const { wrapper } = await createConsoleWrapper({ client });
+      render(<Project.Splash />, { wrapper });
+
+      const input = await screen.findByPlaceholderText("Search projects...");
+      fireEvent.change(input, { target: { value: uniqueName("nomatchterm") } });
+
+      await screen.findByText("No matching projects.");
+      expect(screen.queryByText("No projects created.")).toBeNull();
     });
   });
 

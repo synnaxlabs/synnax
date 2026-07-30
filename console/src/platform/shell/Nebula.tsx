@@ -9,7 +9,9 @@
 
 import "@/platform/shell/Nebula.css";
 
-import { type ReactElement, useEffect, useRef, useState } from "react";
+import { Theming } from "@synnaxlabs/pluto";
+import { color } from "@synnaxlabs/x";
+import { type ReactElement, useEffect, useMemo, useRef, useState } from "react";
 
 import { CSS } from "@/platform/css";
 
@@ -66,6 +68,10 @@ const SETTINGS: Settings = {
   fadeDir: "topLeft",
   color: "#e6e6ea",
 };
+
+// SETTINGS is the dark-mode tuning; light backgrounds carry darker ink at a
+// softer intensity, like halftone print on paper.
+const LIGHT_OVERRIDES: Partial<Settings> = { color: "#63666c", intensity: 0.6 };
 
 const hash = (x: number, y: number, seed: number): number => {
   let h = Math.imul(x, 0x27d4eb2d) ^ Math.imul(y, 0x165667b1) ^ seed;
@@ -281,7 +287,16 @@ const Tuner = ({
  */
 export const Nebula = (): ReactElement => {
   const ref = useRef<HTMLCanvasElement>(null);
-  const [settings, setSettings] = useState<Settings>(SETTINGS);
+  const theme = Theming.use();
+  const themed = useMemo(
+    () =>
+      color.isLight(theme.colors.gray.l0)
+        ? { ...SETTINGS, ...LIGHT_OVERRIDES }
+        : SETTINGS,
+    [theme],
+  );
+  const [tuned, setTuned] = useState<Settings | null>(null);
+  const settings = tuned ?? themed;
   const [seed, setSeed] = useState(SEED);
   const settingsRef = useRef(settings);
   settingsRef.current = settings;
@@ -306,7 +321,7 @@ export const Nebula = (): ReactElement => {
         <Tuner
           settings={settings}
           seed={seed}
-          onChange={setSettings}
+          onChange={setTuned}
           onSeedChange={setSeed}
         />
       )}
