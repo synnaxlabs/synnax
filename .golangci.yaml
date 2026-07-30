@@ -86,9 +86,5 @@ formatters:
       max-len: 88
       shorten-comments: true
   exclusions:
+    warn-unused: true
     generated: strict
-    paths:
-      # Version packages freeze on version bump: Oracle's alias check compares
-      # their on-disk text against template output, so formatters must not
-      # reshape them.
-      - versions/v\d+/
