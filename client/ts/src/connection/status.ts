@@ -44,9 +44,9 @@ export const detailsZ = z.object({
   clockSkew: TimeSpan.z,
   clockSkewExceeded: z.boolean(),
   retry: z.object({ attempt: z.number(), nextAt: TimeStamp.z }).nullable(),
-  // A probe is in flight right now. A process fact, not a judgment: the
+  // A check is in flight right now. A process fact, not a judgment: the
   // variant holds its verdict while attempts run beneath it.
-  probing: z.boolean(),
+  checking: z.boolean(),
 });
 export interface Details extends z.infer<typeof detailsZ> {}
 
@@ -67,7 +67,7 @@ export const DEFAULT_DETAILS: Details = {
   clockSkew: TimeSpan.ZERO,
   clockSkewExceeded: false,
   retry: null,
-  probing: false,
+  checking: false,
 };
 
 /** The status of a client that does not exist. */
@@ -81,7 +81,7 @@ export const DEFAULT_STATUS: Status = {
   details: DEFAULT_DETAILS,
 };
 
-/** Consecutive probe failures before escalating to error(unreachable). */
+/** Consecutive check failures before escalating to error(unreachable). */
 export const DEFAULT_ESCALATE_AFTER = 4;
 
 export interface Config {
@@ -104,7 +104,7 @@ export interface Handle {
   /** Subscribes to status changes. Returns a destructor that unsubscribes. */
   onChange: (callback: (status: Status) => void) => destructor.Destructor;
   /**
-   * Resets the retry backoff and probes immediately. Auth and incompatibility
+   * Resets the retry backoff and checks immediately. Auth and incompatibility
    * errors are not cleared: those rest until the user supplies something new.
    */
   retryNow: () => void;
@@ -129,23 +129,23 @@ export const awaitConnected = async (
   return settled;
 };
 
-/** The facts a single connectivity probe yields. */
+/** The facts a single connectivity check yields. */
 export interface Info {
   clusterKey: string;
   nodeVersion?: string;
-  /** Skew measured across the probe's round trip. */
+  /** Skew measured across the check's round trip. */
   clockSkew: TimeSpan;
 }
 
 /**
  * Everything that can move the connection status. The client is the only
- * producer: probe and retry events come from its own loop, the rest arrive as
+ * producer: check and retry events come from its own loop, the rest arrive as
  * outside facts through its notify inbox.
  */
 export type Event =
-  | { type: "probe.started" }
-  | { type: "probe.success"; info: Info }
-  | { type: "probe.failure"; error: Error; attempt: number }
+  | { type: "check.started" }
+  | { type: "check.success"; info: Info }
+  | { type: "check.failure"; error: Error; attempt: number }
   | { type: "stream.live" }
   | { type: "stream.drop"; error?: Error }
   | { type: "auth.success" }
@@ -196,21 +196,21 @@ const isCompatible = (
     checkPatch: false,
   });
 
-const probeFacts = (info: Info, config: Config): Partial<Details> => ({
+const checkFacts = (info: Info, config: Config): Partial<Details> => ({
   clusterKey: info.clusterKey,
   nodeVersion: info.nodeVersion,
-  // the probe traverses the auth middleware, so a response is proof of auth
+  // the check traverses the auth middleware, so a response is proof of auth
   authenticated: true,
   clockSkew: info.clockSkew,
   clockSkewExceeded: info.clockSkew.abs().greaterThan(config.clockSkewThreshold),
   clientServerCompatible: isCompatible(info.nodeVersion, config.clientVersion),
 });
 
-const reduceProbeSuccess = (prev: Status, info: Info, config: Config): Status => {
+const reduceCheckSuccess = (prev: Status, info: Info, config: Config): Status => {
   const { clusterKey } = prev.details;
   if (clusterKey !== "" && info.clusterKey !== clusterKey)
     return reduceClusterReplaced(prev, info, config);
-  const facts = probeFacts(info, config);
+  const facts = checkFacts(info, config);
   // reachable but the stream is still dark: the client re-demands it and we
   // stay degraded until it reports live. A parked unreachable error must
   // lift to warning: the short circuit it drives would starve the very
@@ -233,7 +233,7 @@ const reduceProbeSuccess = (prev: Status, info: Info, config: Config): Status =>
   });
 };
 
-// The cluster answering the probe is not the one previously contacted.
+// The cluster answering the check is not the one previously contacted.
 // Everything learned from the old cluster is void, so the machine returns to
 // first contact: loading at epoch 0 with a dark stream.
 const reduceClusterReplaced = (prev: Status, info: Info, config: Config): Status =>
@@ -241,7 +241,7 @@ const reduceClusterReplaced = (prev: Status, info: Info, config: Config): Status
     variant: "loading",
     message: `Connecting to ${config.name ?? "cluster"}...`,
     details: {
-      ...probeFacts(info, config),
+      ...checkFacts(info, config),
       streamLive: false,
       epoch: 0,
       reason: undefined,
@@ -257,7 +257,7 @@ const reduceAuthFailure = (prev: Status, error: Error): Status =>
     details: { reason: "auth", error, authenticated: false, retry: null },
   });
 
-const reduceProbeFailure = (
+const reduceCheckFailure = (
   prev: Status,
   error: Error,
   attempt: number,
@@ -317,15 +317,15 @@ const reduceRetryExhausted = (prev: Status): Status => {
 export const reduce = (prev: Status, event: Event, config: Config): Status => {
   if (prev.variant === "disabled") return prev;
   switch (event.type) {
-    case "probe.started":
-      return update(prev, { details: { probing: true } });
-    case "probe.success":
-      return update(reduceProbeSuccess(prev, event.info, config), {
-        details: { probing: false },
+    case "check.started":
+      return update(prev, { details: { checking: true } });
+    case "check.success":
+      return update(reduceCheckSuccess(prev, event.info, config), {
+        details: { checking: false },
       });
-    case "probe.failure":
-      return update(reduceProbeFailure(prev, event.error, event.attempt, config), {
-        details: { probing: false },
+    case "check.failure":
+      return update(reduceCheckFailure(prev, event.error, event.attempt, config), {
+        details: { checking: false },
       });
     case "stream.live":
       return reduceStreamLive(prev, config);
@@ -363,13 +363,13 @@ export const reduce = (prev: Status, event: Event, config: Config): Status => {
       return update(prev, {
         variant: "disabled",
         message: "Closed",
-        details: { reason: undefined, streamLive: false, retry: null, probing: false },
+        details: { reason: undefined, streamLive: false, retry: null, checking: false },
       });
   }
 };
 
 // Fields that legitimately churn without meaning anything: the stamp moves on
-// every advance and raw skew jitters on every successful probe. Everything
+// every advance and raw skew jitters on every successful check. Everything
 // else is material, so new fields notify by default.
 const comparable = ({ time: _, ...rest }: Status): unknown => ({
   ...rest,
