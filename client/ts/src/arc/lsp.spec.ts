@@ -49,6 +49,32 @@ const receiveResponse = async (
   );
 };
 
+/**
+ * Drains messages from the stream until a response for every expected id has
+ * arrived. The server handles concurrent calls concurrently, so responses may
+ * arrive in any order.
+ */
+const receiveResponses = async (
+  stream: LSPReceiver,
+  expectedIds: number[],
+): Promise<Map<number, JSONRPCResponse>> => {
+  const pending = new Set(expectedIds);
+  const responses = new Map<number, JSONRPCResponse>();
+  for (let i = 0; i < MAX_DRAIN && pending.size > 0; i++) {
+    const res = await stream.receive();
+    const msg = JSON.parse(res.content);
+    if (!("method" in msg) && "id" in msg && pending.has(msg.id)) {
+      responses.set(msg.id, msg as JSONRPCResponse);
+      pending.delete(msg.id);
+    }
+  }
+  if (pending.size > 0)
+    throw new Error(
+      `receiveResponses: drained ${MAX_DRAIN} messages without seeing ids=[${[...pending].join(", ")}]`,
+    );
+  return responses;
+};
+
 /** Drains messages from the stream until a JSON-RPC notification with the expected method arrives. */
 const receiveNotification = async (
   stream: LSPReceiver,
@@ -258,8 +284,13 @@ describe("Arc LSP", () => {
 
     for (const req of requests) stream.send({ content: JSON.stringify(req) });
 
+    const responses = await receiveResponses(
+      stream,
+      requests.map((req) => req.id),
+    );
     for (const req of requests) {
-      const msg = await receiveResponse(stream, req.id);
+      const msg = responses.get(req.id);
+      if (msg == null) throw new Error(`missing response for id=${req.id}`);
       if ("error" in msg) throw new Error(`LSP error: ${msg.error.message}`);
       receivedMessages.push(msg);
     }
