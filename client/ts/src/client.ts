@@ -325,20 +325,3 @@ export interface ConnectOptions {
    */
   timeout?: CrudeTimeSpan;
 }
-
-export interface CheckConnectionParams extends Pick<
-  SynnaxParams,
-  "host" | "port" | "secure" | "retry" | "name"
-> {}
-
-/** Runs a one-shot connectivity probe against the given cluster address. */
-export const checkConnection = async (
-  params: CheckConnectionParams,
-): Promise<connection.Status> => {
-  const { host, port, secure, name, retry } = params;
-  const retryConfig = zod.parse(breaker.breakerConfigZ.optional(), retry);
-  const endpoint = new url.URL({ host, port: Number(port) });
-  const transport = new Transport(endpoint, retryConfig, secure);
-  transport.use(errorsMiddleware);
-  return await connection.check(transport.unary, { name });
-};

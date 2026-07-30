@@ -7,23 +7,5 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-export {
-  check,
-  type CheckParams,
-  Client,
-  type ClientParams,
-  type FactEvent,
-} from "@/connection/client";
-export {
-  type Config,
-  DEFAULT_STATUS,
-  type Details,
-  detailsZ,
-  type Handle,
-  type Info,
-  type Reason,
-  REASONS,
-  reasonZ,
-  type Status,
-  statusZ,
-} from "@/connection/status";
+export * from "@/synnax/Provider";
+export * from "@/synnax/useCheckConnection";
