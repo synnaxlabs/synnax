@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type UnaryClient, Unreachable } from "@synnaxlabs/freighter";
+import { type Context, type UnaryClient, Unreachable } from "@synnaxlabs/freighter";
 import { type breaker, TimeSpan, TimeStamp, url } from "@synnaxlabs/x";
 import { describe, expect, it, vi } from "vitest";
 import { z } from "zod";
@@ -21,8 +21,8 @@ import {
   materialChange,
   reduce,
 } from "@/connection/status";
-import { AuthError } from "@/errors";
-import { TEST_CLIENT_PARAMS } from "@/testutil";
+import { AuthError, DisconnectedError } from "@/errors";
+import { TEST_CLIENT_PARAMS, waitForStatus } from "@/testutil";
 import { Transport } from "@/transport";
 
 const liveUnary = (): UnaryClient => {
@@ -50,6 +50,31 @@ const failingUnary = (): UnaryClient => ({
   send: vi.fn().mockRejectedValue(new Unreachable({ message: "server down" })),
   use: vi.fn(),
 });
+
+interface ScriptedUnary extends UnaryClient {
+  /** Marks the cluster unreachable (or reachable again) for later probes. */
+  setFailing: (failing: boolean) => void;
+  /** Changes the cluster key answered by later probes. */
+  setClusterKey: (key: string) => void;
+}
+
+/** A unary whose reachability and cluster identity change mid-test. */
+const createScriptedUnary = ({
+  clusterKey = "test-cluster",
+  failing = false,
+}: { clusterKey?: string; failing?: boolean } = {}): ScriptedUnary => {
+  let key = clusterKey;
+  let down = failing;
+  return {
+    send: vi.fn().mockImplementation(async () => {
+      if (down) throw new Unreachable({ message: "server down" });
+      return { clusterKey: key, nodeVersion: __VERSION__, nodeTime: TimeStamp.now() };
+    }),
+    use: vi.fn(),
+    setFailing: (next) => (down = next),
+    setClusterKey: (next) => (key = next),
+  };
+};
 
 const FAST_RETRY: breaker.Config = { baseInterval: TimeSpan.milliseconds(1), scale: 1 };
 
@@ -92,26 +117,6 @@ const createClient = (
     heartbeatInterval,
     ...overrides,
   });
-
-const waitForStatus = async (
-  handle: connection.Handle,
-  predicate: (status: connection.Status) => boolean,
-  timeout: TimeSpan = TimeSpan.seconds(5),
-): Promise<connection.Status> => {
-  if (predicate(handle.status)) return handle.status;
-  return await new Promise<connection.Status>((resolve, reject) => {
-    const timer = setTimeout(() => {
-      detach();
-      reject(new Error("timed out waiting for connection status"));
-    }, timeout.milliseconds);
-    const detach = handle.onChange((status) => {
-      if (!predicate(status)) return;
-      clearTimeout(timer);
-      detach();
-      resolve(status);
-    });
-  });
-};
 
 const sleep = async (span: TimeSpan): Promise<void> =>
   await new Promise((resolve) => setTimeout(resolve, span.milliseconds));
@@ -591,21 +596,10 @@ describe("connection", () => {
     });
 
     it("should keep probing after escalation and self-heal", async () => {
-      let failing = true;
-      const unary: UnaryClient = {
-        send: vi.fn().mockImplementation(async () => {
-          if (failing) throw new Unreachable({ message: "server down" });
-          return {
-            clusterKey: "test-cluster",
-            nodeVersion: __VERSION__,
-            nodeTime: TimeStamp.now(),
-          };
-        }),
-        use: vi.fn(),
-      };
+      const unary = createScriptedUnary({ failing: true });
       const client = createClient(unary, { escalateAfter: 1 });
       await waitForStatus(client, (s) => s.variant === "error");
-      failing = false;
+      unary.setFailing(false);
       const status = await waitForStatus(client, (s) => s.variant === "success");
       expect(status.details.reason).toBeUndefined();
       await client.close();
@@ -719,15 +713,7 @@ describe("connection", () => {
 
     it("should reset then re-demand the stream on cluster replacement", async () => {
       const calls: string[] = [];
-      let key = "first";
-      const unary: UnaryClient = {
-        send: vi.fn().mockImplementation(async () => ({
-          clusterKey: key,
-          nodeVersion: __VERSION__,
-          nodeTime: TimeStamp.now(),
-        })),
-        use: vi.fn(),
-      };
+      const unary = createScriptedUnary({ clusterKey: "first" });
       const client = createClient(
         unary,
         {
@@ -744,7 +730,7 @@ describe("connection", () => {
         TimeSpan.milliseconds(5),
       );
       await waitForStatus(client, (s) => s.details.clusterKey === "first");
-      key = "second";
+      unary.setClusterKey("second");
       await waitForStatus(client, (s) => s.details.clusterKey === "second");
       while (calls.length < 2) await sleep(TimeSpan.milliseconds(1));
       expect(calls.slice(0, 2)).toEqual(["reset", "ensure"]);
@@ -763,6 +749,117 @@ describe("connection", () => {
       expect(client.status.variant).toEqual("loading");
       client.notify({ type: "stream.live" });
       expect(client.status.variant).toEqual("success");
+      await client.close();
+    });
+
+    it("should recover from escalated downtime without internal errors or a cache reset", async () => {
+      const internal: Error[] = [];
+      const streamCalls: string[] = [];
+      const unary = createScriptedUnary({ failing: true });
+      const client: connection.Client = createClient(unary, {
+        escalateAfter: 2,
+        requiresStream: true,
+        stream: {
+          reset: async () => {
+            streamCalls.push("reset");
+          },
+          ensure: async () => {
+            streamCalls.push("ensure");
+            client.notify({ type: "stream.live" });
+          },
+        },
+        onInternalError: (error) => internal.push(error),
+      });
+      await waitForStatus(
+        client,
+        (s) => s.variant === "error" && s.details.reason === "unreachable",
+      );
+      // parked beneath the error, retries keep climbing
+      await waitForStatus(client, (s) => (s.details.retry?.attempt ?? 0) >= 3);
+      unary.setFailing(false);
+      const status = await waitForStatus(
+        client,
+        (s) => s.variant === "success" && s.details.streamLive,
+      );
+      // same cluster returned: recovery must not take the replacement path
+      expect(status.details.clusterKey).toEqual("test-cluster");
+      expect(streamCalls).not.toContain("reset");
+      expect(internal).toEqual([]);
+      await client.close();
+    });
+
+    it("should surface a reset failure during cluster replacement", async () => {
+      const internal: Error[] = [];
+      const unary = createScriptedUnary({ clusterKey: "first" });
+      const client = createClient(
+        unary,
+        {
+          stream: {
+            reset: async () => {
+              throw new Error("cache reset failed");
+            },
+            ensure: async () => {},
+          },
+          onInternalError: (error) => internal.push(error),
+        },
+        FAST_RETRY,
+        TimeSpan.milliseconds(5),
+      );
+      await waitForStatus(client, (s) => s.details.clusterKey === "first");
+      unary.setClusterKey("second");
+      await waitForStatus(client, (s) => s.details.clusterKey === "second");
+      while (internal.length === 0) await sleep(TimeSpan.milliseconds(1));
+      expect(internal[0].message).toEqual(
+        "failed to reset cache after cluster replacement",
+      );
+      const cause = internal[0].cause;
+      if (!(cause instanceof Error)) throw new Error("cause is not an Error");
+      expect(cause.message).toEqual("cache reset failed");
+      await client.close();
+    });
+  });
+
+  describe("middleware", () => {
+    const createUnaryContext = (target: string): Context => ({
+      target,
+      role: "client",
+      protocol: "http",
+      params: {},
+    });
+
+    it("should short-circuit unary calls while the cluster is unreachable", async () => {
+      const unary = createScriptedUnary({ failing: true });
+      const client = createClient(unary, { escalateAfter: 1 });
+      await waitForStatus(
+        client,
+        (s) => s.variant === "error" && s.details.reason === "unreachable",
+      );
+      const next = vi.fn(async (ctx: Context) => ctx);
+      await expect(
+        client.middleware()(createUnaryContext("/channel/retrieve"), next),
+      ).rejects.toThrow(DisconnectedError);
+      expect(next).not.toHaveBeenCalled();
+      await client.close();
+    });
+
+    it("should exempt the probe and login endpoints so the connection can heal", async () => {
+      const unary = createScriptedUnary({ failing: true });
+      const client = createClient(unary, { escalateAfter: 1 });
+      await waitForStatus(client, (s) => s.variant === "error");
+      const mw = client.middleware();
+      const next = vi.fn(async (ctx: Context) => ctx);
+      await mw(createUnaryContext("/api/v1/connectivity/check"), next);
+      await mw(createUnaryContext("/api/v1/auth/login"), next);
+      expect(next).toHaveBeenCalledTimes(2);
+      await client.close();
+    });
+
+    it("should pass calls through while the cluster is reachable", async () => {
+      const client = createClient(createScriptedUnary());
+      await waitForStatus(client, (s) => s.variant === "success");
+      const next = vi.fn(async (ctx: Context) => ctx);
+      await client.middleware()(createUnaryContext("/channel/retrieve"), next);
+      expect(next).toHaveBeenCalledTimes(1);
       await client.close();
     });
   });
