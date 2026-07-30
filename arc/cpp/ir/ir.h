@@ -28,6 +28,20 @@ inline bool operator==(const Edge &lhs, const Edge &rhs) {
     return lhs.source == rhs.source && lhs.target == rhs.target && lhs.kind == rhs.kind;
 }
 
+/// @brief searches for a node by key. Returns the node when found, or nullptr
+/// otherwise.
+inline const Node *find_node(const IR &ir, const std::string &key) {
+    for (const auto &n: ir.nodes)
+        if (n.key == key) return &n;
+    return nullptr;
+}
+
+/// @brief reports whether n is an entry node: it has no incoming edges and
+/// reads no channels. Entry nodes fire once per activation.
+inline bool is_entry_node(const IR &ir, const Node &n) {
+    return ir.edges_to(n.key).empty() && n.channels.read.empty();
+}
+
 /// @brief builds a leaf Member referencing the node with the given key.
 inline Member node_member(std::string key) {
     Member m;

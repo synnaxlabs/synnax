@@ -20,6 +20,9 @@ FLOW_PARENT_KEY_OUT = "flow_parent_key_out"
 END_NOW_TOLERANCE = 200 * sy.TimeSpan.MILLISECOND
 # Start-time window slack for scheduling and driver/test clock skew.
 START_SLACK = 500 * sy.TimeSpan.MILLISECOND
+# flow_capture_seq waits out two 100ms stages between creating RangeFlow_Parent
+# and ending it.
+FLOW_END_DELAY = 200 * sy.TimeSpan.MILLISECOND
 
 ARC_STL_RANGES_SOURCE = """
 import ranges
@@ -110,12 +113,14 @@ class Case(NamedTuple):
 
     color is the expected sy.Color or None when the range has no color. ends_now is True
     when ranges.end closed the range (end ~= start), False when the range is left open
-    (end == TimeStampMax).
+    (end == TimeStampMax). end_delay is the time the program deliberately spends between
+    the create and the end, and is zero when the end follows the create directly.
     """
 
     name: str
     color: sy.Color | None
     ends_now: bool
+    end_delay: sy.TimeSpan = sy.TimeSpan.ZERO
 
 
 CASES: list[Case] = [
@@ -143,7 +148,7 @@ CASES: list[Case] = [
     Case("RangeFlow_Hex_1", sy.Color("#112233"), False),
     Case("RangeFlow_Hex_2", sy.Color("#44aa66"), False),
     Case("RangeFlow_Hex_3", sy.Color("#ddeeff"), False),
-    Case("RangeFlow_Parent", None, True),
+    Case("RangeFlow_Parent", None, True, FLOW_END_DELAY),
     Case("RangeFlow_Child", sy.Color("rgb(10, 20, 30)"), False),
     Case("RangeFlow_Child_NoColor", None, False),
 ]
@@ -239,9 +244,10 @@ class StlRanges(ArcCase):
             )
 
         if case.ends_now:
-            if not 0 <= end - start <= int(END_NOW_TOLERANCE):
+            budget = int(case.end_delay) + int(END_NOW_TOLERANCE)
+            if not 0 <= end - start <= budget:
                 self.fail(
-                    f"{case.name}: expected end ~= start (within "
+                    f"{case.name}: expected end ~= start + {case.end_delay} (within "
                     f"{END_NOW_TOLERANCE}), got end-start={end - start}ns"
                 )
         elif end != int(sy.TimeStamp.MAX):

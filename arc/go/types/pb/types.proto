@@ -48,6 +48,7 @@ enum ChanDirection {
   CHAN_DIRECTION_NONE = 0;
   CHAN_DIRECTION_READ = 1;
   CHAN_DIRECTION_WRITE = 2;
+  CHAN_DIRECTION_READ_WRITE = 3;
 }
 
 // FunctionProperties contains common parameter definitions for function-like types.

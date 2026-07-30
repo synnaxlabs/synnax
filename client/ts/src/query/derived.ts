@@ -9,7 +9,7 @@
 
 import { type destructor, type record, type state } from "@synnaxlabs/x";
 
-import { type Table, type TableEvent } from "@/query/table";
+import { type Keyed, type Table, type TableEvent } from "@/query/table";
 
 /**
  * A foreign-table trigger for a derived table: projects that table's events
@@ -27,11 +27,11 @@ export interface DeriveWatch<K extends record.Key> {
  */
 export const deriveWatch = <
   K extends record.Key,
-  FK extends record.Key,
-  FV extends state.State,
+  ForeignKey extends record.Key,
+  ForeignValue extends state.State,
 >(
-  table: Table<FK, FV>,
-  affects: (event: TableEvent<FK, FV>) => K[] | "all" | null,
+  table: Table<ForeignKey, ForeignValue>,
+  affects: (event: TableEvent<ForeignKey, ForeignValue>) => K[] | "all" | null,
 ): DeriveWatch<K> => ({
   attach: (recompose) =>
     table.subscribe((event) => {
@@ -44,8 +44,8 @@ export const deriveWatch = <
 /** Derivation wiring shared by {@link Cache.derive}. */
 export interface DeriveParams<
   K extends record.Key,
-  V extends state.State & record.Keyed<K>,
-  CV extends state.State & record.Keyed<K>,
+  V extends Keyed<K>,
+  CV extends Keyed<K>,
 > {
   /** The table owning the raw records the derivation reads. */
   source: Table<K, V>;
@@ -64,8 +64,8 @@ export interface DeriveParams<
  */
 export const bindDerived = <
   K extends record.Key,
-  V extends state.State & record.Keyed<K>,
-  CV extends state.State & record.Keyed<K>,
+  V extends Keyed<K>,
+  CV extends Keyed<K>,
 >(
   into: Table<K, CV>,
   { source, compose, watch }: DeriveParams<K, V, CV>,
