@@ -43,7 +43,7 @@ StartLimitBurst=3
 
 [Service]
 Type=notify
-ExecStart=/usr/local/bin/synnax-driver internal-start --debug
+ExecStart=/usr/local/bin/synnax-driver internal-start --debug --disable-stdin-stop
 User=synnax
 Group=synnax
 

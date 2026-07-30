@@ -46,6 +46,10 @@ int login(x::args::Parser &args);
 /// @brief starts the driver process.
 int start(x::args::Parser &args);
 
+/// @brief starts the driver under the system service manager, reporting readiness
+/// and watchdog liveness. Invoked by the installed service, not by users.
+int internal_start(int argc, char *argv[]);
+
 /// @brief returns driver version info.
 int version(x::args::Parser &args);
 
