@@ -17,13 +17,13 @@ export {
 export {
   type Config,
   DEFAULT_STATUS,
-  type StatusDetails,
-  statusDetailsZ,
   type Handle,
   type Info,
   type Reason,
   REASONS,
   reasonZ,
   type Status,
+  type StatusDetails,
+  statusDetailsZ,
   statusZ,
 } from "@/connection/status";
