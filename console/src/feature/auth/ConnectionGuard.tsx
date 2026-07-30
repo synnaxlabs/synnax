@@ -32,7 +32,7 @@ import { Session } from "@/session";
  * session is in structural doubt. Rejected credentials return to the login
  * surface at any warmth. Until the session settles a single splash renders
  * instead of the workspace: connecting before first contact, connection
- * trouble with error detail and actions once a probe fails, preparing once
+ * trouble with error detail and actions once a check fails, preparing once
  * the cluster is reached. Warm degradation renders children intact.
  */
 export const ConnectionGuard = ({ children }: PropsWithChildren): ReactNode => {
@@ -96,29 +96,29 @@ const Orbital = ({ core }: OrbitalProps): ReactElement => (
   </Flex.Box>
 );
 
-// A probe against a dead local port fails in milliseconds; the beat is held
+// A check against a dead local port fails in milliseconds; the beat is held
 // on screen long enough for the user to actually see the attempt happen.
-const PROBE_HOLD = TimeSpan.milliseconds(1250);
+const CHECK_HOLD = TimeSpan.milliseconds(1250);
 
-const useHeldProbing = (probing: boolean): boolean => {
-  const [held, setHeld] = useState(probing);
+const useHeldChecking = (checking: boolean): boolean => {
+  const [held, setHeld] = useState(checking);
   useEffect(() => {
-    if (probing) {
+    if (checking) {
       setHeld(true);
       return;
     }
-    const timeout = setTimeout(() => setHeld(false), PROBE_HOLD.milliseconds);
+    const timeout = setTimeout(() => setHeld(false), CHECK_HOLD.milliseconds);
     return () => clearTimeout(timeout);
-  }, [probing]);
+  }, [checking]);
   return held;
 };
 
 interface CountdownCoreProps {
   retry: NonNullable<connection.Details["retry"]>;
-  probing: boolean;
+  checking: boolean;
 }
 
-const CountdownCore = ({ retry, probing }: CountdownCoreProps): ReactElement => {
+const CountdownCore = ({ retry, checking }: CountdownCoreProps): ReactElement => {
   const [now, setNow] = useState(() => TimeStamp.now());
   useEffect(() => {
     const interval = setInterval(() => setNow(TimeStamp.now()), 500);
@@ -131,7 +131,7 @@ const CountdownCore = ({ retry, probing }: CountdownCoreProps): ReactElement => 
   return (
     <>
       <Text.Text level="h3" color={11} className={CSS.BE("connection", "countdown")}>
-        {probing ? <Icon.Loading /> : `${remaining}s`}
+        {checking ? <Icon.Loading /> : `${remaining}s`}
       </Text.Text>
       <Text.Text level="small" color={9}>
         <Icon.Sync />
@@ -161,10 +161,10 @@ const Splash = ({ client, status }: SplashProps): ReactElement => {
     const timeout = setTimeout(() => setRevealed(true), 300);
     return () => clearTimeout(timeout);
   }, []);
-  const probing = useHeldProbing(details.probing);
+  const checking = useHeldChecking(details.checking);
   const core =
     CORE_CONTENT === "countdown" && troubled && details.retry != null ? (
-      <CountdownCore retry={details.retry} probing={probing} />
+      <CountdownCore retry={details.retry} checking={checking} />
     ) : undefined;
   return (
     // The trouble state consolidates connection info into the card, so the
@@ -179,7 +179,7 @@ const Splash = ({ client, status }: SplashProps): ReactElement => {
       >
         <Orbital core={core} />
         {troubled ? (
-          <Trouble client={client} status={status} probing={probing} />
+          <Trouble client={client} status={status} checking={checking} />
         ) : (
           <Status.Summary
             variant="loading"
@@ -194,10 +194,10 @@ const Splash = ({ client, status }: SplashProps): ReactElement => {
 interface TroubleProps {
   client: Client;
   status: connection.Status;
-  probing: boolean;
+  checking: boolean;
 }
 
-const Trouble = ({ client, status, probing }: TroubleProps): ReactElement => {
+const Trouble = ({ client, status, checking }: TroubleProps): ReactElement => {
   const activeKey = Session.Cluster.useSelectSelectedKey();
   const cluster = Session.Cluster.useSelectState(activeKey ?? undefined);
   const logout = Session.useLogout();
@@ -224,7 +224,7 @@ const Trouble = ({ client, status, probing }: TroubleProps): ReactElement => {
         {/* Ghost copies reserve the widest label's width so the centered row
             doesn't shift when the live label swaps. */}
         <Text.Text status={variant} className={CSS.BE("connection", "status")}>
-          <span>{probing ? "Retrying..." : Shell.STATUS_LABELS[variant]}</span>
+          <span>{checking ? "Retrying..." : Shell.STATUS_LABELS[variant]}</span>
           <span className={CSS.M("ghost")} aria-hidden>
             Retrying...
           </span>

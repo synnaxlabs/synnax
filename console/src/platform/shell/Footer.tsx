@@ -45,7 +45,7 @@ export interface FooterProps {
 /**
  * Connection footer: the target Core's identity and reachability. The live
  * client status is authoritative when the target is the active connection;
- * otherwise a one-shot probe reports reachability.
+ * otherwise a one-shot check reports reachability.
  */
 export const Footer = ({ cluster }: FooterProps): ReactElement | null => {
   const client = Synnax.use();
@@ -55,7 +55,7 @@ export const Footer = ({ cluster }: FooterProps): ReactElement | null => {
     cluster != null &&
     client.params.host === cluster.host &&
     Number(client.params.port) === Number(cluster.port);
-  const probed = Synnax.useCheckConnection(
+  const checked = Synnax.useCheckConnection(
     isActive || cluster == null
       ? null
       : {
@@ -66,7 +66,7 @@ export const Footer = ({ cluster }: FooterProps): ReactElement | null => {
         },
   );
   if (cluster == null) return null;
-  const status = isActive ? live : probed;
+  const status = isActive ? live : checked;
   const variant = status?.variant ?? "loading";
   return (
     <Flex.Box
