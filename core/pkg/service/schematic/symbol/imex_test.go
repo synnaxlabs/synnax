@@ -94,6 +94,13 @@ var _ = Describe("ImEx", func() {
 			Expect(res.Data.SVG).To(Equal("<svg><rect/></svg>"))
 			Expect(res.Data.Variant).To(Equal("valve"))
 			Expect(res.Data.ScaleStroke).To(BeTrue())
+			Expect(res.Data.States).To(HaveLen(1))
+			region := res.Data.States[0].Regions[0]
+			Expect(region.StrokeColor).To(HaveValue(Equal("#ff0000")))
+			Expect(region.FillColor).To(HaveValue(Equal("#00ff00")))
+			Expect(res.Data.Handles).To(HaveLen(1))
+			Expect(res.Data.PreviewViewport).ToNot(BeNil())
+			Expect(res.Data.PreviewViewport.Zoom).To(Equal(3.0))
 		})
 
 		It("Should import a Console export carrying camelCase keys", func(ctx SpecContext) {
@@ -102,6 +109,13 @@ var _ = Describe("ImEx", func() {
 			Expect(res.Data.Variant).To(Equal("sensor"))
 			Expect(res.Data.Scale).To(Equal(2.0))
 			Expect(res.Data.ScaleStroke).To(BeTrue())
+			Expect(res.Data.States).To(HaveLen(1))
+			region := res.Data.States[0].Regions[0]
+			Expect(region.StrokeColor).To(HaveValue(Equal("#123456")))
+			Expect(region.FillColor).To(HaveValue(Equal("#654321")))
+			Expect(res.Data.Handles).To(HaveLen(1))
+			Expect(res.Data.PreviewViewport).ToNot(BeNil())
+			Expect(res.Data.PreviewViewport.Zoom).To(Equal(6.0))
 		})
 
 		It("Should parent the imported symbol under the permanent symbol group", func(ctx SpecContext) {

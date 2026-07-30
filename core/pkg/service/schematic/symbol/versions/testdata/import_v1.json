@@ -5,8 +5,31 @@
   "name": "Server Symbol",
   "data": {
     "svg": "<svg><rect/></svg>",
+    "states": [
+      {
+        "key": "base",
+        "name": "Base",
+        "regions": [
+          {
+            "key": "r1",
+            "name": "Body",
+            "selectors": ["#body"],
+            "stroke_color": "#ff0000",
+            "fill_color": "#00ff00"
+          }
+        ]
+      }
+    ],
     "variant": "valve",
+    "handles": [
+      {
+        "key": "h1",
+        "position": { "x": 0, "y": 0.5 },
+        "orientation": "left"
+      }
+    ],
     "scale": 1,
-    "scale_stroke": true
+    "scale_stroke": true,
+    "preview_viewport": { "position": { "x": 1, "y": 2 }, "zoom": 3 }
   }
 }

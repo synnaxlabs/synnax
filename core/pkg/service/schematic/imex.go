@@ -20,6 +20,7 @@ import (
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
+	"github.com/synnaxlabs/x/spatial"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -79,18 +80,39 @@ func (s *Service) Import(
 }
 
 // stateV6 is the slice of the v6 Console state the importer needs: the document
-// body parked under pendingUpload when a schematic was never uploaded.
+// body parked under pendingUpload when a schematic was never uploaded. The tag
+// is camelCase because the file was written by the Console.
 type stateV6 struct {
-	PendingUpload *stateV6Document `json:"pending_upload"`
+	PendingUpload *consoleDocument `json:"pendingUpload" msgpack:"pendingUpload"`
 }
 
-// stateV6Document mirrors the typed Schematic body fields as they appear inside
-// a v6 Console state's pendingUpload.
-type stateV6Document struct {
-	Snapshot bool                           `json:"snapshot"`
-	Nodes    []Node                         `json:"nodes"`
-	Edges    []Edge                         `json:"edges"`
-	Configs  map[string]msgpack.EncodedJSON `json:"configs"`
+// consoleNode mirrors Node as Console-written files serialize it: camelCase
+// keys. Frozen; Console files no longer evolve.
+type consoleNode struct {
+	Key      string     `json:"key" msgpack:"key"`
+	Position spatial.XY `json:"position" msgpack:"position"`
+	ZIndex   int16      `json:"zIndex" msgpack:"zIndex"`
+}
+
+// consoleDocument mirrors the typed Schematic body fields as Console-written
+// files serialize them: the typed export's top level, and the v6 state's
+// pendingUpload. Configs values are opaque user JSON and pass through as-is.
+type consoleDocument struct {
+	Snapshot bool                           `json:"snapshot" msgpack:"snapshot"`
+	Nodes    []consoleNode                  `json:"nodes" msgpack:"nodes"`
+	Edges    []Edge                         `json:"edges" msgpack:"edges"`
+	Configs  map[string]msgpack.EncodedJSON `json:"configs" msgpack:"configs"`
+}
+
+// schematic lifts the Console document into the current Schematic shape.
+func (d consoleDocument) schematic() Schematic {
+	nodes := make([]Node, len(d.Nodes))
+	for i, n := range d.Nodes {
+		nodes[i] = Node{Key: n.Key, Position: n.Position, ZIndex: n.ZIndex}
+	}
+	return Schematic{
+		Snapshot: d.Snapshot, Nodes: nodes, Edges: d.Edges, Configs: d.Configs,
+	}
 }
 
 func (s *Service) decodeImport(
@@ -112,10 +134,14 @@ func (s *Service) decodeImport(
 	// Console-era typed exports ("6.0.0"-stamped or versionless) carry the current
 	// shape with camelCase keys; console states never carry a name.
 	if named {
-		return imex.DecodeCamel[Schematic](ctx, env)
+		doc, err := imex.Decode[consoleDocument](ctx, env)
+		if err != nil {
+			return Schematic{}, err
+		}
+		return doc.schematic(), nil
 	}
 	if env.Version == lastStateVersion {
-		st, err := imex.DecodeCamel[stateV6](ctx, env)
+		st, err := imex.Decode[stateV6](ctx, env)
 		if err != nil {
 			return Schematic{}, err
 		}
@@ -124,10 +150,7 @@ func (s *Service) decodeImport(
 				validate.ErrValidation, "schematic file has no document data",
 			)
 		}
-		p := st.PendingUpload
-		return Schematic{
-			Snapshot: p.Snapshot, Nodes: p.Nodes, Edges: p.Edges, Configs: p.Configs,
-		}, nil
+		return st.PendingUpload.schematic(), nil
 	}
 	// v0-v5 console states embed the document inline: ride the storage lift, which
 	// dispatches on the version string inside the body.

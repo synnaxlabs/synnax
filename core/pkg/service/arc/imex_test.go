@@ -17,6 +17,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/arc/ir"
+	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	. "github.com/synnaxlabs/synnax/pkg/service/imex/testutil"
@@ -101,10 +102,27 @@ var _ = Describe("ImEx", func() {
 				ctx, "versions/testdata/import_typed_console.json", imex.ImportOptions{},
 			)
 			Expect(res.Name).To(Equal("Console Typed"))
+			Expect(res.Mode).To(Equal(arc.ModeGraph))
+			Expect(res.Graph.Nodes).To(HaveLen(2))
 			Expect(res.Graph.Nodes[0].Key).To(Equal("n9"))
-			// Inputs are opaque per-function records: their keys keep whatever
-			// casing the file carried.
-			Expect(inputsOf(res, "n9")).To(HaveKeyWithValue("keyOrName", "kept"))
+			Expect(res.Graph.Edges).To(HaveLen(1))
+			Expect(res.Graph.Edges[0].Source).To(
+				Equal(ir.Handle{Node: "n9", Param: "out"}),
+			)
+			Expect(res.Graph.Edges[0].Kind).To(Equal(ir.EdgeKindContinuous))
+			Expect(res.Graph.Edges[0].Key).ToNot(BeEmpty())
+			// Node config records fold into Inputs; their keys are opaque and keep
+			// whatever casing the file carried.
+			n9 := inputsOf(res, "n9")
+			Expect(n9).To(HaveKeyWithValue("type", "constant"))
+			Expect(n9).To(HaveKeyWithValue("keyOrName", "kept"))
+			Expect(res.Graph.Functions).To(HaveLen(1))
+			fn := res.Graph.Functions[0]
+			Expect(fn.Key).To(Equal("f1"))
+			Expect(fn.Inputs).To(HaveLen(1))
+			Expect(fn.Inputs[0].Type.Kind).To(Equal(types.KindChan))
+			Expect(fn.Inputs[0].Type.ChanDirection).To(Equal(types.ChanDirectionRead))
+			Expect(fn.Inputs[0].Type.Elem.Kind).To(Equal(types.KindF64))
 		})
 
 		It("Should import a v3 Console state from its pendingUpload", func(ctx SpecContext) {

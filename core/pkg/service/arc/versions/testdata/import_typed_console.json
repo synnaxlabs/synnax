@@ -4,9 +4,43 @@
   "name": "Console Typed",
   "mode": "graph",
   "graph": {
-    "nodes": [{ "key": "n9", "position": { "x": 9, "y": 9 } }],
-    "edges": [],
-    "inputs": { "n9": { "type": "constant", "keyOrName": "kept" } }
+    "viewport": { "position": { "x": 0, "y": 0 }, "zoom": 1 },
+    "functions": [
+      {
+        "key": "f1",
+        "body": { "raw": "out = a" },
+        "config": [],
+        "inputs": [
+          {
+            "name": "a",
+            "type": { "kind": 12, "elem": { "kind": 10 }, "chanDirection": 1 }
+          }
+        ],
+        "outputs": [{ "name": "out", "type": { "kind": 10 } }],
+        "channels": {}
+      }
+    ],
+    "edges": [
+      {
+        "source": { "node": "n9", "param": "out" },
+        "target": { "node": "n10", "param": "in" },
+        "kind": 1
+      }
+    ],
+    "nodes": [
+      {
+        "key": "n9",
+        "type": "constant",
+        "config": { "keyOrName": "kept" },
+        "position": { "x": 9, "y": 9 }
+      },
+      {
+        "key": "n10",
+        "type": "printer",
+        "config": {},
+        "position": { "x": 12, "y": 9 }
+      }
+    ]
   },
   "text": { "raw": "" }
 }

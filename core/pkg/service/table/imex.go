@@ -79,9 +79,10 @@ func (s *Service) Import(
 }
 
 // stateV1 is the slice of the v1 Console state the importer needs: the structural
-// model parked under pendingUpload when a table was never uploaded.
+// model parked under pendingUpload when a table was never uploaded. The tag is
+// camelCase because the file was written by the Console.
 type stateV1 struct {
-	PendingUpload *stateV1Document `json:"pending_upload"`
+	PendingUpload *stateV1Document `json:"pendingUpload" msgpack:"pendingUpload"`
 }
 
 // stateV1Document mirrors the typed Table body fields as they appear inside a v1
@@ -106,12 +107,14 @@ func (s *Service) decodeImport(ctx context.Context, env imex.Envelope) (Table, e
 		return Table{}, err
 	}
 	// Console-era typed exports ("1.0.0"-stamped or versionless) carry the current
-	// shape with camelCase keys; console states never carry a name.
+	// shape with camelCase keys; every Table field key is a single word, so the
+	// standard decoder's case-insensitive matching covers them. Console states
+	// never carry a name.
 	if named {
-		return imex.DecodeCamel[Table](ctx, env)
+		return imex.Decode[Table](ctx, env)
 	}
 	if env.Version == lastStateVersion {
-		st, err := imex.DecodeCamel[stateV1](ctx, env)
+		st, err := imex.Decode[stateV1](ctx, env)
 		if err != nil {
 			return Table{}, err
 		}
