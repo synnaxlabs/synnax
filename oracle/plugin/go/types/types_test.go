@@ -3287,6 +3287,30 @@ var _ = Describe("Frozen Predecessor Baseline", func() {
 	)
 
 	It(
+		"Should alias when the frozen file is reformatted",
+		func(ctx SpecContext) {
+			// Formatters may re-wrap frozen files (golines line splits); layout
+			// must not affect how declarations compare.
+			freeze(ctx, oldSource, "out/versions/v0/types.gen.go")
+			abs := filepath.Join(tmpDir, "out/versions/v0/types.gen.go")
+			original := string(MustSucceed(os.ReadFile(abs)))
+			Expect(original).To(ContainSubstring("case ModeActive, ModePaused:"))
+			reformatted := strings.Replace(
+				original,
+				"case ModeActive, ModePaused:",
+				"case ModeActive,\n\t\tModePaused:",
+				1,
+			)
+			Expect(os.WriteFile(abs, []byte(reformatted), 0o644)).To(Succeed())
+			resp := MustGenerate(ctx, newSource, "test", loader, goPlugin)
+			ExpectContent(resp, "out/versions/v1/types.gen.go").
+				ToBeValidGoSource().
+				ToContain("type Mode = v0.Mode").
+				ToNotContain("type Mode string")
+		},
+	)
+
+	It(
 		"Should alias despite extra hand-written methods at the definer",
 		func(ctx SpecContext) {
 			// Methods live with the definer and travel through the alias; frozen

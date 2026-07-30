@@ -184,15 +184,22 @@ func normalizeQualifiers(file *ast.File) {
 // type for const blocks, and the receiver's base type for methods. It returns
 // each owner's printed declarations in order, the identifiers they reference,
 // and each owner's printed type spec alone. Package qualifiers print as full
-// import paths (see normalizeQualifiers).
+// import paths (see normalizeQualifiers). Declarations print against an empty
+// file set so source line breaks never influence the text: reformatting a
+// frozen file must not change how its declarations compare.
 func groupDecls(
 	src []byte,
 ) (map[string][]string, map[string][]string, map[string]string, error) {
-	fset := token.NewFileSet()
-	file, err := parser.ParseFile(fset, "", src, parser.SkipObjectResolution)
+	file, err := parser.ParseFile(
+		token.NewFileSet(),
+		"",
+		src,
+		parser.SkipObjectResolution,
+	)
 	if err != nil {
 		return nil, nil, nil, err
 	}
+	fset := token.NewFileSet()
 	normalizeQualifiers(file)
 	grouped := make(map[string][]ast.Decl)
 	typeSpecs := make(map[string]string)
