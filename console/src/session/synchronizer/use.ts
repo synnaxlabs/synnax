@@ -59,15 +59,16 @@ export const use = (synchronizers: Synchronizers): boolean => {
         if (gen === generation) setVerified(true);
       })();
     };
-    // The host demands the change stream it verifies against: with no stream
-    // the epoch never leaves 0 and the workspace never settles.
-    if (client.cache.epoch > 0) reconcile();
-    else
-      client.cache
-        .ensureStreaming()
-        .catch((err: unknown) => console.error("failed to open change stream", err));
+    // The connection machine demands the change stream itself; the host only
+    // reacts to the continuity epochs it publishes. Epoch 0 means cold: the
+    // mirror was reset, so nothing verified against it still holds.
+    const { connection } = client;
+    let epoch = connection.status.details.epoch;
+    if (epoch > 0) reconcile();
     destructors.push(
-      client.cache.onEpoch((epoch) => {
+      connection.onChange(({ details }) => {
+        if (details.epoch === epoch) return;
+        epoch = details.epoch;
         if (epoch === 0) {
           generation++;
           setVerified(false);
