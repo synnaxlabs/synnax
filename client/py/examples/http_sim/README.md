@@ -95,9 +95,9 @@ flag that determines HTTP vs HTTPS:
 ```python
 device = sy.http.Device(
     host="192.168.1.100:8080",
-    secure=False,           # Use HTTP (True for HTTPS)
-    timeout_ms=5000,        # Request timeout in milliseconds
-    verify_ssl=True,        # Verify SSL certificates
+    secure=False,  # Use HTTP (True for HTTPS)
+    timeout_ms=5000,  # Request timeout in milliseconds
+    verify_ssl=True,  # Verify SSL certificates
 )
 ```
 
@@ -119,7 +119,12 @@ auth = {"type": "basic", "username": "admin", "password": "secret"}
 auth = {"type": "api_key", "send_as": "header", "header": "X-API-Key", "key": "abc123"}
 
 # API key in query parameter
-auth = {"type": "api_key", "send_as": "query_param", "parameter": "api_key", "key": "abc123"}
+auth = {
+    "type": "api_key",
+    "send_as": "query_param",
+    "parameter": "api_key",
+    "key": "abc123",
+}
 ```
 
 ### Health Check
@@ -188,8 +193,8 @@ Each write endpoint has one channel field that provides the dynamic value:
 
 ```python
 sy.http.ChannelField(
-    pointer="/value",       # Where to place the value in the request body
-    json_type="number",     # JSON type: "number", "string", "boolean"
+    pointer="/value",  # Where to place the value in the request body
+    json_type="number",  # JSON type: "number", "string", "boolean"
     channel=cmd_ch.key,
 )
 ```
