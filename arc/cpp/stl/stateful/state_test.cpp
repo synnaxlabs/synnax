@@ -150,14 +150,154 @@ TEST(Variables, StoreAndLoadSeries) {
     EXPECT_FLOAT_EQ(loaded->at<float>(0), 42.0f);
 }
 
+/// @brief clear_node backs the stage-entry reset contract in arc/docs/spec.md: a
+/// stateful variable must re-initialize when its enclosing stage is re-entered,
+/// without disturbing state held for any other node.
+TEST(Variables, ClearNodeReinitializesScalar) {
+    Variables vars;
+    vars.set_current_node_key("node1");
+    vars.store_i32(0, 100);
+    EXPECT_EQ(vars.load_i32(0, 7), 100);
+    vars.clear_node("node1");
+    EXPECT_EQ(vars.load_i32(0, 7), 7);
+}
+
+TEST(Variables, ClearNodeClearsEveryScalarType) {
+    Variables vars;
+    vars.set_current_node_key("node1");
+    vars.store_u8(0, 1);
+    vars.store_u16(0, 2);
+    vars.store_u32(0, 3);
+    vars.store_u64(0, 4);
+    vars.store_i8(0, -1);
+    vars.store_i16(0, -2);
+    vars.store_i32(0, -3);
+    vars.store_i64(0, -4);
+    vars.store_f32(0, 1.1f);
+    vars.store_f64(0, 2.2);
+
+    vars.clear_node("node1");
+
+    EXPECT_EQ(vars.load_u8(0, 200), 200);
+    EXPECT_EQ(vars.load_u16(0, 201), 201);
+    EXPECT_EQ(vars.load_u32(0, 202), 202);
+    EXPECT_EQ(vars.load_u64(0, 203), 203);
+    EXPECT_EQ(vars.load_i8(0, 100), 100);
+    EXPECT_EQ(vars.load_i16(0, 205), 205);
+    EXPECT_EQ(vars.load_i32(0, 206), 206);
+    EXPECT_EQ(vars.load_i64(0, 207), 207);
+    EXPECT_FLOAT_EQ(vars.load_f32(0, 20.5f), 20.5f);
+    EXPECT_DOUBLE_EQ(vars.load_f64(0, 21.5), 21.5);
+}
+
+TEST(Variables, ClearNodeClearsEveryVarId) {
+    Variables vars;
+    vars.set_current_node_key("node1");
+    vars.store_i32(0, 10);
+    vars.store_i32(1, 20);
+    vars.store_i32(2, 30);
+    vars.clear_node("node1");
+    EXPECT_EQ(vars.load_i32(0, 0), 0);
+    EXPECT_EQ(vars.load_i32(1, 0), 0);
+    EXPECT_EQ(vars.load_i32(2, 0), 0);
+}
+
+TEST(Variables, ClearNodeLeavesOtherNodeKeysUntouched) {
+    Variables vars;
+    vars.set_current_node_key("node_a");
+    vars.store_i32(0, 100);
+    vars.set_current_node_key("node_b");
+    vars.store_i32(0, 200);
+
+    vars.clear_node("node_a");
+
+    vars.set_current_node_key("node_a");
+    EXPECT_EQ(vars.load_i32(0, 0), 0);
+    vars.set_current_node_key("node_b");
+    EXPECT_EQ(vars.load_i32(0, 0), 200);
+}
+
+TEST(Variables, ClearNodeClearsStringState) {
+    Variables vars;
+    strings::State ss;
+    vars.set_current_node_key("node1");
+    vars.store_str(0, ss.create("persisted"), ss);
+    EXPECT_EQ(ss.get(vars.load_str(0, ss.create("fresh"), ss)), "persisted");
+    vars.clear_node("node1");
+    EXPECT_EQ(ss.get(vars.load_str(0, ss.create("fresh"), ss)), "fresh");
+}
+
+TEST(Variables, ClearNodeClearsSeriesState) {
+    Variables vars;
+    series::State ss;
+    vars.set_current_node_key("node1");
+    auto stored = x::telem::Series(x::telem::FLOAT32_T, 1);
+    stored.resize(1);
+    stored.set(0, 42.0f);
+    vars.store_series(0, ss.store(std::move(stored)), ss);
+
+    auto probe = x::telem::Series(x::telem::FLOAT32_T, 1);
+    probe.resize(1);
+    probe.set(0, 0.0f);
+    const uint32_t probe_handle = ss.store(std::move(probe));
+    const auto *before = ss.get(vars.load_series(0, probe_handle, ss));
+    ASSERT_NE(before, nullptr);
+    EXPECT_FLOAT_EQ(before->at<float>(0), 42.0f);
+
+    vars.clear_node("node1");
+
+    auto init = x::telem::Series(x::telem::FLOAT32_T, 1);
+    init.resize(1);
+    init.set(0, 9.0f);
+    const uint32_t init_handle = ss.store(std::move(init));
+    EXPECT_EQ(vars.load_series(0, init_handle, ss), init_handle);
+}
+
+TEST(Variables, ClearNodeAllowsStateToBeReEstablished) {
+    Variables vars;
+    vars.set_current_node_key("node1");
+    vars.store_i32(0, 100);
+    vars.clear_node("node1");
+    vars.store_i32(0, 300);
+    EXPECT_EQ(vars.load_i32(0, 0), 300);
+}
+
+TEST(Variables, ClearNodeIsIdempotent) {
+    Variables vars;
+    vars.set_current_node_key("node1");
+    vars.store_i32(0, 100);
+    vars.clear_node("node1");
+    vars.clear_node("node1");
+    EXPECT_EQ(vars.load_i32(0, 42), 42);
+}
+
+TEST(Variables, ClearNodeOnUnknownKeyIsNoOp) {
+    Variables vars;
+    vars.set_current_node_key("node1");
+    vars.store_i32(0, 100);
+    vars.clear_node("never-seen");
+    EXPECT_EQ(vars.load_i32(0, 0), 100);
+}
+
 TEST(Variables, StoreStrInvalidHandleIsNoOp) {
     Variables vars;
     strings::State ss;
     vars.set_current_node_key("node_a");
     const uint32_t init_handle = ss.create("initial");
     vars.store_str(0, init_handle, ss);
-    vars.store_str(0, 0, ss);
+    vars.store_str(0, 9999, ss);
     const uint32_t result = vars.load_str(0, 0, ss);
     EXPECT_EQ(ss.get(result), "initial");
+}
+
+/// @brief Handle 0 is the canonical empty-string handle rather than an invalid
+/// one, so storing it overwrites the variable with "".
+TEST(Variables, StoreStrZeroHandleStoresEmptyString) {
+    Variables vars;
+    strings::State ss;
+    vars.set_current_node_key("node_a");
+    vars.store_str(0, ss.create("initial"), ss);
+    vars.store_str(0, 0, ss);
+    EXPECT_EQ(ss.get(vars.load_str(0, 0, ss)), "");
 }
 }

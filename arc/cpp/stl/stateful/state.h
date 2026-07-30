@@ -42,6 +42,21 @@ class Variables {
 public:
     void set_current_node_key(const std::string &key) { this->current_node_key = key; }
 
+    void clear_node(const std::string &key) {
+        this->u8.erase(key);
+        this->u16.erase(key);
+        this->u32.erase(key);
+        this->u64.erase(key);
+        this->i8.erase(key);
+        this->i16.erase(key);
+        this->i32.erase(key);
+        this->i64.erase(key);
+        this->f32.erase(key);
+        this->f64.erase(key);
+        this->string.erase(key);
+        this->series.erase(key);
+    }
+
 #define DECLARE_VAR_OPS(suffix, cpptype)                                               \
     cpptype load_##suffix(uint32_t var_id, cpptype init_value) {                       \
         auto &inner = this->suffix[this->current_node_key];                            \

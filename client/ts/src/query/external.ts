@@ -36,6 +36,7 @@ export {
   createFetchListener,
   createSetListener,
   type HydrateMode,
+  type Keyed,
   type ListenerSpec,
   partialUpdate,
   type RowStatus,
