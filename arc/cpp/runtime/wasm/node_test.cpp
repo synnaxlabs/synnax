@@ -1352,6 +1352,190 @@ func counter(trigger i64) i64 {
         << "counter_b should have its own independent state, returning 1 not 2";
 }
 
+/// @brief Regression test for the stage-entry reset contract in
+/// arc/docs/spec.md: reset() must discard the node's stateful variables so they
+/// re-initialize, rather than carrying their values into the next stage entry.
+TEST(NodeTest, StatefulVariablesResetOnNodeReset) {
+    const auto client = new_test_client();
+
+    auto output_idx_name = random_name("output_idx");
+    auto output_name = random_name("output");
+
+    auto output_idx = synnax::channel::Channel{
+        .name = output_idx_name,
+        .data_type = x::telem::TIMESTAMP_T,
+        .is_index = true,
+    };
+    ASSERT_NIL(client.channels.create(output_idx));
+    auto output_ch = synnax::channel::Channel{
+        .name = output_name,
+        .data_type = x::telem::INT64_T,
+        .index = output_idx.key,
+    };
+    ASSERT_NIL(client.channels.create(output_ch));
+
+    const std::string source = R"(
+func counter() i64 {
+    count i64 $= 0
+    count = count + 1
+    return count
+}
+counter{} -> )" + output_name;
+
+    auto mod = testutil::compile_text(client, source);
+
+    auto channel_st = std::make_shared<stl::channels::State>(
+        std::vector<state::ChannelDigest>{
+            {output_idx.key, x::telem::TIMESTAMP_T, 0},
+            {output_ch.key, x::telem::INT64_T, output_idx.key}
+        }
+    );
+    auto str_st = std::make_shared<stl::strings::State>();
+    auto series_st = std::make_shared<stl::series::State>();
+    auto var_st = std::make_shared<stl::stateful::Variables>();
+    auto state = std::make_shared<state::State>(
+        state::Config{
+            .ir = (static_cast<arc::ir::IR>(mod)),
+            .channels =
+                {{output_idx.key, x::telem::TIMESTAMP_T, 0},
+                 {output_ch.key, x::telem::INT64_T, output_idx.key}}
+        },
+        channel_st,
+        str_st,
+        series_st,
+        var_st,
+        arc::runtime::errors::noop_handler
+    );
+
+    auto wasm_mod = ASSERT_NIL_P(
+        wasm::Module::open(
+            {.program = mod,
+             .modules = build_stl_modules(channel_st, str_st, series_st, var_st),
+             .strings = str_st}
+        )
+    );
+
+    const auto *func_node = find_node_by_type(mod, "counter");
+    ASSERT_NE(func_node, nullptr);
+
+    auto node_state = ASSERT_NIL_P(state->node(func_node->key));
+    auto func = ASSERT_NIL_P(wasm_mod->func("counter"));
+
+    wasm::Node node(mod, *func_node, std::move(node_state), func, wasm_mod->strings());
+    auto ctx = make_context();
+    size_t executions = 0;
+    ctx.mark_changed = [&](size_t) { executions++; };
+
+    // The entry gate runs the node once per arming; reset() re-arms it, so each
+    // post-reset next() re-executes with freshly-initialized stateful variables.
+    for (size_t cycle = 1; cycle <= 3; cycle++) {
+        ASSERT_NIL(node.next(ctx));
+        EXPECT_EQ(executions, cycle);
+        auto s = ASSERT_NIL_P(state->node(func_node->key));
+        EXPECT_EQ(s.output(0)->at<int64_t>(0), 1)
+            << "stateful variable must re-initialize after reset";
+        node.reset();
+    }
+}
+
+/// @brief reset() must clear only the resetting node's stateful variables. A
+/// sibling call site of the same function keeps its own value.
+TEST(NodeTest, NodeResetLeavesOtherNodesStatefulVariablesIntact) {
+    const auto client = new_test_client();
+
+    auto output_idx_name = random_name("output_idx");
+    auto output_a_name = random_name("output_a");
+    auto output_b_name = random_name("output_b");
+
+    auto output_idx = synnax::channel::Channel{
+        .name = output_idx_name,
+        .data_type = x::telem::TIMESTAMP_T,
+        .is_index = true,
+    };
+    ASSERT_NIL(client.channels.create(output_idx));
+    auto output_a_ch = synnax::channel::Channel{
+        .name = output_a_name,
+        .data_type = x::telem::INT64_T,
+        .index = output_idx.key,
+    };
+    ASSERT_NIL(client.channels.create(output_a_ch));
+    auto output_b_ch = synnax::channel::Channel{
+        .name = output_b_name,
+        .data_type = x::telem::INT64_T,
+        .index = output_idx.key,
+    };
+    ASSERT_NIL(client.channels.create(output_b_ch));
+
+    const std::string source = R"(
+func counter() i64 {
+    count i64 $= 0
+    count = count + 1
+    return count
+}
+counter{} -> )" + output_a_name +
+                               "\ncounter{} -> " + output_b_name;
+
+    auto mod = testutil::compile_text(client, source);
+
+    const std::vector<state::ChannelDigest> digests{
+        {output_idx.key, x::telem::TIMESTAMP_T, 0},
+        {output_a_ch.key, x::telem::INT64_T, output_idx.key},
+        {output_b_ch.key, x::telem::INT64_T, output_idx.key}
+    };
+    auto channel_st = std::make_shared<stl::channels::State>(digests);
+    auto str_st = std::make_shared<stl::strings::State>();
+    auto series_st = std::make_shared<stl::series::State>();
+    auto var_st = std::make_shared<stl::stateful::Variables>();
+    auto state = std::make_shared<state::State>(
+        state::Config{.ir = (static_cast<arc::ir::IR>(mod)), .channels = digests},
+        channel_st,
+        str_st,
+        series_st,
+        var_st,
+        arc::runtime::errors::noop_handler
+    );
+
+    auto wasm_mod = ASSERT_NIL_P(
+        wasm::Module::open(
+            {.program = mod,
+             .modules = build_stl_modules(channel_st, str_st, series_st, var_st),
+             .strings = str_st}
+        )
+    );
+
+    std::vector<const arc::ir::Node *> counter_nodes;
+    for (const auto &n: mod.nodes)
+        if (n.type == "counter") counter_nodes.push_back(&n);
+    ASSERT_EQ(counter_nodes.size(), 2);
+
+    auto state_a = ASSERT_NIL_P(state->node(counter_nodes[0]->key));
+    auto state_b = ASSERT_NIL_P(state->node(counter_nodes[1]->key));
+    auto func_a = ASSERT_NIL_P(wasm_mod->func("counter"));
+    auto func_b = ASSERT_NIL_P(wasm_mod->func("counter"));
+
+    wasm::Node
+        node_a(mod, *counter_nodes[0], std::move(state_a), func_a, wasm_mod->strings());
+    wasm::Node
+        node_b(mod, *counter_nodes[1], std::move(state_b), func_b, wasm_mod->strings());
+    auto ctx = make_context();
+
+    ASSERT_NIL(node_a.next(ctx));
+    ASSERT_NIL(node_b.next(ctx));
+    var_st->set_current_node_key(counter_nodes[1]->key);
+    ASSERT_EQ(var_st->load_i64(0, -1), 1);
+
+    node_a.reset();
+
+    ASSERT_NIL(node_a.next(ctx));
+    auto result_a = ASSERT_NIL_P(state->node(counter_nodes[0]->key));
+    EXPECT_EQ(result_a.output(0)->at<int64_t>(0), 1)
+        << "the reset node's stateful variable must re-initialize";
+
+    var_st->set_current_node_key(counter_nodes[1]->key);
+    EXPECT_EQ(var_st->load_i64(0, -1), 1)
+        << "resetting node_a must not disturb node_b's stateful variable";
+}
+
 /// @brief Regression test: channel-typed config params should correctly read
 /// channel data via the WASM channel_read host function.
 TEST(NodeTest, ChannelConfigParamReadsChannelData) {
