@@ -133,14 +133,14 @@ def assert_link_format(
     except ValueError:
         raise AssertionError(f"Cluster ID should be a valid UUID, got: {cluster_id}")
 
-    assert actual_type == resource_type, (
-        f"Resource type should be '{resource_type}', got: {actual_type}"
-    )
+    assert (
+        actual_type == resource_type
+    ), f"Resource type should be '{resource_type}', got: {actual_type}"
 
     if resource_id is not None:
-        assert actual_id == resource_id, (
-            f"Resource ID should be '{resource_id}', got: {actual_id}"
-        )
+        assert (
+            actual_id == resource_id
+        ), f"Resource ID should be '{resource_id}', got: {actual_id}"
     else:
         try:
             uuid.UUID(actual_id)
@@ -160,21 +160,21 @@ def assert_envelope(
 
     :param exported: The decoded export JSON.
     :param type: The expected envelope type (e.g., "lineplot", "schematic").
-    :param min_version: Floor for the envelope version — a floor, not an exact
-        match, so server-side version bumps don't break export tests.
+    :param min_version: Floor for the envelope version — a floor, not an exact match, so
+        server-side version bumps don't break export tests.
     :param name: Optional resource name the envelope must carry.
     """
-    assert exported.get("type") == type, (
-        f"Envelope type should be {type!r}, got {exported.get('type')!r}"
-    )
+    assert (
+        exported.get("type") == type
+    ), f"Envelope type should be {type!r}, got {exported.get('type')!r}"
     version = exported.get("version")
-    assert isinstance(version, int) and version >= min_version, (
-        f"Envelope version should be an int >= {min_version}, got {version!r}"
-    )
-    assert "key" not in exported, (
-        "Server-side export strips the resource key from the portable envelope"
-    )
+    assert (
+        isinstance(version, int) and version >= min_version
+    ), f"Envelope version should be an int >= {min_version}, got {version!r}"
+    assert (
+        "key" not in exported
+    ), "Server-side export strips the resource key from the portable envelope"
     if name is not None:
-        assert exported.get("name") == name, (
-            f"Envelope name should be {name!r}, got {exported.get('name')!r}"
-        )
+        assert (
+            exported.get("name") == name
+        ), f"Envelope name should be {name!r}, got {exported.get('name')!r}"
