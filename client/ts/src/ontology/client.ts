@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type UnaryClient } from "@synnaxlabs/freighter";
-import { deep, destructor, primitive } from "@synnaxlabs/x";
+import { deep, type destructor, primitive } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { NotFoundError } from "@/errors";
@@ -277,11 +277,10 @@ export class Client extends query.Retriever<
       });
       return [...deletions, ...insertions];
     };
-    const rollback = new destructor.Chain();
-    rollback.add(...move());
-    await rollback.guard(
-      async () => await this.writer.moveChildren(from, to, ...children),
-    );
+    await query.optimistic({
+      rollbacks: move(),
+      commit: async () => await this.writer.moveChildren(from, to, ...children),
+    });
     move();
   }
 

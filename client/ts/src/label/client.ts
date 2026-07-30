@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type UnaryClient } from "@synnaxlabs/freighter";
-import { array, destructor, primitive } from "@synnaxlabs/x";
+import { array, primitive } from "@synnaxlabs/x";
 import z from "zod";
 
 import { LABELED_BY_ONTOLOGY_RELATIONSHIP_TYPE } from "@/label/payload";
@@ -104,30 +104,28 @@ export class Client extends query.Retriever<typeof retrieveRequestZ, Key, Label>
     labels: Key[],
     opts: SetOptions & query.WriteOptions = {},
   ): Promise<void> {
-    const rollback = new destructor.Chain();
-    if (opts.replace === true)
-      rollback.add(
-        this.cfg.ontology.cache.relationships.delete((r) => matchLabeledBy(r, id)),
-      );
-    labels.forEach((key) => {
-      const rel = labeledByRel(id, key);
-      rollback.add(
-        this.cfg.ontology.cache.relationships.set(
-          ontology.relationshipToString(rel),
-          rel,
-        ),
-      );
-    });
-    await opts.onOptimistic?.();
-    await rollback.guard(
-      async () =>
+    await query.optimistic({
+      rollbacks: [
+        ...(opts.replace === true
+          ? [this.cfg.ontology.cache.relationships.delete((r) => matchLabeledBy(r, id))]
+          : []),
+        ...labels.map((key) => {
+          const rel = labeledByRel(id, key);
+          return this.cfg.ontology.cache.relationships.set(
+            ontology.relationshipToString(rel),
+            rel,
+          );
+        }),
+      ],
+      onOptimistic: opts.onOptimistic,
+      commit: async () =>
         await this.cfg.unary.send(
           "/label/set",
           { id, labels, replace: opts.replace },
           setReqZ,
           emptyResZ,
         ),
-    );
+    });
   }
 
   async remove(
@@ -135,22 +133,21 @@ export class Client extends query.Retriever<typeof retrieveRequestZ, Key, Label>
     labels: Key[],
     opts: query.WriteOptions = {},
   ): Promise<void> {
-    const rollback = new destructor.Chain();
-    rollback.add(
-      this.cfg.ontology.cache.relationships.delete(
-        (r) => matchLabeledBy(r, id) && labels.includes(r.to.key),
-      ),
-    );
-    await opts.onOptimistic?.();
-    await rollback.guard(
-      async () =>
+    await query.optimistic({
+      rollbacks: [
+        this.cfg.ontology.cache.relationships.delete(
+          (r) => matchLabeledBy(r, id) && labels.includes(r.to.key),
+        ),
+      ],
+      onOptimistic: opts.onOptimistic,
+      commit: async () =>
         await this.cfg.unary.send(
           "/label/remove",
           { id, labels },
           removeReqZ,
           emptyResZ,
         ),
-    );
+    });
   }
 
   async create(label: New, opts?: query.WriteOptions<Label[]>): Promise<Label>;
@@ -161,18 +158,17 @@ export class Client extends query.Retriever<typeof retrieveRequestZ, Key, Label>
   ): Promise<Label | Label[]> {
     const isMany = Array.isArray(labels);
     const optimistic = array.toArray(labels).map((l) => labelZ.parse(l));
-    const rollback = new destructor.Chain();
-    rollback.add(this.store.set(optimistic));
-    await opts.onOptimistic?.(optimistic);
-    const res = await rollback.guard(
-      async () =>
+    const res = await query.optimistic({
+      rollbacks: [this.store.set(optimistic)],
+      onOptimistic: () => opts.onOptimistic?.(optimistic),
+      commit: async () =>
         await this.cfg.unary.send(
           "/label/create",
           { labels: optimistic },
           createReqZ,
           createResZ,
         ),
-    );
+    });
     this.store.set(res.labels);
     return isMany ? res.labels : res.labels[0];
   }
@@ -188,18 +184,17 @@ export class Client extends query.Retriever<typeof retrieveRequestZ, Key, Label>
           keysArr.includes(r.to.key),
       ),
     ];
-    const rollback = new destructor.Chain();
-    rollback.add(...drop());
-    await opts.onOptimistic?.();
-    await rollback.guard(
-      async () =>
+    await query.optimistic({
+      rollbacks: drop(),
+      onOptimistic: opts.onOptimistic,
+      commit: async () =>
         await this.cfg.unary.send(
           "/label/delete",
           { keys: keysArr },
           deleteReqZ,
           emptyResZ,
         ),
-    );
+    });
     drop();
   }
 

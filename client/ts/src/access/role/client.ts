@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type UnaryClient } from "@synnaxlabs/freighter";
-import { array, destructor, primitive } from "@synnaxlabs/x";
+import { array, primitive } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import {
@@ -157,18 +157,17 @@ export class Client extends query.Retriever<typeof retrieveRequestZ, Key, Role> 
       this.cfg.ontology.cache.deleteResources(ids),
       this.store.delete(keysArr),
     ];
-    const rollback = new destructor.Chain();
-    rollback.add(...drop());
-    await opts.onOptimistic?.();
-    await rollback.guard(
-      async () =>
+    await query.optimistic({
+      rollbacks: drop(),
+      onOptimistic: opts.onOptimistic,
+      commit: async () =>
         await this.cfg.unary.send(
           "/access/role/delete",
           params,
           deleteParamsZ,
           deleteResZ,
         ),
-    );
+    });
     drop();
     this.cfg.ontology.cache.relationships.delete((r) =>
       ids.some((id) => ontology.idsEqual(r.from, id) || ontology.idsEqual(r.to, id)),
@@ -181,53 +180,52 @@ export class Client extends query.Retriever<typeof retrieveRequestZ, Key, Role> 
       query.partialUpdate(this.store, key, { name }),
       this.cfg.ontology.cache.renameResource(ontologyID(key), name),
     ];
-    const rollback = new destructor.Chain();
-    rollback.add(...rename());
-    await opts.onOptimistic?.();
-    await rollback.guard(async () => {
-      await this.create({ ...existing, name });
+    await query.optimistic({
+      rollbacks: rename(),
+      onOptimistic: opts.onOptimistic,
+      commit: async () => {
+        await this.create({ ...existing, name });
+      },
     });
     rename();
   }
 
   async assign(params: AssignParams, opts: query.WriteOptions = {}): Promise<void> {
     const rel = assignmentRel(params.role, params.user);
-    const rollback = new destructor.Chain();
-    rollback.add(
-      this.cfg.ontology.cache.relationships.set(
-        ontology.relationshipToString(rel),
-        rel,
-      ),
-    );
-    await opts.onOptimistic?.();
-    await rollback.guard(
-      async () =>
+    await query.optimistic({
+      rollbacks: [
+        this.cfg.ontology.cache.relationships.set(
+          ontology.relationshipToString(rel),
+          rel,
+        ),
+      ],
+      onOptimistic: opts.onOptimistic,
+      commit: async () =>
         await this.cfg.unary.send(
           "/access/role/assign",
           params,
           assignReqZ,
           assignResZ,
         ),
-    );
+    });
   }
 
   async unassign(params: UnassignParams, opts: query.WriteOptions = {}): Promise<void> {
-    const rollback = new destructor.Chain();
-    rollback.add(
-      this.cfg.ontology.cache.relationships.delete(
-        ontology.relationshipToString(assignmentRel(params.role, params.user)),
-      ),
-    );
-    await opts.onOptimistic?.();
-    await rollback.guard(
-      async () =>
+    await query.optimistic({
+      rollbacks: [
+        this.cfg.ontology.cache.relationships.delete(
+          ontology.relationshipToString(assignmentRel(params.role, params.user)),
+        ),
+      ],
+      onOptimistic: opts.onOptimistic,
+      commit: async () =>
         await this.cfg.unary.send(
           "/access/role/unassign",
           params,
           unassignReqZ,
           unassignResZ,
         ),
-    );
+    });
   }
 
   private async execRetrieve(params: RetrieveMultipleParams): Promise<Role[]> {
