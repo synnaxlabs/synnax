@@ -11,9 +11,15 @@ import { crdt, id, uuid } from "@synnaxlabs/x";
 import { describe, expect, it, vi } from "vitest";
 
 import { arc } from "@/arc";
+import { AuthError } from "@/errors";
 import { status } from "@/status";
 import { task } from "@/task";
-import { createTestClient, expectLive, isLive } from "@/testutil";
+import {
+  createTestClient,
+  createTestClientWithPolicy,
+  expectLive,
+  isLive,
+} from "@/testutil";
 
 const client = createTestClient();
 
@@ -158,6 +164,33 @@ describe("arc", () => {
       } finally {
         off();
       }
+    });
+
+    it("preserves the deployment task when a rack move fails to commit", async () => {
+      const rackA = await client.racks.create({ name: `rack-${id.create()}` });
+      const rackB = await client.racks.create({ name: `rack-${id.create()}` });
+      const created = await client.arcs.create({
+        ...newTextArc(`rack-move-${id.create()}`),
+        rack: rackA.key,
+      });
+      const tsk = await client.arcs.task.retrieve(created.key);
+      if (tsk == null) throw new Error("expected a deployment task");
+      // Task permissions are granted so the rack-move resolution proceeds all
+      // the way to the arc create, which is what gets denied.
+      const userClient = await createTestClientWithPolicy(client, {
+        name: "test",
+        objects: [arc.ontologyID(""), task.ontologyID("")],
+        actions: ["retrieve", "delete"],
+      });
+      await expect(
+        userClient.arcs.create({
+          ...newTextArc(created.name),
+          key: created.key,
+          rack: rackB.key,
+        }),
+      ).rejects.toThrow(AuthError);
+      const surviving = await client.tasks.retrieve({ key: tsk.key });
+      expect(surviving.key).toEqual(tsk.key);
     });
   });
 });

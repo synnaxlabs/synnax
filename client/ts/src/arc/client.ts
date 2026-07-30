@@ -260,8 +260,10 @@ export class Client extends query.Retriever<
     const isMany = Array.isArray(arcs);
     const params = array.toArray(arcs);
     // Resolve the deployment task for each arc targeting a rack. A task
-    // previously deployed to a different rack is deleted and recreated.
+    // previously deployed to a different rack is deleted and recreated only
+    // after the create commits, so a failed create destroys nothing.
     const taskKeys = new Map<number, task.Key>();
+    const staleTasks = new Map<number, task.Key>();
     for (let i = 0; i < params.length; i++) {
       const { rack, key } = params[i];
       if (rack == null) continue;
@@ -269,7 +271,7 @@ export class Client extends query.Retriever<
       if (key != null) {
         const tsk = await this.retrieveTask(key);
         if (tsk != null)
-          if (task.rackKey(tsk.key) !== rack) await this.cfg.tasks.delete([tsk.key]);
+          if (task.rackKey(tsk.key) !== rack) staleTasks.set(i, tsk.key);
           else taskKey = tsk.key;
       }
       taskKeys.set(i, taskKey);
@@ -289,6 +291,10 @@ export class Client extends query.Retriever<
     this.store.set(res.arcs);
     for (const [i, taskKey] of taskKeys) {
       const created = res.arcs[i];
+      const stale = staleTasks.get(i);
+      // Delete before create: a failure in between leaves the arc with no
+      // deployment task rather than two, and a retry heals it.
+      if (stale != null) await this.cfg.tasks.delete([stale]);
       const newTsk = await this.cfg.tasks.create(
         {
           key: taskKey,
