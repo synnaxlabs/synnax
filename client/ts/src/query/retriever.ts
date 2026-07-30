@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type destructor, type record, type state } from "@synnaxlabs/x";
+import { type destructor, type record } from "@synnaxlabs/x";
 import type z from "zod";
 
 import { NotFoundError, ValidationError } from "@/errors";
@@ -18,7 +18,7 @@ import {
   type Retrieves,
   type WatchEntry,
 } from "@/query/query";
-import { type Table } from "@/query/table";
+import { type Keyed, type Table } from "@/query/table";
 import { type Data, type FetchOptions, type Params } from "@/query/types";
 
 /** Query fields only the server can evaluate, shared by most request shapes. */
@@ -36,20 +36,34 @@ const isKeysOnly = (query: unknown): query is { keys: unknown[] } => {
   return Object.entries(query).every(([k, v]) => k === "keys" || v == null);
 };
 
+interface ComposeProp<V, D> {
+  /**
+   * Per-record enrichment applied to every answer, receiving the normalized
+   * query the record answers. Defaults to identity.
+   */
+  compose: (record: V, query: Params) => D;
+}
+
+/** Optional only when a record is a valid answer as-is (V assignable to D):
+ *  the identity default is unsound for any narrower D. */
+type ComposeParam<V, D> = [V] extends [D]
+  ? Partial<ComposeProp<V, D>>
+  : ComposeProp<V, D>;
+
 /**
  * Declaration of a domain client's read surface. The single space is derived
  * from the table and its fetch: `{ key }` params resolve one record, with
  * deletion flipping the answer to deleted. Declare `single` only when the
  * domain's single query is richer than a key.
  */
-export interface RetrieverParams<
+export type RetrieverParams<
   Z extends z.ZodType<Params>,
   K extends record.Key,
-  V extends state.State & record.Keyed<K>,
+  V extends Keyed<K>,
   D extends Data = V,
   SingleInput = { key: K },
   SingleQuery extends Params = K,
-> {
+> = ComposeParam<V, D> & {
   /** Resource name used in error messages, e.g. "range". */
   name: string;
   /** The table owning this domain's record content. */
@@ -66,10 +80,7 @@ export interface RetrieverParams<
      * reach it; they resolve through the table's fetch. Results hydrate the
      * table under its declared mode.
      */
-    fetch: (
-      query: z.output<Z>,
-      options?: FetchOptions,
-    ) => Promise<Array<V & record.Keyed<K>>>;
+    fetch: (query: z.output<Z>, options?: FetchOptions) => Promise<V[]>;
     /** Rule 2: whether a record satisfies the query. Pure; no network. */
     matches?: (record: V, query: z.output<Z>) => boolean;
     /** Overrides {@link DEFAULT_SERVER_FIELDS} for this request shape. */
@@ -77,11 +88,6 @@ export interface RetrieverParams<
     /** Foreign tables whose events affect this space's answers. */
     watch?: Array<WatchEntry<z.output<Z>, K>>;
   };
-  /**
-   * Per-record enrichment applied to every answer, receiving the normalized
-   * query the record answers. Defaults to identity.
-   */
-  compose?: (record: V, query: Params) => D;
   /** Custom single space for domains whose single query is richer than a key. */
   single?: {
     /**
@@ -93,7 +99,7 @@ export interface RetrieverParams<
     /** The space answering single queries, built via the cache. */
     space: Retrieves<SingleQuery, D>;
   };
-}
+};
 
 /**
  * A domain client's cached read surface, routing each query to the single or
@@ -121,7 +127,7 @@ export interface RetrieverParams<
 export abstract class Retriever<
   Z extends z.ZodType<Params>,
   K extends record.Key,
-  V extends state.State & record.Keyed<K>,
+  V extends Keyed<K>,
   D extends Data = V,
   SingleInput = { key: K },
   SingleQuery extends Params = K,
@@ -139,7 +145,7 @@ export abstract class Retriever<
       name,
       table,
       request,
-      compose = (record) => record as unknown as D,
+      compose = (record: V) => record as unknown as D,
       single,
     } = params;
     const {

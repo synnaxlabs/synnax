@@ -58,7 +58,7 @@ func autoMigrateType(ctx context.Context, old v0.Type) (Type, error) {
 		Elem:               elem,
 		Unit:               old.Unit,
 		Constraint:         constraint,
-		ChanDirection:      old.ChanDirection,
+		ChanDirection:      ChanDirection(old.ChanDirection),
 	}, nil
 }
 

@@ -32,6 +32,7 @@ cc_test(
         "//arc/cpp/runtime/errors",
         "//arc/cpp/runtime/node",
         "//arc/cpp/runtime/state",
+        "//arc/cpp/stl/testutil",
         "//client/cpp/testutil",
         "//x/cpp/test",
         "@googletest//:gtest_main",

@@ -41,6 +41,13 @@ export interface TableSubscriber<
  */
 export type HydrateMode = "set" | "if-absent";
 
+/** A table value carrying its row key, so batch writes and fetches can derive
+ *  each row's key from the record itself. */
+export type Keyed<
+  Key extends record.Key = record.Key,
+  Value extends state.State = state.State,
+> = Value & record.Keyed<Key>;
+
 /** Construction arguments for a {@link Table}. */
 export interface TableParams<
   Key extends record.Key = record.Key,
@@ -56,7 +63,7 @@ export interface TableParams<
    * key-announce listeners, and reconciliation. Omit for tables with no
    * server backing (they are skipped by all three).
    */
-  fetch?: (keys: Key[]) => Promise<Array<Value & record.Keyed<Key>>>;
+  fetch?: (keys: Key[]) => Promise<Array<Keyed<Key, Value>>>;
   /**
    * Hydration mode, "set" by default. Dispatch-backed document tables use
    * "if-absent" so fetches never clobber locally replayed edits.
@@ -85,9 +92,7 @@ export class Table<
   >();
   private readonly onError: (error: Error) => void;
   private readonly equal: (a: Value, b: Value, key: Key) => boolean;
-  private readonly fetchRows?: (
-    keys: Key[],
-  ) => Promise<Array<Value & record.Keyed<Key>>>;
+  private readonly fetchRows?: (keys: Key[]) => Promise<Array<Keyed<Key, Value>>>;
   private readonly hydrateMode: HydrateMode;
 
   constructor({
@@ -137,11 +142,9 @@ export class Table<
    * Sets every given keyed value, keying each row by its key property.
    * @returns A rollback that undoes the inserted values in reverse order.
    */
+  set(values: Keyed<Key, Value> | Array<Keyed<Key, Value>>): destructor.Destructor;
   set(
-    values: (Value & record.Keyed<Key>) | Array<Value & record.Keyed<Key>>,
-  ): destructor.Destructor;
-  set(
-    keyOrValues: Key | (Value & record.Keyed<Key>) | Array<Value & record.Keyed<Key>>,
+    keyOrValues: Key | Keyed<Key, Value> | Array<Keyed<Key, Value>>,
     value?: state.SetArg<Value | undefined>,
   ): destructor.Destructor {
     if (typeof keyOrValues !== "object")
@@ -154,7 +157,7 @@ export class Table<
     return () => rollbacks.reverse().forEach((r) => r());
   }
 
-  private setIfAbsent(values: Array<Value & record.Keyed<Key>>): destructor.Destructor {
+  private setIfAbsent(values: Array<Keyed<Key, Value>>): destructor.Destructor {
     const rollbacks: destructor.Destructor[] = [];
     values.forEach((val) => {
       if (this.rows.has(val.key)) return;
@@ -169,9 +172,7 @@ export class Table<
    * "set" overwrites rows, "if-absent" leaves existing rows untouched.
    * @returns A rollback that undoes the rows this call wrote.
    */
-  ingest(
-    values: (Value & record.Keyed<Key>) | Array<Value & record.Keyed<Key>>,
-  ): destructor.Destructor {
+  ingest(values: Keyed<Key, Value> | Array<Keyed<Key, Value>>): destructor.Destructor {
     const arr = array.toArray(values);
     if (this.hydrateMode === "if-absent") return this.setIfAbsent(arr);
     return this.set(arr);
@@ -186,7 +187,7 @@ export class Table<
     if (keys === undefined) return Array.from(this.rows.values());
     if (typeof keys === "function") return Array.from(this.rows.values()).filter(keys);
     if (Array.isArray(keys))
-      return keys.map((key) => this.rows.get(key)).filter((e) => e != null) as Value[];
+      return keys.map((key) => this.rows.get(key)).filter((e): e is Value => e != null);
     return this.rows.get(keys);
   }
 
