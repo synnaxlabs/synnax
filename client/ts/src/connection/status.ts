@@ -157,8 +157,8 @@ export type Event =
   | { type: "credentials.replaced" }
   | { type: "closed" };
 
-const CONNECTING = "Connecting...";
-const RECONNECTING = "Reconnecting...";
+const CONNECTING = "Connecting";
+const RECONNECTING = "Reconnecting";
 const UNREACHABLE = "Cannot reach cluster";
 
 const connectedMessage = ({ name }: Config): string =>
@@ -171,7 +171,7 @@ export const createInitialStatus = (config: Config): Status => ({
   name: config.name ?? DEFAULT_STATUS.name,
   time: TimeStamp.now(),
   variant: "loading",
-  message: `Connecting to ${config.name ?? "cluster"}...`,
+  message: `Connecting to ${config.name ?? "cluster"}`,
   details: { ...DEFAULT_DETAILS, clientVersion: config.clientVersion },
 });
 
@@ -239,7 +239,7 @@ const reduceCheckSuccess = (prev: Status, info: Info, config: Config): Status =>
 const reduceClusterReplaced = (prev: Status, info: Info, config: Config): Status =>
   update(prev, {
     variant: "loading",
-    message: `Connecting to ${config.name ?? "cluster"}...`,
+    message: `Connecting to ${config.name ?? "cluster"}`,
     details: {
       ...checkFacts(info, config),
       streamLive: false,
