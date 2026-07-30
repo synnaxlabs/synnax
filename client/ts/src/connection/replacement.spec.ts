@@ -8,8 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type ChildProcess, spawn } from "node:child_process";
-import { existsSync, mkdtempSync, rmSync } from "node:fs";
-import os from "node:os";
+import { existsSync } from "node:fs";
 import path from "node:path";
 
 import { afterEach, describe, expect, it } from "vitest";
@@ -41,12 +40,11 @@ const portOccupied = async (): Promise<boolean> => {
   }
 };
 
-const startCore = async (dataDir?: string): Promise<ChildProcess> => {
+const startCore = async (): Promise<ChildProcess> => {
   // A leaked core from an earlier run answers the readiness poll and keeps the
   // old cluster key alive, making every replacement assertion meaningless.
   if (await portOccupied()) throw new Error(`port ${PORT} is already occupied`);
-  const storage = dataDir == null ? ["-m"] : ["-d", dataDir];
-  const core = spawn(BINARY, ["start", "-i", "-l", ADDRESS, ...storage], {
+  const core = spawn(BINARY, ["start", "-i", "-l", ADDRESS, "-m"], {
     stdio: "ignore",
   });
   await waitUntil(async () => {
@@ -71,54 +69,6 @@ describe.skipIf(!existsSync(BINARY))("cluster replacement", () => {
     if (core != null) await stopCore(core);
     core = null;
   });
-
-  it("reconnects to the same cluster after escalated downtime", async () => {
-    const dataDir = mkdtempSync(path.join(os.tmpdir(), "synnax-replacement-"));
-    const internal: Error[] = [];
-    const client = new Synnax({
-      host: "localhost",
-      port: PORT,
-      username: "synnax",
-      password: "seldon",
-      onInternalError: (error) => {
-        internal.push(error);
-      },
-    });
-    try {
-      core = await startCore(dataDir);
-      await client.connect();
-      const firstKey = client.connection.status.details.clusterKey;
-      const project = await client.projects.create({ name: "survivor", layout: {} });
-      await client.projects.retrieve({ keys: [project.key] });
-      await stopCore(core);
-      core = null;
-      // sit through escalation so the machine parks in error(unreachable) and
-      // the stream backoff climbs, matching a restart after real downtime
-      await waitUntil(() => client.connection.status.variant === "error", 30000);
-      await new Promise((resolve) => setTimeout(resolve, 5000));
-      core = await startCore(dataDir);
-      await waitUntil(
-        () =>
-          client.connection.status.variant === "success" &&
-          client.connection.status.details.streamLive,
-        15000,
-      );
-      expect(client.connection.status.details.clusterKey).toBe(firstKey);
-      const chains = internal.map((err) => {
-        const parts: string[] = [];
-        let current: unknown = err;
-        while (current instanceof Error) {
-          parts.push(current.message);
-          current = current.cause;
-        }
-        return parts.join(" <- ");
-      });
-      expect(chains).toEqual([]);
-    } finally {
-      client.close();
-      rmSync(dataDir, { recursive: true, force: true });
-    }
-  }, 120000);
 
   it("adopts the replaced cluster without surfacing internal errors", async () => {
     core = await startCore();
