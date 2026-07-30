@@ -12,7 +12,7 @@
 .console-connection__body {
     width: 100%;
     height: 100%;
-    padding: 8rem;
+    padding: 8rem 4rem 4rem;
     opacity: 0;
     transition: opacity 0.25s ease;
 }
@@ -21,6 +21,154 @@
     opacity: 1;
 }
 
+/* Holds the countdown's text-line height when only the loading icon renders,
+   so the swap doesn't shift the attempt count below it. */
+.console-connection__countdown {
+    height: 1lh;
+}
+
+/* A long name or address wraps whole items onto a new centered line; an item
+   too long even for its own line truncates with an ellipsis. */
 .console-connection__target {
-    margin-bottom: 1rem;
+    flex-wrap: wrap;
+
+    & > .pluto-text--overflow-ellipsis {
+        min-width: 0;
+    }
+}
+
+.console-connection__status {
+    flex-shrink: 0;
+    display: inline-grid;
+    justify-items: start;
+
+    & > * {
+        grid-area: 1 / 1;
+    }
+
+    & > .console--ghost {
+        visibility: hidden;
+    }
+}
+
+/* .pluto-icon pins icons to 1em, so the status dot is sized here instead of
+   via the size prop. */
+.console-connection__target > .pluto-icon {
+    width: 2rem;
+    height: 2rem;
+}
+
+/* Equal basis so the growing buttons split the row evenly regardless of
+   label length. */
+.console-connection__actions > * {
+    flex-basis: 0;
+}
+
+/* ---------- orbital loader ---------- */
+
+.console-orbital {
+    min-height: 0;
+}
+
+.console-orbital__stage {
+    position: relative;
+    width: 45rem;
+    height: 45rem;
+    flex-shrink: 0;
+    transform-style: preserve-3d;
+
+    /* Opaque core so ring arcs passing behind the planet are occluded
+       instead of shining through the countdown. */
+    .console-shell__mark-ring {
+        margin: 0;
+        background: var(--pluto-gray-l0);
+    }
+}
+
+/* Each ring's plane tumbles a full revolution about the axis fixed by --rz,
+   so the ring itself sweeps around the mark rather than spinning in place. */
+.console-orbital__tilt {
+    position: absolute;
+    inset: var(--orbital-inset, 0);
+    transform-style: preserve-3d;
+    animation: console-orbital-tumble var(--orbital-tumble, 8s) linear infinite;
+    animation-direction: var(--orbital-tumble-dir, normal);
+}
+
+.console-orbital__tilt--a {
+    --orbital-rz: 25deg;
+    --orbital-rx: 72deg;
+    --orbital-tumble: 7s;
+    --orbital-spin: 3s;
+}
+
+.console-orbital__tilt--b {
+    --orbital-rz: -65deg;
+    --orbital-rx: 54deg;
+    --orbital-tumble: 11s;
+    --orbital-tumble-dir: reverse;
+    --orbital-spin: 4.6s;
+    --orbital-spin-dir: reverse;
+    --orbital-inset: 1.5rem;
+}
+
+.console-orbital__tilt--c {
+    --orbital-rz: 80deg;
+    --orbital-rx: 62deg;
+    --orbital-tumble: 17s;
+    --orbital-spin: 14s;
+    --orbital-spin-dir: reverse;
+    --orbital-inset: 5rem;
+}
+
+@keyframes console-orbital-tumble {
+    from {
+        transform: rotateZ(var(--orbital-rz)) rotateX(var(--orbital-rx));
+    }
+    to {
+        transform: rotateZ(var(--orbital-rz)) rotateX(calc(var(--orbital-rx) + 360deg));
+    }
+}
+
+.console-orbital__ring {
+    --orbital-ring-width: 2px;
+    position: absolute;
+    inset: 0;
+    border-radius: 50%;
+    border: var(--orbital-ring-width) solid rgba(255, 255, 255, 0.22);
+    animation: console-orbital-spin var(--orbital-spin, 3s) linear infinite;
+    animation-direction: var(--orbital-spin-dir, normal);
+    transform-style: preserve-3d;
+}
+
+.console-orbital__tilt--c .console-orbital__ring {
+    border-style: dashed;
+}
+
+@keyframes console-orbital-spin {
+    from {
+        transform: rotateZ(0deg);
+    }
+    to {
+        transform: rotateZ(360deg);
+    }
+}
+
+/* A comet arc riding the ring band: conic sweep clipped to the border ring by
+   a radial mask, carried around by the ring's spin. */
+.console-orbital__laser {
+    position: absolute;
+    inset: calc(-1 * var(--orbital-ring-width));
+    border-radius: 50%;
+    background: conic-gradient(
+        transparent 0deg,
+        rgba(255, 255, 255, 0.06) 14deg,
+        rgba(255, 255, 255, 0.95) 70deg,
+        transparent 72deg
+    );
+    mask: radial-gradient(
+        farthest-side,
+        transparent calc(100% - var(--orbital-ring-width) - 0.5px),
+        #000 calc(100% - var(--orbital-ring-width) + 0.5px)
+    );
 }

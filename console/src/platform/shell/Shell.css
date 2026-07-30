@@ -168,6 +168,21 @@
     position: absolute;
     bottom: 3rem;
     z-index: 1;
+    max-width: calc(100% - 6rem);
+
+    /* A long name or address wraps whole items onto a new line inside the
+       chip; an item too long even for its own line truncates with an
+       ellipsis. */
+    flex-wrap: wrap;
+    justify-content: center;
+
+    & > .pluto-text--overflow-ellipsis {
+        min-width: 0;
+    }
+}
+
+.console-shell__footer-status {
+    flex-shrink: 0;
 }
 
 .console--footer-left {

@@ -9,12 +9,21 @@
 
 import "@/platform/shell/Nebula.css";
 
-import { type ReactElement, useEffect, useRef } from "react";
+import { type ReactElement, useEffect, useRef, useState } from "react";
 
 import { CSS } from "@/platform/css";
 
-// Rotation switch: each seed grows a different cloud.
-const SEED = 42;
+// Curated seeds; one is drawn per launch. Audition new candidates through the
+// tuner's seed input.
+const SEEDS = [
+  7, 25, 61, 99, 122, 147, 225, 315, 483, 777, 1024, 2718, 3141, 4222, 5077, 6502, 7919,
+  8674, 9253,
+];
+const SEED = SEEDS[Math.floor(Math.random() * SEEDS.length)];
+
+// TEMPORARY: renders a live slider panel over the shell for tuning SETTINGS.
+// Flip off (and eventually delete the Tuner) once values are finalized.
+const TUNER = false as boolean;
 
 type Lattice = "square" | "diamond" | "hex";
 type FadeDirection = "top" | "topLeft" | "left" | "none";
@@ -36,20 +45,23 @@ interface Settings {
   fade: number;
   /** Center darkening so the login card sits on quiet ground. */
   clearing: number;
+  /** Smallest crisply-rendered radius; smaller dots hold it and fade by alpha. */
+  minRadius: number;
   lattice: Lattice;
   fadeDir: FadeDirection;
   color: string;
 }
 
 const SETTINGS: Settings = {
-  pitch: 5,
-  dotScale: 1.15,
-  cloudScale: 2.6,
-  gamma: 1.7,
-  floor: 0.05,
-  intensity: 0.85,
-  fade: 0.4,
+  pitch: 5.5,
+  dotScale: 1.05,
+  cloudScale: 2.8,
+  gamma: 1.9,
+  floor: 0.08,
+  intensity: 0.65,
+  fade: 0.25,
   clearing: 0,
+  minRadius: 0.45,
   lattice: "diamond",
   fadeDir: "topLeft",
   color: "#e6e6ea",
@@ -96,8 +108,8 @@ const fbm = (x: number, y: number, seed: number): number => {
   return sum / norm;
 };
 
-const fadeWeight = (nx: number, ny: number): number => {
-  switch (SETTINGS.fadeDir) {
+const fadeWeight = (nx: number, ny: number, dir: FadeDirection): number => {
+  switch (dir) {
     case "top":
       return 1 - ny;
     case "left":
@@ -109,7 +121,7 @@ const fadeWeight = (nx: number, ny: number): number => {
   }
 };
 
-const draw = (canvas: HTMLCanvasElement): void => {
+const draw = (canvas: HTMLCanvasElement, s: Settings, seed: number): void => {
   const ctx = canvas.getContext("2d");
   if (ctx == null) return;
   const dpr = window.devicePixelRatio;
@@ -119,11 +131,10 @@ const draw = (canvas: HTMLCanvasElement): void => {
   canvas.height = h * dpr;
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   ctx.clearRect(0, 0, w, h);
-  const { pitch, dotScale, gamma, floor, intensity, fade, clearing, lattice } =
-    SETTINGS;
-  ctx.fillStyle = SETTINGS.color;
+  const { pitch, dotScale, gamma, floor, intensity, fade, clearing, lattice } = s;
+  ctx.fillStyle = s.color;
   ctx.globalAlpha = intensity;
-  const noiseScale = SETTINGS.cloudScale / 1000;
+  const noiseScale = s.cloudScale / 1000;
   const cols = Math.ceil(w / pitch) + 2;
   const rows = Math.ceil(h / pitch) + 2;
   const cx = w / 2;
@@ -135,20 +146,134 @@ const draw = (canvas: HTMLCanvasElement): void => {
       let y = j * pitch;
       if (lattice !== "square" && j % 2 === 1) x += pitch / 2;
       if (lattice === "hex") y = j * pitch * 0.866;
-      let v = fbm(x * noiseScale, y * noiseScale, SEED);
+      let v = fbm(x * noiseScale, y * noiseScale, seed);
       v = Math.max(0, (v - 0.5) * 1.8 + 0.5);
-      v *= 1 - fade + fade * fadeWeight(x / w, y / h);
+      v *= 1 - fade + fade * fadeWeight(x / w, y / h, s.fadeDir);
       const dist = Math.hypot(x - cx, y - cy);
       if (dist < clearRadius) v *= 1 - clearing * smooth(1 - dist / clearRadius);
       v = Math.max(0, (v - floor) / (1 - floor)) ** gamma;
       const r = (v * pitch * dotScale) / 2;
-      if (r < 0.18) continue;
+      if (r < 0.1) continue;
+      // Sub-pixel arcs render as fuzzy smears on WebKit, and any hard on/off
+      // cutoff draws a visible level-set rim. Dots below the clean-rendering
+      // radius keep that radius and fade by alpha instead.
+      let radius = r;
+      let alpha = intensity;
+      if (s.minRadius > 0 && r < s.minRadius) {
+        radius = s.minRadius;
+        alpha = intensity * (r / s.minRadius) ** 2;
+        if (alpha < 0.02) continue;
+      }
+      ctx.globalAlpha = alpha;
       ctx.beginPath();
-      ctx.arc(x, y, Math.min(r, pitch * 0.72), 0, Math.PI * 2);
+      ctx.arc(x, y, Math.min(radius, pitch * 0.72), 0, Math.PI * 2);
       ctx.fill();
     }
   ctx.globalAlpha = 1;
 };
+
+type NumericKey =
+  | "pitch"
+  | "dotScale"
+  | "cloudScale"
+  | "gamma"
+  | "floor"
+  | "intensity"
+  | "fade"
+  | "clearing"
+  | "minRadius";
+
+const SLIDERS: Array<{ key: NumericKey; min: number; max: number; step: number }> = [
+  { key: "pitch", min: 2, max: 14, step: 0.5 },
+  { key: "dotScale", min: 0.4, max: 1.6, step: 0.05 },
+  { key: "cloudScale", min: 0.5, max: 8, step: 0.1 },
+  { key: "gamma", min: 0.5, max: 4, step: 0.05 },
+  { key: "floor", min: 0, max: 0.4, step: 0.01 },
+  { key: "intensity", min: 0.1, max: 1, step: 0.05 },
+  { key: "fade", min: 0, max: 1, step: 0.05 },
+  { key: "clearing", min: 0, max: 1, step: 0.05 },
+  { key: "minRadius", min: 0, max: 1, step: 0.05 },
+];
+
+interface TunerProps {
+  settings: Settings;
+  seed: number;
+  onChange: (settings: Settings) => void;
+  onSeedChange: (seed: number) => void;
+}
+
+const Tuner = ({
+  settings,
+  seed,
+  onChange,
+  onSeedChange,
+}: TunerProps): ReactElement => (
+  <div className={CSS.B("nebula-tuner")}>
+    <label>
+      seed {seed}
+      <input
+        type="number"
+        value={seed}
+        onChange={(e) => onSeedChange(Number(e.target.value))}
+      />
+    </label>
+    {SLIDERS.map(({ key, min, max, step }) => (
+      <label key={key}>
+        {key} {settings[key]}
+        <input
+          type="range"
+          min={min}
+          max={max}
+          step={step}
+          value={settings[key]}
+          onChange={(e) => onChange({ ...settings, [key]: Number(e.target.value) })}
+        />
+      </label>
+    ))}
+    <label>
+      lattice
+      <select
+        value={settings.lattice}
+        onChange={(e) => onChange({ ...settings, lattice: e.target.value as Lattice })}
+      >
+        <option value="square">square</option>
+        <option value="diamond">diamond</option>
+        <option value="hex">hex</option>
+      </select>
+    </label>
+    <label>
+      fade dir
+      <select
+        value={settings.fadeDir}
+        onChange={(e) =>
+          onChange({ ...settings, fadeDir: e.target.value as FadeDirection })
+        }
+      >
+        <option value="top">top</option>
+        <option value="topLeft">topLeft</option>
+        <option value="left">left</option>
+        <option value="none">none</option>
+      </select>
+    </label>
+    <label>
+      color
+      <input
+        type="color"
+        value={settings.color}
+        onChange={(e) => onChange({ ...settings, color: e.target.value })}
+      />
+    </label>
+    <button
+      onClick={() =>
+        void navigator.clipboard.writeText(
+          JSON.stringify({ seed, ...settings }, null, 2),
+        )
+      }
+    >
+      Copy settings
+    </button>
+  </div>
+);
 
 /**
  * Static halftone nebula: a noise cloud rendered through a dot screen, where dot
@@ -156,12 +281,35 @@ const draw = (canvas: HTMLCanvasElement): void => {
  */
 export const Nebula = (): ReactElement => {
   const ref = useRef<HTMLCanvasElement>(null);
+  const [settings, setSettings] = useState<Settings>(SETTINGS);
+  const [seed, setSeed] = useState(SEED);
+  const settingsRef = useRef(settings);
+  settingsRef.current = settings;
+  const seedRef = useRef(seed);
+  seedRef.current = seed;
   useEffect(() => {
     const canvas = ref.current;
     if (canvas == null) return;
-    const observer = new ResizeObserver(() => draw(canvas));
+    const observer = new ResizeObserver(() =>
+      draw(canvas, settingsRef.current, seedRef.current),
+    );
     observer.observe(canvas);
     return () => observer.disconnect();
   }, []);
-  return <canvas ref={ref} className={CSS.B("nebula")} />;
+  useEffect(() => {
+    if (ref.current != null) draw(ref.current, settings, seed);
+  }, [settings, seed]);
+  return (
+    <>
+      <canvas ref={ref} className={CSS.B("nebula")} />
+      {TUNER && (
+        <Tuner
+          settings={settings}
+          seed={seed}
+          onChange={setSettings}
+          onSeedChange={setSeed}
+        />
+      )}
+    </>
+  );
 };

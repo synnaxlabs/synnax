@@ -22,7 +22,7 @@ const VARIANT = "chip" as Variant;
 type Placement = "center" | "left" | "right";
 const PLACEMENT = "center" as Placement;
 
-const LABELS: Record<connection.Status["variant"], string> = {
+export const STATUS_LABELS: Record<connection.Status["variant"], string> = {
   success: "Connected",
   info: "Connected",
   loading: "Connecting",
@@ -72,13 +72,15 @@ export const Footer = ({ cluster }: FooterProps): ReactElement | null => {
       )}
     >
       <Status.Indicator variant={variant} className={CSS.BE("shell", "footer-dot")} />
-      <Text.Text color={10} weight={500}>
+      <Text.Text color={10} weight={500} overflow="ellipsis">
         {cluster.name}
       </Text.Text>
-      <Text.Text color={9}>
+      <Text.Text color={9} overflow="ellipsis">
         {cluster.host}:{cluster.port}
       </Text.Text>
-      <Text.Text status={variant}>{LABELS[variant]}</Text.Text>
+      <Text.Text status={variant} className={CSS.BE("shell", "footer-status")}>
+        {STATUS_LABELS[variant]}
+      </Text.Text>
     </Flex.Box>
   );
 };

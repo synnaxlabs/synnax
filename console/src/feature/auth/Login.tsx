@@ -18,7 +18,6 @@ import {
   type Input,
   Status,
   Synnax,
-  Text,
   type Triggers,
 } from "@synnaxlabs/pluto";
 import { uuid } from "@synnaxlabs/x";
@@ -132,22 +131,6 @@ export const Login = (): ReactElement => {
               <Flex.Box center grow={false} className={CSS.BE("shell", "mark-ring")}>
                 <Logo variant="icon" className={CSS.BE("shell", "mark")} />
               </Flex.Box>
-              {target != null && (
-                <Flex.Box
-                  y
-                  align="center"
-                  gap="tiny"
-                  grow={false}
-                  className={CSS.BE("login", "target")}
-                >
-                  <Text.Text color={10} weight={500}>
-                    {target.name}
-                  </Text.Text>
-                  <Text.Text level="small" color={9}>
-                    {target.host}:{target.port}
-                  </Text.Text>
-                </Flex.Box>
-              )}
               <Flex.Box y full="x" empty>
                 <Form.TextField
                   path="username"
@@ -180,6 +163,7 @@ export const Login = (): ReactElement => {
                   justify="center"
                 >
                   Log In
+                  <Icon.Arrow.Right />
                 </Button.Button>
               </Flex.Box>
             </Flex.Box>

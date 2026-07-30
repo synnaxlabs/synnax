@@ -203,6 +203,29 @@ describe("connection", () => {
       expect(createInitialStatus(createConfig()).variant).toEqual("loading");
     });
 
+    it("should track an in-flight probe without moving the variant", () => {
+      const config = createConfig({ escalateAfter: 1 });
+      const error = new Unreachable({ message: "server down" });
+      const parked = apply(config, { type: "probe.failure", error, attempt: 1 });
+      expect(parked.variant).toEqual("error");
+      const probing = reduce(parked, { type: "probe.started" }, config);
+      expect(probing.variant).toEqual("error");
+      expect(probing.details.probing).toBe(true);
+      const failed = reduce(
+        probing,
+        { type: "probe.failure", error, attempt: 2 },
+        config,
+      );
+      expect(failed.details.probing).toBe(false);
+      const succeeded = reduce(
+        probing,
+        { type: "probe.success", info: createInfo() },
+        config,
+      );
+      expect(succeeded.details.probing).toBe(false);
+      expect(succeeded.variant).toEqual("success");
+    });
+
     it("should reach success on a probe when no stream is required", () => {
       const status = apply(createConfig(), {
         type: "probe.success",
@@ -497,6 +520,7 @@ describe("connection", () => {
         "clockSkew",
         "clockSkewExceeded",
         "retry",
+        "probing",
       ];
       expect(Object.keys(base.details).sort()).toEqual([...classified].sort());
     });

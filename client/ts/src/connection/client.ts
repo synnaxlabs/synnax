@@ -336,6 +336,7 @@ export class Client implements Handle {
   private async runProbe(): Promise<void> {
     const generation = this.generation;
     const prevKey = this.current.details.clusterKey;
+    this.dispatch({ type: "probe.started" });
     try {
       const info = await probe(this.unary);
       if (generation !== this.generation || this.closed) return;

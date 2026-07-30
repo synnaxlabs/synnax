@@ -11,7 +11,7 @@ import "@/feature/auth/ConnectionGuard.css";
 
 import { type connection, type Synnax as Client } from "@synnaxlabs/client";
 import { Logo } from "@synnaxlabs/media";
-import { Button, Flex, Status, Synnax, Text } from "@synnaxlabs/pluto";
+import { Button, Flex, Icon, Status, Synnax, Text } from "@synnaxlabs/pluto";
 import { TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import {
   type PropsWithChildren,
@@ -45,6 +45,102 @@ export const ConnectionGuard = ({ children }: PropsWithChildren): ReactNode => {
   return children;
 };
 
+interface OrbitalRingProps {
+  variant: "a" | "b" | "c";
+}
+
+const OrbitalRing = ({ variant }: OrbitalRingProps): ReactElement => (
+  <div className={CSS(CSS.BE("orbital", "tilt"), CSS.BEM("orbital", "tilt", variant))}>
+    <div className={CSS.BE("orbital", "ring")}>
+      {variant !== "c" && <div className={CSS.BE("orbital", "laser")} />}
+    </div>
+  </div>
+);
+
+// Rotation switch: what occupies the orbital's core during connection
+// trouble. "countdown" swaps the logo for the retry cycle.
+type CoreContent = "countdown" | "logo";
+const CORE_CONTENT = "countdown" as CoreContent;
+
+interface OrbitalProps {
+  core?: ReactNode;
+}
+
+// The core (logo mark by default) as the planet of the chosen orbital loader:
+// two laser rings tumbling on crossed axes plus a slow dashed ring on a third.
+// The outer box absorbs the dialog's spare vertical space so the content
+// below it sits at the dialog's padding edge; the stage keeps the fixed
+// square the rings are laid out against.
+const Orbital = ({ core }: OrbitalProps): ReactElement => (
+  <Flex.Box grow align="center" justify="center" full="x" className={CSS.B("orbital")}>
+    <Flex.Box
+      align="center"
+      justify="center"
+      grow={false}
+      className={CSS.BE("orbital", "stage")}
+    >
+      <Flex.Box
+        y
+        empty
+        align="center"
+        justify="center"
+        grow={false}
+        className={CSS.BE("shell", "mark-ring")}
+      >
+        {core ?? <Logo variant="icon" className={CSS.BE("shell", "mark")} />}
+      </Flex.Box>
+      <OrbitalRing variant="a" />
+      <OrbitalRing variant="b" />
+      <OrbitalRing variant="c" />
+    </Flex.Box>
+  </Flex.Box>
+);
+
+// A probe against a dead local port fails in milliseconds; the beat is held
+// on screen long enough for the user to actually see the attempt happen.
+const PROBE_HOLD = TimeSpan.milliseconds(1250);
+
+const useHeldProbing = (probing: boolean): boolean => {
+  const [held, setHeld] = useState(probing);
+  useEffect(() => {
+    if (probing) {
+      setHeld(true);
+      return;
+    }
+    const timeout = setTimeout(() => setHeld(false), PROBE_HOLD.milliseconds);
+    return () => clearTimeout(timeout);
+  }, [probing]);
+  return held;
+};
+
+interface CountdownCoreProps {
+  retry: NonNullable<connection.Details["retry"]>;
+  probing: boolean;
+}
+
+const CountdownCore = ({ retry, probing }: CountdownCoreProps): ReactElement => {
+  const [now, setNow] = useState(() => TimeStamp.now());
+  useEffect(() => {
+    const interval = setInterval(() => setNow(TimeStamp.now()), 500);
+    return () => clearInterval(interval);
+  }, []);
+  const remaining = Math.max(
+    0,
+    Math.ceil(new TimeSpan(retry.nextAt.valueOf() - now.valueOf()).seconds),
+  );
+  return (
+    <>
+      <Text.Text level="h3" color={11} className={CSS.BE("connection", "countdown")}>
+        {probing ? <Icon.Loading /> : `${remaining}s`}
+      </Text.Text>
+      <Text.Text level="small" color={9}>
+        <Icon.Sync />
+        {retry.attempt}
+      </Text.Text>
+    </>
+  );
+};
+
 interface SplashProps {
   client: Client;
   status: connection.Status;
@@ -52,6 +148,8 @@ interface SplashProps {
 
 const Splash = ({ client, status }: SplashProps): ReactElement => {
   const { variant, details } = status;
+  const activeKey = Session.Cluster.useSelectSelectedKey();
+  const cluster = Session.Cluster.useSelectState(activeKey ?? undefined);
   const connecting = details.epoch === 0;
   const troubled =
     connecting &&
@@ -63,20 +161,25 @@ const Splash = ({ client, status }: SplashProps): ReactElement => {
     const timeout = setTimeout(() => setRevealed(true), 300);
     return () => clearTimeout(timeout);
   }, []);
+  const probing = useHeldProbing(details.probing);
+  const core =
+    CORE_CONTENT === "countdown" && troubled && details.retry != null ? (
+      <CountdownCore retry={details.retry} probing={probing} />
+    ) : undefined;
   return (
-    <Shell.Frame className={CSS.B("connection")}>
+    // The trouble state consolidates connection info into the card, so the
+    // footer chip hides to avoid stating it twice.
+    <Shell.Frame className={CSS.B("connection")} connection={troubled ? null : cluster}>
       <Flex.Box
         y
         align="center"
         justify="center"
-        gap="huge"
+        gap={8}
         className={CSS(CSS.BE("connection", "body"), revealed && CSS.M("revealed"))}
       >
-        <Flex.Box center grow={false} className={CSS.BE("shell", "mark-ring")}>
-          <Logo variant="icon" className={CSS.BE("shell", "mark")} />
-        </Flex.Box>
+        <Orbital core={core} />
         {troubled ? (
-          <Trouble client={client} status={status} />
+          <Trouble client={client} status={status} probing={probing} />
         ) : (
           <Status.Summary
             variant="loading"
@@ -88,62 +191,47 @@ const Splash = ({ client, status }: SplashProps): ReactElement => {
   );
 };
 
-interface RetryStatusProps {
-  retry: NonNullable<connection.Details["retry"]>;
-}
-
-const RetryStatus = ({ retry }: RetryStatusProps): ReactElement => {
-  const [now, setNow] = useState(() => TimeStamp.now());
-  useEffect(() => {
-    const interval = setInterval(() => setNow(TimeStamp.now()), 500);
-    return () => clearInterval(interval);
-  }, []);
-  const remaining = Math.max(
-    0,
-    Math.ceil(new TimeSpan(retry.nextAt.valueOf() - now.valueOf()).seconds),
-  );
-  return (
-    <Text.Text color={9}>
-      Attempt {retry.attempt} failed. Retrying in {remaining}s
-    </Text.Text>
-  );
-};
-
 interface TroubleProps {
   client: Client;
   status: connection.Status;
+  probing: boolean;
 }
 
-const Trouble = ({ client, status }: TroubleProps): ReactElement => {
+const Trouble = ({ client, status, probing }: TroubleProps): ReactElement => {
   const activeKey = Session.Cluster.useSelectSelectedKey();
   const cluster = Session.Cluster.useSelectState(activeKey ?? undefined);
   const logout = Session.useLogout();
   const openConnect = Cluster.useConnectModal();
-  const { error, retry } = status.details;
+  const { variant } = status;
   return (
-    <>
+    <Flex.Box y gap="large" full="x">
       <Flex.Box
-        y
+        x
         align="center"
-        gap="tiny"
-        grow={false}
+        justify="center"
+        gap="medium"
         className={CSS.BE("connection", "target")}
       >
-        <Text.Text color={10} weight={500}>
+        <Status.Indicator variant={variant} />
+        <Text.Text color={10} weight={500} overflow="ellipsis">
           {cluster?.name ?? "Cluster"}
         </Text.Text>
         {cluster != null && (
-          <Text.Text level="small" color={9}>
+          <Text.Text color={9} overflow="ellipsis">
             {cluster.host}:{cluster.port}
           </Text.Text>
         )}
-      </Flex.Box>
-      <Flex.Box y gap="small" align="center">
-        <Status.Summary variant={status.variant} message={status.message} />
-        {error != null && error.message !== status.message && (
-          <Text.Text color={9}>{error.message}</Text.Text>
-        )}
-        {retry != null && <RetryStatus retry={retry} />}
+        {/* Ghost copies reserve the widest label's width so the centered row
+            doesn't shift when the live label swaps. */}
+        <Text.Text status={variant} className={CSS.BE("connection", "status")}>
+          <span>{probing ? "Retrying..." : Shell.STATUS_LABELS[variant]}</span>
+          <span className={CSS.M("ghost")} aria-hidden>
+            Retrying...
+          </span>
+          <span className={CSS.M("ghost")} aria-hidden>
+            {Shell.STATUS_LABELS[variant]}
+          </span>
+        </Text.Text>
       </Flex.Box>
       <Flex.Box y gap="small" full="x">
         <Button.Button
@@ -155,7 +243,7 @@ const Trouble = ({ client, status }: TroubleProps): ReactElement => {
         >
           Retry Now
         </Button.Button>
-        <Flex.Box x gap="small" full="x">
+        <Flex.Box x gap="small" full="x" className={CSS.BE("connection", "actions")}>
           {activeKey != null && (
             <Button.Button
               variant="outlined"
@@ -163,14 +251,16 @@ const Trouble = ({ client, status }: TroubleProps): ReactElement => {
               justify="center"
               onClick={() => openConnect({ clusterKey: activeKey })}
             >
+              <Icon.Edit />
               Edit Connection
             </Button.Button>
           )}
           <Button.Button variant="outlined" grow justify="center" onClick={logout}>
+            <Icon.Logout />
             Log Out
           </Button.Button>
         </Flex.Box>
       </Flex.Box>
-    </>
+    </Flex.Box>
   );
 };

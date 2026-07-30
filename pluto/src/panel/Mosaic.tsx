@@ -11,7 +11,13 @@ import "@/panel/Mosaic.css";
 
 import { panel } from "@synnaxlabs/client";
 import { type direction } from "@synnaxlabs/x";
-import { type DragEventHandler, memo, type ReactElement, useCallback } from "react";
+import {
+  type DragEventHandler,
+  memo,
+  type ReactElement,
+  type ReactNode,
+  useCallback,
+} from "react";
 
 import { Button } from "@/button";
 import { type Component } from "@/component";
@@ -49,6 +55,8 @@ export interface MosaicProps extends Omit<
   onCreateTab?: () => panel.NewTab | undefined;
   resolveDroppedTab?: (key: string) => panel.NewTab | undefined;
   extraMenuItems?: Component.RenderProp<Menu.ContextMenuMenuProps>;
+  /** Rendered in a leaf's content area when the leaf has no tabs. */
+  emptyContent?: ReactNode;
 }
 
 interface TabProps extends Pick<MosaicProps, "tabName"> {
@@ -83,10 +91,17 @@ interface NodeProps
   extends Pick<Base.LeafProps, "nodeKey">, Pick<TabProps, "tabName" | "onClose"> {
   onAdd: (nodeKey: number) => void;
   onContextMenu: Menu.ContextMenuOpen;
+  emptyContent?: ReactNode;
 }
 
 const Leaf = memo(
-  ({ nodeKey, onAdd, onContextMenu, ...rest }: NodeProps): ReactElement => {
+  ({
+    nodeKey,
+    onAdd,
+    onContextMenu,
+    emptyContent,
+    ...rest
+  }: NodeProps): ReactElement => {
     const { tabs } = useSelectLeafNode({ nodeKey });
     const selected = Select.useSelectedAmong(tabs) ?? tabs[0];
     const { onSelect } = Select.useContext();
@@ -109,12 +124,14 @@ const Leaf = memo(
             </Button.Button>
           </Tabs.Selector>
           <Tabs.Content grow>
-            {selected != null && (
+            {selected != null ? (
               <Portal.Out
                 itemKey={selected}
                 className={CSS.BE("panel-mosaic", "portal-out")}
                 onClickCapture={handleSelectContent}
               />
+            ) : (
+              emptyContent
             )}
             <Base.Shield />
           </Tabs.Content>
@@ -232,6 +249,7 @@ export const Mosaic = ({
   onCreateTab,
   resolveDroppedTab,
   extraMenuItems,
+  emptyContent,
   ...rest
 }: MosaicProps): ReactElement | null => {
   const dispatch = useSingleDispatch();
@@ -349,6 +367,7 @@ export const Mosaic = ({
               onAdd={handleAdd}
               onContextMenu={menuProps.open}
               tabName={tabName}
+              emptyContent={emptyContent}
             />
           </Base.Frame>
         </Menu.ContextMenu>

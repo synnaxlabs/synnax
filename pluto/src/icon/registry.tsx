@@ -19,7 +19,6 @@ import {
   AiFillWarning,
   AiOutlineBorder,
   AiOutlineCheck,
-  AiOutlineLoading,
   AiOutlineMinus,
   AiOutlineSync,
 } from "react-icons/ai";
@@ -290,9 +289,31 @@ export const LinePlot = wrapSVGIcon(MdAreaChart, "line-plot");
 export const Expand = wrapSVGIcon(BiExpandAlt, "expand");
 export const Collapse = wrapSVGIcon(BiCollapseAlt, "collapse");
 export const Cluster = wrapSVGIcon(HiSquare3Stack3D, "cluster");
-export const Loading = wrapSVGIcon(AiOutlineLoading, "loading", {
-  className: CSS.M("spin"),
-});
+// Binary counter-rotation: a bright and a dim star orbiting the center in
+// opposite directions at different periods, so their passes drift.
+export const Loading = wrapSVGIcon(
+  (props) => (
+    <svg
+      viewBox="0 0 24 24"
+      fill="currentColor"
+      xmlns="http://www.w3.org/2000/svg"
+      {...props}
+    >
+      <g className={CSS.BE("loading", "orbit")}>
+        <circle cx="3.6" cy="12" r="2.4" />
+      </g>
+      <g
+        className={CSS(
+          CSS.BE("loading", "orbit"),
+          CSS.BEM("loading", "orbit", "reverse"),
+        )}
+      >
+        <circle cx="20.4" cy="12" r="1.8" opacity="0.65" />
+      </g>
+    </svg>
+  ),
+  "loading",
+);
 export const Schematic = wrapSVGIcon(IoShapes, "schematic");
 export const Caret = {
   Right: wrapSVGIcon(PiCaretRight, "caret-right"),

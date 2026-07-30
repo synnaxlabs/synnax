@@ -26,10 +26,6 @@
     color: var(--pluto-gray-l9);
 }
 
-.console-login__target {
-    margin-bottom: 2rem;
-}
-
 .console-login__status {
     height: 5rem;
 }

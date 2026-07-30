@@ -10,6 +10,7 @@
 import "@/feature/panel/Mosaic.css";
 
 import { NotFoundError, ontology, type panel } from "@synnaxlabs/client";
+import { Logo } from "@synnaxlabs/media";
 import {
   Breadcrumb,
   Button,
@@ -31,6 +32,7 @@ import { type ReactElement, useCallback, useState } from "react";
 import { useDispatch } from "react-redux";
 
 import { TabMenuItems } from "@/feature/panel/ContextMenu";
+import { useCreatePanel } from "@/feature/panel/useCreatePanel";
 import { Empty } from "@/platform";
 import { CSS } from "@/platform/css";
 import { Panel as PlatformPanel } from "@/platform/panel";
@@ -210,6 +212,29 @@ const resolveDroppedTab = (raw: string): panel.NewTab | undefined => {
   return { variant: "resource", resource: parsed.data };
 };
 
+// Same principle as the no-panel state: the watermark plus a link that opens a
+// tab in the scoped panel through the mosaic's regular create flow.
+const EmptyTabContent = ({ onCreateTab }: MosaicProps): ReactElement => {
+  const openTab = PlatformPanel.useOpenTab();
+  const handleCreate = useCallback(
+    () => openTab(onCreateTab()),
+    [onCreateTab, openTab],
+  );
+  return (
+    <Flex.Box center gap={5} className={CSS.BE("mosaic", "empty-content")}>
+      <Logo className="synnax-logo-watermark" />
+      <Empty.Action
+        x
+        className={CSS.BE("mosaic", "empty-action")}
+        level="h5"
+        message="No tabs open."
+        action="Create a new tab"
+        onClick={handleCreate}
+      />
+    </Flex.Box>
+  );
+};
+
 const Internal = ({ onCreateTab }: MosaicProps): ReactElement => {
   const selected = Session.Panel.useSelectSelectedTabs();
   const handleSelect = Session.Panel.useSelectTab();
@@ -221,6 +246,7 @@ const Internal = ({ onCreateTab }: MosaicProps): ReactElement => {
       onCreateTab={onCreateTab}
       resolveDroppedTab={resolveDroppedTab}
       extraMenuItems={extraMenuItems}
+      emptyContent={<EmptyTabContent onCreateTab={onCreateTab} />}
       rounded={2}
       bordered
       borderColor={6}
@@ -232,11 +258,35 @@ const Internal = ({ onCreateTab }: MosaicProps): ReactElement => {
   );
 };
 
-const EmptyContent = (): ReactElement => (
-  <Flex.Box grow align="center" justify="center">
-    <Empty.Action message="No panels open. Create one to get started." />
-  </Flex.Box>
-);
+// Mirrors the real mosaic's container chrome so the no-panel state keeps the
+// same framed L0 surface instead of collapsing to bare window background.
+const EmptyContent = (): ReactElement => {
+  const createPanel = useCreatePanel();
+  return (
+    <Flex.Box
+      grow
+      align="center"
+      justify="center"
+      className={CSS(CSS.B("mosaic"), CSS.BM("mosaic", "empty"))}
+      rounded={2}
+      bordered
+      borderColor={6}
+      background={0}
+    >
+      <Flex.Box center gap={5} className={CSS.BE("mosaic", "empty-content")}>
+        <Logo className="synnax-logo-watermark" />
+        <Empty.Action
+          x
+          className={CSS.BE("mosaic", "empty-action")}
+          level="h5"
+          message="No panels open."
+          action="Create a new panel"
+          onClick={createPanel}
+        />
+      </Flex.Box>
+    </Flex.Box>
+  );
+};
 
 // Last resort for a panel document that failed to load: the reconcile pass
 // should have pruned dead references before the mosaic rendered. Close
