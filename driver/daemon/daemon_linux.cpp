@@ -210,6 +210,10 @@ void notify_watchdog() {
 }
 
 void run(const Config &config, int argc, char *argv[]) {
+    {
+        std::lock_guard<std::mutex> lock(mtx);
+        should_stop = false;
+    }
     update_status(Status::INITIALIZING, "Starting daemon");
 
     // Start watchdog thread
