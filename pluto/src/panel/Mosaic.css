@@ -9,6 +9,16 @@
  * included in the file licenses/APL.txt.
  */
 
+.pluto-panel-mosaic__create {
+    border-radius: 1.5rem;
+}
+
+/* Outranks the square-button icon sizing in Button.css. */
+.pluto-btn.pluto--square.pluto-panel-mosaic__create > .pluto-icon {
+    width: 2.5rem;
+    height: 2.5rem;
+}
+
 .pluto-panel-mosaic__portal-out {
     width: 100%;
     height: 100%;

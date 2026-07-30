@@ -68,11 +68,14 @@ export const listItem = Component.renderProp(
   },
 );
 
-interface ContextMenuProps extends Menu.ContextMenuMenuProps {
+export interface ContextMenuProps extends Menu.ContextMenuMenuProps {
   getItem: (key: project.Key) => project.Project | undefined;
 }
 
-const ContextMenu = ({ keys, getItem }: ContextMenuProps): ReactElement | null => {
+export const ContextMenu = ({
+  keys,
+  getItem,
+}: ContextMenuProps): ReactElement | null => {
   const ids = project.ontologyID(keys);
   const hasUpdatePermission = Access.useUpdateGranted(ids);
   const hasDeletePermission = Access.useDeleteGranted(ids);

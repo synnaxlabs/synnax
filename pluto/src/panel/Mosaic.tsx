@@ -119,7 +119,12 @@ const Leaf = memo(
               <Tab key={tabKey} tabKey={tabKey} {...rest} />
             ))}
             <Flex.Box grow />
-            <Button.Button variant="text" onClick={handleAdd}>
+            <Button.Button
+              variant="text"
+              size="small"
+              onClick={handleAdd}
+              className={CSS.BE("panel-mosaic", "create")}
+            >
               <Icon.Add color={10} />
             </Button.Button>
           </Tabs.Selector>

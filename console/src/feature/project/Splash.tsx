@@ -17,13 +17,14 @@ import {
   Header,
   Icon,
   List,
+  Menu,
   Project as PProject,
   Select,
   Text,
 } from "@synnaxlabs/pluto";
 import { type ReactElement, useCallback, useEffect } from "react";
 
-import { listItem } from "@/feature/project/Selector";
+import { ContextMenu, listItem } from "@/feature/project/Selector";
 import { CSS } from "@/platform/css";
 import { Empty } from "@/platform/empty";
 import { Project as PlatformProject } from "@/platform/project";
@@ -60,8 +61,15 @@ export const Splash = (): ReactElement => {
     [dispatch, getItem],
   );
 
+  const contextMenu = useCallback<NonNullable<Menu.ContextMenuProps["menu"]>>(
+    (props) => <ContextMenu {...props} getItem={getItem} />,
+    [getItem],
+  );
+  const menuProps = Menu.useContextMenu();
+
   return (
     <Shell.Frame className={CSS.B("project-splash")} connection={activeCluster}>
+      <Menu.ContextMenu menu={contextMenu} {...menuProps} />
       <Select.Frame
         data={data}
         onChange={handleSelect}
@@ -83,7 +91,7 @@ export const Splash = (): ReactElement => {
             <Header.Actions>
               <Button.Button
                 variant="text"
-                size="small"
+                size="medium"
                 onClick={logout}
                 className={CSS.BE("project-splash", "logout")}
               >
@@ -93,7 +101,11 @@ export const Splash = (): ReactElement => {
             </Header.Actions>
           </Header.Header>
           {hasRetrievePermission && data.length > 0 ? (
-            <List.Items grow className={CSS.BE("project-splash", "items")}>
+            <List.Items
+              grow
+              className={CSS.BE("project-splash", "items")}
+              onContextMenu={menuProps.open}
+            >
               {listItem}
             </List.Items>
           ) : variant === "success" ? (
