@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type UnaryClient } from "@synnaxlabs/freighter";
-import { array, destructor, primitive } from "@synnaxlabs/x";
+import { array, primitive } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import {
@@ -141,18 +141,17 @@ export class Client extends query.Retriever<typeof listRetrieveParamsZ, Key, Pol
       this.cfg.ontology.cache.deleteResources(ids),
       this.store.delete(keysArr),
     ];
-    const rollback = new destructor.Chain();
-    rollback.add(...drop());
-    await opts.onOptimistic?.();
-    await rollback.guard(
-      async () =>
+    await query.optimistic({
+      rollbacks: drop(),
+      onOptimistic: opts.onOptimistic,
+      commit: async () =>
         await this.cfg.unary.send(
           "/access/policy/delete",
           { keys: keysArr },
           deleteReqZ,
           deleteResZ,
         ),
-    );
+    });
     drop();
     this.cfg.ontology.cache.relationships.delete((r) =>
       ids.some((id) => ontology.idsEqual(r.from, id) || ontology.idsEqual(r.to, id)),
@@ -165,11 +164,12 @@ export class Client extends query.Retriever<typeof listRetrieveParamsZ, Key, Pol
       query.partialUpdate(this.store, key, { name }),
       this.cfg.ontology.cache.renameResource(ontologyID(key), name),
     ];
-    const rollback = new destructor.Chain();
-    rollback.add(...rename());
-    await opts.onOptimistic?.();
-    await rollback.guard(async () => {
-      await this.create({ ...existing, name });
+    await query.optimistic({
+      rollbacks: rename(),
+      onOptimistic: opts.onOptimistic,
+      commit: async () => {
+        await this.create({ ...existing, name });
+      },
     });
     rename();
   }

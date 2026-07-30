@@ -17,7 +17,7 @@ import {
   type CrudeTimeStamp,
   DataType,
   deep,
-  destructor,
+  type destructor,
   errors,
   type MultiSeries,
   primitive,
@@ -640,10 +640,11 @@ export class Client extends query.Retriever<
         this.store.delete(keys),
         this.cfg.ontology.cache.resources.delete(ontology.idToString(ids)),
       ];
-      const rollback = new destructor.Chain();
-      rollback.add(...drop());
-      await opts.onOptimistic?.();
-      await rollback.guard(async () => await this.writer.delete({ keys }));
+      await query.optimistic({
+        rollbacks: drop(),
+        onOptimistic: opts.onOptimistic,
+        commit: async () => await this.writer.delete({ keys }),
+      });
       drop();
       return;
     }
@@ -670,10 +671,11 @@ export class Client extends query.Retriever<
           this.cfg.ontology.cache.renameResource(ontologyID(key), name),
         ];
       });
-    const rollback = new destructor.Chain();
-    rollback.add(...rename());
-    await opts.onOptimistic?.();
-    await rollback.guard(async () => await this.writer.rename(keysArr, namesArr));
+    await query.optimistic({
+      rollbacks: rename(),
+      onOptimistic: opts.onOptimistic,
+      commit: async () => await this.writer.rename(keysArr, namesArr),
+    });
     rename();
   }
 
