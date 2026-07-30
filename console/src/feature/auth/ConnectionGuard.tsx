@@ -224,9 +224,9 @@ const Trouble = ({ client, status, checking }: TroubleProps): ReactElement => {
         {/* Ghost copies reserve the widest label's width so the centered row
             doesn't shift when the live label swaps. */}
         <Text.Text status={variant} className={CSS.BE("connection", "status")}>
-          <span>{checking ? "Retrying..." : Shell.STATUS_LABELS[variant]}</span>
+          <span>{checking ? "Retrying" : Shell.STATUS_LABELS[variant]}</span>
           <span className={CSS.M("ghost")} aria-hidden>
-            Retrying...
+            Retrying
           </span>
           <span className={CSS.M("ghost")} aria-hidden>
             {Shell.STATUS_LABELS[variant]}
