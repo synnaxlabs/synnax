@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type UnaryClient } from "@synnaxlabs/freighter";
-import { array, destructor } from "@synnaxlabs/x";
+import { array, type destructor } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { actions } from "@/actions";
@@ -127,18 +127,17 @@ export class Client extends query.Retriever<typeof retrieveReqZ, Key, LinePlot> 
   ): Promise<LinePlot | LinePlot[]> {
     const isMany = Array.isArray(linePlots);
     const optimistic = array.toArray(linePlots).map((p) => linePlotZ.parse(p));
-    const rollback = new destructor.Chain();
-    rollback.add(this.store.set(optimistic));
-    await opts.onOptimistic?.(optimistic);
-    const res = await rollback.guard(
-      async () =>
+    const res = await query.optimistic({
+      rollbacks: [this.store.set(optimistic)],
+      onOptimistic: () => opts.onOptimistic?.(optimistic),
+      commit: async () =>
         await this.cfg.unary.send(
           "/lineplot/create",
           { project, linePlots: optimistic },
           createReqZ,
           createResZ,
         ),
-    );
+    });
     this.store.set(res.linePlots);
     return isMany ? res.linePlots : res.linePlots[0];
   }
@@ -148,12 +147,11 @@ export class Client extends query.Retriever<typeof retrieveReqZ, Key, LinePlot> 
       query.partialUpdate(this.store, key, { name }),
       this.cfg.ontology.cache.renameResource(ontologyID(key), name),
     ];
-    const rollback = new destructor.Chain();
-    rollback.add(...rename());
-    await opts.onOptimistic?.();
-    await rollback.guard(
-      async () => await this.sendDispatch(key, "", [renameAction({ name })]),
-    );
+    await query.optimistic({
+      rollbacks: rename(),
+      onOptimistic: opts.onOptimistic,
+      commit: async () => await this.sendDispatch(key, "", [renameAction({ name })]),
+    });
     rename();
   }
 
@@ -239,18 +237,17 @@ export class Client extends query.Retriever<typeof retrieveReqZ, Key, LinePlot> 
       this.cfg.ontology.cache.deleteRelationships(ontologyID(keysArr)),
       this.store.delete(keysArr),
     ];
-    const rollback = new destructor.Chain();
-    rollback.add(...drop());
-    await opts.onOptimistic?.();
-    await rollback.guard(
-      async () =>
+    await query.optimistic({
+      rollbacks: drop(),
+      onOptimistic: opts.onOptimistic,
+      commit: async () =>
         await this.cfg.unary.send(
           "/lineplot/delete",
           { keys: keysArr },
           deleteReqZ,
           emptyResZ,
         ),
-    );
+    });
     drop();
   }
 

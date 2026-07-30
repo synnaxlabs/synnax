@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type UnaryClient } from "@synnaxlabs/freighter";
-import { array, destructor, primitive } from "@synnaxlabs/x";
+import { array, type destructor, primitive } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { actions } from "@/actions";
@@ -147,22 +147,22 @@ export class Client extends query.Retriever<typeof retrieveReqZ, Key, Panel> {
   ): Promise<Panel | Panel[]> {
     const isMany = Array.isArray(panels);
     const optimistic = array.toArray(panels).map((p) => panelZ.parse(p));
-    const rollback = new destructor.Chain();
-    rollback.add(this.store.set(optimistic));
-    await opts.onOptimistic?.(optimistic);
-    // onOptimistic may dispatch further local mutations against these keys
-    // before the panels exist on the cluster. Send the latest cached docs so
-    // the server response doesn't stomp those changes back out.
-    const latest = optimistic.map((p) => this.store.get(p.key) ?? p);
-    const res = await rollback.guard(
-      async () =>
-        await this.cfg.unary.send(
+    const res = await query.optimistic({
+      rollbacks: [this.store.set(optimistic)],
+      onOptimistic: () => opts.onOptimistic?.(optimistic),
+      commit: async () => {
+        // onOptimistic may dispatch further local mutations against these keys
+        // before the panels exist on the cluster. Send the latest cached docs so
+        // the server response doesn't stomp those changes back out.
+        const latest = optimistic.map((p) => this.store.get(p.key) ?? p);
+        return await this.cfg.unary.send(
           "/panel/create",
           { panels: latest },
           createReqZ,
           createResZ,
-        ),
-    );
+        );
+      },
+    });
     this.store.set(res.panels);
     return isMany ? res.panels : res.panels[0];
   }
@@ -172,13 +172,12 @@ export class Client extends query.Retriever<typeof retrieveReqZ, Key, Panel> {
       query.partialUpdate(this.store, key, { name }),
       this.cfg.ontology.cache.renameResource(ontologyID(key), name),
     ];
-    const rollback = new destructor.Chain();
-    rollback.add(...rename());
     // Rename routes through dispatch so the action channel broadcasts the change
     // to other connected clients.
-    await rollback.guard(
-      async () => await this.sendDispatch(key, "", [renameAction({ name })]),
-    );
+    await query.optimistic({
+      rollbacks: rename(),
+      commit: async () => await this.sendDispatch(key, "", [renameAction({ name })]),
+    });
     rename();
   }
 
@@ -266,18 +265,17 @@ export class Client extends query.Retriever<typeof retrieveReqZ, Key, Panel> {
       this.cfg.ontology.cache.deleteResources(ontologyID(keysArr)),
       this.store.delete(keysArr),
     ];
-    const rollback = new destructor.Chain();
-    rollback.add(...drop());
-    await opts.onOptimistic?.();
-    await rollback.guard(
-      async () =>
+    await query.optimistic({
+      rollbacks: drop(),
+      onOptimistic: opts.onOptimistic,
+      commit: async () =>
         await this.cfg.unary.send(
           "/panel/delete",
           { keys: keysArr },
           deleteReqZ,
           emptyResZ,
         ),
-    );
+    });
     drop();
   }
 
