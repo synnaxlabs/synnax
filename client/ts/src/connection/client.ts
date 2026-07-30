@@ -19,6 +19,8 @@ import {
   sync,
   TimeSpan,
   TimeStamp,
+  url,
+  zod,
 } from "@synnaxlabs/x";
 import { z } from "zod";
 
@@ -35,7 +37,8 @@ import {
   reduce,
   type Status,
 } from "@/connection/status";
-import { DisconnectedError } from "@/errors";
+import { DisconnectedError, errorsMiddleware } from "@/errors";
+import { Transport } from "@/transport";
 
 export const CHECK_ENDPOINT = "/connectivity/check";
 
@@ -64,24 +67,37 @@ export const probe = async (unary: UnaryClient): Promise<Info> => {
   };
 };
 
+/** Address parameters for a one-shot connectivity check. */
+export interface CheckParams {
+  host: string;
+  port: number | string;
+  secure?: boolean;
+  /** Human-readable cluster name for status messages. */
+  name?: string;
+  retry?: breaker.Config;
+}
+
 /**
- * Runs a one-shot connectivity check against the given transport and folds the
- * result into a status. Never throws: failures land in the returned status.
+ * Runs a one-shot connectivity check against the given cluster address and
+ * folds the result into a status. Never throws: failures land in the
+ * returned status.
  */
-export const check = async (
-  unary: UnaryClient,
-  config: Partial<Config> = {},
-): Promise<Status> => {
+export const check = async (params: CheckParams): Promise<Status> => {
+  const { host, port, secure = false, name, retry } = params;
+  const retryConfig = zod.parse(breaker.breakerConfigZ.optional(), retry);
+  const endpoint = new url.URL({ host, port: Number(port) });
+  const transport = new Transport(endpoint, retryConfig, secure);
+  transport.use(errorsMiddleware);
   const cfg: Config = {
     clientVersion: __VERSION__,
     escalateAfter: 1,
     clockSkewThreshold: TimeSpan.seconds(1),
     requiresStream: false,
-    ...config,
+    name,
   };
   const initial = createInitialStatus(cfg);
   try {
-    const info = await probe(unary);
+    const info = await probe(transport.unary);
     return reduce(initial, { type: "probe.success", info }, cfg);
   } catch (err) {
     const error = errors.fromUnknown(err);

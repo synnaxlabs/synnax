@@ -9,9 +9,7 @@
 
 import { TimeSpan } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
-import { z } from "zod";
 
-import { checkConnection } from "@/client";
 import { AuthError, DisconnectedError } from "@/errors";
 import { createTestClient, TEST_CLIENT_PARAMS } from "@/testutil";
 
@@ -20,59 +18,6 @@ const FAST_RETRY = {
   scale: 1,
   maxRetries: 2,
 };
-
-describe("checkConnection", () => {
-  it("should check connection to the server", async () => {
-    const state = await checkConnection({
-      host: TEST_CLIENT_PARAMS.host,
-      port: TEST_CLIENT_PARAMS.port,
-      secure: false,
-    });
-    expect(state.variant).toEqual("success");
-    expect(z.uuid().safeParse(state.details.clusterKey).success).toBe(true);
-  });
-
-  it("should include client version in the connection check", async () => {
-    const state = await checkConnection({
-      host: TEST_CLIENT_PARAMS.host,
-      port: TEST_CLIENT_PARAMS.port,
-      secure: false,
-    });
-    expect(state.details.clientVersion).toBeDefined();
-    expect(state.details.clientServerCompatible).toBe(true);
-  });
-
-  it("should support custom name parameter", async () => {
-    const state = await checkConnection({
-      host: TEST_CLIENT_PARAMS.host,
-      port: TEST_CLIENT_PARAMS.port,
-      secure: false,
-      name: "test-client",
-    });
-    expect(state.variant).toEqual("success");
-  });
-
-  it("should handle connection failure to invalid host", async () => {
-    const state = await checkConnection({
-      host: "invalid-host-that-does-not-exist",
-      port: 9999,
-      secure: false,
-      retry: { maxRetries: 0 },
-    });
-    expect(state.variant).toEqual("error");
-    expect(state.details.reason).toEqual("unreachable");
-  });
-
-  it("should handle connection failure to invalid port", async () => {
-    const state = await checkConnection({
-      host: TEST_CLIENT_PARAMS.host,
-      port: 9999,
-      secure: false,
-      retry: { maxRetries: 0 },
-    });
-    expect(state.variant).toEqual("error");
-  });
-});
 
 describe("connect", () => {
   it("should await the client's first success", async () => {

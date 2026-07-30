@@ -11,7 +11,6 @@ import { type connection } from "@synnaxlabs/client";
 import { Flex, Status, Synnax, Text } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
-import { Cluster } from "@/platform/cluster";
 import { CSS } from "@/platform/css";
 
 // Rotation switches: "chip" floats a pill above the bottom edge, "bar" pins a
@@ -56,7 +55,16 @@ export const Footer = ({ cluster }: FooterProps): ReactElement | null => {
     cluster != null &&
     client.params.host === cluster.host &&
     Number(client.params.port) === Number(cluster.port);
-  const probed = Cluster.useReachability(isActive ? null : cluster);
+  const probed = Synnax.useCheckConnection(
+    isActive || cluster == null
+      ? null
+      : {
+          host: cluster.host,
+          port: cluster.port,
+          secure: cluster.secure,
+          retry: { maxRetries: 0 },
+        },
+  );
   if (cluster == null) return null;
   const status = isActive ? live : probed;
   const variant = status?.variant ?? "loading";

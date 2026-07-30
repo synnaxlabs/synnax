@@ -9,7 +9,7 @@
 
 import "@/platform/cluster/list/List.css";
 
-import { checkConnection } from "@synnaxlabs/client";
+import { connection } from "@synnaxlabs/client";
 import {
   Button,
   Flex,
@@ -79,7 +79,7 @@ export const List = ({ value, onChange, ...rest }: ListProps): ReactElement => {
     handleError(async () => {
       try {
         setTesting(key);
-        const status = await checkConnection({
+        const status = await connection.check({
           host: cluster.host,
           port: cluster.port,
           secure: cluster.secure,

@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { checkConnection, type connection } from "@synnaxlabs/client";
+import { connection } from "@synnaxlabs/client";
 import { Button, Flex, Form, Icon, type Input, Nav, Status } from "@synnaxlabs/pluto";
 import { uuid } from "@synnaxlabs/x";
 import { useState } from "react";
@@ -84,7 +84,7 @@ export const useConnectModal = Modals.create<ConnectModalParams>(
         const data = methods.value();
         setConnStatus(null);
         setLoading("submit");
-        const status = await checkConnection(data);
+        const status = await connection.check(data);
         setLoading(null);
         setConnStatus(status);
         if (isEdit && existing != null && clusterKey != null) {

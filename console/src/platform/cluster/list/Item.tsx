@@ -10,10 +10,9 @@
 import "@/platform/cluster/list/List.css";
 
 import { type connection } from "@synnaxlabs/client";
-import { Flex, List, Select, Status, Text, Tooltip } from "@synnaxlabs/pluto";
+import { Flex, List, Select, Status, Synnax, Text, Tooltip } from "@synnaxlabs/pluto";
 import { memo, type ReactElement } from "react";
 
-import { useReachability } from "@/platform/cluster/useReachability";
 import { CSS } from "@/platform/css";
 import { Session } from "@/session";
 
@@ -44,7 +43,12 @@ const Base = ({
     if (!validateName(value) || item == null) return;
     dispatch(Session.Cluster.rename({ key: item.key, name: value }));
   };
-  const status = useReachability(item);
+  const status = Synnax.useCheckConnection({
+    host: item.host,
+    port: item.port,
+    secure: item.secure,
+    retry: { maxRetries: 0 },
+  });
   let statusVariant = status?.variant ?? "disabled";
   let statusMessage = LABELS[statusVariant];
   if (loading) {
