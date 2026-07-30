@@ -26,7 +26,7 @@ import { type ReactElement, useCallback, useMemo } from "react";
 import { useDispatch } from "react-redux";
 
 import { createPillHaulItem } from "@/feature/panel/haul";
-import { useCreatePanel } from "@/feature/panel/useCreatePanel";
+import { useCreate } from "@/feature/panel/useCreate";
 import { useOpenWindow } from "@/feature/panel/useOpenWindow";
 import { ContextMenu as CMenu } from "@/platform/context-menu";
 import { CSS } from "@/platform/css";
@@ -144,7 +144,7 @@ export const Selector = (): ReactElement | null => {
     [dispatch],
   );
 
-  const handleCreate = useCreatePanel();
+  const handleCreate = useCreate();
 
   const contextMenu = useCallback<NonNullable<Menu.ContextMenuProps["menu"]>>(
     (props) => <ContextMenu {...props} panels={panels} />,

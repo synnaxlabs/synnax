@@ -32,7 +32,7 @@ import { type ReactElement, useCallback, useState } from "react";
 import { useDispatch } from "react-redux";
 
 import { TabMenuItems } from "@/feature/panel/ContextMenu";
-import { useCreatePanel } from "@/feature/panel/useCreatePanel";
+import { useCreate } from "@/feature/panel/useCreate";
 import { Empty } from "@/platform";
 import { CSS } from "@/platform/css";
 import { Panel as PlatformPanel } from "@/platform/panel";
@@ -261,7 +261,7 @@ const Internal = ({ onCreateTab }: MosaicProps): ReactElement => {
 // Mirrors the real mosaic's container chrome so the no-panel state keeps the
 // same framed L0 surface instead of collapsing to bare window background.
 const EmptyContent = (): ReactElement => {
-  const createPanel = useCreatePanel();
+  const createPanel = useCreate();
   return (
     <Flex.Box
       grow
