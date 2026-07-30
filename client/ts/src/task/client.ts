@@ -13,7 +13,6 @@ import {
   caseconv,
   type CrudeTimeSpan,
   deep,
-  destructor,
   id,
   primitive,
   type record,
@@ -439,18 +438,17 @@ export class Client extends query.Retriever<
       this.store.delete(keysArr),
       this.cfg.statusStore.delete(keysArr.map((k) => statusKey(k))),
     ];
-    const rollback = new destructor.Chain();
-    rollback.add(...drop());
-    await opts.onOptimistic?.();
-    await rollback.guard(
-      async () =>
+    await query.optimistic({
+      rollbacks: drop(),
+      onOptimistic: opts.onOptimistic,
+      commit: async () =>
         await this.cfg.unary.send(
           "/task/delete",
           { keys: keysArr },
           deleteReqZ,
           deleteResZ,
         ),
-    );
+    });
     drop();
   }
 
@@ -461,12 +459,13 @@ export class Client extends query.Retriever<
       ),
       this.cfg.ontology.cache.renameResource(ontologyID(key), name),
     ];
-    const rollback = new destructor.Chain();
-    rollback.add(...rename());
-    await opts.onOptimistic?.();
-    await rollback.guard(async () => {
-      const t = await this.retrieve({ key });
-      await this.create({ ...t.payload, name });
+    await query.optimistic({
+      rollbacks: rename(),
+      onOptimistic: opts.onOptimistic,
+      commit: async () => {
+        const t = await this.retrieve({ key });
+        await this.create({ ...t.payload, name });
+      },
     });
     rename();
   }

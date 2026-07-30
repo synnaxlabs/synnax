@@ -12,7 +12,7 @@ import {
   type StreamClient,
   type UnaryClient,
 } from "@synnaxlabs/freighter";
-import { array, deep, destructor, errors, id, primitive } from "@synnaxlabs/x";
+import { array, deep, type destructor, errors, id, primitive } from "@synnaxlabs/x";
 import { z } from "zod/v4";
 
 import { actions } from "@/actions";
@@ -275,18 +275,17 @@ export class Client extends query.Retriever<
       taskKeys.set(i, taskKey);
     }
     const optimistic = params.map((a) => arcZ.parse(a));
-    const rollback = new destructor.Chain();
-    rollback.add(this.store.set(optimistic));
-    await opts.onOptimistic?.(optimistic);
-    const res = await rollback.guard(
-      async () =>
+    const res = await query.optimistic({
+      rollbacks: [this.store.set(optimistic)],
+      onOptimistic: () => opts.onOptimistic?.(optimistic),
+      commit: async () =>
         await this.cfg.unary.send(
           "/arc/create",
           { arcs: optimistic },
           createReqZ,
           createResZ,
         ),
-    );
+    });
     this.store.set(res.arcs);
     for (const [i, taskKey] of taskKeys) {
       const created = res.arcs[i];
@@ -312,12 +311,12 @@ export class Client extends query.Retriever<
     const tsk = await this.retrieveTask(key);
     if (tsk != null) await this.cfg.tasks.rename(tsk.key, name);
     const rename = () => query.partialUpdate(this.store, key, { name });
-    const rollback = new destructor.Chain();
-    rollback.add(rename());
-    await opts.onOptimistic?.();
-    await rollback.guard(
-      async () => await this.sendDispatch(key, id.create(), [renameAction({ name })]),
-    );
+    await query.optimistic({
+      rollbacks: [rename()],
+      onOptimistic: opts.onOptimistic,
+      commit: async () =>
+        await this.sendDispatch(key, id.create(), [renameAction({ name })]),
+    });
     rename();
   }
 
@@ -336,18 +335,17 @@ export class Client extends query.Retriever<
   async delete(keys: Key | Key[], opts: query.WriteOptions = {}): Promise<void> {
     const keysArr = array.toArray(keys);
     const drop = () => this.store.delete(keysArr);
-    const rollback = new destructor.Chain();
-    rollback.add(drop());
-    await opts.onOptimistic?.();
-    await rollback.guard(
-      async () =>
+    await query.optimistic({
+      rollbacks: [drop()],
+      onOptimistic: opts.onOptimistic,
+      commit: async () =>
         await this.cfg.unary.send(
           "/arc/delete",
           { keys: keysArr },
           deleteReqZ,
           emptyResZ,
         ),
-    );
+    });
     drop();
   }
 

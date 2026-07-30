@@ -13,7 +13,7 @@ import {
   color,
   type CrudeTimeRange,
   deep,
-  destructor,
+  type destructor,
   primitive,
   type Series,
   TimeRange,
@@ -516,10 +516,11 @@ export class Client extends query.Retriever<
       ),
       this.cfg.ontology.cache.renameResource(ontologyID(key), name),
     ];
-    const rollbacks = new destructor.Chain();
-    rollbacks.add(...rename());
-    await opts.onOptimistic?.();
-    await rollbacks.guard(async () => await this.writer.rename(key, name));
+    await query.optimistic({
+      rollbacks: rename(),
+      onOptimistic: opts.onOptimistic,
+      commit: async () => await this.writer.rename(key, name),
+    });
     rename();
   }
 
