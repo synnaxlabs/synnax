@@ -98,6 +98,7 @@ Extend the `SimDAQ` base class for simulators that write directly to Synnax:
 from examples.simulators import SimDAQ
 import synnax as sy
 
+
 class MySimDAQ(SimDAQ):
     description = "My custom simulator"
     end_cmd_channel = "end_my_test_cmd"  # Optional: auto-stop on this channel
@@ -128,6 +129,7 @@ Extend `DeviceSim` for simulators that expose a network protocol endpoint:
 ```python
 from examples.simulators.device_sim import DeviceSim
 from synnax import modbus
+
 
 class MyDeviceSim(DeviceSim):
     description = "My custom device simulator"
@@ -172,9 +174,9 @@ DeviceSim simulators are used via the integration test framework:
 from examples.modbus import ModbusSim
 
 sim = ModbusSim()
-sim.start()   # Starts server subprocess on port 5020
+sim.start()  # Starts server subprocess on port 5020
 
 # Driver connects to the endpoint...
 
-sim.stop()    # Terminates server subprocess
+sim.stop()  # Terminates server subprocess
 ```
