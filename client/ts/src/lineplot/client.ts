@@ -83,7 +83,7 @@ export class Client extends query.Retriever<typeof retrieveReqZ, Key, LinePlot> 
     // Dispatch mutates documents server-side, so fetched copies never clobber
     // a doc holding locally replayed edits: the table hydrates if-absent.
     const store = cache.createTable<Key, LinePlot>({
-      name: "lineplots",
+      name: "line plots",
       hydrate: "if-absent",
       fetch: async (keys) =>
         await this.execRetrieve({ keys, ignoreNotFoundError: true }),
