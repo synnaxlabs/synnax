@@ -183,6 +183,34 @@ var _ = Describe("Derived New from @create", func() {
 		)
 	})
 
+	It("Should derive a z.input New<Name> alias for a @create union", func(ctx SpecContext) {
+		source := `
+			@ts output "client/ts/src/tab"
+
+			TabBase struct {
+				key uuid = create { @key }
+			}
+			Tab union on variant extends TabBase {
+				resource {
+					resource string
+				}
+				view {
+					type string
+				}
+				@create
+			}
+		`
+		resp := MustGenerate(ctx, source, "tab", loader, typesPlugin)
+		ExpectContent(resp, "types.gen.ts").ToContain(
+			"export const tabZ = z.discriminatedUnion(",
+			"export type NewTab = z.input<typeof tabZ>;",
+		)
+		ExpectContent(resp, "types.gen.ts").ToNotContain(
+			"export const newTabZ",
+			"interface NewTab",
+		)
+	})
+
 	It("Should derive New under its own name when the base is renamed", func(ctx SpecContext) {
 		source := `
 			@ts output "client/ts/src/thing"

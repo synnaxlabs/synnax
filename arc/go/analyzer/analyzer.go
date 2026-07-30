@@ -15,7 +15,6 @@ import (
 
 	"github.com/antlr4-go/antlr/v4"
 	"github.com/samber/lo"
-	"github.com/synnaxlabs/arc/analyzer/constant"
 	"github.com/synnaxlabs/arc/analyzer/constraints"
 	acontext "github.com/synnaxlabs/arc/analyzer/context"
 	"github.com/synnaxlabs/arc/analyzer/expression"
@@ -35,6 +34,7 @@ func AnalyzeProgram(ctx acontext.Context[parser.IProgramContext]) {
 	collectImports(ctx)
 	collectDeclarations(ctx)
 	analyzeDeclarations(ctx)
+	liftReassignedVarReads(ctx)
 	propagateCallChannels(ctx.CallEdges)
 	detectCallCycles(ctx.CallEdges, ctx.Diagnostics)
 	reportUnusedImports(ctx)
@@ -48,6 +48,23 @@ func AnalyzeProgram(ctx acontext.Context[parser.IProgramContext]) {
 	}
 }
 
+// liftReassignedVarReads lifts reassigned-variable reads in synth expressions
+// into input params. Format-string placeholders lift from their parsed bodies.
+func liftReassignedVarReads(ctx acontext.Context[parser.IProgramContext]) {
+	for _, c := range ctx.Scope.Root().Children() {
+		if c.Kind != symbol.KindFunction || c.AST == nil {
+			continue
+		}
+		if expr, ok := c.AST.(parser.IExpressionContext); ok {
+			if parser.IsLiteral(expr) {
+				flow.LiftFmtStrVarReads(ctx, c, expr)
+				continue
+			}
+			flow.LiftVarReads(ctx, c, expr)
+		}
+	}
+}
+
 func substituteTypeMap(ctx acontext.Context[parser.IProgramContext]) {
 	for node, typ := range ctx.TypeMap {
 		ctx.TypeMap[node] = ctx.Constraints.ApplySubstitutions(typ)
@@ -55,7 +72,6 @@ func substituteTypeMap(ctx acontext.Context[parser.IProgramContext]) {
 }
 
 func collectDeclarations(ctx acontext.Context[parser.IProgramContext]) {
-	constant.CollectDeclarations(ctx)
 	function.CollectDeclarations(ctx)
 	sequence.CollectDeclarations(ctx)
 }
@@ -344,6 +360,12 @@ func analyzeDeclarations(ctx acontext.Context[parser.IProgramContext]) {
 			sequence.Analyze(acontext.Child(ctx, seqDecl))
 		} else if stageDecl := item.StageDeclaration(); stageDecl != nil {
 			sequence.AnalyzeTopLevelStage(acontext.Child(ctx, stageDecl))
+		} else if varDecl := item.VariableDeclaration(); varDecl != nil {
+			statement.AnalyzeVariableDeclaration(acontext.Child(ctx, varDecl))
+		} else if assign := item.Assignment(); assign != nil {
+			ctx.Diagnostics.Add(diagnostics.Errorf(assign,
+				"cannot reassign a top-level variable; assignment is only valid "+
+					"inside a sequence, stage, or function"))
 		}
 	}
 	sequence.AnalyzeSynthInlines(ctx)

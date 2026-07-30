@@ -7,16 +7,22 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { NotFoundError, status } from "@synnaxlabs/client";
-import { Errors } from "@synnaxlabs/pluto";
+import { NotFoundError, panel, status } from "@synnaxlabs/client";
+import { Errors, Flux, type Panel as PlutoPanel } from "@synnaxlabs/pluto";
+import { uuid } from "@synnaxlabs/x";
+import { render, renderHook } from "@testing-library/react";
 import { act, type ReactElement } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import { Boundary } from "@/platform/errors/Boundary";
 import { ErrorDiagnostics } from "@/platform/errors/ErrorDiagnostics";
-import { Layout } from "@/platform/layout";
-import { placeLayout } from "@/platform/layout/testutil";
 import { Session } from "@/session";
-import { createTestStore, renderWithConsole, type TestStore } from "@/testutil";
+import {
+  createConsoleWrapper,
+  createTestStore,
+  renderWithConsole,
+  type TestStore,
+} from "@/testutil";
 
 // Errors.Fallback kicks off a source-map resolution effect; stub stacktrace-js at the
 // library boundary so it doesn't hit the network.
@@ -86,39 +92,40 @@ describe("ErrorDiagnostics", () => {
     expect(messageText()).toBe("boom\nCore: none");
   });
 
-  it("appends page name and key for a layout page crash", async () => {
-    const store = await createTestStore();
-    placeLayout(store, "l1", { type: "schematic", name: "fridge_schem" });
+  it("appends the crashed panel's name and key", async () => {
+    const { wrapper, store } = await createConsoleWrapper({ client: null });
     void act(() => store.dispatch(Session.Cluster.select("LOCAL")));
-    const Renderer: Layout.Renderer = () => {
-      throw retrieveNotFoundError();
-    };
-    Renderer.displayName = "ThrowingRenderer";
-    await renderWithConsole(
-      <Layout.RendererProvider value={{ schematic: Renderer }}>
-        <Layout.Content layoutKey="l1" />
-      </Layout.RendererProvider>,
-      { store },
+    const { result } = renderHook(() => Flux.useStore<PlutoPanel.FluxSubStore>(), {
+      wrapper,
+    });
+    const doc = panel.panelZ.parse({
+      key: uuid.create(),
+      name: "fridge_schem",
+      root: { variant: "leaf", tabs: [] },
+    });
+    act(() => void result.current.panels.set(doc));
+    render(
+      <Boundary panelKey={doc.key}>
+        <Throw error={retrieveNotFoundError()} />
+      </Boundary>,
+      { wrapper },
     );
     const expected = [
       "Failed to retrieve schematic",
       "Core: Local (localhost:9090)",
-      '"fridge_schem" (l1)',
+      `"fridge_schem" (${doc.key})`,
     ].join("\n");
     expect(messageText()).toBe(expected);
   });
 
-  it("omits the name when a layout page has no name", async () => {
+  it("omits the name when the crashed panel isn't cached", async () => {
     const store = await createTestStore();
-    const renderFallback = (props: Errors.FallbackProps): ReactElement => (
-      <ErrorDiagnostics page={{ key: "l1" }} {...props} />
-    );
     await renderWithConsole(
-      <Errors.Boundary FallbackComponent={renderFallback}>
+      <Boundary panelKey="uncached-key">
         <Throw error={new Error("boom")} />
-      </Errors.Boundary>,
+      </Boundary>,
       { store },
     );
-    expect(messageText()).toBe("boom\nCore: none\n(l1)");
+    expect(messageText()).toBe("boom\nCore: none\n(uncached-key)");
   });
 });

@@ -57,11 +57,6 @@ type WriterConfig struct {
 	// persisted to the disk.
 	// [OPTIONAL] - Defaults to 1s.
 	AutoIndexPersistInterval telem.TimeSpan
-	// AlignmentDomainIndex is the index of the domain that this writer is aligned to.
-	// This value is almost always set to the index of the domain within the 'Index'
-	// channel that is being written to at the same time as this writer. This value is
-	// used to guarantee alignment between samples written to index and data channels.
-	AlignmentDomainIndex uint32
 	// Authority is the control authority held by the writer: higher authority entities
 	// have priority access to the region.
 	// [OPTIONAL]
@@ -102,7 +97,6 @@ func (c WriterConfig) Override(other WriterConfig) WriterConfig {
 	c.EnableAutoCommit = override.Nil(c.EnableAutoCommit, other.EnableAutoCommit)
 	c.AutoIndexPersistInterval = override.Zero(c.AutoIndexPersistInterval, other.AutoIndexPersistInterval)
 	c.ErrOnUnauthorizedOpen = override.Nil(c.ErrOnUnauthorizedOpen, other.ErrOnUnauthorizedOpen)
-	c.AlignmentDomainIndex = override.Numeric(c.AlignmentDomainIndex, other.AlignmentDomainIndex)
 	return c
 }
 
@@ -128,8 +122,10 @@ func (c WriterConfig) controlTimeRange() telem.TimeRange {
 type controlledWriter struct {
 	*domain.Writer
 	channelKey channel.Key
-	// alignment tracks the current write position as a packed domain index (upper 32
-	// bits) and sample index (lower 32 bits). This field is accessed atomically because
+	// alignment tracks the position the next write will start at, as a packed domain
+	// index (upper 32 bits) and sample index (lower 32 bits). Channels indexed by this
+	// one read it to resolve their own alignment, so it is published after every write
+	// rather than only at region creation. This field is accessed atomically because
 	// Gate.Authorize and Gate.PeekResource return a shared pointer to this struct, and
 	// the region's RWMutex is released before the caller accesses the field. This means
 	// one goroutine may write alignment through Authorize while another reads it through
@@ -211,11 +207,7 @@ func (db *DB) OpenWriter(ctx context.Context, cfgs ...WriterConfig) (
 			domainCfg.OnRollover = cw.tracker.rollover
 			dw, err := db.domain.OpenWriter(ctx, domainCfg)
 			cw.Writer = dw
-			a := telem.NewAlignment(cfg.AlignmentDomainIndex, 0)
-			if cfg.AlignmentDomainIndex == 0 {
-				a = telem.NewAlignment(db.leadingAlignment.Add(1), 0)
-			}
-			cw.storeAlignment(a)
+			cw.storeAlignment(telem.NewAlignment(db.leadingAlignment.Add(1), 0))
 			return cw, err
 		},
 	}); err != nil {
@@ -249,8 +241,26 @@ func Write(
 	return err
 }
 
-// Write validates and writes the given array.
+// Write validates and writes the given series, deriving its alignment from the
+// channel's own sample position within the current domain. This is only meaningful for
+// index channels, whose sample positions define the alignment space that every channel
+// they index is expressed in. Data channels must use WriteAt.
 func (w *Writer) Write(series telem.Series) (telem.Alignment, error) {
+	return w.write(series, 0, true)
+}
+
+// WriteAt validates and writes the given series, stamping it with a, an alignment
+// resolved in the sample space of this channel's index. Returns the alignment of the
+// first sample written.
+func (w *Writer) WriteAt(series telem.Series, a telem.Alignment) (telem.Alignment, error) {
+	return w.write(series, a, false)
+}
+
+func (w *Writer) write(
+	series telem.Series,
+	a telem.Alignment,
+	derive bool,
+) (telem.Alignment, error) {
 	if w.closed {
 		return 0, w.wrapError(ErrWriterClosed)
 	}
@@ -264,20 +274,28 @@ func (w *Writer) Write(series telem.Series) (telem.Alignment, error) {
 	if w.Channel.IsIndex {
 		w.updateHwm(series)
 	}
+	if derive {
+		// The tracker is only fed when persisting, so in stream-only mode the published
+		// cursor is the sole record of where the next write lands.
+		if *w.cfg.Persist {
+			a = telem.NewAlignment(
+				dw.loadAlignment().DomainIndex(),
+				uint32(dw.tracker.count(dw.Writer)),
+			)
+		} else {
+			a = dw.loadAlignment()
+		}
+	}
+	// Publish where the next write lands before this one is on disk, so a channel
+	// resolving its alignment against this one reserves the slot after this write
+	// instead of colliding with it.
+	dw.storeAlignment(a.AddSamples(uint32(series.Len())))
 	if *w.cfg.Persist {
 		baseOffset := uint32(dw.tracker.domainBytes)
-		a := telem.NewAlignment(dw.loadAlignment().DomainIndex(), uint32(dw.tracker.count(dw.Writer)))
-		dw.storeAlignment(a)
 		dw.tracker.record(series.Data, baseOffset)
 		_, err = dw.Write(series.Data)
-	} else {
-		dw.storeAlignment(dw.loadAlignment().AddSamples(uint32(series.Len())))
 	}
-	return dw.loadAlignment(), w.wrapError(err)
-}
-
-func (w *Writer) DomainIndex() uint32 {
-	return w.control.PeekResource().loadAlignment().DomainIndex()
+	return a, w.wrapError(err)
 }
 
 func (w *Writer) SetAuthority(a xcontrol.Authority) control.Transfer {
@@ -340,12 +358,7 @@ func (w *Writer) commitWithEnd(ctx context.Context, end telem.TimeStamp) (telem.
 			return 0, err
 		}
 		if !approx.Exact() {
-			return 0, errors.Wrapf(
-				validate.ErrValidation,
-				"writer start %s cannot be resolved in the index channel %v",
-				w.cfg.Start,
-				w.idx.Info(),
-			)
+			return 0, index.NewDiscontinuousStampError(w.cfg.Start)
 		}
 		// Add 1 to the end timestamp because the end timestamp is exclusive.
 		end = approx.Lower + 1

@@ -15,14 +15,14 @@ import { type ReactElement } from "react";
 
 import { Haul } from "@/app/haul";
 import { Imex } from "@/app/imex";
-import { Layout } from "@/app/layout";
+import { Panel } from "@/app/panel";
 import { Pluto } from "@/app/pluto";
 import { Range } from "@/app/range";
 import { Task } from "@/app/task";
 import { Tree } from "@/app/tree";
 import { Vis } from "@/app/vis";
+import { Window } from "@/app/window";
 import { Errors } from "@/platform/errors";
-import { Layout as PlatformLayout } from "@/platform/layout";
 import { Runtime } from "@/platform/runtime";
 import { Session } from "@/session";
 
@@ -36,21 +36,19 @@ export const App = ({ workerURL }: AppProps): ReactElement => {
       <Session.Context>
         <Pluto.Context workerURL={workerURL}>
           <Errors.OverlayWithStore>
-            <Layout.Context>
+            <Panel.Context>
               <Tree.Context>
                 <Range.Context>
                   <Imex.Context>
                     <Task.Context>
                       <Vis.Canvas>
-                        <Session.Modals.Context>
-                          <PlatformLayout.Window />
-                        </Session.Modals.Context>
+                        <Window.Window />
                       </Vis.Canvas>
                     </Task.Context>
                   </Imex.Context>
                 </Range.Context>
               </Tree.Context>
-            </Layout.Context>
+            </Panel.Context>
           </Errors.OverlayWithStore>
         </Pluto.Context>
       </Session.Context>

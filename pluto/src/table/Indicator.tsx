@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import "@/table/Table.css";
+
 import { type table } from "@synnaxlabs/client";
 import { box, direction } from "@synnaxlabs/x";
 import { memo, type ReactElement, useCallback, useMemo, useRef } from "react";
@@ -121,6 +123,7 @@ export const Indicator = ({
       [onChange, index, dir],
     ),
   });
+  const style = useMemo(() => ({ [direction.dimension(dir)]: value }), [dir, value]);
   return (
     <td
       id={`resizer-${dir}-${index}`}
@@ -131,7 +134,7 @@ export const Indicator = ({
         Menu.CONTEXT_TARGET,
         selected && Menu.CONTEXT_SELECTED,
       )}
-      style={{ [direction.dimension(dir)]: value }}
+      style={style}
       onClick={(e) => onSelect(index, e)}
       onContextMenu={(e) => onSelect(index, e)}
     >

@@ -14,8 +14,7 @@ import { describe, expect, it } from "vitest";
 
 import { Modbus } from "@/feature/modbus";
 import { createModbusDevice } from "@/feature/modbus/testutil";
-import { awaitTaskKey, renderTaskFormLayout } from "@/platform/task/testutil";
-import { Session } from "@/session";
+import { awaitTaskKey, renderTaskFormTab } from "@/platform/task/testutil";
 import { getIconButton, stubGeometry } from "@/testutil";
 
 const client = createTestClient();
@@ -25,11 +24,11 @@ stubGeometry();
 describe("Modbus.Read", () => {
   it("should build channels in the form and create them on the cluster on configure", async () => {
     const dev = await createModbusDevice(client);
-    const { container, store, layoutKey } = await renderTaskFormLayout(
-      Modbus.Task.Read,
-      Modbus.Task.READ_TYPE,
-      { client, args: { deviceKey: dev.key } },
-    );
+    const rendered = await renderTaskFormTab(Modbus.Task.Read, Modbus.Task.READ_TYPE, {
+      client,
+      params: { deviceKey: dev.key },
+    });
+    const { container } = rendered;
     await screen.findByRole("button", { name: /Configure/ });
 
     fireEvent.click(getIconButton(container, "add"));
@@ -42,7 +41,7 @@ describe("Modbus.Read", () => {
     await screen.findByText("Register");
 
     fireEvent.click(screen.getByRole("button", { name: /Configure/ }));
-    const taskKey = await awaitTaskKey(store, layoutKey);
+    const taskKey = await awaitTaskKey(rendered);
 
     const tsk = await client.tasks.retrieve({ key: taskKey });
     expect(task.rackKey(tsk.key)).toBe(dev.rack);
@@ -77,43 +76,38 @@ describe("Modbus.Read", () => {
 
   it("should reuse the existing index and channels when reconfiguring", async () => {
     const dev = await createModbusDevice(client);
-    const first = await renderTaskFormLayout(Modbus.Task.Read, Modbus.Task.READ_TYPE, {
+    const first = await renderTaskFormTab(Modbus.Task.Read, Modbus.Task.READ_TYPE, {
       client,
-      args: { deviceKey: dev.key },
+      params: { deviceKey: dev.key },
     });
     await screen.findByRole("button", { name: /Configure/ });
     fireEvent.click(getIconButton(first.container, "add"));
     await screen.findByText("Coil");
     fireEvent.click(screen.getByRole("button", { name: /Configure/ }));
-    const taskKey = await awaitTaskKey(first.store, first.layoutKey);
+    const taskKey = await awaitTaskKey(first);
     const afterFirst = await client.devices.retrieve({
       key: dev.key,
       schemas: Modbus.Device.SCHEMAS,
     });
     first.unmount();
 
-    const second = await renderTaskFormLayout(Modbus.Task.Read, Modbus.Task.READ_TYPE, {
+    await renderTaskFormTab(Modbus.Task.Read, Modbus.Task.READ_TYPE, {
       client,
-      args: { deviceKey: dev.key, taskKey },
+      params: { deviceKey: dev.key, taskKey },
     });
     await screen.findByText("Coil");
     fireEvent.click(screen.getByRole("button", { name: /Configure/ }));
-    await waitFor(() =>
-      expect(
-        Session.Layout.select(second.store.getState(), second.layoutKey)
-          ?.unsavedChanges,
-      ).toBe(false),
-    );
-
-    const afterSecond = await client.devices.retrieve({
-      key: dev.key,
-      schemas: Modbus.Device.SCHEMAS,
+    await waitFor(async () => {
+      const afterSecond = await client.devices.retrieve({
+        key: dev.key,
+        schemas: Modbus.Device.SCHEMAS,
+      });
+      expect(afterSecond.properties.read.index).toBe(afterFirst.properties.read.index);
+      expect(afterSecond.properties.read.channels).toEqual(
+        afterFirst.properties.read.channels,
+      );
+      const matches = await client.channels.retrieve([`${dev.name}_coil_input_0`]);
+      expect(matches).toHaveLength(1);
     });
-    expect(afterSecond.properties.read.index).toBe(afterFirst.properties.read.index);
-    expect(afterSecond.properties.read.channels).toEqual(
-      afterFirst.properties.read.channels,
-    );
-    const matches = await client.channels.retrieve([`${dev.name}_coil_input_0`]);
-    expect(matches).toHaveLength(1);
   });
 });

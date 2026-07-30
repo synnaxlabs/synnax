@@ -51,17 +51,11 @@ import { Form as PlatformForm } from "@/platform/form";
 import { Selector } from "@/platform/selector";
 import { Task } from "@/platform/task";
 
-export const READ_LAYOUT: Task.Layout = {
-  ...Task.LAYOUT,
+export const ReadSelectable = Selector.createSelectable({
   type: READ_TYPE,
-  name: ZERO_READ_PAYLOAD.name,
-  icon: "Logo.HTTP",
-};
-
-export const ReadSelectable = Selector.createSimpleItem({
   title: "HTTP Read Task",
   icon: <Icon.Logo.HTTP />,
-  layout: READ_LAYOUT,
+  useOnSelect: Task.createOpenTab(READ_TYPE),
 });
 
 const RATE_INPUT_PROPS = {
@@ -559,7 +553,7 @@ const Form: FC<Task.FormProps<ReadSchemas>> = () => {
       </Flex.Box>
       <Divider.Divider y />
       <Flex.Box y grow empty>
-        <Task.Layouts.DetailsHeader
+        <Task.Views.DetailsHeader
           path={
             selectedEndpoints.length > 0
               ? `config.endpoints.${selectedEndpoints[0]}`

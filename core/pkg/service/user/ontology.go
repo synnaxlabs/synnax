@@ -35,10 +35,6 @@ func OntologyIDsFromKeys(keys []Key) []ontology.ID {
 	return lo.Map(keys, func(key Key, _ int) ontology.ID { return OntologyID(key) })
 }
 
-// OntologyID returns a unique identifier for the user for use within a resource
-// ontology.
-func (u User) OntologyID() ontology.ID { return OntologyID(u.Key) }
-
 // OntologyIDsFromUsers returns a slice of unique identifiers for a slice of Users for
 // use within a resource ontology.
 func OntologyIDsFromUsers(users []User) []ontology.ID {
@@ -109,5 +105,5 @@ func (s *Service) OpenNexter(ctx context.Context) (iter.Seq[ontology.Resource], 
 }
 
 func newResource(u User) ontology.Resource {
-	return ontology.NewResource(schema, OntologyID(u.Key), u.Username, u)
+	return ontology.NewResource(schema, u.OntologyID(), u.Username, u)
 }

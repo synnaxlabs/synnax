@@ -66,7 +66,7 @@ var _ = Describe("Ontology", func() {
 			p := panel.Panel{Name: "resource", Parent: &parentID}
 			Expect(svc.NewWriter(tx).Create(ctx, &p)).To(Succeed())
 			res := MustSucceed(svc.RetrieveResource(ctx, p.Key.String(), tx))
-			Expect(res.ID).To(Equal(panel.OntologyID(p.Key)))
+			Expect(res.ID).To(Equal(p.OntologyID()))
 			Expect(res.Name).To(Equal("resource"))
 		})
 
@@ -95,7 +95,7 @@ var _ = Describe("Ontology", func() {
 				defer mu.Unlock()
 				g.Expect(changes).To(ContainElement(SatisfyAll(
 					HaveField("Variant", Equal(change.VariantSet)),
-					HaveField("Key", Equal(panel.OntologyID(p.Key).String())),
+					HaveField("Key", Equal(p.OntologyID().String())),
 					HaveField("Value.Name", Equal("observed")),
 				)))
 			}).Should(Succeed())
@@ -113,7 +113,7 @@ var _ = Describe("Ontology", func() {
 			for res := range next {
 				ids = append(ids, res.ID)
 			}
-			Expect(ids).To(ContainElement(panel.OntologyID(p.Key)))
+			Expect(ids).To(ContainElement(p.OntologyID()))
 		})
 	})
 })

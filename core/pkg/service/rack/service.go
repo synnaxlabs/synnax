@@ -15,11 +15,10 @@ import (
 	"sync"
 
 	"github.com/synnaxlabs/alamos"
+	"github.com/synnaxlabs/synnax/pkg/service/cluster"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
-	"github.com/synnaxlabs/synnax/pkg/service/node"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
-	v0 "github.com/synnaxlabs/synnax/pkg/service/rack/migrations/v0"
-	v54 "github.com/synnaxlabs/synnax/pkg/service/rack/migrations/v54"
+	"github.com/synnaxlabs/synnax/pkg/service/rack/versions"
 	"github.com/synnaxlabs/synnax/pkg/service/search"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/config"
@@ -27,7 +26,6 @@ import (
 	"github.com/synnaxlabs/x/gorp"
 	xio "github.com/synnaxlabs/x/io"
 	"github.com/synnaxlabs/x/kv"
-	"github.com/synnaxlabs/x/migrate"
 	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/query"
@@ -41,7 +39,7 @@ type ServiceConfig struct {
 	// HostProvider is used to assign keys to racks.
 	//
 	// [REQUIRED]
-	HostProvider node.HostProvider
+	HostProvider cluster.HostProvider
 	// DB is the gorp database that racks will be stored in.
 	//
 	// [REQUIRED]
@@ -111,7 +109,7 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 
 // Validate implements config.Config.
 func (c ServiceConfig) Validate() error {
-	v := validate.New("hardware.rack")
+	v := validate.New("rack")
 	validate.NotNil(v, "db", c.DB)
 	validate.NotNil(v, "ontology", c.Ontology)
 	validate.NotNil(v, "group", c.Group)
@@ -141,20 +139,12 @@ func OpenService(ctx context.Context, configs ...ServiceConfig) (s *Service, err
 	s = &Service{ServiceConfig: cfg, keyMu: &sync.Mutex{}}
 	cleanup, ok := service.NewOpener(ctx, &s.closer)
 	defer func() { err = cleanup(err) }()
-	v0Mig := v0.Migration(v0.MigrationConfig{
-		HostProvider: cfg.HostProvider,
-		Status:       cfg.Status,
-	})
 	if s.table, err = gorp.OpenTable(ctx, gorp.TableConfig[Key, Rack]{
 		DB: cfg.DB,
-		Migrations: []migrate.Migration{
-			v0Mig,
-			gorp.CodecMigration[v54.Key, v54.Rack]("msgpack_to_orc", v0Mig.Key()),
-			migrate.WithAddedDeps(
-				gorp.NewEntryMigration("v54_drop_status", MigrateRack),
-				"msgpack_to_orc",
-			),
-		},
+		Migrations: versions.NewMigrations(versions.MigrationsConfig{
+			HostProvider: cfg.HostProvider,
+			Status:       cfg.Status,
+		}),
 		Instrumentation: cfg.Instrumentation,
 	}); !ok(err, s.table) {
 		return nil, err
@@ -208,13 +198,13 @@ func (s *Service) loadEmbeddedRack(ctx context.Context) error {
 
 func (s *Service) Close() error { return s.closer.Close() }
 
-func (s *Service) RetrieveStatus(ctx context.Context, key Key) (status.Status[StatusDetails], error) {
-	var stat status.Status[StatusDetails]
+func (s *Service) RetrieveStatus(ctx context.Context, key Key) (Status, error) {
+	var stat Status
 	if err := status.NewRetrieve[StatusDetails](s.Status).
-		Where(status.MatchKeys[StatusDetails](OntologyID(key).String())).
+		Where(status.MatchKeys[StatusDetails](key.OntologyID().String())).
 		Entry(&stat).
 		Exec(ctx, nil); err != nil {
-		return status.Status[StatusDetails]{}, err
+		return Status{}, err
 	}
 	return stat, nil
 }

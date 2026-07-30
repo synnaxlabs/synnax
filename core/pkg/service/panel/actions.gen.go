@@ -23,7 +23,7 @@ const (
 	ActionTypeInsertTab      = "insert_tab"
 	ActionTypeRemoveTab      = "remove_tab"
 	ActionTypeMoveTab        = "move_tab"
-	ActionTypeSplitLeaf      = "split_leaf"
+	ActionTypeSplitTab       = "split_tab"
 	ActionTypeResizeSplit    = "resize_split"
 	ActionTypeSetTabResource = "set_tab_resource"
 	ActionTypeSetTabView     = "set_tab_view"
@@ -35,15 +35,24 @@ type RenamePayload struct {
 	Name string `json:"name" msgpack:"name"`
 }
 
-// InsertTabPayload inserts a tab into the leaf with the given path-derived key at the
-// given index. Appends when index is absent. When location is an edge, the target leaf
-// is first split at that location and the tab is inserted into the new empty leaf; a
-// center location places the tab directly in the target leaf, equivalent to absent.
+// InsertTabPayload inserts a tab into a leaf at the given index, appending when index
+// is absent. The destination leaf is resolved from target_tab (the leaf holding that
+// tab) when set, otherwise from the target_leaf path-derived key, otherwise the first
+// leaf in traversal order. When location is an edge, the resolved leaf is first split
+// at that location and the tab is inserted into the new empty leaf; a center location
+// places the tab directly in the resolved leaf, equivalent to absent. Inserting a
+// resource tab whose resource already backs a tab in the panel is a no-op: a resource
+// may back at most one tab per panel, and callers select the existing tab instead. When
+// singleton is set and the tab is a view, the insert is a no-op if a view of the same
+// type already backs a tab in the panel: a singleton view backs at most one tab per
+// panel, and callers select the existing tab instead.
 type InsertTabPayload struct {
 	Tab        Tab               `json:"tab" msgpack:"tab"`
-	TargetLeaf int32             `json:"target_leaf" msgpack:"target_leaf"`
+	TargetLeaf *int32            `json:"target_leaf,omitempty" msgpack:"target_leaf,omitempty"`
+	TargetTab  *TabKey           `json:"target_tab,omitempty" msgpack:"target_tab,omitempty"`
 	Index      *int32            `json:"index,omitempty" msgpack:"index,omitempty"`
 	Location   *spatial.Location `json:"location,omitempty" msgpack:"location,omitempty"`
+	Singleton  *bool             `json:"singleton,omitempty" msgpack:"singleton,omitempty"`
 }
 
 // RemoveTabPayload removes the tab with the given key. If the containing leaf becomes
@@ -65,14 +74,13 @@ type MoveTabPayload struct {
 	Location   *spatial.Location `json:"location,omitempty" msgpack:"location,omitempty"`
 }
 
-// SplitLeafPayload splits the given leaf into a parent split with two children: the
-// original leaf and a new empty leaf. location determines on which side ("left",
-// "right", "top", "bottom") the new empty leaf sits. size is the initial ratio in [0,
-// 1] for the original leaf; defaults to 0.5 when absent.
-type SplitLeafPayload struct {
-	Leaf     int32            `json:"leaf" msgpack:"leaf"`
-	Location spatial.Location `json:"location" msgpack:"location"`
-	Size     *spatial.Decimal `json:"size,omitempty" msgpack:"size,omitempty"`
+// SplitTabPayload splits the tab with the given key off its leaf into a new sibling
+// pane, moving the tab into it. direction x places the new pane to the right, y to the
+// bottom. The tab must share its leaf with at least one other tab; splitting the only
+// tab in a leaf is a no-op.
+type SplitTabPayload struct {
+	Key       uuid.UUID         `json:"key" msgpack:"key"`
+	Direction spatial.Direction `json:"direction" msgpack:"direction"`
 }
 
 // ResizeSplitPayload adjusts the size ratio of a split node. size in [0, 1].
@@ -83,8 +91,9 @@ type ResizeSplitPayload struct {
 
 // SetTabResourcePayload sets the visualization resource displayed by the tab with the
 // given key, swapping it in place without changing the tab's identity or position.
-// Clears any view set on the tab. Used to fill a freshly inserted empty tab once the
-// user picks a visualization.
+// Clears any view set on the tab. A no-op when the resource already backs another tab
+// in the panel. Used to fill a freshly inserted selector tab once the user picks a
+// visualization.
 type SetTabResourcePayload struct {
 	Key      uuid.UUID   `json:"key" msgpack:"key"`
 	Resource ontology.ID `json:"resource" msgpack:"resource"`
@@ -106,7 +115,7 @@ type Action struct {
 	InsertTab      *InsertTabPayload      `json:"insert_tab,omitempty" msgpack:"insert_tab,omitempty"`
 	RemoveTab      *RemoveTabPayload      `json:"remove_tab,omitempty" msgpack:"remove_tab,omitempty"`
 	MoveTab        *MoveTabPayload        `json:"move_tab,omitempty" msgpack:"move_tab,omitempty"`
-	SplitLeaf      *SplitLeafPayload      `json:"split_leaf,omitempty" msgpack:"split_leaf,omitempty"`
+	SplitTab       *SplitTabPayload       `json:"split_tab,omitempty" msgpack:"split_tab,omitempty"`
 	ResizeSplit    *ResizeSplitPayload    `json:"resize_split,omitempty" msgpack:"resize_split,omitempty"`
 	SetTabResource *SetTabResourcePayload `json:"set_tab_resource,omitempty" msgpack:"set_tab_resource,omitempty"`
 	SetTabView     *SetTabViewPayload     `json:"set_tab_view,omitempty" msgpack:"set_tab_view,omitempty"`
@@ -141,11 +150,11 @@ func Reduce(state Panel, actions ...Action) (Panel, error) {
 				return state, union.MissingPayload(a.Type)
 			}
 			state, err = a.MoveTab.Handle(state)
-		case ActionTypeSplitLeaf:
-			if a.SplitLeaf == nil {
+		case ActionTypeSplitTab:
+			if a.SplitTab == nil {
 				return state, union.MissingPayload(a.Type)
 			}
-			state, err = a.SplitLeaf.Handle(state)
+			state, err = a.SplitTab.Handle(state)
 		case ActionTypeResizeSplit:
 			if a.ResizeSplit == nil {
 				return state, union.MissingPayload(a.Type)
@@ -191,9 +200,9 @@ func NewMoveTabAction(p MoveTabPayload) Action {
 	return Action{Type: ActionTypeMoveTab, MoveTab: &p}
 }
 
-// NewSplitLeafAction wraps a SplitLeafPayload in an Action envelope.
-func NewSplitLeafAction(p SplitLeafPayload) Action {
-	return Action{Type: ActionTypeSplitLeaf, SplitLeaf: &p}
+// NewSplitTabAction wraps a SplitTabPayload in an Action envelope.
+func NewSplitTabAction(p SplitTabPayload) Action {
+	return Action{Type: ActionTypeSplitTab, SplitTab: &p}
 }
 
 // NewResizeSplitAction wraps a ResizeSplitPayload in an Action envelope.

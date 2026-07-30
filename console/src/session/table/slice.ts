@@ -112,13 +112,8 @@ export const { actions, reducer } = createSlice({
   },
 });
 
-export const {
-  create: internalCreate,
-  setSelectedCells,
-  setEditable,
-  setHideIndicators,
-  remove,
-} = actions;
+export const { create, setSelectedCells, setEditable, setHideIndicators, remove } =
+  actions;
 
 export type Action = ReturnType<(typeof actions)[keyof typeof actions]>;
 export type Payload = Action["payload"];

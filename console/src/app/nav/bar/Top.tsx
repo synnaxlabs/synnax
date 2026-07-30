@@ -12,6 +12,7 @@ import { type ReactElement } from "react";
 
 import { Cluster } from "@/feature/cluster";
 import { Docs } from "@/feature/docs";
+import { Panel } from "@/feature/panel";
 import { Project } from "@/feature/project";
 import { Version } from "@/feature/version";
 import { Nav as PlatformNav } from "@/platform/nav";
@@ -23,6 +24,7 @@ export const Top = (): ReactElement | null => (
     <Nav.Bar.Start data-tauri-drag-region gap="large">
       <Window.Controls visibleIfOS="macOS" />
       <Project.Selector />
+      <Panel.Selector />
     </Nav.Bar.Start>
     <Nav.Bar.Content data-tauri-drag-region full="x" />
     <Nav.Bar.End justify="end" align="center" data-tauri-drag-region gap="small">

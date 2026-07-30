@@ -7,15 +7,18 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import "schemas/x/spatial"
 import "schemas/synnax/ontology"
+import "schemas/x/spatial"
 
 @ts output "client/ts/src/panel"
 @go output "core/pkg/service/panel"
-@pb
+
+TabKey = uuid {
+    @go version 0
+}
 
 TabBase struct {
-    key uuid {
+    key TabKey = create {
         @doc value """
             is the stable unique identifier of this tab within the panel. It is
             independent of the tab's content, so a tab's content may be swapped
@@ -23,22 +26,15 @@ TabBase struct {
         """
     }
 
-    @doc value "carries the identity shared by every tab variant."
+    @go version 0
+    @doc value  "carries the identity shared by every tab variant."
 }
 
 View struct {
     type string {
         @doc value """
             is the Console-owned view type identifier (e.g., 'docs',
-            'about') used to select a renderer.
-        """
-    }
-    name string = "" {
-        @doc value """
-            is the human-readable tab name for the view. A view has no
-            backing resource to derive a name from, so it carries its own.
-            May be renamed via SetTabView; when empty the Console falls
-            back to a type-derived default.
+            'selector') used to select a renderer.
         """
     }
     args record = {} {
@@ -49,11 +45,12 @@ View struct {
         @ts preserve_case
     }
 
-    @doc value """
+    @go version 0
+    @doc value  """
         is an inline, self-describing view: a Console-owned type plus an
         opaque configuration payload, with no backing core document. Used
-        for app-views and tools (docs, explorers, about, the visualization
-        picker).
+        for app-views and tools (docs, explorers, task forms, and the
+        selector pickers).
     """
 }
 
@@ -73,26 +70,21 @@ Tab union on variant extends TabBase {
             is a tab displaying an inline, self-describing view. Unlike a
             resource, a view has no backing core document: it carries its own
             type and opaque args. Used for app-views and tools (docs,
-            explorers, about, the visualization picker).
-        """
-    }
-    empty {
-        @doc value """
-            is a tab with no content yet. An empty tab renders the
-            visualization selector at render time; SetTabResource or
-            SetTabView fills it in place.
+            explorers, task forms, and the selector pickers).
         """
     }
 
-    @doc value """
+    @go version 0
+    @doc value  """
         is a single tab in a leaf. Tab content is a discriminated union:
-        a resource (a backing core document, e.g. a line plot), a view
-        (an inline, self-describing app-view, e.g. docs), or empty (the
-        visualization selector). Display attributes (name, icon,
-        closability) are resolved at render time from the content. The
-        same content may be referenced by multiple tabs in the same or
-        other panels.
+        a resource (a backing core document, e.g. a line plot) or a view
+        (an inline, self-describing app-view, e.g. docs). A freshly created
+        tab is a view whose type is a selector picker; SetTabResource or
+        SetTabView swaps content in place. Display attributes (name, icon,
+        closability) are resolved at render time from the content. A
+        resource may back at most one tab per panel; views may repeat.
     """
+    @create
 }
 
 Leaf struct {
@@ -100,7 +92,8 @@ Leaf struct {
         @doc value "is the ordered list of tabs in this leaf."
     }
 
-    @doc value "is a leaf node in the panel tree displaying a tab strip."
+    @go version 0
+    @doc value  "is a leaf node in the panel tree displaying a tab strip."
 }
 
 Split struct {
@@ -120,14 +113,16 @@ Split struct {
         @doc value "is the second child (right for x, bottom for y)."
     }
 
-    @doc value "is an interior split node dividing its area between two children."
+    @go version 0
+    @doc value  "is an interior split node dividing its area between two children."
 }
 
 Node union on variant {
     leaf  Leaf
     split Split
 
-    @doc value """
+    @go version 0
+    @doc value  """
         is a node in the panel tree: either a leaf displaying a tab strip
         or an interior split. Nodes are identified by path-derived numeric
         keys during traversal (1 = root, 2k = first child, 2k+1 = last child).
@@ -135,7 +130,8 @@ Node union on variant {
 }
 
 Key = uuid {
-    @doc value "is a unique identifier for a panel, represented as a UUID."
+    @go version 0
+    @doc value  "is a unique identifier for a panel, represented as a UUID."
 }
 
 Panel struct {
@@ -173,16 +169,27 @@ Panel struct {
 
     action InsertTab {
         tab         Tab
-        target_leaf int32
+        target_leaf int32?
+        target_tab  TabKey?
         index       int32?
         location    spatial.Location?
+        singleton   bool?
 
         @doc value """
-            inserts a tab into the leaf with the given path-derived key at
-            the given index. Appends when index is absent. When location is
-            an edge, the target leaf is first split at that location and the
-            tab is inserted into the new empty leaf; a center location places
-            the tab directly in the target leaf, equivalent to absent.
+            inserts a tab into a leaf at the given index, appending when index
+            is absent. The destination leaf is resolved from target_tab (the
+            leaf holding that tab) when set, otherwise from the target_leaf
+            path-derived key, otherwise the first leaf in traversal order. When
+            location is an edge, the resolved leaf is first split at that
+            location and the tab is inserted into the new empty leaf; a center
+            location places the tab directly in the resolved leaf, equivalent
+            to absent. Inserting a resource tab whose resource already backs
+            a tab in the panel is a no-op: a resource may back at most one
+            tab per panel, and callers select the existing tab instead. When
+            singleton is set and the tab is a view, the insert is a no-op if a
+            view of the same type already backs a tab in the panel: a singleton
+            view backs at most one tab per panel, and callers select the
+            existing tab instead.
         """
     }
 
@@ -213,17 +220,15 @@ Panel struct {
         """
     }
 
-    action SplitLeaf {
-        leaf     int32
-        location spatial.Location
-        size     spatial.Decimal?
+    action SplitTab {
+        key       uuid
+        direction spatial.Direction
 
         @doc value """
-            splits the given leaf into a parent split with two children:
-            the original leaf and a new empty leaf. location determines on
-            which side ("left", "right", "top", "bottom") the new empty leaf
-            sits. size is the initial ratio in [0, 1] for the original leaf;
-            defaults to 0.5 when absent.
+            splits the tab with the given key off its leaf into a new sibling
+            pane, moving the tab into it. direction x places the new pane to
+            the right, y to the bottom. The tab must share its leaf with at
+            least one other tab; splitting the only tab in a leaf is a no-op.
         """
     }
 
@@ -241,8 +246,9 @@ Panel struct {
         @doc value """
             sets the visualization resource displayed by the tab with the
             given key, swapping it in place without changing the tab's
-            identity or position. Clears any view set on the tab. Used to
-            fill a freshly inserted empty tab once the user picks a
+            identity or position. Clears any view set on the tab. A no-op
+            when the resource already backs another tab in the panel. Used
+            to fill a freshly inserted selector tab once the user picks a
             visualization.
         """
     }
@@ -258,6 +264,7 @@ Panel struct {
         """
     }
 
+    @go version    0
     @doc value     """
         is a tab in a project owning a tree of visualization tabs. A panel
         is owned by a project (project panel) or by a user (draft);

@@ -115,6 +115,11 @@ class LayoutClient:
     """
 
     MODAL_SELECTOR = "div.pluto-dialog__dialog.pluto--modal.pluto--visible"
+    # Scoped to the mosaic: the top nav renders a second tab strip for panels.
+    TAB_STRIP_SELECTOR = (
+        ".console-mosaic .pluto-mosaic__leaf > .pluto-tabs > .pluto-tabs__selector"
+    )
+    TAB_SELECTOR = f"{TAB_STRIP_SELECTOR} > .pluto-tabs__tab"
 
     def __init__(self, page: Page):
         self.page = page
@@ -347,7 +352,12 @@ class LayoutClient:
             .first
         )
         button.wait_for(state="attached", timeout=300)
-        button.click()
+        try:
+            button.click(timeout=5000)
+        except PlaywrightTimeoutError:
+            # Toasts stack over the bottom of a form and swallow the click.
+            self.notifications.close_all()
+            button.click(timeout=5000)
 
     def click_checkbox(self, checkbox_label: str) -> None:
         """Click a checkbox by label."""
@@ -503,12 +513,26 @@ class LayoutClient:
             Locator for the tab element
         """
         return (
-            self.page.locator(
-                ".console-mosaic .pluto-mosaic__leaf > .pluto-tabs > .pluto-tabs__selector > .pluto-tabs__tab"
-            )
+            self.page.locator(self.TAB_SELECTOR)
             .filter(has_text=re.compile(f"^{re.escape(name)}$"))
             .filter(has=self.page.locator("[aria-label='Close']"))
             .first
+        )
+
+    def tab_names(self) -> list[str]:
+        """Return the names of every open tab in the mosaic."""
+        tabs = self.page.locator(self.TAB_SELECTOR)
+        return [tabs.nth(i).inner_text().strip() for i in range(tabs.count())]
+
+    def create_panel(self) -> None:
+        """Create a panel through the panel selector's add button."""
+        add_btn = self.page.locator(
+            ".console-panel-selector button:has(.pluto-icon--add)"
+        ).first
+        add_btn.wait_for(state="visible", timeout=5000)
+        add_btn.click()
+        self.page.locator(self.TAB_STRIP_SELECTOR).first.wait_for(
+            state="visible", timeout=10000
         )
 
     def wait_for_tab(self, name: str) -> None:
@@ -562,10 +586,17 @@ class LayoutClient:
         # Ensure focus
         tab.click()
 
-        if modality == "dblclick":
+        renamed_from_menu = False
+        if modality == "context_menu":
+            # Only tabs backed by a resource carry a Rename item.
+            self.ctx_menu.open_on(tab.locator("p"))
+            renamed_from_menu = self.ctx_menu.has_option("Rename", exact=False)
+            if renamed_from_menu:
+                self.ctx_menu.click_option("Rename", exact=False)
+            else:
+                self.ctx_menu.close()
+        if not renamed_from_menu:
             tab.locator("p").first.dblclick()
-        else:
-            self.ctx_menu.action(tab.locator("p"), "Rename", exact=False)
 
         # The tab name uses Text.Editable which becomes contentEditable (not an input)
         editable_text = tab.locator("p[contenteditable='true']").first
@@ -871,6 +902,7 @@ class LayoutClient:
         """
         modal = self.page.locator(self.MODAL_SELECTOR)
         modal.wait_for(state="visible", timeout=5000)
+        self.notifications.close_all()
         modal.get_by_role("button", name="Delete", exact=True).click()
         modal.wait_for(state="hidden", timeout=5000)
 

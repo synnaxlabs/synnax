@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import "@/feature/rack/tree.css";
+
 import { arc, rack, task } from "@synnaxlabs/client";
 import { Access, Icon, List, Menu, Rack, Text, Tree as PTree } from "@synnaxlabs/pluto";
 import { useCallback, useMemo } from "react";
@@ -14,6 +16,7 @@ import { useCallback, useMemo } from "react";
 import { Arc } from "@/feature/arc";
 import { NI } from "@/feature/ni";
 import { ContextMenu } from "@/platform/context-menu";
+import { CSS } from "@/platform/css";
 import { Group } from "@/platform/group";
 import { Tree } from "@/platform/tree";
 
@@ -42,7 +45,7 @@ const Content = ({ resource, icon: _icon, ...rest }: Tree.ContentProps) => {
         allowDoubleClick={false}
         value={resource.name}
         overflow="ellipsis"
-        style={{ width: 0 }}
+        className={CSS.B("rack-tree-name")}
         grow
         onChange
       />

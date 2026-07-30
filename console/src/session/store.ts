@@ -24,10 +24,10 @@ import { Cluster } from "@/session/cluster";
 import { Color } from "@/session/color";
 import { Docs } from "@/session/docs";
 import { Haul } from "@/session/haul";
-import { Layout } from "@/session/layout";
 import { LinePlot } from "@/session/lineplot";
 import { Log } from "@/session/log";
 import { Nav } from "@/session/nav";
+import { Panel } from "@/session/panel";
 import { Persist } from "@/session/persist";
 import { Project } from "@/session/project";
 import { Range } from "@/session/range";
@@ -38,6 +38,7 @@ import { Table } from "@/session/table";
 import { Theme } from "@/session/theme";
 
 const PERSIST_EXCLUDE: Array<deep.Key<State> | ((func: State) => State)> = [
+  ...Panel.PERSIST_EXCLUDE,
   Haul.PERSIST_EXCLUDE,
   ...Arc.PERSIST_EXCLUDE,
   ...LinePlot.PERSIST_EXCLUDE,
@@ -53,8 +54,8 @@ export const ZERO_STATE: State = {
   [Docs.SLICE_NAME]: Docs.ZERO_SLICE_STATE,
   [Drift.SLICE_NAME]: Drift.ZERO_SLICE_STATE,
   [Haul.SLICE_NAME]: Haul.ZERO_SLICE_STATE,
-  [Layout.SLICE_NAME]: Layout.ZERO_SLICE_STATE,
   [Nav.SLICE_NAME]: Nav.ZERO_SLICE_STATE,
+  [Panel.SLICE_NAME]: Panel.ZERO_SLICE_STATE,
   [Log.SLICE_NAME]: Log.ZERO_SLICE_STATE,
   [LinePlot.SLICE_NAME]: LinePlot.ZERO_SLICE_STATE,
   [Project.SLICE_NAME]: Project.ZERO_SLICE_STATE,
@@ -72,8 +73,8 @@ export const reducer = combineReducers({
   [Docs.SLICE_NAME]: Docs.reducer,
   [Drift.SLICE_NAME]: Drift.reducer,
   [Haul.SLICE_NAME]: Haul.reducer,
-  [Layout.SLICE_NAME]: Layout.reducer,
   [Nav.SLICE_NAME]: Nav.reducer,
+  [Panel.SLICE_NAME]: Panel.reducer,
   [Log.SLICE_NAME]: Log.reducer,
   [LinePlot.SLICE_NAME]: LinePlot.reducer,
   [Project.SLICE_NAME]: Project.reducer,
@@ -91,11 +92,11 @@ export interface State {
   [Docs.SLICE_NAME]: Docs.SliceState;
   [Drift.SLICE_NAME]: Drift.SliceState;
   [Haul.SLICE_NAME]: Haul.SliceState;
-  [Layout.SLICE_NAME]: Layout.SliceState;
   [Log.SLICE_NAME]: Log.SliceState;
   [LinePlot.SLICE_NAME]: LinePlot.SliceState;
   [Project.SLICE_NAME]: Project.SliceState;
   [Nav.SLICE_NAME]: Nav.SliceState;
+  [Panel.SLICE_NAME]: Panel.SliceState;
   [Range.SLICE_NAME]: Range.SliceState;
   [Schematic.SLICE_NAME]: Schematic.SliceState;
   [Status.SLICE_NAME]: Status.SliceState;
@@ -110,10 +111,10 @@ export type Action =
   | Docs.Action
   | Drift.Action
   | Haul.Action
-  | Layout.Action
   | Log.Action
   | LinePlot.Action
   | Nav.Action
+  | Panel.Action
   | Project.Action
   | Range.Action
   | Schematic.Action
@@ -150,7 +151,7 @@ const openPersist = async (): Promise<OpenPersistReturn> => {
   };
 };
 
-export const BASE_MIDDLEWARE = [...Layout.MIDDLEWARE, ...Nav.MIDDLEWARE];
+export const BASE_MIDDLEWARE = [...Nav.MIDDLEWARE, ...Panel.MIDDLEWARE];
 
 export interface CreateStoreOptions extends Partial<
   Pick<

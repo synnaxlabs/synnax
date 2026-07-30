@@ -13,14 +13,14 @@ import { useCallback } from "react";
 import { Clipboard } from "@/platform/clipboard";
 import { PREFIX } from "@/platform/link/types";
 
-export interface CopyToClipboardArgs {
+export interface CopyToClipboardParams {
   clusterKey: string;
   name: string;
   ontologyID?: ontology.ID;
 }
 
 export interface CopyToClipboard {
-  (args: CopyToClipboardArgs): void;
+  (params: CopyToClipboardParams): void;
 }
 
 export const useCopyToClipboard = (): CopyToClipboard => {

@@ -29,8 +29,8 @@ export type Status = z.infer<typeof statusZ>;
 
 /**
  * Payload is a collection container for hardware devices and tasks running on a
- * specific cluster node. Racks serve as the integration point between the
- * Synnax server and physical hardware via the Driver system.
+ * specific cluster node. Racks serve as the integration point between the Synnax server
+ * and physical hardware via the Driver system.
  */
 export const payloadZ = z.object({
   /** key is the composite identifier for this rack. */
@@ -44,8 +44,8 @@ export const payloadZ = z.object({
   /** status is the current operational status of the rack. */
   status: statusZ.optional(),
   /**
-   * integrations is the list of hardware integrations this rack supports (e.g., "ni", "opc",
-   * "labjack"). An empty or nil list means the rack supports no integrations.
+   * integrations is the list of hardware integrations this rack supports (e.g., "ni",
+   * "opc", "labjack"). An empty or nil list means the rack supports no integrations.
    */
   integrations: z
     .string()

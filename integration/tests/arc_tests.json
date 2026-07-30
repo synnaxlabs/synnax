@@ -77,6 +77,10 @@
         {
           "case": "arc/conversion",
           "parameters": { "rack_key": [65537, 65538] }
+        },
+        {
+          "case": "arc/variables",
+          "parameters": { "rack_key": [65537, 65538] }
         }
       ]
     },

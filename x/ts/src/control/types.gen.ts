@@ -32,8 +32,8 @@ export const subjectZ = z.object({
   /** name is a human-readable name for the subject. */
   name: z.string(),
   /**
-   * group optional identifier shared by subjects from the same logical group
-   * (e.g.) all writers from the same Driver rack.
+   * group optional identifier shared by subjects from the same logical group (e.g.) all
+   * writers from the same Driver rack.
    */
   group: z.uint32().default(0),
 });

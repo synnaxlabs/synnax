@@ -7,17 +7,16 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Read, READ_LAYOUT, ReadSelectable } from "@/feature/ethercat/task/Read";
+import { Read, ReadSelectable } from "@/feature/ethercat/task/Read";
 import {
   READ_SCHEMAS,
   READ_TYPE,
   WRITE_SCHEMAS,
   WRITE_TYPE,
 } from "@/feature/ethercat/task/types";
-import { Write, WRITE_LAYOUT, WriteSelectable } from "@/feature/ethercat/task/Write";
-import { type Export } from "@/platform/export";
+import { Write, WriteSelectable } from "@/feature/ethercat/task/Write";
 import { type Import } from "@/platform/import";
-import { type Layout } from "@/platform/layout";
+import { type Panel } from "@/platform/panel";
 import { type Selector } from "@/platform/selector";
 import { Task } from "@/platform/task";
 
@@ -26,24 +25,14 @@ export * from "@/feature/ethercat/task/Read";
 export * from "@/feature/ethercat/task/types";
 export * from "@/feature/ethercat/task/Write";
 
-export const EXTRACTORS: Export.Extractors = {
-  [READ_TYPE]: Task.extract,
-  [WRITE_TYPE]: Task.extract,
-};
-
 export const FILE_INGESTERS: Import.FileIngesters = {
-  [READ_TYPE]: Task.createIngester(READ_SCHEMAS.config, READ_LAYOUT),
-  [WRITE_TYPE]: Task.createIngester(WRITE_SCHEMAS.config, WRITE_LAYOUT),
+  [READ_TYPE]: Task.createIngester(READ_SCHEMAS.config, READ_TYPE),
+  [WRITE_TYPE]: Task.createIngester(WRITE_SCHEMAS.config, WRITE_TYPE),
 };
 
-export const LAYOUTS: Layout.Renderers = {
+export const TABS: Panel.Tabs = {
   [READ_TYPE]: Read,
   [WRITE_TYPE]: Write,
 };
 
 export const SELECTABLES: Selector.Selectable[] = [ReadSelectable, WriteSelectable];
-
-export const ZERO_LAYOUTS: Record<string, Task.Layout> = {
-  [READ_TYPE]: READ_LAYOUT,
-  [WRITE_TYPE]: WRITE_LAYOUT,
-};

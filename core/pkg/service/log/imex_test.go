@@ -18,9 +18,9 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
+	. "github.com/synnaxlabs/synnax/pkg/service/imex/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/log"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
-	"github.com/synnaxlabs/synnax/pkg/service/project"
 	"github.com/synnaxlabs/x/color"
 	"github.com/synnaxlabs/x/notation"
 	"github.com/synnaxlabs/x/query"
@@ -28,17 +28,7 @@ import (
 	. "github.com/synnaxlabs/x/testutil"
 )
 
-// wireRoundTrip marshals env to JSON and unmarshals it back, binding the codec that
-// Decode needs. Export-side envelopes carry a body but no codec, so a decode of an
-// exported envelope (and the import path generally) must first pass through the wire.
-func wireRoundTrip(env imex.Envelope) imex.Envelope {
-	b := MustSucceed(json.Marshal(env))
-	var out imex.Envelope
-	Expect(json.Unmarshal(b, &out)).To(Succeed())
-	return out
-}
-
-// loadEnvelope reads a wire-format envelope fixture from migrations/testdata and
+// loadEnvelope reads a wire-format envelope fixture from versions/testdata and
 // unmarshals it into an imex.Envelope, binding the codec that Decode needs. The
 // fixtures cover both legacy camelCase Console exports (v0, v1) and the current
 // Core-typed snake_case shape (v2) that Import dispatches on by version.
@@ -65,12 +55,12 @@ var _ = Describe("ImEx", func() {
 				TimestampPrecision: 2,
 				HideChannelNames:   true,
 			})
-			env := MustSucceed(imexSvc.Export(ctx, log.OntologyID(l.Key)))
+			env := MustSucceed(imexSvc.Export(ctx, l.OntologyID()))
 			Expect(env.Version).To(Equal(log.Version))
 			Expect(env.Type).To(Equal("log"))
 			Expect(env.Name).To(Equal("exported"))
 
-			decoded := MustSucceed(imex.Decode[log.Log](ctx, wireRoundTrip(env)))
+			decoded := MustSucceed(imex.Decode[log.Log](ctx, WireRoundTrip(env)))
 			Expect(decoded.Name).To(Equal("exported"))
 			Expect(decoded.TimestampPrecision).To(Equal(int32(2)))
 			Expect(decoded.HideChannelNames).To(BeTrue())
@@ -91,9 +81,9 @@ var _ = Describe("ImEx", func() {
 
 	Describe("Import", func() {
 		const (
-			v0Fixture = "migrations/testdata/import_v0.json"
-			v1Fixture = "migrations/testdata/import_v1.json"
-			v2Fixture = "migrations/testdata/import_v2.json"
+			v0Fixture = "versions/testdata/import_v0.json"
+			v1Fixture = "versions/testdata/import_v1.json"
+			v2Fixture = "versions/testdata/import_v2.json"
 		)
 
 		importAndRetrieve := func(ctx SpecContext, path string) (ontology.ID, log.Log) {
@@ -161,7 +151,7 @@ var _ = Describe("ImEx", func() {
 				imex.ImportOptions{Project: proj.Key},
 			))
 			Expect(otg.RelationshipExists(ctx, nil, ontology.Relationship{
-				From: project.OntologyID(proj.Key),
+				From: proj.OntologyID(),
 				Type: ontology.RelationshipTypeParentOf,
 				To:   id,
 			})).To(BeTrue())
@@ -198,7 +188,7 @@ var _ = Describe("ImEx", func() {
 
 		It("Should reject an envelope newer than the supported version", func(ctx SpecContext) {
 			Expect(imexSvc.Import(ctx, db,
-				loadEnvelope("migrations/testdata/import_bad_version.json"),
+				loadEnvelope("versions/testdata/import_bad_version.json"),
 				imex.ImportOptions{},
 			)).Error().To(SatisfyAll(
 				MatchError(ContainSubstring("log version 99")),
@@ -208,7 +198,7 @@ var _ = Describe("ImEx", func() {
 
 		It("Should return an error when a current-version body cannot be decoded", func(ctx SpecContext) {
 			Expect(imexSvc.Import(ctx, db,
-				loadEnvelope("migrations/testdata/import_bad_v2.json"),
+				loadEnvelope("versions/testdata/import_bad_v2.json"),
 				imex.ImportOptions{},
 			)).Error().To(MatchError(ContainSubstring("decode")))
 		})
@@ -225,8 +215,8 @@ var _ = Describe("ImEx", func() {
 				TimestampPrecision:   1,
 				HideReceiptTimestamp: true,
 			})
-			env := MustSucceed(imexSvc.Export(ctx, log.OntologyID(original.Key)))
-			id := MustSucceed(imexSvc.Import(ctx, db, wireRoundTrip(env), imex.ImportOptions{}))
+			env := MustSucceed(imexSvc.Export(ctx, original.OntologyID()))
+			id := MustSucceed(imexSvc.Import(ctx, db, WireRoundTrip(env), imex.ImportOptions{}))
 
 			key := MustSucceed(uuid.Parse(id.Key))
 			var res log.Log

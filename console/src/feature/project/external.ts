@@ -18,5 +18,4 @@ export * from "@/feature/project/Splash";
 export * from "@/feature/project/Toolbar";
 export * from "@/feature/project/tree";
 export * from "@/feature/project/useCheckCore";
-export * from "@/feature/project/useSyncLayout";
 export * from "@/platform/project/external";

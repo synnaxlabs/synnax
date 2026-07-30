@@ -15,7 +15,9 @@ import (
 
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
+	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/schematic/symbol/versions"
 	"github.com/synnaxlabs/synnax/pkg/service/search"
 	"github.com/synnaxlabs/synnax/pkg/service/signals"
 	"github.com/synnaxlabs/x/config"
@@ -28,30 +30,39 @@ import (
 
 // ServiceConfig is the configuration for opening a symbol service.
 type ServiceConfig struct {
+	// Instrumentation for logging, tracing, and metrics.
+	//
+	// [OPTIONAL] - Defaults to noop instrumentation.
 	alamos.Instrumentation
 	// DB is the database that the symbol service will store symbols in.
+	//
 	// [REQUIRED]
 	DB *gorp.DB
 	// Ontology is used to define relationships between symbols and other entities in
 	// the Synnax resource graph.
+	//
 	// [REQUIRED]
 	Ontology *ontology.Ontology
 	// Group is used to create and manage the permanent group for symbols.
+	//
 	// [OPTIONAL]
 	Group *group.Service
 	// Signals is used to propagate changes to symbols throughout the cluster.
+	//
 	// [OPTIONAL]
 	Signals *signals.Provider
 	// Search is the search index for fuzzy searching symbols.
+	//
 	// [REQUIRED]
 	Search *search.Index
+	// ImEx is the import/export registry the symbol service registers itself with as
+	// the exporter for symbol resources during OpenService.
+	//
+	// [REQUIRED]
+	ImEx *imex.Service
 }
 
-var (
-	_ config.Config[ServiceConfig] = ServiceConfig{}
-	// DefaultServiceConfig is the default configuration for opening a symbol service.
-	DefaultServiceConfig = ServiceConfig{}
-)
+var _ config.Config[ServiceConfig] = ServiceConfig{}
 
 // Override implements config.Config.
 func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
@@ -61,6 +72,7 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Group = override.Nil(c.Group, other.Group)
 	c.Signals = override.Nil(c.Signals, other.Signals)
 	c.Search = override.Nil(c.Search, other.Search)
+	c.ImEx = override.Nil(c.ImEx, other.ImEx)
 	return c
 }
 
@@ -70,12 +82,13 @@ func (c ServiceConfig) Validate() error {
 	validate.NotNil(v, "db", c.DB)
 	validate.NotNil(v, "ontology", c.Ontology)
 	validate.NotNil(v, "search", c.Search)
+	validate.NotNil(v, "imex", c.ImEx)
 	return v.Error()
 }
 
 // Service is the primary service for retrieving and modifying symbols from Synnax.
 type Service struct {
-	ServiceConfig
+	cfg    ServiceConfig
 	closer xio.MultiCloser
 	group  group.Group
 	table  *gorp.Table[Key, Symbol]
@@ -85,15 +98,16 @@ type Service struct {
 // configuration will be used as an override for the previous configuration in the list.
 // See the Config struct for information on which fields should be set.
 func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err error) {
-	cfg, err := config.New(DefaultServiceConfig, cfgs...)
+	cfg, err := config.New(ServiceConfig{}, cfgs...)
 	if err != nil {
 		return nil, err
 	}
-	s = &Service{ServiceConfig: cfg}
+	s = &Service{cfg: cfg}
 	cleanup, ok := service.NewOpener(ctx, &s.closer)
 	defer func() { err = cleanup(err) }()
 	if s.table, err = gorp.OpenTable(ctx, gorp.TableConfig[Key, Symbol]{
 		DB:              cfg.DB,
+		Migrations:      versions.Migrations,
 		Instrumentation: cfg.Instrumentation,
 	}); !ok(err, s.table) {
 		return nil, err
@@ -105,6 +119,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	}
 	cfg.Ontology.RegisterService(s)
 	cfg.Search.RegisterService(s)
+	cfg.ImEx.RegisterExporter(s)
 	if cfg.Signals != nil {
 		signalsCfg := signals.GorpPublisherConfigUUID(s.table.Observe())
 		signalsCfg.SetName = "sy_schematic_symbol_set"
@@ -117,15 +132,15 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	return s, nil
 }
 
-// NewWriter opens a new writer for creating, updating, and deleting symbols in Synnax. If
-// tx is provided, the writer will use that transaction. If tx is nil, the Writer
+// NewWriter opens a new writer for creating, updating, and deleting symbols in Synnax.
+// If tx is provided, the writer will use that transaction. If tx is nil, the Writer
 // will execute the operations directly on the underlying gorp.DB.
 func (s *Service) NewWriter(tx gorp.Tx) Writer {
-	tx = gorp.OverrideTx(s.DB, tx)
+	tx = gorp.OverrideTx(s.cfg.DB, tx)
 	return Writer{
 		tx:        tx,
-		otgWriter: s.Ontology.NewWriter(tx),
-		otg:       s.Ontology,
+		otgWriter: s.cfg.Ontology.NewWriter(tx),
+		otg:       s.cfg.Ontology,
 		table:     s.table,
 	}
 }
@@ -134,8 +149,8 @@ func (s *Service) NewWriter(tx gorp.Tx) Writer {
 func (s *Service) NewRetrieve() Retrieve {
 	return Retrieve{
 		gorp:   s.table.NewRetrieve(),
-		baseTX: s.DB,
-		search: s.Search,
+		baseTX: s.cfg.DB,
+		search: s.cfg.Search,
 	}
 }
 

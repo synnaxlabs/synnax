@@ -111,11 +111,10 @@ func NewSymbols() []*symbol.Symbol {
 
 // Host is the runtime host-side support for the time module: it registers
 // the `now` WASM host function and acts as the node factory for interval
-// and wait. BaseInterval is the GCD of timer periods, used by the
-// scheduler; it lives on the Host because it is host-runtime state, not
-// program state.
+// and wait.
 type Host struct {
-	// BaseInterval is the GCD of all timer periods, used for scheduler timing.
+	// BaseInterval is the GCD of known timer periods, declared and literal
+	// reassignments. Its only use is deriving the timing tolerance.
 	BaseInterval telem.TimeSpan
 	// clock provides monotonically increasing timestamps, avoiding
 	// duplicate values on platforms with coarse clock resolution.
@@ -152,9 +151,9 @@ func (h *Host) Create(_ context.Context, cfg node.Config) (node.Node, error) {
 			return nil, err
 		}
 		h.updateBaseInterval(period)
+		h.foldReassignedSpans(cfg, periodParam)
 		return &Interval{
 			State:     cfg.State,
-			period:    period,
 			lastFired: -period,
 		}, nil
 
@@ -168,9 +167,9 @@ func (h *Host) Create(_ context.Context, cfg node.Config) (node.Node, error) {
 			return nil, err
 		}
 		h.updateBaseInterval(duration)
+		h.foldReassignedSpans(cfg, durationParam)
 		return &Wait{
 			State:     cfg.State,
-			duration:  duration,
 			startTime: -1,
 			fired:     false,
 		}, nil
@@ -193,6 +192,30 @@ func CalculateTolerance(baseInterval telem.TimeSpan) telem.TimeSpan {
 		return MinTolerance
 	}
 	return halfInterval
+}
+
+// foldReassignedSpans folds the literal reassignment values of a var-bound
+// timer param into BaseInterval, so tolerance tracks the fastest known period.
+func (h *Host) foldReassignedSpans(cfg node.Config, p types.Param) {
+	if p.Type.Kind != types.KindVarRef {
+		return
+	}
+	for _, e := range cfg.Program.Edges {
+		if e.Target.Node != p.Type.Name {
+			continue
+		}
+		src, ok := cfg.Program.Nodes.Find(e.Source.Node)
+		if !ok || src.Type != "constant" {
+			continue
+		}
+		v, ok := src.Inputs.Get("value")
+		if !ok || v.Value == nil {
+			continue
+		}
+		if span, err := parseTime(v.Value, v.Name); err == nil {
+			h.updateBaseInterval(span)
+		}
+	}
 }
 
 func (h *Host) updateBaseInterval(span telem.TimeSpan) {
@@ -225,29 +248,35 @@ func parseTime(v any, name string) (telem.TimeSpan, error) {
 	return span, nil
 }
 
+// liveSpan returns the named input's current span: the referenced variable's
+// latest value when var-bound, else the value stamped at compile time.
+func liveSpan(s *node.State, name string) telem.TimeSpan {
+	return telem.TimeSpan(node.NumericInput[int64](s, name))
+}
+
 // Interval is a node that fires repeatedly at a specified period.
 type Interval struct {
 	*node.State
-	period    telem.TimeSpan
 	lastFired telem.TimeSpan
 }
 
 func (i *Interval) Init(_ node.Context) {}
 
 func (i *Interval) Next(ctx node.Context) {
+	period := liveSpan(i.State, periodInputParam)
 	if ctx.Reason != node.ReasonTimerTick {
 		ctx.MarkSelfChanged()
-		ctx.SetDeadline(i.lastFired + i.period)
+		ctx.SetDeadline(i.lastFired + period)
 		return
 	}
-	if ctx.Elapsed-i.lastFired < i.period-ctx.Tolerance {
+	if ctx.Elapsed-i.lastFired < period-ctx.Tolerance {
 		ctx.MarkSelfChanged()
-		ctx.SetDeadline(i.lastFired + i.period)
+		ctx.SetDeadline(i.lastFired + period)
 		return
 	}
 	i.lastFired = ctx.Elapsed
 	ctx.MarkSelfChanged()
-	ctx.SetDeadline(i.lastFired + i.period)
+	ctx.SetDeadline(i.lastFired + period)
 	ctx.MarkChanged(0)
 	output := i.Output(0)
 	outputTime := i.OutputTime(0)
@@ -260,13 +289,12 @@ func (i *Interval) Next(ctx node.Context) {
 // Reset resets the interval so it fires immediately on the next timer tick.
 func (i *Interval) Reset() {
 	i.State.Reset()
-	i.lastFired = -i.period
+	i.lastFired = -liveSpan(i.State, periodInputParam)
 }
 
 // Wait is a one-shot timer that fires once after a specified duration.
 type Wait struct {
 	*node.State
-	duration  telem.TimeSpan
 	startTime telem.TimeSpan
 	fired     bool
 }
@@ -280,12 +308,13 @@ func (w *Wait) Next(ctx node.Context) {
 	if w.startTime < 0 {
 		w.startTime = ctx.Elapsed
 	}
-	ctx.SetDeadline(w.startTime + w.duration)
+	duration := liveSpan(w.State, durationInputParam)
+	ctx.SetDeadline(w.startTime + duration)
 	if ctx.Reason != node.ReasonTimerTick {
 		ctx.MarkSelfChanged()
 		return
 	}
-	if ctx.Elapsed-w.startTime < w.duration-ctx.Tolerance {
+	if ctx.Elapsed-w.startTime < duration-ctx.Tolerance {
 		ctx.MarkSelfChanged()
 		return
 	}

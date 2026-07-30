@@ -10,10 +10,16 @@
 import "@/feature/schematic/toolbar/Toolbar.css";
 
 import { schematic } from "@synnaxlabs/client";
-import { Breadcrumb, Flex, Icon, Schematic, Tabs } from "@synnaxlabs/pluto";
+import {
+  Breadcrumb,
+  Flex,
+  Icon,
+  Panel as PlutoPanel,
+  Schematic,
+  Tabs,
+} from "@synnaxlabs/pluto";
 import { type ReactElement, useCallback } from "react";
 
-import { useExport } from "@/feature/schematic/export";
 import { Control } from "@/feature/schematic/toolbar/Control";
 import { Properties } from "@/feature/schematic/toolbar/Properties";
 import { Symbols } from "@/feature/schematic/toolbar/Symbols";
@@ -54,7 +60,6 @@ const Internal = (): ReactElement => {
   const activeTab = Session.Schematic.useSelectActiveToolbarTab();
   const name = Schematic.useSelectName();
   const { isCurrentlyEditable, canEdit } = Session.Schematic.useSelectEditable();
-  const handleExport = useExport();
   const selected = Session.Schematic.useSelectSelected();
   const singleSelectedConfig = Schematic.useSelectElementConfig({
     elKey: selected.length === 1 ? selected[0] : "",
@@ -93,7 +98,7 @@ const Internal = (): ReactElement => {
           </Breadcrumb.Breadcrumb>
           <Flex.Box x align="center" empty>
             <Flex.Box x empty className={CSS.BE("schematic", "toolbar", "actions")}>
-              <Export.ToolbarButton onExport={() => handleExport(key)} />
+              <Export.ToolbarButton getID={() => schematic.ontologyID(key)} />
               <Cluster.CopyLinkToolbarButton
                 name={name}
                 ontologyID={schematic.ontologyID(key)}
@@ -130,12 +135,11 @@ const Internal = (): ReactElement => {
   );
 };
 
-export interface ToolbarProps {
-  layoutKey: string;
-}
-
-export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement => (
-  <Schematic.Suspended schematicKey={layoutKey}>
-    <Internal />
-  </Schematic.Suspended>
-);
+export const Toolbar = (): ReactElement => {
+  const { key } = PlutoPanel.useSelectTabResource();
+  return (
+    <Schematic.Suspended schematicKey={key}>
+      <Internal />
+    </Schematic.Suspended>
+  );
+};

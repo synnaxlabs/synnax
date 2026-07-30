@@ -28,3 +28,12 @@
         }
     }
 }
+
+.console-project-selector-dialog {
+    min-height: 200px;
+    min-width: 400px;
+}
+
+.console-project-selector-search {
+    border-bottom-left-radius: 0;
+}

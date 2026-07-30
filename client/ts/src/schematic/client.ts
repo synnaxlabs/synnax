@@ -38,15 +38,15 @@ const copyReqZ = z.object({
 });
 
 const retrieveReqZ = z.object({ keys: keyZ.array() });
-const singleRetrieveArgsZ = z
+const singleRetrieveParamsZ = z
   .object({ key: keyZ })
   .transform(({ key }) => ({ keys: [key] }));
 
-export const retrieveArgsZ = z.union([singleRetrieveArgsZ, retrieveReqZ]);
-export type RetrieveArgs = z.input<typeof retrieveArgsZ>;
-export type RetrieveSingleParams = z.input<typeof singleRetrieveArgsZ>;
+export const retrieveParamsZ = z.union([singleRetrieveParamsZ, retrieveReqZ]);
+export type RetrieveParams = z.input<typeof retrieveParamsZ>;
+export type RetrieveSingleParams = z.input<typeof singleRetrieveParamsZ>;
 export type RetrieveMultipleParams = z.input<typeof retrieveReqZ>;
-export type CopyArgs = z.input<typeof copyReqZ>;
+export type CopyParams = z.input<typeof copyReqZ>;
 
 const retrieveResZ = z.object({ schematics: schematicZ.array() });
 
@@ -97,19 +97,19 @@ export class Client {
     );
   }
 
-  async retrieve(args: RetrieveSingleParams): Promise<Schematic>;
-  async retrieve(args: RetrieveMultipleParams): Promise<Schematic[]>;
+  async retrieve(params: RetrieveSingleParams): Promise<Schematic>;
+  async retrieve(params: RetrieveMultipleParams): Promise<Schematic[]>;
   async retrieve(
-    args: RetrieveSingleParams | RetrieveMultipleParams,
+    params: RetrieveSingleParams | RetrieveMultipleParams,
   ): Promise<Schematic | Schematic[]> {
-    const isSingle = singleRetrieveArgsZ.safeParse(args).success;
+    const isSingle = singleRetrieveParamsZ.safeParse(params).success;
     const res = await this.client.send(
       "/schematic/retrieve",
-      args,
-      retrieveArgsZ,
+      params,
+      retrieveParamsZ,
       retrieveResZ,
     );
-    checkForMultipleOrNoResults("Schematic", args, res.schematics, isSingle);
+    checkForMultipleOrNoResults("Schematic", params, res.schematics, isSingle);
     return isSingle ? res.schematics[0] : res.schematics;
   }
 
@@ -122,8 +122,8 @@ export class Client {
     );
   }
 
-  async copy(args: CopyArgs): Promise<Schematic> {
-    const res = await this.client.send("/schematic/copy", args, copyReqZ, copyResZ);
+  async copy(params: CopyParams): Promise<Schematic> {
+    const res = await this.client.send("/schematic/copy", params, copyReqZ, copyResZ);
     return res.schematic;
   }
 }

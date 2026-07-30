@@ -7,15 +7,16 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import "@/platform/view/FilterMenu.css";
+
 import { Dialog, Icon, Menu } from "@synnaxlabs/pluto";
 import { location } from "@synnaxlabs/x";
-import { type CSSProperties, type PropsWithChildren, type ReactNode } from "react";
+import { type PropsWithChildren, type ReactNode } from "react";
 
+import { CSS } from "@/platform/css";
 import { useContext } from "@/platform/view/context";
 
 export interface FilterMenuProps extends PropsWithChildren {}
-
-const STYLE: CSSProperties = { padding: "1rem" };
 
 export const FilterMenu = ({ children }: FilterMenuProps): ReactNode => {
   const { editable } = useContext("View.FilterMenu");
@@ -29,7 +30,7 @@ export const FilterMenu = ({ children }: FilterMenuProps): ReactNode => {
       >
         <Icon.Filter />
       </Dialog.Trigger>
-      <Dialog.Dialog background={1} pack={false} style={STYLE}>
+      <Dialog.Dialog background={1} pack={false} className={CSS.B("view-filter-menu")}>
         <Menu.Menu level="small" gap="small">
           {children}
         </Menu.Menu>

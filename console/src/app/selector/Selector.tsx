@@ -7,36 +7,37 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { uuid } from "@synnaxlabs/x";
+import { type panel } from "@synnaxlabs/client";
+import { Icon } from "@synnaxlabs/pluto";
+import { useCallback } from "react";
 
 import { SELECTABLES } from "@/app/selector/selectables";
-import { type Layout } from "@/platform/layout";
+import { Panel } from "@/platform/panel";
 import { Selector as Base } from "@/platform/selector";
-import { type Session } from "@/session";
 
 export const useVisible = (): boolean =>
   // It's safe to call hooks in map since SELECTABLES is a module-level constant
   // and never changes between renders, ensuring consistent hook order.
   SELECTABLES.map((s) => s.useVisible?.() ?? true).some(Boolean);
 
-export const LAYOUT_TYPE = "layoutSelector";
-
-export interface CreateSelectorLayoutArgs extends Omit<
-  Session.Layout.BaseState,
-  "type" | "icon" | "location" | "name" | "key"
-> {}
-
-export const create = (
-  args: CreateSelectorLayoutArgs = {},
-): Session.Layout.BaseState => ({
-  ...args,
-  type: LAYOUT_TYPE,
-  icon: "Visualize",
-  location: "mosaic",
-  name: "New Component",
-  key: uuid.create(),
+export const Selector = Base.create({
+  selectables: SELECTABLES,
+  icon: <Icon.Add />,
+  tabTitle: "Create tab",
+  text: "Create a tab",
 });
 
-export const Selector: Layout.Renderer = (props) => (
-  <Base.Selector selectables={SELECTABLES} text="Select a Component Type" {...props} />
-);
+export const TAB_TYPE = "selector";
+
+export const TABS: Panel.Tabs = { [TAB_TYPE]: Selector };
+
+export const createEmptyTab = (): panel.NewTab => ({
+  variant: "view",
+  type: TAB_TYPE,
+  args: {},
+});
+
+export const useOpenTab = (): (() => void) => {
+  const openTab = Panel.useOpenTab();
+  return useCallback(() => openTab(createEmptyTab()), [openTab]);
+};

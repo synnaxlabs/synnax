@@ -7,8 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type arc } from "@synnaxlabs/client";
+import { arc } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
+import { Panel as PlutoPanel } from "@synnaxlabs/pluto";
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { Suspense } from "react";
 import { describe, expect, it } from "vitest";
@@ -17,6 +18,7 @@ import { Arc } from "@/feature/arc";
 import { Session } from "@/session";
 import {
   createConsoleWrapper,
+  createResourceTab,
   getIconButton,
   type TestStore,
   uniqueName,
@@ -33,11 +35,16 @@ const createGraphArc = async (graph: Partial<arc.Arc["graph"]> = {}) =>
 
 const renderToolbar = async (arcKey: string): Promise<{ store: TestStore }> => {
   const { wrapper, store } = await createConsoleWrapper({ client });
+  const { panelKey, tabKey } = createResourceTab(wrapper, arc.ontologyID(arcKey));
   await act(async () => {
     render(
-      <Suspense fallback={null}>
-        <Arc.Editor.Toolbar layoutKey={arcKey} />
-      </Suspense>,
+      <PlutoPanel.Scope.Provider value={panelKey}>
+        <PlutoPanel.TabScope.Provider value={tabKey}>
+          <Suspense fallback={null}>
+            <Arc.Editor.Toolbar />
+          </Suspense>
+        </PlutoPanel.TabScope.Provider>
+      </PlutoPanel.Scope.Provider>,
       { wrapper },
     );
   });

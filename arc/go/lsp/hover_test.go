@@ -17,15 +17,16 @@ import (
 	"github.com/synnaxlabs/arc/symbol"
 	. "github.com/synnaxlabs/arc/symbol/testutil"
 	"github.com/synnaxlabs/arc/types"
-	"github.com/synnaxlabs/x/lsp/protocol"
 	. "github.com/synnaxlabs/x/lsp/testutil"
 	. "github.com/synnaxlabs/x/testutil"
+	"go.lsp.dev/protocol"
+	"go.lsp.dev/uri"
 )
 
 var _ = Describe("Hover", func() {
 	var (
 		server *lsp.Server
-		uri    protocol.DocumentURI
+		uri    uri.URI
 	)
 
 	BeforeEach(func() {
@@ -37,9 +38,9 @@ var _ = Describe("Hover", func() {
 			OpenArcDocument(server, ctx, uri, content)
 			hover := Hover(server, ctx, uri, 0, char)
 			Expect(hover).ToNot(BeNil())
-			Expect(hover.Contents.Value).To(ContainSubstring("#### " + expectedTitle))
+			Expect(HoverContents(hover)).To(ContainSubstring("#### " + expectedTitle))
 			if expectedSubstring != "" {
-				Expect(hover.Contents.Value).To(ContainSubstring(expectedSubstring))
+				Expect(HoverContents(hover)).To(ContainSubstring(expectedSubstring))
 			}
 		},
 		Entry("func", "func add(x i32, y i32) i32 {\n    return x + y\n}", uint32(2), "func", "Declares a function"),
@@ -55,8 +56,8 @@ var _ = Describe("Hover", func() {
 			OpenArcDocument(server, ctx, uri, content)
 			hover := Hover(server, ctx, uri, 0, char)
 			Expect(hover).ToNot(BeNil())
-			Expect(hover.Contents.Value).To(ContainSubstring("#### " + expectedType))
-			Expect(hover.Contents.Value).To(ContainSubstring("Range:"))
+			Expect(HoverContents(hover)).To(ContainSubstring("#### " + expectedType))
+			Expect(HoverContents(hover)).To(ContainSubstring("Range:"))
 		},
 		Entry("i8", "x i8 := 127", uint32(2), "i8"),
 		Entry("i16", "y i16 := 32767", uint32(2), "i16"),
@@ -73,8 +74,8 @@ var _ = Describe("Hover", func() {
 			OpenArcDocument(server, ctx, uri, content)
 			hover := Hover(server, ctx, uri, line, char)
 			Expect(hover).ToNot(BeNil())
-			Expect(hover.Contents.Value).To(ContainSubstring("#### " + expectedType))
-			Expect(hover.Contents.Value).To(ContainSubstring(expectedSubstring))
+			Expect(HoverContents(hover)).To(ContainSubstring("#### " + expectedType))
+			Expect(HoverContents(hover)).To(ContainSubstring(expectedSubstring))
 		},
 		Entry("f32", "x f32 := 3.14", uint32(0), uint32(2), "f32", "32-bit floating point"),
 		Entry("f64", "x f32 := 3.14\ny f64 := 2.71828", uint32(1), uint32(2), "f64", "64-bit floating point"),
@@ -95,8 +96,8 @@ var _ = Describe("Hover", func() {
 			}))
 
 			Expect(hover).ToNot(BeNil())
-			Expect(hover.Contents.Value).To(ContainSubstring("#### len"))
-			Expect(hover.Contents.Value).To(ContainSubstring("length of a series"))
+			Expect(HoverContents(hover)).To(ContainSubstring("#### len"))
+			Expect(HoverContents(hover)).To(ContainSubstring("length of a series"))
 		})
 
 		It("should provide hover for 'set_authority' function", func(ctx SpecContext) {
@@ -111,8 +112,8 @@ var _ = Describe("Hover", func() {
 			}))
 
 			Expect(hover).ToNot(BeNil())
-			Expect(hover.Contents.Value).To(ContainSubstring("#### set_authority"))
-			Expect(hover.Contents.Value).To(ContainSubstring("control.set_authority"))
+			Expect(HoverContents(hover)).To(ContainSubstring("#### set_authority"))
+			Expect(HoverContents(hover)).To(ContainSubstring("control.set_authority"))
 		})
 
 		It("should provide hover for 'control.set_authority' function", func(ctx SpecContext) {
@@ -127,8 +128,8 @@ var _ = Describe("Hover", func() {
 			}))
 
 			Expect(hover).ToNot(BeNil())
-			Expect(hover.Contents.Value).To(ContainSubstring("#### control.set_authority"))
-			Expect(hover.Contents.Value).To(ContainSubstring("control authority"))
+			Expect(HoverContents(hover)).To(ContainSubstring("#### control.set_authority"))
+			Expect(HoverContents(hover)).To(ContainSubstring("control authority"))
 		})
 
 		It("should provide hover for 'math.avg' function", func(ctx SpecContext) {
@@ -143,8 +144,8 @@ var _ = Describe("Hover", func() {
 			}))
 
 			Expect(hover).ToNot(BeNil())
-			Expect(hover.Contents.Value).To(ContainSubstring("#### math.avg"))
-			Expect(hover.Contents.Value).To(ContainSubstring("running average"))
+			Expect(HoverContents(hover)).To(ContainSubstring("#### math.avg"))
+			Expect(HoverContents(hover)).To(ContainSubstring("running average"))
 		})
 
 		It("should provide hover for 'select' function", func(ctx SpecContext) {
@@ -159,8 +160,8 @@ var _ = Describe("Hover", func() {
 			}))
 
 			Expect(hover).ToNot(BeNil())
-			Expect(hover.Contents.Value).To(ContainSubstring("#### select"))
-			Expect(hover.Contents.Value).To(ContainSubstring("Routes input values"))
+			Expect(HoverContents(hover)).To(ContainSubstring("#### select"))
+			Expect(HoverContents(hover)).To(ContainSubstring("Routes input values"))
 		})
 
 		It("should provide hover for 'stable.for' function", func(ctx SpecContext) {
@@ -175,8 +176,8 @@ var _ = Describe("Hover", func() {
 			}))
 
 			Expect(hover).ToNot(BeNil())
-			Expect(hover.Contents.Value).To(ContainSubstring("#### stable.for"))
-			Expect(hover.Contents.Value).To(ContainSubstring("remained stable"))
+			Expect(HoverContents(hover)).To(ContainSubstring("#### stable.for"))
+			Expect(HoverContents(hover)).To(ContainSubstring("remained stable"))
 		})
 
 		It("should provide hover for 'time.now' function", func(ctx SpecContext) {
@@ -191,8 +192,8 @@ var _ = Describe("Hover", func() {
 			}))
 
 			Expect(hover).ToNot(BeNil())
-			Expect(hover.Contents.Value).To(ContainSubstring("#### time.now"))
-			Expect(hover.Contents.Value).To(ContainSubstring("current timestamp"))
+			Expect(HoverContents(hover)).To(ContainSubstring("#### time.now"))
+			Expect(HoverContents(hover)).To(ContainSubstring("current timestamp"))
 		})
 
 		It("should provide deprecation hover for bare 'now' function", func(ctx SpecContext) {
@@ -207,8 +208,8 @@ var _ = Describe("Hover", func() {
 			}))
 
 			Expect(hover).ToNot(BeNil())
-			Expect(hover.Contents.Value).To(ContainSubstring("deprecated"))
-			Expect(hover.Contents.Value).To(ContainSubstring("time.now"))
+			Expect(HoverContents(hover)).To(ContainSubstring("deprecated"))
+			Expect(HoverContents(hover)).To(ContainSubstring("time.now"))
 		})
 
 		It("should provide hover for 'time.interval' function", func(ctx SpecContext) {
@@ -223,8 +224,8 @@ var _ = Describe("Hover", func() {
 			}))
 
 			Expect(hover).ToNot(BeNil())
-			Expect(hover.Contents.Value).To(ContainSubstring("#### time.interval"))
-			Expect(hover.Contents.Value).To(ContainSubstring("Fires repeatedly"))
+			Expect(HoverContents(hover)).To(ContainSubstring("#### time.interval"))
+			Expect(HoverContents(hover)).To(ContainSubstring("Fires repeatedly"))
 		})
 
 		It("should provide deprecation hover for bare 'interval' function", func(ctx SpecContext) {
@@ -239,8 +240,8 @@ var _ = Describe("Hover", func() {
 			}))
 
 			Expect(hover).ToNot(BeNil())
-			Expect(hover.Contents.Value).To(ContainSubstring("deprecated"))
-			Expect(hover.Contents.Value).To(ContainSubstring("time.interval"))
+			Expect(HoverContents(hover)).To(ContainSubstring("deprecated"))
+			Expect(HoverContents(hover)).To(ContainSubstring("time.interval"))
 		})
 
 		It("should provide hover for 'time.wait' function", func(ctx SpecContext) {
@@ -255,8 +256,8 @@ var _ = Describe("Hover", func() {
 			}))
 
 			Expect(hover).ToNot(BeNil())
-			Expect(hover.Contents.Value).To(ContainSubstring("#### time.wait"))
-			Expect(hover.Contents.Value).To(ContainSubstring("Fires once"))
+			Expect(HoverContents(hover)).To(ContainSubstring("#### time.wait"))
+			Expect(HoverContents(hover)).To(ContainSubstring("Fires once"))
 		})
 
 		It("should provide deprecation hover for bare 'wait' function", func(ctx SpecContext) {
@@ -271,8 +272,8 @@ var _ = Describe("Hover", func() {
 			}))
 
 			Expect(hover).ToNot(BeNil())
-			Expect(hover.Contents.Value).To(ContainSubstring("deprecated"))
-			Expect(hover.Contents.Value).To(ContainSubstring("time.wait"))
+			Expect(HoverContents(hover)).To(ContainSubstring("deprecated"))
+			Expect(HoverContents(hover)).To(ContainSubstring("time.wait"))
 		})
 	})
 
@@ -296,11 +297,11 @@ func main() {
 			}))
 
 			Expect(hover).ToNot(BeNil())
-			Expect(hover.Contents.Value).To(ContainSubstring("#### add"))
-			Expect(hover.Contents.Value).To(ContainSubstring("func add"))
-			Expect(hover.Contents.Value).To(ContainSubstring("x i32"))
-			Expect(hover.Contents.Value).To(ContainSubstring("y i32"))
-			Expect(hover.Contents.Value).To(ContainSubstring("i32"))
+			Expect(HoverContents(hover)).To(ContainSubstring("#### add"))
+			Expect(HoverContents(hover)).To(ContainSubstring("func add"))
+			Expect(HoverContents(hover)).To(ContainSubstring("x i32"))
+			Expect(HoverContents(hover)).To(ContainSubstring("y i32"))
+			Expect(HoverContents(hover)).To(ContainSubstring("i32"))
 		})
 
 		It("should provide hover for user-defined functions", func(ctx SpecContext) {
@@ -322,9 +323,9 @@ func main() {
 			}))
 
 			Expect(hover).ToNot(BeNil())
-			Expect(hover.Contents.Value).To(ContainSubstring("#### max"))
-			Expect(hover.Contents.Value).To(ContainSubstring("func max"))
-			Expect(hover.Contents.Value).To(ContainSubstring("value f32"))
+			Expect(HoverContents(hover)).To(ContainSubstring("#### max"))
+			Expect(HoverContents(hover)).To(ContainSubstring("func max"))
+			Expect(HoverContents(hover)).To(ContainSubstring("value f32"))
 		})
 
 		It("should provide hover for stages with input", func(ctx SpecContext) {
@@ -347,10 +348,10 @@ func main() {
 			}))
 
 			Expect(hover).ToNot(BeNil())
-			Expect(hover.Contents.Value).To(ContainSubstring("#### threshold"))
-			Expect(hover.Contents.Value).To(ContainSubstring("func threshold"))
-			Expect(hover.Contents.Value).To(ContainSubstring("limit f64"))
-			Expect(hover.Contents.Value).To(ContainSubstring("value f64"))
+			Expect(HoverContents(hover)).To(ContainSubstring("#### threshold"))
+			Expect(HoverContents(hover)).To(ContainSubstring("func threshold"))
+			Expect(HoverContents(hover)).To(ContainSubstring("limit f64"))
+			Expect(HoverContents(hover)).To(ContainSubstring("value f64"))
 		})
 
 		It("should provide hover for variables", func(ctx SpecContext) {
@@ -370,9 +371,9 @@ func main() {
 			}))
 
 			Expect(hover).ToNot(BeNil())
-			Expect(hover.Contents.Value).To(ContainSubstring("#### x"))
-			Expect(hover.Contents.Value).To(ContainSubstring("Variable"))
-			Expect(hover.Contents.Value).To(ContainSubstring("i32"))
+			Expect(HoverContents(hover)).To(ContainSubstring("#### x"))
+			Expect(HoverContents(hover)).To(ContainSubstring("Variable"))
+			Expect(HoverContents(hover)).To(ContainSubstring("i32"))
 		})
 
 		It("should provide hover for stateful variables", func(ctx SpecContext) {
@@ -393,9 +394,55 @@ func main() {
 			}))
 
 			Expect(hover).ToNot(BeNil())
-			Expect(hover.Contents.Value).To(ContainSubstring("#### count"))
-			Expect(hover.Contents.Value).To(ContainSubstring("Stateful Variable"))
-			Expect(hover.Contents.Value).To(ContainSubstring("Persists across executions"))
+			Expect(HoverContents(hover)).To(ContainSubstring("#### count"))
+			Expect(HoverContents(hover)).To(ContainSubstring("Stateful Variable"))
+			Expect(HoverContents(hover)).To(ContainSubstring("Persists across executions"))
+		})
+
+		It("should provide hover for a channel read/write alias", func(ctx SpecContext) {
+			server, uri = SetupTestServer(lsp.Config{
+				NewRoot: func() *symbol.Symbol {
+					return NewRoot(nil, symbol.Symbol{
+						Name: "sensorData", Type: types.Chan(types.F64()),
+						Kind: symbol.KindChannel,
+					})
+				},
+			})
+			OpenArcDocument(server, ctx, uri, "cpu := sensorData\n")
+
+			hover := MustSucceed(server.Hover(ctx, &protocol.HoverParams{
+				TextDocumentPositionParams: protocol.TextDocumentPositionParams{
+					TextDocument: protocol.TextDocumentIdentifier{URI: uri},
+					Position:     protocol.Position{Line: 0, Character: 1}, // c|pu
+				},
+			}))
+
+			Expect(hover).ToNot(BeNil())
+			Expect(HoverContents(hover)).To(ContainSubstring("#### cpu"))
+			Expect(HoverContents(hover)).To(ContainSubstring("chan read/write f64"))
+		})
+
+		It("should provide hover for a reactive variable", func(ctx SpecContext) {
+			server, uri = SetupTestServer(lsp.Config{
+				NewRoot: func() *symbol.Symbol {
+					return NewRoot(nil, symbol.Symbol{
+						Name: "sensorData", Type: types.Chan(types.F64()),
+						Kind: symbol.KindChannel,
+					})
+				},
+			})
+			OpenArcDocument(server, ctx, uri, "rate := sensorData + 1.0\n")
+
+			hover := MustSucceed(server.Hover(ctx, &protocol.HoverParams{
+				TextDocumentPositionParams: protocol.TextDocumentPositionParams{
+					TextDocument: protocol.TextDocumentIdentifier{URI: uri},
+					Position:     protocol.Position{Line: 0, Character: 1}, // r|ate
+				},
+			}))
+
+			Expect(hover).ToNot(BeNil())
+			Expect(HoverContents(hover)).To(ContainSubstring("#### rate"))
+			Expect(HoverContents(hover)).To(ContainSubstring("chan read f64"))
 		})
 
 		It("should provide hover for function parameters", func(ctx SpecContext) {
@@ -414,9 +461,9 @@ func main() {
 			}))
 
 			Expect(hover).ToNot(BeNil())
-			Expect(hover.Contents.Value).To(ContainSubstring("#### x"))
-			Expect(hover.Contents.Value).To(ContainSubstring("Input Parameter"))
-			Expect(hover.Contents.Value).To(ContainSubstring("f64"))
+			Expect(HoverContents(hover)).To(ContainSubstring("#### x"))
+			Expect(HoverContents(hover)).To(ContainSubstring("Input Parameter"))
+			Expect(HoverContents(hover)).To(ContainSubstring("f64"))
 		})
 
 		It("should provide hover for sequence declarations", func(ctx SpecContext) {
@@ -435,10 +482,10 @@ func main() {
 			}))
 
 			Expect(hover).ToNot(BeNil())
-			Expect(hover.Contents.Value).To(ContainSubstring("#### main"))
-			Expect(hover.Contents.Value).To(ContainSubstring("Sequence"))
-			Expect(hover.Contents.Value).To(ContainSubstring("first"))
-			Expect(hover.Contents.Value).To(ContainSubstring("second"))
+			Expect(HoverContents(hover)).To(ContainSubstring("#### main"))
+			Expect(HoverContents(hover)).To(ContainSubstring("Sequence"))
+			Expect(HoverContents(hover)).To(ContainSubstring("first"))
+			Expect(HoverContents(hover)).To(ContainSubstring("second"))
 		})
 
 		It("should provide hover for stage declarations within sequence", func(ctx SpecContext) {
@@ -455,8 +502,8 @@ func main() {
 			}))
 
 			Expect(hover).ToNot(BeNil())
-			Expect(hover.Contents.Value).To(ContainSubstring("#### first"))
-			Expect(hover.Contents.Value).To(ContainSubstring("Stage"))
+			Expect(HoverContents(hover)).To(ContainSubstring("#### first"))
+			Expect(HoverContents(hover)).To(ContainSubstring("Stage"))
 		})
 
 		It("should include single-line doc comment in hover", func(ctx SpecContext) {
@@ -474,8 +521,8 @@ func add(x i32, y i32) i32 {
 			}))
 
 			Expect(hover).ToNot(BeNil())
-			Expect(hover.Contents.Value).To(ContainSubstring("#### add"))
-			Expect(hover.Contents.Value).To(ContainSubstring("Adds two numbers together"))
+			Expect(HoverContents(hover)).To(ContainSubstring("#### add"))
+			Expect(HoverContents(hover)).To(ContainSubstring("Adds two numbers together"))
 		})
 
 		It("should include multi-line doc comment in hover", func(ctx SpecContext) {
@@ -494,8 +541,8 @@ func max(a i32, b i32) i32 {
 			}))
 
 			Expect(hover).ToNot(BeNil())
-			Expect(hover.Contents.Value).To(ContainSubstring("#### max"))
-			Expect(hover.Contents.Value).To(ContainSubstring("Computes the maximum of two values"))
+			Expect(HoverContents(hover)).To(ContainSubstring("#### max"))
+			Expect(HoverContents(hover)).To(ContainSubstring("Computes the maximum of two values"))
 		})
 
 		It("should include multiple consecutive single-line comments in hover", func(ctx SpecContext) {
@@ -514,8 +561,8 @@ func threshold(value f64) u8 {
 			}))
 
 			Expect(hover).ToNot(BeNil())
-			Expect(hover.Contents.Value).To(ContainSubstring("Threshold function"))
-			Expect(hover.Contents.Value).To(ContainSubstring("Returns 1 if value exceeds limit"))
+			Expect(HoverContents(hover)).To(ContainSubstring("Threshold function"))
+			Expect(HoverContents(hover)).To(ContainSubstring("Returns 1 if value exceeds limit"))
 		})
 
 		It("should not include comment separated by code from symbol", func(ctx SpecContext) {
@@ -537,8 +584,8 @@ func add(a i32, b i32) i32 {
 			}))
 
 			Expect(hover).ToNot(BeNil())
-			Expect(hover.Contents.Value).To(ContainSubstring("#### add"))
-			Expect(hover.Contents.Value).ToNot(ContainSubstring("Comment for helper"))
+			Expect(HoverContents(hover)).To(ContainSubstring("#### add"))
+			Expect(HoverContents(hover)).ToNot(ContainSubstring("Comment for helper"))
 		})
 	})
 
@@ -552,8 +599,8 @@ func add(a i32, b i32) i32 {
 			OpenArcDocument(server, ctx, uri, content)
 			hover := Hover(server, ctx, uri, line, char)
 			Expect(hover).ToNot(BeNil())
-			Expect(hover.Contents.Value).To(ContainSubstring("#### " + expectedTitle))
-			Expect(hover.Contents.Value).To(ContainSubstring(expectedKind))
+			Expect(HoverContents(hover)).To(ContainSubstring("#### " + expectedTitle))
+			Expect(HoverContents(hover)).To(ContainSubstring(expectedKind))
 		},
 		Entry("function",
 			"func foo() i32 { return 0 }\n",
@@ -598,9 +645,9 @@ func add(a i32, b i32) i32 {
 			OpenArcDocument(server, ctx, uri, content)
 			hover := Hover(server, ctx, uri, 0, char)
 			Expect(hover).ToNot(BeNil())
-			Expect(hover.Contents.Value).To(ContainSubstring(expectedOp))
+			Expect(HoverContents(hover)).To(ContainSubstring(expectedOp))
 			if expectedSubstring != "" {
-				Expect(hover.Contents.Value).To(ContainSubstring(expectedSubstring))
+				Expect(HoverContents(hover)).To(ContainSubstring(expectedSubstring))
 			}
 		},
 		Entry(":=", "x := 42", uint32(2), ":=", "Declares and initializes"),
@@ -638,14 +685,14 @@ func add(a i32, b i32) i32 {
 			OpenArcDocument(server, ctx, uri, "func")
 			hover := Hover(server, ctx, uri, 0, 3)
 			Expect(hover).ToNot(BeNil())
-			Expect(hover.Contents.Value).To(ContainSubstring("#### func"))
+			Expect(HoverContents(hover)).To(ContainSubstring("#### func"))
 		})
 
 		It("should handle hovering at start of word", func(ctx SpecContext) {
 			OpenArcDocument(server, ctx, uri, "func")
 			hover := Hover(server, ctx, uri, 0, 0)
 			Expect(hover).ToNot(BeNil())
-			Expect(hover.Contents.Value).To(ContainSubstring("#### func"))
+			Expect(HoverContents(hover)).To(ContainSubstring("#### func"))
 		})
 
 		It("should handle empty lines", func(ctx SpecContext) {
@@ -666,8 +713,8 @@ func add(a i32, b i32) i32 {
 			OpenArcDocument(server, ctx, uri, "func test() i32 {\n    return myGlobal\n}")
 			hover := Hover(server, ctx, uri, 1, 12)
 			Expect(hover).ToNot(BeNil())
-			Expect(hover.Contents.Value).To(ContainSubstring("myGlobal"))
-			Expect(hover.Contents.Value).To(ContainSubstring("i32"))
+			Expect(HoverContents(hover)).To(ContainSubstring("myGlobal"))
+			Expect(HoverContents(hover)).To(ContainSubstring("i32"))
 		})
 	})
 
@@ -684,7 +731,7 @@ func add(a i32, b i32) i32 {
 			OpenArcDocument(server, ctx, uri, content)
 			hover := Hover(server, ctx, uri, 3, 14)
 			Expect(hover).ToNot(BeNil())
-			Expect(hover.Contents.Value).To(ContainSubstring("now"))
+			Expect(HoverContents(hover)).To(ContainSubstring("now"))
 		})
 
 		It("Should not provide hover for invalid module prefix", func(ctx SpecContext) {
@@ -715,7 +762,7 @@ func add(a i32, b i32) i32 {
 			OpenArcDocument(server, ctx, uri, content)
 			hover := Hover(server, ctx, uri, 3, 17) // n|ow
 			Expect(hover).ToNot(BeNil())
-			Expect(hover.Contents.Value).To(ContainSubstring("#### time.now"))
+			Expect(HoverContents(hover)).To(ContainSubstring("#### time.now"))
 		})
 	})
 

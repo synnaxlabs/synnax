@@ -7,11 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import "@/access/role/Select.css";
+
 import { type access } from "@synnaxlabs/client";
 import { type ReactElement } from "react";
 
 import { type ListQuery, useList } from "@/access/role/queries";
 import { Component } from "@/component";
+import { CSS } from "@/css";
 import { type Flux } from "@/flux";
 import { List } from "@/list";
 import { Select as Base } from "@/select";
@@ -20,6 +23,7 @@ import { Text } from "@/text";
 const listItemRenderProp = Component.renderProp(
   ({
     itemKey,
+    className,
     ...rest
   }: List.ItemRenderProps<access.role.Key>): ReactElement | null => {
     const item = List.useItem<access.role.Key, access.role.Role>(itemKey);
@@ -31,7 +35,7 @@ const listItemRenderProp = Component.renderProp(
         y
         gap="small"
         {...rest}
-        style={{ overflow: "hidden", maxWidth: "100%" }}
+        className={CSS(className, CSS.BE("access-role", "item"))}
       >
         <Text.Text level="p" weight={400}>
           {name}

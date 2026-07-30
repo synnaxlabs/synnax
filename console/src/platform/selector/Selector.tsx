@@ -9,18 +9,24 @@
 
 import "@/platform/selector/Selector.css";
 
-import { Eraser, Flex, Status, Text } from "@synnaxlabs/pluto";
+import { type panel } from "@synnaxlabs/client";
+import { Eraser, Flex, type Icon, Panel as PPanel, Text } from "@synnaxlabs/pluto";
 import { type FC, type ReactElement } from "react";
 
 import { CSS } from "@/platform/css";
-import { Layout } from "@/platform/layout";
-import { Modals } from "@/platform/modals";
+import { Panel } from "@/platform/panel";
+
+/** OnSelectParams is passed to a selectable's onSelect hook when it is chosen. */
+export interface OnSelectParams {
+  /**
+   * tabKey is the selector tab the pick was made from, so the selectable can open
+   * its content into that tab in place rather than a new one.
+   */
+  tabKey?: panel.TabKey;
+}
 
 export interface SelectableProps {
-  layoutKey: string;
-  rename: Modals.PromptRename;
-  onPlace: Layout.Placer;
-  handleError: Status.ErrorHandler;
+  tabKey?: panel.TabKey;
 }
 
 export interface Selectable extends FC<SelectableProps> {
@@ -28,58 +34,50 @@ export interface Selectable extends FC<SelectableProps> {
   useVisible?: () => boolean;
 }
 
-export interface SelectorProps extends Layout.RendererProps {
-  text: string;
+export interface CreateParams {
   selectables: Selectable[];
+  tabTitle: string;
+  text: string;
+  icon: Icon.ReactElement;
 }
 
-export const Selector = ({
-  layoutKey,
+export const create = ({
   selectables,
+  tabTitle,
   text,
-}: SelectorProps): ReactElement => {
-  const place = Layout.usePlacer();
-  const rename = Modals.useRename();
-  const handleError = Status.useErrorHandler();
-  return (
-    <Eraser.Eraser>
-      <Flex.Box
-        className={CSS.BE("layout-selector", "frame")}
-        gap="large"
-        align="center"
-        grow
-        full
-      >
-        <Text.Text level="h4" color={10} weight={400}>
-          {text}
-        </Text.Text>
+  icon,
+}: CreateParams): Panel.Tab => {
+  const Content: Panel.Content = (): ReactElement => {
+    const tabKey = PPanel.useOptionalTabKey();
+    return (
+      <Eraser.Eraser>
         <Flex.Box
-          x
-          wrap
-          full="x"
-          justify="center"
-          gap={2.5}
-          className={CSS.BE("layout-selector", "items")}
+          className={CSS.BE("layout-selector", "frame")}
+          gap="large"
+          align="center"
+          grow
+          full
         >
-          {selectables.map((Selectable) => (
-            <Selectable
-              key={Selectable.type}
-              layoutKey={layoutKey}
-              rename={rename}
-              onPlace={place}
-              handleError={handleError}
-            />
-          ))}
+          <Text.Text level="h4" color={10} weight={400}>
+            {text}
+          </Text.Text>
+          <Flex.Box
+            x
+            wrap
+            full="x"
+            justify="center"
+            gap={2.5}
+            className={CSS.BE("layout-selector", "items")}
+          >
+            {selectables.map((Selectable) => (
+              <Selectable key={Selectable.type} tabKey={tabKey} />
+            ))}
+          </Flex.Box>
         </Flex.Box>
-      </Flex.Box>
-    </Eraser.Eraser>
-  );
-};
-
-export const create = (selectables: Selectable[], text: string) => {
-  const C: Layout.Renderer = (props) => (
-    <Selector {...props} selectables={selectables} text={text} />
-  );
-  C.displayName = "LayoutSelector";
-  return C;
+      </Eraser.Eraser>
+    );
+  };
+  Content.displayName = `${tabTitle}.Selector`;
+  const Name = Panel.createStaticTabName({ name: tabTitle, icon });
+  return { Content, Name };
 };

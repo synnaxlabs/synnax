@@ -14,19 +14,18 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/synnaxlabs/synnax/cmd/cert"
+	"github.com/synnaxlabs/synnax/cmd/listener"
 	"github.com/synnaxlabs/x/encoding/base64"
 )
 
 // Flag names used for starting a Synnax Core.
 const (
-	FlagListen                       = "listen"
 	FlagPeers                        = "peers"
 	FlagData                         = "data"
 	FlagMem                          = "mem"
 	FlagInsecure                     = "insecure"
 	FlagUsername                     = "username"
 	FlagPassword                     = "password"
-	FlagAutoCert                     = "auto-cert"
 	FlagNoDriver                     = "no-driver"
 	FlagSlowConsumerTimeout          = "slow-consumer-timeout"
 	FlagEnableIntegrations           = "enable-integrations"
@@ -41,12 +40,7 @@ const (
 // AddFlags adds the start flags to the given command.
 func AddFlags(cmd *cobra.Command) {
 	cert.AddFlags(cmd)
-	cmd.Flags().StringP(
-		FlagListen,
-		"l",
-		"localhost:9090",
-		"The address to listen for client connections",
-	)
+	listener.AddFlags(cmd)
 	cmd.Flags().StringSliceP(
 		FlagPeers,
 		"p",
@@ -79,7 +73,7 @@ func AddFlags(cmd *cobra.Command) {
 	cmd.Flags().String(FlagUsername, "synnax", "Username for the admin user")
 	cmd.Flags().String(FlagPassword, "seldon", "Password for the admin user")
 	cmd.Flags().Bool(
-		FlagAutoCert,
+		cert.FlagAutoCert,
 		false,
 		"Automatically generate self-signed certificates",
 	)

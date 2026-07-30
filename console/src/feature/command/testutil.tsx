@@ -12,7 +12,6 @@ import { act, fireEvent, render, screen, waitFor } from "@testing-library/react"
 import { type ReactElement, useState } from "react";
 
 import { Command } from "@/feature/command";
-import { Export } from "@/platform/export";
 import { Import } from "@/platform/import";
 import { Modals } from "@/platform/modals";
 import {
@@ -24,14 +23,12 @@ import {
 const COMMAND_PREFIX = ">";
 const PLACEHOLDER = <>Type {COMMAND_PREFIX} to view commands</>;
 
-export interface RenderPaletteArgs {
+export interface RenderPaletteParams {
   commands?: Command.Command[];
   client?: Client | null;
   preloadedState?: ConsolePreloadedState;
   /** Registered file ingesters, for commands that import components. */
   fileIngesters?: Import.FileIngesters;
-  /** Registered extractors, for commands that export components. */
-  extractors?: Export.Extractors;
 }
 
 export interface PaletteHandle {
@@ -77,15 +74,12 @@ export const renderPalette = async ({
   client = null,
   preloadedState,
   fileIngesters = {},
-  extractors = {},
-}: RenderPaletteArgs = {}): Promise<PaletteHandle> => {
+}: RenderPaletteParams = {}): Promise<PaletteHandle> => {
   const { wrapper, store } = await createConsoleWrapper({ client, preloadedState });
   render(
     <Import.FileIngestersProvider fileIngesters={fileIngesters}>
-      <Export.ExtractorsProvider extractors={extractors}>
-        <CommandPalette commands={commands} />
-        <Modals.Stack />
-      </Export.ExtractorsProvider>
+      <CommandPalette commands={commands} />
+      <Modals.Stack />
     </Import.FileIngestersProvider>,
     { wrapper },
   );

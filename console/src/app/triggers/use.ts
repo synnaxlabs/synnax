@@ -7,12 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Drift, selectWindowKey } from "@synnaxlabs/drift";
-import { Text, TimeSpan, Triggers } from "@synnaxlabs/pluto";
+import { panel } from "@synnaxlabs/client";
+import { Drift } from "@synnaxlabs/drift";
+import { Panel, TimeSpan, Triggers } from "@synnaxlabs/pluto";
 import { useCallback, useRef } from "react";
 
 import { Selector } from "@/app/selector";
-import { Layout } from "@/platform/layout";
+import { useSelectorVisible } from "@/app/vis/Selector";
+import { Panel as PlatformPanel } from "@/platform/panel";
 import { Session } from "@/session";
 import { Modals } from "@/session/modals";
 
@@ -30,30 +32,34 @@ export const PROVIDER_PROPS: Triggers.ProviderProps = {
 
 const CLOSE_WINDOW_TIMEOUT = TimeSpan.milliseconds(350);
 
+// TODO(SY-4370): open-in-new-window gesture (formerly Control+O) needs a panel
+// equivalent: create a Drift window and select the panel in it.
+
 export const use = (): void => {
-  const store = Session.useStore();
-  const modals = Modals.useStore("Layout.useTriggers");
-  const remove = Layout.useRemover();
-  const openInNewWindow = Layout.useOpenInNewWindow();
-  const placeLayout = Layout.usePlacer();
+  const sessionDispatch = Session.useDispatch();
+  const modals = Modals.useStore("useTriggers");
+  const getSelectedPanel = Session.Panel.useGetSelected();
+  const getIsOverlaid = Session.Panel.useGetIsOverlaid();
+  const getFocusedTab = Session.Panel.useGetFocusedTab();
+  const { dispatch } = Panel.useDispatch();
   const closeWindowTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const createComponentEnabled = Selector.useVisible();
+  const createTabEnabled = useSelectorVisible();
+  const openSelector = Selector.useOpenTab();
   Triggers.use({
     triggers: [["Control", "L"]],
     loose: true,
     callback: useCallback(
       ({ stage }: Triggers.UseEvent) => {
         if (stage !== "start") return;
-        const state = store.getState();
-        const { layoutKey: active } = Session.Layout.selectActiveMosaicTabState(state);
-        const windowKey = selectWindowKey(state);
-        const { focused } = Session.Layout.selectFocused(state);
-        if (active == null || windowKey == null) return;
-        if (focused != null)
-          store.dispatch(Session.Layout.setFocus({ key: null, windowKey }));
-        else store.dispatch(Session.Layout.setFocus({ key: active, windowKey }));
+        const overlaid = getIsOverlaid();
+        if (overlaid) {
+          sessionDispatch(Session.Panel.stopOverlaying({}));
+          return;
+        }
+        const focused = getFocusedTab();
+        if (focused != null) sessionDispatch(Session.Panel.startOverlaying({}));
       },
-      [store],
+      [getIsOverlaid, getFocusedTab, sessionDispatch],
     ),
   });
   Triggers.use({
@@ -69,30 +75,29 @@ export const use = (): void => {
           return;
         }
         if (modals.isAnyOpen()) return modals.closeTop();
-        const state = store.getState();
-        const { layoutKey: active } = Session.Layout.selectActiveMosaicTabState(state);
-        if (active != null) return remove(active);
+        const panelKey = getSelectedPanel();
+        const focused = getFocusedTab();
+        if (panelKey != null && focused != null) {
+          if (getIsOverlaid()) sessionDispatch(Session.Panel.stopOverlaying({}));
+          dispatch({
+            key: panelKey,
+            actions: [panel.removeTab({ key: focused })],
+          });
+          return;
+        }
         closeWindowTimeout.current = setTimeout(
-          () => store.dispatch(Drift.closeWindow({})),
+          () => sessionDispatch(Drift.closeWindow({})),
           CLOSE_WINDOW_TIMEOUT.milliseconds,
         );
       },
-      [store, remove, openInNewWindow, modals],
-    ),
-  });
-  Triggers.use({
-    triggers: [["Control", "O"]],
-    loose: true,
-    callback: useCallback(
-      ({ stage }: Triggers.UseEvent) => {
-        if (stage !== "start") return;
-        if (Session.Runtime.ENGINE !== "tauri") return;
-        const state = store.getState();
-        const { layoutKey: active } = Session.Layout.selectActiveMosaicTabState(state);
-        if (active == null) return;
-        openInNewWindow(active);
-      },
-      [store, openInNewWindow],
+      [
+        dispatch,
+        sessionDispatch,
+        getSelectedPanel,
+        getFocusedTab,
+        getIsOverlaid,
+        modals,
+      ],
     ),
   });
   Triggers.use({
@@ -101,12 +106,11 @@ export const use = (): void => {
     callback: useCallback(
       ({ stage }: Triggers.UseEvent) => {
         if (stage !== "start") return;
-        const state = store.getState();
-        const { layoutKey: active } = Session.Layout.selectActiveMosaicTabState(state);
-        if (active == null) return;
-        Text.edit(`pluto-tab-${active}`);
+        const focused = getFocusedTab();
+        if (focused == null) return;
+        PlatformPanel.editTabName(focused);
       },
-      [store],
+      [getFocusedTab],
     ),
   });
   Triggers.use({
@@ -114,10 +118,10 @@ export const use = (): void => {
     loose: true,
     callback: useCallback(
       ({ stage }: Triggers.UseEvent) => {
-        if (stage !== "start" || !createComponentEnabled) return;
-        placeLayout(Selector.create({ tab: { location: "center" } }));
+        if (stage !== "start" || !createTabEnabled) return;
+        openSelector();
       },
-      [createComponentEnabled, placeLayout],
+      [createTabEnabled, openSelector],
     ),
   });
 };

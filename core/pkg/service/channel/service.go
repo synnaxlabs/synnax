@@ -18,8 +18,9 @@ import (
 	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
-	"github.com/synnaxlabs/synnax/pkg/distribution/node"
 	"github.com/synnaxlabs/synnax/pkg/service/channel/verification"
+	"github.com/synnaxlabs/synnax/pkg/service/channel/versions"
+	"github.com/synnaxlabs/synnax/pkg/service/cluster"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/search"
@@ -27,7 +28,6 @@ import (
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/io"
-	"github.com/synnaxlabs/x/migrate"
 	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/service"
@@ -54,10 +54,10 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	DB *gorp.DB
-	// HostResolver provides this node's key for default leaseholder assignment.
+	// HostProvider provides this node's key for default leaseholder assignment.
 	//
 	// [REQUIRED]
-	HostResolver node.HostResolver
+	HostProvider cluster.HostProvider
 	// Ontology integrates channels into the resource ontology.
 	//
 	// [REQUIRED]
@@ -93,7 +93,7 @@ func (c ServiceConfig) Validate() error {
 	v := validate.New("service.channel")
 	validate.NotNil(v, "channel", c.Channel)
 	validate.NotNil(v, "db", c.DB)
-	validate.NotNil(v, "host_resolver", c.HostResolver)
+	validate.NotNil(v, "host_provider", c.HostProvider)
 	validate.NotNil(v, "ontology", c.Ontology)
 	validate.NotNil(v, "group", c.Group)
 	validate.NotNil(v, "search", c.Search)
@@ -108,7 +108,7 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
 	c.Channel = override.Nil(c.Channel, other.Channel)
 	c.DB = override.Nil(c.DB, other.DB)
-	c.HostResolver = override.Nil(c.HostResolver, other.HostResolver)
+	c.HostProvider = override.Nil(c.HostProvider, other.HostProvider)
 	c.Ontology = override.Nil(c.Ontology, other.Ontology)
 	c.Group = override.Nil(c.Group, other.Group)
 	c.Search = override.Nil(c.Search, other.Search)
@@ -151,10 +151,8 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	cleanup, ok := service.NewOpener(ctx, &s.closer)
 	defer func() { err = cleanup(err) }()
 	if s.table, err = gorp.OpenTable(ctx, gorp.TableConfig[Key, Channel]{
-		DB: cfg.DB,
-		Migrations: []migrate.Migration{
-			gorp.CodecMigration[Key, Channel]("msgpack_to_orc"),
-		},
+		DB:              cfg.DB,
+		Migrations:      versions.Migrations,
 		Indexes:         s.indexes.all(),
 		Instrumentation: cfg.Instrumentation,
 	}); !ok(err, s.table) {

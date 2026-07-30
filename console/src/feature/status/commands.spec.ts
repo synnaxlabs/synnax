@@ -8,14 +8,14 @@
 // included in the file licenses/APL.txt.
 
 import { createTestClient } from "@synnaxlabs/client/testutil";
-import { screen, waitFor } from "@testing-library/react";
+import { screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { renderPalette } from "@/feature/command/testutil";
 import { Status } from "@/feature/status";
 import { findModalButton } from "@/platform/tree/menuTestutil";
 import { Session } from "@/session";
-import { stubGeometry } from "@/testutil";
+import { resolveFocusedTab, stubGeometry, uniqueName } from "@/testutil";
 
 stubGeometry();
 
@@ -33,17 +33,20 @@ describe("Status Commands", () => {
     expect(findModalButton("Create")).toBeTruthy();
   });
 
-  it("should place the status explorer layout when the explorer command is selected", async () => {
+  it("should open the status explorer as a tab when the explorer command is selected", async () => {
+    const proj = await client.projects.create({
+      name: uniqueName("proj"),
+      layout: {},
+    });
     const { store, openCommandPalette, selectCommand } = await renderPalette({
       commands: Status.COMMANDS,
       client,
     });
+    store.dispatch(Session.Project.select(proj.key));
     await openCommandPalette();
     await selectCommand("Open the Status Explorer");
-    await waitFor(() =>
-      expect(
-        Session.Layout.select(store.getState(), Status.EXPLORER_LAYOUT_TYPE)?.type,
-      ).toBe(Status.EXPLORER_LAYOUT_TYPE),
-    );
+    const tab = await resolveFocusedTab(store, client);
+    if (tab.variant !== "view") throw new Error("expected a view tab");
+    expect(tab.type).toBe(Status.Explorer.TAB_TYPE);
   });
 });

@@ -7,56 +7,50 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { task } from "@synnaxlabs/client";
-import { Access, Icon } from "@synnaxlabs/pluto";
+import { Icon } from "@synnaxlabs/pluto";
 
-import { ANALOG_READ_LAYOUT } from "@/feature/ni/task/AnalogRead";
-import { ANALOG_WRITE_LAYOUT } from "@/feature/ni/task/AnalogWrite";
-import { COUNTER_READ_LAYOUT } from "@/feature/ni/task/CounterRead";
-import { DIGITAL_READ_LAYOUT } from "@/feature/ni/task/DigitalRead";
-import { DIGITAL_WRITE_LAYOUT } from "@/feature/ni/task/DigitalWrite";
-import { Command } from "@/platform/command";
+import {
+  ANALOG_READ_TYPE,
+  ANALOG_WRITE_TYPE,
+  COUNTER_READ_TYPE,
+  DIGITAL_READ_TYPE,
+  DIGITAL_WRITE_TYPE,
+} from "@/feature/ni/task/types";
+import { Task } from "@/platform/task";
 
-const useVisible = () => Access.useCreateGranted(task.TYPE_ONTOLOGY_ID);
-
-const CreateAnalogReadCommand = Command.create({
+const CreateAnalogReadCommand = Task.createCommand({
   key: "ni_create_analog_read_task",
   name: "Create an NI Analog Read Task",
   icon: <Icon.Logo.NI />,
-  useOnSelect: Command.createPlacerUseOnSelect(ANALOG_READ_LAYOUT),
-  useVisible,
+  type: ANALOG_READ_TYPE,
 });
 
-const CreateAnalogWriteCommand = Command.create({
+const CreateAnalogWriteCommand = Task.createCommand({
   key: "ni_create_analog_write_task",
   name: "Create an NI Analog Write Task",
   icon: <Icon.Logo.NI />,
-  useOnSelect: Command.createPlacerUseOnSelect(ANALOG_WRITE_LAYOUT),
-  useVisible,
+  type: ANALOG_WRITE_TYPE,
 });
 
-const CreateCounterReadCommand = Command.create({
+const CreateCounterReadCommand = Task.createCommand({
   key: "ni_create_counter_read_task",
   name: "Create an NI Counter Read Task",
   icon: <Icon.Logo.NI />,
-  useOnSelect: Command.createPlacerUseOnSelect(COUNTER_READ_LAYOUT),
-  useVisible,
+  type: COUNTER_READ_TYPE,
 });
 
-const CreateDigitalWriteCommand = Command.create({
+const CreateDigitalWriteCommand = Task.createCommand({
   key: "ni_create_digital_write_task",
   name: "Create an NI Digital Write Task",
   icon: <Icon.Logo.NI />,
-  useOnSelect: Command.createPlacerUseOnSelect(DIGITAL_WRITE_LAYOUT),
-  useVisible,
+  type: DIGITAL_WRITE_TYPE,
 });
 
-const CreateDigitalReadCommand = Command.create({
+const CreateDigitalReadCommand = Task.createCommand({
   key: "ni_create_digital_read_task",
   name: "Create an NI Digital Read Task",
   icon: <Icon.Logo.NI />,
-  useOnSelect: Command.createPlacerUseOnSelect(DIGITAL_READ_LAYOUT),
-  useVisible,
+  type: DIGITAL_READ_TYPE,
 });
 
 export const COMMANDS = [

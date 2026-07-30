@@ -45,14 +45,14 @@ const createChannel = (
     ...overrides,
   }) as NI.Task.AIChannel;
 
-const renderAnalogRead = async (args = {}) =>
+const renderAnalogRead = async (params = {}) =>
   await renderNITaskForm(NI.Task.AnalogRead, NI.Task.ANALOG_READ_TYPE, {
     client,
-    args,
+    params,
   });
 
 describe("AnalogRead", () => {
-  it("should seed a voltage channel bound to the device passed through layout args", async () => {
+  it("should seed a voltage channel bound to the device passed through view args", async () => {
     const dev = await createNIDevice(client);
     await renderAnalogRead({ deviceKey: dev.key });
     await waitFor(() =>
@@ -150,7 +150,7 @@ describe("AnalogRead", () => {
     it("should create index and data channels, update the device, and save the task", async () => {
       const dev = await createNIDevice(client);
       const namedChannel = uniqueName("ai_named");
-      const { store, layoutKey } = await renderAnalogRead({
+      const rendered = await renderAnalogRead({
         config: {
           ...NI.Task.ZERO_ANALOG_READ_PAYLOAD.config,
           channels: [
@@ -160,7 +160,7 @@ describe("AnalogRead", () => {
         },
       });
       await clickConfigure();
-      const taskKey = await awaitTaskKey(store, layoutKey);
+      const taskKey = await awaitTaskKey(rendered);
       const created = await client.tasks.retrieve({
         key: taskKey,
         schemas: NI.Task.ANALOG_READ_SCHEMAS,
@@ -193,14 +193,14 @@ describe("AnalogRead", () => {
 
     it("should reuse existing channels when reconfigured", async () => {
       const dev = await createNIDevice(client);
-      const { store, layoutKey } = await renderAnalogRead({
+      const rendered = await renderAnalogRead({
         config: {
           ...NI.Task.ZERO_ANALOG_READ_PAYLOAD.config,
           channels: [createChannel("ai_voltage", 0, { device: dev.key })],
         },
       });
       await clickConfigure();
-      const taskKey = await awaitTaskKey(store, layoutKey);
+      const taskKey = await awaitTaskKey(rendered);
       const first = await client.tasks.retrieve({
         key: taskKey,
         schemas: NI.Task.ANALOG_READ_SCHEMAS,

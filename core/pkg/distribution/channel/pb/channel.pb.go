@@ -39,7 +39,7 @@ type Channel struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// name is the human-readable channel name.
 	Name string `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
-	// leaseholder is the cluster node that holds the lease for this channel and is
+	// leaseholder is the node that holds the lease for this channel and is
 	// authorized to accept writes.
 	Leaseholder uint32 `protobuf:"varint,2,opt,name=leaseholder,proto3" json:"leaseholder,omitempty"`
 	// data_type is the data type of samples stored in this channel.

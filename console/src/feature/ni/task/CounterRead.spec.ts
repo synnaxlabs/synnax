@@ -45,10 +45,10 @@ const createChannel = (
     ...overrides,
   }) as NI.Task.CIChannel;
 
-const renderCounterRead = async (args = {}) =>
+const renderCounterRead = async (params = {}) =>
   await renderNITaskForm(NI.Task.CounterRead, NI.Task.COUNTER_READ_TYPE, {
     client,
-    args,
+    params,
   });
 
 const createConfig = (channels: NI.Task.CIChannel[]) => ({
@@ -123,14 +123,14 @@ describe("CounterRead", () => {
     it("should create counter channels and update the device", async () => {
       const dev = await createNIDevice(client);
       const namedChannel = uniqueName("ctr_named");
-      const { store, layoutKey } = await renderCounterRead({
+      const rendered = await renderCounterRead({
         config: createConfig([
           createChannel("ci_frequency", 0, { device: dev.key }),
           createChannel("ci_edge_count", 1, { device: dev.key, name: namedChannel }),
         ]),
       });
       await clickConfigure();
-      const taskKey = await awaitTaskKey(store, layoutKey);
+      const taskKey = await awaitTaskKey(rendered);
       const created = await client.tasks.retrieve({
         key: taskKey,
         schemas: NI.Task.COUNTER_READ_SCHEMAS,

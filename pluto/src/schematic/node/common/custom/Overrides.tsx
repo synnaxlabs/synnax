@@ -7,12 +7,15 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import "@/schematic/node/common/custom/Overrides.css";
+
 import { type schematic } from "@synnaxlabs/client";
 import { caseconv, color, deep } from "@synnaxlabs/x";
-import { type CSSProperties, type ReactElement, useCallback, useState } from "react";
+import { type ReactElement, useCallback, useState } from "react";
 
 import { Button } from "@/button";
 import { Color } from "@/color";
+import { CSS } from "@/css";
 import { Flex } from "@/flex";
 import { type Flux } from "@/flux";
 import { Form } from "@/form";
@@ -20,8 +23,6 @@ import { Icon } from "@/icon";
 import { useRetrieveEffect } from "@/schematic/symbol/queries";
 import { Select } from "@/select";
 import { Text } from "@/text";
-
-const REGION_NAME_STYLE: CSSProperties = { maxWidth: 50, width: 50 };
 
 interface RegionControlsProps {
   path: string;
@@ -92,7 +93,12 @@ const RegionControls = ({
   const canBeReset = !deep.equal(region, originalRegion);
   return (
     <Flex.Box x align="center">
-      <Text.Text level="small" color={9} style={REGION_NAME_STYLE} overflow="ellipsis">
+      <Text.Text
+        level="small"
+        color={9}
+        className={CSS.B("schematic-region-name")}
+        overflow="ellipsis"
+      >
         {caseconv.capitalize(name)}
       </Text.Text>
       <Flex.Box x align="stretch" key={path}>
@@ -118,7 +124,7 @@ const RegionControls = ({
           onClick={() => onReset(path)}
           variant="text"
           size="tiny"
-          style={{ opacity: canBeReset ? 1 : 0 }}
+          className={CSS(CSS.B("schematic-region-reset"), CSS.visible(canBeReset))}
         >
           <Icon.Reset />
         </Button.Button>

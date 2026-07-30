@@ -38,6 +38,41 @@
     background: var(--pluto-gray-l7-30);
     z-index: 7;
     transition: 0.1s ease-in-out;
+
+    &.pluto-mosaic__mask--top {
+        left: 0%;
+        top: 0%;
+        width: 100%;
+        height: 50%;
+    }
+
+    &.pluto-mosaic__mask--bottom {
+        left: 0%;
+        top: 50%;
+        width: 100%;
+        height: 50%;
+    }
+
+    &.pluto-mosaic__mask--left {
+        left: 0%;
+        top: 0%;
+        width: 50%;
+        height: 100%;
+    }
+
+    &.pluto-mosaic__mask--right {
+        left: 50%;
+        top: 0%;
+        width: 50%;
+        height: 100%;
+    }
+
+    &.pluto-mosaic__mask--center {
+        left: 0%;
+        top: 0%;
+        width: 100%;
+        height: 100%;
+    }
 }
 
 /* The shield covers only the leaf's content region (its positioned container),

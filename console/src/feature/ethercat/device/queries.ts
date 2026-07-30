@@ -12,7 +12,7 @@ import { Device, Flux } from "@synnaxlabs/pluto";
 import { array, primitive } from "@synnaxlabs/x";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
-import { SLAVE_SCHEMAS } from "@/feature/ethercat/device/types";
+import { SLAVE_SCHEMAS, type SlaveDevice } from "@/feature/ethercat/device/types";
 import { type Channel } from "@/feature/ethercat/task/types";
 
 export const {
@@ -20,6 +20,36 @@ export const {
   useRetrieveObservable,
   useRetrieveStateful: useRetrieveSlaveStateful,
 } = Device.createRetrieve(SLAVE_SCHEMAS);
+
+export interface EnabledState {
+  allEnabled: boolean;
+  allDisabled: boolean;
+}
+
+export interface SelectEnabledStateParams {
+  keys: device.Key[];
+}
+
+export const [useSelectEnabledState] = Flux.createSelector<
+  Device.FluxSubStore,
+  SelectEnabledStateParams,
+  EnabledState,
+  SlaveDevice[]
+>({
+  subscribe: (store, { keys }, notify) => {
+    const destructors = keys.map((key) => store.devices.onSet(notify, key));
+    return () => destructors.forEach((d) => d());
+  },
+  select: (store, { keys }) => store.devices.get(keys) as SlaveDevice[],
+  transform: (devices) => {
+    const disabledCount = devices.filter((d) => !d.properties?.enabled).length;
+    return {
+      allDisabled: disabledCount === devices.length,
+      allEnabled: disabledCount === 0,
+    };
+  },
+  equal: (a, b) => a.allEnabled === b.allEnabled && a.allDisabled === b.allDisabled,
+});
 
 export const useCommonNetwork = (channels: Channel[]) => {
   const firstDeviceKey = useMemo(() => {
@@ -49,7 +79,7 @@ export const { useUpdate: useToggleEnabled } = Flux.createUpdate<
 >({
   name: "Toggle Enabled",
   verbs: Flux.UPDATE_VERBS,
-  update: async ({ data, client, store, rollbacks }) => {
+  update: async ({ data, client, store, rollbacks, onOptimisticComplete }) => {
     const keys = array.toArray(data.keys);
 
     const devices = await Device.retrieveMultiple({
@@ -67,6 +97,7 @@ export const { useUpdate: useToggleEnabled } = Flux.createUpdate<
     }));
 
     rollbacks.push(store.devices.set(updated));
+    await onOptimisticComplete(data);
 
     await client.devices.create(updated);
 

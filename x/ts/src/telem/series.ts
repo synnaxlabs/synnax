@@ -71,7 +71,7 @@ export interface SeriesDigest {
   capacity: number;
 }
 
-interface BaseSeriesArgs {
+interface BaseSeriesParams {
   dataType?: CrudeDataType;
   timeRange?: TimeRange;
   sampleOffset?: math.Numeric;
@@ -95,12 +95,12 @@ export type CrudeSeries =
   | TelemValue;
 
 /** Arguments for constructing a {@link Series}. */
-export interface SeriesArgs extends BaseSeriesArgs {
+export interface SeriesParams extends BaseSeriesParams {
   data?: CrudeSeries | null;
 }
 
 /** Arguments for allocating a {@link Series} with a given capacity and data type. */
-export interface SeriesAllocArgs extends BaseSeriesArgs {
+export interface SeriesAllocParams extends BaseSeriesParams {
   capacity: number;
   dataType: CrudeDataType;
 }
@@ -223,9 +223,9 @@ export class Series<T extends TelemValue = TelemValue>
    */
   static readonly z = Series.crudeZ.transform((props) => new Series(props));
   /**
-   * The Series constructor accepts either a SeriesArgs object or a CrudeSeries value.
+   * The Series constructor accepts either a SeriesParams object or a CrudeSeries value.
    *
-   * SeriesArgs interface properties:
+   * SeriesParams interface properties:
    * @property {CrudeSeries | null} [data] - The data to construct the series from. Can be:
    *   - A typed array (e.g. Float32Array, Int32Array)
    *   - A JS array of numbers, strings, or objects
@@ -295,7 +295,7 @@ export class Series<T extends TelemValue = TelemValue>
    * @throws Error if constructing from an ArrayBuffer without specifying data type
    * @throws Error if data type cannot be inferred from input
    */
-  constructor(props: SeriesArgs | CrudeSeries) {
+  constructor(props: SeriesParams | CrudeSeries) {
     if (isCrudeSeries(props)) props = { data: props };
     props.data ??= [];
     const {
@@ -444,7 +444,7 @@ export class Series<T extends TelemValue = TelemValue>
    * @param args.dataType the data type of the series.
    * @param args.rest the rest of the arguments to pass to the series constructor.
    */
-  static alloc({ capacity, dataType, ...rest }: SeriesAllocArgs): Series {
+  static alloc({ capacity, dataType, ...rest }: SeriesAllocParams): Series {
     if (capacity === 0)
       throw new Error("[Series] - cannot allocate an array of length 0");
     const data = new new DataType(dataType).Array(capacity);

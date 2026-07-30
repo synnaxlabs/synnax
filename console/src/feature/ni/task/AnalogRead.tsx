@@ -33,17 +33,11 @@ import { Device as PlatformDevice } from "@/platform/device";
 import { Selector } from "@/platform/selector";
 import { Task } from "@/platform/task";
 
-export const ANALOG_READ_LAYOUT: Task.Layout = {
-  ...Task.LAYOUT,
+export const AnalogReadSelectable = Selector.createSelectable({
   type: ANALOG_READ_TYPE,
-  name: ZERO_ANALOG_READ_PAYLOAD.name,
-  icon: "Logo.NI",
-};
-
-export const AnalogReadSelectable = Selector.createSimpleItem({
   title: "NI Analog Read Task",
   icon: <Icon.Logo.NI />,
-  layout: ANALOG_READ_LAYOUT,
+  useOnSelect: Task.createOpenTab(ANALOG_READ_TYPE),
 });
 
 const Properties = () => (
@@ -70,7 +64,7 @@ const ChannelListItem = ({ onTare, ...rest }: ChannelListItemProps) => {
   const canTare = enabled && isRunning;
   const Icon = AI_CHANNEL_TYPE_ICONS[type];
   return (
-    <Task.Layouts.ListAndDetailsChannelItem
+    <Task.Views.ListAndDetailsChannelItem
       {...rest}
       port={port}
       canTare={canTare}
@@ -84,7 +78,7 @@ const ChannelListItem = ({ onTare, ...rest }: ChannelListItemProps) => {
   );
 };
 
-const ChannelDetails = ({ path }: Task.Layouts.DetailsProps) => {
+const ChannelDetails = ({ path }: Task.Views.DetailsProps) => {
   const type = PForm.useFieldValue<AIChannelType>(`${path}.type`);
   return (
     <>
@@ -105,7 +99,7 @@ const Form: FC<Task.FormProps<AnalogReadSchemas>> = () => {
     [tare],
   );
   return (
-    <Task.Layouts.ListAndDetails<AIChannel>
+    <Task.Views.ListAndDetails<AIChannel>
       listItem={listItem}
       details={channelDetails}
       createChannel={createAIChannel}

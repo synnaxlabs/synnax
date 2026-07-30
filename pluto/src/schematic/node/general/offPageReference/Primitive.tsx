@@ -104,7 +104,7 @@ export const OffPageReference = ({
         />
       </Handle.Boundary>
       <svg
-        style={{ visibility: "hidden", position: "absolute" }}
+        className={CSS.BE("off-page-reference", "goo-defs")}
         width="0"
         height="0"
         xmlns="http://www.w3.org/2000/svg"

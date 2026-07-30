@@ -16,3 +16,7 @@
     flex-basis: 150px;
     flex-grow: 3;
 }
+
+.console-opc-browser__loading-icon {
+    font-size: 5rem;
+}

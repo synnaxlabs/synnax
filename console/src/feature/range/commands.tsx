@@ -10,7 +10,7 @@
 import { ranger } from "@synnaxlabs/client";
 import { Access, Icon, Ranger } from "@synnaxlabs/pluto";
 
-import { EXPLORER_LAYOUT } from "@/feature/range/Explorer";
+import { Explorer } from "@/feature/range/explorer";
 import { Command } from "@/platform/command";
 import { Range } from "@/platform/range";
 
@@ -26,7 +26,7 @@ export const OpenExplorerCommand = Command.create({
   key: "open_explorer",
   name: "Open the Range Explorer",
   icon: <Icon.Explore />,
-  useOnSelect: Command.createPlacerUseOnSelect(EXPLORER_LAYOUT),
+  useOnSelect: Explorer.useOpenTab,
   useVisible: () => Access.useRetrieveGranted(ranger.TYPE_ONTOLOGY_ID),
 });
 

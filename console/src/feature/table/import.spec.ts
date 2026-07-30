@@ -13,14 +13,9 @@ import { describe, expect, it, vi } from "vitest";
 
 import { Table } from "@/feature/table";
 import { client, project } from "@/feature/table/testutil";
-import { type Layout } from "@/platform/layout";
-import {
-  assertDefined,
-  createGrantedFluxStore,
-  createTestFluxStore,
-  createTestStore,
-  uniqueName,
-} from "@/testutil";
+import { createFileIngesterContext } from "@/platform/import/testutil";
+import { type Panel } from "@/platform/panel";
+import { createGrantedFluxStore, uniqueName } from "@/testutil";
 
 const populatedV0State = (overrides: Record<string, unknown> = {}) => ({
   key: "11111111-1111-1111-1111-111111111111",
@@ -180,49 +175,38 @@ describe("table import", () => {
 });
 
 describe("table ingest", () => {
-  it("creates the table on the cluster and places its layout", async () => {
+  it("creates the table on the cluster and opens it as a tab", async () => {
     const store = await createGrantedFluxStore(
       client,
       clientTable.TYPE_ONTOLOGY_ID,
       "update",
     );
-    const placeLayout = vi.fn<Layout.Placer>();
+    const openTab = vi.fn<Panel.OpenTab>();
     const name = uniqueName("imported");
-    await Table.ingest(TYPED_EXPORT, {
-      layout: { name },
-      placeLayout,
-      store,
-      client,
-      projectKey: await project(),
-      fileName: "test.json",
-    });
-    expect(placeLayout).toHaveBeenCalledTimes(1);
-    const creator = placeLayout.mock.calls[0][0] as Layout.Creator;
-    const consoleStore = await createTestStore();
-    const layout = creator({
-      dispatch: consoleStore.dispatch,
-      store: consoleStore,
-      windowKey: "main",
-    });
-    expect(layout.name).toBe(name);
-    assertDefined(layout.key);
-    const created = await client.tables.retrieve({ key: layout.key });
+    const id = await Table.ingest(
+      TYPED_EXPORT,
+      createFileIngesterContext({
+        name,
+        openTab,
+        store,
+        client,
+        projectKey: await project(),
+      }),
+    );
+    expect(openTab).toHaveBeenCalledTimes(1);
+    if (id == null) throw new Error("ingest returned no ontology id");
+    const created = await client.tables.retrieve({ key: id.key });
     expect(created.name).toBe(name);
     expect(created.rows).toHaveLength(1);
-    expect(store.tables.get(layout.key)?.name).toBe(name);
+    expect(store.tables.get(id.key)?.name).toBe(name);
   });
 
   it("rejects the import when the permission cache has no grant", async () => {
-    const store = createTestFluxStore(null);
     await expect(
-      Table.ingest(TYPED_EXPORT, {
-        layout: { name: "denied" },
-        placeLayout: vi.fn<Layout.Placer>(),
-        store,
-        client: null,
-        projectKey: "project-1",
-        fileName: "test.json",
-      }),
+      Table.ingest(
+        TYPED_EXPORT,
+        createFileIngesterContext({ name: "denied", client: null }),
+      ),
     ).rejects.toThrow("You do not have permission to import tables");
   });
 

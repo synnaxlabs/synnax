@@ -13,8 +13,6 @@ import (
 	"context"
 	"math"
 
-	"github.com/tetratelabs/wazero"
-
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/runtime/node"
 	"github.com/synnaxlabs/arc/symbol"
@@ -25,6 +23,7 @@ import (
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/telem/op"
 	"github.com/synnaxlabs/x/zyn"
+	"github.com/tetratelabs/wazero"
 )
 
 const (

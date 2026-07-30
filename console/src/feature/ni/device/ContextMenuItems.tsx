@@ -19,27 +19,27 @@ const TASK_CONTEXT_MENU_ITEM_CONFIGS: PlatformDevice.TaskContextMenuItemConfig[]
   {
     itemKey: "ni.analogReadTask",
     label: "Create analog read task",
-    layout: Task.ANALOG_READ_LAYOUT,
+    type: Task.ANALOG_READ_TYPE,
   },
   {
     itemKey: "ni.analogWriteTask",
     label: "Create analog write task",
-    layout: Task.ANALOG_WRITE_LAYOUT,
+    type: Task.ANALOG_WRITE_TYPE,
   },
   {
     itemKey: "ni.counterReadTask",
     label: "Create counter read task",
-    layout: Task.COUNTER_READ_LAYOUT,
+    type: Task.COUNTER_READ_TYPE,
   },
   {
     itemKey: "ni.digitalReadTask",
     label: "Create digital read task",
-    layout: Task.DIGITAL_READ_LAYOUT,
+    type: Task.DIGITAL_READ_TYPE,
   },
   {
     itemKey: "ni.digitalWriteTask",
     label: "Create digital write task",
-    layout: Task.DIGITAL_WRITE_LAYOUT,
+    type: Task.DIGITAL_WRITE_TYPE,
   },
 ];
 

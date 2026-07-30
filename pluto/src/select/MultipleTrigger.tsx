@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import "@/select/MultipleTrigger.css";
+
 import { array, type color, primitive, type record, unique } from "@synnaxlabs/x";
 import { type ReactElement, type ReactNode, useCallback } from "react";
 
@@ -179,7 +181,11 @@ export const MultipleTrigger = <
       grow
     >
       {value.length === 0 && (
-        <Text.Text color={8} weight={400} style={{ padding: "0 1rem" }}>
+        <Text.Text
+          color={8}
+          weight={400}
+          className={CSS.B("select-multiple-trigger-placeholder")}
+        >
           {icon}
           {placeholder}
         </Text.Text>

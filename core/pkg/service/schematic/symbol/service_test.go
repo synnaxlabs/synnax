@@ -15,6 +15,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
+	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic/symbol"
 	"github.com/synnaxlabs/synnax/pkg/service/search"
@@ -36,6 +37,7 @@ var _ = Describe("Service", func() {
 				DB:       testDB,
 				Ontology: testOtg,
 				Search:   testSearchIdx,
+				ImEx:     imex.NewService(),
 			}))
 			Expect(testSvc).ToNot(BeNil())
 		})
@@ -55,6 +57,7 @@ var _ = Describe("Service", func() {
 				Ontology: testOtg,
 				Group:    testGroup,
 				Search:   testSearchIdx,
+				ImEx:     imex.NewService(),
 			}))
 			Expect(testSvc).ToNot(BeNil())
 			Expect(testSvc.Group()).ToNot(BeNil())
@@ -69,32 +72,19 @@ var _ = Describe("Service", func() {
 				Error().To(MatchError(ContainSubstring("db")))
 		})
 
-		It("Should handle configuration override correctly", func(ctx SpecContext) {
-			testDB1 := DeferClose(gorp.Wrap(memkv.New()))
-			testDB2 := DeferClose(gorp.Wrap(memkv.New()))
-			testOtg1 := MustOpen(ontology.Open(ctx, ontology.Config{
-				DB: testDB1,
-			}))
-			testOtg2 := MustOpen(ontology.Open(ctx, ontology.Config{
-				DB: testDB2,
-			}))
+		It("Should apply later configurations as overrides", func(ctx SpecContext) {
+			testDB := DeferClose(gorp.Wrap(memkv.New()))
+			testOtg := MustOpen(ontology.Open(ctx, ontology.Config{DB: testDB}))
 			testSearchIdx := MustOpen(search.OpenIndex())
-
+			// cfg1 omits the DB; cfg2 supplies it. OpenService merges later configs
+			// over earlier ones, so the service opens only because cfg2 fills the gap.
 			cfg1 := symbol.ServiceConfig{
-				DB:       testDB1,
-				Ontology: testOtg1,
+				Ontology: testOtg,
 				Search:   testSearchIdx,
+				ImEx:     imex.NewService(),
 			}
-			cfg2 := symbol.ServiceConfig{
-				DB:       testDB2,
-				Ontology: testOtg2,
-				Search:   testSearchIdx,
-			}
-
-			testSvc := MustOpen(symbol.OpenService(ctx, cfg1, cfg2))
-			// Should use cfg2's values
-			Expect(testSvc.ServiceConfig.DB).To(Equal(testDB2))
-			Expect(testSvc.ServiceConfig.Ontology).To(Equal(testOtg2))
+			cfg2 := symbol.ServiceConfig{DB: testDB}
+			Expect(MustOpen(symbol.OpenService(ctx, cfg1, cfg2))).ToNot(BeNil())
 		})
 	})
 
@@ -129,6 +119,7 @@ var _ = Describe("Service", func() {
 				DB:       testDB,
 				Ontology: testOtg,
 				Search:   testSearchIdx,
+				ImEx:     imex.NewService(),
 			}))
 
 			Expect(testSvc.Close()).To(Succeed())
@@ -147,7 +138,7 @@ var _ = Describe("Service", func() {
 				for range 10 {
 					sym := symbol.Symbol{
 						Name: "concurrent-write",
-						Data: map[string]any{"svg": "<svg>...</svg>"},
+						Data: symbol.Spec{SVG: "<svg>...</svg>", Variant: "valve"},
 					}
 					Expect(svc.NewWriter(nil).Create(ctx, &sym, proj.OntologyID())).To(Succeed())
 					Expect(svc.NewWriter(nil).Delete(ctx, sym.Key)).To(Succeed())

@@ -18,7 +18,7 @@ import { Arc as PlatformArc } from "@/platform/arc";
 import { CSS } from "@/platform/css";
 import { Task } from "@/platform/task";
 
-const INITIAL_RACK_QUERY: rack.RetrieveArgs = { integration: "arc" };
+const INITIAL_RACK_QUERY: rack.RetrieveParams = { integration: "arc" };
 
 export const TaskControls = () => {
   const key = Arc.useKey();

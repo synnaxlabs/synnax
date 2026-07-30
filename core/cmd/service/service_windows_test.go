@@ -20,7 +20,6 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
-
 	"github.com/synnaxlabs/synnax/cmd/service"
 	"github.com/synnaxlabs/synnax/pkg/version"
 	"github.com/synnaxlabs/x/testutil"

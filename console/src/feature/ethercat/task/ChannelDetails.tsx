@@ -59,7 +59,7 @@ const renderSelectDataType = Component.renderProp(
   ),
 );
 
-export interface ChannelDetailsProps extends Task.Layouts.DetailsProps {
+export interface ChannelDetailsProps extends Task.Views.DetailsProps {
   pdoType: "inputs" | "outputs";
   zeroChannels: Record<ChannelMode, Channel>;
 }
@@ -81,10 +81,10 @@ const ChannelDetails: FC<ChannelDetailsProps> = ({ path, pdoType, zeroChannels }
 
 const CHANNEL_DETAILS_STYLE = { padding: "1rem" } as const;
 
-export const ReadChannelDetails: FC<Task.Layouts.DetailsProps> = (props) => (
+export const ReadChannelDetails: FC<Task.Views.DetailsProps> = (props) => (
   <ChannelDetails {...props} pdoType="inputs" zeroChannels={ZERO_INPUT_CHANNELS} />
 );
 
-export const WriteChannelDetails: FC<Task.Layouts.DetailsProps> = (props) => (
+export const WriteChannelDetails: FC<Task.Views.DetailsProps> = (props) => (
   <ChannelDetails {...props} pdoType="outputs" zeroChannels={ZERO_OUTPUT_CHANNELS} />
 );

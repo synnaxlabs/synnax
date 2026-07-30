@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type optional, type record } from "@synnaxlabs/x";
-import { type FC, type PropsWithChildren, type ReactElement } from "react";
+import { type FC, type PropsWithChildren, type ReactElement, useCallback } from "react";
 
 import { context } from "@/context";
 
@@ -26,6 +26,30 @@ export type Hook<K extends record.Key, Args extends record.Keyed<K>, R> = option
   R
 >;
 
+/**
+ * SelectorHooks is the reactive-hook / getter-hook pair produced by
+ * flux.createSelector: a reactive hook that reads a value for the given args, and a
+ * getter hook that returns a function reading the current value on demand.
+ */
+export type SelectorHooks<Args extends {}, Selected> = [
+  (args: Args) => Selected,
+  () => (args: Args) => Selected,
+];
+
+/**
+ * BoundSelector is a {@link SelectorHooks} pair whose key has been sourced from the
+ * surrounding scope: the reactive hook and the getter it returns both accept an optional
+ * key that defaults to the scope's active key.
+ */
+export type BoundSelector<
+  K extends record.Key,
+  Args extends record.Keyed<K>,
+  Selected,
+> = [
+  Hook<K, Args, Selected>,
+  () => optional.Arg<optional.Optional<Args, "key">, Selected>,
+];
+
 /** Instance is a created scope: a Provider plus hooks bound to a single key type. */
 export interface Instance<K extends record.Key> {
   /** Provider sets the active key for all descendants. */
@@ -38,12 +62,25 @@ export interface Instance<K extends record.Key> {
   /** useOptional behaves like use but returns undefined instead of throwing. */
   useOptional: (override?: K) => K | undefined;
   /**
+   * require narrows an already-resolved key, throwing if it is nullish. Use inside a
+   * callback to enforce a key where the use hook cannot be called.
+   */
+  require: (key: K | undefined) => K;
+  /**
    * bindHook lifts a hook that requires a key into one whose key is optional, sourcing
    * it from the surrounding scope. All non-key arguments are forwarded unchanged.
    */
   bindHook: <Args extends record.Keyed<K>, R>(
     hook: (args: Args) => R,
   ) => Hook<K, Args, R>;
+  /**
+   * bindSelector binds a flux.createSelector pair to the scope: the reactive hook
+   * resolves its key from the scope, and the getter it returns injects the scope's key
+   * (overridable per call) into each read.
+   */
+  bindSelector: <Args extends record.Keyed<K>, Selected>(
+    selector: SelectorHooks<Args, Selected>,
+  ) => BoundSelector<K, Args, Selected>;
 }
 
 /**
@@ -68,14 +105,15 @@ export const create = <K extends record.Key>(name: string): Instance<K> => {
     return override ?? fromScope;
   };
 
-  const use = (override?: K): K => {
-    const value = useOptional(override);
-    if (value == null)
+  const require = (key: K | undefined): K => {
+    if (key == null)
       throw new Error(
         `${name} scope requires a key: pass one explicitly or render within ${name}.Provider`,
       );
-    return value;
+    return key;
   };
+
+  const use = (override?: K): K => require(useOptional(override));
 
   const bindHook =
     <Args extends record.Keyed<K>, R>(hook: (args: Args) => R): Hook<K, Args, R> =>
@@ -84,5 +122,22 @@ export const create = <K extends record.Key>(name: string): Instance<K> => {
       return hook({ ...args, key } as Args);
     };
 
-  return { Provider, use, useOptional, bindHook };
+  const bindSelector = <Args extends record.Keyed<K>, Selected>([
+    useSelect,
+    useGet,
+  ]: SelectorHooks<Args, Selected>): BoundSelector<K, Args, Selected> => {
+    const boundUseSelect = bindHook(useSelect);
+    const boundUseGet = (): optional.Arg<optional.Optional<Args, "key">, Selected> => {
+      const scopeKey = useOptional();
+      const get = useGet();
+      return useCallback(
+        (args?: optional.Optional<Args, "key">) =>
+          get({ ...args, key: require(args?.key ?? scopeKey) } as Args),
+        [get, scopeKey],
+      );
+    };
+    return [boundUseSelect, boundUseGet];
+  };
+
+  return { Provider, use, useOptional, require, bindHook, bindSelector };
 };

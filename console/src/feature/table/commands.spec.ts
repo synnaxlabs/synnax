@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { table } from "@synnaxlabs/client";
 import { describe, expect, it } from "vitest";
 
 import { renderPalette } from "@/feature/command/testutil";
@@ -14,12 +15,12 @@ import { Table } from "@/feature/table";
 import { client, project } from "@/feature/table/testutil";
 import { createActiveState } from "@/platform/project/testutil";
 import { Session } from "@/session";
-import { stubGeometry, waitForPlacedLayout } from "@/testutil";
+import { resolveFocusedTab, stubGeometry } from "@/testutil";
 
 stubGeometry();
 
 describe("Table Commands", () => {
-  it("creates a table on the server and places its layout", async () => {
+  it("creates a table on the server and opens it as a tab", async () => {
     const proj = await client.projects.retrieve(await project());
     const { store, openCommandPalette, selectCommand } = await renderPalette({
       commands: Table.COMMANDS,
@@ -28,8 +29,10 @@ describe("Table Commands", () => {
     });
     await openCommandPalette();
     await selectCommand("Create a table");
-    const key = await waitForPlacedLayout(store, Table.LAYOUT_TYPE);
-    const created = await client.tables.retrieve({ key });
+    const tab = await resolveFocusedTab(store, client);
+    if (tab.variant !== "resource") throw new Error("expected a resource tab");
+    expect(tab.resource.type).toBe(table.TYPE_ONTOLOGY_ID.type);
+    const created = await client.tables.retrieve({ key: tab.resource.key });
     expect(created.name).toBe("Table");
   });
 });

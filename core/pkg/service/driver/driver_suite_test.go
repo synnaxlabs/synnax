@@ -20,6 +20,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/driver"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
+	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
@@ -84,7 +85,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	channelSvc = MustOpen(channel.OpenService(ctx, channel.ServiceConfig{
 		Channel:      node.Channel,
 		DB:           node.DB,
-		HostResolver: node.Cluster,
+		HostProvider: node.Cluster,
 		Ontology:     otg,
 		Group:        groupSvc,
 		Search:       searchIdx,
@@ -94,7 +95,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Framer:       node.Framer,
 		Channel:      channelSvc,
 		Status:       statusSvc,
-		HostResolver: node.Cluster,
+		HostProvider: node.Cluster,
 	}))
 	taskService = MustOpen(task.OpenService(ctx, task.ServiceConfig{
 		DB:       node.DB,
@@ -104,6 +105,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Status:   statusSvc,
 		Channel:  channelSvc,
 		Search:   searchIdx,
+		ImEx:     imex.NewService(),
 	}))
 	taskWriter = taskService.NewWriter(nil)
 })

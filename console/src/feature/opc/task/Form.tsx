@@ -102,7 +102,7 @@ const ChannelListItem = <C extends Channel>({
 };
 
 const Header = () => (
-  <PHeader.Header style={{ height: "4.5rem", flexShrink: 0, flexGrow: 0 }}>
+  <PHeader.Header className={CSS.B("opc-task-header")}>
     <PHeader.Title weight={500} color={10} level="p">
       Channels
     </PHeader.Title>
@@ -111,10 +111,10 @@ const Header = () => (
 
 const EmptyContent = () => (
   <Flex.Box center>
-    <Text.Text status="disabled" style={{ display: "inline-block", maxWidth: 300 }}>
+    <Text.Text status="disabled" className={CSS.B("opc-task-empty-text")}>
       No channels added. Drag a variable{" "}
-      <Icon.Variable style={{ fontSize: "2.5rem", transform: "translateY(0.5rem)" }} />{" "}
-      from the browser to add a channel to the task.
+      <Icon.Variable className={CSS.B("opc-task-variable-icon")} /> from the browser to
+      add a channel to the task.
     </Text.Text>
   </Flex.Box>
 );

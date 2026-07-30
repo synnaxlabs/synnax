@@ -163,4 +163,67 @@
             transform: translateX(-50%);
         }
     }
+
+    .console-schematic-file-drop {
+        box-shadow: var(--pluto-shadow-v2);
+    }
+
+    .console-schematic-file-drop-overlay {
+        position: absolute;
+    }
+
+    .console-schematic-handle-list-item {
+        padding-right: 0.5rem;
+    }
+
+    .console-schematic-handle-list {
+        max-height: 200px;
+    }
+
+    .console-schematic-handle {
+        position: absolute;
+    }
+
+    .console-schematic-preview-theme-container {
+        position: relative;
+        width: 100%;
+        height: 100%;
+        overflow: hidden;
+        display: flex;
+
+        &.console--hidden {
+            display: none;
+        }
+    }
+
+    .console-schematic-preview-controls {
+        position: absolute;
+        top: 16px;
+        right: 16px;
+        z-index: 1000;
+    }
+
+    .console-schematic-preview-svg-wrapper {
+        transform-origin: center;
+    }
+
+    .console-schematic-preview-svg-wrapper-inner {
+        position: relative;
+    }
+
+    .console-schematic-region-list-item {
+        padding-right: 0.5rem;
+    }
+
+    .console-schematic-region-name {
+        min-width: 80px;
+    }
+
+    .console-schematic-region-list {
+        max-height: 200px;
+    }
+
+    .console-schematic-state-list-item {
+        min-width: 80px;
+    }
 }

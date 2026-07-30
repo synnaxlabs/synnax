@@ -24,13 +24,13 @@ const keyRetrieveRequestZ = z
   .object({ key: keyZ })
   .transform(({ key }) => ({ keys: [key] }));
 
-const singleCreateArgsZ = roleZ.transform((r) => ({ roles: [r] }));
-export type SingleCreateArgs = z.input<typeof singleCreateArgsZ>;
+const singleCreateParamsZ = roleZ.transform((r) => ({ roles: [r] }));
+export type SingleCreateParams = z.input<typeof singleCreateParamsZ>;
 
-export const multipleCreateArgsZ = roleZ.array().transform((roles) => ({ roles }));
+export const multipleCreateParamsZ = roleZ.array().transform((roles) => ({ roles }));
 
-export const createArgsZ = z.union([singleCreateArgsZ, multipleCreateArgsZ]);
-export type CreateArgs = z.input<typeof createArgsZ>;
+export const createParamsZ = z.union([singleCreateParamsZ, multipleCreateParamsZ]);
+export type CreateParams = z.input<typeof createParamsZ>;
 
 const createResZ = z.object({ roles: roleZ.array() });
 const retrieveResZ = z.object({ roles: roleZ.array().default(() => []) });
@@ -38,21 +38,21 @@ const retrieveResZ = z.object({ roles: roleZ.array().default(() => []) });
 export type RetrieveSingleParams = z.input<typeof keyRetrieveRequestZ>;
 export type RetrieveMultipleParams = z.input<typeof retrieveRequestZ>;
 
-export const retrieveArgsZ = z.union([keyRetrieveRequestZ, retrieveRequestZ]);
-export type RetrieveArgs = z.input<typeof retrieveArgsZ>;
+export const retrieveParamsZ = z.union([keyRetrieveRequestZ, retrieveRequestZ]);
+export type RetrieveParams = z.input<typeof retrieveParamsZ>;
 
 const deleteResZ = z.object({});
 
-const deleteArgsZ = keyZ
+const deleteParamsZ = keyZ
   .transform((key) => ({ keys: [key] }))
   .or(keyZ.array().transform((keys) => ({ keys })));
-export type DeleteArgs = z.input<typeof deleteArgsZ>;
+export type DeleteParams = z.input<typeof deleteParamsZ>;
 
 const assignReqZ = z.object({
   user: user.keyZ,
   role: keyZ,
 });
-export type AssignArgs = z.input<typeof assignReqZ>;
+export type AssignParams = z.input<typeof assignReqZ>;
 
 const assignResZ = z.object({});
 
@@ -60,7 +60,7 @@ const unassignReqZ = z.object({
   user: user.keyZ,
   role: keyZ,
 });
-export type UnassignArgs = z.input<typeof unassignReqZ>;
+export type UnassignParams = z.input<typeof unassignReqZ>;
 
 const unassignResZ = z.object({});
 
@@ -81,34 +81,34 @@ export class Client {
     const res = await this.client.send(
       "/access/role/create",
       roles,
-      createArgsZ,
+      createParamsZ,
       createResZ,
     );
     return isMany ? res.roles : res.roles[0];
   }
 
-  async retrieve(args: RetrieveSingleParams): Promise<Role>;
-  async retrieve(args: RetrieveMultipleParams): Promise<Role[]>;
-  async retrieve(args: RetrieveArgs): Promise<Role | Role[]> {
-    const isSingle = "key" in args;
+  async retrieve(params: RetrieveSingleParams): Promise<Role>;
+  async retrieve(params: RetrieveMultipleParams): Promise<Role[]>;
+  async retrieve(params: RetrieveParams): Promise<Role | Role[]> {
+    const isSingle = "key" in params;
     const res = await this.client.send(
       "/access/role/retrieve",
-      args,
-      retrieveArgsZ,
+      params,
+      retrieveParamsZ,
       retrieveResZ,
     );
     return isSingle ? res.roles[0] : res.roles;
   }
 
-  async delete(args: DeleteArgs): Promise<void> {
-    await this.client.send("/access/role/delete", args, deleteArgsZ, deleteResZ);
+  async delete(params: DeleteParams): Promise<void> {
+    await this.client.send("/access/role/delete", params, deleteParamsZ, deleteResZ);
   }
 
-  async assign(args: AssignArgs): Promise<void> {
-    await this.client.send("/access/role/assign", args, assignReqZ, assignResZ);
+  async assign(params: AssignParams): Promise<void> {
+    await this.client.send("/access/role/assign", params, assignReqZ, assignResZ);
   }
 
-  async unassign(args: UnassignArgs): Promise<void> {
-    await this.client.send("/access/role/unassign", args, unassignReqZ, unassignResZ);
+  async unassign(params: UnassignParams): Promise<void> {
+    await this.client.send("/access/role/unassign", params, unassignReqZ, unassignResZ);
   }
 }

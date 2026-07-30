@@ -8,5 +8,4 @@
 // included in the file licenses/APL.txt.
 
 export * from "@/platform/lineplot/addChannelsToActivePlot";
-export * from "@/platform/lineplot/layout";
 export * from "@/platform/lineplot/useCreate";

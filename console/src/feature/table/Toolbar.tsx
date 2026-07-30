@@ -18,6 +18,7 @@ import {
   Form,
   Icon,
   Input,
+  Panel as PPanel,
   Select,
   Table,
   Text,
@@ -26,17 +27,16 @@ import {
 import { color, deep, record, type text } from "@synnaxlabs/x";
 import { type ReactElement, useCallback, useMemo } from "react";
 
-import { useExport } from "@/feature/table/export";
 import { Cluster } from "@/platform/cluster";
 import { CSS } from "@/platform/css";
 import { Empty } from "@/platform/empty";
 import { Export } from "@/platform/export";
+import { type Panel } from "@/platform/panel";
 import { Toolbar as Base } from "@/platform/toolbar";
 import { Session } from "@/session";
 
 const Internal = (): ReactElement => {
   const key = Table.useKey();
-  const handleExport = useExport();
   const name = Table.useSelectName();
   const editable = Session.Table.useSelectEditable();
   const selectedCellKeys = Session.Table.useSelectSelectedCellKeys();
@@ -66,7 +66,7 @@ const Internal = (): ReactElement => {
           </Breadcrumb.Breadcrumb>
         </Flex.Box>
         <Flex.Box x className={CSS.BE("table", "toolbar-buttons")} empty>
-          <Export.ToolbarButton onExport={() => handleExport(key)} />
+          <Export.ToolbarButton getID={() => table.ontologyID(key)} />
           <Cluster.CopyLinkToolbarButton
             name={name}
             ontologyID={table.ontologyID(key)}
@@ -88,15 +88,14 @@ const Internal = (): ReactElement => {
   );
 };
 
-export interface ToolbarProps {
-  layoutKey: string;
-}
-
-export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement => (
-  <Table.Suspended tableKey={layoutKey}>
-    <Internal />
-  </Table.Suspended>
-);
+export const Toolbar: Panel.Toolbar = () => {
+  const { key } = PPanel.useSelectTabResource();
+  return (
+    <Table.Suspended tableKey={key}>
+      <Internal />
+    </Table.Suspended>
+  );
+};
 
 // buildVariantSwapActions returns one setCell action per cell whose variant
 // differs from the target. Compatible fields survive the swap.
@@ -137,7 +136,7 @@ const CellForm = ({ cellKey }: CellFormProps): ReactElement | null => {
   );
 
   const handleChange = useCallback(
-    ({ values }: Form.OnChangeArgs<ReturnType<typeof record.unknownZ>>) => {
+    ({ values }: Form.OnChangeParams<ReturnType<typeof record.unknownZ>>) => {
       if (cell == null) return;
       dispatch([
         table.setCell({

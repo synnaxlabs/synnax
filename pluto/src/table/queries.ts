@@ -54,27 +54,12 @@ export const { useRetrieve, useRetrieveObservable, useEnsureRetrieved } =
   Flux.createRetrieve<RetrieveQuery, table.Table, FluxSubStore>({
     name: RESOURCE_NAME,
     retrieve: retrieveSingle,
+    retrieveCached: ({ store, query: { key } }) => store.tables.get(key),
     mountListeners: ({ store, query: { key }, onChange }) =>
       store.tables.onSet(onChange, key),
   });
 
-export const useRetrieveObservableName = ({
-  onChange,
-  ...params
-}: Omit<Flux.UseRetrieveObservableParams<RetrieveQuery, table.Table>, "onChange"> & {
-  onChange: (name: string) => void;
-}): Flux.UseRetrieveObservableReturn<RetrieveQuery> => {
-  const onChangeRef = useSyncedRef(onChange);
-  return useRetrieveObservable({
-    ...params,
-    onChange: useCallback((result) => {
-      if (result.variant !== "success") return;
-      onChangeRef.current(result.data.name);
-    }, []),
-  });
-};
-
-export interface SelectKeyArgs {
+export interface SelectKeyParams {
   key: table.Key;
 }
 
@@ -84,41 +69,41 @@ const requireTable = (store: FluxSubStore, key: table.Key): table.Table => {
   return t;
 };
 
-export const useSelectName = Scope.bindHook(
-  Flux.createSelector<FluxSubStore, SelectKeyArgs, string>({
+export const [useSelectName, useGetName] = Scope.bindSelector(
+  Flux.createSelector<FluxSubStore, SelectKeyParams, string>({
     subscribe: (store, { key }, notify) => store.tables.onSet(notify, key),
     select: (store, { key }) => requireTable(store, key).name,
   }),
 );
 
-export const useSelectRows = Scope.bindHook(
-  Flux.createSelector<FluxSubStore, SelectKeyArgs, table.Row[]>({
+export const [useSelectRows, useGetRows] = Scope.bindSelector(
+  Flux.createSelector<FluxSubStore, SelectKeyParams, table.Row[]>({
     subscribe: (store, { key }, notify) => store.tables.onSet(notify, key),
     select: (store, { key }) => requireTable(store, key).rows,
   }),
 );
 
-export const useSelectColumns = Scope.bindHook(
-  Flux.createSelector<FluxSubStore, SelectKeyArgs, table.Column[]>({
+export const [useSelectColumns, useGetColumns] = Scope.bindSelector(
+  Flux.createSelector<FluxSubStore, SelectKeyParams, table.Column[]>({
     subscribe: (store, { key }, notify) => store.tables.onSet(notify, key),
     select: (store, { key }) => requireTable(store, key).columns,
   }),
 );
 
-export interface SelectCellArgs {
+export interface SelectCellParams {
   key: table.Key;
   cellKey: string;
 }
 
-export const useSelectCell = Scope.bindHook(
-  Flux.createSelector<FluxSubStore, SelectCellArgs, Cell.Config | undefined>({
+export const [useSelectCell, useGetCell] = Scope.bindSelector(
+  Flux.createSelector<FluxSubStore, SelectCellParams, Cell.Config | undefined>({
     subscribe: (store, { key }, notify) => store.tables.onSet(notify, key),
     select: (store, { key, cellKey }) =>
       store.tables.get(key)?.cells?.[cellKey] as Cell.Config | undefined,
   }),
 );
 
-export interface SelectCellsArgs {
+export interface SelectCellsParams {
   key: table.Key;
   cellKeys: string[];
 }
@@ -127,8 +112,8 @@ export interface SelectCellsArgs {
 // omitting keys that don't resolve to a cell. The map preserves
 // caller-provided key order; consumers that need positional iteration should
 // iterate cellKeys and look up via the map.
-export const useSelectCells = Scope.bindHook(
-  Flux.createSelector<FluxSubStore, SelectCellsArgs, Map<string, Cell.Config>>({
+export const [useSelectCells, useGetCells] = Scope.bindSelector(
+  Flux.createSelector<FluxSubStore, SelectCellsParams, Map<string, Cell.Config>>({
     subscribe: (store, { key }, notify) => store.tables.onSet(notify, key),
     select: (store, { key, cellKeys }) => {
       const result = new Map<string, Cell.Config>();
@@ -150,11 +135,12 @@ export type DeleteParams = table.Key | table.Key[];
 export const { useUpdate: useDelete } = Flux.createUpdate<DeleteParams, FluxSubStore>({
   name: RESOURCE_NAME,
   verbs: Flux.DELETE_VERBS,
-  update: async ({ client, data, rollbacks, store }) => {
+  update: async ({ client, data, rollbacks, store, onOptimisticComplete }) => {
     const keys = array.toArray(data);
     const ids = table.ontologyID(keys);
     const relFilter = Ontology.filterRelationshipsThatHaveIDs(ids);
     rollbacks.push(store.relationships.delete(relFilter));
+    await onOptimisticComplete(data);
     await client.tables.delete(data);
     return data;
   },
@@ -188,9 +174,10 @@ const { useUpdate: useCreateBase } = Flux.createUpdate<
 >({
   name: RESOURCE_NAME,
   verbs: Flux.CREATE_VERBS,
-  update: async ({ client, data, store, rollbacks }) => {
+  update: async ({ client, data, store, rollbacks, onOptimisticComplete }) => {
     const optimistic = table.tableZ.parse(data);
     rollbacks.push(store.tables.set(optimistic));
+    await onOptimisticComplete(optimistic);
     const project = data.project ?? uuid.ZERO;
     const created = await client.tables.create(project, optimistic);
     store.tables.set(created);
@@ -223,18 +210,22 @@ export const useCreate: typeof useCreateBase = (args) => {
   return { ...base, update, updateAsync };
 };
 
-export interface UseRenameArgs {
+export interface UseRenameParams {
   key: table.Key;
   name: string;
 }
 
-export const { useUpdate: useRename } = Flux.createUpdate<UseRenameArgs, FluxSubStore>({
+export const { useUpdate: useRename } = Flux.createUpdate<
+  UseRenameParams,
+  FluxSubStore
+>({
   name: RESOURCE_NAME,
   verbs: Flux.RENAME_VERBS,
-  update: async ({ client, data, rollbacks, store }) => {
+  update: async ({ client, data, rollbacks, store, onOptimisticComplete }) => {
     const { key, name } = data;
     rollbacks.push(Flux.partialUpdate(store.tables, key, { name }));
     rollbacks.push(Ontology.renameFluxResource(store, table.ontologyID(key), name));
+    await onOptimisticComplete(data);
     await client.tables.rename(key, name);
     return data;
   },
@@ -348,7 +339,7 @@ export const cellsInRegion = (
 };
 
 export const useCellPosition = Scope.bindHook(
-  ({ key, cellKey }: SelectCellArgs): xy.XY | null => {
+  ({ key, cellKey }: SelectCellParams): xy.XY | null => {
     const rows = useSelectRows({ key });
     return useMemo(() => findCellPosition(rows, cellKey), [rows, cellKey]);
   },

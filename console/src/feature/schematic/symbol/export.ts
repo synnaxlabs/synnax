@@ -7,8 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { DisconnectedError, group, type Synnax as Client } from "@synnaxlabs/client";
+import {
+  DisconnectedError,
+  group,
+  schematic,
+  type Synnax as Client,
+} from "@synnaxlabs/client";
 import { Status, Synnax } from "@synnaxlabs/pluto";
+import { strings } from "@synnaxlabs/x";
 import { useCallback } from "react";
 
 import { type Symbol } from "@/feature/schematic/symbol";
@@ -16,15 +22,7 @@ import { Export } from "@/platform/export";
 import { Modals } from "@/platform/modals";
 import { Runtime } from "@/platform/runtime";
 
-export const extract: Export.Extractor = async (key, { client }) => {
-  if (client == null) throw new DisconnectedError();
-  const symbol = await client.schematics.symbols.retrieve({ key });
-  return { data: JSON.stringify(symbol), name: symbol.name };
-};
-
-export const useExport = () => Export.use(extract, "symbol");
-
-interface ExportGroupArgs {
+interface ExportGroupParams {
   client: Client | null;
   group: group.Group;
   handleError: Status.ErrorHandler;
@@ -37,7 +35,7 @@ const exportGroup = async ({
   group: { key, name },
   addStatus,
   confirm,
-}: ExportGroupArgs): Promise<void> => {
+}: ExportGroupParams): Promise<void> => {
   if (client == null) throw new DisconnectedError();
   const children = await client.ontology.retrieveChildren(group.ontologyID(key));
   const symbolKeys = children
@@ -62,7 +60,7 @@ const exportGroup = async ({
 
   const directory = await Runtime.pickWritableDirectory({
     title: `Select a location to export ${name}`,
-    subdirectory: Export.sanitizeFileName(name),
+    subdirectory: strings.sanitizeFileName(name),
   });
   if (directory == null) return;
   if (directory.preExisted) {
@@ -81,8 +79,12 @@ const exportGroup = async ({
     name,
     symbols: await Promise.all(
       symbols.map(async (symbol) => {
-        const fileName = `${Export.sanitizeFileName(symbol.name)}_${symbol.key.slice(0, 8)}.json`;
-        await directory.writeText(fileName, JSON.stringify(symbol));
+        const fileName = `${strings.sanitizeFileName(symbol.name)}_${symbol.key.slice(0, 8)}.json`;
+        const { data } = await Export.fetchFileData(
+          client,
+          schematic.symbol.ontologyID(symbol.key),
+        );
+        await directory.writeText(fileName, data);
         return { file: fileName, key: symbol.key, name: symbol.name };
       }),
     ),

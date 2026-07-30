@@ -50,11 +50,28 @@ import (
 	"strings"
 
 	"github.com/samber/lo"
+	"github.com/synnaxlabs/x/tree"
 )
 
 // InlinePrefix names the synthetic scopes lowered from inline stage/sequence flow
 // targets, so the analyzer can detect and resolve them by key.
 const InlinePrefix = "__inline_"
+
+// Parameter naming conventions for IR nodes and functions.
+const (
+	// DefaultOutputParam is the parameter name for single-output functions and stages.
+	// Use this for unary operations like neg, sqrt, etc.
+	DefaultOutputParam = "output"
+	// DefaultInputParam is the parameter name for single-input functions and stages.
+	// Use this for unary operations that take one input.
+	DefaultInputParam = "input"
+	// LHSInputParam is the left-hand side parameter name for binary operators.
+	// Use this as the first operand name in operations like add, multiply, etc.
+	LHSInputParam = "a"
+	// RHSInputParam is the right-hand side parameter name for binary operators.
+	// Use this as the second operand name in operations like add, multiply, etc.
+	RHSInputParam = "b"
+)
 
 func (i *IR) IsZero() bool {
 	return len(i.Functions) == 0 &&
@@ -65,21 +82,8 @@ func (i *IR) IsZero() bool {
 		i.TypeMap == nil
 }
 
-// IsZero reports whether the scope carries no execution content.
-func (s Scope) IsZero() bool {
-	return s.Key == "" &&
-		s.Mode == ScopeModeUnspecified &&
-		s.Liveness == LivenessUnspecified &&
-		s.Activation == nil &&
-		len(s.Strata) == 0 &&
-		len(s.Steps) == 0 &&
-		len(s.Transitions) == 0
-}
-
 // String returns the string representation of the IR.
-func (i *IR) String() string {
-	return i.stringWithPrefix("")
-}
+func (i *IR) String() string { return i.stringWithPrefix("") }
 
 // stringWithPrefix returns the string representation with tree formatting.
 func (i *IR) stringWithPrefix(prefix string) string {
@@ -114,39 +118,39 @@ func (i *IR) stringWithPrefix(prefix string) string {
 
 func (i *IR) writeFunctions(b *strings.Builder, prefix string, last bool) {
 	b.WriteString(prefix)
-	b.WriteString(TreePrefix(last))
+	b.WriteString(tree.Prefix(last))
 	lo.Must(fmt.Fprintf(b, "Functions (%d)\n", len(i.Functions)))
-	childPrefix := prefix + treeIndent(last)
+	childPrefix := prefix + tree.Indent(last)
 	for j, f := range i.Functions {
 		isLast := j == len(i.Functions)-1
 		b.WriteString(childPrefix)
-		b.WriteString(TreePrefix(isLast))
-		b.WriteString(f.stringWithPrefix(childPrefix + treeIndent(isLast)))
+		b.WriteString(tree.Prefix(isLast))
+		b.WriteString(f.StringWithPrefix(childPrefix + tree.Indent(isLast)))
 	}
 }
 
 func (i *IR) writeNodes(b *strings.Builder, prefix string, last bool) {
 	b.WriteString(prefix)
-	b.WriteString(TreePrefix(last))
+	b.WriteString(tree.Prefix(last))
 	lo.Must(fmt.Fprintf(b, "Nodes (%d)\n", len(i.Nodes)))
-	childPrefix := prefix + treeIndent(last)
+	childPrefix := prefix + tree.Indent(last)
 	for j, n := range i.Nodes {
 		isLast := j == len(i.Nodes)-1
 		b.WriteString(childPrefix)
-		b.WriteString(TreePrefix(isLast))
-		b.WriteString(n.stringWithPrefix(childPrefix + treeIndent(isLast)))
+		b.WriteString(tree.Prefix(isLast))
+		b.WriteString(n.stringWithPrefix(childPrefix + tree.Indent(isLast)))
 	}
 }
 
 func (i *IR) writeEdges(b *strings.Builder, prefix string, last bool) {
 	b.WriteString(prefix)
-	b.WriteString(TreePrefix(last))
+	b.WriteString(tree.Prefix(last))
 	lo.Must(fmt.Fprintf(b, "Edges (%d)\n", len(i.Edges)))
-	childPrefix := prefix + treeIndent(last)
+	childPrefix := prefix + tree.Indent(last)
 	for j, e := range i.Edges {
 		isLast := j == len(i.Edges)-1
 		b.WriteString(childPrefix)
-		b.WriteString(TreePrefix(isLast))
+		b.WriteString(tree.Prefix(isLast))
 		b.WriteString(e.String())
 		b.WriteString("\n")
 	}
@@ -154,97 +158,8 @@ func (i *IR) writeEdges(b *strings.Builder, prefix string, last bool) {
 
 func (i *IR) writeRoot(b *strings.Builder, prefix string, last bool) {
 	b.WriteString(prefix)
-	b.WriteString(TreePrefix(last))
+	b.WriteString(tree.Prefix(last))
 	b.WriteString("Root\n")
-	childPrefix := prefix + treeIndent(last)
-	b.WriteString(i.Root.stringWithPrefix(childPrefix))
-}
-
-// String returns the tree representation of a Scope.
-func (s Scope) String() string { return s.stringWithPrefix("") }
-
-func (s Scope) stringWithPrefix(prefix string) string {
-	var b strings.Builder
-	lo.Must(fmt.Fprintf(&b, "%s [%s, %s]\n", scopeLabel(s), s.Mode, s.Liveness))
-	if s.Mode == ScopeModeParallel {
-		for i, stratum := range s.Strata {
-			isLast := i == len(s.Strata)-1 && len(s.Transitions) == 0
-			b.WriteString(prefix)
-			b.WriteString(TreePrefix(isLast))
-			lo.Must(fmt.Fprintf(&b, "stratum %d\n", i))
-			childPrefix := prefix + treeIndent(isLast)
-			for j, m := range stratum {
-				isLastMember := j == len(stratum)-1
-				b.WriteString(childPrefix)
-				b.WriteString(TreePrefix(isLastMember))
-				b.WriteString(m.stringWithPrefix(childPrefix + treeIndent(isLastMember)))
-			}
-		}
-	} else {
-		for i, m := range s.Steps {
-			isLast := i == len(s.Steps)-1 && len(s.Transitions) == 0
-			b.WriteString(prefix)
-			b.WriteString(TreePrefix(isLast))
-			b.WriteString(m.stringWithPrefix(prefix + treeIndent(isLast)))
-		}
-	}
-	for i, t := range s.Transitions {
-		isLast := i == len(s.Transitions)-1
-		b.WriteString(prefix)
-		b.WriteString(TreePrefix(isLast))
-		b.WriteString(t.String())
-		b.WriteByte('\n')
-	}
-	return b.String()
-}
-
-func scopeLabel(s Scope) string {
-	if s.Key == "" {
-		return "(scope)"
-	}
-	return s.Key
-}
-
-// NodeMember builds a leaf Member referencing the node with the given key.
-func NodeMember(key string) Member { return Member{NodeKey: new(key)} }
-
-// ScopeMember builds a Member wrapping the given nested Scope.
-func ScopeMember(s Scope) Member { return Member{Scope: &s} }
-
-// Key returns the member's lookup key — the string transitions target via
-// `=> name`. Derived from the set variant: the referenced node's key for
-// leaf members, the nested scope's key for scope members. Returns the empty
-// string for an unset member.
-func (m Member) Key() string {
-	switch {
-	case m.NodeKey != nil:
-		return *m.NodeKey
-	case m.Scope != nil:
-		return m.Scope.Key
-	default:
-		return ""
-	}
-}
-
-// String returns the tree representation of a Member.
-func (m Member) String() string { return m.stringWithPrefix("") }
-
-func (m Member) stringWithPrefix(prefix string) string {
-	switch {
-	case m.NodeKey != nil:
-		return fmt.Sprintf("%s\n", *m.NodeKey)
-	case m.Scope != nil:
-		return m.Scope.stringWithPrefix(prefix)
-	default:
-		return "(empty member)\n"
-	}
-}
-
-// String returns a concise description of the transition.
-func (t Transition) String() string {
-	target := "=> exit"
-	if t.TargetKey != nil {
-		target = "=> " + *t.TargetKey
-	}
-	return fmt.Sprintf("on %s/%s %s", t.On.Node, t.On.Param, target)
+	childPrefix := prefix + tree.Indent(last)
+	b.WriteString(i.Root.StringWithPrefix(childPrefix))
 }

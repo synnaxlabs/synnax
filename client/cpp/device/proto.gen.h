@@ -15,8 +15,7 @@
 
 #include "client/cpp/device/json.gen.h"
 #include "client/cpp/device/types.gen.h"
-#include "client/cpp/ontology/json.gen.h"
-#include "client/cpp/ontology/proto.gen.h"
+#include "client/cpp/ontology/types.gen.h"
 #include "client/cpp/status/json.gen.h"
 #include "client/cpp/status/proto.gen.h"
 #include "x/cpp/errors/errors.h"

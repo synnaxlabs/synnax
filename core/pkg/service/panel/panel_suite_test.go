@@ -75,7 +75,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	channelSvc = MustOpen(channel.OpenService(ctx, channel.ServiceConfig{
 		Channel:      node.Channel,
 		DB:           node.DB,
-		HostResolver: node.Cluster,
+		HostProvider: node.Cluster,
 		Ontology:     otg,
 		Group:        groupSvc,
 		Search:       searchIdx,
@@ -85,7 +85,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Framer:       node.Framer,
 		Channel:      channelSvc,
 		Status:       statusSvc,
-		HostResolver: node.Cluster,
+		HostProvider: node.Cluster,
 	}))
 	sigs := MustSucceed(signals.New(signals.Config{
 		Channel: channelSvc,
@@ -105,7 +105,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Search:   searchIdx,
 	}))
 	parent := MustSucceed(userSvc.NewWriter(nil).Create(ctx, user.User{Username: "panel-parent"}))
-	parentID = user.OntologyID(parent.Key)
+	parentID = parent.OntologyID()
 })
 
 var _ = BeforeEach(func() { tx = DeferClose(db.OpenTx()) })

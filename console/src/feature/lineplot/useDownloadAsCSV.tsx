@@ -21,13 +21,13 @@ export interface DownloadLine {
   channels: { x?: channel.Key; y: channel.Key };
 }
 
-export interface DownloadAsCSVArgs {
+export interface DownloadAsCSVParams {
   timeRanges: TimeRange[];
   lines: DownloadLine[];
   name: string;
 }
 
-export const useDownloadAsCSV = (): ((args: DownloadAsCSVArgs) => void) => {
+export const useDownloadAsCSV = (): ((params: DownloadAsCSVParams) => void) => {
   const openDownloadCSVModal = CSV.useDownloadModal();
   const handleError = Status.useErrorHandler();
   return useCallback(
@@ -57,7 +57,7 @@ export const useDownloadPlotAsCSV = (key: string): (() => void) => {
   const downloadAsCSV = useDownloadAsCSV();
   const derived = LinePlot.useSelectLines({ key });
   const ranges = LinePlot.useSelectRanges({ key });
-  const { name } = Session.Layout.useSelectRequired(key);
+  const name = LinePlot.useSelectName({ key });
   const rangeKeys = unique.unique([...ranges.x1, ...ranges.x2]);
   const resolved = Session.Range.useSelectMultiple(rangeKeys);
   return useCallback(() => {

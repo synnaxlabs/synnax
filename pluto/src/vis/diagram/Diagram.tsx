@@ -310,9 +310,14 @@ export const create = ({
       [fitView],
     );
 
+    // React Flow fits its view against the container it mounts into, so mounting
+    // against an unsized one (a tab whose content is not currently hosted in the DOM)
+    // would report a nonsense viewport to the caller.
+    const [isSized, setIsSized] = useState(false);
     const resizeRef = Canvas.useRegion(
       useCallback(
         (region) => {
+          setIsSized(!box.areaIsZero(region));
           if (fitViewOnResize) debouncedFitView(fitViewOptions);
           setState((prev) => ({ ...prev, region }));
         },
@@ -443,7 +448,7 @@ export const create = ({
 
     const editableProps = editable ? EDITABLE_PROPS : NOT_EDITABLE_PROPS;
 
-    const triggerRef = useRef<HTMLElement>(null);
+    const triggerRef = useRef<HTMLDivElement>(null);
     Triggers.use({
       triggers: triggers.zoomReset,
       callback: useCallback(
@@ -469,7 +474,7 @@ export const create = ({
       };
     }, [triggers]);
 
-    const combinedRefs = useCombinedRefs(triggerRef, resizeRef);
+    const containerRefs = useCombinedRefs(ref, resizeRef);
 
     const ctxValue = useMemo(
       () => ({
@@ -536,7 +541,7 @@ export const create = ({
     return (
       <div
         className={CSS.BE("diagram", "container")}
-        ref={ref}
+        ref={containerRefs}
         onDoubleClick={onDoubleClick}
         onCopy={handleCopy}
         onPaste={handlePaste}
@@ -546,7 +551,7 @@ export const create = ({
       >
         <Context value={ctxValue}>
           <Aether.Composite path={path}>
-            {visible && (
+            {visible && isSized && (
               <ReactFlow
                 {...triggerProps}
                 className={CSS(
@@ -559,7 +564,7 @@ export const create = ({
                 edges={rfEdges}
                 nodeTypes={nodeTypes}
                 edgeTypes={edgeTypes}
-                ref={combinedRefs}
+                ref={triggerRef}
                 fitView
                 onNodesChange={handleNodesChange}
                 onEdgesChange={handleEdgesChange}

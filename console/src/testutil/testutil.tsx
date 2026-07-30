@@ -11,14 +11,23 @@ import { type EnhancedStore } from "@reduxjs/toolkit";
 import {
   type access,
   type ontology,
+  panel,
   type Synnax as Client,
   type SynnaxParams,
 } from "@synnaxlabs/client";
 import { Drift } from "@synnaxlabs/drift";
-import { Access, Flux, type Pluto, Status, Synnax } from "@synnaxlabs/pluto";
-import { type aether, eraser } from "@synnaxlabs/pluto/ether";
-import { deep, id } from "@synnaxlabs/x";
 import {
+  Access,
+  Flux,
+  type Panel as PlutoPanel,
+  type Pluto,
+  Status,
+  Synnax,
+} from "@synnaxlabs/pluto";
+import { type aether, eraser } from "@synnaxlabs/pluto/ether";
+import { deep, id, uuid } from "@synnaxlabs/x";
+import {
+  act,
   render,
   renderHook,
   type RenderHookOptions,
@@ -71,21 +80,85 @@ export const findTagCloseButton = (name: string): HTMLElement => {
 };
 
 /**
- * Polls the store until a layout of the given type has been placed and returns its
- * key.
+ * Polls the store until the active window has a focused tab (the definite session
+ * effect of opening a tab via Panel.useOpenTab) and returns its key.
  */
-export const waitForPlacedLayout = async (
-  store: TestStore,
-  type: string,
-): Promise<string> =>
+export const waitForFocusedTab = async (store: TestStore): Promise<string> =>
   await waitFor(() => {
-    const placed = Session.Layout.selectByFilter(
-      store.getState(),
-      (l) => l.type === type,
-    );
-    if (placed == null) throw new Error(`no ${type} layout placed`);
-    return placed.key;
+    const state = store.getState();
+    const panelKey = Session.Panel.selectSelected(state);
+    const focused =
+      panelKey == null
+        ? undefined
+        : Session.Panel.selectSelectedTabs(state, panelKey)[0];
+    if (focused == null) throw new Error("no tab focused");
+    return focused;
   });
+
+/**
+ * Seeds a single-leaf panel holding one resource tab for the given ontology ID into
+ * the wrapper's flux store, so the panel scope hooks a mounted tab's content reads
+ * (useSelectTabResource) resolve to it. Returns the keys to mount the content under.
+ */
+export const createResourceTab = (
+  Wrapper: FC<PropsWithChildren>,
+  resource: ontology.ID,
+): { panelKey: string; tabKey: string } => {
+  const tabKey = uuid.create();
+  const doc = panel.panelZ.parse({
+    key: uuid.create(),
+    name: uniqueName("panel"),
+    root: { variant: "leaf", tabs: [{ variant: "resource", key: tabKey, resource }] },
+  });
+  const { result } = renderHook(() => Flux.useStore<PlutoPanel.FluxSubStore>(), {
+    wrapper: Wrapper,
+  });
+  act(() => void result.current.panels.set(doc));
+  return { panelKey: doc.key, tabKey };
+};
+
+/**
+ * Polls until the active window's focused tab resolves to a tab in the selected
+ * panel's document and returns it. Bridges the session focus state (a tab key)
+ * and the panel document (fetched from the cluster) that together define what a
+ * Panel.useOpenTab call produced.
+ */
+export const resolveFocusedTab = async (
+  store: TestStore,
+  client: Client,
+  match?: (tab: panel.Tab) => boolean,
+): Promise<panel.Tab> =>
+  await waitFor(async () => {
+    const state = store.getState();
+    const panelKey = Session.Panel.selectSelected(state);
+    const focused =
+      panelKey == null
+        ? undefined
+        : Session.Panel.selectSelectedTabs(state, panelKey)[0];
+    if (focused == null || panelKey == null) throw new Error("no tab focused");
+    const doc = await client.panels.retrieve(panelKey);
+    const tab = panel.findTab(doc.root, focused);
+    if (tab == null) throw new Error("focused tab not found in panel");
+    // Placement lands focus one dispatch after the click, so a test opening a
+    // second tab must poll until focus reaches the expected one rather than
+    // reading the still-focused prior tab.
+    if (match != null && !match(tab)) throw new Error("focused tab does not match");
+    return tab;
+  });
+
+/**
+ * Creates a project on the cluster and marks it active in the session. Panel
+ * placement (Panel.useOpenTab) auto-creates panels under the active project, so
+ * any spec that exercises opening a tab must establish one first.
+ */
+export const selectTestProject = async (
+  store: TestStore,
+  client: Client,
+): Promise<string> => {
+  const proj = await client.projects.create({ name: id.create(), layout: {} });
+  store.dispatch(Session.Project.select(proj.key));
+  return proj.key;
+};
 
 export interface CaptureStatusesProps {
   onStatuses: (statuses: Status.NotificationSpec[]) => void;
@@ -122,9 +195,7 @@ export const createTestStore = async (options: ConsoleTestProviderOptions = {}) 
     runtime: new Drift.NoopRuntime(),
     reducer: Session.reducer,
     preloadedState: deep.copy({ ...Session.ZERO_STATE, ...preloadedState }),
-    // The layout middleware is omitted: it drives real Tauri window creation, which
-    // cannot run in jsdom. Everything else matches the production store.
-    middleware: (getDefault) => getDefault().concat(...Session.Nav.MIDDLEWARE),
+    middleware: (getDefault) => getDefault().concat(...Session.BASE_MIDDLEWARE),
     enablePrerender: false,
   });
 };
@@ -165,14 +236,20 @@ export const renderWithConsole = async (
   return { ...render(ui, { wrapper: Wrapper, ...rest }), store: resolvedStore };
 };
 
+export interface RenderLinkHookOptions {
+  client?: Client | null;
+  preloadedState?: ConsolePreloadedState;
+}
+
 export const renderLinkHook = async <H,>(
   useHook: () => H,
+  options: RenderLinkHookOptions = {},
 ): Promise<{ handler: H; store: TestStore; modals: Session.Modals.Store }> => {
-  const store = await createTestStore();
-  const Wrapper = ({ children }: PropsWithChildren) => (
-    <Provider store={store}>
-      <Session.Modals.Context>{children}</Session.Modals.Context>
-    </Provider>
+  const { client = null, preloadedState } = options;
+  const store = await createTestStore({ preloadedState });
+  const Wrapper = composeConsole(
+    createSynnaxWrapper({ client, additionalRegistry: ADDITIONAL_REGISTRY }),
+    store,
   );
   const { result } = renderHook(
     () => ({ handler: useHook(), modals: Session.Modals.useStore("renderLinkHook") }),
@@ -200,7 +277,7 @@ export const renderHookWithConsole = async <Result, Props>(
   return { ...renderHook(cb, { wrapper: Wrapper, ...rest }), store: resolvedStore };
 };
 
-export interface CreateConsoleWrapperArgs {
+export interface CreateConsoleWrapperParams {
   client: Client | null;
   preloadedState?: ConsolePreloadedState;
   store?: TestStore;
@@ -213,7 +290,7 @@ export const createConsoleWrapper = async ({
   preloadedState,
   store,
   additionalRegistry,
-}: CreateConsoleWrapperArgs): Promise<{
+}: CreateConsoleWrapperParams): Promise<{
   wrapper: FC<PropsWithChildren>;
   store: TestStore;
 }> => {
@@ -252,7 +329,7 @@ export const createGrantedFluxStore = async (
   return result.current.store;
 };
 
-export interface CreateConnectedConsoleWrapperArgs extends CreateConsoleWrapperArgs {
+export interface CreateConnectedConsoleWrapperParams extends CreateConsoleWrapperParams {
   /** Connection parameters handed to the production pluto Synnax.Provider. */
   connParams: SynnaxParams;
 }
@@ -265,7 +342,7 @@ export interface CreateConnectedConsoleWrapperArgs extends CreateConsoleWrapperA
 export const createConnectedConsoleWrapper = async ({
   connParams,
   ...args
-}: CreateConnectedConsoleWrapperArgs): Promise<{
+}: CreateConnectedConsoleWrapperParams): Promise<{
   wrapper: FC<PropsWithChildren>;
   store: TestStore;
 }> => {

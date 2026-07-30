@@ -10,7 +10,7 @@
 import "@/schematic/node/general/button/button.css";
 import "@/schematic/node/general/setpoint/setpoint.css";
 
-import { type CSSProperties, type ReactElement, useState } from "react";
+import { type CSSProperties, type ReactElement, useMemo, useState } from "react";
 
 import { Button as BaseButton } from "@/button";
 import { CSS } from "@/css";
@@ -25,8 +25,6 @@ interface RenderProps extends Omit<Config, "variant">, BaseInput.Control<number>
   style?: CSSProperties;
 }
 
-const SETPOINT_STYLE: CSSProperties = { zIndex: 5 };
-
 export const Setpoint = ({
   orientation = "left",
   className,
@@ -39,11 +37,15 @@ export const Setpoint = ({
   disabled,
 }: RenderProps): ReactElement => {
   const [currValue, setCurrValue] = useState(value);
+  const mergedStyle = useMemo(
+    () => ({ ...style, [CSS.var("symbol-color")]: symbolColorVar(color) }),
+    [style, color],
+  );
   return (
     <Primitive.Div
       className={CSS(CSS.B("setpoint"), CSS.B("symbol-colored"), className)}
       orientation={orientation}
-      style={{ ...style, [CSS.var("symbol-color")]: symbolColorVar(color) }}
+      style={mergedStyle}
     >
       <Handle.Boundary orientation={orientation}>
         <Handle.Handle
@@ -59,7 +61,6 @@ export const Setpoint = ({
           left={100}
           top={50}
           id="2"
-          style={SETPOINT_STYLE}
         />
         <Handle.Handle
           location="top"

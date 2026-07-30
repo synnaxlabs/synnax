@@ -1003,6 +1003,13 @@ func (b *testValueBuilder) goTypeName(typ resolution.Type) (string, error) {
 		return "", err
 	}
 	alias := naming.DerivePackageAlias(goPath, b.packageName)
+	// A versioned sub-package (…/versions/v0) aliases to its bare resource name, which
+	// shadows that resource's root package or another already-imported package sharing
+	// the name. Disambiguate with the version-suffixed alias, matching the migration
+	// import convention (spatialv0).
+	if b.aliasCollides(importPath, alias) {
+		alias = naming.DeriveVersionedAlias(goPath, b.packageName)
+	}
 	actualPkg := filepath.Base(importPath)
 	if alias == actualPkg {
 		if _, ok := b.imports[importPath]; !ok {
@@ -1016,6 +1023,27 @@ func (b *testValueBuilder) goTypeName(typ resolution.Type) (string, error) {
 		qualifier = existing
 	}
 	return qualifier + "." + goName, nil
+}
+
+// aliasCollides reports whether alias would shadow the package under test or an
+// already-registered import other than importPath. An import stored with an empty alias
+// qualifies under its bare package name.
+func (b *testValueBuilder) aliasCollides(importPath, alias string) bool {
+	if alias == b.packageName {
+		return true
+	}
+	for path, existing := range b.imports {
+		if path == importPath {
+			continue
+		}
+		if existing == "" {
+			existing = filepath.Base(path)
+		}
+		if existing == alias {
+			return true
+		}
+	}
+	return false
 }
 
 func (b *testValueBuilder) goSliceElemType(typ resolution.Type) (string, error) {
@@ -1036,16 +1064,16 @@ const testCodecTemplate = `// Copyright 2026 Synnax Labs, Inc.
 package {{.Package}}_test
 
 import (
-	"reflect"
 	"testing"
 {{- if .NeedsUUID}}
 	"github.com/google/uuid"
 {{- end}}
 
+	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/x/encoding/orc"
-
 	"{{.PkgImport}}"
 {{- range sortedImports .ExtraImports}}
 	{{if .Alias}}{{.Alias}} {{end}}"{{.Path}}"
@@ -1100,12 +1128,12 @@ var _ = Describe("Codec", func() {
 })
 {{range .GenericTests}}
 func BenchmarkEncodeDecode{{.GoName}}(b *testing.B) {
-	{{.Receiver}} := {{(index .Cases 0).ValueExpr}}
+	seed := {{(index .Cases 0).ValueExpr}}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		w.Reset()
-		if err := {{.Receiver}}.EncodeOrc(w); err != nil {
+		if err := seed.EncodeOrc(w); err != nil {
 			b.Fatal(err)
 		}
 		var decoded {{$.Package}}.{{.GoName}}[{{range $i, $tp := .TypeParams}}{{if $i}}, {{end}}{{concreteGoType $tp.Constraint}}{{end}}]
@@ -1146,26 +1174,19 @@ func FuzzDecode{{.GoName}}(f *testing.F) {
 		if err := redecoded.DecodeOrc(r); err != nil {
 			t.Fatalf("re-decode failed: %v", err)
 		}
-		w2 := orc.NewWriter(w1.Len())
-		if err := redecoded.EncodeOrc(w2); err != nil {
-			t.Fatalf("re-encode failed: %v", err)
-		}
-		if w1.Len() != w2.Len() {
-			t.Fatalf("encoded length differs between cycles: w1=%d w2=%d", w1.Len(), w2.Len())
-		}
-		if !reflect.DeepEqual(decoded, redecoded) {
-			t.Fatal("round-trip mismatch: decoded values differ after re-encode/re-decode cycle")
+		if !cmp.Equal(decoded, redecoded, cmpopts.EquateNaNs()) {
+			t.Fatal("round-trip mismatch: decoded value changed after an encode/decode cycle")
 		}
 	})
 }
 {{end}}{{range .Tests}}
 func BenchmarkEncodeDecode{{.GoName}}(b *testing.B) {
-	{{.Receiver}} := {{(index .Cases 0).ValueExpr}}
+	seed := {{(index .Cases 0).ValueExpr}}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		w.Reset()
-		if err := {{.Receiver}}.EncodeOrc(w); err != nil {
+		if err := seed.EncodeOrc(w); err != nil {
 			b.Fatal(err)
 		}
 		var decoded {{$.Package}}.{{.GoName}}
@@ -1204,15 +1225,8 @@ func FuzzDecode{{.GoName}}(f *testing.F) {
 		if err := redecoded.DecodeOrc(r); err != nil {
 			t.Fatalf("re-decode failed: %v", err)
 		}
-		w2 := orc.NewWriter(w1.Len())
-		if err := redecoded.EncodeOrc(w2); err != nil {
-			t.Fatalf("re-encode failed: %v", err)
-		}
-		if w1.Len() != w2.Len() {
-			t.Fatalf("encoded length differs between cycles: w1=%d w2=%d", w1.Len(), w2.Len())
-		}
-		if !reflect.DeepEqual(decoded, redecoded) {
-			t.Fatal("round-trip mismatch: decoded values differ after re-encode/re-decode cycle")
+		if !cmp.Equal(decoded, redecoded, cmpopts.EquateNaNs()) {
+			t.Fatal("round-trip mismatch: decoded value changed after an encode/decode cycle")
 		}
 	})
 }

@@ -30,6 +30,7 @@ import (
 	"github.com/synnaxlabs/arc/stl/stateful"
 	"github.com/synnaxlabs/arc/stl/strings"
 	"github.com/synnaxlabs/arc/stl/time"
+	"github.com/synnaxlabs/arc/stl/variable"
 	"github.com/synnaxlabs/arc/stl/wasm"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
@@ -179,6 +180,7 @@ func (t *impl) start(ctx context.Context) (err error) {
 		timeMod,
 		selector.NewHost(),
 		constant.NewHost(),
+		variable.NewHost(),
 		op.NewHost(),
 		stable.NewHost(),
 		statusMod,
@@ -358,7 +360,7 @@ func (t *impl) reporter() taskreporter.Reporter {
 
 func (t *impl) setStatus(ctx context.Context, variant status.Variant, running bool, message string) {
 	stat := task.Status{
-		Key:     task.OntologyID(t.task.Key).String(),
+		Key:     t.task.OntologyID().String(),
 		Variant: variant,
 		Message: message,
 		Time:    telem.Now(),
@@ -380,7 +382,7 @@ func (t *impl) setRuntimeError(ctx context.Context, nodeKey string, err error) {
 		nodeType = n.Type
 	}
 	stat := task.Status{
-		Key:         task.OntologyID(t.task.Key).String(),
+		Key:         t.task.OntologyID().String(),
 		Variant:     status.VariantWarning,
 		Message:     fmt.Sprintf("Runtime error in %s", nodeType),
 		Description: err.Error(),

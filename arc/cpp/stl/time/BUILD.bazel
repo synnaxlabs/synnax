@@ -32,12 +32,22 @@ cc_library(
 cc_test(
     name = "time_test",
     srcs = ["time_test.cpp"],
+    copts = select({
+        "@platforms//os:windows": ["/wd4201"],
+        "//conditions:default": [],
+    }),
+    tags = ["requires-core"],
     deps = [
         ":time",
         "//arc/cpp/ir",
         "//arc/cpp/runtime/errors",
         "//arc/cpp/runtime/loop",
+        "//arc/cpp/runtime/node",
         "//arc/cpp/runtime/state",
+        "//arc/cpp/runtime/testutil:compile",
+        "//client/cpp:synnax",
+        "//client/cpp/testutil",
+        "//x/cpp/mem",
         "//x/cpp/test",
         "@googletest//:gtest_main",
     ],
