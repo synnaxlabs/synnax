@@ -19,18 +19,9 @@
 #endif
 // END OF MISSION CRITICAL CODE BLOCK.
 
-#include <iostream>
 #include <string>
 
-#include "client/cpp/synnax.h"
-#include "x/cpp/log/log.h"
-#include "x/cpp/shutdown/shutdown.h"
-
-#include "absl/log/log.h"
-#include "core/pkg/version/version.h"
-#include "driver/cmd/cmd.h"
-#include "driver/daemon/daemon.h"
-#include "driver/rack/rack.h"
+#include "x/cpp/args/args.h"
 
 /// @brief the configuration for opening a connection to the driver.
 namespace driver::cmd {

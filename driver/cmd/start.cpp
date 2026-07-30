@@ -11,8 +11,12 @@
 #include <memory>
 
 #include "x/cpp/args/args.h"
+#include "x/cpp/log/log.h"
+#include "x/cpp/shutdown/shutdown.h"
 
+#include "absl/log/log.h"
 #include "driver/cmd/cmd.h"
+#include "driver/rack/rack.h"
 
 namespace driver::cmd::sub {
 int start(x::args::Parser &args) {

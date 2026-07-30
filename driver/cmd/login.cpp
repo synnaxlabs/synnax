@@ -7,9 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include "x/cpp/args/args.h"
 #include "x/cpp/cli/cli.h"
+#include "x/cpp/log/log.h"
 
+#include "absl/log/log.h"
 #include "driver/cmd/cmd.h"
+#include "driver/rack/rack.h"
 
 namespace driver::cmd::sub {
 int login(x::args::Parser &args) {
