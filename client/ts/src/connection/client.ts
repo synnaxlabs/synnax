@@ -49,13 +49,13 @@ const checkResZ = z.object({
 });
 
 /**
- * Runs a single connectivity probe, measuring clock skew across the round trip.
+ * Runs a single connectivity check, measuring clock skew across the round trip.
  * The transport must carry the full middleware chain, auth included, so that a
  * response proves authentication.
  * @throws {AuthError} if the cluster rejects the client's credentials.
  * @throws {Unreachable} if the cluster cannot be reached.
  */
-export const probe = async (unary: UnaryClient): Promise<Info> => {
+export const sendCheck = async (unary: UnaryClient): Promise<Info> => {
   const skew = new ClockSkewCalculator();
   skew.start();
   const res = await unary.send(CHECK_ENDPOINT, undefined, z.void(), checkResZ);
@@ -97,16 +97,16 @@ export const check = async (params: CheckParams): Promise<Status> => {
   };
   const initial = createInitialStatus(cfg);
   try {
-    const info = await probe(transport.unary);
-    return reduce(initial, { type: "probe.success", info }, cfg);
+    const info = await sendCheck(transport.unary);
+    return reduce(initial, { type: "check.success", info }, cfg);
   } catch (err) {
     const error = errors.fromUnknown(err);
-    return reduce(initial, { type: "probe.failure", error, attempt: 1 }, cfg);
+    return reduce(initial, { type: "check.failure", error, attempt: 1 }, cfg);
   }
 };
 
-/** How hard the probe loop is working. */
-export type Mode = "probing" | "heartbeat" | "idle";
+/** How hard the check loop is working. */
+export type Mode = "checking" | "heartbeat" | "idle";
 
 /** The mode a given connection status calls for. */
 export const modeFor = ({ variant, details }: Status): Mode => {
@@ -116,17 +116,17 @@ export const modeFor = ({ variant, details }: Status): Mode => {
     case "disabled":
       return "idle";
     case "error":
-      // unreachable keeps probing beneath the error and self-heals; auth and
+      // unreachable keeps checking beneath the error and self-heals; auth and
       // incompatibility rest until the user acts
-      return details.reason === "unreachable" ? "probing" : "idle";
+      return details.reason === "unreachable" ? "checking" : "idle";
     default:
-      return "probing";
+      return "checking";
   }
 };
 
 export const DEFAULT_RETRY: breaker.Config = {
   baseInterval: TimeSpan.seconds(1),
-  // probes are one cheap request: a low cap keeps a returned cluster from
+  // checks are one cheap request: a low cap keeps a returned cluster from
   // going unnoticed while backoff is escalated
   maxInterval: TimeSpan.seconds(5),
   maxRetries: Infinity,
@@ -136,7 +136,7 @@ export const DEFAULT_RETRY: breaker.Config = {
 
 /**
  * The outside facts that can move the connection. Everything else that moves it
- * (probe results, retry scheduling) the client observes itself.
+ * (check results, retry scheduling) the client observes itself.
  */
 export type FactEvent = Extract<
   Event,
@@ -153,8 +153,8 @@ export type FactEvent = Extract<
 
 export interface ClientParams {
   /**
-   * Probe transport. Must carry the full middleware chain, auth included, so
-   * that a probe response proves authentication.
+   * Check transport. Must carry the full middleware chain, auth included, so
+   * that a check response proves authentication.
    */
   unary: UnaryClient;
   /** Cluster address, used in error messages. */
@@ -163,17 +163,17 @@ export interface ClientParams {
   clientVersion?: string;
   /** Human-readable cluster name for status messages. */
   name?: string;
-  /** Consecutive probe failures before escalating to error(unreachable). */
+  /** Consecutive check failures before escalating to error(unreachable). */
   escalateAfter?: number;
   clockSkewThreshold?: TimeSpan;
   /** Whether success requires a live change stream. */
   requiresStream?: boolean;
   /**
-   * Degraded-probe policy. `maxRetries` defaults to Infinity (never give up);
+   * Degraded-check policy. `maxRetries` defaults to Infinity (never give up);
    * a finite value parks the loop once exhausted, until {@link Client.retryNow}.
    */
   retry?: breaker.Config;
-  /** Probe cadence while connected. Defaults to 30 seconds. */
+  /** Check cadence while connected. Defaults to 30 seconds. */
   heartbeatInterval?: CrudeTimeSpan;
   /** Levers on the change stream, pulled when transitions demand it. */
   stream?: {
@@ -187,9 +187,9 @@ export interface ClientParams {
 }
 
 /**
- * Owns a cluster connection's status: probes on a cadence, backs off while
+ * Owns a cluster connection's status: checks on a cadence, backs off while
  * degraded, folds outside facts ({@link Client.notify}) into the status, and
- * notifies observers on material changes. The probe loop starts on
+ * notifies observers on material changes. The check loop starts on
  * construction, deferred one microtask so callers can finish synchronous
  * wiring (middleware installation) first.
  */
@@ -205,7 +205,7 @@ export class Client implements Handle {
   private readonly notifier = new sync.Notifier();
   private readonly loop: Promise<void>;
   private current: Status;
-  private mode: Mode = "probing";
+  private mode: Mode = "checking";
   private closed = false;
   private attempts = 0;
   private generation = 0;
@@ -230,7 +230,7 @@ export class Client implements Handle {
     this.onInternalError = params.onInternalError;
     this.current = createInitialStatus(this.config);
     this.loop = this.run().catch((err: unknown) =>
-      this.onInternalError?.(new Error("connection probe loop failed", { cause: err })),
+      this.onInternalError?.(new Error("connection check loop failed", { cause: err })),
     );
   }
 
@@ -245,7 +245,7 @@ export class Client implements Handle {
   }
 
   /**
-   * Resets the retry backoff and probes immediately. Auth and incompatibility
+   * Resets the retry backoff and checks immediately. Auth and incompatibility
    * errors are not cleared: those rest until the user supplies something new.
    */
   retryNow(): void {
@@ -267,14 +267,14 @@ export class Client implements Handle {
   notify(event: FactEvent): void {
     this.dispatch(event);
     // a reopened stream may lead to a replaced cluster, and new credentials
-    // deserve an immediate verdict: both probe right away
+    // deserve an immediate verdict: both check right away
     if (event.type === "stream.live" || event.type === "credentials.replaced")
       this.wake();
   }
 
   /**
    * Rejects unary requests instantly while the cluster is known unreachable,
-   * instead of burning the transport's retry budget per call. The probe and
+   * instead of burning the transport's retry budget per call. The check and
    * login targets are exempt so the connection can heal.
    */
   middleware(): Middleware {
@@ -291,7 +291,7 @@ export class Client implements Handle {
     };
   }
 
-  /** Stops the probe loop and settles the status on disabled. Terminal. */
+  /** Stops the check loop and settles the status on disabled. Terminal. */
   async close(): Promise<void> {
     if (this.closed) return;
     this.dispatch({ type: "closed" });
@@ -329,7 +329,7 @@ export class Client implements Handle {
     this.setMode(modeFor(next));
   }
 
-  /** Discards in-flight probes and wakes the loop for an immediate probe. */
+  /** Discards in-flight checks and wakes the loop for an immediate check. */
   private wake(): void {
     if (this.closed) return;
     this.generation += 1;
@@ -341,23 +341,23 @@ export class Client implements Handle {
   private setMode(mode: Mode): void {
     if (this.closed || this.mode === mode) return;
     this.mode = mode;
-    // in-flight probes were aimed at the state the old mode ran under; their
+    // in-flight checks were aimed at the state the old mode ran under; their
     // late results must not degrade the new one
     this.generation += 1;
-    if (mode !== "probing") this.attempts = 0;
+    if (mode !== "checking") this.attempts = 0;
     this.brk?.reset();
     this.notifier.notify();
   }
 
-  private async runProbe(): Promise<void> {
+  private async runCheck(): Promise<void> {
     const generation = this.generation;
     const prevKey = this.current.details.clusterKey;
-    this.dispatch({ type: "probe.started" });
+    this.dispatch({ type: "check.started" });
     try {
-      const info = await probe(this.unary);
+      const info = await sendCheck(this.unary);
       if (generation !== this.generation || this.closed) return;
       this.attempts = 0;
-      this.dispatch({ type: "probe.success", info });
+      this.dispatch({ type: "check.success", info });
       this.warn(this.current.details);
       const replaced = prevKey !== "" && info.clusterKey !== prevKey;
       // reachable but the stream is still dark: re-demand it, in case its own
@@ -374,7 +374,7 @@ export class Client implements Handle {
       if (generation !== this.generation || this.closed) return;
       this.attempts += 1;
       this.dispatch({
-        type: "probe.failure",
+        type: "check.failure",
         error: errors.fromUnknown(err),
         attempt: this.attempts,
       });
@@ -382,7 +382,7 @@ export class Client implements Handle {
   }
 
   private async run(): Promise<void> {
-    // defer the first probe so the caller can finish synchronous wiring
+    // defer the first check so the caller can finish synchronous wiring
     // (middleware installation) after construction
     await Promise.resolve();
     const brk = new breaker.Breaker({
@@ -398,10 +398,10 @@ export class Client implements Handle {
     });
     this.brk = brk;
     while (!this.closed)
-      if (this.mode === "probing") {
-        await this.runProbe();
+      if (this.mode === "checking") {
+        await this.runCheck();
         if (this.closed) return;
-        if (this.mode !== "probing") continue;
+        if (this.mode !== "checking") continue;
         if (await brk.wait()) continue;
         // finite budget exhausted: park until retryNow or a mode change
         this.dispatch({ type: "retry.exhausted" });
@@ -411,7 +411,7 @@ export class Client implements Handle {
       } else if (this.mode === "heartbeat") {
         await this.notifier.wait(this.heartbeatInterval);
         if (this.closed) return;
-        if (this.mode === "heartbeat") await this.runProbe();
+        if (this.mode === "heartbeat") await this.runCheck();
       } else await this.notifier.wait(null);
   }
 
