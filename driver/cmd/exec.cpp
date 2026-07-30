@@ -20,7 +20,7 @@
 namespace driver::cmd {
 // Subcommands are defined in sibling files, one per command.
 int clear(x::args::Parser &args);
-int internal_start(int argc, char *argv[]);
+int internal_start(x::args::Parser &args);
 int login(x::args::Parser &args);
 int service_install(x::args::Parser &args);
 int service_restart(x::args::Parser &args);
@@ -72,7 +72,7 @@ int exec(const int argc, char *argv[]) {
         if (args.flag("--standalone", "-s")) return start(args);
         return service_start(args);
     }
-    if (command == "internal-start") return internal_start(argc, argv);
+    if (command == "internal-start") return internal_start(args);
     if (command == "stop") return service_stop(args);
     if (command == "restart") return service_restart(args);
     if (command == "login") return login(args);

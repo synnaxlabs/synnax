@@ -36,13 +36,10 @@ int exec_svc_cmd(
     return 0;
 }
 
-int internal_start(const int argc, char *argv[]) {
+int internal_start(x::args::Parser &args) {
     daemon::Config config;
-    config.callback = [](const int cb_argc, char *cb_argv[]) {
-        auto cb_args = x::args::Parser(cb_argc, cb_argv);
-        start(cb_args);
-    };
-    daemon::run(config, argc, argv);
+    config.callback = [&args] { start(args); };
+    daemon::run(config);
     return 0;
 }
 

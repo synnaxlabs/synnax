@@ -17,7 +17,7 @@
 
 namespace driver::daemon {
 // Callback type for the main application logic
-using ApplicationCallback = std::function<void(int argc, char *argv[])>;
+using ApplicationCallback = std::function<void()>;
 
 // Status codes that can be reported to the system service manager
 enum class Status {
@@ -54,5 +54,5 @@ x::errors::Error view_logs();
 x::errors::Error status();
 
 // Runs the application as a daemon with the given configuration
-void run(const Config &config, int argc, char *argv[]);
+void run(const Config &config);
 }

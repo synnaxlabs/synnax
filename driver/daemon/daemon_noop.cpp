@@ -14,8 +14,8 @@
 #include "driver/daemon/daemon.h"
 
 namespace driver::daemon {
-void run(const Config &config, const int argc, char *argv[]) {
-    config.callback(argc, argv);
+void run(const Config &config) {
+    config.callback();
 }
 
 const auto NOT_SUPPORTED = x::errors::Error(

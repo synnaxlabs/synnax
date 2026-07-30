@@ -209,7 +209,7 @@ void notify_watchdog() {
     sd_notify(0, "WATCHDOG=1");
 }
 
-void run(const Config &config, int argc, char *argv[]) {
+void run(const Config &config) {
     {
         std::lock_guard<std::mutex> lock(mtx);
         should_stop = false;
@@ -229,7 +229,7 @@ void run(const Config &config, int argc, char *argv[]) {
 
     // Run the main application logic
     try {
-        config.callback(argc, argv);
+        config.callback();
     } catch (const std::exception &e) {
         update_status(Status::ERROR_, e.what());
         LOG(ERROR) << "Application error: " << e.what();

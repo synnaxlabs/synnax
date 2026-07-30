@@ -95,8 +95,8 @@ TEST(Daemon, testRunNotifiesServiceManager) {
     // The watchdog thread stops pinging once the callback returns, so observe a ping
     // before returning: an instantly-returning callback can win the race against the
     // watchdog thread's first iteration, leaving no WATCHDOG=1 on the socket.
-    config.callback = [&](int, char **) { EXPECT_TRUE(sock.wait_for("WATCHDOG=1")); };
-    run(config, 0, nullptr);
+    config.callback = [&] { EXPECT_TRUE(sock.wait_for("WATCHDOG=1")); };
+    run(config);
     const auto &msgs = sock.drain();
     EXPECT_NE(msgs.find("READY=1"), std::string::npos);
     EXPECT_NE(msgs.find("STOPPING=1"), std::string::npos);
@@ -109,8 +109,8 @@ TEST(Daemon, testRunReportsCallbackError) {
     ASSERT_TRUE(sock.ok());
     Config config;
     config.watchdog_interval = 1;
-    config.callback = [](int, char **) { throw std::runtime_error("boom"); };
-    run(config, 0, nullptr);
+    config.callback = [] { throw std::runtime_error("boom"); };
+    run(config);
     const auto &msgs = sock.drain();
     EXPECT_NE(msgs.find("STATUS=Error: boom"), std::string::npos);
     EXPECT_NE(msgs.find("STOPPING=1"), std::string::npos);
