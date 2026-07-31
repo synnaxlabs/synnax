@@ -30,10 +30,7 @@ import { type PropsWithChildren, type ReactElement, useCallback } from "react";
 import { useDispatch } from "react-redux";
 
 import { TabMenuItems } from "@/feature/panel/ContextMenu";
-import {
-  type DeletedFallbackProps,
-  deletedResourceFallback,
-} from "@/feature/panel/fallback";
+import { type DeletedFallbackProps, resourceOnly } from "@/feature/panel/fallback";
 import { useResetOnRestore } from "@/feature/panel/useResetOnRestore";
 import { Empty } from "@/platform";
 import { CSS } from "@/platform/css";
@@ -58,11 +55,7 @@ const ResourceTabNameFallback = (props: Errors.FallbackProps): ReactElement => {
   return <TabNameFallbackContent {...props} />;
 };
 
-const TabNameFallback = (props: Errors.FallbackProps): ReactElement => {
-  const variant = Panel.useSelectTabVariant({});
-  if (variant !== "resource") return <TabNameFallbackContent {...props} />;
-  return <ResourceTabNameFallback {...props} />;
-};
+const TabNameFallback = resourceOnly(ResourceTabNameFallback, TabNameFallbackContent);
 
 interface TombstoneProps extends PropsWithChildren {
   icon: ReactElement;
@@ -137,7 +130,13 @@ const DeletedResourceContent = ({
   );
 };
 
-const ContentFallback = deletedResourceFallback(DeletedResourceContent);
+const DeletedContent = resourceOnly(DeletedResourceContent);
+
+const ContentFallback = (props: Errors.FallbackProps): ReactElement => {
+  const { error } = props;
+  if (!Flux.DeletedError.matches(error)) return <Errors.Fallback {...props} />;
+  return <DeletedContent {...props} error={error} />;
+};
 
 const TabName = (): ReactElement => {
   const { Name } = useTab();

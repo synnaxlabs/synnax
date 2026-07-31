@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Errors, Flux, Panel } from "@synnaxlabs/pluto";
+import { Errors, type Flux, Panel } from "@synnaxlabs/pluto";
 import { type FC, type ReactElement } from "react";
 
 export interface DeletedFallbackProps extends Errors.FallbackProps {
@@ -15,20 +15,19 @@ export interface DeletedFallbackProps extends Errors.FallbackProps {
 }
 
 /**
- * Wraps a fallback rendering a resource tab's deleted state. The wrapped component
- * sees only a DeletedError thrown by a resource tab; a view tab reading someone
- * else's deleted resource, and every other error, get the generic fallback.
+ * Routes a fallback by the tab's variant. A resource tab's fallback reads its own
+ * resource, so it renders only for a resource tab; a view tab that threw while
+ * reading someone else's resource falls through to Other.
  */
-export const deletedResourceFallback = (
-  Deleted: FC<DeletedFallbackProps>,
-): FC<Errors.FallbackProps> => {
-  const Fallback = (props: Errors.FallbackProps): ReactElement => {
+export const resourceOnly = <P extends Errors.FallbackProps>(
+  Resource: FC<P>,
+  Other: FC<P> = Errors.Fallback,
+): FC<P> => {
+  const Fallback = (props: P): ReactElement => {
     const variant = Panel.useSelectTabVariant({});
-    const { error } = props;
-    if (variant !== "resource" || !Flux.DeletedError.matches(error))
-      return <Errors.Fallback {...props} />;
-    return <Deleted {...props} error={error} />;
+    if (variant !== "resource") return <Other {...props} />;
+    return <Resource {...props} />;
   };
-  Fallback.displayName = "DeletedResourceFallback";
+  Fallback.displayName = "ResourceOnlyFallback";
   return Fallback;
 };
