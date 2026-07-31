@@ -36,7 +36,7 @@ export const useClipboard = ({
     edgeKey: (edge) => edge.key,
     getSnapshot: () => {
       const cached = client?.arcs.getCached({ key });
-      if (cached == null || query.Deleted.matches(cached)) return null;
+      if (!query.isLive(cached)) return null;
       const {
         graph: { nodes, edges, inputs },
       } = cached;

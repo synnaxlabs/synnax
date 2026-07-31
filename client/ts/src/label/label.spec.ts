@@ -12,7 +12,7 @@ import { beforeAll, describe, expect, it, vi } from "vitest";
 
 import { label } from "@/label";
 import { query } from "@/query";
-import { createTestClient, expectDeleted, expectLive, isLive } from "@/testutil";
+import { createTestClient, expectDeleted, expectLive } from "@/testutil";
 
 const client = createTestClient();
 
@@ -131,22 +131,22 @@ describe("cached reads", () => {
       name: `qry-attached-${id.create()}`,
       color: "#E774D0",
     });
-    const query = { for: label.ontologyID(item.key) };
-    const off = client.labels.onChange(query, vi.fn());
+    const params = { for: label.ontologyID(item.key) };
+    const off = client.labels.onChange(params, vi.fn());
     try {
-      await client.labels.retrieve(query);
+      await client.labels.retrieve(params);
       await remote.labels.label(label.ontologyID(item.key), [lbl.key]);
       await expect
         .poll(() => {
-          const cached = client.labels.getCached(query);
-          return isLive(cached) && cached.some((l) => l.key === lbl.key);
+          const cached = client.labels.getCached(params);
+          return query.isLive(cached) && cached.some((l) => l.key === lbl.key);
         })
         .toBe(true);
       await remote.labels.remove(label.ontologyID(item.key), [lbl.key]);
       await expect
         .poll(() => {
-          const cached = client.labels.getCached(query);
-          return isLive(cached) && cached.every((l) => l.key !== lbl.key);
+          const cached = client.labels.getCached(params);
+          return query.isLive(cached) && cached.every((l) => l.key !== lbl.key);
         })
         .toBe(true);
     } finally {
@@ -165,7 +165,7 @@ describe("store", () => {
     await expect
       .poll(() => {
         const cached = client.labels.getCached({ key: created.key });
-        return isLive(cached) ? cached.name : undefined;
+        return query.isLive(cached) ? cached.name : undefined;
       })
       .toEqual(created.name);
     await client.labels.delete(created.key);

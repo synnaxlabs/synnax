@@ -12,7 +12,8 @@ import { beforeAll, describe, expect, it, test, vi } from "vitest";
 
 import { group } from "@/group";
 import { ontology } from "@/ontology";
-import { createTestClient, expectLive, isLive } from "@/testutil";
+import { query } from "@/query";
+import { createTestClient, expectLive } from "@/testutil";
 
 const client = createTestClient();
 const remote = createTestClient();
@@ -294,10 +295,10 @@ describe("Ontology", () => {
           parent: parentID,
           name: randomName(),
         });
-        const query = { ids: parentID };
-        expect(client.ontology.children.getCached(query)).toBeUndefined();
-        await client.ontology.children.retrieve(query);
-        const cached = expectLive(client.ontology.children.getCached(query));
+        const params = { ids: parentID };
+        expect(client.ontology.children.getCached(params)).toBeUndefined();
+        await client.ontology.children.retrieve(params);
+        const cached = expectLive(client.ontology.children.getCached(params));
         expect(cached.some((r) => r.id.key === child.key)).toBe(true);
       });
     });
@@ -309,19 +310,19 @@ describe("Ontology", () => {
           name: randomName(),
         });
         const parentID = group.ontologyID(parent.key);
-        const query = { ids: parentID };
+        const params = { ids: parentID };
         const handler = vi.fn();
-        const off = client.ontology.children.onChange(query, handler);
+        const off = client.ontology.children.onChange(params, handler);
         try {
-          expect(await client.ontology.children.retrieve(query)).toHaveLength(0);
+          expect(await client.ontology.children.retrieve(params)).toHaveLength(0);
           const child = await remote.groups.create({
             parent: parentID,
             name: randomName(),
           });
           await expect
             .poll(() => {
-              const cached = client.ontology.children.getCached(query);
-              return isLive(cached) && cached.some((r) => r.id.key === child.key);
+              const cached = client.ontology.children.getCached(params);
+              return query.isLive(cached) && cached.some((r) => r.id.key === child.key);
             })
             .toBe(true);
           expect(handler).toHaveBeenCalled();

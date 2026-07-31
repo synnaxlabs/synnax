@@ -9,7 +9,7 @@
 
 import { type Action, type Store, type UnknownAction } from "@reduxjs/toolkit";
 import { type Synnax } from "@synnaxlabs/client";
-import { type destructor } from "@synnaxlabs/x";
+import { type destructor, type record } from "@synnaxlabs/x";
 
 /**
  * Dependencies the host hands to every synchronizer callback. S and A are the
@@ -50,38 +50,45 @@ export type Use<S = any, A extends Action = any> = () => Synchronizer<S, A>;
  */
 export type Synchronizers = Record<string, Use>;
 
-export interface CreateParams<S, A extends Action> {
-  /** Subscribes to the resource type's delete signal. */
-  onDelete: (client: Synnax, handler: (key: string) => void) => destructor.Destructor;
-  /** Returns the subset of keys that still exist in the cluster. */
-  retrieveExisting: (client: Synnax, keys: string[]) => Promise<string[]>;
+/** The slice of a domain client a remover needs: delete events and an existence sweep. */
+export interface Removable<K extends record.Key> {
+  onDelete: (handler: (key: K) => void) => destructor.Destructor;
+  retrieve: (params: {
+    keys: K[];
+    ignoreNotFoundError: boolean;
+  }) => Promise<record.Keyed<K>[]>;
+}
+
+export interface RemoverParams<S, A extends Action, K extends record.Key> {
+  /** The domain client whose deletions this tracks. */
+  domain: (client: Synnax) => Removable<K>;
   /** Reads the session's referenced keys. */
-  selectKeys: (state: S) => string[];
-  /** Builds the repair action pruning the given keys. */
-  remove: (keys: string[]) => A;
+  selectKeys: (state: S) => K[];
+  /** Builds the repair action removing the given keys. */
+  remove: (keys: K[]) => A;
 }
 
 /**
- * Builds a synchronizer that prunes session references to deleted resources:
+ * Builds a synchronizer that removes session references to deleted resources:
  * live delete events while connected, and an existence sweep at every
  * boundary for deletes missed during the gap.
  */
-export const create = <S, A extends Action>({
-  onDelete,
-  retrieveExisting,
+export const createRemover = <S, A extends Action, K extends record.Key = string>({
+  domain,
   selectKeys,
   remove,
-}: CreateParams<S, A>): Use<S, A> => {
+}: RemoverParams<S, A, K>): Use<S, A> => {
   const synchronizer: Synchronizer<S, A> = {
     reconcile: async ({ client, store }) => {
       const keys = selectKeys(store.getState());
       if (keys.length === 0) return;
-      const existing = new Set(await retrieveExisting(client, keys));
+      const found = await domain(client).retrieve({ keys, ignoreNotFoundError: true });
+      const existing = new Set(found.map(({ key }) => key));
       const missing = keys.filter((key) => !existing.has(key));
       if (missing.length > 0) store.dispatch(remove(missing));
     },
     listen: ({ client, store }) =>
-      onDelete(client, (key) => {
+      domain(client).onDelete((key) => {
         if (!selectKeys(store.getState()).includes(key)) return;
         store.dispatch(remove([key]));
       }),

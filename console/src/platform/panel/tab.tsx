@@ -7,7 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { NotFoundError, type project, type Synnax } from "@synnaxlabs/client";
+import {
+  NotFoundError,
+  type ontology,
+  type project,
+  type Synnax,
+} from "@synnaxlabs/client";
 import { context, type Icon, Panel, Text } from "@synnaxlabs/pluto";
 import { type record } from "@synnaxlabs/x";
 import { type FC } from "react";
@@ -20,7 +25,7 @@ export interface Content extends FC<record.Empty> {}
 export interface RestoreParams {
   client: Synnax;
   project: project.Key;
-  corpse: unknown;
+  resource: ontology.ID;
 }
 
 export interface Tab {
@@ -31,10 +36,10 @@ export interface Tab {
   Icon: TabIcon;
   Toolbar?: Toolbar;
   /**
-   * Re-creates the tab's deleted resource from its corpse. Corpses keep their
-   * original keys, so restoring re-registers the document under the same key and
-   * every reference to it works again. Absent for types that cannot be restored;
-   * their tombstones offer Close only.
+   * Re-creates the tab's deleted resource from the corpse held by the client's
+   * cache. Corpses keep their original keys, so restoring re-registers the
+   * document under the same key and every reference to it works again. Absent for
+   * types that cannot be restored; their tombstones offer Close only.
    */
   restore?: (params: RestoreParams) => Promise<void>;
 }

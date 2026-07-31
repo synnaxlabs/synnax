@@ -13,7 +13,7 @@ import { beforeAll, describe, expect, it, vi } from "vitest";
 import { type role } from "@/access/role";
 import { NotFoundError } from "@/errors";
 import { query } from "@/query";
-import { createTestClient, expectDeleted, expectLive, isLive } from "@/testutil";
+import { createTestClient, expectDeleted, expectLive } from "@/testutil";
 
 const client = createTestClient();
 
@@ -152,7 +152,7 @@ describe("cached reads", () => {
         await expect
           .poll(() => {
             const cached = client.access.roles.getCached({ key: r.key });
-            return isLive(cached) && cached.name === renamed;
+            return query.isLive(cached) && cached.name === renamed;
           })
           .toBe(true);
         expect(handler).toHaveBeenCalled();

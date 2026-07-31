@@ -177,7 +177,14 @@ describe("Panel.Mosaic overlay", () => {
     });
 
     act(() => {
-      store.dispatch(Session.Panel.startOverlaying({ tabKey: tabA.key }));
+      store.dispatch(
+        Session.Panel.internalSelectTab({
+          key: pan.key,
+          tabKey: tabA.key,
+          otherTabKeys: [tabA.key],
+        }),
+      );
+      store.dispatch(Session.Panel.startOverlaying({}));
     });
     await waitFor(() => expect(screen.getByText("Exit Focus")).toBeTruthy());
     // Only the overlaid tab stays in the document; the other leaf's content
@@ -222,7 +229,14 @@ describe("Panel.Mosaic overlay", () => {
       expect(screen.getByText(`tab-content-${tabA.key}`)).toBeTruthy(),
     );
     act(() => {
-      store.dispatch(Session.Panel.startOverlaying({ tabKey: tabA.key }));
+      store.dispatch(
+        Session.Panel.internalSelectTab({
+          key: a.key,
+          tabKey: tabA.key,
+          otherTabKeys: [],
+        }),
+      );
+      store.dispatch(Session.Panel.startOverlaying({}));
     });
     await waitFor(() => expect(screen.getByText("Exit Focus")).toBeTruthy());
 

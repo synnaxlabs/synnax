@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { Status } from "@synnaxlabs/pluto";
+import { destructor } from "@synnaxlabs/x";
 import { useMemo } from "react";
 
 import {
@@ -30,10 +31,7 @@ const useSyncStatuses: Synchronizer.Use<unknown, Action> = () => {
         const removeOnDelete = client.statuses.onDelete((key) =>
           store.dispatch(removeFavorites(key)),
         );
-        return () => {
-          removeOnSet();
-          removeOnDelete();
-        };
+        return () => destructor.unwind(removeOnSet, removeOnDelete);
       },
     }),
     [addStatus],

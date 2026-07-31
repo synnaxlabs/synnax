@@ -27,15 +27,28 @@ import { Select } from "@/session/select";
 /** @returns the panel slice state. */
 export const selectSliceState = (state: StoreState): SliceState => state[SLICE_NAME];
 
+export interface ActiveWindow {
+  key: string;
+  state: WindowState;
+}
+
+/**
+ * @returns the active Drift window's key and panel state, or null when no window is
+ * active. Callers that only need the state, and can render a zero value, should use
+ * {@link selectWindowState}.
+ */
+export const selectActiveWindow = (state: StoreState): ActiveWindow | null => {
+  const key = Drift.selectWindowKey(state);
+  if (key == null) return null;
+  return { key, state: selectSliceState(state).windows[key] ?? ZERO_WINDOW_STATE };
+};
+
 /**
  * @returns the panel state for the active Drift window, or the zero window state when
  * the window has no panel state yet.
  */
-export const selectWindowState = (state: StoreState): WindowState => {
-  const windowKey = Drift.selectWindowKey(state);
-  if (windowKey == null) return ZERO_WINDOW_STATE;
-  return selectSliceState(state).windows[windowKey] ?? ZERO_WINDOW_STATE;
-};
+export const selectWindowState = (state: StoreState): WindowState =>
+  selectActiveWindow(state)?.state ?? ZERO_WINDOW_STATE;
 
 const selectState = (state: StoreState, key?: panel.Key): State => {
   const win = selectWindowState(state);
@@ -82,8 +95,7 @@ export const useSelectSelectedTabs = (key?: panel.Key): panel.TabKey[] => {
 };
 
 /** @returns true if any tab is overlaid (focused into a modal) on the active window. */
-export const useSelectOverlaid = (): boolean =>
-  Select.useMemo((state: StoreState) => selectOverlaid(state), []);
+export const useSelectOverlaid = (): boolean => Select.useMemo(selectOverlaid, []);
 
 /** @returns a getter for whether any tab is overlaid on the active window. */
 export const useGetIsOverlaid = (): (() => boolean) => {
@@ -152,6 +164,10 @@ export const useGetFocusedTab = (): ((key?: panel.Key) => panel.TabKey | undefin
   );
 };
 
+// The tab predicates below resolve to one bit from far more volatile inputs: a
+// panel's whole selection array and the window's overlaid flag. Each is computed
+// inside a single memoized selector so subscribers re-render when the answer
+// flips, not whenever a sibling tab moves.
 const selectIsTabFocused = (
   state: StoreState,
   key?: panel.Key,

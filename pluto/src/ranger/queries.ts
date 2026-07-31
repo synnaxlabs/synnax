@@ -119,7 +119,7 @@ export const {
     const ranges: ranger.Range[] = [];
     for (const key of keys) {
       const cached = client.ranges.getCached(key);
-      if (cached == null || query.Deleted.matches(cached)) return undefined;
+      if (!query.isLive(cached)) return undefined;
       ranges.push(cached);
     }
     return ranges;
@@ -184,8 +184,7 @@ export const useForm = Flux.createForm<FormQuery, typeof formSchema>({
   mountListeners: ({ client, query: { key }, reset }) => {
     if (key == null) return [];
     return client.ranges.onChange(key, (result) => {
-      if (result !== undefined && !query.Deleted.matches(result))
-        reset(toFormValues(result));
+      if (query.isLive(result)) reset(toFormValues(result));
     });
   },
 });
