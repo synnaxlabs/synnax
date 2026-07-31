@@ -11,7 +11,7 @@ import { NotFoundError, type panel, task } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { type record, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, assert, describe, expect, it } from "vitest";
 
 import { NI } from "@/feature/ni";
 import { Task } from "@/feature/task";
@@ -94,7 +94,7 @@ const renderToolbar = async () => {
 const awaitTab = async (created: CreatedPanel, type: string): Promise<record.Unknown> =>
   await waitFor(async () => {
     const doc = await client.panels.retrieve({ key: created.panelKey });
-    if (doc.root.variant !== "leaf") throw new Error("panel root is not a leaf");
+    assert(doc.root.variant === "leaf", "panel root is not a leaf");
     const tab = doc.root.tabs.find(
       (t): t is panel.TabView => t.variant === "view" && t.type === type,
     );

@@ -14,7 +14,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import { Schematic } from "@/feature/schematic";
 import { type Panel } from "@/platform/panel";
-import { awaitGranted, uniqueName } from "@/testutil";
+import { assertDefined, awaitGranted, uniqueName } from "@/testutil";
 
 const V0_ZERO = {
   version: "0.0.0",
@@ -403,7 +403,7 @@ describe("schematic import", () => {
         projectKey: project.key,
         fileName: "test.json",
       });
-      if (id == null) throw new Error("ingest did not return an ontology id");
+      assertDefined(id, "ingest did not return an ontology id");
       expect(openTab).toHaveBeenCalledTimes(1);
       expect(openTab).toHaveBeenCalledWith({ variant: "resource", resource: id });
       const created = await client.schematics.retrieve({ key: id.key });

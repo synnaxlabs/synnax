@@ -31,6 +31,7 @@ import { Modals } from "@/platform/modals";
 import { Tree } from "@/platform/tree";
 import { Session } from "@/session";
 import {
+  assertDefined,
   type ConsolePreloadedState,
   createConsoleWrapper,
   uniqueName,
@@ -99,7 +100,6 @@ const createResourceTab = async (
 ): Promise<{ panelKey: string; tabKey: string }> => {
   const tabKey = uuid.create();
   const doc = panel.panelZ.parse({
-    key: uuid.create(),
     name: uniqueName("panel"),
     root: {
       variant: "leaf",
@@ -192,7 +192,7 @@ export const renderSchematicTree = async (overrides: Partial<schematic.New> = {}
 export const getEditSectionHeaderButton = (title: string): HTMLButtonElement => {
   const header = screen.getByText(title).closest("header");
   const button = header?.querySelector("button");
-  if (button == null) throw new Error(`no button in section header ${title}`);
+  assertDefined(button, `no button in section header ${title}`);
   return button;
 };
 
@@ -211,7 +211,7 @@ export const getOverlayHandles = (
  */
 export const getPreviewTransformWrapper = (container: ParentNode): HTMLElement => {
   const el = container.querySelector<HTMLElement>("[style*='transform']");
-  if (el == null) throw new Error("preview transform wrapper not found");
+  assertDefined(el, "preview transform wrapper not found");
   return el;
 };
 
