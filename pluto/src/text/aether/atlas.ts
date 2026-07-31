@@ -19,6 +19,9 @@ export interface AtlasProps {
 
 const PADDING = 2;
 const SCALE_FACTOR = 2;
+// Pixels the baseline sits above the requested y. Preserved from the original
+// layout; axes, gauges and values are all positioned against it.
+const BASELINE_OFFSET = 2;
 
 /**
  * @desc a text atlas that allows for efficient caching and rendering of monospaced
@@ -31,6 +34,16 @@ export class MonospacedAtlas {
   private readonly charDims: dimensions.Dimensions;
   // A map of characters to their index in the atlas.
   private readonly charMap: Map<string, number>;
+  // Distance from the top of a cell to the baseline of the glyph drawn in it.
+  private readonly ascent: number;
+  // Vertical stride between cells, sized for descenders unlike charDims.height.
+  private readonly cellHeight: number;
+  // Source rect of each glyph in the atlas, by index, pre-scaled. Resolving these up
+  // front keeps the per-glyph draw to two array reads.
+  private readonly srcX: Int32Array;
+  private readonly srcY: Int32Array;
+  private readonly srcWidth: number;
+  private readonly srcHeight: number;
   // The default characters to include in the atlas.
   private static readonly DEFAULT_CHARS =
     "0123456789.:-°µmsNa∞ᴇABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz%";
@@ -49,16 +62,26 @@ export class MonospacedAtlas {
     this.charDims.width += PADDING;
     this.charDims.height += PADDING;
 
+    // Measured across the whole set, not "0": a digit has no descender, so sizing
+    // cells by one clips tails like g and y and bleeds them into the cell below.
+    const setMetrics = ctx.measureText(uniqueChars.join(""));
+    this.ascent = Math.ceil(Math.abs(setMetrics.actualBoundingBoxAscent)) + PADDING;
+    const descent = Math.ceil(Math.abs(setMetrics.actualBoundingBoxDescent)) + PADDING;
+    this.cellHeight = this.ascent + descent;
+
     const totalChars = uniqueChars.length;
     const atlasCharWidth = this.charDims.width;
-    const atlasCharHeight = this.charDims.height;
+    this.srcX = new Int32Array(totalChars);
+    this.srcY = new Int32Array(totalChars);
+    this.srcWidth = atlasCharWidth * SCALE_FACTOR;
+    this.srcHeight = this.cellHeight * SCALE_FACTOR;
 
     const cols = Math.ceil(Math.sqrt(totalChars));
     const rows = Math.ceil(totalChars / cols);
 
     this.atlas = new OffscreenCanvas(
       atlasCharWidth * cols * SCALE_FACTOR,
-      atlasCharHeight * (rows + 1) * SCALE_FACTOR,
+      this.cellHeight * rows * SCALE_FACTOR,
     );
 
     const atlasCtx = this.atlas.getContext("2d") as OffscreenCanvasRenderingContext2D;
@@ -73,9 +96,11 @@ export class MonospacedAtlas {
       const col = i % cols;
       const row = Math.floor(i / cols);
       const x = col * atlasCharWidth;
-      const y = (row + 1) * atlasCharHeight;
+      const y = row * this.cellHeight + this.ascent;
       atlasCtx.fillText(char, x, y);
       this.charMap.set(char, i);
+      this.srcX[i] = x * SCALE_FACTOR;
+      this.srcY[i] = row * this.cellHeight * SCALE_FACTOR;
     });
   }
 
@@ -86,27 +111,24 @@ export class MonospacedAtlas {
     y: number,
   ): void {
     const { width, height } = this.charDims;
-    const cols = Math.ceil(Math.sqrt(this.charMap.size));
     if (ctx.textAlign === "center") x -= (width * text.length) / 2;
     if (ctx.textBaseline === "middle") y += height / 2;
+    const top = y - this.ascent - BASELINE_OFFSET;
 
     for (let i = 0; i < text.length; i++) {
-      const char = text[i];
-      const index = this.charMap.get(char);
+      const index = this.charMap.get(text[i]);
       if (index === undefined) continue;
 
-      const col = index % cols;
-      const row = Math.floor(index / cols);
       ctx.drawImage(
         this.atlas,
-        col * width * SCALE_FACTOR,
-        row * height * SCALE_FACTOR + PADDING,
-        width * SCALE_FACTOR,
-        height * SCALE_FACTOR,
+        this.srcX[index],
+        this.srcY[index],
+        this.srcWidth,
+        this.srcHeight,
         x + i * width,
-        y - height - PADDING / SCALE_FACTOR,
+        top,
         width,
-        height,
+        this.cellHeight,
       );
     }
   }
