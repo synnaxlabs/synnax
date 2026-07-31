@@ -382,7 +382,7 @@ export class Client extends query.Retriever<
       key,
       array.toArray(actions),
       this.dispatchSender(key),
-      opts.preprocess,
+      opts,
     );
   }
 

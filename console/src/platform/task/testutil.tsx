@@ -34,6 +34,7 @@ import { type Panel } from "@/platform/panel";
 import { type FormViewParams } from "@/platform/task/Form";
 import { Session } from "@/session";
 import {
+  assertDefined,
   CaptureStatuses,
   createConsoleWrapper,
   createTestStore,
@@ -338,7 +339,7 @@ export const findDialogTriggerByText = async (text: string): Promise<HTMLElement
       document.querySelectorAll<HTMLElement>(".pluto-dialog__trigger"),
     );
     const match = triggers.find((t) => t.textContent?.includes(text));
-    if (match == null) throw new Error(`dialog trigger showing "${text}" not found`);
+    assertDefined(match, `dialog trigger showing "${text}" not found`);
     return match;
   });
 
@@ -404,7 +405,7 @@ export const findFieldInput = (): HTMLInputElement => {
   const input = document.body.querySelector<HTMLInputElement>(
     "input:not([type='checkbox'])",
   );
-  if (input == null) throw new Error("form field input not found");
+  assertDefined(input, "form field input not found");
   return input;
 };
 
