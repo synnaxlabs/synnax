@@ -7,10 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Errors, Icon, Panel } from "@synnaxlabs/pluto";
+import { Errors, Flux, Icon, Panel } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
-import { deletedResourceFallback } from "@/feature/panel/fallback";
+import { resourceOnly } from "@/feature/panel/fallback";
 import { useResetOnRestore } from "@/feature/panel/useResetOnRestore";
 import { Empty } from "@/platform/empty";
 import { type Nav } from "@/platform/nav";
@@ -43,7 +43,12 @@ const DeletedResourceContent = ({
   return <EmptyContent message="This resource was deleted." />;
 };
 
-const Fallback = deletedResourceFallback(DeletedResourceContent);
+const DeletedContent = resourceOnly(DeletedResourceContent);
+
+const Fallback = (props: Errors.FallbackProps): ReactElement => {
+  if (!Flux.DeletedError.matches(props.error)) return <Errors.Fallback {...props} />;
+  return <DeletedContent {...props} />;
+};
 
 const Content = (): ReactElement => {
   const { Toolbar } = useTab();
