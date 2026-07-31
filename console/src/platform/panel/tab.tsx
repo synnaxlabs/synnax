@@ -7,19 +7,36 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { NotFoundError } from "@synnaxlabs/client";
+import { NotFoundError, type project, type Synnax } from "@synnaxlabs/client";
 import { context, type Icon, Panel, Text } from "@synnaxlabs/pluto";
 import { type record } from "@synnaxlabs/x";
 import { type FC } from "react";
 
 export interface TabName extends FC<record.Empty> {}
+export interface TabIcon extends Icon.FC {}
 export interface Toolbar extends FC<record.Empty> {}
 export interface Content extends FC<record.Empty> {}
+
+export interface RestoreParams {
+  client: Synnax;
+  project: project.Key;
+  corpse: unknown;
+}
 
 export interface Tab {
   Content: Content;
   Name: TabName;
+  /** Represents the tab as a glyph alone. Rendered inside the tab's panel and
+   * tab scope. */
+  Icon: TabIcon;
   Toolbar?: Toolbar;
+  /**
+   * Re-creates the tab's deleted resource from its corpse. Corpses keep their
+   * original keys, so restoring re-registers the document under the same key and
+   * every reference to it works again. Absent for types that cannot be restored;
+   * their tombstones offer Close only.
+   */
+  restore?: (params: RestoreParams) => Promise<void>;
 }
 
 export interface Tabs extends Record<string, Tab> {}

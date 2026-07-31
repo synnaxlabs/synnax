@@ -44,8 +44,9 @@ export interface SelectKeyParams {
 
 const requireTable = (client: Client | null, key: table.Key): table.Table => {
   const cached = client?.tables.getCached({ key });
-  if (cached == null || query.Deleted.matches(cached))
-    throw new NotFoundError(`Table with key ${key} not found`);
+  if (cached == null) throw new NotFoundError(`Table with key ${key} not found`);
+  if (query.Deleted.matches(cached))
+    throw new Flux.DeletedError(`${RESOURCE_NAME} was deleted`, cached.corpse);
   return cached;
 };
 
