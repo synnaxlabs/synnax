@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ReactElement } from "react";
+import { type ReactElement, type ReactNode } from "react";
 
 import { Button } from "@/button";
 import { CSS } from "@/css";
@@ -17,6 +17,10 @@ export interface BooleanProps
   extends Omit<InputProps<boolean>, "onClick">, Omit<Button.ExtensionProps, "variant"> {
   inputType: "switch" | "checkbox";
   onClick?: (e: React.MouseEvent<HTMLElement>) => void;
+  /** When set, replaces the box indicator with this glyph in the checked state. */
+  checkedIcon?: ReactNode;
+  /** Glyph shown in the unchecked state when {@link checkedIcon} is set. */
+  uncheckedIcon?: ReactNode;
 }
 
 const parseTextColor = (
@@ -50,12 +54,22 @@ export const Boolean = ({
   background,
   textColor,
   onClick,
+  checkedIcon,
+  uncheckedIcon,
+  tooltip,
+  tooltipDelay,
+  tooltipLocation,
+  hideTooltip,
   ...rest
 }: BooleanProps): ReactElement => (
   <Button.Button
     el="label"
     variant={variant}
-    className={CSS(CSS.BE("input", inputType), className)}
+    className={CSS(
+      CSS.BE("input", inputType),
+      checkedIcon != null && CSS.M("icon"),
+      className,
+    )}
     ghost={ghost}
     disabled={disabled}
     size={size}
@@ -69,6 +83,10 @@ export const Boolean = ({
     background={background}
     textColor={parseTextColor(variant, textColor, value)}
     onClick={onClick}
+    tooltip={tooltip}
+    tooltipDelay={tooltipDelay}
+    tooltipLocation={tooltipLocation}
+    hideTooltip={hideTooltip}
   >
     {variant !== "preview" ? (
       <>
@@ -86,7 +104,9 @@ export const Boolean = ({
           onClick={onClick}
           {...rest}
         />
-        <span className={CSS.BE("input", inputType, "indicator")} onClick={onClick} />
+        <span className={CSS.BE("input", inputType, "indicator")} onClick={onClick}>
+          {value ? checkedIcon : uncheckedIcon}
+        </span>
       </>
     ) : value ? (
       "True"

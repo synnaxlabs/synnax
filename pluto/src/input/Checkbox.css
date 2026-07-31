@@ -153,6 +153,27 @@
         }
     }
 
+    /* Icon skin: the supplied glyph IS the indicator, so the box chrome and the
+       check glyph go away entirely. */
+    &.pluto--icon {
+        .pluto-input__checkbox-indicator,
+        .pluto-input__checkbox-input:checked ~ .pluto-input__checkbox-indicator {
+            width: auto;
+            height: auto;
+            background: none;
+            border: none;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: round(2.333rem, 1px);
+        }
+
+        .pluto-input__checkbox-indicator::after,
+        .pluto-input__checkbox-input:checked ~ .pluto-input__checkbox-indicator::after {
+            display: none;
+        }
+    }
+
     &.pluto--disabled {
         * {
             cursor: not-allowed !important;

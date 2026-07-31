@@ -31,7 +31,7 @@ export const ChildRanges: FC<ChildRangesProps> = ({ rangeKey }) => {
         <Header.Actions>
           <Button.Button
             size="medium"
-            variant="filled"
+            variant="text"
             onClick={() => openCreate({ parent: rangeKey })}
           >
             <Icon.Add />

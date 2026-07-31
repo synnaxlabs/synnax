@@ -7,26 +7,24 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import "@/platform/button/Favorite.css";
+import { Icon, Input, stopPropagation } from "@synnaxlabs/pluto";
 
-import { Button, Icon } from "@synnaxlabs/pluto";
-
-import { CSS } from "@/platform/css";
-
-export interface FavoriteProps extends Omit<Button.ButtonProps, "onClick"> {
+export interface FavoriteProps extends Omit<Input.CheckboxProps, "value" | "onChange"> {
   isFavorite: boolean;
-  onFavorite: Button.ButtonProps["onClick"];
+  onFavorite: () => void;
 }
 
 export const Favorite = ({ isFavorite, onFavorite, ghost, ...rest }: FavoriteProps) => (
-  <Button.Button
-    className={CSS(CSS.B("favorite-button"), isFavorite && CSS.M("favorite"))}
-    onClick={onFavorite}
-    tooltip={`${isFavorite ? "Unfavorite" : "Favorite"}`}
-    variant="text"
+  <Input.Checkbox
+    value={isFavorite}
+    onChange={onFavorite}
+    checkedIcon={<Icon.StarFilled />}
+    uncheckedIcon={<Icon.StarOutlined />}
+    textColor={isFavorite ? "goldenrod" : undefined}
+    tooltip={isFavorite ? "Unfavorite" : "Favorite"}
+    aria-label="Favorite"
+    onClick={stopPropagation}
     ghost={isFavorite ? false : ghost}
     {...rest}
-  >
-    {isFavorite ? <Icon.StarFilled /> : <Icon.StarOutlined />}
-  </Button.Button>
+  />
 );
