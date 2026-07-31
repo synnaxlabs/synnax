@@ -29,6 +29,9 @@
     max-width: 100%;
     overflow-x: auto;
     overflow-y: hidden;
+    /* The scrollport clips the outset focus halo; every control in the strip
+       draws its ring inset instead. */
+    --pluto-focus-ring-offset: -2px;
 
     &::-webkit-scrollbar {
         height: 3px;

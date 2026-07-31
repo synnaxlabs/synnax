@@ -37,6 +37,8 @@ import { Triggers } from "@/triggers";
 export interface TabProps extends Omit<Button.ButtonProps<"div">, "el" | "id"> {
   /** itemKey identifies the tab within its Frame's selection and content panels. */
   itemKey: string;
+  /** Called when Delete or Backspace is pressed while the tab is focused. */
+  onClose?: () => void;
 }
 
 /**
@@ -53,6 +55,7 @@ export const Tab = ({
   children,
   onClick,
   onKeyDown,
+  onClose,
   ...rest
 }: TabProps): ReactElement => {
   const frameID = useFrameID("Tabs.Tab");
@@ -70,11 +73,15 @@ export const Tab = ({
       onKeyDown?.(e);
       if (e.target !== e.currentTarget || e.defaultPrevented) return;
       const key = Triggers.eventKey(e);
-      if (key !== "Enter" && key !== "Space") return;
-      e.preventDefault();
-      onSelect();
+      if (key === "Enter" || key === "Space") {
+        e.preventDefault();
+        onSelect();
+      } else if (onClose != null && (key === "Delete" || key === "Backspace")) {
+        e.preventDefault();
+        onClose();
+      }
     },
-    [onKeyDown, onSelect],
+    [onKeyDown, onSelect, onClose],
   );
   const isPill = variant === "pill";
   const variantProps = isPill ? PILL_BUTTON_PROPS : DEFAULT_BUTTON_PROPS;

@@ -24,8 +24,15 @@ import { type RenderProp } from "@/component/renderProp";
 import { CSS } from "@/css";
 import { Dialog } from "@/dialog";
 import { Flex } from "@/flex";
-import { useClickOutside, useCombinedRefs, useResize, useWindowResize } from "@/hooks";
+import {
+  useClickOutside,
+  useCombinedRefs,
+  useResize,
+  useSyncedRef,
+  useWindowResize,
+} from "@/hooks";
 import { CONTEXT_MENU_CLASS, CONTEXT_SELECTED, CONTEXT_TARGET } from "@/menu/types";
+import { Triggers } from "@/triggers";
 
 interface ContextMenuState {
   visible: boolean;
@@ -53,6 +60,8 @@ export interface UseContextMenuReturn extends ContextMenuState {
   ref: RefCallback<HTMLDivElement>;
   className: string;
 }
+
+const ESCAPE_TRIGGERS: Triggers.Trigger[] = [["Escape"]];
 
 const INITIAL_STATE: ContextMenuState = {
   visible: false,
@@ -147,6 +156,21 @@ export const useContextMenu = (): UseContextMenuReturn => {
   const hideMenu = (): void => setMenuState(INITIAL_STATE);
 
   useClickOutside({ ref: menuRef, onClickOutside: hideMenu });
+
+  const visibleRef = useSyncedRef(state.visible);
+  const handleEscape = useCallback(({ stage, stopPropagation }: Triggers.UseEvent) => {
+    if (stage !== "start" || !visibleRef.current) return;
+    setMenuState(INITIAL_STATE);
+    stopPropagation();
+  }, []);
+  // Outranks the dialog Escape handler (priority 100) so a menu opened inside a
+  // dialog closes without also closing the dialog.
+  Triggers.use({
+    triggers: ESCAPE_TRIGGERS,
+    callback: handleEscape,
+    loose: true,
+    priority: 150,
+  });
 
   return {
     ...state,

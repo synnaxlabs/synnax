@@ -25,6 +25,9 @@ export const Close = ({
     className={CSS(CSS.BE("tabs", "close"), className)}
     variant="text"
     sharp
+    // ARIA tabs have presentational children; the keyboard path is Delete on
+    // the focused tab, so the button stays a pointer affordance.
+    tabIndex={-1}
     {...rest}
   >
     {children}

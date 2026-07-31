@@ -143,6 +143,8 @@ export const Indicator = ({
       </Text.Text>
       {editable && (
         <button
+          aria-label={dir === "x" ? "Resize column" : "Resize row"}
+          tabIndex={-1}
           className={Cursor.DRAG_CLASS}
           onClick={stopPropagation}
           onPointerDown={onDragStart}

@@ -24,6 +24,7 @@
     .console-arc__stages-group {
         overflow: auto;
         height: 100%;
+        --pluto-focus-ring-offset: -2px;
         & > .pluto-list__virtualizer {
             height: fit-content;
         }

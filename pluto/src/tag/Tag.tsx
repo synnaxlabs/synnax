@@ -49,6 +49,8 @@ export const Tag = ({
         variant="text"
         className={CSS.BE("tag", "close")}
         sharp
+        // Zero-size until the tag is hovered, so it must not be a tab stop.
+        tabIndex={-1}
         onClick={onClose}
       >
         <Icon.Close />

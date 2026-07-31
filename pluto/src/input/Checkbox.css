@@ -25,7 +25,7 @@
     &:has(:focus-visible) {
         .pluto-input__checkbox-indicator {
             outline: 1px solid var(--pluto-primary-z);
-            outline-offset: 2px;
+            outline-offset: var(--pluto-focus-ring-offset, 2px);
         }
     }
 

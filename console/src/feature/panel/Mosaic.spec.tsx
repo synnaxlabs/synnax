@@ -145,10 +145,11 @@ describe("Panel.Mosaic overlay", () => {
     tabUnmounts.length = 0;
   });
 
-  const tabProbeTab = (): panel.NewTab => ({
+  const tabProbeTab = (): panel.Tab => ({
     variant: "view",
     key: uuid.create(),
     type: "tabProbe",
+    args: {},
   });
 
   const tabMountCount = (key: panel.TabKey): number =>

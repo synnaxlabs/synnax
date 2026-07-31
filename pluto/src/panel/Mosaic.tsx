@@ -95,6 +95,7 @@ const Tab = ({ tabKey, tabName, onClose }: TabProps): ReactElement => {
       draggable
       onDragStart={handleDragStart}
       onDragEnd={onDragEnd}
+      onClose={handleClose}
     >
       <TabScope.Provider value={tabKey}>{tabName?.({})}</TabScope.Provider>
       <Tabs.Close onClick={handleClose} />

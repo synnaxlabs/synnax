@@ -49,6 +49,11 @@
     .pluto-btn--ghost {
         opacity: 0;
     }
+    /* Ghost actions are the row's only keyboard path; reveal on focus, not
+       just hover. */
+    .pluto-btn--ghost:focus-visible {
+        opacity: 1;
+    }
     &:hover {
         .pluto-btn--ghost {
             opacity: 1;

@@ -200,6 +200,7 @@ const Base = <E extends ElementType = "button">({
       )}
       size={size}
       tabIndex={tabIndex}
+      aria-disabled={isDisabled || undefined}
       onClick={handleClick}
       onMouseDown={handleMouseDown}
       style={pStyle}

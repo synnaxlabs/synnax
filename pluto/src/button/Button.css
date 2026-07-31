@@ -46,9 +46,12 @@
     layout shifting of internal content (especially icons) */
     z-index: 1;
 
+    /* Clip containers (tab strips, palettes) re-point the offset to -2px so the
+       ring draws inside the box instead of getting chopped by the scrollport. */
     &:focus-visible {
         outline: 1px solid var(--pluto-primary-z);
-        outline-offset: 2px;
+        outline-offset: var(--pluto-focus-ring-offset, 2px);
+        z-index: 2;
     }
 
     &.pluto--direction-x {
