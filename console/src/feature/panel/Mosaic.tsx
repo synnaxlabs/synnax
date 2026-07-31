@@ -30,6 +30,10 @@ import { type PropsWithChildren, type ReactElement, useCallback } from "react";
 import { useDispatch } from "react-redux";
 
 import { TabMenuItems } from "@/feature/panel/ContextMenu";
+import {
+  type DeletedFallbackProps,
+  deletedResourceFallback,
+} from "@/feature/panel/fallback";
 import { useResetOnRestore } from "@/feature/panel/useResetOnRestore";
 import { Empty } from "@/platform";
 import { CSS } from "@/platform/css";
@@ -90,10 +94,6 @@ const Tombstone = ({
   </Flex.Box>
 );
 
-interface DeletedFallbackProps extends Errors.FallbackProps {
-  error: Flux.DeletedError;
-}
-
 // Renders the deleted state of a resource tab: the corpse's name plus Close and,
 // for restorable document types, Restore. Every delete lands here, local or
 // remote; the tab is never closed out from under the user.
@@ -137,19 +137,7 @@ const DeletedResourceContent = ({
   );
 };
 
-// A DeletedError can also bubble out of a view tab reading someone else's
-// resource; only a resource tab's own deletion gets the tombstone treatment.
-const DeletedContent = (props: DeletedFallbackProps): ReactElement => {
-  const variant = Panel.useSelectTabVariant({});
-  if (variant !== "resource") return <Errors.Fallback {...props} />;
-  return <DeletedResourceContent {...props} />;
-};
-
-const ContentFallback = (props: Errors.FallbackProps): ReactElement => {
-  const { error } = props;
-  if (!Flux.DeletedError.matches(error)) return <Errors.Fallback {...props} />;
-  return <DeletedContent {...props} error={error} />;
-};
+const ContentFallback = deletedResourceFallback(DeletedResourceContent);
 
 const TabName = (): ReactElement => {
   const { Name } = useTab();
