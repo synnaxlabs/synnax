@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Flux, Panel } from "@synnaxlabs/pluto";
+import { type Flux } from "@synnaxlabs/pluto";
 import { type record } from "@synnaxlabs/x";
 import { useCallback } from "react";
 
@@ -42,7 +42,6 @@ export const createUseDelete =
       state: { getResource },
     } = props;
     const confirm = useConfirmDelete({ type, description, icon });
-    const closeTabs = Panel.useCloseResourceTabs();
     const { update } = query({
       beforeUpdate: useCallback(
         async (query: Flux.BeforeUpdateParams<K | K[]>) => {
@@ -53,15 +52,13 @@ export const createUseDelete =
         },
         [props],
       ),
+      // Tabs showing the deleted resource are left open on purpose: every
+      // session, this one included, tombstones them with Close and Restore.
       afterSuccess: useCallback(
         (query: Flux.AfterSuccessParams<K | K[]>) => {
-          // The deleting console closes its own tabs; remote consoles tombstone.
-          // Closing only after the server confirms avoids orphaning tabs on a
-          // failed delete.
-          closeTabs(ids);
           afterSuccess?.({ ...query, ...props });
         },
-        [props, closeTabs],
+        [props],
       ),
     });
     return useCallback(

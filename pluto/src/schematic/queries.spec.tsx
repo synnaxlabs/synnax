@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { NotFoundError, type project, schematic } from "@synnaxlabs/client";
+import { NotFoundError, type project, query, schematic } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { uuid } from "@synnaxlabs/x";
 import { act, render, renderHook, waitFor, within } from "@testing-library/react";
@@ -15,6 +15,7 @@ import { type FC, type PropsWithChildren, type ReactElement } from "react";
 import { afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 
 import { Errors } from "@/errors";
+import { Flux } from "@/flux";
 import { Schematic } from "@/schematic";
 import { createAsyncSynnaxWrapper } from "@/testutil/Synnax";
 
@@ -140,6 +141,41 @@ describe("schematic queries", () => {
     beforeAll(async () => {
       schem = await createTestSchematic(proj.key);
       await loadSchematic(Wrapper, schem.key);
+    });
+
+    it("throws a DeletedError carrying the corpse once the schematic is deleted", async () => {
+      const doomed = await createTestSchematic(proj.key);
+      await loadSchematic(Wrapper, doomed.key);
+      await client.schematics.delete(doomed.key);
+      await waitFor(() =>
+        expect(
+          query.Deleted.matches(client.schematics.getCached({ key: doomed.key })),
+        ).toBe(true),
+      );
+
+      const caught: Error[] = [];
+      const Fallback = ({ error }: Errors.FallbackProps): null => {
+        caught.push(error);
+        return null;
+      };
+      const BoundaryWrapper = ({ children }: PropsWithChildren): ReactElement => (
+        <Wrapper>
+          <Errors.SuspenseBoundary loading={null} FallbackComponent={Fallback}>
+            {children}
+          </Errors.SuspenseBoundary>
+        </Wrapper>
+      );
+      BoundaryWrapper.displayName = "BoundaryWrapper";
+
+      renderHook(() => Schematic.useSelectName({ key: doomed.key }), {
+        wrapper: BoundaryWrapper,
+      });
+      await waitFor(() => expect(caught.length).toBeGreaterThan(0));
+      const error = caught[0];
+      expect(Flux.DeletedError.matches(error)).toBe(true);
+      const corpse = (error as Flux.DeletedError<schematic.Schematic>).corpse;
+      expect(corpse.key).toBe(doomed.key);
+      expect(corpse.name).toBe("test_schematic");
     });
 
     it("useSelectAllEdges returns the schematic's edges", () => {

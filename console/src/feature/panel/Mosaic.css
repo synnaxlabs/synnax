@@ -51,3 +51,13 @@
         }
     }
 }
+
+.console-panel__tombstone {
+    /* Raised above dead-center: optical centering under the tab strip. */
+    transform: translateY(-3%);
+
+    .console-panel__tombstone-icon {
+        font-size: 9rem;
+        color: var(--pluto-gray-l6);
+    }
+}

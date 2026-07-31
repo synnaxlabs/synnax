@@ -35,7 +35,11 @@ export const SELECTABLES: Selector.Selectable[] = [Selectable];
 const TAB: Panel.Tab = {
   Content: Table,
   Toolbar,
+  Icon: Icon.Table,
   Name: Panel.createEditableTabName(Base, <Icon.Table />),
+  restore: async ({ client, project, corpse }) => {
+    await client.tables.create(project, corpse as table.New);
+  },
 };
 
 export const TABS: Panel.Tabs = {
