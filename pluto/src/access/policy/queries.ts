@@ -81,13 +81,14 @@ export const { useUpdate: useDelete } = Flux.createUpdate<
 >({
   name: RESOURCE_NAME,
   verbs: Flux.DELETE_VERBS,
-  update: async ({ client, data, store, rollbacks }) => {
+  update: async ({ client, data, store, rollbacks, onOptimisticComplete }) => {
     const keys = array.toArray(data);
     const ids = access.policy.ontologyID(keys);
     const relFilter = Ontology.filterRelationshipsThatHaveIDs(ids);
     rollbacks.push(store.relationships.delete(relFilter));
     rollbacks.push(store.resources.delete(keys));
     rollbacks.push(store.policies.delete(keys));
+    await onOptimisticComplete(data);
     await client.access.policies.delete(keys);
     return data;
   },
@@ -104,13 +105,14 @@ export const { useUpdate: useRename } = Flux.createUpdate<
 >({
   name: RESOURCE_NAME,
   verbs: Flux.RENAME_VERBS,
-  update: async ({ client, data, store, rollbacks }) => {
+  update: async ({ client, data, store, rollbacks, onOptimisticComplete }) => {
     const { key, name } = data;
     const existing = await retrieveSingle({ client, query: { key }, store });
     rollbacks.push(Flux.partialUpdate(store.policies, key, { name }));
     rollbacks.push(
       Ontology.renameFluxResource(store, access.policy.ontologyID(key), name),
     );
+    await onOptimisticComplete(data);
     const updated = await client.access.policies.create({ ...existing, name });
     store.policies.set(key, updated);
     return data;

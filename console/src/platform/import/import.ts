@@ -20,13 +20,12 @@ import {
   type FileIngesters,
 } from "@/platform/import/ingester";
 import { trimFileName } from "@/platform/import/trimFileName";
-import { Layout } from "@/platform/layout";
+import { Panel } from "@/platform/panel";
 import { Runtime } from "@/platform/runtime";
 import { Session } from "@/session";
 
 export const ingestComponent = async (
   data: unknown,
-  fileName: string,
   fileIngesters: FileIngesters,
   ctx: FileIngesterContext,
 ): Promise<void> => {
@@ -51,15 +50,15 @@ export const ingestComponent = async (
       if (e instanceof ZodError) continue;
       else throw errors.fromUnknown(e);
     }
-  throw new Error(`${fileName} cannot be imported.`);
+  throw new Error(`${ctx.fileName} cannot be imported.`);
 };
 
 const FILTERS = [{ name: "JSON", extensions: ["json"] }];
 
-interface ImportComponentArgs {
+interface ImportComponentParams {
   handleError: Status.ErrorHandler;
   client: Client | null;
-  placeLayout: Layout.Placer;
+  openTab: Panel.OpenTab;
   store: Store;
   projectKey?: string;
   fluxStore: Pluto.FluxStore;
@@ -69,12 +68,12 @@ interface ImportComponentArgs {
 const importComponent = ({
   store,
   client,
-  placeLayout,
+  openTab,
   handleError,
   projectKey,
   fluxStore,
   fileIngesters,
-}: ImportComponentArgs): void => {
+}: ImportComponentParams): void => {
   handleError(async () => {
     const files = await Runtime.pickFiles({
       title: "Import",
@@ -88,21 +87,19 @@ const importComponent = ({
       if (client == null) throw new DisconnectedError();
       const proj = await client.projects.retrieve(projectKey);
       store.dispatch(Session.Project.select(proj.key));
-      store.dispatch(
-        Session.Layout.setProject({ slice: Session.Layout.migrateLayout(proj.layout) }),
-      );
     }
     const activeProjectKeyAfter = Session.Project.selectSelected(store.getState());
     files.forEach((file) =>
       handleError(async () => {
         const data = await file.read();
         const name = trimFileName(file.name);
-        await ingestComponent(JSON.parse(data), name, fileIngesters, {
-          layout: { name },
-          placeLayout,
+        await ingestComponent(JSON.parse(data), fileIngesters, {
+          name,
+          openTab,
           store: fluxStore,
           client,
           projectKey: activeProjectKeyAfter,
+          fileName: file.name,
         });
       }, `Failed to import ${file.name}`),
     );
@@ -110,7 +107,7 @@ const importComponent = ({
 };
 
 export const useImport = (): ((projectKey?: string) => void) => {
-  const placeLayout = Layout.usePlacer();
+  const openTab = Panel.useOpenTab();
   const store = Session.useStore();
   const client = Synnax.use();
   const handleError = Status.useErrorHandler();
@@ -120,13 +117,13 @@ export const useImport = (): ((projectKey?: string) => void) => {
     (projectKey?: string) =>
       importComponent({
         store,
-        placeLayout,
+        openTab,
         client,
         handleError,
         projectKey,
         fluxStore,
         fileIngesters,
       }),
-    [store, placeLayout, client, handleError, fluxStore, fileIngesters],
+    [store, openTab, client, handleError, fluxStore, fileIngesters],
   );
 };

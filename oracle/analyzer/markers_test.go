@@ -96,6 +96,64 @@ var _ = Describe("Create and Output markers", func() {
 		Expect(ok).To(BeTrue())
 	})
 
+	It("Should synthesize a New<Name> projection for a @create union", func(ctx SpecContext) {
+		source := `
+			TabBase struct {
+				key uuid = create { @key }
+			}
+			Tab union on variant extends TabBase {
+				resource {
+					resource string
+				}
+				view {
+					type string
+				}
+				@create
+			}
+		`
+		table, diag := analyzer.AnalyzeSource(ctx, source, "x", loader)
+		Expect(diag.Ok()).To(BeTrue())
+
+		newTab, ok := table.Get("x.NewTab")
+		Expect(ok).To(BeTrue())
+		form := newTab.Form.(resolution.StructForm)
+		Expect(form.Extends).To(HaveLen(1))
+		Expect(form.Extends[0].Name).To(Equal("x.Tab"))
+		Expect(newTab.Domains).To(HaveKey("ts"))
+		py, ok := newTab.Domains["py"]
+		Expect(ok).To(BeTrue())
+		Expect(py.Expressions).To(HaveLen(1))
+		Expect(py.Expressions[0].Name).To(Equal("omit"))
+	})
+
+	It("Should synthesize both a struct New and a union New<Name> in one namespace", func(ctx SpecContext) {
+		source := `
+			Panel struct {
+				key uuid @key
+				name string
+				@create
+			}
+			TabBase struct {
+				key uuid = create { @key }
+			}
+			Tab union on variant extends TabBase {
+				resource {
+					resource string
+				}
+				view {
+					type string
+				}
+				@create
+			}
+		`
+		table, diag := analyzer.AnalyzeSource(ctx, source, "x", loader)
+		Expect(diag.Ok()).To(BeTrue())
+		_, ok := table.Get("x.New")
+		Expect(ok).To(BeTrue())
+		_, ok = table.Get("x.NewTab")
+		Expect(ok).To(BeTrue())
+	})
+
 	It("Should synthesize a single New when a namespace has two @create structs", func(ctx SpecContext) {
 		source := `
 			First struct {

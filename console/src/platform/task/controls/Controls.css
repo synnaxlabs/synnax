@@ -12,6 +12,7 @@
 .console-task-controls {
     border-color: var(--pluto-gray-l6);
     background-color: var(--pluto-gray-l1);
+    flex-basis: content;
 
     > .console-task-status {
         position: relative;

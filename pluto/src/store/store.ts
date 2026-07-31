@@ -7,13 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type destructor, type record } from "@synnaxlabs/x";
+import { array, type destructor, type record } from "@synnaxlabs/x";
 import { useCallback } from "react";
 
 import { useInitializerRef } from "@/hooks";
 
 export interface UseKeyedListenersReturn<K extends record.Key> {
-  notifyListeners: (keys: K[]) => void;
+  notifyListeners: (keys: K | K[]) => void;
   subscribe: (listener: () => void, key?: K) => destructor.Destructor;
 }
 
@@ -21,8 +21,8 @@ export const useKeyedListeners = <
   K extends record.Key,
 >(): UseKeyedListenersReturn<K> => {
   const listenersRef = useInitializerRef(() => new Map<() => void, K | undefined>());
-  const notifyListeners = useCallback((keys: K[]) => {
-    const keySet = new Set(keys);
+  const notifyListeners = useCallback((keys: K | K[]) => {
+    const keySet = new Set(array.toArray(keys));
     listenersRef.current.forEach((key, listener) => {
       if (key == null || keySet.has(key)) listener();
     });

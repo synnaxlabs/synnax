@@ -7,16 +7,16 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { createTestClient, group, ontology } from "@synnaxlabs/client";
+import { group, ontology } from "@synnaxlabs/client";
+import { createTestClient } from "@synnaxlabs/client/testutil";
 import { act, fireEvent, screen, waitFor } from "@testing-library/react";
 import { type ReactElement } from "react";
 import { describe, expect, it } from "vitest";
 
 import { Group } from "@/platform/group";
-import { Ontology } from "@/platform/ontology";
-import { expandTreeRow, getTreeRow } from "@/platform/ontology/menuTestutil";
-import { createServices } from "@/platform/ontology/testutil";
-import { renderOntologyTree } from "@/platform/ontology/treeTestutil";
+import { Tree } from "@/platform/tree";
+import { expandTreeRow, getTreeRow } from "@/platform/tree/menuTestutil";
+import { renderOntologyTree } from "@/platform/tree/treeTestutil";
 import {
   awaitTextEditingElement,
   awaitTextEditingExit,
@@ -27,7 +27,7 @@ import {
 
 const client = createTestClient();
 
-const GroupSelectionMenu = (props: Ontology.TreeContextMenuProps): ReactElement => {
+const GroupSelectionMenu = (props: Tree.ContextMenuProps): ReactElement => {
   const createFromSelection = Group.useCreateFromSelection();
   return <button onClick={() => createFromSelection(props)}>group selection</button>;
 };
@@ -47,14 +47,10 @@ const setup = async () => {
     parent: parentID,
     name: uniqueName("child_b"),
   });
-  const services = createServices({
-    group: {
-      ...Ontology.NOOP_SERVICE,
-      type: "group",
-      TreeContextMenu: GroupSelectionMenu,
-    },
-  });
-  await renderOntologyTree({ client, root: parentID, services });
+  const items: Tree.Items = {
+    group: Tree.createItem({ type: "group", ContextMenu: GroupSelectionMenu }),
+  };
+  await renderOntologyTree({ client, root: parentID, items });
   await screen.findByText(a.name);
   await screen.findByText(b.name);
   fireEvent.click(getTreeRow(a.name));
@@ -99,14 +95,10 @@ describe("useCreateFromSelection", () => {
     const subID = group.ontologyID(sub.key);
     const a = await client.groups.create({ parent: subID, name: uniqueName("nest_a") });
     const b = await client.groups.create({ parent: subID, name: uniqueName("nest_b") });
-    const services = createServices({
-      group: {
-        ...Ontology.NOOP_SERVICE,
-        type: "group",
-        TreeContextMenu: GroupSelectionMenu,
-      },
-    });
-    await renderOntologyTree({ client, root: parentID, services });
+    const items: Tree.Items = {
+      group: Tree.createItem({ type: "group", ContextMenu: GroupSelectionMenu }),
+    };
+    await renderOntologyTree({ client, root: parentID, items });
     await screen.findByText(sub.name);
     expandTreeRow(sub.name);
     await screen.findByText(a.name);

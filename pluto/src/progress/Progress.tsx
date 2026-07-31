@@ -9,7 +9,7 @@
 
 import "@/progress/Progress.css";
 
-import { type ReactElement } from "react";
+import { type ReactElement, useMemo } from "react";
 
 import { CSS } from "@/css";
 
@@ -17,8 +17,11 @@ interface ProgressProps {
   value: number;
 }
 
-export const Progress = ({ value }: ProgressProps): ReactElement => (
-  <div className={CSS.B("progress")}>
-    <div className={CSS.B("progress-bar")} style={{ width: `${value}%` }} />
-  </div>
-);
+export const Progress = ({ value }: ProgressProps): ReactElement => {
+  const barStyle = useMemo(() => ({ width: `${value}%` }), [value]);
+  return (
+    <div className={CSS.B("progress")}>
+      <div className={CSS.B("progress-bar")} style={barStyle} />
+    </div>
+  );
+};

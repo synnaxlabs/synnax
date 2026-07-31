@@ -1,253 +1,70 @@
 # Python Development
 
-## Python Packages
+## Packages
 
-Python packages in the monorepo:
+uv workspace (members defined in root `pyproject.toml`): `/client/py/` (Synnax client),
+`/alamos/py/` (instrumentation), `/freighter/py/` (transport), `/integration/` (test
+conductor). Python 3.12+; internal deps resolve via workspace sources. Build backend:
+hatchling.
 
-- `/client/py/` - Python client library for Synnax
-- `/alamos/py/` - Instrumentation and observability
-- `/freighter/py/` - Transport layer
-- `/integration/` - Integration test conductor framework
-
-All packages use **uv** for dependency management with a workspace configuration.
-
-## Package Management
-
-### uv Commands
+## Commands
 
 ```bash
 cd client/py
-uv sync             # Install dependencies
-uv add package-name # Add a dependency
-uv run pytest       # Run tests
-uv build            # Build distribution
+uv sync                  # install dependencies
+uv add <pkg>             # add a dependency
+uv run pytest            # tests
+uv run ruff format .     # format
+uv run ruff check --fix  # lint + import sort
+uv run mypy .            # strict type check
+uv build                 # build distribution
 ```
 
-### Workspace Configuration
+Always prefix with `uv run`. Client CLI: `uv run sy --help`.
 
-The monorepo uses uv workspaces defined in the root `pyproject.toml`:
+## Style
 
-```toml
-[tool.uv]
-managed = true
+- Ruff: 88-char lines, target py312, pyflakes + isort rules (`F`, `I`).
+- mypy strict with numpy and pydantic plugins — fix type issues early.
+- Type hints on every function signature.
+- Pydantic models for validation at API boundaries (they validate at runtime).
 
-[tool.uv.workspace]
-members = ["alamos/py", "freighter/py", "client/py", "integration"]
+## Packages & Naming
 
-[tool.uv.sources]
-alamos = { workspace = true }
-synnax-freighter = { workspace = true }
-synnax = { workspace = true }
-```
+- A package is a directory whose `__init__.py` re-exports the public surface from its
+  leaf modules (`client.py`, `payload.py`, `writer.py`) and declares it in `__all__`.
+  Consumers import from the package, never the leaf module.
+- Names are contextual to their module: `channel.Client`, `channel.Writer`,
+  `framer.Streamer` (see the root namespace rule). The core type may share the package
+  name: `channel.Channel`.
+- The top-level `synnax/__init__.py` flattens the public SDK surface; name collisions
+  resolve with import aliases (`from synnax.task import Status as TaskStatus`), never by
+  renaming the source class.
 
-### pyproject.toml Structure
+## Docstrings
 
-```toml
-[project]
-name = "synnax"
-version = "0.49.0"
-requires-python = ">=3.12,<4"
-dependencies = ["alamos", "synnax-freighter", "pydantic>=2.12.5", "numpy>=2.3.5"]
-
-[dependency-groups]
-dev = ["ruff>=0.15.18,<1", "mypy>=2.1.0,<3", "pytest>=9.1.1,<10"]
-
-[build-system]
-requires = ["hatchling"]
-build-backend = "hatchling.build"
-```
-
-## Code Style
-
-### Ruff (Formatter + Linter)
-
-- 88 character line length, target `py312`
-- Formats code and sorts imports (pyflakes + isort rules via `select = ["F", "I"]`)
-- Run: `uv run ruff format .` to format, `uv run ruff check --fix` to lint and sort
-  imports
-
-### mypy (Type Checker)
-
-```toml
-[tool.mypy]
-plugins = ["numpy.typing.mypy_plugin", "pydantic.mypy"]
-strict = true
-```
-
-- Strict type checking enabled
-- Pydantic plugin for model validation
-- Run: `uv run mypy .`
-
-### Pydantic Models
+The universal body-comment and doc-comment rules in the root CLAUDE.md apply. Python
+form: Sphinx/reST field style in triple-quoted docstrings. Fields: `:param name:`,
+`:returns:` (not `:return:`), `:raises Type:`. Never Google `Args:`/`Returns:` style.
+Never put types in docstrings; signatures carry them.
 
 ```python
-from pydantic import BaseModel
+def create(self, name: str) -> Channel:
+    """Creates a new channel with the given name.
 
-class Channel(BaseModel):
-    name: str
-    data_type: str
-    is_index: bool = False
+    :param name: A human-readable name for the channel.
+    :returns: The created channel with its key populated.
+    :raises ValidationError: If name is empty or already taken.
+    """
 ```
 
-## Testing with pytest
+## Testing (pytest)
 
-### Structure
-
-- Test files: `test_*.py` in `tests/` directory
-- Class-based organization with custom markers
-- Extensive fixture system in `conftest.py`
-
-### Example
-
-```python
-import pytest
-import synnax as sy
-
-@pytest.mark.channel  # Custom marker
-class TestChannel:
-    """Test class with docstrings"""
-
-    def test_create_index(self, client: sy.Synnax):
-        """Should create an index channel."""
-        channel = client.channels.create(
-            name="Time",
-            data_type=sy.DataType.TIMESTAMP,
-            is_index=True
-        )
-        assert channel.name == "Time"
-        assert channel.key != 0
-```
-
-### Key Features
-
-- **Fixtures**: Session, class, and function-scoped fixtures in `conftest.py`
-- **Markers**: Custom markers for test categorization
-- **Parameterization**: `@pytest.mark.parametrize` for data-driven tests
-- **Exception Testing**: `with pytest.raises(ExceptionType)`
-- **Class-based Tests**: Organized into test classes with descriptive docstrings
-- **Type Hints**: Modern Python with type annotations throughout
-
-### Custom Markers
-
-Defined in `pyproject.toml`:
-
-```toml
-[tool.pytest.ini_options]
-markers = [
-  "access: mark test as an access test",
-  "auth: mark test as an auth test",
-  "channel: mark test as a channel test",
-  "framer: mark test as a framer test",
-  "multi_node: mark test as a multi_node test",
-  # ... many more
-]
-```
-
-Usage:
-
-```python
-@pytest.mark.channel
-def test_channel_creation():
-    ...
-```
-
-### Fixtures
-
-```python
-# conftest.py
-import pytest
-import synnax as sy
-
-@pytest.fixture(scope="session")
-def client() -> sy.Synnax:
-    return sy.Synnax(
-        host="localhost",
-        port=9090,
-        username="synnax",
-        password="seldon"
-    )
-
-@pytest.fixture
-def channel(client: sy.Synnax) -> sy.Channel:
-    return client.channels.create(
-        name="test_channel",
-        data_type=sy.DataType.FLOAT32
-    )
-```
-
-## Common Patterns
-
-### Descriptive Test Names
-
-```python
-def test_should_create_channel_with_valid_name():
-    """Should create a channel when provided a valid name."""
-    ...
-```
-
-### Class-based Organization
-
-```python
-class TestChannelCreation:
-    """Tests for channel creation."""
-
-    def test_create_index_channel(self):
-        ...
-
-    def test_create_data_channel(self):
-        ...
-```
-
-### Type Hints
-
-```python
-def process_frame(frame: sy.Frame) -> list[float]:
-    """Process a frame and return values."""
-    return frame["channel"].to_numpy().tolist()
-```
-
-### Async Support
-
-```python
-import pytest
-
-@pytest.mark.asyncio
-async def test_async_operation(client: sy.Synnax):
-    """Test async operations."""
-    result = await client.async_operation()
-    assert result is not None
-```
-
-## Common Gotchas
-
-- **Python version**: Requires Python 3.12+
-- **uv**: Use `uv run` prefix for all commands
-- **Workspace dependencies**: Internal packages use workspace sources
-- **Type checking**: mypy strict mode catches many errors - fix type issues early
-- **Pydantic**: Models validate at runtime - use for API boundaries
-- **Async**: pytest-asyncio required for async test support
-
-## Development Best Practices
-
-- **Type everything**: Use type hints for all function signatures
-- **Pydantic models**: Use for validation at API boundaries
-- **Descriptive tests**: Use "should" convention for test names
-- **Class organization**: Group related tests in classes
-- **Fixtures**: Use fixtures for setup/teardown instead of beforeEach
-- **Markers**: Tag tests with custom markers for selective running
-- **Docstrings**: Add docstrings to test classes and functions
-
-## CLI Tool
-
-The Python client includes a CLI tool:
-
-```bash
-uv run sy --help
-```
-
-Defined in `pyproject.toml`:
-
-```toml
-[project.scripts]
-sy = "synnax.cli.synnax:synnax"
-```
+- `test_*.py` under `tests/`; class-based organization (`TestChannelCreation`) with
+  docstrings; "should"-style descriptive names.
+- Fixtures in `conftest.py` (session/class/function scoped) instead of setup/teardown
+  methods; yield-style fixtures for teardown.
+- Custom markers declared in `pyproject.toml`: `@pytest.mark.channel`, `framer`, `auth`,
+  `multi_node`, etc. Run subsets with `uv run pytest -m channel`.
+- `with pytest.raises(ExceptionType)` for exceptions; `@pytest.mark.parametrize` for
+  table-driven tests; `@pytest.mark.asyncio` (pytest-asyncio) for async.

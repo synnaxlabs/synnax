@@ -19,7 +19,7 @@ import (
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/alamos"
-	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	xchange "github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/errors"
@@ -94,7 +94,7 @@ func (m *monitor) checkAlive(ctx context.Context) error {
 		}
 		timeSinceAlive := telem.TimeSpan(now - state.lastUpdated)
 		stat := Status{
-			Key:         OntologyID(r.Key).String(),
+			Key:         r.OntologyID().String(),
 			Name:        r.Name,
 			Variant:     status.VariantWarning,
 			Time:        state.lastUpdated,

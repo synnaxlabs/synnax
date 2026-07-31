@@ -126,34 +126,36 @@ var _ = Describe("PublishSignals", func() {
 	})
 })
 
-var _ = Describe("SignalsConfig.Validate", func() {
-	DescribeTable("Should reject configs missing required fields",
-		func(mutate func(*actions.SignalsConfig[uuid.UUID, testAction]), wantField string) {
-			state := actions.NewState[uuid.UUID, testAction]()
-			cfg := actions.SignalsConfig[uuid.UUID, testAction]{
-				Provider: sigs,
-				State:    state,
-				Name:     "actions_validate",
-			}
-			mutate(&cfg)
-			Expect(cfg.Validate()).To(MatchError(ContainSubstring(wantField)))
-		},
-		Entry("missing provider", func(c *actions.SignalsConfig[uuid.UUID, testAction]) {
-			c.Provider = nil
-		}, "provider"),
-		Entry("missing state", func(c *actions.SignalsConfig[uuid.UUID, testAction]) {
-			c.State = nil
-		}, "state"),
-		Entry("empty name", func(c *actions.SignalsConfig[uuid.UUID, testAction]) {
-			c.Name = ""
-		}, "name"),
-	)
+var _ = Describe("SignalsConfig", func() {
+	Describe("Validate", func() {
+		DescribeTable("Should reject configs missing required fields",
+			func(mutate func(*actions.SignalsConfig[uuid.UUID, testAction]), wantField string) {
+				state := actions.NewState[uuid.UUID, testAction]()
+				cfg := actions.SignalsConfig[uuid.UUID, testAction]{
+					Provider: sigs,
+					State:    state,
+					Name:     "actions_validate",
+				}
+				mutate(&cfg)
+				Expect(cfg.Validate()).To(MatchError(ContainSubstring(wantField)))
+			},
+			Entry("missing provider", func(c *actions.SignalsConfig[uuid.UUID, testAction]) {
+				c.Provider = nil
+			}, "provider"),
+			Entry("missing state", func(c *actions.SignalsConfig[uuid.UUID, testAction]) {
+				c.State = nil
+			}, "state"),
+			Entry("empty name", func(c *actions.SignalsConfig[uuid.UUID, testAction]) {
+				c.Name = ""
+			}, "name"),
+		)
 
-	It("Should accept a fully-populated config", func() {
-		Expect(actions.SignalsConfig[uuid.UUID, testAction]{
-			Provider: sigs,
-			State:    actions.NewState[uuid.UUID, testAction](),
-			Name:     "ok",
-		}.Validate()).To(Succeed())
+		It("Should accept a fully-populated config", func() {
+			Expect(actions.SignalsConfig[uuid.UUID, testAction]{
+				Provider: sigs,
+				State:    actions.NewState[uuid.UUID, testAction](),
+				Name:     "ok",
+			}.Validate()).To(Succeed())
+		})
 	})
 })

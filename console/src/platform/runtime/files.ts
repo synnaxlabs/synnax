@@ -37,7 +37,7 @@ export interface PickedFile {
   read: () => Promise<string>;
 }
 
-export interface PickFilesArgs {
+export interface PickFilesParams {
   title?: string;
   filters?: FileFilter[];
   multiple?: boolean;
@@ -79,7 +79,7 @@ const pickFilesTauri = async ({
   title,
   filters,
   multiple,
-}: PickFilesArgs): Promise<PickedFile[] | null> => {
+}: PickFilesParams): Promise<PickedFile[] | null> => {
   const result = await open({
     title,
     filters,
@@ -99,7 +99,7 @@ const pickFilesTauri = async ({
 const pickFilesBrowser = ({
   filters,
   multiple,
-}: PickFilesArgs): Promise<PickedFile[] | null> =>
+}: PickFilesParams): Promise<PickedFile[] | null> =>
   new Promise((resolve) => {
     const input = document.createElement("input");
     input.type = "file";
@@ -134,10 +134,12 @@ const pickFilesBrowser = ({
  * filesystem plugin; in the browser it uses an <input type="file"> and reads
  * via File.text(). Returns null if the user cancels or selects nothing.
  */
-export const pickFiles = (args: PickFilesArgs): Promise<PickedFile[] | null> =>
-  Session.Runtime.ENGINE === "tauri" ? pickFilesTauri(args) : pickFilesBrowser(args);
+export const pickFiles = (params: PickFilesParams): Promise<PickedFile[] | null> =>
+  Session.Runtime.ENGINE === "tauri"
+    ? pickFilesTauri(params)
+    : pickFilesBrowser(params);
 
-export interface SaveFileArgs {
+export interface SaveFileParams {
   title?: string;
   defaultName: string;
   filters?: FileFilter[];
@@ -155,7 +157,7 @@ export const saveFile = async ({
   defaultName,
   filters,
   contents,
-}: SaveFileArgs): Promise<string | null> => {
+}: SaveFileParams): Promise<string | null> => {
   if (Session.Runtime.ENGINE === "tauri") {
     const path = await save({ title, defaultPath: defaultName, filters });
     if (path == null) return null;
@@ -176,13 +178,13 @@ export interface PickedDirectory {
   files: PickedFile[];
 }
 
-export interface PickDirectoryArgs {
+export interface PickDirectoryParams {
   title?: string;
 }
 
 const pickDirectoryTauri = async ({
   title,
-}: PickDirectoryArgs): Promise<PickedDirectory | null> => {
+}: PickDirectoryParams): Promise<PickedDirectory | null> => {
   const result = await open({ title, directory: true, multiple: false });
   if (result == null || Array.isArray(result)) return null;
   const dirPath = result;
@@ -242,10 +244,10 @@ const pickDirectoryBrowser = (): Promise<PickedDirectory | null> =>
  * Returns null if the user cancels.
  */
 export const pickDirectory = (
-  args: PickDirectoryArgs = {},
+  params: PickDirectoryParams = {},
 ): Promise<PickedDirectory | null> =>
   Session.Runtime.ENGINE === "tauri"
-    ? pickDirectoryTauri(args)
+    ? pickDirectoryTauri(params)
     : pickDirectoryBrowser();
 
 export interface WritableDirectory {
@@ -257,7 +259,7 @@ export interface WritableDirectory {
   writeText: (name: string, contents: string) => Promise<void>;
 }
 
-export interface PickWritableDirectoryArgs {
+export interface PickWritableDirectoryParams {
   title?: string;
   /**
    * Name of the subdirectory to create under the picked location and use as
@@ -278,7 +280,7 @@ declare global {
 const pickWritableDirectoryTauri = async ({
   title,
   subdirectory,
-}: PickWritableDirectoryArgs): Promise<WritableDirectory | null> => {
+}: PickWritableDirectoryParams): Promise<WritableDirectory | null> => {
   const parent = await open({
     title,
     directory: true,
@@ -302,7 +304,7 @@ const pickWritableDirectoryTauri = async ({
 
 const pickWritableDirectoryBrowser = async ({
   subdirectory,
-}: PickWritableDirectoryArgs): Promise<WritableDirectory | null> => {
+}: PickWritableDirectoryParams): Promise<WritableDirectory | null> => {
   if (window.showDirectoryPicker == null)
     throw new Error(
       "This browser does not support writing to a chosen directory. Use Chrome, Edge, or Safari, or run the desktop app.",
@@ -347,8 +349,8 @@ const pickWritableDirectoryBrowser = async ({
  * null if the user cancels.
  */
 export const pickWritableDirectory = (
-  args: PickWritableDirectoryArgs,
+  params: PickWritableDirectoryParams,
 ): Promise<WritableDirectory | null> =>
   Session.Runtime.ENGINE === "tauri"
-    ? pickWritableDirectoryTauri(args)
-    : pickWritableDirectoryBrowser(args);
+    ? pickWritableDirectoryTauri(params)
+    : pickWritableDirectoryBrowser(params);

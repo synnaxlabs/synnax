@@ -16,12 +16,104 @@ import (
 	"github.com/antlr4-go/antlr/v4"
 	"github.com/synnaxlabs/arc/analyzer/context"
 	"github.com/synnaxlabs/arc/analyzer/flow"
+	"github.com/synnaxlabs/arc/analyzer/statement"
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/diagnostics"
 )
+
+// rejectReactiveAssignment reports that '=' cannot mutate a variable in a reactive scope; a flow must be used instead.
+func rejectReactiveAssignment(d *diagnostics.Diagnostics, assign parser.IAssignmentContext) {
+	name := assign.IDENTIFIER().GetText()
+	d.Add(diagnostics.Errorf(assign, "cannot use '=' here; write to '%s' with a flow: <value> -> %s", name, name))
+}
+
+// analyzeReactiveAssignment type-checks an '=' reassignment by the target's kind.
+func analyzeReactiveAssignment[T antlr.ParserRuleContext](
+	ctx context.Context[T],
+	assign parser.IAssignmentContext,
+) {
+	name := assign.IDENTIFIER().GetText()
+	sym, err := ctx.Resolve(name)
+	if err != nil {
+		ctx.Diagnostics.Add(diagnostics.Error(err, assign))
+		return
+	}
+	if assign.CompoundOp() != nil || assign.IndexOrSlice() != nil {
+		ctx.Diagnostics.Add(diagnostics.Errorf(assign,
+			"compound and indexed assignment to a variable are not yet supported"))
+		return
+	}
+	switch {
+	case sym.IsChannelReadWrite():
+		analyzeChannelReadWriteRebind(ctx, assign, sym)
+	case sym.IsValueVariable():
+		statement.AnalyzeAssignment(context.Child(ctx, assign))
+		if expr := assign.Expression(); expr != nil &&
+			statement.CastConstValue(expr, sym.Type) == nil {
+			flow.AnalyzeSingleExpression(context.Child(ctx, expr))
+		}
+	default:
+		rejectReactiveAssignment(ctx.Diagnostics, assign)
+	}
+}
+
+// analyzeChannelReadWriteRebind checks that the channel read/write variable can be rebound to the channel named by assign's
+// right-hand side: the RHS must reference a channel whose value type matches the channel read/write variable.
+func analyzeChannelReadWriteRebind[T antlr.ParserRuleContext](
+	ctx context.Context[T],
+	assign parser.IAssignmentContext,
+	channelReadWrite *symbol.Symbol,
+) {
+	name := assign.IDENTIFIER().GetText()
+	target, ok := channelRebindTarget(ctx, assign.Expression())
+	if !ok {
+		ctx.Diagnostics.Add(diagnostics.Errorf(assign,
+			"cannot rebind channel read/write variable %s; the right-hand side must be a channel", name))
+		return
+	}
+	if !types.Equal(channelReadWrite.Type.Unwrap(), target.Type.Unwrap()) {
+		ctx.Diagnostics.Add(diagnostics.Errorf(assign,
+			"cannot rebind channel read/write variable %s of type %s to a channel of type %s",
+			name, channelReadWrite.Type.Unwrap(), target.Type.Unwrap()))
+		return
+	}
+	channelReadWrite.Reassigned = true
+	if channelReadWrite.Channels.Write == nil {
+		channelReadWrite.Channels = types.NewChannels()
+	}
+	key := uint32(target.ID)
+	if target.SourceID != nil {
+		key = uint32(*target.SourceID)
+	}
+	channelReadWrite.Channels.Read[key] = target.Name
+	channelReadWrite.Channels.Write[key] = target.Name
+}
+
+// channelRebindTarget resolves expr to the global channel a channel read/write rebind targets,
+// reporting ok=false when expr is not a bare reference to a channel.
+func channelRebindTarget[T antlr.ParserRuleContext](
+	ctx context.Context[T],
+	expr parser.IExpressionContext,
+) (*symbol.Symbol, bool) {
+	if expr == nil {
+		return nil, false
+	}
+	primary := parser.GetPrimaryExpression(expr)
+	if primary == nil || primary.IDENTIFIER() == nil {
+		return nil, false
+	}
+	sym, err := ctx.Resolve(primary.IDENTIFIER().GetText())
+	if err != nil {
+		return nil, false
+	}
+	if sym.Kind != symbol.KindChannel || sym.Type.Kind != types.KindChan {
+		return nil, false
+	}
+	return sym, true
+}
 
 // CollectDeclarations registers all sequences and their children in the symbol table.
 // This is called during the first pass of AnalyzeProgram to establish scopes before
@@ -217,37 +309,48 @@ func collectStageDecl(
 	}
 }
 
-// Analyze performs semantic analysis on a sequence declaration.
-// This is called during the second pass after all declarations have been collected.
-// For anonymous inline sequences, the scope is resolved by parser rule rather
-// than by name.
-func Analyze(ctx context.Context[parser.ISequenceDeclarationContext]) {
-	var (
-		seqScope *symbol.Symbol
-		err      error
-	)
-	if id := ctx.AST.IDENTIFIER(); id != nil {
-		seqScope, err = ctx.Scope.Resolve(ctx, id.GetText())
-	} else {
-		seqScope, err = ctx.Scope.GetChildByParserRule(ctx.AST)
+// scopeBodyItem is a body line common to sequences and stages.
+type scopeBodyItem interface {
+	VariableDeclaration() parser.IVariableDeclarationContext
+	Assignment() parser.IAssignmentContext
+	FlowStatement() parser.IFlowStatementContext
+	SingleInvocation() parser.ISingleInvocationContext
+	SequenceDeclaration() parser.ISequenceDeclarationContext
+}
+
+// analyzeScopeBodyItem analyzes one body line in the construct's own ctx.Scope.
+func analyzeScopeBodyItem[T antlr.ParserRuleContext](ctx context.Context[T], item scopeBodyItem) {
+	if varDecl := item.VariableDeclaration(); varDecl != nil {
+		statement.AnalyzeVariableDeclaration(context.Child(ctx, varDecl))
 	}
+	if assign := item.Assignment(); assign != nil {
+		analyzeReactiveAssignment(ctx, assign)
+	}
+	if flowStmt := item.FlowStatement(); flowStmt != nil {
+		flow.Analyze(context.Child(ctx, flowStmt))
+	}
+	if single := item.SingleInvocation(); single != nil {
+		analyzeSingleInvocation(context.Child(ctx, single))
+	}
+	if nestedSeq := item.SequenceDeclaration(); nestedSeq != nil {
+		Analyze(context.Child(ctx, nestedSeq))
+	}
+}
+
+// Analyze performs second-pass semantic analysis on a sequence declaration.
+func Analyze(ctx context.Context[parser.ISequenceDeclarationContext]) {
+	seqScope, err := context.ResolveOwnScope(ctx)
 	if err != nil {
 		ctx.Diagnostics.Add(diagnostics.Error(err, ctx.AST))
 		return
 	}
+	ctx = ctx.WithScope(seqScope)
 	for _, item := range ctx.AST.AllSequenceItem() {
 		if stageDecl := item.StageDeclaration(); stageDecl != nil {
-			analyzeStage(context.Child(ctx, stageDecl).WithScope(seqScope))
+			analyzeStage(context.Child(ctx, stageDecl))
+			continue
 		}
-		if flowStmt := item.FlowStatement(); flowStmt != nil {
-			flow.Analyze(context.Child(ctx, flowStmt).WithScope(seqScope))
-		}
-		if single := item.SingleInvocation(); single != nil {
-			analyzeSingleInvocation(context.Child(ctx, single).WithScope(seqScope))
-		}
-		if nestedSeq := item.SequenceDeclaration(); nestedSeq != nil {
-			Analyze(context.Child(ctx, nestedSeq).WithScope(seqScope))
-		}
+		analyzeScopeBodyItem(ctx, item)
 	}
 }
 
@@ -297,23 +400,12 @@ func analyzeStage(ctx context.Context[parser.IStageDeclarationContext]) {
 	if stageBody == nil {
 		return
 	}
-	// Resolve the stage's own scope so nested sequences see their registered
-	// child scope. Top-level stages register at the root scope, so fall back
-	// to ctx.Scope when no child match is found.
-	stageScope := ctx.Scope
-	if scope, err := ctx.Scope.GetChildByParserRule(ctx.AST); err == nil {
-		stageScope = scope
+	// Top-level stages have no owned child scope; keep ctx.Scope when absent.
+	if stageScope, err := context.ResolveOwnScope(ctx); err == nil {
+		ctx = ctx.WithScope(stageScope)
 	}
 	for _, item := range stageBody.AllStageItem() {
-		if flowStmt := item.FlowStatement(); flowStmt != nil {
-			flow.Analyze(context.Child(ctx, flowStmt))
-		}
-		if single := item.SingleInvocation(); single != nil {
-			analyzeSingleInvocation(context.Child(ctx, single))
-		}
-		if nestedSeq := item.SequenceDeclaration(); nestedSeq != nil {
-			Analyze(context.Child(ctx, nestedSeq).WithScope(stageScope))
-		}
+		analyzeScopeBodyItem(ctx, item)
 	}
 }
 

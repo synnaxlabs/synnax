@@ -126,9 +126,6 @@ const (
 	KindStage
 	// KindConstant represents a pure literal value in a flow statement.
 	KindConstant
-	// KindGlobalConstant represents a compile-time constant declared at global scope.
-	// Values are inlined at each reference site with no runtime overhead.
-	KindGlobalConstant
 	// KindLoop represents a loop scope (for break/continue validation).
 	KindLoop
 	// KindLoopVariable represents an immutable loop iteration variable.
@@ -152,6 +149,27 @@ const (
 	KindAmbient
 )
 
+// IsValueVariable reports whether s is a `:=`/`$=` value binding.
+func (s *Symbol) IsValueVariable() bool {
+	return s.Kind == KindVariable || s.Kind == KindStatefulVariable
+}
+
+// IsChannelReadWrite reports whether s is a value variable aliasing a channel.
+func (s *Symbol) IsChannelReadWrite() bool {
+	return s.IsValueVariable() && s.Type.Kind == types.KindChan && s.Type.ChanDirection.IsWrite()
+}
+
+// IsReactive reports whether s is a value variable derived from a channel read:
+// a read-only, channel-backed stream.
+func (s *Symbol) IsReactive() bool {
+	return s.IsValueVariable() && s.Type.Kind == types.KindChan && !s.Type.ChanDirection.IsWrite()
+}
+
+// IsLiteral reports whether s is a value variable holding a literal, not a channel.
+func (s *Symbol) IsLiteral() bool {
+	return s.IsValueVariable() && s.Type.Kind != types.KindChan
+}
+
 // Symbol is a named entity in an Arc program and, when it has Children, a
 // container that holds other Symbols. Variables, functions, modules, channels,
 // blocks, loops, sequences, stages, and aliases are all Symbols distinguished
@@ -167,8 +185,8 @@ type Symbol struct {
 	// AST is the parser node for source location information. Built-in symbols
 	// from a resolver or pre-populated module members have AST == nil.
 	AST antlr.ParserRuleContext
-	// DefaultValue stores the default value literal for optional parameters.
-	// Only used for KindInput symbols. Nil means no default.
+	// DefaultValue holds the symbol's default value, or nil if it has none:
+	// an optional parameter's default, or a literal variable's initial value.
 	DefaultValue any
 	// Name is the symbol's identifier. Container symbols of anonymous kinds
 	// (KindBlock, KindLoop, top-level stages) may have an empty Name.
@@ -190,6 +208,9 @@ type Symbol struct {
 	// reference them, but remain visible to the compiler's resolve.Resolver
 	// which passes IncludeInternal to bypass the filter.
 	Internal bool
+	// Reassigned marks a flow-level value variable written after declaration
+	// (`x = v` or `-> x`), which lowers to a variable node instead of a constant.
+	Reassigned bool
 	// Renameable marks symbols whose backing resource the host can rename via an
 	// out-of-band side effect. Source-defined symbols (AST != nil) are renameable
 	// by source-text edits alone and do not need this flag; resolver-supplied
@@ -330,23 +351,29 @@ func (s *Symbol) AutoName(prefix string) *Symbol {
 	return s
 }
 
+// maxProgramLocalChannelKey is the exclusive upper bound on top-level variable
+// channel keys.
+const maxProgramLocalChannelKey = 1 << 20
+
 // Add creates a new child Symbol from sym and appends it to s.children.
 //
 // If sym has a non-empty Name, Add checks for naming conflicts in the lexical
-// chain. Built-in symbols (AST == nil) can be shadowed. Returns an error if a
-// locally-defined symbol with the same name already exists.
+// chain. Built-in symbols (AST == nil) can be shadowed; Internal symbols are
+// compiler-emitted and skip the check. Returns an error if a locally-defined
+// symbol with the same name already exists.
 //
 // Functions and sequences receive a new ID counter so their slot IDs are
 // independent. Slot-allocating Kinds (variables, channels, params) receive an
 // ID from the nearest ancestor counter.
 func (s *Symbol) Add(ctx context.Context, sym Symbol) (*Symbol, error) {
-	if sym.Name != "" {
+	if sym.Name != "" && !sym.Internal {
 		existing, err := s.Resolve(ctx, sym.Name)
 		if err == nil && existing.AST != nil {
 			tok := existing.AST.GetStart()
 			return nil, errors.Newf(
-				"name %s conflicts with existing symbol at line %d, col %d",
+				"name %s conflicts with existing %s at line %d, col %d",
 				sym.Name,
+				existing.Kind.noun(),
 				tok.GetLine(),
 				tok.GetColumn(),
 			)
@@ -361,15 +388,51 @@ func (s *Symbol) Add(ctx context.Context, sym Symbol) (*Symbol, error) {
 	if sym.Kind == KindFunction {
 		child.Channels = types.NewChannels()
 	}
-	if sym.Kind == KindVariable ||
-		sym.Kind == KindStatefulVariable ||
-		sym.Kind == KindInput ||
-		sym.Kind == KindOutput ||
-		sym.Kind == KindLoopVariable {
+	switch sym.Kind {
+	case KindVariable, KindStatefulVariable:
+		if _, err := s.ClosestAncestorOfKind(KindFunction); err != nil {
+			child.ID = s.Root().addIndex()
+			if child.ID >= maxProgramLocalChannelKey {
+				return nil, errors.Newf(
+					"program exceeds the maximum of %d program-local channels",
+					maxProgramLocalChannelKey,
+				)
+			}
+		} else {
+			child.ID = s.addIndex()
+		}
+	case KindInput, KindOutput, KindLoopVariable:
 		child.ID = s.addIndex()
 	}
 	s.children = append(s.children, child)
 	return child, nil
+}
+
+// noun returns a human-readable noun for k, used in diagnostics so a
+// name conflict names what it collides with (variable, channel, function, ...).
+func (k Kind) noun() string {
+	switch k {
+	case KindVariable, KindStatefulVariable, KindLoopVariable:
+		return "variable"
+	case KindChannel:
+		return "channel"
+	case KindFunction:
+		return "function"
+	case KindInput:
+		return "input parameter"
+	case KindOutput:
+		return "output parameter"
+	case KindSequence:
+		return "sequence"
+	case KindStage:
+		return "stage"
+	case KindConstant:
+		return "constant"
+	case KindModule, KindModuleAlias:
+		return "import"
+	default:
+		return "symbol"
+	}
 }
 
 // AddChild appends each already-constructed child to s.children and sets

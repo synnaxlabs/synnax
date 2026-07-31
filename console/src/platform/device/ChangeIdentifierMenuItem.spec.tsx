@@ -7,7 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { createTestClient, type device, type Synnax } from "@synnaxlabs/client";
+import { type device, type Synnax } from "@synnaxlabs/client";
+import { createTestClient } from "@synnaxlabs/client/testutil";
 import { type Status } from "@synnaxlabs/pluto";
 import { act, fireEvent, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
@@ -18,7 +19,7 @@ import {
   createTestDevice,
   renderMenuItem,
 } from "@/platform/device/testutil";
-import { createSelection, createState } from "@/platform/ontology/testutil";
+import { createSelection, createState } from "@/platform/tree/testutil";
 
 const client = createTestClient();
 

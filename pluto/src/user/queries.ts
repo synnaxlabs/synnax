@@ -21,7 +21,7 @@ import { Flux } from "@/flux";
 import { Ontology } from "@/ontology";
 import { state } from "@/state";
 
-export type UseDeleteArgs = user.Key | user.Key[];
+export type UseDeleteParams = user.Key | user.Key[];
 
 export interface FluxStore extends Flux.UnaryStore<user.Key, user.User> {}
 
@@ -42,15 +42,19 @@ export interface FluxSubStore extends Flux.Store {
   [Ontology.RESOURCES_FLUX_STORE_KEY]: Ontology.ResourceFluxStore;
 }
 
-export const { useUpdate: useDelete } = Flux.createUpdate<UseDeleteArgs, FluxSubStore>({
+export const { useUpdate: useDelete } = Flux.createUpdate<
+  UseDeleteParams,
+  FluxSubStore
+>({
   name: RESOURCE_NAME,
   verbs: Flux.DELETE_VERBS,
-  update: async ({ client, data, store, rollbacks }) => {
+  update: async ({ client, data, store, rollbacks, onOptimisticComplete }) => {
     const keys = array.toArray(data);
     const ids = user.ontologyID(keys);
     const relFilter = Ontology.filterRelationshipsThatHaveIDs(ids);
     rollbacks.push(store.relationships.delete(relFilter));
     rollbacks.push(store.resources.delete(ontology.idToString(ids)));
+    await onOptimisticComplete(data);
     await client.users.delete(keys);
     return data;
   },
@@ -95,10 +99,10 @@ export const { useUpdate: useRename } = Flux.createUpdate<
   },
 });
 
-export type UseRetrieveGroupArgs = Record<string, never>;
+export type UseRetrieveGroupParams = Record<string, never>;
 
 export const { useRetrieve: useRetrieveGroupID } = Flux.createRetrieve<
-  UseRetrieveGroupArgs,
+  UseRetrieveGroupParams,
   ontology.ID | undefined,
   FluxSubStore
 >({

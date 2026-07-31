@@ -15,8 +15,8 @@ import (
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
+	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/query"
 	. "github.com/synnaxlabs/x/testutil"
@@ -63,7 +63,7 @@ var _ = Describe("Writer", func() {
 
 			var res ontology.Resource
 			Expect(otg.NewRetrieve().
-				WhereIDs(role.OntologyID(r.Key)).
+				WhereIDs(r.OntologyID()).
 				Entry(&res).
 				Exec(ctx, tx)).To(Succeed())
 			Expect(res.ID.Key).To(Equal(r.Key.String()))
@@ -79,7 +79,7 @@ var _ = Describe("Writer", func() {
 
 			var parents []ontology.Resource
 			Expect(otg.NewRetrieve().
-				WhereIDs(role.OntologyID(r.Key)).
+				WhereIDs(r.OntologyID()).
 				TraverseTo(ontology.ParentsTraverser).
 				WhereTypes("group").
 				Entries(&parents).

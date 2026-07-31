@@ -16,16 +16,17 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/freighter"
-	"github.com/synnaxlabs/synnax/pkg/distribution/group"
-	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
-	"github.com/synnaxlabs/synnax/pkg/distribution/search"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/policy"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
+	"github.com/synnaxlabs/synnax/pkg/service/group"
+	"github.com/synnaxlabs/synnax/pkg/service/imex"
+	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/project"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic"
+	"github.com/synnaxlabs/synnax/pkg/service/search"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/kv/memkv"
@@ -53,7 +54,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	ShouldNotLeakGoroutines()
 	db = DeferClose(gorp.Wrap(memkv.New()))
 	otg = MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
-	searchIdx := MustOpen(search.Open())
+	searchIdx := MustOpen(search.OpenIndex())
 	groupSvc := MustOpen(group.OpenService(ctx, group.ServiceConfig{
 		DB:       db,
 		Ontology: otg,
@@ -85,6 +86,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		DB:       db,
 		Ontology: otg,
 		Search:   searchIdx,
+		ImEx:     imex.NewService(),
 	}))
 	apiSvc = &Service{internal: schematicSvc, access: rbacSvc}
 	author = MustSucceed(userSvc.NewWriter(nil).Create(ctx, user.User{
@@ -99,25 +101,34 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 // the ctx argument to api.Service methods so auth.GetSubject succeeds.
 func authedCtx(ctx SpecContext, u user.User) freighter.Context {
 	fctx := freighter.Context{Context: ctx, Params: freighter.Params{}}
-	fctx.Set("Subject", user.OntologyID(u.Key))
+	fctx.Set("Subject", u.OntologyID())
 	return fctx
 }
 
-// grantUpdateOn creates a policy granting ActionUpdate on the given objects to
-// a fresh role and assigns the role to the given subject. Writes commit
-// directly to the database so the api.Service.Dispatch enforcer (which reads
-// committed state with no transaction) can observe them.
-func grantUpdateOn(ctx SpecContext, subject ontology.ID, objects ...ontology.ID) {
+// grantOn creates a policy granting the given action on the given objects to a
+// fresh role and assigns the role to the given subject. Writes commit directly
+// to the database so the api enforcers (which read committed state with no
+// transaction) can observe them.
+func grantOn(
+	ctx SpecContext,
+	subject ontology.ID,
+	action access.Action,
+	objects ...ontology.ID,
+) {
 	roleWriter := rbacSvc.Role.NewWriter(nil, true)
 	policyWriter := rbacSvc.Policy.NewWriter(nil, true)
-	r := &role.Role{Name: "update-" + uuid.New().String(), Description: "test"}
+	r := &role.Role{Name: string(action) + "-" + uuid.New().String(), Description: "test"}
 	Expect(roleWriter.Create(ctx, r)).To(Succeed())
 	p := &policy.Policy{
-		Name:    "update-policy-" + uuid.New().String(),
+		Name:    string(action) + "-policy-" + uuid.New().String(),
 		Objects: objects,
-		Actions: []access.Action{access.ActionUpdate},
+		Actions: []access.Action{action},
 	}
 	Expect(policyWriter.Create(ctx, p)).To(Succeed())
 	Expect(policyWriter.SetOnRole(ctx, r.Key, p.Key)).To(Succeed())
 	Expect(roleWriter.AssignRole(ctx, subject, r.Key)).To(Succeed())
+}
+
+func grantUpdateOn(ctx SpecContext, subject ontology.ID, objects ...ontology.ID) {
+	grantOn(ctx, subject, access.ActionUpdate, objects...)
 }

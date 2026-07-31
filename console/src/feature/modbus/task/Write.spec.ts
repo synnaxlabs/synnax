@@ -7,14 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { createTestClient, task } from "@synnaxlabs/client";
+import { task } from "@synnaxlabs/client";
+import { createTestClient } from "@synnaxlabs/client/testutil";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { Modbus } from "@/feature/modbus";
 import { createModbusDevice } from "@/feature/modbus/testutil";
-import { awaitTaskKey, renderTaskFormLayout } from "@/platform/task/testutil";
-import { Session } from "@/session";
+import { awaitTaskKey, renderTaskFormTab } from "@/platform/task/testutil";
 import {
   awaitTextEditingElement,
   commitTextEdit,
@@ -29,11 +29,12 @@ stubGeometry();
 describe("Modbus.Write", () => {
   it("should create command channels and indexes for the built channels on configure", async () => {
     const dev = await createModbusDevice(client);
-    const { container, store, layoutKey } = await renderTaskFormLayout(
+    const rendered = await renderTaskFormTab(
       Modbus.Task.Write,
       Modbus.Task.WRITE_TYPE,
-      { client, args: { deviceKey: dev.key } },
+      { client, params: { deviceKey: dev.key } },
     );
+    const { container } = rendered;
     await screen.findByRole("button", { name: /Configure/ });
 
     fireEvent.click(getIconButton(container, "add"));
@@ -46,7 +47,7 @@ describe("Modbus.Write", () => {
     await screen.findByText("Holding Register");
 
     fireEvent.click(screen.getByRole("button", { name: /Configure/ }));
-    const taskKey = await awaitTaskKey(store, layoutKey);
+    const taskKey = await awaitTaskKey(rendered);
 
     const tsk = await client.tasks.retrieve({ key: taskKey });
     expect(task.rackKey(tsk.key)).toBe(dev.rack);
@@ -80,53 +81,46 @@ describe("Modbus.Write", () => {
 
   it("should reuse existing command channels when reconfiguring", async () => {
     const dev = await createModbusDevice(client);
-    const first = await renderTaskFormLayout(
-      Modbus.Task.Write,
-      Modbus.Task.WRITE_TYPE,
-      { client, args: { deviceKey: dev.key } },
-    );
+    const first = await renderTaskFormTab(Modbus.Task.Write, Modbus.Task.WRITE_TYPE, {
+      client,
+      params: { deviceKey: dev.key },
+    });
     await screen.findByRole("button", { name: /Configure/ });
     fireEvent.click(getIconButton(first.container, "add"));
     await screen.findByText("Coil");
     fireEvent.click(screen.getByRole("button", { name: /Configure/ }));
-    const taskKey = await awaitTaskKey(first.store, first.layoutKey);
+    const taskKey = await awaitTaskKey(first);
     const afterFirst = await client.devices.retrieve({
       key: dev.key,
       schemas: Modbus.Device.SCHEMAS,
     });
     first.unmount();
 
-    const second = await renderTaskFormLayout(
-      Modbus.Task.Write,
-      Modbus.Task.WRITE_TYPE,
-      { client, args: { deviceKey: dev.key, taskKey } },
-    );
+    await renderTaskFormTab(Modbus.Task.Write, Modbus.Task.WRITE_TYPE, {
+      client,
+      params: { deviceKey: dev.key, taskKey },
+    });
     await screen.findByText("Coil");
     fireEvent.click(screen.getByRole("button", { name: /Configure/ }));
-    await waitFor(() =>
-      expect(
-        Session.Layout.select(second.store.getState(), second.layoutKey)
-          ?.unsavedChanges,
-      ).toBe(false),
-    );
-
-    const afterSecond = await client.devices.retrieve({
-      key: dev.key,
-      schemas: Modbus.Device.SCHEMAS,
+    await waitFor(async () => {
+      const afterSecond = await client.devices.retrieve({
+        key: dev.key,
+        schemas: Modbus.Device.SCHEMAS,
+      });
+      expect(afterSecond.properties.write.channels).toEqual(
+        afterFirst.properties.write.channels,
+      );
+      const matches = await client.channels.retrieve([`${dev.name}_coil_output_0_cmd`]);
+      expect(matches).toHaveLength(1);
     });
-    expect(afterSecond.properties.write.channels).toEqual(
-      afterFirst.properties.write.channels,
-    );
-    const matches = await client.channels.retrieve([`${dev.name}_coil_output_0_cmd`]);
-    expect(matches).toHaveLength(1);
   });
 
   it("should rename and remove a channel through the context menu", async () => {
     const dev = await createModbusDevice(client);
-    const { container } = await renderTaskFormLayout(
+    const { container } = await renderTaskFormTab(
       Modbus.Task.Write,
       Modbus.Task.WRITE_TYPE,
-      { client, args: { deviceKey: dev.key } },
+      { client, params: { deviceKey: dev.key } },
     );
     await screen.findByRole("button", { name: /Configure/ });
     fireEvent.click(getIconButton(container, "add"));

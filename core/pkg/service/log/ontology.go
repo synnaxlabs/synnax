@@ -16,8 +16,8 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/samber/lo"
-	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
-	"github.com/synnaxlabs/synnax/pkg/distribution/search"
+	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/search"
 	xchange "github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/gorp"
 	xiter "github.com/synnaxlabs/x/iter"
@@ -39,13 +39,13 @@ func OntologyIDs(keys []Key) []ontology.ID {
 
 // OntologyIDsFromLogs returns the ontology IDs of the logs.
 func OntologyIDsFromLogs(logs []Log) []ontology.ID {
-	return lo.Map(logs, func(l Log, _ int) ontology.ID { return OntologyID(l.Key) })
+	return lo.Map(logs, func(l Log, _ int) ontology.ID { return l.OntologyID() })
 }
 
 var schema = zyn.Object(map[string]zyn.Schema{"key": zyn.UUID(), "name": zyn.String()})
 
 func newResource(l Log) ontology.Resource {
-	return ontology.NewResource(schema, OntologyID(l.Key), l.Name, l)
+	return ontology.NewResource(schema, l.OntologyID(), l.Name, l)
 }
 
 type change = xchange.Change[Key, Log]

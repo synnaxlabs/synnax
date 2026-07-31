@@ -48,6 +48,10 @@ env:
     --remote_cache=${{ vars.BAZEL_REMOTE_CACHE_GRPC_URL }}
     --remote_cache_compression=true
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   test:
     name: Test (${{ matrix.os }})

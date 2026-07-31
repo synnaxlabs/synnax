@@ -14,8 +14,8 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/synnaxlabs/arc/text"
-	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
+	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/x/crdt"
 	"github.com/synnaxlabs/x/errors"
@@ -53,7 +53,7 @@ func (w Writer) Create(ctx context.Context, a *Arc) error {
 		}
 	}
 	if len(a.Text.Doc.Inserts) == 0 && a.Text.Raw != "" {
-		a.Text.Doc = text.Seed(a.Text.Raw)
+		a.Text.Doc = text.Create(a.Text.Raw)
 	}
 	if err = a.Validate(); err != nil {
 		return err
@@ -61,7 +61,7 @@ func (w Writer) Create(ctx context.Context, a *Arc) error {
 	if err = w.table.NewCreate().Entry(a).Exec(ctx, w.tx); err != nil {
 		return err
 	}
-	otgID := OntologyID(a.Key)
+	otgID := a.OntologyID()
 	if !exists {
 		if err = w.otgWriter.DefineResources(ctx, otgID); err != nil {
 			return err

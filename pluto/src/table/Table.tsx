@@ -26,7 +26,6 @@ import { Aether } from "@/aether";
 import { CSS } from "@/css";
 import { useSyncedRef } from "@/hooks";
 import { Menu } from "@/menu";
-import { Select } from "@/select";
 import { AddCountControl } from "@/table/AddCountControl";
 import { table as aetherTable } from "@/table/aether";
 import { Cell } from "@/table/cells";
@@ -44,6 +43,7 @@ import {
   useUndo,
 } from "@/table/queries";
 import { Row } from "@/table/Row";
+import { Selection } from "@/table/selection";
 import { useKey } from "@/table/Suspended";
 import { Theming } from "@/theming";
 import { Triggers } from "@/triggers";
@@ -457,6 +457,10 @@ export const Table = ({
   const colSizes = useMemo(() => columns.map((c) => c.size), [columns]);
   const totalCol = colSizes.reduce((a, s) => a + s, 0);
   const totalRow = rows.reduce((a, r) => a + r.size, 0);
+  const tableStyle = useMemo(
+    () => ({ width: totalCol, height: totalRow }),
+    [totalCol, totalRow],
+  );
 
   let rowYCursor = showIndicators ? 4.5 * 6 : 0;
   return (
@@ -471,7 +475,7 @@ export const Table = ({
           <table
             ref={tableElRef}
             className={CSS(CSS.B("table"), menuProps.className)}
-            style={{ width: totalCol, height: totalRow }}
+            style={tableStyle}
             onCopy={onCopy}
             onPaste={editable ? onPaste : undefined}
             onKeyDown={handleKeyDown}
@@ -479,7 +483,7 @@ export const Table = ({
           >
             <tbody>
               <Aether.Composite path={path}>
-                <Select.Provider value={selected}>
+                <Selection.Context value={selected}>
                   {showIndicators && (
                     <ColumnIndicators
                       columns={colSizes}
@@ -511,7 +515,7 @@ export const Table = ({
                       />
                     );
                   })}
-                </Select.Provider>
+                </Selection.Context>
               </Aether.Composite>
             </tbody>
           </table>

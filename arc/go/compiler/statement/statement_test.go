@@ -156,7 +156,11 @@ var _ = Describe("Statement Compiler", func() {
 	Describe("Stateful Variables", func() {
 		It("Should compile stateful variable declaration with explicit type", func(bCtx SpecContext) {
 			stmt := MustSucceed(parser.ParseStatement("count i64 $= 0"))
-			aCtx := acontext.NewRoot(bCtx, stmt, NewRoot(nil))
+			fn := MustSucceed(NewRoot(nil).Add(bCtx, symbol.Symbol{
+				Name: "f", Kind: symbol.KindFunction,
+				Type: types.Function(types.FunctionProperties{}),
+			}))
+			aCtx := acontext.NewRoot(bCtx, stmt, fn)
 			analyzer.AnalyzeStatement(aCtx)
 			Expect(aCtx.Diagnostics.Ok()).To(BeTrue())
 			ctx := context.NewRoot(bCtx, aCtx.Scope, aCtx.TypeMap, resolve.NewResolver())
@@ -173,7 +177,11 @@ var _ = Describe("Statement Compiler", func() {
 
 		It("Should compile stateful variable declaration with inferred type", func(bCtx SpecContext) {
 			stmt := MustSucceed(parser.ParseStatement("count $= 0"))
-			aCtx := acontext.NewRoot(bCtx, stmt, NewRoot(nil))
+			fn := MustSucceed(NewRoot(nil).Add(bCtx, symbol.Symbol{
+				Name: "f", Kind: symbol.KindFunction,
+				Type: types.Function(types.FunctionProperties{}),
+			}))
+			aCtx := acontext.NewRoot(bCtx, stmt, fn)
 			analyzer.AnalyzeStatement(aCtx)
 			Expect(aCtx.Diagnostics.Ok()).To(BeTrue())
 			ctx := context.NewRoot(bCtx, aCtx.Scope, aCtx.TypeMap, resolve.NewResolver())
@@ -220,7 +228,13 @@ var _ = Describe("Statement Compiler", func() {
 				count i64 $= 0
 				x i64 := count + 1
 			}`))
-			aCtx := acontext.NewRoot(bCtx, block, NewRoot(nil))
+			// A func-local stateful always loads its cell; without a function
+			// ancestor the read would fold to the initial value instead.
+			fn := MustSucceed(NewRoot(nil).Add(bCtx, symbol.Symbol{
+				Name: "f", Kind: symbol.KindFunction,
+				Type: types.Function(types.FunctionProperties{}),
+			}))
+			aCtx := acontext.NewRoot(bCtx, block, fn)
 			analyzer.AnalyzeBlock(aCtx)
 			Expect(aCtx.Diagnostics.Ok()).To(BeTrue())
 			ctx := context.NewRoot(bCtx, aCtx.Scope, aCtx.TypeMap, resolve.NewResolver())
@@ -249,7 +263,13 @@ var _ = Describe("Statement Compiler", func() {
 				b i64 $= 20
 				c i64 := a + b
 			}`))
-			aCtx := acontext.NewRoot(bCtx, block, NewRoot(nil))
+			// A func-local stateful always loads its cell; without a function
+			// ancestor the reads would fold to the initial values instead.
+			fn := MustSucceed(NewRoot(nil).Add(bCtx, symbol.Symbol{
+				Name: "f", Kind: symbol.KindFunction,
+				Type: types.Function(types.FunctionProperties{}),
+			}))
+			aCtx := acontext.NewRoot(bCtx, block, fn)
 			analyzer.AnalyzeBlock(aCtx)
 			Expect(aCtx.Diagnostics.Ok()).To(BeTrue())
 			ctx := context.NewRoot(bCtx, aCtx.Scope, aCtx.TypeMap, resolve.NewResolver())
@@ -281,7 +301,11 @@ var _ = Describe("Statement Compiler", func() {
 
 		It("Should compile stateful variable with different types", func(bCtx SpecContext) {
 			stmt := MustSucceed(parser.ParseStatement("temperature f64 $= 20.5"))
-			aCtx := acontext.NewRoot(bCtx, stmt, NewRoot(nil))
+			fn := MustSucceed(NewRoot(nil).Add(bCtx, symbol.Symbol{
+				Name: "f", Kind: symbol.KindFunction,
+				Type: types.Function(types.FunctionProperties{}),
+			}))
+			aCtx := acontext.NewRoot(bCtx, stmt, fn)
 			analyzer.AnalyzeStatement(aCtx)
 			Expect(aCtx.Diagnostics.Ok()).To(BeTrue())
 			ctx := context.NewRoot(bCtx, aCtx.Scope, aCtx.TypeMap, resolve.NewResolver())
@@ -1365,7 +1389,7 @@ var _ = Describe("Statement Compiler", func() {
 		})
 
 		Describe("Channel Alias Reads", func() {
-			It("Should compile channel alias read assigned to f64 scalar", func(bCtx SpecContext) {
+			It("Should compile channel read/write read assigned to f64 scalar", func(bCtx SpecContext) {
 				resolver := []symbol.Symbol{
 					{
 						Name: "sensor",
@@ -1394,7 +1418,7 @@ var _ = Describe("Statement Compiler", func() {
 				))
 			})
 
-			It("Should compile a channel alias of a chan-typed local variable", func(bCtx SpecContext) {
+			It("Should compile a channel read/write of a chan-typed local variable", func(bCtx SpecContext) {
 				resolver := []symbol.Symbol{
 					{
 						Name: "sensor",
@@ -1427,7 +1451,7 @@ var _ = Describe("Statement Compiler", func() {
 				))
 			})
 
-			It("Should compile channel alias read assigned to stateful f64 scalar", func(bCtx SpecContext) {
+			It("Should compile channel read/write read assigned to stateful f64 scalar", func(bCtx SpecContext) {
 				resolver := []symbol.Symbol{
 					{
 						Name: "sensor",
@@ -1461,7 +1485,7 @@ var _ = Describe("Statement Compiler", func() {
 				))
 			})
 
-			It("Should compile i32 channel alias read assigned to i32 scalar", func(bCtx SpecContext) {
+			It("Should compile i32 channel read/write read assigned to i32 scalar", func(bCtx SpecContext) {
 				resolver := []symbol.Symbol{
 					{
 						Name: "int_ch",
@@ -1490,7 +1514,7 @@ var _ = Describe("Statement Compiler", func() {
 				))
 			})
 
-			It("Should compile channel alias read written to another channel", func(bCtx SpecContext) {
+			It("Should compile channel read/write read written to another channel", func(bCtx SpecContext) {
 				resolver := []symbol.Symbol{
 					{
 						Name: "sensor",
@@ -1522,7 +1546,7 @@ var _ = Describe("Statement Compiler", func() {
 				))
 			})
 
-			It("Should compile conditional channel alias read with scalar assignment", func(bCtx SpecContext) {
+			It("Should compile conditional channel read/write read with scalar assignment", func(bCtx SpecContext) {
 				resolver := []symbol.Symbol{
 					{
 						Name: "sensor",
@@ -2297,6 +2321,32 @@ var _ = Describe("Statement Compiler", func() {
 			diverged := MustSucceed(statement.CompileBlock(context.Child(ctx, block)))
 			Expect(diverged).To(BeFalse())
 			Expect(ctx.Writer.Bytes()).ToNot(BeEmpty())
+		})
+	})
+
+	Describe("channelRead Variables", func() {
+		It("Should skip compiling a channelRead variable declaration", func(bCtx SpecContext) {
+			stmt := MustSucceed(parser.ParseStatement("r := 5"))
+			aCtx := acontext.NewRoot(bCtx, stmt, NewRoot(nil))
+			MustSucceed(aCtx.Scope.Add(aCtx, symbol.Symbol{
+				Name: "r", Kind: symbol.KindVariable, Type: types.ReadChan(types.I64()),
+			}))
+			ctx := context.NewRoot(bCtx, aCtx.Scope, aCtx.TypeMap, resolve.NewResolver())
+			diverged := MustSucceed(statement.Compile(context.Child(ctx, stmt)))
+			Expect(diverged).To(BeFalse())
+			Expect(FinalizeContext(ctx)).To(BeEmpty())
+		})
+
+		It("Should skip compiling a channelRead variable reassignment to a literal", func(bCtx SpecContext) {
+			stmt := MustSucceed(parser.ParseStatement("r = 5"))
+			aCtx := acontext.NewRoot(bCtx, stmt, NewRoot(nil))
+			MustSucceed(aCtx.Scope.Add(aCtx, symbol.Symbol{
+				Name: "r", Kind: symbol.KindVariable, Type: types.ReadChan(types.I64()),
+			}))
+			ctx := context.NewRoot(bCtx, aCtx.Scope, aCtx.TypeMap, resolve.NewResolver())
+			diverged := MustSucceed(statement.Compile(context.Child(ctx, stmt)))
+			Expect(diverged).To(BeFalse())
+			Expect(FinalizeContext(ctx)).To(BeEmpty())
 		})
 	})
 })

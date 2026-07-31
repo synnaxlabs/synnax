@@ -14,13 +14,16 @@ package framer
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
+	"github.com/synnaxlabs/synnax/pkg/service/cluster"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/iterator"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/streamer"
+	"github.com/synnaxlabs/synnax/pkg/service/framer/writer"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/io"
@@ -33,18 +36,18 @@ import (
 type (
 	Frame                   = framer.Frame
 	Iterator                = iterator.Iterator
-	IteratorCommand         = framer.IteratorCommand
-	IteratorResponseVariant = framer.IteratorResponseVariant
+	IteratorCommand         = iterator.Command
+	IteratorResponseVariant = iterator.ResponseVariant
 	IteratorRequest         = iterator.Request
 	IteratorResponse        = iterator.Response
 	StreamIterator          = iterator.StreamIterator
-	Writer                  = framer.Writer
-	WriterCommand           = framer.WriterCommand
-	WriterConfig            = framer.WriterConfig
-	WriterMode              = framer.WriterMode
-	WriterRequest           = framer.WriterRequest
-	WriterResponse          = framer.WriterResponse
-	StreamWriter            = framer.StreamWriter
+	Writer                  = writer.Writer
+	WriterCommand           = writer.Command
+	WriterConfig            = writer.Config
+	WriterMode              = writer.Mode
+	WriterRequest           = writer.Request
+	WriterResponse          = writer.Response
+	StreamWriter            = writer.StreamWriter
 	IteratorConfig          = iterator.Config
 	StreamerConfig          = streamer.Config
 	StreamerRequest         = streamer.Request
@@ -64,18 +67,21 @@ const (
 	IteratorCommandValid        = iterator.CommandValid
 	IteratorCommandError        = iterator.CommandError
 	IteratorCommandSetBounds    = iterator.CommandSetBounds
-	WriterCommandOpen           = framer.WriterCommandOpen
-	WriterCommandWrite          = framer.WriterCommandWrite
-	WriterCommandCommit         = framer.WriterCommandCommit
-	WriterCommandSetAuthority   = framer.WriterCommandSetAuthority
+	WriterCommandOpen           = writer.CommandOpen
+	WriterCommandWrite          = writer.CommandWrite
+	WriterCommandCommit         = writer.CommandCommit
+	WriterCommandSetAuthority   = writer.CommandSetAuthority
 )
 
+// ServiceConfig is the configuration for opening a framer Service. All fields are
+// required except the embedded Instrumentation.
 type ServiceConfig struct {
-	//  Distribution layer framer service.
+	// Framer is the distribution-layer framer service this service extends.
 	//
 	// [REQUIRED]
 	Framer *framer.Service
-	// Channel is used to retrieve channel information.
+	// Channel is used to resolve channel metadata and to create the node's control
+	// update channel.
 	//
 	// [REQUIRED]
 	Channel *channel.Service
@@ -83,6 +89,11 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	Status *status.Service
+	// HostProvider identifies the host node, used to name and lease the node's control
+	// update channel.
+	//
+	// [REQUIRED]
+	HostProvider cluster.HostProvider
 	// Instrumentation is used for logging, tracing, and metrics.
 	//
 	// [OPTIONAL] - Defaults to noop instrumentation.
@@ -97,6 +108,7 @@ func (c ServiceConfig) Validate() error {
 	validate.NotNil(v, "framer", c.Framer)
 	validate.NotNil(v, "channel", c.Channel)
 	validate.NotNil(v, "status", c.Status)
+	validate.NotNil(v, "host_provider", c.HostProvider)
 	return v.Error()
 }
 
@@ -106,16 +118,24 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Framer = override.Nil(c.Framer, other.Framer)
 	c.Channel = override.Nil(c.Channel, other.Channel)
 	c.Status = override.Nil(c.Status, other.Status)
+	c.HostProvider = override.Nil(c.HostProvider, other.HostProvider)
 	return c
 }
 
+// Service is the service-layer entry point for reading, writing, streaming, and
+// deleting telemetry against a Synnax cluster. It composes the writer, iterator,
+// streamer, and calculation services behind a single handle.
 type Service struct {
 	closer   io.MultiCloser
 	streamer *streamer.Service
 	iterator *iterator.Service
+	writer   *writer.Service
 	cfg      ServiceConfig
 }
 
+// OpenService opens a framer Service from the provided configuration. All fields are
+// required. It wires up calculation-backed streaming and iteration, and configures the
+// host node's control update channel.
 func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err error) {
 	cfg, err := config.New(ServiceConfig{}, cfgs...)
 	if err != nil {
@@ -124,11 +144,19 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	s = &Service{cfg: cfg}
 	cleanup, ok := service.NewOpener(ctx, &s.closer)
 	defer func() { err = cleanup(err) }()
+	if s.writer, err = writer.NewService(writer.ServiceConfig{
+		Instrumentation: cfg.Child("writer"),
+		Framer:          cfg.Framer,
+		Channel:         cfg.Channel,
+	}); !ok(err, nil) {
+		return nil, err
+	}
 	var calcSvc *calculation.Service
 	if calcSvc, err = calculation.OpenService(ctx, calculation.ServiceConfig{
 		Instrumentation: cfg.Child("calculation"),
 		Channel:         cfg.Channel,
 		Framer:          cfg.Framer,
+		Writer:          s.writer,
 		Status:          cfg.Status,
 	}); !ok(err, calcSvc) {
 		return nil, err
@@ -148,31 +176,49 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	}); !ok(err, nil) {
 		return nil, err
 	}
+	if err = s.configureControlUpdates(ctx); err != nil {
+		return nil, err
+	}
 	return s, nil
 }
 
+// OpenWriter opens a buffered Writer for the channels in cfg starting at cfg.Start. The
+// caller must Close the returned Writer to release its control over the written region.
+// It returns an error if cfg is invalid or any channel in cfg.Keys cannot be resolved.
 func (s *Service) OpenWriter(ctx context.Context, cfg WriterConfig) (*Writer, error) {
-	return s.cfg.Framer.OpenWriter(ctx, cfg)
+	return s.writer.Open(ctx, cfg)
 }
 
+// NewStreamWriter opens a StreamWriter for the channels in cfg, driven through
+// confluence inlet requests and outlet responses. It returns an error if cfg is invalid
+// or any channel in cfg.Keys cannot be resolved.
 func (s *Service) NewStreamWriter(
 	ctx context.Context, cfg WriterConfig,
 ) (StreamWriter, error) {
-	return s.cfg.Framer.NewStreamWriter(ctx, cfg)
+	return s.writer.NewStream(ctx, cfg)
 }
 
+// OpenIterator opens a buffered Iterator that reads telemetry from the channels in cfg
+// over cfg.Bounds. The caller must Close the returned Iterator. It returns an error if
+// cfg is invalid or any channel in cfg.Keys cannot be resolved.
 func (s *Service) OpenIterator(
 	ctx context.Context, cfg IteratorConfig,
 ) (*Iterator, error) {
 	return s.iterator.Open(ctx, cfg)
 }
 
+// NewStreamIterator opens a StreamIterator over the channels in cfg, driven through
+// confluence inlet requests and outlet responses. It returns an error if cfg is invalid
+// or any channel in cfg.Keys cannot be resolved.
 func (s *Service) NewStreamIterator(
 	ctx context.Context, cfg IteratorConfig,
 ) (StreamIterator, error) {
 	return s.iterator.NewStream(ctx, cfg)
 }
 
+// NewStreamer opens a Streamer that delivers live writes to the channels in cfg as they
+// occur, driven through confluence inlet requests and outlet responses. It returns an
+// error if cfg is invalid or any channel in cfg.Keys cannot be resolved.
 func (s *Service) NewStreamer(
 	ctx context.Context,
 	cfg StreamerConfig,
@@ -180,6 +226,8 @@ func (s *Service) NewStreamer(
 	return s.streamer.New(ctx, cfg)
 }
 
+// DeleteTimeRange deletes all samples stored for the given channels within tr. It
+// returns an error if a channel is currently under the control of a writer over tr.
 func (s *Service) DeleteTimeRange(
 	ctx context.Context,
 	keys channel.Keys,
@@ -194,4 +242,26 @@ func (s *Service) ControlStates(ctx context.Context) Frame {
 	return s.cfg.Framer.ControlStates(ctx)
 }
 
+// Close releases the resources held by the Service and its underlying streaming,
+// iteration, and calculation sub-services.
 func (s *Service) Close() error { return s.closer.Close() }
+
+// configureControlUpdates creates the host node's control update channel (if it does
+// not already exist) and registers it with the distribution framer so control state
+// changes are streamed to clients.
+func (s *Service) configureControlUpdates(ctx context.Context) error {
+	name := fmt.Sprintf("sy_node_%v_control", s.cfg.HostProvider.HostKey())
+	controlCh := channel.Channel{
+		Name:        name,
+		Leaseholder: s.cfg.HostProvider.HostKey(),
+		Virtual:     true,
+		DataType:    telem.StringT,
+		Internal:    true,
+	}
+	if err := s.cfg.Channel.NewWriter(nil).Create(
+		ctx, &controlCh, channel.RetrieveIfNameExists(),
+	); err != nil {
+		return err
+	}
+	return s.cfg.Framer.ConfigureControlUpdateChannel(ctx, controlCh.Key(), name)
+}

@@ -67,29 +67,24 @@ func newModule(ctx context.Context, reporter *recordingReporter) node.Factory {
 	}))
 }
 
-var rangesOutputs = types.Params{{Name: ir.DefaultOutputParam, Type: types.String()}}
-
-// buildState builds an ir.IR + ProgramState directly (skipping graph.Analyze, which
-// rejects unwired ExecBoth nodes) so node.Output(0) is usable.
-func buildState(bareType string, inputs types.Params) (*node.ProgramState, ir.Node) {
-	irNode := ir.Node{Key: "n", Type: bareType, Inputs: inputs, Outputs: rangesOutputs}
-	prog := ir.IR{Nodes: ir.Nodes{irNode}}
-	return node.New(prog), irNode
-}
-
-func createInputs(name, parent, colorHex string) types.Params {
-	return types.Params{
-		{Name: "name", Type: types.String(), Value: name},
-		{Name: "parent", Type: types.String(), Value: parent},
-		{Name: "color", Type: types.String(), Value: colorHex},
+// create and end declare the natives' input shapes for building test configs.
+// Configs are built directly from IR (graph.Analyze rejects unwired ExecBoth nodes).
+var (
+	create = NodeSpec{
+		Type:    "create",
+		Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.String()}},
+		Inputs: types.Params{
+			{Name: "name", Type: types.String()},
+			{Name: "parent", Type: types.String()},
+			{Name: "color", Type: types.String()},
+		},
 	}
-}
-
-func endInputs(key string) types.Params {
-	return types.Params{
-		{Name: "key", Type: types.String(), Value: key},
+	end = NodeSpec{
+		Type:    "end",
+		Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.String()}},
+		Inputs:  types.Params{{Name: "key", Type: types.String()}},
 	}
-}
+)
 
 func nodeCtx(ctx context.Context) node.Context {
 	return node.Context{Context: ctx, MarkChanged: func(int) {}}
@@ -251,16 +246,14 @@ var _ = Describe("Module", func() {
 		})
 
 		It("Should construct a create node from valid inputs", func(ctx SpecContext) {
-			state, irNode := buildState("create", createInputs("rng", "", ""))
-			n := MustSucceed(mod.Create(ctx, node.Config{Node: irNode, State: state.Node(irNode.Key)}))
+			n := MustSucceed(mod.Create(ctx, create.Config("rng", "", "")))
 			Expect(n).ToNot(BeNil())
 			Expect(func() { n.Reset() }).ToNot(Panic())
 			Expect(n.IsOutputTruthy(0)).To(BeFalse())
 		})
 
 		It("Should construct an end node from valid inputs", func(ctx SpecContext) {
-			state, irNode := buildState("end", endInputs(uuid.NewString()))
-			n := MustSucceed(mod.Create(ctx, node.Config{Node: irNode, State: state.Node(irNode.Key)}))
+			n := MustSucceed(mod.Create(ctx, end.Config(uuid.NewString())))
 			Expect(n).ToNot(BeNil())
 		})
 
@@ -268,14 +261,14 @@ var _ = Describe("Module", func() {
 			cfg := node.Config{Node: ir.Node{Type: "create", Inputs: types.Params{
 				{Name: "parent", Type: types.String(), Value: ""},
 				{Name: "color", Type: types.String(), Value: ""},
-			}, Outputs: rangesOutputs}}
+			}, Outputs: create.Outputs}}
 			state := node.New(ir.IR{Nodes: ir.Nodes{cfg.Node}})
 			cfg.State = state.Node("")
 			Expect(mod.Create(ctx, cfg)).Error().To(MatchError(ContainSubstring("ranges.create inputs")))
 		})
 
 		It("Should return a clean error when end is missing key", func(ctx SpecContext) {
-			cfg := node.Config{Node: ir.Node{Type: "end", Inputs: types.Params{}, Outputs: rangesOutputs}}
+			cfg := node.Config{Node: ir.Node{Type: "end", Inputs: types.Params{}, Outputs: end.Outputs}}
 			state := node.New(ir.IR{Nodes: ir.Nodes{cfg.Node}})
 			cfg.State = state.Node("")
 			Expect(mod.Create(ctx, cfg)).Error().To(MatchError(ContainSubstring("ranges.end inputs")))
@@ -294,9 +287,8 @@ var _ = Describe("createNode.Next", func() {
 	})
 
 	build := func(ctx context.Context, name, parent, colorHex string) (node.Node, *node.State) {
-		state, irNode := buildState("create", createInputs(name, parent, colorHex))
-		s := state.Node(irNode.Key)
-		return MustSucceed(mod.Create(ctx, node.Config{Node: irNode, State: s})), s
+		cfg := create.Config(name, parent, colorHex)
+		return MustSucceed(mod.Create(ctx, cfg)), cfg.State
 	}
 
 	It("Should create an open range that starts now and ends at max", func(ctx SpecContext) {
@@ -385,6 +377,19 @@ var _ = Describe("createNode.Next", func() {
 		Expect(calls[0].variant).To(Equal(status.VariantWarning))
 		Expect(calls[0].message).To(ContainSubstring("ranges.create: invalid parent key"))
 	})
+
+	It("Should read a var-bound parent at fire time", func(ctx SpecContext) {
+		// The configured "" would succeed parentless; only the live slot value
+		// can produce this warning.
+		cfg := create.Config("var_parent_"+uuid.NewString(), VarOf("not-a-uuid"), "")
+		n := MustSucceed(mod.Create(ctx, cfg))
+		n.Next(nodeCtx(ctx))
+
+		Expect(telem.UnmarshalSeries[string](*cfg.State.Output(0))).To(Equal([]string{""}))
+		calls := rep.get()
+		Expect(calls).To(HaveLen(1))
+		Expect(calls[0].message).To(ContainSubstring("ranges.create: invalid parent key"))
+	})
 })
 
 var _ = Describe("endNode.Next", func() {
@@ -398,9 +403,8 @@ var _ = Describe("endNode.Next", func() {
 	})
 
 	build := func(ctx context.Context, key string) (node.Node, *node.State) {
-		state, irNode := buildState("end", endInputs(key))
-		s := state.Node(irNode.Key)
-		return MustSucceed(mod.Create(ctx, node.Config{Node: irNode, State: s})), s
+		cfg := end.Config(key)
+		return MustSucceed(mod.Create(ctx, cfg)), cfg.State
 	}
 
 	openRange := func(ctx context.Context) ranger.Range {

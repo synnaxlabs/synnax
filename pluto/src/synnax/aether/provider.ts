@@ -34,10 +34,7 @@ export class Provider extends aether.Composite<typeof stateZ, ContextValue> {
   afterUpdate(ctx: aether.Context): void {
     if (!ctx.wasSetPreviously(CONTEXT_KEY)) set(ctx, ZERO_CONTEXT_VALUE);
     if (this.state.props == null) {
-      if (this.internal.client != null) {
-        this.internal.client?.close();
-        this.internal.client = null;
-      }
+      this.closeClient();
       set(ctx, this.internal);
       return;
     }
@@ -49,8 +46,19 @@ export class Provider extends aether.Composite<typeof stateZ, ContextValue> {
     )
       return;
 
+    this.closeClient();
     this.internal.client = new Synnax(this.state.props);
     set(ctx, this.internal);
+  }
+
+  afterDelete(): void {
+    this.closeClient();
+  }
+
+  private closeClient(): void {
+    if (this.internal.client == null) return;
+    this.internal.client.close();
+    this.internal.client = null;
   }
 }
 

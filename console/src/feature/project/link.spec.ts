@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { createTestClient } from "@synnaxlabs/client";
+import { createTestClient } from "@synnaxlabs/client/testutil";
 import { describe, expect, it } from "vitest";
 
 import { Project } from "@/feature/project";
@@ -17,7 +17,7 @@ import { renderLinkHook } from "@/testutil";
 const client = createTestClient();
 
 describe("Project.useLink", () => {
-  it("should load the project layout and set it active", async () => {
+  it("should set the linked project active", async () => {
     const project = await client.projects.create({
       name: "Engine Project",
       layout: {},

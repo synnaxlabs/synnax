@@ -14,10 +14,11 @@ import (
 	. "github.com/onsi/gomega"
 	arclsptestutil "github.com/synnaxlabs/arc/lsp/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
-	"github.com/synnaxlabs/x/lsp/protocol"
 	lsptestutil "github.com/synnaxlabs/x/lsp/testutil"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
+	"go.lsp.dev/protocol"
+	"go.lsp.dev/uri"
 )
 
 var _ = Describe("LSP Rename", func() {
@@ -27,12 +28,12 @@ var _ = Describe("LSP Rename", func() {
 			Virtual:  true,
 			DataType: telem.Float32T,
 		}
-		Expect(channelSvc.Create(ctx, ch)).To(Succeed())
+		Expect(channelSvc.NewWriter(nil).Create(ctx, ch)).To(Succeed())
 
 		server := MustSucceed(svc.NewLSP())
 		server.SetClient(&lsptestutil.MockClient{})
 		DeferCleanup(func(ctx SpecContext) { Expect(server.Shutdown(ctx)).To(Succeed()) })
-		uri := protocol.DocumentURI("file:///rename.arc")
+		uri := uri.URI("file:///rename.arc")
 		arclsptestutil.OpenArcDocument(server, ctx, uri, `func test() {
     x f32 := lsp_rename_ch + 1.0
     y := lsp_rename_ch * 2.0
@@ -62,12 +63,12 @@ var _ = Describe("LSP Rename", func() {
 			Internal: true,
 			DataType: telem.Float32T,
 		}
-		Expect(channelSvc.Create(ctx, ch)).To(Succeed())
+		Expect(channelSvc.NewWriter(nil).Create(ctx, ch)).To(Succeed())
 
 		server := MustSucceed(svc.NewLSP())
 		server.SetClient(&lsptestutil.MockClient{})
 		DeferCleanup(func(ctx SpecContext) { Expect(server.Shutdown(ctx)).To(Succeed()) })
-		uri := protocol.DocumentURI("file:///rename_internal.arc")
+		uri := uri.URI("file:///rename_internal.arc")
 		arclsptestutil.OpenArcDocument(server, ctx, uri, `func test() {
     x f32 := lsp_rename_internal + 1.0
 }`)

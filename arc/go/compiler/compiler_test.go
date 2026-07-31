@@ -13,6 +13,7 @@ import (
 	"context"
 	"fmt"
 	"math"
+	"strings"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -30,6 +31,7 @@ import (
 	. "github.com/synnaxlabs/arc/symbol/testutil"
 	"github.com/synnaxlabs/arc/text"
 	"github.com/synnaxlabs/arc/types"
+	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/tetratelabs/wazero"
 )
@@ -101,9 +103,9 @@ func assertResult(result uint64, expected any) {
 }
 
 // bindDefaultModules creates a state.ProgramState and binds all default STL modules
-// to the given wazero.Runtime. Returns the state and string module for
-// post-instantiation setup.
-func bindDefaultModules(ctx context.Context, r wazero.Runtime) (*node.ProgramState, *stlstrings.Host, *stlstrings.ProgramState) {
+// to the given wazero.Runtime. Returns the state, string module, string state, and
+// channel state for post-instantiation setup.
+func bindDefaultModules(ctx context.Context, r wazero.Runtime) (*node.ProgramState, *stlstrings.Host, *stlstrings.ProgramState, *stlchannels.ProgramState) {
 	s := node.New(ir.IR{Nodes: []ir.Node{{Key: "test"}}})
 	stringsState := stlstrings.NewProgramState()
 	seriesState := series.NewProgramState()
@@ -115,7 +117,7 @@ func bindDefaultModules(ctx context.Context, r wazero.Runtime) (*node.ProgramSta
 	MustSucceed(stlerrors.NewHost(ctx, r, nil))
 	MustSucceed(stltime.NewHost(ctx, r))
 	MustSucceed(stlchannels.NewHost(ctx, r, channelState, stringsState))
-	return s, stringsMod, stringsState
+	return s, stringsMod, stringsState, channelState
 }
 
 // bindMockChannelModule registers mock channel host functions under the
@@ -371,6 +373,51 @@ var _ = Describe("Compiler", func() {
 			Expect(add).ToNot(BeNil())
 			results := MustSucceed(add.Call(ctx, 10, 32))
 			Expect(results).To(ConsistOf(uint64(42)))
+		})
+	})
+
+	Describe("Dispatcher Synthetics", func() {
+		It("Should evaluate only the branch selected by sel", func(ctx SpecContext) {
+			reads := 0
+			bindMockChannelModule(ctx, r, map[string]any{
+				"read_i64": func(_ context.Context, _ uint32) int64 {
+					reads++
+					return 40
+				},
+			})
+			resolver := []symbol.Symbol{{
+				Name: "count_ch",
+				Kind: symbol.KindChannel,
+				Type: types.Chan(types.I64()),
+				ID:   901,
+			}}
+			prog := MustSucceed(text.Parse(text.Text{Raw: `
+			sequence main {
+				r := count_ch + 1
+				r = count_ch + 2
+			}`}))
+			inter, diag := text.Analyze(ctx, prog, NewRoot(nil, resolver...))
+			Expect(diag.Ok()).To(BeTrue(), diag.String())
+			var disp ir.Function
+			for _, f := range inter.Functions {
+				if strings.HasPrefix(f.Key, ir.DispatcherSyntheticPrefix) {
+					disp = f
+				}
+			}
+			Expect(disp.Key).ToNot(BeEmpty(), "expected a dispatcher function")
+			Expect(disp.Inputs[0].Name).To(Equal("$sel"))
+			output := MustSucceed(compiler.Compile(ctx, inter))
+			mod := MustSucceed(r.Instantiate(ctx, output.WASM))
+			fn := mod.ExportedFunction(disp.Key)
+			Expect(fn).ToNot(BeNil())
+			args := make([]uint64, len(disp.Inputs))
+			Expect(MustSucceed(fn.Call(ctx, args...))).To(ConsistOf(uint64(41)))
+			Expect(reads).To(Equal(1), "only the selected branch may read its channel")
+			args[0] = 1
+			Expect(MustSucceed(fn.Call(ctx, args...))).To(ConsistOf(uint64(42)))
+			args[0] = 9
+			Expect(MustSucceed(fn.Call(ctx, args...))).To(ConsistOf(uint64(42)),
+				"an out-of-range sel takes the last branch")
 		})
 	})
 
@@ -2150,108 +2197,12 @@ var _ = Describe("Compiler", func() {
 		})
 	})
 
-	Describe("Global Constants", func() {
-		It("should inline i64 constant in expression", func(ctx SpecContext) {
-			output := MustSucceed(compile(ctx, `
-				MAX := 100
-				func check(x i64) i64 {
-					return x + MAX
-				}
-			`, nil))
-
-			mod := MustSucceed(r.Instantiate(ctx, output.WASM))
-			check := mod.ExportedFunction("check")
-			results := MustSucceed(check.Call(ctx, 50))
-			Expect(results).To(ConsistOf(uint64(150)))
-		})
-
-		It("should inline f64 constant", func(ctx SpecContext) {
-			output := MustSucceed(compile(ctx, `
-				PI := 3.14159
-				func area(r f64) f64 {
-					return r * r * PI
-				}
-			`, nil))
-
-			mod := MustSucceed(r.Instantiate(ctx, output.WASM))
-			area := mod.ExportedFunction("area")
-			results := MustSucceed(area.Call(ctx, math.Float64bits(2.0)))
-			result := math.Float64frombits(results[0])
-			Expect(result).To(BeNumerically("~", 12.56636, 0.00001))
-		})
-
-		It("should inline constant with explicit type", func(ctx SpecContext) {
-			output := MustSucceed(compile(ctx, `
-				VALUE i32 := 42
-				func getValue() i32 {
-					return VALUE
-				}
-			`, nil))
-
-			mod := MustSucceed(r.Instantiate(ctx, output.WASM))
-			getValue := mod.ExportedFunction("getValue")
-			results := MustSucceed(getValue.Call(ctx))
-			Expect(int32(results[0])).To(Equal(int32(42)))
-		})
-
-		It("should inline constant in condition", func(ctx SpecContext) {
-			output := MustSucceed(compile(ctx, `
-				THRESHOLD := 100
-				func check(x i64) i64 {
-					if (x > THRESHOLD) {
-						return 1
-					}
-					return 0
-				}
-			`, nil))
-
-			mod := MustSucceed(r.Instantiate(ctx, output.WASM))
-			check := mod.ExportedFunction("check")
-
-			results := MustSucceed(check.Call(ctx, 150))
-			Expect(results).To(ConsistOf(uint64(1)))
-
-			results = MustSucceed(check.Call(ctx, 50))
-			Expect(results).To(ConsistOf(uint64(0)))
-		})
-
-		It("should inline multiple constants", func(ctx SpecContext) {
-			output := MustSucceed(compile(ctx, `
-				A := 10
-				B := 20
-				C := 30
-				func sum() i64 {
-					return A + B + C
-				}
-			`, nil))
-
-			mod := MustSucceed(r.Instantiate(ctx, output.WASM))
-			sum := mod.ExportedFunction("sum")
-			results := MustSucceed(sum.Call(ctx))
-			Expect(results).To(ConsistOf(uint64(60)))
-		})
-
-		It("should inline constant used multiple times", func(ctx SpecContext) {
-			output := MustSucceed(compile(ctx, `
-				FACTOR := 2
-				func multiply(x i64) i64 {
-					return x * FACTOR * FACTOR
-				}
-			`, nil))
-
-			mod := MustSucceed(r.Instantiate(ctx, output.WASM))
-			multiply := mod.ExportedFunction("multiply")
-			results := MustSucceed(multiply.Call(ctx, 5))
-			Expect(results).To(ConsistOf(uint64(20)))
-		})
-	})
-
 	Describe("String Operations", func() {
 		var strMod *stlstrings.Host
 		var strState *stlstrings.ProgramState
 
 		BeforeEach(func(ctx SpecContext) {
-			_, strMod, strState = bindDefaultModules(ctx, r)
+			_, strMod, strState, _ = bindDefaultModules(ctx, r)
 		})
 
 		It("Should return string handle from function", func(ctx SpecContext) {
@@ -3041,7 +2992,7 @@ var _ = Describe("Compiler", func() {
 		var strMod *stlstrings.Host
 
 		BeforeEach(func(ctx SpecContext) {
-			_, strMod, _ = bindDefaultModules(ctx, r)
+			_, strMod, _, _ = bindDefaultModules(ctx, r)
 		})
 
 		It("Should compare strings with default", func(ctx SpecContext) {
@@ -3112,9 +3063,10 @@ var _ = Describe("Compiler", func() {
 	Describe("Format String Synthetic Functions", func() {
 		var strMod *stlstrings.Host
 		var strState *stlstrings.ProgramState
+		var chanState *stlchannels.ProgramState
 
 		BeforeEach(func(ctx SpecContext) {
-			_, strMod, strState = bindDefaultModules(ctx, r)
+			_, strMod, strState, chanState = bindDefaultModules(ctx, r)
 		})
 
 		It("Compiles a flow-form raw string with a single literal placeholder", func(ctx SpecContext) {
@@ -3217,6 +3169,28 @@ var _ = Describe("Compiler", func() {
 			strMod.SetMemory(mod.Memory())
 			Expect(mod.ExportedFunction("fmt$fmt_0")).ToNot(BeNil())
 			Expect(mod.ExportedFunction("fmt$fmt_1")).ToNot(BeNil())
+		})
+
+		It("Compiles a placeholder that reads a channel read/write variable", func(ctx SpecContext) {
+			resolver := []symbol.Symbol{
+				{Name: "sensor", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 100},
+				{Name: "trig", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 101},
+				{Name: "log", Kind: symbol.KindChannel, Type: types.Chan(types.String()), ID: 102},
+			}
+			output := MustSucceed(compileWithHostImports(
+				ctx,
+				"cpu := sensor\ntrig -> "+`f"v={cpu}"`+" -> log",
+				resolver,
+			))
+			mod := MustSucceed(r.Instantiate(ctx, output.WASM))
+			strMod.SetMemory(mod.Memory())
+			chanState.Ingest(telem.UnaryFrame[uint32](100, telem.NewSeriesV[float32](3.5)))
+			synth := mod.ExportedFunction("fmt$fmt_0")
+			Expect(synth).ToNot(BeNil())
+			handle := uint32(MustSucceed(synth.Call(ctx))[0])
+			str, ok := strState.Get(handle)
+			Expect(ok).To(BeTrue())
+			Expect(str).To(Equal("v=3.5"))
 		})
 	})
 

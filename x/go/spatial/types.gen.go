@@ -11,142 +11,77 @@
 
 package spatial
 
-import (
-	"github.com/synnaxlabs/x/validate"
-)
-
-// Decimal is a normalized value in [0, 1] expressed as a decimal fraction of a whole,
-// such as a container's extent.
-type Decimal = float64
-
-// XLocation is a horizontal-axis location at the left or right edge.
-type XLocation string
-
-const (
-	XLocationLeft  XLocation = "left"
-	XLocationRight XLocation = "right"
-)
-
-// IsValid reports whether x is one of the defined XLocation values.
-func (x XLocation) IsValid() bool {
-	switch x {
-	case XLocationLeft, XLocationRight:
-		return true
-	default:
-		return false
-	}
-}
-
-// YLocation is a vertical-axis location at the top or bottom edge.
-type YLocation string
-
-const (
-	YLocationTop    YLocation = "top"
-	YLocationBottom YLocation = "bottom"
-)
-
-// IsValid reports whether y is one of the defined YLocation values.
-func (y YLocation) IsValid() bool {
-	switch y {
-	case YLocationTop, YLocationBottom:
-		return true
-	default:
-		return false
-	}
-}
-
-// StickyUnit is the measurement unit for a sticky coordinate, either pixels or a
-// decimal fraction of the container.
-type StickyUnit string
-
-const (
-	StickyUnitPx      StickyUnit = "px"
-	StickyUnitDecimal StickyUnit = "decimal"
-)
-
-// IsValid reports whether s is one of the defined StickyUnit values.
-func (s StickyUnit) IsValid() bool {
-	switch s {
-	case StickyUnitPx, StickyUnitDecimal:
-		return true
-	default:
-		return false
-	}
-}
+import "github.com/synnaxlabs/x/spatial/versions"
 
 // OuterLocation is a position indicator for elements anchored to the outer edge of a
 // container. Used for orientation and positioning of UI elements.
-type OuterLocation string
+type OuterLocation = versions.OuterLocation
 
 const (
-	OuterLocationTop    OuterLocation = "top"
-	OuterLocationRight  OuterLocation = "right"
-	OuterLocationBottom OuterLocation = "bottom"
-	OuterLocationLeft   OuterLocation = "left"
+	OuterLocationTop    OuterLocation = versions.OuterLocationTop
+	OuterLocationRight  OuterLocation = versions.OuterLocationRight
+	OuterLocationBottom OuterLocation = versions.OuterLocationBottom
+	OuterLocationLeft   OuterLocation = versions.OuterLocationLeft
 )
 
-// IsValid reports whether o is one of the defined OuterLocation values.
-func (o OuterLocation) IsValid() bool {
-	switch o {
-	case OuterLocationTop, OuterLocationRight, OuterLocationBottom, OuterLocationLeft:
-		return true
-	default:
-		return false
-	}
-}
+// XY is a 2D coordinate point with x and y values. Used for positioning elements in
+// two-dimensional space.
+type XY = versions.XY
 
 // Direction is a 2D axis direction.
-type Direction string
+type Direction = versions.Direction
 
 const (
-	DirectionX Direction = "x"
-	DirectionY Direction = "y"
+	DirectionX Direction = versions.DirectionX
+	DirectionY Direction = versions.DirectionY
 )
 
-// IsValid reports whether d is one of the defined Direction values.
-func (d Direction) IsValid() bool {
-	switch d {
-	case DirectionX, DirectionY:
-		return true
-	default:
-		return false
-	}
-}
-
-// AngularDirection is a rotational direction in 2D space.
-type AngularDirection string
+// XLocation is a horizontal-axis location at the left or right edge.
+type XLocation = versions.XLocation
 
 const (
-	AngularDirectionClockwise        AngularDirection = "clockwise"
-	AngularDirectionCounterclockwise AngularDirection = "counterclockwise"
+	XLocationLeft  XLocation = versions.XLocationLeft
+	XLocationRight XLocation = versions.XLocationRight
 )
 
-// IsValid reports whether a is one of the defined AngularDirection values.
-func (a AngularDirection) IsValid() bool {
-	switch a {
-	case AngularDirectionClockwise, AngularDirectionCounterclockwise:
-		return true
-	default:
-		return false
-	}
-}
-
-// CenterLocation is a location at the center of a container.
-type CenterLocation string
+// YLocation is a vertical-axis location at the top or bottom edge.
+type YLocation = versions.YLocation
 
 const (
-	CenterLocationCenter CenterLocation = "center"
+	YLocationTop    YLocation = versions.YLocationTop
+	YLocationBottom YLocation = versions.YLocationBottom
 )
 
-// IsValid reports whether c is one of the defined CenterLocation values.
-func (c CenterLocation) IsValid() bool {
-	switch c {
-	case CenterLocationCenter:
-		return true
-	default:
-		return false
-	}
-}
+// StickyUnit is the measurement unit for a sticky coordinate, either pixels or a
+// decimal fraction of the container.
+type StickyUnit = versions.StickyUnit
+
+const (
+	StickyUnitPx      StickyUnit = versions.StickyUnitPx
+	StickyUnitDecimal StickyUnit = versions.StickyUnitDecimal
+)
+
+// CornerLocation is an anchor corner for positioning.
+type CornerLocation = versions.CornerLocation
+
+// StickyUnits specifies the measurement units for sticky positioning.
+type StickyUnits = versions.StickyUnits
+
+// StickyXY is a position that can be anchored to different corners of a container with
+// configurable units (pixels or decimal fractions).
+type StickyXY = versions.StickyXY
+
+// Viewport is the camera state of a viewport.
+type Viewport = versions.Viewport
+
+// Decimal is a normalized value in [0, 1] expressed as a decimal fraction of a whole,
+// such as a container's extent.
+type Decimal = versions.Decimal
+
+// Bounds is a closed-open interval [lower, upper) over an ordered numeric value space.
+// The TypeScript binding is generic over T so callers can express bounds over either
+// number or bigint values; other languages emit a concrete float64-based type.
+type Bounds = versions.Bounds
 
 // Location is a position indicator covering the four outer edges of a container and its
 // center.
@@ -170,26 +105,6 @@ func (l Location) IsValid() bool {
 	}
 }
 
-// Alignment is a positioning indicator for aligning content along an axis within a
-// container.
-type Alignment string
-
-const (
-	AlignmentStart  Alignment = "start"
-	AlignmentCenter Alignment = "center"
-	AlignmentEnd    Alignment = "end"
-)
-
-// IsValid reports whether a is one of the defined Alignment values.
-func (a Alignment) IsValid() bool {
-	switch a {
-	case AlignmentStart, AlignmentCenter, AlignmentEnd:
-		return true
-	default:
-		return false
-	}
-}
-
 // Order is a positional ordering indicator for elements in a sequence.
 type Order string
 
@@ -206,164 +121,4 @@ func (o Order) IsValid() bool {
 	default:
 		return false
 	}
-}
-
-// Dimension is the name of a 2D size axis.
-type Dimension string
-
-const (
-	DimensionWidth  Dimension = "width"
-	DimensionHeight Dimension = "height"
-)
-
-// IsValid reports whether d is one of the defined Dimension values.
-func (d Dimension) IsValid() bool {
-	switch d {
-	case DimensionWidth, DimensionHeight:
-		return true
-	default:
-		return false
-	}
-}
-
-// SignedDimension is the name of a 2D signed size axis.
-type SignedDimension string
-
-const (
-	SignedDimensionSignedWidth  SignedDimension = "signedWidth"
-	SignedDimensionSignedHeight SignedDimension = "signedHeight"
-)
-
-// IsValid reports whether s is one of the defined SignedDimension values.
-func (s SignedDimension) IsValid() bool {
-	switch s {
-	case SignedDimensionSignedWidth, SignedDimensionSignedHeight:
-		return true
-	default:
-		return false
-	}
-}
-
-// XY is a 2D coordinate point with x and y values. Used for positioning elements in
-// two-dimensional space.
-type XY struct {
-	// X is the horizontal coordinate.
-	X float64 `json:"x" msgpack:"x"`
-	// Y is the vertical coordinate.
-	Y float64 `json:"y" msgpack:"y"`
-}
-
-// CornerLocation is an anchor corner for positioning.
-type CornerLocation struct {
-	// X is the horizontal anchor.
-	X XLocation `json:"x" msgpack:"x"`
-	// Y is the vertical anchor.
-	Y YLocation `json:"y" msgpack:"y"`
-}
-
-func (c CornerLocation) Validate() error {
-	v := validate.New("CornerLocation")
-	v.Ternaryf("x", !c.X.IsValid(), "invalid x: %v", c.X)
-	v.Ternaryf("y", !c.Y.IsValid(), "invalid y: %v", c.Y)
-	return v.Error()
-}
-
-// StickyUnits specifies the measurement units for sticky positioning.
-type StickyUnits struct {
-	// X is the horizontal unit.
-	X StickyUnit `json:"x" msgpack:"x"`
-	// Y is the vertical unit.
-	Y StickyUnit `json:"y" msgpack:"y"`
-}
-
-func (s StickyUnits) Validate() error {
-	v := validate.New("StickyUnits")
-	v.Ternaryf("x", !s.X.IsValid(), "invalid x: %v", s.X)
-	v.Ternaryf("y", !s.Y.IsValid(), "invalid y: %v", s.Y)
-	return v.Error()
-}
-
-// StickyXY is a position that can be anchored to different corners of a container with
-// configurable units (pixels or decimal fractions).
-type StickyXY struct {
-	// X is the horizontal coordinate.
-	X float64 `json:"x" msgpack:"x"`
-	// Y is the vertical coordinate.
-	Y float64 `json:"y" msgpack:"y"`
-	// Root is the anchor corner for the position.
-	Root CornerLocation `json:"root" msgpack:"root"`
-	// Units is the unit specification for the coordinates.
-	Units StickyUnits `json:"units" msgpack:"units"`
-}
-
-func (s *StickyXY) ApplyDefaults() {
-	if s.Root.X == "" {
-		s.Root.X = XLocationLeft
-	}
-	if s.Root.Y == "" {
-		s.Root.Y = YLocationTop
-	}
-	if s.Units.X == "" {
-		s.Units.X = StickyUnitPx
-	}
-	if s.Units.Y == "" {
-		s.Units.Y = StickyUnitPx
-	}
-}
-
-func (s StickyXY) Validate() error {
-	v := validate.New("StickyXY")
-	v.Exec(func() error { return validate.PathedError(s.Root.Validate(), "root") })
-	v.Exec(func() error { return validate.PathedError(s.Units.Validate(), "units") })
-	return v.Error()
-}
-
-// Dimensions is a 2D size with width and height values.
-type Dimensions struct {
-	// Width is the width in pixels.
-	Width float64 `json:"width" msgpack:"width"`
-	// Height is the height in pixels.
-	Height float64 `json:"height" msgpack:"height"`
-}
-
-// Viewport is the camera state of a viewport.
-type Viewport struct {
-	// Zoom is the zoom level where 1.0 equals 100%.
-	Zoom float64 `json:"zoom" msgpack:"zoom"`
-	// Position is the (x, y) pan offset of the viewport.
-	Position XY `json:"position" msgpack:"position"`
-}
-
-func (v *Viewport) ApplyDefaults() {
-	if v.Zoom == 0 {
-		v.Zoom = 1
-	}
-}
-
-// SignedDimensions is a 2D size whose width and height components carry sign, allowing
-// negative values to express direction.
-type SignedDimensions struct {
-	// SignedWidth is the signed width.
-	SignedWidth float64 `json:"signed_width" msgpack:"signed_width"`
-	// SignedHeight is the signed height.
-	SignedHeight float64 `json:"signed_height" msgpack:"signed_height"`
-}
-
-// ClientXY is a 2D coordinate point expressed in client (viewport) space, matching the
-// shape of DOM mouse events.
-type ClientXY struct {
-	// ClientX is the horizontal coordinate in client (viewport) space.
-	ClientX float64 `json:"client_x" msgpack:"client_x"`
-	// ClientY is the vertical coordinate in client (viewport) space.
-	ClientY float64 `json:"client_y" msgpack:"client_y"`
-}
-
-// Bounds is a closed-open interval [lower, upper) over an ordered numeric value space.
-// The TypeScript binding is generic over T so callers can express bounds over either
-// number or bigint values; other languages emit a concrete float64-based type.
-type Bounds struct {
-	// Lower is the inclusive lower bound.
-	Lower float64 `json:"lower" msgpack:"lower"`
-	// Upper is the exclusive upper bound.
-	Upper float64 `json:"upper" msgpack:"upper"`
 }

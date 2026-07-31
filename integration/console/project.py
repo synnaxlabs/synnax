@@ -113,7 +113,7 @@ class ProjectClient:
         """
         self.layout.close_left_toolbar()
         add_btn = self.layout.page.locator(
-            ".console-mosaic > .pluto-tabs-selector .pluto-tabs-selector__actions button:has(.pluto-icon--add)"
+            f"{LayoutClient.TAB_STRIP_SELECTOR} button:has(.pluto-icon--add)"
         ).first
         add_btn.wait_for(state="visible", timeout=5000)
         add_btn.dispatch_event("click")
@@ -258,7 +258,14 @@ class ProjectClient:
         """
         if self.on_splash():
             return
-        self.layout.show_resource_toolbar("project")
+        try:
+            self.layout.show_resource_toolbar("project")
+        except PlaywrightTimeoutError:
+            # Deleting the active project drops the console to the Splash screen, and
+            # that transition can land after the check above, taking the nav with it.
+            if self.on_splash():
+                return
+            raise
         project_item = self.layout.page.locator(
             f"div[id^='{self.ITEM_PREFIX}']"
         ).filter(has_text=name)
@@ -433,6 +440,8 @@ class ProjectClient:
         self.ctx_menu.action(page_item, "Delete")
         delete_btn = self.layout.page.get_by_role("button", name="Delete", exact=True)
         delete_btn.wait_for(state="visible", timeout=5000)
+        # Notifications stack over the confirmation dialog and swallow the click.
+        self.notifications.close_all()
         delete_btn.click(timeout=5000)
         self.wait_for_page_removed(name)
         self.layout.close_left_toolbar()
@@ -849,6 +858,8 @@ class ProjectClient:
 
         delete_btn = self.layout.page.get_by_role("button", name="Delete", exact=True)
         delete_btn.wait_for(state="visible", timeout=5000)
+        # Notifications stack over the confirmation dialog and swallow the click.
+        self.notifications.close_all()
         delete_btn.click(timeout=5000)
         self.wait_for_project_removed(name)
         if self._active_project == name:
@@ -968,9 +979,8 @@ class ProjectClient:
         pane.first.wait_for(state="visible", timeout=5000)
 
         active_tab = (
-            self.layout.page.locator(".pluto-tabs-selector")
-            .locator("div")
-            .filter(has=self.layout.page.locator("[aria-label='pluto-tabs__close']"))
+            self.layout.page.locator(LayoutClient.TAB_SELECTOR)
+            .filter(has=self.layout.page.locator("[aria-label='Close']"))
             .last
         )
         actual_name = active_tab.inner_text().strip()
@@ -1060,8 +1070,8 @@ class ProjectClient:
         plot_pane = self.layout.page.locator(".pluto-line-plot")
         plot_pane.first.wait_for(state="visible", timeout=5000)
 
-        tabs = self.layout.page.locator(".pluto-tabs-selector div").filter(
-            has=self.layout.page.locator("[aria-label='pluto-tabs__close']")
+        tabs = self.layout.page.locator(LayoutClient.TAB_SELECTOR).filter(
+            has=self.layout.page.locator("[aria-label='Close']")
         )
         tab_count = tabs.count()
         actual_tab_name = "Line Plot"

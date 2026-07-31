@@ -16,8 +16,8 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/samber/lo"
-	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
-	"github.com/synnaxlabs/synnax/pkg/distribution/search"
+	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/search"
 	xchange "github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/gorp"
 	xiter "github.com/synnaxlabs/x/iter"
@@ -34,10 +34,6 @@ func OntologyID(key Key) ontology.ID {
 func OntologyIDsFromKeys(keys []Key) []ontology.ID {
 	return lo.Map(keys, func(key Key, _ int) ontology.ID { return OntologyID(key) })
 }
-
-// OntologyID returns a unique identifier for the user for use within a resource
-// ontology.
-func (u User) OntologyID() ontology.ID { return OntologyID(u.Key) }
 
 // OntologyIDsFromUsers returns a slice of unique identifiers for a slice of Users for
 // use within a resource ontology.
@@ -109,5 +105,5 @@ func (s *Service) OpenNexter(ctx context.Context) (iter.Seq[ontology.Resource], 
 }
 
 func newResource(u User) ontology.Resource {
-	return ontology.NewResource(schema, OntologyID(u.Key), u.Username, u)
+	return ontology.NewResource(schema, u.OntologyID(), u.Username, u)
 }

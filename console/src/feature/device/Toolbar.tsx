@@ -12,8 +12,8 @@ import { Access, Device, Icon } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
 import { type Nav } from "@/platform/nav";
-import { Ontology } from "@/platform/ontology";
 import { Toolbar } from "@/platform/toolbar";
+import { Tree } from "@/platform/tree";
 
 const Content = (): ReactElement => {
   const { data: groupID } = Device.useRetrieveGroupID({});
@@ -22,12 +22,12 @@ const Content = (): ReactElement => {
       <Toolbar.Header padded>
         <Toolbar.Title icon={<Icon.Device />}>Devices</Toolbar.Title>
       </Toolbar.Header>
-      <Ontology.Tree root={groupID} />
+      <Tree.Tree root={groupID} />
     </Toolbar.Content>
   );
 };
 
-export const TOOLBAR: Nav.Item = {
+export const TOOLBAR: Nav.Toolbar = {
   key: "device",
   icon: <Icon.Device />,
   content: <Content />,

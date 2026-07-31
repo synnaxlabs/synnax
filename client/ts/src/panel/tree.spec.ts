@@ -9,11 +9,18 @@
 
 import { describe, expect, it } from "vitest";
 
+import { type ontology } from "@/ontology";
 import { panel } from "@/panel";
 
 const leaf = (...tabKeys: string[]): panel.Node => ({
   variant: "leaf",
-  tabs: tabKeys.map((key) => ({ variant: "empty", key })),
+  tabs: tabKeys.map((key) => ({
+    variant: "view",
+    key,
+    type: "selector",
+    name: "",
+    args: {},
+  })),
 });
 
 // root splits into [a, b] | [c]; the left side splits again into [a] / [b].
@@ -34,10 +41,10 @@ const TREE: panel.Node = {
 describe("tree", () => {
   describe("childPath", () => {
     it("should derive child path keys from the parent", () => {
-      expect(panel.childPath(panel.ROOT_PATH, "first")).toEqual(2);
-      expect(panel.childPath(panel.ROOT_PATH, "last")).toEqual(3);
-      expect(panel.childPath(2, "first")).toEqual(4);
-      expect(panel.childPath(2, "last")).toEqual(5);
+      expect(panel.childNodeKey(panel.ROOT_NODE_KEY, "first")).toEqual(2);
+      expect(panel.childNodeKey(panel.ROOT_NODE_KEY, "last")).toEqual(3);
+      expect(panel.childNodeKey(2, "first")).toEqual(4);
+      expect(panel.childNodeKey(2, "last")).toEqual(5);
     });
   });
 
@@ -52,18 +59,18 @@ describe("tree", () => {
 
   describe("walkPath", () => {
     it("should return the root for ROOT_PATH", () => {
-      expect(panel.walkPath(TREE, panel.ROOT_PATH)).toBe(TREE);
+      expect(panel.findNode(TREE, panel.ROOT_NODE_KEY)).toBe(TREE);
     });
 
     it("should walk nested splits", () => {
-      expect(panel.walkPath(TREE, 4)).toEqual(leaf("a"));
-      expect(panel.walkPath(TREE, 5)).toEqual(leaf("b"));
-      expect(panel.walkPath(TREE, 3)).toEqual(leaf("c"));
+      expect(panel.findNode(TREE, 4)).toEqual(leaf("a"));
+      expect(panel.findNode(TREE, 5)).toEqual(leaf("b"));
+      expect(panel.findNode(TREE, 3)).toEqual(leaf("c"));
     });
 
     it("should return null for a path that does not exist", () => {
-      expect(panel.walkPath(TREE, 6)).toBeNull();
-      expect(panel.walkPath(undefined, panel.ROOT_PATH)).toBeNull();
+      expect(panel.findNode(TREE, 6)).toBeUndefined();
+      expect(panel.findNode(undefined, panel.ROOT_NODE_KEY)).toBeUndefined();
     });
   });
 
@@ -74,7 +81,63 @@ describe("tree", () => {
     });
 
     it("should return null when the tab is absent", () => {
-      expect(panel.findTab(TREE, "nope")).toBeNull();
+      expect(panel.findTab(TREE, "nope")).toBeUndefined();
+    });
+  });
+
+  describe("findTabByResource", () => {
+    const lp: ontology.ID = { type: "lineplot", key: "lp-1" };
+    const withResource: panel.Node = {
+      variant: "split",
+      direction: "x",
+      size: 0.5,
+      first: leaf("a"),
+      last: {
+        variant: "leaf",
+        tabs: [{ variant: "resource", key: "r", resource: lp }],
+      },
+    };
+
+    it("should find the tab backing the resource anywhere in the tree", () => {
+      expect(panel.findTabByResource(withResource, lp)?.key).toEqual("r");
+    });
+
+    it("should return null when no tab backs the resource", () => {
+      expect(
+        panel.findTabByResource(withResource, { type: "schematic", key: "lp-1" }),
+      ).toBeUndefined();
+      expect(panel.findTabByResource(TREE, lp)).toBeUndefined();
+    });
+  });
+
+  describe("findTabByType", () => {
+    const withView: panel.Node = {
+      variant: "split",
+      direction: "x",
+      size: 0.5,
+      first: leaf("a"),
+      last: {
+        variant: "leaf",
+        tabs: [{ variant: "view", key: "e", type: "range_explorer", args: {} }],
+      },
+    };
+
+    it("should find the view tab of the given type anywhere in the tree", () => {
+      expect(panel.findTabByType(withView, "range_explorer")?.key).toEqual("e");
+    });
+
+    it("should return null when no view of that type is present", () => {
+      expect(panel.findTabByType(withView, "docs")).toBeUndefined();
+    });
+
+    it("should ignore resource tabs", () => {
+      const withResource: panel.Node = {
+        variant: "leaf",
+        tabs: [
+          { variant: "resource", key: "r", resource: { type: "lineplot", key: "1" } },
+        ],
+      };
+      expect(panel.findTabByType(withResource, "lineplot")).toBeUndefined();
     });
   });
 
@@ -84,8 +147,7 @@ describe("tree", () => {
     });
 
     it("should return null for an empty tree", () => {
-      expect(panel.firstTab(leaf())).toBeNull();
-      expect(panel.firstTab(null)).toBeNull();
+      expect(panel.firstTab(leaf())).toBeUndefined();
     });
   });
 
@@ -97,18 +159,14 @@ describe("tree", () => {
     });
 
     it("should return null when the tab is absent", () => {
-      expect(panel.tabLeafPath(TREE, "nope")).toBeNull();
+      expect(panel.tabLeafPath(TREE, "nope")).toBeUndefined();
     });
   });
 
   describe("firstLeafPath", () => {
     it("should return the first leaf in traversal order", () => {
       expect(panel.firstLeafPath(TREE)).toEqual(4);
-      expect(panel.firstLeafPath(leaf("a"))).toEqual(panel.ROOT_PATH);
-    });
-
-    it("should return null for an empty tree", () => {
-      expect(panel.firstLeafPath(null)).toBeNull();
+      expect(panel.firstLeafPath(leaf("a"))).toEqual(panel.ROOT_NODE_KEY);
     });
   });
 });

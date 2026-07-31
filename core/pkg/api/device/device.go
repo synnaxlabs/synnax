@@ -15,10 +15,10 @@ import (
 
 	"github.com/synnaxlabs/synnax/pkg/api/auth"
 	"github.com/synnaxlabs/synnax/pkg/api/config"
-	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/service/device"
+	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	xconfig "github.com/synnaxlabs/x/config"
@@ -43,7 +43,7 @@ func NewService(cfgs ...config.LayerConfig) (*Service, error) {
 		device:   cfg.Service.Device,
 		status:   cfg.Service.Status,
 		access:   cfg.Service.RBAC,
-		ontology: cfg.Distribution.Ontology,
+		ontology: cfg.Service.Ontology,
 	}, nil
 }
 
@@ -166,7 +166,7 @@ func (s *Service) Retrieve(
 		for i, d := range res.Devices {
 			var parent ontology.Resource
 			err := s.ontology.NewRetrieve().
-				WhereIDs(device.OntologyID(d.Key)).
+				WhereIDs(d.OntologyID()).
 				TraverseTo(ontology.ParentsTraverser).
 				Limit(1).
 				ExcludeFieldData(true).

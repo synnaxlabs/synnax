@@ -7,19 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { useCallback } from "react";
+import { Link } from "@/platform/link";
 
-import { Layout } from "@/platform/layout";
-import { LinePlot } from "@/platform/lineplot";
-import { type Link } from "@/platform/link";
+export const useLink = Link.createUseOpenResourceTab("lineplot");
 
-export const useLink = (): Link.Handler => {
-  const placeLayout = Layout.usePlacer();
-  return useCallback(
-    async ({ client, key }) => {
-      const linePlot = await client.lineplots.retrieve({ key });
-      placeLayout(LinePlot.create({ key: linePlot.key, name: linePlot.name }));
-    },
-    [placeLayout],
-  );
-};
+export const LINKS: Link.Registry = { lineplot: useLink };

@@ -29,7 +29,8 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/project"
 	"github.com/synnaxlabs/x/encoding"
 	xjson "github.com/synnaxlabs/x/encoding/json"
 	"github.com/synnaxlabs/x/errors"
@@ -107,7 +108,9 @@ type Envelope struct {
 	// Importer's Type() method.
 	Type string
 	// Name is the human-readable name of the resource. Required on export — Encode
-	// enforces that the input value carries a top-level string `name` field.
+	// enforces that the input value carries a top-level string `name` field. On import
+	// it may be empty at decode time; Service.Import fills it from the caller-supplied
+	// file name and rejects the envelope if it is still empty after that fallback.
 	Name string
 
 	codec encoding.Codec
@@ -148,10 +151,12 @@ func (e *Envelope) UnmarshalJSON(b []byte) error {
 // unmarshal is the codec-agnostic tail shared by every UnmarshalX method on Envelope.
 // Given the body already decoded as a flat map, the original wire bytes, and the codec
 // that produced them, it promotes the {version, type, name} headers onto the receiver
-// and stashes raw + codec for the later typed decode via Decode[T]. Both `type` and
-// `name` are required headers — an envelope that omits either, or that carries an empty
-// string for either, is rejected so the failure surfaces at the transport boundary
-// instead of routing to a no-op handler.
+// and stashes raw + codec for the later typed decode via Decode[T]. `type` is a
+// required header — an envelope that omits it, or that carries an empty string for it,
+// is rejected so the failure surfaces at the transport boundary instead of routing to a
+// no-op handler. `name` is optional at decode time: the import path may fall back to a
+// caller-supplied file name, so Service.Import enforces the non-empty name after that
+// fallback is applied.
 func (e *Envelope) unmarshal(m map[string]any, raw []byte, codec encoding.Codec) error {
 	if v, ok := m["version"]; ok {
 		ver, err := versionFromAny(v)
@@ -177,9 +182,6 @@ func (e *Envelope) unmarshal(m map[string]any, raw []byte, codec encoding.Codec)
 		}
 		e.Name = s
 	}
-	if e.Name == "" {
-		return newFieldError("name", "name must be a non-empty string")
-	}
 	e.codec = codec
 	e.raw = raw
 	return nil
@@ -193,7 +195,7 @@ func (e *Envelope) unmarshal(m map[string]any, raw []byte, codec encoding.Codec)
 // unmarshal back through one of the UnmarshalX methods first.
 //
 // ctx is forwarded to the codec; xjson.Codec ignores it, but other in-tree codecs
-// (msgpack, future YAML/TOML) may use it for tracing or cancellation.
+// (MessagePack, future YAML/TOML) may use it for tracing or cancellation.
 //
 // Decode is a free function because Go does not support generic methods; it becomes (e
 // Envelope) Decode[T](ctx) when the language does.
@@ -214,13 +216,15 @@ func Decode[T any](ctx context.Context, e Envelope) (T, error) {
 }
 
 // Encode is the symmetric inverse of Decode. The caller supplies an envelope carrying
-// the desired Version, Type, and (optionally) Name headers; Encode reduces the typed
-// value to a codec-independent map[string]any via structToMap and stamps the merged
-// body onto the envelope. For both Type and Name, Encode treats data as the source of
-// truth: if the body map carries a `type` (or `name`) entry, it must be a string and it
-// overwrites the corresponding header on the envelope; otherwise the envelope's
-// existing value is kept. At the end, Type and Name must both be non-empty. On any
-// error the envelope is left untouched.
+// the desired Version, Type, and (optionally) Name headers; Encode reduces data to a
+// codec-independent map[string]any and stamps the merged body onto the envelope. A
+// struct is reduced field-by-field via structToMap; a value that is already a
+// map[string]any is used directly, letting a caller whose portable body is an opaque
+// object (rather than a Go struct) merge it flat into the envelope. For both Type and
+// Name, Encode treats data as the source of truth: if the body map carries a `type` (or
+// `name`) entry, it must be a string and it overwrites the corresponding header on the
+// envelope; otherwise the envelope's existing value is kept. At the end, Type and Name
+// must both be non-empty. On any error the envelope is left untouched.
 //
 // Invariant: every imex-registered resource carries a non-empty top-level string `name`
 // field on the wire. Encode enforces this so that a resource without a name surfaces as
@@ -229,9 +233,15 @@ func Decode[T any](ctx context.Context, e Envelope) (T, error) {
 // A top-level `key` field is always dropped from the body: envelopes do not carry
 // resource-local identity today, and importers mint a fresh key on the way in.
 func Encode[T any](env *Envelope, data T) error {
-	body, err := structToMap(data)
-	if err != nil {
-		return errors.Wrap(err, "encode envelope")
+	// The map branch exists only for the task exporter, whose config is an opaque
+	// object it merges flat rather than a Go struct. Once task configs are strongly
+	// typed, this assertion (and its test) can go: every caller passes a struct.
+	body, ok := any(data).(map[string]any)
+	if !ok {
+		var err error
+		if body, err = structToMap(data); err != nil {
+			return errors.Wrap(err, "encode envelope")
+		}
 	}
 	// Keys are resource-local identity, not part of the portable envelope: an imported
 	// resource is minted a fresh key on the way in, so a stale key on the wire is at
@@ -369,12 +379,32 @@ func flattenStruct(rv reflect.Value, m map[string]any) {
 	}
 }
 
+// ImportOptions carries the per-request settings for an import that arrive out-of-band
+// from the envelope body — transport metadata like the source file's name and the
+// desired project resource.
+type ImportOptions struct {
+	// FileName is the name of the file the envelope was read from. When the envelope
+	// body carries no `name` field, the file name — with any trailing extension
+	// stripped — becomes the envelope's name. A `name` in the body always wins. The
+	// fallback is applied by the registry before the envelope reaches an Importer.
+	FileName string
+	// Project is the key of the project to create the imported resource under. The
+	// registry passes it through untouched: each Importer decides how (and whether) a
+	// project applies to its resource type. A zero Project means no project was
+	// requested.
+	Project project.Key
+}
+
 // Importer materializes a resource from an Envelope and persists it. The envelope's
 // Type is informational only, since the registry has already routed to this handler.
 type Importer interface {
 	// Import validates and persists the given envelope on tx, returning the ontology.ID
-	// of the newly-created resource.
-	Import(context.Context, gorp.Tx, Envelope) (ontology.ID, error)
+	// of the newly-created resource. The envelope's Name is fully resolved (non-empty)
+	// by the time Import is called — the registry has already applied the file-name
+	// fallback — so importers should treat it as the resource's name rather than
+	// re-deriving one from the body. The importer owns all ontology writes for the
+	// resource, including attaching it under opts.Project when one is given.
+	Import(context.Context, gorp.Tx, Envelope, ImportOptions) (ontology.ID, error)
 	// Type returns the broader ontology resource type the importer creates. For
 	// services with asymmetric registration (e.g. a task service registered under
 	// "http_read" and "opc_scan") this is the coarser ontology type ("task"); it is the

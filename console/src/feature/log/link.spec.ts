@@ -7,22 +7,30 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { createTestClient } from "@synnaxlabs/client";
+import { createTestClient } from "@synnaxlabs/client/testutil";
 import { id } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
 import { Log } from "@/feature/log";
 import { Session } from "@/session";
-import { renderLinkHook } from "@/testutil";
+import { renderLinkHook, resolveFocusedTab } from "@/testutil";
 
 const client = createTestClient();
 
 describe("Log.useLink", () => {
-  it("should place a log layout for the retrieved log", async () => {
-    const project = await client.projects.create({ name: id.create(), layout: {} });
+  it("should open the log as a tab", async () => {
+    const { layout: _, ...project } = await client.projects.create({
+      name: id.create(),
+      layout: {},
+    });
     const log = await client.logs.create(project.key, { name: "Event Log" });
-    const { handler, store } = await renderLinkHook(Log.useLink);
+    const { handler, store } = await renderLinkHook(Log.useLink, { client });
+    store.dispatch(Session.Project.select(project.key));
     await handler({ client, key: log.key });
-    expect(Session.Layout.select(store.getState(), log.key)?.name).toBe("Event Log");
+    const tab = await resolveFocusedTab(store, client);
+    if (tab.variant !== "resource") throw new Error("expected a resource tab");
+    expect(tab.resource.type).toBe("log");
+    const retrieved = await client.logs.retrieve({ key: tab.resource.key });
+    expect(retrieved.name).toBe("Event Log");
   });
 });

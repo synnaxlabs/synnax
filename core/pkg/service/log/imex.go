@@ -13,9 +13,10 @@ import (
 	"context"
 
 	"github.com/google/uuid"
-	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
-	v55 "github.com/synnaxlabs/synnax/pkg/service/log/migrations/v55"
+	v2 "github.com/synnaxlabs/synnax/pkg/service/log/versions/v2"
+	v3 "github.com/synnaxlabs/synnax/pkg/service/log/versions/v3"
+	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/gorp"
 )
@@ -50,23 +51,30 @@ func (s *Service) Export(ctx context.Context, id ontology.ID) (imex.Envelope, er
 // Import decodes the envelope into a Log and persists it on tx, returning the
 // ontology.ID of the newly-created log. The exported key is discarded and a fresh one
 // is generated so that importing always materializes a new resource rather than
-// overwriting an existing log with a colliding key. Envelopes older than Version are
-// legacy camelCase Console exports and are lifted forward through the migration chain;
-// an envelope newer than Version is rejected with a path-scoped validation error.
+// overwriting an existing log with a colliding key. When opts.Project is non-zero the
+// log is created within that project exactly as a regular create would be; otherwise
+// the log is created without a project. Envelopes older than Version are legacy
+// camelCase Console exports and are lifted forward through the migration chain; an
+// envelope newer than Version is rejected with a path-scoped validation error.
 func (s *Service) Import(
 	ctx context.Context,
 	tx gorp.Tx,
 	env imex.Envelope,
+	opts imex.ImportOptions,
 ) (ontology.ID, error) {
 	l, err := s.decodeImport(ctx, env)
 	if err != nil {
 		return ontology.ID{}, err
 	}
 	l.Key = uuid.Nil
-	if err = s.NewWriter(tx).Create(ctx, uuid.Nil, &l); err != nil {
+	// env.Name is the resolved resource name: the body's name when present, or the
+	// caller-supplied file name fallback applied by the imex service. The two agree
+	// whenever the body carries a name, so this only matters for nameless bodies.
+	l.Name = env.Name
+	if err = s.NewWriter(tx).Create(ctx, opts.Project, &l); err != nil {
 		return ontology.ID{}, err
 	}
-	return OntologyID(l.Key), nil
+	return l.OntologyID(), nil
 }
 
 func (s *Service) decodeImport(ctx context.Context, env imex.Envelope) (Log, error) {
@@ -78,7 +86,7 @@ func (s *Service) decodeImport(ctx context.Context, env imex.Envelope) (Log, err
 		if err != nil {
 			return Log{}, err
 		}
-		return MigrateLog(ctx, v55.Log{Name: env.Name, Data: body})
+		return v3.MigrateLog(ctx, v2.Log{Name: env.Name, Data: body})
 	default:
 		return Log{}, imex.NewErrUnsupportedVersion(
 			string(s.Type()), env.Version, Version,

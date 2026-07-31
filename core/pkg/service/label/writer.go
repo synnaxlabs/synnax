@@ -14,7 +14,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/samber/lo"
-	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/x/gorp"
 )
 
@@ -37,7 +37,7 @@ func (w Writer) Create(ctx context.Context, l *Label) error {
 	if err := w.table.NewCreate().Entry(l).Exec(ctx, w.tx); err != nil {
 		return err
 	}
-	return w.otg.DefineResources(ctx, OntologyID(l.Key))
+	return w.otg.DefineResources(ctx, l.OntologyID())
 }
 
 // CreateMany creates multiple labels in a single transaction. If any of the labels

@@ -31,6 +31,33 @@ var _ = Describe("Go Formatter", func() {
 		Expect(string(out)).To(ContainSubstring("func Foo() int { return 1 }"))
 	})
 
+	It("Should unwrap a parenthesized single import", func(ctx SpecContext) {
+		raw := []byte(
+			"package x\n\nimport (\n\t\"fmt\"\n)\n\nfunc F() { fmt.Println() }\n",
+		)
+		out := MustSucceed(format.NewGo().Format(ctx, raw, "/x/foo.go"))
+		Expect(string(out)).To(ContainSubstring("import \"fmt\"\n"))
+		Expect(string(out)).NotTo(ContainSubstring("import ("))
+	})
+
+	It("Should keep parentheses around multiple imports", func(ctx SpecContext) {
+		raw := []byte(
+			"package x\n\nimport (\n\t\"fmt\"\n\t\"strings\"\n)\n\n" +
+				"func F() { fmt.Println(strings.TrimSpace(\"\")) }\n",
+		)
+		out := MustSucceed(format.NewGo().Format(ctx, raw, "/x/foo.go"))
+		Expect(string(out)).To(ContainSubstring("import (\n"))
+	})
+
+	It("Should preserve the alias when unwrapping a single import", func(ctx SpecContext) {
+		raw := []byte(
+			"package x\n\nimport (\n\tlatest \"fmt\"\n)\n\n" +
+				"func F() { latest.Println() }\n",
+		)
+		out := MustSucceed(format.NewGo().Format(ctx, raw, "/x/foo.go"))
+		Expect(string(out)).To(ContainSubstring("import latest \"fmt\"\n"))
+	})
+
 	It("Should be idempotent", func(ctx SpecContext) {
 		raw := []byte("package x\n\nfunc Foo()    int {return  1}\n")
 		first := MustSucceed(format.NewGo().Format(ctx, raw, "/x/foo.go"))

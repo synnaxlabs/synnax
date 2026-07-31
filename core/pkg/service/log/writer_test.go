@@ -15,11 +15,10 @@ import (
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	. "github.com/synnaxlabs/synnax/pkg/service/actions/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/log"
-	"github.com/synnaxlabs/synnax/pkg/service/project"
+	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/x/color"
 	"github.com/synnaxlabs/x/notation"
 	"github.com/synnaxlabs/x/query"
@@ -50,9 +49,9 @@ var _ = Describe("Writer", func() {
 			l := log.Log{Name: "with-proj"}
 			Expect(svc.NewWriter(tx).Create(ctx, proj.Key, &l)).To(Succeed())
 			Expect(otg.RelationshipExists(ctx, tx, ontology.Relationship{
-				From: project.OntologyID(proj.Key),
+				From: proj.OntologyID(),
 				Type: ontology.RelationshipTypeParentOf,
-				To:   log.OntologyID(l.Key),
+				To:   l.OntologyID(),
 			})).To(BeTrue())
 		})
 
@@ -60,9 +59,9 @@ var _ = Describe("Writer", func() {
 			l := log.Log{Name: "no-proj"}
 			Expect(svc.NewWriter(tx).Create(ctx, uuid.Nil, &l)).To(Succeed())
 			Expect(otg.RelationshipExists(ctx, tx, ontology.Relationship{
-				From: project.OntologyID(proj.Key),
+				From: proj.OntologyID(),
 				Type: ontology.RelationshipTypeParentOf,
-				To:   log.OntologyID(l.Key),
+				To:   l.OntologyID(),
 			})).To(BeFalse())
 		})
 
@@ -71,10 +70,10 @@ var _ = Describe("Writer", func() {
 			Expect(svc.NewWriter(tx).Create(ctx, uuid.Nil, &l)).To(Succeed())
 			var resource ontology.Resource
 			Expect(otg.NewRetrieve().
-				WhereIDs(log.OntologyID(l.Key)).
+				WhereIDs(l.OntologyID()).
 				Entry(&resource).
 				Exec(ctx, tx)).To(Succeed())
-			Expect(resource.ID).To(Equal(log.OntologyID(l.Key)))
+			Expect(resource.ID).To(Equal(l.OntologyID()))
 		})
 
 		It("Should update the existing log when called with an existing key", func(ctx SpecContext) {
@@ -123,7 +122,7 @@ var _ = Describe("Writer", func() {
 			Expect(svc.NewWriter(tx).Create(ctx, proj.Key, &l)).To(Succeed())
 			Expect(svc.NewWriter(tx).Delete(ctx, l.Key)).To(Succeed())
 			Expect(otg.NewRetrieve().
-				WhereIDs(log.OntologyID(l.Key)).
+				WhereIDs(l.OntologyID()).
 				Entry(&ontology.Resource{}).
 				Exec(ctx, tx)).To(MatchError(query.ErrNotFound))
 		})

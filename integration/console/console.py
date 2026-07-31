@@ -106,7 +106,7 @@ class Console:
 
         Skips tabs that become stale during iteration (can happen if DOM updates).
         """
-        for tab in self.page.locator(".pluto-tabs-selector__btn").all():
+        for tab in self.page.locator(LayoutClient.TAB_SELECTOR).all():
             try:
                 name = tab.inner_text(timeout=5000).strip()
             except PlaywrightTimeoutError:
@@ -131,7 +131,7 @@ class Console:
 
         tabs_to_close = [
             tab
-            for tab in self.page.locator(".pluto-tabs-selector__btn").all()
+            for tab in self.page.locator(LayoutClient.TAB_SELECTOR).all()
             if tab.inner_text(timeout=5000).strip() not in except_tabs
         ]
 
@@ -139,5 +139,5 @@ class Console:
             tab = self._find_tab_to_close(except_tabs)
             if tab is None:
                 return
-            tab.get_by_label("pluto-tabs__close").click()
+            tab.get_by_label("Close", exact=True).click()
             self._dismiss_unsaved_changes_dialog()

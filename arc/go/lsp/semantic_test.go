@@ -17,9 +17,10 @@ import (
 	"github.com/synnaxlabs/arc/symbol"
 	. "github.com/synnaxlabs/arc/symbol/testutil"
 	"github.com/synnaxlabs/arc/types"
-	"github.com/synnaxlabs/x/lsp/protocol"
 	. "github.com/synnaxlabs/x/lsp/testutil"
 	. "github.com/synnaxlabs/x/testutil"
+	"go.lsp.dev/protocol"
+	"go.lsp.dev/uri"
 )
 
 // Token type ids must mirror the iota constants in arc/go/lsp/semantic.go.
@@ -28,13 +29,16 @@ import (
 const (
 	tokenTypeKeyword           = uint32(0)
 	tokenTypeOperator          = uint32(2)
+	tokenTypeVariable          = uint32(3)
 	tokenTypeString            = uint32(4)
 	tokenTypeNumber            = uint32(5)
 	tokenTypeFunction          = uint32(7)
 	tokenTypeChannel           = uint32(9)
+	tokenTypeStatefulVariable  = uint32(13)
 	tokenTypeNamespace         = uint32(19)
 	tokenTypeStringRaw         = uint32(20)
 	tokenTypeStringPlaceholder = uint32(21)
+	tokenTypeChannelVariable   = uint32(22)
 )
 
 // decodeSemanticTokens turns the LSP delta-encoded uint32 stream from
@@ -86,7 +90,7 @@ func filterByType(tokens []decodedToken, tokenType uint32) []decodedToken {
 var _ = Describe("Semantic Tokens", func() {
 	var (
 		server *lsp.Server
-		uri    protocol.DocumentURI
+		uri    uri.URI
 	)
 
 	BeforeEach(func() {
@@ -489,19 +493,82 @@ func cat() {
 		})
 	})
 
-	Describe("Legend", func() {
-		It("registers stringPlaceholder at the end of the semantic token types legend", func(ctx SpecContext) {
-			result := MustSucceed(server.Initialize(ctx, &protocol.InitializeParams{
-				ClientInfo: &protocol.ClientInfo{Name: "test"},
+	Describe("variable kinds", func() {
+		It("classifies literal, stateful, channel read/write, and channel-read variables distinctly", func(ctx SpecContext) {
+			channels := []symbol.Symbol{
+				{
+					Name: "sensorData",
+					Type: types.Chan(types.F64()),
+					Kind: symbol.KindChannel,
+				},
+			}
+			server, uri = SetupTestServer(lsp.Config{
+				NewRoot: func() *symbol.Symbol { return NewRoot(nil, channels...) },
+			})
+			OpenArcDocument(server, ctx, uri, "stage s {\ncount := 0\ntotal $= 0\ncpu := sensorData\nrate := sensorData + 1.0\n}\n")
+			tokens := decodeSemanticTokens(SemanticTokens(server, ctx, uri).Data)
+
+			value := filterByType(tokens, tokenTypeVariable)
+			Expect(value).To(HaveLen(1))
+			Expect(value[0].Line).To(Equal(uint32(1)))
+
+			stateful := filterByType(tokens, tokenTypeStatefulVariable)
+			Expect(stateful).To(HaveLen(1))
+			Expect(stateful[0].Line).To(Equal(uint32(2)))
+
+			channelVariable := filterByType(tokens, tokenTypeChannelVariable)
+			Expect(channelVariable).To(HaveLen(2))
+			Expect(channelVariable).To(ContainElements(
+				decodedToken{Line: 3, StartChar: 0, Length: 3, TokenType: tokenTypeChannelVariable},
+				decodedToken{Line: 4, StartChar: 0, Length: 4, TokenType: tokenTypeChannelVariable},
+			))
+		})
+
+		It("colors the declaration of a reassigned channel read/write variable", func(ctx SpecContext) {
+			channels := []symbol.Symbol{
+				{Name: "crw_a", Type: types.Chan(types.F64()), Kind: symbol.KindChannel},
+				{Name: "crw_b", Type: types.Chan(types.F64()), Kind: symbol.KindChannel},
+				{Name: "out", Type: types.Chan(types.F64()), Kind: symbol.KindChannel},
+			}
+			server, uri = SetupTestServer(lsp.Config{
+				NewRoot: func() *symbol.Symbol { return NewRoot(nil, channels...) },
+			})
+			OpenArcDocument(server, ctx, uri, "sequence main {\n\tal := crw_a\n\tal -> out\n\tal = crw_b\n}")
+			channelVariable := filterByType(decodeSemanticTokens(SemanticTokens(server, ctx, uri).Data), tokenTypeChannelVariable)
+			Expect(channelVariable).To(ContainElement(decodedToken{
+				Line: 1, StartChar: 1, Length: 2, TokenType: tokenTypeChannelVariable,
 			}))
-			provider, ok := result.Capabilities.SemanticTokensProvider.(map[string]any)
-			Expect(ok).To(BeTrue())
-			legend, ok := provider["legend"].(protocol.SemanticTokensLegend)
-			Expect(ok).To(BeTrue())
+			Expect(channelVariable).To(HaveLen(3))
+		})
+
+		It("colors a constant reference with the constant token type", func(ctx SpecContext) {
+			constants := []symbol.Symbol{
+				{Name: "MAX", Type: types.I64(), Kind: symbol.KindConstant},
+			}
+			server, uri = SetupTestServer(lsp.Config{
+				NewRoot: func() *symbol.Symbol { return NewRoot(nil, constants...) },
+			})
+			OpenArcDocument(server, ctx, uri, "x := MAX\n")
+			tokens := decodeSemanticTokens(SemanticTokens(server, ctx, uri).Data)
+			constant := filterByType(tokens, uint32(lsp.SemanticTokenTypeConstant))
+			Expect(constant).To(ContainElement(decodedToken{
+				Line: 0, StartChar: 5, Length: 3,
+				TokenType: uint32(lsp.SemanticTokenTypeConstant),
+			}))
+		})
+	})
+
+	Describe("Legend", func() {
+		It("pins the tail of the semantic token types legend", func(ctx SpecContext) {
+			result := MustSucceed(server.Initialize(ctx, &protocol.InitializeParams{}))
+			provider, ok := result.Capabilities.SemanticTokensProvider.(*protocol.SemanticTokensOptions)
+			Expect(ok).To(BeTrue(), "expected *protocol.SemanticTokensOptions, got %T",
+				result.Capabilities.SemanticTokensProvider)
+			legend := provider.Legend
 			Expect(legend.TokenTypes).ToNot(BeEmpty())
 			n := len(legend.TokenTypes)
-			Expect(string(legend.TokenTypes[n-1])).To(Equal("stringPlaceholder"))
-			Expect(uint32(n - 1)).To(Equal(tokenTypeStringPlaceholder))
+			Expect(legend.TokenTypes[n-1]).To(Equal("channelVariable"))
+			Expect(uint32(n - 1)).To(Equal(tokenTypeChannelVariable))
 		})
 	})
 })

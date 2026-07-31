@@ -7,19 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { useCallback } from "react";
+import { Link } from "@/platform/link";
 
-import { Layout } from "@/platform/layout";
-import { type Link } from "@/platform/link";
-import { Log } from "@/platform/log";
+export const useLink = Link.createUseOpenResourceTab("log");
 
-export const useLink = (): Link.Handler => {
-  const placeLayout = Layout.usePlacer();
-  return useCallback(
-    async ({ client, key }) => {
-      const { name } = await client.logs.retrieve({ key });
-      placeLayout(Log.create({ key, name }));
-    },
-    [placeLayout],
-  );
-};
+export const LINKS: Link.Registry = { log: useLink };

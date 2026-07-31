@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type direction, xy } from "@synnaxlabs/x";
-import { type ReactElement } from "react";
+import { type ReactElement, useMemo } from "react";
 
 import { CSS } from "@/css";
 import { Base } from "@/schematic/edge/common/base";
@@ -58,17 +58,20 @@ const PneumaticSymbol = ({ position, direction }: SymbolProps): ReactElement => 
 export const spec = Segmented.createSpec(
   VARIANT,
   NAME,
-  ({ points, crossings, color: colorVal }) => (
-    <g
-      className={CSS.B("symbol-colored")}
-      style={{ [CSS.var("symbol-color")]: symbolColorVar(colorVal) }}
-    >
-      <Base.Base path={Path.rounded(points, crossings)} color={colorVal} />
-      {Path.computeSymbolPositions(points, SYMBOL_INTERVAL).map(
-        ({ position, direction }, i) => (
-          <PneumaticSymbol key={i} position={position} direction={direction} />
-        ),
-      )}
-    </g>
-  ),
+  ({ points, crossings, color: colorVal }) => {
+    const symbolStyle = useMemo(
+      () => ({ [CSS.var("symbol-color")]: symbolColorVar(colorVal) }),
+      [colorVal],
+    );
+    return (
+      <g className={CSS.B("symbol-colored")} style={symbolStyle}>
+        <Base.Base path={Path.rounded(points, crossings)} color={colorVal} />
+        {Path.computeSymbolPositions(points, SYMBOL_INTERVAL).map(
+          ({ position, direction }, i) => (
+            <PneumaticSymbol key={i} position={position} direction={direction} />
+          ),
+        )}
+      </g>
+    );
+  },
 );

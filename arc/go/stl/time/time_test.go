@@ -15,6 +15,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/arc"
 	"github.com/synnaxlabs/arc/graph"
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/runtime/node"
@@ -23,6 +24,7 @@ import (
 	. "github.com/synnaxlabs/arc/symbol/testutil"
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/encoding/msgpack"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
@@ -48,7 +50,7 @@ var _ = Describe("Time", func() {
 				Inputs: map[string]msgpack.EncodedJSON{
 					"interval_1": {"type": "interval", "period": int64(telem.Second)},
 				},
-				Functions: []graph.Function{{
+				Functions: []ir.Function{{
 					Key: "interval",
 					Outputs: types.Params{
 						{Name: ir.DefaultOutputParam, Type: types.U8()},
@@ -334,7 +336,7 @@ var _ = Describe("Time", func() {
 				Inputs: map[string]msgpack.EncodedJSON{
 					"wait_1": {"type": "wait", "duration": int64(telem.Second)},
 				},
-				Functions: []graph.Function{{
+				Functions: []ir.Function{{
 					Key: "wait",
 					Outputs: types.Params{
 						{Name: ir.DefaultOutputParam, Type: types.U8()},
@@ -877,7 +879,7 @@ var _ = Describe("Time", func() {
 					"interval_1": {"type": "interval", "period": int64(100 * telem.Millisecond)},
 					"interval_2": {"type": "interval", "period": int64(150 * telem.Millisecond)},
 				},
-				Functions: []graph.Function{{
+				Functions: []ir.Function{{
 					Key: "interval",
 					Outputs: types.Params{
 						{Name: ir.DefaultOutputParam, Type: types.U8()},
@@ -987,7 +989,7 @@ var _ = Describe("Time", func() {
 				Inputs: map[string]msgpack.EncodedJSON{
 					"interval_1": {"type": "interval", "period": int64(100 * telem.Millisecond)},
 				},
-				Functions: []graph.Function{{
+				Functions: []ir.Function{{
 					Key: "interval",
 					Outputs: types.Params{
 						{Name: ir.DefaultOutputParam, Type: types.U8()},
@@ -1179,7 +1181,7 @@ var _ = Describe("Time", func() {
 					Inputs: map[string]msgpack.EncodedJSON{
 						"wait_1": {"type": "wait", "duration": int64(100 * telem.Millisecond)},
 					},
-					Functions: []graph.Function{{
+					Functions: []ir.Function{{
 						Key: "wait",
 						Outputs: types.Params{
 							{Name: ir.DefaultOutputParam, Type: types.U8()},
@@ -1250,7 +1252,7 @@ var _ = Describe("Time", func() {
 					Inputs: map[string]msgpack.EncodedJSON{
 						"interval_1": {"type": "interval", "period": int64(telem.Second)},
 					},
-					Functions: []graph.Function{{
+					Functions: []ir.Function{{
 						Key: "interval",
 						Outputs: types.Params{
 							{Name: ir.DefaultOutputParam, Type: types.U8()},
@@ -1336,7 +1338,7 @@ var _ = Describe("Time", func() {
 					Inputs: map[string]msgpack.EncodedJSON{
 						"wait_1": {"type": "wait", "duration": int64(telem.Second)},
 					},
-					Functions: []graph.Function{{
+					Functions: []ir.Function{{
 						Key: "wait",
 						Outputs: types.Params{
 							{Name: ir.DefaultOutputParam, Type: types.U8()},
@@ -1477,7 +1479,7 @@ var _ = Describe("Time", func() {
 				Inputs: map[string]msgpack.EncodedJSON{
 					"now_1": {"type": "now"},
 				},
-				Functions: []graph.Function{{
+				Functions: []ir.Function{{
 					Key:     "now",
 					Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.TimeStamp()}},
 				}},
@@ -1631,4 +1633,344 @@ var _ = Describe("Time", func() {
 			Expect(output.Len()).To(Equal(int64(1)))
 		})
 	})
+	Describe("Variable inputs", func() {
+		var factory *time.Host
+		BeforeEach(func(ctx SpecContext) {
+			factory = MustSucceed(time.NewHost(ctx, nil))
+		})
+
+		// varConfig builds a config whose span input is var-bound: Value holds
+		// the declared initial and set writes the variable's live slot.
+		varConfig := func(
+			nodeType, param string, initial telem.TimeSpan,
+		) (node.Config, func(telem.TimeSpan)) {
+			v := ir.Node{
+				Key:  "v",
+				Type: "variable",
+				Outputs: types.Params{
+					{Name: ir.DefaultOutputParam, Type: types.I64()},
+				},
+			}
+			n := ir.Node{
+				Key:  "n",
+				Type: nodeType,
+				Inputs: types.Params{
+					{Name: param, Type: types.VarRef(types.I64(), "v"), Value: initial},
+				},
+				Outputs: types.Params{
+					{Name: ir.DefaultOutputParam, Type: types.U8()},
+				},
+			}
+			state := node.New(ir.IR{Nodes: ir.Nodes{v, n}})
+			set := func(span telem.TimeSpan) {
+				*state.Node("v").Output(0) = telem.NewSeriesV(int64(span))
+			}
+			return node.Config{Node: n, State: state.Node("n")}, set
+		}
+
+		type tickResult struct {
+			fired    bool
+			deadline telem.TimeSpan
+		}
+		tick := func(
+			ctx context.Context,
+			n node.Node,
+			elapsed telem.TimeSpan,
+			reason node.RunReason,
+		) tickResult {
+			var r tickResult
+			n.Next(node.Context{
+				Context:         ctx,
+				Elapsed:         elapsed,
+				Reason:          reason,
+				MarkChanged:     func(int) { r.fired = true },
+				MarkSelfChanged: func() {},
+				SetDeadline:     func(d telem.TimeSpan) { r.deadline = d },
+			})
+			return r
+		}
+
+		Describe("Interval", func() {
+			It("Should honor the declared initial before any write", func(ctx SpecContext) {
+				cfg, _ := varConfig("interval", "period", telem.Second)
+				n := MustSucceed(factory.Create(ctx, cfg))
+				Expect(tick(ctx, n, 0, node.ReasonTimerTick).fired).To(BeTrue())
+				Expect(tick(ctx, n, 500*telem.Millisecond, node.ReasonTimerTick).fired).
+					To(BeFalse())
+				Expect(tick(ctx, n, telem.Second, node.ReasonTimerTick).fired).To(BeTrue())
+			})
+			It("Should adopt a shortened period at the next evaluation", func(ctx SpecContext) {
+				cfg, set := varConfig("interval", "period", telem.Second)
+				n := MustSucceed(factory.Create(ctx, cfg))
+				Expect(tick(ctx, n, 0, node.ReasonTimerTick).fired).To(BeTrue())
+				set(100 * telem.Millisecond)
+				Expect(tick(ctx, n, 100*telem.Millisecond, node.ReasonTimerTick).fired).
+					To(BeTrue())
+			})
+			It("Should adopt a lengthened period without firing early", func(ctx SpecContext) {
+				cfg, set := varConfig("interval", "period", 100*telem.Millisecond)
+				n := MustSucceed(factory.Create(ctx, cfg))
+				Expect(tick(ctx, n, 0, node.ReasonTimerTick).fired).To(BeTrue())
+				set(telem.Second)
+				Expect(tick(ctx, n, 100*telem.Millisecond, node.ReasonTimerTick).fired).
+					To(BeFalse())
+				Expect(tick(ctx, n, telem.Second, node.ReasonTimerTick).fired).To(BeTrue())
+			})
+			It("Should report the deadline from the live period", func(ctx SpecContext) {
+				cfg, set := varConfig("interval", "period", telem.Second)
+				n := MustSucceed(factory.Create(ctx, cfg))
+				Expect(tick(ctx, n, 0, node.ReasonTimerTick).deadline).To(Equal(telem.Second))
+				set(2 * telem.Second)
+				r := tick(ctx, n, 500*telem.Millisecond, node.ReasonChannelInput)
+				Expect(r.fired).To(BeFalse())
+				Expect(r.deadline).To(Equal(2 * telem.Second))
+			})
+			It("Should fire immediately after Reset using the live period", func(ctx SpecContext) {
+				cfg, set := varConfig("interval", "period", telem.Second)
+				n := MustSucceed(factory.Create(ctx, cfg))
+				Expect(tick(ctx, n, 0, node.ReasonTimerTick).fired).To(BeTrue())
+				Expect(tick(ctx, n, telem.Second, node.ReasonTimerTick).fired).To(BeTrue())
+				set(5 * telem.Second)
+				n.Reset()
+				Expect(tick(ctx, n, 1500*telem.Millisecond, node.ReasonTimerTick).fired).
+					To(BeTrue())
+			})
+			It("Should seed the timing base from the declared value only", func(ctx SpecContext) {
+				cfg, set := varConfig("interval", "period", 100*telem.Millisecond)
+				n := MustSucceed(factory.Create(ctx, cfg))
+				Expect(factory.BaseInterval).To(Equal(100 * telem.Millisecond))
+				set(telem.Millisecond)
+				Expect(tick(ctx, n, 0, node.ReasonTimerTick).fired).To(BeTrue())
+				Expect(factory.BaseInterval).To(Equal(100 * telem.Millisecond))
+			})
+		})
+
+		Describe("Wait", func() {
+			It("Should honor the declared initial before any write", func(ctx SpecContext) {
+				cfg, _ := varConfig("wait", "duration", telem.Second)
+				n := MustSucceed(factory.Create(ctx, cfg))
+				Expect(tick(ctx, n, 0, node.ReasonTimerTick).fired).To(BeFalse())
+				Expect(tick(ctx, n, 500*telem.Millisecond, node.ReasonTimerTick).fired).
+					To(BeFalse())
+				Expect(tick(ctx, n, telem.Second, node.ReasonTimerTick).fired).To(BeTrue())
+			})
+			It("Should fire earlier when the duration is shortened mid-wait", func(ctx SpecContext) {
+				cfg, set := varConfig("wait", "duration", 10*telem.Second)
+				n := MustSucceed(factory.Create(ctx, cfg))
+				Expect(tick(ctx, n, 0, node.ReasonTimerTick).fired).To(BeFalse())
+				set(telem.Second)
+				Expect(tick(ctx, n, telem.Second, node.ReasonTimerTick).fired).To(BeTrue())
+			})
+			It("Should fire later when the duration is lengthened mid-wait", func(ctx SpecContext) {
+				cfg, set := varConfig("wait", "duration", telem.Second)
+				n := MustSucceed(factory.Create(ctx, cfg))
+				Expect(tick(ctx, n, 0, node.ReasonTimerTick).fired).To(BeFalse())
+				set(5 * telem.Second)
+				Expect(tick(ctx, n, telem.Second, node.ReasonTimerTick).fired).To(BeFalse())
+				Expect(tick(ctx, n, 5*telem.Second, node.ReasonTimerTick).fired).To(BeTrue())
+			})
+			It("Should report the deadline from the live duration", func(ctx SpecContext) {
+				cfg, set := varConfig("wait", "duration", telem.Second)
+				n := MustSucceed(factory.Create(ctx, cfg))
+				Expect(tick(ctx, n, 0, node.ReasonTimerTick).deadline).To(Equal(telem.Second))
+				set(3 * telem.Second)
+				r := tick(ctx, n, 500*telem.Millisecond, node.ReasonChannelInput)
+				Expect(r.fired).To(BeFalse())
+				Expect(r.deadline).To(Equal(3 * telem.Second))
+			})
+			It("Should stay one-shot after a shortening write", func(ctx SpecContext) {
+				cfg, set := varConfig("wait", "duration", telem.Second)
+				n := MustSucceed(factory.Create(ctx, cfg))
+				Expect(tick(ctx, n, 0, node.ReasonTimerTick).fired).To(BeFalse())
+				Expect(tick(ctx, n, telem.Second, node.ReasonTimerTick).fired).To(BeTrue())
+				set(100 * telem.Millisecond)
+				Expect(tick(ctx, n, 2*telem.Second, node.ReasonTimerTick).fired).To(BeFalse())
+			})
+		})
+	})
+})
+
+var _ = Describe("TimingBase GCD matrix", func() {
+	// compileBase compiles source and creates every timer node through a fresh
+	// time Host, returning the resulting BaseInterval.
+	compileBase := func(ctx context.Context, source string) telem.TimeSpan {
+		root := NewRoot(nil,
+			symbol.Symbol{Name: "a", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 501},
+			symbol.Symbol{Name: "b", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 502},
+		)
+		prog := MustSucceed(arc.CompileText(ctx, arc.Text{Raw: "import time\n" + source}, root))
+		factory := MustSucceed(time.NewHost(ctx, nil))
+		s := node.New(prog.IR)
+		f := node.CompoundFactory{factory}
+		for _, n := range prog.Nodes {
+			if _, err := f.Create(ctx, node.Config{
+				Node: n, Program: prog, State: s.Node(n.Key),
+			}); err != nil && !errors.Is(err, query.ErrNotFound) {
+				Fail("create " + n.Key + ": " + err.Error())
+			}
+		}
+		return factory.BaseInterval
+	}
+
+	DescribeTable("computes the GCD over declared and literal-reassigned spans",
+		func(ctx SpecContext, source string, expected telem.TimeSpan) {
+			Expect(compileBase(ctx, source)).To(Equal(expected))
+		},
+		Entry("two literal intervals", `
+time.interval{period=100ms} -> a
+time.interval{period=60ms} -> b
+`, 20*telem.Millisecond),
+		Entry("two intervals fed by vars, never reassigned", `
+sequence main {
+    p := i64 ns(100ms)
+    q := i64 ns(60ms)
+    stage run {
+        time.interval{period=p} -> a
+        time.interval{period=q} -> b
+    }
+}
+`, 20*telem.Millisecond),
+		Entry("two intervals fed by vars, each reassigned with a literal", `
+sequence main {
+    p := i64 ns(100ms)
+    q := i64 ns(60ms)
+    stage run {
+        time.interval{period=p} -> a
+        time.interval{period=q} -> b
+        1 => faster
+    }
+    stage faster {
+        p = i64 ns(10ms)
+        q = i64 ns(45ms)
+    }
+}
+`, 5*telem.Millisecond),
+		Entry("two intervals fed by vars, expression reassignments excluded", `
+sequence main {
+    p := i64 ns(100ms)
+    q := i64 ns(60ms)
+    stage run {
+        time.interval{period=p} -> a
+        time.interval{period=q} -> b
+        1 => faster
+    }
+    stage faster {
+        p = i64 ns(2 * 25ms)
+        q = i64 ns(3 * 20ms)
+    }
+}
+`, 20*telem.Millisecond),
+		Entry("two literal waits", `
+time.wait{duration=75ms} -> a
+time.wait{duration=50ms} -> b
+`, 25*telem.Millisecond),
+		Entry("two waits fed by vars, each reassigned with a literal", `
+sequence main {
+    d := i64 ns(80ms)
+    e := i64 ns(50ms)
+    stage run {
+        time.wait{duration=d} -> a
+        time.wait{duration=e} -> b
+        1 => faster
+    }
+    stage faster {
+        d = i64 ns(30ms)
+        e = i64 ns(35ms)
+    }
+}
+`, 5*telem.Millisecond),
+		Entry("interval + wait fed by vars, never reassigned", `
+sequence main {
+    p := i64 ns(100ms)
+    d := i64 ns(75ms)
+    stage run {
+        time.interval{period=p} -> a
+        time.wait{duration=d} -> b
+    }
+}
+`, 25*telem.Millisecond),
+		Entry("interval + wait fed by vars, each reassigned with a literal", `
+sequence main {
+    p := i64 ns(100ms)
+    d := i64 ns(80ms)
+    stage run {
+        time.interval{period=p} -> a
+        time.wait{duration=d} -> b
+        1 => faster
+    }
+    stage faster {
+        p = i64 ns(60ms)
+        d = i64 ns(30ms)
+    }
+}
+`, 10*telem.Millisecond),
+		Entry("interval + wait fed by vars, expression reassignments excluded", `
+sequence main {
+    p := i64 ns(100ms)
+    d := i64 ns(75ms)
+    stage run {
+        time.interval{period=p} -> a
+        time.wait{duration=d} -> b
+        1 => faster
+    }
+    stage faster {
+        p = i64 ns(2 * 25ms)
+        d = i64 ns(3 * 15ms)
+    }
+}
+`, 25*telem.Millisecond),
+		Entry("literal interval + reassigned var wait", `
+sequence main {
+    d := i64 ns(60ms)
+    stage run {
+        time.interval{period=100ms} -> a
+        time.wait{duration=d} -> b
+        1 => faster
+    }
+    stage faster {
+        d = i64 ns(45ms)
+    }
+}
+`, 5*telem.Millisecond),
+		Entry("var interval, two reassignment sites", `
+sequence main {
+    p := i64 ns(100ms)
+    stage run {
+        time.interval{period=p} -> a
+        1 => mid
+    }
+    stage mid {
+        p = i64 ns(50ms)
+        1 => fast
+    }
+    stage fast {
+        p = i64 ns(30ms)
+    }
+}
+`, 10*telem.Millisecond),
+		Entry("same var feeding both timer kinds", `
+sequence main {
+    p := i64 ns(40ms)
+    stage run {
+        time.interval{period=p} -> a
+        time.wait{duration=p} -> b
+        1 => faster
+    }
+    stage faster {
+        p = i64 ns(30ms)
+    }
+}
+`, 10*telem.Millisecond),
+		Entry("reassignment in an unreached stage still counts", `
+sequence main {
+    p := i64 ns(100ms)
+    stage run {
+        time.interval{period=p} -> a
+    }
+    stage never {
+        p = i64 ns(30ms)
+    }
+}
+`, 10*telem.Millisecond),
+	)
 })

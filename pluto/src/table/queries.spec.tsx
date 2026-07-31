@@ -7,7 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { createTestClient, NotFoundError, table } from "@synnaxlabs/client";
+import { NotFoundError, table } from "@synnaxlabs/client";
+import { createTestClient } from "@synnaxlabs/client/testutil";
 import { uuid } from "@synnaxlabs/x";
 import { act, render, renderHook, waitFor } from "@testing-library/react";
 import { type FC, type PropsWithChildren, type ReactElement } from "react";
@@ -559,6 +560,39 @@ describe("table queries", () => {
       });
       expect(result.current).toEqual("ensure_test");
     });
+
+    it("does not suspend when the table is already in the store", async () => {
+      const proj = await client.projects.create({
+        name: `fastpath_ws_${uuid.create()}`,
+        layout: {},
+      });
+      const created = await client.tables.create(proj.key, {
+        name: "fastpath_test",
+        rows: [{ size: 30, cells: ["a"] }],
+        columns: [{ size: 80 }],
+        cells: { a: { key: "a", variant: "text", props: { value: "A" } } },
+      });
+      await loadTable(wrapper, created.key);
+
+      const Wrapper = wrapper;
+      // With the store warm, the fast-path resolves without suspending.
+      const Probe = (): ReactElement => {
+        Table.useEnsureRetrieved({ key: created.key });
+        return <div data-testid="ready" />;
+      };
+      let utils!: ReturnType<typeof render>;
+      await act(async () => {
+        utils = render(
+          <Wrapper>
+            <Errors.SuspenseBoundary loading={<div data-testid="fallback" />}>
+              <Probe />
+            </Errors.SuspenseBoundary>
+          </Wrapper>,
+        );
+      });
+      expect(utils.queryByTestId("fallback")).toBeNull();
+      expect(utils.queryByTestId("ready")).toBeTruthy();
+    });
   });
 
   describe("selectors", () => {
@@ -796,39 +830,6 @@ describe("table queries", () => {
         });
       });
       await waitFor(() => expect(result.current.a).toEqual({ x: 0, y: 1 }));
-    });
-  });
-
-  describe("useRetrieveObservableName", () => {
-    it("fires the callback with the initial name and with each rename", async () => {
-      const proj = await client.projects.create({
-        name: `obs_name_ws_${uuid.create()}`,
-        layout: {},
-      });
-      const created = await client.tables.create(proj.key, {
-        name: "obs_initial",
-      });
-      const seen: string[] = [];
-      const { result } = renderHook(
-        () => ({
-          obs: Table.useRetrieveObservableName({
-            onChange: (name) => seen.push(name),
-          }),
-          rename: Table.useRename(),
-        }),
-        { wrapper },
-      );
-      await act(async () => {
-        await result.current.obs.retrieveAsync({ key: created.key });
-      });
-      await waitFor(() => expect(seen).toContain("obs_initial"));
-      await act(async () => {
-        await result.current.rename.updateAsync({
-          key: created.key,
-          name: "obs_renamed",
-        });
-      });
-      await waitFor(() => expect(seen).toContain("obs_renamed"));
     });
   });
 });

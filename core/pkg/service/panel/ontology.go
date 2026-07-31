@@ -16,8 +16,8 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/samber/lo"
-	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
-	"github.com/synnaxlabs/synnax/pkg/distribution/search"
+	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/search"
 	xchange "github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/gorp"
 	xiter "github.com/synnaxlabs/x/iter"
@@ -34,9 +34,7 @@ func OntologyIDs(keys []Key) []ontology.ID {
 }
 
 func OntologyIDsFromPanels(panels []Panel) []ontology.ID {
-	return lo.Map(panels, func(p Panel, _ int) ontology.ID {
-		return OntologyID(p.Key)
-	})
+	return lo.Map(panels, func(p Panel, _ int) ontology.ID { return p.OntologyID() })
 }
 
 func KeysFromOntologyIDs(ids []ontology.ID) ([]Key, error) {
@@ -56,7 +54,7 @@ var schema = zyn.Object(map[string]zyn.Schema{
 })
 
 func newResource(p Panel) ontology.Resource {
-	return ontology.NewResource(schema, OntologyID(p.Key), p.Name, p)
+	return ontology.NewResource(schema, p.OntologyID(), p.Name, p)
 }
 
 type change = xchange.Change[Key, Panel]

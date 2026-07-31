@@ -7,7 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { createTestClient, type rack, task } from "@synnaxlabs/client";
+import { type rack, task } from "@synnaxlabs/client";
+import { createTestClient } from "@synnaxlabs/client/testutil";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { beforeAll, describe, expect, it } from "vitest";
 
@@ -22,7 +23,7 @@ import {
 import {
   awaitTaskKey,
   clickConfigure,
-  renderTaskFormLayout,
+  renderTaskFormTab,
 } from "@/platform/task/testutil";
 import { stubGeometry, uniqueName } from "@/testutil";
 
@@ -37,9 +38,9 @@ beforeAll(async () => {
 });
 
 const renderWrite = async (config?: unknown) =>
-  await renderTaskFormLayout(EtherCAT.Task.Write, EtherCAT.Task.WRITE_TYPE, {
+  await renderTaskFormTab(EtherCAT.Task.Write, EtherCAT.Task.WRITE_TYPE, {
     client,
-    args: config == null ? {} : { config },
+    params: config == null ? {} : { config },
   });
 
 describe("EtherCAT Write", () => {
@@ -83,12 +84,12 @@ describe("EtherCAT Write", () => {
         network: "eth0",
         pdos: createPDOs(),
       });
-      const { store, layoutKey } = await renderWrite({
+      const rendered = await renderWrite({
         ...EtherCAT.Task.ZERO_WRITE_PAYLOAD.config,
         channels: [createAutoOutputChannel(slave.key, "Control")],
       });
       await clickConfigure();
-      const taskKey = await awaitTaskKey(store, layoutKey);
+      const taskKey = await awaitTaskKey(rendered);
       const created = await client.tasks.retrieve({
         key: taskKey,
         schemas: EtherCAT.Task.WRITE_SCHEMAS,
@@ -134,7 +135,7 @@ describe("EtherCAT Write", () => {
       });
       const cmdName = uniqueName("ecat_cmd");
       const stateName = uniqueName("ecat_state");
-      const { store, layoutKey } = await renderWrite({
+      const rendered = await renderWrite({
         ...EtherCAT.Task.ZERO_WRITE_PAYLOAD.config,
         channels: [
           createAutoOutputChannel(slave.key, "Control", {
@@ -144,7 +145,7 @@ describe("EtherCAT Write", () => {
         ],
       });
       await clickConfigure();
-      const taskKey = await awaitTaskKey(store, layoutKey);
+      const taskKey = await awaitTaskKey(rendered);
       const created = await client.tasks.retrieve({
         key: taskKey,
         schemas: EtherCAT.Task.WRITE_SCHEMAS,

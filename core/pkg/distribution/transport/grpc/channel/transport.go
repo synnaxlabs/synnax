@@ -84,8 +84,8 @@ func New(pool *fgrpc.Pool) Transport {
 		ReportProvider: fgrpc.Reporter,
 		createClient: &createClient{
 			Pool:               pool,
-			RequestTranslator:  pb.CreateMessageTranslator{},
-			ResponseTranslator: pb.CreateMessageTranslator{},
+			RequestTranslator:  pb.CreateMessageTranslator,
+			ResponseTranslator: pb.CreateMessageTranslator,
 			Exec: func(
 				ctx context.Context,
 				conn grpc.ClientConnInterface,
@@ -97,13 +97,13 @@ func New(pool *fgrpc.Pool) Transport {
 		},
 		createServer: &createServer{
 			Internal:           true,
-			RequestTranslator:  pb.CreateMessageTranslator{},
-			ResponseTranslator: pb.CreateMessageTranslator{},
+			RequestTranslator:  pb.CreateMessageTranslator,
+			ResponseTranslator: pb.CreateMessageTranslator,
 			ServiceDesc:        &pb.CreateService_ServiceDesc,
 		},
 		deleteClient: &deleteClient{
 			Pool:               pool,
-			RequestTranslator:  pb.DeleteRequestTranslator{},
+			RequestTranslator:  pb.DeleteRequestTranslator,
 			ResponseTranslator: fgrpc.EmptyTranslator{},
 			Exec: func(
 				ctx context.Context,
@@ -116,13 +116,13 @@ func New(pool *fgrpc.Pool) Transport {
 		},
 		deleteServer: &deleteServer{
 			Internal:           true,
-			RequestTranslator:  pb.DeleteRequestTranslator{},
+			RequestTranslator:  pb.DeleteRequestTranslator,
 			ResponseTranslator: fgrpc.EmptyTranslator{},
 			ServiceDesc:        &pb.DeleteService_ServiceDesc,
 		},
 		renameClient: &renameClient{
 			Pool:               pool,
-			RequestTranslator:  pb.RenameMessageTranslator{},
+			RequestTranslator:  pb.RenameMessageTranslator,
 			ResponseTranslator: fgrpc.EmptyTranslator{},
 			Exec: func(
 				ctx context.Context,
@@ -135,7 +135,7 @@ func New(pool *fgrpc.Pool) Transport {
 		},
 		renameServer: &renameServer{
 			Internal:           true,
-			RequestTranslator:  pb.RenameMessageTranslator{},
+			RequestTranslator:  pb.RenameMessageTranslator,
 			ResponseTranslator: fgrpc.EmptyTranslator{},
 			ServiceDesc:        &pb.RenameService_ServiceDesc,
 		},

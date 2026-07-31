@@ -83,11 +83,13 @@ export const useGridEntry = (meta: grid.Region, component: string): CSSPropertie
   );
   useEffect(() => () => removeGridEntry(key), []);
   const dir = direction.swap(location.direction(meta.loc));
-  const gridArea =
-    dir === "x"
-      ? `axis-start-${key} / plot-start / axis-end-${key} / plot-end`
-      : `plot-start / axis-start-${key} / plot-end / axis-end-${key}`;
-  return { gridArea };
+  return useMemo(() => {
+    const gridArea =
+      dir === "x"
+        ? `axis-start-${key} / plot-start / axis-end-${key} / plot-end`
+        : `plot-start / axis-start-${key} / plot-end / axis-end-${key}`;
+    return { gridArea };
+  }, [dir, key]);
 };
 
 export interface LineSpec {
@@ -226,6 +228,8 @@ export const Frame = ({
 
   const cssGrid = useMemo(() => buildPlotGrid(grid), [grid]);
 
+  const frameStyle = useMemo(() => ({ ...style, ...cssGrid }), [style, cssGrid]);
+
   const setHold = useCallback(
     (hold: boolean) => {
       setState((prev) => ({ ...prev, hold }));
@@ -265,7 +269,7 @@ export const Frame = ({
     <div
       id={id}
       className={CSS.B("line-plot")}
-      style={{ ...style, ...cssGrid }}
+      style={frameStyle}
       ref={regionRef}
       {...rest}
     >

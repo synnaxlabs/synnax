@@ -31,6 +31,7 @@ import (
 	"github.com/synnaxlabs/arc/stl/stateful"
 	"github.com/synnaxlabs/arc/stl/strings"
 	"github.com/synnaxlabs/arc/stl/time"
+	"github.com/synnaxlabs/arc/stl/variable"
 	"github.com/synnaxlabs/arc/stl/wasm"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
@@ -187,6 +188,7 @@ func (t *impl) start(ctx context.Context) (err error) {
 		timeMod,
 		selector.NewHost(),
 		constant.NewHost(),
+		variable.NewHost(),
 		op.NewHost(),
 		stable.NewHost(),
 		statusMod,
@@ -466,7 +468,7 @@ func (s *statusState) top() *statusContribution {
 func (t *impl) renderStatus() task.Status {
 	s := &t.status
 	stat := task.Status{
-		Key:     task.OntologyID(t.task.Key).String(),
+		Key:     t.task.OntologyID().String(),
 		Name:    t.task.Name,
 		Time:    telem.Now(),
 		Details: task.StatusDetails{Task: t.task.Key, Running: s.running && s.terminal == nil},

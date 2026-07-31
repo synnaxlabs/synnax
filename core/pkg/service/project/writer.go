@@ -13,8 +13,8 @@ import (
 	"context"
 
 	"github.com/google/uuid"
-	"github.com/synnaxlabs/synnax/pkg/distribution/group"
-	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/group"
+	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/x/gorp"
 )
 
@@ -38,7 +38,7 @@ func (w Writer) Create(
 	if err = w.table.NewCreate().Entry(p).Exec(ctx, w.tx); err != nil {
 		return
 	}
-	otgID := OntologyID(p.Key)
+	otgID := p.OntologyID()
 	if err := w.otg.DefineResources(ctx, otgID); err != nil {
 		return err
 	}

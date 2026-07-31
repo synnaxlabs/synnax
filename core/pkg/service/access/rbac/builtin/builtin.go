@@ -10,10 +10,10 @@
 package builtin
 
 import (
-	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/policy"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
+	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 )
 
 var allObjects = []ontology.ID{
@@ -99,8 +99,48 @@ var (
 				{Type: ontology.ResourceTypeUser},
 				{Type: ontology.ResourceTypeRole},
 				{Type: ontology.ResourceTypePolicy},
+				{Type: ontology.ResourceTypeBuiltin},
 			},
 			Actions:  []access.Action{access.ActionRetrieve},
+			Internal: true,
+		},
+	}
+)
+
+var (
+	hostRoleName = "Host"
+	hostRole     = role.Role{
+		Name:        hostRoleName,
+		Description: "For machines running the Synnax driver. Full access to hardware and task configuration.",
+		Internal:    true,
+	}
+	hostPolicies = []policy.Policy{
+		{
+			Name: "Host Edit Access",
+			Objects: []ontology.ID{
+				{Type: ontology.ResourceTypeRange},
+				{Type: ontology.ResourceTypeRack},
+				{Type: ontology.ResourceTypeDevice},
+				{Type: ontology.ResourceTypeTask},
+				{Type: ontology.ResourceTypeArc},
+				{Type: ontology.ResourceTypeStatus},
+			},
+			Actions:  access.AllActions,
+			Internal: true,
+		},
+		{
+			Name:     "Host Channel View Access",
+			Objects:  []ontology.ID{{Type: ontology.ResourceTypeChannel}},
+			Actions:  []access.Action{access.ActionRetrieve},
+			Internal: true,
+		},
+		{
+			Name:    "Host Framer Access",
+			Objects: []ontology.ID{{Type: ontology.ResourceTypeFramer}},
+			Actions: []access.Action{
+				access.ActionCreate,
+				access.ActionRetrieve,
+			},
 			Internal: true,
 		},
 	}

@@ -10,154 +10,110 @@
 package channel_test
 
 import (
-	"fmt"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
 	"github.com/synnaxlabs/synnax/pkg/distribution/node"
+	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
 var _ = Describe("Rename", Ordered, func() {
-	var cluster *mock.Cluster
+	var n mock.Node
+
 	BeforeAll(func(ctx SpecContext) {
 		ShouldNotLeakGoroutines()
-		cluster = mock.NewCluster(ctx, 3)
-	})
-	Context("Single channel", func() {
-		var ch channel.Channel
-		JustBeforeEach(func(ctx SpecContext) {
-			ch.Virtual = true
-			ch.Name = channel.NewRandomName()
-			ch.DataType = telem.Float64T
-			Expect(cluster.Nodes[1].Channel.Create(ctx, &ch)).To(Succeed())
-		})
-		Context("Node is local", func() {
-			BeforeEach(func() { ch.Leaseholder = 1 })
-			It("Should rename the channel without error", func(ctx SpecContext) {
-				name := channel.NewRandomName()
-				Expect(cluster.Nodes[1].Channel.Rename(ctx, ch.Key(), name, false)).To(Succeed())
-				var resCh channel.Channel
-				Expect(cluster.Nodes[1].Channel.NewRetrieve().
-					Where(channel.MatchKeys(ch.Key())).
-					Entry(&resCh).
-					Exec(ctx, nil)).To(Succeed())
-				Expect(resCh.Name).To(Equal(name))
-			})
-		})
-		Context("Node is remote", func() {
-			BeforeEach(func() { ch.Leaseholder = 2 })
-			It("Should rename the channel without error", func(ctx SpecContext) {
-				name := channel.NewRandomName()
-				Expect(cluster.Nodes[2].Channel.Rename(ctx, ch.Key(), name, false)).To(Succeed())
-				var resCh channel.Channel
-				Expect(cluster.Nodes[2].Channel.NewRetrieve().
-					Where(channel.MatchKeys(ch.Key())).
-					Entry(&resCh).
-					Exec(ctx, nil)).To(Succeed())
-				Expect(resCh.Name).To(Equal(name))
-			})
-		})
-		Context("new name is invalid", func() {
-			It("Should return an error", func(ctx SpecContext) {
-				Expect(cluster.Nodes[1].Channel.Rename(ctx, ch.Key(), "invalid name", false)).To(MatchError(ContainSubstring("contains invalid characters")))
-			})
-		})
-		Context("new name is a duplicate", func() {
-			It("Should return an error", func(ctx SpecContext) {
-				secondCh := channel.Channel{
-					Name:     channel.NewRandomName(),
-					Virtual:  true,
-					DataType: telem.Float64T,
-				}
-				Expect(cluster.Nodes[1].Channel.Create(ctx, &secondCh)).To(Succeed())
-				Expect(cluster.Nodes[1].Channel.Rename(ctx, ch.Key(), secondCh.Name, false)).
-					To(MatchError(ContainSubstring("channel with name '%s' already exists", secondCh.Name)))
-			})
-		})
-	})
-	Context("Multiple channels", func() {
-		It("Should rename the channels without error", func(ctx SpecContext) {
-			channels := []channel.Channel{
-				{
-					Name:     channel.NewRandomName(),
-					Virtual:  true,
-					DataType: telem.Int64T,
-				},
-				{
-					Name:     channel.NewRandomName(),
-					Virtual:  true,
-					DataType: telem.Float32T,
-				},
-				{
-					Name:        channel.NewRandomName(),
-					DataType:    telem.StringT,
-					Leaseholder: node.KeyFree,
-					Virtual:     true,
-				},
-			}
-			Expect(cluster.Nodes[1].Channel.CreateMany(ctx, &channels)).To(Succeed())
-			keys := channel.KeysFromChannels(channels)
-			names := []string{channel.NewRandomName(), channel.NewRandomName(), channel.NewRandomName()}
-			Expect(cluster.Nodes[1].Channel.RenameMany(
-				ctx,
-				keys,
-				names,
-				false,
-			)).To(Succeed())
-			var resChannels []channel.Channel
-			Expect(cluster.Nodes[1].Channel.NewRetrieve().Where(channel.MatchKeys(keys...)).Entries(&resChannels).Exec(ctx, nil)).To(Succeed())
-			Expect(channel.KeysFromChannels(resChannels)).To(Equal(keys))
-			Expect(resChannels[0].Name).To(Equal(names[0]))
-			Expect(resChannels[1].Name).To(Equal(names[1]))
-			Expect(resChannels[2].Name).To(Equal(names[2]))
-		})
+		n = mock.NewNode(ctx)
 	})
 
-	Context("Map Rename", func() {
-		It("Should rename channels using a map of old names to new names", func(ctx SpecContext) {
-			id := channel.NewRandomName()
-			ch1 := channel.Channel{
-				Name:     fmt.Sprintf("young_fermat_%s", id),
-				Virtual:  true,
-				DataType: telem.Int64T,
-			}
-			ch2 := channel.Channel{
-				Name:     fmt.Sprintf("young_laplace_%s", id),
-				Virtual:  true,
-				DataType: telem.Float32T,
-			}
-			ch3 := channel.Channel{
-				Name:        fmt.Sprintf("young_newton_%s", id),
-				DataType:    telem.StringT,
-				Leaseholder: node.KeyFree,
-				Virtual:     true,
-			}
-			channels := []channel.Channel{ch1, ch2, ch3}
-			Expect(cluster.Nodes[1].Channel.CreateMany(ctx, &channels)).To(Succeed())
-			nameMap := map[string]string{
-				ch1.Name: fmt.Sprintf("old_fermat_%s", id),
-				ch2.Name: fmt.Sprintf("old_laplace_%s", id),
-				ch3.Name: fmt.Sprintf("old_newton_%s", id),
-			}
-			Expect(cluster.Nodes[1].Channel.MapRename(ctx, nameMap, false)).To(Succeed())
-			var resChannels []channel.Channel
-			Expect(cluster.Nodes[1].Channel.NewRetrieve().
-				Where(channel.MatchNames(lo.Keys(nameMap)...)).
-				Entries(&resChannels).
-				Exec(ctx, nil),
-			).To(Succeed())
-			Expect(resChannels).To(BeEmpty())
-			Expect(cluster.Nodes[1].Channel.NewRetrieve().
-				Where(channel.MatchNames(lo.Values(nameMap)...)).
-				Entries(&resChannels).
-				Exec(ctx, nil),
-			).To(Succeed())
-			Expect(resChannels).To(HaveLen(3))
+	It("Should rename the storage channel for a gateway key", func(ctx SpecContext) {
+		out := MustSucceed(n.Channel.Create(ctx, []channel.Channel{
+			{Name: "old-name", DataType: telem.TimeStampT, IsIndex: true},
+		}))
+		key := out[0].Key()
+		Expect(n.Channel.Rename(ctx, map[channel.Key]string{key: "new-name"})).To(Succeed())
+		stored := MustSucceed(n.Storage.TS.RetrieveChannel(ctx, key.StorageKey()))
+		Expect(stored.Name).To(Equal("new-name"))
+	})
+	It("Should skip storage renames for a free channel", func(ctx SpecContext) {
+		out := MustSucceed(n.Channel.Create(ctx, []channel.Channel{
+			{Name: "free-rename", DataType: telem.Float32T, Leaseholder: node.KeyFree, Virtual: true},
+		}))
+		key := out[0].Key()
+		Expect(n.Channel.Rename(
+			ctx, map[channel.Key]string{key: "free-renamed"},
+		)).To(Succeed())
+		Expect(n.Storage.TS.RetrieveChannel(ctx, key.StorageKey())).Error().To(
+			MatchError(query.ErrNotFound),
+		)
+	})
+	It("Should return an error when a key's leaseholder is not in the cluster", func(ctx SpecContext) {
+		Expect(n.Channel.Rename(
+			ctx, map[channel.Key]string{channel.NewKey(node.Key(99), 1): "unresolvable"},
+		)).To(MatchError(query.ErrNotFound))
+	})
+
+	Context("Multi Node", Ordered, func() {
+		var (
+			gateway mock.Node
+			peer    mock.Node
+		)
+		BeforeAll(func(ctx SpecContext) {
+			ShouldNotLeakGoroutines()
+			cluster := mock.NewCluster(ctx, 2)
+			gateway = cluster.Nodes[node.KeyBootstrapper]
+			peer = cluster.Nodes[node.Key(2)]
+		})
+
+		It("Should route the rename to the leaseholder", func(ctx SpecContext) {
+			out := MustSucceed(gateway.Channel.Create(ctx, []channel.Channel{
+				{Name: "remote-old", DataType: telem.TimeStampT, IsIndex: true, Leaseholder: peer.Cluster.HostKey()},
+			}))
+			key := out[0].Key()
+			Expect(gateway.Channel.Rename(
+				ctx, map[channel.Key]string{key: "remote-new"},
+			)).To(Succeed())
+			stored := MustSucceed(peer.Storage.TS.RetrieveChannel(ctx, key.StorageKey()))
+			Expect(stored.Name).To(Equal("remote-new"))
+		})
+		It("Should rename both gateway and peer channels", func(ctx SpecContext) {
+			out := MustSucceed(gateway.Channel.Create(ctx, []channel.Channel{
+				{Name: "gateway-old", DataType: telem.TimeStampT, IsIndex: true, Leaseholder: gateway.Cluster.HostKey()},
+				{Name: "peer-old", DataType: telem.TimeStampT, IsIndex: true, Leaseholder: peer.Cluster.HostKey()},
+			}))
+			gatewayKey := out[0].Key()
+			peerKey := out[1].Key()
+			Expect(gateway.Channel.Rename(
+				ctx, map[channel.Key]string{gatewayKey: "gateway-new"},
+			)).To(Succeed())
+			Expect(peer.Channel.Rename(
+				ctx, map[channel.Key]string{peerKey: "peer-new"},
+			)).To(Succeed())
+			stored := MustSucceed(gateway.Storage.TS.RetrieveChannel(ctx, gatewayKey.StorageKey()))
+			Expect(stored.Name).To(Equal("gateway-new"))
+			stored = MustSucceed(peer.Storage.TS.RetrieveChannel(ctx, peerKey.StorageKey()))
+			Expect(stored.Name).To(Equal("peer-new"))
+		})
+		It("Should route a mixed-batch rename to each key's leaseholder", func(ctx SpecContext) {
+			out := MustSucceed(gateway.Channel.Create(ctx, []channel.Channel{
+				{Name: "mb-gateway-old", DataType: telem.TimeStampT, IsIndex: true, Leaseholder: gateway.Cluster.HostKey()},
+				{Name: "mb-peer-old", DataType: telem.TimeStampT, IsIndex: true, Leaseholder: peer.Cluster.HostKey()},
+			}))
+			gatewayKey := out[0].Key()
+			peerKey := out[1].Key()
+			Expect(gateway.Channel.Rename(
+				ctx,
+				map[channel.Key]string{
+					gatewayKey: "mb-gateway-new",
+					peerKey:    "mb-peer-new",
+				},
+			)).To(Succeed())
+			Expect(MustSucceed(gateway.Storage.TS.RetrieveChannel(ctx, gatewayKey.StorageKey())).Name).
+				To(Equal("mb-gateway-new"))
+			Expect(MustSucceed(peer.Storage.TS.RetrieveChannel(ctx, peerKey.StorageKey())).Name).
+				To(Equal("mb-peer-new"))
 		})
 	})
 })

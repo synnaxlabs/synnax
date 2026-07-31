@@ -13,7 +13,7 @@ import (
 	"context"
 
 	"github.com/google/uuid"
-	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/x/gorp"
 )
 
@@ -37,6 +37,10 @@ func (w Writer) Create(
 	s *Symbol,
 	parent ontology.ID,
 ) (err error) {
+	s.ApplyDefaults()
+	if err = s.Validate(); err != nil {
+		return err
+	}
 	var exists bool
 	if s.Key == uuid.Nil {
 		s.Key = uuid.New()
@@ -49,7 +53,7 @@ func (w Writer) Create(
 	if err = w.table.NewCreate().Entry(s).Exec(ctx, w.tx); err != nil {
 		return err
 	}
-	otgID := OntologyID(s.Key)
+	otgID := s.OntologyID()
 	if err = w.otgWriter.DefineResources(ctx, otgID); err != nil {
 		return err
 	}

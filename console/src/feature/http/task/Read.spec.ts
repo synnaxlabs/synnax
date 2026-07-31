@@ -7,7 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { createTestClient, type Synnax } from "@synnaxlabs/client";
+import { type Synnax } from "@synnaxlabs/client";
+import { createTestClient } from "@synnaxlabs/client/testutil";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
@@ -17,13 +18,13 @@ import { type Task } from "@/platform/task";
 import {
   awaitTaskKey,
   clickConfigure,
-  renderTaskFormLayout,
+  renderTaskFormTab,
 } from "@/platform/task/testutil";
 import { getHeaderIconButton, uniqueName } from "@/testutil";
 
 const renderRead = async (
-  options: { client?: Synnax | null; args?: Task.FormLayoutArgs } = {},
-) => await renderTaskFormLayout(HTTP.Task.Read, HTTP.Task.READ_TYPE, options);
+  options: { client?: Synnax | null; params?: Task.FormViewParams } = {},
+) => await renderTaskFormTab(HTTP.Task.Read, HTTP.Task.READ_TYPE, options);
 
 const addEndpoint = async (): Promise<void> => {
   fireEvent.click(await screen.findByText("Add an endpoint"));
@@ -52,11 +53,10 @@ const createReadConfig = (
 
 const configureAndAwaitTask = async (
   client: Synnax,
-  store: Awaited<ReturnType<typeof renderRead>>["store"],
-  layoutKey: string,
+  rendered: Awaited<ReturnType<typeof renderRead>>,
 ) => {
   await clickConfigure();
-  const taskKey = await awaitTaskKey(store, layoutKey);
+  const taskKey = await awaitTaskKey(rendered);
   return await client.tasks.retrieve({ key: taskKey, schemas: HTTP.Task.READ_SCHEMAS });
 };
 
@@ -132,7 +132,7 @@ describe("HTTP Read form", () => {
     await waitFor(() => expect(screen.getAllByText(/\/api\/v1/)).toHaveLength(1));
   });
 
-  it("should seed the form from a config passed through layout args", async () => {
+  it("should seed the form from a config passed through view args", async () => {
     const config = createReadConfig("dev_1", [
       {
         ...HTTP.Task.ZERO_READ_ENDPOINT,
@@ -141,7 +141,7 @@ describe("HTTP Read form", () => {
         fields: [createReadField("f1", "/temp")],
       },
     ]);
-    await renderRead({ args: { config } });
+    await renderRead({ params: { config } });
     await screen.findByText(/\/seeded/);
   });
 
@@ -163,8 +163,8 @@ describe("HTTP Read form", () => {
           ],
         },
       ]);
-      const { store, layoutKey } = await renderRead({ client, args: { config } });
-      const created = await configureAndAwaitTask(client, store, layoutKey);
+      const rendered = await renderRead({ client, params: { config } });
+      const created = await configureAndAwaitTask(client, rendered);
 
       const updated = await client.devices.retrieve({
         key: dev.key,
@@ -214,8 +214,8 @@ describe("HTTP Read form", () => {
           fields: [createReadField("f1", "/temperature")],
         },
       ]);
-      const { store, layoutKey } = await renderRead({ client, args: { config } });
-      const created = await configureAndAwaitTask(client, store, layoutKey);
+      const rendered = await renderRead({ client, params: { config } });
+      const created = await configureAndAwaitTask(client, rendered);
       expect(created.config.endpoints[0].fields[0].channel).toBe(dataCh.key);
     });
 
@@ -244,8 +244,8 @@ describe("HTTP Read form", () => {
           fields: [createReadField("f1", "/temperature")],
         },
       ]);
-      const { store, layoutKey } = await renderRead({ client, args: { config } });
-      await configureAndAwaitTask(client, store, layoutKey);
+      const rendered = await renderRead({ client, params: { config } });
+      await configureAndAwaitTask(client, rendered);
       const updated = await client.devices.retrieve({
         key: dev.key,
         schemas: HTTP.Device.SCHEMAS,

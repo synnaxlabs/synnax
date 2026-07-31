@@ -18,7 +18,7 @@
 package pb
 
 import (
-	pb "github.com/synnaxlabs/synnax/pkg/distribution/channel/pb"
+	pb "github.com/synnaxlabs/synnax/pkg/service/channel/pb"
 	pb2 "github.com/synnaxlabs/synnax/pkg/service/status/pb"
 	pb1 "github.com/synnaxlabs/x/control/pb"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
@@ -44,8 +44,8 @@ type Channel struct {
 	Key uint32 `protobuf:"varint,1,opt,name=key,proto3" json:"key,omitempty"`
 	// name is the human-readable channel name.
 	Name string `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
-	// leaseholder is the cluster node that holds the lease for this channel. Mostly for
-	// internal use.
+	// leaseholder is the node that holds the lease for this channel. Mostly for internal
+	// use.
 	Leaseholder uint32 `protobuf:"varint,3,opt,name=leaseholder,proto3" json:"leaseholder,omitempty"`
 	// data_type is the data type of samples stored in this channel (e.g., Float64, Int32,
 	// TimeStamp).
@@ -54,13 +54,13 @@ type Channel struct {
 	// (TIMESTAMP data type) written in ascending order, and are most commonly unix
 	// nanosecond timestamps.
 	IsIndex bool `protobuf:"varint,5,opt,name=is_index,json=isIndex,proto3" json:"is_index,omitempty"`
-	// index is the channel used to index this channel's values, associating each value with
-	// a timestamp.
+	// index is the channel used to index this channel's values, associating each value
+	// with a timestamp.
 	Index uint32 `protobuf:"varint,6,opt,name=index,proto3" json:"index,omitempty"`
 	// alias is an optional alternate name for the channel within a specific context.
 	Alias *string `protobuf:"bytes,7,opt,name=alias,proto3,oneof" json:"alias,omitempty"`
-	// virtual is true if this channel does not store data in the database but can still be
-	// used for streaming purposes.
+	// virtual is true if this channel does not store data in the database but can still
+	// be used for streaming purposes.
 	Virtual bool `protobuf:"varint,8,opt,name=virtual,proto3" json:"virtual,omitempty"`
 	// internal is true if this is a system channel hidden from normal user queries.
 	Internal bool `protobuf:"varint,9,opt,name=internal,proto3" json:"internal,omitempty"`
@@ -70,8 +70,8 @@ type Channel struct {
 	// operations contains optional aggregation operations (min, max, avg) applied to
 	// channel data over time or triggered by a reset channel.
 	Operations []*pb.Operation `protobuf:"bytes,11,rep,name=operations,proto3" json:"operations,omitempty"`
-	// concurrency sets the policy for concurrent writes to the channel's data. Only virtual
-	// channels can have a policy of shared concurrency.
+	// concurrency sets the policy for concurrent writes to the channel's data. Only
+	// virtual channels can have a policy of shared concurrency.
 	Concurrency pb1.Concurrency `protobuf:"varint,12,opt,name=concurrency,proto3,enum=x.control.pb.Concurrency" json:"concurrency,omitempty"`
 	// status is the current operational status of the channel.
 	Status        *pb2.Status `protobuf:"bytes,13,opt,name=status,proto3,oneof" json:"status,omitempty"`
@@ -204,7 +204,7 @@ var File_core_pkg_api_channel_pb_channel_proto protoreflect.FileDescriptor
 
 const file_core_pkg_api_channel_pb_channel_proto_rawDesc = "" +
 	"\n" +
-	"%core/pkg/api/channel/pb/channel.proto\x12\x0eapi.channel.pb\x1a.core/pkg/distribution/channel/pb/channel.proto\x1a'core/pkg/service/status/pb/status.proto\x1a\x1dx/go/control/pb/control.proto\"\xde\x03\n" +
+	"%core/pkg/api/channel/pb/channel.proto\x12\x0eapi.channel.pb\x1a)core/pkg/service/channel/pb/channel.proto\x1a'core/pkg/service/status/pb/status.proto\x1a\x1dx/go/control/pb/control.proto\"\xd9\x03\n" +
 	"\aChannel\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\rR\x03key\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12 \n" +
@@ -218,9 +218,9 @@ const file_core_pkg_api_channel_pb_channel_proto_rawDesc = "" +
 	"\n" +
 	"expression\x18\n" +
 	" \x01(\tR\n" +
-	"expression\x12B\n" +
+	"expression\x12=\n" +
 	"\n" +
-	"operations\x18\v \x03(\v2\".distribution.channel.pb.OperationR\n" +
+	"operations\x18\v \x03(\v2\x1d.service.channel.pb.OperationR\n" +
 	"operations\x12;\n" +
 	"\vconcurrency\x18\f \x01(\x0e2\x19.x.control.pb.ConcurrencyR\vconcurrency\x126\n" +
 	"\x06status\x18\r \x01(\v2\x19.service.status.pb.StatusH\x01R\x06status\x88\x01\x01B\b\n" +
@@ -243,12 +243,12 @@ func file_core_pkg_api_channel_pb_channel_proto_rawDescGZIP() []byte {
 var file_core_pkg_api_channel_pb_channel_proto_msgTypes = make([]protoimpl.MessageInfo, 1)
 var file_core_pkg_api_channel_pb_channel_proto_goTypes = []any{
 	(*Channel)(nil),      // 0: api.channel.pb.Channel
-	(*pb.Operation)(nil), // 1: distribution.channel.pb.Operation
+	(*pb.Operation)(nil), // 1: service.channel.pb.Operation
 	(pb1.Concurrency)(0), // 2: x.control.pb.Concurrency
 	(*pb2.Status)(nil),   // 3: service.status.pb.Status
 }
 var file_core_pkg_api_channel_pb_channel_proto_depIdxs = []int32{
-	1, // 0: api.channel.pb.Channel.operations:type_name -> distribution.channel.pb.Operation
+	1, // 0: api.channel.pb.Channel.operations:type_name -> service.channel.pb.Operation
 	2, // 1: api.channel.pb.Channel.concurrency:type_name -> x.control.pb.Concurrency
 	3, // 2: api.channel.pb.Channel.status:type_name -> service.status.pb.Status
 	3, // [3:3] is the sub-list for method output_type

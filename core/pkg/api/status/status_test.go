@@ -14,10 +14,9 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	apistatus "github.com/synnaxlabs/synnax/pkg/api/status"
-	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
+	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
-	"github.com/synnaxlabs/synnax/pkg/service/user"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
@@ -29,11 +28,11 @@ import (
 // cover any input via the ontology.ID IsType matching rule.
 var statusTypeOnly = ontology.ID{Type: ontology.ResourceTypeStatus}
 
-var _ = Describe("api/status SetByKeyOrName", func() {
+var _ = Describe("Service.SetByKeyOrName", func() {
 	Describe("authorized requests", func() {
 		It("Should create a UUID-keyed row named after the input when nothing matches", func(ctx SpecContext) {
 			name := "api_set_fresh_" + uuid.New().String()
-			grantOn(ctx, user.OntologyID(author.Key),
+			grantOn(ctx, author.OntologyID(),
 				[]access.Action{access.ActionCreate},
 				statusTypeOnly)
 
@@ -59,7 +58,7 @@ var _ = Describe("api/status SetByKeyOrName", func() {
 				Variant: status.VariantInfo, Message: "orig", Time: telem.Now(),
 				Key: key, Name: "api_uuid",
 			})).To(Succeed())
-			grantOn(ctx, user.OntologyID(author.Key),
+			grantOn(ctx, author.OntologyID(),
 				[]access.Action{access.ActionUpdate},
 				status.OntologyID(key))
 
@@ -82,7 +81,7 @@ var _ = Describe("api/status SetByKeyOrName", func() {
 				Variant: status.VariantInfo, Message: "b", Time: telem.Now(),
 				Key: uuid.NewString(), Name: name,
 			})).To(Succeed())
-			grantOn(ctx, user.OntologyID(author.Key),
+			grantOn(ctx, author.OntologyID(),
 				[]access.Action{access.ActionUpdate},
 				statusTypeOnly)
 
@@ -98,7 +97,7 @@ var _ = Describe("api/status SetByKeyOrName", func() {
 	Describe("failure paths", func() {
 		It("Should propagate a validation error for an unknown variant", func(ctx SpecContext) {
 			name := "api_iv_" + uuid.New().String()
-			grantOn(ctx, user.OntologyID(author.Key),
+			grantOn(ctx, author.OntologyID(),
 				[]access.Action{access.ActionCreate},
 				statusTypeOnly)
 
@@ -110,7 +109,7 @@ var _ = Describe("api/status SetByKeyOrName", func() {
 		})
 
 		It("Should propagate a validation error for empty input", func(ctx SpecContext) {
-			grantOn(ctx, user.OntologyID(author.Key),
+			grantOn(ctx, author.OntologyID(),
 				[]access.Action{access.ActionCreate},
 				statusTypeOnly)
 
@@ -138,7 +137,7 @@ var _ = Describe("api/status SetByKeyOrName", func() {
 		It("Should deny when a row-level grant does not match the input key", func(ctx SpecContext) {
 			name := "api_rowlevel_" + uuid.New().String()
 			anon := freshUser(ctx)
-			grantOn(ctx, user.OntologyID(anon.Key),
+			grantOn(ctx, anon.OntologyID(),
 				[]access.Action{access.ActionCreate},
 				status.OntologyID(uuid.NewString()))
 

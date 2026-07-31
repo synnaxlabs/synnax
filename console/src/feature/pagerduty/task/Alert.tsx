@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import "@/feature/pagerduty/task/Alert.css";
+
 import { type rack, type status, type Synnax as Client } from "@synnaxlabs/client";
 import {
   Button,
@@ -36,21 +38,16 @@ import {
   ZERO_ALERT_PAYLOAD,
 } from "@/feature/pagerduty/task/types";
 import { ContextMenu } from "@/platform/context-menu";
+import { CSS } from "@/platform/css";
 import { Empty } from "@/platform/empty";
 import { Selector } from "@/platform/selector";
 import { Task } from "@/platform/task";
 
-export const ALERT_LAYOUT: Task.Layout = {
-  ...Task.LAYOUT,
+export const AlertSelectable = Selector.createSelectable({
   type: ALERT_TYPE,
-  name: ZERO_ALERT_PAYLOAD.name,
-  icon: "Logo.PagerDuty",
-};
-
-export const AlertSelectable = Selector.createSimpleItem({
   title: "PagerDuty Alert",
   icon: <Icon.Logo.PagerDuty />,
-  layout: ALERT_LAYOUT,
+  useOnSelect: Task.createOpenTab(ALERT_TYPE),
 });
 
 const Properties = () => (
@@ -60,7 +57,7 @@ const Properties = () => (
       path="config.routingKey"
       label="Routing key"
       grow
-      style={ROUTING_KEY_STYLE}
+      className={CSS.B("pagerduty-routing-key")}
     />
     <PForm.Field<number> path="rackKey" label="Connect from" grow>
       {selectRackRenderProp}
@@ -69,7 +66,6 @@ const Properties = () => (
   </Flex.Box>
 );
 
-const ROUTING_KEY_STYLE = { maxWidth: "70rem" };
 const ROUTING_KEY_INPUT_PROPS = {
   type: "password",
   placeholder: "R022XIJR9M266DX570EVE6EXP1AFBN6D",
@@ -81,7 +77,7 @@ const selectRackRenderProp = Component.renderProp(
   ),
 );
 
-const INITIAL_RACK_QUERY: rack.RetrieveArgs = { integration: "pagerduty" };
+const INITIAL_RACK_QUERY: rack.RetrieveParams = { integration: "pagerduty" };
 
 interface AlertDetailsProps {
   itemKey: string;
@@ -90,7 +86,7 @@ interface AlertDetailsProps {
 const AlertDetails = ({ itemKey }: AlertDetailsProps) => {
   const path = `config.alerts.${itemKey}`;
   return (
-    <Flex.Box grow style={DETAILS_STYLE} gap="small">
+    <Flex.Box grow className={CSS.B("pagerduty-alert-details")} gap="small">
       <Flex.Box x>
         <PForm.Field<string> path={`${path}.status`} label="Status" grow required>
           {selectStatusRenderProp}
@@ -131,9 +127,6 @@ const CLASS_INPUT_PROPS = { placeholder: "engine-failure" };
 const selectStatusRenderProp = Component.renderProp(
   (p: Omit<Status.SelectProps, "variant">) => <Status.Select {...p} />,
 );
-
-const DETAILS_STYLE = { padding: "2rem", overflowY: "auto" } as const;
-const LIST_STYLE = { width: "300px", flexShrink: 0, overflowY: "auto" } as const;
 
 interface EmptyActionContentProps {
   onAdd: () => void;
@@ -253,7 +246,7 @@ const Form: FC<Task.FormProps<AlertSchemas>> = () => {
 
   return (
     <Flex.Box x grow empty>
-      <Flex.Box direction="y" style={LIST_STYLE} empty>
+      <Flex.Box direction="y" className={CSS.B("pagerduty-alert-list")} empty>
         <Header.Header>
           <Header.Title weight={500} color={10}>
             Alerts
@@ -292,7 +285,7 @@ const Form: FC<Task.FormProps<AlertSchemas>> = () => {
       </Flex.Box>
       <Divider.Divider direction="y" />
       <Flex.Box y grow empty>
-        <Task.Layouts.DetailsHeader
+        <Task.Views.DetailsHeader
           path={selected.length > 0 ? `config.alerts.${selected[0]}` : ""}
           disabled={selected.length === 0}
         />

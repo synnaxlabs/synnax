@@ -10,7 +10,7 @@
 import "@/button/Button.css";
 
 import { color, record, text, TimeSpan } from "@synnaxlabs/x";
-import { type ReactElement, useCallback, useRef } from "react";
+import { type ReactElement, useCallback, useMemo, useRef } from "react";
 
 import { SIZE_TEXT_LEVELS, TEXT_LEVEL_SIZES } from "@/component/text";
 import { CSS } from "@/css";
@@ -104,6 +104,7 @@ const Base = <E extends ElementType = "button">({
   el,
   ghost,
   propagateClick = false,
+  draggable,
   href,
   ...rest
 }: ButtonProps<E>): ReactElement => {
@@ -125,7 +126,9 @@ const Base = <E extends ElementType = "button">({
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const handleMouseDown = (e: any) => {
-    if (tabIndex == -1) e.preventDefault();
+    // Preventing default on mousedown cancels a native dragstart, so skip it for
+    // draggable buttons (e.g. roving-tabindex tabs that are also drag sources).
+    if (tabIndex == -1 && draggable !== true) e.preventDefault();
     onMouseDown?.(e);
     if (isDisabled || variant === "preview" || parsedDelay.isZero) return;
     document.addEventListener(
@@ -151,26 +154,28 @@ const Base = <E extends ElementType = "button">({
     ),
   });
 
-  let pStyle = style;
   const res = color.colorZ.safeParse(colorVal);
   const hasCustomColor =
     res.success && (variant === "filled" || variant === "outlined");
-  if (hasCustomColor) {
-    const theme = Theming.use();
-    pStyle = {
-      ...pStyle,
-      [CSS.var("btn-color")]: color.rgbString(res.data),
-      [CSS.var("btn-text-color")]: color.rgbCSS(
-        color.pickByContrast(res.data, theme.colors.text, theme.colors.textInverted),
-      ),
-    };
-  }
+  const theme = Theming.use();
 
-  if (!parsedDelay.isZero)
-    pStyle = {
-      ...pStyle,
-      [CSS.var("btn-delay")]: `${parsedDelay.seconds.toString()}s`,
-    };
+  const pStyle = useMemo(() => {
+    let s = style;
+    if (hasCustomColor)
+      s = {
+        ...s,
+        [CSS.var("btn-color")]: color.rgbString(res.data),
+        [CSS.var("btn-text-color")]: color.rgbCSS(
+          color.pickByContrast(res.data, theme.colors.text, theme.colors.textInverted),
+        ),
+      };
+    if (!parsedDelay.isZero)
+      s = {
+        ...s,
+        [CSS.var("btn-delay")]: `${parsedDelay.seconds.toString()}s`,
+      };
+    return s;
+  }, [style, hasCustomColor, colorVal, theme, parsedDelay]);
 
   if (size == null && level != null) size = TEXT_LEVEL_SIZES[level];
   else if (size != null && level == null) level = SIZE_TEXT_LEVELS[size];
@@ -211,6 +216,7 @@ const Base = <E extends ElementType = "button">({
       overflow="nowrap"
       status={status}
       href={href}
+      draggable={draggable}
       {...(record.purgeUndefined(rest) as Text.TextProps<E>)}
     >
       {(!isLoading || !square) && children}

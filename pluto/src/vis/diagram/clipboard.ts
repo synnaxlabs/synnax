@@ -87,7 +87,7 @@ export interface ClipboardAdapter<N extends ClipboardNode, E extends ClipboardEd
   apply: (result: PasteResult<N, E>) => void;
 }
 
-export interface UseClipboardArgs<N extends ClipboardNode, E extends ClipboardEdge> {
+export interface UseClipboardParams<N extends ClipboardNode, E extends ClipboardEdge> {
   adapter: ClipboardAdapter<N, E>;
   selected?: string[];
 }
@@ -117,7 +117,7 @@ const centroid = (nodes: ClipboardNode[]): xy.XY => {
 export const useClipboard = <N extends ClipboardNode, E extends ClipboardEdge>({
   adapter,
   selected,
-}: UseClipboardArgs<N, E>): UseClipboardReturn => {
+}: UseClipboardParams<N, E>): UseClipboardReturn => {
   const adapterRef = useSyncedRef(adapter);
   const selectedRef = useSyncedRef(selected ?? []);
 

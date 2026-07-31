@@ -7,7 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { createTestClient, task } from "@synnaxlabs/client";
+import { task } from "@synnaxlabs/client";
+import { createTestClient } from "@synnaxlabs/client/testutil";
 import { id, TimeStamp } from "@synnaxlabs/x";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { type ComponentProps } from "react";
@@ -52,11 +53,7 @@ const createTask = async () =>
 describe("Controls.Controls", () => {
   it("should hide the configure and start/stop actions when the task is a snapshot", async () => {
     await renderInTaskForm(
-      <Task.Controls.Controls
-        layoutKey="l1"
-        formStatus={successStatus}
-        onConfigure={vi.fn()}
-      />,
+      <Task.Controls.Controls formStatus={successStatus} onConfigure={vi.fn()} />,
       { values: { snapshot: true } },
     );
     await waitFor(() =>
@@ -68,11 +65,7 @@ describe("Controls.Controls", () => {
   it("should invoke onConfigure when the Configure button is pressed", async () => {
     const onConfigure = vi.fn();
     await renderInTaskForm(
-      <Task.Controls.Controls
-        layoutKey="l1"
-        formStatus={successStatus}
-        onConfigure={onConfigure}
-      />,
+      <Task.Controls.Controls formStatus={successStatus} onConfigure={onConfigure} />,
       { values: { snapshot: false } },
     );
     fireEvent.click(await screen.findByRole("button", { name: /Configure/ }));
@@ -84,11 +77,7 @@ describe("Controls.Controls", () => {
     const streamer = await client.openStreamer(task.COMMAND_CHANNEL_NAME);
     try {
       const { container } = await renderInTaskFormWithClient(
-        <Task.Controls.Controls
-          layoutKey="l1"
-          formStatus={successStatus}
-          onConfigure={vi.fn()}
-        />,
+        <Task.Controls.Controls formStatus={successStatus} onConfigure={vi.fn()} />,
         { client, values: { key: tsk.key } },
       );
       fireEvent.click(getIconButton(container, "play"));
@@ -104,11 +93,7 @@ describe("Controls.Controls", () => {
     const streamer = await client.openStreamer(task.COMMAND_CHANNEL_NAME);
     try {
       const { container } = await renderInTaskFormWithClient(
-        <Task.Controls.Controls
-          layoutKey="l1"
-          formStatus={successStatus}
-          onConfigure={vi.fn()}
-        />,
+        <Task.Controls.Controls formStatus={successStatus} onConfigure={vi.fn()} />,
         {
           client,
           values: {
@@ -128,11 +113,7 @@ describe("Controls.Controls", () => {
   it("should not issue a command when the task has no key", async () => {
     const executeCommand = vi.spyOn(client.tasks, "executeCommand");
     const { container } = await renderInTaskFormWithClient(
-      <Task.Controls.Controls
-        layoutKey="l1"
-        formStatus={successStatus}
-        onConfigure={vi.fn()}
-      />,
+      <Task.Controls.Controls formStatus={successStatus} onConfigure={vi.fn()} />,
       { client, values: { key: undefined } },
     );
     fireEvent.click(getIconButton(container, "play"));
@@ -144,11 +125,7 @@ describe("Controls.Controls", () => {
     const executeCommand = vi.spyOn(client.tasks, "executeCommand");
     const tsk = await createTask();
     const { container } = await renderInTaskFormWithClient(
-      <Task.Controls.Controls
-        layoutKey="l1"
-        formStatus={errorStatus}
-        onConfigure={vi.fn()}
-      />,
+      <Task.Controls.Controls formStatus={errorStatus} onConfigure={vi.fn()} />,
       { client, values: { key: tsk.key } },
     );
     await waitFor(() => expect(screen.getByText("Config is invalid")).toBeTruthy());
@@ -159,11 +136,7 @@ describe("Controls.Controls", () => {
 
   it("should expand the status on click and contract it on a second click", async () => {
     await renderInTaskForm(
-      <Task.Controls.Controls
-        layoutKey="l1"
-        formStatus={successStatus}
-        onConfigure={vi.fn()}
-      />,
+      <Task.Controls.Controls formStatus={successStatus} onConfigure={vi.fn()} />,
       { values: { status: createTaskStatus({ message: "Running smoothly" }) } },
     );
     expect(screen.queryByText("Copy diagnostics")).toBeNull();

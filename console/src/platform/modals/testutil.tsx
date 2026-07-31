@@ -7,8 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { configureStore } from "@reduxjs/toolkit";
 import { type Synnax as Client } from "@synnaxlabs/client";
 import { type aether } from "@synnaxlabs/pluto/ether";
+import { deep } from "@synnaxlabs/x";
 import {
   fireEvent,
   render,
@@ -23,6 +25,7 @@ import {
   type ReactElement,
   type ReactNode,
 } from "react";
+import { Provider } from "react-redux";
 
 import { Modals } from "@/platform/modals";
 import { Session } from "@/session";
@@ -35,14 +38,23 @@ import {
 
 const Base = createSynnaxWrapper({ client: null });
 
+// Modal content mounts inside an error Boundary that reads the layout slice, so the
+// stack needs a Redux Provider even though modals themselves live in a separate store.
+const store = configureStore({
+  reducer: Session.reducer,
+  preloadedState: deep.copy(Session.ZERO_STATE),
+});
+
 /**
  * The provider stack every modal spec renders within: the proven Pluto-rendering
- * Synnax wrapper (with a null client, since modals never touch the cluster) plus the
- * per-window modal store Provider.
+ * Synnax wrapper (with a null client, since modals never touch the cluster), a Redux
+ * Provider backing the error Boundary, and the per-window modal store Provider.
  */
 export const Wrapper: FC<PropsWithChildren> = ({ children }): ReactElement => (
   <Base>
-    <Session.Modals.Provider>{children}</Session.Modals.Provider>
+    <Provider store={store}>
+      <Session.Modals.Context>{children}</Session.Modals.Context>
+    </Provider>
   </Base>
 );
 Wrapper.displayName = "Wrapper";

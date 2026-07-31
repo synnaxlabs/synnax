@@ -14,7 +14,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { Nav } from "@/platform/nav";
 import { renderWithConsole } from "@/testutil";
 
-const item = (key: string, overrides: Partial<Nav.Item> = {}): Nav.Item => ({
+const item = (key: string, overrides: Partial<Nav.Toolbar> = {}): Nav.Toolbar => ({
   key,
   content: <div />,
   icon: <Icon.Add aria-label={`icon-${key}`} />,

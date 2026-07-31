@@ -13,8 +13,8 @@ import (
 	"context"
 
 	"github.com/google/uuid"
-	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
+	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/project"
 	"github.com/synnaxlabs/x/gorp"
 )
@@ -30,10 +30,10 @@ type Writer struct {
 	dispatcher actions.Dispatcher[Key, Action]
 }
 
-// Create creates the given log within the project provided. If the log does not have
-// a key, a new key will be generated. If projectKey is uuid.Nil, the log is created without a
-// project ParentOf relationship; this is used by the import path, which does not yet
-// wire project relationships.
+// Create creates the given log within the project provided. If the log does not have a
+// key, a new key will be generated. If projectKey is uuid.Nil, the log is created
+// without a project ParentOf relationship; this is used by imports that supply no
+// parent project.
 func (w Writer) Create(ctx context.Context, projectKey project.Key, l *Log) error {
 	var (
 		exists bool
@@ -59,7 +59,7 @@ func (w Writer) Create(ctx context.Context, projectKey project.Key, l *Log) erro
 	if exists {
 		return nil
 	}
-	otgID := OntologyID(l.Key)
+	otgID := l.OntologyID()
 	if err = w.otgWriter.DefineResources(ctx, otgID); err != nil {
 		return err
 	}

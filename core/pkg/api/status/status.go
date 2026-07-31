@@ -15,10 +15,10 @@ import (
 
 	"github.com/synnaxlabs/synnax/pkg/api/auth"
 	"github.com/synnaxlabs/synnax/pkg/api/config"
-	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
+	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	xconfig "github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
@@ -47,7 +47,7 @@ func NewService(cfgs ...config.LayerConfig) (*Service, error) {
 func statusAccessOntologyIDs(statuses []status.Status[any]) []ontology.ID {
 	ids := make([]ontology.ID, 0, len(statuses))
 	for _, s := range statuses {
-		ids = append(ids, status.OntologyID(s.Key))
+		ids = append(ids, s.OntologyID())
 		ids = append(ids, label.OntologyIDsFromLabels(s.Labels)...)
 	}
 	return ids
@@ -129,7 +129,7 @@ func (s *Service) SetByKeyOrName(
 	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  action,
-		Objects: []ontology.ID{status.OntologyID(st.Key)},
+		Objects: []ontology.ID{st.OntologyID()},
 	}); err != nil {
 		return SetByKeyOrNameResponse{}, err
 	}
@@ -197,7 +197,7 @@ func (s *Service) Retrieve(
 	ids := statusAccessOntologyIDs(res.Statuses)
 	if req.IncludeLabels {
 		for i, stat := range res.Statuses {
-			labels, err := s.label.RetrieveFor(ctx, status.OntologyID(stat.Key), nil)
+			labels, err := s.label.RetrieveFor(ctx, stat.OntologyID(), nil)
 			if err != nil {
 				return RetrieveResponse{}, err
 			}

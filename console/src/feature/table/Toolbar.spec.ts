@@ -34,7 +34,7 @@ const renderToolbar = async ({
   const name = uniqueName("table");
   const handle = await renderTable(Table.Toolbar, {
     table: { name, ...(withCells ? createCellGrid() : {}) },
-    preloadedState: (key) => createPreloadedState(key, name, tableState),
+    preloadedState: (key) => createPreloadedState(key, tableState),
   });
   return { name, ...handle };
 };

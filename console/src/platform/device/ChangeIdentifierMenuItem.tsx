@@ -13,10 +13,10 @@ import { errors } from "@synnaxlabs/x";
 
 import { useChangeIdentifier } from "@/platform/device/useChangeIdentifier";
 import { Modals } from "@/platform/modals";
-import { type Ontology } from "@/platform/ontology";
+import { type Tree } from "@/platform/tree";
 
 export interface ChangeIdentifierMenuItemProps extends Pick<
-  Ontology.TreeContextMenuProps,
+  Tree.ContextMenuProps,
   "selection" | "state" | "handleError"
 > {
   icon: string;

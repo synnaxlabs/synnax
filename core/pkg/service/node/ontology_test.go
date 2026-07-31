@@ -20,9 +20,10 @@ import (
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/aspen"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
-	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
-	"github.com/synnaxlabs/synnax/pkg/distribution/search"
+	"github.com/synnaxlabs/synnax/pkg/service/cluster"
 	"github.com/synnaxlabs/synnax/pkg/service/node"
+	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/search"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/kv/memkv"
 	. "github.com/synnaxlabs/x/testutil"
@@ -32,10 +33,10 @@ import (
 // cluster and returns a node Service registered with them. Test fixtures use this
 // instead of the mock cluster's pre-registered services so that the test owns the
 // ontology lifecycle and avoids duplicate-registration panics.
-func openTestService(ctx context.Context, c node.Cluster) (*node.Service, *ontology.Ontology) {
+func openTestService(ctx context.Context, c cluster.Cluster) (*node.Service, *ontology.Ontology) {
 	db := DeferClose(gorp.Wrap(memkv.New()))
 	otg := MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
-	idx := MustOpen(search.Open())
+	idx := MustOpen(search.OpenIndex())
 	svc := MustSucceed(node.NewService(ctx, node.ServiceConfig{
 		Cluster:  c,
 		Ontology: otg,

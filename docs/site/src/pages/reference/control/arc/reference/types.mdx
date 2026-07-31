@@ -10,6 +10,7 @@ nextURL: "/reference/control/arc/reference/variables"
 ---
 
 import { Divider, Note } from "@synnaxlabs/pluto";
+import { Arc } from "@/components";
 import { mdxOverrides } from "@/components/mdxOverrides";
 
 export const components = mdxOverrides;
@@ -92,12 +93,32 @@ chan f64 // channel of float64
 chan i32 // channel of int32
 ```
 
-Channel names reference channels that exist in your Synnax cluster:
+Channel names reference channels that exist in your Synnax cluster. Binding one to a
+name declares a channel read/write
+[variable](/reference/control/arc/reference/variables) that reads and writes the
+channel:
 
+<Arc.Tabs client:load>
+
+<Fragment slot="flow">
 ```arc
-value := ox_pt_1 // read from channel
-ox_pt_cmd = value // write to channel
+sequence {
+  value := ox_pt_1 // binds to ox_pt_1
+  value -> ox_pt_cmd // writes to ox_pt_cmd
+}
 ```
+</Fragment>
+
+<Fragment slot="function">
+```arc
+func example{}(){
+  value := ox_pt_1 // read from channel
+  ox_pt_cmd = value // write to channel
+}
+```
+</Fragment>
+
+</Arc.Tabs>
 
 Reading from a channel that has no data returns the zero value for that type.
 

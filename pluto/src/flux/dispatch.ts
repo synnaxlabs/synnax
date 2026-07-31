@@ -95,7 +95,7 @@ export const createDispatch = <
     }
   };
 
-  const useCanReverse = createSelector<
+  const [useCanReverse] = createSelector<
     ScopedStore,
     { key: Key; side: "undo" | "redo" },
     boolean

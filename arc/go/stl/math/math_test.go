@@ -43,7 +43,7 @@ func makeMathGraph(nodeType string, dt types.Type) graph.Graph {
 			Source: ir.Handle{Node: "input", Param: ir.DefaultOutputParam},
 			Target: ir.Handle{Node: "math", Param: ir.DefaultInputParam},
 		}}},
-		Functions: []graph.Function{{
+		Functions: []ir.Function{{
 			Key:     "input",
 			Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: dt}},
 		}},
@@ -72,7 +72,7 @@ func makeMathGraphWithReset(nodeType string, dt types.Type) graph.Graph {
 				Target: ir.Handle{Node: "math", Param: "reset"},
 			}},
 		},
-		Functions: []graph.Function{
+		Functions: []ir.Function{
 			{Key: "input", Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: dt}}},
 			{Key: "reset_signal", Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.U8()}}},
 		},
@@ -709,7 +709,7 @@ var _ = Describe("Derivative", func() {
 				Source: ir.Handle{Node: "input", Param: ir.DefaultOutputParam},
 				Target: ir.Handle{Node: "deriv", Param: ir.DefaultInputParam},
 			}}},
-			Functions: []graph.Function{{
+			Functions: []ir.Function{{
 				Key:     "input",
 				Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: dt}},
 			}},

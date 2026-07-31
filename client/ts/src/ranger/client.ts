@@ -178,7 +178,7 @@ const retrieveRequestZ = z.object({
 
 export type RetrieveRequest = z.infer<typeof retrieveRequestZ>;
 
-const retrieveArgsZ = retrieveRequestZ
+const retrieveParamsZ = retrieveRequestZ
   .or(keyZ.array().transform((keys) => ({ keys })))
   .or(keyZ.transform((key) => ({ keys: [key] })))
   .or(z.string().transform((name) => ({ names: [name] })))
@@ -190,7 +190,7 @@ const retrieveArgsZ = retrieveRequestZ
   )
   .or(TimeRange.z.transform((timeRange) => ({ overlapsWith: timeRange })));
 
-export type RetrieveArgs = z.input<typeof retrieveArgsZ>;
+export type RetrieveParams = z.input<typeof retrieveParamsZ>;
 
 const retrieveResZ = z.object({ ranges: payloadZ.array().default(() => []) });
 
@@ -245,12 +245,12 @@ export class Client {
   async retrieve(params: Key[] | Name[]): Promise<Range[]>;
   async retrieve(params: CrudeTimeRange): Promise<Range[]>;
   async retrieve(params: RetrieveRequest): Promise<Range[]>;
-  async retrieve(params: RetrieveArgs): Promise<Range | Range[]> {
+  async retrieve(params: RetrieveParams): Promise<Range | Range[]> {
     const isSingle = typeof params === "string";
     const { ranges } = await this.unaryClient.send(
       "/range/retrieve",
       params,
-      retrieveArgsZ,
+      retrieveParamsZ,
       retrieveResZ,
     );
     checkForMultipleOrNoResults("Range", params, ranges, isSingle);

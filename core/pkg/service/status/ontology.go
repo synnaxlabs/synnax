@@ -15,8 +15,8 @@ import (
 	"iter"
 
 	"github.com/samber/lo"
-	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
-	"github.com/synnaxlabs/synnax/pkg/distribution/search"
+	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/search"
 	xchange "github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/gorp"
 	xiter "github.com/synnaxlabs/x/iter"
@@ -47,7 +47,7 @@ var schema = zyn.Object(map[string]zyn.Schema{
 })
 
 func newResource(s Status[any]) ontology.Resource {
-	return ontology.NewResource(schema, OntologyID(s.Key), s.Name, s)
+	return ontology.NewResource(schema, s.OntologyID(), s.Name, s)
 }
 
 var (

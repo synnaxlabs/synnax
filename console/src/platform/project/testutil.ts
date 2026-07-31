@@ -18,22 +18,3 @@ export const createActiveState = (
   ...Session.Project.ZERO_SLICE_STATE,
   selected: proj.key,
 });
-
-/**
- * A layout slice with a single placed mosaic tab, distinguishable from the zero slice so
- * a select/switch flow can prove the project's saved layout was loaded.
- */
-export const createSavedLayout = (layoutKey: string): Session.Layout.SliceState => {
-  let s = Session.Layout.reducer(undefined, { type: "@@INIT" });
-  s = Session.Layout.reducer(
-    s,
-    Session.Layout.place({
-      windowKey: "main",
-      key: layoutKey,
-      type: "schematic",
-      name: "Operator",
-      location: "mosaic",
-    }),
-  );
-  return s;
-};

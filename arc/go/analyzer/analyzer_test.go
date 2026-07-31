@@ -60,7 +60,7 @@ var _ = Describe("Analyzer Integration", func() {
 			Expect(ctx.Diagnostics.Ok()).To(BeFalse())
 			Expect(*ctx.Diagnostics).To(HaveLen(1))
 			diagnostic := (*ctx.Diagnostics)[0]
-			Expect(diagnostic.Message).To(Equal("name dog conflicts with existing symbol at line 2, col 4"))
+			Expect(diagnostic.Message).To(Equal("name dog conflicts with existing function at line 2, col 4"))
 		})
 
 		It("Should allow variable declaration from a function parameter", func(bCtx SpecContext) {
@@ -375,26 +375,26 @@ var _ = Describe("Analyzer Integration", func() {
 		})
 	})
 
-	Describe("Global Constants", func() {
-		It("Should analyze a constant with inferred type", func(bCtx SpecContext) {
+	Describe("Top-Level Variables", func() {
+		It("Should analyze a top-level variable with inferred type", func(bCtx SpecContext) {
 			ctx := analyzeAndExpect(bCtx, `
 				MAX_VALUE := 100
 			`)
-			constScope := MustSucceed(ctx.Scope.Resolve(ctx, "MAX_VALUE"))
-			Expect(constScope.Kind).To(Equal(symbol.KindGlobalConstant))
-			Expect(constScope.Type).To(Equal(types.I64()))
+			varScope := MustSucceed(ctx.Scope.Resolve(ctx, "MAX_VALUE"))
+			Expect(varScope.Kind).To(Equal(symbol.KindVariable))
+			Expect(varScope.Type).To(Equal(types.I64()))
 		})
 
-		It("Should analyze a constant with explicit type", func(bCtx SpecContext) {
+		It("Should analyze a top-level variable with explicit type", func(bCtx SpecContext) {
 			ctx := analyzeAndExpect(bCtx, `
 				THRESHOLD f32 := 50.5
 			`)
-			constScope := MustSucceed(ctx.Scope.Resolve(ctx, "THRESHOLD"))
-			Expect(constScope.Kind).To(Equal(symbol.KindGlobalConstant))
-			Expect(constScope.Type).To(Equal(types.F32()))
+			varScope := MustSucceed(ctx.Scope.Resolve(ctx, "THRESHOLD"))
+			Expect(varScope.Kind).To(Equal(symbol.KindVariable))
+			Expect(varScope.Type).To(Equal(types.F32()))
 		})
 
-		It("Should allow using a constant inside a function", func(bCtx SpecContext) {
+		It("Should allow using a top-level variable inside a function", func(bCtx SpecContext) {
 			ctx := analyzeAndExpect(bCtx, `
 				LIMIT := 10
 
@@ -402,9 +402,21 @@ var _ = Describe("Analyzer Integration", func() {
 					return x + LIMIT
 				}
 			`)
-			constScope := MustSucceed(ctx.Scope.Resolve(ctx, "LIMIT"))
-			Expect(constScope.Kind).To(Equal(symbol.KindGlobalConstant))
-			Expect(constScope.Type).To(Equal(types.I64()))
+			varScope := MustSucceed(ctx.Scope.Resolve(ctx, "LIMIT"))
+			Expect(varScope.Kind).To(Equal(symbol.KindVariable))
+			Expect(varScope.Type).To(Equal(types.I64()))
+		})
+
+		It("Should reject reassigning a top-level variable", func(bCtx SpecContext) {
+			prog := MustSucceed(parser.Parse(`
+				COUNT := 0
+				COUNT = 1
+			`))
+			ctx := context.NewRoot(bCtx, prog, nil)
+			analyzer.AnalyzeProgram(ctx)
+			Expect(ctx.Diagnostics.Ok()).To(BeFalse())
+			Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring(
+				"cannot reassign a top-level variable"))
 		})
 	})
 
@@ -489,7 +501,7 @@ var _ = Describe("Analyzer Integration", func() {
 			diag := (*ctx.Diagnostics)[0]
 			Expect(diag.Message).To(ContainSubstring("a"))
 			Expect(diag.Message).To(ContainSubstring("b"))
-			Expect(diag.Start.Line).To(Equal(8))
+			Expect(diag.Range.Start.Line).To(Equal(uint32(7)))
 		})
 
 		It("Should error on self-recursion", func(bCtx SpecContext) {
@@ -501,7 +513,7 @@ var _ = Describe("Analyzer Integration", func() {
 			`, chResolver)
 			diag := (*ctx.Diagnostics)[0]
 			Expect(diag.Message).To(ContainSubstring("a -> a"))
-			Expect(diag.Start.Line).To(Equal(4))
+			Expect(diag.Range.Start.Line).To(Equal(uint32(3)))
 		})
 
 		It("Should error on circular dependency chain", func(bCtx SpecContext) {
@@ -530,7 +542,7 @@ var _ = Describe("Analyzer Integration", func() {
 			Expect(diag.Message).To(ContainSubstring("b"))
 			Expect(diag.Message).To(ContainSubstring("c"))
 			Expect(diag.Message).To(ContainSubstring("d"))
-			Expect(diag.Start.Line).To(Equal(14))
+			Expect(diag.Range.Start.Line).To(Equal(uint32(13)))
 		})
 
 		It("Should error on diamond with back edge to root", func(bCtx SpecContext) {
@@ -1059,7 +1071,7 @@ var _ = Describe("Analyzer Integration", func() {
 				}
 			`, chResolver)
 			diag := (*ctx.Diagnostics)[0]
-			Expect(diag.Start.Line).To(Equal(3))
+			Expect(diag.Range.Start.Line).To(Equal(uint32(2)))
 		})
 
 		It("Should handle diamond dependency without duplication", func(bCtx SpecContext) {

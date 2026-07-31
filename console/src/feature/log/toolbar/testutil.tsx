@@ -7,8 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { createTestClient, type log } from "@synnaxlabs/client";
-import { Log } from "@synnaxlabs/pluto";
+import { log as clientLog, type log } from "@synnaxlabs/client";
+import { createTestClient } from "@synnaxlabs/client/testutil";
+import { Log, Panel as PlutoPanel } from "@synnaxlabs/pluto";
 import { id } from "@synnaxlabs/x";
 import { act, render, within } from "@testing-library/react";
 import {
@@ -19,7 +20,11 @@ import {
   Suspense,
 } from "react";
 
-import { type ConsolePreloadedState, createConsoleWrapper } from "@/testutil";
+import {
+  type ConsolePreloadedState,
+  createConsoleWrapper,
+  createResourceTab,
+} from "@/testutil";
 
 export const client = createTestClient();
 
@@ -53,10 +58,12 @@ export interface RenderLogOptions {
   preloadedState?: (key: string) => ConsolePreloadedState;
 }
 
-// renderLog creates a log on the server, mounts Component with the log loaded into the
-// flux cache, and returns the render result plus the Redux store and log key.
+// renderLog creates a log on the server, mounts Component inside the panel and tab
+// scopes of a seeded resource tab (the way the mosaic renders a tab) with the log
+// loaded into the flux cache, and returns the render result plus the Redux store and
+// log key.
 export const renderLog = async (
-  Component: ComponentType<{ layoutKey: string }>,
+  Component: ComponentType,
   { log: logOverrides, preloadedState }: RenderLogOptions = {},
 ) => {
   const created = await client.logs.create(await project(), {
@@ -68,10 +75,18 @@ export const renderLog = async (
     preloadedState: preloadedState?.(created.key),
   });
   await loadLog(Wrapper, created.key);
+  const { panelKey, tabKey } = createResourceTab(
+    Wrapper,
+    clientLog.ontologyID(created.key),
+  );
   const result = render(
-    <Log.Scope.Provider value={created.key}>
-      <Component layoutKey={created.key} />
-    </Log.Scope.Provider>,
+    <PlutoPanel.Scope.Provider value={panelKey}>
+      <PlutoPanel.TabScope.Provider value={tabKey}>
+        <Log.Scope.Provider value={created.key}>
+          <Component />
+        </Log.Scope.Provider>
+      </PlutoPanel.TabScope.Provider>
+    </PlutoPanel.Scope.Provider>,
     { wrapper: Wrapper },
   );
   return { key: created.key, result, store };

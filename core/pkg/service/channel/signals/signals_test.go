@@ -16,7 +16,9 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
+	. "github.com/synnaxlabs/synnax/pkg/service/channel/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/signal"
@@ -54,9 +56,9 @@ var _ = Describe("Signals", func() {
 	It("Should propagate a channel creation to the set channel", func(ctx SpecContext) {
 		requests, responses, closeStreamer := openStreamer(ctx, "sy_channel_set")
 		ch := channel.Channel{
-			Name: channel.NewRandomName(), DataType: telem.TimeStampT, IsIndex: true,
+			Name: UniqueChannelName(), DataType: telem.TimeStampT, IsIndex: true,
 		}
-		Expect(channelSvc.Create(ctx, &ch)).To(Succeed())
+		Expect(channelSvc.NewWriter(nil).Create(ctx, &ch)).To(Succeed())
 		var res framer.StreamerResponse
 		Eventually(responses.Outlet()).Should(Receive(&res))
 		payloads := MustSucceed(telem.UnmarshalJSONSeries[channelPayload](
@@ -72,11 +74,31 @@ var _ = Describe("Signals", func() {
 		Expect(closeStreamer.Close()).To(Succeed())
 	})
 
+	It("Should not marshal zero-length operations to the set channel", func(ctx SpecContext) {
+		requests, responses, closeStreamer := openStreamer(ctx, "sy_channel_set")
+		ch := channel.Channel{
+			Name: UniqueChannelName(), DataType: telem.TimeStampT, IsIndex: true,
+		}
+		Expect(channelSvc.NewWriter(nil).Create(ctx, &ch)).To(Succeed())
+		var res framer.StreamerResponse
+		Eventually(responses.Outlet()).Should(Receive(&res))
+		payloads := MustSucceed(telem.UnmarshalJSONSeries[map[string]any](
+			res.Frame.SeriesAt(0),
+		))
+		payload := MustBeOk(lo.Find(payloads, func(p map[string]any) bool {
+			return p["name"] == ch.Name
+		}))
+		Expect(payload).ToNot(HaveKey("operations"))
+		requests.Close()
+		Eventually(responses.Outlet()).Should(BeClosed())
+		Expect(closeStreamer.Close()).To(Succeed())
+	})
+
 	It("Should propagate a channel deletion to the delete channel", func(ctx SpecContext) {
 		ch := channel.Channel{
-			Name: channel.NewRandomName(), DataType: telem.TimeStampT, IsIndex: true,
+			Name: UniqueChannelName(), DataType: telem.TimeStampT, IsIndex: true,
 		}
-		Expect(channelSvc.Create(ctx, &ch)).To(Succeed())
+		Expect(channelSvc.NewWriter(nil).Create(ctx, &ch)).To(Succeed())
 		requests, responses, closeStreamer := openStreamer(ctx, "sy_channel_delete")
 		Expect(channelSvc.NewWriter(nil).Delete(ctx, ch.Key(), false)).To(Succeed())
 		var res framer.StreamerResponse

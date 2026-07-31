@@ -332,6 +332,26 @@ var _ = Describe("C++ PB Plugin", func() {
 					)
 			})
 
+			It("Should translate a standalone pb enum beside pb structs that never reference it", func(ctx SpecContext) {
+				source := `
+					@cpp output "client/cpp/status"
+					@pb output "core/pkg/service/status/pb"
+
+					Variant enum {
+						success = "success"
+						error = "error"
+					}
+
+					Status struct {
+						name string
+					}
+				`
+				resp := MustGenerate(ctx, source, "status", loader, pbPlugin)
+
+				ExpectContent(resp, "proto.gen.h").
+					ToContain("variant_to_pb", "variant_from_pb")
+			})
+
 			It("Should return error for unrecognized string enum values", func(ctx SpecContext) {
 				source := `
 					@cpp output "client/cpp/status"
@@ -958,6 +978,8 @@ var _ = Describe("C++ PB Plugin", func() {
 						name string
 						description string
 					}
+
+					Infos = Info[]
 				`)
 			})
 
@@ -978,6 +1000,275 @@ var _ = Describe("C++ PB Plugin", func() {
 				ExpectContent(resp, "proto.gen.h").
 					ToContain("to_proto()").
 					ToContain("from_proto")
+			})
+
+			It("Should include the base's proto header for cross-namespace extends", func(ctx SpecContext) {
+				source := `
+					import "schemas/common"
+
+					@cpp output "client/cpp/task"
+					@pb output "core/pkg/service/task/pb"
+
+					Task struct extends common.Info {
+						key uuid
+					}
+				`
+				resp := MustGenerate(ctx, source, "task", loader, pbPlugin)
+
+				ExpectContent(resp, "task/proto.gen.h").
+					ToContain(`#include "client/cpp/common/proto.gen.h"`)
+			})
+
+			It("Should convert alias fields targeting cross-namespace structs", func(ctx SpecContext) {
+				source := `
+					import "schemas/common"
+
+					@cpp output "client/cpp/task"
+					@pb output "core/pkg/service/task/pb"
+
+					InfoRef = common.Info
+
+					Task struct {
+						info InfoRef
+					}
+				`
+				resp := MustGenerate(ctx, source, "task", loader, pbPlugin)
+
+				ExpectContent(resp, "task/proto.gen.h").
+					ToContain(
+						`#include "client/cpp/common/proto.gen.h"`,
+						`#include "client/cpp/common/json.gen.h"`,
+						"this->info.to_proto()",
+					)
+			})
+
+			It("Should convert optional alias fields targeting cross-namespace structs", func(ctx SpecContext) {
+				source := `
+					import "schemas/common"
+
+					@cpp output "client/cpp/task"
+					@pb output "core/pkg/service/task/pb"
+
+					InfoRef = common.Info
+
+					Task struct {
+						info InfoRef?
+					}
+				`
+				resp := MustGenerate(ctx, source, "task", loader, pbPlugin)
+
+				ExpectContent(resp, "task/proto.gen.h").
+					ToContain(
+						"if (this->info.has_value())",
+						"this->info->to_proto()",
+						"if (pb.has_info())",
+					)
+			})
+
+			It("Should convert optional arrays of cross-namespace structs", func(ctx SpecContext) {
+				source := `
+					import "schemas/common"
+
+					@cpp output "client/cpp/task"
+					@pb output "core/pkg/service/task/pb"
+
+					Task struct {
+						infos common.Info[]?
+					}
+				`
+				resp := MustGenerate(ctx, source, "task", loader, pbPlugin)
+
+				ExpectContent(resp, "task/proto.gen.h").
+					ToContain(
+						"if (this->infos.has_value())",
+						"wrapper->add_values()",
+						"cpp.infos.emplace();",
+					)
+			})
+
+			It("Should convert arrays of cross-namespace structs", func(ctx SpecContext) {
+				source := `
+					import "schemas/common"
+
+					@cpp output "client/cpp/task"
+					@pb output "core/pkg/service/task/pb"
+
+					Task struct {
+						infos common.Info[]
+					}
+				`
+				resp := MustGenerate(ctx, source, "task", loader, pbPlugin)
+
+				ExpectContent(resp, "task/proto.gen.h").
+					ToContain(
+						`#include "client/cpp/common/proto.gen.h"`,
+						`#include "client/cpp/common/json.gen.h"`,
+						"pb.add_infos()",
+					)
+			})
+
+			It("Should convert maps with cross-namespace struct values", func(ctx SpecContext) {
+				source := `
+					import "schemas/common"
+
+					@cpp output "client/cpp/task"
+					@pb output "core/pkg/service/task/pb"
+
+					Task struct {
+						infos map<string, common.Info>
+					}
+				`
+				resp := MustGenerate(ctx, source, "task", loader, pbPlugin)
+
+				ExpectContent(resp, "task/proto.gen.h").
+					ToContain(
+						`#include "client/cpp/common/proto.gen.h"`,
+						`#include "client/cpp/common/json.gen.h"`,
+						"mutable_infos()",
+					)
+			})
+
+			It("Should convert nested arrays with cross-namespace struct elements", func(ctx SpecContext) {
+				source := `
+					import "schemas/common"
+
+					@cpp output "client/cpp/task"
+					@pb output "core/pkg/service/task/pb"
+
+					Task struct {
+						groups common.Infos[]
+					}
+				`
+				resp := MustGenerate(ctx, source, "task", loader, pbPlugin)
+
+				ExpectContent(resp, "task/proto.gen.h").
+					ToContain(
+						`#include "client/cpp/common/proto.gen.h"`,
+						`#include "client/cpp/common/json.gen.h"`,
+						"wrapper->add_values()",
+					)
+			})
+		})
+
+		Context("invalid output paths", func() {
+			It("Should propagate json collection errors", func(ctx SpecContext) {
+				req := MustGenerateRequest(ctx, `
+					@cpp output "../escape"
+
+					Bad struct { name string }
+				`, "types", loader)
+				Expect(pbPlugin.Generate(req)).Error().
+					To(MatchError(ContainSubstring("path traversal")))
+			})
+		})
+
+		Context("packages without JSON content", func() {
+			It("Should include its own types.gen.h instead of json.gen.h", func(ctx SpecContext) {
+				source := `
+					@cpp output "client/cpp/ontology"
+					@pb output "core/pkg/ontology/pb"
+
+					ResourceType enum {
+						channel = "channel"
+						device = "device"
+					}
+				`
+				resp := MustGenerate(ctx, source, "ontology", loader, pbPlugin)
+
+				ExpectContent(resp, "proto.gen.h").
+					ToContain(`#include "client/cpp/ontology/types.gen.h"`).
+					ToNotContain(`#include "client/cpp/ontology/json.gen.h"`)
+			})
+
+			It("Should include types.gen.h for references into packages with only hand-written structs", func(ctx SpecContext) {
+				loader.Add("schemas/telem", `
+					@cpp output "x/cpp/telem"
+					@pb output "x/go/telem/pb"
+
+					TimeRange struct {
+						start uint64
+						end   uint64
+
+						@cpp hand
+					}
+				`)
+
+				source := `
+					import "schemas/telem"
+
+					@cpp output "client/cpp/ranger"
+					@pb output "core/pkg/service/ranger/pb"
+
+					Range struct {
+						name       string
+						time_range telem.TimeRange
+					}
+				`
+				resp := MustGenerate(ctx, source, "ranger", loader, pbPlugin)
+
+				ExpectContent(resp, "proto.gen.h").
+					ToContain(`#include "x/cpp/telem/types.gen.h"`).
+					ToNotContain(
+						`#include "x/cpp/telem/json.gen.h"`,
+						// The target emits no proto.gen.h either: its conversions are
+						// hand-written next to the type.
+						`#include "x/cpp/telem/proto.gen.h"`,
+					)
+			})
+		})
+
+		Context("packages without JSON content", func() {
+			It("Should include its own types.gen.h instead of json.gen.h", func(ctx SpecContext) {
+				source := `
+					@cpp output "client/cpp/ontology"
+					@pb output "core/pkg/ontology/pb"
+
+					ResourceType enum {
+						channel = "channel"
+						device = "device"
+					}
+				`
+				resp := MustGenerate(ctx, source, "ontology", loader, pbPlugin)
+
+				ExpectContent(resp, "proto.gen.h").
+					ToContain(`#include "client/cpp/ontology/types.gen.h"`).
+					ToNotContain(`#include "client/cpp/ontology/json.gen.h"`)
+			})
+
+			It("Should include types.gen.h for references into packages with only hand-written structs", func(ctx SpecContext) {
+				loader.Add("schemas/telem", `
+					@cpp output "x/cpp/telem"
+					@pb output "x/go/telem/pb"
+
+					TimeRange struct {
+						start uint64
+						end   uint64
+
+						@cpp hand
+					}
+				`)
+
+				source := `
+					import "schemas/telem"
+
+					@cpp output "client/cpp/ranger"
+					@pb output "core/pkg/service/ranger/pb"
+
+					Range struct {
+						name       string
+						time_range telem.TimeRange
+					}
+				`
+				resp := MustGenerate(ctx, source, "ranger", loader, pbPlugin)
+
+				ExpectContent(resp, "proto.gen.h").
+					ToContain(`#include "x/cpp/telem/types.gen.h"`).
+					ToNotContain(
+						`#include "x/cpp/telem/json.gen.h"`,
+						// The target emits no proto.gen.h either: its conversions are
+						// hand-written next to the type.
+						`#include "x/cpp/telem/proto.gen.h"`,
+					)
 			})
 		})
 

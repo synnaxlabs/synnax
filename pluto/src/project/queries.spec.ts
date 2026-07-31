@@ -7,13 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import {
-  createTestClient,
-  group,
-  NotFoundError,
-  project,
-  schematic,
-} from "@synnaxlabs/client";
+import { group, NotFoundError, project, schematic } from "@synnaxlabs/client";
+import { createTestClient } from "@synnaxlabs/client/testutil";
 import { id } from "@synnaxlabs/x";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { type PropsWithChildren } from "react";
@@ -79,17 +74,28 @@ describe("queries", () => {
     });
 
     it("should handle pagination with limit and offset", async () => {
-      for (let i = 0; i < 5; i++)
-        await client.projects.create({
+      // Scope the page to this test's own projects: the list is live, so
+      // unscoped pagination would absorb projects created by concurrently
+      // running spec files.
+      const keys: string[] = [];
+      for (let i = 0; i < 5; i++) {
+        const created = await client.projects.create({
           name: `paginationProject${i}`,
           layout: { type: "dashboard", index: i },
         });
+        keys.push(created.key);
+      }
 
-      const { result } = renderHook(() => Project.useList(), {
-        wrapper,
-      });
+      const { result } = renderHook(
+        () =>
+          Project.useList({
+            initialQuery: { keys },
+            filter: (p) => keys.includes(p.key),
+          }),
+        { wrapper },
+      );
       act(() => {
-        result.current.retrieve({ limit: 2, offset: 1 });
+        result.current.retrieve({ limit: 2, offset: 1, keys });
       });
       await waitFor(() => expect(result.current.variant).toEqual("success"));
       expect(result.current.data).toHaveLength(2);

@@ -13,8 +13,8 @@ import (
 	"context"
 
 	"github.com/google/uuid"
-	"github.com/synnaxlabs/synnax/pkg/distribution/group"
-	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/group"
+	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/validate"
@@ -39,7 +39,7 @@ func (w Writer) Create(ctx context.Context, r *Role) error {
 	if err := w.table.NewCreate().Entry(r).Exec(ctx, w.tx); err != nil {
 		return err
 	}
-	if err := w.otg.DefineResources(ctx, OntologyID(r.Key)); err != nil {
+	if err := w.otg.DefineResources(ctx, r.OntologyID()); err != nil {
 		return err
 	}
 	return w.otg.DefineRelationships(

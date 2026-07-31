@@ -16,8 +16,8 @@ import (
 	"strconv"
 
 	"github.com/samber/lo"
-	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
-	"github.com/synnaxlabs/synnax/pkg/distribution/search"
+	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/search"
 	xchange "github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/gorp"
 	xiter "github.com/synnaxlabs/x/iter"
@@ -25,17 +25,13 @@ import (
 	"github.com/synnaxlabs/x/zyn"
 )
 
-func OntologyID(k Key) ontology.ID {
-	return ontology.ID{Type: ontology.ResourceTypeTask, Key: k.String()}
-}
-
 func OntologyIDs(keys []Key) []ontology.ID {
-	return lo.Map(keys, func(key Key, _ int) ontology.ID { return OntologyID(key) })
+	return lo.Map(keys, func(key Key, _ int) ontology.ID { return key.OntologyID() })
 }
 
 func OntologyIDsFromTasks(tasks []Task) []ontology.ID {
 	return lo.Map(tasks, func(task Task, _ int) ontology.ID {
-		return OntologyID(task.Key)
+		return task.OntologyID()
 	})
 }
 
@@ -57,7 +53,7 @@ var schema = zyn.Object(map[string]zyn.Schema{
 })
 
 func newResource(t Task) ontology.Resource {
-	return ontology.NewResource(schema, OntologyID(t.Key), t.Name, t)
+	return ontology.NewResource(schema, t.OntologyID(), t.Name, t)
 }
 
 type change = xchange.Change[Key, Task]
@@ -89,7 +85,7 @@ func (s *Service) RetrieveResource(ctx context.Context, key string, tx gorp.Tx) 
 func translateChange(c change) ontology.Change {
 	return ontology.Change{
 		Variant: c.Variant,
-		Key:     OntologyID(c.Key).String(),
+		Key:     c.Key.OntologyID().String(),
 		Value:   newResource(c.Value),
 	}
 }

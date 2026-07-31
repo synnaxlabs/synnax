@@ -14,22 +14,23 @@ import (
 
 	"github.com/onsi/gomega"
 	"github.com/samber/lo"
-	"github.com/synnaxlabs/x/lsp/protocol"
-	xutil "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/testutil"
+	"go.lsp.dev/protocol"
+	"go.lsp.dev/uri"
 )
 
 // OpenDocument is a helper to open a document in the LSP server.
 func OpenDocument(
 	server protocol.Server,
 	ctx context.Context,
-	uri protocol.DocumentURI,
-	content string,
+	uri uri.URI,
+	content,
 	languageID string,
 ) {
 	gomega.Expect(server.DidOpen(ctx, &protocol.DidOpenTextDocumentParams{
 		TextDocument: protocol.TextDocumentItem{
 			URI:        uri,
-			LanguageID: protocol.LanguageIdentifier(languageID),
+			LanguageID: protocol.LanguageKind(languageID),
 			Version:    1,
 			Text:       content,
 		},
@@ -40,7 +41,7 @@ func OpenDocument(
 func ChangeDocument(
 	server protocol.Server,
 	ctx context.Context,
-	uri protocol.DocumentURI,
+	uri uri.URI,
 	content string,
 	version int32,
 ) {
@@ -50,7 +51,7 @@ func ChangeDocument(
 			Version:                version,
 		},
 		ContentChanges: []protocol.TextDocumentContentChangeEvent{
-			{Text: content},
+			&protocol.TextDocumentContentChangeWholeDocument{Text: content},
 		},
 	})).To(gomega.Succeed())
 }
@@ -59,10 +60,10 @@ func ChangeDocument(
 func Hover(
 	server protocol.Server,
 	ctx context.Context,
-	uri protocol.DocumentURI,
+	uri uri.URI,
 	line, char uint32,
 ) *protocol.Hover {
-	return xutil.MustSucceed(server.Hover(ctx, &protocol.HoverParams{
+	return testutil.MustSucceed(server.Hover(ctx, &protocol.HoverParams{
 		TextDocumentPositionParams: protocol.TextDocumentPositionParams{
 			TextDocument: protocol.TextDocumentIdentifier{URI: uri},
 			Position:     protocol.Position{Line: line, Character: char},
@@ -70,43 +71,86 @@ func Hover(
 	}))
 }
 
-// Definition returns definition locations at the given position.
+// HoverContents extracts the markup value from a hover result, handling the
+// HoverContents union. Returns the empty string when hover is nil or the contents are
+// unset; fails the test on an unhandled union variant.
+func HoverContents(hover *protocol.Hover) string {
+	if hover == nil {
+		return ""
+	}
+	switch c := hover.Contents.(type) {
+	case *protocol.MarkupContent:
+		return c.Value
+	case protocol.String:
+		return string(c)
+	default:
+		gomega.ExpectWithOffset(1, c).To(gomega.BeNil(),
+			"unhandled HoverContents variant %T", c)
+		return ""
+	}
+}
+
+// Definition returns definition locations at the given position, unwrapping the
+// DefinitionResult union into a flat location slice. Fails the test on an unhandled
+// union variant.
 func Definition(
 	server protocol.Server,
 	ctx context.Context,
-	uri protocol.DocumentURI,
+	uri uri.URI,
 	line, char uint32,
 ) []protocol.Location {
-	return xutil.MustSucceed(server.Definition(ctx, &protocol.DefinitionParams{
+	result := testutil.MustSucceed(server.Definition(ctx, &protocol.DefinitionParams{
 		TextDocumentPositionParams: protocol.TextDocumentPositionParams{
 			TextDocument: protocol.TextDocumentIdentifier{URI: uri},
 			Position:     protocol.Position{Line: line, Character: char},
 		},
 	}))
+	switch r := result.(type) {
+	case protocol.LocationSlice:
+		return r
+	case *protocol.Location:
+		return []protocol.Location{*r}
+	default:
+		gomega.ExpectWithOffset(1, r).To(gomega.BeNil(),
+			"unhandled DefinitionResult variant %T", r)
+		return nil
+	}
 }
 
-// Completion returns completion items at the given position.
+// Completion returns completion items at the given position, unwrapping the
+// CompletionResult union into a completion list. Fails the test on an unhandled union
+// variant.
 func Completion(
 	server protocol.Server,
 	ctx context.Context,
-	uri protocol.DocumentURI,
+	uri uri.URI,
 	line, char uint32,
 ) *protocol.CompletionList {
-	return xutil.MustSucceed(server.Completion(ctx, &protocol.CompletionParams{
+	result := testutil.MustSucceed(server.Completion(ctx, &protocol.CompletionParams{
 		TextDocumentPositionParams: protocol.TextDocumentPositionParams{
 			TextDocument: protocol.TextDocumentIdentifier{URI: uri},
 			Position:     protocol.Position{Line: line, Character: char},
 		},
 	}))
+	switch r := result.(type) {
+	case *protocol.CompletionList:
+		return r
+	case protocol.CompletionItemSlice:
+		return &protocol.CompletionList{Items: r}
+	default:
+		gomega.ExpectWithOffset(1, r).To(gomega.BeNil(),
+			"unhandled CompletionResult variant %T", r)
+		return nil
+	}
 }
 
 // SemanticTokens returns semantic tokens for the given document.
 func SemanticTokens(
 	server protocol.Server,
 	ctx context.Context,
-	uri protocol.DocumentURI,
+	uri uri.URI,
 ) *protocol.SemanticTokens {
-	return xutil.MustSucceed(server.SemanticTokensFull(ctx, &protocol.SemanticTokensParams{
+	return testutil.MustSucceed(server.SemanticTokensFull(ctx, &protocol.SemanticTokensParams{
 		TextDocument: protocol.TextDocumentIdentifier{URI: uri},
 	}))
 }
@@ -125,4 +169,48 @@ func FindCompletion(
 func HasCompletion(items []protocol.CompletionItem, label string) bool {
 	_, found := FindCompletion(items, label)
 	return found
+}
+
+// ItemDetail returns the detail string of a completion item, or the empty string when
+// unset.
+func ItemDetail(item protocol.CompletionItem) string {
+	v, _ := item.Detail.Get()
+	return v
+}
+
+// ItemInsertText returns the insert text of a completion item, or the empty string when
+// unset.
+func ItemInsertText(item protocol.CompletionItem) string {
+	v, _ := item.InsertText.Get()
+	return v
+}
+
+// ItemTextEdit returns the completion item's text edit, or nil when unset or not a
+// plain TextEdit.
+func ItemTextEdit(item protocol.CompletionItem) *protocol.TextEdit {
+	edit, _ := item.TextEdit.(*protocol.TextEdit)
+	return edit
+}
+
+// DiagnosticCode returns the string code of a diagnostic, or the empty string when
+// unset or numeric.
+func DiagnosticCode(d protocol.Diagnostic) string {
+	code, _ := d.Code.(protocol.String)
+	return string(code)
+}
+
+// DiagnosticMessage returns the message text of a diagnostic, handling the union
+// between plain strings and markup content. Returns the empty string when the message
+// is unset; fails the test on an unhandled union variant.
+func DiagnosticMessage(d protocol.Diagnostic) string {
+	switch m := d.Message.(type) {
+	case protocol.String:
+		return string(m)
+	case *protocol.MarkupContent:
+		return m.Value
+	default:
+		gomega.ExpectWithOffset(1, m).To(gomega.BeNil(),
+			"unhandled DiagnosticMessage variant %T", m)
+		return ""
+	}
 }

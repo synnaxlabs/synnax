@@ -20,14 +20,13 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/samber/lo"
-	"github.com/synnaxlabs/synnax/pkg/distribution/group"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
-	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
-	"github.com/synnaxlabs/synnax/pkg/distribution/search"
+	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/node"
+	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
-	rackv0 "github.com/synnaxlabs/synnax/pkg/service/rack/migrations/v0"
+	"github.com/synnaxlabs/synnax/pkg/service/search"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/gorp"
@@ -39,11 +38,12 @@ import (
 
 var _ = Describe("Rack", Ordered, func() {
 	var (
-		writer rack.Writer
-		tx     gorp.Tx
-		db     *gorp.DB
-		svc    *rack.Service
-		stat   *status.Service
+		writer     rack.Writer
+		noTxWriter rack.Writer
+		tx         gorp.Tx
+		db         *gorp.DB
+		svc        *rack.Service
+		stat       *status.Service
 		// frozenNow pins the health monitor's clock to a fixed timestamp when
 		// non-zero, letting timing tests stop logical time instead of racing the
 		// wall clock. Zero means use the real clock.
@@ -54,7 +54,7 @@ var _ = Describe("Rack", Ordered, func() {
 		ShouldNotLeakGoroutines()
 		db = DeferClose(gorp.Wrap(memkv.New()))
 		otg := MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
-		searchIdx := MustOpen(search.Open())
+		searchIdx := MustOpen(search.OpenIndex())
 		g := MustOpen(group.OpenService(ctx, group.ServiceConfig{
 			DB:       db,
 			Ontology: otg,
@@ -89,6 +89,7 @@ var _ = Describe("Rack", Ordered, func() {
 				return telem.Now()
 			},
 		}))
+		noTxWriter = svc.NewWriter(nil)
 		Expect(searchIdx.Initialize(ctx)).To(Succeed())
 	})
 	BeforeEach(func(ctx SpecContext) {
@@ -97,17 +98,17 @@ var _ = Describe("Rack", Ordered, func() {
 		writer = svc.NewWriter(tx)
 	})
 	Describe("Key", func() {
-		It("Should correctly construct and deconstruct key from its components", func(ctx SpecContext) {
+		It("Should correctly construct a key from its components", func(ctx SpecContext) {
 			k := rack.NewKey(1, 2)
 			Expect(k.Node()).To(Equal(node.Key(1)))
-			Expect(k.LocalKey()).To(Equal(uint16(2)))
+			Expect(k).To(Equal(rack.Key(1<<16 | 2)))
 		})
 	})
 	Describe("StatusKey", func() {
 		It("Should return the ontology ID string for a rack key", func(ctx SpecContext) {
 			k := rack.NewKey(1, 2)
 			statusKey := rack.StatusKey(k)
-			Expect(statusKey).To(Equal(rack.OntologyID(k).String()))
+			Expect(statusKey).To(Equal(k.OntologyID().String()))
 		})
 		It("Should return consistent status keys for the same rack key", func(ctx SpecContext) {
 			k := rack.NewKey(5, 10)
@@ -167,13 +168,12 @@ var _ = Describe("Rack", Ordered, func() {
 			r := &rack.Rack{Name: "rack1"}
 			Expect(writer.Create(ctx, r)).To(Succeed())
 			Expect(!r.Key.IsZero()).To(BeTrue())
-			Expect(r.Key.Node()).To(Equal(node.Key(1)))
-			Expect(r.Key.LocalKey()).To(Equal(uint16(2)))
+			Expect(r.Key).To(Equal(rack.NewKey(1, 2)))
 		})
 		It("Should correctly increment the local key counter", func(ctx SpecContext) {
 			r := &rack.Rack{Name: "rack2"}
 			Expect(writer.Create(ctx, r)).To(Succeed())
-			Expect(r.Key.LocalKey()).To(Equal(uint16(3)))
+			Expect(r.Key).To(Equal(rack.NewKey(1, 3)))
 		})
 		It("Should return an error if the rack has no name", func(ctx SpecContext) {
 			r := &rack.Rack{}
@@ -481,7 +481,7 @@ var _ = Describe("Rack", Ordered, func() {
 			Expect(svc.NewRetrieve().Where(rack.MatchKeys(r.Key)).Entry(&res).Exec(ctx, tx)).To(MatchError(query.ErrNotFound))
 			var deletedStatus rack.Status
 			Expect(status.NewRetrieve[rack.StatusDetails](stat).
-				Where(status.MatchKeys[rack.StatusDetails](rack.OntologyID(r.Key).String())).
+				Where(status.MatchKeys[rack.StatusDetails](r.OntologyID().String())).
 				Entry(&deletedStatus).
 				Exec(ctx, tx)).To(MatchError(query.ErrNotFound))
 		})
@@ -499,26 +499,24 @@ var _ = Describe("Rack", Ordered, func() {
 	Describe("NewTaskKey", func() {
 		It("Should correctly return sequential keys", func(ctx SpecContext) {
 			r := &rack.Rack{Name: "niceRack"}
-			w := svc.NewWriter(nil)
-			Expect(w.Create(ctx, r)).To(Succeed())
-			t1 := MustSucceed(svc.NewWriter(nil).NewTaskKey(ctx, r.Key))
-			t2 := MustSucceed(svc.NewWriter(nil).NewTaskKey(ctx, r.Key))
+			Expect(noTxWriter.Create(ctx, r)).To(Succeed())
+			t1 := MustSucceed(noTxWriter.NewTaskKey(ctx, r.Key))
+			t2 := MustSucceed(noTxWriter.NewTaskKey(ctx, r.Key))
 			Expect(t2 - t1).To(BeEquivalentTo(1))
 		})
 
 		It("Should return sequential keys even when racing", func(ctx SpecContext) {
 			var (
 				r     = &rack.Rack{Name: "niceRack"}
-				w     = svc.NewWriter(nil)
 				count = 100
 				keys  = make([]uint32, count)
 				wg    sync.WaitGroup
 			)
-			Expect(w.Create(ctx, r)).To(Succeed())
+			Expect(noTxWriter.Create(ctx, r)).To(Succeed())
 
 			for i := range count {
 				wg.Go(func() {
-					keys[i] = MustSucceed(svc.NewWriter(nil).NewTaskKey(ctx, r.Key))
+					keys[i] = MustSucceed(noTxWriter.NewTaskKey(ctx, r.Key))
 				})
 			}
 			wg.Wait()
@@ -537,7 +535,7 @@ var _ = Describe("Rack", Ordered, func() {
 	Describe("Status", func() {
 		It("Should initialize a rack with an unknown status", func(ctx SpecContext) {
 			r := rack.Rack{Name: "test rack"}
-			Expect(svc.NewWriter(nil).Create(ctx, &r)).To(Succeed())
+			Expect(noTxWriter.Create(ctx, &r)).To(Succeed())
 			s := MustSucceed(svc.RetrieveStatus(ctx, r.Key))
 			Expect(s.Message).To(Equal("Status unknown"))
 			Expect(s.Variant).To(Equal(status.VariantWarning))
@@ -554,13 +552,13 @@ var _ = Describe("Rack", Ordered, func() {
 				Description: "Custom description",
 			}
 			r := rack.Rack{Name: "rack with custom status", Status: providedStatus}
-			Expect(svc.NewWriter(nil).Create(ctx, &r)).To(Succeed())
+			Expect(noTxWriter.Create(ctx, &r)).To(Succeed())
 			s := MustSucceed(svc.RetrieveStatus(ctx, r.Key))
 			Expect(s.Message).To(Equal("Custom status message"))
 			Expect(s.Description).To(Equal("Custom description"))
 			Expect(s.Variant).To(Equal(status.VariantSuccess))
 			// Key should be auto-assigned to match ontology ID
-			Expect(s.Key).To(Equal(rack.OntologyID(r.Key).String()))
+			Expect(s.Key).To(Equal(r.OntologyID().String()))
 			// Time should be auto-filled
 			Expect(s.Time).To(BeNumerically("~", telem.Now(), 3*telem.SecondTS))
 			// Name should be auto-filled from rack name
@@ -575,7 +573,7 @@ var _ = Describe("Rack", Ordered, func() {
 				Time:    telem.Now(),
 			}
 			r := rack.Rack{Name: "rack with invalid status", Status: providedStatus}
-			Expect(svc.NewWriter(nil).Create(ctx, &r)).Error().To(MatchError(ContainSubstring("variant")))
+			Expect(noTxWriter.Create(ctx, &r)).Error().To(MatchError(ContainSubstring("variant")))
 		})
 
 		It("Should restore a missing status row when the rack is re-configured", func(ctx SpecContext) {
@@ -583,9 +581,9 @@ var _ = Describe("Rack", Ordered, func() {
 			Expect(writer.Create(ctx, &r)).To(Succeed())
 
 			Expect(status.NewWriter[rack.StatusDetails](stat, tx).
-				Delete(ctx, rack.OntologyID(r.Key).String())).To(Succeed())
+				Delete(ctx, r.OntologyID().String())).To(Succeed())
 			Expect(status.NewRetrieve[rack.StatusDetails](stat).
-				Where(status.MatchKeys[rack.StatusDetails](rack.OntologyID(r.Key).String())).
+				Where(status.MatchKeys[rack.StatusDetails](r.OntologyID().String())).
 				Exec(ctx, tx)).To(MatchError(query.ErrNotFound))
 
 			reconfigured := rack.Rack{Key: r.Key, Name: r.Name}
@@ -593,7 +591,7 @@ var _ = Describe("Rack", Ordered, func() {
 
 			var healed rack.Status
 			Expect(status.NewRetrieve[rack.StatusDetails](stat).
-				Where(status.MatchKeys[rack.StatusDetails](rack.OntologyID(r.Key).String())).
+				Where(status.MatchKeys[rack.StatusDetails](r.OntologyID().String())).
 				Entry(&healed).
 				Exec(ctx, tx)).To(Succeed())
 			Expect(healed.Details.Rack).To(Equal(r.Key))
@@ -615,7 +613,7 @@ var _ = Describe("Rack", Ordered, func() {
 
 			var preserved rack.Status
 			Expect(status.NewRetrieve[rack.StatusDetails](stat).
-				Where(status.MatchKeys[rack.StatusDetails](rack.OntologyID(r.Key).String())).
+				Where(status.MatchKeys[rack.StatusDetails](r.OntologyID().String())).
 				Entry(&preserved).
 				Exec(ctx, tx)).To(Succeed())
 			Expect(preserved.Variant).To(Equal(status.VariantSuccess))
@@ -624,7 +622,7 @@ var _ = Describe("Rack", Ordered, func() {
 
 		It("Should mark a rack as dead when it doesn't receive a status within the health check interval", func(ctx SpecContext) {
 			r := rack.Rack{Name: "dead test rack"}
-			Expect(svc.NewWriter(nil).Create(ctx, &r)).To(Succeed())
+			Expect(noTxWriter.Create(ctx, &r)).To(Succeed())
 
 			Eventually(func(g Gomega) {
 				s := MustSucceed(svc.RetrieveStatus(ctx, r.Key))
@@ -645,10 +643,10 @@ var _ = Describe("Rack", Ordered, func() {
 			frozenNow.Store(int64(telem.Now()))
 
 			r := rack.Rack{Name: "active test rack"}
-			Expect(svc.NewWriter(nil).Create(ctx, &r)).To(Succeed())
+			Expect(noTxWriter.Create(ctx, &r)).To(Succeed())
 
 			Expect(status.NewWriter[rack.StatusDetails](stat, nil).Set(ctx, &rack.Status{
-				Key:     rack.OntologyID(r.Key).String(),
+				Key:     r.OntologyID().String(),
 				Name:    r.Name,
 				Time:    telem.Now(),
 				Variant: status.VariantSuccess,
@@ -666,7 +664,7 @@ var _ = Describe("Rack", Ordered, func() {
 
 		It("Should dampen alerts after first dead check", func(ctx SpecContext) {
 			r := rack.Rack{Name: "dampening test rack"}
-			Expect(svc.NewWriter(nil).Create(ctx, &r)).To(Succeed())
+			Expect(noTxWriter.Create(ctx, &r)).To(Succeed())
 
 			var (
 				alertCount int
@@ -695,7 +693,7 @@ var _ = Describe("Rack", Ordered, func() {
 
 		It("Should reset alert count when rack comes back alive", func(ctx SpecContext) {
 			r := rack.Rack{Name: "reset test rack"}
-			Expect(svc.NewWriter(nil).Create(ctx, &r)).To(Succeed())
+			Expect(noTxWriter.Create(ctx, &r)).To(Succeed())
 
 			var (
 				alertCount int
@@ -718,7 +716,7 @@ var _ = Describe("Rack", Ordered, func() {
 			Eventually(getCount).Should(Equal(1))
 
 			Expect(status.NewWriter[rack.StatusDetails](stat, nil).Set(ctx, &rack.Status{
-				Key:     rack.OntologyID(r.Key).String(),
+				Key:     r.OntologyID().String(),
 				Name:    r.Name,
 				Time:    telem.Now(),
 				Variant: status.VariantSuccess,
@@ -729,143 +727,5 @@ var _ = Describe("Rack", Ordered, func() {
 			countAfterRecovery := getCount()
 			Eventually(getCount, 50*time.Millisecond, 5*time.Millisecond).Should(BeNumerically(">", countAfterRecovery))
 		})
-	})
-})
-
-var _ = Describe("Migration", func() {
-	var (
-		db        *gorp.DB
-		otg       *ontology.Ontology
-		g         *group.Service
-		labelSvc  *label.Service
-		stat      *status.Service
-		searchIdx *search.Index
-	)
-	BeforeEach(func(ctx SpecContext) {
-		db = DeferClose(gorp.Wrap(memkv.New()))
-		otg = MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
-		searchIdx = MustOpen(search.Open())
-		g = MustOpen(group.OpenService(ctx, group.ServiceConfig{
-			DB:       db,
-			Ontology: otg,
-			Search:   searchIdx,
-		}))
-		labelSvc = MustOpen(label.OpenService(ctx, label.ServiceConfig{
-			DB:       db,
-			Ontology: otg,
-			Group:    g,
-			Search:   searchIdx,
-		}))
-		stat = MustOpen(status.OpenService(ctx, status.ServiceConfig{
-			Ontology: otg,
-			DB:       db,
-			Group:    g,
-			Label:    labelSvc,
-			Search:   searchIdx,
-		}))
-	})
-
-	openService := func(ctx context.Context) *rack.Service {
-		return MustOpen(rack.OpenService(ctx, rack.ServiceConfig{
-			DB:           db,
-			Ontology:     otg,
-			Group:        g,
-			HostProvider: mock.NewStaticHostProvider(1),
-			Status:       stat,
-			Search:       searchIdx,
-		}))
-	}
-
-	It("Should create unknown statuses for racks missing them", func(ctx SpecContext) {
-		r := rackv0.Rack{
-			Key:  rackv0.Key(rack.NewKey(1, 50)),
-			Name: "rack without status",
-		}
-		Expect(gorp.NewCreate[rackv0.Key, rackv0.Rack]().
-			Entry(&r).
-			Exec(ctx, db)).To(Succeed())
-
-		openService(ctx)
-
-		var restoredStatus rack.Status
-		Expect(status.NewRetrieve[rack.StatusDetails](stat).
-			Where(status.MatchKeys[rack.StatusDetails](rack.OntologyID(rack.Key(r.Key)).String())).
-			Entry(&restoredStatus).
-			Exec(ctx, nil)).To(Succeed())
-		Expect(restoredStatus.Variant).To(Equal(status.VariantWarning))
-		Expect(restoredStatus.Message).To(Equal("Status unknown"))
-		Expect(restoredStatus.Details.Rack).To(Equal(rack.Key(r.Key)))
-	})
-
-	It("Should correctly migrate a v1 rack to a v2 rack", func(ctx SpecContext) {
-		v1EmbeddedRack := rackv0.Rack{
-			Key:  65538,
-			Name: "sy_node_1_rack",
-		}
-		Expect(gorp.NewCreate[rackv0.Key, rackv0.Rack]().
-			Entry(&v1EmbeddedRack).
-			Exec(ctx, db)).To(Succeed())
-
-		svc := openService(ctx)
-		Expect(svc.EmbeddedKey).To(Equal(rack.Key(65538)))
-		var embeddedRack rack.Rack
-		Expect(svc.NewRetrieve().
-			Where(rack.MatchKeys(svc.EmbeddedKey)).
-			Entry(&embeddedRack).
-			Exec(ctx, db)).To(Succeed())
-		Expect(embeddedRack.Embedded).To(BeTrue())
-		Expect(embeddedRack.Name).To(Equal("Node 1 Embedded Driver"))
-		count := MustSucceed(svc.NewRetrieve().Count(ctx, db))
-		Expect(count).To(Equal(1))
-	})
-
-	It("Should not match an embedded rack with a mismatched name", func(ctx SpecContext) {
-		mismatchedRack := rackv0.Rack{
-			Key:      65538,
-			Name:     "Some Other Embedded Rack",
-			Embedded: true,
-		}
-		Expect(gorp.NewCreate[rackv0.Key, rackv0.Rack]().
-			Entry(&mismatchedRack).
-			Exec(ctx, db)).To(Succeed())
-
-		svc := openService(ctx)
-		Expect(svc.EmbeddedKey).ToNot(BeEquivalentTo(mismatchedRack.Key))
-
-		var embeddedRack rack.Rack
-		Expect(svc.NewRetrieve().
-			Where(rack.MatchKeys(svc.EmbeddedKey)).
-			Entry(&embeddedRack).
-			Exec(ctx, db)).To(Succeed())
-		Expect(embeddedRack.Embedded).To(BeTrue())
-		Expect(embeddedRack.Name).To(Equal("Node 1 Embedded Driver"))
-
-		count := MustSucceed(svc.NewRetrieve().Count(ctx, db))
-		Expect(count).To(Equal(2))
-	})
-
-	It("Should reuse an existing v2 embedded rack with the correct name", func(ctx SpecContext) {
-		existingRack := rackv0.Rack{
-			Key:      65538,
-			Name:     "Node 1 Embedded Driver",
-			Embedded: true,
-		}
-		Expect(gorp.NewCreate[rackv0.Key, rackv0.Rack]().
-			Entry(&existingRack).
-			Exec(ctx, db)).To(Succeed())
-
-		svc := openService(ctx)
-		Expect(svc.EmbeddedKey).To(Equal(rack.Key(existingRack.Key)))
-
-		var embeddedRack rack.Rack
-		Expect(svc.NewRetrieve().
-			Where(rack.MatchKeys(svc.EmbeddedKey)).
-			Entry(&embeddedRack).
-			Exec(ctx, db)).To(Succeed())
-		Expect(embeddedRack.Embedded).To(BeTrue())
-		Expect(embeddedRack.Name).To(Equal("Node 1 Embedded Driver"))
-
-		count := MustSucceed(svc.NewRetrieve().Count(ctx, db))
-		Expect(count).To(Equal(1))
 	})
 })

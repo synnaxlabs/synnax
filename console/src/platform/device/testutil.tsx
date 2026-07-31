@@ -11,12 +11,12 @@ import { device, type ontology, type Synnax } from "@synnaxlabs/client";
 import { Form, Menu as PMenu } from "@synnaxlabs/pluto";
 import { id } from "@synnaxlabs/x";
 import { render, type RenderResult } from "@testing-library/react";
-import { type PropsWithChildren, type ReactElement } from "react";
+import { type FC, type PropsWithChildren, type ReactElement } from "react";
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
 
 import { Modals } from "@/platform/modals";
-import { createResource } from "@/platform/ontology/testutil";
+import { createResource } from "@/platform/tree/testutil";
 import { Session } from "@/session";
 import { createConsoleWrapper, type TestStore, uniqueName } from "@/testutil";
 
@@ -69,6 +69,8 @@ export interface RenderMenuItemOptions {
 
 export interface MenuItemHandle extends RenderResult {
   store: TestStore;
+  /** The console wrapper backing the render, for seeding panel docs. */
+  wrapper: FC<PropsWithChildren>;
   /** The window's modal store, for driving prompt dismissal from the spec. */
   modals: Session.Modals.Store;
 }
@@ -97,7 +99,7 @@ export const renderMenuItem = async (
     { wrapper },
   );
   if (captured.modals == null) throw new Error("modal store was not captured");
-  return { ...rendered, store, modals: captured.modals };
+  return { ...rendered, store, wrapper, modals: captured.modals };
 };
 
 const deviceFormSchema = z.object({

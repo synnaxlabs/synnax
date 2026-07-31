@@ -58,12 +58,14 @@ enum class Kind : std::uint8_t {
     Function = 21,
     Sequence = 22,
     Stage = 23,
+    VarRef = 24,
 };
 
 enum class ChanDirection : std::uint8_t {
     None = 0,
     Read = 1,
     Write = 2,
+    ReadWrite = 3,
 };
 
 /// @brief Channels contains channel declarations for reading from and writing to Synnax
@@ -139,6 +141,8 @@ struct Unit {
     [[nodiscard]] bool is_timestamp() const;
 };
 
+/// @brief Params is a collection of named, typed parameters for function inputs or
+/// outputs.
 struct Params : private std::vector<Param> {
     using Base = std::vector<Param>;
 

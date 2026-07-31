@@ -18,11 +18,11 @@ import (
 	"github.com/synnaxlabs/freighter/freightfluence"
 	"github.com/synnaxlabs/synnax/pkg/api/auth"
 	"github.com/synnaxlabs/synnax/pkg/api/config"
-	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
+	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/x/address"
 	xconfig "github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/confluence"
@@ -406,8 +406,8 @@ func (s *Service) Write(ctx context.Context, stream WriterStream) error {
 		) (framer.WriterRequest, bool, error) {
 			r := framer.WriterRequest{Command: req.Command, Frame: req.Frame}
 			if r.Command == framer.WriterCommandSetAuthority {
-				// We decode like this because msgpack has a tough time decoding slices
-				// of uint8.
+				// We decode like this because MessagePack has a tough time decoding
+				// slices of uint8.
 				r.Config.Authorities = make(
 					[]control.Authority, len(req.Config.Authorities),
 				)

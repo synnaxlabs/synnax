@@ -13,10 +13,9 @@ package pb
 
 import (
 	"encoding/json"
-	ontologypb "github.com/synnaxlabs/synnax/pkg/distribution/ontology/pb"
 	"github.com/synnaxlabs/synnax/pkg/service/device"
+	ontologypb "github.com/synnaxlabs/synnax/pkg/service/ontology/pb"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
-	"github.com/synnaxlabs/synnax/pkg/service/status"
 	statuspb "github.com/synnaxlabs/synnax/pkg/service/status/pb"
 	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/types/known/anypb"
@@ -89,7 +88,7 @@ func DeviceToPB(
 	}
 	if r.Status != nil {
 		var err error
-		pb.Status, err = statuspb.StatusToPB[device.StatusDetails]((status.Status[device.StatusDetails])(*r.Status), StatusDetailsToPBAny)
+		pb.Status, err = statuspb.StatusToPB(*r.Status, StatusDetailsToPBAny)
 		if err != nil {
 			return nil, err
 		}
@@ -121,11 +120,11 @@ func DeviceFromPB(
 	r.Name = pb.Name
 	r.Configured = pb.Configured
 	if pb.Status != nil {
-		val, err := statuspb.StatusFromPB[device.StatusDetails](pb.Status, StatusDetailsFromPBAny)
+		val, err := statuspb.StatusFromPB(pb.Status, StatusDetailsFromPBAny)
 		if err != nil {
 			return device.Device{}, err
 		}
-		r.Status = (*device.Status)(&val)
+		r.Status = &val
 	}
 	if pb.Parent != nil {
 		val, err := ontologypb.IDFromPB(pb.Parent)

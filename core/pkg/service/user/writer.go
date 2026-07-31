@@ -13,8 +13,8 @@ import (
 	"context"
 
 	"github.com/google/uuid"
-	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
+	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
 )
@@ -58,7 +58,7 @@ func (w Writer) create(ctx context.Context, u User) (User, error) {
 	if err := w.table.NewCreate().Entry(&u).Exec(ctx, w.tx); err != nil {
 		return User{}, err
 	}
-	if err := w.otg.DefineResources(ctx, OntologyID(u.Key)); err != nil {
+	if err := w.otg.DefineResources(ctx, u.OntologyID()); err != nil {
 		return User{}, err
 	}
 	return u, nil

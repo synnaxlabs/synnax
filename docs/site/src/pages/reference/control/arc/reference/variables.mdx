@@ -2,60 +2,32 @@
 layout: "@/layouts/Reference.astro"
 title: "Variables"
 description:
-  "Arc variable reference for constants, local and stateful variables, assignment,
-  scope, and shadowing"
+  "Arc variable reference for literal, stateful, channel-read, and channel read/write
+  variables, assignment, and scope"
 prev: "Types"
 prevURL: "/reference/control/arc/reference/types"
 next: "Operators"
 nextURL: "/reference/control/arc/reference/operators"
 ---
 
-import { Divider } from "@synnaxlabs/pluto";
+import { Divider, Icon, Note, Text } from "@synnaxlabs/pluto";
+import { Arc } from "@/components";
+import Details from "@/components/details/Details.astro";
 import { mdxOverrides } from "@/components/mdxOverrides";
 
 export const components = mdxOverrides;
 
-## Constants
+## Declaration
 
-Top-level declarations are compile-time constants. Use them for configuration values and
-to avoid magic numbers.
+A variable names a value. Declare one with `:=`, or `$=` to make it stateful. In the
+flow context, a variable takes one of three kinds.
 
-```arc
-MAX_PRESSURE := 500.0 // f64 constant
-SAMPLE_COUNT := 100 // i64 constant
-TIMEOUT := 30s // with unit suffix
-SCALE f32 := 2.5 // explicit type
-```
-
-Constants can be used in expressions and function inputs:
-
-```arc
-pressure > MAX_PRESSURE -> alarm{}
-
-sensor -> scale{gain=SCALE, offset=0.1} -> output
-```
-
-<Divider.Divider x />
-
-## Local Variables
-
-Local variables are declared with `:=` inside functions and reset each invocation.
-
-```arc
-x := 42 // type inferred as i64
-y f64 := 3.14 // explicit type
-```
-
-<Divider.Divider x />
-
-## Stateful Variables
-
-Stateful variables are declared with `$=` and persist across invocations.
-
-```arc
-count $= 0 // persists between calls
-total f64 $= 0.0 // explicit type
-```
+| Declaration          | Kind               | Behavior                                            |
+| -------------------- | ------------------ | --------------------------------------------------- |
+| `x := 5`             | Literal            | Holds a value; resets to its initial value on entry |
+| `x $= 0`             | Literal (stateful) | Holds a value; keeps it across scope entries        |
+| `scaled := raw * 2`  | Channel read       | Read-only; follows the channels it reads            |
+| `valve := valve_cmd` | Channel read/write | Reads and writes the channel; can be rebound        |
 
 <Divider.Divider x />
 
@@ -67,41 +39,304 @@ Assign to existing variables with `=`:
 x = x + 1
 ```
 
-<Divider.Divider x />
-
-## Compound Assignment
+Supported compound assignment:
 
 ```arc
-count += 1 // count = count + 1
-value -= 10 // value = value - 10
-total *= 2 // total = total * 2
-ratio /= 4 // ratio = ratio / 4
-remainder %= 3 // remainder = remainder % 3
+count += 1      // count = count + 1
+value -= 10     // value = value - 10
+total *= 2      // total = total * 2
+ratio /= 4      // ratio = ratio / 4
+remainder %= 3  // remainder = remainder % 3
 ```
 
 <Divider.Divider x />
 
-## Variable Scope
+## Scope
 
-Variables are visible from their declaration point to the end of their enclosing block.
-Nested blocks can access variables from enclosing scopes.
+A variable is visible from its declaration to the end of its enclosing block, and nested
+blocks can read variables from enclosing scopes. A variable is usable only after its
+declaration, including across stages.
+
+<Arc.Tabs client:load>
+
+<Fragment slot="flow">
 
 ```arc
-func example() {
-    x := 10 // visible for rest of function
-    if x > 5 {
-        y := x + 1 // visible only inside if block
+sequence main {
+    // visible for the rest of the sequence
+    x := 10
+    stage s1 {
+        // visible only inside the stage
+        y := x + 1
     }
     // y is not visible here
 }
 ```
 
+</Fragment>
+
+<Fragment slot="function">
+
+```arc
+func example() {
+    // visible for the rest of the function
+    x := 10
+    if x > 5 {
+        // visible only inside the if block
+        y := x + 1
+    }
+    // y is not visible here
+}
+```
+
+</Fragment>
+
+</Arc.Tabs>
+
+<Note.Note variant="info">
+  Top-level variables are global constants and cannot be reassigned or written to.
+  Stateful variable declarations are not allowed at the top level.
+</Note.Note>
+
+<Divider.Divider x />
+## Variable Types
+
+### Literal
+
+A `literal` variable holds a value. Declare it with `:=`; the type is inferred from the
+value, or you can annotate it. A literal resets to its initial value on each entry into
+its scope.
+
+```arc
+MAX_PRESSURE := 500.0 // f64
+SAMPLE_COUNT := 100   // i64
+SETPOINT f64 := 50.0  // explicit type
+TIMEOUT := 30s        // with unit suffix
+```
+
+### Stateful
+
+A stateful variable keeps its value across scope entries instead of resetting. Declare
+it with `$=`. Only literal variables can be stateful.
+
+```arc
+count $= 0 // persists across entries
+```
+
+Stateful variables drive counters, accumulators, and edge detection. The
+[Stateful Variables](/reference/control/arc/concepts/stateful-variables) concept page
+covers common patterns and reset behavior.
+
 <Divider.Divider x />
 
-## No Shadowing
+### Channel Read/Write
+
+A channel read/write variable names a channel directly. Reads and writes pass through to
+that channel, so it behaves exactly like the channel it names. Reassign it with `=` to
+rebind it to another channel of the same type.
+
+<Details>
+<Text.Text slot="summary" level="p"><Icon.Arc /> Readable Names</Text.Text>
+
+A short local name for a long or deeply namespaced channel.
+
+```arc
+cpu := sy_node_1_metrics_cpu
+cpu > 90.0 => throttle
+```
+
+</Details>
+
+<Details>
+<Text.Text slot="summary" level="p"><Icon.Arc /> Actuator Failover</Text.Text>
+
+Command an actuator through an alias; on a fault, rebind it to the backup. Writes stay
+wired to the alias and follow whichever channel is bound.
+
+```arc
+stage main {
+    pump := pump_a_cmd
+
+    sequence run {
+        stage primary {
+            pump_a_fault => backup
+        }
+        stage backup {
+            pump = pump_b_cmd // reroute commands to the backup pump
+        }
+    }
+
+    // writes follow whichever pump is bound
+    run_cmd -> pump
+}
+```
+
+</Details>
+
+<Details>
+<Text.Text slot="summary" level="p"><Icon.Arc /> Clamp a Setpoint</Text.Text>
+
+Read and write the same channel: watch an operator-writable setpoint and write a safe
+limit back when it exceeds a bound.
+
+```arc
+setpoint := setpoint_cmd
+
+sequence guard {
+    stage watch {
+        setpoint > 500.0 => clamp
+    }
+    stage clamp {
+        500.0 -> setpoint // write a safe limit back
+        setpoint <= 500.0 => watch
+    }
+}
+```
+
+</Details>
+
+<Details>
+<Text.Text slot="summary" level="p"><Icon.Arc /> Device Selection</Text.Text>
+
+Point the same routine at a chosen unit; rebind the alias to switch targets without
+rewiring the flow.
+
+```arc
+stage main {
+    dut := dut_a_cmd // default target
+
+    sequence run {
+        stage select {
+            use_b => on_b // pick unit B instead
+        }
+        stage on_b {
+            dut = dut_b_cmd
+        }
+    }
+
+    run_cmd -> dut // commands follow whichever unit is bound
+}
+```
+
+</Details>
+
+<Divider.Divider x />
+
+### Channel Read
+
+A `channel read` variable is a read-only expression over one or more channels. It is
+reactive: when any channel it reads produces new data, the variable updates and every
+flow that reads it runs again with the new value.
+
+Writing to a channel-read variable throws a compile error (`value -> scaled`).
+Reassigning it with `=` is not a plain value replacement; it rebinds the expression, and
+the variable follows the new rule from its next trigger onward.
+
+<Details>
+<Text.Text slot="summary" level="p"><Icon.Arc /> Logging</Text.Text>
+
+A status label that reflects the current stage and the live reading, logged as it
+streams.
+
+```arc
+stage monitor {
+    reactive_expr := "Nominal: " + str(ai_0)
+
+    sequence main {
+        stage nominal {
+            reactive_expr = "Nominal: " + str(ai_0)
+        }
+        stage low {
+            reactive_expr = "Low: " + str(ai_0)
+        }
+        stage high {
+            reactive_expr = "High: " + str(ai_0)
+        }
+    }
+
+    // Updates on underlying `ai_0`
+    reactive_expr -> log
+}
+```
+
+</Details>
+
+<Details>
+<Text.Text slot="summary" level="p"><Icon.Arc /> Gain Scheduling</Text.Text>
+
+A proportional command whose gain changes with the phase, feeding the proportional valve
+directly.
+
+```arc
+stage control {
+    // proportional command; the gain changes with the phase
+    command := coarse_gain * (setpoint - pressure)
+
+    sequence pressurize {
+        stage fill {
+            pressure > 400.0 => trim
+        }
+        stage trim {
+            // gentler gain near the target
+            command = fine_gain * (setpoint - pressure)
+        }
+    }
+
+    command -> valve_cmd
+}
+```
+
+</Details>
+
+<Details>
+<Text.Text slot="summary" level="p"><Icon.Arc /> Sensor Failover</Text.Text>
+
+Read a scaled sensor; on a fault, reassign the same variable to a backup probe.
+Downstream flows stay wired to the variable.
+
+```arc
+stage monitor {
+    temp := probe_a * 0.1 - 40.0
+
+    sequence acquire {
+        stage primary {
+            probe_a_fault => failover
+        }
+        stage failover {
+            // identical scaling, backup probe
+            temp = probe_b * 0.1 - 40.0
+        }
+    }
+
+    temp -> temperature
+}
+```
+
+</Details>
+
+<Divider.Divider x />
+
+## Shadowing
 
 Arc does not allow shadowing. A variable cannot have the same name as one in an
 enclosing scope:
+
+<Arc.Tabs client:load>
+
+<Fragment slot="flow">
+
+```arc
+sequence example {
+    x i32 := 10
+    stage s1 {
+        x i32 := 20 // Error: conflicts with outer x
+    }
+}
+```
+
+</Fragment>
+
+<Fragment slot="function">
 
 ```arc
 func example() {
@@ -112,7 +347,29 @@ func example() {
 }
 ```
 
+</Fragment>
+
+</Arc.Tabs>
+
 Use a different name or reassign the existing variable:
+
+<Arc.Tabs client:load>
+
+<Fragment slot="flow">
+
+```arc
+sequence example {
+    x i32 := 10
+    stage s1 {
+        inner_x i32 := 20 // different name
+        x = 20 // reassign existing
+    }
+}
+```
+
+</Fragment>
+
+<Fragment slot="function">
 
 ```arc
 func example() {
@@ -124,10 +381,32 @@ func example() {
 }
 ```
 
+</Fragment>
+
+</Arc.Tabs>
+
 Local variables can shadow built-in functions and constants:
+
+<Arc.Tabs client:load>
+
+<Fragment slot="flow">
+
+```arc
+sequence example {
+    min := 10 // shadows built-in min function
+}
+```
+
+</Fragment>
+
+<Fragment slot="function">
 
 ```arc
 func example() {
     min := 10 // shadows built-in min function
 }
 ```
+
+</Fragment>
+
+</Arc.Tabs>

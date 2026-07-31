@@ -10,10 +10,16 @@
 import "@/feature/schematic/toolbar/Toolbar.css";
 
 import { schematic } from "@synnaxlabs/client";
-import { Breadcrumb, Flex, Icon, Schematic, Tabs } from "@synnaxlabs/pluto";
-import { type ReactElement, useCallback, useMemo } from "react";
+import {
+  Breadcrumb,
+  Flex,
+  Icon,
+  Panel as PlutoPanel,
+  Schematic,
+  Tabs,
+} from "@synnaxlabs/pluto";
+import { type ReactElement, useCallback } from "react";
 
-import { useExport } from "@/feature/schematic/export";
 import { Control } from "@/feature/schematic/toolbar/Control";
 import { Properties } from "@/feature/schematic/toolbar/Properties";
 import { Symbols } from "@/feature/schematic/toolbar/Symbols";
@@ -23,12 +29,6 @@ import { Empty } from "@/platform/empty";
 import { Export } from "@/platform/export";
 import { Toolbar as Base } from "@/platform/toolbar";
 import { Session } from "@/session";
-
-const TABS = [
-  { tabKey: "symbols", name: "Symbols" },
-  { tabKey: "properties", name: "Properties" },
-  { tabKey: "control", name: "Control" },
-];
 
 const NotEditableContent = (): ReactElement => {
   const key = Schematic.useKey();
@@ -60,7 +60,6 @@ const Internal = (): ReactElement => {
   const activeTab = Session.Schematic.useSelectActiveToolbarTab();
   const name = Schematic.useSelectName();
   const { isCurrentlyEditable, canEdit } = Session.Schematic.useSelectEditable();
-  const handleExport = useExport();
   const selected = Session.Schematic.useSelectSelected();
   const singleSelectedConfig = Schematic.useSelectElementConfig({
     elKey: selected.length === 1 ? selected[0] : "",
@@ -71,20 +70,6 @@ const Internal = (): ReactElement => {
     "label" in singleSelectedConfig
       ? (singleSelectedConfig.label?.label ?? null)
       : null;
-  const content = useCallback(
-    ({ tabKey }: Tabs.Tab) => {
-      if (!isCurrentlyEditable) return <NotEditableContent />;
-      switch (tabKey) {
-        case "symbols":
-          return <Symbols />;
-        case "control":
-          return <Control />;
-        default:
-          return <Properties />;
-      }
-    },
-    [isCurrentlyEditable],
-  );
   const handleTabSelect = useCallback(
     (tabKey: string): void => {
       dispatch(
@@ -96,18 +81,9 @@ const Internal = (): ReactElement => {
     },
     [dispatch],
   );
-  const value = useMemo(
-    () => ({
-      tabs: TABS,
-      selected: activeTab,
-      onSelect: handleTabSelect,
-      content,
-    }),
-    [activeTab, content, handleTabSelect],
-  );
   return (
-    <Tabs.Provider value={value}>
-      <Base.Content>
+    <Base.Content>
+      <Tabs.Frame value={activeTab} onChange={handleTabSelect} grow>
         <Base.Header>
           <Breadcrumb.Breadcrumb level="h5">
             <Breadcrumb.Segment weight={500} color={10} level="h5">
@@ -122,31 +98,48 @@ const Internal = (): ReactElement => {
           </Breadcrumb.Breadcrumb>
           <Flex.Box x align="center" empty>
             <Flex.Box x empty className={CSS.BE("schematic", "toolbar", "actions")}>
-              <Export.ToolbarButton onExport={() => handleExport(key)} />
+              <Export.ToolbarButton getID={() => schematic.ontologyID(key)} />
               <Cluster.CopyLinkToolbarButton
                 name={name}
                 ontologyID={schematic.ontologyID(key)}
               />
             </Flex.Box>
             {canEdit && (
-              <Tabs.Selector
-                className={CSS.BE("schematic", "toolbar", "tab-selector")}
-              />
+              <Tabs.Selector className={CSS.BE("schematic", "toolbar", "tab-selector")}>
+                <Tabs.Tab itemKey="symbols">Symbols</Tabs.Tab>
+                <Tabs.Tab itemKey="properties">Properties</Tabs.Tab>
+                <Tabs.Tab itemKey="control">Control</Tabs.Tab>
+              </Tabs.Selector>
             )}
           </Flex.Box>
         </Base.Header>
-        <Tabs.Content />
-      </Base.Content>
-    </Tabs.Provider>
+        {isCurrentlyEditable ? (
+          <>
+            <Tabs.Content itemKey="symbols">
+              <Symbols />
+            </Tabs.Content>
+            <Tabs.Content itemKey="properties">
+              <Properties />
+            </Tabs.Content>
+            <Tabs.Content itemKey="control">
+              <Control />
+            </Tabs.Content>
+          </>
+        ) : (
+          <Tabs.Content>
+            <NotEditableContent />
+          </Tabs.Content>
+        )}
+      </Tabs.Frame>
+    </Base.Content>
   );
 };
 
-export interface ToolbarProps {
-  layoutKey: string;
-}
-
-export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement => (
-  <Schematic.Suspended schematicKey={layoutKey}>
-    <Internal />
-  </Schematic.Suspended>
-);
+export const Toolbar = (): ReactElement => {
+  const { key } = PlutoPanel.useSelectTabResource();
+  return (
+    <Schematic.Suspended schematicKey={key}>
+      <Internal />
+    </Schematic.Suspended>
+  );
+};

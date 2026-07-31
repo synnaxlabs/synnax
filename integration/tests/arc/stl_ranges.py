@@ -14,13 +14,15 @@ from framework.utils import create_virtual_channel
 from tests.arc.arc import ArcCase
 
 DONE = "ranges_done"
-PARENT_NAME = "STL_Range_Parent"
-PARENT_KEY_TOKEN = "__PARENT_KEY__"
+FLOW_PARENT_KEY_OUT = "flow_parent_key_out"
 
 # ranges.end sets the end to now, so end ~= start instead of TimeStampMax.
 END_NOW_TOLERANCE = 200 * sy.TimeSpan.MILLISECOND
 # Start-time window slack for scheduling and driver/test clock skew.
 START_SLACK = 500 * sy.TimeSpan.MILLISECOND
+# flow_capture_seq waits out two 100ms stages between creating RangeFlow_Parent
+# and ending it.
+FLOW_END_DELAY = 200 * sy.TimeSpan.MILLISECOND
 
 ARC_STL_RANGES_SOURCE = """
 import ranges
@@ -50,10 +52,10 @@ func range_test{}() {
     ranges.create("RangeFunc_Hex_2", "", "#44aa66")
     ranges.create("RangeFunc_Hex_3", "", "#ddeeff")
 
-    // Parent (key injected by the test)
-    ranges.create("RangeFunc_Child", "__PARENT_KEY__", "rgb(10, 20, 30)")
-    // Parent without a color (positional, since parent precedes color)
-    ranges.create("RangeFunc_Child_NoColor", "__PARENT_KEY__")
+    // Func bodies are sequential; children see the captured key.
+    func_parent := ranges.create("RangeFunc_Parent")
+    ranges.create("RangeFunc_Child", func_parent, "rgb(10, 20, 30)")
+    ranges.create("RangeFunc_Child_NoColor", func_parent)
 
     // Invalid color, concatenated at runtime so the analyzer's compile-time literal
     // check can't reject it; the create must fail at runtime.
@@ -62,10 +64,7 @@ func range_test{}() {
 }
 start_stl_ranges_cmd -> range_test{}
 
-
 // ───────────────────────── Flow Context ──────────────────────────
-// Flow context supports named args via the brace form, so parent can be omitted.
-// Create no End
 start_stl_ranges_cmd -> ranges.create{name="RangeFlow_Create"}
 
 // RGB
@@ -83,13 +82,29 @@ start_stl_ranges_cmd -> ranges.create{name="RangeFlow_Hex_1", color="#112233"}
 start_stl_ranges_cmd -> ranges.create{name="RangeFlow_Hex_2", color="#44aa66"}
 start_stl_ranges_cmd -> ranges.create{name="RangeFlow_Hex_3", color="#ddeeff"}
 
-// Parent (key injected by the test)
-start_stl_ranges_cmd -> ranges.create{name="RangeFlow_Child", parent="__PARENT_KEY__", color="rgb(10, 20, 30)"}
-// Parent without a color
-start_stl_ranges_cmd -> ranges.create{name="RangeFlow_Child_NoColor", parent="__PARENT_KEY__"}
+// ──────────────── Flow Variable Use  ─────────────────
+start_stl_ranges_cmd => flow_capture_seq
 
-// ────────────────────────── End Signal ───────────────────────────
-time.wait{100ms} -> 1 -> ranges_done
+sequence flow_capture_seq {
+    fp_key str := ""
+
+    stage create_parent {
+        1 -> ranges.create{name="RangeFlow_Parent"} -> fp_key
+        fp_key -> flow_parent_key_out // For verification
+        time.wait{100ms} -> next
+    }
+    stage create_children {
+        1 -> ranges.create{name="RangeFlow_Child", parent=fp_key, color="rgb(10, 20, 30)"}
+        1 -> ranges.create{name="RangeFlow_Child_NoColor", parent=fp_key}
+        time.wait{100ms} -> next
+    }
+    sequence wrap_up {
+        1 -> ranges.end{key=fp_key}
+
+        // End signal
+        time.wait{100ms} -> 1 -> ranges_done
+    }
+}
 """
 
 
@@ -98,12 +113,14 @@ class Case(NamedTuple):
 
     color is the expected sy.Color or None when the range has no color. ends_now is True
     when ranges.end closed the range (end ~= start), False when the range is left open
-    (end == TimeStampMax).
+    (end == TimeStampMax). end_delay is the time the program deliberately spends between
+    the create and the end, and is zero when the end follows the create directly.
     """
 
     name: str
     color: sy.Color | None
     ends_now: bool
+    end_delay: sy.TimeSpan = sy.TimeSpan.ZERO
 
 
 CASES: list[Case] = [
@@ -118,6 +135,7 @@ CASES: list[Case] = [
     Case("RangeFunc_Hex_1", sy.Color("#112233"), False),
     Case("RangeFunc_Hex_2", sy.Color("#44aa66"), False),
     Case("RangeFunc_Hex_3", sy.Color("#ddeeff"), False),
+    Case("RangeFunc_Parent", None, False),
     Case("RangeFunc_Child", sy.Color("rgb(10, 20, 30)"), False),
     Case("RangeFunc_Child_NoColor", None, False),
     Case("RangeFlow_Create", None, False),
@@ -130,16 +148,16 @@ CASES: list[Case] = [
     Case("RangeFlow_Hex_1", sy.Color("#112233"), False),
     Case("RangeFlow_Hex_2", sy.Color("#44aa66"), False),
     Case("RangeFlow_Hex_3", sy.Color("#ddeeff"), False),
+    Case("RangeFlow_Parent", None, True, FLOW_END_DELAY),
     Case("RangeFlow_Child", sy.Color("rgb(10, 20, 30)"), False),
     Case("RangeFlow_Child_NoColor", None, False),
 ]
 
-CHILD_NAMES = [
-    "RangeFunc_Child",
-    "RangeFunc_Child_NoColor",
-    "RangeFlow_Child",
-    "RangeFlow_Child_NoColor",
-]
+# Each Arc-created parent range and the children its captured key must parent.
+CHILDREN_BY_PARENT: dict[str, list[str]] = {
+    "RangeFunc_Parent": ["RangeFunc_Child", "RangeFunc_Child_NoColor"],
+    "RangeFlow_Parent": ["RangeFlow_Child", "RangeFlow_Child_NoColor"],
+}
 
 BAD_COLOR_NAME = "RangeFunc_BadColor"
 
@@ -147,30 +165,17 @@ NAMES = [c.name for c in CASES]
 
 
 class StlRanges(ArcCase):
-    """Test ranges.create and ranges.end in both func and flow form.
-
-    A single trigger runs the func body and fires every flow create, producing ranges
-    with and without an explicit end, with rgb/rgba/hex colors, and under a parent. Each
-    created range is verified for start, end, color, and parent. An invalid color built
-    at runtime must fail the create entirely: no range is created and a warning status
-    surfaces on the task.
-    """
+    """Test ranges.create and ranges.end in both func and flow form."""
 
     arc_source = ARC_STL_RANGES_SOURCE
     arc_name_prefix = "ArcStlRanges"
     start_cmd_channel = "start_stl_ranges_cmd"
-    subscribe_channels = [DONE]
+    subscribe_channels = [DONE, FLOW_PARENT_KEY_OUT]
     collect_task_status = True
 
     def setup(self) -> None:
-        self._parent = self.client.ranges.create(
-            name=PARENT_NAME,
-            time_range=sy.TimeRange(sy.TimeStamp.now(), sy.TimeStamp.MAX),
-        )
-        self.arc_source = ARC_STL_RANGES_SOURCE.replace(
-            PARENT_KEY_TOKEN, str(self._parent.key)
-        )
         create_virtual_channel(self.client, DONE, sy.DataType.UINT8)
+        create_virtual_channel(self.client, FLOW_PARENT_KEY_OUT, sy.DataType.STRING)
         self._before = sy.TimeStamp.now()
         super().setup()
 
@@ -178,9 +183,7 @@ class StlRanges(ArcCase):
         with self._try_to("delete created ranges"):
             keys = [
                 r.key
-                for r in self.client.ranges.retrieve(
-                    names=NAMES + [PARENT_NAME, BAD_COLOR_NAME]
-                )
+                for r in self.client.ranges.retrieve(names=NAMES + [BAD_COLOR_NAME])
             ]
             if keys:
                 self.client.ranges.delete(keys)
@@ -214,14 +217,18 @@ class StlRanges(ArcCase):
             self.fail(f"{BAD_COLOR_NAME} was created despite an invalid color")
 
     def _verify_parents(self, found: dict[str, sy.Range]) -> None:
-        children = self.client.ontology.retrieve_children(self._parent.ontology_id)
-        keys = {res.id.key for res in children}
-        for name in CHILD_NAMES:
-            if str(found[name].key) not in keys:
-                self.fail(
-                    f"{name} not parented under {PARENT_NAME}; "
-                    f"parent's children = {keys}"
-                )
+        # Assert the captured key equals the real parent's key.
+        self.wait_for_eq(FLOW_PARENT_KEY_OUT, str(found["RangeFlow_Parent"].key))
+        for parent_name, child_names in CHILDREN_BY_PARENT.items():
+            parent = found[parent_name]
+            children = self.client.ontology.retrieve_children(parent.ontology_id)
+            keys = {res.key for res in children}
+            for name in child_names:
+                if str(found[name].key) not in keys:
+                    self.fail(
+                        f"{name} not parented under {parent_name}; "
+                        f"parent's children = {keys}"
+                    )
 
     def _verify_range(
         self, case: Case, rng: sy.Range, before: sy.TimeStamp, after: sy.TimeStamp
@@ -237,9 +244,10 @@ class StlRanges(ArcCase):
             )
 
         if case.ends_now:
-            if not 0 <= end - start <= int(END_NOW_TOLERANCE):
+            budget = int(case.end_delay) + int(END_NOW_TOLERANCE)
+            if not 0 <= end - start <= budget:
                 self.fail(
-                    f"{case.name}: expected end ~= start (within "
+                    f"{case.name}: expected end ~= start + {case.end_delay} (within "
                     f"{END_NOW_TOLERANCE}), got end-start={end - start}ns"
                 )
         elif end != int(sy.TimeStamp.MAX):

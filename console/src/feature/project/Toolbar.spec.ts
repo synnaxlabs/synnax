@@ -7,12 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { createTestClient, ontology } from "@synnaxlabs/client";
+import { ontology } from "@synnaxlabs/client";
+import { createTestClient } from "@synnaxlabs/client/testutil";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { Project } from "@/feature/project";
-import { renderToolbar } from "@/platform/ontology/menuTestutil";
+import { renderToolbar } from "@/platform/tree/menuTestutil";
 import { getIconButton, uniqueName } from "@/testutil";
 
 const client = createTestClient();

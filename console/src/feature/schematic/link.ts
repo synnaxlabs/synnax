@@ -7,19 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { useCallback } from "react";
+import { Link } from "@/platform/link";
 
-import { Layout } from "@/platform/layout";
-import { type Link } from "@/platform/link";
-import { Schematic } from "@/platform/schematic";
+export const useLink = Link.createUseOpenResourceTab("schematic");
 
-export const useLink = (): Link.Handler => {
-  const placeLayout = Layout.usePlacer();
-  return useCallback(
-    async ({ client, key }) => {
-      const { name } = await client.schematics.retrieve({ key });
-      placeLayout(Schematic.create({ key, name }));
-    },
-    [placeLayout],
-  );
-};
+export const LINKS: Link.Registry = { schematic: useLink };

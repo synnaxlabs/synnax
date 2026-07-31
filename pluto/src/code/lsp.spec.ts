@@ -15,7 +15,7 @@ import {
   type LSPMessage,
   type LSPStream,
   useLanguageServer,
-  type UseLanguageServerArgs,
+  type UseLanguageServerParams,
 } from "@/code/lsp";
 
 const { startMock, stopMock } = vi.hoisted(() => ({
@@ -59,7 +59,7 @@ describe("useLanguageServer", () => {
   const variants = (): string[] => statuses().map((s) => s.variant);
   const last = (): status.Status => statuses().at(-1) as status.Status;
 
-  const renderLSP = (overrides: Partial<UseLanguageServerArgs> = {}) =>
+  const renderLSP = (overrides: Partial<UseLanguageServerParams> = {}) =>
     renderHook(() =>
       useLanguageServer({
         monaco: MONACO,

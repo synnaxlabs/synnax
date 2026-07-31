@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import "@/platform/range/Select.css";
+
 import { ranger } from "@synnaxlabs/client";
 import {
   Component,
@@ -22,6 +24,7 @@ import {
 } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
+import { CSS } from "@/platform/css";
 import { Session } from "@/session";
 
 interface SelectMultipleRangesProps extends Omit<
@@ -29,16 +32,16 @@ interface SelectMultipleRangesProps extends Omit<
   "resourceName" | "data" | "children"
 > {}
 
-const dynamicIcon = (
-  <Icon.Dynamic style={{ color: "var(--pluto-error-p1)", filter: "opacity(0.8)" }} />
-);
+const dynamicIcon = <Icon.Dynamic className={CSS.BE("range-select", "dynamic-icon")} />;
 
 const DynamicListItem = Component.renderProp(
   (props: List.ItemProps<string> & { range: Session.Range.DynamicState }) => {
     const { range } = props;
     return (
       <Select.ListItem {...props} justify="between">
-        <Text.Text style={{ width: 100 }}>{range.name}</Text.Text>
+        <Text.Text className={CSS.BE("range-select", "dynamic-name")}>
+          {range.name}
+        </Text.Text>
         <Text.Text>
           {new TimeSpan(range.span).toString()}
           {dynamicIcon}

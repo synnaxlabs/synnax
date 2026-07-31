@@ -7,9 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { createTestClient, type lineplot } from "@synnaxlabs/client";
-import { MAIN_WINDOW } from "@synnaxlabs/drift";
-import { LinePlot as PLinePlot } from "@synnaxlabs/pluto";
+import { lineplot } from "@synnaxlabs/client";
+import { createTestClient } from "@synnaxlabs/client/testutil";
+import { LinePlot as PLinePlot, Panel as PlutoPanel } from "@synnaxlabs/pluto";
 import { id } from "@synnaxlabs/x";
 import { act, render, within } from "@testing-library/react";
 import {
@@ -22,7 +22,11 @@ import {
 
 import { Modals } from "@/platform/modals";
 import { Session } from "@/session";
-import { type ConsolePreloadedState, createConsoleWrapper } from "@/testutil";
+import {
+  type ConsolePreloadedState,
+  createConsoleWrapper,
+  createResourceTab,
+} from "@/testutil";
 
 export const client = createTestClient();
 
@@ -54,34 +58,10 @@ const loadLinePlot = async (
   await within(utils.container).findByTestId("loaded");
 };
 
-export const createLayoutState = (key: string, name: string): Session.Layout.State => ({
-  key,
-  windowKey: MAIN_WINDOW,
-  type: "lineplot",
-  name,
-  location: "mosaic",
-});
-
 export const createPreloadedState = (
   key: string,
-  name: string,
   plotState: Partial<Session.LinePlot.State> = {},
 ): ConsolePreloadedState => ({
-  [Session.Layout.SLICE_NAME]: {
-    ...Session.Layout.ZERO_SLICE_STATE,
-    layouts: {
-      ...Session.Layout.ZERO_SLICE_STATE.layouts,
-      [key]: createLayoutState(key, name),
-    },
-    mosaics: {
-      ...Session.Layout.ZERO_SLICE_STATE.mosaics,
-      [MAIN_WINDOW]: {
-        activeTab: key,
-        focused: null,
-        root: { key: 1, tabs: [{ tabKey: key, name }] },
-      },
-    },
-  },
   [Session.LinePlot.SLICE_NAME]: {
     ...Session.LinePlot.ZERO_SLICE_STATE,
     plots: { [key]: { ...Session.LinePlot.ZERO_STATE, ...plotState } },
@@ -93,11 +73,12 @@ export interface RenderLinePlotOptions {
   preloadedState?: (key: string) => ConsolePreloadedState;
 }
 
-// renderLinePlot creates a line plot on the server, mounts Component with the plot
-// loaded into the flux cache and a live Modals.Stack, and returns the render result
-// plus the Redux store and plot key.
+// renderLinePlot creates a line plot on the server, mounts Component inside the panel
+// and tab scopes of a seeded resource tab (the way the mosaic renders a tab) with the
+// plot loaded into the flux cache and a live Modals.Stack, and returns the render
+// result plus the Redux store and plot key.
 export const renderLinePlot = async (
-  Component: ComponentType<{ layoutKey: string }>,
+  Component: ComponentType,
   { linePlot: overrides, preloadedState }: RenderLinePlotOptions = {},
 ) => {
   const created = await client.lineplots.create(await project(), {
@@ -109,11 +90,17 @@ export const renderLinePlot = async (
     preloadedState: preloadedState?.(created.key),
   });
   await loadLinePlot(Wrapper, created.key);
+  const { panelKey, tabKey } = createResourceTab(
+    Wrapper,
+    lineplot.ontologyID(created.key),
+  );
   const result = render(
-    <>
-      <Component layoutKey={created.key} />
-      <Modals.Stack />
-    </>,
+    <PlutoPanel.Scope.Provider value={panelKey}>
+      <PlutoPanel.TabScope.Provider value={tabKey}>
+        <Component />
+        <Modals.Stack />
+      </PlutoPanel.TabScope.Provider>
+    </PlutoPanel.Scope.Provider>,
     { wrapper: Wrapper },
   );
   return { key: created.key, result, store };

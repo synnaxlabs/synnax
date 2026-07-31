@@ -10,29 +10,23 @@
 import "@/feature/log/toolbar/Toolbar.css";
 
 import { log } from "@synnaxlabs/client";
-import { Flex, Icon, Log, Tabs } from "@synnaxlabs/pluto";
-import { type ReactElement, useCallback, useMemo } from "react";
+import { Flex, Icon, Log, Panel as PPanel, Tabs } from "@synnaxlabs/pluto";
+import { type ReactElement, useCallback } from "react";
 
-import { useExport } from "@/feature/log/export";
 import { Channels } from "@/feature/log/toolbar/Channels";
 import { Properties } from "@/feature/log/toolbar/Properties";
 import { Cluster } from "@/platform/cluster";
 import { CSS } from "@/platform/css";
 import { Export } from "@/platform/export";
+import { type Panel } from "@/platform/panel";
 import { Toolbar as Base } from "@/platform/toolbar";
 import { Session } from "@/session";
-
-const TABS: Tabs.Tab[] = [
-  { tabKey: "channels", name: "Channels" },
-  { tabKey: "properties", name: "Properties" },
-];
 
 const Internal = (): ReactElement => {
   const dispatch = Session.useDispatch();
   const selected = Session.Log.useSelectSelectedToolbarTab();
   const name = Log.useSelectName();
   const key = Log.useKey();
-  const handleExport = useExport();
   const handleTabSelect = useCallback(
     (tab: string) =>
       dispatch(
@@ -44,48 +38,41 @@ const Internal = (): ReactElement => {
     [dispatch, key],
   );
 
-  const content = useCallback(({ tabKey }: Tabs.Tab) => {
-    switch (tabKey) {
-      case "properties":
-        return <Properties />;
-      default:
-        return <Channels />;
-    }
-  }, []);
-
-  const tabsValue = useMemo(
-    () => ({ tabs: TABS, selected, content, onSelect: handleTabSelect }),
-    [selected, content, handleTabSelect],
-  );
-
   return (
     <Base.Content className={CSS.B("log-toolbar")}>
-      <Tabs.Provider value={tabsValue}>
+      <Tabs.Frame value={selected} onChange={handleTabSelect} grow>
         <Base.Header>
           <Base.Title icon={<Icon.Log />}>{name}</Base.Title>
           <Flex.Box x align="center" empty>
             <Flex.Box x empty className={CSS.BE("log-toolbar", "actions")}>
-              <Export.ToolbarButton onExport={() => handleExport(key)} />
+              <Export.ToolbarButton getID={() => log.ontologyID(key)} />
               <Cluster.CopyLinkToolbarButton
                 name={name}
                 ontologyID={log.ontologyID(key)}
               />
             </Flex.Box>
-            <Tabs.Selector className={CSS.BE("log-toolbar", "tabs")} />
+            <Tabs.Selector className={CSS.BE("log-toolbar", "tabs")}>
+              <Tabs.Tab itemKey="channels">Channels</Tabs.Tab>
+              <Tabs.Tab itemKey="properties">Properties</Tabs.Tab>
+            </Tabs.Selector>
           </Flex.Box>
         </Base.Header>
-        <Tabs.Content />
-      </Tabs.Provider>
+        <Tabs.Content itemKey="channels">
+          <Channels />
+        </Tabs.Content>
+        <Tabs.Content itemKey="properties">
+          <Properties />
+        </Tabs.Content>
+      </Tabs.Frame>
     </Base.Content>
   );
 };
 
-export interface ToolbarProps {
-  layoutKey: string;
-}
-
-export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement => (
-  <Log.Suspended logKey={layoutKey}>
-    <Internal />
-  </Log.Suspended>
-);
+export const Toolbar: Panel.Toolbar = () => {
+  const { key } = PPanel.useSelectTabResource();
+  return (
+    <Log.Suspended logKey={key}>
+      <Internal />
+    </Log.Suspended>
+  );
+};

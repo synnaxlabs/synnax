@@ -24,12 +24,12 @@ import {
 } from "@synnaxlabs/pluto";
 import { type ReactElement, useCallback, useState } from "react";
 
-import { EXPLORER_LAYOUT } from "@/feature/arc/Explorer";
+import { Explorer } from "@/feature/arc/explorer";
 import { Arc as PlatformArc } from "@/platform/arc";
 import { CSS } from "@/platform/css";
 import { Empty } from "@/platform/empty";
-import { Layout } from "@/platform/layout";
 import { type Nav } from "@/platform/nav";
+import { Panel } from "@/platform/panel";
 import { Toolbar } from "@/platform/toolbar";
 
 interface EmptyContentProps {
@@ -49,9 +49,8 @@ const EmptyContent = ({ onCreate }: EmptyContentProps) => {
 
 const Content = () => {
   const [selected, setSelected] = useState<arc.Key[]>([]);
-  const addStatus = Status.useAdder();
   const menuProps = Menu.useContextMenu();
-  const placeLayout = Layout.usePlacer();
+  const openTab = Panel.useOpenTab();
 
   const { data, getItem, subscribe, retrieve } = Arc.useList({});
   const { fetchMore } = List.usePager({ retrieve, pageSize: 1e3 });
@@ -59,18 +58,8 @@ const Content = () => {
   const { update: handleRename } = PlatformArc.useRename(getItem);
 
   const handleEdit = useCallback(
-    (key: arc.Key) => {
-      const retrieved = getItem(key);
-      if (retrieved == null)
-        return addStatus({
-          variant: "error",
-          message: "Failed to open Arc editor",
-          description: `Arc with key ${key} not found`,
-        });
-      const { name } = retrieved;
-      placeLayout(PlatformArc.create({ key, name }));
-    },
-    [getItem, addStatus, placeLayout],
+    (key: arc.Key) => openTab({ variant: "resource", resource: arc.ontologyID(key) }),
+    [openTab],
   );
 
   const create = PlatformArc.useCreate();
@@ -123,7 +112,7 @@ interface ActionsProps {
 }
 
 const Actions = ({ handleCreate }: ActionsProps): ReactElement | null => {
-  const placeLayout = Layout.usePlacer();
+  const openExplorer = Explorer.useOpenTab();
   const hasCreatePermission = Access.useCreateGranted(arc.TYPE_ONTOLOGY_ID);
   const hasRetrievePermission = Access.useRetrieveGranted(arc.TYPE_ONTOLOGY_ID);
   if (!hasCreatePermission && !hasRetrievePermission) return null;
@@ -137,7 +126,7 @@ const Actions = ({ handleCreate }: ActionsProps): ReactElement | null => {
       {hasRetrievePermission && (
         <Toolbar.Action
           tooltip="Open Arc Explorer"
-          onClick={() => placeLayout(EXPLORER_LAYOUT)}
+          onClick={openExplorer}
           variant="filled"
         >
           <Icon.Explore />
@@ -147,7 +136,7 @@ const Actions = ({ handleCreate }: ActionsProps): ReactElement | null => {
   );
 };
 
-export const TOOLBAR: Nav.Item = {
+export const TOOLBAR: Nav.Toolbar = {
   key: "arc",
   icon: <Icon.Arc />,
   content: <Content />,
@@ -181,7 +170,7 @@ const ArcListItem = ({ onRename, onEdit, ...rest }: ArcListItemProps) => {
         <Flex.Box x align="center" gap="small">
           <Status.Indicator
             variant={status.variant}
-            style={{ fontSize: "2rem", minWidth: "2rem" }}
+            className={CSS.BE("arc-list-item", "status")}
           />
           <Text.MaybeEditable
             id={`text-${itemKey}`}

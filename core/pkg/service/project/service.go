@@ -14,15 +14,14 @@ import (
 	"io"
 
 	"github.com/synnaxlabs/alamos"
-	"github.com/synnaxlabs/synnax/pkg/distribution/group"
-	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
-	"github.com/synnaxlabs/synnax/pkg/distribution/search"
-	projectv56 "github.com/synnaxlabs/synnax/pkg/service/project/migrations/v56"
+	"github.com/synnaxlabs/synnax/pkg/service/group"
+	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/project/versions"
+	"github.com/synnaxlabs/synnax/pkg/service/search"
 	"github.com/synnaxlabs/synnax/pkg/service/signals"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/gorp"
 	xio "github.com/synnaxlabs/x/io"
-	"github.com/synnaxlabs/x/migrate"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/service"
 	"github.com/synnaxlabs/x/validate"
@@ -38,10 +37,7 @@ type ServiceConfig struct {
 	Search   *search.Index
 }
 
-var (
-	_                    config.Config[ServiceConfig] = ServiceConfig{}
-	DefaultServiceConfig                              = ServiceConfig{}
-)
+var _ config.Config[ServiceConfig] = ServiceConfig{}
 
 // Override implements config.Config.
 func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
@@ -72,41 +68,18 @@ type Service struct {
 }
 
 func OpenService(ctx context.Context, configs ...ServiceConfig) (s *Service, err error) {
-	cfg, err := config.New(DefaultServiceConfig, configs...)
+	cfg, err := config.New(ServiceConfig{}, configs...)
 	if err != nil {
 		return nil, err
 	}
 	s = &Service{cfg: cfg}
 	cleanup, ok := service.NewOpener(ctx, &s.closer)
 	defer func() { err = cleanup(err) }()
-	if s.table, err = gorp.OpenTable[Key, Project](ctx, gorp.TableConfig[Key, Project]{
+	if s.table, err = gorp.OpenTable(ctx, gorp.TableConfig[Key, Project]{
 		DB: cfg.DB,
-		Migrations: []migrate.Migration{
-			gorp.CodecMigration[Key, projectv56.Workspace]("msgpack_to_orc"),
-			migrate.WithAddedDeps(
-				gorp.NewMigration(
-					"v56_migrate_workspace_to_project",
-					MigrateWorkspaceToProject,
-				),
-				"msgpack_to_orc",
-			),
-			migrate.WithAddedDeps(
-				gorp.NewMigration(
-					"v56_stage_project_layouts",
-					MigrateLayoutsToStaging,
-				),
-				"v56_migrate_workspace_to_project",
-			),
-			migrate.WithAddedDeps(
-				gorp.NewMigration(
-					"v56_remove_project_author_relationships",
-					func(ctx context.Context, tx gorp.Tx, _ alamos.Instrumentation) error {
-						return RemoveAuthorRelationships(ctx, tx, cfg.Ontology)
-					},
-				),
-				"v56_migrate_workspace_to_project",
-			),
-		},
+		Migrations: versions.NewMigrations(
+			versions.MigrationsConfig{Ontology: cfg.Ontology},
+		),
 		Instrumentation: cfg.Instrumentation,
 	}); !ok(err, s.table) {
 		return nil, err
@@ -123,7 +96,7 @@ func OpenService(ctx context.Context, configs ...ServiceConfig) (s *Service, err
 	if sig, err = signals.PublishFromGorp(
 		ctx,
 		cfg.Signals,
-		signals.GorpPublisherConfigUUID[Project](s.table.Observe()),
+		signals.GorpPublisherConfigUUID(s.table.Observe()),
 	); !ok(err, sig) {
 		return nil, err
 	}

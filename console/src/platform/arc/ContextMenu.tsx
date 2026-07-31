@@ -21,12 +21,11 @@ import {
 import { array } from "@synnaxlabs/x";
 import { useCallback } from "react";
 
-import { create } from "@/platform/arc/layout";
 import { Cluster } from "@/platform/cluster";
 import { ContextMenu as Base } from "@/platform/context-menu";
-import { Layout } from "@/platform/layout";
 import { Link } from "@/platform/link";
-import { Ontology } from "@/platform/ontology";
+import { Panel } from "@/platform/panel";
+import { Tree } from "@/platform/tree";
 import { Session } from "@/session";
 
 export interface ContextMenuProps extends Menu.ContextMenuMenuProps {
@@ -46,10 +45,10 @@ export const ContextMenu = ({
   const isSingle = keys.length === 1;
 
   const dispatch = Session.useDispatch();
-  const placeLayout = Layout.usePlacer();
+  const openTab = Panel.useOpenTab();
   const addStatus = Status.useAdder();
   const handleLink = Cluster.useCopyLinkToClipboard();
-  const confirm = Ontology.useConfirmDelete({
+  const confirm = Tree.useConfirmDelete({
     type: "Arc",
     description: "Deleting this Arc will permanently remove it.",
   });
@@ -60,7 +59,7 @@ export const ContextMenu = ({
         if (arcKeys.length === 0) return false;
         const arcs = getItem(arcKeys);
         if (!(await confirm(arcs))) return false;
-        dispatch(Session.Layout.remove({ keys: arcKeys }));
+        dispatch(Session.Arc.remove({ keys: arcKeys }));
         return data;
       },
       [getItem, dispatch],
@@ -75,8 +74,7 @@ export const ContextMenu = ({
         message: "Failed to open Arc editor",
         description: `Arc with key ${keys[0]} not found`,
       });
-    const { name, key } = retrieved;
-    placeLayout(create({ key, name }));
+    openTab({ variant: "resource", resource: arc.ontologyID(retrieved.key) });
   };
 
   const handleCopyLink = () => {

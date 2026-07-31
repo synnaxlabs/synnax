@@ -7,12 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import {
-  createTestClient,
-  NotFoundError,
-  type project,
-  schematic,
-} from "@synnaxlabs/client";
+import { NotFoundError, type project, schematic } from "@synnaxlabs/client";
+import { createTestClient } from "@synnaxlabs/client/testutil";
 import { uuid } from "@synnaxlabs/x";
 import { act, render, renderHook, waitFor, within } from "@testing-library/react";
 import { type FC, type PropsWithChildren, type ReactElement } from "react";
@@ -100,6 +96,30 @@ describe("schematic queries", () => {
       await waitFor(() =>
         expect(utils.queryByTestId("name")?.textContent).toBe("test_schematic"),
       );
+    });
+
+    it("resolves synchronously without suspending when already in the store", async () => {
+      const schem = await createTestSchematic(proj.key);
+      await loadSchematic(Wrapper, schem.key);
+
+      const Display = (): ReactElement => {
+        const s = Schematic.useRetrieveSuspended({ key: schem.key });
+        return <div data-testid="name">{s.name}</div>;
+      };
+
+      let utils!: ReturnType<typeof render>;
+      await act(async () => {
+        utils = render(
+          <Wrapper>
+            <Errors.SuspenseBoundary loading={<div data-testid="fallback" />}>
+              <Display />
+            </Errors.SuspenseBoundary>
+          </Wrapper>,
+        );
+      });
+
+      expect(utils.queryByTestId("fallback")).toBeNull();
+      expect(utils.queryByTestId("name")?.textContent).toBe("test_schematic");
     });
   });
 

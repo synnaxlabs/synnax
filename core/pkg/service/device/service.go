@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+// Package device implements types and services for managing physical pieces of hardware
+// in Synnax. This includes creating, retrieving, and updating devices.
 package device
 
 import (
@@ -14,18 +16,16 @@ import (
 	"io"
 
 	"github.com/synnaxlabs/alamos"
-	"github.com/synnaxlabs/synnax/pkg/distribution/group"
-	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
-	"github.com/synnaxlabs/synnax/pkg/distribution/search"
-	v0 "github.com/synnaxlabs/synnax/pkg/service/device/migrations/v0"
-	v54 "github.com/synnaxlabs/synnax/pkg/service/device/migrations/v54"
+	"github.com/synnaxlabs/synnax/pkg/service/device/versions"
+	"github.com/synnaxlabs/synnax/pkg/service/group"
+	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
+	"github.com/synnaxlabs/synnax/pkg/service/search"
 	"github.com/synnaxlabs/synnax/pkg/service/signals"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/gorp"
 	xio "github.com/synnaxlabs/x/io"
-	"github.com/synnaxlabs/x/migrate"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/service"
 	"github.com/synnaxlabs/x/telem"
@@ -35,30 +35,38 @@ import (
 
 // ServiceConfig is the configuration for creating a device service.
 type ServiceConfig struct {
-	// DB is the gorp database that devices will be stored in.
+	// DB is the Gorp database that devices will be stored in.
+	//
 	// [REQUIRED]
 	DB *gorp.DB
 	// Ontology is used to define relationships between devices and other resources in
 	// the Synnax cluster.
+	//
 	// [REQUIRED]
 	Ontology *ontology.Ontology
 	// Group is used to create device related groups of ontology resources.
+	//
 	// [REQUIRED]
 	Group *group.Service
 	// Status is used to define and process statuses for devices.
+	//
 	// [REQUIRED]
 	Status *status.Service
 	// Search is the search index for fuzzy searching devices.
+	//
 	// [REQUIRED]
 	Search *search.Index
 	// Signals is used to propagate device changes through the Synnax signals' channel
 	// communication mechanism.
+	//
 	// [OPTIONAL]
 	Signals *signals.Provider
 	// Rack is used to retrieve and manage racks.
+	//
 	// [REQUIRED]
 	Rack *rack.Service
 	// Instrumentation is used for logging, tracing, and metrics.
+	//
 	// [OPTIONAL] - Defaults to noop instrumentation.
 	alamos.Instrumentation
 }
@@ -81,7 +89,7 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 // Validate determines whether the configuration can be used for creating a device
 // service.
 func (c ServiceConfig) Validate() error {
-	v := validate.New("hardware.device")
+	v := validate.New("device")
 	validate.NotNil(v, "db", c.DB)
 	validate.NotNil(v, "ontology", c.Ontology)
 	validate.NotNil(v, "status", c.Status)
@@ -90,8 +98,6 @@ func (c ServiceConfig) Validate() error {
 	validate.NotNil(v, "search", c.Search)
 	return v.Error()
 }
-
-var DefaultServiceConfig = ServiceConfig{}
 
 // Service is the main entrypoint for managing devices within Synnax. It provides
 // mechanisms for creating, retrieving, updating, and deleting devices. It also
@@ -107,27 +113,18 @@ type Service struct {
 // is nil, the service is ready for use and must be closed by calling Close to
 // prevent resource leaks.
 func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err error) {
-	cfg, err := config.New(DefaultServiceConfig, cfgs...)
+	cfg, err := config.New(ServiceConfig{}, cfgs...)
 	if err != nil {
 		return nil, err
 	}
 	s = &Service{cfg: cfg}
 	cleanup, ok := service.NewOpener(ctx, &s.closer)
 	defer func() { err = cleanup(err) }()
-	v0Mig := v0.Migration(v0.MigrationConfig{Status: cfg.Status})
-	if s.table, err = gorp.OpenTable[Key, Device](ctx, gorp.TableConfig[Key, Device]{
+	if s.table, err = gorp.OpenTable(ctx, gorp.TableConfig[Key, Device]{
 		DB: cfg.DB,
-		Migrations: []migrate.Migration{
-			v0Mig,
-			gorp.CodecMigration[Key, v54.Device]("msgpack_to_orc", v0Mig.Key()),
-			migrate.WithAddedDeps(
-				gorp.NewEntryMigration[Key, Key, v54.Device, Device](
-					"v54_drop_status_parent",
-					MigrateDevice,
-				),
-				"msgpack_to_orc",
-			),
-		},
+		Migrations: versions.NewMigrations(
+			versions.MigrationsConfig{Status: cfg.Status},
+		),
 		Instrumentation: cfg.Instrumentation,
 	}); !ok(err, s.table) {
 		return nil, err
@@ -144,7 +141,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 		if sig, err = signals.PublishFromGorp(
 			ctx,
 			cfg.Signals,
-			signals.GorpPublisherConfigString[Device](s.table.Observe()),
+			signals.GorpPublisherConfigString(s.table.Observe()),
 		); !ok(err, sig) {
 			return nil, err
 		}
@@ -190,10 +187,10 @@ func (s *Service) onSuspectRack(ctx context.Context, rackStat rack.Status) {
 		Exec(ctx, nil); err != nil {
 		s.cfg.L.Error("failed to retrieve devices on suspect rack", zap.Error(err))
 	}
-	statuses := make([]status.Status[StatusDetails], len(devices))
+	statuses := make([]Status, len(devices))
 	for i, device := range devices {
-		statuses[i] = status.Status[StatusDetails]{
-			Key:         OntologyID(device.Key).String(),
+		statuses[i] = Status{
+			Key:         device.OntologyID().String(),
 			Name:        device.Name,
 			Time:        telem.Now(),
 			Variant:     rackStat.Variant,

@@ -14,21 +14,20 @@ import (
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/alamos"
-	"github.com/synnaxlabs/synnax/pkg/distribution/group"
-	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
-	"github.com/synnaxlabs/synnax/pkg/distribution/search"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/builtin"
-	v0 "github.com/synnaxlabs/synnax/pkg/service/access/rbac/migrations/v0"
+	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/migrations"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/policy"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
+	"github.com/synnaxlabs/synnax/pkg/service/group"
+	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/search"
 	"github.com/synnaxlabs/synnax/pkg/service/signals"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/io"
-	"github.com/synnaxlabs/x/migrate"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/service"
 	"github.com/synnaxlabs/x/validate"
@@ -161,12 +160,12 @@ func OpenService(ctx context.Context, configs ...ServiceConfig) (s *Service, err
 		Instrumentation: cfg.Instrumentation,
 		DB:              cfg.DB,
 		Namespace:       "RBAC",
-		Migrations: []migrate.Migration{v0.Migration(v0.MigrationConfig{
+		Migrations: migrations.New(migrations.Config{
 			User:     cfg.User,
 			Ontology: cfg.Ontology,
 			Role:     s.Role,
 			Roles:    builtinRoles,
-		})},
+		}),
 	}); !ok(err, nil) {
 		return nil, err
 	}
@@ -194,7 +193,7 @@ func (s *Service) assignOwnerToRoots(ctx context.Context, ownerKey role.Key) err
 		for _, r := range roots {
 			if err := w.AssignRole(
 				ctx,
-				user.OntologyID(r.Key),
+				r.OntologyID(),
 				ownerKey,
 			); err != nil {
 				return errors.Wrapf(

@@ -43,7 +43,9 @@ synnax start -l localhost:9090 -im
     {
       option: "--listen/-l",
       default: '"localhost:9090"',
-      description: `A reachable address and port to listen on for incoming client connections and RPCs from other nodes.`,
+      description: `A reachable address and port to listen on for incoming client connections and RPCs from other nodes. To bind
+            multiple addresses, each with its own certificate, provide a list of listener objects in a configuration file.
+            See <a href="/reference/core/production#serving-multiple-listeners">Serving Multiple Listeners</a>.`,
     },
     {
       option: "--peers/-p",
@@ -394,6 +396,68 @@ disable-channel-name-validation = false
 
 </Fragment>
 </Tabs>
+
+#### Multiple Listeners
+
+The `listen` key takes either form. A single address (as above) binds one listener over
+the node certificate paths. A list of objects binds one listener per entry, each with
+its own address and certificate. The list form works in configuration files only, not as
+a flag. See
+[Serving Multiple Listeners](/reference/core/production#serving-multiple-listeners) for
+the full deployment model.
+
+```yaml
+listen:
+  - address: core01.example.com:9090
+    cert:
+      source: file
+      cert: /usr/local/synnax/certs/driver.crt
+      key: /usr/local/synnax/certs/driver.key
+    advertise: true
+  - address: node01.example-tailnet.ts.net:9091
+    cert:
+      source: tailscale
+    name: console
+```
+
+Each listener object accepts the following fields:
+
+<Table.Data
+  client:only="react"
+  columns={[
+    { key: "field", name: "Field", type: "code", width: 130 },
+    { key: "description", name: "Description", type: "html" },
+  ]}
+  data={[
+    {
+      field: "address",
+      description:
+        "The <code>host:port</code> the listener binds to. Required and unique across listeners.",
+    },
+    {
+      field: "cert.source",
+      description:
+        'The certificate source: <code>file</code>, <code>auto</code>, or <code>tailscale</code>. See <a href="/reference/core/production#certificate-sources">Certificate Sources</a>.',
+    },
+    {
+      field: "cert.cert",
+      description: "For a <code>file</code> source, the path to the PEM certificate.",
+    },
+    {
+      field: "cert.key",
+      description: "For a <code>file</code> source, the path to the PEM private key.",
+    },
+    {
+      field: "advertise",
+      description:
+        "Marks this listener's address as the one peers dial to join the cluster. At most one listener may set it; the first listener is advertised if none do.",
+    },
+    {
+      field: "name",
+      description: "An optional label for the listener, shown in logs.",
+    },
+  ]}
+/>
 
 ### Root User Reconciliation
 

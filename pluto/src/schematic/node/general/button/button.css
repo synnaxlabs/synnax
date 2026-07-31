@@ -9,7 +9,7 @@
  * included in the file licenses/APL.txt.
  */
 
-.pluto-symbol-button {
+.pluto-btn.pluto-btn--filled.pluto-symbol-button {
     --pluto-bg: var(--pluto-symbol-display);
     --pluto-hover-bg: oklch(from var(--pluto-symbol-display) l c h / 85%);
     --pluto-active-bg: oklch(from var(--pluto-symbol-display) l c h / 60%);

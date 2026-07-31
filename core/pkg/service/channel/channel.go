@@ -9,46 +9,45 @@
 
 package channel
 
-import "github.com/synnaxlabs/synnax/pkg/distribution/channel"
+import (
+	"strconv"
 
-type (
-	Key           = channel.Key
-	Keys          = channel.Keys
-	LocalKey      = channel.LocalKey
-	Channel       = channel.Channel
-	Operation     = channel.Operation
-	OperationType = channel.OperationType
-	CreateOption  = channel.CreateOption
-	Retrieve      = channel.Retrieve
-	writer        = channel.Writer
+	"github.com/samber/lo"
+	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
+	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/validate"
 )
 
-const (
-	OperationTypeMin        = channel.OperationTypeMin
-	OperationTypeMax        = channel.OperationTypeMax
-	OperationTypeAvg        = channel.OperationTypeAvg
-	OperationTypeNone       = channel.OperationTypeNone
-	OperationTypeDerivative = channel.OperationTypeDerivative
-)
+// Keys is a slice of Key with convenience methods for deduplication, grouping by
+// leaseholder, and conversion to storage keys. Re-exported from [channel.Keys].
+type Keys = channel.Keys
 
 var (
-	RetrieveIfNameExists                        = channel.RetrieveIfNameExists
-	OverwriteIfNameExistsAndDifferentProperties = channel.OverwriteIfNameExistsAndDifferentProperties
-	CreateWithoutGroupRelationship              = channel.CreateWithoutGroupRelationship
-	ParseKey                                    = channel.ParseKey
-	OntologyID                                  = channel.OntologyID
-	MatchKeys                                   = channel.MatchKeys
-	MatchNames                                  = channel.MatchNames
-	OntologyIDsFromChannels                     = channel.OntologyIDsFromChannels
-	KeysFromChannels                            = channel.KeysFromChannels
-	MatchLeaseholders                           = channel.MatchLeaseholders
-	KeysFromUint32                              = channel.KeysFromUint32
-	MatchDataTypes                              = channel.MatchDataTypes
-	MatchVirtual                                = channel.MatchVirtual
-	MatchIsIndex                                = channel.MatchIsIndex
-	MatchInternal                               = channel.MatchInternal
-	ToPayload                                   = channel.ToPayload
-	MatchCalculated                             = channel.MatchCalculated
-	Not                                         = channel.Not
-	NewRandomName                               = channel.NewRandomName
+	// NewKey composes a Key from a leaseholder node key and a node-local LocalKey.
+	// Re-exported from [channel.NewKey].
+	NewKey = channel.NewKey
+	// KeysFromUint32 reinterprets a []uint32 as Keys without copying the underlying
+	// memory. Re-exported from [channel.KeysFromUint32].
+	KeysFromUint32 = channel.KeysFromUint32
 )
+
+// ParseKey attempts to parse the string representation of a Key into a Key.
+func ParseKey(s string) (Key, error) {
+	k, err := strconv.Atoi(s)
+	if err != nil {
+		return Key(0), errors.Wrapf(
+			validate.ErrValidation, "%s is not a valid channel key", s,
+		)
+	}
+	return Key(k), nil
+}
+
+// KeysFromChannels returns a slice of Keys from a slice of Channel(s).
+func KeysFromChannels(channels []Channel) Keys {
+	return lo.Map(channels, func(ch Channel, _ int) Key { return ch.Key() })
+}
+
+// Names returns the names of the channels.
+func Names(channels []Channel) []string {
+	return lo.Map(channels, func(channel Channel, _ int) string { return channel.Name })
+}

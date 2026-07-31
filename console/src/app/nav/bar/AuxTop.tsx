@@ -7,12 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import "@/app/nav/bar/AuxTop.css";
+
 import { Logo } from "@synnaxlabs/media";
 import { Button, Icon, Nav, OS, Project as PProject, Text } from "@synnaxlabs/pluto";
 import { primitive } from "@synnaxlabs/x";
 import { type ReactElement, useCallback } from "react";
 
-import { Items } from "@/app/nav/items";
+import { Toolbars } from "@/app/toolbars";
 import { CSS } from "@/platform/css";
 import { Nav as PlatformNav } from "@/platform/nav";
 import { Window } from "@/platform/window";
@@ -31,7 +33,7 @@ const BottomToggleButton = (): ReactElement => {
       contrast={2}
       color={9}
       weight={450}
-      triggerIndicator={Items.BOTTOM.trigger}
+      triggerIndicator={Toolbars.BOTTOM.trigger}
     >
       <Icon.Visualize />
       Controls
@@ -39,9 +41,10 @@ const BottomToggleButton = (): ReactElement => {
   );
 };
 
+// TODO(SY-4370): surface the focused tab's name in the aux window title; resource
+// tab names resolve through per-type flux name hooks, which the bar cannot reach yet.
 export const AuxTop = (): ReactElement => {
   const os = OS.use();
-  const activeName = Session.Layout.useSelectActiveMosaicTabName();
   const activeProjectKey = Session.Project.useSelectOptionalSelected();
   const { data: activeProject } = PProject.useRetrieve(
     { key: activeProjectKey ?? "" },
@@ -70,9 +73,9 @@ export const AuxTop = (): ReactElement => {
           weight={500}
           color={10}
           data-tauri-drag-region
-          style={{ cursor: "default" }}
+          className={CSS.BE("aux-top", "title")}
         >
-          {activeName} {activeProject?.name && `- ${activeProject.name}`}
+          {activeProject?.name}
         </Text.Text>
       </Nav.Bar.AbsoluteCenter>
       <Nav.Bar.End data-tauri-drag-region align="center" justify="end">

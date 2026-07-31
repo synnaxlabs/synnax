@@ -13,8 +13,8 @@ import (
 	"context"
 
 	"github.com/google/uuid"
-	"github.com/synnaxlabs/synnax/pkg/distribution/group"
-	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/group"
+	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/query"
@@ -44,7 +44,7 @@ func (w Writer) Create(ctx context.Context, view *View) error {
 		Exec(ctx, w.tx); err != nil {
 		return err
 	}
-	otgID := OntologyID(view.Key)
+	otgID := view.OntologyID()
 	if err := w.otgWriter.DefineResources(ctx, otgID); err != nil {
 		return err
 	}

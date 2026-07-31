@@ -14,11 +14,12 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/synnax/pkg/distribution/group"
-	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
-	"github.com/synnaxlabs/synnax/pkg/distribution/search"
+	"github.com/synnaxlabs/synnax/pkg/service/group"
+	"github.com/synnaxlabs/synnax/pkg/service/imex"
+	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/project"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic"
+	"github.com/synnaxlabs/synnax/pkg/service/search"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/kv/memkv"
 	. "github.com/synnaxlabs/x/testutil"
@@ -45,7 +46,7 @@ var (
 		db = DeferClose(gorp.Wrap(memkv.New()))
 		otg = MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
 		var (
-			searchIdx = MustOpen(search.Open())
+			searchIdx = MustOpen(search.OpenIndex())
 			g         = MustOpen(group.OpenService(ctx, group.ServiceConfig{
 				DB:       db,
 				Ontology: otg,
@@ -62,6 +63,7 @@ var (
 			DB:       db,
 			Ontology: otg,
 			Search:   searchIdx,
+			ImEx:     imex.NewService(),
 		}))
 		proj.Name = "test-project"
 		Expect(projectSvc.NewWriter(nil).Create(ctx, &proj)).To(Succeed())

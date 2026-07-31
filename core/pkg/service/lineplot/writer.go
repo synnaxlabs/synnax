@@ -13,8 +13,8 @@ import (
 	"context"
 
 	"github.com/google/uuid"
-	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
+	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/project"
 	"github.com/synnaxlabs/x/gorp"
 )
@@ -52,7 +52,7 @@ func (w Writer) Create(ctx context.Context, projectKey project.Key, lp *LinePlot
 	if exists {
 		return nil
 	}
-	otgID := OntologyID(lp.Key)
+	otgID := lp.OntologyID()
 	if err := w.otg.DefineResources(ctx, otgID); err != nil {
 		return err
 	}

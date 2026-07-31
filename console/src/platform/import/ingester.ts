@@ -11,8 +11,7 @@ import { type Store } from "@reduxjs/toolkit";
 import { type ontology, type project, type Synnax } from "@synnaxlabs/client";
 import { type Pluto } from "@synnaxlabs/pluto";
 
-import { type Layout } from "@/platform/layout";
-import { type Session } from "@/session";
+import { type Panel } from "@/platform/panel";
 
 export interface File {
   data: unknown;
@@ -20,11 +19,18 @@ export interface File {
 }
 
 export interface FileIngesterContext {
-  layout: Partial<Session.Layout.State>;
-  placeLayout: Layout.Placer;
+  /** name is the fallback component name derived from the imported file. */
+  name?: string;
+  openTab: Panel.OpenTab;
   store: Pluto.FluxStore;
   client: Synnax | null;
   projectKey: project.Key;
+  /**
+   * The name of the file the data was read from, extension included. Server-side
+   * ingesters forward it so the Core can name the resource after the file when the
+   * file's contents carry no name.
+   */
+  fileName: string;
 }
 
 export interface FileIngester {
@@ -39,7 +45,7 @@ export interface FileIngesters extends Record<string, FileIngester> {}
 interface DirectoryIngesterContext {
   client: Synnax | null;
   fileIngesters: FileIngesters;
-  placeLayout: Layout.Placer;
+  openTab: Panel.OpenTab;
   store: Store;
   fluxStore: Pluto.FluxStore;
 }

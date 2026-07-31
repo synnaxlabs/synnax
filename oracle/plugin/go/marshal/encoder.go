@@ -363,7 +363,7 @@ func (b *encoderBuilder) processValueByType(
 		// union fields dispatch like struct fields.
 		ind := b.indent()
 		b.encodeLines = append(b.encodeLines,
-			ind+fmt.Sprintf("if err := %s.EncodeOrc(w); err != nil { return err }", getPath))
+			ind+fmt.Sprintf("if err := %s.EncodeOrc(w); err != nil { return err }", callPath(getPath)))
 		b.decodeWithErr(
 			ind + fmt.Sprintf("if err = %s.DecodeOrc(r); err != nil { return err }", setPath))
 		return nil
@@ -462,10 +462,30 @@ func (b *encoderBuilder) processStruct(
 
 	// Method dispatch: call EncodeOrc/DecodeOrc on the field directly.
 	b.encodeLines = append(b.encodeLines,
-		ind+fmt.Sprintf("if err := %s.EncodeOrc(w); err != nil { return err }", getPath))
+		ind+fmt.Sprintf("if err := %s.EncodeOrc(w); err != nil { return err }", callPath(getPath)))
 	b.decodeWithErr(
 		ind + fmt.Sprintf("if err = %s.DecodeOrc(r); err != nil { return err }", setPath))
 	return nil
+}
+
+// callPath strips the parenthesized deref an optional field's path carries:
+// method calls auto-dereference pointers, so (*d.Status).EncodeOrc reads as
+// d.Status.EncodeOrc.
+func callPath(getPath string) string {
+	if strings.HasPrefix(getPath, "(*") && strings.HasSuffix(getPath, ")") {
+		return getPath[2 : len(getPath)-1]
+	}
+	return getPath
+}
+
+// valuePath strips the redundant outer parentheses an optional field's deref path
+// carries so a scalar value reads as *d.Foo rather than (*d.Foo). Unlike callPath it
+// keeps the leading star, since the value itself is passed on.
+func valuePath(getPath string) string {
+	if strings.HasPrefix(getPath, "(*") && strings.HasSuffix(getPath, ")") {
+		return getPath[1 : len(getPath)-1]
+	}
+	return getPath
 }
 
 // typeIsRecursive reports whether decoding typ can re-enter its own codec,
@@ -876,17 +896,21 @@ func (b *encoderBuilder) processLeaf(
 		return err
 	}
 	ind := b.indent()
+	// Scalar leaves pass the value on directly, so a parenthesized optional deref reads
+	// better without the redundant parens (*d.Foo, not (*d.Foo)). uuid keeps getPath
+	// because it slice-indexes the value: (*d.Foo)[:] must stay parenthesized.
+	valPath := valuePath(getPath)
 
 	switch primName {
 	case "string":
 		if goTypeCast != "" {
 			b.encodeLines = append(b.encodeLines,
-				ind+fmt.Sprintf("w.String(string(%s))", getPath))
+				ind+fmt.Sprintf("w.String(string(%s))", valPath))
 			b.decodeLine(
 				ind + fmt.Sprintf("{ v, err := r.String(); if err != nil { return err }; %s = %s(v) }", setPath, goTypeCast))
 		} else {
 			b.encodeLines = append(b.encodeLines,
-				ind+fmt.Sprintf("w.String(%s)", getPath))
+				ind+fmt.Sprintf("w.String(%s)", valPath))
 			b.decodeWithErr(
 				ind + fmt.Sprintf("if %s, err = r.String(); err != nil { return err }", setPath))
 		}
@@ -900,7 +924,7 @@ func (b *encoderBuilder) processLeaf(
 	case "record", "any":
 		b.needsJSON = true
 		b.encodeLines = append(b.encodeLines,
-			ind+fmt.Sprintf("{ b, err := json.Marshal(%s)", getPath),
+			ind+fmt.Sprintf("{ b, err := json.Marshal(%s)", valPath),
 			ind+"\tif err != nil { return err }",
 			ind+"\tw.WriteWithLen(b) }",
 		)
@@ -912,9 +936,9 @@ func (b *encoderBuilder) processLeaf(
 	case "bytes":
 		// Write a presence bit to distinguish nil from empty byte slices.
 		b.encodeLines = append(b.encodeLines,
-			ind+fmt.Sprintf("w.Bool(%s != nil)", getPath),
-			ind+fmt.Sprintf("if %s != nil {", getPath),
-			ind+fmt.Sprintf("\tw.WriteWithLen(%s)", getPath),
+			ind+fmt.Sprintf("w.Bool(%s != nil)", valPath),
+			ind+fmt.Sprintf("if %s != nil {", valPath),
+			ind+fmt.Sprintf("\tw.WriteWithLen(%s)", valPath),
 			ind+"}",
 		)
 		b.decodeLines = append(b.decodeLines,
@@ -926,30 +950,30 @@ func (b *encoderBuilder) processLeaf(
 
 	case "bool":
 		b.encodeLines = append(b.encodeLines,
-			ind+fmt.Sprintf("w.Bool(%s)", getPath))
+			ind+fmt.Sprintf("w.Bool(%s)", valPath))
 		b.decodeWithErr(
 			ind + fmt.Sprintf("if %s, err = r.Bool(); err != nil { return err }", setPath))
 
 	case "int8":
-		b.addIntLeaf(ind, getPath, setPath, goTypeCast, "Int8", "int8", "int8(%s)")
+		b.addIntLeaf(ind, valPath, setPath, goTypeCast, "Int8", "int8", "int8(%s)")
 	case "int16":
-		b.addIntLeaf(ind, getPath, setPath, goTypeCast, "Int16", "int16", "int16(%s)")
+		b.addIntLeaf(ind, valPath, setPath, goTypeCast, "Int16", "int16", "int16(%s)")
 	case "int32":
-		b.addIntLeaf(ind, getPath, setPath, goTypeCast, "Int32", "int32", "int32(%s)")
+		b.addIntLeaf(ind, valPath, setPath, goTypeCast, "Int32", "int32", "int32(%s)")
 	case "int64":
-		b.addIntLeaf(ind, getPath, setPath, goTypeCast, "Int64", "int64", "int64(%s)")
+		b.addIntLeaf(ind, valPath, setPath, goTypeCast, "Int64", "int64", "int64(%s)")
 	case "uint8":
-		b.addIntLeaf(ind, getPath, setPath, goTypeCast, "Uint8", "uint8", "uint8(%s)")
+		b.addIntLeaf(ind, valPath, setPath, goTypeCast, "Uint8", "uint8", "uint8(%s)")
 	case "uint12", "uint16":
-		b.addIntLeaf(ind, getPath, setPath, goTypeCast, "Uint16", "uint16", "uint16(%s)")
+		b.addIntLeaf(ind, valPath, setPath, goTypeCast, "Uint16", "uint16", "uint16(%s)")
 	case "uint20", "uint32":
-		b.addIntLeaf(ind, getPath, setPath, goTypeCast, "Uint32", "uint32", "uint32(%s)")
+		b.addIntLeaf(ind, valPath, setPath, goTypeCast, "Uint32", "uint32", "uint32(%s)")
 	case "uint64":
-		b.addIntLeaf(ind, getPath, setPath, goTypeCast, "Uint64", "uint64", "uint64(%s)")
+		b.addIntLeaf(ind, valPath, setPath, goTypeCast, "Uint64", "uint64", "uint64(%s)")
 	case "float32":
-		b.addIntLeaf(ind, getPath, setPath, goTypeCast, "Float32", "float32", "float32(%s)")
+		b.addIntLeaf(ind, valPath, setPath, goTypeCast, "Float32", "float32", "float32(%s)")
 	case "float64":
-		b.addIntLeaf(ind, getPath, setPath, goTypeCast, "Float64", "float64", "float64(%s)")
+		b.addIntLeaf(ind, valPath, setPath, goTypeCast, "Float64", "float64", "float64(%s)")
 
 	default:
 		return errors.Newf("unsupported primitive type: %s", primName)
@@ -1022,6 +1046,9 @@ func walkSerializableTypes(
 	}
 	fields := resolution.UnifiedFields(typ, table)
 	for _, f := range fields {
+		if domain.GetStringFromField(f, "go", "marshal") == "omit" {
+			continue
+		}
 		walkSerializableRef(f.Type, table, result, visited)
 	}
 }
@@ -1036,7 +1063,14 @@ func walkSerializableRef(
 	if !ok {
 		return
 	}
-	for _, arg := range ref.TypeArgs {
+	encoded := encodedTypeParams(resolved, table)
+	for i, arg := range ref.TypeArgs {
+		if encoded != nil {
+			form := resolved.Form.(resolution.StructForm)
+			if i < len(form.TypeParams) && !encoded.Contains(form.TypeParams[i].Name) {
+				continue
+			}
+		}
 		walkSerializableRef(arg, table, result, visited)
 	}
 	switch form := resolved.Form.(type) {
@@ -1046,6 +1080,48 @@ func walkSerializableRef(
 		walkSerializableRef(form.Target, table, result, visited)
 	case resolution.DistinctForm:
 		walkSerializableRef(form.Base, table, result, visited)
+	}
+}
+
+// encodedTypeParams returns the type parameters of a generic struct whose
+// arguments the generated codec encodes structurally (the SelfEncoder assertion
+// path). A parameter used only in json_only or omitted fields, or substituted
+// by its default, never reaches the argument's own codec, so that argument
+// contributes no codec dependency. Returns nil for non-generic types, meaning
+// every argument walks.
+func encodedTypeParams(typ resolution.Type, table *resolution.Table) set.Set[string] {
+	form, ok := typ.Form.(resolution.StructForm)
+	if !ok || !form.IsGeneric() {
+		return nil
+	}
+	encoded := make(set.Set[string])
+	for _, f := range resolution.UnifiedFields(typ, table) {
+		directive := domain.GetStringFromField(f, "go", "marshal")
+		if directive == "omit" {
+			continue
+		}
+		if f.Type.IsTypeParam() {
+			if f.Type.TypeParam.HasDefault() || directive == "json_only" {
+				continue
+			}
+			encoded.Add(f.Type.Name)
+			continue
+		}
+		addNestedTypeParams(f.Type, encoded)
+	}
+	return encoded
+}
+
+// addNestedTypeParams collects type parameters referenced inside a field's
+// type arguments; nested parameter uses always encode through the SelfEncoder
+// assertion path.
+func addNestedTypeParams(ref resolution.TypeRef, out set.Set[string]) {
+	if ref.IsTypeParam() {
+		out.Add(ref.Name)
+		return
+	}
+	for _, a := range ref.TypeArgs {
+		addNestedTypeParams(a, out)
 	}
 }
 
@@ -1196,11 +1272,13 @@ import (
 {{- end}}
 )
 {{range .ConcreteCodecs}}
+// EncodeOrc writes the value to w in the Orc binary format.
 func ({{.Receiver}} {{.GoName}}) EncodeOrc(w *orc.Writer) error {
 {{.EncodeBody}}
 	return nil
 }
 
+// DecodeOrc reads the value from r in the Orc binary format.
 func ({{.Receiver}} *{{.GoName}}) DecodeOrc(r *orc.Reader) error {
 {{- if .Recursive}}
 	if err := r.PushDepth(orc.MaxDecodeDepth); err != nil {
@@ -1215,11 +1293,13 @@ func ({{.Receiver}} *{{.GoName}}) DecodeOrc(r *orc.Reader) error {
 	return nil
 }
 {{end}}{{range .GenericCodecs}}
+// EncodeOrc writes the value to w in the Orc binary format.
 func ({{.Receiver}} {{.GoName}}[{{tpNames .TypeParams}}]) EncodeOrc(w *orc.Writer) error {
 {{.EncodeBody}}
 	return nil
 }
 
+// DecodeOrc reads the value from r in the Orc binary format.
 func ({{.Receiver}} *{{.GoName}}[{{tpNames .TypeParams}}]) DecodeOrc(r *orc.Reader) error {
 {{- if .Recursive}}
 	if err := r.PushDepth(orc.MaxDecodeDepth); err != nil {

@@ -16,10 +16,10 @@ import (
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/api/auth"
 	"github.com/synnaxlabs/synnax/pkg/api/config"
-	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
-	"github.com/synnaxlabs/synnax/pkg/distribution/search"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
+	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/search"
 	xconfig "github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
@@ -38,22 +38,23 @@ func NewService(cfgs ...config.LayerConfig) (*Service, error) {
 		return nil, err
 	}
 	return &Service{
-		ontology: cfg.Distribution.Ontology,
-		search:   cfg.Distribution.Search,
+		ontology: cfg.Service.Ontology,
+		search:   cfg.Service.Search,
 		access:   cfg.Service.RBAC,
 	}, nil
 }
 
 type (
 	RetrieveRequest struct {
-		SearchTerm       string                  `json:"search_term" msgpack:"search_term"`
-		IDs              []ontology.ID           `json:"ids" msgpack:"ids" validate:"required"`
-		Types            []ontology.ResourceType `json:"types" msgpack:"types"`
-		Limit            int                     `json:"limit" msgpack:"limit"`
-		Offset           int                     `json:"offset" msgpack:"offset"`
-		Children         bool                    `json:"children" msgpack:"children"`
-		Parents          bool                    `json:"parents" msgpack:"parents"`
-		ExcludeFieldData bool                    `json:"exclude_field_data" msgpack:"exclude_field_data"`
+		SearchTerm          string                  `json:"search_term" msgpack:"search_term"`
+		IDs                 []ontology.ID           `json:"ids" msgpack:"ids" validate:"required"`
+		Types               []ontology.ResourceType `json:"types" msgpack:"types"`
+		Limit               int                     `json:"limit" msgpack:"limit"`
+		Offset              int                     `json:"offset" msgpack:"offset"`
+		Children            bool                    `json:"children" msgpack:"children"`
+		Parents             bool                    `json:"parents" msgpack:"parents"`
+		ExcludeFieldData    bool                    `json:"exclude_field_data" msgpack:"exclude_field_data"`
+		IgnoreNotFoundError bool                    `json:"ignore_not_found_error" msgpack:"ignore_not_found_error"`
 	}
 	RetrieveResponse struct {
 		Resources []ontology.Resource `json:"resources" msgpack:"resources"`
@@ -64,7 +65,7 @@ func (s *Service) Retrieve(
 	ctx context.Context,
 	req RetrieveRequest,
 ) (RetrieveResponse, error) {
-	var resources []ontology.Resource
+	resources := make([]ontology.Resource, 0)
 	if req.SearchTerm != "" {
 		ids, err := s.search.Search(ctx, search.Request{Term: req.SearchTerm})
 		if err != nil {
@@ -99,7 +100,11 @@ func (s *Service) Retrieve(
 		if req.Offset > 0 {
 			q = q.Offset(req.Offset)
 		}
-		if err := q.Entries(&resources).Exec(ctx, nil); err != nil {
+		err := q.Entries(&resources).Exec(ctx, nil)
+		if req.IgnoreNotFoundError && err != nil {
+			err = errors.Skip(err, query.ErrNotFound)
+		}
+		if err != nil {
 			return RetrieveResponse{}, err
 		}
 	}

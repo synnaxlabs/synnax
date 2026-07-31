@@ -14,20 +14,18 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/synnax/pkg/distribution/group"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
-	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
-	"github.com/synnaxlabs/synnax/pkg/distribution/search"
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
-	"github.com/synnaxlabs/synnax/pkg/service/framer"
+	"github.com/synnaxlabs/synnax/pkg/service/group"
+	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
+	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
-	"github.com/synnaxlabs/synnax/pkg/service/signals"
+	"github.com/synnaxlabs/synnax/pkg/service/search"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/x/gorp"
-	"github.com/synnaxlabs/x/kv/memkv"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -43,22 +41,21 @@ var (
 	db         *gorp.DB
 	otg        *ontology.Ontology
 	svc        *arc.Service
+	writer     arc.Writer
+	channelSvc *channel.Service
 	tx         gorp.Tx
 	taskSvc    *task.Service
-	channelSvc *channel.Service
-	framerSvc  *framer.Service
 	testRack   *rack.Rack
-	sigs       *signals.Provider
 	arcClock   = telem.Now
 )
 
 var (
 	_ = BeforeSuite(func(ctx SpecContext) {
 		ShouldNotLeakGoroutines()
-		db = DeferClose(gorp.Wrap(memkv.New()))
-		otg = MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
-		searchIdx := MustOpen(search.Open())
 		node := mock.NewNode(ctx)
+		db = node.DB
+		otg = MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
+		searchIdx := MustOpen(search.OpenIndex())
 		groupSvc := MustOpen(group.OpenService(ctx, group.ServiceConfig{
 			DB:       db,
 			Ontology: otg,
@@ -77,6 +74,15 @@ var (
 			Label:    labelSvc,
 			Search:   searchIdx,
 		}))
+		channelSvc = MustOpen(channel.OpenService(ctx, channel.ServiceConfig{
+			Channel:      node.Channel,
+			DB:           node.DB,
+			HostProvider: node.Cluster,
+			Ontology:     otg,
+			Group:        groupSvc,
+			Search:       searchIdx,
+			Status:       statusSvc,
+		}))
 		rackSvc := MustOpen(rack.OpenService(ctx, rack.ServiceConfig{
 			DB:                  db,
 			Ontology:            otg,
@@ -86,6 +92,7 @@ var (
 			HealthCheckInterval: 10 * telem.Millisecond,
 			Search:              searchIdx,
 		}))
+		imexSvc := imex.NewService()
 		taskSvc = MustOpen(task.OpenService(ctx, task.ServiceConfig{
 			DB:       db,
 			Ontology: otg,
@@ -93,33 +100,22 @@ var (
 			Rack:     rackSvc,
 			Status:   statusSvc,
 			Search:   searchIdx,
+			ImEx:     imexSvc,
 		}))
 		testRack = &rack.Rack{Name: "Test Rack"}
 		Expect(rackSvc.NewWriter(db).Create(ctx, testRack)).To(Succeed())
-		channelSvc = MustSucceed(channel.NewService(ctx, channel.ServiceConfig{
-			Channel: node.Channel,
-			Status:  statusSvc,
-		}))
-		framerSvc = MustOpen(framer.OpenService(ctx, framer.ServiceConfig{
-			Framer:  node.Framer,
-			Channel: channelSvc,
-			Status:  statusSvc,
-		}))
-		sigs = MustSucceed(signals.New(signals.Config{
-			Channel: channelSvc,
-			Framer:  framerSvc,
-		}))
 		svc = MustOpen(arc.OpenService(ctx, arc.ServiceConfig{
 			DB:                  db,
 			Ontology:            otg,
 			Channel:             channelSvc,
 			Task:                taskSvc,
 			Search:              searchIdx,
-			Signals:             sigs,
+			ImEx:                imexSvc,
 			TextSweepQuiescence: 5 * telem.Second,
 			TextSweepThreshold:  1,
 			Now:                 func() telem.TimeStamp { return arcClock() },
 		}))
+		writer = svc.NewWriter(nil)
 	})
 	_ = BeforeEach(func() { tx = DeferClose(db.OpenTx()) })
 )

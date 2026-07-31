@@ -10,7 +10,7 @@
 import "@/schematic/node/common/orientation/select.css";
 
 import { type location } from "@synnaxlabs/x";
-import { type CSSProperties, type ReactElement } from "react";
+import { type ReactElement } from "react";
 
 import { Button as BaseButton } from "@/button";
 import { CSS } from "@/css";
@@ -77,9 +77,7 @@ const Internal = ({
 }: SelectProps): ReactElement => {
   const { inner } = value;
   const handleChange = (next: Partial<Value>) => () => onChange({ ...value, ...next });
-  let showStyle: CSSProperties = {};
-  if (hideInner)
-    showStyle = { opacity: 0, userSelect: "none", width: "1.5rem", height: "1.5rem" };
+  const hiddenInnerClass = hideInner && CSS.M("hidden-inner");
   const content = showOuterCenter ? (
     <Button
       selected={value.outer === "center"}
@@ -88,30 +86,28 @@ const Internal = ({
   ) : (
     <>
       <Button
-        style={showStyle}
         disabled={hideInner}
-        className={CSS(CSS.dir("y"))}
+        className={CSS(CSS.dir("y"), hiddenInnerClass)}
         selected={inner === "top"}
         onClick={handleChange({ inner: "top" })}
       />
       <Flex.Box x align="center" justify="center">
         <Button
-          style={showStyle}
           disabled={hideInner}
+          className={CSS(hiddenInnerClass)}
           selected={inner === "left"}
           onClick={handleChange({ inner: "left" })}
         />
         <Button
-          style={showStyle}
           disabled={hideInner}
+          className={CSS(hiddenInnerClass)}
           selected={inner === "right"}
           onClick={handleChange({ inner: "right" })}
         />
       </Flex.Box>
       <Button
-        style={showStyle}
         disabled={hideInner}
-        className={CSS(CSS.dir("y"))}
+        className={CSS(CSS.dir("y"), hiddenInnerClass)}
         selected={inner === "bottom"}
         onClick={handleChange({ inner: "bottom" })}
       />

@@ -7,6 +7,4 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-export * from "@/platform/palette/command";
-export * from "@/platform/palette/Palette";
-export * from "@/platform/palette/types";
+export * from "@/platform/palette/List";

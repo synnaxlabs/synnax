@@ -7,23 +7,25 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { ranger } from "@synnaxlabs/client";
 import { useCallback } from "react";
 
-import { Layout } from "@/platform/layout";
 import { type Link } from "@/platform/link";
-import { Range } from "@/platform/range";
+import { Panel } from "@/platform/panel";
 import { Session } from "@/session";
 
 export const useLink = (): Link.Handler => {
   const dispatch = Session.useDispatch();
-  const placeLayout = Layout.usePlacer();
+  const openTab = Panel.useOpenTab();
   return useCallback(
     async ({ client, key }) => {
       const range = await client.ranges.retrieve(key);
       Session.Range.fromClient(range).forEach((r) => dispatch(Session.Range.add(r)));
       dispatch(Session.Range.select(range.key));
-      placeLayout({ ...Range.OVERVIEW_LAYOUT, key, name: range.name });
+      openTab({ variant: "resource", resource: ranger.ontologyID(range.key) });
     },
-    [dispatch, placeLayout],
+    [dispatch, openTab],
   );
 };
+
+export const LINKS: Link.Registry = { range: useLink };

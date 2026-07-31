@@ -60,7 +60,6 @@ class StrainGauge(Analog):
         lead_wire_resistance: float | None = None,
         **kwargs: Any,
     ) -> None:
-
         super().__init__(
             layout=layout,
             name=name,

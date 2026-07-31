@@ -7,382 +7,399 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { box, type location, scale, type text, xy } from "@synnaxlabs/x";
+import { box, type direction, xy } from "@synnaxlabs/x";
 import {
+  type CSSProperties,
   type DragEventHandler,
-  type MouseEventHandler,
+  type KeyboardEventHandler,
   type ReactElement,
-  type ReactNode,
   useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
   useState,
 } from "react";
 
-import { Button } from "@/button";
-import { type Size } from "@/component/size";
-import { SIZE_TEXT_LEVELS } from "@/component/text";
+import { type Component } from "@/component";
+import { context } from "@/context";
 import { CSS } from "@/css";
 import { Flex } from "@/flex";
-import { Icon } from "@/icon";
-import { Menu } from "@/menu";
-import { type NameProps, type NameRenderProp, type Spec } from "@/tabs/types";
-import { useContext } from "@/tabs/useContext";
-import { Text } from "@/text";
+import { Haul } from "@/haul";
+import { useCombinedRefs } from "@/hooks";
+import { KEY_ATTRIBUTE, KEY_SELECTOR } from "@/tabs/Frame";
+import { Triggers } from "@/triggers";
 
 /**
- * The visual variant of the tab selector.
+ * The visual variant of a tab selector.
  *
  * - `default`: flat strip with a bottom border and a primary-colored underline on the
  *   selected tab.
  * - `pill`: separated rounded buttons; the selected tab has a filled background and
- *   no underline. Inspired by Linear's nav style.
+ *   no underline.
  */
-export type SelectorVariant = "default" | "pill";
+export type Variant = "default" | "pill";
 
-export interface SelectorProps extends Omit<
-  Flex.BoxProps,
-  "children" | "contextMenu" | "onDrop"
-> {
-  size?: Size;
-  altColor?: boolean;
-  contextMenu?: Menu.ContextMenuProps["menu"];
-  onDrop?: (e: React.DragEvent<HTMLElement>) => void;
-  addTooltip?: string;
-  actions?: ReactNode;
-  variant?: SelectorVariant;
+interface ContextValue {
+  /** size sets the height of the strip and the typography level of its tabs. */
+  size: Component.Size;
+  /** variant is the visual variant applied to the strip's tabs. */
+  variant: Variant;
 }
 
-const CLS = "tabs-selector";
+const [Context, useContext] = context.create<ContextValue>({
+  displayName: "Tabs.SelectorContext",
+  providerName: "Tabs.Selector",
+});
 
+/** LIST_ROLE is the ARIA role a Selector renders on the tab strip. */
+export const LIST_ROLE = "tablist";
+
+/** LIST_SELECTOR matches the tab strip rendered by Selector via {@link LIST_ROLE}. */
+export const LIST_SELECTOR = `[role="${LIST_ROLE}"]`;
+
+export { useContext as useSelectorContext };
+
+/**
+ * getInsertionIndex returns the index at which a tab dropped at the given cursor
+ * position should be inserted into the given selector element. The index ranges
+ * from 0 (before the first tab) to the number of tabs (after the last tab).
+ */
+const getInsertionIndex = (selector: Element, cursor: xy.Crude): number => {
+  const pos = xy.construct(cursor);
+  const horizontal = selector.getAttribute("aria-orientation") !== "vertical";
+  const tabs = selector.querySelectorAll(KEY_SELECTOR);
+  let i = 0;
+  for (const tab of tabs) {
+    const center = box.center(box.construct(tab));
+    if (horizontal ? pos.x < center.x : pos.y < center.y) return i;
+    i++;
+  }
+  return tabs.length;
+};
+
+/**
+ * getIndicatorOffset returns the pixel offset, along the strip's main axis, of the
+ * drop indicator for the given insertion index: the leading edge of the tab at the
+ * index, or the trailing edge of the last tab past the end.
+ */
+const getIndicatorOffset = (
+  selector: HTMLElement,
+  index: number,
+  horizontal: boolean,
+): number => {
+  const tabs = selector.querySelectorAll<HTMLElement>(KEY_SELECTOR);
+  if (tabs.length === 0) return 0;
+  if (index < tabs.length) {
+    const tab = tabs[index];
+    return horizontal ? tab.offsetLeft : tab.offsetTop;
+  }
+  const last = tabs[tabs.length - 1];
+  return horizontal
+    ? last.offsetLeft + last.offsetWidth
+    : last.offsetTop + last.offsetHeight;
+};
+
+const mainAxisSize = (el: HTMLElement, horizontal: boolean): number =>
+  horizontal ? el.offsetWidth : el.offsetHeight;
+
+/** Class marking the source tab whose slot is lifted out during a reorder drag. */
+const HAULED_CLASS = CSS.BEM("tabs", "tab", "hauled");
+
+/**
+ * applyReorderPreview shifts the strip's tabs to open a gap for a same-strip drag,
+ * mirroring the reorder a drop at index would produce, and lifts the source tab out.
+ * Returns false when draggedKey names no tab here, so the caller can fall back to the
+ * insertion indicator.
+ */
+const applyReorderPreview = (
+  selector: HTMLElement,
+  index: number,
+  draggedKey: string,
+  horizontal: boolean,
+): boolean => {
+  const tabs = Array.from(selector.querySelectorAll<HTMLElement>(KEY_SELECTOR));
+  const dragged = tabs.findIndex((t) => t.getAttribute(KEY_ATTRIBUTE) === draggedKey);
+  if (dragged === -1) return false;
+  const gap = mainAxisSize(tabs[dragged], horizontal);
+  const axis = horizontal ? "X" : "Y";
+  tabs.forEach((tab, i) => {
+    if (i === dragged) {
+      tab.classList.add(HAULED_CLASS);
+      tab.style.transform = "";
+      return;
+    }
+    let shift = 0;
+    if (dragged < i && i < index) shift = -gap;
+    else if (index <= i && i < dragged) shift = gap;
+    tab.style.transform = shift === 0 ? "" : `translate${axis}(${shift}px)`;
+  });
+  return true;
+};
+
+/**
+ * resetTabs clears the transforms applyReorderPreview set. snap suppresses the
+ * transition so a dropped reorder lands without the tabs sliding back from their old
+ * layout; without it the reset animates, closing the gap for a cancelled drag.
+ */
+const resetTabs = (selector: HTMLElement, snap: boolean): void => {
+  const tabs = Array.from(selector.querySelectorAll<HTMLElement>(KEY_SELECTOR));
+  if (snap) tabs.forEach((tab) => (tab.style.transition = "none"));
+  tabs.forEach((tab) => {
+    tab.classList.remove(HAULED_CLASS);
+    tab.style.transform = "";
+  });
+  if (!snap) return;
+  void selector.offsetHeight;
+  tabs.forEach((tab) => (tab.style.transition = ""));
+};
+
+/** The dragging state a strip drop reports, plus the resolved insertion index. */
+export interface SelectorOnDropParams extends Haul.OnDropProps {
+  /**
+   * index is the strip slot the dragged item was dropped at, ranging from 0
+   * (before the first tab) to the number of tabs (after the last tab).
+   */
+  index: number;
+}
+
+export interface SelectorProps extends Omit<Flex.BoxProps, "onDrop"> {
+  /** size sets the height of the strip and the typography level of its tabs. */
+  size?: Component.Size;
+  /** variant is the visual variant applied to the strip's tabs. */
+  variant?: Variant;
+  /**
+   * haulType enables drag-and-drop reordering by declaring the Haul item type the
+   * strip accepts. When set, dragging an accepted item over the strip renders an
+   * insertion indicator and dropping it calls onDrop with the target index. When
+   * empty (the default), the strip is passive and registers no drop zone.
+   */
+  haulType?: string;
+  /**
+   * canDrop overrides the default acceptance predicate (any item whose type matches
+   * haulType). Ignored when haulType is empty.
+   */
+  canDrop?: Haul.CanDrop;
+  /**
+   * onDrop fires when an accepted item is dropped on the strip, receiving the
+   * dragging state and the resolved insertion index. Return the items the strip
+   * consumed, matching the Haul drop contract. Ignored when haulType is empty.
+   */
+  onDrop?: (params: SelectorOnDropParams) => Haul.Item[];
+}
+
+/**
+ * Selector is the strip that lays out a Frame's tabs. It renders a tablist with
+ * arrow-key roving focus (manual activation: focus moves, Enter or Space selects).
+ * Given a haulType it becomes a drag-and-drop target for reordering, owning the
+ * insertion geometry and indicator and reporting drops through onDrop.
+ */
 export const Selector = ({
-  className,
-  altColor = false,
+  ref,
   size = "medium",
-  direction = "x",
-  contextMenu,
-  addTooltip,
-  actions,
   variant = "default",
+  haulType = "",
+  canDrop,
+  onDrop,
+  className,
+  children,
+  direction,
+  x,
+  y,
+  onKeyDown,
+  onDragLeave,
+  empty,
+  gap,
   ...rest
-}: SelectorProps): ReactElement | null => {
+}: SelectorProps): ReactElement => {
   const isDefault = variant === "default";
-  const {
-    tabs,
-    selected,
-    onSelect,
-    onClose,
-    closable,
-    onDragEnd,
-    onDragStart,
-    onDrop,
-    onRename,
-    onCreate,
-    tabName,
-  } = useContext();
-  const menuProps = Menu.useContextMenu();
-  const [draggingOver, setDraggingOver] = useState<boolean>(false);
+  const internalRef = useRef<HTMLDivElement | null>(null);
+  const combinedRef = useCombinedRefs(ref, internalRef);
+  const dir: direction.Direction = Flex.parseDirection(direction, x, y) ?? "x";
+  const horizontal = dir === "x";
+
+  const handleKeyDown = useCallback<KeyboardEventHandler<HTMLDivElement>>(
+    (e) => {
+      onKeyDown?.(e);
+      const el = internalRef.current;
+      if (el == null || e.defaultPrevented) return;
+      const key = Triggers.eventKey(e);
+      const next = horizontal ? "ArrowRight" : "ArrowDown";
+      const prev = horizontal ? "ArrowLeft" : "ArrowUp";
+      if (![next, prev, "Home", "End"].includes(key)) return;
+      // Only hover when a tab itself is focused: arrow keys pressed inside a tab's
+      // children (an editable name, a close button) must keep their own meaning.
+      if (!(e.target instanceof HTMLElement) || e.target.getAttribute("role") !== "tab")
+        return;
+      const tabs = Array.from(el.querySelectorAll<HTMLElement>('[role="tab"]'));
+      if (tabs.length === 0) return;
+      let target: number;
+      if (key === "Home") target = 0;
+      else if (key === "End") target = tabs.length - 1;
+      else {
+        if (!(document.activeElement instanceof HTMLElement)) return;
+        const current = tabs.indexOf(document.activeElement);
+        const delta = key === next ? 1 : -1;
+        target = current === -1 ? 0 : (current + delta + tabs.length) % tabs.length;
+      }
+      e.preventDefault();
+      tabs[target].focus();
+    },
+    [onKeyDown, horizontal],
+  );
+
+  const [indicatorOffset, setIndicatorOffset] = useState<number | null>(null);
+  // The applied shift (insertion index + dragged key), or null when none. Doubles as
+  // an early-out so a dragover that stays in slot skips rewriting the transforms.
+  const previewRef = useRef<{ index: number; key: string } | null>(null);
+  // Set on a drop over a live preview so the layout effect snaps the transforms away.
+  const committingRef = useRef(false);
+
+  const handleCanDrop = useCallback<Haul.CanDrop>(
+    (state) => {
+      if (haulType === "") return false;
+      if (canDrop != null) return canDrop(state);
+      return Haul.filterByType(haulType, state.items).length > 0;
+    },
+    [haulType, canDrop],
+  );
+
+  const handleDragOver = useCallback(
+    ({ event, items }: Haul.OnDragOverProps): void => {
+      const el = internalRef.current;
+      if (event == null || el == null) return;
+      const index = getInsertionIndex(el, { x: event.clientX, y: event.clientY });
+      const [dragged] = Haul.filterByType(haulType, items);
+      const key = dragged == null ? null : String(dragged.key);
+      const prev = previewRef.current;
+      if (prev != null && key != null && prev.index === index && prev.key === key)
+        return;
+      if (key != null && applyReorderPreview(el, index, key, horizontal)) {
+        previewRef.current = { index, key };
+        setIndicatorOffset(null);
+      } else {
+        previewRef.current = null;
+        setIndicatorOffset(getIndicatorOffset(el, index, horizontal));
+      }
+    },
+    [haulType, horizontal],
+  );
+
+  const handleDrop = useCallback<Haul.OnDrop>(
+    (params) => {
+      const el = internalRef.current;
+      setIndicatorOffset(null);
+      committingRef.current = previewRef.current != null;
+      previewRef.current = null;
+      if (params.event == null || el == null || onDrop == null) {
+        committingRef.current = false;
+        if (el != null) resetTabs(el, false);
+        return [];
+      }
+      const cursor = { x: params.event.clientX, y: params.event.clientY };
+      return onDrop({ ...params, index: getInsertionIndex(el, cursor) });
+    },
+    [onDrop],
+  );
+
+  const dropProps = Haul.useDrop({
+    type: haulType,
+    canDrop: handleCanDrop,
+    onDrop: handleDrop,
+    onDragOver: handleDragOver,
+  });
+
+  const handleDragLeave = useCallback<DragEventHandler<HTMLDivElement>>(
+    (e) => {
+      onDragLeave?.(e);
+      const el = internalRef.current;
+      // dragleave also fires crossing onto a child tab; reset only on a true leave so
+      // the preview doesn't flicker on every crossing.
+      if (el != null && e.relatedTarget instanceof Node && el.contains(e.relatedTarget))
+        return;
+      setIndicatorOffset(null);
+      if (el != null && previewRef.current != null) {
+        resetTabs(el, false);
+        previewRef.current = null;
+      }
+    },
+    [onDragLeave],
+  );
+
+  // Snap the transforms away the frame a dropped reorder commits, before paint, so the
+  // new order with stale transforms never shows.
+  useLayoutEffect(() => {
+    const el = internalRef.current;
+    if (el == null || !committingRef.current) return;
+    committingRef.current = false;
+    resetTabs(el, true);
+  });
+
+  // Cleanup for a drag that ends without dropping here (Escape, dropped outside). The
+  // drop path handles its own preview, so skip while a commit is pending.
+  const dragging = Haul.useDraggingState();
+  const wasDragging = useRef(false);
+  useEffect(() => {
+    const active = dragging.items.length > 0;
+    const ended = wasDragging.current && !active;
+    wasDragging.current = active;
+    if (!ended) return;
+    setIndicatorOffset(null);
+    const el = internalRef.current;
+    if (el != null && previewRef.current != null && !committingRef.current) {
+      resetTabs(el, false);
+      previewRef.current = null;
+    }
+  }, [dragging]);
+
+  const indicatorStyle = useMemo<CSSProperties | undefined>(
+    () =>
+      indicatorOffset == null
+        ? undefined
+        : { [horizontal ? "left" : "top"]: indicatorOffset },
+    [indicatorOffset, horizontal],
+  );
+
+  const ctx = useMemo<ContextValue>(() => ({ size, variant }), [size, variant]);
+  // A passive strip registers no drop zone, so it still forwards the consumer's
+  // onDragLeave rather than dropping it.
+  const { onDragOver, onDrop: onDropHandler } = dropProps;
+  const dropListeners = useMemo(
+    () =>
+      haulType === ""
+        ? { onDragLeave }
+        : { onDragOver, onDrop: onDropHandler, onDragLeave: handleDragLeave },
+    [haulType, onDragOver, onDropHandler, handleDragLeave, onDragLeave],
+  );
+
   return (
-    <>
-      {contextMenu != null && (
-        <Menu.ContextMenu
-          style={{ height: "fit-content" }}
-          {...menuProps}
-          menu={contextMenu}
-        />
-      )}
+    <Context value={ctx}>
       <Flex.Box
+        ref={combinedRef}
+        role={LIST_ROLE}
+        aria-orientation={horizontal ? "horizontal" : "vertical"}
         className={CSS(
-          CSS.B(CLS),
-          CSS.BM(CLS, variant),
+          CSS.BE("tabs", "selector"),
+          CSS.BEM("tabs", "selector", variant),
           className,
-          menuProps.className,
-          draggingOver && CSS.M("drag-over"),
         )}
         size={size}
         align="center"
-        justify="between"
-        empty={isDefault}
-        direction={direction}
-        onContextMenu={menuProps.open}
-        onDrop={onDrop}
+        empty={empty ?? isDefault}
+        gap={gap ?? (isDefault ? undefined : "small")}
+        direction={dir}
+        onKeyDown={handleKeyDown}
         {...rest}
+        {...dropListeners}
       >
-        <Flex.Box
-          direction={direction}
-          className={CSS.BE(CLS, "tabs")}
-          empty={isDefault}
-          gap={isDefault ? undefined : "small"}
-        >
-          {tabs.map((tab) => (
-            <SelectorButton
-              key={tab.tabKey}
-              selected={selected}
-              altColor={altColor}
-              onSelect={onSelect}
-              onClose={onClose}
-              onDragStart={onDragStart}
-              onDragEnd={onDragEnd}
-              onRename={onRename}
-              closable={tab.closable ?? closable}
-              size={size}
-              variant={variant}
-              tabName={tabName}
-              {...tab}
-            />
-          ))}
-          {onDrop != null && (
-            <Flex.Box
-              onDragOver={() => setDraggingOver(true)}
-              onDragLeave={() => setDraggingOver(false)}
-              onDragEnd={() => setDraggingOver(false)}
-              onDrop={() => setDraggingOver(false)}
-              grow
-            />
-          )}
-        </Flex.Box>
-
-        {(actions != null || onCreate != null) && (
-          <Flex.Box className={CSS.BE(CLS, "actions")}>
-            {onCreate != null && (
-              <Button.Button
-                size={size}
-                onClick={onCreate}
-                tooltip={addTooltip}
-                variant="text"
-                sharp={isDefault}
-                contrast={isDefault ? undefined : 2}
-              >
-                <Icon.Add />
-              </Button.Button>
-            )}
-            {actions}
-          </Flex.Box>
+        {children}
+        {indicatorStyle != null && (
+          <span
+            className={CSS(CSS.BE("tabs", "insertion"), CSS.M("direction", dir))}
+            style={indicatorStyle}
+          />
         )}
       </Flex.Box>
-    </>
-  );
-};
-
-const TABS_SELECTOR_BUTTON_CLASS = CSS.BE("tabs-selector", "btn");
-
-const calculateDragOverPosition = (e: React.DragEvent<HTMLElement>): location.X => {
-  if (!(e.target instanceof HTMLElement)) return "right";
-  const closest = e.target.closest(`.${TABS_SELECTOR_BUTTON_CLASS}`);
-  if (closest == null) return "right";
-  const b = box.construct(closest);
-  const cursor = xy.construct(e);
-  const s = scale.Scale.scale(box.left(b), box.right(b)).scale(0, 1).pos(cursor.x);
-  if (s < 0.5) return "left";
-  return "right";
-};
-
-interface StartIconProps
-  extends Icon.IconProps, Pick<SelectorButtonProps, "icon" | "loading"> {
-  level: text.Level;
-}
-
-const PILL_BUTTON_PROPS = {
-  variant: "outlined",
-  rounded: true,
-  contrast: 2,
-  color: 1,
-  textColor: 1,
-} as const;
-
-const DEFAULT_BUTTON_PROPS = {
-  variant: "text",
-  bordered: false,
-  sharp: true,
-} as const;
-
-const StartIcon = ({ loading, icon, level = "p" }: StartIconProps) => {
-  if (loading) icon = <Icon.Loading />;
-  return Icon.resolve(icon as Icon.ReactElement, {
-    className: CSS.BE(CLS, "icon"),
-    style: {
-      color: CSS.colorVar(9),
-      height: CSS.levelSizeVar(level),
-      width: CSS.levelSizeVar(level),
-    },
-  });
-};
-
-const SelectorButton = ({
-  selected,
-  altColor = false,
-  onSelect,
-  onClose,
-  tabKey,
-  name,
-  onDragStart,
-  onDragEnd,
-  onRename,
-  closable = true,
-  icon,
-  size,
-  editable = true,
-  unsavedChanges = false,
-  loading = false,
-  onDrop,
-  variant,
-  tabName,
-}: SelectorButtonProps): ReactElement => {
-  const handleDragStart: DragEventHandler<HTMLElement> = useCallback(
-    (e) => onDragStart?.(e, { tabKey, name }),
-    [onDragStart, tabKey, name],
-  );
-
-  const handleDragEnd: DragEventHandler<HTMLElement> = useCallback(
-    (e) => onDragEnd?.(e, { tabKey, name }),
-    [onDragEnd, tabKey, name],
-  );
-
-  const handleClose: MouseEventHandler<HTMLButtonElement> = useCallback(
-    (e) => {
-      e.preventDefault();
-      e.stopPropagation();
-      onClose?.(tabKey);
-    },
-    [onClose, tabKey],
-  );
-
-  const handleClick = useCallback(() => onSelect?.(tabKey), [onSelect, tabKey]);
-  const [dragOverPosition, setDragOverPosition] = useState<location.X | null>(null);
-
-  const handleDragOver: DragEventHandler<HTMLElement> = useCallback(
-    (e) => {
-      setDragOverPosition(calculateDragOverPosition(e));
-    },
-    [setDragOverPosition, onDrop],
-  );
-
-  const handleDrop = useCallback(
-    (e: React.DragEvent<HTMLElement>) => {
-      onDrop?.(e);
-      setDragOverPosition(null);
-    },
-    [onDrop, setDragOverPosition],
-  );
-
-  const isSelected = selected === tabKey;
-  const isPill = variant === "pill";
-  const level = SIZE_TEXT_LEVELS[size];
-  const variantProps = isPill ? PILL_BUTTON_PROPS : DEFAULT_BUTTON_PROPS;
-  const nameProps: NameProps = {
-    name,
-    tabKey,
-    onRename,
-    editable,
-    level,
-    selected: isSelected,
-    icon,
-    unsavedChanges,
-    loading,
-  };
-
-  return (
-    <Button.Button
-      el="div"
-      size={size}
-      id={tabKey}
-      className={CSS(
-        Menu.CONTEXT_TARGET,
-        TABS_SELECTOR_BUTTON_CLASS,
-        isSelected && Menu.CONTEXT_SELECTED,
-        CSS.selected(isSelected),
-        CSS.altColor(altColor),
-        closable && onClose != null && CSS.M("closable"),
-        CSS.editable(editable && onRename != null),
-        dragOverPosition != null && CSS.M("drag-over"),
-        dragOverPosition != null && CSS.loc(dragOverPosition),
-      )}
-      draggable={onDragStart != null}
-      justify="center"
-      align="center"
-      empty
-      tabIndex={0}
-      preventClick={isSelected}
-      onClick={handleClick}
-      onDragOver={handleDragOver}
-      onDrop={handleDrop}
-      onDragLeave={() => setDragOverPosition(null)}
-      onDragStart={handleDragStart}
-      onDragEnd={(e) => {
-        setDragOverPosition(null);
-        handleDragEnd(e);
-      }}
-      {...variantProps}
-      borderColor={isPill ? (isSelected ? 7 : 5) : undefined}
-    >
-      {tabName != null ? tabName(nameProps) : <DefaultName {...nameProps} />}
-      {closable && onClose != null && (
-        <Button.Button
-          aria-label="pluto-tabs__close"
-          onClick={handleClose}
-          className={CSS.E("close")}
-          variant="text"
-          sharp
-        >
-          <Icon.Close />
-        </Button.Button>
-      )}
-    </Button.Button>
-  );
-};
-
-export interface SelectorButtonProps extends Spec {
-  selected?: string;
-  altColor?: boolean;
-  onDragStart?: (e: React.DragEvent<HTMLElement>, tab: Spec) => void;
-  onDragEnd?: (e: React.DragEvent<HTMLElement>, tab: Spec) => void;
-  onDrop?: (e: React.DragEvent<HTMLElement>) => void;
-  onSelect?: (key: string) => void;
-  onClose?: (key: string) => void;
-  onRename?: (key: string, name: string) => void;
-  size: Size;
-  variant: SelectorVariant;
-  tabName?: NameRenderProp;
-}
-
-export interface DefaultNameProps
-  extends NameProps, Omit<Text.TextProps, "level" | "onChange"> {}
-
-export const DefaultName = ({
-  onRename,
-  name,
-  selected,
-  tabKey,
-  editable = true,
-  level,
-  icon,
-  unsavedChanges = false,
-  loading = false,
-  ...rest
-}: DefaultNameProps): ReactElement => {
-  const startIcon = <StartIcon loading={loading} icon={icon} level={level} />;
-  const unsaved = unsavedChanges && <Icon.Circle className={CSS.BE(CLS, "unsaved")} />;
-  if (onRename == null || !editable)
-    return (
-      <>
-        {startIcon}
-        <Text.Text overflow="ellipsis" level={level} {...rest}>
-          {name}
-        </Text.Text>
-        {unsaved}
-      </>
-    );
-  return (
-    <>
-      {startIcon}
-      <Text.Editable
-        level={level}
-        id={CSS.B(`tab-${tabKey}`)}
-        onChange={(newText: string) => onRename?.(tabKey, newText)}
-        value={name}
-        overflow="ellipsis"
-        color={selected ? 11 : 8}
-        {...rest}
-      />
-      {unsaved}
-    </>
+    </Context>
   );
 };

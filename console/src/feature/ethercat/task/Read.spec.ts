@@ -7,7 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { createTestClient, type rack, task } from "@synnaxlabs/client";
+import { type rack, task } from "@synnaxlabs/client";
+import { createTestClient } from "@synnaxlabs/client/testutil";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { beforeAll, describe, expect, it } from "vitest";
 
@@ -22,7 +23,7 @@ import {
 import {
   awaitTaskKey,
   clickConfigure,
-  renderTaskFormLayout,
+  renderTaskFormTab,
 } from "@/platform/task/testutil";
 import { stubGeometry, uniqueName } from "@/testutil";
 
@@ -37,9 +38,9 @@ beforeAll(async () => {
 });
 
 const renderRead = async (config?: unknown) =>
-  await renderTaskFormLayout(EtherCAT.Task.Read, EtherCAT.Task.READ_TYPE, {
+  await renderTaskFormTab(EtherCAT.Task.Read, EtherCAT.Task.READ_TYPE, {
     client,
-    args: config == null ? {} : { config },
+    params: config == null ? {} : { config },
   });
 
 describe("EtherCAT Read", () => {
@@ -122,7 +123,7 @@ describe("EtherCAT Read", () => {
         network: "eth0",
         pdos: createPDOs(),
       });
-      const { store, layoutKey } = await renderRead({
+      const rendered = await renderRead({
         ...EtherCAT.Task.ZERO_READ_PAYLOAD.config,
         channels: [
           createAutoInputChannel(slave.key, "Status"),
@@ -130,7 +131,7 @@ describe("EtherCAT Read", () => {
         ],
       });
       await clickConfigure();
-      const taskKey = await awaitTaskKey(store, layoutKey);
+      const taskKey = await awaitTaskKey(rendered);
       const created = await client.tasks.retrieve({
         key: taskKey,
         schemas: EtherCAT.Task.READ_SCHEMAS,
@@ -173,7 +174,7 @@ describe("EtherCAT Read", () => {
       };
       const first = await renderRead(config);
       await clickConfigure();
-      const firstKey = await awaitTaskKey(first.store, first.layoutKey);
+      const firstKey = await awaitTaskKey(first);
       const firstTask = await client.tasks.retrieve({
         key: firstKey,
         schemas: EtherCAT.Task.READ_SCHEMAS,
@@ -182,7 +183,7 @@ describe("EtherCAT Read", () => {
 
       const second = await renderRead(config);
       await clickConfigure();
-      const secondKey = await awaitTaskKey(second.store, second.layoutKey);
+      const secondKey = await awaitTaskKey(second);
       const secondTask = await client.tasks.retrieve({
         key: secondKey,
         schemas: EtherCAT.Task.READ_SCHEMAS,

@@ -27,11 +27,11 @@ import (
 // access.ErrDenied. Returns both the context and the underlying user so callers can
 // assert on identity-bearing behavior (e.g., the self-rename guard).
 func nonRootCtx(ctx SpecContext) (freighter.Context, user.User) {
-	u := MustSucceed(userSvc.NewWriter(nil).Create(ctx, user.User{
+	u := MustSucceed(writer.Create(ctx, user.User{
 		Username: "non-root-" + uuid.NewString(),
 	}))
 	fctx := freighter.Context{Context: ctx, Params: freighter.Params{}}
-	fctx.Set("Subject", user.OntologyID(u.Key))
+	fctx.Set("Subject", u.OntologyID())
 	return fctx, u
 }
 
@@ -87,7 +87,7 @@ var _ = Describe("Service", func() {
 
 	Describe("Retrieve", func() {
 		It("Should retrieve users by key when the subject has retrieve access", func(ctx SpecContext) {
-			u := MustSucceed(userSvc.NewWriter(nil).Create(ctx, user.User{
+			u := MustSucceed(writer.Create(ctx, user.User{
 				Username: "retrieve-by-key-" + uuid.NewString(),
 			}))
 			res := MustSucceed(apiSvc.Retrieve(rootCtx(ctx), apiuser.RetrieveRequest{
@@ -97,7 +97,7 @@ var _ = Describe("Service", func() {
 		})
 		It("Should retrieve users by username", func(ctx SpecContext) {
 			username := "retrieve-by-username-" + uuid.NewString()
-			u := MustSucceed(userSvc.NewWriter(nil).Create(ctx, user.User{
+			u := MustSucceed(writer.Create(ctx, user.User{
 				Username: username,
 			}))
 			res := MustSucceed(apiSvc.Retrieve(rootCtx(ctx), apiuser.RetrieveRequest{
@@ -106,7 +106,7 @@ var _ = Describe("Service", func() {
 			Expect(res.Users).To(ConsistOf(u))
 		})
 		It("Should deny access when the subject lacks retrieve permission on any user", func(ctx SpecContext) {
-			u := MustSucceed(userSvc.NewWriter(nil).Create(ctx, user.User{
+			u := MustSucceed(writer.Create(ctx, user.User{
 				Username: "retrieve-denied-" + uuid.NewString(),
 			}))
 			fctx, _ := nonRootCtx(ctx)
@@ -123,7 +123,7 @@ var _ = Describe("Service", func() {
 
 	Describe("Rename", func() {
 		It("Should update the first and last name of the target user", func(ctx SpecContext) {
-			u := MustSucceed(userSvc.NewWriter(nil).Create(ctx, user.User{
+			u := MustSucceed(writer.Create(ctx, user.User{
 				Username: "rename-" + uuid.NewString(),
 			}))
 			Expect(apiSvc.Rename(rootCtx(ctx), db, apiuser.RenameRequest{
@@ -138,7 +138,7 @@ var _ = Describe("Service", func() {
 			Expect(updated.LastName).To(Equal("User"))
 		})
 		It("Should deny access when the subject lacks update permission", func(ctx SpecContext) {
-			u := MustSucceed(userSvc.NewWriter(nil).Create(ctx, user.User{
+			u := MustSucceed(writer.Create(ctx, user.User{
 				Username: "rename-denied-" + uuid.NewString(),
 			}))
 			fctx, _ := nonRootCtx(ctx)
@@ -154,7 +154,7 @@ var _ = Describe("Service", func() {
 		It("Should rename the user and rotate the matching auth row", func(ctx SpecContext) {
 			oldName := "change-username-" + uuid.NewString()
 			newName := "change-username-new-" + uuid.NewString()
-			u := MustSucceed(userSvc.NewWriter(nil).Create(ctx, user.User{
+			u := MustSucceed(writer.Create(ctx, user.User{
 				Username: oldName,
 			}))
 			Expect(authSvc.NewWriter(nil).Register(ctx, auth.Credentials{
@@ -179,7 +179,7 @@ var _ = Describe("Service", func() {
 		})
 		It("Should be a no-op when the target name already matches", func(ctx SpecContext) {
 			username := "change-username-noop-" + uuid.NewString()
-			u := MustSucceed(userSvc.NewWriter(nil).Create(ctx, user.User{
+			u := MustSucceed(writer.Create(ctx, user.User{
 				Username: username,
 			}))
 			Expect(apiSvc.ChangeUsername(rootCtx(ctx), db, apiuser.ChangeUsernameRequest{
@@ -201,7 +201,7 @@ var _ = Describe("Service", func() {
 			})).Error().To(HaveOccurred())
 		})
 		It("Should deny access when the subject lacks update permission", func(ctx SpecContext) {
-			u := MustSucceed(userSvc.NewWriter(nil).Create(ctx, user.User{
+			u := MustSucceed(writer.Create(ctx, user.User{
 				Username: "change-username-denied-" + uuid.NewString(),
 			}))
 			fctx, _ := nonRootCtx(ctx)
@@ -212,10 +212,10 @@ var _ = Describe("Service", func() {
 		})
 		It("Should return auth.ErrRepeatedUsername when the target name is already taken", func(ctx SpecContext) {
 			taken := "change-username-taken-" + uuid.NewString()
-			MustSucceed(userSvc.NewWriter(nil).Create(ctx, user.User{
+			MustSucceed(writer.Create(ctx, user.User{
 				Username: taken,
 			}))
-			target := MustSucceed(userSvc.NewWriter(nil).Create(ctx, user.User{
+			target := MustSucceed(writer.Create(ctx, user.User{
 				Username: "change-username-collide-" + uuid.NewString(),
 			}))
 			Expect(apiSvc.ChangeUsername(rootCtx(ctx), db, apiuser.ChangeUsernameRequest{
@@ -232,7 +232,7 @@ var _ = Describe("Service", func() {
 		})
 		It("Should delete existing users and ignore unknown keys in the same call", func(ctx SpecContext) {
 			username := uuid.NewString()
-			created := MustSucceed(userSvc.NewWriter(nil).Create(ctx, user.User{Username: username}))
+			created := MustSucceed(writer.Create(ctx, user.User{Username: username}))
 			Expect(authSvc.NewWriter(nil).Register(ctx, auth.Credentials{
 				Username: username,
 				Password: "password",
@@ -250,7 +250,7 @@ var _ = Describe("Service", func() {
 			})).To(MatchError(auth.ErrInvalidCredentials))
 		})
 		It("Should deny access when the subject lacks delete permission", func(ctx SpecContext) {
-			u := MustSucceed(userSvc.NewWriter(nil).Create(ctx, user.User{
+			u := MustSucceed(writer.Create(ctx, user.User{
 				Username: "delete-denied-" + uuid.NewString(),
 			}))
 			fctx, _ := nonRootCtx(ctx)

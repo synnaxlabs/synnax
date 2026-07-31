@@ -7,9 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { createTestClient } from "@synnaxlabs/client";
+import { arc } from "@synnaxlabs/client";
+import { createTestClient } from "@synnaxlabs/client/testutil";
 import { fireEvent, render, screen } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 
 import { Arc } from "@/feature/arc";
 import { Modals } from "@/platform/modals";
@@ -18,18 +19,15 @@ import { assertDefined, createConsoleWrapper } from "@/testutil";
 const client = createTestClient();
 
 describe("arc/Selectable", () => {
-  it("opens the arc create modal when clicked", async () => {
-    const Selectable = Arc.SELECTABLES.find((s) => s.type === Arc.EDITOR_LAYOUT_TYPE);
-    assertDefined(Selectable, "no selectable registered for the arc editor layout");
+  it("opens the arc create modal when the tile is clicked", async () => {
+    const Selectable = Arc.SELECTABLES.find(
+      (s) => s.type === arc.TYPE_ONTOLOGY_ID.type,
+    );
+    assertDefined(Selectable, "no selectable registered for the arc editor");
     const { wrapper } = await createConsoleWrapper({ client });
     render(
       <>
-        <Selectable
-          layoutKey="selector-key"
-          rename={async () => null}
-          onPlace={vi.fn()}
-          handleError={() => {}}
-        />
+        <Selectable />
         <Modals.Stack />
       </>,
       { wrapper },

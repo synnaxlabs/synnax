@@ -243,18 +243,22 @@ export const useList = Flux.createList<
   ],
 });
 
-export type UseDeleteArgs = device.Key | device.Key[];
+export type UseDeleteParams = device.Key | device.Key[];
 
-export const { useUpdate: useDelete } = Flux.createUpdate<UseDeleteArgs, FluxSubStore>({
+export const { useUpdate: useDelete } = Flux.createUpdate<
+  UseDeleteParams,
+  FluxSubStore
+>({
   name: RESOURCE_NAME,
   verbs: Flux.DELETE_VERBS,
-  update: async ({ client, data, store, rollbacks }) => {
+  update: async ({ client, data, store, rollbacks, onOptimisticComplete }) => {
     const keys = array.toArray(data);
     const ids = device.ontologyID(keys);
     const relFilter = Ontology.filterRelationshipsThatHaveIDs(ids);
     rollbacks.push(store.relationships.delete(relFilter));
     rollbacks.push(store.resources.delete(ontology.idToString(ids)));
     rollbacks.push(store.devices.delete(keys));
+    await onOptimisticComplete(data);
     await client.devices.delete(keys);
     return data;
   },
@@ -286,10 +290,10 @@ export const createCreate = <
 
 export const { useUpdate: useCreate } = createCreate();
 
-export type UseRetrieveGroupArgs = Record<string, never>;
+export type UseRetrieveGroupParams = Record<string, never>;
 
 export const { useRetrieve: useRetrieveGroupID } = Flux.createRetrieve<
-  UseRetrieveGroupArgs,
+  UseRetrieveGroupParams,
   ontology.ID | undefined,
   FluxSubStore
 >({
@@ -315,11 +319,12 @@ export interface RenameParams extends Pick<device.Device, "key" | "name"> {}
 export const { useUpdate: useRename } = Flux.createUpdate<RenameParams, FluxSubStore>({
   name: RESOURCE_NAME,
   verbs: Flux.RENAME_VERBS,
-  update: async ({ data, client, rollbacks, store }) => {
+  update: async ({ data, client, rollbacks, store, onOptimisticComplete }) => {
     const { key, name } = data;
     const dev = await retrieveSingle({ client, store, query: { key } });
     const renamed = { ...dev, name };
     rollbacks.push(store.devices.set(renamed));
+    await onOptimisticComplete(data);
     await client.devices.create(renamed);
     return data;
   },

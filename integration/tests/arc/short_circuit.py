@@ -37,12 +37,6 @@ from framework.utils import create_indexed_pair, create_virtual_channel
 from tests.arc.arc import ArcCase
 
 SHORT_CIRCUIT_SOURCE = """
-func count{c_chan chan u8} () {
-    n u8 $= 0
-    n = n + 1
-    c_chan = n
-}
-
 func noop{} (input u8) u8 {
     return input
 }
@@ -52,7 +46,7 @@ ss_start_cmd => main
 sequence main {
     stage on {
         "on" -> ss_stage_str
-        count{c_chan=ss_count_on}
+        1 -> ss_on_tick
         0 -> ss_sim_stage
         1 -> ss_heater_cmd
         // Priority is declaration order, not statement size.
@@ -61,7 +55,7 @@ sequence main {
     }
     stage pause {
         "pause" -> ss_stage_str
-        count{c_chan=ss_count_pause}
+        1 -> ss_pause_tick
         2 -> ss_sim_stage
         0 -> ss_heater_cmd
         wait{1s} => on
@@ -134,8 +128,8 @@ class ShortCircuit(ArcCase):
         "ss_heater_cmd",
         "ss_temp_a",
         "ss_temp_b",
-        "ss_count_on",
-        "ss_count_pause",
+        "ss_on_tick",
+        "ss_pause_tick",
     ]
 
     def setup(self) -> None:
@@ -145,8 +139,8 @@ class ShortCircuit(ArcCase):
         create_virtual_channel(client, "ss_sim_stage", sy.DataType.UINT8)
         create_virtual_channel(client, "ss_start_cmd", sy.DataType.UINT8)
 
-        create_indexed_pair(client, "ss_count_on", sy.DataType.UINT8)
-        create_indexed_pair(client, "ss_count_pause", sy.DataType.UINT8)
+        create_indexed_pair(client, "ss_on_tick", sy.DataType.UINT8)
+        create_indexed_pair(client, "ss_pause_tick", sy.DataType.UINT8)
 
         create_virtual_channel(client, "ss_heater_cmd", sy.DataType.UINT8)
 
@@ -176,8 +170,8 @@ class ShortCircuit(ArcCase):
             "ss_stage_str",
             "ss_sim_stage",
             "ss_heater_cmd",
-            "ss_count_on_time",
-            "ss_count_pause_time",
+            "ss_on_tick_time",
+            "ss_pause_tick_time",
         ]
         collector = ChannelCollector(self.client, stream_channels)
         with collector as collected:
@@ -192,7 +186,7 @@ class ShortCircuit(ArcCase):
 
                 self.writer.write("ss_start_cmd", 1)
 
-                self._verify_on_pause_loop()
+                self._verify_on_pause_loop(collector)
                 self._verify_off_transition()
 
             collector.wait_for_count("ss_stage_str", 6)
@@ -209,12 +203,10 @@ class ShortCircuit(ArcCase):
             }
         )
 
-    def _verify_on_pause_loop(self) -> None:
+    def _verify_on_pause_loop(self, collector: ChannelCollector) -> None:
         self.log("Phase 1: Verifying on/pause loop")
-        for i in range(1, 4):
-            self.wait_for_eq("ss_count_on", i)
-            self.wait_for_eq("ss_count_pause", i)
-            self._write_sensors()
+        collector.wait_for_count("ss_on_tick_time", 3, timeout=10.0)
+        collector.wait_for_count("ss_pause_tick_time", 3, timeout=10.0)
         self.log("Phase 1 complete")
 
     def _verify_off_transition(self) -> None:
@@ -231,7 +223,7 @@ class ShortCircuit(ArcCase):
     def _assert_loop_writes(
         self, collected: dict[str, list[int | float | str]]
     ) -> None:
-        for ch in ("ss_count_on_time", "ss_count_pause_time"):
+        for ch in ("ss_on_tick_time", "ss_pause_tick_time"):
             times = [int(t) for t in collected[ch]]
             deltas_s = [(times[i + 1] - times[i]) / 1e9 for i in range(len(times) - 1)]
             self.log(f"{ch} deltas (s): {[f'{d:.3f}' for d in deltas_s]}")

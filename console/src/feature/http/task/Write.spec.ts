@@ -7,7 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { createTestClient, type Synnax } from "@synnaxlabs/client";
+import { type Synnax } from "@synnaxlabs/client";
+import { createTestClient } from "@synnaxlabs/client/testutil";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
@@ -18,7 +19,7 @@ import {
   awaitTaskKey,
   clickConfigure,
   findDialogTriggerByText,
-  renderTaskFormLayout,
+  renderTaskFormTab,
   selectFromDropdown,
 } from "@/platform/task/testutil";
 import {
@@ -32,8 +33,8 @@ import {
 stubGeometry();
 
 const renderWrite = async (
-  options: { client?: Synnax | null; args?: Task.FormLayoutArgs } = {},
-) => await renderTaskFormLayout(HTTP.Task.Write, HTTP.Task.WRITE_TYPE, options);
+  options: { client?: Synnax | null; params?: Task.FormViewParams } = {},
+) => await renderTaskFormTab(HTTP.Task.Write, HTTP.Task.WRITE_TYPE, options);
 
 const addEndpoint = async (): Promise<void> => {
   fireEvent.click(await screen.findByText("Add an endpoint"));
@@ -129,9 +130,9 @@ describe("HTTP Write form", () => {
     await screen.findByText("my_cmd_channel");
   });
 
-  it("should seed the form from a config passed through layout args", async () => {
+  it("should seed the form from a config passed through view args", async () => {
     const config = createWriteConfig("dev_1", [createWriteEndpoint("ep1", "/seeded")]);
-    await renderWrite({ args: { config } });
+    await renderWrite({ params: { config } });
     await screen.findByText(/\/seeded/);
   });
 
@@ -145,9 +146,9 @@ describe("HTTP Write form", () => {
         createWriteEndpoint("ep1", "/cmd", { dataType: "uint8" }),
         createWriteEndpoint("ep2", "/msg", { dataType: "string", name: virtualName }),
       ]);
-      const { store, layoutKey } = await renderWrite({ client, args: { config } });
+      const rendered = await renderWrite({ client, params: { config } });
       await clickConfigure();
-      const taskKey = await awaitTaskKey(store, layoutKey);
+      const taskKey = await awaitTaskKey(rendered);
       const created = await client.tasks.retrieve({
         key: taskKey,
         schemas: HTTP.Task.WRITE_SCHEMAS,
@@ -191,9 +192,9 @@ describe("HTTP Write form", () => {
         createWriteEndpoint("ep1", "/cmd", { channel: configuredCh.key }),
         createWriteEndpoint("ep2", "/stored"),
       ]);
-      const { store, layoutKey } = await renderWrite({ client, args: { config } });
+      const rendered = await renderWrite({ client, params: { config } });
       await clickConfigure();
-      const taskKey = await awaitTaskKey(store, layoutKey);
+      const taskKey = await awaitTaskKey(rendered);
       const created = await client.tasks.retrieve({
         key: taskKey,
         schemas: HTTP.Task.WRITE_SCHEMAS,

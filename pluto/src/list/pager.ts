@@ -41,7 +41,7 @@ interface RetrieveOptions {
 /**
  * Arguments for the usePager hook.
  */
-export interface UsePagerArgs {
+export interface UsePagerParams {
   /** Function to retrieve data */
   retrieve: (
     setter: state.SetArg<PagerParams, Partial<PagerParams>>,
@@ -102,7 +102,7 @@ export const search = (
 export const usePager = ({
   retrieve,
   pageSize = DEFAULT_PAGE_SIZE,
-}: UsePagerArgs): UsePagerReturn => {
+}: UsePagerParams): UsePagerReturn => {
   /**
    * Fetches the next page of results by incrementing the offset.
    */

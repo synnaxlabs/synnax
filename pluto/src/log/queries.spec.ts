@@ -7,10 +7,17 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { createTestClient, log, NotFoundError } from "@synnaxlabs/client";
+import { log, NotFoundError } from "@synnaxlabs/client";
+import { createTestClient } from "@synnaxlabs/client/testutil";
 import { color, uuid } from "@synnaxlabs/x";
-import { act, renderHook, waitFor } from "@testing-library/react";
-import { type FC, type PropsWithChildren } from "react";
+import { act, render, renderHook, waitFor } from "@testing-library/react";
+import {
+  createElement,
+  type FC,
+  type PropsWithChildren,
+  type ReactElement,
+  Suspense,
+} from "react";
 import { beforeEach, describe, expect, it } from "vitest";
 
 import { Flux } from "@/flux";
@@ -221,6 +228,34 @@ describe("log queries", () => {
       });
       await waitFor(() => expect(r2.current.variant).toEqual("success"));
       expect(r2.current.data).toEqual(r1.current.data);
+    });
+
+    it("resolves synchronously without suspending when already in the store", async () => {
+      const created = await createLog({ name: "fastpath_log" });
+      // Warm the flux store through the production retrieve path.
+      const warm = renderHook(() => Log.useRetrieve({ key: created.key }), { wrapper });
+      await waitFor(() => expect(warm.result.current.variant).toEqual("success"));
+
+      const Display = (): ReactElement => {
+        const log = Log.useRetrieveSuspended({ key: created.key });
+        return createElement("span", { "data-testid": "name" }, log.name);
+      };
+      let utils!: ReturnType<typeof render>;
+      await act(async () => {
+        utils = render(
+          createElement(
+            wrapper,
+            null,
+            createElement(
+              Suspense,
+              { fallback: createElement("span", { "data-testid": "fallback" }) },
+              createElement(Display),
+            ),
+          ),
+        );
+      });
+      expect(utils.queryByTestId("fallback")).toBeNull();
+      expect(utils.queryByTestId("name")?.textContent).toBe("fastpath_log");
     });
   });
 

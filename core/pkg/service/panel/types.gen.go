@@ -11,342 +11,71 @@
 
 package panel
 
-import (
-	"encoding/json"
-	"github.com/google/uuid"
-	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
-	"github.com/synnaxlabs/x/encoding/msgpack"
-	"github.com/synnaxlabs/x/errors"
-	"github.com/synnaxlabs/x/spatial"
-	"github.com/synnaxlabs/x/validate"
-	"strconv"
-)
+import "github.com/synnaxlabs/synnax/pkg/service/panel/versions"
 
-// Key is a unique identifier for a panel, represented as a UUID.
-type Key = uuid.UUID
+type TabKey = versions.TabKey
 
 // TabBase carries the identity shared by every tab variant.
-type TabBase struct {
-	// Key is the stable unique identifier of this tab within the panel. It is independent
-	// of the tab's content, so a tab's content may be swapped without changing the tab's
-	// identity or position.
-	Key uuid.UUID `json:"key" msgpack:"key"`
-}
+type TabBase = versions.TabBase
 
 // View is an inline, self-describing view: a Console-owned type plus an opaque
 // configuration payload, with no backing core document. Used for app-views and tools
-// (docs, explorers, about, the visualization picker).
-type View struct {
-	// Type is the Console-owned view type identifier (e.g., 'docs', 'about') used to select
-	// a renderer.
-	Type string `json:"type" msgpack:"type"`
-	// Name is the human-readable tab name for the view. A view has no backing resource to
-	// derive a name from, so it carries its own. May be renamed via SetTabView; when empty
-	// the Console falls back to a type-derived default.
-	Name string `json:"name" msgpack:"name"`
-	// Args is an opaque, Console-owned configuration payload for the view. Core never
-	// interprets it; it round-trips as-is.
-	Args msgpack.EncodedJSON `json:"args,omitzero" msgpack:"args,omitzero"`
-}
+// (docs, explorers, task forms, and the selector pickers).
+type View = versions.View
 
-// Leaf is a leaf node in the panel tree displaying a tab strip.
-type Leaf struct {
-	// Tabs is the ordered list of tabs in this leaf.
-	Tabs []Tab `json:"tabs,omitzero" msgpack:"tabs,omitzero"`
-}
-
-func (l Leaf) Validate() error {
-	v := validate.New("Leaf")
-	for i := range l.Tabs {
-		v.Exec(func() error { return validate.PathedError(l.Tabs[i].Validate(), "tabs", strconv.Itoa(i)) })
-	}
-	return v.Error()
-}
-
-// Split is an interior split node dividing its area between two children.
-type Split struct {
-	// Direction is the axis along which this node is split.
-	Direction spatial.Direction `json:"direction" msgpack:"direction"`
-	// Size is the fraction in [0, 1] of the parent area allocated to first. The remainder
-	// is allocated to last.
-	Size spatial.Decimal `json:"size" msgpack:"size"`
-	// First is the first child (left for x, top for y).
-	First Node `json:"first" msgpack:"first"`
-	// Last is the second child (right for x, bottom for y).
-	Last Node `json:"last" msgpack:"last"`
-}
-
-func (s Split) Validate() error {
-	v := validate.New("Split")
-	v.Ternaryf("direction", !s.Direction.IsValid(), "invalid direction: %v", s.Direction)
-	v.Exec(func() error { return validate.PathedError(s.First.Validate(), "first") })
-	v.Exec(func() error { return validate.PathedError(s.Last.Validate(), "last") })
-	return v.Error()
-}
-
-// Panel is a tab in a project owning a tree of visualization tabs. A panel is owned by
-// a project (project panel) or by a user (draft); renaming a draft promotes it to
-// project ownership.
-type Panel struct {
-	// Key is the unique identifier for this panel.
-	Key Key `json:"key" msgpack:"key"`
-	// Name is a human-readable name for the panel.
-	Name string `json:"name" msgpack:"name"`
-	// Root is the root of the panel tree.
-	Root Node `json:"root" msgpack:"root"`
-	// Parent is an optional parent resource for the panel in the ontology. When absent on
-	// create, the panel is parented to the creating user as a draft. Parenthood lives in
-	// the ontology graph, so the field is not persisted on the panel record and is absent
-	// on retrieve.
-	Parent *ontology.ID `json:"parent,omitempty" msgpack:"parent,omitempty"`
-}
-
-func (p Panel) Validate() error {
-	v := validate.New("Panel")
-	validate.NotEmptyString(v, "name", p.Name)
-	v.Exec(func() error { return validate.PathedError(p.Root.Validate(), "root") })
-	if p.Parent != nil {
-		v.Exec(func() error { return validate.PathedError(p.Parent.Validate(), "parent") })
-	}
-	return v.Error()
-}
-
-type TabType string
+// Tab is a single tab in a leaf. Tab content is a discriminated union: a resource (a
+// backing core document, e.g. a line plot) or a view (an inline, self-describing
+// app-view, e.g. docs). A freshly created tab is a view whose type is a selector
+// picker; SetTabResource or SetTabView swaps content in place. Display attributes
+// (name, icon, closability) are resolved at render time from the content. A resource
+// may back at most one tab per panel; views may repeat.
+type Tab = versions.Tab
+type TabVariant = versions.TabVariant
+type TabType = versions.TabType
 
 const (
-	TabTypeResource TabType = "resource"
-	TabTypeView     TabType = "view"
-	TabTypeEmpty    TabType = "empty"
+	// TabTypeResource is a tab displaying a backing core document.
+	TabTypeResource TabType = versions.TabTypeResource
+	// TabTypeView is a tab displaying an inline, self-describing view. Unlike a
+	// resource, a view has no backing core document: it carries its own type and opaque
+	// args. Used for app-views and tools (docs, explorers, task forms, and the selector
+	// pickers).
+	TabTypeView TabType = versions.TabTypeView
 )
 
-type TabVariant interface {
-	isTabVariant()
-}
-
 // TabResource is a tab displaying a backing core document.
-type TabResource struct {
-	TabBase
-	// Resource is the visualization resource displayed by this tab, set via SetTabResource.
-	Resource ontology.ID `json:"resource" msgpack:"resource"`
-}
-
-func (TabResource) isTabVariant() {}
-
-func (t TabResource) Validate() error {
-	v := validate.New("TabResource")
-	v.Exec(func() error { return validate.PathedError(t.Resource.Validate(), "resource") })
-	return v.Error()
-}
+type TabResource = versions.TabResource
 
 // TabView is a tab displaying an inline, self-describing view. Unlike a resource, a
 // view has no backing core document: it carries its own type and opaque args. Used for
-// app-views and tools (docs, explorers, about, the visualization picker).
-type TabView struct {
-	TabBase
-	View
-}
+// app-views and tools (docs, explorers, task forms, and the selector pickers).
+type TabView = versions.TabView
 
-func (TabView) isTabVariant() {}
+// Leaf is a leaf node in the panel tree displaying a tab strip.
+type Leaf = versions.Leaf
 
-// TabEmpty is a tab with no content yet. An empty tab renders the visualization
-// selector at render time; SetTabResource or SetTabView fills it in place.
-type TabEmpty struct {
-	TabBase
-}
-
-func (TabEmpty) isTabVariant() {}
-
-// Tab is a single tab in a leaf. Tab content is a discriminated union: a resource (a
-// backing core document, e.g. a line plot), a view (an inline, self-describing
-// app-view, e.g. docs), or empty (the visualization selector). Display attributes
-// (name, icon, closability) are resolved at render time from the content. The same
-// content may be referenced by multiple tabs in the same or other panels.
-type Tab struct {
-	Variant TabVariant
-}
-
-func (u Tab) MarshalJSON() ([]byte, error) {
-	if u.Variant == nil {
-		return []byte("null"), nil
-	}
-	var t TabType
-	switch u.Variant.(type) {
-	case TabResource:
-		t = TabTypeResource
-	case TabView:
-		t = TabTypeView
-	case TabEmpty:
-		t = TabTypeEmpty
-	default:
-		return nil, errors.Newf("Tab: nil or unknown variant %T", u.Variant)
-	}
-	raw, err := json.Marshal(u.Variant)
-	if err != nil {
-		return nil, err
-	}
-	fields := map[string]json.RawMessage{}
-	if err := json.Unmarshal(raw, &fields); err != nil {
-		return nil, err
-	}
-	tag, err := json.Marshal(t)
-	if err != nil {
-		return nil, err
-	}
-	fields["variant"] = tag
-	return json.Marshal(fields)
-}
-
-func (u *Tab) UnmarshalJSON(data []byte) error {
-	if string(data) == "null" {
-		u.Variant = nil
-		return nil
-	}
-	var disc struct {
-		Type TabType `json:"variant"`
-	}
-	if err := json.Unmarshal(data, &disc); err != nil {
-		return err
-	}
-	switch disc.Type {
-	case TabTypeResource:
-		var v TabResource
-		if err := json.Unmarshal(data, &v); err != nil {
-			return err
-		}
-		u.Variant = v
-	case TabTypeView:
-		var v TabView
-		if err := json.Unmarshal(data, &v); err != nil {
-			return err
-		}
-		u.Variant = v
-	case TabTypeEmpty:
-		var v TabEmpty
-		if err := json.Unmarshal(data, &v); err != nil {
-			return err
-		}
-		u.Variant = v
-	default:
-		return errors.Newf("Tab: unknown variant %q", disc.Type)
-	}
-	return nil
-}
-
-func (u Tab) Validate() error {
-	switch variant := u.Variant.(type) {
-	case TabResource:
-		return variant.Validate()
-	}
-	return nil
-}
-
-type NodeType string
-
-const (
-	NodeTypeLeaf  NodeType = "leaf"
-	NodeTypeSplit NodeType = "split"
-)
-
-type NodeVariant interface {
-	isNodeVariant()
-}
-
-type NodeLeaf struct {
-	Leaf
-}
-
-func (NodeLeaf) isNodeVariant() {}
-
-func (n NodeLeaf) Validate() error {
-	v := validate.New("NodeLeaf")
-	v.Exec(n.Leaf.Validate)
-	return v.Error()
-}
-
-type NodeSplit struct {
-	Split
-}
-
-func (NodeSplit) isNodeVariant() {}
-
-func (n NodeSplit) Validate() error {
-	v := validate.New("NodeSplit")
-	v.Exec(n.Split.Validate)
-	return v.Error()
-}
+// Split is an interior split node dividing its area between two children.
+type Split = versions.Split
 
 // Node is a node in the panel tree: either a leaf displaying a tab strip or an interior
 // split. Nodes are identified by path-derived numeric keys during traversal (1 = root,
 // 2k = first child, 2k+1 = last child).
-type Node struct {
-	Variant NodeVariant
-}
+type Node = versions.Node
+type NodeVariant = versions.NodeVariant
+type NodeType = versions.NodeType
 
-func (u Node) MarshalJSON() ([]byte, error) {
-	if u.Variant == nil {
-		return []byte("null"), nil
-	}
-	var t NodeType
-	switch u.Variant.(type) {
-	case NodeLeaf:
-		t = NodeTypeLeaf
-	case NodeSplit:
-		t = NodeTypeSplit
-	default:
-		return nil, errors.Newf("Node: nil or unknown variant %T", u.Variant)
-	}
-	raw, err := json.Marshal(u.Variant)
-	if err != nil {
-		return nil, err
-	}
-	fields := map[string]json.RawMessage{}
-	if err := json.Unmarshal(raw, &fields); err != nil {
-		return nil, err
-	}
-	tag, err := json.Marshal(t)
-	if err != nil {
-		return nil, err
-	}
-	fields["variant"] = tag
-	return json.Marshal(fields)
-}
+const (
+	NodeTypeLeaf  NodeType = versions.NodeTypeLeaf
+	NodeTypeSplit NodeType = versions.NodeTypeSplit
+)
 
-func (u *Node) UnmarshalJSON(data []byte) error {
-	if string(data) == "null" {
-		u.Variant = nil
-		return nil
-	}
-	var disc struct {
-		Type NodeType `json:"variant"`
-	}
-	if err := json.Unmarshal(data, &disc); err != nil {
-		return err
-	}
-	switch disc.Type {
-	case NodeTypeLeaf:
-		var v NodeLeaf
-		if err := json.Unmarshal(data, &v); err != nil {
-			return err
-		}
-		u.Variant = v
-	case NodeTypeSplit:
-		var v NodeSplit
-		if err := json.Unmarshal(data, &v); err != nil {
-			return err
-		}
-		u.Variant = v
-	default:
-		return errors.Newf("Node: unknown variant %q", disc.Type)
-	}
-	return nil
-}
+type NodeLeaf = versions.NodeLeaf
+type NodeSplit = versions.NodeSplit
 
-func (u Node) Validate() error {
-	switch variant := u.Variant.(type) {
-	case NodeLeaf:
-		return variant.Validate()
-	case NodeSplit:
-		return variant.Validate()
-	}
-	return nil
-}
+// Key is a unique identifier for a panel, represented as a UUID.
+type Key = versions.Key
+
+// Panel is a tab in a project owning a tree of visualization tabs. A panel is owned by
+// a project (project panel) or by a user (draft); renaming a draft promotes it to
+// project ownership.
+type Panel = versions.Panel

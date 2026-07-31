@@ -7,7 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { createTestClient, type Synnax, task } from "@synnaxlabs/client";
+import { type Synnax, task } from "@synnaxlabs/client";
+import { createTestClient } from "@synnaxlabs/client/testutil";
 import { fireEvent, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
@@ -16,14 +17,13 @@ import { type Task } from "@/platform/task";
 import {
   awaitTaskKey,
   clickConfigure,
-  renderTaskFormLayout,
+  renderTaskFormTab,
 } from "@/platform/task/testutil";
 import { uniqueName } from "@/testutil";
 
 const renderAlert = async (
-  options: { client?: Synnax | null; args?: Task.FormLayoutArgs } = {},
-) =>
-  await renderTaskFormLayout(PagerDuty.Task.Alert, PagerDuty.Task.ALERT_TYPE, options);
+  options: { client?: Synnax | null; params?: Task.FormViewParams } = {},
+) => await renderTaskFormTab(PagerDuty.Task.Alert, PagerDuty.Task.ALERT_TYPE, options);
 
 const ROUTING_KEY_PLACEHOLDER = "R022XIJR9M266DX570EVE6EXP1AFBN6D";
 
@@ -81,16 +81,16 @@ describe("PagerDuty Alert form", () => {
     expect(screen.getByText("No alert selected.")).toBeTruthy();
   });
 
-  it("should seed the form from a valid config passed through layout args", async () => {
+  it("should seed the form from a valid config passed through view args", async () => {
     const config = createAlertConfig();
-    await renderAlert({ args: { config } });
+    await renderAlert({ params: { config } });
     await screen.findByDisplayValue("R".repeat(32));
     await screen.findByText("New alert");
   });
 
-  it("should fall back to the zero config when the layout args config is invalid", async () => {
+  it("should fall back to the zero config when the view args config is invalid", async () => {
     const config = createAlertConfig({ routingKey: "too_short" });
-    await renderAlert({ args: { config } });
+    await renderAlert({ params: { config } });
     const input = await screen.findByPlaceholderText<HTMLInputElement>(
       ROUTING_KEY_PLACEHOLDER,
     );
@@ -101,15 +101,15 @@ describe("PagerDuty Alert form", () => {
   describe("onConfigure against a live cluster", () => {
     const client = createTestClient();
 
-    it("should create the alert task on the rack from the layout args", async () => {
+    it("should create the alert task on the rack from the view args", async () => {
       const rack = await client.racks.create({ name: uniqueName("rack") });
       const config = createAlertConfig();
-      const { store, layoutKey } = await renderAlert({
+      const rendered = await renderAlert({
         client,
-        args: { rackKey: rack.key, config },
+        params: { rackKey: rack.key, config },
       });
       await clickConfigure();
-      const taskKey = await awaitTaskKey(store, layoutKey);
+      const taskKey = await awaitTaskKey(rendered);
       const created = await client.tasks.retrieve({
         key: taskKey,
         schemas: PagerDuty.Task.ALERT_SCHEMAS,

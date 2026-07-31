@@ -24,7 +24,7 @@ class AnalogWrite(NITask):
     """NI Analog Write/Output Task automation interface."""
 
     page_type: str = "NI Analog Write Task"
-    pluto_label: str = ".pluto-ni-analog-write-task"
+    pluto_label: str = ".console-task-configure--ni_analog_write"
 
     def add_channel(
         self,

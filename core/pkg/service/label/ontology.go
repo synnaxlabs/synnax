@@ -16,8 +16,8 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/samber/lo"
-	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
-	"github.com/synnaxlabs/synnax/pkg/distribution/search"
+	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/search"
 	xchange "github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/color"
 	"github.com/synnaxlabs/x/encoding/orc"
@@ -58,7 +58,7 @@ func OntologyIDs(keys []Key) []ontology.ID {
 
 // OntologyIDsFromLabels constructs a slice of unique ontology.IDs for the given labels.
 func OntologyIDsFromLabels(labels []Label) []ontology.ID {
-	return lo.Map(labels, func(l Label, _ int) ontology.ID { return OntologyID(l.Key) })
+	return lo.Map(labels, func(l Label, _ int) ontology.ID { return l.OntologyID() })
 }
 
 // KeysFromOntologyIDs extracts the label keys from the given ontology.IDs.
@@ -75,7 +75,7 @@ var schema = zyn.Object(map[string]zyn.Schema{
 })
 
 func newResource(l Label) ontology.Resource {
-	return ontology.NewResource(schema, OntologyID(l.Key), l.Name, l)
+	return ontology.NewResource(schema, l.OntologyID(), l.Name, l)
 }
 
 type change = xchange.Change[Key, Label]

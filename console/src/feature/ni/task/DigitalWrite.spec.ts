@@ -7,7 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { createTestClient, task } from "@synnaxlabs/client";
+import { task } from "@synnaxlabs/client";
+import { createTestClient } from "@synnaxlabs/client/testutil";
 import { id } from "@synnaxlabs/x";
 import { screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
@@ -39,10 +40,10 @@ const createChannel = (
   ...overrides,
 });
 
-const renderDigitalWrite = async (args = {}) =>
+const renderDigitalWrite = async (params = {}) =>
   await renderNITaskForm(NI.Task.DigitalWrite, NI.Task.DIGITAL_WRITE_TYPE, {
     client,
-    args,
+    params,
   });
 
 const createConfig = (
@@ -67,11 +68,11 @@ describe("DigitalWrite", () => {
   describe("configure against a live cluster", () => {
     it("should create per-line command and state channels keyed by port and line", async () => {
       const dev = await createNIDevice(client);
-      const { store, layoutKey } = await renderDigitalWrite({
+      const rendered = await renderDigitalWrite({
         config: createConfig([createChannel(0, 0), createChannel(0, 1)], dev.key),
       });
       await clickConfigure();
-      const taskKey = await awaitTaskKey(store, layoutKey);
+      const taskKey = await awaitTaskKey(rendered);
       const created = await client.tasks.retrieve({
         key: taskKey,
         schemas: NI.Task.DIGITAL_WRITE_SCHEMAS,
@@ -111,7 +112,7 @@ describe("DigitalWrite", () => {
       const dev = await createNIDevice(client);
       const cmdName = uniqueName("do_cmd");
       const stateName = uniqueName("do_state");
-      const { store, layoutKey } = await renderDigitalWrite({
+      const rendered = await renderDigitalWrite({
         config: createConfig(
           [
             createChannel(0, 0, {
@@ -123,7 +124,7 @@ describe("DigitalWrite", () => {
         ),
       });
       await clickConfigure();
-      const taskKey = await awaitTaskKey(store, layoutKey);
+      const taskKey = await awaitTaskKey(rendered);
       const created = await client.tasks.retrieve({
         key: taskKey,
         schemas: NI.Task.DIGITAL_WRITE_SCHEMAS,
@@ -139,11 +140,11 @@ describe("DigitalWrite", () => {
 
     it("should reuse existing channels when reconfigured", async () => {
       const dev = await createNIDevice(client);
-      const { store, layoutKey } = await renderDigitalWrite({
+      const rendered = await renderDigitalWrite({
         config: createConfig([createChannel(0, 0)], dev.key),
       });
       await clickConfigure();
-      const taskKey = await awaitTaskKey(store, layoutKey);
+      const taskKey = await awaitTaskKey(rendered);
       const first = await client.tasks.retrieve({
         key: taskKey,
         schemas: NI.Task.DIGITAL_WRITE_SCHEMAS,

@@ -9,26 +9,16 @@
 
 import { type Store } from "@reduxjs/toolkit";
 import { lineplot, ranger, type Synnax as Client } from "@synnaxlabs/client";
-import {
-  Access,
-  type Flux,
-  Icon,
-  Menu,
-  Ranger,
-  Status,
-  Synnax,
-  Text,
-} from "@synnaxlabs/pluto";
+import { Access, type Flux, Icon, Menu, Ranger, Synnax, Text } from "@synnaxlabs/pluto";
 import { array } from "@synnaxlabs/x";
 import { useCallback } from "react";
 
 import { Cluster } from "@/platform/cluster";
 import { ContextMenu as Base } from "@/platform/context-menu";
-import { Layout } from "@/platform/layout";
-import { LinePlot } from "@/platform/lineplot";
 import { Link } from "@/platform/link";
-import { Ontology } from "@/platform/ontology";
+import { Panel } from "@/platform/panel";
 import { Range } from "@/platform/range";
+import { Tree } from "@/platform/tree";
 import { Session } from "@/session";
 
 export const fetchIfNotInState = async (
@@ -57,32 +47,13 @@ export const CreateChildRangeIcon = Icon.createComposite(Icon.Range, {
   topRight: Icon.Add,
 });
 
-const useViewDetails = (): ((key: string) => void) => {
-  const addStatus = Status.useAdder();
-  const placeLayout = Layout.usePlacer();
-  const { retrieve } = Ranger.useRetrieveObservable({
-    onChange: useCallback(
-      ({ data, variant, status }) => {
-        if (variant !== "success") {
-          if (variant === "error") addStatus(status);
-          return;
-        }
-        placeLayout({ ...Range.OVERVIEW_LAYOUT, name: data.name, key: data.key });
-      },
-      [placeLayout],
-    ),
-  });
-  return useCallback((key: string) => retrieve({ key }), [retrieve]);
-};
-
 const useDelete = () => {
   const dispatch = Session.useDispatch();
-  const remover = Layout.useRemover();
   const ranges = Session.Range.useSelectMultiple();
   const handleRemove = (keys: string[]): void => {
     dispatch(Session.Range.remove({ keys }));
   };
-  const confirm = Ontology.useConfirmDelete({
+  const confirm = Tree.useConfirmDelete({
     type: "Range",
     description: "Deleting this range will also delete all child ranges.",
   });
@@ -93,7 +64,6 @@ const useDelete = () => {
         const rng = ranges.filter((r) => keys.includes(r.key));
         if (!(await confirm(rng))) return false;
         handleRemove(keys);
-        remover(...keys);
         return true;
       },
       [],
@@ -137,7 +107,8 @@ export const ContextMenu = ({ keys: [key] }: Menu.ContextMenuMenuProps) => {
   };
 
   const rng = ranges.find((r) => r.key === key);
-  const activeLayout = Session.Layout.useSelectActiveMosaicLayout();
+  const linePlotFocused = Session.Panel.useSelectFocusedTab();
+  const openTab = Panel.useOpenTab();
   const addToActivePlot = Range.useAddToActivePlot();
   const addToNewPlot = Range.useAddToNewPlot();
   const activeRange = Session.Range.useSelectState();
@@ -148,7 +119,6 @@ export const ContextMenu = ({ keys: [key] }: Menu.ContextMenuMenuProps) => {
   const handleClearActive = () => {
     dispatch(Session.Range.clearSelected());
   };
-  const handleViewDetails = useViewDetails();
   const handleAddChildRange = () => {
     openCreate({ parent: key });
   };
@@ -174,7 +144,12 @@ export const ContextMenu = ({ keys: [key] }: Menu.ContextMenuMenuProps) => {
             </Menu.Item>
           )}
           {rng.persisted && (
-            <Menu.Item itemKey="details" onClick={() => handleViewDetails(rng.key)}>
+            <Menu.Item
+              itemKey="details"
+              onClick={() =>
+                openTab({ variant: "resource", resource: ranger.ontologyID(rng.key) })
+              }
+            >
               <Icon.Details />
               View details
             </Menu.Item>
@@ -192,16 +167,12 @@ export const ContextMenu = ({ keys: [key] }: Menu.ContextMenuMenuProps) => {
             </Menu.Item>
           )}
           <Menu.Divider />
-          {activeLayout?.type === LinePlot.LAYOUT_TYPE &&
-            hasLinePlotUpdatePermission && (
-              <Menu.Item
-                itemKey="addToActivePlot"
-                onClick={() => addToActivePlot([key])}
-              >
-                <AddToActivePlotIcon key="plot" />
-                Add to active plot
-              </Menu.Item>
-            )}
+          {linePlotFocused && hasLinePlotUpdatePermission && (
+            <Menu.Item itemKey="addToActivePlot" onClick={() => addToActivePlot([key])}>
+              <AddToActivePlotIcon key="plot" />
+              Add to active plot
+            </Menu.Item>
+          )}
           {hasLinePlotCreatePermission && (
             <Menu.Item itemKey="addToNewPlot" onClick={() => addToNewPlot([key])}>
               <AddToNewPlotIcon key="plot" />

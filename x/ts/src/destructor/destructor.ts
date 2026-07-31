@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { errors } from "@/errors";
+
 export interface Destructor {
   (): void;
 }
@@ -16,3 +18,37 @@ export interface Async {
 }
 
 export const NOOP = () => {};
+
+/** Accumulates destructors and runs them all when a guarded call fails. */
+export class Chain {
+  private readonly destructors: Destructor[] = [];
+
+  /** Adds destructors, run in reverse order of addition. */
+  add(...destructors: Destructor[]): void {
+    this.destructors.push(...destructors);
+  }
+
+  /** Runs every destructor in reverse order. Errors are logged, not thrown. */
+  private run(): void {
+    for (const d of this.destructors.reverse())
+      try {
+        d();
+      } catch (error) {
+        console.error("destructor failed", error);
+      }
+    this.destructors.length = 0;
+  }
+
+  /**
+   * Runs the call, executing accumulated destructors and rethrowing on
+   * failure.
+   */
+  async guard<T>(call: () => Promise<T>): Promise<T> {
+    try {
+      return await call();
+    } catch (error) {
+      this.run();
+      throw errors.fromUnknown(error);
+    }
+  }
+}

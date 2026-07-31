@@ -7,17 +7,16 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-import random
-
 import numpy as np
 import pytest
 
 import synnax as sy
+from x.strings import random_name
 from x.telem import seconds_linspace
 
 
 def channel_name() -> str:
-    return f"test_{random.randint(0, 1000000)}"
+    return f"test_{random_name()}"
 
 
 @pytest.mark.channel

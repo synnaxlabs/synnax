@@ -108,10 +108,6 @@ func (v *BaseArcParserVisitor) VisitSingleInvocation(ctx *SingleInvocationContex
 	return v.VisitChildren(ctx)
 }
 
-func (v *BaseArcParserVisitor) VisitGlobalConstant(ctx *GlobalConstantContext) interface{} {
-	return v.VisitChildren(ctx)
-}
-
 func (v *BaseArcParserVisitor) VisitFlowStatement(ctx *FlowStatementContext) interface{} {
 	return v.VisitChildren(ctx)
 }

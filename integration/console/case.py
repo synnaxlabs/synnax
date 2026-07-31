@@ -45,6 +45,7 @@ class ConsoleCase(TestCase):
     console: Console
 
     def setup(self) -> None:
+        self._cleanup_pages: list[str] = []
         env_headed = os.environ.get("PLAYWRIGHT_CONSOLE_HEADED", "0") == "1"
         headed = self.params.get("headed", env_headed)
         slow_mo = self.params.get("slow_mo", 0)
@@ -119,10 +120,13 @@ class ConsoleCase(TestCase):
         self.console.access.bootstrap_project = project_name
         self.console.project.select_bootstrap(self._project.name)
 
+        # Panels belong to the project, so a fresh project has none and the mosaic
+        # does not render until one exists.
+        self.console.layout.create_panel()
+
         # Prevent state pollution
         self.console.close_all_tabs()
         self.console.notifications.close_connection()
-        self._cleanup_pages: list[str] = []
 
     def teardown(self) -> None:
         # Stop and persist the trace before cleanup; cleanup may mutate page state

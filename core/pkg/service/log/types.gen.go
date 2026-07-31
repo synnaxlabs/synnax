@@ -11,108 +11,18 @@
 
 package log
 
-import (
-	"github.com/google/uuid"
-	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
-	"github.com/synnaxlabs/x/color"
-	"github.com/synnaxlabs/x/notation"
-	"github.com/synnaxlabs/x/telem"
-	"github.com/synnaxlabs/x/validate"
-	"strconv"
-)
+import "github.com/synnaxlabs/synnax/pkg/service/log/versions"
 
 // Key is a unique identifier for a log, represented as a UUID.
-type Key = uuid.UUID
+type Key = versions.Key
 
 // TimestampConfig is per-channel timestamp display configuration.
-type TimestampConfig struct {
-	// Format controls how channel timestamps are rendered.
-	Format telem.TimestampFormat `json:"format" msgpack:"format"`
-	// Tz is the time zone used when rendering timestamps.
-	Tz telem.TimeZone `json:"tz" msgpack:"tz"`
-}
-
-func (t TimestampConfig) Validate() error {
-	v := validate.New("TimestampConfig")
-	v.Ternaryf("format", !t.Format.IsValid(), "invalid format: %v", t.Format)
-	v.Ternaryf("tz", !t.Tz.IsValid(), "invalid tz: %v", t.Tz)
-	return v.Error()
-}
+type TimestampConfig = versions.TimestampConfig
 
 // ChannelEntry is a per-channel display configuration entry within a log.
-type ChannelEntry struct {
-	// Channel is the channel this entry references.
-	Channel channel.Key `json:"channel" msgpack:"channel"`
-	// Color is the display color for the channel.
-	Color color.Color `json:"color" msgpack:"color"`
-	// Notation is the numeric notation used to render samples.
-	Notation notation.Notation `json:"notation" msgpack:"notation"`
-	// Precision is the number of decimal digits to display. -1 means "use the log-level
-	// precision"; 17 is the maximum significant digits for a float64.
-	Precision int32 `json:"precision" msgpack:"precision"`
-	// Alias is a human-readable alias displayed in place of the channel name.
-	Alias string `json:"alias" msgpack:"alias"`
-	// Timestamp is the per-channel timestamp display configuration.
-	Timestamp TimestampConfig `json:"timestamp" msgpack:"timestamp"`
-}
-
-func (c *ChannelEntry) ApplyDefaults() {
-	if c.Notation == "" {
-		c.Notation = "standard"
-	}
-	if c.Precision == 0 {
-		c.Precision = -1
-	}
-	if c.Timestamp.Format == "" {
-		c.Timestamp.Format = "preciseDate"
-	}
-	if c.Timestamp.Tz == "" {
-		c.Timestamp.Tz = "local"
-	}
-}
-
-func (c ChannelEntry) Validate() error {
-	v := validate.New("ChannelEntry")
-	v.Ternaryf("notation", !c.Notation.IsValid(), "invalid notation: %v", c.Notation)
-	validate.GreaterThanEq(v, "precision", c.Precision, -1)
-	validate.LessThanEq(v, "precision", c.Precision, 17)
-	v.Exec(func() error { return validate.PathedError(c.Timestamp.Validate(), "timestamp") })
-	return v.Error()
-}
+type ChannelEntry = versions.ChannelEntry
 
 // Log is a timestamped event and message logging component. Logs display chronological
 // records of events, system messages, and audit trails with filtering and formatting
 // capabilities.
-type Log struct {
-	// Key is the unique identifier for this log.
-	Key Key `json:"key" msgpack:"key"`
-	// Name is a human-readable name for the log.
-	Name string `json:"name" msgpack:"name"`
-	// Channels are the channels displayed in this log, in order.
-	Channels []ChannelEntry `json:"channels,omitzero" msgpack:"channels,omitzero"`
-	// TimestampPrecision is the precision of displayed timestamps (0-3).
-	TimestampPrecision int32 `json:"timestamp_precision" msgpack:"timestamp_precision"`
-	// HideChannelNames controls whether channel names are hidden. When false (the default),
-	// names are displayed.
-	HideChannelNames bool `json:"hide_channel_names" msgpack:"hide_channel_names"`
-	// HideReceiptTimestamp controls whether the receipt timestamp column is hidden. When
-	// false (the default), it is displayed.
-	HideReceiptTimestamp bool `json:"hide_receipt_timestamp" msgpack:"hide_receipt_timestamp"`
-}
-
-func (l *Log) ApplyDefaults() {
-	for i := range l.Channels {
-		l.Channels[i].ApplyDefaults()
-	}
-}
-
-func (l Log) Validate() error {
-	v := validate.New("Log")
-	validate.NotEmptyString(v, "name", l.Name)
-	validate.GreaterThanEq(v, "timestamp_precision", l.TimestampPrecision, 0)
-	validate.LessThanEq(v, "timestamp_precision", l.TimestampPrecision, 3)
-	for i := range l.Channels {
-		v.Exec(func() error { return validate.PathedError(l.Channels[i].Validate(), "channels", strconv.Itoa(i)) })
-	}
-	return v.Error()
-}
+type Log = versions.Log

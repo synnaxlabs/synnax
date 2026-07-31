@@ -18,9 +18,9 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
+	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/encoding/json"
@@ -41,18 +41,6 @@ var changeSchema = zyn.Object(map[string]zyn.Schema{"key": zyn.String()})
 
 func newChangeID(key string) ontology.ID {
 	return ontology.ID{Key: key, Type: ontology.ResourceTypeChannel}
-}
-
-func encodeID(id ontology.ID) []byte {
-	return telem.MarshalVariableSample([]byte(id.String()))
-}
-
-func encodeIDs(ids []ontology.ID) []byte {
-	var buf []byte
-	for _, id := range ids {
-		buf = append(buf, encodeID(id)...)
-	}
-	return buf
 }
 
 func decodeRelationships(ser []byte) ([]ontology.Relationship, error) {
@@ -107,13 +95,6 @@ func (s *changeService) RetrieveResource(
 }
 
 var _ = Describe("Signals", func() {
-	Describe("DecodeIDs", func() {
-		It("Should decode a series of IDs", func() {
-			encoded := encodeIDs([]ontology.ID{newChangeID("one"), newChangeID("two")})
-			decoded := MustSucceed(decodeIDs(encoded))
-			Expect(decoded).To(Equal([]ontology.ID{newChangeID("one"), newChangeID("two")}))
-		})
-	})
 	Describe("Resource Changes", func() {
 		It("Should correctly propagate resource changes to the ontology", func(ctx SpecContext) {
 			var resCh channel.Channel
@@ -203,7 +184,7 @@ var _ = Describe("Signals", func() {
 			Expect(closeStreamer.Close()).To(Succeed())
 		}()
 
-		w := node.Ontology.NewWriter(nil)
+		w := otg.NewWriter(nil)
 		firstResource := newChangeID("abc")
 		secondResource := newChangeID("def")
 		Expect(w.DefineResources(ctx, firstResource)).To(Succeed())
@@ -241,7 +222,7 @@ var _ = Describe("Signals", func() {
 			Expect(closeStreamer.Close()).To(Succeed())
 		}()
 
-		w := node.Ontology.NewWriter(nil)
+		w := otg.NewWriter(nil)
 		firstResource := newChangeID("abc")
 		secondResource := newChangeID("def")
 		Expect(w.DefineResources(ctx, firstResource)).To(Succeed())

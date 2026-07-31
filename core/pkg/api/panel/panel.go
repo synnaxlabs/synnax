@@ -15,13 +15,15 @@ import (
 
 	"github.com/synnaxlabs/synnax/pkg/api/auth"
 	"github.com/synnaxlabs/synnax/pkg/api/config"
-	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
+	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/panel"
 	xconfig "github.com/synnaxlabs/x/config"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
+	"github.com/synnaxlabs/x/query"
 )
 
 // Service is the API-layer panel service. It enforces access control and routes
@@ -87,10 +89,11 @@ func (s *Service) Create(
 
 type (
 	RetrieveRequest struct {
-		SearchTerm string      `json:"search_term" msgpack:"search_term"`
-		Keys       []panel.Key `json:"keys" msgpack:"keys"`
-		Limit      int         `json:"limit" msgpack:"limit"`
-		Offset     int         `json:"offset" msgpack:"offset"`
+		SearchTerm          string      `json:"search_term" msgpack:"search_term"`
+		Keys                []panel.Key `json:"keys" msgpack:"keys"`
+		Limit               int         `json:"limit" msgpack:"limit"`
+		Offset              int         `json:"offset" msgpack:"offset"`
+		IgnoreNotFoundError bool        `json:"ignore_not_found_error" msgpack:"ignore_not_found_error"`
 	}
 	RetrieveResponse struct {
 		Panels []panel.Panel `json:"panels,omitzero" msgpack:"panels,omitzero"`
@@ -112,6 +115,9 @@ func (s *Service) Retrieve(
 		q = q.Offset(req.Offset)
 	}
 	err = q.Entries(&res.Panels).Exec(ctx, nil)
+	if req.IgnoreNotFoundError && err != nil {
+		err = errors.Skip(err, query.ErrNotFound)
+	}
 	if eErr := s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionRetrieve,
