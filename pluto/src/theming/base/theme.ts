@@ -138,7 +138,10 @@ const ERROR_HSLA: color.HSLA = [357, 91, 55, 1];
 
 // Warning
 
-const WARNING_HSLA: color.HSLA = [48, 90, 55, 1];
+// Pure yellow only reads on dark surfaces; on light ones it washes out, and
+// darkening it alone goes olive. The light ramp rotates toward amber instead.
+const DARK_WARNING_HSLA: color.HSLA = [48, 90, 55, 1];
+const LIGHT_WARNING_HSLA: color.HSLA = [38, 92, 46, 1];
 
 // Grayscale
 
@@ -199,11 +202,11 @@ const SYNNAX_BASE: ThemeSpec = {
       p2: color.fromHSLA(setLightness(ERROR_HSLA, 77)),
     },
     warning: {
-      m2: color.fromHSLA(setLightness(WARNING_HSLA, 30)),
-      m1: color.fromHSLA(setLightness(WARNING_HSLA, 40)),
-      z: color.fromHSLA(WARNING_HSLA),
-      p1: color.fromHSLA(setLightness(WARNING_HSLA, 65)),
-      p2: color.fromHSLA(setLightness(WARNING_HSLA, 75)),
+      m2: color.fromHSLA(setLightness(LIGHT_WARNING_HSLA, 28)),
+      m1: color.fromHSLA(setLightness(LIGHT_WARNING_HSLA, 36)),
+      z: color.fromHSLA(LIGHT_WARNING_HSLA),
+      p1: color.fromHSLA(setLightness(LIGHT_WARNING_HSLA, 54)),
+      p2: color.fromHSLA(setLightness(LIGHT_WARNING_HSLA, 64)),
     },
     palettes: { recent: { key: "recent", name: "Recent", swatches: [] } },
     visualization: {
@@ -286,6 +289,13 @@ export const SYNNAX_DARK: ThemeSpec = Object.freeze({
   colors: {
     ...SYNNAX_BASE.colors,
     gray: DARK_GRAY_SCALE,
+    warning: {
+      m2: color.fromHSLA(setLightness(DARK_WARNING_HSLA, 30)),
+      m1: color.fromHSLA(setLightness(DARK_WARNING_HSLA, 40)),
+      z: color.fromHSLA(DARK_WARNING_HSLA),
+      p1: color.fromHSLA(setLightness(DARK_WARNING_HSLA, 65)),
+      p2: color.fromHSLA(setLightness(DARK_WARNING_HSLA, 75)),
+    },
     logo: "var(--pluto-text-color)",
     border: DARK_GRAY_SCALE.l6,
     text: DARK_GRAY_SCALE.l10,
