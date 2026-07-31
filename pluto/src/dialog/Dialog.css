@@ -12,6 +12,7 @@
 .pluto-dialog__dialog {
     position: fixed;
     overflow: hidden;
+    border-radius: 1rem;
 
     /* Dialogs are elevated chrome: fills lighten even when the dialog is anchored
        inside a recessed-chrome region. */

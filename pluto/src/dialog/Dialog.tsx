@@ -63,9 +63,7 @@ export const Dialog = ({
           CSS.BM("dialog", "modal", "position", modalPosition.toString()),
         className,
       )}
-      /* Modals take their radius from the stylesheet; an inline default would
-         override it. */
-      rounded={rounded ?? (variant === "modal" ? undefined : 1)}
+      rounded={rounded}
       role="dialog"
       empty
       bordered={bordered}
