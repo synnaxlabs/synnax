@@ -68,8 +68,9 @@ interface TombstoneProps extends PropsWithChildren {
   description: string;
 }
 
-// Shared shell for a terminal tab state (deleted): a dimmed glyph, a short
-// heading, one muted line, and an actions row, optically centered in the tab.
+// Shared shell for terminal tab states (deleted, not found): a dimmed glyph,
+// a short heading, one muted line, and an actions row, optically centered in
+// the tab.
 const Tombstone = ({
   icon,
   message,
@@ -146,27 +147,33 @@ const DeletedContent = (props: Errors.FallbackProps): ReactElement => {
 
 // A reference can permanently outrun its document: the retrieve's not-found
 // wait expired without a create broadcast. Offer to close the tab.
-const NotFoundResourceContent = (): ReactElement => {
+const NotFoundResourceContent = ({
+  resetErrorBoundary,
+}: Errors.FallbackProps): ReactElement => {
   const resource = Panel.useSelectTabResource({});
   const closeTabs = Panel.useCloseResourceTabs();
+  const { Icon: TabIcon } = useTab();
+  useResetOnRestore(resetErrorBoundary);
   return (
-    <Flex.Box grow align="center" justify="center" gap="small">
-      <Icon.Warning />
-      <Text.Text>This resource could not be found</Text.Text>
+    <Tombstone
+      icon={<TabIcon />}
+      message="Resource not found"
+      description="This tab references a document that no longer exists."
+    >
       <Button.Button onClick={() => closeTabs(resource)}>Close</Button.Button>
-    </Flex.Box>
+    </Tombstone>
   );
 };
 
 const NotFoundContent = (props: Errors.FallbackProps): ReactElement => {
   const variant = Panel.useSelectTabVariant({});
   if (variant !== "resource") return <Errors.Fallback {...props} />;
-  return <NotFoundResourceContent />;
+  return <NotFoundResourceContent {...props} />;
 };
 
 // The not-found wait rejects with a wrapper whose cause carries the typed
 // error, so the cause is matched alongside the error itself.
-const isNotFound = (error: Error): boolean =>
+export const isNotFound = (error: Error): boolean =>
   NotFoundError.matches(error) || NotFoundError.matches(error.cause);
 
 const ContentFallback = (props: Errors.FallbackProps): ReactElement => {
@@ -296,15 +303,17 @@ const PanelFallback = (props: Errors.FallbackProps): ReactElement => {
     return <Errors.Fallback {...props} />;
   const name = corpseName(error);
   return (
-    <Flex.Box grow align="center" justify="center" gap="small">
-      <Icon.Warning />
-      <Text.Text>{name ?? "This panel"} could not be found</Text.Text>
+    <Tombstone
+      icon={<Icon.Warning />}
+      message={`${name ?? "This panel"} could not be found`}
+      description="This window references a panel that no longer exists."
+    >
       {selected != null && (
         <Button.Button onClick={() => dispatch(Session.Panel.remove(selected))}>
           Close
         </Button.Button>
       )}
-    </Flex.Box>
+    </Tombstone>
   );
 };
 

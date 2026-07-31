@@ -10,6 +10,7 @@
 import { Errors, Flux, Icon, Panel } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
+import { isNotFound } from "@/feature/panel/Mosaic";
 import { useResetOnRestore } from "@/feature/panel/useResetOnRestore";
 import { Empty } from "@/platform/empty";
 import { type Nav } from "@/platform/nav";
@@ -32,21 +33,28 @@ const EmptyContent = ({
   </Toolbar.Content>
 );
 
-// The toolbar reads the same queries as the tab's content, so a deleted
-// resource throws here too. Show a quiet placeholder; the tombstone with Close
-// and Restore lives in the mosaic.
-const DeletedResourceFallback = ({
+// The toolbar reads the same queries as the tab's content, so a deleted or
+// missing resource throws here too. Show a quiet placeholder; the tombstone
+// with Close and Restore lives in the mosaic.
+const MissingResourceFallback = ({
+  error,
   resetErrorBoundary,
 }: Errors.FallbackProps): ReactElement => {
   useResetOnRestore(resetErrorBoundary);
-  return <EmptyContent message="This resource was deleted." />;
+  const message = Flux.DeletedError.matches(error)
+    ? "This resource was deleted."
+    : "This resource could not be found.";
+  return <EmptyContent message={message} />;
 };
 
 const Fallback = (props: Errors.FallbackProps): ReactElement => {
   const variant = Panel.useSelectTabVariant({});
-  if (variant !== "resource" || !Flux.DeletedError.matches(props.error))
+  if (
+    variant !== "resource" ||
+    (!Flux.DeletedError.matches(props.error) && !isNotFound(props.error))
+  )
     return <Errors.Fallback {...props} />;
-  return <DeletedResourceFallback {...props} />;
+  return <MissingResourceFallback {...props} />;
 };
 
 const Content = (): ReactElement => {
