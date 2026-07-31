@@ -37,7 +37,11 @@ export const SELECTABLES: Selector.Selectable[] = [Selectable];
 const TAB: Panel.Tab = {
   Content: LinePlot,
   Toolbar,
+  Icon: Icon.LinePlot,
   Name: Panel.createEditableTabName(Base, <Icon.LinePlot />),
+  restore: async ({ client, project, corpse }) => {
+    await client.lineplots.create(project, corpse as lineplot.New);
+  },
 };
 
 export const TABS: Panel.Tabs = {

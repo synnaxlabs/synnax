@@ -316,8 +316,9 @@ export const { useUpdate: useRename } = Flux.createUpdate<RenameParams>({
 
 const requireRange = (client: Client | null, key: ranger.Key): ranger.Range => {
   const cached = client?.ranges.getCached(key);
-  if (cached == null || query.Deleted.matches(cached))
-    throw new NotFoundError(`Range with key ${key} not found`);
+  if (cached == null) throw new NotFoundError(`Range with key ${key} not found`);
+  if (query.Deleted.matches(cached))
+    throw new Flux.DeletedError(`${RESOURCE_NAME} was deleted`, cached.corpse);
   return cached;
 };
 

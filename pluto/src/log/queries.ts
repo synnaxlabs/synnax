@@ -44,8 +44,9 @@ export interface SelectKeyParams {
 
 const requireLog = (client: Client | null, key: log.Key): log.Log => {
   const cached = client?.logs.getCached({ key });
-  if (cached == null || query.Deleted.matches(cached))
-    throw new NotFoundError(`Log with key ${key} not found`);
+  if (cached == null) throw new NotFoundError(`Log with key ${key} not found`);
+  if (query.Deleted.matches(cached))
+    throw new Flux.DeletedError(`${RESOURCE_NAME} was deleted`, cached.corpse);
   return cached;
 };
 

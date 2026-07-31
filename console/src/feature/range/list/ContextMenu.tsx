@@ -8,16 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { ranger } from "@synnaxlabs/client";
-import {
-  Access,
-  Divider,
-  Icon,
-  List,
-  Menu,
-  Panel as PPanel,
-  Ranger,
-  Status,
-} from "@synnaxlabs/pluto";
+import { Access, Divider, Icon, List, Menu, Ranger, Status } from "@synnaxlabs/pluto";
 
 import { CreateChildRangeIcon } from "@/feature/range/ContextMenu";
 import { Cluster } from "@/platform/cluster";
@@ -49,7 +40,6 @@ export const ContextMenu = ({ keys }: Menu.ContextMenuMenuProps) => {
     type: "Range",
     description: "Deleting this range will also delete all child ranges.",
   });
-  const closeTabs = PPanel.useCloseResourceTabs();
   const { update: del } = Ranger.useDelete();
   const { update: renameRange } = Ranger.useRename();
   const handleAddChildRange = () => {
@@ -84,7 +74,6 @@ export const ContextMenu = ({ keys }: Menu.ContextMenuMenuProps) => {
       if (!confirmed) return;
       const keys = ranges.map((r) => r.key);
       dispatch(Session.Range.remove({ keys }));
-      closeTabs(ranger.ontologyID(keys));
       del(keys);
     }, "Failed to delete range");
   };
