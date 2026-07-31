@@ -49,6 +49,7 @@ describe("Panel tab", () => {
       const renderer: Panel.Tab = {
         Content: () => <>content</>,
         Name: () => <>name</>,
+        Icon: () => <>icon</>,
       };
       const renderers: Panel.Tabs = { custom_view: renderer };
       const Wrapper = ({ children }: PropsWithChildren): ReactElement => (
