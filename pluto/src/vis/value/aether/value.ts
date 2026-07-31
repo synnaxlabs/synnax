@@ -18,8 +18,6 @@ import { type Element } from "@/vis/diagram/aether/Diagram";
 import { type FillTextOptions } from "@/vis/draw2d/canvas";
 import { render } from "@/vis/render";
 
-const FILL_TEXT_OPTIONS: FillTextOptions = { useAtlas: true };
-
 // Below this contrast against the background a color is illegible and gets
 // swapped for a legible gray. Rough guard, tune later.
 const MIN_LEGIBLE_CONTRAST = 1.1;
@@ -44,6 +42,11 @@ const valueState = z.object({
   // host can't grow to fit the natural text width (e.g. a table cell);
   // overflow gets truncated at the cell edge instead of bleeding past.
   clip: z.boolean().default(false),
+  // Glyph set of the backing text atlas. Set when the source emits arbitrary text;
+  // the default set is numeric and drops everything else, space included.
+  characters: z.string().optional(),
+  // Enables number-specific typesetting, currently the leading-minus treatment.
+  numeric: z.boolean().default(true),
 });
 
 const CANVAS_VARIANTS: render.Canvas2DVariant[] = ["upper2d", "lower2d"];
@@ -164,11 +167,15 @@ export class Value
     let value = telem.value();
     canvas.font = fontString;
     const fontHeight = this.fontHeight;
-    const isNegative = value[0] == "-";
+    const fillTextOptions: FillTextOptions = {
+      useAtlas: true,
+      characters: this.state.characters,
+    };
+    const isNegative = this.state.numeric && value[0] == "-";
     if (isNegative) value = value.slice(1);
 
     const { theme } = this.internal;
-    const dims = canvas.textDimensions(value, FILL_TEXT_OPTIONS);
+    const dims = canvas.textDimensions(value, fillTextOptions);
     const width = dims.width + theme.sizes.base;
     const height = dims.height;
     if (requestRender == null) renderCtx.erase(box.construct(this.prevState.box));
@@ -211,9 +218,9 @@ export class Value
           // the right place.
           ...xy.couple(xy.translateX(labelPosition, -fontHeight * 0.6)),
           undefined,
-          FILL_TEXT_OPTIONS,
+          fillTextOptions,
         );
-      canvas.fillText(value, ...xy.couple(labelPosition), undefined, FILL_TEXT_OPTIONS);
+      canvas.fillText(value, ...xy.couple(labelPosition), undefined, fillTextOptions);
     } finally {
       undoClip?.();
     }
