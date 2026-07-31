@@ -150,7 +150,7 @@ export const useForm = Flux.createForm<Partial<RetrieveQuery>, typeof formSchema
   mountListeners: ({ client, query: { key }, reset }) => {
     if (primitive.isZero(key)) return [];
     return client.statuses.onChange({ key }, (result) => {
-      if (result === undefined || query.Deleted.matches(result)) return;
+      if (!query.isLive(result)) return;
       const { labels, ...rest } = result;
       reset({ ...rest, labels: labels?.map((l) => l.key) ?? [] });
     });

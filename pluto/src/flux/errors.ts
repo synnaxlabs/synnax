@@ -11,15 +11,28 @@ import { errors } from "@synnaxlabs/x";
 
 export class FluxError extends errors.createTyped("flux") {}
 
-/**
- * Thrown to the error boundary when a query's cached answer is a deletion.
- * Carries the last value of the deleted record.
- */
-export class DeletedError<D = unknown> extends FluxError.sub("deleted") {
-  readonly corpse: D;
+const Base = FluxError.sub("deleted");
 
-  constructor(message: string, corpse: D) {
+const nameOf = (corpse: unknown): string | undefined => {
+  if (typeof corpse !== "object" || corpse === null || !("name" in corpse))
+    return undefined;
+  const { name } = corpse;
+  return typeof name === "string" ? name : undefined;
+};
+
+/**
+ * Thrown to the error boundary when a query's cached answer is a deletion. The
+ * corpse itself stays in the client's cache, typed; only the deleted record's
+ * name travels with the error, for display.
+ */
+export class DeletedError extends Base {
+  /** The deleted record's name, absent when the corpse carried none. */
+  readonly corpseName?: string;
+
+  constructor(message: string, corpse: unknown) {
     super(message);
-    this.corpse = corpse;
+    this.corpseName = nameOf(corpse);
   }
+
+  static override readonly matches = (e: unknown): e is DeletedError => Base.matches(e);
 }

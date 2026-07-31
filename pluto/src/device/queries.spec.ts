@@ -7,8 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { device, NotFoundError, status } from "@synnaxlabs/client";
-import { createTestClient, isLive } from "@synnaxlabs/client/testutil";
+import { device, NotFoundError, query, status } from "@synnaxlabs/client";
+import { createTestClient } from "@synnaxlabs/client/testutil";
 import { id, type record } from "@synnaxlabs/x";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { type PropsWithChildren } from "react";
@@ -954,8 +954,8 @@ describe("queries", () => {
       expect(devices).toHaveLength(2);
       expect(devices.map((d) => d.key)).toContain(dev1.key);
       expect(devices.map((d) => d.key)).toContain(dev2.key);
-      expect(isLive(client.devices.getCached({ keys: [dev1.key] }))).toBe(true);
-      expect(isLive(client.devices.getCached({ keys: [dev2.key] }))).toBe(true);
+      expect(query.isLive(client.devices.getCached({ keys: [dev1.key] }))).toBe(true);
+      expect(query.isLive(client.devices.getCached({ keys: [dev2.key] }))).toBe(true);
     });
 
     it("should return all cached devices when all are in the store", async () => {

@@ -61,7 +61,7 @@ const getSchematic = (
   key: schematic.Key,
 ): schematic.Schematic | undefined => {
   const cached = client?.schematics.getCached({ key });
-  if (cached == null || query.Deleted.matches(cached)) return undefined;
+  if (!query.isLive(cached)) return undefined;
   return cached;
 };
 
@@ -294,8 +294,7 @@ export const useAddNode = () => {
       if (Node.isCustomConfig(config) && specKey != null) {
         config.specKey = specKey;
         const sym = client?.schematics.symbols.getCached({ key: specKey });
-        if (config.label != null && sym != null && !query.Deleted.matches(sym))
-          config.label.label = sym.name;
+        if (config.label != null && query.isLive(sym)) config.label.label = sym.name;
       }
       dispatch(
         schematic.setNode({

@@ -12,7 +12,7 @@ import { createTestClient } from "@synnaxlabs/client/testutil";
 import { uuid } from "@synnaxlabs/x";
 import { act, render, renderHook, waitFor, within } from "@testing-library/react";
 import { type FC, type PropsWithChildren, type ReactElement } from "react";
-import { afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, assert, beforeAll, beforeEach, describe, expect, it } from "vitest";
 
 import { Errors } from "@/errors";
 import { Flux } from "@/flux";
@@ -143,7 +143,7 @@ describe("schematic queries", () => {
       await loadSchematic(Wrapper, schem.key);
     });
 
-    it("throws a DeletedError carrying the corpse once the schematic is deleted", async () => {
+    it("throws a DeletedError naming the corpse once the schematic is deleted", async () => {
       const doomed = await createTestSchematic(proj.key);
       await loadSchematic(Wrapper, doomed.key);
       await client.schematics.delete(doomed.key);
@@ -172,10 +172,12 @@ describe("schematic queries", () => {
       });
       await waitFor(() => expect(caught.length).toBeGreaterThan(0));
       const error = caught[0];
-      expect(Flux.DeletedError.matches(error)).toBe(true);
-      const corpse = (error as Flux.DeletedError<schematic.Schematic>).corpse;
+      assert(Flux.DeletedError.matches(error));
+      expect(error.corpseName).toBe("test_schematic");
+      const corpse = query.requireCorpse(
+        client.schematics.getCached({ key: doomed.key }),
+      );
       expect(corpse.key).toBe(doomed.key);
-      expect(corpse.name).toBe("test_schematic");
     });
 
     it("useSelectAllEdges returns the schematic's edges", () => {
