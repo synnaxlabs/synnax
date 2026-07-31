@@ -18,7 +18,7 @@ import {
   waitFor,
 } from "@testing-library/react";
 import { type FC, type PropsWithChildren, type ReactElement } from "react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { assert, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { Errors } from "@/errors";
 import { Panel } from "@/panel";
@@ -216,7 +216,7 @@ describe("Panel.Mosaic", () => {
   // tabEl finds a tab's strip handle by its data-tab-key attribute.
   const tabEl = (utils: RenderResult, key: string): HTMLElement => {
     const el = utils.container.querySelector<HTMLElement>(`[data-tab-key="${key}"]`);
-    if (el == null) throw new Error(`tab ${key} not found`);
+    assert(el != null, `tab ${key} not found`);
     return el;
   };
 

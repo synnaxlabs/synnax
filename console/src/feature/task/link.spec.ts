@@ -11,7 +11,7 @@ import { type panel } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { id } from "@synnaxlabs/x";
 import { act, renderHook, waitFor } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { assert, describe, expect, it } from "vitest";
 
 import { NI } from "@/feature/ni";
 import { Task } from "@/feature/task";
@@ -39,7 +39,7 @@ describe("Task.useLink", () => {
     });
     await waitFor(async () => {
       const doc = await client.panels.retrieve(created.panelKey);
-      if (doc.root.variant !== "leaf") throw new Error("panel root is not a leaf");
+      assert(doc.root.variant === "leaf", "panel root is not a leaf");
       const tab = doc.root.tabs.find(
         (t): t is panel.TabView =>
           t.variant === "view" && t.type === NI.Task.ANALOG_READ_TYPE,

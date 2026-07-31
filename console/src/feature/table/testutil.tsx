@@ -99,7 +99,6 @@ const createResourceTab = async (
 ): Promise<{ panelKey: string; tabKey: string }> => {
   const tabKey = uuid.create();
   const doc = panel.panelZ.parse({
-    key: uuid.create(),
     name: uniqueName("panel"),
     root: {
       variant: "leaf",

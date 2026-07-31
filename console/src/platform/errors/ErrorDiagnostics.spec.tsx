@@ -10,7 +10,6 @@
 import { NotFoundError, panel, status } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { Errors } from "@synnaxlabs/pluto";
-import { uuid } from "@synnaxlabs/x";
 import { render } from "@testing-library/react";
 import { act, type ReactElement } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -98,7 +97,6 @@ describe("ErrorDiagnostics", () => {
     const { wrapper, store } = await createConsoleWrapper({ client });
     void act(() => store.dispatch(Session.Cluster.select("LOCAL")));
     const doc = panel.panelZ.parse({
-      key: uuid.create(),
       name: "fridge_schem",
       root: { variant: "leaf", tabs: [] },
     });

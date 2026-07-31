@@ -14,7 +14,7 @@ import { describe, expect, it, vi } from "vitest";
 import { Arc } from "@/feature/arc";
 import { createFileIngesterContext } from "@/platform/import/testutil";
 import { type Panel } from "@/platform/panel";
-import { awaitGranted, uniqueName } from "@/testutil";
+import { assertDefined, awaitGranted, uniqueName } from "@/testutil";
 
 const LATEST_VERSION = "3.0.0";
 
@@ -175,7 +175,7 @@ describe("arc import", () => {
         createFileIngesterContext({ name, openTab, client }),
       );
       expect(openTab).toHaveBeenCalledTimes(1);
-      if (id == null) throw new Error("ingest returned no ontology id");
+      assertDefined(id, "ingest returned no ontology id");
       const created = await client.arcs.retrieve({ key: id.key });
       expect(created.name).toBe(name);
       const cached = client.arcs.getCached({ key: id.key });

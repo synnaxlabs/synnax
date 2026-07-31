@@ -19,7 +19,7 @@ import { Provider } from "react-redux";
 import { describe, expect, it } from "vitest";
 
 import { Panel } from "@/session/panel";
-import { createConsoleWrapper, type TestStore } from "@/testutil";
+import { assertDefined, createConsoleWrapper, type TestStore } from "@/testutil";
 
 const rootReducer = combineReducers({
   [Panel.SLICE_NAME]: Panel.reducer,
@@ -40,7 +40,7 @@ const createState = (win?: Panel.WindowState): TestState => {
   const base = createStore().getState();
   if (win == null) return base;
   const windowKey = Drift.selectWindowKey(base);
-  if (windowKey == null) throw new Error("expected an active window key");
+  assertDefined(windowKey, "expected an active window key");
   return { ...base, [Panel.SLICE_NAME]: { windows: { [windowKey]: win } } };
 };
 

@@ -15,7 +15,7 @@ import { Table } from "@/feature/table";
 import { client, project } from "@/feature/table/testutil";
 import { createFileIngesterContext } from "@/platform/import/testutil";
 import { type Panel } from "@/platform/panel";
-import { awaitGranted, uniqueName } from "@/testutil";
+import { assertDefined, awaitGranted, uniqueName } from "@/testutil";
 
 const populatedV0State = (overrides: Record<string, unknown> = {}) => ({
   key: "11111111-1111-1111-1111-111111111111",
@@ -78,7 +78,7 @@ describe("table state migrations", () => {
     const upload = Table.anyStateZ.parse(
       populatedV0State({ remoteCreated: false }),
     ).pendingUpload;
-    if (upload == null) throw new Error("expected pendingUpload to be defined");
+    assertDefined(upload, "expected pendingUpload to be defined");
     expect(upload.key).toEqual("11111111-1111-1111-1111-111111111111");
     expect(upload.rows).toHaveLength(2);
     expect(upload.rows[0].cells).toEqual(["a", "b"]);
@@ -98,7 +98,7 @@ describe("table state migrations", () => {
         },
       }),
     ).pendingUpload;
-    if (upload == null) throw new Error("expected pendingUpload to be defined");
+    assertDefined(upload, "expected pendingUpload to be defined");
     const cell = upload.cells.a as Record<string, unknown>;
     expect(cell.selected).toBeUndefined();
   });
@@ -189,7 +189,7 @@ describe("table ingest", () => {
       }),
     );
     expect(openTab).toHaveBeenCalledTimes(1);
-    if (id == null) throw new Error("ingest returned no ontology id");
+    assertDefined(id, "ingest returned no ontology id");
     const created = await client.tables.retrieve({ key: id.key });
     expect(created.name).toBe(name);
     expect(created.rows).toHaveLength(1);
