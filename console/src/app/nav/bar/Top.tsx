@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Button, Icon, Nav, OS } from "@synnaxlabs/pluto";
+import { Button, Nav, OS } from "@synnaxlabs/pluto";
 import { type ReactElement, useCallback } from "react";
 
 import { useBottomActions } from "@/app/nav/bar/bottom";
@@ -48,7 +48,7 @@ const BottomToggleButton = (): ReactElement => {
       weight={450}
       triggerIndicator={Toolbars.BOTTOM.trigger}
     >
-      <Icon.Visualize />
+      {Toolbars.BOTTOM.icon}
       Controls
     </Button.Button>
   );

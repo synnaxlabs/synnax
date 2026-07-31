@@ -42,13 +42,40 @@
     --pluto-fill-hover: var(--pluto-gray-l4);
     --pluto-fill-press: var(--pluto-gray-l5);
 
-    /* Selection fill for compact controls (segments, toggles): a gray fill
-       rotated toward the primary hue at unchanged lightness. List rows use a
-       softer variant of the same rotation. */
-    --pluto-selected-bg: var(--pluto-primary-z-20);
-    --pluto-selected-active-bg: var(--pluto-primary-z-30);
-    --pluto-selected-border-color: var(--pluto-primary-z-45);
+    /* Selection fill for compact controls (segments, toggles): the primary alpha
+       recipe flattened over chrome into opaque colors, so plot pixels and other
+       content never bleed through a selected chip. List rows use a softer
+       chroma rotation of their own. */
+    --pluto-selected-bg: color-mix(
+        in srgb,
+        var(--pluto-primary-z) 20%,
+        var(--pluto-gray-l1)
+    );
+    --pluto-selected-active-bg: color-mix(
+        in srgb,
+        var(--pluto-primary-z) 30%,
+        var(--pluto-gray-l1)
+    );
+    --pluto-selected-border-color: color-mix(
+        in srgb,
+        var(--pluto-primary-z) 65%,
+        var(--pluto-gray-l1)
+    );
     --pluto-selected-color: var(--pluto-primary-p2);
+
+    /* Softer tier of the selection fill for tab chips: the same primary flatten
+       at lower strength, so a selected tab reads quieter than a selected
+       control. */
+    --pluto-selected-subtle-bg: color-mix(
+        in srgb,
+        var(--pluto-primary-z) 15%,
+        var(--pluto-gray-l1)
+    );
+    --pluto-selected-subtle-border-color: color-mix(
+        in srgb,
+        var(--pluto-primary-z) 35%,
+        var(--pluto-gray-l1)
+    );
 
     --pluto-border: var(--pluto-border-width) solid var(--pluto-border-color);
     --pluto-border-l6: var(--pluto-border-width) solid var(--pluto-gray-l6);

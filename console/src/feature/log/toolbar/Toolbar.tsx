@@ -51,7 +51,7 @@ const Internal = (): ReactElement => {
                 ontologyID={log.ontologyID(key)}
               />
             </Flex.Box>
-            <Tabs.Selector className={CSS.BE("log-toolbar", "tabs")}>
+            <Tabs.Selector>
               <Tabs.Tab itemKey="channels">Channels</Tabs.Tab>
               <Tabs.Tab itemKey="properties">Properties</Tabs.Tab>
             </Tabs.Selector>

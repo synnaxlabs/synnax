@@ -9,7 +9,7 @@
 
 import { type panel } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
-import { Panel as PPanel, Text } from "@synnaxlabs/pluto";
+import { Icon, Panel as PPanel, Text } from "@synnaxlabs/pluto";
 import { uuid } from "@synnaxlabs/x";
 import { act, render, screen, waitFor } from "@testing-library/react";
 import { type FC, type PropsWithChildren, type ReactElement, useEffect } from "react";
@@ -37,7 +37,11 @@ const ProbeContent: Panel.Content = () => {
 
 const ProbeName: Panel.TabName = () => <Text.Text>probe</Text.Text>;
 
-const REGISTRY: Panel.Tabs = { probe: { Content: ProbeContent, Name: ProbeName } };
+const ProbeIcon: Panel.TabIcon = () => <Icon.Visualize />;
+
+const REGISTRY: Panel.Tabs = {
+  probe: { Content: ProbeContent, Name: ProbeName, Icon: ProbeIcon },
+};
 
 const createTab = (): panel.NewTab => ({
   variant: "view",
@@ -115,11 +119,7 @@ describe("Panel.Mosaic keep-alive", () => {
     act(() => {
       store.dispatch(Session.Panel.clearSelected({}));
     });
-    await waitFor(() =>
-      expect(
-        screen.getByText("No panels open. Create one to get started."),
-      ).toBeTruthy(),
-    );
+    await waitFor(() => expect(screen.getByText("No panels open.")).toBeTruthy());
     expect(unmounts).toHaveLength(0);
   });
 });

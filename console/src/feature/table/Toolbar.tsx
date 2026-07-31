@@ -73,7 +73,7 @@ const Internal = (): ReactElement => {
           />
         </Flex.Box>
       </Base.Header>
-      <Flex.Box full>
+      <Flex.Box full className={CSS.BE("table", "toolbar-content")}>
         {!editable ? (
           <NotEditableContent name={name} />
         ) : liveCellCount === 0 ? (

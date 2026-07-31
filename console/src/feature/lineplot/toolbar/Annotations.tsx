@@ -117,7 +117,7 @@ const List = ({
           menu={({ keys }) => (
             <ContextMenu.Menu>
               <ContextMenu.DeleteItem onClick={() => onRemoveAnnotations(keys)} />
-              <Divider.Divider x />
+              <Menu.Divider />
               <ContextMenu.ReloadConsoleItem />
             </ContextMenu.Menu>
           )}

@@ -79,30 +79,19 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
             <Icon.Rename />
             Change username
           </Menu.Item>
-          <Menu.Divider />
+          {!isRootUser && (
+            <Menu.Item itemKey="assignRole" onClick={() => handleAssignRole(props)}>
+              <Icon.Role />
+              Change role
+            </Menu.Item>
+          )}
         </>
       )}
-      {hasUpdatePermission && singleResource && !isRootUser && isNotCurrentUser && (
-        <>
-          <Menu.Item itemKey="assignRole" onClick={() => handleAssignRole(props)}>
-            <Icon.Role />
-            Change role
-          </Menu.Item>
-          <Menu.Divider />
-        </>
-      )}
-      {hasDeletePermission && (
-        <>
-          <ContextMenu.DeleteItem onClick={handleDelete} />
-          <Menu.Divider />
-        </>
-      )}
-      {singleResource && (
-        <>
-          <Tree.CopyPropertiesContextMenuItem {...props} />
-          <Menu.Divider />
-        </>
-      )}
+      <Menu.Divider />
+      {singleResource && <Tree.CopyPropertiesContextMenuItem {...props} />}
+      <Menu.Divider />
+      {hasDeletePermission && <ContextMenu.DeleteItem onClick={handleDelete} />}
+      <Menu.Divider />
       <ContextMenu.ReloadConsoleItem />
     </ContextMenu.Menu>
   );

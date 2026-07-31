@@ -47,6 +47,7 @@ import { type Triggers } from "@/triggers";
 export interface MosaicProps extends Omit<
   Base.FrameProps,
   "onDrop" | "onCreate" | "onFileDrop" | "onResize" | "onSelect" | "children"
+  | "contextMenu"
 > {
   selected?: string[];
   onSelect?: (tabKey: string) => void;
@@ -54,7 +55,10 @@ export interface MosaicProps extends Omit<
   tabName?: Component.RenderProp<{}>;
   onCreateTab?: () => panel.NewTab | undefined;
   resolveDroppedTab?: (key: string) => panel.NewTab | undefined;
-  extraMenuItems?: Component.RenderProp<Menu.ContextMenuMenuProps>;
+  /** Renders the full tab context menu. When a tab is under the cursor, the
+   * render prop runs inside that tab's scope, so {@link CloseTabMenuItem} and
+   * {@link SplitTabMenuItems} can be composed with caller items in any order. */
+  contextMenu?: Component.RenderProp<Menu.ContextMenuMenuProps>;
   /** Rendered in a leaf's content area when the leaf has no tabs. */
   emptyContent?: ReactNode;
 }
@@ -166,46 +170,51 @@ Node.displayName = "Panel.Mosaic.Node";
 
 const CLOSE_TRIGGER: Triggers.Trigger = ["Control", "W"];
 
-interface TabMenuItemsProps {
-  tabKey: string;
-}
-
-const TabMenuItems = ({ tabKey }: TabMenuItemsProps): ReactElement => {
+/** CloseTabMenuItem closes the context menu's tab. Must render inside the tab
+ * context menu passed to {@link Mosaic}. */
+export const CloseTabMenuItem = (): ReactElement => {
+  const tabKey = TabScope.use();
   const dispatch = useSingleDispatch();
-  const root = useSelectRoot({});
   const handleClose = useCallback(
     () => dispatch(panel.removeTab({ key: tabKey })),
     [dispatch, tabKey],
   );
+  return (
+    <Menu.Item
+      itemKey="close"
+      onClick={handleClose}
+      trigger={CLOSE_TRIGGER}
+      triggerIndicator
+    >
+      <Icon.Close />
+      Close
+    </Menu.Item>
+  );
+};
+
+/** SplitTabMenuItems splits the context menu's tab horizontally or vertically.
+ * Hidden when the tab cannot be split. Must render inside the tab context menu
+ * passed to {@link Mosaic}. */
+export const SplitTabMenuItems = (): ReactElement | null => {
+  const tabKey = TabScope.use();
+  const dispatch = useSingleDispatch();
+  const root = useSelectRoot({});
   const handleSplit = useCallback(
     (direction: direction.Direction) =>
       dispatch(panel.splitTab({ key: tabKey, direction })),
     [dispatch, tabKey],
   );
+  if (!panel.canSplitTab(root, tabKey)) return null;
   return (
     <>
-      <Menu.Item
-        itemKey="close"
-        onClick={handleClose}
-        trigger={CLOSE_TRIGGER}
-        triggerIndicator
-      >
-        <Icon.Close />
-        Close
+      <Menu.Item itemKey="splitX" onClick={() => handleSplit("x")}>
+        <Icon.SplitX />
+        Split horizontally
       </Menu.Item>
-      {panel.canSplitTab(root, tabKey) && (
-        <>
-          <Menu.Divider />
-          <Menu.Item itemKey="splitX" onClick={() => handleSplit("x")}>
-            <Icon.SplitX />
-            Split horizontally
-          </Menu.Item>
-          <Menu.Item itemKey="splitY" onClick={() => handleSplit("y")}>
-            <Icon.SplitY />
-            Split vertically
-          </Menu.Item>
-        </>
-      )}
+      <Menu.Item itemKey="splitY" onClick={() => handleSplit("y")}>
+        <Icon.SplitY />
+        Split vertically
+      </Menu.Item>
     </>
   );
 };
@@ -253,7 +262,7 @@ export const Mosaic = ({
   tabName,
   onCreateTab,
   resolveDroppedTab,
-  extraMenuItems,
+  contextMenu,
   emptyContent,
   ...rest
 }: MosaicProps): ReactElement | null => {
@@ -336,23 +345,15 @@ export const Mosaic = ({
   const renderMenu = useCallback<Component.RenderProp<Menu.ContextMenuMenuProps>>(
     (props) => {
       const tabKey: string | undefined = props.keys[0];
-      if (tabKey == null)
-        return (
-          <Menu.Menu level="small" gap="small">
-            {extraMenuItems?.(props)}
-          </Menu.Menu>
-        );
-      return (
-        <TabScope.Provider value={tabKey}>
-          <Menu.Menu level="small" gap="small">
-            <TabMenuItems tabKey={tabKey} />
-            {extraMenuItems != null && <Menu.Divider />}
-            {extraMenuItems?.(props)}
-          </Menu.Menu>
-        </TabScope.Provider>
+      const content = (
+        <Menu.Menu level="small" gap="small">
+          {contextMenu?.(props)}
+        </Menu.Menu>
       );
+      if (tabKey == null) return content;
+      return <TabScope.Provider value={tabKey}>{content}</TabScope.Provider>;
     },
-    [extraMenuItems],
+    [contextMenu],
   );
 
   return (

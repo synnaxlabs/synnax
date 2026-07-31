@@ -243,6 +243,13 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
 
   return (
     <ContextMenu.Menu>
+      {isCalc && hasUpdatePermission && (
+        <Menu.Item itemKey="openCalculated" onClick={() => openCalculated(props)}>
+          <Icon.Edit />
+          Edit calculation
+        </Menu.Item>
+      )}
+      <Menu.Divider />
       {singleResource && hasUpdatePermission && (
         <ContextMenu.RenameItem onClick={handleRename} />
       )}
@@ -254,21 +261,12 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
           onClick={() => groupFromSelection(props)}
         />
       )}
-      {isCalc && hasUpdatePermission && (
-        <>
-          <Menu.Divider />
-          <Menu.Item itemKey="openCalculated" onClick={() => openCalculated(props)}>
-            <Icon.Edit />
-            Edit calculation
-          </Menu.Item>
-        </>
-      )}
+      <Menu.Divider />
       {activeRange != null &&
         activeRange.persisted &&
         (singleResource || showDeleteAlias) &&
         (hasAliasCreatePermission || hasAliasDeletePermission) && (
           <>
-            <Menu.Divider />
             {singleResource && hasAliasCreatePermission && (
               <Menu.Item itemKey="alias" onClick={handleSetAlias}>
                 <Icon.Rename />
@@ -281,15 +279,9 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
                 Remove alias under {activeRange.name}
               </Menu.Item>
             )}
-            <Menu.Divider />
           </>
         )}
-      {hasDeletePermission && (
-        <>
-          <ContextMenu.DeleteItem onClick={handleDelete} />
-          <Menu.Divider />
-        </>
-      )}
+      <Menu.Divider />
       {singleResource && (
         <>
           <Link.CopyContextMenuItem
@@ -298,6 +290,8 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
           <Tree.CopyPropertiesContextMenuItem {...props} />
         </>
       )}
+      <Menu.Divider />
+      {hasDeletePermission && <ContextMenu.DeleteItem onClick={handleDelete} />}
       <Menu.Divider />
       <ContextMenu.ReloadConsoleItem />
     </ContextMenu.Menu>

@@ -122,8 +122,8 @@
 
 .console--card-frosted .console-shell__card {
     background: color-mix(in srgb, var(--pluto-gray-l0) 35%, transparent);
-    -webkit-backdrop-filter: blur(0.75rem);
-    backdrop-filter: blur(0.75rem);
+    -webkit-backdrop-filter: blur(3rem) saturate(140%);
+    backdrop-filter: blur(3rem) saturate(140%);
     border: var(--pluto-border-width) solid var(--pluto-gray-l6);
     box-shadow: var(--pluto-shadow-v2);
 }

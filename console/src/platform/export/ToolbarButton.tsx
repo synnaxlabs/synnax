@@ -28,7 +28,6 @@ export const ToolbarButton = ({ getID, ...rest }: ToolbarButtonProps) => {
   return (
     <Button.Button
       tooltip="Export layout"
-      sharp
       size="medium"
       variant="text"
       className={CSS.B("toolbar-button")}

@@ -27,7 +27,7 @@ export const Dialog = ({
   background = 0,
   className,
   bordered = true,
-  rounded = 1,
+  rounded,
   passthrough = false,
   children,
   ...rest
@@ -63,7 +63,9 @@ export const Dialog = ({
           CSS.BM("dialog", "modal", "position", modalPosition.toString()),
         className,
       )}
-      rounded={rounded}
+      /* Modals take their radius from the stylesheet; an inline default would
+         override it. */
+      rounded={rounded ?? (variant === "modal" ? undefined : 1)}
       role="dialog"
       empty
       bordered={bordered}

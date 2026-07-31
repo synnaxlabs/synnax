@@ -12,9 +12,9 @@ import { Drift } from "@synnaxlabs/drift";
 import { Panel, TimeSpan, Triggers } from "@synnaxlabs/pluto";
 import { useCallback, useRef } from "react";
 
-import { Selector } from "@/app/selector";
 import { useSelectorVisible } from "@/app/vis/Selector";
 import { Panel as PlatformPanel } from "@/platform/panel";
+import { Selector } from "@/platform/selector";
 import { Session } from "@/session";
 import { Modals } from "@/session/modals";
 

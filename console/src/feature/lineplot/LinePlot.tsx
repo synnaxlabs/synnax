@@ -73,17 +73,18 @@ const RangeAnnotationContextMenu = ({
   };
   return (
     <ContextMenu.Menu>
-      <Menu.Item itemKey="download" onClick={handleDownloadAsCSV}>
-        <Icon.CSV />
-        Download as CSV
+      <Menu.Item itemKey="metadata" onClick={handleViewDetails}>
+        <Icon.Annotate />
+        View details
       </Menu.Item>
       <Menu.Item itemKey="line-plot" onClick={handleOpenInNewPlot}>
         <Icon.LinePlot />
         Open in new plot
       </Menu.Item>
-      <Menu.Item itemKey="metadata" onClick={handleViewDetails}>
-        <Icon.Annotate />
-        View details
+      <Menu.Divider />
+      <Menu.Item itemKey="download" onClick={handleDownloadAsCSV}>
+        <Icon.CSV />
+        Download as CSV
       </Menu.Item>
     </ContextMenu.Menu>
   );

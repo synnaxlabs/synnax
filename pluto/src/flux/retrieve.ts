@@ -437,12 +437,14 @@ const awaitCreation = <Query extends query.Params, Data extends query.Data>(
     // An already-answered query delivers during subscribe itself, before the
     // destructor exists to be called; tear it down now.
     if (settled) disconnect();
-    // The document may have landed between the failed fetch and the
-    // subscription mounting.
+    // The document may have landed, or been deleted, between the failed
+    // fetch and the subscription mounting.
     const cached = getCached(params);
-    if (cached !== undefined && !Deleted.matches<Data>(cached)) {
+    if (cached !== undefined) {
       finish();
-      resolve(cached);
+      if (Deleted.matches<Data>(cached))
+        reject(new DeletedError(`${name} was deleted`, cached.corpse));
+      else resolve(cached);
     }
   });
 

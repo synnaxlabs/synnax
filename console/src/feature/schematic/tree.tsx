@@ -132,21 +132,21 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
   const firstID = ids[0];
   const resources = getResource(ids);
   const first = resources[0];
+  const singleResource = ids.length === 1;
   return (
     <ContextMenu.Menu>
-      {hasDeletePermission && <ContextMenu.DeleteItem onClick={handleDelete} />}
       {hasUpdatePermission && (
         <>
-          <ContextMenu.RenameItem onClick={rename} />
+          {singleResource && <ContextMenu.RenameItem onClick={rename} />}
           <Group.ContextMenuItem
             ids={ids}
             shape={shape}
             rootID={rootID}
             onClick={() => group(props)}
           />
-          <Menu.Divider />
         </>
       )}
+      <Menu.Divider />
       {resources.every((r) => r.data?.snapshot === false) && hasCreatePermission && (
         <>
           <Range.SnapshotMenuItem range={activeRange} onClick={() => snapshot(props)} />
@@ -154,14 +154,21 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
             <Icon.Copy />
             Copy
           </Menu.Item>
-          <Menu.Divider />
         </>
       )}
-      <Export.ContextMenuItem onClick={() => handleExport(first.id)} />
-      <Link.CopyContextMenuItem
-        onClick={() => handleLink({ name: first.name, ontologyID: firstID })}
-      />
-      <Tree.CopyPropertiesContextMenuItem {...props} />
+      <Menu.Divider />
+      {singleResource && (
+        <>
+          <Export.ContextMenuItem onClick={() => handleExport(first.id)} />
+          <Link.CopyContextMenuItem
+            onClick={() => handleLink({ name: first.name, ontologyID: firstID })}
+          />
+          <Tree.CopyPropertiesContextMenuItem {...props} />
+        </>
+      )}
+      <Menu.Divider />
+      {hasDeletePermission && <ContextMenu.DeleteItem onClick={handleDelete} />}
+      <Menu.Divider />
       <ContextMenu.ReloadConsoleItem />
     </ContextMenu.Menu>
   );

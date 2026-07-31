@@ -55,7 +55,7 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
     <ContextMenu.Menu>
       {hasUpdatePermission && (
         <>
-          <ContextMenu.RenameItem onClick={rename} />
+          {isSingle && <ContextMenu.RenameItem onClick={rename} />}
           <Group.ContextMenuItem
             ids={ids}
             shape={shape}
@@ -64,8 +64,7 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
           />
         </>
       )}
-      {hasDeletePermission && <ContextMenu.DeleteItem onClick={handleDelete} />}
-      {(hasUpdatePermission || hasDeletePermission) && <Menu.Divider />}
+      <Menu.Divider />
       {isSingle && (
         <>
           <Export.ContextMenuItem onClick={() => handleExport(first.id)} />
@@ -73,9 +72,11 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
             onClick={() => handleLink({ name: first.name, ontologyID: firstID })}
           />
           <Tree.CopyPropertiesContextMenuItem {...props} />
-          <Menu.Divider />
         </>
       )}
+      <Menu.Divider />
+      {hasDeletePermission && <ContextMenu.DeleteItem onClick={handleDelete} />}
+      <Menu.Divider />
       <ContextMenu.ReloadConsoleItem />
     </ContextMenu.Menu>
   );

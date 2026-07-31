@@ -37,7 +37,11 @@ export const SELECTABLES: Selector.Selectable[] = [Selectable];
 const TAB: Panel.Tab = {
   Content: Schematic,
   Toolbar,
+  Icon: Icon.Schematic,
   Name: Panel.createEditableTabName(Base, <Icon.Schematic />),
+  restore: async ({ client, project, corpse }) => {
+    await client.schematics.create(project, corpse as schematic.New);
+  },
 };
 
 export const TABS: Panel.Tabs = {

@@ -36,7 +36,7 @@
             max-width: 100%;
             overflow: hidden;
             box-shadow: var(--pluto-shadow-v1);
-            border-radius: 2rem;
+            border-radius: 10rem;
             &.pluto-dialog--modal-position-shifted {
                 top: 8%;
             }

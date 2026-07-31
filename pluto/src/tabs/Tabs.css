@@ -83,20 +83,26 @@
     user-select: none;
 }
 
+/* Tab text ladder, shared by both variants. Contexts re-point the vars (the
+   mosaic quiets unfocused-selected tabs to l10); the focused tab re-points its
+   own selected color to primary, which wins over any inherited value. */
 .pluto-tabs__selector > .pluto-tabs__tab {
+    color: var(--pluto-tabs-text-color, var(--pluto-gray-l9));
     .pluto-text {
-        color: var(--pluto-gray-l9);
-        margin: 0 2rem;
-        padding: 0 0.25rem;
+        color: var(--pluto-tabs-text-color, var(--pluto-gray-l9));
     }
     &.pluto--selected {
+        color: var(--pluto-tabs-selected-text-color, var(--pluto-gray-l11));
         .pluto-text {
-            color: var(--pluto-gray-l11);
+            color: var(--pluto-tabs-selected-text-color, var(--pluto-gray-l11));
         }
         &.pluto--alt-color {
-            .pluto-text,
+            --pluto-tabs-selected-text-color: var(--pluto-primary-z);
+            .pluto-text {
+                font-weight: 500;
+            }
             > .pluto-icon {
-                color: var(--pluto-primary-z) !important;
+                color: var(--pluto-primary-z);
                 font-weight: 500;
             }
         }
@@ -113,11 +119,22 @@
             background 0.15s ease-in-out,
             transform 0.15s ease;
 
+        /* A chip whose label is its own text node spaces itself; composed chips
+           space through their inner text's margins. */
+        &:not(:has(.pluto-text)) {
+            padding: 0 3rem;
+        }
+
+        .pluto-text {
+            margin: 0 2rem;
+            padding: 0 0.25rem;
+        }
+
         > .pluto-icon {
             flex-shrink: 0;
             margin-left: 1.5rem;
             margin-right: 1rem;
-            color: var(--pluto-gray-l9);
+            color: var(--pluto-tabs-text-color, var(--pluto-gray-l9));
             transition: opacity 0.1s ease-in-out;
         }
 
@@ -131,8 +148,9 @@
         }
 
         &.pluto--selected {
-            background: var(--pluto-primary-z-15);
-            box-shadow: inset 0 0 0 var(--pluto-border-width) var(--pluto-primary-z-35);
+            background: var(--pluto-selected-subtle-bg);
+            box-shadow: inset 0 0 0 var(--pluto-border-width)
+                var(--pluto-selected-subtle-border-color);
         }
 
         &:has(> .pluto-icon) .pluto-text {
@@ -200,8 +218,9 @@
     &.pluto--direction-x {
         padding: 0 0.75rem;
         .pluto-tabs__tab {
-            min-height: 0 !important;
-            height: var(--pluto-height-small) !important;
+            min-height: 0;
+            height: var(--pluto-tabs-tab-height, var(--pluto-height-small));
+            align-self: var(--pluto-tabs-tab-align, auto);
             font-weight: 450;
         }
     }
@@ -233,18 +252,14 @@
     overflow: hidden;
     white-space: nowrap;
 
-    & .pluto-text {
-        margin: 0;
-    }
-
     & > .pluto-icon {
         flex-shrink: 0;
         margin-right: 1rem;
-        color: var(--pluto-gray-l9);
+        color: var(--pluto-tabs-text-color, var(--pluto-gray-l9));
     }
 
     &.pluto--selected > .pluto-icon {
-        color: var(--pluto-gray-l11);
+        color: var(--pluto-tabs-selected-text-color, var(--pluto-gray-l11));
     }
 }
 

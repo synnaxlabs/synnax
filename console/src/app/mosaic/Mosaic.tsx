@@ -9,9 +9,9 @@
 
 import { type ReactElement } from "react";
 
-import { Selector } from "@/app/selector";
 import { LinePlot } from "@/feature/lineplot";
 import { Panel } from "@/feature/panel";
+import { Selector } from "@/platform/selector";
 
 export const Mosaic = (): ReactElement => {
   LinePlot.useTriggerHold();

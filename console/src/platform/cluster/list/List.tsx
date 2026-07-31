@@ -135,10 +135,6 @@ export const List = ({ value, onChange, ...rest }: ListProps): ReactElement => {
             Refresh connection
           </Menu.Item>
           <Menu.Divider />
-          <Menu.Item itemKey="remove" onClick={() => handleRemove(key)}>
-            <Icon.Delete />
-            Remove
-          </Menu.Item>
           <Link.CopyContextMenuItem
             onClick={() => {
               const name = allClusters.find((c) => c.key === key)?.name;
@@ -146,6 +142,11 @@ export const List = ({ value, onChange, ...rest }: ListProps): ReactElement => {
               handleLink({ clusterKey: key, name });
             }}
           />
+          <Menu.Divider />
+          <Menu.Item itemKey="remove" onClick={() => handleRemove(key)}>
+            <Icon.Delete />
+            Remove
+          </Menu.Item>
           <Menu.Divider />
           <ContextMenu.ReloadConsoleItem />
         </ContextMenu.Menu>

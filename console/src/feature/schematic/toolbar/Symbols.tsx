@@ -208,19 +208,23 @@ const RemoteSymbolListContextMenu = ({
   };
   return (
     <ContextMenu.Menu>
-      <ContextMenu.DeleteItem onClick={() => del.update(firstKey)} />
+      <Menu.Item itemKey="edit" onClick={handleEdit}>
+        <Icon.Edit />
+        Edit
+      </Menu.Item>
       <ContextMenu.RenameItem
         onClick={() => {
           if (item != null) rename.update(item);
         }}
       />
-      <Menu.Item itemKey="edit" onClick={handleEdit}>
-        <Icon.Edit />
-        Edit
-      </Menu.Item>
+      <Menu.Divider />
       <Export.ContextMenuItem
         onClick={() => exportSymbol(schematic.symbol.ontologyID(firstKey))}
       />
+      <Menu.Divider />
+      <ContextMenu.DeleteItem onClick={() => del.update(firstKey)} />
+      <Menu.Divider />
+      <ContextMenu.ReloadConsoleItem />
     </ContextMenu.Menu>
   );
 };
@@ -444,21 +448,25 @@ const GroupListContextMenu = ({
   if (!isRemoteGroup) return null;
   return (
     <ContextMenu.Menu>
-      <ContextMenu.DeleteItem
-        onClick={() => {
-          if (item != null) deleteSymbolGroup(item);
-        }}
-      />
       <ContextMenu.RenameItem
         onClick={() => {
           if (item != null) rename.update(item);
         }}
       />
+      <Menu.Divider />
       <Export.ContextMenuItem
         onClick={() => {
           if (item != null) exportGroup(item);
         }}
       />
+      <Menu.Divider />
+      <ContextMenu.DeleteItem
+        onClick={() => {
+          if (item != null) deleteSymbolGroup(item);
+        }}
+      />
+      <Menu.Divider />
+      <ContextMenu.ReloadConsoleItem />
     </ContextMenu.Menu>
   );
 };

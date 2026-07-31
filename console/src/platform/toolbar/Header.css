@@ -23,11 +23,3 @@
     height: 6rem;
     flex-shrink: 0;
 }
-
-/* Header text scale is for titles; switcher chips read at small level with more
-   breathing room. String-only tabs render the Button as the text node itself, so
-   the sizing lands on the tab, not a descendant. */
-.console-toolbar__header .pluto-tabs__selector--default .pluto-tabs__tab {
-    font-size: var(--pluto-p-size);
-    padding: 0 3rem;
-}

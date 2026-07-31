@@ -87,18 +87,18 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
   const handleCreate = useCallback(() => create(), [create]);
   return (
     <ContextMenu.Menu>
+      {hasUpdatePermission && isSingle && <ContextMenu.RenameItem onClick={rename} />}
       {hasUpdatePermission && (
         <Group.ContextMenuItem
           ids={ids}
           rootID={rootID}
           shape={shape}
-          showBottomDivider
           onClick={() => group(props)}
         />
       )}
+      <Menu.Divider />
       {hasUpdatePermission && isSingle && (
         <>
-          <ContextMenu.RenameItem onClick={rename} />
           {hasArcCreatePermission && (
             <Menu.Item itemKey="createArc" onClick={handleCreate}>
               <CreateArcIcon />
@@ -111,17 +111,13 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
               Toggle NI Device Scanner
             </Menu.Item>
           )}
-          <Menu.Divider />
         </>
       )}
+      <Menu.Divider />
+      {isSingle && <Tree.CopyPropertiesContextMenuItem {...props} />}
+      <Menu.Divider />
       {hasDeletePermission && <ContextMenu.DeleteItem onClick={handleDelete} />}
       <Menu.Divider />
-      {isSingle && (
-        <>
-          <Tree.CopyPropertiesContextMenuItem {...props} />
-          <Menu.Divider />
-        </>
-      )}
       <ContextMenu.ReloadConsoleItem />
     </ContextMenu.Menu>
   );

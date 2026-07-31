@@ -61,27 +61,19 @@ const ContextMenu = ({ keys, panels }: ContextMenuProps): ReactElement | null =>
   const [key] = keys;
   return (
     <CMenu.Menu>
-      {keys.length === 1 && (
-        <>
-          <Menu.Item itemKey="open-in-new-window" onClick={() => openWindow(key)}>
-            <Icon.OpenInNewWindow />
-            Open in New Window
-          </Menu.Item>
-          <Menu.Divider />
-        </>
-      )}
       {hasUpdatePermission && keys.length === 1 && (
-        <>
-          <CMenu.RenameItem onClick={() => Text.edit(PCSS.B(`tab-${key}`))} />
-          <Menu.Divider />
-        </>
+        <CMenu.RenameItem onClick={() => Text.edit(PCSS.B(`tab-${key}`))} />
       )}
-      {hasDeletePermission && (
-        <>
-          <CMenu.DeleteItem onClick={() => del(keys)} />
-          <Menu.Divider />
-        </>
+      <Menu.Divider />
+      {keys.length === 1 && (
+        <Menu.Item itemKey="open-in-new-window" onClick={() => openWindow(key)}>
+          <Icon.OpenInNewWindow />
+          Open in new window
+        </Menu.Item>
       )}
+      <Menu.Divider />
+      {hasDeletePermission && <CMenu.DeleteItem onClick={() => del(keys)} />}
+      <Menu.Divider />
       <CMenu.ReloadConsoleItem />
     </CMenu.Menu>
   );

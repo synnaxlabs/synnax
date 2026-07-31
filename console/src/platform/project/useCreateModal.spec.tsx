@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Synnax } from "@synnaxlabs/client";
+import { project, type Synnax } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { id } from "@synnaxlabs/x";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
@@ -76,5 +76,50 @@ describe("Project.useCreateModal", () => {
     const active = Session.Project.selectSelected(store.getState());
     const created = await client.projects.retrieve({ key: active });
     expect(created.name).toBe(name);
+  });
+
+  it("seeds the project with a panel holding a component selector tab", async () => {
+    const { wrapper, store } = await createConsoleWrapper({ client });
+    render(
+      <>
+        <Harness />
+        <Modals.Stack />
+      </>,
+      { wrapper },
+    );
+    fireEvent.click(screen.getByRole("button", { name: "open" }));
+    await waitFor(() =>
+      expect(screen.getByPlaceholderText("Project Name")).toBeTruthy(),
+    );
+    fireEvent.change(screen.getByPlaceholderText("Project Name"), {
+      target: { value: `proj-${id.create()}` },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Create" }));
+
+    await waitFor(() => {
+      const active = Session.Project.selectOptionalSelected(store.getState());
+      expect(active).not.toBeUndefined();
+    });
+    const active = Session.Project.selectSelected(store.getState());
+
+    await waitFor(async () => {
+      const panels = await client.panels.retrieve({
+        parent: project.ontologyID(active),
+      });
+      expect(panels).toHaveLength(1);
+    });
+    const [pan] = await client.panels.retrieve({
+      parent: project.ontologyID(active),
+    });
+    expect(pan.name).toBe("New Panel");
+    if (pan.root.variant !== "leaf") throw new Error("expected a leaf root");
+    expect(pan.root.tabs).toHaveLength(1);
+    const [tab] = pan.root.tabs;
+    if (tab.variant !== "view") throw new Error("expected a view tab");
+    expect(tab.type).toBe("selector");
+
+    await waitFor(() =>
+      expect(Session.Panel.selectSelected(store.getState())).toBe(pan.key),
+    );
   });
 });

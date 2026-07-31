@@ -60,6 +60,9 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
   const customMenuItems = C ? <C {...props} /> : null;
   return (
     <ContextMenu.Menu>
+      {hasUpdatePermission && singleResource && (
+        <ContextMenu.RenameItem onClick={rename} />
+      )}
       {hasUpdatePermission && (
         <Group.ContextMenuItem
           ids={ids}
@@ -68,19 +71,10 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
           onClick={() => group(props)}
         />
       )}
-      {hasUpdatePermission && singleResource && (
-        <ContextMenu.RenameItem onClick={rename} />
-      )}
       {customMenuItems != null && (
         <>
           <Menu.Divider />
           {customMenuItems}
-        </>
-      )}
-      {hasDeletePermission && (
-        <>
-          <Menu.Divider />
-          <ContextMenu.DeleteItem onClick={handleDelete} />
         </>
       )}
       <Menu.Divider />
@@ -95,9 +89,11 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
             }
           />
           <Tree.CopyPropertiesContextMenuItem {...props} />
-          <Menu.Divider />
         </>
       )}
+      <Menu.Divider />
+      {hasDeletePermission && <ContextMenu.DeleteItem onClick={handleDelete} />}
+      <Menu.Divider />
       <ContextMenu.ReloadConsoleItem />
     </ContextMenu.Menu>
   );

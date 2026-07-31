@@ -18,7 +18,11 @@ export * from "@/feature/arc/editor/toolbar/Toolbar";
 
 const TAB: Panel.Tab = {
   Content: Editor,
+  Icon: Icon.Arc,
   Name: Panel.createEditableTabName(Arc, <Icon.Arc />),
+  restore: async ({ client, corpse }) => {
+    await client.arcs.create(corpse as arc.CreateParams);
+  },
 };
 
 export const TABS: Panel.Tabs = {

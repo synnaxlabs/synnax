@@ -18,7 +18,6 @@ import {
   Icon,
   List,
   Menu,
-  Panel as PPanel,
   Select,
   Status,
   stopPropagation,
@@ -102,7 +101,6 @@ const Content = () => {
     ),
   });
 
-  const closeTabs = PPanel.useCloseResourceTabs();
   const { update: handleDelete } = Task.useDelete({
     beforeUpdate: useCallback(
       async ({ data: keys }: Flux.BeforeUpdateParams<Task.DeleteParams>) => {
@@ -119,10 +117,9 @@ const Content = () => {
           confirm: { label: "Delete", variant: "error" },
         });
         if (!confirmed) return false;
-        closeTabs(task.ontologyID(array.toArray(keys)));
         return keys;
       },
-      [client, getItem, closeTabs],
+      [client, getItem],
     ),
     afterFailure: ({ status }) => addStatus(status),
   });
@@ -398,7 +395,21 @@ const ContextMenu = ({
               Stop
             </Menu.Item>
           )}
-          {(canStart || canStop) && <Menu.Divider />}
+        </>
+      )}
+      <Menu.Divider />
+      {isSingle && (
+        <Menu.Item itemKey="edit" onClick={() => onEdit(keys[0])}>
+          <Icon.Edit />
+          Edit configuration
+        </Menu.Item>
+      )}
+      {hasUpdatePermission && isSingle && (
+        <PlatformContextMenu.RenameItem onClick={() => Text.edit(`text-${keys[0]}`)} />
+      )}
+      <Menu.Divider />
+      {hasUpdatePermission && (
+        <>
           {canEnableDataSaving && (
             <Menu.Item
               itemKey="enableDataSaving"
@@ -417,58 +428,36 @@ const ContextMenu = ({
               Disable data saving
             </Menu.Item>
           )}
-          {(canEnableDataSaving || canDisableDataSaving) && <Menu.Divider />}
-          {isSingle && (
-            <>
-              <PlatformContextMenu.RenameItem
-                onClick={() => Text.edit(`text-${keys[0]}`)}
-              />
-              <Menu.Divider />
-            </>
-          )}
-        </>
-      )}
-      {isSingle && (
-        <>
-          <Menu.Item itemKey="edit" onClick={() => onEdit(keys[0])}>
-            <Icon.Edit />
-            Edit configuration
-          </Menu.Item>
-          <Menu.Divider />
         </>
       )}
       {hasCreatePermission && showSnapshotToActiveRange && (
-        <>
-          <Range.SnapshotMenuItem
-            range={activeRange}
-            key="snapshot"
-            onClick={() =>
-              snapshotToActiveRange({
-                tasks: selectedTasks.map(({ name, ontologyID: { key } }) => ({
-                  key,
-                  name,
-                })),
-              })
-            }
-          />
-          <Menu.Divider />
-        </>
+        <Range.SnapshotMenuItem
+          range={activeRange}
+          key="snapshot"
+          onClick={() =>
+            snapshotToActiveRange({
+              tasks: selectedTasks.map(({ name, ontologyID: { key } }) => ({
+                key,
+                name,
+              })),
+            })
+          }
+        />
       )}
+      <Menu.Divider />
       {isSingle && (
         <>
           <Export.ContextMenuItem
             onClick={() => handleExport(task.ontologyID(keys[0]))}
           />
           <Link.CopyContextMenuItem onClick={() => handleLink(keys[0])} />
-          <Menu.Divider />
         </>
       )}
+      <Menu.Divider />
       {hasDeletePermission && someSelected && (
-        <>
-          <PlatformContextMenu.DeleteItem onClick={() => onDelete(keys)} />
-          <Menu.Divider />
-        </>
+        <PlatformContextMenu.DeleteItem onClick={() => onDelete(keys)} />
       )}
+      <Menu.Divider />
       <PlatformContextMenu.ReloadConsoleItem />
     </PlatformContextMenu.Menu>
   );

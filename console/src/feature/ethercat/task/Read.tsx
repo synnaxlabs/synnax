@@ -143,6 +143,7 @@ const onConfigure: Task.OnConfigure<ReadSchemas["config"]> = async (client, conf
 export const Read = Task.wrapForm({
   Properties,
   Form,
+  Icon: Icon.Logo.EtherCAT,
   schemas: READ_SCHEMAS,
   type: "ethercat_read",
   getInitialValues,

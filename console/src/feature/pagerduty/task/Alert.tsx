@@ -177,15 +177,6 @@ const AlertContextMenu = ({ keys, onRemove, onSetEnabled }: AlertContextMenuProp
   const canEnable = alerts.some(({ enabled }) => !enabled);
   return (
     <ContextMenu.Menu>
-      {canRemove && (
-        <>
-          <PMenu.Item itemKey="remove" onClick={() => onRemove(keys)}>
-            <Icon.Close />
-            Remove
-          </PMenu.Item>
-          <PMenu.Divider />
-        </>
-      )}
       {canEnable && (
         <PMenu.Item itemKey="enable" onClick={() => onSetEnabled(keys, true)}>
           <Icon.Enable />
@@ -198,7 +189,14 @@ const AlertContextMenu = ({ keys, onRemove, onSetEnabled }: AlertContextMenuProp
           Disable
         </PMenu.Item>
       )}
-      {(canDisable || canEnable) && <PMenu.Divider />}
+      <PMenu.Divider />
+      {canRemove && (
+        <PMenu.Item itemKey="remove" onClick={() => onRemove(keys)}>
+          <Icon.Close />
+          Remove
+        </PMenu.Item>
+      )}
+      <PMenu.Divider />
       <ContextMenu.ReloadConsoleItem />
     </ContextMenu.Menu>
   );
@@ -315,6 +313,7 @@ const onConfigure: Task.OnConfigure<AlertSchemas["config"]> = async (
 export const Alert = Task.wrapForm({
   Properties,
   Form,
+  Icon: Icon.Logo.PagerDuty,
   schemas: ALERT_SCHEMAS,
   type: ALERT_TYPE,
   getInitialValues,

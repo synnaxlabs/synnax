@@ -511,7 +511,16 @@ describe("Panel.Mosaic", () => {
       return <span>{`extra:${tabKey ?? "none"}`}</span>;
     };
 
-    const extraMenuItems = (): ReactElement => <ExtraMenuProbe />;
+    const contextMenu: Panel.MosaicProps["contextMenu"] = ({ keys }) =>
+      keys.length === 0 ? (
+        <ExtraMenuProbe />
+      ) : (
+        <>
+          <Panel.CloseTabMenuItem />
+          <Panel.SplitTabMenuItems />
+          <ExtraMenuProbe />
+        </>
+      );
 
     const openMenuOn = async (utils: RenderResult, target: HTMLElement) => {
       await act(async () => {
@@ -529,7 +538,7 @@ describe("Panel.Mosaic", () => {
         panelKey: p.key,
         selected: [a.key],
         tabName,
-        extraMenuItems,
+        contextMenu,
       });
       await waitFor(() => expect(utils.getByText(contentText(a))).toBeTruthy());
 
@@ -547,6 +556,7 @@ describe("Panel.Mosaic", () => {
         panelKey: p.key,
         selected: [a.key],
         tabName,
+        contextMenu,
       });
       await waitFor(() => expect(utils.getByText(contentText(a))).toBeTruthy());
 
@@ -571,6 +581,7 @@ describe("Panel.Mosaic", () => {
         panelKey: p.key,
         selected: [a.key],
         tabName,
+        contextMenu,
       });
       await waitFor(() => expect(utils.getByText(contentText(a))).toBeTruthy());
 
@@ -589,7 +600,7 @@ describe("Panel.Mosaic", () => {
       const a = resourceTab();
       const p = await createPanel(a);
       const tabName = vi.fn(() => <TabKeyNameProbe />);
-      const utils = await renderMosaic({ panelKey: p.key, tabName });
+      const utils = await renderMosaic({ panelKey: p.key, tabName, contextMenu });
       await waitFor(() => expect(utils.getByText(contentText(a))).toBeTruthy());
 
       await openMenuOn(utils, utils.getByText(`name:${a.key}`));
@@ -603,7 +614,7 @@ describe("Panel.Mosaic", () => {
       const p = await createPanel(a);
       const utils = await renderMosaic({
         panelKey: p.key,
-        extraMenuItems,
+        contextMenu,
       });
       await waitFor(() => expect(utils.getByText(contentText(a))).toBeTruthy());
 

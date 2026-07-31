@@ -97,7 +97,6 @@ export const Palette = (): ReactElement => {
           className={CSS(CSS.BE("palette", "btn"))}
           variant="outlined"
           align="center"
-          size="large"
           justify="center"
           textColor={9}
           gap="small"

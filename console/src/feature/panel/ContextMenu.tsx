@@ -58,7 +58,7 @@ const MoveToNewWindowItem = (): ReactElement => {
   return (
     <Menu.Item itemKey="move-to-new-window" onClick={handleMove}>
       <Icon.OpenInNewWindow />
-      Move to New Window
+      Move to new window
     </Menu.Item>
   );
 };
@@ -67,8 +67,12 @@ export const TabMenuItems = ({ keys }: Menu.ContextMenuMenuProps): ReactElement 
   if (keys.length === 0) return <CMenu.ReloadConsoleItem />;
   return (
     <>
+      <Panel.CloseTabMenuItem />
+      <Menu.Divider />
       <RenameItem />
       <FocusItem />
+      <Menu.Divider />
+      <Panel.SplitTabMenuItems />
       <MoveToNewWindowItem />
       <Menu.Divider />
       <CMenu.ReloadConsoleItem />

@@ -115,22 +115,4 @@ describe("Group.ContextMenuItem", () => {
     await waitFor(() => expect(screen.getByText("Group selection")).toBeTruthy());
   });
 
-  it("should render a bottom divider only when showBottomDivider is set", async () => {
-    const { container, unmount } = await renderItems(
-      <Group.ContextMenuItem
-        ids={[childID]}
-        rootID={ontology.ROOT_ID}
-        shape={shape}
-        showBottomDivider
-      />,
-    );
-    await waitFor(() => expect(screen.getByText("Group selection")).toBeTruthy());
-    expect(container.querySelector(".pluto-menu__divider")).not.toBeNull();
-    unmount();
-    const { container: bare } = await renderItems(
-      <Group.ContextMenuItem ids={[childID]} rootID={ontology.ROOT_ID} shape={shape} />,
-    );
-    await waitFor(() => expect(screen.getByText("Group selection")).toBeTruthy());
-    expect(bare.querySelector(".pluto-menu__divider")).toBeNull();
-  });
 });

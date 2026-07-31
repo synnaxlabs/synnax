@@ -97,62 +97,50 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
   const hasNoSnapshots = resources.every((r) => r.data?.snapshot === false);
   return (
     <ContextMenu.Menu>
+      {singleResource && (
+        <Menu.Item itemKey="edit" onClick={handleEdit}>
+          <Icon.Edit />
+          {`${resources[0].data?.snapshot ? "View" : "Edit"} configuration`}
+        </Menu.Item>
+      )}
+      <Menu.Divider />
       {hasUpdatePermission && (
         <>
+          {singleResource && <ContextMenu.RenameItem onClick={rename} />}
           <Group.ContextMenuItem
             ids={ids}
             shape={shape}
             rootID={rootID}
             onClick={() => group(props)}
           />
-          {singleResource && (
-            <>
-              <ContextMenu.RenameItem onClick={rename} />
-              <Menu.Divider />
-            </>
-          )}
         </>
       )}
+      <Menu.Divider />
       {hasCreatePermission && hasNoSnapshots && range?.persisted === true && (
-        <>
-          <Range.SnapshotMenuItem
-            key="snapshot"
-            range={range}
-            onClick={() =>
-              snap({
-                tasks: resources.map(({ id: { key }, name }) => ({ key, name })),
-              })
-            }
-          />
-          <Menu.Divider />
-        </>
+        <Range.SnapshotMenuItem
+          key="snapshot"
+          range={range}
+          onClick={() =>
+            snap({
+              tasks: resources.map(({ id: { key }, name }) => ({ key, name })),
+            })
+          }
+        />
       )}
+      <Menu.Divider />
       {singleResource && (
         <>
-          <Menu.Item itemKey="edit" onClick={handleEdit}>
-            <Icon.Edit />
-            {`${resources[0].data?.snapshot ? "View" : "Edit"} configuration`}
-          </Menu.Item>
-          <Menu.Divider />
-        </>
-      )}
-      {singleResource && (
-        <>
+          <Export.ContextMenuItem onClick={() => handleExport(ids[0])} />
           <Link.CopyContextMenuItem
             onClick={() =>
               handleLink({ name: resources[0].name, ontologyID: resources[0].id })
             }
           />
-          <Export.ContextMenuItem onClick={() => handleExport(ids[0])} />
-          <Menu.Divider />
         </>
       )}
-      {hasDeletePermission && (
-        <>
-          <ContextMenu.DeleteItem onClick={handleDelete} />
-          <Menu.Divider />
-        </>
-      )}
+      <Menu.Divider />
+      {hasDeletePermission && <ContextMenu.DeleteItem onClick={handleDelete} />}
+      <Menu.Divider />
       <ContextMenu.ReloadConsoleItem />
     </ContextMenu.Menu>
   );

@@ -28,11 +28,17 @@ import {
   Text,
 } from "@synnaxlabs/pluto";
 import { caseconv } from "@synnaxlabs/x";
-import { type ReactElement, useCallback, useState } from "react";
+import {
+  type PropsWithChildren,
+  type ReactElement,
+  useCallback,
+  useState,
+} from "react";
 import { useDispatch } from "react-redux";
 
 import { TabMenuItems } from "@/feature/panel/ContextMenu";
 import { useCreate } from "@/feature/panel/useCreate";
+import { useResetOnRestore } from "@/feature/panel/useResetOnRestore";
 import { Empty } from "@/platform";
 import { CSS } from "@/platform/css";
 import { Panel as PlatformPanel } from "@/platform/panel";
@@ -47,16 +53,58 @@ const corpseName = (error: Error): string | undefined =>
 // Tab names render in the selector strip, outside the content's suspense
 // boundary. A name service throws when its resource has been deleted, so an
 // unguarded name would crash the entire app on a single stale tab.
-const TabNameFallback = ({ error }: Errors.FallbackProps): ReactElement => (
+const TabNameFallbackContent = ({ error }: Errors.FallbackProps): ReactElement => (
   <>
     <Icon.Warning />
     <Text.Text>{corpseName(error) ?? "Not found"}</Text.Text>
   </>
 );
 
+const ResourceTabNameFallback = (props: Errors.FallbackProps): ReactElement => {
+  useResetOnRestore(props.resetErrorBoundary);
+  return <TabNameFallbackContent {...props} />;
+};
+
+const TabNameFallback = (props: Errors.FallbackProps): ReactElement => {
+  const variant = Panel.useSelectTabVariant({});
+  if (variant !== "resource") return <TabNameFallbackContent {...props} />;
+  return <ResourceTabNameFallback {...props} />;
+};
+
+interface TombstoneProps extends PropsWithChildren {
+  icon: ReactElement;
+  message: string;
+  description: string;
+}
+
+// Shared shell for terminal tab states (deleted, not found): a dimmed glyph,
+// a short heading, one muted line, and an actions row, optically centered in
+// the tab the way the mosaic empty state is.
+const Tombstone = ({
+  icon,
+  message,
+  description,
+  children,
+}: TombstoneProps): ReactElement => (
+  <Flex.Box center className={CSS.BE("panel", "tombstone")}>
+    {/* The centering box fills the tab; this column shrink-wraps so the icon,
+     * copy, and actions stay a tight stack instead of spreading across it. */}
+    <Flex.Box y align="center" gap={3}>
+      <Flex.Box className={CSS.BE("panel", "tombstone-icon")}>{icon}</Flex.Box>
+      <Flex.Box y align="center" gap="small">
+        <Text.Text level="h5">{message}</Text.Text>
+        <Text.Text status="disabled">{description}</Text.Text>
+      </Flex.Box>
+      <Flex.Box x gap="small">
+        {children}
+      </Flex.Box>
+    </Flex.Box>
+  </Flex.Box>
+);
+
 // Renders the deleted state of a resource tab: the corpse's name plus Close and,
-// for restorable document types, Restore. Remote deletes land here; the tab is
-// never closed out from under the user.
+// for restorable document types, Restore. Every delete lands here, local or
+// remote; the tab is never closed out from under the user.
 const DeletedResourceContent = ({
   error,
   resetErrorBoundary,
@@ -64,30 +112,37 @@ const DeletedResourceContent = ({
   const corpse = (error as Flux.DeletedError<{ name?: string }>).corpse;
   const resource = Panel.useSelectTabResource({});
   const closeTabs = Panel.useCloseResourceTabs();
+  const { restore, Icon: TabIcon } = useTab();
+  useResetOnRestore(resetErrorBoundary);
   const client = Synnax.use();
   const project = Session.Project.useSelectSelected();
   const handleError = Status.useErrorHandler();
   const name = corpse.name ?? "This resource";
   const handleRestore = (): void => {
     handleError(async () => {
-      if (client == null) return;
-      await PlatformPanel.restore(resource, { client, project, corpse });
+      if (client == null || restore == null) return;
+      await restore({ client, project, corpse });
       resetErrorBoundary();
     }, `Failed to restore ${name}`);
   };
+  const restorable = client != null && restore != null;
   return (
-    <Flex.Box grow align="center" justify="center" gap="small">
-      <Icon.Warning />
-      <Text.Text>{name} was deleted</Text.Text>
-      <Flex.Box x gap="small">
-        <Button.Button onClick={() => closeTabs(resource)}>Close</Button.Button>
-        {client != null && PlatformPanel.canRestore(resource) && (
-          <Button.Button variant="filled" onClick={handleRestore}>
-            Restore
-          </Button.Button>
-        )}
-      </Flex.Box>
-    </Flex.Box>
+    <Tombstone
+      icon={<TabIcon />}
+      message={`${name} was deleted`}
+      description={
+        restorable
+          ? "Restoring brings it back for everyone."
+          : "Close the component to remove it from this panel."
+      }
+    >
+      <Button.Button onClick={() => closeTabs(resource)}>Close</Button.Button>
+      {restorable && (
+        <Button.Button variant="filled" onClick={handleRestore}>
+          Restore
+        </Button.Button>
+      )}
+    </Tombstone>
   );
 };
 
@@ -101,27 +156,33 @@ const DeletedContent = (props: Errors.FallbackProps): ReactElement => {
 
 // A reference can permanently outrun its document: the retrieve's not-found
 // wait expired without a create broadcast. Offer to close the tab.
-const NotFoundResourceContent = (): ReactElement => {
+const NotFoundResourceContent = ({
+  resetErrorBoundary,
+}: Errors.FallbackProps): ReactElement => {
   const resource = Panel.useSelectTabResource({});
   const closeTabs = Panel.useCloseResourceTabs();
+  const { Icon: TabIcon } = useTab();
+  useResetOnRestore(resetErrorBoundary);
   return (
-    <Flex.Box grow align="center" justify="center" gap="small">
-      <Icon.Warning />
-      <Text.Text>This resource could not be found</Text.Text>
+    <Tombstone
+      icon={<TabIcon />}
+      message="Resource not found"
+      description="This component references a document that no longer exists."
+    >
       <Button.Button onClick={() => closeTabs(resource)}>Close</Button.Button>
-    </Flex.Box>
+    </Tombstone>
   );
 };
 
 const NotFoundContent = (props: Errors.FallbackProps): ReactElement => {
   const variant = Panel.useSelectTabVariant({});
   if (variant !== "resource") return <Errors.Fallback {...props} />;
-  return <NotFoundResourceContent />;
+  return <NotFoundResourceContent {...props} />;
 };
 
 // The not-found wait rejects with a wrapper whose cause carries the typed
 // error, so the cause is matched alongside the error itself.
-const isNotFound = (error: Error): boolean =>
+export const isNotFound = (error: Error): boolean =>
   NotFoundError.matches(error) || NotFoundError.matches(error.cause);
 
 const ContentFallback = (props: Errors.FallbackProps): ReactElement => {
@@ -204,7 +265,7 @@ const Content = (): ReactElement => {
 
 const content = Component.renderProp(Content);
 const tabName = Component.renderProp(TabName);
-const extraMenuItems = Component.renderProp(TabMenuItems);
+const contextMenu = Component.renderProp(TabMenuItems);
 
 const resolveDroppedTab = (raw: string): panel.NewTab | undefined => {
   const parsed = ontology.idZ.safeParse(raw);
@@ -227,8 +288,8 @@ const EmptyTabContent = ({ onCreateTab }: MosaicProps): ReactElement => {
         x
         className={CSS.BE("mosaic", "empty-action")}
         level="h5"
-        message="No tabs open."
-        action="Create a new tab"
+        message="No components open."
+        action="Create a new component"
         onClick={handleCreate}
       />
     </Flex.Box>
@@ -245,7 +306,7 @@ const Internal = ({ onCreateTab }: MosaicProps): ReactElement => {
       onSelect={handleSelect}
       onCreateTab={onCreateTab}
       resolveDroppedTab={resolveDroppedTab}
-      extraMenuItems={extraMenuItems}
+      contextMenu={contextMenu}
       emptyContent={<EmptyTabContent onCreateTab={onCreateTab} />}
       rounded={2}
       bordered
@@ -300,15 +361,17 @@ const PanelFallback = (props: Errors.FallbackProps): ReactElement => {
     return <Errors.Fallback {...props} />;
   const name = corpseName(error);
   return (
-    <Flex.Box grow align="center" justify="center" gap="small">
-      <Icon.Warning />
-      <Text.Text>{name ?? "This panel"} could not be found</Text.Text>
+    <Tombstone
+      icon={<Icon.Warning />}
+      message={`${name ?? "This panel"} could not be found`}
+      description="This window references a panel that no longer exists."
+    >
       {panelKey != null && (
         <Button.Button onClick={() => dispatch(Session.Panel.remove(panelKey))}>
           Close
         </Button.Button>
       )}
-    </Flex.Box>
+    </Tombstone>
   );
 };
 

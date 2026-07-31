@@ -7,25 +7,20 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Icon } from "@synnaxlabs/pluto";
+import { type panel } from "@synnaxlabs/client";
+import { useCallback } from "react";
 
-import { Explorer } from "@/feature/range/explorer/Explorer";
 import { Panel } from "@/platform/panel";
 
-export { Explorer };
+export const TAB_TYPE = "selector";
 
-export const TAB: Panel.Tab = {
-  Icon: Icon.Explore,
-  Name: Panel.createStaticTabName({ name: "Range Explorer", icon: <Icon.Explore /> }),
-  Content: Explorer,
-};
-
-export const TAB_TYPE = "range_explorer";
-
-export const TABS: Panel.Tabs = { [TAB_TYPE]: TAB };
+export const createEmptyTab = (): panel.NewTab => ({
+  variant: "view",
+  type: TAB_TYPE,
+  args: {},
+});
 
 export const useOpenTab = (): (() => void) => {
   const openTab = Panel.useOpenTab();
-  return () =>
-    openTab({ variant: "view", type: TAB_TYPE, args: {} }, { singleton: true });
+  return useCallback(() => openTab(createEmptyTab()), [openTab]);
 };

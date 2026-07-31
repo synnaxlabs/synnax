@@ -37,7 +37,6 @@ export const CopyLinkToolbarButton = ({
   return (
     <Button.Button
       tooltip="Copy link"
-      sharp
       size="medium"
       variant="text"
       className={CSS.B("toolbar-button")}

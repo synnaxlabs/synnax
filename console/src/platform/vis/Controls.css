@@ -18,6 +18,29 @@
     transition: opacity 0.1s ease-in-out;
 }
 
-.pluto-tabs__content:hover .console-controls {
+.console-controls * {
+    transition: opacity 0.1s ease-in-out;
+}
+
+.pluto-tabs__content:hover .console-controls,
+.console-controls:focus-within,
+.console-controls:has(.console-controls--pinned) {
     opacity: 1;
+}
+
+/* A pinned control (an active mode indicator: acquired control, paused
+   plotting) stays visible when the pointer leaves; everything outside its
+   subtree fades out. Ancestors of the pinned control must stay visible because
+   opacity composites multiplicatively down the tree. */
+.pluto-tabs__content:not(:hover)
+    .console-controls:has(.console-controls--pinned):not(:focus-within) {
+    & * {
+        opacity: 0;
+    }
+
+    & :has(.console-controls--pinned),
+    & .console-controls--pinned,
+    & .console-controls--pinned * {
+        opacity: 1;
+    }
 }

@@ -12,13 +12,7 @@
 .console-nav__bar {
     .pluto-menu-item {
         position: relative;
-        /* Between medium and large: matches the 5.5rem list-row height, with the
-           icon kept at size-large's h5 scale. */
-        --pluto-height: 5.5rem;
-        font-size: var(--pluto-h5-size);
-        &.pluto--square {
-            min-width: 5.5rem;
-        }
+
         &.pluto--selected {
             background: var(--pluto-gray-l5);
             transition: background 0.3s;
@@ -42,10 +36,21 @@
         }
     }
 
-    &.pluto--location-left .pluto-menu-item::after {
-        left: -1.25rem;
-        border-top-right-radius: 0.5rem;
-        border-bottom-right-radius: 0.5rem;
+    &.pluto--location-left {
+        button {
+            /* Between medium and large: matches the 5.5rem list-row height, with the
+               icon kept at size-large's h5 scale. */
+            --pluto-height: round(5.333rem, 1px);
+            font-size: var(--pluto-h5-size);
+            &.pluto--square {
+                min-width: var(--pluto-height);
+            }
+        }
+        .pluto-menu-item::after {
+            left: -1.25rem;
+            border-top-right-radius: 0.5rem;
+            border-bottom-right-radius: 0.5rem;
+        }
     }
 
     .pluto-navbar__content {

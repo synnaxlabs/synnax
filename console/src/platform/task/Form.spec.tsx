@@ -9,7 +9,7 @@
 
 import { task } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
-import { Form as PForm } from "@synnaxlabs/pluto";
+import { Form as PForm, Icon } from "@synnaxlabs/pluto";
 import { screen, waitFor } from "@testing-library/react";
 import { type FC } from "react";
 import { describe, expect, it } from "vitest";
@@ -55,6 +55,7 @@ const createRenderer = ({
 }: MakeRendererParams = {}) =>
   Task.wrapForm<typeof schemas>({
     Form,
+    Icon: Icon.Task,
     schemas,
     type: "test_task",
     getInitialValues: () => ({

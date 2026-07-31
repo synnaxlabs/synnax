@@ -62,8 +62,9 @@ export interface SelectKeyParams {
 
 const requirePanel = (client: Client | null, key: panel.Key): panel.Panel => {
   const cached = client?.panels.getCached({ key });
-  if (cached == null || query.Deleted.matches(cached))
-    throw new NotFoundError(`Panel with key ${key} not found`);
+  if (cached == null) throw new NotFoundError(`Panel with key ${key} not found`);
+  if (query.Deleted.matches(cached))
+    throw new Flux.DeletedError(`${RESOURCE_NAME} was deleted`, cached.corpse);
   return cached;
 };
 
