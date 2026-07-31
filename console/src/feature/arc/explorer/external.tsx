@@ -18,6 +18,7 @@ export const TAB_TYPE = "arc_explorer";
 
 const TAB: Panel.Tab = {
   Content: Explorer,
+  Icon: Icon.Arc,
   Name: Panel.createStaticTabName({ name: "Arc Explorer", icon: <Icon.Arc /> }),
 };
 

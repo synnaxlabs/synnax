@@ -290,5 +290,5 @@ export const wrapForm = <S extends task.Schemas = task.Schemas>({
     if (taskKey != null) return <RemoteName taskKey={taskKey} />;
     return <LocalName />;
   };
-  return { Content, Name };
+  return { Content, Name, Icon: Icon.Task };
 };
