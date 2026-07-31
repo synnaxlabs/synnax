@@ -79,5 +79,6 @@ export const create = ({
   };
   Content.displayName = `${tabTitle}.Selector`;
   const Name = Panel.createStaticTabName({ name: tabTitle, icon });
-  return { Content, Name };
+  const TabIcon: Panel.TabIcon = () => icon;
+  return { Content, Name, Icon: TabIcon };
 };

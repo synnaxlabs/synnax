@@ -15,6 +15,7 @@ import { Panel } from "@/platform/panel";
 export { Explorer };
 
 export const TAB: Panel.Tab = {
+  Icon: Icon.Explore,
   Name: Panel.createStaticTabName({ name: "Range Explorer", icon: <Icon.Explore /> }),
   Content: Explorer,
 };
