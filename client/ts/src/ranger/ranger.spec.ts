@@ -21,7 +21,7 @@ import { beforeAll, describe, expect, it, vi } from "vitest";
 import { NotFoundError } from "@/errors";
 import { query } from "@/query";
 import { ranger } from "@/ranger";
-import { createTestClient, expectDeleted, expectLive, isLive } from "@/testutil";
+import { createTestClient, expectDeleted, expectLive } from "@/testutil";
 
 const client = createTestClient();
 
@@ -411,7 +411,7 @@ describe("cached reads", () => {
         await expect
           .poll(() => {
             const cached = client.ranges.getCached(rng.key);
-            return isLive(cached) && cached.name === renamed;
+            return query.isLive(cached) && cached.name === renamed;
           })
           .toBe(true);
         expect(handler).toHaveBeenCalled();
@@ -452,7 +452,8 @@ describe("cached reads", () => {
           .poll(() => {
             const cached = client.ranges.getCached(rng.key);
             return (
-              isLive(cached) && (cached.labels ?? []).some((l) => l.key === lbl.key)
+              query.isLive(cached) &&
+              (cached.labels ?? []).some((l) => l.key === lbl.key)
             );
           })
           .toBe(true);
@@ -474,7 +475,7 @@ describe("cached reads", () => {
         await expect
           .poll(() => {
             const cached = client.ranges.children.getCached(parent.key);
-            return isLive(cached) && cached.some((c) => c.key === second.key);
+            return query.isLive(cached) && cached.some((c) => c.key === second.key);
           })
           .toBe(true);
       } finally {
@@ -503,24 +504,24 @@ describe("cached reads", () => {
       const labeled = await createRange();
       await client.labels.label(ranger.ontologyID(labeled.key), [lbl.key]);
       const handler = vi.fn();
-      const query = { hasLabels: [lbl.key] };
-      const off = client.ranges.onChange(query, handler);
+      const params = { hasLabels: [lbl.key] };
+      const off = client.ranges.onChange(params, handler);
       try {
-        const initial = await client.ranges.retrieve(query);
+        const initial = await client.ranges.retrieve(params);
         expect(initial.map((r) => r.key)).toEqual([labeled.key]);
         const late = await createRange();
         await client.labels.label(ranger.ontologyID(late.key), [lbl.key]);
         await expect
           .poll(() => {
-            const cached = client.ranges.getCached(query);
-            return isLive(cached) && cached.some((r) => r.key === late.key);
+            const cached = client.ranges.getCached(params);
+            return query.isLive(cached) && cached.some((r) => r.key === late.key);
           })
           .toBe(true);
         await client.labels.remove(ranger.ontologyID(labeled.key), [lbl.key]);
         await expect
           .poll(() => {
-            const cached = client.ranges.getCached(query);
-            return isLive(cached) && cached.every((r) => r.key !== labeled.key);
+            const cached = client.ranges.getCached(params);
+            return query.isLive(cached) && cached.every((r) => r.key !== labeled.key);
           })
           .toBe(true);
       } finally {
@@ -544,7 +545,8 @@ describe("cached reads", () => {
           .poll(() => {
             const cached = client.ranges.kv.getCached(rng.key);
             return (
-              isLive(cached) && cached.some((p) => p.key === "baz" && p.value === "qux")
+              query.isLive(cached) &&
+              cached.some((p) => p.key === "baz" && p.value === "qux")
             );
           })
           .toBe(true);
@@ -552,7 +554,7 @@ describe("cached reads", () => {
         await expect
           .poll(() => {
             const cached = client.ranges.kv.getCached(rng.key);
-            return isLive(cached) && cached.every((p) => p.key !== "foo");
+            return query.isLive(cached) && cached.every((p) => p.key !== "foo");
           })
           .toBe(true);
       } finally {
@@ -569,7 +571,7 @@ describe("store", () => {
     await expect
       .poll(() => {
         const cached = client.ranges.getCached(range.key);
-        return isLive(cached) ? cached.name : undefined;
+        return query.isLive(cached) ? cached.name : undefined;
       })
       .toEqual(range.name);
     await client.ranges.delete(range.key);

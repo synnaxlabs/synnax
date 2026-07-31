@@ -12,7 +12,8 @@ import { beforeAll, describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 
 import { device } from "@/device";
-import { createTestClient, expectLive, isLive } from "@/testutil";
+import { query } from "@/query";
+import { createTestClient, expectLive } from "@/testutil";
 
 const client = createTestClient();
 
@@ -474,10 +475,10 @@ describe("Device", async () => {
         model: "dog",
         properties: {},
       });
-      const query = { key, includeStatus: true };
-      const off = client.devices.onChange(query, vi.fn());
+      const params = { key, includeStatus: true };
+      const off = client.devices.onChange(params, vi.fn());
       try {
-        await client.devices.retrieve(query);
+        await client.devices.retrieve(params);
         await client.statuses.set({
           key: device.statusKey(key),
           name: "",
@@ -488,8 +489,8 @@ describe("Device", async () => {
         });
         await expect
           .poll(() => {
-            const cached = client.devices.getCached(query);
-            if (!isLive(cached)) return undefined;
+            const cached = client.devices.getCached(params);
+            if (!query.isLive(cached)) return undefined;
             return cached.status?.message;
           })
           .toBe("device degraded");
@@ -509,10 +510,10 @@ describe("Device", async () => {
         model: "dog",
         properties: {},
       });
-      const query = { makes: [make], includeStatus: true };
-      const off = client.devices.onChange(query, vi.fn());
+      const params = { makes: [make], includeStatus: true };
+      const off = client.devices.onChange(params, vi.fn());
       try {
-        await client.devices.retrieve(query);
+        await client.devices.retrieve(params);
         await client.statuses.set({
           key: device.statusKey(dev.key),
           name: "",
@@ -523,8 +524,8 @@ describe("Device", async () => {
         });
         await expect
           .poll(() => {
-            const cached = client.devices.getCached(query);
-            if (!isLive(cached)) return undefined;
+            const cached = client.devices.getCached(params);
+            if (!query.isLive(cached)) return undefined;
             return cached.find((d) => d.key === dev.key)?.status?.message;
           })
           .toBe("device has issues");
