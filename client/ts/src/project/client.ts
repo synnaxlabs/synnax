@@ -30,6 +30,7 @@ const retrieveReqZ = z.object({
   searchTerm: z.string().optional(),
   offset: z.int().optional(),
   limit: z.int().optional(),
+  ignoreNotFoundError: z.boolean().optional(),
 });
 export interface RetrieveRequest extends z.infer<typeof retrieveReqZ> {}
 const createReqZ = z.object({ projects: projectZ.array() });
