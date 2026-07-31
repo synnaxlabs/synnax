@@ -32,8 +32,9 @@ export class Deleted<D = unknown> {
     this.deletedAt = deletedAt;
   }
 
-  /** Narrows a cached answer to the deleted case. */
-  static matches<D>(value: unknown): value is Deleted<D> {
+  /** Narrows a cached answer to the deleted case, carrying its record type
+   *  onto the corpse. */
+  static matches<D>(value: D | Deleted<D> | undefined): value is Deleted<D> {
     return typeof value === "object" && value !== null && BRAND in value;
   }
 }
