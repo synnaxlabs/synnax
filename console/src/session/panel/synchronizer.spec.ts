@@ -25,8 +25,6 @@ import {
 const client = createTestClient();
 
 beforeAll(async () => {
-  // Epoch events only fire on a live change stream; connect up front so the
-  // mount-time reconcile runs deterministically.
   await client.connect();
 });
 
