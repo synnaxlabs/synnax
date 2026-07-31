@@ -24,14 +24,14 @@ import {
 } from "@synnaxlabs/client/testutil";
 import { id } from "@synnaxlabs/x";
 import { renderHook, waitFor } from "@testing-library/react";
-import { afterAll, beforeEach, describe, expect, it } from "vitest";
+import { afterAll, assert, beforeEach, describe, expect, it } from "vitest";
 
 import { Access } from "@/access";
 import { createAsyncSynnaxWrapper } from "@/testutil/Synnax";
 
 const subjectOf = (c: Synnax): ontology.ID => {
   const u = c.auth?.user;
-  if (u == null) throw new Error("client has no authenticated user");
+  assert(u != null, "client has no authenticated user");
   return user.ontologyID(u.key);
 };
 

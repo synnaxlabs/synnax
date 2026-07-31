@@ -10,7 +10,7 @@
 import { lineplot as clientLineplot, type lineplot } from "@synnaxlabs/client";
 import { expectLive } from "@synnaxlabs/client/testutil";
 import { box, dimensions, xy } from "@synnaxlabs/x";
-import { describe, expect, it, vi } from "vitest";
+import { assert, describe, expect, it, vi } from "vitest";
 
 import { LinePlot } from "@/feature/lineplot";
 import { client, project } from "@/feature/lineplot/testutil";
@@ -309,7 +309,7 @@ describe("lineplot ingest", () => {
     });
     expect(openTab).toHaveBeenCalledTimes(1);
     const spec = openTab.mock.calls[0][0];
-    if (!("resource" in spec)) throw new Error("expected a resource tab spec");
+    assert("resource" in spec, "expected a resource tab spec");
     if (typeof spec.resource === "string")
       throw new Error("expected a resolved resource, got an id string");
     expect(spec.resource.type).toBe("lineplot");
