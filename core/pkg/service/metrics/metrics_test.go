@@ -11,6 +11,7 @@ package metrics_test
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -341,6 +342,46 @@ var _ = Describe("Metrics", func() {
 			Expect(parentsAfterReopen).To(HaveLen(1))
 			Expect(parentsAfterReopen[0].ID).To(Equal(metricsGroup.OntologyID()))
 
+			Expect(svc.Close()).To(Succeed())
+		})
+	})
+	Describe("Writer Control Subject", func() {
+		It("Should name the writer after the host node", func(ctx SpecContext) {
+			svc := MustSucceed(metrics.OpenService(ctx, metrics.ServiceConfig{
+				Channel:            channelSvc,
+				Group:              groupSvc,
+				Ontology:           otg,
+				Framer:             framerSvc,
+				HostProvider:       dist.Cluster,
+				DB:                 dist.DB,
+				Storage:            dist.Storage,
+				CollectionInterval: 100 * time.Millisecond,
+			}))
+			var controlCh channel.Channel
+			Expect(channelSvc.NewRetrieve().
+				Where(channel.MatchNames(fmt.Sprintf(
+					"sy_node_%v_control", dist.Cluster.HostKey(),
+				))).
+				Entry(&controlCh).
+				Exec(ctx, nil),
+			).To(Succeed())
+			streamer := MustSucceed(framerSvc.NewStreamer(ctx, framer.StreamerConfig{
+				Keys: []channel.Key{controlCh.Key()},
+			}))
+			sCtx := signal.Wrap(ctx)
+			requests, responses := confluence.Attach(streamer, 2)
+			streamer.Flow(sCtx, confluence.CloseOutputInletsOnExit())
+			var res framer.StreamerResponse
+			Eventually(responses.Outlet()).Should(Receive(&res))
+			var state string
+			for _, s := range res.Frame.Entries() {
+				state += string(s.Data)
+			}
+			Expect(state).To(ContainSubstring(fmt.Sprintf(
+				"Node %v Metrics Writer", dist.Cluster.HostKey(),
+			)))
+			requests.Close()
+			Eventually(responses.Outlet()).Should(BeClosed())
 			Expect(svc.Close()).To(Succeed())
 		})
 	})
