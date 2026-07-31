@@ -144,7 +144,7 @@ export const selectViewArgs = (
   tabKey: panel.TabKey = tabKeys[0],
 ): record.Unknown | null => {
   const cached = client.panels.getCached({ key: panelKey });
-  if (cached == null || query.Deleted.matches(cached)) return null;
+  if (!query.isLive(cached)) return null;
   const tab = panel.findTab(cached.root, tabKey);
   return tab?.variant === "view" ? tab.args : null;
 };

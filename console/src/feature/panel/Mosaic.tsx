@@ -37,9 +37,7 @@ import { useTab } from "@/platform/panel/tab";
 import { Session } from "@/session";
 
 const corpseName = (error: Error): string | undefined =>
-  Flux.DeletedError.matches(error)
-    ? (error as Flux.DeletedError<{ name?: string }>).corpse.name
-    : undefined;
+  Flux.DeletedError.matches(error) ? error.corpseName : undefined;
 
 // Tab names render in the selector strip, outside the content's suspense
 // boundary. A name service throws when its resource has been deleted, so an
@@ -92,14 +90,17 @@ const Tombstone = ({
   </Flex.Box>
 );
 
+interface DeletedFallbackProps extends Errors.FallbackProps {
+  error: Flux.DeletedError;
+}
+
 // Renders the deleted state of a resource tab: the corpse's name plus Close and,
 // for restorable document types, Restore. Every delete lands here, local or
 // remote; the tab is never closed out from under the user.
 const DeletedResourceContent = ({
   error,
   resetErrorBoundary,
-}: Errors.FallbackProps): ReactElement => {
-  const corpse = (error as Flux.DeletedError<{ name?: string }>).corpse;
+}: DeletedFallbackProps): ReactElement => {
   const resource = Panel.useSelectTabResource({});
   const closeTabs = Panel.useCloseResourceTabs();
   const { restore, Icon: TabIcon } = useTab();
@@ -107,11 +108,11 @@ const DeletedResourceContent = ({
   const client = Synnax.use();
   const project = Session.Project.useSelectSelected();
   const handleError = Status.useErrorHandler();
-  const name = corpse.name ?? "This resource";
+  const name = error.corpseName ?? "This resource";
   const handleRestore = (): void => {
     handleError(async () => {
       if (client == null || restore == null) return;
-      await restore({ client, project, corpse });
+      await restore({ client, project, resource });
       resetErrorBoundary();
     }, `Failed to restore ${name}`);
   };
@@ -138,18 +139,17 @@ const DeletedResourceContent = ({
 
 // A DeletedError can also bubble out of a view tab reading someone else's
 // resource; only a resource tab's own deletion gets the tombstone treatment.
-const DeletedContent = (props: Errors.FallbackProps): ReactElement => {
+const DeletedContent = (props: DeletedFallbackProps): ReactElement => {
   const variant = Panel.useSelectTabVariant({});
   if (variant !== "resource") return <Errors.Fallback {...props} />;
   return <DeletedResourceContent {...props} />;
 };
 
-const ContentFallback = (props: Errors.FallbackProps): ReactElement =>
-  Flux.DeletedError.matches(props.error) ? (
-    <DeletedContent {...props} />
-  ) : (
-    <Errors.Fallback {...props} />
-  );
+const ContentFallback = (props: Errors.FallbackProps): ReactElement => {
+  const { error } = props;
+  if (!Flux.DeletedError.matches(error)) return <Errors.Fallback {...props} />;
+  return <DeletedContent {...props} error={error} />;
+};
 
 const TabName = (): ReactElement => {
   const { Name } = useTab();
