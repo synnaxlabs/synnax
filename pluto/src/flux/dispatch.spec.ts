@@ -54,12 +54,7 @@ const createHarness = (send: SendFn): Harness => {
     await send(actions);
   const domain: Domain = {
     dispatch: async (key, actions, opts) =>
-      await controller.dispatch(
-        key,
-        array.toArray(actions),
-        sendDispatch,
-        opts?.preprocess,
-      ),
+      await controller.dispatch(key, array.toArray(actions), sendDispatch, opts),
     undo: async (key) => await controller.undo(key, sendDispatch),
     redo: async (key) => await controller.redo(key, sendDispatch),
     hasUndo: (key) => controller.hasUndo(key),
