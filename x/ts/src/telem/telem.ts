@@ -2426,7 +2426,8 @@ export const convertDataType = (
   value: math.Numeric,
   offset: math.Numeric = 0,
 ): math.Numeric => {
-  if (target.equals(DataType.BOOLEAN)) return value !== 0 && value !== 0n ? 1 : 0;
+  if (target.equals(DataType.BOOLEAN))
+    return typeof value === "bigint" ? (value !== 0n ? 1 : 0) : value !== 0 ? 1 : 0;
   if (source.usesBigInt && !target.usesBigInt)
     return Number(BigInt(value.valueOf()) - BigInt(offset.valueOf()));
   if (!source.usesBigInt && target.usesBigInt)

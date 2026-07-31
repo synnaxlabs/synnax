@@ -2307,4 +2307,20 @@ describe("convertDataType", () => {
     const result = convertDataType(DataType.FLOAT32, DataType.FLOAT64, 5.5, 1.5);
     expect(result).toBe(4);
   });
+
+  it("normalizes a nonzero number to 1 when casting to BOOLEAN", () => {
+    expect(convertDataType(DataType.FLOAT64, DataType.BOOLEAN, 5)).toBe(1);
+  });
+
+  it("normalizes zero to 0 when casting to BOOLEAN", () => {
+    expect(convertDataType(DataType.FLOAT64, DataType.BOOLEAN, 0)).toBe(0);
+  });
+
+  it("normalizes a nonzero bigint to 1 when casting to BOOLEAN", () => {
+    expect(convertDataType(DataType.INT64, DataType.BOOLEAN, 5n)).toBe(1);
+  });
+
+  it("normalizes a zero bigint to 0 when casting to BOOLEAN", () => {
+    expect(convertDataType(DataType.INT64, DataType.BOOLEAN, 0n)).toBe(0);
+  });
 });
