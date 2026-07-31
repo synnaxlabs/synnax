@@ -391,7 +391,7 @@
         border: none !important;
 
         &::placeholder {
-            color: var(--pluto-gray-l9) !important;
+            color: var(--pluto-text-placeholder) !important;
         }
 
         &::selection {

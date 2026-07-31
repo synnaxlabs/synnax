@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-export * from "@/platform/shell/Footer";
+export * from "@/platform/shell/Connection";
 export * from "@/platform/shell/Frame";
 export * from "@/platform/shell/Nav";
 export * from "@/platform/shell/Nebula";

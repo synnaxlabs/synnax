@@ -46,7 +46,12 @@ import { type Triggers } from "@/triggers";
 
 export interface MosaicProps extends Omit<
   Base.FrameProps,
-  "onDrop" | "onCreate" | "onFileDrop" | "onResize" | "onSelect" | "children"
+  | "onDrop"
+  | "onCreate"
+  | "onFileDrop"
+  | "onResize"
+  | "onSelect"
+  | "children"
   | "contextMenu"
 > {
   selected?: string[];
@@ -129,7 +134,7 @@ const Leaf = memo(
               onClick={handleAdd}
               className={CSS.BE("panel-mosaic", "create")}
             >
-              <Icon.Add color={10} />
+              <Icon.Add color={9} />
             </Button.Button>
           </Tabs.Selector>
           <Tabs.Content grow>

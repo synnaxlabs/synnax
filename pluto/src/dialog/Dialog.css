@@ -37,7 +37,10 @@
             max-width: 100%;
             overflow: hidden;
             box-shadow: var(--pluto-shadow-v1);
-            border-radius: 10rem;
+            border-radius: 2rem;
+            background: color-mix(in srgb, var(--pluto-gray-l0) 70%, transparent);
+            -webkit-backdrop-filter: blur(3rem) saturate(140%);
+            backdrop-filter: blur(3rem) saturate(140%);
             &.pluto-dialog--modal-position-shifted {
                 top: 8%;
             }
@@ -111,6 +114,8 @@
         padding: 3rem 5rem 3rem 5rem;
         transition: background 0.15s ease-in-out;
         background: var(--pluto-gray-l8-40);
+        -webkit-backdrop-filter: blur(0.5px);
+        backdrop-filter: blur(0.5px);
         @media (max-height: 800px) {
             .pluto-dialog__dialog {
                 top: 10%;

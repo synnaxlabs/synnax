@@ -11,12 +11,10 @@
 
 .pluto-panel-mosaic__create {
     border-radius: 1.5rem;
-}
-
-/* Outranks the square-button icon sizing in Button.css. */
-.pluto-btn.pluto--square.pluto-panel-mosaic__create > .pluto-icon {
-    width: 2.5rem;
-    height: 2.5rem;
+    &.pluto-btn.pluto--square > .pluto-icon {
+        width: round(2.25rem, 1px);
+        height: round(2.25rem, 1px);
+    }
 }
 
 .pluto-panel-mosaic__portal-out {

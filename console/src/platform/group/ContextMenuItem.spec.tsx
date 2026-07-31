@@ -114,5 +114,4 @@ describe("Group.ContextMenuItem", () => {
     );
     await waitFor(() => expect(screen.getByText("Group selection")).toBeTruthy());
   });
-
 });

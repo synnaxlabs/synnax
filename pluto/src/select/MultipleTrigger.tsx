@@ -182,7 +182,6 @@ export const MultipleTrigger = <
     >
       {value.length === 0 && (
         <Text.Text
-          color={9}
           weight={400}
           className={CSS.B("select-multiple-trigger-placeholder")}
         >

@@ -71,7 +71,7 @@
 
         &::placeholder,
         &::-webkit-input-placeholder {
-            color: var(--pluto-gray-l9);
+            color: var(--pluto-text-placeholder);
             text-overflow: ellipsis;
             max-width: 100%;
         }
@@ -94,7 +94,10 @@
         white-space: nowrap;
     }
 
-    .pluto-input__placeholder,
+    .pluto-input__placeholder {
+        color: var(--pluto-text-placeholder);
+    }
+
     .pluto-input__end-content {
         color: var(--pluto-gray-l9);
     }

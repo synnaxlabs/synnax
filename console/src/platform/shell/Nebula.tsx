@@ -60,7 +60,7 @@ const SETTINGS: Settings = {
   cloudScale: 2.8,
   gamma: 1.9,
   floor: 0.08,
-  intensity: 0.65,
+  intensity: 0.5,
   fade: 0.25,
   clearing: 0,
   minRadius: 0.45,

@@ -14,7 +14,7 @@ import { Flex } from "@synnaxlabs/pluto";
 import { type ReactElement, type ReactNode } from "react";
 
 import { CSS } from "@/platform/css";
-import { Footer, type FooterCluster } from "@/platform/shell/Footer";
+import { type ConnectionCluster } from "@/platform/shell/Connection";
 import { Nav } from "@/platform/shell/Nav";
 import { Nebula } from "@/platform/shell/Nebula";
 
@@ -74,8 +74,8 @@ const Orbits = (): ReactElement => (
 export interface FrameProps {
   /** Modifier classes for the surface; card sizing rules key off these. */
   className?: string;
-  /** Target Core shown in the connection footer; omit to hide it. */
-  connection?: FooterCluster | null;
+  /** Target Core shown in the connection island; omit to hide it. */
+  connection?: ConnectionCluster | null;
   /** The card's contents. */
   children: ReactNode;
 }
@@ -101,7 +101,7 @@ export const Frame = ({
       className,
     )}
   >
-    <Nav />
+    <Nav connection={connection} />
     <Flex.Box
       y
       align="center"
@@ -126,7 +126,6 @@ export const Frame = ({
           {children}
         </Flex.Box>
       </Flex.Box>
-      <Footer cluster={connection} />
     </Flex.Box>
   </Flex.Box>
 );

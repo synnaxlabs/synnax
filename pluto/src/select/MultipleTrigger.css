@@ -11,4 +11,5 @@
 
 .pluto-select-multiple-trigger-placeholder {
     padding: 0 1rem;
+    color: var(--pluto-text-placeholder);
 }

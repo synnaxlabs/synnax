@@ -168,7 +168,7 @@ const Splash = ({ client, status }: SplashProps): ReactElement => {
     ) : undefined;
   return (
     // The trouble state consolidates connection info into the card, so the
-    // footer chip hides to avoid stating it twice.
+    // connection island hides to avoid stating it twice.
     <Shell.Frame className={CSS.B("connection")} connection={troubled ? null : cluster}>
       <Flex.Box
         y

@@ -10,6 +10,7 @@
  */
 
 .console-shell {
+    position: relative;
     height: 100%;
     width: 100%;
     overflow: hidden;
@@ -121,7 +122,7 @@
 }
 
 .console--card-frosted .console-shell__card {
-    background: color-mix(in srgb, var(--pluto-gray-l0) 35%, transparent);
+    background: color-mix(in srgb, var(--pluto-gray-l0) 40%, transparent);
     -webkit-backdrop-filter: blur(3rem) saturate(140%);
     backdrop-filter: blur(3rem) saturate(140%);
     border: var(--pluto-border-width) solid var(--pluto-gray-l6);
@@ -162,13 +163,35 @@
     background: transparent;
 }
 
-/* ---------- connection footer ---------- */
+/* ---------- top islands ---------- */
 
-.console-shell__footer {
+/* Islands take pointer events; the strip itself passes them through so the
+   surface beneath keeps clicks and window dragging. */
+.console-shell__islands {
     position: absolute;
-    bottom: 3rem;
-    z-index: 1;
-    max-width: calc(100% - 6rem);
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 2;
+    padding: 2rem;
+    pointer-events: none;
+}
+
+/* One fixed height across islands; min-height lets the connection chip grow
+   when a long name wraps. */
+.console-shell__island {
+    pointer-events: auto;
+    min-height: 6rem;
+    padding: 0 2rem;
+    border-radius: 1.5rem;
+    border: var(--pluto-border-width) solid var(--pluto-gray-l6);
+    background: color-mix(in srgb, var(--pluto-gray-l0) 15%, transparent);
+    -webkit-backdrop-filter: blur(0.75rem);
+    backdrop-filter: blur(0.75rem);
+}
+
+.console-shell__connection {
+    padding: 0 3.5rem;
 
     /* A long name or address wraps whole items onto a new line inside the
        chip; an item too long even for its own line truncates with an
@@ -181,46 +204,12 @@
     }
 }
 
-.console-shell__footer-status {
+.console-shell__connection-status {
     flex-shrink: 0;
 }
 
-.console--footer-left {
-    left: 3rem;
-}
-
-.console--footer-right {
-    right: 3rem;
-}
-
-.console--footer-center {
-    left: 50%;
-    transform: translateX(-50%);
-}
-
-.console-shell__footer-dot {
+.console-shell__connection-dot {
     font-size: 2.25rem;
-}
-
-.console--footer-chip {
-    padding: 1.75rem 3.5rem;
-    border-radius: 1.5rem;
-    border: var(--pluto-border-width) solid var(--pluto-gray-l6);
-    background: color-mix(in srgb, var(--pluto-gray-l0) 15%, transparent);
-    -webkit-backdrop-filter: blur(0.75rem);
-    backdrop-filter: blur(0.75rem);
-}
-
-.console--footer-bar {
-    left: 0;
-    right: 0;
-    bottom: 0;
-    transform: none;
-    padding: 1.5rem 3rem;
-    border-top: var(--pluto-border-width) solid var(--pluto-gray-l4);
-    background: color-mix(in srgb, var(--pluto-gray-l0) 15%, transparent);
-    -webkit-backdrop-filter: blur(0.75rem);
-    backdrop-filter: blur(0.75rem);
 }
 
 /* ---------- branding mark ---------- */

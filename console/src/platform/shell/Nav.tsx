@@ -7,30 +7,59 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Nav as PNav, OS } from "@synnaxlabs/pluto";
-import { type ReactElement } from "react";
+import { Flex, OS } from "@synnaxlabs/pluto";
+import { type ReactElement, type ReactNode } from "react";
 
-import { Nav as PlatformNav } from "@/platform/nav";
+import { CSS } from "@/platform/css";
+import { Connection, type ConnectionCluster } from "@/platform/shell/Connection";
 import { Version } from "@/platform/version";
 import { Window } from "@/platform/window";
 import { Session } from "@/session";
 
+interface IslandProps extends Flex.BoxProps {
+  children: ReactNode;
+}
+
+const Island = ({ children, ...rest }: IslandProps): ReactElement => (
+  <Flex.Box x align="center" className={CSS.BE("shell", "island")} {...rest}>
+    {children}
+  </Flex.Box>
+);
+
+export interface NavProps {
+  connection?: ConnectionCluster | null;
+}
+
 /**
- * Window chrome for pre-workspace surfaces. Decides its own visibility: web
- * builds have no window chrome, and child windows never show it.
+ * Floating chrome for pre-workspace surfaces: islands along the top edge for
+ * window controls, version, and connection state. Web builds and child windows
+ * show only the connection island.
  */
-export const Nav = (): ReactElement | null => {
+export const Nav = ({ connection }: NavProps): ReactElement => {
   const os = OS.use();
-  if (Session.Runtime.ENGINE === "web" || !Session.Runtime.isMainWindow()) return null;
+  const chrome = Session.Runtime.ENGINE !== "web" && Session.Runtime.isMainWindow();
   return (
-    <PlatformNav.Bar location="top" size="7rem" bordered data-tauri-drag-region>
-      <PNav.Bar.Start data-tauri-drag-region>
-        <Window.Controls visibleIfOS="macOS" forceOS={os} />
-      </PNav.Bar.Start>
-      <PNav.Bar.End data-tauri-drag-region justify="end">
-        <Version.Badge />
-        <Window.Controls visibleIfOS="Windows" forceOS={os} />
-      </PNav.Bar.End>
-    </PlatformNav.Bar>
+    <Flex.Box x justify="between" align="start" className={CSS.BE("shell", "islands")}>
+      <Flex.Box x align="center" gap="medium">
+        {chrome && os === "macOS" && (
+          <Island>
+            <Window.Controls visibleIfOS="macOS" forceOS={os} />
+          </Island>
+        )}
+      </Flex.Box>
+      <Flex.Box x align="center" gap="medium">
+        <Connection cluster={connection} />
+        {chrome && (
+          <Island data-tauri-drag-region>
+            <Version.Badge />
+          </Island>
+        )}
+        {chrome && os === "Windows" && (
+          <Island>
+            <Window.Controls visibleIfOS="Windows" forceOS={os} />
+          </Island>
+        )}
+      </Flex.Box>
+    </Flex.Box>
   );
 };
