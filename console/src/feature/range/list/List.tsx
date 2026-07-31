@@ -103,7 +103,7 @@ export const List = ({
         onChange={setSelected}
         value={selected}
         onFetchMore={handleFetchMore}
-        itemHeight={45}
+        itemHeight={40}
       >
         {enableSearch && (
           <Flex.Box

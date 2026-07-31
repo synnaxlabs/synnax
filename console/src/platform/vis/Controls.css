@@ -18,10 +18,6 @@
     transition: opacity 0.1s ease-in-out;
 }
 
-.console-controls * {
-    transition: opacity 0.1s ease-in-out;
-}
-
 .pluto-tabs__content:hover .console-controls,
 .console-controls:focus-within,
 .console-controls:has(.console-controls--pinned) {
@@ -29,18 +25,27 @@
 }
 
 /* A pinned control (an active mode indicator: acquired control, paused
-   plotting) stays visible when the pointer leaves; everything outside its
-   subtree fades out. Ancestors of the pinned control must stay visible because
-   opacity composites multiplicatively down the tree. */
+   plotting) stays visible when the pointer leaves. Its ancestors keep their
+   opacity and their off-path children fade out as whole subtrees. Buttons are
+   skipped when stamping transitions: they already animate opacity through
+   --pluto-btn-transition, and overriding that kills their background fades. */
+.console-controls:has(.console-controls--pinned) {
+    & > *:not(.pluto-btn),
+    & :has(.console-controls--pinned) > *:not(.pluto-btn) {
+        transition: opacity 0.1s ease-in-out;
+    }
+}
+
 .pluto-tabs__content:not(:hover)
     .console-controls:has(.console-controls--pinned):not(:focus-within) {
-    & * {
+    & > *,
+    & :has(.console-controls--pinned) > * {
         opacity: 0;
     }
 
+    /* After the zeroing rules on purpose: the specificity tie resolves here. */
     & :has(.console-controls--pinned),
-    & .console-controls--pinned,
-    & .console-controls--pinned * {
+    & .console-controls--pinned {
         opacity: 1;
     }
 }

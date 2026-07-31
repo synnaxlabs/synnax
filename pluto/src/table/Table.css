@@ -77,6 +77,30 @@
     flex-shrink: 1;
     min-width: 0;
 
+    .pluto-table__row:first-child > * {
+        border-top: var(--pluto-border-l6);
+    }
+
+    .pluto-table__row > *:first-child {
+        border-left: var(--pluto-border-l6);
+    }
+
+    .pluto-table__row:first-child > *:first-child {
+        border-top-left-radius: 1rem;
+    }
+
+    .pluto-table__row:first-child > *:last-child {
+        border-top-right-radius: 1rem;
+    }
+
+    .pluto-table__row:last-child > *:first-child {
+        border-bottom-left-radius: 1rem;
+    }
+
+    .pluto-table__row:last-child > *:last-child {
+        border-bottom-right-radius: 1rem;
+    }
+
     .pluto-table__row:not(.pluto-table__col-resizer) {
         &:has(.pluto--selected) {
             .pluto-table__resizer {
@@ -169,7 +193,6 @@
         border-top: none;
         border-left: none;
         padding: 0;
-        overflow: hidden;
 
         /*
          * Stored size goes on the <td> with box-sizing: border-box so the
@@ -180,6 +203,7 @@
          */
         & > .pluto-table__cell--content {
             overflow: hidden;
+            border-radius: inherit;
             width: 100%;
             height: 100%;
         }
@@ -192,11 +216,12 @@
             inset: -1px;
             border: var(--pluto-border);
             border-width: 2px;
-            border-radius: 1px;
+            border-radius: inherit;
             z-index: 7;
         }
         &.pluto--selected {
             border: none;
+            z-index: 8;
             &::after {
                 opacity: 1;
                 border-color: var(--pluto-primary-z);
