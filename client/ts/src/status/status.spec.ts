@@ -13,8 +13,9 @@ import z from "zod";
 
 import { group } from "@/group";
 import { ontology } from "@/ontology";
+import { query } from "@/query";
 import { status } from "@/status";
-import { createTestClient, isLive } from "@/testutil";
+import { createTestClient } from "@/testutil";
 
 const client = createTestClient();
 
@@ -367,23 +368,23 @@ describe("Status", () => {
         },
       ]);
       await client.labels.label(status.ontologyID(member), [lbl.key]);
-      const query = { hasLabels: [lbl.key] };
-      const off = client.statuses.onChange(query, () => {});
+      const params = { hasLabels: [lbl.key] };
+      const off = client.statuses.onChange(params, () => {});
       try {
-        const initial = await client.statuses.retrieve(query);
+        const initial = await client.statuses.retrieve(params);
         expect(initial.map((s) => s.key)).toEqual([member]);
         await client.labels.label(status.ontologyID(joiner), [lbl.key]);
         await expect
           .poll(() => {
-            const cached = client.statuses.getCached(query);
-            return isLive(cached) && cached.some((s) => s.key === joiner);
+            const cached = client.statuses.getCached(params);
+            return query.isLive(cached) && cached.some((s) => s.key === joiner);
           })
           .toBe(true);
         await client.labels.remove(status.ontologyID(member), [lbl.key]);
         await expect
           .poll(() => {
-            const cached = client.statuses.getCached(query);
-            return isLive(cached) && !cached.some((s) => s.key === member);
+            const cached = client.statuses.getCached(params);
+            return query.isLive(cached) && !cached.some((s) => s.key === member);
           })
           .toBe(true);
       } finally {

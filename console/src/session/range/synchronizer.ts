@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { destructor } from "@synnaxlabs/x";
+
 import {
   type Action,
   remove,
@@ -37,10 +39,7 @@ const syncRanges: Synchronizer.Synchronizer<StoreState, Action> = {
     const removeOnDelete = client.ranges.onDelete((key) =>
       store.dispatch(remove({ keys: [key] })),
     );
-    return () => {
-      removeOnSet();
-      removeOnDelete();
-    };
+    return () => destructor.unwind(removeOnSet, removeOnDelete);
   },
 };
 

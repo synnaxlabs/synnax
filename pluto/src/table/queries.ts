@@ -52,7 +52,7 @@ const requireTable = (client: Client | null, key: table.Key): table.Table => {
 
 const getTable = (client: Client | null, key: table.Key): table.Table | undefined => {
   const cached = client?.tables.getCached({ key });
-  if (cached == null || query.Deleted.matches(cached)) return undefined;
+  if (!query.isLive(cached)) return undefined;
   return cached;
 };
 

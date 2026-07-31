@@ -12,9 +12,9 @@ import { beforeAll, describe, expect, it } from "vitest";
 
 import { group } from "@/group";
 import { ontology } from "@/ontology";
-import { type query } from "@/query";
+import { query } from "@/query";
 import { type schematic } from "@/schematic";
-import { createTestClient, isLive } from "@/testutil";
+import { createTestClient } from "@/testutil";
 
 const client = createTestClient();
 
@@ -192,7 +192,7 @@ describe("Symbol Client", () => {
       });
       const answers: schematic.symbol.Symbol[][] = [];
       const stop = client.schematics.symbols.onChange({ parent }, (cached) => {
-        if (isLive(cached)) answers.push(cached);
+        if (query.isLive(cached)) answers.push(cached);
       });
       try {
         await client.schematics.symbols.retrieve({ parent });
@@ -234,7 +234,7 @@ describe("Symbol Client", () => {
         ) as schematic.symbol.Symbol;
         await client.schematics.symbols.delete(doomed.key);
         await expect
-          .poll(() => (isLive(latest) ? latest.map((s) => s.name) : undefined))
+          .poll(() => (query.isLive(latest) ? latest.map((s) => s.name) : undefined))
           .toEqual(["keep"]);
       } finally {
         stop();

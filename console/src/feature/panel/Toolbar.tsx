@@ -10,6 +10,7 @@
 import { Errors, Flux, Icon, Panel } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
+import { resourceOnly } from "@/feature/panel/fallback";
 import { isNotFound } from "@/feature/panel/Mosaic";
 import { useResetOnRestore } from "@/feature/panel/useResetOnRestore";
 import { Empty } from "@/platform/empty";
@@ -36,7 +37,7 @@ const EmptyContent = ({
 // The toolbar reads the same queries as the tab's content, so a deleted or
 // missing resource throws here too. Show a quiet placeholder; the tombstone
 // with Close and Restore lives in the mosaic.
-const MissingResourceFallback = ({
+const MissingResourceContent = ({
   error,
   resetErrorBoundary,
 }: Errors.FallbackProps): ReactElement => {
@@ -47,14 +48,13 @@ const MissingResourceFallback = ({
   return <EmptyContent message={message} />;
 };
 
+const MissingContent = resourceOnly(MissingResourceContent);
+
 const Fallback = (props: Errors.FallbackProps): ReactElement => {
-  const variant = Panel.useSelectTabVariant({});
-  if (
-    variant !== "resource" ||
-    (!Flux.DeletedError.matches(props.error) && !isNotFound(props.error))
-  )
+  const { error } = props;
+  if (!Flux.DeletedError.matches(error) && !isNotFound(error))
     return <Errors.Fallback {...props} />;
-  return <MissingResourceFallback {...props} />;
+  return <MissingContent {...props} />;
 };
 
 const Content = (): ReactElement => {

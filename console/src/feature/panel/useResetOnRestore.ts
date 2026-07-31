@@ -22,7 +22,7 @@ export const useResetOnRestore = (resetErrorBoundary: () => void): void => {
   useEffect(() => {
     if (client == null) return;
     return client.ontology.onChange(resource, (result) => {
-      if (result !== undefined && !query.Deleted.matches(result)) resetErrorBoundary();
+      if (query.isLive(result)) resetErrorBoundary();
     });
   }, [client, resource.type, resource.key, resetErrorBoundary]);
 };

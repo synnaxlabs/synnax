@@ -43,10 +43,7 @@ export const useHandleNodeClickAction = (schematicKey: string): NodeClickHandler
       const ui = getSchematic({ key: schematicKey });
       if (ui == null || ui.editable || retrieve == null) return;
       const cached = client?.schematics.getCached({ key: schematicKey });
-      const config =
-        cached != null && !query.Deleted.matches(cached)
-          ? cached.configs?.[nodeId]
-          : undefined;
+      const config = query.isLive(cached) ? cached.configs?.[nodeId] : undefined;
       if (
         config?.variant !== "offPageReference" ||
         typeof config.page !== "string" ||

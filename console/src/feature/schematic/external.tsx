@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { DisconnectedError, schematic } from "@synnaxlabs/client";
+import { DisconnectedError, query, schematic } from "@synnaxlabs/client";
 import { Icon, Schematic as Base } from "@synnaxlabs/pluto";
 
 import { ingest } from "@/feature/schematic/import";
@@ -39,8 +39,11 @@ const TAB: Panel.Tab = {
   Toolbar,
   Icon: Icon.Schematic,
   Name: Panel.createEditableTabName(Base, <Icon.Schematic />),
-  restore: async ({ client, project, corpse }) => {
-    await client.schematics.create(project, corpse as schematic.New);
+  restore: async ({ client, project, resource }) => {
+    const corpse = query.requireCorpse(
+      client.schematics.getCached({ key: resource.key }),
+    );
+    await client.schematics.create(project, corpse);
   },
 };
 

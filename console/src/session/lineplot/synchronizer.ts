@@ -11,12 +11,8 @@ import { remove, type StoreState } from "@/session/lineplot/slice";
 import { Synchronizer } from "@/session/synchronizer";
 
 export const SYNCHRONIZERS: Synchronizer.Synchronizers = {
-  usePruneDeletedLinePlots: Synchronizer.create({
-    onDelete: (client, handler) => client.lineplots.onDelete(handler),
-    retrieveExisting: async (client, keys) =>
-      (await client.lineplots.retrieve({ keys, ignoreNotFoundError: true })).map(
-        ({ key }) => key,
-      ),
+  useRemoveDeletedLinePlots: Synchronizer.createRemover({
+    domain: (client) => client.lineplots,
     selectKeys: (state: StoreState) => Object.keys(state.line.plots),
     remove: (keys) => remove({ keys }),
   }),

@@ -14,7 +14,7 @@ import { NotFoundError } from "@/errors";
 import { rename } from "@/lineplot/actions.gen";
 import { type LinePlot } from "@/lineplot/types.gen";
 import { query } from "@/query";
-import { createTestClient, expectDeleted, isLive } from "@/testutil";
+import { createTestClient, expectDeleted } from "@/testutil";
 
 const client = createTestClient();
 
@@ -64,7 +64,7 @@ const seedPlot = async (): Promise<LinePlot> => {
 
 const cachedName = (key: LinePlot["key"]): string | undefined => {
   const cached = client.lineplots.getCached({ key });
-  return isLive(cached) ? cached.name : undefined;
+  return query.isLive(cached) ? cached.name : undefined;
 };
 
 describe("store", () => {
@@ -89,10 +89,10 @@ describe("store", () => {
       await client.connect();
       const plot = await seedPlot();
       await expect
-        .poll(() => isLive(remote.lineplots.getCached({ key: plot.key })))
+        .poll(() => query.isLive(remote.lineplots.getCached({ key: plot.key })))
         .toBe(true);
       const cached = remote.lineplots.getCached({ key: plot.key });
-      if (isLive(cached)) expect(cached.name).toEqual(plot.name);
+      if (query.isLive(cached)) expect(cached.name).toEqual(plot.name);
     } finally {
       remote.close();
     }

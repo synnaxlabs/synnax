@@ -30,6 +30,7 @@ import { type PropsWithChildren, type ReactElement, useCallback } from "react";
 import { useDispatch } from "react-redux";
 
 import { TabMenuItems } from "@/feature/panel/ContextMenu";
+import { type DeletedFallbackProps, resourceOnly } from "@/feature/panel/fallback";
 import { useResetOnRestore } from "@/feature/panel/useResetOnRestore";
 import { Empty } from "@/platform";
 import { CSS } from "@/platform/css";
@@ -37,9 +38,7 @@ import { useTab } from "@/platform/panel/tab";
 import { Session } from "@/session";
 
 const corpseName = (error: Error): string | undefined =>
-  Flux.DeletedError.matches(error)
-    ? (error as Flux.DeletedError<{ name?: string }>).corpse.name
-    : undefined;
+  Flux.DeletedError.matches(error) ? error.corpseName : undefined;
 
 // Tab names render in the selector strip, outside the content's suspense
 // boundary. A name service throws when its resource has been deleted, so an
@@ -56,11 +55,7 @@ const ResourceTabNameFallback = (props: Errors.FallbackProps): ReactElement => {
   return <TabNameFallbackContent {...props} />;
 };
 
-const TabNameFallback = (props: Errors.FallbackProps): ReactElement => {
-  const variant = Panel.useSelectTabVariant({});
-  if (variant !== "resource") return <TabNameFallbackContent {...props} />;
-  return <ResourceTabNameFallback {...props} />;
-};
+const TabNameFallback = resourceOnly(ResourceTabNameFallback, TabNameFallbackContent);
 
 interface TombstoneProps extends PropsWithChildren {
   icon: ReactElement;
@@ -99,8 +94,7 @@ const Tombstone = ({
 const DeletedResourceContent = ({
   error,
   resetErrorBoundary,
-}: Errors.FallbackProps): ReactElement => {
-  const corpse = (error as Flux.DeletedError<{ name?: string }>).corpse;
+}: DeletedFallbackProps): ReactElement => {
   const resource = Panel.useSelectTabResource({});
   const closeTabs = Panel.useCloseResourceTabs();
   const { restore, Icon: TabIcon } = useTab();
@@ -108,11 +102,11 @@ const DeletedResourceContent = ({
   const client = Synnax.use();
   const project = Session.Project.useSelectSelected();
   const handleError = Status.useErrorHandler();
-  const name = corpse.name ?? "This resource";
+  const name = error.corpseName ?? "This resource";
   const handleRestore = (): void => {
     handleError(async () => {
       if (client == null || restore == null) return;
-      await restore({ client, project, corpse });
+      await restore({ client, project, resource });
       resetErrorBoundary();
     }, `Failed to restore ${name}`);
   };
@@ -137,13 +131,7 @@ const DeletedResourceContent = ({
   );
 };
 
-// A DeletedError can also bubble out of a view tab reading someone else's
-// resource; only a resource tab's own deletion gets the tombstone treatment.
-const DeletedContent = (props: Errors.FallbackProps): ReactElement => {
-  const variant = Panel.useSelectTabVariant({});
-  if (variant !== "resource") return <Errors.Fallback {...props} />;
-  return <DeletedResourceContent {...props} />;
-};
+const DeletedContent = resourceOnly(DeletedResourceContent);
 
 // A reference can permanently outrun its document: the retrieve's not-found
 // wait expired without a create broadcast. Offer to close the tab.
@@ -165,11 +153,7 @@ const NotFoundResourceContent = ({
   );
 };
 
-const NotFoundContent = (props: Errors.FallbackProps): ReactElement => {
-  const variant = Panel.useSelectTabVariant({});
-  if (variant !== "resource") return <Errors.Fallback {...props} />;
-  return <NotFoundResourceContent {...props} />;
-};
+const NotFoundContent = resourceOnly(NotFoundResourceContent);
 
 // The not-found wait rejects with a wrapper whose cause carries the typed
 // error, so the cause is matched alongside the error itself.
@@ -177,8 +161,10 @@ export const isNotFound = (error: Error): boolean =>
   NotFoundError.matches(error) || NotFoundError.matches(error.cause);
 
 const ContentFallback = (props: Errors.FallbackProps): ReactElement => {
-  if (Flux.DeletedError.matches(props.error)) return <DeletedContent {...props} />;
-  if (isNotFound(props.error)) return <NotFoundContent {...props} />;
+  const { error } = props;
+  if (Flux.DeletedError.matches(error))
+    return <DeletedContent {...props} error={error} />;
+  if (isNotFound(error)) return <NotFoundContent {...props} />;
   return <Errors.Fallback {...props} />;
 };
 

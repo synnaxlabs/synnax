@@ -64,14 +64,6 @@ interface SelectTabPayload extends TabAndPanelKeyPayload {
   otherTabKeys: panel.TabKey[];
 }
 
-// Overlaying shows the panel's focused tab, so naming a tab moves it to the head of
-// the selection. The panel key defaults to the window's selected panel.
-export interface StartOverlayingPayload extends Window.OptionalKeyParams {
-  key?: panel.Key;
-  tabKey?: panel.TabKey;
-  otherTabKeys?: panel.TabKey[];
-}
-
 export interface ReconcileSelectionPayload extends PanelKeyPayload {
   leaves: panel.TabKey[][];
 }
@@ -112,17 +104,9 @@ const { actions, reducer } = createSlice({
         ];
       },
     ),
-    startOverlaying: withWindowKey<StartOverlayingPayload, SliceState>(
-      (win, { payload: { key = win.selected, tabKey, otherTabKeys = [] } }) => {
-        win.isOverlaid = true;
-        if (tabKey == null || key == null) return;
-        const pan = (win.panels[key] ??= stateZ.parse({}));
-        pan.selectedTabs = [
-          tabKey,
-          ...pan.selectedTabs.filter((k) => k !== tabKey && !otherTabKeys.includes(k)),
-        ];
-      },
-    ),
+    startOverlaying: withWindowKey<Window.OptionalKeyParams, SliceState>((win) => {
+      win.isOverlaid = true;
+    }),
     // reconcileSelection converges a panel's selection to its live tree: one tab
     // per leaf, most recent first; a leaf with no selected tab contributes its
     // last tab.
@@ -222,24 +206,21 @@ export const useSelectTab = (panelKey?: panel.Key) => {
   );
 };
 
-/** @returns a callback that overlays the given tab, evicting its leaf siblings from
- * the selection so exactly one tab stays selected per leaf. */
+/**
+ * @returns a callback that focuses the given tab and overlays it. Overlaying shows
+ * the panel's focused tab, so the tab is selected first, through the same path any
+ * other selection takes.
+ */
 export const useStartOverlaying = (panelKey?: panel.Key) => {
   const scopedPanelKey = Panel.useOptionalKey(panelKey);
-  const getTabLeaf = Panel.useGetTabLeaf();
+  const selectTab = useSelectTab(panelKey);
   const dispatch = useDispatch<Dispatch<Action>>();
   return useCallback(
     (tabKey: panel.TabKey) => {
       if (scopedPanelKey == null) return;
-      const leaf = getTabLeaf({ key: scopedPanelKey, tabKey });
-      dispatch(
-        startOverlaying({
-          key: scopedPanelKey,
-          tabKey,
-          otherTabKeys: leaf.tabs.map((t) => t.key),
-        }),
-      );
+      selectTab(tabKey);
+      dispatch(startOverlaying({}));
     },
-    [scopedPanelKey, getTabLeaf, dispatch],
+    [scopedPanelKey, selectTab, dispatch],
   );
 };
