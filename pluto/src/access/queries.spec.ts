@@ -13,6 +13,7 @@ import {
   framer,
   type ontology,
   project,
+  query,
   ranger,
   type Synnax,
   user,
@@ -20,7 +21,6 @@ import {
 import {
   createTestClient,
   createTestClientWithPolicy,
-  isLive,
 } from "@synnaxlabs/client/testutil";
 import { id } from "@synnaxlabs/x";
 import { renderHook, waitFor } from "@testing-library/react";
@@ -37,7 +37,7 @@ const subjectOf = (c: Synnax): ontology.ID => {
 
 const cachedPoliciesOf = (c: Synnax): access.policy.Policy[] => {
   const cached = c.access.policies.getCached({ for: subjectOf(c) });
-  return isLive(cached) ? cached : [];
+  return query.isLive(cached) ? cached : [];
 };
 
 describe("Access Queries", () => {

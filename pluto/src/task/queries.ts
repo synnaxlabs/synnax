@@ -49,7 +49,7 @@ export const [useSelectName, useGetName] = Flux.createSelector<SelectKeyParams, 
       client == null ? () => {} : client.tasks.onChange({ key }, notify),
     select: ({ client, args: { key } }) => {
       const cached = client?.tasks.getCached({ key });
-      if (cached == null || query.Deleted.matches(cached)) return "Task";
+      if (!query.isLive(cached)) return "Task";
       return cached.name;
     },
   },
@@ -193,7 +193,7 @@ export const createForm = <S extends task.Schemas = task.Schemas>({
     mountListeners: ({ client, query: { key }, set }) => {
       if (key == null) return [];
       return client.tasks.onChange({ key }, (result) => {
-        if (result === undefined || query.Deleted.matches(result)) return;
+        if (!query.isLive(result)) return;
         resetFormValues(set, result.payload as task.Payload<S>);
         if (result.status != null)
           set(

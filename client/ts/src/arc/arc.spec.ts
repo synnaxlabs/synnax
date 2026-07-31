@@ -12,14 +12,10 @@ import { describe, expect, it, vi } from "vitest";
 
 import { arc } from "@/arc";
 import { AuthError } from "@/errors";
+import { query } from "@/query";
 import { status } from "@/status";
 import { task } from "@/task";
-import {
-  createTestClient,
-  createTestClientWithPolicy,
-  expectLive,
-  isLive,
-} from "@/testutil";
+import { createTestClient, createTestClientWithPolicy, expectLive } from "@/testutil";
 
 const client = createTestClient();
 
@@ -126,7 +122,7 @@ describe("arc", () => {
         await expect
           .poll(() => {
             const cached = client.arcs.task.getCached(created.key);
-            return isLive(cached) && cached?.key === tsk.key;
+            return query.isLive(cached) && cached?.key === tsk.key;
           })
           .toBe(true);
       } finally {
@@ -155,7 +151,7 @@ describe("arc", () => {
           .poll(() => {
             const cached = client.arcs.task.getCached(created.key);
             return (
-              isLive(cached) &&
+              query.isLive(cached) &&
               cached?.status?.variant === "error" &&
               cached.status.message === "Task failed"
             );

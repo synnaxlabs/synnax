@@ -19,6 +19,21 @@ export interface Async {
 
 export const NOOP = () => {};
 
+/**
+ * Runs every destructor in reverse of the given order, so callers pass them in
+ * acquisition order and later teardown sees the earlier resources still alive.
+ * Nullish entries are skipped. A throw is logged and the rest still run, so one
+ * failed teardown cannot strand the others.
+ */
+export const unwind = (...destructors: Array<Destructor | undefined | null>): void => {
+  for (let i = destructors.length - 1; i >= 0; i--)
+    try {
+      destructors[i]?.();
+    } catch (error) {
+      console.error("destructor failed", error);
+    }
+};
+
 /** Accumulates destructors and runs them all when a guarded call fails. */
 export class Chain {
   private readonly destructors: Destructor[] = [];
@@ -28,26 +43,16 @@ export class Chain {
     this.destructors.push(...destructors);
   }
 
-  /** Runs every destructor in reverse order. Errors are logged, not thrown. */
-  private run(): void {
-    for (const d of this.destructors.reverse())
-      try {
-        d();
-      } catch (error) {
-        console.error("destructor failed", error);
-      }
-    this.destructors.length = 0;
-  }
-
   /**
-   * Runs the call, executing accumulated destructors and rethrowing on
-   * failure.
+   * Runs the call, unwinding accumulated destructors and rethrowing on
+   * failure. Destructor errors are logged, not thrown.
    */
   async guard<T>(call: () => Promise<T>): Promise<T> {
     try {
       return await call();
     } catch (error) {
-      this.run();
+      unwind(...this.destructors);
+      this.destructors.length = 0;
       throw errors.fromUnknown(error);
     }
   }

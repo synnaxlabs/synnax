@@ -12,6 +12,42 @@ import { describe, expect, it, vi } from "vitest";
 import { destructor } from "@/destructor";
 
 describe("destructor", () => {
+  describe("unwind", () => {
+    it("should run destructors in reverse of the given order", () => {
+      const order: number[] = [];
+      destructor.unwind(
+        () => order.push(1),
+        () => order.push(2),
+        () => order.push(3),
+      );
+      expect(order).toEqual([3, 2, 1]);
+    });
+
+    it("should skip nullish entries", () => {
+      const undo = vi.fn();
+      expect(() => destructor.unwind(undefined, undo, null)).not.toThrow();
+      expect(undo).toHaveBeenCalledTimes(1);
+    });
+
+    it("should run the remaining destructors when one throws", () => {
+      const consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
+      try {
+        const first = vi.fn();
+        destructor.unwind(first, () => {
+          throw new Error("undo failure");
+        });
+        expect(first).toHaveBeenCalledTimes(1);
+        expect(consoleError).toHaveBeenCalled();
+      } finally {
+        consoleError.mockRestore();
+      }
+    });
+
+    it("should do nothing when given no destructors", () => {
+      expect(() => destructor.unwind()).not.toThrow();
+    });
+  });
+
   describe("Chain", () => {
     describe("guard", () => {
       it("should return the call's result on success", async () => {

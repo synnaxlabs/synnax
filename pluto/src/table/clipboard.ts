@@ -67,7 +67,7 @@ export const useClipboard = ({
 
   const getTable = useCallback((): table.Table | undefined => {
     const cached = client?.tables.getCached({ key });
-    if (cached == null || query.Deleted.matches(cached)) return undefined;
+    if (!query.isLive(cached)) return undefined;
     return cached;
   }, [client, key]);
 

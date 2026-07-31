@@ -87,7 +87,7 @@ export const useForm = Flux.createForm<FormQuery, typeof formSchema>({
   mountListeners: ({ client, query: { key }, reset }) => {
     if (key == null) return [];
     return client.labels.onChange({ key }, (result) => {
-      if (result !== undefined && !query.Deleted.matches(result)) reset(result);
+      if (query.isLive(result)) reset(result);
     });
   },
 });

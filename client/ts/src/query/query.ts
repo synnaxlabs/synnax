@@ -46,9 +46,24 @@ export const hash = (query: Params): string => {
  * A cached answer as delivered to consumers: the query's current data, or the
  * {@link Deleted} corpse of a record that was deleted. A corpse is never
  * delivered as bare data, so deletion cannot be mistaken for a live result.
- * Narrow with {@link Deleted.matches}.
+ * Narrow with {@link isLive}, or {@link Deleted.matches} to reach the corpse.
  */
 export type Cached<D extends Data> = D | Deleted<D>;
+
+/** True when a cached answer is live: cached at all, and not a deletion. */
+export const isLive = <D extends Data>(value: Cached<D> | undefined): value is D =>
+  value != null && !Deleted.matches<D>(value);
+
+/**
+ * Returns the corpse of a deleted answer, for callers that need the record's
+ * last value (restoring it, say) and have no use for any other outcome.
+ * @throws {NotFoundError} if the answer is live or nothing is cached.
+ */
+export const requireCorpse = <D extends Data>(value: Cached<D> | undefined): D => {
+  if (!Deleted.matches<D>(value))
+    throw new NotFoundError("the deleted record is no longer cached");
+  return value.corpse;
+};
 
 /**
  * Receives the new cached answer for a query. `undefined` means the answer was

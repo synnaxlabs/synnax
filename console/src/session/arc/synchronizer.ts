@@ -11,12 +11,8 @@ import { remove, type StoreState } from "@/session/arc/slice";
 import { Synchronizer } from "@/session/synchronizer";
 
 export const SYNCHRONIZERS: Synchronizer.Synchronizers = {
-  usePruneDeletedArcs: Synchronizer.create({
-    onDelete: (client, handler) => client.arcs.onDelete(handler),
-    retrieveExisting: async (client, keys) =>
-      (await client.arcs.retrieve({ keys, ignoreNotFoundError: true })).map(
-        ({ key }) => key,
-      ),
+  useRemoveDeletedArcs: Synchronizer.createRemover({
+    domain: (client) => client.arcs,
     selectKeys: (state: StoreState) => Object.keys(state.arc.arcs),
     remove: (keys) => remove({ keys }),
   }),

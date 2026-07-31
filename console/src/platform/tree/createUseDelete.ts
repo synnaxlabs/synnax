@@ -52,8 +52,6 @@ export const createUseDelete =
         },
         [props],
       ),
-      // Tabs showing the deleted resource are left open on purpose: every
-      // session, this one included, tombstones them with Close and Restore.
       afterSuccess: useCallback(
         (query: Flux.AfterSuccessParams<K | K[]>) => {
           afterSuccess?.({ ...query, ...props });

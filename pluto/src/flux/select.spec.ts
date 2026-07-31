@@ -7,8 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { schematic, type Synnax as Client } from "@synnaxlabs/client";
-import { createTestClient, isLive } from "@synnaxlabs/client/testutil";
+import { query, schematic, type Synnax as Client } from "@synnaxlabs/client";
+import { createTestClient } from "@synnaxlabs/client/testutil";
 import { uuid, type xy } from "@synnaxlabs/x";
 import { act, renderHook } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
@@ -28,7 +28,7 @@ const getSchem = (
   key: schematic.Key,
 ): schematic.Schematic | undefined => {
   const cached = client?.schematics.getCached({ key });
-  return isLive(cached) ? cached : undefined;
+  return query.isLive(cached) ? cached : undefined;
 };
 
 const subscribe = (

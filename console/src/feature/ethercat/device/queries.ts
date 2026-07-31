@@ -45,7 +45,7 @@ export const [useSelectEnabledState] = Flux.createSelector<
   select: ({ client, args: { keys } }) => {
     if (client == null || keys.length === 0) return EMPTY_SLAVES;
     const cached = client.devices.getCached({ keys });
-    if (cached == null || query.Deleted.matches(cached)) return EMPTY_SLAVES;
+    if (!query.isLive(cached)) return EMPTY_SLAVES;
     return cached as unknown as SlaveDevice[];
   },
   transform: (devices) => {
