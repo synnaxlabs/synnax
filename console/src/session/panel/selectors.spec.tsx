@@ -557,6 +557,51 @@ describe("panel selectors", () => {
     });
   });
 
+  describe("useStartOverlaying", () => {
+    // Overlaying renders the panel's focused tab, so the hook must route the focus
+    // through the same selection path any other tab click takes: the tab's leaf
+    // siblings lose their selection, and only then does the window overlay.
+    it("should focus the tab against its live leaf and overlay the window", async () => {
+      const client = createTestClient();
+      const { Wrapper, store } = await setup({ client });
+      const doc = panel.panelZ.parse({
+        key: PANEL,
+        name: "panel",
+        root: {
+          variant: "leaf",
+          tabs: [
+            { variant: "view", key: TAB, type: "t" },
+            { variant: "view", key: OTHER_TAB, type: "t" },
+          ],
+        },
+      });
+      await client.panels.create(doc);
+      await client.panels.retrieve({ key: PANEL });
+      const { result } = renderHook(() => Panel.useStartOverlaying(PANEL), {
+        wrapper: Wrapper,
+      });
+      act(() => {
+        selectTab(store, PANEL, OTHER_TAB);
+      });
+      act(() => {
+        result.current(TAB);
+      });
+      expect(Panel.selectSelectedTabs(store.getState(), PANEL)).toEqual([TAB]);
+      expect(Panel.selectWindowState(store.getState()).isOverlaid).toBe(true);
+    });
+
+    it("should do nothing when no panel resolves", async () => {
+      const { Wrapper, store } = await setup();
+      const { result } = renderHook(() => Panel.useStartOverlaying(), {
+        wrapper: Wrapper,
+      });
+      act(() => {
+        result.current(TAB);
+      });
+      expect(Panel.selectWindowState(store.getState()).isOverlaid).toBe(false);
+    });
+  });
+
   describe("getters", () => {
     it("should read the selected panel on demand across dispatches", () => {
       const store = createStore();
