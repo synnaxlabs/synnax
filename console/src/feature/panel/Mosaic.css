@@ -53,6 +53,18 @@
     position: relative;
 }
 
+/* Single-child pass-through: block spares WebKit a level of per-frame flex
+   re-measurement while a pane or drawer resizes. Scoped under .console-mosaic
+   to outrank .pluto-flex regardless of bundle order. */
+.console-mosaic .console-panel__tab {
+    display: block;
+
+    > * {
+        width: 100%;
+        height: 100%;
+    }
+}
+
 /* Focus mode reads as a lamp over the pane: everything is l11 light, matching
  * the exit chip. Two layers: --edge (border + inset ring) and --glow. Swap the
  * commented variants to compare. */

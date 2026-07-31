@@ -20,6 +20,13 @@
     }
 }
 
+/* Single-child pass-through: block spares WebKit a level of per-frame flex
+   re-measurement while a pane or drawer resizes. Scoped under .pluto-mosaic to
+   outrank .pluto-flex regardless of bundle order. */
+.pluto-mosaic .pluto-mosaic__leaf {
+    display: block;
+}
+
 .pluto-mosaic__leaf {
     position: relative;
     width: 100%;
