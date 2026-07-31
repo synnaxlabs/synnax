@@ -11,12 +11,8 @@ import { remove, type StoreState } from "@/session/log/slice";
 import { Synchronizer } from "@/session/synchronizer";
 
 export const SYNCHRONIZERS: Synchronizer.Synchronizers = {
-  usePruneDeletedLogs: Synchronizer.create({
-    onDelete: (client, handler) => client.logs.onDelete(handler),
-    retrieveExisting: async (client, keys) =>
-      (await client.logs.retrieve({ keys, ignoreNotFoundError: true })).map(
-        ({ key }) => key,
-      ),
+  useRemoveDeletedLogs: Synchronizer.createRemover({
+    domain: (client) => client.logs,
     selectKeys: (state: StoreState) => Object.keys(state.log.logs),
     remove: (keys) => remove({ keys }),
   }),

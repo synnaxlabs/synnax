@@ -83,48 +83,12 @@ describe("Panel Slice", () => {
       );
     });
 
-    it("should promote a named tab to the front of the panel's selection", () => {
-      const state = run(
-        Panel.internalSelectTab({
-          key: PANEL,
-          tabKey: OTHER_TAB,
-          otherTabKeys: [OTHER_TAB],
-        }),
-        Panel.startOverlaying({ key: PANEL, tabKey: TAB }),
-      );
-      expect(overlaid(state)).toBe(true);
-      expect(Panel.selectSelectedTabs(state, PANEL)).toEqual([TAB, OTHER_TAB]);
-    });
-
-    it("should not duplicate a tab that is already selected", () => {
+    it("should leave the panel's selection untouched", () => {
       const state = run(
         Panel.internalSelectTab({ key: PANEL, tabKey: TAB, otherTabKeys: [TAB] }),
-        Panel.startOverlaying({ key: PANEL, tabKey: TAB }),
+        Panel.startOverlaying({}),
       );
-      expect(Panel.selectSelectedTabs(state, PANEL)).toEqual([TAB]);
-    });
-
-    it("should default the panel to the window's selected one", () => {
-      const state = run(
-        Panel.select({ key: PANEL }),
-        Panel.startOverlaying({ tabKey: TAB }),
-      );
-      expect(Panel.selectSelectedTabs(state, PANEL)).toEqual([TAB]);
-    });
-
-    it("should evict leaf siblings so one tab stays selected per leaf", () => {
-      const state = run(
-        Panel.internalSelectTab({
-          key: PANEL,
-          tabKey: OTHER_TAB,
-          otherTabKeys: [TAB, OTHER_TAB],
-        }),
-        Panel.startOverlaying({
-          key: PANEL,
-          tabKey: TAB,
-          otherTabKeys: [TAB, OTHER_TAB],
-        }),
-      );
+      expect(overlaid(state)).toBe(true);
       expect(Panel.selectSelectedTabs(state, PANEL)).toEqual([TAB]);
     });
   });

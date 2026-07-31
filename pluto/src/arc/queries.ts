@@ -50,7 +50,7 @@ const requireArc = (client: Synnax | null, key: arc.Key): arc.Arc => {
 
 const getArc = (client: Synnax | null, key: arc.Key): arc.Arc | undefined => {
   const cached = client?.arcs.getCached({ key });
-  if (cached == null || query.Deleted.matches(cached)) return undefined;
+  if (!query.isLive(cached)) return undefined;
   return cached;
 };
 
@@ -227,7 +227,7 @@ export const useForm = Flux.createForm<Partial<RetrieveQuery>, typeof formSchema
     // Prefer the cached copy: it may hold locally replayed edits ahead of the
     // server.
     const cached = client.arcs.getCached({ key });
-    if (cached !== undefined && !query.Deleted.matches(cached)) return reset(cached);
+    if (query.isLive(cached)) return reset(cached);
     reset(await client.arcs.retrieve({ key, ...rest }));
   },
   update: async ({ client, value, reset }) => {

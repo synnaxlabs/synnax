@@ -111,7 +111,7 @@ export const useForm = Flux.createForm<FormQuery, typeof formSchema>({
   mountListeners: ({ client, query: { key }, reset, get }) => {
     if (key == null) return [];
     return client.schematics.symbols.onChange({ key }, (result) => {
-      if (result == null || query.Deleted.matches(result)) return;
+      if (!query.isLive(result)) return;
       reset({
         ...result,
         parent:

@@ -19,7 +19,7 @@ import {
 import { Flux } from "@/flux";
 
 // Bound at module scope: hooks bind `query` to the caller's params object.
-const { Deleted } = query;
+const { isLive } = query;
 
 const PERMISSION_PLURAL_RESOURCE_NAME = "Permissions";
 
@@ -71,7 +71,7 @@ export const isGranted = ({
   const sub = resolveSubject(client, subject);
   if (sub == null) return false;
   const cached = client.access.policies.getCached({ for: sub });
-  if (cached === undefined || Deleted.matches(cached)) return false;
+  if (!isLive(cached)) return false;
   return access.allowRequest({ subject: sub, objects, action }, cached);
 };
 
@@ -113,10 +113,9 @@ const { useRetrieve: useGrantedBase } = Flux.createRetrieve<PermissionsQuery, bo
     const cached = client.access.policies.getCached({ for: sub });
     // Only notify when the grant itself flips: policy churn that cannot
     // change the answer must not re-render consumers.
-    let prev =
-      cached === undefined || Deleted.matches(cached) ? undefined : evaluate(cached);
+    let prev = isLive(cached) ? evaluate(cached) : undefined;
     return client.access.policies.onChange({ for: sub }, (result) => {
-      if (result === undefined || Deleted.matches(result)) return;
+      if (!isLive(result)) return;
       const next = evaluate(result);
       if (next === prev) return;
       prev = next;

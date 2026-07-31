@@ -70,7 +70,7 @@ const requirePanel = (client: Client | null, key: panel.Key): panel.Panel => {
 
 const getPanel = (client: Client | null, key: panel.Key): panel.Panel | undefined => {
   const cached = client?.panels.getCached({ key });
-  if (cached == null || query.Deleted.matches(cached)) return undefined;
+  if (!query.isLive(cached)) return undefined;
   return cached;
 };
 

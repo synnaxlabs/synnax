@@ -10,8 +10,9 @@
 import { type Store } from "@reduxjs/toolkit";
 import { panel, project, query } from "@synnaxlabs/client";
 import { Drift } from "@synnaxlabs/drift";
-import { type destructor } from "@synnaxlabs/x";
+import { destructor } from "@synnaxlabs/x";
 
+import { selectActiveWindow, selectSelected } from "@/session/panel/selectors";
 import {
   type Action,
   clearSelected,
@@ -38,34 +39,23 @@ const selectKeys = (state: StoreState): string[] => {
 };
 
 export const SYNCHRONIZERS: Synchronizer.Synchronizers = {
-  usePruneDeletedPanels: Synchronizer.create({
-    onDelete: (client, handler) => client.panels.onDelete(handler),
-    retrieveExisting: async (client, keys) =>
-      (await client.panels.retrieve({ keys, ignoreNotFoundError: true })).map(
-        ({ key }) => key,
-      ),
+  useRemoveDeletedPanels: Synchronizer.createRemover({
+    domain: (client) => client.panels,
     selectKeys,
     remove,
   }),
 };
 
-const selectActiveWindowSelected = (state: StoreState): panel.Key | undefined => {
-  const windowKey = Drift.selectWindowKey(state);
-  if (windowKey == null) return undefined;
-  return state.panels.windows[windowKey]?.selected;
-};
-
 const applySelection = (store: RequiredStore, keys: panel.Key[]): void => {
-  const state = store.getState();
-  const windowKey = Drift.selectWindowKey(state);
-  if (windowKey == null) return;
-  const selected = state.panels.windows[windowKey]?.selected;
+  const win = selectActiveWindow(store.getState());
+  if (win == null) return;
+  const { selected } = win.state;
   if (selected != null && keys.includes(selected)) return;
   if (keys.length === 0) {
-    if (selected != null) store.dispatch(clearSelected({ windowKey }));
+    if (selected != null) store.dispatch(clearSelected({ windowKey: win.key }));
     return;
   }
-  store.dispatch(select({ key: keys[0], windowKey }));
+  store.dispatch(select({ key: keys[0], windowKey: win.key }));
 };
 
 const repairSelection = async ({ client, store }: Params): Promise<void> => {
@@ -100,7 +90,7 @@ const selection: Synchronizer.Synchronizer<RequiredStoreState, RequiredAction> =
       removeQuery = client.panels.onChange(
         { parent: project.ontologyID(projectKey) },
         (result) => {
-          if (result == null || query.Deleted.matches(result)) return repair();
+          if (!query.isLive(result)) return repair();
           applySelection(
             store,
             result.map(({ key }) => key),
@@ -117,27 +107,19 @@ const selection: Synchronizer.Synchronizer<RequiredStoreState, RequiredAction> =
         repair();
       },
     );
-    const unwatchSelected = Synchronizer.watch(
-      store,
-      selectActiveWindowSelected,
-      (selected) => {
-        if (selected == null) repair();
-      },
-    );
-    return () => {
-      removeQuery?.();
-      unwatchProject();
-      unwatchSelected();
-    };
+    const unwatchSelected = Synchronizer.watch(store, selectSelected, (selected) => {
+      if (selected == null) repair();
+    });
+    return () => destructor.unwind(removeQuery, unwatchProject, unwatchSelected);
   },
 };
 
 // The OS window list identifies a window by what it shows.
 const syncTitle = ({ client, store }: Params): void => {
-  const selected = selectActiveWindowSelected(store.getState());
+  const selected = selectSelected(store.getState());
   if (selected == null) return;
   const cached = client.panels.getCached({ key: selected });
-  if (cached == null || query.Deleted.matches(cached)) return;
+  if (!query.isLive(cached)) return;
   store.dispatch(Drift.setWindowTitle({ title: cached.name }));
 };
 
@@ -146,29 +128,23 @@ const windowTitle: Synchronizer.Synchronizer<RequiredStoreState, RequiredAction>
   listen: (params) => {
     const { client, store } = params;
     const removeOnSet = client.panels.onSet((pan) => {
-      if (selectActiveWindowSelected(store.getState()) === pan.key)
+      if (selectSelected(store.getState()) === pan.key)
         store.dispatch(Drift.setWindowTitle({ title: pan.name }));
     });
-    const unwatchSelected = Synchronizer.watch(store, selectActiveWindowSelected, () =>
+    const unwatchSelected = Synchronizer.watch(store, selectSelected, () =>
       syncTitle(params),
     );
-    return () => {
-      removeOnSet();
-      unwatchSelected();
-    };
+    return () => destructor.unwind(removeOnSet, unwatchSelected);
   },
 };
 
 const reconcileTabs = (store: RequiredStore, pan: panel.Panel): void => {
-  const state = store.getState();
-  const windowKey = Drift.selectWindowKey(state);
-  if (windowKey == null) return;
-  const win = state.panels.windows[windowKey];
+  const win = selectActiveWindow(store.getState());
   if (win == null) return;
-  if (win.selected !== pan.key && win.panels[pan.key] == null) return;
+  if (win.state.selected !== pan.key && win.state.panels[pan.key] == null) return;
   store.dispatch(
     reconcileSelection({
-      windowKey,
+      windowKey: win.key,
       key: pan.key,
       leaves: panel.leafTabGroups(pan.root),
     }),
@@ -180,13 +156,10 @@ const reconcileTabs = (store: RequiredStore, pan: panel.Panel): void => {
 // update in the same tick; cross-window echoes of the action are no-ops.
 const tabSelections: Synchronizer.Synchronizer<RequiredStoreState, RequiredAction> = {
   reconcile: async ({ client, store }) => {
-    const state = store.getState();
-    const windowKey = Drift.selectWindowKey(state);
-    if (windowKey == null) return;
-    const win = state.panels.windows[windowKey];
+    const win = selectActiveWindow(store.getState());
     if (win == null) return;
-    const keys = new Set<string>(Object.keys(win.panels));
-    if (win.selected != null) keys.add(win.selected);
+    const keys = new Set<string>(Object.keys(win.state.panels));
+    if (win.state.selected != null) keys.add(win.state.selected);
     if (keys.size === 0) return;
     const panels = await client.panels.retrieve({
       keys: [...keys],
@@ -198,20 +171,13 @@ const tabSelections: Synchronizer.Synchronizer<RequiredStoreState, RequiredActio
     const removeOnSet = client.panels.onSet((pan) => reconcileTabs(store, pan));
     // A panel cached before the window first selects it fires no set event, so
     // the selection change itself reconciles against the cached tree.
-    const unwatchSelected = Synchronizer.watch(
-      store,
-      selectActiveWindowSelected,
-      (selected) => {
-        if (selected == null) return;
-        const cached = client.panels.getCached({ key: selected });
-        if (cached == null || query.Deleted.matches(cached)) return;
-        reconcileTabs(store, cached);
-      },
-    );
-    return () => {
-      removeOnSet();
-      unwatchSelected();
-    };
+    const unwatchSelected = Synchronizer.watch(store, selectSelected, (selected) => {
+      if (selected == null) return;
+      const cached = client.panels.getCached({ key: selected });
+      if (!query.isLive(cached)) return;
+      reconcileTabs(store, cached);
+    });
+    return () => destructor.unwind(removeOnSet, unwatchSelected);
   },
 };
 

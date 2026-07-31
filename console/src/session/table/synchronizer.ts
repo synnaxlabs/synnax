@@ -11,12 +11,8 @@ import { Synchronizer } from "@/session/synchronizer";
 import { remove, type StoreState } from "@/session/table/slice";
 
 export const SYNCHRONIZERS: Synchronizer.Synchronizers = {
-  usePruneDeletedTables: Synchronizer.create({
-    onDelete: (client, handler) => client.tables.onDelete(handler),
-    retrieveExisting: async (client, keys) =>
-      (await client.tables.retrieve({ keys, ignoreNotFoundError: true })).map(
-        ({ key }) => key,
-      ),
+  useRemoveDeletedTables: Synchronizer.createRemover({
+    domain: (client) => client.tables,
     selectKeys: (state: StoreState) => Object.keys(state.table.tables),
     remove: (keys) => remove({ keys }),
   }),

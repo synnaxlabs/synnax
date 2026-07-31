@@ -7,9 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Errors, Flux, Icon, Panel } from "@synnaxlabs/pluto";
+import { Errors, Icon, Panel } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
+import { deletedResourceFallback } from "@/feature/panel/fallback";
 import { useResetOnRestore } from "@/feature/panel/useResetOnRestore";
 import { Empty } from "@/platform/empty";
 import { type Nav } from "@/platform/nav";
@@ -35,19 +36,14 @@ const EmptyContent = ({
 // The toolbar reads the same queries as the tab's content, so a deleted
 // resource throws here too. Show a quiet placeholder; the tombstone with Close
 // and Restore lives in the mosaic.
-const DeletedResourceFallback = ({
+const DeletedResourceContent = ({
   resetErrorBoundary,
 }: Errors.FallbackProps): ReactElement => {
   useResetOnRestore(resetErrorBoundary);
   return <EmptyContent message="This resource was deleted." />;
 };
 
-const Fallback = (props: Errors.FallbackProps): ReactElement => {
-  const variant = Panel.useSelectTabVariant({});
-  if (variant !== "resource" || !Flux.DeletedError.matches(props.error))
-    return <Errors.Fallback {...props} />;
-  return <DeletedResourceFallback {...props} />;
-};
+const Fallback = deletedResourceFallback(DeletedResourceContent);
 
 const Content = (): ReactElement => {
   const { Toolbar } = useTab();

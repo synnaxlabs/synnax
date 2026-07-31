@@ -7,7 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { createTestClient, isLive } from "@synnaxlabs/client/testutil";
+import { query } from "@synnaxlabs/client";
+import { createTestClient } from "@synnaxlabs/client/testutil";
 import { color, testutil } from "@synnaxlabs/x";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -395,7 +396,7 @@ describe("useForm", () => {
             update,
             mountListeners: ({ client, set }) =>
               client.labels.onChange({ key: label.key }, (result) => {
-                if (isLive(result)) set("name", result.name);
+                if (query.isLive(result)) set("name", result.name);
               }),
           })({ query: { key: label.key } }),
         { wrapper },
@@ -450,7 +451,7 @@ describe("useForm", () => {
             update,
             mountListeners: ({ client, set }) =>
               client.labels.onChange({ key: label.key }, (result) => {
-                if (isLive(result)) set("name", result.name);
+                if (query.isLive(result)) set("name", result.name);
               }),
           })({ query: { key: label.key } }),
         { wrapper },

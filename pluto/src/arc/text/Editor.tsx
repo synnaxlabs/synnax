@@ -27,7 +27,7 @@ export const Editor = () => {
   // for the editor's lifetime, materializing the value and translating edits to operations.
   const text = useMemo<CollabText | null>(() => {
     const cached = client?.arcs.getCached({ key: resourceKey });
-    if (cached == null || query.Deleted.matches(cached)) return null;
+    if (!query.isLive(cached)) return null;
     const doc = cached.text.doc;
     return doc != null ? CollabText.bootstrap(doc) : null;
   }, [client, resourceKey, hasText]);
@@ -48,7 +48,7 @@ export const Editor = () => {
     (handle: Code.EditorHandle | null) => {
       if (handle == null || text == null || client == null) return;
       return client.arcs.onChange({ key: resourceKey }, (cached) => {
-        if (cached === undefined || query.Deleted.matches(cached)) return;
+        if (!query.isLive(cached)) return;
         text.sync(cached.text.doc);
         handle.setValue(text.value());
       });

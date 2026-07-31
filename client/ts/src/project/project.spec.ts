@@ -10,6 +10,7 @@
 import { id, uuid } from "@synnaxlabs/x";
 import { describe, expect, test } from "vitest";
 
+import { NotFoundError } from "@/errors";
 import { createTestClient } from "@/testutil";
 
 const client = createTestClient();
@@ -69,6 +70,19 @@ describe("Project", () => {
           return results.map((p) => p.name).sort();
         })
         .toEqual(names);
+    });
+    test("omit missing keys when ignoring not found", async () => {
+      const proj = await client.projects.create({ name: "survivor", layout: {} });
+      const res = await client.projects.retrieve({
+        keys: [proj.key, uuid.create()],
+        ignoreNotFoundError: true,
+      });
+      expect(res.map(({ key }) => key)).toEqual([proj.key]);
+    });
+    test("throw on a missing key when not ignoring not found", async () => {
+      await expect(client.projects.retrieve({ keys: [uuid.create()] })).rejects.toThrow(
+        NotFoundError,
+      );
     });
   });
   describe("case preservation", () => {

@@ -11,12 +11,8 @@ import { remove, type StoreState } from "@/session/schematic/slice";
 import { Synchronizer } from "@/session/synchronizer";
 
 export const SYNCHRONIZERS: Synchronizer.Synchronizers = {
-  usePruneDeletedSchematics: Synchronizer.create({
-    onDelete: (client, handler) => client.schematics.onDelete(handler),
-    retrieveExisting: async (client, keys) =>
-      (await client.schematics.retrieve({ keys, ignoreNotFoundError: true })).map(
-        ({ key }) => key,
-      ),
+  useRemoveDeletedSchematics: Synchronizer.createRemover({
+    domain: (client) => client.schematics,
     selectKeys: (state: StoreState) => Object.keys(state.schematic.schematics),
     remove: (keys) => remove({ keys }),
   }),

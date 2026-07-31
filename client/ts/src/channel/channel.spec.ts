@@ -13,7 +13,7 @@ import { beforeAll, describe, expect, it, test, vi } from "vitest";
 import { Channel } from "@/channel/client";
 import { NotFoundError } from "@/errors";
 import { query } from "@/query";
-import { createTestClient, expectDeleted, expectLive, isLive } from "@/testutil";
+import { createTestClient, expectDeleted, expectLive } from "@/testutil";
 
 const client = createTestClient();
 const remote = createTestClient();
@@ -417,7 +417,7 @@ describe("cached reads", () => {
         await expect
           .poll(() => {
             const cached = client.channels.getCached({ key: ch.key });
-            return isLive(cached) && cached.name === renamed;
+            return query.isLive(cached) && cached.name === renamed;
           })
           .toBe(true);
         expect(handler).toHaveBeenCalled();
@@ -460,23 +460,23 @@ describe("cached reads", () => {
     it("delivers remote alias changes to a subscribed single query", async () => {
       const ch = await createVirtual();
       const rng = await createRange();
-      const query = { key: ch.key, rangeKey: rng.key };
-      const off = client.channels.onChange(query, () => {});
+      const params = { key: ch.key, rangeKey: rng.key };
+      const off = client.channels.onChange(params, () => {});
       try {
         await client.channels.retrieve(ch.key, { rangeKey: rng.key });
         const alias = `qry_alias_${id.create()}`;
         await remote.ranges.setAlias(rng.key, ch.key, alias);
         await expect
           .poll(() => {
-            const cached = client.channels.getCached(query);
-            return isLive(cached) ? cached.alias : undefined;
+            const cached = client.channels.getCached(params);
+            return query.isLive(cached) ? cached.alias : undefined;
           })
           .toBe(alias);
         await remote.ranges.deleteAlias(rng.key, ch.key);
         await expect
           .poll(() => {
-            const cached = client.channels.getCached(query);
-            return isLive(cached) ? cached.alias : undefined;
+            const cached = client.channels.getCached(params);
+            return query.isLive(cached) ? cached.alias : undefined;
           })
           .toBeUndefined();
       } finally {

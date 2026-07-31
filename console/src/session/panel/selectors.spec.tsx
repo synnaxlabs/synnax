@@ -14,7 +14,12 @@ import { Drift } from "@synnaxlabs/drift";
 import { Panel as Pluto } from "@synnaxlabs/pluto";
 import { uuid } from "@synnaxlabs/x";
 import { act, renderHook } from "@testing-library/react";
-import { type PropsWithChildren, type ReactElement, type ReactNode } from "react";
+import {
+  type FC,
+  type PropsWithChildren,
+  type ReactElement,
+  type ReactNode,
+} from "react";
 import { Provider } from "react-redux";
 import { describe, expect, it } from "vitest";
 
@@ -75,6 +80,37 @@ describe("panel selectors", () => {
       expect(Panel.selectWindowState(createState(win))).toEqual(win);
     });
 
+    it("should return the active window's key alongside its state", () => {
+      const base = createStore().getState();
+      const windowKey = Drift.selectWindowKey(base);
+      const win = window({ selected: PANEL });
+      expect(Panel.selectActiveWindow(createState(win))).toEqual({
+        key: windowKey,
+        state: win,
+      });
+    });
+
+    it("should pair the active window's key with the zero state when it has none", () => {
+      const base = createStore().getState();
+      expect(Panel.selectActiveWindow(base)).toEqual({
+        key: Drift.selectWindowKey(base),
+        state: Panel.ZERO_WINDOW_STATE,
+      });
+    });
+
+    it("should return null when no window is active", () => {
+      const base = createStore().getState();
+      const state = {
+        ...base,
+        [Drift.SLICE_NAME]: {
+          ...base[Drift.SLICE_NAME],
+          label: "unlabeled",
+          labelKeys: {},
+        },
+      };
+      expect(Panel.selectActiveWindow(state)).toBeNull();
+    });
+
     it("should fall back to the zero window state when the active window has none", () => {
       expect(Panel.selectWindowState(createState())).toEqual(Panel.ZERO_WINDOW_STATE);
     });
@@ -129,6 +165,21 @@ describe("panel selectors", () => {
     void store.dispatch(
       Panel.internalSelectTab({ key, tabKey, otherTabKeys: [tabKey] }),
     );
+
+  // renderCounted mounts a hook alongside a render tally. A predicate hook must
+  // subscribe to its answer, not to its inputs: state churn that leaves the answer
+  // unchanged must not re-render subscribers.
+  const renderCounted = <R,>(hook: () => R, Wrapper: FC<PropsWithChildren>) => {
+    let renders = 0;
+    const { result } = renderHook(
+      () => {
+        renders += 1;
+        return hook();
+      },
+      { wrapper: Wrapper },
+    );
+    return { result, renders: () => renders };
+  };
 
   describe("useSelectSelectedTabs", () => {
     it("should return a panel's stored tabs in recency order for an explicit key", async () => {
@@ -264,6 +315,29 @@ describe("panel selectors", () => {
       });
       expect(result.current).toBe(false);
     });
+
+    it("should not re-render when the selection grows behind the focused tab", async () => {
+      const { Wrapper, store } = await setup();
+      act(() => {
+        selectTab(store, PANEL, TAB);
+      });
+      const { result, renders } = renderCounted(
+        () => Panel.useSelectIsTabFocused(PANEL, TAB),
+        Wrapper,
+      );
+      expect(result.current).toBe(true);
+      const before = renders();
+      act(() => {
+        store.dispatch(
+          Panel.reconcileSelection({
+            key: PANEL,
+            leaves: [[TAB], [OTHER_TAB]],
+          }),
+        );
+      });
+      expect(result.current).toBe(true);
+      expect(renders()).toBe(before);
+    });
   });
 
   describe("useGetTabIsFocused", () => {
@@ -345,6 +419,24 @@ describe("panel selectors", () => {
       });
       expect(result.current).toBe(false);
     });
+
+    it("should not re-render on focus changes while the window is not overlaid", async () => {
+      const { Wrapper, store } = await setup();
+      act(() => {
+        selectTab(store, PANEL, TAB);
+      });
+      const { result, renders } = renderCounted(
+        () => Panel.useSelectIsTabOverlaid(PANEL, TAB),
+        Wrapper,
+      );
+      expect(result.current).toBe(false);
+      const before = renders();
+      act(() => {
+        selectTab(store, PANEL, OTHER_TAB);
+      });
+      expect(result.current).toBe(false);
+      expect(renders()).toBe(before);
+    });
   });
 
   describe("useSelectIsTabVisible", () => {
@@ -388,6 +480,29 @@ describe("panel selectors", () => {
         wrapper: Wrapper,
       });
       expect(result.current).toBe(false);
+    });
+
+    it("should not re-render a visible tab when a sibling joins the selection", async () => {
+      const { Wrapper, store } = await setup();
+      act(() => {
+        selectTab(store, PANEL, TAB);
+      });
+      const { result, renders } = renderCounted(
+        () => Panel.useSelectIsTabVisible(PANEL, TAB),
+        Wrapper,
+      );
+      expect(result.current).toBe(true);
+      const before = renders();
+      act(() => {
+        store.dispatch(
+          Panel.reconcileSelection({
+            key: PANEL,
+            leaves: [[TAB], [OTHER_TAB]],
+          }),
+        );
+      });
+      expect(result.current).toBe(true);
+      expect(renders()).toBe(before);
     });
 
     // Regression: the visibility check previously read the raw key parameter, so an
@@ -439,6 +554,51 @@ describe("panel selectors", () => {
         );
       });
       expect(result.current).toBe(true);
+    });
+  });
+
+  describe("useStartOverlaying", () => {
+    // Overlaying renders the panel's focused tab, so the hook must route the focus
+    // through the same selection path any other tab click takes: the tab's leaf
+    // siblings lose their selection, and only then does the window overlay.
+    it("should focus the tab against its live leaf and overlay the window", async () => {
+      const client = createTestClient();
+      const { Wrapper, store } = await setup({ client });
+      const doc = panel.panelZ.parse({
+        key: PANEL,
+        name: "panel",
+        root: {
+          variant: "leaf",
+          tabs: [
+            { variant: "view", key: TAB, type: "t" },
+            { variant: "view", key: OTHER_TAB, type: "t" },
+          ],
+        },
+      });
+      await client.panels.create(doc);
+      await client.panels.retrieve({ key: PANEL });
+      const { result } = renderHook(() => Panel.useStartOverlaying(PANEL), {
+        wrapper: Wrapper,
+      });
+      act(() => {
+        selectTab(store, PANEL, OTHER_TAB);
+      });
+      act(() => {
+        result.current(TAB);
+      });
+      expect(Panel.selectSelectedTabs(store.getState(), PANEL)).toEqual([TAB]);
+      expect(Panel.selectWindowState(store.getState()).isOverlaid).toBe(true);
+    });
+
+    it("should do nothing when no panel resolves", async () => {
+      const { Wrapper, store } = await setup();
+      const { result } = renderHook(() => Panel.useStartOverlaying(), {
+        wrapper: Wrapper,
+      });
+      act(() => {
+        result.current(TAB);
+      });
+      expect(Panel.selectWindowState(store.getState()).isOverlaid).toBe(false);
     });
   });
 

@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { table } from "@synnaxlabs/client";
+import { query, table } from "@synnaxlabs/client";
 import { Icon, Table as Base } from "@synnaxlabs/pluto";
 
 import { ingest } from "@/feature/table/import";
@@ -37,8 +37,9 @@ const TAB: Panel.Tab = {
   Toolbar,
   Icon: Icon.Table,
   Name: Panel.createEditableTabName(Base, <Icon.Table />),
-  restore: async ({ client, project, corpse }) => {
-    await client.tables.create(project, corpse as table.New);
+  restore: async ({ client, project, resource }) => {
+    const corpse = query.requireCorpse(client.tables.getCached({ key: resource.key }));
+    await client.tables.create(project, corpse);
   },
 };
 

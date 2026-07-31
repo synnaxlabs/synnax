@@ -22,8 +22,6 @@ let proj: project.Project;
 
 beforeAll(async () => {
   proj = await client.projects.create({ name: uniqueName("project"), layout: {} });
-  // Epoch events only fire on a live change stream; connect up front so the
-  // mount-time sweep runs deterministically.
   await client.connect();
 });
 
