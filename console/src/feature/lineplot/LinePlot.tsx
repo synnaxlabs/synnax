@@ -171,7 +171,6 @@ const ContextMenuContent = ({
 
 const Internal = (): ReactElement => {
   const key = Base.useKey();
-  const focused = Session.Panel.useSelectIsTabOverlaid();
   const visible = Session.Panel.useSelectIsTabVisible();
   const vis = Session.LinePlot.useSelect();
   const dispatch = Session.useDispatch();
@@ -294,7 +293,6 @@ const Internal = (): ReactElement => {
           editable={hasUpdatePermission}
           enableTriggers={enableTriggers}
           resolvedRanges={resolvedRanges}
-          legendVariant={focused ? "fixed" : "floating"}
           enableTooltip={enableTooltip}
           enableMeasure={clickMode === "measure"}
           measureMode={vis.measure.mode}
@@ -313,10 +311,9 @@ const Internal = (): ReactElement => {
           clearOverScan={CLEAR_OVERSCAN}
           visible={visible}
         >
-          {!focused && <Controls hasAnnotations={hasAnnotations} />}
+          <Controls hasAnnotations={hasAnnotations} />
         </Base.LinePlot>
       </Menu.ContextMenu>
-      {focused && <Controls hasAnnotations={hasAnnotations} />}
     </div>
   );
 };

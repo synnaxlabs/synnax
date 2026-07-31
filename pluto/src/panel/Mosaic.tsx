@@ -42,7 +42,7 @@ import { Scope, TabScope } from "@/panel/scope";
 import { Portal } from "@/portal";
 import { Select } from "@/select";
 import { Tabs } from "@/tabs";
-import { type Triggers } from "@/triggers";
+import { Triggers } from "@/triggers";
 
 export interface MosaicProps extends Omit<
   Base.FrameProps,
@@ -54,8 +54,8 @@ export interface MosaicProps extends Omit<
   | "children"
   | "contextMenu"
 > {
-  selected?: string[];
-  onSelect?: (tabKey: string) => void;
+  selected?: panel.TabKey[];
+  onSelect?: (tabKey: panel.TabKey) => void;
   children: Component.RenderProp<{}>;
   tabName?: Component.RenderProp<{}>;
   onCreateTab?: () => panel.NewTab | undefined;
@@ -66,11 +66,17 @@ export interface MosaicProps extends Omit<
   contextMenu?: Component.RenderProp<Menu.ContextMenuMenuProps>;
   /** Rendered in a leaf's content area when the leaf has no tabs. */
   emptyContent?: ReactNode;
+  /** Tab the mosaic collapses to: the frame renders a single leaf holding this
+   * tab in place of the tree. Content stays mounted through the portal layer;
+   * background tabs detach from the DOM, so their canvas draws stop. */
+  overlaid?: panel.TabKey;
+  /** Called when the user requests to exit the overlaid state. */
+  onStopOverlay?: () => void;
 }
 
 interface TabProps extends Pick<MosaicProps, "tabName"> {
-  tabKey: string;
-  onClose: (tabKey: string) => void;
+  tabKey: panel.TabKey;
+  onClose: (tabKey: panel.TabKey) => void;
 }
 
 const Tab = ({ tabKey, tabName, onClose }: TabProps): ReactElement => {
@@ -173,6 +179,51 @@ const Node = memo(({ nodeKey, ...rest }: NodeProps): ReactElement => {
 });
 Node.displayName = "Panel.Mosaic.Node";
 
+/** Toggles a tab's overlaid (focused) state. Bound by the embedding app;
+ * shown on the overlaid leaf's exit affordances. */
+export const OVERLAY_TRIGGER: Triggers.Trigger = ["Control", "L"];
+
+interface OverlaidLeafProps extends Pick<TabProps, "tabName" | "onClose"> {
+  overlaid: panel.TabKey;
+  onStopOverlay?: () => void;
+  onContextMenu: Menu.ContextMenuOpen;
+}
+
+// The mosaic collapsed to a single leaf: a one-tab strip and the overlaid tab's
+// content claimed from the shared portal registry. The tree is unmounted while
+// this renders, so background tabs detach and their canvas draws stop. The
+// exit chip in the add button's slot is the mode indicator.
+const OverlaidLeaf = ({
+  overlaid,
+  onStopOverlay,
+  onContextMenu,
+  ...rest
+}: OverlaidLeafProps): ReactElement => (
+  <Tabs.Frame grow className={CSS.BE("panel-mosaic", "overlaid-leaf")}>
+    <Tabs.Selector onContextMenu={onContextMenu}>
+      <Tab tabKey={overlaid} {...rest} />
+      <Flex.Box grow />
+      <Button.Button
+        variant="text"
+        size="small"
+        onClick={onStopOverlay}
+        className={CSS.BE("panel-mosaic", "overlaid-exit")}
+        tooltip={
+          <Triggers.Text trigger={OVERLAY_TRIGGER} level="small">
+            Exit focus
+          </Triggers.Text>
+        }
+      >
+        <Icon.Collapse />
+        Exit Focus
+      </Button.Button>
+    </Tabs.Selector>
+    <Tabs.Content grow>
+      <Portal.Out itemKey={overlaid} className={CSS.BE("panel-mosaic", "portal-out")} />
+    </Tabs.Content>
+  </Tabs.Frame>
+);
+
 const CLOSE_TRIGGER: Triggers.Trigger = ["Control", "W"];
 
 /** CloseTabMenuItem closes the context menu's tab. Must render inside the tab
@@ -185,12 +236,7 @@ export const CloseTabMenuItem = (): ReactElement => {
     [dispatch, tabKey],
   );
   return (
-    <Menu.Item
-      itemKey="close"
-      onClick={handleClose}
-      trigger={CLOSE_TRIGGER}
-      triggerIndicator
-    >
+    <Menu.Item itemKey="close" onClick={handleClose} triggerIndicator={CLOSE_TRIGGER}>
       <Icon.Close />
       Close
     </Menu.Item>
@@ -224,7 +270,7 @@ export const SplitTabMenuItems = (): ReactElement | null => {
   );
 };
 
-const EMPTY_SELECTED: string[] = [];
+const EMPTY_SELECTED: panel.TabKey[] = [];
 
 const PortalIn = memo(
   ({
@@ -269,6 +315,9 @@ export const Mosaic = ({
   resolveDroppedTab,
   contextMenu,
   emptyContent,
+  overlaid,
+  onStopOverlay,
+  className,
   ...rest
 }: MosaicProps): ReactElement | null => {
   const dispatch = useSingleDispatch();
@@ -349,7 +398,7 @@ export const Mosaic = ({
   const menuProps = Menu.useContextMenu();
   const renderMenu = useCallback<Component.RenderProp<Menu.ContextMenuMenuProps>>(
     (props) => {
-      const tabKey: string | undefined = props.keys[0];
+      const tabKey: panel.TabKey | undefined = props.keys[0];
       const content = (
         <Menu.Menu level="small" gap="small">
           {contextMenu?.(props)}
@@ -370,16 +419,30 @@ export const Mosaic = ({
             onDrop={handleDrop}
             onCreate={handleCreate}
             onResize={handleResize}
+            className={CSS(
+              className,
+              overlaid != null && CSS.BM("panel-mosaic", "overlaid"),
+            )}
             {...rest}
           >
-            <Node
-              nodeKey={panel.ROOT_NODE_KEY}
-              onClose={handleClose}
-              onAdd={handleAdd}
-              onContextMenu={menuProps.open}
-              tabName={tabName}
-              emptyContent={emptyContent}
-            />
+            {overlaid == null ? (
+              <Node
+                nodeKey={panel.ROOT_NODE_KEY}
+                onClose={handleClose}
+                onAdd={handleAdd}
+                onContextMenu={menuProps.open}
+                tabName={tabName}
+                emptyContent={emptyContent}
+              />
+            ) : (
+              <OverlaidLeaf
+                overlaid={overlaid}
+                tabName={tabName}
+                onClose={handleClose}
+                onStopOverlay={onStopOverlay}
+                onContextMenu={menuProps.open}
+              />
+            )}
           </Base.Frame>
         </Menu.ContextMenu>
       </Select.Context>

@@ -11,7 +11,7 @@ import { type panel } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { Icon, Panel as PPanel, Text } from "@synnaxlabs/pluto";
 import { uuid } from "@synnaxlabs/x";
-import { act, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { type FC, type PropsWithChildren, type ReactElement, useEffect } from "react";
 import { beforeEach, describe, expect, it } from "vitest";
 
@@ -39,8 +39,23 @@ const ProbeName: Panel.TabName = () => <Text.Text>probe</Text.Text>;
 
 const ProbeIcon: Panel.TabIcon = () => <Icon.Visualize />;
 
+const tabMounts: panel.TabKey[] = [];
+const tabUnmounts: panel.TabKey[] = [];
+
+// The panel-keyed probe can't tell tabs in the same panel apart, so overlay
+// tests use a tab-keyed variant.
+const TabProbeContent: Panel.Content = () => {
+  const tabKey = PPanel.useTabKey();
+  useEffect(() => {
+    tabMounts.push(tabKey);
+    return () => void tabUnmounts.push(tabKey);
+  }, [tabKey]);
+  return <Text.Text>{`tab-content-${tabKey}`}</Text.Text>;
+};
+
 const REGISTRY: Panel.Tabs = {
   probe: { Content: ProbeContent, Name: ProbeName, Icon: ProbeIcon },
+  tabProbe: { Content: TabProbeContent, Name: ProbeName, Icon: ProbeIcon },
 };
 
 const createTab = (): panel.NewTab => ({
@@ -121,5 +136,105 @@ describe("Panel.Mosaic keep-alive", () => {
     });
     await waitFor(() => expect(screen.getByText("No panels open.")).toBeTruthy());
     expect(unmounts).toHaveLength(0);
+  });
+});
+
+describe("Panel.Mosaic overlay", () => {
+  beforeEach(() => {
+    tabMounts.length = 0;
+    tabUnmounts.length = 0;
+  });
+
+  const tabProbeTab = (): panel.NewTab => ({
+    variant: "view",
+    key: uuid.create(),
+    type: "tabProbe",
+  });
+
+  const tabMountCount = (key: panel.TabKey): number =>
+    tabMounts.filter((k) => k === key).length;
+
+  it("should collapse a split panel to the overlaid tab and restore it on exit", async () => {
+    const tabA = tabProbeTab();
+    const tabB = tabProbeTab();
+    const pan = await createServerPanel(client, {
+      variant: "split",
+      direction: "x",
+      size: 0.5,
+      first: { variant: "leaf", tabs: [tabA] },
+      last: { variant: "leaf", tabs: [tabB] },
+    });
+    const { wrapper, store } = await setup();
+    render(<Mosaic onCreateTab={createTab} />, { wrapper });
+
+    act(() => {
+      store.dispatch(Session.Panel.select({ key: pan.key }));
+    });
+    await waitFor(() => {
+      expect(screen.getByText(`tab-content-${tabA.key}`)).toBeTruthy();
+      expect(screen.getByText(`tab-content-${tabB.key}`)).toBeTruthy();
+    });
+
+    act(() => {
+      store.dispatch(Session.Panel.startOverlaying({ tabKey: tabA.key }));
+    });
+    await waitFor(() => expect(screen.getByText("Exit Focus")).toBeTruthy());
+    // Only the overlaid tab stays in the document; the other leaf's content
+    // detaches but its React tree stays mounted.
+    expect(screen.getByText(`tab-content-${tabA.key}`)).toBeTruthy();
+    expect(screen.queryByText(`tab-content-${tabB.key}`)).toBeNull();
+    expect(tabUnmounts).toHaveLength(0);
+
+    fireEvent.click(screen.getByText("Exit Focus"));
+    await waitFor(() => {
+      expect(screen.getByText(`tab-content-${tabA.key}`)).toBeTruthy();
+      expect(screen.getByText(`tab-content-${tabB.key}`)).toBeTruthy();
+    });
+    // Reattached, not remounted.
+    expect(screen.queryByText("Exit Focus")).toBeNull();
+    expect(tabMountCount(tabA.key)).toBe(1);
+    expect(tabMountCount(tabB.key)).toBe(1);
+    expect(tabUnmounts).toHaveLength(0);
+  });
+
+  it("should carry overlay mode to the newly selected panel on switch", async () => {
+    const tabA = tabProbeTab();
+    const a = await createServerPanel(client, { variant: "leaf", tabs: [tabA] });
+    const tabB = tabProbeTab();
+    const b = await createServerPanel(client, { variant: "leaf", tabs: [tabB] });
+    const { wrapper, store } = await setup();
+    render(<Mosaic onCreateTab={createTab} />, { wrapper });
+
+    act(() => {
+      store.dispatch(Session.Panel.select({ key: a.key }));
+      // The tab-selection synchronizer doesn't run in this harness, so panel
+      // b's focused tab is seeded the way visiting it would.
+      store.dispatch(
+        Session.Panel.internalSelectTab({
+          key: b.key,
+          tabKey: tabB.key,
+          otherTabKeys: [],
+        }),
+      );
+    });
+    await waitFor(() =>
+      expect(screen.getByText(`tab-content-${tabA.key}`)).toBeTruthy(),
+    );
+    act(() => {
+      store.dispatch(Session.Panel.startOverlaying({ tabKey: tabA.key }));
+    });
+    await waitFor(() => expect(screen.getByText("Exit Focus")).toBeTruthy());
+
+    // Overlay is window-level: the newly selected panel shows its own focused
+    // tab overlaid, while the background panel detaches without unmounting.
+    act(() => {
+      store.dispatch(Session.Panel.select({ key: b.key }));
+    });
+    await waitFor(() =>
+      expect(screen.getByText(`tab-content-${tabB.key}`)).toBeTruthy(),
+    );
+    await waitFor(() => expect(screen.getByText("Exit Focus")).toBeTruthy());
+    expect(screen.queryByText(`tab-content-${tabA.key}`)).toBeNull();
+    expect(tabUnmounts).toHaveLength(0);
   });
 });

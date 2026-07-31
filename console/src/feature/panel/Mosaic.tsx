@@ -12,15 +12,12 @@ import "@/feature/panel/Mosaic.css";
 import { NotFoundError, ontology, type panel } from "@synnaxlabs/client";
 import { Logo } from "@synnaxlabs/media";
 import {
-  Breadcrumb,
   Button,
   Component,
-  Dialog,
   Errors,
   Flex,
   Flux,
   Icon,
-  Nav,
   Panel,
   Portal,
   Status,
@@ -202,63 +199,17 @@ const TabName = (): ReactElement => {
 
 const Content = (): ReactElement => {
   const tabType = Panel.useSelectTabType({});
-  const { Content, Name } = useTab();
-  const dispatch = useDispatch();
-  const isOverlaid = Session.Panel.useSelectIsTabOverlaid();
-  const handleDialogClose = useCallback(
-    () => dispatch(Session.Panel.stopOverlaying({})),
-    [dispatch],
-  );
+  const { Content } = useTab();
   return (
     <Errors.SuspenseBoundary FallbackComponent={ContentFallback}>
-      <Dialog.Frame
-        onVisibleChange={handleDialogClose}
-        visible={isOverlaid}
+      <Flex.Box
+        y
         full
-        modalPosition="slammed"
-        variant="modal"
-        background={isOverlaid ? 0 : undefined}
-        className={CSS.BE("panel", "tab-frame")}
+        empty
+        className={CSS(CSS.B(caseconv.toKebab(tabType)), CSS.BE("panel", "tab"))}
       >
-        <Dialog.Dialog
-          passthrough
-          full
-          className={CSS(CSS.B(caseconv.toKebab(tabType)), CSS.BE("panel", "tab"))}
-        >
-          <Nav.Bar
-            location="top"
-            size="5rem"
-            bordered
-            className={CSS(
-              CSS.B("panel-focus-bar"),
-              isOverlaid && CSS.BM("panel-focus-bar", "focused"),
-            )}
-          >
-            {isOverlaid && (
-              <>
-                <Nav.Bar.Start>
-                  <Breadcrumb.Breadcrumb>
-                    <Breadcrumb.Segment>
-                      <Name />
-                    </Breadcrumb.Segment>
-                  </Breadcrumb.Breadcrumb>
-                </Nav.Bar.Start>
-                <Nav.Bar.End pack>
-                  <Button.Button onClick={handleDialogClose} size="small" textColor={9}>
-                    <Icon.Subtract />
-                  </Button.Button>
-                </Nav.Bar.End>
-              </>
-            )}
-          </Nav.Bar>
-          {/* The dialog force-sizes every direct child to fill it, which would stretch
-           * anything the tab renders alongside its main content. The wrapper absorbs
-           * that and gives absolutely positioned content the tab as its origin. */}
-          <Flex.Box grow empty className={CSS.BE("panel", "tab-content")}>
-            <Content />
-          </Flex.Box>
-        </Dialog.Dialog>
-      </Dialog.Frame>
+        <Content />
+      </Flex.Box>
     </Errors.SuspenseBoundary>
   );
 };
@@ -299,11 +250,28 @@ const EmptyTabContent = ({ onCreateTab }: MosaicProps): ReactElement => {
 const Internal = ({ onCreateTab }: MosaicProps): ReactElement => {
   const selected = Session.Panel.useSelectSelectedTabs();
   const handleSelect = Session.Panel.useSelectTab();
+  const panelKey = Panel.useOptionalKey();
+  const selectedPanel = Session.Panel.useSelectSelected();
+  const isOverlaid = Session.Panel.useSelectOverlaid();
+  const focusedTab = Session.Panel.useSelectFocusedTab();
+  const dispatch = useDispatch();
+  // Overlaying only applies to the window's selected panel: kept-alive
+  // background panels see the same window-level flag but must not claim tabs.
+  const overlaid =
+    isOverlaid && panelKey != null && panelKey === selectedPanel
+      ? focusedTab
+      : undefined;
+  const handleStopOverlay = useCallback(
+    () => dispatch(Session.Panel.stopOverlaying({})),
+    [dispatch],
+  );
   return (
     <Panel.Mosaic
       className={CSS.B("mosaic")}
       selected={selected}
       onSelect={handleSelect}
+      overlaid={overlaid}
+      onStopOverlay={handleStopOverlay}
       onCreateTab={onCreateTab}
       resolveDroppedTab={resolveDroppedTab}
       contextMenu={contextMenu}

@@ -47,14 +47,36 @@
     }
 }
 
+/* Positioned so absolutely placed tab content resolves against the tab. */
 .console-panel__tab {
     animation: none !important;
+    position: relative;
 }
 
-/* Single-child pass-through: block spares WebKit a level of per-frame flex
-   re-measurement while a pane or drawer resizes. */
-.console-panel__tab-frame {
-    display: block;
+/* Focus mode reads as a lamp over the pane: everything is l11 light, matching
+ * the exit chip. Two layers: --edge (border + inset ring) and --glow. Swap the
+ * commented variants to compare. */
+.console-mosaic.pluto-panel-mosaic--overlaid {
+    /* L1 lit rim: the edge itself is light, not stronger chrome. */
+    border-color: var(--pluto-gray-l11-35);
+    --edge: inset 0 0 0 0.5px var(--pluto-gray-l11-20);
+    /* L2 structural: pre-lamp edge, a stronger gray border.
+    border-color: var(--pluto-gray-l8);
+    --edge: inset 0 0 0 0.5px var(--pluto-gray-l8-40); */
+
+    /* G1 inner wash: frame lit from within, nothing spills outside. */
+    --glow: inset 0 0 18px var(--pluto-gray-l11-15);
+    /* G2 inner wash + faint outer bloom: light escapes the rim slightly.
+    --glow:
+        inset 0 0 18px var(--pluto-gray-l11-15),
+        0 0 8px var(--pluto-gray-l11-10); */
+    /* G3 rim only, no glow.
+    --glow: 0 0 transparent; */
+
+    box-shadow: var(--edge), var(--glow);
+    transition:
+        border-color 0.15s ease-in-out,
+        box-shadow 0.15s ease-in-out;
 }
 
 /* Hosts the selected panel's kept-alive subtree; unselected panels stay mounted
@@ -65,27 +87,4 @@
     flex: 1 1 0;
     min-width: 0;
     min-height: 0;
-}
-
-.console-panel__tab-content {
-    position: relative;
-    min-height: 0;
-}
-
-/* The focus bar stays mounted while unfocused (unmounting it remounts the tab's
- * content); collapse it so it occupies no space until the tab is focused. */
-.console-panel-focus-bar {
-    display: none;
-    &.console-panel-focus-bar--focused {
-        display: flex;
-        z-index: 10;
-    }
-    & .pluto-navbar__content {
-        &.pluto--start {
-            padding-left: 2rem;
-        }
-        &.pluto--end {
-            padding-right: 1rem;
-        }
-    }
 }
