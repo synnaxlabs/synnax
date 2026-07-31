@@ -14,7 +14,7 @@ import { describe, expect, it, vi } from "vitest";
 import { Log } from "@/feature/log";
 import { createFileIngesterContext } from "@/platform/import/testutil";
 import { type Panel } from "@/platform/panel";
-import { awaitGranted, uniqueName } from "@/testutil";
+import { assertDefined, awaitGranted, uniqueName } from "@/testutil";
 
 describe("ingest", () => {
   it("should create the log on the cluster and open it as a tab", async () => {
@@ -34,7 +34,7 @@ describe("ingest", () => {
       data,
       createFileIngesterContext({ openTab, client, projectKey: proj.key }),
     );
-    if (id == null) throw new Error("ingest returned no id");
+    assertDefined(id, "ingest returned no id");
     expect(openTab).toHaveBeenCalledWith({ variant: "resource", resource: id });
     const created = await client.logs.retrieve({ key: id.key });
     expect(created.name).toBe(original.name);
