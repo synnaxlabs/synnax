@@ -120,6 +120,7 @@ class LayoutClient:
         ".console-mosaic .pluto-mosaic__leaf > .pluto-tabs > .pluto-tabs__selector"
     )
     TAB_SELECTOR = f"{TAB_STRIP_SELECTOR} > .pluto-tabs__tab"
+    TOMBSTONE_SELECTOR = ".console-panel__tombstone"
 
     def __init__(self, page: Page):
         self.page = page
@@ -517,6 +518,19 @@ class LayoutClient:
             .filter(has_text=re.compile(f"^{re.escape(name)}$"))
             .filter(has=self.page.locator("[aria-label='Close']"))
             .first
+        )
+
+    def get_tombstone(self, name: str) -> Locator:
+        """Get the tombstone a deleted resource's tab shows in place of content.
+
+        Args:
+            name: The name the resource had when it was deleted
+
+        Returns:
+            Locator for the tombstone element
+        """
+        return self.page.locator(self.TOMBSTONE_SELECTOR).filter(
+            has_text=f"{name} was deleted"
         )
 
     def tab_names(self) -> list[str]:
