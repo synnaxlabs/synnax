@@ -27,6 +27,23 @@
     display: block;
 }
 
+/* Split panes carry explicit inline sizes, so flex distributes nothing: block
+   is layout-identical and stops WebKit re-measuring the whole subtree at every
+   nesting level. Stacked (y) split containers de-flex too; x containers stay
+   flex to lay panes in a row. */
+.pluto-mosaic .pluto-resize-split.pluto--direction-y {
+    display: block;
+}
+
+.pluto-mosaic .pluto-resize {
+    display: block;
+
+    > .pluto-resize-split {
+        width: 100%;
+        height: 100%;
+    }
+}
+
 .pluto-mosaic__leaf {
     position: relative;
     width: 100%;
