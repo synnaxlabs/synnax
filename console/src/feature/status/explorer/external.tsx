@@ -18,6 +18,7 @@ export const TAB_TYPE = "status_explorer";
 
 const TAB: Panel.Tab = {
   Content: Explorer,
+  Icon: Icon.Status,
   Name: Panel.createStaticTabName({ name: "Status Explorer", icon: <Icon.Status /> }),
 };
 

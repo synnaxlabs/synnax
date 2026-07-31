@@ -17,6 +17,7 @@ export { Overview };
 
 const TAB: Panel.Tab = {
   Content: Overview,
+  Icon: Icon.Range,
   Name: Panel.createEditableTabName(Ranger, <Icon.Range />),
 };
 
