@@ -31,6 +31,7 @@ import {
 } from "@testing-library/react";
 import { type FC, type PropsWithChildren, type ReactElement, useEffect } from "react";
 import { Provider } from "react-redux";
+import { assert } from "vitest";
 
 import { Session } from "@/session";
 import { createAsyncSynnaxWrapper, createSynnaxWrapper } from "@/testutil/Synnax";
@@ -42,12 +43,16 @@ import { createAsyncSynnaxWrapper, createSynnaxWrapper } from "@/testutil/Synnax
 export const uniqueName = (prefix: string = "test"): string =>
   `${prefix}_${id.create().replace(/-/g, "_")}`;
 
-/** Throws when value is null or undefined, narrowing it for subsequent use. */
+/**
+ * Throws when value is null or undefined, narrowing it for subsequent use.
+ * Excludes void as well as null and undefined: NonNullable leaves `void & {}`
+ * behind, which drops every property off a `T | void` return.
+ */
 export function assertDefined<T>(
   value: T,
   message = "expected value to be defined",
-): asserts value is NonNullable<T> {
-  if (value == null) throw new Error(message);
+): asserts value is Exclude<T, null | undefined | void> {
+  assert(value != null, message);
 }
 
 /**
@@ -57,7 +62,7 @@ export function assertDefined<T>(
 export const findDialogTrigger = async (): Promise<HTMLElement> =>
   await waitFor(() => {
     const el = document.querySelector<HTMLElement>(".pluto-dialog__trigger");
-    if (el == null) throw new Error("dialog trigger not found");
+    assertDefined(el, "dialog trigger not found");
     return el;
   });
 
@@ -67,7 +72,7 @@ export const findTagCloseButton = (name: string): HTMLElement => {
     .getByText(name)
     .closest(".pluto-tag")
     ?.querySelector<HTMLElement>(".pluto-tag__close");
-  if (btn == null) throw new Error(`close button for tag ${name} not found`);
+  assertDefined(btn, `close button for tag ${name} not found`);
   return btn;
 };
 
@@ -83,7 +88,7 @@ export const waitForFocusedTab = async (store: TestStore): Promise<string> =>
       panelKey == null
         ? undefined
         : Session.Panel.selectSelectedTabs(state, panelKey)[0];
-    if (focused == null) throw new Error("no tab focused");
+    assertDefined(focused, "no tab focused");
     return focused;
   });
 
@@ -105,14 +110,15 @@ export const resolveFocusedTab = async (
       panelKey == null
         ? undefined
         : Session.Panel.selectSelectedTabs(state, panelKey)[0];
-    if (focused == null || panelKey == null) throw new Error("no tab focused");
+    assertDefined(focused, "no tab focused");
+    assertDefined(panelKey, "no panel selected");
     const doc = await client.panels.retrieve({ key: panelKey });
     const tab = panel.findTab(doc.root, focused);
-    if (tab == null) throw new Error("focused tab not found in panel");
+    assertDefined(tab, "focused tab not found in panel");
     // Placement lands focus one dispatch after the click, so a test opening a
     // second tab must poll until focus reaches the expected one rather than
     // reading the still-focused prior tab.
-    if (match != null && !match(tab)) throw new Error("focused tab does not match");
+    assert(match == null || match(tab), "focused tab does not match");
     return tab;
   });
 

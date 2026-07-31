@@ -19,7 +19,7 @@ import { createTestClient } from "@synnaxlabs/client/testutil";
 import { Access } from "@synnaxlabs/pluto";
 import { id, uuid } from "@synnaxlabs/x";
 import { act, renderHook, waitFor } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { assert, describe, expect, it } from "vitest";
 
 import { Project } from "@/feature/project";
 import { Schematic } from "@/feature/schematic";
@@ -27,7 +27,7 @@ import { Table } from "@/feature/table";
 import { type Import } from "@/platform/import";
 import { Panel } from "@/platform/panel";
 import { Session } from "@/session";
-import { createConsoleWrapper, type TestStore } from "@/testutil";
+import { assertDefined, createConsoleWrapper, type TestStore } from "@/testutil";
 
 const client: Synnax = createTestClient();
 
@@ -114,7 +114,7 @@ interface HarnessValue {
 
 const selectImportedProject = (store: TestStore): project.Key => {
   const key = Session.Project.selectOptionalSelected(store.getState());
-  if (key == null) throw new Error("no project selected after import");
+  assertDefined(key, "no project selected after import");
   return key;
 };
 
@@ -165,9 +165,9 @@ describe("project import", () => {
     expect(panelKeys).toHaveLength(1);
     const [imported] = await client.panels.retrieve({ keys: panelKeys });
     expect(imported.name).toBe("Main");
-    if (imported.root.variant !== "leaf") throw new Error("expected a leaf root");
+    assert(imported.root.variant === "leaf", "expected a leaf root");
     const resources = imported.root.tabs.map((tab) => {
-      if (tab.variant !== "resource") throw new Error("expected resource tabs");
+      assert(tab.variant === "resource", "expected resource tabs");
       return tab.resource;
     });
     expect(resources.map(({ type }) => type)).toEqual([SCHEMATIC_TYPE, TABLE_TYPE]);

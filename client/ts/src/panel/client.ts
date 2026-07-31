@@ -197,7 +197,7 @@ export class Client extends query.Retriever<typeof retrieveReqZ, Key, Panel> {
       key,
       array.toArray(actions),
       this.dispatchSender(key),
-      opts.preprocess,
+      opts,
     );
   }
 

@@ -390,7 +390,7 @@ export class Controller<Key extends record.Key, State extends query.Data, Action
     key: Key,
     actions: Action[],
     send: SendDispatch<Action>,
-    preprocess?: Preprocess<State, Action>,
+    opts: Options<State, Action> = {},
   ): Promise<boolean> {
     if (actions.length === 0) return true;
     return await this.applySend(
@@ -399,7 +399,7 @@ export class Controller<Key extends record.Key, State extends query.Data, Action
       ({ processed, inverse, targets }) =>
         this.recordEntry(key, processed, inverse, targets),
       send,
-      preprocess,
+      opts.preprocess,
     );
   }
 
