@@ -26,11 +26,14 @@
 .console-range__overview {
     container-type: size;
     height: 100%;
-    width: 100%;
-    max-width: 1050px;
-    align-self: center;
-    padding: 5rem;
-    overflow-y: auto;
+    align-items: center;
+
+    > div {
+        max-width: 1050px;
+        width: 100%;
+        padding: 5rem;
+        overflow-y: auto;
+    }
 }
 
 .console-range__metadata {

@@ -27,7 +27,7 @@ export interface SingleProps<
 >
   extends
     Omit<SingleFrameProps<K, E>, "multiple" | "children">,
-    Pick<DialogProps<K>, "emptyContent" | "status" | "onSearch" | "actions">,
+    Pick<DialogProps<K>, "emptyContent" | "status" | "onSearch" | "actions" | "footer">,
     Omit<Dialog.FrameProps, "onChange" | "children" | "variant">,
     Pick<SingleTriggerProps, "disabled" | "icon" | "haulType">,
     Pick<List.ItemsProps<K>, "children"> {
@@ -56,6 +56,7 @@ export const Single = <K extends record.Key, E extends record.Keyed<K> | undefin
   children,
   variant = "connected",
   actions,
+  footer,
   dialogProps,
   triggerProps,
   virtual = true,
@@ -89,6 +90,7 @@ export const Single = <K extends record.Key, E extends record.Keyed<K> | undefin
         emptyContent={emptyContent}
         status={status}
         actions={actions}
+        footer={footer}
         {...dialogProps}
       >
         {children}
