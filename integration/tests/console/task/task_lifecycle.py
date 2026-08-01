@@ -177,7 +177,7 @@ class TaskLifecycle(SimulatorCase, ConsoleCase):
         t = TASKS[0]
         self.log(f"Testing: Export task '{t.name}'")
         exported = self.console.tasks.export_task(t.name)
-        assert_envelope(exported, type=t.type, min_version=1, name=t.name)
+        assert_envelope(exported, envelope_type=t.type, min_version=1, name=t.name)
         assert "channels" in exported, "Exported JSON should contain 'channels'"
         assert len(exported["channels"]) > 0, "Exported channels should not be empty"
 

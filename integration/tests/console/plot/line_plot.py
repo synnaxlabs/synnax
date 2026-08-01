@@ -260,7 +260,9 @@ class LinePlot(ConsoleCase):
 
         exported = plot.export_json()
 
-        assert_envelope(exported, type="lineplot", min_version=1, name=plot.page_name)
+        assert_envelope(
+            exported, envelope_type="lineplot", min_version=1, name=plot.page_name
+        )
         assert "channels" in exported, "Exported JSON should contain 'channels'"
         assert "y1" in exported["channels"], "Channels should include 'y1' axis"
 
@@ -316,7 +318,7 @@ class LinePlot(ConsoleCase):
         self.log("Testing export plot via context menu")
         exported = self.console.project.export_page(self.ctx_plot_name)
         assert_envelope(
-            exported, type="lineplot", min_version=1, name=self.ctx_plot_name
+            exported, envelope_type="lineplot", min_version=1, name=self.ctx_plot_name
         )
         assert "channels" in exported, "Exported JSON should contain 'channels'"
 

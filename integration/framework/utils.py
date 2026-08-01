@@ -152,20 +152,20 @@ def assert_link_format(
 
 def assert_envelope(
     exported: dict[str, Any],
-    type: str,
+    envelope_type: str,
     min_version: int,
     name: str | None = None,
 ) -> None:
     """Assert that a server-side export has the portable envelope shape.
 
     :param exported: The decoded export JSON.
-    :param type: The expected envelope type (e.g., "lineplot", "schematic").
+    :param envelope_type: The expected envelope type (e.g., "lineplot", "schematic").
     :param min_version: Floor for the envelope version — a floor, not an exact match, so
         server-side version bumps don't break export tests.
     :param name: Optional resource name the envelope must carry.
     """
-    assert exported.get("type") == type, (
-        f"Envelope type should be {type!r}, got {exported.get('type')!r}"
+    assert exported.get("type") == envelope_type, (
+        f"Envelope type should be {envelope_type!r}, got {exported.get('type')!r}"
     )
     version = exported.get("version")
     assert isinstance(version, int) and version >= min_version, (

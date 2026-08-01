@@ -312,7 +312,9 @@ class LogLifecycle(ConsoleCase):
 
         self.log("Testing export log via context menu")
         exported = self.console.project.export_page(self.ctx_log_name)
-        assert_envelope(exported, type="log", min_version=2, name=self.ctx_log_name)
+        assert_envelope(
+            exported, envelope_type="log", min_version=2, name=self.ctx_log_name
+        )
 
         self.log("Testing rename log via context menu")
         new_name = f"Renamed Log {self.suffix}"

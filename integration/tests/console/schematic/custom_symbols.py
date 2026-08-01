@@ -246,7 +246,7 @@ class CustomSymbols(ConsoleCase):
 
         assert_envelope(
             exported,
-            type="schematic_symbol",
+            envelope_type="schematic_symbol",
             min_version=1,
             name=self.test_symbol_name,
         )

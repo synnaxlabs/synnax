@@ -25,7 +25,7 @@ def assert_exported_json(exported: dict[str, Any]) -> None:
     - Envelope shape: 'schematic' type, version >= SCHEMATIC_VERSION, key stripped
     - Required keys exist: nodes, edges, configs
     """
-    assert_envelope(exported, type="schematic", min_version=SCHEMATIC_VERSION)
+    assert_envelope(exported, envelope_type="schematic", min_version=SCHEMATIC_VERSION)
     required_keys = ["nodes", "edges", "configs"]
     for key in required_keys:
         assert key in exported, f"Exported JSON should contain '{key}'"

@@ -461,10 +461,14 @@ class LayoutClient:
                 # Toasts overlap the dropdown and swallow the click.
                 self.notifications.close_all()
                 dialog = self.page.locator(".pluto-dialog__dialog.pluto--visible")
-                if reopen is not None and dialog.count() == 0:
-                    reopen()
-                    apply_search()
-                else:
+                try:
+                    if reopen is not None and dialog.count() == 0:
+                        reopen()
+                        apply_search()
+                    else:
+                        sy.sleep(1)
+                except Exception:
+                    # A failed reopen consumes this retry instead of aborting.
                     sy.sleep(1)
                 continue
 

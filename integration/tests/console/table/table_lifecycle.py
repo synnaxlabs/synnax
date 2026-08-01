@@ -254,7 +254,9 @@ class TableLifecycle(ConsoleCase):
         assert self.ctx_table_name is not None
         self.log("Testing export table via context menu")
         exported = self.console.project.export_page(self.ctx_table_name)
-        assert_envelope(exported, type="table", min_version=1, name=self.ctx_table_name)
+        assert_envelope(
+            exported, envelope_type="table", min_version=1, name=self.ctx_table_name
+        )
 
     def test_ctx_delete(self) -> None:
         """Test deleting a table via context menu."""
