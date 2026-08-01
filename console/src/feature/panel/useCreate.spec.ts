@@ -40,7 +40,7 @@ describe("useCreate", () => {
     if (selected == null) throw new Error("no panel selected after create");
 
     await waitFor(async () => {
-      const doc = await client.panels.retrieve({ key: selected });
+      const doc = await client.panels.retrieve(selected);
       expect(doc.name).toEqual("New Panel");
     });
     const children = await client.panels.retrieve({
@@ -68,7 +68,7 @@ describe("useCreate", () => {
     const second = Session.Panel.selectSelected(store.getState());
     if (second == null) throw new Error("no panel selected after second create");
     await waitFor(async () => {
-      const doc = await client.panels.retrieve({ key: second });
+      const doc = await client.panels.retrieve(second);
       expect(doc.name).toEqual("New Panel");
     });
   });

@@ -772,8 +772,8 @@ describe("Panel.Mosaic", () => {
       expect(onSelectB).toHaveBeenCalledWith(moved.key);
       await waitFor(async () => {
         const [srcDoc, dstDoc] = await Promise.all([
-          client.panels.retrieve({ key: a.key }),
-          client.panels.retrieve({ key: b.key }),
+          client.panels.retrieve(a.key),
+          client.panels.retrieve(b.key),
         ]);
         expect(panel.findTab(srcDoc.root, moved.key)).toBeUndefined();
         expect(panel.findTab(srcDoc.root, stays.key)).toBeDefined();
@@ -798,7 +798,7 @@ describe("Panel.Mosaic", () => {
       });
 
       await waitFor(async () => {
-        const fetched = await client.panels.retrieve({ key: a.key });
+        const fetched = await client.panels.retrieve(a.key);
         expect(panel.findTab(fetched.root, first.key)).toBeDefined();
         expect(panel.findTab(fetched.root, second.key)).toBeDefined();
       }, ROUND_TRIP);

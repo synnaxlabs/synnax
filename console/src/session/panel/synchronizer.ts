@@ -50,7 +50,7 @@ const applySelection = ({ client, store }: Params, candidates: panel.Key[]): voi
   // A retrieve can race a delete and return an already-deleted panel; the
   // local tombstone is authoritative.
   const keys = candidates.filter(
-    (key) => !query.Deleted.matches(client.panels.getCached({ key })),
+    (key) => !query.Deleted.matches(client.panels.getCached(key)),
   );
   const win = selectActiveWindow(store.getState());
   if (win == null) return;
