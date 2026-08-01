@@ -20,10 +20,10 @@
 #include <unordered_set>
 #include <vector>
 
+#include "absl/log/log.h"
+
 #include "client/cpp/channel/types.gen.h"
 #include "x/cpp/telem/frame.h"
-
-#include "absl/log/log.h"
 
 namespace driver::bypass {
 /// @brief maximum number of frames buffered per subscription before the oldest frames

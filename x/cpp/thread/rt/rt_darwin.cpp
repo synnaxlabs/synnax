@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include "absl/log/log.h"
 #include <mach/mach.h>
 #include <mach/mach_time.h>
 #include <mach/thread_policy.h>
@@ -14,8 +15,6 @@
 #include <sys/qos.h>
 
 #include "x/cpp/thread/rt/rt.h"
-
-#include "absl/log/log.h"
 
 namespace x::thread::rt {
 namespace {

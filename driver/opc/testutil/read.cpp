@@ -9,6 +9,7 @@
 
 #include <utility>
 
+#include "absl/log/log.h"
 #include "mbedtls/error.h"
 #include "mbedtls/x509_crt.h"
 #include "open62541/client_config_default.h"
@@ -18,7 +19,6 @@
 #include "x/cpp/errors/errors.h"
 #include "x/cpp/telem/series.h"
 
-#include "absl/log/log.h"
 #include "driver/opc/errors/errors.h"
 #include "driver/opc/telem/telem.h"
 #include "driver/opc/testutil/testutil.h"

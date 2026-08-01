@@ -14,11 +14,12 @@
 #include <string>
 #include <vector>
 
+#include "absl/log/log.h"
+
 #include "client/cpp/synnax.h"
 #include "x/cpp/breaker/breaker.h"
 #include "x/cpp/json/json.h"
 
-#include "absl/log/log.h"
 #include "device/device.h"
 #include "driver/common/read_task.h"
 #include "driver/common/sample_clock.h"

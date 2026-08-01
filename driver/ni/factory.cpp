@@ -9,9 +9,10 @@
 
 #include <vector>
 
+#include "absl/log/log.h"
+
 #include "x/cpp/os/os.h"
 
-#include "absl/log/log.h"
 #include "driver/common/factory.h"
 #include "driver/ni/daqmx/prod.h"
 #include "driver/ni/hardware/hardware.h"

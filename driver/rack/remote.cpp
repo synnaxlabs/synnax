@@ -7,10 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include "absl/log/log.h"
+
 #include "x/cpp/errors/errors.h"
 #include "x/cpp/os/os.h"
 
-#include "absl/log/log.h"
 #include "driver/rack/rack.h"
 
 namespace driver::rack {

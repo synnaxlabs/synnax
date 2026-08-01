@@ -10,6 +10,7 @@
 #include <chrono>
 #include <thread>
 
+#include "absl/log/log.h"
 #include <sys/epoll.h>
 #include <sys/eventfd.h>
 #include <sys/timerfd.h>
@@ -19,7 +20,6 @@
 #include "x/cpp/telem/telem.h"
 #include "x/cpp/thread/rt/rt.h"
 
-#include "absl/log/log.h"
 #include "arc/cpp/runtime/loop/loop.h"
 
 namespace arc::runtime::loop {

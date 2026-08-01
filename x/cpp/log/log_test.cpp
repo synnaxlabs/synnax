@@ -10,14 +10,13 @@
 #include <functional>
 #include <string>
 
-#include "gtest/gtest.h"
-
-#include "x/cpp/log/log.h"
-
 #include "absl/log/globals.h"
 #include "absl/log/initialize.h"
 #include "absl/log/log.h"
 #include "absl/log/log_sink_registry.h"
+#include "gtest/gtest.h"
+
+#include "x/cpp/log/log.h"
 
 namespace x::log {
 namespace {

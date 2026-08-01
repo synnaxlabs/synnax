@@ -15,10 +15,10 @@
 #include <sstream>
 #include <string>
 
+#include "absl/log/log.h"
+
 #include "x/cpp/telem/series.h"
 #include "x/cpp/telem/telem.h"
-
-#include "absl/log/log.h"
 
 namespace driver::ethercat::telem {
 /// @brief EtherCAT/CoE data types as defined in ETG.1000.6.

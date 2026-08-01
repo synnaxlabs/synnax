@@ -30,12 +30,12 @@
 #include <unistd.h>
 #endif
 
+#include "absl/log/log.h"
 #include "modbus/modbus.h"
 
 #include "x/cpp/errors/errors.h"
 #include "x/cpp/telem/telem.h"
 
-#include "absl/log/log.h"
 #include "driver/modbus/util/util.h"
 
 namespace driver::modbus::mock {

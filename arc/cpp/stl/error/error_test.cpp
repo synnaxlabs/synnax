@@ -11,10 +11,10 @@
 #include <vector>
 
 #include "gtest/gtest.h"
+#include "wasmtime.hh"
 
 #include "arc/cpp/runtime/errors/errors.h"
 #include "arc/cpp/stl/error/error.h"
-#include "wasmtime.hh"
 
 namespace arc::stl::error {
 const std::string_view PANIC_WAT = R"wat(

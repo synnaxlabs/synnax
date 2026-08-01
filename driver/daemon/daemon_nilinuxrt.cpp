@@ -16,10 +16,10 @@
 #include <fstream>
 #include <thread>
 
+#include "absl/log/log.h"
 #include <signal.h>
 #include <sys/stat.h>
 
-#include "absl/log/log.h"
 #include "driver/daemon/daemon.h"
 
 namespace fs = std::filesystem;

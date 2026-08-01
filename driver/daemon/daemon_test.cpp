@@ -114,5 +114,8 @@ TEST(Daemon, testRunReportsCallbackError) {
     const auto &msgs = sock.drain();
     EXPECT_NE(msgs.find("STATUS=Error: boom"), std::string::npos);
     EXPECT_NE(msgs.find("STOPPING=1"), std::string::npos);
+    // The error must remain the unit's STATUS: shutdown sends STOPPING=1 without a
+    // STATUS=Stopping line that would overwrite it.
+    EXPECT_EQ(msgs.find("STATUS=Stopping"), std::string::npos);
 }
 }

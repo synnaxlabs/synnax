@@ -18,10 +18,9 @@
 #include <thread>
 
 /// external
+#include "absl/log/log.h"
 #include "open62541/server.h"
 #include "open62541/server_config_default.h"
-
-#include "absl/log/log.h"
 
 /// module
 #include "x/cpp/telem/telem.h"

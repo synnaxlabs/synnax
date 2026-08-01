@@ -7,11 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include "absl/log/log.h"
+
 #include "x/cpp/args/args.h"
 #include "x/cpp/errors/errors.h"
 #include "x/cpp/log/log.h"
 
-#include "absl/log/log.h"
 #include "driver/daemon/daemon.h"
 
 namespace driver::cmd::sub {
@@ -36,7 +37,8 @@ int exec_svc_cmd(
 
 int internal_start(x::args::Parser &args) {
     daemon::Config config;
-    int code = 0;
+    // Stays nonzero when start throws, so the unit's restart policy engages.
+    int code = 1;
     config.callback = [&] { code = start(args); };
     daemon::run(config);
     return code;

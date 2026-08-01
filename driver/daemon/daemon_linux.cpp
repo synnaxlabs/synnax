@@ -14,12 +14,12 @@
 #include <mutex>
 #include <thread>
 
+#include "absl/log/log.h"
 #include <sys/stat.h>
 #include <systemd/sd-daemon.h>
 
 #include "x/cpp/thread/thread.h"
 
-#include "absl/log/log.h"
 #include "driver/daemon/daemon.h"
 
 namespace fs = std::filesystem;
@@ -231,15 +231,21 @@ void run(const Config &config) {
     update_status(Status::READY, "Daemon ready");
 
     // Run the main application logic
+    bool failed = false;
     try {
         config.callback();
     } catch (const std::exception &e) {
+        failed = true;
         update_status(Status::ERROR_, e.what());
         LOG(ERROR) << "Application error: " << e.what();
     }
 
-    // Cleanup
-    update_status(Status::STOPPING, "Stopping daemon");
+    // Cleanup. On failure, send STOPPING=1 alone so the error stays visible as the
+    // unit's STATUS instead of being overwritten with "Stopping".
+    if (failed)
+        sd_notify(0, "STOPPING=1");
+    else
+        update_status(Status::STOPPING, "Stopping daemon");
     {
         std::lock_guard<std::mutex> lock(mtx);
         should_stop = true;

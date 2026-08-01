@@ -12,10 +12,10 @@
 #include <string>
 #include <thread>
 
+#include "absl/log/log.h"
+
 #include "x/cpp/breaker/breaker.h"
 #include "x/cpp/thread/thread.h"
-
-#include "absl/log/log.h"
 
 namespace driver::pipeline {
 class Base {

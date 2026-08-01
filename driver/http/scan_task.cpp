@@ -10,9 +10,10 @@
 #include <memory>
 #include <utility>
 
+#include "absl/log/log.h"
+
 #include "x/cpp/json/json.h"
 
-#include "absl/log/log.h"
 #include "driver/http/errors/errors.h"
 #include "driver/http/scan_task.h"
 

@@ -10,9 +10,8 @@
 #include <chrono>
 #include <thread>
 
-#include <windows.h>
-
 #include "absl/log/log.h"
+#include <windows.h>
 
 // timeBeginPeriod/timeEndPeriod from winmm.lib. We declare them manually instead of
 // including <timeapi.h> because WIN32_LEAN_AND_MEAN (set by the build) excludes

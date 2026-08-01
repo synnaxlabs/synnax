@@ -10,6 +10,7 @@
 #pragma once
 
 #include "absl/log/log.h"
+
 #include "driver/pipeline/acquisition.h"
 #include "driver/pipeline/control.h"
 #include "driver/task/task.h"

@@ -17,11 +17,11 @@
 #include <variant>
 #include <vector>
 
+#include "absl/log/log.h"
+
 #include "client/cpp/synnax.h"
 #include "x/cpp/json/json.h"
 #include "x/cpp/telem/telem.h"
-
-#include "absl/log/log.h"
 
 namespace driver::transform {
 class Transform {

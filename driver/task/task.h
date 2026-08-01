@@ -18,12 +18,13 @@
 #include <utility>
 #include <vector>
 
+#include "absl/log/log.h"
+
 #include "client/cpp/synnax.h"
 #include "x/cpp/breaker/breaker.h"
 #include "x/cpp/json/json.h"
 #include "x/cpp/log/log.h"
 
-#include "absl/log/log.h"
 #include "driver/bypass/bypass.h"
 #include "driver/control/state.h"
 

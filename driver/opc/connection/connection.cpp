@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 /// external
+#include "absl/log/log.h"
 #include "mbedtls/error.h"
 #include "mbedtls/x509_crt.h"
 #include "open62541/client_config_default.h"
@@ -16,7 +17,6 @@
 
 #include "x/cpp/errors/errors.h"
 
-#include "absl/log/log.h"
 #include "driver/opc/connection/connection.h"
 #include "driver/opc/errors/errors.h"
 #include "driver/task/task.h"

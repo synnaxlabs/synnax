@@ -10,9 +10,9 @@
 #include <chrono>
 #include <sstream>
 
-#include "client/cpp/connection/checker.h"
-
 #include "absl/log/log.h"
+
+#include "client/cpp/connection/checker.h"
 
 namespace synnax::connection {
 const std::string TROUBLESHOOTING_URL =

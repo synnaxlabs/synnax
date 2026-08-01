@@ -7,9 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include "absl/log/log.h"
+
 #include "x/cpp/lib/lib.h"
 
-#include "absl/log/log.h"
 #include "driver/common/factory.h"
 #include "driver/common/read_task.h"
 #include "driver/common/scan_task.h"

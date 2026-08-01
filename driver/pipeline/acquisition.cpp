@@ -13,9 +13,9 @@
 #include <stdexcept>
 #include <thread>
 
+#include "absl/log/log.h"
 #include "nlohmann/json.hpp"
 
-#include "absl/log/log.h"
 #include "driver/errors/errors.h"
 #include "driver/pipeline/acquisition.h"
 

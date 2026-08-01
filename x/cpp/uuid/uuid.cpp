@@ -9,11 +9,11 @@
 
 #include <sstream>
 
-#include "x/cpp/uuid/uuid.h"
-
 #include "boost/uuid/nil_generator.hpp"
 #include "boost/uuid/random_generator.hpp"
 #include "boost/uuid/string_generator.hpp"
+
+#include "x/cpp/uuid/uuid.h"
 
 namespace x::uuid {
 

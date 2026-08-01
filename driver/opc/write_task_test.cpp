@@ -9,6 +9,7 @@
 
 #include <thread>
 
+#include "absl/log/log.h"
 #include "gtest/gtest.h"
 #include "nlohmann/json.hpp"
 
@@ -16,7 +17,6 @@
 #include "x/cpp/defer/defer.h"
 #include "x/cpp/test/test.h"
 
-#include "absl/log/log.h"
 #include "driver/opc/mock/server.h"
 #include "driver/opc/opc.h"
 #include "driver/opc/testutil/testutil.h"

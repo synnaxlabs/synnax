@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 #include "absl/log/log.h"
+
 #include "driver/ni/hardware/hardware.h"
 
 namespace driver::ni::hardware::daqmx {

@@ -10,6 +10,7 @@
 #pragma once
 
 #include "absl/log/log.h"
+
 #include "driver/common/read_task.h"
 #include "driver/ni/daqmx/sugared.h"
 

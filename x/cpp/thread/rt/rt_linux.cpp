@@ -15,6 +15,7 @@
 #include <string>
 #include <thread>
 
+#include "absl/log/log.h"
 #include <dirent.h>
 #include <linux/sched.h>
 #include <sched.h>
@@ -24,8 +25,6 @@
 #include <unistd.h>
 
 #include "x/cpp/thread/rt/rt.h"
-
-#include "absl/log/log.h"
 
 namespace x::thread::rt {
 namespace {

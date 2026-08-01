@@ -7,9 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-#include "x/cpp/thread/rt/rt.h"
-
 #include "absl/log/log.h"
+
+#include "x/cpp/thread/rt/rt.h"
 
 namespace x::thread::rt {
 Capabilities capabilities() {

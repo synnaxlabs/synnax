@@ -12,11 +12,10 @@
 #ifndef WIN32_LEAN_AND_MEAN
 #define WIN32_LEAN_AND_MEAN
 #endif
+#include "absl/log/log.h"
 #include <windows.h>
 
 #include "x/cpp/thread/rt/rt.h"
-
-#include "absl/log/log.h"
 
 namespace x::thread::rt {
 namespace {

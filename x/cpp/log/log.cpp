@@ -17,12 +17,12 @@
 #include <unistd.h>
 #endif
 
-#include "x/cpp/log/log.h"
-
 #include "absl/base/log_severity.h"
 #include "absl/log/globals.h"
 #include "absl/log/initialize.h"
 #include "absl/log/log_sink_registry.h"
+
+#include "x/cpp/log/log.h"
 
 namespace x::log {
 namespace {

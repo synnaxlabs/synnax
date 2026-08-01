@@ -12,6 +12,7 @@
 #include <unordered_map>
 
 #include "absl/log/log.h"
+
 #include "driver/ethercat/esi/known_devices.h"
 #include "driver/ethercat/slave/slave.h"
 #include "driver/ethercat/soem/master.h"

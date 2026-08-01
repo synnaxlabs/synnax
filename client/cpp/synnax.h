@@ -11,6 +11,8 @@
 
 #include <memory>
 
+#include "absl/log/log.h"
+
 #include "client/cpp/arc/arc.h"
 #include "client/cpp/channel/channel.h"
 #include "client/cpp/connection/checker.h"
@@ -25,7 +27,6 @@
 #include "x/cpp/log/log.h"
 #include "x/cpp/path/path.h"
 
-#include "absl/log/log.h"
 #include "core/pkg/version/version.h"
 
 namespace synnax {

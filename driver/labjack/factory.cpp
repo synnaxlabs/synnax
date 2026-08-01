@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 #include "absl/log/log.h"
+
 #include "driver/common/factory.h"
 #include "driver/labjack/labjack.h"
 #include "driver/labjack/read_task.h"

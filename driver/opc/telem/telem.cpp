@@ -8,9 +8,8 @@
 // included in the file licenses/APL.txt.
 
 /// external
-#include "open62541/types.h"
-
 #include "absl/log/log.h"
+#include "open62541/types.h"
 
 /// module
 #include "x/cpp/telem/series.h"

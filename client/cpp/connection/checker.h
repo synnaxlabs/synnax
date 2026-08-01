@@ -17,13 +17,13 @@
 #include <thread>
 #include <vector>
 
+#include "absl/log/log.h"
 #include "google/protobuf/empty.pb.h"
 
 #include "freighter/cpp/freighter.h"
 #include "x/cpp/telem/clock_skew.h"
 #include "x/cpp/telem/telem.h"
 
-#include "absl/log/log.h"
 #include "core/pkg/transport/grpc/connectivity/connectivity.pb.h"
 
 namespace synnax::connection {
