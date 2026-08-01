@@ -368,7 +368,12 @@ class LayoutClient:
             .first
         )
         checkbox.wait_for(state="attached", timeout=300)
-        checkbox.click()
+        try:
+            checkbox.click(timeout=5000)
+        except PlaywrightTimeoutError:
+            # Toasts stack over the bottom of a form and swallow the click.
+            self.notifications.close_all()
+            checkbox.click(timeout=5000)
 
     def get_toggle(self, toggle_label: str) -> bool:
         """Get the value of a toggle by label."""
@@ -445,14 +450,16 @@ class LayoutClient:
                 if exact:
                     for candidate in self.page.locator(target_item).all():
                         if candidate.inner_text().strip() == text:
-                            candidate.click()
+                            candidate.click(timeout=5000)
                             return
                 else:
                     item = self.page.locator(target_item).first
                     item.wait_for(state="attached", timeout=5000)
-                    item.click()
+                    item.click(timeout=5000)
                     return
             except Exception:
+                # Toasts overlap the dropdown and swallow the click.
+                self.notifications.close_all()
                 dialog = self.page.locator(".pluto-dialog__dialog.pluto--visible")
                 if reopen is not None and dialog.count() == 0:
                     reopen()
