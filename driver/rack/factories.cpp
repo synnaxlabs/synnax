@@ -7,10 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include "absl/log/log.h"
+
 #ifndef SYNNAX_NILINUXRT
 #include "driver/modbus/modbus.h"
 #endif
-#include "absl/log/log.h"
 
 #include "driver/arc/arc.h"
 #include "driver/ethercat/ethercat.h"

@@ -10,7 +10,6 @@
 /// @brief NI Linux Real-Time does not support systemd, so we use a traditional init
 /// script instead.
 
-/// std.
 #include <filesystem>
 #include <fstream>
 #include <thread>

@@ -12,11 +12,10 @@
 #include <deque>
 #include <unordered_map>
 
+#include "client/cpp/status/status.h"
+
 #include "driver/common/common.h"
 #include "driver/task/task.h"
-
-/// modules
-#include "client/cpp/status/status.h"
 
 namespace driver::common {
 const std::string STOP_CMD_TYPE = "stop";

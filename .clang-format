@@ -51,7 +51,7 @@ IncludeCategories:
       Priority: 2
       SortPriority: 2
     # external - Third-party libraries with quotes (from MODULE.bazel and vendor/)
-    - Regex: '^"(absl|benchmark|boost|gmock|google|gperftools|grpcpp?)/'
+    - Regex: '^"(absl|benchmark|boost|gmock|google|gperftools|grpc(pp)?)/'
       Priority: 2
       SortPriority: 2
     - Regex: '^"(gtest|mbedtls|modbus|nlohmann|open62541|soem|vendor)/'

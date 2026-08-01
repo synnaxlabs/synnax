@@ -9,17 +9,13 @@
 
 #pragma once
 
-/// external
 #include "open62541/client_highlevel.h"
 #include "open62541/common.h"
 #include "open62541/types.h"
 
-/// module
 #include "x/cpp/json/json.h"
 #include "x/cpp/loop/loop.h"
 #include "x/cpp/strings/strings.h"
-
-/// internal
 
 #include "driver/common/read_task.h"
 #include "driver/common/sample_clock.h"

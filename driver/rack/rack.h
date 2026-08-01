@@ -18,6 +18,8 @@
 #include <winsock2.h>
 #endif
 
+#include "absl/log/log.h"
+
 #include "x/cpp/args/args.h"
 #include "x/cpp/log/log.h"
 #include "x/cpp/thread/rt/rt.h"
@@ -27,7 +29,6 @@
 #ifndef SYNNAX_NILINUXRT
 #include "driver/modbus/modbus.h"
 #endif
-#include "absl/log/log.h"
 
 #include "driver/common/sample_clock.h"
 #include "driver/ethercat/ethercat.h"

@@ -9,16 +9,12 @@
 
 #pragma once
 
-/// external
+#include "absl/log/log.h"
 #include "open62541/client.h"
 #include "open62541/client_config_default.h"
 #include "open62541/client_highlevel.h"
 
-/// module
 #include "x/cpp/json/json.h"
-
-/// internal
-#include "absl/log/log.h"
 
 #include "driver/common/write_task.h"
 #include "driver/opc/connection/connection.h"

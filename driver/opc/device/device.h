@@ -9,19 +9,15 @@
 
 #pragma once
 
-/// std
 #include <memory>
 #include <string>
 #include <utility>
 
-/// external
 #include "open62541/client.h"
 
-/// module
 #include "x/cpp/errors/errors.h"
 #include "x/cpp/telem/series.h"
 
-/// internal
 #include "driver/opc/connection/connection.h"
 #include "driver/opc/errors/errors.h"
 #include "driver/opc/telem/telem.h"
