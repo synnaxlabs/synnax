@@ -13,6 +13,7 @@
 #include "nlohmann/json.hpp"
 
 #include "client/cpp/testutil/testutil.h"
+#include "x/cpp/defer/defer.h"
 #include "x/cpp/test/test.h"
 
 #include "absl/log/log.h"

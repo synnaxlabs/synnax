@@ -16,7 +16,7 @@
 
 #include "absl/log/log.h"
 #include "driver/common/factory.h"
-#include "driver/pipeline/acquisition.h"
+#include "driver/pipeline/base.h"
 #include "driver/task/task.h"
 
 namespace driver::rack::status {

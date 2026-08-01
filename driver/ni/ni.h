@@ -9,8 +9,6 @@
 
 #pragma once
 
-#include "client/cpp/synnax.h"
-
 #include "absl/log/log.h"
 #include "driver/common/common.h"
 #include "driver/common/sample_clock.h"
