@@ -178,14 +178,20 @@ export abstract class Retriever<
       serverFields,
       watch,
     });
-    // A bare key array is shorthand for `{ keys }`. A schema that strips the
-    // field would silently match every record, so reject it instead.
+    // A bare key array the schema does not accept directly retries as
+    // `{ keys }` shorthand. A schema that strips the field would silently
+    // match every record, so that retry is rejected instead.
     this.normalizeRequest = (p) => {
-      if (!isBareKeys(p)) return schema.parse(p);
-      const parsed = schema.parse({ keys: p });
-      if ((parsed as { keys?: unknown }).keys == null)
-        throw new ValidationError(`${name} does not accept bare key-array queries`);
-      return parsed;
+      const res = schema.safeParse(p);
+      if (res.success) return res.data;
+      if (isBareKeys(p)) {
+        const retried = schema.safeParse({ keys: p });
+        if (retried.success) {
+          if ((retried.data as { keys?: unknown }).keys != null) return retried.data;
+          throw new ValidationError(`${name} does not accept bare key-array queries`);
+        }
+      }
+      throw res.error;
     };
     if (single != null) {
       this.singleSpace = single.space;
