@@ -87,7 +87,7 @@ describe("arc/Toolbar", () => {
     await waitFor(() => expect(create.className).not.toContain("pluto--disabled"));
     fireEvent.click(create);
     const key = await focusedResourceKey(store);
-    const created = await client.arcs.retrieve({ key });
+    const created = await client.arcs.retrieve(key);
     expect(created.name).toBe(name);
   });
 
@@ -116,7 +116,7 @@ describe("arc/Toolbar", () => {
       const renamed = uniqueName("renamed");
       commitTextEdit(editor, renamed);
       await waitFor(async () =>
-        expect((await client.arcs.retrieve({ key: arc.key })).name).toBe(renamed),
+        expect((await client.arcs.retrieve(arc.key)).name).toBe(renamed),
       );
     });
   });

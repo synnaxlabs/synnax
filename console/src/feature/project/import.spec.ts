@@ -172,11 +172,9 @@ describe("project import", () => {
     });
     expect(resources.map(({ type }) => type)).toEqual([SCHEMATIC_TYPE, TABLE_TYPE]);
     const [schematicID, tableID] = resources;
-    const importedSchematic = await client.schematics.retrieve({
-      key: schematicID.key,
-    });
+    const importedSchematic = await client.schematics.retrieve(schematicID.key);
     expect(importedSchematic.name).toBe("Operator");
-    const importedTable = await client.tables.retrieve({ key: tableID.key });
+    const importedTable = await client.tables.retrieve(tableID.key);
     expect(importedTable.name).toBe("Thermocouples");
   });
 

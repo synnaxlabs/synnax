@@ -148,7 +148,7 @@ const affectedTaskKeys = (
   return keys.length === 0 ? null : keys;
 };
 
-export interface ClientParams {
+export interface ClientConfig {
   unary: UnaryClient;
   stream: StreamClient;
   ontology: ontology.Client;
@@ -165,12 +165,12 @@ export class Client extends query.Retriever<
   SingleRetrieveParams,
   SingleRetrieveParams
 > {
-  private readonly cfg: ClientParams;
+  private readonly cfg: ClientConfig;
   private readonly dispatcher: actions.Controller<Key, Arc, Action>;
   private readonly store: query.Table<Key, Arc>;
   private readonly taskAnswers: query.Retrieves<Key, task.Task | null>;
 
-  constructor(cfg: ClientParams) {
+  constructor(cfg: ClientConfig) {
     const { cache } = cfg;
     // Fetched copies never clobber a doc holding locally replayed edits: the
     // table hydrates if-absent, and hydrate() decides when a fresh network
@@ -506,6 +506,6 @@ export class Client extends query.Retriever<
     }
     const child = children[0];
     if (child == null) return null;
-    return await this.cfg.tasks.retrieve({ key: child.id.key });
+    return await this.cfg.tasks.retrieve(child.id.key);
   }
 }

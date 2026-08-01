@@ -74,7 +74,7 @@ describe("project ontology service", () => {
     fireEvent.click(await screen.findByText("Create log"));
     const tab = await resolveFocusedTab(store, client);
     if (tab.variant !== "resource") throw new Error("focused tab is not a resource");
-    const created = await client.logs.retrieve({ key: tab.resource.key });
+    const created = await client.logs.retrieve(tab.resource.key);
     expect(created.name).toBe("Log");
     expect(Session.Project.selectOptionalSelected(store.getState())).toBe(p.key);
   });
@@ -95,7 +95,7 @@ describe("project ontology service", () => {
       expect(Session.Project.selectOptionalSelected(store.getState())).toBeUndefined(),
     );
     await waitFor(async () => {
-      await expect(client.projects.retrieve({ key: p.key })).rejects.toSatisfy((e) =>
+      await expect(client.projects.retrieve(p.key)).rejects.toSatisfy((e) =>
         NotFoundError.matches(e),
       );
     });

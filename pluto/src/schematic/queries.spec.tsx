@@ -148,9 +148,9 @@ describe("schematic queries", () => {
       await loadSchematic(Wrapper, doomed.key);
       await client.schematics.delete(doomed.key);
       await waitFor(() =>
-        expect(
-          query.Deleted.matches(client.schematics.getCached({ key: doomed.key })),
-        ).toBe(true),
+        expect(query.Deleted.matches(client.schematics.getCached(doomed.key))).toBe(
+          true,
+        ),
       );
 
       const caught: Error[] = [];
@@ -174,9 +174,7 @@ describe("schematic queries", () => {
       const error = caught[0];
       assert(Flux.DeletedError.matches(error));
       expect(error.corpseName).toBe("test_schematic");
-      const corpse = query.requireCorpse(
-        client.schematics.getCached({ key: doomed.key }),
-      );
+      const corpse = query.requireCorpse(client.schematics.getCached(doomed.key));
       expect(corpse.key).toBe(doomed.key);
     });
 
@@ -373,7 +371,7 @@ describe("schematic queries", () => {
       expect(selected.current.name).toBe("created_schematic");
       expect(selected.current.snapshot).toBe(false);
 
-      const retrieved = await client.schematics.retrieve({ key });
+      const retrieved = await client.schematics.retrieve(key);
       expect(retrieved.name).toBe("created_schematic");
     });
   });
@@ -397,7 +395,7 @@ describe("schematic queries", () => {
         expect(result.current.variant).toBe("success");
       });
 
-      const retrieved = await client.schematics.retrieve({ key: schem.key });
+      const retrieved = await client.schematics.retrieve(schem.key);
       expect(retrieved.name).toBe("renamed_schematic");
     });
   });
@@ -415,7 +413,7 @@ describe("schematic queries", () => {
       });
 
       expect(result.current.variant).toBe("success");
-      await expect(client.schematics.retrieve({ key: schem.key })).rejects.toThrow(
+      await expect(client.schematics.retrieve(schem.key)).rejects.toThrow(
         NotFoundError,
       );
     });

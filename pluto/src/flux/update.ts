@@ -8,11 +8,10 @@
 // included in the file licenses/APL.txt.
 
 import { type query, type status, type Synnax as Client } from "@synnaxlabs/client";
-import { type CrudeTimeSpan, type destructor, state } from "@synnaxlabs/x";
+import { type CrudeTimeSpan, type destructor, state, type verbs } from "@synnaxlabs/x";
 import { useCallback, useState } from "react";
 import type z from "zod";
 
-import { type flux } from "@/flux/aether";
 import {
   errorResult,
   type InitialStatusDetailsContainer,
@@ -45,7 +44,7 @@ export type CreateUpdateParams<
   StatusDetails extends z.ZodType = z.ZodNever,
 > = {
   name: string;
-  verbs: flux.Verbs;
+  verbs: verbs.Verbs;
   update: (
     params: UpdateParams<Input, Output, StatusDetails>,
   ) => Promise<Output | false>;

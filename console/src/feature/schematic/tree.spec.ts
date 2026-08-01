@@ -161,7 +161,7 @@ describe("Schematic TreeContextMenu", () => {
     await screen.findByText(`Are you sure you want to delete ${s.name}?`);
     fireEvent.click(findButton("Delete"));
     await waitFor(async () => {
-      await expect(client.schematics.retrieve({ key: s.key })).rejects.toSatisfy((e) =>
+      await expect(client.schematics.retrieve(s.key)).rejects.toSatisfy((e) =>
         NotFoundError.matches(e),
       );
     });
@@ -176,7 +176,7 @@ describe("Schematic TreeContextMenu", () => {
     const next = uniqueName("renamed");
     commitTextEdit(editable, next);
     await waitFor(async () => {
-      const retrieved = await client.schematics.retrieve({ key: s.key });
+      const retrieved = await client.schematics.retrieve(s.key);
       expect(retrieved.name).toBe(next);
     });
     result.unmount();
@@ -197,7 +197,7 @@ describe("Schematic TreeContextMenu", () => {
     const renamed = uniqueName("copy_renamed");
     commitTextEdit(editable, renamed);
     await waitFor(async () => {
-      const retrieved = await client.schematics.retrieve({ key: copyKey });
+      const retrieved = await client.schematics.retrieve(copyKey);
       expect(retrieved.name).toBe(renamed);
     });
     result.unmount();

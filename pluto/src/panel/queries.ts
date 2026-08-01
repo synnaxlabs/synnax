@@ -16,7 +16,7 @@ import {
   type Synnax as Client,
   UnexpectedError,
 } from "@synnaxlabs/client";
-import { array, compare, deep, type optional, type record } from "@synnaxlabs/x";
+import { array, compare, deep, type optional, type record, verbs } from "@synnaxlabs/x";
 import { useCallback, useMemo } from "react";
 import { type z } from "zod";
 
@@ -32,11 +32,9 @@ export type RetrieveQuery = { key: panel.Key };
 export const { useRetrieve, useEnsureRetrieved, useRetrieveEffect } =
   Flux.createRetrieve<RetrieveQuery, panel.Panel>({
     name: RESOURCE_NAME,
-    retrieve: async ({ client, query: { key } }) =>
-      await client.panels.retrieve({ key }),
-    subscribe: ({ client, query: { key } }, handler) =>
-      client.panels.onChange({ key }, handler),
-    getCached: ({ client, query: { key } }) => client.panels.getCached({ key }),
+    retrieve: async ({ client, query }) => await client.panels.retrieve(query),
+    subscribe: ({ client, query }, handler) => client.panels.onChange(query, handler),
+    getCached: ({ client, query }) => client.panels.getCached(query),
   });
 
 export type RetrieveByProjectQuery = { project: project.Key };
@@ -61,7 +59,7 @@ export interface SelectKeyParams {
 }
 
 const requirePanel = (client: Client | null, key: panel.Key): panel.Panel => {
-  const cached = client?.panels.getCached({ key });
+  const cached = client?.panels.getCached(key);
   if (cached == null) throw new NotFoundError(`Panel with key ${key} not found`);
   if (query.Deleted.matches(cached))
     throw new Flux.DeletedError(`${RESOURCE_NAME} was deleted`, cached.corpse);
@@ -69,7 +67,7 @@ const requirePanel = (client: Client | null, key: panel.Key): panel.Panel => {
 };
 
 const getPanel = (client: Client | null, key: panel.Key): panel.Panel | undefined => {
-  const cached = client?.panels.getCached({ key });
+  const cached = client?.panels.getCached(key);
   if (!query.isLive(cached)) return undefined;
   return cached;
 };
@@ -77,7 +75,7 @@ const getPanel = (client: Client | null, key: panel.Key): panel.Panel | undefine
 const subscribe = (
   { client, args: { key } }: Flux.SelectorParams<SelectKeyParams>,
   notify: () => void,
-) => (client == null ? () => {} : client.panels.onChange({ key }, notify));
+) => (client == null ? () => {} : client.panels.onChange(key, notify));
 
 export interface SelectTabContentParams {
   key: panel.Key;
@@ -343,10 +341,9 @@ export interface ListParams extends Pick<panel.RetrieveRequest, "offset" | "limi
 export const useList = Flux.createList<ListParams, panel.Key, panel.Panel>({
   name: PLURAL_RESOURCE_NAME,
   retrieve: async ({ client, query }) => await client.panels.retrieve(query),
-  retrieveByKey: async ({ client, key }) => await client.panels.retrieve({ key }),
+  retrieveByKey: async ({ client, key }) => await client.panels.retrieve(key),
   subscribe: ({ client, query }, handler) => client.panels.onChange(query, handler),
-  subscribeByKey: ({ client, key }, handler) =>
-    client.panels.onChange({ key }, handler),
+  subscribeByKey: ({ client, key }, handler) => client.panels.onChange(key, handler),
   getCached: ({ client, query }) => client.panels.getCached(query),
 });
 
@@ -354,7 +351,7 @@ export interface CreateParams extends panel.New {}
 
 export const { useUpdate: useCreate } = Flux.createUpdate<CreateParams, panel.Panel>({
   name: RESOURCE_NAME,
-  verbs: Flux.CREATE_VERBS,
+  verbs: verbs.CREATE,
   update: async ({ client, data, onOptimisticComplete }) =>
     await client.panels.create(data, {
       onOptimistic: async ([optimistic]) => await onOptimisticComplete(optimistic),
@@ -365,7 +362,7 @@ export interface RenameParams extends Pick<panel.Panel, "key" | "name"> {}
 
 export const { useUpdate: useRename } = Flux.createUpdate<RenameParams>({
   name: RESOURCE_NAME,
-  verbs: Flux.RENAME_VERBS,
+  verbs: verbs.RENAME,
   update: async ({ client, data, onOptimisticComplete }) => {
     const { key, name } = data;
     await onOptimisticComplete(data);
@@ -378,7 +375,7 @@ export type DeleteParams = panel.Key | panel.Key[];
 
 export const { useUpdate: useDelete } = Flux.createUpdate<DeleteParams>({
   name: RESOURCE_NAME,
-  verbs: Flux.DELETE_VERBS,
+  verbs: verbs.DELETE,
   update: async ({ client, data, onOptimisticComplete }) => {
     await client.panels.delete(array.toArray(data), {
       onOptimistic: async () => await onOptimisticComplete(data),

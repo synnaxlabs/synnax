@@ -55,7 +55,7 @@ describe("arc/Explorer", () => {
     const renamed = uniqueName("renamed");
     commitTextEdit(editor, renamed);
     await waitFor(async () =>
-      expect((await client.arcs.retrieve({ key: arc.key })).name).toBe(renamed),
+      expect((await client.arcs.retrieve(arc.key)).name).toBe(renamed),
     );
   });
 });

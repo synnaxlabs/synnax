@@ -70,7 +70,7 @@ const useOnSelect = (): ((resource: ontology.Resource) => void) => {
         const focusedTab = getFocusedTab();
         const panelKey = getSelectedPanel();
         if (focusedTab != null && panelKey != null) {
-          const doc = await client.panels.retrieve({ key: panelKey });
+          const doc = await client.panels.retrieve(panelKey);
           const tab = panel.findTab(doc.root, focusedTab);
           if (tab?.variant === "resource" && tab.resource.type === "lineplot") {
             await LinePlot.addChannelsToActivePlot(

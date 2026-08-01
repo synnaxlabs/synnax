@@ -26,7 +26,7 @@ export const Editor = () => {
   // text is the working CRDT replica. It is bootstrapped once the document loads and lives
   // for the editor's lifetime, materializing the value and translating edits to operations.
   const text = useMemo<CollabText | null>(() => {
-    const cached = client?.arcs.getCached({ key: resourceKey });
+    const cached = client?.arcs.getCached(resourceKey);
     if (!query.isLive(cached)) return null;
     const doc = cached.text.doc;
     return doc != null ? CollabText.bootstrap(doc) : null;
@@ -47,7 +47,7 @@ export const Editor = () => {
   const connect = useCallback(
     (handle: Code.EditorHandle | null) => {
       if (handle == null || text == null || client == null) return;
-      return client.arcs.onChange({ key: resourceKey }, (cached) => {
+      return client.arcs.onChange(resourceKey, (cached) => {
         if (!query.isLive(cached)) return;
         text.sync(cached.text.doc);
         handle.setValue(text.value());

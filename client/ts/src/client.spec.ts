@@ -10,8 +10,12 @@
 import { TimeSpan } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
+import { type connection } from "@/connection";
 import { AuthError, DisconnectedError } from "@/errors";
 import { createTestClient, TEST_CLIENT_PARAMS } from "@/testutil";
+
+const reasonOf = (status: connection.Status): connection.Reason | undefined =>
+  status.variant === "error" ? status.details.reason : undefined;
 
 const FAST_RETRY = {
   baseInterval: TimeSpan.milliseconds(5),
@@ -51,7 +55,7 @@ describe("connect", () => {
   it("should recover from an auth failure via reauthenticate", async () => {
     const client = createTestClient({ password: "definitely-wrong" });
     await expect(client.connect()).rejects.toThrow(AuthError);
-    expect(client.connection.status.details.reason).toEqual("auth");
+    expect(reasonOf(client.connection.status)).toEqual("auth");
     client.reauthenticate({
       username: TEST_CLIENT_PARAMS.username,
       password: TEST_CLIENT_PARAMS.password,
@@ -89,7 +93,7 @@ describe("short circuit", () => {
       retry: FAST_RETRY,
     });
     await expect(client.connect()).rejects.toThrow();
-    expect(client.connection.status.details.reason).toEqual("unreachable");
+    expect(reasonOf(client.connection.status)).toEqual("unreachable");
     const start = performance.now();
     await expect(client.channels.retrieve(["missing"])).rejects.toThrow(
       DisconnectedError,

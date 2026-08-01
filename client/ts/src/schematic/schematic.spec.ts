@@ -37,7 +37,7 @@ describe("Schematic", () => {
       });
       expect(schem.name).toEqual("Schematic");
       expect(schem.key).not.toEqual(uuid.ZERO);
-      const retrieved = await client.schematics.retrieve({ key: schem.key });
+      const retrieved = await client.schematics.retrieve(schem.key);
       expect(retrieved.key).toEqual(schem.key);
     });
   });
@@ -52,7 +52,7 @@ describe("Schematic", () => {
         name: "Schematic",
       });
       await client.schematics.rename(schem.key, "Schematic2");
-      const res = await client.schematics.retrieve({ key: schem.key });
+      const res = await client.schematics.retrieve(schem.key);
       expect(res.name).toEqual("Schematic2");
     });
   });
@@ -67,7 +67,7 @@ describe("Schematic", () => {
         name: "Schematic",
       });
       await client.schematics.delete(schem.key);
-      await expect(client.schematics.retrieve({ key: schem.key })).rejects.toThrow(
+      await expect(client.schematics.retrieve(schem.key)).rejects.toThrow(
         NotFoundError,
       );
     });
@@ -90,7 +90,7 @@ describe("Schematic", () => {
           },
         },
       });
-      const retrieved = await client.schematics.retrieve({ key: schem.key });
+      const retrieved = await client.schematics.retrieve(schem.key);
       const config = retrieved.configs.n1 as Record<string, unknown>;
       expect(config.camelCaseKey).toEqual("value1");
       expect(config.PascalCaseKey).toEqual("value2");
@@ -159,7 +159,7 @@ describe("Schematic", () => {
       await client.schematics.dispatch(schem.key, [
         schematic.setNodePosition({ key: "n1", position: { x: 100, y: 200 } }),
       ]);
-      const res = await client.schematics.retrieve({ key: schem.key });
+      const res = await client.schematics.retrieve(schem.key);
       expect(res.nodes).toHaveLength(1);
       expect(res.nodes[0].position).toEqual({ x: 100, y: 200 });
     });
@@ -172,7 +172,7 @@ describe("Schematic", () => {
           config: { label: "Pump" },
         }),
       ]);
-      const res = await client.schematics.retrieve({ key: schem.key });
+      const res = await client.schematics.retrieve(schem.key);
       expect(res.nodes).toHaveLength(1);
       expect(res.nodes[0]).toMatchObject({ key: "n1", position: { x: 1, y: 2 } });
       expect(res.configs.n1.label).toBe("Pump");
@@ -193,7 +193,7 @@ describe("Schematic", () => {
       await client.schematics.dispatch(schem.key, [
         schematic.removeNode({ key: "n1" }),
       ]);
-      const res = await client.schematics.retrieve({ key: schem.key });
+      const res = await client.schematics.retrieve(schem.key);
       expect(res.nodes).toHaveLength(1);
       expect(res.nodes[0]).toMatchObject({ key: "n2", position: { x: 1, y: 1 } });
       expect(res.configs).toEqual({ n2: { label: "Tank" } });
@@ -220,7 +220,7 @@ describe("Schematic", () => {
         schematic.addEdge({ edge: e("e2", "x", "y", "z", "w") }),
         schematic.addEdge({ edge: e("e3", "c", "o", "d", "i") }),
       ]);
-      const res = await client.schematics.retrieve({ key: schem.key });
+      const res = await client.schematics.retrieve(schem.key);
       expect(res.edges).toEqual([
         e("e1", "a", "o", "b", "i"),
         e("e2", "b", "o", "c", "i"),
@@ -242,7 +242,7 @@ describe("Schematic", () => {
       await client.schematics.dispatch(schem.key, [
         schematic.removeEdge({ key: "e1" }),
       ]);
-      const res = await client.schematics.retrieve({ key: schem.key });
+      const res = await client.schematics.retrieve(schem.key);
       expect(res.edges).toEqual([]);
     });
 
@@ -252,7 +252,7 @@ describe("Schematic", () => {
         schematic.setConfig({ key: "n1", config: { label: "Original" } }),
         schematic.setConfig({ key: "n1", config: { label: "Replaced" } }),
       ]);
-      const res = await client.schematics.retrieve({ key: schem.key });
+      const res = await client.schematics.retrieve(schem.key);
       expect(res.configs.n1.label).toBe("Replaced");
     });
 
@@ -274,7 +274,7 @@ describe("Schematic", () => {
         }),
         schematic.setConfig({ key: "pump", config: { label: "Main Pump" } }),
       ]);
-      const res = await client.schematics.retrieve({ key: schem.key });
+      const res = await client.schematics.retrieve(schem.key);
       expect(res.nodes).toHaveLength(2);
       expect(res.edges).toHaveLength(1);
       expect(res.configs.pump.label).toBe("Main Pump");
@@ -291,7 +291,7 @@ describe("Schematic", () => {
         schematic.setNodePosition({ key: "pump", position: { x: i, y: i * 2 } }),
       );
       await client.schematics.dispatch(schem.key, actions);
-      const res = await client.schematics.retrieve({ key: schem.key });
+      const res = await client.schematics.retrieve(schem.key);
       expect(res.nodes[0].position).toEqual({ x: 29, y: 58 });
     });
 
@@ -308,7 +308,7 @@ describe("Schematic", () => {
           },
         }),
       ]);
-      const res = await client.schematics.retrieve({ key: schem.key });
+      const res = await client.schematics.retrieve(schem.key);
       const config = res.configs.n1;
       expect(config.camelCaseKey).toBe("v1");
       expect(config.PascalCaseKey).toBe("v2");
@@ -329,11 +329,9 @@ describe("store", () => {
     });
     await client.schematics.delete(created.key);
     await expect
-      .poll(() =>
-        query.Deleted.matches(client.schematics.getCached({ key: created.key })),
-      )
+      .poll(() => query.Deleted.matches(client.schematics.getCached(created.key)))
       .toBe(true);
-    const cached = expectDeleted(client.schematics.getCached({ key: created.key }));
+    const cached = expectDeleted(client.schematics.getCached(created.key));
     expect(cached.corpse.name).toEqual(created.name);
   });
 });

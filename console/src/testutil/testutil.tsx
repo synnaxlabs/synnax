@@ -112,7 +112,7 @@ export const resolveFocusedTab = async (
         : Session.Panel.selectSelectedTabs(state, panelKey)[0];
     assertDefined(focused, "no tab focused");
     assertDefined(panelKey, "no panel selected");
-    const doc = await client.panels.retrieve({ key: panelKey });
+    const doc = await client.panels.retrieve(panelKey);
     const tab = panel.findTab(doc.root, focused);
     assertDefined(tab, "focused tab not found in panel");
     // Placement lands focus one dispatch after the click, so a test opening a

@@ -30,9 +30,9 @@ describe("schematic", () => {
       const randomSchematic = await client.schematics.create(proj.key, {
         name: "test",
       });
-      await expect(
-        userClient.schematics.retrieve({ key: randomSchematic.key }),
-      ).rejects.toThrow(AuthError);
+      await expect(userClient.schematics.retrieve(randomSchematic.key)).rejects.toThrow(
+        AuthError,
+      );
     });
 
     it("should allow the caller to retrieve schematics with the correct policy", async () => {
@@ -48,9 +48,7 @@ describe("schematic", () => {
       const randomSchematic = await client.schematics.create(proj.key, {
         name: "test",
       });
-      const retrieved = await userClient.schematics.retrieve({
-        key: randomSchematic.key,
-      });
+      const retrieved = await userClient.schematics.retrieve(randomSchematic.key);
       expect(retrieved.key).toBe(randomSchematic.key);
       expect(retrieved.name).toBe(randomSchematic.name);
     });
@@ -101,9 +99,9 @@ describe("schematic", () => {
         name: "test",
       });
       await userClient.schematics.delete(randomSchematic.key);
-      await expect(
-        userClient.schematics.retrieve({ key: randomSchematic.key }),
-      ).rejects.toThrow(NotFoundError);
+      await expect(userClient.schematics.retrieve(randomSchematic.key)).rejects.toThrow(
+        NotFoundError,
+      );
     });
 
     it("should deny access when no delete policy exists", async () => {

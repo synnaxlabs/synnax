@@ -19,7 +19,7 @@ import { createConsoleWrapper, resolveFocusedTab } from "@/testutil";
 
 describe("lineplot/Selectable", () => {
   it("creates a plot in the active project and opens its tab when clicked", async () => {
-    const proj = await client.projects.retrieve({ key: await project() });
+    const proj = await client.projects.retrieve(await project());
     const { wrapper, store } = await createConsoleWrapper({
       client,
       preloadedState: { [Session.Project.SLICE_NAME]: createActiveState(proj) },
@@ -31,7 +31,7 @@ describe("lineplot/Selectable", () => {
     const tab = await resolveFocusedTab(store, client, (t) => t.variant === "resource");
     if (tab.variant !== "resource") throw new Error("expected a resource tab");
     expect(tab.resource.type).toBe(lineplot.TYPE_ONTOLOGY_ID.type);
-    const created = await client.lineplots.retrieve({ key: tab.resource.key });
+    const created = await client.lineplots.retrieve(tab.resource.key);
     expect(created.name).toBe("Line Plot");
   });
 });

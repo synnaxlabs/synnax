@@ -74,7 +74,7 @@ describe("channel/search", () => {
     const tab = await resolveFocusedTab(store, client);
     if (tab.variant !== "resource") throw new Error("expected a resource tab");
     expect(tab.resource.type).toBe("lineplot");
-    const plot = await client.lineplots.retrieve({ key: tab.resource.key });
+    const plot = await client.lineplots.retrieve(tab.resource.key);
     expect(plot.name).toBe("Line Plot");
     expect(plot.channels.y1).toContain(ch.key);
   });
@@ -111,7 +111,7 @@ describe("channel/search", () => {
     );
     fireEvent.click(await screen.findByText(ch.name), { detail: 0 });
     await waitFor(async () => {
-      const { channels } = await client.lineplots.retrieve({ key: plot.key });
+      const { channels } = await client.lineplots.retrieve(plot.key);
       expect(channels.y1).toContain(ch.key);
     });
   });

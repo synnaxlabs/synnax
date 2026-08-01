@@ -278,9 +278,7 @@ describe("Symbol queries", () => {
         return key;
       });
 
-      const retrieved = await client.schematics.symbols.retrieve({
-        key: key!,
-      });
+      const retrieved = await client.schematics.symbols.retrieve(key!);
       expect(retrieved.name).toBe("created-symbol");
       expect(retrieved.data.svg).toBe("<svg>created</svg>");
 
@@ -337,9 +335,7 @@ describe("Symbol queries", () => {
         expect(result.current.variant).toEqual("success");
       });
 
-      const retrieved = await client.schematics.symbols.retrieve({
-        key: symbol.key,
-      });
+      const retrieved = await client.schematics.symbols.retrieve(symbol.key);
       expect(retrieved.name).toBe("updated-name");
       expect(retrieved.data.svg).toBe("<svg>updated</svg>");
     });
@@ -371,9 +367,7 @@ describe("Symbol queries", () => {
         expect(result.current.variant).toEqual("success");
       });
 
-      const retrieved = await client.schematics.symbols.retrieve({
-        key: symbol.key,
-      });
+      const retrieved = await client.schematics.symbols.retrieve(symbol.key);
       expect(retrieved.name).toBe("new-name");
     });
   });

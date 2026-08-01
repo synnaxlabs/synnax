@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { arc, NotFoundError, query, type Synnax, type task } from "@synnaxlabs/client";
-import { compare, type optional, primitive, type record, xy } from "@synnaxlabs/x";
+import { compare, type record, verbs, xy } from "@synnaxlabs/x";
 import { useCallback } from "react";
 import z from "zod";
 
@@ -41,7 +41,7 @@ export interface SelectKeyParams {
 }
 
 const requireArc = (client: Synnax | null, key: arc.Key): arc.Arc => {
-  const cached = client?.arcs.getCached({ key });
+  const cached = client?.arcs.getCached(key);
   if (cached == null) throw new NotFoundError(`Arc with key ${key} not found`);
   if (query.Deleted.matches(cached))
     throw new Flux.DeletedError(`${RESOURCE_NAME} was deleted`, cached.corpse);
@@ -49,7 +49,7 @@ const requireArc = (client: Synnax | null, key: arc.Key): arc.Arc => {
 };
 
 const getArc = (client: Synnax | null, key: arc.Key): arc.Arc | undefined => {
-  const cached = client?.arcs.getCached({ key });
+  const cached = client?.arcs.getCached(key);
   if (!query.isLive(cached)) return undefined;
   return cached;
 };
@@ -57,7 +57,7 @@ const getArc = (client: Synnax | null, key: arc.Key): arc.Arc | undefined => {
 const subscribe = (
   { client, args: { key } }: Flux.SelectorParams<SelectKeyParams>,
   notify: () => void,
-) => (client == null ? () => {} : client.arcs.onChange({ key }, notify));
+) => (client == null ? () => {} : client.arcs.onChange(key, notify));
 
 // useSelectAllNodes returns every graph node of the Arc with the given key as diagram
 // nodes. graph.Node is a structural superset of Diagram.Node, so the cached array
@@ -189,7 +189,7 @@ export const useList = Flux.createList<ListQuery, arc.Key, arc.Arc>({
   name: PLURAL_RESOURCE_NAME,
   retrieve: async ({ client, query }) =>
     await client.arcs.retrieve({ ...query, includeStatus: true }),
-  retrieveByKey: async ({ client, key }) => await client.arcs.retrieve({ key }),
+  retrieveByKey: async ({ client, key }) => await client.arcs.retrieve(key),
   subscribe: ({ client, query }, handler) =>
     client.arcs.onChange({ ...query, includeStatus: true }, handler),
   getCached: ({ client, query }) =>
@@ -198,7 +198,7 @@ export const useList = Flux.createList<ListQuery, arc.Key, arc.Arc>({
 
 export const { useUpdate: useDelete } = Flux.createUpdate<arc.Key | arc.Key[]>({
   name: PLURAL_RESOURCE_NAME,
-  verbs: Flux.DELETE_VERBS,
+  verbs: verbs.DELETE,
   update: async ({ client, data, onOptimisticComplete }) => {
     await client.arcs.delete(data, {
       onOptimistic: async () => await onOptimisticComplete(data),
@@ -207,31 +207,27 @@ export const { useUpdate: useDelete } = Flux.createUpdate<arc.Key | arc.Key[]>({
   },
 });
 
-export type FormValues = optional.Optional<arc.Arc, "key">;
-
-export const formSchema: z.ZodType<FormValues> = arc.arcZ
-  .partial({ key: true, name: true })
-  .extend({ name: z.string() });
-
-export const ZERO_FORM_VALUES: z.infer<typeof formSchema> = formSchema.parse({
-  name: "",
-  mode: "text",
+export const formSchema = z.object({
+  key: arc.keyZ.optional(),
+  name: z.string().min(1, "Name is required"),
+  mode: arc.modeZ,
 });
 
-export const useForm = Flux.createForm<Partial<RetrieveQuery>, typeof formSchema>({
+export const ZERO_FORM_VALUES: z.infer<typeof formSchema> = {
+  name: "",
+  mode: "graph",
+};
+
+export type FormQuery = Record<string, never>;
+
+export const useForm = Flux.createForm<FormQuery, typeof formSchema>({
   name: RESOURCE_NAME,
   schema: formSchema,
   initialValues: ZERO_FORM_VALUES,
-  retrieve: async ({ client, query: { key, ...rest }, reset }) => {
-    if (key == null || primitive.isZero(key)) return;
-    // Prefer the cached copy: it may hold locally replayed edits ahead of the
-    // server.
-    const cached = client.arcs.getCached({ key });
-    if (query.isLive(cached)) return reset(cached);
-    reset(await client.arcs.retrieve({ key, ...rest }));
-  },
-  update: async ({ client, value, reset }) => {
-    reset(await client.arcs.create(value()));
+  retrieve: async () => {},
+  update: async ({ client, value, set }) => {
+    const res = await client.arcs.create(value());
+    set("key", res.key);
   },
 });
 
@@ -239,7 +235,7 @@ export interface CreateParams extends arc.CreateParams {}
 
 export const { useUpdate: useCreate } = Flux.createUpdate<CreateParams, arc.Arc>({
   name: RESOURCE_NAME,
-  verbs: Flux.CREATE_VERBS,
+  verbs: verbs.CREATE,
   update: async ({ client, data, onOptimisticComplete }) =>
     await client.arcs.create(data, {
       onOptimistic: async ([optimistic]) => await onOptimisticComplete(optimistic),
@@ -258,7 +254,7 @@ export interface RenameParams extends Pick<arc.Arc, "key" | "name"> {}
 
 export const { useUpdate: useRename } = Flux.createUpdate<RenameParams>({
   name: RESOURCE_NAME,
-  verbs: Flux.RENAME_VERBS,
+  verbs: verbs.RENAME,
   update: async ({ client, data, onOptimisticComplete }) => {
     const { key, name } = data;
     await client.arcs.rename(key, name, {

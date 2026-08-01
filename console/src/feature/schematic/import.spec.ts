@@ -406,10 +406,10 @@ describe("schematic import", () => {
       assertDefined(id, "ingest did not return an ontology id");
       expect(openTab).toHaveBeenCalledTimes(1);
       expect(openTab).toHaveBeenCalledWith({ variant: "resource", resource: id });
-      const created = await client.schematics.retrieve({ key: id.key });
+      const created = await client.schematics.retrieve(id.key);
       expect(created.name).toBe(name);
       expect(created.nodes).toHaveLength(1);
-      const cached = client.schematics.getCached({ key: id.key });
+      const cached = client.schematics.getCached(id.key);
       expect(expectLive(cached).name).toBe(name);
     });
 

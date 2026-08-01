@@ -28,6 +28,7 @@ import {
   type ResourceType,
   resourceTypeZ,
   resourceZ,
+  stringIDZ,
 } from "@/ontology/payload";
 import {
   Cache,
@@ -137,7 +138,7 @@ const retrieveRequestZ = z
 export type RetrieveParams = z.input<typeof retrieveRequestZ>;
 
 const singleParamsZ = z
-  .strictObject({ type: resourceTypeZ, key: z.string() })
+  .union([z.strictObject({ type: resourceTypeZ, key: z.string() }), stringIDZ])
   .transform((id) => idToString(id));
 
 /**
@@ -155,7 +156,7 @@ const requestFilter = (req: NormalizedRequest): ((r: Resource) => boolean) => {
   };
 };
 
-export interface ClientParams {
+export interface ClientConfig {
   unary: UnaryClient;
   cache: query.Cache;
 }
@@ -166,7 +167,7 @@ export class Client extends query.Retriever<
   string,
   Resource,
   Resource,
-  ID
+  z.input<typeof singleParamsZ>
 > {
   readonly type: string = "ontology";
   /** Read surface of the ontology record tables. */
@@ -175,10 +176,10 @@ export class Client extends query.Retriever<
   readonly children: query.Retrieves<DependentParams, Resource[]>;
   /** Cached read surface for the parents of a set of resources. */
   readonly parents: query.Retrieves<DependentParams, Resource[]>;
-  private readonly cfg: ClientParams;
+  private readonly cfg: ClientConfig;
   private readonly writer: Writer;
 
-  constructor(cfg: ClientParams) {
+  constructor(cfg: ClientConfig) {
     const { unary, cache } = cfg;
     const relationships = cache.createTable<string, Relationship>({
       name: "relationships",

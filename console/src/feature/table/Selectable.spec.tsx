@@ -19,7 +19,7 @@ import { createConsoleWrapper, resolveFocusedTab } from "@/testutil";
 
 describe("table/Selectable", () => {
   it("creates a table in the active project and opens its tab when clicked", async () => {
-    const proj = await client.projects.retrieve({ key: await project() });
+    const proj = await client.projects.retrieve(await project());
     const { wrapper, store } = await createConsoleWrapper({
       client,
       preloadedState: { [Session.Project.SLICE_NAME]: createActiveState(proj) },
@@ -32,7 +32,7 @@ describe("table/Selectable", () => {
     if (tab.variant !== "resource") throw new Error("expected a resource tab");
     expect(tab.resource.type).toBe(table.TYPE_ONTOLOGY_ID.type);
     const key = tab.resource.key;
-    const created = await client.tables.retrieve({ key });
+    const created = await client.tables.retrieve(key);
     expect(created.name).toBe("Table");
     await waitFor(() =>
       expect(Session.Table.selectEditable({ state: store.getState(), key })).toBe(true),

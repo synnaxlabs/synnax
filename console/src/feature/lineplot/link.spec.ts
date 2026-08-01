@@ -37,7 +37,7 @@ describe("LinePlot.useLink", () => {
     await waitFor(async () => {
       const panelKey = Session.Panel.selectSelected(store.getState());
       expect(panelKey).toBeDefined();
-      const doc = await client.panels.retrieve({ key: panelKey as string });
+      const doc = await client.panels.retrieve(panelKey as string);
       const tab = panel.findTabByResource(doc.root, lineplot.ontologyID(linePlot.key));
       expect(tab).not.toBeNull();
     });

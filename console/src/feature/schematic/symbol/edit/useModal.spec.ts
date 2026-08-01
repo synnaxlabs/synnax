@@ -110,7 +110,7 @@ describe("Schematic.Symbol.Edit.useModal", () => {
       fireEvent.change(findNameInput(), { target: { value: name } });
       fireEvent.click(findButton("Create"));
       await waitFor(async () => {
-        const created = await client.schematics.symbols.retrieve({ key: createKey });
+        const created = await client.schematics.symbols.retrieve(createKey);
         expect(created.name).toBe(name);
       });
     });
@@ -239,9 +239,7 @@ describe("Schematic.Symbol.Edit.useModal", () => {
       fireEvent.change(nameInput, { target: { value: renamed } });
       fireEvent.click(findButton("Save"));
       await waitFor(async () => {
-        const retrieved = await client.schematics.symbols.retrieve({
-          key: symbol.key,
-        });
+        const retrieved = await client.schematics.symbols.retrieve(symbol.key);
         expect(retrieved.name).toBe(renamed);
       });
     });
