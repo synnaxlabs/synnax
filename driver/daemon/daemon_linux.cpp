@@ -7,7 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-/// std.
 #include <condition_variable>
 #include <filesystem>
 #include <fstream>
@@ -43,7 +42,7 @@ StartLimitBurst=3
 
 [Service]
 Type=notify
-ExecStart=/usr/local/bin/synnax-driver internal-start --debug --disable-stdin-stop
+ExecStart=/usr/local/bin/synnax-driver internal-start --disable-stdin-stop
 User=synnax
 Group=synnax
 
