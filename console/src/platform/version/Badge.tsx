@@ -9,28 +9,49 @@
 
 import "@/platform/version/Badge.css";
 
-import { Button } from "@synnaxlabs/pluto";
+import { Button, Icon, Synnax, Tooltip } from "@synnaxlabs/pluto";
+import { location } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
+import { CSS } from "@/platform/css";
 import { useCheckForUpdates } from "@/platform/version/Updater";
 import { useInfoModal } from "@/platform/version/useInfoModal";
 import { Session } from "@/session";
 
-export const Badge = (): ReactElement => {
-  const version = Session.Version.use();
+/**
+ * Version call-to-action for the nav bar. Renders nothing while the Console is
+ * current and compatible; shows an update prompt when a new version is available
+ * and a mismatch warning when the connected Core's version is incompatible.
+ */
+export const Badge = (): ReactElement | null => {
   const openInfo = useInfoModal();
   const updateAvailable = useCheckForUpdates();
+  const connection = Synnax.useConnectionStatus();
+  const mismatch =
+    connection.variant === "success" && !connection.details.clientServerCompatible;
+  if (!updateAvailable && !mismatch) return null;
+  const { nodeVersion } = connection.details;
   return (
-    <Button.Button
-      onClick={() => openInfo()}
-      preventClick={Session.Runtime.ENGINE !== "tauri"}
-      variant="text"
-      size="small"
-      level="small"
-      textColor={updateAvailable ? "var(--pluto-secondary-z)" : 9}
-      weight={500}
-    >
-      {`v${version}`}
-    </Button.Button>
+    <Tooltip.Dialog location={location.BOTTOM_LEFT}>
+      {updateAvailable
+        ? "A new version of the Console is ready to install"
+        : `Core ${nodeVersion != null ? `v${nodeVersion} ` : ""}is incompatible ` +
+          "with this version of the Console"}
+      <Button.Button
+        className={CSS.B("version-badge")}
+        onClick={() => openInfo()}
+        preventClick={Session.Runtime.ENGINE !== "tauri"}
+        variant="text"
+        size="small"
+        level="small"
+        textColor={
+          updateAvailable ? "var(--pluto-secondary-z)" : "var(--pluto-warning-z)"
+        }
+        weight={500}
+      >
+        {updateAvailable ? <Icon.Download /> : <Icon.Warning />}
+        {updateAvailable ? "Update Available" : "Version Mismatch"}
+      </Button.Button>
+    </Tooltip.Dialog>
   );
 };

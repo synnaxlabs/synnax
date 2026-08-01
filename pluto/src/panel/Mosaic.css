@@ -9,8 +9,19 @@
  * included in the file licenses/APL.txt.
  */
 
+/* Sticks to the scrollport's right edge so overflowing tabs scroll under it
+   instead of pushing it off. The opaque rest fill masks the tabs beneath. */
 .pluto-panel-mosaic__create {
     border-radius: var(--pluto-border-radius-small);
+    position: sticky;
+    right: 0;
+    flex-shrink: 0;
+    z-index: 2;
+    /* Repeats the variant classes to outrank the text variant's transparent
+       rest fill. */
+    &.pluto-btn.pluto-btn--text {
+        --pluto-bg: var(--pluto-gray-l0);
+    }
     &.pluto-btn.pluto--square > .pluto-icon {
         width: round(2.25rem, 1px);
         height: round(2.25rem, 1px);

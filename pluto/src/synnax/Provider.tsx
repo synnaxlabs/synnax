@@ -110,15 +110,27 @@ const addVersionMismatchStatus = (
 
 interface TestProviderProps extends PropsWithChildren {
   client: Synnax | null;
+  status?: connection.Status;
 }
 
-export const TestProvider = ({ children, client }: TestProviderProps): ReactElement => {
+export const TestProvider = ({
+  children,
+  client,
+  status,
+}: TestProviderProps): ReactElement => {
   const { path } = Aether.useUnidirectional({
     type: synnax.Provider.TYPE,
     schema: synnax.Provider.stateZ,
     state: { props: null },
   });
-  const value = useMemo(() => ({ ...ZERO_CONTEXT_VALUE, client }), [client]);
+  const value = useMemo(
+    () => ({
+      ...ZERO_CONTEXT_VALUE,
+      client,
+      status: status ?? ZERO_CONTEXT_VALUE.status,
+    }),
+    [client, status],
+  );
   return (
     <Context value={value}>
       <Aether.Composite path={path}>{children}</Aether.Composite>

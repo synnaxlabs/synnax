@@ -201,9 +201,7 @@ export const ConnectionBadge = (): ReactElement => {
           variant="outlined"
           size="medium"
           rounded="small"
-          status={
-            variant === "loading" || variant === "disabled" ? undefined : variant
-          }
+          status={variant === "loading" || variant === "disabled" ? undefined : variant}
         >
           <Status.Indicator variant={variant} />
         </Dialog.Trigger>

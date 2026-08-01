@@ -36,14 +36,18 @@ vi.mock("@tauri-apps/plugin-process", () => ({ relaunch: mocks.relaunch }));
 import { renderWithModals } from "@/platform/modals/testutil";
 import { Version } from "@/platform/version";
 
-const Harness = (): ReactElement => {
+interface HarnessProps {
+  autoUpdate?: boolean;
+}
+
+const Harness = ({ autoUpdate }: HarnessProps): ReactElement => {
   const open = Version.useInfoModal();
-  return <button onClick={() => open()}>open</button>;
+  return <button onClick={() => open({ autoUpdate })}>open</button>;
 };
 Harness.displayName = "Harness";
 
-const openModal = (): void => {
-  renderWithModals(<Harness />);
+const openModal = (autoUpdate?: boolean): void => {
+  renderWithModals(<Harness autoUpdate={autoUpdate} />);
   fireEvent.click(screen.getByRole("button", { name: "open" }));
 };
 
@@ -81,5 +85,25 @@ describe("version useInfoModal", () => {
     });
     await waitFor(() => expect(downloadAndInstall).toHaveBeenCalledTimes(1));
     expect(mocks.relaunch).toHaveBeenCalledTimes(1);
+  });
+
+  it("should install the update without a click when opened with autoUpdate", async () => {
+    mocks.engine = "tauri";
+    const downloadAndInstall = vi.fn(async (onProgress: (event: unknown) => void) => {
+      onProgress({ event: "Started", data: { contentLength: 1000 } });
+      onProgress({ event: "Progress", data: { chunkLength: 1000 } });
+      onProgress({ event: "Finished" });
+    });
+    mocks.update = { version: "9.9.9", downloadAndInstall };
+    openModal(true);
+    await waitFor(() => expect(downloadAndInstall).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(mocks.relaunch).toHaveBeenCalledTimes(1));
+  });
+
+  it("should report up to date when opened with autoUpdate and no update exists", async () => {
+    mocks.engine = "tauri";
+    openModal(true);
+    await waitFor(() => expect(screen.getByText("Up to date")).toBeTruthy());
+    expect(mocks.relaunch).not.toHaveBeenCalled();
   });
 });
