@@ -6,7 +6,7 @@
   "exports": {
     ".": {
       "types": "./dist/src/index.d.ts",
-      "import": "./dist/arc.js"
+      "default": "./dist/arc.js"
     }
   },
   "files": [

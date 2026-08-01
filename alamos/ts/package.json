@@ -46,11 +46,11 @@
   "exports": {
     ".": {
       "types": "./dist/src/index.d.ts",
-      "import": "./dist/alamos.js"
+      "default": "./dist/alamos.js"
     },
     "./dev": {
       "types": "./dist/src/dev/index.d.ts",
-      "import": "./dist/dev.js"
+      "default": "./dist/dev.js"
     }
   }
 }

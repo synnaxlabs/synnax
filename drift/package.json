@@ -60,15 +60,15 @@
   "exports": {
     ".": {
       "types": "./dist/src/index.d.ts",
-      "import": "./dist/drift.js"
+      "default": "./dist/drift.js"
     },
     "./react": {
       "types": "./dist/src/react/index.d.ts",
-      "import": "./dist/react.js"
+      "default": "./dist/react.js"
     },
     "./tauri": {
       "types": "./dist/src/tauri/index.d.ts",
-      "import": "./dist/tauri.js"
+      "default": "./dist/tauri.js"
     }
   }
 }

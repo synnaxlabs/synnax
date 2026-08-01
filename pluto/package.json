@@ -101,75 +101,75 @@
   "exports": {
     ".": {
       "types": "./dist/src/index.d.ts",
-      "import": "./dist/pluto.js"
+      "default": "./dist/pluto.js"
     },
     "./ether": {
       "types": "./dist/src/ether.d.ts",
-      "import": "./dist/ether.js"
+      "default": "./dist/ether.js"
     },
     "./testutil": {
       "types": "./dist/src/testutil/index.d.ts",
-      "import": "./dist/testutil.js"
+      "default": "./dist/testutil.js"
     },
     "./flex": {
       "types": "./dist/src/flex/index.d.ts",
-      "import": "./dist/flex.js"
+      "default": "./dist/flex.js"
     },
     "./button": {
       "types": "./dist/src/button/index.d.ts",
-      "import": "./dist/button.js"
+      "default": "./dist/button.js"
     },
     "./tabs": {
       "types": "./dist/src/tabs/index.d.ts",
-      "import": "./dist/tabs.js"
+      "default": "./dist/tabs.js"
     },
     "./theming": {
       "types": "./dist/src/theming/index.d.ts",
-      "import": "./dist/theming.js"
+      "default": "./dist/theming.js"
     },
     "./menu": {
       "types": "./dist/src/menu/index.d.ts",
-      "import": "./dist/menu.js"
+      "default": "./dist/menu.js"
     },
     "./header": {
       "types": "./dist/src/header/index.d.ts",
-      "import": "./dist/header.js"
+      "default": "./dist/header.js"
     },
     "./tree": {
       "types": "./dist/src/tree/index.d.ts",
-      "import": "./dist/tree.js"
+      "default": "./dist/tree.js"
     },
     "./dropdown": {
       "types": "./dist/src/dropdown/index.d.ts",
-      "import": "./dist/dropdown.js"
+      "default": "./dist/dropdown.js"
     },
     "./video": {
       "types": "./dist/src/video/index.d.ts",
-      "import": "./dist/video.js"
+      "default": "./dist/video.js"
     },
     "./text": {
       "types": "./dist/src/text/index.d.ts",
-      "import": "./dist/text.js"
+      "default": "./dist/text.js"
     },
     "./input": {
       "types": "./dist/src/input/index.d.ts",
-      "import": "./dist/input.js"
+      "default": "./dist/input.js"
     },
     "./triggers": {
       "types": "./dist/src/triggers/index.d.ts",
-      "import": "./dist/triggers.js"
+      "default": "./dist/triggers.js"
     },
     "./list": {
       "types": "./dist/src/list/index.d.ts",
-      "import": "./dist/list.js"
+      "default": "./dist/list.js"
     },
     "./color": {
       "types": "./dist/src/color/index.d.ts",
-      "import": "./dist/color.js"
+      "default": "./dist/color.js"
     },
     "./css": {
       "types": "./dist/src/css/index.d.ts",
-      "import": "./dist/css.js"
+      "default": "./dist/css.js"
     },
     "./dist/*": "./dist/*"
   },
