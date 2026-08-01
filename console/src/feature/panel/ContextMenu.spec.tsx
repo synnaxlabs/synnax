@@ -201,8 +201,8 @@ describe("Panel.TabMenuItems", () => {
       const minted = store.getState().panels.windows[windowKey].selected!;
       await waitFor(async () => {
         const [src, dst] = await Promise.all([
-          client.panels.retrieve({ key: existing.key }),
-          client.panels.retrieve({ key: minted }),
+          client.panels.retrieve(existing.key),
+          client.panels.retrieve(minted),
         ]);
         expect(panel.findTab(src.root, moved.key)).toBeUndefined();
         expect(panel.findTab(src.root, stays.key)).toBeDefined();

@@ -193,7 +193,7 @@ describe("useReconcileSelection", () => {
     const unsubscribe = store.subscribe(() => {
       const selected = selectedPanel(store);
       if (selected == null) return;
-      if (query.Deleted.matches(client.panels.getCached({ key: selected })))
+      if (query.Deleted.matches(client.panels.getCached(selected)))
         violations.push(selected);
     });
     await act(async () => {

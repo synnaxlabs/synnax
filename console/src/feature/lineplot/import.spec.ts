@@ -313,10 +313,10 @@ describe("lineplot ingest", () => {
     if (typeof spec.resource === "string")
       throw new Error("expected a resolved resource, got an id string");
     expect(spec.resource.type).toBe("lineplot");
-    const created = await client.lineplots.retrieve({ key: spec.resource.key });
+    const created = await client.lineplots.retrieve(spec.resource.key);
     expect(created.name).toBe(name);
     expect(created.channels.y1).toEqual([65538]);
-    const cached = client.lineplots.getCached({ key: spec.resource.key });
+    const cached = client.lineplots.getCached(spec.resource.key);
     expect(expectLive(cached).name).toBe(name);
   });
 

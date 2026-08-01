@@ -66,8 +66,8 @@ describe("role ontology service", () => {
     await screen.findByText(`Are you sure you want to delete ${role.name}?`);
     fireEvent.click(findModalButton("Delete"));
     await waitFor(async () => {
-      await expect(client.access.roles.retrieve({ key: role.key })).rejects.toSatisfy(
-        (e) => NotFoundError.matches(e),
+      await expect(client.access.roles.retrieve(role.key)).rejects.toSatisfy((e) =>
+        NotFoundError.matches(e),
       );
     });
   });

@@ -611,7 +611,7 @@ describe("panel selectors", () => {
         },
       });
       await client.panels.create(doc);
-      await client.panels.retrieve({ key: PANEL });
+      await client.panels.retrieve(PANEL);
       const { result } = renderHook(() => Panel.useStartOverlaying(PANEL), {
         wrapper: Wrapper,
       });

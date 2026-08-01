@@ -9,6 +9,7 @@
 
 import { type task } from "@synnaxlabs/client";
 import { Flux, Task } from "@synnaxlabs/pluto";
+import { verbs } from "@synnaxlabs/x";
 
 export interface SetDataSavingParams {
   key: task.Key;
@@ -17,7 +18,7 @@ export interface SetDataSavingParams {
 
 export const { useUpdate: useSetDataSaving } = Flux.createUpdate<SetDataSavingParams>({
   name: Task.RESOURCE_NAME,
-  verbs: Flux.UPDATE_VERBS,
+  verbs: verbs.UPDATE,
   update: async ({ client, data }) => {
     const { key, dataSaving } = data;
     const t = await client.tasks.retrieve({ key, includeStatus: true });

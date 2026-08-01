@@ -400,7 +400,7 @@ describe("cached reads", () => {
   describe("getCached", () => {
     it("serves a key query straight from the record written by create", async () => {
       const ch = await createVirtual();
-      const cached = expectLive(client.channels.getCached({ key: ch.key }));
+      const cached = expectLive(client.channels.getCached(ch.key));
       expect(cached.name).toEqual(ch.name);
     });
   });
@@ -409,14 +409,14 @@ describe("cached reads", () => {
     it("delivers a remote rename to a subscribed single query", async () => {
       const ch = await createVirtual();
       const handler = vi.fn();
-      const off = client.channels.onChange({ key: ch.key }, handler);
+      const off = client.channels.onChange(ch.key, handler);
       try {
         await client.channels.retrieve(ch.key);
         const renamed = `qry_renamed_${id.create()}`;
         await remote.channels.rename(ch.key, renamed);
         await expect
           .poll(() => {
-            const cached = client.channels.getCached({ key: ch.key });
+            const cached = client.channels.getCached(ch.key);
             return query.isLive(cached) && cached.name === renamed;
           })
           .toBe(true);
@@ -429,12 +429,12 @@ describe("cached reads", () => {
     it("delivers a remote delete as a deleted result carrying the corpse", async () => {
       const ch = await createVirtual();
       const results: Array<query.Cached<Channel> | undefined> = [];
-      const off = client.channels.onChange({ key: ch.key }, (c) => results.push(c));
+      const off = client.channels.onChange(ch.key, (c) => results.push(c));
       try {
         await client.channels.retrieve(ch.key);
         await remote.channels.delete(ch.key);
         await expect
-          .poll(() => query.Deleted.matches(client.channels.getCached({ key: ch.key })))
+          .poll(() => query.Deleted.matches(client.channels.getCached(ch.key)))
           .toBe(true);
         const last = expectDeleted(results.at(-1));
         expect(last.corpse.name).toEqual(ch.name);

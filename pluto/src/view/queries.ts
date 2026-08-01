@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { query, view } from "@synnaxlabs/client";
-import { type optional } from "@synnaxlabs/x";
+import { type optional, verbs } from "@synnaxlabs/x";
 import { useEffect } from "react";
 import { type z } from "zod";
 
@@ -23,15 +23,15 @@ export type ListQuery = view.RetrieveMultipleParams;
 export const useList = Flux.createList<ListQuery, view.Key, view.View>({
   name: PLURAL_RESOURCE_NAME,
   retrieve: async ({ client, query }) => await client.views.retrieve(query),
-  retrieveByKey: async ({ client, key }) => await client.views.retrieve({ key }),
+  retrieveByKey: async ({ client, key }) => await client.views.retrieve(key),
   subscribe: ({ client, query }, handler) => client.views.onChange(query, handler),
-  subscribeByKey: ({ client, key }, handler) => client.views.onChange({ key }, handler),
+  subscribeByKey: ({ client, key }, handler) => client.views.onChange(key, handler),
   getCached: ({ client, query }) => client.views.getCached(query),
 });
 
 export const { useUpdate: useCreate } = Flux.createUpdate<view.New>({
   name: RESOURCE_NAME,
-  verbs: Flux.CREATE_VERBS,
+  verbs: verbs.CREATE,
   update: async ({ client, data }) => await client.views.create(data),
 });
 
@@ -39,7 +39,7 @@ export type DeleteParams = view.Key | view.Key[];
 
 export const { useUpdate: useDelete } = Flux.createUpdate<DeleteParams>({
   name: RESOURCE_NAME,
-  verbs: Flux.DELETE_VERBS,
+  verbs: verbs.DELETE,
   update: async ({ client, data, onOptimisticComplete }) => {
     await client.views.delete(data, {
       onOptimistic: async () => await onOptimisticComplete(data),
@@ -63,7 +63,7 @@ export const useForm = Flux.createForm<FormQuery, typeof formSchema>({
   initialValues: ZERO_VALUES,
   retrieve: async ({ client, query: { key }, reset }) => {
     if (key == null) return;
-    reset(await client.views.retrieve({ key }));
+    reset(await client.views.retrieve(key));
   },
   update: async ({ client, value, reset }) => {
     const updated = await client.views.create(value());
@@ -71,7 +71,7 @@ export const useForm = Flux.createForm<FormQuery, typeof formSchema>({
   },
   mountListeners: ({ client, query: { key }, reset }) => {
     if (key == null) return [];
-    return client.views.onChange({ key }, (result) => {
+    return client.views.onChange(key, (result) => {
       if (query.isLive(result)) reset(result);
     });
   },
@@ -81,7 +81,7 @@ export interface RenameParams extends Pick<view.View, "key" | "name"> {}
 
 export const { useUpdate: useRename } = Flux.createUpdate<RenameParams>({
   name: RESOURCE_NAME,
-  verbs: Flux.RENAME_VERBS,
+  verbs: verbs.RENAME,
   update: async ({ client, data, onOptimisticComplete }) => {
     const { key, name } = data;
     await client.views.rename(key, name, {

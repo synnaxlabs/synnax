@@ -347,9 +347,7 @@ describe("queries", () => {
         await result.current.updateAsync(proj.key);
       });
       await waitFor(async () => {
-        await expect(client.projects.retrieve({ key: proj.key })).rejects.toThrow(
-          NotFoundError,
-        );
+        await expect(client.projects.retrieve(proj.key)).rejects.toThrow(NotFoundError);
       });
     });
   });

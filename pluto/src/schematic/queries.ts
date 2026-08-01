@@ -15,7 +15,7 @@ import {
   schematic,
   type Synnax as Client,
 } from "@synnaxlabs/client";
-import { array, compare, type record, uuid, xy } from "@synnaxlabs/x";
+import { array, compare, type record, uuid, verbs, xy } from "@synnaxlabs/x";
 import { useCallback } from "react";
 
 import { Flux } from "@/flux";
@@ -49,7 +49,7 @@ const requireSchematic = (
   client: Client | null,
   key: schematic.Key,
 ): schematic.Schematic => {
-  const cached = client?.schematics.getCached({ key });
+  const cached = client?.schematics.getCached(key);
   if (cached == null) throw new NotFoundError(`Schematic with key ${key} not found`);
   if (query.Deleted.matches(cached))
     throw new Flux.DeletedError(`${RESOURCE_NAME} was deleted`, cached.corpse);
@@ -60,7 +60,7 @@ const getSchematic = (
   client: Client | null,
   key: schematic.Key,
 ): schematic.Schematic | undefined => {
-  const cached = client?.schematics.getCached({ key });
+  const cached = client?.schematics.getCached(key);
   if (!query.isLive(cached)) return undefined;
   return cached;
 };
@@ -68,7 +68,7 @@ const getSchematic = (
 const subscribe = (
   { client, args: { key } }: Flux.SelectorParams<SelectKeyParams>,
   notify: () => void,
-) => (client == null ? () => {} : client.schematics.onChange({ key }, notify));
+) => (client == null ? () => {} : client.schematics.onChange(key, notify));
 
 export const [useSelectAllNodes, useGetAllNodes] = Scope.bindSelector(
   Flux.createSelector<SelectKeyParams, schematic.Node[]>({
@@ -156,7 +156,7 @@ export type DeleteParams = schematic.Key | schematic.Key[];
 
 export const { useUpdate: useDelete } = Flux.createUpdate<DeleteParams>({
   name: RESOURCE_NAME,
-  verbs: Flux.DELETE_VERBS,
+  verbs: verbs.DELETE,
   update: async ({ client, data, onOptimisticComplete }) => {
     await client.schematics.delete(data, {
       onOptimistic: async () => await onOptimisticComplete(data),
@@ -172,7 +172,7 @@ export const { useUpdate: useCopy } = Flux.createUpdate<
   schematic.Schematic
 >({
   name: RESOURCE_NAME,
-  verbs: Flux.COPY_VERBS,
+  verbs: verbs.COPY,
   update: async ({ client, data }) => await client.schematics.copy(data),
 });
 
@@ -185,7 +185,7 @@ export const { useUpdate: useCreate } = Flux.createUpdate<
   schematic.Schematic
 >({
   name: RESOURCE_NAME,
-  verbs: Flux.CREATE_VERBS,
+  verbs: verbs.CREATE,
   update: async ({ client, data, onOptimisticComplete }) =>
     await client.schematics.create(data.project ?? uuid.ZERO, data, {
       onOptimistic: async ([optimistic]) => await onOptimisticComplete(optimistic),
@@ -201,7 +201,7 @@ export interface SnapshotParams {
 
 export const { useUpdate: useSnapshot } = Flux.createUpdate<SnapshotParams>({
   name: RESOURCE_NAME,
-  verbs: Flux.SNAPSHOT_VERBS,
+  verbs: verbs.SNAPSHOT,
   update: async ({ client, data }) => {
     const { schematics, parentID } = data;
     const ids = await Promise.all(
@@ -266,7 +266,7 @@ export interface RenameParams extends Pick<schematic.Schematic, "key" | "name"> 
 
 export const { useUpdate: useRename } = Flux.createUpdate<RenameParams>({
   name: RESOURCE_NAME,
-  verbs: Flux.RENAME_VERBS,
+  verbs: verbs.RENAME,
   update: async ({ client, data, onOptimisticComplete }) => {
     const { key, name } = data;
     await onOptimisticComplete(data);
@@ -293,7 +293,7 @@ export const useAddNode = () => {
       const config = Node.resolveSpec(variant).defaultConfig(theme);
       if (Node.isCustomConfig(config) && specKey != null) {
         config.specKey = specKey;
-        const sym = client?.schematics.symbols.getCached({ key: specKey });
+        const sym = client?.schematics.symbols.getCached(specKey);
         if (config.label != null && query.isLive(sym)) config.label.label = sym.name;
       }
       dispatch(

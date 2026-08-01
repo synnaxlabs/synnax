@@ -128,7 +128,7 @@ describe("wrapForm", () => {
       const result = await renderTaskFormTab(Renderer, "test_task", { client });
       await clickConfigure();
       const taskKey = await awaitTaskKey(result);
-      const created = await client.tasks.retrieve({ key: taskKey });
+      const created = await client.tasks.retrieve(taskKey);
       expect(created.name).toBe("New Test Task");
       expect(created.type).toBe("test_task");
       expect(task.rackKey(created.key)).toBe(rack.key);

@@ -21,7 +21,7 @@ stubGeometry();
 
 describe("LinePlot Commands", () => {
   it("creates a line plot on the server and opens it as a tab", async () => {
-    const proj = await client.projects.retrieve({ key: await project() });
+    const proj = await client.projects.retrieve(await project());
     const { store, openCommandPalette, selectCommand } = await renderPalette({
       commands: LinePlot.COMMANDS,
       client,
@@ -33,7 +33,7 @@ describe("LinePlot Commands", () => {
     if (tab.variant !== "resource")
       throw new Error("focused tab is not a line plot resource");
     expect(tab.resource.type).toBe(lineplot.TYPE_ONTOLOGY_ID.type);
-    const created = await client.lineplots.retrieve({ key: tab.resource.key });
+    const created = await client.lineplots.retrieve(tab.resource.key);
     expect(created.name).toBe("Line Plot");
   });
 });

@@ -50,7 +50,7 @@ const applySelection = ({ client, store }: Params, candidates: panel.Key[]): voi
   // A retrieve can race a delete and return an already-deleted panel; the
   // local tombstone is authoritative.
   const keys = candidates.filter(
-    (key) => !query.Deleted.matches(client.panels.getCached({ key })),
+    (key) => !query.Deleted.matches(client.panels.getCached(key)),
   );
   const win = selectActiveWindow(store.getState());
   if (win == null) return;
@@ -132,7 +132,7 @@ const syncTitle = ({ client, store }: Params): void => {
   let name: string | undefined;
   const selected = selectSelected(state);
   if (selected != null) {
-    const cached = client.panels.getCached({ key: selected });
+    const cached = client.panels.getCached(selected);
     if (query.isLive(cached)) name = cached.name;
   }
   let title: string;
@@ -190,7 +190,7 @@ const tabSelections: Synchronizer.Synchronizer<RequiredStoreState, RequiredActio
     // the selection change itself reconciles against the cached tree.
     const unwatchSelected = Synchronizer.watch(store, selectSelected, (selected) => {
       if (selected == null) return;
-      const cached = client.panels.getCached({ key: selected });
+      const cached = client.panels.getCached(selected);
       if (!query.isLive(cached)) return;
       reconcileTabs(store, cached);
     });

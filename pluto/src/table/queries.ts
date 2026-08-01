@@ -14,7 +14,7 @@ import {
   type Synnax as Client,
   type table,
 } from "@synnaxlabs/client";
-import { compare, id, uuid, type xy } from "@synnaxlabs/x";
+import { compare, id, uuid, verbs, type xy } from "@synnaxlabs/x";
 import { useCallback, useMemo } from "react";
 
 import { Flux } from "@/flux";
@@ -43,7 +43,7 @@ export interface SelectKeyParams {
 }
 
 const requireTable = (client: Client | null, key: table.Key): table.Table => {
-  const cached = client?.tables.getCached({ key });
+  const cached = client?.tables.getCached(key);
   if (cached == null) throw new NotFoundError(`Table with key ${key} not found`);
   if (query.Deleted.matches(cached))
     throw new Flux.DeletedError(`${RESOURCE_NAME} was deleted`, cached.corpse);
@@ -51,7 +51,7 @@ const requireTable = (client: Client | null, key: table.Key): table.Table => {
 };
 
 const getTable = (client: Client | null, key: table.Key): table.Table | undefined => {
-  const cached = client?.tables.getCached({ key });
+  const cached = client?.tables.getCached(key);
   if (!query.isLive(cached)) return undefined;
   return cached;
 };
@@ -59,7 +59,7 @@ const getTable = (client: Client | null, key: table.Key): table.Table | undefine
 const subscribe = (
   { client, args: { key } }: Flux.SelectorParams<SelectKeyParams>,
   notify: () => void,
-) => (client == null ? () => {} : client.tables.onChange({ key }, notify));
+) => (client == null ? () => {} : client.tables.onChange(key, notify));
 
 export const [useSelectName, useGetName] = Scope.bindSelector(
   Flux.createSelector<SelectKeyParams, string>({
@@ -125,7 +125,7 @@ export type DeleteParams = table.Key | table.Key[];
 
 export const { useUpdate: useDelete } = Flux.createUpdate<DeleteParams>({
   name: RESOURCE_NAME,
-  verbs: Flux.DELETE_VERBS,
+  verbs: verbs.DELETE,
   update: async ({ client, data, onOptimisticComplete }) => {
     await client.tables.delete(data, {
       onOptimistic: async () => await onOptimisticComplete(data),
@@ -157,7 +157,7 @@ const createDefaultLayout = (
 
 const { useUpdate: useCreateBase } = Flux.createUpdate<CreateParams, table.Table>({
   name: RESOURCE_NAME,
-  verbs: Flux.CREATE_VERBS,
+  verbs: verbs.CREATE,
   update: async ({ client, data, onOptimisticComplete }) =>
     await client.tables.create(data.project ?? uuid.ZERO, data, {
       onOptimistic: async ([optimistic]) => await onOptimisticComplete(optimistic),
@@ -196,7 +196,7 @@ export interface UseRenameParams {
 
 export const { useUpdate: useRename } = Flux.createUpdate<UseRenameParams>({
   name: RESOURCE_NAME,
-  verbs: Flux.RENAME_VERBS,
+  verbs: verbs.RENAME,
   update: async ({ client, data, onOptimisticComplete }) => {
     const { key, name } = data;
     await onOptimisticComplete(data);
