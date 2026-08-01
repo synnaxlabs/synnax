@@ -28,6 +28,7 @@
   },
   "devDependencies": {
     "@synnaxlabs/eslint-config": "workspace:^",
+    "@synnaxlabs/madge": "workspace:^",
     "@synnaxlabs/stylelint-config": "workspace:^",
     "@synnaxlabs/tsconfig": "workspace:^",
     "@synnaxlabs/vite-plugin": "workspace:^",
@@ -35,7 +36,6 @@
     "@types/react": "catalog:",
     "@vitejs/plugin-react": "catalog:",
     "eslint": "catalog:",
-    "madge": "catalog:",
     "stylelint": "catalog:",
     "typescript": "catalog:",
     "vite": "catalog:"
@@ -43,14 +43,10 @@
   "files": [
     "dist"
   ],
-  "main": "./dist/media.cjs",
-  "module": "./dist/media.js",
-  "types": "./dist/src/index.d.ts",
   "exports": {
     ".": {
       "types": "./dist/src/index.d.ts",
-      "import": "./dist/media.js",
-      "require": "./dist/media.cjs"
+      "default": "./dist/media.js"
     },
     "./dist/*": "./dist/*"
   }

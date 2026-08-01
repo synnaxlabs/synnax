@@ -13,7 +13,7 @@ import { lib } from "@synnaxlabs/vite-plugin";
 import path from "path";
 import { defineConfig } from "vite";
 
-import packageJSON from "./package.json";
+import packageJSON from "./package.json" with { type: "json" };
 
 export default defineConfig({
   define: { __VERSION__: JSON.stringify(packageJSON.version) },
