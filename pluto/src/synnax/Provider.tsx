@@ -85,6 +85,9 @@ const addClockSkewStatus = (
   });
 };
 
+const reasonOf = (status: connection.Status): connection.Reason | undefined =>
+  status.variant === "error" ? status.details.reason : undefined;
+
 const addVersionMismatchStatus = (
   addStatus: Status.Adder,
   status: connection.Status,
@@ -149,7 +152,7 @@ export const Provider = ({
       if (
         prev.variant !== connStatus.variant ||
         prev.message !== connStatus.message ||
-        prev.details.reason !== connStatus.details.reason
+        reasonOf(prev) !== reasonOf(connStatus)
       )
         addStatus({ variant: connStatus.variant, message: connStatus.message });
       if (connStatus.variant === "success") {

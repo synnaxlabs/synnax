@@ -26,7 +26,7 @@ describe("rack", () => {
       const randomRack = await client.racks.create({
         name: "test",
       });
-      await expect(userClient.racks.retrieve({ key: randomRack.key })).rejects.toThrow(
+      await expect(userClient.racks.retrieve(randomRack.key)).rejects.toThrow(
         AuthError,
       );
     });
@@ -40,9 +40,7 @@ describe("rack", () => {
       const randomRack = await client.racks.create({
         name: "test",
       });
-      const retrieved = await userClient.racks.retrieve({
-        key: randomRack.key,
-      });
+      const retrieved = await userClient.racks.retrieve(randomRack.key);
       expect(retrieved.key).toBe(randomRack.key);
       expect(retrieved.name).toBe(randomRack.name);
     });
@@ -81,7 +79,7 @@ describe("rack", () => {
         name: "test",
       });
       await userClient.racks.delete(randomRack.key);
-      await expect(userClient.racks.retrieve({ key: randomRack.key })).rejects.toThrow(
+      await expect(userClient.racks.retrieve(randomRack.key)).rejects.toThrow(
         NotFoundError,
       );
     });

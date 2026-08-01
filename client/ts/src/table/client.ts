@@ -67,18 +67,18 @@ const requestFilter = (req: RetrieveRequest): ((t: Table) => boolean) => {
   return (t) => keySet.has(t.key);
 };
 
-export interface ClientParams {
+export interface ClientConfig {
   unary: UnaryClient;
   cache: query.Cache;
   ontology: ontology.Client;
 }
 
 export class Client extends query.Retriever<typeof retrieveReqZ, Key, Table> {
-  private readonly cfg: ClientParams;
+  private readonly cfg: ClientConfig;
   private readonly store: query.Table<Key, Table>;
   private readonly dispatcher: actions.Controller<Key, Table, Action>;
 
-  constructor(cfg: ClientParams) {
+  constructor(cfg: ClientConfig) {
     const { cache } = cfg;
     // Dispatch mutates documents server-side, so fetched copies never clobber
     // a doc holding locally replayed edits: the table hydrates if-absent.

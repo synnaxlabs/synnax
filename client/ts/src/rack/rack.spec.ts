@@ -61,14 +61,14 @@ describe("Rack", () => {
         name: "updated",
       });
       expect(updated.name).toBe("updated");
-      const retrieved = await client.racks.retrieve({ key: r.key });
+      const retrieved = await client.racks.retrieve(r.key);
       expect(retrieved.name).toBe("updated");
     });
   });
   describe("retrieve", () => {
     it("should retrieve a rack by its key", async () => {
       const r = await client.racks.create({ name: "test" });
-      const retrieved = await client.racks.retrieve({ key: r.key });
+      const retrieved = await client.racks.retrieve(r.key);
       expect(retrieved.key).toBe(r.key);
       expect(retrieved.name).toBe("test");
     });
@@ -97,7 +97,7 @@ describe("Rack", () => {
         name: "rack-with-integrations",
         integrations: ["ni", "opc", "modbus"],
       });
-      const retrieved = await client.racks.retrieve({ key: r.key });
+      const retrieved = await client.racks.retrieve(r.key);
       expect(retrieved.integrations).toEqual(["ni", "opc", "modbus"]);
     });
     it("should filter racks by integration", async () => {
@@ -124,7 +124,7 @@ describe("Rack", () => {
         name: "rack-update-integrations",
         integrations: ["ni", "opc", "arc"],
       });
-      const retrieved = await client.racks.retrieve({ key: r.key });
+      const retrieved = await client.racks.retrieve(r.key);
       expect(retrieved.integrations).toEqual(["ni", "opc", "arc"]);
     });
   });

@@ -102,17 +102,17 @@ const assignmentRel = (role: Key, userKey: user.Key): ontology.Relationship => (
   to: user.ontologyID(userKey),
 });
 
-export interface ClientParams {
+export interface ClientConfig {
   unary: UnaryClient;
   cache: query.Cache;
   ontology: ontology.Client;
 }
 
 export class Client extends query.Retriever<typeof retrieveRequestZ, Key, Role> {
-  private readonly cfg: ClientParams;
+  private readonly cfg: ClientConfig;
   private readonly store: query.Table<Key, Role>;
 
-  constructor(cfg: ClientParams) {
+  constructor(cfg: ClientConfig) {
     const { cache } = cfg;
     const store = cache.createTable<Key, Role>({
       name: "roles",
@@ -175,7 +175,7 @@ export class Client extends query.Retriever<typeof retrieveRequestZ, Key, Role> 
   }
 
   async rename(key: Key, name: string, opts: query.WriteOptions = {}): Promise<void> {
-    const existing = await this.retrieve({ key });
+    const existing = await this.retrieve(key);
     const rename = () => [
       query.partialUpdate(this.store, key, { name }),
       this.cfg.ontology.cache.renameResource(ontologyID(key), name),

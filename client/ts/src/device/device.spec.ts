@@ -84,7 +84,7 @@ describe("Device", async () => {
       model: "dog",
       properties,
     });
-    const retrieved = await client.devices.retrieve({ key: d.key });
+    const retrieved = await client.devices.retrieve(d.key);
     expect(retrieved.key).toEqual(d.key);
     expect(retrieved.properties).toEqual(properties);
   });
@@ -100,7 +100,7 @@ describe("Device", async () => {
         model: "dog",
         properties: { cat: "dog" },
       });
-      const retrieved = await client.devices.retrieve({ key: d.key });
+      const retrieved = await client.devices.retrieve(d.key);
       expect(retrieved.key).toBe(d.key);
       expect(retrieved.name).toBe("test");
       expect(retrieved.make).toBe("ni");
@@ -148,7 +148,7 @@ describe("Device", async () => {
           properties: { cat: "dog" },
         });
 
-        const retrieved = await cold.devices.retrieve({ key: d.key });
+        const retrieved = await cold.devices.retrieve(d.key);
         expect(retrieved.status).toBeUndefined();
       });
 

@@ -12,14 +12,14 @@ import { framer } from "@/framer";
 
 export const CONTROL_STATE_CHANNEL_NAME = "sy_node_1_control";
 
-export interface ClientParams {
+export interface ClientConfig {
   framer: framer.Client;
 }
 
 export class Client {
-  private readonly cfg: ClientParams;
+  private readonly cfg: ClientConfig;
 
-  constructor(cfg: ClientParams) {
+  constructor(cfg: ClientConfig) {
     this.cfg = cfg;
   }
 

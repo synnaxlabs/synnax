@@ -155,7 +155,7 @@ describe("User", () => {
     describe("by key", () => {
       describe("one", () => {
         test("found", async () => {
-          const res = await client.users.retrieve({ key: userOne.key as string });
+          const res = await client.users.retrieve(userOne.key as string);
           expect(res.username).toEqual(userOne.username);
           expect(res.key).toEqual(userOne.key);
           expect(res.firstName).toEqual(userOne.firstName);
@@ -165,9 +165,9 @@ describe("User", () => {
           await expect(
             client.users.delete(userOne.key as string),
           ).resolves.toBeUndefined();
-          await expect(
-            client.users.retrieve({ key: userOne.key as string }),
-          ).rejects.toThrow(NotFoundError);
+          await expect(client.users.retrieve(userOne.key as string)).rejects.toThrow(
+            NotFoundError,
+          );
           const u = await client.users.create(userOne);
           userOne.key = u.key;
         });
@@ -240,7 +240,7 @@ describe("User", () => {
       await expect(
         client.users.rename(userOne.key as string, "Thomas", "Jefferson"),
       ).resolves.toBeUndefined();
-      const res = await client.users.retrieve({ key: userOne.key as string });
+      const res = await client.users.retrieve(userOne.key as string);
       expect(res.username).toEqual(userOne.username);
       expect(res.key).toEqual(userOne.key);
       expect(res.firstName).toEqual("Thomas");
@@ -252,7 +252,7 @@ describe("User", () => {
       await expect(
         client.users.rename(userOne.key as string, "James"),
       ).resolves.toBeUndefined();
-      const res = await client.users.retrieve({ key: userOne.key as string });
+      const res = await client.users.retrieve(userOne.key as string);
       expect(res.username).toEqual(userOne.username);
       expect(res.key).toEqual(userOne.key);
       expect(res.firstName).toEqual("James");
@@ -263,9 +263,9 @@ describe("User", () => {
   describe("Delete", () => {
     test("one that exists", async () => {
       await expect(client.users.delete(userOne.key as string)).resolves.toBeUndefined();
-      await expect(
-        client.users.retrieve({ key: userOne.key as string }),
-      ).rejects.toThrow(NotFoundError);
+      await expect(client.users.retrieve(userOne.key as string)).rejects.toThrow(
+        NotFoundError,
+      );
     });
     test("many that exist", async () => {
       await expect(
@@ -282,9 +282,9 @@ describe("User", () => {
       await expect(
         client.users.delete([userOne.key as string, userTwo.key as string]),
       ).resolves.toBeUndefined();
-      await expect(
-        client.users.retrieve({ key: userTwo.key as string }),
-      ).rejects.toThrow(NotFoundError);
+      await expect(client.users.retrieve(userTwo.key as string)).rejects.toThrow(
+        NotFoundError,
+      );
     });
   });
 });
