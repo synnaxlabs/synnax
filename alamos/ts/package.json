@@ -40,19 +40,17 @@
     "vite": "catalog:",
     "vitest": "catalog:"
   },
-  "main": "dist/alamos.cjs",
+  "main": "dist/alamos.js",
   "module": "dist/alamos.js",
   "types": "dist/src/index.d.ts",
   "exports": {
     ".": {
       "types": "./dist/src/index.d.ts",
-      "import": "./dist/alamos.js",
-      "require": "./dist/alamos.cjs"
+      "import": "./dist/alamos.js"
     },
     "./dev": {
       "types": "./dist/src/dev/index.d.ts",
-      "import": "./dist/dev.js",
-      "require": "./dist/dev.cjs"
+      "import": "./dist/dev.js"
     }
   }
 }

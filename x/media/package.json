@@ -43,14 +43,13 @@
   "files": [
     "dist"
   ],
-  "main": "./dist/media.cjs",
+  "main": "./dist/media.js",
   "module": "./dist/media.js",
   "types": "./dist/src/index.d.ts",
   "exports": {
     ".": {
       "types": "./dist/src/index.d.ts",
-      "import": "./dist/media.js",
-      "require": "./dist/media.cjs"
+      "import": "./dist/media.js"
     },
     "./dist/*": "./dist/*"
   }

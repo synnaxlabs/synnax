@@ -57,6 +57,6 @@
     "remark-gfm": "^4.0.1",
     "strip-markdown": "^6.0.0",
     "stylelint": "catalog:",
-    "typescript": "^6.0.0"
+    "typescript": "^6.0.3"
   }
 }

@@ -95,99 +95,81 @@
   "files": [
     "dist"
   ],
-  "main": "./dist/pluto.cjs",
+  "main": "./dist/pluto.js",
   "module": "./dist/pluto.js",
   "types": "./dist/src/index.d.ts",
   "exports": {
     ".": {
       "types": "./dist/src/index.d.ts",
-      "import": "./dist/pluto.js",
-      "require": "./dist/pluto.cjs"
+      "import": "./dist/pluto.js"
     },
     "./ether": {
       "types": "./dist/src/ether.d.ts",
-      "import": "./dist/ether.js",
-      "require": "./dist/ether.cjs"
+      "import": "./dist/ether.js"
     },
     "./testutil": {
       "types": "./dist/src/testutil/index.d.ts",
-      "import": "./dist/testutil.js",
-      "require": "./dist/testutil.cjs"
+      "import": "./dist/testutil.js"
     },
     "./flex": {
       "types": "./dist/src/flex/index.d.ts",
-      "import": "./dist/flex.js",
-      "require": "./dist/flex.cjs"
+      "import": "./dist/flex.js"
     },
     "./button": {
       "types": "./dist/src/button/index.d.ts",
-      "import": "./dist/button.js",
-      "require": "./dist/button.cjs"
+      "import": "./dist/button.js"
     },
     "./tabs": {
       "types": "./dist/src/tabs/index.d.ts",
-      "import": "./dist/tabs.js",
-      "require": "./dist/tabs.cjs"
+      "import": "./dist/tabs.js"
     },
     "./theming": {
       "types": "./dist/src/theming/index.d.ts",
-      "import": "./dist/theming.js",
-      "require": "./dist/theming.cjs"
+      "import": "./dist/theming.js"
     },
     "./menu": {
       "types": "./dist/src/menu/index.d.ts",
-      "import": "./dist/menu.js",
-      "require": "./dist/menu.cjs"
+      "import": "./dist/menu.js"
     },
     "./header": {
       "types": "./dist/src/header/index.d.ts",
-      "import": "./dist/header.js",
-      "require": "./dist/header.cjs"
+      "import": "./dist/header.js"
     },
     "./tree": {
       "types": "./dist/src/tree/index.d.ts",
-      "import": "./dist/tree.js",
-      "require": "./dist/tree.cjs"
+      "import": "./dist/tree.js"
     },
     "./dropdown": {
       "types": "./dist/src/dropdown/index.d.ts",
-      "import": "./dist/dropdown.js",
-      "require": "./dist/dropdown.cjs"
+      "import": "./dist/dropdown.js"
     },
     "./video": {
       "types": "./dist/src/video/index.d.ts",
-      "import": "./dist/video.js",
-      "require": "./dist/video.cjs"
+      "import": "./dist/video.js"
     },
     "./text": {
       "types": "./dist/src/text/index.d.ts",
-      "import": "./dist/text.js",
-      "require": "./dist/text.cjs"
+      "import": "./dist/text.js"
     },
     "./input": {
       "types": "./dist/src/input/index.d.ts",
-      "import": "./dist/input.js",
-      "require": "./dist/input.cjs"
+      "import": "./dist/input.js"
     },
     "./triggers": {
       "types": "./dist/src/triggers/index.d.ts",
-      "import": "./dist/triggers.js",
-      "require": "./dist/triggers.cjs"
+      "import": "./dist/triggers.js"
     },
     "./list": {
       "types": "./dist/src/list/index.d.ts",
-      "import": "./dist/list.js",
-      "require": "./dist/list.cjs"
+      "import": "./dist/list.js"
     },
     "./color": {
       "types": "./dist/src/color/index.d.ts",
-      "import": "./dist/color.js",
-      "require": "./dist/color.cjs"
+      "import": "./dist/color.js"
     },
     "./css": {
       "types": "./dist/src/css/index.d.ts",
-      "import": "./dist/css.js",
-      "require": "./dist/css.cjs"
+      "import": "./dist/css.js"
     },
     "./dist/*": "./dist/*"
   },

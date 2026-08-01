@@ -54,24 +54,21 @@
   "files": [
     "dist"
   ],
-  "main": "./dist/drift.cjs",
+  "main": "./dist/drift.js",
   "module": "./dist/drift.js",
   "types": "./dist/src/index.d.ts",
   "exports": {
     ".": {
       "types": "./dist/src/index.d.ts",
-      "import": "./dist/drift.js",
-      "require": "./dist/drift.cjs"
+      "import": "./dist/drift.js"
     },
     "./react": {
       "types": "./dist/src/react/index.d.ts",
-      "import": "./dist/react.js",
-      "require": "./dist/react.cjs"
+      "import": "./dist/react.js"
     },
     "./tauri": {
       "types": "./dist/src/tauri/index.d.ts",
-      "import": "./dist/tauri.js",
-      "require": "./dist/tauri.cjs"
+      "import": "./dist/tauri.js"
     }
   }
 }

@@ -40,7 +40,7 @@
     "vite": "catalog:",
     "vitest": "catalog:"
   },
-  "main": "dist/freighter.cjs",
+  "main": "dist/freighter.js",
   "module": "dist/freighter.js",
   "types": "dist/src/index.d.ts"
 }
