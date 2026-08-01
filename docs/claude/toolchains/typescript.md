@@ -26,7 +26,7 @@ form shows placeholders but does NOT pre-fill — actually type the values.
 
 ## Style
 
-- Prettier, 88-char lines. ESLint 9 flat config.
+- Prettier, 88-char lines. ESLint flat config.
 - Function components + hooks; TypeScript instead of prop-types.
 - Absolute imports: `@/components`, never `../../../components`.
 - Inline type imports: `import { type Foo } from "bar"`; simple-import-sort for
