@@ -257,7 +257,7 @@ class TestConductor:
         except Exception as e:
             self.log(f"Warning: failed to write summary.json: {e}")
         try:
-            (self.run_dir / "README.md").write_text(_BUNDLE_README)
+            (self.run_dir / "README.md").write_text(_BUNDLE_README, encoding="utf-8")
         except Exception as e:
             self.log(f"Warning: failed to write README.md: {e}")
         report_path = failure_report.safe_render(self.run_dir, self.tests)
@@ -309,7 +309,9 @@ class TestConductor:
             },
             "tests": tests_json,
         }
-        (self.run_dir / "summary.json").write_text(json.dumps(summary, indent=2) + "\n")
+        (self.run_dir / "summary.json").write_text(
+            json.dumps(summary, indent=2) + "\n", encoding="utf-8"
+        )
 
 
 def _iso(ts: float | None) -> str | None:
