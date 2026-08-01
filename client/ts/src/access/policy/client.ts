@@ -84,17 +84,17 @@ const requestFilter = (req: RetrieveRequest): ((p: Policy) => boolean) => {
   };
 };
 
-export interface ClientParams {
+export interface ClientConfig {
   unary: UnaryClient;
   cache: query.Cache;
   ontology: ontology.Client;
 }
 
 export class Client extends query.Retriever<typeof listRetrieveParamsZ, Key, Policy> {
-  private readonly cfg: ClientParams;
+  private readonly cfg: ClientConfig;
   private readonly store: query.Table<Key, Policy>;
 
-  constructor(cfg: ClientParams) {
+  constructor(cfg: ClientConfig) {
     const { cache } = cfg;
     const store = cache.createTable<Key, Policy>({
       name: "policies",

@@ -134,7 +134,7 @@ const affectedRackKeys = (
   return parsed.success ? [parsed.data] : null;
 };
 
-export interface ClientParams {
+export interface ClientConfig {
   unary: UnaryClient;
   tasks: task.Client;
   cache: query.Cache;
@@ -150,10 +150,10 @@ export class Client extends query.Retriever<
   RetrieveSingleParams,
   SingleQuery
 > {
-  private readonly cfg: ClientParams;
+  private readonly cfg: ClientConfig;
   private readonly store: query.Table<Key, Omit<Payload, "status">>;
 
-  constructor(cfg: ClientParams) {
+  constructor(cfg: ClientConfig) {
     const { cache, statusStore } = cfg;
     const store = cache.createTable<Key, Omit<Payload, "status">>({
       name: "racks",

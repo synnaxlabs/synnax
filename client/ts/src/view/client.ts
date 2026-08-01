@@ -61,17 +61,17 @@ const requestFilter = (req: RetrieveRequest): ((v: View) => boolean) => {
   };
 };
 
-export interface ClientParams {
+export interface ClientConfig {
   unary: UnaryClient;
   cache: query.Cache;
   ontology: ontology.Client;
 }
 
 export class Client extends query.Retriever<typeof retrieveRequestZ, Key, View> {
-  private readonly cfg: ClientParams;
+  private readonly cfg: ClientConfig;
   private readonly store: query.Table<Key, View>;
 
-  constructor(cfg: ClientParams) {
+  constructor(cfg: ClientConfig) {
     const { cache } = cfg;
     const store = cache.createTable<Key, View>({
       name: "views",

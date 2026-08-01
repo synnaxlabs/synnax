@@ -327,7 +327,7 @@ const matchesSingle = (t: Omit<Task, "status">, query: SingleRequest): boolean =
   return false;
 };
 
-export interface ClientParams {
+export interface ClientConfig {
   unary: UnaryClient;
   framer: framer.Client;
   ontology: ontology.Client;
@@ -346,9 +346,9 @@ export class Client extends query.Retriever<
 > {
   /** The task record table; injected into sibling clients at wiring. */
   readonly store: query.Table<Key, Omit<Task, "status">>;
-  private readonly cfg: ClientParams;
+  private readonly cfg: ClientConfig;
 
-  constructor(cfg: ClientParams) {
+  constructor(cfg: ClientConfig) {
     const { cache, statusStore } = cfg;
     const store = cache.createTable<Key, Omit<Task, "status">>({
       name: "tasks",

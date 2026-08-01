@@ -161,7 +161,7 @@ const affectedDeviceKeys = (
   return [key];
 };
 
-export interface ClientParams {
+export interface ClientConfig {
   unary: UnaryClient;
   cache: query.Cache;
   statusStore: query.Table<status.Key, status.Status>;
@@ -176,10 +176,10 @@ export class Client extends query.Retriever<
   RetrieveSingleParams,
   SingleQuery
 > {
-  private readonly cfg: ClientParams;
+  private readonly cfg: ClientConfig;
   private readonly store: query.Table<Key, Omit<Device, "status">>;
 
-  constructor(cfg: ClientParams) {
+  constructor(cfg: ClientConfig) {
     const { cache, statusStore } = cfg;
     // Explicitly omit 'status' from the device type to make sure we aren't
     // storing two copies of the statuses in the store.

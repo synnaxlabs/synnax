@@ -339,7 +339,7 @@ const affectedChannelKeys = (
  * class should not be instantiated directly, and instead should be used through the
  * `channels` property of an {@link Synnax} client.
  */
-export interface ClientParams {
+export interface ClientConfig {
   framer: framer.Client;
   retriever: Retriever;
   unary: UnaryClient;
@@ -358,12 +358,12 @@ export class Client extends query.Retriever<
   RetrieveSingleParams,
   RetrieveSingleParams
 > {
-  private readonly cfg: ClientParams;
+  private readonly cfg: ClientConfig;
   readonly retriever: Retriever;
   readonly writer: Writer;
   private readonly store: query.Table<Key, Channel>;
 
-  constructor(cfg: ClientParams) {
+  constructor(cfg: ClientConfig) {
     const { retriever, writer, statuses, ranges, cache } = cfg;
     const statusStore = statuses.store;
     const aliasStore = ranges.aliases;
