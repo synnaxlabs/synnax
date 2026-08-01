@@ -21,8 +21,5 @@
     "typescript": "catalog:",
     "unplugin-dts": "^1.0.3",
     "vite": "catalog:"
-  },
-  "main": "dist/src/index.js",
-  "module": "dist/src/index.js",
-  "types": "dist/src/index.d.ts"
+  }
 }

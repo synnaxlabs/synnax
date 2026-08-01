@@ -60,7 +60,6 @@
     "vitest": "catalog:"
   },
   "type": "module",
-  "types": "dist/src/index.d.ts",
   "exports": {
     ".": {
       "types": "./dist/src/index.d.ts",
