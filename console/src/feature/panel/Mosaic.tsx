@@ -46,7 +46,7 @@ const corpseName = (error: Error): string | undefined =>
 const TabNameFallbackContent = ({ error }: Errors.FallbackProps): ReactElement => (
   <>
     <Icon.Warning />
-    <Text.Text>{corpseName(error) ?? "Not found"}</Text.Text>
+    <Text.Text status="warning">{corpseName(error) ?? "Not found"}</Text.Text>
   </>
 );
 
@@ -121,7 +121,13 @@ const DeletedResourceContent = ({
           : "Close the component to remove it from this panel."
       }
     >
-      <Button.Button onClick={() => closeTabs(resource)}>Close</Button.Button>
+      <Button.Button
+        variant="filled"
+        status="warning"
+        onClick={() => closeTabs(resource)}
+      >
+        Close
+      </Button.Button>
       {restorable && (
         <Button.Button variant="filled" onClick={handleRestore}>
           Restore
