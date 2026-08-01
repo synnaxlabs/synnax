@@ -25,7 +25,7 @@
     width: 275px;
     box-shadow: var(--pluto-shadow-v2);
     border: var(--pluto-border-l6);
-    border-radius: var(--pluto-border-radius-small);
+    border-radius: var(--pluto-border-radius-medium);
     overflow: hidden;
     animation: pop 0.2s ease-in-out;
     /* Let the name ellipsize instead of pushing the actions past the card edge:
