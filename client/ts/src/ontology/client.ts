@@ -237,63 +237,6 @@ export class Client extends query.Retriever<
   }
 
   /**
-   * Reads the resources the params address.
-   * @deprecated The ID-array form remains for migration only: query with
-   * `{ ids }`, `children.retrieve`, or `parents.retrieve` instead.
-   */
-  retrieve(
-    ids: Array<ID | string>,
-    options?: RetrieveOptions & { children?: boolean; parents?: boolean },
-  ): Promise<Resource[]>;
-  retrieve(
-    params: string | z.input<typeof singleParamsZ>,
-    options?: query.FetchOptions,
-  ): Promise<Resource>;
-  retrieve(params: RetrieveParams, options?: query.FetchOptions): Promise<Resource[]>;
-  async retrieve(
-    params:
-      Array<ID | string> | string | z.input<typeof singleParamsZ> | RetrieveParams,
-    options?:
-      | query.FetchOptions
-      | (RetrieveOptions & { children?: boolean; parents?: boolean }),
-  ): Promise<Resource | Resource[]> {
-    if (Array.isArray(params)) {
-      const ids = parseIDs(params);
-      const {
-        children = false,
-        parents = false,
-        ...rest
-      } = (options ?? {}) as RetrieveOptions & {
-        children?: boolean;
-        parents?: boolean;
-      };
-      if (children) return await this.children.retrieve({ ids, ...rest });
-      if (parents) return await this.parents.retrieve({ ids, ...rest });
-      return await super.retrieve({ ids, ...rest });
-    }
-    return await super.retrieve(
-      params as z.input<typeof singleParamsZ>,
-      options as query.FetchOptions,
-    );
-  }
-
-  /** @deprecated Use `children.retrieve({ ids })` instead. */
-  async retrieveChildren(
-    ids: ID | ID[],
-    options?: RetrieveOptions,
-  ): Promise<Resource[]> {
-    return await this.children.retrieve({ ids, ...options });
-  }
-
-  /** @deprecated Use `parents.retrieve({ ids })` instead. */
-  async retrieveParents(
-    ids: ID | ID[],
-    options?: RetrieveOptions,
-  ): Promise<Resource[]> {
-    return await this.parents.retrieve({ ids, ...options });
-  }
-
-  /**
    * Adds children to a resource in the ontology.
    * @param id - The ID of the resource to add children to.
    * @param children - The IDs of the children to add.
