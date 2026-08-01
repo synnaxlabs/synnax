@@ -14,7 +14,6 @@
 #include "x/cpp/errors/errors.h"
 
 namespace driver::daemon {
-// Callback type for the main application logic
 using ApplicationCallback = std::function<void()>;
 
 // Status codes that can be reported to the system service manager
@@ -26,7 +25,6 @@ enum class Status {
     ERROR_ // ERROR is already a reserved macro in <winerror.h>
 };
 
-// Configuration for the daemon
 struct Config {
     // How often to send watchdog notifications (in seconds)
     int watchdog_interval = 10;
@@ -34,12 +32,10 @@ struct Config {
     ApplicationCallback callback;
 };
 
-// Service management functions
 x::errors::Error install_service();
 
 x::errors::Error uninstall_service();
 
-// Service control functions
 x::errors::Error start_service();
 
 x::errors::Error stop_service();

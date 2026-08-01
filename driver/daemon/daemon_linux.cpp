@@ -215,7 +215,6 @@ void run(const Config &config) {
     }
     update_status(Status::INITIALIZING, "Starting daemon");
 
-    // Start watchdog thread
     std::thread watchdog([&] {
         x::thread::set_name("watchdog");
         std::unique_lock<std::mutex> lock(mtx);
@@ -229,7 +228,6 @@ void run(const Config &config) {
 
     update_status(Status::READY, "Daemon ready");
 
-    // Run the main application logic
     bool failed = false;
     try {
         config.callback();
