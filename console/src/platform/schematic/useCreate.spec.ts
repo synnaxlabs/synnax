@@ -63,9 +63,7 @@ describe("schematic useCreate", () => {
         result.current({ key, name: "ProvidedProject" });
       });
       await waitFor(async () =>
-        expect((await client.schematics.retrieve({ key })).name).toEqual(
-          "ProvidedProject",
-        ),
+        expect((await client.schematics.retrieve(key)).name).toEqual("ProvidedProject"),
       );
       expect(Session.Project.selectSelected(harness.store.getState())).toEqual(
         projectB.key,
@@ -80,9 +78,7 @@ describe("schematic useCreate", () => {
         result.current({ key, name: "ActiveProject" });
       });
       await waitFor(async () =>
-        expect((await client.schematics.retrieve({ key })).name).toEqual(
-          "ActiveProject",
-        ),
+        expect((await client.schematics.retrieve(key)).name).toEqual("ActiveProject"),
       );
       expect(Session.Project.selectSelected(harness.store.getState())).toEqual(
         projectA.key,
@@ -113,7 +109,7 @@ describe("schematic useCreate", () => {
         result.current({ key });
       });
       await waitFor(async () =>
-        expect((await client.schematics.retrieve({ key })).name).toEqual("Schematic"),
+        expect((await client.schematics.retrieve(key)).name).toEqual("Schematic"),
       );
     });
 
@@ -125,7 +121,7 @@ describe("schematic useCreate", () => {
         result.current({ key: callerKey, name: "WithKey" });
       });
       const retrieved = await waitFor(
-        async () => await client.schematics.retrieve({ key: callerKey }),
+        async () => await client.schematics.retrieve(callerKey),
       );
       expect(retrieved.key).toEqual(callerKey);
       expect(retrieved.name).toEqual("WithKey");
@@ -149,7 +145,7 @@ describe("schematic useCreate", () => {
       await act(async () => {
         result.current({ key, name: "SameProject" });
       });
-      await waitFor(async () => await client.schematics.retrieve({ key }));
+      await waitFor(async () => await client.schematics.retrieve(key));
       expect(Session.Project.selectSelected(harness.store.getState())).toBe(
         beforeActive,
       );

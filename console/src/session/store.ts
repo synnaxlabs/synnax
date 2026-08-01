@@ -50,7 +50,7 @@ const PERSIST_EXCLUDE: Array<Persist.ExcludeFn<State>> = [
 // per-cluster, or per-cluster-per-project.
 const PERSIST_SCOPES: Persist.Scopes<State> = {
   global: [Cluster.SLICE_NAME, Color.SLICE_NAME, Docs.SLICE_NAME, Theme.SLICE_NAME],
-  cluster: [Project.SLICE_NAME, Status.SLICE_NAME],
+  cluster: [Project.SLICE_NAME],
   project: [
     Arc.SLICE_NAME,
     Drift.SLICE_NAME,
@@ -61,6 +61,7 @@ const PERSIST_SCOPES: Persist.Scopes<State> = {
     Panel.SLICE_NAME,
     Range.SLICE_NAME,
     Schematic.SLICE_NAME,
+    Status.SLICE_NAME,
     Table.SLICE_NAME,
   ],
 };

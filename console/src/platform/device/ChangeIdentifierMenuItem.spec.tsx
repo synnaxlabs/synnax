@@ -112,7 +112,7 @@ describe("ChangeIdentifierMenuItem", () => {
     fireEvent.change(input, { target: { value: "new_id" } });
     fireEvent.click(screen.getByRole("button", { name: "Save" }));
     await waitFor(async () => {
-      const updated = await client.devices.retrieve({ key: dev.key });
+      const updated = await client.devices.retrieve(dev.key);
       expect(updated.properties.identifier).toEqual("new_id");
     });
   });
@@ -128,7 +128,7 @@ describe("ChangeIdentifierMenuItem", () => {
     await screen.findByRole("textbox");
     act(() => modals.getState()[0].dismiss());
     await waitFor(() => expect(screen.queryByRole("textbox")).toBeNull());
-    const unchanged = await client.devices.retrieve({ key: dev.key });
+    const unchanged = await client.devices.retrieve(dev.key);
     expect(unchanged.properties.identifier).toEqual("old_id");
   });
 });

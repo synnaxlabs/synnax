@@ -118,7 +118,7 @@ const selection: Synchronizer.Synchronizer<RequiredStoreState, RequiredAction> =
 const syncTitle = ({ client, store }: Params): void => {
   const selected = selectSelected(store.getState());
   if (selected == null) return;
-  const cached = client.panels.getCached({ key: selected });
+  const cached = client.panels.getCached(selected);
   if (!query.isLive(cached)) return;
   store.dispatch(Drift.setWindowTitle({ title: cached.name }));
 };
@@ -173,7 +173,7 @@ const tabSelections: Synchronizer.Synchronizer<RequiredStoreState, RequiredActio
     // the selection change itself reconciles against the cached tree.
     const unwatchSelected = Synchronizer.watch(store, selectSelected, (selected) => {
       if (selected == null) return;
-      const cached = client.panels.getCached({ key: selected });
+      const cached = client.panels.getCached(selected);
       if (!query.isLive(cached)) return;
       reconcileTabs(store, cached);
     });

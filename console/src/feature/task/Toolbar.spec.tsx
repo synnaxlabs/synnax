@@ -80,7 +80,7 @@ const renderToolbar = async () => {
   const created = await createSelectedPanel(store, client);
   // useOpenTab reads the panel query cache; warm it and keep it subscribed
   // so dispatches stay visible.
-  await client.panels.retrieve({ key: created.panelKey });
+  await client.panels.retrieve(created.panelKey);
   render(
     <Task.RegistryProvider registry={Task.REGISTRY}>
       {Task.TOOLBAR.content}
@@ -93,7 +93,7 @@ const renderToolbar = async () => {
 
 const awaitTab = async (created: CreatedPanel, type: string): Promise<record.Unknown> =>
   await waitFor(async () => {
-    const doc = await client.panels.retrieve({ key: created.panelKey });
+    const doc = await client.panels.retrieve(created.panelKey);
     assert(doc.root.variant === "leaf", "panel root is not a leaf");
     const tab = doc.root.tabs.find(
       (t): t is panel.TabView => t.variant === "view" && t.type === type,
@@ -186,7 +186,7 @@ describe("task/Toolbar", () => {
       await openContextMenuUntil(t.name, "Enable data saving");
       fireEvent.click(screen.getByText("Enable data saving"));
       await waitFor(async () => {
-        const updated = await client.tasks.retrieve({ key: t.key });
+        const updated = await client.tasks.retrieve(t.key);
         expect(updated.config).toEqual({ dataSaving: true });
       });
     });
@@ -197,7 +197,7 @@ describe("task/Toolbar", () => {
       await openContextMenuUntil(t.name, "Disable data saving");
       fireEvent.click(screen.getByText("Disable data saving"));
       await waitFor(async () => {
-        const updated = await client.tasks.retrieve({ key: t.key });
+        const updated = await client.tasks.retrieve(t.key);
         expect(updated.config).toEqual({ dataSaving: false });
       });
     });
@@ -220,7 +220,7 @@ describe("task/Toolbar", () => {
       const renamed = uniqueName("renamed");
       commitTextEdit(editor, renamed);
       await waitFor(async () =>
-        expect((await client.tasks.retrieve({ key: t.key })).name).toBe(renamed),
+        expect((await client.tasks.retrieve(t.key)).name).toBe(renamed),
       );
     });
 
@@ -237,7 +237,7 @@ describe("task/Toolbar", () => {
       );
       fireEvent.click(findButton("Rename"));
       await waitFor(async () =>
-        expect((await client.tasks.retrieve({ key: t.key })).name).toBe(renamed),
+        expect((await client.tasks.retrieve(t.key)).name).toBe(renamed),
       );
     });
 
@@ -249,7 +249,7 @@ describe("task/Toolbar", () => {
       await screen.findByText(`Are you sure you want to delete ${t.name}?`);
       fireEvent.click(findButton("Delete"));
       await waitFor(async () => {
-        await expect(client.tasks.retrieve({ key: t.key })).rejects.toSatisfy((e) =>
+        await expect(client.tasks.retrieve(t.key)).rejects.toSatisfy((e) =>
           NotFoundError.matches(e),
         );
       });

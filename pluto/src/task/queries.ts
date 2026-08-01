@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type ontology, query, type rack, task } from "@synnaxlabs/client";
-import { array, type optional } from "@synnaxlabs/x";
+import { array, type optional, verbs } from "@synnaxlabs/x";
 import { useCallback } from "react";
 import { z } from "zod";
 
@@ -46,9 +46,9 @@ export interface SelectKeyParams {
 export const [useSelectName, useGetName] = Flux.createSelector<SelectKeyParams, string>(
   {
     subscribe: ({ client, args: { key } }, notify) =>
-      client == null ? () => {} : client.tasks.onChange({ key }, notify),
+      client == null ? () => {} : client.tasks.onChange(key, notify),
     select: ({ client, args: { key } }) => {
-      const cached = client?.tasks.getCached({ key });
+      const cached = client?.tasks.getCached(key);
       if (!query.isLive(cached)) return "Task";
       return cached.name;
     },
@@ -87,7 +87,7 @@ export const useList = Flux.createList<ListQuery, task.Key, task.Task>({
     await client.tasks.retrieve({ ...BASE_QUERY, key }),
   subscribe: ({ client, query }, handler) =>
     client.tasks.onChange(listRequest(query), handler),
-  subscribeByKey: ({ client, key }, handler) => client.tasks.onChange({ key }, handler),
+  subscribeByKey: ({ client, key }, handler) => client.tasks.onChange(key, handler),
   getCached: ({ client, query }) => client.tasks.getCached(listRequest(query)),
 });
 
@@ -176,7 +176,7 @@ export const createForm = <S extends task.Schemas = task.Schemas>({
     },
     update: async ({ client, ...form }) => {
       const value = form.value();
-      const rack = await client.racks.retrieve({ key: value.rackKey });
+      const rack = await client.racks.retrieve(value.rackKey);
       const task = await rack.createTask(
         {
           key: value.key,
@@ -192,7 +192,7 @@ export const createForm = <S extends task.Schemas = task.Schemas>({
     },
     mountListeners: ({ client, query: { key }, set }) => {
       if (key == null) return [];
-      return client.tasks.onChange({ key }, (result) => {
+      return client.tasks.onChange(key, (result) => {
         if (!query.isLive(result)) return;
         resetFormValues(set, result.payload as task.Payload<S>);
         if (result.status != null)
@@ -210,7 +210,7 @@ export type DeleteParams = task.Key | task.Key[];
 
 export const { useUpdate: useDelete } = Flux.createUpdate<DeleteParams>({
   name: RESOURCE_NAME,
-  verbs: Flux.DELETE_VERBS,
+  verbs: verbs.DELETE,
   update: async ({ client, data, onOptimisticComplete }) => {
     await client.tasks.delete(data, {
       onOptimistic: async () => await onOptimisticComplete(data),
@@ -228,7 +228,7 @@ export interface SnapshotParams {
 
 export const { useUpdate: useCreateSnapshot } = Flux.createUpdate<SnapshotParams>({
   name: RESOURCE_NAME,
-  verbs: Flux.SNAPSHOT_VERBS,
+  verbs: verbs.SNAPSHOT,
   update: async ({ client, data }) => {
     const { tasks: taskPairs, parentID } = data;
     const tasks = await Promise.all(
@@ -246,7 +246,7 @@ export interface UseRenameParams extends Pick<task.Payload, "key" | "name"> {}
 
 export const { useUpdate: useRename } = Flux.createUpdate<UseRenameParams>({
   name: RESOURCE_NAME,
-  verbs: Flux.RENAME_VERBS,
+  verbs: verbs.RENAME,
   update: async ({ client, data, onOptimisticComplete }) => {
     const { key, name } = data;
     await client.tasks.rename(key, name, {
@@ -271,7 +271,7 @@ export const shouldExecuteCommand = <StatusData extends z.ZodType = z.ZodNever>(
   );
 };
 
-const COMMAND_VERBS: Flux.Verbs = {
+const COMMAND_VERBS: verbs.Verbs = {
   present: "command",
   participle: "commanding",
   past: "commanded",

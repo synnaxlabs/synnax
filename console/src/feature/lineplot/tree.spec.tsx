@@ -119,8 +119,8 @@ describe("lineplot/ontology", () => {
       );
       fireEvent.click(findLastButton("Delete"));
       await waitFor(async () => {
-        await expect(client.lineplots.retrieve({ key: plot.key })).rejects.toSatisfy(
-          (e) => NotFoundError.matches(e),
+        await expect(client.lineplots.retrieve(plot.key)).rejects.toSatisfy((e) =>
+          NotFoundError.matches(e),
         );
       });
       expect(
@@ -138,7 +138,7 @@ describe("lineplot/ontology", () => {
         commitTextEdit(el, newName);
       });
       await waitFor(async () => {
-        const renamed = await client.lineplots.retrieve({ key: plot.key });
+        const renamed = await client.lineplots.retrieve(plot.key);
         expect(renamed.name).toBe(newName);
       });
     });
@@ -186,11 +186,11 @@ describe("lineplot/ontology", () => {
       );
       fireEvent.click(findLastButton("Delete"));
       await waitFor(async () => {
-        await expect(client.lineplots.retrieve({ key: control.key })).rejects.toSatisfy(
-          (e) => NotFoundError.matches(e),
+        await expect(client.lineplots.retrieve(control.key)).rejects.toSatisfy((e) =>
+          NotFoundError.matches(e),
         );
       });
-      await expect(client.lineplots.retrieve({ key: plot.key })).resolves.toBeDefined();
+      await expect(client.lineplots.retrieve(plot.key)).resolves.toBeDefined();
     });
   });
 

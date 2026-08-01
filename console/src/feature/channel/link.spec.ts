@@ -35,7 +35,7 @@ describe("Channel.useLink", () => {
     const tab = await resolveFocusedTab(store, client);
     if (tab.variant !== "resource") throw new Error("expected a resource tab");
     expect(tab.resource.type).toBe("lineplot");
-    const plot = await client.lineplots.retrieve({ key: tab.resource.key });
+    const plot = await client.lineplots.retrieve(tab.resource.key);
     expect(plot.name).toBe(`${ch.name} Plot`);
     expect(plot.channels.y1).toEqual([ch.key]);
   });

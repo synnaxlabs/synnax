@@ -53,7 +53,7 @@ const isChildOf = (rel: ontology.Relationship, parent: ontology.ID): boolean =>
     to: { type: "group" },
   });
 
-export interface ClientParams {
+export interface ClientConfig {
   unary: UnaryClient;
   ontology: ontology.Client;
   cache: query.Cache;
@@ -64,10 +64,10 @@ export class Client extends query.Retriever<
   Key,
   Group
 > {
-  private readonly cfg: ClientParams;
+  private readonly cfg: ClientConfig;
   private readonly store: query.Table<Key, Group>;
 
-  constructor(cfg: ClientParams) {
+  constructor(cfg: ClientConfig) {
     const { cache, ontology: ontologyClient } = cfg;
     const store = cache.createTable<Key, Group>({
       name: "groups",

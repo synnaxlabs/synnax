@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type rack } from "@synnaxlabs/client";
+import { verbs } from "@synnaxlabs/x";
 
 import { Flux } from "@/flux";
 
@@ -50,7 +51,7 @@ export type UseDeleteParams = rack.Key | rack.Key[];
 
 export const { useUpdate: useDelete } = Flux.createUpdate<UseDeleteParams>({
   name: RESOURCE_NAME,
-  verbs: Flux.DELETE_VERBS,
+  verbs: verbs.DELETE,
   update: async ({ client, data, onOptimisticComplete }) => {
     await client.racks.delete(data, {
       onOptimistic: async () => await onOptimisticComplete(data),
@@ -63,7 +64,7 @@ export interface RenameParams extends Pick<rack.Rack, "key" | "name"> {}
 
 export const { useUpdate: useRename } = Flux.createUpdate<RenameParams>({
   name: RESOURCE_NAME,
-  verbs: Flux.RENAME_VERBS,
+  verbs: verbs.RENAME,
   update: async ({ data, client, onOptimisticComplete }) => {
     const { key, name } = data;
     await client.racks.rename(key, name, {

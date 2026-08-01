@@ -14,7 +14,7 @@ import {
   UnexpectedError,
   user,
 } from "@synnaxlabs/client";
-import { array, uuid } from "@synnaxlabs/x";
+import { array, uuid, verbs } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { Flux } from "@/flux";
@@ -25,7 +25,7 @@ const RESOURCE_NAME = "user";
 
 export const { useUpdate: useDelete } = Flux.createUpdate<UseDeleteParams>({
   name: RESOURCE_NAME,
-  verbs: Flux.DELETE_VERBS,
+  verbs: verbs.DELETE,
   update: async ({ client, data, onOptimisticComplete }) => {
     const keys = array.toArray(data);
     await client.users.delete(keys, {
@@ -43,7 +43,7 @@ export interface ChangeUsernameParams extends Pick<user.User, "key" | "username"
 
 export const { useUpdate: useRename } = Flux.createUpdate<ChangeUsernameParams>({
   name: RESOURCE_NAME,
-  verbs: Flux.RENAME_VERBS,
+  verbs: verbs.RENAME,
   update: async ({ client, data }) => {
     const { key, username } = data;
     await client.users.changeUsername(key, username);
@@ -89,7 +89,7 @@ export const useForm = Flux.createForm<UseFormParams, typeof formSchema>({
   initialValues: ZERO_FORM_VALUES,
   retrieve: async ({ client, query: { key }, reset }) => {
     if (key == null) return;
-    const user = await client.users.retrieve({ key });
+    const user = await client.users.retrieve(key);
     reset({ ...user, password: "", role: "" });
   },
   update: async ({ client, value }) => {
@@ -120,16 +120,16 @@ export const { useRetrieve } = Flux.createRetrieve<Partial<RetrieveQuery>, user.
   name: RESOURCE_NAME,
   retrieve: async ({ client, query: { key } }) => {
     if (key == null) return await retrieveCurrent(client);
-    return await client.users.retrieve({ key });
+    return await client.users.retrieve(key);
   },
   subscribe: ({ client, query: { key } }, handler) => {
     key ??= client.auth?.user?.key;
     if (key == null) return () => {};
-    return client.users.onChange({ key }, handler);
+    return client.users.onChange(key, handler);
   },
   getCached: ({ client, query: { key } }) => {
     key ??= client.auth?.user?.key;
     if (key == null) return undefined;
-    return client.users.getCached({ key });
+    return client.users.getCached(key);
   },
 });

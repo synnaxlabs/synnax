@@ -30,7 +30,7 @@ describe("Table.useLink", () => {
     const tab = await resolveFocusedTab(store, client);
     if (tab.variant !== "resource") throw new Error("expected a resource tab");
     expect(tab.resource.type).toBe("table");
-    const retrieved = await client.tables.retrieve({ key: tab.resource.key });
+    const retrieved = await client.tables.retrieve(tab.resource.key);
     expect(retrieved.name).toBe("Sensor Table");
   });
 });

@@ -9,7 +9,7 @@
 
 import { type Context, type UnaryClient, Unreachable } from "@synnaxlabs/freighter";
 import { type breaker, TimeSpan, TimeStamp, url } from "@synnaxlabs/x";
-import { describe, expect, it, vi } from "vitest";
+import { assert, describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 
 import { auth } from "@/auth";
@@ -103,6 +103,10 @@ const apply = (config: connection.Config, ...events: Event[]): connection.Status
     createInitialStatus(config),
   );
 
+/** Reads the error reason, or undefined when the status is not an error. */
+const reasonOf = (status: connection.Status): connection.Reason | undefined =>
+  status.variant === "error" ? status.details.reason : undefined;
+
 const createClient = (
   unary: UnaryClient,
   overrides: Partial<connection.ClientParams> = {},
@@ -194,7 +198,7 @@ describe("connection", () => {
         retry: { maxRetries: 0 },
       });
       expect(status.variant).toEqual("error");
-      expect(status.details.reason).toEqual("unreachable");
+      expect(reasonOf(status)).toEqual("unreachable");
     });
 
     it("should return an error status against a dead port", async () => {
@@ -291,7 +295,7 @@ describe("connection", () => {
       );
       expect(checked.variant).toEqual("loading");
       expect(checked.message).toEqual("Reconnecting");
-      expect(checked.details.reason).toBeUndefined();
+      expect(reasonOf(checked)).toBeUndefined();
       const live = reduce(checked, { type: "stream.live" }, config);
       expect(live.variant).toEqual("success");
     });
@@ -307,7 +311,7 @@ describe("connection", () => {
         config,
       );
       expect(second.variant).toEqual("error");
-      expect(second.details.reason).toEqual("unreachable");
+      expect(reasonOf(second)).toEqual("unreachable");
     });
 
     it("should escalate when a finite retry budget exhausts", () => {
@@ -316,7 +320,7 @@ describe("connection", () => {
       const failed = apply(config, { type: "check.failure", error, attempt: 1 });
       const exhausted = reduce(failed, { type: "retry.exhausted" }, config);
       expect(exhausted.variant).toEqual("error");
-      expect(exhausted.details.reason).toEqual("unreachable");
+      expect(reasonOf(exhausted)).toEqual("unreachable");
       expect(exhausted.details.retry).toBeNull();
     });
 
@@ -363,14 +367,14 @@ describe("connection", () => {
         error: new AuthError("invalid credentials"),
       });
       expect(rejected.variant).toEqual("error");
-      expect(rejected.details.reason).toEqual("auth");
+      expect(reasonOf(rejected)).toEqual("auth");
       expect(rejected.details.authenticated).toBe(false);
       const retrying = reduce(rejected, { type: "retry.requested" }, config);
       expect(retrying.variant).toEqual("error");
-      expect(retrying.details.reason).toEqual("auth");
+      expect(reasonOf(retrying)).toEqual("auth");
       const replaced = reduce(rejected, { type: "credentials.replaced" }, config);
       expect(replaced.variant).toEqual("loading");
-      expect(replaced.details.reason).toBeUndefined();
+      expect(reasonOf(replaced)).toBeUndefined();
     });
 
     it("should treat an auth error from the check as an auth failure", () => {
@@ -379,7 +383,7 @@ describe("connection", () => {
         error: new AuthError("bad password"),
         attempt: 1,
       });
-      expect(status.details.reason).toEqual("auth");
+      expect(reasonOf(status)).toEqual("auth");
     });
 
     it("should clear error(unreachable) on retry.requested", () => {
@@ -389,7 +393,7 @@ describe("connection", () => {
         error: new Unreachable({ message: "server down" }),
         attempt: 1,
       });
-      expect(failed.details.reason).toEqual("unreachable");
+      expect(reasonOf(failed)).toEqual("unreachable");
       const retrying = reduce(failed, { type: "retry.requested" }, config);
       expect(retrying.variant).toEqual("loading");
     });
@@ -453,7 +457,7 @@ describe("connection", () => {
         config,
       );
       expect(replaced.variant).toEqual("loading");
-      expect(replaced.details.reason).toBeUndefined();
+      expect(reasonOf(replaced)).toBeUndefined();
       expect(replaced.details.error).toBeUndefined();
     });
 
@@ -473,7 +477,10 @@ describe("connection", () => {
   describe("materialChange", () => {
     const config = createConfig();
     const base = apply(config, { type: "check.success", info: createInfo() });
-    const withStatus = (changes: Partial<connection.Status>): connection.Status => ({
+    assert(base.variant === "success");
+    const withStatus = (
+      changes: Partial<connection.NonErrorStatus>,
+    ): connection.Status => ({
       ...base,
       ...changes,
     });
@@ -482,6 +489,11 @@ describe("connection", () => {
     ): connection.Status => ({
       ...base,
       details: { ...base.details, ...changes },
+    });
+    const asError = (reason: connection.Reason): connection.Status => ({
+      ...base,
+      variant: "error",
+      details: { ...base.details, reason },
     });
 
     it("should ignore the timestamp", () => {
@@ -518,7 +530,6 @@ describe("connection", () => {
         ["variant", withStatus({ variant: "loading" })],
         ["message", withStatus({ message: "other" })],
         ["description", withStatus({ description: "other" })],
-        ["reason", withDetails({ reason: "auth" })],
         ["error", withDetails({ error: new Error("appeared") })],
         ["authenticated", withDetails({ authenticated: false })],
         ["streamLive", withDetails({ streamLive: true })],
@@ -533,6 +544,9 @@ describe("connection", () => {
       flips.forEach(([field, next]) =>
         expect(materialChange(base, next), field).toBe(true),
       );
+      expect(materialChange(asError("auth"), asError("unreachable")), "reason").toBe(
+        true,
+      );
       const scheduled = withDetails({ retry: { attempt: 1, nextAt } });
       const bumped = withDetails({ retry: { attempt: 2, nextAt } });
       expect(materialChange(scheduled, bumped), "retry.attempt").toBe(true);
@@ -545,7 +559,6 @@ describe("connection", () => {
     // forces every new Details field to be classified as material or excluded
     it("should account for every details field", () => {
       const classified = [
-        "reason",
         "error",
         "authenticated",
         "streamLive",
@@ -560,6 +573,9 @@ describe("connection", () => {
         "checking",
       ];
       expect(Object.keys(base.details).sort()).toEqual([...classified].sort());
+      expect(Object.keys(asError("auth").details).sort()).toEqual(
+        [...classified, "reason"].sort(),
+      );
     });
   });
 
@@ -567,18 +583,15 @@ describe("connection", () => {
     it("should map variants onto check modes", () => {
       const config = createConfig();
       const initial = createInitialStatus(config);
-      const withReason = (
-        variant: connection.Status["variant"],
-        reason?: connection.Reason,
-      ): connection.Status => ({
+      const asError = (reason: connection.Reason): connection.Status => ({
         ...initial,
-        variant,
+        variant: "error",
         details: { ...initial.details, reason },
       });
       expect(modeFor(initial)).toEqual("checking");
-      expect(modeFor(withReason("success"))).toEqual("heartbeat");
-      expect(modeFor(withReason("error", "unreachable"))).toEqual("checking");
-      expect(modeFor(withReason("error", "auth"))).toEqual("idle");
+      expect(modeFor({ ...initial, variant: "success" })).toEqual("heartbeat");
+      expect(modeFor(asError("unreachable"))).toEqual("checking");
+      expect(modeFor(asError("auth"))).toEqual("idle");
       expect(modeFor({ ...initial, variant: "disabled" })).toEqual("idle");
     });
   });
@@ -595,7 +608,7 @@ describe("connection", () => {
       const client = createClient(failingUnary(), { escalateAfter: 2 });
       await expect(client.connect(TimeSpan.seconds(5))).rejects.toThrow();
       expect(client.status.variant).toEqual("error");
-      expect(client.status.details.reason).toEqual("unreachable");
+      expect(reasonOf(client.status)).toEqual("unreachable");
       await client.close();
     });
 
@@ -605,7 +618,7 @@ describe("connection", () => {
       await waitForStatus(client, (s) => s.variant === "error");
       unary.setFailing(false);
       const status = await waitForStatus(client, (s) => s.variant === "success");
-      expect(status.details.reason).toBeUndefined();
+      expect(reasonOf(status)).toBeUndefined();
       await client.close();
     });
 

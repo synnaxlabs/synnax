@@ -40,9 +40,7 @@ const TAB: Panel.Tab = {
   Icon: Icon.LinePlot,
   Name: Panel.createEditableTabName(Base, <Icon.LinePlot />),
   restore: async ({ client, project, resource }) => {
-    const corpse = query.requireCorpse(
-      client.lineplots.getCached({ key: resource.key }),
-    );
+    const corpse = query.requireCorpse(client.lineplots.getCached(resource.key));
     await client.lineplots.create(project, corpse);
   },
 };

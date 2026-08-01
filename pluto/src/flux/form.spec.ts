@@ -395,7 +395,7 @@ describe("useForm", () => {
             retrieve,
             update,
             mountListeners: ({ client, set }) =>
-              client.labels.onChange({ key: label.key }, (result) => {
+              client.labels.onChange(label.key, (result) => {
                 if (query.isLive(result)) set("name", result.name);
               }),
           })({ query: { key: label.key } }),
@@ -450,7 +450,7 @@ describe("useForm", () => {
             retrieve,
             update,
             mountListeners: ({ client, set }) =>
-              client.labels.onChange({ key: label.key }, (result) => {
+              client.labels.onChange(label.key, (result) => {
                 if (query.isLive(result)) set("name", result.name);
               }),
           })({ query: { key: label.key } }),

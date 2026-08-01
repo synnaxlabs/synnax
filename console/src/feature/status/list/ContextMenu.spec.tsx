@@ -95,7 +95,7 @@ describe("status list context menu", () => {
     fireEvent.click(findModalButton("Delete"));
     const statusExists = async (): Promise<boolean> => {
       try {
-        await client.statuses.retrieve({ key: s.key });
+        await client.statuses.retrieve(s.key);
         return true;
       } catch {
         return false;
@@ -113,7 +113,7 @@ describe("status list context menu", () => {
     fireEvent.change(input, { target: { value: newName } });
     fireEvent.click(findModalButton("Save"));
     await waitFor(async () => {
-      const updated = await client.statuses.retrieve({ key: s.key });
+      const updated = await client.statuses.retrieve(s.key);
       expect(updated.name).toBe(newName);
     });
   });

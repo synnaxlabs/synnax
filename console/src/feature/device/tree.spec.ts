@@ -71,7 +71,7 @@ describe("device/ontology", () => {
     const renamed = uniqueName("renamed");
     commitTextEdit(editor, renamed);
     await waitFor(async () =>
-      expect((await client.devices.retrieve({ key: dev.key })).name).toBe(renamed),
+      expect((await client.devices.retrieve(dev.key)).name).toBe(renamed),
     );
   });
 
@@ -84,7 +84,7 @@ describe("device/ontology", () => {
     await screen.findByText(`Are you sure you want to delete ${dev.name}?`);
     fireEvent.click(findButton("Delete"));
     await waitFor(async () => {
-      await expect(client.devices.retrieve({ key: dev.key })).rejects.toSatisfy((e) =>
+      await expect(client.devices.retrieve(dev.key)).rejects.toSatisfy((e) =>
         NotFoundError.matches(e),
       );
     });
