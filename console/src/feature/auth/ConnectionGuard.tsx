@@ -241,6 +241,7 @@ const Trouble = ({ client, status, checking }: TroubleProps): ReactElement => {
           justify="center"
           onClick={() => client.connection.retryNow()}
         >
+          <Icon.Refresh />
           Retry Now
         </Button.Button>
         <Flex.Box x gap="small" full="x" className={CSS.BE("connection", "actions")}>

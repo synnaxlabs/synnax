@@ -21,11 +21,7 @@ import {
 } from "@/feature/schematic/testutil";
 import { findButton } from "@/platform/modals/testutil";
 import { Session } from "@/session";
-import {
-  getCompositeIconButton,
-  getInputByNodePlaceholder,
-  uniqueName,
-} from "@/testutil";
+import { getCompositeIconButton, uniqueName } from "@/testutil";
 
 const renderSymbolsToolbar = async () =>
   await renderSchematic(Schematic.Toolbar, {
@@ -80,9 +76,9 @@ describe("Schematic toolbar Symbols", () => {
   });
 
   it("searches static symbols across groups", async () => {
-    const { result } = await renderSymbolsToolbar();
+    await renderSymbolsToolbar();
     await screen.findByText("Gauge");
-    const search = getInputByNodePlaceholder(result.container, "Search symbols");
+    const search = screen.getByPlaceholderText("Search symbols..");
     fireEvent.change(search, { target: { value: "tank" } });
     expect(await screen.findByText("Tank")).toBeDefined();
   });

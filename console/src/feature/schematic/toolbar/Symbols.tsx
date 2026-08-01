@@ -585,13 +585,11 @@ export const Symbols = (): ReactElement => {
         <Input.Text
           value={searchTerm}
           onChange={setSearchTerm}
-          placeholder={
-            <>
-              <Icon.Search />
-              Search symbols
-            </>
-          }
+          placeholder="Search symbols..."
+          startContent={<Icon.Search />}
+          flush
           size="small"
+          className={CSS.BE("schematic", "symbols", "search")}
         />
         <GroupList
           value={groupKey}

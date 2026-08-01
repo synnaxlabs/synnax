@@ -39,13 +39,28 @@
 .console-schematic__symbols {
     height: 100%;
 
+    /* Chromeless search input matching the project splash search: the group row
+       frames it, so the input sheds its own box. The min-height override undoes
+       the flush floor so the row keeps its small-control height. Negative margins
+       stretch it through the row's padding so the divider before the group chips
+       spans the row's full height. */
+    .pluto-input.console-schematic__symbols-search {
+        background: transparent;
+        border: none;
+        border-radius: 0;
+        min-height: var(--pluto-height-small);
+        height: auto;
+        max-height: none;
+        align-self: stretch;
+        margin: -1rem 0;
+        border-right: var(--pluto-border);
+        width: 30rem;
+        flex-grow: 0;
+    }
+
     .console-schematic__symbols-group-list {
         padding: 1rem;
         border-bottom: var(--pluto-border);
-
-        & .pluto-input {
-            margin: 0 calc(-1 * var(--pluto-border-width));
-        }
     }
 
     .console-schematic__symbols-group {

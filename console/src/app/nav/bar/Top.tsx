@@ -76,9 +76,9 @@ export const Top = ({ secondary = false }: TopProps): ReactElement => {
         ) : (
           <>
             <Version.Badge />
+            <Docs.OpenButton />
             <User.Badge />
             <Cluster.ConnectionBadge />
-            <Docs.OpenButton />
           </>
         )}
         <Window.Controls visibleIfOS="Windows" forceOS={os} />
