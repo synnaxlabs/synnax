@@ -9,13 +9,21 @@
 
 /// @brief noop implementation of daemon functions that do nothing on macOS and Windows.
 
+#include <exception>
+
+#include "absl/log/log.h"
+
 #include "x/cpp/os/os.h"
 
 #include "driver/daemon/daemon.h"
 
 namespace driver::daemon {
 void run(const Config &config) {
-    config.callback();
+    try {
+        config.callback();
+    } catch (const std::exception &e) {
+        LOG(ERROR) << "Application error: " << e.what();
+    }
 }
 
 const auto NOT_SUPPORTED = x::errors::Error(
