@@ -10,17 +10,14 @@
 import { DisconnectedError, schematic } from "@synnaxlabs/client";
 import { Icon, Schematic as Base } from "@synnaxlabs/pluto";
 
-import { ingest } from "@/feature/schematic/import";
 import { Schematic } from "@/feature/schematic/Schematic";
 import { Selectable } from "@/feature/schematic/Selectable";
 import { Toolbar } from "@/feature/schematic/toolbar/Toolbar";
-import { type Import } from "@/platform/import";
 import { Panel } from "@/platform/panel";
 import { type Range } from "@/platform/range";
 import { type Selector } from "@/platform/selector";
 
 export * from "@/feature/schematic/commands";
-export * from "@/feature/schematic/import";
 export * from "@/feature/schematic/link";
 export * from "@/feature/schematic/search";
 export * from "@/feature/schematic/symbol";
@@ -29,8 +26,6 @@ export * from "@/feature/schematic/tree";
 export * from "@/platform/schematic/external";
 
 const TAB_TYPE = schematic.TYPE_ONTOLOGY_ID.type;
-
-export const FILE_INGESTERS: Import.FileIngesters = { [TAB_TYPE]: ingest };
 
 export const SELECTABLES: Selector.Selectable[] = [Selectable];
 

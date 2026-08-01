@@ -106,6 +106,22 @@ var _ = Describe("ImEx", func() {
 			Expect(res.Channels[0].Notation).To(Equal(notation.NotationStandard))
 		})
 
+		It("Should import a typeless v0 state through the body matcher", func(ctx SpecContext) {
+			id := MustSucceed(imexSvc.Import(
+				ctx, db, loadEnvelope("versions/testdata/import_v0_state.json"),
+				imex.ImportOptions{FileName: "Legacy Log.json"},
+			))
+			Expect(id.Type).To(Equal(ontology.ResourceTypeLog))
+			key := MustSucceed(uuid.Parse(id.Key))
+			var res log.Log
+			Expect(svc.NewRetrieve().Where(log.MatchKeys(key)).Entry(&res).Exec(ctx, db)).
+				To(Succeed())
+			Expect(res.Name).To(Equal("Legacy Log"))
+			Expect(res.Channels).To(HaveLen(2))
+			Expect(res.Channels[0].Channel).To(Equal(channel.Key(4)))
+			Expect(res.Channels[1].Channel).To(Equal(channel.Key(5)))
+		})
+
 		It("Should import a legacy v1 envelope carrying camelCase keys", func(ctx SpecContext) {
 			_, res := importAndRetrieve(ctx, v1Fixture)
 			Expect(res.Name).To(Equal("Test Log V1"))

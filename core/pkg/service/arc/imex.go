@@ -26,7 +26,20 @@ import (
 	"github.com/synnaxlabs/x/gorp"
 )
 
-var _ imex.ImportExporter = (*Service)(nil)
+var (
+	_ imex.ImportExporter = (*Service)(nil)
+	_ imex.Matcher        = (*Service)(nil)
+)
+
+// Match reports whether body is a legacy Console arc state: v0-v2 files persist the
+// graph inline alongside text and mode. The markers are frozen — they describe
+// historical file shapes.
+func (s *Service) Match(body map[string]any) bool {
+	_, hasGraph := body["graph"]
+	_, hasMode := body["mode"]
+	_, hasText := body["text"]
+	return hasGraph && (hasMode || hasText)
+}
 
 // Export retrieves the arc identified by id and serializes it as an imex.Envelope
 // stamped with Version. It returns query.ErrNotFound if no arc exists for id.Key.

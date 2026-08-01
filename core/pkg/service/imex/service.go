@@ -11,7 +11,9 @@ package imex
 
 import (
 	"context"
+	"maps"
 	"path/filepath"
+	"slices"
 	"strings"
 	"sync"
 
@@ -91,19 +93,51 @@ func notFoundError[T ~string](typ T, kind string) error {
 	)
 }
 
+// ResolveType returns the registration type string that Import will route envelope to.
+// A non-empty envelope.Type is returned as-is. For typeless envelopes — legacy Console
+// state files never carried a type — the decoded body is offered to every registered
+// [Importer] that implements [Matcher], in sorted type order; the first to claim it
+// wins. Returns a validation error scoped to the "type" field when no importer claims
+// the body.
+func (s *Service) ResolveType(ctx context.Context, envelope Envelope) (string, error) {
+	if envelope.Type != "" {
+		return envelope.Type, nil
+	}
+	body, err := Decode[map[string]any](ctx, envelope)
+	if err != nil {
+		return "", err
+	}
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	for _, t := range slices.Sorted(maps.Keys(s.importers)) {
+		if m, ok := s.importers[t].(Matcher); ok && m.Match(body) {
+			return t, nil
+		}
+	}
+	return "", newFieldError("type", "file does not match any known resource format")
+}
+
 // Import routes envelope to the [Importer] registered under envelope.Type, persists it
-// on tx, and returns the ontology.ID of the created resource. The opts.FileName name
-// fallback is applied to the envelope before routing; opts is then handed to the
-// importer untouched — the importer owns all ontology writes, including attaching the
-// resource under opts.Project. Returns a validation error scoped to the "type" field if
-// no [Importer] is registered for envelope.Type, and a validation error scoped to the
-// "name" field if the envelope has no name after the opts.FileName fallback is applied.
+// on tx, and returns the ontology.ID of the created resource. A typeless envelope is
+// first resolved through [Service.ResolveType]. The opts.FileName name fallback is
+// applied to the envelope before routing; opts is then handed to the importer untouched
+// — the importer owns all ontology writes, including attaching the resource under
+// opts.Project. Returns a validation error scoped to the "type" field if no [Importer]
+// is registered for envelope.Type, and a validation error scoped to the "name" field if
+// the envelope has no name after the opts.FileName fallback is applied.
 func (s *Service) Import(
 	ctx context.Context,
 	tx gorp.Tx,
 	envelope Envelope,
 	opts ImportOptions,
 ) (ontology.ID, error) {
+	if envelope.Type == "" {
+		typ, err := s.ResolveType(ctx, envelope)
+		if err != nil {
+			return ontology.ID{}, err
+		}
+		envelope.Type = typ
+	}
 	s.mu.RLock()
 	importer, ok := s.importers[envelope.Type]
 	s.mu.RUnlock()

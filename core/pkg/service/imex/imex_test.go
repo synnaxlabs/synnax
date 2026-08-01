@@ -94,29 +94,25 @@ var _ = Describe("ImEx", func() {
 			})
 
 			It("Should error when name is not a string", func() {
-				// Provide a valid type so the unmarshal flow reaches the name
-				// type-assertion instead of short-circuiting on missing type.
 				var env imex.Envelope
 				Expect(json.Unmarshal(
 					[]byte(`{"version":1,"type":"log","name":[]}`), &env,
 				)).To(MatchError(ContainSubstring("name must be a string")))
 			})
 
-			It("Should reject a null payload because type is missing", func() {
+			It("Should reject a null payload", func() {
 				var env imex.Envelope
 				Expect(json.Unmarshal([]byte(`null`), &env)).To(
-					MatchError(ContainSubstring("type must be a non-empty string")),
+					MatchError(ContainSubstring("envelope must be a JSON object")),
 				)
 			})
 
-			It("Should reject an empty type with a validation error scoped to the type field", func() {
+			It("Should accept an envelope without a type", func() {
 				var env imex.Envelope
 				Expect(json.Unmarshal(
-					[]byte(`{"version":1,"type":"","name":"n"}`), &env,
-				)).To(SatisfyAll(
-					MatchError(ContainSubstring("type must be a non-empty string")),
-					MatchError(ContainSubstring("validation error")),
-				))
+					[]byte(`{"version":1,"name":"n"}`), &env,
+				)).To(Succeed())
+				Expect(env.Type).To(BeEmpty())
 			})
 
 			It("Should accept an envelope without a name", func() {

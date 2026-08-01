@@ -16,6 +16,7 @@ import { ZodError } from "zod";
 
 import { useFileIngesters } from "@/platform/import/FileIngestersProvider";
 import {
+  type FileIngester,
   type FileIngesterContext,
   type FileIngesters,
 } from "@/platform/import/ingester";
@@ -23,6 +24,26 @@ import { trimFileName } from "@/platform/import/trimFileName";
 import { Panel } from "@/platform/panel";
 import { Runtime } from "@/platform/runtime";
 import { Session } from "@/session";
+
+/**
+ * Imports data by streaming its bytes to the Core, which owns envelope decoding,
+ * type resolution for typeless legacy Console states, legacy-version migration,
+ * file-name naming, and project parenting. Opens the created resource as a tab.
+ * @throws {DisconnectedError} if no cluster is connected.
+ */
+export const ingestServer: FileIngester = async (
+  data,
+  { openTab, client, projectKey, fileName },
+) => {
+  if (client == null) throw new DisconnectedError();
+  const id = await client.imex.import(JSON.stringify(data), {
+    encoding: "JSON",
+    fileName,
+    project: projectKey,
+  });
+  openTab({ variant: "resource", resource: id });
+  return id;
+};
 
 export const ingestComponent = async (
   data: unknown,
@@ -39,31 +60,23 @@ export const ingestComponent = async (
     type = data.type;
   if (type != null) {
     const ingest = fileIngesters[type];
-    if (ingest == null) throw new Error(`${ctx.fileName} has an unknown type: ${type}`);
-    await ingest(data, ctx);
+    // Types without a client-side ingester are the server's to decode.
+    if (ingest != null) await ingest(data, ctx);
+    else await ingestServer(data, ctx);
     return;
   }
-  // Typeless files are legacy Console-state exports. Ingesters with a matcher
-  // claim their shapes outright; the rest are tried and reject foreign payloads
-  // with a ZodError.
-  const ingesters = Object.values(fileIngesters);
-  if (typeof data === "object" && data != null)
-    for (const ingest of ingesters)
-      if (ingest.match?.(data as Record<string, unknown>) === true) {
-        await ingest(data, ctx);
-        return;
-      }
-  for (const ingest of ingesters) {
-    if (ingest.match != null) continue;
+  // Typeless files are either legacy task configs — client-side ingesters reject
+  // foreign payloads with a ZodError — or legacy Console states, which the server
+  // recognizes by their frozen markers.
+  for (const ingest of Object.values(fileIngesters))
     try {
       await ingest(data, ctx);
       return;
     } catch (e) {
       if (e instanceof ZodError) continue;
-      else throw errors.fromUnknown(e);
+      throw errors.fromUnknown(e);
     }
-  }
-  throw new Error(`${ctx.fileName} cannot be imported.`);
+  await ingestServer(data, ctx);
 };
 
 const FILTERS = [{ name: "JSON", extensions: ["json"] }];

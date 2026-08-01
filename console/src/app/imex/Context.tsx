@@ -9,22 +9,12 @@
 
 import { type PropsWithChildren } from "react";
 
-import { Arc } from "@/feature/arc";
-import { LinePlot } from "@/feature/lineplot";
-import { Log } from "@/feature/log";
-import { Schematic } from "@/feature/schematic";
-import { Table } from "@/feature/table";
 import { Task } from "@/feature/task";
 import { Import } from "@/platform/import";
 
-const FILE_INGESTERS: Import.FileIngesters = {
-  ...Arc.FILE_INGESTERS,
-  ...Log.FILE_INGESTERS,
-  ...LinePlot.FILE_INGESTERS,
-  ...Schematic.FILE_INGESTERS,
-  ...Table.FILE_INGESTERS,
-  ...Task.FILE_INGESTERS,
-};
+// Only task configs are ingested client-side; every other file type is streamed to
+// the server through Import.ingestServer.
+const FILE_INGESTERS: Import.FileIngesters = { ...Task.FILE_INGESTERS };
 
 export interface ContextProps extends PropsWithChildren<{}> {}
 

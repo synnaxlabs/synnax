@@ -9,11 +9,16 @@
 
 import { type Store } from "@reduxjs/toolkit";
 import {
+  arc,
   DisconnectedError,
+  lineplot,
+  log,
   type ontology,
   panel,
   project,
+  schematic,
   type Synnax,
+  table,
 } from "@synnaxlabs/client";
 import { Access, type Pluto, type Status } from "@synnaxlabs/pluto";
 import { uuid } from "@synnaxlabs/x";
@@ -76,8 +81,7 @@ const ingestComponents = async (
     const { data } = file;
     if (typeof data !== "object" || data == null || !("type" in data)) continue;
     if (typeof data.type !== "string") continue;
-    const ingestFile = fileIngesters[data.type];
-    if (ingestFile == null) continue;
+    const ingestFile = fileIngesters[data.type] ?? Import.ingestServer;
     const id = await ingestFile(data, {
       ...ctx,
       name: Import.trimFileName(file.name),
@@ -89,6 +93,17 @@ const ingestComponents = async (
   return remap;
 };
 
+// Visualization layout types found in legacy (layout-slice era) project exports.
+// Their component files are typeless legacy Console states, importable only through
+// the server. Frozen — legacy exports are no longer produced.
+const LEGACY_COMPONENT_TYPES = new Set<string>([
+  arc.TYPE_ONTOLOGY_ID.type,
+  lineplot.TYPE_ONTOLOGY_ID.type,
+  log.TYPE_ONTOLOGY_ID.type,
+  schematic.TYPE_ONTOLOGY_ID.type,
+  table.TYPE_ONTOLOGY_ID.type,
+]);
+
 const ingestLegacy = async (
   legacyData: unknown,
   files: Import.File[],
@@ -97,7 +112,9 @@ const ingestLegacy = async (
 ): Promise<void> => {
   const { layouts } = legacySliceZ.parse(legacyData);
   for (const [key, layout] of Object.entries(layouts)) {
-    const ingestFile = fileIngesters[layout.type];
+    const ingestFile =
+      fileIngesters[layout.type] ??
+      (LEGACY_COMPONENT_TYPES.has(layout.type) ? Import.ingestServer : null);
     if (ingestFile == null) continue;
     const file = files.find(
       (file) =>

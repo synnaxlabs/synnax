@@ -7,22 +7,34 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { DisconnectedError, log } from "@synnaxlabs/client";
+import { createTestClient } from "@synnaxlabs/client/testutil";
 import { describe, expect, it, vi } from "vitest";
 import { ZodError } from "zod";
 
 import { Import } from "@/platform/import";
 import { createFileIngesterContext } from "@/platform/import/testutil";
+import { type Panel } from "@/platform/panel";
+import { uniqueName } from "@/testutil";
 
 const ctx = createFileIngesterContext();
 
+const openedResource = (openTab: ReturnType<typeof vi.fn<Panel.OpenTab>>) => {
+  expect(openTab).toHaveBeenCalledTimes(1);
+  const [tab] = openTab.mock.calls[0];
+  if (tab.variant !== "resource" || typeof tab.resource === "string")
+    throw new Error("expected a resource tab");
+  return tab.resource;
+};
+
 describe("ingestComponent", () => {
   it("dispatches typed data to the ingester matching its type", async () => {
-    const log = vi.fn();
+    const logIngest = vi.fn();
     const table = vi.fn();
     const data = { type: "log", key: "abc" };
-    await Import.ingestComponent(data, { log, table }, ctx);
-    expect(log).toHaveBeenCalledTimes(1);
-    expect(log).toHaveBeenCalledWith(data, ctx);
+    await Import.ingestComponent(data, { log: logIngest, table }, ctx);
+    expect(logIngest).toHaveBeenCalledTimes(1);
+    expect(logIngest).toHaveBeenCalledWith(data, ctx);
     expect(table).not.toHaveBeenCalled();
   });
 
@@ -37,15 +49,6 @@ describe("ingestComponent", () => {
     expect(third).not.toHaveBeenCalled();
   });
 
-  it("throws a cannot-be-imported error when every ingester rejects with a ZodError", async () => {
-    const first = vi.fn().mockRejectedValue(new ZodError([]));
-    const second = vi.fn().mockRejectedValue(new ZodError([]));
-    const badCtx = createFileIngesterContext({ fileName: "bad.json" });
-    await expect(
-      Import.ingestComponent({ key: "x" }, { first, second }, badCtx),
-    ).rejects.toThrow("bad.json cannot be imported.");
-  });
-
   it("rethrows a non-Zod error raised by an untyped ingester without trying the rest", async () => {
     const boom = new Error("disk on fire");
     const first = vi.fn().mockRejectedValue(boom);
@@ -56,34 +59,56 @@ describe("ingestComponent", () => {
     expect(second).not.toHaveBeenCalled();
   });
 
-  it("throws an unknown-type error when typed data has no registered ingester", async () => {
-    const log = vi.fn();
-    const badCtx = createFileIngesterContext({ fileName: "mystery.json" });
-    await expect(
-      Import.ingestComponent({ type: "unheard_of" }, { log }, badCtx),
-    ).rejects.toThrow("mystery.json has an unknown type: unheard_of");
-    expect(log).not.toHaveBeenCalled();
+  it("reaches the server fallback for unclaimed untyped data, failing when disconnected", async () => {
+    const first = vi.fn().mockRejectedValue(new ZodError([]));
+    await expect(Import.ingestComponent({ key: "x" }, { first }, ctx)).rejects.toThrow(
+      DisconnectedError,
+    );
   });
 
-  it("routes untyped data to the ingester whose matcher claims it", async () => {
-    const claimed = Object.assign(vi.fn(), {
-      match: (d: Record<string, unknown>) => "nodes" in d,
+  it("streams typed data with no client-side ingester to the server", async () => {
+    const client = createTestClient();
+    const proj = await client.projects.create({
+      name: uniqueName("project"),
+      layout: {},
     });
-    const unclaimed = Object.assign(vi.fn(), { match: () => false });
-    const tried = vi.fn();
-    const data = { nodes: [] };
-    await Import.ingestComponent(data, { unclaimed, claimed, tried }, ctx);
-    expect(claimed).toHaveBeenCalledWith(data, ctx);
-    expect(unclaimed).not.toHaveBeenCalled();
-    expect(tried).not.toHaveBeenCalled();
+    const original = await client.logs.create(proj.key, { name: uniqueName("log") });
+    const stream = await client.imex.export(log.ontologyID(original.key), {
+      encoding: "JSON",
+    });
+    const data = JSON.parse(await new Response(stream).text());
+    const task = vi.fn();
+    const openTab = vi.fn<Panel.OpenTab>();
+    await Import.ingestComponent(
+      data,
+      { some_task: task },
+      createFileIngesterContext({ openTab, client, projectKey: proj.key }),
+    );
+    expect(task).not.toHaveBeenCalled();
+    const created = await client.logs.retrieve({ key: openedResource(openTab).key });
+    expect(created.name).toBe(original.name);
   });
 
-  it("never falls back to trying a matcher-declaring ingester on untyped data", async () => {
-    const server = Object.assign(vi.fn(), { match: () => false });
-    const clientSide = vi.fn().mockResolvedValue(undefined);
-    const data = { key: "no-type-field" };
-    await Import.ingestComponent(data, { server, clientSide }, ctx);
-    expect(server).not.toHaveBeenCalled();
-    expect(clientSide).toHaveBeenCalledWith(data, ctx);
+  it("routes a typeless legacy state to the server after client ingesters decline", async () => {
+    const client = createTestClient();
+    const proj = await client.projects.create({
+      name: uniqueName("project"),
+      layout: {},
+    });
+    const task = vi.fn().mockRejectedValue(new ZodError([]));
+    const openTab = vi.fn<Panel.OpenTab>();
+    const serverCtx = createFileIngesterContext({
+      openTab,
+      client,
+      projectKey: proj.key,
+      fileName: "Legacy Log.json",
+    });
+    // A legacy Console log state: version-stamped, no type, no name. The server
+    // recognizes it by its frozen channels-array marker and names it after the file.
+    const state = { version: "0.0.0", channels: [1, 2, 3], remoteCreated: false };
+    await Import.ingestComponent(state, { task }, serverCtx);
+    expect(task).toHaveBeenCalledWith(state, serverCtx);
+    const created = await client.logs.retrieve({ key: openedResource(openTab).key });
+    expect(created.name).toBe("Legacy Log");
   });
 });

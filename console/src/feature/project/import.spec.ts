@@ -22,8 +22,6 @@ import { act, renderHook, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { Project } from "@/feature/project";
-import { Schematic } from "@/feature/schematic";
-import { Table } from "@/feature/table";
 import { type Import } from "@/platform/import";
 import { Panel } from "@/platform/panel";
 import { Session } from "@/session";
@@ -35,13 +33,6 @@ const SCHEMATIC_TYPE = "schematic";
 const TABLE_TYPE = "table";
 const OPERATOR_KEY = "34c0a87c-3f72-42d2-8cac-75bc1e2631b1";
 const THERMO_KEY = "cdb27884-a73f-4696-bcee-a71c1f6625bd";
-
-// The real ingesters for these types; the full FILE_INGESTERS registry would drag in
-// the Arc/Monaco editor, which Vitest can't load.
-const FILE_INGESTERS: Import.FileIngesters = {
-  ...Schematic.FILE_INGESTERS,
-  ...Table.FILE_INGESTERS,
-};
 
 const SCHEMATIC_DATA = {
   key: OPERATOR_KEY,
@@ -137,9 +128,10 @@ describe("project import", () => {
     );
     await waitFor(() => expect(result.current.granted).toBe(true));
     await act(async () => {
+      // No client-side ingesters: visualization files route through the server.
       await Project.ingest(`proj-${id.create()}`, fileList, {
         client,
-        fileIngesters: FILE_INGESTERS,
+        fileIngesters: {},
         openTab: result.current.openTab,
         store,
         fluxStore: result.current.fluxStore,

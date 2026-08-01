@@ -32,7 +32,22 @@ import (
 // and ride the storage lift's legacy chain.
 const lastStateVersion imex.Version = 5
 
-var _ imex.ImportExporter = (*Service)(nil)
+var (
+	_ imex.ImportExporter = (*Service)(nil)
+	_ imex.Matcher        = (*Service)(nil)
+)
+
+// Match reports whether body is a legacy Console line plot state: v0-v4 files persist
+// the plot body inline (axes/channels), v5 carries selectedRules/hiddenLines alongside
+// an optional pendingUpload. The markers are frozen — they describe historical file
+// shapes.
+func (s *Service) Match(body map[string]any) bool {
+	_, hasAxes := body["axes"]
+	_, hasChannels := body["channels"]
+	_, hasSelectedRules := body["selectedRules"]
+	_, hasHiddenLines := body["hiddenLines"]
+	return (hasAxes && hasChannels) || hasSelectedRules || hasHiddenLines
+}
 
 // Export retrieves the line plot identified by id and serializes it as an imex.Envelope
 // stamped with Version. It returns query.ErrNotFound if no line plot exists for id.Key.

@@ -38,14 +38,6 @@ export interface FileIngester {
     data: unknown,
     ctx: FileIngesterContext,
   ): void | ontology.ID | Promise<void | ontology.ID>;
-  /**
-   * Reports whether a payload with no type field is this ingester's resource.
-   * Legacy Console-state exports carry no type; server-side ingesters declare a
-   * matcher over frozen state-marker fields so those files route without
-   * client-side parsing. Ingesters without a matcher are tried directly and are
-   * expected to reject foreign payloads with a ZodError.
-   */
-  match?: (data: Record<string, unknown>) => boolean;
 }
 
 export interface FileIngesters extends Record<string, FileIngester> {}

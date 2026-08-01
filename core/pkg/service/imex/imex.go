@@ -105,7 +105,9 @@ type Envelope struct {
 	// services with asymmetric registration (a single task service registering under
 	// fine-grained type strings like "http_read" or "opc_scan"), Type is the
 	// fine-grained string; the broader ontology resource type is recovered through the
-	// Importer's Type() method.
+	// Importer's Type() method. Empty on legacy Console state files, which never
+	// carried a type — Service.Import resolves it by offering the body to registered
+	// Matchers.
 	Type string
 	// Name is the human-readable name of the resource. Required on export — Encode
 	// enforces that the input value carries a top-level string `name` field. On import
@@ -151,13 +153,14 @@ func (e *Envelope) UnmarshalJSON(b []byte) error {
 // unmarshal is the codec-agnostic tail shared by every UnmarshalX method on Envelope.
 // Given the body already decoded as a flat map, the original wire bytes, and the codec
 // that produced them, it promotes the {version, type, name} headers onto the receiver
-// and stashes raw + codec for the later typed decode via Decode[T]. `type` is a
-// required header — an envelope that omits it, or that carries an empty string for it,
-// is rejected so the failure surfaces at the transport boundary instead of routing to a
-// no-op handler. `name` is optional at decode time: the import path may fall back to a
-// caller-supplied file name, so Service.Import enforces the non-empty name after that
-// fallback is applied.
+// and stashes raw + codec for the later typed decode via Decode[T]. Both `type` and
+// `name` are optional at decode time: legacy Console state files carry neither, so
+// Service.Import resolves a missing type by offering the body to registered Matchers
+// and fills a missing name from the caller-supplied file name.
 func (e *Envelope) unmarshal(m map[string]any, raw []byte, codec encoding.Codec) error {
+	if m == nil {
+		return errors.Wrap(validate.ErrValidation, "envelope must be a JSON object")
+	}
 	if v, ok := m["version"]; ok {
 		ver, err := versionFromAny(v)
 		if err != nil {
@@ -171,9 +174,6 @@ func (e *Envelope) unmarshal(m map[string]any, raw []byte, codec encoding.Codec)
 			return newFieldError("type", "type must be a string, got %T", v)
 		}
 		e.Type = s
-	}
-	if e.Type == "" {
-		return newFieldError("type", "type must be a non-empty string")
 	}
 	if v, ok := m["name"]; ok {
 		s, ok := v.(string)
@@ -425,6 +425,17 @@ type Importer interface {
 	// "http_read" and "opc_scan") this is the coarser ontology type ("task"); it is the
 	// resource type used for access control and ontology accounting.
 	Type() ontology.ResourceType
+}
+
+// Matcher is implemented by Importers that can claim envelopes carrying no `type`
+// header. Legacy Console state files never carried one, so Service.ResolveType offers
+// the decoded body to each registered Matcher instead. Markers tested by Match are
+// frozen — they describe historical file shapes — and must be mutually exclusive
+// across importers.
+type Matcher interface {
+	// Match reports whether body, the envelope body decoded as a flat map, is this
+	// importer's resource.
+	Match(body map[string]any) bool
 }
 
 // Exporter serializes a stored resource as an Envelope, stamping its own per-schema

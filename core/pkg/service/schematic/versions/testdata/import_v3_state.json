@@ -1,7 +1,6 @@
 {
   "key": "abc123",
   "version": "3.0.0",
-  "type": "schematic",
   "editable": true,
   "fitViewOnResize": false,
   "snapshot": false,

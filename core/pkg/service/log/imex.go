@@ -25,7 +25,18 @@ import (
 // than a legacy Console state.
 const typedVersion imex.Version = 2
 
-var _ imex.ImportExporter = (*Service)(nil)
+var (
+	_ imex.ImportExporter = (*Service)(nil)
+	_ imex.Matcher        = (*Service)(nil)
+)
+
+// Match reports whether body is a legacy Console log state, which persists channels as
+// an array (bare keys at v0, config objects at v1); no other resource's state does.
+// The marker is frozen — it describes historical file shapes.
+func (s *Service) Match(body map[string]any) bool {
+	_, ok := body["channels"].([]any)
+	return ok
+}
 
 // Export retrieves the log identified by id and serializes it as an imex.Envelope
 // stamped with Version. It returns query.ErrNotFound if no log exists for id.Key.

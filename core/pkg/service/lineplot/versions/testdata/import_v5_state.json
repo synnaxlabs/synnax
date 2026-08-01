@@ -1,7 +1,6 @@
 {
   "key": "abc123",
   "version": "5.0.0",
-  "type": "lineplot",
   "remoteCreated": false,
   "mode": "zoom",
   "selectedRules": [],

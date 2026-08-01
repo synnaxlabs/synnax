@@ -41,6 +41,13 @@ func (r *recordingImporter) Import(
 	return ontology.ID{Type: ontology.ResourceTypeChannel, Key: env.Name}, nil
 }
 
+// Match claims typeless envelopes carrying the legacy_marker key so specs can exercise
+// type resolution ahead of access control.
+func (*recordingImporter) Match(body map[string]any) bool {
+	_, ok := body["legacy_marker"]
+	return ok
+}
+
 func testEnvelope(name string) apiimex.ImportRequest {
 	var env imex.Envelope
 	Expect(json.Unmarshal(fmt.Appendf(nil,
@@ -60,6 +67,33 @@ var _ = Describe("Import", func() {
 		Expect(id.Key).To(Equal("with-options"))
 		Expect(importer.opts.FileName).To(Equal("Metrics Log.json"))
 		Expect(importer.opts.Project).To(Equal(key))
+	})
+
+	It("Should resolve a typeless envelope through the registered matcher", func(ctx SpecContext) {
+		var env imex.Envelope
+		Expect(json.Unmarshal(
+			[]byte(`{"version":"1.0.0","legacy_marker":true}`), &env,
+		)).To(Succeed())
+		fctx := rootCtx(ctx)
+		fctx.Set("params", fmt.Sprintf(
+			`{"file_name":"Legacy State.json","project":%q}`, uuid.New(),
+		))
+		id := MustSucceed(apiSvc.Import(fctx, db, env))
+		Expect(id.Key).To(Equal("Legacy State"))
+	})
+
+	It("Should reject a typeless envelope no matcher claims", func(ctx SpecContext) {
+		var env imex.Envelope
+		Expect(json.Unmarshal(
+			[]byte(`{"version":"1.0.0","unclaimed":true}`), &env,
+		)).To(Succeed())
+		fctx := rootCtx(ctx)
+		fctx.Set("params", fmt.Sprintf(
+			`{"file_name":"Mystery.json","project":%q}`, uuid.New(),
+		))
+		Expect(apiSvc.Import(fctx, db, env)).Error().To(
+			MatchError(ContainSubstring("does not match any known resource format")),
+		)
 	})
 
 	It("Should reject a request with no params", func(ctx SpecContext) {

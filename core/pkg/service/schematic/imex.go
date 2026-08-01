@@ -29,7 +29,21 @@ import (
 // and ride the storage lift's legacy chain.
 const lastStateVersion imex.Version = 6
 
-var _ imex.ImportExporter = (*Service)(nil)
+var (
+	_ imex.ImportExporter = (*Service)(nil)
+	_ imex.Matcher        = (*Service)(nil)
+)
+
+// Match reports whether body is a legacy Console schematic state: v0-v5 files persist
+// the document inline (nodes/edges/props), v6 carries controlStatus alongside an
+// optional pendingUpload. The markers are frozen — they describe historical file
+// shapes.
+func (s *Service) Match(body map[string]any) bool {
+	_, hasNodes := body["nodes"]
+	_, hasProps := body["props"]
+	_, hasControlStatus := body["controlStatus"]
+	return (hasNodes && hasProps) || hasControlStatus
+}
 
 // Export retrieves the schematic identified by id and serializes it as an imex.Envelope
 // stamped with Version. It returns query.ErrNotFound if no schematic exists for id.Key.

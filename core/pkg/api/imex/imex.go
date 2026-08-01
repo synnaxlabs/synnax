@@ -54,7 +54,14 @@ func (s *Service) Import(
 	tx gorp.Tx,
 	req ImportRequest,
 ) (ImportResponse, error) {
-	resourceType, err := s.internal.ImporterType(req.Type)
+	// Typeless envelopes (legacy Console state files) must be resolved to a concrete
+	// registration type before access control can name the resource being created.
+	typ, err := s.internal.ResolveType(ctx, req)
+	if err != nil {
+		return ImportResponse{}, err
+	}
+	req.Type = typ
+	resourceType, err := s.internal.ImporterType(typ)
 	if err != nil {
 		return ImportResponse{}, err
 	}

@@ -164,6 +164,20 @@ func (n noopImporter) Import(
 	return ontology.ID{Type: n.typ, Key: "noop-key"}, nil
 }
 
+// matchImporter is a noopImporter that claims typeless envelopes whose body carries
+// marker as a top-level key.
+type matchImporter struct {
+	noopImporter
+	marker string
+}
+
+var _ imex.Matcher = matchImporter{}
+
+func (m matchImporter) Match(body map[string]any) bool {
+	_, ok := body[m.marker]
+	return ok
+}
+
 type noopExporter struct{ typ ontology.ResourceType }
 
 func (n noopExporter) Type() ontology.ResourceType { return n.typ }
@@ -201,6 +215,69 @@ var _ = Describe("Service", func() {
 				MatchError(ContainSubstring("no importer registered")),
 				MatchError(ContainSubstring("validation error")),
 			))
+		})
+	})
+
+	Describe("ResolveType", func() {
+		typelessEnvelope := func(payload string) imex.Envelope {
+			var env imex.Envelope
+			Expect(json.Unmarshal([]byte(payload), &env)).To(Succeed())
+			return env
+		}
+
+		It("Should return a non-empty envelope type as-is", func(ctx SpecContext) {
+			Expect(svc.ResolveType(ctx, imex.Envelope{Type: "anything"})).To(
+				Equal("anything"),
+			)
+		})
+
+		It("Should resolve a typeless envelope through the claiming matcher", func(ctx SpecContext) {
+			s := imex.NewService()
+			s.RegisterImporter("aaa", matchImporter{
+				noopImporter{typ: ontology.ResourceTypeLog}, "channels",
+			})
+			s.RegisterImporter("bbb", matchImporter{
+				noopImporter{typ: ontology.ResourceTypeSchematic}, "nodes",
+			})
+			Expect(s.ResolveType(
+				ctx, typelessEnvelope(`{"version":"1.0.0","nodes":[]}`),
+			)).To(Equal("bbb"))
+		})
+
+		It("Should offer the body to matchers in sorted type order", func(ctx SpecContext) {
+			s := imex.NewService()
+			s.RegisterImporter("bbb", matchImporter{
+				noopImporter{typ: ontology.ResourceTypeLog}, "marker",
+			})
+			s.RegisterImporter("aaa", matchImporter{
+				noopImporter{typ: ontology.ResourceTypeLog}, "marker",
+			})
+			Expect(s.ResolveType(
+				ctx, typelessEnvelope(`{"marker":true}`),
+			)).To(Equal("aaa"))
+		})
+
+		It("Should reject a typeless envelope no matcher claims", func(ctx SpecContext) {
+			Expect(svc.ResolveType(
+				ctx, typelessEnvelope(`{"version":"1.0.0","foo":1}`),
+			)).Error().To(SatisfyAll(
+				MatchError(ContainSubstring("does not match any known resource format")),
+				MatchError(ContainSubstring("validation error")),
+			))
+		})
+
+		It("Should route a typeless envelope through Import via its matcher", func(ctx SpecContext) {
+			s := imex.NewService()
+			s.RegisterImporter("matched", matchImporter{
+				noopImporter{typ: ontology.ResourceTypeLog}, "channels",
+			})
+			id := MustSucceed(s.Import(
+				ctx, db, typelessEnvelope(`{"version":"1.0.0","channels":[]}`),
+				imex.ImportOptions{FileName: "Legacy.json"},
+			))
+			Expect(id).To(Equal(ontology.ID{
+				Type: ontology.ResourceTypeLog, Key: "noop-key",
+			}))
 		})
 	})
 

@@ -1,7 +1,6 @@
 {
   "key": "abc123",
   "version": "0.0.0",
-  "type": "lineplot",
   "remoteCreated": false,
   "title": { "level": "p", "visible": true },
   "legend": { "visible": true },

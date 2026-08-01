@@ -1,7 +1,6 @@
 {
   "key": "abc123",
   "version": "2.0.0",
-  "type": "arc",
   "remoteCreated": false,
   "graph": {
     "editable": true,

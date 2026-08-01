@@ -28,7 +28,22 @@ import (
 // inline and ride the storage lift's legacy chain.
 const lastStateVersion imex.Version = 1
 
-var _ imex.ImportExporter = (*Service)(nil)
+var (
+	_ imex.ImportExporter = (*Service)(nil)
+	_ imex.Matcher        = (*Service)(nil)
+)
+
+// Match reports whether body is a legacy Console table state: v0 files persist the
+// structural model inline (layout/cells), v1 carries selectedCells/hideIndicators
+// alongside an optional pendingUpload. The markers are frozen — they describe
+// historical file shapes.
+func (s *Service) Match(body map[string]any) bool {
+	_, hasLayout := body["layout"]
+	_, hasCells := body["cells"]
+	_, hasSelectedCells := body["selectedCells"]
+	_, hasHideIndicators := body["hideIndicators"]
+	return (hasLayout && hasCells) || hasSelectedCells || hasHideIndicators
+}
 
 // Export retrieves the table identified by id and serializes it as an imex.Envelope
 // stamped with Version. It returns query.ErrNotFound if no table exists for id.Key.
