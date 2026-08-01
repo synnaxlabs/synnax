@@ -40,7 +40,7 @@ import {
 import { DisconnectedError, errorsMiddleware } from "@/errors";
 import { Transport } from "@/transport";
 
-export const CHECK_ENDPOINT = "/connectivity/check";
+const CHECK_ENDPOINT = "/connectivity/check";
 
 const checkResZ = z.object({
   clusterKey: z.string(),
@@ -124,7 +124,7 @@ export const modeFor = ({ variant, details }: Status): Mode => {
   }
 };
 
-export const DEFAULT_RETRY: breaker.Config = {
+const DEFAULT_RETRY: breaker.Config = {
   baseInterval: TimeSpan.seconds(1),
   // checks are one cheap request: a low cap keeps a returned cluster from
   // going unnoticed while backoff is escalated

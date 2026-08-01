@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { label, type ontology, query, status, TimeStamp } from "@synnaxlabs/client";
-import { primitive, uuid } from "@synnaxlabs/x";
+import { primitive, uuid, verbs } from "@synnaxlabs/x";
 import { useEffect } from "react";
 import type z from "zod";
 
@@ -31,7 +31,7 @@ export const useList = Flux.createList<ListParams, status.Key, status.Status>({
 
 export const { useUpdate: useDelete } = Flux.createUpdate<status.Key | status.Key[]>({
   name: RESOURCE_NAME,
-  verbs: Flux.DELETE_VERBS,
+  verbs: verbs.DELETE,
   update: async ({ client, data }) => {
     await client.statuses.delete(data);
     return data;
@@ -45,7 +45,7 @@ export interface SetParams {
 
 export const { useUpdate: useSet } = Flux.createUpdate<SetParams>({
   name: RESOURCE_NAME,
-  verbs: Flux.SET_VERBS,
+  verbs: verbs.SET,
   update: async ({ client, data, data: { statuses, parent } }) => {
     if (Array.isArray(statuses)) await client.statuses.set(statuses, { parent });
     else await client.statuses.set(statuses, { parent });
@@ -161,7 +161,7 @@ export interface RenameParams extends Pick<status.Status, "key" | "name"> {}
 
 export const { useUpdate: useRename } = Flux.createUpdate<RenameParams>({
   name: RESOURCE_NAME,
-  verbs: Flux.RENAME_VERBS,
+  verbs: verbs.RENAME,
   update: async ({ client, data, onOptimisticComplete }) => {
     const { key, name } = data;
     await client.statuses.rename(key, name, {

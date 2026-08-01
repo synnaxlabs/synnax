@@ -102,17 +102,17 @@ const assignmentRel = (role: Key, userKey: user.Key): ontology.Relationship => (
   to: user.ontologyID(userKey),
 });
 
-export interface ClientParams {
+export interface ClientConfig {
   unary: UnaryClient;
   cache: query.Cache;
   ontology: ontology.Client;
 }
 
 export class Client extends query.Retriever<typeof retrieveRequestZ, Key, Role> {
-  private readonly cfg: ClientParams;
+  private readonly cfg: ClientConfig;
   private readonly store: query.Table<Key, Role>;
 
-  constructor(cfg: ClientParams) {
+  constructor(cfg: ClientConfig) {
     const { cache } = cfg;
     const store = cache.createTable<Key, Role>({
       name: "roles",

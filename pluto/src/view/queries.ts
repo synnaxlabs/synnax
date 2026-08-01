@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { query, view } from "@synnaxlabs/client";
-import { type optional } from "@synnaxlabs/x";
+import { type optional, verbs } from "@synnaxlabs/x";
 import { useEffect } from "react";
 import { type z } from "zod";
 
@@ -31,7 +31,7 @@ export const useList = Flux.createList<ListQuery, view.Key, view.View>({
 
 export const { useUpdate: useCreate } = Flux.createUpdate<view.New>({
   name: RESOURCE_NAME,
-  verbs: Flux.CREATE_VERBS,
+  verbs: verbs.CREATE,
   update: async ({ client, data }) => await client.views.create(data),
 });
 
@@ -39,7 +39,7 @@ export type DeleteParams = view.Key | view.Key[];
 
 export const { useUpdate: useDelete } = Flux.createUpdate<DeleteParams>({
   name: RESOURCE_NAME,
-  verbs: Flux.DELETE_VERBS,
+  verbs: verbs.DELETE,
   update: async ({ client, data, onOptimisticComplete }) => {
     await client.views.delete(data, {
       onOptimistic: async () => await onOptimisticComplete(data),
@@ -81,7 +81,7 @@ export interface RenameParams extends Pick<view.View, "key" | "name"> {}
 
 export const { useUpdate: useRename } = Flux.createUpdate<RenameParams>({
   name: RESOURCE_NAME,
-  verbs: Flux.RENAME_VERBS,
+  verbs: verbs.RENAME,
   update: async ({ client, data, onOptimisticComplete }) => {
     const { key, name } = data;
     await client.views.rename(key, name, {

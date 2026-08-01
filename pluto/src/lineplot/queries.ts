@@ -14,7 +14,15 @@ import {
   query,
   type Synnax as Client,
 } from "@synnaxlabs/client";
-import { color, compare, DataType, primitive, type require, uuid } from "@synnaxlabs/x";
+import {
+  color,
+  compare,
+  DataType,
+  primitive,
+  type require,
+  uuid,
+  verbs,
+} from "@synnaxlabs/x";
 import { useMemo } from "react";
 
 import { Channel } from "@/channel";
@@ -454,7 +462,7 @@ export type UseDeleteParams = lineplot.Key | lineplot.Key[];
 
 export const { useUpdate: useDelete } = Flux.createUpdate<UseDeleteParams>({
   name: RESOURCE_NAME,
-  verbs: Flux.DELETE_VERBS,
+  verbs: verbs.DELETE,
   update: async ({ client, data, onOptimisticComplete }) => {
     await client.lineplots.delete(data, {
       onOptimistic: async () => await onOptimisticComplete(data),
@@ -472,7 +480,7 @@ export const { useUpdate: useCreate } = Flux.createUpdate<
   lineplot.LinePlot
 >({
   name: RESOURCE_NAME,
-  verbs: Flux.CREATE_VERBS,
+  verbs: verbs.CREATE,
   update: async ({ client, data, onOptimisticComplete }) =>
     await client.lineplots.create(data.project ?? uuid.ZERO, data, {
       onOptimistic: async ([optimistic]) => await onOptimisticComplete(optimistic),
@@ -483,7 +491,7 @@ export interface RenameParams extends Pick<lineplot.LinePlot, "key" | "name"> {}
 
 export const { useUpdate: useRename } = Flux.createUpdate<RenameParams>({
   name: RESOURCE_NAME,
-  verbs: Flux.RENAME_VERBS,
+  verbs: verbs.RENAME,
   update: async ({ client, data, onOptimisticComplete }) => {
     const { key, name } = data;
     await onOptimisticComplete(data);

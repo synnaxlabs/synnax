@@ -27,12 +27,8 @@ export const reasonZ = z.enum(REASONS);
 /** Why the connection is in the error variant. */
 export type Reason = z.infer<typeof reasonZ>;
 
-/**
- * The fact vector beneath the connection's status variant. `reason` is present
- * iff the variant is "error".
- */
+/** The fact vector beneath the connection's status variant. */
 export const statusDetailsZ = z.object({
-  reason: reasonZ.optional(),
   error: z.instanceof(Error).optional(),
   authenticated: z.boolean(),
   streamLive: z.boolean(),
@@ -50,14 +46,38 @@ export const statusDetailsZ = z.object({
 });
 export interface StatusDetails extends z.infer<typeof statusDetailsZ> {}
 
+/** Error-variant details: the same facts plus the reason the connection failed. */
+export const errorStatusDetailsZ = statusDetailsZ.extend({ reason: reasonZ });
+export interface ErrorStatusDetails extends z.infer<typeof errorStatusDetailsZ> {}
+
+export const nonErrorVariantZ = z.enum([
+  "success",
+  "info",
+  "warning",
+  "loading",
+  "disabled",
+]);
+
 /**
  * The connection status: a standard status whose details carry the connection's
- * facts. Renders anywhere a status does, with no translation.
+ * facts. Renders anywhere a status does, with no translation. Discriminated on
+ * variant: `reason` exists only on the error member.
  */
-export const statusZ = status.statusZ({ details: statusDetailsZ });
-export type Status = status.Status<typeof statusDetailsZ>;
+export const statusZ = z.discriminatedUnion("variant", [
+  status.statusZ({ v: status.errorVariantZ, details: errorStatusDetailsZ }),
+  status.statusZ({ v: nonErrorVariantZ, details: statusDetailsZ }),
+]);
+export type ErrorStatus = status.Status<
+  typeof errorStatusDetailsZ,
+  typeof status.errorVariantZ
+>;
+export type NonErrorStatus = status.Status<
+  typeof statusDetailsZ,
+  typeof nonErrorVariantZ
+>;
+export type Status = ErrorStatus | NonErrorStatus;
 
-export const DEFAULT_STATUS_DETAILS: StatusDetails = {
+const DEFAULT_STATUS_DETAILS: StatusDetails = {
   authenticated: false,
   streamLive: false,
   epoch: 0,
@@ -175,14 +195,36 @@ export const createInitialStatus = (config: Config): Status => ({
   details: { ...DEFAULT_STATUS_DETAILS, clientVersion: config.clientVersion },
 });
 
-interface Changes extends Partial<Omit<Status, "details">> {
-  details?: Partial<StatusDetails>;
-}
-
-const update = (prev: Status, changes: Changes): Status => ({
+// Merges facts without touching variant or reason, so the union member holds.
+const update = <S extends Status>(prev: S, details: Partial<StatusDetails>): S => ({
   ...prev,
-  ...changes,
-  details: { ...prev.details, ...changes.details },
+  details: { ...prev.details, ...details },
+});
+
+/** Moves to a non-error variant, structurally dropping any parked reason. */
+const enter = (
+  prev: Status,
+  variant: Exclude<status.Variant, "error">,
+  message: string,
+  details: Partial<StatusDetails> = {},
+): NonErrorStatus => {
+  const { reason: _, ...merged }: StatusDetails & { reason?: Reason } = {
+    ...prev.details,
+    ...details,
+  };
+  return { ...prev, variant, message, details: merged };
+};
+
+const enterError = (
+  prev: Status,
+  message: string,
+  reason: Reason,
+  details: Partial<StatusDetails> = {},
+): ErrorStatus => ({
+  ...prev,
+  variant: "error",
+  message,
+  details: { ...prev.details, ...details, reason },
 });
 
 const isCompatible = (
@@ -217,19 +259,18 @@ const reduceCheckSuccess = (prev: Status, info: Info, config: Config): Status =>
   // stream reopen this state waits on.
   if (config.requiresStream && !prev.details.streamLive) {
     if (prev.variant === "error" && prev.details.reason === "unreachable")
-      return update(prev, {
-        variant: "loading",
-        message: RECONNECTING,
-        details: { ...facts, reason: undefined, error: undefined, retry: null },
+      return enter(prev, "loading", RECONNECTING, {
+        ...facts,
+        error: undefined,
+        retry: null,
       });
-    return update(prev, { details: facts });
+    return update(prev, facts);
   }
-  if (prev.variant === "success")
-    return update(prev, { details: { ...facts, retry: null } });
-  return update(prev, {
-    variant: "success",
-    message: connectedMessage(config),
-    details: { ...facts, reason: undefined, error: undefined, retry: null },
+  if (prev.variant === "success") return update(prev, { ...facts, retry: null });
+  return enter(prev, "success", connectedMessage(config), {
+    ...facts,
+    error: undefined,
+    retry: null,
   });
 };
 
@@ -237,24 +278,19 @@ const reduceCheckSuccess = (prev: Status, info: Info, config: Config): Status =>
 // Everything learned from the old cluster is void, so the machine returns to
 // first contact: loading at epoch 0 with a dark stream.
 const reduceClusterReplaced = (prev: Status, info: Info, config: Config): Status =>
-  update(prev, {
-    variant: "loading",
-    message: `Connecting to ${config.name ?? "cluster"}`,
-    details: {
-      ...checkFacts(info, config),
-      streamLive: false,
-      epoch: 0,
-      reason: undefined,
-      error: undefined,
-      retry: null,
-    },
+  enter(prev, "loading", `Connecting to ${config.name ?? "cluster"}`, {
+    ...checkFacts(info, config),
+    streamLive: false,
+    epoch: 0,
+    error: undefined,
+    retry: null,
   });
 
 const reduceAuthFailure = (prev: Status, error: Error): Status =>
-  update(prev, {
-    variant: "error",
-    message: error.message,
-    details: { reason: "auth", error, authenticated: false, retry: null },
+  enterError(prev, error.message, "auth", {
+    error,
+    authenticated: false,
+    retry: null,
   });
 
 const reduceCheckFailure = (
@@ -266,46 +302,31 @@ const reduceCheckFailure = (
   if (AuthError.matches(error)) return reduceAuthFailure(prev, error);
   const escalating = prev.variant === "loading";
   if (escalating && attempt >= config.escalateAfter)
-    return update(prev, {
-      variant: "error",
-      message: error.message ?? UNREACHABLE,
-      details: { reason: "unreachable", error },
-    });
+    return enterError(prev, error.message ?? UNREACHABLE, "unreachable", { error });
   if (prev.variant === "success")
-    return update(prev, {
-      variant: "loading",
-      message: RECONNECTING,
-      details: { error },
-    });
-  return update(prev, { details: { error } });
+    return enter(prev, "loading", RECONNECTING, { error });
+  return update(prev, { error });
 };
 
 const reduceStreamLive = (prev: Status, config: Config): Status => {
   const parked = prev.variant === "error" && prev.details.reason !== "unreachable";
-  if (parked) return update(prev, { details: { streamLive: true } });
-  return update(prev, {
-    variant: "success",
-    message: connectedMessage(config),
-    details: { streamLive: true, reason: undefined, error: undefined, retry: null },
+  if (parked) return update(prev, { streamLive: true });
+  return enter(prev, "success", connectedMessage(config), {
+    streamLive: true,
+    error: undefined,
+    retry: null,
   });
 };
 
 const reduceStreamDrop = (prev: Status, error?: Error): Status => {
-  if (prev.variant !== "success")
-    return update(prev, { details: { streamLive: false } });
-  return update(prev, {
-    variant: "loading",
-    message: RECONNECTING,
-    details: { streamLive: false, error },
-  });
+  if (prev.variant !== "success") return update(prev, { streamLive: false });
+  return enter(prev, "loading", RECONNECTING, { streamLive: false, error });
 };
 
 const reduceRetryExhausted = (prev: Status): Status => {
-  if (prev.variant !== "loading") return update(prev, { details: { retry: null } });
-  return update(prev, {
-    variant: "error",
-    message: prev.details.error?.message ?? UNREACHABLE,
-    details: { reason: "unreachable", retry: null },
+  if (prev.variant !== "loading") return update(prev, { retry: null });
+  return enterError(prev, prev.details.error?.message ?? UNREACHABLE, "unreachable", {
+    retry: null,
   });
 };
 
@@ -317,29 +338,25 @@ export const reduce = (prev: Status, event: Event, config: Config): Status => {
   if (prev.variant === "disabled") return prev;
   switch (event.type) {
     case "check.started":
-      return update(prev, { details: { checking: true } });
+      return update(prev, { checking: true });
     case "check.success":
-      return update(reduceCheckSuccess(prev, event.info, config), {
-        details: { checking: false },
-      });
+      return update(reduceCheckSuccess(prev, event.info, config), { checking: false });
     case "check.failure":
       return update(reduceCheckFailure(prev, event.error, event.attempt, config), {
-        details: { checking: false },
+        checking: false,
       });
     case "stream.live":
       return reduceStreamLive(prev, config);
     case "stream.drop":
       return reduceStreamDrop(prev, event.error);
     case "auth.success":
-      return update(prev, { details: { authenticated: true } });
+      return update(prev, { authenticated: true });
     case "auth.failure":
       return reduceAuthFailure(prev, event.error);
     case "epoch.advanced":
-      return update(prev, { details: { epoch: event.epoch } });
+      return update(prev, { epoch: event.epoch });
     case "retry.scheduled":
-      return update(prev, {
-        details: { retry: { attempt: event.attempt, nextAt: event.nextAt } },
-      });
+      return update(prev, { retry: { attempt: event.attempt, nextAt: event.nextAt } });
     case "retry.exhausted":
       return reduceRetryExhausted(prev);
     case "retry.requested":
@@ -347,22 +364,14 @@ export const reduce = (prev: Status, event: Event, config: Config): Status => {
       // the user supplies something new
       if (prev.variant !== "error" || prev.details.reason !== "unreachable")
         return prev;
-      return update(prev, {
-        variant: "loading",
-        message: CONNECTING,
-        details: { reason: undefined },
-      });
+      return enter(prev, "loading", CONNECTING);
     case "credentials.replaced":
-      return update(prev, {
-        variant: "loading",
-        message: CONNECTING,
-        details: { reason: undefined, error: undefined },
-      });
+      return enter(prev, "loading", CONNECTING, { error: undefined });
     case "closed":
-      return update(prev, {
-        variant: "disabled",
-        message: "Closed",
-        details: { reason: undefined, streamLive: false, retry: null, checking: false },
+      return enter(prev, "disabled", "Closed", {
+        streamLive: false,
+        retry: null,
+        checking: false,
       });
   }
 };

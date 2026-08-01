@@ -74,7 +74,7 @@ export interface SetOptions {
 
 const BASE_REQUEST: Partial<RetrieveRequest> = { includeLabels: true };
 
-export interface ClientParams {
+export interface ClientConfig {
   unary: UnaryClient;
   cache: query.Cache;
   ontology: ontology.Client;
@@ -90,9 +90,9 @@ export class Client extends query.Retriever<
 > {
   readonly type: string = "status";
   readonly store: query.Table<Key, Status>;
-  private readonly cfg: ClientParams;
+  private readonly cfg: ClientConfig;
 
-  constructor(cfg: ClientParams) {
+  constructor(cfg: ClientConfig) {
     const { cache, ontology: ontologyClient, labels } = cfg;
     const { relationships } = ontologyClient.cache;
     const store = cache.createTable<Key, Status>({

@@ -15,7 +15,7 @@ import {
   ranger,
   type Synnax as Client,
 } from "@synnaxlabs/client";
-import { type optional, primitive } from "@synnaxlabs/x";
+import { type optional, primitive, verbs } from "@synnaxlabs/x";
 import { useEffect } from "react";
 import { z } from "zod";
 
@@ -262,7 +262,7 @@ export interface DeleteKVParams extends ListMetaDataQuery {
 
 export const { useUpdate: useDeleteKV } = Flux.createUpdate<DeleteKVParams>({
   name: KV_RESOURCE_NAME,
-  verbs: Flux.DELETE_VERBS,
+  verbs: verbs.DELETE,
   update: async ({ client, data }) => {
     const { key, rangeKey } = data;
     await client.ranges.getKV(rangeKey).delete(key);
@@ -274,7 +274,7 @@ export interface SetKVParams extends ListMetaDataQuery, ranger.kv.Pair {}
 
 export const { useUpdate: useUpdateKV } = Flux.createUpdate<SetKVParams>({
   name: KV_RESOURCE_NAME,
-  verbs: Flux.UPDATE_VERBS,
+  verbs: verbs.UPDATE,
   update: async ({ client, data }) => {
     const { range, key, value } = data;
     await client.ranges.getKV(range).set(key, value);
@@ -284,7 +284,7 @@ export const { useUpdate: useUpdateKV } = Flux.createUpdate<SetKVParams>({
 
 export const { useUpdate: useCreate } = Flux.createUpdate<ranger.New, ranger.Payload>({
   name: RESOURCE_NAME,
-  verbs: Flux.CREATE_VERBS,
+  verbs: verbs.CREATE,
   update: async ({ client, data }) => (await client.ranges.create(data)).payload,
 });
 
@@ -292,7 +292,7 @@ export type DeleteParams = ranger.Key | ranger.Key[];
 
 export const { useUpdate: useDelete } = Flux.createUpdate<DeleteParams>({
   name: RESOURCE_NAME,
-  verbs: Flux.DELETE_VERBS,
+  verbs: verbs.DELETE,
   update: async ({ client, data }) => {
     await client.ranges.delete(data);
     return data;
@@ -303,7 +303,7 @@ export interface RenameParams extends Pick<ranger.Payload, "key" | "name"> {}
 
 export const { useUpdate: useRename } = Flux.createUpdate<RenameParams>({
   name: RESOURCE_NAME,
-  verbs: Flux.RENAME_VERBS,
+  verbs: verbs.RENAME,
   update: async ({ client, data, onOptimisticComplete }) => {
     const { key, name } = data;
     await client.ranges.rename(key, name, {

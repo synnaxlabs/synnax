@@ -356,7 +356,7 @@ const watchLabels = <Q extends query.Params>(
     rangesWithLabel(relationships, event.key),
   );
 
-export interface ClientParams {
+export interface ClientConfig {
   framer: framer.Client;
   unary: UnaryClient;
   channels: channel.Retriever;
@@ -384,12 +384,12 @@ export class Client extends query.Retriever<
   readonly parent: query.Retrieves<ontology.ID, Range | null>;
   /** Cached queries for a range's KV metadata pairs, keyed by the range's key. */
   readonly kv: query.Retrieves<Key, kv.Pair[]>;
-  private readonly cfg: ClientParams;
+  private readonly cfg: ClientConfig;
   private readonly writer: Writer;
   private readonly store: query.Table<Key, Range>;
   private readonly kvPairs: query.Table<string, kv.Pair>;
 
-  constructor(cfg: ClientParams) {
+  constructor(cfg: ClientConfig) {
     const { labels: labelClient, ontology: ontologyClient, cache } = cfg;
     const labels = labelClient.store;
     const { relationships } = ontologyClient.cache;

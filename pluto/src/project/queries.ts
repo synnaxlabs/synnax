@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { ontology, project } from "@synnaxlabs/client";
-import { array, type record } from "@synnaxlabs/x";
+import { array, type record, verbs } from "@synnaxlabs/x";
 import type z from "zod";
 
 import { Flux } from "@/flux";
@@ -22,10 +22,9 @@ export type RetrieveQuery = {
 
 export const { useRetrieve } = Flux.createRetrieve<RetrieveQuery, project.Project>({
   name: RESOURCE_NAME,
-  retrieve: async ({ client, query: { key } }) => await client.projects.retrieve(key),
-  subscribe: ({ client, query: { key } }, handler) =>
-    client.projects.onChange(key, handler),
-  getCached: ({ client, query: { key } }) => client.projects.getCached(key),
+  retrieve: async ({ client, query }) => await client.projects.retrieve(query),
+  subscribe: ({ client, query }, handler) => client.projects.onChange(query, handler),
+  getCached: ({ client, query }) => client.projects.getCached(query),
 });
 
 export type ListParams = Pick<project.RetrieveRequest, "keys" | "offset" | "limit">;
@@ -43,7 +42,7 @@ export type DeleteParams = project.Key | project.Key[];
 
 export const { useUpdate: useDelete } = Flux.createUpdate<DeleteParams>({
   name: RESOURCE_NAME,
-  verbs: Flux.DELETE_VERBS,
+  verbs: verbs.DELETE,
   update: async ({ client, data, onOptimisticComplete }) => {
     const keys = array.toArray(data);
     await client.projects.delete(keys, {
@@ -60,7 +59,7 @@ export interface RenameParams {
 
 export const { useUpdate: useRename } = Flux.createUpdate<RenameParams>({
   name: RESOURCE_NAME,
-  verbs: Flux.RENAME_VERBS,
+  verbs: verbs.RENAME,
   update: async ({ client, data }) => {
     const { key, name } = data;
     await client.projects.rename(key, name);
@@ -108,7 +107,7 @@ const LAYOUT_RESOURCE_NAME = "project layout";
 
 export const { useUpdate: useSaveLayout } = Flux.createUpdate<SaveLayoutParams>({
   name: LAYOUT_RESOURCE_NAME,
-  verbs: Flux.CREATE_VERBS,
+  verbs: verbs.CREATE,
   update: async ({ client, data, onOptimisticComplete }) => {
     const { key, layout } = data;
     await client.projects.setLayout(key, layout, {

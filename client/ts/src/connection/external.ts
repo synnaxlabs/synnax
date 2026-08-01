@@ -17,8 +17,13 @@ export {
 export {
   type Config,
   DEFAULT_STATUS,
+  type ErrorStatus,
+  type ErrorStatusDetails,
+  errorStatusDetailsZ,
   type Handle,
   type Info,
+  type NonErrorStatus,
+  nonErrorVariantZ,
   type Reason,
   REASONS,
   reasonZ,
