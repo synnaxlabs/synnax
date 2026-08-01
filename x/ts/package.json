@@ -41,5 +41,12 @@
   },
   "main": "dist/x.js",
   "module": "dist/x.js",
-  "types": "dist/src/index.d.ts"
+  "types": "dist/src/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/src/index.d.ts",
+      "default": "./dist/x.js"
+    },
+    "./dist/*": "./dist/*"
+  }
 }

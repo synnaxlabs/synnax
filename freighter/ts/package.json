@@ -42,5 +42,11 @@
   },
   "main": "dist/freighter.js",
   "module": "dist/freighter.js",
-  "types": "dist/src/index.d.ts"
+  "types": "dist/src/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/src/index.d.ts",
+      "default": "./dist/freighter.js"
+    }
+  }
 }
