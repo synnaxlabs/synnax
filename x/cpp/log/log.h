@@ -11,7 +11,6 @@
 
 #include <string>
 
-#include "absl/log/log.h"
 #include "absl/log/log_entry.h"
 #include "absl/log/log_sink.h"
 

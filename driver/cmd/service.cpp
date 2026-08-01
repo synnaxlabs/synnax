@@ -12,7 +12,6 @@
 #include "x/cpp/log/log.h"
 
 #include "absl/log/log.h"
-#include "driver/cmd/cmd.h"
 #include "driver/daemon/daemon.h"
 
 namespace driver::cmd::sub {

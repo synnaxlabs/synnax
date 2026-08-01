@@ -12,7 +12,6 @@
 
 #include "absl/log/log.h"
 #include "core/pkg/version/version.h"
-#include "driver/cmd/cmd.h"
 
 namespace driver::cmd::sub {
 std::string version() {
