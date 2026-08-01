@@ -28,6 +28,7 @@ import {
   type ResourceType,
   resourceTypeZ,
   resourceZ,
+  stringIDZ,
 } from "@/ontology/payload";
 import {
   Cache,
@@ -137,7 +138,7 @@ const retrieveRequestZ = z
 export type RetrieveParams = z.input<typeof retrieveRequestZ>;
 
 const singleParamsZ = z
-  .strictObject({ type: resourceTypeZ, key: z.string() })
+  .union([z.strictObject({ type: resourceTypeZ, key: z.string() }), stringIDZ])
   .transform((id) => idToString(id));
 
 /**
@@ -166,7 +167,7 @@ export class Client extends query.Retriever<
   string,
   Resource,
   Resource,
-  ID
+  z.input<typeof singleParamsZ>
 > {
   readonly type: string = "ontology";
   /** Read surface of the ontology record tables. */

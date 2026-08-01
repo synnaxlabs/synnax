@@ -52,6 +52,11 @@ describe("Ontology", () => {
       ]);
     });
 
+    it("should fail safeParse on an invalid resource type without throwing", () => {
+      const result = ontology.idZ.safeParse("nonsense:key");
+      expect(result.success).toBe(false);
+    });
+
     it("should extract ID from a single Resource object", () => {
       const resource: ontology.Resource = {
         id: { type: "group", key: "test-key" },
@@ -131,6 +136,12 @@ describe("Ontology", () => {
       const name = randomName();
       const g = await client.groups.create({ parent: ontology.ROOT_ID, name });
       const g2 = await client.ontology.retrieve(group.ontologyID(g.key));
+      expect(g2.name).toEqual(name);
+    });
+    test("retrieve by string ID", async () => {
+      const name = randomName();
+      const g = await client.groups.create({ parent: ontology.ROOT_ID, name });
+      const g2 = await client.ontology.retrieve(`group:${g.key}`);
       expect(g2.name).toEqual(name);
     });
     test("retrieve children", async () => {
