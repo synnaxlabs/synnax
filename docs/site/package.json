@@ -41,6 +41,7 @@
   "devDependencies": {
     "@astrojs/check": "^0.9.10",
     "@synnaxlabs/eslint-config": "workspace:^",
+    "@synnaxlabs/madge": "workspace:^",
     "@synnaxlabs/stylelint-config": "workspace:^",
     "@synnaxlabs/tsconfig": "workspace:^",
     "@types/html-escaper": "^3.0.4",
@@ -52,7 +53,6 @@
     "eslint": "catalog:",
     "gray-matter": "^4.0.3",
     "html-escaper": "^3.0.3",
-    "@synnaxlabs/madge": "workspace:^",
     "remark": "^15.0.1",
     "remark-gfm": "^4.0.1",
     "strip-markdown": "^6.0.0",

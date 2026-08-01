@@ -65,6 +65,7 @@
   "devDependencies": {
     "@juggle/resize-observer": "^3.4.0",
     "@synnaxlabs/eslint-config": "workspace:^",
+    "@synnaxlabs/madge": "workspace:^",
     "@synnaxlabs/stylelint-config": "workspace:^",
     "@synnaxlabs/tsconfig": "workspace:^",
     "@synnaxlabs/vite-plugin": "workspace:^",
@@ -84,7 +85,6 @@
     "@vitest/coverage-v8": "catalog:",
     "eslint": "catalog:",
     "jsdom": "catalog:",
-    "@synnaxlabs/madge": "workspace:^",
     "react-dom": "catalog:",
     "stylelint": "catalog:",
     "typescript": "catalog:",

@@ -28,6 +28,7 @@
   },
   "devDependencies": {
     "@synnaxlabs/eslint-config": "workspace:^",
+    "@synnaxlabs/madge": "workspace:^",
     "@synnaxlabs/stylelint-config": "workspace:^",
     "@synnaxlabs/tsconfig": "workspace:^",
     "@synnaxlabs/vite-plugin": "workspace:^",
@@ -35,7 +36,6 @@
     "@types/react": "catalog:",
     "@vitejs/plugin-react": "catalog:",
     "eslint": "catalog:",
-    "@synnaxlabs/madge": "workspace:^",
     "stylelint": "catalog:",
     "typescript": "catalog:",
     "vite": "catalog:"
