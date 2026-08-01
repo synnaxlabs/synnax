@@ -46,7 +46,7 @@ const corpseName = (error: Error): string | undefined =>
 const TabNameFallbackContent = ({ error }: Errors.FallbackProps): ReactElement => (
   <>
     <Icon.Warning />
-    <Text.Text>{corpseName(error) ?? "Not found"}</Text.Text>
+    <Text.Text status="warning">{corpseName(error) ?? "Not found"}</Text.Text>
   </>
 );
 
