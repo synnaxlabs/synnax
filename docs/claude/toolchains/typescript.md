@@ -163,8 +163,8 @@ errors here are invisible at runtime.
 ## Package Layout
 
 `src/index.ts` entry, tests co-located, `dist/` output (ESM `index.js`, types at
-`dist/src/index.d.ts`). Standard scripts: `build` =
-`tsc --noEmit && vite build`, plus `check-types`, `test`, `lint`, `fix`, `madge`.
+`dist/src/index.d.ts`). Standard scripts: `build` = `tsc --noEmit && vite build`, plus
+`check-types`, `test`, `lint`, `fix`, `madge`.
 
 ## Gotchas
 
