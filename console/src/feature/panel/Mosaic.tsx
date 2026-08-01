@@ -120,7 +120,13 @@ const DeletedResourceContent = ({
           : "Close the component to remove it from this panel."
       }
     >
-      <Button.Button onClick={() => closeTabs(resource)}>Close</Button.Button>
+      <Button.Button
+        variant="filled"
+        status="warning"
+        onClick={() => closeTabs(resource)}
+      >
+        Close
+      </Button.Button>
       {restorable && (
         <Button.Button variant="filled" onClick={handleRestore}>
           Restore
