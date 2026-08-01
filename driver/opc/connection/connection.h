@@ -16,6 +16,8 @@
 #include <unordered_map>
 #include <vector>
 
+#include "open62541/common.h"
+
 #include "x/cpp/errors/errors.h"
 #include "x/cpp/json/json.h"
 

@@ -13,7 +13,6 @@
 
 #include "open62541/client.h"
 
-
 #include "driver/opc/connection/connection.h"
 #include "driver/opc/types/types.h"
 

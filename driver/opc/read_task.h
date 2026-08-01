@@ -19,6 +19,8 @@
 #include "driver/common/read_task.h"
 #include "driver/common/sample_clock.h"
 #include "driver/opc/connection/connection.h"
+#include "driver/opc/errors/errors.h"
+#include "driver/opc/telem/telem.h"
 #include "driver/opc/types/types.h"
 
 namespace driver::opc {
