@@ -23,6 +23,7 @@ import {
   awaitTaskKey,
   clickConfigure,
   findDialogTriggerByText,
+  selectFromDropdown,
 } from "@/platform/task/testutil";
 import { stubGeometry, uniqueName } from "@/testutil";
 
@@ -129,6 +130,27 @@ describe("AnalogRead", () => {
         { onTimeout: (e) => new Error(`${scaleType}: ${e.message}`) },
       );
     }
+  });
+
+  it("should show the matching CJC field as the CJC source is switched", async () => {
+    await renderAnalogRead({
+      config: {
+        ...NI.Task.ZERO_ANALOG_READ_PAYLOAD.config,
+        channels: [createChannel("ai_thermocouple", 0)],
+      },
+    });
+    await screen.findByText("CJC Source");
+    expect(screen.queryByText("CJC Value")).toBeNull();
+    expect(screen.queryByText("CJC Port")).toBeNull();
+    await selectFromDropdown("Built In", "Constant Value");
+    await waitFor(() => expect(screen.getByText("CJC Value")).toBeTruthy());
+    expect(screen.queryByText("CJC Port")).toBeNull();
+    await selectFromDropdown("Constant Value", "Channel");
+    await waitFor(() => expect(screen.getByText("CJC Port")).toBeTruthy());
+    expect(screen.queryByText("CJC Value")).toBeNull();
+    await selectFromDropdown("Channel", "Built In");
+    await waitFor(() => expect(screen.queryByText("CJC Port")).toBeNull());
+    expect(screen.queryByText("CJC Value")).toBeNull();
   });
 
   it("should swap the channel to the newly selected type and keep its port", async () => {
