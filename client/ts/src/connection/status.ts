@@ -77,7 +77,7 @@ export type NonErrorStatus = status.Status<
 >;
 export type Status = ErrorStatus | NonErrorStatus;
 
-export const DEFAULT_STATUS_DETAILS: StatusDetails = {
+const DEFAULT_STATUS_DETAILS: StatusDetails = {
   authenticated: false,
   streamLive: false,
   epoch: 0,
