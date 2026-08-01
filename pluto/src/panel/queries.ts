@@ -32,11 +32,9 @@ export type RetrieveQuery = { key: panel.Key };
 export const { useRetrieve, useEnsureRetrieved, useRetrieveEffect } =
   Flux.createRetrieve<RetrieveQuery, panel.Panel>({
     name: RESOURCE_NAME,
-    retrieve: async ({ client, query: { key } }) =>
-      await client.panels.retrieve({ key }),
-    subscribe: ({ client, query: { key } }, handler) =>
-      client.panels.onChange({ key }, handler),
-    getCached: ({ client, query: { key } }) => client.panels.getCached({ key }),
+    retrieve: async ({ client, query }) => await client.panels.retrieve(query),
+    subscribe: ({ client, query }, handler) => client.panels.onChange(query, handler),
+    getCached: ({ client, query }) => client.panels.getCached(query),
   });
 
 export type RetrieveByProjectQuery = { project: project.Key };

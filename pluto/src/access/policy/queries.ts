@@ -31,12 +31,10 @@ export type RetrieveQuery = {
 export const { useRetrieve } = Flux.createRetrieve<RetrieveQuery, access.policy.Policy>(
   {
     name: RESOURCE_NAME,
-    retrieve: async ({ client, query: { key } }) =>
-      await client.access.policies.retrieve({ key }),
-    subscribe: ({ client, query: { key } }, handler) =>
-      client.access.policies.onChange({ key }, handler),
-    getCached: ({ client, query: { key } }) =>
-      client.access.policies.getCached({ key }),
+    retrieve: async ({ client, query }) => await client.access.policies.retrieve(query),
+    subscribe: ({ client, query }, handler) =>
+      client.access.policies.onChange(query, handler),
+    getCached: ({ client, query }) => client.access.policies.getCached(query),
   },
 );
 

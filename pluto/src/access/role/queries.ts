@@ -22,11 +22,10 @@ export type RetrieveQuery = {
 
 export const { useRetrieve } = Flux.createRetrieve<RetrieveQuery, access.role.Role>({
   name: RESOURCE_NAME,
-  retrieve: async ({ client, query: { key } }) =>
-    await client.access.roles.retrieve({ key }),
-  subscribe: ({ client, query: { key } }, handler) =>
-    client.access.roles.onChange({ key }, handler),
-  getCached: ({ client, query: { key } }) => client.access.roles.getCached({ key }),
+  retrieve: async ({ client, query }) => await client.access.roles.retrieve(query),
+  subscribe: ({ client, query }, handler) =>
+    client.access.roles.onChange(query, handler),
+  getCached: ({ client, query }) => client.access.roles.getCached(query),
 });
 
 export type ListQuery = List.PagerParams;

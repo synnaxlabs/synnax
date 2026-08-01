@@ -22,11 +22,9 @@ export type RetrieveQuery = {
 
 export const { useRetrieve } = Flux.createRetrieve<RetrieveQuery, project.Project>({
   name: RESOURCE_NAME,
-  retrieve: async ({ client, query: { key } }) =>
-    await client.projects.retrieve({ key }),
-  subscribe: ({ client, query: { key } }, handler) =>
-    client.projects.onChange({ key }, handler),
-  getCached: ({ client, query: { key } }) => client.projects.getCached({ key }),
+  retrieve: async ({ client, query }) => await client.projects.retrieve(query),
+  subscribe: ({ client, query }, handler) => client.projects.onChange(query, handler),
+  getCached: ({ client, query }) => client.projects.getCached(query),
 });
 
 export type ListParams = Pick<project.RetrieveRequest, "keys" | "offset" | "limit">;
