@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { arc, NotFoundError, query, type Synnax, type task } from "@synnaxlabs/client";
-import { compare, type optional, primitive, type record, xy } from "@synnaxlabs/x";
+import { compare, type record, xy } from "@synnaxlabs/x";
 import { useCallback } from "react";
 import z from "zod";
 
@@ -206,31 +206,27 @@ export const { useUpdate: useDelete } = Flux.createUpdate<arc.Key | arc.Key[]>({
   },
 });
 
-export type FormValues = optional.Optional<arc.Arc, "key">;
-
-export const formSchema: z.ZodType<FormValues> = arc.arcZ
-  .partial({ key: true, name: true })
-  .extend({ name: z.string() });
-
-export const ZERO_FORM_VALUES: z.infer<typeof formSchema> = formSchema.parse({
-  name: "",
-  mode: "text",
+export const formSchema = z.object({
+  key: arc.keyZ.optional(),
+  name: z.string().min(1, "Name is required"),
+  mode: arc.modeZ,
 });
 
-export const useForm = Flux.createForm<Partial<RetrieveQuery>, typeof formSchema>({
+export const ZERO_FORM_VALUES: z.infer<typeof formSchema> = {
+  name: "",
+  mode: "graph",
+};
+
+export type FormQuery = Record<string, never>;
+
+export const useForm = Flux.createForm<FormQuery, typeof formSchema>({
   name: RESOURCE_NAME,
   schema: formSchema,
   initialValues: ZERO_FORM_VALUES,
-  retrieve: async ({ client, query: { key, ...rest }, reset }) => {
-    if (key == null || primitive.isZero(key)) return;
-    // Prefer the cached copy: it may hold locally replayed edits ahead of the
-    // server.
-    const cached = client.arcs.getCached({ key });
-    if (cached !== undefined && !query.Deleted.matches(cached)) return reset(cached);
-    reset(await client.arcs.retrieve({ key, ...rest }));
-  },
-  update: async ({ client, value, reset }) => {
-    reset(await client.arcs.create(value()));
+  retrieve: async () => {},
+  update: async ({ client, value, set }) => {
+    const res = await client.arcs.create(value());
+    set("key", res.key);
   },
 });
 
