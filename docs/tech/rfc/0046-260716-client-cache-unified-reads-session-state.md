@@ -345,16 +345,16 @@ only member; new uses require the same justification in review.
 Persisted session state is partitioned by scope and swapped on context switch. The live
 store shape never changes; the persistence layer keys partitions by scope:
 
-| Scope     | Slices                                                               |
-| --------- | -------------------------------------------------------------------- |
-| `global`  | cluster, color, docs, theme                                          |
-| `cluster` | project, status                                                      |
-| `project` | arc, drift, haul, lineplot, log, nav, panel, range, schematic, table |
+| Scope     | Slices                                                                       |
+| --------- | ---------------------------------------------------------------------------- |
+| `global`  | cluster, color, docs, theme                                                  |
+| `cluster` | project                                                                      |
+| `project` | arc, drift, haul, lineplot, log, nav, panel, range, schematic, status, table |
 
 Global exists outside any cluster: preferences plus the cluster registry and selection
 needed to pick a context. The cluster scope remembers, per cluster, which project was
-active and which statuses are favorited. The project scope is the workspace: window
-arrangement, panel and tab selection, per-document view state. The chain is deliberate:
+active. The project scope is the workspace: window arrangement, panel and tab selection,
+per-document view state, and which statuses are favorited. The chain is deliberate:
 global names the cluster, the cluster partition names the project, the project partition
 holds the workspace, which is also why logout clears the cluster last, after the project
 selection it flushes is already cleared.
