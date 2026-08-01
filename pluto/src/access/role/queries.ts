@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { access, type Synnax, user } from "@synnaxlabs/client";
+import { verbs } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { Flux } from "@/flux";
@@ -45,7 +46,7 @@ export type DeleteParams = access.role.Key | access.role.Key[];
 
 export const { useUpdate: useDelete } = Flux.createUpdate<DeleteParams>({
   name: RESOURCE_NAME,
-  verbs: Flux.DELETE_VERBS,
+  verbs: verbs.DELETE,
   update: async ({ client, data, onOptimisticComplete }) => {
     await client.access.roles.delete(data, {
       onOptimistic: async () => await onOptimisticComplete(data),
@@ -61,7 +62,7 @@ export interface RenameParams {
 
 export const { useUpdate: useRename } = Flux.createUpdate<RenameParams>({
   name: RESOURCE_NAME,
-  verbs: Flux.RENAME_VERBS,
+  verbs: verbs.RENAME,
   update: async ({ client, data }) => {
     const { key, name } = data;
     await client.access.roles.rename(key, name);

@@ -14,7 +14,7 @@ import {
   type Synnax as Client,
   type table,
 } from "@synnaxlabs/client";
-import { compare, id, uuid, type xy } from "@synnaxlabs/x";
+import { compare, id, uuid, verbs, type xy } from "@synnaxlabs/x";
 import { useCallback, useMemo } from "react";
 
 import { Flux } from "@/flux";
@@ -124,7 +124,7 @@ export type DeleteParams = table.Key | table.Key[];
 
 export const { useUpdate: useDelete } = Flux.createUpdate<DeleteParams>({
   name: RESOURCE_NAME,
-  verbs: Flux.DELETE_VERBS,
+  verbs: verbs.DELETE,
   update: async ({ client, data, onOptimisticComplete }) => {
     await client.tables.delete(data, {
       onOptimistic: async () => await onOptimisticComplete(data),
@@ -156,7 +156,7 @@ const createDefaultLayout = (
 
 const { useUpdate: useCreateBase } = Flux.createUpdate<CreateParams, table.Table>({
   name: RESOURCE_NAME,
-  verbs: Flux.CREATE_VERBS,
+  verbs: verbs.CREATE,
   update: async ({ client, data, onOptimisticComplete }) =>
     await client.tables.create(data.project ?? uuid.ZERO, data, {
       onOptimistic: async ([optimistic]) => await onOptimisticComplete(optimistic),
@@ -195,7 +195,7 @@ export interface UseRenameParams {
 
 export const { useUpdate: useRename } = Flux.createUpdate<UseRenameParams>({
   name: RESOURCE_NAME,
-  verbs: Flux.RENAME_VERBS,
+  verbs: verbs.RENAME,
   update: async ({ client, data, onOptimisticComplete }) => {
     const { key, name } = data;
     await onOptimisticComplete(data);

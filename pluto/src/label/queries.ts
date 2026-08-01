@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { label, type ontology, query, type Synnax as Client } from "@synnaxlabs/client";
-import { color } from "@synnaxlabs/x";
+import { color, verbs } from "@synnaxlabs/x";
 import type z from "zod";
 
 import { Flux } from "@/flux";
@@ -96,7 +96,7 @@ export type DeleteParams = label.Key | label.Key[];
 
 export const { useUpdate: useDelete } = Flux.createUpdate<DeleteParams>({
   name: RESOURCE_NAME,
-  verbs: Flux.DELETE_VERBS,
+  verbs: verbs.DELETE,
   update: async ({ client, data }) => {
     await client.labels.delete(data);
     return data;

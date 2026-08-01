@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { arc, NotFoundError, query, type Synnax, type task } from "@synnaxlabs/client";
-import { compare, type record, xy } from "@synnaxlabs/x";
+import { compare, type record, verbs, xy } from "@synnaxlabs/x";
 import { useCallback } from "react";
 import z from "zod";
 
@@ -197,7 +197,7 @@ export const useList = Flux.createList<ListQuery, arc.Key, arc.Arc>({
 
 export const { useUpdate: useDelete } = Flux.createUpdate<arc.Key | arc.Key[]>({
   name: PLURAL_RESOURCE_NAME,
-  verbs: Flux.DELETE_VERBS,
+  verbs: verbs.DELETE,
   update: async ({ client, data, onOptimisticComplete }) => {
     await client.arcs.delete(data, {
       onOptimistic: async () => await onOptimisticComplete(data),
@@ -234,7 +234,7 @@ export interface CreateParams extends arc.CreateParams {}
 
 export const { useUpdate: useCreate } = Flux.createUpdate<CreateParams, arc.Arc>({
   name: RESOURCE_NAME,
-  verbs: Flux.CREATE_VERBS,
+  verbs: verbs.CREATE,
   update: async ({ client, data, onOptimisticComplete }) =>
     await client.arcs.create(data, {
       onOptimistic: async ([optimistic]) => await onOptimisticComplete(optimistic),
@@ -253,7 +253,7 @@ export interface RenameParams extends Pick<arc.Arc, "key" | "name"> {}
 
 export const { useUpdate: useRename } = Flux.createUpdate<RenameParams>({
   name: RESOURCE_NAME,
-  verbs: Flux.RENAME_VERBS,
+  verbs: verbs.RENAME,
   update: async ({ client, data, onOptimisticComplete }) => {
     const { key, name } = data;
     await client.arcs.rename(key, name, {

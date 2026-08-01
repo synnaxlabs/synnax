@@ -14,7 +14,7 @@ import {
   UnexpectedError,
   user,
 } from "@synnaxlabs/client";
-import { array, uuid } from "@synnaxlabs/x";
+import { array, uuid, verbs } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { Flux } from "@/flux";
@@ -25,7 +25,7 @@ const RESOURCE_NAME = "user";
 
 export const { useUpdate: useDelete } = Flux.createUpdate<UseDeleteParams>({
   name: RESOURCE_NAME,
-  verbs: Flux.DELETE_VERBS,
+  verbs: verbs.DELETE,
   update: async ({ client, data, onOptimisticComplete }) => {
     const keys = array.toArray(data);
     await client.users.delete(keys, {
@@ -43,7 +43,7 @@ export interface ChangeUsernameParams extends Pick<user.User, "key" | "username"
 
 export const { useUpdate: useRename } = Flux.createUpdate<ChangeUsernameParams>({
   name: RESOURCE_NAME,
-  verbs: Flux.RENAME_VERBS,
+  verbs: verbs.RENAME,
   update: async ({ client, data }) => {
     const { key, username } = data;
     await client.users.changeUsername(key, username);

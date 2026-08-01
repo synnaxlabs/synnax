@@ -9,7 +9,7 @@
 
 import { type device } from "@synnaxlabs/client";
 import { Device, Flux } from "@synnaxlabs/pluto";
-import { array, primitive } from "@synnaxlabs/x";
+import { array, primitive, verbs } from "@synnaxlabs/x";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { SLAVE_SCHEMAS, type SlaveDevice } from "@/feature/ethercat/device/types";
@@ -81,7 +81,7 @@ export interface ToggleEnabledParams {
 
 export const { useUpdate: useToggleEnabled } = Flux.createUpdate<ToggleEnabledParams>({
   name: "Toggle Enabled",
-  verbs: Flux.UPDATE_VERBS,
+  verbs: verbs.UPDATE,
   update: async ({ data, client }) => {
     const keys = array.toArray(data.keys);
 

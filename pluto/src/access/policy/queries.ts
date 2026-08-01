@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { access, ontology } from "@synnaxlabs/client";
-import { array } from "@synnaxlabs/x";
+import { array, verbs } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { Flux } from "@/flux";
@@ -60,7 +60,7 @@ export type DeleteParams = access.policy.Key | access.policy.Key[];
 
 export const { useUpdate: useDelete } = Flux.createUpdate<DeleteParams>({
   name: RESOURCE_NAME,
-  verbs: Flux.DELETE_VERBS,
+  verbs: verbs.DELETE,
   update: async ({ client, data, onOptimisticComplete }) => {
     const keys = array.toArray(data);
     await client.access.policies.delete(keys, {
@@ -77,7 +77,7 @@ export interface RenameParams {
 
 export const { useUpdate: useRename } = Flux.createUpdate<RenameParams>({
   name: RESOURCE_NAME,
-  verbs: Flux.RENAME_VERBS,
+  verbs: verbs.RENAME,
   update: async ({ client, data, onOptimisticComplete }) => {
     const { key, name } = data;
     await client.access.policies.rename(key, name, {

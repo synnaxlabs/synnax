@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { channel, DataType, type group, query, type ranger } from "@synnaxlabs/client";
-import { array, control, type optional, TimeSpan } from "@synnaxlabs/x";
+import { TimeSpan, array, control, type optional, verbs } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { Flux } from "@/flux";
@@ -184,7 +184,7 @@ export interface RenameParams extends Pick<channel.Payload, "key" | "name"> {}
 
 export const { useUpdate: useRename } = Flux.createUpdate<RenameParams>({
   name: RESOURCE_NAME,
-  verbs: Flux.RENAME_VERBS,
+  verbs: verbs.RENAME,
   update: async ({ client, data, onOptimisticComplete }) => {
     const { key, name } = data;
     await client.channels.rename(key, name, {
@@ -205,7 +205,7 @@ export interface UpdateAliasParams extends optional.Optional<
 
 export const { useUpdate: useUpdateAlias } = Flux.createUpdate<UpdateAliasParams>({
   name: ALIAS_RESOURCE_NAME,
-  verbs: Flux.UPDATE_VERBS,
+  verbs: verbs.UPDATE,
   update: async ({ client, data }) => {
     const { range, channel, alias } = data;
     if (range == null || channel == null) return false;
@@ -218,7 +218,7 @@ export type DeleteParams = channel.Key | channel.Key[];
 
 export const { useUpdate: useDelete } = Flux.createUpdate<DeleteParams>({
   name: RESOURCE_NAME,
-  verbs: Flux.DELETE_VERBS,
+  verbs: verbs.DELETE,
   update: async ({ client, data, onOptimisticComplete }) => {
     await client.channels.delete(data, {
       onOptimistic: async () => await onOptimisticComplete(data),
@@ -234,7 +234,7 @@ export interface DeleteAliasParams {
 
 export const { useUpdate: useDeleteAlias } = Flux.createUpdate<DeleteAliasParams>({
   name: ALIAS_RESOURCE_NAME,
-  verbs: Flux.DELETE_VERBS,
+  verbs: verbs.DELETE,
   update: async ({ client, data }) => {
     const { range, channels } = data;
     if (range == null || channels == null) return false;

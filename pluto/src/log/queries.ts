@@ -15,7 +15,7 @@ import {
   query,
   type Synnax as Client,
 } from "@synnaxlabs/client";
-import { compare, uuid } from "@synnaxlabs/x";
+import { compare, uuid, verbs } from "@synnaxlabs/x";
 
 import { Flux } from "@/flux";
 import { Scope } from "@/log/scope";
@@ -136,7 +136,7 @@ export const useRedo = Scope.bindHook(useRedoBase);
 
 export const { useUpdate: useDelete } = Flux.createUpdate<UseDeleteParams>({
   name: RESOURCE_NAME,
-  verbs: Flux.DELETE_VERBS,
+  verbs: verbs.DELETE,
   update: async ({ client, data, onOptimisticComplete }) => {
     await client.logs.delete(data, {
       onOptimistic: async () => await onOptimisticComplete(data),
@@ -151,7 +151,7 @@ export interface CreateParams extends log.New {
 
 export const { useUpdate: useCreate } = Flux.createUpdate<CreateParams, log.Log>({
   name: RESOURCE_NAME,
-  verbs: Flux.CREATE_VERBS,
+  verbs: verbs.CREATE,
   update: async ({ client, data, onOptimisticComplete }) =>
     await client.logs.create(data.project ?? uuid.ZERO, data, {
       onOptimistic: async ([optimistic]) => await onOptimisticComplete(optimistic),
@@ -162,7 +162,7 @@ export interface RenameParams extends Pick<log.Log, "key" | "name"> {}
 
 export const { useUpdate: useRename } = Flux.createUpdate<RenameParams>({
   name: RESOURCE_NAME,
-  verbs: Flux.RENAME_VERBS,
+  verbs: verbs.RENAME,
   update: async ({ client, data, onOptimisticComplete }) => {
     const { key, name } = data;
     await onOptimisticComplete(data);
