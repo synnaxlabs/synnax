@@ -204,7 +204,10 @@ export class Client extends query.Retriever<
       name: "device",
       table: composed,
       fetch: async (q) => [(await this.fetchSingle(q)).key],
-      compose: (records) => records[0],
+      // The composed row always carries status; the query gates whether the
+      // answer keeps it, mirroring the request space.
+      compose: (records, q) =>
+        q.includeStatus === true ? records[0] : stripStatus(records[0]),
       keyOf: (q) => q.key,
       single: true,
     });
