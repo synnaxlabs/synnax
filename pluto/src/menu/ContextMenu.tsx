@@ -14,6 +14,7 @@ import {
   type ReactNode,
   type RefCallback,
   useCallback,
+  useEffect,
   useMemo,
   useRef,
   useState,
@@ -31,7 +32,12 @@ import {
   useSyncedRef,
   useWindowResize,
 } from "@/hooks";
-import { CONTEXT_MENU_CLASS, CONTEXT_SELECTED, CONTEXT_TARGET } from "@/menu/types";
+import {
+  CONTEXT_MENU_CLASS,
+  CONTEXT_OPEN_ATTRIBUTE,
+  CONTEXT_SELECTED,
+  CONTEXT_TARGET,
+} from "@/menu/types";
 import { Triggers } from "@/triggers";
 
 interface ContextMenuState {
@@ -72,7 +78,7 @@ const INITIAL_STATE: ContextMenuState = {
 
 const CONTEXT_MENU_CONTAINER = CSS.BE("menu-context", "container");
 
-const findTarget = (target: HTMLElement): HTMLElement | null => {
+const findTarget = (target: HTMLElement): HTMLElement => {
   let candidate = target;
   while (!candidate.classList.contains(CONTEXT_TARGET)) {
     if (candidate.classList.contains(CONTEXT_MENU_CONTAINER)) return target;
@@ -82,9 +88,7 @@ const findTarget = (target: HTMLElement): HTMLElement | null => {
   return candidate;
 };
 
-const findSelected = (target_: HTMLElement): HTMLElement[] => {
-  const target = findTarget(target_);
-  if (target == null) return [];
+const findSelected = (target: HTMLElement): HTMLElement[] => {
   const selected: HTMLElement[] = Array.from(
     target.parentElement?.querySelectorAll(`.${CONTEXT_SELECTED}`) ?? [],
   );
@@ -113,23 +117,43 @@ const PREFERENCES: Dialog.LocationPreference[] = [
 export const useContextMenu = (): UseContextMenuReturn => {
   const menuRef = useRef<HTMLDivElement | null>(null);
   const [state, setMenuState] = useState<ContextMenuState>(INITIAL_STATE);
+  const targetRef = useRef<HTMLElement | null>(null);
 
-  const handleOpen: ContextMenuOpen = useCallback((e) => {
-    const p = xy.construct(e);
-    let keys: string[] = [];
-    if (typeof e === "object" && "preventDefault" in e) {
-      e.preventDefault();
-      // Prevent parent context menus from opening.
-      e.stopPropagation();
-      const selected = findSelected(e.target as HTMLElement);
-      keys = unique.unique(
-        selected
-          .map((el) => el.dataset.menuKey ?? el.id)
-          .filter((key) => key.length > 0),
-      );
-    }
-    setMenuState({ visible: true, keys, position: p, cursor: p });
+  const clearTarget = useCallback(() => {
+    targetRef.current?.removeAttribute(CONTEXT_OPEN_ATTRIBUTE);
+    targetRef.current = null;
   }, []);
+
+  // Clear the stamped target if the hook unmounts while a menu is open.
+  useEffect(() => clearTarget, [clearTarget]);
+
+  const handleOpen: ContextMenuOpen = useCallback(
+    (e) => {
+      const p = xy.construct(e);
+      clearTarget();
+      let keys: string[] = [];
+      if (typeof e === "object" && "preventDefault" in e) {
+        e.preventDefault();
+        // Prevent parent context menus from opening.
+        e.stopPropagation();
+        const target = findTarget(e.target as HTMLElement);
+        const selected = findSelected(target);
+        keys = unique.unique(
+          selected
+            .map((el) => el.dataset.menuKey ?? el.id)
+            .filter((key) => key.length > 0),
+        );
+        // Only the row the menu physically opened over holds the hover look, even
+        // when the menu acts on a wider selection.
+        if (target.classList.contains(CONTEXT_TARGET)) {
+          targetRef.current = target;
+          target.setAttribute(CONTEXT_OPEN_ATTRIBUTE, "");
+        }
+      }
+      setMenuState({ visible: true, keys, position: p, cursor: p });
+    },
+    [clearTarget],
+  );
 
   const calculatePosition = useCallback(() => {
     const el = menuRef.current;
@@ -153,16 +177,22 @@ export const useContextMenu = (): UseContextMenuReturn => {
 
   useWindowResize(calculatePosition, { enabled: state.visible });
 
-  const hideMenu = (): void => setMenuState(INITIAL_STATE);
+  const hideMenu = useCallback((): void => {
+    clearTarget();
+    setMenuState(INITIAL_STATE);
+  }, [clearTarget]);
 
   useClickOutside({ ref: menuRef, onClickOutside: hideMenu });
 
   const visibleRef = useSyncedRef(state.visible);
-  const handleEscape = useCallback(({ stage, stopPropagation }: Triggers.UseEvent) => {
-    if (stage !== "start" || !visibleRef.current) return;
-    setMenuState(INITIAL_STATE);
-    stopPropagation();
-  }, []);
+  const handleEscape = useCallback(
+    ({ stage, stopPropagation }: Triggers.UseEvent) => {
+      if (stage !== "start" || !visibleRef.current) return;
+      hideMenu();
+      stopPropagation();
+    },
+    [hideMenu],
+  );
   // Outranks the dialog Escape handler (priority 100) so a menu opened inside a
   // dialog closes without also closing the dialog.
   Triggers.use({
@@ -238,27 +268,31 @@ const Internal = ({
  * otherwise its HTML id. Set `data-menu-key` when the element's id is reserved for
  * another purpose (e.g. a tab whose id encodes ARIA linking). The first target is
  * evaluated by traversing the parents of the element that was right clicked until
- * an element with the class "pluto-context-target" is found. If no such element is
+ * an element with the class "pluto-context__target" is found. If no such element is
  * found, the right clicked element itself is used as the target. If this target has
- * the class "pluto-context-selected", then subsequent targets are found by querying
- * all siblings of the first target that have the "pluto-context-selected" class.
+ * the class "pluto-context--selected", then subsequent targets are found by querying
+ * all siblings of the first target that have the "pluto-context--selected" class.
  * Otherwise, the only key is the first target.
+ *
+ * While the menu is visible, the target the menu opened over (not the wider
+ * selection) carries the `data-context-menu-open` attribute so styles can keep
+ * it highlighted.
  *
  * @example <caption>Example DOM structure</caption>
  *   <div id="pluto-menu-context__container">
- *    <div className="pluto-context-target" id="1">
+ *    <div className="pluto-context__target" id="1">
  *      <span>
  *        <h2>I was right clicked!</h2>
  *      </span>
  *    </div>
- *    <div className="pluto-context-target pluto-context-selected" id="2">
- *    <div className="pluto-context-target" id="3">
+ *    <div className="pluto-context__target pluto-context--selected" id="2">
+ *    <div className="pluto-context__target" id="3">
  *   </div>
  *
  * In the above example, the keys provided to the menu would be ["1"].
  *
- * If the <div> element with id="1" had a className of "pluto-context-target
- * pluto-context-selected" instead, the keys provided would be ["1", "2"].
+ * If the <div> element with id="1" had a className of "pluto-context__target
+ * pluto-context--selected" instead, the keys provided would be ["1", "2"].
  *
  * The target resolution logic is ideal for both single and multi-select
  * scenarios, such as lists that have several selected rows that should be acted

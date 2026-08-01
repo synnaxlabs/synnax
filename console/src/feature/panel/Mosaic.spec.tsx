@@ -19,7 +19,7 @@ import { Mosaic } from "@/feature/panel/Mosaic";
 import { Panel } from "@/platform/panel";
 import { createServerPanel } from "@/platform/panel/testutil";
 import { Session } from "@/session";
-import { createConsoleWrapper, type TestStore } from "@/testutil";
+import { createConsoleWrapper, type TestStore, uniqueName } from "@/testutil";
 
 const client = createTestClient();
 
@@ -136,6 +136,34 @@ describe("Panel.Mosaic keep-alive", () => {
     });
     await waitFor(() => expect(screen.getByText("No panels open.")).toBeTruthy());
     expect(unmounts).toHaveLength(0);
+  });
+});
+
+describe("Panel.Mosaic not found", () => {
+  it("should load the panel when retry is clicked after it exists again", async () => {
+    const key = uuid.create();
+    const { wrapper, store } = await setup();
+    render(<Mosaic onCreateTab={createTab} />, { wrapper });
+
+    // The suspending read must be awaited: a component that suspends inside a
+    // synchronous act never resumes.
+    await act(async () => {
+      store.dispatch(Session.Panel.select({ key }));
+    });
+    // The read holds a not-found open for a window before settling, in case the
+    // reference outran its document's create broadcast.
+    await screen.findByText(/could not be found/, {}, { timeout: 10000 });
+
+    await client.panels.create({
+      key,
+      name: uniqueName("panel"),
+      root: {
+        variant: "leaf",
+        tabs: [{ variant: "view", key: uuid.create(), type: "probe" }],
+      },
+    });
+    fireEvent.click(screen.getByText("Retry"));
+    await waitFor(() => expect(screen.getByText(`content-${key}`)).toBeTruthy());
   });
 });
 

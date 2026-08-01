@@ -29,7 +29,7 @@ const PLURAL_RESOURCE_NAME = "panels";
 
 export type RetrieveQuery = { key: panel.Key };
 
-export const { useRetrieve, useEnsureRetrieved, useRetrieveEffect } =
+export const { useRetrieve, useEnsureRetrieved, useRetrieveEffect, useInvalidate } =
   Flux.createRetrieve<RetrieveQuery, panel.Panel>({
     name: RESOURCE_NAME,
     retrieve: async ({ client, query }) => await client.panels.retrieve(query),

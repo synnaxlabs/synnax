@@ -54,7 +54,7 @@
         align-self: stretch;
         margin: -1rem 0;
         border-right: var(--pluto-border);
-        width: 30rem;
+        width: 32rem;
         flex-grow: 0;
     }
 

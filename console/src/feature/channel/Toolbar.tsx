@@ -9,7 +9,7 @@
 
 import { channel, group } from "@synnaxlabs/client";
 import { Access, Channel, Icon } from "@synnaxlabs/pluto";
-import { type ReactElement } from "react";
+import { type ReactElement, useMemo } from "react";
 
 import { Channel as PlatformChannel } from "@/platform/channel";
 import { Empty } from "@/platform/empty";
@@ -44,16 +44,14 @@ const Actions = (): ReactElement | null => {
 
 const Content = (): ReactElement => {
   const { data: g } = Channel.useRetrieveGroup({});
+  const root = useMemo(() => (g == null ? null : group.ontologyID(g.key)), [g?.key]);
   return (
     <Toolbar.Content>
       <Toolbar.Header>
         <Toolbar.Title icon={<Icon.Channel />}>Channels</Toolbar.Title>
         <Actions />
       </Toolbar.Header>
-      <Tree.Tree
-        root={g == null ? undefined : group.ontologyID(g.key)}
-        emptyContent={<EmptyContent />}
-      />
+      <Tree.Tree root={root} emptyContent={<EmptyContent />} />
     </Toolbar.Content>
   );
 };

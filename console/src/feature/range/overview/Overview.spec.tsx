@@ -10,15 +10,17 @@
 import {
   type ontology,
   panel,
+  query,
   type ranger,
   ranger as rangerClient,
   schematic,
 } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
-import { Icon, Panel as PlutoPanel } from "@synnaxlabs/pluto";
+import { Errors, Flux, Icon, Panel as PlutoPanel } from "@synnaxlabs/pluto";
 import { TimeRange, TimeSpan, TimeStamp, uuid } from "@synnaxlabs/x";
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { type ComponentType } from "react";
+import { assert, describe, expect, it, vi } from "vitest";
 
 import { Range } from "@/feature/range";
 import { Modals } from "@/platform/modals";
@@ -42,7 +44,10 @@ interface RenderOverviewResult {
   setTabResource: (rangeKey: string) => Promise<void>;
 }
 
-const renderOverview = async (rangeKey: string): Promise<RenderOverviewResult> => {
+const renderOverview = async (
+  rangeKey: string,
+  FallbackComponent?: ComponentType<Errors.FallbackProps>,
+): Promise<RenderOverviewResult> => {
   const onSnapshotClick = vi.fn(async () => {});
   const onSnapshotDelete = vi.fn(async () => {});
   const services: PlatformRange.SnapshotServices = {
@@ -72,7 +77,9 @@ const renderOverview = async (rangeKey: string): Promise<RenderOverviewResult> =
     <PlutoPanel.Scope.Provider value={doc.key}>
       <PlutoPanel.TabScope.Provider value={tabKey}>
         <PlatformRange.SnapshotServicesProvider services={services}>
-          <Range.Overview.Overview />
+          <Errors.SuspenseBoundary FallbackComponent={FallbackComponent}>
+            <Range.Overview.Overview />
+          </Errors.SuspenseBoundary>
           <Modals.Stack />
         </PlatformRange.SnapshotServicesProvider>
       </PlutoPanel.TabScope.Provider>
@@ -173,5 +180,52 @@ describe("range/overview/Overview", () => {
     await screen.findByText(`Are you sure you want to delete ${name}?`);
     fireEvent.click(findButton("Delete"));
     await waitFor(() => expect(onSnapshotDelete).toHaveBeenCalledTimes(1));
+  });
+});
+
+describe("range/overview tab", () => {
+  it("throws the deleted range to the tab's boundary while it is open", async () => {
+    const rng = await createTestRange(client);
+    const DeletedProbe = ({ error }: Errors.FallbackProps) => (
+      <div>{`deleted-${Flux.DeletedError.matches(error) ? error.corpseName : ""}`}</div>
+    );
+    DeletedProbe.displayName = "DeletedProbe";
+    await renderOverview(rng.key, DeletedProbe);
+    expect(await screen.findByDisplayValue(rng.name)).toBeTruthy();
+    await act(async () => {
+      await client.ranges.delete(rng.key);
+    });
+    expect(await screen.findByText(`deleted-${rng.name}`)).toBeTruthy();
+    // The whole tab tombstones. A section left behind would render its own
+    // inline "failed to retrieve" state next to the tombstone.
+    expect(screen.queryByText("Child Ranges")).toBeNull();
+    expect(screen.queryByText("Snapshots")).toBeNull();
+  });
+
+  it("restores a deleted range under its original key", async () => {
+    const { restore } = Range.Overview.TABS[rangerClient.TYPE_ONTOLOGY_ID.type];
+    assert(restore != null);
+    const rng = await createTestRange(client);
+    // Restore rebuilds from the corpse the cache holds, which exists only once
+    // the client has seen the range live.
+    await client.ranges.retrieve(rng.key);
+    await client.ranges.delete(rng.key);
+    await waitFor(() =>
+      expect(query.Deleted.matches(client.ranges.getCached(rng.key))).toBe(true),
+    );
+
+    const project = await client.projects.create({
+      name: uniqueName("proj"),
+      layout: {},
+    });
+    await restore({ client, project: project.key, resource: rng.ontologyID });
+
+    // The tab heals off the cache going live again, not off the create call.
+    await waitFor(() =>
+      expect(query.isLive(client.ranges.getCached(rng.key))).toBe(true),
+    );
+    const [restored] = await client.ranges.retrieve([rng.key]);
+    expect(restored.name).toEqual(rng.name);
+    expect(restored.timeRange).toEqual(rng.timeRange);
   });
 });

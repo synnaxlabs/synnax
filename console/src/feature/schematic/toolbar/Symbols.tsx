@@ -588,7 +588,6 @@ export const Symbols = (): ReactElement => {
           placeholder="Search symbols..."
           startContent={<Icon.Search />}
           flush
-          size="small"
           className={CSS.BE("schematic", "symbols", "search")}
         />
         <GroupList

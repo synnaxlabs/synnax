@@ -339,8 +339,12 @@
      specificity of the hover and active states. */
     /* pluto--focus-frozen marks a control whose pointer states freeze while it
        holds focus: hover and press swap nothing until it blurs. */
+    /* [data-context-menu-open] is stamped by Menu.useContextMenu so a target keeps
+       its hover look while its context menu is open. */
     &:not(.pluto-btn--prevent-click, .pluto--disabled) {
-        &:is(:hover, .pluto--hovered):not(.pluto--focus-frozen:focus-within) {
+        &:is(:hover, .pluto--hovered, [data-context-menu-open]):not(
+                .pluto--focus-frozen:focus-within
+            ) {
             --pluto-bg: var(--pluto-hover-bg);
             --pluto-border-color: var(--pluto-hover-border-color);
         }

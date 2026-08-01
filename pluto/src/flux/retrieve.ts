@@ -185,6 +185,15 @@ export interface UseEnsureRetrieved<Query extends query.Params> {
   (query: Query): void;
 }
 
+/**
+ * Returns a callback discarding a query's settled answer so the next suspending
+ * read fetches again. A settled failure re-throws on every render, so resetting
+ * an error boundary alone lands straight back on it.
+ */
+export interface UseInvalidate<Query extends query.Params> {
+  (): (query: Query) => void;
+}
+
 export interface CreateRetrieveReturn<
   Query extends query.Params,
   Data extends state.State,
@@ -195,6 +204,7 @@ export interface CreateRetrieveReturn<
   useRetrieveObservable: UseRetrieveObservable<Query, Data>;
   useRetrieveSuspended: UseSuspendedRetrieve<Query, Data>;
   useEnsureRetrieved: UseEnsureRetrieved<Query>;
+  useInvalidate: UseInvalidate<Query>;
 }
 
 const initialResult = <Data extends state.State>(name: string): Result<Data> =>
@@ -230,18 +240,17 @@ const useObservableBase = <Query extends query.Params, Data extends query.Data>(
   const listeners = useDestructors();
   const addStatus = useAdder();
   const handleCacheChange = useCallback(
-    (result: query.Cached<Data> | undefined) => {
-      const current = queryRef.current;
-      if (current == null || result === undefined) return;
+    (result: query.Cached<Data> | undefined, query: Query) => {
+      if (result === undefined) return;
       if (Deleted.matches<Data>(result))
         onChange(
           errorResult(
             `retrieve ${name}`,
             new DeletedError(`${name} was deleted`, result.corpse),
           ),
-          current,
+          query,
         );
-      else onChange(successResult(`retrieved ${name}`, result), current);
+      else onChange(successResult(`retrieved ${name}`, result), query);
     },
     [onChange, name],
   );
@@ -275,9 +284,12 @@ const useObservableBase = <Query extends query.Params, Data extends query.Data>(
         if (signal?.aborted) return;
         // Subscribing after the fetch keeps mount-time reads fresh: an
         // unsubscribed retrieve always refetches, a subscribed one is served
-        // from the cache.
-        if (subscribe != null && client != null)
-          listeners.set(subscribe(params, handleCacheChange));
+        // from the cache. A newer retrieve started while this one was in flight
+        // is the one whose subscription stays mounted.
+        if (subscribe != null && queryRef.current === query)
+          listeners.set(
+            subscribe(params, (result) => handleCacheChange(result, query)),
+          );
         onChange(successResult<Data>(`retrieved ${name}`, value), query);
       } catch (error) {
         if (signal?.aborted) return;
@@ -573,6 +585,19 @@ const useEnsure = <Query extends query.Params, Data extends query.Data>({
   suspendOnFetch(params, { name, retrieve, subscribe, getCached, local });
 };
 
+const useInvalidate = <Query extends query.Params, Data extends query.Data>(
+  locals: WeakMap<Client, LocalCache<Data>>,
+): ((q: Query) => void) => {
+  const client = Synnax.use();
+  return useCallback(
+    (q: Query) => {
+      if (client == null) return;
+      localFor(locals, client).settled.delete(query.hash(q));
+    },
+    [client, locals],
+  );
+};
+
 export const createRetrieve = <Query extends query.Params, Data extends query.Data>(
   createParams: CreateRetrieveParams<Query, Data>,
 ): CreateRetrieveReturn<Query, Data> => {
@@ -590,5 +615,6 @@ export const createRetrieve = <Query extends query.Params, Data extends query.Da
     useRetrieveSuspended: (query: Query) =>
       useSuspended({ ...createParams, query, locals }),
     useEnsureRetrieved: (query: Query) => useEnsure({ ...createParams, query, locals }),
+    useInvalidate: () => useInvalidate<Query, Data>(locals),
   };
 };

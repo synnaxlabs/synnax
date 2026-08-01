@@ -10,8 +10,8 @@
 import { group, ontology } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { Haul } from "@synnaxlabs/pluto";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { type PropsWithChildren, type ReactElement } from "react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { type PropsWithChildren, type ReactElement, useState } from "react";
 import { describe, expect, it, vi } from "vitest";
 
 import { Tree } from "@/platform/tree";
@@ -20,7 +20,7 @@ import { createConsoleWrapper, uniqueName } from "@/testutil";
 
 const client = createTestClient();
 
-const renderTree = async (root: ontology.ID | null, items: Tree.Items = {}) => {
+const createWrapper = async (items: Tree.Items = {}) => {
   const { wrapper: Console } = await createConsoleWrapper({ client });
   const Wrapper = ({ children }: PropsWithChildren): ReactElement => (
     <Console>
@@ -29,8 +29,11 @@ const renderTree = async (root: ontology.ID | null, items: Tree.Items = {}) => {
       </Haul.Provider>
     </Console>
   );
-  return render(<Tree.Tree root={root} />, { wrapper: Wrapper });
+  return Wrapper;
 };
+
+const renderTree = async (root: ontology.ID | null, items: Tree.Items = {}) =>
+  render(<Tree.Tree root={root} />, { wrapper: await createWrapper(items) });
 
 describe("Tree.Tree", () => {
   it("should render nothing when the root is null", async () => {
@@ -54,6 +57,77 @@ describe("Tree.Tree", () => {
     expandTreeRow(groupName);
     await waitFor(() => expect(screen.getByText(childName)).toBeTruthy());
     await client.groups.delete(child.key);
+  });
+
+  it("should keep a loaded subtree when its parent is collapsed and re-expanded", async () => {
+    const container = await client.groups.create({
+      parent: ontology.ROOT_ID,
+      name: uniqueName("container"),
+    });
+    const parent = await client.groups.create({
+      parent: group.ontologyID(container.key),
+      name: uniqueName("parent"),
+    });
+    const child = await client.groups.create({
+      parent: group.ontologyID(parent.key),
+      name: uniqueName("child"),
+    });
+    const grandchild = await client.groups.create({
+      parent: group.ontologyID(child.key),
+      name: uniqueName("grandchild"),
+    });
+    const parentID = group.ontologyID(parent.key);
+    await renderTree(group.ontologyID(container.key));
+    await screen.findByText(parent.name);
+    expandTreeRow(parent.name);
+    await screen.findByText(child.name);
+    expandTreeRow(child.name);
+    await screen.findByText(grandchild.name);
+    expandTreeRow(parent.name);
+    await waitFor(() => expect(screen.queryByText(grandchild.name)).toBeNull());
+    expandTreeRow(parent.name);
+    // Joining the re-expansion's in-flight children fetch flushes the tree's
+    // update, so the assertion sees the state the fetch produced.
+    await act(async () => {
+      await client.ontology.children.retrieve({ ids: parentID });
+    });
+    expect(screen.getByText(grandchild.name)).toBeTruthy();
+  });
+
+  it("should keep loaded children when the root id is rebuilt on every render", async () => {
+    const container = await client.groups.create({
+      parent: ontology.ROOT_ID,
+      name: uniqueName("container"),
+    });
+    const containerID = group.ontologyID(container.key);
+    const parent = await client.groups.create({
+      parent: containerID,
+      name: uniqueName("parent"),
+    });
+    const child = await client.groups.create({
+      parent: group.ontologyID(parent.key),
+      name: uniqueName("child"),
+    });
+    // Toolbars build the root id inline, so every render hands the tree a new
+    // object with the same contents.
+    const Harness = (): ReactElement => {
+      const [, setRenders] = useState(0);
+      return (
+        <>
+          <button onClick={() => setRenders((prev) => prev + 1)}>rerender</button>
+          <Tree.Tree root={group.ontologyID(container.key)} />
+        </>
+      );
+    };
+    render(<Harness />, { wrapper: await createWrapper() });
+    await screen.findByText(parent.name);
+    expandTreeRow(parent.name);
+    await screen.findByText(child.name);
+    fireEvent.click(screen.getByText("rerender"));
+    await act(async () => {
+      await client.ontology.children.retrieve({ ids: containerID });
+    });
+    expect(screen.getByText(child.name)).toBeTruthy();
   });
 
   describe("context menu", () => {

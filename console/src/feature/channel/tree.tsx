@@ -316,7 +316,7 @@ const Content = ({ resource, icon: _, ...rest }: Tree.ContentProps) => {
         id={List.itemNameID(ontology.idToString(resource.id))}
         allowDoubleClick={false}
         value={name}
-        overflow="ellipsis"
+        overflow="fade"
         className={CSS.BE("channel-tree-item", "name")}
         grow
         disabled={!allowRename(resource)}

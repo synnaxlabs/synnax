@@ -21,9 +21,4 @@
     & .pluto-log__content {
         height: 100%;
     }
-
-    &:focus-visible {
-        outline: 1px solid var(--pluto-primary-z);
-        outline-offset: -2px;
-    }
 }

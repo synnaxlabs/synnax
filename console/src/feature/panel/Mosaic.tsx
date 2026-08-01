@@ -308,8 +308,9 @@ const EmptyContent = (): ReactElement => {
 // removes the reference the way the prune would have. The panel resolves from
 // the surrounding scope: a kept-alive fallback may belong to an unselected panel.
 const PanelFallback = (props: Errors.FallbackProps): ReactElement => {
-  const { error } = props;
+  const { error, resetErrorBoundary } = props;
   const panelKey = Panel.useOptionalKey();
+  const invalidate = Panel.useInvalidate();
   const dispatch = useDispatch();
   if (!Flux.DeletedError.matches(error) && !isNotFound(error))
     return <Errors.Fallback {...props} />;
@@ -323,6 +324,19 @@ const PanelFallback = (props: Errors.FallbackProps): ReactElement => {
       {panelKey != null && (
         <Button.Button onClick={() => dispatch(Session.Panel.remove(panelKey))}>
           Close
+        </Button.Button>
+      )}
+      {panelKey != null && isNotFound(error) && (
+        <Button.Button
+          variant="filled"
+          // The settled not-found re-throws on every render, so it is discarded
+          // before the boundary remounts the panel.
+          onClick={() => {
+            invalidate({ key: panelKey });
+            resetErrorBoundary();
+          }}
+        >
+          Retry
         </Button.Button>
       )}
     </Tombstone>

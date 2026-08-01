@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { ranger } from "@synnaxlabs/client";
+import { query, ranger } from "@synnaxlabs/client";
 import { Icon, Ranger } from "@synnaxlabs/pluto";
 
 import { Overview } from "@/feature/range/overview/Overview";
@@ -19,6 +19,10 @@ const TAB: Panel.Tab = {
   Content: Overview,
   Icon: Icon.Range,
   Name: Panel.createEditableTabName(Ranger, <Icon.Range />),
+  restore: async ({ client, resource }) => {
+    const corpse = query.requireCorpse(client.ranges.getCached(resource.key));
+    await client.ranges.create(corpse.payload);
+  },
 };
 
 export const TABS: Panel.Tabs = {

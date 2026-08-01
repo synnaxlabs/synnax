@@ -44,7 +44,7 @@ const Content = ({ resource, icon: _icon, ...rest }: Tree.ContentProps) => {
         id={List.itemNameID(itemKey)}
         allowDoubleClick={false}
         value={resource.name}
-        overflow="ellipsis"
+        overflow="fade"
         className={CSS.B("rack-tree-name")}
         grow
         onChange

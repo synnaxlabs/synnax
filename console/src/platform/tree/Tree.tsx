@@ -119,6 +119,17 @@ const itemRenderProp = Component.renderProp(
   },
 );
 
+// A parent's child list says nothing about each child's own subtree, so a node
+// that is already in the tree keeps the children it has already loaded.
+const keepLoadedChildren = (
+  prev: Base.Node<string>[],
+  next: Base.Node<string>[],
+): Base.Node<string>[] =>
+  next.map((node) => {
+    const existing = prev.find(({ key }) => key === node.key);
+    return existing == null ? node : { ...node, children: existing.children };
+  });
+
 const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
   const items = useItems();
   const resolveItem = useCallback(
@@ -165,14 +176,14 @@ const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
               tree: prevNodes,
               parent: ontology.idToString(id),
               throwOnMissing: false,
-              updater: (prevNodes) => [
-                ...prevNodes.filter(({ key }) => !ids.has(key)),
-                ...converted,
+              updater: (prevChildren) => [
+                ...prevChildren.filter(({ key }) => !ids.has(key)),
+                ...keepLoadedChildren(prevChildren, converted),
               ],
             }),
           ]);
         }
-        setLoading(false);
+        if (variant !== "loading") setLoading(false);
       },
       [resolveItem],
     ),
@@ -211,9 +222,9 @@ const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
         key: ontology.idToString(c.id),
         children: resolveItem(c.id.type).hasChildren ? [] : undefined,
       }));
-      setNodes(nodes);
+      setNodes((prevNodes) => keepLoadedChildren(prevNodes, nodes));
     },
-    [client, root],
+    [client, ontology.idToString(root)],
   );
 
   const handleSyncResourceSet = useCallback(
@@ -242,39 +253,51 @@ const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
         return nextNodes;
       });
     },
-    [setNodes, parent],
+    [setNodes, root],
   );
   Ontology.useRelationshipDeleteSynchronizer(handleRelationshipDelete);
-  const handleRelationshipSet = useCallback((rel: ontology.Relationship) => {
-    if (rel.type !== ontology.PARENT_OF_RELATIONSHIP_TYPE) return;
-    const { from, to } = rel;
-    setNodes((prevNodes) => {
-      let destination: string | null = ontology.idToString(from);
-      if (ontology.idsEqual(from, root)) destination = null;
-      const nextNodes = [
-        ...Base.setNode({
-          tree: Base.deepCopy(prevNodes),
-          destination,
-          additions: [
-            {
-              key: ontology.idToString(to),
-              children: resolveItem(to.type).hasChildren ? [] : undefined,
-            },
-          ],
-          throwOnMissing: false,
-        }),
-      ];
-      return nextNodes;
-    });
-  }, []);
+  const handleRelationshipSet = useCallback(
+    (rel: ontology.Relationship) => {
+      if (rel.type !== ontology.PARENT_OF_RELATIONSHIP_TYPE) return;
+      const { from, to } = rel;
+      setNodes((prevNodes) => {
+        let destination: string | null = ontology.idToString(from);
+        if (ontology.idsEqual(from, root)) destination = null;
+        const tree = Base.deepCopy(prevNodes);
+        const key = ontology.idToString(to);
+        const existing = Base.findNode({ tree, key });
+        const nextNodes = [
+          ...Base.setNode({
+            tree,
+            destination,
+            additions: [
+              {
+                key,
+                children:
+                  existing?.children ??
+                  (resolveItem(to.type).hasChildren ? [] : undefined),
+              },
+            ],
+            throwOnMissing: false,
+          }),
+        ];
+        return nextNodes;
+      });
+    },
+    [setNodes, root, resolveItem],
+  );
   Ontology.useRelationshipSetSynchronizer(handleRelationshipSet);
 
-  const handleExpand = useCallback(({ action, clicked }: Base.HandleExpandProps) => {
-    if (action !== "expand") return;
-    const clickedID = ontology.idZ.parse(clicked);
-    setLoading(clicked);
-    retrieveChildren.retrieve({ id: clickedID });
-  }, []);
+  const { retrieve: retrieveChildrenOf } = retrieveChildren;
+  const handleExpand = useCallback(
+    ({ action, clicked }: Base.HandleExpandProps) => {
+      if (action !== "expand") return;
+      const clickedID = ontology.idZ.parse(clicked);
+      setLoading(clicked);
+      retrieveChildrenOf({ id: clickedID });
+    },
+    [retrieveChildrenOf, setLoading],
+  );
 
   const getResource = useCallback(
     ((id: ontology.ID | ontology.ID[] | string | string[]) => {

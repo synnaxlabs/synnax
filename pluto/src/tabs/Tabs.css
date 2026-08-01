@@ -72,20 +72,19 @@
     transition: none;
 }
 
-/* Overflowing names fade out at the tab's edge, Chrome-style, instead of
-   ellipsizing. The self scroll timeline is inactive until the name actually
-   overflows, so fitted names never fade; without support they hard-clip. */
+/* Overflowing names get Text's fade-out treatment (see Text.css). Tab children
+   arrive as bare strings that Button wraps, so the fade is applied by descent
+   rather than through Text's overflow prop. */
 .pluto-tabs__tab .pluto-text {
     overflow-x: hidden;
     white-space: nowrap;
-    animation: tabs-name-fade linear;
+    animation: text-fade linear;
     animation-timeline: scroll(self x);
 }
 
-@keyframes tabs-name-fade {
-    0%,
-    100% {
-        mask-image: linear-gradient(to right, black calc(100% - 2.25rem), transparent);
+@supports not (animation-timeline: scroll(self x)) {
+    .pluto-tabs__tab .pluto-text {
+        text-overflow: ellipsis;
     }
 }
 
