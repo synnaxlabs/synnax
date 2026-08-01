@@ -126,11 +126,11 @@ export const InputShowcase = () => (
             <Text.Text level="small" weight={500}>
               Preview Variant
             </Text.Text>
-            <InputShowcaseText size="huge" variant="preview" value="Catalyst" />
-            <InputShowcaseText size="large" variant="preview" value="Catalyst" />
-            <InputShowcaseText size="medium" variant="preview" value="Catalyst" />
-            <InputShowcaseText size="small" variant="preview" value="Catalyst" />
-            <InputShowcaseText size="tiny" variant="preview" value="Catalyst" />
+            <InputShowcaseText size="huge" preview value="Catalyst" />
+            <InputShowcaseText size="large" preview value="Catalyst" />
+            <InputShowcaseText size="medium" preview value="Catalyst" />
+            <InputShowcaseText size="small" preview value="Catalyst" />
+            <InputShowcaseText size="tiny" preview value="Catalyst" />
           </Flex.Box>
         </Flex.Box>
       </SubcategorySection>
@@ -229,11 +229,11 @@ export const InputShowcase = () => (
           <Flex.Box x gap="medium">
             <Flex.Box y gap="small" align="center">
               <Text.Text level="small">False</Text.Text>
-              <InputShowcaseSwitch value={false} variant="preview" />
+              <InputShowcaseSwitch value={false} preview />
             </Flex.Box>
             <Flex.Box y gap="small" align="center">
               <Text.Text level="small">True</Text.Text>
-              <InputShowcaseSwitch value variant="preview" />
+              <InputShowcaseSwitch value preview />
             </Flex.Box>
           </Flex.Box>
         </Flex.Box>
@@ -297,11 +297,11 @@ export const InputShowcase = () => (
             <Flex.Box x gap="medium" align="center">
               <Flex.Box y gap="small" align="center">
                 <Text.Text level="small">False</Text.Text>
-                <InputShowcaseCheckbox value={false} variant="preview" />
+                <InputShowcaseCheckbox value={false} preview />
               </Flex.Box>
               <Flex.Box y gap="small" align="center">
                 <Text.Text level="small">True</Text.Text>
-                <InputShowcaseCheckbox value variant="preview" />
+                <InputShowcaseCheckbox value preview />
               </Flex.Box>
             </Flex.Box>
           </Flex.Box>

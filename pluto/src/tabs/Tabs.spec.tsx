@@ -105,6 +105,28 @@ describe("Tabs", () => {
       expect(onSelect).toHaveBeenCalledWith("a");
     });
 
+    it("should select a tab that does not head an ordered selection", () => {
+      const onSelect = vi.fn();
+      render(
+        <Select.Context value={["b", "a"]} onSelect={onSelect}>
+          <BasicTabs />
+        </Select.Context>,
+      );
+      fireEvent.click(tab("Tab A"));
+      expect(onSelect).toHaveBeenCalledWith("a");
+    });
+
+    it("should not select the tab heading an ordered selection", () => {
+      const onSelect = vi.fn();
+      render(
+        <Select.Context value={["b", "a"]} onSelect={onSelect}>
+          <BasicTabs />
+        </Select.Context>,
+      );
+      fireEvent.click(tab("Tab B"));
+      expect(onSelect).not.toHaveBeenCalled();
+    });
+
     it("should shadow an enclosing selection when it owns one", () => {
       render(
         <Select.Context value={["b"]}>

@@ -91,7 +91,10 @@ export const DateTime = ({
         step={0.00001}
         {...rest}
       >
-        <Button.Button onClick={() => setVisible(!visible)} variant={variant}>
+        <Button.Button
+          onClick={() => setVisible(!visible)}
+          variant={variant === "shadow" ? "outlined" : variant}
+        >
           <Icon.Calendar />
         </Button.Button>
       </InputText>
@@ -350,7 +353,8 @@ const Calendar = ({ value, onChange }: CalendarProps): ReactElement => {
           {Array.from({ length: daysInMonth(month, year) }).map((_, i) => (
             <Button.Button
               key={i}
-              variant={i + 1 === day ? "outlined" : "text"}
+              variant="text"
+              className={CSS(CSS.selected(i + 1 === day))}
               onClick={() => handleDayChange(i + 1)}
               square
             >

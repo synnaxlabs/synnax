@@ -7,14 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import "@/platform/status/filter/Chips.css";
-
 import { type status } from "@synnaxlabs/client";
-import { Flex, Form, Status, Tag, Text } from "@synnaxlabs/pluto";
+import { Flex, Form, Status, Tag } from "@synnaxlabs/pluto";
 import { caseconv } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
-import { CSS } from "@/platform/css";
 import { View } from "@/platform/view";
 
 export const Chips = (): ReactElement | null => {
@@ -28,15 +25,7 @@ export const Chips = (): ReactElement | null => {
     field.onChange(variants.filter((v) => v !== variant));
   return (
     <Flex.Box x pack background={0}>
-      <Text.Text
-        bordered
-        className={CSS.BE("status-variant", "filter-chips")}
-        size="small"
-        borderColor={6}
-        level="small"
-      >
-        Variants
-      </Text.Text>
+      <View.FilterChip>Variants</View.FilterChip>
       {variants.map((variant) => (
         <Tag.Tag
           key={variant}

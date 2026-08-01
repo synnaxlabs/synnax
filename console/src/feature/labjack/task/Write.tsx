@@ -87,7 +87,6 @@ const ChannelListItem = ({ device, ...rest }: ChannelListItemProps) => {
               model={device.model}
               portType={type}
               allowNone={false}
-              onClick={(e) => e.stopPropagation()}
               className={CSS.BE("labjack-write", "port-select")}
             >
               <PForm.Field<OutputChannelType>

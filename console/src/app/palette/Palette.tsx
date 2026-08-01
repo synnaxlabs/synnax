@@ -108,7 +108,7 @@ export const Palette = (): ReactElement => {
           className={CSS.BE("palette", "content")}
           bordered={false}
           pack
-          rounded={1}
+          rounded="small"
         >
           <List value={value} inputPlaceholder={inputPlaceholder} onChange={setValue} />
         </Dialog.Dialog>

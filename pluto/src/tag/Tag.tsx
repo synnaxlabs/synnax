@@ -43,18 +43,11 @@ export const Tag = ({
   if (icon == null && pColor != null) icon = <Icon.Circle color={cssColor} />;
   const closeIcon =
     onClose == null ? undefined : (
-      <Button.Button
-        aria-label="close"
+      <Button.Close
         size={size === "tiny" ? "small" : size}
-        variant="text"
         className={CSS.BE("tag", "close")}
-        sharp
-        // Zero-size until the tag is hovered, so it must not be a tab stop.
-        tabIndex={-1}
         onClick={onClose}
-      >
-        <Icon.Close />
-      </Button.Button>
+      />
     );
   return (
     <Button.Button
@@ -62,6 +55,7 @@ export const Tag = ({
       className={CSS(
         className,
         CSS.B("tag"),
+        CSS.M("reveals"),
         onClose != null && CSS.BM("tag", "closeable"),
       )}
       size={size}

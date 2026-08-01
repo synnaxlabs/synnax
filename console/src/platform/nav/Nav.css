@@ -13,10 +13,9 @@
     .pluto-menu-item {
         position: relative;
 
+        /* Fill comes from the list tier; the rail indicator is the nav's own
+           ornament. */
         &.pluto--selected {
-            background: var(--pluto-gray-l5);
-            transition: background 0.3s;
-
             &::after {
                 top: 0.5rem;
                 height: calc(100% - 1rem);

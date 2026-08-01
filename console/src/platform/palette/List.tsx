@@ -60,7 +60,6 @@ export const ListItem = ({
   );
   return (
     <Select.ListItem
-      highlightHovered
       justify="between"
       align="center"
       onClick={handleClick}

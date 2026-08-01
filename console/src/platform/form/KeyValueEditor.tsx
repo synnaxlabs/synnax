@@ -7,9 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import "@/platform/form/KeyValueEditor.css";
-
-import { Button, Flex, Form, Icon, Input, Text } from "@synnaxlabs/pluto";
+import { Button, CSS as PCSS, Flex, Form, Icon, Input, Text } from "@synnaxlabs/pluto";
 import { useEffect } from "react";
 
 import { CSS } from "@/platform/css";
@@ -112,12 +110,18 @@ export const KeyValueEditor = <K extends string, V extends string | number>({
               />
             );
           return (
-            <Flex.Box x key={i} align="center" gap="small" className={CSS.B("kv-row")}>
+            <Flex.Box
+              x
+              key={i}
+              align="center"
+              gap="small"
+              className={CSS(CSS.B("kv-row"), PCSS.M("reveals"))}
+            >
               {valueFirst ? valueInput : keyInput}
               {valueFirst ? keyInput : valueInput}
               <Button.Button
                 variant="text"
-                ghost
+                reveal
                 size="small"
                 onClick={() => removeRow(i)}
               >

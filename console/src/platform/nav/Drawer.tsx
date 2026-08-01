@@ -74,7 +74,7 @@ export const Drawer = ({
       onMouseLeave={handleMouseLeave}
       onResize={handleResize}
       background={0}
-      rounded={2}
+      rounded="large"
       bordered
       borderColor={6}
       {...rest}

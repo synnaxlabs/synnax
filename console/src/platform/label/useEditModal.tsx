@@ -29,6 +29,7 @@ import {
 import { color } from "@synnaxlabs/x";
 import { useCallback, useEffect, useRef, useState } from "react";
 
+import { Button as PlatformButton } from "@/platform/button";
 import { CSS } from "@/platform/css";
 import { Modals } from "@/platform/modals";
 
@@ -76,7 +77,6 @@ const LabelListItem = ({
   return (
     <List.Item
       ref={ref}
-      highlightHovered={false}
       className={CSS(
         CSS.BE("label", "list-item"),
         isCreate && CSS.M("create"),
@@ -94,7 +94,7 @@ const LabelListItem = ({
             padHelpText={false}
             showLabel={false}
           >
-            {({ onChange, variant: _, ...p }) => (
+            {({ onChange, preview: _, ...p }) => (
               <Color.Swatch onChange={(v) => onChange(color.hex(v))} {...p} />
             )}
           </Form.Field>
@@ -134,8 +134,8 @@ const LabelListItem = ({
         <Button.Button
           variant="outlined"
           size="small"
+          reveal
           onClick={() => handleDelete(itemKey)}
-          className={CSS.BE("label", "delete")}
         >
           <Icon.Delete />
         </Button.Button>
@@ -160,29 +160,20 @@ export const useEditModal = Modals.create(() => {
         onFetchMore={fetchMore}
         subscribe={subscribe}
       >
-        <Flex.Box x justify="between" className={CSS.BE("label", "edit-header")}>
-          <Input.Text
-            placeholder={
-              <>
-                <Icon.Search />
-                Search labels
-              </>
-            }
-            value={searchTerm}
-            onChange={(v) => {
-              setSearchTerm(v);
-              search(v);
-            }}
-          />
-          <Button.Button
-            variant="filled"
-            className={CSS.BE("label", "add-btn")}
-            gap="small"
-            onClick={() => setNewFormVisible(true)}
-          >
-            <Icon.Add />
-          </Button.Button>
-        </Flex.Box>
+        <Input.Text
+          value={searchTerm}
+          onChange={(v) => {
+            setSearchTerm(v);
+            search(v);
+          }}
+          placeholder="Search labels..."
+          startContent={<Icon.Search />}
+          autoFocus
+          flush
+          size="large"
+          full="x"
+          className={CSS.BE("label", "search")}
+        />
         <Divider.Divider x />
         <Flex.Box y className={CSS.BE("label", "items-container")} empty>
           <LabelListItem
@@ -207,6 +198,14 @@ export const useEditModal = Modals.create(() => {
           >
             {listItem}
           </List.Items>
+          {!newFormVisible && (
+            <PlatformButton.Create
+              onClick={() => setNewFormVisible(true)}
+              className={CSS.BE("label", "create")}
+            >
+              New Label
+            </PlatformButton.Create>
+          )}
         </Flex.Box>
       </List.Frame>
     </Modals.Frame>

@@ -60,7 +60,7 @@ export const Tab = ({
 }: TabProps): ReactElement => {
   const frameID = useFrameID("Tabs.Tab");
   const { size, variant } = useSelectorContext("Tabs.Tab");
-  const { selected, focused, onSelect } = Select.useItemState(itemKey);
+  const { selected, focused, head, onSelect } = Select.useItemState(itemKey);
   const handleClick = useCallback<MouseEventHandler<HTMLDivElement>>(
     (e) => {
       onClick?.(e);
@@ -73,15 +73,12 @@ export const Tab = ({
       onKeyDown?.(e);
       if (e.target !== e.currentTarget || e.defaultPrevented) return;
       const key = Triggers.eventKey(e);
-      if (key === "Enter" || key === "Space") {
-        e.preventDefault();
-        onSelect();
-      } else if (onClose != null && (key === "Delete" || key === "Backspace")) {
+      if (onClose != null && (key === "Delete" || key === "Backspace")) {
         e.preventDefault();
         onClose();
       }
     },
-    [onKeyDown, onSelect, onClose],
+    [onKeyDown, onClose],
   );
   const isPill = variant === "pill";
   const variantProps = isPill ? PILL_BUTTON_PROPS : DEFAULT_BUTTON_PROPS;
@@ -98,6 +95,7 @@ export const Tab = ({
       size={size}
       className={CSS(
         CSS.BE("tabs", "tab"),
+        CSS.M("reveals"),
         Menu.CONTEXT_TARGET,
         selected && Menu.CONTEXT_SELECTED,
         CSS.selected(selected),
@@ -108,7 +106,7 @@ export const Tab = ({
       align="center"
       empty
       square={false}
-      preventClick={selected}
+      preventClick={head}
       onClick={handleClick}
       onKeyDown={handleKeyDown}
       {...variantProps}

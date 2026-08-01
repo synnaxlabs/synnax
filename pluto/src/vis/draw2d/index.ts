@@ -238,7 +238,7 @@ export class Draw2D {
     const ctx = this.canvas;
     ctx.strokeStyle = color.hex(this.resolveColor(colorVal, this.theme.colors.border));
     ctx.lineWidth = width ?? this.theme.sizes.border.width;
-    radius ??= this.theme.sizes.border.radius;
+    radius ??= Math.round(this.theme.sizes.border.radius.tiny * this.theme.sizes.base);
     if (location == null || location === true)
       if (radius > 0) {
         ctx.roundRect(
@@ -271,7 +271,9 @@ export class Draw2D {
     borderWidth,
     backgroundColor,
   }: Draw2DContainerProps): void {
-    borderRadius ??= this.theme.sizes.border.radius;
+    borderRadius ??= Math.round(
+      this.theme.sizes.border.radius.tiny * this.theme.sizes.base,
+    );
     borderWidth ??= 1;
     const ctx = this.canvas;
     ctx.fillStyle = color.hex(

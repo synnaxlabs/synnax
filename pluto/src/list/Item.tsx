@@ -32,7 +32,6 @@ export type ItemProps<
   ItemRenderProps<K> & {
     draggingOver?: boolean;
     rightAligned?: boolean;
-    highlightHovered?: boolean;
     onSelect?: (key: K) => void;
     selected?: boolean;
     hovered?: boolean;
@@ -55,7 +54,6 @@ export const Item = <K extends record.Key, E extends Button.ElementType = "div">
   el,
   draggingOver = false,
   rightAligned = false,
-  highlightHovered = false,
   selected = false,
   translate,
   onSelect,
@@ -89,9 +87,9 @@ export const Item = <K extends record.Key, E extends Button.ElementType = "div">
         selected && CONTEXT_SELECTED,
         hovered && CSS.M("hovered"),
         rightAligned && CSS.M("right-aligned"),
-        highlightHovered && CSS.M("highlight-hover"),
         draggingOver && CSS.M("dragging-over"),
         CSS.BE("list", "item"),
+        CSS.M("reveals"),
         CSS.selected(selected),
       )}
       style={itemStyle}

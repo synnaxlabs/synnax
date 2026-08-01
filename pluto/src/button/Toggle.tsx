@@ -7,8 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import "@/button/Toggle.css";
-
 import { type ReactElement } from "react";
 
 import { Button, type ButtonProps } from "@/button/Button";
@@ -19,23 +17,21 @@ export interface ToggleProps
   extends
     Input.Control<boolean, boolean>,
     Omit<ButtonProps, "value" | "onChange" | "variant"> {
-  checkedVariant?: ButtonProps["variant"];
-  uncheckedVariant?: ButtonProps["variant"];
   rightClickToggle?: boolean;
 }
 
+/* A checked toggle is a selected state, not a CTA: it speaks the control
+   selection tier over the outlined chassis. */
 export const Toggle = ({
   value,
   onClick,
   onChange,
-  checkedVariant = "outlined",
-  uncheckedVariant,
   rightClickToggle = false,
   className,
   ...rest
 }: ToggleProps): ReactElement => (
   <Button
-    className={CSS(className, CSS.B("btn-toggle"), value && CSS.M("checked"))}
+    className={CSS(className, CSS.B("btn-toggle"), CSS.selected(value))}
     onClick={(e) => {
       onClick?.(e);
       if (rightClickToggle) return;
@@ -47,7 +43,6 @@ export const Toggle = ({
       e.stopPropagation();
       onChange(!value);
     }}
-    variant={value ? checkedVariant : uncheckedVariant}
     {...rest}
   />
 );

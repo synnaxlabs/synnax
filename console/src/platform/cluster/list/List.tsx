@@ -11,7 +11,6 @@ import "@/platform/cluster/list/List.css";
 
 import { connection } from "@synnaxlabs/client";
 import {
-  Button,
   Flex,
   Header,
   Icon,
@@ -23,6 +22,7 @@ import {
 } from "@synnaxlabs/pluto";
 import { type ReactElement, useCallback, useMemo, useState } from "react";
 
+import { Button } from "@/platform/button";
 import { Item } from "@/platform/cluster/list/Item";
 import { useConnectModal } from "@/platform/cluster/useConnectModal";
 import { ContextMenu } from "@/platform/context-menu";
@@ -189,16 +189,9 @@ export const List = ({ value, onChange, ...rest }: ListProps): ReactElement => {
             ))
           )}
         </Flex.Box>
-        <Button.Button
-          variant="text"
-          full="x"
-          justify="start"
-          onClick={() => openConnect()}
-          className={CSS.BE("cluster-list", "add")}
-        >
-          <Icon.Add />
+        <Button.Create size="large" onClick={() => openConnect()}>
           Add a Core
-        </Button.Button>
+        </Button.Create>
       </Flex.Box>
     </Select.Frame>
   );

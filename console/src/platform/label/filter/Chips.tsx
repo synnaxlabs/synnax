@@ -7,13 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import "@/platform/label/filter/Chips.css";
-
 import { type label } from "@synnaxlabs/client";
-import { Flex, Form, Icon, Label, Tag, Text } from "@synnaxlabs/pluto";
+import { Flex, Form, Icon, Label, Tag } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
-import { CSS } from "@/platform/css";
 import { View } from "@/platform/view";
 
 export const Chips = (): ReactElement | null => {
@@ -28,16 +25,10 @@ export const Chips = (): ReactElement | null => {
     field.onChange(hasLabels.filter((l) => l !== key));
   return (
     <Flex.Box x pack background={0}>
-      <Text.Text
-        bordered
-        className={CSS.BE("label", "filter-chips")}
-        size="small"
-        borderColor={6}
-        level="small"
-      >
+      <View.FilterChip>
         <Icon.Label />
         Labels
-      </Text.Text>
+      </View.FilterChip>
       {labels.map(({ color, key, name }) => (
         <Tag.Tag
           key={key}

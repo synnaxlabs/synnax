@@ -18,7 +18,7 @@
     --pluto-fill-hover: var(--pluto-gray-l4);
     --pluto-fill-press: var(--pluto-gray-l5);
     box-shadow: var(--pluto-shadow-v1);
-    border-radius: 2rem;
+    border-radius: var(--pluto-border-radius-large);
     padding: 1rem;
     animation: var(--pluto-dialog-animation);
     &:empty {

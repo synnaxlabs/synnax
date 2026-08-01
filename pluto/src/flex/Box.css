@@ -22,6 +22,21 @@
     &.pluto--rounded {
         border-radius: var(--pluto-border-radius);
     }
+    &.pluto--rounded-tiny {
+        border-radius: var(--pluto-border-radius-tiny);
+    }
+    &.pluto--rounded-small {
+        border-radius: var(--pluto-border-radius-small);
+    }
+    &.pluto--rounded-medium {
+        border-radius: var(--pluto-border-radius-medium);
+    }
+    &.pluto--rounded-large {
+        border-radius: var(--pluto-border-radius-large);
+    }
+    &.pluto--rounded-huge {
+        border-radius: var(--pluto-border-radius-huge);
+    }
     &.pluto--sharp {
         border-radius: 0;
     }

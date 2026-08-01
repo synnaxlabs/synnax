@@ -56,14 +56,14 @@
     inset: -2.5rem;
     border: var(--pluto-border-width) solid
         color-mix(in srgb, var(--pluto-gray-l7) 45%, transparent);
-    border-radius: 5.5rem;
+    border-radius: calc(var(--pluto-border-radius-huge) + 2.5rem);
 }
 
 .console--ornament-echo .console-shell__stage::after {
     inset: -5.5rem;
     border: var(--pluto-border-width) solid
         color-mix(in srgb, var(--pluto-gray-l7) 20%, transparent);
-    border-radius: 8.5rem;
+    border-radius: calc(var(--pluto-border-radius-huge) + 5.5rem);
 }
 
 .console--ornament-dashed .console-shell__stage::before {
@@ -71,7 +71,7 @@
     position: absolute;
     inset: -3rem;
     border: var(--pluto-border-width) dashed var(--pluto-gray-l7);
-    border-radius: 6rem;
+    border-radius: calc(var(--pluto-border-radius-huge) + 3rem);
     pointer-events: none;
 }
 
@@ -143,11 +143,11 @@
 /* ---------- card shapes ---------- */
 
 .console--shape-sharp .console-shell__card {
-    border-radius: 1rem;
+    border-radius: var(--pluto-border-radius-small);
 }
 
 .console--shape-soft .console-shell__card {
-    border-radius: 3rem;
+    border-radius: var(--pluto-border-radius-huge);
 }
 
 .console--shape-round .console-shell__card {
@@ -183,7 +183,7 @@
     pointer-events: auto;
     min-height: 6rem;
     padding: 0 2rem;
-    border-radius: 1.5rem;
+    border-radius: var(--pluto-border-radius-medium);
     border: var(--pluto-border-width) solid var(--pluto-gray-l6);
     background: color-mix(in srgb, var(--pluto-gray-l0) 15%, transparent);
     -webkit-backdrop-filter: blur(0.75rem);

@@ -66,7 +66,7 @@ const SnapshotsListItem = ({ className, ...rest }: List.ItemProps<string>) => {
       <Button.Button
         onClick={handleDelete}
         className={CSS.BE("snapshots", "delete")}
-        variant="shadow"
+        variant="text"
       >
         <Icon.Delete color={10} />
       </Button.Button>

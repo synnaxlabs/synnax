@@ -12,12 +12,10 @@ import "@/feature/project/Selector.css";
 import { project, UnexpectedError } from "@synnaxlabs/client";
 import {
   Access,
-  Button,
   Component,
   CSS as PCSS,
   Dialog,
   type Flux,
-  Icon,
   List,
   Menu,
   Project,
@@ -28,6 +26,7 @@ import { array } from "@synnaxlabs/x";
 import { type MouseEvent, type ReactElement, useCallback, useState } from "react";
 
 import { Avatar } from "@/feature/project/Avatar";
+import { Button } from "@/platform/button";
 import { ContextMenu as CMenu } from "@/platform/context-menu";
 import { CSS } from "@/platform/css";
 import { Project as PlatformProject } from "@/platform/project";
@@ -62,6 +61,8 @@ export const listItem = Component.renderProp(
           id={PCSS.B(`project-${itemKey}`)}
           value={proj.name}
           onChange={handleRename}
+          className={CSS.BE("project", "name")}
+          overflow="ellipsis"
         />
       </Select.ListItem>
     );
@@ -184,16 +185,9 @@ export const Selector = (): ReactElement | null => {
             onContextMenu={menuProps.open}
             footer={
               hasCreatePermission && (
-                <Button.Button
-                  variant="text"
-                  full="x"
-                  justify="start"
-                  onClick={handleCreate}
-                  className={CSS.BE("project-selector", "create")}
-                >
-                  <Icon.Add />
+                <Button.Create size="small" onClick={handleCreate}>
                   New Project
-                </Button.Button>
+                </Button.Create>
               )
             }
           >

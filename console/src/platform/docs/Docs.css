@@ -15,7 +15,7 @@
 }
 
 .console--os-macos .console-docs__open-button {
-    border-top-right-radius: 1rem;
+    border-top-right-radius: var(--pluto-border-radius-small);
 }
 
 .console-docs iframe {

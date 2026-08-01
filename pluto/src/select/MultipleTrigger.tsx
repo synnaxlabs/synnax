@@ -72,7 +72,7 @@ const multipleTag = renderProp(MultipleTag);
 export interface MultipleTriggerProps<
   K extends record.Key,
   E extends record.Keyed<K> | undefined = MultipleEntry<K> | undefined,
-> extends Pick<Button.ButtonProps, "variant" | "disabled"> {
+> extends Pick<Button.ButtonProps, "variant" | "disabled" | "preview"> {
   haulType?: string;
   createHaulItem?: (entry: NonNullable<E>) => Haul.Item;
   placeholder?: ReactNode;
@@ -102,6 +102,7 @@ export const MultipleTrigger = <
   disabled,
   placeholder = "Select...",
   variant = "outlined",
+  preview,
   icon,
   hideTags = false,
   children = multipleTag as unknown as RenderProp<MultipleTagProps<K>>,
@@ -158,7 +159,7 @@ export const MultipleTrigger = <
 
   if (hideTags)
     return (
-      <Dialog.Trigger variant={variant} {...dropProps}>
+      <Dialog.Trigger variant={variant} preview={preview} {...dropProps}>
         {icon}
         {placeholder}
       </Dialog.Trigger>
@@ -177,6 +178,7 @@ export const MultipleTrigger = <
         CSS.BM("variant", variant),
       )}
       variant={variant}
+      preview={preview}
       preventClick={showAddButton}
       grow
     >

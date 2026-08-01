@@ -97,7 +97,15 @@ export const themeZ = z
     sizes: z.object({
       base: z.number(),
       border: z.object({
-        radius: z.number(),
+        /* Radius steps are rem multiples of the base size, rounded to whole
+           pixels on emission. Tiny is the theme's default radius. */
+        radius: z.object({
+          tiny: z.number(),
+          small: z.number(),
+          medium: z.number(),
+          large: z.number(),
+          huge: z.number(),
+        }),
         width: z.number(),
         thickWidth: z.number(),
       }),
@@ -241,7 +249,11 @@ const SYNNAX_BASE: ThemeSpec = {
   },
   sizes: {
     base: baseSize,
-    border: { radius: 4, width: SUPPORTS_THIN_BORDER ? 0.5 : 1, thickWidth: 1 },
+    border: {
+      radius: { tiny: 2 / 3, small: 1, medium: 1.5, large: 2, huge: 3 },
+      width: SUPPORTS_THIN_BORDER ? 0.5 : 1,
+      thickWidth: 1,
+    },
     schematic: { elementStrokeWidth: 2 },
   },
   typography: {

@@ -39,7 +39,7 @@
             content: "";
             position: absolute;
             inset: 2px;
-            border-radius: calc(1rem - 2px);
+            border-radius: calc(var(--pluto-border-radius-small) - 2px);
             background: var(--console-avatar-fill);
         }
 
@@ -51,9 +51,15 @@
     }
 }
 
+.console-project__name {
+    width: 0;
+    flex-grow: 1;
+}
+
 .pluto-dialog__dialog.console-project-selector-dialog {
     min-height: 200px;
     min-width: 400px;
+    max-width: 400px;
     /* Floating dialogs cap at 360px; the wider compound beats that rule. */
     max-height: 412px;
 
@@ -61,21 +67,5 @@
         display: flex;
         flex-direction: column;
         gap: 1rem;
-    }
-}
-
-/* Pinned create row: styled to read as the list's last row while living outside
-   the scroll region, aligned with the list's 1rem gutters. */
-.pluto-btn.console-project-selector__create {
-    margin: 0 1rem 1rem;
-    padding: 1rem 2rem;
-    width: auto;
-    min-height: 5.5rem;
-    border-radius: 1rem;
-    gap: 1.5rem;
-    color: var(--pluto-gray-l9);
-
-    &:hover {
-        color: var(--pluto-gray-l11);
     }
 }

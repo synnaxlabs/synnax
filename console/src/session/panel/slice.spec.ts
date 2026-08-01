@@ -153,6 +153,29 @@ describe("Panel Slice", () => {
       ]);
     });
 
+    it("should leave a no-op re-selection referentially unchanged", () => {
+      const store = configureStore({
+        reducer: rootReducer,
+        middleware: (getDefault) => getDefault().concat(Panel.MIDDLEWARE),
+      });
+      store.dispatch(
+        Panel.internalSelectTab({
+          key: PANEL,
+          tabKey: TAB,
+          otherTabKeys: [TAB, OTHER_TAB],
+        }),
+      );
+      const before = store.getState()[Panel.SLICE_NAME];
+      store.dispatch(
+        Panel.internalSelectTab({
+          key: PANEL,
+          tabKey: TAB,
+          otherTabKeys: [TAB, OTHER_TAB],
+        }),
+      );
+      expect(store.getState()[Panel.SLICE_NAME]).toBe(before);
+    });
+
     // withSelectedState must create the panel's state on first touch rather than no-op
     // against a missing panel.
     it("should lazily create panel state for a not-yet-seen panel", () => {

@@ -8,16 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type arc } from "@synnaxlabs/client";
-import {
-  Arc,
-  Flex,
-  Form,
-  Input,
-  List,
-  Select,
-  stopPropagation,
-  Text,
-} from "@synnaxlabs/pluto";
+import { Arc, Flex, Form, Input, List, Select, Text } from "@synnaxlabs/pluto";
 import { useMemo } from "react";
 
 export interface ItemProps extends List.ItemProps<arc.Key> {
@@ -55,18 +46,13 @@ export const Item = ({ onRename, textIdPrefix = "text", ...props }: ItemProps) =
       {...props}
       hovered={hovered}
       selected={selected}
-      rounded={!selected}
       onSelect={onSelect}
       justify="between"
       align="center"
     >
       <Form.Form<typeof Arc.formSchema> {...form}>
         <Flex.Box x align="center">
-          <Input.Checkbox
-            value={selected}
-            onChange={onSelect}
-            onClick={stopPropagation}
-          />
+          <Input.Checkbox value={selected} onChange={onSelect} />
           <Text.MaybeEditable
             id={`${textIdPrefix}-${itemKey}`}
             level="p"

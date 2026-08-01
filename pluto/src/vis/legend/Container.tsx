@@ -129,7 +129,6 @@ export const Container = memo(
         borderColor={5}
         ref={ref}
         background={1}
-        rounded={1}
         {...rest}
       />
     );

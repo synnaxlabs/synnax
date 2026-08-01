@@ -86,19 +86,19 @@
     }
 
     .pluto-table__row:first-child > *:first-child {
-        border-top-left-radius: 1rem;
+        border-top-left-radius: var(--pluto-border-radius-small);
     }
 
     .pluto-table__row:first-child > *:last-child {
-        border-top-right-radius: 1rem;
+        border-top-right-radius: var(--pluto-border-radius-small);
     }
 
     .pluto-table__row:last-child > *:first-child {
-        border-bottom-left-radius: 1rem;
+        border-bottom-left-radius: var(--pluto-border-radius-small);
     }
 
     .pluto-table__row:last-child > *:last-child {
-        border-bottom-right-radius: 1rem;
+        border-bottom-right-radius: var(--pluto-border-radius-small);
     }
 
     .pluto-table__row:not(.pluto-table__col-resizer) {

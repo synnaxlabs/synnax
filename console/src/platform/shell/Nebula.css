@@ -33,7 +33,7 @@
     padding: 2rem;
     background: color-mix(in srgb, var(--pluto-gray-l0) 88%, transparent);
     border: var(--pluto-border-width) solid var(--pluto-gray-l6);
-    border-radius: 1.5rem;
+    border-radius: var(--pluto-border-radius-medium);
     font-size: 11px;
     color: var(--pluto-gray-l10);
 

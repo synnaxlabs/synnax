@@ -18,7 +18,7 @@
     background: var(--pluto-gray-l2);
     border: var(--pluto-border);
     border-color: var(--pluto-gray-l6);
-    border-radius: calc(var(--pluto-border-radius) * 2);
+    border-radius: var(--pluto-border-radius-small);
     box-shadow: var(--pluto-shadow-v1);
     padding: 1rem 1.5rem;
     opacity: 0;

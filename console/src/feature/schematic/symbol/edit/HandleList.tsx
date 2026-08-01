@@ -82,7 +82,7 @@ const HandleListItem = (props: HandleListItemProps) => {
           onClick={() => remove(itemKey)}
           size="small"
           variant="text"
-          ghost
+          reveal
         >
           <Icon.Close />
         </Button.Button>

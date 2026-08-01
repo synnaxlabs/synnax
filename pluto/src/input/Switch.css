@@ -47,7 +47,7 @@
         display: inline-block;
         width: 5rem;
         height: 2.5rem;
-        border-radius: 1.5rem;
+        border-radius: var(--pluto-border-radius-medium);
         background: var(--pluto-gray-l4);
         cursor: pointer;
         transition: 0.15s;

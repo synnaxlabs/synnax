@@ -24,11 +24,11 @@ export interface BooleanProps
 }
 
 const parseTextColor = (
-  variant: Button.Variant,
+  preview: boolean | undefined,
   textColor: Button.ButtonProps["color"],
   value: boolean,
 ): Button.ButtonProps["color"] => {
-  if (variant === "preview" && value === true) return "var(--pluto-primary-z)";
+  if (preview === true && value === true) return "var(--pluto-primary-z)";
   return textColor;
 };
 
@@ -39,12 +39,13 @@ export const Boolean = ({
   ref,
   className,
   value,
-  ghost,
+  reveal,
   disabled,
   onChange,
   inputType,
   size,
   variant = "text",
+  preview,
   style,
   color,
   borderColor,
@@ -64,15 +65,16 @@ export const Boolean = ({
 }: BooleanProps): ReactElement => (
   <Button.Button
     el="label"
-    variant={variant}
+    variant={variant === "shadow" ? "outlined" : variant}
     className={CSS(
       CSS.BE("input", inputType),
       checkedIcon != null && CSS.M("icon"),
       className,
     )}
-    ghost={ghost}
+    reveal={reveal}
     disabled={disabled}
     size={size}
+    preview={preview}
     preventClick
     style={style}
     color={color}
@@ -81,14 +83,14 @@ export const Boolean = ({
     bordered={bordered}
     rounded={rounded}
     background={background}
-    textColor={parseTextColor(variant, textColor, value)}
+    textColor={parseTextColor(preview, textColor, value)}
     onClick={onClick}
     tooltip={tooltip}
     tooltipDelay={tooltipDelay}
     tooltipLocation={tooltipLocation}
     hideTooltip={hideTooltip}
   >
-    {variant !== "preview" ? (
+    {preview !== true ? (
       <>
         <input
           className={CSS.BE("input", inputType, "input")}

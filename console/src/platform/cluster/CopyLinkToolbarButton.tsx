@@ -7,17 +7,15 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import "@/platform/cluster/CopyLinkToolbarButton.css";
-
 import { type ontology } from "@synnaxlabs/client";
-import { Button, Icon } from "@synnaxlabs/pluto";
+import { Icon } from "@synnaxlabs/pluto";
 import { type ReactElement, useCallback } from "react";
 
 import { useCopyLinkToClipboard } from "@/platform/cluster/useCopyLinkToClipboard";
-import { CSS } from "@/platform/css";
+import { Toolbar } from "@/platform/toolbar";
 
 export interface CopyLinkToolbarButtonProps extends Omit<
-  Button.ButtonProps,
+  Toolbar.ButtonProps,
   "children"
 > {
   name: string;
@@ -35,15 +33,8 @@ export const CopyLinkToolbarButton = ({
     [copyLink, name, ontologyID],
   );
   return (
-    <Button.Button
-      tooltip="Copy link"
-      size="medium"
-      variant="text"
-      className={CSS.B("toolbar-button")}
-      onClick={handleClick}
-      {...rest}
-    >
+    <Toolbar.Button tooltip="Copy link" onClick={handleClick} {...rest}>
       <Icon.Link />
-    </Button.Button>
+    </Toolbar.Button>
   );
 };

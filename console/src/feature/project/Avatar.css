@@ -12,7 +12,7 @@
 .console-project-avatar {
     width: 4rem;
     height: 4rem;
-    border-radius: 1rem;
+    border-radius: var(--pluto-border-radius-small);
     display: flex;
     align-items: center;
     justify-content: center;

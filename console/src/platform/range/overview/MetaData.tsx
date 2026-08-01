@@ -141,7 +141,7 @@ const MetaDataListItem = ({
         )}
         <Divider.Divider y />
         <Form.Field<string> path="value" showLabel={false} hideIfNull>
-          {({ variant: _, ...p }) => <ValueInput onlyChangeOnBlur={!isCreate} {...p} />}
+          {({ preview: _, ...p }) => <ValueInput onlyChangeOnBlur={!isCreate} {...p} />}
         </Form.Field>
         {isCreate ? (
           <Flex.Box pack>
@@ -161,7 +161,7 @@ const MetaDataListItem = ({
           <Button.Button
             className={CSS.BE("metadata", "delete")}
             size="small"
-            variant="shadow"
+            variant="text"
             onClick={() => handleDelete({ key: itemKey, rangeKey })}
           >
             <Icon.Delete color={10} />

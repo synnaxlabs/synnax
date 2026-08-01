@@ -86,7 +86,7 @@
         padding: 0 1rem;
     }
     &.pluto-btn--filled {
-        border-radius: calc(var(--pluto-border-radius) + 2px);
+        border-radius: var(--pluto-border-radius-small);
 
         .pluto-text {
             color: var(--pluto-btn-text-color, var(--pluto-text-on-primary));
@@ -192,20 +192,6 @@
         }
     }
 
-    & .pluto-btn__trigger {
-        display: block;
-        width: fit-content;
-        height: fit-content;
-        transform: scale(0.7);
-        margin-right: -1.5rem;
-        margin-left: -1rem;
-        z-index: 10;
-        & .pluto-text--keyboard {
-            background: var(--pluto-gray-l1);
-            color: var(--pluto-gray-l9);
-        }
-    }
-
     &.pluto-btn--outlined {
         --pluto-bg: var(--pluto-fill-rest);
         --pluto-hover-bg: var(--pluto-fill-hover);
@@ -243,30 +229,12 @@
     }
 
     &.pluto-btn--text {
+        /* Grounded, not inherited: custom props cascade, so an undeclared bg
+           would repaint a host row's selection fill inside the nested button. */
+        --pluto-bg: transparent;
         --pluto-hover-bg: var(--pluto-fill-hover);
         --pluto-active-bg: var(--pluto-fill-press);
         --pluto-border-color: var(--pluto-gray-l0);
-
-        &.pluto--disabled {
-            color: var(--pluto-text-disabled);
-        }
-
-        &.pluto--status-warning {
-            color: var(--pluto-warning-p1);
-        }
-
-        &.pluto--status-error {
-            color: var(--pluto-error-p1);
-        }
-    }
-
-    &.pluto-btn--shadow {
-        --pluto-border-color: transparent;
-        --pluto-hover-bg: var(--pluto-fill-hover);
-        --pluto-active-bg: var(--pluto-fill-press);
-
-        --pluto-hover-border-color: var(--pluto-gray-l7);
-        --pluto-active-border-color: var(--pluto-gray-l8);
 
         &.pluto--disabled {
             color: var(--pluto-text-disabled);
@@ -308,6 +276,57 @@
 
         &.pluto--status-error {
             color: var(--pluto-error-p1);
+        }
+    }
+
+    /* A selected button speaks the control selection tier by default. Tabs, list
+       rows, and menu items override with their own tiers at higher specificity. */
+    &.pluto--selected {
+        --pluto-bg: var(--pluto-selected-bg);
+        --pluto-hover-bg: var(--pluto-selected-hover-bg);
+        --pluto-active-bg: var(--pluto-selected-active-bg);
+        --pluto-border-color: var(--pluto-selected-border-color);
+        --pluto-hover-border-color: var(--pluto-selected-border-color);
+        --pluto-active-border-color: var(--pluto-selected-border-color);
+        color: var(--pluto-selected-color);
+    }
+
+    /* Inline glyph action: a chassis-nested micro-button (tab close, tag close).
+       No fill feedback; the glyph alone carries hover and press. The bg re-point
+       shields it from the host chassis's inherited fill vars. */
+    &.pluto-btn--glyph {
+        --pluto-bg: transparent;
+        --pluto-hover-bg: transparent;
+        --pluto-active-bg: transparent;
+        & svg {
+            fill: var(--pluto-gray-l9);
+            transition:
+                transform 0.1s ease-out,
+                fill 0.1s ease-out;
+        }
+        &:hover svg {
+            fill: var(--pluto-gray-l11);
+        }
+        &.pluto--destructive:active svg {
+            fill: var(--pluto-error-z);
+        }
+    }
+
+    /* Close overlay: a glyph close seated over the host's leading icon. Reveal
+       handles hiding; the host supplies any icon fade of its own. */
+    &.pluto-btn--close {
+        position: absolute;
+        left: 0.25rem;
+        top: 50%;
+        transform: translateY(-50%);
+        min-height: 0;
+        width: 3rem;
+        height: 3rem;
+        padding: 0;
+        & svg {
+            width: 2rem;
+            height: 2rem;
+            flex-shrink: 0;
         }
     }
 

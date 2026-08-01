@@ -83,8 +83,9 @@ export interface BoxExtensionProps {
   borderColor?: Theming.Shade | color.Crude | false;
   /** Border width in pixels */
   borderWidth?: number;
-  /** Border radius. true for default rounding, number for specific rem value */
-  rounded?: boolean | number;
+  /** Border radius. true for the theme default, a Component.Size for a radius
+   * scale step, or a number for a specific rem value */
+  rounded?: boolean | number | Component.Size;
   /** Whether to remove border radius (sharp corners) */
   sharp?: boolean;
 
@@ -246,6 +247,7 @@ export const Box = <E extends Generic.ElementType = "div">({
         typeof borderColor === "number" &&
           CSS.M("border-color", borderColor.toString()),
         rounded === true && CSS.M("rounded"),
+        typeof rounded === "string" && CSS.M("rounded", rounded),
         typeof gap !== "number" && gap != null && CSS.M("gap", gap),
         grow === true && CSS.M("grow"),
         shrink === true && CSS.M("shrink"),

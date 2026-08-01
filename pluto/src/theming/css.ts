@@ -93,7 +93,12 @@ export const toCSSVars = (
     "warning-text": color.hex(theme.colors.warningText),
     "border-color": color.hex(theme.colors.border),
     "base-size": unitProperty(theme.sizes.base, "px"),
-    "border-radius": unitProperty(theme.sizes.border.radius, "px"),
+    "border-radius": `var(${CSS.var(`${addPrefix}border-radius-tiny`)})`,
+    "border-radius-tiny": unitProperty(theme.sizes.border.radius.tiny, "rem", true),
+    "border-radius-small": unitProperty(theme.sizes.border.radius.small, "rem", true),
+    "border-radius-medium": unitProperty(theme.sizes.border.radius.medium, "rem", true),
+    "border-radius-large": unitProperty(theme.sizes.border.radius.large, "rem", true),
+    "border-radius-huge": unitProperty(theme.sizes.border.radius.huge, "rem", true),
     "border-width": unitProperty(theme.sizes.border.width, "px"),
     "border-thick-width": unitProperty(theme.sizes.border.thickWidth, "px"),
     "schematic-element-stroke-width": unitProperty(

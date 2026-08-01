@@ -388,7 +388,12 @@
     --pluto-warning-text: #f59e0b;
     --pluto-border-color: #ccd0d5;
     --pluto-base-size: 6px;
-    --pluto-border-radius: 4px;
+    --pluto-border-radius: var(--pluto-border-radius-tiny);
+    --pluto-border-radius-tiny: round(0.6666666666666666rem, 1px);
+    --pluto-border-radius-small: round(1rem, 1px);
+    --pluto-border-radius-medium: round(1.5rem, 1px);
+    --pluto-border-radius-large: round(2rem, 1px);
+    --pluto-border-radius-huge: round(3rem, 1px);
     --pluto-border-width: 1px;
     --pluto-border-thick-width: 1px;
     --pluto-schematic-element-stroke-width: 2px;
@@ -793,7 +798,12 @@
     --pluto-dark-warning-text: #fcd34d;
     --pluto-dark-border-color: #36393f;
     --pluto-dark-base-size: 6px;
-    --pluto-dark-border-radius: 4px;
+    --pluto-dark-border-radius: var(--pluto-dark-border-radius-tiny);
+    --pluto-dark-border-radius-tiny: round(0.6666666666666666rem, 1px);
+    --pluto-dark-border-radius-small: round(1rem, 1px);
+    --pluto-dark-border-radius-medium: round(1.5rem, 1px);
+    --pluto-dark-border-radius-large: round(2rem, 1px);
+    --pluto-dark-border-radius-huge: round(3rem, 1px);
     --pluto-dark-border-width: 1px;
     --pluto-dark-border-thick-width: 1px;
     --pluto-dark-schematic-element-stroke-width: 2px;

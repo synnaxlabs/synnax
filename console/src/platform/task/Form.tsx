@@ -230,7 +230,6 @@ export const wrapForm = <S extends task.Schemas = task.Schemas>({
               x
               className={CSS.B("task-channel-form-container")}
               bordered
-              rounded
               grow
               empty
             >

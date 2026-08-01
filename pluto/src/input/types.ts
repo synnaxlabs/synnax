@@ -9,8 +9,6 @@
 
 import { type ComponentPropsWithRef } from "react";
 
-import { type Button } from "@/button";
-
 export interface Control<I = unknown, O = I> {
   value: I;
   onChange: (value: O) => void;
@@ -23,8 +21,12 @@ export type HTMLInputProps = Omit<
   "size" | "onChange" | "value" | "children" | "placeholder" | "color"
 >;
 
-export type Variant = Exclude<Button.Variant, "filled">;
+/* The input chassis ladder. "shadow" is an edit-in-place cell: an invisible
+   chassis that materializes on hover. */
+export type Variant = "outlined" | "text" | "shadow";
 
 export interface InputProps<I = unknown, O = I> extends HTMLInputProps, Control<I, O> {
   variant?: Variant;
+  /** Renders a non-interactive, chrome-less display of the input. */
+  preview?: boolean;
 }

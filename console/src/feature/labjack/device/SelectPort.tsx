@@ -60,6 +60,7 @@ export const SelectPort = ({
   filter,
   triggerProps,
   variant,
+  preview,
   dialogProps,
   ...rest
 }: SelectPortProps) => {
@@ -68,10 +69,8 @@ export const SelectPort = ({
     filter,
   });
   const selected = getItem(value ?? "");
-  const dialogVariant = variant === "preview" ? "connected" : variant;
-  const triggerVariant = variant === "preview" ? "preview" : undefined;
   return (
-    <Dialog.Frame variant={dialogVariant} {...rest}>
+    <Dialog.Frame variant={variant} {...rest}>
       <Select.Frame
         data={data}
         getItem={getItem}
@@ -80,7 +79,7 @@ export const SelectPort = ({
         closeDialogOnSelect
       >
         <Flex.Box pack x>
-          <Dialog.Trigger variant={triggerVariant} {...triggerProps}>
+          <Dialog.Trigger preview={preview} {...triggerProps}>
             {selected?.alias ?? selected?.key}
           </Dialog.Trigger>
           {children}

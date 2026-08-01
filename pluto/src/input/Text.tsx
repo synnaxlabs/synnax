@@ -101,9 +101,10 @@ export const Text = ({
   tooltipDelay,
   tooltipLocation,
   hideTooltip,
-  ghost,
+  reveal,
   area,
   flush = false,
+  preview,
   propagateClick,
   ...rest
 }: TextProps): ReactElement => {
@@ -159,7 +160,7 @@ export const Text = ({
     placeholder != null &&
     typeof placeholder !== "string";
 
-  tabIndex ??= variant === "preview" ? -1 : undefined;
+  tabIndex ??= preview ? -1 : undefined;
 
   const outerProps: Flex.BoxProps = {
     style,
@@ -180,6 +181,7 @@ export const Text = ({
         CSS.B("input"),
         CSS.M("focus-frozen"),
         flush && CSS.M("flush"),
+        variant === "shadow" && CSS.M("shadow"),
         CSS.disabled(disabled),
         status != null && CSS.M(status),
         className,
@@ -193,7 +195,8 @@ export const Text = ({
       borderColor={borderColor}
       borderWidth={borderWidth}
       pack
-      variant={variant}
+      variant={variant === "shadow" ? "outlined" : variant}
+      preview={preview}
       rounded={rounded}
       tabIndex={tabIndex}
       trigger={trigger}
@@ -206,7 +209,7 @@ export const Text = ({
       tooltipDelay={tooltipDelay}
       tooltipLocation={tooltipLocation}
       hideTooltip={hideTooltip}
-      ghost={ghost}
+      reveal={reveal}
       propagateClick={propagateClick}
       {...restButtonProps}
     >

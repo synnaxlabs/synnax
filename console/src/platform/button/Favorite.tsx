@@ -7,14 +7,19 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Icon, Input, stopPropagation } from "@synnaxlabs/pluto";
+import { Icon, Input } from "@synnaxlabs/pluto";
 
 export interface FavoriteProps extends Omit<Input.CheckboxProps, "value" | "onChange"> {
   isFavorite: boolean;
   onFavorite: () => void;
 }
 
-export const Favorite = ({ isFavorite, onFavorite, ghost, ...rest }: FavoriteProps) => (
+export const Favorite = ({
+  isFavorite,
+  onFavorite,
+  reveal,
+  ...rest
+}: FavoriteProps) => (
   <Input.Checkbox
     value={isFavorite}
     onChange={onFavorite}
@@ -23,8 +28,7 @@ export const Favorite = ({ isFavorite, onFavorite, ghost, ...rest }: FavoritePro
     textColor={isFavorite ? "goldenrod" : undefined}
     tooltip={isFavorite ? "Unfavorite" : "Favorite"}
     aria-label="Favorite"
-    onClick={stopPropagation}
-    ghost={isFavorite ? false : ghost}
+    reveal={isFavorite ? false : reveal}
     {...rest}
   />
 );

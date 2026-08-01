@@ -31,6 +31,110 @@ describe("Button", () => {
     });
   });
 
+  describe("chassis keyboard activation", () => {
+    it("should activate a focusable div chassis on Enter", () => {
+      const onClick = vi.fn();
+      const c = render(
+        <Button.Button el="div" tabIndex={0} onClick={onClick}>
+          Hello
+        </Button.Button>,
+      );
+      fireEvent.keyDown(c.getByText("Hello"), { key: "Enter" });
+      expect(onClick).toHaveBeenCalledTimes(1);
+    });
+    it("should activate a focusable div chassis on Space", () => {
+      const onClick = vi.fn();
+      const c = render(
+        <Button.Button el="div" tabIndex={0} onClick={onClick}>
+          Hello
+        </Button.Button>,
+      );
+      fireEvent.keyDown(c.getByText("Hello"), { key: " " });
+      expect(onClick).toHaveBeenCalledTimes(1);
+    });
+    it("should activate a div chassis with roving tabIndex -1", () => {
+      const onClick = vi.fn();
+      const c = render(
+        <Button.Button el="div" tabIndex={-1} onClick={onClick}>
+          Hello
+        </Button.Button>,
+      );
+      fireEvent.keyDown(c.getByText("Hello"), { key: "Enter" });
+      expect(onClick).toHaveBeenCalledTimes(1);
+    });
+    it("should not activate a non-focusable div chassis", () => {
+      const onClick = vi.fn();
+      const c = render(
+        <Button.Button el="div" onClick={onClick}>
+          Hello
+        </Button.Button>,
+      );
+      fireEvent.keyDown(c.getByText("Hello"), { key: "Enter" });
+      expect(onClick).not.toHaveBeenCalled();
+    });
+    it("should not activate when the keystroke lands on a nested element", () => {
+      const onClick = vi.fn();
+      const c = render(
+        <Button.Button el="div" tabIndex={0} onClick={onClick}>
+          <span>Nested</span>
+        </Button.Button>,
+      );
+      fireEvent.keyDown(c.getByText("Nested"), { key: "Enter" });
+      expect(onClick).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("preview", () => {
+    it("should add the preview class and block clicks", () => {
+      const onClick = vi.fn();
+      const c = render(
+        <Button.Button preview onClick={onClick}>
+          Hello
+        </Button.Button>,
+      );
+      const el = c.getByText("Hello");
+      expect(el.className).toContain("pluto-btn--preview");
+      fireEvent.click(el);
+      expect(onClick).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("reveal", () => {
+    it("should mark the button with the reveal class", () => {
+      const c = render(<Button.Button reveal>Hello</Button.Button>);
+      expect(c.getByText("Hello").className).toContain("pluto--reveal");
+    });
+  });
+
+  describe("Toggle", () => {
+    it("should carry the selected class when checked", () => {
+      const c = render(
+        <Button.Toggle value onChange={vi.fn()}>
+          Hello
+        </Button.Toggle>,
+      );
+      expect(c.getByText("Hello").className).toContain("pluto--selected");
+    });
+    it("should not carry the selected class when unchecked", () => {
+      const c = render(
+        <Button.Toggle value={false} onChange={vi.fn()}>
+          Hello
+        </Button.Toggle>,
+      );
+      expect(c.getByText("Hello").className).not.toContain("pluto--selected");
+    });
+    it("should toggle on click", () => {
+      const onChange = vi.fn();
+      const c = render(
+        <Button.Toggle value={false} onChange={onChange}>
+          Hello
+        </Button.Toggle>,
+      );
+      fireEvent.click(c.getByText("Hello"));
+      expect(onChange).toHaveBeenCalledWith(true);
+    });
+  });
+
   describe("draggable", () => {
     it("should not prevent default on mousedown for a draggable button, so a native dragstart can begin", () => {
       const c = render(

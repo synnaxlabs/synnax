@@ -98,10 +98,11 @@ const { actions, reducer } = createSlice({
     }),
     selectTab: withSelectedState<SelectTabPayload>(
       (pan, { payload: { tabKey, otherTabKeys } }) => {
-        pan.selectedTabs = [
+        const next = [
           tabKey,
           ...pan.selectedTabs.filter((k) => !otherTabKeys.includes(k)),
         ];
+        if (!compare.arraysEqual(pan.selectedTabs, next)) pan.selectedTabs = next;
       },
     ),
     startOverlaying: withWindowKey<Window.OptionalKeyParams, SliceState>((win) => {

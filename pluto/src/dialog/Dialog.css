@@ -12,13 +12,13 @@
 .pluto-dialog__dialog {
     position: fixed;
     overflow: hidden;
-    border-radius: 1rem;
+    border-radius: var(--pluto-border-radius-small);
 
     /* Dialogs render as packs, and the pack radius rule in Box.css carries three
        class selectors; repeat them so the dialog radius outranks it. Modals are
-       excluded so their own 2rem rule below stays in charge. */
+       excluded so their own large-step rule below stays in charge. */
     &.pluto-flex.pluto--pack:not(.pluto--sharp):not(.pluto--modal) {
-        border-radius: 1rem;
+        border-radius: var(--pluto-border-radius-small);
     }
 
     /* Dialogs are elevated chrome: fills lighten even when the dialog is anchored
@@ -26,10 +26,6 @@
     --pluto-fill-rest: var(--pluto-gray-l3);
     --pluto-fill-hover: var(--pluto-gray-l4);
     --pluto-fill-press: var(--pluto-gray-l5);
-
-    & > .pluto-pack.pluto--rounded {
-        --pluto-pack-br: 6px;
-    }
 
     &.pluto--modal {
         position: relative;
@@ -46,7 +42,7 @@
             box-shadow:
                 0 0 0 0.5px var(--pluto-gray-l7),
                 var(--pluto-shadow-v1);
-            border-radius: 2rem;
+            border-radius: var(--pluto-border-radius-large);
             background: color-mix(in srgb, var(--pluto-gray-l0) 70%, transparent);
             -webkit-backdrop-filter: blur(3rem) saturate(140%);
             backdrop-filter: blur(3rem) saturate(140%);

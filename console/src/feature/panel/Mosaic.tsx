@@ -262,7 +262,7 @@ const Internal = ({ onCreateTab }: MosaicProps): ReactElement => {
       resolveDroppedTab={resolveDroppedTab}
       contextMenu={contextMenu}
       emptyContent={<EmptyTabContent onCreateTab={onCreateTab} />}
-      rounded={2}
+      rounded="large"
       bordered
       borderColor={6}
       background={0}
@@ -283,7 +283,7 @@ const EmptyContent = (): ReactElement => {
       align="center"
       justify="center"
       className={CSS(CSS.B("mosaic"), CSS.BM("mosaic", "empty"))}
-      rounded={2}
+      rounded="large"
       bordered
       borderColor={6}
       background={0}

@@ -239,7 +239,7 @@ export const Preview = ({
           onMouseUp={handleMouseUp}
           onMouseLeave={handleMouseUp}
           background={0}
-          rounded={1}
+          rounded="small"
         >
           {spec.svg.length > 0 && (
             <Flex.Box x className={CSS.B("schematic-preview-controls")}>
@@ -275,7 +275,6 @@ export const Preview = ({
             ref={svgWrapperRef}
             className={CSS.B("schematic-preview-svg-wrapper")}
             style={svgWrapperStyle}
-            rounded={1}
           >
             <div className={CSS.B("schematic-preview-svg-wrapper-inner")}>
               <HandleOverlay

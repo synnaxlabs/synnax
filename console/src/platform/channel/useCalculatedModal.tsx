@@ -112,7 +112,7 @@ export const useCalculatedModal = Modals.create<CalculatedModalParams>(
                   </Select.Buttons>
                 )}
               </Form.Field>
-              {operationType !== "derivative" && (
+              {operationType !== "derivative" && operationType !== "none" && (
                 <>
                   <Form.Field<TimeSpan>
                     path="operations.0.duration"

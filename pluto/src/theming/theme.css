@@ -9,14 +9,47 @@
  * included in the file licenses/APL.txt.
  */
 
-.pluto--pack button:is(:focus, :focus-within, :active, :hover) {
+.pluto--pack .pluto-btn:is(:focus, :focus-within, :active, :hover) {
     z-index: 3;
 }
 
 /* A selected pack segment's tinted border must win the negative-margin border
    collapse against unselected neighbors. */
-.pluto--pack button:is(.pluto--selected, .pluto--checked) {
+.pluto--pack .pluto-btn.pluto--selected {
     z-index: 2;
+}
+
+/* Reveal contract: a container marked pluto--reveals hides marked child actions
+   until hovered. A marked action's own keyboard focus always shows it, so reveal
+   never hides the only keyboard path. */
+.pluto--reveals .pluto--reveal {
+    opacity: 0;
+    /* An invisible action must not be hit-testable, especially overlay closes
+       sitting over other content. */
+    pointer-events: none;
+    transition: opacity 0.1s ease-out;
+}
+
+.pluto--reveals:hover .pluto--reveal {
+    opacity: 1;
+    pointer-events: auto;
+}
+
+/* Nested containers reveal from the nearest one: an un-hovered inner container
+   (a tag in a hovered row) keeps its own actions hidden. */
+.pluto--reveals:not(:hover) .pluto--reveal {
+    opacity: 0;
+    pointer-events: none;
+}
+
+.pluto--reveals .pluto--reveal:focus-visible {
+    opacity: 1;
+    pointer-events: auto;
+}
+
+/* Reveal-hidden glyphs settle slightly shrunk so showing reads as a zoom-in. */
+.pluto--reveals:not(:hover) .pluto-btn--close:not(:focus-visible) svg {
+    transform: scale(0.9);
 }
 
 .pluto-input {
@@ -42,18 +75,22 @@
     --pluto-fill-hover: var(--pluto-gray-l4);
     --pluto-fill-press: var(--pluto-gray-l5);
 
-    /* Selection fill for compact controls (segments, toggles): the primary alpha
-       recipe flattened over chrome into opaque colors, so plot pixels and other
-       content never bleed through a selected chip. List rows use a softer
-       chroma rotation of their own. */
+    /* The three selection tiers (RFC 0052). Every selected state speaks exactly
+       one tier; features re-point tier tokens in context but never hand-roll a
+       selection fill. Primary flattens are opaque over gray-l1 so plot pixels
+       never bleed through a selected chip. */
+
+    /* Control tier: compact controls (segments, toggles), the default selected
+       paint for buttons, and the pane-focused tab. */
     --pluto-selected-bg: color-mix(
         in srgb,
-        var(--pluto-primary-z) 20%,
+        var(--pluto-primary-z) 15%,
         var(--pluto-gray-l1)
     );
+    --pluto-selected-hover-bg: var(--pluto-selected-bg);
     --pluto-selected-active-bg: color-mix(
         in srgb,
-        var(--pluto-primary-z) 30%,
+        var(--pluto-primary-z) 20%,
         var(--pluto-gray-l1)
     );
     --pluto-selected-border-color: color-mix(
@@ -61,21 +98,27 @@
         var(--pluto-primary-z) 65%,
         var(--pluto-gray-l1)
     );
-    --pluto-selected-color: var(--pluto-primary-p2);
+    --pluto-selected-color: var(--pluto-primary-z);
 
-    /* Softer tier of the selection fill for tab chips: the same primary flatten
-       at lower strength, so a selected tab reads quieter than a selected
-       control. */
-    --pluto-selected-subtle-bg: color-mix(
-        in srgb,
-        var(--pluto-primary-z) 15%,
-        var(--pluto-gray-l1)
+    /* Subtle tier: selected tabs in unfocused panes. Neutral grays; primary is
+       reserved for the focused pane's tab, which speaks the control tier. */
+    --pluto-selected-subtle-bg: var(--pluto-fill-hover);
+    --pluto-selected-subtle-hover-bg: var(--pluto-fill-press);
+    --pluto-selected-subtle-active-bg: var(--pluto-gray-l6);
+    --pluto-selected-subtle-border-color: var(--pluto-gray-l7);
+    --pluto-selected-subtle-color: var(--pluto-gray-l11);
+
+    /* List tier: rows (list, menu, tree). Selection sits between the hover and
+       pressed fills, chroma-boosted blue-of-neutral at unchanged lightness. Text
+       color is deliberately untouched: rows carry multi-color content. */
+    --pluto-selected-list-bg: oklch(from var(--pluto-gray-l5-70) l calc(c + 0.025) h);
+    --pluto-selected-list-hover-bg: oklch(
+        from var(--pluto-gray-l5-85) l calc(c + 0.025) h
     );
-    --pluto-selected-subtle-border-color: color-mix(
-        in srgb,
-        var(--pluto-primary-z) 35%,
-        var(--pluto-gray-l1)
+    --pluto-selected-list-active-bg: oklch(
+        from var(--pluto-gray-l6) l calc(c + 0.025) h
     );
+    --pluto-selected-list-border-color: transparent;
 
     --pluto-border: var(--pluto-border-width) solid var(--pluto-border-color);
     --pluto-border-l6: var(--pluto-border-width) solid var(--pluto-gray-l6);

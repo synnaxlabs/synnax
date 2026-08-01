@@ -124,18 +124,19 @@
         padding-right: 1.5rem;
     }
 
-    &.pluto--shadow:not(:focus):not(:focus-within):not(:hover) {
-        background: var(--pluto-gray-l0);
-        & > * {
-            border-color: transparent;
-        }
-        & > *:not(.pluto-input) {
-            opacity: 0;
-        }
+    /* Shadow: an edit-in-place cell. The outlined chassis is invisible at rest and
+       materializes on hover. */
+    &.pluto-btn.pluto--shadow {
+        --pluto-bg: transparent;
+        --pluto-border-color: transparent;
+        --pluto-hover-bg: var(--pluto-fill-hover);
+        --pluto-active-bg: var(--pluto-fill-press);
+        --pluto-hover-border-color: var(--pluto-gray-l7);
+        --pluto-active-border-color: var(--pluto-gray-l8);
     }
 
     &.pluto-btn--text,
-    &.pluto--preview {
+    &.pluto-btn--preview {
         background: none;
         border-radius: 0;
         border: none;
@@ -149,7 +150,7 @@
     }
 }
 
-.pluto-input__container:has(.pluto-btn--shadow) {
+.pluto-input__container:has(.pluto--shadow) {
     .pluto-btn--outlined,
     .pluto-btn--text {
         opacity: 0;
@@ -159,7 +160,7 @@
         & .pluto-btn--text {
             opacity: 1;
         }
-        & .pluto-btn--shadow {
+        & .pluto--shadow {
             border-color: var(--pluto-hover-border-color);
             background: var(--pluto-hover-bg);
         }

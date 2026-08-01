@@ -384,6 +384,13 @@ describe("Box", () => {
       const el = c.getByText("Hello");
       expect(el.className).not.toContain("pluto--rounded");
     });
+
+    it("should add a size-step class if rounded is a Component.Size", () => {
+      const c = render(<Flex.Box rounded="large">Hello</Flex.Box>);
+      const el = c.getByText("Hello");
+      expect(el.className).toContain("pluto--rounded-large");
+      expect(el.style.borderRadius).toBe("");
+    });
   });
 
   describe("empty", () => {

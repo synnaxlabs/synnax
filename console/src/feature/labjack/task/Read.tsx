@@ -127,13 +127,13 @@ const ChannelDetails = ({ path, deviceModel }: ChannelDetailsProps) => {
           }}
         />
         <PForm.Field<string> path={`${path}.port`}>
-          {({ value, onChange, variant }) => (
+          {({ value, onChange, preview }) => (
             <SelectPort
               value={value}
               onChange={onChange}
               model={deviceModel}
               portType={convertChannelTypeToPortType(channel.type)}
-              triggerProps={{ variant }}
+              preview={preview}
             />
           )}
         </PForm.Field>

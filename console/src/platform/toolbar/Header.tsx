@@ -41,7 +41,7 @@ export interface ActionProps extends Button.ButtonProps {}
 export const Action = ({ className, ...rest }: ActionProps): ReactElement => (
   <Button.Button
     size="small"
-    rounded={1}
+    rounded="small"
     variant="outlined"
     className={CSS(CSS.BE("toolbar", "action"), className)}
     {...rest}

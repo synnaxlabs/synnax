@@ -88,7 +88,7 @@ export const RegionListItem = ({ selectedState, ...props }: RegionListItemProps)
           onClick={() => remove(itemKey)}
           size="small"
           variant="text"
-          ghost
+          reveal
         >
           <Icon.Close />
         </Button.Button>

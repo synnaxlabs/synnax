@@ -23,6 +23,7 @@ import { location, state } from "@synnaxlabs/x";
 
 import { CSS } from "@/platform/css";
 import { Label } from "@/platform/label";
+import { View } from "@/platform/view";
 
 export interface SelectFiltersProps {
   request: ranger.RetrieveRequest;
@@ -76,19 +77,10 @@ const HasLabelsFilter = ({ request }: HasLabelsFilterProps) => {
   if (request.hasLabels == null || request.hasLabels.length === 0) return null;
   return (
     <Flex.Box x pack background={0}>
-      <Text.Text
-        el="span"
-        bordered
-        size="small"
-        className={CSS.B("range-has-labels-filter")}
-        background={0}
-        borderColor={6}
-        level="small"
-        color={9}
-      >
+      <View.FilterChip el="span" background={0} color={9}>
         <Icon.Label />
         Labels
-      </Text.Text>
+      </View.FilterChip>
       {labels.map(({ color, key, name }) => (
         <Tag.Tag key={key} color={color} size="small" textColor={9}>
           {name}

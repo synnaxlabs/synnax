@@ -27,7 +27,7 @@
         width: 100%;
 
         .console-task-channel-form-container {
-            border-radius: 2rem;
+            border-radius: var(--pluto-border-radius-large);
             overflow: hidden;
             background: var(--pluto-gray-l1);
             border-color: var(--pluto-gray-l6);

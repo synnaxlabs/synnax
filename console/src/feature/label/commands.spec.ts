@@ -27,6 +27,6 @@ describe("Label Commands", () => {
     });
     await openCommandPalette();
     await selectCommand("Edit labels");
-    expect(await screen.findByText("Search labels")).toBeTruthy();
+    expect(await screen.findByText("Search labels...")).toBeTruthy();
   });
 });

@@ -182,7 +182,7 @@ const ChannelRow = ({ index, ch, config, disabled }: ChannelRowProps): ReactElem
           onClick={handleRemove}
           size="small"
           variant="text"
-          ghost
+          reveal
           tooltip="Remove channel"
         >
           <Icon.Close />

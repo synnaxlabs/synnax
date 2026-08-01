@@ -48,6 +48,7 @@ export const Status = ({
       variant="text"
       direction={expanded ? "y" : "x"}
       onClick={onToggle}
+      tabIndex={0}
       {...props}
     >
       <Flex.Box

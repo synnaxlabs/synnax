@@ -17,15 +17,19 @@
     border-color: var(--pluto-gray-l2);
     outline: none;
     min-height: 5.5rem;
-    border-radius: 1rem;
+    border-radius: var(--pluto-border-radius-small);
 
-    /* Selected sits between the hover and pressed fills: l5 softened by alpha so
-       hovering a selected row still reads as a slight lift. The chroma boost
-       shifts selection blue-of-neutral at unchanged lightness. */
-    &.pluto--selected {
-        --pluto-bg: oklch(from var(--pluto-gray-l5-70) l calc(c + 0.025) h);
-        --pluto-hover-bg: oklch(from var(--pluto-gray-l5-85) l calc(c + 0.025) h);
-        --pluto-active-bg: oklch(from var(--pluto-gray-l6) l calc(c + 0.025) h);
+    /* Rows speak the list selection tier. The extra .pluto-btn outranks the
+       control-tier default in Button.css; color resets to inherited because rows
+       carry multi-color content. */
+    &.pluto-btn.pluto--selected {
+        --pluto-bg: var(--pluto-selected-list-bg);
+        --pluto-hover-bg: var(--pluto-selected-list-hover-bg);
+        --pluto-active-bg: var(--pluto-selected-list-active-bg);
+        --pluto-border-color: var(--pluto-selected-list-border-color);
+        --pluto-hover-border-color: var(--pluto-selected-list-border-color);
+        --pluto-active-border-color: var(--pluto-selected-list-border-color);
+        color: unset;
     }
 
     /* Contiguous selected rows merge into one box: only the run's first row keeps
@@ -42,20 +46,5 @@
 
     &.pluto--dragging-over {
         background: var(--pluto-gray-l4);
-    }
-}
-
-.pluto-list__item {
-    .pluto-btn--ghost {
-        opacity: 0;
-        transition: opacity 0.1s ease-out;
-    }
-    /* Ghost actions are the row's only keyboard path; reveal on focus, not
-       just hover. */
-    .pluto-btn--ghost:focus-visible {
-        opacity: 1;
-    }
-    &:hover .pluto-btn--ghost {
-        opacity: 1;
     }
 }

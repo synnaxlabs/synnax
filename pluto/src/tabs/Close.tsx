@@ -11,25 +11,9 @@ import { type ReactElement } from "react";
 
 import { Button } from "@/button";
 import { CSS } from "@/css";
-import { Icon } from "@/icon";
 
-export interface CloseProps extends Button.ButtonProps {}
+export interface CloseProps extends Button.CloseProps {}
 
-export const Close = ({
-  className,
-  children = <Icon.Close />,
-  ...rest
-}: CloseProps): ReactElement => (
-  <Button.Button
-    aria-label="Close"
-    className={CSS(CSS.BE("tabs", "close"), className)}
-    variant="text"
-    sharp
-    // ARIA tabs have presentational children; the keyboard path is Delete on
-    // the focused tab, so the button stays a pointer affordance.
-    tabIndex={-1}
-    {...rest}
-  >
-    {children}
-  </Button.Button>
+export const Close = ({ className, ...rest }: CloseProps): ReactElement => (
+  <Button.Close className={CSS(CSS.BE("tabs", "close"), className)} {...rest} />
 );

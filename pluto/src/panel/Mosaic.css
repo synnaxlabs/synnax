@@ -10,7 +10,7 @@
  */
 
 .pluto-panel-mosaic__create {
-    border-radius: 1.5rem;
+    border-radius: var(--pluto-border-radius-small);
     &.pluto-btn.pluto--square > .pluto-icon {
         width: round(2.25rem, 1px);
         height: round(2.25rem, 1px);
@@ -22,7 +22,7 @@
    to outrank the text variant's own fill vars. */
 .pluto-btn.pluto-btn--text.pluto-panel-mosaic__overlaid-exit {
     /* Matches the tab chip radius so the strip reads as one family. */
-    border-radius: calc(var(--pluto-border-radius) + 2px);
+    border-radius: var(--pluto-border-radius-small);
     border: var(--pluto-border-width) solid var(--pluto-gray-l11-30);
     color: var(--pluto-gray-l11);
     --pluto-bg: var(--pluto-gray-l11-10);
@@ -62,12 +62,17 @@
 }
 
 /* The overlaid tab joins the lamp: the same l11 chip treatment as the exit
-   chip, so both ends of the strip read as one lit family. The alt-color rule
-   re-points the pane-focused tab to primary on the tab element itself, so the
-   override must land there too, not on the selector. */
+   chip, so both ends of the strip read as one lit family. Both tiers re-point:
+   the focused tab reads the control tokens, unfocused ones the subtle tokens. */
 .pluto-panel-mosaic__overlaid-leaf > .pluto-tabs__selector--default.pluto--direction-x {
     --pluto-selected-subtle-bg: var(--pluto-gray-l11-10);
+    --pluto-selected-subtle-hover-bg: var(--pluto-gray-l11-10);
+    --pluto-selected-subtle-active-bg: var(--pluto-gray-l11-10);
     --pluto-selected-subtle-border-color: var(--pluto-gray-l11-30);
+    --pluto-selected-bg: var(--pluto-gray-l11-10);
+    --pluto-selected-hover-bg: var(--pluto-gray-l11-10);
+    --pluto-selected-active-bg: var(--pluto-gray-l11-10);
+    --pluto-selected-border-color: var(--pluto-gray-l11-30);
 }
 
 .pluto-panel-mosaic__overlaid-leaf

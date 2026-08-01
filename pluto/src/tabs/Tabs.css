@@ -95,9 +95,15 @@
         color: var(--pluto-tabs-text-color, var(--pluto-gray-l9));
     }
     &.pluto--selected {
-        color: var(--pluto-tabs-selected-text-color, var(--pluto-gray-l11));
+        color: var(
+            --pluto-tabs-selected-text-color,
+            var(--pluto-selected-subtle-color)
+        );
         .pluto-text {
-            color: var(--pluto-tabs-selected-text-color, var(--pluto-gray-l11));
+            color: var(
+                --pluto-tabs-selected-text-color,
+                var(--pluto-selected-subtle-color)
+            );
         }
         &.pluto--alt-color {
             --pluto-tabs-selected-text-color: var(--pluto-primary-z);
@@ -117,7 +123,7 @@
         border: none;
         padding: 0;
         position: relative;
-        border-radius: calc(var(--pluto-border-radius) + 2px);
+        border-radius: var(--pluto-border-radius-small);
         transition:
             background 0.15s ease-in-out,
             transform 0.15s ease;
@@ -150,10 +156,24 @@
             }
         }
 
+        /* Tabs speak the subtle tier, outranking the control-tier default. The
+           ring is an inset shadow so the borderless chassis stays out of layout. */
         &.pluto--selected {
-            background: var(--pluto-selected-subtle-bg);
+            --pluto-bg: var(--pluto-selected-subtle-bg);
+            --pluto-hover-bg: var(--pluto-selected-subtle-hover-bg);
+            --pluto-active-bg: var(--pluto-selected-subtle-active-bg);
             box-shadow: inset 0 0 0 var(--pluto-border-width)
                 var(--pluto-selected-subtle-border-color);
+
+            /* The pane-focused tab speaks the full control tier, matching a
+               selected button exactly. */
+            &.pluto--alt-color {
+                --pluto-bg: var(--pluto-selected-bg);
+                --pluto-hover-bg: var(--pluto-selected-hover-bg);
+                --pluto-active-bg: var(--pluto-selected-active-bg);
+                box-shadow: inset 0 0 0 var(--pluto-border-width)
+                    var(--pluto-selected-border-color);
+            }
         }
 
         &:has(> .pluto-icon) .pluto-text {
@@ -167,49 +187,11 @@
             min-width: 40px;
         }
 
-        /* The close button slides in over the leading icon on hover, so it reserves
-           no trailing space. Chromeless: hover feedback lives on the glyph alone. */
-        .pluto-tabs__close {
-            position: absolute;
-            left: 0.25rem;
-            top: 50%;
-            transform: translateY(-50%);
-            min-height: 0;
-            width: 3rem;
-            height: 3rem;
-            padding: 0;
-            overflow: hidden;
-            background: none !important;
-            transition:
-                width 0.1s ease-out,
-                opacity 0.1s ease-out;
-            & svg {
-                fill: var(--pluto-gray-l9);
-                width: 2rem;
-                height: 2rem;
-                flex-shrink: 0;
-                transition:
-                    transform 0.1s ease-out,
-                    fill 0.1s ease-out;
-            }
-            &:hover svg {
-                fill: var(--pluto-gray-l11);
-            }
-            &:active svg {
-                fill: var(--pluto-error-z);
-            }
-        }
-
-        &:is(:not(:hover), :has([contenteditable="true"])) .pluto-tabs__close {
-            min-width: 0;
-            width: 0;
+        /* The close overlay comes from Button.Close and the reveal contract; the
+           rename guard keeps it hidden while the tab label is being edited. */
+        &:has([contenteditable="true"]) .pluto-tabs__close {
             opacity: 0;
-            transition:
-                width 0.1s ease-in,
-                opacity 0.1s ease-in;
-            & svg {
-                transform: scale(0.9);
-            }
+            pointer-events: none;
         }
 
         &:hover:has(.pluto-tabs__close):not(:has([contenteditable="true"]))
@@ -271,6 +253,17 @@
 .pluto-tabs__selector--pill .pluto-tabs__tab:not(.pluto--selected) {
     border-color: var(--pluto-gray-l5);
     --pluto-bg: var(--pluto-gray-l4);
+}
+
+/* Selected pills keep the outlined chassis: selection reads from the revealed
+   outline, not a tier fill. */
+.pluto-tabs__selector--pill .pluto-tabs__tab.pluto--selected {
+    --pluto-bg: var(--pluto-fill-rest);
+    --pluto-hover-bg: var(--pluto-fill-hover);
+    --pluto-active-bg: var(--pluto-fill-press);
+    --pluto-border-color: var(--pluto-gray-l7);
+    --pluto-hover-border-color: var(--pluto-gray-l8);
+    --pluto-active-border-color: var(--pluto-gray-l8);
 }
 
 .pluto-tabs__tab .pluto-tabs__unsaved {

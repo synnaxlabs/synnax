@@ -173,7 +173,7 @@ export const useModal = Modals.create<ModalParams>(
                 <Flex.Box
                   className={CSS.BE("schematic", "sidebar")}
                   y
-                  rounded={1}
+                  rounded="small"
                   background={0}
                   bordered
                   borderColor={6}

@@ -64,6 +64,7 @@ export const Numeric = ({
   bounds: propsBounds = bounds.INFINITE,
   resetValue,
   variant = "outlined",
+  preview,
   className,
   children,
   disabled,
@@ -151,13 +152,14 @@ export const Numeric = ({
       y: bounds.span(propsBounds) * 0.02,
     };
 
-  if (variant === "preview") showDragHandle = false;
+  if (preview === true) showDragHandle = false;
 
   return (
     <Text
       ref={ref}
       type="text"
       variant={variant}
+      preview={preview}
       className={className}
       value={value_}
       onChange={handleChange}

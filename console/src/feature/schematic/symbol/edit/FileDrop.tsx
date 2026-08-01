@@ -99,7 +99,7 @@ export const FileDrop = ({
         enabled && CSS.M("enabled"),
       )}
       onDragLeave={() => setDraggingOver(false)}
-      rounded={1}
+      rounded="small"
       onClick={enabled ? handleFileSelect : undefined}
       {...dropProps}
       borderColor={6}

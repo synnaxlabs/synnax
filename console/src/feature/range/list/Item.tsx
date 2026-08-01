@@ -8,17 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { ranger } from "@synnaxlabs/client";
-import {
-  Flex,
-  Form,
-  Input,
-  List,
-  Ranger,
-  Select,
-  stopPropagation,
-  Tag,
-  Telem,
-} from "@synnaxlabs/pluto";
+import { Flex, Form, Input, List, Ranger, Select, Tag, Telem } from "@synnaxlabs/pluto";
 import { type NumericTimeRange } from "@synnaxlabs/x";
 import { memo, useMemo } from "react";
 
@@ -72,7 +62,6 @@ const Base = ({
       onSelect={handleSelect}
       justify="between"
       selected={selected}
-      rounded={!selected}
       hovered={hovered}
       {...props}
     >
@@ -81,10 +70,9 @@ const Base = ({
           <Input.Checkbox
             value={selected}
             onChange={onSelect}
-            onClick={stopPropagation}
             size="medium"
             variant="text"
-            ghost={!selected}
+            reveal={!selected}
           />
           <Flex.Box x align="center" gap="tiny">
             <Form.Field<NumericTimeRange>
@@ -96,7 +84,6 @@ const Base = ({
                 <Ranger.SelectStage
                   {...Ranger.wrapNumericTimeRangeToStage({ value, onChange })}
                   variant="floating"
-                  onClick={stopPropagation}
                   triggerProps={{ variant: "text", iconOnly: true }}
                 />
               )}
@@ -122,7 +109,7 @@ const Base = ({
           {showTimeRange && (
             <Telem.Text.TimeRange level="small">{timeRange}</Telem.Text.TimeRange>
           )}
-          {showFavorite && <Range.FavoriteButton range={item} ghost />}
+          {showFavorite && <Range.FavoriteButton range={item} reveal />}
         </Flex.Box>
       </Form.Form>
     </List.Item>
