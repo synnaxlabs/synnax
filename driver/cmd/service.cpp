@@ -17,7 +17,6 @@
 namespace driver::cmd::sub {
 int start(x::args::Parser &args);
 
-// Updated helper function with C++ strings
 int exec_svc_cmd(
     const std::function<x::errors::Error()> &cmd,
     const std::string &action,
@@ -37,9 +36,10 @@ int exec_svc_cmd(
 
 int internal_start(x::args::Parser &args) {
     daemon::Config config;
-    config.callback = [&args] { start(args); };
+    int code = 0;
+    config.callback = [&] { code = start(args); };
     daemon::run(config);
-    return 0;
+    return code;
 }
 
 int service_start(x::args::Parser &args) {

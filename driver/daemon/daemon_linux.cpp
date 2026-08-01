@@ -217,11 +217,14 @@ void run(const Config &config) {
     update_status(Status::INITIALIZING, "Starting daemon");
 
     // Start watchdog thread
-    std::thread watchdog([&]() {
+    std::thread watchdog([&] {
         x::thread::set_name("watchdog");
+        std::unique_lock<std::mutex> lock(mtx);
         while (!should_stop) {
             notify_watchdog();
-            std::this_thread::sleep_for(std::chrono::seconds(config.watchdog_interval));
+            cv.wait_for(lock, std::chrono::seconds(config.watchdog_interval), [] {
+                return should_stop;
+            });
         }
     });
 
@@ -241,6 +244,7 @@ void run(const Config &config) {
         std::lock_guard<std::mutex> lock(mtx);
         should_stop = true;
     }
+    cv.notify_all();
     watchdog.join();
 }
 

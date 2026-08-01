@@ -75,6 +75,7 @@ int exec(const int argc, char *argv[]) {
         if (args.flag("--standalone", "-s")) return sub::start(args);
         return sub::service_start(args);
     }
+    // Run by the service manager (systemd ExecStart); omitted from the usage text.
     if (command == "internal-start") return sub::internal_start(args);
     if (command == "stop") return sub::service_stop(args);
     if (command == "restart") return sub::service_restart(args);

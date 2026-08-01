@@ -88,8 +88,8 @@ public:
 
     ~Breaker() {
         if (!this->running()) return;
-        // Very important that we do not use GLOG here, as it can cause problems
-        // in destructors.
+        // Never log here: destructors can run after the logging machinery is torn
+        // down.
         std::cerr << "breaker " << this->config.name
                   << " was not stopped before destruction" << std::endl;
         assert(false && "breaker was not stopped before destruction");
