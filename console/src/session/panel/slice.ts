@@ -106,9 +106,8 @@ const { actions, reducer } = createSlice({
           tabKey,
           ...pan.selectedTabs.filter((k) => !otherTabKeys.includes(k)),
         ];
-        // Skip the no-op reselect fired on every click inside a focused tab's
-        // content; a state change here re-renders mid-click and eats checkbox
-        // toggles.
+        // Skip the no-op reselect fired on every click inside a focused tab's content;
+        // a state change here re-renders mid-click and eats checkbox toggles.
         if (
           next.length === pan.selectedTabs.length &&
           next.every((k, i) => k === pan.selectedTabs[i])

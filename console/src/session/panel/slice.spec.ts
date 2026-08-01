@@ -28,8 +28,9 @@ const createStore = () =>
   });
 
 // run dispatches the actions through a store wired with the inject-key middleware, so
-// actions without an explicit windowKey resolve to the active window. State is read back
-// through the public selectors, exercising the slice, middleware, and selectors together.
+// actions without an explicit windowKey resolve to the active window. State is read
+// back through the public selectors, exercising the slice, middleware, and selectors
+// together.
 const run = (...actions: Panel.Action[]): TestState => {
   const store = createStore();
   actions.forEach((action) => store.dispatch(action));

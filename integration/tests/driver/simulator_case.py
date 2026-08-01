@@ -104,9 +104,9 @@ class SimulatorCase(TestCase):
     def teardown(self) -> None:
         """Stop simulator(s) first, then run the remaining teardown.
 
-        Deletes devices this case registered: a leftover device makes the driver
-        health-check its dead endpoint forever, spamming warning toasts that
-        intercept clicks in later Console tests.
+        Deletes devices this case registered: a leftover device makes the Driver
+        health-check its dead endpoint forever, spamming warning toasts that intercept
+        clicks in later Console tests.
         """
         try:
             for sim in self.sims.values():
