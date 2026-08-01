@@ -18,21 +18,23 @@
 namespace driver::cmd::sub {
 int start(x::args::Parser &args);
 
+namespace {
 int exec_svc_cmd(
     const std::function<x::errors::Error()> &cmd,
     const std::string &action,
     const std::string &past_tense = ""
 ) {
     if (const auto err = cmd()) {
-        LOG(ERROR) << "" << x::log::RED() << "Failed to " << action << ": " << err
+        LOG(ERROR) << x::log::RED() << "Failed to " << action << ": " << err
                    << x::log::RESET();
         return 1;
     }
     if (!past_tense.empty()) {
-        LOG(INFO) << "" << x::log::GREEN() << past_tense << " successfully"
+        LOG(INFO) << x::log::GREEN() << past_tense << " successfully"
                   << x::log::RESET();
     }
     return 0;
+}
 }
 
 int internal_start(x::args::Parser &args) {

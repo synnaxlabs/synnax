@@ -28,10 +28,6 @@ const std::string BINARY_INSTALL_DIR = "/usr/local/bin";
 const std::string BINARY_NAME = "synnax-driver";
 const std::string SYSTEMD_SERVICE_PATH = "/etc/systemd/system/synnax-driver.service";
 
-std::mutex mtx;
-std::condition_variable cv;
-bool should_stop = false;
-
 auto SYSTEMD_SERVICE_TEMPLATE = R"([Unit]
 Description=Synnax Driver Service
 Documentation=https://docs.synnaxlabs.com/reference/driver
@@ -209,10 +205,9 @@ void notify_watchdog() {
 }
 
 void run(const Config &config) {
-    {
-        std::lock_guard<std::mutex> lock(mtx);
-        should_stop = false;
-    }
+    std::mutex mtx;
+    std::condition_variable cv;
+    bool should_stop = false;
     update_status(Status::INITIALIZING, "Starting daemon");
 
     std::thread watchdog([&] {
@@ -220,7 +215,7 @@ void run(const Config &config) {
         std::unique_lock<std::mutex> lock(mtx);
         while (!should_stop) {
             notify_watchdog();
-            cv.wait_for(lock, std::chrono::seconds(config.watchdog_interval), [] {
+            cv.wait_for(lock, std::chrono::seconds(config.watchdog_interval), [&] {
                 return should_stop;
             });
         }
