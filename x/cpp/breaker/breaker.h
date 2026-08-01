@@ -13,7 +13,6 @@
 #include <cassert>
 #include <condition_variable>
 #include <iomanip>
-#include <memory>
 
 #include "x/cpp/errors/errors.h"
 #include "x/cpp/telem/telem.h"
@@ -88,8 +87,7 @@ public:
 
     ~Breaker() {
         if (!this->running()) return;
-        // Never log here: destructors can run after the logging machinery is torn
-        // down.
+        // Never log here: destructors can run after the logging machinery is torn down.
         std::cerr << "breaker " << this->config.name
                   << " was not stopped before destruction" << std::endl;
         assert(false && "breaker was not stopped before destruction");
