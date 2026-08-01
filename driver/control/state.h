@@ -10,12 +10,9 @@
 #pragma once
 
 #include <shared_mutex>
-#include <unordered_map>
 
 #include "absl/log/log.h"
 
-#include "client/cpp/synnax.h"
-#include "x/cpp/control/control.h"
 #include "x/cpp/telem/frame.h"
 
 namespace driver::control {

@@ -9,11 +9,9 @@
 
 /// std
 #include <algorithm>
-#include <thread>
 
 /// external
 #include "absl/log/log.h"
-#include "open62541/client_config_default.h"
 #include "open62541/client_highlevel.h"
 
 /// internal

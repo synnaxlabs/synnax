@@ -13,16 +13,12 @@
 #include <mutex>
 #include <set>
 #include <span>
-#include <unordered_map>
 #include <vector>
 
-#include "absl/log/log.h"
 
-#include "driver/ethercat/errors/errors.h"
 #include "driver/ethercat/master/master.h"
 #include "driver/ethercat/pdo/pdo.h"
 #include "driver/ethercat/soem/api.h"
-#include "driver/ethercat/soem/util.h"
 
 namespace driver::ethercat::soem {
 /// @brief SOEM-based implementation of the Master interface.

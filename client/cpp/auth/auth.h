@@ -13,8 +13,6 @@
 #include <mutex>
 #include <string>
 
-#include "absl/log/log.h"
-
 #include "freighter/cpp/freighter.h"
 #include "x/cpp/errors/errors.h"
 #include "x/cpp/telem/telem.h"

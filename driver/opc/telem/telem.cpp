@@ -8,7 +8,6 @@
 // included in the file licenses/APL.txt.
 
 /// external
-#include "absl/log/log.h"
 #include "open62541/types.h"
 
 /// module

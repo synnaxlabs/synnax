@@ -9,16 +9,13 @@
 
 #include <thread>
 
-#include "absl/log/log.h"
 #include "gtest/gtest.h"
-#include "nlohmann/json.hpp"
 
 #include "client/cpp/testutil/testutil.h"
 #include "x/cpp/defer/defer.h"
 #include "x/cpp/test/test.h"
 
 #include "driver/opc/mock/server.h"
-#include "driver/opc/opc.h"
 #include "driver/opc/testutil/testutil.h"
 #include "driver/opc/write_task.h"
 #include "driver/pipeline/mock/pipeline.h"

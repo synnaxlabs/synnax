@@ -17,7 +17,6 @@
 #include <thread>
 #include <vector>
 
-#include "absl/log/log.h"
 #include "google/protobuf/empty.pb.h"
 
 #include "freighter/cpp/freighter.h"

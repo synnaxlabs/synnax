@@ -12,7 +12,6 @@
 #include <algorithm>
 #include <functional>
 #include <memory>
-#include <ranges>
 #include <string>
 #include <unordered_map>
 #include <vector>
@@ -22,7 +21,6 @@
 
 #include "x/cpp/errors/errors.h"
 
-#include "arc/cpp/ir/ir.h"
 #include "arc/cpp/runtime/errors/errors.h"
 #include "arc/cpp/runtime/node/node.h"
 

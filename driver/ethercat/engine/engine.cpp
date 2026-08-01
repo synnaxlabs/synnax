@@ -15,7 +15,6 @@
 #include "x/cpp/loop/loop.h"
 
 #include "driver/ethercat/engine/engine.h"
-#include "driver/ethercat/errors/errors.h"
 
 namespace driver::ethercat::engine {
 void Engine::run() {

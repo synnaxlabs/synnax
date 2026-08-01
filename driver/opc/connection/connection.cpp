@@ -12,14 +12,12 @@
 #include "mbedtls/error.h"
 #include "mbedtls/x509_crt.h"
 #include "open62541/client_config_default.h"
-#include "open62541/client_highlevel.h"
 #include "open62541/common.h"
 
 #include "x/cpp/errors/errors.h"
 
 #include "driver/opc/connection/connection.h"
 #include "driver/opc/errors/errors.h"
-#include "driver/task/task.h"
 
 namespace driver::opc::connection {
 using ClientDeleter = void (*)(UA_Client *);

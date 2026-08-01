@@ -7,14 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-#include <exception>
 #include <map>
 #include <optional>
-#include <stdexcept>
-#include <thread>
 
 #include "absl/log/log.h"
-#include "nlohmann/json.hpp"
 
 #include "driver/errors/errors.h"
 #include "driver/pipeline/acquisition.h"

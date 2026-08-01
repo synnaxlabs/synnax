@@ -22,7 +22,6 @@
 
 #include "client/cpp/synnax.h"
 #include "x/cpp/breaker/breaker.h"
-#include "x/cpp/json/json.h"
 #include "x/cpp/log/log.h"
 
 #include "driver/bypass/bypass.h"

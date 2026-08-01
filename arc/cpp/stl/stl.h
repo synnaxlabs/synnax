@@ -12,8 +12,6 @@
 #include <cstdint>
 #include <memory>
 
-#include "wasmtime.hh"
-
 #include "x/cpp/errors/errors.h"
 
 #include "arc/cpp/runtime/node/factory.h"

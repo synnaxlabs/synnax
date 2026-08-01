@@ -11,7 +11,6 @@
 
 #include <algorithm>
 #include <atomic>
-#include <memory>
 #include <mutex>
 #include <thread>
 #include <unordered_map>

@@ -10,7 +10,6 @@
 #include <memory>
 #include <utility>
 
-#include "absl/log/log.h"
 
 #include "x/cpp/json/json.h"
 

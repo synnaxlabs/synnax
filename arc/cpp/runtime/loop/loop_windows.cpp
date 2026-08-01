@@ -8,7 +8,6 @@
 // included in the file licenses/APL.txt.
 
 #include <chrono>
-#include <thread>
 
 #include "absl/log/log.h"
 #include <windows.h>

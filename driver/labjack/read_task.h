@@ -14,7 +14,6 @@
 #include <string>
 #include <vector>
 
-#include "absl/log/log.h"
 
 #include "client/cpp/synnax.h"
 #include "x/cpp/breaker/breaker.h"
