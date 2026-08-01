@@ -65,7 +65,7 @@ func (s *Service) Export(ctx context.Context, id ontology.ID) (imex.Envelope, er
 // Import decodes the envelope into an Arc and persists it on tx, returning the
 // ontology.ID of the newly-created arc. The exported key is discarded and a fresh
 // one is generated so that importing always materializes a new resource. Arcs are
-// not project children, so opts.Project does not apply. Envelopes older than
+// not parented on import, so opts.Parent does not apply. Envelopes older than
 // Version are Console-era files — camelCase typed exports or console states — and
 // are lifted forward; an envelope newer than Version is rejected with a
 // path-scoped validation error.

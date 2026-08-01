@@ -13,7 +13,6 @@ import (
 	"context"
 	"encoding/json"
 
-	"github.com/google/uuid"
 	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/synnax/pkg/api/auth"
 	"github.com/synnaxlabs/synnax/pkg/api/config"
@@ -21,7 +20,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
-	"github.com/synnaxlabs/synnax/pkg/service/project"
 	xconfig "github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
@@ -80,7 +78,7 @@ func (s *Service) Import(
 	if err = enforcer.Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionUpdate,
-		Objects: []ontology.ID{project.OntologyID(opts.Project)},
+		Objects: []ontology.ID{opts.Parent},
 	}); err != nil {
 		return ImportResponse{}, err
 	}
@@ -93,7 +91,7 @@ func (s *Service) Import(
 
 type importParams struct {
 	FileName string `json:"file_name"`
-	Project  string `json:"project"`
+	Parent   string `json:"parent"`
 }
 
 // parseImportOptions decodes the required "params" request param — a JSON object
@@ -117,25 +115,23 @@ func parseImportOptions(ctx context.Context) (imex.ImportOptions, error) {
 			validate.ErrRequired, "file_name",
 		)
 	}
-	if params.Project == "" {
-		return imex.ImportOptions{}, validate.PathedError(validate.ErrRequired, "project")
+	if params.Parent == "" {
+		return imex.ImportOptions{}, validate.PathedError(validate.ErrRequired, "parent")
 	}
-	key, err := uuid.Parse(params.Project)
+	parent, err := ontology.ParseID(params.Parent)
 	if err != nil {
 		return imex.ImportOptions{}, validate.PathedError(
-			errors.Wrapf(
-				validate.ErrValidation, "invalid project key %q", params.Project,
-			),
-			"project",
+			errors.Wrapf(validate.ErrValidation, "invalid parent %q", params.Parent),
+			"parent",
 		)
 	}
-	if key == uuid.Nil {
+	if parent.Key == "" {
 		return imex.ImportOptions{}, validate.PathedError(
-			errors.Wrap(validate.ErrValidation, "must be non-zero"),
-			"project",
+			errors.Wrap(validate.ErrValidation, "must carry a non-empty key"),
+			"parent",
 		)
 	}
-	return imex.ImportOptions{FileName: params.FileName, Project: key}, nil
+	return imex.ImportOptions{FileName: params.FileName, Parent: parent}, nil
 }
 
 type (

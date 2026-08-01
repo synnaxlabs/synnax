@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type Store } from "@reduxjs/toolkit";
-import { DisconnectedError, type Synnax as Client } from "@synnaxlabs/client";
+import { DisconnectedError, project, type Synnax as Client } from "@synnaxlabs/client";
 import { Flux, type Pluto, Status, Synnax } from "@synnaxlabs/pluto";
 import { errors } from "@synnaxlabs/x";
 import { useCallback } from "react";
@@ -39,7 +39,7 @@ export const ingestServer: FileIngester = async (
   const id = await client.imex.import(JSON.stringify(data), {
     encoding: "JSON",
     fileName,
-    project: projectKey,
+    parent: project.ontologyID(projectKey),
   });
   openTab({ variant: "resource", resource: id });
   return id;

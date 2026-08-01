@@ -16,6 +16,7 @@ import (
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	. "github.com/synnaxlabs/synnax/pkg/service/imex/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
@@ -117,7 +118,7 @@ var _ = Describe("ImEx", func() {
 			Expect(res.Data.PreviewViewport.Zoom).To(Equal(6.0))
 		})
 
-		It("Should parent the imported symbol under the permanent symbol group", func(ctx SpecContext) {
+		It("Should parent the imported symbol under the permanent symbol group by default", func(ctx SpecContext) {
 			id := MustSucceed(imexSvc.Import(
 				ctx, tx,
 				loadEnvelope("versions/testdata/import_v2.json"),
@@ -128,6 +129,32 @@ var _ = Describe("ImEx", func() {
 				Type: ontology.RelationshipTypeParentOf,
 				To:   id,
 			})).To(BeTrue())
+		})
+
+		It("Should parent the imported symbol under the given parent group", func(ctx SpecContext) {
+			parent := group.OntologyID(uuid.New())
+			Expect(otg.NewWriter(tx).DefineResources(ctx, parent)).To(Succeed())
+			id := MustSucceed(imexSvc.Import(
+				ctx, tx,
+				loadEnvelope("versions/testdata/import_v2.json"),
+				imex.ImportOptions{Parent: parent},
+			))
+			Expect(otg.RelationshipExists(ctx, tx, ontology.Relationship{
+				From: parent,
+				Type: ontology.RelationshipTypeParentOf,
+				To:   id,
+			})).To(BeTrue())
+		})
+
+		It("Should reject a parent that is not a group", func(ctx SpecContext) {
+			Expect(imexSvc.Import(
+				ctx, tx,
+				loadEnvelope("versions/testdata/import_v2.json"),
+				imex.ImportOptions{Parent: ontology.ID{Type: "project", Key: "p1"}},
+			)).Error().To(SatisfyAll(
+				MatchError(ContainSubstring("symbol parent must be a group")),
+				MatchError(ContainSubstring("validation error")),
+			))
 		})
 
 		It("Should reject an envelope newer than the supported version", func(ctx SpecContext) {

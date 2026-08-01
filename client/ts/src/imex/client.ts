@@ -11,7 +11,6 @@ import { type FileTransport, type UploadBody } from "@synnaxlabs/freighter";
 import { z } from "zod";
 
 import { ontology } from "@/ontology";
-import { project } from "@/project";
 
 /**
  * The serialized wire formats a resource can be imported from or exported to. Today
@@ -29,7 +28,10 @@ export interface Options {
 }
 
 /** The wire shape of the per-import request params. Both fields are required. */
-const importParamsZ = z.object({ fileName: z.string().min(1), project: project.keyZ });
+const importParamsZ = z.object({
+  fileName: z.string().min(1),
+  parent: ontology.idZ.transform((id) => ontology.idToString(id)),
+});
 
 /** Options for a single import call. */
 export interface ImportOptions extends Options {
@@ -40,11 +42,12 @@ export interface ImportOptions extends Options {
    */
   fileName: string;
   /**
-   * The key of the project to create the imported resource under. The Core creates the
-   * resource and its project relationship in a single transaction, so a parenting
-   * failure rolls back the import.
+   * The ontology resource to create the imported resource under — a project for
+   * workspace items, a group for symbols. The Core creates the resource and its parent
+   * relationship in a single transaction, so a parenting failure rolls back the
+   * import.
    */
-  project: project.Key;
+  parent: ontology.ID;
 }
 
 /**
@@ -86,7 +89,7 @@ export class Client {
    * ArrayBufferView or string is sent as-is.
    * @param options - the import options, including the wire format of source, the
    * source file's name (used to name the resource when the file carries no name), and
-   * the project to create the resource under.
+   * the parent resource to create the resource under.
    * @returns the new resource's ontology ID as stamped by the Core.
    */
   async import(

@@ -29,6 +29,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/google/uuid"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/project"
 	"github.com/synnaxlabs/x/encoding"
@@ -396,18 +397,38 @@ func flattenStruct(rv reflect.Value, m map[string]any) {
 
 // ImportOptions carries the per-request settings for an import that arrive out-of-band
 // from the envelope body — transport metadata like the source file's name and the
-// desired project resource.
+// desired parent resource.
 type ImportOptions struct {
 	// FileName is the name of the file the envelope was read from. When the envelope
 	// body carries no `name` field, the file name — with any trailing extension
 	// stripped — becomes the envelope's name. A `name` in the body always wins. The
 	// fallback is applied by the registry before the envelope reaches an Importer.
 	FileName string
-	// Project is the key of the project to create the imported resource under. The
-	// registry passes it through untouched: each Importer decides how (and whether) a
-	// project applies to its resource type. A zero Project means no project was
-	// requested.
-	Project project.Key
+	// Parent is the ontology resource to create the imported resource under — a
+	// project for workspace items, a group for symbols. The registry passes it through
+	// untouched: each Importer decides how (and whether) a parent applies to its
+	// resource type. A zero Parent means no parent was requested.
+	Parent ontology.ID
+}
+
+// ProjectKey converts the parent resource to a project key for importers whose
+// resources are project children. Returns the zero key when no parent was given, and a
+// validation error scoped to the "parent" field when the parent is not a project or
+// its key is not a valid UUID.
+func (o ImportOptions) ProjectKey() (project.Key, error) {
+	if o.Parent.IsZero() {
+		return uuid.Nil, nil
+	}
+	if o.Parent.Type != ontology.ResourceTypeProject {
+		return uuid.Nil, newFieldError(
+			"parent", "parent must be a project, got %q", o.Parent.Type,
+		)
+	}
+	key, err := uuid.Parse(o.Parent.Key)
+	if err != nil {
+		return uuid.Nil, newFieldError("parent", "invalid project key %q", o.Parent.Key)
+	}
+	return key, nil
 }
 
 // Importer materializes a resource from an Envelope and persists it. The envelope's
@@ -418,7 +439,7 @@ type Importer interface {
 	// by the time Import is called — the registry has already applied the file-name
 	// fallback — so importers should treat it as the resource's name rather than
 	// re-deriving one from the body. The importer owns all ontology writes for the
-	// resource, including attaching it under opts.Project when one is given.
+	// resource, including attaching it under opts.Parent when one is given.
 	Import(context.Context, gorp.Tx, Envelope, ImportOptions) (ontology.ID, error)
 	// Type returns the broader ontology resource type the importer creates. For
 	// services with asymmetric registration (e.g. a task service registered under

@@ -97,9 +97,9 @@ func (s *testService) Import(
 	if err := w.DefineResources(ctx, id); err != nil {
 		return ontology.ID{}, err
 	}
-	if opts.Project != uuid.Nil {
+	if !opts.Parent.IsZero() {
 		if err := w.DefineRelationships(
-			ctx, project.OntologyID(opts.Project), ontology.RelationshipTypeParentOf, id,
+			ctx, opts.Parent, ontology.RelationshipTypeParentOf, id,
 		); err != nil {
 			return ontology.ID{}, err
 		}
@@ -422,7 +422,7 @@ var _ = Describe("Service", func() {
 			})
 		})
 
-		Describe("Project", func() {
+		Describe("Parent", func() {
 			var projectKey project.Key
 			BeforeEach(func(ctx SpecContext) {
 				projectKey = uuid.New()
@@ -431,10 +431,10 @@ var _ = Describe("Service", func() {
 				)).To(Succeed())
 			})
 
-			It("Should attach the imported resource under the given project", func(ctx SpecContext) {
+			It("Should attach the imported resource under the given parent", func(ctx SpecContext) {
 				id := MustSucceed(svc.Import(
 					ctx, db, sampleEnvelope("Parented", ontology.ResourceTypeChannel),
-					imex.ImportOptions{Project: projectKey},
+					imex.ImportOptions{Parent: project.OntologyID(projectKey)},
 				))
 				Expect(otg.RelationshipExists(ctx, nil, ontology.Relationship{
 					From: project.OntologyID(projectKey),
@@ -443,12 +443,12 @@ var _ = Describe("Service", func() {
 				})).To(BeTrue())
 			})
 
-			It("Should roll back the import when the project does not exist", func(ctx SpecContext) {
+			It("Should roll back the import when the parent does not exist", func(ctx SpecContext) {
 				err := db.WithTx(ctx, func(tx gorp.Tx) error {
 					_, err := svc.Import(
 						ctx, tx,
 						sampleEnvelope("Orphaned", ontology.ResourceTypeChannel),
-						imex.ImportOptions{Project: uuid.New()},
+						imex.ImportOptions{Parent: project.OntologyID(uuid.New())},
 					)
 					return err
 				})

@@ -72,17 +72,22 @@ func (s *Service) Export(ctx context.Context, id ontology.ID) (imex.Envelope, er
 
 // Import decodes the envelope into a LinePlot and persists it on tx, returning the
 // ontology.ID of the newly-created line plot. The exported key is discarded and a
-// fresh one is generated so that importing always materializes a new resource. When
-// opts.Project is non-zero the plot is created within that project exactly as a
-// regular create would be. Envelopes older than Version are Console-era files —
-// camelCase typed exports or console states — and are lifted forward; an envelope
-// newer than Version is rejected with a path-scoped validation error.
+// fresh one is generated so that importing always materializes a new resource. Line
+// plots are project children, so a non-zero opts.Parent must be a project; the plot
+// is then created within it exactly as a regular create would be. Envelopes older
+// than Version are Console-era files — camelCase typed exports or console states —
+// and are lifted forward; an envelope newer than Version is rejected with a
+// path-scoped validation error.
 func (s *Service) Import(
 	ctx context.Context,
 	tx gorp.Tx,
 	env imex.Envelope,
 	opts imex.ImportOptions,
 ) (ontology.ID, error) {
+	proj, err := opts.ProjectKey()
+	if err != nil {
+		return ontology.ID{}, err
+	}
 	lp, err := s.decodeImport(ctx, env)
 	if err != nil {
 		return ontology.ID{}, err
@@ -91,7 +96,7 @@ func (s *Service) Import(
 	// env.Name is the resolved resource name: the body's name when present, or the
 	// caller-supplied file name fallback applied by the imex service.
 	lp.Name = env.Name
-	if err = s.NewWriter(tx).Create(ctx, opts.Project, &lp); err != nil {
+	if err = s.NewWriter(tx).Create(ctx, proj, &lp); err != nil {
 		return ontology.ID{}, err
 	}
 	return OntologyID(lp.Key), nil

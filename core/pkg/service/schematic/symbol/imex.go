@@ -16,8 +16,10 @@ import (
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/spatial"
+	"github.com/synnaxlabs/x/validate"
 )
 
 var _ imex.ImportExporter = (*Service)(nil)
@@ -121,16 +123,29 @@ func (s *Service) decodeImport(ctx context.Context, env imex.Envelope) (Symbol, 
 
 // Import decodes the envelope into a Symbol and persists it on tx, returning the
 // ontology.ID of the newly-created symbol. The exported key is discarded and a fresh
-// one is generated so that importing always materializes a new resource. Imported
-// symbols are created under the service's permanent symbol group; opts.Project does
-// not apply to symbols. Envelopes below Version are Console-written camelCase files;
-// an envelope newer than Version is rejected with a path-scoped validation error.
+// one is generated so that importing always materializes a new resource. Symbols are
+// parented into groups: a non-zero opts.Parent must be a group, and a zero parent
+// falls back to the service's permanent symbol group. Envelopes below Version are
+// Console-written camelCase files; an envelope newer than Version is rejected with a
+// path-scoped validation error.
 func (s *Service) Import(
 	ctx context.Context,
 	tx gorp.Tx,
 	env imex.Envelope,
-	_ imex.ImportOptions,
+	opts imex.ImportOptions,
 ) (ontology.ID, error) {
+	parent := opts.Parent
+	if parent.IsZero() {
+		parent = s.group.OntologyID()
+	} else if parent.Type != ontology.ResourceTypeGroup {
+		return ontology.ID{}, validate.PathedError(
+			errors.Wrapf(
+				validate.ErrValidation,
+				"symbol parent must be a group, got %q", parent.Type,
+			),
+			"parent",
+		)
+	}
 	sym, err := s.decodeImport(ctx, env)
 	if err != nil {
 		return ontology.ID{}, err
@@ -139,7 +154,7 @@ func (s *Service) Import(
 	// env.Name is the resolved resource name: the body's name when present, or the
 	// caller-supplied file name fallback applied by the imex service.
 	sym.Name = env.Name
-	if err = s.NewWriter(tx).Create(ctx, &sym, s.group.OntologyID()); err != nil {
+	if err = s.NewWriter(tx).Create(ctx, &sym, parent); err != nil {
 		return ontology.ID{}, err
 	}
 	return sym.OntologyID(), nil

@@ -21,6 +21,7 @@ import (
 	. "github.com/synnaxlabs/synnax/pkg/service/imex/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/log"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/project"
 	"github.com/synnaxlabs/x/color"
 	"github.com/synnaxlabs/x/notation"
 	"github.com/synnaxlabs/x/query"
@@ -161,10 +162,10 @@ var _ = Describe("ImEx", func() {
 			Expect(resource.ID).To(Equal(id))
 		})
 
-		It("Should create the imported log under the project from the options", func(ctx SpecContext) {
+		It("Should create the imported log under the parent project from the options", func(ctx SpecContext) {
 			id := MustSucceed(imexSvc.Import(
 				ctx, db, loadEnvelope(v2Fixture),
-				imex.ImportOptions{Project: proj.Key},
+				imex.ImportOptions{Parent: proj.OntologyID()},
 			))
 			Expect(otg.RelationshipExists(ctx, nil, ontology.Relationship{
 				From: proj.OntologyID(),
@@ -173,11 +174,21 @@ var _ = Describe("ImEx", func() {
 			})).To(BeTrue())
 		})
 
-		It("Should reject a project that does not exist", func(ctx SpecContext) {
+		It("Should reject a parent project that does not exist", func(ctx SpecContext) {
 			Expect(imexSvc.Import(
 				ctx, db, loadEnvelope(v2Fixture),
-				imex.ImportOptions{Project: uuid.New()},
+				imex.ImportOptions{Parent: project.OntologyID(uuid.New())},
 			)).Error().To(MatchError(query.ErrNotFound))
+		})
+
+		It("Should reject a parent that is not a project", func(ctx SpecContext) {
+			Expect(imexSvc.Import(
+				ctx, db, loadEnvelope(v2Fixture),
+				imex.ImportOptions{Parent: ontology.ID{Type: "group", Key: "g1"}},
+			)).Error().To(SatisfyAll(
+				MatchError(ContainSubstring("parent must be a project")),
+				MatchError(ContainSubstring("validation error")),
+			))
 		})
 
 		It("Should name the imported log from the file name when the body has no name", func(ctx SpecContext) {

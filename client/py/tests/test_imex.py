@@ -42,8 +42,9 @@ def _log_envelope_json(name: str) -> str:
 
 
 @pytest.fixture
-def project_key(client: sy.Synnax) -> sy.project.Key:
-    return client.projects.create(name=f"imex-proj-{uuid.uuid4()}").key
+def parent(client: sy.Synnax) -> sy.ontology.ID:
+    proj = client.projects.create(name=f"imex-proj-{uuid.uuid4()}")
+    return sy.project.ontology_id(proj.key)
 
 
 @pytest.mark.imex
@@ -54,18 +55,18 @@ class TestImex:
     """
 
     def test_import_valid(
-        self, client: sy.Synnax, tmp_path: Path, project_key: sy.project.Key
+        self, client: sy.Synnax, tmp_path: Path, parent: sy.ontology.ID
     ) -> None:
         """Path source → streamed upload."""
         name = f"imex-path-{uuid.uuid4()}"
         path = tmp_path / "in.json"
         path.write_text(_log_envelope_json(name))
-        id = client.imex.import_(path, project=project_key)
+        id = client.imex.import_(path, parent=parent)
         assert id.type == "log"
         assert uuid.UUID(id.key)
 
     def test_import_invalid(
-        self, client: sy.Synnax, tmp_path: Path, project_key: sy.project.Key
+        self, client: sy.Synnax, tmp_path: Path, parent: sy.ontology.ID
     ) -> None:
         """An envelope with an unrecognized type is rejected."""
         path = tmp_path / "in.json"
@@ -73,10 +74,10 @@ class TestImex:
             json.dumps({"version": 1, "type": "not_a_real_type", "name": "bad"})
         )
         with pytest.raises(sy.ValidationError):
-            client.imex.import_(path, project=project_key)
+            client.imex.import_(path, parent=parent)
 
     def test_import_names_from_file(
-        self, client: sy.Synnax, tmp_path: Path, project_key: sy.project.Key
+        self, client: sy.Synnax, tmp_path: Path, parent: sy.ontology.ID
     ) -> None:
         """A nameless envelope is named after the file, extension stripped."""
         name = f"imex-file-{uuid.uuid4()}"
@@ -84,19 +85,19 @@ class TestImex:
         del envelope["name"]
         path = tmp_path / f"{name}.json"
         path.write_text(json.dumps(envelope))
-        id = client.imex.import_(path, project=project_key)
+        id = client.imex.import_(path, parent=parent)
         out = tmp_path / "out.json"
         client.imex.export(id, out)
         assert json.loads(out.read_bytes())["name"] == name
 
     def test_import_body_name_wins(
-        self, client: sy.Synnax, tmp_path: Path, project_key: sy.project.Key
+        self, client: sy.Synnax, tmp_path: Path, parent: sy.ontology.ID
     ) -> None:
         """A name in the envelope body takes precedence over the file name."""
         name = f"imex-body-{uuid.uuid4()}"
         path = tmp_path / "Some Other Name.json"
         path.write_text(_log_envelope_json(name))
-        id = client.imex.import_(path, project=project_key)
+        id = client.imex.import_(path, parent=parent)
         out = tmp_path / "out.json"
         client.imex.export(id, out)
         assert json.loads(out.read_bytes())["name"] == name
@@ -106,7 +107,7 @@ class TestImex:
         proj = client.projects.create(name=f"imex-proj-{uuid.uuid4()}")
         path = tmp_path / "in.json"
         path.write_text(_log_envelope_json(f"imex-parent-{uuid.uuid4()}"))
-        id = client.imex.import_(path, project=proj.key)
+        id = client.imex.import_(path, parent=sy.project.ontology_id(proj.key))
         children = client.ontology.retrieve_children(sy.project.ontology_id(proj.key))
         assert id.key in [child.key for child in children]
 
@@ -117,16 +118,16 @@ class TestImex:
         path = tmp_path / "in.json"
         path.write_text(_log_envelope_json(f"imex-orphan-{uuid.uuid4()}"))
         with pytest.raises(sy.NotFoundError):
-            client.imex.import_(path, project=uuid.uuid4())
+            client.imex.import_(path, parent=sy.project.ontology_id(uuid.uuid4()))
 
     def test_export(
-        self, client: sy.Synnax, tmp_path: Path, project_key: sy.project.Key
+        self, client: sy.Synnax, tmp_path: Path, parent: sy.ontology.ID
     ) -> None:
         """Path dest → streamed download; on-disk content parses back."""
         name = f"imex-export-path-{uuid.uuid4()}"
         src = tmp_path / "in.json"
         src.write_text(_log_envelope_json(name))
-        id = client.imex.import_(src, project=project_key)
+        id = client.imex.import_(src, parent=parent)
         out = tmp_path / "log.json"
         client.imex.export(id, out)
         parsed = json.loads(out.read_bytes())

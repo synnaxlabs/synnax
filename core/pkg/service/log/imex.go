@@ -62,17 +62,21 @@ func (s *Service) Export(ctx context.Context, id ontology.ID) (imex.Envelope, er
 // Import decodes the envelope into a Log and persists it on tx, returning the
 // ontology.ID of the newly-created log. The exported key is discarded and a fresh one
 // is generated so that importing always materializes a new resource rather than
-// overwriting an existing log with a colliding key. When opts.Project is non-zero the
-// log is created within that project exactly as a regular create would be; otherwise
-// the log is created without a project. Envelopes older than Version are legacy
-// camelCase Console exports and are lifted forward through the migration chain; an
-// envelope newer than Version is rejected with a path-scoped validation error.
+// overwriting an existing log with a colliding key. Logs are project children, so a
+// non-zero opts.Parent must be a project; the log is then created within it exactly
+// as a regular create would be. Envelopes older than Version are legacy camelCase
+// Console exports and are lifted forward through the migration chain; an envelope
+// newer than Version is rejected with a path-scoped validation error.
 func (s *Service) Import(
 	ctx context.Context,
 	tx gorp.Tx,
 	env imex.Envelope,
 	opts imex.ImportOptions,
 ) (ontology.ID, error) {
+	proj, err := opts.ProjectKey()
+	if err != nil {
+		return ontology.ID{}, err
+	}
 	l, err := s.decodeImport(ctx, env)
 	if err != nil {
 		return ontology.ID{}, err
@@ -82,7 +86,7 @@ func (s *Service) Import(
 	// caller-supplied file name fallback applied by the imex service. The two agree
 	// whenever the body carries a name, so this only matters for nameless bodies.
 	l.Name = env.Name
-	if err = s.NewWriter(tx).Create(ctx, opts.Project, &l); err != nil {
+	if err = s.NewWriter(tx).Create(ctx, proj, &l); err != nil {
 		return ontology.ID{}, err
 	}
 	return l.OntologyID(), nil

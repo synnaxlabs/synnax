@@ -20,19 +20,37 @@ import { uuid } from "@synnaxlabs/x";
 import { useCallback } from "react";
 
 import { groupManifestZ, SYMBOL_FILE_FILTERS } from "@/feature/schematic/symbol/types";
+import { Import } from "@/platform/import";
 import { Runtime } from "@/platform/runtime";
 
-const createSymbolFromData = async (
+// The Core owns symbol envelope decoding, legacy-version migration, file-name naming,
+// and group parenting, so the file's bytes are streamed up nearly untouched. The type
+// field is injected because symbol files never carried one and this flow knows what it
+// is importing. Returns the imported symbol's name for status messages.
+const importSymbolFromData = async (
   client: Client,
   data: string,
   parentID: ontology.ID,
-): Promise<schematic.symbol.Symbol> => {
-  const parsed = schematic.symbol.symbolZ.parse(JSON.parse(data));
-  return await client.schematics.symbols.create({
-    ...parsed,
-    key: uuid.create(),
+  fileName: string,
+): Promise<string> => {
+  const parsed: unknown = JSON.parse(data);
+  const body =
+    typeof parsed === "object" && parsed != null
+      ? { type: schematic.symbol.TYPE_ONTOLOGY_ID.type, ...parsed }
+      : parsed;
+  await client.imex.import(JSON.stringify(body), {
+    encoding: "JSON",
+    fileName,
     parent: parentID,
   });
+  if (
+    typeof parsed === "object" &&
+    parsed != null &&
+    "name" in parsed &&
+    typeof parsed.name === "string"
+  )
+    return parsed.name;
+  return Import.trimFileName(fileName);
 };
 
 export const useImport = (parentGroup?: string): (() => void) => {
@@ -58,10 +76,10 @@ export const useImport = (parentGroup?: string): (() => void) => {
         files.map(async (file) => {
           try {
             const data = await file.read();
-            const created = await createSymbolFromData(client, data, parentID);
+            const name = await importSymbolFromData(client, data, parentID, file.name);
             addStatus({
               variant: "success",
-              message: `Successfully imported symbol: ${created.name}`,
+              message: `Successfully imported symbol: ${name}`,
             });
           } catch (e) {
             handleError(e, `Failed to import symbol from ${file.name}`);
@@ -106,7 +124,7 @@ export const useImportGroup = (): (() => void) => {
             if (symbolFile == null)
               throw new Error(`Symbol file ${symbolRef.file} not found`);
             const data = await symbolFile.read();
-            await createSymbolFromData(client, data, parentID);
+            await importSymbolFromData(client, data, parentID, symbolFile.path);
             successCount++;
           } catch (e) {
             errors.push(e);
