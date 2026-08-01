@@ -238,8 +238,8 @@ export class Client extends query.Retriever<
 
   /**
    * Reads the resources the params address.
-   * @deprecated The ID-array form remains for migration only: query with
-   * `{ ids }`, `children.retrieve`, or `parents.retrieve` instead.
+   * The ID-array form remains for migration only: query with `{ ids }`,
+   * `children.retrieve`, or `parents.retrieve` instead.
    */
   retrieve(
     ids: Array<ID | string>,
@@ -277,7 +277,7 @@ export class Client extends query.Retriever<
     );
   }
 
-  /** @deprecated Use `children.retrieve({ ids })` instead. */
+  /** Migration-only alias for `children.retrieve({ ids })`. */
   async retrieveChildren(
     ids: ID | ID[],
     options?: RetrieveOptions,
@@ -285,7 +285,7 @@ export class Client extends query.Retriever<
     return await this.children.retrieve({ ids, ...options });
   }
 
-  /** @deprecated Use `parents.retrieve({ ids })` instead. */
+  /** Migration-only alias for `parents.retrieve({ ids })`. */
   async retrieveParents(
     ids: ID | ID[],
     options?: RetrieveOptions,
