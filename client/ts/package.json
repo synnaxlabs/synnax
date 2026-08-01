@@ -17,7 +17,6 @@
     "url": "https://github.com/synnaxlabs/synnax/issues"
   },
   "license": "BUSL-1.1",
-  "main": "dist/client.js",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/synnaxlabs/synnax.git",
@@ -62,7 +61,6 @@
   },
   "type": "module",
   "types": "dist/src/index.d.ts",
-  "module": "dist/client.js",
   "exports": {
     ".": {
       "types": "./dist/src/index.d.ts",

@@ -95,8 +95,6 @@
   "files": [
     "dist"
   ],
-  "main": "./dist/pluto.js",
-  "module": "./dist/pluto.js",
   "types": "./dist/src/index.d.ts",
   "exports": {
     ".": {

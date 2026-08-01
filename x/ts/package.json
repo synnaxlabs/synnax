@@ -39,8 +39,6 @@
     "vite": "catalog:",
     "vitest": "catalog:"
   },
-  "main": "dist/x.js",
-  "module": "dist/x.js",
   "types": "dist/src/index.d.ts",
   "exports": {
     ".": {

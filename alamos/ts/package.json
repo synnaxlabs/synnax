@@ -40,8 +40,6 @@
     "vite": "catalog:",
     "vitest": "catalog:"
   },
-  "main": "dist/alamos.js",
-  "module": "dist/alamos.js",
   "types": "dist/src/index.d.ts",
   "exports": {
     ".": {

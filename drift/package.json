@@ -54,8 +54,6 @@
   "files": [
     "dist"
   ],
-  "main": "./dist/drift.js",
-  "module": "./dist/drift.js",
   "types": "./dist/src/index.d.ts",
   "exports": {
     ".": {

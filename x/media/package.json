@@ -43,8 +43,6 @@
   "files": [
     "dist"
   ],
-  "main": "./dist/media.js",
-  "module": "./dist/media.js",
   "types": "./dist/src/index.d.ts",
   "exports": {
     ".": {
