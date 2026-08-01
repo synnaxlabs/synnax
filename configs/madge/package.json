@@ -1,0 +1,13 @@
+{
+  "name": "@synnaxlabs/madge",
+  "version": "0.0.0",
+  "private": true,
+  "description": "madge wrapper that resolves the TypeScript 6 JS Compiler API",
+  "bin": {
+    "madge": "./bin.cjs"
+  },
+  "dependencies": {
+    "madge": "catalog:",
+    "typescript": "catalog:ts6"
+  }
+}
