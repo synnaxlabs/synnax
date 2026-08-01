@@ -19,19 +19,30 @@
 }
 .pluto-notification {
     padding: 0.75rem;
-    background: var(--pluto-gray-l2);
+    background: color-mix(in srgb, var(--pluto-gray-l2) 70%, transparent);
+    -webkit-backdrop-filter: blur(3rem) saturate(140%);
+    backdrop-filter: blur(3rem) saturate(140%);
     width: 275px;
     box-shadow: var(--pluto-shadow-v2);
     border: var(--pluto-border-l6);
     border-radius: var(--pluto-border-radius-small);
     overflow: hidden;
     animation: pop 0.2s ease-in-out;
-    .pluto-notification__header {
+    /* Let the name ellipsize instead of pushing the actions past the card edge:
+       every box between the header and the nowrap span must be allowed to shrink. */
+    .pluto-notification__meta {
+        min-width: 0;
+
         .pluto-notification__name {
-            max-width: 160px;
+            min-width: 0;
+
+            .pluto-text--overflow-ellipsis {
+                min-width: 0;
+            }
         }
     }
     .pluto-notification__header-actions {
+        flex-shrink: 0;
         opacity: 0;
     }
     &:hover {
