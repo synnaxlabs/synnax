@@ -5,8 +5,8 @@
 pnpm workspaces with catalog dependencies: `/alamos/ts/` (instrumentation),
 `/client/ts/` (Synnax client), `/console/` (Tauri app), `/drift/` (multi-window Redux
 sync), `/freighter/ts/` (transport), `/x/media/`, `/pluto/` (viz components), `/x/ts/`
-(shared utilities). All use Vite (dual CJS/ESM output), TypeScript 5.9+ strict, Vitest,
-ESLint 9 flat config, Turbo for orchestration.
+(shared utilities). All use Vite (ESM-only output), TypeScript strict, Vitest, ESLint
+flat config, Turbo for orchestration.
 
 ## Commands
 
@@ -162,8 +162,8 @@ errors here are invisible at runtime.
 
 ## Package Layout
 
-`src/index.ts` entry, tests co-located, `dist/` output (ESM `index.js`, CJS `index.cjs`,
-types at `dist/src/index.d.ts`). Standard scripts: `build` =
+`src/index.ts` entry, tests co-located, `dist/` output (ESM `index.js`, types at
+`dist/src/index.d.ts`). Standard scripts: `build` =
 `tsc --noEmit && vite build`, plus `check-types`, `test`, `lint`, `fix`, `madge`.
 
 ## Gotchas
