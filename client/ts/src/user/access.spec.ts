@@ -28,7 +28,7 @@ describe("user", () => {
         username: id.create(),
         password: "test",
       });
-      await expect(userClient.users.retrieve({ key: randomUser.key })).rejects.toThrow(
+      await expect(userClient.users.retrieve(randomUser.key)).rejects.toThrow(
         AuthError,
       );
     });
@@ -43,7 +43,7 @@ describe("user", () => {
         username: id.create(),
         password: "test",
       });
-      const retrieved = await userClient.users.retrieve({ key: randomUser.key });
+      const retrieved = await userClient.users.retrieve(randomUser.key);
       expect(retrieved.key).toBe(randomUser.key);
       expect(retrieved.username).toBe(randomUser.username);
     });
@@ -85,7 +85,7 @@ describe("user", () => {
         password: "test",
       });
       await userClient.users.delete(randomUser.key);
-      await expect(userClient.users.retrieve({ key: randomUser.key })).rejects.toThrow(
+      await expect(userClient.users.retrieve(randomUser.key)).rejects.toThrow(
         NotFoundError,
       );
     });

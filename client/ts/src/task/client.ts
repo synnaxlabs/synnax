@@ -463,7 +463,7 @@ export class Client extends query.Retriever<
       rollbacks: rename(),
       onOptimistic: opts.onOptimistic,
       commit: async () => {
-        const t = await this.retrieve({ key });
+        const t = await this.retrieve(key);
         await this.create({ ...t.payload, name });
       },
     });
@@ -473,15 +473,16 @@ export class Client extends query.Retriever<
   async retrieve<S extends Schemas = Schemas>(
     params: RetrieveSingleParams & RetrieveSchemas<S>,
   ): Promise<Task<S>>;
-  async retrieve(params: RetrieveSingleParams): Promise<Task>;
+  async retrieve(params: Key | RetrieveSingleParams): Promise<Task>;
   async retrieve<S extends Schemas = Schemas>(
     params: RetrieveMultipleParams & RetrieveSchemas<S>,
   ): Promise<Task<S>[]>;
   async retrieve(params: RetrieveMultipleParams): Promise<Task[]>;
-  async retrieve<S extends Schemas = Schemas>({
-    schemas,
-    ...params
-  }: RetrieveParams & RetrieveSchemas<S>): Promise<Task<S> | Task<S>[]> {
+  async retrieve<S extends Schemas = Schemas>(
+    rawParams: Key | (RetrieveParams & RetrieveSchemas<S>),
+  ): Promise<Task<S> | Task<S>[]> {
+    const { schemas, ...params } =
+      typeof rawParams === "string" ? { key: rawParams } : rawParams;
     const isSingle = singleRetrieveParamsZ.safeParse(params).success;
     // Schema-parametrized retrieves validate config/status for one caller;
     // their results are not shared through the cache.
@@ -656,7 +657,7 @@ export class Client extends query.Retriever<
     }
     const retrieveName = async () => {
       const { task } = params;
-      const t = await this.retrieve({ key: task });
+      const t = await this.retrieve(task);
       return t.name;
     };
     return await executeCommandSync({

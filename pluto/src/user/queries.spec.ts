@@ -52,7 +52,7 @@ describe("User queries", () => {
         expect(result.current.variant).toEqual("success");
       });
 
-      await expect(client.users.retrieve({ key: testUser.key })).rejects.toThrow();
+      await expect(client.users.retrieve(testUser.key)).rejects.toThrow();
     });
 
     it("should delete multiple users", async () => {
@@ -79,8 +79,8 @@ describe("User queries", () => {
         expect(result.current.variant).toEqual("success");
       });
 
-      await expect(client.users.retrieve({ key: user1.key })).rejects.toThrow();
-      await expect(client.users.retrieve({ key: user2.key })).rejects.toThrow();
+      await expect(client.users.retrieve(user1.key)).rejects.toThrow();
+      await expect(client.users.retrieve(user2.key)).rejects.toThrow();
     });
   });
 
@@ -107,7 +107,7 @@ describe("User queries", () => {
         expect(result.current.variant).toEqual("success");
       });
 
-      const retrieved = await client.users.retrieve({ key: testUser.key });
+      const retrieved = await client.users.retrieve(testUser.key);
       expect(retrieved.username).toBe(newUsername);
     });
   });

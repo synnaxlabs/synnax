@@ -36,7 +36,7 @@ describe("role", () => {
         name: "test",
         description: "test",
       });
-      const retrieved = await client.access.roles.retrieve({ key: created.key });
+      const retrieved = await client.access.roles.retrieve(created.key);
       expect(retrieved.key).toBe(created.key);
       expect(retrieved.name).toBe(created.name);
       expect(retrieved.description).toBe(created.description);
@@ -69,7 +69,7 @@ describe("role", () => {
         description: "test",
       });
       await client.access.roles.delete(created.key);
-      await expect(client.access.roles.retrieve({ key: created.key })).rejects.toThrow(
+      await expect(client.access.roles.retrieve(created.key)).rejects.toThrow(
         NotFoundError,
       );
     });
@@ -112,21 +112,21 @@ describe("cached reads", () => {
   describe("retrieve", () => {
     it("reflects remote changes on an unsubscribed repeat retrieve", async () => {
       const r = await createRole();
-      const first = await client.access.roles.retrieve({ key: r.key });
+      const first = await client.access.roles.retrieve(r.key);
       expect(first.name).toEqual(r.name);
       const renamed = `qry-renamed-${id.create()}`;
       await remote.access.roles.create({ ...r, name: renamed });
       // Unsubscribed queries hold no frozen answer: repeat retrieves refetch
       // and converge on the remote change once it streams in.
       await expect
-        .poll(async () => (await client.access.roles.retrieve({ key: r.key })).name)
+        .poll(async () => (await client.access.roles.retrieve(r.key)).name)
         .toBe(renamed);
     });
 
     it("preserves key order across cached and fetched entries", async () => {
       const a = await createRole();
       const b = await createRole();
-      await client.access.roles.retrieve({ key: b.key });
+      await client.access.roles.retrieve(b.key);
       const res = await client.access.roles.retrieve({ keys: [a.key, b.key] });
       expect(res.map((r) => r.key)).toEqual([a.key, b.key]);
     });
@@ -135,7 +135,7 @@ describe("cached reads", () => {
   describe("getCached", () => {
     it("serves a key query straight from the record written by create", async () => {
       const r = await createRole();
-      const cached = expectLive(client.access.roles.getCached({ key: r.key }));
+      const cached = expectLive(client.access.roles.getCached(r.key));
       expect(cached.name).toEqual(r.name);
     });
   });
@@ -144,14 +144,14 @@ describe("cached reads", () => {
     it("delivers a remote rename to a subscribed single query", async () => {
       const r = await createRole();
       const handler = vi.fn();
-      const off = client.access.roles.onChange({ key: r.key }, handler);
+      const off = client.access.roles.onChange(r.key, handler);
       try {
-        await client.access.roles.retrieve({ key: r.key });
+        await client.access.roles.retrieve(r.key);
         const renamed = `qry-renamed-${id.create()}`;
         await remote.access.roles.create({ ...r, name: renamed });
         await expect
           .poll(() => {
-            const cached = client.access.roles.getCached({ key: r.key });
+            const cached = client.access.roles.getCached(r.key);
             return query.isLive(cached) && cached.name === renamed;
           })
           .toBe(true);
@@ -164,22 +164,16 @@ describe("cached reads", () => {
     it("delivers a remote delete as a deleted result carrying the corpse", async () => {
       const r = await createRole();
       const results: Array<query.Cached<role.Role> | undefined> = [];
-      const off = client.access.roles.onChange({ key: r.key }, (res) =>
-        results.push(res),
-      );
+      const off = client.access.roles.onChange(r.key, (res) => results.push(res));
       try {
-        await client.access.roles.retrieve({ key: r.key });
+        await client.access.roles.retrieve(r.key);
         await remote.access.roles.delete(r.key);
         await expect
-          .poll(() =>
-            query.Deleted.matches(client.access.roles.getCached({ key: r.key })),
-          )
+          .poll(() => query.Deleted.matches(client.access.roles.getCached(r.key)))
           .toBe(true);
         const last = expectDeleted(results.at(-1));
         expect(last.corpse.name).toEqual(r.name);
-        await expect(client.access.roles.retrieve({ key: r.key })).rejects.toThrow(
-          "deleted",
-        );
+        await expect(client.access.roles.retrieve(r.key)).rejects.toThrow("deleted");
       } finally {
         off();
       }

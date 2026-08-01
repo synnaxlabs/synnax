@@ -41,7 +41,7 @@ export interface SelectKeyParams {
 }
 
 const requireArc = (client: Synnax | null, key: arc.Key): arc.Arc => {
-  const cached = client?.arcs.getCached({ key });
+  const cached = client?.arcs.getCached(key);
   if (cached == null) throw new NotFoundError(`Arc with key ${key} not found`);
   if (query.Deleted.matches(cached))
     throw new Flux.DeletedError(`${RESOURCE_NAME} was deleted`, cached.corpse);
@@ -49,7 +49,7 @@ const requireArc = (client: Synnax | null, key: arc.Key): arc.Arc => {
 };
 
 const getArc = (client: Synnax | null, key: arc.Key): arc.Arc | undefined => {
-  const cached = client?.arcs.getCached({ key });
+  const cached = client?.arcs.getCached(key);
   if (!query.isLive(cached)) return undefined;
   return cached;
 };
@@ -57,7 +57,7 @@ const getArc = (client: Synnax | null, key: arc.Key): arc.Arc | undefined => {
 const subscribe = (
   { client, args: { key } }: Flux.SelectorParams<SelectKeyParams>,
   notify: () => void,
-) => (client == null ? () => {} : client.arcs.onChange({ key }, notify));
+) => (client == null ? () => {} : client.arcs.onChange(key, notify));
 
 // useSelectAllNodes returns every graph node of the Arc with the given key as diagram
 // nodes. graph.Node is a structural superset of Diagram.Node, so the cached array
@@ -189,7 +189,7 @@ export const useList = Flux.createList<ListQuery, arc.Key, arc.Arc>({
   name: PLURAL_RESOURCE_NAME,
   retrieve: async ({ client, query }) =>
     await client.arcs.retrieve({ ...query, includeStatus: true }),
-  retrieveByKey: async ({ client, key }) => await client.arcs.retrieve({ key }),
+  retrieveByKey: async ({ client, key }) => await client.arcs.retrieve(key),
   subscribe: ({ client, query }, handler) =>
     client.arcs.onChange({ ...query, includeStatus: true }, handler),
   getCached: ({ client, query }) =>
@@ -226,7 +226,7 @@ export const useForm = Flux.createForm<Partial<RetrieveQuery>, typeof formSchema
     if (key == null || primitive.isZero(key)) return;
     // Prefer the cached copy: it may hold locally replayed edits ahead of the
     // server.
-    const cached = client.arcs.getCached({ key });
+    const cached = client.arcs.getCached(key);
     if (query.isLive(cached)) return reset(cached);
     reset(await client.arcs.retrieve({ key, ...rest }));
   },

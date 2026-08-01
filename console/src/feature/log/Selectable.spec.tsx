@@ -37,7 +37,7 @@ describe("log/Selectable", () => {
     if (tab.variant !== "resource") throw new Error("expected a resource tab");
     expect(tab.resource.type).toBe(log.TYPE_ONTOLOGY_ID.type);
     const key = tab.resource.key;
-    const created = await client.logs.retrieve({ key });
+    const created = await client.logs.retrieve(key);
     expect(created.name).toBe("Log");
     await waitFor(() =>
       expect(Session.Log.selectSliceState(store.getState()).logs[key]).toBeDefined(),

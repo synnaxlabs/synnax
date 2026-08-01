@@ -46,7 +46,7 @@ const requireLinePlot = (
   client: Client | null,
   key: lineplot.Key,
 ): lineplot.LinePlot => {
-  const cached = client?.lineplots.getCached({ key });
+  const cached = client?.lineplots.getCached(key);
   if (cached == null) throw new NotFoundError(`Line plot with key ${key} not found`);
   if (query.Deleted.matches(cached))
     throw new Flux.DeletedError(`${RESOURCE_NAME} was deleted`, cached.corpse);
@@ -56,7 +56,7 @@ const requireLinePlot = (
 const subscribe = (
   { client, args: { key } }: Flux.SelectorParams<SelectKeyParams>,
   notify: () => void,
-) => (client == null ? () => {} : client.lineplots.onChange({ key }, notify));
+) => (client == null ? () => {} : client.lineplots.onChange(key, notify));
 
 export const [useSelectName, useGetName] = Scope.bindSelector(
   Flux.createSelector<SelectKeyParams, string>({

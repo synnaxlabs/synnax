@@ -43,7 +43,7 @@ export interface SelectKeyParams {
 }
 
 const requireTable = (client: Client | null, key: table.Key): table.Table => {
-  const cached = client?.tables.getCached({ key });
+  const cached = client?.tables.getCached(key);
   if (cached == null) throw new NotFoundError(`Table with key ${key} not found`);
   if (query.Deleted.matches(cached))
     throw new Flux.DeletedError(`${RESOURCE_NAME} was deleted`, cached.corpse);
@@ -51,7 +51,7 @@ const requireTable = (client: Client | null, key: table.Key): table.Table => {
 };
 
 const getTable = (client: Client | null, key: table.Key): table.Table | undefined => {
-  const cached = client?.tables.getCached({ key });
+  const cached = client?.tables.getCached(key);
   if (!query.isLive(cached)) return undefined;
   return cached;
 };
@@ -59,7 +59,7 @@ const getTable = (client: Client | null, key: table.Key): table.Table | undefine
 const subscribe = (
   { client, args: { key } }: Flux.SelectorParams<SelectKeyParams>,
   notify: () => void,
-) => (client == null ? () => {} : client.tables.onChange({ key }, notify));
+) => (client == null ? () => {} : client.tables.onChange(key, notify));
 
 export const [useSelectName, useGetName] = Scope.bindSelector(
   Flux.createSelector<SelectKeyParams, string>({

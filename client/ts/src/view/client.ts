@@ -109,7 +109,7 @@ export class Client extends query.Retriever<typeof retrieveRequestZ, Key, View> 
   }
 
   async rename(key: Key, name: string, opts: query.WriteOptions = {}): Promise<void> {
-    const v = await this.retrieve({ key });
+    const v = await this.retrieve(key);
     const rename = () => [
       query.partialUpdate(this.store, key, { name }),
       this.cfg.ontology.cache.renameResource(ontologyID(key), name),

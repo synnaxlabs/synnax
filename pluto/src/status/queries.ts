@@ -24,7 +24,7 @@ export type ListParams = status.MultiRetrieveParams;
 export const useList = Flux.createList<ListParams, status.Key, status.Status>({
   name: PLURAL_RESOURCE_NAME,
   retrieve: async ({ client, query }) => await client.statuses.retrieve(query),
-  retrieveByKey: async ({ client, key }) => await client.statuses.retrieve({ key }),
+  retrieveByKey: async ({ client, key }) => await client.statuses.retrieve(key),
   subscribe: ({ client, query }, handler) => client.statuses.onChange(query, handler),
   getCached: ({ client, query }) => client.statuses.getCached(query),
 });
@@ -149,7 +149,7 @@ export const useForm = Flux.createForm<Partial<RetrieveQuery>, typeof formSchema
   },
   mountListeners: ({ client, query: { key }, reset }) => {
     if (primitive.isZero(key)) return [];
-    return client.statuses.onChange({ key }, (result) => {
+    return client.statuses.onChange(key, (result) => {
       if (!query.isLive(result)) return;
       const { labels, ...rest } = result;
       reset({ ...rest, labels: labels?.map((l) => l.key) ?? [] });

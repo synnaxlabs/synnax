@@ -109,7 +109,7 @@ const createResourceTab = async (
   });
   await client.panels.create(doc);
   // Prime the query cache the way the mosaic's retrieve does.
-  await client.panels.retrieve({ key: doc.key });
+  await client.panels.retrieve(doc.key);
   return { panelKey: doc.key, tabKey };
 };
 

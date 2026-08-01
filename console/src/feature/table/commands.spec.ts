@@ -21,7 +21,7 @@ stubGeometry();
 
 describe("Table Commands", () => {
   it("creates a table on the server and opens it as a tab", async () => {
-    const proj = await client.projects.retrieve({ key: await project() });
+    const proj = await client.projects.retrieve(await project());
     const { store, openCommandPalette, selectCommand } = await renderPalette({
       commands: Table.COMMANDS,
       client,
@@ -32,7 +32,7 @@ describe("Table Commands", () => {
     const tab = await resolveFocusedTab(store, client);
     if (tab.variant !== "resource") throw new Error("expected a resource tab");
     expect(tab.resource.type).toBe(table.TYPE_ONTOLOGY_ID.type);
-    const created = await client.tables.retrieve({ key: tab.resource.key });
+    const created = await client.tables.retrieve(tab.resource.key);
     expect(created.name).toBe("Table");
   });
 });

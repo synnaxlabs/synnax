@@ -50,7 +50,7 @@ const renderNavigateHook = async ({
   );
   hook.store.dispatch(Session.Project.select(await testProjectKey()));
   await act(async () => {
-    await client.schematics.retrieve({ key: source.key });
+    await client.schematics.retrieve(source.key);
   });
   return { source, ...hook };
 };
@@ -82,7 +82,7 @@ const expectNavigatedTo = async (
 const expectNotOpened = async (store: TestStore, key: string): Promise<void> => {
   const panelKey = Session.Panel.selectSelected(store.getState());
   if (panelKey == null) return;
-  const doc = await client.panels.retrieve({ key: panelKey });
+  const doc = await client.panels.retrieve(panelKey);
   expect(panel.findTabByResource(doc.root, schematic.ontologyID(key))).toBeUndefined();
 };
 

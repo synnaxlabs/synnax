@@ -80,7 +80,7 @@ export const export_ = (
     const storeState = store.getState();
     const targetKey = key ?? Session.Project.selectSelected(storeState);
     if (client == null) throw new DisconnectedError();
-    const proj = await client.projects.retrieve({ key: targetKey });
+    const proj = await client.projects.retrieve(targetKey);
     name = proj.name;
     const panels = await retrievePanels(client, targetKey);
     const directory = await Runtime.pickWritableDirectory({

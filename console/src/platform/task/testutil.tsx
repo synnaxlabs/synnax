@@ -128,8 +128,8 @@ export const createSelectedPanel = async (
   await client.panels.create(doc);
   // Prime the query cache the way the mosaic's retrieve does, and keep the
   // answer live for the test: unsubscribed answers go stale by design.
-  onTestFinished(client.panels.onChange({ key: doc.key }, () => {}));
-  await client.panels.retrieve({ key: doc.key });
+  onTestFinished(client.panels.onChange(doc.key, () => {}));
+  await client.panels.retrieve(doc.key);
   act(() => {
     store.dispatch(
       Session.Panel.select({ key: doc.key, windowKey: Drift.MAIN_WINDOW }),
@@ -143,7 +143,7 @@ export const selectViewArgs = (
   { client, panelKey, tabKeys }: CreatedPanel,
   tabKey: panel.TabKey = tabKeys[0],
 ): record.Unknown | null => {
-  const cached = client.panels.getCached({ key: panelKey });
+  const cached = client.panels.getCached(panelKey);
   if (!query.isLive(cached)) return null;
   const tab = panel.findTab(cached.root, tabKey);
   return tab?.variant === "view" ? tab.args : null;

@@ -39,7 +39,7 @@ export const [useSelectEnabledState] = Flux.createSelector<
 >({
   subscribe: ({ client, args: { keys } }, notify) => {
     if (client == null) return () => {};
-    const destructors = keys.map((key) => client.devices.onChange({ key }, notify));
+    const destructors = keys.map((key) => client.devices.onChange(key, notify));
     return () => destructors.forEach((d) => d());
   },
   select: ({ client, args: { keys } }) => {

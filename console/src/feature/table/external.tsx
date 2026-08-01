@@ -38,7 +38,7 @@ const TAB: Panel.Tab = {
   Icon: Icon.Table,
   Name: Panel.createEditableTabName(Base, <Icon.Table />),
   restore: async ({ client, project, resource }) => {
-    const corpse = query.requireCorpse(client.tables.getCached({ key: resource.key }));
+    const corpse = query.requireCorpse(client.tables.getCached(resource.key));
     await client.tables.create(project, corpse);
   },
 };

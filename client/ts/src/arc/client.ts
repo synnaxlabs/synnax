@@ -505,6 +505,6 @@ export class Client extends query.Retriever<
     }
     const child = children[0];
     if (child == null) return null;
-    return await this.cfg.tasks.retrieve({ key: child.id.key });
+    return await this.cfg.tasks.retrieve(child.id.key);
   }
 }

@@ -28,7 +28,7 @@ describe("Schematic.useLink", () => {
     const focusedTab = (await resolveFocusedTab(store, client)).key;
     const panelKey = Session.Panel.selectSelected(store.getState());
     if (panelKey == null) throw new Error("no panel selected");
-    const doc = await client.panels.retrieve({ key: panelKey });
+    const doc = await client.panels.retrieve(panelKey);
     const tab = panel.findTabByResource(doc.root, schematic.ontologyID(s.key));
     expect(tab?.key).toBe(focusedTab);
   });

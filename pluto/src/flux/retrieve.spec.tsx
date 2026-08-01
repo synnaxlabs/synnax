@@ -105,7 +105,7 @@ describe("retrieve", () => {
         const { useRetrieve } = Flux.createRetrieve<{ key: label.Key }, label.Label>({
           name: "Resource",
           retrieve: async ({ client, query: { key } }) =>
-            await client.labels.retrieve({ key }),
+            await client.labels.retrieve(key),
           subscribe: (_, h) => {
             handler = h;
             return () => {};
@@ -144,7 +144,7 @@ describe("retrieve", () => {
         const { useRetrieve } = Flux.createRetrieve<{ key: label.Key }, label.Label>({
           name: "Resource",
           retrieve: async ({ client, query: { key } }) =>
-            await client.labels.retrieve({ key }),
+            await client.labels.retrieve(key),
           subscribe: (_, h) => {
             handler = h;
             return () => {};

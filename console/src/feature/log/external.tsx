@@ -39,7 +39,7 @@ const TAB: Panel.Tab = {
   Icon: Icon.Log,
   Name: Panel.createEditableTabName(Base, <Icon.Log />),
   restore: async ({ client, project, resource }) => {
-    const corpse = query.requireCorpse(client.logs.getCached({ key: resource.key }));
+    const corpse = query.requireCorpse(client.logs.getCached(resource.key));
     await client.logs.create(project, corpse);
   },
 };

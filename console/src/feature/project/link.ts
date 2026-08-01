@@ -16,7 +16,7 @@ export const useLink = (): Link.Handler => {
   const dispatch = Session.useDispatch();
   return useCallback(
     async ({ client, key }) => {
-      const proj = await client.projects.retrieve({ key });
+      const proj = await client.projects.retrieve(key);
       dispatch(Session.Project.select(proj.key));
     },
     [dispatch],

@@ -105,7 +105,7 @@ describe("lineplot/toolbar/Lines", () => {
     const input = await screen.findByDisplayValue(ch.name);
     fireEvent.change(input, { target: { value: "My Line" } });
     await waitFor(async () => {
-      const plot = await client.lineplots.retrieve({ key });
+      const plot = await client.lineplots.retrieve(key);
       expect(plot.lines.find((l) => l.key === lineKey)?.label).toBe("My Line");
     });
   });
@@ -114,7 +114,7 @@ describe("lineplot/toolbar/Lines", () => {
     const { key, lineKey } = await renderLinesTab();
     fireEvent.click(await screen.findByText("Average"));
     await waitFor(async () => {
-      const plot = await client.lineplots.retrieve({ key });
+      const plot = await client.lineplots.retrieve(key);
       expect(plot.lines.find((l) => l.key === lineKey)?.downsampleMode).toBe("average");
     });
   });
@@ -126,7 +126,7 @@ describe("lineplot/toolbar/Lines", () => {
     fireEvent.change(input, { target: { value: "5" } });
     fireEvent.blur(input);
     await waitFor(async () => {
-      const plot = await client.lineplots.retrieve({ key });
+      const plot = await client.lineplots.retrieve(key);
       expect(plot.lines.find((l) => l.key === lineKey)?.strokeWidth).toBe(5);
     });
   });
@@ -138,7 +138,7 @@ describe("lineplot/toolbar/Lines", () => {
     fireEvent.change(input, { target: { value: "10" } });
     fireEvent.blur(input);
     await waitFor(async () => {
-      const plot = await client.lineplots.retrieve({ key });
+      const plot = await client.lineplots.retrieve(key);
       expect(plot.lines.find((l) => l.key === lineKey)?.downsample).toBe(10);
     });
   });

@@ -239,7 +239,7 @@ export class Client extends query.Retriever<
     params: RetrieveSingleParams & RetrieveSchemas<Properties, Make, Model>,
   ): Promise<Device<Properties, Make, Model>>;
 
-  async retrieve(params: RetrieveSingleParams): Promise<Device>;
+  async retrieve(params: Key | RetrieveSingleParams): Promise<Device>;
 
   async retrieve<
     Properties extends z.ZodType<record.Unknown>,
@@ -252,8 +252,9 @@ export class Client extends query.Retriever<
   async retrieve(params: RetrieveMultipleParams): Promise<Array<Device>>;
 
   async retrieve(
-    params: RetrieveParams & { schemas?: DeviceSchemas },
+    rawParams: Key | (RetrieveParams & { schemas?: DeviceSchemas }),
   ): Promise<Device | Array<Device>> {
+    const params = typeof rawParams === "string" ? { key: rawParams } : rawParams;
     const { schemas, ...rest } = params;
     const isSingle = "key" in rest;
     // Schemas are not hashable, so schema-typed retrieves bypass the query
@@ -273,12 +274,12 @@ export class Client extends query.Retriever<
    * network, or undefined when nothing is cached. Unfetched filter queries
    * are approximated from the record table when possible.
    */
-  getCached(params: RetrieveSingleParams): query.Cached<Device> | undefined;
+  getCached(params: Key | RetrieveSingleParams): query.Cached<Device> | undefined;
   getCached(params: RetrieveMultipleParams): query.Cached<Device[]> | undefined;
   getCached(
-    params: RetrieveSingleParams | RetrieveMultipleParams,
+    params: Key | RetrieveSingleParams | RetrieveMultipleParams,
   ): query.Cached<Device> | query.Cached<Device[]> | undefined {
-    if ("key" in params) return super.getCached(params);
+    if (typeof params === "string" || "key" in params) return super.getCached(params);
     return (
       super.getCached(params) ?? this.approximateCached(retrieveRequestZ.parse(params))
     );
@@ -358,7 +359,7 @@ export class Client extends query.Retriever<
   }
 
   async rename(key: Key, name: string, opts: query.WriteOptions = {}): Promise<void> {
-    const dev = await this.retrieve({ key });
+    const dev = await this.retrieve(key);
     const renamed = { ...dev, name };
     await query.optimistic({
       rollbacks: [this.store.set(renamed.key, stripStatus(renamed))],

@@ -706,7 +706,7 @@ describe("Flux.createDispatch", () => {
     };
 
     const serverPosition = async (key: schematic.Key) =>
-      (await raw.schematics.retrieve({ key })).nodes[0].position;
+      (await raw.schematics.retrieve(key)).nodes[0].position;
 
     it("dispatches through the hooks and persists to the cluster", async () => {
       const Wrapper = await createAsyncSynnaxWrapper({ client });

@@ -56,11 +56,11 @@ export const useList = Flux.createList<ListQuery, string, schematic.symbol.Symbo
   retrieve: async ({ client, query }) =>
     await client.schematics.symbols.retrieve(query),
   retrieveByKey: async ({ client, key }) =>
-    await client.schematics.symbols.retrieve({ key }),
+    await client.schematics.symbols.retrieve(key),
   subscribe: ({ client, query }, handler) =>
     client.schematics.symbols.onChange(query, handler),
   subscribeByKey: ({ client, key }, handler) =>
-    client.schematics.symbols.onChange({ key }, handler),
+    client.schematics.symbols.onChange(key, handler),
   getCached: ({ client, query }) => client.schematics.symbols.getCached(query),
 });
 
@@ -91,7 +91,7 @@ export const useForm = Flux.createForm<FormQuery, typeof formSchema>({
   schema: formSchema,
   retrieve: async ({ client, query: { key }, reset }) => {
     if (key == null) return;
-    const symbol = await client.schematics.symbols.retrieve({ key });
+    const symbol = await client.schematics.symbols.retrieve(key);
     const parents = await client.ontology.parents.retrieve({
       ids: schematic.symbol.ontologyID(key),
     });
@@ -110,7 +110,7 @@ export const useForm = Flux.createForm<FormQuery, typeof formSchema>({
   },
   mountListeners: ({ client, query: { key }, reset, get }) => {
     if (key == null) return [];
-    return client.schematics.symbols.onChange({ key }, (result) => {
+    return client.schematics.symbols.onChange(key, (result) => {
       if (!query.isLive(result)) return;
       reset({
         ...result,

@@ -404,9 +404,7 @@ describe("Status queries", () => {
         await result.current.updateAsync(statusToDelete.key);
       });
 
-      await expect(
-        client.statuses.retrieve({ key: statusToDelete.key }),
-      ).rejects.toThrow();
+      await expect(client.statuses.retrieve(statusToDelete.key)).rejects.toThrow();
     });
   });
 
@@ -426,7 +424,7 @@ describe("Status queries", () => {
         });
       });
 
-      const created = await client.statuses.retrieve({ key: "set-hook-test" });
+      const created = await client.statuses.retrieve("set-hook-test");
       expect(created.name).toEqual("Set Hook Test");
       expect(created.variant).toEqual("loading");
     });
@@ -1038,7 +1036,7 @@ describe("Status queries", () => {
         time: TimeStamp.now(),
       });
 
-      await client.statuses.retrieve({ key: status1.key });
+      await client.statuses.retrieve(status1.key);
 
       const statuses = await client.statuses.retrieve({
         keys: [status1.key, status2.key],

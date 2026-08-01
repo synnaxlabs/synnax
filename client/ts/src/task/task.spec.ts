@@ -88,7 +88,7 @@ describe("Task", async () => {
         name: "updated",
       });
       expect(updated.name).toBe("updated");
-      const retrieved = await client.tasks.retrieve({ key: m.key });
+      const retrieved = await client.tasks.retrieve(m.key);
       expect(retrieved.name).toBe("updated");
     });
   });
@@ -99,7 +99,7 @@ describe("Task", async () => {
         config: { a: "dog" },
         type: "ni",
       });
-      const retrieved = await client.tasks.retrieve({ key: m.key });
+      const retrieved = await client.tasks.retrieve(m.key);
       expect(retrieved.key).toBe(m.key);
       expect(retrieved.name).toBe("test");
       expect(retrieved.config).toStrictEqual({ a: "dog" });
