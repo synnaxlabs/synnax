@@ -21,6 +21,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/panel"
+	"github.com/synnaxlabs/synnax/pkg/service/user"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/signal"
 	. "github.com/synnaxlabs/x/testutil"
@@ -93,6 +94,14 @@ var _ = Describe("Signals", func() {
 		Expect(last.DispatchKey).To(Equal("dk-1"))
 		Expect(last.Actions).To(HaveLen(1))
 		Expect(last.Actions[0].Type).To(Equal(panel.ActionTypeRename))
+	})
+
+	It("Should not broadcast a create rejected by ontology validation", func(ctx SpecContext) {
+		responses := openStreamer(ctx, setChannelName)
+		missing := user.OntologyID(uuid.New())
+		p := panel.Panel{Name: "sig-reject", Parent: &missing}
+		Expect(writer.Create(ctx, &p)).ToNot(Succeed())
+		Consistently(responses.Outlet(), 250*time.Millisecond).ShouldNot(Receive())
 	})
 
 	It("Should emit the deleted panel key on the delete channel", func(ctx SpecContext) {
