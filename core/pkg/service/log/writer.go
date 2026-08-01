@@ -56,25 +56,27 @@ func (w Writer) Create(ctx context.Context, projectKey project.Key, l *Log) erro
 	if err = w.table.NewCreate().Entry(l).Exec(ctx, w.tx); err != nil {
 		return err
 	}
+	if !exists {
+		otgID := l.OntologyID()
+		if err = w.otgWriter.DefineResources(ctx, otgID); err != nil {
+			return err
+		}
+		if projectKey != uuid.Nil {
+			if err = w.otgWriter.DefineRelationships(
+				ctx,
+				project.OntologyID(projectKey),
+				ontology.RelationshipTypeParentOf,
+				otgID,
+			); err != nil {
+				return err
+			}
+		}
+	}
+	// Notify last: a create rejected by ontology validation must not be broadcast.
 	w.dispatcher.Notify(
 		ctx, l.Key, "", []Action{NewCreateAction(CreatePayload{Log: *l})},
 	)
-	if exists {
-		return nil
-	}
-	otgID := l.OntologyID()
-	if err = w.otgWriter.DefineResources(ctx, otgID); err != nil {
-		return err
-	}
-	if projectKey == uuid.Nil {
-		return nil
-	}
-	return w.otgWriter.DefineRelationships(
-		ctx,
-		project.OntologyID(projectKey),
-		ontology.RelationshipTypeParentOf,
-		otgID,
-	)
+	return nil
 }
 
 // CreateMany creates the given logs within the project provided. If logs with the

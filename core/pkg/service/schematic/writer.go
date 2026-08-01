@@ -55,25 +55,27 @@ func (w Writer) Create(
 	if err = w.table.NewCreate().Entry(s).Exec(ctx, w.tx); err != nil {
 		return
 	}
+	if !exists {
+		otgID := s.OntologyID()
+		if err := w.otgWriter.DefineResources(ctx, otgID); err != nil {
+			return err
+		}
+		if projectKey != uuid.Nil {
+			if err := w.otgWriter.DefineRelationships(
+				ctx,
+				project.OntologyID(projectKey),
+				ontology.RelationshipTypeParentOf,
+				otgID,
+			); err != nil {
+				return err
+			}
+		}
+	}
+	// Notify last: a create rejected by ontology validation must not be broadcast.
 	w.dispatcher.Notify(
 		ctx, s.Key, "", []Action{NewCreateAction(CreatePayload{Schematic: *s})},
 	)
-	if exists {
-		return
-	}
-	otgID := s.OntologyID()
-	if err := w.otgWriter.DefineResources(ctx, otgID); err != nil {
-		return err
-	}
-	if projectKey == uuid.Nil {
-		return nil
-	}
-	return w.otgWriter.DefineRelationships(
-		ctx,
-		project.OntologyID(projectKey),
-		ontology.RelationshipTypeParentOf,
-		otgID,
-	)
+	return nil
 }
 
 // CreateMany creates the given schematics within the project provided. If schematics
