@@ -48,7 +48,7 @@ describe("arc", () => {
       await client.arcs.dispatch(created.key, ops);
       await expect
         .poll(async () => {
-          const res = await client.arcs.retrieve({ key: created.key });
+          const res = await client.arcs.retrieve(created.key);
           return res.text.raw;
         })
         .toEqual("hello");
@@ -60,7 +60,7 @@ describe("arc", () => {
       const insertOps = gen.insert(0, "hello").map((op) => arc.insertChar(op));
       const deleteOps = gen.delete(0, 1).map((op) => arc.deleteChar(op));
       await client.arcs.dispatch(created.key, [...insertOps, ...deleteOps]);
-      const res = await client.arcs.retrieve({ key: created.key });
+      const res = await client.arcs.retrieve(created.key);
       expect(res.text.raw).toEqual("ello");
     });
 
@@ -76,7 +76,7 @@ describe("arc", () => {
       await client.arcs.dispatch(created.key, [
         arc.forgetChars({ ids: deletes.map((op) => op.id) }),
       ]);
-      const res = await client.arcs.retrieve({ key: created.key });
+      const res = await client.arcs.retrieve(created.key);
       expect(res.text.raw).toEqual("hell");
       expect(res.text.doc.deletes).toHaveLength(0);
       expect(res.text.doc.inserts).toHaveLength(4);
@@ -189,7 +189,7 @@ describe("arc", () => {
           rack: rackB.key,
         }),
       ).rejects.toThrow(AuthError);
-      const surviving = await client.tasks.retrieve({ key: tsk.key });
+      const surviving = await client.tasks.retrieve(tsk.key);
       expect(surviving.key).toEqual(tsk.key);
     });
   });

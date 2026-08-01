@@ -119,7 +119,7 @@ describe("Status", () => {
         time: TimeStamp.now(),
       });
 
-      const retrieved = await client.statuses.retrieve({ key: "retrieve-test" });
+      const retrieved = await client.statuses.retrieve("retrieve-test");
       expect(retrieved.key).toBe(created.key);
       expect(retrieved.name).toBe(created.name);
       expect(retrieved.variant).toBe(created.variant);
@@ -268,9 +268,7 @@ describe("Status", () => {
 
       await client.statuses.delete(s.key);
 
-      await expect(
-        async () => await client.statuses.retrieve({ key: s.key }),
-      ).rejects.toThrow();
+      await expect(async () => await client.statuses.retrieve(s.key)).rejects.toThrow();
     });
 
     it("should delete multiple statuses", async () => {

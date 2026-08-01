@@ -25,9 +25,7 @@ describe("log", () => {
       });
       const proj = await client.projects.create({ name: "test", layout: {} });
       const randomLog = await client.logs.create(proj.key, { name: "test" });
-      await expect(userClient.logs.retrieve({ key: randomLog.key })).rejects.toThrow(
-        AuthError,
-      );
+      await expect(userClient.logs.retrieve(randomLog.key)).rejects.toThrow(AuthError);
     });
 
     it("should allow the caller to retrieve logs with the correct policy", async () => {
@@ -38,7 +36,7 @@ describe("log", () => {
       });
       const proj = await client.projects.create({ name: "test", layout: {} });
       const randomLog = await client.logs.create(proj.key, { name: "test" });
-      const retrieved = await userClient.logs.retrieve({ key: randomLog.key });
+      const retrieved = await userClient.logs.retrieve(randomLog.key);
       expect(retrieved.key).toBe(randomLog.key);
       expect(retrieved.name).toBe(randomLog.name);
     });
@@ -74,7 +72,7 @@ describe("log", () => {
       const proj = await client.projects.create({ name: "test", layout: {} });
       const randomLog = await client.logs.create(proj.key, { name: "test" });
       await userClient.logs.delete(randomLog.key);
-      await expect(userClient.logs.retrieve({ key: randomLog.key })).rejects.toThrow(
+      await expect(userClient.logs.retrieve(randomLog.key)).rejects.toThrow(
         NotFoundError,
       );
     });

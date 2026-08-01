@@ -30,9 +30,9 @@ describe("table", () => {
       const randomTable = await client.tables.create(proj.key, {
         name: "test",
       });
-      await expect(
-        userClient.tables.retrieve({ key: randomTable.key }),
-      ).rejects.toThrow(AuthError);
+      await expect(userClient.tables.retrieve(randomTable.key)).rejects.toThrow(
+        AuthError,
+      );
     });
 
     it("should allow the caller to retrieve tables with the correct policy", async () => {
@@ -48,9 +48,7 @@ describe("table", () => {
       const randomTable = await client.tables.create(proj.key, {
         name: "test",
       });
-      const retrieved = await userClient.tables.retrieve({
-        key: randomTable.key,
-      });
+      const retrieved = await userClient.tables.retrieve(randomTable.key);
       expect(retrieved.key).toBe(randomTable.key);
       expect(retrieved.name).toBe(randomTable.name);
     });
@@ -101,9 +99,9 @@ describe("table", () => {
         name: "test",
       });
       await userClient.tables.delete(randomTable.key);
-      await expect(
-        userClient.tables.retrieve({ key: randomTable.key }),
-      ).rejects.toThrow(NotFoundError);
+      await expect(userClient.tables.retrieve(randomTable.key)).rejects.toThrow(
+        NotFoundError,
+      );
     });
 
     it("should deny access when no delete policy exists", async () => {

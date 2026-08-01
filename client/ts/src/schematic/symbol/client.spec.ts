@@ -85,9 +85,7 @@ describe("Symbol Client", () => {
         parent: group.ontologyID(symbolGroup.key),
       });
 
-      const retrieved = await client.schematics.symbols.retrieve({
-        key: created.key,
-      });
+      const retrieved = await client.schematics.symbols.retrieve(created.key);
       expect(retrieved.key).toBe(created.key);
       expect(retrieved.name).toBe("Retrieve Test");
     });
@@ -252,9 +250,7 @@ describe("Symbol Client", () => {
 
       await client.schematics.symbols.rename(symbol.key, "New Name");
 
-      const retrieved = await client.schematics.symbols.retrieve({
-        key: symbol.key,
-      });
+      const retrieved = await client.schematics.symbols.retrieve(symbol.key);
       expect(retrieved.name).toBe("New Name");
     });
   });
@@ -269,9 +265,7 @@ describe("Symbol Client", () => {
 
       await client.schematics.symbols.delete(symbol.key);
 
-      await expect(
-        client.schematics.symbols.retrieve({ key: symbol.key }),
-      ).rejects.toThrow();
+      await expect(client.schematics.symbols.retrieve(symbol.key)).rejects.toThrow();
     });
   });
 

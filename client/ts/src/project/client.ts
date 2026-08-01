@@ -55,17 +55,17 @@ const requestFilter = (req: RetrieveRequest): ((p: Project) => boolean) => {
   return (p) => keySet == null || keySet.has(p.key);
 };
 
-export interface ClientParams {
+export interface ClientConfig {
   unary: UnaryClient;
   cache: query.Cache;
   ontology: ontology.Client;
 }
 
 export class Client extends query.Retriever<typeof retrieveReqZ, Key, Project> {
-  private readonly cfg: ClientParams;
+  private readonly cfg: ClientConfig;
   private readonly store: query.Table<Key, Project>;
 
-  constructor(cfg: ClientParams) {
+  constructor(cfg: ClientConfig) {
     const { cache } = cfg;
     const store = cache.createTable<Key, Project>({
       name: "projects",
