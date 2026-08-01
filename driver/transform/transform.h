@@ -12,12 +12,16 @@
 #include <functional>
 #include <map>
 #include <memory>
+#include <mutex>
 #include <string>
 #include <unordered_set>
 #include <variant>
 #include <vector>
 
+#include "client/cpp/channel/channel.h"
 #include "x/cpp/json/json.h"
+#include "x/cpp/telem/frame.h"
+#include "x/cpp/telem/series.h"
 #include "x/cpp/telem/telem.h"
 
 namespace driver::transform {

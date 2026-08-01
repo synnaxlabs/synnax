@@ -15,6 +15,7 @@
 #include <vector>
 
 #include "gtest/gtest.h"
+#include "wasmtime.hh"
 
 #include "arc/cpp/stl/strings/state.h"
 #include "arc/cpp/stl/strings/strings.h"

@@ -15,6 +15,7 @@
 #include <ostream>
 #include <string>
 
+#include "boost/uuid/random_generator.hpp"
 #include "boost/uuid/uuid.hpp"
 
 #include "x/cpp/errors/errors.h"

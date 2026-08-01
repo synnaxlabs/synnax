@@ -14,7 +14,6 @@
 #include <utility>
 #include <vector>
 
-
 #include "x/cpp/json/json.h"
 
 #include "driver/common/scan_task.h"

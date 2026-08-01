@@ -13,9 +13,11 @@
 #include <string>
 #include <vector>
 
+#include "wasmtime.hh"
 
 #include "x/cpp/errors/errors.h"
 
+#include "arc/cpp/program/program.h"
 #include "arc/cpp/runtime/errors/errors.h"
 #include "arc/cpp/stl/stl.h"
 #include "arc/cpp/stl/strings/state.h"

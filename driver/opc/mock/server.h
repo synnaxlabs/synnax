@@ -25,6 +25,7 @@
 /// module
 #include "x/cpp/telem/telem.h"
 
+#include "driver/opc/types/types.h"
 
 namespace mock {
 struct TestNode {

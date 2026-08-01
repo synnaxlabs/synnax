@@ -10,7 +10,6 @@
 #include <memory>
 #include <utility>
 
-
 #include "x/cpp/json/json.h"
 
 #include "driver/modbus/scan_task.h"

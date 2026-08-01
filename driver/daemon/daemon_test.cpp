@@ -11,6 +11,7 @@
 #include <cstddef>
 #include <cstdlib>
 #include <cstring>
+#include <stdexcept>
 #include <string>
 #include <thread>
 
@@ -19,6 +20,7 @@
 #include <sys/un.h>
 #include <unistd.h>
 
+#include "driver/daemon/daemon.h"
 
 namespace driver::daemon {
 namespace {

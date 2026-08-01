@@ -15,7 +15,6 @@
 #include <span>
 #include <vector>
 
-
 #include "driver/ethercat/master/master.h"
 #include "driver/ethercat/pdo/pdo.h"
 #include "driver/ethercat/soem/api.h"

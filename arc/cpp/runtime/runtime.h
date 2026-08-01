@@ -21,6 +21,7 @@
 #include "x/cpp/telem/frame.h"
 #include "x/cpp/thread/thread.h"
 
+#include "arc/cpp/program/program.h"
 #include "arc/cpp/runtime/errors/errors.h"
 #include "arc/cpp/runtime/loop/loop.h"
 #include "arc/cpp/runtime/node/factory.h"

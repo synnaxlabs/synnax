@@ -7,8 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-
+#include "boost/uuid/nil_generator.hpp"
 #include "boost/uuid/string_generator.hpp"
+#include "boost/uuid/uuid_io.hpp"
 
 #include "x/cpp/uuid/uuid.h"
 

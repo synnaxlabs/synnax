@@ -26,6 +26,7 @@
 #include "arc/cpp/runtime/state/state.h"
 #include "driver/arc/ranges/ranges.h"
 #include "driver/arc/status/status.h"
+#include "driver/bypass/pipeline/factory.h"
 #include "driver/common/common.h"
 #include "driver/common/status.h"
 #include "driver/errors/errors.h"
