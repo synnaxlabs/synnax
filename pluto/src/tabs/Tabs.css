@@ -284,6 +284,16 @@
     fill: var(--pluto-gray-l9);
 }
 
+/* A tab whose name carries a warning status (a deleted resource's corpse)
+   escalates the color to the whole tab. !important outranks the selected and
+   focused text tiers above. */
+.pluto-tabs__selector > .pluto-tabs__tab:has(.pluto-text.pluto--status-warning) {
+    .pluto-text,
+    > .pluto-icon {
+        color: var(--pluto-warning-z) !important;
+    }
+}
+
 /* The dot occupies the close slot until the operator hovers, at which point the
    close button takes its place. */
 .pluto-tabs__tab:has(.pluto-tabs__unsaved):has(.pluto-tabs__close) {
