@@ -25,15 +25,17 @@ import { type Data, type FetchOptions, type Params } from "@/query/types";
 const DEFAULT_SERVER_FIELDS = ["searchTerm", "limit", "offset"] as const;
 
 /**
- * True for requests that address keys and nothing else: a non-empty `keys`
- * field with every other field nullish. Such requests resolve through the
- * table's fetch primitive instead of the request fetch.
+ * Returns the keys of a request that addresses keys and nothing else: a
+ * non-empty `keys` field with every other field nullish. Such requests resolve
+ * through the table's fetch primitive instead of the request fetch. Returns
+ * null for any other request.
  */
-const isKeysOnly = (query: unknown): query is { keys: unknown[] } => {
-  if (typeof query !== "object" || query === null || Array.isArray(query)) return false;
+const keysOnly = (query: unknown): unknown[] | null => {
+  if (typeof query !== "object" || query === null || Array.isArray(query)) return null;
   const { keys } = query as { keys?: unknown };
-  if (!Array.isArray(keys) || keys.length === 0) return false;
-  return Object.entries(query).every(([k, v]) => k === "keys" || v == null);
+  if (!Array.isArray(keys) || keys.length === 0) return null;
+  if (!Object.entries(query).every(([k, v]) => k === "keys" || v == null)) return null;
+  return keys;
 };
 
 /** True for params that are a bare record key rather than a query object. */
@@ -167,8 +169,8 @@ export abstract class Retriever<
       name,
       table,
       fetch: async (query, options) => {
-        if (isKeysOnly(query))
-          return (await table.retrieve(query.keys as K[])).map((r) => r.key);
+        const keys = keysOnly(query);
+        if (keys != null) return (await table.retrieve(keys as K[])).map((r) => r.key);
         const records = await fetch(query, options);
         table.ingest(records);
         return records.map((r) => r.key);
