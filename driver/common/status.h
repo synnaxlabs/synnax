@@ -12,8 +12,6 @@
 #include <deque>
 #include <unordered_map>
 
-#include "client/cpp/status/status.h"
-
 #include "driver/common/common.h"
 #include "driver/task/task.h"
 

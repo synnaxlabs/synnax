@@ -9,18 +9,12 @@
 
 #pragma once
 
-#include <memory>
 #include <string>
-#include <utility>
 
 #include "open62541/client.h"
 
-#include "x/cpp/errors/errors.h"
-#include "x/cpp/telem/series.h"
 
 #include "driver/opc/connection/connection.h"
-#include "driver/opc/errors/errors.h"
-#include "driver/opc/telem/telem.h"
 #include "driver/opc/types/types.h"
 
 namespace driver::opc::device {

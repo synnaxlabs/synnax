@@ -23,8 +23,6 @@
 
 #include "x/cpp/telem/telem.h"
 
-#include "driver/opc/types/types.h"
-
 namespace mock {
 struct TestNode {
     std::int32_t ns;
