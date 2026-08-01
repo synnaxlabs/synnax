@@ -94,6 +94,11 @@ cutover:
 
 ## 4.0 - The Emission Rule
 
+_(Amended by [RFC 0047](./0047-260801-oracle-explicit-schema-versioning.md): both
+baseline tiers below are replaced by explicit per-resource version files — the file
+enumerates the define-vs-alias split directly, and the snapshot walk and frozen-source
+fallback are deleted.)_
+
 When `go/types` generates a version-laid-out current package `vM`:
 
 - **Baseline** — the latest snapshot in `schemas/snapshots/` whose resolution declares
@@ -256,7 +261,10 @@ as they are; an alias-form current version chains into them exactly as it would 
 alias-form history. Rewriting history for uniformity was rejected as pure churn against
 immutable packages.
 
-**6.2a - Frozen-source baseline over transcribed or annotated history.** Two retrofit
+**6.2a - Frozen-source baseline over transcribed or annotated history.**
+_(Superseded by [RFC 0047](./0047-260801-oracle-explicit-schema-versioning.md) §6.7:
+history is backfilled into version files — the target is living, grammar-migrated
+schema files rather than the dead snapshot bytes rejected here.)_ Two retrofit
 alternatives were rejected: transcribing the pre-versioning snapshots into current
 grammar (hand-authoring ~30 schemas of history, and the frozen snapshots are frozen),
 and a per-type `@go changed` annotation (relies on humans reconstructing which types
