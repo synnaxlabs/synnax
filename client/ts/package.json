@@ -17,7 +17,6 @@
     "url": "https://github.com/synnaxlabs/synnax/issues"
   },
   "license": "BUSL-1.1",
-  "main": "dist/client.cjs",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/synnaxlabs/synnax.git",
@@ -50,29 +49,25 @@
   },
   "devDependencies": {
     "@synnaxlabs/eslint-config": "workspace:^",
+    "@synnaxlabs/madge": "workspace:^",
     "@synnaxlabs/tsconfig": "workspace:^",
     "@synnaxlabs/vite-plugin": "workspace:^",
     "@vitest/coverage-v8": "catalog:",
     "@types/node": "catalog:",
     "eslint": "catalog:",
-    "madge": "catalog:",
     "typescript": "catalog:",
     "vite": "catalog:",
     "vitest": "catalog:"
   },
   "type": "module",
-  "types": "dist/src/index.d.ts",
-  "module": "dist/client.js",
   "exports": {
     ".": {
       "types": "./dist/src/index.d.ts",
-      "import": "./dist/client.js",
-      "require": "./dist/client.cjs"
+      "default": "./dist/client.js"
     },
     "./testutil": {
       "types": "./dist/src/testutil/index.d.ts",
-      "import": "./dist/testutil.js",
-      "require": "./dist/testutil.cjs"
+      "default": "./dist/testutil.js"
     }
   }
 }
