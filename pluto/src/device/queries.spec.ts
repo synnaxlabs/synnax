@@ -818,7 +818,7 @@ describe("queries", () => {
         await result.current.updateAsync(dev);
       });
       expect(result.current.variant).toEqual("success");
-      const retrieved = await client.devices.retrieve({ key });
+      const retrieved = await client.devices.retrieve(key);
       expect(retrieved.key).toEqual(key);
       expect(retrieved.name).toEqual("test");
       expect(retrieved.make).toEqual("ni");
@@ -848,7 +848,7 @@ describe("queries", () => {
         await result.current.updateAsync({ key: dev.key, name: "new-name" });
       });
       expect(result.current.variant).toEqual("success");
-      const retrieved = await client.devices.retrieve({ key: dev.key });
+      const retrieved = await client.devices.retrieve(dev.key);
       expect(retrieved.name).toEqual("new-name");
     });
   });
@@ -874,9 +874,7 @@ describe("queries", () => {
         await result.current.updateAsync(dev.key);
       });
       expect(result.current.variant).toEqual("success");
-      await expect(client.devices.retrieve({ key: dev.key })).rejects.toThrow(
-        NotFoundError,
-      );
+      await expect(client.devices.retrieve(dev.key)).rejects.toThrow(NotFoundError);
     });
   });
 
@@ -944,7 +942,7 @@ describe("queries", () => {
         properties: {},
       });
 
-      await client.devices.retrieve({ key: dev1.key });
+      await client.devices.retrieve(dev1.key);
 
       const devices = await client.devices.retrieve({
         keys: [dev1.key, dev2.key],
@@ -1025,7 +1023,7 @@ describe("queries", () => {
         properties: {},
       });
 
-      await client.devices.retrieve({ key: dev.key });
+      await client.devices.retrieve(dev.key);
 
       const devices = await client.devices.retrieve({
         keys: [dev.key],
@@ -1111,7 +1109,7 @@ describe("queries", () => {
           parent: _parent,
           status: _status,
           ...retrieved
-        } = await client.devices.retrieve({ key });
+        } = await client.devices.retrieve(key);
         expect(retrieved).toEqual({
           key,
           name: "Test Form Device",
@@ -1264,9 +1262,7 @@ describe("queries", () => {
 
         await waitFor(() => expect(result.current.variant).toBe("success"));
 
-        const updatedDevice = await client.devices.retrieve({
-          key: testDevice.key,
-        });
+        const updatedDevice = await client.devices.retrieve(testDevice.key);
         expect(updatedDevice.name).toBe("Updated Device Name");
         expect(updatedDevice.location).toBe("Lab4");
       });
@@ -1480,14 +1476,14 @@ describe("queries", () => {
           },
           schemas,
         );
-        await client.devices.retrieve({ key: dev.key });
+        await client.devices.retrieve(dev.key);
         const retrieved = await client.devices.retrieve({
           key: dev.key,
           includeStatus: true,
           schemas,
         });
         expect(retrieved.properties.sampleRate).toEqual(100);
-        const cached = await client.devices.retrieve({ key: dev.key });
+        const cached = await client.devices.retrieve(dev.key);
         expect(cached.properties).toEqual({ sampleRate: 100, channels: {} });
       });
     });
@@ -1532,7 +1528,7 @@ describe("queries", () => {
 
         await waitFor(() => expect(result.current.variant).toBe("success"));
 
-        const retrieved = await client.devices.retrieve({ key: dev.key });
+        const retrieved = await client.devices.retrieve(dev.key);
         expect(retrieved.name).toBe("updated-schema-device");
       });
 

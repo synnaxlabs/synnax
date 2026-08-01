@@ -32,11 +32,10 @@ export type ListParams = Pick<project.RetrieveRequest, "keys" | "offset" | "limi
 export const useList = Flux.createList<ListParams, project.Key, project.Project>({
   name: PLURAL_RESOURCE_NAME,
   retrieve: async ({ client, query }) => await client.projects.retrieve(query),
-  retrieveByKey: async ({ client, key }) => await client.projects.retrieve({ key }),
+  retrieveByKey: async ({ client, key }) => await client.projects.retrieve(key),
   subscribe: ({ client, query }, handler) => client.projects.onChange(query, handler),
   getCached: ({ client, query }) => client.projects.getCached(query),
-  subscribeByKey: ({ client, key }, handler) =>
-    client.projects.onChange({ key }, handler),
+  subscribeByKey: ({ client, key }, handler) => client.projects.onChange(key, handler),
 });
 
 export type DeleteParams = project.Key | project.Key[];
@@ -94,7 +93,7 @@ export const useForm = Flux.createForm<Partial<RetrieveQuery>, typeof formSchema
   initialValues: INITIAL_VALUES,
   retrieve: async ({ client, query: { key }, reset }) => {
     if (key == null) return;
-    reset(await client.projects.retrieve({ key }));
+    reset(await client.projects.retrieve(key));
   },
   update: async ({ client, value, set }) => {
     const res = await client.projects.create(value());

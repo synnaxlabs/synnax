@@ -47,12 +47,11 @@ export const useList = Flux.createList<
 >({
   name: PLURAL_RESOURCE_NAME,
   retrieve: async ({ client, query }) => await client.access.policies.retrieve(query),
-  retrieveByKey: async ({ client, key }) =>
-    await client.access.policies.retrieve({ key }),
+  retrieveByKey: async ({ client, key }) => await client.access.policies.retrieve(key),
   subscribe: ({ client, query }, handler) =>
     client.access.policies.onChange(query, handler),
   subscribeByKey: ({ client, key }, handler) =>
-    client.access.policies.onChange({ key }, handler),
+    client.access.policies.onChange(key, handler),
   getCached: ({ client, query }) => client.access.policies.getCached(query),
 });
 
@@ -98,7 +97,7 @@ export const useForm = Flux.createForm<Partial<RetrieveQuery>, typeof formSchema
   },
   retrieve: async ({ client, query, reset }) => {
     if (query.key == null) return;
-    reset(await client.access.policies.retrieve({ key: query.key }));
+    reset(await client.access.policies.retrieve(query.key));
   },
   update: async ({ client, value, set }) => {
     const p = await client.access.policies.create(value());

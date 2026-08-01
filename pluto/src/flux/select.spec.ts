@@ -27,14 +27,14 @@ const getSchem = (
   client: Client | null,
   key: schematic.Key,
 ): schematic.Schematic | undefined => {
-  const cached = client?.schematics.getCached({ key });
+  const cached = client?.schematics.getCached(key);
   return isLive(cached) ? cached : undefined;
 };
 
 const subscribe = (
   { client, args: { key } }: Flux.SelectorParams<SelectKeyArgs>,
   notify: () => void,
-) => (client == null ? () => {} : client.schematics.onChange({ key }, notify));
+) => (client == null ? () => {} : client.schematics.onChange(key, notify));
 
 const ZERO_XY: xy.XY = { x: 0, y: 0 };
 
@@ -64,7 +64,7 @@ const createSchem = async ({
     edges: [],
     configs: {},
   });
-  if (prime) await client.schematics.retrieve({ key: schem.key });
+  if (prime) await client.schematics.retrieve(schem.key);
   return schem;
 };
 
@@ -491,7 +491,7 @@ describe("createSelector", () => {
     it("should read the latest value on each call without re-rendering", async () => {
       const schem = await createSchem({ name: "Alice" });
       // Keep the query mounted so cache writes stay visible to getCached.
-      const off = client.schematics.onChange({ key: schem.key }, () => {});
+      const off = client.schematics.onChange(schem.key, () => {});
       try {
         let renderCount = 0;
         const [, useGetName] = Flux.createSelector<SelectKeyArgs, string>({

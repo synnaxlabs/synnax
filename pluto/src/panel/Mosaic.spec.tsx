@@ -467,7 +467,7 @@ describe("Panel.Mosaic", () => {
       await waitFor(() => expect(utils.queryByText(contentText(a))).toBeNull());
       await waitFor(() => expect(utils.getByText(contentText(b))).toBeTruthy());
       await waitFor(async () => {
-        const fetched = await client.panels.retrieve({ key: p.key });
+        const fetched = await client.panels.retrieve(p.key);
         expect(panel.findTab(fetched.root, a.key)).toBeUndefined();
         expect(panel.findTab(fetched.root, b.key)).toBeDefined();
       }, ROUND_TRIP);
@@ -496,7 +496,7 @@ describe("Panel.Mosaic", () => {
       await waitFor(() => expect(records.get(newKey)).toBeDefined());
       expect(records.get(newKey)?.type).toEqual("selector");
       await waitFor(async () => {
-        const fetched = await client.panels.retrieve({ key: p.key });
+        const fetched = await client.panels.retrieve(p.key);
         expect(panel.findTab(fetched.root, newKey)).toBeDefined();
       }, ROUND_TRIP);
     });
@@ -555,7 +555,7 @@ describe("Panel.Mosaic", () => {
       });
 
       await waitFor(async () => {
-        const fetched = await client.panels.retrieve({ key: p.key });
+        const fetched = await client.panels.retrieve(p.key);
         expect(panel.findTab(fetched.root, b.key)).toBeUndefined();
         expect(panel.findTab(fetched.root, a.key)).toBeDefined();
       }, ROUND_TRIP);
@@ -579,7 +579,7 @@ describe("Panel.Mosaic", () => {
       });
 
       await waitFor(async () => {
-        const fetched = await client.panels.retrieve({ key: p.key });
+        const fetched = await client.panels.retrieve(p.key);
         expect(fetched.root.variant).toEqual("split");
       }, ROUND_TRIP);
     });
@@ -624,7 +624,7 @@ describe("Panel.Mosaic", () => {
       await waitFor(() => expect(utils.getByText(contentText(a))).toBeTruthy());
       expect(utils.queryByText(contentText(b))).toBeNull();
 
-      await writer.panels.retrieve({ key: p.key });
+      await writer.panels.retrieve(p.key);
       await writer.panels.dispatch(p.key, [
         panel.moveTab({
           key: b.key,
@@ -648,7 +648,7 @@ describe("Panel.Mosaic", () => {
       await waitFor(() => expect(utils.getByText(contentText(tab))).toBeTruthy());
 
       const resource = { type: "lineplot", key: uuid.create() } as const;
-      await writer.panels.retrieve({ key: p.key });
+      await writer.panels.retrieve(p.key);
       await writer.panels.dispatch(p.key, [
         panel.setTabResource({ key: tab.key, resource }),
       ]);
@@ -667,7 +667,7 @@ describe("Panel.Mosaic", () => {
       await waitFor(() => expect(utils.getByText(contentText(a))).toBeTruthy());
       expect(utils.getAllByLabelText("Close")).toHaveLength(2);
 
-      await writer.panels.retrieve({ key: p.key });
+      await writer.panels.retrieve(p.key);
       await writer.panels.dispatch(p.key, [panel.removeTab({ key: b.key })]);
 
       await waitFor(

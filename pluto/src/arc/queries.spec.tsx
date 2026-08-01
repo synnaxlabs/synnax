@@ -343,7 +343,7 @@ describe("Arc queries", () => {
         expect(result.current.variant).toEqual("success");
       });
 
-      await expect(client.arcs.retrieve({ key: testArc.key })).rejects.toThrow();
+      await expect(client.arcs.retrieve(testArc.key)).rejects.toThrow();
     });
 
     it("should delete multiple arcs", async () => {
@@ -366,8 +366,8 @@ describe("Arc queries", () => {
         expect(result.current.variant).toEqual("success");
       });
 
-      await expect(client.arcs.retrieve({ key: arc1.key })).rejects.toThrow();
-      await expect(client.arcs.retrieve({ key: arc2.key })).rejects.toThrow();
+      await expect(client.arcs.retrieve(arc1.key)).rejects.toThrow();
+      await expect(client.arcs.retrieve(arc2.key)).rejects.toThrow();
     });
   });
 
@@ -429,7 +429,7 @@ describe("Arc queries", () => {
 
         await waitFor(async () => {
           expect(result.current.variant).toEqual("success");
-          const createdArc = await client.arcs.retrieve({ key });
+          const createdArc = await client.arcs.retrieve(key);
           const children = await client.ontology.children.retrieve({
             ids: arc.ontologyID(createdArc.key),
             types: ["task"],
@@ -457,14 +457,14 @@ describe("Arc queries", () => {
 
         await waitFor(async () => {
           expect(result.current.variant).toEqual("success");
-          const createdArc = await client.arcs.retrieve({ key });
+          const createdArc = await client.arcs.retrieve(key);
           const children = await client.ontology.children.retrieve({
             ids: arc.ontologyID(createdArc.key),
             types: ["task"],
           });
           expect(children).toHaveLength(1);
           const taskKey = children[0].id.key;
-          const retrievedTask = await client.tasks.retrieve({ key: taskKey });
+          const retrievedTask = await client.tasks.retrieve(taskKey);
           expect(retrievedTask.type).toBe("arc");
           expect(retrievedTask.config).toEqual({ arcKey: createdArc.key });
           expect(task.rackKey(taskKey)).toBe(testRack.key);
@@ -528,7 +528,7 @@ describe("Arc queries", () => {
           let originalTaskKey: task.Key = "";
           await waitFor(async () => {
             expect(createResult.current.variant).toEqual("success");
-            const createdArc = await client.arcs.retrieve({ key: arcKey });
+            const createdArc = await client.arcs.retrieve(arcKey);
             const childrenBefore = await client.ontology.children.retrieve({
               ids: arc.ontologyID(createdArc.key),
               types: ["task"],
@@ -669,9 +669,7 @@ describe("Arc queries", () => {
             expect(updateResult.current.variant).toEqual("success");
           });
 
-          await expect(
-            client.tasks.retrieve({ key: originalTaskKey }),
-          ).rejects.toThrow();
+          await expect(client.tasks.retrieve(originalTaskKey)).rejects.toThrow();
         });
       });
     });
@@ -712,7 +710,7 @@ describe("Arc queries", () => {
 
       const { key } = result.current.form.value();
       assert(key != null);
-      const created = await client.arcs.retrieve({ key });
+      const created = await client.arcs.retrieve(key);
       expect(created.name).toEqual(uniqueName);
       expect(created.mode).toEqual("text");
     });
@@ -794,7 +792,7 @@ describe("Arc queries", () => {
         expect(result.current.variant).toEqual("success");
       });
 
-      const retrieved = await client.arcs.retrieve({ key: testArc.key });
+      const retrieved = await client.arcs.retrieve(testArc.key);
       expect(retrieved.name).toBe(newName);
     });
   });

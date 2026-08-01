@@ -35,7 +35,7 @@ export const useClipboard = ({
     mime: MIME,
     edgeKey: (edge) => edge.key,
     getSnapshot: () => {
-      const cached = client?.arcs.getCached({ key });
+      const cached = client?.arcs.getCached(key);
       if (cached == null || query.Deleted.matches(cached)) return null;
       const {
         graph: { nodes, edges, inputs },

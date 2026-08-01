@@ -274,7 +274,7 @@ describe("log queries", () => {
         });
       });
       expect(result.current.variant).toEqual("success");
-      expect((await client.logs.retrieve({ key })).name).toEqual("created_log");
+      expect((await client.logs.retrieve(key)).name).toEqual("created_log");
       const { result: name } = await loadAndSelect(key, () =>
         Log.useSelectName({ key }),
       );
@@ -296,9 +296,7 @@ describe("log queries", () => {
       await act(async () => {
         await result.current.rename.updateAsync({ key: created.key, name: "renamed" });
       });
-      expect((await client.logs.retrieve({ key: created.key })).name).toEqual(
-        "renamed",
-      );
+      expect((await client.logs.retrieve(created.key)).name).toEqual("renamed");
       await waitFor(() =>
         expect(result.current.retrieve.data?.name).toEqual("renamed"),
       );
@@ -327,7 +325,7 @@ describe("log queries", () => {
           1,
         ),
       );
-      const onServer = await client.logs.retrieve({ key: created.key });
+      const onServer = await client.logs.retrieve(created.key);
       expect(onServer.channels.map((e) => e.channel)).toContain(1);
     });
   });
@@ -340,9 +338,7 @@ describe("log queries", () => {
         await result.current.updateAsync(created.key);
       });
       expect(result.current.variant).toEqual("success");
-      await expect(client.logs.retrieve({ key: created.key })).rejects.toThrow(
-        NotFoundError,
-      );
+      await expect(client.logs.retrieve(created.key)).rejects.toThrow(NotFoundError);
     });
 
     it("should delete multiple logs", async () => {
@@ -353,12 +349,8 @@ describe("log queries", () => {
         await result.current.updateAsync([l1.key, l2.key]);
       });
       expect(result.current.variant).toEqual("success");
-      await expect(client.logs.retrieve({ key: l1.key })).rejects.toThrow(
-        NotFoundError,
-      );
-      await expect(client.logs.retrieve({ key: l2.key })).rejects.toThrow(
-        NotFoundError,
-      );
+      await expect(client.logs.retrieve(l1.key)).rejects.toThrow(NotFoundError);
+      await expect(client.logs.retrieve(l2.key)).rejects.toThrow(NotFoundError);
     });
   });
 });

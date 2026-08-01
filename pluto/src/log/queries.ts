@@ -43,7 +43,7 @@ export interface SelectKeyParams {
 }
 
 const requireLog = (client: Client | null, key: log.Key): log.Log => {
-  const cached = client?.logs.getCached({ key });
+  const cached = client?.logs.getCached(key);
   if (cached == null || query.Deleted.matches(cached))
     throw new NotFoundError(`Log with key ${key} not found`);
   return cached;
@@ -52,7 +52,7 @@ const requireLog = (client: Client | null, key: log.Key): log.Log => {
 const subscribe = (
   { client, args: { key } }: Flux.SelectorParams<SelectKeyParams>,
   notify: () => void,
-) => (client == null ? () => {} : client.logs.onChange({ key }, notify));
+) => (client == null ? () => {} : client.logs.onChange(key, notify));
 
 export const [useSelectName, useGetName] = Scope.bindSelector(
   Flux.createSelector<SelectKeyParams, string>({

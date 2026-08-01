@@ -23,9 +23,9 @@ export type ListQuery = view.RetrieveMultipleParams;
 export const useList = Flux.createList<ListQuery, view.Key, view.View>({
   name: PLURAL_RESOURCE_NAME,
   retrieve: async ({ client, query }) => await client.views.retrieve(query),
-  retrieveByKey: async ({ client, key }) => await client.views.retrieve({ key }),
+  retrieveByKey: async ({ client, key }) => await client.views.retrieve(key),
   subscribe: ({ client, query }, handler) => client.views.onChange(query, handler),
-  subscribeByKey: ({ client, key }, handler) => client.views.onChange({ key }, handler),
+  subscribeByKey: ({ client, key }, handler) => client.views.onChange(key, handler),
   getCached: ({ client, query }) => client.views.getCached(query),
 });
 
@@ -63,7 +63,7 @@ export const useForm = Flux.createForm<FormQuery, typeof formSchema>({
   initialValues: ZERO_VALUES,
   retrieve: async ({ client, query: { key }, reset }) => {
     if (key == null) return;
-    reset(await client.views.retrieve({ key }));
+    reset(await client.views.retrieve(key));
   },
   update: async ({ client, value, reset }) => {
     const updated = await client.views.create(value());
@@ -71,7 +71,7 @@ export const useForm = Flux.createForm<FormQuery, typeof formSchema>({
   },
   mountListeners: ({ client, query: { key }, reset }) => {
     if (key == null) return [];
-    return client.views.onChange({ key }, (result) => {
+    return client.views.onChange(key, (result) => {
       if (result != null && !query.Deleted.matches(result)) reset(result);
     });
   },

@@ -49,7 +49,7 @@ const requireSchematic = (
   client: Client | null,
   key: schematic.Key,
 ): schematic.Schematic => {
-  const cached = client?.schematics.getCached({ key });
+  const cached = client?.schematics.getCached(key);
   if (cached == null || query.Deleted.matches(cached))
     throw new NotFoundError(`Schematic with key ${key} not found`);
   return cached;
@@ -59,7 +59,7 @@ const getSchematic = (
   client: Client | null,
   key: schematic.Key,
 ): schematic.Schematic | undefined => {
-  const cached = client?.schematics.getCached({ key });
+  const cached = client?.schematics.getCached(key);
   if (cached == null || query.Deleted.matches(cached)) return undefined;
   return cached;
 };
@@ -67,7 +67,7 @@ const getSchematic = (
 const subscribe = (
   { client, args: { key } }: Flux.SelectorParams<SelectKeyParams>,
   notify: () => void,
-) => (client == null ? () => {} : client.schematics.onChange({ key }, notify));
+) => (client == null ? () => {} : client.schematics.onChange(key, notify));
 
 export const [useSelectAllNodes, useGetAllNodes] = Scope.bindSelector(
   Flux.createSelector<SelectKeyParams, schematic.Node[]>({
@@ -292,7 +292,7 @@ export const useAddNode = () => {
       const config = Node.resolveSpec(variant).defaultConfig(theme);
       if (Node.isCustomConfig(config) && specKey != null) {
         config.specKey = specKey;
-        const sym = client?.schematics.symbols.getCached({ key: specKey });
+        const sym = client?.schematics.symbols.getCached(specKey);
         if (config.label != null && sym != null && !query.Deleted.matches(sym))
           config.label.label = sym.name;
       }

@@ -46,9 +46,9 @@ export interface SelectKeyParams {
 export const [useSelectName, useGetName] = Flux.createSelector<SelectKeyParams, string>(
   {
     subscribe: ({ client, args: { key } }, notify) =>
-      client == null ? () => {} : client.tasks.onChange({ key }, notify),
+      client == null ? () => {} : client.tasks.onChange(key, notify),
     select: ({ client, args: { key } }) => {
-      const cached = client?.tasks.getCached({ key });
+      const cached = client?.tasks.getCached(key);
       if (cached == null || query.Deleted.matches(cached)) return "Task";
       return cached.name;
     },
@@ -87,7 +87,7 @@ export const useList = Flux.createList<ListQuery, task.Key, task.Task>({
     await client.tasks.retrieve({ ...BASE_QUERY, key }),
   subscribe: ({ client, query }, handler) =>
     client.tasks.onChange(listRequest(query), handler),
-  subscribeByKey: ({ client, key }, handler) => client.tasks.onChange({ key }, handler),
+  subscribeByKey: ({ client, key }, handler) => client.tasks.onChange(key, handler),
   getCached: ({ client, query }) => client.tasks.getCached(listRequest(query)),
 });
 
@@ -176,7 +176,7 @@ export const createForm = <S extends task.Schemas = task.Schemas>({
     },
     update: async ({ client, ...form }) => {
       const value = form.value();
-      const rack = await client.racks.retrieve({ key: value.rackKey });
+      const rack = await client.racks.retrieve(value.rackKey);
       const task = await rack.createTask(
         {
           key: value.key,
@@ -192,7 +192,7 @@ export const createForm = <S extends task.Schemas = task.Schemas>({
     },
     mountListeners: ({ client, query: { key }, set }) => {
       if (key == null) return [];
-      return client.tasks.onChange({ key }, (result) => {
+      return client.tasks.onChange(key, (result) => {
         if (result === undefined || query.Deleted.matches(result)) return;
         resetFormValues(set, result.payload as task.Payload<S>);
         if (result.status != null)

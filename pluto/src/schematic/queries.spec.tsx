@@ -335,7 +335,7 @@ describe("schematic queries", () => {
       expect(selected.current.name).toBe("created_schematic");
       expect(selected.current.snapshot).toBe(false);
 
-      const retrieved = await client.schematics.retrieve({ key });
+      const retrieved = await client.schematics.retrieve(key);
       expect(retrieved.name).toBe("created_schematic");
     });
   });
@@ -359,7 +359,7 @@ describe("schematic queries", () => {
         expect(result.current.variant).toBe("success");
       });
 
-      const retrieved = await client.schematics.retrieve({ key: schem.key });
+      const retrieved = await client.schematics.retrieve(schem.key);
       expect(retrieved.name).toBe("renamed_schematic");
     });
   });
@@ -377,7 +377,7 @@ describe("schematic queries", () => {
       });
 
       expect(result.current.variant).toBe("success");
-      await expect(client.schematics.retrieve({ key: schem.key })).rejects.toThrow(
+      await expect(client.schematics.retrieve(schem.key)).rejects.toThrow(
         NotFoundError,
       );
     });

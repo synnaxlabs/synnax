@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { ontology, type Synnax as Client } from "@synnaxlabs/client";
-import { verbs } from "@synnaxlabs/x";
+import { type verbs } from "@synnaxlabs/x";
 import { useEffect } from "react";
 
 import { Flux } from "@/flux";

@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { channel, DataType, type group, query, type ranger } from "@synnaxlabs/client";
-import { TimeSpan, array, control, type optional, verbs } from "@synnaxlabs/x";
+import { array, control, type optional, TimeSpan, verbs } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { Flux } from "@/flux";

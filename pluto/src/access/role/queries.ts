@@ -34,11 +34,11 @@ export type ListQuery = List.PagerParams;
 export const useList = Flux.createList<ListQuery, access.role.Key, access.role.Role>({
   name: PLURAL_RESOURCE_NAME,
   retrieve: async ({ client, query }) => await client.access.roles.retrieve(query),
-  retrieveByKey: async ({ client, key }) => await client.access.roles.retrieve({ key }),
+  retrieveByKey: async ({ client, key }) => await client.access.roles.retrieve(key),
   subscribe: ({ client, query }, handler) =>
     client.access.roles.onChange(query, handler),
   subscribeByKey: ({ client, key }, handler) =>
-    client.access.roles.onChange({ key }, handler),
+    client.access.roles.onChange(key, handler),
   getCached: ({ client, query }) => client.access.roles.getCached(query),
 });
 
@@ -128,7 +128,7 @@ export const useForm = Flux.createForm<Partial<RetrieveQuery>, typeof formSchema
   },
   retrieve: async ({ client, query }) => {
     if (query.key == null) return;
-    await client.access.roles.retrieve({ key: query.key });
+    await client.access.roles.retrieve(query.key);
   },
   update: async ({ client, value, set }) => {
     const v = value();
