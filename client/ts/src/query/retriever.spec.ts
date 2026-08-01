@@ -84,6 +84,33 @@ describe("Retriever", () => {
       expect(fetchKeys).toHaveBeenCalledTimes(1);
     });
 
+    it("resolves a bare key array as { keys } shorthand", async () => {
+      const fetchKeys = vi.fn(async (keys: string[]) => keys.map((k) => thing(k)));
+      const client = new Client(newCache(), fetchKeys, async () => []);
+      const result = await client.retrieve(["a", "b"]);
+      expect(result).toEqual([thing("a"), thing("b")]);
+      expect(fetchKeys).toHaveBeenCalledWith(["a", "b"]);
+    });
+
+    it("rejects a bare key array when the request schema lacks keys", async () => {
+      const keylessZ = z.object({ minSize: z.number().optional() });
+      class KeylessClient extends query.Retriever<typeof keylessZ, string, Thing> {
+        constructor(cache: query.Cache) {
+          const store = cache.createTable<string, Thing>({
+            name: "things",
+            fetch: async (keys) => keys.map((k) => thing(k)),
+          });
+          super(cache, {
+            name: "thing",
+            table: store,
+            request: { schema: keylessZ, fetch: async () => [] },
+          });
+        }
+      }
+      const client = new KeylessClient(newCache());
+      await expect(client.retrieve(["a"])).rejects.toThrow(ValidationError);
+    });
+
     it("serves a cached row without a network fetch", async () => {
       const fetchKeys = vi.fn(async (keys: string[]) => keys.map((k) => thing(k)));
       const client = new Client(newCache(), fetchKeys, async () => []);

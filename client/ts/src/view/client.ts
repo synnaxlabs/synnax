@@ -38,9 +38,9 @@ const retrieveRequestZ = z.object({
   limit: z.number().optional(),
 });
 
-export interface RetrieveSingleParams {
-  key: Key;
-}
+// A type alias, not an interface: only aliases get the implicit index
+// signature that record-constrained query types require.
+export type RetrieveSingleParams = { key: Key };
 export interface RetrieveMultipleParams extends z.input<typeof retrieveRequestZ> {}
 
 interface RetrieveRequest extends z.infer<typeof retrieveRequestZ> {}
