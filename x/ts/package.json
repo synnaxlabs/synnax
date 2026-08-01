@@ -23,23 +23,27 @@
   },
   "dependencies": {
     "async-mutex": "catalog:",
-    "nanoid": "^5.1.16",
+    "nanoid": "^6.0.0",
     "uuid": "^14.0.1",
     "zod": "catalog:"
   },
   "devDependencies": {
     "@synnaxlabs/eslint-config": "workspace:^",
+    "@synnaxlabs/madge": "workspace:^",
     "@synnaxlabs/tsconfig": "workspace:^",
     "@synnaxlabs/vite-plugin": "workspace:^",
     "@types/node": "catalog:",
     "@vitest/coverage-v8": "catalog:",
     "eslint": "catalog:",
-    "madge": "catalog:",
     "typescript": "catalog:",
     "vite": "catalog:",
     "vitest": "catalog:"
   },
-  "main": "dist/x.cjs",
-  "module": "dist/x.js",
-  "types": "dist/src/index.d.ts"
+  "exports": {
+    ".": {
+      "types": "./dist/src/index.d.ts",
+      "default": "./dist/x.js"
+    },
+    "./dist/*": "./dist/*"
+  }
 }
