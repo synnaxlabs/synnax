@@ -142,8 +142,8 @@ func validateVersionArgs(c *analysisCtx, types []resolution.Type) {
 	}
 }
 
-// validateImex errors on malformed @go imex declarations: the marker is
-// per-type, takes no arguments, and requires a @go version on the same type.
+// validateImex errors on malformed @go imex declarations: the marker is per-type, takes
+// no arguments, and requires a @go version on the same type.
 func validateImex(c *analysisCtx, types []resolution.Type) {
 	if dom, ok := c.fileDomains["go"]; ok {
 		if _, has := dom.Expressions.Find("imex"); has {

@@ -24,8 +24,7 @@ messages, PRs).
 
 Users only ever run builds released from `main`; `rc` is pre-release integration and
 never ships. Backward compatibility — file formats, stored shapes, wire quirks,
-migrations — is owed only to what `main` released. rc-era formats may be dropped
-freely.
+migrations — is owed only to what `main` released. rc-era formats may be dropped freely.
 
 ## Documentation
 

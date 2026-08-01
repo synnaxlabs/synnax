@@ -7,10 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-// Package imex generates the portable import/export version constant for any
-// oracle struct that declares the bare `@go imex` marker. The constant equals
-// the type's @go version, keeping the wire envelope version and the storage
-// schema version a single sequence per resource.
+// Package imex generates the portable import/export version constant for any Oracle
+// struct that declares the bare `@go imex` marker. The constant equals the type's @go
+// version, keeping the wire envelope version and the storage schema version a single
+// sequence per resource.
 package imex
 
 import (
@@ -33,9 +33,7 @@ type Options struct {
 }
 
 // DefaultOptions returns the production defaults: imex.gen.go.
-func DefaultOptions() Options {
-	return Options{FileNamePattern: "imex.gen.go"}
-}
+func DefaultOptions() Options { return Options{FileNamePattern: "imex.gen.go"} }
 
 // Plugin emits the generated imex version constant.
 type Plugin struct{ Options Options }
@@ -43,24 +41,19 @@ type Plugin struct{ Options Options }
 // New constructs a Plugin with the given options.
 func New(opts Options) *Plugin { return &Plugin{Options: opts} }
 
-func (p *Plugin) Name() string                  { return "go/imex" }
-func (p *Plugin) Domains() []string             { return []string{"go"} }
-func (p *Plugin) Requires() []string            { return []string{"go/types"} }
-func (p *Plugin) Check(_ *plugin.Request) error { return nil }
+func (*Plugin) Name() string                { return "go/imex" }
+func (*Plugin) Domains() []string           { return []string{"go"} }
+func (*Plugin) Requires() []string          { return []string{"go/types"} }
+func (*Plugin) Check(*plugin.Request) error { return nil }
 
-var goPostWriter = &exec.PostWriter{
-	Extensions: []string{".go"},
-	Commands:   [][]string{{"gofmt", "-w"}},
-}
+var goPostWriter = &exec.PostWriter{Commands: [][]string{{"gofmt", "-w"}}}
 
 // PostWrite runs gofmt on the generated files.
-func (p *Plugin) PostWrite(files []string) error {
-	return goPostWriter.PostWrite(files)
-}
+func (*Plugin) PostWrite(files []string) error { return goPostWriter.PostWrite(files) }
 
-// Generate emits one imex.gen.go per output package whose type declares
-// @go imex. It errors when a marked type lacks a @go version or when two types
-// at the same path both carry the marker.
+// Generate emits one imex.gen.go per output package whose type declares @go imex. It
+// errors when a marked type lacks a @go version or when two types at the same path both
+// carry the marker.
 func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 	resp := &plugin.Response{}
 	declared := make(map[string]string)
@@ -113,8 +106,7 @@ package {{.Package}}
 
 import "github.com/synnaxlabs/synnax/pkg/service/imex"
 
-// Version is the portable schema version stamped on exported {{.Type}}
-// envelopes and the highest version import accepts. It equals the resource's
-// schema version.
+// Version is the portable schema version stamped on exported {{.Type}} envelopes and
+// the highest version import accepts. It equals the resource's schema version.
 const Version imex.Version = {{.Version}}
 `))

@@ -12,8 +12,8 @@ import { type PropsWithChildren } from "react";
 import { Task } from "@/feature/task";
 import { Import } from "@/platform/import";
 
-// Only task configs are ingested client-side; every other file type is streamed to
-// the server through Import.ingestServer.
+// Only task configs are ingested client-side; every other file type is streamed to the
+// server through Import.ingestServer.
 const FILE_INGESTERS: Import.FileIngesters = { ...Task.FILE_INGESTERS };
 
 export interface ContextProps extends PropsWithChildren<{}> {}
