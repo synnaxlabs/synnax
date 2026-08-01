@@ -77,13 +77,17 @@ export const Boolean = ({
           type="checkbox"
           ref={ref}
           checked={value}
-          onChange={(e) => {
-            e.stopPropagation();
-            onChange?.(e.target.checked);
+          // Toggle on click, not change: a state update flushed by a capture-phase
+          // listener (e.g. mosaic tab focus-follows-click) re-commits this controlled
+          // input mid-click, reverting the browser's toggle and updating React's value
+          // tracker so the change event never fires.
+          onClick={(e) => {
+            onClick?.(e);
+            onChange?.(!value);
           }}
+          onChange={(e) => e.stopPropagation()}
           value=""
           disabled={disabled}
-          onClick={onClick}
           {...rest}
         />
         <span className={CSS.BE("input", inputType, "indicator")} onClick={onClick} />
