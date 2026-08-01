@@ -14,6 +14,7 @@
 #include "x/cpp/breaker/breaker.h"
 #include "x/cpp/loop/loop.h"
 
+#include "absl/log/log.h"
 #include "driver/common/factory.h"
 #include "driver/pipeline/acquisition.h"
 #include "driver/task/task.h"

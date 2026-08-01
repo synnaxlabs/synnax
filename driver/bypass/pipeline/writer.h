@@ -11,6 +11,7 @@
 
 #include <memory>
 
+#include "absl/log/log.h"
 #include "driver/bypass/bypass.h"
 #include "driver/control/state.h"
 #include "driver/pipeline/acquisition.h"

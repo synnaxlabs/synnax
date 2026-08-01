@@ -11,6 +11,7 @@
 #include <string>
 #include <unordered_map>
 
+#include "absl/log/log.h"
 #include "driver/common/scan_task.h"
 #include "driver/ni/scan_task.h"
 #include "errors/errors.h"

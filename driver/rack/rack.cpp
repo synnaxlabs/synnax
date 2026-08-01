@@ -11,6 +11,7 @@
 #include "x/cpp/thread/rt/rt.h"
 #include "x/cpp/thread/thread.h"
 
+#include "absl/log/log.h"
 #include "rack.h"
 
 namespace driver::rack {

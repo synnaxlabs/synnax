@@ -16,6 +16,8 @@
 #include "x/cpp/control/control.h"
 #include "x/cpp/telem/frame.h"
 
+#include "absl/log/log.h"
+
 namespace driver::control {
 /// @brief maintains a local mirror of per-channel authority state.
 class States {

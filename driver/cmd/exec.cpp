@@ -15,6 +15,7 @@
 #include "x/cpp/log/log.h"
 
 #include "absl/log/globals.h"
+#include "absl/log/log.h"
 #include "driver/cmd/cmd.h"
 
 namespace driver::cmd {

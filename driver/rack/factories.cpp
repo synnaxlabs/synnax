@@ -10,6 +10,7 @@
 #ifndef SYNNAX_NILINUXRT
 #include "driver/modbus/modbus.h"
 #endif
+#include "absl/log/log.h"
 #include "driver/arc/arc.h"
 #include "driver/ethercat/ethercat.h"
 #include "driver/http/http.h"

@@ -18,6 +18,7 @@
 #include "x/cpp/json/json.h"
 #include "x/cpp/uuid/uuid.h"
 
+#include "absl/log/log.h"
 #include "arc/cpp/program/program.h"
 #include "arc/cpp/runtime/errors/errors.h"
 #include "arc/cpp/runtime/loop/loop.h"

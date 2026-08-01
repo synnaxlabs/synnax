@@ -19,6 +19,7 @@
 #include "x/cpp/json/json.h"
 
 /// internal
+#include "absl/log/log.h"
 #include "driver/common/write_task.h"
 #include "driver/opc/connection/connection.h"
 #include "driver/opc/errors/errors.h"

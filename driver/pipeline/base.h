@@ -15,6 +15,8 @@
 #include "x/cpp/breaker/breaker.h"
 #include "x/cpp/thread/thread.h"
 
+#include "absl/log/log.h"
+
 namespace driver::pipeline {
 class Base {
     /// @brief the primary thread that runs the pipeline.

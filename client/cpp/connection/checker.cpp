@@ -12,6 +12,8 @@
 
 #include "client/cpp/connection/checker.h"
 
+#include "absl/log/log.h"
+
 namespace synnax::connection {
 const std::string TROUBLESHOOTING_URL =
     "https://docs.synnaxlabs.com/reference/client/resources/troubleshooting";

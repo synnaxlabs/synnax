@@ -10,6 +10,7 @@
 #include "x/cpp/os/os.h"
 #include "x/cpp/path/path.h"
 
+#include "absl/log/log.h"
 #include "driver/rack/rack.h"
 
 namespace driver::rack {
