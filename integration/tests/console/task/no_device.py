@@ -51,7 +51,8 @@ class NoDevice(ConsoleCase):
 
         client = self.client
         rack = client.racks.create(name=rack_name)
-        client.devices.create(
+        self._rack_key = rack.key
+        devices = client.devices.create(
             [
                 sy.ni.Device(
                     key="a0e37b26-5401-413e-8e65-c7ad9d9afd70",
@@ -63,6 +64,19 @@ class NoDevice(ConsoleCase):
                 ),
             ]
         )
+        self._device_keys = [d.key for d in devices]
+
+    def teardown(self) -> None:
+        """Delete the test rack and devices so the rack monitor stops warning."""
+        with self._try_to("delete test devices"):
+            keys = getattr(self, "_device_keys", [])
+            if keys:
+                self.client.devices.delete(keys)
+        with self._try_to("delete test rack"):
+            rack_key = getattr(self, "_rack_key", None)
+            if rack_key is not None:
+                self.client.racks.delete([rack_key])
+        super().teardown()
 
     def initial_assertion(self, ni_ai: AnalogRead) -> None:
         """Initial assertion of task status"""

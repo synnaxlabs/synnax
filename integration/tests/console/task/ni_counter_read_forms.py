@@ -74,7 +74,8 @@ class NICounterReadForms(ConsoleCase):
 
     def create_test_rack(self, rack_name: str, device_name: str) -> None:
         rack = self.client.racks.create(name=rack_name)
-        self.client.devices.create(
+        self._rack_key = rack.key
+        devices = self.client.devices.create(
             [
                 sy.ni.Device(
                     key="230227d9-02aa-47e4-b370-0d590add1bc1",
@@ -86,7 +87,20 @@ class NICounterReadForms(ConsoleCase):
                 )
             ]
         )
+        self._device_keys = [d.key for d in devices]
         sy.sleep(1)
+
+    def teardown(self) -> None:
+        """Delete the test rack and devices so the rack monitor stops warning."""
+        with self._try_to("delete test devices"):
+            keys = getattr(self, "_device_keys", [])
+            if keys:
+                self.client.devices.delete(keys)
+        with self._try_to("delete test rack"):
+            rack_key = getattr(self, "_rack_key", None)
+            if rack_key is not None:
+                self.client.racks.delete([rack_key])
+        super().teardown()
 
     def verify_edge_count_inputs(self, ni_ci: CounterRead, device_name: str) -> None:
         """Validate Edge Count inputs"""
