@@ -9,15 +9,29 @@
 
 #pragma once
 
+#include <cstddef>
+#include <memory>
+#include <set>
+#include <string>
+#include <utility>
+#include <vector>
+
 #include "open62541/client_highlevel.h"
 #include "open62541/common.h"
 #include "open62541/types.h"
 
+#include "client/cpp/synnax.h"
+#include "x/cpp/breaker/breaker.h"
+#include "x/cpp/errors/errors.h"
 #include "x/cpp/json/json.h"
 #include "x/cpp/loop/loop.h"
+#include "x/cpp/strings/strings.h"
+#include "x/cpp/telem/frame.h"
+#include "x/cpp/telem/telem.h"
 
 #include "driver/common/read_task.h"
 #include "driver/common/sample_clock.h"
+#include "driver/errors/errors.h"
 #include "driver/opc/connection/connection.h"
 #include "driver/opc/errors/errors.h"
 #include "driver/opc/telem/telem.h"
