@@ -33,7 +33,7 @@ describe("Project", () => {
         layout: { one: 1 },
       });
       await client.projects.rename(proj.key, "Schematic2");
-      const res = await client.projects.retrieve({ key: proj.key });
+      const res = await client.projects.retrieve(proj.key);
       expect(res.name).toEqual("Schematic2");
     });
   });
@@ -44,7 +44,7 @@ describe("Project", () => {
         layout: { one: 1 },
       });
       await client.projects.setLayout(proj.key, { two: 2 });
-      const res = await client.projects.retrieve({ key: proj.key });
+      const res = await client.projects.retrieve(proj.key);
       expect(res.layout.two).toEqual(2);
     });
   });
@@ -55,7 +55,7 @@ describe("Project", () => {
         layout: { one: 1 },
       });
       await client.projects.delete(proj.key);
-      await expect(client.projects.retrieve({ key: proj.key })).rejects.toThrow();
+      await expect(client.projects.retrieve(proj.key)).rejects.toThrow();
     });
   });
   describe("retrieve", () => {
@@ -86,7 +86,7 @@ describe("Project", () => {
         },
       });
 
-      const retrieved = await client.projects.retrieve({ key: proj.key });
+      const retrieved = await client.projects.retrieve(proj.key);
 
       const layout = retrieved.layout as Record<string, unknown>;
       expect(layout.camelCaseKey).toEqual("value1");

@@ -40,7 +40,7 @@ describe("schematic_symbol", () => {
         parent: group.ontologyID(symbolGroup.key),
       });
       await expect(
-        userClient.schematics.symbols.retrieve({ key: randomSymbol.key }),
+        userClient.schematics.symbols.retrieve(randomSymbol.key),
       ).rejects.toThrow(AuthError);
     });
 
@@ -64,9 +64,7 @@ describe("schematic_symbol", () => {
         },
         parent: group.ontologyID(symbolGroup.key),
       });
-      const retrieved = await userClient.schematics.symbols.retrieve({
-        key: randomSymbol.key,
-      });
+      const retrieved = await userClient.schematics.symbols.retrieve(randomSymbol.key);
       expect(retrieved.key).toBe(randomSymbol.key);
       expect(retrieved.name).toBe(randomSymbol.name);
     });
@@ -139,7 +137,7 @@ describe("schematic_symbol", () => {
       });
       await userClient.schematics.symbols.delete(randomSymbol.key);
       await expect(
-        userClient.schematics.symbols.retrieve({ key: randomSymbol.key }),
+        userClient.schematics.symbols.retrieve(randomSymbol.key),
       ).rejects.toThrow(NotFoundError);
     });
 

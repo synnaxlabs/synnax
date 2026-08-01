@@ -33,7 +33,7 @@ describe("Label", () => {
         name: "Label",
         color: "#E774D0",
       });
-      const retrieved = await client.labels.retrieve({ key: v.key });
+      const retrieved = await client.labels.retrieve(v.key);
       expect(retrieved).toEqual(v);
     });
     it("should retrieve labels by search term", async () => {
@@ -56,9 +56,7 @@ describe("Label", () => {
         color: "#E774D0",
       });
       await client.labels.delete(v.key);
-      await expect(
-        async () => await client.labels.retrieve({ key: v.key }),
-      ).rejects.toThrow();
+      await expect(async () => await client.labels.retrieve(v.key)).rejects.toThrow();
     });
   });
 
@@ -98,7 +96,7 @@ describe("cached reads", () => {
       name: `qry-${id.create()}`,
       color: "#E774D0",
     });
-    const cached = expectLive(client.labels.getCached({ key: lbl.key }));
+    const cached = expectLive(client.labels.getCached(lbl.key));
     expect(cached.name).toEqual(lbl.name);
   });
 
@@ -107,16 +105,16 @@ describe("cached reads", () => {
       name: `qry-${id.create()}`,
       color: "#E774D0",
     });
-    const off = client.labels.onChange({ key: lbl.key }, vi.fn());
+    const off = client.labels.onChange(lbl.key, vi.fn());
     try {
-      await client.labels.retrieve({ key: lbl.key });
+      await client.labels.retrieve(lbl.key);
       await remote.labels.delete(lbl.key);
       await expect
-        .poll(() => query.Deleted.matches(client.labels.getCached({ key: lbl.key })))
+        .poll(() => query.Deleted.matches(client.labels.getCached(lbl.key)))
         .toBe(true);
-      const cached = expectDeleted(client.labels.getCached({ key: lbl.key }));
+      const cached = expectDeleted(client.labels.getCached(lbl.key));
       expect(cached.corpse.name).toEqual(lbl.name);
-      await expect(client.labels.retrieve({ key: lbl.key })).rejects.toThrow("deleted");
+      await expect(client.labels.retrieve(lbl.key)).rejects.toThrow("deleted");
     } finally {
       off();
     }
@@ -164,15 +162,15 @@ describe("store", () => {
     });
     await expect
       .poll(() => {
-        const cached = client.labels.getCached({ key: created.key });
+        const cached = client.labels.getCached(created.key);
         return isLive(cached) ? cached.name : undefined;
       })
       .toEqual(created.name);
     await client.labels.delete(created.key);
     await expect
-      .poll(() => query.Deleted.matches(client.labels.getCached({ key: created.key })))
+      .poll(() => query.Deleted.matches(client.labels.getCached(created.key)))
       .toBe(true);
-    const cached = expectDeleted(client.labels.getCached({ key: created.key }));
+    const cached = expectDeleted(client.labels.getCached(created.key));
     expect(cached.corpse.name).toEqual(created.name);
   });
 });

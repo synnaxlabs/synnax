@@ -26,7 +26,7 @@ describe("Table", () => {
       });
       expect(t.name).toEqual("Table");
       expect(t.key).not.toEqual(uuid.ZERO);
-      const retrieved = await client.tables.retrieve({ key: t.key });
+      const retrieved = await client.tables.retrieve(t.key);
       expect(retrieved.key).toEqual(t.key);
     });
   });
@@ -38,7 +38,7 @@ describe("Table", () => {
         name: "Table",
       });
       await client.tables.rename(t.key, "Table2");
-      const res = await client.tables.retrieve({ key: t.key });
+      const res = await client.tables.retrieve(t.key);
       expect(res.name).toEqual("Table2");
     });
   });
@@ -50,9 +50,7 @@ describe("Table", () => {
         name: "Table",
       });
       await client.tables.delete(t.key);
-      await expect(client.tables.retrieve({ key: t.key })).rejects.toThrow(
-        NotFoundError,
-      );
+      await expect(client.tables.retrieve(t.key)).rejects.toThrow(NotFoundError);
     });
   });
 
@@ -77,7 +75,7 @@ describe("Table", () => {
           },
         },
       });
-      const retrieved = await client.tables.retrieve({ key: t.key });
+      const retrieved = await client.tables.retrieve(t.key);
       const props = retrieved.cells.a.props as Record<string, unknown>;
       expect(props.camelCaseKey).toEqual("value1");
       expect(props.PascalCaseKey).toEqual("value2");
@@ -114,7 +112,7 @@ describe("Table", () => {
     test("rename applies via dispatch", async () => {
       const t = await createTable();
       await client.tables.dispatch(t.key, [table.rename({ name: "renamed" })]);
-      const res = await client.tables.retrieve({ key: t.key });
+      const res = await client.tables.retrieve(t.key);
       expect(res.name).toEqual("renamed");
     });
 
@@ -130,7 +128,7 @@ describe("Table", () => {
           ],
         }),
       ]);
-      const res = await client.tables.retrieve({ key: t.key });
+      const res = await client.tables.retrieve(t.key);
       expect(res.rows).toHaveLength(2);
       expect(res.rows[1].cells).toEqual(["c", "d"]);
       expect(res.cells.c.props.value).toEqual("C");
@@ -139,7 +137,7 @@ describe("Table", () => {
     test("removeRow drops the row and its cells", async () => {
       const t = await createTable();
       await client.tables.dispatch(t.key, [table.removeRow({ index: 0 })]);
-      const res = await client.tables.retrieve({ key: t.key });
+      const res = await client.tables.retrieve(t.key);
       expect(res.rows).toEqual([]);
       expect(Object.keys(res.cells)).toEqual([]);
     });
@@ -153,7 +151,7 @@ describe("Table", () => {
           cells: [{ key: "mid-1", variant: "text", props: { value: "M1" } }],
         }),
       ]);
-      const res = await client.tables.retrieve({ key: t.key });
+      const res = await client.tables.retrieve(t.key);
       expect(res.columns).toHaveLength(3);
       expect(res.rows[0].cells).toEqual(["a", "mid-1", "b"]);
     });
@@ -161,7 +159,7 @@ describe("Table", () => {
     test("removeCol drops every cell in that column", async () => {
       const t = await createTable();
       await client.tables.dispatch(t.key, [table.removeCol({ index: 0 })]);
-      const res = await client.tables.retrieve({ key: t.key });
+      const res = await client.tables.retrieve(t.key);
       expect(res.columns).toHaveLength(1);
       expect(res.rows[0].cells).toEqual(["b"]);
       expect(res.cells.a).toBeUndefined();
@@ -173,7 +171,7 @@ describe("Table", () => {
         table.resizeRow({ index: 0, size: 55 }),
         table.resizeCol({ index: 1, size: 200 }),
       ]);
-      const res = await client.tables.retrieve({ key: t.key });
+      const res = await client.tables.retrieve(t.key);
       expect(res.rows[0].size).toEqual(55);
       expect(res.columns[1].size).toEqual(200);
     });
@@ -185,7 +183,7 @@ describe("Table", () => {
           cell: { key: "a", variant: "value", props: { units: "psi" } },
         }),
       ]);
-      const res = await client.tables.retrieve({ key: t.key });
+      const res = await client.tables.retrieve(t.key);
       expect(res.cells.a.variant).toEqual("value");
       expect(res.cells.a.props.units).toEqual("psi");
     });
@@ -195,7 +193,7 @@ describe("Table", () => {
       await client.tables.dispatch(t.key, [
         table.setCell({ cell: { key: "ghost", variant: "text", props: {} } }),
       ]);
-      const res = await client.tables.retrieve({ key: t.key });
+      const res = await client.tables.retrieve(t.key);
       expect(res.cells.ghost).toBeUndefined();
       expect(Object.keys(res.cells).sort()).toEqual(["a", "b"]);
     });
@@ -216,7 +214,7 @@ describe("Table", () => {
           cell: { key: "c", variant: "value", props: { telem: "ch1" } },
         }),
       ]);
-      const res = await client.tables.retrieve({ key: t.key });
+      const res = await client.tables.retrieve(t.key);
       expect(res.name).toEqual("multi");
       expect(res.rows).toHaveLength(2);
       expect(res.cells.c.variant).toEqual("value");
@@ -635,9 +633,9 @@ describe("store", () => {
     });
     await client.tables.delete(created.key);
     await expect
-      .poll(() => query.Deleted.matches(client.tables.getCached({ key: created.key })))
+      .poll(() => query.Deleted.matches(client.tables.getCached(created.key)))
       .toBe(true);
-    const cached = expectDeleted(client.tables.getCached({ key: created.key }));
+    const cached = expectDeleted(client.tables.getCached(created.key));
     expect(cached.corpse.name).toEqual(created.name);
   });
 });

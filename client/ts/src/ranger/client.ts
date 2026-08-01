@@ -653,7 +653,7 @@ export class Client extends query.Retriever<
   private async ensureRelationshipTargets(rel: ontology.Relationship): Promise<void> {
     if (rel.type === label.LABELED_BY_ONTOLOGY_RELATIONSHIP_TYPE) {
       if (rel.to.type !== "label" || this.cfg.labels.store.has(rel.to.key)) return;
-      const fetched = await this.cfg.labels.retrieve({ key: rel.to.key });
+      const fetched = await this.cfg.labels.retrieve(rel.to.key);
       this.cfg.labels.store.set(rel.to.key, fetched);
       return;
     }

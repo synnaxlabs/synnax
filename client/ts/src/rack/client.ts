@@ -234,7 +234,7 @@ export class Client extends query.Retriever<
       rollbacks: rename(),
       onOptimistic: opts.onOptimistic,
       commit: async () => {
-        const r = await this.retrieve({ key });
+        const r = await this.retrieve(key);
         await this.create({ ...r.payload, name });
       },
     });

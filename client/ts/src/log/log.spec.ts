@@ -31,7 +31,7 @@ describe("Log", () => {
       const proj = await client.projects.create({ name: "Log", layout: { one: 1 } });
       const log = await client.logs.create(proj.key, { name: "Log" });
       await client.logs.rename(log.key, "Log2");
-      const res = await client.logs.retrieve({ key: log.key });
+      const res = await client.logs.retrieve(log.key);
       expect(res.name).toEqual("Log2");
     });
   });
@@ -40,9 +40,7 @@ describe("Log", () => {
       const proj = await client.projects.create({ name: "Log", layout: { one: 1 } });
       const log = await client.logs.create(proj.key, { name: "Log" });
       await client.logs.delete(log.key);
-      await expect(client.logs.retrieve({ key: log.key })).rejects.toThrow(
-        NotFoundError,
-      );
+      await expect(client.logs.retrieve(log.key)).rejects.toThrow(NotFoundError);
     });
   });
 });
@@ -54,9 +52,9 @@ describe("store", () => {
     const log = await client.logs.create(project.key, { name: `log-${id.create()}` });
     await client.logs.delete(log.key);
     await expect
-      .poll(() => query.Deleted.matches(client.logs.getCached({ key: log.key })))
+      .poll(() => query.Deleted.matches(client.logs.getCached(log.key)))
       .toBe(true);
-    const cached = expectDeleted(client.logs.getCached({ key: log.key }));
+    const cached = expectDeleted(client.logs.getCached(log.key));
     expect(cached.corpse.name).toEqual(log.name);
   });
 });
