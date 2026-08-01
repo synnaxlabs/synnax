@@ -554,6 +554,8 @@ export class Client extends query.Retriever<
    * @param options.notDataTypes - Limits the query to only channels without the specified
    *
    */
+  async retrieve(params: Key | string, options?: RetrieveOptions): Promise<Channel>;
+
   async retrieve(
     params: PrimitiveParams | Payload[],
     options?: RetrieveOptions,
@@ -601,12 +603,12 @@ export class Client extends query.Retriever<
    * network, or undefined when nothing is cached. Unfetched filter queries
    * are approximated from the record store when possible.
    */
-  getCached(params: RetrieveSingleParams): query.Cached<Channel> | undefined;
+  getCached(params: Key | RetrieveSingleParams): query.Cached<Channel> | undefined;
   getCached(params: RetrieveRequest): query.Cached<Channel[]> | undefined;
   getCached(
-    params: RetrieveSingleParams | RetrieveRequest,
+    params: Key | RetrieveSingleParams | RetrieveRequest,
   ): query.Cached<Channel> | query.Cached<Channel[]> | undefined {
-    if ("key" in params) return super.getCached(params);
+    if (typeof params === "number" || "key" in params) return super.getCached(params);
     return (
       super.getCached(params) ?? this.approximateCached(retrieveRequestZ.parse(params))
     );
@@ -776,7 +778,7 @@ export class Client extends query.Retriever<
     // status may not exist, or may simply never have been fetched.
     if (ch.isCalculated && !this.cfg.statuses.store.has(statusKey(key)))
       try {
-        await this.cfg.statuses.retrieve({ key: statusKey(key) });
+        await this.cfg.statuses.retrieve(statusKey(key));
       } catch (e) {
         if (!NotFoundError.matches(e)) throw errors.fromUnknown(e);
       }
