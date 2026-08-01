@@ -74,7 +74,7 @@ export interface SetOptions {
 
 const BASE_REQUEST: Partial<RetrieveRequest> = { includeLabels: true };
 
-export interface ClientParams {
+export interface ClientConfig {
   unary: UnaryClient;
   cache: query.Cache;
   ontology: ontology.Client;
@@ -90,9 +90,9 @@ export class Client extends query.Retriever<
 > {
   readonly type: string = "status";
   readonly store: query.Table<Key, Status>;
-  private readonly cfg: ClientParams;
+  private readonly cfg: ClientConfig;
 
-  constructor(cfg: ClientParams) {
+  constructor(cfg: ClientConfig) {
     const { cache, ontology: ontologyClient, labels } = cfg;
     const { relationships } = ontologyClient.cache;
     const store = cache.createTable<Key, Status>({
@@ -156,11 +156,12 @@ export class Client extends query.Retriever<
   async retrieve<DetailsSchema extends z.ZodType>(
     params: SingleRetrieveParams & { detailsSchema?: DetailsSchema },
   ): Promise<Status<DetailsSchema>>;
-  async retrieve(params: SingleRetrieveParams): Promise<Status>;
+  async retrieve(params: Key | SingleRetrieveParams): Promise<Status>;
   async retrieve(params: MultiRetrieveParams): Promise<Status[]>;
   async retrieve<DetailsSchema extends z.ZodType = z.ZodNever>(
-    params: RetrieveParams & { detailsSchema?: DetailsSchema },
+    rawParams: Key | (RetrieveParams & { detailsSchema?: DetailsSchema }),
   ): Promise<Status<DetailsSchema> | Status<DetailsSchema>[]> {
+    const params = typeof rawParams === "string" ? { key: rawParams } : rawParams;
     const { detailsSchema, ...rest } = params;
     const isSingle = "key" in rest;
     // Schema-parametrized retrieves validate details for one caller; their
@@ -202,7 +203,7 @@ export class Client extends query.Retriever<
   }
 
   async rename(key: Key, name: string, opts: query.WriteOptions = {}): Promise<void> {
-    const stat = await this.retrieve({ key });
+    const stat = await this.retrieve(key);
     const renamed = { ...stat, name };
     await query.optimistic({
       rollbacks: [
@@ -313,7 +314,7 @@ export class Client extends query.Retriever<
   private ensureLabel(rel: ontology.Relationship): void {
     if (rel.to.type !== "label" || this.cfg.labels.store.has(rel.to.key)) return;
     void this.cfg.labels
-      .retrieve({ key: rel.to.key })
+      .retrieve(rel.to.key)
       .catch((exc: unknown) =>
         this.cfg.cache.onError(
           new Error("failed to fetch status label", { cause: exc }),

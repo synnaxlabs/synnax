@@ -12,7 +12,7 @@ import { createTestClient } from "@synnaxlabs/client/testutil";
 import { id, uuid } from "@synnaxlabs/x";
 import { act, render, renderHook, waitFor, within } from "@testing-library/react";
 import { type FC, type PropsWithChildren, type ReactElement } from "react";
-import { afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, assert, beforeAll, beforeEach, describe, expect, it } from "vitest";
 
 import { Arc } from "@/arc";
 import { Errors } from "@/errors";
@@ -343,7 +343,7 @@ describe("Arc queries", () => {
         expect(result.current.variant).toEqual("success");
       });
 
-      await expect(client.arcs.retrieve({ key: testArc.key })).rejects.toThrow();
+      await expect(client.arcs.retrieve(testArc.key)).rejects.toThrow();
     });
 
     it("should delete multiple arcs", async () => {
@@ -366,8 +366,8 @@ describe("Arc queries", () => {
         expect(result.current.variant).toEqual("success");
       });
 
-      await expect(client.arcs.retrieve({ key: arc1.key })).rejects.toThrow();
-      await expect(client.arcs.retrieve({ key: arc2.key })).rejects.toThrow();
+      await expect(client.arcs.retrieve(arc1.key)).rejects.toThrow();
+      await expect(client.arcs.retrieve(arc2.key)).rejects.toThrow();
     });
   });
 
@@ -429,7 +429,7 @@ describe("Arc queries", () => {
 
         await waitFor(async () => {
           expect(result.current.variant).toEqual("success");
-          const createdArc = await client.arcs.retrieve({ key });
+          const createdArc = await client.arcs.retrieve(key);
           const children = await client.ontology.children.retrieve({
             ids: arc.ontologyID(createdArc.key),
             types: ["task"],
@@ -457,14 +457,14 @@ describe("Arc queries", () => {
 
         await waitFor(async () => {
           expect(result.current.variant).toEqual("success");
-          const createdArc = await client.arcs.retrieve({ key });
+          const createdArc = await client.arcs.retrieve(key);
           const children = await client.ontology.children.retrieve({
             ids: arc.ontologyID(createdArc.key),
             types: ["task"],
           });
           expect(children).toHaveLength(1);
           const taskKey = children[0].id.key;
-          const retrievedTask = await client.tasks.retrieve({ key: taskKey });
+          const retrievedTask = await client.tasks.retrieve(taskKey);
           expect(retrievedTask.type).toBe("arc");
           expect(retrievedTask.config).toEqual({ arcKey: createdArc.key });
           expect(task.rackKey(taskKey)).toBe(testRack.key);
@@ -528,7 +528,7 @@ describe("Arc queries", () => {
           let originalTaskKey: task.Key = "";
           await waitFor(async () => {
             expect(createResult.current.variant).toEqual("success");
-            const createdArc = await client.arcs.retrieve({ key: arcKey });
+            const createdArc = await client.arcs.retrieve(arcKey);
             const childrenBefore = await client.ontology.children.retrieve({
               ids: arc.ontologyID(createdArc.key),
               types: ["task"],
@@ -669,32 +669,22 @@ describe("Arc queries", () => {
             expect(updateResult.current.variant).toEqual("success");
           });
 
-          await expect(
-            client.tasks.retrieve({ key: originalTaskKey }),
-          ).rejects.toThrow();
+          await expect(client.tasks.retrieve(originalTaskKey)).rejects.toThrow();
         });
       });
     });
   });
 
   describe("useForm", () => {
-    it("should initialize with default values for new arc", async () => {
+    it("should initialize with default values for a new arc", async () => {
       const { result } = renderHook(() => Arc.useForm({ query: {} }), { wrapper });
 
       await waitFor(() => expect(result.current.variant).toBe("success"));
 
       const formData = result.current.form.value();
       expect(formData.name).toBe("");
-      expect(formData.graph).toEqual({
-        nodes: [],
-        edges: [],
-        inputs: {},
-        functions: [],
-      });
-      expect(formData.text).toEqual({
-        raw: "",
-        doc: { inserts: [], deletes: [] },
-      });
+      expect(formData.mode).toBe("graph");
+      expect(formData.key).toBeUndefined();
     });
 
     it("should create a new arc on save", async () => {
@@ -706,6 +696,7 @@ describe("Arc queries", () => {
 
       act(() => {
         result.current.form.set("name", uniqueName);
+        result.current.form.set("mode", "text");
       });
 
       await act(async () => {
@@ -714,43 +705,27 @@ describe("Arc queries", () => {
 
       await waitFor(() => {
         expect(result.current.variant).toBe("success");
-        expect(result.current.form.value().name).toEqual(uniqueName);
         expect(result.current.form.value().key).toBeDefined();
       });
+
+      const { key } = result.current.form.value();
+      assert(key != null);
+      const created = await client.arcs.retrieve(key);
+      expect(created.name).toEqual(uniqueName);
+      expect(created.mode).toEqual("text");
     });
 
-    it("should retrieve and edit existing arc", async () => {
-      const existingArc = await client.arcs.create({
-        name: `existing-arc-${Math.random().toString(36).substring(7)}`,
-        mode: "text",
-      });
+    it("should not create an arc when the name is empty", async () => {
+      const { result } = renderHook(() => Arc.useForm({ query: {} }), { wrapper });
 
-      const { result } = renderHook(
-        () => Arc.useForm({ query: { key: existingArc.key } }),
-        { wrapper },
-      );
-
-      await waitFor(() => {
-        expect(result.current.variant).toBe("success");
-      });
-
-      expect(result.current.form.value().name).toEqual(existingArc.name);
-
-      act(() => {
-        result.current.form.set("name", "edited-arc");
-      });
+      await waitFor(() => expect(result.current.variant).toBe("success"));
 
       await act(async () => {
         result.current.save();
       });
 
-      await waitFor(() => {
-        expect(result.current.variant).toBe("success");
-        expect(result.current.form.value().name).toEqual("edited-arc");
-      });
-
-      const retrieved = await client.arcs.retrieve({ key: existingArc.key });
-      expect(retrieved.name).toBe("edited-arc");
+      expect(result.current.form.value().key).toBeUndefined();
+      expect(result.current.form.get("name").status.variant).toBe("error");
     });
   });
 
@@ -817,7 +792,7 @@ describe("Arc queries", () => {
         expect(result.current.variant).toEqual("success");
       });
 
-      const retrieved = await client.arcs.retrieve({ key: testArc.key });
+      const retrieved = await client.arcs.retrieve(testArc.key);
       expect(retrieved.name).toBe(newName);
     });
   });

@@ -163,7 +163,7 @@ describe("task ontology", () => {
       await screen.findByText(`Are you sure you want to delete ${t.name}?`);
       fireEvent.click(findLastButton("Delete"));
       await waitFor(async () => {
-        await expect(client.tasks.retrieve({ key: t.key })).rejects.toSatisfy((e) =>
+        await expect(client.tasks.retrieve(t.key)).rejects.toSatisfy((e) =>
           NotFoundError.matches(e),
         );
       });
@@ -196,7 +196,7 @@ describe("task ontology", () => {
         commitTextEdit(editor, renamed);
       });
       await waitFor(async () =>
-        expect((await client.tasks.retrieve({ key: t.key })).name).toBe(renamed),
+        expect((await client.tasks.retrieve(t.key)).name).toBe(renamed),
       );
     });
 

@@ -19,7 +19,7 @@ import { createConsoleWrapper, resolveFocusedTab } from "@/testutil";
 
 describe("schematic/Selectable", () => {
   it("creates a schematic in the active project and opens its tab when clicked", async () => {
-    const proj = await client.projects.retrieve({ key: await testProjectKey() });
+    const proj = await client.projects.retrieve(await testProjectKey());
     const { wrapper, store } = await createConsoleWrapper({
       client,
       preloadedState: { [Session.Project.SLICE_NAME]: createActiveState(proj) },
@@ -32,7 +32,7 @@ describe("schematic/Selectable", () => {
     if (tab.variant !== "resource") throw new Error("expected a resource tab");
     expect(tab.resource.type).toBe(schematic.TYPE_ONTOLOGY_ID.type);
     const key = tab.resource.key;
-    const created = await client.schematics.retrieve({ key });
+    const created = await client.schematics.retrieve(key);
     expect(created.name).toBe("Schematic");
     await waitFor(() =>
       expect(Session.Schematic.selectEditable({ state: store.getState(), key })).toBe(

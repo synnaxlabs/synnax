@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { device, ontology, type query } from "@synnaxlabs/client";
-import { primitive, type record, uuid } from "@synnaxlabs/x";
+import { primitive, type record, uuid, verbs } from "@synnaxlabs/x";
 import { useEffect } from "react";
 import { type z } from "zod";
 
@@ -78,7 +78,7 @@ export type UseDeleteParams = device.Key | device.Key[];
 
 export const { useUpdate: useDelete } = Flux.createUpdate<UseDeleteParams>({
   name: RESOURCE_NAME,
-  verbs: Flux.DELETE_VERBS,
+  verbs: verbs.DELETE,
   update: async ({ client, data, onOptimisticComplete }) => {
     await client.devices.delete(data, {
       onOptimistic: async () => await onOptimisticComplete(data),
@@ -99,7 +99,7 @@ export const createCreate = <
     device.Device<Properties, Make, Model>
   >({
     name: RESOURCE_NAME,
-    verbs: Flux.CREATE_VERBS,
+    verbs: verbs.CREATE,
     update: async ({ data, client }) => {
       const dev =
         schemas != null
@@ -128,7 +128,7 @@ export interface RenameParams extends Pick<device.Device, "key" | "name"> {}
 
 export const { useUpdate: useRename } = Flux.createUpdate<RenameParams>({
   name: RESOURCE_NAME,
-  verbs: Flux.RENAME_VERBS,
+  verbs: verbs.RENAME,
   update: async ({ data, client, onOptimisticComplete }) => {
     const { key, name } = data;
     await client.devices.rename(key, name, {

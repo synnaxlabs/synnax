@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { ontology, type Synnax as Client } from "@synnaxlabs/client";
+import { type verbs } from "@synnaxlabs/x";
 import { useEffect } from "react";
 
 import { Flux } from "@/flux";
@@ -101,7 +102,7 @@ export interface MoveChildrenParams {
   ids: ontology.ID[];
 }
 
-const MOVE_VERBS: Flux.Verbs = {
+const MOVE_VERBS: verbs.Verbs = {
   present: "move",
   participle: "moving",
   past: "moved",
@@ -146,9 +147,7 @@ export const {
   useRetrieveObservable: useRetrieveObservableResource,
 } = Flux.createRetrieve<RetrieveResourceQuery, ontology.Resource[]>({
   name: RESOURCE_RESOURCE_NAME,
-  retrieve: async ({ client, query: { ids } }) =>
-    await client.ontology.retrieve({ ids }),
-  subscribe: ({ client, query: { ids } }, handler) =>
-    client.ontology.onChange({ ids }, handler),
-  getCached: ({ client, query: { ids } }) => client.ontology.getCached({ ids }),
+  retrieve: async ({ client, query }) => await client.ontology.retrieve(query),
+  subscribe: ({ client, query }, handler) => client.ontology.onChange(query, handler),
+  getCached: ({ client, query }) => client.ontology.getCached(query),
 });

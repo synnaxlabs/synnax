@@ -7,55 +7,56 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+/** Conjugations of a verb used to phrase messages about an operation. */
 export interface Verbs {
   present: string;
   past: string;
   participle: string;
 }
 
-export const RENAME_VERBS: Verbs = {
+export const RENAME: Verbs = {
   present: "rename",
   past: "renamed",
   participle: "renaming",
 };
 
-export const DELETE_VERBS: Verbs = {
+export const DELETE: Verbs = {
   present: "delete",
   past: "deleted",
   participle: "deleting",
 };
 
-export const UPDATE_VERBS: Verbs = {
+export const UPDATE: Verbs = {
   present: "update",
   past: "updated",
   participle: "updating",
 };
 
-export const CREATE_VERBS: Verbs = {
+export const CREATE: Verbs = {
   present: "create",
   past: "created",
   participle: "creating",
 };
 
-export const SNAPSHOT_VERBS: Verbs = {
+export const SNAPSHOT: Verbs = {
   present: "snapshot",
   past: "snapshotted",
   participle: "snapshotting",
 };
 
-export const COPY_VERBS: Verbs = {
+export const COPY: Verbs = {
   present: "copy",
   past: "copied",
   participle: "copying",
 };
 
-export const SET_VERBS: Verbs = {
+export const SET: Verbs = {
   present: "set",
   past: "set",
   participle: "setting",
 };
 
-export const SAVE_VERBS: Verbs = {
+export const SAVE: Verbs = {
   present: "save",
   past: "saved",
   participle: "saving",

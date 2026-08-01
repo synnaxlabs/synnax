@@ -36,7 +36,7 @@ describe("ingest", () => {
     );
     assertDefined(id, "ingest returned no id");
     expect(openTab).toHaveBeenCalledWith({ variant: "resource", resource: id });
-    const created = await client.logs.retrieve({ key: id.key });
+    const created = await client.logs.retrieve(id.key);
     expect(created.name).toBe(original.name);
   });
 });

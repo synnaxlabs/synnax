@@ -68,7 +68,7 @@ describe("Status.useCreateModal", () => {
     fireEvent.click(findButton("Create"));
     await waitFor(() => expect(screen.queryByText("Variant")).toBeNull());
     await waitFor(async () => {
-      const updated = await client.statuses.retrieve({ key: existing.key });
+      const updated = await client.statuses.retrieve(existing.key);
       expect(updated.message).toBe("updated message");
       expect(updated.name).toBe(name);
     });

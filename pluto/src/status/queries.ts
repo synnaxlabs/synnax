@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { label, type ontology, query, status, TimeStamp } from "@synnaxlabs/client";
-import { primitive, uuid } from "@synnaxlabs/x";
+import { primitive, uuid, verbs } from "@synnaxlabs/x";
 import { useEffect } from "react";
 import type z from "zod";
 
@@ -24,14 +24,14 @@ export type ListParams = status.MultiRetrieveParams;
 export const useList = Flux.createList<ListParams, status.Key, status.Status>({
   name: PLURAL_RESOURCE_NAME,
   retrieve: async ({ client, query }) => await client.statuses.retrieve(query),
-  retrieveByKey: async ({ client, key }) => await client.statuses.retrieve({ key }),
+  retrieveByKey: async ({ client, key }) => await client.statuses.retrieve(key),
   subscribe: ({ client, query }, handler) => client.statuses.onChange(query, handler),
   getCached: ({ client, query }) => client.statuses.getCached(query),
 });
 
 export const { useUpdate: useDelete } = Flux.createUpdate<status.Key | status.Key[]>({
   name: RESOURCE_NAME,
-  verbs: Flux.DELETE_VERBS,
+  verbs: verbs.DELETE,
   update: async ({ client, data }) => {
     await client.statuses.delete(data);
     return data;
@@ -45,7 +45,7 @@ export interface SetParams {
 
 export const { useUpdate: useSet } = Flux.createUpdate<SetParams>({
   name: RESOURCE_NAME,
-  verbs: Flux.SET_VERBS,
+  verbs: verbs.SET,
   update: async ({ client, data, data: { statuses, parent } }) => {
     if (Array.isArray(statuses)) await client.statuses.set(statuses, { parent });
     else await client.statuses.set(statuses, { parent });
@@ -149,7 +149,7 @@ export const useForm = Flux.createForm<Partial<RetrieveQuery>, typeof formSchema
   },
   mountListeners: ({ client, query: { key }, reset }) => {
     if (primitive.isZero(key)) return [];
-    return client.statuses.onChange({ key }, (result) => {
+    return client.statuses.onChange(key, (result) => {
       if (!query.isLive(result)) return;
       const { labels, ...rest } = result;
       reset({ ...rest, labels: labels?.map((l) => l.key) ?? [] });
@@ -161,7 +161,7 @@ export interface RenameParams extends Pick<status.Status, "key" | "name"> {}
 
 export const { useUpdate: useRename } = Flux.createUpdate<RenameParams>({
   name: RESOURCE_NAME,
-  verbs: Flux.RENAME_VERBS,
+  verbs: verbs.RENAME,
   update: async ({ client, data, onOptimisticComplete }) => {
     const { key, name } = data;
     await client.statuses.rename(key, name, {

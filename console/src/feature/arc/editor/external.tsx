@@ -21,7 +21,7 @@ const TAB: Panel.Tab = {
   Icon: Icon.Arc,
   Name: Panel.createEditableTabName(Arc, <Icon.Arc />),
   restore: async ({ client, resource }) => {
-    const corpse = query.requireCorpse(client.arcs.getCached({ key: resource.key }));
+    const corpse = query.requireCorpse(client.arcs.getCached(resource.key));
     await client.arcs.create(corpse);
   },
 };

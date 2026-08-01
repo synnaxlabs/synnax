@@ -15,7 +15,7 @@ import {
   query,
   type Synnax as Client,
 } from "@synnaxlabs/client";
-import { compare, uuid } from "@synnaxlabs/x";
+import { compare, uuid, verbs } from "@synnaxlabs/x";
 
 import { Flux } from "@/flux";
 import { Scope } from "@/log/scope";
@@ -43,7 +43,7 @@ export interface SelectKeyParams {
 }
 
 const requireLog = (client: Client | null, key: log.Key): log.Log => {
-  const cached = client?.logs.getCached({ key });
+  const cached = client?.logs.getCached(key);
   if (cached == null) throw new NotFoundError(`Log with key ${key} not found`);
   if (query.Deleted.matches(cached))
     throw new Flux.DeletedError(`${RESOURCE_NAME} was deleted`, cached.corpse);
@@ -53,7 +53,7 @@ const requireLog = (client: Client | null, key: log.Key): log.Log => {
 const subscribe = (
   { client, args: { key } }: Flux.SelectorParams<SelectKeyParams>,
   notify: () => void,
-) => (client == null ? () => {} : client.logs.onChange({ key }, notify));
+) => (client == null ? () => {} : client.logs.onChange(key, notify));
 
 export const [useSelectName, useGetName] = Scope.bindSelector(
   Flux.createSelector<SelectKeyParams, string>({
@@ -137,7 +137,7 @@ export const useRedo = Scope.bindHook(useRedoBase);
 
 export const { useUpdate: useDelete } = Flux.createUpdate<UseDeleteParams>({
   name: RESOURCE_NAME,
-  verbs: Flux.DELETE_VERBS,
+  verbs: verbs.DELETE,
   update: async ({ client, data, onOptimisticComplete }) => {
     await client.logs.delete(data, {
       onOptimistic: async () => await onOptimisticComplete(data),
@@ -152,7 +152,7 @@ export interface CreateParams extends log.New {
 
 export const { useUpdate: useCreate } = Flux.createUpdate<CreateParams, log.Log>({
   name: RESOURCE_NAME,
-  verbs: Flux.CREATE_VERBS,
+  verbs: verbs.CREATE,
   update: async ({ client, data, onOptimisticComplete }) =>
     await client.logs.create(data.project ?? uuid.ZERO, data, {
       onOptimistic: async ([optimistic]) => await onOptimisticComplete(optimistic),
@@ -163,7 +163,7 @@ export interface RenameParams extends Pick<log.Log, "key" | "name"> {}
 
 export const { useUpdate: useRename } = Flux.createUpdate<RenameParams>({
   name: RESOURCE_NAME,
-  verbs: Flux.RENAME_VERBS,
+  verbs: verbs.RENAME,
   update: async ({ client, data, onOptimisticComplete }) => {
     const { key, name } = data;
     await onOptimisticComplete(data);

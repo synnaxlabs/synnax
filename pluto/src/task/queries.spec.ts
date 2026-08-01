@@ -856,9 +856,7 @@ describe("queries", () => {
         expect(result.current.form.get("name").value).toEqual("updatedTaskName");
       });
 
-      const updatedTask = await client.tasks.retrieve({
-        key: testTask.key,
-      });
+      const updatedTask = await client.tasks.retrieve(testTask.key);
       expect(updatedTask.name).toEqual("updatedTaskName");
     });
 
@@ -1412,9 +1410,7 @@ describe("queries", () => {
 
       await waitFor(
         async () => {
-          const updatedTask = await client.tasks.retrieve({
-            key: testTask.key,
-          });
+          const updatedTask = await client.tasks.retrieve(testTask.key);
           expect(updatedTask.name).toEqual("autoSavedName");
         },
         { timeout: 3000 },

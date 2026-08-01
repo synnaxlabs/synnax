@@ -8,7 +8,6 @@
 // included in the file licenses/APL.txt.
 
 import { arc, type panel } from "@synnaxlabs/client";
-import { Arc, type Flux } from "@synnaxlabs/pluto";
 import { useCallback } from "react";
 
 import { useCreateModal } from "@/platform/arc/useCreateModal";
@@ -21,20 +20,14 @@ export interface UseCreateProps {
 export const useCreate = ({ tabKey }: UseCreateProps = {}): (() => void) => {
   const openModal = useCreateModal();
   const openTab = Panel.useOpenTab();
-  const { update } = Arc.useCreate({
-    beforeUpdate: useCallback(
-      async ({ data }: Flux.BeforeUpdateParams<arc.New>) => {
-        const result = await openModal({});
-        if (result == null) return false;
-        return { ...data, ...result };
-      },
-      [openModal],
-    ),
-    afterOptimistic: useCallback(
-      ({ data: { key } }: Flux.AfterSuccessParams<arc.Arc>) =>
-        openTab({ variant: "resource", resource: arc.ontologyID(key), key: tabKey }),
-      [openTab, tabKey],
-    ),
-  });
-  return useCallback(() => update({ name: "Arc Editor", mode: "graph" }), [update]);
+  return useCallback(() => {
+    void openModal({}).then((result) => {
+      if (result == null) return;
+      openTab({
+        variant: "resource",
+        resource: arc.ontologyID(result.key),
+        key: tabKey,
+      });
+    });
+  }, [openModal, openTab, tabKey]);
 };

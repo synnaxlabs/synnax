@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { ontology, project } from "@synnaxlabs/client";
-import { array, type record } from "@synnaxlabs/x";
+import { array, type record, verbs } from "@synnaxlabs/x";
 import type z from "zod";
 
 import { Flux } from "@/flux";
@@ -22,11 +22,9 @@ export type RetrieveQuery = {
 
 export const { useRetrieve } = Flux.createRetrieve<RetrieveQuery, project.Project>({
   name: RESOURCE_NAME,
-  retrieve: async ({ client, query: { key } }) =>
-    await client.projects.retrieve({ key }),
-  subscribe: ({ client, query: { key } }, handler) =>
-    client.projects.onChange({ key }, handler),
-  getCached: ({ client, query: { key } }) => client.projects.getCached({ key }),
+  retrieve: async ({ client, query }) => await client.projects.retrieve(query),
+  subscribe: ({ client, query }, handler) => client.projects.onChange(query, handler),
+  getCached: ({ client, query }) => client.projects.getCached(query),
 });
 
 export type ListParams = Pick<
@@ -37,18 +35,17 @@ export type ListParams = Pick<
 export const useList = Flux.createList<ListParams, project.Key, project.Project>({
   name: PLURAL_RESOURCE_NAME,
   retrieve: async ({ client, query }) => await client.projects.retrieve(query),
-  retrieveByKey: async ({ client, key }) => await client.projects.retrieve({ key }),
+  retrieveByKey: async ({ client, key }) => await client.projects.retrieve(key),
   subscribe: ({ client, query }, handler) => client.projects.onChange(query, handler),
   getCached: ({ client, query }) => client.projects.getCached(query),
-  subscribeByKey: ({ client, key }, handler) =>
-    client.projects.onChange({ key }, handler),
+  subscribeByKey: ({ client, key }, handler) => client.projects.onChange(key, handler),
 });
 
 export type DeleteParams = project.Key | project.Key[];
 
 export const { useUpdate: useDelete } = Flux.createUpdate<DeleteParams>({
   name: RESOURCE_NAME,
-  verbs: Flux.DELETE_VERBS,
+  verbs: verbs.DELETE,
   update: async ({ client, data, onOptimisticComplete }) => {
     const keys = array.toArray(data);
     await client.projects.delete(keys, {
@@ -65,7 +62,7 @@ export interface RenameParams {
 
 export const { useUpdate: useRename } = Flux.createUpdate<RenameParams>({
   name: RESOURCE_NAME,
-  verbs: Flux.RENAME_VERBS,
+  verbs: verbs.RENAME,
   update: async ({ client, data }) => {
     const { key, name } = data;
     await client.projects.rename(key, name);
@@ -99,7 +96,7 @@ export const useForm = Flux.createForm<Partial<RetrieveQuery>, typeof formSchema
   initialValues: INITIAL_VALUES,
   retrieve: async ({ client, query: { key }, reset }) => {
     if (key == null) return;
-    reset(await client.projects.retrieve({ key }));
+    reset(await client.projects.retrieve(key));
   },
   update: async ({ client, value, set }) => {
     const res = await client.projects.create(value());
@@ -113,7 +110,7 @@ const LAYOUT_RESOURCE_NAME = "project layout";
 
 export const { useUpdate: useSaveLayout } = Flux.createUpdate<SaveLayoutParams>({
   name: LAYOUT_RESOURCE_NAME,
-  verbs: Flux.CREATE_VERBS,
+  verbs: verbs.CREATE,
   update: async ({ client, data, onOptimisticComplete }) => {
     const { key, layout } = data;
     await client.projects.setLayout(key, layout, {

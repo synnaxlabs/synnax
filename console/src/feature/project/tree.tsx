@@ -166,7 +166,7 @@ const useOnSelect = (): ((resource: ontology.Resource) => void) => {
     (resource) => {
       if (client == null) return;
       handleError(async () => {
-        const proj = await client.projects.retrieve({ key: resource.id.key });
+        const proj = await client.projects.retrieve(resource.id.key);
         store.dispatch(Session.Project.select(proj.key));
       }, `Failed to select ${resource.name}`);
     },

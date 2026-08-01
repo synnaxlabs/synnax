@@ -14,7 +14,15 @@ import {
   query,
   type Synnax as Client,
 } from "@synnaxlabs/client";
-import { color, compare, DataType, primitive, type require, uuid } from "@synnaxlabs/x";
+import {
+  color,
+  compare,
+  DataType,
+  primitive,
+  type require,
+  uuid,
+  verbs,
+} from "@synnaxlabs/x";
 import { useMemo } from "react";
 
 import { Channel } from "@/channel";
@@ -46,7 +54,7 @@ const requireLinePlot = (
   client: Client | null,
   key: lineplot.Key,
 ): lineplot.LinePlot => {
-  const cached = client?.lineplots.getCached({ key });
+  const cached = client?.lineplots.getCached(key);
   if (cached == null) throw new NotFoundError(`Line plot with key ${key} not found`);
   if (query.Deleted.matches(cached))
     throw new Flux.DeletedError(`${RESOURCE_NAME} was deleted`, cached.corpse);
@@ -56,7 +64,7 @@ const requireLinePlot = (
 const subscribe = (
   { client, args: { key } }: Flux.SelectorParams<SelectKeyParams>,
   notify: () => void,
-) => (client == null ? () => {} : client.lineplots.onChange({ key }, notify));
+) => (client == null ? () => {} : client.lineplots.onChange(key, notify));
 
 export const [useSelectName, useGetName] = Scope.bindSelector(
   Flux.createSelector<SelectKeyParams, string>({
@@ -454,7 +462,7 @@ export type UseDeleteParams = lineplot.Key | lineplot.Key[];
 
 export const { useUpdate: useDelete } = Flux.createUpdate<UseDeleteParams>({
   name: RESOURCE_NAME,
-  verbs: Flux.DELETE_VERBS,
+  verbs: verbs.DELETE,
   update: async ({ client, data, onOptimisticComplete }) => {
     await client.lineplots.delete(data, {
       onOptimistic: async () => await onOptimisticComplete(data),
@@ -472,7 +480,7 @@ export const { useUpdate: useCreate } = Flux.createUpdate<
   lineplot.LinePlot
 >({
   name: RESOURCE_NAME,
-  verbs: Flux.CREATE_VERBS,
+  verbs: verbs.CREATE,
   update: async ({ client, data, onOptimisticComplete }) =>
     await client.lineplots.create(data.project ?? uuid.ZERO, data, {
       onOptimistic: async ([optimistic]) => await onOptimisticComplete(optimistic),
@@ -483,7 +491,7 @@ export interface RenameParams extends Pick<lineplot.LinePlot, "key" | "name"> {}
 
 export const { useUpdate: useRename } = Flux.createUpdate<RenameParams>({
   name: RESOURCE_NAME,
-  verbs: Flux.RENAME_VERBS,
+  verbs: verbs.RENAME,
   update: async ({ client, data, onOptimisticComplete }) => {
     const { key, name } = data;
     await onOptimisticComplete(data);

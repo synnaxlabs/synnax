@@ -176,9 +176,9 @@ describe("arc import", () => {
       );
       expect(openTab).toHaveBeenCalledTimes(1);
       assertDefined(id, "ingest returned no ontology id");
-      const created = await client.arcs.retrieve({ key: id.key });
+      const created = await client.arcs.retrieve(id.key);
       expect(created.name).toBe(name);
-      const cached = client.arcs.getCached({ key: id.key });
+      const cached = client.arcs.getCached(id.key);
       expect(expectLive(cached).name).toBe(name);
     });
 

@@ -191,10 +191,10 @@ describe("table ingest", () => {
     );
     expect(openTab).toHaveBeenCalledTimes(1);
     assertDefined(id, "ingest returned no ontology id");
-    const created = await client.tables.retrieve({ key: id.key });
+    const created = await client.tables.retrieve(id.key);
     expect(created.name).toBe(name);
     expect(created.rows).toHaveLength(1);
-    const cached = client.tables.getCached({ key: id.key });
+    const cached = client.tables.getCached(id.key);
     expect(expectLive(cached).name).toBe(name);
   });
 

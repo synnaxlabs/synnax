@@ -67,7 +67,7 @@ describe("device Configure", () => {
       fireEvent.click(findButton("Next"));
     });
     expect(screen.queryByText(/short identifier/)).toBeNull();
-    const unchanged = await client.devices.retrieve({ key: dev.key });
+    const unchanged = await client.devices.retrieve(dev.key);
     expect(unchanged.configured).toBe(false);
   });
 
@@ -83,7 +83,7 @@ describe("device Configure", () => {
       fireEvent.click(findButton("Save"));
     });
     expect(screen.getByText(/short identifier/)).toBeTruthy();
-    const unchanged = await client.devices.retrieve({ key: dev.key });
+    const unchanged = await client.devices.retrieve(dev.key);
     expect(unchanged.configured).toBe(false);
   });
 
@@ -101,7 +101,7 @@ describe("device Configure", () => {
       fireEvent.click(findButton("Save"));
     });
     await waitFor(async () => {
-      const updated = await client.devices.retrieve({ key: dev.key });
+      const updated = await client.devices.retrieve(dev.key);
       expect(updated.configured).toBe(true);
       expect(updated.name).toEqual(newName);
       expect(updated.properties.identifier).toEqual("sensor_1");

@@ -40,9 +40,7 @@ const TAB: Panel.Tab = {
   Icon: Icon.Schematic,
   Name: Panel.createEditableTabName(Base, <Icon.Schematic />),
   restore: async ({ client, project, resource }) => {
-    const corpse = query.requireCorpse(
-      client.schematics.getCached({ key: resource.key }),
-    );
+    const corpse = query.requireCorpse(client.schematics.getCached(resource.key));
     await client.schematics.create(project, corpse);
   },
 };
@@ -56,7 +54,7 @@ export const SNAPSHOT_SERVICES: Range.SnapshotServices = {
     icon: <Icon.Schematic />,
     onClick: async ({ id }, { client, openTab }) => {
       if (client == null) throw new DisconnectedError();
-      await client.schematics.retrieve({ key: id.key });
+      await client.schematics.retrieve(id.key);
       openTab({ variant: "resource", resource: id });
     },
     onDelete: async ({ id: { key } }, { client }) => {

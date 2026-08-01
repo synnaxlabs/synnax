@@ -21,7 +21,7 @@ const client = createTestClient();
 describe("device/Toolbar", () => {
   it("lists a created device under its rack in the devices tree", async () => {
     const dev = await createTestDevice(client);
-    const rack = await client.racks.retrieve({ key: dev.rack });
+    const rack = await client.racks.retrieve(dev.rack);
     await renderToolbar(Device.TOOLBAR.content, {
       client,
       items: Device.TREE_ITEMS,

@@ -14,6 +14,7 @@ import {
   query,
   schematic,
 } from "@synnaxlabs/client";
+import { verbs } from "@synnaxlabs/x";
 
 import { Flux } from "@/flux";
 
@@ -56,11 +57,11 @@ export const useList = Flux.createList<ListQuery, string, schematic.symbol.Symbo
   retrieve: async ({ client, query }) =>
     await client.schematics.symbols.retrieve(query),
   retrieveByKey: async ({ client, key }) =>
-    await client.schematics.symbols.retrieve({ key }),
+    await client.schematics.symbols.retrieve(key),
   subscribe: ({ client, query }, handler) =>
     client.schematics.symbols.onChange(query, handler),
   subscribeByKey: ({ client, key }, handler) =>
-    client.schematics.symbols.onChange({ key }, handler),
+    client.schematics.symbols.onChange(key, handler),
   getCached: ({ client, query }) => client.schematics.symbols.getCached(query),
 });
 
@@ -91,7 +92,7 @@ export const useForm = Flux.createForm<FormQuery, typeof formSchema>({
   schema: formSchema,
   retrieve: async ({ client, query: { key }, reset }) => {
     if (key == null) return;
-    const symbol = await client.schematics.symbols.retrieve({ key });
+    const symbol = await client.schematics.symbols.retrieve(key);
     const parents = await client.ontology.parents.retrieve({
       ids: schematic.symbol.ontologyID(key),
     });
@@ -110,7 +111,7 @@ export const useForm = Flux.createForm<FormQuery, typeof formSchema>({
   },
   mountListeners: ({ client, query: { key }, reset, get }) => {
     if (key == null) return [];
-    return client.schematics.symbols.onChange({ key }, (result) => {
+    return client.schematics.symbols.onChange(key, (result) => {
       if (!query.isLive(result)) return;
       reset({
         ...result,
@@ -125,7 +126,7 @@ export interface RenameParams extends Pick<schematic.symbol.Symbol, "key" | "nam
 
 export const { useUpdate: useRename } = Flux.createUpdate<RenameParams>({
   name: RESOURCE_NAME,
-  verbs: Flux.RENAME_VERBS,
+  verbs: verbs.RENAME,
   update: async ({ client, data }) => {
     await client.schematics.symbols.rename(data.key, data.name);
     return data;
@@ -136,7 +137,7 @@ export type DeleteParams = schematic.symbol.Key | schematic.symbol.Key[];
 
 export const { useUpdate: useDelete } = Flux.createUpdate<DeleteParams>({
   name: RESOURCE_NAME,
-  verbs: Flux.DELETE_VERBS,
+  verbs: verbs.DELETE,
   update: async ({ client, data, onOptimisticComplete }) => {
     await client.schematics.symbols.delete(data, {
       onOptimistic: async () => await onOptimisticComplete(data),

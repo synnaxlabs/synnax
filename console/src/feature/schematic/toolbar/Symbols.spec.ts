@@ -57,7 +57,7 @@ describe("Schematic toolbar Symbols", () => {
     const { key } = await renderSymbolsToolbar();
     fireEvent.click(await screen.findByText("Gauge"));
     await waitFor(async () => {
-      const retrieved = await client.schematics.retrieve({ key });
+      const retrieved = await client.schematics.retrieve(key);
       expect(retrieved.nodes).toHaveLength(1);
       const nodeKey = retrieved.nodes[0].key;
       expect(retrieved.configs[nodeKey]).toMatchObject({ variant: "gauge" });
@@ -94,7 +94,7 @@ describe("Schematic toolbar Symbols", () => {
     fireEvent.click(await screen.findByText(grp.name));
     fireEvent.click(await screen.findByText(name));
     await waitFor(async () => {
-      const retrieved = await client.schematics.retrieve({ key });
+      const retrieved = await client.schematics.retrieve(key);
       expect(retrieved.nodes).toHaveLength(1);
       const nodeKey = retrieved.nodes[0].key;
       expect(retrieved.configs[nodeKey]).toMatchObject({ specKey: symbols[0].key });
@@ -121,7 +121,7 @@ describe("Schematic toolbar Symbols", () => {
     fireEvent.click(findButton("Delete"));
     await waitFor(async () => {
       await expect(
-        client.schematics.symbols.retrieve({ key: symbols[0].key }),
+        client.schematics.symbols.retrieve(symbols[0].key),
       ).rejects.toSatisfy((e) => NotFoundError.matches(e));
     });
   });
