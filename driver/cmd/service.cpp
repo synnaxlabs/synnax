@@ -15,7 +15,7 @@
 #include "driver/cmd/cmd.h"
 #include "driver/daemon/daemon.h"
 
-namespace driver::cmd {
+namespace driver::cmd::sub {
 int start(x::args::Parser &args);
 
 // Updated helper function with C++ strings

@@ -12,7 +12,7 @@
 #include "absl/log/log.h"
 #include "driver/rack/rack.h"
 
-namespace driver::cmd {
+namespace driver::cmd::sub {
 int clear(x::args::Parser &args) {
     if (const auto err = rack::Config::clear_persisted_state(args); err) {
         LOG(ERROR) << "failed to clear persisted state: " << err;

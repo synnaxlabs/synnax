@@ -14,7 +14,7 @@
 #include "core/pkg/version/version.h"
 #include "driver/cmd/cmd.h"
 
-namespace driver::cmd {
+namespace driver::cmd::sub {
 std::string version() {
     return "v" + std::string(SYNNAX_DRIVER_VERSION) + " (" +
            std::string(SYNNAX_BUILD_TIMESTAMP) + ")";

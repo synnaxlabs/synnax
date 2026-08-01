@@ -15,7 +15,7 @@
 #include "driver/cmd/cmd.h"
 #include "driver/rack/rack.h"
 
-namespace driver::cmd {
+namespace driver::cmd::sub {
 int login(x::args::Parser &args) {
     synnax::Config config;
     config.host = x::cli::prompt("Host", "localhost");

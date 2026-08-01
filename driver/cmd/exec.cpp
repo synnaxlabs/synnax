@@ -19,6 +19,7 @@
 
 namespace driver::cmd {
 // Subcommands are defined in sibling files, one per command.
+namespace sub {
 int clear(x::args::Parser &args);
 int internal_start(x::args::Parser &args);
 int login(x::args::Parser &args);
@@ -31,6 +32,7 @@ int service_uninstall(x::args::Parser &args);
 int service_view_logs(x::args::Parser &args);
 int start(x::args::Parser &args);
 int version(x::args::Parser &args);
+}
 
 void print_usage() {
     std::cout
@@ -69,19 +71,19 @@ int exec(const int argc, char *argv[]) {
         return 1;
     }
     if (command == "start") {
-        if (args.flag("--standalone", "-s")) return start(args);
-        return service_start(args);
+        if (args.flag("--standalone", "-s")) return sub::start(args);
+        return sub::service_start(args);
     }
-    if (command == "internal-start") return internal_start(args);
-    if (command == "stop") return service_stop(args);
-    if (command == "restart") return service_restart(args);
-    if (command == "login") return login(args);
-    if (command == "install") return service_install(args);
-    if (command == "uninstall") return service_uninstall(args);
-    if (command == "logs") return service_view_logs(args);
-    if (command == "status") return service_status(args);
-    if (command == "version") return version(args);
-    if (command == "clear") return clear(args);
+    if (command == "internal-start") return sub::internal_start(args);
+    if (command == "stop") return sub::service_stop(args);
+    if (command == "restart") return sub::service_restart(args);
+    if (command == "login") return sub::login(args);
+    if (command == "install") return sub::service_install(args);
+    if (command == "uninstall") return sub::service_uninstall(args);
+    if (command == "logs") return sub::service_view_logs(args);
+    if (command == "status") return sub::service_status(args);
+    if (command == "version") return sub::version(args);
+    if (command == "clear") return sub::clear(args);
     print_usage();
     return 1;
 }

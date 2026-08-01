@@ -18,7 +18,7 @@
 #include "driver/cmd/cmd.h"
 #include "driver/rack/rack.h"
 
-namespace driver::cmd {
+namespace driver::cmd::sub {
 std::string version();
 
 int start(x::args::Parser &args) {
