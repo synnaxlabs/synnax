@@ -201,12 +201,13 @@ object until the answer really changes), and the deleted case is interned once p
 tombstone so it is equally stable. A corpse never appears as bare data.
 
 The single space is derived by default from the table and its fetch primitive:
-`retrieve({ key })` resolves one record and deletion flips the answer to deleted.
-Domains whose single query is richer declare an explicit single schema; params carrying
-`key` that fail it throw `ValidationError` rather than falling through to a full-table
-request. Extra question kinds are public named spaces typed `query.Retrieves` (ontology
-`children`/`parents`, ranger `children`/`parent`/`kv`); overriding the base read surface
-is banned. All 21 domain clients sit on this shape.
+`retrieve({ key })` resolves one record and deletion flips the answer to deleted. A bare
+key is accepted as shorthand for `{ key }`. Domains whose single query is richer declare
+an explicit single schema; params addressing a single key that fail it throw
+`ValidationError` rather than falling through to a full-table request. Extra question
+kinds are public named spaces typed `query.Retrieves` (ontology `children`/`parents`,
+ranger `children`/`parent`/`kv`); overriding the base read surface is banned. All 21
+domain clients sit on this shape.
 
 ## 5.3 - Streams, epochs, and reconciliation
 

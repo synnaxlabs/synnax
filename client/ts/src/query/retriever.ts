@@ -36,6 +36,10 @@ const isKeysOnly = (query: unknown): query is { keys: unknown[] } => {
   return Object.entries(query).every(([k, v]) => k === "keys" || v == null);
 };
 
+/** True for params that are a bare record key rather than a query object. */
+const isBareKey = (params: unknown): params is record.Key =>
+  typeof params === "string" || typeof params === "number";
+
 interface ComposeProp<V, D> {
   /**
    * Per-record enrichment applied to every answer, receiving the normalized
@@ -176,13 +180,16 @@ export abstract class Retriever<
       const singleSchema = single.schema;
       // Params carrying `key` that fail the single schema are malformed
       // single queries; falling through would silently fetch every record.
+      // A bare key the schema does not accept directly retries as `{ key }`
+      // shorthand, then follows the same fail-loud rule.
       this.trySingle = (p) => {
-        const res = singleSchema.safeParse(p);
+        let res = singleSchema.safeParse(p);
+        if (!res.success && isBareKey(p)) res = singleSchema.safeParse({ key: p });
         if (res.success) return { query: res.data };
-        if (typeof p === "object" && p !== null && "key" in p)
+        if (isBareKey(p) || (typeof p === "object" && p !== null && "key" in p))
           throw new ValidationError(
-            `${name} params contain 'key' but do not match the single-query ` +
-              `schema: ${res.error.issues.map((i) => i.message).join("; ")}`,
+            `${name} params address a single key but do not match the ` +
+              `single-query schema: ${res.error.issues.map((i) => i.message).join("; ")}`,
           );
         return null;
       };
@@ -202,25 +209,28 @@ export abstract class Retriever<
         keyOf: (query) => query,
         single: true,
       }) as Retrieves<Params, D>;
-      this.trySingle = (p) =>
-        typeof p === "object" && p !== null && "key" in p
+      this.trySingle = (p) => {
+        if (isBareKey(p)) return { query: p as Params as SingleQuery };
+        return typeof p === "object" && p !== null && "key" in p
           ? { query: (p as { key: K }).key as Params as SingleQuery }
           : null;
+      };
     }
   }
 
   /**
    * Reads the record the params address, or every record matching them.
-   * Serves the cache when the answer is fresh, fetching otherwise.
+   * Serves the cache when the answer is fresh, fetching otherwise. A bare
+   * key is shorthand for `{ key }`.
    * @throws {NotFoundError} if a single-record query matches nothing or the
    * record was deleted.
-   * @throws {ValidationError} if params contain `key` but fail the
-   * single-query schema.
+   * @throws {ValidationError} if params contain `key` (or are a bare key)
+   * but fail the single-query schema.
    */
-  retrieve(params: SingleInput, options?: FetchOptions): Promise<D>;
+  retrieve(params: K | SingleInput, options?: FetchOptions): Promise<D>;
   retrieve(params: z.input<Z>, options?: FetchOptions): Promise<D[]>;
   async retrieve(
-    params: SingleInput | z.input<Z>,
+    params: K | SingleInput | z.input<Z>,
     options?: FetchOptions,
   ): Promise<D | D[]> {
     const single = this.trySingle(params);
@@ -232,10 +242,10 @@ export abstract class Retriever<
    * Subscribes to changes in the cached answer to the given query. The handler
    * fires on every change or deletion. Returns a destructor that unsubscribes.
    */
-  onChange(params: SingleInput, handler: ChangeHandler<D>): destructor.Destructor;
+  onChange(params: K | SingleInput, handler: ChangeHandler<D>): destructor.Destructor;
   onChange(params: z.input<Z>, handler: ChangeHandler<D[]>): destructor.Destructor;
   onChange(
-    params: SingleInput | z.input<Z>,
+    params: K | SingleInput | z.input<Z>,
     handler: ChangeHandler<D> | ChangeHandler<D[]>,
   ): destructor.Destructor {
     const single = this.trySingle(params);
@@ -252,9 +262,9 @@ export abstract class Retriever<
    * or undefined when nothing is cached. May be stale for unsubscribed
    * queries.
    */
-  getCached(params: SingleInput): Cached<D> | undefined;
+  getCached(params: K | SingleInput): Cached<D> | undefined;
   getCached(params: z.input<Z>): Cached<D[]> | undefined;
-  getCached(params: SingleInput | z.input<Z>): Cached<D> | Cached<D[]> | undefined {
+  getCached(params: K | SingleInput | z.input<Z>): Cached<D> | Cached<D[]> | undefined {
     const single = this.trySingle(params);
     if (single != null) return this.singleSpace.getCached(single.query);
     return this.requestSpace.getCached(this.normalizeRequest(params));
