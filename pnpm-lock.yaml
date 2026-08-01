@@ -39,9 +39,6 @@ catalogs:
     '@types/ws':
       specifier: ^8.18.1
       version: 8.18.1
-    '@typescript/typescript6':
-      specifier: ^6.0.2
-      version: 6.0.2
     '@vitejs/plugin-react':
       specifier: ^6.0.5
       version: 6.0.5
@@ -108,6 +105,13 @@ catalogs:
     zod:
       specifier: ^4.4.3
       version: 4.4.3
+  ts6:
+    '@typescript/typescript6':
+      specifier: ^6.0.2
+      version: 6.0.2
+    typescript:
+      specifier: ^6.0.3
+      version: 6.0.3
 
 importers:
 
@@ -117,7 +121,7 @@ importers:
         specifier: ^3.4.2
         version: 3.4.2(prettier@3.9.6)
       '@typescript/typescript6':
-        specifier: 'catalog:'
+        specifier: catalog:ts6
         version: 6.0.2
       knip:
         specifier: ^6.29.0
@@ -279,7 +283,7 @@ importers:
         specifier: 'catalog:'
         version: 10.8.0(jiti@2.7.0)(supports-color@10.2.2)
       typescript:
-        specifier: ^6.0.3
+        specifier: catalog:ts6
         version: 6.0.3
 
   configs/madge:
@@ -288,7 +292,7 @@ importers:
         specifier: 'catalog:'
         version: 8.0.0(supports-color@10.2.2)(typescript@6.0.3)
       typescript:
-        specifier: ^6.0.3
+        specifier: catalog:ts6
         version: 6.0.3
 
   configs/stylelint:
@@ -600,7 +604,7 @@ importers:
         specifier: 'catalog:'
         version: 17.14.1(supports-color@10.2.2)(typescript@6.0.3)
       typescript:
-        specifier: ^6.0.3
+        specifier: catalog:ts6
         version: 6.0.3
 
   drift:

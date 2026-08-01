@@ -105,7 +105,7 @@
   },
   "devDependencies": {
     "@prettier/plugin-xml": "^3.4.2",
-    "@typescript/typescript6": "catalog:",
+    "@typescript/typescript6": "catalog:ts6",
     "knip": "^6.29.0",
     "prettier": "^3.9.6",
     "prettier-plugin-astro": "^0.14.1",
