@@ -30,6 +30,7 @@ import { Table } from "@/feature/table";
 import { Task } from "@/feature/task";
 import { Theme } from "@/feature/theme";
 import { User } from "@/feature/user";
+import { Version } from "@/feature/version";
 import { type Palette } from "@/platform/palette";
 
 const COMMANDS: Command.Command[] = [
@@ -49,6 +50,7 @@ const COMMANDS: Command.Command[] = [
   ...Table.COMMANDS,
   ...Task.COMMANDS,
   ...User.COMMANDS,
+  ...Version.COMMANDS,
   ...Project.COMMANDS,
   ...Arc.COMMANDS,
   ...Status.COMMANDS,

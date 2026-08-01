@@ -11,10 +11,7 @@ import { render, screen, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { Cluster } from "@/feature/cluster";
-import {
-  clickConnectionBadge,
-  hoverConnectionBadge,
-} from "@/feature/cluster/testutil";
+import { clickConnectionBadge, hoverConnectionBadge } from "@/feature/cluster/testutil";
 import { createConnectedConsoleWrapper, renderWithConsole } from "@/testutil";
 
 describe("ConnectionBadge", () => {

@@ -72,9 +72,21 @@
     transition: none;
 }
 
+/* Overflowing names fade out at the tab's edge, Chrome-style, instead of
+   ellipsizing. The self scroll timeline is inactive until the name actually
+   overflows, so fitted names never fade; without support they hard-clip. */
 .pluto-tabs__tab .pluto-text {
     overflow-x: hidden;
-    text-overflow: ellipsis;
+    white-space: nowrap;
+    animation: tabs-name-fade linear;
+    animation-timeline: scroll(self x);
+}
+
+@keyframes tabs-name-fade {
+    0%,
+    100% {
+        mask-image: linear-gradient(to right, black calc(100% - 2.25rem), transparent);
+    }
 }
 
 /* An idle editable name is a text-selection island inside the draggable tab: a
@@ -184,7 +196,7 @@
             flex: 1 1 auto !important;
             max-width: fit-content;
             overflow: hidden;
-            min-width: 40px;
+            min-width: 11rem;
         }
 
         /* The close overlay comes from Button.Close and the reveal contract; the

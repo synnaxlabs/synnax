@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { configureStore } from "@reduxjs/toolkit";
-import { type Synnax as Client } from "@synnaxlabs/client";
+import { type connection, type Synnax as Client } from "@synnaxlabs/client";
 import { Triggers } from "@synnaxlabs/pluto";
 import { type aether } from "@synnaxlabs/pluto/ether";
 import { deep } from "@synnaxlabs/x";
@@ -37,8 +37,6 @@ import {
   type TestStore,
 } from "@/testutil";
 
-const Base = createSynnaxWrapper({ client: null });
-
 // Modal content mounts inside an error Boundary that reads the layout slice, so the
 // stack needs a Redux Provider even though modals themselves live in a separate store.
 const store = configureStore({
@@ -46,32 +44,46 @@ const store = configureStore({
   preloadedState: deep.copy(Session.ZERO_STATE),
 });
 
+const createWrapper = (connectionStatus?: connection.Status): FC<PropsWithChildren> => {
+  const Base = createSynnaxWrapper({ client: null, connectionStatus });
+  const InnerWrapper: FC<PropsWithChildren> = ({ children }): ReactElement => (
+    <Base>
+      <Provider store={store}>
+        <Session.Modals.Context>{children}</Session.Modals.Context>
+      </Provider>
+    </Base>
+  );
+  InnerWrapper.displayName = "Wrapper";
+  return InnerWrapper;
+};
+
 /**
  * The provider stack every modal spec renders within: the proven Pluto-rendering
  * Synnax wrapper (with a null client, since modals never touch the cluster), a Redux
  * Provider backing the error Boundary, and the per-window modal store Provider.
  */
-export const Wrapper: FC<PropsWithChildren> = ({ children }): ReactElement => (
-  <Base>
-    <Provider store={store}>
-      <Session.Modals.Context>{children}</Session.Modals.Context>
-    </Provider>
-  </Base>
-);
-Wrapper.displayName = "Wrapper";
+export const Wrapper = createWrapper();
+
+export interface RenderWithModalsOptions {
+  /** Connection status the Synnax context reports; defaults to disconnected. */
+  connectionStatus?: connection.Status;
+}
 
 /**
  * Renders ui together with a live {@link Modals.Stack} inside {@link Wrapper}, so modals
  * pushed during the test actually mount. Modals portal to the document body; query them
  * via the returned result's baseElement or testing-library's screen.
  */
-export const renderWithModals = (ui: ReactNode): RenderResult =>
+export const renderWithModals = (
+  ui: ReactNode,
+  { connectionStatus }: RenderWithModalsOptions = {},
+): RenderResult =>
   render(
     <>
       {ui}
       <Modals.Stack />
     </>,
-    { wrapper: Wrapper },
+    { wrapper: connectionStatus == null ? Wrapper : createWrapper(connectionStatus) },
   );
 
 /** The value a modal hook yields, paired with the live store backing it. */
