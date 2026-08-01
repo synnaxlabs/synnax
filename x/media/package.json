@@ -35,7 +35,7 @@
     "@types/react": "catalog:",
     "@vitejs/plugin-react": "catalog:",
     "eslint": "catalog:",
-    "madge": "catalog:",
+    "@synnaxlabs/madge": "workspace:^",
     "stylelint": "catalog:",
     "typescript": "catalog:",
     "vite": "catalog:"

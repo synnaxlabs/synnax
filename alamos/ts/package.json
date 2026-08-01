@@ -35,7 +35,7 @@
     "@types/node": "catalog:",
     "@vitest/coverage-v8": "catalog:",
     "eslint": "catalog:",
-    "madge": "catalog:",
+    "@synnaxlabs/madge": "workspace:^",
     "typescript": "catalog:",
     "vite": "catalog:",
     "vitest": "catalog:"

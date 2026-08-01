@@ -1,0 +1,12 @@
+{
+  "name": "@synnaxlabs/madge",
+  "version": "0.0.0",
+  "private": true,
+  "bin": {
+    "madge": "./bin.cjs"
+  },
+  "dependencies": {
+    "madge": "catalog:",
+    "typescript": "^6.0.3"
+  }
+}

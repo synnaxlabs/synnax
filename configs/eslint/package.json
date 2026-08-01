@@ -21,6 +21,6 @@
     "@synnaxlabs/tsconfig": "workspace:^",
     "@types/node": "catalog:",
     "eslint": "catalog:",
-    "typescript": "catalog:"
+    "typescript": "^6.0.3"
   }
 }

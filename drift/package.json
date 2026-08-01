@@ -43,7 +43,7 @@
     "@vitest/coverage-v8": "catalog:",
     "jsdom": "catalog:",
     "eslint": "catalog:",
-    "madge": "catalog:",
+    "@synnaxlabs/madge": "workspace:^",
     "react": "catalog:",
     "react-dom": "catalog:",
     "react-redux": "catalog:",

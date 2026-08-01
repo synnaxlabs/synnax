@@ -84,7 +84,7 @@
     "@vitest/coverage-v8": "catalog:",
     "eslint": "catalog:",
     "jsdom": "catalog:",
-    "madge": "catalog:",
+    "@synnaxlabs/madge": "workspace:^",
     "react-dom": "catalog:",
     "stylelint": "catalog:",
     "typescript": "catalog:",

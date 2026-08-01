@@ -52,7 +52,7 @@
     "eslint": "catalog:",
     "gray-matter": "^4.0.3",
     "html-escaper": "^3.0.3",
-    "madge": "catalog:",
+    "@synnaxlabs/madge": "workspace:^",
     "remark": "^15.0.1",
     "remark-gfm": "^4.0.1",
     "strip-markdown": "^6.0.0",
