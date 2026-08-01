@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { arc } from "@synnaxlabs/client";
-import { createTestClient } from "@synnaxlabs/client/testutil";
+import { createTestClient, expectLive } from "@synnaxlabs/client/testutil";
 import { describe, expect, it, vi } from "vitest";
 
 import { Arc } from "@/feature/arc";
@@ -176,11 +176,10 @@ describe("arc import", () => {
       );
       expect(openTab).toHaveBeenCalledTimes(1);
       assertDefined(id, "ingest returned no ontology id");
-      const created = await client.arcs.retrieve({ key: id.key });
+      const created = await client.arcs.retrieve(id.key);
       expect(created.name).toBe(name);
-      const cached = client.arcs.getCached({ key: id.key });
-      if (cached?.variant !== "changed") throw new Error("expected a cached arc");
-      expect(cached.data.name).toBe(name);
+      const cached = client.arcs.getCached(id.key);
+      expect(expectLive(cached).name).toBe(name);
     });
 
     it("should reject the import when the permission cache has no grant", async () => {
