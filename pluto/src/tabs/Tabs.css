@@ -292,6 +292,25 @@
     > .pluto-icon {
         color: var(--pluto-warning-z) !important;
     }
+
+    /* Selection chrome re-mixes the control tier from warning instead of
+       primary, so a selected corpse tab reads amber, ring included. */
+    &.pluto--selected {
+        --pluto-tabs-warning-bg: color-mix(
+            in srgb,
+            var(--pluto-warning-z) 15%,
+            var(--pluto-gray-l1)
+        );
+        --pluto-bg: var(--pluto-tabs-warning-bg);
+        --pluto-hover-bg: var(--pluto-tabs-warning-bg);
+        --pluto-active-bg: color-mix(
+            in srgb,
+            var(--pluto-warning-z) 20%,
+            var(--pluto-gray-l1)
+        );
+        box-shadow: inset 0 0 0 var(--pluto-border-width)
+            color-mix(in srgb, var(--pluto-warning-z) 65%, var(--pluto-gray-l1));
+    }
 }
 
 /* The dot occupies the close slot until the operator hovers, at which point the
