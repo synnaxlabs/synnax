@@ -92,6 +92,37 @@ describe("Retriever", () => {
       expect(fetchKeys).toHaveBeenCalledWith(["a", "b"]);
     });
 
+    it("prefers the schema's own bare-array handling over { keys }", async () => {
+      const namesZ = z.preprocess(
+        (p) => (Array.isArray(p) ? { names: p } : p),
+        z.object({
+          keys: z.string().array().optional(),
+          names: z.string().array().optional(),
+        }),
+      );
+      class NamesClient extends query.Retriever<typeof namesZ, string, Thing> {
+        constructor(
+          cache: query.Cache,
+          fetchRequest: (req: z.output<typeof namesZ>) => Promise<Thing[]>,
+        ) {
+          const store = cache.createTable<string, Thing>({
+            name: "things",
+            fetch: async (keys) => keys.map((k) => thing(k)),
+          });
+          super(cache, {
+            name: "thing",
+            table: store,
+            request: { schema: namesZ, fetch: async (req) => await fetchRequest(req) },
+          });
+        }
+      }
+      const fetchRequest = vi.fn(async (_req: z.output<typeof namesZ>) => [thing("a")]);
+      const client = new NamesClient(newCache(), fetchRequest);
+      const result = await client.retrieve(["a-name"]);
+      expect(result).toEqual([thing("a")]);
+      expect(fetchRequest.mock.calls[0][0]).toEqual({ names: ["a-name"] });
+    });
+
     it("rejects a bare key array when the request schema lacks keys", async () => {
       const keylessZ = z.object({ minSize: z.number().optional() });
       class KeylessClient extends query.Retriever<typeof keylessZ, string, Thing> {
