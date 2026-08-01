@@ -40,6 +40,10 @@ const isKeysOnly = (query: unknown): query is { keys: unknown[] } => {
 const isBareKey = (params: unknown): params is record.Key =>
   typeof params === "string" || typeof params === "number";
 
+/** True for params that are a bare list of record keys. */
+const isBareKeys = (params: unknown): params is record.Key[] =>
+  Array.isArray(params) && params.every(isBareKey);
+
 interface ComposeProp<V, D> {
   /**
    * Per-record enrichment applied to every answer, receiving the normalized
@@ -174,7 +178,15 @@ export abstract class Retriever<
       serverFields,
       watch,
     });
-    this.normalizeRequest = (p) => schema.parse(p);
+    // A bare key array is shorthand for `{ keys }`. A schema that strips the
+    // field would silently match every record, so reject it instead.
+    this.normalizeRequest = (p) => {
+      if (!isBareKeys(p)) return schema.parse(p);
+      const parsed = schema.parse({ keys: p });
+      if ((parsed as { keys?: unknown }).keys == null)
+        throw new ValidationError(`${name} does not accept bare key-array queries`);
+      return parsed;
+    };
     if (single != null) {
       this.singleSpace = single.space;
       const singleSchema = single.schema;
@@ -221,16 +233,16 @@ export abstract class Retriever<
   /**
    * Reads the record the params address, or every record matching them.
    * Serves the cache when the answer is fresh, fetching otherwise. A bare
-   * key is shorthand for `{ key }`.
+   * key is shorthand for `{ key }`, a bare key array for `{ keys }`.
    * @throws {NotFoundError} if a single-record query matches nothing or the
    * record was deleted.
    * @throws {ValidationError} if params contain `key` (or are a bare key)
    * but fail the single-query schema.
    */
   retrieve(params: K | SingleInput, options?: FetchOptions): Promise<D>;
-  retrieve(params: z.input<Z>, options?: FetchOptions): Promise<D[]>;
+  retrieve(params: K[] | z.input<Z>, options?: FetchOptions): Promise<D[]>;
   async retrieve(
-    params: K | SingleInput | z.input<Z>,
+    params: K | K[] | SingleInput | z.input<Z>,
     options?: FetchOptions,
   ): Promise<D | D[]> {
     const single = this.trySingle(params);
@@ -243,9 +255,12 @@ export abstract class Retriever<
    * fires on every change or deletion. Returns a destructor that unsubscribes.
    */
   onChange(params: K | SingleInput, handler: ChangeHandler<D>): destructor.Destructor;
-  onChange(params: z.input<Z>, handler: ChangeHandler<D[]>): destructor.Destructor;
   onChange(
-    params: K | SingleInput | z.input<Z>,
+    params: K[] | z.input<Z>,
+    handler: ChangeHandler<D[]>,
+  ): destructor.Destructor;
+  onChange(
+    params: K | K[] | SingleInput | z.input<Z>,
     handler: ChangeHandler<D> | ChangeHandler<D[]>,
   ): destructor.Destructor {
     const single = this.trySingle(params);
@@ -263,8 +278,10 @@ export abstract class Retriever<
    * queries.
    */
   getCached(params: K | SingleInput): Cached<D> | undefined;
-  getCached(params: z.input<Z>): Cached<D[]> | undefined;
-  getCached(params: K | SingleInput | z.input<Z>): Cached<D> | Cached<D[]> | undefined {
+  getCached(params: K[] | z.input<Z>): Cached<D[]> | undefined;
+  getCached(
+    params: K | K[] | SingleInput | z.input<Z>,
+  ): Cached<D> | Cached<D[]> | undefined {
     const single = this.trySingle(params);
     if (single != null) return this.singleSpace.getCached(single.query);
     return this.requestSpace.getCached(this.normalizeRequest(params));
