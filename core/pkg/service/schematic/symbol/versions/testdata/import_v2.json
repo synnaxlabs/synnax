@@ -13,9 +13,7 @@
           {
             "key": "r1",
             "name": "Body",
-            "selectors": [
-              "#body"
-            ],
+            "selectors": ["#body"],
             "stroke_color": "#ff0000",
             "fill_color": "#00ff00"
           }
