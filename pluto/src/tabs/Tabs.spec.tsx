@@ -10,7 +10,15 @@
 import { createEvent, fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { type MouseEventHandler, type ReactElement, useEffect, useState } from "react";
-import { describe, expect, it, vi } from "vitest";
+import {
+  afterEach,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  type MockInstance,
+  vi,
+} from "vitest";
 
 import { Haul } from "@/haul";
 import { Select } from "@/select";
@@ -436,6 +444,56 @@ describe("Tabs", () => {
           </Tabs.Selector>,
         ),
       ).toThrow("Tabs.Tab must be used within Tabs.Frame");
+    });
+  });
+
+  describe("selected tab visibility", () => {
+    let scrollIntoView: MockInstance<Element["scrollIntoView"]>;
+
+    beforeEach(() => {
+      scrollIntoView = vi.spyOn(Element.prototype, "scrollIntoView");
+    });
+
+    afterEach(() => {
+      scrollIntoView.mockRestore();
+    });
+
+    // The element each call scrolled, in order.
+    const scrolled = (): Element[] => scrollIntoView.mock.contexts as Element[];
+
+    // Two strips sharing one selection, the shape Panel.Mosaic renders.
+    const SplitTabs = ({ value }: { value: string }): ReactElement => (
+      <Select.Context value={value}>
+        <Tabs.Frame>
+          <Tabs.Selector>
+            <Tabs.Tab itemKey="a">Tab A</Tabs.Tab>
+          </Tabs.Selector>
+        </Tabs.Frame>
+        <Tabs.Frame>
+          <Tabs.Selector>
+            <Tabs.Tab itemKey="b">Tab B</Tabs.Tab>
+          </Tabs.Selector>
+        </Tabs.Frame>
+      </Select.Context>
+    );
+
+    it("should scroll the selected tab into view when the selection changes", () => {
+      const { rerender } = render(<BasicTabs value="a" onChange={vi.fn()} />);
+      scrollIntoView.mockClear();
+      rerender(<BasicTabs value="c" onChange={vi.fn()} />);
+      expect(scrolled()).toEqual([tab("Tab C")]);
+    });
+
+    it("should scroll the already selected tab into view on mount", () => {
+      render(<BasicTabs initialValue="b" />);
+      expect(scrolled()).toEqual([tab("Tab B")]);
+    });
+
+    it("should not scroll when the selected tab belongs to another strip", () => {
+      const { rerender } = render(<SplitTabs value="a" />);
+      scrollIntoView.mockClear();
+      rerender(<SplitTabs value="b" />);
+      expect(scrolled()).toEqual([tab("Tab B")]);
     });
   });
 

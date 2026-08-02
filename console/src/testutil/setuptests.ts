@@ -105,6 +105,10 @@ beforeAll(() => {
         });
       },
     });
+  // jsdom does not implement scrollIntoView; pluto's Tabs.Selector calls it to reveal
+  // the selected tab.
+  if (typeof Element.prototype.scrollIntoView !== "function")
+    Element.prototype.scrollIntoView = () => {};
   // jsdom does not implement innerText; components that read/commit editable text
   // (pluto's Text.Editable) rely on it. Delegate to textContent.
   if (!Object.hasOwn(HTMLElement.prototype, "innerText"))

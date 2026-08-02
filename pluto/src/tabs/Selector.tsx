@@ -27,6 +27,7 @@ import { CSS } from "@/css";
 import { Flex } from "@/flex";
 import { Haul } from "@/haul";
 import { useCombinedRefs } from "@/hooks";
+import { Select } from "@/select";
 import { KEY_ATTRIBUTE, KEY_SELECTOR } from "@/tabs/Frame";
 import { Triggers } from "@/triggers";
 
@@ -153,6 +154,20 @@ const resetTabs = (selector: HTMLElement, snap: boolean): void => {
   tabs.forEach((tab) => (tab.style.transition = ""));
 };
 
+/**
+ * scrollSelectedIntoView brings the strip's selected tab into the scrollport. Keys
+ * naming tabs in other strips are skipped, so frames sharing one selection each scroll
+ * only their own.
+ */
+const scrollSelectedIntoView = (selector: HTMLElement, keys: Set<string>): void => {
+  if (keys.size === 0) return;
+  for (const tab of selector.querySelectorAll<HTMLElement>(KEY_SELECTOR))
+    if (keys.has(tab.getAttribute(KEY_ATTRIBUTE) ?? "")) {
+      tab.scrollIntoView({ block: "nearest", inline: "nearest" });
+      return;
+    }
+};
+
 /** The dragging state a strip drop reports, plus the resolved insertion index. */
 export interface SelectorOnDropParams extends Haul.OnDropProps {
   /**
@@ -245,6 +260,14 @@ export const Selector = ({
     },
     [onKeyDown, horizontal],
   );
+
+  // Kept on the strip rather than on each tab so one selection change schedules one
+  // effect instead of one per tab.
+  const selected = Select.useSelected<string>();
+  useLayoutEffect(() => {
+    const el = internalRef.current;
+    if (el != null) scrollSelectedIntoView(el, new Set(selected));
+  }, [selected]);
 
   const [indicatorOffset, setIndicatorOffset] = useState<number | null>(null);
   // The applied shift (insertion index + dragged key), or null when none. Doubles as
