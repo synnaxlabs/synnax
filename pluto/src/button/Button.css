@@ -105,11 +105,9 @@
         }
 
         &.pluto--status-warning {
-            /* Amber is light in both themes, so text pins to near-black
-               instead of the theme-flipping text color. */
-            color: var(--pluto-dark-gray-l0);
+            color: var(--pluto-text-on-warning);
             .pluto-text {
-                color: var(--pluto-dark-gray-l0);
+                color: var(--pluto-text-on-warning);
             }
             --pluto-bg: var(--pluto-warning-z);
             --pluto-hover-bg: var(--pluto-warning-p1);
