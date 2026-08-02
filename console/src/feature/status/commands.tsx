@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { status } from "@synnaxlabs/client";
-import { Access, Icon, Status } from "@synnaxlabs/pluto";
+import { Access, Status } from "@synnaxlabs/pluto";
 
 import { Explorer } from "@/feature/status/explorer";
 import { Command } from "@/platform/command";
@@ -25,7 +25,7 @@ const CreateCommand = Command.create({
 const OpenExplorerCommand = Command.create({
   key: "open_status_explorer",
   name: "Open the Status Explorer",
-  icon: <Icon.Explore />,
+  icon: <Status.ExplorerIcon />,
   useOnSelect: Explorer.useOpenTab,
   useVisible: () => Access.useRetrieveGranted(status.TYPE_ONTOLOGY_ID),
 });
