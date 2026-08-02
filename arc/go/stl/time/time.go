@@ -260,7 +260,7 @@ type Interval struct {
 	lastFired telem.TimeSpan
 }
 
-func (*Interval) Init(_ node.Context) {}
+func (*Interval) Init(node.Context) {}
 
 func (i *Interval) Next(ctx node.Context) {
 	period := liveSpan(i.State, periodInputParam)
@@ -299,7 +299,7 @@ type Wait struct {
 	fired     bool
 }
 
-func (*Wait) Init(_ node.Context) {}
+func (*Wait) Init(node.Context) {}
 
 func (w *Wait) Next(ctx node.Context) {
 	if w.fired {
@@ -323,8 +323,8 @@ func (w *Wait) Next(ctx node.Context) {
 	outputTime := w.OutputTime(0)
 	output.Resize(1)
 	outputTime.Resize(1)
-	telem.SetValueAt[uint8](*output, 0, uint8(1))
-	telem.SetValueAt[telem.TimeStamp](*outputTime, 0, telem.TimeStamp(ctx.Elapsed))
+	telem.SetValueAt(*output, 0, uint8(1))
+	telem.SetValueAt(*outputTime, 0, telem.TimeStamp(ctx.Elapsed))
 	ctx.MarkChanged(0)
 }
 
