@@ -25,6 +25,15 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
+// A symbol file as the Core exports it: a typed, version-stamped envelope. Legacy
+// typeless files were rc-era only and are not importable.
+const createSymbolFile = (name: string): string =>
+  JSON.stringify({
+    version: 2,
+    type: "schematic_symbol",
+    ...createSymbolPayload(name),
+  });
+
 const createSymbolGroup = async (): Promise<group.Group> => {
   const root = await client.schematics.symbols.retrieveGroup();
   return await client.groups.create({
@@ -50,9 +59,7 @@ describe("Schematic.Symbol.useImport", () => {
     const name = uniqueName("imported");
     act(() => result.current.run());
     await waitFor(() => expect(picker.lastInput()).toBeDefined());
-    picker.selectFiles([
-      fakePickedFile("symbol.json", JSON.stringify(createSymbolPayload(name))),
-    ]);
+    picker.selectFiles([fakePickedFile("symbol.json", createSymbolFile(name))]);
     await waitFor(() =>
       expect(
         result.current.notifications.statuses.some(
@@ -140,7 +147,7 @@ describe("Schematic.Symbol.useImportGroup", () => {
       ),
       fakePickedFile(
         "sym1.json",
-        JSON.stringify(createSymbolPayload(symbolName)),
+        createSymbolFile(symbolName),
         `${groupName}/sym1.json`,
       ),
     ]);
@@ -200,11 +207,7 @@ describe("Schematic.Symbol.useImportGroup", () => {
         JSON.stringify(manifest),
         `${groupName}/manifest.json`,
       ),
-      fakePickedFile(
-        "ok.json",
-        JSON.stringify(createSymbolPayload(okName)),
-        `${groupName}/ok.json`,
-      ),
+      fakePickedFile("ok.json", createSymbolFile(okName), `${groupName}/ok.json`),
     ]);
     await waitFor(() =>
       expect(
