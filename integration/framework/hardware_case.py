@@ -20,8 +20,8 @@ from framework.test_case import TestCase
 class HardwareCase(TestCase):
     """TestCase whose teardown deletes the racks and devices it creates.
 
-    A leftover device keeps the Driver health-checking a dead endpoint, and a
-    leftover rack keeps the rack monitor warning for the rest of the run.
+    A leftover device keeps the Driver health-checking a dead endpoint, and a leftover
+    rack keeps the rack monitor warning for the rest of the run.
     """
 
     def __init__(
