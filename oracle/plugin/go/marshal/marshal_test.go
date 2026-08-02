@@ -15,9 +15,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/oracle/analyzer"
 	"github.com/synnaxlabs/oracle/plugin/go/marshal"
-	"github.com/synnaxlabs/oracle/resolution"
 	. "github.com/synnaxlabs/oracle/testutil"
 	"github.com/synnaxlabs/x/encoding/orc"
 	"github.com/synnaxlabs/x/errors"
@@ -1410,56 +1408,6 @@ var _ = Describe("Recursive Codec Depth Guard", func() {
 	})
 })
 
-var _ = Describe("Predecessor Aliasing", func() {
-	It("Should skip codecs for types aliased to the predecessor version", func(ctx SpecContext) {
-		loader := NewMockFileLoader()
-		oldSource := `
-			@go output "out"
-			Inner struct {
-			    @go version 0
-			    value int32
-			}
-			Entry struct {
-			    @go version 0
-				name string
-				inner Inner
-				@go marshal
-			}
-		`
-		newSource := `
-			@go output "out"
-			Inner struct {
-			    @go version 1
-			    value int32
-			}
-			Entry struct {
-			    @go version 1
-				name string
-				label string
-				inner Inner
-				@go marshal
-			}
-		`
-		req := MustGenerateRequest(ctx, newSource, "test", loader)
-		req.SnapshotVersion = 56
-		req.LoadSnapshot = func(version int) (*resolution.Table, error) {
-			if version != 56 {
-				return nil, nil
-			}
-			table, diag := analyzer.AnalyzeSource(
-				ctx, oldSource, "test", NewMockFileLoader(),
-			)
-			if diag != nil && !diag.Ok() {
-				return nil, diag
-			}
-			return table, nil
-		}
-		resp := MustSucceed(marshal.New(marshal.DefaultOptions()).Generate(req))
-		ExpectContent(resp, "out/versions/v1/codec.gen.go").
-			ToContain("func (e Entry) EncodeOrc").
-			ToNotContain("func (i Inner) EncodeOrc")
-	})
-})
 
 var _ = Describe("Same-Named Entries Across Namespaces", func() {
 	It("Should emit each entry's codec at its own path", func(ctx SpecContext) {

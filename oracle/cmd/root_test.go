@@ -91,25 +91,9 @@ var _ = Describe("NewRootCmd", func() {
 		for _, sub := range cmd.Commands() {
 			names = append(names, sub.Name())
 		}
-		Expect(names).To(ContainElements("check", "fmt", "lsp", "migrate", "snapshot", "sync"))
+		Expect(names).To(ContainElements("check", "fmt", "lsp", "migrate", "sync"))
 	})
 
-	It("should register migrate create as a subcommand of migrate", func() {
-		cmd := NewRootCmd()
-		var migrateCmd *cobra.Command
-		for _, sub := range cmd.Commands() {
-			if sub.Name() == "migrate" {
-				migrateCmd = sub
-				break
-			}
-		}
-		Expect(migrateCmd).NotTo(BeNil())
-		subNames := make([]string, 0)
-		for _, sub := range migrateCmd.Commands() {
-			subNames = append(subNames, sub.Name())
-		}
-		Expect(subNames).To(ContainElement("create"))
-	})
 
 	It("should have the verbose persistent flag", func() {
 		cmd := NewRootCmd()
@@ -324,73 +308,7 @@ var _ = Describe("fmt command with unformatted schemas", Ordered, func() {
 	})
 })
 
-var _ = Describe("snapshot command", Ordered, func() {
-	var (
-		repoDir string
-		cleanup func()
-	)
 
-	BeforeAll(func() {
-		ShouldNotLeakGoroutines()
-		repoDir, cleanup = setupMiniRepo("0.53.4", map[string]string{
-			"user.oracle": "User struct {\n    key  uuid\n    name string\n}\n",
-		})
-	})
-
-	AfterAll(func() { cleanup() })
-
-	It("should create a snapshot at the current version", func() {
-		cmd := NewRootCmd()
-		MustSucceed(executeCommand(cmd, "snapshot"))
-
-		snapshotFile := filepath.Join(repoDir, "schemas", "snapshots", "v53", "user.oracle")
-		Expect(snapshotFile).To(BeAnExistingFile())
-
-		content := string(MustSucceed(os.ReadFile(snapshotFile)))
-		Expect(content).To(ContainSubstring("User struct"))
-	})
-})
-
-var _ = Describe("migrate create command", Ordered, func() {
-	var (
-		repoDir string
-		cleanup func()
-	)
-
-	BeforeAll(func() {
-		ShouldNotLeakGoroutines()
-		repoDir, cleanup = setupMiniRepo("0.53.4", map[string]string{
-			"user.oracle": "User struct {\n    key  uuid\n    name string\n}\n",
-		})
-		// Create a service directory to act as CWD for migrate create.
-		svcDir := filepath.Join(repoDir, "core", "pkg", "service", "user")
-		Expect(os.MkdirAll(svcDir, 0755)).To(Succeed())
-	})
-
-	AfterAll(func() { cleanup() })
-
-	It("should scaffold a migration file", func() {
-		cmd := NewRootCmd()
-		MustSucceed(executeCommand(cmd, "migrate", "create", "add_email",
-			"--service", "core/pkg/service/user"))
-
-		migrationFile := filepath.Join(repoDir, "core", "pkg", "service", "user",
-			"migrations", "v53", "add_email.go")
-		Expect(migrationFile).To(BeAnExistingFile())
-
-		content := string(MustSucceed(os.ReadFile(migrationFile)))
-		Expect(content).To(ContainSubstring("package v53"))
-		Expect(content).To(ContainSubstring("NewAddEmailMigration"))
-		Expect(content).To(ContainSubstring("migrate.Migration"))
-	})
-
-	It("should error when migration file already exists", func() {
-		cmd := NewRootCmd()
-		_, err := executeCommand(cmd, "migrate", "create", "add_email",
-			"--service", "core/pkg/service/user")
-		Expect(err).To(HaveOccurred())
-	})
-})
 
 var _ = Describe("migrate command with nested schema folders", Ordered, func() {
 	BeforeAll(func() {
@@ -414,52 +332,7 @@ var _ = Describe("migrate command with nested schema folders", Ordered, func() {
 	})
 })
 
-var _ = Describe("migrate command with no schemas", Ordered, func() {
-	BeforeAll(func() {
-		ShouldNotLeakGoroutines()
-		_, cleanup := setupMiniRepo("0.53.4", map[string]string{})
-		DeferCleanup(func() { cleanup() })
-	})
 
-	It("errors when no schema files exist", func() {
-		cmd := NewRootCmd()
-		Expect(executeCommand(cmd, "migrate")).Error().
-			To(MatchError(ContainSubstring("no schema files found")))
-	})
-})
-
-var _ = Describe("migrate create with existing migrations", Ordered, func() {
-	var (
-		repoDir string
-		cleanup func()
-	)
-
-	BeforeAll(func() {
-		ShouldNotLeakGoroutines()
-		repoDir, cleanup = setupMiniRepo("0.54.0", map[string]string{
-			"user.oracle": "User struct {\n    key uuid\n}\n",
-		})
-		svcDir := filepath.Join(repoDir, "core", "pkg", "service", "user")
-		Expect(os.MkdirAll(svcDir, 0755)).To(Succeed())
-		// Create a pre-existing migration version directory.
-		Expect(os.MkdirAll(filepath.Join(svcDir, "migrations", "v53"), 0755)).To(Succeed())
-	})
-
-	AfterAll(func() { cleanup() })
-
-	It("should scaffold into the latest existing version directory", func() {
-		cmd := NewRootCmd()
-		MustSucceed(executeCommand(cmd, "migrate", "create", "fix_index",
-			"--service", "core/pkg/service/user"))
-
-		migrationFile := filepath.Join(repoDir, "core", "pkg", "service", "user",
-			"migrations", "v53", "fix_index.go")
-		Expect(migrationFile).To(BeAnExistingFile())
-
-		content := string(MustSucceed(os.ReadFile(migrationFile)))
-		Expect(content).To(ContainSubstring(`gorp.NewMigration("fix_index"`))
-	})
-})
 
 var _ = Describe("expandGlobs", func() {
 	var (
@@ -500,23 +373,6 @@ var _ = Describe("expandGlobs", func() {
 	})
 })
 
-var _ = Describe("snapshot command without schemas", Ordered, func() {
-	var cleanup func()
-
-	BeforeAll(func() {
-		ShouldNotLeakGoroutines()
-		_, cleanup = setupMiniRepo("0.53.4", map[string]string{})
-	})
-
-	AfterAll(func() { cleanup() })
-
-	It("should succeed even with no schema files", func() {
-		cmd := NewRootCmd()
-		// snapshot walks the directory; no .oracle files means nothing copied,
-		// but it should not error.
-		MustSucceed(executeCommand(cmd, "snapshot"))
-	})
-})
 
 var _ = Describe("fmt --diff flag", Ordered, func() {
 	var cleanup func()

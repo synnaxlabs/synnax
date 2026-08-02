@@ -21,6 +21,6 @@ and query parameters."""
     @doc value  """is a persisted view configuration storing visualization settings and
 query parameters for line plots, tables, schematics, and other view
 types."""
-    @go marshal
     @go migrate
+    @go marshal
 }

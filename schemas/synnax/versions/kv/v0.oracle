@@ -13,6 +13,6 @@ Pair struct {
 
     @doc value  """is a key-value metadata pair associated with a specific range, enabling
 arbitrary metadata storage on time ranges."""
-    @go marshal
     @go migrate
+    @go marshal
 }

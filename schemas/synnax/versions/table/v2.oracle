@@ -163,6 +163,6 @@ keys. Cells in the selection whose keys are not in the table's
 cells map are silently skipped."""
     }
 
-    @go marshal
     @go migrate
+    @go marshal
 }

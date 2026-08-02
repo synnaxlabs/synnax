@@ -15,8 +15,6 @@ import (
 	"context"
 	"fmt"
 	"math"
-	"os"
-	"path/filepath"
 	"slices"
 	"strings"
 	"text/template"
@@ -36,7 +34,6 @@ import (
 	"github.com/synnaxlabs/oracle/plugin/output"
 	"github.com/synnaxlabs/oracle/plugin/resolver"
 	"github.com/synnaxlabs/oracle/resolution"
-	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/set"
 )
 
@@ -229,131 +226,13 @@ type predecessor struct {
 	aliased set.Set[string]
 }
 
-// predecessors maps each version-laid-out current output path (…/versions/vN) to
-// its predecessor alias split. Empty when no snapshots resolve a baseline.
-func predecessors(req *plugin.Request) (map[string]predecessor, error) {
-	split, err := versioning.AliasSplit(
-		req.Resolutions, req.SnapshotVersion, req.LoadSnapshot,
-	)
-	if err != nil || len(split) == 0 {
-		return nil, err
-	}
-	entries, err := versioning.EntryPaths(req.Resolutions)
-	if err != nil {
-		return nil, err
-	}
-	preds := make(map[string]predecessor, len(split))
-	for origPath, pa := range split {
-		current := versioning.VersionedPath(origPath, entries[origPath])
-		preds[current] = predecessor{
-			path:    versioning.VersionedPath(origPath, pa.PredecessorVersion),
-			aliased: pa.Aliased,
-		}
-	}
-	return preds, nil
-}
-
-// captureGenerator records each output path's collected declaration lists
-// without emitting files.
-type captureGenerator struct {
-	contexts map[string]*framework.GenerateContext
-}
-
-func (c *captureGenerator) GenerateFile(ctx *framework.GenerateContext) (string, error) {
-	c.contexts[ctx.OutputPath] = ctx
-	return "", nil
-}
-
 // computeSplit resolves the alias split for every version-laid-out current
-// package. Explicit version chains decide first — their current file
-// enumerates the split. Snapshot-declared baselines cover paths without a
-// chain; for paths the snapshots cannot anchor (history predating
-// per-resource versioning), the frozen predecessor package on disk is the
-// baseline: a type aliases only when its declarations are identical to the
-// frozen ones.
+// package: the chain's current file enumerates it.
 func computeSplit(
 	req *plugin.Request, rewritten *resolution.Table,
 ) (map[string]predecessor, error) {
-	preds, err := chainPredecessors(context.Background(), req)
-	if err != nil {
-		return nil, err
-	}
-	snapPreds, err := predecessors(req)
-	if err != nil {
-		return nil, err
-	}
-	for path, pred := range snapPreds {
-		if _, ok := preds[path]; !ok {
-			preds[path] = pred
-		}
-	}
-	entries, err := versioning.EntryPaths(req.Resolutions)
-	if err != nil {
-		return nil, err
-	}
-	pathMap, err := versioning.CurrentPathMap(req.Resolutions)
-	if err != nil {
-		return nil, err
-	}
-	closure := PersistedClosure(rewritten)
-	capture := &captureGenerator{contexts: make(map[string]*framework.GenerateContext)}
-	capReq := *req
-	capReq.Resolutions = rewritten
-	capGen := &framework.Generator{
-		Domain:          "go",
-		FilePattern:     captureFilePattern,
-		FileGenerator:   capture,
-		MergeByName:     false,
-		CollectTypeDefs: true,
-		CollectEnums:    true,
-		CollectUnions:   true,
-	}
-	if _, err := capGen.Generate(&capReq); err != nil {
-		return nil, err
-	}
-	chains := newChainResolver(req.RepoRoot)
-	for origPath, version := range entries {
-		if version == 0 {
-			continue
-		}
-		current := versioning.VersionedPath(origPath, version)
-		if _, ok := preds[current]; ok {
-			continue
-		}
-		ctx, ok := capture.contexts[current]
-		if !ok {
-			continue
-		}
-		predDir := filepath.Join(
-			req.RepoRoot, versioning.VersionedPath(origPath, version-1),
-		)
-		if _, err := os.Stat(predDir); err != nil {
-			continue
-		}
-		candidate, err := generateGoFile(
-			current, ctx.Structs, ctx.Enums, ctx.TypeDefs, ctx.Unions,
-			rewritten, req.RepoRoot, predecessor{},
-			latestTable(req.Resolutions, pathMap, current), closure, false,
-		)
-		if err != nil {
-			return nil, err
-		}
-		aliased, err := frozenAliasSplit(candidate, ctx, predDir, chains)
-		if err != nil {
-			return nil, errors.Wrapf(err, "frozen baseline for %s", origPath)
-		}
-		if len(aliased) > 0 {
-			preds[current] = predecessor{
-				path:    versioning.VersionedPath(origPath, version-1),
-				aliased: aliased,
-			}
-		}
-	}
-	return preds, nil
+	return chainPredecessors(context.Background(), req)
 }
-
-// captureFilePattern is never written; the capture generator emits nothing.
-const captureFilePattern = "capture"
 
 // AliasedTypes returns the qualified names of all types that alias their
 // predecessor version package instead of being defined at the current one.

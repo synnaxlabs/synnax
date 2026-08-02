@@ -120,6 +120,6 @@ whose source node carries a color, the source color overrides
 whatever color (if any) was in the payload."""
     }
 
-    @go marshal
     @go migrate
+    @go marshal
 }

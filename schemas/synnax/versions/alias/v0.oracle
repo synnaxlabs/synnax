@@ -15,6 +15,6 @@ Alias struct {
     @doc value  """associates a human-readable string alias with a channel within the 
 context of a specific range. Enables semantic naming of channels that varies by 
 range context."""
-    @go marshal
     @go migrate
+    @go marshal
 }

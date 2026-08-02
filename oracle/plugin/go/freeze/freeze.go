@@ -174,13 +174,12 @@ func declarationsEqual(
 }
 
 // StructurallyEqual reports whether two declarations share a persisted shape,
-// resolving each side's references through its own table. It is the equality
-// the minimality gate applies between a version file's redeclaration and its
-// resolved predecessor.
+// resolving each side's references through its own table: the equality behind
+// both the alias-vs-redeclare decision and the minimality gate.
 func StructurallyEqual(
 	old, new resolution.Type, oldTable, newTable *resolution.Table,
 ) bool {
-	return schemadiff.SchemasEqual(old, new, oldTable, newTable)
+	return declarationsEqual(old, new, oldTable, newTable)
 }
 
 // keepExpression filters domains down to what version files record.

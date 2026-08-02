@@ -23,6 +23,6 @@ Policy struct {
         @doc value "is true if this is a built-in system policy that cannot be deleted."
     }
 
-    @go marshal
     @go migrate
+    @go marshal
 }

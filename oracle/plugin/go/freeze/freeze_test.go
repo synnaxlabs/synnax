@@ -156,8 +156,9 @@ Channel struct {
 			Pinned: set.New("Key"),
 		})
 		Expect(out).To(ContainSubstring("meaning changed at v1"))
-		// Key is unchanged, so it stays an alias; pinned marking applies only
-		// to redeclarations.
-		Expect(out).To(ContainSubstring("Key = v0.Key"))
+		// Pinned members always declare fully so the marker rides the
+		// declaration.
+		Expect(out).To(ContainSubstring("@go pinned"))
+		Expect(out).ToNot(ContainSubstring("Key = v0.Key"))
 	})
 })

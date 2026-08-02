@@ -94,6 +94,6 @@ is automatically configured as virtual."""
     @doc value  """is an internal representation of a channel containing all storage and
 cluster-routing metadata. This type is used internally by the server;
 clients should use APIChannel instead."""
-    @go marshal
     @go migrate
+    @go marshal
 }

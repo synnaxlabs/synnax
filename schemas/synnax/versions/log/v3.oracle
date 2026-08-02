@@ -176,6 +176,6 @@ configuration. No-op when no entry references "from"."""
         @doc value "controls whether the receipt timestamp column is hidden."
     }
 
-    @go marshal
     @go migrate
+    @go marshal
 }

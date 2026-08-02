@@ -47,14 +47,12 @@ func NewRootCmd() *cobra.Command {
 	cobra.OnInitialize(initConfig)
 
 	migrateCmd := newMigrateCmd()
-	migrateCmd.AddCommand(newMigrateCreateCmd())
 
 	rootCmd.AddCommand(
 		newCheckCmd(),
 		newFmtCmd(),
 		newLSPCmd(),
 		migrateCmd,
-		newSnapshotCmd(),
 		newSyncCmd(),
 	)
 	return rootCmd

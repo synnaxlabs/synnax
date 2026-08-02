@@ -201,6 +201,6 @@ position. Clears any resource set on the tab."""
     @doc value  """is a tab in a project owning a tree of visualization tabs. A panel
 is owned by a project (project panel) or by a user (draft);
 renaming a draft promotes it to project ownership."""
-    @go marshal
     @go migrate
+    @go marshal
 }

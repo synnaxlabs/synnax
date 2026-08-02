@@ -20,6 +20,6 @@ timestamps."""
 in user interfaces."""
     }
 
-    @go marshal
     @go migrate
+    @go marshal
 }

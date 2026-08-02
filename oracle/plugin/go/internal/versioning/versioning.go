@@ -210,3 +210,21 @@ func RewriteOutputPaths(table *resolution.Table, pathMap map[string]string) *res
 	}
 	return clone
 }
+
+// TypesAtPath returns the declarable types whose @go output is path, keyed by
+// bare type name so tables compare across namespace reorganizations (a
+// snapshot may predate a schema-directory move).
+func TypesAtPath(table *resolution.Table, path string) map[string]resolution.Type {
+	result := make(map[string]resolution.Type)
+	for _, t := range table.TypesWithDomain("go") {
+		if output.GetPath(t, "go") != path {
+			continue
+		}
+		switch t.Form.(type) {
+		case resolution.StructForm, resolution.AliasForm, resolution.DistinctForm,
+			resolution.EnumForm, resolution.UnionForm:
+			result[t.Name] = t
+		}
+	}
+	return result
+}

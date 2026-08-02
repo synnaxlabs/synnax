@@ -518,6 +518,6 @@ default color assigned at render time."""
         @doc value "removes the rule with the given key, if present."
     }
 
-    @go marshal
     @go migrate
+    @go marshal
 }

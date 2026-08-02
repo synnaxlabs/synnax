@@ -22,34 +22,44 @@ or generator logic and schemas disagree.
 - Never sync on `rc` or any shared branch — sync writes generated files repo-wide. Sync
   only on the feature branch owning the schema changes.
 - `oracle check` verifies generated files match schemas — read-only, safe anywhere.
-- Confirm with the user before `oracle migrate` / `oracle snapshot`
-  (schema-version-affecting).
+- Confirm with the user before `oracle migrate` (version-affecting: mints or amends
+  version files).
 
-## Versioning Rules
+## Versioning Rules (RFC 0047)
 
-- **Version a schema (`@go version`) iff its data is gorp-persisted** — directly, via
-  ImEx, or by being embedded in a versioned schema. Nothing else needs migrations: wire
-  peers are never version-skewed, and there are no unvalidated caches.
-- **Never version derived artifacts** (compiled output like arc `Program`). On mismatch
-  they are recomputed from their versioned sources, not migrated.
-- `@go version` is type-granular and must be declared per type; the analyzer rejects
-  file-level declarations. Declare it struct-level on persisted types (channel-style).
-  Unversioned siblings are transient — they generate real declarations at the package
-  root (merged into `types.gen.go` beside the version aliases) instead of riding the
-  versions/vN layout, and their shape changes never force a version bump.
-- Two classes must stay versioned despite being unpersisted: types referenced by a
-  versioned sibling (even via `@go marshal omit` fields — their Go home cannot leave the
-  package without an import cycle; the persistence gate exempts these automatically),
-  and types whose hand-written Go methods entangle with versioned siblings (telem's
-  Size/Rate). Mark the latter `@go version N pinned` — the gate skips pinned types and
-  warns if a pinned type is actually persisted; the analyzer rejects any other version
-  argument.
-- `oracle check` runs a non-blocking persistence gate warning on versioned types outside
-  the persisted closure and on persisted types missing @go version at a versioned path.
-  Use `--verbose` to see warnings on passing gates.
-- Migrate wrapper visibility follows consumption (see `plugin/go/migrate`): exported
-  when another versioned schema embeds the type; unexported when only the package's own
-  gorp wiring or auto-copies call it.
+- Version history lives in explicit version files: `schemas/<domain>/versions/
+  <resource>/vN.oracle`. Each file enumerates the resource's complete PERSISTED
+  namespace at that version — full declarations for shapes that changed at N, alias
+  lines (`Key = v0.Key`, pointing at the defining version) for the rest. Absence
+  means the type was removed at N. The versions directory is the sole version
+  authority: there is no `@go version` tag; the current version is the highest vN
+  file, and membership in it marks a type persisted.
+- **A resource is versioned iff its data is gorp-persisted.** Never version derived
+  artifacts (arc `Program`); resources that leave the persisted world close their
+  chain with an EMPTY current file (see `schemas/arc/versions/program/v1.oracle`).
+- Import rules: inside `versions/`, only other version files may be imported (dep
+  pins like `import "schemas/x/versions/telem/v0"`, computed at mint); a live schema
+  may import only its own resource's versions directory. Version files are
+  persisted-only — a field carrying `@go marshal omit` is an analyzer error there.
+  Type-level `@go marshal` / `@go migrate` live in version files, not live schemas
+  (field-level `@go marshal omit` stays live).
+- `oracle migrate <resource>` mints the next version file from the live persisted
+  shapes and syncs; `oracle migrate --amend <resource>` rewrites the current file in
+  place — only for versions that have never shipped in a release. Bare
+  `oracle migrate` mints every drifted resource.
+- `oracle check`'s blocking `versions` gate enforces: chain coverage, byte-identical
+  drift (current file == canonical emission), and delta minimality (a redeclaration
+  structurally identical to its resolved predecessor must be an alias; enum member
+  sets compare exactly).
+- Frozen `versions/vN` Go packages are regenerated, checked outputs of the version
+  files (persisted-only; omit fields exist only in current packages). Hand-written
+  frozen definer files are marked `@go hand` in their version file. `migrate.gen.go`
+  is a pure function of the two adjacent version files; hand-written transforms live
+  in `migrate.go` (renames and cross-resource moves have no generated counterpart).
+- Types versioned despite being unpersisted (hand-method entanglement, e.g. telem's
+  Size/Rate, or sibling-referenced transient types like task's StatusDetails) are
+  declared in the current version file with `@go pinned`: pinned members always
+  declare fully, track the live shape, and are exempt from the minimality gate.
 
 ## Tag Minimization
 

@@ -13,6 +13,6 @@ Group struct {
 
     @doc value  """is a named collection container for organizing related resources. Groups
 provide hierarchical organization through the ontology system."""
-    @go marshal
     @go migrate
+    @go marshal
 }

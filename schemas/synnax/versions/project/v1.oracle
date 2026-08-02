@@ -17,6 +17,6 @@ positions."""
     @doc value  """is a named, persistable container that stores the layout and organization
 of the Console application. Projects allow users to save and restore
 custom arrangements of visualizations, tabs, and window configurations."""
-    @go marshal
     @go migrate
+    @go marshal
 }
