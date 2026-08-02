@@ -11,5 +11,7 @@ export * from "@/status/base/Aggregator";
 export * from "@/status/base/colors";
 export * from "@/status/base/Icons";
 export * from "@/status/base/Indicator";
+export * from "@/status/base/Loading";
+export * from "@/status/base/Orbital";
 export * from "@/status/base/Notification";
 export * from "@/status/base/Summary";

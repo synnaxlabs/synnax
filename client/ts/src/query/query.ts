@@ -495,13 +495,17 @@ export class Queries<
     const key = keyOf?.(query);
     if (key != null) {
       // Rule 1: exact-key — track one row; deletion flips the answer. A row
-      // already in the table answers the query without a fetch.
-      if (entry.state.variant === "unfetched" || entry.state.variant === "error") {
+      // already in the table answers the query without a fetch. The state is a
+      // cache of the table's presence for this key and goes stale while
+      // unsubscribed (a delete observed, then a recreate), so maintenance
+      // re-seeds from the table instead of trusting the last answer. A loading
+      // entry owns an in-flight promise its own settle will resolve.
+      if (entry.state.variant !== "loading") {
         const status = table.status(key);
-        if (status === "present") {
+        if (status === "present" && entry.state.variant !== "ready") {
           entry.state = { variant: "ready", keys: [key] };
           this.touch(entry);
-        } else if (status === "tombstoned") {
+        } else if (status === "tombstoned" && entry.state.variant !== "deleted") {
           entry.state = { variant: "deleted", key };
           this.touch(entry);
         }

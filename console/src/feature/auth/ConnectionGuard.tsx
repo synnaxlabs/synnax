@@ -45,54 +45,23 @@ export const ConnectionGuard = ({ children }: PropsWithChildren): ReactNode => {
   return children;
 };
 
-interface OrbitalRingProps {
-  variant: "a" | "b" | "c";
-}
-
-const OrbitalRing = ({ variant }: OrbitalRingProps): ReactElement => (
-  <div className={CSS(CSS.BE("orbital", "tilt"), CSS.BEM("orbital", "tilt", variant))}>
-    <div className={CSS.BE("orbital", "ring")}>
-      {variant !== "c" && <div className={CSS.BE("orbital", "laser")} />}
-    </div>
-  </div>
-);
-
 // Rotation switch: what occupies the orbital's core during connection
 // trouble. "countdown" swaps the logo for the retry cycle.
 type CoreContent = "countdown" | "logo";
 const CORE_CONTENT = "countdown" as CoreContent;
 
-interface OrbitalProps {
-  core?: ReactNode;
-}
-
-// The core (logo mark by default) as the planet of the chosen orbital loader:
-// two laser rings tumbling on crossed axes plus a slow dashed ring on a third.
-// The outer box absorbs the dialog's spare vertical space so the content
-// below it sits at the dialog's padding edge; the stage keeps the fixed
-// square the rings are laid out against.
-const Orbital = ({ core }: OrbitalProps): ReactElement => (
-  <Flex.Box grow align="center" justify="center" full="x" className={CSS.B("orbital")}>
-    <Flex.Box
-      align="center"
-      justify="center"
-      grow={false}
-      className={CSS.BE("orbital", "stage")}
-    >
-      <Flex.Box
-        y
-        empty
-        align="center"
-        justify="center"
-        grow={false}
-        className={CSS.BE("shell", "mark-ring")}
-      >
-        {core ?? <Logo variant="icon" className={CSS.BE("shell", "mark")} />}
-      </Flex.Box>
-      <OrbitalRing variant="a" />
-      <OrbitalRing variant="b" />
-      <OrbitalRing variant="c" />
-    </Flex.Box>
+// The mark ring is the orbital's planet: opaque, so ring arcs passing behind it
+// are occluded rather than shining through the countdown.
+const SplashCore = ({ children }: PropsWithChildren): ReactElement => (
+  <Flex.Box
+    y
+    empty
+    align="center"
+    justify="center"
+    grow={false}
+    className={CSS.BE("shell", "mark-ring")}
+  >
+    {children ?? <Logo variant="icon" className={CSS.BE("shell", "mark")} />}
   </Flex.Box>
 );
 
@@ -177,7 +146,7 @@ const Splash = ({ client, status }: SplashProps): ReactElement => {
         gap={8}
         className={CSS(CSS.BE("connection", "body"), revealed && CSS.M("revealed"))}
       >
-        <Orbital core={core} />
+        <Status.Orbital core={<SplashCore>{core}</SplashCore>} />
         {troubled ? (
           <Trouble client={client} status={status} checking={checking} />
         ) : (

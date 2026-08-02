@@ -85,7 +85,12 @@ const Tombstone = ({
       <Flex.Box className={CSS.BE("panel", "tombstone-icon")}>{icon}</Flex.Box>
       <Flex.Box y align="center" gap="small">
         <Text.Text level="h5">{message}</Text.Text>
-        <Text.Text status="disabled">{description}</Text.Text>
+        <Text.Text
+          status="disabled"
+          className={CSS.BE("panel", "tombstone-description")}
+        >
+          {description}
+        </Text.Text>
       </Flex.Box>
       <Flex.Box x gap="small">
         {children}
@@ -183,26 +188,40 @@ const ContentFallback = (props: Errors.FallbackProps): ReactElement => {
 const TabName = (): ReactElement => {
   const { Name } = useTab();
   return (
-    <Errors.SuspenseBoundary FallbackComponent={TabNameFallback}>
+    <Errors.SuspenseBoundary
+      loading={<Icon.Loading />}
+      FallbackComponent={TabNameFallback}
+    >
       <Name />
     </Errors.SuspenseBoundary>
   );
 };
 
+// Both the panel and its tabs are full regions with room for the orbital; the
+// tab strip and toolbar keep the inline glyph.
+const loading = (
+  <Status.Loading>
+    <Status.Orbital />
+  </Status.Loading>
+);
+
 const Content = (): ReactElement => {
   const tabType = Panel.useSelectTabType({});
   const { Content } = useTab();
   return (
-    <Errors.SuspenseBoundary FallbackComponent={ContentFallback}>
-      <Flex.Box
-        y
-        full
-        empty
-        className={CSS(CSS.B(caseconv.toKebab(tabType)), CSS.BE("panel", "tab"))}
-      >
+    // The box wraps the boundary rather than sitting inside it: the tab's size
+    // belongs to the tab, not to whichever of content, loader, or tombstone is
+    // currently filling it.
+    <Flex.Box
+      y
+      full
+      empty
+      className={CSS(CSS.B(caseconv.toKebab(tabType)), CSS.BE("panel", "tab"))}
+    >
+      <Errors.SuspenseBoundary loading={loading} FallbackComponent={ContentFallback}>
         <Content />
-      </Flex.Box>
-    </Errors.SuspenseBoundary>
+      </Errors.SuspenseBoundary>
+    </Flex.Box>
   );
 };
 
@@ -366,7 +385,7 @@ const KeepAlivePanel = ({
 }: KeepAlivePanelProps): ReactElement => (
   <Portal.In itemKey={panelKey}>
     <Panel.Scope.Provider value={panelKey}>
-      <Errors.SuspenseBoundary FallbackComponent={PanelFallback}>
+      <Errors.SuspenseBoundary loading={loading} FallbackComponent={PanelFallback}>
         <Panel.Suspended panelKey={panelKey}>
           <Internal onCreateTab={onCreateTab} />
         </Panel.Suspended>

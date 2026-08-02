@@ -40,10 +40,27 @@
     /* Raised above dead-center: optical centering under the tab strip,
        matching the mosaic empty state. */
     transform: translateY(-3%);
+    container-type: size;
+    overflow: hidden;
 
     .console-panel__tombstone-icon {
         font-size: 9rem;
         color: var(--pluto-gray-l6);
+    }
+}
+
+/* A short tab cannot seat the whole stack, so it sheds by priority: the glyph
+   is decoration, then the explanatory line. The heading and the actions always
+   survive, since closing the tab is the whole point of the tombstone. */
+@container (max-height: 44rem) {
+    .console-panel__tombstone-icon {
+        display: none;
+    }
+}
+
+@container (max-height: 28rem) {
+    .console-panel__tombstone-description {
+        display: none;
     }
 }
 

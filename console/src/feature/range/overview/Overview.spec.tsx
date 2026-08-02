@@ -202,6 +202,34 @@ describe("range/overview tab", () => {
     expect(screen.queryByText("Snapshots")).toBeNull();
   });
 
+  it("shows the restored range's details after retry", async () => {
+    const { restore } = Range.Overview.TABS[rangerClient.TYPE_ONTOLOGY_ID.type];
+    assert(restore != null);
+    const rng = await createTestRange(client);
+    const Probe = ({ resetErrorBoundary }: Errors.FallbackProps) => (
+      <button data-testid="restore" onClick={resetErrorBoundary}>
+        restore
+      </button>
+    );
+    Probe.displayName = "Probe";
+    await renderOverview(rng.key, Probe);
+    expect(await screen.findByDisplayValue(rng.name)).toBeTruthy();
+    await act(async () => {
+      await client.ranges.delete(rng.key);
+    });
+    await screen.findByTestId("restore");
+
+    const project = await client.projects.create({
+      name: uniqueName("proj"),
+      layout: {},
+    });
+    await act(async () => {
+      await restore({ client, project: project.key, resource: rng.ontologyID });
+    });
+    fireEvent.click(screen.getByTestId("restore"));
+    expect(await screen.findByDisplayValue(rng.name)).toBeTruthy();
+  });
+
   it("restores a deleted range under its original key", async () => {
     const { restore } = Range.Overview.TABS[rangerClient.TYPE_ONTOLOGY_ID.type];
     assert(restore != null);
@@ -224,8 +252,15 @@ describe("range/overview tab", () => {
     await waitFor(() =>
       expect(query.isLive(client.ranges.getCached(rng.key))).toBe(true),
     );
-    const [restored] = await client.ranges.retrieve([rng.key]);
+    // Read back through a second client: the restoring client write-throughs its
+    // own cache, so retrieving on it would pass even if the cluster never got it.
+    const remote = createTestClient();
+    const [restored] = await remote.ranges.retrieve([rng.key]);
     expect(restored.name).toEqual(rng.name);
     expect(restored.timeRange).toEqual(rng.timeRange);
+    // The tab chip and every tree view read the range through the ontology, not
+    // the range store.
+    const resource = await remote.ontology.retrieve(rng.ontologyID);
+    expect(resource.name).toEqual(rng.name);
   });
 });

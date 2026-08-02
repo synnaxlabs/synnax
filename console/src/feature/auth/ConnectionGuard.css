@@ -66,109 +66,16 @@
 
 /* ---------- orbital loader ---------- */
 
-.console-orbital {
-    min-height: 0;
+/* The splash wears the orbital at full size; the delay is carried by the
+   card's own reveal, so the figure must not hold itself back a second time. */
+.console-connection .pluto-orbital {
+    --pluto-orbital-size: 45rem;
+    --pluto-loading-delay: 0ms;
 }
 
-.console-orbital__stage {
-    position: relative;
-    width: 45rem;
-    height: 45rem;
-    flex-shrink: 0;
-    transform-style: preserve-3d;
-
-    /* Opaque core so ring arcs passing behind the planet are occluded
-       instead of shining through the countdown. */
-    .console-shell__mark-ring {
-        margin: 0;
-        background: var(--pluto-gray-l0);
-    }
-}
-
-/* Each ring's plane tumbles a full revolution about the axis fixed by --rz,
-   so the ring itself sweeps around the mark rather than spinning in place. */
-.console-orbital__tilt {
-    position: absolute;
-    inset: var(--orbital-inset, 0);
-    transform-style: preserve-3d;
-    animation: console-orbital-tumble var(--orbital-tumble, 8s) linear infinite;
-    animation-direction: var(--orbital-tumble-dir, normal);
-}
-
-.console-orbital__tilt--a {
-    --orbital-rz: 25deg;
-    --orbital-rx: 72deg;
-    --orbital-tumble: 7s;
-    --orbital-spin: 3s;
-}
-
-.console-orbital__tilt--b {
-    --orbital-rz: -65deg;
-    --orbital-rx: 54deg;
-    --orbital-tumble: 11s;
-    --orbital-tumble-dir: reverse;
-    --orbital-spin: 4.6s;
-    --orbital-spin-dir: reverse;
-    --orbital-inset: 1.5rem;
-}
-
-.console-orbital__tilt--c {
-    --orbital-rz: 80deg;
-    --orbital-rx: 62deg;
-    --orbital-tumble: 17s;
-    --orbital-spin: 14s;
-    --orbital-spin-dir: reverse;
-    --orbital-inset: 5rem;
-}
-
-@keyframes console-orbital-tumble {
-    from {
-        transform: rotateZ(var(--orbital-rz)) rotateX(var(--orbital-rx));
-    }
-    to {
-        transform: rotateZ(var(--orbital-rz)) rotateX(calc(var(--orbital-rx) + 360deg));
-    }
-}
-
-.console-orbital__ring {
-    --orbital-ring-width: 2px;
-    position: absolute;
-    inset: 0;
-    border-radius: 50%;
-    border: var(--orbital-ring-width) solid var(--pluto-gray-l11-20);
-    animation: console-orbital-spin var(--orbital-spin, 3s) linear infinite;
-    animation-direction: var(--orbital-spin-dir, normal);
-    transform-style: preserve-3d;
-}
-
-.console-orbital__tilt--c .console-orbital__ring {
-    border-style: dashed;
-}
-
-@keyframes console-orbital-spin {
-    from {
-        transform: rotateZ(0deg);
-    }
-    to {
-        transform: rotateZ(360deg);
-    }
-}
-
-/* A comet arc riding the ring band: conic sweep clipped to the border ring by
-   a radial mask, carried around by the ring's spin. */
-.console-orbital__laser {
-    position: absolute;
-    inset: calc(-1 * var(--orbital-ring-width));
-    border-radius: 50%;
-    background: conic-gradient(
-        transparent 0deg,
-        var(--pluto-gray-l11-5) 14deg,
-        var(--pluto-gray-l11-95) 70deg,
-        transparent 72deg
-    );
-    mask: radial-gradient(
-        farthest-side,
-        transparent calc(100% - var(--orbital-ring-width) - 0.5px),
-        #000 calc(100% - var(--orbital-ring-width) + 0.5px)
-    );
+/* Opaque core so ring arcs passing behind the planet are occluded instead of
+   shining through the countdown. */
+.pluto-orbital__stage .console-shell__mark-ring {
+    margin: 0;
+    background: var(--pluto-gray-l0);
 }
