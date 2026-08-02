@@ -83,6 +83,14 @@ export default defineConfig({
   test: {
     globals: true,
     environment: "jsdom",
+    // vscode-languageclient's "./browser" entry only resolves under the "browser"
+    // exports condition, which Vitest's node-based resolver does not apply.
+    alias: {
+      "vscode-languageclient/browser": path.resolve(
+        ".",
+        "node_modules/vscode-languageclient/lib/browser/main.js",
+      ),
+    },
     setupFiles: ["src/mock/setuptests.ts"],
     exclude: ["**/node_modules/**", "**/dist/**"],
     coverage: {
