@@ -19,7 +19,7 @@ import (
 
 func TestPB(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Protobuf Suite")
+	RunSpecs(t, "Protocol Buffers Suite")
 }
 
 var _ = ShouldNotLeakGoroutinesPerSpec()

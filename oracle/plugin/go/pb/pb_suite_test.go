@@ -19,7 +19,7 @@ import (
 
 func TestGoPB(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Plugin Go Protobuf Suite")
+	RunSpecs(t, "Plugin Go Protocol Buffers Suite")
 }
 
 var _ = ShouldNotLeakGoroutinesPerSpec()
