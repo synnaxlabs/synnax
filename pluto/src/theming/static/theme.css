@@ -383,6 +383,7 @@
     --pluto-text-disabled: #63666c73;
     --pluto-text-placeholder: #63666ca6;
     --pluto-text-on-primary: #fdfdff;
+    --pluto-text-on-warning: #fdfdff;
     --pluto-primary-text: #3b82f6;
     --pluto-error-text: #ef4444;
     --pluto-warning-text: #f59e0b;
@@ -793,6 +794,7 @@
     --pluto-dark-text-disabled: #a2a5a873;
     --pluto-dark-text-placeholder: #a2a5a8a6;
     --pluto-dark-text-on-primary: #f1f2f3;
+    --pluto-dark-text-on-warning: #040506;
     --pluto-dark-primary-text: #93c5fd;
     --pluto-dark-error-text: #fca5a5;
     --pluto-dark-warning-text: #fcd34d;
@@ -1207,6 +1209,7 @@
         --pluto-text-disabled: #a2a5a873;
         --pluto-text-placeholder: #a2a5a8a6;
         --pluto-text-on-primary: #f1f2f3;
+        --pluto-text-on-warning: #040506;
         --pluto-primary-text: #93c5fd;
         --pluto-error-text: #fca5a5;
         --pluto-warning-text: #fcd34d;
@@ -1617,6 +1620,7 @@
         --pluto-dark-text-disabled: #a2a5a873;
         --pluto-dark-text-placeholder: #a2a5a8a6;
         --pluto-dark-text-on-primary: #f1f2f3;
+        --pluto-dark-text-on-warning: #040506;
         --pluto-dark-primary-text: #93c5fd;
         --pluto-dark-error-text: #fca5a5;
         --pluto-dark-warning-text: #fcd34d;
