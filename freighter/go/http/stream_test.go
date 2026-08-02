@@ -27,9 +27,8 @@ import (
 	. "github.com/synnaxlabs/x/testutil"
 )
 
-// serveRouter binds the router to a fresh fiber app, serves it on an open port, and
-// returns once the app is answering requests. All stream servers must be registered
-// on the router first.
+// serveRouter serves the router on an open port, returning once the app is answering
+// requests. All servers must be registered on the router first.
 func serveRouter(router *fhttp.Router) (*fiber.App, address.Address) {
 	addr := address.Newf("localhost:%d", MustSucceed(net.FindOpenPort()))
 	app := newFiberApp(fiber.Config{})
@@ -106,39 +105,39 @@ var _ = Describe("Stream", Ordered, Serial, func() {
 			Expect(res.StatusCode).To(Equal(http.StatusUpgradeRequired))
 		})
 	})
-})
 
-var _ = Describe("Stream Shutdown", Serial, func() {
-	It("Should stop serving a stream whose peer never answers the close message", func(ctx SpecContext) {
-		ShouldNotLeakGoroutines()
-		router := MustSucceed(fhttp.NewRouter(fhttp.RouterConfig{
-			StreamWriteDeadline: test.WriteDeadline,
-		}))
-		server := fhttp.NewStreamServer[test.Request, test.Response](router, "/")
-		serving := make(chan struct{})
-		server.BindHandler(func(
-			_ context.Context,
-			stream freighter.ServerStream[test.Request, test.Response],
-		) error {
-			close(serving)
-			_, err := stream.Receive()
-			return err
+	Describe("Shutdown", func() {
+		// Serves its own app: shutting down the shared one would strand later specs.
+		It("should stop serving a stream whose peer never answers the close message", func(ctx SpecContext) {
+			router := MustSucceed(fhttp.NewRouter(fhttp.RouterConfig{
+				StreamWriteDeadline: test.WriteDeadline,
+			}))
+			ownServer := fhttp.NewStreamServer[test.Request, test.Response](router, "/")
+			serving := make(chan struct{})
+			ownServer.BindHandler(func(
+				_ context.Context,
+				stream freighter.ServerStream[test.Request, test.Response],
+			) error {
+				close(serving)
+				_, err := stream.Receive()
+				return err
+			})
+			ownApp, ownAddr := serveRouter(router)
+
+			// A raw peer that upgrades and then never reads. Control frames are only
+			// processed inside a read, so the close message goes unanswered.
+			headers := http.Header{}
+			headers.Set(fiber.HeaderContentType, "application/json")
+			conn, res := MustSucceed2((&ws.Dialer{}).DialContext(
+				ctx, "ws://"+ownAddr.String()+"/", headers,
+			))
+			DeferCleanup(func() { Expect(conn.Close()).To(Succeed()) })
+			Expect(res.Body.Close()).To(Succeed())
+			Eventually(serving).Should(BeClosed())
+
+			shutdown := make(chan error, 1)
+			go func() { shutdown <- ownApp.Shutdown() }()
+			Eventually(shutdown, 5*time.Second).Should(Receive(BeNil()))
 		})
-		app, addr := serveRouter(router)
-
-		// A raw peer that upgrades and then never reads. Control frames are only
-		// processed inside a read, so the close message goes unanswered.
-		headers := http.Header{}
-		headers.Set(fiber.HeaderContentType, "application/json")
-		conn, res := MustSucceed2((&ws.Dialer{}).DialContext(
-			ctx, "ws://"+addr.String()+"/", headers,
-		))
-		DeferCleanup(func() { Expect(conn.Close()).To(Succeed()) })
-		Expect(res.Body.Close()).To(Succeed())
-		Eventually(serving).Should(BeClosed())
-
-		shutdown := make(chan error, 1)
-		go func() { shutdown <- app.Shutdown() }()
-		Eventually(shutdown, 5*time.Second).Should(Receive(BeNil()))
 	})
 })

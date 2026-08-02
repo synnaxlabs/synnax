@@ -238,8 +238,7 @@ func (s *serverStream[RQ, RS]) close(err error) (closeErr error) {
 		return err
 	}
 
-	// Wait until the client acknowledges the closure. A silent peer trips the read
-	// deadline set above, which ends the wait as surely as an acknowledgement.
+	// Wait until the client acknowledges the closure.
 	for {
 		if _, err = s.receiveRaw(); err != nil {
 			if !ws.IsCloseError(err, ws.CloseNormalClosure, ws.CloseGoingAway) &&
