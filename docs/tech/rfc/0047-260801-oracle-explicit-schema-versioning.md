@@ -159,6 +159,14 @@ a live type is persisted iff the current version file declares or aliases it. Li
 siblings absent from the file are transient and generate at the package root, exactly
 as unversioned siblings do today.
 
+The type-level `@go marshal` tag moves with it: it declares a codec root — a
+persistence fact — and already requires versioning
+(`oracle/plugin/go/marshal/marshal.go`). It lives on version-file declarations;
+type-level `@go marshal` in a live schema becomes an analyzer error at cutover, and
+current-package codec generation consults the current version file. The field-level
+`@go marshal omit` form stays in live schemas: it marks live-only surface, which
+version files reject by construction.
+
 ## 4.3 - The Freeze Model
 
 Freezing is mint-time, with no release-time step:
@@ -254,6 +262,8 @@ everything compiles, all suites stay green, and no persisted shape changes.
 - `readCoreVersion`'s role in versioning — core-release numbering no longer keys
   anything in Oracle.
 - The `@go version` tag, its analyzer handling, and its documentation.
+- Type-level `@go marshal` in live schemas (§4.2) — the field-level `omit` form
+  stays.
 
 ## 4.8 - Amendments to Prior RFCs
 
