@@ -10,10 +10,10 @@
 import random
 
 from console.task.analog_write import AnalogWrite
-from tests.console.task.rack_case import RackCase
+from tests.console.task.ni_rack_case import NIRackCase
 
 
-class NIAnalogWriteForms(RackCase):
+class NIAnalogWriteForms(NIRackCase):
     """
     Test the input selection for each channel type. Not running the tasks here.
     Only verify that each input type (dropdown/int/float) can be

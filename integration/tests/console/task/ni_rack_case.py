@@ -11,7 +11,7 @@ import synnax as sy
 from console.case import ConsoleCase
 
 
-class RackCase(ConsoleCase):
+class NIRackCase(ConsoleCase):
     """ConsoleCase with a helper to create the NI test rack the form tests share."""
 
     def create_test_ni_rack(

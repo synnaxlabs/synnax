@@ -28,6 +28,7 @@ from multiprocessing.process import BaseProcess
 from examples.simulators.device_sim import DeviceSim
 
 import synnax as sy
+from framework.models import SynnaxConnection
 from framework.test_case import TestCase
 
 
@@ -44,9 +45,18 @@ class SimulatorCase(TestCase):
     SAMPLE_RATE: sy.Rate = 50 * sy.Rate.HZ
     RACK_NAME: str = os.environ.get("SYNNAX_DRIVER_RACK", "Node 1 Embedded Driver")
 
+    def __init__(
+        self,
+        synnax_connection: SynnaxConnection = SynnaxConnection(),
+        *,
+        name: str,
+        **params: object,
+    ) -> None:
+        super().__init__(synnax_connection, name=name, **params)
+        self.sims = {}
+
     def setup(self) -> None:
         """Start simulator(s), connect device(s), then delegate to next in MRO."""
-        self.sims = getattr(self, "sims", {})
         for sim_cls in self.sim_classes:
             name = sim_cls.device_name
             existing = self.sims.get(name)

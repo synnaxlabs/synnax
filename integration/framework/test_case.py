@@ -93,6 +93,8 @@ class TestCase(ABC):
         self._status: STATUS = STATUS.INITIALIZING
         self._error_message: str | None = None
         self._error_traceback: str | None = None
+        self._test_rack_keys: list[int] = []
+        self._test_device_keys: list[str] = []
 
         # Cache channel name strings
         self._ch_time = f"{self.name}_time"
@@ -300,14 +302,13 @@ class TestCase(ABC):
     def create_test_rack(self, name: str) -> sy.Rack:
         """Create a rack that teardown deletes."""
         rack = self.client.racks.create(name=name)
-        self._test_rack_keys = [*getattr(self, "_test_rack_keys", []), rack.key]
+        self._test_rack_keys.append(rack.key)
         return rack
 
     def create_test_devices(self, devices: list[sy.Device]) -> list[sy.Device]:
         """Create devices that teardown deletes."""
         created: list[sy.Device] = self.client.devices.create(devices)
-        keys = [d.key for d in created]
-        self._test_device_keys = [*getattr(self, "_test_device_keys", []), *keys]
+        self._test_device_keys.extend(d.key for d in created)
         return created
 
     def teardown(self) -> None:
@@ -318,13 +319,11 @@ class TestCase(ABC):
         keeps the rack monitor warning for the rest of the run.
         """
         with self._try_to("delete test devices"):
-            device_keys = getattr(self, "_test_device_keys", [])
-            if device_keys:
-                self.client.devices.delete(device_keys)
+            if self._test_device_keys:
+                self.client.devices.delete(self._test_device_keys)
         with self._try_to("delete test racks"):
-            rack_keys = getattr(self, "_test_rack_keys", [])
-            if rack_keys:
-                self.client.racks.delete(rack_keys)
+            if self._test_rack_keys:
+                self.client.racks.delete(self._test_rack_keys)
 
     def write_tlm(self, channel: str, value: Any = None) -> None:
         """Write values to telemetry dictionary."""

@@ -23,6 +23,7 @@ import {
   awaitTaskKey,
   clickConfigure,
   findDialogTriggerByText,
+  getLabeledInput,
   selectFromDropdown,
 } from "@/platform/task/testutil";
 import { stubGeometry, uniqueName } from "@/testutil";
@@ -132,25 +133,28 @@ describe("AnalogRead", () => {
     }
   });
 
-  it("should show the matching CJC field as the CJC source is switched", async () => {
+  it("should show and seed the matching CJC field as the CJC source is switched", async () => {
     await renderAnalogRead({
       config: {
         ...NI.Task.ZERO_ANALOG_READ_PAYLOAD.config,
-        channels: [createChannel("ai_thermocouple", 0)],
+        channels: [
+          createChannel("ai_thermocouple", 0, { cjcSource: "ConstVal", cjcVal: 5 }),
+        ],
       },
     });
     await screen.findByText("CJC Source");
-    expect(screen.queryByText("CJC Value")).toBeNull();
-    expect(screen.queryByText("CJC Port")).toBeNull();
-    await selectFromDropdown("Built In", "Constant Value");
-    await waitFor(() => expect(screen.getByText("CJC Value")).toBeTruthy());
+    expect(getLabeledInput("CJC Value").value).toBe("5");
     expect(screen.queryByText("CJC Port")).toBeNull();
     await selectFromDropdown("Constant Value", "Channel");
-    await waitFor(() => expect(screen.getByText("CJC Port")).toBeTruthy());
+    await waitFor(() => expect(getLabeledInput("CJC Port").value).toBe("0"));
     expect(screen.queryByText("CJC Value")).toBeNull();
-    await selectFromDropdown("Channel", "Built In");
-    await waitFor(() => expect(screen.queryByText("CJC Port")).toBeNull());
-    expect(screen.queryByText("CJC Value")).toBeNull();
+    // Switching back must re-seed cjcVal to 0, not resurface the stale 5.
+    await selectFromDropdown("Channel", "Constant Value");
+    await waitFor(() => expect(getLabeledInput("CJC Value").value).toBe("0"));
+    expect(screen.queryByText("CJC Port")).toBeNull();
+    await selectFromDropdown("Constant Value", "Built In");
+    await waitFor(() => expect(screen.queryByText("CJC Value")).toBeNull());
+    expect(screen.queryByText("CJC Port")).toBeNull();
   });
 
   it("should swap the channel to the newly selected type and keep its port", async () => {

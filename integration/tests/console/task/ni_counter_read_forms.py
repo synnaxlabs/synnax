@@ -10,10 +10,10 @@
 import random
 
 from console.task.counter_read import CounterRead
-from tests.console.task.rack_case import RackCase
+from tests.console.task.ni_rack_case import NIRackCase
 
 
-class NICounterReadForms(RackCase):
+class NICounterReadForms(NIRackCase):
     """
     Test the input selection for each channel type. Not running the tasks here.
     Only verify that each input type (dropdown/int/float) can be

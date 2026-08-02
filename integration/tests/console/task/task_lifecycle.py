@@ -14,6 +14,7 @@ from examples.opcua import OPCUASim
 import synnax as sy
 from console.case import ConsoleCase
 from console.task_page import TaskPage
+from framework.models import SynnaxConnection
 from framework.run_with_connection import run_scripts
 from framework.utils import assert_envelope, assert_link_format
 from tests.driver.simulator_case import SimulatorCase
@@ -60,7 +61,16 @@ class TaskLifecycle(SimulatorCase, ConsoleCase):
     """Task Lifecycle Tests"""
 
     sim_classes = [OPCUASim]
-    _cleanup_tasks: list[str]
+
+    def __init__(
+        self,
+        synnax_connection: SynnaxConnection = SynnaxConnection(),
+        *,
+        name: str,
+        **params: object,
+    ) -> None:
+        super().__init__(synnax_connection, name=name, **params)
+        self._cleanup_tasks: list[str] = []
 
     def setup_tasks(self) -> None:
         self._cleanup_tasks = list(TASK_NAMES)
@@ -75,7 +85,7 @@ class TaskLifecycle(SimulatorCase, ConsoleCase):
 
     def teardown(self) -> None:
         self.log("Beginning teardown")
-        for name in list(getattr(self, "_cleanup_tasks", [])):
+        for name in list(self._cleanup_tasks):
             try:
                 tasks = self.client.tasks.retrieve(names=[name])
                 if tasks:

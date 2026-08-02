@@ -443,6 +443,7 @@ class LayoutClient:
                 sy.sleep(0.2)
 
         apply_search()
+        last_recovery_error: Exception | None = None
         for _ in range(5):
             try:
                 self.page.wait_for_selector(target_item, timeout=5000)
@@ -466,17 +467,19 @@ class LayoutClient:
                         apply_search()
                     else:
                         sy.sleep(1)
-                except Exception:
+                except Exception as e:
                     # A failed recovery consumes this retry instead of aborting.
+                    last_recovery_error = e
                     sy.sleep(1)
                 continue
 
         items = self.page.locator(
             ".pluto-list__item:not(.pluto-tree__item)"
         ).all_text_contents()
-        raise RuntimeError(
-            f"Could not find item '{text}' in dropdown. Available items: {items}"
-        )
+        message = f"Could not find item '{text}' in dropdown. Available items: {items}"
+        if last_recovery_error is not None:
+            message += f" (last recovery attempt failed: {last_recovery_error})"
+        raise RuntimeError(message)
 
     def click(self, selector: str | Locator) -> None:
         """Click an element by text selector or Locator.
