@@ -183,6 +183,7 @@ func buildCheckers(
 		check.NewGeneratedGate(formatters, runtime.GOMAXPROCS(0)),
 		check.NewCacheGate(cache),
 		check.NewPersistenceGate(warningsAsErrors),
+		check.VersionsGate{},
 	}
 }
 

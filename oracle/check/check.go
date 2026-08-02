@@ -160,6 +160,7 @@ var FailureCodes = map[string]int{
 	"analyze":   11,
 	"generated": 12,
 	"cache":     14,
+	"versions":  15,
 }
 
 // FirstExitCode returns the exit code for the first failed gate, in the

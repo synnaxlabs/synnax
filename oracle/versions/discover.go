@@ -26,6 +26,9 @@ func Discover(repoRoot string) (map[string]Chain, error) {
 	chains := make(map[string]Chain)
 	schemasDir := filepath.Join(repoRoot, "schemas")
 	domains, err := os.ReadDir(schemasDir)
+	if os.IsNotExist(err) {
+		return chains, nil
+	}
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to read %s", schemasDir)
 	}
