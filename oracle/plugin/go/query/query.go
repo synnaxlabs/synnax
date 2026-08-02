@@ -480,7 +480,7 @@ type indexes struct {
 func newIndexes() indexes {
 	return indexes{
 {{- range $idx := $ret.Indexes}}
-		{{$idx.StructField}}: gorp.{{if $idx.IsSorted}}NewSortedIndex{{else}}NewLookupIndex{{end}}[{{$ret.KeyType}}, {{$ret.GoName}}, {{$idx.GoType}}](
+		{{$idx.StructField}}: gorp.{{if $idx.IsSorted}}NewSortedIndex{{else}}NewLookupIndex{{end}}(
 			"{{$idx.FieldName}}",
 			func(e *{{$ret.GoName}}) {{$idx.GoType}} { return e.{{$idx.GoName}} },
 		),

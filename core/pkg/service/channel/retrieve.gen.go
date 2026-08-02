@@ -44,7 +44,7 @@ type indexes struct {
 // result on the Service struct.
 func newIndexes() indexes {
 	return indexes{
-		name: gorp.NewLookupIndex[Key, Channel, Name](
+		name: gorp.NewLookupIndex(
 			"name",
 			func(e *Channel) Name { return e.Name },
 		),

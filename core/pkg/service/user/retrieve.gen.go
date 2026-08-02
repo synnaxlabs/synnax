@@ -37,7 +37,7 @@ type indexes struct {
 // result on the Service struct.
 func newIndexes() indexes {
 	return indexes{
-		username: gorp.NewLookupIndex[Key, User, string](
+		username: gorp.NewLookupIndex(
 			"username",
 			func(e *User) string { return e.Username },
 		),
