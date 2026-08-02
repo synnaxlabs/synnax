@@ -39,6 +39,9 @@
     /* The scrollport clips the outset focus halo; every control in the strip
        draws its ring inset instead. */
     --pluto-focus-ring-offset: -2px;
+    /* The floor the selected tab freezes at while its neighbors keep compacting,
+       shared by both variants. */
+    --pluto-tabs-selected-min-width: 20rem;
 
     &::-webkit-scrollbar {
         height: 3px;
@@ -203,6 +206,12 @@
             max-width: fit-content;
             overflow: hidden;
             min-width: 11rem;
+
+            /* max-width would otherwise hold the tab at its label width; a min-width
+               conflicting with a max-width wins, so the floor still applies. */
+            &.pluto--selected {
+                min-width: var(--pluto-tabs-selected-min-width);
+            }
         }
 
         /* The close overlay comes from Button.Close and the reveal contract; the
@@ -263,6 +272,12 @@
 
     &.pluto--selected > .pluto-icon {
         color: var(--pluto-tabs-selected-text-color, var(--pluto-gray-l11));
+    }
+
+    /* The selected pill holds a higher floor, so it freezes while its neighbors keep
+       compacting and the active panel's name stays readable. */
+    &.pluto--selected {
+        min-width: var(--pluto-tabs-selected-min-width);
     }
 }
 
