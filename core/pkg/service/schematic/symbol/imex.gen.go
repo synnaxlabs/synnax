@@ -13,7 +13,6 @@ package symbol
 
 import "github.com/synnaxlabs/synnax/pkg/service/imex"
 
-// Version is the portable schema version stamped on exported Symbol
-// envelopes and the highest version import accepts. It equals the resource's
-// schema version.
+// Version is the portable schema version stamped on exported Symbol envelopes and
+// the highest version import accepts. It equals the resource's schema version.
 const Version imex.Version = 2

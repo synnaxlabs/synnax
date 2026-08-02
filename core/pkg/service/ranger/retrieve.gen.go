@@ -33,22 +33,22 @@ type Filter = gorp.BoundFilter[Retrieve, Key, Range]
 // Match wraps a closure that needs the Retrieve into a Filter. The Retrieve
 // value is supplied by Retrieve.Where at evaluation time.
 func Match(f func(ctx gorp.Context, r Retrieve, e *Range) (bool, error)) Filter {
-	return gorp.MatchBound[Retrieve, Key, Range](f)
+	return gorp.MatchBound(f)
 }
 
 // And returns a filter that matches when all provided filters match.
 func And(fs ...Filter) Filter {
-	return gorp.AndBound[Retrieve, Key, Range](fs...)
+	return gorp.AndBound(fs...)
 }
 
 // Or returns a filter that matches when any provided filter matches.
 func Or(fs ...Filter) Filter {
-	return gorp.OrBound[Retrieve, Key, Range](fs...)
+	return gorp.OrBound(fs...)
 }
 
 // Not returns a filter that inverts the provided filter.
 func Not(f Filter) Filter {
-	return gorp.NotBound[Retrieve, Key, Range](f)
+	return gorp.NotBound(f)
 }
 
 // Search sets a fuzzy search term that Retrieve will use to filter results.
