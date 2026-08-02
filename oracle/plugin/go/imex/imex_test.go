@@ -10,19 +10,11 @@
 package imex_test
 
 import (
-	"testing"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/oracle/plugin/go/imex"
 	. "github.com/synnaxlabs/oracle/testutil"
-	. "github.com/synnaxlabs/x/testutil"
 )
-
-func TestGoImEx(t *testing.T) {
-	RegisterFailHandler(Fail)
-	RunSpecs(t, "Plugin Go ImEx Suite")
-}
 
 var _ = Describe("Go ImEx Plugin", func() {
 	var (
@@ -127,5 +119,3 @@ var _ = Describe("Go ImEx Plugin", func() {
 		})
 	})
 })
-
-var _ = ShouldNotLeakGoroutinesPerSpec()

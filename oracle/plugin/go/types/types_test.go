@@ -12,13 +12,6 @@ package types_test
 import (
 	"context"
 	gojson "encoding/json"
-	"go/parser"
-	"go/token"
-	"os"
-	"path/filepath"
-	"strings"
-	"testing"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/oracle/analyzer"
@@ -28,12 +21,12 @@ import (
 	. "github.com/synnaxlabs/oracle/testutil"
 	gotesterrors "github.com/synnaxlabs/x/errors"
 	. "github.com/synnaxlabs/x/testutil"
+	"go/parser"
+	"go/token"
+	"os"
+	"path/filepath"
+	"strings"
 )
-
-func TestGoTypes(t *testing.T) {
-	RegisterFailHandler(Fail)
-	RunSpecs(t, "Plugin Go Types Suite")
-}
 
 var _ = Describe("Go Types Plugin", func() {
 	var (
@@ -3085,5 +3078,3 @@ var _ = Describe("Unversioned Consumers", func() {
 			ToContain("type Channel struct")
 	})
 })
-
-var _ = ShouldNotLeakGoroutinesPerSpec()

@@ -11,20 +11,13 @@ package resolver_test
 
 import (
 	"fmt"
-	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/oracle/plugin/primitives"
 	"github.com/synnaxlabs/oracle/plugin/resolver"
 	"github.com/synnaxlabs/oracle/resolution"
-	. "github.com/synnaxlabs/x/testutil"
 )
-
-func TestResolver(t *testing.T) {
-	RegisterFailHandler(Fail)
-	RunSpecs(t, "Plugin Resolver Suite")
-}
 
 // MockImportAdder implements ImportAdder for testing.
 type MockImportAdder struct {
@@ -966,5 +959,3 @@ var _ = Describe("Context", func() {
 		})
 	})
 })
-
-var _ = ShouldNotLeakGoroutinesPerSpec()

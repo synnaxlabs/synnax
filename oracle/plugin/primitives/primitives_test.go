@@ -10,19 +10,11 @@
 package primitives_test
 
 import (
-	"testing"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/oracle/plugin/primitives"
 	"github.com/synnaxlabs/x/set"
-	. "github.com/synnaxlabs/x/testutil"
 )
-
-func TestPrimitives(t *testing.T) {
-	RegisterFailHandler(Fail)
-	RunSpecs(t, "Plugin Primitives Suite")
-}
 
 var _ = Describe("Primitives", func() {
 	Describe("IsPrimitive", func() {
@@ -109,5 +101,3 @@ var _ = Describe("Primitives", func() {
 // - oracle/plugin/ts/primitives/mapping_test.go
 // - oracle/plugin/cpp/primitives/mapping_test.go
 // - oracle/plugin/pb/primitives/mapping_test.go
-
-var _ = ShouldNotLeakGoroutinesPerSpec()

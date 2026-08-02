@@ -10,9 +10,6 @@
 package types_test
 
 import (
-	"strings"
-	"testing"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/oracle/analyzer"
@@ -20,12 +17,8 @@ import (
 	"github.com/synnaxlabs/oracle/plugin/py/types"
 	. "github.com/synnaxlabs/oracle/testutil"
 	. "github.com/synnaxlabs/x/testutil"
+	"strings"
 )
-
-func TestTypes(t *testing.T) {
-	RegisterFailHandler(Fail)
-	RunSpecs(t, "Plugin Py Types Suite")
-}
 
 var _ = Describe("PyFormatter", func() {
 	f := types.PyFormatter
@@ -2030,5 +2023,3 @@ var _ = Describe("Collection type aliases and maps", func() {
 		ExpectContent(resp, "types_gen.py").ToNotContain("model_rebuild()")
 	})
 })
-
-var _ = ShouldNotLeakGoroutinesPerSpec()

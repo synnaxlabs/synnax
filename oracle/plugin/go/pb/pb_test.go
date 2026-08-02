@@ -10,20 +10,12 @@
 package pb_test
 
 import (
-	"strings"
-	"testing"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/oracle/plugin/go/pb"
 	. "github.com/synnaxlabs/oracle/testutil"
-	. "github.com/synnaxlabs/x/testutil"
+	"strings"
 )
-
-func TestGoPB(t *testing.T) {
-	RegisterFailHandler(Fail)
-	RunSpecs(t, "Plugin Go PB Suite")
-}
 
 var _ = Describe("Go PB Plugin", func() {
 	var (
@@ -2209,5 +2201,3 @@ var _ = Describe("Go PB Plugin", func() {
 		})
 	})
 })
-
-var _ = ShouldNotLeakGoroutinesPerSpec()

@@ -10,19 +10,11 @@
 package actions_test
 
 import (
-	"testing"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/oracle/plugin/go/actions"
 	. "github.com/synnaxlabs/oracle/testutil"
-	. "github.com/synnaxlabs/x/testutil"
 )
-
-func TestGoActions(t *testing.T) {
-	RegisterFailHandler(Fail)
-	RunSpecs(t, "Plugin Go Actions Suite")
-}
 
 var _ = Describe("Go Actions Plugin", func() {
 	var (
@@ -183,5 +175,3 @@ var _ = Describe("Go Actions Plugin", func() {
 		})
 	})
 })
-
-var _ = ShouldNotLeakGoroutinesPerSpec()
