@@ -24,7 +24,6 @@ Variant enum {
     loading  = "loading"
     disabled = "disabled"
 
-    @go version  1
     @doc value   "is the severity or type of a status message."
     @ts literals
 }
@@ -61,14 +60,12 @@ Status struct<Details?, V extends Variant = Variant> {
         @go marshal omit
     }
 
-    @go version        1
     @doc value         """
         is a standardized message used to communicate state across the Synnax
         platform. Statuses support different severity variants and can carry
         component-specific details. A status is uniquely identified by a key and may
         carry a human-readable name and labels for categorization and filtering.
     """
-    @go marshal
     @ts concrete_types
     @create
 }

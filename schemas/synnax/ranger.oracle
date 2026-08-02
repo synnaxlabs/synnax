@@ -18,8 +18,7 @@ import "schemas/x/telem"
 @pb
 
 Key = uuid {
-    @go version 1
-    @doc value  "is a unique identifier for a range, represented as a UUID."
+    @doc value "is a unique identifier for a range, represented as a UUID."
 }
 
 Range struct {
@@ -62,7 +61,6 @@ Range struct {
         @validate skip
     }
 
-    @go version      1
     @doc value       """
         is a user-defined region of time in the Synnax cluster. Ranges act as a
         method for labeling and categorizing telemetry data within specific time
@@ -72,7 +70,6 @@ Range struct {
     @search
     @ontology type   "range"
     @pb
-    @go marshal
     @go migrate
     @cpp name        "Range"
     @ts name         "Payload"

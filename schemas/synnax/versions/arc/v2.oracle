@@ -1,12 +1,25 @@
 import "schemas/arc/versions/graph/v1"
 import "schemas/arc/versions/ir/v1"
 import "schemas/arc/versions/text/v1"
+import "schemas/synnax/versions/status/v1"
 import "schemas/x/versions/crdt/v0"
 import "schemas/x/versions/spatial/v0"
 
 Key = v0.Key
 
 Mode = v0.Mode
+
+StatusDetails struct {
+    running bool {
+        @doc value "indicates whether the Arc module is currently executing."
+    }
+
+    @go pinned
+}
+
+Status = status.Status<StatusDetails> {
+    @go pinned
+}
 
 Arc struct {
     key   Key = create {
@@ -130,6 +143,6 @@ tombstoned characters. Because the characters are already deleted, and thus
 invisible, applying it never changes the materialized text."""
     }
 
-    @go marshal
     @go migrate
+    @go marshal
 }

@@ -89,7 +89,9 @@ func Canonical(ctx context.Context, in Input) (string, error) {
 	deps := make(set.Set[string])
 	decls := make([]versions.Decl, 0, len(members))
 	for _, t := range members {
-		if def, ok := surf[t.Name]; ok {
+		// Pinned members always declare fully: the pinned marker rides a
+		// declaration, and a pinned type's shape tracks the live schema.
+		if def, ok := surf[t.Name]; ok && !in.Pinned.Contains(t.Name) {
 			definer, err := in.Resolver.File(ctx, livePath, def.Version)
 			if err != nil {
 				return "", err

@@ -18,8 +18,7 @@ OuterLocation enum {
     bottom = "bottom"
     left   = "left"
 
-    @go version 0
-    @doc value  """
+    @doc value """
         is a position indicator for elements anchored to the outer edge of a
         container. Used for orientation and positioning of UI elements.
     """
@@ -33,8 +32,7 @@ XY struct {
         @doc value "is the vertical coordinate."
     }
 
-    @go version 0
-    @doc value  """
+    @doc value """
         is a 2D coordinate point with x and y values. Used for positioning
         elements in two-dimensional space.
     """
@@ -45,16 +43,14 @@ Direction enum {
     x = "x"
     y = "y"
 
-    @go version 0
-    @doc value  "is a 2D axis direction."
+    @doc value "is a 2D axis direction."
 }
 
 XLocation enum {
     left  = "left"
     right = "right"
 
-    @go version 0
-    @doc value  "is a horizontal-axis location at the left or right edge."
+    @doc value "is a horizontal-axis location at the left or right edge."
     @pb
 }
 
@@ -62,16 +58,14 @@ YLocation enum {
     top    = "top"
     bottom = "bottom"
 
-    @go version 0
-    @doc value  "is a vertical-axis location at the top or bottom edge."
+    @doc value "is a vertical-axis location at the top or bottom edge."
 }
 
 StickyUnit enum {
     px      = "px"
     decimal = "decimal"
 
-    @go version 0
-    @doc value  """
+    @doc value """
         is the measurement unit for a sticky coordinate, either pixels or a
         decimal fraction of the container.
     """
@@ -85,8 +79,7 @@ CornerLocation struct {
         @doc value "is the vertical anchor."
     }
 
-    @go version 0
-    @doc value  "is an anchor corner for positioning."
+    @doc value "is an anchor corner for positioning."
 }
 
 StickyUnits struct {
@@ -97,8 +90,7 @@ StickyUnits struct {
         @doc value "is the vertical unit."
     }
 
-    @go version 0
-    @doc value  "specifies the measurement units for sticky positioning."
+    @doc value "specifies the measurement units for sticky positioning."
 }
 
 StickyXY struct {
@@ -115,8 +107,7 @@ StickyXY struct {
         @doc value "is the unit specification for the coordinates."
     }
 
-    @go version 0
-    @doc value  """
+    @doc value """
         is a position that can be anchored to different corners of a
         container with configurable units (pixels or decimal fractions).
     """
@@ -142,8 +133,7 @@ Viewport struct {
         @doc value "is the (x, y) pan offset of the viewport."
     }
 
-    @go version 0
-    @doc value  "is the camera state of a viewport."
+    @doc value "is the camera state of a viewport."
 }
 
 AngularDirection enum {
@@ -240,8 +230,7 @@ ClientXY struct {
 }
 
 Decimal = float64 {
-    @go version 0
-    @doc value  """
+    @doc value """
         is a normalized value in [0, 1] expressed as a decimal fraction of a
         whole, such as a container's extent.
     """
@@ -259,8 +248,7 @@ Bounds struct<T extends numeric = float64> {
         @doc value "is the exclusive upper bound."
     }
 
-    @go version 0
-    @doc value  """
+    @doc value """
         is a closed-open interval [lower, upper) over an ordered numeric value
         space. The TypeScript binding is generic over T so callers can express
         bounds over either number or bigint values; other languages emit a

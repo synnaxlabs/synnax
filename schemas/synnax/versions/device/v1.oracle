@@ -1,6 +1,22 @@
 import "schemas/synnax/versions/rack/v1"
+import "schemas/synnax/versions/status/v1"
 
 Key = v0.Key
+
+StatusDetails struct {
+    rack   rack.Key {
+        @doc value "is the key of the rack this device belongs to."
+    }
+    device Key      {
+        @doc value "is the device identifier."
+    }
+
+    @go pinned
+}
+
+Status = status.Status<StatusDetails> {
+    @go pinned
+}
 
 Device struct<
     Properties extends record = record,
@@ -36,6 +52,6 @@ ready for use."""
 Structure varies by device make and model."""
     }
 
-    @go marshal
     @go migrate
+    @go marshal
 }

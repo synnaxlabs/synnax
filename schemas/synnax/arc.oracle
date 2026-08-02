@@ -22,16 +22,14 @@ import "schemas/x/spatial"
 @pb
 
 Key = uuid {
-    @go version 2
-    @doc value  "is a unique identifier for an Arc module."
+    @doc value "is a unique identifier for an Arc module."
 }
 
 Mode enum {
     text  = "text"
     graph = "graph"
 
-    @go version 2
-    @doc value  """
+    @doc value """
         specifies whether an Arc module uses text-based or graph-based representation.
     """
 }
@@ -41,13 +39,11 @@ StatusDetails struct {
         @doc value "indicates whether the Arc module is currently executing."
     }
 
-    @go version 2
-    @doc value  "contains Arc-specific status details for execution state."
+    @doc value "contains Arc-specific status details for execution state."
 }
 
 Status = status.Status<StatusDetails> {
-    @go version 2
-    @doc value  "is the status of an Arc module including execution state."
+    @doc value "is the status of an Arc module including execution state."
 }
 
 Arc struct {
@@ -187,14 +183,12 @@ Arc struct {
         """
     }
 
-    @go version    2
     @doc value     """
         is an Arc module combining visual graph representation and text-based
         source code for reactive control systems. Compiles to WebAssembly for
         sandboxed execution.
     """
     @ontology type "arc"
-    @go marshal
     @go migrate
     @py name       "Payload"
     @retrieve

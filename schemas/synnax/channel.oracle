@@ -41,7 +41,6 @@ LocalKey uint20 {
 }
 
 Name = string {
-    @go version        0
     @doc value         """
         is a human-readable name for a channel. Must start with a letter or
         underscore and contain only letters, digits, and underscores. Names are
@@ -58,9 +57,8 @@ OperationType enum {
     none       = "none"
     derivative = "derivative"
 
-    @go version 0
-    @doc value  "is the type of aggregation operation to apply to channel data over time."
-    @go output  "core/pkg/service/channel"
+    @doc value "is the type of aggregation operation to apply to channel data over time."
+    @go output "core/pkg/service/channel"
     @pb
 }
 
@@ -78,13 +76,12 @@ Operation struct {
         @doc value "is the time window for aggregation when reset_channel is 0."
     }
 
-    @go version 0
-    @doc value  """
+    @doc value """
         defines an aggregation operation applied to channel data. Operations
         calculate min, max, or average values over a time duration or triggered
         by a reset channel.
     """
-    @go output  "core/pkg/service/channel"
+    @go output "core/pkg/service/channel"
     @pb
 }
 
@@ -153,9 +150,7 @@ Channel struct {
         clients should use APIChannel instead.
     """
     @go output     "core/pkg/service/channel"
-    @go marshal
     @go migrate
-    @go version    0
     @retrieve
     @retrieve key  "Key"
     @search

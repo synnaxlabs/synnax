@@ -1,4 +1,27 @@
+import "schemas/synnax/versions/status/v1"
+
 Key = v0.Key
+
+StatusDetails struct<Data = record> {
+    task    Key = 0 {
+        @doc value "is the key of the task this status pertains to."
+    }
+    running bool   {
+        @doc value "is true if the task is currently executing."
+    }
+    cmd     string = "" {
+        @doc value "is the last command executed on this task."
+    }
+    data    Data?  {
+        @doc value "contains task-specific status data."
+    }
+
+    @go pinned
+}
+
+Status<Data = record> = status.Status<StatusDetails<Data>> {
+    @go pinned
+}
 
 Task struct<
     Type extends string = string,
@@ -27,6 +50,6 @@ task type."""
         @doc value "indicates whether to persist this task's configuration."
     }
 
-    @go marshal
     @go migrate
+    @go marshal
 }

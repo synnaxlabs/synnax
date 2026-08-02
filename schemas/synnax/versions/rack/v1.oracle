@@ -1,4 +1,18 @@
+import "schemas/synnax/versions/status/v1"
+
 Key = v0.Key
+
+StatusDetails struct {
+    rack Key {
+        @doc value "is the key of the rack this status pertains to."
+    }
+
+    @go pinned
+}
+
+Status = status.Status<StatusDetails> {
+    @go pinned
+}
 
 Rack struct {
     key          Key      {
@@ -19,6 +33,6 @@ Rack struct {
 "labjack"). An empty or nil list means the rack supports no integrations."""
     }
 
-    @go marshal
     @go migrate
+    @go marshal
 }

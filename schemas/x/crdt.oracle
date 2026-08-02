@@ -29,8 +29,7 @@ ID struct {
         """
     }
 
-    @go version 0
-    @doc value  """
+    @doc value """
         uniquely identifies a character within a replicated text document. It pairs the
         replica that created the character with that replica's per-character counter,
         making the identifier globally unique without coordination.
@@ -57,8 +56,7 @@ Insert struct {
         @doc value "is the inserted Unicode code point."
     }
 
-    @go version 0
-    @doc value  "introduces a single character into a replicated text document."
+    @doc value "introduces a single character into a replicated text document."
 }
 
 Delete struct {
@@ -66,8 +64,7 @@ Delete struct {
         @doc value "is the identity of the character to tombstone."
     }
 
-    @go version 0
-    @doc value  """
+    @doc value """
         tombstones the character with the given id. It carries only the id because
         removal needs no position; the character remains in the document tree as a
         tombstone so concurrently-inserted neighbors can still anchor to it.

@@ -24,8 +24,7 @@ Concurrency enum {
     exclusive = 0
     shared    = 1
 
-    @go version 0
-    @doc value  "defines whether a resource can have multiple subjects acting on it at once."
+    @doc value "defines whether a resource can have multiple subjects acting on it at once."
     @pb
 }
 

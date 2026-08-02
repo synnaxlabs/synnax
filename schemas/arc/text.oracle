@@ -23,8 +23,7 @@ Document struct {
         @doc value "are the operations that tombstone deleted characters."
     }
 
-    @go version 1
-    @doc value  """
+    @doc value """
         is the conflict-free replicated representation of the text: the operations that
         reconstruct it when applied to an empty replica. It is the durable source of
         truth from which raw is materialized.
@@ -43,7 +42,6 @@ Text struct {
         @doc value  "is the materialized Arc source code, derived from doc and not persisted."
     }
 
-    @go version 1
     @doc value  "is text-based Arc source code with optional parsed AST for compilation."
     @go fields  "AST parser.IProgramContext `json:\"-\"`"
     @go imports "github.com/synnaxlabs/arc/parser"

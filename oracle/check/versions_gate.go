@@ -184,6 +184,13 @@ func (g VersionsGate) checkChain(
 			if t.Synthetic {
 				continue
 			}
+			// Pinned declarations track the live schema and may legitimately
+			// match their predecessor.
+			if dom, ok := t.Domains["go"]; ok {
+				if _, pinned := dom.Expressions.Find("pinned"); pinned {
+					continue
+				}
+			}
 			def, ok := surf[t.Name]
 			if !ok {
 				continue

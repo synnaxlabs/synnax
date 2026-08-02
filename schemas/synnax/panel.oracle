@@ -13,9 +13,7 @@ import "schemas/x/spatial"
 @ts output "client/ts/src/panel"
 @go output "core/pkg/service/panel"
 
-TabKey = uuid {
-    @go version 0
-}
+TabKey = uuid
 
 TabBase struct {
     key TabKey = create {
@@ -26,8 +24,7 @@ TabBase struct {
         """
     }
 
-    @go version 0
-    @doc value  "carries the identity shared by every tab variant."
+    @doc value "carries the identity shared by every tab variant."
 }
 
 View struct {
@@ -45,8 +42,7 @@ View struct {
         @ts preserve_case
     }
 
-    @go version 0
-    @doc value  """
+    @doc value """
         is an inline, self-describing view: a Console-owned type plus an
         opaque configuration payload, with no backing core document. Used
         for app-views and tools (docs, explorers, task forms, and the
@@ -74,8 +70,7 @@ Tab union on variant extends TabBase {
         """
     }
 
-    @go version 0
-    @doc value  """
+    @doc value """
         is a single tab in a leaf. Tab content is a discriminated union:
         a resource (a backing core document, e.g. a line plot) or a view
         (an inline, self-describing app-view, e.g. docs). A freshly created
@@ -92,8 +87,7 @@ Leaf struct {
         @doc value "is the ordered list of tabs in this leaf."
     }
 
-    @go version 0
-    @doc value  "is a leaf node in the panel tree displaying a tab strip."
+    @doc value "is a leaf node in the panel tree displaying a tab strip."
 }
 
 Split struct {
@@ -113,16 +107,14 @@ Split struct {
         @doc value "is the second child (right for x, bottom for y)."
     }
 
-    @go version 0
-    @doc value  "is an interior split node dividing its area between two children."
+    @doc value "is an interior split node dividing its area between two children."
 }
 
 Node union on variant {
     leaf  Leaf
     split Split
 
-    @go version 0
-    @doc value  """
+    @doc value """
         is a node in the panel tree: either a leaf displaying a tab strip
         or an interior split. Nodes are identified by path-derived numeric
         keys during traversal (1 = root, 2k = first child, 2k+1 = last child).
@@ -130,8 +122,7 @@ Node union on variant {
 }
 
 Key = uuid {
-    @go version 0
-    @doc value  "is a unique identifier for a panel, represented as a UUID."
+    @doc value "is a unique identifier for a panel, represented as a UUID."
 }
 
 Panel struct {
@@ -264,7 +255,6 @@ Panel struct {
         """
     }
 
-    @go version    0
     @doc value     """
         is a tab in a project owning a tree of visualization tabs. A panel
         is owned by a project (project panel) or by a user (draft);
@@ -274,6 +264,5 @@ Panel struct {
     @retrieve
     @create
     @search
-    @go marshal
     @go migrate
 }

@@ -19,8 +19,7 @@ Level enum {
     p     = "p"
     small = "small"
 
-    @go version 0
-    @doc value  """
+    @doc value """
         is a typography level identifier shared across visualizations.
         Mirrors the heading ladder (h1 through h5) plus paragraph (p) and
         small. Order is descending: h1 is the largest, small is the

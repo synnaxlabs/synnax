@@ -18,8 +18,7 @@ import "schemas/synnax/status"
 @pb
 
 Key = string {
-    @go version 1
-    @doc value  "is a unique identifier for the device"
+    @doc value "is a unique identifier for the device"
 }
 
 StatusDetails struct {
@@ -30,13 +29,11 @@ StatusDetails struct {
         @doc value "is the device identifier."
     }
 
-    @go version 1
-    @doc value  "contains device-specific status details identifying the device and its associated rack."
+    @doc value "contains device-specific status details identifying the device and its associated rack."
 }
 
 Status = status.Status<StatusDetails> {
-    @go version 1
-    @doc value  """
+    @doc value """
         is device-specific status information including operational state and
         device identification.
     """
@@ -103,7 +100,6 @@ Device struct<
         @go marshal omit
     }
 
-    @go version        1
     @doc value         """
         is a physical piece of hardware connected to Synnax through the Driver
         system. Devices represent external equipment like LabJack, National
@@ -111,7 +107,6 @@ Device struct<
     """
     @ontology type     "device"
     @create
-    @go marshal
     @go migrate
     @retrieve
     @search

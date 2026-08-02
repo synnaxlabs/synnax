@@ -15,6 +15,5 @@ Notation enum {
     scientific  = "scientific"
     engineering = "engineering"
 
-    @go version 0
-    @doc value  "is the numeric notation used to render samples."
+    @doc value "is the numeric notation used to render samples."
 }

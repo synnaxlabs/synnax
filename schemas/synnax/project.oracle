@@ -12,8 +12,7 @@
 @go output "core/pkg/service/project"
 
 Key = uuid {
-    @go version 1
-    @doc value  "is a unique identifier for a project, represented as a UUID."
+    @doc value "is a unique identifier for a project, represented as a UUID."
 }
 
 Project struct {
@@ -34,7 +33,6 @@ Project struct {
         @ts preserve_case
     }
 
-    @go version    1
     @doc value     """
         is a named, persistable container that stores the layout and organization
         of the Console application. Projects allow users to save and restore
@@ -44,6 +42,5 @@ Project struct {
     @create
     @retrieve
     @search
-    @go marshal
     @go migrate
 }
