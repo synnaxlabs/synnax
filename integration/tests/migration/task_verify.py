@@ -74,8 +74,8 @@ class ReadTaskMigrationVerify(ReadTaskCase):
         for sim in getattr(self, "sims", {}).values():
             if sim is not None:
                 sim.stop()
-        # Deliberately skip ReadTaskCase.teardown: it deletes the task, which must
-        # survive across migration phases. The base tracked cleanup still runs.
+        # Deliberately skip the parent teardown chain: it deletes the task and
+        # tracked hardware, which must survive across migration phases.
         TestCase.teardown(self)
 
     def test_task_config(self) -> None:

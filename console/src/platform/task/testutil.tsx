@@ -361,8 +361,8 @@ export const selectFromDropdown = async (
 };
 
 /**
- * Finds the input rendered inside the Input.Item labeled by label. Item labels carry
- * no htmlFor, so this walks the item container instead of using getByLabelText.
+ * Finds the input rendered inside the Input.Item labeled by label. Item labels carry no
+ * htmlFor, so this walks the item container instead of using getByLabelText.
  * @throws if no item or input renders for the label.
  */
 export const getLabeledInput = (label: string): HTMLInputElement => {

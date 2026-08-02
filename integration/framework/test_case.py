@@ -93,8 +93,6 @@ class TestCase(ABC):
         self._status: STATUS = STATUS.INITIALIZING
         self._error_message: str | None = None
         self._error_traceback: str | None = None
-        self._test_rack_keys: list[int] = []
-        self._test_device_keys: list[str] = []
 
         # Cache channel name strings
         self._ch_time = f"{self.name}_time"
@@ -299,31 +297,9 @@ class TestCase(ABC):
                 self._error_message += f"\n{failure}"
             self.STATUS = STATUS.FAILED
 
-    def create_test_rack(self, name: str) -> sy.Rack:
-        """Create a rack that teardown deletes."""
-        rack = self.client.racks.create(name=name)
-        self._test_rack_keys.append(rack.key)
-        return rack
-
-    def create_test_devices(self, devices: list[sy.Device]) -> list[sy.Device]:
-        """Create devices that teardown deletes."""
-        created: list[sy.Device] = self.client.devices.create(devices)
-        self._test_device_keys.extend(d.key for d in created)
-        return created
-
     def teardown(self) -> None:
-        """Cleanup after test execution. Overrides must call super().teardown().
-
-        Deletes racks and devices made through the create_test_* helpers: a leftover
-        device keeps the Driver health-checking a dead endpoint, and a leftover rack
-        keeps the rack monitor warning for the rest of the run.
-        """
-        with self._try_to("delete test devices"):
-            if self._test_device_keys:
-                self.client.devices.delete(self._test_device_keys)
-        with self._try_to("delete test racks"):
-            if self._test_rack_keys:
-                self.client.racks.delete(self._test_rack_keys)
+        """Cleanup after test execution. Overrides must call super().teardown()
+        so mixin cleanups (e.g. HardwareCase) run."""
 
     def write_tlm(self, channel: str, value: Any = None) -> None:
         """Write values to telemetry dictionary."""

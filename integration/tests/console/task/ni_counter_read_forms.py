@@ -39,9 +39,7 @@ class NICounterReadForms(NIRackCase):
             auto_start=False,
         )
 
-        self.create_test_ni_rack(
-            rack_name, device_name, "230227d9-02aa-47e4-b370-0d590add1bc1"
-        )
+        self.create_test_ni_rack(rack_name, device_name)
 
         # All available channel type verifiers
         all_verifiers = [

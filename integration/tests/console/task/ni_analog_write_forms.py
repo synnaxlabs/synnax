@@ -41,9 +41,7 @@ class NIAnalogWriteForms(NIRackCase):
             auto_start=False,
         )
 
-        self.create_test_ni_rack(
-            rack_name, device_name, "130227d7-02cc-4733-b370-0d590add1bc4"
-        )
+        self.create_test_ni_rack(rack_name, device_name)
         self.verify_voltage_inputs(ni_ao, device_name)
         self.verify_current_inputs(ni_ao, device_name)
 

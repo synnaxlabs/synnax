@@ -28,11 +28,11 @@ from multiprocessing.process import BaseProcess
 from examples.simulators.device_sim import DeviceSim
 
 import synnax as sy
+from framework.hardware_case import HardwareCase
 from framework.models import SynnaxConnection
-from framework.test_case import TestCase
 
 
-class SimulatorCase(TestCase):
+class SimulatorCase(HardwareCase):
     """DeviceSim lifecycle management.
 
     Subclasses set sim_classes to a list of DeviceSim subclasses.

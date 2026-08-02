@@ -39,9 +39,7 @@ class NIAnalogReadForms(NIRackCase):
             auto_start=False,
         )
 
-        self.create_test_ni_rack(
-            rack_name, device_name, "130227d9-02aa-47e4-b370-0d590add1bc0"
-        )
+        self.create_test_ni_rack(rack_name, device_name)
 
         # All available channel type verifiers
         all_verifiers = [
