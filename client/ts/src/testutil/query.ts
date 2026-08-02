@@ -9,12 +9,13 @@
 
 import { query } from "@/query";
 
+export { isLive } from "@/query/query";
+
 /** Asserts the cached answer is live (present and not deleted) and returns it. */
 export const expectLive = <D extends query.Data>(
   value: query.Cached<D> | undefined,
 ): D => {
-  if (value == null || query.Deleted.matches<D>(value))
-    throw new Error("expected a live cached answer");
+  if (!query.isLive<D>(value)) throw new Error("expected a live cached answer");
   return value;
 };
 
@@ -25,8 +26,3 @@ export const expectDeleted = <D extends query.Data>(
   if (!query.Deleted.matches<D>(value)) throw new Error("expected a deleted answer");
   return value;
 };
-
-/** True when the cached answer is live (present and not deleted). */
-export const isLive = <D extends query.Data>(
-  value: query.Cached<D> | undefined,
-): value is D => value != null && !query.Deleted.matches<D>(value);
