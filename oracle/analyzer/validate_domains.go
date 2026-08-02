@@ -142,6 +142,33 @@ func validateVersionArgs(c *analysisCtx, types []resolution.Type) {
 	}
 }
 
+// validatePinnedArgs errors on malformed standalone @go pinned declarations:
+// the marker takes no arguments and is meaningless file-level.
+func validatePinnedArgs(c *analysisCtx, types []resolution.Type) {
+	if dom, ok := c.fileDomains["go"]; ok {
+		if _, has := dom.Expressions.Find("pinned"); has {
+			c.report(diagnostics.Errorf(nil,
+				"%s declares @go pinned file-level; declare it per type instead",
+				c.namespace,
+			))
+		}
+	}
+	for _, t := range types {
+		dom, ok := t.Domains["go"]
+		if !ok {
+			continue
+		}
+		expr, ok := dom.Expressions.Find("pinned")
+		if !ok || len(expr.Values) == 0 {
+			continue
+		}
+		c.report(diagnostics.Errorf(nil,
+			"%s has a malformed @go pinned; the marker takes no arguments",
+			t.QualifiedName,
+		))
+	}
+}
+
 // validateDeadOutputs errors when a file declares a language output that
 // nothing uses: every type omits the language and none is hand-written.
 func validateDeadOutputs(

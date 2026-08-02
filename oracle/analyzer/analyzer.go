@@ -209,6 +209,7 @@ func analyze(c *analysisCtx) {
 	validateDeadOutputs(c, types)
 	validateFileVersion(c)
 	validateVersionArgs(c, types)
+	validatePinnedArgs(c, types)
 	for _, typ := range types {
 		for i, t := range c.table.Types {
 			if t.QualifiedName == typ.QualifiedName {

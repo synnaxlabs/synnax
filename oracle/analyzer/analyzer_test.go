@@ -73,6 +73,44 @@ var _ = Describe("Analyzer", func() {
 			_, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
 			Expect(diag.Ok()).To(BeTrue())
 		})
+
+		It("Should accept a standalone struct-level @go pinned", func(ctx SpecContext) {
+			source := `
+				@go output "out"
+				Entry struct {
+					value int32
+					@go pinned
+				}
+			`
+			_, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+			Expect(diag.Ok()).To(BeTrue())
+		})
+
+		It("Should error when @go pinned is declared file-level", func(ctx SpecContext) {
+			source := `
+				@go output "out"
+				@go pinned
+				Entry struct {
+					value int32
+				}
+			`
+			_, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+			Expect(diag.Ok()).To(BeFalse())
+			Expect(diag.String()).To(ContainSubstring("declare it per type"))
+		})
+
+		It("Should error when @go pinned carries arguments", func(ctx SpecContext) {
+			source := `
+				@go output "out"
+				Entry struct {
+					value int32
+					@go pinned 2
+				}
+			`
+			_, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+			Expect(diag.Ok()).To(BeFalse())
+			Expect(diag.String()).To(ContainSubstring("takes no arguments"))
+		})
 	})
 
 	Describe("Version arguments", func() {

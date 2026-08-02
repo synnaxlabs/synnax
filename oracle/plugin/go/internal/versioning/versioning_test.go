@@ -104,6 +104,18 @@ var _ = Describe("Versioning", func() {
 			table := MustSucceed(analyze(ctx, source, "test", loader))
 			Expect(versioning.Pinned(table.MustGet("test.Entry"))).To(BeFalse())
 		})
+
+		It("Should report the standalone pinned marker", func(ctx SpecContext) {
+			source := `
+				@go output "out"
+				Entry struct {
+				    @go pinned
+					key uuid @key
+				}
+			`
+			table := MustSucceed(analyze(ctx, source, "test", loader))
+			Expect(versioning.Pinned(table.MustGet("test.Entry"))).To(BeTrue())
+		})
 	})
 
 	Describe("Dir", func() {
