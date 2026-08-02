@@ -42,8 +42,8 @@ export interface ImportOptions extends Options {
    */
   fileName: string;
   /**
-   * The ontology resource to create the imported resource under — a project for
-   * project items, a group for symbols. The Core creates the resource and its parent
+   * The ontology resource to create the imported resource under — a project for project
+   * items, a group for symbols. The Core creates the resource and its parent
    * relationship in a single transaction, so a parenting failure rolls back the import.
    */
   parent: ontology.ID;

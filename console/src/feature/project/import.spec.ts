@@ -128,7 +128,6 @@ describe("project import", () => {
     );
     await waitFor(() => expect(result.current.granted).toBe(true));
     await act(async () => {
-      // No client-side ingesters: visualization files route through the server.
       await Project.ingest(`proj-${id.create()}`, fileList, {
         client,
         fileIngesters: {},

@@ -26,9 +26,9 @@ import { Runtime } from "@/platform/runtime";
 import { Session } from "@/session";
 
 /**
- * Imports data by streaming its bytes to the Core, which owns envelope decoding,
- * type resolution for typeless legacy Console states, legacy-version migration,
- * file-name naming, and project parenting. Opens the created resource as a tab.
+ * Imports data by streaming its bytes to the Core, which owns envelope decoding, type
+ * resolution for typeless legacy Console states, legacy-version migration, file-name
+ * naming, and project parenting. Opens the created resource as a tab.
  * @throws {DisconnectedError} if no cluster is connected.
  */
 export const ingestServer: FileIngester = async (
