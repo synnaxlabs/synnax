@@ -70,16 +70,13 @@
     position: relative;
 }
 
-/* Single-child pass-through: block spares WebKit a level of per-frame flex
-   re-measurement while a pane or drawer resizes. Scoped under .console-mosaic
+/* One stretched cell: spares WebKit a level of per-frame flex re-measurement
+   while a pane resizes, and sizes the content child without touching overlays,
+   which are out of flow and keep their own size. Scoped under .console-mosaic
    to outrank .pluto-flex regardless of bundle order. */
 .console-mosaic .console-panel__tab {
-    display: block;
-
-    > * {
-        width: 100%;
-        height: 100%;
-    }
+    display: grid;
+    grid-template: minmax(0, 1fr) / minmax(0, 1fr);
 }
 
 /* Focus mode reads as a lamp over the pane: everything is l11 light, matching
