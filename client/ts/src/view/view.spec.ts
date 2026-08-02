@@ -63,6 +63,17 @@ describe("View", () => {
       expect(retrieved.query).toEqual({ channels: ["test"] });
     });
 
+    it("should retrieve a view by a bare key", async () => {
+      const client = createTestClient();
+      const created = await client.views.create({
+        name: "Bare Key Test",
+        type: "table",
+        query: { channels: ["test"] },
+      });
+      const retrieved = await client.views.retrieve(created.key);
+      expect(retrieved.key).toEqual(created.key);
+    });
+
     it("should retrieve multiple views", async () => {
       const client = createTestClient();
       const created = await client.views.create([

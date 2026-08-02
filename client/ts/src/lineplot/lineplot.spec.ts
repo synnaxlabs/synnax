@@ -27,6 +27,17 @@ describe("LinePlot", () => {
       expect(linePlot.key).not.toEqual(uuid.ZERO);
     });
   });
+  describe("retrieve", () => {
+    test("should retrieve a line plot by a bare key", async () => {
+      const proj = await client.projects.create({
+        name: "Line Plot",
+        layout: { one: 1 },
+      });
+      const linePlot = await client.lineplots.create(proj.key, { name: "Line Plot" });
+      const retrieved = await client.lineplots.retrieve(linePlot.key);
+      expect(retrieved.key).toEqual(linePlot.key);
+    });
+  });
   describe("rename", () => {
     test("rename one", async () => {
       const proj = await client.projects.create({

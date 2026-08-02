@@ -17,6 +17,16 @@ const client = createTestClient();
 
 describe("policy", () => {
   describe("retrieve", () => {
+    it("should retrieve a policy by a bare key", async () => {
+      const created = await client.access.policies.create({
+        name: "test-bare-key",
+        objects: [],
+        actions: ["retrieve"],
+      });
+      const retrieved = await client.access.policies.retrieve(created.key);
+      expect(retrieved.key).toBe(created.key);
+    });
+
     it("should filter by internal flag when retrieving policies", async () => {
       // Create a non-internal policy
       const created = await client.access.policies.create({

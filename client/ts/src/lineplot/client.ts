@@ -83,11 +83,13 @@ export class Client {
     );
   }
 
+  async retrieve(key: Key): Promise<LinePlot>;
   async retrieve(params: RetrieveSingleParams): Promise<LinePlot>;
   async retrieve(params: RetrieveMultipleParams): Promise<LinePlot[]>;
   async retrieve(
-    params: RetrieveSingleParams | RetrieveMultipleParams,
+    params: Key | RetrieveSingleParams | RetrieveMultipleParams,
   ): Promise<LinePlot | LinePlot[]> {
+    if (typeof params !== "object") params = { key: params };
     const isSingle = singleRetrieveParamsZ.safeParse(params).success;
     const res = await this.client.send(
       "/lineplot/retrieve",

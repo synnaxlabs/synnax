@@ -70,11 +70,13 @@ export class Client {
     );
   }
 
+  async retrieve(key: Key): Promise<Table>;
   async retrieve(params: RetrieveSingleParams): Promise<Table>;
   async retrieve(params: RetrieveMultipleParams): Promise<Table[]>;
   async retrieve(
-    params: RetrieveSingleParams | RetrieveMultipleParams,
+    params: Key | RetrieveSingleParams | RetrieveMultipleParams,
   ): Promise<Table | Table[]> {
+    if (typeof params !== "object") params = { key: params };
     const isSingle = singleRetrieveParamsZ.safeParse(params).success;
     const res = await this.client.send(
       "/table/retrieve",

@@ -35,7 +35,7 @@ const importSymbolFromData = async (
     fileName,
     parent: parentID,
   });
-  const created = await client.schematics.symbols.retrieve({ key: id.key });
+  const created = await client.schematics.symbols.retrieve(id.key);
   return created.name;
 };
 

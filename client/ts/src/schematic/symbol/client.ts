@@ -91,9 +91,11 @@ export class Client {
     );
   }
 
+  async retrieve(key: Key): Promise<Symbol>;
   async retrieve(params: RetrieveSingleParams): Promise<Symbol>;
   async retrieve(params: RetrieveMultipleParams): Promise<Symbol[]>;
-  async retrieve(params: RetrieveParams): Promise<Symbol | Symbol[]> {
+  async retrieve(params: Key | RetrieveParams): Promise<Symbol | Symbol[]> {
+    if (typeof params !== "object") params = { key: params };
     const isSingle = "key" in params;
     const res = await this.client.send(
       "/schematic/symbol/retrieve",
