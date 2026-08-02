@@ -11,6 +11,7 @@ package http
 
 import (
 	"context"
+	"os"
 	"sync"
 	"syscall"
 	"time"
@@ -237,10 +238,12 @@ func (s *serverStream[RQ, RS]) close(err error) (closeErr error) {
 		return err
 	}
 
-	// Wait until the client acknowledges the closure.
+	// Wait until the client acknowledges the closure. A silent peer trips the read
+	// deadline set above, which ends the wait as surely as an acknowledgement.
 	for {
 		if _, err = s.receiveRaw(); err != nil {
-			if !ws.IsCloseError(err, ws.CloseNormalClosure, ws.CloseGoingAway) {
+			if !ws.IsCloseError(err, ws.CloseNormalClosure, ws.CloseGoingAway) &&
+				!errors.Is(err, os.ErrDeadlineExceeded) {
 				s.L.Error(
 					"expected normal closure, received error instead",
 					zap.Error(err),

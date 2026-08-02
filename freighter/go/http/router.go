@@ -40,7 +40,11 @@ type RouterConfig struct {
 	StreamWriteDeadline time.Duration
 }
 
-var _ config.Config[RouterConfig] = RouterConfig{}
+var (
+	_ config.Config[RouterConfig] = RouterConfig{}
+	// DefaultRouterConfig is the default configuration for a Router.
+	DefaultRouterConfig = RouterConfig{StreamWriteDeadline: 10 * time.Second}
+)
 
 // Validate implements config.Config.
 func (RouterConfig) Validate() error { return nil }
@@ -58,7 +62,7 @@ func (r RouterConfig) Override(other RouterConfig) RouterConfig {
 // returned Router will be bound to a fiber.App by calling Router.BindTo. Returns an
 // error if the merged config fails to validate.
 func NewRouter(configs ...RouterConfig) (*Router, error) {
-	cfg, err := config.New(RouterConfig{}, configs...)
+	cfg, err := config.New(DefaultRouterConfig, configs...)
 	if err != nil {
 		return nil, err
 	}

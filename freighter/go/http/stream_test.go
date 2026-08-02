@@ -99,3 +99,52 @@ var _ = Describe("Stream", Ordered, Serial, func() {
 		})
 	})
 })
+
+var _ = Describe("Stream Shutdown", Serial, func() {
+	It("Should stop serving a stream whose peer never answers the close message", func(ctx SpecContext) {
+		ShouldNotLeakGoroutines()
+		addr := address.Newf("localhost:%d", MustSucceed(net.FindOpenPort()))
+		app := newFiberApp(fiber.Config{})
+		router := MustSucceed(fhttp.NewRouter(fhttp.RouterConfig{
+			StreamWriteDeadline: test.WriteDeadline,
+		}))
+		app.Get("/health", func(c fiber.Ctx) error {
+			return c.SendStatus(fiber.StatusOK)
+		})
+		server := fhttp.NewStreamServer[test.Request, test.Response](router, "/")
+		serving := make(chan struct{})
+		server.BindHandler(func(
+			_ context.Context,
+			stream freighter.ServerStream[test.Request, test.Response],
+		) error {
+			close(serving)
+			_, err := stream.Receive()
+			return err
+		})
+		router.BindTo(app)
+		go func() {
+			defer GinkgoRecover()
+			Expect(app.Listen(addr.PortString(), fiber.ListenConfig{
+				DisableStartupMessage: true,
+			})).To(Succeed())
+		}()
+		Eventually(func(g Gomega) {
+			g.Expect(pollHealth("http://" + addr.String() + "/health")).To(Succeed())
+		}).WithPolling(time.Millisecond).Should(Succeed())
+
+		// A raw peer that upgrades and then never reads. Control frames are only
+		// processed inside a read, so the close message goes unanswered.
+		headers := http.Header{}
+		headers.Set(fiber.HeaderContentType, "application/json")
+		conn, res := MustSucceed2((&ws.Dialer{}).DialContext(
+			ctx, "ws://"+addr.String()+"/", headers,
+		))
+		DeferCleanup(func() { Expect(conn.Close()).To(Succeed()) })
+		Expect(res.Body.Close()).To(Succeed())
+		Eventually(serving).Should(BeClosed())
+
+		shutdown := make(chan error, 1)
+		go func() { shutdown <- app.Shutdown() }()
+		Eventually(shutdown, 5*time.Second).Should(Receive(BeNil()))
+	})
+})
