@@ -447,6 +447,51 @@ describe("Tabs", () => {
     });
   });
 
+  describe("style knobs", () => {
+    const strip = (props: Tabs.SelectorProps = {}): HTMLElement => {
+      render(
+        <Tabs.Frame initialValue="a">
+          <Tabs.Selector {...props}>
+            <Tabs.Tab itemKey="a">Tab A</Tabs.Tab>
+          </Tabs.Selector>
+        </Tabs.Frame>,
+      );
+      return screen.getByRole("tablist");
+    };
+
+    it.each([
+      ["default", "align-center", "sizing-elastic"],
+      ["pill", "align-start", "sizing-fixed"],
+    ] as const)("should default %s to %s and %s", (variant, align, sizing) => {
+      const el = strip({ variant });
+      expect(el.classList.contains(`pluto-tabs__selector--${align}`)).toBe(true);
+      expect(el.classList.contains(`pluto-tabs__selector--${sizing}`)).toBe(true);
+    });
+
+    it("should let explicit knobs override the variant defaults", () => {
+      const el = strip({ variant: "pill", align: "center", sizing: "elastic" });
+      expect(el.classList.contains("pluto-tabs__selector--align-center")).toBe(true);
+      expect(el.classList.contains("pluto-tabs__selector--sizing-elastic")).toBe(true);
+    });
+
+    it("should start-align a vertical strip whose variant centers when horizontal", () => {
+      const el = strip({ variant: "default", y: true });
+      expect(el.classList.contains("pluto-tabs__selector--align-start")).toBe(true);
+    });
+
+    it("should still honor an explicit align on a vertical strip", () => {
+      const el = strip({ variant: "default", y: true, align: "center" });
+      expect(el.classList.contains("pluto-tabs__selector--align-center")).toBe(true);
+    });
+
+    it.each(["scroll", "fade"] as const)("should apply the %s overflow", (overflow) => {
+      const el = strip(overflow === "scroll" ? {} : { overflow });
+      expect(el.classList.contains(`pluto-tabs__selector--overflow-${overflow}`)).toBe(
+        true,
+      );
+    });
+  });
+
   describe("selected tab visibility", () => {
     let scrollIntoView: MockInstance<Element["scrollIntoView"]>;
 

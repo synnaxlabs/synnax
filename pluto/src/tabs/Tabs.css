@@ -39,10 +39,18 @@
     /* The scrollport clips the outset focus halo; every control in the strip
        draws its ring inset instead. */
     --pluto-focus-ring-offset: -2px;
-    /* The floor the selected tab freezes at while its neighbors keep compacting,
-       shared by both variants. */
-    --pluto-tabs-selected-min-width: 20rem;
 
+    /* Sizing knobs, re-pointed by variant and by enclosing contexts. tab-width is
+       the resting width under fixed sizing, tab-min-width the floor tabs compact to.
+       Holding the selected tab above that floor is opt-in: it only earns its keep on
+       a strip dense enough to compact, and elsewhere it just resizes tabs on click. */
+    --pluto-tabs-tab-width: 25rem;
+    --pluto-tabs-tab-min-width: 11rem;
+    --pluto-tabs-selected-min-width: var(--pluto-tabs-tab-min-width);
+}
+
+/* Overflow policy. */
+.pluto-tabs__selector--overflow-scroll {
     &::-webkit-scrollbar {
         height: 3px;
     }
@@ -50,6 +58,86 @@
     &::-webkit-scrollbar-thumb:hover {
         background: var(--pluto-gray-l7);
     }
+}
+
+.pluto-tabs__selector--overflow-fade {
+    scrollbar-width: none;
+
+    &::-webkit-scrollbar {
+        display: none;
+    }
+}
+
+/* The mask rides the strip's own scroll progress, so each edge fades only while
+   there are tabs hidden past it: right at the start, both in the middle, left at the
+   end. The timeline is inactive on a strip whose tabs fit, which is what keeps an
+   unscrollable strip unmasked. Without support the animation would run on time
+   instead and mask a strip that fits, hence the guard.
+
+   Every frame carries the same four stops so the gradients interpolate: only the two
+   inner positions move. */
+@supports (animation-timeline: scroll(self x)) {
+    .pluto-tabs__selector--overflow-fade {
+        animation: tabs-selector-fade linear;
+        animation-timeline: scroll(self x);
+    }
+
+    @keyframes tabs-selector-fade {
+        0% {
+            mask-image: linear-gradient(
+                to right,
+                transparent 0,
+                black 0,
+                black calc(100% - var(--pluto-tabs-fade-width, 6rem)),
+                transparent 100%
+            );
+        }
+
+        100% {
+            mask-image: linear-gradient(
+                to right,
+                transparent 0,
+                black var(--pluto-tabs-fade-width, 6rem),
+                black 100%,
+                transparent 100%
+            );
+        }
+    }
+}
+
+/* Where a tab's contents sit along the strip. */
+.pluto-tabs__selector--align-center .pluto-tabs__tab {
+    justify-content: center;
+    text-align: center;
+}
+
+.pluto-tabs__selector--align-start .pluto-tabs__tab {
+    justify-content: flex-start;
+    text-align: left;
+}
+
+/* Sizing policy: elastic tabs share the strip and cap at their own label, fixed
+   tabs all rest at the standard width. Both compact to the floor, after which the
+   strip overflows. */
+.pluto-tabs__selector--sizing-elastic
+    .pluto-tabs__tab:not(:has([contenteditable="true"])) {
+    flex: 1 1 auto;
+    max-width: fit-content;
+    overflow: hidden;
+    min-width: var(--pluto-tabs-tab-min-width);
+}
+
+.pluto-tabs__selector--sizing-fixed .pluto-tabs__tab {
+    flex: 0 1 auto;
+    width: var(--pluto-tabs-tab-width);
+    min-width: var(--pluto-tabs-tab-min-width);
+    overflow: hidden;
+    white-space: nowrap;
+}
+
+.pluto-tabs__selector
+    .pluto-tabs__tab.pluto--selected:not(:has([contenteditable="true"])) {
+    min-width: var(--pluto-tabs-selected-min-width);
 }
 
 .pluto-tabs__insertion {
@@ -201,19 +289,6 @@
             margin-left: 0;
         }
 
-        &:not(:has([contenteditable="true"])) {
-            flex: 1 1 auto !important;
-            max-width: fit-content;
-            overflow: hidden;
-            min-width: 11rem;
-
-            /* max-width would otherwise hold the tab at its label width; a min-width
-               conflicting with a max-width wins, so the floor still applies. */
-            &.pluto--selected {
-                min-width: var(--pluto-tabs-selected-min-width);
-            }
-        }
-
         /* The close overlay comes from Button.Close and the reveal contract; the
            rename guard keeps it hidden while the tab label is being edited. */
         &:has([contenteditable="true"]) .pluto-tabs__close {
@@ -240,29 +315,21 @@
     &.pluto--direction-y {
         height: 100%;
         padding: 0.75rem 0.5rem;
-
-        .pluto-tabs__tab {
-            justify-content: flex-start !important;
-        }
     }
 }
 
-/* Chrome-style sizing: a pill rests at the standard width and compacts toward the
-   floor as the strip fills, at which point the strip scrolls. The standard width is
-   the flex basis rather than a minimum so it stays compactable. */
+/* Pills hold a wider selected floor than chips: they rest at a fixed width, so a
+   floor below it never pads a short label the way it would on a chip. */
+.pluto-tabs__selector--pill {
+    --pluto-tabs-selected-min-width: 20rem;
+}
+
 .pluto-tabs__selector--pill .pluto-tabs__tab {
     padding: 0 2rem;
     transition:
         background 0.15s ease-in-out,
         border-color 0.15s ease-in-out,
         transform 0.15s ease;
-    justify-content: flex-start;
-    text-align: left;
-    flex: 0 1 auto;
-    width: 25rem;
-    min-width: 11rem;
-    overflow: hidden;
-    white-space: nowrap;
 
     & > .pluto-icon {
         flex-shrink: 0;
@@ -272,12 +339,6 @@
 
     &.pluto--selected > .pluto-icon {
         color: var(--pluto-tabs-selected-text-color, var(--pluto-gray-l11));
-    }
-
-    /* The selected pill holds a higher floor, so it freezes while its neighbors keep
-       compacting and the active panel's name stays readable. */
-    &.pluto--selected {
-        min-width: var(--pluto-tabs-selected-min-width);
     }
 }
 

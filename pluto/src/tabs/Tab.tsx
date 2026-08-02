@@ -102,7 +102,6 @@ export const Tab = ({
         CSS.altColor(focused),
         className,
       )}
-      justify="center"
       align="center"
       empty
       square={false}

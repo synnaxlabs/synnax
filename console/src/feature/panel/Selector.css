@@ -14,30 +14,3 @@
 .console-panel-selector > .pluto-btn {
     flex-shrink: 0;
 }
-
-/* The strip's height is pinned to the pills, so a scrollbar would take its 3px out
-   of them and shave their borders top and bottom. Wheel and drag still scroll. */
-.console-panel-selector .pluto-tabs__selector {
-    scrollbar-width: none;
-
-    &::-webkit-scrollbar {
-        display: none;
-    }
-}
-
-/* Identical frames make the mask a constant that applies only while the scroll
-   timeline is active, so a strip whose pills fit shows no fade. Without support the
-   animation would run on time instead and mask a strip that fits. */
-@supports (animation-timeline: scroll(self x)) {
-    .console-panel-selector .pluto-tabs__selector {
-        animation: console-panel-selector-fade linear;
-        animation-timeline: scroll(self x);
-    }
-
-    @keyframes console-panel-selector-fade {
-        0%,
-        100% {
-            mask-image: linear-gradient(to right, black calc(100% - 6rem), transparent);
-        }
-    }
-}

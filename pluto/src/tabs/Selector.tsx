@@ -40,6 +40,40 @@ import { Triggers } from "@/triggers";
  */
 export type Variant = "default" | "pill";
 
+/**
+ * Where a tab's contents sit along the strip's main axis. Vertical strips always
+ * start-align; a label centered in a tall column reads as adrift.
+ */
+export type Align = "center" | "start";
+
+/**
+ * How tabs claim width.
+ *
+ * - `elastic`: tabs share the strip and cap at their own label width.
+ * - `fixed`: every tab rests at the same standard width.
+ *
+ * Both compact toward `--pluto-tabs-tab-min-width` before the strip overflows.
+ */
+export type Sizing = "elastic" | "fixed";
+
+/**
+ * What the strip does once its tabs no longer fit.
+ *
+ * - `scroll`: scrolls behind a thin scrollbar.
+ * - `fade`: scrolls with no scrollbar, its trailing edge masked to a fade.
+ */
+export type Overflow = "scroll" | "fade";
+
+interface VariantDefaults {
+  align: Align;
+  sizing: Sizing;
+}
+
+const VARIANT_DEFAULTS: Record<Variant, VariantDefaults> = {
+  default: { align: "center", sizing: "elastic" },
+  pill: { align: "start", sizing: "fixed" },
+};
+
 interface ContextValue {
   /** size sets the height of the strip and the typography level of its tabs. */
   size: Component.Size;
@@ -177,11 +211,23 @@ export interface SelectorOnDropParams extends Haul.OnDropProps {
   index: number;
 }
 
-export interface SelectorProps extends Omit<Flex.BoxProps, "onDrop"> {
+// align is claimed for the tabs' own alignment; the strip's cross-axis alignment is
+// the Selector's to decide, not a caller's.
+export interface SelectorProps extends Omit<Flex.BoxProps, "onDrop" | "align"> {
   /** size sets the height of the strip and the typography level of its tabs. */
   size?: Component.Size;
-  /** variant is the visual variant applied to the strip's tabs. */
+  /**
+   * variant is the chassis its tabs wear: borderless chips on a plain strip, or
+   * separated outlined pills. Everything else about how the strip behaves is a knob
+   * below, which variant only supplies the default for.
+   */
   variant?: Variant;
+  /** align places a tab's contents along the strip. Defaults per variant. */
+  align?: Align;
+  /** sizing decides how tabs claim width. Defaults per variant. */
+  sizing?: Sizing;
+  /** overflow decides what the strip does once its tabs no longer fit. */
+  overflow?: Overflow;
   /**
    * haulType enables drag-and-drop reordering by declaring the Haul item type the
    * strip accepts. When set, dragging an accepted item over the strip renders an
@@ -212,6 +258,9 @@ export const Selector = ({
   ref,
   size = "medium",
   variant = "default",
+  align,
+  sizing,
+  overflow = "scroll",
   haulType = "",
   canDrop,
   onDrop,
@@ -230,6 +279,9 @@ export const Selector = ({
   const combinedRef = useCombinedRefs(ref, internalRef);
   const dir: direction.Direction = Flex.parseDirection(direction, x, y) ?? "x";
   const horizontal = dir === "x";
+  const defaults = VARIANT_DEFAULTS[variant];
+  const resolvedAlign = align ?? (horizontal ? defaults.align : "start");
+  const resolvedSizing = sizing ?? defaults.sizing;
 
   const handleKeyDown = useCallback<KeyboardEventHandler<HTMLDivElement>>(
     (e) => {
@@ -402,6 +454,9 @@ export const Selector = ({
         className={CSS(
           CSS.BE("tabs", "selector"),
           CSS.BEM("tabs", "selector", variant),
+          CSS.BEM("tabs", "selector", "align", resolvedAlign),
+          CSS.BEM("tabs", "selector", "sizing", resolvedSizing),
+          CSS.BEM("tabs", "selector", "overflow", overflow),
           className,
         )}
         size={size}

@@ -70,6 +70,9 @@
     --pluto-tabs-tab-height: round(4.3333rem, 1px);
     --pluto-tabs-tab-align: flex-end;
     --pluto-tabs-selected-text-color: var(--pluto-gray-l10);
+    /* Document strips fill up, so the selected tab holds a wider floor than its
+       neighbors and its name stays readable once they have all compacted. */
+    --pluto-tabs-selected-min-width: 14rem;
 }
 
 /* The overlaid tab joins the lamp: the same l11 chip treatment as the exit
