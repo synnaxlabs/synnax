@@ -12,24 +12,7 @@ from console.case import ConsoleCase
 
 
 class RackCase(ConsoleCase):
-    """ConsoleCase that deletes the test racks and devices it creates in teardown.
-
-    A leftover rack keeps the rack monitor warning for the rest of the run, and its
-    devices keep the Driver health-checking dead endpoints.
-    """
-
-    def create_test_rack(self, name: str) -> sy.Rack:
-        """Create a rack that teardown deletes."""
-        rack = self.client.racks.create(name=name)
-        self._rack_keys = [*getattr(self, "_rack_keys", []), rack.key]
-        return rack
-
-    def create_test_devices(self, devices: list[sy.Device]) -> list[sy.Device]:
-        """Create devices that teardown deletes."""
-        created: list[sy.Device] = self.client.devices.create(devices)
-        keys = [d.key for d in created]
-        self._device_keys = [*getattr(self, "_device_keys", []), *keys]
-        return created
+    """ConsoleCase with a helper to create the NI test rack the form tests share."""
 
     def create_test_ni_rack(
         self, rack_name: str, device_name: str, device_key: str
@@ -49,15 +32,3 @@ class RackCase(ConsoleCase):
             ]
         )
         sy.sleep(1)
-
-    def teardown(self) -> None:
-        """Delete the created devices and racks so the rack monitor stops warning."""
-        with self._try_to("delete test devices"):
-            device_keys = getattr(self, "_device_keys", [])
-            if device_keys:
-                self.client.devices.delete(device_keys)
-        with self._try_to("delete test racks"):
-            rack_keys = getattr(self, "_rack_keys", [])
-            if rack_keys:
-                self.client.racks.delete(rack_keys)
-        super().teardown()

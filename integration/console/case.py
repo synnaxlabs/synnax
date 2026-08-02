@@ -153,6 +153,7 @@ class ConsoleCase(TestCase):
         self.context.close()
         self.browser.close()
         self.playwright.stop()
+        super().teardown()
 
     def _stop_tracing(self) -> None:
         failed_states = (STATUS.FAILED, STATUS.TIMEOUT, STATUS.KILLED)

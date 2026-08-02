@@ -297,9 +297,34 @@ class TestCase(ABC):
                 self._error_message += f"\n{failure}"
             self.STATUS = STATUS.FAILED
 
+    def create_test_rack(self, name: str) -> sy.Rack:
+        """Create a rack that teardown deletes."""
+        rack = self.client.racks.create(name=name)
+        self._test_rack_keys = [*getattr(self, "_test_rack_keys", []), rack.key]
+        return rack
+
+    def create_test_devices(self, devices: list[sy.Device]) -> list[sy.Device]:
+        """Create devices that teardown deletes."""
+        created: list[sy.Device] = self.client.devices.create(devices)
+        keys = [d.key for d in created]
+        self._test_device_keys = [*getattr(self, "_test_device_keys", []), *keys]
+        return created
+
     def teardown(self) -> None:
-        """Cleanup after test execution. Override for custom cleanup logic."""
-        pass
+        """Cleanup after test execution. Overrides must call super().teardown().
+
+        Deletes racks and devices made through the create_test_* helpers: a leftover
+        device keeps the Driver health-checking a dead endpoint, and a leftover rack
+        keeps the rack monitor warning for the rest of the run.
+        """
+        with self._try_to("delete test devices"):
+            device_keys = getattr(self, "_test_device_keys", [])
+            if device_keys:
+                self.client.devices.delete(device_keys)
+        with self._try_to("delete test racks"):
+            rack_keys = getattr(self, "_test_rack_keys", [])
+            if rack_keys:
+                self.client.racks.delete(rack_keys)
 
     def write_tlm(self, channel: str, value: Any = None) -> None:
         """Write values to telemetry dictionary."""

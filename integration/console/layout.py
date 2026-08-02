@@ -421,12 +421,11 @@ class LayoutClient:
     ) -> None:
         """Select an item from an open dropdown.
 
-        Args:
-            text: Visible text of the item to select.
-            placeholder: Search input placeholder to filter with before selecting.
-            exact: Require an exact text match instead of a substring match.
-            reopen: Re-opens the dropdown. Called before a retry when the dialog
-                closed before the item was found (e.g. a re-render dismissed it).
+        :param text: Visible text of the item to select.
+        :param placeholder: Search input placeholder to filter with before selecting.
+        :param exact: Require an exact text match instead of a substring match.
+        :param reopen: Re-opens the dropdown. Called before a retry when the dialog
+            closed before the item was found (e.g. a re-render dismissed it).
         """
         sy.sleep(0.3)
         target_item = f".pluto-list__item:not(.pluto-tree__item):has-text('{text}')"
@@ -458,17 +457,17 @@ class LayoutClient:
                     item.click(timeout=5000)
                     return
             except Exception:
-                # Toasts overlap the dropdown and swallow the click.
-                self.notifications.close_all()
-                dialog = self.page.locator(".pluto-dialog__dialog.pluto--visible")
                 try:
+                    # Toasts overlap the dropdown and swallow the click.
+                    self.notifications.close_all()
+                    dialog = self.page.locator(".pluto-dialog__dialog.pluto--visible")
                     if reopen is not None and dialog.count() == 0:
                         reopen()
                         apply_search()
                     else:
                         sy.sleep(1)
                 except Exception:
-                    # A failed reopen consumes this retry instead of aborting.
+                    # A failed recovery consumes this retry instead of aborting.
                     sy.sleep(1)
                 continue
 

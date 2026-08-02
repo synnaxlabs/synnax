@@ -11,11 +11,11 @@ import platform
 import random
 
 import synnax as sy
+from console.case import ConsoleCase
 from console.task.analog_read import AnalogRead
-from tests.console.task.rack_case import RackCase
 
 
-class NoDevice(RackCase):
+class NoDevice(ConsoleCase):
     """
     Verify status message/level when attempting to
     configure and run a task with selected devices

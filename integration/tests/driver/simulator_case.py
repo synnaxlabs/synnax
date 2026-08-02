@@ -47,7 +47,6 @@ class SimulatorCase(TestCase):
     def setup(self) -> None:
         """Start simulator(s), connect device(s), then delegate to next in MRO."""
         self.sims = getattr(self, "sims", {})
-        self._created_device_keys = getattr(self, "_created_device_keys", [])
         for sim_cls in self.sim_classes:
             name = sim_cls.device_name
             existing = self.sims.get(name)
@@ -102,12 +101,7 @@ class SimulatorCase(TestCase):
         return None
 
     def teardown(self) -> None:
-        """Stop simulator(s) first, then run the remaining teardown.
-
-        Deletes devices this case registered: a leftover device makes the Driver
-        health-check its dead endpoint forever, spamming warning toasts that intercept
-        clicks in later Console tests.
-        """
+        """Stop simulator(s) first, then run the remaining teardown."""
         try:
             for sim in self.sims.values():
                 if sim is not None:
@@ -115,10 +109,6 @@ class SimulatorCase(TestCase):
                         sim.stop()
             self.sims = {}
             self.sim = None
-            for key in getattr(self, "_created_device_keys", []):
-                with self._try_to("delete simulator device"):
-                    self.client.devices.delete([key])
-            self._created_device_keys = []
         finally:
             super().teardown()
 
@@ -129,5 +119,4 @@ class SimulatorCase(TestCase):
         try:
             self.client.devices.retrieve(name=device_instance.name)
         except sy.NotFoundError:
-            created = self.client.devices.create(device_instance)
-            self._created_device_keys.append(created.key)
+            self.create_test_devices([device_instance])
