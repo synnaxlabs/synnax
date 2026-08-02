@@ -16,6 +16,7 @@ import (
 	cpptypes "github.com/synnaxlabs/oracle/plugin/cpp/types"
 	goactions "github.com/synnaxlabs/oracle/plugin/go/actions"
 	gomarshal "github.com/synnaxlabs/oracle/plugin/go/marshal"
+	gomigrate "github.com/synnaxlabs/oracle/plugin/go/migrate"
 	gopb "github.com/synnaxlabs/oracle/plugin/go/pb"
 	goquery "github.com/synnaxlabs/oracle/plugin/go/query"
 	gotypes "github.com/synnaxlabs/oracle/plugin/go/types"
@@ -30,11 +31,13 @@ import (
 // check compares them against disk. Both must use the same registry, so
 // the set lives here as a single source of truth.
 //
-// The migrate plugin is intentionally excluded; it has its own command
-// (`oracle migrate`) with bespoke snapshot handling and is not part of the
-// regular generation pipeline.
+// The migrate plugin joins the registry for its chain-driven migrate.gen.go
+// emission — a pure function of adjacent version files, regenerated on every
+// sync. Its bump scaffolding still runs only under `oracle migrate`, which
+// alone supplies OldResolutions.
 func buildPluginRegistry() *plugin.Registry {
 	registry := plugin.NewRegistry()
+	_ = registry.Register(gomigrate.New())
 	_ = registry.Register(tstypes.New(tstypes.DefaultOptions()))
 	_ = registry.Register(gotypes.New(gotypes.DefaultOptions()))
 	_ = registry.Register(pytypes.New(pytypes.DefaultOptions()))

@@ -68,6 +68,13 @@ type generation struct {
 
 func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 	resp := &plugin.Response{Files: make([]plugin.File, 0)}
+	if req.Versions != nil {
+		chainOut, err := p.chainFiles(req)
+		if err != nil {
+			return nil, err
+		}
+		resp.Files = append(resp.Files, chainOut...)
+	}
 	if req.OldResolutions == nil {
 		return resp, nil
 	}

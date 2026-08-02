@@ -18,6 +18,7 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/synnaxlabs/oracle/domain/doc"
 	"github.com/synnaxlabs/oracle/formatter"
 	"github.com/synnaxlabs/oracle/plugin/go/internal/schemadiff"
 	gotypes "github.com/synnaxlabs/oracle/plugin/go/types"
@@ -120,6 +121,26 @@ func Canonical(ctx context.Context, in Input) (string, error) {
 		},
 	})
 	return formatter.Format(rendered)
+}
+
+// FileInput derives the emission inputs an existing version file carries: its
+// dependency pins, explicit @doc overrides, and pinned names.
+func FileInput(
+	f *versions.File,
+) (pins map[string]int, docs map[string]string, pinned set.Set[string]) {
+	docs = make(map[string]string)
+	pinned = make(set.Set[string])
+	for _, t := range f.Defined {
+		if d := doc.Get(t.Domains); d != "" {
+			docs[t.Name] = d
+		}
+		if dom, ok := t.Domains["go"]; ok {
+			if _, has := dom.Expressions.Find("pinned"); has {
+				pinned.Add(t.Name)
+			}
+		}
+	}
+	return f.Pins, docs, pinned
 }
 
 // StructurallyEqual reports whether two declarations share a persisted shape,
