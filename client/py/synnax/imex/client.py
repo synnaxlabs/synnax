@@ -35,9 +35,9 @@ class Client:
 
         :param source: a file path streamed from disk.
         :param parent: the ontology resource to create the imported resource under — a
-            project for workspace items, a group for symbols. The Core creates the
-            resource and its parent relationship in a single transaction, so a
-            parenting failure rolls the import back.
+            project for project items, a group for symbols. The Core creates the
+            resource and its parent relationship in a single transaction, so a parenting
+            failure rolls the import back.
         :returns: the new resource's ontology ID.
         """
         return self._file_transport.upload(

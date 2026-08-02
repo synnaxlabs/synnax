@@ -93,9 +93,9 @@ const ingestComponents = async (
   return remap;
 };
 
-// Visualization layout types found in legacy (layout-slice era) project exports.
-// Their component files are typeless legacy Console states, importable only through
-// the server. Frozen — legacy exports are no longer produced.
+// Visualization layout types found in legacy (layout-slice era) project exports. Their
+// component files are typeless legacy Console states, importable only through the
+// server. Frozen — legacy exports are no longer produced.
 const LEGACY_COMPONENT_TYPES = new Set<string>([
   arc.TYPE_ONTOLOGY_ID.type,
   lineplot.TYPE_ONTOLOGY_ID.type,
