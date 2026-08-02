@@ -156,6 +156,33 @@ var _ = Describe("Paths", func() {
 			ns := paths.DeriveNamespace("schema/core/label")
 			Expect(ns).To(Equal("label"))
 		})
+
+		It("Should derive a version file's resource as its namespace", func() {
+			ns := paths.DeriveNamespace("schemas/x/versions/telem/v0.oracle")
+			Expect(ns).To(Equal("telem"))
+			Expect(paths.DeriveNamespace("schemas/x/versions/telem/v12")).
+				To(Equal("telem"))
+		})
+	})
+
+	Describe("VersionFile", func() {
+		It("Should recognize version file paths", func() {
+			resource, version, ok := paths.VersionFile(
+				"schemas/synnax/versions/channel/v3.oracle",
+			)
+			Expect(ok).To(BeTrue())
+			Expect(resource).To(Equal("channel"))
+			Expect(version).To(Equal(3))
+		})
+
+		It("Should reject non-version paths", func() {
+			_, _, ok := paths.VersionFile("schemas/synnax/channel.oracle")
+			Expect(ok).To(BeFalse())
+			_, _, ok = paths.VersionFile("schemas/synnax/channel/v3.oracle")
+			Expect(ok).To(BeFalse())
+			_, _, ok = paths.VersionFile("schemas/synnax/versions/channel/v03.oracle")
+			Expect(ok).To(BeFalse())
+		})
 	})
 
 	Describe("Integration", func() {

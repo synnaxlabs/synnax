@@ -15,6 +15,8 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
+	"strconv"
 	"strings"
 
 	"github.com/synnaxlabs/x/errors"
@@ -182,7 +184,38 @@ func EnsureOracleExtension(path string) string {
 }
 
 // DeriveNamespace extracts the namespace from a file path.
-// For "schema/core/label.oracle" returns "label".
+// For "schema/core/label.oracle" returns "label". A version file's namespace
+// is its resource: "schemas/x/versions/telem/v0.oracle" derives "telem" — the
+// file name carries the version, the directory carries the qualifier.
 func DeriveNamespace(path string) string {
+	if resource, _, ok := VersionFile(path); ok {
+		return resource
+	}
 	return strings.TrimSuffix(filepath.Base(path), ".oracle")
+}
+
+// VersionsDirName is the directory holding a schema domain's version chains.
+const VersionsDirName = "versions"
+
+// versionFileName matches a version file's base name ("v0", "v12").
+var versionFileName = regexp.MustCompile(`^v(0|[1-9][0-9]*)$`)
+
+// VersionFile reports whether path names a schema version file
+// (".../versions/<resource>/vN.oracle" or the extensionless import form) and
+// returns its resource and version.
+func VersionFile(path string) (resource string, version int, ok bool) {
+	base := strings.TrimSuffix(filepath.Base(path), ".oracle")
+	m := versionFileName.FindStringSubmatch(base)
+	if m == nil {
+		return "", 0, false
+	}
+	dir := filepath.Dir(path)
+	if filepath.Base(filepath.Dir(dir)) != VersionsDirName {
+		return "", 0, false
+	}
+	version, err := strconv.Atoi(m[1])
+	if err != nil {
+		return "", 0, false
+	}
+	return filepath.Base(dir), version, true
 }

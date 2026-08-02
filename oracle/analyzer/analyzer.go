@@ -12,7 +12,6 @@ package analyzer
 import (
 	"context"
 	"maps"
-	"path/filepath"
 	"strconv"
 	"strings"
 
@@ -115,6 +114,41 @@ func AnalyzeSource(
 	return table, diag
 }
 
+// AnalyzeSeeded analyzes source into an existing table under an explicit
+// namespace. Callers pre-register the namespaces the source resolves against
+// (sibling schema versions, pinned dependency surfaces) and mark their import
+// paths on the table so the import walk does not re-load them.
+func AnalyzeSeeded(
+	ctx context.Context,
+	source, filePath, namespace string,
+	loader FileLoader,
+	table *resolution.Table,
+) *diagnostics.Files {
+	diag := diagnostics.NewFiles()
+	ast, parseDiag := parser.Parse(source)
+	if parseDiag != nil && !parseDiag.Ok() {
+		diag.MergeFile(filePath, *parseDiag)
+		return diag
+	}
+	c := &analysisCtx{
+		Context:     ctx,
+		diag:        diag,
+		table:       table,
+		loader:      loader,
+		ast:         ast,
+		filePath:    filePath,
+		namespace:   namespace,
+		fileDomains: make(map[string]resolution.Domain),
+	}
+	analyze(c)
+	if !diag.Ok() {
+		return diag
+	}
+	detectRecursiveTypes(table)
+	validateDomainOmits(table, diag)
+	return diag
+}
+
 // usedQualifiers collects the package qualifiers the file references: every
 // identifier immediately followed by a dot, in any position (type references,
 // extends clauses, domain expressions).
@@ -171,7 +205,7 @@ func analyze(c *analysisCtx) {
 	used := usedQualifiers(c.ast)
 	for _, imp := range c.ast.AllImportStmt() {
 		path := strings.Trim(imp.STRING_LIT().GetText(), `"`)
-		if !used.Contains(filepath.Base(path)) {
+		if !used.Contains(DeriveNamespace(path)) {
 			c.report(diagnostics.Errorf(imp, "unused import %q", path))
 		}
 		if c.table.IsImported(path) {
