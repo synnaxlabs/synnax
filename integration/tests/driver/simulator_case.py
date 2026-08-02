@@ -127,6 +127,9 @@ class SimulatorCase(HardwareCase):
         rack = self.client.racks.retrieve(name=self.RACK_NAME)
         device_instance = sim_cls.create_device(rack.key)
         try:
-            self.client.devices.retrieve(name=device_instance.name)
+            existing = self.client.devices.retrieve(name=device_instance.name)
+            # A sim device only exists for its sim, so one found here is a leftover
+            # from a killed teardown; adopt it so this run's teardown reclaims it.
+            self.track_test_devices([existing])
         except sy.NotFoundError:
             self.create_test_devices([device_instance])

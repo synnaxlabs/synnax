@@ -44,15 +44,25 @@ class HardwareCase(TestCase):
     def create_test_devices(self, devices: list[sy.Device]) -> list[sy.Device]:
         """Create devices that teardown deletes."""
         created: list[sy.Device] = self.client.devices.create(devices)
-        self._test_device_keys.extend(d.key for d in created)
+        self.track_test_devices(created)
         return created
 
+    def track_test_devices(self, devices: list[sy.Device]) -> None:
+        """Mark existing devices for deletion in teardown."""
+        self._test_device_keys.extend(d.key for d in devices)
+
     def teardown(self) -> None:
-        """Delete tracked devices then racks, then run the remaining teardown."""
-        with self._try_to("delete test devices"):
-            if self._test_device_keys:
-                self.client.devices.delete(self._test_device_keys)
-        with self._try_to("delete test racks"):
-            if self._test_rack_keys:
-                self.client.racks.delete(self._test_rack_keys)
-        super().teardown()
+        """Run the chained teardown, then delete tracked devices and racks.
+
+        The deletions are server-side, so they run after the chain to stay out of
+        Console traces captured by earlier teardowns.
+        """
+        try:
+            super().teardown()
+        finally:
+            with self._try_to("delete test devices"):
+                if self._test_device_keys:
+                    self.client.devices.delete(self._test_device_keys)
+            with self._try_to("delete test racks"):
+                if self._test_rack_keys:
+                    self.client.racks.delete(self._test_rack_keys)
