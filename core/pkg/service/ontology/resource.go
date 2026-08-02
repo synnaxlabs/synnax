@@ -10,36 +10,14 @@
 package ontology
 
 import (
-	"strings"
-
 	"github.com/samber/lo"
+	v0 "github.com/synnaxlabs/synnax/pkg/service/ontology/versions/v0"
 	"github.com/synnaxlabs/x/change"
-	"github.com/synnaxlabs/x/errors"
-	"github.com/synnaxlabs/x/validate"
 	"github.com/synnaxlabs/x/zyn"
 )
 
 // ParseID parses the given key into an ID.
-func ParseID(key string) (ID, error) {
-	// We explicitly allow IDs that have multiple colons, i.e. "foo:bar:baz" will be
-	// parsed as ID{Type: "foo", Key: "bar:baz"}.
-	split := strings.SplitN(key, ":", 2)
-	if len(split) != 2 {
-		return ID{}, errors.Wrapf(
-			validate.ErrValidation,
-			"[ontology.resource] - failed to parse id: %s",
-			key,
-		)
-	}
-	if split[0] == "" {
-		return ID{}, errors.Wrapf(
-			validate.ErrValidation,
-			"[ontology.resource] - failed to parse id: %s (empty type)",
-			key,
-		)
-	}
-	return ID{Type: ResourceType(split[0]), Key: split[1]}, nil
-}
+var ParseID = v0.ParseID
 
 // ParseIDs parses the given keys into IDs.
 func ParseIDs(keys []string) ([]ID, error) {

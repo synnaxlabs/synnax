@@ -91,7 +91,8 @@ func (s *Service) Import(
 
 type importParams struct {
 	FileName string `json:"file_name"`
-	Parent   string `json:"parent"`
+	// Parent decodes from the compact "type:key" string form clients send.
+	Parent ontology.ID `json:"parent"`
 }
 
 // parseImportOptions decodes the required "params" request param — a JSON object
@@ -106,7 +107,7 @@ func parseImportOptions(ctx context.Context) (imex.ImportOptions, error) {
 	var params importParams
 	if err := json.Unmarshal([]byte(s), &params); err != nil {
 		return imex.ImportOptions{}, validate.PathedError(
-			errors.Wrap(validate.ErrValidation, "params must be a valid JSON object"),
+			errors.Wrapf(validate.ErrValidation, "invalid params: %v", err),
 			"params",
 		)
 	}
@@ -115,23 +116,16 @@ func parseImportOptions(ctx context.Context) (imex.ImportOptions, error) {
 			validate.ErrRequired, "file_name",
 		)
 	}
-	if params.Parent == "" {
+	if params.Parent.IsZero() {
 		return imex.ImportOptions{}, validate.PathedError(validate.ErrRequired, "parent")
 	}
-	parent, err := ontology.ParseID(params.Parent)
-	if err != nil {
-		return imex.ImportOptions{}, validate.PathedError(
-			errors.Wrapf(validate.ErrValidation, "invalid parent %q", params.Parent),
-			"parent",
-		)
-	}
-	if parent.Key == "" {
+	if params.Parent.Key == "" {
 		return imex.ImportOptions{}, validate.PathedError(
 			errors.Wrap(validate.ErrValidation, "must carry a non-empty key"),
 			"parent",
 		)
 	}
-	return imex.ImportOptions{FileName: params.FileName, Parent: parent}, nil
+	return imex.ImportOptions{FileName: params.FileName, Parent: params.Parent}, nil
 }
 
 type (

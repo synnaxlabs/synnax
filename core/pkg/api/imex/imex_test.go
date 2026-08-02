@@ -150,7 +150,7 @@ var _ = Describe("Import", func() {
 		fctx := rootCtx(ctx)
 		fctx.Set("params", `{"file_name":"Metrics Log.json","parent":"no-colon"}`)
 		Expect(apiSvc.Import(fctx, db, testEnvelope("bad-parent"))).Error().To(SatisfyAll(
-			MatchError(ContainSubstring("invalid parent")),
+			MatchError(ContainSubstring("failed to parse id: no-colon")),
 			MatchError(ContainSubstring("validation error")),
 		))
 	})
@@ -159,7 +159,7 @@ var _ = Describe("Import", func() {
 		fctx := rootCtx(ctx)
 		fctx.Set("params", "not-json")
 		Expect(apiSvc.Import(fctx, db, testEnvelope("bad-params"))).Error().To(SatisfyAll(
-			MatchError(ContainSubstring("params must be a valid JSON object")),
+			MatchError(ContainSubstring("invalid params")),
 			MatchError(ContainSubstring("validation error")),
 		))
 	})
