@@ -11,10 +11,8 @@ import { arc } from "@synnaxlabs/client";
 
 import { Editor } from "@/feature/arc/editor";
 import { Explorer } from "@/feature/arc/explorer";
-import { extract } from "@/feature/arc/export";
 import { ingest } from "@/feature/arc/import";
 import { Selectable } from "@/feature/arc/Selectable";
-import { type Export } from "@/platform/export";
 import { type Import } from "@/platform/import";
 import { type Panel } from "@/platform/panel";
 import { type Selector } from "@/platform/selector";
@@ -22,15 +20,12 @@ import { type Selector } from "@/platform/selector";
 export * from "@/feature/arc/commands";
 export * from "@/feature/arc/editor";
 export * from "@/feature/arc/explorer";
-export * from "@/feature/arc/export";
 export * from "@/feature/arc/import";
 export * from "@/feature/arc/link";
 export * from "@/feature/arc/search";
 export * from "@/feature/arc/toolbar/Toolbar";
 export * from "@/feature/arc/tree";
 export * from "@/platform/arc/external";
-
-export const EXTRACTORS: Export.Extractors = { [arc.TYPE_ONTOLOGY_ID.type]: extract };
 
 export const FILE_INGESTERS: Import.FileIngesters = {
   [arc.TYPE_ONTOLOGY_ID.type]: ingest,

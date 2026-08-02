@@ -663,11 +663,11 @@ var _ = Describe("Driver", func() {
 				HeartbeatInterval: 50 * time.Millisecond,
 			}))
 
-			statusKey := rack.OntologyID(embeddedRackKey(ctx)).String()
+			statusKey := embeddedRackKey(ctx).OntologyID().String()
 			Eventually(func(g Gomega) {
-				var statuses []status.Status[any]
-				g.Expect(statusSvc.NewRetrieve().
-					Where(status.MatchKeys[any](statusKey)).
+				var statuses []rack.Status
+				g.Expect(status.NewRetrieve[rack.StatusDetails](statusSvc).
+					Where(status.MatchKeys[rack.StatusDetails](statusKey)).
 					Entries(&statuses).
 					Exec(ctx, node.DB)).To(Succeed())
 				g.Expect(statuses).To(HaveLen(1))
@@ -688,12 +688,12 @@ var _ = Describe("Driver", func() {
 				HeartbeatInterval: 25 * time.Millisecond,
 			}))
 
-			statusKey := rack.OntologyID(embeddedRackKey(ctx)).String()
+			statusKey := embeddedRackKey(ctx).OntologyID().String()
 			var firstTime telem.TimeStamp
 			Eventually(func(g Gomega) {
-				var statuses []status.Status[any]
-				g.Expect(statusSvc.NewRetrieve().
-					Where(status.MatchKeys[any](statusKey)).
+				var statuses []rack.Status
+				g.Expect(status.NewRetrieve[rack.StatusDetails](statusSvc).
+					Where(status.MatchKeys[rack.StatusDetails](statusKey)).
 					Entries(&statuses).
 					Exec(ctx, node.DB)).To(Succeed())
 				g.Expect(statuses).To(HaveLen(1))
@@ -701,9 +701,9 @@ var _ = Describe("Driver", func() {
 			}).Should(Succeed())
 
 			Eventually(func(g Gomega) {
-				var statuses []status.Status[any]
-				g.Expect(statusSvc.NewRetrieve().
-					Where(status.MatchKeys[any](statusKey)).
+				var statuses []rack.Status
+				g.Expect(status.NewRetrieve[rack.StatusDetails](statusSvc).
+					Where(status.MatchKeys[rack.StatusDetails](statusKey)).
 					Entries(&statuses).
 					Exec(ctx, node.DB)).To(Succeed())
 				g.Expect(statuses).To(HaveLen(1))
@@ -724,11 +724,11 @@ var _ = Describe("Driver", func() {
 				HeartbeatInterval: 25 * time.Millisecond,
 			}))
 
-			statusKey := rack.OntologyID(embeddedRackKey(ctx)).String()
+			statusKey := embeddedRackKey(ctx).OntologyID().String()
 			Eventually(func(g Gomega) {
-				var statuses []status.Status[any]
-				g.Expect(statusSvc.NewRetrieve().
-					Where(status.MatchKeys[any](statusKey)).
+				var statuses []rack.Status
+				g.Expect(status.NewRetrieve[rack.StatusDetails](statusSvc).
+					Where(status.MatchKeys[rack.StatusDetails](statusKey)).
 					Entries(&statuses).
 					Exec(ctx, node.DB)).To(Succeed())
 				g.Expect(statuses).To(HaveLen(1))
@@ -737,17 +737,17 @@ var _ = Describe("Driver", func() {
 			Expect(driver.Close()).To(Succeed())
 
 			var lastTime telem.TimeStamp
-			var statuses []status.Status[any]
-			Expect(statusSvc.NewRetrieve().
-				Where(status.MatchKeys[any](statusKey)).
+			var statuses []rack.Status
+			Expect(status.NewRetrieve[rack.StatusDetails](statusSvc).
+				Where(status.MatchKeys[rack.StatusDetails](statusKey)).
 				Entries(&statuses).
 				Exec(ctx, node.DB)).To(Succeed())
 			lastTime = statuses[0].Time
 
 			Consistently(func(g Gomega) {
-				var statuses []status.Status[any]
-				g.Expect(statusSvc.NewRetrieve().
-					Where(status.MatchKeys[any](statusKey)).
+				var statuses []rack.Status
+				g.Expect(status.NewRetrieve[rack.StatusDetails](statusSvc).
+					Where(status.MatchKeys[rack.StatusDetails](statusKey)).
 					Entries(&statuses).
 					Exec(ctx, node.DB)).To(Succeed())
 				g.Expect(statuses[0].Time).To(Equal(lastTime))

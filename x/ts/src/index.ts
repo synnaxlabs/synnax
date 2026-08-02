@@ -43,6 +43,7 @@ export * from "@/scheduler";
 export * from "@/shallow";
 export * from "@/sleep";
 export * from "@/spatial";
+export * from "@/state";
 export * from "@/strings";
 export * from "@/sync";
 export * from "@/telem";

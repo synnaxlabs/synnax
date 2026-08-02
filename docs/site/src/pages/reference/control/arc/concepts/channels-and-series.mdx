@@ -11,6 +11,7 @@ nextURL: "/reference/control/arc/concepts/stateful-variables"
 ---
 
 import { Divider, Note } from "@synnaxlabs/pluto";
+import { Arc } from "@/components";
 import { mdxOverrides } from "@/components/mdxOverrides";
 
 export const components = mdxOverrides;
@@ -50,38 +51,37 @@ channels in the Console's resources panel before writing code.
 Channels behave differently depending on whether you're in a **reactive context** (flow
 statements) or an **imperative context** (inside a function body).
 
-### Reactive Context
+<Arc.Tabs client:load>
 
-In flow statements, channels are event-driven data sources:
+<Fragment slot="flow">
+
+In flow statements, channels are **event-driven data sources**:
 
 ```arc
-sensor -> filter{threshold=50.0} -> controller{} -> actuator
+sensor -> controller{} -> actuator
 ```
 
-When new data arrives on `sensor`, the entire pipeline executes. The runtime tracks
-which data has been processed using watermarks, so only new data triggers execution.
+When new data arrives on `sensor`, the entire pipeline executes.
 
-You can also bind a channel, or an expression over channels, to a name. The resulting
-[variable](/reference/control/arc/reference/variables) tracks the channel and updates as
-new data arrives.
+</Fragment>
 
-### Imperative Context
+<Fragment slot="function">
 
 Inside function bodies, channel reads are **non-blocking snapshots**:
 
 ```arc
-func controller{setpoint chan f64, output chan f64} (pressure f64) f64 {
-    target := setpoint // Read latest value (non-blocking)
-    error := pressure - target
-    if error > 10 {
-        output = error // Write to channel
-    }
+func controller{setpoint chan f64} (pressure f64) f64 {
+    error := pressure - setpoint // Read latest value (non-blocking)
     return error
 }
 ```
 
-The line `target := setpoint` returns immediately with the most recent value written to
-the `setpoint` channel. If nothing has been written yet, it returns zero.
+</Fragment>
+
+</Arc.Tabs>
+
+You can also bind a channel, or an expression over channels, to a
+[variable](/reference/control/arc/reference/variables) that updates as new data arrives.
 
 | Aspect        | Reactive (`->`)     | Imperative (function body)    |
 | ------------- | ------------------- | ----------------------------- |
@@ -108,26 +108,35 @@ This lets you write reusable functions that work with different channels.
 
 ## Writing to Channels
 
-Inside functions, use assignment syntax to write to channels:
+Write to a channel by making it the final target of a flow statement, or with assignment
+syntax inside a function.
+
+<Arc.Tabs client:load>
+
+<Fragment slot="flow">
 
 ```arc
-func control{valve chan u8} (pressure f64) {
-    if pressure > 500 {
-        valve = 1
-    } else {
-        valve = 0
-    }
+stage control {
+    sensor -> scale{factor=2.0} -> output_channel
 }
 ```
 
-Writes are queued until the end of the execution cycle. Multiple writes to the same
-channel in a single cycle result in the last value being sent.
+</Fragment>
 
-In flow statements, you can write directly to channels as the final target:
+<Fragment slot="function">
 
 ```arc
-sensor -> scale{factor=2.0} -> output_channel
+func control{valve chan u8} (pressure f64) {
+    if pressure > 500 { valve = 1 }
+}
 ```
+
+</Fragment>
+
+</Arc.Tabs>
+
+Writes are queued until the end of the execution cycle. Multiple writes to the same
+channel in a single cycle result in the last value being sent.
 
 <Divider.Divider x />
 

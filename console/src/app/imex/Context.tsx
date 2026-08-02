@@ -15,17 +15,7 @@ import { Log } from "@/feature/log";
 import { Schematic } from "@/feature/schematic";
 import { Table } from "@/feature/table";
 import { Task } from "@/feature/task";
-import { Export } from "@/platform/export";
 import { Import } from "@/platform/import";
-
-const EXTRACTORS: Export.Extractors = {
-  ...Arc.EXTRACTORS,
-  ...LinePlot.EXTRACTORS,
-  ...Log.EXTRACTORS,
-  ...Schematic.EXTRACTORS,
-  ...Table.EXTRACTORS,
-  ...Task.EXTRACTORS,
-};
 
 const FILE_INGESTERS: Import.FileIngesters = {
   ...Arc.FILE_INGESTERS,
@@ -40,8 +30,6 @@ export interface ContextProps extends PropsWithChildren<{}> {}
 
 export const Context = ({ children }: ContextProps) => (
   <Import.FileIngestersProvider fileIngesters={FILE_INGESTERS}>
-    <Export.ExtractorsProvider extractors={EXTRACTORS}>
-      {children}
-    </Export.ExtractorsProvider>
+    {children}
   </Import.FileIngestersProvider>
 );

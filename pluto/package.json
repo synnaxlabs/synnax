@@ -1,6 +1,6 @@
 {
   "name": "@synnaxlabs/pluto",
-  "version": "0.56.8",
+  "version": "0.56.9",
   "type": "module",
   "scripts": {
     "build": "tsc --noEmit && vite build",
@@ -25,7 +25,7 @@
     "@codingame/monaco-vscode-textmate-service-override": "^28.4.1",
     "@codingame/monaco-vscode-theme-defaults-default-extension": "^28.4.1",
     "@codingame/monaco-vscode-theme-service-override": "^28.4.1",
-    "@fontsource-variable/inter": "^5.2.8",
+    "@fontsource-variable/inter": "^5.3.0",
     "@fontsource/geist-mono": "catalog:",
     "@fontsource/inter": "catalog:",
     "@synnaxlabs/alamos": "workspace:^",
@@ -34,14 +34,14 @@
     "@synnaxlabs/freighter": "workspace:*",
     "@synnaxlabs/media": "workspace:*",
     "@synnaxlabs/x": "workspace:^",
-    "@tanstack/react-virtual": "^3.14.5",
-    "@xyflow/react": "^12.11.1",
+    "@tanstack/react-virtual": "^3.14.9",
+    "@xyflow/react": "^12.11.2",
     "async-mutex": "catalog:",
     "clsx": "catalog:",
     "compromise": "catalog:",
     "compromise-dates": "catalog:",
     "d3-scale": "^4.0.2",
-    "fuse.js": "^7.4.2",
+    "fuse.js": "^7.5.0",
     "mathjs": "^15.2.0",
     "pluralize": "catalog:",
     "react": "catalog:",
@@ -65,6 +65,7 @@
   "devDependencies": {
     "@juggle/resize-observer": "^3.4.0",
     "@synnaxlabs/eslint-config": "workspace:^",
+    "@synnaxlabs/madge": "workspace:^",
     "@synnaxlabs/stylelint-config": "workspace:^",
     "@synnaxlabs/tsconfig": "workspace:^",
     "@synnaxlabs/vite-plugin": "workspace:^",
@@ -84,7 +85,6 @@
     "@vitest/coverage-v8": "catalog:",
     "eslint": "catalog:",
     "jsdom": "catalog:",
-    "madge": "catalog:",
     "react-dom": "catalog:",
     "stylelint": "catalog:",
     "typescript": "catalog:",
@@ -95,99 +95,78 @@
   "files": [
     "dist"
   ],
-  "main": "./dist/pluto.cjs",
-  "module": "./dist/pluto.js",
-  "types": "./dist/src/index.d.ts",
   "exports": {
     ".": {
       "types": "./dist/src/index.d.ts",
-      "import": "./dist/pluto.js",
-      "require": "./dist/pluto.cjs"
+      "default": "./dist/pluto.js"
     },
     "./ether": {
       "types": "./dist/src/ether.d.ts",
-      "import": "./dist/ether.js",
-      "require": "./dist/ether.cjs"
+      "default": "./dist/ether.js"
     },
     "./testutil": {
       "types": "./dist/src/testutil/index.d.ts",
-      "import": "./dist/testutil.js",
-      "require": "./dist/testutil.cjs"
+      "default": "./dist/testutil.js"
     },
     "./flex": {
       "types": "./dist/src/flex/index.d.ts",
-      "import": "./dist/flex.js",
-      "require": "./dist/flex.cjs"
+      "default": "./dist/flex.js"
     },
     "./button": {
       "types": "./dist/src/button/index.d.ts",
-      "import": "./dist/button.js",
-      "require": "./dist/button.cjs"
+      "default": "./dist/button.js"
     },
     "./tabs": {
       "types": "./dist/src/tabs/index.d.ts",
-      "import": "./dist/tabs.js",
-      "require": "./dist/tabs.cjs"
+      "default": "./dist/tabs.js"
     },
     "./theming": {
       "types": "./dist/src/theming/index.d.ts",
-      "import": "./dist/theming.js",
-      "require": "./dist/theming.cjs"
+      "default": "./dist/theming.js"
     },
     "./menu": {
       "types": "./dist/src/menu/index.d.ts",
-      "import": "./dist/menu.js",
-      "require": "./dist/menu.cjs"
+      "default": "./dist/menu.js"
     },
     "./header": {
       "types": "./dist/src/header/index.d.ts",
-      "import": "./dist/header.js",
-      "require": "./dist/header.cjs"
+      "default": "./dist/header.js"
     },
     "./tree": {
       "types": "./dist/src/tree/index.d.ts",
-      "import": "./dist/tree.js",
-      "require": "./dist/tree.cjs"
+      "default": "./dist/tree.js"
     },
     "./dropdown": {
       "types": "./dist/src/dropdown/index.d.ts",
-      "import": "./dist/dropdown.js",
-      "require": "./dist/dropdown.cjs"
+      "default": "./dist/dropdown.js"
     },
     "./video": {
       "types": "./dist/src/video/index.d.ts",
-      "import": "./dist/video.js",
-      "require": "./dist/video.cjs"
+      "default": "./dist/video.js"
     },
     "./text": {
       "types": "./dist/src/text/index.d.ts",
-      "import": "./dist/text.js",
-      "require": "./dist/text.cjs"
+      "default": "./dist/text.js"
     },
     "./input": {
       "types": "./dist/src/input/index.d.ts",
-      "import": "./dist/input.js",
-      "require": "./dist/input.cjs"
+      "default": "./dist/input.js"
     },
     "./triggers": {
       "types": "./dist/src/triggers/index.d.ts",
-      "import": "./dist/triggers.js",
-      "require": "./dist/triggers.cjs"
+      "default": "./dist/triggers.js"
     },
     "./list": {
       "types": "./dist/src/list/index.d.ts",
-      "import": "./dist/list.js",
-      "require": "./dist/list.cjs"
+      "default": "./dist/list.js"
     },
     "./color": {
       "types": "./dist/src/color/index.d.ts",
-      "import": "./dist/color.js",
-      "require": "./dist/color.cjs"
+      "default": "./dist/color.js"
     },
     "./css": {
       "types": "./dist/src/css/index.d.ts",
-      "import": "./dist/css.js",
-      "require": "./dist/css.cjs"
+      "default": "./dist/css.js"
     },
     "./dist/*": "./dist/*"
   },

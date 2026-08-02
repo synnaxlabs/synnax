@@ -69,6 +69,22 @@ sequence main {
             true: "chain_true" -> routing_stage_log,
             false: "chain_false" -> routing_stage_log
         }
+        next_cmd => arrow_body_hold
+    }
+
+    stage arrow_body_hold {
+        "arrow_body_hold" -> routing_stage_log
+        routing_flag -> select{} -> {
+            true: 1 => arrow_on,
+            false: 1 => arrow_off
+        }
+    }
+    stage arrow_on {
+        "arrow_on" -> routing_stage_log
+        next_cmd => arrow_body_hold
+    }
+    stage arrow_off {
+        "arrow_off" -> routing_stage_log
         next_cmd => done
     }
 
@@ -80,7 +96,7 @@ sequence main {
 
 
 class StageRouting(ArcCase):
-    """Test routing table with stage targets (SY-4045).
+    """Test routing table with stage targets (SY-4045, SY-4460).
 
     Exercises both select{} and a custom multi-output function routing tables
     targeting stages within the same sequence.
@@ -88,7 +104,9 @@ class StageRouting(ArcCase):
     Phase 2 uses decide_stage to route to vent/press/abort based on sensor thresholds.
     Phase 3 uses select with multi-node case bodies that write string literals
     to a channel, verifying that case-body chains type-check via chain semantics
-    rather than against the select's discriminator output."""
+    rather than against the select's discriminator output.
+    Phase 4 (SY-4460) uses select with `=>` transition case bodies, verifying that
+    the transition operator drives stage jumps from inside a routing table."""
 
     arc_source = ARC_STAGE_ROUTING
     arc_name_prefix = "StageRouting"
@@ -170,5 +188,23 @@ class StageRouting(ArcCase):
         self._write_flag(0)
         self.wait_for_eq("routing_stage_log", "chain_false")
 
+        self.log("[chain_body] Advancing chain_body_hold -> arrow_body_hold")
+        self._advance()
+        self.wait_for_eq("routing_stage_log", "arrow_body_hold")
+
+        # Phase 4: `=>` transition case body — `true: 1 => arrow_on`
+        self.log("[arrow_body] flag=1 -> arrow_on via => transition")
+        self._write_flag(1)
+        self.wait_for_eq("routing_stage_log", "arrow_on")
+
+        self.log("[arrow_body] Advancing arrow_on -> arrow_body_hold")
+        self._advance()
+        self.wait_for_eq("routing_stage_log", "arrow_body_hold")
+
+        self.log("[arrow_body] flag=0 -> arrow_off via => transition")
+        self._write_flag(0)
+        self.wait_for_eq("routing_stage_log", "arrow_off")
+
+        self.log("[arrow_body] Advancing arrow_off -> done")
         self._advance()
         self.wait_for_eq("routing_stage_log", "done")

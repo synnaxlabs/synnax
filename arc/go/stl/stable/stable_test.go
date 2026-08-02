@@ -63,7 +63,7 @@ var _ = Describe("StableFor", func() {
 					Target: ir.Handle{Node: "stable", Param: ir.DefaultInputParam},
 				}},
 			},
-			Functions: []graph.Function{
+			Functions: []ir.Function{
 				{
 					Key: "source",
 					Outputs: types.Params{
@@ -296,7 +296,7 @@ var _ = Describe("StableFor", func() {
 			currentTime = 0
 			// Send multiple values, ending with 7 at 0.4s (400ms)
 			*source.Output(0) = telem.NewSeriesV[uint8](3, 4, 5, 6, 7)
-			*source.OutputTime(0) = telem.NewSeriesV[telem.TimeStamp](
+			*source.OutputTime(0) = telem.NewSeriesV(
 				0,
 				telem.SecondTS/10,   // 0.1s = 100ms
 				telem.SecondTS/5,    // 0.2s = 200ms
@@ -362,7 +362,7 @@ var _ = Describe("StableFor", func() {
 			currentTime = 0
 			// Send same value multiple times
 			*source.Output(0) = telem.NewSeriesV[uint8](5, 5, 5, 5)
-			*source.OutputTime(0) = telem.NewSeriesV[telem.TimeStamp](
+			*source.OutputTime(0) = telem.NewSeriesV(
 				0,
 				telem.SecondTS/10,   // 0.1s = 100ms
 				telem.SecondTS/5,    // 0.2s = 200ms
@@ -414,7 +414,7 @@ var _ = Describe("StableFor", func() {
 						Target: ir.Handle{Node: "stable", Param: ir.DefaultInputParam},
 					}},
 				},
-				Functions: []graph.Function{
+				Functions: []ir.Function{
 					{
 						Key: "source",
 						Outputs: types.Params{
@@ -444,6 +444,50 @@ var _ = Describe("StableFor", func() {
 				State: s.Node("stable"),
 			}))
 			Expect(n).ToNot(BeNil())
+		})
+	})
+
+	Describe("Reset", func() {
+		It("Should not emit after reset when no new data arrives", func(ctx SpecContext) {
+			cfg := node.Config{Node: irNode, State: s.Node("stable")}
+			source := s.Node("source")
+			currentTime = 0
+			*source.Output(0) = telem.NewSeriesV[uint8](5)
+			*source.OutputTime(0) = telem.NewSeriesSecondsTSV(1)
+			n := MustSucceed(module.Create(ctx, cfg))
+			outputs := make(set.Set[int])
+			n.Next(node.Context{Context: ctx, MarkChanged: func(i int) { outputs.Add(i) }})
+			Expect(outputs.Contains(0)).To(BeFalse())
+
+			currentTime = telem.SecondTS * 2
+			outputs = make(set.Set[int])
+			n.Next(node.Context{Context: ctx, MarkChanged: func(i int) { outputs.Add(i) }})
+			Expect(outputs.Contains(0)).To(BeTrue())
+
+			n.Reset()
+			currentTime = telem.SecondTS * 5
+			outputs = make(set.Set[int])
+			n.Next(node.Context{Context: ctx, MarkChanged: func(i int) { outputs.Add(i) }})
+			Expect(outputs.Contains(0)).To(BeFalse())
+		})
+
+		It("Should ignore values written while the stage was inactive", func(ctx SpecContext) {
+			cfg := node.Config{Node: irNode, State: s.Node("stable")}
+			source := s.Node("source")
+			currentTime = 0
+			*source.Output(0) = telem.NewSeriesV[uint8](5)
+			*source.OutputTime(0) = telem.NewSeriesSecondsTSV(1)
+			n := MustSucceed(module.Create(ctx, cfg))
+			n.Next(node.Context{Context: ctx, MarkChanged: func(int) {}})
+
+			*source.Output(0) = telem.NewSeriesV[uint8](9)
+			*source.OutputTime(0) = telem.NewSeriesSecondsTSV(2)
+			n.Reset()
+
+			currentTime = telem.SecondTS * 10
+			outputs := make(set.Set[int])
+			n.Next(node.Context{Context: ctx, MarkChanged: func(i int) { outputs.Add(i) }})
+			Expect(outputs.Contains(0)).To(BeFalse())
 		})
 	})
 })
@@ -540,8 +584,8 @@ var _ = Describe("Variable duration", func() {
 		}
 	}
 	ingest := func(v uint8, at telem.TimeStamp) {
-		*s.Node("source").Output(0) = telem.NewSeriesV[uint8](v)
-		*s.Node("source").OutputTime(0) = telem.NewSeriesV[telem.TimeStamp](at)
+		*s.Node("source").Output(0) = telem.NewSeriesV(v)
+		*s.Node("source").OutputTime(0) = telem.NewSeriesV(at)
 	}
 	next := func(ctx SpecContext, n node.Node) bool {
 		fired := false

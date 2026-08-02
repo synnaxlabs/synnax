@@ -218,6 +218,35 @@ var _ = Describe("ImEx", func() {
 				Expect(env.Name).To(Equal("n"))
 			})
 
+			It("Should accept a pre-reduced map body and merge it flat", func() {
+				// A resource whose portable body is an opaque object (e.g. a task's
+				// type-specific config) passes an already-reduced map instead of a
+				// struct; the map's fields sit flat at the top level, not nested.
+				env := imex.Envelope{Version: 3, Type: "task", Name: "n"}
+				Expect(imex.Encode(&env, map[string]any{
+					"sample_rate": 25,
+					"channels":    []any{"a", "b"},
+				})).To(Succeed())
+				b := MustSucceed(json.Marshal(env))
+				var round map[string]any
+				Expect(json.Unmarshal(b, &round)).To(Succeed())
+				Expect(round["sample_rate"]).To(BeEquivalentTo(25))
+				Expect(round["channels"]).To(Equal([]any{"a", "b"}))
+				Expect(round["version"]).To(BeEquivalentTo(3))
+				Expect(round["type"]).To(Equal("task"))
+				Expect(round["name"]).To(Equal("n"))
+			})
+
+			It("Should let a map body's type and name override the headers", func() {
+				env := imex.Envelope{Version: 1, Type: "env_type", Name: "env_name"}
+				Expect(imex.Encode(&env, map[string]any{
+					"type": "map_type",
+					"name": "map_name",
+				})).To(Succeed())
+				Expect(env.Type).To(Equal("map_type"))
+				Expect(env.Name).To(Equal("map_name"))
+			})
+
 			It("Should drop a top-level key field from the encoded body", func() {
 				type keyed struct {
 					Key  string `json:"key"`

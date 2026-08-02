@@ -110,9 +110,10 @@ class Scheduler {
         /// inactive or in a parallel scope.
         size_t active_step = NO_INDEX;
         /// @brief members flattened in execution order: stratum-major for
-        /// parallel scopes, sequence order for sequential.
+        /// parallel scopes; steps then trailing strata variable nodes for
+        /// sequential.
         std::vector<MemberState> members;
-        /// @brief resolves `=> name` transition targets to step indices.
+        /// @brief resolves `=> name` transition targets to member indices.
         std::unordered_map<std::string, size_t> member_by_key;
         /// @brief transition_owner[i] is the step index that owns
         /// transition i's `on`-handle source, or NO_INDEX if the source is
@@ -153,7 +154,7 @@ class Scheduler {
     /// once at construction.
     std::vector<ScopeState> scopes;
     /// @brief changed_flags[i] is set when node i has a pending upstream
-    /// change for the current cycle. Cleared at end of cycle.
+    /// change for the current cycle. Consumed on run or at end of cycle.
     std::vector<uint8_t> changed_flags;
     /// @brief self_changed_flags[i] is set by node i via mark_self_changed
     /// to request replay on the next cycle. Cleared when the replay runs
@@ -163,6 +164,12 @@ class Scheduler {
     /// transition handle i fired truthy this cycle. Cleared at end of
     /// cycle so transitions fire on fresh marks, not stale truthiness.
     std::vector<uint8_t> marked_flags;
+    /// @brief visited_flags[i] is set when node i has had its execution
+    /// opportunity in the current pass. Cleared at the start of each pass.
+    std::vector<uint8_t> visited_flags;
+    /// @brief settled is cleared when a change lands on a node that already
+    /// ran this pass; next keeps running settle passes until it stays true.
+    bool settled = true;
     /// @brief how early a timer-based node may fire relative to its deadline.
     x::telem::TimeSpan tolerance;
     /// @brief receives errors raised by nodes via ctx.report_error.
@@ -212,17 +219,24 @@ public:
         this->activate_scope(this->scopes[0]);
     }
 
-    /// @brief executes one cycle of the reactive computation. Nodes with
-    /// pending changes execute in phase order; sequential scopes advance
-    /// via their transitions; gated scopes activate when their activation
-    /// handle fires.
+    /// @brief executes one cycle of the reactive computation, re-walking
+    /// until changes settle. Nodes with pending changes execute in stratum
+    /// order; sequential scopes advance via their transitions; gated scopes
+    /// activate when their handle fires.
     void next(const x::telem::TimeSpan elapsed, const node::RunReason reason) {
         this->min_deadline = x::telem::TimeSpan::max();
         this->ctx.elapsed = elapsed;
         this->ctx.tolerance = this->tolerance;
         this->ctx.reason = reason;
 
-        this->walk(this->scopes[0]);
+        // Re-pass until no change lands on an already-run node, bounded
+        // against cycles.
+        for (size_t i = 0; i < this->changed_flags.size() + 1; ++i) {
+            this->settled = true;
+            std::ranges::fill(this->visited_flags, 0);
+            this->walk(this->scopes[0]);
+            if (this->settled) break;
+        }
 
         std::ranges::fill(this->changed_flags, 0);
         std::ranges::fill(this->marked_flags, 0);
@@ -261,17 +275,22 @@ private:
     /// can fire N transitions. stratum_idx=0 forces the active step to run
     /// unconditionally, matching stratum-0 parallel semantics.
     void walk_sequential(ScopeState &state) {
+        // Strata variable nodes trail the steps and run every pass.
+        for (size_t i = state.ir.steps.size(); i < state.members.size(); ++i)
+            this->execute_member(0, state.members[i]);
         const size_t budget = state.members.size() + 1;
         for (size_t i = 0; i < budget; ++i) {
             if (state.active_step == NO_INDEX) return;
             this->execute_member(0, state.members[state.active_step]);
             if (!this->evaluate_transitions(state)) return;
+            // The next step runs on the settle pass so it observes prior writes.
+            if (!this->settled) return;
         }
     }
 
     /// @brief walks a nested-scope member or runs a leaf-node member.
     /// A leaf runs when stratum_idx==0, when changed_flags is set, or when
-    /// the node was self-changed on a prior cycle.
+    /// the node was self-changed on a prior cycle. Running consumes the flag.
     void execute_member(const size_t stratum_idx, MemberState &m) {
         if (m.scope != NO_INDEX) {
             this->walk(this->scopes[m.scope]);
@@ -279,9 +298,11 @@ private:
         }
         if (m.node == NO_INDEX) return;
         const size_t idx = m.node;
+        this->visited_flags[idx] = 1;
         const bool was_self_changed = this->self_changed_flags[idx] != 0;
         if (was_self_changed) this->self_changed_flags[idx] = 0;
         if (stratum_idx == 0 || this->changed_flags[idx] || was_self_changed) {
+            this->changed_flags[idx] = 0;
             this->curr_node = m.node;
             this->nodes[this->curr_node].node->next(this->ctx);
         }
@@ -339,15 +360,17 @@ private:
     }
 
     /// @brief marks a scope active and primes its members. Sequential
-    /// scopes activate step 0; parallel scopes reset every leaf-node
-    /// member and cascade-activate always-live nested scopes. Gated
-    /// children wait for their Activation handle to fire via
-    /// mark_changed; gated children with no handle stay inert (used for
-    /// named top-level scopes awaiting an external trigger).
+    /// scopes reset their strata members and activate step 0; parallel
+    /// scopes reset every leaf-node member and cascade-activate always-live
+    /// nested scopes. Gated children wait for their Activation handle to
+    /// fire via mark_changed; gated children with no handle stay inert
+    /// (used for named top-level scopes awaiting an external trigger).
     void activate_scope(ScopeState &state) {
         state.active = true;
         if (state.ir.mode == ir::ScopeMode::Sequential) {
-            if (!state.members.empty()) this->activate_sequential_step(state, 0);
+            for (size_t i = state.ir.steps.size(); i < state.members.size(); ++i)
+                this->reset_leaf_node(state.members[i]);
+            if (!state.ir.steps.empty()) this->activate_sequential_step(state, 0);
             return;
         }
         for (auto &m: state.members) {
@@ -414,7 +437,13 @@ private:
         if (truthy && out.mark_handle_idx != NO_INDEX)
             this->marked_flags[out.mark_handle_idx] = 1;
         for (const auto &edge: out.edges)
-            if (!edge.conditional || truthy) this->changed_flags[edge.target_idx] = 1;
+            if (!edge.conditional || truthy) {
+                this->changed_flags[edge.target_idx] = 1;
+                // A self-mark never unsettles its own pass; it would loop forever.
+                if (edge.target_idx != this->curr_node &&
+                    this->visited_flags[edge.target_idx] != 0)
+                    this->settled = false;
+            }
         for (const size_t scope_idx: out.activates) {
             auto &scope = this->scopes[scope_idx];
             if (!scope.active) this->activate_scope(scope);
@@ -478,6 +507,7 @@ private:
         this->s->nodes.resize(n);
         this->s->changed_flags.assign(n, 0);
         this->s->self_changed_flags.assign(n, 0);
+        this->s->visited_flags.assign(n, 0);
         this->nodes_by_key.reserve(n);
         this->output_by_param.resize(n);
 
@@ -538,6 +568,9 @@ private:
         } else if (sc.mode == ir::ScopeMode::Sequential) {
             for (const auto &m: sc.steps)
                 count_member(m);
+            for (const auto &stratum: sc.strata)
+                for (const auto &m: stratum)
+                    count_member(m);
         }
         return n;
     }
@@ -571,6 +604,10 @@ private:
         } else if (sc.mode == ir::ScopeMode::Sequential) {
             for (const auto &m: sc.steps)
                 append_member(m);
+            // Strata variable nodes trail the steps so step indices stay stable.
+            for (const auto &stratum: sc.strata)
+                for (const auto &m: stratum)
+                    append_member(m);
         }
 
         auto &state = this->s->scopes[this_idx];
@@ -616,7 +653,9 @@ private:
     void resolve_transitions(Scheduler::ScopeState &state) {
         // Key: node index (dense [0, N)); value: owning member index.
         std::unordered_map<size_t, size_t> node_to_member;
-        for (size_t i = 0; i < state.members.size(); ++i)
+        // Only steps own transitions; trailing strata variable nodes stay
+        // external.
+        for (size_t i = 0; i < state.ir.steps.size(); ++i)
             collect_member_nodes(state.members[i], i, node_to_member);
 
         const auto &transitions = state.ir.transitions;

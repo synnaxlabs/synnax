@@ -17,6 +17,7 @@ import (
 	"github.com/synnaxlabs/oracle/analyzer"
 	"github.com/synnaxlabs/oracle/resolution"
 	. "github.com/synnaxlabs/oracle/testutil"
+	"github.com/synnaxlabs/x/diagnostics"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -45,6 +46,164 @@ var _ = Describe("Analyzer", func() {
 
 	BeforeEach(func() {
 		loader = NewMockFileLoader()
+	})
+
+	Describe("File-level version", func() {
+		It("Should error when @go version is declared file-level", func(ctx SpecContext) {
+			source := `
+				@go output "out"
+				@go version 0
+				Entry struct {
+					value int32
+				}
+			`
+			_, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+			Expect(diag.Ok()).To(BeFalse())
+			Expect(diag.String()).To(ContainSubstring("declare it per type"))
+		})
+
+		It("Should accept struct-level @go version", func(ctx SpecContext) {
+			source := `
+				@go output "out"
+				Entry struct {
+					value int32
+					@go version 0
+				}
+			`
+			_, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+			Expect(diag.Ok()).To(BeTrue())
+		})
+	})
+
+	Describe("Version arguments", func() {
+		It("Should accept a pinned marker", func(ctx SpecContext) {
+			source := `
+				@go output "out"
+				Entry struct {
+					value int32
+					@go version 0 pinned
+				}
+			`
+			_, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+			Expect(diag.Ok()).To(BeTrue())
+		})
+
+		It("Should error on an unknown version argument", func(ctx SpecContext) {
+			source := `
+				@go output "out"
+				Entry struct {
+					value int32
+					@go version 0 pined
+				}
+			`
+			_, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+			Expect(diag.Ok()).To(BeFalse())
+			Expect(diag.String()).To(ContainSubstring("malformed @go version"))
+		})
+
+		It("Should error on extra version arguments", func(ctx SpecContext) {
+			source := `
+				@go output "out"
+				Entry struct {
+					value int32
+					@go version 0 pinned pinned
+				}
+			`
+			_, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+			Expect(diag.Ok()).To(BeFalse())
+			Expect(diag.String()).To(ContainSubstring("malformed @go version"))
+		})
+	})
+
+	Describe("Domain omission", func() {
+		It("Should error when a generating type references an omitted type", func(ctx SpecContext) {
+			source := `
+				@go output "out"
+				Inner struct {
+					value int32
+					@go omit
+				}
+				Entry struct {
+					inner Inner
+				}
+			`
+			_, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+			Expect(diag.Ok()).To(BeFalse())
+			Expect(diag.String()).To(ContainSubstring("omitted in go"))
+		})
+
+		It("Should allow references to hand-written types", func(ctx SpecContext) {
+			source := `
+				@go output "out"
+				Inner struct {
+					value int32
+					@go hand
+				}
+				Entry struct {
+					inner Inner
+				}
+			`
+			_, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+			Expect(diag.Ok()).To(BeTrue())
+		})
+
+		It("Should error when every type omits a declared output", func(ctx SpecContext) {
+			source := `
+				@go output "out"
+				@ts output "ts/out"
+				Entry struct {
+					value int32
+					@ts omit
+				}
+			`
+			_, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+			Expect(diag.Ok()).To(BeFalse())
+			Expect(diag.String()).To(ContainSubstring("remove the @ts output"))
+		})
+
+		It("Should keep an output alive through a hand-written type", func(ctx SpecContext) {
+			source := `
+				@go output "out"
+				@ts output "ts/out"
+				Entry struct {
+					value int32
+					@ts hand
+				}
+			`
+			_, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+			Expect(diag.Ok()).To(BeTrue())
+		})
+	})
+
+	Describe("Imports", func() {
+		It("Should error on an unused import", func(ctx SpecContext) {
+			loader.Add("schemas/dep", `
+				Inner struct { value int32 }
+			`)
+			source := `
+				import "schemas/dep"
+				Entry struct {
+					name string
+				}
+			`
+			_, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+			Expect(diag.Ok()).To(BeFalse())
+			Expect(diag.String()).To(ContainSubstring(`unused import "schemas/dep"`))
+		})
+
+		It("Should not error when an import is referenced", func(ctx SpecContext) {
+			loader.Add("schemas/dep", `
+				Inner struct { value int32 }
+			`)
+			source := `
+				import "schemas/dep"
+				Entry struct {
+					inner dep.Inner
+				}
+			`
+			_, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+			Expect(diag.Ok()).To(BeTrue())
+		})
 	})
 
 	Describe("AnalyzeSource", func() {
@@ -465,7 +624,7 @@ var _ = Describe("Analyzer", func() {
 
 				Range struct {
 					key uuid @id
-					labels uuid[]
+					labels label.Label[]
 				}
 			`
 			table, diag := analyzer.AnalyzeSource(ctx, source, "ranger", loader)
@@ -482,16 +641,16 @@ var _ = Describe("Analyzer", func() {
 		It("Should detect circular imports", func(ctx SpecContext) {
 			loader.Files["schema/core/a"] = `
 				import "schema/core/b"
-				A struct {}
+				A struct { b b.B? }
 			`
 			loader.Files["schema/core/b"] = `
 				import "schema/core/a"
-				B struct {}
+				B struct { a a.A? }
 			`
 
 			source := `
 				import "schema/core/a"
-				C struct {}
+				C struct { a a.A? }
 			`
 			table, diag := analyzer.AnalyzeSource(ctx, source, "main", loader)
 			// Should not error - circular imports are handled by tracking
@@ -711,7 +870,7 @@ var _ = Describe("Analyzer", func() {
 					key uuid @key
 					name string
 
-					@go omit
+					@go hand
 				}
 			`
 			table, diag := analyzer.AnalyzeSource(ctx, source, "user", loader)
@@ -728,7 +887,7 @@ var _ = Describe("Analyzer", func() {
 			Expect(found).To(BeTrue())
 			Expect(outputExpr.Values[0].StringValue).To(Equal("core/pkg/service/user"))
 
-			_, found = goDomain.Expressions.Find("omit")
+			_, found = goDomain.Expressions.Find("hand")
 			Expect(found).To(BeTrue())
 		})
 
@@ -2896,5 +3055,57 @@ var _ = Describe("Analyzer", func() {
 			Expect(tags.Elements[0].StringValue).To(Equal("a"))
 			Expect(tags.Elements[1].StringValue).To(Equal("b"))
 		})
+	})
+})
+
+var _ = Describe("Analyze", func() {
+	var loader *MockFileLoader
+
+	BeforeEach(func() { loader = NewMockFileLoader() })
+
+	It("Should analyze multiple files into one table", func(ctx SpecContext) {
+		loader.Add("label", `
+			Label struct {
+				key uuid @key
+				name string
+			}
+		`).Add("ranger", `
+			Range struct {
+				key uuid @key
+				name string
+			}
+		`)
+		table, diag := analyzer.Analyze(ctx, []string{"label", "ranger"}, loader)
+		Expect(diag.Ok()).To(BeTrue())
+		Expect(table.MustGet("label.Label").Name).To(Equal("Label"))
+		Expect(table.MustGet("ranger.Range").Name).To(Equal("Range"))
+	})
+
+	It("Should analyze a file only once when listed twice", func(ctx SpecContext) {
+		loader.Add("label", `
+			Label struct {
+				key uuid @key
+			}
+		`)
+		table, diag := analyzer.Analyze(ctx, []string{"label", "label.oracle"}, loader)
+		Expect(diag.Ok()).To(BeTrue())
+		Expect(table.MustGet("label.Label").Name).To(Equal("Label"))
+	})
+
+	It("Should report a load failure under the requested file", func(ctx SpecContext) {
+		Expect(analyzer.Analyze(ctx, []string{"missing"}, loader)).Error().
+			To(MatchError(ContainSubstring("failed to load file")))
+	})
+
+	It("Should report parse errors under the loaded file path", func(ctx SpecContext) {
+		loader.Add("broken", "Label struct {{{{")
+		table, diag := analyzer.Analyze(ctx, []string{"broken"}, loader)
+		Expect(table).To(BeNil())
+		Expect(diag.Ok()).To(BeFalse())
+		var files []string
+		diag.Each(func(file string, _ diagnostics.Diagnostic) {
+			files = append(files, file)
+		})
+		Expect(files).To(ContainElement("broken.oracle"))
 	})
 })

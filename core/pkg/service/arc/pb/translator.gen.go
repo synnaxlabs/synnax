@@ -18,7 +18,6 @@ import (
 	programpb "github.com/synnaxlabs/arc/program/pb"
 	textpb "github.com/synnaxlabs/arc/text/pb"
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
-	"github.com/synnaxlabs/synnax/pkg/service/status"
 	statuspb "github.com/synnaxlabs/synnax/pkg/service/status/pb"
 	"github.com/synnaxlabs/x/errors"
 	"google.golang.org/protobuf/encoding/protojson"
@@ -100,7 +99,7 @@ func ArcToPB(r arc.Arc) (*Arc, error) {
 	}
 	if r.Status != nil {
 		var err error
-		pb.Status, err = statuspb.StatusToPB[arc.StatusDetails]((status.Status[arc.StatusDetails])(*r.Status), StatusDetailsToPBAny)
+		pb.Status, err = statuspb.StatusToPB(*r.Status, StatusDetailsToPBAny)
 		if err != nil {
 			return nil, err
 		}
@@ -141,11 +140,11 @@ func ArcFromPB(pb *Arc) (arc.Arc, error) {
 		r.Program = &val
 	}
 	if pb.Status != nil {
-		val, err := statuspb.StatusFromPB[arc.StatusDetails](pb.Status, StatusDetailsFromPBAny)
+		val, err := statuspb.StatusFromPB(pb.Status, StatusDetailsFromPBAny)
 		if err != nil {
 			return arc.Arc{}, err
 		}
-		r.Status = (*arc.Status)(&val)
+		r.Status = &val
 	}
 	return r, nil
 }

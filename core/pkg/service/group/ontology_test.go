@@ -22,7 +22,7 @@ var _ = Describe("Ontology", func() {
 			a := group.Group{Key: uuid.New(), Name: "a"}
 			b := group.Group{Key: uuid.New(), Name: "b"}
 			Expect(group.OntologyIDsFromGroups([]group.Group{a, b})).
-				To(ConsistOf(group.OntologyID(a.Key), group.OntologyID(b.Key)))
+				To(ConsistOf(a.OntologyID(), b.OntologyID()))
 		})
 	})
 })

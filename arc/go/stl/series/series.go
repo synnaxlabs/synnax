@@ -13,7 +13,6 @@ import (
 	"context"
 
 	"github.com/synnaxlabs/arc/ir"
-
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/lsp/doc"

@@ -15,15 +15,26 @@ import (
 	"github.com/synnaxlabs/arc/analyzer/codes"
 	"github.com/synnaxlabs/arc/lsp"
 	. "github.com/synnaxlabs/arc/lsp/testutil"
-	"github.com/synnaxlabs/x/lsp/protocol"
 	. "github.com/synnaxlabs/x/lsp/testutil"
 	. "github.com/synnaxlabs/x/testutil"
+	"go.lsp.dev/protocol"
+	"go.lsp.dev/uri"
 )
+
+func asCodeActions(elems []protocol.CommandOrCodeAction) []protocol.CodeAction {
+	out := make([]protocol.CodeAction, len(elems))
+	for i, e := range elems {
+		a, ok := e.(*protocol.CodeAction)
+		Expect(ok).To(BeTrue(), "expected a CodeAction, got %T", e)
+		out[i] = *a
+	}
+	return out
+}
 
 var _ = Describe("CodeAction", func() {
 	var (
 		server *lsp.Server
-		uri    protocol.DocumentURI
+		uri    uri.URI
 		client *MockClient
 	)
 
@@ -46,15 +57,15 @@ var _ = Describe("CodeAction", func() {
 
 			diags := client.Diagnostics()
 			Expect(diags).To(HaveLen(1))
-			Expect(diags[0].Code).To(Equal(string(codes.UnusedImport)))
+			Expect(DiagnosticCode(diags[0])).To(Equal(string(codes.UnusedImport)))
 
-			actions := MustSucceed(server.CodeAction(ctx, codeActionParams(diags)))
+			actions := asCodeActions(MustSucceed(server.CodeAction(ctx, codeActionParams(diags))))
 			Expect(actions).To(HaveLen(1))
 
 			action := actions[0]
 			Expect(action.Title).To(Equal("Remove unused import"))
-			Expect(action.Kind).To(Equal(protocol.QuickFix))
-			Expect(action.IsPreferred).To(BeTrue())
+			Expect(action.Kind).To(HaveValue(Equal(protocol.CodeActionKindQuickFix)))
+			Expect(action.IsPreferred).To(HaveValue(BeTrue()))
 			Expect(action.Diagnostics).To(ConsistOf(diags[0]))
 
 			Expect(action.Edit).ToNot(BeNil())
@@ -72,10 +83,10 @@ var _ = Describe("CodeAction", func() {
 			diags := client.Diagnostics()
 			Expect(diags).To(HaveLen(2))
 			for _, d := range diags {
-				Expect(d.Code).To(Equal(string(codes.UnusedImport)))
+				Expect(DiagnosticCode(d)).To(Equal(string(codes.UnusedImport)))
 			}
 
-			actions := MustSucceed(server.CodeAction(ctx, codeActionParams(diags)))
+			actions := asCodeActions(MustSucceed(server.CodeAction(ctx, codeActionParams(diags))))
 			Expect(actions).To(HaveLen(2))
 
 			byStart := map[uint32]protocol.TextEdit{}
@@ -102,10 +113,10 @@ var _ = Describe("CodeAction", func() {
 			diags := client.Diagnostics()
 			Expect(diags).To(HaveLen(3))
 			for _, d := range diags {
-				Expect(d.Code).To(Equal(string(codes.UnusedImport)))
+				Expect(DiagnosticCode(d)).To(Equal(string(codes.UnusedImport)))
 			}
 
-			actions := MustSucceed(server.CodeAction(ctx, codeActionParams(diags)))
+			actions := asCodeActions(MustSucceed(server.CodeAction(ctx, codeActionParams(diags))))
 			Expect(actions).To(HaveLen(3))
 
 			byStart := map[uint32]protocol.TextEdit{}
@@ -135,7 +146,7 @@ var _ = Describe("CodeAction", func() {
 		It("should return no actions when context has no diagnostics", func(ctx SpecContext) {
 			OpenArcDocument(server, ctx, uri, "import time\n\nfunc test() i64 { return 0 }\n")
 
-			actions := MustSucceed(server.CodeAction(ctx, codeActionParams(nil)))
+			actions := asCodeActions(MustSucceed(server.CodeAction(ctx, codeActionParams(nil))))
 			Expect(actions).To(BeEmpty())
 		})
 
@@ -145,15 +156,15 @@ var _ = Describe("CodeAction", func() {
 			diags := client.Diagnostics()
 			Expect(diags).ToNot(BeEmpty())
 
-			actions := MustSucceed(server.CodeAction(ctx, codeActionParams(diags)))
+			actions := asCodeActions(MustSucceed(server.CodeAction(ctx, codeActionParams(diags))))
 			Expect(actions).To(BeEmpty())
 		})
 
 		It("should return nil when the document is not open", func(ctx SpecContext) {
-			actions := MustSucceed(server.CodeAction(ctx, &protocol.CodeActionParams{
+			actions := asCodeActions(MustSucceed(server.CodeAction(ctx, &protocol.CodeActionParams{
 				TextDocument: protocol.TextDocumentIdentifier{URI: "file:///missing.arc"},
 				Context:      protocol.CodeActionContext{},
-			}))
+			})))
 			Expect(actions).To(BeEmpty())
 		})
 	})
@@ -162,7 +173,7 @@ var _ = Describe("CodeAction", func() {
 		filterByCode := func(diags []protocol.Diagnostic, code string) []protocol.Diagnostic {
 			out := make([]protocol.Diagnostic, 0, len(diags))
 			for _, d := range diags {
-				if c, _ := d.Code.(string); c == code {
+				if DiagnosticCode(d) == code {
 					out = append(out, d)
 				}
 			}
@@ -176,13 +187,13 @@ var _ = Describe("CodeAction", func() {
 			diags := filterByCode(client.Diagnostics(), string(codes.DeprecatedSymbol))
 			Expect(diags).ToNot(BeEmpty())
 
-			actions := MustSucceed(server.CodeAction(ctx, codeActionParams(diags)))
+			actions := asCodeActions(MustSucceed(server.CodeAction(ctx, codeActionParams(diags))))
 			Expect(actions).To(HaveLen(1))
 
 			action := actions[0]
 			Expect(action.Title).To(Equal("Replace 'now' with 'time.now'"))
-			Expect(action.Kind).To(Equal(protocol.QuickFix))
-			Expect(action.IsPreferred).To(BeTrue())
+			Expect(action.Kind).To(HaveValue(Equal(protocol.CodeActionKindQuickFix)))
+			Expect(action.IsPreferred).To(HaveValue(BeTrue()))
 			Expect(action.Edit).ToNot(BeNil())
 
 			edits := action.Edit.Changes[uri]
@@ -205,7 +216,7 @@ var _ = Describe("CodeAction", func() {
 			diags := filterByCode(client.Diagnostics(), string(codes.DeprecatedSymbol))
 			Expect(diags).ToNot(BeEmpty())
 
-			actions := MustSucceed(server.CodeAction(ctx, codeActionParams(diags)))
+			actions := asCodeActions(MustSucceed(server.CodeAction(ctx, codeActionParams(diags))))
 			Expect(actions).To(HaveLen(1))
 
 			edits := actions[0].Edit.Changes[uri]
@@ -220,7 +231,7 @@ var _ = Describe("CodeAction", func() {
 			diags := filterByCode(client.Diagnostics(), string(codes.DeprecatedSymbol))
 			Expect(diags).ToNot(BeEmpty())
 
-			actions := MustSucceed(server.CodeAction(ctx, codeActionParams(diags)))
+			actions := asCodeActions(MustSucceed(server.CodeAction(ctx, codeActionParams(diags))))
 			Expect(actions).To(HaveLen(1))
 			Expect(actions[0].Title).To(Equal("Replace 'now' with 't.now'"))
 
@@ -255,11 +266,11 @@ var _ = Describe("CodeAction", func() {
 			diags := client.Diagnostics()
 			Expect(diags).ToNot(BeEmpty())
 
-			actions := MustSucceed(server.CodeAction(ctx, codeActionParams(diags)))
+			actions := asCodeActions(MustSucceed(server.CodeAction(ctx, codeActionParams(diags))))
 			action := findActionByTitle(actions, "Add import 'math'")
 			Expect(action).ToNot(BeNil())
-			Expect(action.Kind).To(Equal(protocol.QuickFix))
-			Expect(action.IsPreferred).To(BeTrue())
+			Expect(action.Kind).To(HaveValue(Equal(protocol.CodeActionKindQuickFix)))
+			Expect(action.IsPreferred).To(HaveValue(BeTrue()))
 
 			edits := action.Edit.Changes[uri]
 			Expect(edits).To(HaveLen(1))
@@ -272,7 +283,7 @@ var _ = Describe("CodeAction", func() {
 			OpenArcDocument(server, ctx, uri, content)
 
 			diags := client.Diagnostics()
-			actions := MustSucceed(server.CodeAction(ctx, codeActionParams(diags)))
+			actions := asCodeActions(MustSucceed(server.CodeAction(ctx, codeActionParams(diags))))
 			Expect(findActionByTitle(actions, "Add import 'math'")).To(BeNil())
 		})
 
@@ -283,7 +294,7 @@ var _ = Describe("CodeAction", func() {
 			diags := client.Diagnostics()
 			Expect(diags).ToNot(BeEmpty())
 
-			actions := MustSucceed(server.CodeAction(ctx, codeActionParams(diags)))
+			actions := asCodeActions(MustSucceed(server.CodeAction(ctx, codeActionParams(diags))))
 			for _, a := range actions {
 				Expect(a.Title).ToNot(HavePrefix("Add import"))
 			}
@@ -292,7 +303,7 @@ var _ = Describe("CodeAction", func() {
 		It("should return no action when context has no diagnostics", func(ctx SpecContext) {
 			OpenArcDocument(server, ctx, uri, "sequence main {\n    math.avg{}\n}\n")
 
-			actions := MustSucceed(server.CodeAction(ctx, codeActionParams(nil)))
+			actions := asCodeActions(MustSucceed(server.CodeAction(ctx, codeActionParams(nil))))
 			Expect(actions).To(BeEmpty())
 		})
 	})

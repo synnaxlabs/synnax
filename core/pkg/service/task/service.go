@@ -15,16 +15,15 @@ import (
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
+	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/search"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
-	v0 "github.com/synnaxlabs/synnax/pkg/service/task/migrations/v0"
-	v54 "github.com/synnaxlabs/synnax/pkg/service/task/migrations/v54"
+	"github.com/synnaxlabs/synnax/pkg/service/task/versions"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/gorp"
 	xio "github.com/synnaxlabs/x/io"
-	"github.com/synnaxlabs/x/migrate"
 	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/service"
@@ -64,6 +63,11 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	Search *search.Index
+	// ImEx is the import/export registry the task service registers itself with as the
+	// exporter for task resources during OpenService.
+	//
+	// [REQUIRED]
+	ImEx *imex.Service
 	// Instrumentation is used for logging, tracing, and metrics.
 	//
 	// [OPTIONAL] - Defaults to noop instrumentation.
@@ -82,6 +86,7 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Status = override.Nil(c.Status, other.Status)
 	c.Channel = override.Nil(c.Channel, other.Channel)
 	c.Search = override.Nil(c.Search, other.Search)
+	c.ImEx = override.Nil(c.ImEx, other.ImEx)
 	return c
 }
 
@@ -94,6 +99,7 @@ func (c ServiceConfig) Validate() error {
 	validate.NotNil(v, "rack", c.Rack)
 	validate.NotNil(v, "status", c.Status)
 	validate.NotNil(v, "search", c.Search)
+	validate.NotNil(v, "imex", c.ImEx)
 	return v.Error()
 }
 
@@ -118,17 +124,11 @@ func OpenService(ctx context.Context, configs ...ServiceConfig) (s *Service, err
 	s = &Service{cfg: cfg}
 	cleanup, ok := service.NewOpener(ctx, &s.closer)
 	defer func() { err = cleanup(err) }()
-	v0Mig := v0.Migration(v0.MigrationConfig{Status: cfg.Status})
 	if s.table, err = gorp.OpenTable(ctx, gorp.TableConfig[Key, Task]{
 		DB: cfg.DB,
-		Migrations: []migrate.Migration{
-			v0Mig,
-			gorp.CodecMigration[v54.Key, v54.Task]("msgpack_to_orc", v0Mig.Key()),
-			migrate.WithAddedDeps(
-				gorp.NewEntryMigration("v54_drop_status", MigrateTask),
-				"msgpack_to_orc",
-			),
-		},
+		Migrations: versions.NewMigrations(
+			versions.MigrationsConfig{Status: cfg.Status},
+		),
 		Instrumentation: cfg.Instrumentation,
 	}); !ok(err, s.table) {
 		return nil, err
@@ -138,6 +138,7 @@ func OpenService(ctx context.Context, configs ...ServiceConfig) (s *Service, err
 	}
 	cfg.Ontology.RegisterService(s)
 	cfg.Search.RegisterService(s)
+	cfg.ImEx.RegisterExporter(s)
 	s.cleanupInternalOntologyResources(ctx)
 	if cfg.Channel != nil {
 		cmdCh := channel.Channel{
@@ -173,7 +174,7 @@ func (s *Service) cleanupInternalOntologyResources(ctx context.Context) {
 	}
 	ids := make([]ontology.ID, 0, len(tasks))
 	for _, t := range tasks {
-		ids = append(ids, OntologyID(t.Key))
+		ids = append(ids, t.OntologyID())
 	}
 	if err := s.cfg.Ontology.NewWriter(nil).DeleteResources(ctx, ids...); err != nil {
 		s.cfg.L.Warn("unable to delete internal task resources", zap.Error(err))
@@ -213,7 +214,7 @@ func (s *Service) onSuspectRack(ctx context.Context, rackStat rack.Status) {
 	statuses := make([]Status, len(tasks))
 	for i, tsk := range tasks {
 		statuses[i] = Status{
-			Key:         OntologyID(tsk.Key).String(),
+			Key:         tsk.OntologyID().String(),
 			Time:        telem.Now(),
 			Name:        tsk.Name,
 			Variant:     rackStat.Variant,

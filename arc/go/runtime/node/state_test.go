@@ -111,7 +111,7 @@ var _ = Describe("ProgramState", func() {
 					"first":  {"type": "first"},
 					"second": {"type": "second"},
 				},
-				Functions: []graph.Function{
+				Functions: []ir.Function{
 					{
 						Key: "first",
 						Outputs: types.Params{
@@ -126,8 +126,8 @@ var _ = Describe("ProgramState", func() {
 					},
 				},
 				Edges: graph.Edges{{Edge: ir.Edge{
-					Source: graph.Handle{Node: "first", Param: ir.DefaultOutputParam},
-					Target: graph.Handle{Node: "second", Param: ir.DefaultInputParam},
+					Source: ir.Handle{Node: "first", Param: ir.DefaultOutputParam},
+					Target: ir.Handle{Node: "second", Param: ir.DefaultInputParam},
 				}}},
 			}
 			ir, diagnostics := graph.Analyze(ctx, g, nil)
@@ -147,7 +147,7 @@ var _ = Describe("ProgramState", func() {
 
 		It("Should not trigger recalculation with empty output", func(ctx SpecContext) {
 			g := graph.Graph{
-				Functions: []graph.Function{
+				Functions: []ir.Function{
 					{
 						Key: "src",
 						Outputs: types.Params{
@@ -222,7 +222,7 @@ var _ = Describe("ProgramState", func() {
 			s := node.New(ir)
 			producer := s.Node("producer")
 			consumer := s.Node("consumer")
-			*producer.Output(0) = telem.NewSeriesV[float64](1.0)
+			*producer.Output(0) = telem.NewSeriesV(1.0)
 			*producer.OutputTime(0) = telem.NewSeriesSecondsTSV(10)
 			Expect(consumer.RefreshInputs()).To(BeTrue())
 			Expect(consumer.RefreshInputs()).To(BeFalse())
@@ -230,7 +230,7 @@ var _ = Describe("ProgramState", func() {
 
 		It("Should handle multiple inputs to single node", func(ctx SpecContext) {
 			g := graph.Graph{
-				Functions: []graph.Function{
+				Functions: []ir.Function{
 					{
 						Key: "a",
 						Outputs: types.Params{
@@ -290,7 +290,7 @@ var _ = Describe("ProgramState", func() {
 
 		It("Should select earliest timestamp as trigger", func(ctx SpecContext) {
 			g := graph.Graph{
-				Functions: []graph.Function{
+				Functions: []ir.Function{
 					{
 						Key: "early",
 						Outputs: types.Params{
@@ -348,7 +348,7 @@ var _ = Describe("ProgramState", func() {
 
 		It("Should accumulate multiple series before triggering", func(ctx SpecContext) {
 			g := graph.Graph{
-				Functions: []graph.Function{
+				Functions: []ir.Function{
 					{
 						Key: "source",
 						Outputs: types.Params{
@@ -393,7 +393,7 @@ var _ = Describe("ProgramState", func() {
 
 		It("Should handle partial input updates", func(ctx SpecContext) {
 			g := graph.Graph{
-				Functions: []graph.Function{
+				Functions: []ir.Function{
 					{
 						Key: "a",
 						Outputs: types.Params{
@@ -455,7 +455,7 @@ var _ = Describe("ProgramState", func() {
 
 		It("Should prune old series after watermark update", func(ctx SpecContext) {
 			g := graph.Graph{
-				Functions: []graph.Function{
+				Functions: []ir.Function{
 					{
 						Key: "src",
 						Outputs: types.Params{
@@ -504,7 +504,7 @@ var _ = Describe("ProgramState", func() {
 		Describe("Watermark Regression Tests", func() {
 			It("Should update all input watermarks on trigger", func(ctx SpecContext) {
 				g := graph.Graph{
-					Functions: []graph.Function{
+					Functions: []ir.Function{
 						{
 							Key: "lhs",
 							Outputs: types.Params{
@@ -552,9 +552,9 @@ var _ = Describe("ProgramState", func() {
 				lhs := s.Node("lhs")
 				rhs := s.Node("rhs")
 				op := s.Node("op")
-				*lhs.Output(0) = telem.NewSeriesV[float64](1.5)
+				*lhs.Output(0) = telem.NewSeriesV(1.5)
 				*lhs.OutputTime(0) = telem.NewSeriesSecondsTSV(10)
-				*rhs.Output(0) = telem.NewSeriesV[float64](2.5)
+				*rhs.Output(0) = telem.NewSeriesV(2.5)
 				*rhs.OutputTime(0) = telem.NewSeriesSecondsTSV(10)
 				Expect(op.RefreshInputs()).To(BeTrue())
 				Expect(op.RefreshInputs()).To(BeFalse())
@@ -562,7 +562,7 @@ var _ = Describe("ProgramState", func() {
 
 			It("Should not trigger recalculation when non-trigger input unchanged", func(ctx SpecContext) {
 				g := graph.Graph{
-					Functions: []graph.Function{
+					Functions: []ir.Function{
 						{
 							Key: "a",
 							Outputs: types.Params{
@@ -621,7 +621,7 @@ var _ = Describe("ProgramState", func() {
 
 			It("Should correctly track watermarks with staggered timestamps", func(ctx SpecContext) {
 				g := graph.Graph{
-					Functions: []graph.Function{
+					Functions: []ir.Function{
 						{
 							Key: "early",
 							Outputs: types.Params{
@@ -685,7 +685,7 @@ var _ = Describe("ProgramState", func() {
 
 			It("Should prevent non-trigger input from causing spurious triggers", func(ctx SpecContext) {
 				g := graph.Graph{
-					Functions: []graph.Function{
+					Functions: []ir.Function{
 						{
 							Key: "x",
 							Outputs: types.Params{
@@ -747,7 +747,7 @@ var _ = Describe("ProgramState", func() {
 
 			It("Should handle three inputs with same timestamp", func(ctx SpecContext) {
 				g := graph.Graph{
-					Functions: []graph.Function{
+					Functions: []ir.Function{
 						{
 							Key: "a",
 							Outputs: types.Params{
@@ -825,7 +825,7 @@ var _ = Describe("ProgramState", func() {
 	Describe("Optional Input Parameters", func() {
 		It("Should use default value for unconnected optional input", func(ctx SpecContext) {
 			g := graph.Graph{
-				Functions: []graph.Function{
+				Functions: []ir.Function{
 					{
 						Key: "source",
 						Outputs: types.Params{
@@ -873,7 +873,7 @@ var _ = Describe("ProgramState", func() {
 
 		It("Should seed an unconnected TimeSpan literal input as a timestamp series", func(ctx SpecContext) {
 			g := graph.Graph{
-				Functions: []graph.Function{
+				Functions: []ir.Function{
 					{
 						Key:     "source",
 						Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.F32()}},
@@ -915,7 +915,7 @@ var _ = Describe("ProgramState", func() {
 
 		It("Should override default value when input is connected", func(ctx SpecContext) {
 			g := graph.Graph{
-				Functions: []graph.Function{
+				Functions: []ir.Function{
 					{
 						Key: "data_source",
 						Outputs: types.Params{
@@ -977,7 +977,7 @@ var _ = Describe("ProgramState", func() {
 
 		It("Should handle multiple optional parameters with defaults", func(ctx SpecContext) {
 			g := graph.Graph{
-				Functions: []graph.Function{
+				Functions: []ir.Function{
 					{
 						Key: "input",
 						Outputs: types.Params{
@@ -1017,17 +1017,17 @@ var _ = Describe("ProgramState", func() {
 			s := node.New(ir)
 			input := s.Node("input")
 			calculator := s.Node("calculator")
-			*input.Output(0) = telem.NewSeriesV[float64](10.0)
+			*input.Output(0) = telem.NewSeriesV(10.0)
 			*input.OutputTime(0) = telem.NewSeriesSecondsTSV(15)
 			Expect(calculator.RefreshInputs()).To(BeTrue())
-			Expect(calculator.Input(0)).To(telem.MatchSeries(telem.NewSeriesV[float64](10.0)))
-			Expect(calculator.Input(1)).To(telem.MatchSeries(telem.NewSeriesV[float64](5.0)))
-			Expect(calculator.Input(2)).To(telem.MatchSeries(telem.NewSeriesV[float64](2.5)))
+			Expect(calculator.Input(0)).To(telem.MatchSeries(telem.NewSeriesV(10.0)))
+			Expect(calculator.Input(1)).To(telem.MatchSeries(telem.NewSeriesV(5.0)))
+			Expect(calculator.Input(2)).To(telem.MatchSeries(telem.NewSeriesV(2.5)))
 		})
 
 		It("Should handle mix of connected and unconnected optional inputs", func(ctx SpecContext) {
 			g := graph.Graph{
-				Functions: []graph.Function{
+				Functions: []ir.Function{
 					{
 						Key: "src1",
 						Outputs: types.Params{
@@ -1092,7 +1092,7 @@ var _ = Describe("ProgramState", func() {
 
 		It("Should allow default values with different types", func(ctx SpecContext) {
 			g := graph.Graph{
-				Functions: []graph.Function{
+				Functions: []ir.Function{
 					{
 						Key: "data",
 						Outputs: types.Params{
@@ -1141,7 +1141,7 @@ var _ = Describe("ProgramState", func() {
 
 		It("Should persist default values across multiple executions", func(ctx SpecContext) {
 			g := graph.Graph{
-				Functions: []graph.Function{
+				Functions: []ir.Function{
 					{
 						Key: "source",
 						Outputs: types.Params{
@@ -1204,7 +1204,7 @@ var _ = Describe("ProgramState", func() {
 
 		It("Should handle optional input with zero value as default", func(ctx SpecContext) {
 			g := graph.Graph{
-				Functions: []graph.Function{
+				Functions: []ir.Function{
 					{
 						Key: "input",
 						Outputs: types.Params{
@@ -1251,7 +1251,7 @@ var _ = Describe("ProgramState", func() {
 
 		It("Should handle node with only optional inputs", func(ctx SpecContext) {
 			g := graph.Graph{
-				Functions: []graph.Function{
+				Functions: []ir.Function{
 					{
 						Key: "generator",
 						Inputs: types.Params{
@@ -1290,7 +1290,7 @@ var _ = Describe("ProgramState", func() {
 				g := graph.Graph{
 					Nodes:  []graph.Node{{Key: "test"}},
 					Inputs: map[string]msgpack.EncodedJSON{"test": {"type": "test"}},
-					Functions: []graph.Function{{
+					Functions: []ir.Function{{
 						Key: "test",
 						Outputs: types.Params{
 							{Name: outputParam, Type: types.F32()},
@@ -1310,7 +1310,7 @@ var _ = Describe("ProgramState", func() {
 				g := graph.Graph{
 					Nodes:  []graph.Node{{Key: "test"}},
 					Inputs: map[string]msgpack.EncodedJSON{"test": {"type": "test"}},
-					Functions: []graph.Function{{
+					Functions: []ir.Function{{
 						Key: "test",
 						Outputs: types.Params{
 							{Name: outputParam, Type: types.F64()},
@@ -1321,7 +1321,7 @@ var _ = Describe("ProgramState", func() {
 				Expect(diagnostics.Ok()).To(BeTrue())
 				s := node.New(prog)
 				n := s.Node("test")
-				*n.Output(0) = telem.NewSeriesV[float64](1.0, 2.0, 0.0)
+				*n.Output(0) = telem.NewSeriesV(1.0, 2.0, 0.0)
 				Expect(n.IsOutputTruthy(0)).To(BeFalse())
 			})
 
@@ -1329,7 +1329,7 @@ var _ = Describe("ProgramState", func() {
 				g := graph.Graph{
 					Nodes:  []graph.Node{{Key: "test"}},
 					Inputs: map[string]msgpack.EncodedJSON{"test": {"type": "test"}},
-					Functions: []graph.Function{{
+					Functions: []ir.Function{{
 						Key: "test",
 						Outputs: types.Params{
 							{Name: outputParam, Type: types.F64()},
@@ -1340,7 +1340,7 @@ var _ = Describe("ProgramState", func() {
 				Expect(diagnostics.Ok()).To(BeTrue())
 				s := node.New(prog)
 				n := s.Node("test")
-				*n.Output(0) = telem.NewSeriesV[float64](0.0, 0.0, 3.14)
+				*n.Output(0) = telem.NewSeriesV(0.0, 0.0, 3.14)
 				Expect(n.IsOutputTruthy(0)).To(BeTrue())
 			})
 
@@ -1348,7 +1348,7 @@ var _ = Describe("ProgramState", func() {
 				g := graph.Graph{
 					Nodes:  []graph.Node{{Key: "test"}},
 					Inputs: map[string]msgpack.EncodedJSON{"test": {"type": "test"}},
-					Functions: []graph.Function{{
+					Functions: []ir.Function{{
 						Key: "test",
 						Outputs: types.Params{
 							{Name: outputParam, Type: types.U8()},
@@ -1367,7 +1367,7 @@ var _ = Describe("ProgramState", func() {
 				g := graph.Graph{
 					Nodes:  []graph.Node{{Key: "test"}},
 					Inputs: map[string]msgpack.EncodedJSON{"test": {"type": "test"}},
-					Functions: []graph.Function{{
+					Functions: []ir.Function{{
 						Key: "test",
 						Outputs: types.Params{
 							{Name: outputParam, Type: types.U8()},
@@ -1386,7 +1386,7 @@ var _ = Describe("ProgramState", func() {
 				g := graph.Graph{
 					Nodes:  []graph.Node{{Key: "test"}},
 					Inputs: map[string]msgpack.EncodedJSON{"test": {"type": "test"}},
-					Functions: []graph.Function{{
+					Functions: []ir.Function{{
 						Key: "test",
 						Outputs: types.Params{
 							{Name: outputParam, Type: types.I32()},
@@ -1405,7 +1405,7 @@ var _ = Describe("ProgramState", func() {
 				g := graph.Graph{
 					Nodes:  []graph.Node{{Key: "test"}},
 					Inputs: map[string]msgpack.EncodedJSON{"test": {"type": "test"}},
-					Functions: []graph.Function{{
+					Functions: []ir.Function{{
 						Key: "test",
 						Outputs: types.Params{
 							{Name: outputParam, Type: types.I32()},
@@ -1424,7 +1424,7 @@ var _ = Describe("ProgramState", func() {
 				g := graph.Graph{
 					Nodes:  []graph.Node{{Key: "test"}},
 					Inputs: map[string]msgpack.EncodedJSON{"test": {"type": "test"}},
-					Functions: []graph.Function{{
+					Functions: []ir.Function{{
 						Key: "test",
 						Outputs: types.Params{
 							{Name: outputParam, Type: types.F32()},
@@ -1444,7 +1444,7 @@ var _ = Describe("ProgramState", func() {
 				g := graph.Graph{
 					Nodes:  []graph.Node{{Key: "test"}},
 					Inputs: map[string]msgpack.EncodedJSON{"test": {"type": "test"}},
-					Functions: []graph.Function{{
+					Functions: []ir.Function{{
 						Key: "test",
 						Outputs: types.Params{
 							{Name: outputParam, Type: types.I64()},
@@ -1467,7 +1467,7 @@ var _ = Describe("ProgramState", func() {
 				g := graph.Graph{
 					Nodes:  []graph.Node{{Key: "test"}},
 					Inputs: map[string]msgpack.EncodedJSON{"test": {"type": "test"}},
-					Functions: []graph.Function{{
+					Functions: []ir.Function{{
 						Key: "test",
 						Outputs: types.Params{
 							{Name: outputParam, Type: types.TimeStamp()},
@@ -1480,7 +1480,7 @@ var _ = Describe("ProgramState", func() {
 				n := s.Node("test")
 				*n.Output(0) = telem.NewSeriesV[telem.TimeStamp](0)
 				Expect(n.IsOutputTruthy(0)).To(BeFalse())
-				*n.Output(0) = telem.NewSeriesV[telem.TimeStamp](telem.Now())
+				*n.Output(0) = telem.NewSeriesV(telem.Now())
 				Expect(n.IsOutputTruthy(0)).To(BeTrue())
 			})
 
@@ -1488,7 +1488,7 @@ var _ = Describe("ProgramState", func() {
 				g := graph.Graph{
 					Nodes:  []graph.Node{{Key: "test"}},
 					Inputs: map[string]msgpack.EncodedJSON{"test": {"type": "test"}},
-					Functions: []graph.Function{{
+					Functions: []ir.Function{{
 						Key: "test",
 						Outputs: types.Params{
 							{Name: outputParam, Type: types.String()},
@@ -1499,9 +1499,9 @@ var _ = Describe("ProgramState", func() {
 				Expect(diagnostics.Ok()).To(BeTrue())
 				s := node.New(prog)
 				n := s.Node("test")
-				*n.Output(0) = telem.NewSeriesV[string]("")
+				*n.Output(0) = telem.NewSeriesV("")
 				Expect(n.IsOutputTruthy(0)).To(BeFalse())
-				*n.Output(0) = telem.NewSeriesV[string]("ox_alarm")
+				*n.Output(0) = telem.NewSeriesV("ox_alarm")
 				Expect(n.IsOutputTruthy(0)).To(BeTrue())
 			})
 		})
@@ -1512,7 +1512,7 @@ var _ = Describe("ProgramState", func() {
 			g := graph.Graph{
 				Nodes:  []graph.Node{{Key: "n"}},
 				Inputs: map[string]msgpack.EncodedJSON{"n": {"type": "n"}},
-				Functions: []graph.Function{{
+				Functions: []ir.Function{{
 					Key: "n",
 					Inputs: types.Params{
 						{Name: ir.DefaultInputParam, Type: types.F32(), Value: float32(0)},
@@ -1554,7 +1554,7 @@ var _ = Describe("ProgramState", func() {
 					Source: ir.Handle{Node: "src", Param: ir.DefaultOutputParam},
 					Target: ir.Handle{Node: "target", Param: "x"},
 				}}},
-				Functions: []graph.Function{
+				Functions: []ir.Function{
 					{
 						Key:     "src",
 						Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.I64()}},
@@ -1575,7 +1575,7 @@ var _ = Describe("ProgramState", func() {
 
 		It("Should re-arm literal-valued inputs so the node re-runs", func(ctx SpecContext) {
 			g := graph.Graph{
-				Functions: []graph.Function{{
+				Functions: []ir.Function{{
 					Key: "generator",
 					Inputs: types.Params{
 						{Name: "start", Type: types.I64(), Value: int64(42)},
@@ -1596,7 +1596,7 @@ var _ = Describe("ProgramState", func() {
 
 		It("Should not re-arm a consumed variable register read", func(ctx SpecContext) {
 			g := graph.Graph{
-				Functions: []graph.Function{
+				Functions: []ir.Function{
 					{
 						Key:     "variable",
 						Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.I32()}},
@@ -1681,7 +1681,7 @@ var _ = Describe("ProgramState", func() {
 
 		It("Should absorb a derived variable's pending data so only later values fire", func(ctx SpecContext) {
 			g := graph.Graph{
-				Functions: []graph.Function{
+				Functions: []ir.Function{
 					{
 						Key:     "feeder",
 						Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.I32()}},
@@ -2000,7 +2000,7 @@ var _ = Describe("ProgramState", func() {
 // newLinkedState builds src (i32 output) -> dst (i32 input) and returns the state.
 func newLinkedState(ctx SpecContext) *node.ProgramState {
 	g := graph.Graph{
-		Functions: []graph.Function{
+		Functions: []ir.Function{
 			{
 				Key:     "src",
 				Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.I32()}},
@@ -2025,7 +2025,7 @@ func newLinkedState(ctx SpecContext) *node.ProgramState {
 // newPairState builds a and b (i32 outputs) -> target (two i32 inputs).
 func newPairState(ctx SpecContext) *node.ProgramState {
 	g := graph.Graph{
-		Functions: []graph.Function{
+		Functions: []ir.Function{
 			{
 				Key:     "a",
 				Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.I32()}},
@@ -2066,7 +2066,7 @@ func newPairState(ctx SpecContext) *node.ProgramState {
 // chan-typed output.
 func newRefState(ctx SpecContext) *node.ProgramState {
 	g := graph.Graph{
-		Functions: []graph.Function{
+		Functions: []ir.Function{
 			{
 				Key: "reg",
 				Outputs: types.Params{
