@@ -78,7 +78,7 @@ describe("Schematic toolbar Symbols", () => {
   it("searches static symbols across groups", async () => {
     await renderSymbolsToolbar();
     await screen.findByText("Gauge");
-    const search = screen.getByPlaceholderText("Search symbols..");
+    const search = screen.getByPlaceholderText("Search symbols...");
     fireEvent.change(search, { target: { value: "tank" } });
     expect(await screen.findByText("Tank")).toBeDefined();
   });
