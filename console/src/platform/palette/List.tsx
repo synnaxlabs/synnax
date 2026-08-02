@@ -54,7 +54,7 @@ export const ListItem = ({
     (e: React.MouseEvent<HTMLDivElement>) => {
       // Only trigger on the synthetic click, which means we won't accidentally call
       // `onSelect` twice.
-      if (e.detail === SYNTHETIC_CLICK_DETAIL) onSelect?.(itemKey);
+      if (e.detail === SYNTHETIC_CLICK_DETAIL) onSelect?.(itemKey, e);
     },
     [onSelect, itemKey],
   );

@@ -10,7 +10,7 @@
 import { ranger } from "@synnaxlabs/client";
 import { Flex, Form, Input, List, Ranger, Select, Tag, Telem } from "@synnaxlabs/pluto";
 import { type NumericTimeRange } from "@synnaxlabs/x";
-import { memo, useMemo } from "react";
+import { memo, type MouseEvent, useMemo } from "react";
 
 import { CSS } from "@/platform/css";
 import { Panel } from "@/platform/panel";
@@ -53,8 +53,10 @@ const Base = ({
 
   const { name, parent, labels, timeRange } = item;
 
-  const handleSelect = () =>
-    openTab({ variant: "resource", resource: ranger.ontologyID(itemKey) });
+  const handleSelect = (_: ranger.Key, e: MouseEvent<HTMLElement>) => {
+    if (Select.hasModifier(e)) onSelect();
+    else openTab({ variant: "resource", resource: ranger.ontologyID(itemKey) });
+  };
 
   return (
     <List.Item

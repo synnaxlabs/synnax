@@ -10,7 +10,13 @@
 import "@/list/Item.css";
 
 import { type record } from "@synnaxlabs/x";
-import { type ReactElement, useMemo } from "react";
+import {
+  type MouseEvent,
+  type MouseEventHandler,
+  type ReactElement,
+  useCallback,
+  useMemo,
+} from "react";
 
 import { Button } from "@/button";
 import { type RenderProp } from "@/component/renderProp";
@@ -28,11 +34,12 @@ export interface ItemRenderProps<K extends record.Key = record.Key> {
 export type ItemProps<
   K extends record.Key,
   E extends Button.ElementType = "div",
-> = Omit<Button.ButtonProps<E>, "key" | "onSelect" | "translate"> &
+> = Omit<Button.ButtonProps<E>, "key" | "onSelect" | "translate" | "onClick"> &
   ItemRenderProps<K> & {
     draggingOver?: boolean;
     rightAligned?: boolean;
-    onSelect?: (key: K) => void;
+    onClick?: MouseEventHandler<HTMLElement>;
+    onSelect?: (key: K, e: MouseEvent<HTMLElement>) => void;
     selected?: boolean;
     hovered?: boolean;
   };
@@ -70,17 +77,20 @@ export const Item = <K extends record.Key, E extends Button.ElementType = "div">
     }),
     [translate, style],
   );
+  const handleClick = useCallback<MouseEventHandler<HTMLElement>>(
+    (e) => {
+      onSelect?.(itemKey, e);
+      onClick?.(e);
+    },
+    [onSelect, onClick, itemKey],
+  );
   return (
     <Button.Button
-      // Cast needed because Button is wrapped by Tooltip.wrap which loses generic type info
       el={el}
       defaultEl="div"
       id={itemKey.toString()}
       variant="text"
-      onClick={(e: any) => {
-        onSelect?.(itemKey);
-        onClick?.(e);
-      }}
+      onClick={handleClick}
       className={CSS(
         className,
         CONTEXT_TARGET,
