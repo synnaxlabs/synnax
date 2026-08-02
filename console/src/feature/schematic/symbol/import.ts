@@ -11,7 +11,6 @@ import {
   DisconnectedError,
   group,
   type ontology,
-  schematic,
   status,
   type Synnax as Client,
 } from "@synnaxlabs/client";
@@ -20,37 +19,24 @@ import { uuid } from "@synnaxlabs/x";
 import { useCallback } from "react";
 
 import { groupManifestZ, SYMBOL_FILE_FILTERS } from "@/feature/schematic/symbol/types";
-import { Import } from "@/platform/import";
 import { Runtime } from "@/platform/runtime";
 
-// The Core owns symbol envelope decoding, legacy-version migration, file-name naming,
-// and group parenting, so the file's bytes are streamed up nearly untouched. The type
-// field is injected because symbol files never carried one and this flow knows what it
-// is importing. Returns the imported symbol's name for status messages.
+// The Core owns symbol envelope decoding, type resolution for typeless legacy files,
+// legacy-version migration, file-name naming, and group parenting, so the file's bytes
+// are streamed up untouched. Returns the imported symbol's name for status messages.
 const importSymbolFromData = async (
   client: Client,
   data: string,
   parentID: ontology.ID,
   fileName: string,
 ): Promise<string> => {
-  const parsed: unknown = JSON.parse(data);
-  const body =
-    typeof parsed === "object" && parsed != null
-      ? { type: schematic.symbol.TYPE_ONTOLOGY_ID.type, ...parsed }
-      : parsed;
-  await client.imex.import(JSON.stringify(body), {
+  const id = await client.imex.import(data, {
     encoding: "JSON",
     fileName,
     parent: parentID,
   });
-  if (
-    typeof parsed === "object" &&
-    parsed != null &&
-    "name" in parsed &&
-    typeof parsed.name === "string"
-  )
-    return parsed.name;
-  return Import.trimFileName(fileName);
+  const created = await client.schematics.symbols.retrieve({ key: id.key });
+  return created.name;
 };
 
 export const useImport = (parentGroup?: string): (() => void) => {
