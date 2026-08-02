@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { arc, type panel } from "@synnaxlabs/client";
+import { Status } from "@synnaxlabs/pluto";
 import { useCallback } from "react";
 
 import { useCreateModal } from "@/platform/arc/useCreateModal";
@@ -20,14 +21,16 @@ export interface UseCreateProps {
 export const useCreate = ({ tabKey }: UseCreateProps = {}): (() => void) => {
   const openModal = useCreateModal();
   const openTab = Panel.useOpenTab();
+  const handleError = Status.useErrorHandler();
   return useCallback(() => {
-    void openModal({}).then((result) => {
+    handleError(async () => {
+      const result = await openModal({});
       if (result == null) return;
       openTab({
         variant: "resource",
         resource: arc.ontologyID(result.key),
         key: tabKey,
       });
-    });
-  }, [openModal, openTab, tabKey]);
+    }, "Failed to create automation");
+  }, [openModal, openTab, tabKey, handleError]);
 };
