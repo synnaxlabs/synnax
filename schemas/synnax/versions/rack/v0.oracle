@@ -1,0 +1,53 @@
+import "schemas/synnax/versions/status/v0"
+
+Key uint32 {
+    @doc value """is a composite identifier for a rack. The high 16 bits contain the
+node key, and the low 16 bits contain the local sequential key. Racks are leased
+to specific nodes because task configuration signals are passed through gossip
+operations, which can take 15s+ to propagate through a large cluster. This
+structure minimizes hops and configuration latency."""
+    @go marshal flex
+    @go hand
+}
+
+StatusDetails struct {
+    rack Key {
+        @doc value "is the key of the rack the status describes."
+    }
+
+    @doc value  "is the rack-specific detail payload carried in a rack Status."
+    @go hand
+}
+
+Status = status.Status<StatusDetails> {
+    @doc value "is rack-specific status information including operational state."
+    @go hand
+}
+
+Rack struct {
+    key          Key    {
+        @doc value "uniquely identifies the rack in the cluster."
+        @key
+    }
+    name         string {
+        @doc value "is a human-readable name for the rack."
+    }
+    task_counter uint32 = 0 {
+        @doc value """is the number of tasks ever created on the rack, used to issue
+sequential local task keys."""
+    }
+    embedded     bool = false {
+        @doc value "is true when the rack runs the node's embedded driver."
+    }
+    status       Status? {
+        @doc value "is the last known status of the rack, if any."
+    }
+    integrations string[] = [] {
+        @doc value "are the driver integrations the rack supports."
+    }
+
+    @doc value  "is a manager for a collection of tasks deployed on a node."
+    @go marshal
+    @go migrate
+    @go hand
+}

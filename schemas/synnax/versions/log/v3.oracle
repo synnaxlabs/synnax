@@ -1,0 +1,181 @@
+import "schemas/synnax/versions/channel/v0"
+import "schemas/x/versions/color/v0"
+import "schemas/x/versions/notation/v0"
+import "schemas/x/versions/telem/v0"
+
+Key = v2.Key
+
+TimestampConfig struct {
+    format telem.TimestampFormat {
+        @doc value "controls how channel timestamps are rendered."
+    }
+    tz     telem.TimeZone        {
+        @doc value "is the time zone used when rendering timestamps."
+    }
+
+    @doc value "is per-channel timestamp display configuration."
+}
+
+ChannelEntry struct {
+    channel   channel.Key       {
+        @doc value "is the channel this entry references."
+    }
+    color     color.Color       {
+        @doc value "is the display color for the channel."
+    }
+    notation  notation.Notation = "standard" {
+        @doc value "is the numeric notation used to render samples."
+    }
+    precision int32 = -1 {
+        @doc value """is the number of decimal digits to display. -1 means "use the
+log-level precision"; 17 is the maximum significant digits for a
+float64."""
+    }
+    alias     string = "" {
+        @doc value "is a human-readable alias displayed in place of the channel name."
+    }
+    timestamp TimestampConfig = { format = "preciseDate", tz = "local" } {
+        @doc value "is the per-channel timestamp display configuration."
+    }
+
+    @doc value "is a per-channel display configuration entry within a log."
+}
+
+Log struct {
+    key                    Key = create {
+        @doc value "is the unique identifier for this log."
+        @key
+    }
+    name                   string         {
+        @doc value "is a human-readable name for the log."
+    }
+    channels               ChannelEntry[] = [] {
+        @doc value "are the channels displayed in this log, in order."
+    }
+    timestamp_precision    int32 = 0 {
+        @doc value "is the precision of displayed timestamps (0-3)."
+    }
+    hide_channel_names     bool = false {
+        @doc value "controls whether channel names are hidden. When false (the default), names are displayed."
+    }
+    hide_receipt_timestamp bool = false {
+        @doc value "controls whether the receipt timestamp column is hidden. When false (the default), it is displayed."
+    }
+
+    action Rename {
+        name string
+
+        @doc value "renames the log."
+    }
+
+    action AddChannel {
+        channel channel.Key
+
+        @doc value """appends a default channel entry for the given channel. No-op when
+the channel is already present."""
+    }
+
+    action RemoveChannel {
+        channel channel.Key
+
+        @doc value """removes the channel entry for the given channel. No-op when the
+channel is not present."""
+    }
+
+    action SetChannelEntry {
+        entry ChannelEntry
+
+        @doc value """inserts the channel entry if no entry with the same channel exists,
+otherwise replaces the existing entry in place. The fine-grained
+setChannel* actions cover per-field edits; this full-object form
+inserts new entries and restores an entry dropped by reconciliation."""
+    }
+
+    action SetChannelColor {
+        channel channel.Key
+        color   color.Color
+
+        @doc value """sets the display color of the entry identified by channel. The zero
+color resets it to a palette color assigned at render time. No-op
+when no entry references the channel."""
+    }
+
+    action SetChannelNotation {
+        channel  channel.Key
+        notation notation.Notation
+
+        @doc value """sets the numeric notation of the entry identified by channel. No-op
+when no entry references the channel."""
+    }
+
+    action SetChannelPrecision {
+        channel   channel.Key
+        precision int32
+
+        @doc value """sets the number of decimal digits displayed for the entry identified
+by channel. -1 means "use the log-level precision". No-op when no
+entry references the channel."""
+    }
+
+    action SetChannelAlias {
+        channel channel.Key
+        alias   string
+
+        @doc value """sets the human-readable alias of the entry identified by channel. An
+empty alias falls back to the channel name. No-op when no entry
+references the channel."""
+    }
+
+    action SetChannelTimestampFormat {
+        channel channel.Key
+        format  telem.TimestampFormat
+
+        @doc value """sets the timestamp render format of the entry identified by channel.
+No-op when no entry references the channel."""
+    }
+
+    action SetChannelTimestampTz {
+        channel channel.Key
+        tz      telem.TimeZone
+
+        @doc value """sets the timestamp time zone of the entry identified by channel.
+No-op when no entry references the channel."""
+    }
+
+    action SetChannels {
+        channels ChannelEntry[]
+
+        @doc value """replaces the entire ordered list of channel entries. Used for bulk
+channel selection and reordering."""
+    }
+
+    action SwapChannel {
+        from channel.Key
+        to   channel.Key
+
+        @doc value """repoints the entry referencing the "from" channel at the "to"
+channel in place, preserving the entry's position and display
+configuration. No-op when no entry references "from"."""
+    }
+
+    action SetTimestampPrecision {
+        timestamp_precision int32
+
+        @doc value "sets the precision of displayed timestamps (0-3)."
+    }
+
+    action SetHideChannelNames {
+        hide_channel_names bool
+
+        @doc value "controls whether channel names are hidden."
+    }
+
+    action SetHideReceiptTimestamp {
+        hide_receipt_timestamp bool
+
+        @doc value "controls whether the receipt timestamp column is hidden."
+    }
+
+    @go marshal
+    @go migrate
+}

@@ -1,0 +1,39 @@
+import "schemas/arc/versions/graph/v0"
+import "schemas/arc/versions/text/v0"
+import "schemas/synnax/versions/status/v1"
+
+Key = v0.Key
+
+Mode = v0.Mode
+
+StatusDetails = v0.StatusDetails
+
+Status = status.Status<StatusDetails> {
+    @doc value "is the status of an Arc module including execution state."
+}
+
+Arc struct {
+    key   Key = create {
+        @key
+        @doc value "is the unique identifier for this module."
+    }
+    name  string           {
+        @doc value "is a human-readable name for the module."
+    }
+    mode  Mode             {
+        @doc value """specifies the representation mode for this module.
+Either "text" for text-based Arc code or "graph" for visual dataflow."""
+    }
+    graph graph.Graph = {} {
+        @doc value "is the visual dataflow graph representation of the module."
+    }
+    text  text.Text = {} {
+        @doc value "is the text-based Arc source code."
+    }
+
+    @doc value  """is an Arc module combining visual graph representation and text-based
+source code for reactive control systems. Compiles to WebAssembly for
+sandboxed execution."""
+    @go marshal
+    @go migrate
+}

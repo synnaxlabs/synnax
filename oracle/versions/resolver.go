@@ -12,8 +12,10 @@ package versions
 import (
 	"context"
 	"fmt"
+	"maps"
 	"path"
 	"regexp"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -359,7 +361,8 @@ func (b *tableBuilder) addSurface(
 		return err
 	}
 	definers := make(set.Set[int])
-	for name, def := range surf {
+	for _, name := range slices.Sorted(maps.Keys(surf)) {
+		def := surf[name]
 		definers.Add(def.Version)
 		definer, err := b.r.file(ctx, livePath, def.Version)
 		if err != nil {
@@ -379,7 +382,9 @@ func (b *tableBuilder) addSurface(
 			}
 		}
 	}
-	for _, v := range definers.Slice() {
+	sortedDefiners := definers.Slice()
+	slices.Sort(sortedDefiners)
+	for _, v := range sortedDefiners {
 		definer, err := b.r.file(ctx, livePath, v)
 		if err != nil {
 			return err

@@ -268,3 +268,13 @@ func NewMigrations(cfg MigrationsConfig) []migrate.Migration {
 		removeAuthorRelationshipsMigration(cfg.Ontology),
 	}
 }
+
+// autoMigrateProject carries the rename from the v0 Workspace entry; renamed
+// entries have no generated counterpart.
+func autoMigrateProject(_ context.Context, old v0.Workspace) (Project, error) {
+	return Project{
+		Key:    old.Key,
+		Name:   old.Name,
+		Layout: old.Layout,
+	}, nil
+}

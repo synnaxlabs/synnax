@@ -74,11 +74,11 @@ func (a *Arc) DecodeOrc(r *orc.Reader) error {
 			return err
 		}
 		if present {
-			var v program.Program
-			if err = v.DecodeOrc(r); err != nil {
+			var hv program.Program
+			if err = hv.DecodeOrc(r); err != nil {
 				return err
 			}
-			a.Program = &v
+			a.Program = &hv
 		}
 	}
 	{
@@ -87,11 +87,11 @@ func (a *Arc) DecodeOrc(r *orc.Reader) error {
 			return err
 		}
 		if present {
-			var v Status
-			if err = v.DecodeOrc(r); err != nil {
+			var hv Status
+			if err = hv.DecodeOrc(r); err != nil {
 				return err
 			}
-			a.Status = &v
+			a.Status = &hv
 		}
 	}
 	return nil

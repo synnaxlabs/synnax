@@ -16,6 +16,7 @@ import (
 	"github.com/synnaxlabs/arc/program"
 	text "github.com/synnaxlabs/arc/text/versions/v1"
 	v1 "github.com/synnaxlabs/synnax/pkg/service/arc/versions/v1"
+	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -31,10 +32,13 @@ const (
 )
 
 // StatusDetails contains Arc-specific status details for execution state.
-type StatusDetails = v1.StatusDetails
+type StatusDetails struct {
+	// Running indicates whether the Arc module is currently executing.
+	Running bool `json:"running" msgpack:"running"`
+}
 
 // Status is the status of an Arc module including execution state.
-type Status = v1.Status
+type Status = status.Status[StatusDetails]
 
 // Arc is an Arc module combining visual graph representation and text-based source code
 // for reactive control systems. Compiles to WebAssembly for sandboxed execution.

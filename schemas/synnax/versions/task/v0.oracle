@@ -1,0 +1,66 @@
+import "schemas/synnax/versions/status/v0"
+
+Key uint64 {
+    @doc value  """is a composite identifier for a task. The high 32 bits contain the
+rack key, and the low 32 bits contain the local task key within that rack."""
+    @go marshal flex
+    @go hand
+}
+
+StatusDetails struct {
+    task    Key = 0 {
+        @doc value "is the key of the task this status pertains to."
+    }
+    running bool    {
+        @doc value "is true if the task is currently executing."
+    }
+    cmd     string = "" {
+        @doc value "is the last command executed on this task."
+    }
+    data    record? {
+        @doc value "contains task-specific status data."
+    }
+
+    @doc value "contains task-specific status details including execution state."
+    @go hand
+}
+
+Status = status.Status<StatusDetails> {
+    @doc value """is task-specific status information including execution state and
+task-specific data."""
+    @go hand
+}
+
+Task struct {
+    key      Key = 0 {
+        @doc value "is the composite identifier for this task."
+        @key
+    }
+    name     string  {
+        @doc value "is a human-readable name for the task."
+    }
+    type     string  {
+        @doc value """is the task type (e.g., 'modbus_read', 'labjack_write',
+'opc_scan'). Determines which hardware integration handles the task."""
+    }
+    config   record  {
+        @doc value """is task-specific configuration stored as JSON. Structure varies by
+task type."""
+    }
+    internal bool = false {
+        @doc value "is true if this is an internal system task."
+    }
+    snapshot bool = false {
+        @doc value "indicates whether to persist this task's configuration."
+    }
+    status   Status? {
+        @doc value "is the current execution status of the task."
+    }
+
+    @doc value  """is an executable unit of work in the Driver system. Tasks represent
+specific hardware operations such as reading sensor data, writing control
+signals, or scanning for devices."""
+    @go marshal
+    @go migrate
+    @go hand
+}

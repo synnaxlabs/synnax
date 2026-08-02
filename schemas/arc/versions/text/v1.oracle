@@ -1,0 +1,21 @@
+import "schemas/x/versions/crdt/v0"
+
+Document struct {
+    inserts crdt.Insert[] {
+        @doc value "are the operations that reconstruct the document's characters."
+    }
+    deletes crdt.Delete[] {
+        @doc value "are the operations that tombstone deleted characters."
+    }
+
+    @doc value """is the conflict-free replicated representation of the text: the operations that
+reconstruct it when applied to an empty replica. It is the durable source of
+truth from which raw is materialized."""
+}
+
+Text struct {
+    doc Document = {} {
+        @doc value """is the replicated source of truth for the text. It defaults to empty on create,
+in which case the server seeds it from raw."""
+    }
+}

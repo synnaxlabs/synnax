@@ -1,0 +1,25 @@
+import "schemas/x/versions/color/v0"
+import "schemas/x/versions/telem/v0"
+
+Key = v0.Key
+
+Range struct {
+    key        Key             {
+        @doc value "is the unique identifier for this range."
+        @key
+    }
+    name       string          {
+        @doc value "is a human-readable name for the range."
+    }
+    time_range telem.TimeRange {
+        @doc value """is the temporal extent of the range, defining its start and end
+timestamps."""
+    }
+    color      color.Color?    {
+        @doc value """is an optional display color for visual identification of the range
+in user interfaces."""
+    }
+
+    @go marshal
+    @go migrate
+}

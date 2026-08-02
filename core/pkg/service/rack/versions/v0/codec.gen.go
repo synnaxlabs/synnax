@@ -15,26 +15,8 @@ import (
 	xjson "github.com/synnaxlabs/x/encoding/json"
 	xmsgpack "github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/encoding/orc"
-	"github.com/vmihailenco/msgpack/v5"
+	msgpack "github.com/vmihailenco/msgpack/v5"
 )
-
-func (kv *Key) DecodeMsgpack(dec *msgpack.Decoder) error {
-	n, err := xmsgpack.UnmarshalUint32(dec)
-	if err != nil {
-		return err
-	}
-	*kv = Key(n)
-	return nil
-}
-
-func (kv *Key) UnmarshalJSON(b []byte) error {
-	n, err := xjson.UnmarshalStringUint32(b)
-	if err != nil {
-		return err
-	}
-	*kv = Key(n)
-	return nil
-}
 
 // EncodeOrc writes the value to w in the Orc binary format.
 func (rv Rack) EncodeOrc(w *orc.Writer) error {
@@ -50,14 +32,12 @@ func (rv Rack) EncodeOrc(w *orc.Writer) error {
 	} else {
 		w.Bool(false)
 	}
+	w.Bool(rv.Integrations != nil)
 	if rv.Integrations != nil {
-		w.Bool(true)
 		w.Uint32(uint32(len(rv.Integrations)))
-		for j := range rv.Integrations {
-			w.String(rv.Integrations[j])
+		for i := range rv.Integrations {
+			w.String(rv.Integrations[i])
 		}
-	} else {
-		w.Bool(false)
 	}
 	return nil
 }
@@ -87,11 +67,11 @@ func (rv *Rack) DecodeOrc(r *orc.Reader) error {
 			return err
 		}
 		if present {
-			var v Status
-			if err = v.DecodeOrc(r); err != nil {
+			var hv Status
+			if err = hv.DecodeOrc(r); err != nil {
 				return err
 			}
-			rv.Status = &v
+			rv.Status = &hv
 		}
 	}
 	{
@@ -105,12 +85,32 @@ func (rv *Rack) DecodeOrc(r *orc.Reader) error {
 				return err
 			}
 			rv.Integrations = make([]string, n)
-			for j := range rv.Integrations {
-				if rv.Integrations[j], err = r.String(); err != nil {
+			for i := range rv.Integrations {
+				if rv.Integrations[i], err = r.String(); err != nil {
 					return err
 				}
 			}
 		}
 	}
+	return nil
+}
+
+// DecodeMsgpack coerces numeric or string MessagePack values into Key.
+func (kv *Key) DecodeMsgpack(dec *msgpack.Decoder) error {
+	n, err := xmsgpack.UnmarshalUint32(dec)
+	if err != nil {
+		return err
+	}
+	*kv = Key(n)
+	return nil
+}
+
+// UnmarshalJSON coerces JSON numbers or strings into Key.
+func (kv *Key) UnmarshalJSON(b []byte) error {
+	n, err := xjson.UnmarshalStringUint32(b)
+	if err != nil {
+		return err
+	}
+	*kv = Key(n)
 	return nil
 }

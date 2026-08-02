@@ -1,0 +1,23 @@
+Key = uuid {
+    @doc value "is a unique identifier for a log, represented as a UUID."
+}
+
+Log struct {
+    key  Key = create {
+        @doc value "is the unique identifier for this log."
+        @key
+    }
+    name string {
+        @doc value "is a human-readable name for the log."
+    }
+    data record {
+        @doc value """is the log configuration including message formatting, filtering rules,
+and display options."""
+    }
+
+    @doc value  """is a timestamped event and message logging component. Logs display
+chronological records of events, system messages, and audit trails with
+filtering and formatting capabilities."""
+    @go marshal
+    @go migrate
+}

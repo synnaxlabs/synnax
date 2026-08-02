@@ -1,0 +1,29 @@
+import "schemas/arc/versions/types/v1"
+
+Handle = v0.Handle
+
+EdgeKind = v0.EdgeKind
+
+Edge = v0.Edge
+
+Body = v0.Body
+
+Function struct {
+    key      string         {
+        @doc value "is the function identifier (template name)."
+    }
+    body     Body           {
+        @doc value "is raw source code for user-defined functions."
+    }
+    inputs   types.Params   {
+        @doc value "contains input parameter definitions."
+    }
+    outputs  types.Params   {
+        @doc value "contains output parameter definitions."
+    }
+    channels types.Channels {
+        @doc value "contains channel read/write declarations."
+    }
+}
+
+Functions Function[]

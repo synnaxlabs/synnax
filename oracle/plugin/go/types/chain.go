@@ -113,7 +113,9 @@ func chainFrozenFiles(
 			if err != nil {
 				return nil, err
 			}
-			files = append(files, file)
+			if file.Path != "" {
+				files = append(files, file)
+			}
 		}
 	}
 	return files, nil
@@ -222,6 +224,11 @@ func frozenFile(
 		}
 	}
 	vkPath := versioning.VersionedPath(origPath, k)
+	// A fully hand-written frozen package (every declaration @go hand) keeps
+	// its historical files; there is nothing to generate.
+	if len(structs)+len(enums)+len(typedefs)+len(unions) == 0 {
+		return plugin.File{}, nil
+	}
 	content, err := generateGoFile(
 		vkPath, structs, enums, typedefs, unions,
 		table, req.RepoRoot, pred, nil, PersistedClosure(table), false,
@@ -256,7 +263,10 @@ func annotateOutputs(
 			}
 		}
 		path := versioning.VersionedPath(goRoot, v)
-		if omit.IsHand(*t, "go") {
+		// A dependency's hand-written type has one Go home at its live root;
+		// the chain's own hand-written types live in the frozen directory
+		// itself.
+		if omit.IsHand(*t, "go") && lp != ownLive {
 			path = goRoot
 		}
 		withGoOutput(t, path)
@@ -264,21 +274,28 @@ func annotateOutputs(
 	return nil
 }
 
-// versionedGoRoot finds the versioned @go output path declared by a live
-// schema file.
+// versionedGoRoot finds the @go output path a live schema file's versions
+// directories append to: the path its version-declaring types name, or — for
+// history-only chains whose resource has since left versioning — the file's
+// plain output.
 func versionedGoRoot(table *resolution.Table, livePath string) (string, bool) {
+	fallback := ""
 	for _, t := range table.Types {
 		if t.FilePath != livePath+".oracle" {
 			continue
 		}
-		if _, ok := versioning.Version(t); !ok {
+		p := output.GetPath(t, "go")
+		if p == "" {
 			continue
 		}
-		if p := output.GetPath(t, "go"); p != "" {
+		if _, ok := versioning.Version(t); ok {
 			return p, true
 		}
+		if fallback == "" {
+			fallback = p
+		}
 	}
-	return "", false
+	return fallback, fallback != ""
 }
 
 // withGoOutput replaces the type's @go output expression, cloning the shared

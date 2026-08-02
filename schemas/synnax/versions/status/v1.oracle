@@ -1,0 +1,32 @@
+import "schemas/x/versions/telem/v0"
+
+Variant = v0.Variant
+
+Status struct<Details, V extends Variant = Variant> {
+    key         string = create {
+        @doc value "is a unique identifier for this status, auto-generated if not provided."
+        @key
+    }
+    name        string = "" {
+        @doc value "is an optional human-readable name for the status."
+    }
+    variant     V               {
+        @doc value """indicates the severity of the status. One of success, info,
+warning, error, loading, or disabled."""
+    }
+    message     string          {
+        @doc value "is the main message text describing the status."
+    }
+    description string = "" {
+        @doc value "is an optional detailed description providing additional context."
+    }
+    time        telem.TimeStamp = now {
+        @doc value "is the timestamp when the status was created."
+    }
+    details     Details         {
+        @doc value  "contains optional component-specific custom details for the status."
+        @go marshal json_only
+    }
+
+    @go marshal
+}

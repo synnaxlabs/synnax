@@ -18,11 +18,11 @@ import (
 )
 
 // EncodeOrc writes the value to w in the Orc binary format.
-func (l Log) EncodeOrc(w *orc.Writer) error {
-	w.Write(l.Key[:])
-	w.String(l.Name)
+func (lv Log) EncodeOrc(w *orc.Writer) error {
+	w.Write(lv.Key[:])
+	w.String(lv.Name)
 	{
-		b, err := json.Marshal(l.Data)
+		b, err := json.Marshal(lv.Data)
 		if err != nil {
 			return err
 		}
@@ -32,12 +32,12 @@ func (l Log) EncodeOrc(w *orc.Writer) error {
 }
 
 // DecodeOrc reads the value from r in the Orc binary format.
-func (l *Log) DecodeOrc(r *orc.Reader) error {
+func (lv *Log) DecodeOrc(r *orc.Reader) error {
 	var err error
-	if _, err := r.Read(l.Key[:]); err != nil {
+	if _, err := r.Read(lv.Key[:]); err != nil {
 		return err
 	}
-	if l.Name, err = r.String(); err != nil {
+	if lv.Name, err = r.String(); err != nil {
 		return err
 	}
 	{
@@ -45,7 +45,7 @@ func (l *Log) DecodeOrc(r *orc.Reader) error {
 		if err != nil {
 			return err
 		}
-		if err = json.Unmarshal(b, &l.Data); err != nil {
+		if err = json.Unmarshal(b, &lv.Data); err != nil {
 			return err
 		}
 	}

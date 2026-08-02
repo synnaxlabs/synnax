@@ -75,27 +75,46 @@ func chainFile(
 			oldEntries = append(oldEntries, t)
 		}
 	}
-	if len(oldEntries) == 0 {
+	roots := oldEntries
+	if len(roots) == 0 {
+		// Value-type paths have no migrate entries; their changed types still
+		// need auto-copies because other resources' migrations consume them.
+		f, err := req.Versions.File(
+			context.Background(), livePath, k,
+		)
+		if err != nil {
+			return plugin.File{}, false, err
+		}
+		for _, t := range f.Defined {
+			if t.Synthetic {
+				continue
+			}
+			if old, ok := oldTable.Get(oldNS + "." + t.Name); ok {
+				roots = append(roots, old)
+			}
+		}
+	}
+	if len(roots) == 0 {
 		return plugin.File{}, false, nil
 	}
-	slices.SortFunc(oldEntries, func(a, b resolution.Type) int {
+	slices.SortFunc(roots, func(a, b resolution.Type) int {
 		return cmpStrings(a.Name, b.Name)
 	})
 	diff := make(map[string]schemadiff.TypeDiff)
-	for _, oe := range oldEntries {
-		ne, ok := newTable.Get(newNS + "." + oe.Name)
-		if !ok {
-			continue
+	for _, oe := range roots {
+		// Renamed or cross-resource-moved types have no same-name counterpart;
+		// their transforms are hand-written in migrate.go.
+		if ne, ok := newTable.Get(newNS + "." + oe.Name); ok {
+			maps.Copy(diff, schemadiff.SchemaDiff(oe, ne, oldTable, newTable))
 		}
-		maps.Copy(diff, schemadiff.SchemaDiff(oe, ne, oldTable, newTable))
 	}
-	if !needsAutoMigrate(oldEntries, diff) {
+	if !needsAutoMigrate(roots, diff) {
 		return plugin.File{}, false, nil
 	}
 	newPath := versioning.VersionedPath(origPath, k)
 	content, err := generateAutoCopy(
 		filepath.Base(newPath), newPath, req.RepoRoot,
-		oldEntries, diff, oldTable, newTable,
+		roots, diff, oldTable, newTable,
 		false, wrapperNames(diff, oldTable, newTable),
 	)
 	if err != nil {

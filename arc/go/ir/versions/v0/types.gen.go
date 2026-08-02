@@ -17,55 +17,12 @@ import (
 	types "github.com/synnaxlabs/arc/types/versions/v0"
 )
 
-// Functions is a collection of function definitions in an Arc module.
-type Functions []Function
-
-// Edges is a collection of dataflow edges in an Arc graph.
-type Edges []Edge
-
-// Nodes is a collection of node instantiations in an Arc module.
-type Nodes []Node
-
-// Strata contains stratified execution layers where stratum N depends only on strata 0
-// to N-1, enabling glitch-free reactive evaluation.
-type Strata []Stratum
-
-// Stratum is a single execution layer containing node keys that can execute in
-// parallel.
-type Stratum = []string
-
-// Sequences is a collection of sequences in an Arc module.
-type Sequences []Sequence
-
-// Stages is a collection of stages in an Arc sequence.
-type Stages []Stage
-
-// EdgeKind defines execution semantics for dataflow edges between nodes.
-type EdgeKind uint8
-
-//go:generate stringer -type=EdgeKind
-
-const (
-	EdgeKindUnspecified EdgeKind = iota
-	EdgeKindContinuous
-	EdgeKindConditional
-)
-
-// Function is a function template definition with typed parameters, serving as a
-// blueprint for node instantiation.
-type Function struct {
-	// Key is the function identifier (template name).
-	Key string `json:"key" msgpack:"key"`
-	// Body is raw source code for user-defined functions.
-	Body Body `json:"body" msgpack:"body"`
-	// Config contains configuration parameter definitions.
-	Config types.Params `json:"config" msgpack:"config"`
-	// Inputs contains input parameter definitions.
-	Inputs types.Params `json:"inputs" msgpack:"inputs"`
-	// Outputs contains output parameter definitions.
-	Outputs types.Params `json:"outputs" msgpack:"outputs"`
-	// Channels contains channel read/write declarations.
-	Channels types.Channels `json:"channels" msgpack:"channels"`
+// Authorities holds the static authority declarations from an Arc program.
+type Authorities struct {
+	// Default is the default authority for all write channels not explicitly listed.
+	Default *uint8 `json:"default,omitempty" msgpack:"default,omitempty"`
+	// Channels maps channel keys to their specific authority values.
+	Channels map[uint32]uint8 `json:"channels,omitzero" msgpack:"channels,omitzero"`
 }
 
 // Body is raw function body source code with optional parsed AST.
@@ -85,6 +42,40 @@ type Edge struct {
 	Kind EdgeKind `json:"kind" msgpack:"kind"`
 }
 
+// EdgeKind defines execution semantics for dataflow edges between nodes.
+type EdgeKind uint8
+
+//go:generate stringer -type=EdgeKind
+
+const (
+	EdgeKindUnspecified EdgeKind = iota
+	EdgeKindContinuous
+	EdgeKindConditional
+)
+
+// Edges is a collection of dataflow edges in an Arc graph.
+type Edges []Edge
+
+// Function is a function template definition with typed parameters, serving as a
+// blueprint for node instantiation.
+type Function struct {
+	// Key is the function identifier (template name).
+	Key string `json:"key" msgpack:"key"`
+	// Body is raw source code for user-defined functions.
+	Body Body `json:"body" msgpack:"body"`
+	// Config contains configuration parameter definitions.
+	Config types.Params `json:"config,omitzero" msgpack:"config,omitzero"`
+	// Inputs contains input parameter definitions.
+	Inputs types.Params `json:"inputs,omitzero" msgpack:"inputs,omitzero"`
+	// Outputs contains output parameter definitions.
+	Outputs types.Params `json:"outputs,omitzero" msgpack:"outputs,omitzero"`
+	// Channels contains channel read/write declarations.
+	Channels types.Channels `json:"channels" msgpack:"channels"`
+}
+
+// Functions is a collection of function definitions in an Arc module.
+type Functions []Function
+
 // Handle is a reference to a specific parameter on a specific node in the dataflow
 // graph.
 type Handle struct {
@@ -98,15 +89,15 @@ type Handle struct {
 // stratified execution, bridging semantic analysis and WebAssembly compilation.
 type IR struct {
 	// Functions contains function template definitions.
-	Functions Functions `json:"functions" msgpack:"functions"`
+	Functions Functions `json:"functions,omitzero" msgpack:"functions,omitzero"`
 	// Nodes contains node instantiations.
-	Nodes Nodes `json:"nodes" msgpack:"nodes"`
+	Nodes Nodes `json:"nodes,omitzero" msgpack:"nodes,omitzero"`
 	// Edges contains dataflow connections.
-	Edges Edges `json:"edges" msgpack:"edges"`
+	Edges Edges `json:"edges,omitzero" msgpack:"edges,omitzero"`
 	// Strata contains execution stratification layers.
-	Strata Strata `json:"strata" msgpack:"strata"`
+	Strata Strata `json:"strata,omitzero" msgpack:"strata,omitzero"`
 	// Sequences contains state machine definitions.
-	Sequences Sequences `json:"sequences" msgpack:"sequences"`
+	Sequences Sequences `json:"sequences,omitzero" msgpack:"sequences,omitzero"`
 	// Authorities contains the static authority declarations for this program.
 	Authorities Authorities                            `json:"authorities" msgpack:"authorities"`
 	Symbols     *symbol.Symbol                         `json:"-"`
@@ -121,14 +112,17 @@ type Node struct {
 	// Type is the function type being instantiated.
 	Type string `json:"type" msgpack:"type"`
 	// Config contains configuration parameter values.
-	Config types.Params `json:"config" msgpack:"config"`
+	Config types.Params `json:"config,omitzero" msgpack:"config,omitzero"`
 	// Inputs contains input parameter type signatures.
-	Inputs types.Params `json:"inputs" msgpack:"inputs"`
+	Inputs types.Params `json:"inputs,omitzero" msgpack:"inputs,omitzero"`
 	// Outputs contains output parameter type signatures.
-	Outputs types.Params `json:"outputs" msgpack:"outputs"`
+	Outputs types.Params `json:"outputs,omitzero" msgpack:"outputs,omitzero"`
 	// Channels contains channel read/write mappings.
 	Channels types.Channels `json:"channels" msgpack:"channels"`
 }
+
+// Nodes is a collection of node instantiations in an Arc module.
+type Nodes []Node
 
 // Sequence is a state machine defining ordered stages of execution, where entry point
 // is always the first stage.
@@ -136,8 +130,11 @@ type Sequence struct {
 	// Key is the sequence identifier.
 	Key string `json:"key" msgpack:"key"`
 	// Stages contains ordered stages in this sequence.
-	Stages []Stage `json:"stages" msgpack:"stages"`
+	Stages []Stage `json:"stages,omitzero" msgpack:"stages,omitzero"`
 }
+
+// Sequences is a collection of sequences in an Arc module.
+type Sequences []Sequence
 
 // Stage is a stage in a sequence state machine, containing active nodes and their
 // execution stratification.
@@ -145,15 +142,18 @@ type Stage struct {
 	// Key is the stage identifier.
 	Key string `json:"key" msgpack:"key"`
 	// Nodes contains node keys active in this stage.
-	Nodes []string `json:"nodes" msgpack:"nodes"`
+	Nodes []string `json:"nodes,omitzero" msgpack:"nodes,omitzero"`
 	// Strata contains execution stratification for nodes in this stage.
-	Strata Strata `json:"strata" msgpack:"strata"`
+	Strata Strata `json:"strata,omitzero" msgpack:"strata,omitzero"`
 }
 
-// Authorities holds the static authority declarations from an Arc program.
-type Authorities struct {
-	// Default is the default authority for all write channels not explicitly listed.
-	Default *uint8 `json:"default,omitempty" msgpack:"default,omitempty"`
-	// Channels maps channel keys to their specific authority values.
-	Channels map[uint32]uint8 `json:"channels,omitzero" msgpack:"channels,omitzero"`
-}
+// Stages is a collection of stages in an Arc sequence.
+type Stages []Stage
+
+// Strata contains stratified execution layers where stratum N depends only on strata 0
+// to N-1, enabling glitch-free reactive evaluation.
+type Strata []Stratum
+
+// Stratum is a single execution layer containing node keys that can execute in
+// parallel.
+type Stratum = []string

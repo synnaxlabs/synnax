@@ -1,0 +1,16 @@
+Symbol struct {
+    data record {
+        @doc value "holds the symbol specification as raw decoded JSON."
+    }
+    name string {
+        @doc value "is the human-readable symbol name."
+    }
+    key  uuid   {
+        @doc value "is the symbol's unique identifier."
+        @key
+    }
+
+    @doc value  """is the untyped storage shape of a schematic symbol, in which the
+specification is persisted as raw JSON."""
+    @go hand
+}

@@ -17,28 +17,17 @@ import (
 	spatial "github.com/synnaxlabs/x/spatial/versions/v0"
 )
 
-// Nodes is a collection of visual nodes in an Arc graph.
-type Nodes []Node
-
 // Graph is a visual dataflow graph representation combining IR elements with canvas
 // layout for the Arc graph editor.
 type Graph struct {
 	// Viewport is the current camera state for the graph view.
 	Viewport Viewport `json:"viewport" msgpack:"viewport"`
 	// Functions contains function definitions available in this graph.
-	Functions ir.Functions `json:"functions" msgpack:"functions"`
+	Functions ir.Functions `json:"functions,omitzero" msgpack:"functions,omitzero"`
 	// Edges contains dataflow connections between node parameters.
-	Edges ir.Edges `json:"edges" msgpack:"edges"`
+	Edges ir.Edges `json:"edges,omitzero" msgpack:"edges,omitzero"`
 	// Nodes contains visual nodes with canvas positions.
-	Nodes Nodes `json:"nodes" msgpack:"nodes"`
-}
-
-// Viewport is the camera state for viewing the Arc graph editor canvas.
-type Viewport struct {
-	// Position is the camera pan offset (x, y).
-	Position spatial.XY `json:"position" msgpack:"position"`
-	// Zoom is the zoom level where 1.0 equals 100%.
-	Zoom float64 `json:"zoom" msgpack:"zoom"`
+	Nodes Nodes `json:"nodes,omitzero" msgpack:"nodes,omitzero"`
 }
 
 // Node is a visual node in the Arc graph editor representing a function instantiation
@@ -49,7 +38,18 @@ type Node struct {
 	// Type is the function type being instantiated.
 	Type string `json:"type" msgpack:"type"`
 	// Config contains configuration parameter values as a JSON object.
-	Config msgpack.EncodedJSON `json:"config" msgpack:"config"`
+	Config msgpack.EncodedJSON `json:"config,omitzero" msgpack:"config,omitzero"`
 	// Position is the canvas position (x, y) for visual layout.
 	Position spatial.XY `json:"position" msgpack:"position"`
+}
+
+// Nodes is a collection of visual nodes in an Arc graph.
+type Nodes []Node
+
+// Viewport is the camera state for viewing the Arc graph editor canvas.
+type Viewport struct {
+	// Position is the camera pan offset (x, y).
+	Position spatial.XY `json:"position" msgpack:"position"`
+	// Zoom is the zoom level where 1.0 equals 100%.
+	Zoom float64 `json:"zoom" msgpack:"zoom"`
 }

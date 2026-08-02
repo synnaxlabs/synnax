@@ -1105,7 +1105,6 @@ package {{.Package}}
 {{- if .HasImports}}
 
 import (
-	"context"
 {{- range .StdImports}}
 	"{{.}}"
 {{- end}}

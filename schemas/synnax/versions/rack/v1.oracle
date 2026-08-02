@@ -1,0 +1,24 @@
+Key = v0.Key
+
+Rack struct {
+    key          Key      {
+        @doc value "is the composite identifier for this rack."
+        @key
+    }
+    name         string   {
+        @doc value "is a human-readable name for the rack."
+    }
+    task_counter uint32 = 0 {
+        @doc value "is an internal counter used for generating unique local task keys."
+    }
+    embedded     bool = false {
+        @doc value "is true if this rack is embedded within the Synnax server process."
+    }
+    integrations string[] = [] {
+        @doc value """is the list of hardware integrations this rack supports (e.g., "ni", "opc",
+"labjack"). An empty or nil list means the rack supports no integrations."""
+    }
+
+    @go marshal
+    @go migrate
+}

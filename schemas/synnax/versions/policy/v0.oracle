@@ -1,0 +1,17 @@
+import "schemas/synnax/versions/access/v0"
+import "schemas/synnax/versions/ontology/v0"
+
+Policy struct {
+    subjects ontology.ID[]
+    objects  ontology.ID[]
+    actions  access.Action[]
+    key      uuid {
+        @key
+    }
+
+    @doc value  """represents the old policy format with a subjects field that
+associated policies directly with users. Used only for reading legacy data
+during migration."""
+    @go hand
+    @go migrate
+}

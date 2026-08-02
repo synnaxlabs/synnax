@@ -1,0 +1,23 @@
+Key = uuid {
+    @doc value "is a unique identifier for a table, represented as a UUID."
+}
+
+Table struct {
+    key  Key = create {
+        @doc value "is the unique identifier for this table."
+        @key
+    }
+    name string {
+        @doc value "is a human-readable name for the table."
+    }
+    data record {
+        @doc value """is the table configuration including column definitions, channel
+references, and formatting options."""
+    }
+
+    @doc value  """is a tabular data display component for viewing structured telemetry
+data. Tables support multiple columns, channel data sources, and
+customizable formatting options."""
+    @go marshal
+    @go migrate
+}

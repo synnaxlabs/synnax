@@ -25,7 +25,12 @@ type Key = v0.Key
 
 // StatusDetails contains device-specific status details identifying the device and its
 // associated rack.
-type StatusDetails = v0.StatusDetails
+type StatusDetails struct {
+	// Rack is the key of the rack this device belongs to.
+	Rack rack.Key `json:"rack" msgpack:"rack"`
+	// Device is the device identifier.
+	Device Key `json:"device" msgpack:"device"`
+}
 
 // Status is device-specific status information including operational state and device
 // identification.

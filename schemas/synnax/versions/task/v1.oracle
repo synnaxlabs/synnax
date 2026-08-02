@@ -1,0 +1,32 @@
+Key = v0.Key
+
+Task struct<
+    Type extends string = string,
+    Config extends record = record,
+    StatusData = record
+> {
+    key      Key = 0 {
+        @doc value "is the composite identifier for this task."
+        @key
+    }
+    name     string {
+        @doc value "is a human-readable name for the task."
+    }
+    type     Type   {
+        @doc value """is the task type (e.g., 'modbus_read', 'labjack_write', 'opc_scan').
+Determines which hardware integration handles the task."""
+    }
+    config   Config {
+        @doc value """is task-specific configuration stored as JSON. Structure varies by
+task type."""
+    }
+    internal bool = false {
+        @doc value "is true if this is an internal system task."
+    }
+    snapshot bool = false {
+        @doc value "indicates whether to persist this task's configuration."
+    }
+
+    @go marshal
+    @go migrate
+}

@@ -1,0 +1,82 @@
+Kind enum {
+    invalid                      = 0
+    u8                           = 1
+    u16                          = 2
+    u32                          = 3
+    u64                          = 4
+    i8                           = 5
+    i16                          = 6
+    i32                          = 7
+    i64                          = 8
+    f32                          = 9
+    f64                          = 10
+    string                       = 11
+    chan                         = 14
+    series                       = 15
+    variable                     = 16
+    numeric_constant             = 17
+    integer_constant             = 18
+    float_constant               = 19
+    exact_integer_float_constant = 20
+    function                     = 21
+    sequence                     = 22
+    stage                        = 23
+    var_ref                      = 24
+}
+
+ChanDirection enum {
+    none       = 0
+    read       = 1
+    write      = 2
+    read_write = 3
+}
+
+FunctionProperties struct {
+    inputs  Params = [] {
+        @doc value "contains input parameter definitions."
+    }
+    outputs Params = [] {
+        @doc value "contains output parameter definitions."
+    }
+}
+
+Type struct extends FunctionProperties {
+    kind           Kind          {
+        @doc value "is the type category (primitive, compound, or meta-type)."
+    }
+    name           string        {
+        @doc value "is the type name for variables and user-defined types."
+    }
+    elem           Type?         {
+        @doc value "is the element type for compound types (chan, series)."
+    }
+    unit           Unit?         {
+        @doc value "is the physical unit metadata for dimensional analysis."
+    }
+    constraint     Type?         {
+        @doc value "is the type constraint for type variables."
+    }
+    chan_direction ChanDirection {
+        @doc value "indicates read/write direction for channel-typed parameters."
+    }
+}
+
+Param struct {
+    name  string {
+        @doc value "is the parameter name."
+    }
+    type  Type   {
+        @doc value "is the parameter type."
+    }
+    value any    {
+        @doc value "is an optional default value."
+    }
+}
+
+Params Param[]
+
+Channels = v0.Channels
+
+Dimensions = v0.Dimensions
+
+Unit = v0.Unit

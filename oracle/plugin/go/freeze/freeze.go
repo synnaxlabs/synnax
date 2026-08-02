@@ -72,10 +72,10 @@ func Canonical(ctx context.Context, in Input) (string, error) {
 			members = append(members, t)
 		}
 	}
+	// A resource with no persisted types freezes as an empty file: the
+	// version that records everything leaving the persisted world.
 	if len(members) == 0 {
-		return "", errors.Newf(
-			"%s has no persisted types to freeze", livePath,
-		)
+		return "", nil
 	}
 	var (
 		surf map[string]versions.Definition
@@ -94,7 +94,7 @@ func Canonical(ctx context.Context, in Input) (string, error) {
 			if err != nil {
 				return "", err
 			}
-			if schemadiff.SchemasEqual(def.Type, t, definer.Table, in.Live) {
+			if declarationsEqual(def.Type, t, definer.Table, in.Live) {
 				decls = append(decls, versions.Decl{
 					Type:  resolution.Type{Name: t.Name},
 					Alias: &versions.Alias{Version: def.Version, Name: t.Name},
@@ -142,6 +142,33 @@ func FileInput(
 		}
 	}
 	return f.Pins, docs, pinned
+}
+
+// declarationsEqual decides alias-vs-redeclare for the version file. It is
+// schemadiff's persisted-shape equality with one tightening: enums must match
+// member-for-member. Wire-compatible member additions need no migration —
+// schemadiff's concern — but they are still a shape change the history must
+// record, and the generated Go declares the members at the definer.
+func declarationsEqual(
+	old, new resolution.Type, oldTable, newTable *resolution.Table,
+) bool {
+	oldEnum, oldOK := old.Form.(resolution.EnumForm)
+	newEnum, newOK := new.Form.(resolution.EnumForm)
+	if oldOK != newOK {
+		return false
+	}
+	if oldOK {
+		if len(oldEnum.Values) != len(newEnum.Values) {
+			return false
+		}
+		for i, v := range oldEnum.Values {
+			if newEnum.Values[i].Name != v.Name ||
+				newEnum.Values[i].Value != v.Value {
+				return false
+			}
+		}
+	}
+	return schemadiff.SchemasEqual(old, new, oldTable, newTable)
 }
 
 // StructurallyEqual reports whether two declarations share a persisted shape,

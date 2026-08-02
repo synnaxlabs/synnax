@@ -10,6 +10,7 @@
 package v1
 
 import (
+	"github.com/google/uuid"
 	"context"
 
 	v0 "github.com/synnaxlabs/arc/graph/versions/v0"
@@ -32,4 +33,10 @@ func migrateEdge(ctx context.Context, old irv0.Edge) (Edge, error) {
 // fields that moved to Graph.Inputs.
 func migrateNode(ctx context.Context, old v0.Node) (Node, error) {
 	return autoMigrateNode(ctx, old)
+}
+
+// autoMigrateEdge lifts the keyless ir v0 edge into graph's keyed Edge; the
+// cross-resource move has no generated counterpart.
+func autoMigrateEdge(_ context.Context, old irv0.Edge) (Edge, error) {
+	return Edge{Edge: old, Key: uuid.NewString()}, nil
 }

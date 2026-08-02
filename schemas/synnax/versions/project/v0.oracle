@@ -1,0 +1,25 @@
+Key = uuid {
+    @doc value "is a unique identifier for a workspace, represented as a UUID."
+}
+
+Workspace struct {
+    key    Key = create {
+        @doc value "is the unique identifier for this workspace."
+        @key
+    }
+    name   string {
+        @doc value "is a human-readable name for the workspace."
+    }
+    author uuid   {
+        @doc value "is the key of the user who created the workspace."
+    }
+    layout record {
+        @doc value """is the mosaic tree structure that defines how visualizations are
+arranged. Contains tab layout, split configurations, and window positions."""
+    }
+
+    @doc value  """is a named, persistable container that stores the layout and
+organization of the Console application."""
+    @go marshal
+    @go migrate
+}

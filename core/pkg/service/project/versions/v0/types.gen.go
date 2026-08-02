@@ -19,17 +19,16 @@ import (
 // Key is a unique identifier for a workspace, represented as a UUID.
 type Key = uuid.UUID
 
-// Workspace is the frozen shape of the type that became Project. It is retained so the
-// workspace-to-project migration can decode records persisted under the legacy
-// "Workspace" gorp prefix before lifting them into the v1 Project type.
+// Workspace is a named, persistable container that stores the layout and organization
+// of the Console application.
 type Workspace struct {
 	// Key is the unique identifier for this workspace.
 	Key Key `json:"key" msgpack:"key"`
 	// Name is a human-readable name for the workspace.
 	Name string `json:"name" msgpack:"name"`
-	// Author is the UUID of the user who created this workspace.
+	// Author is the key of the user who created the workspace.
 	Author uuid.UUID `json:"author" msgpack:"author"`
 	// Layout is the mosaic tree structure that defines how visualizations are arranged.
 	// Contains tab layout, split configurations, and window positions.
-	Layout msgpack.EncodedJSON `json:"layout" msgpack:"layout"`
+	Layout msgpack.EncodedJSON `json:"layout,omitzero" msgpack:"layout,omitzero"`
 }

@@ -11,9 +11,56 @@
 
 package v0
 
-// Params is a collection of named, typed parameters for function inputs, outputs, or
-// configuration.
-type Params []Param
+// ChanDirection indicates read/write direction for channel-typed config parameters.
+type ChanDirection uint8
+
+//go:generate stringer -type=ChanDirection
+
+const (
+	ChanDirectionNone ChanDirection = iota
+	ChanDirectionRead
+	ChanDirectionWrite
+)
+
+// Channels contains channel declarations for reading from and writing to Synnax
+// channels.
+type Channels struct {
+	// Read contains readable channel indices mapped to parameter names.
+	Read map[uint32]string `json:"read,omitzero" msgpack:"read,omitzero"`
+	// Write contains writable channel indices mapped to parameter names.
+	Write map[uint32]string `json:"write,omitzero" msgpack:"write,omitzero"`
+}
+
+// Dimensions contains physical dimension exponents for dimensional analysis (SI base
+// quantities).
+type Dimensions struct {
+	// Length is the length dimension exponent (meters).
+	Length int8 `json:"length" msgpack:"length"`
+	// Mass is the mass dimension exponent (kilograms).
+	Mass int8 `json:"mass" msgpack:"mass"`
+	// Time is the time dimension exponent (seconds).
+	Time int8 `json:"time" msgpack:"time"`
+	// Current is the electric current dimension exponent (amperes).
+	Current int8 `json:"current" msgpack:"current"`
+	// Temperature is the temperature dimension exponent (kelvin).
+	Temperature int8 `json:"temperature" msgpack:"temperature"`
+	// Angle is the angle dimension exponent (radians).
+	Angle int8 `json:"angle" msgpack:"angle"`
+	// Count is the count dimension exponent (dimensionless quantity).
+	Count int8 `json:"count" msgpack:"count"`
+	// Data is the data size dimension exponent (bytes).
+	Data int8 `json:"data" msgpack:"data"`
+}
+
+// FunctionProperties contains common parameter definitions for function-like types.
+type FunctionProperties struct {
+	// Inputs contains input parameter definitions.
+	Inputs Params `json:"inputs,omitzero" msgpack:"inputs,omitzero"`
+	// Outputs contains output parameter definitions.
+	Outputs Params `json:"outputs,omitzero" msgpack:"outputs,omitzero"`
+	// Config contains configuration parameter definitions.
+	Config Params `json:"config,omitzero" msgpack:"config,omitzero"`
+}
 
 // Kind is the type category for Arc's type system, including primitives, compound
 // types, and meta-types.
@@ -46,17 +93,6 @@ const (
 	KindStage
 )
 
-// ChanDirection indicates read/write direction for channel-typed config parameters.
-type ChanDirection uint8
-
-//go:generate stringer -type=ChanDirection
-
-const (
-	ChanDirectionNone ChanDirection = iota
-	ChanDirectionRead
-	ChanDirectionWrite
-)
-
 // Param is a named, typed parameter with optional default value.
 type Param struct {
 	// Name is the parameter name.
@@ -66,6 +102,10 @@ type Param struct {
 	// Value is an optional default value.
 	Value any `json:"value" msgpack:"value"`
 }
+
+// Params is a collection of named, typed parameters for function inputs, outputs, or
+// configuration.
+type Params []Param
 
 // Type is a type in Arc's type system with optional element type for compounds,
 // physical units, and constraints.
@@ -85,16 +125,6 @@ type Type struct {
 	ChanDirection ChanDirection `json:"chan_direction" msgpack:"chan_direction"`
 }
 
-// FunctionProperties contains common parameter definitions for function-like types.
-type FunctionProperties struct {
-	// Inputs contains input parameter definitions.
-	Inputs Params `json:"inputs" msgpack:"inputs"`
-	// Outputs contains output parameter definitions.
-	Outputs Params `json:"outputs" msgpack:"outputs"`
-	// Config contains configuration parameter definitions.
-	Config Params `json:"config" msgpack:"config"`
-}
-
 // Unit is a physical unit with dimensions and scale factor for unit-aware computation.
 type Unit struct {
 	// Dimensions contains physical dimension exponents.
@@ -103,34 +133,4 @@ type Unit struct {
 	Scale float64 `json:"scale" msgpack:"scale"`
 	// Name is the unit name (e.g., 'psi', 'ns', 'm/s').
 	Name string `json:"name" msgpack:"name"`
-}
-
-// Dimensions contains physical dimension exponents for dimensional analysis (SI base
-// quantities).
-type Dimensions struct {
-	// Length is the length dimension exponent (meters).
-	Length int8 `json:"length" msgpack:"length"`
-	// Mass is the mass dimension exponent (kilograms).
-	Mass int8 `json:"mass" msgpack:"mass"`
-	// Time is the time dimension exponent (seconds).
-	Time int8 `json:"time" msgpack:"time"`
-	// Current is the electric current dimension exponent (amperes).
-	Current int8 `json:"current" msgpack:"current"`
-	// Temperature is the temperature dimension exponent (kelvin).
-	Temperature int8 `json:"temperature" msgpack:"temperature"`
-	// Angle is the angle dimension exponent (radians).
-	Angle int8 `json:"angle" msgpack:"angle"`
-	// Count is the count dimension exponent (dimensionless quantity).
-	Count int8 `json:"count" msgpack:"count"`
-	// Data is the data size dimension exponent (bytes).
-	Data int8 `json:"data" msgpack:"data"`
-}
-
-// Channels contains channel declarations for reading from and writing to Synnax
-// channels.
-type Channels struct {
-	// Read contains readable channel indices mapped to parameter names.
-	Read map[uint32]string `json:"read,omitzero" msgpack:"read,omitzero"`
-	// Write contains writable channel indices mapped to parameter names.
-	Write map[uint32]string `json:"write,omitzero" msgpack:"write,omitzero"`
 }

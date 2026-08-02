@@ -17,26 +17,8 @@ import (
 	xjson "github.com/synnaxlabs/x/encoding/json"
 	xmsgpack "github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/encoding/orc"
-	"github.com/vmihailenco/msgpack/v5"
+	msgpack "github.com/vmihailenco/msgpack/v5"
 )
-
-func (kv *Key) DecodeMsgpack(dec *msgpack.Decoder) error {
-	n, err := xmsgpack.UnmarshalUint64(dec)
-	if err != nil {
-		return err
-	}
-	*kv = Key(n)
-	return nil
-}
-
-func (kv *Key) UnmarshalJSON(b []byte) error {
-	n, err := xjson.UnmarshalStringUint64(b)
-	if err != nil {
-		return err
-	}
-	*kv = Key(n)
-	return nil
-}
 
 // EncodeOrc writes the value to w in the Orc binary format.
 func (t Task) EncodeOrc(w *orc.Writer) error {
@@ -100,12 +82,32 @@ func (t *Task) DecodeOrc(r *orc.Reader) error {
 			return err
 		}
 		if present {
-			var v Status
-			if err = v.DecodeOrc(r); err != nil {
+			var hv Status
+			if err = hv.DecodeOrc(r); err != nil {
 				return err
 			}
-			t.Status = &v
+			t.Status = &hv
 		}
 	}
+	return nil
+}
+
+// DecodeMsgpack coerces numeric or string MessagePack values into Key.
+func (kv *Key) DecodeMsgpack(dec *msgpack.Decoder) error {
+	n, err := xmsgpack.UnmarshalUint64(dec)
+	if err != nil {
+		return err
+	}
+	*kv = Key(n)
+	return nil
+}
+
+// UnmarshalJSON coerces JSON numbers or strings into Key.
+func (kv *Key) UnmarshalJSON(b []byte) error {
+	n, err := xjson.UnmarshalStringUint64(b)
+	if err != nil {
+		return err
+	}
+	*kv = Key(n)
 	return nil
 }

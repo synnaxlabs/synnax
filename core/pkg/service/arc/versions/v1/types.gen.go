@@ -13,24 +13,10 @@ package v1
 
 import (
 	graph "github.com/synnaxlabs/arc/graph/versions/v0"
-	"github.com/synnaxlabs/arc/program"
 	text "github.com/synnaxlabs/arc/text/versions/v0"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/arc/versions/v0"
-	"github.com/synnaxlabs/synnax/pkg/service/status"
-)
-
-// Key is a unique identifier for an Arc module.
-type Key = v0.Key
-
-// Status is the status of an Arc module including execution state.
-type Status = status.Status[StatusDetails]
-
-// Mode specifies whether an Arc module uses text-based or graph-based representation.
-type Mode = v0.Mode
-
-const (
-	ModeText  Mode = v0.ModeText
-	ModeGraph Mode = v0.ModeGraph
+	status "github.com/synnaxlabs/synnax/pkg/service/status/versions/v1"
+	"github.com/synnaxlabs/x/validate"
 )
 
 // Arc is an Arc module combining visual graph representation and text-based source code
@@ -47,11 +33,29 @@ type Arc struct {
 	Graph graph.Graph `json:"graph" msgpack:"graph"`
 	// Text is the text-based Arc source code.
 	Text text.Text `json:"text" msgpack:"text"`
-	// Program is the compiled module output including IR and WebAssembly bytecode.
-	Program *program.Program `json:"program,omitempty" msgpack:"program,omitempty"`
-	// Status is the current execution status of the module.
-	Status *Status `json:"status,omitempty" msgpack:"status,omitempty"`
 }
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (a Arc) Validate() error {
+	v := validate.New("Arc")
+	v.Ternaryf("mode", !a.Mode.IsValid(), "invalid mode: %v", a.Mode)
+	return v.Error()
+}
+
+// Key is a unique identifier for an Arc module.
+type Key = v0.Key
+
+// Mode specifies whether an Arc module uses text-based or graph-based representation.
+type Mode = v0.Mode
+
+const (
+	ModeText  Mode = v0.ModeText
+	ModeGraph Mode = v0.ModeGraph
+)
+
+// Status is the status of an Arc module including execution state.
+type Status = status.Status[StatusDetails]
 
 // StatusDetails contains Arc-specific status details for execution state.
 type StatusDetails = v0.StatusDetails
