@@ -118,7 +118,7 @@ export const useCalculatedModal = Modals.create<CalculatedModalParams>(
                     path="operations.0.duration"
                     label="Window"
                     helpText="The value will be reset after this duration. If zero, the value will never be reset."
-                    grow
+                    className={CSS.BE("operations", "window")}
                   >
                     {({ value, onChange }) => (
                       <Input.Numeric
@@ -132,6 +132,7 @@ export const useCalculatedModal = Modals.create<CalculatedModalParams>(
                     path="operations.0.resetChannel"
                     label="Reset Channel"
                     helpText="When this channel is triggered, the calculation will be reset."
+                    grow
                   >
                     {({ value, onChange }) => (
                       <Channel.SelectSingle
