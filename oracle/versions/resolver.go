@@ -45,6 +45,8 @@ type File struct {
 	Aliases map[string]Alias
 	// Pins maps dependency live paths to the version this file pins.
 	Pins map[string]int
+	// Order holds the file's declaration names in source order.
+	Order []string
 }
 
 // Alias is one `Name = vK.Name` line: the type is unchanged at this version
@@ -153,7 +155,7 @@ func (r *Resolver) file(ctx context.Context, livePath string, n int) (*File, err
 			}
 		}
 		for depLive, pv := range sib.Pins {
-			if err := b.addSurface(ctx, depLive, pv, pinNS(depLive, pv)); err != nil {
+			if err := b.addSurface(ctx, depLive, pv, DepNS(depLive, pv)); err != nil {
 				return nil, err
 			}
 		}
@@ -178,7 +180,7 @@ func (r *Resolver) file(ctx context.Context, livePath string, n int) (*File, err
 		if err := b.addSurface(ctx, depLive, pv, resourceOf(depLive)); err != nil {
 			return nil, err
 		}
-		if err := b.addSurface(ctx, depLive, pv, pinNS(depLive, pv)); err != nil {
+		if err := b.addSurface(ctx, depLive, pv, DepNS(depLive, pv)); err != nil {
 			return nil, err
 		}
 	}
@@ -197,6 +199,7 @@ func (r *Resolver) file(ctx context.Context, livePath string, n int) (*File, err
 		Table:   b.table,
 		Aliases: declaredAliases(ast, n),
 		Pins:    pins,
+		Order:   declarationOrder(ast),
 	}
 	for _, t := range b.table.TypesInNamespace(ns) {
 		if _, ok := f.Aliases[t.Name]; ok {
@@ -206,6 +209,30 @@ func (r *Resolver) file(ctx context.Context, livePath string, n int) (*File, err
 	}
 	r.files[key] = f
 	return f, nil
+}
+
+// declarationOrder lists the file's top-level declaration names in source
+// order.
+func declarationOrder(ast parser.ISchemaContext) []string {
+	var names []string
+	for _, def := range ast.AllDefinition() {
+		switch {
+		case def.StructDef() != nil:
+			switch s := def.StructDef().(type) {
+			case *parser.StructFullContext:
+				names = append(names, s.IDENT().GetText())
+			case *parser.StructAliasContext:
+				names = append(names, s.IDENT().GetText())
+			}
+		case def.EnumDef() != nil:
+			names = append(names, def.EnumDef().IDENT().GetText())
+		case def.TypeDefDef() != nil:
+			names = append(names, def.TypeDefDef().IDENT().GetText())
+		case def.UnionDef() != nil:
+			names = append(names, def.UnionDef().AllIDENT()[0].GetText())
+		}
+	}
+	return names
 }
 
 // declaredAliases extracts the file's chain-alias lines from the parse tree:
@@ -317,7 +344,9 @@ type tableBuilder struct {
 
 // addSurface registers livePath's surface at version n into the table under
 // namespace ns, then recursively registers the transitive pinned surfaces the
-// copied declarations reference.
+// copied declarations reference. Synthetic support types (inline union variant
+// payloads) from every contributing definer file are copied alongside the
+// surface members.
 func (b *tableBuilder) addSurface(
 	ctx context.Context, livePath string, n int, ns string,
 ) error {
@@ -329,7 +358,9 @@ func (b *tableBuilder) addSurface(
 	if err != nil {
 		return err
 	}
+	definers := make(set.Set[int])
 	for name, def := range surf {
+		definers.Add(def.Version)
 		definer, err := b.r.file(ctx, livePath, def.Version)
 		if err != nil {
 			return err
@@ -343,7 +374,26 @@ func (b *tableBuilder) addSurface(
 			)
 		}
 		for depLive, pv := range definer.Pins {
-			if err := b.addSurface(ctx, depLive, pv, pinNS(depLive, pv)); err != nil {
+			if err := b.addSurface(ctx, depLive, pv, DepNS(depLive, pv)); err != nil {
+				return err
+			}
+		}
+	}
+	for _, v := range definers.Slice() {
+		definer, err := b.r.file(ctx, livePath, v)
+		if err != nil {
+			return err
+		}
+		rw := rewriter(ns, pinRewrites(definer.Pins))
+		for _, t := range definer.Defined {
+			if !t.Synthetic {
+				continue
+			}
+			ct := copyType(t, ns, rw)
+			if _, exists := b.table.Get(ct.QualifiedName); exists {
+				continue
+			}
+			if err := b.table.Add(ct); err != nil {
 				return err
 			}
 		}
@@ -351,12 +401,48 @@ func (b *tableBuilder) addSurface(
 	return nil
 }
 
-// pinNS is the internal namespace a pinned dependency surface registers
+// SurfaceInto registers livePath's surface at version n into table under
+// namespace ns, plus every transitive pinned dependency surface under its
+// DepNS namespace. Namespaces already present in the table are not
+// re-registered.
+func (r *Resolver) SurfaceInto(
+	ctx context.Context,
+	table *resolution.Table,
+	livePath string,
+	n int,
+	ns string,
+) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	done := make(set.Set[string])
+	for _, t := range table.Types {
+		if t.Namespace != "" {
+			done.Add(t.Namespace)
+		}
+	}
+	b := &tableBuilder{r: r, table: table, done: done}
+	return b.addSurface(ctx, livePath, n, ns)
+}
+
+// DepNS is the internal namespace a pinned dependency surface registers
 // under. The livePath-based form keeps same-named resources from different
 // domains distinct; "@" never appears in schema identifiers, so these names
 // cannot collide with user namespaces.
-func pinNS(livePath string, n int) string {
+func DepNS(livePath string, n int) string {
 	return strings.TrimPrefix(livePath, "schemas/") + "@v" + strconv.Itoa(n)
+}
+
+// ParseDepNS inverts DepNS, recovering the live path and version.
+func ParseDepNS(ns string) (livePath string, n int, ok bool) {
+	base, v, found := strings.Cut(ns, "@v")
+	if !found {
+		return "", 0, false
+	}
+	n, err := strconv.Atoi(v)
+	if err != nil {
+		return "", 0, false
+	}
+	return "schemas/" + base, n, true
 }
 
 // resourceOf returns the resource qualifier of a live import path.

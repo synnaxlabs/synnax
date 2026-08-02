@@ -94,6 +94,23 @@ Channel struct {
 		Expect(current).To(ContainSubstring("type Channel struct"))
 	})
 
+	It("Should regenerate frozen packages from the version files", func() {
+		resp := MustSucceed(gotypes.New(gotypes.DefaultOptions()).Generate(req))
+		var frozen string
+		for _, f := range resp.Files {
+			if f.Path == "core/pkg/service/channel/versions/v0/types.gen.go" {
+				frozen = string(f.Content)
+			}
+		}
+		Expect(frozen).ToNot(BeEmpty())
+		Expect(frozen).To(ContainSubstring("package v0"))
+		Expect(frozen).To(ContainSubstring("type Key = uuid.UUID"))
+		Expect(frozen).To(ContainSubstring("type Channel struct"))
+		// The frozen shape is v0's: no Virtual field, no alias lines.
+		Expect(frozen).ToNot(ContainSubstring("Virtual"))
+		Expect(frozen).ToNot(ContainSubstring("= v"))
+	})
+
 	It("Should error when the chain and @go version disagree", func() {
 		disagreeing := resolution.NewTable()
 		diag := analyzer.AnalyzeSeeded(

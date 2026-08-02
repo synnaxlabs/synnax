@@ -151,7 +151,7 @@ func rewriter(selfNS string, byNamespace map[string]string) func(string) string 
 func pinRewrites(pins map[string]int) map[string]string {
 	m := make(map[string]string, len(pins))
 	for live, v := range pins {
-		m[resourceOf(live)] = pinNS(live, v)
+		m[resourceOf(live)] = DepNS(live, v)
 	}
 	return m
 }

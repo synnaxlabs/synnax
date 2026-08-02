@@ -210,6 +210,13 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 		return nil, err
 	}
 	resp.Files = append(resp.Files, selectorResp.Files...)
+	frozen, err := chainFrozenFiles(
+		context.Background(), req, p.Options.FileNamePattern,
+	)
+	if err != nil {
+		return nil, err
+	}
+	resp.Files = append(resp.Files, frozen...)
 	return resp, nil
 }
 
