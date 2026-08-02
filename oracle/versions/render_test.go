@@ -97,7 +97,7 @@ var _ = Describe("Render", func() {
 			switch f := t.Form.(type) {
 			case resolution.StructForm:
 				rf := rt.Form.(resolution.StructForm)
-				Expect(len(rf.Fields)).To(Equal(len(f.Fields)), t.QualifiedName)
+				Expect(rf.Fields).To(HaveLen(len(f.Fields)), t.QualifiedName)
 				for i := range f.Fields {
 					Expect(rf.Fields[i].Name).To(Equal(f.Fields[i].Name))
 					Expect(rf.Fields[i].Type.Name).To(Equal(f.Fields[i].Type.Name))
@@ -105,10 +105,10 @@ var _ = Describe("Render", func() {
 				}
 			case resolution.EnumForm:
 				rf := rt.Form.(resolution.EnumForm)
-				Expect(len(rf.Values)).To(Equal(len(f.Values)))
+				Expect(rf.Values).To(HaveLen(len(f.Values)))
 			case resolution.UnionForm:
 				rf := rt.Form.(resolution.UnionForm)
-				Expect(len(rf.Variants)).To(Equal(len(f.Variants)))
+				Expect(rf.Variants).To(HaveLen(len(f.Variants)))
 				Expect(rf.Discriminator).To(Equal(f.Discriminator))
 			}
 		}
