@@ -37,7 +37,7 @@ var (
 // structural model inline (layout/cells), v1 carries selectedCells/hideIndicators
 // alongside an optional pendingUpload. The markers are frozen — they describe
 // historical file shapes.
-func (s *Service) Match(body map[string]any) bool {
+func (*Service) Match(body map[string]any) bool {
 	_, hasLayout := body["layout"]
 	_, hasCells := body["cells"]
 	_, hasSelectedCells := body["selectedCells"]

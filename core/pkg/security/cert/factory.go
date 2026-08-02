@@ -258,4 +258,4 @@ func (f *Factory) writeFlag() int {
 	return os.O_CREATE | os.O_RDWR | os.O_EXCL
 }
 
-func (f *Factory) readFlag() int { return os.O_RDONLY }
+func (*Factory) readFlag() int { return os.O_RDONLY }

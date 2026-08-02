@@ -27,7 +27,7 @@ type Go struct{}
 func NewGo() *Go { return &Go{} }
 
 // Format runs gofmt -s with content on stdin.
-func (g *Go) Format(ctx context.Context, content []byte, _ string) ([]byte, error) {
+func (*Go) Format(ctx context.Context, content []byte, _ string) ([]byte, error) {
 	content = unwrapSingleImport(content)
 	return stdinRun{Name: "gofmt", Args: []string{"-s"}, Stdin: content}.run(ctx)
 }

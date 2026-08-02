@@ -37,7 +37,7 @@ var validSeparators = []byte{'_', '-', '.'}
 type SepTokenizer struct{}
 
 // Tokenize splits the input text by common separators.
-func (t *SepTokenizer) Tokenize(input []byte) analysis.TokenStream {
+func (*SepTokenizer) Tokenize(input []byte) analysis.TokenStream {
 	var (
 		start  int
 		tokens analysis.TokenStream

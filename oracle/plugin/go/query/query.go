@@ -49,16 +49,16 @@ func DefaultOptions() Options {
 func New(opts Options) *Plugin { return &Plugin{options: opts} }
 
 // Name returns the plugin identifier.
-func (p *Plugin) Name() string { return "go/query" }
+func (*Plugin) Name() string { return "go/query" }
 
 // Domains returns the domains this plugin handles.
-func (p *Plugin) Domains() []string { return []string{"go"} }
+func (*Plugin) Domains() []string { return []string{"go"} }
 
 // Requires returns plugin dependencies.
-func (p *Plugin) Requires() []string { return []string{"go/types"} }
+func (*Plugin) Requires() []string { return []string{"go/types"} }
 
 // Check verifies generated files are up-to-date.
-func (p *Plugin) Check(*plugin.Request) error { return nil }
+func (*Plugin) Check(*plugin.Request) error { return nil }
 
 var goPostWriter = &exec.PostWriter{
 	Extensions: []string{".go"},
@@ -66,7 +66,7 @@ var goPostWriter = &exec.PostWriter{
 }
 
 // PostWrite runs gofmt on generated files.
-func (p *Plugin) PostWrite(files []string) error {
+func (*Plugin) PostWrite(files []string) error {
 	return goPostWriter.PostWrite(files)
 }
 

@@ -121,7 +121,7 @@ func (l logger) Fatalf(format string, args ...any) {
 func (d db) OpenTx() kv.Tx { return &tx{Batch: d.NewIndexedBatch(), db: d} }
 
 // Commit implements kv.DB.
-func (d db) Commit(context.Context, ...any) error { return nil }
+func (db) Commit(context.Context, ...any) error { return nil }
 
 // NewReader implement kv.DB.
 func (d db) NewReader() kv.TxReader { return d.OpenTx().NewReader() }
@@ -186,7 +186,7 @@ func (d db) apply(ctx context.Context, txn *tx) error {
 }
 
 // Report implement alamos.ReportProvider.
-func (d db) Report() alamos.Report {
+func (db) Report() alamos.Report {
 	return alamos.Report{"engine": "pebble"}
 }
 

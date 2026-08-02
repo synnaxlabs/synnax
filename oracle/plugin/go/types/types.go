@@ -68,16 +68,16 @@ func DefaultOptions() Options {
 func New(opts Options) *Plugin { return &Plugin{options: opts} }
 
 // Name returns the plugin identifier.
-func (p *Plugin) Name() string { return "go/types" }
+func (*Plugin) Name() string { return "go/types" }
 
 // Domains returns the domains this plugin handles.
-func (p *Plugin) Domains() []string { return []string{"go"} }
+func (*Plugin) Domains() []string { return []string{"go"} }
 
 // Requires returns plugin dependencies.
-func (p *Plugin) Requires() []string { return nil }
+func (*Plugin) Requires() []string { return nil }
 
 // Check verifies generated files are up-to-date. Currently unimplemented.
-func (p *Plugin) Check(*plugin.Request) error { return nil }
+func (*Plugin) Check(*plugin.Request) error { return nil }
 
 // Generate produces Go type definitions for structs, enums, and typedefs with @go flag.
 // Version-laid-out packages (@go version + a keyed struct) emit their types into the

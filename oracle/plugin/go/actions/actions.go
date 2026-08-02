@@ -50,10 +50,10 @@ type Plugin struct{ options Options }
 // New constructs a Plugin with the given options.
 func New(opts Options) *Plugin { return &Plugin{options: opts} }
 
-func (p *Plugin) Name() string                  { return "go/actions" }
-func (p *Plugin) Domains() []string             { return []string{"go"} }
-func (p *Plugin) Requires() []string            { return []string{"go/types"} }
-func (p *Plugin) Check(_ *plugin.Request) error { return nil }
+func (*Plugin) Name() string                  { return "go/actions" }
+func (*Plugin) Domains() []string             { return []string{"go"} }
+func (*Plugin) Requires() []string            { return []string{"go/types"} }
+func (*Plugin) Check(_ *plugin.Request) error { return nil }
 
 var goPostWriter = &exec.PostWriter{
 	Extensions: []string{".go"},
@@ -61,7 +61,7 @@ var goPostWriter = &exec.PostWriter{
 }
 
 // PostWrite runs gofmt on the generated files.
-func (p *Plugin) PostWrite(files []string) error {
+func (*Plugin) PostWrite(files []string) error {
 	return goPostWriter.PostWrite(files)
 }
 
@@ -90,7 +90,7 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 	return resp, nil
 }
 
-func (p *Plugin) generateFile(
+func (*Plugin) generateFile(
 	typ resolution.Type,
 	form resolution.StructForm,
 	outputPath string,

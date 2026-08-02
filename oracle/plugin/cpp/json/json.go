@@ -44,13 +44,13 @@ func DefaultOptions() Options {
 
 func New(opts Options) *Plugin { return &Plugin{options: opts} }
 
-func (p *Plugin) Name() string { return "cpp/json" }
+func (*Plugin) Name() string { return "cpp/json" }
 
-func (p *Plugin) Domains() []string { return []string{"cpp"} }
+func (*Plugin) Domains() []string { return []string{"cpp"} }
 
-func (p *Plugin) Requires() []string { return []string{"cpp/types"} }
+func (*Plugin) Requires() []string { return []string{"cpp/types"} }
 
-func (p *Plugin) Check(*plugin.Request) error { return nil }
+func (*Plugin) Check(*plugin.Request) error { return nil }
 
 func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 	resp := &plugin.Response{Files: make([]plugin.File, 0)}
@@ -336,7 +336,7 @@ func isSelfReference(t resolution.TypeRef, parent resolution.Type, table *resolu
 	return resolution.RefersTo(t, parent.QualifiedName, table)
 }
 
-func (p *Plugin) resolveToArrayElement(typeRef resolution.TypeRef, data *templateData) (resolution.TypeRef, bool) {
+func (*Plugin) resolveToArrayElement(typeRef resolution.TypeRef, data *templateData) (resolution.TypeRef, bool) {
 	if typeRef.Name == "Array" && len(typeRef.TypeArgs) > 0 {
 		return typeRef.TypeArgs[0], true
 	}
@@ -732,7 +732,7 @@ func (p *Plugin) parseExprForField(field resolution.Field, cppType string, data 
 	return fmt.Sprintf(`parser.field<%s>("%s")`, cppType, jsonName)
 }
 
-func (p *Plugin) genericParseExprsForField(field resolution.Field) (jsonParseExpr, structParseExpr string) {
+func (*Plugin) genericParseExprsForField(field resolution.Field) (jsonParseExpr, structParseExpr string) {
 	jsonName := toSnakeCase(field.Name)
 	typeParamName := field.Type.TypeParam.Name
 
@@ -1055,7 +1055,7 @@ func (p *Plugin) resolvesToUUID(typeRef resolution.TypeRef, data *templateData) 
 	return false
 }
 
-func (p *Plugin) isFixedSizeUint8ArrayType(resolved resolution.Type) bool {
+func (*Plugin) isFixedSizeUint8ArrayType(resolved resolution.Type) bool {
 	form, ok := resolved.Form.(resolution.DistinctForm)
 	if !ok {
 		return false

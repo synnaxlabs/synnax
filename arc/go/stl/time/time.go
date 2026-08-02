@@ -260,7 +260,7 @@ type Interval struct {
 	lastFired telem.TimeSpan
 }
 
-func (i *Interval) Init(_ node.Context) {}
+func (*Interval) Init(_ node.Context) {}
 
 func (i *Interval) Next(ctx node.Context) {
 	period := liveSpan(i.State, periodInputParam)
@@ -299,7 +299,7 @@ type Wait struct {
 	fired     bool
 }
 
-func (w *Wait) Init(_ node.Context) {}
+func (*Wait) Init(_ node.Context) {}
 
 func (w *Wait) Next(ctx node.Context) {
 	if w.fired {
@@ -340,7 +340,7 @@ type Now struct {
 	clock *telem.MonoClock
 }
 
-func (n *Now) Init(_ node.Context) {}
+func (*Now) Init(_ node.Context) {}
 
 func (n *Now) Next(ctx node.Context) {
 	ts := n.clock.Now()

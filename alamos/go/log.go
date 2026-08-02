@@ -35,7 +35,7 @@ var (
 )
 
 // Validate implements config.Config.
-func (c LoggerConfig) Validate() error { return nil }
+func (LoggerConfig) Validate() error { return nil }
 
 // Override implements config.Config.
 func (c LoggerConfig) Override(other LoggerConfig) LoggerConfig {

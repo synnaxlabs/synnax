@@ -33,7 +33,7 @@ var (
 // Match reports whether body is a legacy Console log state, which persists channels as
 // an array (bare keys at v0, config objects at v1); no other resource's state does.
 // The marker is frozen — it describes historical file shapes.
-func (s *Service) Match(body map[string]any) bool {
+func (*Service) Match(body map[string]any) bool {
 	_, ok := body["channels"].([]any)
 	return ok
 }

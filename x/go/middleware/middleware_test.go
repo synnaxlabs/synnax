@@ -26,7 +26,7 @@ type myFirstMiddleware struct{}
 
 var _ middleware.Middleware[*request, *response] = &myFirstMiddleware{}
 
-func (m *myFirstMiddleware) Exec(
+func (*myFirstMiddleware) Exec(
 	req *request,
 	next func(*request) (*response, error),
 ) (*response, error) {
@@ -38,7 +38,7 @@ type myFinalizer struct{}
 
 var _ middleware.Finalizer[*request, *response] = &myFinalizer{}
 
-func (m *myFinalizer) Finalize(req *request) (*response, error) {
+func (*myFinalizer) Finalize(req *request) (*response, error) {
 	return nil, nil
 }
 

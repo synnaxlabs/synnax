@@ -65,7 +65,7 @@ var (
 
 type change = xchange.Change[Key, View]
 
-func (s *Service) Type() ontology.ResourceType { return ontology.ResourceTypeView }
+func (*Service) Type() ontology.ResourceType { return ontology.ResourceTypeView }
 
 func (s *Service) RetrieveResource(
 	ctx context.Context,

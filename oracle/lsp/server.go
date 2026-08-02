@@ -122,7 +122,7 @@ func (s *Server) Initialize(_ context.Context, params *protocol.InitializeParams
 }
 
 // Shutdown handles the shutdown request.
-func (s *Server) Shutdown(_ context.Context) error {
+func (*Server) Shutdown(_ context.Context) error {
 	return nil
 }
 

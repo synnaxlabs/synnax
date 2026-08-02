@@ -20,8 +20,8 @@ func newPlugin(any) (register.LinterPlugin, error) { return &plugin{}, nil }
 
 type plugin struct{}
 
-func (p *plugin) BuildAnalyzers() ([]*analysis.Analyzer, error) {
+func (*plugin) BuildAnalyzers() ([]*analysis.Analyzer, error) {
 	return []*analysis.Analyzer{Analyzer}, nil
 }
 
-func (p *plugin) GetLoadMode() string { return register.LoadModeSyntax }
+func (*plugin) GetLoadMode() string { return register.LoadModeSyntax }

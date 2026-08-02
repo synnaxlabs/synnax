@@ -64,7 +64,7 @@ func (s *Service) openManyPeers(
 	return sender, receivers, receiverAddresses, senders, nil
 }
 
-func (s *Service) closePeerClients(
+func (*Service) closePeerClients(
 	senders map[address.Address]freighter.StreamSenderCloser[Request],
 	originalErr error,
 ) error {

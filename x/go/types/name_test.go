@@ -19,7 +19,7 @@ import (
 
 type customNamed struct{}
 
-func (c customNamed) CustomTypeName() string { return "CustomName" }
+func (customNamed) CustomTypeName() string { return "CustomName" }
 
 type regularType struct{}
 type yEndingType struct{}
@@ -37,7 +37,7 @@ type namedType struct{}
 
 type impl struct{}
 
-func (i impl) DoSomething() {}
+func (impl) DoSomething() {}
 
 var _ = Describe("Name", func() {
 	Context("Name", func() {

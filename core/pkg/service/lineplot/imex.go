@@ -41,7 +41,7 @@ var (
 // the plot body inline (axes/channels), v5 carries selectedRules/hiddenLines alongside
 // an optional pendingUpload. The markers are frozen — they describe historical file
 // shapes.
-func (s *Service) Match(body map[string]any) bool {
+func (*Service) Match(body map[string]any) bool {
 	_, hasAxes := body["axes"]
 	_, hasChannels := body["channels"]
 	_, hasSelectedRules := body["selectedRules"]

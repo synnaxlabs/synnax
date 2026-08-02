@@ -128,7 +128,7 @@ func (p *printer) print(tokens []antlr.Token) string {
 	return out + "\n"
 }
 
-func (p *printer) isLastTokenOnLine(tok antlr.Token, idx int, tokens []antlr.Token) bool {
+func (*printer) isLastTokenOnLine(tok antlr.Token, idx int, tokens []antlr.Token) bool {
 	tokLine := tok.GetLine()
 	if idx+1 >= len(tokens) {
 		return true
@@ -140,7 +140,7 @@ func (p *printer) isLastTokenOnLine(tok antlr.Token, idx int, tokens []antlr.Tok
 	return nextTok.GetLine() != tokLine
 }
 
-func (p *printer) separateTokens(tokens []antlr.Token) (visible []antlr.Token, comments []antlr.Token) {
+func (*printer) separateTokens(tokens []antlr.Token) (visible []antlr.Token, comments []antlr.Token) {
 	for _, tok := range tokens {
 		switch tok.GetTokenType() {
 		case parser.ArcLexerSINGLE_LINE_COMMENT, parser.ArcLexerMULTI_LINE_COMMENT:
@@ -224,7 +224,7 @@ func (p *printer) hasCommentsInBlock(idx int, tokens []antlr.Token) bool {
 	return false
 }
 
-func (p *printer) blockEndIdx(idx int, tokens []antlr.Token) int {
+func (*printer) blockEndIdx(idx int, tokens []antlr.Token) int {
 	braceDepth := 1
 	for i := idx + 1; i < len(tokens); i++ {
 		switch tokens[i].GetTokenType() {
@@ -326,7 +326,7 @@ func (p *printer) detectBraceContext(idx int, tokens []antlr.Token) braceContext
 	return braceContextBlock
 }
 
-func (p *printer) isStageBody(idx int, tokens []antlr.Token) bool {
+func (*printer) isStageBody(idx int, tokens []antlr.Token) bool {
 	if idx < 1 {
 		return false
 	}
@@ -342,7 +342,7 @@ func (p *printer) isStageBody(idx int, tokens []antlr.Token) bool {
 	return false
 }
 
-func (p *printer) isSequenceBody(idx int, tokens []antlr.Token) bool {
+func (*printer) isSequenceBody(idx int, tokens []antlr.Token) bool {
 	if idx < 1 {
 		return false
 	}
@@ -358,7 +358,7 @@ func (p *printer) isSequenceBody(idx int, tokens []antlr.Token) bool {
 	return false
 }
 
-func (p *printer) isFuncInputBlock(idx int, tokens []antlr.Token) bool {
+func (*printer) isFuncInputBlock(idx int, tokens []antlr.Token) bool {
 	if idx < 2 {
 		return false
 	}
@@ -368,7 +368,7 @@ func (p *printer) isFuncInputBlock(idx int, tokens []antlr.Token) bool {
 		prevPrevTok.GetTokenType() == parser.ArcLexerFUNC
 }
 
-func (p *printer) isInputValuesBlock(idx int, tokens []antlr.Token) bool {
+func (*printer) isInputValuesBlock(idx int, tokens []antlr.Token) bool {
 	if idx < 1 {
 		return false
 	}
@@ -792,7 +792,7 @@ func (p *printer) detectParenContext(idx int, tokens []antlr.Token) parenContext
 	return parenContextDefault
 }
 
-func (p *printer) isInputListParen(idx int, tokens []antlr.Token) bool {
+func (*printer) isInputListParen(idx int, tokens []antlr.Token) bool {
 	// Input list follows: func IDENTIFIER ( or func IDENTIFIER { ... } (
 	for i := idx - 1; i >= 0; i-- {
 		tokType := tokens[i].GetTokenType()
@@ -957,7 +957,7 @@ func countImportItems(idx int, tokens []antlr.Token) int {
 	return count
 }
 
-func (p *printer) isEmptyParenList(idx int, tokens []antlr.Token) bool {
+func (*printer) isEmptyParenList(idx int, tokens []antlr.Token) bool {
 	if idx+1 >= len(tokens) {
 		return false
 	}
@@ -1094,7 +1094,7 @@ func (p *printer) inCollapsedImportParen() bool {
 		p.importCollapseDepths.Contains(len(p.parenContextStack))
 }
 
-func (p *printer) needsNewlineAfter(tokType int, idx int, tokens []antlr.Token) bool {
+func (*printer) needsNewlineAfter(tokType int, idx int, tokens []antlr.Token) bool {
 	if idx+1 >= len(tokens) {
 		return false
 	}
@@ -1183,11 +1183,11 @@ func (p *printer) isUnitSuffix(tok antlr.Token) bool {
 	return p.tokensAdjacent(p.prevToken, tok)
 }
 
-func (p *printer) tokensAdjacent(prev, curr antlr.Token) bool {
+func (*printer) tokensAdjacent(prev, curr antlr.Token) bool {
 	return prev.GetStop()+1 == curr.GetStart()
 }
 
-func (p *printer) isBinaryOperator(tokType int) bool {
+func (*printer) isBinaryOperator(tokType int) bool {
 	switch tokType {
 	case parser.ArcLexerPLUS, parser.ArcLexerMINUS, parser.ArcLexerSTAR,
 		parser.ArcLexerSLASH, parser.ArcLexerPERCENT, parser.ArcLexerCARET,
@@ -1222,7 +1222,7 @@ func (p *printer) isUnaryMinus(tokType int) bool {
 	return false
 }
 
-func (p *printer) isKeyword(tokType int) bool {
+func (*printer) isKeyword(tokType int) bool {
 	switch tokType {
 	case parser.ArcLexerFUNC, parser.ArcLexerIF, parser.ArcLexerELSE,
 		parser.ArcLexerFOR, parser.ArcLexerRETURN,
@@ -1234,7 +1234,7 @@ func (p *printer) isKeyword(tokType int) bool {
 	return false
 }
 
-func (p *printer) isType(tokType int) bool {
+func (*printer) isType(tokType int) bool {
 	switch tokType {
 	case parser.ArcLexerI8, parser.ArcLexerI16, parser.ArcLexerI32, parser.ArcLexerI64,
 		parser.ArcLexerU8, parser.ArcLexerU16, parser.ArcLexerU32, parser.ArcLexerU64,
@@ -1245,7 +1245,7 @@ func (p *printer) isType(tokType int) bool {
 	return false
 }
 
-func (p *printer) isLiteral(tokType int) bool {
+func (*printer) isLiteral(tokType int) bool {
 	switch tokType {
 	case parser.ArcLexerINTEGER_LITERAL, parser.ArcLexerFLOAT_LITERAL, parser.ArcLexerSTR_LITERAL,
 		parser.ArcLexerSTR_LITERAL_MULTI:
@@ -1276,7 +1276,7 @@ func (p *printer) needsSpaceBeforeParen() bool {
 	return false
 }
 
-func (p *printer) isEmptyBlock(idx int, tokens []antlr.Token) bool {
+func (*printer) isEmptyBlock(idx int, tokens []antlr.Token) bool {
 	if idx+1 >= len(tokens) {
 		return false
 	}

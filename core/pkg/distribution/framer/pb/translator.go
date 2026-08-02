@@ -228,14 +228,14 @@ func (IteratorResponseTranslator) Forward(
 
 type RelayRequestTranslator struct{}
 
-func (w RelayRequestTranslator) Backward(
+func (RelayRequestTranslator) Backward(
 	_ context.Context,
 	req *RelayRequest,
 ) (relay.Request, error) {
 	return relay.Request{Keys: channel.KeysFromUint32(req.Keys)}, nil
 }
 
-func (w RelayRequestTranslator) Forward(
+func (RelayRequestTranslator) Forward(
 	_ context.Context,
 	req relay.Request,
 ) (*RelayRequest, error) {
@@ -244,7 +244,7 @@ func (w RelayRequestTranslator) Forward(
 
 type RelayResponseTranslator struct{}
 
-func (w RelayResponseTranslator) Backward(
+func (RelayResponseTranslator) Backward(
 	_ context.Context,
 	res *RelayResponse,
 ) (relay.Response, error) {
@@ -255,7 +255,7 @@ func (w RelayResponseTranslator) Backward(
 	return relay.Response{Frame: fr, Group: res.Group}, nil
 }
 
-func (w RelayResponseTranslator) Forward(
+func (RelayResponseTranslator) Forward(
 	ctx context.Context,
 	res relay.Response,
 ) (*RelayResponse, error) {
@@ -280,7 +280,7 @@ func translateFrameBackward(fr framer.Frame) (*telempb.Frame, error) {
 
 type DeleteRequestTranslator struct{}
 
-func (r DeleteRequestTranslator) Forward(
+func (DeleteRequestTranslator) Forward(
 	_ context.Context,
 	msg deleter.Request,
 ) (*DeleteRequest, error) {
@@ -294,7 +294,7 @@ func (r DeleteRequestTranslator) Forward(
 	}, nil
 }
 
-func (r DeleteRequestTranslator) Backward(
+func (DeleteRequestTranslator) Backward(
 	_ context.Context,
 	msg *DeleteRequest,
 ) (deleter.Request, error) {

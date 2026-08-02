@@ -51,7 +51,7 @@ func (m mapResolver) RetrieveDataTypes(
 	return resolved, nil
 }
 
-func (m mapResolver) RetrieveName(_ context.Context, key channel.Key) string {
+func (mapResolver) RetrieveName(_ context.Context, key channel.Key) string {
 	return fmt.Sprintf("channel-%d", key)
 }
 

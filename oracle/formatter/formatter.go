@@ -701,7 +701,7 @@ func fieldNameColumn(ctx parser.IFieldDefContext) string {
 	return ctx.IDENT().GetText() + standaloneFieldModifier(ctx)
 }
 
-func (f *formatter) formatDomainOmitsToString(omits []parser.IDomainOmitContext) string {
+func (*formatter) formatDomainOmitsToString(omits []parser.IDomainOmitContext) string {
 	var sb strings.Builder
 	for _, om := range omits {
 		sb.WriteString(" -@")
@@ -886,7 +886,7 @@ func (f *formatter) formatExpressionValueToString(ctx parser.IExpressionValueCon
 	return ""
 }
 
-func (f *formatter) formatQualifiedIdentToString(ctx parser.IQualifiedIdentContext) string {
+func (*formatter) formatQualifiedIdentToString(ctx parser.IQualifiedIdentContext) string {
 	idents := ctx.AllIDENT()
 	if len(idents) == 1 {
 		return idents[0].GetText()

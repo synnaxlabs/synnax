@@ -56,13 +56,13 @@ func DefaultOptions() Options {
 
 func New(opts Options) *Plugin { return &Plugin{options: opts} }
 
-func (p *Plugin) Name() string { return "ts/types" }
+func (*Plugin) Name() string { return "ts/types" }
 
-func (p *Plugin) Domains() []string { return nil }
+func (*Plugin) Domains() []string { return nil }
 
-func (p *Plugin) Requires() []string { return nil }
+func (*Plugin) Requires() []string { return nil }
 
-func (p *Plugin) Check(req *plugin.Request) error { return nil }
+func (*Plugin) Check(req *plugin.Request) error { return nil }
 
 func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 	resp := &plugin.Response{Files: make([]plugin.File, 0)}
@@ -360,7 +360,7 @@ func findFieldTypeOverride(structs []resolution.Type, fieldName, domainName stri
 	return ""
 }
 
-func (p *Plugin) extractOntology(
+func (*Plugin) extractOntology(
 	structs []resolution.Type,
 	keyFields []key.Field,
 	skip ontology.SkipFunc,
@@ -405,7 +405,7 @@ func findKeyTypeTypeOverride(structs []resolution.Type, keyFieldName string, tab
 	return ""
 }
 
-func (p *Plugin) processEnum(e resolution.Type) enumData {
+func (*Plugin) processEnum(e resolution.Type) enumData {
 	form, ok := e.Form.(resolution.EnumForm)
 	if !ok {
 		return enumData{Name: e.Name}
@@ -1228,7 +1228,7 @@ func (p *Plugin) createNewRefForField(
 // so it renders as `ReturnType<typeof <schema>>` (without threading type args, to
 // reference the factory's broadest return). It reports false when the details type
 // is not a struct.
-func (p *Plugin) detailsSchemaRef(
+func (*Plugin) detailsSchemaRef(
 	ref resolution.TypeRef,
 	table *resolution.Table,
 	data *templateData,
@@ -1275,7 +1275,7 @@ func coalesceTSType(tsType string, typeParams []typeParamData) string {
 	return result
 }
 
-func (p *Plugin) processTypeParam(tp resolution.TypeParam, table *resolution.Table) typeParamData {
+func (*Plugin) processTypeParam(tp resolution.TypeParam, table *resolution.Table) typeParamData {
 	tpd := typeParamData{Name: tp.Name, Constraint: "z.ZodType"}
 	if tp.Constraint != nil {
 		if resolution.IsPrimitive(tp.Constraint.Name) && tp.Constraint.Name == "record" {
@@ -2389,7 +2389,7 @@ func structFieldsByName(typeRef resolution.TypeRef, table *resolution.Table) map
 	return out
 }
 
-func (p *Plugin) enumVariantToTS(ev validation.EnumVariant, data *templateData) string {
+func (*Plugin) enumVariantToTS(ev validation.EnumVariant, data *templateData) string {
 	// String-valued enums are emitted as `z.enum([...])` plus a type alias and
 	// have no runtime object to dot into. Emit the raw string literal instead;
 	// only numeric enums get the `Type.variant` form, since those emit as TS

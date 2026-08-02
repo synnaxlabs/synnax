@@ -55,16 +55,16 @@ func DefaultOptions() Options {
 func New(opts Options) *Plugin { return &Plugin{options: opts} }
 
 // Name returns the plugin identifier.
-func (p *Plugin) Name() string { return "go/pb" }
+func (*Plugin) Name() string { return "go/pb" }
 
 // Domains returns the domains this plugin handles.
-func (p *Plugin) Domains() []string { return []string{"pb"} }
+func (*Plugin) Domains() []string { return []string{"pb"} }
 
 // Requires returns plugin dependencies.
-func (p *Plugin) Requires() []string { return []string{"go/types", "pb/types"} }
+func (*Plugin) Requires() []string { return []string{"go/types", "pb/types"} }
 
 // Check verifies generated files are up-to-date. Currently unimplemented.
-func (p *Plugin) Check(*plugin.Request) error { return nil }
+func (*Plugin) Check(*plugin.Request) error { return nil }
 
 // Generate produces translator functions for structs with @pb flag.
 func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
@@ -539,7 +539,7 @@ func protocOneofGoName(value string) string {
 // resolveUnionTranslatorName returns the package prefix and function base name
 // for a union's pb translator, adding the cross-package import when the union
 // lives in a different proto package.
-func (p *Plugin) resolveUnionTranslatorName(
+func (*Plugin) resolveUnionTranslatorName(
 	u resolution.Type,
 	data *templateData,
 ) (prefix, name string) {
@@ -905,7 +905,7 @@ func (p *Plugin) processGenericFieldForTranslation(
 	return fd, false
 }
 
-func (p *Plugin) processDelegationTranslator(
+func (*Plugin) processDelegationTranslator(
 	td resolution.Type,
 	form resolution.DistinctForm,
 	data *templateData,
@@ -1128,7 +1128,7 @@ func (p *Plugin) getArraySize(typeRef resolution.TypeRef, table *resolution.Tabl
 	}
 }
 
-func (p *Plugin) generateFixedSizeUint8ArrayConversion(
+func (*Plugin) generateFixedSizeUint8ArrayConversion(
 	typeRef resolution.TypeRef,
 	data *templateData,
 	goField, pbField string,
@@ -1263,7 +1263,7 @@ func (p *Plugin) generateFieldConversion(
 	return goFieldName, pbFieldName, "", false, false
 }
 
-func (p *Plugin) generatePrimitiveConversion(
+func (*Plugin) generatePrimitiveConversion(
 	primitive, goField, pbField string,
 	data *templateData,
 ) (forward, backward string, hasError, hasBackwardError bool) {
@@ -1466,7 +1466,7 @@ func (p *Plugin) generateGenericStructConversion(
 	return forward, backward, "", true
 }
 
-func (p *Plugin) ensureAnyHelper(s resolution.Type, data *templateData) {
+func (*Plugin) ensureAnyHelper(s resolution.Type, data *templateData) {
 	key := s.QualifiedName
 	if data.generatedAnyHelpers.Contains(key) {
 		return
@@ -1492,7 +1492,7 @@ func (p *Plugin) ensureAnyHelper(s resolution.Type, data *templateData) {
 	})
 }
 
-func (p *Plugin) generateEnumConversion(
+func (*Plugin) generateEnumConversion(
 	typeRef resolution.TypeRef,
 	resolved resolution.Type,
 	data *templateData,
@@ -1528,7 +1528,7 @@ func (p *Plugin) generateEnumConversion(
 		fmt.Sprintf("%sFromPB(%s)", enumName, backwardArg)
 }
 
-func (p *Plugin) generateTypeDefConversion(
+func (*Plugin) generateTypeDefConversion(
 	typeRef resolution.TypeRef,
 	resolved resolution.Type,
 	form resolution.DistinctForm,
@@ -1573,7 +1573,7 @@ func (p *Plugin) generateTypeDefConversion(
 	return forward, backward, "", false
 }
 
-func (p *Plugin) generateAliasConversion(
+func (*Plugin) generateAliasConversion(
 	typeRef resolution.TypeRef,
 	resolved resolution.Type,
 	form resolution.AliasForm,
@@ -1725,7 +1725,7 @@ func (p *Plugin) generateArrayConversion(
 // qualifiedDistinctGoName returns the Go identifier for a distinct type as it
 // should appear in the generated translator file, including any package prefix
 // and registering the import if the type lives in a different package.
-func (p *Plugin) qualifiedDistinctGoName(resolved resolution.Type, data *templateData) (string, bool) {
+func (*Plugin) qualifiedDistinctGoName(resolved resolution.Type, data *templateData) (string, bool) {
 	prefix := ""
 	goOutput := output.GetPath(resolved, "go")
 	if resolved.Namespace != data.Namespace || (goOutput != "" && goOutput != data.ParentGoPath) {
@@ -1848,7 +1848,7 @@ func (p *Plugin) generateStructNestedArrayConversion(
 	return forward, backward, true
 }
 
-func (p *Plugin) generateEnumTranslator(
+func (*Plugin) generateEnumTranslator(
 	enumRef *resolution.Type,
 	data *templateData,
 ) *enumTranslatorData {
@@ -1921,7 +1921,7 @@ func findStructWithPB(s resolution.Type, table *resolution.Table) (*resolution.T
 	return nil, ""
 }
 
-func (p *Plugin) resolvePBTranslatorInfo(
+func (*Plugin) resolvePBTranslatorInfo(
 	structRef resolution.Type,
 	data *templateData,
 ) (translatorPrefix, translatorStructName string) {
@@ -2030,7 +2030,7 @@ func isEnumType(typeRef resolution.TypeRef, table *resolution.Table) bool {
 	return false
 }
 
-func (p *Plugin) resolveGoTypeLiteral(typeRef resolution.TypeRef, data *templateData) string {
+func (*Plugin) resolveGoTypeLiteral(typeRef resolution.TypeRef, data *templateData) string {
 	resolved, ok := typeRef.Resolve(data.table)
 	if !ok {
 		return ""

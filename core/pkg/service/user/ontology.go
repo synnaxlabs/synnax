@@ -57,10 +57,10 @@ var (
 	_ search.FieldsProvider = (*Service)(nil)
 )
 
-func (s *Service) Type() ontology.ResourceType { return ontology.ResourceTypeUser }
+func (*Service) Type() ontology.ResourceType { return ontology.ResourceTypeUser }
 
 // SearchableFields implements ontology.SearchableFieldsProvider.
-func (s *Service) SearchableFields() []string {
+func (*Service) SearchableFields() []string {
 	return []string{"username", "first_name", "last_name"}
 }
 

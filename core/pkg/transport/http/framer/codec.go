@@ -151,7 +151,7 @@ func (c *Codec) lowPerfEncode(
 	return err
 }
 
-func (c *Codec) decodeIsLowPerf(r io.Reader) (bool, error) {
+func (*Codec) decodeIsLowPerf(r io.Reader) (bool, error) {
 	var sc uint8
 	if err := binary.Read(r, binary.LittleEndian, &sc); err != nil {
 		return false, err

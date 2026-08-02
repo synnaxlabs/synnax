@@ -51,7 +51,7 @@ type Host struct{}
 // NewHost constructs a constant Host.
 func NewHost() *Host { return &Host{} }
 
-func (h *Host) Create(_ context.Context, cfg node.Config) (node.Node, error) {
+func (*Host) Create(_ context.Context, cfg node.Config) (node.Node, error) {
 	if cfg.Node.Type != symbolName {
 		return nil, query.ErrNotFound
 	}

@@ -53,7 +53,7 @@ var (
 	_ search.Service   = (*Service)(nil)
 )
 
-func (s *Service) Type() ontology.ResourceType { return ontology.ResourceTypeGroup }
+func (*Service) Type() ontology.ResourceType { return ontology.ResourceTypeGroup }
 
 func (s *Service) RetrieveResource(
 	ctx context.Context,

@@ -57,7 +57,7 @@ var (
 
 type change = xchange.Change[string, Status[any]]
 
-func (s *Service) Type() ontology.ResourceType { return ontology.ResourceTypeStatus }
+func (*Service) Type() ontology.ResourceType { return ontology.ResourceTypeStatus }
 
 // RetrieveResource implements ontology.Service.
 func (s *Service) RetrieveResource(ctx context.Context, key string, tx gorp.Tx) (ontology.Resource, error) {

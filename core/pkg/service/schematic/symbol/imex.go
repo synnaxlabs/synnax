@@ -31,7 +31,7 @@ var (
 // the symbol spec as a data object with an inline svg, and no other typeless file
 // family nests its payload that way. The marker is frozen — it describes historical
 // file shapes; current exports carry a type header and never reach matching.
-func (s *Service) Match(body map[string]any) bool {
+func (*Service) Match(body map[string]any) bool {
 	data, ok := body["data"].(map[string]any)
 	if !ok {
 		return false

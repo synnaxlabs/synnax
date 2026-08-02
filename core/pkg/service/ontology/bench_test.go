@@ -55,7 +55,7 @@ func (*benchService) RetrieveResource(
 	), nil
 }
 
-func (s *benchService) OpenNexter(context.Context) (
+func (*benchService) OpenNexter(context.Context) (
 	iter.Seq[ontology.Resource], io.Closer, error,
 ) {
 	return slices.Values([]ontology.Resource{}), xio.NopCloser, nil

@@ -42,11 +42,11 @@ type StreamServerCore[RQ, RQT, RS, RST freighter.Payload] struct {
 	Internal bool
 }
 
-func (s *StreamClient[RQ, RQT, RS, RST]) Report() alamos.Report {
+func (*StreamClient[RQ, RQT, RS, RST]) Report() alamos.Report {
 	return Reporter.Report()
 }
 
-func (s *StreamServerCore[RQ, RQT, RS, RST]) Report() alamos.Report {
+func (*StreamServerCore[RQ, RQT, RS, RST]) Report() alamos.Report {
 	return Reporter.Report()
 }
 

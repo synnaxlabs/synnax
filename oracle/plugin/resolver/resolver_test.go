@@ -37,14 +37,14 @@ func (m *MockImportAdder) AddImport(category, path, alias string) {
 // MockTypeFormatter implements TypeFormatter for testing (Go-like syntax).
 type MockTypeFormatter struct{}
 
-func (m *MockTypeFormatter) FormatQualified(qualifier, typeName string) string {
+func (*MockTypeFormatter) FormatQualified(qualifier, typeName string) string {
 	if qualifier == "" {
 		return typeName
 	}
 	return qualifier + "." + typeName
 }
 
-func (m *MockTypeFormatter) FormatGeneric(baseName string, typeArgs []string) string {
+func (*MockTypeFormatter) FormatGeneric(baseName string, typeArgs []string) string {
 	if len(typeArgs) == 0 {
 		return baseName
 	}
@@ -58,19 +58,19 @@ func (m *MockTypeFormatter) FormatGeneric(baseName string, typeArgs []string) st
 	return result + "]"
 }
 
-func (m *MockTypeFormatter) FormatArray(elemType string) string {
+func (*MockTypeFormatter) FormatArray(elemType string) string {
 	return "[]" + elemType
 }
 
-func (m *MockTypeFormatter) FormatFixedArray(elemType string, size int64) string {
+func (*MockTypeFormatter) FormatFixedArray(elemType string, size int64) string {
 	return fmt.Sprintf("[%d]%s", size, elemType)
 }
 
-func (m *MockTypeFormatter) FormatMap(keyType, valType string) string {
+func (*MockTypeFormatter) FormatMap(keyType, valType string) string {
 	return "map[" + keyType + "]" + valType
 }
 
-func (m *MockTypeFormatter) FallbackType() string {
+func (*MockTypeFormatter) FallbackType() string {
 	return "any"
 }
 
@@ -88,7 +88,7 @@ func (m *MockImportResolver) ResolveImport(outputPath string, ctx *resolver.Cont
 // MockPrimitiveMapper implements primitives.Mapper for testing.
 type MockPrimitiveMapper struct{}
 
-func (m *MockPrimitiveMapper) Map(name string) primitives.Mapping {
+func (*MockPrimitiveMapper) Map(name string) primitives.Mapping {
 	// Return simple Go-like mappings for testing
 	switch name {
 	case "string":

@@ -53,13 +53,13 @@ func DefaultOptions() Options {
 
 func New(opts Options) *Plugin { return &Plugin{options: opts} }
 
-func (p *Plugin) Name() string { return "py/types" }
+func (*Plugin) Name() string { return "py/types" }
 
-func (p *Plugin) Domains() []string { return nil }
+func (*Plugin) Domains() []string { return nil }
 
-func (p *Plugin) Requires() []string { return nil }
+func (*Plugin) Requires() []string { return nil }
 
-func (p *Plugin) Check(req *plugin.Request) error { return nil }
+func (*Plugin) Check(req *plugin.Request) error { return nil }
 
 func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 	gen := &framework.Generator{
@@ -77,7 +77,7 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 // pyFileGenerator implements framework.FileGenerator for Python code generation.
 type pyFileGenerator struct{}
 
-func (g *pyFileGenerator) GenerateFile(ctx *framework.GenerateContext) (string, error) {
+func (*pyFileGenerator) GenerateFile(ctx *framework.GenerateContext) (string, error) {
 	content, err := generatePyFile(ctx.Namespace, ctx.OutputPath, ctx.Structs, ctx.Enums, ctx.TypeDefs, ctx.Unions, ctx.Table)
 	if err != nil {
 		return "", err

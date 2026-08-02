@@ -26,20 +26,20 @@ type fakeToken struct {
 
 var _ antlr.Token = (*fakeToken)(nil)
 
-func (t *fakeToken) GetSource() *antlr.TokenSourceCharStreamPair { return nil }
-func (t *fakeToken) GetTokenType() int                           { return 0 }
-func (t *fakeToken) GetChannel() int                             { return 0 }
-func (t *fakeToken) GetStart() int                               { return 0 }
-func (t *fakeToken) GetStop() int                                { return 0 }
-func (t *fakeToken) GetLine() int                                { return t.line }
-func (t *fakeToken) GetColumn() int                              { return t.column }
-func (t *fakeToken) GetText() string                             { return t.text }
-func (t *fakeToken) SetText(text string)                         { t.text = text }
-func (t *fakeToken) GetTokenIndex() int                          { return 0 }
-func (t *fakeToken) SetTokenIndex(int)                           {}
-func (t *fakeToken) GetTokenSource() antlr.TokenSource           { return nil }
-func (t *fakeToken) GetInputStream() antlr.CharStream            { return nil }
-func (t *fakeToken) String() string                              { return t.text }
+func (*fakeToken) GetSource() *antlr.TokenSourceCharStreamPair { return nil }
+func (*fakeToken) GetTokenType() int                           { return 0 }
+func (*fakeToken) GetChannel() int                             { return 0 }
+func (*fakeToken) GetStart() int                               { return 0 }
+func (*fakeToken) GetStop() int                                { return 0 }
+func (t *fakeToken) GetLine() int                              { return t.line }
+func (t *fakeToken) GetColumn() int                            { return t.column }
+func (t *fakeToken) GetText() string                           { return t.text }
+func (t *fakeToken) SetText(text string)                       { t.text = text }
+func (*fakeToken) GetTokenIndex() int                          { return 0 }
+func (*fakeToken) SetTokenIndex(int)                           {}
+func (*fakeToken) GetTokenSource() antlr.TokenSource           { return nil }
+func (*fakeToken) GetInputStream() antlr.CharStream            { return nil }
+func (t *fakeToken) String() string                            { return t.text }
 
 // ruleCtxAt builds a parser rule context spanning the given tokens; stop may be nil.
 func ruleCtxAt(start, stop antlr.Token) antlr.ParserRuleContext {

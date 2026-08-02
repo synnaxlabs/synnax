@@ -164,4 +164,4 @@ type StreamSenderCloser[P Payload] interface {
 type SenderNopCloser[P Payload] struct{ StreamSender[P] }
 
 // CloseSend implements the StreamCloser interface.
-func (c SenderNopCloser[P]) CloseSend() error { return nil }
+func (SenderNopCloser[P]) CloseSend() error { return nil }

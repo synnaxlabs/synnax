@@ -33,11 +33,11 @@ import (
 
 type Plugin struct{}
 
-func New() *Plugin                            { return &Plugin{} }
-func (p *Plugin) Name() string                { return "go/migrate" }
-func (p *Plugin) Domains() []string           { return []string{"go"} }
-func (p *Plugin) Requires() []string          { return []string{"go/types", "go/marshal"} }
-func (p *Plugin) Check(*plugin.Request) error { return nil }
+func New() *Plugin                          { return &Plugin{} }
+func (*Plugin) Name() string                { return "go/migrate" }
+func (*Plugin) Domains() []string           { return []string{"go"} }
+func (*Plugin) Requires() []string          { return []string{"go/types", "go/marshal"} }
+func (*Plugin) Check(*plugin.Request) error { return nil }
 
 // SnapshotPreVersioning reports whether the snapshot table predates
 // per-resource @go version declarations and therefore cannot drive migration
@@ -66,7 +66,7 @@ type generation struct {
 	bumps        map[string]bump
 }
 
-func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
+func (*Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 	resp := &plugin.Response{Files: make([]plugin.File, 0)}
 	if req.OldResolutions == nil {
 		return resp, nil

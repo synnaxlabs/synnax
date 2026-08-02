@@ -139,7 +139,7 @@ func (w Writer[D]) Delete(ctx context.Context, keys ...string) error {
 	return w.otgWriter.DeleteResources(ctx, OntologyIDs(keys)...)
 }
 
-func (w Writer[D]) validate(s Status[D]) error {
+func (Writer[D]) validate(s Status[D]) error {
 	v := validate.New("status.status")
 	validate.NotEmptyString(v, "key", s.Key)
 	validate.Positive(v, "time", s.Time)

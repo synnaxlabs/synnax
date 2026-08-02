@@ -29,11 +29,11 @@ type stubPlugin struct {
 	name string
 }
 
-func (p *stubPlugin) Name() string                { return p.name }
-func (p *stubPlugin) Domains() []string           { return nil }
-func (p *stubPlugin) Requires() []string          { return nil }
-func (p *stubPlugin) Check(*plugin.Request) error { return nil }
-func (p *stubPlugin) Generate(req *plugin.Request) (*plugin.Response, error) {
+func (p *stubPlugin) Name() string              { return p.name }
+func (*stubPlugin) Domains() []string           { return nil }
+func (*stubPlugin) Requires() []string          { return nil }
+func (*stubPlugin) Check(*plugin.Request) error { return nil }
+func (*stubPlugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 	files := []plugin.File{}
 	for _, t := range req.Resolutions.Types {
 		files = append(files, plugin.File{

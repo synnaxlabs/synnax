@@ -38,7 +38,7 @@ var (
 // the document inline (nodes/edges/props), v6 carries controlStatus alongside an
 // optional pendingUpload. The markers are frozen — they describe historical file
 // shapes.
-func (s *Service) Match(body map[string]any) bool {
+func (*Service) Match(body map[string]any) bool {
 	_, hasNodes := body["nodes"]
 	_, hasProps := body["props"]
 	_, hasControlStatus := body["controlStatus"]

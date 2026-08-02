@@ -189,7 +189,7 @@ type source struct {
 	clock         telem.MonoClock
 }
 
-func (s *source) Init(node.Context) {}
+func (*source) Init(node.Context) {}
 
 // rebindTo re-points the source at key. A rebind is not a value:
 // only values arriving afterward fire

@@ -121,4 +121,4 @@ func (f *factory) setConfigStatus(
 	}
 }
 
-func (f *factory) Name() string { return "pagerduty" }
+func (*factory) Name() string { return "pagerduty" }
