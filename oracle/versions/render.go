@@ -35,6 +35,9 @@ type RenderOptions struct {
 	// Qualifier rewrites a reference's namespace qualifier. Returning ""
 	// renders the name bare. Nil leaves qualifiers untouched.
 	Qualifier func(ns string) string
+	// Resolve looks up a referenced type by resolved name. Required to render
+	// inline union variants, whose synthetic payload structs re-inline.
+	Resolve func(name string) (resolution.Type, bool)
 }
 
 // Render renders declarations into version-file source text. The output is
@@ -188,9 +191,48 @@ func (r *renderer) renderUnion(t resolution.Type, f resolution.UnionForm) {
 	r.line(head + " {")
 	r.indent++
 	for _, v := range f.Variants {
-		r.line(v.Name + " " + r.ref(v.Type))
+		r.renderVariant(v)
 	}
 	r.renderDomains(t.Domains)
+	r.indent--
+	r.line("}")
+}
+
+// renderVariant renders one union variant: inline payloads re-inline their
+// synthetic struct's fields; named payloads reference their type. Either form
+// carries a domain body when variant domains survive filtering.
+func (r *renderer) renderVariant(v resolution.UnionVariant) {
+	exprs := r.keptExpressions(v.Domains)
+	if v.Inline && r.opts.Resolve != nil {
+		if t, ok := r.opts.Resolve(v.Type.Name); ok {
+			if sf, isStruct := t.Form.(resolution.StructForm); isStruct {
+				r.line(v.Name + " {")
+				r.indent++
+				for _, field := range sf.Fields {
+					r.renderField(field)
+				}
+				if len(exprs) > 0 {
+					r.line("")
+					for _, e := range exprs {
+						r.line(e)
+					}
+				}
+				r.indent--
+				r.line("}")
+				return
+			}
+		}
+	}
+	head := v.Name + " " + r.ref(v.Type)
+	if len(exprs) == 0 {
+		r.line(head)
+		return
+	}
+	r.line(head + " {")
+	r.indent++
+	for _, e := range exprs {
+		r.line(e)
+	}
 	r.indent--
 	r.line("}")
 }
@@ -298,6 +340,12 @@ func (r *renderer) value(v resolution.ExpressionValue) string {
 			parts[i] = r.value(e)
 		}
 		return "[" + strings.Join(parts, ", ") + "]"
+	case resolution.ValueKindStruct:
+		parts := make([]string, len(v.Fields))
+		for i, f := range v.Fields {
+			parts[i] = f.Name + " = " + r.value(f.Value)
+		}
+		return "{" + strings.Join(parts, ", ") + "}"
 	default:
 		return ""
 	}
@@ -311,7 +359,7 @@ func (r *renderer) params(params []resolution.TypeParam) string {
 	for i, p := range params {
 		s := p.Name
 		if p.Constraint != nil {
-			s += " " + r.ref(*p.Constraint)
+			s += " extends " + r.ref(*p.Constraint)
 		}
 		if p.Default != nil {
 			s += " = " + r.ref(*p.Default)

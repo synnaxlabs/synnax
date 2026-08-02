@@ -1,0 +1,24 @@
+import "schemas/x/versions/color/v0"
+
+Key = uuid {
+    @doc value "is a unique identifier for a label, represented as a UUID."
+}
+
+Label struct {
+    key   Key = create {
+        @doc value "is the unique identifier for this label."
+        @key
+    }
+    name  string      {
+        @doc value "is a human-readable name for the label."
+    }
+    color color.Color {
+        @doc value "is the display color for visual identification of the label."
+    }
+
+    @doc value  """is a tagging and categorization entity with a name and associated color.
+Labels can be attached to resources like ranges for organization and
+filtering."""
+    @go marshal
+    @go migrate
+}

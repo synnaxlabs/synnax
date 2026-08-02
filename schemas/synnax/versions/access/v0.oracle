@@ -1,0 +1,9 @@
+Action enum {
+    create   = "create"
+    delete   = "delete"
+    retrieve = "retrieve"
+    update   = "update"
+
+    @doc value """is the fundamental operations that are controlled by the permission system.
+Actions define what operations a subject can perform on resources."""
+}

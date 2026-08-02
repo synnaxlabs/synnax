@@ -46,9 +46,11 @@ func (r *Resolver) Annotate(
 				t.FilePath != livePath+".oracle" {
 				continue
 			}
-			if _, member := surf[t.Name]; !member {
+			def, member := surf[t.Name]
+			if !member {
 				continue
 			}
+			injectPersistence(t, def.Type)
 			if declared, ok := declaredVersion(*t); ok {
 				if declared != current {
 					return errors.Newf(
@@ -62,6 +64,37 @@ func (r *Resolver) Annotate(
 		}
 	}
 	return nil
+}
+
+// injectPersistence carries the version file's @go marshal and migrate
+// declarations onto a live type that does not declare them itself: the file
+// owns the persistence facts, and the generators read them off the live
+// table.
+func injectPersistence(t *resolution.Type, def resolution.Type) {
+	src, ok := def.Domains["go"]
+	if !ok {
+		return
+	}
+	for _, name := range []string{"marshal", "migrate"} {
+		expr, has := src.Expressions.Find(name)
+		if !has {
+			continue
+		}
+		if dom, ok := t.Domains["go"]; ok {
+			if _, declared := dom.Expressions.Find(name); declared {
+				continue
+			}
+		}
+		domains := maps.Clone(t.Domains)
+		if domains == nil {
+			domains = make(map[string]resolution.Domain)
+		}
+		dom := domains["go"]
+		dom.Name = "go"
+		dom.Expressions = append(slices.Clone(dom.Expressions), expr)
+		domains["go"] = dom
+		t.Domains = domains
+	}
 }
 
 // filePinnedNames extracts a file's @go pinned type names.

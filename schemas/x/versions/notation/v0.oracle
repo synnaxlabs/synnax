@@ -1,0 +1,7 @@
+Notation enum {
+    standard    = "standard"
+    scientific  = "scientific"
+    engineering = "engineering"
+
+    @doc value "is the numeric notation used to render samples."
+}

@@ -1,0 +1,18 @@
+import "schemas/synnax/versions/ranger/v1"
+
+Pair struct {
+    range ranger.Key {
+        @doc value "is the unique identifier of the range owning this key-value pair."
+    }
+    key   string     {
+        @doc value "is the metadata key name."
+    }
+    value string     {
+        @doc value "is the metadata value stored as a string for flexibility."
+    }
+
+    @doc value  """is a key-value metadata pair associated with a specific range, enabling
+arbitrary metadata storage on time ranges."""
+    @go marshal
+    @go migrate
+}

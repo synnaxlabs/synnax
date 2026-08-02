@@ -119,6 +119,7 @@ func Canonical(ctx context.Context, in Input) (string, error) {
 			}
 			return ns
 		},
+		Resolve: in.Live.Get,
 	})
 	return formatter.Format(rendered)
 }

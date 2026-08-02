@@ -1,0 +1,18 @@
+Key = uuid {
+    @doc value "is a unique identifier for a group, represented as a UUID."
+}
+
+Group struct {
+    key  Key    {
+        @doc value "is the unique identifier for this group."
+        @key
+    }
+    name string {
+        @doc value "is a human-readable name for the group."
+    }
+
+    @doc value  """is a named collection container for organizing related resources. Groups
+provide hierarchical organization through the ontology system."""
+    @go marshal
+    @go migrate
+}

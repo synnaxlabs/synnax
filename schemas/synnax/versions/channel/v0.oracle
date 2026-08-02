@@ -1,0 +1,99 @@
+import "schemas/synnax/versions/node/v0"
+import "schemas/x/versions/control/v0"
+import "schemas/x/versions/telem/v0"
+
+Key uint32 {
+    @doc value """is a unique identifier for a channel in the Synnax database. Composed of a node
+key (first 12 bits) and a local key (last 20 bits), enabling distributed
+assignment while maintaining global uniqueness."""
+    @go hand
+}
+
+LocalKey uint20 {
+    @doc value """is a 20-bit unsigned integer representing the locally-unique portion of a
+channel key within a node. Combined with a node.Key to form the global channel
+Key."""
+    @go hand
+}
+
+Name = string {
+    @doc value """is a human-readable name for a channel. Must start with a letter or
+underscore and contain only letters, digits, and underscores. Names are
+not guaranteed to be unique across channels."""
+}
+
+OperationType enum {
+    min        = "min"
+    max        = "max"
+    avg        = "avg"
+    none       = "none"
+    derivative = "derivative"
+
+    @doc value "is the type of aggregation operation to apply to channel data over time."
+}
+
+Operation struct {
+    type          OperationType  {
+        @doc value "is the aggregation operation type: min, max, avg, or none."
+    }
+    reset_channel Key = 0 {
+        @doc value """is the channel key that triggers reset of the aggregation. If 0,
+duration-based reset is used."""
+    }
+    duration      telem.TimeSpan = 0 {
+        @doc value "is the time window for aggregation when reset_channel is 0."
+    }
+
+    @doc value """defines an aggregation operation applied to channel data. Operations
+calculate min, max, or average values over a time duration or triggered
+by a reset channel."""
+}
+
+Channel struct {
+    name        Name                {
+        @doc value "is the human-readable channel name."
+    }
+    leaseholder node.Key            {
+        @doc value """is the node that holds the lease for this channel and is authorized to
+accept writes."""
+    }
+    data_type   telem.DataType      {
+        @doc value "is the data type of samples stored in this channel."
+    }
+    is_index    bool                {
+        @doc value """is true if this channel is an index channel. Index channels must
+have int64 values (TIMESTAMP data type) written in ascending order,
+and are most commonly unix nanosecond timestamps."""
+    }
+    local_key   LocalKey            {
+        @doc value "is the locally-unique portion of this channel's key."
+    }
+    local_index LocalKey            {
+        @doc value """is the channel used to index this channel's values, associating
+each value with a timestamp."""
+    }
+    virtual     bool                {
+        @doc value """is true if this channel does not persist data and is used only for
+streaming."""
+    }
+    concurrency control.Concurrency {
+        @doc value """sets the policy for concurrent writes to the channel's data. Only
+virtual channels can have a policy of shared concurrency."""
+    }
+    internal    bool                {
+        @doc value "is true if this is a system channel hidden from normal user queries."
+    }
+    operations  Operation[]         {
+        @doc value "contains aggregation operations applied to this channel's data."
+    }
+    expression  string              {
+        @doc value """is an Arc expression for calculated channels. If set, the channel
+is automatically configured as virtual."""
+    }
+
+    @doc value  """is an internal representation of a channel containing all storage and
+cluster-routing metadata. This type is used internally by the server;
+clients should use APIChannel instead."""
+    @go marshal
+    @go migrate
+}

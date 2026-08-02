@@ -1,0 +1,20 @@
+import "schemas/synnax/versions/channel/v0"
+import "schemas/synnax/versions/ranger/v1"
+
+Alias struct {
+    range   ranger.Key  {
+        @doc value "is the unique identifier of the range containing this alias."
+    }
+    channel channel.Key {
+        @doc value "is the unique identifier of the channel being aliased."
+    }
+    alias   string      {
+        @doc value "is the human-readable name for the channel within this range context."
+    }
+
+    @doc value  """associates a human-readable string alias with a channel within the 
+context of a specific range. Enables semantic naming of channels that varies by 
+range context."""
+    @go marshal
+    @go migrate
+}
