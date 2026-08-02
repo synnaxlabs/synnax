@@ -118,6 +118,60 @@ func chainFrozenFiles(
 	return files, nil
 }
 
+// ChainPath locates one chain-covered versioned output path.
+type ChainPath struct {
+	// LivePath is the resource's live import path ("schemas/x/telem").
+	LivePath string
+	// Current is the chain's current version.
+	Current int
+}
+
+// ChainPaths maps every chain-covered versioned Go output path to its chain.
+func ChainPaths(req *plugin.Request) (map[string]ChainPath, error) {
+	out := make(map[string]ChainPath)
+	if req.Versions == nil {
+		return out, nil
+	}
+	entries, err := versioning.EntryPaths(req.Resolutions)
+	if err != nil {
+		return nil, err
+	}
+	chains := req.Versions.Chains()
+	for origPath, version := range entries {
+		_, livePath, ok := pathResource(req.Resolutions, origPath)
+		if !ok {
+			continue
+		}
+		if _, ok := chains[livePath]; !ok {
+			continue
+		}
+		out[origPath] = ChainPath{LivePath: livePath, Current: version}
+	}
+	return out, nil
+}
+
+// ChainFrozenTable builds the resolution table for one frozen version
+// package: livePath's surface at k under its DepNS namespace, transitive
+// pinned surfaces alongside, and @go output annotations resolving every type
+// to its frozen versions/vN directory (or its live root, for hand-written
+// types). The returned namespace qualifies the package's own types.
+func ChainFrozenTable(
+	ctx context.Context,
+	req *plugin.Request,
+	origPath, livePath string,
+	k int,
+) (*resolution.Table, string, error) {
+	ns := versions.DepNS(livePath, k)
+	table := resolution.NewTable()
+	if err := req.Versions.SurfaceInto(ctx, table, livePath, k, ns); err != nil {
+		return nil, "", err
+	}
+	if err := annotateOutputs(req, table, origPath, livePath); err != nil {
+		return nil, "", err
+	}
+	return table, ns, nil
+}
+
 // frozenFile emits one frozen version package's type file.
 func frozenFile(
 	ctx context.Context,
@@ -130,12 +184,8 @@ func frozenFile(
 	if err != nil {
 		return plugin.File{}, err
 	}
-	ns := versions.DepNS(livePath, k)
-	table := resolution.NewTable()
-	if err := req.Versions.SurfaceInto(ctx, table, livePath, k, ns); err != nil {
-		return plugin.File{}, err
-	}
-	if err := annotateOutputs(req, table, origPath, livePath); err != nil {
+	table, ns, err := ChainFrozenTable(ctx, req, origPath, livePath, k)
+	if err != nil {
 		return plugin.File{}, err
 	}
 	pred := predecessor{}

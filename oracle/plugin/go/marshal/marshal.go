@@ -65,6 +65,12 @@ func (p *Plugin) Check(*plugin.Request) error { return nil }
 func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 	resp := &plugin.Response{Files: make([]plugin.File, 0)}
 
+	frozen, err := p.chainFrozenCodecs(req)
+	if err != nil {
+		return nil, err
+	}
+	resp.Files = append(resp.Files, frozen...)
+
 	// Types that alias their predecessor version carry its codec methods
 	// through the alias; only defined types get codecs in the current package.
 	aliased, err := gotypes.AliasedTypes(req)
