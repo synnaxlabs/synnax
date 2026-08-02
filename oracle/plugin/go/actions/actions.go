@@ -45,10 +45,10 @@ func DefaultOptions() Options {
 }
 
 // Plugin emits the generated action codec.
-type Plugin struct{ Options Options }
+type Plugin struct{ options Options }
 
 // New constructs a Plugin with the given options.
-func New(opts Options) *Plugin { return &Plugin{Options: opts} }
+func New(opts Options) *Plugin { return &Plugin{options: opts} }
 
 func (p *Plugin) Name() string                  { return "go/actions" }
 func (p *Plugin) Domains() []string             { return []string{"go"} }
@@ -83,7 +83,7 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 			return nil, err
 		}
 		resp.Files = append(resp.Files, plugin.File{
-			Path:    outputPath + "/" + p.Options.FileNamePattern,
+			Path:    outputPath + "/" + p.options.FileNamePattern,
 			Content: content,
 		})
 	}

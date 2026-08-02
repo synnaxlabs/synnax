@@ -36,7 +36,7 @@ import (
 )
 
 // Plugin generates protobuf translator functions for the pb/ subdirectory pattern.
-type Plugin struct{ Options Options }
+type Plugin struct{ options Options }
 
 // Options configures the go/pb plugin.
 type Options struct {
@@ -52,7 +52,7 @@ func DefaultOptions() Options {
 }
 
 // New creates a new go/pb plugin with the given options.
-func New(opts Options) *Plugin { return &Plugin{Options: opts} }
+func New(opts Options) *Plugin { return &Plugin{options: opts} }
 
 // Name returns the plugin identifier.
 func (p *Plugin) Name() string { return "go/pb" }
@@ -206,7 +206,7 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 		}
 		if len(content) > 0 {
 			resp.Files = append(resp.Files, plugin.File{
-				Path:    fmt.Sprintf("%s/%s", outputPath, p.Options.TranslatorFileNamePattern),
+				Path:    fmt.Sprintf("%s/%s", outputPath, p.options.TranslatorFileNamePattern),
 				Content: content,
 			})
 		}

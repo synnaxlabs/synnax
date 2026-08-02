@@ -30,7 +30,7 @@ import (
 	"github.com/synnaxlabs/x/set"
 )
 
-type Plugin struct{ Options Options }
+type Plugin struct{ options Options }
 
 type Options struct {
 	FileNamePattern string
@@ -42,7 +42,7 @@ func DefaultOptions() Options {
 	}
 }
 
-func New(opts Options) *Plugin { return &Plugin{Options: opts} }
+func New(opts Options) *Plugin { return &Plugin{options: opts} }
 
 func (p *Plugin) Name() string { return "cpp/pb" }
 
@@ -167,7 +167,7 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 		}
 		if len(content) > 0 {
 			resp.Files = append(resp.Files, plugin.File{
-				Path:    fmt.Sprintf("%s/%s", outputPath, p.Options.FileNamePattern),
+				Path:    fmt.Sprintf("%s/%s", outputPath, p.options.FileNamePattern),
 				Content: content,
 			})
 		}

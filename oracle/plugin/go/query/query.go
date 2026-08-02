@@ -33,7 +33,7 @@ import (
 )
 
 // Plugin generates gorp Retrieve query wrappers for structs annotated with @retrieve.
-type Plugin struct{ Options Options }
+type Plugin struct{ options Options }
 
 // Options configures the go/query plugin.
 type Options struct {
@@ -46,7 +46,7 @@ func DefaultOptions() Options {
 }
 
 // New creates a new go/query plugin with the given options.
-func New(opts Options) *Plugin { return &Plugin{Options: opts} }
+func New(opts Options) *Plugin { return &Plugin{options: opts} }
 
 // Name returns the plugin identifier.
 func (p *Plugin) Name() string { return "go/query" }
@@ -103,7 +103,7 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 			return nil, fmt.Errorf("failed to generate %s: %w", e.path, err)
 		}
 		resp.Files = append(resp.Files, plugin.File{
-			Path:    fmt.Sprintf("%s/%s", e.path, p.Options.FileNamePattern),
+			Path:    fmt.Sprintf("%s/%s", e.path, p.options.FileNamePattern),
 			Content: content,
 		})
 	}

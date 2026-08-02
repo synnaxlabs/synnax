@@ -37,7 +37,7 @@ import (
 // primitiveMapper is the Python-specific primitive type mapper.
 var primitiveMapper = pyprimitives.Mapper()
 
-type Plugin struct{ Options Options }
+type Plugin struct{ options Options }
 
 type Options struct {
 	OutputPath      string
@@ -51,7 +51,7 @@ func DefaultOptions() Options {
 	}
 }
 
-func New(opts Options) *Plugin { return &Plugin{Options: opts} }
+func New(opts Options) *Plugin { return &Plugin{options: opts} }
 
 func (p *Plugin) Name() string { return "py/types" }
 
@@ -64,7 +64,7 @@ func (p *Plugin) Check(req *plugin.Request) error { return nil }
 func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 	gen := &framework.Generator{
 		Domain:          "py",
-		FilePattern:     p.Options.FileNamePattern,
+		FilePattern:     p.options.FileNamePattern,
 		FileGenerator:   &pyFileGenerator{},
 		MergeByName:     true,
 		CollectTypeDefs: true,

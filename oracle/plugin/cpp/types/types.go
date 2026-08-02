@@ -38,7 +38,7 @@ import (
 // primitiveMapper is the C++-specific primitive type mapper.
 var primitiveMapper = cppprimitives.Mapper()
 
-type Plugin struct{ Options Options }
+type Plugin struct{ options Options }
 
 type Options struct {
 	FileNamePattern string
@@ -50,7 +50,7 @@ func DefaultOptions() Options {
 	}
 }
 
-func New(opts Options) *Plugin { return &Plugin{Options: opts} }
+func New(opts Options) *Plugin { return &Plugin{options: opts} }
 
 func (p *Plugin) Name() string { return "cpp/types" }
 
@@ -140,7 +140,7 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 			return nil, errors.Wrapf(err, "failed to generate %s", outputPath)
 		}
 		resp.Files = append(resp.Files, plugin.File{
-			Path:    fmt.Sprintf("%s/%s", outputPath, p.Options.FileNamePattern),
+			Path:    fmt.Sprintf("%s/%s", outputPath, p.options.FileNamePattern),
 			Content: content,
 		})
 	}
@@ -156,7 +156,7 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 			return errors.Wrapf(err, "failed to generate %s", outputPath)
 		}
 		resp.Files = append(resp.Files, plugin.File{
-			Path:    fmt.Sprintf("%s/%s", outputPath, p.Options.FileNamePattern),
+			Path:    fmt.Sprintf("%s/%s", outputPath, p.options.FileNamePattern),
 			Content: content,
 		})
 		return nil

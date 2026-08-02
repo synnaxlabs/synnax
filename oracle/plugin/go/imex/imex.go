@@ -36,10 +36,10 @@ type Options struct {
 func DefaultOptions() Options { return Options{FileNamePattern: "imex.gen.go"} }
 
 // Plugin emits the generated imex version constant.
-type Plugin struct{ Options Options }
+type Plugin struct{ options Options }
 
 // New constructs a Plugin with the given options.
-func New(opts Options) *Plugin { return &Plugin{Options: opts} }
+func New(opts Options) *Plugin { return &Plugin{options: opts} }
 
 func (*Plugin) Name() string                { return "go/imex" }
 func (*Plugin) Domains() []string           { return []string{"go"} }
@@ -87,7 +87,7 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 			return nil, err
 		}
 		resp.Files = append(resp.Files, plugin.File{
-			Path:    outputPath + "/" + p.Options.FileNamePattern,
+			Path:    outputPath + "/" + p.options.FileNamePattern,
 			Content: buf.Bytes(),
 		})
 	}

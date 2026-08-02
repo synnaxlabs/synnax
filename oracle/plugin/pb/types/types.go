@@ -40,7 +40,7 @@ const defaultModulePrefix = "github.com/synnaxlabs/synnax/"
 // primitiveMapper is the Protobuf-specific primitive type mapper.
 var primitiveMapper = pbprimitives.Mapper()
 
-type Plugin struct{ Options Options }
+type Plugin struct{ options Options }
 
 type Options struct {
 	FileNamePattern string
@@ -52,7 +52,7 @@ func DefaultOptions() Options {
 	}
 }
 
-func New(opts Options) *Plugin { return &Plugin{Options: opts} }
+func New(opts Options) *Plugin { return &Plugin{options: opts} }
 
 func (p *Plugin) Name() string { return "pb/types" }
 

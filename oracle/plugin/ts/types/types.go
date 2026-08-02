@@ -38,7 +38,7 @@ import (
 	"github.com/synnaxlabs/x/set"
 )
 
-type Plugin struct{ Options Options }
+type Plugin struct{ options Options }
 
 type Options struct {
 	OutputPath      string
@@ -54,7 +54,7 @@ func DefaultOptions() Options {
 	}
 }
 
-func New(opts Options) *Plugin { return &Plugin{Options: opts} }
+func New(opts Options) *Plugin { return &Plugin{options: opts} }
 
 func (p *Plugin) Name() string { return "ts/types" }
 
@@ -116,7 +116,7 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 			return errors.Wrapf(err, "failed to generate %s", outputPath)
 		}
 		resp.Files = append(resp.Files, plugin.File{
-			Path:    fmt.Sprintf("%s/%s", outputPath, p.Options.FileNamePattern),
+			Path:    fmt.Sprintf("%s/%s", outputPath, p.options.FileNamePattern),
 			Content: content,
 		})
 		return nil
@@ -141,7 +141,7 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 			return errors.Wrapf(err, "failed to generate %s", outputPath)
 		}
 		resp.Files = append(resp.Files, plugin.File{
-			Path:    fmt.Sprintf("%s/%s", outputPath, p.Options.FileNamePattern),
+			Path:    fmt.Sprintf("%s/%s", outputPath, p.options.FileNamePattern),
 			Content: content,
 		})
 		return nil
@@ -160,7 +160,7 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 			return errors.Wrapf(err, "failed to generate %s", outputPath)
 		}
 		resp.Files = append(resp.Files, plugin.File{
-			Path:    fmt.Sprintf("%s/%s", outputPath, p.Options.FileNamePattern),
+			Path:    fmt.Sprintf("%s/%s", outputPath, p.options.FileNamePattern),
 			Content: content,
 		})
 		return nil
@@ -180,7 +180,7 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 			return errors.Wrapf(err, "failed to generate %s", outputPath)
 		}
 		resp.Files = append(resp.Files, plugin.File{
-			Path:    fmt.Sprintf("%s/%s", outputPath, p.Options.FileNamePattern),
+			Path:    fmt.Sprintf("%s/%s", outputPath, p.options.FileNamePattern),
 			Content: content,
 		})
 		return nil
@@ -240,7 +240,7 @@ func (p *Plugin) generateFile(
 		Enums:         make([]enumData, 0, len(enums)),
 		TypeDefs:      make([]typeDefData, 0, len(typeDefs)),
 		SortedDecls:   make([]sortedDeclData, 0),
-		GenerateTypes: p.Options.GenerateTypes,
+		GenerateTypes: p.options.GenerateTypes,
 		Manager:       imports.NewManager(),
 	}
 	skip := func(s resolution.Type) bool { return omit.IsSkipped(s, "ts") }

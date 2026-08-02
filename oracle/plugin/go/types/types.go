@@ -49,7 +49,7 @@ const fieldDocIndent = 4
 var primitiveMapper = goprimitives.Mapper()
 
 // Plugin generates Go type definitions from Oracle schema definitions.
-type Plugin struct{ Options Options }
+type Plugin struct{ options Options }
 
 // Options configures the go/types plugin.
 type Options struct {
@@ -65,7 +65,7 @@ func DefaultOptions() Options {
 }
 
 // New creates a new go/types plugin with the given options.
-func New(opts Options) *Plugin { return &Plugin{Options: opts} }
+func New(opts Options) *Plugin { return &Plugin{options: opts} }
 
 // Name returns the plugin identifier.
 func (p *Plugin) Name() string { return "go/types" }
@@ -104,7 +104,7 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 	closure := PersistedClosure(rewritten)
 	versionedGen := &framework.Generator{
 		Domain:      "go",
-		FilePattern: p.Options.FileNamePattern,
+		FilePattern: p.options.FileNamePattern,
 		FileGenerator: &goFileGenerator{
 			preds:    preds,
 			original: req.Resolutions,
@@ -125,7 +125,7 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 	}
 	unversionedGen := &framework.Generator{
 		Domain:        "go",
-		FilePattern:   p.Options.FileNamePattern,
+		FilePattern:   p.options.FileNamePattern,
 		FileGenerator: &goFileGenerator{},
 		PathFilter: func(outputPath string) bool {
 			_, versioned := pathMap[outputPath]
@@ -151,7 +151,7 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 	// layout must not be re-declared there.
 	transientGen := &framework.Generator{
 		Domain:      "go",
-		FilePattern: p.Options.FileNamePattern,
+		FilePattern: p.options.FileNamePattern,
 		FileGenerator: &goFileGenerator{
 			original: req.Resolutions,
 			pathMap:  pathMap,
@@ -179,7 +179,7 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 	resp.Files = append(resp.Files, transientResp.Files...)
 	aliasGen := &framework.Generator{
 		Domain:          "go",
-		FilePattern:     p.Options.FileNamePattern,
+		FilePattern:     p.options.FileNamePattern,
 		FileGenerator:   &aliasFileGenerator{pathMap: pathMap},
 		PathFilter:      pathFilter,
 		MergeByName:     false,
@@ -195,7 +195,7 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 	resp.Files = mergeByPath(resp.Files, aliasResp.Files)
 	selectorGen := &framework.Generator{
 		Domain:          "go",
-		FilePattern:     "versions/" + p.Options.FileNamePattern,
+		FilePattern:     "versions/" + p.options.FileNamePattern,
 		FileGenerator:   &aliasFileGenerator{pathMap: pathMap, pkg: "versions"},
 		PathFilter:      pathFilter,
 		MergeByName:     false,
