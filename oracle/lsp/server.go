@@ -198,7 +198,13 @@ func (s *Server) publishDiagnostics(ctx context.Context, docURI uri.URI, content
 
 	doc.Schema = ast
 	namespace := deriveNamespaceFromURI(docURI)
-	table, analyzeDiag := analyzer.AnalyzeSource(ctx, content, namespace, noopLoader{})
+	// The real file path distinguishes version files from live schemas so the
+	// analyzer's placement rules key correctly.
+	filePath := strings.TrimPrefix(string(docURI), "file://")
+	table := resolution.NewTable()
+	analyzeDiag := analyzer.AnalyzeSeeded(
+		ctx, content, filePath, namespace, noopLoader{}, table,
+	)
 	if analyzeDiag != nil {
 		flat := analyzeDiag.Flat()
 		doc.Diagnostics = &flat

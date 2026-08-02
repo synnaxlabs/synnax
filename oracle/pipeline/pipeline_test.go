@@ -303,6 +303,23 @@ var _ = Describe("pipeline.DiscoverSchemas", func() {
 			To(Equal([]string{"schemas/synnax/channel.oracle"}))
 	})
 
+	It("excludes version chain directories", func() {
+		repoRoot := MustSucceed(os.MkdirTemp("", "discover"))
+		DeferCleanup(func() {
+			Expect(os.RemoveAll(repoRoot)).To(Succeed())
+		})
+		write := func(rel string) {
+			abs := filepath.Join(repoRoot, rel)
+			Expect(os.MkdirAll(filepath.Dir(abs), 0755)).To(Succeed())
+			Expect(os.WriteFile(abs, []byte(""), 0644)).To(Succeed())
+		}
+		write("schemas/synnax/channel.oracle")
+		write("schemas/synnax/versions/channel/v0.oracle")
+		write("schemas/x/versions/telem/v0.oracle")
+		Expect(pipeline.DiscoverSchemas(repoRoot)).
+			To(Equal([]string{"schemas/synnax/channel.oracle"}))
+	})
+
 	It("returns empty when the schemas directory does not exist", func() {
 		repoRoot := MustSucceed(os.MkdirTemp("", "discover"))
 		DeferCleanup(func() {

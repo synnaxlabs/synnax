@@ -244,6 +244,8 @@ func analyze(c *analysisCtx) {
 	validateFileVersion(c)
 	validateVersionArgs(c, types)
 	validatePinnedArgs(c, types)
+	validateImportPlacement(c)
+	validateVersionFileFields(c, types)
 	for _, typ := range types {
 		for i, t := range c.table.Types {
 			if t.QualifiedName == typ.QualifiedName {

@@ -113,6 +113,98 @@ var _ = Describe("Analyzer", func() {
 		})
 	})
 
+	Describe("Version file rules", func() {
+		analyzeAt := func(
+			ctx SpecContext, source, filePath, namespace string,
+		) *diagnostics.Files {
+			return analyzer.AnalyzeSeeded(
+				ctx, source, filePath, namespace, loader, resolution.NewTable(),
+			)
+		}
+
+		It("Should reject a live-schema import from a version file", func(
+			ctx SpecContext,
+		) {
+			loader.Add("schemas/x/telem", "TimeStamp = int64\n")
+			diag := analyzeAt(ctx, `
+import "schemas/x/telem"
+
+Entry struct {
+	created telem.TimeStamp
+}
+`,
+				"schemas/synnax/versions/channel/v0.oracle", "v0")
+			Expect(diag.Ok()).To(BeFalse())
+			Expect(diag.String()).To(ContainSubstring(
+				"may only import other version files",
+			))
+		})
+
+		It("Should allow a version file to import version files", func(
+			ctx SpecContext,
+		) {
+			loader.Add("schemas/x/versions/telem/v0", "TimeStamp = int64\n")
+			diag := analyzeAt(ctx, `
+import "schemas/x/versions/telem/v0"
+
+Entry struct {
+	created telem.TimeStamp
+}
+`,
+				"schemas/synnax/versions/channel/v0.oracle", "v0")
+			Expect(diag.Ok()).To(BeTrue(), diag.String())
+		})
+
+		It("Should reject a live schema importing another resource's versions", func(
+			ctx SpecContext,
+		) {
+			loader.Add("schemas/x/versions/telem/v0", "TimeStamp = int64\n")
+			diag := analyzeAt(ctx, `
+import "schemas/x/versions/telem/v0"
+
+Entry struct {
+	created telem.TimeStamp
+}
+`,
+				"schemas/synnax/channel.oracle", "channel")
+			Expect(diag.Ok()).To(BeFalse())
+			Expect(diag.String()).To(ContainSubstring(
+				"may only import its own resource's version files",
+			))
+		})
+
+		It("Should allow a live schema to import its own versions", func(
+			ctx SpecContext,
+		) {
+			loader.Add("schemas/synnax/versions/channel/v0", "Key = uuid\n")
+			diag := analyzeAt(ctx, `
+import "schemas/synnax/versions/channel/v0"
+
+Entry struct {
+	key channel.Key
+}
+`,
+				"schemas/synnax/channel.oracle", "channel")
+			Expect(diag.Ok()).To(BeTrue(), diag.String())
+		})
+
+		It("Should reject omit fields in a version file", func(ctx SpecContext) {
+			diag := analyzeAt(ctx, `
+Entry struct {
+	key uuid @key
+	cached string {
+		@go marshal omit
+	}
+}
+`,
+				"schemas/synnax/versions/channel/v0.oracle", "v0")
+			Expect(diag.Ok()).To(BeFalse())
+			Expect(diag.String()).To(ContainSubstring(
+				"version files record persisted shape only",
+			))
+		})
+	})
+
 	Describe("Version arguments", func() {
 		It("Should accept a pinned marker", func(ctx SpecContext) {
 			source := `
