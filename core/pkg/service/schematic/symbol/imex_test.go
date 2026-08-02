@@ -103,18 +103,19 @@ var _ = Describe("ImEx", func() {
 			Expect(res.Data.PreviewViewport.Zoom).To(Equal(3.0))
 		})
 
-		It("Should reject an envelope older than the supported version", func(ctx SpecContext) {
-			raw := MustSucceed(os.ReadFile("versions/testdata/import_v2.json"))
-			var body map[string]any
-			Expect(json.Unmarshal(raw, &body)).To(Succeed())
-			body["version"] = 1
-			var env imex.Envelope
-			Expect(json.Unmarshal(MustSucceed(json.Marshal(body)), &env)).To(Succeed())
-			Expect(imexSvc.Import(ctx, tx, env, imex.ImportOptions{})).Error().
-				To(SatisfyAll(
-					MatchError(ContainSubstring("unsupported schematic_symbol version 1")),
-					MatchError(ContainSubstring("validation error")),
-				))
+		It("Should import a Console export carrying camelCase keys", func(ctx SpecContext) {
+			res := importAndRetrieve(ctx, "versions/testdata/import_console.json")
+			Expect(res.Name).To(Equal("Console Symbol"))
+			Expect(res.Data.Variant).To(Equal("sensor"))
+			Expect(res.Data.Scale).To(Equal(2.0))
+			Expect(res.Data.ScaleStroke).To(BeTrue())
+			Expect(res.Data.States).To(HaveLen(1))
+			region := res.Data.States[0].Regions[0]
+			Expect(region.StrokeColor).To(HaveValue(Equal("#123456")))
+			Expect(region.FillColor).To(HaveValue(Equal("#654321")))
+			Expect(res.Data.Handles).To(HaveLen(1))
+			Expect(res.Data.PreviewViewport).ToNot(BeNil())
+			Expect(res.Data.PreviewViewport.Zoom).To(Equal(6.0))
 		})
 
 		It("Should parent the imported symbol under the permanent symbol group by default", func(ctx SpecContext) {
