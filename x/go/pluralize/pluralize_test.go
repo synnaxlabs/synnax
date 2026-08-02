@@ -10,18 +10,10 @@
 package pluralize_test
 
 import (
-	"testing"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/x/pluralize"
-	. "github.com/synnaxlabs/x/testutil"
 )
-
-func TestPluralize(t *testing.T) {
-	RegisterFailHandler(Fail)
-	RunSpecs(t, "Pluralize Suite")
-}
 
 var _ = Describe("Pluralize", func() {
 	Context("regular nouns", func() {
@@ -184,5 +176,3 @@ var _ = Describe("Pluralize", func() {
 		})
 	})
 })
-
-var _ = ShouldNotLeakGoroutinesPerSpec()
