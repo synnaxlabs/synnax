@@ -7,10 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { lineplot, panel } from "@synnaxlabs/client";
+import { lineplot } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { LinePlot as PLinePlot, Panel as PlutoPanel } from "@synnaxlabs/pluto";
-import { id, uuid } from "@synnaxlabs/x";
+import { id } from "@synnaxlabs/x";
 import { act, render, within } from "@testing-library/react";
 import {
   type ComponentType,
@@ -21,12 +21,9 @@ import {
 } from "react";
 
 import { Modals } from "@/platform/modals";
+import { createResourceTab } from "@/platform/panel/testutil";
 import { Session } from "@/session";
-import {
-  type ConsolePreloadedState,
-  createConsoleWrapper,
-  uniqueName,
-} from "@/testutil";
+import { type ConsolePreloadedState, createConsoleWrapper } from "@/testutil";
 
 export const client = createTestClient();
 
@@ -68,26 +65,6 @@ export const createPreloadedState = (
   },
 });
 
-// createResourceTab creates a single-leaf panel holding one resource tab that backs
-// the given plot on the cluster, so the panel scope hooks a mounted tab content reads
-// (useSelectTabResource) resolve to the plot's ontology ID.
-const createResourceTab = async (
-  key: string,
-): Promise<{ panelKey: string; tabKey: string }> => {
-  const tabKey = uuid.create();
-  const doc = panel.panelZ.parse({
-    name: uniqueName("panel"),
-    root: {
-      variant: "leaf",
-      tabs: [{ variant: "resource", key: tabKey, resource: lineplot.ontologyID(key) }],
-    },
-  });
-  await client.panels.create(doc);
-  // Prime the query cache the way the mosaic's retrieve does.
-  await client.panels.retrieve(doc.key);
-  return { panelKey: doc.key, tabKey };
-};
-
 export interface RenderLinePlotOptions {
   linePlot?: Partial<lineplot.New>;
   preloadedState?: (key: string) => ConsolePreloadedState;
@@ -110,7 +87,10 @@ export const renderLinePlot = async (
     preloadedState: preloadedState?.(created.key),
   });
   await loadLinePlot(Wrapper, created.key);
-  const { panelKey, tabKey } = await createResourceTab(created.key);
+  const { panelKey, tabKey } = await createResourceTab(
+    client,
+    lineplot.ontologyID(created.key),
+  );
   const result = render(
     <PlutoPanel.Scope.Provider value={panelKey}>
       <PlutoPanel.TabScope.Provider value={tabKey}>
