@@ -10,6 +10,8 @@
 package types_test
 
 import (
+	"strings"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/oracle/analyzer"
@@ -17,7 +19,6 @@ import (
 	"github.com/synnaxlabs/oracle/plugin/ts/types"
 	. "github.com/synnaxlabs/oracle/testutil"
 	. "github.com/synnaxlabs/x/testutil"
-	"strings"
 )
 
 var _ = Describe("TSFormatter", func() {

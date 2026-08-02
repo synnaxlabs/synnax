@@ -204,7 +204,7 @@ func (nopSpan) Key() string { return "" }
 func (nopSpan) Error(err error, _ ...error) error { return err }
 
 // Status implements Span.
-func (nopSpan) Status(_ Status) {}
+func (nopSpan) Status(Status) {}
 
 // End implements Span.
 func (nopSpan) End() {}

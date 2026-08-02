@@ -282,8 +282,8 @@ func (i *Interval) Next(ctx node.Context) {
 	outputTime := i.OutputTime(0)
 	output.Resize(1)
 	outputTime.Resize(1)
-	telem.SetValueAt[uint8](*output, 0, uint8(1))
-	telem.SetValueAt[telem.TimeStamp](*outputTime, 0, telem.TimeStamp(ctx.Elapsed))
+	telem.SetValueAt(*output, 0, uint8(1))
+	telem.SetValueAt(*outputTime, 0, telem.TimeStamp(ctx.Elapsed))
 }
 
 // Reset resets the interval so it fires immediately on the next timer tick.
@@ -340,7 +340,7 @@ type Now struct {
 	clock *telem.MonoClock
 }
 
-func (*Now) Init(_ node.Context) {}
+func (*Now) Init(node.Context) {}
 
 func (n *Now) Next(ctx node.Context) {
 	ts := n.clock.Now()
@@ -348,8 +348,8 @@ func (n *Now) Next(ctx node.Context) {
 	outputTime := n.OutputTime(0)
 	output.Resize(1)
 	outputTime.Resize(1)
-	telem.SetValueAt[telem.TimeStamp](*output, 0, ts)
-	telem.SetValueAt[telem.TimeStamp](*outputTime, 0, ts)
+	telem.SetValueAt(*output, 0, ts)
+	telem.SetValueAt(*outputTime, 0, ts)
 	ctx.MarkChanged(0)
 }
 

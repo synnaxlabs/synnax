@@ -94,10 +94,3 @@ var _ = Describe("Primitives", func() {
 		})
 	})
 })
-
-// NOTE: Language-specific mapping tests have been moved to per-language test files:
-// - oracle/plugin/go/primitives/mapping_test.go
-// - oracle/plugin/py/primitives/mapping_test.go
-// - oracle/plugin/ts/primitives/mapping_test.go
-// - oracle/plugin/cpp/primitives/mapping_test.go
-// - oracle/plugin/pb/primitives/mapping_test.go
