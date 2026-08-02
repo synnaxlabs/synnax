@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type record } from "@synnaxlabs/x";
+import { type record, TimeStamp } from "@synnaxlabs/x";
 import { describe, expect, it, vi } from "vitest";
 
 import { NotFoundError } from "@/errors";
@@ -117,6 +117,42 @@ describe("hash", () => {
     expect(query.hash({ k: new Wrapper(7) })).toEqual(
       query.hash({ k: new Wrapper(7) }),
     );
+  });
+});
+
+describe("isLive", () => {
+  it("accepts a cached answer", () => {
+    expect(query.isLive(rec("a", 7))).toBe(true);
+  });
+
+  it("rejects an uncached answer", () => {
+    expect(query.isLive(undefined)).toBe(false);
+  });
+
+  it("rejects a deletion", () => {
+    expect(query.isLive(new Deleted(rec("a", 7), TimeStamp.now()))).toBe(false);
+  });
+
+  it("accepts falsy answers", () => {
+    expect(query.isLive(0)).toBe(true);
+    expect(query.isLive("")).toBe(true);
+    expect(query.isLive(false)).toBe(true);
+    expect(query.isLive([])).toBe(true);
+  });
+});
+
+describe("requireCorpse", () => {
+  it("returns the corpse of a deletion", () => {
+    const corpse = rec("a", 7);
+    expect(query.requireCorpse(new Deleted(corpse, TimeStamp.now()))).toEqual(corpse);
+  });
+
+  it("throws when the answer is live", () => {
+    expect(() => query.requireCorpse(rec("a", 7))).toThrow(NotFoundError);
+  });
+
+  it("throws when nothing is cached", () => {
+    expect(() => query.requireCorpse(undefined)).toThrow(NotFoundError);
   });
 });
 
