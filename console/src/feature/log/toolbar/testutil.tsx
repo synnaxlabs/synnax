@@ -7,10 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { log as clientLog, type log, panel } from "@synnaxlabs/client";
+import { log as clientLog, type log } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { Log, Panel as PlutoPanel } from "@synnaxlabs/pluto";
-import { id, uuid } from "@synnaxlabs/x";
+import { id } from "@synnaxlabs/x";
 import { act, render, within } from "@testing-library/react";
 import {
   type ComponentType,
@@ -20,11 +20,8 @@ import {
   Suspense,
 } from "react";
 
-import {
-  type ConsolePreloadedState,
-  createConsoleWrapper,
-  uniqueName,
-} from "@/testutil";
+import { createResourceTab } from "@/platform/panel/testutil";
+import { type ConsolePreloadedState, createConsoleWrapper } from "@/testutil";
 
 export const client = createTestClient();
 
@@ -58,26 +55,6 @@ export interface RenderLogOptions {
   preloadedState?: (key: string) => ConsolePreloadedState;
 }
 
-// createResourceTab creates a single-leaf panel holding one resource tab that backs
-// the given log on the cluster, so the panel scope hooks a mounted tab content reads
-// (useSelectTabResource) resolve to the log's ontology ID.
-const createResourceTab = async (
-  key: string,
-): Promise<{ panelKey: string; tabKey: string }> => {
-  const tabKey = uuid.create();
-  const doc = panel.panelZ.parse({
-    name: uniqueName("panel"),
-    root: {
-      variant: "leaf",
-      tabs: [{ variant: "resource", key: tabKey, resource: clientLog.ontologyID(key) }],
-    },
-  });
-  await client.panels.create(doc);
-  // Prime the query cache the way the mosaic's retrieve does.
-  await client.panels.retrieve(doc.key);
-  return { panelKey: doc.key, tabKey };
-};
-
 // renderLog creates a log on the server, mounts Component inside the panel and tab
 // scopes of a seeded resource tab (the way the mosaic renders a tab) with the log
 // loaded into the flux cache, and returns the render result plus the Redux store and
@@ -95,7 +72,10 @@ export const renderLog = async (
     preloadedState: preloadedState?.(created.key),
   });
   await loadLog(Wrapper, created.key);
-  const { panelKey, tabKey } = await createResourceTab(created.key);
+  const { panelKey, tabKey } = await createResourceTab(
+    client,
+    clientLog.ontologyID(created.key),
+  );
   const result = render(
     <PlutoPanel.Scope.Provider value={panelKey}>
       <PlutoPanel.TabScope.Provider value={tabKey}>

@@ -17,7 +17,7 @@ import {
 } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { Errors, Flux, Icon, Panel as PlutoPanel } from "@synnaxlabs/pluto";
-import { TimeRange, TimeSpan, TimeStamp, uuid } from "@synnaxlabs/x";
+import { TimeRange, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { type ComponentType } from "react";
 import { assert, describe, expect, it, vi } from "vitest";
@@ -25,6 +25,7 @@ import { assert, describe, expect, it, vi } from "vitest";
 import { Range } from "@/feature/range";
 import { Modals } from "@/platform/modals";
 import { findButton } from "@/platform/modals/testutil";
+import { createResourceTab } from "@/platform/panel/testutil";
 import { Range as PlatformRange } from "@/platform/range";
 import { createTestRange, uniqueRangeName } from "@/platform/range/testutil";
 import {
@@ -58,23 +59,12 @@ const renderOverview = async (
     },
   };
   const { wrapper } = await createConsoleWrapper({ client });
-  const tabKey = uuid.create();
-  const doc = panel.panelZ.parse({
-    name: uniqueName("panel"),
-    root: {
-      variant: "leaf",
-      tabs: [
-        {
-          variant: "resource",
-          key: tabKey,
-          resource: rangerClient.ontologyID(rangeKey),
-        },
-      ],
-    },
-  });
-  await client.panels.create(doc);
+  const { panelKey, tabKey } = await createResourceTab(
+    client,
+    rangerClient.ontologyID(rangeKey),
+  );
   render(
-    <PlutoPanel.Scope.Provider value={doc.key}>
+    <PlutoPanel.Scope.Provider value={panelKey}>
       <PlutoPanel.TabScope.Provider value={tabKey}>
         <PlatformRange.SnapshotServicesProvider services={services}>
           <Errors.SuspenseBoundary FallbackComponent={FallbackComponent}>
@@ -88,7 +78,7 @@ const renderOverview = async (
   );
   const setTabResource = async (nextKey: string) =>
     await act(async () => {
-      await client.panels.dispatch(doc.key, [
+      await client.panels.dispatch(panelKey, [
         panel.setTabResource({
           key: tabKey,
           resource: rangerClient.ontologyID(nextKey),

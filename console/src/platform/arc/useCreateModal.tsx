@@ -14,13 +14,16 @@ import {
   Arc,
   Button,
   CSS as PCSS,
+  type Flux,
   Form,
   Icon,
-  Input,
+  type Input,
   Nav,
   Select,
   Text,
 } from "@synnaxlabs/pluto";
+import { useCallback, useMemo } from "react";
+import { type z } from "zod";
 
 import { CSS } from "@/platform/css";
 import { Modals } from "@/platform/modals";
@@ -31,11 +34,20 @@ export interface CreateModalResult {
 }
 
 export interface CreateModalParams {
-  initialName?: string;
-  initialMode?: arc.Mode;
+  initialValues?: Partial<z.infer<typeof Arc.formSchema>>;
 }
 
 const MODE_KEYS: arc.Mode[] = ["graph", "text"];
+
+const QUERY: Arc.FormQuery = {};
+
+const NAME_INPUT_PROPS: Partial<Input.TextProps> = {
+  autoFocus: true,
+  placeholder: "Automation Name",
+  level: "h2",
+  variant: "text",
+  selectOnFocus: true,
+};
 
 export interface ArcModeSelectButtonProps extends Select.ButtonProps<arc.Mode> {
   icon: Icon.ReactElement;
@@ -74,15 +86,21 @@ const ArcModeSelectButton = ({
 };
 
 export const useCreateModal = Modals.createPrompt<CreateModalResult, CreateModalParams>(
-  ({ initialName, initialMode, close }) => {
+  ({ initialValues, close }) => {
     const { form, save, variant } = Arc.useForm({
-      query: {},
-      initialValues: { name: initialName ?? "", mode: initialMode ?? "graph" },
-      afterSave: ({ value }) => {
-        const { key } = value();
-        if (key == null) throw new UnexpectedError("Arc key is null");
-        close({ key });
-      },
+      query: QUERY,
+      initialValues: useMemo(
+        () => ({ ...Arc.ZERO_FORM_VALUES, ...initialValues }),
+        [initialValues],
+      ),
+      afterSave: useCallback(
+        ({ value }: Flux.AfterSaveParams<Arc.FormQuery, typeof Arc.formSchema>) => {
+          const { key } = value();
+          if (key == null) throw new UnexpectedError("Arc key is null");
+          close({ key });
+        },
+        [close],
+      ),
     });
 
     return (
@@ -90,18 +108,7 @@ export const useCreateModal = Modals.createPrompt<CreateModalResult, CreateModal
         <Modals.Header icon={<Icon.Arc />}>Arc.Create Automation</Modals.Header>
         <Modals.Body>
           <Form.Form<typeof Arc.formSchema> {...form}>
-            <Form.Field<string> path="name" required>
-              {(p) => (
-                <Input.Text
-                  autoFocus
-                  placeholder="Automation Name"
-                  level="h2"
-                  variant="text"
-                  selectOnFocus
-                  {...p}
-                />
-              )}
-            </Form.Field>
+            <Form.TextField path="name" required inputProps={NAME_INPUT_PROPS} />
             <Form.Field<arc.Mode> path="mode" label="Editor Mode" full="x">
               {({ value, onChange }) => (
                 <Select.Buttons
