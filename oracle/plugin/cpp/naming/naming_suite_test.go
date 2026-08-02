@@ -19,7 +19,7 @@ import (
 
 func TestNaming(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "CPP Naming Suite")
+	RunSpecs(t, "Plugin C++ Naming Suite")
 }
 
 var _ = ShouldNotLeakGoroutinesPerSpec()

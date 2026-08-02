@@ -19,7 +19,7 @@ import (
 
 func TestCppPB(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Plugin Cpp PB Suite")
+	RunSpecs(t, "Plugin C++ PB Suite")
 }
 
 var _ = ShouldNotLeakGoroutinesPerSpec()

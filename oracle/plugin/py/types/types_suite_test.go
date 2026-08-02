@@ -19,7 +19,7 @@ import (
 
 func TestTypes(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Plugin Py Types Suite")
+	RunSpecs(t, "Plugin Python Types Suite")
 }
 
 var _ = ShouldNotLeakGoroutinesPerSpec()
