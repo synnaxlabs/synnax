@@ -164,7 +164,7 @@ func (c *streamCore[I, O]) listenForContextCancellation() {
 		if err := c.conn.WriteControl(
 			websocket.CloseMessage,
 			websocket.FormatCloseMessage(contextCancelledCloseCode, ""),
-			time.Now().Add(time.Second),
+			time.Now().Add(closeReadWriteDeadline),
 		); err != nil && !errors.Is(err, websocket.ErrCloseSent) {
 			c.L.Error("error sending close message: %v \n", zap.Error(err))
 		}
