@@ -37,7 +37,7 @@ func (p *Plugin) chainFiles(req *plugin.Request) ([]plugin.File, error) {
 	var files []plugin.File
 	for _, origPath := range slices.Sorted(maps.Keys(chainPaths)) {
 		cp := chainPaths[origPath]
-		for k := 1; k <= cp.Current; k++ {
+		for k := cp.First + 1; k <= cp.Current; k++ {
 			file, ok, err := chainFile(ctx, req, origPath, cp.LivePath, k)
 			if err != nil {
 				return nil, err

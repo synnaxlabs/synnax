@@ -36,7 +36,7 @@ func (p *Plugin) chainFrozenCodecs(req *plugin.Request) ([]plugin.File, error) {
 	var files []plugin.File
 	for _, origPath := range slices.Sorted(maps.Keys(chainPaths)) {
 		cp := chainPaths[origPath]
-		for k := range cp.Current {
+		for k := cp.First; k < cp.Current; k++ {
 			out, err := p.frozenCodecFiles(ctx, req, origPath, cp.LivePath, k)
 			if err != nil {
 				return nil, err

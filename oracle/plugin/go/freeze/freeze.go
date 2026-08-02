@@ -81,8 +81,8 @@ func Canonical(ctx context.Context, in Input) (string, error) {
 		surf map[string]versions.Definition
 		err  error
 	)
-	if in.N > 0 {
-		if surf, err = in.Resolver.Surface(ctx, livePath, in.N-1); err != nil {
+	if pred, ok := in.Chain.Predecessor(in.N); ok {
+		if surf, err = in.Resolver.Surface(ctx, livePath, pred); err != nil {
 			return "", err
 		}
 	}

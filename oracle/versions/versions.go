@@ -37,6 +37,20 @@ type Chain struct {
 // Current returns the chain's current (highest) version.
 func (c Chain) Current() int { return c.Numbers[len(c.Numbers)-1] }
 
+// First returns the chain's oldest version. Chains normally start at v0;
+// resources whose older history predates per-resource versioning (legacy
+// payload ranges) start above it.
+func (c Chain) First() int { return c.Numbers[0] }
+
+// Predecessor returns the version preceding n in the chain, or false when n
+// is the chain's first version.
+func (c Chain) Predecessor(n int) (int, bool) {
+	if n <= c.First() {
+		return 0, false
+	}
+	return n - 1, true
+}
+
 // Dir returns the chain's repo-relative directory.
 func (c Chain) Dir() string {
 	return path.Join("schemas", c.Domain, paths.VersionsDirName, c.Resource)

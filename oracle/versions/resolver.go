@@ -114,7 +114,7 @@ func (r *Resolver) file(ctx context.Context, livePath string, n int) (*File, err
 	if !ok {
 		return nil, errors.Newf("no version chain for %s", livePath)
 	}
-	if n < 0 || n > chain.Current() {
+	if n < chain.First() || n > chain.Current() {
 		return nil, errors.Newf("%s has no version %d", livePath, n)
 	}
 	key := chain.FilePath(n)
@@ -143,7 +143,7 @@ func (r *Resolver) file(ctx context.Context, livePath string, n int) (*File, err
 	// Sibling versions seed the table with their defined declarations only,
 	// so an alias targeting a non-defining version fails resolution — the
 	// alias-to-definer rule enforced structurally.
-	for k := range n {
+	for k := chain.First(); k < n; k++ {
 		sib, err := r.file(ctx, livePath, k)
 		if err != nil {
 			return nil, err
@@ -283,8 +283,8 @@ func (r *Resolver) surface(
 		return nil, err
 	}
 	var prev map[string]Definition
-	if n > 0 {
-		if prev, err = r.surface(ctx, livePath, n-1); err != nil {
+	if pred, ok := f.Chain.Predecessor(n); ok {
+		if prev, err = r.surface(ctx, livePath, pred); err != nil {
 			return nil, err
 		}
 	}

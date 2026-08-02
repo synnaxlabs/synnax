@@ -92,10 +92,12 @@ func readChain(domain, resource, dir string) (Chain, error) {
 		return Chain{}, errors.Newf("%s declares no versions", dir)
 	}
 	sort.Ints(chain.Numbers)
+	// Chains whose older history predates per-resource versioning start
+	// above v0 (legacy payload ranges); within the chain, versions are dense.
 	for i, n := range chain.Numbers {
-		if n != i {
+		if want := chain.Numbers[0] + i; n != want {
 			return Chain{}, errors.Newf(
-				"%s versions must be dense from v0; missing v%d", dir, i,
+				"%s versions must be dense; missing v%d", dir, want,
 			)
 		}
 	}

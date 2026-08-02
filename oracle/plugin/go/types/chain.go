@@ -44,15 +44,15 @@ func chainPredecessors(
 	}
 	chains := req.Versions.Chains()
 	for origPath, version := range entries {
-		if version == 0 {
-			continue
-		}
 		resource, livePath, ok := pathResource(req.Resolutions, origPath)
 		if !ok {
 			continue
 		}
 		chain, ok := chains[livePath]
 		if !ok {
+			continue
+		}
+		if version == chain.First() {
 			continue
 		}
 		if chain.Current() != version {
@@ -104,10 +104,11 @@ func chainFrozenFiles(
 		if !ok {
 			continue
 		}
-		if _, ok := chains[livePath]; !ok {
+		chain, ok := chains[livePath]
+		if !ok {
 			continue
 		}
-		for k := range version {
+		for k := chain.First(); k < version; k++ {
 			file, err := frozenFile(ctx, req, origPath, livePath, k, fileName)
 			if err != nil {
 				return nil, err
@@ -122,6 +123,8 @@ func chainFrozenFiles(
 type ChainPath struct {
 	// LivePath is the resource's live import path ("schemas/x/telem").
 	LivePath string
+	// First is the chain's oldest version.
+	First int
 	// Current is the chain's current version.
 	Current int
 }
@@ -142,10 +145,13 @@ func ChainPaths(req *plugin.Request) (map[string]ChainPath, error) {
 		if !ok {
 			continue
 		}
-		if _, ok := chains[livePath]; !ok {
+		chain, ok := chains[livePath]
+		if !ok {
 			continue
 		}
-		out[origPath] = ChainPath{LivePath: livePath, Current: version}
+		out[origPath] = ChainPath{
+			LivePath: livePath, First: chain.First(), Current: version,
+		}
 	}
 	return out, nil
 }
@@ -189,7 +195,7 @@ func frozenFile(
 		return plugin.File{}, err
 	}
 	pred := predecessor{}
-	if k > 0 {
+	if k > f.Chain.First() {
 		pred = predecessor{
 			path:    versioning.VersionedPath(origPath, k-1),
 			aliased: make(set.Set[string], len(f.Aliases)),

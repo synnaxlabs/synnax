@@ -161,7 +161,7 @@ func (g VersionsGate) checkChain(
 
 	// Minimality: every redeclaration must differ structurally from its
 	// resolved predecessor.
-	for k := 1; k <= current; k++ {
+	for k := chain.First() + 1; k <= current; k++ {
 		fk, err := resolver.File(ctx, livePath, k)
 		if err != nil {
 			r.fail(Finding{
