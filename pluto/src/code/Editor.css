@@ -30,13 +30,11 @@
     color: var(--pluto-secondary-m1) !important;
 }
 
-.monaco-editor,
-.monaco-editor-background {
-    background: var(--pluto-gray-l1) !important;
-}
-
-.monaco-editor .margin {
-    background: var(--pluto-gray-l1) !important;
+/* Only .pluto-editor paints, so callers pick the surface with `background`. */
+.pluto-editor .monaco-editor,
+.pluto-editor .monaco-editor-background,
+.pluto-editor .monaco-editor .margin {
+    background: transparent !important;
 }
 
 .monaco-editor .line-numbers {
@@ -45,7 +43,6 @@
 
 .pluto-editor {
     height: 100%;
-    background: var(--pluto-gray-l1);
     padding: 2rem 1px;
     border-color: var(--pluto-gray-l6);
     &.pluto--bordered:has(.focused) {

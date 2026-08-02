@@ -346,9 +346,6 @@
     }
 
     &.pluto--pack {
-        &:not(.pluto--sharp) {
-            border-radius: var(--pluto-border-radius);
-        }
         & > * {
             border-radius: 0;
         }

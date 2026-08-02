@@ -40,7 +40,7 @@ export const Frame = ({
     empty
     bordered
     pack
-    rounded="small"
+    rounded="large"
     borderColor={7}
     background={1}
     onClick={expanded ? onContract : undefined}

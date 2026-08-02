@@ -63,6 +63,7 @@ export const Editor = () => {
       initialValue={text.value()}
       onEdit={handleEdit}
       language={NAME}
+      background={0}
       scrollBeyondLastLine
     />
   );
