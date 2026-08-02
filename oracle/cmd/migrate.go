@@ -81,6 +81,9 @@ func runChainMigrate(
 			return errors.New("schema analysis failed")
 		}
 	}
+	if err := resolver.Annotate(ctx, live); err != nil {
+		return err
+	}
 
 	targets, err := resolveTargets(
 		ctx, repoRoot, resolver, live, chains, args, amend,

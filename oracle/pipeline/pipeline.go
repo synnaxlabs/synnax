@@ -266,6 +266,9 @@ func generate(ctx context.Context, r *Result, opts Options, workers int) error {
 		resolver = versions.NewResolver(
 			chains, analyzer.NewStandardFileLoader(opts.RepoRoot),
 		)
+		if err := resolver.Annotate(ctx, r.Resolutions); err != nil {
+			return err
+		}
 	}
 
 	levels := topoLevels(opts.Plugins)
