@@ -12,6 +12,7 @@ package types
 import (
 	"bytes"
 	"cmp"
+	"context"
 	"fmt"
 	"math"
 	"os"
@@ -257,19 +258,27 @@ func (c *captureGenerator) GenerateFile(ctx *framework.GenerateContext) (string,
 }
 
 // computeSplit resolves the alias split for every version-laid-out current
-// package. Snapshot-declared baselines decide first; for paths the snapshots
-// cannot anchor (history predating per-resource versioning), the frozen
-// predecessor package on disk is the baseline: a type aliases only when its
-// declarations are identical to the frozen ones.
+// package. Explicit version chains decide first — their current file
+// enumerates the split. Snapshot-declared baselines cover paths without a
+// chain; for paths the snapshots cannot anchor (history predating
+// per-resource versioning), the frozen predecessor package on disk is the
+// baseline: a type aliases only when its declarations are identical to the
+// frozen ones.
 func computeSplit(
 	req *plugin.Request, rewritten *resolution.Table,
 ) (map[string]predecessor, error) {
-	preds, err := predecessors(req)
+	preds, err := chainPredecessors(context.Background(), req)
 	if err != nil {
 		return nil, err
 	}
-	if preds == nil {
-		preds = make(map[string]predecessor)
+	snapPreds, err := predecessors(req)
+	if err != nil {
+		return nil, err
+	}
+	for path, pred := range snapPreds {
+		if _, ok := preds[path]; !ok {
+			preds[path] = pred
+		}
 	}
 	entries, err := versioning.EntryPaths(req.Resolutions)
 	if err != nil {
@@ -1089,6 +1098,7 @@ package {{.Package}}
 {{- if .HasImports}}
 
 import (
+	"context"
 {{- range .StdImports}}
 	"{{.}}"
 {{- end}}
