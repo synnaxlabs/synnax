@@ -35,6 +35,7 @@ import (
 	"github.com/synnaxlabs/oracle/plugin"
 	"github.com/synnaxlabs/oracle/resolution"
 	"github.com/synnaxlabs/oracle/snapshot"
+	"github.com/synnaxlabs/oracle/versions"
 	"github.com/synnaxlabs/x/diagnostics"
 	"github.com/synnaxlabs/x/errors"
 	"golang.org/x/sync/errgroup"
@@ -254,6 +255,19 @@ func generate(ctx context.Context, r *Result, opts Options, workers int) error {
 		return err
 	}
 
+	// Explicitly managed version chains, when declared, replace snapshots as
+	// the versioning baseline.
+	chains, err := versions.Discover(opts.RepoRoot)
+	if err != nil {
+		return err
+	}
+	var resolver *versions.Resolver
+	if len(chains) > 0 {
+		resolver = versions.NewResolver(
+			chains, analyzer.NewStandardFileLoader(opts.RepoRoot),
+		)
+	}
+
 	levels := topoLevels(opts.Plugins)
 	var mu sync.Mutex
 	for _, level := range levels {
@@ -269,6 +283,7 @@ func generate(ctx context.Context, r *Result, opts Options, workers int) error {
 					RepoRoot:        opts.RepoRoot,
 					SnapshotVersion: snapshotVersion,
 					LoadSnapshot:    loadSnapshot,
+					Versions:        resolver,
 				}
 				for _, depName := range p.Requires() {
 					dep := opts.Plugins.Get(depName)

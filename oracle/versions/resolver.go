@@ -16,6 +16,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"sync"
 
 	"github.com/synnaxlabs/oracle/analyzer"
 	"github.com/synnaxlabs/oracle/domain/doc"
@@ -65,8 +66,10 @@ type Definition struct {
 }
 
 // Resolver analyzes version files and their chains, caching per-file and
-// per-surface results. It is not safe for concurrent use.
+// per-surface results. Safe for concurrent use.
 type Resolver struct {
+	// mu serializes resolution; the recursive internals run under one hold.
+	mu        sync.Mutex
 	chains    map[string]Chain
 	loader    analyzer.FileLoader
 	files     map[string]*File
@@ -99,6 +102,12 @@ var chainTargetRe = regexp.MustCompile(
 
 // File analyzes livePath's version n file, memoized.
 func (r *Resolver) File(ctx context.Context, livePath string, n int) (*File, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	return r.file(ctx, livePath, n)
+}
+
+func (r *Resolver) file(ctx context.Context, livePath string, n int) (*File, error) {
 	chain, ok := r.chains[livePath]
 	if !ok {
 		return nil, errors.Newf("no version chain for %s", livePath)
@@ -133,7 +142,7 @@ func (r *Resolver) File(ctx context.Context, livePath string, n int) (*File, err
 	// so an alias targeting a non-defining version fails resolution — the
 	// alias-to-definer rule enforced structurally.
 	for k := range n {
-		sib, err := r.File(ctx, livePath, k)
+		sib, err := r.file(ctx, livePath, k)
 		if err != nil {
 			return nil, err
 		}
@@ -230,17 +239,25 @@ func declaredAliases(ast parser.ISchemaContext, n int) map[string]Alias {
 func (r *Resolver) Surface(
 	ctx context.Context, livePath string, n int,
 ) (map[string]Definition, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	return r.surface(ctx, livePath, n)
+}
+
+func (r *Resolver) surface(
+	ctx context.Context, livePath string, n int,
+) (map[string]Definition, error) {
 	key := livePath + "@" + strconv.Itoa(n)
 	if s, ok := r.surfaces[key]; ok {
 		return s, nil
 	}
-	f, err := r.File(ctx, livePath, n)
+	f, err := r.file(ctx, livePath, n)
 	if err != nil {
 		return nil, err
 	}
 	var prev map[string]Definition
 	if n > 0 {
-		if prev, err = r.Surface(ctx, livePath, n-1); err != nil {
+		if prev, err = r.surface(ctx, livePath, n-1); err != nil {
 			return nil, err
 		}
 	}
@@ -258,7 +275,7 @@ func (r *Resolver) Surface(
 		surf[t.Name] = d
 	}
 	for name, a := range f.Aliases {
-		target, err := r.File(ctx, livePath, a.Version)
+		target, err := r.file(ctx, livePath, a.Version)
 		if err != nil {
 			return nil, err
 		}
@@ -308,12 +325,12 @@ func (b *tableBuilder) addSurface(
 		return nil
 	}
 	b.done.Add(ns)
-	surf, err := b.r.Surface(ctx, livePath, n)
+	surf, err := b.r.surface(ctx, livePath, n)
 	if err != nil {
 		return err
 	}
 	for name, def := range surf {
-		definer, err := b.r.File(ctx, livePath, def.Version)
+		definer, err := b.r.file(ctx, livePath, def.Version)
 		if err != nil {
 			return err
 		}

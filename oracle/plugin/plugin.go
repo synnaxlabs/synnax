@@ -13,6 +13,7 @@ package plugin
 import (
 	"github.com/synnaxlabs/oracle/paths"
 	"github.com/synnaxlabs/oracle/resolution"
+	"github.com/synnaxlabs/oracle/versions"
 )
 
 // Plugin is the interface that code generators must implement.
@@ -40,6 +41,9 @@ type Request struct {
 	// Used by the migration plugin to access earlier snapshots when retargeting
 	// chained migrations. Returns nil if the snapshot does not exist.
 	LoadSnapshot func(version int) (*resolution.Table, error)
+	// Versions resolves the explicitly managed version chains under
+	// schemas/<domain>/versions/. Nil when the repository declares none.
+	Versions *versions.Resolver
 }
 
 // ResolvePath resolves a repo-relative path to an absolute path.
