@@ -69,7 +69,7 @@ export const Top = ({ secondary = false }: TopProps): ReactElement => {
         {secondary && os === "Windows" && <BottomToggleButton />}
         <Panel.Selector />
       </Nav.Bar.Start>
-      <Nav.Bar.Content data-tauri-drag-region full="x" />
+      <Nav.Bar.Content data-tauri-drag-region grow />
       <Nav.Bar.End justify="end" align="center" data-tauri-drag-region gap="small">
         {secondary ? (
           os === "macOS" && <BottomToggleButton />

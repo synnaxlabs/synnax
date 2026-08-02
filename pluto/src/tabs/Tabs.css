@@ -9,6 +9,13 @@
  * included in the file licenses/APL.txt.
  */
 
+/* The strip scrolls its own overflow, so a frame never has to widen its parent to
+   fit its tabs. Without this a frame in a row refuses to shrink past its tabs and
+   shoves its siblings out of the container. */
+.pluto-tabs {
+    min-width: 0;
+}
+
 .pluto-tabs__content {
     width: 100%;
     position: relative;
@@ -231,9 +238,9 @@
     }
 }
 
-/* Chrome-style sizing with content growth: a pill sizes to its label when that
-   exceeds the standard width, pads out to the standard width when shorter, and
-   compresses back toward it once the strip fills. */
+/* Chrome-style sizing: a pill rests at the standard width and compacts toward the
+   floor as the strip fills, at which point the strip scrolls. The standard width is
+   the flex basis rather than a minimum so it stays compactable. */
 .pluto-tabs__selector--pill .pluto-tabs__tab {
     padding: 0 2rem;
     transition:
@@ -243,8 +250,8 @@
     justify-content: flex-start;
     text-align: left;
     flex: 0 1 auto;
-    width: max-content;
-    min-width: 25rem;
+    width: 25rem;
+    min-width: 11rem;
     overflow: hidden;
     white-space: nowrap;
 

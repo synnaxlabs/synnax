@@ -61,6 +61,17 @@
         padding-right: 1.5rem;
     }
 
+    /* The panel strip is the only elastic section of the top bar: it absorbs the
+       squeeze and scrolls internally, rather than driving the badges off screen. */
+    &.pluto--location-top {
+        > .pluto-navbar__content.pluto--start {
+            min-width: 0;
+        }
+        > .pluto-navbar__content.pluto--end {
+            flex-shrink: 0;
+        }
+    }
+
     &.pluto--direction-y .pluto-navbar__content {
         padding: 2rem 0rem;
     }

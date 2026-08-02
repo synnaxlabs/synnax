@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import "@/feature/panel/Selector.css";
+
 import { panel } from "@synnaxlabs/client";
 import {
   Access,
@@ -148,21 +150,24 @@ export const Selector = (): ReactElement | null => {
 
   return (
     <Menu.ContextMenu menu={contextMenu} {...menuProps}>
-      <Tabs.Frame value={selected ?? ""} onChange={handleSelect}>
-        <Tabs.Selector
-          className={CSS.B("panel-selector")}
-          size="medium"
-          variant="pill"
-          onContextMenu={menuProps.open}
-        >
+      <Tabs.Frame
+        className={CSS.B("panel-selector")}
+        value={selected ?? ""}
+        onChange={handleSelect}
+        x
+        align="center"
+        empty={false}
+        gap="small"
+      >
+        <Tabs.Selector size="medium" variant="pill" onContextMenu={menuProps.open}>
           {keys.map((key) => (
             <Tab key={key} tabKey={key} />
           ))}
-          <Button.Button variant="text" onClick={handleCreate}>
-            <Icon.Add />
-            {selected == null && "New Panel"}
-          </Button.Button>
         </Tabs.Selector>
+        <Button.Button variant="text" onClick={handleCreate}>
+          <Icon.Add />
+          {selected == null && "New Panel"}
+        </Button.Button>
       </Tabs.Frame>
     </Menu.ContextMenu>
   );
