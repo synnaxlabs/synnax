@@ -14,13 +14,17 @@ import { Aether } from "@/aether";
 import { useMemoDeepEqual } from "@/memo";
 import { stringValue } from "@/vis/stringValue/aether";
 
-export interface UseProps
-  extends Pick<z.input<typeof stringValue.stateZ>, "telem" | "stalenessTimeout"> {
+export interface UseProps extends Pick<
+  z.input<typeof stringValue.stateZ>,
+  "telem" | "stalenessTimeout"
+> {
   aetherKey: string;
 }
 
-export interface UseReturn
-  extends Pick<z.infer<typeof stringValue.stateZ>, "value" | "stale"> {}
+export interface UseReturn extends Pick<
+  z.infer<typeof stringValue.stateZ>,
+  "value" | "stale"
+> {}
 
 export const use = ({ aetherKey, telem, stalenessTimeout }: UseProps): UseReturn => {
   const memoProps = useMemoDeepEqual({ telem, stalenessTimeout });

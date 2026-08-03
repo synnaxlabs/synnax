@@ -52,7 +52,9 @@ export const StringDisplay = ({
       <div className={CSS.BE("string-display", "content")}>
         <Text.Text
           level={level}
-          color={resolvedTextColor != null ? color.cssString(resolvedTextColor) : undefined}
+          color={
+            resolvedTextColor != null ? color.cssString(resolvedTextColor) : undefined
+          }
           variant="code"
         >
           {value}
