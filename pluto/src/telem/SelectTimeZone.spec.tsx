@@ -42,7 +42,9 @@ describe("SelectTimeZone", () => {
 
   it("should mark the selected time zone as selected", () => {
     const c = render(<Wrapper initial="UTC" />);
-    expect(c.getByText("UTC").closest("button")?.classList).toContain("pluto--selected");
+    expect(c.getByText("UTC").closest("button")?.classList).toContain(
+      "pluto--selected",
+    );
     expect(c.getByText("Local").closest("button")?.classList).not.toContain(
       "pluto--selected",
     );
