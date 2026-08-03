@@ -38,4 +38,5 @@ var _ = Describe("InferDataType", func() {
 	Specify("uuid", DataTypeInferTest[uuid.UUID](telem.UUIDT))
 	Specify("string", DataTypeInferTest[string](telem.StringT))
 	Specify("bytes", DataTypeInferTest[[]byte](telem.BytesT))
+	Specify("bool", DataTypeInferTest[bool](telem.BoolT))
 })
