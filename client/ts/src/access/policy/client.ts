@@ -42,6 +42,7 @@ const listRetrieveParamsZ = z.union([
     .transform(({ for: forIds }) => ({ subjects: forIds })),
   retrieveRequestZ,
 ]);
+const retrieveMultiParamsZ = listRetrieveParamsZ.or(query.keyListZ(keyZ));
 
 export type RetrieveSingleParams = { key: Key };
 export type RetrieveMultipleParams = z.input<typeof listRetrieveParamsZ>;
@@ -90,7 +91,7 @@ export interface ClientConfig {
   ontology: ontology.Client;
 }
 
-export class Client extends query.Retriever<typeof listRetrieveParamsZ, Key, Policy> {
+export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Policy> {
   private readonly cfg: ClientConfig;
   private readonly store: query.Table<Key, Policy>;
 
@@ -108,7 +109,7 @@ export class Client extends query.Retriever<typeof listRetrieveParamsZ, Key, Pol
       name: "policy",
       table: store,
       request: {
-        schema: listRetrieveParamsZ,
+        schema: retrieveMultiParamsZ,
         fetch: async (req) => await this.execRetrieve(req),
         matches: (policy, req) => requestFilter(req)(policy),
         serverFields: SERVER_FIELDS,
