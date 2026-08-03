@@ -659,6 +659,24 @@ describe("Answers", () => {
       await expect.poll(() => answers.getCached({ min: 3 })).toEqual([rec("a", 5)]);
     });
 
+    // Regression: membership is patched only on a ready entry, so a record that
+    // started matching while the first fetch was in flight was dropped, and the
+    // settling fetch then wrote its own keys over the answer.
+    it("admits a record that starts matching while the first fetch is in flight", async () => {
+      const table = newTable();
+      let release!: (keys: string[]) => void;
+      const answers = listSpace(
+        table,
+        async () => await new Promise<string[]>((resolve) => (release = resolve)),
+      );
+      answers.onChange({ min: 3 }, vi.fn());
+      const pending = answers.retrieve({ min: 3 });
+      table.set("a", rec("a", 5));
+      release([]);
+      await pending;
+      expect(answers.getCached({ min: 3 })).toEqual([rec("a", 5)]);
+    });
+
     it("evicts a record that stops matching the query", async () => {
       const table = newTable();
       const answers = listSpace(table, async () => {
