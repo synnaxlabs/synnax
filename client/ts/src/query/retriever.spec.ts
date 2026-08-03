@@ -30,9 +30,11 @@ const requestZ = z.object({
 });
 interface Request extends z.infer<typeof requestZ> {}
 
+const paramsZ = requestZ.or(query.keyListZ(z.string()));
+
 const newCache = () => new query.Cache({ openStreamer: null });
 
-class Client extends query.Retriever<typeof requestZ, string, Thing> {
+class Client extends query.Retriever<typeof paramsZ, string, Thing> {
   constructor(
     cache: query.Cache,
     fetchKeys: (keys: string[]) => Promise<Thing[]>,
@@ -46,9 +48,12 @@ class Client extends query.Retriever<typeof requestZ, string, Thing> {
       name: "thing",
       table: store,
       request: {
-        schema: requestZ,
+        schema: paramsZ,
         fetch: async (req) => await fetchRequest(req),
-        matches: (r, req) => req.minSize == null || r.size >= req.minSize,
+        matches: (r, req) => {
+          const minSize = "minSize" in req ? req.minSize : undefined;
+          return minSize == null || r.size >= minSize;
+        },
       },
     });
     this.store = store;
@@ -92,7 +97,7 @@ describe("Retriever", () => {
       expect(fetchKeys).toHaveBeenCalledWith(["a", "b"]);
     });
 
-    it("prefers the schema's own bare-array handling over { keys }", async () => {
+    it("gives a bare array the meaning the schema assigns it", async () => {
       const namesZ = z.preprocess(
         (p) => (Array.isArray(p) ? { names: p } : p),
         z.object({
@@ -123,7 +128,7 @@ describe("Retriever", () => {
       expect(fetchRequest.mock.calls[0][0]).toEqual({ names: ["a-name"] });
     });
 
-    it("rejects a bare key array when the request schema lacks keys", async () => {
+    it("rejects a bare key array the request schema does not accept", async () => {
       const keylessZ = z.object({ minSize: z.number().optional() });
       class KeylessClient extends query.Retriever<typeof keylessZ, string, Thing> {
         constructor(cache: query.Cache) {
@@ -139,7 +144,7 @@ describe("Retriever", () => {
         }
       }
       const client = new KeylessClient(newCache());
-      await expect(client.retrieve(["a"])).rejects.toThrow(ValidationError);
+      await expect(client.retrieve(["a"])).rejects.toThrow(z.ZodError);
     });
 
     it("serves a cached row without a network fetch", async () => {
@@ -354,7 +359,12 @@ describe("Retriever", () => {
               fetch: async (req) => await fetchRequest(req),
             },
             single: {
-              schema: z.strictObject({ key: z.string() }).transform(({ key }) => key),
+              schema: z
+                .union([
+                  z.strictObject({ key: z.string() }),
+                  z.string().transform((key) => ({ key })),
+                ])
+                .transform(({ key }) => key),
               space: single,
             },
           });
@@ -382,7 +392,7 @@ describe("Retriever", () => {
         expect(fetchKeys).toHaveBeenCalledWith(["a"]);
       });
 
-      it("retries a bare key as { key } against the single schema", async () => {
+      it("resolves a bare key through the schema's own bare-key arm", async () => {
         const fetchKeys = vi.fn(async (keys: string[]) => keys.map((k) => thing(k)));
         const client = new StrictSingleClient(newCache(), fetchKeys, async () => []);
         const result = await client.retrieve("a");

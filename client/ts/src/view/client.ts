@@ -37,9 +37,8 @@ const retrieveRequestZ = z.object({
   offset: z.number().optional(),
   limit: z.number().optional(),
 });
+const retrieveMultiParamsZ = retrieveRequestZ.or(query.keyListZ(keyZ));
 
-// A type alias, not an interface: only aliases get the implicit index
-// signature that record-constrained query types require.
 export type RetrieveSingleParams = { key: Key };
 export interface RetrieveMultipleParams extends z.input<typeof retrieveRequestZ> {}
 
@@ -67,7 +66,7 @@ export interface ClientConfig {
   ontology: ontology.Client;
 }
 
-export class Client extends query.Retriever<typeof retrieveRequestZ, Key, View> {
+export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, View> {
   private readonly cfg: ClientConfig;
   private readonly store: query.Table<Key, View>;
 
@@ -85,7 +84,7 @@ export class Client extends query.Retriever<typeof retrieveRequestZ, Key, View> 
       name: "view",
       table: store,
       request: {
-        schema: retrieveRequestZ,
+        schema: retrieveMultiParamsZ,
         fetch: async (req) => await this.execRetrieve(req),
         matches: (view, req) => requestFilter(req)(view),
       },

@@ -41,6 +41,7 @@ const retrieveReqZ = z.object({
   limit: z.int().optional(),
   ignoreNotFoundError: z.boolean().optional(),
 });
+const retrieveMultiParamsZ = retrieveReqZ.or(query.keyListZ(keyZ));
 export interface RetrieveRequest extends z.infer<typeof retrieveReqZ> {}
 const createReqZ = z.object({ panels: panelZ.array() });
 const deleteReqZ = z.object({ keys: keyZ.array() });
@@ -71,7 +72,7 @@ export interface ClientConfig {
   cache: query.Cache;
 }
 
-export class Client extends query.Retriever<typeof retrieveReqZ, Key, Panel> {
+export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Panel> {
   private readonly cfg: ClientConfig;
   private readonly store: query.Table<Key, Panel>;
   private readonly dispatcher: actions.Controller<Key, Panel, Action>;
@@ -98,11 +99,13 @@ export class Client extends query.Retriever<typeof retrieveReqZ, Key, Panel> {
       name: "panel",
       table: store,
       request: {
-        schema: retrieveReqZ,
+        schema: retrieveMultiParamsZ,
         fetch: async (req) => await this.fetchRequest(req),
-        matches: (panel, req) =>
-          requestFilter(req)(panel) &&
-          (req.parent == null || this.isCachedChild(req.parent, panel.key)),
+        matches: (panel, req) => {
+          if (!requestFilter(req)(panel)) return false;
+          const parent = "parent" in req ? req.parent : undefined;
+          return parent == null || this.isCachedChild(parent, panel.key);
+        },
         watch: [
           query.watch(
             ontologyClient.cache.relationships,

@@ -263,6 +263,7 @@ const singleQueryZ = z
     z.strictObject({ key: keyZ, includeStatus: z.boolean().optional() }),
     z.strictObject({ name: z.string(), includeStatus: z.boolean().optional() }),
     z.strictObject({ type: z.string(), rack: rackKeyZ.optional() }),
+    z.union([z.string(), z.number()]).transform((key) => ({ key })),
   ])
   .transform(normalizeSingle);
 
@@ -271,6 +272,7 @@ const singleQueryZ = z
 const cacheRetrieveReqZ = retrieveReqZ.transform(
   ({ includeStatus: _, ...rest }) => rest,
 );
+const retrieveMultiParamsZ = cacheRetrieveReqZ.or(query.keyListZ(keyZ));
 
 /**
  * Client-side matching for a request: key, name, type, rack, and flag
@@ -337,7 +339,7 @@ export interface ClientConfig {
 }
 
 export class Client extends query.Retriever<
-  typeof cacheRetrieveReqZ,
+  typeof retrieveMultiParamsZ,
   Key,
   Omit<Task, "status">,
   Task,
@@ -395,7 +397,7 @@ export class Client extends query.Retriever<
       name: "task",
       table: store,
       request: {
-        schema: cacheRetrieveReqZ,
+        schema: retrieveMultiParamsZ,
         fetch: async (req) => await this.fetchThrough(req),
         matches: (t, req) => requestFilter(req)(t),
         watch: [query.watch(statusStore, (event) => affectedTaskKeys(event))],
