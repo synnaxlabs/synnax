@@ -7,8 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type label, NotFoundError, query } from "@synnaxlabs/client";
+import {
+  DisconnectedError,
+  type label,
+  NotFoundError,
+  query,
+} from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
+import { Unreachable } from "@synnaxlabs/freighter";
 import { color, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { act, render, renderHook, waitFor } from "@testing-library/react";
 import { type ReactElement, useCallback, useState } from "react";
@@ -16,6 +22,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import { Errors } from "@/errors";
 import { Flux } from "@/flux";
+import { Status } from "@/status/base";
 import { createSynnaxWrapper } from "@/testutil/Synnax";
 
 const client = createTestClient();
@@ -92,6 +99,47 @@ describe("retrieve", () => {
             "Cannot retrieve Resource because no Core is connected.",
           );
         });
+      });
+    });
+
+    describe("failure notifications", () => {
+      const renderFailing = (error: Error) => {
+        const { useRetrieve } = Flux.createRetrieve<{}, number>({
+          name: "Resource",
+          retrieve: async () => {
+            throw error;
+          },
+        });
+        return renderHook(
+          () => ({
+            retrieve: useRetrieve({ params: {} }),
+            notifications: Status.useNotifications(),
+          }),
+          { wrapper: Wrapper },
+        );
+      };
+
+      it("should add a status when the retrieve fails for an ordinary reason", async () => {
+        const { result } = renderFailing(new Error("test"));
+        await waitFor(() => {
+          expect(result.current.retrieve.variant).toEqual("error");
+          expect(result.current.notifications.statuses).toHaveLength(1);
+          expect(result.current.notifications.statuses[0].message).toEqual(
+            "Failed to retrieve Resource",
+          );
+        });
+      });
+
+      it("should not add a status when the Core is unreachable", async () => {
+        const { result } = renderFailing(new Unreachable());
+        await waitFor(() => expect(result.current.retrieve.variant).toEqual("error"));
+        expect(result.current.notifications.statuses).toHaveLength(0);
+      });
+
+      it("should not add a status when the retrieve short circuits as disconnected", async () => {
+        const { result } = renderFailing(new DisconnectedError());
+        await waitFor(() => expect(result.current.retrieve.variant).toEqual("error"));
+        expect(result.current.notifications.statuses).toHaveLength(0);
       });
     });
 
