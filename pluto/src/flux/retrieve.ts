@@ -9,6 +9,7 @@
 
 import {
   DisconnectedError,
+  isConnectionError,
   NotFoundError,
   query,
   type Synnax as Client,
@@ -301,7 +302,9 @@ const useObservableBase = <Query extends query.Params, Data extends query.Data>(
       } catch (error) {
         if (signal?.aborted) return;
         const res = errorResult(`retrieve ${name}`, error);
-        if (addStatusOnFailure) addStatus(res.status);
+        // Nobody asked for this read, and the connection status already reports
+        // an unreachable Core. The result still carries the failure.
+        if (addStatusOnFailure && !isConnectionError(error)) addStatus(res.status);
         onChange(res, query);
       }
     },

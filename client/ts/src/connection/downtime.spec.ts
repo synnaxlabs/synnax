@@ -11,7 +11,7 @@ import { type breaker, sleep, TimeSpan } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
 import Synnax from "@/client";
-import { DisconnectedError } from "@/errors";
+import { DisconnectedError, isConnectionError } from "@/errors";
 import {
   createSeverableProxy,
   type SeverableProxy,
@@ -89,6 +89,31 @@ describe("downtime", () => {
       // A fresh write proves the unary path recovered, not just the check loop.
       const recovered = await client.projects.create({ name: "recovered", layout: {} });
       expect(recovered.name).toBe("recovered");
+      expect(internal.map(chainOf)).toEqual([]);
+    } finally {
+      client.close();
+      await proxy.close();
+    }
+  });
+
+  it("should classify wire and short-circuit failures alike as connection errors", async () => {
+    const { proxy, client, internal } = await createProxiedClient();
+    try {
+      await client.connect();
+      await proxy.sever();
+      // Still degraded, so the request reaches the wire and dies there.
+      await expect(
+        client.projects.create({ name: "on-the-wire", layout: {} }),
+      ).rejects.toSatisfy(isConnectionError);
+      await waitForStatus(
+        client.connection,
+        ({ variant, details }) =>
+          variant === "error" && details.reason === "unreachable",
+      );
+      // Escalated, so the connection short circuits before the wire.
+      await expect(
+        client.projects.create({ name: "short-circuited", layout: {} }),
+      ).rejects.toSatisfy(isConnectionError);
       expect(internal.map(chainOf)).toEqual([]);
     } finally {
       client.close();
