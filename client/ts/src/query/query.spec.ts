@@ -669,12 +669,31 @@ describe("Answers", () => {
         table,
         async () => await new Promise<string[]>((resolve) => (release = resolve)),
       );
-      answers.onChange({ min: 3 }, vi.fn());
+      const handler = vi.fn();
+      answers.onChange({ min: 3 }, handler);
       const pending = answers.retrieve({ min: 3 });
       table.set("a", rec("a", 5));
       release([]);
       await pending;
       expect(answers.getCached({ min: 3 })).toEqual([rec("a", 5)]);
+      // patching the answer without announcing it leaves subscribers blind
+      expect(handler).toHaveBeenLastCalledWith([rec("a", 5)]);
+    });
+
+    it("evicts a record that stops matching while the first fetch is in flight", async () => {
+      const table = newTable();
+      let release!: (keys: string[]) => void;
+      const answers = listSpace(table, async () => {
+        table.set("a", rec("a", 5));
+        return await new Promise<string[]>((resolve) => (release = resolve));
+      });
+      const handler = vi.fn();
+      answers.onChange({ min: 3 }, handler);
+      const pending = answers.retrieve({ min: 3 });
+      table.set("a", rec("a", 1));
+      release(["a"]);
+      await pending;
+      expect(answers.getCached({ min: 3 })).toEqual([]);
     });
 
     it("evicts a record that stops matching the query", async () => {
@@ -764,6 +783,34 @@ describe("Answers", () => {
       unsubscribe();
       members = ["a"];
       answers.onChange({ searchTerm: "x" }, vi.fn());
+      await expect
+        .poll(() => answers.getCached({ searchTerm: "x" }))
+        .toEqual([rec("a", 1)]);
+    });
+
+    // Regression: a refetch started during the first fetch resolves into a state
+    // its result no longer matches and is dropped, and nothing schedules another,
+    // so the change that asked for it never reaches the answer.
+    it("defers a refetch requested during the first fetch", async () => {
+      const table = newTable();
+      let members: string[] = [];
+      let release!: () => void;
+      const fetch = vi.fn(async () => {
+        const snapshot = [...members];
+        if (fetch.mock.calls.length === 1)
+          await new Promise<void>((resolve) => (release = resolve));
+        snapshot.forEach((key) => table.set(key, rec(key, 1)));
+        return snapshot;
+      });
+      const answers = searchSpace(table, fetch);
+      answers.onChange({ searchTerm: "x" }, vi.fn());
+      const pending = answers.retrieve({ searchTerm: "x" });
+      members = ["a"];
+      table.set("z", rec("z", 9));
+      await wait(150);
+      expect(fetch).toHaveBeenCalledTimes(1);
+      release();
+      await pending;
       await expect
         .poll(() => answers.getCached({ searchTerm: "x" }))
         .toEqual([rec("a", 1)]);
