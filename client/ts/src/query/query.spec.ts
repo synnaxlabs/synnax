@@ -711,6 +711,55 @@ describe("Answers", () => {
       await expect.poll(() => fetch.mock.calls.length).toBe(2);
     });
 
+    // Regression: only the server recomputes membership, so a change that lands
+    // while nothing subscribes reaches the answer through nothing else. Serving
+    // the pre-gap answer strands it permanently.
+    it("refetches an answer that settled before an unmaintained gap", async () => {
+      const table = newTable();
+      let members: string[] = [];
+      const fetch = vi.fn(async () => {
+        members.forEach((key) => table.set(key, rec(key, 1)));
+        return [...members];
+      });
+      const answers = searchSpace(table, fetch);
+      const unsubscribe = answers.onChange({ searchTerm: "x" }, vi.fn());
+      expect(await answers.retrieve({ searchTerm: "x" })).toEqual([]);
+      unsubscribe();
+      members = ["a"];
+      answers.onChange({ searchTerm: "x" }, vi.fn());
+      await expect
+        .poll(() => answers.getCached({ searchTerm: "x" }))
+        .toEqual([rec("a", 1)]);
+    });
+
+    it("does not refetch when a subscriber arrives after the fetch", async () => {
+      const table = newTable();
+      const fetch = vi.fn(async () => []);
+      const answers = searchSpace(table, fetch);
+      await answers.retrieve({ searchTerm: "x" });
+      expect(fetch).toHaveBeenCalledTimes(1);
+      answers.onChange({ searchTerm: "x" }, vi.fn());
+      await wait(30);
+      expect(fetch).toHaveBeenCalledTimes(1);
+    });
+
+    it("keeps a settled answer when a refetch fails", async () => {
+      const table = newTable();
+      let reachable = true;
+      const fetch = vi.fn(async () => {
+        if (!reachable) throw new Error("unreachable");
+        table.set("a", rec("a", 1));
+        return ["a"];
+      });
+      const answers = searchSpace(table, fetch);
+      answers.onChange({ searchTerm: "x" }, vi.fn());
+      await answers.retrieve({ searchTerm: "x" });
+      reachable = false;
+      table.set("z", rec("z", 9));
+      await expect.poll(() => fetch.mock.calls.length).toBe(2);
+      expect(answers.getCached({ searchTerm: "x" })).toEqual([rec("a", 1)]);
+    });
+
     it("coalesces rapid table changes into a single refetch", async () => {
       const table = newTable();
       const fetch = vi.fn(async () => {
