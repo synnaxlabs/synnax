@@ -182,6 +182,8 @@ interface Entry<Q extends Params, K extends record.Key, D extends Data> {
   teardown?: destructor.Destructor[];
   /** Set when maintenance ends: changes since then went unobserved. */
   unmaintained?: boolean;
+  /** Keys whose membership a fetch in flight deferred; drained on settle. */
+  pendingRechecks?: Set<K>;
   refetchTimer?: ReturnType<typeof setTimeout>;
 }
 
@@ -287,6 +289,7 @@ export class Queries<
       entry.teardown?.forEach((d) => d());
       entry.teardown = undefined;
       entry.unmaintained = true;
+      entry.pendingRechecks = undefined;
       if (entry.refetchTimer != null) {
         clearTimeout(entry.refetchTimer);
         entry.refetchTimer = undefined;
@@ -405,7 +408,20 @@ export class Queries<
     // A late promise resolution must not clobber a maintenance update.
     if (entry.state !== expected) return;
     entry.state = next;
+    this.drainRechecks(entry);
     if (next.variant !== "error") this.touch(entry);
+  }
+
+  /**
+   * Replays membership changes a fetch in flight deferred. The fetch answers
+   * the query as of when it ran, so a change that raced it would otherwise be
+   * lost under the keys it publishes.
+   */
+  private drainRechecks(entry: Entry<Q, K, D>): void {
+    const pending = entry.pendingRechecks;
+    if (pending == null) return;
+    entry.pendingRechecks = undefined;
+    pending.forEach((key) => this.recheck(entry, key));
   }
 
   private fetch(entry: Entry<Q, K, D>, options?: FetchOptions): Promise<D> {
@@ -549,6 +565,10 @@ export class Queries<
   }
 
   private recheck(entry: Entry<Q, K, D>, key: K): void {
+    if (entry.state.variant === "loading") {
+      (entry.pendingRechecks ??= new Set<K>()).add(key);
+      return;
+    }
     if (entry.state.variant !== "ready") return;
     const { table, matches } = this.params;
     const keys = entry.state.keys;
