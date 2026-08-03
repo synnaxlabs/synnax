@@ -86,6 +86,7 @@ export const Dialog = ({
   const openTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const closeTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const releaseRef = useRef<destructor.Destructor | null>(null);
+  const prevPlacementRef = useRef<position.Preference | null>(null);
   const visibleRef = useSyncedRef(visible);
   const hideRef = useSyncedRef(hide);
   const locationRef = useSyncedRef(locationProp);
@@ -138,18 +139,24 @@ export const Dialog = ({
     if (anchor == null || el == null) return;
     const target = box.construct(anchor);
     if (!anchor.isConnected || box.areaIsZero(target)) return close(true);
-    const { adjustedDialog, dialogCorner } = position.position({
+    let prefer = PREFERENCES;
+    if (prevPlacementRef.current != null)
+      prefer = [prevPlacementRef.current, ...PREFERENCES];
+    const { adjustedDialog, ...placement } = position.position({
       target,
-      dialog: box.construct(el),
+      // offset* is unaffected by the entrance animation's scale transform, which
+      // getBoundingClientRect would fold into the measured size
+      dialog: box.construct(0, 0, el.offsetWidth, el.offsetHeight),
       container: box.construct(0, 0, window.innerWidth, window.innerHeight),
       initial: locationRef.current,
-      prefer: PREFERENCES,
+      prefer,
       offset: OFFSET,
     });
+    prevPlacementRef.current = placement;
     const rounded = box.round(adjustedDialog);
     el.style.left = CSS.px(box.left(rounded));
     el.style.top = CSS.px(box.top(rounded));
-    el.style.transformOrigin = `${dialogCorner.x} ${dialogCorner.y}`;
+    el.style.transformOrigin = `${placement.dialogCorner.x} ${placement.dialogCorner.y}`;
   }, []);
 
   useLayoutEffect(() => {
