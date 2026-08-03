@@ -30,6 +30,11 @@ export const windowStateZ = z.object({
   selected: panel.keyZ.optional(),
   isOverlaid: z.boolean().optional().default(false),
   panels: z.record(panel.keyZ, stateZ).default({}),
+  /**
+   * The panels the window keeps mounted, most recently selected first. The selected
+   * panel is always the head. Transient: excluded from persistence.
+   */
+  mounted: panel.keyZ.array().default([]),
 });
 
 export interface WindowState extends z.output<typeof windowStateZ> {}
@@ -86,12 +91,23 @@ const withSelectedState = <Payload extends PanelKeyPayload>(
     handler(pan, action);
   });
 
+// A hidden panel stops rendering but keeps streaming its channels, so the set is
+// bounded. Five covers alternating between a few panels; an evicted one pays a
+// remount, which costs time but no state.
+const MAX_MOUNTED = 5;
+
+// The selected panel is always the head, so eviction never takes it.
+const mount = (win: WindowState, key: panel.Key): void => {
+  win.mounted = [key, ...win.mounted.filter((k) => k !== key)].slice(0, MAX_MOUNTED);
+};
+
 const { actions, reducer } = createSlice({
   name: SLICE_NAME,
   initialState: ZERO_SLICE_STATE,
   reducers: {
     select: withWindowKey<PanelKeyPayload, SliceState>((win, { payload: { key } }) => {
       win.selected = key;
+      mount(win, key);
     }),
     clearSelected: withWindowKey<Window.OptionalKeyParams, SliceState>((win) => {
       win.selected = undefined;
@@ -136,11 +152,13 @@ const { actions, reducer } = createSlice({
       const removed = array.toArray(keys);
       Object.values(state.windows).forEach((win) => {
         removed.forEach((key) => delete win.panels[key]);
-        if (win.selected != null && removed.includes(win.selected)) {
-          const remaining = Object.keys(win.panels);
-          win.selected =
-            remaining.length > 0 ? remaining[remaining.length - 1] : undefined;
-        }
+        win.mounted = win.mounted.filter((key) => !removed.includes(key));
+        if (win.selected == null || !removed.includes(win.selected)) return;
+        // Prefers the most recently used survivor, falling back to any panel the
+        // window has state for: mounted is empty until the window selects again.
+        const next = win.mounted[0] ?? Object.keys(win.panels).at(-1);
+        win.selected = next;
+        if (next != null) mount(win, next);
       });
     },
     reset: () => ZERO_SLICE_STATE,
@@ -184,7 +202,19 @@ export const MIDDLEWARE = [
   ]),
 ];
 
-export const PERSIST_EXCLUDE = [];
+/**
+ * Keeping a panel mounted is worth it once the user has switched to it, never on a
+ * cold start. Clearing on write also means a project swap hydrates an empty set,
+ * so a project's panels never stay mounted into the next one.
+ */
+export const purgeSliceState = <S extends StoreState>(state: S): S => {
+  Object.values(state[SLICE_NAME].windows).forEach((win) => {
+    win.mounted = [];
+  });
+  return state;
+};
+
+export const PERSIST_EXCLUDE = [purgeSliceState];
 
 export const useSelectTab = (panelKey?: panel.Key) => {
   const scopedPanelKey = Panel.useOptionalKey(panelKey);

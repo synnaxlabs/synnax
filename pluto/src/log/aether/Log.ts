@@ -251,8 +251,6 @@ export class Log extends aether.Leaf<typeof logStateZ, InternalState> {
         this.clampSelection(evictedCount);
       }
       this.checkEmpty();
-      // Bookkeeping above still runs while hidden; only the render is skipped. The
-      // visible transition in afterUpdate requests the catch-up render.
       if (this.state.visible) this.requestRender();
     });
     if (!this.state.visible && !this.prevState.visible) return;

@@ -25,12 +25,7 @@ import {
   Text,
 } from "@synnaxlabs/pluto";
 import { caseconv } from "@synnaxlabs/x";
-import {
-  type PropsWithChildren,
-  type ReactElement,
-  useCallback,
-  useState,
-} from "react";
+import { memo, type PropsWithChildren, type ReactElement, useCallback } from "react";
 import { useDispatch } from "react-redux";
 
 import { TabMenuItems } from "@/feature/panel/ContextMenu";
@@ -368,10 +363,6 @@ const PanelFallback = (props: Errors.FallbackProps): ReactElement => {
   );
 };
 
-export interface MosaicProps {
-  onCreateTab: () => panel.NewTab;
-}
-
 interface KeepAlivePanelProps extends MosaicProps {
   panelKey: panel.Key;
 }
@@ -394,22 +385,35 @@ const KeepAlivePanel = ({
   </Portal.In>
 );
 
-export const Mosaic = ({ onCreateTab }: MosaicProps): ReactElement => {
-  const selected = Session.Panel.useSelectSelected();
-  // The window's keep-alive working set: every panel selected since it opened.
-  const [mounted, setMounted] = useState<panel.Key[]>([]);
-  if (selected != null && !mounted.includes(selected))
-    setMounted([...mounted, selected]);
+const PortaledInPanels = memo(({ onCreateTab }: MosaicProps) => {
+  const mounted = Session.Panel.useSelectMounted();
   return (
-    <Portal.Context>
+    <div>
       {mounted.map((key) => (
         <KeepAlivePanel key={key} panelKey={key} onCreateTab={onCreateTab} />
       ))}
-      {selected == null ? (
-        <EmptyContent />
-      ) : (
-        <Portal.Out itemKey={selected} className={CSS.BE("panel", "host")} />
-      )}
-    </Portal.Context>
+    </div>
   );
-};
+});
+PortaledInPanels.displayName = "PortaledInPanels";
+
+const PortaledOutPanel = memo(() => {
+  const selected = Session.Panel.useSelectSelected();
+  return selected == null ? (
+    <EmptyContent />
+  ) : (
+    <Portal.Out itemKey={selected} className={CSS.BE("panel", "host")} />
+  );
+});
+PortaledOutPanel.displayName = "PortaledOutPanel";
+
+export interface MosaicProps {
+  onCreateTab: () => panel.NewTab;
+}
+
+export const Mosaic = ({ onCreateTab }: MosaicProps): ReactElement => (
+  <Portal.Context>
+    <PortaledInPanels onCreateTab={onCreateTab} />
+    <PortaledOutPanel />
+  </Portal.Context>
+);
