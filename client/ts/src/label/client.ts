@@ -44,6 +44,7 @@ const retrieveRequestZ = z.object({
   limit: z.int().optional(),
   ignoreNotFoundError: z.boolean().optional(),
 });
+const retrieveMultiParamsZ = retrieveRequestZ.or(query.keyListZ(keyZ));
 
 export type RetrieveSingleParams = { key: Key };
 export type RetrieveMultipleParams = z.input<typeof retrieveRequestZ>;
@@ -57,7 +58,7 @@ export interface ClientConfig {
   ontology: ontology.Client;
 }
 
-export class Client extends query.Retriever<typeof retrieveRequestZ, Key, Label> {
+export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Label> {
   readonly type: string = "label";
   /** The label record table; injected into sibling clients at wiring. */
   readonly store: query.Table<Key, Label>;
@@ -79,7 +80,7 @@ export class Client extends query.Retriever<typeof retrieveRequestZ, Key, Label>
       name: "label",
       table: store,
       request: {
-        schema: retrieveRequestZ,
+        schema: retrieveMultiParamsZ,
         fetch: async (req) => await this.execRetrieve(req),
         matches: (label, req) => this.requestFilter(req)(label),
         watch: [

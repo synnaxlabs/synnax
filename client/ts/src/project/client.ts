@@ -31,6 +31,7 @@ const retrieveReqZ = z.object({
   offset: z.int().optional(),
   limit: z.int().optional(),
 });
+const retrieveMultiParamsZ = retrieveReqZ.or(query.keyListZ(keyZ));
 export interface RetrieveRequest extends z.infer<typeof retrieveReqZ> {}
 const createReqZ = z.object({ projects: projectZ.array() });
 const renameReqZ = z.object({ key: keyZ, name: z.string() });
@@ -61,7 +62,7 @@ export interface ClientConfig {
   ontology: ontology.Client;
 }
 
-export class Client extends query.Retriever<typeof retrieveReqZ, Key, Project> {
+export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Project> {
   private readonly cfg: ClientConfig;
   private readonly store: query.Table<Key, Project>;
 
@@ -79,7 +80,7 @@ export class Client extends query.Retriever<typeof retrieveReqZ, Key, Project> {
       name: "project",
       table: store,
       request: {
-        schema: retrieveReqZ,
+        schema: retrieveMultiParamsZ,
         fetch: async (req) => await this.execRetrieve(req),
         matches: (project, req) => requestFilter(req)(project),
       },

@@ -46,6 +46,7 @@ const retrieveRequestZ = z.object({
   hasLabels: label.keyZ.array().optional(),
   variants: z.string().array().optional(),
 });
+const retrieveMultiParamsZ = retrieveRequestZ.or(query.keyListZ(keyZ));
 
 const singleRetrieveParamsZ = z
   .object({ key: keyZ, includeLabels: z.boolean().optional() })
@@ -82,7 +83,7 @@ export interface ClientConfig {
 }
 
 export class Client extends query.Retriever<
-  typeof retrieveRequestZ,
+  typeof retrieveMultiParamsZ,
   Key,
   Status,
   Status,
@@ -131,7 +132,7 @@ export class Client extends query.Retriever<
       name: "status",
       table: store,
       request: {
-        schema: retrieveRequestZ,
+        schema: retrieveMultiParamsZ,
         fetch: async (req) => await this.fetchThrough(req),
         matches: (status, req) => this.requestFilter(req)(status),
         watch: [
@@ -144,7 +145,10 @@ export class Client extends query.Retriever<
       compose: (record) => this.compose(record),
       single: {
         schema: z
-          .strictObject({ key: keyZ, includeLabels: z.boolean().optional() })
+          .union([
+            z.strictObject({ key: keyZ, includeLabels: z.boolean().optional() }),
+            keyZ.transform((key) => ({ key })),
+          ])
           .transform(({ key }) => key),
         space: single,
       },
