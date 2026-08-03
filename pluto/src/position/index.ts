@@ -7,11 +7,4 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-export * from "@/status/base/Aggregator";
-export * from "@/status/base/colors";
-export * from "@/status/base/Icons";
-export * from "@/status/base/Indicator";
-export * from "@/status/base/Loading";
-export * from "@/status/base/Notification";
-export * from "@/status/base/Orbital";
-export * from "@/status/base/Summary";
+export * as position from "@/position/position";

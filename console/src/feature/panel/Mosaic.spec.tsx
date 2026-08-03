@@ -9,6 +9,7 @@
 
 import { type panel } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
+import { Drift } from "@synnaxlabs/drift";
 import { Icon, Panel as PPanel, Text } from "@synnaxlabs/pluto";
 import { uuid } from "@synnaxlabs/x";
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
@@ -19,7 +20,22 @@ import { Mosaic } from "@/feature/panel/Mosaic";
 import { Panel } from "@/platform/panel";
 import { createServerPanel } from "@/platform/panel/testutil";
 import { Session } from "@/session";
-import { createConsoleWrapper, type TestStore, uniqueName } from "@/testutil";
+import {
+  type ConsolePreloadedState,
+  createConsoleWrapper,
+  type TestStore,
+  uniqueName,
+} from "@/testutil";
+
+// The shape a reload hydrates: the persisted selection with the keep-alive set
+// cleared, since it is excluded from persistence.
+const hydrated = (key: panel.Key): ConsolePreloadedState => ({
+  [Session.Panel.SLICE_NAME]: {
+    windows: {
+      [Drift.MAIN_WINDOW]: { ...Session.Panel.ZERO_WINDOW_STATE, selected: key },
+    },
+  },
+});
 
 const client = createTestClient();
 
@@ -70,11 +86,16 @@ const probePanel = async (): Promise<panel.Panel> =>
     tabs: [{ variant: "view", key: uuid.create(), type: "probe" }],
   });
 
-const setup = async (): Promise<{
+const setup = async (
+  preloadedState?: ConsolePreloadedState,
+): Promise<{
   wrapper: FC<PropsWithChildren>;
   store: TestStore;
 }> => {
-  const { wrapper: Console, store } = await createConsoleWrapper({ client });
+  const { wrapper: Console, store } = await createConsoleWrapper({
+    client,
+    preloadedState,
+  });
   const wrapper = ({ children }: PropsWithChildren): ReactElement => (
     <Console>
       <Panel.RendererContext value={REGISTRY}>{children}</Panel.RendererContext>
@@ -119,6 +140,17 @@ describe("Panel.Mosaic keep-alive", () => {
     // Reattached, not remounted.
     expect(mountCount(a.key)).toBe(1);
     expect(unmounts).toHaveLength(0);
+  });
+
+  // Regression: the keep-alive set is excluded from persistence, so a reload
+  // restored a selected panel with nothing portaled in and the mosaic came up
+  // blank until the user picked another panel.
+  it("should render a panel selected before a reload", async () => {
+    const a = await probePanel();
+    const { wrapper } = await setup(hydrated(a.key));
+    render(<Mosaic onCreateTab={createTab} />, { wrapper });
+
+    await waitFor(() => expect(screen.getByText(`content-${a.key}`)).toBeTruthy());
   });
 
   it("should show the empty state while keeping visited panels mounted", async () => {

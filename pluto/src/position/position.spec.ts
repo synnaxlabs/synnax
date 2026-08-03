@@ -10,12 +10,12 @@
 import { box, location, testutil } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
-import { Dialog } from "@/dialog";
+import { position } from "@/position";
 
 interface Spec {
-  params: Dialog.PositionParams;
+  params: position.Params;
   name?: string;
-  expected: Dialog.PositionReturn;
+  expected: position.Return;
 }
 
 describe("position", () => {
@@ -502,12 +502,12 @@ describe("position", () => {
 
     SPECS.forEach(({ name, params, expected }) =>
       it(`should position dialog correctly for ${name}`, () =>
-        expect(Dialog.position(params)).toEqual(expected)),
+        expect(position.position(params)).toEqual(expected)),
     );
   });
 
   describe("parseLocationOptions", () => {
-    const TESTS: [Dialog.Location, Partial<location.XY>][] = [
+    const TESTS: [position.Location, Partial<location.XY>][] = [
       ["left", { x: "left" }],
       [{ x: "left" }, { x: "left" }],
       [
@@ -518,7 +518,7 @@ describe("position", () => {
     ];
     TESTS.forEach(([arg, expected]) => {
       it(`should return ${testutil.toString(expected)} for ${testutil.toString(arg)}`, () => {
-        expect(Dialog.parseLocationOptions(arg)).toEqual(expected);
+        expect(position.parseLocationOptions(arg)).toEqual(expected);
       });
     });
   });

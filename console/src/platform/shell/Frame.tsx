@@ -122,7 +122,15 @@ export const Frame = ({
       )}
       <Flex.Box className={CSS.BE("shell", "stage")} grow={false}>
         {ORNAMENT === "orbits" && <Orbits />}
-        <Flex.Box y empty className={CSS.BE("shell", "card")} grow={false}>
+        <Flex.Box
+          y
+          empty
+          className={CSS(
+            CSS.BE("shell", "card"),
+            CARD_VARIANT === "frosted" && CSS.BE("shell", "frost"),
+          )}
+          grow={false}
+        >
           {children}
         </Flex.Box>
       </Flex.Box>

@@ -58,7 +58,6 @@ export const Boolean = ({
   checkedIcon,
   uncheckedIcon,
   tooltip,
-  tooltipDelay,
   tooltipLocation,
   hideTooltip,
   ...rest
@@ -86,7 +85,6 @@ export const Boolean = ({
     textColor={parseTextColor(preview, textColor, value)}
     onClick={onClick}
     tooltip={tooltip}
-    tooltipDelay={tooltipDelay}
     tooltipLocation={tooltipLocation}
     hideTooltip={hideTooltip}
   >

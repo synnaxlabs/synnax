@@ -21,72 +21,22 @@
     border-radius: var(--pluto-border-radius-small);
     box-shadow: var(--pluto-shadow-v1);
     padding: 1rem 1.5rem;
-    opacity: 0;
     max-width: 70rem;
-    --translate-amount: 0.666rem;
-    --transform-x: 0;
-    --transform-y: 0;
-    --scale: 0.95;
-    transform: translate(var(--transform-x), var(--transform-y)) scale(var(--scale));
-    transition:
-        opacity 0.15s cubic-bezier(0.16, 1, 0.3, 1),
-        transform 0.15s cubic-bezier(0.16, 1, 0.3, 1);
+    animation: pluto-tooltip-in 0.15s cubic-bezier(0.16, 1, 0.3, 1);
+    transition: opacity 0.15s cubic-bezier(0.16, 1, 0.3, 1);
 
     .pluto-text {
         font-weight: 350;
     }
 
-    &.pluto--loaded {
-        opacity: 1;
-        --scale: 1;
+    &.pluto--closing {
+        opacity: 0;
     }
+}
 
-    &.pluto--location-center {
-        &.pluto--location-top {
-            --transform-x: calc(var(--pluto-pos-x) - 50%);
-            --transform-y: calc(
-                var(--pluto-pos-y) + calc(-100% - var(--translate-amount))
-            );
-        }
-        &.pluto--location-bottom {
-            --transform-x: calc(var(--pluto-pos-x) - 50%);
-            --transform-y: calc(var(--pluto-pos-y) + var(--translate-amount));
-        }
-        &.pluto--location-left {
-            --transform-x: calc(
-                var(--pluto-pos-x) + calc(-100% - var(--translate-amount))
-            );
-            --transform-y: calc(var(--pluto-pos-y) - 50%);
-        }
-        &.pluto--location-right {
-            --transform-x: calc(var(--pluto-pos-x) + var(--translate-amount));
-            --transform-y: calc(var(--pluto-pos-y) - 50%);
-        }
-    }
-
-    &.pluto--location-top {
-        &.pluto--location-right {
-            --transform-x: var(--pluto-pos-x);
-            --transform-y: calc(
-                var(--pluto-pos-y) + calc(-100% - var(--translate-amount))
-            );
-        }
-        &.pluto--location-left {
-            --transform-x: calc(var(--pluto-pos-x) - 100%);
-            --transform-y: calc(
-                var(--pluto-pos-y) + calc(-100% - var(--translate-amount))
-            );
-        }
-    }
-
-    &.pluto--location-bottom {
-        &.pluto--location-right {
-            --transform-x: var(--pluto-pos-x);
-            --transform-y: calc(var(--pluto-pos-y) - var(--translate-amount));
-        }
-        &.pluto--location-left {
-            --transform-x: calc(var(--pluto-pos-x) - 100%);
-            --transform-y: calc(var(--pluto-pos-y) + var(--translate-amount));
-        }
+@keyframes pluto-tooltip-in {
+    from {
+        opacity: 0;
+        transform: scale(0.95);
     }
 }

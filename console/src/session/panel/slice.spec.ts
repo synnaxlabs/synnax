@@ -445,13 +445,15 @@ describe("Panel Slice", () => {
 
     // A project swap hydrates the stored slice wholesale, so clearing the mounted
     // set on write is what stops one project's panels staying mounted into the next.
+    // The stored field is what the assertion reads: selectMounted answers for the
+    // hydrated window, where the selection alone puts a panel back on screen.
     it("should clear every window's mounted panels", () => {
-      const state = purge(
+      const { windows } = purge(
         Panel.select({ key: PANEL }),
         Panel.select({ windowKey: "other", key: OTHER_PANEL }),
-      );
-      expect(Panel.selectMounted(state)).toEqual([]);
-      expect(state[Panel.SLICE_NAME].windows.other.mounted).toEqual([]);
+      )[Panel.SLICE_NAME];
+      Object.values(windows).forEach((win) => expect(win.mounted).toEqual([]));
+      expect(Object.keys(windows)).toHaveLength(2);
     });
 
     it("should leave the selection and per-panel tab state persisted", () => {

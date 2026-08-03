@@ -21,7 +21,7 @@ export interface Preference {
 // 2. A paired preference (target and dialog corners)
 export type LocationPreference = Location | Preference;
 
-export interface PositionParams {
+export interface Params {
   container: box.Crude;
   target: box.Crude;
   dialog: box.Crude;
@@ -38,7 +38,7 @@ export const parseLocationOptions = (initial?: Location): Partial<location.XY> =
   return { x: undefined, y: initial };
 };
 
-export interface PositionReturn {
+export interface Return {
   targetCorner: location.XY;
   dialogCorner: location.XY;
   adjustedDialog: box.Box;
@@ -56,7 +56,7 @@ const buildOptions = ({
   initial,
   prefer = [],
   disable = [],
-}: Pick<PositionParams, "initial" | "prefer" | "disable">): Option[] => {
+}: Pick<Params, "initial" | "prefer" | "disable">): Option[] => {
   const preferences = array.toArray(prefer).map(normalizePreference);
   const disabled = array.toArray(disable).map(normalizePreference);
 
@@ -166,7 +166,7 @@ export const position = ({
   prefer,
   disable,
   offset,
-}: PositionParams): PositionReturn => {
+}: Params): Return => {
   const options = buildOptions({ initial, prefer, disable });
   const containerBox = box.construct(containerCrude);
   const targetBox = box.construct(targetCrude);
@@ -205,7 +205,7 @@ interface EvaluateOptionProps extends Option {
   offset?: xy.Crude;
 }
 
-interface EvaluateOptionReturn extends PositionReturn {
+interface EvaluateOptionReturn extends Return {
   area: number;
 }
 

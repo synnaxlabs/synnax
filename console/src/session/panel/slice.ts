@@ -31,8 +31,9 @@ export const windowStateZ = z.object({
   isOverlaid: z.boolean().optional().default(false),
   panels: z.record(panel.keyZ, stateZ).default({}),
   /**
-   * The panels the window keeps mounted, most recently selected first. The selected
-   * panel is always the head. Transient: excluded from persistence.
+   * The panels the window keeps mounted, most recently selected first. Transient:
+   * excluded from persistence, so a hydrated window starts empty with a panel still
+   * selected. selectMounted folds the selection back in.
    */
   mounted: panel.keyZ.array().default([]),
 });

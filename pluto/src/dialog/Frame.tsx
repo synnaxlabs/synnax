@@ -22,7 +22,6 @@ import { type Component } from "@/component";
 import { context } from "@/context";
 import { CSS } from "@/css";
 import { BACKGROUND_CLASS } from "@/dialog/Background";
-import { type LocationPreference, position, type Preference } from "@/dialog/position";
 import { Flex } from "@/flex";
 import {
   useClickOutside,
@@ -32,6 +31,7 @@ import {
   useWindowResize,
 } from "@/hooks";
 import { CONTEXT_MENU_CLASS } from "@/menu/types";
+import { position } from "@/position";
 import { state } from "@/state";
 import { Triggers } from "@/triggers";
 
@@ -47,7 +47,7 @@ export interface FrameProps extends Omit<
   initialVisible?: boolean;
   visible?: boolean;
   onVisibleChange?: xstate.Setter<boolean>;
-  location?: LocationPreference;
+  location?: position.LocationPreference;
   variant?: Variant;
   maxHeight?: Component.Size | number;
   zIndex?: number;
@@ -121,7 +121,7 @@ const positionsEqual = (
   return topLeftEqual && widthEqual;
 };
 
-const PREFERENCES: LocationPreference[] = [
+const PREFERENCES: position.LocationPreference[] = [
   {
     targetCorner: location.BOTTOM_LEFT,
     dialogCorner: location.TOP_LEFT,
@@ -188,7 +188,7 @@ export const Frame = ({
 
   const visibleRef = useSyncedRef(visible);
   const targetRef = useRef<HTMLDivElement>(null);
-  const prevLocationPreference = useRef<Preference | undefined>(undefined);
+  const prevLocationPreference = useRef<position.Preference | undefined>(undefined);
   const prevBox = useRef<box.Box | undefined>(undefined);
   const dialogRef = useRef<HTMLDivElement>(null);
 
@@ -219,7 +219,7 @@ export const Frame = ({
       prefer = [prevLocationPreference.current, ...PREFERENCES];
     // In the connected or floating case, we use a more sophisticated positioning
     // algorithm.
-    const { adjustedDialog, ...locations } = position({
+    const { adjustedDialog, ...locations } = position.position({
       target,
       dialog,
       container: windowBox,

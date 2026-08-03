@@ -98,7 +98,6 @@ export const Text = ({
   onClickDelay,
   startContent,
   tooltip,
-  tooltipDelay,
   tooltipLocation,
   hideTooltip,
   reveal,
@@ -206,7 +205,6 @@ export const Text = ({
       preventClick={preventClick}
       onClickDelay={onClickDelay}
       tooltip={tooltip}
-      tooltipDelay={tooltipDelay}
       tooltipLocation={tooltipLocation}
       hideTooltip={hideTooltip}
       reveal={reveal}

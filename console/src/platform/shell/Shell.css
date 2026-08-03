@@ -86,6 +86,19 @@
     z-index: -1;
 }
 
+/* ---------- frosted glass ---------- */
+
+/* The one frosted-glass recipe. Every translucent surface in the shell wears
+   this class so the card and the islands can't drift apart. Shape (radius,
+   padding, size) stays with each surface. */
+.console-shell__frost {
+    background: color-mix(in srgb, var(--pluto-gray-l0) 40%, transparent);
+    -webkit-backdrop-filter: blur(3rem) saturate(140%);
+    backdrop-filter: blur(3rem) saturate(140%);
+    border: var(--pluto-border-width) solid var(--pluto-gray-l6);
+    box-shadow: var(--pluto-shadow-v2);
+}
+
 /* ---------- card ---------- */
 
 /* Every surface's card shares one fixed size so guard handoffs read as content
@@ -121,13 +134,8 @@
     box-shadow: var(--pluto-shadow-v2);
 }
 
-.console--card-frosted .console-shell__card {
-    background: color-mix(in srgb, var(--pluto-gray-l0) 40%, transparent);
-    -webkit-backdrop-filter: blur(3rem) saturate(140%);
-    backdrop-filter: blur(3rem) saturate(140%);
-    border: var(--pluto-border-width) solid var(--pluto-gray-l6);
-    box-shadow: var(--pluto-shadow-v2);
-}
+/* The frosted variant has no rule of its own: Frame hangs the shared frost
+   class on the card instead. */
 
 .console--card-outline .console-shell__card {
     background: transparent;
@@ -184,10 +192,12 @@
     min-height: 6rem;
     padding: 0 2rem;
     border-radius: var(--pluto-border-radius-medium);
-    border: var(--pluto-border-width) solid var(--pluto-gray-l6);
-    background: color-mix(in srgb, var(--pluto-gray-l0) 15%, transparent);
-    -webkit-backdrop-filter: blur(0.75rem);
-    backdrop-filter: blur(0.75rem);
+}
+
+/* The version badge renders nothing while the Console is current and
+   compatible, leaving its island as a bare floating border. */
+.console-shell__island:empty {
+    display: none;
 }
 
 .console-shell__connection {

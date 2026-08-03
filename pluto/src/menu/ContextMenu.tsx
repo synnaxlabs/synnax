@@ -23,7 +23,6 @@ import { createPortal } from "react-dom";
 
 import { type RenderProp } from "@/component/renderProp";
 import { CSS } from "@/css";
-import { Dialog } from "@/dialog";
 import { Flex } from "@/flex";
 import {
   useClickOutside,
@@ -38,6 +37,7 @@ import {
   CONTEXT_SELECTED,
   CONTEXT_TARGET,
 } from "@/menu/types";
+import { position } from "@/position";
 import { Triggers } from "@/triggers";
 
 interface ContextMenuState {
@@ -96,7 +96,7 @@ const findSelected = (target: HTMLElement): HTMLElement[] => {
   return [target];
 };
 
-const PREFERENCES: Dialog.LocationPreference[] = [
+const PREFERENCES: position.LocationPreference[] = [
   { targetCorner: location.BOTTOM_RIGHT, dialogCorner: location.TOP_LEFT },
   { targetCorner: location.BOTTOM_LEFT, dialogCorner: location.TOP_RIGHT },
   { targetCorner: location.TOP_RIGHT, dialogCorner: location.BOTTOM_LEFT },
@@ -160,7 +160,7 @@ export const useContextMenu = (): UseContextMenuReturn => {
     if (el == null) return;
     setMenuState((prev) => {
       if (!prev.visible) return prev;
-      const { adjustedDialog } = Dialog.position({
+      const { adjustedDialog } = position.position({
         container: box.construct(0, 0, window.innerWidth, window.innerHeight),
         dialog: box.construct(el),
         target: box.construct(prev.cursor, 0, 0),

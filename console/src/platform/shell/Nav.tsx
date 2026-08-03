@@ -21,7 +21,12 @@ interface IslandProps extends Flex.BoxProps {
 }
 
 const Island = ({ children, ...rest }: IslandProps): ReactElement => (
-  <Flex.Box x align="center" className={CSS.BE("shell", "island")} {...rest}>
+  <Flex.Box
+    x
+    align="center"
+    className={CSS(CSS.BE("shell", "island"), CSS.BE("shell", "frost"))}
+    {...rest}
+  >
     {children}
   </Flex.Box>
 );
@@ -46,14 +51,14 @@ export const Nav = ({ connection }: NavProps): ReactElement => {
             <Window.Controls visibleIfOS="macOS" forceOS={os} />
           </Island>
         )}
-      </Flex.Box>
-      <Flex.Box x align="center" gap="medium">
-        <Connection cluster={connection} />
         {chrome && (
           <Island data-tauri-drag-region>
             <Version.Badge />
           </Island>
         )}
+      </Flex.Box>
+      <Flex.Box x align="center" gap="medium">
+        <Connection cluster={connection} />
         {chrome && os === "Windows" && (
           <Island>
             <Window.Controls visibleIfOS="Windows" forceOS={os} />

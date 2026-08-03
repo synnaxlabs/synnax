@@ -9,308 +9,259 @@
 
 import "@/tooltip/Dialog.css";
 
-import {
-  box,
-  type CrudeTimeSpan,
-  type destructor,
-  type dimensions,
-  location,
-  TimeSpan,
-  xy,
-} from "@synnaxlabs/x";
+import { box, type destructor, location, TimeSpan } from "@synnaxlabs/x";
 import {
   cloneElement,
-  type ComponentPropsWithoutRef,
-  type CSSProperties,
   isValidElement,
   type ReactElement,
   type ReactNode,
+  type Ref,
   useCallback,
+  useEffect,
   useId,
-  useMemo,
+  useLayoutEffect,
   useRef,
   useState,
 } from "react";
 import { createPortal } from "react-dom";
 
-import { isRenderProp, type RenderProp } from "@/component/renderProp";
 import { CSS } from "@/css";
-import { useCombinedStateAndRef } from "@/hooks";
+import { useCombinedRefs, useResize, useSyncedRef, useWindowResize } from "@/hooks";
+import { position } from "@/position";
 import { Text } from "@/text";
 import { useConfig } from "@/tooltip/Config";
+import { Triggers } from "@/triggers";
+import { getRootElement } from "@/util/rootElement";
 
 interface ChildProps {
-  id?: string;
-  onMouseDown?: (e: React.MouseEvent) => void;
-  onMouseEnter?: (e: React.MouseEvent) => void;
-  onMouseLeave?: (e: React.MouseEvent) => void;
+  ref?: Ref<HTMLElement>;
+  "aria-describedby"?: string;
+  onPointerEnter?: (e: React.PointerEvent<HTMLElement>) => void;
+  onPointerLeave?: (e: React.PointerEvent<HTMLElement>) => void;
+  onPointerDown?: (e: React.PointerEvent<HTMLElement>) => void;
+  onFocus?: (e: React.FocusEvent<HTMLElement>) => void;
+  onBlur?: (e: React.FocusEvent<HTMLElement>) => void;
 }
 
-export interface DialogProps extends Omit<ComponentPropsWithoutRef<"div">, "children"> {
-  delay?: CrudeTimeSpan;
-  location?: location.Outer | Partial<location.XY>;
+export interface DialogProps {
+  location?: position.Location;
   hide?: boolean;
-  children: [ReactNode | RenderProp<ContentProps>, ReactElement<ChildProps>];
+  children: [ReactNode, ReactElement<ChildProps>];
 }
 
-interface State {
-  location: location.XY;
-  position: xy.XY;
-  triggerDims: dimensions.Dimensions;
-}
-
-export interface ContentProps extends State {}
-
-const SIZE_THRESHOLD = 150;
-
-const Y_LOCATION_PREFERENCES: location.Y[] = ["top", "bottom"];
-const X_LOCATION_PREFERENCES: location.X[] = ["left", "right"];
-const OUTER_LOCATION_PREFERENCES: location.Outer[] = [
-  ...X_LOCATION_PREFERENCES,
-  ...Y_LOCATION_PREFERENCES,
-];
-const LOCATION_PREFERENCES: location.Location[] = [
-  ...OUTER_LOCATION_PREFERENCES,
-  "center",
+const PREFERENCES: position.LocationPreference[] = [
+  { targetCorner: location.TOP_CENTER, dialogCorner: location.BOTTOM_CENTER },
+  { targetCorner: location.BOTTOM_CENTER, dialogCorner: location.TOP_CENTER },
+  { targetCorner: location.CENTER_RIGHT, dialogCorner: location.CENTER_LEFT },
+  { targetCorner: location.CENTER_LEFT, dialogCorner: location.CENTER_RIGHT },
 ];
 
-const LOCATION_TRANSLATIONS: Record<string, (p: xy.XY, container: box.Box) => xy.XY> = {
-  [location.xyToString(location.TOP_RIGHT)]: (p, c) =>
-    xy.translate(p, "x", -box.width(c)),
-  [location.xyToString(location.TOP_LEFT)]: (p, c) =>
-    xy.translate(p, "x", box.width(c)),
-  [location.xyToString(location.BOTTOM_RIGHT)]: (p, c) =>
-    xy.translate(p, "x", -box.width(c)),
-  [location.xyToString(location.BOTTOM_LEFT)]: (p, c) =>
-    xy.translate(p, "x", box.width(c)),
-};
-
-const bestLocation = <C extends location.Location>(
-  container: box.Box,
-  window: box.Box,
-  options: C[],
-): C => {
-  for (const location of options) {
-    const distance = Math.abs(box.loc(window, location) - box.loc(container, location));
-    if (distance > SIZE_THRESHOLD) return location;
-  }
-  return options[0];
-};
-
-export const chooseLocation = (
-  cornerOrLocation: location.Outer | Partial<location.XY> | undefined,
-  target: box.Box,
-  window: box.Box,
-): location.XY => {
-  const parse = location.locationZ.safeParse(cornerOrLocation);
-  const chooseRemainingLocation = (first: location.Location): location.Location => {
-    let preferences: location.Location[];
-    if (first === "center") preferences = OUTER_LOCATION_PREFERENCES;
-    else if (location.isX(first)) preferences = ["center", ...Y_LOCATION_PREFERENCES];
-    else preferences = ["center", ...X_LOCATION_PREFERENCES];
-    return location.construct(bestLocation(target, window, preferences));
-  };
-
-  if (parse.success)
-    return location.constructXY(parse.data, chooseRemainingLocation(parse.data));
-  if (cornerOrLocation != null) {
-    const v = { ...(cornerOrLocation as Partial<location.XY>) };
-    if (v.x == null && v.y != null)
-      v.x = chooseRemainingLocation(location.construct(v.y)) as location.X;
-    else if (v.y == null && v.x != null)
-      v.y = chooseRemainingLocation(location.construct(v.x)) as location.Y;
-    else if (v.x == null && v.y == null) {
-      v.x = bestLocation(target, window, LOCATION_PREFERENCES) as location.X;
-      v.y = chooseRemainingLocation(location.construct(v.x)) as location.Y;
-    }
-    const l = location.constructXY(v as location.XY);
-    return l;
-  }
-  const chosen = bestLocation(target, window, LOCATION_PREFERENCES);
-  return location.constructXY(chosen, chooseRemainingLocation(chosen));
-};
-
-const resolveTarget = (target: HTMLElement, id: string): HTMLElement => {
-  // we want to find the first parent that has the given id
-  let el: HTMLElement | null = target;
-  while (el != null) {
-    if (el.id === id) return el;
-    el = el.parentElement;
-  }
-  return target;
-};
+const OFFSET = 6;
+const CLOSE_DURATION = TimeSpan.milliseconds(150);
+const ESCAPE_TRIGGERS: Triggers.Trigger[] = [["Escape"]];
 
 /**
- * A tooltip that appears when the user hovers over an element.
+ * A tooltip that appears when the user hovers or keyboard-focuses an element.
  *
- * @param props - The props for the tooltip. Unlisted props are passed to the underlying
- * div element.
- * @param props.children - A ReactNode to render as the tooltip's content, followed by
- * a ReactElement to attach the tooltip to.
- * @param props.location - The location for the tooltip to appear relative to the
- * element it is attached to. If unspecified, the tooltip automatically chooses a
- * location based on the element's position on the screen.
- * @param props.hide - Force the tooltip to remain hidden, even when the user hovers
- * over the element it is attached to.
+ * @param props.children - The tooltip's content, followed by the element to attach
+ * the tooltip to.
+ * @param props.location - The preferred location for the tooltip relative to the
+ * element. If unspecified or the tooltip would overflow the window, the best
+ * location is chosen automatically.
+ * @param props.hide - Force the tooltip to remain hidden.
  * @default false.
- * @param props.delay - The delay before the tooltip appears, in milliseconds. This prop
- * overrides the value set in Tooltip.Config.
- * @default the value set in Tooltip.Config, which defaults to 500ms.
  */
 export const Dialog = ({
-  delay,
   children,
-  location: cornerOrLocation,
+  location: locationProp,
   hide = false,
 }: DialogProps): ReactElement => {
-  const { startAccelerating, delay: configDelay } = useConfig();
-  const parsedDelay = new TimeSpan(delay ?? configDelay);
-  const [state, setState, stateRef] = useCombinedStateAndRef<State | null>(null);
-  const [loadCLS, setLoadCLS] = useState<string>("");
-  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const { delay, isWarm, markClosed, acquire } = useConfig();
+  const [visible, setVisible] = useState(false);
+  const [closing, setClosing] = useState(false);
   const id = useId();
-  const visibleCleanup = useRef<destructor.Destructor | null>(null);
-  const updateCLSTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const setStateAndLoadCLS = useCallback((s: State | null): void => {
-    if ((s == null && stateRef.current == null) || updateCLSTimeoutRef.current != null)
-      return;
-    if (s != null) {
-      setState(s);
-      updateCLSTimeoutRef.current = setTimeout(() => {
-        setLoadCLS(CSS.M("loaded"));
-        updateCLSTimeoutRef.current = null;
-      }, 1);
-    } else {
-      setLoadCLS("");
-      updateCLSTimeoutRef.current = setTimeout(() => {
-        setState(null);
-        updateCLSTimeoutRef.current = null;
-      }, 500);
-    }
+  const anchorRef = useRef<HTMLElement | null>(null);
+  const tooltipRef = useRef<HTMLDivElement | null>(null);
+  const openTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const closeTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const releaseRef = useRef<destructor.Destructor | null>(null);
+  const visibleRef = useSyncedRef(visible);
+  const hideRef = useSyncedRef(hide);
+  const locationRef = useSyncedRef(locationProp);
+  const delayRef = useSyncedRef(delay);
+
+  const clearOpenTimeout = useCallback((): void => {
+    if (openTimeoutRef.current == null) return;
+    clearTimeout(openTimeoutRef.current);
+    openTimeoutRef.current = null;
+  }, []);
+  const clearCloseTimeout = useCallback((): void => {
+    if (closeTimeoutRef.current == null) return;
+    clearTimeout(closeTimeoutRef.current);
+    closeTimeoutRef.current = null;
   }, []);
 
-  const handleVisibleChange = useCallback(
-    (e: React.MouseEvent, visible: boolean): void => {
-      if (!visible || hide) {
-        visibleCleanup.current?.();
-        return setStateAndLoadCLS(null);
-      }
-      startAccelerating();
-      const targetBox = box.construct(resolveTarget(e.target as HTMLElement, id));
-      if (!box.contains(targetBox, xy.construct(e))) {
-        visibleCleanup.current?.();
-        setStateAndLoadCLS(null);
-      }
-      const window = box.construct(document.documentElement);
-      const xyLoc = chooseLocation(cornerOrLocation, targetBox, window);
+  const close = useCallback((immediate: boolean = false): void => {
+    clearOpenTimeout();
+    if (!visibleRef.current) return;
+    markClosed();
+    releaseRef.current?.();
+    releaseRef.current = null;
+    if (immediate) {
+      clearCloseTimeout();
+      setClosing(false);
+      setVisible(false);
+      return;
+    }
+    if (closeTimeoutRef.current != null) return;
+    setClosing(true);
+    closeTimeoutRef.current = setTimeout(() => {
+      closeTimeoutRef.current = null;
+      setClosing(false);
+      setVisible(false);
+    }, CLOSE_DURATION.milliseconds);
+  }, []);
+  const closeNow = useCallback((): void => close(true), [close]);
 
-      let pos = box.xyLoc(targetBox, xyLoc);
-      const translate = LOCATION_TRANSLATIONS[location.xyToString(xyLoc)];
-      if (translate != null) pos = translate(pos, targetBox);
+  const open = useCallback((): void => {
+    clearCloseTimeout();
+    setClosing(false);
+    releaseRef.current?.();
+    releaseRef.current = acquire(closeNow);
+    setVisible(true);
+  }, []);
 
-      const root = box.construct(document.body);
-      setStateAndLoadCLS({
-        location: xyLoc,
-        position: xy.translate(pos, xy.scale(box.topLeft(root), -1)),
-        triggerDims: box.dims(targetBox),
-      });
+  const positionTooltip = useCallback((): void => {
+    const anchor = anchorRef.current;
+    const el = tooltipRef.current;
+    if (anchor == null || el == null) return;
+    const target = box.construct(anchor);
+    if (!anchor.isConnected || box.areaIsZero(target)) return close(true);
+    const { adjustedDialog, dialogCorner } = position.position({
+      target,
+      dialog: box.construct(el),
+      container: box.construct(0, 0, window.innerWidth, window.innerHeight),
+      initial: locationRef.current,
+      prefer: PREFERENCES,
+      offset: OFFSET,
+    });
+    const rounded = box.round(adjustedDialog);
+    el.style.left = CSS.px(box.left(rounded));
+    el.style.top = CSS.px(box.top(rounded));
+    el.style.transformOrigin = `${dialogCorner.x} ${dialogCorner.y}`;
+  }, []);
 
-      visibleCleanup.current?.();
-      const handleMove = (e: MouseEvent): void => {
-        const cursor = xy.construct(e);
-        if (box.contains(targetBox, cursor)) return;
-        setStateAndLoadCLS(null);
-        document.removeEventListener("mousemove", handleMove);
-        visibleCleanup.current = null;
-        if (timeoutRef.current != null) clearTimeout(timeoutRef.current);
-      };
+  useLayoutEffect(() => {
+    if (visible) positionTooltip();
+  }, [visible, positionTooltip]);
 
-      document.addEventListener("mousemove", handleMove);
-      visibleCleanup.current = () =>
-        document.removeEventListener("mousemove", handleMove);
-      document.addEventListener(
-        "mousedown",
-        () => {
-          setStateAndLoadCLS(null);
-          visibleCleanup.current?.();
-        },
-        { once: true },
+  const resizeAnchorRef = useResize(positionTooltip, { enabled: visible });
+  const resizeTooltipRef = useResize(positionTooltip, { enabled: visible });
+  useWindowResize(positionTooltip, { enabled: visible });
+
+  const handlePointerEnter = useCallback(
+    (e: React.PointerEvent<HTMLElement>): void => {
+      if (hideRef.current || e.pointerType === "touch") return;
+      clearOpenTimeout();
+      if (visibleRef.current || isWarm()) return open();
+      openTimeoutRef.current = setTimeout(
+        open,
+        new TimeSpan(delayRef.current).milliseconds,
       );
     },
-    [startAccelerating, cornerOrLocation, hide, id, parsedDelay.milliseconds],
+    [open],
+  );
+  const handlePointerLeave = useCallback((): void => close(), [close]);
+  const handleFocus = useCallback(
+    (e: React.FocusEvent<HTMLElement>): void => {
+      if (hideRef.current || !e.currentTarget.matches(":focus-visible")) return;
+      open();
+    },
+    [open],
   );
 
-  // TODO: fix this in-component state update.
-  if (hide && state != null) setStateAndLoadCLS(null);
+  useEffect(() => {
+    if (!visible) return;
+    const handleScroll = (e: Event): void => {
+      const anchor = anchorRef.current;
+      if (
+        e.target instanceof Node &&
+        anchor != null &&
+        (e.target === anchor || e.target.contains(anchor))
+      )
+        close(true);
+    };
+    window.addEventListener("scroll", handleScroll, { capture: true, passive: true });
+    return () => window.removeEventListener("scroll", handleScroll, { capture: true });
+  }, [visible, close]);
 
-  const handleMouseEnter = useCallback(
-    (e: React.MouseEvent): void => {
-      timeoutRef.current = setTimeout(
-        () => handleVisibleChange(e, true),
-        parsedDelay.milliseconds,
-      );
+  const handleEscape = useCallback(
+    ({ stage }: Triggers.UseEvent): void => {
+      if (stage === "start" && visibleRef.current) close(true);
     },
-    [handleVisibleChange, parsedDelay.milliseconds],
+    [close],
   );
+  Triggers.use({ triggers: ESCAPE_TRIGGERS, callback: handleEscape, priority: 200 });
 
-  const handleMouseLeave = useCallback(
-    (e: React.MouseEvent): void => {
-      if (timeoutRef.current != null) clearTimeout(timeoutRef.current);
-      handleVisibleChange(e, false);
+  useEffect(() => {
+    if (hide) close(true);
+  }, [hide, close]);
+
+  useEffect(
+    () => () => {
+      clearOpenTimeout();
+      clearCloseTimeout();
+      releaseRef.current?.();
     },
-    [handleVisibleChange],
+    [],
   );
 
   const [tip, children_] = children;
-
-  const root = document.body;
-
-  const tooltipStyle = useMemo<CSSProperties | undefined>(
-    () =>
-      state == null
-        ? undefined
-        : {
-            [CSS.var("pos-x")]: CSS.px(state.position.x),
-            [CSS.var("pos-y")]: CSS.px(state.position.y),
-          },
-    [state?.position.x, state?.position.y],
+  const combinedAnchorRef = useCombinedRefs(
+    anchorRef,
+    resizeAnchorRef,
+    children_.props.ref,
   );
+  const combinedTooltipRef = useCombinedRefs(tooltipRef, resizeTooltipRef);
 
   return (
     <>
-      {state != null &&
+      {visible &&
         createPortal(
           <div
-            key={id}
-            className={CSS(
-              CSS.B("tooltip"),
-              CSS.loc(state.location.x),
-              CSS.loc(state.location.y),
-              loadCLS,
-            )}
-            style={tooltipStyle}
+            id={id}
+            role="tooltip"
+            ref={combinedTooltipRef}
+            className={CSS(CSS.B("tooltip"), closing && CSS.M("closing"))}
           >
-            {isRenderProp(tip) ? tip(state) : formatTip(tip)}
+            {formatTip(tip)}
           </div>,
-          root,
+          getRootElement(),
         )}
       {cloneElement(children_, {
-        onMouseEnter: (e) => {
-          handleMouseEnter(e);
-          children_.props.onMouseEnter?.(e);
+        ref: combinedAnchorRef,
+        "aria-describedby": visible ? id : children_.props["aria-describedby"],
+        onPointerEnter: (e) => {
+          handlePointerEnter(e);
+          children_.props.onPointerEnter?.(e);
         },
-        onMouseLeave: (e) => {
-          handleMouseLeave(e);
-          children_.props.onMouseLeave?.(e);
+        onPointerLeave: (e) => {
+          handlePointerLeave();
+          children_.props.onPointerLeave?.(e);
         },
-        onMouseDown: useCallback(
-          (e: React.MouseEvent) => {
-            handleMouseLeave(e);
-            children_.props.onMouseDown?.(e);
-          },
-          [handleVisibleChange],
-        ),
+        onPointerDown: (e) => {
+          closeNow();
+          children_.props.onPointerDown?.(e);
+        },
+        onFocus: (e) => {
+          handleFocus(e);
+          children_.props.onFocus?.(e);
+        },
+        onBlur: (e) => {
+          closeNow();
+          children_.props.onBlur?.(e);
+        },
       })}
     </>
   );
