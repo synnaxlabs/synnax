@@ -192,7 +192,8 @@ var _ = Describe("Writer Behavior", func() {
 							)))
 							MustSucceed(wA.Commit())
 							Expect(wA.Close()).To(Succeed())
-							// Drain wA's frame so the next receives observe wB, then wC.
+							// Drain wA's frame so the next receives observe wB, then
+							// wC.
 							Eventually(out.Outlet()).Should(Receive())
 
 							By("Writing index-only samples to push the index domain further ahead")
@@ -268,8 +269,9 @@ var _ = Describe("Writer Behavior", func() {
 							)))
 							MustSucceed(wSeed.Commit())
 							Expect(wSeed.Close()).To(Succeed())
-							// Drain the seed frame; the index-only write below emits none
-							// since the streamer only subscribes to the data channel.
+							// Drain the seed frame; the index-only write below emits
+							// none since the streamer only subscribes to the data
+							// channel.
 							Eventually(out.Outlet()).Should(Receive())
 
 							By("Extending the index to cover the index-less writes")
