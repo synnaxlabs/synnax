@@ -316,38 +316,43 @@ var _ = Describe("Streamer Behavior", func() {
 			Describe("Slow Consumers", func() {
 				It("Should buffer frames for a consumer that stalls during writes", func(ctx SpecContext) {
 					const bufferSize = 10
-					// Writing past the relay's total buffered capacity would force
-					// the writer to block until the relay times out and drops frames
-					// for the stalled consumer, so undersized buffering surfaces as
-					// missing frames in the drain below.
-					const frameCount = 2 * bufferSize
-					sub := MustSucceed(fs.Sub("slow-consumer"))
-					subDB := openDBOnFS(ctx, sub, cesium.WithBufferSize(bufferSize))
-					defer func() { Expect(subDB.Close()).To(Succeed()) }()
+					// Writing past the relay's total buffered capacity would force the
+					// writer to block until the relay times out and drops frames for
+					// the stalled consumer, so undersized buffering surfaces as missing
+					// frames in the drain below.
+					const frameCount int64 = 2 * bufferSize
+					subFS := MustSucceed(fs.Sub("slow-consumer"))
+					subDB := mustOpenDBOnFS(ctx, subFS, cesium.WithBufferSize(bufferSize))
 					key := GenerateChannelKey()
 					Expect(subDB.CreateChannel(
 						ctx,
-						cesium.Channel{Key: key, Name: "Feynman", DataType: telem.Int64T, Virtual: true},
+						cesium.Channel{
+							Key:      key,
+							Name:     "Feynman",
+							DataType: telem.Int64T,
+							Virtual:  true,
+						},
 					)).To(Succeed())
-					w := MustSucceed(subDB.OpenWriter(ctx, cesium.WriterConfig{
+					w := MustOpen(subDB.OpenWriter(ctx, cesium.WriterConfig{
 						Channels: []cesium.ChannelKey{key},
 						Start:    10 * telem.SecondTS,
 					}))
 					_, o, closer := openStreamer(ctx, subDB, cesium.StreamerConfig{
 						Channels: []cesium.ChannelKey{key},
 					})
+					DeferClose(closer)
 
-					for v := range int64(frameCount) {
-						Expect(w.Write(telem.UnaryFrame(key, telem.NewSeriesV(v)))).To(BeTrue())
+					for v := range frameCount {
+						Expect(
+							w.Write(telem.UnaryFrame(key, telem.NewSeriesV(v))),
+						).To(BeTrue())
 					}
-					for v := range int64(frameCount) {
+					for v := range frameCount {
 						var res cesium.StreamerResponse
 						Eventually(o.Outlet()).Should(Receive(&res))
 						Expect(res.Frame.Count()).To(Equal(1))
 						Expect(res.Frame.SeriesAt(0)).To(telem.MatchSeriesDataV(v))
 					}
-					Expect(closer.Close()).To(Succeed())
-					Expect(w.Close()).To(Succeed())
 				})
 			})
 

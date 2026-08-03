@@ -37,18 +37,12 @@ type GCConfig struct {
 	// Threshold is the minimum tombstone proportion of the Filesize to trigger a GC.
 	// Must be in (0, 1]. Note: Setting this value to 0 will have NO EFFECT as it is the
 	// default value. instead, set it to a very small number greater than 0.
+	//
 	// [OPTIONAL] Default: 0.2
 	Threshold float32
 }
 
-var (
-	_               config.Config[GCConfig] = GCConfig{}
-	defaultGCConfig                         = GCConfig{
-		MaxGoroutine: 10,
-		TryInterval:  30 * time.Second,
-		Threshold:    0.2,
-	}
-)
+var _ config.Config[GCConfig] = GCConfig{}
 
 // Override implements config.Config.
 func (cfg GCConfig) Override(other GCConfig) GCConfig {
@@ -67,9 +61,7 @@ func (cfg GCConfig) Validate() error {
 	return v.Error()
 }
 
-func keyToDirName(ch ChannelKey) string {
-	return strconv.Itoa(int(ch))
-}
+func keyToDirName(ch ChannelKey) string { return strconv.Itoa(int(ch)) }
 
 // DeleteChannel deletes a channel by its key.
 //

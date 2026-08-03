@@ -25,44 +25,44 @@ type Option func(*options)
 
 type options struct {
 	alamos.Instrumentation
-	fs        xfs.FS
-	metaCodec encoding.Codec
-	dirname   string
-	gcCfg     GCConfig
-	fileSize  telem.Size
-	// relayBufferSize is the buffer size for the relay's main streaming pipe and for
-	// each streamer's connection to it.
+	fs              xfs.FS
+	metaCodec       encoding.Codec
+	dirname         string
+	gcCfg           GCConfig
+	fileSize        telem.Size
 	relayBufferSize int
 }
 
-func (o *options) Report() alamos.Report {
-	return alamos.Report{"dirname": o.dirname}
-}
+func (o *options) Report() alamos.Report { return alamos.Report{"dirname": o.dirname} }
 
 func newOptions(dirname string, opts ...Option) (*options, error) {
 	o := &options{dirname: dirname}
 	for _, opt := range opts {
 		opt(o)
 	}
-	return o, mergeAndValidateOptions(o)
+	if err := mergeAndValidateOptions(o); err != nil {
+		return nil, err
+	}
+	return o, nil
 }
 
 func mergeAndValidateOptions(o *options) error {
 	o.metaCodec = override.Nil[encoding.Codec](json.Codec, o.metaCodec)
 	o.fs = override.Nil(xfs.Default, o.fs)
-	o.gcCfg = GCConfig{
+	gcCfg := GCConfig{
 		MaxGoroutine: 10,
 		TryInterval:  30 * time.Second,
 		Threshold:    0.2,
 	}.Override(o.gcCfg)
+	if err := gcCfg.Validate(); err != nil {
+		return err
+	}
+	o.gcCfg = gcCfg
 	o.fileSize = override.Numeric(1*telem.Gigabyte, o.fileSize)
 	o.relayBufferSize = override.Numeric(defaultRelayBufferSize, o.relayBufferSize)
 	v := validate.New("cesium.options")
 	validate.Positive(v, "buffer_size", o.relayBufferSize)
-	if err := v.Error(); err != nil {
-		return err
-	}
-	return o.gcCfg.Validate()
+	return v.Error()
 }
 
 // WithFS sets the file system that cesium will use to store data. This defaults to the
@@ -71,7 +71,9 @@ func WithFS(fs xfs.FS) Option { return func(o *options) { o.fs = fs } }
 
 // WithGCConfig sets the garbage collection configuration for the DB. See the GCConfig
 // struct for more details.
-func WithGCConfig(config GCConfig) Option { return func(o *options) { o.gcCfg = config } }
+func WithGCConfig(config GCConfig) Option {
+	return func(o *options) { o.gcCfg = config }
+}
 
 // WithInstrumentation sets the instrumentation the DB will use for logging, tracing,
 // etc. Defaults to noop instrumentation.
@@ -83,9 +85,13 @@ func WithInstrumentation(i alamos.Instrumentation) Option {
 // size, in bytes, for a writer to be created on a file. Note while that a file's size
 // may still exceed this value, it is not likely to exceed by much with frequent
 // commits. Defaults to 1GB
-func WithFileSizeCap(cap telem.Size) Option { return func(o *options) { o.fileSize = cap } }
+func WithFileSizeCap(cap telem.Size) Option {
+	return func(o *options) { o.fileSize = cap }
+}
 
 // WithBufferSize sets the buffer size, in frames, of the relay pipe that streams
-// written frames to streamers, and of each streamer's connection to that pipe.
-// Defaults to 1000 frames.
-func WithBufferSize(size int) Option { return func(o *options) { o.relayBufferSize = size } }
+// written frames to streamers, and of each streamer's connection to that pipe. Defaults
+// to 1000 frames.
+func WithBufferSize(size int) Option {
+	return func(o *options) { o.relayBufferSize = size }
+}

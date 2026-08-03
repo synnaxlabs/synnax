@@ -25,10 +25,8 @@ type relayResponse struct {
 }
 
 type relay struct {
-	delta *confluence.DynamicDeltaMultiplier[relayResponse]
-	inlet confluence.Inlet[relayResponse]
-	// bufferSize is the capacity of each streamer connection stream opened by
-	// connect.
+	delta      *confluence.DynamicDeltaMultiplier[relayResponse]
+	inlet      confluence.Inlet[relayResponse]
 	bufferSize int
 }
 
@@ -68,9 +66,7 @@ func (r *relay) connect() (confluence.Outlet[relayResponse], func()) {
 		// NOTE: This area is a source of concurrency bugs. BE CAREFUL. We need to make
 		// sure we drain the frames in a SEPARATE goroutine. This prevents deadlocks
 		// inside the relay.
-		wg.Go(func() {
-			confluence.Drain(frames)
-		})
+		wg.Go(func() { confluence.Drain(frames) })
 		r.delta.Disconnect(frames)
 		wg.Wait()
 	}
