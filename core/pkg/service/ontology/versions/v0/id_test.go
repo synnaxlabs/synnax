@@ -10,8 +10,6 @@
 package v0_test
 
 import (
-	"encoding/json"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/ontology/versions/v0"
@@ -30,32 +28,6 @@ var _ = Describe("ID", func() {
 			Expect(id.Validate()).To(Succeed())
 		})
 	})
-	Describe("UnmarshalJSON", func() {
-		It("Should decode the canonical object form", func() {
-			var id v0.ID
-			Expect(json.Unmarshal([]byte(`{"type":"channel","key":"12"}`), &id)).
-				To(Succeed())
-			Expect(id).To(Equal(v0.ID{Type: v0.ResourceTypeChannel, Key: "12"}))
-		})
-		It("Should decode the compact string form", func() {
-			var id v0.ID
-			Expect(json.Unmarshal([]byte(`"channel:12"`), &id)).To(Succeed())
-			Expect(id).To(Equal(v0.ID{Type: v0.ResourceTypeChannel, Key: "12"}))
-		})
-		It("Should keep keys containing colons intact", func() {
-			var id v0.ID
-			Expect(json.Unmarshal([]byte(`"channel:a:b"`), &id)).To(Succeed())
-			Expect(id).To(Equal(v0.ID{Type: v0.ResourceTypeChannel, Key: "a:b"}))
-		})
-		It("Should reject a string without a type separator", func() {
-			var id v0.ID
-			Expect(json.Unmarshal([]byte(`"no-colon"`), &id)).To(SatisfyAll(
-				MatchError(ContainSubstring("failed to parse id: no-colon")),
-				MatchError(ContainSubstring("validation error")),
-			))
-		})
-	})
-
 	Describe("String", func() {
 		It("Should return the string representation of the ID", func() {
 			Expect(v0.ID{Key: "dog", Type: v0.ResourceTypeChannel}.String()).

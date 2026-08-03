@@ -10,7 +10,6 @@
 package v0
 
 import (
-	"encoding/json"
 	"strings"
 
 	"github.com/synnaxlabs/x/errors"
@@ -47,30 +46,4 @@ func ParseID(key string) (ID, error) {
 		)
 	}
 	return ID{Type: ResourceType(split[0]), Key: split[1]}, nil
-}
-
-// UnmarshalJSON decodes an ID from either its canonical object form or the compact
-// "type:key" string form that clients send in request params.
-func (i *ID) UnmarshalJSON(b []byte) error {
-	if len(b) > 0 && b[0] == '"' {
-		var s string
-		if err := json.Unmarshal(b, &s); err != nil {
-			return err
-		}
-		parsed, err := ParseID(s)
-		if err != nil {
-			return err
-		}
-		*i = parsed
-		return nil
-	}
-	// plain drops the UnmarshalJSON method so the object form decodes through the
-	// standard struct path without recursing.
-	type plain ID
-	var p plain
-	if err := json.Unmarshal(b, &p); err != nil {
-		return err
-	}
-	*i = ID(p)
-	return nil
 }

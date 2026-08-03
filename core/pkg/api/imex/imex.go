@@ -91,8 +91,8 @@ func (s *Service) Import(
 
 type importParams struct {
 	FileName string `json:"file_name"`
-	// Parent decodes from the compact "type:key" string form clients send.
-	Parent ontology.ID `json:"parent"`
+	// Parent carries the compact "type:key" string form clients send.
+	Parent string `json:"parent"`
 }
 
 // parseImportOptions decodes the required "params" request param — a JSON object
@@ -116,16 +116,20 @@ func parseImportOptions(ctx context.Context) (imex.ImportOptions, error) {
 			validate.ErrRequired, "file_name",
 		)
 	}
-	if params.Parent.IsZero() {
+	if params.Parent == "" {
 		return imex.ImportOptions{}, validate.PathedError(validate.ErrRequired, "parent")
 	}
-	if params.Parent.Key == "" {
+	parent, err := ontology.ParseID(params.Parent)
+	if err != nil {
+		return imex.ImportOptions{}, validate.PathedError(err, "parent")
+	}
+	if parent.Key == "" {
 		return imex.ImportOptions{}, validate.PathedError(
 			errors.Wrap(validate.ErrValidation, "must carry a non-empty key"),
 			"parent",
 		)
 	}
-	return imex.ImportOptions{FileName: params.FileName, Parent: params.Parent}, nil
+	return imex.ImportOptions{FileName: params.FileName, Parent: parent}, nil
 }
 
 type (
