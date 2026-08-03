@@ -106,20 +106,6 @@ describe("Device", async () => {
       expect(retrieved.make).toBe("ni");
     });
 
-    it("should retrieve a device by a bare key", async () => {
-      const d = await client.devices.create({
-        key: id.create(),
-        rack: testRack.key,
-        location: "Dev1",
-        name: "test",
-        make: "ni",
-        model: "dog",
-        properties: { cat: "dog" },
-      });
-      const retrieved = await client.devices.retrieve(d.key);
-      expect(retrieved.key).toBe(d.key);
-    });
-
     it("should retrieve multiple devices by their keys", async () => {
       const d1 = await client.devices.create({
         key: id.create(),

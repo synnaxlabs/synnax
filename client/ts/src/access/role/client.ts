@@ -10,7 +10,7 @@
 import { type UnaryClient } from "@synnaxlabs/freighter";
 import { z } from "zod";
 
-import { type Key, keyZ, type New, type Role, roleZ } from "@/access/role/types.gen";
+import { keyZ, type New, type Role, roleZ } from "@/access/role/types.gen";
 import { user } from "@/user";
 
 const retrieveRequestZ = z.object({
@@ -87,11 +87,9 @@ export class Client {
     return isMany ? res.roles : res.roles[0];
   }
 
-  async retrieve(key: Key): Promise<Role>;
   async retrieve(params: RetrieveSingleParams): Promise<Role>;
   async retrieve(params: RetrieveMultipleParams): Promise<Role[]>;
-  async retrieve(params: Key | RetrieveParams): Promise<Role | Role[]> {
-    if (typeof params !== "object") params = { key: params };
+  async retrieve(params: RetrieveParams): Promise<Role | Role[]> {
     const isSingle = "key" in params;
     const res = await this.client.send(
       "/access/role/retrieve",

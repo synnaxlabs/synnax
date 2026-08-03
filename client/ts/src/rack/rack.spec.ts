@@ -70,11 +70,6 @@ describe("Rack", () => {
       expect(retrieved.key).toBe(r.key);
       expect(retrieved.name).toBe("test");
     });
-    it("should retrieve a rack by a bare key", async () => {
-      const r = await client.racks.create({ name: "test" });
-      const retrieved = await client.racks.retrieve(r.key);
-      expect(retrieved.key).toBe(r.key);
-    });
     it("should retrieve a rack by its name", async () => {
       const name = `${TimeStamp.now().toString()}-${Math.random()}`;
       const r = await client.racks.create({ name });

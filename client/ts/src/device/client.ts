@@ -111,8 +111,6 @@ export class Client {
     params: RetrieveSingleParams & RetrieveSchemas<Properties, Make, Model>,
   ): Promise<Device<Properties, Make, Model>>;
 
-  async retrieve(key: Key): Promise<Device>;
-
   async retrieve(params: RetrieveSingleParams): Promise<Device>;
 
   async retrieve<
@@ -126,12 +124,10 @@ export class Client {
   async retrieve(params: RetrieveMultipleParams): Promise<Array<Device>>;
 
   async retrieve(
-    params: Key | (RetrieveParams & { schemas?: DeviceSchemas }),
+    params: RetrieveParams & { schemas?: DeviceSchemas },
   ): Promise<Device | Array<Device>> {
-    const withKey: RetrieveParams & { schemas?: DeviceSchemas } =
-      typeof params === "object" ? params : { key: params };
-    const { schemas, ...rest } = withKey;
-    const isSingle = "key" in rest;
+    const { schemas, ...rest } = params;
+    const isSingle = typeof rest === "object" && "key" in rest;
     const res = await this.client.send(
       "/device/retrieve",
       rest,

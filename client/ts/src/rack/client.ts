@@ -104,11 +104,9 @@ export class Client {
     return isSingle ? sugared[0] : sugared;
   }
 
-  async retrieve(key: Key): Promise<Rack>;
   async retrieve(params: RetrieveSingleParams): Promise<Rack>;
   async retrieve(params: RetrieveMultipleParams): Promise<Rack[]>;
-  async retrieve(params: Key | RetrieveParams): Promise<Rack | Rack[]> {
-    if (typeof params !== "object") params = { key: params };
+  async retrieve(params: RetrieveParams): Promise<Rack | Rack[]> {
     const isSingle = "key" in params || "name" in params;
     const res = await this.client.send(
       "/rack/retrieve",

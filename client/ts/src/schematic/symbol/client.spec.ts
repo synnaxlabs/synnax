@@ -75,16 +75,6 @@ describe("Symbol Client", () => {
       expect(retrieved.name).toBe("Retrieve Test");
     });
 
-    it("should retrieve a single symbol by a bare key", async () => {
-      const created = await client.schematics.symbols.create({
-        name: "Bare Key Test",
-        data: { svg: "<svg></svg>", states: [], handles: [], variant: "sensor" },
-        parent: group.ontologyID(symbolGroup.key),
-      });
-      const retrieved = await client.schematics.symbols.retrieve(created.key);
-      expect(retrieved.key).toBe(created.key);
-    });
-
     it("should retrieve multiple symbols by keys", async () => {
       const created = await client.schematics.symbols.create({
         symbols: [

@@ -41,20 +41,6 @@ describe("Schematic", () => {
     });
   });
 
-  describe("retrieve", () => {
-    it("should retrieve a schematic by a bare key", async () => {
-      const proj = await client.projects.create({
-        name: "Schematic",
-        layout: { one: 1 },
-      });
-      const schem = await client.schematics.create(proj.key, {
-        name: "Schematic",
-      });
-      const retrieved = await client.schematics.retrieve(schem.key);
-      expect(retrieved.key).toEqual(schem.key);
-    });
-  });
-
   describe("rename", () => {
     test("rename one", async () => {
       const proj = await client.projects.create({

@@ -302,7 +302,6 @@ export class Client {
     );
   }
 
-  async retrieve(key: Key): Promise<Task>;
   async retrieve<S extends Schemas = Schemas>(
     params: RetrieveSingleParams & RetrieveSchemas<S>,
   ): Promise<Task<S>>;
@@ -311,12 +310,10 @@ export class Client {
     params: RetrieveMultipleParams & RetrieveSchemas<S>,
   ): Promise<Task<S>[]>;
   async retrieve(params: RetrieveMultipleParams): Promise<Task[]>;
-  async retrieve<S extends Schemas = Schemas>(
-    retrieveParams: Key | (RetrieveParams & RetrieveSchemas<S>),
-  ): Promise<Task<S> | Task<S>[]> {
-    const withKey: RetrieveParams & RetrieveSchemas<S> =
-      typeof retrieveParams === "object" ? retrieveParams : { key: retrieveParams };
-    const { schemas, ...params } = withKey;
+  async retrieve<S extends Schemas = Schemas>({
+    schemas,
+    ...params
+  }: RetrieveParams & RetrieveSchemas<S>): Promise<Task<S> | Task<S>[]> {
     const isSingle = singleRetrieveParamsZ.safeParse(params).success;
     const res = await this.client.send(
       "/task/retrieve",

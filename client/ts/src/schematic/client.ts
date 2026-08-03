@@ -97,13 +97,11 @@ export class Client {
     );
   }
 
-  async retrieve(key: Key): Promise<Schematic>;
   async retrieve(params: RetrieveSingleParams): Promise<Schematic>;
   async retrieve(params: RetrieveMultipleParams): Promise<Schematic[]>;
   async retrieve(
-    params: Key | RetrieveSingleParams | RetrieveMultipleParams,
+    params: RetrieveSingleParams | RetrieveMultipleParams,
   ): Promise<Schematic | Schematic[]> {
-    if (typeof params !== "object") params = { key: params };
     const isSingle = singleRetrieveParamsZ.safeParse(params).success;
     const res = await this.client.send(
       "/schematic/retrieve",

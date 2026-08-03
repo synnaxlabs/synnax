@@ -25,14 +25,6 @@ describe("Log", () => {
       expect(log.channels).toEqual([]);
     });
   });
-  describe("retrieve", () => {
-    test("should retrieve a log by a bare key", async () => {
-      const proj = await client.projects.create({ name: "Log", layout: { one: 1 } });
-      const log = await client.logs.create(proj.key, { name: "Log" });
-      const retrieved = await client.logs.retrieve(log.key);
-      expect(retrieved.key).toEqual(log.key);
-    });
-  });
   describe("rename", () => {
     test("rename one", async () => {
       const proj = await client.projects.create({ name: "Log", layout: { one: 1 } });

@@ -88,11 +88,9 @@ export class Client {
     return isMany ? res.policies : res.policies[0];
   }
 
-  async retrieve(key: Key): Promise<Policy>;
   async retrieve(params: RetrieveSingleParams): Promise<Policy>;
   async retrieve(params: RetrieveMultipleParams): Promise<Policy[]>;
-  async retrieve(params: Key | RetrieveParams): Promise<Policy | Policy[]> {
-    if (typeof params !== "object") params = { key: params };
+  async retrieve(params: RetrieveParams): Promise<Policy | Policy[]> {
     const isSingle = "key" in params;
     const res = await this.client.send(
       "/access/policy/retrieve",

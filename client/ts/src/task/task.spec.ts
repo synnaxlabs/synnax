@@ -104,15 +104,6 @@ describe("Task", async () => {
       expect(retrieved.config).toStrictEqual({ a: "dog" });
       expect(retrieved.type).toBe("ni");
     });
-    it("should retrieve a task by a bare key", async () => {
-      const m = await testRack.createTask({
-        name: "test",
-        config: { a: "dog" },
-        type: "ni",
-      });
-      const retrieved = await client.tasks.retrieve(m.key);
-      expect(retrieved.key).toBe(m.key);
-    });
 
     it("should retrieve a task by its name", async () => {
       const name = `test-${Date.now()}-${Math.random()}`;

@@ -30,15 +30,6 @@ describe("Table", () => {
     });
   });
 
-  describe("retrieve", () => {
-    test("should retrieve a table by a bare key", async () => {
-      const proj = await client.projects.create({ name: "Table", layout: { one: 1 } });
-      const t = await client.tables.create(proj.key, { name: "Table" });
-      const retrieved = await client.tables.retrieve(t.key);
-      expect(retrieved.key).toEqual(t.key);
-    });
-  });
-
   describe("rename", () => {
     test("rename one", async () => {
       const proj = await client.projects.create({ name: "Table", layout: { one: 1 } });
