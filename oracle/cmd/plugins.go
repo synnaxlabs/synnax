@@ -26,14 +26,14 @@ import (
 	tstypes "github.com/synnaxlabs/oracle/plugin/ts/types"
 )
 
-// buildPluginRegistry returns the canonical set of code-generation plugins
-// shared by `oracle sync` and `oracle check`. Sync writes the outputs;
-// check compares them against disk. Both must use the same registry, so
-// the set lives here as a single source of truth.
+// buildPluginRegistry returns the canonical set of code-generation plugins shared by
+// `oracle sync` and `oracle check`. Sync writes the outputs; check compares them
+// against disk. Both must use the same registry, so the set lives here as a single
+// source of truth.
 //
-// The migrate plugin is intentionally excluded; it has its own command
-// (`oracle migrate`) with bespoke snapshot handling and is not part of the
-// regular generation pipeline.
+// The migrate plugin is intentionally excluded; it has its own command (`oracle
+// migrate`) with bespoke snapshot handling and is not part of the regular generation
+// pipeline.
 func buildPluginRegistry() (*plugin.Registry, error) {
 	registry := plugin.NewRegistry()
 	for _, p := range []plugin.Plugin{
