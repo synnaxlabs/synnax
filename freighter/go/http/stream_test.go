@@ -121,36 +121,43 @@ var _ = Describe("Stream", Ordered, Serial, func() {
 
 	Describe("Shutdown", func() {
 		// Serves its own app: shutting down the shared one would strand later specs.
-		It("should stop serving a stream whose peer never answers the close message", func(ctx SpecContext) {
-			router := MustSucceed(fhttp.NewRouter(fhttp.RouterConfig{
-				StreamWriteDeadline: test.WriteDeadline,
-			}))
-			ownServer := fhttp.NewStreamServer[test.Request, test.Response](router, "/")
-			serving := make(chan struct{})
-			ownServer.BindHandler(func(
-				_ context.Context,
-				stream freighter.ServerStream[test.Request, test.Response],
-			) error {
-				close(serving)
-				_, err := stream.Receive()
-				return err
-			})
-			ownApp, ownAddr := serveRouter(router)
+		It(
+			"should stop serving a stream whose peer never answers the close message",
+			func(ctx SpecContext) {
+				router := MustSucceed(fhttp.NewRouter(fhttp.RouterConfig{
+					StreamWriteDeadline: test.WriteDeadline,
+				}))
+				ownServer := fhttp.NewStreamServer[test.Request, test.Response](
+					router,
+					"/",
+				)
+				serving := make(chan struct{})
+				ownServer.BindHandler(func(
+					_ context.Context,
+					stream freighter.ServerStream[test.Request, test.Response],
+				) error {
+					close(serving)
+					_, err := stream.Receive()
+					return err
+				})
+				ownApp, ownAddr := serveRouter(router)
 
-			// A raw peer that upgrades and then never reads. Control frames are only
-			// processed inside a read, so the close message goes unanswered.
-			headers := http.Header{}
-			headers.Set(fiber.HeaderContentType, "application/json")
-			conn, res := MustSucceed2((&ws.Dialer{}).DialContext(
-				ctx, "ws://"+ownAddr.String()+"/", headers,
-			))
-			DeferCleanup(func() { Expect(conn.Close()).To(Succeed()) })
-			Expect(res.Body.Close()).To(Succeed())
-			Eventually(serving).Should(BeClosed())
+				// A raw peer that upgrades and then never reads. Control frames are
+				// only
+				// processed inside a read, so the close message goes unanswered.
+				headers := http.Header{}
+				headers.Set(fiber.HeaderContentType, "application/json")
+				conn, res := MustSucceed2((&ws.Dialer{}).DialContext(
+					ctx, "ws://"+ownAddr.String()+"/", headers,
+				))
+				DeferCleanup(func() { Expect(conn.Close()).To(Succeed()) })
+				Expect(res.Body.Close()).To(Succeed())
+				Eventually(serving).Should(BeClosed())
 
-			shutdown := make(chan error, 1)
-			go func() { shutdown <- ownApp.Shutdown() }()
-			Eventually(shutdown, 5*time.Second).Should(Receive(BeNil()))
-		})
+				shutdown := make(chan error, 1)
+				go func() { shutdown <- ownApp.Shutdown() }()
+				Eventually(shutdown, 5*time.Second).Should(Receive(BeNil()))
+			},
+		)
 	})
 })
