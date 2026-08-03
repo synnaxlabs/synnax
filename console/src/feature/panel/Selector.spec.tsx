@@ -20,10 +20,15 @@ const client = createTestClient();
 describe("Panel.Selector", () => {
   it("should select a newly created panel", async () => {
     const { wrapper, store } = await createPanelWrapper({ client });
-    render(<Selector />, { wrapper });
+    await act(async () => {
+      render(<Selector />, { wrapper });
+    });
+    // The strip suspends on the project's panel list, so nothing renders until it
+    // resolves.
+    const create = await screen.findByRole("button");
     expect(Session.Panel.selectSelected(store.getState())).toBeUndefined();
     await act(async () => {
-      fireEvent.click(screen.getByRole("button"));
+      fireEvent.click(create);
     });
     const selected = Session.Panel.selectSelected(store.getState());
     expect(selected).toBeDefined();

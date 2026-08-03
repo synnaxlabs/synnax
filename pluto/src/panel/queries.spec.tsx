@@ -7,10 +7,17 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { label, type ontology, panel, project } from "@synnaxlabs/client";
+import { label, type ontology, panel, project, query } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { uuid } from "@synnaxlabs/x";
-import { act, render, renderHook, waitFor, within } from "@testing-library/react";
+import {
+  act,
+  render,
+  renderHook,
+  type RenderHookResult,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import { type FC, type PropsWithChildren, type ReactElement } from "react";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
@@ -276,7 +283,7 @@ describe("Panel queries", () => {
     });
   });
 
-  describe("useRetrieveByProject", () => {
+  describe("useRetrieveKeysByProject", () => {
     const newProject = async (): Promise<project.Key> =>
       (
         await client.projects.create({
@@ -285,11 +292,22 @@ describe("Panel queries", () => {
         })
       ).key;
 
-    const retrieveByProject = async (key: project.Key) => {
-      const rendered = renderHook(() => Panel.useRetrieveByProject({ project: key }), {
-        wrapper,
+    // The hook suspends, so the boundary sits inside the provider wrapper and the
+    // first render is awaited. result.current is null until the list resolves.
+    const retrieveKeys = async (key: project.Key) => {
+      const Provider = wrapper;
+      const suspended = ({ children }: PropsWithChildren): ReactElement => (
+        <Provider>
+          <Errors.SuspenseBoundary loading={null}>{children}</Errors.SuspenseBoundary>
+        </Provider>
+      );
+      let rendered!: RenderHookResult<panel.Key[], unknown>;
+      await act(async () => {
+        rendered = renderHook(() => Panel.useRetrieveKeysByProject({ project: key }), {
+          wrapper: suspended,
+        });
       });
-      await waitFor(() => expect(rendered.result.current.variant).toEqual("success"));
+      await waitFor(() => expect(rendered.result.current).not.toBeNull());
       return rendered;
     };
 
@@ -303,59 +321,62 @@ describe("Panel queries", () => {
       });
       const draft = await client.panels.create({ name: "draft" });
 
-      const { result } = await retrieveByProject(projectKey);
-      const keys = result.current.data?.map(({ key }) => key);
-      expect(keys).toEqual([mine.key]);
-      expect(keys).not.toContain(theirs.key);
-      expect(keys).not.toContain(draft.key);
+      const { result } = await retrieveKeys(projectKey);
+      expect(result.current).toEqual([mine.key]);
+      expect(result.current).not.toContain(theirs.key);
+      expect(result.current).not.toContain(draft.key);
     });
 
     it("should return an empty list for a project with no panels", async () => {
-      const { result } = await retrieveByProject(await newProject());
-      expect(result.current.data).toEqual([]);
+      const { result } = await retrieveKeys(await newProject());
+      expect(result.current).toEqual([]);
     });
 
     it("should add a panel parented to the project after the initial retrieve", async () => {
       const projectKey = await newProject();
-      const { result } = await retrieveByProject(projectKey);
-      expect(result.current.data).toEqual([]);
+      const { result } = await retrieveKeys(projectKey);
+      expect(result.current).toEqual([]);
 
       const added = await client.panels.create({
         name: "added",
         parent: project.ontologyID(projectKey),
       });
-      await waitFor(() =>
-        expect(result.current.data?.map(({ key }) => key)).toContain(added.key),
-      );
+      await waitFor(() => expect(result.current).toContain(added.key));
     });
 
     it("should ignore a panel created outside the project", async () => {
       const projectKey = await newProject();
-      const { result } = await retrieveByProject(projectKey);
+      const { result } = await retrieveKeys(projectKey);
 
       const outside = await client.panels.create({ name: "outside" });
       await act(async () => {
         await client.panels.rename(outside.key, "outside-renamed");
       });
-      expect(result.current.data?.map(({ key }) => key)).not.toContain(outside.key);
+      expect(result.current).not.toContain(outside.key);
     });
 
-    it("should reflect a rename of a panel in the project", async () => {
+    it("should hand back the same array across a rename", async () => {
       const projectKey = await newProject();
       const target = await client.panels.create({
         name: "before-rename",
         parent: project.ontologyID(projectKey),
       });
-      const { result } = await retrieveByProject(projectKey);
+      const { result } = await retrieveKeys(projectKey);
+      const before = result.current;
 
       await act(async () => {
         await client.panels.rename(target.key, "after-rename");
       });
-      await waitFor(() =>
-        expect(
-          result.current.data?.find(({ key }) => key === target.key)?.name,
-        ).toEqual("after-rename"),
-      );
+      // The rename reaches the project's cached answer, so the subscription fired
+      // and the hook had every chance to hand back a new array.
+      await waitFor(() => {
+        const cached = client.panels.getCached({
+          parent: project.ontologyID(projectKey),
+        });
+        if (!query.isLive(cached)) throw new Error("project answer not cached");
+        expect(cached.map(({ name }) => name)).toContain("after-rename");
+      });
+      expect(result.current).toBe(before);
     });
 
     it("should drop a deleted panel from the project", async () => {
@@ -364,15 +385,13 @@ describe("Panel queries", () => {
         name: "to-delete",
         parent: project.ontologyID(projectKey),
       });
-      const { result } = await retrieveByProject(projectKey);
-      expect(result.current.data?.map(({ key }) => key)).toEqual([target.key]);
+      const { result } = await retrieveKeys(projectKey);
+      expect(result.current).toEqual([target.key]);
 
       await act(async () => {
         await client.panels.delete(target.key);
       });
-      await waitFor(() =>
-        expect(result.current.data?.map(({ key }) => key)).not.toContain(target.key),
-      );
+      await waitFor(() => expect(result.current).not.toContain(target.key));
     });
   });
 

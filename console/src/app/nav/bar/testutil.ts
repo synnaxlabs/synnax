@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { createTestClient } from "@synnaxlabs/client/testutil";
-import { render } from "@testing-library/react";
+import { act, render, type RenderResult } from "@testing-library/react";
 import { type ReactElement } from "react";
 
 import { Session } from "@/session";
@@ -36,10 +36,17 @@ export const withActiveProject = (
 // renderBar mounts ui against a real client so access-gated nav items and the user/
 // connection badges resolve through the production query path, and returns the render
 // result plus the Redux store for asserting dispatched navigation actions.
+//
+// The panel selector suspends, and a synchronous mount never commits a suspended tree,
+// so no bar item's effects would run. The async act is what lets them.
 export const renderBar = async (
   ui: ReactElement,
   preloadedState?: ConsolePreloadedState,
 ) => {
   const { wrapper, store } = await createConsoleWrapper({ client, preloadedState });
-  return { ...render(ui, { wrapper }), store };
+  let rendered!: RenderResult;
+  await act(async () => {
+    rendered = render(ui, { wrapper });
+  });
+  return { ...rendered, store };
 };

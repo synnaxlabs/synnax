@@ -7,10 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { panel } from "@synnaxlabs/client";
+import { panel, query } from "@synnaxlabs/client";
 import {
   Access,
   Button,
+  Component,
   CSS as PCSS,
   Errors,
   type Flux,
@@ -18,11 +19,12 @@ import {
   Icon,
   Menu,
   Panel,
+  Synnax,
   Tabs,
   Text,
 } from "@synnaxlabs/pluto";
 import { array } from "@synnaxlabs/x";
-import { type ReactElement, useCallback, useMemo } from "react";
+import { type ReactElement, useCallback } from "react";
 import { useDispatch } from "react-redux";
 
 import { createPillHaulItem } from "@/feature/panel/haul";
@@ -33,28 +35,27 @@ import { CSS } from "@/platform/css";
 import { Tree } from "@/platform/tree";
 import { Session } from "@/session";
 
-interface ContextMenuProps extends Menu.ContextMenuMenuProps {
-  panels: panel.Panel[];
-}
-
-const ContextMenu = ({ keys, panels }: ContextMenuProps): ReactElement | null => {
+const ContextMenu = ({ keys }: Menu.ContextMenuMenuProps): ReactElement | null => {
   const ids = panel.ontologyID(keys);
   const hasUpdatePermission = Access.useUpdateGranted(ids);
   const hasDeletePermission = Access.useDeleteGranted(ids);
   const confirm = Tree.useConfirmDelete({ type: "Panel" });
   const dispatch = useDispatch();
+  const client = Synnax.use();
   const openWindow = useOpenWindow();
   const { update: del } = Panel.useDelete({
     beforeUpdate: useCallback(
       async ({ data }: Flux.BeforeUpdateParams<panel.Key | panel.Key[]>) => {
         const panelKeys = array.toArray(data);
         if (panelKeys.length === 0) return false;
-        const selected = panels.filter(({ key }) => panelKeys.includes(key));
-        if (!(await confirm(selected))) return false;
+        // The confirmation names the panels, which the strip does not hold: a
+        // snapshot read is enough for a prompt fired from a menu click.
+        const cached = client?.panels.getCached(panelKeys);
+        if (!(await confirm(query.isLive(cached) ? cached : []))) return false;
         dispatch(Session.Panel.remove(panelKeys));
         return data;
       },
-      [panels, confirm, dispatch],
+      [client, confirm, dispatch],
     ),
   });
   if (keys.length === 0) return null;
@@ -130,13 +131,13 @@ const TabContent = ({ tabKey }: TabProps): ReactElement => {
   );
 };
 
-export const Selector = (): ReactElement | null => {
+const contextMenu = Component.renderProp(ContextMenu);
+
+const Internal = (): ReactElement => {
   const dispatch = useDispatch();
   const selected = Session.Panel.useSelectSelected();
   const projectKey = Session.Project.useSelectSelected();
-  const { data } = Panel.useRetrieveByProject({ project: projectKey });
-  const panels = useMemo(() => data ?? [], [data]);
-  const keys = useMemo(() => panels.map(({ key }) => key), [panels]);
+  const keys = Panel.useRetrieveKeysByProject({ project: projectKey });
 
   const handleSelect = useCallback(
     (key: string) => dispatch(Session.Panel.select({ key })),
@@ -144,11 +145,6 @@ export const Selector = (): ReactElement | null => {
   );
 
   const handleCreate = useCreate();
-
-  const contextMenu = useCallback<NonNullable<Menu.ContextMenuProps["menu"]>>(
-    (props) => <ContextMenu {...props} panels={panels} />,
-    [panels],
-  );
   const menuProps = Menu.useContextMenu();
 
   return (
@@ -171,3 +167,13 @@ export const Selector = (): ReactElement | null => {
     </Menu.ContextMenu>
   );
 };
+
+// The strip is nav chrome with no room for a diagnostic, and a disconnected
+// client throws straight out of the query, so every failure shows no strip.
+const SelectorFallback = (): null => null;
+
+export const Selector = (): ReactElement => (
+  <Errors.SuspenseBoundary FallbackComponent={SelectorFallback}>
+    <Internal />
+  </Errors.SuspenseBoundary>
+);

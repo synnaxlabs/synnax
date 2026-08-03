@@ -31,7 +31,7 @@ import { useAdder } from "@/status/base/Aggregator";
 import { Synnax } from "@/synnax";
 
 // Bound at module scope: hooks bind `query` to the caller's params object.
-const { Deleted } = query;
+const { Deleted, isLive } = query;
 
 export interface RetrieveParams<Query extends query.Params> {
   client: Client;
@@ -61,6 +61,13 @@ export interface CreateRetrieveParams<
    * resolve without a fetch. Returns undefined to fall through to `retrieve`.
    */
   deriveCached?: (params: RetrieveParams<Query>) => Data | undefined;
+  /**
+   * Holds the previous answer whenever the next one compares equal, so suspending
+   * readers re-render only on changes the answer expresses. Required when `getCached`
+   * builds a value rather than returning the domain client's own cached reference:
+   * a fresh object every call breaks `useSyncExternalStore`.
+   */
+  equal?: (prev: Data, next: Data) => boolean;
 }
 
 export interface BeforeRetrieveParams<Query extends query.Params> {
@@ -514,9 +521,11 @@ const useSuspended = <Query extends query.Params, Data extends query.Data>({
   subscribe,
   getCached,
   deriveCached,
+  equal,
 }: UseSuspendedParams<Query, Data> & CreateRetrieveParams<Query, Data>): Data => {
   const memoQuery = useMemoDeepEqual(query);
   const client = Synnax.use();
+  const held = useRef<{ query: Query; value: Data } | null>(null);
 
   if (client == null)
     throw new DisconnectedError(`Cannot retrieve ${name}: no Core connected.`);
@@ -532,7 +541,15 @@ const useSuspended = <Query extends query.Params, Data extends query.Data>({
       },
       [client, memoQuery],
     ),
-    useCallback(() => getCached?.(params), [client, memoQuery]),
+    useCallback(() => {
+      const next = getCached?.(params);
+      if (equal == null || !isLive<Data>(next)) return next;
+      const prev = held.current;
+      if (prev != null && prev.query === memoQuery && equal(prev.value, next))
+        return prev.value;
+      held.current = { query: memoQuery, value: next };
+      return next;
+    }, [client, memoQuery]),
   );
 
   if (cached !== undefined) {
