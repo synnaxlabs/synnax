@@ -48,6 +48,9 @@ const (
 	BytesT DataType = versions.BytesT
 	// JSONT is a variable density data type for UTF-8 encoded JSON text.
 	JSONT DataType = versions.JSONT
+	// BoolT is a data type for a boolean value. Samples are a single byte with
+	// canonical values 0x00 (false) and 0x01 (true).
+	BoolT DataType = versions.BoolT
 )
 
 // InferDataType infers the data type of the given Sample.
@@ -78,6 +81,8 @@ func InferDataType[T Sample]() DataType {
 		return TimeStampT
 	case uuid.UUID:
 		return UUIDT
+	case bool:
+		return BoolT
 	case string:
 		return StringT
 	case []byte:
