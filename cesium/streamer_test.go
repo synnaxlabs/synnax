@@ -331,15 +331,15 @@ var _ = Describe("Streamer Behavior", func() {
 
 					const frameCount = 10
 					for v := range int64(frameCount) {
-						MustSucceed(w.Write(telem.MultiFrame(
+						Expect(w.Write(telem.MultiFrame(
 							[]cesium.ChannelKey{slowCh},
 							[]telem.Series{telem.NewSeriesV(v)},
-						)))
+						))).To(BeTrue())
 					}
-					// Stall past the relay's slow consumer timeout while the frames
-					// are in flight. The streamer's buffered connection must hold
-					// every frame; with an unbuffered connection the relay would
-					// drop all but the first few frames here.
+					// Stall past the relay's slow consumer timeout while the frames are
+					// in flight. The streamer's buffered connection must hold every
+					// frame; with an unbuffered connection the relay would drop all but
+					// the first few frames here.
 					time.Sleep(4 * cesium.DefaultDBStreamingConfig.SlowConsumerTimeout)
 					for v := range int64(frameCount) {
 						var res cesium.StreamerResponse
@@ -396,7 +396,7 @@ var _ = Describe("Virtual Channel Streaming", func() {
 				})
 
 				d := telem.NewSeriesV[int64](1, 2, 3)
-				MustSucceed(w.Write(telem.UnaryFrame(key, d)))
+				Expect(w.Write(telem.UnaryFrame(key, d))).To(BeTrue())
 
 				var res cesium.StreamerResponse
 				Eventually(o.Outlet()).Should(Receive(&res))
