@@ -27,6 +27,27 @@ import (
 	. "github.com/synnaxlabs/x/testutil"
 )
 
+// serveRouter serves the router on an open port, returning once the app is answering
+// requests. All servers must be registered on the router first.
+func serveRouter(router *fhttp.Router) (*fiber.App, address.Address) {
+	addr := address.Newf("localhost:%d", MustSucceed(net.FindOpenPort()))
+	app := newFiberApp(fiber.Config{})
+	app.Get("/health", func(c fiber.Ctx) error {
+		return c.SendStatus(fiber.StatusOK)
+	})
+	router.BindTo(app)
+	go func() {
+		defer GinkgoRecover()
+		Expect(app.Listen(addr.PortString(), fiber.ListenConfig{
+			DisableStartupMessage: true,
+		})).To(Succeed())
+	}()
+	Eventually(func(g Gomega) {
+		g.Expect(pollHealth("http://" + addr.String() + "/health")).To(Succeed())
+	}).WithPolling(time.Millisecond).Should(Succeed())
+	return app, addr
+}
+
 var _ = Describe("Stream", Ordered, Serial, func() {
 	var (
 		server freighter.StreamServer[test.Request, test.Response]
@@ -37,28 +58,14 @@ var _ = Describe("Stream", Ordered, Serial, func() {
 
 	BeforeAll(func() {
 		ShouldNotLeakGoroutines()
-		addr = address.Newf("localhost:%d", MustSucceed(net.FindOpenPort()))
-		app = newFiberApp(fiber.Config{})
 		router := MustSucceed(fhttp.NewRouter(fhttp.RouterConfig{
 			StreamWriteDeadline: test.WriteDeadline,
 		}))
-		app.Get("/health", func(c fiber.Ctx) error {
-			return c.SendStatus(fiber.StatusOK)
-		})
 		server = fhttp.NewStreamServer[test.Request, test.Response](router, "/")
 		client = MustSucceed(fhttp.NewStreamClient[test.Request, test.Response](
 			fhttp.StreamClientConfig{Codec: json.Codec},
 		))
-		router.BindTo(app)
-		go func() {
-			defer GinkgoRecover()
-			Expect(app.Listen(addr.PortString(), fiber.ListenConfig{
-				DisableStartupMessage: true,
-			})).To(Succeed())
-		}()
-		Eventually(func(g Gomega) {
-			g.Expect(pollHealth("http://" + addr.String() + "/health")).To(Succeed())
-		}).WithPolling(1 * time.Millisecond).Should(Succeed())
+		app, addr = serveRouter(router)
 	})
 
 	AfterAll(func() { Expect(app.Shutdown()).To(Succeed()) })
@@ -96,6 +103,41 @@ var _ = Describe("Stream", Ordered, Serial, func() {
 			res := MustSucceed(http.Get("http://" + addr.String() + "/"))
 			DeferCleanup(func() { Expect(res.Body.Close()).To(Succeed()) })
 			Expect(res.StatusCode).To(Equal(http.StatusUpgradeRequired))
+		})
+	})
+
+	Describe("Shutdown", func() {
+		// Serves its own app: shutting down the shared one would strand later specs.
+		It("should stop serving a stream whose peer never answers the close message", func(ctx SpecContext) {
+			router := MustSucceed(fhttp.NewRouter(fhttp.RouterConfig{
+				StreamWriteDeadline: test.WriteDeadline,
+			}))
+			ownServer := fhttp.NewStreamServer[test.Request, test.Response](router, "/")
+			serving := make(chan struct{})
+			ownServer.BindHandler(func(
+				_ context.Context,
+				stream freighter.ServerStream[test.Request, test.Response],
+			) error {
+				close(serving)
+				_, err := stream.Receive()
+				return err
+			})
+			ownApp, ownAddr := serveRouter(router)
+
+			// A raw peer that upgrades and then never reads. Control frames are only
+			// processed inside a read, so the close message goes unanswered.
+			headers := http.Header{}
+			headers.Set(fiber.HeaderContentType, "application/json")
+			conn, res := MustSucceed2((&ws.Dialer{}).DialContext(
+				ctx, "ws://"+ownAddr.String()+"/", headers,
+			))
+			DeferCleanup(func() { Expect(conn.Close()).To(Succeed()) })
+			Expect(res.Body.Close()).To(Succeed())
+			Eventually(serving).Should(BeClosed())
+
+			shutdown := make(chan error, 1)
+			go func() { shutdown <- ownApp.Shutdown() }()
+			Eventually(shutdown, 5*time.Second).Should(Receive(BeNil()))
 		})
 	})
 })
