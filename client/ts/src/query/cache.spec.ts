@@ -7,13 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { EOF } from "@synnaxlabs/freighter";
+import { EOF, Unreachable } from "@synnaxlabs/freighter";
 import { type record, Series, TimeSpan } from "@synnaxlabs/x";
 import { describe, expect, it, vi } from "vitest";
 import z from "zod";
 
 import { type channel } from "@/channel";
-import { NotFoundError } from "@/errors";
+import { DisconnectedError, NotFoundError } from "@/errors";
 import { framer } from "@/framer";
 import { query } from "@/query";
 
@@ -419,6 +419,47 @@ describe("Cache", () => {
       expect(error.message).toContain("failed to reconcile docs cache");
       expect(table.get("a")).toEqual({ key: "a", name: "one" });
       expect(table.get("b")).toEqual({ key: "b", name: "two" });
+      await cache.close();
+    });
+
+    it("stays silent when a fetch fails because the cluster is unreachable", async () => {
+      const onError = vi.fn();
+      let opens = 0;
+      const cache = new query.Cache({
+        openStreamer: wrapOpener(async (): Promise<framer.Streamer> => {
+          opens++;
+          if (opens === 1) return failingStreamer();
+          return new MockStreamer();
+        }),
+        onError,
+      });
+      const unreachable = cache.createTable<string, Doc>({
+        name: "unreachable",
+        fetch: async () => {
+          throw new Unreachable();
+        },
+      });
+      const disconnected = cache.createTable<string, Doc>({
+        name: "disconnected",
+        fetch: async () => {
+          throw new DisconnectedError();
+        },
+      });
+      const reachable = cache.createTable<string, Doc>({
+        name: "reachable",
+        fetch: async (keys) => keys.map((k) => ({ key: k, name: "fresh" })),
+      });
+      unreachable.set("u1", { key: "u1", name: "stale" });
+      disconnected.set("d1", { key: "d1", name: "stale" });
+      reachable.set("r1", { key: "r1", name: "stale" });
+      await cache.ensureStreaming();
+      // The reachable table refreshing proves the reconcile pass ran.
+      await expect
+        .poll(() => reachable.get("r1"))
+        .toEqual({ key: "r1", name: "fresh" });
+      expect(onError).not.toHaveBeenCalled();
+      expect(unreachable.get("u1")).toEqual({ key: "u1", name: "stale" });
+      expect(disconnected.get("d1")).toEqual({ key: "d1", name: "stale" });
       await cache.close();
     });
 
