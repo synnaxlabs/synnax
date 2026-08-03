@@ -35,8 +35,9 @@ type relay struct {
 
 // DBStreamingConfig is the configuration for cesium's streaming mechanisms.
 type DBStreamingConfig struct {
-	// BufferSize sets the buffer size for the main streaming pipe. All written frames
-	// are moved through this pipe, so the value should be relatively large.
+	// BufferSize sets the buffer size for the main streaming pipe and for each
+	// streamer's connection to it. All written frames are moved through the main
+	// pipe, so the value should be relatively large.
 	BufferSize int
 	// SlowConsumerTimeout sets the maximum amount of time the relay will wait for a
 	// consumer to receive a frame before dropping the frame.
@@ -83,7 +84,7 @@ func openRelay(
 		confluence.WithRetryOnPanic(),
 		confluence.WithAddress("relay"),
 	)
-	return &relay{delta: delta, inlet: writes}
+	return &relay{delta: delta, inlet: writes, bufferSize: cfg.BufferSize}
 }
 
 func (r *relay) connect() (confluence.Outlet[relayResponse], func()) {
