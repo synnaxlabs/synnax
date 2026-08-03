@@ -472,7 +472,15 @@ export class Queries<
     entry.teardown = teardown;
     const { table, keyOf, matches, watch: watches } = this.params;
     const query = entry.query;
-    const unmaintained = entry.unmaintained === true;
+    // Rules 2 and 3 build membership from events, and an unmaintained entry
+    // received none, so its answer must be reconfirmed. Rule 1 re-seeds from the
+    // table below and needs no network.
+    if (
+      entry.unmaintained === true &&
+      entry.state.variant === "ready" &&
+      keyOf?.(query) == null
+    )
+      this.scheduleRefetch(entry);
     entry.unmaintained = false;
 
     if (this.isServerComputed(query) || (keyOf?.(query) == null && matches == null)) {
@@ -482,9 +490,6 @@ export class Queries<
       watches?.forEach((w) =>
         teardown.push(w.attach(query, () => this.scheduleRefetch(entry))),
       );
-      // Only the server recomputes membership, so an answer that settled before
-      // an unmaintained gap cannot be trusted.
-      if (unmaintained && entry.state.variant === "ready") this.scheduleRefetch(entry);
       return;
     }
 
