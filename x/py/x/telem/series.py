@@ -306,6 +306,7 @@ CrudeSeries: TypeAlias = (
     | np.ndarray
     | list[float]
     | list[int]
+    | list[bool]
     | list[str]
     | list[dict[str, Any]]
     | list[uuid.UUID]
@@ -316,6 +317,7 @@ CrudeSeries: TypeAlias = (
     | dict[str, Any]
     | float
     | int
+    | bool
     | TimeStamp
 )
 
