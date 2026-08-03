@@ -195,6 +195,8 @@ interface Entry<Q extends Params, K extends record.Key, D extends Data> {
   handlers: Set<ChangeHandler<D>>;
   /** Rule teardown; present exactly while the entry is maintained. */
   teardown?: destructor.Destructor[];
+  /** Set when maintenance ends: changes since then went unobserved. */
+  unmaintained?: boolean;
   refetchTimer?: ReturnType<typeof setTimeout>;
 }
 
@@ -299,6 +301,7 @@ export class Queries<
       if (entry.handlers.size > 0) return;
       entry.teardown?.forEach((d) => d());
       entry.teardown = undefined;
+      entry.unmaintained = true;
       if (entry.refetchTimer != null) {
         clearTimeout(entry.refetchTimer);
         entry.refetchTimer = undefined;
@@ -453,6 +456,9 @@ export class Queries<
       },
       (reason: unknown) => {
         if (entry.state !== before) return;
+        // A refetch revalidates an answer the caller already has. Failing to
+        // confirm it is not grounds for taking it away.
+        if (before.variant === "ready") return;
         entry.state = { variant: "error", error: errors.fromUnknown(reason) };
       },
     );
@@ -481,6 +487,8 @@ export class Queries<
     entry.teardown = teardown;
     const { table, keyOf, matches, watch: watches } = this.params;
     const query = entry.query;
+    const unmaintained = entry.unmaintained === true;
+    entry.unmaintained = false;
 
     if (this.isServerComputed(query) || (keyOf?.(query) == null && matches == null)) {
       // Rule 3: server-computed — any relevant event triggers a debounced
@@ -489,6 +497,9 @@ export class Queries<
       watches?.forEach((w) =>
         teardown.push(w.attach(query, () => this.scheduleRefetch(entry))),
       );
+      // Only the server recomputes membership, so an answer that settled before
+      // an unmaintained gap cannot be trusted.
+      if (unmaintained && entry.state.variant === "ready") this.scheduleRefetch(entry);
       return;
     }
 
