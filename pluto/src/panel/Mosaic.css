@@ -9,19 +9,56 @@
  * included in the file licenses/APL.txt.
  */
 
-/* Sticks to the scrollport's right edge so overflowing tabs scroll under it
-   instead of pushing it off. The opaque rest fill masks the tabs beneath. */
-.pluto-panel-mosaic__create {
-    border-radius: var(--pluto-border-radius-small);
+/* The strip's right cap: the create button over the surface overflowing tabs
+   disappear into. A sticky box stops at its containing block's content edge,
+   so a shadow, not the box, covers the strip's end padding. A wider box would
+   add scrollable width and set a fitting strip scrolling. */
+.pluto-panel-mosaic__cap {
+    /* Fill, shadow and fade all read the surface: a mismatch shows as a seam. */
+    --surface: var(--pluto-gray-l0);
+    --spill: 1rem;
     position: sticky;
     right: 0;
-    flex-shrink: 0;
     z-index: 2;
-    /* Repeats the variant classes to outrank the text variant's transparent
-       rest fill. */
-    &.pluto-btn.pluto-btn--text {
-        --pluto-bg: var(--pluto-gray-l0);
+    flex-shrink: 0;
+    align-self: stretch;
+    background: var(--surface);
+    /* Offset by its own spread: the fill grows right and vertically, never
+       left, so the fade stays flush against the cap. */
+    box-shadow: var(--spill) 0 0 var(--spill) var(--surface);
+
+    &::before {
+        content: "";
+        position: absolute;
+        right: 100%;
+        inset-block: calc(-1 * var(--spill));
+        width: 3rem;
+        background: linear-gradient(to right, transparent, var(--surface));
+        pointer-events: none;
+        opacity: 0;
     }
+}
+
+/* The fade only earns its keep on a strip that scrolls, so it rides the strip's
+   own scroll timeline: inactive, and so invisible, while the tabs fit. Both
+   stops hold the same value, leaving scroll position out of it. */
+@supports (animation-timeline: scroll(nearest x)) {
+    .pluto-panel-mosaic__cap::before {
+        animation: panel-mosaic-cap-fade linear;
+        animation-timeline: scroll(nearest x);
+    }
+
+    @keyframes panel-mosaic-cap-fade {
+        0%,
+        100% {
+            opacity: 1;
+        }
+    }
+}
+
+.pluto-panel-mosaic__create {
+    border-radius: var(--pluto-border-radius-small);
+
     &.pluto-btn.pluto--square > .pluto-icon {
         width: round(2.25rem, 1px);
         height: round(2.25rem, 1px);
