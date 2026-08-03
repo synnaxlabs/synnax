@@ -557,7 +557,7 @@ var _ = Describe("check command with bad schema", Ordered, func() {
 
 var _ = Describe("buildPluginRegistry", func() {
 	It("should register all expected plugins", func() {
-		registry := buildPluginRegistry()
+		registry := MustSucceed(buildPluginRegistry())
 		expectedPlugins := []string{
 			"ts/types", "go/types", "py/types", "pb/types",
 			"cpp/types", "cpp/json", "cpp/pb", "go/pb", "go/marshal",

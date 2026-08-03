@@ -34,20 +34,26 @@ import (
 // The migrate plugin is intentionally excluded; it has its own command
 // (`oracle migrate`) with bespoke snapshot handling and is not part of the
 // regular generation pipeline.
-func buildPluginRegistry() *plugin.Registry {
+func buildPluginRegistry() (*plugin.Registry, error) {
 	registry := plugin.NewRegistry()
-	_ = registry.Register(tstypes.New(tstypes.DefaultOptions()))
-	_ = registry.Register(gotypes.New(gotypes.DefaultOptions()))
-	_ = registry.Register(pytypes.New(pytypes.DefaultOptions()))
-	_ = registry.Register(pbtypes.New(pbtypes.DefaultOptions()))
-	_ = registry.Register(cpptypes.New(cpptypes.DefaultOptions()))
-	_ = registry.Register(cppjson.New(cppjson.DefaultOptions()))
-	_ = registry.Register(cpppb.New(cpppb.DefaultOptions()))
-	_ = registry.Register(gopb.New(gopb.DefaultOptions()))
-	_ = registry.Register(goquery.New(goquery.DefaultOptions()))
-	_ = registry.Register(gomarshal.New(gomarshal.DefaultOptions()))
-	_ = registry.Register(goactions.New(goactions.DefaultOptions()))
-	_ = registry.Register(goimex.New(goimex.DefaultOptions()))
-	_ = registry.Register(tsactions.New(tsactions.DefaultOptions()))
-	return registry
+	for _, p := range []plugin.Plugin{
+		tstypes.New(tstypes.DefaultOptions()),
+		gotypes.New(gotypes.DefaultOptions()),
+		pytypes.New(pytypes.DefaultOptions()),
+		pbtypes.New(pbtypes.DefaultOptions()),
+		cpptypes.New(cpptypes.DefaultOptions()),
+		cppjson.New(cppjson.DefaultOptions()),
+		cpppb.New(cpppb.DefaultOptions()),
+		gopb.New(gopb.DefaultOptions()),
+		goquery.New(goquery.DefaultOptions()),
+		gomarshal.New(gomarshal.DefaultOptions()),
+		goactions.New(goactions.DefaultOptions()),
+		goimex.New(goimex.DefaultOptions()),
+		tsactions.New(tsactions.DefaultOptions()),
+	} {
+		if err := registry.Register(p); err != nil {
+			return nil, err
+		}
+	}
+	return registry, nil
 }

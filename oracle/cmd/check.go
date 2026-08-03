@@ -125,7 +125,10 @@ func runCheck(cmd *cobra.Command, _ []string) error {
 		printSchemaCount(len(schemas))
 	}
 
-	registry := buildPluginRegistry()
+	registry, err := buildPluginRegistry()
+	if err != nil {
+		return err
+	}
 	result, err := pipeline.Run(ctx, pipeline.Options{
 		RepoRoot: repoRoot,
 		Schemas:  schemas,
