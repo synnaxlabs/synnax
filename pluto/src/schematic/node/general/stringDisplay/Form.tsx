@@ -8,10 +8,11 @@
 // included in the file licenses/APL.txt.
 
 import { type channel } from "@synnaxlabs/client";
-import { primitive, type text } from "@synnaxlabs/x";
+import { color, primitive, type text } from "@synnaxlabs/x";
 import { type ReactElement, useCallback } from "react";
 
 import { Channel } from "@/channel";
+import { Color } from "@/color";
 import { Flex } from "@/flex";
 import { Form as Base } from "@/form";
 import { Input } from "@/input";
@@ -44,14 +45,37 @@ const TelemForm = (): ReactElement => {
   if (typeof source.channel != "number")
     throw new Error("Must pass in a channel by key to the String Display form");
   return (
-    <Input.Item label="Input channel" grow>
-      <Channel.SelectSingle
-        value={source.channel}
-        onChange={handleSourceChange}
-        // Only variable density channels (STRING, JSON, UUID) read as text.
-        filter={(ch) => ch.dataType.isVariable}
-      />
-    </Input.Item>
+    <>
+      <Input.Item label="Input channel" grow>
+        <Channel.SelectSingle
+          value={source.channel}
+          onChange={handleSourceChange}
+          // Only variable density channels (STRING, JSON, UUID) read as text.
+          filter={(ch) => ch.dataType.isVariable}
+        />
+      </Input.Item>
+      <Flex.Box x>
+        <Base.Field<color.Crude>
+          hideIfNull
+          label="Stale color"
+          align="start"
+          path="stalenessColor"
+        >
+          {({ value, onChange }) => (
+            <Color.Swatch
+              value={value ?? color.setAlpha(color.ZERO, 1)}
+              onChange={onChange}
+              bordered
+            />
+          )}
+        </Base.Field>
+        <Base.NumericField
+          path="stalenessTimeout"
+          label="Stale timeout"
+          inputProps={{ bounds: { lower: 1, upper: Infinity }, endContent: "s" }}
+        />
+      </Flex.Box>
+    </>
   );
 };
 
