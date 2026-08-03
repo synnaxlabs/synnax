@@ -28,6 +28,7 @@ export {
   AuthError,
   ContiguityError,
   DisconnectedError,
+  isConnectionError,
   MultipleFoundError,
   NotFoundError,
   QueryError,
