@@ -152,7 +152,7 @@ export const awaitConnected = async (
 /** The facts a single connectivity check yields. */
 export interface Info {
   clusterKey: string;
-  nodeVersion?: string;
+  nodeVersion: string;
   /** Skew measured across the check's round trip. */
   clockSkew: TimeSpan;
 }
@@ -227,11 +227,7 @@ const enterError = (
   details: { ...prev.details, ...details, reason },
 });
 
-const isCompatible = (
-  nodeVersion: string | undefined,
-  clientVersion: string,
-): boolean =>
-  nodeVersion != null &&
+const isCompatible = (nodeVersion: string, clientVersion: string): boolean =>
   migrate.versionsEqual(clientVersion, nodeVersion, {
     checkMajor: true,
     checkMinor: true,
