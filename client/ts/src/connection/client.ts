@@ -44,7 +44,7 @@ const CHECK_ENDPOINT = "/connectivity/check";
 
 const checkResZ = z.object({
   clusterKey: z.string(),
-  nodeVersion: z.string().optional(),
+  nodeVersion: z.string(),
   nodeTime: TimeStamp.z,
 });
 
@@ -159,8 +159,6 @@ export interface ClientParams {
   unary: UnaryClient;
   /** Cluster address, used in error messages. */
   address: string;
-  /** Defaults to the library version. */
-  clientVersion?: string;
   /** Human-readable cluster name for status messages. */
   name?: string;
   /** Consecutive check failures before escalating to error(unreachable). */
@@ -182,7 +180,7 @@ export interface ClientParams {
     /** (Re)demands a live change stream. */
     ensure: () => Promise<void>;
   };
-  /** Receives errors with no caller to throw to. */
+  /** Receives errors with no caller to throw to. Defaults to console logging. */
   onInternalError?: (error: Error) => void;
 }
 
@@ -200,7 +198,7 @@ export class Client implements Handle {
   private readonly retry: breaker.Config;
   private readonly heartbeatInterval: TimeSpan;
   private readonly stream?: ClientParams["stream"];
-  private readonly onInternalError?: (error: Error) => void;
+  private readonly onInternalError: (error: Error) => void;
   private readonly observer = new observe.Observer<Status>();
   private readonly notifier = new sync.Notifier();
   private readonly loop: Promise<void>;
@@ -212,25 +210,34 @@ export class Client implements Handle {
   private brk: breaker.Breaker | null = null;
   private versionWarned = false;
 
-  constructor(params: ClientParams) {
-    this.unary = params.unary;
-    this.address = params.address;
+  constructor({
+    unary,
+    address,
+    name,
+    escalateAfter = DEFAULT_ESCALATE_AFTER,
+    clockSkewThreshold = TimeSpan.seconds(1),
+    requiresStream = false,
+    retry,
+    heartbeatInterval = TimeSpan.seconds(30),
+    stream,
+    onInternalError = console.error,
+  }: ClientParams) {
+    this.unary = unary;
+    this.address = address;
     this.config = {
-      clientVersion: params.clientVersion ?? __VERSION__,
-      name: params.name,
-      escalateAfter: params.escalateAfter ?? DEFAULT_ESCALATE_AFTER,
-      clockSkewThreshold: params.clockSkewThreshold ?? TimeSpan.seconds(1),
-      requiresStream: params.requiresStream ?? false,
+      clientVersion: __VERSION__,
+      name,
+      escalateAfter,
+      clockSkewThreshold,
+      requiresStream,
     };
-    this.retry = { ...DEFAULT_RETRY, ...params.retry };
-    this.heartbeatInterval = new TimeSpan(
-      params.heartbeatInterval ?? TimeSpan.seconds(30),
-    );
-    this.stream = params.stream;
-    this.onInternalError = params.onInternalError;
+    this.retry = { ...DEFAULT_RETRY, ...retry };
+    this.heartbeatInterval = new TimeSpan(heartbeatInterval);
+    this.stream = stream;
+    this.onInternalError = onInternalError;
     this.current = createInitialStatus(this.config);
     this.loop = this.run().catch((err: unknown) =>
-      this.onInternalError?.(new Error("connection check loop failed", { cause: err })),
+      this.onInternalError(new Error("connection check loop failed", { cause: err })),
     );
   }
 
@@ -320,7 +327,7 @@ export class Client implements Handle {
         ?.reset()
         .then(async () => await this.stream?.ensure())
         .catch((err: unknown) =>
-          this.onInternalError?.(
+          this.onInternalError(
             new Error("failed to reset cache after cluster replacement", {
               cause: err,
             }),
@@ -366,7 +373,7 @@ export class Client implements Handle {
         this.stream
           ?.ensure()
           .catch((err: unknown) =>
-            this.onInternalError?.(
+            this.onInternalError(
               new Error("failed to bring up change stream", { cause: err }),
             ),
           );
