@@ -7,18 +7,36 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { color } from "@synnaxlabs/x";
-import { render } from "@testing-library/react";
+import { color, deep } from "@synnaxlabs/x";
+import { fireEvent, render } from "@testing-library/react";
+import { type PropsWithChildren, type ReactElement } from "react";
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
 
+import { Form } from "@/form";
 import { GROUP } from "@/schematic/node/general/group";
 import { StringDisplay } from "@/schematic/node/general/stringDisplay";
+import { StringDisplayForm } from "@/schematic/node/general/stringDisplay/Form";
 import { StringDisplay as Primitive } from "@/schematic/node/general/stringDisplay/Primitive";
 import { telem } from "@/telem/aether";
+import { createSynnaxWrapper } from "@/testutil/Synnax";
 import { Theming } from "@/theming";
 
 const theme = Theming.themeZ.parse(Theming.SYNNAX_THEMES.synnaxDark);
+
+const SynnaxWrapper = createSynnaxWrapper({ client: null });
+
+const FormWrapper = ({ children }: PropsWithChildren): ReactElement => {
+  const methods = Form.use<typeof StringDisplay.configZ>({
+    values: deep.copy(StringDisplay.defaultConfig(theme)),
+    schema: StringDisplay.configZ,
+  });
+  return (
+    <SynnaxWrapper>
+      <Form.Form<typeof StringDisplay.configZ> {...methods}>{children}</Form.Form>
+    </SynnaxWrapper>
+  );
+};
 
 const getText = (container: HTMLElement): HTMLElement => {
   const el = container.querySelector<HTMLElement>(".pluto-text");
@@ -89,6 +107,31 @@ describe("StringDisplay", () => {
         />,
       );
       expect(getText(container).style.color).toBe("rgb(255, 0, 0)");
+    });
+  });
+
+  describe("Form", () => {
+    const renderForm = (): ReturnType<typeof render> =>
+      render(
+        <FormWrapper>
+          <StringDisplayForm />
+        </FormWrapper>,
+      );
+
+    it("should render the style controls", () => {
+      const { getByText } = renderForm();
+      expect(getByText("Label")).toBeDefined();
+      expect(getByText("Color")).toBeDefined();
+      expect(getByText("Display width")).toBeDefined();
+      expect(getByText("Size")).toBeDefined();
+    });
+
+    it("should render the telemetry controls", () => {
+      const { getByText } = renderForm();
+      fireEvent.click(getByText("Telemetry"));
+      expect(getByText("Input channel")).toBeDefined();
+      expect(getByText("Stale color")).toBeDefined();
+      expect(getByText("Stale timeout")).toBeDefined();
     });
   });
 
