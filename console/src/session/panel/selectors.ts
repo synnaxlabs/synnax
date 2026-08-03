@@ -73,10 +73,14 @@ export const selectSelected = (state: StoreState): panel.Key | undefined =>
 
 /**
  * @returns the panels the active window keeps mounted, most recently selected first.
- * The selected panel, when there is one, is always the first key.
+ * The selected panel, when there is one, is always the first key. The stored set is
+ * excluded from persistence, so on a cold start the selection is all there is.
  */
-export const selectMounted = (state: StoreState): panel.Key[] =>
-  selectWindowState(state).mounted;
+export const selectMounted = (state: StoreState): panel.Key[] => {
+  const { selected, mounted } = selectWindowState(state);
+  if (selected == null || mounted[0] === selected) return mounted;
+  return [selected, ...mounted.filter((key) => key !== selected)];
+};
 
 /** @returns the active window's mounted panels, as {@link selectMounted}. */
 export const useSelectMounted = (): panel.Key[] => Select.useMemo(selectMounted, []);

@@ -120,6 +120,18 @@ describe("panel selectors", () => {
       expect(Panel.selectSelected(state)).toEqual(PANEL);
     });
 
+    // A reload restores the selection with the keep-alive set cleared, so the
+    // selected panel has to come back from the selection alone.
+    it("should mount the selected panel when the stored set is empty", () => {
+      const state = createState(window({ selected: PANEL }));
+      expect(Panel.selectMounted(state)).toEqual([PANEL]);
+    });
+
+    it("should return the stored set when the selected panel already heads it", () => {
+      const win = window({ selected: PANEL, mounted: [PANEL, OTHER_PANEL] });
+      expect(Panel.selectMounted(createState(win))).toBe(win.mounted);
+    });
+
     it("should return a panel's selected tabs in order", () => {
       const state = createState(
         window({ panels: { [PANEL]: { selectedTabs: [TAB, OTHER_TAB] } } }),
@@ -234,6 +246,42 @@ describe("panel selectors", () => {
         store.dispatch(Panel.clearSelected({}));
       });
       expect(result.current).toBeUndefined();
+    });
+  });
+
+  describe("useSelectMounted", () => {
+    it("should track the window's mounted panels, most recently selected first", async () => {
+      const { Wrapper, store } = await setup();
+      const { result } = renderHook(() => Panel.useSelectMounted(), {
+        wrapper: Wrapper,
+      });
+      expect(result.current).toEqual([]);
+      act(() => {
+        store.dispatch(Panel.select({ key: PANEL }));
+        store.dispatch(Panel.select({ key: OTHER_PANEL }));
+      });
+      expect(result.current).toEqual([OTHER_PANEL, PANEL]);
+    });
+
+    // The answer drives which panels stay portaled in. A fresh array identity per
+    // dispatch would re-render every one of them, which is what keep-alive exists
+    // to avoid.
+    it("should not re-render when unrelated state changes", async () => {
+      const { Wrapper, store } = await setup();
+      act(() => {
+        store.dispatch(Panel.select({ key: PANEL }));
+      });
+      const { result, renders } = renderCounted(
+        () => Panel.useSelectMounted(),
+        Wrapper,
+      );
+      const before = renders();
+      act(() => {
+        selectTab(store, PANEL, TAB);
+        store.dispatch(Panel.startOverlaying({}));
+      });
+      expect(result.current).toEqual([PANEL]);
+      expect(renders()).toBe(before);
     });
   });
 
