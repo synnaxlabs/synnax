@@ -7,7 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { DisconnectedError, query, type Synnax as Client } from "@synnaxlabs/client";
+import {
+  DisconnectedError,
+  isConnectionError,
+  query,
+  type Synnax as Client,
+} from "@synnaxlabs/client";
 import { type destructor, state } from "@synnaxlabs/x";
 import { use, useCallback, useRef, useState, useSyncExternalStore } from "react";
 
@@ -277,7 +282,9 @@ const useObservableBase = <Query extends query.Params, Data extends query.Data>(
       } catch (error) {
         if (signal?.aborted) return;
         const res = errorResult(`retrieve ${name}`, error);
-        if (addStatusOnFailure) addStatus(res.status);
+        // Nobody asked for this read, and the connection status already reports
+        // an unreachable Core. The result still carries the failure.
+        if (addStatusOnFailure && !isConnectionError(error)) addStatus(res.status);
         onChange(res, query);
       }
     },
