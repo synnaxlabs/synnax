@@ -37,8 +37,9 @@ export const withActiveProject = (
 // connection badges resolve through the production query path, and returns the render
 // result plus the Redux store for asserting dispatched navigation actions.
 //
-// The panel selector suspends, and a synchronous mount never commits a suspended tree,
-// so no bar item's effects would run. The async act is what lets them.
+// React holds a commit's passive effects while a sibling subtree is suspended, and the
+// panel selector suspends. A synchronous mount returns before they flush, so no bar
+// item's effects run. Browsers pump the scheduler on their own; a test has to.
 export const renderBar = async (
   ui: ReactElement,
   preloadedState?: ConsolePreloadedState,
