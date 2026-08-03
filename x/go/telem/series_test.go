@@ -639,7 +639,7 @@ var _ = Describe("Series", func() {
 				s := telem.NewSeriesV[int64](1, 2, 3, 4, 5)
 				s.Resize(0)
 				Expect(s.Len()).To(Equal(int64(0)))
-				Expect(len(s.Data)).To(Equal(0))
+				Expect(s.Data).To(BeEmpty())
 			})
 
 			It("Should handle resizing an empty series", func() {
@@ -868,7 +868,7 @@ var _ = Describe("Series", func() {
 
 			It("Should return an empty byte array if there are no series in the frame", func() {
 				ts := telem.NewMultiSeriesV()
-				Expect(ts.Data()).To(HaveLen(0))
+				Expect(ts.Data()).To(BeEmpty())
 			})
 		})
 
@@ -1075,7 +1075,7 @@ var _ = Describe("Series", func() {
 
 			Expect(copied.Len()).To(Equal(int64(0)))
 			Expect(copied.DataType).To(Equal(telem.Int64T))
-			Expect(copied.Data).To(HaveLen(0))
+			Expect(copied.Data).To(BeEmpty())
 		})
 
 		It("Should preserve all fields correctly", func() {
@@ -1105,6 +1105,45 @@ var _ = Describe("Series", func() {
 			Expect(copied.Len()).To(Equal(int64(2)))
 			Expect(copied.At(0)).To(Equal([]byte{1, 2, 3}))
 			Expect(copied.At(1)).To(Equal([]byte{4, 5}))
+		})
+	})
+
+	Describe("CopyFrom", func() {
+		It("Should copy data and metadata into the receiver", func() {
+			src := telem.NewSeriesV[int64](1, 2, 3)
+			src.TimeRange = telem.TimeRange{Start: 100, End: 200}
+			src.Alignment = telem.NewAlignment(1, 5)
+			var dst telem.Series
+			dst.CopyFrom(src)
+			Expect(dst.DataType).To(Equal(telem.Int64T))
+			Expect(dst.TimeRange).To(Equal(src.TimeRange))
+			Expect(dst.Alignment).To(Equal(src.Alignment))
+			Expect(telem.UnmarshalSeries[int64](dst)).To(Equal([]int64{1, 2, 3}))
+		})
+
+		It("Should not share data with the source", func() {
+			src := telem.NewSeriesV[int64](1, 2, 3)
+			var dst telem.Series
+			dst.CopyFrom(src)
+			telem.SetValueAt[int64](src, 0, 99)
+			Expect(telem.ValueAt[int64](dst, 0)).To(Equal(int64(1)))
+		})
+
+		It("Should reuse the receiver's buffer across copies", func() {
+			var dst telem.Series
+			dst.CopyFrom(telem.NewSeriesV[int64](1, 2, 3))
+			first := &dst.Data[0]
+			dst.CopyFrom(telem.NewSeriesV[int64](7))
+			Expect(&dst.Data[0]).To(BeIdenticalTo(first))
+			Expect(telem.UnmarshalSeries[int64](dst)).To(Equal([]int64{7}))
+		})
+
+		It("Should work with variable density types", func() {
+			src := telem.NewSeriesV("foo", "bar")
+			var dst telem.Series
+			dst.CopyFrom(src)
+			Expect(dst.DataType).To(Equal(telem.StringT))
+			Expect(telem.UnmarshalSeries[string](dst)).To(Equal([]string{"foo", "bar"}))
 		})
 	})
 })

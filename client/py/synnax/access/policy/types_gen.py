@@ -12,9 +12,9 @@
 from __future__ import annotations
 
 from typing import TypeAlias
-from uuid import UUID
+from uuid import UUID, uuid4
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from synnax import ontology
 from synnax.access import action
@@ -24,22 +24,26 @@ Key: TypeAlias = UUID
 
 
 class Policy(BaseModel):
-    """Contains parameters for creating a new policy.
+    """Is an access control policy that defines which actions are permitted on which
+    resources. Policies are attached to roles, and roles are assigned to users via
+    ontology relationships.
 
     Attributes:
-        key: Is an optional key for the policy. If not provided, one will be
-            automatically assigned.
+        key: Is the unique identifier for this policy.
         name: Is a human-readable name for the policy.
         objects: Is the list of ontology resources this policy applies to.
         actions: Is the list of actions this policy permits.
         internal: Is true if this is a built-in system policy that cannot be deleted.
     """
 
-    key: Key | None = None
+    key: Key = Field(default_factory=uuid4)
     name: str
-    objects: list[ontology.ID]
-    actions: list[action.Action]
-    internal: bool | None = None
+    objects: list[ontology.ID] = Field(default_factory=list)
+    actions: list[action.Action] = Field(default_factory=list)
+    internal: bool = False
+
+    def __hash__(self) -> int:
+        return hash(self.key)
 
 
 ONTOLOGY_TYPE = ID(type="policy")

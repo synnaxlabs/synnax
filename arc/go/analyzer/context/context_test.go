@@ -12,6 +12,7 @@ package context_test
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/arc/analyzer"
 	analyzerContext "github.com/synnaxlabs/arc/analyzer/context"
 	"github.com/synnaxlabs/arc/analyzer/testutil"
 	"github.com/synnaxlabs/arc/parser"
@@ -28,13 +29,13 @@ var _ = Describe("Context", func() {
 			ctx := analyzerContext.NewRoot(specCtx, ast, nil)
 			Expect(ctx.Context).To(Equal(specCtx))
 			Expect(ctx.Scope).ToNot(BeNil())
-			Expect(ctx.Diagnostics).ToNot(BeNil())
-			Expect(*ctx.Diagnostics).To(HaveLen(0))
+			Expect(ctx.Diagnostics).To(HaveOccurred())
+			Expect(*ctx.Diagnostics).To(BeEmpty())
 			Expect(ctx.Constraints).ToNot(BeNil())
 			Expect(ctx.TypeMap).ToNot(BeNil())
-			Expect(ctx.TypeMap).To(HaveLen(0))
+			Expect(ctx.TypeMap).To(BeEmpty())
 			Expect(ctx.CallEdges).ToNot(BeNil())
-			Expect(*ctx.CallEdges).To(HaveLen(0))
+			Expect(*ctx.CallEdges).To(BeEmpty())
 			Expect(ctx.AST).To(Equal(ast))
 			Expect(ctx.TypeHint).To(Equal(types.Type{}))
 			Expect(ctx.InTypeInferenceMode).To(BeFalse())
@@ -164,6 +165,35 @@ var _ = Describe("Context", func() {
 			Expect(finalCtx.Scope).To(Equal(newScope))
 			finalCtx.Diagnostics.Add(diagnostics.Errorf(finalCtx.AST, "test"))
 			Expect(*rootCtx.Diagnostics).To(HaveLen(1))
+		})
+	})
+
+	Describe("ResolveOwnScope", func() {
+		It("Should resolve a named declaration by its identifier", func(specCtx SpecContext) {
+			ast := MustSucceed(parser.Parse(`sequence main {}`))
+			ctx := analyzerContext.NewRoot(specCtx, ast, nil)
+			analyzer.AnalyzeProgram(ctx)
+			seqDecl := ast.AllTopLevelItem()[0].SequenceDeclaration()
+			scope := MustSucceed(analyzerContext.ResolveOwnScope(
+				analyzerContext.Child(ctx, seqDecl)))
+			Expect(scope.Name).To(Equal("main"))
+			Expect(scope.Kind).To(Equal(symbol.KindSequence))
+		})
+
+		It("Should resolve an anonymous declaration by its parser rule", func(specCtx SpecContext) {
+			ast := MustSucceed(parser.Parse(`
+				sequence main {
+					stage {}
+				}
+			`))
+			ctx := analyzerContext.NewRoot(specCtx, ast, nil)
+			analyzer.AnalyzeProgram(ctx)
+			seqDecl := ast.AllTopLevelItem()[0].SequenceDeclaration()
+			seqScope := MustSucceed(ctx.Scope.Resolve(ctx, "main"))
+			stageDecl := seqDecl.AllSequenceItem()[0].StageDeclaration()
+			scope := MustSucceed(analyzerContext.ResolveOwnScope(
+				analyzerContext.Child(ctx, stageDecl).WithScope(seqScope)))
+			Expect(scope.Kind).To(Equal(symbol.KindStage))
 		})
 	})
 })

@@ -17,6 +17,20 @@
     }
 }
 
+.pluto-datetime-calendar-header-label {
+    flex-grow: 1;
+    padding-left: 1rem;
+}
+
+.pluto-datetime-calendar-header-btn--next {
+    border-top-right-radius: 0;
+}
+
+.pluto-datetime-calendar-days {
+    padding: 0.5rem;
+    height: 100%;
+}
+
 input::-webkit-calendar-picker-indicator {
     display: none;
 }

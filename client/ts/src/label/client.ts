@@ -11,14 +11,14 @@ import { type UnaryClient } from "@synnaxlabs/freighter";
 import { array } from "@synnaxlabs/x";
 import z from "zod";
 
-import { type Key, keyZ, type Label, labelZ, type New, newZ } from "@/label/payload";
+import { type Key, keyZ, type Label, labelZ, type New } from "@/label/types.gen";
 import { ontology } from "@/ontology";
 import { checkForMultipleOrNoResults } from "@/util/retrieve";
 
 export const SET_CHANNEL_NAME = "sy_label_set";
 export const DELETE_CHANNEL_NAME = "sy_label_delete";
 
-const createReqZ = z.object({ labels: newZ.array() });
+const createReqZ = z.object({ labels: labelZ.array() });
 const createResZ = z.object({ labels: labelZ.array() });
 const deleteReqZ = z.object({ keys: keyZ.array() });
 const setReqZ = z.object({
@@ -42,17 +42,17 @@ const retrieveRequestZ = z.object({
   limit: z.int().optional(),
 });
 
-const singleRetrieveArgsZ = z
+const singleRetrieveParamsZ = z
   .object({ key: keyZ })
   .transform(({ key }) => ({ keys: [key] }));
 
-const retrieveArgsZ = z.union([singleRetrieveArgsZ, retrieveRequestZ]);
+const retrieveParamsZ = z.union([singleRetrieveParamsZ, retrieveRequestZ]);
 
-export type RetrieveArgs = z.input<typeof retrieveArgsZ>;
-export type RetrieveSingleParams = z.input<typeof singleRetrieveArgsZ>;
+export type RetrieveParams = z.input<typeof retrieveParamsZ>;
+export type RetrieveSingleParams = z.input<typeof singleRetrieveParamsZ>;
 export type RetrieveMultipleParams = z.input<typeof retrieveRequestZ>;
 
-const retrieveResponseZ = z.object({ labels: array.nullishToEmpty(labelZ) });
+const retrieveResponseZ = z.object({ labels: labelZ.array().default(() => []) });
 
 export class Client {
   readonly type: string = "label";
@@ -62,17 +62,17 @@ export class Client {
     this.client = client;
   }
 
-  async retrieve(args: RetrieveSingleParams): Promise<Label>;
-  async retrieve(args: RetrieveMultipleParams): Promise<Label[]>;
-  async retrieve(args: RetrieveArgs): Promise<Label | Label[]> {
-    const isSingle = "key" in args;
+  async retrieve(params: RetrieveSingleParams): Promise<Label>;
+  async retrieve(params: RetrieveMultipleParams): Promise<Label[]>;
+  async retrieve(params: RetrieveParams): Promise<Label | Label[]> {
+    const isSingle = "key" in params;
     const res = await this.client.send(
       "/label/retrieve",
-      args,
-      retrieveArgsZ,
+      params,
+      retrieveParamsZ,
       retrieveResponseZ,
     );
-    checkForMultipleOrNoResults("Label", args, res.labels, isSingle);
+    checkForMultipleOrNoResults("Label", params, res.labels, isSingle);
     return isSingle ? res.labels[0] : res.labels;
   }
 

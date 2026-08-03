@@ -81,6 +81,10 @@ Transport::Transport(
         grpc::ranger::CreateRequest,
         grpc::ranger::CreateResponse,
         grpc::ranger::RangeCreateService>>(pool, base_target);
+    this->range_set_end = std::make_unique<freighter::grpc::UnaryClient<
+        grpc::ranger::SetEndRequest,
+        google::protobuf::Empty,
+        grpc::ranger::RangeSetEndService>>(pool, base_target);
     this->range_kv_delete = std::make_shared<freighter::grpc::UnaryClient<
         grpc::kv::DeleteRequest,
         google::protobuf::Empty,
@@ -182,6 +186,7 @@ void Transport::use(const std::shared_ptr<freighter::Middleware> &mw) const {
     chan_retrieve->use(mw);
     range_retrieve->use(mw);
     range_create->use(mw);
+    range_set_end->use(mw);
     range_kv_delete->use(mw);
     range_kv_get->use(mw);
     range_kv_set->use(mw);

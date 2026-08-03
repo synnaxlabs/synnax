@@ -10,6 +10,7 @@
 import { view } from "@synnaxlabs/client";
 import { array, type optional } from "@synnaxlabs/x";
 import { useEffect } from "react";
+import { type z } from "zod";
 
 import { Flux } from "@/flux";
 import { Ontology } from "@/ontology";
@@ -92,13 +93,14 @@ export type DeleteParams = view.Key | view.Key[];
 export const { useUpdate: useDelete } = Flux.createUpdate<DeleteParams, FluxSubStore>({
   name: RESOURCE_NAME,
   verbs: Flux.DELETE_VERBS,
-  update: async ({ client, data, store, rollbacks }) => {
+  update: async ({ client, data, store, rollbacks, onOptimisticComplete }) => {
     const keys = array.toArray(data);
     const ids = keys.map((key) => view.ontologyID(key));
     const relFilter = Ontology.filterRelationshipsThatHaveIDs(ids);
     rollbacks.push(store.relationships.delete(relFilter));
     rollbacks.push(store.views.delete(keys));
     rollbacks.push(store.resources.delete(keys));
+    await onOptimisticComplete(data);
     await client.views.delete(data);
     return data;
   },
@@ -116,16 +118,18 @@ const retrieveSingle = async ({
   return v;
 };
 
-const ZERO_VALUES = {
+export const formSchema = view.viewZ.partial({ key: true });
+
+const ZERO_VALUES: z.infer<typeof formSchema> = {
   name: "",
   type: "",
   query: {},
 };
 export type FormQuery = optional.Optional<view.RetrieveSingleParams, "key">;
 
-export const useForm = Flux.createForm<FormQuery, typeof view.newZ, FluxSubStore>({
+export const useForm = Flux.createForm<FormQuery, typeof formSchema, FluxSubStore>({
   name: RESOURCE_NAME,
-  schema: view.newZ,
+  schema: formSchema,
   initialValues: ZERO_VALUES,
   retrieve: async ({ client, query: { key }, store, reset }) => {
     if (key == null) return;
@@ -150,7 +154,7 @@ export interface RenameParams extends Pick<view.View, "key" | "name"> {}
 export const { useUpdate: useRename } = Flux.createUpdate<RenameParams, FluxSubStore>({
   name: RESOURCE_NAME,
   verbs: Flux.RENAME_VERBS,
-  update: async ({ client, data, store, rollbacks }) => {
+  update: async ({ client, data, store, rollbacks, onOptimisticComplete }) => {
     const { key, name } = data;
     const v = await retrieveSingle({ client, store, query: { key } });
     rollbacks.push(
@@ -160,6 +164,7 @@ export const { useUpdate: useRename } = Flux.createUpdate<RenameParams, FluxSubS
       ),
     );
     rollbacks.push(Ontology.renameFluxResource(store, view.ontologyID(key), name));
+    await onOptimisticComplete(data);
     await client.views.create({ ...v, name });
     return data;
   },

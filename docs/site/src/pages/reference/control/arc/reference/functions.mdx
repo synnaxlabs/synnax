@@ -2,8 +2,8 @@
 layout: "@/layouts/Reference.astro"
 title: "Functions"
 description:
-  "Arc function reference for declaration syntax, config parameters, inputs, outputs,
-  and calling conventions"
+  "Arc function reference for declaration syntax, inputs, triggers, outputs, and calling
+  conventions"
 prev: "Stages"
 prevURL: "/reference/control/arc/reference/stages"
 next: "Statements"
@@ -11,6 +11,7 @@ nextURL: "/reference/control/arc/reference/statements"
 ---
 
 import { Divider, Note } from "@synnaxlabs/pluto";
+import { Arc } from "@/components";
 import { mdxOverrides } from "@/components/mdxOverrides";
 
 export const components = mdxOverrides;
@@ -18,19 +19,19 @@ export const components = mdxOverrides;
 ## Function Declaration
 
 ```arc
-func name{config} (inputs)output{
+func name{inputs} (trigger) output {
 // body
 }
 ```
 
-| Part       | Required | Description                      |
-| ---------- | -------- | -------------------------------- |
-| `func`     | Yes      | Keyword                          |
-| `name`     | Yes      | Function identifier              |
-| `{config}` | No       | Config parameters (compile-time) |
-| `(inputs)` | Yes      | Input parameters (runtime)       |
-| `output`   | No       | Return type                      |
-| `{ body }` | Yes      | Function body                    |
+| Part        | Required | Description          |
+| ----------- | -------- | -------------------- |
+| `func`      | Yes      | Keyword              |
+| `name`      | Yes      | Function identifier  |
+| `{inputs}`  | No       | The function inputs  |
+| `(trigger)` | No       | The function trigger |
+| `output`    | No       | Return type          |
+| `{ body }`  | Yes      | Function body        |
 
 <Divider.Divider x />
 
@@ -54,10 +55,11 @@ func log_value(value f64) {
 
 <Divider.Divider x />
 
-## Config Parameters
+## Inputs
 
-Config parameters are set at instantiation time (compile-time constants). They appear in
-braces `{}` after the function name.
+- Braces `{}` for the `flow` side: inputs set when you instantiate the function in a
+  flow.
+- Parens `()` for the `func` side: inputs passed when you call the function.
 
 ```arc
 func filter{threshold f64} (value f64) f64 {
@@ -68,26 +70,15 @@ func filter{threshold f64} (value f64) f64 {
 }
 ```
 
-### Using Config Parameters
+Here `threshold` is set in the braces and `value` is the trigger.
 
-In flow statements, provide config values when instantiating:
-
-```arc
-sensor -> filter{threshold=50.0} -> output
-```
-
-### Config Parameter Types
-
-Config parameters can be:
-
-- Literal values (`50.0`, `100`, `"name"`)
-- Channel references (for dynamic setpoints)
+Input parameters can be literals or channel references:
 
 ```arc
 func controller{
-    setpoint f64, // can be literal or channel
-    sensor chan f64, // channel reference
-    output chan f64, // channel reference
+    setpoint f64,      // literal or channel
+    sensor chan f64,   // channel reference
+    output chan f64,   // channel reference
 } (enable u8) f64 {
     value := sensor
     if enable {
@@ -97,63 +88,13 @@ func controller{
 }
 // Static setpoint
 sensor -> controller{setpoint=100.0, sensor=temp, output=cmd}
-// Dynamic setpoint from channel
+// Setpoint driven by a channel
 sensor -> controller{setpoint=setpoint_input, sensor=temp, output=cmd}
 ```
 
-### Anonymous Config Values
+### Optional Inputs
 
-Config values can be provided positionally instead of by name. Values map to parameters
-in declaration order:
-
-```arc
-func scale{factor f64} (value f64) f64 {
-    return value * factor
-}
-// Named (explicit)
-sensor -> scale{factor=2.0} -> output
-// Anonymous (positional)
-sensor -> scale{2.0} -> output
-```
-
-This also works for multi-parameter functions:
-
-```arc
-func clamp{min f64, max f64} (value f64) f64 {
-// ...
-}
-// Named
-sensor -> clamp{min=0.0, max=100.0} -> output
-// Anonymous (positional: min=0.0, max=100.0)
-sensor -> clamp{0.0, 100.0} -> output
-```
-
-When trailing parameters have defaults, they can be omitted:
-
-```arc
-func controller{setpoint f64, gain f64 = 1.0} (x f64) f64 {
-    return(x - setpoint) * gain
-}
-// Only provide setpoint, gain uses default
-sensor -> controller{100.0} -> output
-```
-
-<Divider.Divider x />
-
-## Input Parameters
-
-Input parameters are received at runtime when the function is triggered. They appear in
-parentheses `()`.
-
-```arc
-func process(value f64, scale f64) f64 {
-    return value * scale
-}
-```
-
-### Optional Parameters
-
-Optional parameters have default values and must be trailing:
+Optional inputs have default values and must be trailing:
 
 ```arc
 func clamp(value f64, min f64 = 0.0, max f64 = 1.0) f64 {
@@ -165,15 +106,6 @@ func clamp(value f64, min f64 = 0.0, max f64 = 1.0) f64 {
     }
     return value
 }
-```
-
-Calling with defaults:
-
-```arc
-// In imperative scope (function body)
-result := clamp(x) // uses defaults
-result := clamp(x, -10.0) // min=-10.0, max=1.0 (default)
-result := clamp(x, -10.0, 10.0) // explicit values
 ```
 
 <Divider.Divider x />
@@ -223,29 +155,34 @@ sensor -> split{} -> {
 
 ## Calling Functions
 
-Arc has two calling conventions depending on context.
+Arc has two calling conventions depending on context: parentheses inside function
+bodies, and braces to instantiate a function in a flow statement.
 
-### Imperative Scope (Function Bodies)
+<Arc.Tabs client:load>
 
-Inside function bodies, call functions with parentheses:
+<Fragment slot="flow">
 
 ```arc
-func outer(x f64) f64 {
-    y := inner(x) // function call
-    z := clamp(y, 0.0, 100.0)
-    return z
+stage main {
+    // sensor value feeds the trigger
+    sensor -> filter{threshold=50.0} -> output
 }
 ```
 
-### Reactive Scope (Flow Statements)
+</Fragment>
 
-In flow statements, instantiate functions with config braces:
+<Fragment slot="function">
 
 ```arc
-sensor -> filter{threshold=50.0} -> output
+func outer(x f64) f64 {
+    y := inner(x, 0.0, 100.0) // function call
+    return y
+}
 ```
 
-Input parameters are wired from the incoming flow automatically.
+</Fragment>
+
+</Arc.Tabs>
 
 <Divider.Divider x />
 
@@ -325,13 +262,13 @@ The routing table maps channel names to parameter names.
 
 ## Restrictions
 
-| Restriction            | Description                                             |
-| ---------------------- | ------------------------------------------------------- |
-| No closures            | Functions cannot capture variables from enclosing scope |
-| No nested functions    | Functions cannot be defined inside other functions      |
-| No partial application | All required arguments must be provided                 |
-| Explicit returns       | Functions with return types require `return` statements |
-| Config = constants     | Config values must be literals or channel identifiers   |
+| Restriction             | Description                                               |
+| ----------------------- | --------------------------------------------------------- |
+| No closures             | Functions cannot capture variables from enclosing scope   |
+| No nested functions     | Functions cannot be defined inside other functions        |
+| No partial application  | All required arguments must be provided                   |
+| Explicit returns        | Functions with return types require `return` statements   |
+| Flow inputs = constants | Flow input values must be literals or channel identifiers |
 
 <Divider.Divider x />
 
@@ -354,10 +291,13 @@ func factorial(n i64) i64 {
 
 <Divider.Divider x />
 
+## Built-in Functions
+
+Built-in functions require no `import` or module prefix.
+
 ### len
 
-Built-in function that does not require an `import` or module prefix. Returns the length
-of a series or string.
+Returns the length of a series or string.
 
 ```arc
 data := [1.0, 2.0, 3.0]

@@ -20,7 +20,7 @@ export interface UseProps
   extends
     optional.Optional<
       Omit<
-        z.input<typeof log.logState>,
+        z.input<typeof log.logStateZ>,
         | "region"
         | "scrollPosition"
         | "scrollback"
@@ -40,7 +40,7 @@ export interface UseProps
     >,
     Aether.ComponentProps {}
 
-export type LogState = z.output<typeof log.logState>;
+export type LogState = z.output<typeof log.logStateZ>;
 
 export interface UseReturn {
   state: LogState;
@@ -51,13 +51,14 @@ export const use = ({
   aetherKey,
   font,
   visible = true,
-  showChannelNames = true,
-  showReceiptTimestamp = true,
+  hideChannelNames = false,
+  hideReceiptTimestamp = false,
   timestampPrecision = 0,
-  channels = [],
+  channels: rawChannels,
   color,
   telem,
 }: UseProps): UseReturn => {
+  const channels = rawChannels ?? [];
   const numericChannels = useMemo(
     () =>
       channels
@@ -86,8 +87,8 @@ export const use = ({
     color,
     telem,
     visible,
-    showChannelNames,
-    showReceiptTimestamp,
+    hideChannelNames,
+    hideReceiptTimestamp,
     timestampPrecision,
     channelNames,
     channelDataTypes,
@@ -97,7 +98,7 @@ export const use = ({
   const [, state, setState] = Aether.use({
     aetherKey,
     type: log.Log.TYPE,
-    schema: log.logState,
+    schema: log.logStateZ,
     initialState: {
       empty: true,
       region: box.ZERO,

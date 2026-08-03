@@ -36,13 +36,12 @@ class SimplePressValves(SimDaqCase, ConsoleCase):
         super().setup()
 
     def run(self) -> None:
-
         # Define the control channel names
         END_CMD = "end_test_cmd"
         PRESSURE = "press_pt"
 
         self.log("Creating schematic symbols")
-        schematic = self.console.workspace.create_schematic("simple_press_valves")
+        schematic = self.console.project.create_schematic("simple_press_valves")
         self._cleanup_pages.append(schematic.page_name)
         schematic.move("left")
 

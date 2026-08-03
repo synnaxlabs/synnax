@@ -19,6 +19,7 @@ import (
 	"github.com/synnaxlabs/arc/symbol"
 	. "github.com/synnaxlabs/arc/symbol/testutil"
 	"github.com/synnaxlabs/arc/types"
+	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/telem"
@@ -39,10 +40,8 @@ var _ = Describe("StableFor", func() {
 		irNode = ir.Node{
 			Key:  "stable",
 			Type: "stable_for",
-			Config: types.Params{
-				{Name: "duration", Type: types.TimeSpan(), Value: telem.Second * 1},
-			},
 			Inputs: types.Params{
+				{Name: "duration", Type: types.TimeSpan(), Value: telem.Second * 1},
 				{Name: ir.DefaultInputParam, Type: types.U8()},
 			},
 			Outputs: types.Params{
@@ -51,16 +50,20 @@ var _ = Describe("StableFor", func() {
 		}
 		g := graph.Graph{
 			Nodes: []graph.Node{
-				{Key: "source", Type: "source"},
-				{Key: "stable", Type: "stable_for"},
+				{Key: "source"},
+				{Key: "stable"},
 			},
-			Edges: []graph.Edge{
-				{
+			Inputs: map[string]msgpack.EncodedJSON{
+				"source": {"type": "source"},
+				"stable": {"type": "stable_for"},
+			},
+			Edges: graph.Edges{
+				{Edge: ir.Edge{
 					Source: ir.Handle{Node: "source", Param: ir.DefaultOutputParam},
 					Target: ir.Handle{Node: "stable", Param: ir.DefaultInputParam},
-				},
+				}},
 			},
-			Functions: []graph.Function{
+			Functions: []ir.Function{
 				{
 					Key: "source",
 					Outputs: types.Params{
@@ -132,7 +135,7 @@ var _ = Describe("StableFor", func() {
 			cfg := node.Config{
 				Node: ir.Node{
 					Type: "stable_for",
-					Config: types.Params{
+					Inputs: types.Params{
 						{Name: "duration", Type: types.TimeSpan(), Value: telem.SecondTS},
 					},
 				},
@@ -167,7 +170,7 @@ var _ = Describe("StableFor", func() {
 			cfg := node.Config{
 				Node: ir.Node{
 					Type: "stable_for",
-					Config: types.Params{
+					Inputs: types.Params{
 						{Name: "duration", Type: types.TimeSpan(), Value: telem.SecondTS},
 					},
 				},
@@ -209,7 +212,7 @@ var _ = Describe("StableFor", func() {
 			cfg := node.Config{
 				Node: ir.Node{
 					Type: "stable_for",
-					Config: types.Params{
+					Inputs: types.Params{
 						{Name: "duration", Type: types.TimeSpan(), Value: telem.SecondTS},
 					},
 				},
@@ -243,7 +246,7 @@ var _ = Describe("StableFor", func() {
 			cfg := node.Config{
 				Node: ir.Node{
 					Type: "stable_for",
-					Config: types.Params{
+					Inputs: types.Params{
 						{Name: "duration", Type: types.TimeSpan(), Value: telem.SecondTS},
 					},
 				},
@@ -283,7 +286,7 @@ var _ = Describe("StableFor", func() {
 			cfg := node.Config{
 				Node: ir.Node{
 					Type: "stable_for",
-					Config: types.Params{
+					Inputs: types.Params{
 						{Name: "duration", Type: types.TimeSpan(), Value: telem.SecondTS},
 					},
 				},
@@ -293,7 +296,7 @@ var _ = Describe("StableFor", func() {
 			currentTime = 0
 			// Send multiple values, ending with 7 at 0.4s (400ms)
 			*source.Output(0) = telem.NewSeriesV[uint8](3, 4, 5, 6, 7)
-			*source.OutputTime(0) = telem.NewSeriesV[telem.TimeStamp](
+			*source.OutputTime(0) = telem.NewSeriesV(
 				0,
 				telem.SecondTS/10,   // 0.1s = 100ms
 				telem.SecondTS/5,    // 0.2s = 200ms
@@ -319,7 +322,7 @@ var _ = Describe("StableFor", func() {
 			cfg := node.Config{
 				Node: ir.Node{
 					Type: "stable_for",
-					Config: types.Params{
+					Inputs: types.Params{
 						{Name: "duration", Type: types.TimeSpan(), Value: telem.SecondTS},
 					},
 				},
@@ -349,7 +352,7 @@ var _ = Describe("StableFor", func() {
 			cfg := node.Config{
 				Node: ir.Node{
 					Type: "stable_for",
-					Config: types.Params{
+					Inputs: types.Params{
 						{Name: "duration", Type: types.TimeSpan(), Value: telem.SecondTS},
 					},
 				},
@@ -359,7 +362,7 @@ var _ = Describe("StableFor", func() {
 			currentTime = 0
 			// Send same value multiple times
 			*source.Output(0) = telem.NewSeriesV[uint8](5, 5, 5, 5)
-			*source.OutputTime(0) = telem.NewSeriesV[telem.TimeStamp](
+			*source.OutputTime(0) = telem.NewSeriesV(
 				0,
 				telem.SecondTS/10,   // 0.1s = 100ms
 				telem.SecondTS/5,    // 0.2s = 200ms
@@ -395,18 +398,23 @@ var _ = Describe("StableFor", func() {
 		It("Should create node for stable.for via CompoundFactory", func(ctx SpecContext) {
 			g := graph.Graph{
 				Nodes: []graph.Node{
-					{Key: "source", Type: "source"},
-					{Key: "stable", Type: "stable_for", Config: map[string]any{
-						"duration": int(telem.Second),
-					}},
+					{Key: "source"},
+					{Key: "stable"},
 				},
-				Edges: []graph.Edge{
-					{
-						Source: ir.Handle{Node: "source", Param: ir.DefaultOutputParam},
-						Target: ir.Handle{Node: "stable", Param: ir.DefaultInputParam},
+				Inputs: map[string]msgpack.EncodedJSON{
+					"source": {"type": "source"},
+					"stable": {
+						"type":     "stable_for",
+						"duration": int(telem.Second),
 					},
 				},
-				Functions: []graph.Function{
+				Edges: graph.Edges{
+					{Edge: ir.Edge{
+						Source: ir.Handle{Node: "source", Param: ir.DefaultOutputParam},
+						Target: ir.Handle{Node: "stable", Param: ir.DefaultInputParam},
+					}},
+				},
+				Functions: []ir.Function{
 					{
 						Key: "source",
 						Outputs: types.Params{
@@ -415,10 +423,8 @@ var _ = Describe("StableFor", func() {
 					},
 					{
 						Key: "stable_for",
-						Config: types.Params{
-							{Name: "duration", Type: types.TimeSpan()},
-						},
 						Inputs: types.Params{
+							{Name: "duration", Type: types.TimeSpan()},
 							{Name: ir.DefaultInputParam, Type: types.U8()},
 						},
 						Outputs: types.Params{
@@ -439,5 +445,205 @@ var _ = Describe("StableFor", func() {
 			}))
 			Expect(n).ToNot(BeNil())
 		})
+	})
+
+	Describe("Reset", func() {
+		It("Should not emit after reset when no new data arrives", func(ctx SpecContext) {
+			cfg := node.Config{Node: irNode, State: s.Node("stable")}
+			source := s.Node("source")
+			currentTime = 0
+			*source.Output(0) = telem.NewSeriesV[uint8](5)
+			*source.OutputTime(0) = telem.NewSeriesSecondsTSV(1)
+			n := MustSucceed(module.Create(ctx, cfg))
+			outputs := make(set.Set[int])
+			n.Next(node.Context{Context: ctx, MarkChanged: func(i int) { outputs.Add(i) }})
+			Expect(outputs.Contains(0)).To(BeFalse())
+
+			currentTime = telem.SecondTS * 2
+			outputs = make(set.Set[int])
+			n.Next(node.Context{Context: ctx, MarkChanged: func(i int) { outputs.Add(i) }})
+			Expect(outputs.Contains(0)).To(BeTrue())
+
+			n.Reset()
+			currentTime = telem.SecondTS * 5
+			outputs = make(set.Set[int])
+			n.Next(node.Context{Context: ctx, MarkChanged: func(i int) { outputs.Add(i) }})
+			Expect(outputs.Contains(0)).To(BeFalse())
+		})
+
+		It("Should ignore values written while the stage was inactive", func(ctx SpecContext) {
+			cfg := node.Config{Node: irNode, State: s.Node("stable")}
+			source := s.Node("source")
+			currentTime = 0
+			*source.Output(0) = telem.NewSeriesV[uint8](5)
+			*source.OutputTime(0) = telem.NewSeriesSecondsTSV(1)
+			n := MustSucceed(module.Create(ctx, cfg))
+			n.Next(node.Context{Context: ctx, MarkChanged: func(int) {}})
+
+			*source.Output(0) = telem.NewSeriesV[uint8](9)
+			*source.OutputTime(0) = telem.NewSeriesSecondsTSV(2)
+			n.Reset()
+
+			currentTime = telem.SecondTS * 10
+			outputs := make(set.Set[int])
+			n.Next(node.Context{Context: ctx, MarkChanged: func(i int) { outputs.Add(i) }})
+			Expect(outputs.Contains(0)).To(BeFalse())
+		})
+	})
+})
+
+var _ = Describe("Construction validation", func() {
+	It("Should error at construction when the input param is missing", func(ctx SpecContext) {
+		prog := ir.IR{Nodes: ir.Nodes{{
+			Key:  "stable",
+			Type: "stable_for",
+			Inputs: types.Params{
+				{Name: "duration", Type: types.TimeSpan(), Value: telem.TimeSpanZero},
+			},
+			Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.U8()}},
+		}}}
+		s := node.New(prog)
+		cfg := node.Config{Node: prog.Nodes[0], State: s.Node("stable")}
+		Expect(stable.NewHost().Create(ctx, cfg)).Error().
+			To(MatchError(node.ErrInputNotFound))
+	})
+	It("Should error at construction when the duration input value is invalid", func(ctx SpecContext) {
+		prog := ir.IR{Nodes: ir.Nodes{{
+			Key:  "stable",
+			Type: "stable_for",
+			Inputs: types.Params{
+				{Name: "duration", Type: types.String(), Value: []any{1}},
+				{Name: ir.DefaultInputParam, Type: types.F32(), Value: float32(0)},
+			},
+			Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.U8()}},
+		}}}
+		s := node.New(prog)
+		cfg := node.Config{Node: prog.Nodes[0], State: s.Node("stable")}
+		Expect(stable.NewHost().Create(ctx, cfg)).Error().To(BeAValidationPathError())
+	})
+})
+
+var _ = Describe("Variable duration", func() {
+	var (
+		module      *stable.Host
+		s           *node.ProgramState
+		cfg         node.Config
+		setDuration func(telem.TimeSpan)
+		currentTime telem.TimeStamp
+	)
+	BeforeEach(func() {
+		currentTime = 0
+		module = stable.NewHost(stable.WithNow(func() telem.TimeStamp {
+			return currentTime
+		}))
+	})
+	// build wires source -> stable with a var-bound duration: Value holds the
+	// declared initial and setDuration writes the variable's live slot.
+	build := func(initial telem.TimeSpan) {
+		prog := ir.IR{
+			Nodes: ir.Nodes{
+				{
+					Key:  "source",
+					Type: "source",
+					Outputs: types.Params{
+						{Name: ir.DefaultOutputParam, Type: types.U8()},
+					},
+				},
+				{
+					Key:  "v",
+					Type: "variable",
+					Outputs: types.Params{
+						{Name: ir.DefaultOutputParam, Type: types.I64()},
+					},
+				},
+				{
+					Key:  "stable",
+					Type: "stable_for",
+					Inputs: types.Params{
+						{
+							Name:  "duration",
+							Type:  types.VarRef(types.I64(), "v"),
+							Value: initial,
+						},
+						{Name: ir.DefaultInputParam, Type: types.U8()},
+					},
+					Outputs: types.Params{
+						{Name: ir.DefaultOutputParam, Type: types.U8()},
+					},
+				},
+			},
+			Edges: ir.Edges{{
+				Source: ir.Handle{Node: "source", Param: ir.DefaultOutputParam},
+				Target: ir.Handle{Node: "stable", Param: ir.DefaultInputParam},
+			}},
+		}
+		s = node.New(prog)
+		cfg = node.Config{Node: prog.Nodes.Get("stable"), State: s.Node("stable")}
+		setDuration = func(d telem.TimeSpan) {
+			*s.Node("v").Output(0) = telem.NewSeriesV(int64(d))
+		}
+	}
+	ingest := func(v uint8, at telem.TimeStamp) {
+		*s.Node("source").Output(0) = telem.NewSeriesV(v)
+		*s.Node("source").OutputTime(0) = telem.NewSeriesV(at)
+	}
+	next := func(ctx SpecContext, n node.Node) bool {
+		fired := false
+		n.Next(node.Context{Context: ctx, MarkChanged: func(int) { fired = true }})
+		return fired
+	}
+
+	It("Should honor the declared initial before any write", func(ctx SpecContext) {
+		build(telem.Second)
+		n := MustSucceed(module.Create(ctx, cfg))
+		ingest(5, telem.SecondTS)
+		currentTime = telem.SecondTS
+		Expect(next(ctx, n)).To(BeFalse())
+		currentTime = telem.SecondTS + telem.SecondTS/2
+		Expect(next(ctx, n)).To(BeFalse())
+		currentTime = 2 * telem.SecondTS
+		Expect(next(ctx, n)).To(BeTrue())
+	})
+
+	It("Should adopt a shortening write at the next window, not mid-window", func(ctx SpecContext) {
+		build(10 * telem.Second)
+		n := MustSucceed(module.Create(ctx, cfg))
+		ingest(5, telem.SecondTS)
+		currentTime = telem.SecondTS
+		Expect(next(ctx, n)).To(BeFalse())
+		setDuration(telem.Second)
+		// The in-flight window completes under its starting 10s.
+		currentTime = 2 * telem.SecondTS
+		Expect(next(ctx, n)).To(BeFalse())
+		currentTime = 11 * telem.SecondTS
+		Expect(next(ctx, n)).To(BeTrue())
+		// The next window latches the shortened 1s.
+		ingest(7, 12*telem.SecondTS)
+		currentTime = 12 * telem.SecondTS
+		Expect(next(ctx, n)).To(BeFalse())
+		currentTime = 13 * telem.SecondTS
+		Expect(next(ctx, n)).To(BeTrue())
+	})
+
+	It("Should adopt a lengthening write at the next window, not mid-window", func(ctx SpecContext) {
+		build(telem.Second)
+		n := MustSucceed(module.Create(ctx, cfg))
+		ingest(5, telem.SecondTS)
+		currentTime = telem.SecondTS
+		Expect(next(ctx, n)).To(BeFalse())
+		setDuration(10 * telem.Second)
+		// The in-flight window completes under its starting 1s.
+		currentTime = 2 * telem.SecondTS
+		Expect(next(ctx, n)).To(BeTrue())
+		// The next window latches the lengthened 10s.
+		ingest(7, 3*telem.SecondTS)
+		currentTime = 3 * telem.SecondTS
+		Expect(next(ctx, n)).To(BeFalse())
+		currentTime = 4 * telem.SecondTS
+		Expect(next(ctx, n)).To(BeFalse())
+		currentTime = 13 * telem.SecondTS
+		Expect(next(ctx, n)).To(BeTrue())
+		output := s.Node("stable").Output(0)
+		Expect(telem.UnmarshalSeries[uint8](*output)).To(Equal([]uint8{7}))
 	})
 })

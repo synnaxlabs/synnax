@@ -13,8 +13,6 @@ import (
 	"context"
 	"math"
 
-	"github.com/tetratelabs/wazero"
-
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/runtime/node"
 	"github.com/synnaxlabs/arc/symbol"
@@ -25,13 +23,14 @@ import (
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/telem/op"
 	"github.com/synnaxlabs/x/zyn"
+	"github.com/tetratelabs/wazero"
 )
 
 const (
 	avgSymbolName        = "avg"
-	countConfigParam     = "count"
+	countInputParam      = "count"
 	derivativeSymbolName = "derivative"
-	durationConfigParam  = "duration"
+	durationInputParam   = "duration"
 	maxSymbolName        = "max"
 	minSymbolName        = "min"
 	powSymbolName        = "pow"
@@ -59,19 +58,18 @@ func createBaseSymbol(name string, doc doc.Doc) *symbol.Symbol {
 		Kind: symbol.KindFunction,
 		Exec: symbol.ExecFlow,
 		Type: types.Function(types.FunctionProperties{
-			Config: types.Params{
-				{Name: durationConfigParam, Type: types.TimeSpan(), Value: telem.TimeSpanZero},
-				{Name: countConfigParam, Type: types.I64(), Value: 0},
-			},
 			Inputs: types.Params{
 				{Name: ir.DefaultInputParam, Type: types.Variable("T", &numConstraint)},
+				{Name: durationInputParam, Type: types.TimeSpan(), Value: telem.TimeSpanZero},
+				{Name: countInputParam, Type: types.I64(), Value: 0},
 				{Name: resetInputParam, Type: types.U8(), Value: 0},
 			},
 			Outputs: types.Params{
 				{Name: ir.DefaultOutputParam, Type: types.Variable("T", &numConstraint)},
 			},
 		}),
-		Doc: doc,
+		Trigger: symbol.TriggerInput(ir.DefaultInputParam),
+		Doc:     doc,
 	}
 }
 
@@ -127,6 +125,7 @@ func newPowSymbol() *symbol.Symbol {
 			Inputs:  types.Params{{Name: "base", Type: types.Variable("T", &numConstraint)}, {Name: "exp", Type: types.Variable("T", &numConstraint)}},
 			Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.Variable("T", &numConstraint)}},
 		}),
+		Trigger: symbol.TriggerOnly,
 	}
 }
 
@@ -143,7 +142,8 @@ func newDerivativeSymbol() *symbol.Symbol {
 				{Name: ir.DefaultOutputParam, Type: types.F64()},
 			},
 		}),
-		Doc: derivativeDoc,
+		Trigger: symbol.TriggerInput(ir.DefaultInputParam),
+		Doc:     derivativeDoc,
 	}
 }
 
@@ -225,49 +225,54 @@ func (h *Host) Create(_ context.Context, nodeCfg node.Config) (node.Node, error)
 	if !ok {
 		return nil, query.ErrNotFound
 	}
-	var (
-		inputData   = nodeCfg.State.Input(0)
-		reductionFn = reductionMap[inputData.DataType]
-		resetIdx    = -1
-	)
+	inputIdx, err := nodeCfg.State.ResolveInput(ir.DefaultInputParam)
+	if err != nil {
+		return nil, err
+	}
+	reductionFn := reductionMap[nodeCfg.State.Input(inputIdx).DataType]
+	resetIdx := -1
 	if _, found := nodeCfg.Program.Edges.FindByTarget(ir.Handle{
 		Node:  nodeCfg.Node.Key,
 		Param: resetInputParam,
 	}); found {
-		resetIdx = 1
+		if resetIdx, err = nodeCfg.State.ResolveInput(resetInputParam); err != nil {
+			return nil, err
+		}
 		nodeCfg.State.InitInput(
 			resetIdx,
 			telem.NewSeriesV[uint8](0),
 			telem.NewSeriesV[telem.TimeStamp](1),
 		)
 	}
-	var cfg WindowConfig
-	if err := windowConfigSchema.Parse(nodeCfg.Node.Config.ValueMap(), &cfg); err != nil {
+	var inputs WindowInputs
+	if err := windowInputsSchema.Parse(nodeCfg.Node.Inputs.ValueMap(), &inputs); err != nil {
 		return nil, err
 	}
 	return &avgNode{
 		State:       nodeCfg.State,
+		inputIdx:    inputIdx,
 		resetIdx:    resetIdx,
 		process:     reductionFn,
 		sampleCount: 0,
-		cfg:         cfg,
+		inputs:      inputs,
 	}, nil
 }
 
-type WindowConfig struct {
+type WindowInputs struct {
 	Duration telem.TimeSpan `json:"duration" msgpack:"duration"`
 	Count    int64          `json:"count" msgpack:"count"`
 }
 
-var windowConfigSchema = zyn.Object(map[string]zyn.Schema{
-	durationConfigParam: zyn.Int64().Optional().Coerce(),
-	countConfigParam:    zyn.Int64().Optional().Coerce(),
+var windowInputsSchema = zyn.Object(map[string]zyn.Schema{
+	durationInputParam: zyn.Int64().Optional().Coerce(),
+	countInputParam:    zyn.Int64().Optional().Coerce(),
 })
 
 type avgNode struct {
 	*node.State
 	process       reductionFn
-	cfg           WindowConfig
+	inputs        WindowInputs
+	inputIdx      int
 	resetIdx      int
 	sampleCount   int64
 	startTime     telem.TimeStamp
@@ -288,7 +293,7 @@ func (r *avgNode) Next(ctx node.Context) {
 		return
 	}
 
-	inputTime := r.InputTime(0)
+	inputTime := r.InputTime(r.inputIdx)
 	if r.startTime == 0 && inputTime.Len() > 0 {
 		r.startTime = telem.ValueAt[telem.TimeStamp](inputTime, 0)
 	}
@@ -310,24 +315,24 @@ func (r *avgNode) Next(ctx node.Context) {
 		}
 	}
 
-	if r.cfg.Duration > 0 && inputTime.Len() > 0 {
+	if r.inputs.Duration > 0 && inputTime.Len() > 0 {
 		currentTime := telem.ValueAt[telem.TimeStamp](inputTime, -1)
-		if telem.TimeSpan(currentTime-r.startTime) >= r.cfg.Duration {
+		if telem.TimeSpan(currentTime-r.startTime) >= r.inputs.Duration {
 			shouldReset = true
 			r.startTime = currentTime
 		}
 	}
 
-	if r.cfg.Count > 0 && r.sampleCount >= r.cfg.Count {
+	if r.inputs.Count > 0 && r.sampleCount >= r.inputs.Count {
 		shouldReset = true
 	}
 
 	if shouldReset {
 		r.sampleCount = 0
 		r.Output(0).Resize(0)
-		inputTime = r.InputTime(0)
+		inputTime = r.InputTime(r.inputIdx)
 	}
-	inputData := r.Input(0)
+	inputData := r.Input(r.inputIdx)
 	if inputData.Len() == 0 {
 		return
 	}
@@ -409,17 +414,21 @@ var (
 )
 
 func createDerivative(cfg node.Config) (node.Node, error) {
-	inputData := cfg.State.Input(0)
-	derivFn, ok := derivOps[inputData.DataType]
+	inputIdx, err := cfg.State.ResolveInput(ir.DefaultInputParam)
+	if err != nil {
+		return nil, err
+	}
+	derivFn, ok := derivOps[cfg.State.Input(inputIdx).DataType]
 	if !ok {
 		return nil, query.ErrNotFound
 	}
-	return &derivativeNode{State: cfg.State, process: derivFn}, nil
+	return &derivativeNode{State: cfg.State, inputIdx: inputIdx, process: derivFn}, nil
 }
 
 type derivativeNode struct {
 	*node.State
 	process       derivativeFn
+	inputIdx      int
 	prevValue     float64
 	prevTimestamp telem.TimeStamp
 	hasPrev       bool
@@ -438,8 +447,8 @@ func (d *derivativeNode) Next(ctx node.Context) {
 	if !d.RefreshInputs() {
 		return
 	}
-	inputData := d.Input(0)
-	inputTime := d.InputTime(0)
+	inputData := d.Input(d.inputIdx)
+	inputTime := d.InputTime(d.inputIdx)
 	if inputData.Len() == 0 {
 		return
 	}

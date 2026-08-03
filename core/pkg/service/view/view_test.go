@@ -13,9 +13,9 @@ import (
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/synnax/pkg/distribution/group"
-	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
-	"github.com/synnaxlabs/synnax/pkg/distribution/search"
+	"github.com/synnaxlabs/synnax/pkg/service/group"
+	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/search"
 	"github.com/synnaxlabs/synnax/pkg/service/view"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/query"
@@ -33,7 +33,7 @@ var _ = Describe("View", func() {
 		otg = MustOpen(ontology.Open(ctx, ontology.Config{
 			DB: db,
 		}))
-		searchIdx := MustOpen(search.Open())
+		searchIdx := MustOpen(search.OpenIndex())
 		g := MustOpen(group.OpenService(ctx, group.ServiceConfig{DB: db, Ontology: otg, Search: searchIdx}))
 		svc = MustOpen(view.OpenService(ctx, view.ServiceConfig{
 			DB:       db,
@@ -117,9 +117,7 @@ var _ = Describe("View", func() {
 			It("Should be idempotent", func(ctx SpecContext) {
 				Expect(w.Delete(ctx, uuid.New())).To(Succeed())
 			})
-		})
 
-		Describe("DeleteMany", func() {
 			It("Should delete multiple views", func(ctx SpecContext) {
 				views := []view.View{
 					{
@@ -134,7 +132,7 @@ var _ = Describe("View", func() {
 					},
 				}
 				Expect(w.CreateMany(ctx, &views)).To(Succeed())
-				Expect(w.DeleteMany(ctx, views[0].Key, views[1].Key)).To(Succeed())
+				Expect(w.Delete(ctx, views[0].Key, views[1].Key)).To(Succeed())
 
 				Expect(svc.NewRetrieve().Where(view.MatchKeys(views[0].Key, views[1].Key)).Exec(ctx, tx)).To(MatchError(query.ErrNotFound))
 			})
@@ -218,7 +216,7 @@ var _ = Describe("View", func() {
 					for i, v := range views {
 						keys[i] = v.Key
 					}
-					Expect(svc.NewWriter(nil).DeleteMany(ctx, keys...)).To(Succeed())
+					Expect(svc.NewWriter(nil).Delete(ctx, keys...)).To(Succeed())
 				})
 				Expect(svc.NewRetrieve().Search("View A").Entries(&resViews).Exec(ctx, db)).To(Succeed())
 				Expect(len(resViews)).To(BeNumerically(">", 1))

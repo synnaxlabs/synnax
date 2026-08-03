@@ -1,0 +1,169 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import { channel, NotFoundError } from "@synnaxlabs/client";
+import { Component, Flex, Icon } from "@synnaxlabs/pluto";
+import { errors, primitive } from "@synnaxlabs/x";
+import { type FC } from "react";
+
+import { enrich } from "@/feature/ni/device/enrich";
+import { Select } from "@/feature/ni/device/Select";
+import * as Device from "@/feature/ni/device/types";
+import { createDIChannel } from "@/feature/ni/task/createChannel";
+import {
+  DigitalChannelList,
+  type DigitalNameComponentProps,
+} from "@/feature/ni/task/DigitalChannelList";
+import { getDigitalChannelDeviceKey } from "@/feature/ni/task/getDigitalChannelDeviceKey";
+import {
+  type DIChannel,
+  DIGITAL_READ_SCHEMAS,
+  DIGITAL_READ_TYPE,
+  digitalReadConfigZ,
+  type DigitalReadSchemas,
+  ZERO_DIGITAL_READ_PAYLOAD,
+} from "@/feature/ni/task/types";
+import { Device as PlatformDevice } from "@/platform/device";
+import { Selector } from "@/platform/selector";
+import { Task } from "@/platform/task";
+
+export const DigitalReadSelectable = Selector.createSelectable({
+  type: DIGITAL_READ_TYPE,
+  title: "NI Digital Read Task",
+  icon: <Icon.Logo.NI />,
+  useOnSelect: Task.createOpenTab(DIGITAL_READ_TYPE),
+});
+
+const Properties = () => (
+  <>
+    <Select />
+    <Flex.Box x>
+      <Task.Fields.SampleRate />
+      <Task.Fields.StreamRate />
+      <Task.Fields.DataSaving />
+      <Task.Fields.AutoStart />
+    </Flex.Box>
+  </>
+);
+
+interface NameComponentProps extends DigitalNameComponentProps<DIChannel> {}
+
+const NameComponent = ({ channel, itemKey, path }: NameComponentProps) => (
+  <Task.ChannelName
+    channel={channel}
+    id={Task.getChannelNameID(itemKey)}
+    level="p"
+    namePath={`${path}.name`}
+  />
+);
+
+const name = Component.renderProp(NameComponent);
+
+const Form: FC<Task.FormProps<DigitalReadSchemas>> = (props) => (
+  <DigitalChannelList<DIChannel>
+    {...props}
+    createChannel={createDIChannel}
+    name={name}
+    contextMenuItems={Task.readChannelContextMenuItem}
+  />
+);
+
+const getInitialValues: Task.GetInitialValues<DigitalReadSchemas> = ({
+  deviceKey,
+  config,
+}) => {
+  const cfg =
+    config != null
+      ? digitalReadConfigZ.parse(config)
+      : ZERO_DIGITAL_READ_PAYLOAD.config;
+  return {
+    ...ZERO_DIGITAL_READ_PAYLOAD,
+    config: { ...cfg, device: deviceKey ?? cfg.device },
+  };
+};
+
+const onConfigure: Task.OnConfigure<typeof digitalReadConfigZ> = async (
+  client,
+  config,
+) => {
+  const dev = await client.devices.retrieve({
+    key: config.device,
+    schemas: Device.SCHEMAS,
+  });
+  PlatformDevice.checkConfigured(dev);
+  dev.properties = enrich(dev.model, dev.properties);
+  let modified = false;
+  let shouldCreateIndex = primitive.isZero(dev.properties.digitalInput.index);
+  if (!shouldCreateIndex)
+    try {
+      await client.channels.retrieve(dev.properties.digitalInput.index);
+    } catch (e) {
+      if (NotFoundError.matches(e)) shouldCreateIndex = true;
+      else throw errors.fromUnknown(e);
+    }
+  const identifier = channel.escapeInvalidName(dev.properties.identifier);
+  try {
+    if (shouldCreateIndex) {
+      modified = true;
+      const aiIndex = await client.channels.create({
+        name: `${identifier}_di_time`,
+        dataType: "timestamp",
+        isIndex: true,
+      });
+      dev.properties.digitalInput.index = aiIndex.key;
+      dev.properties.digitalInput.channels = {};
+    }
+    const toCreate: DIChannel[] = [];
+    for (const channel of config.channels) {
+      const key = getDigitalChannelDeviceKey(channel);
+      // check if the channel is in properties
+      const exKey = dev.properties.digitalInput.channels[key];
+      if (primitive.isZero(exKey)) toCreate.push(channel);
+      else
+        try {
+          await client.channels.retrieve(exKey.toString());
+        } catch (e) {
+          if (NotFoundError.matches(e)) toCreate.push(channel);
+          else throw errors.fromUnknown(e);
+        }
+    }
+    if (toCreate.length > 0) {
+      modified = true;
+      const channels = await client.channels.create(
+        toCreate.map((c) => ({
+          name: primitive.isNonZero(c.name)
+            ? c.name
+            : `${identifier}_di_${c.port}_${c.line}`,
+          dataType: "uint8",
+          index: dev.properties.digitalInput.index,
+        })),
+      );
+      channels.forEach((c, i) => {
+        const key = getDigitalChannelDeviceKey(toCreate[i]);
+        dev.properties.digitalInput.channels[key] = c.key;
+      });
+    }
+  } finally {
+    if (modified) await client.devices.create(dev, Device.SCHEMAS);
+  }
+  config.channels.forEach((c) => {
+    const key = getDigitalChannelDeviceKey(c);
+    c.channel = dev.properties.digitalInput.channels[key];
+  });
+  return [config, dev.rack];
+};
+
+export const DigitalRead = Task.wrapForm({
+  Properties,
+  Form,
+  schemas: DIGITAL_READ_SCHEMAS,
+  getInitialValues,
+  onConfigure,
+  type: "ni_digital_read",
+});

@@ -1,3 +1,12 @@
+# Copyright 2026 Synnax Labs, Inc.
+#
+# Use of this software is governed by the Business Source License included in the file
+# licenses/BSL.txt.
+#
+# As of the Change Date specified in that file, in accordance with the Business Source
+# License, use of this software will be governed by the Apache License, Version 2.0,
+# included in the file licenses/APL.txt.
+
 name: Test - Go
 
 on:
@@ -18,10 +27,10 @@ on:
         description: The codecov flag for this module
         required: true
         type: string
-      prepare_assets:
+      install_antlr4:
         description:
-          Whether to create placeholder assets (driver binaries) before lint and test.
-          Required for modules compiled with -tags driver.
+          Whether to install antlr4 before running `go generate`. Required for modules
+          with `//go:generate antlr4 ...` directives (arc, oracle).
         required: false
         type: boolean
         default: false
@@ -46,10 +55,10 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Set up Go
-        uses: actions/setup-go@v6
+        uses: actions/setup-go@v7
         with:
           go-version-file: ${{ inputs.directory }}/go.mod
           cache-dependency-path: |
@@ -60,10 +69,19 @@ jobs:
         if: matrix.fmt
         run: scripts/check_gofmt.sh ${{ inputs.directory }}
 
-      - name: Prepare asset placeholders
-        if: inputs.prepare_assets
-        run: core/scripts/setup_assets.sh
-        shell: bash
+      - name: Install stringer
+        if: matrix.fmt
+        run: go install golang.org/x/tools/cmd/stringer@v0.48.0
+
+      - name: Install antlr4
+        if: matrix.fmt && inputs.install_antlr4
+        run: |
+          scripts/install_antlr4.sh
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+
+      - name: Verify `go generate` is up to date
+        if: matrix.fmt
+        run: scripts/check_go_generate.sh ${{ inputs.directory }}
 
       - name: Lint
         uses: golangci/golangci-lint-action@v9
@@ -79,7 +97,7 @@ jobs:
         working-directory: ${{ inputs.directory }}
 
       - name: Upload coverage
-        uses: codecov/codecov-action@v6
+        uses: codecov/codecov-action@v7
         with:
           fail_ci_if_error: true
           token: ${{ secrets.CODECOV_TOKEN }}

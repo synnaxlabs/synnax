@@ -14,7 +14,6 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/cesium"
 	. "github.com/synnaxlabs/cesium/internal/testutil"
-	xfs "github.com/synnaxlabs/x/io/fs"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -22,16 +21,11 @@ import (
 var _ = Describe("Accuracy", func() {
 	for fsName, openFS := range FileSystems {
 		Context("FS: "+fsName, Ordered, func() {
-			var (
-				db *cesium.DB
-				fs xfs.FS
-			)
+			var db *cesium.DB
+
 			BeforeAll(func(ctx SpecContext) {
-				fs = openFS()
-				db = openDBOnFS(ctx, fs)
-			})
-			AfterAll(func() {
-				Expect(db.Close()).To(Succeed())
+				ShouldNotLeakGoroutines()
+				db = mustOpenDBOnFS(ctx, openFS())
 			})
 			Context("Single Channel", func() {
 				var (
@@ -44,6 +38,7 @@ var _ = Describe("Accuracy", func() {
 					secondTS = []telem.TimeStamp{22, 24, 29, 32, 33, 34, 35, 36, 38, 40}
 				)
 				BeforeAll(func(ctx SpecContext) {
+					ShouldNotLeakGoroutines()
 					Expect(db.CreateChannel(
 						ctx,
 						cesium.Channel{Name: "Rufus", Key: idxKey, IsIndex: true, DataType: telem.TimeStampT},
@@ -125,6 +120,7 @@ var _ = Describe("Accuracy", func() {
 						idxData2 = []telem.TimeStamp{1, 2, 6, 7, 12, 14, 17, 21, 27, 33}
 					)
 					BeforeAll(func(ctx SpecContext) {
+						ShouldNotLeakGoroutines()
 						Expect(db.CreateChannel(
 							ctx,
 							cesium.Channel{Name: "Albert", Key: idxKey1, DataType: telem.TimeStampT, IsIndex: true},

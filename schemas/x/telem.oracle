@@ -1,0 +1,140 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+@go output  "x/go/telem"
+@ts output  "x/ts/src/telem"
+@py output  "x/py/x/telem"
+@cpp output "x/cpp/telem"
+@pb
+
+TimeStamp int64 {
+    @go version 0
+    @doc value  """
+        is a 64-bit signed integer representing nanoseconds since the Unix epoch
+        (1970-01-01 00:00:00 UTC). Provides nanosecond precision for high-frequency
+        telemetry timestamps.
+    """
+    @ts hand
+    @cpp hand
+    @py hand
+}
+
+TimeSpan int64 {
+    @go version 0
+    @doc value  """
+        is a 64-bit signed integer representing a duration in nanoseconds. Used
+        for expressing time intervals, sampling periods, and durations throughout
+        the telemetry system.
+    """
+    @ts hand
+    @cpp hand
+    @py hand
+}
+
+TimeRange struct {
+    start TimeStamp {
+        @doc value "is the inclusive start of the time range."
+    }
+    end   TimeStamp {
+        @doc value "is the exclusive end of the time range."
+    }
+
+    @go version 0
+    @doc value  """
+        is a time interval defined by a start and end timestamp. The range is
+        start-inclusive and end-exclusive, following standard interval conventions
+        for predictable boundary handling.
+    """
+    @ts hand
+    @cpp hand
+    @py hand
+    @go marshal
+}
+
+TimeRangeBounded = TimeRange {
+    @doc value "is a TimeRange alias used for type-safety in contexts requiring bounded time ranges."
+    @go omit
+    @ts hand
+    @cpp omit
+    @py omit
+}
+
+Rate float64 {
+    @go version 0 pinned
+    @doc value  """
+        is a data sampling rate expressed in Hertz (Hz). Used to specify
+        acquisition frequencies and calculate sample counts over time intervals.
+    """
+    @ts hand
+    @cpp hand
+    @py hand
+}
+
+Size int64 {
+    @go version 0 pinned
+    @doc value  """
+        is a byte measurement used for storage capacity and data volume
+        representation. Supports conversion to human-readable formats (B, kB,
+        MB, GB, TB).
+    """
+    @ts hand
+    @cpp hand
+    @py hand
+}
+
+Alignment uint64 {
+    @doc value """
+        is a 64-bit index for positioning samples within multi-array structures.
+        Packs a domain index (which array) and sample index (position within
+        array) into a single value for efficient multi-dimensional data access.
+    """
+    @ts hand
+    @cpp hand
+    @py hand
+}
+
+DataType string {
+    @go version 0
+    @doc value  """
+        is a string identifier specifying the format of telemetry samples.
+        Supports fixed-density types (Float64, Int32, TimeStamp, etc.) with
+        known byte sizes and variable-density types (String, JSON, Bytes) for
+        flexible data storage.
+    """
+    @ts hand
+    @cpp hand
+    @py hand
+}
+
+TimestampFormat enum {
+    iso         = "ISO"
+    isoDate     = "ISODate"
+    time        = "time"
+    preciseTime = "preciseTime"
+    date        = "date"
+    preciseDate = "preciseDate"
+    dateTime    = "dateTime"
+
+    @go version 0
+    @doc value  "is the rendered form of a timestamp displayed alongside a sample."
+    @py omit
+    @cpp omit
+    @pb omit
+}
+
+TimeZone enum {
+    local = "local"
+    utc   = "UTC"
+
+    @go version 0
+    @doc value  "is the time zone used when rendering timestamps."
+    @py omit
+    @cpp omit
+    @pb omit
+}

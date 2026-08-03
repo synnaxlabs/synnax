@@ -1,6 +1,14 @@
 ---
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
 import { Button, Icon } from "@synnaxlabs/pluto";
-import { Fragment } from "react";
 
 const {
     tabindex,
@@ -18,12 +26,10 @@ if (wrap) className += " wrap";
     {
         !hideCopyButton && (
             <Button.Button variant="outlined" size="medium" square>
-                <Fragment>
-                    <>
-                        <Icon.Copy className="copy" />
-                        <Icon.Check className="check" />
-                    </>
-                </Fragment>
+                <>
+                    <Icon.Copy className="copy" />
+                    <Icon.Check className="check" />
+                </>
             </Button.Button>
         )
     }

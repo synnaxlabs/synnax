@@ -17,16 +17,16 @@ import (
 	"github.com/synnaxlabs/arc/symbol"
 	. "github.com/synnaxlabs/arc/symbol/testutil"
 	"github.com/synnaxlabs/arc/types"
-	"github.com/synnaxlabs/x/lsp/protocol"
 	. "github.com/synnaxlabs/x/lsp/testutil"
 	. "github.com/synnaxlabs/x/testutil"
+	"go.lsp.dev/uri"
 )
 
 var _ = Describe("SetupTestServer", func() {
 	It("should create a server and URI with default config", func(ctx SpecContext) {
-		server, uri := SetupTestServer()
+		server, docURI := SetupTestServer()
 		Expect(server).ToNot(BeNil())
-		Expect(uri).To(Equal(protocol.DocumentURI("file:///test.arc")))
+		Expect(docURI).To(Equal(uri.URI("file:///test.arc")))
 	})
 
 	It("should create a functional server that handles document operations", func(ctx SpecContext) {
@@ -34,7 +34,7 @@ var _ = Describe("SetupTestServer", func() {
 		OpenArcDocument(server, ctx, uri, "func test() {}")
 		hover := Hover(server, ctx, uri, 0, 2)
 		Expect(hover).ToNot(BeNil())
-		Expect(hover.Contents.Value).To(ContainSubstring("func"))
+		Expect(HoverContents(hover)).To(ContainSubstring("func"))
 	})
 
 	It("should expose custom symbols attached to the ambient prelude", func(ctx SpecContext) {
@@ -55,9 +55,9 @@ var _ = Describe("SetupTestServer", func() {
 
 var _ = Describe("SetupTestServerWithClient", func() {
 	It("should return a server, URI, and a non-nil MockClient", func(ctx SpecContext) {
-		server, uri, client := SetupTestServerWithClient()
+		server, docURI, client := SetupTestServerWithClient()
 		Expect(server).ToNot(BeNil())
-		Expect(uri).To(Equal(protocol.DocumentURI("file:///test.arc")))
+		Expect(docURI).To(Equal(uri.URI("file:///test.arc")))
 		Expect(client).ToNot(BeNil())
 	})
 
@@ -65,7 +65,7 @@ var _ = Describe("SetupTestServerWithClient", func() {
 		server, uri, client := SetupTestServerWithClient()
 		OpenArcDocument(server, ctx, uri, "func test() {\n\tx := undefined_var\n}")
 		Expect(client.Diagnostics()).To(HaveLen(1))
-		Expect(client.Diagnostics()[0].Message).To(ContainSubstring("undefined symbol"))
+		Expect(DiagnosticMessage(client.Diagnostics()[0])).To(ContainSubstring("undefined symbol"))
 	})
 
 	It("should accept a custom config and propagate diagnostics", func(ctx SpecContext) {
@@ -87,16 +87,16 @@ var _ = Describe("OpenArcDocument", func() {
 		OpenArcDocument(server, ctx, uri, "func hello() { return 42 }")
 		hover := Hover(server, ctx, uri, 0, 2)
 		Expect(hover).ToNot(BeNil())
-		Expect(hover.Contents.Value).To(ContainSubstring("func"))
+		Expect(HoverContents(hover)).To(ContainSubstring("func"))
 	})
 
 	It("should allow opening multiple documents on the same server", func(ctx SpecContext) {
-		server, uri, client := SetupTestServerWithClient()
-		uri2 := protocol.DocumentURI("file:///second.arc")
-		OpenArcDocument(server, ctx, uri, "func a() {}")
+		server, docURI, client := SetupTestServerWithClient()
+		uri2 := uri.URI("file:///second.arc")
+		OpenArcDocument(server, ctx, docURI, "func a() {}")
 		OpenArcDocument(server, ctx, uri2, "func b() { x := undefined }")
 		Expect(client.Diagnostics()).To(HaveLen(1))
-		Expect(client.Diagnostics()[0].Message).To(ContainSubstring("undefined"))
+		Expect(DiagnosticMessage(client.Diagnostics()[0])).To(ContainSubstring("undefined"))
 	})
 })
 
@@ -106,7 +106,7 @@ var _ = Describe("Hover", func() {
 		OpenArcDocument(server, ctx, uri, "func test() {}")
 		hover := Hover(server, ctx, uri, 0, 2)
 		Expect(hover).ToNot(BeNil())
-		Expect(hover.Contents.Value).To(ContainSubstring("func"))
+		Expect(HoverContents(hover)).To(ContainSubstring("func"))
 	})
 
 	It("should return nil for an unknown position", func(ctx SpecContext) {
@@ -120,7 +120,7 @@ var _ = Describe("Hover", func() {
 		OpenArcDocument(server, ctx, uri, "x i32 := 42")
 		hover := Hover(server, ctx, uri, 0, 3)
 		Expect(hover).ToNot(BeNil())
-		Expect(hover.Contents.Value).To(ContainSubstring("i32"))
+		Expect(HoverContents(hover)).To(ContainSubstring("i32"))
 	})
 })
 
@@ -128,7 +128,7 @@ var _ = Describe("Definition", func() {
 	It("should return definition locations for a variable reference", func(ctx SpecContext) {
 		server := MustSucceed(lsp.New(lsp.Config{NewRoot: func() *symbol.Symbol { return NewRoot(nil) }}))
 		server.SetClient(&MockClient{})
-		uri := protocol.DocumentURI("file:///test.arc")
+		uri := uri.URI("file:///test.arc")
 		OpenArcDocument(server, ctx, uri, "func test() {\n    x i32 := 42\n    y := x + 1\n}")
 		locations := Definition(server, ctx, uri, 2, 9)
 		Expect(locations).To(HaveLen(1))
@@ -149,7 +149,7 @@ var _ = Describe("Completion", func() {
 		OpenArcDocument(server, ctx, uri, "func test() {\n    i\n}")
 		completions := Completion(server, ctx, uri, 1, 5)
 		Expect(completions).ToNot(BeNil())
-		Expect(len(completions.Items)).To(BeNumerically(">", 0))
+		Expect(completions.Items).ToNot(BeEmpty())
 	})
 
 	It("should return completions including symbols attached to the ambient prelude", func(ctx SpecContext) {

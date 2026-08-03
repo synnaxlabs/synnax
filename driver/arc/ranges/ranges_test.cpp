@@ -1,0 +1,404 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+#include <memory>
+#include <string>
+#include <utility>
+#include <variant>
+#include <vector>
+
+#include "gtest/gtest.h"
+
+#include "client/cpp/testutil/testutil.h"
+#include "x/cpp/test/test.h"
+
+#include "arc/cpp/runtime/errors/errors.h"
+#include "arc/cpp/runtime/node/factory.h"
+#include "arc/cpp/runtime/state/state.h"
+#include "arc/cpp/stl/testutil/testutil.h"
+#include "driver/arc/ranges/ranges.h"
+
+namespace driver::arc::ranges {
+namespace {
+
+::arc::runtime::node::Context make_context() {
+    return ::arc::runtime::node::Context{
+        .elapsed = x::telem::TimeSpan(0),
+        .tolerance = x::telem::TimeSpan(0),
+        .reason = ::arc::runtime::node::RunReason::TimerTick,
+        .mark_changed = [](size_t) {},
+        .mark_self_changed = [] {},
+        .set_deadline = [](x::telem::TimeSpan) {},
+        .report_error = [](const x::errors::Error &) {},
+    };
+}
+
+::arc::types::Param str_param(const std::string &name, const std::string &value) {
+    ::arc::types::Param p;
+    p.name = name;
+    p.type = ::arc::types::Type{.kind = ::arc::types::Kind::String};
+    p.value = value;
+    return p;
+}
+
+// make_create_ir_node builds a `create` IR node with {name, parent, color}.
+::arc::ir::Node make_create_ir_node(
+    const std::string &name,
+    const std::string &parent,
+    const std::string &color
+) {
+    ::arc::ir::Node node;
+    node.key = "ranges";
+    node.type = "create";
+    node.inputs = ::arc::types::Params{
+        str_param("name", name),
+        str_param("parent", parent),
+        str_param("color", color)
+    };
+    ::arc::types::Param out;
+    out.name = "output";
+    out.type = ::arc::types::Type{.kind = ::arc::types::Kind::String};
+    node.outputs = ::arc::types::Params{out};
+    return node;
+}
+
+::arc::types::Param str_input(const std::string &name) {
+    ::arc::types::Param p;
+    p.name = name;
+    p.type = ::arc::types::Type{.kind = ::arc::types::Kind::String};
+    return p;
+}
+
+// create_spec declares the create native's input shape for building test configs.
+::arc::stl::testutil::NodeSpec create_spec() {
+    ::arc::types::Param out;
+    out.name = ::arc::ir::default_output_param;
+    out.type = ::arc::types::Type{.kind = ::arc::types::Kind::String};
+    ::arc::stl::testutil::NodeSpec spec;
+    spec.type = "create";
+    spec.outputs = ::arc::types::Params{out};
+    spec.inputs = ::arc::types::Params{
+        str_input("name"),
+        str_input("parent"),
+        str_input("color")
+    };
+    return spec;
+}
+
+// make_end_ir_node builds an `end` IR node with {key}.
+::arc::ir::Node make_end_ir_node(const std::string &key) {
+    ::arc::ir::Node node;
+    node.key = "ranges";
+    node.type = "end";
+    node.inputs = ::arc::types::Params{str_param("key", key)};
+    ::arc::types::Param out;
+    out.name = "output";
+    out.type = ::arc::types::Type{.kind = ::arc::types::Kind::String};
+    node.outputs = ::arc::types::Params{out};
+    return node;
+}
+
+Reporter recordingReporter(std::vector<std::string> *out) {
+    return [out](const std::string &m) { out->emplace_back(m); };
+}
+
+Reporter noopReporter() {
+    return [](const std::string &) {};
+}
+
+std::string unique_name(const std::string &prefix) {
+    return prefix + std::to_string(
+                        static_cast<unsigned>(x::telem::TimeStamp::now().nanoseconds())
+                    );
+}
+
+::arc::ir::IR build_ir(::arc::ir::Node node) {
+    ::arc::ir::IR ir;
+    ir.nodes.push_back(std::move(node));
+    ::arc::ir::Function fn;
+    fn.key = "fn";
+    ir.functions.push_back(fn);
+    return ir;
+}
+
+// output_key returns the string written to the node's first output.
+std::string output_key(::arc::runtime::state::State &s) {
+    auto check = ASSERT_NIL_P(s.node("ranges"));
+    return std::get<std::string>((*check.output(0)).at(0));
+}
+
+}
+
+TEST(RangesModuleTest, HandlesCreateAndEnd) {
+    auto client = std::make_shared<synnax::Synnax>(new_test_client());
+    Module module(client, noopReporter());
+    EXPECT_TRUE(module.handles("create"));
+    EXPECT_TRUE(module.handles("end"));
+    EXPECT_FALSE(module.handles("start"));
+    EXPECT_FALSE(module.handles("anything_else"));
+}
+
+TEST(RangesModuleTest, ModuleNameIsRanges) {
+    auto client = std::make_shared<synnax::Synnax>(new_test_client());
+    Module module(client, noopReporter());
+    EXPECT_EQ(module.module_name(), "ranges");
+}
+
+TEST(RangesModuleTest, CreatesCreateNodeFromBareType) {
+    auto node = make_create_ir_node("rng", "", "");
+    auto ir = build_ir(node);
+    ::arc::runtime::state::State s(
+        ::arc::runtime::state::Config{.ir = ir, .channels = {}},
+        ::arc::runtime::errors::noop_handler
+    );
+    auto st = ASSERT_NIL_P(s.node("ranges"));
+    auto client = std::make_shared<synnax::Synnax>(new_test_client());
+    Module module(client, noopReporter());
+    auto created = ASSERT_NIL_P(
+        module.create(::arc::runtime::node::Config(ir, ir.nodes[0], std::move(st)))
+    );
+    ASSERT_NE(created, nullptr);
+    EXPECT_NE(dynamic_cast<CreateRange *>(created.get()), nullptr);
+}
+
+TEST(RangesModuleTest, CreatesEndNodeFromBareType) {
+    auto node = make_end_ir_node(x::uuid::UUID().to_string());
+    auto ir = build_ir(node);
+    ::arc::runtime::state::State s(
+        ::arc::runtime::state::Config{.ir = ir, .channels = {}},
+        ::arc::runtime::errors::noop_handler
+    );
+    auto st = ASSERT_NIL_P(s.node("ranges"));
+    auto client = std::make_shared<synnax::Synnax>(new_test_client());
+    Module module(client, noopReporter());
+    auto created = ASSERT_NIL_P(
+        module.create(::arc::runtime::node::Config(ir, ir.nodes[0], std::move(st)))
+    );
+    EXPECT_NE(dynamic_cast<EndRange *>(created.get()), nullptr);
+}
+
+TEST(RangesModuleTest, ReturnsNotFoundForUnknownType) {
+    auto node = make_create_ir_node("rng", "", "");
+    node.type = "not_create_or_end";
+    auto ir = build_ir(node);
+    ::arc::runtime::state::State s(
+        ::arc::runtime::state::Config{.ir = ir, .channels = {}},
+        ::arc::runtime::errors::noop_handler
+    );
+    auto st = ASSERT_NIL_P(s.node("ranges"));
+    auto client = std::make_shared<synnax::Synnax>(new_test_client());
+    Module module(client, noopReporter());
+    const auto created = ASSERT_OCCURRED_AS_P(
+        module.create(::arc::runtime::node::Config(ir, ir.nodes[0], std::move(st))),
+        x::errors::NOT_FOUND
+    );
+    EXPECT_EQ(created, nullptr);
+}
+
+TEST(CreateRangeTest, NextCreatesOpenRange) {
+    auto client = std::make_shared<synnax::Synnax>(new_test_client());
+    const auto name = unique_name("cpp_create_");
+    auto node = make_create_ir_node(name, "", "");
+    auto ir = build_ir(node);
+    ::arc::runtime::state::State s(
+        ::arc::runtime::state::Config{.ir = ir, .channels = {}},
+        ::arc::runtime::errors::noop_handler
+    );
+    auto st = ASSERT_NIL_P(s.node("ranges"));
+    Module module(client, noopReporter());
+    auto created = ASSERT_NIL_P(
+        module.create(::arc::runtime::node::Config(ir, ir.nodes[0], std::move(st)))
+    );
+
+    auto ctx = make_context();
+    ASSERT_NIL(created->next(ctx));
+
+    const auto key = output_key(s);
+    const auto uid = ASSERT_NIL_P(x::uuid::UUID::parse(key));
+    const auto r = ASSERT_NIL_P(client->ranges.retrieve_by_key(uid));
+    EXPECT_EQ(r.name, name);
+    EXPECT_EQ(r.time_range.end, x::telem::TIME_STAMP_MAX);
+}
+
+TEST(CreateRangeTest, NextParsesColor) {
+    auto client = std::make_shared<synnax::Synnax>(new_test_client());
+    const auto name = unique_name("cpp_color_");
+    auto node = make_create_ir_node(name, "", "#df6d38");
+    auto ir = build_ir(node);
+    ::arc::runtime::state::State s(
+        ::arc::runtime::state::Config{.ir = ir, .channels = {}},
+        ::arc::runtime::errors::noop_handler
+    );
+    auto st = ASSERT_NIL_P(s.node("ranges"));
+    Module module(client, noopReporter());
+    auto created = ASSERT_NIL_P(
+        module.create(::arc::runtime::node::Config(ir, ir.nodes[0], std::move(st)))
+    );
+
+    auto ctx = make_context();
+    ASSERT_NIL(created->next(ctx));
+
+    const auto r = ASSERT_NIL_P(client->ranges.retrieve_by_key(
+        ASSERT_NIL_P(x::uuid::UUID::parse(output_key(s)))
+    ));
+    ASSERT_TRUE(r.color.has_value());
+    EXPECT_EQ(r.color->r, 0xdf);
+    EXPECT_EQ(r.color->g, 0x6d);
+    EXPECT_EQ(r.color->b, 0x38);
+}
+
+TEST(CreateRangeTest, NextWarnsAndDoesNotCreateOnInvalidColor) {
+    auto client = std::make_shared<synnax::Synnax>(new_test_client());
+    const auto name = unique_name("cpp_badcolor_");
+    std::vector<std::string> calls;
+    auto node = make_create_ir_node(name, "", "not-a-color");
+    auto ir = build_ir(node);
+    ::arc::runtime::state::State s(
+        ::arc::runtime::state::Config{.ir = ir, .channels = {}},
+        ::arc::runtime::errors::noop_handler
+    );
+    auto st = ASSERT_NIL_P(s.node("ranges"));
+    Module module(client, recordingReporter(&calls));
+    auto created = ASSERT_NIL_P(
+        module.create(::arc::runtime::node::Config(ir, ir.nodes[0], std::move(st)))
+    );
+
+    auto ctx = make_context();
+    ASSERT_NIL(created->next(ctx));
+
+    EXPECT_EQ(output_key(s), "");
+    ASSERT_EQ(calls.size(), 1u);
+    EXPECT_NE(calls[0].find("ranges.create: invalid color"), std::string::npos);
+}
+
+TEST(CreateRangeTest, NextWarnsAndEmitsEmptyKeyOnInvalidParent) {
+    auto client = std::make_shared<synnax::Synnax>(new_test_client());
+    std::vector<std::string> calls;
+    auto node = make_create_ir_node(unique_name("cpp_badparent_"), "not-a-uuid", "");
+    auto ir = build_ir(node);
+    ::arc::runtime::state::State s(
+        ::arc::runtime::state::Config{.ir = ir, .channels = {}},
+        ::arc::runtime::errors::noop_handler
+    );
+    auto st = ASSERT_NIL_P(s.node("ranges"));
+    Module module(client, recordingReporter(&calls));
+    auto created = ASSERT_NIL_P(
+        module.create(::arc::runtime::node::Config(ir, ir.nodes[0], std::move(st)))
+    );
+
+    auto ctx = make_context();
+    ASSERT_NIL(created->next(ctx));
+
+    EXPECT_EQ(output_key(s), "");
+    ASSERT_EQ(calls.size(), 1u);
+    EXPECT_NE(calls[0].find("ranges.create: invalid parent key"), std::string::npos);
+}
+
+TEST(CreateRangeTest, ReadsAVarBoundParentAtFireTime) {
+    auto client = std::make_shared<synnax::Synnax>(new_test_client());
+    std::vector<std::string> calls;
+    // The configured "" would succeed parentless; only the live slot value
+    // can produce this warning.
+    const auto f = create_spec().config(
+        {unique_name("cpp_var_parent_"),
+         std::shared_ptr<::arc::stl::testutil::VarBinding>(
+             ::arc::stl::testutil::var_of<std::string>("not-a-uuid")
+         ),
+         ""}
+    );
+    Module module(client, recordingReporter(&calls));
+    auto created = ASSERT_NIL_P(module.create(f.make_config()));
+
+    auto ctx = make_context();
+    ASSERT_NIL(created->next(ctx));
+
+    const auto node = f.make_node();
+    EXPECT_EQ(std::get<std::string>((*node.output(0)).at(0)), "");
+    ASSERT_EQ(calls.size(), 1u);
+    EXPECT_NE(calls[0].find("ranges.create: invalid parent key"), std::string::npos);
+}
+
+TEST(EndRangeTest, NextSetsEndToNow) {
+    auto client = std::make_shared<synnax::Synnax>(new_test_client());
+    const auto start = x::telem::TimeStamp::now();
+    synnax::ranger::Range r;
+    r.name = unique_name("cpp_end_");
+    r.time_range = x::telem::TimeRange{start, x::telem::TIME_STAMP_MAX};
+    ASSERT_NIL(client->ranges.create(r));
+
+    const auto before = x::telem::TimeStamp::now();
+    auto node = make_end_ir_node(r.key.to_string());
+    auto ir = build_ir(node);
+    ::arc::runtime::state::State s(
+        ::arc::runtime::state::Config{.ir = ir, .channels = {}},
+        ::arc::runtime::errors::noop_handler
+    );
+    auto st = ASSERT_NIL_P(s.node("ranges"));
+    Module module(client, noopReporter());
+    auto created = ASSERT_NIL_P(
+        module.create(::arc::runtime::node::Config(ir, ir.nodes[0], std::move(st)))
+    );
+
+    auto ctx = make_context();
+    ASSERT_NIL(created->next(ctx));
+
+    const auto updated = ASSERT_NIL_P(client->ranges.retrieve_by_key(r.key));
+    EXPECT_GE(updated.time_range.end.nanoseconds(), before.nanoseconds());
+    EXPECT_LE(
+        updated.time_range.end.nanoseconds(),
+        x::telem::TimeStamp::now().nanoseconds()
+    );
+    EXPECT_NE(updated.time_range.end, x::telem::TIME_STAMP_MAX);
+}
+
+TEST(EndRangeTest, NextWarnsWhenRangeDoesNotExist) {
+    auto client = std::make_shared<synnax::Synnax>(new_test_client());
+    std::vector<std::string> calls;
+    auto node = make_end_ir_node(x::uuid::create().to_string());
+    auto ir = build_ir(node);
+    ::arc::runtime::state::State s(
+        ::arc::runtime::state::Config{.ir = ir, .channels = {}},
+        ::arc::runtime::errors::noop_handler
+    );
+    auto st = ASSERT_NIL_P(s.node("ranges"));
+    Module module(client, recordingReporter(&calls));
+    auto created = ASSERT_NIL_P(
+        module.create(::arc::runtime::node::Config(ir, ir.nodes[0], std::move(st)))
+    );
+
+    auto ctx = make_context();
+    ASSERT_NIL(created->next(ctx));
+
+    EXPECT_EQ(output_key(s), "");
+    ASSERT_EQ(calls.size(), 1u);
+    EXPECT_NE(calls[0].find("ranges.end:"), std::string::npos);
+}
+
+TEST(EndRangeTest, NextWarnsOnInvalidKey) {
+    auto client = std::make_shared<synnax::Synnax>(new_test_client());
+    std::vector<std::string> calls;
+    auto node = make_end_ir_node("not-a-uuid");
+    auto ir = build_ir(node);
+    ::arc::runtime::state::State s(
+        ::arc::runtime::state::Config{.ir = ir, .channels = {}},
+        ::arc::runtime::errors::noop_handler
+    );
+    auto st = ASSERT_NIL_P(s.node("ranges"));
+    Module module(client, recordingReporter(&calls));
+    auto created = ASSERT_NIL_P(
+        module.create(::arc::runtime::node::Config(ir, ir.nodes[0], std::move(st)))
+    );
+
+    auto ctx = make_context();
+    ASSERT_NIL(created->next(ctx));
+    ASSERT_EQ(calls.size(), 1u);
+    EXPECT_NE(calls[0].find("ranges.end: invalid range key"), std::string::npos);
+}
+
+}

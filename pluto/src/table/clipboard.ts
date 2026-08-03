@@ -39,7 +39,7 @@ interface Payload {
 const describe = (p: Payload): string =>
   `${p.cells.length} cell${p.cells.length === 1 ? "" : "s"}`;
 
-export interface UseClipboardArgs {
+export interface UseClipboardParams {
   key: table.Key;
   selected?: string[];
   // onPaste fires after a successful paste with the keys of every cell whose
@@ -59,7 +59,7 @@ export const useClipboard = ({
   key,
   selected,
   onPaste,
-}: UseClipboardArgs): UseClipboardReturn => {
+}: UseClipboardParams): UseClipboardReturn => {
   const { dispatch } = useDispatch();
   const store = Flux.useStore<FluxSubStore>();
   const selectedRef = useSyncedRef(selected ?? []);
@@ -206,10 +206,8 @@ export const useClipboard = ({
         );
         overwritten.push(k);
       }
-
-      if (actions.length === 0) return;
       dispatch({ key, actions });
-      onPaste?.(overwritten);
+      if (actions.length > 0) onPaste?.(overwritten);
     },
     [key, store, theme, dispatch, onPaste],
   );

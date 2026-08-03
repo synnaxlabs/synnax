@@ -9,5 +9,6 @@
 
 export { Base } from "@/schematic/edge/common/base";
 export { ConnectionLine } from "@/schematic/edge/common/ConnectionLine";
+export { Jumps } from "@/schematic/edge/common/jumps";
 export { Path } from "@/schematic/edge/common/path";
 export { Segmented } from "@/schematic/edge/common/segmented";

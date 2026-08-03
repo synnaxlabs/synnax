@@ -1,0 +1,67 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+package v1
+
+import (
+	"context"
+
+	v0 "github.com/synnaxlabs/synnax/pkg/service/arc/versions/v0"
+	"github.com/synnaxlabs/x/encoding/msgpack"
+	"github.com/synnaxlabs/x/gorp"
+	"github.com/synnaxlabs/x/migrate"
+)
+
+// migrateArc lifts a v0 arc into the v1 shape, dropping the persisted program status.
+func migrateArc(ctx context.Context, old v0.Arc) (Arc, error) {
+	return autoMigrateArc(ctx, old)
+}
+
+// renameSetStatus rewrites every deprecated set_status flow node in a to status.set.
+func renameSetStatus(_ context.Context, a Arc) (Arc, error) {
+	for i, n := range a.Graph.Nodes {
+		if n.Type != "set_status" {
+			continue
+		}
+		n.Type = "status.set"
+		n.Config = msgpack.EncodedJSON{
+			"key_or_name": legacyStatusConfigString(n.Config, "statusKey", ""),
+			"variant":     legacyStatusConfigString(n.Config, "variant", "success"),
+			"message":     legacyStatusConfigString(n.Config, "message", ""),
+		}
+		a.Graph.Nodes[i] = n
+	}
+	return a, nil
+}
+
+// legacyStatusConfigString returns the string value stored at key in config, falling
+// back to def when the key is absent or does not hold a string.
+func legacyStatusConfigString(config msgpack.EncodedJSON, key, def string) string {
+	if v, ok := config[key].(string); ok {
+		return v
+	}
+	return def
+}
+
+// dropProgramStatusMigration lifts stored arcs from v0 to v1, dropping the persisted
+// program status.
+var dropProgramStatusMigration = gorp.NewEntryMigration(
+	"v54_drop_program_status", migrateArc,
+)
+
+// renameSetStatusMigration renames legacy set_status graph nodes onto the current node
+// type.
+var renameSetStatusMigration = gorp.NewEntryMigration(
+	"v55_rename_set_status", renameSetStatus,
+)
+
+// Migrations is the ordered set of migrations introduced at this version.
+var Migrations = []migrate.Migration{
+	dropProgramStatusMigration, renameSetStatusMigration,
+}

@@ -11,8 +11,7 @@ import { describe, expect, it } from "vitest";
 
 import { AuthError, NotFoundError } from "@/errors";
 import { schematic } from "@/schematic";
-import { createTestClientWithPolicy } from "@/testutil/access";
-import { createTestClient } from "@/testutil/client";
+import { createTestClient, createTestClientWithPolicy } from "@/testutil";
 
 const client = createTestClient();
 
@@ -24,12 +23,11 @@ describe("schematic", () => {
         objects: [],
         actions: [],
       });
-      const ws = await client.workspaces.create({
+      const proj = await client.projects.create({
         name: "test",
         layout: {},
       });
-      const randomSchematic = await client.schematics.create(ws.key, {
-        ...schematic.ZERO_NEW,
+      const randomSchematic = await client.schematics.create(proj.key, {
         name: "test",
       });
       await expect(
@@ -43,12 +41,11 @@ describe("schematic", () => {
         objects: [schematic.ontologyID("")],
         actions: ["retrieve"],
       });
-      const ws = await client.workspaces.create({
+      const proj = await client.projects.create({
         name: "test",
         layout: {},
       });
-      const randomSchematic = await client.schematics.create(ws.key, {
-        ...schematic.ZERO_NEW,
+      const randomSchematic = await client.schematics.create(proj.key, {
         name: "test",
       });
       const retrieved = await userClient.schematics.retrieve({
@@ -64,12 +61,11 @@ describe("schematic", () => {
         objects: [schematic.ontologyID("")],
         actions: ["create"],
       });
-      const ws = await client.workspaces.create({
+      const proj = await client.projects.create({
         name: "test",
         layout: {},
       });
-      await userClient.schematics.create(ws.key, {
-        ...schematic.ZERO_NEW,
+      await userClient.schematics.create(proj.key, {
         name: "test",
       });
     });
@@ -80,13 +76,12 @@ describe("schematic", () => {
         objects: [schematic.ontologyID("")],
         actions: [],
       });
-      const ws = await client.workspaces.create({
+      const proj = await client.projects.create({
         name: "test",
         layout: {},
       });
       await expect(
-        userClient.schematics.create(ws.key, {
-          ...schematic.ZERO_NEW,
+        userClient.schematics.create(proj.key, {
           name: "test",
         }),
       ).rejects.toThrow(AuthError);
@@ -98,12 +93,11 @@ describe("schematic", () => {
         objects: [schematic.ontologyID("")],
         actions: ["delete", "retrieve"],
       });
-      const ws = await client.workspaces.create({
+      const proj = await client.projects.create({
         name: "test",
         layout: {},
       });
-      const randomSchematic = await client.schematics.create(ws.key, {
-        ...schematic.ZERO_NEW,
+      const randomSchematic = await client.schematics.create(proj.key, {
         name: "test",
       });
       await userClient.schematics.delete(randomSchematic.key);
@@ -118,12 +112,11 @@ describe("schematic", () => {
         objects: [schematic.ontologyID("")],
         actions: [],
       });
-      const ws = await client.workspaces.create({
+      const proj = await client.projects.create({
         name: "test",
         layout: {},
       });
-      const randomSchematic = await client.schematics.create(ws.key, {
-        ...schematic.ZERO_NEW,
+      const randomSchematic = await client.schematics.create(proj.key, {
         name: "test",
       });
       await expect(userClient.schematics.delete(randomSchematic.key)).rejects.toThrow(

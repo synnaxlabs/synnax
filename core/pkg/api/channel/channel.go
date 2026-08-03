@@ -17,15 +17,16 @@ import (
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/api/auth"
 	"github.com/synnaxlabs/synnax/pkg/api/config"
-	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
-	"github.com/synnaxlabs/synnax/pkg/distribution/group"
-	"github.com/synnaxlabs/synnax/pkg/distribution/node"
-	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
+	"github.com/synnaxlabs/synnax/pkg/distribution/framer/codec"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
-	servicechannel "github.com/synnaxlabs/synnax/pkg/service/channel"
+	"github.com/synnaxlabs/synnax/pkg/service/channel"
+	"github.com/synnaxlabs/synnax/pkg/service/group"
+	"github.com/synnaxlabs/synnax/pkg/service/node"
+	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger/alias"
+	"github.com/synnaxlabs/synnax/pkg/service/status"
 	xconfig "github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
@@ -37,11 +38,11 @@ type Key = channel.Key
 
 // Service is the central service for all things Channel related.
 type Service struct {
-	db       *gorp.DB
 	access   *rbac.Service
-	internal *servicechannel.Service
+	internal *channel.Service
 	ranger   *ranger.Service
 	alias    *alias.Service
+	status   *status.Service
 }
 
 func NewService(cfgs ...config.LayerConfig) (*Service, error) {
@@ -54,8 +55,43 @@ func NewService(cfgs ...config.LayerConfig) (*Service, error) {
 		internal: cfg.Service.Channel,
 		ranger:   cfg.Service.Ranger,
 		alias:    cfg.Service.Alias,
-		db:       cfg.Distribution.DB,
+		status:   cfg.Service.Status,
 	}, nil
+}
+
+var _ codec.ChannelResolver = (*Service)(nil)
+
+// RetrieveDataTypes implements codec.ChannelResolver, resolving the data types of the
+// channels with the given keys so that a dynamic framer codec can resolve channel
+// metadata through the API layer. Resolution intentionally bypasses access control, as
+// it runs on the per-frame encode/decode hot path.
+func (s *Service) RetrieveDataTypes(
+	ctx context.Context,
+	keys channel.Keys,
+) ([]telem.DataType, error) {
+	var channels []channel.Channel
+	if err := s.internal.NewRetrieve().
+		Where(channel.MatchKeys(keys...)).
+		Entries(&channels).
+		Exec(ctx, nil); err != nil {
+		return nil, err
+	}
+	return lo.Map(channels, func(ch channel.Channel, _ int) telem.DataType {
+		return ch.DataType
+	}), nil
+}
+
+// RetrieveName implements codec.ChannelResolver, resolving the name of the channel with
+// the given key, returning an empty string if no channel with the key exists.
+func (s *Service) RetrieveName(ctx context.Context, key channel.Key) string {
+	var ch channel.Channel
+	if err := s.internal.NewRetrieve().
+		Where(channel.MatchKeys(key)).
+		Entry(&ch).
+		Exec(ctx, nil); err != nil {
+		return ""
+	}
+	return ch.Name
 }
 
 // CreateRequest is a request to create a Channel in the cluster.
@@ -74,6 +110,7 @@ type CreateResponse struct {
 // Create creates a Channel based on the parameters given in the request.
 func (s *Service) Create(
 	ctx context.Context,
+	tx gorp.Tx,
 	req CreateRequest,
 ) (CreateResponse, error) {
 	translated, err := translateChannelsBackward(req.Channels)
@@ -83,75 +120,70 @@ func (s *Service) Create(
 	for i := range translated {
 		translated[i].Internal = false
 	}
-	if err := s.access.Enforce(ctx, access.Request{
+	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionCreate,
-		Objects: channel.OntologyIDsFromChannels(translated),
+		Objects: []ontology.ID{{Type: ontology.ResourceTypeChannel}},
 	}); err != nil {
 		return CreateResponse{}, err
 	}
-	var res CreateResponse
-	if err := s.db.WithTx(ctx, func(tx gorp.Tx) error {
-		w := s.internal.NewWriter(tx)
-		opts := []channel.CreateOption{}
-		if req.RetrieveIfNameExists {
-			opts = append(opts, channel.RetrieveIfNameExists())
-		}
-		if err := w.CreateMany(ctx, &translated, opts...); err != nil {
-			return err
-		}
-		res.Channels = translateChannelsForward(translated)
-		return nil
-	}); err != nil {
+	opts := []channel.CreateOption{}
+	if req.RetrieveIfNameExists {
+		opts = append(opts, channel.RetrieveIfNameExists())
+	}
+	if err := s.internal.NewWriter(tx).CreateMany(ctx, &translated, opts...); err != nil {
 		return CreateResponse{}, err
 	}
-	return res, nil
+	return CreateResponse{Channels: translateChannelsForward(translated)}, nil
 }
 
-// RetrieveRequest is a request for retrieving information about a Channel
-// from the cluster.
+// RetrieveRequest is a request for retrieving information about a Channel from the
+// cluster.
 type RetrieveRequest struct {
-	// Virtual filters for channels that are virtual if true, or are not
-	// virtual if false.
+	// Virtual filters for channels that are virtual if true, or are not virtual if
+	// false.
 	Virtual *bool `json:"virtual" msgpack:"virtual"`
-	// IsIndex filters for channels that are indexes if true, or are not
-	// indexes if false.
+	// IsIndex filters for channels that are indexes if true, or are not indexes if
+	// false.
 	IsIndex *bool `json:"is_index" msgpack:"is_index"`
-	// Internal filters for channels that are internal if true, or are not
-	// internal if false.
+	// Internal filters for channels that are internal if true, or are not internal if
+	// false.
 	Internal *bool `json:"internal" msgpack:"internal"`
-	// SearchTerm is an optional search parameter that fuzzy matches a
-	// Channel's properties.
+	// SearchTerm is an optional search parameter that fuzzy matches a Channel's
+	// properties.
 	SearchTerm string `json:"search_term" msgpack:"search_term"`
 	// Keys is an optional parameter that queries a Channel by its key.
 	Keys channel.Keys `json:"keys" msgpack:"keys"`
 	// Names is an optional parameter that queries a Channel by its name.
 	Names []string `json:"names" msgpack:"names"`
-	// DataTypes filters for channels whose DataType attribute matches the
-	// provided data types.
+	// DataTypes filters for channels whose DataType attribute matches the provided data
+	// types.
 	DataTypes []telem.DataType `json:"data_types" msgpack:"data_types"`
-	// NotDataTypes filters for channels whose DataType attribute does not
-	// match the provided data types.
+	// NotDataTypes filters for channels whose DataType attribute does not match the
+	// provided data types.
 	NotDataTypes []telem.DataType `json:"not_data_types" msgpack:"not_data_types"`
 	// Limit limits the number of results returned.
 	Limit int `json:"limit" msgpack:"limit"`
 	// Offset offsets the results returned.
 	Offset int `json:"offset" msgpack:"offset"`
-	// NodeKey is an optional parameter that queries a Channel by its node
-	// Name.
+	// NodeKey is an optional parameter that queries a Channel by its node key.
 	NodeKey node.Key `json:"node_key" msgpack:"node_key"`
 	// RangeKey is used for fetching aliases.
 	RangeKey ranger.Key `json:"range_key" msgpack:"range_key"`
+	// IncludeStatus attaches each channel's status row (e.g. calculation status) to the
+	// returned channels when true. Channels with no status row are returned with a nil
+	// status.
+	IncludeStatus bool `json:"include_status" msgpack:"include_status"`
 }
 
 // RetrieveResponse is the response for a RetrieveRequest.
 type RetrieveResponse struct {
 	// Channels is a slice of Channels matching the request.
-	Channels []Channel `json:"channels" msgpack:"channels"`
+	Channels []Channel `json:"channels,omitzero" msgpack:"channels,omitzero"`
 }
 
-// Retrieve retrieves a Channel based on the parameters given in the request.
-// If no parameters are specified, retrieves all channels.
+// Retrieve retrieves a Channel based on the parameters given in the request. If no
+// parameters are specified, retrieves all channels.
 func (s *Service) Retrieve(
 	ctx context.Context,
 	req RetrieveRequest,
@@ -174,16 +206,15 @@ func (s *Service) Retrieve(
 		if err != nil && !isNotFound {
 			return RetrieveResponse{}, err
 		}
-		// We can still do a best effort search without the range even if
-		// we don't find it.
+		// We can still do a best effort search without the range even if we don't
+		// find it.
 		if !isNotFound && hasSearch {
 			keys, err := s.alias.NewReader(nil).Search(ctx, resRng.Key, req.SearchTerm)
 			if err != nil {
 				return RetrieveResponse{}, err
 			}
 			aliasChannels = make([]channel.Channel, 0, len(keys))
-			err = s.internal.NewRetrieve().Where(channel.MatchKeys(keys...)).Entries(&aliasChannels).Exec(ctx, nil)
-			if err != nil {
+			if err := s.internal.NewRetrieve().Where(channel.MatchKeys(keys...)).Entries(&aliasChannels).Exec(ctx, nil); err != nil {
 				return RetrieveResponse{}, err
 			}
 		}
@@ -239,11 +270,30 @@ func (s *Service) Retrieve(
 		for i, ch := range resChannels {
 			al, err := aliasReader.Retrieve(ctx, resRng.Key, ch.Key())
 			if err == nil {
-				oChannels[i].Alias = al
+				oChannels[i].Alias = &al
 			}
 		}
 	}
-	if err := s.access.Enforce(ctx, access.Request{
+	if req.IncludeStatus {
+		ids := channel.OntologyIDsFromChannels(resChannels)
+		statuses := make([]Status, 0, len(resChannels))
+		if err := status.NewRetrieve[types.Nil](s.status).
+			Where(status.MatchKeys[types.Nil](ontology.IDsToKeys(ids)...)).
+			Entries(&statuses).
+			Exec(ctx, nil); err != nil {
+			return RetrieveResponse{}, err
+		}
+		statusByKey := make(map[string]Status, len(statuses))
+		for _, stat := range statuses {
+			statusByKey[stat.Key] = stat
+		}
+		for i := range oChannels {
+			if stat, ok := statusByKey[ids[i].String()]; ok {
+				oChannels[i].Status = &stat
+			}
+		}
+	}
+	if err := s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionRetrieve,
 		Objects: channel.OntologyIDsFromChannels(resChannels),
@@ -307,43 +357,40 @@ type DeleteRequest struct {
 
 func (s *Service) Delete(
 	ctx context.Context,
+	tx gorp.Tx,
 	req DeleteRequest,
 ) (types.Nil, error) {
-	return types.Nil{}, s.db.WithTx(ctx, func(tx gorp.Tx) error {
-		w := s.internal.NewWriter(tx)
-		if len(req.Keys) > 0 {
-			if err := s.access.Enforce(ctx, access.Request{
-				Subject: auth.GetSubject(ctx),
-				Action:  access.ActionDelete,
-				Objects: req.Keys.OntologyIDs(),
-			}); err != nil {
-				return err
-			}
-			if err := w.DeleteMany(ctx, req.Keys, false); err != nil {
-				return err
-			}
+	w := s.internal.NewWriter(tx)
+	if len(req.Keys) > 0 {
+		if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
+			Subject: auth.GetSubject(ctx),
+			Action:  access.ActionDelete,
+			Objects: channel.OntologyIDsFromKeys(req.Keys),
+		}); err != nil {
+			return types.Nil{}, err
 		}
-		if len(req.Names) > 0 {
-			res := make([]channel.Channel, 0, len(req.Names))
-			if err := s.
-				internal.
-				NewRetrieve().
-				Where(channel.MatchNames(req.Names...)).
-				Entries(&res).
-				Exec(ctx, tx); err != nil {
-				return err
-			}
-			if err := s.access.Enforce(ctx, access.Request{
-				Subject: auth.GetSubject(ctx),
-				Action:  access.ActionDelete,
-				Objects: channel.OntologyIDsFromChannels(res),
-			}); err != nil {
-				return err
-			}
-			return w.DeleteManyByNames(ctx, req.Names, false)
+		if err := w.DeleteMany(ctx, req.Keys, false); err != nil {
+			return types.Nil{}, err
 		}
-		return nil
-	})
+	}
+	if len(req.Names) > 0 {
+		res := make([]channel.Channel, 0, len(req.Names))
+		if err := s.internal.NewRetrieve().
+			Where(channel.MatchNames(req.Names...)).
+			Entries(&res).
+			Exec(ctx, tx); err != nil {
+			return types.Nil{}, err
+		}
+		if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
+			Subject: auth.GetSubject(ctx),
+			Action:  access.ActionDelete,
+			Objects: channel.OntologyIDsFromChannels(res),
+		}); err != nil {
+			return types.Nil{}, err
+		}
+		return types.Nil{}, w.DeleteManyByNames(ctx, req.Names, false)
+	}
+	return types.Nil{}, nil
 }
 
 type RenameRequest struct {
@@ -353,20 +400,19 @@ type RenameRequest struct {
 
 func (s *Service) Rename(
 	ctx context.Context,
+	tx gorp.Tx,
 	req RenameRequest,
 ) (types.Nil, error) {
-	if err := s.access.Enforce(ctx, access.Request{
+	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionUpdate,
-		Objects: req.Keys.OntologyIDs(),
+		Objects: channel.OntologyIDsFromKeys(req.Keys),
 	}); err != nil {
 		return types.Nil{}, err
 	}
-	return types.Nil{}, s.db.WithTx(ctx, func(tx gorp.Tx) error {
-		return s.internal.NewWriter(tx).RenameMany(
-			ctx, req.Keys, req.Names, false,
-		)
-	})
+	return types.Nil{}, s.internal.NewWriter(tx).RenameMany(
+		ctx, req.Keys, req.Names, false,
+	)
 }
 
 type RetrieveGroupRequest struct{}
@@ -380,7 +426,7 @@ func (s *Service) RetrieveGroup(
 	_ RetrieveGroupRequest,
 ) (RetrieveGroupResponse, error) {
 	g := s.internal.Group()
-	if err := s.access.Enforce(ctx, access.Request{
+	if err := s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionRetrieve,
 		Objects: []ontology.ID{g.OntologyID()},

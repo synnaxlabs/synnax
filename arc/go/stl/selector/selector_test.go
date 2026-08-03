@@ -19,6 +19,7 @@ import (
 	"github.com/synnaxlabs/arc/symbol"
 	. "github.com/synnaxlabs/arc/symbol/testutil"
 	"github.com/synnaxlabs/arc/types"
+	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/telem"
@@ -39,16 +40,20 @@ var _ = Describe("Select", func() {
 			factory = selector.NewHost()
 			g := graph.Graph{
 				Nodes: []graph.Node{
-					{Key: "source", Type: "source"},
-					{Key: "select", Type: "select"},
+					{Key: "source"},
+					{Key: "select"},
 				},
-				Edges: []graph.Edge{
-					{
+				Inputs: map[string]msgpack.EncodedJSON{
+					"source": {"type": "source"},
+					"select": {"type": "select"},
+				},
+				Edges: graph.Edges{
+					{Edge: ir.Edge{
 						Source: ir.Handle{Node: "source", Param: ir.DefaultOutputParam},
-						Target: ir.Handle{Node: "select", Param: ir.DefaultInputParam},
-					},
+						Target: ir.Handle{Node: "select", Param: ir.DefaultOutputParam},
+					}},
 				},
-				Functions: []graph.Function{
+				Functions: []ir.Function{
 					{
 						Key: "source",
 						Outputs: types.Params{
@@ -58,7 +63,7 @@ var _ = Describe("Select", func() {
 					{
 						Key: "select",
 						Inputs: types.Params{
-							{Name: ir.DefaultInputParam, Type: types.U8()},
+							{Name: ir.DefaultOutputParam, Type: types.U8()},
 						},
 						Outputs: types.Params{
 							{Name: "true", Type: types.U8()},
@@ -95,16 +100,20 @@ var _ = Describe("Select", func() {
 			factory = selector.NewHost()
 			g := graph.Graph{
 				Nodes: []graph.Node{
-					{Key: "source", Type: "source"},
-					{Key: "select", Type: "select"},
+					{Key: "source"},
+					{Key: "select"},
 				},
-				Edges: []graph.Edge{
-					{
+				Inputs: map[string]msgpack.EncodedJSON{
+					"source": {"type": "source"},
+					"select": {"type": "select"},
+				},
+				Edges: graph.Edges{
+					{Edge: ir.Edge{
 						Source: ir.Handle{Node: "source", Param: ir.DefaultOutputParam},
-						Target: ir.Handle{Node: "select", Param: ir.DefaultInputParam},
-					},
+						Target: ir.Handle{Node: "select", Param: ir.DefaultOutputParam},
+					}},
 				},
-				Functions: []graph.Function{
+				Functions: []ir.Function{
 					{
 						Key: "source",
 						Outputs: types.Params{
@@ -114,7 +123,7 @@ var _ = Describe("Select", func() {
 					{
 						Key: "select",
 						Inputs: types.Params{
-							{Name: ir.DefaultInputParam, Type: types.U8()},
+							{Name: ir.DefaultOutputParam, Type: types.U8()},
 						},
 						Outputs: types.Params{
 							{Name: "true", Type: types.U8()},
@@ -380,16 +389,20 @@ var _ = Describe("Select", func() {
 		It("Should create node for bare select via CompoundFactory", func(ctx SpecContext) {
 			g := graph.Graph{
 				Nodes: []graph.Node{
-					{Key: "source", Type: "source"},
-					{Key: "select", Type: "select"},
+					{Key: "source"},
+					{Key: "select"},
 				},
-				Edges: []graph.Edge{
-					{
+				Inputs: map[string]msgpack.EncodedJSON{
+					"source": {"type": "source"},
+					"select": {"type": "select"},
+				},
+				Edges: graph.Edges{
+					{Edge: ir.Edge{
 						Source: ir.Handle{Node: "source", Param: ir.DefaultOutputParam},
-						Target: ir.Handle{Node: "select", Param: ir.DefaultInputParam},
-					},
+						Target: ir.Handle{Node: "select", Param: ir.DefaultOutputParam},
+					}},
 				},
-				Functions: []graph.Function{
+				Functions: []ir.Function{
 					{
 						Key: "source",
 						Outputs: types.Params{
@@ -399,7 +412,7 @@ var _ = Describe("Select", func() {
 					{
 						Key: "select",
 						Inputs: types.Params{
-							{Name: ir.DefaultInputParam, Type: types.U8()},
+							{Name: ir.DefaultOutputParam, Type: types.U8()},
 						},
 						Outputs: types.Params{
 							{Name: "true", Type: types.U8()},
@@ -424,16 +437,20 @@ var _ = Describe("Select", func() {
 		It("Should propagate alignment and time range to both outputs", func(ctx SpecContext) {
 			g := graph.Graph{
 				Nodes: []graph.Node{
-					{Key: "source", Type: "source"},
-					{Key: "select", Type: "select"},
+					{Key: "source"},
+					{Key: "select"},
 				},
-				Edges: []graph.Edge{
-					{
+				Inputs: map[string]msgpack.EncodedJSON{
+					"source": {"type": "source"},
+					"select": {"type": "select"},
+				},
+				Edges: graph.Edges{
+					{Edge: ir.Edge{
 						Source: ir.Handle{Node: "source", Param: ir.DefaultOutputParam},
-						Target: ir.Handle{Node: "select", Param: ir.DefaultInputParam},
-					},
+						Target: ir.Handle{Node: "select", Param: ir.DefaultOutputParam},
+					}},
 				},
-				Functions: []graph.Function{
+				Functions: []ir.Function{
 					{
 						Key: "source",
 						Outputs: types.Params{
@@ -443,7 +460,7 @@ var _ = Describe("Select", func() {
 					{
 						Key: "select",
 						Inputs: types.Params{
-							{Name: ir.DefaultInputParam, Type: types.U8()},
+							{Name: ir.DefaultOutputParam, Type: types.U8()},
 						},
 						Outputs: types.Params{
 							{Name: "true", Type: types.U8()},
@@ -495,5 +512,19 @@ var _ = Describe("Select", func() {
 			Expect(falseTime.TimeRange.Start).To(Equal(50 * telem.SecondTS))
 			Expect(falseTime.TimeRange.End).To(Equal(200 * telem.SecondTS))
 		})
+	})
+})
+
+var _ = Describe("Construction validation", func() {
+	It("Should error at construction when the input param is missing", func(ctx SpecContext) {
+		prog := ir.IR{Nodes: ir.Nodes{{
+			Key:     "select",
+			Type:    "select",
+			Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.U8()}},
+		}}}
+		s := node.New(prog)
+		cfg := node.Config{Node: prog.Nodes[0], State: s.Node("select")}
+		Expect(selector.NewHost().Create(ctx, cfg)).Error().
+			To(MatchError(node.ErrInputNotFound))
 	})
 })

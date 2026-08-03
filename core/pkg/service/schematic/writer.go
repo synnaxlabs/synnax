@@ -13,9 +13,9 @@ import (
 	"context"
 
 	"github.com/google/uuid"
-	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
-	"github.com/synnaxlabs/synnax/pkg/service/workspace"
+	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/project"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/validate"
@@ -33,11 +33,11 @@ type Writer struct {
 	dispatcher actions.Dispatcher[Key, Action]
 }
 
-// Create creates the given schematic within the workspace provided. If the
+// Create creates the given schematic within the project provided. If the
 // schematic does not have a key, a new key will be generated.
 func (w Writer) Create(
 	ctx context.Context,
-	ws workspace.Key,
+	projectKey project.Key,
 	s *Schematic,
 ) (err error) {
 	var exists bool
@@ -49,33 +49,51 @@ func (w Writer) Create(
 			return
 		}
 	}
+	if err = s.Validate(); err != nil {
+		return
+	}
 	if err = w.table.NewCreate().Entry(s).Exec(ctx, w.tx); err != nil {
 		return
 	}
 	if exists {
 		return
 	}
-	otgID := OntologyID(s.Key)
-	if err := w.otgWriter.DefineResource(ctx, otgID); err != nil {
+	otgID := s.OntologyID()
+	if err := w.otgWriter.DefineResources(ctx, otgID); err != nil {
 		return err
 	}
-	if ws == uuid.Nil {
+	if projectKey == uuid.Nil {
 		return nil
 	}
-	return w.otgWriter.DefineRelationship(
+	return w.otgWriter.DefineRelationships(
 		ctx,
-		workspace.OntologyID(ws),
+		project.OntologyID(projectKey),
 		ontology.RelationshipTypeParentOf,
 		otgID,
 	)
 }
 
-func (w Writer) findParentWorkspace(ctx context.Context, key Key) (workspace.Key, bool, error) {
+// CreateMany creates the given schematics within the project provided. If schematics
+// with the same key already exist, they will be overwritten.
+func (w Writer) CreateMany(
+	ctx context.Context,
+	projectKey project.Key,
+	schematics *[]Schematic,
+) error {
+	for i := range *schematics {
+		if err := w.Create(ctx, projectKey, &(*schematics)[i]); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (w Writer) findParentProject(ctx context.Context, key Key) (project.Key, bool, error) {
 	var res []ontology.Resource
 	if err := w.otg.NewRetrieve().
 		WhereIDs(OntologyID(key)).
 		TraverseTo(ontology.ParentsTraverser).
-		WhereTypes(ontology.ResourceTypeWorkspace).
+		WhereTypes(ontology.ResourceTypeProject).
 		Entries(&res).
 		Exec(ctx, w.tx); err != nil {
 		return uuid.Nil, false, err
@@ -110,45 +128,23 @@ func (w Writer) Copy(
 		}).Exec(ctx, w.tx); err != nil {
 		return err
 	}
-	ws, ok, err := w.findParentWorkspace(ctx, key)
+	projectKey, ok, err := w.findParentProject(ctx, key)
 	if err != nil || !ok {
 		return err
 	}
-	if err := w.otgWriter.DefineResource(ctx, OntologyID(newKey)); err != nil {
+	if err := w.otgWriter.DefineResources(ctx, OntologyID(newKey)); err != nil {
 		return err
 	}
-	// In the case of a snapshot, don't create a relationship to the workspace.
+	// In the case of a snapshot, don't create a relationship to the project.
 	if result.Snapshot {
 		return nil
 	}
-	return w.otgWriter.DefineRelationship(
+	return w.otgWriter.DefineRelationships(
 		ctx,
-		workspace.OntologyID(ws),
+		project.OntologyID(projectKey),
 		ontology.RelationshipTypeParentOf,
 		OntologyID(newKey),
 	)
-}
-
-// SetData replaces the body of the schematic with the given key with the
-// provided value. Key, Name, and Snapshot are preserved from the existing
-// entry; every other field on data overwrites the stored entry verbatim.
-// Returns validate.ErrValidation when the target schematic is a snapshot,
-// since snapshots are immutable.
-func (w Writer) SetData(
-	ctx context.Context,
-	key Key,
-	data Schematic,
-) error {
-	return w.table.NewUpdate().Where(gorp.MatchKeys[Key, Schematic](key)).
-		ChangeErr(func(_ gorp.Context, s Schematic) (Schematic, error) {
-			if s.Snapshot {
-				return s, errors.Wrapf(validate.ErrValidation, "[Schematic] - cannot set data on snapshot %s:%s", key, s.Name)
-			}
-			data.Key = s.Key
-			data.Name = s.Name
-			data.Snapshot = s.Snapshot
-			return data, nil
-		}).Exec(ctx, w.tx)
 }
 
 // Dispatch applies a sequence of actions atomically to the schematic with the
@@ -198,10 +194,5 @@ func (w Writer) Delete(
 	if err != nil {
 		return err
 	}
-	for _, key := range keys {
-		if err := w.otgWriter.DeleteResource(ctx, OntologyID(key)); err != nil {
-			return err
-		}
-	}
-	return nil
+	return w.otgWriter.DeleteResources(ctx, OntologyIDs(keys)...)
 }

@@ -165,6 +165,7 @@ class LogClient:
         """Emit all buffered entries to sinks, then clear the buffer."""
         for entry in self._buffer:
             self._emit(entry)
+        print()
         self._buffer.clear()
 
     def discard(self) -> None:

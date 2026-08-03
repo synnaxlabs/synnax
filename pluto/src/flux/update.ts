@@ -7,8 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Synnax as Client } from "@synnaxlabs/client";
-import { type CrudeTimeSpan, type destructor, type status } from "@synnaxlabs/x";
+import { type status, type Synnax as Client } from "@synnaxlabs/client";
+import { type CrudeTimeSpan, type destructor } from "@synnaxlabs/x";
 import { useCallback, useState } from "react";
 import type z from "zod";
 
@@ -33,6 +33,7 @@ import { Synnax } from "@/synnax";
 export interface UpdateParams<
   Input extends base.Data,
   Store extends base.Store,
+  Output extends base.Data = Input,
   StatusDetails extends z.ZodType = z.ZodNever,
   AllowDisconnected extends boolean = false,
 > {
@@ -41,6 +42,7 @@ export interface UpdateParams<
   store: Store;
   rollbacks: destructor.Destructor[];
   setStatus: (setter: state.SetArg<ResultStatus<StatusDetails>>) => void;
+  onOptimisticComplete: (data: Output) => Promise<void>;
 }
 
 export type CreateUpdateParams<
@@ -53,7 +55,7 @@ export type CreateUpdateParams<
   name: string;
   verbs: base.Verbs;
   update: (
-    params: UpdateParams<Input, ScopedStore, StatusDetails, AllowDisconnected>,
+    params: UpdateParams<Input, ScopedStore, Output, StatusDetails, AllowDisconnected>,
   ) => Promise<Output | false>;
   allowDisconnected?: AllowDisconnected;
 } & InitialStatusDetailsContainer<StatusDetails>;
@@ -76,6 +78,9 @@ export interface UseObservableUpdateParams<
   beforeUpdate?: (
     params: BeforeUpdateParams<Input, AllowDisconnected, SubStore>,
   ) => Promise<Input | boolean> | Input | boolean;
+  afterOptimistic?: (
+    params: AfterOptimisticParams<Output, AllowDisconnected, SubStore>,
+  ) => Promise<void> | void;
   afterSuccess?: (
     params: AfterSuccessParams<Output, AllowDisconnected>,
   ) => Promise<void> | void;
@@ -92,6 +97,17 @@ export interface BeforeUpdateParams<
   rollbacks: destructor.Destructor[];
   client: AllowDisconnected extends true ? Client | null : Client;
   data: Data;
+  store: Store;
+}
+
+export interface AfterOptimisticParams<
+  Output extends base.Data,
+  AllowDisconnected extends boolean = false,
+  Store extends base.Store = {},
+> {
+  rollbacks: destructor.Destructor[];
+  client: AllowDisconnected extends true ? Client | null : Client;
+  data: Output;
   store: Store;
 }
 
@@ -136,7 +152,7 @@ export interface UseObservableUpdate<
   SubStore extends base.Store = {},
 > {
   (
-    args: UseObservableUpdateParams<
+    params: UseObservableUpdateParams<
       Input,
       Output,
       StatusDetails,
@@ -154,7 +170,7 @@ export interface UseUpdate<
   SubStore extends base.Store = {},
 > {
   (
-    args?: UseDirectUpdateParams<
+    params?: UseDirectUpdateParams<
       Input,
       Output,
       StatusDetails,
@@ -205,6 +221,7 @@ const useObservable = <
     debounce = 0,
     scope,
     beforeUpdate,
+    afterOptimistic,
     afterSuccess,
     afterFailure,
     allowDisconnected = false as AllowDisconnected,
@@ -274,7 +291,19 @@ const useObservable = <
             } as Result<Input | undefined, StatusDetails>;
           });
 
-        const output = await update({ client, data, store, rollbacks, setStatus });
+        const onOptimisticComplete = async (output: Output): Promise<void> => {
+          if (signal?.aborted === true) return;
+          await afterOptimistic?.({ client, data: output, store, rollbacks });
+        };
+
+        const output = await update({
+          client,
+          data,
+          store,
+          rollbacks,
+          setStatus,
+          onOptimisticComplete,
+        });
         if (signal?.aborted === true) return false;
         onChange((p) =>
           successResult(
@@ -310,6 +339,7 @@ const useObservable = <
       addStatus,
       update,
       beforeUpdate,
+      afterOptimistic,
       afterSuccess,
       afterFailure,
     ],

@@ -10,6 +10,8 @@
 package resolution
 
 import (
+	"maps"
+
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/x/set"
 )
@@ -22,6 +24,10 @@ type Type struct {
 	Namespace     string
 	QualifiedName string
 	FilePath      string
+	// Synthetic marks analyzer-fabricated types (inline union variant
+	// payloads) that resolve like any other type but are excluded from
+	// standalone code generation.
+	Synthetic bool
 }
 
 type TypeForm interface {
@@ -55,11 +61,60 @@ func (f StructForm) IsFieldOmitted(name string) bool {
 }
 
 type EnumForm struct {
-	Values    []EnumValue
+	// Values are the enum's members, fully resolved. For an extending enum the
+	// analyzer expands this to the union of the parents' members plus any
+	// members declared in the enum's own body.
+	Values []EnumValue
+	// IsIntEnum reports whether members carry integer (vs string) values. An
+	// extending enum matches the kind of the enums it extends.
 	IsIntEnum bool
+	// Extends names the enums this enum is the union of. Empty for a plain
+	// (non-extending) enum.
+	Extends []TypeRef
 }
 
 func (EnumForm) typeForm() {}
+
+// IsExtension reports whether the enum extends one or more other enums.
+func (f EnumForm) IsExtension() bool { return len(f.Extends) > 0 }
+
+// UnionForm describes a discriminated union: a closed set of struct variants
+// distinguished by the string value of a single shared discriminator field.
+// All variants share an optional set of base fields contributed by Extends.
+//
+// The discriminator field is owned by the union declaration and must not be
+// declared by any variant struct or by any base in Extends. Plugins read
+// Discriminator and the per-variant Name to emit the discriminator field in
+// their target language (Zod literal, Go tagged field, Pydantic Literal, etc.).
+type UnionForm struct {
+	// Discriminator is the JSON field name whose string value selects a variant.
+	Discriminator string
+	// Variants lists every concrete shape the union admits, in declaration order.
+	Variants []UnionVariant
+	// Extends names struct types whose fields are shared across all variants.
+	// Resolved later by the analyzer; struct-form is validated there.
+	Extends []TypeRef
+}
+
+func (UnionForm) typeForm() {}
+
+func (f UnionForm) Variant(name string) (UnionVariant, bool) {
+	return lo.Find(f.Variants, func(v UnionVariant) bool { return v.Name == name })
+}
+
+// UnionVariant is one concrete shape inside a UnionForm. Name is both the
+// variant's identifier in source and the string the discriminator field takes
+// in JSON. Type references the variant's payload struct.
+type UnionVariant struct {
+	AST     any
+	Domains map[string]Domain
+	Name    string
+	Type    TypeRef
+	// Inline reports that the payload was declared inline in the union body.
+	// Type then references a Synthetic struct whose fields generators flatten
+	// into the variant member instead of embedding a named payload type.
+	Inline bool
+}
 
 type DistinctForm struct {
 	Base       TypeRef
@@ -102,16 +157,37 @@ type Action struct {
 	Domains map[string]Domain
 	Name    string
 	Fields  []Field
+	// Extends names struct types whose fields are flattened into the action's
+	// payload. The analyzer resolves these and prepends the inherited fields to
+	// Fields, so by code-generation time Fields already holds the unified list.
+	Extends []TypeRef
 }
 
 type Field struct {
-	AST            any
-	Domains        map[string]Domain
-	Name           string
-	Type           TypeRef
-	IsOptional     bool
-	IsHardOptional bool
-	OmitIfUnset    bool
+	AST     any
+	Domains map[string]Domain
+	Name    string
+	Type    TypeRef
+	// Default is the field's default value, declared inline as `name type = value`.
+	// It is nil when the field has no default.
+	Default *ExpressionValue
+	// Optional reports whether the field is optional, declared with a trailing `?`
+	// on the field. An optional field admits an explicit absence (a Go pointer, a
+	// TypeScript `.optional()`, a Python `| None`, a C++ `std::optional`, a proto3
+	// `optional`) that round-trips faithfully rather than collapsing to the zero
+	// value.
+	Optional bool
+	// OmittedDomains names domains to drop from the inherited parent field during
+	// override resolution, declared with the `-@domain` syntax.
+	OmittedDomains []string
+}
+
+// HasType reports whether the field declares a type. It is false only for a
+// partial override in an extending struct: a field that names an inherited field
+// and omits its type to inherit the parent's type, optionality, and (unless the
+// override sets its own) default.
+func (f Field) HasType() bool {
+	return f.Type.Name != "" || f.Type.TypeParam != nil
 }
 
 type EnumValue struct {
@@ -155,13 +231,14 @@ func (r TypeRef) MustResolve(table *Table) Type {
 
 // RefersTo reports whether ref directly or transitively references a type
 // identified by targetQualifiedName. The search follows type arguments, struct
-// field types, alias targets, and distinct bases, so mutual-recursion cycles
-// (A → B → A) are detected, not just direct self-reference (A → A). A visited
-// set prevents infinite loops on non-target cycles.
+// field types and extends bases, union bases and variant payloads, alias
+// targets, and distinct bases, so mutual-recursion cycles (A → B → A) are
+// detected, not just direct self-reference (A → A). A visited set prevents
+// infinite loops on non-target cycles.
 //
 // This is the shared primitive behind the analyzer's IsRecursive detection
 // and the C++ plugin's decision between std::optional<T> and
-// x::mem::indirect<T> for hard-optional fields.
+// x::mem::indirect<T> for optional fields.
 func RefersTo(ref TypeRef, targetQualifiedName string, table *Table) bool {
 	return refersTo(ref, targetQualifiedName, table, set.New[string]())
 }
@@ -185,8 +262,24 @@ func refersTo(ref TypeRef, targetQN string, table *Table, visited set.Set[string
 	}
 	switch form := resolved.Form.(type) {
 	case StructForm:
+		for _, ext := range form.Extends {
+			if refersTo(ext, targetQN, table, visited) {
+				return true
+			}
+		}
 		for _, f := range form.Fields {
 			if refersTo(f.Type, targetQN, table, visited) {
+				return true
+			}
+		}
+	case UnionForm:
+		for _, ext := range form.Extends {
+			if refersTo(ext, targetQN, table, visited) {
+				return true
+			}
+		}
+		for _, v := range form.Variants {
+			if refersTo(v.Type, targetQN, table, visited) {
 				return true
 			}
 		}
@@ -196,6 +289,86 @@ func refersTo(ref TypeRef, targetQN string, table *Table, visited set.Set[string
 		return refersTo(form.Base, targetQN, table, visited)
 	}
 	return false
+}
+
+// PrimitiveBase follows ref through distinct-type and alias chains to the underlying
+// primitive type name (e.g. a distinct Key over uint32 resolves to "uint32"). It returns
+// the primitive name when ref bottoms out at a primitive, or "" when it does not (a
+// struct, union, builtin container, or unresolved reference). A reference whose surface
+// name is already a primitive is returned directly. Used to classify named numeric and
+// string types for validation, where the constraint applies to the underlying primitive.
+func PrimitiveBase(ref TypeRef, table *Table) string {
+	return primitiveBase(ref, table, set.New[string]())
+}
+
+func primitiveBase(ref TypeRef, table *Table, visited set.Set[string]) string {
+	if ref.IsTypeParam() {
+		if ref.TypeParam != nil && ref.TypeParam.Constraint != nil {
+			return primitiveBase(*ref.TypeParam.Constraint, table, visited)
+		}
+		return ""
+	}
+	if IsPrimitive(ref.Name) {
+		return ref.Name
+	}
+	if visited.Contains(ref.Name) {
+		return ""
+	}
+	visited.Add(ref.Name)
+	resolved, ok := table.Get(ref.Name)
+	if !ok {
+		return ""
+	}
+	switch form := resolved.Form.(type) {
+	case DistinctForm:
+		return primitiveBase(form.Base, table, visited)
+	case AliasForm:
+		return primitiveBase(form.Target, table, visited)
+	}
+	return ""
+}
+
+// CollectionKind reports the collection kind that ref ultimately resolves to:
+// "Array", "Map", or "record". It follows type-parameter constraints and defaults,
+// alias targets, and distinct bases. ok is false when ref does not resolve to a
+// collection. Generators use it to decide which fields are nilable collections (for
+// omitzero tagging and empty defaults) even when the field is typed through an alias
+// or a constrained type parameter.
+func CollectionKind(ref TypeRef, table *Table) (kind string, ok bool) {
+	return collectionKind(ref, table, set.New[string]())
+}
+
+func collectionKind(ref TypeRef, table *Table, visited set.Set[string]) (string, bool) {
+	if ref.IsTypeParam() {
+		if ref.TypeParam == nil {
+			return "", false
+		}
+		if ref.TypeParam.Constraint != nil {
+			return collectionKind(*ref.TypeParam.Constraint, table, visited)
+		}
+		if ref.TypeParam.Default != nil {
+			return collectionKind(*ref.TypeParam.Default, table, visited)
+		}
+		return "", false
+	}
+	if ref.Name == "Array" || ref.Name == "Map" || ref.Name == "record" {
+		return ref.Name, true
+	}
+	if visited.Contains(ref.Name) {
+		return "", false
+	}
+	visited.Add(ref.Name)
+	resolved, ok := table.Get(ref.Name)
+	if !ok {
+		return "", false
+	}
+	switch form := resolved.Form.(type) {
+	case DistinctForm:
+		return collectionKind(form.Base, table, visited)
+	case AliasForm:
+		return collectionKind(form.Target, table, visited)
+	}
+	return "", false
 }
 
 type TypeParam struct {
@@ -281,40 +454,116 @@ func UnifiedFields(typ Type, table *Table) []Field {
 		}
 	}
 
-	// Build parent field map for domain merging during override
 	parentFieldMap := make(map[string]*Field, len(allParentFields))
 	for i := range allParentFields {
 		parentFieldMap[allParentFields[i].Name] = &allParentFields[i]
 	}
 
-	// Collect parent fields that are not overridden by child
+	// Parent fields the child does not override, in parent order. Overrides are
+	// emitted below in child-declaration order.
 	var result []Field
 	for _, pf := range allParentFields {
 		if childFieldMap[pf.Name] != nil {
-			continue // Child overrides this field
+			continue
 		}
 		result = append(result, pf)
 	}
 
-	// Add child fields with domain merging for overrides
 	for _, cf := range form.Fields {
 		if pf, isOverride := parentFieldMap[cf.Name]; isOverride {
-			mergedDomains := make(map[string]Domain, len(pf.Domains)+len(cf.Domains))
-			for k, v := range pf.Domains {
-				mergedDomains[k] = v
-			}
-			for k, v := range cf.Domains {
-				if existing, ok := mergedDomains[k]; ok {
-					mergedDomains[k] = v.Merge(existing)
-				} else {
-					mergedDomains[k] = v
-				}
-			}
-			cf.Domains = mergedDomains
+			result = append(result, mergeOverrideField(*pf, cf))
+		} else {
+			result = append(result, cf)
 		}
-		result = append(result, cf)
 	}
 	return result
+}
+
+// UnifiedVariantFields returns the flattened field list for one variant of a
+// discriminated union: fields contributed by the union's Extends (with their
+// own inheritance resolved), followed by the variant struct's own fields (also
+// with its inheritance resolved). Duplicate names are dropped after the first
+// occurrence, matching UnifiedFields' first-wins semantics for struct mixins.
+//
+// The discriminator field is NOT included in the returned list. Callers know
+// its name from UnionForm.Discriminator and its value from variant.Name, and
+// are responsible for emitting it in the form their target language requires
+// (a Zod literal, a Go tagged field, a Pydantic Literal, etc.).
+//
+// If union is not a UnionForm, or the variant resolves to a non-struct type,
+// the result is the best effort possible: the bases that did resolve, and
+// nothing for the variant.
+func UnifiedVariantFields(union Type, variant UnionVariant, table *Table) []Field {
+	form, ok := union.Form.(UnionForm)
+	if !ok {
+		return nil
+	}
+	seen := make(set.Set[string])
+	var result []Field
+	appendUnique := func(fields []Field) {
+		for _, f := range fields {
+			if seen.Contains(f.Name) {
+				continue
+			}
+			seen.Add(f.Name)
+			result = append(result, f)
+		}
+	}
+	for _, baseRef := range form.Extends {
+		base, ok := baseRef.Resolve(table)
+		if !ok {
+			continue
+		}
+		if _, isStruct := base.Form.(StructForm); !isStruct {
+			continue
+		}
+		appendUnique(UnifiedFields(base, table))
+	}
+	variantType, ok := variant.Type.Resolve(table)
+	if !ok {
+		return result
+	}
+	if _, isStruct := variantType.Form.(StructForm); !isStruct {
+		return result
+	}
+	appendUnique(UnifiedFields(variantType, table))
+	return result
+}
+
+// mergeOverrideField resolves a child field that overrides parent into a
+// complete field. When the child omits its type it inherits the parent's type,
+// optionality, and (unless the child declares its own) default; writing a type
+// fully (re)defines both, leaving the override to drop the parent's default by
+// omission, matching a from-scratch field declaration. Domains are always
+// merged (child expressions win per name), after which any domains the child
+// lists via `-@domain` are dropped.
+func mergeOverrideField(parent, child Field) Field {
+	out := child
+	if !child.HasType() {
+		out.Type = parent.Type
+		// A typeless override inherits the parent's nullability unless it forces
+		// its own with a standalone `?` marker (key?).
+		if !child.Optional {
+			out.Optional = parent.Optional
+		}
+		if child.Default == nil {
+			out.Default = parent.Default
+		}
+	}
+	domains := make(map[string]Domain, len(parent.Domains)+len(child.Domains))
+	maps.Copy(domains, parent.Domains)
+	for k, v := range child.Domains {
+		if existing, ok := domains[k]; ok {
+			domains[k] = v.Merge(existing)
+		} else {
+			domains[k] = v
+		}
+	}
+	for _, name := range child.OmittedDomains {
+		delete(domains, name)
+	}
+	out.Domains = domains
+	return out
 }
 
 func SubstituteTypeRef(ref TypeRef, typeArgMap map[string]TypeRef) TypeRef {

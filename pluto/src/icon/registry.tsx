@@ -30,6 +30,7 @@ import {
   BsFillInfoSquareFill,
   BsLightbulbFill,
   BsShiftFill,
+  BsWindowStack,
 } from "react-icons/bs";
 import {
   FaAlignCenter,
@@ -62,7 +63,12 @@ import { GoNumber } from "react-icons/go";
 import { GrAttachment, GrDrag, GrPan, GrRotateRight } from "react-icons/gr";
 import { HiCursorClick, HiLightningBolt, HiOutlinePlus } from "react-icons/hi";
 import { HiSquare3Stack3D } from "react-icons/hi2";
-import { IoMdColorFill, IoMdHeart, IoMdRefresh } from "react-icons/io";
+import {
+  IoIosArrowRoundForward,
+  IoMdColorFill,
+  IoMdHeart,
+  IoMdRefresh,
+} from "react-icons/io";
 import {
   IoBookSharp,
   IoCopy,
@@ -74,6 +80,7 @@ import {
   IoTime,
   IoTvOutline,
 } from "react-icons/io5";
+import { LuSquareFunction } from "react-icons/lu";
 import {
   MdAccessTime,
   MdAlignHorizontalCenter,
@@ -279,6 +286,7 @@ export const Acquire = wrapSVGIcon(FaStream, "acquire");
 export const Analyze = wrapSVGIcon(FaBezierCurve, "analyze");
 export const Concepts = wrapSVGIcon(BsLightbulbFill, "concepts");
 export const Visualize = wrapSVGIcon(MdAreaChart, "visualize");
+export const Panel = wrapSVGIcon(BsWindowStack, "panel");
 export const LinePlot = wrapSVGIcon(MdAreaChart, "line-plot");
 export const Expand = wrapSVGIcon(BiExpandAlt, "expand");
 export const Collapse = wrapSVGIcon(BiCollapseAlt, "collapse");
@@ -306,7 +314,7 @@ export const Node = wrapSVGIcon(MdOutlineDeviceHub, "node");
 export const Channel = wrapSVGIcon(MdSensors, "channel");
 export const Resources = wrapSVGIcon(AiFillFolder, "resources");
 export const Group = wrapSVGIcon(AiFillFolder, "group");
-export const Workspace = wrapSVGIcon(MdWorkspacesFilled, "workspace");
+export const Project = wrapSVGIcon(MdWorkspacesFilled, "project");
 export const Box = wrapSVGIcon(AiOutlineBorder, "box");
 export const Python = wrapSVGIcon(SiPython, "python");
 export const TypeScript = wrapSVGIcon(SiTypescript, "typescript");
@@ -491,6 +499,8 @@ export const Map = wrapSVGIcon(MdOutlineMap, "map");
 export const Linear = wrapSVGIcon(MdOutlineLinearScale, "linear");
 export const None = wrapSVGIcon(TbCircleDashed, "none");
 export const Arc = wrapSVGIcon(TbChartArcs, "arc");
+export const ArcFlow = wrapSVGIcon(IoIosArrowRoundForward, "arc-flow");
+export const ArcFunc = wrapSVGIcon(LuSquareFunction, "arc-func");
 export const Select = wrapSVGIcon(TbArrowsSplit, "select");
 export const Notification = wrapSVGIcon(IoNotifications, "notification");
 export const Status = Notification;
@@ -549,6 +559,7 @@ const icons = {
   Analyze,
   Concepts,
   Visualize,
+  Panel,
   LinePlot,
   Expand,
   Collapse,
@@ -567,7 +578,7 @@ const icons = {
   Channel,
   Resources,
   Group,
-  Workspace,
+  Project,
   Box,
   Python,
   TypeScript,
@@ -664,6 +675,8 @@ const icons = {
   Terminal,
   TerminalOutline,
   Arc,
+  ArcFlow,
+  ArcFunc,
   Select,
   Notification,
   InProgress,

@@ -13,6 +13,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"io"
 	"net/http"
 
 	"github.com/gofiber/fiber/v3"
@@ -44,8 +45,11 @@ var _ = Describe("BindTo", func() {
 			"/stream/slamMessages",
 			"/stream/eventuallyResponseWithMessage",
 			"/unary/echo",
+			"/unary/paramEcho",
 			"/unary/middlewareCheck",
 			"/unary/slamMessagesTimeoutCheck",
+			"/unary/flakyUnavailable",
+			"/unary/emptyResponse",
 		}
 		for _, path := range routes {
 			Expect(registered.Contains(path)).To(BeTrue())
@@ -101,6 +105,127 @@ var _ = Describe("BindTo", func() {
 		var msg ihttp.Message
 		Expect(json.NewDecoder(resp.Body).Decode(&msg)).To(Succeed())
 		Expect(msg.ID).To(Equal(8))
+	})
+})
+
+var _ = Describe("unaryParamEcho", func() {
+	postParamEcho := func(query, message string) ihttp.Message {
+		app := fiber.New(fiber.Config{})
+		Expect(ihttp.BindTo(app)).To(Succeed())
+
+		target := "http://localhost/unary/paramEcho"
+		if query != "" {
+			target += "?" + query
+		}
+		body := MustSucceed(json.Marshal(ihttp.Message{Message: message}))
+		req := MustSucceed(http.NewRequest(http.MethodPost, target, bytes.NewReader(body)))
+		req.Header.Set(fiber.HeaderContentType, fiber.MIMEApplicationJSON)
+		req.Header.Set(fiber.HeaderAccept, fiber.MIMEApplicationJSON)
+
+		resp := MustSucceed(app.Test(req))
+		DeferCleanup(func() { Expect(resp.Body.Close()).To(Succeed()) })
+		Expect(resp.StatusCode).To(Equal(http.StatusOK))
+
+		var msg ihttp.Message
+		Expect(json.NewDecoder(resp.Body).Decode(&msg)).To(Succeed())
+		return msg
+	}
+
+	DescribeTable("echoes the requested params sorted and joined by '|'",
+		func(query, message, expected string) {
+			Expect(postParamEcho(query, message).Message).To(Equal(expected))
+		},
+		Entry(
+			"freighterctx-prefixed query params reach the handler with the prefix stripped",
+			"freighterctxfile_name=Metrics%20Log.json&freighterctxproject=project:abc",
+			"file_name,project",
+			"Metrics Log.json|project:abc",
+		),
+		Entry(
+			"values come back in the same sorted order regardless of the requested key order",
+			"freighterctxfile_name=Metrics%20Log.json&freighterctxproject=project:abc",
+			"project,file_name",
+			"Metrics Log.json|project:abc",
+		),
+		Entry(
+			"absent params echo as empty strings",
+			"",
+			"file_name,project",
+			"|",
+		),
+		Entry(
+			"unprefixed query params are not exposed to the handler",
+			"file_name=Metrics%20Log.json&project=project:abc",
+			"file_name,project",
+			"|",
+		),
+	)
+})
+
+var _ = Describe("flakyUnavailable", func() {
+	post := func(app *fiber.App, msg ihttp.Message) *http.Response {
+		body := MustSucceed(json.Marshal(msg))
+		req := MustSucceed(http.NewRequest(http.MethodPost, "http://localhost/unary/flakyUnavailable", bytes.NewReader(body)))
+		req.Header.Set(fiber.HeaderContentType, fiber.MIMEApplicationJSON)
+		req.Header.Set(fiber.HeaderAccept, fiber.MIMEApplicationJSON)
+		resp := MustSucceed(app.Test(req))
+		DeferCleanup(func() { Expect(resp.Body.Close()).To(Succeed()) })
+		return resp
+	}
+
+	It("Should respond with a retryable 503 the first time it sees a message", func() {
+		app := fiber.New(fiber.Config{})
+		Expect(ihttp.BindTo(app)).To(Succeed())
+
+		resp := post(app, ihttp.Message{Message: "flaky-first-503", ID: 1})
+		Expect(resp.StatusCode).To(Equal(http.StatusServiceUnavailable))
+
+		var pld errors.Payload
+		Expect(json.NewDecoder(resp.Body).Decode(&pld)).To(Succeed())
+		Expect(pld.Type).To(Equal("integration.error"))
+	})
+
+	It("Should echo nominally with the ID incremented when the same message is retried", func() {
+		app := fiber.New(fiber.Config{})
+		Expect(ihttp.BindTo(app)).To(Succeed())
+
+		first := post(app, ihttp.Message{Message: "flaky-recovers", ID: 1})
+		Expect(first.StatusCode).To(Equal(http.StatusServiceUnavailable))
+
+		second := post(app, ihttp.Message{Message: "flaky-recovers", ID: 1})
+		Expect(second.StatusCode).To(Equal(http.StatusOK))
+		var msg ihttp.Message
+		Expect(json.NewDecoder(second.Body).Decode(&msg)).To(Succeed())
+		Expect(msg).To(Equal(ihttp.Message{Message: "flaky-recovers", ID: 2}))
+	})
+
+	It("Should track the first-seen state of each message independently", func() {
+		app := fiber.New(fiber.Config{})
+		Expect(ihttp.BindTo(app)).To(Succeed())
+
+		Expect(post(app, ihttp.Message{Message: "flaky-a", ID: 1}).StatusCode).
+			To(Equal(http.StatusServiceUnavailable))
+		Expect(post(app, ihttp.Message{Message: "flaky-b", ID: 1}).StatusCode).
+			To(Equal(http.StatusServiceUnavailable))
+		Expect(post(app, ihttp.Message{Message: "flaky-a", ID: 1}).StatusCode).
+			To(Equal(http.StatusOK))
+	})
+})
+
+var _ = Describe("emptyResponse", func() {
+	It("Should respond with 200 OK and a genuinely empty body", func() {
+		app := fiber.New(fiber.Config{})
+		Expect(ihttp.BindTo(app)).To(Succeed())
+
+		body := MustSucceed(json.Marshal(ihttp.Message{Message: "x", ID: 1}))
+		req := MustSucceed(http.NewRequest(http.MethodPost, "http://localhost/unary/emptyResponse", bytes.NewReader(body)))
+		req.Header.Set(fiber.HeaderContentType, fiber.MIMEApplicationJSON)
+		req.Header.Set(fiber.HeaderAccept, fiber.MIMEApplicationJSON)
+
+		resp := MustSucceed(app.Test(req))
+		DeferCleanup(func() { Expect(resp.Body.Close()).To(Succeed()) })
+		Expect(resp.StatusCode).To(Equal(http.StatusOK))
+		Expect(MustSucceed(io.ReadAll(resp.Body))).To(BeEmpty())
 	})
 })
 

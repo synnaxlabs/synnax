@@ -7,15 +7,15 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { NotFoundError, ontology, table, type workspace } from "@synnaxlabs/client";
+import { NotFoundError, type project, table } from "@synnaxlabs/client";
 import { array, compare, id, uuid, type xy } from "@synnaxlabs/x";
 import { useCallback, useMemo } from "react";
 
 import { Flux } from "@/flux";
 import { useSyncedRef } from "@/hooks/ref";
 import { Ontology } from "@/ontology";
-import { state } from "@/state";
 import { Cell } from "@/table/cells";
+import { Scope } from "@/table/scope";
 import { Theming } from "@/theming";
 
 const BASE_ROW_SIZE = 36;
@@ -54,35 +54,12 @@ export const { useRetrieve, useRetrieveObservable, useEnsureRetrieved } =
   Flux.createRetrieve<RetrieveQuery, table.Table, FluxSubStore>({
     name: RESOURCE_NAME,
     retrieve: retrieveSingle,
-    mountListeners: ({ store, query: { key }, onChange }) => [
+    retrieveCached: ({ store, query: { key } }) => store.tables.get(key),
+    mountListeners: ({ store, query: { key }, onChange }) =>
       store.tables.onSet(onChange, key),
-      // Names propagate through the ontology resources store; this listener
-      // forwards the renamed name back into the retrieved snapshot so consumers
-      // observing the table see the new name without a full refetch.
-      store.resources.onSet(
-        (r) => onChange(state.skipUndefined((p) => ({ ...p, name: r.name }))),
-        ontology.idToString(table.ontologyID(key)),
-      ),
-    ],
   });
 
-export const useRetrieveObservableName = ({
-  onChange,
-  ...params
-}: Omit<Flux.UseRetrieveObservableParams<RetrieveQuery, table.Table>, "onChange"> & {
-  onChange: (name: string) => void;
-}): Flux.UseRetrieveObservableReturn<RetrieveQuery> => {
-  const onChangeRef = useSyncedRef(onChange);
-  return useRetrieveObservable({
-    ...params,
-    onChange: useCallback((result) => {
-      if (result.variant !== "success") return;
-      onChangeRef.current(result.data.name);
-    }, []),
-  });
-};
-
-export interface SelectKeyArgs {
+export interface SelectKeyParams {
   key: table.Key;
 }
 
@@ -92,45 +69,41 @@ const requireTable = (store: FluxSubStore, key: table.Key): table.Table => {
   return t;
 };
 
-export const useSelectName = Flux.createSelector<FluxSubStore, SelectKeyArgs, string>({
-  subscribe: (store, { key }, notify) => store.tables.onSet(notify, key),
-  select: (store, { key }) => requireTable(store, key).name,
-});
+export const [useSelectName, useGetName] = Scope.bindSelector(
+  Flux.createSelector<FluxSubStore, SelectKeyParams, string>({
+    subscribe: (store, { key }, notify) => store.tables.onSet(notify, key),
+    select: (store, { key }) => requireTable(store, key).name,
+  }),
+);
 
-export const useSelectRows = Flux.createSelector<
-  FluxSubStore,
-  SelectKeyArgs,
-  table.Row[]
->({
-  subscribe: (store, { key }, notify) => store.tables.onSet(notify, key),
-  select: (store, { key }) => requireTable(store, key).rows,
-});
+export const [useSelectRows, useGetRows] = Scope.bindSelector(
+  Flux.createSelector<FluxSubStore, SelectKeyParams, table.Row[]>({
+    subscribe: (store, { key }, notify) => store.tables.onSet(notify, key),
+    select: (store, { key }) => requireTable(store, key).rows,
+  }),
+);
 
-export const useSelectColumns = Flux.createSelector<
-  FluxSubStore,
-  SelectKeyArgs,
-  table.Column[]
->({
-  subscribe: (store, { key }, notify) => store.tables.onSet(notify, key),
-  select: (store, { key }) => requireTable(store, key).columns,
-});
+export const [useSelectColumns, useGetColumns] = Scope.bindSelector(
+  Flux.createSelector<FluxSubStore, SelectKeyParams, table.Column[]>({
+    subscribe: (store, { key }, notify) => store.tables.onSet(notify, key),
+    select: (store, { key }) => requireTable(store, key).columns,
+  }),
+);
 
-export interface SelectCellArgs {
+export interface SelectCellParams {
   key: table.Key;
   cellKey: string;
 }
 
-export const useSelectCell = Flux.createSelector<
-  FluxSubStore,
-  SelectCellArgs,
-  Cell.Config | undefined
->({
-  subscribe: (store, { key }, notify) => store.tables.onSet(notify, key),
-  select: (store, { key, cellKey }) =>
-    store.tables.get(key)?.cells?.[cellKey] as Cell.Config | undefined,
-});
+export const [useSelectCell, useGetCell] = Scope.bindSelector(
+  Flux.createSelector<FluxSubStore, SelectCellParams, Cell.Config | undefined>({
+    subscribe: (store, { key }, notify) => store.tables.onSet(notify, key),
+    select: (store, { key, cellKey }) =>
+      store.tables.get(key)?.cells?.[cellKey] as Cell.Config | undefined,
+  }),
+);
 
-export interface SelectCellsArgs {
+export interface SelectCellsParams {
   key: table.Key;
   cellKeys: string[];
 }
@@ -139,53 +112,45 @@ export interface SelectCellsArgs {
 // omitting keys that don't resolve to a cell. The map preserves
 // caller-provided key order; consumers that need positional iteration should
 // iterate cellKeys and look up via the map.
-export const useSelectCells = Flux.createSelector<
-  FluxSubStore,
-  SelectCellsArgs,
-  Map<string, Cell.Config>
->({
-  subscribe: (store, { key }, notify) => store.tables.onSet(notify, key),
-  select: (store, { key, cellKeys }) => {
-    const result = new Map<string, Cell.Config>();
-    if (cellKeys.length === 0) return result;
-    const t = store.tables.get(key);
-    if (t == null) return result;
-    for (const cellKey of cellKeys) {
-      const cell = t.cells?.[cellKey] as Cell.Config | undefined;
-      if (cell != null) result.set(cellKey, cell);
-    }
-    return result;
-  },
-  equal: compare.mapsEqual,
-});
+export const [useSelectCells, useGetCells] = Scope.bindSelector(
+  Flux.createSelector<FluxSubStore, SelectCellsParams, Map<string, Cell.Config>>({
+    subscribe: (store, { key }, notify) => store.tables.onSet(notify, key),
+    select: (store, { key, cellKeys }) => {
+      const result = new Map<string, Cell.Config>();
+      if (cellKeys.length === 0) return result;
+      const t = store.tables.get(key);
+      if (t == null) return result;
+      for (const cellKey of cellKeys) {
+        const cell = t.cells?.[cellKey] as Cell.Config | undefined;
+        if (cell != null) result.set(cellKey, cell);
+      }
+      return result;
+    },
+    equal: compare.mapsEqual,
+  }),
+);
 
 export type DeleteParams = table.Key | table.Key[];
 
 export const { useUpdate: useDelete } = Flux.createUpdate<DeleteParams, FluxSubStore>({
   name: RESOURCE_NAME,
   verbs: Flux.DELETE_VERBS,
-  update: async ({ client, data, rollbacks, store }) => {
+  update: async ({ client, data, rollbacks, store, onOptimisticComplete }) => {
     const keys = array.toArray(data);
     const ids = table.ontologyID(keys);
     const relFilter = Ontology.filterRelationshipsThatHaveIDs(ids);
     rollbacks.push(store.relationships.delete(relFilter));
+    await onOptimisticComplete(data);
     await client.tables.delete(data);
     return data;
   },
 });
 
 export interface CreateParams extends table.New {
-  workspace?: workspace.Key;
+  project?: project.Key;
 }
 
-export interface CreateOutput extends table.Table {
-  workspace?: workspace.Key;
-}
-
-// seedDefaultLayout returns a fresh 2x2 grid of empty text cells so a caller
-// that creates a table with no structural data opens onto a usable starter
-// layout instead of a blank canvas.
-const seedDefaultLayout = (
+const createDefaultLayout = (
   theme: ReturnType<typeof Theming.use>,
 ): Pick<table.Table, "rows" | "columns" | "cells"> => {
   const cellKeys = [id.create(), id.create(), id.create(), id.create()];
@@ -205,18 +170,18 @@ const seedDefaultLayout = (
 const { useUpdate: useCreateBase } = Flux.createUpdate<
   CreateParams,
   FluxSubStore,
-  CreateOutput
+  table.Table
 >({
   name: RESOURCE_NAME,
   verbs: Flux.CREATE_VERBS,
-  update: async ({ client, data, store, rollbacks }) => {
-    const { workspace, ...rest } = data;
-    rest.key ??= uuid.create();
-    const created = rest as table.Table;
-    rollbacks.push(store.tables.set(created.key, created));
-    const t = await client.tables.create(workspace ?? uuid.ZERO, created);
-    store.tables.set(t);
-    return { ...t, workspace };
+  update: async ({ client, data, store, rollbacks, onOptimisticComplete }) => {
+    const optimistic = table.tableZ.parse(data);
+    rollbacks.push(store.tables.set(optimistic));
+    await onOptimisticComplete(optimistic);
+    const project = data.project ?? uuid.ZERO;
+    const created = await client.tables.create(project, optimistic);
+    store.tables.set(created);
+    return created;
   },
 });
 
@@ -227,36 +192,40 @@ export const useCreate: typeof useCreateBase = (args) => {
   const base = useCreateBase(args);
   const baseRef = useSyncedRef(base);
   const themeRef = useSyncedRef(Theming.use());
-  const seed = useCallback(
+  const withDefaultLayout = useCallback(
     (data: CreateParams): CreateParams =>
       (data.rows?.length ?? 0) === 0 && (data.columns?.length ?? 0) === 0
-        ? { ...data, ...seedDefaultLayout(themeRef.current) }
+        ? { ...data, ...createDefaultLayout(themeRef.current) }
         : data,
     [],
   );
   const update = useCallback<typeof base.update>(
-    (data, opts) => baseRef.current.update(seed(data), opts),
-    [seed],
+    (data, opts) => baseRef.current.update(withDefaultLayout(data), opts),
+    [withDefaultLayout],
   );
   const updateAsync = useCallback<typeof base.updateAsync>(
-    (data, opts) => baseRef.current.updateAsync(seed(data), opts),
-    [seed],
+    (data, opts) => baseRef.current.updateAsync(withDefaultLayout(data), opts),
+    [withDefaultLayout],
   );
   return { ...base, update, updateAsync };
 };
 
-export interface UseRenameArgs {
+export interface UseRenameParams {
   key: table.Key;
   name: string;
 }
 
-export const { useUpdate: useRename } = Flux.createUpdate<UseRenameArgs, FluxSubStore>({
+export const { useUpdate: useRename } = Flux.createUpdate<
+  UseRenameParams,
+  FluxSubStore
+>({
   name: RESOURCE_NAME,
   verbs: Flux.RENAME_VERBS,
-  update: async ({ client, data, rollbacks, store }) => {
+  update: async ({ client, data, rollbacks, store, onOptimisticComplete }) => {
     const { key, name } = data;
     rollbacks.push(Flux.partialUpdate(store.tables, key, { name }));
     rollbacks.push(Ontology.renameFluxResource(store, table.ontologyID(key), name));
+    await onOptimisticComplete(data);
     await client.tables.rename(key, name);
     return data;
   },
@@ -294,7 +263,12 @@ export const FLUX_STORE_CONFIG = Flux.createUndoableStore<
   kindOf: kindOfTransaction,
 });
 
-export const { useDispatch, useUndo, useRedo } = Flux.createDispatch<
+export const {
+  useDispatch,
+  useUndo: useUndoBase,
+  useRedo: useRedoBase,
+  useSingleDispatch: useSingleDispatchBase,
+} = Flux.createDispatch<
   table.Key,
   table.Table,
   table.Action,
@@ -305,6 +279,10 @@ export const { useDispatch, useUndo, useRedo } = Flux.createDispatch<
   send: ({ client, key, actions, dispatchKey }) =>
     client.tables.dispatch(key, dispatchKey, actions),
 });
+
+export const useSingleDispatch = Scope.bindHook(useSingleDispatchBase);
+export const useUndo = Scope.bindHook(useUndoBase);
+export const useRedo = Scope.bindHook(useRedoBase);
 
 // findCellPosition returns the (x, y) grid coordinates of the cell with the
 // given key in the given rows, or null if the cell isn't referenced by any
@@ -360,7 +338,9 @@ export const cellsInRegion = (
   return out;
 };
 
-export const useCellPosition = ({ key, cellKey }: SelectCellArgs): xy.XY | null => {
-  const rows = useSelectRows({ key });
-  return useMemo(() => findCellPosition(rows, cellKey), [rows, cellKey]);
-};
+export const useCellPosition = Scope.bindHook(
+  ({ key, cellKey }: SelectCellParams): xy.XY | null => {
+    const rows = useSelectRows({ key });
+    return useMemo(() => findCellPosition(rows, cellKey), [rows, cellKey]);
+  },
+);

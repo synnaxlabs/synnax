@@ -21,11 +21,13 @@ import {
 import {
   cloneElement,
   type ComponentPropsWithoutRef,
+  type CSSProperties,
   isValidElement,
   type ReactElement,
   type ReactNode,
   useCallback,
   useId,
+  useMemo,
   useRef,
   useState,
 } from "react";
@@ -264,6 +266,17 @@ export const Dialog = ({
 
   const root = document.body;
 
+  const tooltipStyle = useMemo<CSSProperties | undefined>(
+    () =>
+      state == null
+        ? undefined
+        : {
+            [CSS.var("pos-x")]: CSS.px(state.position.x),
+            [CSS.var("pos-y")]: CSS.px(state.position.y),
+          },
+    [state?.position.x, state?.position.y],
+  );
+
   return (
     <>
       {state != null &&
@@ -276,10 +289,7 @@ export const Dialog = ({
               CSS.loc(state.location.y),
               loadCLS,
             )}
-            style={{
-              [CSS.var("pos-x")]: CSS.px(state.position.x),
-              [CSS.var("pos-y")]: CSS.px(state.position.y),
-            }}
+            style={tooltipStyle}
           >
             {isRenderProp(tip) ? tip(state) : formatTip(tip)}
           </div>,

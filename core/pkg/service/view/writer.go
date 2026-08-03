@@ -13,8 +13,8 @@ import (
 	"context"
 
 	"github.com/google/uuid"
-	"github.com/synnaxlabs/synnax/pkg/distribution/group"
-	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/group"
+	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/query"
@@ -44,11 +44,11 @@ func (w Writer) Create(ctx context.Context, view *View) error {
 		Exec(ctx, w.tx); err != nil {
 		return err
 	}
-	otgID := OntologyID(view.Key)
-	if err := w.otgWriter.DefineResource(ctx, otgID); err != nil {
+	otgID := view.OntologyID()
+	if err := w.otgWriter.DefineResources(ctx, otgID); err != nil {
 		return err
 	}
-	return w.otgWriter.DefineRelationship(
+	return w.otgWriter.DefineRelationships(
 		ctx,
 		w.group.OntologyID(),
 		ontology.RelationshipTypeParentOf,
@@ -59,32 +59,21 @@ func (w Writer) Create(ctx context.Context, view *View) error {
 // CreateMany creates or updates multiple views within the DB. If any of the views
 // already exist, they will be updated.
 func (w Writer) CreateMany(ctx context.Context, views *[]View) error {
-	for i, view := range *views {
-		if err := w.Create(ctx, &view); err != nil {
+	for i := range *views {
+		if err := w.Create(ctx, &(*views)[i]); err != nil {
 			return err
 		}
-		(*views)[i] = view
 	}
 	return nil
 }
 
-// Delete deletes the view with the given key. Delete is idempotent.
-func (w Writer) Delete(ctx context.Context, key Key) error {
-	if err := w.table.NewDelete().Where(gorp.MatchKeys[Key, View](key)).
+// Delete deletes the views with the given keys. Delete is idempotent.
+func (w Writer) Delete(ctx context.Context, keys ...Key) error {
+	if err := w.table.NewDelete().Where(gorp.MatchKeys[Key, View](keys...)).
 		Exec(ctx, w.tx); err != nil && !errors.Is(err, query.ErrNotFound) {
 		return err
 	}
-	return w.otgWriter.DeleteResource(ctx, OntologyID(key))
-}
-
-// DeleteMany deletes multiple views with the given keys. DeleteMany is idempotent.
-func (w Writer) DeleteMany(ctx context.Context, keys ...Key) error {
-	for _, key := range keys {
-		if err := w.Delete(ctx, key); err != nil {
-			return err
-		}
-	}
-	return nil
+	return w.otgWriter.DeleteResources(ctx, OntologyIDs(keys)...)
 }
 
 func (w Writer) validate(v View) error {

@@ -13,11 +13,11 @@ import (
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/policy"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
+	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/x/gorp"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -41,7 +41,7 @@ var _ = Describe("Provision", func() {
 				Expect(rbacSvc.Role.NewRetrieve().Where(role.MatchNames(name)).Entry(&r).Exec(ctx, tx)).To(Succeed())
 				var policies []ontology.Resource
 				Expect(otg.NewRetrieve().
-					WhereIDs(role.OntologyID(r.Key)).
+					WhereIDs(r.OntologyID()).
 					TraverseTo(ontology.ChildrenTraverser).
 					Entries(&policies).
 					Exec(ctx, tx)).To(Succeed())
@@ -56,7 +56,7 @@ var _ = Describe("Provision", func() {
 			var r role.Role
 			Expect(rbacSvc.Role.NewRetrieve().Where(role.MatchNames("Host")).Entry(&r).Exec(ctx, tx)).To(Succeed())
 			subject = ontology.ID{Type: "user", Key: uuid.New().String()}
-			Expect(otg.NewWriter(tx).DefineResource(ctx, subject)).To(Succeed())
+			Expect(otg.NewWriter(tx).DefineResources(ctx, subject)).To(Succeed())
 			Expect(rbacSvc.Role.NewWriter(tx, true).AssignRole(ctx, subject, r.Key)).To(Succeed())
 		})
 
@@ -91,7 +91,7 @@ var _ = Describe("Provision", func() {
 			Entry("log", ontology.ResourceTypeLog),
 			Entry("node", ontology.ResourceTypeNode),
 			Entry("group", ontology.ResourceTypeGroup),
-			Entry("workspace", ontology.ResourceTypeWorkspace),
+			Entry("project", ontology.ResourceTypeProject),
 			Entry("schematic", ontology.ResourceTypeSchematic),
 			Entry("lineplot", ontology.ResourceTypeLineplot),
 			Entry("table", ontology.ResourceTypeTable),
@@ -184,8 +184,8 @@ var _ = Describe("Provision", func() {
 
 			// Simulate stale DB by stripping objects in a committed transaction
 			staleTx := db.OpenTx()
-			Expect(gorp.NewUpdate[uuid.UUID, policy.Policy]().
-				Where(gorp.MatchKeys[uuid.UUID, policy.Policy](ownerPolicy.Key)).
+			Expect(gorp.NewUpdate[policy.Key, policy.Policy]().
+				Where(gorp.MatchKeys[policy.Key, policy.Policy](ownerPolicy.Key)).
 				Change(func(_ gorp.Context, p policy.Policy) policy.Policy {
 					p.Objects = p.Objects[:1]
 					return p

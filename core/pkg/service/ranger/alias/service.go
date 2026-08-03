@@ -15,11 +15,12 @@ import (
 	"iter"
 
 	"github.com/synnaxlabs/alamos"
-	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
-	"github.com/synnaxlabs/synnax/pkg/distribution/search"
-	"github.com/synnaxlabs/synnax/pkg/distribution/signals"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
+	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger"
+	"github.com/synnaxlabs/synnax/pkg/service/ranger/alias/versions"
+	"github.com/synnaxlabs/synnax/pkg/service/search"
+	"github.com/synnaxlabs/synnax/pkg/service/signals"
 	xchange "github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/gorp"
@@ -29,7 +30,6 @@ import (
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/service"
 	"github.com/synnaxlabs/x/validate"
-	"github.com/synnaxlabs/x/zyn"
 )
 
 // ParentRetriever is an interface for retrieving the parent range key for a
@@ -50,10 +50,7 @@ type ServiceConfig struct {
 	alamos.Instrumentation
 }
 
-var (
-	_             config.Config[ServiceConfig] = ServiceConfig{}
-	DefaultConfig                              = ServiceConfig{}
-)
+var _ config.Config[ServiceConfig] = ServiceConfig{}
 
 // Validate implements config.Config.
 func (c ServiceConfig) Validate() error {
@@ -87,7 +84,7 @@ type Service struct {
 
 // OpenService opens a new alias.Service with the provided configuration.
 func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err error) {
-	cfg, err := config.New(DefaultConfig, cfgs...)
+	cfg, err := config.New(ServiceConfig{}, cfgs...)
 	if err != nil {
 		return nil, err
 	}
@@ -96,6 +93,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	defer func() { err = cleanup(err) }()
 	if s.table, err = gorp.OpenTable(ctx, gorp.TableConfig[string, Alias]{
 		DB:              cfg.DB,
+		Migrations:      versions.Migrations,
 		Instrumentation: cfg.Instrumentation,
 	}); !ok(err, s.table) {
 		return nil, err
@@ -103,7 +101,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	cfg.Ontology.RegisterService(s)
 	cfg.Search.RegisterService(s)
 	if cfg.Signals != nil {
-		signalsCfg := signals.GorpPublisherConfigString[Alias](s.table.Observe())
+		signalsCfg := signals.GorpPublisherConfigString(s.table.Observe())
 		signalsCfg.SetName = "sy_range_alias_set"
 		signalsCfg.DeleteName = "sy_range_alias_delete"
 		var sig io.Closer
@@ -149,9 +147,6 @@ type change = xchange.Change[string, Alias]
 
 // Type implements ontology.Service.
 func (s *Service) Type() ontology.ResourceType { return ontology.ResourceTypeRangeAlias }
-
-// Schema implements ontology.Service.
-func (s *Service) Schema() zyn.Schema { return schema }
 
 // RetrieveResource implements ontology.Service.
 func (s *Service) RetrieveResource(

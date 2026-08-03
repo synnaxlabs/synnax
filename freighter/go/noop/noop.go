@@ -21,7 +21,7 @@ var _ freighter.UnaryServer[any, any] = (*UnaryServer[any, any])(nil)
 
 func (UnaryServer[RQ, RS]) Use(...freighter.Middleware) {}
 
-func (UnaryServer[RQ, RS]) BindHandler(func(context.Context, RQ) (RS, error)) {}
+func (UnaryServer[RQ, RS]) BindHandler(freighter.UnaryHandler[RQ, RS]) {}
 
 type StreamServer[RQ, RS freighter.Payload] struct{ freighter.Reporter }
 

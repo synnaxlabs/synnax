@@ -11,60 +11,25 @@
 
 package arc
 
-import (
-	"github.com/google/uuid"
-	"github.com/synnaxlabs/arc/graph"
-	"github.com/synnaxlabs/arc/program"
-	"github.com/synnaxlabs/arc/text"
-	"github.com/synnaxlabs/x/status"
-)
-
-// Status is the status of an Arc module including execution state.
-type Status = status.Status[StatusDetails]
+import "github.com/synnaxlabs/synnax/pkg/service/arc/versions"
 
 // Key is a unique identifier for an Arc module.
-type Key = uuid.UUID
+type Key = versions.Key
 
 // Mode specifies whether an Arc module uses text-based or graph-based representation.
-type Mode string
+type Mode = versions.Mode
 
 const (
-	ModeText  Mode = "text"
-	ModeGraph Mode = "graph"
+	ModeText  Mode = versions.ModeText
+	ModeGraph Mode = versions.ModeGraph
 )
 
-// IsValid reports whether m is one of the defined Mode values.
-func (m Mode) IsValid() bool {
-	switch m {
-	case ModeText, ModeGraph:
-		return true
-	default:
-		return false
-	}
-}
-
 // StatusDetails contains Arc-specific status details for execution state.
-type StatusDetails struct {
-	// Running indicates whether the Arc module is currently executing.
-	Running bool `json:"running" msgpack:"running"`
-}
+type StatusDetails = versions.StatusDetails
+
+// Status is the status of an Arc module including execution state.
+type Status = versions.Status
 
 // Arc is an Arc module combining visual graph representation and text-based source code
 // for reactive control systems. Compiles to WebAssembly for sandboxed execution.
-type Arc struct {
-	// Key is the unique identifier for this module.
-	Key Key `json:"key" msgpack:"key"`
-	// Name is a human-readable name for the module.
-	Name string `json:"name" msgpack:"name"`
-	// Mode specifies the representation mode for this module. Either "text" for text-based
-	// Arc code or "graph" for visual dataflow.
-	Mode Mode `json:"mode" msgpack:"mode"`
-	// Graph is the visual dataflow graph representation of the module.
-	Graph graph.Graph `json:"graph" msgpack:"graph"`
-	// Text is the text-based Arc source code.
-	Text text.Text `json:"text" msgpack:"text"`
-	// Program is the compiled module output including IR and WebAssembly bytecode.
-	Program *program.Program `json:"program,omitempty" msgpack:"program,omitempty"`
-	// Status is the current execution status of the module.
-	Status *Status `json:"status,omitempty" msgpack:"status,omitempty"`
-}
+type Arc = versions.Arc

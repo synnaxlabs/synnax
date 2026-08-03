@@ -16,7 +16,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/samber/lo"
-	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	xchange "github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/gorp"
 	xiter "github.com/synnaxlabs/x/iter"
@@ -37,20 +37,14 @@ func OntologyIDs(keys []Key) []ontology.ID {
 
 // OntologyIDsFromPolicies constructs a slice of unique ontology.IDs for the given Policys.
 func OntologyIDsFromPolicies(policies []Policy) []ontology.ID {
-	return lo.Map(policies, func(l Policy, _ int) ontology.ID { return OntologyID(l.Key) })
+	return lo.Map(policies, func(p Policy, _ int) ontology.ID { return p.OntologyID() })
 }
 
 // KeysFromOntologyIDs extracts the Policy keys from the given ontology.IDs.
 func KeysFromOntologyIDs(ids []ontology.ID) ([]Key, error) {
-	keys := make([]Key, len(ids))
-	var err error
-	for i, id := range ids {
-		keys[i], err = uuid.Parse(id.Key)
-		if err != nil {
-			return nil, err
-		}
-	}
-	return keys, nil
+	return lo.MapErr(ids, func(id ontology.ID, _ int) (Key, error) {
+		return uuid.Parse(id.Key)
+	})
 }
 
 var schema = zyn.Object(map[string]zyn.Schema{
@@ -60,15 +54,12 @@ var schema = zyn.Object(map[string]zyn.Schema{
 })
 
 func newResource(p Policy) ontology.Resource {
-	return ontology.NewResource(schema, OntologyID(p.Key), p.Name, p)
+	return ontology.NewResource(schema, p.OntologyID(), p.Name, p)
 }
 
 type change = xchange.Change[Key, Policy]
 
 func (s *Service) Type() ontology.ResourceType { return ontology.ResourceTypePolicy }
-
-// Schema implements ontology.Service.
-func (s *Service) Schema() zyn.Schema { return schema }
 
 // RetrieveResource implements ontology.Service.
 func (s *Service) RetrieveResource(

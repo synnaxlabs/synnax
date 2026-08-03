@@ -10,10 +10,10 @@
 package builtin
 
 import (
-	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/policy"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
+	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 )
 
 var allObjects = []ontology.ID{
@@ -26,7 +26,8 @@ var allObjects = []ontology.ID{
 	{Type: ontology.ResourceTypeFramer},
 	{Type: ontology.ResourceTypeRangeAlias},
 	{Type: ontology.ResourceTypeUser},
-	{Type: ontology.ResourceTypeWorkspace},
+	{Type: ontology.ResourceTypeProject},
+	{Type: ontology.ResourceTypePanel},
 	{Type: ontology.ResourceTypeSchematic},
 	{Type: ontology.ResourceTypeLineplot},
 	{Type: ontology.ResourceTypeRack},
@@ -76,7 +77,8 @@ var (
 				{Type: ontology.ResourceTypeRange},
 				{Type: ontology.ResourceTypeFramer},
 				{Type: ontology.ResourceTypeRangeAlias},
-				{Type: ontology.ResourceTypeWorkspace},
+				{Type: ontology.ResourceTypeProject},
+				{Type: ontology.ResourceTypePanel},
 				{Type: ontology.ResourceTypeSchematic},
 				{Type: ontology.ResourceTypeLineplot},
 				{Type: ontology.ResourceTypeRack},
@@ -148,7 +150,7 @@ var (
 	operatorRoleName = "Operator"
 	operatorRole     = role.Role{
 		Name:        operatorRoleName,
-		Description: "Can view workspaces and visualizations, control hardware and data acquisition tasks. Cannot modify system configuration.",
+		Description: "Can view projects and visualizations, control hardware and data acquisition tasks. Cannot modify system configuration.",
 		Internal:    true,
 	}
 	operatorPolicies = []policy.Policy{

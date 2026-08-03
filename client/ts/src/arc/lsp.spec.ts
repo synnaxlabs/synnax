@@ -7,9 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { url } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
-import { createTestClient } from "@/testutil/client";
+import { createTestClient } from "@/testutil";
 
 interface JSONRPCRequest {
   jsonrpc: "2.0";
@@ -46,6 +47,32 @@ const receiveResponse = async (
   throw new Error(
     `receiveResponse: drained ${MAX_DRAIN} messages without seeing id=${expectedId}`,
   );
+};
+
+/**
+ * Drains messages from the stream until a response for every expected id has
+ * arrived. The server handles concurrent calls concurrently, so responses may
+ * arrive in any order.
+ */
+const receiveResponses = async (
+  stream: LSPReceiver,
+  expectedIds: number[],
+): Promise<Map<number, JSONRPCResponse>> => {
+  const pending = new Set(expectedIds);
+  const responses = new Map<number, JSONRPCResponse>();
+  for (let i = 0; i < MAX_DRAIN && pending.size > 0; i++) {
+    const res = await stream.receive();
+    const msg = JSON.parse(res.content);
+    if (!("method" in msg) && "id" in msg && pending.has(msg.id)) {
+      responses.set(msg.id, msg as JSONRPCResponse);
+      pending.delete(msg.id);
+    }
+  }
+  if (pending.size > 0)
+    throw new Error(
+      `receiveResponses: drained ${MAX_DRAIN} messages without seeing ids=[${[...pending].join(", ")}]`,
+    );
+  return responses;
 };
 
 /** Drains messages from the stream until a JSON-RPC notification with the expected method arrives. */
@@ -257,8 +284,13 @@ describe("Arc LSP", () => {
 
     for (const req of requests) stream.send({ content: JSON.stringify(req) });
 
+    const responses = await receiveResponses(
+      stream,
+      requests.map((req) => req.id),
+    );
     for (const req of requests) {
-      const msg = await receiveResponse(stream, req.id);
+      const msg = responses.get(req.id);
+      if (msg == null) throw new Error(`missing response for id=${req.id}`);
       if ("error" in msg) throw new Error(`LSP error: ${msg.error.message}`);
       receivedMessages.push(msg);
     }
@@ -415,8 +447,7 @@ describe("Arc LSP", () => {
         }),
       });
 
-      const metadata = { is_block: true };
-      const encoded = btoa(JSON.stringify(metadata));
+      const encoded = url.encodeBase64(JSON.stringify({ is_block: true }));
       const blockURI = `arc://block/test123#${encoded}`;
 
       stream.send({
@@ -478,8 +509,7 @@ describe("Arc LSP", () => {
         }),
       });
 
-      const metadata = { is_block: true };
-      const encoded = btoa(JSON.stringify(metadata));
+      const encoded = url.encodeBase64(JSON.stringify({ is_block: true }));
       const blockURI = `arc://block/syntax-error#${encoded}`;
 
       stream.send({
@@ -546,8 +576,7 @@ describe("Arc LSP", () => {
         }),
       });
 
-      const metadata = { is_block: true };
-      const encoded = btoa(JSON.stringify(metadata));
+      const encoded = url.encodeBase64(JSON.stringify({ is_block: true }));
       const blockURI = `arc://block/multiline#${encoded}`;
 
       stream.send({
@@ -608,8 +637,7 @@ describe("Arc LSP", () => {
         }),
       });
 
-      const metadata = { is_block: true };
-      const encoded = btoa(JSON.stringify(metadata));
+      const encoded = url.encodeBase64(JSON.stringify({ is_block: true }));
       const blockURI = `arc://block/change-test#${encoded}`;
 
       stream.send({

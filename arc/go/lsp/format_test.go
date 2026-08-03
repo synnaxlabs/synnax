@@ -14,14 +14,15 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/arc/lsp"
 	. "github.com/synnaxlabs/arc/lsp/testutil"
-	"github.com/synnaxlabs/x/lsp/protocol"
 	. "github.com/synnaxlabs/x/testutil"
+	"go.lsp.dev/protocol"
+	"go.lsp.dev/uri"
 )
 
 var _ = Describe("Formatting", func() {
 	var (
 		server *lsp.Server
-		uri    protocol.DocumentURI
+		uri    uri.URI
 	)
 
 	BeforeEach(func() {
@@ -39,7 +40,7 @@ var _ = Describe("Formatting", func() {
 			}))
 
 			Expect(edits).ToNot(BeNil())
-			Expect(len(edits)).To(Equal(1))
+			Expect(edits).To(HaveLen(1))
 			Expect(edits[0].NewText).To(ContainSubstring("func add(x i32, y i32) i32"))
 			Expect(edits[0].NewText).To(ContainSubstring("return x + y"))
 		})

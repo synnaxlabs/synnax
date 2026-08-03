@@ -10,7 +10,7 @@
 import "@/list/Item.css";
 
 import { type record } from "@synnaxlabs/x";
-import { type ReactElement } from "react";
+import { type ReactElement, useMemo } from "react";
 
 import { Button } from "@/button";
 import { type RenderProp } from "@/component/renderProp";
@@ -40,6 +40,14 @@ export type ItemProps<
 
 export type ItemRenderProp<K extends record.Key> = RenderProp<ItemRenderProps<K>>;
 
+/**
+ * itemNameID returns the DOM id for editable name text rendered inside the list item
+ * with the given key. Item assigns the raw key as the row element's own id, so nested
+ * editable text (e.g. Text.edit rename targets) must carry this derived id to keep
+ * DOM ids unique.
+ */
+export const itemNameID = (itemKey: record.Key): string => `${itemKey}-name`;
+
 export const Item = <K extends record.Key, E extends Button.ElementType = "div">({
   itemKey,
   className,
@@ -55,34 +63,40 @@ export const Item = <K extends record.Key, E extends Button.ElementType = "div">
   hovered,
   style,
   ...rest
-}: ItemProps<K, E>): ReactElement => (
-  <Button.Button
-    // Cast needed because Button is wrapped by Tooltip.wrap which loses generic type info
-    el={el}
-    defaultEl="div"
-    id={itemKey.toString()}
-    variant="text"
-    onClick={(e: any) => {
-      onSelect?.(itemKey);
-      onClick?.(e);
-    }}
-    className={CSS(
-      className,
-      CONTEXT_TARGET,
-      selected && CONTEXT_SELECTED,
-      hovered && CSS.M("hovered"),
-      rightAligned && CSS.M("right-aligned"),
-      highlightHovered && CSS.M("highlight-hover"),
-      draggingOver && CSS.M("dragging-over"),
-      CSS.BE("list", "item"),
-      CSS.selected(selected),
-    )}
-    style={{
-      position: translate != null ? "absolute" : "relative",
+}: ItemProps<K, E>): ReactElement => {
+  const itemStyle = useMemo(
+    () => ({
+      position: translate != null ? ("absolute" as const) : ("relative" as const),
       transform: `translateY(${translate}px)`,
       ...style,
-    }}
-    square={false}
-    {...rest}
-  />
-);
+    }),
+    [translate, style],
+  );
+  return (
+    <Button.Button
+      // Cast needed because Button is wrapped by Tooltip.wrap which loses generic type info
+      el={el}
+      defaultEl="div"
+      id={itemKey.toString()}
+      variant="text"
+      onClick={(e: any) => {
+        onSelect?.(itemKey);
+        onClick?.(e);
+      }}
+      className={CSS(
+        className,
+        CONTEXT_TARGET,
+        selected && CONTEXT_SELECTED,
+        hovered && CSS.M("hovered"),
+        rightAligned && CSS.M("right-aligned"),
+        highlightHovered && CSS.M("highlight-hover"),
+        draggingOver && CSS.M("dragging-over"),
+        CSS.BE("list", "item"),
+        CSS.selected(selected),
+      )}
+      style={itemStyle}
+      square={false}
+      {...rest}
+    />
+  );
+};

@@ -18,6 +18,7 @@ import (
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/runtime/node"
 	"github.com/synnaxlabs/arc/symbol"
+	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/query"
 	. "github.com/synnaxlabs/x/testutil"
@@ -53,8 +54,9 @@ func (m *mockFactory) ModuleName() string { return m.moduleName }
 
 func newTestConfig(ctx context.Context, nodeType string) node.Config {
 	g := graph.Graph{
-		Nodes:     []graph.Node{{Key: "n1", Type: nodeType}},
-		Functions: []graph.Function{{Key: nodeType}},
+		Nodes:     []graph.Node{{Key: "n1"}},
+		Inputs:    map[string]msgpack.EncodedJSON{"n1": {"type": nodeType}},
+		Functions: []ir.Function{{Key: nodeType}},
 	}
 	analyzed, _ := graph.Analyze(ctx, g, symbol.NewRoot(nil, nil))
 	s := node.New(analyzed)
@@ -180,8 +182,9 @@ var _ = Describe("Node", func() {
 			var (
 				irNode = ir.Node{Key: "test", Type: "constant"}
 				g      = graph.Graph{
-					Nodes:     []graph.Node{{Key: "test", Type: "constant"}},
-					Functions: []graph.Function{{Key: "constant"}},
+					Nodes:     []graph.Node{{Key: "test"}},
+					Inputs:    map[string]msgpack.EncodedJSON{"test": {"type": "constant"}},
+					Functions: []ir.Function{{Key: "constant"}},
 				}
 				analyzed, _ = graph.Analyze(ctx, g, nil)
 				s           = node.New(analyzed)

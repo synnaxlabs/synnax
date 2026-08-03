@@ -13,15 +13,15 @@
 
 #include <string>
 
+#include "client/cpp/status/json.gen.h"
 #include "client/cpp/task/types.gen.h"
 #include "x/cpp/json/json.h"
-#include "x/cpp/status/json.gen.h"
 
 namespace synnax::task {
 
 inline StatusDetails StatusDetails::parse(x::json::Parser parser) {
     return StatusDetails{
-        .task = parser.field<Key>("task"),
+        .task = parser.field<Key>("task", 0),
         .running = parser.field<bool>("running"),
         .cmd = parser.field<std::string>("cmd", ""),
         .data = parser.field<std::optional<x::json::json::object_t>>("data"),
@@ -39,7 +39,7 @@ inline x::json::json StatusDetails::to_json() const {
 
 inline Task Task::parse(x::json::Parser parser) {
     return Task{
-        .key = parser.field<Key>("key"),
+        .key = parser.field<Key>("key", 0),
         .name = parser.field<std::string>("name"),
         .type = parser.field<std::string>("type"),
         .config = parser.field<x::json::json::object_t>("config"),

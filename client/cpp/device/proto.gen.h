@@ -15,13 +15,12 @@
 
 #include "client/cpp/device/json.gen.h"
 #include "client/cpp/device/types.gen.h"
-#include "client/cpp/ontology/json.gen.h"
-#include "client/cpp/ontology/proto.gen.h"
+#include "client/cpp/ontology/types.gen.h"
+#include "client/cpp/status/json.gen.h"
+#include "client/cpp/status/proto.gen.h"
 #include "x/cpp/errors/errors.h"
 #include "x/cpp/json/struct.h"
 #include "x/cpp/pb/pb.h"
-#include "x/cpp/status/json.gen.h"
-#include "x/cpp/status/proto.gen.h"
 
 #include "core/pkg/service/device/pb/device.pb.h"
 

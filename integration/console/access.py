@@ -22,6 +22,7 @@ NOT implemented in Console UI (no helpers for these):
 """
 
 from playwright.sync_api import Locator
+from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
 
 import synnax as sy
 from console.context_menu import ContextMenu
@@ -42,6 +43,9 @@ class AccessClient:
         self.ctx_menu = ContextMenu(layout.page)
         self.notifications = NotificationsClient(layout.page)
         self.tree = Tree(layout.page)
+        # Name of the test's project, set by ConsoleCase. Logout clears the
+        # active project, so login() re-selects it to return to the app.
+        self.bootstrap_project: str | None = None
 
     # -------------------------------------------------------------------------
     # Login/Logout
@@ -106,23 +110,61 @@ class AccessClient:
         for _ in range(20):
             sy.sleep(0.5)
 
-            error_status = self.layout.page.locator(".pluto-status--error")
+            error_status = self.layout.page.locator(".pluto--status-error")
             if error_status.count() > 0 and error_status.is_visible():
                 error_text = error_status.inner_text().strip()
                 raise RuntimeError(f"Login failed: {error_text}")
 
             login_form = self.layout.page.locator(".pluto-field__username")
             if login_form.count() == 0 or not login_form.is_visible():
+                self._enter_test_project()
                 return
 
         raise RuntimeError("Login timed out")
+
+    def _enter_test_project(self) -> None:
+        """Select the test's project after login if the Splash screen is shown.
+
+        An active project is required to use the app, and logout clears the
+        active one, so a fresh login lands on the project Splash screen. This
+        selects the test's project to return to the app. A user without
+        project-retrieve permission cannot see the project and stays on the
+        Splash screen.
+        """
+        if self.bootstrap_project is None:
+            return
+        try:
+            self.layout.page.wait_for_selector(
+                ".console-project-splash, .console-palette button",
+                state="visible",
+                timeout=10000,
+            )
+        except PlaywrightTimeoutError:
+            return
+        if not self.layout.page.locator(".console-project-splash").is_visible():
+            return
+        item = (
+            self.layout.page.locator(".console-project-splash__list")
+            .get_by_text(self.bootstrap_project, exact=True)
+            .first
+        )
+        try:
+            item.wait_for(state="visible", timeout=5000)
+        except PlaywrightTimeoutError:
+            return
+        item.click(timeout=5000)
+        self.layout.page.wait_for_selector(
+            ".console-palette button", state="visible", timeout=10000
+        )
 
     def get_current_user(self) -> str | None:
         """Get the username of the currently logged in user.
 
         :returns: The username, or None if not logged in.
         """
-        user_badge = self.layout.page.locator(".console-user-badge")
+        user_badge = self.layout.page.locator(
+            ".pluto-dialog__trigger:has(.pluto-icon--user)"
+        )
         if user_badge.count() > 0 and user_badge.is_visible():
             return user_badge.inner_text().strip()
         return None

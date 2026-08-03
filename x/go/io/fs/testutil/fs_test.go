@@ -83,7 +83,7 @@ var _ = Describe("FS Testutil", func() {
 			before := matchingTempDirs(TempDirPrefix())
 			OpenOS()
 			after := matchingTempDirs(TempDirPrefix())
-			Expect(len(after)).To(Equal(len(before) + 1))
+			Expect(after).To(HaveLen(len(before) + 1))
 		})
 
 		Describe("Cleanup", Ordered, func() {
@@ -92,12 +92,13 @@ var _ = Describe("FS Testutil", func() {
 				createdAt string
 			)
 			BeforeAll(func() {
+				ShouldNotLeakGoroutines()
 				priorDirs = matchingTempDirs(TempDirPrefix())
 			})
 			It("Creates the tempdir while the spec is running", func() {
 				OpenOS()
 				current := matchingTempDirs(TempDirPrefix())
-				Expect(len(current)).To(Equal(len(priorDirs) + 1))
+				Expect(current).To(HaveLen(len(priorDirs) + 1))
 				for _, name := range current {
 					if !slices.Contains(priorDirs, name) {
 						createdAt = filepath.Join(os.TempDir(), name)
@@ -137,7 +138,7 @@ var _ = Describe("FS Testutil", func() {
 			Expect(matchingTempDirs(TempDirPrefix())).To(Equal(before))
 
 			FileSystems["osFS"]()
-			Expect(len(matchingTempDirs(TempDirPrefix()))).To(Equal(len(before) + 1))
+			Expect(matchingTempDirs(TempDirPrefix())).To(HaveLen(len(before) + 1))
 		})
 	})
 

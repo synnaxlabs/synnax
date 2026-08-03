@@ -7,13 +7,18 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { label, ontology, ranger, type Synnax } from "@synnaxlabs/client";
+import {
+  label,
+  NotFoundError,
+  ontology,
+  ranger,
+  type Synnax,
+} from "@synnaxlabs/client";
 import { array, type optional, primitive } from "@synnaxlabs/x";
-import { useCallback, useEffect } from "react";
+import { useEffect } from "react";
 import { z } from "zod";
 
 import { Flux } from "@/flux";
-import { useSyncedRef } from "@/hooks/ref";
 import { Label } from "@/label";
 import { type List } from "@/list";
 import { Ontology } from "@/ontology";
@@ -54,22 +59,33 @@ const BASE_QUERY: Partial<RetrieveQuery> = {
   includeLabels: true,
 };
 
-const retrieveSingle = async ({
+const retrieveCachedSingle = ({
   client,
   store,
   query: { key },
-}: Flux.RetrieveParams<RetrieveQuery, FluxSubStore>) => {
+}: Flux.RetrieveParams<RetrieveQuery, FluxSubStore>): ranger.Range | undefined => {
   const cached = store.ranges.get(key);
-  if (cached != null) {
-    const labels = Label.retrieveCachedLabelsOf(store, ranger.ontologyID(key));
-    const parent = Ontology.retrieveCachedParentID(store, ranger.ontologyID(key));
-    const next: ranger.Payload = { ...cached.payload, labels };
-    if (parent != null) {
-      const cached = store.ranges.get(parent.key);
-      if (cached != null) next.parent = cached.payload;
-    }
-    return client.ranges.sugarOne(next);
+  if (cached == null) return undefined;
+  const labels = Label.retrieveCachedLabelsOf(store, ranger.ontologyID(key));
+  const parent = Ontology.retrieveCachedParentID(store, ranger.ontologyID(key));
+  const next: ranger.Payload = { ...cached.payload, labels };
+  if (parent != null) {
+    const cachedParent = store.ranges.get(parent.key);
+    if (cachedParent != null) next.parent = cachedParent.payload;
   }
+  return client.ranges.sugarOne(next);
+};
+
+const retrieveSingle = async (
+  params: Flux.RetrieveParams<RetrieveQuery, FluxSubStore>,
+) => {
+  const cached = retrieveCachedSingle(params);
+  if (cached != null) return cached;
+  const {
+    client,
+    store,
+    query: { key },
+  } = params;
   const range = await client.ranges.retrieve({ ...BASE_QUERY, keys: [key] });
   const first = range[0];
   store.ranges.set(key, first);
@@ -401,27 +417,13 @@ export const {
   useRetrieve,
   useRetrieveObservable,
   useRetrieveSuspended: useRetrieveSuspense,
+  useEnsureRetrieved,
 } = Flux.createRetrieve<RetrieveQuery, ranger.Range, FluxSubStore>({
   name: RESOURCE_NAME,
   retrieve: retrieveSingle,
+  retrieveCached: retrieveCachedSingle,
   mountListeners: mountRangeListeners,
 });
-
-export const useRetrieveObservableName = ({
-  onChange,
-  ...params
-}: Omit<Flux.UseRetrieveObservableParams<RetrieveQuery, ranger.Range>, "onChange"> & {
-  onChange: (name: string) => void;
-}): Flux.UseRetrieveObservableReturn<RetrieveQuery> => {
-  const onChangeRef = useSyncedRef(onChange);
-  return useRetrieveObservable({
-    ...params,
-    onChange: useCallback((result) => {
-      if (result.variant !== "success") return;
-      onChangeRef.current(result.data.name);
-    }, []),
-  });
-};
 
 export type RetrieveMultipleQuery = {
   keys: ranger.Key[];
@@ -565,10 +567,10 @@ export const useForm = Flux.createForm<FormQuery, typeof formSchema, FluxSubStor
   update: async ({ client, value: getValue, reset, store, rollbacks }) => {
     const value = getValue();
     const parentKey = value.parent;
-    const parentID = primitive.isNonZero(parentKey)
-      ? ranger.ontologyID(parentKey)
-      : undefined;
-    const rng = await client.ranges.create(value, { parent: parentID });
+    const rng = await client.ranges.create({
+      ...value,
+      parent: primitive.isNonZero(parentKey) ? { key: parentKey } : undefined,
+    });
     const labels = await Label.setLabelsFor({
       store,
       client,
@@ -637,8 +639,12 @@ export const useForm = Flux.createForm<FormQuery, typeof formSchema, FluxSubStor
 
 export const useLabels = (
   key: ranger.Key,
+  opts?: Omit<
+    Flux.UseDirectRetrieveParams<Label.LabelsOfQuery, label.Label[]>,
+    "query"
+  >,
 ): Flux.UseDirectRetrieveReturn<label.Label[]> =>
-  Label.useRetrieveLabelsOf({ id: ranger.ontologyID(key) });
+  Label.useRetrieveLabelsOf({ id: ranger.ontologyID(key) }, opts);
 
 export type ListQuery = Omit<ranger.RetrieveRequest, "names">;
 
@@ -664,8 +670,11 @@ export const useList = Flux.createList<
       return true;
     });
   },
-  retrieve: async ({ client, query }) =>
-    await client.ranges.retrieve({ ...BASE_QUERY, ...query }),
+  retrieve: async ({ client, query, store }) => {
+    const ranges = await client.ranges.retrieve({ ...BASE_QUERY, ...query });
+    store.ranges.set(ranges);
+    return ranges;
+  },
   retrieveByKey: async ({ key, ...rest }) =>
     await retrieveSingle({ ...rest, query: { key } }),
   mountListeners: ({
@@ -897,7 +906,7 @@ export interface RenameParams extends Pick<ranger.Payload, "key" | "name"> {}
 export const { useUpdate: useRename } = Flux.createUpdate<RenameParams, FluxSubStore>({
   name: RESOURCE_NAME,
   verbs: Flux.RENAME_VERBS,
-  update: async ({ client, data, store, rollbacks }) => {
+  update: async ({ client, data, store, rollbacks, onOptimisticComplete }) => {
     const { key, name } = data;
     rollbacks.push(
       store.ranges.set(
@@ -906,7 +915,27 @@ export const { useUpdate: useRename } = Flux.createUpdate<RenameParams, FluxSubS
       ),
     );
     rollbacks.push(Ontology.renameFluxResource(store, ranger.ontologyID(key), name));
+    await onOptimisticComplete(data);
     await client.ranges.rename(key, name);
     return data;
   },
+});
+
+const requireRange = (store: FluxSubStore, key: ranger.Key): ranger.Range => {
+  const rng = store.ranges.get(key);
+  if (rng == null) throw new NotFoundError(`Range with key ${key} not found`);
+  return rng;
+};
+
+export interface SelectKeyParams {
+  key: ranger.Key;
+}
+
+export const [useSelectName, useGetName] = Flux.createSelector<
+  FluxSubStore,
+  SelectKeyParams,
+  string
+>({
+  subscribe: (store, { key }, notify) => store.ranges.onSet(notify, key),
+  select: (store, { key }) => requireRange(store, key).name,
 });

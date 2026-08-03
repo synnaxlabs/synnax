@@ -21,7 +21,7 @@ import (
 
 func TestAuth(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Auth Suite")
+	RunSpecs(t, "Service Auth Suite")
 }
 
 var _ = ShouldNotLeakGoroutinesPerSpec()
@@ -29,5 +29,6 @@ var _ = ShouldNotLeakGoroutinesPerSpec()
 var db *gorp.DB
 
 var _ = BeforeSuite(func() {
+	ShouldNotLeakGoroutines()
 	db = DeferClose(gorp.Wrap(memkv.New()))
 })

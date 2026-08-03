@@ -7,6 +7,8 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+from typing import TYPE_CHECKING
+
 from playwright.sync_api import Locator, expect
 from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
 
@@ -16,6 +18,9 @@ from console.notifications import NotificationsClient
 from console.tree import Tree
 from framework.run_dir import resolve_results_path
 from x.color import Color
+
+if TYPE_CHECKING:
+    from console.project import ProjectClient
 
 
 class RangesClient:
@@ -35,8 +40,10 @@ class RangesClient:
     def __init__(
         self,
         layout: LayoutClient,
+        project: "ProjectClient",
     ):
         self.layout = layout
+        self.project = project
         self.ctx_menu = ContextMenu(layout.page)
         self.notifications = NotificationsClient(layout.page)
         self.tree = Tree(layout.page)
@@ -114,7 +121,7 @@ class RangesClient:
             name: Name of the range to search for and open.
         """
         self.layout.search_palette(name)
-        name_input = self.layout.page.locator("input[placeholder='Name']").first
+        name_input = self.layout.page.locator("input[placeholder='Name']:visible").first
         name_input.wait_for(state="visible", timeout=5000)
         expect(name_input).to_have_value(name, timeout=5000)
 
@@ -361,10 +368,32 @@ class RangesClient:
         self.layout.close_tab(name)
 
     def open_overview_from_explorer(self, name: str) -> None:
-        """Open the range overview/details page from explorer."""
+        """Open the range overview/details page from the explorer.
+
+        Clicking an explorer row places the range's overview layout, which opens
+        a new overview tab or focuses an existing one. When an overview tab for
+        the range is already open, the row click does not reliably switch the
+        active tab to it (the explorer tab can stay focused), leaving the
+        overview's Name field hidden. Focus an already-open tab directly when
+        present, fall back to the row click otherwise, and retry until the
+        overview for this range is showing.
+        """
+        if self.is_overview_showing(name):
+            return
         item = self.get_explorer_item(name)
         item.wait_for(state="visible", timeout=5000)
-        item.dblclick()
+        for attempt in range(3):
+            tab = self.layout.get_tab(name)
+            if tab.count() > 0:
+                tab.click()
+            else:
+                item.click()
+            try:
+                self.wait_for_overview(name)
+                return
+            except PlaywrightTimeoutError:
+                if attempt == 2:
+                    raise
 
     def navigate_to_parent(self, parent_name: str) -> None:
         """Navigate to parent range from current range overview.
@@ -379,7 +408,7 @@ class RangesClient:
 
     def wait_for_overview(self, name: str) -> None:
         """Wait for the range overview to show a specific range."""
-        name_input = self.layout.page.locator("input[placeholder='Name']").first
+        name_input = self.layout.page.locator("input[placeholder='Name']:visible").first
         name_input.wait_for(state="visible", timeout=5000)
         expect(name_input).to_have_value(name, timeout=5000)
 
@@ -392,7 +421,7 @@ class RangesClient:
         Returns:
             True if the overview shows the range name in the header.
         """
-        header = self.layout.page.locator("input[placeholder='Name']").first
+        header = self.layout.page.locator("input[placeholder='Name']:visible").first
         if not header.is_visible():
             return False
         return header.input_value() == name
@@ -553,7 +582,7 @@ class RangesClient:
         Args:
             new_name: The new name for the range.
         """
-        name_input = self.layout.page.locator("input[placeholder='Name']").first
+        name_input = self.layout.page.locator("input[placeholder='Name']:visible").first
         name_input.wait_for(state="visible", timeout=5000)
         name_input.click()
         name_input.fill(new_name)
@@ -1252,15 +1281,14 @@ class RangesClient:
     def snapshot_to_active_range(self, name: str, range_name: str) -> None:
         """Snapshot a page or task to the active range via context menu.
 
-        Searches the workspace tree first (for schematics, line plots, etc.),
+        Searches the project tree first (for schematics, line plots, etc.),
         then falls back to the task toolbar (for hardware tasks).
 
         Args:
             name: Name of the page or task to snapshot.
             range_name: Name of the active range (for menu text matching).
         """
-        self.layout.show_resource_toolbar("workspace")
-        self.tree.expand_root("workspace:")
+        self.project.expand_active()
         page_item = (
             self.layout.page.locator(".pluto-tree__item").filter(has_text=name).first
         )

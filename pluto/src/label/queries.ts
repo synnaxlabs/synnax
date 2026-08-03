@@ -64,7 +64,7 @@ export const matchRelationship = (rel: ontology.Relationship, id: ontology.ID) =
     type: label.LABELED_BY_ONTOLOGY_RELATIONSHIP_TYPE,
   });
 
-type LabelsOfQuery = {
+export type LabelsOfQuery = {
   id: ontology.ID;
 };
 
@@ -83,7 +83,7 @@ interface SetLabelsForParams extends Omit<
     },
     FluxSubStore
   >,
-  "setStatus"
+  "setStatus" | "onOptimisticComplete"
 > {}
 
 export const setLabelsFor = async ({

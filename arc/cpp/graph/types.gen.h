@@ -12,6 +12,7 @@
 #pragma once
 
 #include <string>
+#include <unordered_map>
 #include <utility>
 #include <vector>
 
@@ -25,18 +26,15 @@
 namespace arc::graph {
 
 struct Node;
-struct Viewport;
+struct Edge;
 struct Graph;
 
 /// @brief Node is a visual node in the Arc graph editor representing a function
-/// instantiation with position data.
+/// instantiation with position data. The function type and input parameter values are
+/// stored in the graph's inputs map, keyed by the node key.
 struct Node {
     /// @brief key is the unique identifier for this node instance.
     std::string key;
-    /// @brief type is the function type being instantiated.
-    std::string type;
-    /// @brief config contains configuration parameter values as a JSON object.
-    x::json::json::object_t config;
     /// @brief position is the canvas position (x, y) for visual layout.
     ::x::spatial::XY position;
 
@@ -49,29 +47,32 @@ struct Node {
     from_proto(const ::arc::graph::pb::Node &pb);
 };
 
-/// @brief Viewport is the camera state for viewing the Arc graph editor canvas.
-struct Viewport {
-    /// @brief position is the camera pan offset (x, y).
-    ::x::spatial::XY position;
-    /// @brief zoom is the zoom level where 1.0 equals 100%.
-    double zoom = 0;
+/// @brief Edge is a dataflow connection between node parameters carrying a stable
+/// identifier. The key persists across endpoint edits, distinguishing the editable
+/// graph edge from the keyless ir.Edge consumed by the compiler.
+struct Edge : public ::arc::ir::Edge {
+    /// @brief key is the stable identifier for this edge within the graph.
+    std::string key;
 
-    static Viewport parse(x::json::Parser parser);
+    static Edge parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
 
-    using proto_type = ::arc::graph::pb::Viewport;
-    [[nodiscard]] std::pair<::arc::graph::pb::Viewport, x::errors::Error>
-    to_proto() const;
-    static std::pair<Viewport, x::errors::Error>
-    from_proto(const ::arc::graph::pb::Viewport &pb);
+    using proto_type = ::arc::graph::pb::Edge;
+    [[nodiscard]] std::pair<::arc::graph::pb::Edge, x::errors::Error> to_proto() const;
+    static std::pair<Edge, x::errors::Error>
+    from_proto(const ::arc::graph::pb::Edge &pb);
 };
 
+/// @brief Nodes is a collection of visual nodes in an Arc graph.
 struct Nodes : private std::vector<Node> {
     using Base = std::vector<Node>;
 
     // Inherit constructors - these are instantiated at point of use, not declaration
     using Base::Base;
-    Nodes() = default;
+    // The default constructor is defined out-of-line below so it instantiates the
+    // element type's destructor only after the element type is complete; the element
+    // may be forward-declared here to break a reference cycle.
+    Nodes();
 
     // Container interface
     using Base::begin;
@@ -117,17 +118,75 @@ struct Nodes : private std::vector<Node> {
     [[nodiscard]] x::json::json to_json() const;
 };
 
+/// @brief Edges is a collection of graph edges in an Arc graph.
+struct Edges : private std::vector<Edge> {
+    using Base = std::vector<Edge>;
+
+    // Inherit constructors - these are instantiated at point of use, not declaration
+    using Base::Base;
+    // The default constructor is defined out-of-line below so it instantiates the
+    // element type's destructor only after the element type is complete; the element
+    // may be forward-declared here to break a reference cycle.
+    Edges();
+
+    // Container interface
+    using Base::begin;
+    using Base::capacity;
+    using Base::cbegin;
+    using Base::cend;
+    using Base::const_iterator;
+    using Base::const_reference;
+    using Base::const_reverse_iterator;
+    using Base::crbegin;
+    using Base::crend;
+    using Base::difference_type;
+    using Base::empty;
+    using Base::end;
+    using Base::iterator;
+    using Base::max_size;
+    using Base::rbegin;
+    using Base::reference;
+    using Base::rend;
+    using Base::reserve;
+    using Base::reverse_iterator;
+    using Base::shrink_to_fit;
+    using Base::size;
+    using Base::size_type;
+    using Base::value_type;
+    using Base::operator[];
+    using Base::assign;
+    using Base::at;
+    using Base::back;
+    using Base::clear;
+    using Base::data;
+    using Base::emplace;
+    using Base::emplace_back;
+    using Base::erase;
+    using Base::front;
+    using Base::insert;
+    using Base::pop_back;
+    using Base::push_back;
+    using Base::resize;
+    using Base::swap;
+
+    static Edges parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
 /// @brief Graph is a visual dataflow graph representation combining IR elements with
 /// canvas layout for the Arc graph editor.
 struct Graph {
-    /// @brief viewport is the current camera state for the graph view.
-    Viewport viewport;
     /// @brief functions contains function definitions available in this graph.
-    ::arc::ir::Functions functions;
+    ::arc::ir::Functions functions = {};
     /// @brief edges contains dataflow connections between node parameters.
-    ::arc::ir::Edges edges;
+    Edges edges = {};
     /// @brief nodes contains visual nodes with canvas positions.
-    Nodes nodes;
+    Nodes nodes = {};
+    /// @brief inputs contains per-node inputs keyed by node key. Each value is a JSON
+    /// object holding the node's function type under "type" plus its input parameter
+    /// values. The wire format stores it as an opaque record; the client types it per
+    /// function.
+    std::unordered_map<std::string, x::json::json::object_t> inputs = {};
 
     static Graph parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
@@ -137,4 +196,8 @@ struct Graph {
     static std::pair<Graph, x::errors::Error>
     from_proto(const ::arc::graph::pb::Graph &pb);
 };
+
+inline Nodes::Nodes() = default;
+
+inline Edges::Edges() = default;
 }

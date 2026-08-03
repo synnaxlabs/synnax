@@ -13,8 +13,8 @@ import (
 	"context"
 
 	"github.com/google/uuid"
-	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
+	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
 )
@@ -52,10 +52,13 @@ func (w Writer) create(ctx context.Context, u User) (User, error) {
 	if exists {
 		return User{}, auth.ErrRepeatedUsername
 	}
+	if err := u.Validate(); err != nil {
+		return User{}, err
+	}
 	if err := w.table.NewCreate().Entry(&u).Exec(ctx, w.tx); err != nil {
 		return User{}, err
 	}
-	if err := w.otg.DefineResource(ctx, OntologyID(u.Key)); err != nil {
+	if err := w.otg.DefineResources(ctx, u.OntologyID()); err != nil {
 		return User{}, err
 	}
 	return u, nil
@@ -116,5 +119,5 @@ func (w Writer) Delete(ctx context.Context, keys ...Key) error {
 		}).Exec(ctx, w.tx); err != nil {
 		return err
 	}
-	return w.otg.DeleteManyResources(ctx, OntologyIDsFromKeys(keys))
+	return w.otg.DeleteResources(ctx, OntologyIDsFromKeys(keys)...)
 }

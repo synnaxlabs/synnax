@@ -15,7 +15,8 @@ import {
 import { array } from "@synnaxlabs/x";
 import { z } from "zod/v4";
 
-import { type Arc, arcZ, type Key, keyZ, type New, newZ } from "@/arc/types.gen";
+import { type Action, dispatchReqZ } from "@/arc/actions.gen";
+import { type Arc, arcZ, type Key, keyZ, type New } from "@/arc/types.gen";
 import { checkForMultipleOrNoResults } from "@/util/retrieve";
 
 export const SET_CHANNEL_NAME = "sy_arc_set";
@@ -29,10 +30,10 @@ const retrieveReqZ = z.object({
   offset: z.int().optional(),
   includeStatus: z.boolean().optional(),
 });
-const createReqZ = z.object({ arcs: newZ.array() });
+const createReqZ = z.object({ arcs: arcZ.array() });
 const deleteReqZ = z.object({ keys: keyZ.array() });
 
-const retrieveResZ = z.object({ arcs: array.nullishToEmpty(arcZ) });
+const retrieveResZ = z.object({ arcs: arcZ.array().default(() => []) });
 const createResZ = z.object({ arcs: arcZ.array() });
 const emptyResZ = z.object({});
 
@@ -55,13 +56,16 @@ const nameRetrieveRequestZ = z
   })
   .transform(({ name, includeStatus }) => ({ names: [name], includeStatus }));
 
-export const singleRetrieveArgsZ = z.union([keyRetrieveRequestZ, nameRetrieveRequestZ]);
+export const singleRetrieveParamsZ = z.union([
+  keyRetrieveRequestZ,
+  nameRetrieveRequestZ,
+]);
 
-export type SingleRetrieveArgs = z.input<typeof singleRetrieveArgsZ>;
+export type SingleRetrieveParams = z.input<typeof singleRetrieveParamsZ>;
 
-const retrieveArgsZ = z.union([singleRetrieveArgsZ, retrieveReqZ]);
+const retrieveParamsZ = z.union([singleRetrieveParamsZ, retrieveReqZ]);
 
-export type RetrieveArgs = z.input<typeof retrieveArgsZ>;
+export type RetrieveParams = z.input<typeof retrieveParamsZ>;
 
 export class Client {
   private readonly client: UnaryClient;
@@ -85,17 +89,17 @@ export class Client {
     return isMany ? res.arcs : res.arcs[0];
   }
 
-  async retrieve(args: SingleRetrieveArgs): Promise<Arc>;
-  async retrieve(args: RetrieveArgs): Promise<Arc[]>;
-  async retrieve(args: RetrieveArgs): Promise<Arc | Arc[]> {
-    const isSingle = "key" in args || "name" in args;
+  async retrieve(params: SingleRetrieveParams): Promise<Arc>;
+  async retrieve(params: RetrieveParams): Promise<Arc[]>;
+  async retrieve(params: RetrieveParams): Promise<Arc | Arc[]> {
+    const isSingle = "key" in params || "name" in params;
     const res = await this.client.send(
       "/arc/retrieve",
-      args,
-      retrieveArgsZ,
+      params,
+      retrieveParamsZ,
       retrieveResZ,
     );
-    checkForMultipleOrNoResults("Arc", args, res.arcs, isSingle);
+    checkForMultipleOrNoResults("Arc", params, res.arcs, isSingle);
     return isSingle ? res.arcs[0] : res.arcs;
   }
 
@@ -110,5 +114,16 @@ export class Client {
 
   async openLSP(): Promise<Stream<typeof lspMessageZ, typeof lspMessageZ>> {
     return await this.streamClient.stream("/arc/lsp", lspMessageZ, lspMessageZ);
+  }
+
+  /** dispatch relays a sequence of collaborative-edit actions for the arc with the given
+   * key to the other clients editing it. */
+  async dispatch(key: Key, dispatchKey: string, actions: Action[]): Promise<void> {
+    await this.client.send(
+      "/arc/dispatch",
+      { key, dispatchKey, actions },
+      dispatchReqZ,
+      emptyResZ,
+    );
   }
 }

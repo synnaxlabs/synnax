@@ -33,7 +33,7 @@ import {
   type Payload,
   payloadZ,
 } from "@/ranger/types.gen";
-import { type CreateOptions, type Writer } from "@/ranger/writer";
+import { type Writer } from "@/ranger/writer";
 import { checkForMultipleOrNoResults } from "@/util/retrieve";
 
 export const SET_CHANNEL_NAME = "sy_range_set";
@@ -178,7 +178,7 @@ const retrieveRequestZ = z.object({
 
 export type RetrieveRequest = z.infer<typeof retrieveRequestZ>;
 
-const retrieveArgsZ = retrieveRequestZ
+const retrieveParamsZ = retrieveRequestZ
   .or(keyZ.array().transform((keys) => ({ keys })))
   .or(keyZ.transform((key) => ({ keys: [key] })))
   .or(z.string().transform((name) => ({ names: [name] })))
@@ -190,9 +190,9 @@ const retrieveArgsZ = retrieveRequestZ
   )
   .or(TimeRange.z.transform((timeRange) => ({ overlapsWith: timeRange })));
 
-export type RetrieveArgs = z.input<typeof retrieveArgsZ>;
+export type RetrieveParams = z.input<typeof retrieveParamsZ>;
 
-const retrieveResZ = z.object({ ranges: array.nullishToEmpty(payloadZ) });
+const retrieveResZ = z.object({ ranges: payloadZ.array().default(() => []) });
 
 export class Client {
   readonly type: string = "range";
@@ -225,13 +225,11 @@ export class Client {
     this.createKVClient = createKVClient;
   }
 
-  async create(range: New, options?: CreateOptions): Promise<Range>;
-  async create(ranges: New[], options?: CreateOptions): Promise<Range[]>;
-  async create(ranges: New | New[], options?: CreateOptions): Promise<Range | Range[]> {
+  async create(range: New): Promise<Range>;
+  async create(ranges: New[]): Promise<Range[]>;
+  async create(ranges: New | New[]): Promise<Range | Range[]> {
     const single = !Array.isArray(ranges);
-    const res = this.sugarMany(
-      await this.writer.create(array.toArray(ranges), options),
-    );
+    const res = this.sugarMany(await this.writer.create(array.toArray(ranges)));
     return single ? res[0] : res;
   }
 
@@ -247,12 +245,12 @@ export class Client {
   async retrieve(params: Key[] | Name[]): Promise<Range[]>;
   async retrieve(params: CrudeTimeRange): Promise<Range[]>;
   async retrieve(params: RetrieveRequest): Promise<Range[]>;
-  async retrieve(params: RetrieveArgs): Promise<Range | Range[]> {
+  async retrieve(params: RetrieveParams): Promise<Range | Range[]> {
     const isSingle = typeof params === "string";
     const { ranges } = await this.unaryClient.send(
       "/range/retrieve",
       params,
-      retrieveArgsZ,
+      retrieveParamsZ,
       retrieveResZ,
     );
     checkForMultipleOrNoResults("Range", params, ranges, isSingle);

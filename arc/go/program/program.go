@@ -11,8 +11,8 @@
 //
 // A Program combines an intermediate representation (IR) with compiled WebAssembly
 // bytecode, representing a complete executable Arc program. Programs are the final
-// output of the Arc compilation pipeline and can be serialized for storage or
-// executed by a WebAssembly runtime.
+// output of the Arc compilation pipeline and can be serialized for storage or executed
+// by a WebAssembly runtime.
 //
 // # Compilation Pipeline
 //
@@ -26,6 +26,7 @@
 //
 //	import (
 //	    "context"
+//
 //	    "github.com/synnaxlabs/arc/text"
 //	)
 //
@@ -60,14 +61,15 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/synnaxlabs/arc/ir"
+	"github.com/samber/lo"
+	"github.com/synnaxlabs/x/tree"
 )
 
 // IsZero reports whether the Program is empty (uninitialized or contains no content).
 //
-// A Program is considered zero if it has no compiled WASM bytecode and the embedded
-// IR is also zero. This is useful for validating that compilation succeeded and
-// produced a valid program.
+// A Program is considered zero if it has no compiled WASM bytecode and the embedded IR
+// is also zero. This is useful for validating that compilation succeeded and produced a
+// valid program.
 //
 // Example:
 //
@@ -78,38 +80,32 @@ import (
 //	if prog.IsZero() {
 //	    return errors.New("compilation produced empty program")
 //	}
-func (m Program) IsZero() bool { return len(m.WASM) == 0 && m.IR.IsZero() }
+func (p Program) IsZero() bool { return len(p.WASM) == 0 && p.IR.IsZero() }
 
-// String returns a human-readable string representation of the program.
-// The output includes a summary of the WASM bytecode (size and SHA256 hash)
-// and the full IR tree structure with functions, nodes, edges, and the
-// Layer-2 execution shell rooted at IR.Root.
-func (m Program) String() string {
+// String returns a human-readable string representation of the program. The output
+// includes a summary of the WASM bytecode (size and SHA256 hash) and the full IR tree
+// structure with functions, nodes, edges, and the Layer-2 execution shell rooted at
+// IR.Root.
+func (p Program) String() string {
 	var b strings.Builder
 	b.WriteString("Arc Program\n")
 
-	hasContent := len(m.Functions) > 0 || len(m.Nodes) > 0 ||
-		len(m.Edges) > 0 || !m.Root.IsZero()
+	hasContent := len(p.Functions) > 0 || len(p.Nodes) > 0 ||
+		len(p.Edges) > 0 || !p.Root.IsZero()
 
-	// WASM summary
-	b.WriteString(ir.TreePrefix(!hasContent))
-	b.WriteString(m.wasmSummary())
+	b.WriteString(tree.Prefix(!hasContent))
+	if len(p.WASM) == 0 {
+		b.WriteString("WASM: (none)")
+	} else {
+		hash := sha256.Sum256(p.WASM)
+		shortHash := hex.EncodeToString(hash[:])[:8]
+		lo.Must(fmt.Fprintf(&b, "WASM: %d bytes (sha256: %s...)", len(p.WASM), shortHash))
+	}
 	b.WriteString("\n")
 
-	// Delegate to IR for remaining content
 	if hasContent {
-		b.WriteString(m.IR.String())
+		b.WriteString(p.IR.String())
 	}
 
 	return b.String()
-}
-
-// wasmSummary returns a summary of the WASM bytecode.
-func (m Program) wasmSummary() string {
-	if len(m.WASM) == 0 {
-		return "WASM: (none)"
-	}
-	hash := sha256.Sum256(m.WASM)
-	shortHash := hex.EncodeToString(hash[:])[:8]
-	return fmt.Sprintf("WASM: %d bytes (sha256: %s...)", len(m.WASM), shortHash)
 }

@@ -15,10 +15,10 @@ import (
 
 	"github.com/synnaxlabs/synnax/pkg/api/auth"
 	"github.com/synnaxlabs/synnax/pkg/api/config"
-	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/service/device"
+	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	xconfig "github.com/synnaxlabs/x/config"
@@ -28,7 +28,6 @@ import (
 )
 
 type Service struct {
-	db       *gorp.DB
 	access   *rbac.Service
 	device   *device.Service
 	status   *status.Service
@@ -41,11 +40,10 @@ func NewService(cfgs ...config.LayerConfig) (*Service, error) {
 		return nil, err
 	}
 	return &Service{
-		db:       cfg.Distribution.DB,
 		device:   cfg.Service.Device,
 		status:   cfg.Service.Status,
 		access:   cfg.Service.RBAC,
-		ontology: cfg.Distribution.Ontology,
+		ontology: cfg.Service.Ontology,
 	}, nil
 }
 
@@ -60,25 +58,20 @@ type (
 
 func (s *Service) Create(
 	ctx context.Context,
+	tx gorp.Tx,
 	req CreateRequest,
-) (res CreateResponse, _ error) {
-	if err := s.access.Enforce(ctx, access.Request{
+) (CreateResponse, error) {
+	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionCreate,
-		Objects: device.OntologyIDsFromDevices(req.Devices),
+		Objects: []ontology.ID{{Type: ontology.ResourceTypeDevice}},
 	}); err != nil {
-		return res, err
+		return CreateResponse{}, err
 	}
-	return res, s.db.WithTx(ctx, func(tx gorp.Tx) error {
-		w := s.device.NewWriter(tx)
-		for i := range req.Devices {
-			if err := w.Create(ctx, &req.Devices[i]); err != nil {
-				return err
-			}
-		}
-		res.Devices = req.Devices
-		return nil
-	})
+	if err := s.device.NewWriter(tx).CreateMany(ctx, &req.Devices); err != nil {
+		return CreateResponse{}, err
+	}
+	return CreateResponse(req), nil
 }
 
 type RetrieveRequest struct {
@@ -97,13 +90,13 @@ type RetrieveRequest struct {
 }
 
 type RetrieveResponse struct {
-	Devices []device.Device `json:"devices" msgpack:"devices"`
+	Devices []device.Device `json:"devices,omitzero" msgpack:"devices,omitzero"`
 }
 
 func (s *Service) Retrieve(
 	ctx context.Context,
 	req RetrieveRequest,
-) (res RetrieveResponse, _ error) {
+) (RetrieveResponse, error) {
 	var (
 		hasSearch    = len(req.SearchTerm) > 0
 		hasKeys      = len(req.Keys) > 0
@@ -143,6 +136,7 @@ func (s *Service) Retrieve(
 	if hasRacks {
 		q = q.Where(device.MatchRacks(req.Racks...))
 	}
+	var res RetrieveResponse
 	retErr := q.Entries(&res.Devices).Exec(ctx, nil)
 
 	if req.IncludeStatus {
@@ -151,14 +145,14 @@ func (s *Service) Retrieve(
 			Where(status.MatchKeys[device.StatusDetails](ontology.IDsToKeys(device.OntologyIDsFromDevices(res.Devices))...)).
 			Entries(&statuses).
 			Exec(ctx, nil); err != nil {
-			return res, err
+			return RetrieveResponse{}, err
 		}
 		for i, stat := range statuses {
 			res.Devices[i].Status = &stat
 		}
 	}
 
-	if err := s.access.Enforce(ctx, access.Request{
+	if err := s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionRetrieve,
 		Objects: device.OntologyIDsFromDevices(res.Devices),
@@ -172,7 +166,7 @@ func (s *Service) Retrieve(
 		for i, d := range res.Devices {
 			var parent ontology.Resource
 			err := s.ontology.NewRetrieve().
-				WhereIDs(device.OntologyID(d.Key)).
+				WhereIDs(d.OntologyID()).
 				TraverseTo(ontology.ParentsTraverser).
 				Limit(1).
 				ExcludeFieldData(true).
@@ -188,7 +182,10 @@ func (s *Service) Retrieve(
 			res.Devices[i].Parent = &pid
 		}
 	}
-	return res, retErr
+	if retErr != nil {
+		return RetrieveResponse{}, retErr
+	}
+	return res, nil
 }
 
 type DeleteRequest struct {
@@ -197,22 +194,21 @@ type DeleteRequest struct {
 
 func (s *Service) Delete(
 	ctx context.Context,
+	tx gorp.Tx,
 	req DeleteRequest,
-) (res types.Nil, _ error) {
-	if err := s.access.Enforce(ctx, access.Request{
+) (types.Nil, error) {
+	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionDelete,
 		Objects: device.OntologyIDs(req.Keys),
 	}); err != nil {
-		return res, err
+		return types.Nil{}, err
 	}
-	return res, s.db.WithTx(ctx, func(tx gorp.Tx) error {
-		w := s.device.NewWriter(tx)
-		for _, k := range req.Keys {
-			if err := w.Delete(ctx, k); err != nil {
-				return err
-			}
+	w := s.device.NewWriter(tx)
+	for _, k := range req.Keys {
+		if err := w.Delete(ctx, k); err != nil {
+			return types.Nil{}, err
 		}
-		return nil
-	})
+	}
+	return types.Nil{}, nil
 }

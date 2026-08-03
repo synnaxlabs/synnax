@@ -13,56 +13,83 @@ import (
 	"context"
 
 	"github.com/google/uuid"
-	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
-	"github.com/synnaxlabs/synnax/pkg/service/log/migrations"
+	v2 "github.com/synnaxlabs/synnax/pkg/service/log/versions/v2"
+	v3 "github.com/synnaxlabs/synnax/pkg/service/log/versions/v3"
+	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/gorp"
 )
 
-func (s *Service) Import(
-	ctx context.Context,
-	tx gorp.Tx,
-	env imex.Envelope,
-) (string, error) {
-	// In the future, when the log is strongly-typed in ORC, this call will return a
-	// Log directly and we can stamp the name + a fresh key onto it before handing it
-	// to the writer without doing msgpack.EncodedJSON(migrated.ToMap()).
-	migrated, err := migrations.Migrate(env.Version, env.Data)
-	if err != nil {
-		return "", err
-	}
-	l := Log{
-		Key:  uuid.New(),
-		Name: env.Name,
-		Data: msgpack.EncodedJSON(migrated.ToMap()),
-	}
-	if err := s.NewWriter(tx).Create(ctx, uuid.Nil, &l); err != nil {
-		return "", err
-	}
-	return l.Key.String(), nil
-}
+// Version is the per-schema version stamped on every exported log envelope and the
+// highest version the importer accepts.
+const Version imex.Version = 2
 
-func (s *Service) Export(ctx context.Context, key string) (imex.Envelope, error) {
-	k, err := uuid.Parse(key)
+var _ imex.ImportExporter = (*Service)(nil)
+
+// Export retrieves the log identified by id and serializes it as an imex.Envelope
+// stamped with Version. It returns query.ErrNotFound if no log exists for id.Key.
+func (s *Service) Export(ctx context.Context, id ontology.ID) (imex.Envelope, error) {
+	key, err := uuid.Parse(id.Key)
 	if err != nil {
 		return imex.Envelope{}, err
 	}
 	var l Log
-	if err := s.NewRetrieve().Where(MatchKeys(k)).Entry(&l).Exec(ctx, nil); err != nil {
+	if err = s.NewRetrieve().
+		Where(MatchKeys(key)).
+		Entry(&l).
+		Exec(ctx, nil); err != nil {
 		return imex.Envelope{}, err
 	}
-	// In the future, when the log is strongly-typed in ORC, we can just return an
-	// imex.Envelope at this point with the Data field determined by an Oracle-generated
-	// method log.Data() that returns a map[string]any.
-	var d migrations.LatestData
-	if err := l.Data.Unmarshal(&d); err != nil {
+	env := imex.Envelope{Version: Version, Type: string(s.Type()), Name: l.Name}
+	if err = imex.Encode(&env, l); err != nil {
 		return imex.Envelope{}, err
 	}
-	return imex.Envelope{
-		Version: migrations.LatestVersion,
-		Type:    string(ontology.ResourceTypeLog),
-		Name:    l.Name,
-		Data:    d.ToMap(),
-	}, nil
+	return env, nil
+}
+
+// Import decodes the envelope into a Log and persists it on tx, returning the
+// ontology.ID of the newly-created log. The exported key is discarded and a fresh one
+// is generated so that importing always materializes a new resource rather than
+// overwriting an existing log with a colliding key. When opts.Project is non-zero the
+// log is created within that project exactly as a regular create would be; otherwise
+// the log is created without a project. Envelopes older than Version are legacy
+// camelCase Console exports and are lifted forward through the migration chain; an
+// envelope newer than Version is rejected with a path-scoped validation error.
+func (s *Service) Import(
+	ctx context.Context,
+	tx gorp.Tx,
+	env imex.Envelope,
+	opts imex.ImportOptions,
+) (ontology.ID, error) {
+	l, err := s.decodeImport(ctx, env)
+	if err != nil {
+		return ontology.ID{}, err
+	}
+	l.Key = uuid.Nil
+	// env.Name is the resolved resource name: the body's name when present, or the
+	// caller-supplied file name fallback applied by the imex service. The two agree
+	// whenever the body carries a name, so this only matters for nameless bodies.
+	l.Name = env.Name
+	if err = s.NewWriter(tx).Create(ctx, opts.Project, &l); err != nil {
+		return ontology.ID{}, err
+	}
+	return l.OntologyID(), nil
+}
+
+func (s *Service) decodeImport(ctx context.Context, env imex.Envelope) (Log, error) {
+	switch {
+	case env.Version == Version:
+		return imex.Decode[Log](ctx, env)
+	case env.Version < Version:
+		body, err := imex.Decode[msgpack.EncodedJSON](ctx, env)
+		if err != nil {
+			return Log{}, err
+		}
+		return v3.MigrateLog(ctx, v2.Log{Name: env.Name, Data: body})
+	default:
+		return Log{}, imex.NewErrUnsupportedVersion(
+			string(s.Type()), env.Version, Version,
+		)
+	}
 }

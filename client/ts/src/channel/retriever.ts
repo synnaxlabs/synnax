@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type UnaryClient } from "@synnaxlabs/freighter";
-import { array, type CrudeTimeSpan, DataType, debounce, zod } from "@synnaxlabs/x";
+import { type CrudeTimeSpan, DataType, debounce, zod } from "@synnaxlabs/x";
 import { Mutex } from "async-mutex";
 import { z } from "zod";
 
@@ -41,7 +41,7 @@ export type RetrieveRequest = z.input<typeof reqZ>;
 export type RetrieveOptions = Omit<RetrieveRequest, "keys" | "names" | "search">;
 export type PageOptions = Omit<RetrieveOptions, "offset" | "limit">;
 
-const resZ = z.object({ channels: array.nullishToEmpty(payloadZ) });
+const resZ = z.object({ channels: payloadZ.array().default(() => []) });
 
 export const analyzeParams = (
   channels: Params,

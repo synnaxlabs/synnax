@@ -15,8 +15,8 @@ import (
 	"iter"
 
 	"github.com/samber/lo"
-	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
-	"github.com/synnaxlabs/synnax/pkg/distribution/search"
+	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/search"
 	xchange "github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/gorp"
 	xiter "github.com/synnaxlabs/x/iter"
@@ -31,9 +31,7 @@ func OntologyID(key Key) ontology.ID {
 
 // OntologyIDsFromDevices returns the ontology IDs for the given devices.
 func OntologyIDsFromDevices(devices []Device) []ontology.ID {
-	return lo.Map(devices, func(d Device, _ int) ontology.ID {
-		return OntologyID(d.Key)
-	})
+	return lo.Map(devices, func(d Device, _ int) ontology.ID { return d.OntologyID() })
 }
 
 // OntologyIDs returns the ontology IDs for the given keys.
@@ -43,11 +41,7 @@ func OntologyIDs(keys []Key) []ontology.ID {
 
 // KeysFromOntologyIDs returns the keys for the given ontology IDs.
 func KeysFromOntologyIDs(ids []ontology.ID) []Key {
-	keys := make([]Key, len(ids))
-	for i, id := range ids {
-		keys[i] = id.Key
-	}
-	return keys
+	return lo.Map(ids, func(id ontology.ID, _ int) Key { return id.Key })
 }
 
 var schema = zyn.Object(map[string]zyn.Schema{
@@ -61,7 +55,7 @@ var schema = zyn.Object(map[string]zyn.Schema{
 })
 
 func newResource(d Device) ontology.Resource {
-	return ontology.NewResource(schema, OntologyID(d.Key), d.Name, d)
+	return ontology.NewResource(schema, d.OntologyID(), d.Name, d)
 }
 
 var (
@@ -74,9 +68,6 @@ type change = xchange.Change[Key, Device]
 
 // Type returns the type of the device ontology service.
 func (s *Service) Type() ontology.ResourceType { return ontology.ResourceTypeDevice }
-
-// Schema returns the schema for the device ontology service.
-func (s *Service) Schema() zyn.Schema { return schema }
 
 // SearchableFields implements ontology.SearchableFieldsProvider.
 func (s *Service) SearchableFields() []string {

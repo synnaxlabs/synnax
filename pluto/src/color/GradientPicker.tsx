@@ -9,14 +9,14 @@
 
 import "@/color/GradientPicker.css";
 
-import { box, clamp, color, id, scale } from "@synnaxlabs/x";
-import { type ReactElement, useRef } from "react";
+import { bounds, box, color, id, scale } from "@synnaxlabs/x";
+import { type ReactElement, useMemo, useRef } from "react";
 
 import { Swatch } from "@/color/Swatch";
 import { CSS } from "@/css";
+import { Cursor } from "@/cursor";
 import { Flex } from "@/flex";
 import { useCombinedStateAndRef, useSyncedRef } from "@/hooks";
-import { useCursorDrag } from "@/hooks/useCursorDrag";
 import { type Input } from "@/input";
 import { Text } from "@/text";
 import { Triggers } from "@/triggers";
@@ -61,6 +61,10 @@ export const GradientPicker = ({
 }: GradientProps): ReactElement => {
   const sortedStops = switchStops(value.sort((a, b) => a.position - b.position));
   const grad = buildGradient(sortedStops);
+  const barStyle = useMemo(
+    () => ({ background: `linear-gradient(to right, ${grad})` }),
+    [grad],
+  );
   const prevValue = useSyncedRef(value);
   const handleChange = (stop: color.Stop) => {
     onChange(prevValue.current.map((s) => (s.key === stop.key ? stop : s)));
@@ -72,7 +76,7 @@ export const GradientPicker = ({
     <div className={CSS(PICKER_CLS)}>
       <div
         className={CSS(CSS.BE("gradient-picker", "bar"))}
-        style={{ background: `linear-gradient(to right, ${grad})` }}
+        style={barStyle}
         onClick={(e) => {
           const x = stopPosition(e);
           if (x == null) return;
@@ -125,7 +129,7 @@ const StopSwatch = ({ stop, onChange, nextStop, onDelete, scale }: StopSwatchPro
   const positionRef = useRef(stop.position);
   const { switched } = stop;
   const stopElRef = useRef<HTMLDivElement>(null);
-  const onDragStart = useCursorDrag({
+  const onDragStart = Cursor.useDrag({
     onStart: () => {
       positionRef.current = stop.position;
     },
@@ -136,10 +140,9 @@ const StopSwatch = ({ stop, onChange, nextStop, onDelete, scale }: StopSwatchPro
       ) as HTMLElement;
       onChange({
         ...stop,
-        position: clamp(
+        position: bounds.clamp(
+          bounds.DECIMAL,
           positionRef.current + box.signedWidth(b) / box.width(picker),
-          0,
-          1,
         ),
       });
     },
@@ -152,24 +155,27 @@ const StopSwatch = ({ stop, onChange, nextStop, onDelete, scale }: StopSwatchPro
       onDelete(stop.key);
     },
   });
+  const stopStyle = useMemo(
+    () => ({
+      left: `${stop.position * 100}%`,
+      width: `${(nextStop?.position ?? 1) * 100 - stop.position * 100}%`,
+    }),
+    [stop.position, nextStop?.position],
+  );
 
   return (
     <Flex.Box
       ref={stopElRef}
       className={CSS(CSS.BE("gradient-picker", "stop"), switched && CSS.M("switched"))}
       y
-      style={{
-        left: `${stop.position * 100}%`,
-        width: `${(nextStop?.position ?? 1) * 100 - stop.position * 100}%`,
-      }}
+      style={stopStyle}
       empty
       onClick={stopPropagation}
     >
       <Flex.Box
         y
-        className={CSS.BE("gradient-picker", "drag-region")}
-        draggable
-        onDragStart={onDragStart}
+        className={CSS(CSS.BE("gradient-picker", "drag-region"), Cursor.DRAG_CLASS)}
+        onPointerDown={onDragStart}
         empty
       >
         <div

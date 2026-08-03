@@ -99,7 +99,7 @@ var _ = Describe("DB Metadata Operations", func() {
 					It("Should set the index channel to a new key", func(ctx SpecContext) {
 						newIndexKey := GenerateChannelKey()
 						Expect(indexDB.Channel().Key).ToNot(Equal(newIndexKey))
-						Expect(indexDB.SetChannelKeyInMeta(ctx, newIndexKey))
+						Expect(indexDB.SetChannelKeyInMeta(ctx, newIndexKey)).To(Succeed())
 						Expect(indexDB.SetIndexKeyInMeta(ctx, newIndexKey)).To(Succeed())
 						Expect(indexDB.Channel().Key).To(Equal(newIndexKey))
 						Expect(indexDB.Channel().Index).To(Equal(newIndexKey))

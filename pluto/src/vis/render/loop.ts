@@ -63,7 +63,7 @@ export type Priority = "high" | "low";
 
 const PRIORITY_ORDER: Record<Priority, number> = { high: 1, low: 0 };
 
-interface LoopArgs {
+interface LoopParams {
   handleError: status.ErrorHandler;
   afterRender?: () => void;
   instrumentation?: alamos.Instrumentation;
@@ -89,7 +89,7 @@ export class Loop {
     afterRender,
     instrumentation = alamos.Instrumentation.NOOP,
     handleError,
-  }: LoopArgs) {
+  }: LoopParams) {
     this.afterRender = afterRender;
     this.instrumentation = instrumentation;
     this.handleError = handleError;

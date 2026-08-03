@@ -31,9 +31,9 @@ class StatusDetails(BaseModel):
         data: Contains task-specific status data.
     """
 
-    task: Key = Field(ge=0, le=18446744073709551615)
+    task: Key = Field(default=Key(0), ge=0, le=18446744073709551615)
     running: bool
-    cmd: str | None = None
+    cmd: str = ""
     data: dict[str, Any] | None = None
 
 
@@ -50,35 +50,35 @@ class Command(BaseModel):
     task: Key = Field(ge=0, le=18446744073709551615)
     type: str
     key: str
-    args: dict[str, Any] | None = None
+    args: dict[str, Any] = Field(default_factory=dict)
 
 
 Status: TypeAlias = status_.Status[StatusDetails]
 
 
 class Payload(BaseModel):
-    """Is an executable unit of work in the Driver system. Tasks represent
-    specific hardware operations such as reading sensor data, writing
-    control signals, or scanning for devices.
+    """Is an executable unit of work in the Driver system. Tasks represent specific
+    hardware operations such as reading sensor data, writing control signals, or
+    scanning for devices.
 
     Attributes:
         key: Is the composite identifier for this task.
         name: Is a human-readable name for the task.
         type: Is the task type (e.g., 'modbus_read', 'labjack_write', 'opc_scan').
             Determines which hardware integration handles the task.
-        config: Is task-specific configuration stored as JSON. Structure varies by
-            task type.
+        config: Is task-specific configuration stored as JSON. Structure varies by task
+            type.
         internal: Is true if this is an internal system task.
         snapshot: Indicates whether to persist this task's configuration.
         status: Is the current execution status of the task.
     """
 
-    key: Key = Field(ge=0, le=18446744073709551615)
+    key: Key = Field(default=Key(0), ge=0, le=18446744073709551615)
     name: str
     type: str
-    config: dict[str, Any]
-    internal: bool | None = None
-    snapshot: bool | None = None
+    config: dict[str, Any] = Field(default_factory=dict)
+    internal: bool = False
+    snapshot: bool = False
     status: Status | None = None
 
     def __hash__(self) -> int:

@@ -175,30 +175,10 @@ area := distance ^ 2 // f64 m^2 (literal exponent required)
 
 ## Variables
 
-### Constants
-
-Top-level declarations using `:=` are compile-time constants. Values are inlined at each
-reference site with no runtime overhead.
-
-```
-GlobalConstant ::= Identifier ':=' Literal
-                 | Identifier Type ':=' Literal
-```
-
-Only literal values are allowed (no expressions). Constants can be used in expressions
-and function config parameters.
-
-```arc
-MAX_PRESSURE := 500.0 // f64 constant
-SAMPLE_COUNT := 100 // i64 constant
-TIMEOUT := 30s // with unit suffix
-SCALE f32 := 2.5 // explicit type
-
-pressure > MAX_PRESSURE -> alarm{}
-sensor -> scale{gain=SCALE} -> output
-```
-
-### Declaration and Assignment
+A variable names a value. `:=` declares a variable; `$=` declares a stateful variable.
+Variables are valid at the top level and inside functions, sequences, and stages. A
+top-level variable is immutable: it cannot be reassigned, rebound, or written by a flow,
+and cannot be stateful.
 
 ```
 LocalVariable ::= Identifier ':=' Expression
@@ -210,8 +190,18 @@ StatefulVariable ::= Identifier '$=' Expression
 Assignment ::= Identifier '=' Expression
 ```
 
-**Local variables** (`:=`) inside functions reset on each invocation. **Stateful
-variables** (`$=`) persist across function invocations.
+A variable's kind is inferred from its initializer:
+
+- **Literal**: a held value (`gain := 2 * 3`). Resets to its initial value on each entry
+  into its declaring scope. `$=` makes a literal stateful, keeping its value across
+  entries; only literals can be stateful.
+- **Channel read**: a read-only expression over one or more channels
+  (`scaled := raw * 2`). It is reactive: when any channel it reads produces new data,
+  the variable updates and every flow that reads it re-runs with the new value. A flow
+  write is rejected; reassigning with `=` rebinds the expression rather than replacing a
+  value.
+- **Channel read/write**: a bare channel reference (`c := valve_cmd`). Reads and writes
+  the channel; `=` rebinds it to another channel of the same type.
 
 ```arc
 count := 0 // local
@@ -229,8 +219,10 @@ ratio /= 4 // ratio = ratio / 4
 remainder %= 3 // remainder = remainder % 3
 ```
 
-**Rules**: Variables are function-scoped. No shadowing of global names. Declaration once
-per scope. Type inference from initial value.
+**Rules**: Variables are scoped to the block that declares them (a function, sequence,
+stage, or the top level) and are usable only after their declaration. No shadowing of
+names in an enclosing scope. Declaration once per scope. Type inference from the
+initializer.
 
 ## Operators
 
@@ -287,19 +279,16 @@ current := now() // current timestamp (i64 ns)
 Arc has two execution contexts with different function syntax:
 
 - **Reactive scope** (flow statements): Functions are instantiated as nodes using
-  `func{config}` syntax
+  `func{...}` syntax, with an upstream edge feeding the trigger input
 - **Imperative scope** (function bodies): Functions are called using `func(args)` syntax
 
 ### Function Declaration
 
 ```
-FunctionDeclaration ::= 'func' Identifier ConfigBlock? '(' InputList? ')' OutputType? Block
+FunctionDeclaration ::= 'func' Identifier BraceInputs? '(' InputList? ')' OutputType? Block
 
-ConfigBlock ::= '{' ConfigList? '}'
-ConfigList ::= ConfigParameter (',' ConfigParameter)* ','?
-ConfigParameter ::= Identifier Type
-
-InputList ::= Input (',' Input)*
+BraceInputs ::= '{' InputList? '}'
+InputList ::= Input (',' Input)* ','?
 Input ::= Identifier Type ('=' Literal)?
 
 OutputType ::= Type                                    // single unnamed output
@@ -309,34 +298,31 @@ OutputType ::= Type                                    // single unnamed output
 NamedOutput ::= Identifier Type
 ```
 
-### Configuration Parameters
+### Inputs
 
-Functions can have a **config block** containing parameters set at instantiation time
-(compile-time constants). Config parameters are enclosed in `{}` after the function
-name, separated by commas:
+A function declares a single list of **inputs**. Each input has a name, a type, and an
+optional default value (`= literal`, trailing only).
+
+Inputs are written in two bracket groups after the function name. Both contribute to the
+same inputs list, in brace-then-parens order:
+
+- The **brace block** `{}` holds inputs set when the function is instantiated as a node.
+- The **parens block** `()` holds the **trigger** input (see [Triggers](#triggers)).
+
+The two-group split is transitional, not semantic: `()` will eventually carry all
+inputs, and `{}` is kept (and bridged during analysis) until that merge completes.
 
 ```arc
 func controller{
-    setpoint f64, // config: static at instantiation
-    sensor chan f64, // config: channel reference
-    actuator chan f64, // config: channel reference
+    setpoint f64,       // literal-valued: static at instantiation
+    sensor chan f64,    // channel-reference: resolved by key
+    actuator chan f64,  // channel-reference: resolved by key
 } (enable u8) f64 {
 // function body
 }
 ```
 
-**Rules:**
-
-- Config parameters must be literals or channel identifiers (compile-time constants)
-- Config values are provided at instantiation using `=` syntax:
-  `controller{setpoint=100.0}`
-- **Anonymous config values** map to parameters by declaration order: `filter{50.0}`
-  sets the first parameter; `average{10ms, 100}` sets the first and second. Trailing
-  parameters with defaults may be omitted.
-
-### Input Parameters
-
-Input parameters are received at runtime when the function is triggered:
+A function with no brace block is just a parens list:
 
 ```arc
 func add(x f64, y f64) f64 {
@@ -344,7 +330,7 @@ func add(x f64, y f64) f64 {
 }
 ```
 
-**Optional parameters** can have default values (must be trailing):
+**Optional inputs** carry a default value and may be omitted (must be trailing):
 
 ```arc
 func clamp(value f64, min f64 = 0.0, max f64 = 1.0) f64 {
@@ -357,6 +343,24 @@ func clamp(value f64, min f64 = 0.0, max f64 = 1.0) f64 {
     return value
 }
 ```
+
+**Supplying brace-block inputs:**
+
+- By name with `=`: `controller{setpoint=100.0}`
+- Positionally by declaration order: `filter{50.0}` sets the first input;
+  `average{10ms, 100}` sets the first and second. Trailing inputs with defaults may be
+  omitted.
+- Values must be literals or channel identifiers (resolved at compile time).
+
+### Triggers
+
+In reactive scope, an incoming edge connects to a node. A function's **trigger** names
+which input that edge feeds:
+
+- A function with a parens-block input takes its first such input as the trigger
+  (`enable` in `controller` above, `value` in `clamp`). The upstream value binds to it.
+- A function with no parens-block input is **trigger-only**: the edge activates the node
+  without binding a value.
 
 ### Calling Functions (Imperative Scope)
 
@@ -371,14 +375,14 @@ func process(x f64) f64 {
 
 ### Instantiating Functions (Reactive Scope)
 
-In flow statements, instantiate functions as nodes using config block syntax:
+In flow statements, instantiate functions as nodes using brace block syntax:
 
 ```arc
 sensor -> controller{setpoint=100.0, sensor=temp, actuator=valve}
 ```
 
-Input parameters are automatically wired from the incoming flow. Multiple inputs require
-routing tables (see Flow Layer).
+The upstream edge feeds the function's trigger input. Mapping multiple upstream sources
+to named inputs requires routing tables (see Flow Layer).
 
 ### Multi-Output Functions
 
@@ -405,6 +409,8 @@ func counter() i64 {
     return count
 }
 ```
+
+A `$=` initializer must be a literal value; only literal variables can be stateful.
 
 ### Channel Operations in Functions
 
@@ -481,8 +487,8 @@ RoutingTable ::= '{' RoutingEntry (',' RoutingEntry)* '}'
 
 RoutingEntry ::= Identifier ':' FlowNode ('->' FlowNode)* (':' Identifier)?
 
-FlowNode ::= Identifier           // channel, stage, or sequence name
-           | FunctionInvocation   // func{config}
+FlowNode ::= Identifier           // channel, variable, stage, or sequence name
+           | FunctionInvocation   // func{...}
            | Expression           // inline computation
            | 'next'               // next stage (sequences only)
 ```
@@ -529,8 +535,9 @@ Map multiple sources to named input parameters:
 
 ### Expressions in Flows
 
-Inline expressions act as implicit functions. Expressions can reference global-scope
-identifiers (channels), literals, and function calls—but not function-local variables.
+Inline expressions act as implicit functions. Expressions can reference identifiers in
+scope (channels, variables), literals, and function calls, but not function-local
+variables.
 
 ```arc
 temperature > 100 -> alarm{} // comparison
@@ -640,10 +647,11 @@ stage is active.
 
 When entering a stage:
 
-1. All stateful nodes in the stage are reset
+1. Local variables (`:=`) reset to their initial values; stateful variables (`$=`) keep
+   their state
 2. Reactive flows start fresh
 
-Stages are stateless between entries—no implicit memory of previous time in the stage.
+Aside from stateful variables (`$=`), a stage keeps no memory between entries.
 
 ### Cross-Sequence Transitions
 
@@ -678,12 +686,12 @@ names.
 These simplify implementation while maintaining expressiveness:
 
 1. **No mixed-type arithmetic**: Explicit casts required (`f32(x) + y`)
-2. **No dynamic function instantiation**: All functions with config blocks are
-   instantiated at compile time
+2. **No dynamic function instantiation**: Functions are instantiated as nodes at compile
+   time
 3. **No assignment in expressions**: Separate statements required
 4. **No partial function application**: Must provide all required arguments
-5. **Config = compile-time constants**: Only literals, global constants, or channel IDs
-   in config blocks
+5. **Brace-block inputs are compile-time constants**: Only literals, global constants,
+   or channel IDs may be supplied in the `{}` block
 6. **No closures**: Functions cannot capture variables from enclosing scope
 7. **No nested functions**: Functions cannot be defined inside other functions
 8. **No loops**: Use reactive patterns with stateful variables instead
@@ -715,7 +723,7 @@ The compiler produces a package containing:
 
 1. **IR (Intermediate Representation)**:
    - Functions: declared function signatures and metadata
-   - Nodes: instantiated function instances with config values
+   - Nodes: instantiated function instances with input values
    - Edges: dataflow connections between nodes
    - Strata: topological execution ordering
    - Sequences: state machine definitions with stages

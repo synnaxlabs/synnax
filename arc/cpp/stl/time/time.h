@@ -47,10 +47,17 @@ inline x::telem::TimeSpan calculate_tolerance(
     }
 }
 
-struct IntervalConfig {
+/// @brief returns the named input's current span: the referenced variable's
+/// latest value when var-bound, else the value stamped at compile time.
+inline x::telem::TimeSpan
+live_span(const runtime::state::Node &s, const std::string &name) {
+    return x::telem::TimeSpan(s.numeric_input<int64_t>(name));
+}
+
+struct IntervalInputs {
     x::telem::TimeSpan interval;
 
-    static std::pair<IntervalConfig, x::errors::Error>
+    static std::pair<IntervalInputs, x::errors::Error>
     create(const types::Params &params) {
         const auto &param = params["period"];
         auto sv = types::to_sample_value(param.value, param.type);
@@ -71,27 +78,27 @@ struct IntervalConfig {
 
 class Interval : public runtime::node::Node {
     runtime::state::Node state;
-    IntervalConfig cfg;
     x::telem::TimeSpan last_fired;
 
 public:
-    explicit Interval(const IntervalConfig &cfg, runtime::state::Node &&state):
-        state(std::move(state)), cfg(cfg), last_fired(-1 * this->cfg.interval) {}
+    explicit Interval(runtime::state::Node &&state, const x::telem::TimeSpan period):
+        state(std::move(state)), last_fired(-1 * period) {}
 
     x::errors::Error next(runtime::node::Context &ctx) override {
+        const auto period = live_span(this->state, "period");
         if (ctx.reason != runtime::node::RunReason::TimerTick) {
             ctx.mark_self_changed();
-            ctx.set_deadline(this->last_fired + this->cfg.interval);
+            ctx.set_deadline(this->last_fired + period);
             return x::errors::NIL;
         }
-        if (ctx.elapsed - this->last_fired < this->cfg.interval - ctx.tolerance) {
+        if (ctx.elapsed - this->last_fired < period - ctx.tolerance) {
             ctx.mark_self_changed();
-            ctx.set_deadline(this->last_fired + this->cfg.interval);
+            ctx.set_deadline(this->last_fired + period);
             return x::errors::NIL;
         }
         this->last_fired = ctx.elapsed;
         ctx.mark_self_changed();
-        ctx.set_deadline(this->last_fired + this->cfg.interval);
+        ctx.set_deadline(this->last_fired + period);
         const auto &o = this->state.output(0);
         const auto &o_time = this->state.output_time(0);
         o->resize(1);
@@ -102,17 +109,21 @@ public:
         return x::errors::NIL;
     }
 
-    void reset() override { last_fired = -1 * cfg.interval; }
+    /// @brief resets the interval so it fires immediately on the next timer tick.
+    void reset() override {
+        this->state.reset();
+        this->last_fired = -1 * live_span(this->state, "period");
+    }
 
     [[nodiscard]] bool is_output_truthy(size_t output_idx) const override {
         return state.is_output_truthy(output_idx);
     }
 };
 
-struct WaitConfig {
+struct WaitInputs {
     x::telem::TimeSpan duration;
 
-    static std::pair<WaitConfig, x::errors::Error> create(const types::Params &params) {
+    static std::pair<WaitInputs, x::errors::Error> create(const types::Params &params) {
         const auto &param = params["duration"];
         auto sv = types::to_sample_value(param.value, param.type);
         if (!sv.has_value())
@@ -133,23 +144,22 @@ struct WaitConfig {
 /// @brief One-shot timer that fires once after a specified duration.
 class Wait : public runtime::node::Node {
     runtime::state::Node state;
-    WaitConfig cfg;
     x::telem::TimeSpan start_time = x::telem::TimeSpan(-1);
     bool fired = false;
 
 public:
-    explicit Wait(const WaitConfig &cfg, runtime::state::Node &&state):
-        state(std::move(state)), cfg(cfg) {}
+    explicit Wait(runtime::state::Node &&state): state(std::move(state)) {}
 
     x::errors::Error next(runtime::node::Context &ctx) override {
         if (this->fired) return x::errors::NIL;
         if (this->start_time.nanoseconds() < 0) this->start_time = ctx.elapsed;
-        ctx.set_deadline(this->start_time + this->cfg.duration);
+        const auto duration = live_span(this->state, "duration");
+        ctx.set_deadline(this->start_time + duration);
         if (ctx.reason != runtime::node::RunReason::TimerTick) {
             ctx.mark_self_changed();
             return x::errors::NIL;
         }
-        if (ctx.elapsed - this->start_time < this->cfg.duration - ctx.tolerance) {
+        if (ctx.elapsed - this->start_time < duration - ctx.tolerance) {
             ctx.mark_self_changed();
             return x::errors::NIL;
         }
@@ -165,8 +175,9 @@ public:
     }
 
     void reset() override {
-        start_time = x::telem::TimeSpan(-1);
-        fired = false;
+        this->state.reset();
+        this->start_time = x::telem::TimeSpan(-1);
+        this->fired = false;
     }
 
     [[nodiscard]] bool is_output_truthy(size_t output_idx) const override {
@@ -174,9 +185,9 @@ public:
     }
 };
 
-struct NowConfig {
-    static std::pair<NowConfig, x::errors::Error> create(const types::Params &) {
-        return {NowConfig{}, x::errors::NIL};
+struct NowInputs {
+    static std::pair<NowInputs, x::errors::Error> create(const types::Params &) {
+        return {NowInputs{}, x::errors::NIL};
     }
 };
 
@@ -187,7 +198,7 @@ class Now : public runtime::node::Node {
 
 public:
     explicit Now(
-        const NowConfig &,
+        const NowInputs &,
         runtime::state::Node &&state,
         x::telem::MonoClock *clock
     ):
@@ -205,7 +216,7 @@ public:
         return x::errors::NIL;
     }
 
-    void reset() override {}
+    void reset() override { this->state.reset(); }
 
     [[nodiscard]] bool is_output_truthy(size_t output_idx) const override {
         return state.is_output_truthy(output_idx);
@@ -228,28 +239,27 @@ public:
     std::pair<std::unique_ptr<runtime::node::Node>, x::errors::Error>
     create(runtime::node::Config &&cfg) override {
         if (cfg.node.type == "interval") {
-            auto [node_cfg, err] = IntervalConfig::create(cfg.node.config);
+            auto [inputs, err] = IntervalInputs::create(cfg.node.inputs);
             if (err) return {nullptr, err};
-            this->update_base_interval(node_cfg.interval);
+            this->update_base_interval(inputs.interval);
+            this->fold_reassigned_spans(cfg, cfg.node.inputs["period"]);
             return {
-                std::make_unique<Interval>(node_cfg, std::move(cfg.state)),
+                std::make_unique<Interval>(std::move(cfg.state), inputs.interval),
                 x::errors::NIL
             };
         }
         if (cfg.node.type == "wait") {
-            auto [node_cfg, err] = WaitConfig::create(cfg.node.config);
+            auto [inputs, err] = WaitInputs::create(cfg.node.inputs);
             if (err) return {nullptr, err};
-            this->update_base_interval(node_cfg.duration);
-            return {
-                std::make_unique<Wait>(node_cfg, std::move(cfg.state)),
-                x::errors::NIL
-            };
+            this->update_base_interval(inputs.duration);
+            this->fold_reassigned_spans(cfg, cfg.node.inputs["duration"]);
+            return {std::make_unique<Wait>(std::move(cfg.state)), x::errors::NIL};
         }
         if (cfg.node.type == "now") {
-            auto [node_cfg, err] = NowConfig::create(cfg.node.config);
+            auto [inputs, err] = NowInputs::create(cfg.node.inputs);
             if (err) return {nullptr, err};
             return {
-                std::make_unique<Now>(node_cfg, std::move(cfg.state), &this->clock),
+                std::make_unique<Now>(inputs, std::move(cfg.state), &this->clock),
                 x::errors::NIL
             };
         }
@@ -267,6 +277,25 @@ public:
     }
 
 private:
+    /// @brief folds the literal reassignment values of a var-bound timer param
+    /// into base_interval, so tolerance tracks the fastest known period.
+    void
+    fold_reassigned_spans(const runtime::node::Config &cfg, const types::Param &p) {
+        if (p.type.kind != types::Kind::VarRef) return;
+        for (const auto &e: cfg.prog.edges) {
+            if (e.target.node != p.type.name) continue;
+            const auto *src = ir::find_node(cfg.prog, e.source.node);
+            if (src == nullptr || src->type != "constant") continue;
+            for (const auto &v: src->inputs) {
+                if (v.name != "value" || v.value.is_null()) continue;
+                if (const auto sv = types::to_sample_value(v.value, v.type))
+                    this->update_base_interval(
+                        x::telem::TimeSpan(x::telem::cast<int64_t>(*sv))
+                    );
+            }
+        }
+    }
+
     void update_base_interval(const x::telem::TimeSpan span) {
         if (this->base == UNSET_BASE_INTERVAL)
             this->base = span;

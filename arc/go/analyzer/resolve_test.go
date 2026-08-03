@@ -155,15 +155,17 @@ var _ = Describe("ResolveNodeTypes", func() {
 		Expect(diag.Ok()).To(BeTrue())
 	})
 
-	It("Should apply substitutions to config params", func() {
+	It("Should apply substitutions to input params", func() {
 		nodes := ir.Nodes{
 			{Key: "source", Type: "on", Outputs: types.Params{{Name: "output", Type: types.F32()}}},
 			{
-				Key:     "func",
-				Type:    "transform",
-				Inputs:  types.Params{{Name: "input", Type: types.Variable("T_0", nil)}},
+				Key:  "func",
+				Type: "transform",
+				Inputs: types.Params{
+					{Name: "threshold", Type: types.Variable("T_0", nil), Value: float32(0)},
+					{Name: "input", Type: types.Variable("T_0", nil)},
+				},
 				Outputs: types.Params{{Name: "output", Type: types.Variable("T_0", nil)}},
-				Config:  types.Params{{Name: "threshold", Type: types.Variable("T_0", nil)}},
 			},
 		}
 		edges := ir.Edges{{
@@ -171,6 +173,6 @@ var _ = Describe("ResolveNodeTypes", func() {
 			Target: ir.Handle{Node: "func", Param: "input"},
 		}}
 		Expect(analyzer.ResolveNodeTypes(nodes, edges, cs, diag)).To(BeTrue())
-		Expect(nodes[1].Config[0].Type).To(Equal(types.F32()))
+		Expect(nodes[1].Inputs[0].Type).To(Equal(types.F32()))
 	})
 })

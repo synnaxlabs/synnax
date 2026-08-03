@@ -1,0 +1,64 @@
+/*
+ * Copyright 2026 Synnax Labs, Inc.
+ *
+ * Use of this software is governed by the Business Source License included in the file
+ * licenses/BSL.txt.
+ *
+ * As of the Change Date specified in that file, in accordance with the Business Source
+ * License, use of this software will be governed by the Apache License, Version 2.0,
+ * included in the file licenses/APL.txt.
+ */
+
+.console-arc {
+    container-type: inline-size;
+
+    .console-editor {
+        padding-bottom: 11rem;
+
+        &::after {
+            content: "";
+            position: absolute;
+            bottom: 10rem;
+            left: 0;
+            right: 0;
+            height: 5rem;
+            background: linear-gradient(to bottom, transparent, var(--pluto-gray-l1));
+        }
+    }
+
+    .console-arc-editor__controls {
+        position: absolute;
+        max-height: min-content;
+        max-width: calc(100% - 4rem);
+        flex-shrink: 0;
+        bottom: 2rem;
+        left: 2rem;
+        right: 2rem;
+        box-shadow: var(--pluto-shadow-v2);
+
+        & .console-rack-select {
+            flex-grow: 1;
+            min-width: 200px;
+        }
+    }
+}
+
+@container (max-width: 400px) {
+    .console-arc-editor {
+        .console-rack-select {
+            display: none;
+        }
+    }
+}
+
+@container (max-width: 600px) {
+    .console-arc .console-editor {
+        padding-bottom: 21rem;
+    }
+}
+
+.console-arc:has(.console-task-controls--expanded) {
+    .console-editor {
+        padding-bottom: 19rem;
+    }
+}

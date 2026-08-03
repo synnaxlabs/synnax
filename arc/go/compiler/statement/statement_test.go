@@ -10,6 +10,8 @@
 package statement_test
 
 import (
+	"slices"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/arc/analyzer"
@@ -80,7 +82,7 @@ var _ = Describe("Statement Compiler", func() {
 				{Name: "label", Type: types.String()},
 			}
 			bytecode := compileWithOutputs(bCtx, `label = "hello"`, outputs, 0x100)
-			Expect(len(bytecode)).To(BeNumerically(">", 0))
+			Expect(bytecode).ToNot(BeEmpty())
 		})
 
 		It("Should compute correct offset when a preceding output is a string", func(bCtx SpecContext) {
@@ -92,7 +94,7 @@ var _ = Describe("Statement Compiler", func() {
 				label = "ok"
 				value = 42
 			`, outputs, 0x100)
-			Expect(len(bytecode)).To(BeNumerically(">", 0))
+			Expect(bytecode).ToNot(BeEmpty())
 		})
 
 		It("Should compute correct offset with mixed string and numeric outputs", func(bCtx SpecContext) {
@@ -106,7 +108,7 @@ var _ = Describe("Statement Compiler", func() {
 				second = "b"
 				count = 10
 			`, outputs, 0x200)
-			Expect(len(bytecode)).To(BeNumerically(">", 0))
+			Expect(bytecode).ToNot(BeEmpty())
 		})
 	})
 
@@ -154,7 +156,11 @@ var _ = Describe("Statement Compiler", func() {
 	Describe("Stateful Variables", func() {
 		It("Should compile stateful variable declaration with explicit type", func(bCtx SpecContext) {
 			stmt := MustSucceed(parser.ParseStatement("count i64 $= 0"))
-			aCtx := acontext.NewRoot(bCtx, stmt, NewRoot(nil))
+			fn := MustSucceed(NewRoot(nil).Add(bCtx, symbol.Symbol{
+				Name: "f", Kind: symbol.KindFunction,
+				Type: types.Function(types.FunctionProperties{}),
+			}))
+			aCtx := acontext.NewRoot(bCtx, stmt, fn)
 			analyzer.AnalyzeStatement(aCtx)
 			Expect(aCtx.Diagnostics.Ok()).To(BeTrue())
 			ctx := context.NewRoot(bCtx, aCtx.Scope, aCtx.TypeMap, resolve.NewResolver())
@@ -171,7 +177,11 @@ var _ = Describe("Statement Compiler", func() {
 
 		It("Should compile stateful variable declaration with inferred type", func(bCtx SpecContext) {
 			stmt := MustSucceed(parser.ParseStatement("count $= 0"))
-			aCtx := acontext.NewRoot(bCtx, stmt, NewRoot(nil))
+			fn := MustSucceed(NewRoot(nil).Add(bCtx, symbol.Symbol{
+				Name: "f", Kind: symbol.KindFunction,
+				Type: types.Function(types.FunctionProperties{}),
+			}))
+			aCtx := acontext.NewRoot(bCtx, stmt, fn)
 			analyzer.AnalyzeStatement(aCtx)
 			Expect(aCtx.Diagnostics.Ok()).To(BeTrue())
 			ctx := context.NewRoot(bCtx, aCtx.Scope, aCtx.TypeMap, resolve.NewResolver())
@@ -218,7 +228,13 @@ var _ = Describe("Statement Compiler", func() {
 				count i64 $= 0
 				x i64 := count + 1
 			}`))
-			aCtx := acontext.NewRoot(bCtx, block, NewRoot(nil))
+			// A func-local stateful always loads its cell; without a function
+			// ancestor the read would fold to the initial value instead.
+			fn := MustSucceed(NewRoot(nil).Add(bCtx, symbol.Symbol{
+				Name: "f", Kind: symbol.KindFunction,
+				Type: types.Function(types.FunctionProperties{}),
+			}))
+			aCtx := acontext.NewRoot(bCtx, block, fn)
 			analyzer.AnalyzeBlock(aCtx)
 			Expect(aCtx.Diagnostics.Ok()).To(BeTrue())
 			ctx := context.NewRoot(bCtx, aCtx.Scope, aCtx.TypeMap, resolve.NewResolver())
@@ -247,7 +263,13 @@ var _ = Describe("Statement Compiler", func() {
 				b i64 $= 20
 				c i64 := a + b
 			}`))
-			aCtx := acontext.NewRoot(bCtx, block, NewRoot(nil))
+			// A func-local stateful always loads its cell; without a function
+			// ancestor the reads would fold to the initial values instead.
+			fn := MustSucceed(NewRoot(nil).Add(bCtx, symbol.Symbol{
+				Name: "f", Kind: symbol.KindFunction,
+				Type: types.Function(types.FunctionProperties{}),
+			}))
+			aCtx := acontext.NewRoot(bCtx, block, fn)
 			analyzer.AnalyzeBlock(aCtx)
 			Expect(aCtx.Diagnostics.Ok()).To(BeTrue())
 			ctx := context.NewRoot(bCtx, aCtx.Scope, aCtx.TypeMap, resolve.NewResolver())
@@ -279,7 +301,11 @@ var _ = Describe("Statement Compiler", func() {
 
 		It("Should compile stateful variable with different types", func(bCtx SpecContext) {
 			stmt := MustSucceed(parser.ParseStatement("temperature f64 $= 20.5"))
-			aCtx := acontext.NewRoot(bCtx, stmt, NewRoot(nil))
+			fn := MustSucceed(NewRoot(nil).Add(bCtx, symbol.Symbol{
+				Name: "f", Kind: symbol.KindFunction,
+				Type: types.Function(types.FunctionProperties{}),
+			}))
+			aCtx := acontext.NewRoot(bCtx, stmt, fn)
 			analyzer.AnalyzeStatement(aCtx)
 			Expect(aCtx.Diagnostics.Ok()).To(BeTrue())
 			ctx := context.NewRoot(bCtx, aCtx.Scope, aCtx.TypeMap, resolve.NewResolver())
@@ -1363,7 +1389,7 @@ var _ = Describe("Statement Compiler", func() {
 		})
 
 		Describe("Channel Alias Reads", func() {
-			It("Should compile channel alias read assigned to f64 scalar", func(bCtx SpecContext) {
+			It("Should compile channel read/write read assigned to f64 scalar", func(bCtx SpecContext) {
 				resolver := []symbol.Symbol{
 					{
 						Name: "sensor",
@@ -1392,7 +1418,40 @@ var _ = Describe("Statement Compiler", func() {
 				))
 			})
 
-			It("Should compile channel alias read assigned to stateful f64 scalar", func(bCtx SpecContext) {
+			It("Should compile a channel read/write of a chan-typed local variable", func(bCtx SpecContext) {
+				resolver := []symbol.Symbol{
+					{
+						Name: "sensor",
+						Kind: symbol.KindChannel,
+						Type: types.Chan(types.F64()),
+						ID:   100,
+					},
+				}
+				bytecode := compileWithChannels(bCtx, `
+					first_ref := sensor
+					second_ref := first_ref
+					value f64 := 0.0
+					value = second_ref
+				`, resolver)
+
+				Expect(bytecode).To(MatchOpcodes(
+					// first_ref := sensor (global channel → store channel ID in local 0)
+					OpI32Const, int32(100),
+					OpLocalSet, 0,
+					// second_ref := first_ref (chan-typed variable → copy channel ID, local 1)
+					OpLocalGet, 0,
+					OpLocalSet, 1,
+					// value := 0.0 (local 2)
+					OpF64Const, float64(0.0),
+					OpLocalSet, 2,
+					// value = second_ref (read channel via alias)
+					OpLocalGet, 1,
+					OpCall, uint32(0),
+					OpLocalSet, 2,
+				))
+			})
+
+			It("Should compile channel read/write read assigned to stateful f64 scalar", func(bCtx SpecContext) {
 				resolver := []symbol.Symbol{
 					{
 						Name: "sensor",
@@ -1426,7 +1485,7 @@ var _ = Describe("Statement Compiler", func() {
 				))
 			})
 
-			It("Should compile i32 channel alias read assigned to i32 scalar", func(bCtx SpecContext) {
+			It("Should compile i32 channel read/write read assigned to i32 scalar", func(bCtx SpecContext) {
 				resolver := []symbol.Symbol{
 					{
 						Name: "int_ch",
@@ -1455,7 +1514,7 @@ var _ = Describe("Statement Compiler", func() {
 				))
 			})
 
-			It("Should compile channel alias read written to another channel", func(bCtx SpecContext) {
+			It("Should compile channel read/write read written to another channel", func(bCtx SpecContext) {
 				resolver := []symbol.Symbol{
 					{
 						Name: "sensor",
@@ -1487,7 +1546,7 @@ var _ = Describe("Statement Compiler", func() {
 				))
 			})
 
-			It("Should compile conditional channel alias read with scalar assignment", func(bCtx SpecContext) {
+			It("Should compile conditional channel read/write read with scalar assignment", func(bCtx SpecContext) {
 				resolver := []symbol.Symbol{
 					{
 						Name: "sensor",
@@ -2020,18 +2079,10 @@ var _ = Describe("Statement Compiler", func() {
 			Expect(diverged).To(BeFalse())
 
 			bytecode := ctx.Writer.Bytes()
-			containsOpcode := func(bc []byte, opcode byte) bool {
-				for _, b := range bc {
-					if b == opcode {
-						return true
-					}
-				}
-				return false
-			}
-			Expect(containsOpcode(bytecode, byte(OpBlock))).To(BeTrue(), "missing block")
-			Expect(containsOpcode(bytecode, byte(OpLoop))).To(BeTrue(), "missing loop")
-			Expect(containsOpcode(bytecode, byte(OpI64GeS))).To(BeTrue(), "missing exit condition")
-			Expect(containsOpcode(bytecode, byte(OpI64Add))).To(BeTrue(), "missing increment")
+			Expect(slices.Contains(bytecode, byte(OpBlock))).To(BeTrue(), "missing block")
+			Expect(slices.Contains(bytecode, byte(OpLoop))).To(BeTrue(), "missing loop")
+			Expect(slices.Contains(bytecode, byte(OpI64GeS))).To(BeTrue(), "missing exit condition")
+			Expect(slices.Contains(bytecode, byte(OpI64Add))).To(BeTrue(), "missing increment")
 		})
 
 		It("Should compile range loop with mixed concrete types", func(bCtx SpecContext) {
@@ -2052,16 +2103,8 @@ var _ = Describe("Statement Compiler", func() {
 			Expect(diverged).To(BeFalse())
 
 			bytecode := ctx.Writer.Bytes()
-			containsOpcode := func(bc []byte, opcode byte) bool {
-				for _, b := range bc {
-					if b == opcode {
-						return true
-					}
-				}
-				return false
-			}
-			Expect(containsOpcode(bytecode, byte(OpI64GeS))).To(BeTrue(), "missing exit condition")
-			Expect(containsOpcode(bytecode, byte(OpI64Add))).To(BeTrue(), "missing increment")
+			Expect(slices.Contains(bytecode, byte(OpI64GeS))).To(BeTrue(), "missing exit condition")
+			Expect(slices.Contains(bytecode, byte(OpI64Add))).To(BeTrue(), "missing increment")
 		})
 
 		It("Should compile range loop with explicit i32 type", func(bCtx SpecContext) {
@@ -2129,18 +2172,10 @@ var _ = Describe("Statement Compiler", func() {
 			Expect(diverged).To(BeFalse())
 
 			bytecode := ctx.Writer.Bytes()
-			containsOpcode := func(bc []byte, opcode byte) bool {
-				for _, b := range bc {
-					if b == opcode {
-						return true
-					}
-				}
-				return false
-			}
-			Expect(containsOpcode(bytecode, byte(OpBlock))).To(BeTrue(), "missing block")
-			Expect(containsOpcode(bytecode, byte(OpLoop))).To(BeTrue(), "missing loop")
-			Expect(containsOpcode(bytecode, byte(OpI32Eqz))).To(BeTrue(), "missing condition eqz")
-			Expect(containsOpcode(bytecode, byte(OpI32Sub))).To(BeTrue(), "missing decrement")
+			Expect(slices.Contains(bytecode, byte(OpBlock))).To(BeTrue(), "missing block")
+			Expect(slices.Contains(bytecode, byte(OpLoop))).To(BeTrue(), "missing loop")
+			Expect(slices.Contains(bytecode, byte(OpI32Eqz))).To(BeTrue(), "missing condition eqz")
+			Expect(slices.Contains(bytecode, byte(OpI32Sub))).To(BeTrue(), "missing decrement")
 		})
 
 		It("Should compile infinite loop with continue", func(bCtx SpecContext) {
@@ -2164,19 +2199,11 @@ var _ = Describe("Statement Compiler", func() {
 			Expect(diverged).To(BeFalse())
 
 			bytecode := ctx.Writer.Bytes()
-			containsOpcode := func(bc []byte, opcode byte) bool {
-				for _, b := range bc {
-					if b == opcode {
-						return true
-					}
-				}
-				return false
-			}
-			Expect(containsOpcode(bytecode, byte(OpBlock))).To(BeTrue(), "missing block")
-			Expect(containsOpcode(bytecode, byte(OpLoop))).To(BeTrue(), "missing loop")
-			Expect(containsOpcode(bytecode, byte(OpI32Add))).To(BeTrue(), "missing increment")
+			Expect(slices.Contains(bytecode, byte(OpBlock))).To(BeTrue(), "missing block")
+			Expect(slices.Contains(bytecode, byte(OpLoop))).To(BeTrue(), "missing loop")
+			Expect(slices.Contains(bytecode, byte(OpI32Add))).To(BeTrue(), "missing increment")
 			// break and continue both emit br instructions
-			Expect(containsOpcode(bytecode, byte(OpBr))).To(BeTrue(), "missing br for break/continue")
+			Expect(slices.Contains(bytecode, byte(OpBr))).To(BeTrue(), "missing br for break/continue")
 		})
 
 		// Series iteration compiles to WASM that calls external functions
@@ -2199,14 +2226,6 @@ var _ = Describe("Statement Compiler", func() {
 				Expect(diverged).To(BeFalse())
 				return FinalizeContext(ctx)
 			}
-			containsOpcode := func(bytecode []byte, opcode byte) bool {
-				for _, b := range bytecode {
-					if b == opcode {
-						return true
-					}
-				}
-				return false
-			}
 			bytecode := compileForLoop(`
 				data series i32 := [1, 2, 3]
 				sum i32 := 0
@@ -2215,16 +2234,16 @@ var _ = Describe("Statement Compiler", func() {
 				}
 			`)
 			// block/loop/end structure for the for loop
-			Expect(containsOpcode(bytecode, byte(OpBlock))).To(BeTrue(), "missing block opcode")
-			Expect(containsOpcode(bytecode, byte(OpLoop))).To(BeTrue(), "missing loop opcode")
+			Expect(slices.Contains(bytecode, byte(OpBlock))).To(BeTrue(), "missing block opcode")
+			Expect(slices.Contains(bytecode, byte(OpLoop))).To(BeTrue(), "missing loop opcode")
 			// idx >= len exit condition
-			Expect(containsOpcode(bytecode, byte(OpI32GeS))).To(BeTrue(), "missing i32.ge_s for exit condition")
+			Expect(slices.Contains(bytecode, byte(OpI32GeS))).To(BeTrue(), "missing i32.ge_s for exit condition")
 			// idx increment: idx + 1
-			Expect(containsOpcode(bytecode, byte(OpI32Add))).To(BeTrue(), "missing i32.add for index increment")
+			Expect(slices.Contains(bytecode, byte(OpI32Add))).To(BeTrue(), "missing i32.add for index increment")
 			// i32.wrap_i64 to convert series.len result
-			Expect(containsOpcode(bytecode, byte(OpI32WrapI64))).To(BeTrue(), "missing i32.wrap_i64 for len conversion")
+			Expect(slices.Contains(bytecode, byte(OpI32WrapI64))).To(BeTrue(), "missing i32.wrap_i64 for len conversion")
 			// Call instructions for series.len and series.index
-			Expect(containsOpcode(bytecode, byte(OpCall))).To(BeTrue(), "missing call opcode for host functions")
+			Expect(slices.Contains(bytecode, byte(OpCall))).To(BeTrue(), "missing call opcode for host functions")
 		})
 
 		It("Should compile series iteration (two-ident)", func(bCtx SpecContext) {
@@ -2241,14 +2260,6 @@ var _ = Describe("Statement Compiler", func() {
 				Expect(diverged).To(BeFalse())
 				return FinalizeContext(ctx)
 			}
-			containsOpcode := func(bytecode []byte, opcode byte) bool {
-				for _, b := range bytecode {
-					if b == opcode {
-						return true
-					}
-				}
-				return false
-			}
 			bytecode := compileForLoop(`
 				data series i32 := [10, 20, 30]
 				sum i32 := 0
@@ -2256,14 +2267,14 @@ var _ = Describe("Statement Compiler", func() {
 					sum = sum + x * (i + 1)
 				}
 			`)
-			Expect(containsOpcode(bytecode, byte(OpBlock))).To(BeTrue(), "missing block opcode")
-			Expect(containsOpcode(bytecode, byte(OpLoop))).To(BeTrue(), "missing loop opcode")
-			Expect(containsOpcode(bytecode, byte(OpI32GeS))).To(BeTrue(), "missing i32.ge_s for exit condition")
-			Expect(containsOpcode(bytecode, byte(OpI32Add))).To(BeTrue(), "missing i32.add for index increment")
-			Expect(containsOpcode(bytecode, byte(OpI32WrapI64))).To(BeTrue(), "missing i32.wrap_i64 for len conversion")
-			Expect(containsOpcode(bytecode, byte(OpCall))).To(BeTrue(), "missing call opcode for host functions")
+			Expect(slices.Contains(bytecode, byte(OpBlock))).To(BeTrue(), "missing block opcode")
+			Expect(slices.Contains(bytecode, byte(OpLoop))).To(BeTrue(), "missing loop opcode")
+			Expect(slices.Contains(bytecode, byte(OpI32GeS))).To(BeTrue(), "missing i32.ge_s for exit condition")
+			Expect(slices.Contains(bytecode, byte(OpI32Add))).To(BeTrue(), "missing i32.add for index increment")
+			Expect(slices.Contains(bytecode, byte(OpI32WrapI64))).To(BeTrue(), "missing i32.wrap_i64 for len conversion")
+			Expect(slices.Contains(bytecode, byte(OpCall))).To(BeTrue(), "missing call opcode for host functions")
 			// Two-ident form should also have i32.mul for the weighted sum body
-			Expect(containsOpcode(bytecode, byte(OpI32Mul))).To(BeTrue(), "missing i32.mul for weighted sum")
+			Expect(slices.Contains(bytecode, byte(OpI32Mul))).To(BeTrue(), "missing i32.mul for weighted sum")
 		})
 
 		It("Should compile series iteration with f64 elements", func(bCtx SpecContext) {
@@ -2280,14 +2291,6 @@ var _ = Describe("Statement Compiler", func() {
 				Expect(diverged).To(BeFalse())
 				return FinalizeContext(ctx)
 			}
-			containsOpcode := func(bytecode []byte, opcode byte) bool {
-				for _, b := range bytecode {
-					if b == opcode {
-						return true
-					}
-				}
-				return false
-			}
 			bytecode := compileForLoop(`
 				data series f64 := [1.0, 2.0, 3.0]
 				sum f64 := 0.0
@@ -2295,11 +2298,11 @@ var _ = Describe("Statement Compiler", func() {
 					sum = sum + x
 				}
 			`)
-			Expect(containsOpcode(bytecode, byte(OpBlock))).To(BeTrue(), "missing block opcode")
-			Expect(containsOpcode(bytecode, byte(OpLoop))).To(BeTrue(), "missing loop opcode")
-			Expect(containsOpcode(bytecode, byte(OpI32GeS))).To(BeTrue(), "missing i32.ge_s for exit condition")
+			Expect(slices.Contains(bytecode, byte(OpBlock))).To(BeTrue(), "missing block opcode")
+			Expect(slices.Contains(bytecode, byte(OpLoop))).To(BeTrue(), "missing loop opcode")
+			Expect(slices.Contains(bytecode, byte(OpI32GeS))).To(BeTrue(), "missing i32.ge_s for exit condition")
 			// f64 addition in the loop body
-			Expect(containsOpcode(bytecode, byte(OpF64Add))).To(BeTrue(), "missing f64.add for sum")
+			Expect(slices.Contains(bytecode, byte(OpF64Add))).To(BeTrue(), "missing f64.add for sum")
 		})
 
 		It("Should compile nested range loops", func(bCtx SpecContext) {
@@ -2317,7 +2320,33 @@ var _ = Describe("Statement Compiler", func() {
 			ctx := context.NewRoot(bCtx, aCtx.Scope, aCtx.TypeMap, nil)
 			diverged := MustSucceed(statement.CompileBlock(context.Child(ctx, block)))
 			Expect(diverged).To(BeFalse())
-			Expect(len(ctx.Writer.Bytes())).To(BeNumerically(">", 0))
+			Expect(ctx.Writer.Bytes()).ToNot(BeEmpty())
+		})
+	})
+
+	Describe("channelRead Variables", func() {
+		It("Should skip compiling a channelRead variable declaration", func(bCtx SpecContext) {
+			stmt := MustSucceed(parser.ParseStatement("r := 5"))
+			aCtx := acontext.NewRoot(bCtx, stmt, NewRoot(nil))
+			MustSucceed(aCtx.Scope.Add(aCtx, symbol.Symbol{
+				Name: "r", Kind: symbol.KindVariable, Type: types.ReadChan(types.I64()),
+			}))
+			ctx := context.NewRoot(bCtx, aCtx.Scope, aCtx.TypeMap, resolve.NewResolver())
+			diverged := MustSucceed(statement.Compile(context.Child(ctx, stmt)))
+			Expect(diverged).To(BeFalse())
+			Expect(FinalizeContext(ctx)).To(BeEmpty())
+		})
+
+		It("Should skip compiling a channelRead variable reassignment to a literal", func(bCtx SpecContext) {
+			stmt := MustSucceed(parser.ParseStatement("r = 5"))
+			aCtx := acontext.NewRoot(bCtx, stmt, NewRoot(nil))
+			MustSucceed(aCtx.Scope.Add(aCtx, symbol.Symbol{
+				Name: "r", Kind: symbol.KindVariable, Type: types.ReadChan(types.I64()),
+			}))
+			ctx := context.NewRoot(bCtx, aCtx.Scope, aCtx.TypeMap, resolve.NewResolver())
+			diverged := MustSucceed(statement.Compile(context.Child(ctx, stmt)))
+			Expect(diverged).To(BeFalse())
+			Expect(FinalizeContext(ctx)).To(BeEmpty())
 		})
 	})
 })

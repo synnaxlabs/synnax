@@ -12,6 +12,7 @@ import z from "zod";
 import { aether } from "@/aether/aether";
 import { base } from "@/flux/base";
 import { useAsyncErrorHandler, useErrorHandler } from "@/status/aether/aggregator";
+import { type ErrorHandler } from "@/status/aether/errorHandler";
 import { synnax } from "@/synnax/aether";
 
 /** State schema for the flux provider (currently empty) */
@@ -26,6 +27,9 @@ export type ProviderState = z.input<typeof providerStateZ>;
 interface InternalState {
   /** The store instance */
   store: base.Client<base.Store>;
+  /** Error handler bound from the current afterUpdate's context, reused by afterDelete
+   * (which has no update-triggering context of its own to derive one from). */
+  runAsync: ErrorHandler;
 }
 
 /**
@@ -70,29 +74,49 @@ export type ProviderConfig<ScopedStore extends base.Store = base.Store> =
 const createProvider = <ScopedStore extends base.Store>(
   cfg: ProviderConfig<ScopedStore>,
 ) => {
-  const buildClient = (
-    ctx: aether.Context,
-    prevClient: base.Client<ScopedStore>,
-  ): base.Client<ScopedStore> => {
-    if ("client" in cfg) return cfg.client;
-    const nextClient = synnax.use(ctx);
-    if (prevClient != null && prevClient?.client?.key === nextClient?.key)
-      return prevClient;
-    return new base.Client<ScopedStore>({
-      client: nextClient,
-      storeConfig: cfg.storeConfig,
-      handleError: useErrorHandler(ctx),
-      handleAsyncError: useAsyncErrorHandler(ctx),
-    });
-  };
+  // A caller-supplied client (the `client` variant of ProviderConfig) is owned by the
+  // caller, which is responsible for closing it. Only a client this provider builds
+  // itself (the `storeConfig` variant) is closed here.
+  const owns = !("client" in cfg);
+
   return class Provider extends aether.Composite<typeof providerStateZ, InternalState> {
     static readonly TYPE = PROVIDER_TYPE;
     static readonly stateZ = providerStateZ;
     schema = Provider.stateZ;
+
     afterUpdate(ctx: aether.Context): void {
       const { internal: i } = this;
-      i.store = buildClient(ctx, i.store);
+      if (owns) i.runAsync = useErrorHandler(ctx);
+      i.store = this.buildClient(ctx, i.store);
       if (!ctx.wasSetPreviously(CONTEXT_KEY)) ctx.set(CONTEXT_KEY, i.store);
+    }
+
+    afterDelete(): void {
+      this.closeClient(this.internal.store);
+    }
+
+    private buildClient(
+      ctx: aether.Context,
+      prevClient: base.Client<ScopedStore>,
+    ): base.Client<ScopedStore> {
+      if ("client" in cfg) return cfg.client;
+      const nextClient = synnax.use(ctx);
+      if (prevClient != null && prevClient?.client?.key === nextClient?.key)
+        return prevClient;
+      this.closeClient(prevClient);
+      return new base.Client<ScopedStore>({
+        client: nextClient,
+        storeConfig: cfg.storeConfig,
+        handleError: this.internal.runAsync,
+        handleAsyncError: useAsyncErrorHandler(ctx),
+      });
+    }
+
+    private closeClient(prevClient: base.Client<ScopedStore> | undefined): void {
+      if (!owns || prevClient == null) return;
+      this.internal.runAsync(async () => {
+        await prevClient.close();
+      }, "failed to close flux client");
     }
   };
 };

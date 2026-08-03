@@ -43,7 +43,7 @@ var _ = Describe("AnalyzeSingleExpression", func() {
 			constSym := MustSucceed(ctx.Scope.Resolve(ctx, "constant_0"))
 			Expect(constSym.Kind).To(Equal(symbol.KindConstant))
 			Expect(constSym.Type.Kind).To(Equal(types.KindFunction))
-			valueCfg := MustBeOk(constSym.Type.Config.Get("value"))
+			valueCfg := MustBeOk(constSym.Type.Inputs.Get("value"))
 			Expect(valueCfg.Type.IsNumeric() || valueCfg.Type.Kind == types.KindVariable).To(BeTrue())
 			output := MustBeOk(constSym.Type.Outputs.Get(ir.DefaultOutputParam))
 			Expect(output.Type.IsNumeric() || output.Type.Kind == types.KindVariable).To(BeTrue())
@@ -57,7 +57,7 @@ var _ = Describe("AnalyzeSingleExpression", func() {
 			constSym := MustSucceed(ctx.Scope.Resolve(ctx, "constant_0"))
 			Expect(constSym.Kind).To(Equal(symbol.KindConstant))
 			Expect(constSym.Type.Kind).To(Equal(types.KindFunction))
-			valueCfg := MustBeOk(constSym.Type.Config.Get("value"))
+			valueCfg := MustBeOk(constSym.Type.Inputs.Get("value"))
 			Expect(valueCfg.Type.IsFloat() || valueCfg.Type.Kind == types.KindVariable).To(BeTrue())
 		})
 
@@ -69,7 +69,7 @@ var _ = Describe("AnalyzeSingleExpression", func() {
 			constSym := MustSucceed(ctx.Scope.Resolve(ctx, "constant_0"))
 			Expect(constSym.Kind).To(Equal(symbol.KindConstant))
 			Expect(constSym.Type.Kind).To(Equal(types.KindFunction))
-			valueCfg := MustBeOk(constSym.Type.Config.Get("value"))
+			valueCfg := MustBeOk(constSym.Type.Inputs.Get("value"))
 			Expect(valueCfg.Type).To(Equal(types.String()))
 		})
 
@@ -106,7 +106,6 @@ var _ = Describe("AnalyzeSingleExpression", func() {
 			fnSym := MustSucceed(ctx.Scope.Resolve(ctx, "expression_0"))
 			Expect(fnSym.Kind).To(Equal(symbol.KindFunction))
 			Expect(fnSym.Type.Kind).To(Equal(types.KindFunction))
-			Expect(fnSym.Type.Config).To(BeEmpty())
 			output := MustBeOk(fnSym.Type.Outputs.Get(ir.DefaultOutputParam))
 			Expect(output.Type).To(Equal(types.U8()))
 		})
@@ -314,5 +313,225 @@ var _ = Describe("AnalyzeSingleExpression", func() {
 			Expect((*ctx.Diagnostics)[1].Message).To(Equal("undefined symbol: bar"))
 		})
 
+	})
+})
+
+var _ = Describe("LiftVarReads", func() {
+	var (
+		root *symbol.Symbol
+		fn   *symbol.Symbol
+	)
+	src := 12
+	rwChan := func(elem types.Type) types.Type {
+		t := types.Chan(elem)
+		t.ChanDirection = types.ChanDirectionRead | types.ChanDirectionWrite
+		return t
+	}
+	addVar := func(bCtx SpecContext, sym symbol.Symbol) {
+		MustSucceed(root.Add(bCtx, sym))
+	}
+	lift := func(bCtx SpecContext, code string) context.Context[parser.IExpressionContext] {
+		expr := MustSucceed(parser.ParseExpression(code))
+		ctx := context.NewRoot(bCtx, expr, root)
+		flow.LiftVarReads(ctx, fn, expr)
+		return ctx
+	}
+	BeforeEach(func(bCtx SpecContext) {
+		root = NewRoot(nil, symbol.Symbol{
+			Name: "temp_sensor",
+			Kind: symbol.KindChannel,
+			Type: types.Chan(types.F32()),
+			ID:   10,
+		})
+		fn = MustSucceed(root.Add(bCtx, symbol.Symbol{
+			Name: "synth",
+			Kind: symbol.KindFunction,
+			Type: types.Function(types.FunctionProperties{}),
+		}))
+	})
+
+	It("Should lift a reassigned variable as an input param", func(bCtx SpecContext) {
+		addVar(bCtx, symbol.Symbol{
+			Name: "x", Kind: symbol.KindVariable,
+			Type: types.I32(), Reassigned: true,
+		})
+		ctx := lift(bCtx, "x + 1")
+		Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
+		Expect(MustBeOk(fn.Type.Inputs.Get("x")).Type).To(Equal(types.I32()))
+		child := fn.FindChild("x")
+		Expect(child).ToNot(BeNil())
+		Expect(child.Kind).To(Equal(symbol.KindInput))
+		Expect(child.Internal).To(BeTrue())
+	})
+
+	It("Should not lift a variable that was never reassigned", func(bCtx SpecContext) {
+		addVar(bCtx, symbol.Symbol{
+			Name: "x", Kind: symbol.KindVariable, Type: types.I32(),
+		})
+		lift(bCtx, "x + 1")
+		Expect(fn.Type.Inputs).To(BeEmpty())
+	})
+
+	It("Should lift a reactive variable with its unwrapped value type", func(bCtx SpecContext) {
+		addVar(bCtx, symbol.Symbol{
+			Name: "r", Kind: symbol.KindVariable,
+			Type: types.ReadChan(types.F32()),
+		})
+		lift(bCtx, "r * 2.0")
+		Expect(MustBeOk(fn.Type.Inputs.Get("r")).Type).To(Equal(types.F32()))
+	})
+
+	It("Should lift a reassigned alias with its unwrapped value type", func(bCtx SpecContext) {
+		addVar(bCtx, symbol.Symbol{
+			Name: "c", Kind: symbol.KindVariable,
+			Type: rwChan(types.F32()), SourceID: &src, Reassigned: true,
+		})
+		lift(bCtx, "c + 1.0")
+		Expect(MustBeOk(fn.Type.Inputs.Get("c")).Type).To(Equal(types.F32()))
+	})
+
+	It("Should skip a name that is already an input param", func(bCtx SpecContext) {
+		fn.Type.Inputs = types.Params{{Name: "x", Type: types.I32()}}
+		addVar(bCtx, symbol.Symbol{
+			Name: "x", Kind: symbol.KindVariable,
+			Type: types.I32(), Reassigned: true,
+		})
+		lift(bCtx, "x + 1")
+		Expect(fn.Type.Inputs).To(HaveLen(1))
+		Expect(fn.FindChild("x")).To(BeNil())
+	})
+
+	It("Should skip an unresolvable identifier without diagnostics", func(bCtx SpecContext) {
+		ctx := lift(bCtx, "ghost + 1")
+		Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
+		Expect(fn.Type.Inputs).To(BeEmpty())
+	})
+
+	It("Should not lift a channel read", func(bCtx SpecContext) {
+		lift(bCtx, "temp_sensor > 100.0")
+		Expect(fn.Type.Inputs).To(BeEmpty())
+	})
+
+	It("Should lift multiple variables in source order", func(bCtx SpecContext) {
+		addVar(bCtx, symbol.Symbol{
+			Name: "y", Kind: symbol.KindVariable,
+			Type: types.F64(), Reassigned: true,
+		})
+		addVar(bCtx, symbol.Symbol{
+			Name: "x", Kind: symbol.KindVariable,
+			Type: types.I32(), Reassigned: true,
+		})
+		lift(bCtx, "x * y")
+		Expect(fn.Type.Inputs).To(HaveLen(2))
+		Expect(fn.Type.Inputs[0].Name).To(Equal("x"))
+		Expect(fn.Type.Inputs[1].Name).To(Equal("y"))
+	})
+
+	It("Should lift a reassigned stateful variable", func(bCtx SpecContext) {
+		addVar(bCtx, symbol.Symbol{
+			Name: "s", Kind: symbol.KindStatefulVariable,
+			Type: types.I64(), Reassigned: true,
+		})
+		lift(bCtx, "s + 1")
+		Expect(MustBeOk(fn.Type.Inputs.Get("s")).Type).To(Equal(types.I64()))
+	})
+
+	It("Should not lift an unreassigned read-only variable backed by a real channel", func(bCtx SpecContext) {
+		addVar(bCtx, symbol.Symbol{
+			Name: "r", Kind: symbol.KindVariable,
+			Type: types.ReadChan(types.F32()), SourceID: &src,
+		})
+		lift(bCtx, "r * 2.0")
+		Expect(fn.Type.Inputs).To(BeEmpty())
+	})
+})
+
+var _ = Describe("LiftFmtStrVarReads", func() {
+	var (
+		root *symbol.Symbol
+		fn   *symbol.Symbol
+	)
+	liftFmt := func(bCtx SpecContext, code string) context.Context[parser.IExpressionContext] {
+		expr := MustSucceed(parser.ParseExpression(code))
+		ctx := context.NewRoot(bCtx, expr, root)
+		flow.LiftFmtStrVarReads(ctx, fn, expr)
+		return ctx
+	}
+	BeforeEach(func(bCtx SpecContext) {
+		root = NewRoot(nil)
+		fn = MustSucceed(root.Add(bCtx, symbol.Symbol{
+			Name: "fmt_fn",
+			Kind: symbol.KindFunction,
+			Type: types.Function(types.FunctionProperties{}),
+		}))
+		MustSucceed(root.Add(bCtx, symbol.Symbol{
+			Name: "x", Kind: symbol.KindVariable,
+			Type: types.I32(), Reassigned: true,
+		}))
+		MustSucceed(root.Add(bCtx, symbol.Symbol{
+			Name: "y", Kind: symbol.KindVariable,
+			Type: types.F64(), Reassigned: true,
+		}))
+	})
+
+	It("Should lift a reassigned variable read in a placeholder", func(bCtx SpecContext) {
+		ctx := liftFmt(bCtx, `f"value: {x}"`)
+		Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
+		Expect(MustBeOk(fn.Type.Inputs.Get("x")).Type).To(Equal(types.I32()))
+	})
+
+	It("Should lift from every placeholder", func(bCtx SpecContext) {
+		liftFmt(bCtx, `f"{x} and {y}"`)
+		Expect(fn.Type.Inputs).To(HaveLen(2))
+	})
+
+	It("Should lift variables inside a placeholder expression", func(bCtx SpecContext) {
+		liftFmt(bCtx, `f"{x + 1}"`)
+		Expect(MustBeOk(fn.Type.Inputs.Get("x")).Type).To(Equal(types.I32()))
+	})
+
+	It("Should lift a placeholder that carries a format spec", func(bCtx SpecContext) {
+		liftFmt(bCtx, `f"{y:.2f}"`)
+		Expect(MustBeOk(fn.Type.Inputs.Get("y")).Type).To(Equal(types.F64()))
+	})
+
+	It("Should lift from a raw-format string", func(bCtx SpecContext) {
+		liftFmt(bCtx, `rf"path: {x}"`)
+		Expect(MustBeOk(fn.Type.Inputs.Get("x")).Type).To(Equal(types.I32()))
+	})
+
+	It("Should be a no-op for a plain string literal", func(bCtx SpecContext) {
+		liftFmt(bCtx, `"value: {x}"`)
+		Expect(fn.Type.Inputs).To(BeEmpty())
+	})
+
+	It("Should be a no-op for a numeric literal", func(bCtx SpecContext) {
+		liftFmt(bCtx, "42")
+		Expect(fn.Type.Inputs).To(BeEmpty())
+	})
+
+	It("Should be a no-op for a malformed format body", func(bCtx SpecContext) {
+		ctx := liftFmt(bCtx, `f"{x oops"`)
+		Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
+		Expect(fn.Type.Inputs).To(BeEmpty())
+	})
+
+	It("Should skip an empty placeholder without panicking", func(bCtx SpecContext) {
+		ctx := liftFmt(bCtx, `f"{}"`)
+		Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
+		Expect(fn.Type.Inputs).To(BeEmpty())
+	})
+
+	It("Should be a no-op for a non-literal expression", func(bCtx SpecContext) {
+		liftFmt(bCtx, "x + 1")
+		Expect(fn.Type.Inputs).To(BeEmpty())
+	})
+
+	It("Should skip an unparseable placeholder without diagnostics", func(bCtx SpecContext) {
+		ctx := liftFmt(bCtx, `f"{x +} {y}"`)
+		Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
+		_, ok := fn.Type.Inputs.Get("x")
+		Expect(ok).To(BeFalse())
+		Expect(MustBeOk(fn.Type.Inputs.Get("y")).Type).To(Equal(types.F64()))
 	})
 })

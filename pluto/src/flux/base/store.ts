@@ -141,6 +141,28 @@ export class ScopedUnaryStore<
     return () => rollbacks.reverse().forEach((r) => r());
   }
 
+  /**
+   * Sets the given value(s) only for keys that are not already present in the
+   * store, leaving existing entries untouched. Use this to hydrate the store
+   * from a bulk fetch without clobbering entries that already hold live state
+   * (e.g. a document with unsynced local edits).
+   *
+   * @returns A rollback function that removes the entries this call inserted.
+   */
+  setIfAbsent(
+    scope: string,
+    value: (Value & record.Keyed<Key>) | Array<Value & record.Keyed<Key>>,
+    variant?: SetExtra,
+  ): () => void {
+    const rollbacks: destructor.Destructor[] = [];
+    array.toArray(value).forEach((val) => {
+      if (this.entries.has(val.key)) return;
+      const rollback = this.setOne(scope, val.key, val, variant as SetExtra);
+      if (rollback != null) rollbacks.push(rollback);
+    });
+    return () => rollbacks.reverse().forEach((r) => r());
+  }
+
   get(key: Key): Value | undefined;
   get(keys: Key[] | ((value: Value) => boolean)): Value[];
   get(keys: Key | Key[] | ((value: Value) => boolean)): Value | Value[] | undefined {
@@ -267,6 +289,10 @@ export class ScopedUnaryStore<
         valueOrVariant?: state.SetArg<Value | undefined> | SetExtra,
         variant?: SetExtra,
       ): (() => void) => this.set(scope, key, valueOrVariant, variant),
+      setIfAbsent: (
+        value: (Value & record.Keyed<Key>) | Array<Value & record.Keyed<Key>>,
+        variant?: SetExtra,
+      ): (() => void) => this.setIfAbsent(scope, value, variant),
       get: this.get.bind(this),
       list: () => this.list(),
       has: (key: Key | Key[]) => this.has(key),
@@ -296,7 +322,9 @@ export interface ChannelListener<
   /** Zod schema for parsing and validating channel data */
   schema: Z;
   /** Callback function invoked when the channel data changes */
-  onChange: (args: ChannelListenerArgs<ScopedStore, Z>) => Promise<unknown> | unknown;
+  onChange: (
+    params: ChannelListenerParams<ScopedStore, Z>,
+  ) => Promise<unknown> | unknown;
 }
 
 /**
@@ -305,7 +333,7 @@ export interface ChannelListener<
  * @template ScopedStore - The type of the store available to the listener
  * @template Z - Zod schema type for validating channel data
  */
-export type ChannelListenerArgs<
+export type ChannelListenerParams<
   ScopedStore extends Store = {},
   Z extends z.ZodType = z.ZodType,
 > = {
@@ -378,6 +406,9 @@ export type UnaryStore<
       set(
         value: (Value & record.Keyed<Key>) | Array<Value & record.Keyed<Key>>,
       ): () => void;
+      setIfAbsent(
+        value: (Value & record.Keyed<Key>) | Array<Value & record.Keyed<Key>>,
+      ): () => void;
       delete(key: Key | Key[] | ((value: Value, key: Key) => boolean)): () => void;
     }
   : {
@@ -387,6 +418,10 @@ export type UnaryStore<
         variant: SetExtra,
       ): () => void;
       set(
+        values: (Value & record.Keyed<Key>) | Array<Value & record.Keyed<Key>>,
+        variant: SetExtra,
+      ): () => void;
+      setIfAbsent(
         values: (Value & record.Keyed<Key>) | Array<Value & record.Keyed<Key>>,
         variant: SetExtra,
       ): () => void;

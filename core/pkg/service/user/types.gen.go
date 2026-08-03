@@ -11,25 +11,11 @@
 
 package user
 
-import (
-	"github.com/google/uuid"
-)
+import "github.com/synnaxlabs/synnax/pkg/service/user/versions"
 
 // Key is a unique identifier for a user, represented as a UUID.
-type Key = uuid.UUID
+type Key = versions.Key
 
 // User is an account entity representing a person accessing the Synnax system. Users
 // can have roles assigned for permission management.
-type User struct {
-	// Key is the unique identifier for this user.
-	Key Key `json:"key" msgpack:"key"`
-	// Username is the unique login name for the user.
-	Username string `json:"username" msgpack:"username"`
-	// FirstName is the user's first name.
-	FirstName string `json:"first_name" msgpack:"first_name"`
-	// LastName is the user's last name.
-	LastName string `json:"last_name" msgpack:"last_name"`
-	// RootUser is true if this is a root/admin user with full system access. Root users
-	// cannot be deleted.
-	RootUser bool `json:"root_user" msgpack:"root_user"`
-}
+type User = versions.User

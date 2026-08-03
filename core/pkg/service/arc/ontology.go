@@ -16,8 +16,8 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/samber/lo"
-	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
-	"github.com/synnaxlabs/synnax/pkg/distribution/search"
+	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/search"
 	xchange "github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/gorp"
 	xiter "github.com/synnaxlabs/x/iter"
@@ -30,34 +30,27 @@ func OntologyID(k Key) ontology.ID {
 	return ontology.ID{Type: ontology.ResourceTypeArc, Key: k.String()}
 }
 
-// OntologyIDs returns unique identifiers for the arcs within the ontology.
+// OntologyIDs returns unique identifiers for the Arcs within the ontology.
 func OntologyIDs(keys []Key) []ontology.ID {
-	return lo.Map(keys, func(key Key, _ int) ontology.ID {
-		return OntologyID(key)
-	})
+	return lo.Map(keys, func(key Key, _ int) ontology.ID { return OntologyID(key) })
 }
 
 // KeysFromOntologyIDs extracts the keys of the arcs from the ontology IDs.
 func KeysFromOntologyIDs(ids []ontology.ID) ([]Key, error) {
-	keys := make([]Key, len(ids))
-	var err error
-	for i, id := range ids {
-		if keys[i], err = uuid.Parse(id.Key); err != nil {
-			return nil, err
-		}
-	}
-	return keys, nil
+	return lo.MapErr(ids, func(id ontology.ID, _ int) (Key, error) {
+		return uuid.Parse(id.Key)
+	})
 }
 
 // OntologyIDsFromArcs returns the ontology IDs of the arcs.
 func OntologyIDsFromArcs(arcs []Arc) []ontology.ID {
-	return lo.Map(arcs, func(a Arc, _ int) ontology.ID { return OntologyID(a.Key) })
+	return lo.Map(arcs, func(a Arc, _ int) ontology.ID { return a.OntologyID() })
 }
 
 var schema = zyn.Object(map[string]zyn.Schema{"key": zyn.UUID()})
 
 func newResource(a Arc) ontology.Resource {
-	return ontology.NewResource(schema, OntologyID(a.Key), a.Name, a)
+	return ontology.NewResource(schema, a.OntologyID(), a.Name, a)
 }
 
 var (
@@ -68,9 +61,6 @@ var (
 type change = xchange.Change[Key, Arc]
 
 func (s *Service) Type() ontology.ResourceType { return ontology.ResourceTypeArc }
-
-// Schema implements ontology.Service.
-func (s *Service) Schema() zyn.Schema { return schema }
 
 // RetrieveResource implements ontology.Service.
 func (s *Service) RetrieveResource(ctx context.Context, key string, tx gorp.Tx) (ontology.Resource, error) {

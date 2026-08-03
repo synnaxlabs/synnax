@@ -14,10 +14,11 @@ import (
 	"io"
 
 	"github.com/synnaxlabs/alamos"
-	"github.com/synnaxlabs/synnax/pkg/distribution/group"
-	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
-	"github.com/synnaxlabs/synnax/pkg/distribution/search"
-	"github.com/synnaxlabs/synnax/pkg/distribution/signals"
+	"github.com/synnaxlabs/synnax/pkg/service/group"
+	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/search"
+	"github.com/synnaxlabs/synnax/pkg/service/signals"
+	"github.com/synnaxlabs/synnax/pkg/service/view/versions"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/gorp"
 	xio "github.com/synnaxlabs/x/io"
@@ -43,10 +44,7 @@ type ServiceConfig struct {
 	alamos.Instrumentation
 }
 
-var (
-	_                    config.Config[ServiceConfig] = (*ServiceConfig)(nil)
-	DefaultServiceConfig                              = ServiceConfig{}
-)
+var _ config.Config[ServiceConfig] = ServiceConfig{}
 
 // Override implements config.Config.
 func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
@@ -84,7 +82,7 @@ type Service struct {
 // leaks.
 func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err error) {
 	s = &Service{}
-	if s.cfg, err = config.New(DefaultServiceConfig, cfgs...); err != nil {
+	if s.cfg, err = config.New(ServiceConfig{}, cfgs...); err != nil {
 		return nil, err
 	}
 	cleanup, ok := service.NewOpener(ctx, &s.closer)
@@ -94,6 +92,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	}
 	if s.table, err = gorp.OpenTable(ctx, gorp.TableConfig[Key, View]{
 		DB:              s.cfg.DB,
+		Migrations:      versions.Migrations,
 		Instrumentation: s.cfg.Instrumentation,
 	}); !ok(err, s.table) {
 		return nil, err
@@ -107,7 +106,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	if sig, err = signals.PublishFromGorp(
 		ctx,
 		s.cfg.Signals,
-		signals.GorpPublisherConfigUUID[View](s.table.Observe()),
+		signals.GorpPublisherConfigUUID(s.table.Observe()),
 	); !ok(err, sig) {
 		return nil, err
 	}

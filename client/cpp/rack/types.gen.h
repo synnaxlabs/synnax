@@ -18,10 +18,10 @@
 #include <vector>
 
 #include "client/cpp/ontology/id.h"
+#include "client/cpp/status/types.gen.h"
 #include "client/cpp/task/task.h"
 #include "x/cpp/errors/errors.h"
 #include "x/cpp/json/json.h"
-#include "x/cpp/status/types.gen.h"
 
 #include "core/pkg/service/rack/pb/rack.pb.h"
 
@@ -30,6 +30,11 @@ namespace synnax::rack {
 struct StatusDetails;
 struct Rack;
 
+/// @brief Key is a composite identifier for a rack. The high 16 bits contain the node
+/// key, and the low 16 bits contain the local sequential key. Racks are leased to
+/// specific nodes because task configuration signals are passed through gossip
+/// operations, which can take 15s+ to propagate through a large cluster. This structure
+/// minimizes hops and configuration latency.
 using Key = std::uint32_t;
 
 /// @brief StatusDetails contains rack-specific status details.
@@ -47,7 +52,7 @@ struct StatusDetails {
     from_proto(const ::service::rack::pb::StatusDetails &pb);
 };
 
-using Status = ::x::status::Status<StatusDetails>;
+using Status = ::synnax::status::Status<StatusDetails>;
 
 /// @brief Rack is a collection container for hardware devices and tasks running on a
 /// specific cluster node. Racks serve as the integration point between the Synnax
@@ -69,7 +74,7 @@ struct Rack {
     /// (e.g.,
     /// "ni", "opc", "labjack"). An empty or nil list means the rack supports no
     /// integrations.
-    std::vector<std::string> integrations;
+    std::vector<std::string> integrations = {};
 
     static Rack parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;

@@ -40,6 +40,7 @@ struct Transport {
     std::shared_ptr<channel::RetrieveClient> chan_retrieve;
     std::unique_ptr<ranger::RetrieveClient> range_retrieve;
     std::unique_ptr<ranger::CreateClient> range_create;
+    std::unique_ptr<ranger::SetEndClient> range_set_end;
     std::shared_ptr<ranger::kv::DeleteClient> range_kv_delete;
     std::shared_ptr<ranger::kv::GetClient> range_kv_get;
     std::shared_ptr<ranger::kv::SetClient> range_kv_set;

@@ -22,7 +22,7 @@
 }
 
 /* Tabs selector */
-.pluto-tabs-selector__btn {
+.pluto-tabs__tab {
     padding: 0 3rem;
 
     .pluto-text-icon {
@@ -32,16 +32,22 @@
     .pluto-text {
         margin: 0;
     }
+
+    /* Arc context tabs render the icon to the right of the label. */
+    .pluto-icon--arc-flow,
+    .pluto-icon--arc-func {
+        order: 1;
+    }
 }
 
 @media (max-width: 800px) {
-    .pluto-tabs-selector__btn {
+    .pluto-tabs__tab {
         padding: 0 1rem;
     }
 }
 
 @media (max-width: 600px) {
-    .pluto-tabs-selector__tabs {
+    .pluto-tabs__selector {
         justify-content: center;
     }
 }

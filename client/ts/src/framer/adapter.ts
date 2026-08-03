@@ -154,9 +154,7 @@ export class WriteAdapter {
 
   async adapt(
     columnsOrData:
-      | channel.Params
-      | Record<channel.Key | channel.Name, CrudeSeries>
-      | CrudeFrame,
+      channel.Params | Record<channel.Key | channel.Name, CrudeSeries> | CrudeFrame,
     series?: CrudeSeries | CrudeSeries[],
   ): Promise<Frame> {
     if (typeof columnsOrData === "string" || typeof columnsOrData === "number") {

@@ -18,7 +18,6 @@ import {
   type Key,
   keyZ,
   type New,
-  newZ,
   ontologyID,
 } from "@/device/types.gen";
 import { ontology } from "@/ontology";
@@ -34,7 +33,7 @@ const createReqZ = <
   Model extends z.ZodType<string> = z.ZodString,
 >(
   schemas?: DeviceSchemas<Properties, Make, Model>,
-) => z.object({ devices: zod.toArray(newZ(schemas)) });
+) => z.object({ devices: zod.toArray(deviceZ(schemas)) });
 
 const createResZ = <
   Properties extends z.ZodType<record.Unknown> = z.ZodType<record.Unknown>,
@@ -67,9 +66,14 @@ const retrieveResZ = <
   Model extends z.ZodType<string> = z.ZodString,
 >(
   schemas?: DeviceSchemas<Properties, Make, Model>,
-) => z.object({ devices: array.nullishToEmpty(deviceZ(schemas)) });
+) =>
+  z.object({
+    devices: deviceZ(schemas)
+      .array()
+      .default(() => []),
+  });
 
-const singleRetrieveArgsZ = z
+const singleRetrieveParamsZ = z
   .object({
     key: keyZ,
     includeStatus: z.boolean().optional(),
@@ -79,12 +83,12 @@ const singleRetrieveArgsZ = z
     includeStatus,
   }));
 
-export type RetrieveSingleParams = z.input<typeof singleRetrieveArgsZ>;
+export type RetrieveSingleParams = z.input<typeof singleRetrieveParamsZ>;
 export type RetrieveMultipleParams = z.input<typeof retrieveRequestZ>;
 
-const retrieveArgsZ = z.union([singleRetrieveArgsZ, retrieveRequestZ]);
+const retrieveParamsZ = z.union([singleRetrieveParamsZ, retrieveRequestZ]);
 
-export type RetrieveArgs = z.input<typeof retrieveArgsZ>;
+export type RetrieveParams = z.input<typeof retrieveParamsZ>;
 
 type RetrieveSchemas<
   Properties extends z.ZodType<record.Unknown>,
@@ -104,30 +108,30 @@ export class Client {
     Make extends z.ZodType<string>,
     Model extends z.ZodType<string>,
   >(
-    args: RetrieveSingleParams & RetrieveSchemas<Properties, Make, Model>,
+    params: RetrieveSingleParams & RetrieveSchemas<Properties, Make, Model>,
   ): Promise<Device<Properties, Make, Model>>;
 
-  async retrieve(args: RetrieveSingleParams): Promise<Device>;
+  async retrieve(params: RetrieveSingleParams): Promise<Device>;
 
   async retrieve<
     Properties extends z.ZodType<record.Unknown>,
     Make extends z.ZodType<string>,
     Model extends z.ZodType<string>,
   >(
-    args: RetrieveMultipleParams & RetrieveSchemas<Properties, Make, Model>,
+    params: RetrieveMultipleParams & RetrieveSchemas<Properties, Make, Model>,
   ): Promise<Array<Device<Properties, Make, Model>>>;
 
-  async retrieve(args: RetrieveMultipleParams): Promise<Array<Device>>;
+  async retrieve(params: RetrieveMultipleParams): Promise<Array<Device>>;
 
   async retrieve(
-    args: RetrieveArgs & { schemas?: DeviceSchemas },
+    params: RetrieveParams & { schemas?: DeviceSchemas },
   ): Promise<Device | Array<Device>> {
-    const { schemas, ...rest } = args;
+    const { schemas, ...rest } = params;
     const isSingle = typeof rest === "object" && "key" in rest;
     const res = await this.client.send(
       "/device/retrieve",
       rest,
-      retrieveArgsZ,
+      retrieveParamsZ,
       retrieveResZ(schemas),
     );
     checkForMultipleOrNoResults("Device", rest, res.devices, isSingle);

@@ -15,18 +15,19 @@
 #include <vector>
 
 #include "client/cpp/channel/types.gen.h"
-#include "client/cpp/cluster/json.gen.h"
+#include "client/cpp/node/types.gen.h"
+#include "client/cpp/status/json.gen.h"
 #include "x/cpp/json/json.h"
-#include "x/cpp/status/json.gen.h"
-#include "x/cpp/telem/json.gen.h"
+#include "x/cpp/telem/types.gen.h"
 
 namespace synnax::channel {
 
 inline Operation Operation::parse(x::json::Parser parser) {
     return Operation{
         .type = parser.field<std::string>("type"),
-        .reset_channel = parser.field<Key>("reset_channel"),
-        .duration = parser.field<::x::telem::TimeSpan>("duration"),
+        .reset_channel = parser.field<Key>("reset_channel", 0),
+        .duration = parser
+                        .field<::x::telem::TimeSpan>("duration", x::telem::TimeSpan(0)),
     };
 }
 
@@ -40,16 +41,16 @@ inline x::json::json Operation::to_json() const {
 
 inline Channel Channel::parse(x::json::Parser parser) {
     return Channel{
-        .key = parser.field<Key>("key"),
+        .key = parser.field<Key>("key", 0),
         .name = parser.field<Name>("name"),
-        .leaseholder = parser.field<::synnax::cluster::NodeKey>("leaseholder"),
+        .leaseholder = parser.field<::synnax::node::Key>("leaseholder", 0),
         .data_type = parser.field<::x::telem::DataType>("data_type"),
-        .is_index = parser.field<bool>("is_index"),
-        .index = parser.field<Key>("index"),
-        .alias = parser.field<std::string>("alias", ""),
-        .is_virtual = parser.field<bool>("virtual"),
-        .internal = parser.field<bool>("internal"),
-        .expression = parser.field<std::string>("expression"),
+        .is_index = parser.field<bool>("is_index", false),
+        .index = parser.field<Key>("index", 0),
+        .alias = parser.field<std::optional<std::string>>("alias"),
+        .is_virtual = parser.field<bool>("virtual", false),
+        .internal = parser.field<bool>("internal", false),
+        .expression = parser.field<std::string>("expression", ""),
         .operations = parser.field<std::vector<Operation>>("operations"),
         .concurrency = parser.field<::x::control::Concurrency>("concurrency"),
         .status = parser.field<std::optional<Status>>("status"),

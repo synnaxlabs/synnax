@@ -11,45 +11,24 @@
 
 package graph
 
-import (
-	"github.com/synnaxlabs/arc/ir"
-	"github.com/synnaxlabs/x/encoding/msgpack"
-	"github.com/synnaxlabs/x/spatial"
-)
-
-// Nodes is a collection of visual nodes in an Arc graph.
-type Nodes []Node
+import "github.com/synnaxlabs/arc/graph/versions"
 
 // Node is a visual node in the Arc graph editor representing a function instantiation
-// with position data.
-type Node struct {
-	// Key is the unique identifier for this node instance.
-	Key string `json:"key" msgpack:"key"`
-	// Type is the function type being instantiated.
-	Type string `json:"type" msgpack:"type"`
-	// Config contains configuration parameter values as a JSON object.
-	Config msgpack.EncodedJSON `json:"config" msgpack:"config"`
-	// Position is the canvas position (x, y) for visual layout.
-	Position spatial.XY `json:"position" msgpack:"position"`
-}
+// with position data. The function type and input parameter values are stored in the
+// graph's inputs map, keyed by the node key.
+type Node = versions.Node
 
-// Viewport is the camera state for viewing the Arc graph editor canvas.
-type Viewport struct {
-	// Position is the camera pan offset (x, y).
-	Position spatial.XY `json:"position" msgpack:"position"`
-	// Zoom is the zoom level where 1.0 equals 100%.
-	Zoom float64 `json:"zoom" msgpack:"zoom"`
-}
+// Nodes is a collection of visual nodes in an Arc graph.
+type Nodes = versions.Nodes
+
+// Edge is a dataflow connection between node parameters carrying a stable identifier.
+// The key persists across endpoint edits, distinguishing the editable graph edge from
+// the keyless ir.Edge consumed by the compiler.
+type Edge = versions.Edge
+
+// Edges is a collection of graph edges in an Arc graph.
+type Edges = versions.Edges
 
 // Graph is a visual dataflow graph representation combining IR elements with canvas
 // layout for the Arc graph editor.
-type Graph struct {
-	// Viewport is the current camera state for the graph view.
-	Viewport Viewport `json:"viewport" msgpack:"viewport"`
-	// Functions contains function definitions available in this graph.
-	Functions ir.Functions `json:"functions" msgpack:"functions"`
-	// Edges contains dataflow connections between node parameters.
-	Edges ir.Edges `json:"edges" msgpack:"edges"`
-	// Nodes contains visual nodes with canvas positions.
-	Nodes Nodes `json:"nodes" msgpack:"nodes"`
-}
+type Graph = versions.Graph

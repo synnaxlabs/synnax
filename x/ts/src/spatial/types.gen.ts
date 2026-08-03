@@ -62,8 +62,8 @@ export const signedDimensionZ = z.enum(SIGNED_DIMENSIONS);
 export type SignedDimension = z.infer<typeof signedDimensionZ>;
 
 /**
- * XY is a 2D coordinate point with x and y values. Used for positioning
- * elements in two-dimensional space.
+ * XY is a 2D coordinate point with x and y values. Used for positioning elements in
+ * two-dimensional space.
  */
 export const xyZ = z.object({
   /** x is the horizontal coordinate. */
@@ -113,8 +113,8 @@ export const signedDimensionsZ = z.object({
 export interface SignedDimensions extends z.infer<typeof signedDimensionsZ> {}
 
 /**
- * ClientXY is a 2D coordinate point expressed in client (viewport) space, matching
- * the shape of DOM mouse events.
+ * ClientXY is a 2D coordinate point expressed in client (viewport) space, matching the
+ * shape of DOM mouse events.
  */
 export const clientXYZ = z.object({
   /** clientX is the horizontal coordinate in client (viewport) space. */
@@ -125,10 +125,9 @@ export const clientXYZ = z.object({
 export interface ClientXY extends z.infer<typeof clientXYZ> {}
 
 /**
- * Bounds is a closed-open interval [lower, upper) over an ordered numeric value
- * space. The TypeScript binding is generic over T so callers can express
- * bounds over either number or bigint values; other languages emit a
- * concrete float64-based type.
+ * Bounds is a closed-open interval [lower, upper) over an ordered numeric value space.
+ * The TypeScript binding is generic over T so callers can express bounds over either
+ * number or bigint values; other languages emit a concrete float64-based type.
  */
 export const boundsZ = <T extends numeric.Value = number>(t?: z.ZodType<T>) =>
   z.object({
@@ -142,6 +141,9 @@ export interface Bounds<T extends numeric.Value = number> {
   upper: T;
 }
 
+export const decimalZ = z.number().min(0).max(1);
+export type Decimal = z.infer<typeof decimalZ>;
+
 /** Viewport is the camera state of a viewport. */
 export const viewportZ = z.object({
   /** zoom is the zoom level where 1.0 equals 100%. */
@@ -152,17 +154,17 @@ export const viewportZ = z.object({
 export interface Viewport extends z.infer<typeof viewportZ> {}
 
 /**
- * StickyXY is a position that can be anchored to different corners of a
- * container with configurable units (pixels or decimal fractions).
+ * StickyXY is a position that can be anchored to different corners of a container with
+ * configurable units (pixels or decimal fractions).
  */
 export const stickyXYZ = z.object({
   /** x is the horizontal coordinate. */
   x: z.number(),
   /** y is the vertical coordinate. */
   y: z.number(),
-  /** root is the optional anchor corner for the position. */
-  root: cornerLocationZ.optional(),
-  /** units is the optional unit specification for the coordinates. */
-  units: stickyUnitsZ.optional(),
+  /** root is the anchor corner for the position. */
+  root: cornerLocationZ.prefault({ x: "left", y: "top" }),
+  /** units is the unit specification for the coordinates. */
+  units: stickyUnitsZ.prefault({ x: "px", y: "px" }),
 });
 export interface StickyXY extends z.infer<typeof stickyXYZ> {}

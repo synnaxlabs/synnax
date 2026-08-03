@@ -52,7 +52,7 @@ export const FLUX_STORE_CONFIG: Flux.UnaryStoreConfig<FluxSubStore> = {
   listeners: [SET_STATUS_LISTENER, DELETE_STATUS_LISTENER],
 };
 
-export type ListParams = status.MultiRetrieveArgs;
+export type ListParams = status.MultiRetrieveParams;
 
 export const useList = Flux.createList<
   ListParams,
@@ -139,7 +139,7 @@ export const { useUpdate: useSet } = Flux.createUpdate<SetParams, FluxSubStore>(
   },
 });
 
-export type RetrieveQuery = status.SingleRetrieveArgs;
+export type RetrieveQuery = status.SingleRetrieveParams;
 
 const BASE_QUERY: Pick<RetrieveQuery, "includeLabels"> = {
   includeLabels: true,
@@ -147,7 +147,7 @@ const BASE_QUERY: Pick<RetrieveQuery, "includeLabels"> = {
 
 interface RetrieveSingleParams<
   DetailsSchema extends z.ZodType = z.ZodNever,
-> extends Flux.RetrieveParams<status.SingleRetrieveArgs, FluxSubStore> {
+> extends Flux.RetrieveParams<status.SingleRetrieveParams, FluxSubStore> {
   detailsSchema?: DetailsSchema;
 }
 
@@ -401,11 +401,12 @@ export interface RenameParams extends Pick<status.Status, "key" | "name"> {}
 export const { useUpdate: useRename } = Flux.createUpdate<RenameParams, FluxSubStore>({
   name: RESOURCE_NAME,
   verbs: Flux.RENAME_VERBS,
-  update: async ({ client, data, store, rollbacks }) => {
+  update: async ({ client, data, store, rollbacks, onOptimisticComplete }) => {
     const { key, name } = data;
     const stat = await retrieveSingle({ client, store, query: { key } });
     const renamed = { ...stat, name };
     rollbacks.push(store.statuses.set(renamed));
+    await onOptimisticComplete(data);
     await client.statuses.set(renamed);
     return data;
   },

@@ -2,13 +2,14 @@
 layout: "@/layouts/Reference.astro"
 title: "`status`"
 description: "Arc standard library reference for the status module"
-prev: "math"
-prevURL: "/reference/control/arc/reference/standard-library/math"
+prev: "ranges"
+prevURL: "/reference/control/arc/reference/standard-library/ranges"
 next: "time"
 nextURL: "/reference/control/arc/reference/standard-library/time"
 ---
 
 import { Note, Icon, Text } from "@synnaxlabs/pluto";
+import { Arc } from "@/components";
 import Details from "@/components/details/Details.astro";
 import { mdxOverrides } from "@/components/mdxOverrides";
 
@@ -40,18 +41,34 @@ addressing it by name or by key, and outputs the resolved status key.
 
 </Details>
 
-```arc
-trigger -> status.set{
-    key_or_name = "ox_alarm",
-    variant = "error",
-    message = "Overpressure detected"
-}
+<Arc.Tabs client:load>
 
-func raise_alarm() {
-    alarm_key = status.set(
-      "ox_alarm",
-      "Overpressure detected",
-      "error"
-    )
+<Fragment slot="flow">
+
+```arc
+stage main {
+  trigger -> status.set{
+    key_or_name = "ox_alarm",
+    message = "Overpressure detected",
+    variant = "error",
+  } -> status_key
 }
 ```
+
+</Fragment>
+
+<Fragment slot="function">
+
+```arc
+func raise_alarm() {
+  status_key = status.set(
+    "ox_alarm",
+    "Overpressure detected",
+    "error"
+  )
+}
+```
+
+</Fragment>
+
+</Arc.Tabs>

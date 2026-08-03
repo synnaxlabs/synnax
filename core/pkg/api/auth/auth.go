@@ -14,9 +14,10 @@ import (
 	"go/types"
 
 	"github.com/synnaxlabs/synnax/pkg/api/config"
-	"github.com/synnaxlabs/synnax/pkg/distribution/node"
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/auth/token"
+	"github.com/synnaxlabs/synnax/pkg/service/cluster"
+	"github.com/synnaxlabs/synnax/pkg/service/node"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
 	"github.com/synnaxlabs/synnax/pkg/version"
 	xconfig "github.com/synnaxlabs/x/config"
@@ -41,11 +42,10 @@ type ClusterInfo struct {
 
 // Service is the core authentication service for the Synnax API.
 type Service struct {
-	db      *gorp.DB
 	token   *token.Service
 	auth    *auth.Service
 	user    *user.Service
-	cluster node.Cluster
+	cluster cluster.Cluster
 }
 
 func NewService(cfgs ...config.LayerConfig) (*Service, error) {
@@ -54,7 +54,6 @@ func NewService(cfgs ...config.LayerConfig) (*Service, error) {
 		return nil, err
 	}
 	return &Service{
-		db:      cfg.Distribution.DB,
 		token:   cfg.Service.Token,
 		auth:    cfg.Service.Auth,
 		user:    cfg.Service.User,
@@ -75,7 +74,10 @@ type LoginRequest struct{ Credentials }
 
 // Login attempts to authenticate a user with the provided credentials. If successful,
 // returns a response containing a valid JWT along with the user's details.
-func (s *Service) Login(ctx context.Context, req LoginRequest) (LoginResponse, error) {
+func (s *Service) Login(
+	ctx context.Context,
+	req LoginRequest,
+) (LoginResponse, error) {
 	startTime := telem.Now()
 	if err := s.auth.Authenticate(ctx, nil, req.Credentials); err != nil {
 		return LoginResponse{}, err
@@ -108,14 +110,16 @@ type ChangePasswordRequest struct {
 }
 
 // ChangePassword changes the password for the user with the provided credentials.
-func (s *Service) ChangePassword(ctx context.Context, req ChangePasswordRequest) (types.Nil, error) {
-	return types.Nil{}, s.db.WithTx(ctx, func(tx gorp.Tx) error {
-		if err := s.auth.Authenticate(ctx, tx, req.Credentials); err != nil {
-			return err
-		}
-		return s.auth.NewWriter(tx).ChangePassword(ctx, Credentials{
-			Username: req.Username,
-			Password: req.NewPassword,
-		})
+func (s *Service) ChangePassword(
+	ctx context.Context,
+	tx gorp.Tx,
+	req ChangePasswordRequest,
+) (types.Nil, error) {
+	if err := s.auth.Authenticate(ctx, tx, req.Credentials); err != nil {
+		return types.Nil{}, err
+	}
+	return types.Nil{}, s.auth.NewWriter(tx).ChangePassword(ctx, Credentials{
+		Username: req.Username,
+		Password: req.NewPassword,
 	})
 }

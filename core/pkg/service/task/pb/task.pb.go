@@ -18,7 +18,7 @@
 package pb
 
 import (
-	pb "github.com/synnaxlabs/x/status/pb"
+	pb "github.com/synnaxlabs/synnax/pkg/service/status/pb"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	structpb "google.golang.org/protobuf/types/known/structpb"
@@ -116,10 +116,11 @@ type Task struct {
 	Key uint64 `protobuf:"varint,1,opt,name=key,proto3" json:"key,omitempty"`
 	// name is a human-readable name for the task.
 	Name string `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
-	// type is the task type (e.g., 'modbus_read', 'labjack_write', 'opc_scan'). Determines
-	// which hardware integration handles the task.
+	// type is the task type (e.g., 'modbus_read', 'labjack_write', 'opc_scan').
+	// Determines which hardware integration handles the task.
 	Type string `protobuf:"bytes,3,opt,name=type,proto3" json:"type,omitempty"`
-	// config is task-specific configuration stored as JSON. Structure varies by task type.
+	// config is task-specific configuration stored as JSON. Structure varies by task
+	// type.
 	Config *structpb.Struct `protobuf:"bytes,4,opt,name=config,proto3" json:"config,omitempty"`
 	// internal is true if this is an internal system task.
 	Internal bool `protobuf:"varint,5,opt,name=internal,proto3" json:"internal,omitempty"`
@@ -287,21 +288,21 @@ var File_core_pkg_service_task_pb_task_proto protoreflect.FileDescriptor
 
 const file_core_pkg_service_task_pb_task_proto_rawDesc = "" +
 	"\n" +
-	"#core/pkg/service/task/pb/task.proto\x12\x0fservice.task.pb\x1a\x1cgoogle/protobuf/struct.proto\x1a\x1bx/go/status/pb/status.proto\"\x8a\x01\n" +
+	"#core/pkg/service/task/pb/task.proto\x12\x0fservice.task.pb\x1a'core/pkg/service/status/pb/status.proto\x1a\x1cgoogle/protobuf/struct.proto\"\x8a\x01\n" +
 	"\rStatusDetails\x12\x12\n" +
 	"\x04task\x18\x01 \x01(\x04R\x04task\x12\x18\n" +
 	"\arunning\x18\x02 \x01(\bR\arunning\x12\x10\n" +
 	"\x03cmd\x18\x03 \x01(\tR\x03cmd\x120\n" +
 	"\x04data\x18\x04 \x01(\v2\x17.google.protobuf.StructH\x00R\x04data\x88\x01\x01B\a\n" +
-	"\x05_data\"\xe6\x01\n" +
+	"\x05_data\"\xec\x01\n" +
 	"\x04Task\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\x04R\x03key\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12\x12\n" +
 	"\x04type\x18\x03 \x01(\tR\x04type\x12/\n" +
 	"\x06config\x18\x04 \x01(\v2\x17.google.protobuf.StructR\x06config\x12\x1a\n" +
 	"\binternal\x18\x05 \x01(\bR\binternal\x12\x1a\n" +
-	"\bsnapshot\x18\x06 \x01(\bR\bsnapshot\x120\n" +
-	"\x06status\x18\a \x01(\v2\x13.x.status.pb.StatusH\x00R\x06status\x88\x01\x01B\t\n" +
+	"\bsnapshot\x18\x06 \x01(\bR\bsnapshot\x126\n" +
+	"\x06status\x18\a \x01(\v2\x19.service.status.pb.StatusH\x00R\x06status\x88\x01\x01B\t\n" +
 	"\a_status\"p\n" +
 	"\aCommand\x12\x12\n" +
 	"\x04task\x18\x01 \x01(\x04R\x04task\x12\x12\n" +
@@ -328,12 +329,12 @@ var file_core_pkg_service_task_pb_task_proto_goTypes = []any{
 	(*Task)(nil),            // 1: service.task.pb.Task
 	(*Command)(nil),         // 2: service.task.pb.Command
 	(*structpb.Struct)(nil), // 3: google.protobuf.Struct
-	(*pb.Status)(nil),       // 4: x.status.pb.Status
+	(*pb.Status)(nil),       // 4: service.status.pb.Status
 }
 var file_core_pkg_service_task_pb_task_proto_depIdxs = []int32{
 	3, // 0: service.task.pb.StatusDetails.data:type_name -> google.protobuf.Struct
 	3, // 1: service.task.pb.Task.config:type_name -> google.protobuf.Struct
-	4, // 2: service.task.pb.Task.status:type_name -> x.status.pb.Status
+	4, // 2: service.task.pb.Task.status:type_name -> service.status.pb.Status
 	3, // 3: service.task.pb.Command.args:type_name -> google.protobuf.Struct
 	4, // [4:4] is the sub-list for method output_type
 	4, // [4:4] is the sub-list for method input_type

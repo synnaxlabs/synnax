@@ -17,6 +17,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/security"
 	"github.com/synnaxlabs/synnax/pkg/security/cert"
+	"github.com/synnaxlabs/synnax/pkg/security/cert/file"
 	"github.com/synnaxlabs/synnax/pkg/security/mock"
 	"github.com/synnaxlabs/synnax/pkg/server"
 	xfs "github.com/synnaxlabs/x/io/fs"
@@ -32,13 +33,17 @@ var _ = Describe("HttpRedirect", func() {
 			KeySize:      mock.SmallKeySize,
 			Insecure:     new(false),
 		}))
+		src := MustSucceed(file.NewSource(fs,
+			"/usr/local/synnax/certs/node.crt",
+			"/usr/local/synnax/certs/node.key",
+		))
 		received := false
 		b := MustSucceed(server.Serve(server.Config{
-			ListenAddress: "localhost:26260",
-			Security: server.SecurityConfig{
-				Insecure: new(false),
-				TLS:      prov.TLS(),
-			},
+			Listeners: []server.Listener{{
+				Address: "localhost:26260",
+				TLS:     prov.TLSConfigFor(src),
+			}},
+			Security: server.SecurityConfig{Insecure: new(false)},
 			Branches: []server.Branch{
 				server.NewHTTPRedirectBranch(),
 				server.NewSimpleHTTPBranch(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

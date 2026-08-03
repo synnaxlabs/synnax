@@ -19,10 +19,10 @@ from console.docs import DocsClient
 from console.labels import LabelClient
 from console.layout import LayoutClient
 from console.notifications import NotificationsClient
+from console.project import ProjectClient
 from console.ranges import RangesClient
 from console.statuses import StatusesClient
 from console.tasks import TaskClient
-from console.workspace import WorkspaceClient
 from framework.run_dir import resolve_results_path
 
 
@@ -47,7 +47,7 @@ class Console:
     ranges: RangesClient
     statuses: StatusesClient
     tasks: TaskClient
-    workspace: WorkspaceClient
+    project: ProjectClient
     page: Page
 
     def __init__(self, page: Page, client: sy.Synnax):
@@ -61,10 +61,10 @@ class Console:
         self.arc = ArcClient(self.layout)
         self.access = AccessClient(self.layout)
         self.channels = ChannelClient(self.layout, self.client)
-        self.ranges = RangesClient(self.layout)
+        self.project = ProjectClient(self.layout, self.client)
+        self.ranges = RangesClient(self.layout, self.project)
         self.statuses = StatusesClient(self.layout)
         self.tasks = TaskClient(self.layout)
-        self.workspace = WorkspaceClient(self.layout, self.client)
 
     def check_for_error_screen(self) -> None:
         """Checks for 'Something went wrong' text and clicks 'Try again' if found"""
@@ -106,7 +106,7 @@ class Console:
 
         Skips tabs that become stale during iteration (can happen if DOM updates).
         """
-        for tab in self.page.locator(".pluto-tabs-selector__btn").all():
+        for tab in self.page.locator(LayoutClient.TAB_SELECTOR).all():
             try:
                 name = tab.inner_text(timeout=5000).strip()
             except PlaywrightTimeoutError:
@@ -131,7 +131,7 @@ class Console:
 
         tabs_to_close = [
             tab
-            for tab in self.page.locator(".pluto-tabs-selector__btn").all()
+            for tab in self.page.locator(LayoutClient.TAB_SELECTOR).all()
             if tab.inner_text(timeout=5000).strip() not in except_tabs
         ]
 
@@ -139,5 +139,5 @@ class Console:
             tab = self._find_tab_to_close(except_tabs)
             if tab is None:
                 return
-            tab.get_by_label("pluto-tabs__close").click()
+            tab.get_by_label("Close", exact=True).click()
             self._dismiss_unsaved_changes_dialog()

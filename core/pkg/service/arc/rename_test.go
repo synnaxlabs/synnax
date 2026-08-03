@@ -13,11 +13,12 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	arclsptestutil "github.com/synnaxlabs/arc/lsp/testutil"
-	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
-	"github.com/synnaxlabs/x/lsp/protocol"
+	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	lsptestutil "github.com/synnaxlabs/x/lsp/testutil"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
+	"go.lsp.dev/protocol"
+	"go.lsp.dev/uri"
 )
 
 var _ = Describe("LSP Rename", func() {
@@ -27,12 +28,12 @@ var _ = Describe("LSP Rename", func() {
 			Virtual:  true,
 			DataType: telem.Float32T,
 		}
-		Expect(dist.Channel.Create(ctx, ch)).To(Succeed())
+		Expect(channelSvc.NewWriter(nil).Create(ctx, ch)).To(Succeed())
 
 		server := MustSucceed(svc.NewLSP())
 		server.SetClient(&lsptestutil.MockClient{})
 		DeferCleanup(func(ctx SpecContext) { Expect(server.Shutdown(ctx)).To(Succeed()) })
-		uri := protocol.DocumentURI("file:///rename.arc")
+		uri := uri.URI("file:///rename.arc")
 		arclsptestutil.OpenArcDocument(server, ctx, uri, `func test() {
     x f32 := lsp_rename_ch + 1.0
     y := lsp_rename_ch * 2.0
@@ -49,7 +50,7 @@ var _ = Describe("LSP Rename", func() {
 		Expect(result.Changes[uri]).To(HaveLen(2))
 
 		var renamed channel.Channel
-		Expect(dist.Channel.NewRetrieve().
+		Expect(channelSvc.NewRetrieve().
 			Where(channel.MatchKeys(ch.Key())).
 			Entry(&renamed).Exec(ctx, nil)).To(Succeed())
 		Expect(renamed.Name).To(Equal("lsp_renamed_ch"))
@@ -62,12 +63,12 @@ var _ = Describe("LSP Rename", func() {
 			Internal: true,
 			DataType: telem.Float32T,
 		}
-		Expect(dist.Channel.Create(ctx, ch)).To(Succeed())
+		Expect(channelSvc.NewWriter(nil).Create(ctx, ch)).To(Succeed())
 
 		server := MustSucceed(svc.NewLSP())
 		server.SetClient(&lsptestutil.MockClient{})
 		DeferCleanup(func(ctx SpecContext) { Expect(server.Shutdown(ctx)).To(Succeed()) })
-		uri := protocol.DocumentURI("file:///rename_internal.arc")
+		uri := uri.URI("file:///rename_internal.arc")
 		arclsptestutil.OpenArcDocument(server, ctx, uri, `func test() {
     x f32 := lsp_rename_internal + 1.0
 }`)
@@ -81,7 +82,7 @@ var _ = Describe("LSP Rename", func() {
 		Expect(prepared).To(BeNil())
 
 		var original channel.Channel
-		Expect(dist.Channel.NewRetrieve().
+		Expect(channelSvc.NewRetrieve().
 			Where(channel.MatchKeys(ch.Key())).
 			Entry(&original).Exec(ctx, nil)).To(Succeed())
 		Expect(original.Name).To(Equal("lsp_rename_internal"))

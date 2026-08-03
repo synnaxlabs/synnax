@@ -163,7 +163,7 @@ TEST_F(EtherCATScanTest, TestInterfaceCommandSuccess) {
     bool handled = scanner.exec(cmd, task, this->ctx);
     EXPECT_TRUE(handled);
     ASSERT_FALSE(this->ctx->statuses.empty());
-    EXPECT_EQ(this->ctx->statuses.back().variant, x::status::VARIANT_SUCCESS);
+    EXPECT_EQ(this->ctx->statuses.back().variant, synnax::status::VARIANT_SUCCESS);
     EXPECT_NE(this->ctx->statuses.back().message.find("1 slaves"), std::string::npos);
 }
 
@@ -218,7 +218,7 @@ TEST_F(EtherCATScanTest, TestInterfaceCommandWithMultipleSlaves) {
     bool handled = scanner.exec(cmd, task, this->ctx);
     EXPECT_TRUE(handled);
     ASSERT_FALSE(this->ctx->statuses.empty());
-    EXPECT_EQ(this->ctx->statuses.back().variant, x::status::VARIANT_SUCCESS);
+    EXPECT_EQ(this->ctx->statuses.back().variant, synnax::status::VARIANT_SUCCESS);
     EXPECT_NE(this->ctx->statuses.back().message.find("3 slaves"), std::string::npos);
 }
 
@@ -249,6 +249,6 @@ TEST_F(EtherCATScanTest, TestInterfaceCommandInitError) {
     bool handled = scanner.exec(cmd, task, this->ctx);
     EXPECT_TRUE(handled);
     ASSERT_FALSE(this->ctx->statuses.empty());
-    EXPECT_EQ(this->ctx->statuses.back().variant, x::status::VARIANT_ERROR);
+    EXPECT_EQ(this->ctx->statuses.back().variant, synnax::status::VARIANT_ERROR);
 }
 }

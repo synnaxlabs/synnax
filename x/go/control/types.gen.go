@@ -11,21 +11,21 @@
 
 package control
 
+import "github.com/synnaxlabs/x/control/versions"
+
+// Concurrency defines whether a resource can have multiple subjects acting on it at
+// once.
+type Concurrency = versions.Concurrency
+
+const (
+	ConcurrencyExclusive Concurrency = versions.ConcurrencyExclusive
+	ConcurrencyShared    Concurrency = versions.ConcurrencyShared
+)
+
 // Authority is a numeric value (0-255) representing the level of control authority a
 // subject has over a resource. Higher values indicate greater authority. The maximum
 // value of 255 represents absolute authority.
 type Authority uint8
-
-// Concurrency defines whether a resource can have multiple subjects acting on it at
-// once.
-type Concurrency uint8
-
-//go:generate stringer -type=Concurrency
-
-const (
-	ConcurrencyExclusive Concurrency = iota
-	ConcurrencyShared
-)
 
 // Subject is an entity that can hold control authority over a resource. Typically
 // represents a user, process, or service.
@@ -34,8 +34,8 @@ type Subject struct {
 	Key string `json:"key" msgpack:"key"`
 	// Name is a human-readable name for the subject.
 	Name string `json:"name" msgpack:"name"`
-	// Group optional identifier shared by subjects from the same logical group (e.g.) all
-	// writers from the same Driver rack.
+	// Group optional identifier shared by subjects from the same logical group (e.g.)
+	// all writers from the same Driver rack.
 	Group uint32 `json:"group" msgpack:"group"`
 }
 
@@ -70,5 +70,5 @@ type Transfer[R comparable] struct {
 // Update represents a batch of control transfers that occurred atomically.
 type Update[R comparable] struct {
 	// Transfers is the list of control transfers that occurred in this update.
-	Transfers []Transfer[R] `json:"transfers" msgpack:"transfers"`
+	Transfers []Transfer[R] `json:"transfers,omitzero" msgpack:"transfers,omitzero"`
 }

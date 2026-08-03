@@ -15,13 +15,16 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
-	"github.com/synnaxlabs/synnax/pkg/distribution/search"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/driver"
+	"github.com/synnaxlabs/synnax/pkg/service/framer"
+	"github.com/synnaxlabs/synnax/pkg/service/group"
+	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
+	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
+	"github.com/synnaxlabs/synnax/pkg/service/search"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/x/gorp"
@@ -29,60 +32,82 @@ import (
 )
 
 var (
-	dist         mock.Node
+	node         mock.Node
 	db           *gorp.DB
 	rackService  *rack.Service
 	taskService  *task.Service
+	taskWriter   task.Writer
 	channelSvc   *channel.Service
 	framerSvc    *framer.Service
 	statusSvc    *status.Service
-	hostProvider = mock.StaticHostKeyProvider(1)
+	hostProvider = mock.NewStaticHostProvider(1)
 )
 
 func TestDriver(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Driver Suite")
+	RunSpecs(t, "Service Driver Suite")
 }
 
 var _ = ShouldNotLeakGoroutinesPerSpec()
 
 var _ = BeforeSuite(func(ctx SpecContext) {
 	ShouldNotLeakGoroutines()
-	dist = DeferClose(mock.NewCluster()).Provision(ctx)
-	db = dist.DB
-	searchIdx := MustOpen(search.Open())
+	node = mock.NewNode(ctx)
+	db = node.DB
+	otg := MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
+	searchIdx := MustOpen(search.OpenIndex())
+	groupSvc := MustOpen(group.OpenService(ctx, group.ServiceConfig{
+		DB:       db,
+		Ontology: otg,
+		Search:   searchIdx,
+	}))
 	labelSvc := MustOpen(label.OpenService(ctx, label.ServiceConfig{
-		DB:       dist.DB,
-		Ontology: dist.Ontology,
-		Group:    dist.Group,
+		DB:       node.DB,
+		Ontology: otg,
+		Group:    groupSvc,
 		Search:   searchIdx,
 	}))
 	statusSvc = MustOpen(status.OpenService(ctx, status.ServiceConfig{
-		Ontology: dist.Ontology,
-		DB:       dist.DB,
-		Group:    dist.Group,
+		Ontology: otg,
+		DB:       node.DB,
+		Group:    groupSvc,
 		Label:    labelSvc,
 		Search:   searchIdx,
 	}))
 	rackService = MustOpen(rack.OpenService(ctx, rack.ServiceConfig{
-		DB:           dist.DB,
-		Ontology:     dist.Ontology,
-		Group:        dist.Group,
+		DB:           node.DB,
+		Ontology:     otg,
+		Group:        groupSvc,
 		HostProvider: hostProvider,
 		Status:       statusSvc,
 		Search:       searchIdx,
 	}))
-	channelSvc = channel.Wrap(dist.Channel)
-	framerSvc = dist.Framer
+	channelSvc = MustOpen(channel.OpenService(ctx, channel.ServiceConfig{
+		Channel:      node.Channel,
+		DB:           node.DB,
+		HostProvider: node.Cluster,
+		Ontology:     otg,
+		Group:        groupSvc,
+		Search:       searchIdx,
+		Status:       statusSvc,
+	}))
+	framerSvc = MustOpen(framer.OpenService(ctx, framer.ServiceConfig{
+		Framer:       node.Framer,
+		Channel:      channelSvc,
+		Status:       statusSvc,
+		HostProvider: node.Cluster,
+	}))
 	taskService = MustOpen(task.OpenService(ctx, task.ServiceConfig{
-		DB:       dist.DB,
-		Ontology: dist.Ontology,
-		Group:    dist.Group,
+		DB:       node.DB,
+		Ontology: otg,
+		Group:    groupSvc,
 		Rack:     rackService,
 		Status:   statusSvc,
-		Channel:  dist.Channel,
+		Channel:  channelSvc,
 		Search:   searchIdx,
+		ImEx:     imex.NewService(),
 	}))
+	taskWriter = taskService.NewWriter(nil)
 })
 
 // mockFactory is a test implementation of driver.Factory.

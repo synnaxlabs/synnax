@@ -14,6 +14,7 @@ import (
 	"context"
 	"io"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/gofiber/fiber/v3"
@@ -58,8 +59,9 @@ func (failingEncoder) EncodeStream(context.Context, io.Writer, any) error {
 }
 
 var _ = BeforeSuite(func() {
+	ShouldNotLeakGoroutines()
 	unaryAddr = address.Newf("localhost:%d", MustSucceed(net.FindOpenPort()))
-	unaryApp = fiber.New(fiber.Config{})
+	unaryApp = newFiberApp(fiber.Config{DisableKeepalive: true})
 	router := MustSucceed(fhttp.NewRouter())
 	unaryApp.Get("/health", func(ctx fiber.Ctx) error {
 		return ctx.SendStatus(fiber.StatusOK)
@@ -99,8 +101,7 @@ var _ = BeforeSuite(func() {
 		})).To(Succeed())
 	}()
 	Eventually(func(g Gomega) {
-		_, err := http.Get("http://" + unaryAddr.String() + "/health")
-		g.Expect(err).To(Succeed())
+		g.Expect(pollHealth("http://" + unaryAddr.String() + "/health")).To(Succeed())
 	}).WithPolling(1 * time.Millisecond).Should(Succeed())
 })
 
@@ -275,6 +276,54 @@ var _ = Describe("Unary", func() {
 			Expect(httpRes.StatusCode).To(Equal(http.StatusInternalServerError))
 			respBody := MustSucceed(io.ReadAll(httpRes.Body))
 			Expect(string(respBody)).To(ContainSubstring(errFailingEncoderEncodeFail.Error()))
+		})
+	})
+
+	Describe("Query Params", func() {
+		// Binds a handler that echoes the named request params back in the response
+		// message, joined by "|", so the test can observe what parseRequestCtx put in
+		// freighter.Context.Params.
+		bindParamEcho := func(keys ...string) {
+			unaryServer.BindHandler(func(ctx context.Context, _ test.Request) (test.Response, error) {
+				params := freighter.MDFromContext(ctx).Params
+				values := make([]string, len(keys))
+				for i, k := range keys {
+					if v, ok := params.Get(k); ok {
+						values[i], _ = v.(string)
+					}
+				}
+				return test.Response{Message: strings.Join(values, "|")}, nil
+			})
+		}
+		post := func(ctx context.Context, query string) test.Response {
+			body := MustSucceed(json.Codec.Encode(ctx, test.Request{}))
+			httpReq := MustSucceed(http.NewRequestWithContext(
+				ctx, http.MethodPost,
+				"http://"+unaryAddr.String()+"/?"+query,
+				bytes.NewReader(body),
+			))
+			httpReq.Header.Set(fiber.HeaderContentType, "application/json")
+			httpRes := MustSucceed((&http.Client{}).Do(httpReq))
+			DeferCleanup(func() { Expect(httpRes.Body.Close()).To(Succeed()) })
+			respBody := MustSucceed(io.ReadAll(httpRes.Body))
+			var res test.Response
+			Expect(json.Codec.Decode(ctx, respBody, &res)).To(Succeed())
+			return res
+		}
+
+		It("should expose freighterctx-prefixed query params with the prefix stripped", func(ctx context.Context) {
+			bindParamEcho("file_name", "project")
+			res := post(
+				ctx,
+				"freighterctxfile_name=Metrics%20Log.json&freighterctxproject=project:abc",
+			)
+			Expect(res.Message).To(Equal("Metrics Log.json|project:abc"))
+		})
+
+		It("should not expose unprefixed query params to the handler", func(ctx context.Context) {
+			bindParamEcho("file_name", "project")
+			res := post(ctx, "file_name=Metrics%20Log.json&project=project:abc")
+			Expect(res.Message).To(Equal("|"))
 		})
 	})
 

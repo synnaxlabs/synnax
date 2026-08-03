@@ -1968,6 +1968,8 @@ export class DataType
     if (this.equals(other)) return true;
     if (!this.isNumeric || !other.isNumeric) return false;
     if (this.isVariable || other.isVariable) return false;
+    if (this.equals(DataType.BOOLEAN)) return true;
+    if (other.equals(DataType.BOOLEAN)) return false;
     if (this.isUnsignedInteger && other.isSignedInteger) return false;
 
     if (this.isFloat)
@@ -2039,6 +2041,9 @@ export class DataType
   /** Represents a bytes data type for arbitrary byte arrays. Bytes have an unknown
    * density and are encoded as uint32-length-prefixed samples. */
   static readonly BYTES = new DataType("bytes");
+  /** Represents a boolean data type. Samples are a single byte with canonical values
+   * 0x00 (false) and 0x01 (true). */
+  static readonly BOOLEAN = new DataType("bool");
 
   private static readonly ARRAY_CONSTRUCTORS: Map<string, TypedArrayConstructor> =
     new Map<string, TypedArrayConstructor>([
@@ -2057,6 +2062,7 @@ export class DataType
       [DataType.JSON.toString(), Uint8Array],
       [DataType.UUID.toString(), Uint8Array],
       [DataType.BYTES.toString(), Uint8Array],
+      [DataType.BOOLEAN.toString(), Uint8Array],
     ]);
 
   private static readonly ARRAY_CONSTRUCTOR_DATA_TYPES: Map<string, DataType> = new Map<
@@ -2091,6 +2097,7 @@ export class DataType
     [DataType.JSON.toString(), Density.UNKNOWN],
     [DataType.UUID.toString(), Density.BIT128],
     [DataType.BYTES.toString(), Density.UNKNOWN],
+    [DataType.BOOLEAN.toString(), Density.BIT8],
   ]);
 
   /** All the data types. */
@@ -2111,6 +2118,7 @@ export class DataType
     DataType.STRING,
     DataType.JSON,
     DataType.BYTES,
+    DataType.BOOLEAN,
   ];
 
   private static readonly SHORT_STRINGS = new Map<string, string>([
@@ -2129,14 +2137,16 @@ export class DataType
     [DataType.STRING.toString(), "str"],
     [DataType.JSON.toString(), "json"],
     [DataType.BYTES.toString(), "bytes"],
+    [DataType.BOOLEAN.toString(), "bool"],
   ]);
 
   static readonly BIG_INT_TYPES = [DataType.INT64, DataType.UINT64, DataType.TIMESTAMP];
 
   /** A zod schema for a DataType. */
   static readonly z = z.union([
-    z.string().transform((v) => new DataType(v)),
     z.instanceof(DataType),
+    z.string().transform((v) => new DataType(v)),
+    z.object({ value: z.string() }).transform((v) => new DataType(v)),
   ]);
 }
 
@@ -2320,6 +2330,7 @@ export class Size
   /** A zod schema for a Size. */
   static readonly z = z.union([
     z.number().transform((v) => new Size(v)),
+    z.string().transform((v) => new Size(Number(v))),
     z.instanceof(Size),
   ]);
 
@@ -2340,22 +2351,14 @@ export type CrudeTimeStamp =
   | primitive.CrudeValueExtension<bigint>;
 export type TimeStampT = number;
 export type CrudeTimeSpan =
-  | bigint
-  | TimeSpan
-  | TimeStamp
-  | number
-  | Rate
-  | primitive.CrudeValueExtension<bigint>;
+  bigint | TimeSpan | TimeStamp | number | Rate | primitive.CrudeValueExtension<bigint>;
 export type TimeSpanT = number;
 export type CrudeRate = Rate | number | primitive.CrudeValueExtension<number>;
 export type RateT = number;
 export type CrudeDensity = Density | number | primitive.CrudeValueExtension<number>;
 export type DensityT = number;
 export type CrudeDataType =
-  | DataType
-  | string
-  | TypedArray
-  | primitive.CrudeValueExtension<string>;
+  DataType | string | TypedArray | primitive.CrudeValueExtension<string>;
 export type DataTypeT = string;
 export type CrudeSize = Size | number | primitive.CrudeValueExtension<number>;
 export type SizeT = number;
@@ -2402,13 +2405,7 @@ type TypedArrayConstructor =
   | Int32ArrayConstructor
   | BigInt64ArrayConstructor;
 export type TelemValue =
-  | number
-  | bigint
-  | string
-  | boolean
-  | Date
-  | TimeStamp
-  | TimeSpan;
+  number | bigint | string | boolean | Date | TimeStamp | TimeSpan;
 
 export const isTelemValue = (value: unknown): value is TelemValue => {
   const ot = typeof value;
@@ -2429,6 +2426,7 @@ export const convertDataType = (
   value: math.Numeric,
   offset: math.Numeric = 0,
 ): math.Numeric => {
+  if (target.equals(DataType.BOOLEAN)) return primitive.isZero(value) ? 0 : 1;
   if (source.usesBigInt && !target.usesBigInt)
     return Number(BigInt(value.valueOf()) - BigInt(offset.valueOf()));
   if (!source.usesBigInt && target.usesBigInt)

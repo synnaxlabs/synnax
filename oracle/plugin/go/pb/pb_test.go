@@ -17,11 +17,12 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/oracle/plugin/go/pb"
 	. "github.com/synnaxlabs/oracle/testutil"
+	. "github.com/synnaxlabs/x/testutil"
 )
 
 func TestGoPB(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Go PB Plugin Suite")
+	RunSpecs(t, "Plugin Go PB Suite")
 }
 
 var _ = Describe("Go PB Plugin", func() {
@@ -50,6 +51,263 @@ var _ = Describe("Go PB Plugin", func() {
 	})
 
 	Describe("Generate", func() {
+		Context("union translation", func() {
+			It("Should generate oneof translators for a discriminated union", func(ctx SpecContext) {
+				source := `
+					@go output "core/pkg/service/schematic"
+					@pb
+
+					Spec struct {
+						type string
+						props record
+					}
+
+					Source union on value_type {
+						boolean Spec
+						number Spec
+					}
+				`
+				resp := MustGenerate(ctx, source, "schematic", loader, pbPlugin)
+				ExpectContent(resp, "translator.gen.go").
+					ToContain(
+						"func SourceToPB(r schematic.Source) (*Source, error)",
+						"if r.Variant == nil {",
+						"case schematic.SourceBoolean:",
+						"inner, err := SpecToPB(v.Spec)",
+						"pb.Variant = &Source_Boolean{Boolean: inner}",
+						`errors.Newf("Source: unknown variant %T", r.Variant)`,
+						"func SourceFromPB(pb *Source) (schematic.Source, error)",
+						"case *Source_Number:",
+						"r.Variant = schematic.SourceNumber{Spec: inner}",
+						"func SourcesToPB(rs []schematic.Source) ([]*Source, error)",
+					)
+			})
+
+			It("Should route union-typed fields through the union translators", func(ctx SpecContext) {
+				source := `
+					@go output "core/pkg/service/schematic"
+					@pb
+
+					Spec struct {
+						type string
+					}
+
+					Source union on value_type {
+						boolean Spec
+					}
+
+					Config struct {
+						source Source
+						sources Source[]
+					}
+				`
+				resp := MustGenerate(ctx, source, "schematic", loader, pbPlugin)
+				ExpectContent(resp, "translator.gen.go").
+					ToContain(
+						"sourceVal, err := SourceToPB(r.Source)",
+						"r.Source, err = SourceFromPB(pb.Source)",
+						"SourcesToPB(r.Sources)",
+						"SourcesFromPB(pb.Sources)",
+					)
+			})
+
+			It("Should camelize multi-word variant values in oneof wrapper names", func(ctx SpecContext) {
+				source := `
+					@go output "core/pkg/service/schematic"
+					@pb
+
+					Body struct {
+						width float64
+					}
+
+					Shape union on variant {
+						isoCap Body
+						tJunction Body
+					}
+				`
+				resp := MustGenerate(ctx, source, "schematic", loader, pbPlugin)
+				ExpectContent(resp, "translator.gen.go").
+					ToContain(
+						"case schematic.ShapeIsoCap:",
+						"pb.Variant = &Shape_IsoCap{IsoCap: inner}",
+						"case *Shape_TJunction:",
+						"r.Variant = schematic.ShapeTJunction{Body: inner}",
+					)
+			})
+
+			It("Should suffix oneof wrapper names that collide with protoc methods", func(ctx SpecContext) {
+				source := `
+					@go output "core/pkg/service/schematic"
+					@pb
+
+					Spec struct {
+						type string
+					}
+
+					Sink union on value_type {
+						string Spec
+					}
+				`
+				resp := MustGenerate(ctx, source, "schematic", loader, pbPlugin)
+				ExpectContent(resp, "translator.gen.go").
+					ToContain(
+						"pb.Variant = &Sink_String_{String_: inner}",
+						"case *Sink_String_:",
+					)
+			})
+
+			It("Should convert record array fields through shared helpers", func(ctx SpecContext) {
+				source := `
+					@go output "core/pkg/service/schematic"
+					@pb
+
+					Config struct {
+						overrides record[]
+					}
+				`
+				resp := MustGenerate(ctx, source, "schematic", loader, pbPlugin)
+				ExpectContent(resp, "translator.gen.go").
+					ToContain(
+						"overridesVal, err := recordsToPB(r.Overrides)",
+						"r.Overrides = recordsFromPB(pb.Overrides)",
+						"func recordsToPB(rs []msgpack.EncodedJSON) ([]*structpb.Struct, error)",
+						"func recordsFromPB(pbs []*structpb.Struct) []msgpack.EncodedJSON",
+					)
+			})
+
+			It("Should convert union map values through union translators", func(ctx SpecContext) {
+				source := `
+					@go output "core/pkg/service/schematic"
+					@pb
+
+					Spec struct {
+						type string
+					}
+
+					Source union on value_type {
+						boolean Spec
+					}
+
+					Config struct {
+						sources map<string, Source>
+					}
+				`
+				resp := MustGenerate(ctx, source, "schematic", loader, pbPlugin)
+				ExpectContent(resp, "translator.gen.go").
+					ToContain(
+						"SourceToPB(v)",
+						"SourceFromPB(v)",
+					)
+			})
+
+			It("Should deref optional typedef fields for conversion", func(ctx SpecContext) {
+				source := `
+					@go output "core/pkg/service/schematic"
+					@pb
+
+					Key uint32 {
+						@doc value "is a channel key."
+					}
+
+					Config struct {
+						state_channel Key?
+					}
+				`
+				resp := MustGenerate(ctx, source, "schematic", loader, pbPlugin)
+				ExpectContent(resp, "translator.gen.go").
+					ToContain(
+						"v := uint32(*r.StateChannel)",
+						"pb.StateChannel = &v",
+					)
+			})
+
+			It("Should translate union extends bases through the bases' own translators", func(ctx SpecContext) {
+				source := `
+					@go output "core/pkg/service/schematic"
+					@pb
+
+					Base struct {
+						key string
+					}
+
+					Body struct {
+						width float64
+					}
+
+					Shape union on variant extends Base {
+						square Body
+					}
+				`
+				resp := MustGenerate(ctx, source, "schematic", loader, pbPlugin)
+				ExpectContent(resp, "translator.gen.go").
+					ToBeValidGoSource().
+					ToContain(
+						"pb.Base, err = BaseToPB(v.Base)",
+						"m := schematic.ShapeSquare{Body: inner}",
+						"m.Base, err = BaseFromPB(pb.Base)",
+						"r.Variant = m",
+					)
+			})
+
+			It("Should translate inline variants against the variant member", func(ctx SpecContext) {
+				source := `
+					@go output "core/pkg/service/schematic"
+					@pb
+
+					Base struct {
+						key string
+					}
+
+					Shape union on variant extends Base {
+						square {
+							width float64
+						}
+						empty {}
+					}
+				`
+				resp := MustGenerate(ctx, source, "schematic", loader, pbPlugin)
+				ExpectContent(resp, "translator.gen.go").
+					ToBeValidGoSource().
+					ToContain(
+						"func ShapeSquareToPB(r schematic.ShapeSquare) (*ShapeSquarePayload, error)",
+						"inner, err := ShapeSquareToPB(v)",
+						"m := inner",
+						"m.Base, err = BaseFromPB(pb.Base)",
+					)
+			})
+
+			It("Should translate inline variants inherited through union composition", func(ctx SpecContext) {
+				source := `
+					@go output "core/pkg/service/schematic"
+					@pb
+
+					NodeConfig union on variant {
+						box {
+							width float64
+						}
+					}
+
+					EdgeConfig union on variant {
+						pipe {
+							length float64
+						}
+					}
+
+					ElementConfig union on variant extends NodeConfig, EdgeConfig {}
+				`
+				resp := MustGenerate(ctx, source, "schematic", loader, pbPlugin)
+				ExpectContent(resp, "translator.gen.go").
+					ToBeValidGoSource().
+					ToContain(
+						"func NodeConfigBoxToPB(r schematic.NodeConfigBox) (*NodeConfigBoxPayload, error)",
+						"func ElementConfigBoxToPB(r schematic.ElementConfigBox) (*NodeConfigBoxPayload, error)",
+						"func ElementConfigPipeToPB(r schematic.ElementConfigPipe) (*EdgeConfigPipePayload, error)",
+						"pb.Variant = &ElementConfig_Box{Box: inner}",
+					).
+					ToNotContain("NodeConfigBoxPayloadToPB")
+			})
+		})
+
 		Context("simple struct translation", func() {
 			It("Should generate ToPB and FromPB functions", func(ctx SpecContext) {
 				source := `
@@ -103,7 +361,7 @@ var _ = Describe("Go PB Plugin", func() {
 					@pb
 
 					Authorities struct {
-						default uint8??
+						default uint8?
 					}
 				`
 				resp := MustGenerate(ctx, source, "ir", loader, pbPlugin)
@@ -364,15 +622,15 @@ var _ = Describe("Go PB Plugin", func() {
 				)
 		})
 
-		Context("hard optional fields", func() {
-			It("Should handle hard optional primitive with nil check", func(ctx SpecContext) {
+		Context("optional fields", func() {
+			It("Should handle optional primitive with nil check", func(ctx SpecContext) {
 				source := `
 					@go output "core/test"
 					@pb
 
 					Test struct {
 						key uuid
-						name string??
+						name string?
 					}
 				`
 				resp := MustGenerate(ctx, source, "test", loader, pbPlugin)
@@ -382,8 +640,8 @@ var _ = Describe("Go PB Plugin", func() {
 					ToContain("if pb.Name != nil {")
 			})
 
-			It("Should deref the pointer on forward and rebind on backward for hard-optional string enums", func(ctx SpecContext) {
-				// Regression: a hard-optional enum field was emitting
+			It("Should deref the pointer on forward and rebind on backward for optional string enums", func(ctx SpecContext) {
+				// Regression: a optional enum field was emitting
 				// `pb.Type, err = TickTypeToPB(r.Type)` even though r.Type
 				// is *TickType and TickTypeToPB takes a value. Backward
 				// emitted `r.Type = TickTypeFromPB(pb.Type)` ignoring both
@@ -401,7 +659,7 @@ var _ = Describe("Go PB Plugin", func() {
 
 					Axis struct {
 						key   string
-						type  TickType??
+						type  TickType?
 					}
 				`
 				resp := MustGenerate(ctx, source, "test", loader, pbPlugin)
@@ -416,7 +674,7 @@ var _ = Describe("Go PB Plugin", func() {
 				content.ToNotContain("TickTypeFromPB(pb.Type)")
 			})
 
-			It("Should deref the pointer on forward and rebind on backward for hard-optional integer enums", func(ctx SpecContext) {
+			It("Should deref the pointer on forward and rebind on backward for optional integer enums", func(ctx SpecContext) {
 				source := `
 					@go output "core/test"
 					@pb
@@ -429,7 +687,7 @@ var _ = Describe("Go PB Plugin", func() {
 
 					Item struct {
 						key   string
-						level Level??
+						level Level?
 					}
 				`
 				resp := MustGenerate(ctx, source, "test", loader, pbPlugin)
@@ -532,7 +790,7 @@ var _ = Describe("Go PB Plugin", func() {
 					@pb
 
 					Authorities struct {
-						default uint8??
+						default uint8?
 					}
 
 					Function struct {
@@ -638,8 +896,8 @@ var _ = Describe("Go PB Plugin", func() {
 					}
 
 					Transfer struct<R extends comparable> {
-						from State<R>??
-						to   State<R>??
+						from State<R>?
+						to   State<R>?
 					}
 				`
 				resp := MustGenerate(ctx, source, "control", loader, pbPlugin)
@@ -649,8 +907,8 @@ var _ = Describe("Go PB Plugin", func() {
 					ToContain("func TransferFromPB[R comparable](").
 					ToContain("func TransfersToPB[R comparable](").
 					ToContain("func TransfersFromPB[R comparable](").
-					ToContain("StateToPB[R]").
-					ToContain("StateFromPB[R]").
+					ToContain("StateToPB(*r.From, translateR)").
+					ToContain("StateFromPB(pb.From, translateR)").
 					ToContain("translateR")
 			})
 
@@ -848,8 +1106,8 @@ var _ = Describe("Go PB Plugin", func() {
 					@go output "x/go/telem"
 					@pb
 
-					timestamp = uint64
-					timespan = int64
+					TimeStamp = uint64
+					TimeSpan = int64
 				`)
 			})
 
@@ -861,14 +1119,14 @@ var _ = Describe("Go PB Plugin", func() {
 					@pb
 
 					Test struct {
-						created_at telem.timestamp
+						created_at telem.TimeStamp
 					}
 				`
 				resp := MustGenerate(ctx, source, "test", loader, pbPlugin)
 
 				ExpectContent(resp, "translator.gen.go").
 					ToContain("uint64(r.CreatedAt)").
-					ToContain("telem.Timestamp(pb.CreatedAt)")
+					ToContain("telem.TimeStamp(pb.CreatedAt)")
 			})
 
 			It("Should convert timespan typedef via int64", func(ctx SpecContext) {
@@ -879,14 +1137,14 @@ var _ = Describe("Go PB Plugin", func() {
 					@pb
 
 					Test struct {
-						duration telem.timespan
+						duration telem.TimeSpan
 					}
 				`
 				resp := MustGenerate(ctx, source, "test", loader, pbPlugin)
 
 				ExpectContent(resp, "translator.gen.go").
 					ToContain("int64(r.Duration)").
-					ToContain("telem.Timespan(pb.Duration)")
+					ToContain("telem.TimeSpan(pb.Duration)")
 			})
 		})
 
@@ -1003,11 +1261,11 @@ var _ = Describe("Go PB Plugin", func() {
 			})
 		})
 
-		Context("@go omit enum handling", func() {
-			It("Should use hand-written enum value format when @go omit", func(ctx SpecContext) {
+		Context("@go hand enum handling", func() {
+			It("Should generate against hand-written enum values when @go hand", func(ctx SpecContext) {
 				source := `
 					@go output "core/status"
-					@go omit
+					@go hand
 					@pb
 
 					Status enum {
@@ -1028,14 +1286,38 @@ var _ = Describe("Go PB Plugin", func() {
 			})
 		})
 
+		Context("@go omit handling", func() {
+			It("Should generate no translator for a type omitted in Go", func(ctx SpecContext) {
+				source := `
+					@go output "core/status"
+					@pb
+
+					Status enum {
+						@go omit
+						active = 0
+						inactive = 1
+					}
+
+					Task struct {
+						key uuid
+					}
+				`
+				resp := MustGenerate(ctx, source, "status", loader, pbPlugin)
+
+				ExpectContent(resp, "translator.gen.go").
+					ToContain("func TaskToPB").
+					ToNotContain("Status")
+			})
+		})
+
 		Context("uint8 primitive conversion", func() {
-			It("Should dereference hard optional uint8 pointer for conversion", func(ctx SpecContext) {
+			It("Should dereference optional uint8 pointer for conversion", func(ctx SpecContext) {
 				source := `
 					@go output "arc/go/ir"
 					@pb
 
 					Authorities struct {
-						default  uint8??
+						default  uint8?
 						channels map<uint32, uint8>?
 					}
 				`
@@ -1264,8 +1546,8 @@ var _ = Describe("Go PB Plugin", func() {
 		})
 	})
 
-	Describe("hard optional fields", func() {
-		It("Should handle hard optional struct reference with pointer", func(ctx SpecContext) {
+	Describe("optional fields", func() {
+		It("Should handle optional struct reference with pointer", func(ctx SpecContext) {
 			source := `
 				@go output "core/test"
 				@pb
@@ -1276,7 +1558,7 @@ var _ = Describe("Go PB Plugin", func() {
 
 				Test struct {
 					key uuid
-					info Info??
+					info Info?
 				}
 			`
 			resp := MustGenerate(ctx, source, "test", loader, pbPlugin)
@@ -1284,6 +1566,51 @@ var _ = Describe("Go PB Plugin", func() {
 			ExpectContent(resp, "translator.gen.go").
 				ToContain("InfoToPB").
 				ToContain("InfoFromPB")
+		})
+
+		It("Should wrap an optional struct array in a nullable wrapper message", func(ctx SpecContext) {
+			source := `
+				@go output "core/test"
+				@pb
+
+				Info struct {
+					name string
+				}
+
+				Test struct {
+					key uuid
+					infos Info[]?
+				}
+			`
+			resp := MustGenerate(ctx, source, "test", loader, pbPlugin)
+
+			ExpectContent(resp, "translator.gen.go").
+				ToContain("if r.Infos != nil").
+				ToContain("pb.Infos = &InfoList{Values:").
+				ToContain("if pb.Infos != nil").
+				ToContain("InfoListFromPB(pb.Infos.Values)")
+		})
+
+		It("Should wrap an optional array in a generic struct translator", func(ctx SpecContext) {
+			source := `
+				@go output "core/test"
+				@pb
+
+				Info struct {
+					name string
+				}
+
+				Test struct {
+					key uuid
+					details D
+					infos Info[]?
+				}
+			`
+			resp := MustGenerate(ctx, source, "test", loader, pbPlugin)
+
+			ExpectContent(resp, "translator.gen.go").
+				ToContain("pb.Infos = &InfoList{Values:").
+				ToContain("InfoListFromPB(pb.Infos.Values)")
 		})
 	})
 
@@ -1386,8 +1713,8 @@ var _ = Describe("Go PB Plugin", func() {
 			})
 		})
 
-		Context("soft optional fields", func() {
-			It("Should handle soft optional with question mark", func(ctx SpecContext) {
+		Context("optional fields", func() {
+			It("Should round-trip an optional scalar through a pointer", func(ctx SpecContext) {
 				source := `
 					@go output "core/test"
 					@pb
@@ -1400,18 +1727,19 @@ var _ = Describe("Go PB Plugin", func() {
 				resp := MustGenerate(ctx, source, "test", loader, pbPlugin)
 
 				ExpectContent(resp, "translator.gen.go").
-					ToContain("Name: r.Name")
+					ToContain(
+						"if r.Name != nil {",
+						"pb.Name = r.Name",
+						"if pb.Name != nil {",
+						"r.Name = pb.Name",
+					)
 			})
 
-			It("Should round-trip a soft optional struct as a non-nullable wire field", func(ctx SpecContext) {
-				// A struct field with a single "?" keeps its Go type as a
-				// value, and the proto field is plain (no `optional` keyword).
-				// The translator converts unconditionally in both directions:
-				// no zero-value guard on the Go side, no nil-check carve-out
-				// on the proto side. AnchorFromPB's own pb == nil guard makes
-				// the unconditional FromPB call safe even when the proto
-				// pointer is unset. Enum translators tolerate the Go zero, so
-				// converting a zero-valued Anchor does not error.
+			It("Should round-trip an optional struct as a nullable wire field", func(ctx SpecContext) {
+				// A struct field with a "?" is nullable: its Go type is a
+				// pointer and the proto field is `optional`. The translator
+				// guards both directions on the pointer, converting only when
+				// the value is present.
 				source := `
 					@go output "core/test"
 					@pb
@@ -1434,13 +1762,14 @@ var _ = Describe("Go PB Plugin", func() {
 
 				ExpectContent(resp, "translator.gen.go").
 					ToContain(
-						"anchorVal, err := AnchorToPB(r.Anchor)",
-						"Anchor: anchorVal",
-						"r.Anchor, err = AnchorFromPB(pb.Anchor)",
+						"if r.Anchor != nil {",
+						"pb.Anchor, err = AnchorToPB(*r.Anchor)",
+						"if pb.Anchor != nil {",
+						"val, err := AnchorFromPB(pb.Anchor)",
+						"r.Anchor = &val",
 					).
 					ToNotContain(
 						"if r.Anchor != (test.Anchor{}) {",
-						"if pb.Anchor != nil {",
 					)
 			})
 
@@ -1557,6 +1886,53 @@ var _ = Describe("Go PB Plugin", func() {
 						"task.TaskID",
 					)
 			})
+
+			It("Should emit lo.Map casts for array of same-namespace distinct primitive", func(ctx SpecContext) {
+				source := `
+					@go output "core/task"
+					@pb
+
+					Priority uint16
+
+					Task struct {
+						priorities Priority[]
+					}
+				`
+				resp := MustGenerate(ctx, source, "task", loader, pbPlugin)
+
+				ExpectContent(resp, "translator.gen.go").
+					ToContain(
+						"lo.Map(r.Priorities, func(v task.Priority, _ int) uint32 { return uint32(v) })",
+						"lo.Map(pb.Priorities, func(v uint32, _ int) task.Priority { return task.Priority(v) })",
+					)
+			})
+
+			It("Should emit lo.Map casts with package alias for array of cross-namespace distinct primitive", func(ctx SpecContext) {
+				loader.Add("schemas/channel", `
+					@go output "core/channel"
+					@pb
+
+					Key uint32
+				`)
+
+				source := `
+					import "schemas/channel"
+
+					@go output "core/series"
+					@pb
+
+					Series struct {
+						keys channel.Key[]
+					}
+				`
+				resp := MustGenerate(ctx, source, "series", loader, pbPlugin)
+
+				ExpectContent(resp, "translator.gen.go").
+					ToContain(
+						"lo.Map(r.Keys, func(v channel.Key, _ int) uint32 { return uint32(v) })",
+						"lo.Map(pb.Keys, func(v uint32, _ int) channel.Key { return channel.Key(v) })",
+					)
+			})
 		})
 
 		Context("fixed-size uint8 array", func() {
@@ -1609,7 +1985,7 @@ var _ = Describe("Go PB Plugin", func() {
 					ToContain(
 						"ranger_pb.RangeToPB(ranger.Range(r))",
 						"ranger_pb.RangeFromPB",
-						"ts.TsRange(result)",
+						"ts.TSRange(result)",
 					)
 			})
 		})
@@ -1672,6 +2048,33 @@ var _ = Describe("Go PB Plugin", func() {
 		})
 
 		Context("generic struct instantiated with a struct type arg", func() {
+			It("Should keep explicit instantiation only for backward conversion with nil converters", func(ctx SpecContext) {
+				source := `
+					@go output "core/control"
+					@pb
+
+					Status struct<D?> {
+						key     string
+						details D
+					}
+
+					ChannelStatus = Status<nil>
+
+					Channel struct {
+						status ChannelStatus?
+					}
+				`
+				resp := MustGenerate(ctx, source, "control", loader, pbPlugin)
+
+				ExpectContent(resp, "translator.gen.go").
+					ToContain(
+						// The typed argument pins the forward instantiation; the
+						// nil converter cannot pin the backward one.
+						"StatusToPB(*r.Status, nil)",
+						"StatusFromPB[gotypes.Nil](pb.Status, nil)",
+					)
+			})
+
 			It("Should emit ToPBAny/FromPBAny helpers for the struct-typed instantiation", func(ctx SpecContext) {
 				source := `
 					@go output "core/control"
@@ -1698,9 +2101,10 @@ var _ = Describe("Go PB Plugin", func() {
 						// for each struct-typed generic instantiation.
 						"DetailsToPBAny",
 						"DetailsFromPBAny",
-						// Generic struct conversion forwards the typed converters.
-						"StatusToPB[control.Details]",
-						"StatusFromPB[control.Details]",
+						// Generic struct conversion forwards the typed converters;
+						// the argument and converters pin the instantiation.
+						"StatusToPB(r.Status, DetailsToPBAny)",
+						"StatusFromPB(pb.Status, DetailsFromPBAny)",
 					)
 			})
 		})
@@ -1805,3 +2209,5 @@ var _ = Describe("Go PB Plugin", func() {
 		})
 	})
 })
+
+var _ = ShouldNotLeakGoroutinesPerSpec()

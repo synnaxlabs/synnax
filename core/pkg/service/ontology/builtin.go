@@ -1,0 +1,47 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+package ontology
+
+import (
+	"context"
+	"iter"
+
+	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/gorp"
+	"github.com/synnaxlabs/x/observe"
+	"github.com/synnaxlabs/x/query"
+)
+
+var (
+	// RootID is the root resource in the ontology. All other resources are reachable by
+	// traversing the ontology from the root.
+	RootID       = ID{Type: ResourceTypeBuiltin, Key: "root"}
+	rootResource = Resource{ID: RootID, Name: "root"}
+)
+
+type builtinService struct{ observe.Noop[iter.Seq[Change]] }
+
+var _ Service = (*builtinService)(nil)
+
+func (*builtinService) Type() ResourceType { return ResourceTypeBuiltin }
+
+// RetrieveResource implements Service.
+func (*builtinService) RetrieveResource(
+	_ context.Context, key string, _ gorp.Tx,
+) (Resource, error) {
+	switch key {
+	case "root":
+		return rootResource, nil
+	default:
+		return Resource{}, errors.Wrapf(
+			query.ErrNotFound, "builtin resource %q not found", key,
+		)
+	}
+}

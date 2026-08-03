@@ -100,7 +100,7 @@ func (l *License) Format(_ context.Context, content []byte, absPath string) ([]b
 func renderLineComment(body, prefix string, pad int) string {
 	var b strings.Builder
 	padding := strings.Repeat(" ", pad)
-	for _, line := range strings.Split(body, "\n") {
+	for line := range strings.SplitSeq(body, "\n") {
 		if line == "" {
 			b.WriteString(prefix)
 			b.WriteByte('\n')
@@ -121,7 +121,7 @@ func renderLineComment(body, prefix string, pad int) string {
 func renderBlockComment(body string) string {
 	var b strings.Builder
 	b.WriteString("/*\n")
-	for _, line := range strings.Split(body, "\n") {
+	for line := range strings.SplitSeq(body, "\n") {
 		if line == "" {
 			b.WriteString(" *\n")
 			continue

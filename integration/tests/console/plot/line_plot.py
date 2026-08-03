@@ -30,9 +30,7 @@ class LinePlot(ConsoleCase):
         self._shared_plot_name = None
         self.ctx_plot_name = None
 
-        ctx_plot = self.console.workspace.create_plot(
-            f"Context Menu Test {self.suffix}"
-        )
+        ctx_plot = self.console.project.create_plot(f"Context Menu Test {self.suffix}")
         self.ctx_plot_name = ctx_plot.page_name
         self.ctx_plot_link = ctx_plot.copy_link()
         ctx_plot.close()
@@ -50,7 +48,7 @@ class LinePlot(ConsoleCase):
         suffix = random_name()
         index_name, data_name = self._setup_channels(suffix)
 
-        plot = self.console.workspace.create_plot(f"Line Plot Test {suffix}")
+        plot = self.console.project.create_plot(f"Line Plot Test {suffix}")
         self._shared_plot_name = plot.page_name
         plot.add_channels("Y1", data_name)
 
@@ -61,6 +59,7 @@ class LinePlot(ConsoleCase):
         # Track the renamed plot title
         self._shared_plot_name = plot.page_name
         self.test_move_channel_between_axes(plot, data_name)
+        self.test_undo_redo_add_channel(plot, data_name)
         self.test_live_data(plot)
         self.test_drag_channel_to_canvas(plot)
         self.test_drag_channel_to_toolbar(plot)
@@ -86,7 +85,7 @@ class LinePlot(ConsoleCase):
         self.test_open_plot_by_name(plot_name, plot_link)
 
         # Delete shared plot after all tests that reference it
-        self.console.workspace.delete_page(plot_name)
+        self.console.project.delete_page(plot_name)
         self._shared_plot_name = None
 
         self.client.channels.delete([data_name, index_name])
@@ -155,6 +154,26 @@ class LinePlot(ConsoleCase):
         plot.set_title(new_title)
         value = plot.get_title()
         assert value == new_title, f"Expected title '{new_title}', got '{value}'"
+
+    def test_undo_redo_add_channel(self, plot: Plot, data_name: str) -> None:
+        """Test that Cmd+Z reverts an add-channel and Cmd+Shift+Z re-applies it.
+
+        Reverts the add_channel(Y2) dispatch left on the undo stack by the
+        preceding test_move_channel_between_axes, then redoes it to leave
+        the plot in its original state for downstream tests.
+        """
+        self.log("Testing undo/redo for add channel")
+        assert plot.has_channel("Y2", data_name), (
+            "Setup precondition: previous test should have added channel to Y2"
+        )
+        plot.undo()
+        assert not plot.has_channel("Y2", data_name), (
+            f"Undo should remove {data_name} from Y2"
+        )
+        plot.redo()
+        assert plot.has_channel("Y2", data_name), (
+            f"Redo should re-add {data_name} to Y2"
+        )
 
     def test_live_data(self, plot: Plot) -> None:
         """Test plotting live data with a rolling time range."""
@@ -253,10 +272,10 @@ class LinePlot(ConsoleCase):
         )
 
     def test_open_plot_from_resources(self, plot_name: str, expected_link: str) -> None:
-        """Test opening a plot by double-clicking it in the workspace resources toolbar."""
+        """Test opening a plot by double-clicking it in the project resources toolbar."""
         self.log("Testing open plot from resources toolbar")
 
-        plot = self.console.workspace.open_plot(plot_name)
+        plot = self.console.project.open_plot(plot_name)
 
         assert plot.pane_locator is not None, "Plot pane should be visible"
         assert plot.pane_locator.is_visible(), "Plot pane should be visible"
@@ -273,7 +292,7 @@ class LinePlot(ConsoleCase):
         """Test dragging a plot from the resources toolbar onto the mosaic."""
         self.log("Testing drag plot onto mosaic")
 
-        plot = self.console.workspace.drag_plot_to_mosaic(plot_name)
+        plot = self.console.project.drag_plot_to_mosaic(plot_name)
 
         assert plot.pane_locator is not None, "Plot pane should be visible"
         assert plot.pane_locator.is_visible(), "Plot pane should be visible"
@@ -290,30 +309,30 @@ class LinePlot(ConsoleCase):
         assert self.ctx_plot_name is not None
 
         self.log("Testing copy link via context menu")
-        link = self.console.workspace.copy_page_link(self.ctx_plot_name)
+        link = self.console.project.copy_page_link(self.ctx_plot_name)
         assert link == self.ctx_plot_link, (
             f"Context menu link should match: expected {self.ctx_plot_link}, got {link}"
         )
 
         self.log("Testing export plot via context menu")
-        exported = self.console.workspace.export_page(self.ctx_plot_name)
+        exported = self.console.project.export_page(self.ctx_plot_name)
         assert "key" in exported, "Exported JSON should contain 'key'"
         assert len(exported["key"]) == 36, "Plot key should be a UUID"
         assert "channels" in exported, "Exported JSON should contain 'channels'"
 
         self.log("Testing rename plot via context menu")
         new_name = f"Renamed Plot {self.suffix}"
-        self.console.workspace.rename_page(self.ctx_plot_name, new_name)
-        assert self.console.workspace.page_exists(new_name), (
+        self.console.project.rename_page(self.ctx_plot_name, new_name)
+        assert self.console.project.page_exists(new_name), (
             f"Renamed plot '{new_name}' should exist"
         )
         self.ctx_plot_name = new_name
 
     def test_ctx_delete_plot(self) -> None:
-        """Test deleting a plot via context menu in the workspace resources toolbar."""
+        """Test deleting a plot via context menu in the project resources toolbar."""
         self.log("Testing delete plot via context menu")
         assert self.ctx_plot_name is not None
-        self.console.workspace.delete_page(self.ctx_plot_name)
+        self.console.project.delete_page(self.ctx_plot_name)
         self.ctx_plot_name = None
 
     def test_ctx_delete_multiple_plots(self) -> None:
@@ -324,12 +343,12 @@ class LinePlot(ConsoleCase):
         plot_names = []
 
         for i in range(3):
-            plot = self.console.workspace.create_plot(f"Multi Delete {suffix} {i}")
+            plot = self.console.project.create_plot(f"Multi Delete {suffix} {i}")
             plot_names.append(plot.page_name)
             self._cleanup_pages.append(plot.page_name)
             plot.close()
 
-        self.console.workspace.delete_pages(plot_names)
+        self.console.project.delete_pages(plot_names)
         for name in plot_names:
             self._cleanup_pages.remove(name)
 
@@ -337,7 +356,7 @@ class LinePlot(ConsoleCase):
         """Test opening an existing plot by searching its name in the command palette."""
         self.log("Testing open plot by name via command palette")
 
-        plot = self.console.workspace.open_from_search(Plot, plot_name)
+        plot = self.console.project.open_from_search(Plot, plot_name)
 
         assert plot.pane_locator is not None, "Plot pane should be visible"
         assert plot.pane_locator.is_visible(), "Plot pane should be visible"

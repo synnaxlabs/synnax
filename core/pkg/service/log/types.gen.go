@@ -11,23 +11,18 @@
 
 package log
 
-import (
-	"github.com/google/uuid"
-	"github.com/synnaxlabs/x/encoding/msgpack"
-)
+import "github.com/synnaxlabs/synnax/pkg/service/log/versions"
 
 // Key is a unique identifier for a log, represented as a UUID.
-type Key = uuid.UUID
+type Key = versions.Key
+
+// TimestampConfig is per-channel timestamp display configuration.
+type TimestampConfig = versions.TimestampConfig
+
+// ChannelEntry is a per-channel display configuration entry within a log.
+type ChannelEntry = versions.ChannelEntry
 
 // Log is a timestamped event and message logging component. Logs display chronological
 // records of events, system messages, and audit trails with filtering and formatting
 // capabilities.
-type Log struct {
-	// Key is the unique identifier for this log.
-	Key Key `json:"key" msgpack:"key"`
-	// Name is a human-readable name for the log.
-	Name string `json:"name" msgpack:"name"`
-	// Data is the log configuration including message formatting, filtering rules, and
-	// display options.
-	Data msgpack.EncodedJSON `json:"data" msgpack:"data"`
-}
+type Log = versions.Log

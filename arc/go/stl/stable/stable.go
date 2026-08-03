@@ -41,11 +41,9 @@ var (
 
 func newSymbolType() types.Type {
 	return types.Function(types.FunctionProperties{
-		Config: types.Params{
-			{Name: "duration", Type: types.TimeSpan()},
-		},
 		Inputs: types.Params{
 			{Name: ir.DefaultInputParam, Type: types.Variable("T", nil)},
+			{Name: "duration", Type: types.TimeSpan()},
 		},
 		Outputs: types.Params{
 			{Name: ir.DefaultOutputParam, Type: types.Variable("T", nil)},
@@ -58,11 +56,12 @@ func newSymbolType() types.Type {
 // alias whose Deprecated field points at the canonical stable.for member.
 func NewSymbols() []*symbol.Symbol {
 	member := &symbol.Symbol{
-		Name: qualifiedMemberName,
-		Kind: symbol.KindFunction,
-		Exec: symbol.ExecFlow,
-		Type: newSymbolType(),
-		Doc:  memberDoc,
+		Name:    qualifiedMemberName,
+		Kind:    symbol.KindFunction,
+		Exec:    symbol.ExecFlow,
+		Type:    newSymbolType(),
+		Trigger: symbol.TriggerInput(ir.DefaultInputParam),
+		Doc:     memberDoc,
 	}
 	mod := &symbol.Symbol{Name: name, Kind: symbol.KindModule, Doc: moduleDoc}
 	mod.AddChild(member)
@@ -99,18 +98,27 @@ func (h *Host) Create(_ context.Context, cfg node.Config) (node.Node, error) {
 	if cfg.Node.Type != bareSymbolName && cfg.Node.Type != qualifiedMemberName {
 		return nil, query.ErrNotFound
 	}
-	var cfgVals config
-	if err := configSchema.Parse(cfg.Node.Config.ValueMap(), &cfgVals); err != nil {
+	var inputs nodeInputs
+	if err := inputsSchema.Parse(cfg.Node.Inputs.ValueMap(), &inputs); err != nil {
 		return nil, err
 	}
-	return &forNode{State: cfg.State, duration: cfgVals.Duration, now: h.now}, nil
+	inputIdx, err := cfg.State.ResolveInput(ir.DefaultInputParam)
+	if err != nil {
+		return nil, err
+	}
+	return &forNode{
+		State:    cfg.State,
+		inputIdx: inputIdx,
+		duration: inputs.Duration,
+		now:      h.now,
+	}, nil
 }
 
-type config struct {
+type nodeInputs struct {
 	Duration telem.TimeSpan
 }
 
-var configSchema = zyn.Object(map[string]zyn.Schema{
+var inputsSchema = zyn.Object(map[string]zyn.Schema{
 	"duration": zyn.Int64().Coerce(),
 })
 
@@ -119,12 +127,25 @@ type forNode struct {
 	value       *uint8
 	lastSent    *uint8
 	now         func() telem.TimeStamp
+	inputIdx    int
 	duration    telem.TimeSpan
 	lastChanged telem.TimeStamp
 }
 
+// refreshDuration latches the var-bound live duration at a window start;
+// an in-flight window completes under the duration it began with.
+func (s *forNode) refreshDuration() {
+	i, err := s.ResolveInput("duration")
+	if err != nil || !s.RefSourced(i) {
+		return
+	}
+	if v := s.RefInput(i); v.Len() > 0 {
+		s.duration = telem.TimeSpan(telem.ValueAt[int64](v, -1))
+	}
+}
+
 func (s *forNode) Reset() {
-	s.State.Reset()
+	s.AbsorbInputs()
 	s.value = nil
 	s.lastSent = nil
 	s.lastChanged = 0
@@ -134,8 +155,8 @@ var _ node.Node = (*forNode)(nil)
 
 func (s *forNode) Next(ctx node.Context) {
 	if s.RefreshInputs() {
-		inputData := s.Input(0)
-		inputTime := s.InputTime(0)
+		inputData := s.Input(s.inputIdx)
+		inputTime := s.InputTime(s.inputIdx)
 		if inputData.Len() > 0 {
 			for i := int64(0); i < inputData.Len(); i++ {
 				currentValue := telem.ValueAt[uint8](inputData, int(i))
@@ -143,6 +164,7 @@ func (s *forNode) Next(ctx node.Context) {
 				if s.value == nil || *s.value != currentValue {
 					s.value = &currentValue
 					s.lastChanged = currentTime
+					s.refreshDuration()
 				}
 			}
 		}

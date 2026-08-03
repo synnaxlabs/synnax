@@ -22,7 +22,7 @@ func configureClientGRPC(
 	sec security.Provider,
 	insecure bool,
 ) *fgrpc.Pool {
-	return fgrpc.NewPool(
+	return fgrpc.OpenPool(
 		"",
 		grpc.WithTransportCredentials(getClientGRPCTransportCredentials(sec, insecure)),
 	)
@@ -35,6 +35,6 @@ func getClientGRPCTransportCredentials(
 	return lo.Ternary(
 		insecure,
 		insecureGRPC.NewCredentials(),
-		credentials.NewTLS(sec.TLS()),
+		credentials.NewTLS(sec.NodeClientConfig()),
 	)
 }

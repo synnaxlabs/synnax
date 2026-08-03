@@ -13,7 +13,8 @@ import z from "zod";
 
 import { label } from "@/label";
 import { ontology } from "@/ontology";
-import { type Key, keyZ, type New, newZ, type Status, statusZ } from "@/status/payload";
+import { type Key, keyZ } from "@/status/payload";
+import { type New, type Status, statusZ } from "@/status/types.gen";
 import { checkForMultipleOrNoResults } from "@/util/retrieve";
 
 const setReqZ = <DetailsSchema extends z.ZodType = z.ZodNever>(
@@ -21,11 +22,11 @@ const setReqZ = <DetailsSchema extends z.ZodType = z.ZodNever>(
 ) =>
   z.object({
     parent: ontology.idZ.optional(),
-    statuses: newZ(detailsSchema).array(),
+    statuses: statusZ({ details: detailsSchema }).array(),
   });
 const setResZ = <DetailsSchema extends z.ZodType = z.ZodNever>(
   detailsSchema?: DetailsSchema,
-) => z.object({ statuses: statusZ(detailsSchema).array() });
+) => z.object({ statuses: statusZ({ details: detailsSchema }).array() });
 const deleteReqZ = z.object({ keys: keyZ.array() });
 const emptyResZ = z.object({});
 
@@ -39,19 +40,24 @@ const retrieveRequestZ = z.object({
   variants: z.string().array().optional(),
 });
 
-const singleRetrieveArgsZ = z
+const singleRetrieveParamsZ = z
   .object({ key: keyZ, includeLabels: z.boolean().optional() })
   .transform(({ key, includeLabels }) => ({ keys: [key], includeLabels }));
 
-const retrieveArgsZ = z.union([singleRetrieveArgsZ, retrieveRequestZ]);
+const retrieveParamsZ = z.union([singleRetrieveParamsZ, retrieveRequestZ]);
 
-export type RetrieveArgs = z.input<typeof retrieveArgsZ>;
-export type SingleRetrieveArgs = z.input<typeof singleRetrieveArgsZ>;
-export type MultiRetrieveArgs = z.input<typeof retrieveRequestZ>;
+export type RetrieveParams = z.input<typeof retrieveParamsZ>;
+export type SingleRetrieveParams = z.input<typeof singleRetrieveParamsZ>;
+export type MultiRetrieveParams = z.input<typeof retrieveRequestZ>;
 
 const retrieveResponseZ = <DetailsSchema extends z.ZodType = z.ZodNever>(
   detailsSchema?: DetailsSchema,
-) => z.object({ statuses: array.nullishToEmpty(statusZ(detailsSchema)) });
+) =>
+  z.object({
+    statuses: statusZ({ details: detailsSchema })
+      .array()
+      .default(() => []),
+  });
 
 export interface SetOptions {
   parent?: ontology.ID;
@@ -66,21 +72,21 @@ export class Client {
   }
 
   async retrieve<DetailsSchema extends z.ZodType>(
-    args: SingleRetrieveArgs & { detailsSchema?: DetailsSchema },
+    params: SingleRetrieveParams & { detailsSchema?: DetailsSchema },
   ): Promise<Status<DetailsSchema>>;
-  async retrieve(args: SingleRetrieveArgs): Promise<Status>;
-  async retrieve(args: MultiRetrieveArgs): Promise<Status[]>;
+  async retrieve(params: SingleRetrieveParams): Promise<Status>;
+  async retrieve(params: MultiRetrieveParams): Promise<Status[]>;
   async retrieve<DetailsSchema extends z.ZodType = z.ZodNever>(
-    args: RetrieveArgs & { detailsSchema?: DetailsSchema },
+    params: RetrieveParams & { detailsSchema?: DetailsSchema },
   ): Promise<Status<DetailsSchema> | Status<DetailsSchema>[]> {
-    const isSingle = "key" in args;
+    const isSingle = "key" in params;
     const res = await this.client.send(
       "/status/retrieve",
-      args,
-      retrieveArgsZ,
-      retrieveResponseZ<DetailsSchema>(args.detailsSchema),
+      params,
+      retrieveParamsZ,
+      retrieveResponseZ<DetailsSchema>(params.detailsSchema),
     );
-    checkForMultipleOrNoResults("Status", args, res.statuses, isSingle);
+    checkForMultipleOrNoResults("Status", params, res.statuses, isSingle);
     const statuses = res.statuses as Status<DetailsSchema>[];
     return isSingle ? statuses[0] : statuses;
   }
@@ -99,7 +105,9 @@ export class Client {
     const res = await this.client.send(
       "/status/set",
       {
-        statuses: array.toArray(statuses),
+        statuses: array.toArray(statuses) as z.input<
+          ReturnType<typeof setReqZ<DetailsSchema>>
+        >["statuses"],
         parent: opts.parent,
       },
       setReqZ(opts.detailsSchema),

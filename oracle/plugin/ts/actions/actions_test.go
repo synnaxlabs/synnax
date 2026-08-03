@@ -16,11 +16,12 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/oracle/plugin/ts/actions"
 	. "github.com/synnaxlabs/oracle/testutil"
+	. "github.com/synnaxlabs/x/testutil"
 )
 
 func TestTSActions(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "TS Actions Plugin Suite")
+	RunSpecs(t, "Plugin TS Actions Suite")
 }
 
 var _ = Describe("TS Actions Plugin", func() {
@@ -100,8 +101,10 @@ var _ = Describe("TS Actions Plugin", func() {
 						"z.literal(\"set_value\")",
 						"z.literal(\"increment\")",
 						"export type Action",
-						"export const setValue = (payload: SetValuePayload): Action",
-						"export const increment = (payload: IncrementPayload): Action",
+						"export const setValue = (payload: z.input<typeof setValuePayloadZ>): Action",
+						"export const increment = (payload: z.input<typeof incrementPayloadZ>): Action",
+						"setValue: setValuePayloadZ.parse(payload),",
+						"increment: incrementPayloadZ.parse(payload),",
 						"export type HandlerResult = actions.HandlerResult<Action>;",
 						"export type ReduceAllResult = actions.ReduceAllResult<Counter, Action>;",
 						"export interface Handlers {",
@@ -113,6 +116,31 @@ var _ = Describe("TS Actions Plugin", func() {
 						"return handlers.setValue(state, action.setValue);",
 						"case \"increment\":",
 						"return handlers.increment(state, action.increment);",
+					)
+			})
+
+			It("Should flatten fields from an extended struct into the action payload", func(ctx SpecContext) {
+				source := `
+					@ts output "client/ts/src/counter"
+
+					Named struct {
+						name string
+					}
+
+					Counter struct {
+						key uuid
+
+						action Rename extends Named {
+							force int32
+						}
+					}
+				`
+				resp := MustGenerate(ctx, source, "counter", loader, p)
+				ExpectContent(resp, "actions.gen.ts").
+					ToContain(
+						"export const renamePayloadZ = z.object({",
+						"name: z.string()",
+						"force: z.int32()",
 					)
 			})
 
@@ -279,3 +307,5 @@ var _ = Describe("TS Actions Plugin", func() {
 		})
 	})
 })
+
+var _ = ShouldNotLeakGoroutinesPerSpec()

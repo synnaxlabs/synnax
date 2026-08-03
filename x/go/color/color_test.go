@@ -10,14 +10,11 @@
 package color_test
 
 import (
-	"encoding/json"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/vmihailenco/msgpack/v5"
-
 	"github.com/synnaxlabs/x/color"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/validate"
 )
 
 var _ = Describe("Color", func() {
@@ -38,10 +35,10 @@ var _ = Describe("Color", func() {
 			Expect(c.A).To(BeNumerically("~", 128.0/255.0, 0.01))
 		})
 		It("Should return an error for an invalid hex string", func() {
-			Expect(color.FromHex("#xyz")).Error().To(HaveOccurred())
+			Expect(color.FromHex("#xyz")).Error().To(MatchError(validate.ErrValidation))
 		})
 		It("Should return an error for wrong length", func() {
-			Expect(color.FromHex("#12345")).Error().To(HaveOccurred())
+			Expect(color.FromHex("#12345")).Error().To(MatchError(validate.ErrValidation))
 		})
 	})
 
@@ -55,106 +52,38 @@ var _ = Describe("Color", func() {
 		})
 	})
 
-	Describe("Hex", func() {
-		It("Should output a 6-character hex without alpha when alpha is 1", func() {
-			c := color.Color{R: 255, G: 0, B: 0, A: 1}
-			Expect(c.Hex()).To(Equal("#ff0000"))
-		})
-		It("Should output an 8-character hex when alpha is not 1", func() {
-			c := color.Color{R: 255, G: 0, B: 0, A: 0.5}
-			hex := c.Hex()
-			Expect(hex).To(HavePrefix("#ff0000"))
-			Expect(len(hex)).To(Equal(9))
-		})
-	})
+	Describe("FromCSS", func() {
+		DescribeTable("Should parse valid color strings",
+			func(input string, expected color.Color) {
+				Expect(color.FromCSS(input)).To(Equal(expected))
+			},
+			Entry("hex", "#ff0000", color.Color{R: 255, G: 0, B: 0, A: 1}),
+			Entry("rgb", "rgb(59,196,84)", color.Color{R: 59, G: 196, B: 84, A: 1}),
+			Entry("rgb with spaces", "rgb(255, 0, 0)", color.Color{R: 255, G: 0, B: 0, A: 1}),
+			Entry("rgba", "rgba(59,196,84,0.5)", color.Color{R: 59, G: 196, B: 84, A: 0.5}),
+			Entry("rgba full alpha", "rgba(0,0,0,1)", color.Color{R: 0, G: 0, B: 0, A: 1}),
+			Entry("surrounding whitespace", "  rgb(1,2,3)  ", color.Color{R: 1, G: 2, B: 3, A: 1}),
+		)
 
-	Describe("IsZero", func() {
-		It("Should return true for the zero value", func() {
-			Expect(color.Color{}.IsZero()).To(BeTrue())
-		})
-		It("Should return false when R is non-zero", func() {
-			Expect(color.Color{R: 1}.IsZero()).To(BeFalse())
-		})
-		It("Should return false when A is non-zero", func() {
-			Expect(color.Color{A: 0.5}.IsZero()).To(BeFalse())
-		})
-	})
-
-	Describe("JSON", func() {
-		It("Should marshal to struct format", func() {
-			c := color.Color{R: 255, G: 128, B: 0, A: 1}
-			data := MustSucceed(json.Marshal(c))
-			Expect(string(data)).To(ContainSubstring(`"r":255`))
-		})
-		It("Should unmarshal from a hex string", func() {
-			var c color.Color
-			Expect(json.Unmarshal([]byte(`"#ff8000"`), &c)).To(Succeed())
-			Expect(c.R).To(Equal(uint8(255)))
-			Expect(c.G).To(Equal(uint8(128)))
-			Expect(c.B).To(Equal(uint8(0)))
-			Expect(c.A).To(Equal(1.0))
-		})
-		It("Should unmarshal from an array", func() {
-			var c color.Color
-			Expect(json.Unmarshal([]byte(`[255, 0, 0, 0.5]`), &c)).To(Succeed())
-			Expect(c.R).To(Equal(uint8(255)))
-			Expect(c.A).To(Equal(0.5))
-		})
-		It("Should unmarshal from an object", func() {
-			var c color.Color
-			Expect(json.Unmarshal([]byte(`{"r":255,"g":0,"b":0,"a":1}`), &c)).To(Succeed())
-			Expect(c.R).To(Equal(uint8(255)))
-			Expect(c.A).To(Equal(1.0))
-		})
-		It("Should round-trip JSON correctly", func() {
-			original := color.Color{R: 100, G: 200, B: 50, A: 0.75}
-			data := MustSucceed(json.Marshal(original))
-			var decoded color.Color
-			Expect(json.Unmarshal(data, &decoded)).To(Succeed())
-			Expect(decoded).To(Equal(original))
-		})
-	})
-
-	Describe("Msgpack", func() {
-		It("Should decode from a string (backwards compat)", func() {
-			encoded := MustSucceed(msgpack.Marshal("#ff0000"))
-			var c color.Color
-			Expect(msgpack.Unmarshal(encoded, &c)).To(Succeed())
-			Expect(c).To(Equal(color.Color{R: 255, G: 0, B: 0, A: 1}))
-		})
-		It("Should decode from a string with alpha (backwards compat)", func() {
-			encoded := MustSucceed(msgpack.Marshal("#00ff0080"))
-			var c color.Color
-			Expect(msgpack.Unmarshal(encoded, &c)).To(Succeed())
-			Expect(c.R).To(Equal(uint8(0)))
-			Expect(c.G).To(Equal(uint8(255)))
-			Expect(c.B).To(Equal(uint8(0)))
-			Expect(c.A).To(BeNumerically("~", 128.0/255.0, 0.01))
-		})
-		It("Should round-trip msgpack correctly", func() {
-			original := color.Color{R: 100, G: 200, B: 50, A: 0.75}
-			data := MustSucceed(msgpack.Marshal(original))
-			var decoded color.Color
-			Expect(msgpack.Unmarshal(data, &decoded)).To(Succeed())
-			Expect(decoded).To(Equal(original))
-		})
-		It("Should decode #000000 as black with full alpha", func() {
-			encoded := MustSucceed(msgpack.Marshal("#000000"))
-			var c color.Color
-			Expect(msgpack.Unmarshal(encoded, &c)).To(Succeed())
-			Expect(c).To(Equal(color.Color{R: 0, G: 0, B: 0, A: 1}))
-		})
-		It("Should decode an empty string as zero color", func() {
-			encoded := MustSucceed(msgpack.Marshal(""))
-			var c color.Color
-			Expect(msgpack.Unmarshal(encoded, &c)).To(Succeed())
-			Expect(c).To(Equal(color.Color{}))
-		})
-		It("Should decode nil as zero color", func() {
-			encoded := MustSucceed(msgpack.Marshal(nil))
-			var c color.Color
-			Expect(msgpack.Unmarshal(encoded, &c)).To(Succeed())
-			Expect(c).To(Equal(color.Color{}))
-		})
+		DescribeTable("Should reject invalid color strings",
+			func(input, msg string) {
+				Expect(color.FromCSS(input)).Error().To(SatisfyAll(
+					MatchError(validate.ErrValidation),
+					MatchError(ContainSubstring(msg)),
+				))
+			},
+			Entry("rgb with a 4th alpha channel", "rgb(1,2,3,0.5)", "rgb() takes 3 channels"),
+			Entry("rgba missing alpha", "rgba(1,2,3)", "rgba() requires"),
+			Entry("alpha above 1", "rgba(1,2,3,1.5)", "alpha must be 0-1"),
+			Entry("red channel above 255", "rgb(300,0,0)", "channels must be 0-255"),
+			Entry("green channel above 255", "rgb(0,300,0)", "channels must be 0-255"),
+			Entry("blue channel above 255", "rgb(0,0,300)", "channels must be 0-255"),
+			Entry("malformed alpha", "rgba(1,2,3,1.2.3)", "invalid rgb alpha"),
+			Entry("hex without a hash", "00ff00", "must be a hex value"),
+			Entry("named color", "red", "must be a hex value"),
+			Entry("too few channels", "rgb(1,2)", "must be a hex value"),
+			Entry("empty string", "", "must be a hex value"),
+			Entry("invalid hex", "#xyz", "invalid hex color"),
+		)
 	})
 })

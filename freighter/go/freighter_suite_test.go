@@ -15,6 +15,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/freighter"
+	. "github.com/synnaxlabs/x/testutil"
 )
 
 func TestGo(t *testing.T) {
@@ -28,3 +29,5 @@ var _ = Describe("SenderNopCloser", func() {
 		Expect(closer.CloseSend()).To(Succeed())
 	})
 })
+
+var _ = ShouldNotLeakGoroutinesPerSpec()

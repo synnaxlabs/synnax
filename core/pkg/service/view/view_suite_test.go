@@ -22,12 +22,13 @@ import (
 var db *gorp.DB
 
 var _ = BeforeSuite(func() {
+	ShouldNotLeakGoroutines()
 	db = DeferClose(gorp.Wrap(memkv.New()))
 })
 
 func TestView(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "View Suite")
+	RunSpecs(t, "Service View Suite")
 }
 
 var _ = ShouldNotLeakGoroutinesPerSpec()

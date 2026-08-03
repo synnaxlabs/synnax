@@ -7,6 +7,8 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+import re
+
 from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
 
 import synnax as sy
@@ -62,7 +64,7 @@ class LogLifecycle(ConsoleCase):
     def teardown(self) -> None:
         for name in self._cleanup_groups:
             try:
-                self.console.workspace.delete_group(name)
+                self.console.project.delete_group(name)
             except PlaywrightTimeoutError:
                 pass
         if self._shared_log_name is not None:
@@ -73,12 +75,13 @@ class LogLifecycle(ConsoleCase):
         """Run all log lifecycle tests."""
         self.setup_channels()
 
-        log = self.console.workspace.create_log(f"Log Test {self.suffix}")
+        log = self.console.project.create_log(f"Log Test {self.suffix}")
         self._shared_log_name = log.page_name
 
         self.test_no_channel_configured(log)
         self.test_no_data_received(log)
         self.test_channel_streaming(log)
+        self.test_timestamp_channel_streaming(log)
         self.test_rename_from_tab(log)
         self.test_copy_link(log)
         self.test_pause_resume_scrolling(log)
@@ -98,11 +101,11 @@ class LogLifecycle(ConsoleCase):
         self.test_open_log_from_search(log_name, log_link)
 
         # Clean up shared log before ctx tests to prevent accumulation
-        self.console.workspace.delete_page(log_name)
+        self.console.project.delete_page(log_name)
         self._shared_log_name = None
 
         # Resources Toolbar > Context Menu
-        ctx_log = self.console.workspace.create_log(f"Context Menu Test {self.suffix}")
+        ctx_log = self.console.project.create_log(f"Context Menu Test {self.suffix}")
         self.ctx_log_name = ctx_log.page_name
         self._cleanup_pages.append(self.ctx_log_name)
         self.ctx_log_link = ctx_log.copy_link()
@@ -146,6 +149,39 @@ class LogLifecycle(ConsoleCase):
         assert log.wait_until_streaming(), "Log should be streaming after data write"
         assert not log.is_empty(), "Log should not be empty after data write"
         assert not log.is_waiting_for_data(), "Log should not be waiting for data"
+
+    def test_timestamp_channel_streaming(self, log: Log) -> None:
+        """Test that a log displaying an index (timestamp) channel renders new
+        entries. A TIMESTAMP-typed channel must stream like any other channel;
+        a regression in the worker render path froze the log when one was added.
+        """
+        self.log("Testing timestamp (index) channel streaming")
+
+        log.clear_channels()
+        log.set_channel(self.idx_name)
+        assert log.wait_until_waiting_for_data(), (
+            "Log should wait for data on the timestamp channel"
+        )
+
+        for i in range(5):
+            self.writer.write(
+                {self.idx_name: sy.TimeStamp.now(), self.data_name: (42.0 + i)}
+            )
+            sy.sleep(0.1)
+
+        assert log.wait_until_streaming(), (
+            "Log should stream entries from a timestamp channel"
+        )
+        entries = log.wait_for_copied_entries()
+        assert len(entries) >= 1, "Log should render entries from a timestamp channel"
+        # Each entry's value must render as a formatted date (e.g. "Jun 9
+        # 15:59:52.809"), not the raw i64 nanosecond value. This is the bigint
+        # formatting path whose regression previously froze the log.
+        formatted_value = re.compile(r"[A-Z][a-z]{2} \d{1,2} \d{2}:\d{2}:\d{2}")
+        assert all(
+            self.idx_name in entry and formatted_value.search(entry)
+            for entry in entries
+        ), f"Log should render formatted timestamp values, got {entries!r}"
 
     def test_virtual_channel_streaming(self, log: Log) -> None:
         """Test that log streams data from a virtual channel and that log data
@@ -214,10 +250,10 @@ class LogLifecycle(ConsoleCase):
         )
 
     def test_open_log_from_resources(self, log_name: str, expected_link: str) -> None:
-        """Test opening a log by double-clicking it in the workspace resources toolbar."""
+        """Test opening a log by double-clicking it in the project resources toolbar."""
         self.log("Testing open log from resources toolbar")
 
-        log = self.console.workspace.open_log(log_name)
+        log = self.console.project.open_log(log_name)
 
         assert log.pane_locator is not None, "Log pane should be visible"
         assert log.pane_locator.is_visible(), "Log pane should be visible"
@@ -234,7 +270,7 @@ class LogLifecycle(ConsoleCase):
         """Test dragging a log from the resources toolbar onto the mosaic."""
         self.log("Testing drag log onto mosaic")
 
-        log = self.console.workspace.drag_log_to_mosaic(log_name)
+        log = self.console.project.drag_log_to_mosaic(log_name)
 
         assert log.pane_locator is not None, "Log pane should be visible"
         assert log.pane_locator.is_visible(), "Log pane should be visible"
@@ -251,7 +287,7 @@ class LogLifecycle(ConsoleCase):
         """Test opening a log by searching its name in the command palette."""
         self.log("Testing open log from search palette")
 
-        log = self.console.workspace.open_from_search(Log, log_name)
+        log = self.console.project.open_from_search(Log, log_name)
 
         assert log.pane_locator is not None, "Log pane should be visible"
         assert log.pane_locator.is_visible(), "Log pane should be visible"
@@ -269,29 +305,36 @@ class LogLifecycle(ConsoleCase):
         assert self.ctx_log_name is not None
 
         self.log("Testing copy link via context menu")
-        link = self.console.workspace.copy_page_link(self.ctx_log_name)
+        link = self.console.project.copy_page_link(self.ctx_log_name)
         assert link == self.ctx_log_link, (
             f"Context menu link should match: expected {self.ctx_log_link}, got {link}"
         )
 
         self.log("Testing export log via context menu")
-        exported = self.console.workspace.export_page(self.ctx_log_name)
-        assert "key" in exported, "Exported JSON should contain 'key'"
-        assert len(exported["key"]) == 36, "Log key should be a UUID"
+        exported = self.console.project.export_page(self.ctx_log_name)
+        assert exported.get("type") == "log", "Exported JSON should be a log envelope"
+        assert exported.get("name") == self.ctx_log_name, (
+            f"Exported envelope name should match the log: expected "
+            f"{self.ctx_log_name!r}, got {exported.get('name')!r}"
+        )
+        assert exported.get("version") == 2, "Exported envelope should be version 2"
+        assert "key" not in exported, (
+            "Server-side export strips the resource key from the portable envelope"
+        )
 
         self.log("Testing rename log via context menu")
         new_name = f"Renamed Log {self.suffix}"
-        self.console.workspace.rename_page(self.ctx_log_name, new_name)
-        assert self.console.workspace.page_exists(new_name), (
+        self.console.project.rename_page(self.ctx_log_name, new_name)
+        assert self.console.project.page_exists(new_name), (
             f"Renamed log '{new_name}' should exist"
         )
         self.ctx_log_name = new_name
 
     def test_ctx_delete_log(self) -> None:
-        """Test deleting a log via context menu in the workspace resources toolbar."""
+        """Test deleting a log via context menu in the project resources toolbar."""
         self.log("Testing delete log via context menu")
         assert self.ctx_log_name is not None
-        self.console.workspace.delete_page(self.ctx_log_name)
+        self.console.project.delete_page(self.ctx_log_name)
 
     def test_ctx_delete_multiple_logs(self) -> None:
         """Test deleting multiple logs via multi-select and context menu."""
@@ -301,12 +344,12 @@ class LogLifecycle(ConsoleCase):
         log_names = []
 
         for i in range(3):
-            log = self.console.workspace.create_log(f"Multi Delete {suffix} {i}")
+            log = self.console.project.create_log(f"Multi Delete {suffix} {i}")
             log_names.append(log.page_name)
             self._cleanup_pages.append(log.page_name)
             log.close()
 
-        self.console.workspace.delete_pages(log_names)
+        self.console.project.delete_pages(log_names)
         for name in log_names:
             self._cleanup_pages.remove(name)
 
@@ -318,20 +361,20 @@ class LogLifecycle(ConsoleCase):
         log_names = []
 
         for i in range(2):
-            log = self.console.workspace.create_log(f"Group Test {suffix} {i}")
+            log = self.console.project.create_log(f"Group Test {suffix} {i}")
             log_names.append(log.page_name)
             self._cleanup_pages.append(log.page_name)
             log.close()
 
         group_name = f"Log Group {suffix}"
-        self.console.workspace.group_pages(names=log_names, group_name=group_name)
+        self.console.project.group_pages(names=log_names, group_name=group_name)
         self._cleanup_groups.append(group_name)
 
-        assert self.console.workspace.page_exists(group_name), (
+        assert self.console.project.page_exists(group_name), (
             "Group should exist after grouping"
         )
 
-        self.console.workspace.delete_group(group_name, child_names=log_names)
+        self.console.project.delete_group(group_name, child_names=log_names)
         self._cleanup_groups.remove(group_name)
         for name in log_names:
             self._cleanup_pages.remove(name)

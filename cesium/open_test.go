@@ -14,6 +14,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	. "github.com/synnaxlabs/alamos/testutil"
 	"github.com/synnaxlabs/cesium"
 	. "github.com/synnaxlabs/cesium/internal/testutil"
 	"github.com/synnaxlabs/x/io/fs"
@@ -24,14 +25,10 @@ import (
 var _ = Describe("Open", func() {
 	for fsName, openFS := range FileSystems {
 		Context("FS: "+fsName, Ordered, func() {
-			ShouldNotLeakGoroutinesPerSpec()
-			var (
-				fs fs.FS
-			)
+			var fs fs.FS
 			BeforeAll(func() {
+				ShouldNotLeakGoroutines()
 				fs = openFS()
-			})
-			AfterAll(func() {
 			})
 			Describe("Opening db on existing folder", func() {
 				It("Should not panic when opening a db in a directory with already existing files", func(ctx SpecContext) {

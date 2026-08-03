@@ -20,8 +20,8 @@ import (
 	"github.com/synnaxlabs/arc/symbol"
 	. "github.com/synnaxlabs/arc/symbol/testutil"
 	"github.com/synnaxlabs/arc/types"
-	"github.com/synnaxlabs/x/diagnostics"
 	. "github.com/synnaxlabs/x/testutil"
+	"go.lsp.dev/protocol"
 )
 
 // analyzeProgram is a helper that parses source code and runs the analyzer,
@@ -45,7 +45,7 @@ func analyzeExpectError(bCtx SpecContext, src string, resolver []symbol.Symbol, 
 	ctx := analyzeProgram(bCtx, src, resolver)
 	ExpectWithOffset(1, *ctx.Diagnostics).To(HaveLen(1))
 	ExpectWithOffset(1, (*ctx.Diagnostics)[0].Message).To(msgMatcher)
-	ExpectWithOffset(1, (*ctx.Diagnostics)[0].Severity).To(Equal(diagnostics.SeverityError))
+	ExpectWithOffset(1, (*ctx.Diagnostics)[0].Severity).To(Equal(protocol.DiagnosticSeverityError))
 	return ctx
 }
 
@@ -62,7 +62,6 @@ var _ = Describe("Function Analyzer", func() {
 				fn := ctx.Scope.Children()[0]
 				Expect(fn.Name).To(Equal("foo"))
 				Expect(fn.Kind).To(Equal(symbol.KindFunction))
-				Expect(fn.Type.Config).To(BeEmpty())
 				Expect(fn.Type.Inputs).To(BeEmpty())
 				Expect(fn.Type.Outputs).To(BeEmpty())
 			})
@@ -76,51 +75,50 @@ var _ = Describe("Function Analyzer", func() {
 				Expect(ctx.Scope.Children()[1].Name).To(Equal("second"))
 			})
 		})
-		Describe("config parameter collection", func() {
-			It("should collect function with only config params", func(bCtx SpecContext) {
+		Describe("input parameter collection", func() {
+			It("should collect function with only input params", func(bCtx SpecContext) {
 				ctx := analyzeExpectSuccess(bCtx, `func foo{x i32}() {}`, nil)
 				fn := ctx.Scope.Children()[0]
-				Expect(fn.Type.Config).To(HaveLen(1))
-				Expect(fn.Type.Config[0]).To(Equal(types.Param{Name: "x", Type: types.I32()}))
-				Expect(fn.Type.Inputs).To(BeEmpty())
+				Expect(fn.Type.Inputs).To(HaveLen(1))
+				Expect(fn.Type.Inputs[0]).To(Equal(types.Param{Name: "x", Type: types.I32()}))
 				Expect(fn.Type.Outputs).To(BeEmpty())
 			})
-			It("should collect config with channel type", func(bCtx SpecContext) {
+			It("should collect input with channel type", func(bCtx SpecContext) {
 				ctx := analyzeExpectSuccess(bCtx, `func foo{sensor chan f64}() {}`, nil)
 				fn := ctx.Scope.Children()[0]
-				Expect(fn.Type.Config).To(HaveLen(1))
-				Expect(fn.Type.Config[0]).To(Equal(types.Param{Name: "sensor", Type: types.Chan(types.F64())}))
+				Expect(fn.Type.Inputs).To(HaveLen(1))
+				Expect(fn.Type.Inputs[0]).To(Equal(types.Param{Name: "sensor", Type: types.Chan(types.F64())}))
 			})
-			It("should handle empty config block", func(bCtx SpecContext) {
+			It("should handle empty input block", func(bCtx SpecContext) {
 				ctx := analyzeExpectSuccess(bCtx, `func foo{}() {}`, nil)
 				fn := ctx.Scope.Children()[0]
-				Expect(fn.Type.Config).To(BeEmpty())
+				Expect(fn.Type.Inputs).To(BeEmpty())
 			})
-			It("should collect config with default value", func(bCtx SpecContext) {
+			It("should collect input with default value", func(bCtx SpecContext) {
 				ctx := analyzeExpectSuccess(bCtx, `func foo{gain f64 = 1.0}() {}`, nil)
 				fn := ctx.Scope.Children()[0]
-				Expect(fn.Type.Config).To(HaveLen(1))
-				Expect(fn.Type.Config[0].Name).To(Equal("gain"))
-				Expect(fn.Type.Config[0].Type).To(Equal(types.F64()))
-				Expect(fn.Type.Config[0].Value).To(Equal(1.0))
+				Expect(fn.Type.Inputs).To(HaveLen(1))
+				Expect(fn.Type.Inputs[0].Name).To(Equal("gain"))
+				Expect(fn.Type.Inputs[0].Type).To(Equal(types.F64()))
+				Expect(fn.Type.Inputs[0].Value).To(Equal(1.0))
 			})
-			It("should collect mixed required and optional config params", func(bCtx SpecContext) {
+			It("should collect mixed required and optional input params", func(bCtx SpecContext) {
 				ctx := analyzeExpectSuccess(bCtx, `func foo{setpoint f64, gain f64 = 1.0}() {}`, nil)
 				fn := ctx.Scope.Children()[0]
-				Expect(fn.Type.Config).To(HaveLen(2))
-				Expect(fn.Type.Config[0].Name).To(Equal("setpoint"))
-				Expect(fn.Type.Config[0].Value).To(BeNil())
-				Expect(fn.Type.Config[1].Name).To(Equal("gain"))
-				Expect(fn.Type.Config[1].Value).To(Equal(1.0))
+				Expect(fn.Type.Inputs).To(HaveLen(2))
+				Expect(fn.Type.Inputs[0].Name).To(Equal("setpoint"))
+				Expect(fn.Type.Inputs[0].Value).To(BeNil())
+				Expect(fn.Type.Inputs[1].Name).To(Equal("gain"))
+				Expect(fn.Type.Inputs[1].Value).To(Equal(1.0))
 			})
-			It("should reject required config after optional config", func(bCtx SpecContext) {
+			It("should reject required input after optional input", func(bCtx SpecContext) {
 				analyzeExpectError(bCtx,
 					`func foo{gain f64 = 1.0, setpoint f64}() {}`,
 					nil,
-					ContainSubstring("required config parameter setpoint cannot follow optional config parameters"),
+					ContainSubstring("required input parameter setpoint cannot follow optional input parameters"),
 				)
 			})
-			It("should reject invalid default value for config", func(bCtx SpecContext) {
+			It("should reject invalid default value for input", func(bCtx SpecContext) {
 				analyzeExpectError(bCtx,
 					`func foo{x i8 = 128}() {}`,
 					nil,
@@ -153,6 +151,32 @@ var _ = Describe("Function Analyzer", func() {
 				Expect(fn.Type.Inputs[0].Value).To(BeNil())
 				Expect(fn.Type.Inputs[1].Value).To(BeNil())
 				Expect(fn.Type.Inputs[2].Value).To(Equal(int32(10)))
+			})
+		})
+		Describe("trigger assignment", func() {
+			It("should be TriggerOnly for a function with no parameters", func(bCtx SpecContext) {
+				ctx := analyzeExpectSuccess(bCtx, `func foo() {}`, nil)
+				Expect(ctx.Scope.Children()[0].Trigger).To(Equal(symbol.TriggerOnly))
+			})
+			It("should be TriggerOnly for a function with only brace-block inputs", func(bCtx SpecContext) {
+				ctx := analyzeExpectSuccess(bCtx, `func foo{a i32}() {}`, nil)
+				Expect(ctx.Scope.Children()[0].Trigger).To(Equal(symbol.TriggerOnly))
+			})
+			It("should bind the trigger to the sole parens param", func(bCtx SpecContext) {
+				ctx := analyzeExpectSuccess(bCtx, `func foo(x i32) {}`, nil)
+				Expect(ctx.Scope.Children()[0].Trigger).To(Equal(symbol.TriggerInput("x")))
+			})
+			It("should bind the trigger to the first parens param", func(bCtx SpecContext) {
+				ctx := analyzeExpectSuccess(bCtx, `func foo(x i32, y f64) {}`, nil)
+				Expect(ctx.Scope.Children()[0].Trigger).To(Equal(symbol.TriggerInput("x")))
+			})
+			It("should bind the trigger to the first parens param, not the leading brace-block input", func(bCtx SpecContext) {
+				ctx := analyzeExpectSuccess(bCtx, `func foo{a i32}(x i32) {}`, nil)
+				fn := ctx.Scope.Children()[0]
+				Expect(fn.Type.Inputs).To(HaveLen(2))
+				Expect(fn.Type.Inputs[0].Name).To(Equal("a"))
+				Expect(fn.Type.Inputs[1].Name).To(Equal("x"))
+				Expect(fn.Trigger).To(Equal(symbol.TriggerInput("x")))
 			})
 		})
 		Describe("output parameter collection", func() {
@@ -194,7 +218,7 @@ var _ = Describe("Function Analyzer", func() {
 			It("should fail on duplicate function names", func(bCtx SpecContext) {
 				ctx := analyzeProgram(bCtx, `func foo() {} func foo() {}`, nil)
 				Expect(*ctx.Diagnostics).To(HaveLen(1))
-				Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("conflicts with existing symbol"))
+				Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("conflicts with existing function"))
 			})
 			It("should add functions to root scope", func(bCtx SpecContext) {
 				ctx := analyzeExpectSuccess(bCtx, `func outer() { } func inner() { }`, nil)
@@ -212,14 +236,14 @@ var _ = Describe("Function Analyzer", func() {
 				ctx := analyzeExpectError(bCtx, `
 					func dog() {}
 					func dog() {}
-				`, nil, ContainSubstring("name dog conflicts with existing symbol"))
-				Expect((*ctx.Diagnostics)[0].Start.Line).To(Equal(3))
+				`, nil, ContainSubstring("name dog conflicts with existing function"))
+				Expect((*ctx.Diagnostics)[0].Range.Start.Line).To(Equal(uint32(2)))
 			})
 
 			It("should diagnose duplicate parameter names", func(bCtx SpecContext) {
 				analyzeExpectError(bCtx, `
 					func dog(age i32, age i32) {}
-				`, nil, ContainSubstring("name age conflicts with existing symbol"))
+				`, nil, ContainSubstring("name age conflicts with existing input parameter"))
 			})
 		})
 	})
@@ -253,8 +277,8 @@ var _ = Describe("Function Analyzer", func() {
 			})
 		})
 
-		Context("config, input, and output binding", func() {
-			It("should bind config, input, and output types correctly", func(bCtx SpecContext) {
+		Context("input, trigger, and output binding", func() {
+			It("should bind input, trigger, and output types correctly", func(bCtx SpecContext) {
 				ctx := analyzeExpectSuccess(bCtx, `
 					func controller{
 						setpoint f64,
@@ -272,33 +296,31 @@ var _ = Describe("Function Analyzer", func() {
 				output := MustBeOk(fScope.Type.Outputs.Get(ir.DefaultOutputParam))
 				Expect(output.Type).To(Equal(types.F64()))
 
-				By("binding config parameters")
-				Expect(fScope.Type.Config).To(HaveLen(3))
-				Expect(fScope.Type.Config[0]).To(Equal(types.Param{Name: "setpoint", Type: types.F64()}))
-				Expect(fScope.Type.Config[1]).To(Equal(types.Param{Name: "sensor", Type: types.Chan(types.F64())}))
-				Expect(fScope.Type.Config[2]).To(Equal(types.Param{Name: "actuator", Type: types.Chan(types.F64())}))
-
-				By("binding input parameters")
-				Expect(fScope.Type.Inputs).To(HaveLen(1))
-				Expect(fScope.Type.Inputs[0]).To(Equal(types.Param{Name: "enable", Type: types.U8()}))
+				By("binding all inputs in declaration order")
+				Expect(fScope.Type.Inputs).To(HaveLen(4))
+				Expect(fScope.Type.Inputs[0]).To(Equal(types.Param{Name: "setpoint", Type: types.F64()}))
+				Expect(fScope.Type.Inputs[1]).To(Equal(types.Param{Name: "sensor", Type: types.Chan(types.F64())}))
+				Expect(fScope.Type.Inputs[2]).To(Equal(types.Param{Name: "actuator", Type: types.Chan(types.F64())}))
+				Expect(fScope.Type.Inputs[3]).To(Equal(types.Param{Name: "enable", Type: types.U8()}))
 
 				By("creating symbols in scope")
-				configSymbols := fScope.FilterChildrenByKind(symbol.KindConfig)
-				Expect(configSymbols).To(HaveLen(3))
-				Expect(configSymbols[0].Name).To(Equal("setpoint"))
-				Expect(configSymbols[1].Name).To(Equal("sensor"))
-				Expect(configSymbols[2].Name).To(Equal("actuator"))
+				inputSymbols := fScope.FilterChildrenByKind(symbol.KindInput)
+				Expect(inputSymbols).To(HaveLen(4))
+				Expect(inputSymbols[0].Name).To(Equal("setpoint"))
+				Expect(inputSymbols[1].Name).To(Equal("sensor"))
+				Expect(inputSymbols[2].Name).To(Equal("actuator"))
+				Expect(inputSymbols[3].Name).To(Equal("enable"))
 			})
 		})
 
-		Context("config parameter errors", func() {
-			It("should diagnose duplicate config parameter names", func(bCtx SpecContext) {
+		Context("input parameter errors", func() {
+			It("should diagnose duplicate input parameter names", func(bCtx SpecContext) {
 				analyzeExpectError(bCtx, `
 					func controller{
 						gain f64,
 						gain f64
 					} () {}
-				`, nil, ContainSubstring("name gain conflicts with existing symbol"))
+				`, nil, ContainSubstring("name gain conflicts with existing input parameter"))
 			})
 		})
 
@@ -894,7 +916,7 @@ var _ = Describe("Function Analyzer", func() {
 					func compute{result f64}() result f64 {
 						result = 42.0
 					}
-				`, nil, ContainSubstring("name result conflicts with existing symbol"))
+				`, nil, ContainSubstring("name result conflicts with existing input parameter"))
 			})
 		})
 
@@ -924,7 +946,7 @@ var _ = Describe("Function Analyzer", func() {
 					}
 				`, nil)
 				Expect(*ctx.Diagnostics).To(HaveLen(1))
-				Expect((*ctx.Diagnostics)[0].Severity).To(Equal(diagnostics.SeverityWarning))
+				Expect((*ctx.Diagnostics)[0].Severity).To(Equal(protocol.DiagnosticSeverityWarning))
 				Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("output 'result' is never assigned"))
 			})
 
@@ -977,7 +999,7 @@ var _ = Describe("Function Analyzer", func() {
 					func compute() (a f64, a f64) {
 						a = 1.0
 					}
-				`, nil, ContainSubstring("name a conflicts with existing symbol"))
+				`, nil, ContainSubstring("name a conflicts with existing output parameter"))
 			})
 		})
 	})

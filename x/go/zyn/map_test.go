@@ -36,16 +36,16 @@ var _ = Describe("Map", func() {
 		Specify("string to bool map", func() {
 			schema := zyn.Map(zyn.String(), zyn.Bool())
 			data := map[string]any{"enabled": true, "visible": false}
-			var dest map[string]bool //nolint:setlint
+			var dest map[string]bool //nolint:set
 			Expect(schema.Parse(data, &dest)).To(Succeed())
-			Expect(dest).To(Equal(map[string]bool{"enabled": true, "visible": false})) //nolint:setlint
+			Expect(dest).To(Equal(map[string]bool{"enabled": true, "visible": false})) //nolint:set
 		})
 		Specify("empty map", func() {
 			schema := zyn.Map(zyn.String(), zyn.String())
 			data := map[string]any{}
 			var dest map[string]string
 			Expect(schema.Parse(data, &dest)).To(Succeed())
-			Expect(dest).To(HaveLen(0))
+			Expect(dest).To(BeEmpty())
 		})
 		Specify("nested map of objects", func() {
 			type Config struct {

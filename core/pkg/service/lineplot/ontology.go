@@ -16,8 +16,8 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/samber/lo"
-	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
-	"github.com/synnaxlabs/synnax/pkg/distribution/search"
+	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/search"
 	xchange "github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/gorp"
 	xiter "github.com/synnaxlabs/x/iter"
@@ -38,7 +38,7 @@ func OntologyIDs(keys []Key) []ontology.ID {
 // OntologyIDsFromLinePlots returns the ontology IDs of the schematics.
 func OntologyIDsFromLinePlots(linePlots []LinePlot) []ontology.ID {
 	return lo.Map(linePlots, func(linePlot LinePlot, _ int) ontology.ID {
-		return OntologyID(linePlot.Key)
+		return linePlot.OntologyID()
 	})
 }
 
@@ -47,7 +47,7 @@ var schema = zyn.Object(map[string]zyn.Schema{"key": zyn.UUID(), "name": zyn.Str
 func newResource(linePlot LinePlot) ontology.Resource {
 	return ontology.NewResource(
 		schema,
-		OntologyID(linePlot.Key),
+		linePlot.OntologyID(),
 		linePlot.Name,
 		linePlot,
 	)
@@ -61,9 +61,6 @@ var (
 type change = xchange.Change[Key, LinePlot]
 
 func (s *Service) Type() ontology.ResourceType { return ontology.ResourceTypeLineplot }
-
-// Schema implements ontology.Service.
-func (s *Service) Schema() zyn.Schema { return schema }
 
 // RetrieveResource implements ontology.Service.
 func (s *Service) RetrieveResource(ctx context.Context, key string, tx gorp.Tx) (ontology.Resource, error) {

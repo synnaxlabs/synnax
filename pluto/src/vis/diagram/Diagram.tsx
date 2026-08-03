@@ -10,11 +10,12 @@
 import "@/vis/diagram/Diagram.css";
 import "@xyflow/react/dist/base.css";
 
-import { box, TimeSpan, xy } from "@synnaxlabs/x";
+import { box, type dimensions, TimeSpan, xy } from "@synnaxlabs/x";
 import {
   type Connection as RFConnection,
   type ConnectionLineComponentProps as RFConnectionLineProps,
   ConnectionMode,
+  type Edge as RFEdge,
   type EdgeChange as RFEdgeChange,
   type EdgeProps as RFEdgeProps,
   type IsValidConnection,
@@ -22,7 +23,6 @@ import {
   type NodeProps as RFNodeProps,
   type ProOptions,
   ReactFlow,
-  type ReactFlowInstance,
   type ReactFlowProps,
   ReactFlowProvider,
   SelectionMode,
@@ -34,13 +34,16 @@ import {
   type ClipboardEvent as ReactClipboardEvent,
   type ComponentPropsWithRef,
   type FC,
+  Fragment,
   memo,
   type MouseEvent as ReactMouseEvent,
+  type PropsWithChildren,
   type ReactElement,
   useCallback,
   useEffect,
   useMemo,
   useRef,
+  useState,
 } from "react";
 import { type z } from "zod";
 
@@ -67,7 +70,11 @@ import {
   type Viewport,
 } from "@/vis/diagram/aether/types";
 import { Context } from "@/vis/diagram/Context";
-import { calculateCursorPosition, internalNodeBox } from "@/vis/diagram/util";
+import {
+  calculateCursorPosition,
+  internalNodeBox,
+  partitionNodeChanges,
+} from "@/vis/diagram/util";
 
 export interface NodeProps {
   nodeKey: string;
@@ -77,9 +84,14 @@ export interface NodeProps {
 }
 
 export interface RendererConfig {
+  /** Renders each node by key. */
   node: RenderProp<NodeProps, ReactElement>;
+  /** Renders each edge; falls back to React Flow's default edge when omitted. */
   edge?: RenderProp<diagram.EdgeProps, ReactElement>;
+  /** Renders the line shown while dragging a new connection. */
   connectionLine?: RenderProp<diagram.ConnectionLineProps, ReactElement>;
+  /** Wraps the diagram inside the React Flow store context, above all renderers. */
+  Provider?: FC<PropsWithChildren>;
 }
 
 const isValidConnection: IsValidConnection = (): boolean => true;
@@ -88,6 +100,7 @@ const EDITABLE_PROPS: ReactFlowProps = {
   nodesDraggable: true,
   nodesConnectable: true,
   elementsSelectable: true,
+  nodesFocusable: true,
   zoomOnDoubleClick: false,
   nodeClickDistance: 5,
   reconnectRadius: 15,
@@ -114,7 +127,7 @@ const PRO_OPTIONS: ProOptions = {
   hideAttribution: true,
 };
 
-export type DiagramClipboardHandler = (
+export type ClipboardHandler = (
   this: void,
   e: ReactClipboardEvent<HTMLDivElement>,
   cursor: xy.XY,
@@ -134,6 +147,7 @@ export interface DiagramProps
       | "snapToGrid"
       | "onNodeClick"
       | "onNodeDoubleClick"
+      | "edgesReconnectable"
     > {
   edges: Edge[];
   nodes: Node[];
@@ -156,13 +170,13 @@ export interface DiagramProps
    * cursor position in diagram space at the moment of the copy, derived from
    * the most recent mousemove over the diagram.
    */
-  onCopy?: DiagramClipboardHandler;
+  onCopy?: ClipboardHandler;
   /**
    * Called when a paste event fires on the diagram. The second argument is the
    * cursor position in diagram space at the moment of the paste, derived from
    * the most recent mousemove over the diagram.
    */
-  onPaste?: DiagramClipboardHandler;
+  onPaste?: ClipboardHandler;
 }
 
 const DELETE_KEY_CODES: Triggers.Trigger = ["Backspace", "Delete"];
@@ -171,6 +185,7 @@ export const create = ({
   node: nodeRenderer,
   edge: edgeRenderer,
   connectionLine: connectionLineRenderer,
+  Provider = Fragment,
 }: RendererConfig): FC<DiagramProps> => {
   const NodeWrapper = memo(
     ({
@@ -295,9 +310,14 @@ export const create = ({
       [fitView],
     );
 
+    // React Flow fits its view against the container it mounts into, so mounting
+    // against an unsized one (a tab whose content is not currently hosted in the DOM)
+    // would report a nonsense viewport to the caller.
+    const [isSized, setIsSized] = useState(false);
     const resizeRef = Canvas.useRegion(
       useCallback(
         (region) => {
+          setIsSized(!box.areaIsZero(region));
           if (fitViewOnResize) debouncedFitView(fitViewOptions);
           setState((prev) => ({ ...prev, region }));
         },
@@ -347,9 +367,14 @@ export const create = ({
       () => translateEdgesForward(edges, selectedSet),
       [edges, selectedSet],
     );
+    const [measured, setMeasured] = useState<Record<string, dimensions.Dimensions>>({});
     const rfNodes = useMemo(
-      () => translateNodesForward(nodes, selectedSet, dragHandleSelector),
-      [nodes, selectedSet, dragHandleSelector],
+      () =>
+        translateNodesForward(nodes, selectedSet, dragHandleSelector).map((node) => ({
+          ...node,
+          measured: measured[node.id],
+        })),
+      [nodes, selectedSet, dragHandleSelector, measured],
     );
 
     const processChanges = useCallback(
@@ -388,8 +413,18 @@ export const create = ({
     );
 
     const handleNodesChange = useCallback(
-      (changes: RFNodeChange[]) =>
-        processChanges(changes, translateNodeChangeForward, onNodesChange),
+      (changes: RFNodeChange[]) => {
+        const { passthrough, sizes, removed } = partitionNodeChanges(changes);
+        if (sizes.length > 0 || removed.length > 0)
+          setMeasured((prev) => {
+            const next = { ...prev };
+            for (const [key, d] of sizes) next[key] = d;
+            for (const key of removed) delete next[key];
+            return next;
+          });
+        if (passthrough.length > 0)
+          processChanges(passthrough, translateNodeChangeForward, onNodesChange);
+      },
       [processChanges, onNodesChange],
     );
 
@@ -405,9 +440,15 @@ export const create = ({
       [onEdgesChange],
     );
 
+    const handleReconnect = useCallback(
+      (oldEdge: RFEdge, conn: RFConnection) =>
+        onEdgesChange([diagram.createReconnect(oldEdge.id, conn)]),
+      [onEdgesChange],
+    );
+
     const editableProps = editable ? EDITABLE_PROPS : NOT_EDITABLE_PROPS;
 
-    const triggerRef = useRef<HTMLElement>(null);
+    const triggerRef = useRef<HTMLDivElement>(null);
     Triggers.use({
       triggers: triggers.zoomReset,
       callback: useCallback(
@@ -433,14 +474,7 @@ export const create = ({
       };
     }, [triggers]);
 
-    const combinedRefs = useCombinedRefs(triggerRef, resizeRef);
-
-    const handleInit = useCallback(
-      (i: ReactFlowInstance) => {
-        void i.fitView(fitViewOptions);
-      },
-      [fitViewOptions],
-    );
+    const containerRefs = useCombinedRefs(ref, resizeRef);
 
     const ctxValue = useMemo(
       () => ({
@@ -507,7 +541,7 @@ export const create = ({
     return (
       <div
         className={CSS.BE("diagram", "container")}
-        ref={ref}
+        ref={containerRefs}
         onDoubleClick={onDoubleClick}
         onCopy={handleCopy}
         onPaste={handlePaste}
@@ -517,7 +551,7 @@ export const create = ({
       >
         <Context value={ctxValue}>
           <Aether.Composite path={path}>
-            {visible && (
+            {visible && isSized && (
               <ReactFlow
                 {...triggerProps}
                 className={CSS(
@@ -530,11 +564,12 @@ export const create = ({
                 edges={rfEdges}
                 nodeTypes={nodeTypes}
                 edgeTypes={edgeTypes}
-                ref={combinedRefs}
+                ref={triggerRef}
                 fitView
                 onNodesChange={handleNodesChange}
                 onEdgesChange={handleEdgesChange}
                 onConnect={handleConnect}
+                onReconnect={handleReconnect}
                 connectionLineComponent={ConnectionLine}
                 defaultViewport={defautlViewport}
                 elevateEdgesOnSelect
@@ -551,7 +586,6 @@ export const create = ({
                 {...rest}
                 {...editableProps}
                 nodesDraggable={editable}
-                onInit={handleInit}
               />
             )}
           </Aether.Composite>
@@ -562,7 +596,9 @@ export const create = ({
 
   const Diagram: FC<DiagramProps> = (props) => (
     <ReactFlowProvider>
-      <Base {...props} />
+      <Provider>
+        <Base {...props} />
+      </Provider>
     </ReactFlowProvider>
   );
 

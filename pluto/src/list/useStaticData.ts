@@ -28,7 +28,7 @@ export interface RetrieveParams {
   limit?: number;
 }
 
-export interface UseStaticDataArgs<
+export interface UseStaticDataParams<
   K extends record.Key = record.Key,
   E extends record.Keyed<K> = record.Keyed<K>,
 > {
@@ -44,7 +44,7 @@ export const useStaticData = <
   data,
   filter,
   sort,
-}: UseStaticDataArgs<K, E>): UseStaticDataReturn<K, E> => {
+}: UseStaticDataParams<K, E>): UseStaticDataReturn<K, E> => {
   const filteredData = useMemo(() => {
     let result = data;
     if (filter != null) result = result.filter((d) => filter(d, {}));

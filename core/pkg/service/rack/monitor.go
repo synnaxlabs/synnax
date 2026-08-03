@@ -19,7 +19,7 @@ import (
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/alamos"
-	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	xchange "github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/errors"
@@ -27,7 +27,6 @@ import (
 	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/signal"
-	xstatus "github.com/synnaxlabs/x/status"
 	"github.com/synnaxlabs/x/telem"
 	"go.uber.org/zap"
 )
@@ -95,9 +94,9 @@ func (m *monitor) checkAlive(ctx context.Context) error {
 		}
 		timeSinceAlive := telem.TimeSpan(now - state.lastUpdated)
 		stat := Status{
-			Key:         OntologyID(r.Key).String(),
+			Key:         r.OntologyID().String(),
 			Name:        r.Name,
-			Variant:     xstatus.VariantWarning,
+			Variant:     status.VariantWarning,
 			Time:        state.lastUpdated,
 			Message:     fmt.Sprintf("Synnax Driver on %s not running", r.Name),
 			Description: fmt.Sprintf("Driver was last alive %s seconds ago", timeSinceAlive),
@@ -137,8 +136,8 @@ func (m *monitor) handleChange(ctx context.Context, t gorp.TxReader[string, stat
 			delete(m.mu.racks, key)
 			continue
 		}
-		isHealthy := ch.Value.Variant == xstatus.VariantSuccess ||
-			ch.Value.Variant == xstatus.VariantInfo
+		isHealthy := ch.Value.Variant == status.VariantSuccess ||
+			ch.Value.Variant == status.VariantInfo
 		if isHealthy || !lo.HasKey(m.mu.racks, key) {
 			m.mu.racks[key] = rackState{lastUpdated: m.svc.Now(), deadCheckCount: 0}
 		}

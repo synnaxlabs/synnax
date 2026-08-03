@@ -7,10 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import "schemas/arc/ir"
 import "schemas/arc/compiler"
+import "schemas/arc/ir"
 
 @ts output  "client/ts/src/arc/program"
+@py output  "client/py/synnax/arc/program"
 @go output  "arc/go/program"
 @cpp output "arc/cpp/program"
 @pb

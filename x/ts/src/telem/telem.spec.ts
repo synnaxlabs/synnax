@@ -1948,6 +1948,12 @@ describe("DataType", () => {
     it("should return true for BYTES", () => {
       expect(DataType.BYTES.isVariable).toBe(true);
     });
+    it("should return false for BOOLEAN", () => {
+      expect(DataType.BOOLEAN.isVariable).toBe(false);
+    });
+    it("should report density BIT8 for BOOLEAN", () => {
+      expect(DataType.BOOLEAN.density.valueOf()).toBe(1);
+    });
   });
 
   describe("construct", () => {
@@ -2015,6 +2021,13 @@ describe("DataType", () => {
       [DataType.BYTES, DataType.BYTES, true],
       [DataType.BYTES, DataType.INT32, false],
       [DataType.BYTES, DataType.STRING, false],
+      [DataType.BOOLEAN, DataType.BOOLEAN, true],
+      [DataType.BOOLEAN, DataType.UINT8, true],
+      [DataType.BOOLEAN, DataType.INT32, true],
+      [DataType.BOOLEAN, DataType.FLOAT64, true],
+      [DataType.UINT8, DataType.BOOLEAN, false],
+      [DataType.INT32, DataType.BOOLEAN, false],
+      [DataType.FLOAT64, DataType.BOOLEAN, false],
     ];
     TESTS.forEach(([from, to, expected]) =>
       it(`should return ${expected} when casting from ${from.toString()} to ${to.toString()}`, () => {
@@ -2067,6 +2080,13 @@ describe("DataType", () => {
       const dt = DataType.z.parse(original);
       expect(dt).toBe(original);
       expect(dt.toString()).toBe("int32");
+    });
+
+    it("should parse a structurally-equivalent DataType from another realm", () => {
+      const foreign = { value: "timestamp" };
+      const dt = DataType.z.parse(foreign);
+      expect(dt).toBeInstanceOf(DataType);
+      expect(dt.toString()).toBe("timestamp");
     });
 
     const testCases = [
@@ -2179,6 +2199,12 @@ describe("Size", () => {
       expect(size.valueOf()).toBe(2048);
     });
 
+    it("should parse a string", () => {
+      const size = Size.z.parse("1024");
+      expect(size).toBeInstanceOf(Size);
+      expect(size.valueOf()).toBe(1024);
+    });
+
     const testCases = [
       { input: 0, expected: 0 },
       { input: 1, expected: 1 },
@@ -2280,5 +2306,21 @@ describe("convertDataType", () => {
   it("falls back to math.sub when neither source nor target use bigint", () => {
     const result = convertDataType(DataType.FLOAT32, DataType.FLOAT64, 5.5, 1.5);
     expect(result).toBe(4);
+  });
+
+  it("normalizes a nonzero number to 1 when casting to BOOLEAN", () => {
+    expect(convertDataType(DataType.FLOAT64, DataType.BOOLEAN, 5)).toBe(1);
+  });
+
+  it("normalizes zero to 0 when casting to BOOLEAN", () => {
+    expect(convertDataType(DataType.FLOAT64, DataType.BOOLEAN, 0)).toBe(0);
+  });
+
+  it("normalizes a nonzero bigint to 1 when casting to BOOLEAN", () => {
+    expect(convertDataType(DataType.INT64, DataType.BOOLEAN, 5n)).toBe(1);
+  });
+
+  it("normalizes a zero bigint to 0 when casting to BOOLEAN", () => {
+    expect(convertDataType(DataType.INT64, DataType.BOOLEAN, 0n)).toBe(0);
   });
 });

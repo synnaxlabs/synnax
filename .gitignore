@@ -224,6 +224,9 @@ synnax-data/**
 **/.aswb/
 **/.clwb/
 
+# Generated clangd/IntelliSense database (e.g. Hedron compile-commands refresh).
+compile_commands.json
+
 # |||| TLS ||||
 **/certs*/**
 
@@ -255,6 +258,14 @@ synnax-data/**
 # |||| EMBEDDED DRIVER ||||
 assets
 
+# |||| LABVIEW ||||
+client/lv/**/builds/
+!client/lv/**/Ignore Error.vi
+*.lvlibp
+*.aliases
+*.lvlps
+*.UserState/
+
 # |||| GENERATED CERTIFICATES ||||
 client/py/examples/opcua/certificates/
 
@@ -279,3 +290,7 @@ core/synnax
 
 # |||| ORACLE ||||
 .oracle/
+
+# Lock file for the local boringssl->openssl shim module; only its MODULE.bazel matters
+# as a local_path_override target, never run bazel inside that directory.
+vendor/boringssl/MODULE.bazel.lock

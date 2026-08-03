@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -51,11 +51,12 @@ fileDomain
 // Definitions
 // =============================================================================
 
-// Top-level definitions are structs, enums, or type definitions
+// Top-level definitions are structs, enums, type definitions, or discriminated unions
 definition
     : structDef
     | enumDef
     | typeDefDef
+    | unionDef
     ;
 
 // =============================================================================
@@ -110,6 +111,13 @@ fieldOmit
     : MINUS IDENT
     ;
 
+// Domain omission: remove a domain inherited from the overridden parent field.
+// Only meaningful on a field that overrides a parent field (in an extends struct).
+// Example: -@validate
+domainOmit
+    : MINUS AT IDENT
+    ;
+
 // Action definition within a struct: defines a named mutation with payload fields
 // Examples:
 //   action SetNodePosition {
@@ -121,8 +129,13 @@ fieldOmit
 //       props record?
 //       @doc value "adds a node to the schematic"
 //   }
+// An action may extend one or more structs to pull their fields into its
+// payload, exactly as struct inheritance flattens parent fields:
+//   action Rename extends Named {
+//       @doc value "renames the resource"
+//   }
 actionDef
-    : ACTION IDENT nl* LBRACE nl* actionBody RBRACE
+    : ACTION IDENT (EXTENDS typeRefList)? nl* LBRACE nl* actionBody RBRACE
     ;
 
 // Action body contains payload fields and/or action-level domains
@@ -143,8 +156,48 @@ actionBody
 //   name string {
 //       @validate { required, min_length 1 }
 //   }
+//
+// In a struct that extends a parent, the type may be omitted to partially
+// override an inherited field, in which case the type, optionality, and any
+// unspecified default are inherited from the parent:
+//   key = 0                  (change only the default)
+//   name @validate required  (add a domain)
+//   name -@validate          (remove an inherited domain)
+// A standalone optionality marker overrides only the optionality, inheriting
+// the type from the parent:
+//   key?                     (inherit the type, make it optional)
 fieldDef
-    : IDENT typeRef inlineDomain* fieldBody?
+    : IDENT (typeRef | typeModifiers)? (EQUALS fieldDefault)? (inlineDomain | domainOmit)* fieldBody?
+    ;
+
+// A field default is a scalar/ident literal, an array literal, or a struct
+// literal.
+// Examples: = 0, = "v", = volts, = [], = [1, 2, 3], = { x = 0, y = 1 }
+fieldDefault
+    : expressionValue
+    | arrayDefault
+    | structDefault
+    ;
+
+// A default value in a nested position (array element or struct field). Arrays
+// and structs nest recursively through this rule.
+defaultValue
+    : expressionValue
+    | arrayDefault
+    | structDefault
+    ;
+
+arrayDefault
+    : LBRACKET nl* (defaultValue (COMMA nl* defaultValue)* nl*)? RBRACKET
+    ;
+
+// A struct literal binds field names to values: { field = value, field = value }
+structDefault
+    : LBRACE nl* (structFieldDefault (COMMA nl* structFieldDefault)* nl*)? RBRACE
+    ;
+
+structFieldDefault
+    : IDENT EQUALS defaultValue
     ;
 
 // Inline domain on a field (after type, on same line)
@@ -153,9 +206,9 @@ inlineDomain
     : AT IDENT domainContent?
     ;
 
-// Optional field body containing domain definitions (multi-line)
+// Optional field body containing domain definitions and omissions (multi-line)
 fieldBody
-    : nl* LBRACE nl* (domain nl*)* RBRACE
+    : nl* LBRACE nl* ((domain | domainOmit) nl*)* RBRACE
     ;
 
 // =============================================================================
@@ -209,10 +262,9 @@ typeArgs
     : LT typeRef (COMMA typeRef)* GT
     ;
 
-// Type modifiers: soft optional (?) or hard optional (??)
+// Type modifier: optional (?), nullable and round-tripping faithfully.
 typeModifiers
-    : QUESTION QUESTION   // ?? (hard optional - pointer in Go)
-    | QUESTION            // ? (soft optional - zero value in Go)
+    : QUESTION
     ;
 
 // Qualified identifier for type names
@@ -254,8 +306,11 @@ expressionValue
 // Name-first enum definition:
 //   TaskState enum { pending = 0, running = 1 }
 //   DataType enum { float32 = "float32", int32 = "int32" }
+// An enum may extend one or more other enums, taking the union of their
+// members (and optionally adding its own):
+//   AxisKey enum extends XAxisKey, YAxisKey {}
 enumDef
-    : IDENT ENUM nl* LBRACE nl* enumBody RBRACE
+    : IDENT ENUM (EXTENDS typeRefList)? nl* LBRACE nl* enumBody RBRACE
     ;
 
 // Enum body contains values and/or enum-level domains
@@ -291,5 +346,71 @@ typeDefDef
 
 // Optional body for type definitions (domains only, no fields)
 typeDefBody
+    : nl* LBRACE nl* (domain nl*)* RBRACE
+    ;
+
+// =============================================================================
+// Union Definitions
+// =============================================================================
+
+// Name-first discriminated union definition:
+//   Scale union on type {
+//       linear LinearScale
+//       map    MapScale
+//   }
+//   AIChannel union on type extends BaseAIChannel {
+//       ai_voltage AIVoltageFields
+//       ai_accel   AIAccelFields { @doc value "..." }
+//   }
+//
+// The `on` clause names the discriminator field whose string value selects
+// which variant struct shape applies. The discriminator field is owned by the
+// union declaration and must not appear in the base or variant structs.
+// The first IDENT after UNION is the soft keyword `on` (validated by the
+// analyzer); the second is the discriminator field name. `on` is intentionally
+// not a reserved lexer keyword so existing schemas may keep fields named `on`.
+unionDef
+    : IDENT UNION IDENT IDENT (EXTENDS typeRefList)? nl* LBRACE nl* unionBody RBRACE
+    ;
+
+// Union body contains variants and/or union-level domains
+unionBody
+    : ((unionVariant | domain) nl*)*
+    ;
+
+// Single variant: discriminator value + struct type + optional per-variant domains
+//   linear LinearScale
+//   ai_voltage AIVoltageFields { @doc value "..." }
+//
+// A variant may instead declare its payload inline, with an optional extends
+// clause for mixins. The body is a full structBody, so inline variants carry
+// fields and domains directly and no standalone payload type is generated:
+//   view extends Labeled {
+//       type string
+//   }
+//   empty {}
+//
+// variantName accepts IDENT or any Oracle keyword so that discriminator string
+// values that collide with reserved words (e.g. "map" in NI's Scale union)
+// can be expressed without quoting. The value carried is always the raw
+// token text.
+unionVariant
+    : variantName typeRef unionVariantBody?                               # NamedVariant
+    | variantName (EXTENDS typeRefList)? nl* LBRACE nl* structBody RBRACE # InlineVariant
+    ;
+
+variantName
+    : IDENT
+    | MAP
+    | UNION
+    | STRUCT
+    | ENUM
+    | EXTENDS
+    | IMPORT
+    | ACTION
+    ;
+
+// Optional body for union variants (domains only)
+unionVariantBody
     : nl* LBRACE nl* (domain nl*)* RBRACE
     ;

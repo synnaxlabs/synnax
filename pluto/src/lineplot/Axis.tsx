@@ -9,12 +9,13 @@
 
 import "@/lineplot/Axis.css";
 
-import { type bounds, direction, type text } from "@synnaxlabs/x";
+import { direction, type text } from "@synnaxlabs/x";
 import {
   type FC,
   type PropsWithChildren,
   type ReactElement,
   useEffect,
+  useMemo,
   useRef,
 } from "react";
 import { type z } from "zod";
@@ -24,12 +25,8 @@ import { CSS } from "@/css";
 import { Flex } from "@/flex";
 import { useUniqueKey } from "@/hooks/useUniqueKey";
 import { lineplot } from "@/lineplot/aether";
-import {
-  baseAxisStateZ,
-  parseAutoBounds,
-  withinSizeThreshold,
-} from "@/lineplot/aether/axis";
-import { useGridEntry } from "@/lineplot/LinePlot";
+import { baseAxisStateZ, withinSizeThreshold } from "@/lineplot/aether/axis";
+import { useGridEntry } from "@/lineplot/Frame";
 import { useMemoDeepEqual } from "@/memo";
 import { Text } from "@/text";
 import { text as aetherText } from "@/text/aether";
@@ -45,7 +42,6 @@ export interface AxisProps
   labelLevel?: text.Level;
   labelDirection?: direction.Direction;
   onLabelChange?: (label: string) => void;
-  onAutoBoundsChange?: (bounds: bounds.Bounds) => void;
 }
 
 export const axisFactory = (dir: direction.Direction): FC<AxisProps> => {
@@ -70,7 +66,6 @@ export const axisFactory = (dir: direction.Direction): FC<AxisProps> => {
     autoBounds,
     axisKey,
     autoBoundUpdateInterval,
-    onAutoBoundsChange,
     style,
     ...rest
   }: AxisProps): ReactElement => {
@@ -90,7 +85,7 @@ export const axisFactory = (dir: direction.Direction): FC<AxisProps> => {
       autoBoundUpdateInterval,
     });
 
-    const [{ path }, { size, labelSize, ...state }, setState] = Aether.use({
+    const [{ path }, { size, labelSize }, setState] = Aether.use({
       aetherKey: cKey,
       type: aetherType,
       schema: baseAxisStateZ,
@@ -98,15 +93,6 @@ export const axisFactory = (dir: direction.Direction): FC<AxisProps> => {
     });
 
     useEffect(() => setState((state) => ({ ...state, ...aetherProps })), [aetherProps]);
-    useEffect(() => {
-      const { lower, upper } = parseAutoBounds(state.autoBounds);
-      if (state.bounds == null) return;
-      if (
-        (lower && bounds?.lower !== state.bounds.lower) ||
-        (upper && bounds?.upper !== state.bounds.upper)
-      )
-        onAutoBoundsChange?.(state.bounds);
-    }, [state.autoBounds, state.bounds]);
 
     const gridStyle = useGridEntry(
       { loc: location, key: `${aetherType}-${cKey}`, size: size + labelSize, order: 1 },
@@ -114,6 +100,8 @@ export const axisFactory = (dir: direction.Direction): FC<AxisProps> => {
     );
 
     const font = Theming.useTypography(labelLevel).toString();
+
+    const axisStyle = useMemo(() => ({ ...style, ...gridStyle }), [style, gridStyle]);
 
     const prevLabelSize = useRef(0);
 
@@ -140,7 +128,7 @@ export const axisFactory = (dir: direction.Direction): FC<AxisProps> => {
       <>
         <Flex.Box
           className={CSS(className, CSS.B("axis"), CSS.B(cssClass), CSS.loc(location))}
-          style={{ ...style, ...gridStyle }}
+          style={axisStyle}
           align="center"
           justify={location !== "left" ? "end" : "start"}
           direction={direction.swap(dir)}

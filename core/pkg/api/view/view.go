@@ -17,13 +17,13 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api/config"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
+	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/view"
 	xconfig "github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/gorp"
 )
 
 type Service struct {
-	db       *gorp.DB
 	access   *rbac.Service
 	internal *view.Service
 }
@@ -35,7 +35,6 @@ func NewService(cfgs ...config.LayerConfig) (*Service, error) {
 	}
 	return &Service{
 		internal: cfg.Service.View,
-		db:       cfg.Distribution.DB,
 		access:   cfg.Service.RBAC,
 	}, nil
 }
@@ -55,26 +54,20 @@ type CreateResponse struct {
 
 func (s *Service) Create(
 	ctx context.Context,
+	tx gorp.Tx,
 	req CreateRequest,
 ) (CreateResponse, error) {
-	if err := s.access.Enforce(ctx, access.Request{
+	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionCreate,
-		Objects: view.OntologyIDsFromViews(req.Views),
+		Objects: []ontology.ID{{Type: ontology.ResourceTypeView}},
 	}); err != nil {
 		return CreateResponse{}, err
 	}
-	var res CreateResponse
-	if err := s.db.WithTx(ctx, func(tx gorp.Tx) error {
-		if err := s.internal.NewWriter(tx).CreateMany(ctx, &req.Views); err != nil {
-			return err
-		}
-		res.Views = req.Views
-		return nil
-	}); err != nil {
+	if err := s.internal.NewWriter(tx).CreateMany(ctx, &req.Views); err != nil {
 		return CreateResponse{}, err
 	}
-	return res, nil
+	return CreateResponse(req), nil
 }
 
 type RetrieveRequest struct {
@@ -86,7 +79,7 @@ type RetrieveRequest struct {
 }
 
 type RetrieveResponse struct {
-	Views []View `json:"views" msgpack:"views"`
+	Views []View `json:"views,omitzero" msgpack:"views,omitzero"`
 }
 
 func (s *Service) Retrieve(
@@ -109,12 +102,11 @@ func (s *Service) Retrieve(
 	if len(req.Types) != 0 {
 		q = q.Where(view.MatchTypes(req.Types...))
 	}
-
 	var views []view.View
 	if err := q.Entries(&views).Exec(ctx, nil); err != nil {
 		return RetrieveResponse{}, err
 	}
-	if err := s.access.Enforce(ctx, access.Request{
+	if err := s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionRetrieve,
 		Objects: view.OntologyIDsFromViews(views),
@@ -130,16 +122,15 @@ type DeleteRequest struct {
 
 func (s *Service) Delete(
 	ctx context.Context,
+	tx gorp.Tx,
 	req DeleteRequest,
 ) (types.Nil, error) {
-	if err := s.access.Enforce(ctx, access.Request{
+	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionDelete,
 		Objects: view.OntologyIDs(req.Keys),
 	}); err != nil {
 		return types.Nil{}, err
 	}
-	return types.Nil{}, s.db.WithTx(ctx, func(tx gorp.Tx) error {
-		return s.internal.NewWriter(tx).DeleteMany(ctx, req.Keys...)
-	})
+	return types.Nil{}, s.internal.NewWriter(tx).Delete(ctx, req.Keys...)
 }

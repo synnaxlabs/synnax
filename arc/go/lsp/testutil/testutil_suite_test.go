@@ -14,9 +14,12 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	. "github.com/synnaxlabs/x/testutil"
 )
 
 func TestTestUtil(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Test Utilities Suite")
+	RunSpecs(t, "LSP Testutil Suite")
 }
+
+var _ = ShouldNotLeakGoroutinesPerSpec()

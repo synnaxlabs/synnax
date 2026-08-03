@@ -46,7 +46,7 @@ TEST(stateTests, testNominal) {
         if (j["details"]["rack"] == rack.key) break;
     }
     EXPECT_EQ(j["details"]["rack"], rack.key);
-    EXPECT_EQ(j["variant"], x::status::VARIANT_SUCCESS);
+    EXPECT_EQ(j["variant"], synnax::status::VARIANT_SUCCESS);
     EXPECT_EQ(j["message"], "Driver is running");
     ASSERT_NIL(streamer.close());
 }

@@ -97,7 +97,7 @@ private:
         target_node.inputs.push_back(target_input);
         target_node.outputs.push_back(target_output);
         for (const auto &p: config_params)
-            target_node.config.push_back(p);
+            target_node.inputs.push_back(p);
 
         ir::Edge edge;
         edge.source = ir::Handle("source", ir::default_output_param);
@@ -213,6 +213,37 @@ TEST(MathAvgTest, ComputesRunningAverage) {
     EXPECT_EQ(checker.output_time(0)->at<int64_t>(0), 3 * sec);
 }
 
+/// @brief reset() re-arms inputs so the node re-runs on stage re-entry.
+TEST(MathAvgTest, ResetRearmsInputsOnStageReentry) {
+    TestSetup setup(types::Kind::F64, "avg");
+    Module module;
+    auto node = ASSERT_NIL_P(module.create(
+        runtime::node::Config(setup.ir, setup.ir.nodes[1], setup.make_target_node())
+    ));
+
+    const auto sec = x::telem::SECOND.nanoseconds();
+    auto source = setup.make_source_node();
+    write_source_f64(source, {10.0, 20.0, 30.0}, {sec, 2 * sec, 3 * sec});
+
+    int changes = 0;
+    auto ctx = make_context();
+    ctx.mark_changed = [&](size_t) { changes++; };
+
+    ASSERT_NIL(node->next(ctx));
+    EXPECT_GT(changes, 0);
+
+    // Same data already consumed: no re-run.
+    changes = 0;
+    ASSERT_NIL(node->next(ctx));
+    EXPECT_EQ(changes, 0);
+
+    // Stage re-entry re-arms the inputs so the node runs again.
+    node->reset();
+    changes = 0;
+    ASSERT_NIL(node->next(ctx));
+    EXPECT_GT(changes, 0);
+}
+
 TEST(MathAvgTest, AccumulatesAcrossBatches) {
     TestSetup setup(types::Kind::F64, "avg");
     Module module;
@@ -259,7 +290,7 @@ TEST(MathAvgTest, WeightedAverageWithUnequalBatchSizes) {
     EXPECT_NEAR(checker.output(0)->at<double>(0), 23.333, 0.01);
 }
 
-TEST(MathAvgTest, ResetsWithCountConfig) {
+TEST(MathAvgTest, ResetsWithCountInput) {
     types::Param count_param;
     count_param.name = "count";
     count_param.type = types::Type{.kind = types::Kind::I64};
@@ -288,7 +319,7 @@ TEST(MathAvgTest, ResetsWithCountConfig) {
     EXPECT_DOUBLE_EQ(checker2.output(0)->at<double>(0), 50.0);
 }
 
-TEST(MathAvgTest, ResetsWithDurationConfig) {
+TEST(MathAvgTest, ResetsWithDurationInput) {
     types::Param duration_param;
     duration_param.name = "duration";
     duration_param.type = types::Type{.kind = types::Kind::I64};
@@ -388,7 +419,7 @@ TEST(MathMinTest, MaintainsMinAcrossBatches) {
     EXPECT_EQ(checker.output(0)->at<int32_t>(0), 30);
 }
 
-TEST(MathMinTest, ResetsWithDurationConfig) {
+TEST(MathMinTest, ResetsWithDurationInput) {
     types::Param duration_param;
     duration_param.name = "duration";
     duration_param.type = types::Type{.kind = types::Kind::I64};
@@ -423,7 +454,7 @@ TEST(MathMinTest, ResetsWithDurationConfig) {
     EXPECT_EQ(checker2.output(0)->at<int32_t>(0), 40);
 }
 
-TEST(MathMinTest, ResetsWithCountConfig) {
+TEST(MathMinTest, ResetsWithCountInput) {
     types::Param count_param;
     count_param.name = "count";
     count_param.type = types::Type{.kind = types::Kind::I64};
@@ -544,7 +575,7 @@ TEST(MathMaxTest, MaintainsMaxAcrossBatches) {
     EXPECT_DOUBLE_EQ(checker.output(0)->at<double>(0), 50.0);
 }
 
-TEST(MathMaxTest, ResetsWithDurationConfig) {
+TEST(MathMaxTest, ResetsWithDurationInput) {
     types::Param duration_param;
     duration_param.name = "duration";
     duration_param.type = types::Type{.kind = types::Kind::I64};
@@ -573,7 +604,7 @@ TEST(MathMaxTest, ResetsWithDurationConfig) {
     EXPECT_DOUBLE_EQ(checker2.output(0)->at<double>(0), 15.0);
 }
 
-TEST(MathMaxTest, ResetsWithCountConfig) {
+TEST(MathMaxTest, ResetsWithCountInput) {
     types::Param count_param;
     count_param.name = "count";
     count_param.type = types::Type{.kind = types::Kind::I64};
@@ -1473,5 +1504,33 @@ TEST(MathModuleTest, CreatesDerivativeWithQualifiedTypeViaMultiFactory) {
         multi.create(runtime::node::Config(setup.ir, ir_node, setup.make_target_node()))
     );
     ASSERT_NE(node, nullptr);
+}
+
+/// @brief A node missing its input param must fail at construction, not throw at
+/// runtime.
+TEST(MathConstructionTest, ErrorsWhenInputMissing) {
+    for (const auto *node_type: {"avg", "min", "max", "derivative", "neg", "add"}) {
+        SCOPED_TRACE(node_type);
+        types::Param out;
+        out.name = ir::default_output_param;
+        out.type = types::Type{.kind = types::Kind::F32};
+        ir::Node n;
+        n.key = "math";
+        n.type = node_type;
+        n.outputs.push_back(out);
+        ir::IR ir;
+        ir.nodes.push_back(n);
+        runtime::state::State state(
+            runtime::state::Config{.ir = ir, .channels = {}},
+            runtime::errors::noop_handler
+        );
+        Module module;
+        ASSERT_OCCURRED_AS_P(
+            module.create(
+                runtime::node::Config(ir, ir.nodes[0], ASSERT_NIL_P(state.node("math")))
+            ),
+            x::errors::NOT_FOUND
+        );
+    }
 }
 }

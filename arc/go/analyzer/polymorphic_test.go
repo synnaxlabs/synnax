@@ -35,6 +35,7 @@ func newMockPolymorphicSymbols() []symbol.Symbol {
 					{Name: ir.DefaultOutputParam, Type: types.Variable("T", &constraint)},
 				},
 			}),
+			Trigger: symbol.TriggerInput("a"),
 		},
 		{
 			Name: "sensor_f32",
@@ -121,6 +122,7 @@ var _ = Describe("Polymorphic func in module - cross-analysis", func() {
 					{Name: ir.DefaultOutputParam, Type: types.Variable("T", &c)},
 				},
 			}),
+			Trigger: symbol.TriggerInput("a"),
 		}
 		mod := &symbol.Symbol{Name: "mymod", Kind: symbol.KindModule}
 		mod.AddChild(simple)

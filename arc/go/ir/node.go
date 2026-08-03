@@ -13,64 +13,82 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/samber/lo"
+	"github.com/synnaxlabs/arc/types"
+	"github.com/synnaxlabs/x/tree"
+	"github.com/vmihailenco/msgpack/v5"
 )
 
-// Find searches for a node by key. Returns the node and true if found,
-// or zero value and false otherwise.
-func (n Nodes) Find(key string) (Node, bool) {
-	return lo.Find(n, func(n Node) bool { return n.Key == key })
+// IsEntryNode reports whether n is an entry node: it has no incoming edges and
+// reads no channels. Entry nodes fire once per activation.
+func (n Node) IsEntryNode(edges Edges) bool {
+	return len(edges.GetInputs(n.Key)) == 0 && len(n.Channels.Read) == 0
 }
-
-// Get returns the node with the given key. Panics if not found.
-func (n Nodes) Get(key string) Node { return lo.Must(n.Find(key)) }
 
 // String returns the string representation of the node.
-func (n Node) String() string {
-	return n.stringWithPrefix("")
-}
+func (n Node) String() string { return n.stringWithPrefix("") }
 
 // stringWithPrefix returns the string representation with tree formatting.
 func (n Node) stringWithPrefix(prefix string) string {
 	var b strings.Builder
 	_, _ = fmt.Fprintf(&b, "%s (type: %s)\n", n.Key, n.Type)
 
-	hasConfig := len(n.Config) > 0
 	hasInputs := len(n.Inputs) > 0
 	hasOutputs := len(n.Outputs) > 0
 
-	isLast := !hasConfig && !hasInputs && !hasOutputs
+	isLast := !hasInputs && !hasOutputs
 	b.WriteString(prefix)
-	b.WriteString(TreePrefix(isLast))
+	b.WriteString(tree.Prefix(isLast))
 	b.WriteString("channels: ")
-	b.WriteString(formatChannels(n.Channels))
+	b.WriteString(n.Channels.String())
 	b.WriteString("\n")
-
-	if hasConfig {
-		isLast = !hasInputs && !hasOutputs
-		b.WriteString(prefix)
-		b.WriteString(TreePrefix(isLast))
-		b.WriteString("config: ")
-		b.WriteString(formatParams(n.Config))
-		b.WriteString("\n")
-	}
 
 	if hasInputs {
 		isLast = !hasOutputs
 		b.WriteString(prefix)
-		b.WriteString(TreePrefix(isLast))
+		b.WriteString(tree.Prefix(isLast))
 		b.WriteString("inputs: ")
-		b.WriteString(formatParams(n.Inputs))
+		b.WriteString(n.Inputs.String())
 		b.WriteString("\n")
 	}
 
 	if hasOutputs {
 		b.WriteString(prefix)
-		b.WriteString(TreePrefix(true))
+		b.WriteString(tree.Prefix(true))
 		b.WriteString("outputs: ")
-		b.WriteString(formatParams(n.Outputs))
+		b.WriteString(n.Outputs.String())
 		b.WriteString("\n")
 	}
 
 	return b.String()
+}
+
+// DecodeMsgpack implements msgpack.CustomDecoder, supporting both legacy uppercase Go
+// field names and new lowercase msgpack tag names for backward compatibility.
+func (n *Node) DecodeMsgpack(dec *msgpack.Decoder) error {
+	type alias Node
+	raw, err := dec.DecodeRaw()
+	if err != nil {
+		return err
+	}
+	if err = msgpack.Unmarshal(raw, (*alias)(n)); err != nil {
+		return err
+	}
+	if len(n.Key) == 0 {
+		var legacy struct {
+			Key      string
+			Type     string
+			Inputs   types.Params
+			Outputs  types.Params
+			Channels types.Channels
+		}
+		if err = msgpack.Unmarshal(raw, &legacy); err != nil {
+			return err
+		}
+		n.Key = legacy.Key
+		n.Type = legacy.Type
+		n.Inputs = legacy.Inputs
+		n.Outputs = legacy.Outputs
+		n.Channels = legacy.Channels
+	}
+	return nil
 }

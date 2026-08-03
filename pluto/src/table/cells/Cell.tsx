@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ReactElement } from "react";
+import { type ReactElement, useMemo } from "react";
 
 import { CSS } from "@/css";
 
@@ -30,13 +30,16 @@ export const Cell = ({
   height,
   style,
   ...rest
-}: CellProps): ReactElement => (
-  <td
-    ref={ref}
-    {...rest}
-    style={{ ...style, height }}
-    className={CSS(CSS.BE("table", "cell"), CSS.selected(selected), className)}
-  >
-    <div className={CSS.BEM("table", "cell", "content")}>{children}</div>
-  </td>
-);
+}: CellProps): ReactElement => {
+  const mergedStyle = useMemo(() => ({ ...style, height }), [style, height]);
+  return (
+    <td
+      ref={ref}
+      {...rest}
+      style={mergedStyle}
+      className={CSS(CSS.BE("table", "cell"), CSS.selected(selected), className)}
+    >
+      <div className={CSS.BEM("table", "cell", "content")}>{children}</div>
+    </td>
+  );
+};

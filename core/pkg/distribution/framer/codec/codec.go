@@ -25,6 +25,7 @@ import (
 	"github.com/synnaxlabs/x/binary"
 	"github.com/synnaxlabs/x/bit"
 	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
 )
@@ -33,6 +34,47 @@ type state struct {
 	keyDataTypes         map[channel.Key]telem.DataType
 	keys                 channel.Keys
 	hasVariableDataTypes bool
+}
+
+const bitsPerByte = 8
+
+// bitPackedByteCount returns the number of wire bytes needed to bit-pack nSamples
+// boolean samples (one bit each, LSB-first).
+func bitPackedByteCount[T int | int64 | uint32](nSamples T) T {
+	return (nSamples + bitsPerByte - 1) / bitsPerByte
+}
+
+// wireSize returns the number of bytes a series occupies on the wire after
+// per-type encoding. BoolT samples are bit-packed at one bit each; variable-length
+// types carry their length-prefixed in-memory representation directly; other fixed
+// types use their in-memory byte count.
+func wireSize(s telem.Series) int {
+	if s.DataType == telem.BoolT {
+		return int(bitPackedByteCount(s.Len()))
+	}
+	return int(s.Size())
+}
+
+// packBoolBits packs byte-packed canonical bool data (one sample per byte) into
+// bit-packed wire bytes (LSB-first within each byte).
+func packBoolBits(src []byte) []byte {
+	dst := make([]byte, bitPackedByteCount(len(src)))
+	for i, b := range src {
+		if b != 0 {
+			dst[i/bitsPerByte] |= 1 << (i % bitsPerByte)
+		}
+	}
+	return dst
+}
+
+// unpackBoolBits unpacks bit-packed wire bytes into byte-packed canonical bool
+// data. n is the number of samples (not bytes).
+func unpackBoolBits(src []byte, n int) []byte {
+	dst := make([]byte, n)
+	for i := range n {
+		dst[i] = (src[i/bitsPerByte] >> (i % bitsPerByte)) & 1
+	}
+	return dst
 }
 
 func writeTimeRange(w *binary.Writer, tr telem.TimeRange) {
@@ -87,18 +129,18 @@ func (s *sorter) Swap(i, j int) {
 }
 
 // Codec is a high-performance encoder/decoder specifically designed for moving
-// telemetry frames over the network. Codec is stateful, meaning that both the
-// encoding and decoding sides must agree on the set of channels and their order
-// before any encoding or decoding can occur.
+// telemetry frames over the network. Codec is stateful, meaning that both the encoding
+// and decoding sides must agree on the set of channels and their order before any
+// encoding or decoding can occur.
 type Codec struct {
 	// buf is reused for each encode operation.
 	buf *binary.Writer
 	// reader is reused for each decode operation. Unlike the standard library
 	// binary.Read, this avoids reflection overhead.
 	reader *binary.Reader
-	// channels used in dynamic codecs to retrieve information about channels
-	// when Update is called.
-	channels *channel.Service
+	// channelResolver is used in dynamic codecs to look up the data types of channels
+	// when Update is called. It is nil for codecs created with NewStatic.
+	channelResolver ChannelResolver
 	// mergedSeriesResult is a reusable slice for storing merged series info, avoiding
 	// allocations on each encode operation
 	mergedSeriesResult []mergedSeriesInfo
@@ -106,16 +148,16 @@ type Codec struct {
 	opts *options
 	// mu is non-routine safe structures that must be used carefully.
 	mu struct {
-		// states is the current backlog of encoding states. We keep multiple states
-		// to allow for temporary de-sync between the encoding and decoding sides. For
+		// states is the current backlog of encoding states. We keep multiple states to
+		// allow for temporary de-sync between the encoding and decoding sides. For
 		// example, when updating the keys of a streamer, the receiving codec may get
 		// the updated set of channel in its state before the sending codec may get
-		// updated, which means that the receiving codec needs to decode according
-		// to the previous state. seqNum and the states backlog are used to keep the
-		// two in sync.
+		// updated, which means that the receiving codec needs to decode according to
+		// the previous state. seqNum and the states backlog are used to keep the two in
+		// sync.
 		states map[uint32]state
-		// updates is a channel that the routine in Update pushes a new state down
-		// for processing within Encode/Decode.
+		// updates is a channel that the routine in Update pushes a new state down for
+		// processing within Encode/Decode.
 		updates chan state
 		// seqNum corresponds to the most recent update in states. This is incremented
 		// and communicated each time a state is added.
@@ -132,18 +174,18 @@ type Codec struct {
 }
 
 type options struct {
-	// enableAlignmentCompression controls whether to merge contiguous series with
-	// the same channel key during encoding. When enabled, reduces bandwidth at the
-	// cost of some CPU overhead during encoding.
+	// enableAlignmentCompression controls whether to merge contiguous series with the
+	// same channel key during encoding. When enabled, reduces bandwidth at the cost of
+	// some CPU overhead during encoding.
 	enableAlignmentCompression bool
 }
 
 type Option = func(*options)
 
 // DisableAlignmentCompression disables merging of contiguous series with the same
-// channel key during encoding. This can significantly increase bandwidth usage
-// (30-70%) for frames with many small contiguous series at the cost of 5-15%
-// additional CPU overhead during encoding. Defaults to true.
+// channel key during encoding. This can significantly increase bandwidth usage (30-70%)
+// for frames with many small contiguous series at the cost of 5-15% additional CPU
+// overhead during encoding. Defaults to true.
 func DisableAlignmentCompression() Option {
 	return func(o *options) { o.enableAlignmentCompression = false }
 }
@@ -174,12 +216,28 @@ func NewStatic(channelKeys channel.Keys, dataTypes []telem.DataType, opts ...Opt
 	return c
 }
 
-// NewDynamic creates a new codec that can be dynamically updated by retrieving channels
-// from the provided channel store with default configuration (alignment compression enabled).
-// Codec.Update must be called before the first call to Codec.Encode and Codec.Decode.
-func NewDynamic(channels *channel.Service, opts ...Option) *Codec {
+// ChannelResolver resolves channel metadata (data types and names) by key. It is
+// supplied to NewDynamic so the codec can look up channel information when Update is
+// called. The channel service implementations satisfy this interface, allowing a
+// dynamic codec to resolve channel metadata through them without depending on the
+// service layer.
+type ChannelResolver interface {
+	// RetrieveDataTypes returns the data types of the channels with the given keys in
+	// the same order as keys. The returned slice must contain exactly one entry per
+	// key; Codec.Update returns an error if the lengths differ.
+	RetrieveDataTypes(context.Context, channel.Keys) ([]telem.DataType, error)
+	// RetrieveName returns the name of the channel with the given key, or an empty
+	// string if no channel with the key exists.
+	RetrieveName(context.Context, channel.Key) string
+}
+
+// NewDynamic creates a new codec that can be dynamically updated by resolving channel
+// data types through the provided ChannelResolver with default configuration (alignment
+// compression enabled). Codec.Update must be called before the first call to
+// Codec.Encode and Codec.Decode.
+func NewDynamic(channelResolver ChannelResolver, opts ...Option) *Codec {
 	c := newCodec(opts...)
-	c.channels = channels
+	c.channelResolver = channelResolver
 	return c
 }
 
@@ -196,17 +254,25 @@ func newCodec(opts ...Option) *Codec {
 	return c
 }
 
-// Update updates the codec to use the given keys in its state.
+// Update updates the codec to use the given keys in its state, resolving their data
+// types through the codec's ChannelResolver. It returns an error if the channel
+// resolver does not return exactly one data type per key.
 func (c *Codec) Update(ctx context.Context, keys []channel.Key) error {
-	channels := make([]channel.Channel, 0, len(keys))
-	if err := c.channels.NewRetrieve().
-		Where(channel.MatchKeys(keys...)).
-		Entries(&channels).Exec(ctx, nil); err != nil {
+	dataTypes, err := c.channelResolver.RetrieveDataTypes(ctx, keys)
+	if err != nil {
 		return err
 	}
-	keyDataTypes := make(map[channel.Key]telem.DataType, len(channels))
-	for _, ch := range channels {
-		keyDataTypes[ch.Key()] = ch.DataType
+	if len(dataTypes) != len(keys) {
+		return errors.Wrapf(
+			query.ErrNotFound,
+			"channel resolver returned %d data types for %d channel keys",
+			len(dataTypes),
+			len(keys),
+		)
+	}
+	keyDataTypes := make(map[channel.Key]telem.DataType, len(keys))
+	for i, key := range keys {
+		keyDataTypes[key] = dataTypes[i]
 	}
 	c.update(keys, keyDataTypes)
 	return nil
@@ -482,6 +548,15 @@ func (c *Codec) EncodeStream(ctx context.Context, w io.Writer, src framer.Frame)
 	return err
 }
 
+func (c *Codec) retrieveName(ctx context.Context, key channel.Key) string {
+	if c.channelResolver != nil {
+		if name := c.channelResolver.RetrieveName(ctx, key); name != "" {
+			return name
+		}
+	}
+	return key.String()
+}
+
 // encodeInternal encodes the frame into c.buf. After calling this method,
 // c.buf.Bytes() contains the encoded data.
 func (c *Codec) encodeInternal(ctx context.Context, src framer.Frame) error {
@@ -503,7 +578,7 @@ func (c *Codec) encodeInternal(ctx context.Context, src framer.Frame) error {
 			return errors.Wrapf(
 				validate.ErrValidation,
 				"encoder was provided a key %s not present in current state",
-				channel.TryToRetrieveStringer(ctx, c.channels, key),
+				c.retrieveName(ctx, key),
 			)
 		}
 		isEquivalent := (dt == telem.Int64T || dt == telem.TimeStampT) &&
@@ -511,7 +586,7 @@ func (c *Codec) encodeInternal(ctx context.Context, src framer.Frame) error {
 		if dt != s.DataType && !isEquivalent {
 			return errors.Wrapf(
 				validate.ErrValidation, "data type %s for channel %s does not match series data type %s",
-				dt, channel.TryToRetrieveStringer(ctx, c.channels, key), s.DataType,
+				dt, c.retrieveName(ctx, key), s.DataType,
 			)
 		}
 	}
@@ -581,7 +656,7 @@ func (c *Codec) encodeInternal(ctx context.Context, src framer.Frame) error {
 	for _, msi := range mergedSeries {
 		s := msi.series
 		sLen := int(s.Len())
-		byteArraySize += int(s.Size())
+		byteArraySize += wireSize(s)
 
 		if curDataSize == -1 {
 			curDataSize = sLen
@@ -652,7 +727,11 @@ func (c *Codec) encodeInternal(ctx context.Context, src framer.Frame) error {
 				c.buf.Uint32(uint32(s.Len()))
 			}
 		}
-		c.buf.Write(s.Data)
+		if s.DataType == telem.BoolT {
+			c.buf.Write(packBoolBits(s.Data))
+		} else {
+			c.buf.Write(s.Data)
+		}
 		if !fgs.equalTimeRanges {
 			writeTimeRange(c.buf, s.TimeRange)
 		}
@@ -729,13 +808,21 @@ func (c *Codec) DecodeStream(reader io.Reader) (framer.Frame, error) {
 			return errors.Newf("unknown channel key: %v", key)
 		}
 		s.DataType = dataType
-		if dataType.IsVariable() {
-			s.Data = make([]byte, dataLenOrSize)
+		if dataType == telem.BoolT {
+			packed := make([]byte, bitPackedByteCount(dataLenOrSize))
+			if _, err = c.reader.Read(packed); err != nil {
+				return err
+			}
+			s.Data = unpackBoolBits(packed, int(dataLenOrSize))
 		} else {
-			s.Data = make([]byte, dataType.Density().Size(int64(dataLenOrSize)))
-		}
-		if _, err = c.reader.Read(s.Data); err != nil {
-			return err
+			if dataType.IsVariable() {
+				s.Data = make([]byte, dataLenOrSize)
+			} else {
+				s.Data = make([]byte, dataType.Density().Size(int64(dataLenOrSize)))
+			}
+			if _, err = c.reader.Read(s.Data); err != nil {
+				return err
+			}
 		}
 		if !fgs.equalTimeRanges {
 			if s.TimeRange, err = c.readTimeRange(); err != nil {

@@ -11,9 +11,7 @@
 
 package pb
 
-import (
-	"github.com/synnaxlabs/x/telem"
-)
+import "github.com/synnaxlabs/x/telem"
 
 // TimeRangeToPB converts TimeRange to TimeRange.
 func TimeRangeToPB(r telem.TimeRange) (*TimeRange, error) {

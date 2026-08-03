@@ -83,10 +83,10 @@ var _ = Describe("Is", func() {
 	Describe("Skip", func() {
 		It("Should return nil if the error matches the reference error", func() {
 			err := errors.Newf("test")
-			Expect(errors.Skip(err, err)).To(BeNil())
+			Expect(errors.Skip(err, err)).To(Succeed())
 		})
 		It("Should return nil if the error is nil", func() {
-			Expect(errors.Skip(nil, nil)).To(BeNil())
+			Expect(errors.Skip(nil, nil)).To(Succeed())
 		})
 		It("Should return the error if the error does not match the reference error", func() {
 			e1 := errors.Newf("test1")
@@ -102,7 +102,7 @@ var _ = Describe("Is", func() {
 		})
 
 		It("Should return nil if both errors are nil", func() {
-			Expect(errors.Combine(nil, nil)).To(BeNil())
+			Expect(errors.Combine(nil, nil)).To(Succeed())
 		})
 
 		It("Should return otherErr if err is nil", func() {
@@ -122,11 +122,11 @@ var _ = Describe("Is", func() {
 
 	Describe("Join", func() {
 		It("Should return nil if no errors are provided", func() {
-			Expect(errors.Join()).To(BeNil())
+			Expect(errors.Join()).To(Succeed())
 		})
 
 		It("Should return nil if all errors are nil", func() {
-			Expect(errors.Join(nil, nil, nil)).To(BeNil())
+			Expect(errors.Join(nil, nil, nil)).To(Succeed())
 		})
 
 		It("Should join multiple errors", func() {
@@ -143,6 +143,30 @@ var _ = Describe("Is", func() {
 			joined := errors.Join(err1, nil, err2)
 			Expect(errors.Is(joined, err1)).To(BeTrue())
 			Expect(errors.Is(joined, err2)).To(BeTrue())
+		})
+	})
+
+	Describe("UnwrapMulti", func() {
+		It("Should return the individual causes of a joined error", func() {
+			err1 := errors.New("err1")
+			err2 := errors.New("err2")
+			causes := errors.UnwrapMulti(errors.Join(err1, err2))
+			Expect(causes).To(HaveLen(2))
+			Expect(errors.Is(causes[0], err1)).To(BeTrue())
+			Expect(errors.Is(causes[1], err2)).To(BeTrue())
+		})
+
+		It("Should find the join through single-cause wrappers", func() {
+			joined := errors.Join(errors.New("err1"), errors.New("err2"))
+			Expect(errors.UnwrapMulti(errors.Wrap(joined, "context"))).To(HaveLen(2))
+		})
+
+		It("Should return nil for a single-cause error", func() {
+			Expect(errors.UnwrapMulti(errors.Wrap(errors.New("base"), "context"))).To(BeNil())
+		})
+
+		It("Should return nil for a nil error", func() {
+			Expect(errors.UnwrapMulti(nil)).To(BeNil())
 		})
 	})
 

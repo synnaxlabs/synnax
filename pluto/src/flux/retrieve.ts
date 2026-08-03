@@ -7,8 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Synnax as Client } from "@synnaxlabs/client";
-import { type destructor, id, status } from "@synnaxlabs/x";
+import { status, type Synnax as Client } from "@synnaxlabs/client";
+import { type destructor, id } from "@synnaxlabs/x";
 import { use, useCallback, useRef, useState, useSyncExternalStore } from "react";
 
 import { type base } from "@/flux/base";
@@ -55,6 +55,11 @@ export interface CreateRetrieveParams<
 > {
   name: string;
   retrieve: (Params: RetrieveParams<Query, Store, AllowDisconnected>) => Promise<Data>;
+  /// Synchronous fast-path: when it returns a value, suspending reads resolve
+  /// from it without suspending. Returns undefined to fall through to retrieve.
+  retrieveCached?: (
+    Params: RetrieveParams<Query, Store, AllowDisconnected>,
+  ) => Data | undefined;
   mountListeners?: (
     Params: RetrieveMountListenersParams<Query, Data, Store, AllowDisconnected>,
   ) => destructor.Destructor | destructor.Destructor[];
@@ -408,6 +413,7 @@ const useSuspended = <
   cacheKey,
   name,
   retrieve,
+  retrieveCached,
   mountListeners,
   allowDisconnected = false as AllowDisconnected,
 }: UseSuspendedParams<Query> &
@@ -453,11 +459,16 @@ const useSuspended = <
   if (entry?.variant === "error") throw status.toError(entry.status);
   if (entry?.variant === "loading" && entry.promise != null) return use(entry.promise);
 
-  const promise = retrieve({
-    client: client as AllowDisconnected extends true ? Client | null : Client,
-    query: memoQuery,
-    store,
-  });
+  const typedClient = client as AllowDisconnected extends true ? Client | null : Client;
+  if (retrieveCached != null) {
+    const cached = retrieveCached({ client: typedClient, query: memoQuery, store });
+    if (cached != null) {
+      cache.set(memoQuery, successResult(`retrieved ${name}`, cached));
+      return cached;
+    }
+  }
+
+  const promise = retrieve({ client: typedClient, query: memoQuery, store });
   cache.set(memoQuery, pendingResult(name, promise));
   return use(promise);
 };
@@ -472,6 +483,7 @@ const useEnsure = <
   cacheKey,
   name,
   retrieve,
+  retrieveCached,
   allowDisconnected = false as AllowDisconnected,
 }: UseSuspendedParams<Query> &
   CreateRetrieveParams<Query, Data, ScopedStore, AllowDisconnected>): void => {
@@ -493,11 +505,16 @@ const useEnsure = <
     return;
   }
 
-  const promise = retrieve({
-    client: client as AllowDisconnected extends true ? Client | null : Client,
-    query: memoQuery,
-    store,
-  });
+  const typedClient = client as AllowDisconnected extends true ? Client | null : Client;
+  if (retrieveCached != null) {
+    const cached = retrieveCached({ client: typedClient, query: memoQuery, store });
+    if (cached != null) {
+      cache.set(memoQuery, successResult(`retrieved ${name}`, cached));
+      return;
+    }
+  }
+
+  const promise = retrieve({ client: typedClient, query: memoQuery, store });
   cache.set(memoQuery, pendingResult(name, promise));
   use(promise);
 };

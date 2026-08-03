@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { access, ontology, user } from "@synnaxlabs/client";
-import { array, uuid } from "@synnaxlabs/x";
+import { array } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { type role } from "@/access/role/aether";
@@ -77,13 +77,14 @@ export const { useUpdate: useDelete } = Flux.createUpdate<
 >({
   name: RESOURCE_NAME,
   verbs: Flux.DELETE_VERBS,
-  update: async ({ client, data, store, rollbacks }) => {
+  update: async ({ client, data, store, rollbacks, onOptimisticComplete }) => {
     const keys = array.toArray(data);
     const ids = access.role.ontologyID(keys);
     const relFilter = Ontology.filterRelationshipsThatHaveIDs(ids);
     rollbacks.push(store.relationships.delete(relFilter));
     rollbacks.push(store.resources.delete(ontology.idToString(ids)));
     rollbacks.push(store.roles.delete(keys));
+    await onOptimisticComplete(data);
     await client.access.roles.delete(keys);
     return data;
   },
@@ -153,6 +154,8 @@ const retrieveUserRole = async ({
   const r: access.role.Role = {
     key: parent.id.key,
     name: parent.name,
+    description: "",
+    internal: false,
     ...parent.data,
   };
   store.roles.set(r.key, r);
@@ -202,9 +205,11 @@ export const useChangeRoleForm = Flux.createForm<
   },
 });
 
-export const formSchema = access.role.newZ.extend({
-  policies: access.policy.keyZ.array(),
-});
+export const formSchema = access.role.roleZ
+  .extend({
+    policies: access.policy.keyZ.array(),
+  })
+  .partial({ key: true });
 
 export const useForm = Flux.createForm<
   Partial<RetrieveQuery>,
@@ -214,9 +219,9 @@ export const useForm = Flux.createForm<
   name: RESOURCE_NAME,
   schema: formSchema,
   initialValues: {
-    key: undefined,
     name: "",
     description: "",
+    internal: false,
     policies: [],
   },
   retrieve: async ({ client, query, store }) => {
@@ -226,7 +231,7 @@ export const useForm = Flux.createForm<
   },
   update: async ({ client, value, store, set, rollbacks }) => {
     const v = value();
-    let r: access.role.Role = { key: uuid.create(), ...v };
+    let r: access.role.Role = access.role.roleZ.parse(v);
     const otgID = access.role.ontologyID(r.key);
     const otgKey = ontology.idToString(otgID);
     rollbacks.push(
@@ -238,13 +243,11 @@ export const useForm = Flux.createForm<
         access.role.ontologyID(r.key),
         ...v.policies.map((p) => access.policy.ontologyID(p)),
       );
-      const newRels = v.policies.map(
-        (p): ontology.Relationship => ({
-          from: access.role.ontologyID(r.key),
-          to: access.policy.ontologyID(p),
-          type: ontology.PARENT_OF_RELATIONSHIP_TYPE,
-        }),
-      );
+      const newRels = v.policies.map((p): ontology.Relationship => ({
+        from: access.role.ontologyID(r.key),
+        to: access.policy.ontologyID(p),
+        type: ontology.PARENT_OF_RELATIONSHIP_TYPE,
+      }));
       newRels.forEach((rel) =>
         rollbacks.push(
           store.relationships.set(ontology.relationshipToString(rel), rel),

@@ -15,8 +15,8 @@ import (
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
+	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/query"
 	. "github.com/synnaxlabs/x/testutil"
@@ -63,7 +63,7 @@ var _ = Describe("Writer", func() {
 
 			var res ontology.Resource
 			Expect(otg.NewRetrieve().
-				WhereIDs(role.OntologyID(r.Key)).
+				WhereIDs(r.OntologyID()).
 				Entry(&res).
 				Exec(ctx, tx)).To(Succeed())
 			Expect(res.ID.Key).To(Equal(r.Key.String()))
@@ -79,7 +79,7 @@ var _ = Describe("Writer", func() {
 
 			var parents []ontology.Resource
 			Expect(otg.NewRetrieve().
-				WhereIDs(role.OntologyID(r.Key)).
+				WhereIDs(r.OntologyID()).
 				TraverseTo(ontology.ParentsTraverser).
 				WhereTypes("group").
 				Entries(&parents).
@@ -106,6 +106,29 @@ var _ = Describe("Writer", func() {
 			}
 			Expect(restrictedWriter.Create(ctx, r)).
 				Error().To(MatchError(ContainSubstring("cannot create internal role")))
+		})
+	})
+
+	Describe("CreateMany", func() {
+		It("Should create multiple roles", func(ctx SpecContext) {
+			roles := []role.Role{
+				{
+					Name:        "role-many-1",
+					Description: "First role",
+				},
+				{
+					Name:        "role-many-2",
+					Description: "Second role",
+				},
+			}
+			Expect(w.CreateMany(ctx, &roles)).To(Succeed())
+
+			var retrieved []role.Role
+			Expect(svc.NewRetrieve().Where(role.MatchKeys(
+				roles[0].Key,
+				roles[1].Key,
+			)).Entries(&retrieved).Exec(ctx, tx)).To(Succeed())
+			Expect(retrieved).To(HaveLen(2))
 		})
 	})
 
@@ -169,7 +192,7 @@ var _ = Describe("Writer", func() {
 			}
 			Expect(w.Create(ctx, r)).To(Succeed())
 			subject = ontology.ID{Type: "user", Key: uuid.New().String()}
-			Expect(otg.NewWriter(tx).DefineResource(ctx, subject)).To(Succeed())
+			Expect(otg.NewWriter(tx).DefineResources(ctx, subject)).To(Succeed())
 		})
 
 		It("Should assign role to subject", func(ctx SpecContext) {
@@ -217,7 +240,7 @@ var _ = Describe("Writer", func() {
 			}
 			Expect(w.Create(ctx, r)).To(Succeed())
 			subject = ontology.ID{Type: "user", Key: uuid.New().String()}
-			Expect(otg.NewWriter(tx).DefineResource(ctx, subject)).To(Succeed())
+			Expect(otg.NewWriter(tx).DefineResources(ctx, subject)).To(Succeed())
 			Expect(w.AssignRole(ctx, subject, r.Key)).To(Succeed())
 		})
 
@@ -405,13 +428,6 @@ var _ = Describe("Ontology Integration", func() {
 		})
 	})
 
-	Describe("Schema", func() {
-		It("Should return a valid schema", func(ctx SpecContext) {
-			schema := svc.Schema()
-			Expect(schema).ToNot(BeNil())
-		})
-	})
-
 	Describe("RetrieveResource", func() {
 		It("Should retrieve a role as an ontology resource", func(ctx SpecContext) {
 			w := svc.NewWriter(tx, true)
@@ -454,6 +470,45 @@ var _ = Describe("Ontology Integration", func() {
 
 			count := len(slices.Collect(nexter))
 			Expect(count).To(BeNumerically(">=", 3))
+		})
+	})
+
+	Describe("OntologyIDsFromRoles", func() {
+		It("Should return an empty slice when given no roles", func() {
+			Expect(role.OntologyIDsFromRoles(nil)).To(BeEmpty())
+			Expect(role.OntologyIDsFromRoles([]role.Role{})).To(BeEmpty())
+		})
+
+		It("Should map a single role to its ontology ID", func() {
+			r := role.Role{Key: uuid.New(), Name: "single"}
+			Expect(role.OntologyIDsFromRoles([]role.Role{r})).To(ConsistOf(ontology.ID{
+				Type: ontology.ResourceTypeRole,
+				Key:  r.Key.String(),
+			}))
+		})
+
+		It("Should preserve order across multiple roles", func() {
+			roles := []role.Role{
+				{Key: uuid.New(), Name: "first"},
+				{Key: uuid.New(), Name: "second"},
+				{Key: uuid.New(), Name: "third"},
+			}
+			Expect(role.OntologyIDsFromRoles(roles)).To(Equal([]ontology.ID{
+				role.OntologyID(roles[0].Key),
+				role.OntologyID(roles[1].Key),
+				role.OntologyID(roles[2].Key),
+			}))
+		})
+
+		It("Should produce ontology IDs equivalent to (Role).OntologyID", func() {
+			roles := []role.Role{
+				{Key: uuid.New(), Name: "alpha"},
+				{Key: uuid.New(), Name: "beta"},
+			}
+			ids := role.OntologyIDsFromRoles(roles)
+			Expect(ids).To(HaveLen(2))
+			Expect(ids[0]).To(Equal(roles[0].OntologyID()))
+			Expect(ids[1]).To(Equal(roles[1].OntologyID()))
 		})
 	})
 })

@@ -12,7 +12,7 @@ import { describe, expect, it, test } from "vitest";
 
 import { Channel } from "@/channel/client";
 import { NotFoundError } from "@/errors";
-import { createTestClient } from "@/testutil/client";
+import { createTestClient } from "@/testutil";
 
 const client = createTestClient();
 
@@ -77,6 +77,22 @@ describe("Channel", () => {
         dataType: DataType.FLOAT32,
       });
       expect(two.key).not.toEqual(0);
+    });
+
+    test("create bool channel", async () => {
+      const idx = await client.channels.create({
+        name: id.create(),
+        isIndex: true,
+        dataType: DataType.TIMESTAMP,
+      });
+      const ch = await client.channels.create({
+        name: id.create(),
+        index: idx.key,
+        dataType: DataType.BOOLEAN,
+      });
+      expect(ch.dataType.equals(DataType.BOOLEAN)).toBe(true);
+      const retrieved = await client.channels.retrieve(ch.key);
+      expect(retrieved.dataType.equals(DataType.BOOLEAN)).toBe(true);
     });
 
     test("create many", async () => {

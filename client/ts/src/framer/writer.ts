@@ -129,7 +129,7 @@ const resZ = z.object({
   err: errors.payloadZ.optional(),
 });
 
-const authorityArgsZ = z
+const authorityParamsZ = z
   .tuple([
     z.union([
       z.record(channel.keyZ.or(channel.nameZ), control.authorityZ),
@@ -155,7 +155,7 @@ const authorityArgsZ = z
     return { keys: Object.keys(oValue), authorities: Object.values(oValue) };
   });
 
-export type AuthorityArgs = z.input<typeof authorityArgsZ>;
+export type AuthorityParams = z.input<typeof authorityParamsZ>;
 
 interface Response extends z.infer<typeof resZ> {}
 
@@ -236,9 +236,7 @@ export class Writer {
   ): Promise<void>;
   async write(
     channelsOrData:
-      | channel.Params
-      | Record<channel.Key | channel.Name, CrudeSeries>
-      | CrudeFrame,
+      channel.Params | Record<channel.Key | channel.Name, CrudeSeries> | CrudeFrame,
     series?: CrudeSeries | CrudeSeries[],
   ): Promise<void>;
 
@@ -259,9 +257,7 @@ export class Writer {
    */
   async write(
     channelsOrData:
-      | channel.Params
-      | Record<channel.Key | channel.Name, CrudeSeries>
-      | CrudeFrame,
+      channel.Params | Record<channel.Key | channel.Name, CrudeSeries> | CrudeFrame,
     series?: CrudeSeries | CrudeSeries[],
   ): Promise<void> {
     if (this.closeErr != null) throw this.closeErr;
@@ -275,11 +271,11 @@ export class Writer {
   }
 
   async setAuthority(
-    value: AuthorityArgs[0],
-    authority?: AuthorityArgs[1],
+    value: AuthorityParams[0],
+    authority?: AuthorityParams[1],
   ): Promise<void> {
     if (this.closeErr != null) throw this.closeErr;
-    const parsed = authorityArgsZ.parse([value, authority]);
+    const parsed = authorityParamsZ.parse([value, authority]);
     const config = {
       keys: await this.adapter.adaptParams(parsed.keys),
       authorities: parsed.authorities,

@@ -16,8 +16,8 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/samber/lo"
-	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
-	"github.com/synnaxlabs/synnax/pkg/distribution/search"
+	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/search"
 	xchange "github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/gorp"
 	xiter "github.com/synnaxlabs/x/iter"
@@ -26,43 +26,34 @@ import (
 )
 
 // OntologyID returns unique identifier for the symbol within the ontology.
-func OntologyID(k uuid.UUID) ontology.ID {
+func OntologyID(k Key) ontology.ID {
 	return ontology.ID{Type: ontology.ResourceTypeSchematicSymbol, Key: k.String()}
 }
 
 // OntologyIDs returns unique identifiers for the symbols within the ontology.
-func OntologyIDs(keys []uuid.UUID) []ontology.ID {
-	return lo.Map(keys, func(key uuid.UUID, _ int) ontology.ID {
-		return OntologyID(key)
-	})
+func OntologyIDs(keys []Key) []ontology.ID {
+	return lo.Map(keys, func(key Key, _ int) ontology.ID { return OntologyID(key) })
 }
 
 // KeysFromOntologyIDs extracts the keys of the symbols from the ontology IDs.
-func KeysFromOntologyIDs(ids []ontology.ID) ([]uuid.UUID, error) {
-	keys := make([]uuid.UUID, len(ids))
-	var err error
-	for i, id := range ids {
-		if keys[i], err = uuid.Parse(id.Key); err != nil {
-			return nil, err
-		}
-	}
-	return keys, nil
+func KeysFromOntologyIDs(ids []ontology.ID) ([]Key, error) {
+	return lo.MapErr(ids, func(id ontology.ID, _ int) (Key, error) {
+		return uuid.Parse(id.Key)
+	})
 }
 
 // OntologyIDsFromSymbols returns the ontology IDs of the symbols.
 func OntologyIDsFromSymbols(symbols []Symbol) []ontology.ID {
-	return lo.Map(symbols, func(s Symbol, _ int) ontology.ID {
-		return OntologyID(s.Key)
-	})
+	return lo.Map(symbols, func(s Symbol, _ int) ontology.ID { return s.OntologyID() })
 }
 
 var schema = zyn.Object(map[string]zyn.Schema{"key": zyn.UUID(), "name": zyn.String()})
 
 func newResource(s Symbol) ontology.Resource {
-	return ontology.NewResource(schema, OntologyID(s.Key), s.Name, s)
+	return ontology.NewResource(schema, s.OntologyID(), s.Name, s)
 }
 
-type change = xchange.Change[uuid.UUID, Symbol]
+type change = xchange.Change[Key, Symbol]
 
 var (
 	_ ontology.Service = (*Service)(nil)
@@ -70,9 +61,6 @@ var (
 )
 
 func (s *Service) Type() ontology.ResourceType { return ontology.ResourceTypeSchematicSymbol }
-
-// Schema implements ontology.Service.
-func (s *Service) Schema() zyn.Schema { return schema }
 
 // RetrieveResource implements ontology.Service.
 func (s *Service) RetrieveResource(ctx context.Context, key string, tx gorp.Tx) (ontology.Resource, error) {
@@ -97,7 +85,7 @@ func translateChange(c change) ontology.Change {
 
 // OnChange implements ontology.Service.
 func (s *Service) OnChange(f func(context.Context, iter.Seq[ontology.Change])) observe.Disconnect {
-	handleChange := func(ctx context.Context, reader gorp.TxReader[uuid.UUID, Symbol]) {
+	handleChange := func(ctx context.Context, reader gorp.TxReader[Key, Symbol]) {
 		f(ctx, xiter.Map(reader, translateChange))
 	}
 	return s.table.Observe().OnChange(handleChange)

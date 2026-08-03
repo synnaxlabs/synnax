@@ -42,14 +42,11 @@ const newTreeError = (e: unknown, pathOrMessage?: string): Error => {
   });
 };
 
-/** Read-only view over context values, exposed to {@link Component.afterUpdate}
- * for propagating context to descendants. */
-export interface ContextMap extends Pick<Map<string, unknown>, "get" | "forEach"> {}
-
 /** Factory passed to {@link Component._updateState} so a {@link Composite} can lazily
- * instantiate a missing child with the right parent context. */
+ * instantiate a missing child, wiring `parent` so the child can resolve inherited
+ * context up the tree. */
 interface CreateComponent {
-  (initialParentCtxValues: ContextMap): Component;
+  (parent: Node): Component;
 }
 
 export interface UpdateStateParams extends Pick<
@@ -69,7 +66,6 @@ export interface Component {
   key: string;
   toString(): string;
   _updateState: (params: UpdateStateParams) => void;
-  _updateContext: (values: ContextMap) => void;
   _delete: (path: readonly string[]) => void;
   _invokeMethod: (params: InvokeMethodParams) => void;
 }
@@ -82,8 +78,9 @@ export interface ComponentConstructorProps {
   /** Channel for posting messages back to the main thread. */
   sender: Sender;
   instrumentation: alamos.Instrumentation;
-  /** Parent context inherited at creation time. `null` only at the tree root. */
-  parentCtxValues: ContextMap | null;
+  /** The parent node, used to resolve inherited context up the tree. `null` only at the
+   * tree root. */
+  parent: Node | null;
 }
 
 /** Constructor signature every entry in a {@link ComponentRegistry} must satisfy. */
@@ -158,6 +155,258 @@ export type CallersFromSchema<T> = {
 };
 
 /**
+ * Base class for every node in the worker-side Aether tree. {@link Node} owns tree
+ * membership (parent, depth, deletion) and the context-propagation machinery: a node
+ * publishes context values to its descendants via {@link Context.set} and subscribes to
+ * values published by its ancestors via {@link Context.get}. {@link Leaf} layers typed
+ * state and invocable methods on top; {@link Composite} adds a children registry.
+ *
+ * The context internals are members of this shared base so a node can reach its parent's
+ * and subscribers' state directly. A childless node (a pure {@link Leaf}) never gains
+ * descendants, so its provider-side {@link ctxSubscribers} stays empty; only nodes that
+ * own children ({@link Composite}s) ever accumulate subscribers.
+ */
+export abstract class Node implements Component {
+  readonly type: string;
+  /** Path from the root; this node's identity. Its last element is {@link key}. */
+  protected readonly path: readonly string[];
+  /** Channel for posting messages back to the main thread. */
+  protected readonly sender: Sender;
+  readonly instrumentation: alamos.Instrumentation;
+  private _deleted: boolean = false;
+  /** The parent node, used to resolve inherited context. `null` only at the root. */
+  private _parent: Node | null;
+  /** Distance from the root (root is 0), derived from the parent chain at construction.
+   * Providers are always strict ancestors of their subscribers, so depth is a valid
+   * topological order for context propagation. */
+  private readonly _depth: number;
+  /** Context values this node has published to its descendants. A node is the provider
+   * of every key in this map for the descendants nearest to it. */
+  protected readonly childCtxValues: Map<string, unknown>;
+  /** Keys in {@link childCtxValues} this node changed during the current
+   * {@link afterUpdate}. Drives selective propagation; cleared at the start of each run. */
+  private readonly childCtxChangedKeys: Set<string>;
+  /** Provider side: for each key this node publishes, the descendants currently
+   * subscribed to it (i.e. those that resolved this node as their nearest provider of
+   * that key on their last {@link afterUpdate}). Empty for a childless {@link Leaf}. */
+  private readonly ctxSubscribers = new Map<string, Set<Node>>();
+  /** Consumer side: keys this node read on its last {@link afterUpdate}, mapped to the
+   * provider it resolved each to. Diffed every run to keep subscriptions current. */
+  private readonly ctxSubscriptions = new Map<string, Node>();
+  /** Accumulator for the in-progress {@link afterUpdate}: keys read so far mapped to
+   * their resolved provider (or `null` if unresolved). Non-`null` only while
+   * {@link afterUpdate} is running, so reads outside that window are not tracked. */
+  private ctxReads: Map<string, Node | null> | null = null;
+
+  constructor({
+    path,
+    type,
+    sender,
+    instrumentation,
+    parent,
+  }: ComponentConstructorProps) {
+    this.type = type;
+    this.path = path;
+    this.sender = sender;
+    this.instrumentation = instrumentation.child(this.toString());
+    this._parent = parent;
+    this._depth = this._parent == null ? 0 : this._parent._depth + 1;
+    this.childCtxValues = new Map();
+    this.childCtxChangedKeys = new Set();
+  }
+
+  /** Local name: the last element of the path, unique only among siblings. */
+  get key(): string {
+    return this.path[this.path.length - 1];
+  }
+
+  /** True once the node has been spliced out of the tree. Stays true for the remainder
+   * of the instance's lifetime. */
+  get deleted(): boolean {
+    return this._deleted;
+  }
+
+  toString(): string {
+    return `${this.type}(${this.key})`;
+  }
+
+  private get ctx(): Context {
+    return {
+      get: <P>(key: string): P => {
+        const provider = this.readCtx(key);
+        if (provider == null)
+          throw new NotFoundError(
+            `Context value for ${key} not found on ${this.toString()}`,
+          );
+        return provider.childCtxValues.get(key) as P;
+      },
+      getOptional: <P>(key: string): P | null => {
+        const provider = this.readCtx(key);
+        return provider == null ? null : (provider.childCtxValues.get(key) as P);
+      },
+      has: (key: string) => this.readCtx(key) != null,
+      wasSetPreviously: (key: string) => this.childCtxValues.has(key),
+      set: (key: string, value: unknown, trigger: boolean = true) => {
+        this.childCtxValues.set(key, value);
+        if (trigger) this.childCtxChangedKeys.add(key);
+      },
+    };
+  }
+
+  /** Resolves `key` to the nearest ancestor publishing it (self excluded) and records
+   * the read against the in-progress {@link afterUpdate} so a subscription is formed.
+   * Returns the provider, or `null` if unresolved. Self is excluded so a node overriding
+   * a parent's key still reads the parent's value via {@link Context.get}. The read is
+   * not recorded outside an {@link afterUpdate} (e.g. during {@link afterDelete}), where
+   * {@link ctxReads} is `null`. */
+  private readCtx(key: string): Node | null {
+    let node = this._parent;
+    while (node != null && !node.childCtxValues.has(key)) node = node._parent;
+    this.ctxReads?.set(key, node);
+    return node;
+  }
+
+  /** Runs {@link afterUpdate} with context-read tracking active, then reconciles the
+   * resulting subscriptions. Used for both state-driven updates and context-driven
+   * re-runs. */
+  protected runAfterUpdate(): void {
+    const endSpan = this.instrumentation.T.debug(`${this.toString()}:afterUpdate`);
+    const prevReads = this.ctxReads;
+    this.ctxReads = new Map();
+    this.childCtxChangedKeys.clear();
+    try {
+      this.afterUpdate(this.ctx);
+    } finally {
+      this.reconcileSubscriptions(this.ctxReads);
+      this.ctxReads = prevReads;
+      endSpan();
+    }
+  }
+
+  /** Diffs the keys read this pass against the prior subscriptions, updating both this
+   * node's {@link ctxSubscriptions} and each provider's {@link ctxSubscribers}. Re-runs
+   * every pass so conditional reads subscribe/unsubscribe as they appear and disappear. */
+  private reconcileSubscriptions(reads: Map<string, Node | null>): void {
+    for (const [key, oldProvider] of this.ctxSubscriptions) {
+      const stillReading = reads.has(key);
+      if (stillReading && reads.get(key) === oldProvider) continue;
+      oldProvider.ctxSubscribers.get(key)?.delete(this);
+      this.ctxSubscriptions.delete(key);
+    }
+    for (const [key, provider] of reads) {
+      if (provider == null || this.ctxSubscriptions.get(key) === provider) continue;
+      this.ctxSubscriptions.set(key, provider);
+      let subs = provider.ctxSubscribers.get(key);
+      if (subs == null) provider.ctxSubscribers.set(key, (subs = new Set()));
+      subs.add(this);
+    }
+  }
+
+  /** Re-runs {@link afterUpdate} on every node subscribed to a key this node just
+   * changed, cascading through their own changed keys. Subscribers run shallowest first
+   * and at most once: since every provider is a strict ancestor of its subscribers,
+   * depth order guarantees each node runs after all of its changed providers have
+   * settled. */
+  protected propagate(): void {
+    if (this.childCtxChangedKeys.size === 0) return;
+    const queued = new Set<Node>();
+    const buckets = new Map<number, Node[]>();
+    let minDepth = Infinity;
+    let maxDepth = -Infinity;
+    const enqueue = (provider: Node, keys: Iterable<string>): void => {
+      for (const key of keys) {
+        const subs = provider.ctxSubscribers.get(key);
+        if (subs == null) continue;
+        for (const sub of subs) {
+          if (sub._deleted || queued.has(sub)) continue;
+          queued.add(sub);
+          const depth = sub._depth;
+          let bucket = buckets.get(depth);
+          if (bucket == null) buckets.set(depth, (bucket = []));
+          bucket.push(sub);
+          if (depth < minDepth) minDepth = depth;
+          if (depth > maxDepth) maxDepth = depth;
+        }
+      }
+    };
+    enqueue(this, this.childCtxChangedKeys);
+    for (let depth = minDepth; depth <= maxDepth; depth++) {
+      const bucket = buckets.get(depth);
+      if (bucket == null) continue;
+      for (const node of bucket) {
+        if (node._deleted) continue;
+        try {
+          node.runAfterUpdate();
+        } catch (e) {
+          throw newTreeError(e, `${node.toString()}.updateContext`);
+        }
+        if (node.childCtxChangedKeys.size > 0) enqueue(node, node.childCtxChangedKeys);
+      }
+    }
+  }
+
+  /** Internal: routes delete from the tree. Subclasses other than {@link Composite}
+   * must not call this. */
+  _delete(path: readonly string[]): void {
+    try {
+      const endSpan = this.instrumentation.T.debug(`${this.toString()}:delete`);
+      this.validatePath(path);
+      this._deleted = true;
+      this.afterDelete(this.ctx);
+      this.unsubscribeAll();
+      endSpan();
+    } catch (e) {
+      throw newTreeError(e, `[${this.toString()}:delete]`);
+    }
+  }
+
+  /** Removes this node from every provider's subscriber set and drops its own. For a
+   * {@link Composite}, the child-first delete recursion has already torn down (and
+   * unsubscribed) descendants before this runs. */
+  private unsubscribeAll(): void {
+    for (const [key, provider] of this.ctxSubscriptions)
+      provider.ctxSubscribers.get(key)?.delete(this);
+    this.ctxSubscriptions.clear();
+    this.ctxSubscribers.clear();
+  }
+
+  /** Hook fired after the node's state, context, or both are updated. Override to react
+   * to changes. {@link Leaf.state}, {@link Leaf.prevState}, {@link Leaf.internal}, and
+   * the provided {@link Context} are all available. */
+  afterUpdate(_: Context): void {}
+
+  /** Hook fired after the node is spliced out of the tree. Override for cleanup
+   * (unsubscriptions, resource release, etc.). {@link deleted} is `true` here;
+   * {@link Leaf.state} and {@link Leaf.prevState} are still readable. */
+  afterDelete(_: Context): void {}
+
+  protected validatePath(path: readonly string[]): void {
+    if (path.length === 0)
+      throw new UnexpectedError(
+        `[aether.leaf.setState] ${this.toString()} received an empty path`,
+      );
+    const key = path[path.length - 1];
+    if (path.length > 1)
+      throw new UnexpectedError(
+        `[aether.leaf.setState] - ${this.toString()} received a subPath ${path.join(
+          ".",
+        )} but is a leaf`,
+      );
+    if (key !== this.key)
+      throw new UnexpectedError(
+        `[aether.leaf.setState] - ${this.toString()} received a key ${key} but expected ${this.key}`,
+      );
+  }
+
+  /** Internal: routes state updates from the tree. Subclasses other than
+   * {@link Composite} must not call this. */
+  abstract _updateState(params: UpdateStateParams): void;
+
+  /** Internal: dispatches a method invocation addressed at this node. */
+  abstract _invokeMethod(params: InvokeMethodParams): void;
+}
+
+/**
  * Base class for childless aether components. The corresponding React component must
  * not have descendants that use Aether — use {@link Composite} for those.
  *
@@ -187,24 +436,10 @@ export abstract class Leaf<
   StateSchema extends z.ZodType<state.State>,
   InternalState extends {} = {},
   Methods extends MethodsSchema = EmptyMethodsSchema,
-> implements Component {
-  readonly type: string;
-  /** Path from the root; this component's identity. Its last element is {@link key}. */
-  private readonly path: readonly string[];
-  /** Channel for posting messages back to the main thread. */
-  protected readonly sender: Sender;
+> extends Node {
   private readonly _internalState: InternalState;
   private _state: z.infer<StateSchema> | undefined;
   private _prevState: z.infer<StateSchema> | undefined;
-  private _deleted: boolean = false;
-  /** Context values inherited from this component's parent. Read-only. */
-  protected readonly parentCtxValues: Map<string, any>;
-  /** Context values this component has published to its descendants. */
-  protected readonly childCtxValues: Map<string, any>;
-  /** Keys in {@link childCtxValues} whose changes should trigger descendants to re-run
-   * {@link afterUpdate}. Cleared at the start of each update. */
-  protected readonly childCtxChangedKeys: Set<string>;
-  readonly instrumentation: alamos.Instrumentation;
 
   /** Zod schema for the component's state. Must be defined by every subclass. */
   schema: StateSchema | undefined = undefined;
@@ -217,27 +452,9 @@ export abstract class Leaf<
     (...args: unknown[]) => Promise<unknown>
   > | null = null;
 
-  constructor({
-    path,
-    type,
-    sender,
-    instrumentation,
-    parentCtxValues,
-  }: ComponentConstructorProps) {
-    this.type = type;
-    this.path = path;
-    this.sender = sender;
+  constructor(props: ComponentConstructorProps) {
+    super(props);
     this._internalState = {} as InternalState;
-    this.instrumentation = instrumentation.child(this.toString());
-    this.parentCtxValues = new Map();
-    parentCtxValues?.forEach((value, key) => this.parentCtxValues.set(key, value));
-    this.childCtxValues = new Map();
-    this.childCtxChangedKeys = new Set();
-  }
-
-  /** Local name: the last element of the path, unique only among siblings. */
-  get key(): string {
-    return this.path[this.path.length - 1];
   }
 
   private initializeMethods() {
@@ -295,36 +512,6 @@ export abstract class Leaf<
     return this._prevState;
   }
 
-  /** True once the component has been spliced out of the tree. Stays true for the
-   * remainder of the instance's lifetime. */
-  get deleted(): boolean {
-    return this._deleted;
-  }
-
-  private get ctx(): Context {
-    return {
-      get: (key: string) => {
-        const res = this.parentCtxValues.get(key);
-        if (res === undefined)
-          throw new NotFoundError(
-            `Context value for ${key} not found on ${this.toString()}`,
-          );
-        return res;
-      },
-      getOptional: (key: string) => this.parentCtxValues.get(key),
-      has: (key: string) => this.parentCtxValues.has(key),
-      wasSetPreviously: (key: string) => this.childCtxValues.has(key),
-      set: (key: string, value: unknown, trigger: boolean = true) => {
-        this.childCtxValues.set(key, value);
-        if (trigger) this.childCtxChangedKeys.add(key);
-      },
-    };
-  }
-
-  toString(): string {
-    return `${this.type}(${this.key})`;
-  }
-
   /** Internal: routes state updates from the tree. Subclasses other than
    * {@link Composite} must not call this. */
   _updateState({ path, state }: UpdateStateParams): void {
@@ -341,64 +528,11 @@ export abstract class Leaf<
       else this.instrumentation.L.debug("setting initial state", { state, path });
       this._prevState = this._state ?? state_;
       this._state = state_;
-      this.afterUpdate(this.ctx);
+      this.runAfterUpdate();
       endSpan();
     } catch (e) {
       throw newTreeError(e, `${this.toString()}.updateState`);
     }
-  }
-
-  _updateContext(values: ContextMap): void {
-    try {
-      const endSpan = this.instrumentation.T.debug(`${this.toString()}:updateContext`);
-      values.forEach((value, key) => this.parentCtxValues.set(key, value));
-      this.afterUpdate(this.ctx);
-      endSpan();
-    } catch (e) {
-      throw newTreeError(e, `${this.type}.${this.key}.updateContext`);
-    }
-  }
-
-  /** Internal: routes delete from the tree. Subclasses other than {@link Composite}
-   * must not call this. */
-  _delete(path: readonly string[]): void {
-    try {
-      const endSpan = this.instrumentation.T.debug(`${this.toString()}:delete`);
-      this.validatePath(path);
-      this._deleted = true;
-      this.afterDelete(this.ctx);
-      endSpan();
-    } catch (e) {
-      throw newTreeError(e, `[${this.toString()}:delete]`);
-    }
-  }
-
-  /** Hook fired after the component's state, context, or both are updated. Override to
-   * react to changes. {@link state}, {@link prevState}, {@link internal}, and the
-   * provided {@link Context} are all available. */
-  afterUpdate(_: Context): void {}
-
-  /** Hook fired after the component is spliced out of the tree. Override for cleanup
-   * (unsubscriptions, resource release, etc.). {@link deleted} is `true` here;
-   * {@link state} and {@link prevState} are still readable. */
-  afterDelete(_: Context): void {}
-
-  private validatePath(path: readonly string[]): void {
-    if (path.length === 0)
-      throw new UnexpectedError(
-        `[aether.leaf.setState] ${this.toString()} received an empty path`,
-      );
-    const key = path[path.length - 1];
-    if (path.length > 1)
-      throw new UnexpectedError(
-        `[aether.leaf.setState] - ${this.toString()} received a subPath ${path.join(
-          ".",
-        )} but is a leaf`,
-      );
-    if (key !== this.key)
-      throw new UnexpectedError(
-        `[aether.leaf.setState] - ${this.toString()} received a key ${key} but expected ${this.key}`,
-      );
   }
 
   protected handleInvokeError(
@@ -484,7 +618,7 @@ export abstract class Composite<
 
   /** Returns the children whose `type` matches one of `types`. The `T` cast is
    * unchecked — callers must align the type filter with the asserted return type. */
-  childrenOfType<T extends ChildComponents = ChildComponents>(
+  protected childrenOfType<T extends ChildComponents = ChildComponents>(
     ...types: Array<T["type"]>
   ): readonly T[] {
     return this.children.filter((c) =>
@@ -499,10 +633,8 @@ export abstract class Composite<
 
     const isSelfUpdate = subPath.length === 0;
     if (isSelfUpdate) {
-      this.childCtxChangedKeys.clear();
       super._updateState(params);
-      if (this.childCtxChangedKeys.size == 0) return;
-      this.updateChildContexts();
+      this.propagate();
       return;
     }
 
@@ -523,34 +655,9 @@ export abstract class Composite<
         `,
       );
     }
-    const newChild = create(this.childCtx());
+    const newChild = create(this);
     newChild._updateState({ ...params, path: subPath });
     this._children.set(childKey, newChild as ChildComponents);
-  }
-
-  _updateContext(values: ContextMap): void {
-    super._updateContext(values);
-    this.updateChildContexts();
-  }
-
-  private childCtx(): ContextMap {
-    return {
-      get: (key) => this.childCtxValues.get(key) ?? this.parentCtxValues.get(key),
-      forEach: (callback) => {
-        this.childCtxValues.forEach((value, key) =>
-          callback(value, key, this.childCtxValues),
-        );
-        this.parentCtxValues.forEach((value, key) => {
-          if (this.childCtxValues.has(key)) return;
-          callback(value, key, this.parentCtxValues);
-        });
-      },
-    };
-  }
-
-  private updateChildContexts(): void {
-    const childCtx = this.childCtx();
-    this.children.forEach((c) => c._updateContext(childCtx));
   }
 
   _delete(path: readonly string[]): void {
@@ -641,7 +748,7 @@ export class Root extends Composite<typeof aetherRootState> {
       type: Root.TYPE,
       sender: worker,
       instrumentation,
-      parentCtxValues: null,
+      parent: null,
     });
     this.comms = worker;
     this.registry = registry;
@@ -688,7 +795,7 @@ export class Root extends Composite<typeof aetherRootState> {
       path,
       type,
       state,
-      create: (parentCtxValues) => this.create({ path, type, parentCtxValues }),
+      create: (parent) => this.create({ path, type, parent }),
     });
   }
 
@@ -723,7 +830,7 @@ export class Root extends Composite<typeof aetherRootState> {
   private create({
     path,
     type,
-    parentCtxValues,
+    parent,
   }: Omit<ComponentConstructorProps, "sender" | "instrumentation">): Component {
     const Constructor = this.registry[type];
     if (Constructor == null)
@@ -733,7 +840,7 @@ export class Root extends Composite<typeof aetherRootState> {
       type,
       sender: this.comms,
       instrumentation: this.instrumentation,
-      parentCtxValues,
+      parent,
     });
   }
 }

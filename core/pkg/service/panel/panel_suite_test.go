@@ -1,0 +1,113 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+package panel_test
+
+import (
+	"testing"
+
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
+	"github.com/synnaxlabs/synnax/pkg/service/channel"
+	"github.com/synnaxlabs/synnax/pkg/service/framer"
+	"github.com/synnaxlabs/synnax/pkg/service/group"
+	"github.com/synnaxlabs/synnax/pkg/service/label"
+	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/panel"
+	"github.com/synnaxlabs/synnax/pkg/service/search"
+	"github.com/synnaxlabs/synnax/pkg/service/signals"
+	"github.com/synnaxlabs/synnax/pkg/service/status"
+	"github.com/synnaxlabs/synnax/pkg/service/user"
+	"github.com/synnaxlabs/x/gorp"
+	. "github.com/synnaxlabs/x/testutil"
+)
+
+func TestPanel(t *testing.T) {
+	RegisterFailHandler(Fail)
+	RunSpecs(t, "Service Panel Suite")
+}
+
+var (
+	node       mock.Node
+	db         *gorp.DB
+	otg        *ontology.Ontology
+	searchIdx  *search.Index
+	groupSvc   *group.Service
+	svc        *panel.Service
+	writer     panel.Writer
+	framerSvc  *framer.Service
+	channelSvc *channel.Service
+	parentID   ontology.ID
+	tx         gorp.Tx
+)
+
+var _ = BeforeSuite(func(ctx SpecContext) {
+	ShouldNotLeakGoroutines()
+	node = mock.NewNode(ctx)
+	otg = MustOpen(ontology.Open(ctx, ontology.Config{DB: node.DB}))
+	searchIdx = MustOpen(search.OpenIndex())
+	groupSvc = MustOpen(group.OpenService(ctx, group.ServiceConfig{
+		DB:       node.DB,
+		Ontology: otg,
+		Search:   searchIdx,
+	}))
+	db = node.DB
+	labelSvc := MustOpen(label.OpenService(ctx, label.ServiceConfig{
+		DB:       node.DB,
+		Ontology: otg,
+		Group:    groupSvc,
+		Search:   searchIdx,
+	}))
+	statusSvc := MustOpen(status.OpenService(ctx, status.ServiceConfig{
+		DB:       node.DB,
+		Ontology: otg,
+		Group:    groupSvc,
+		Label:    labelSvc,
+		Search:   searchIdx,
+	}))
+	channelSvc = MustOpen(channel.OpenService(ctx, channel.ServiceConfig{
+		Channel:      node.Channel,
+		DB:           node.DB,
+		HostProvider: node.Cluster,
+		Ontology:     otg,
+		Group:        groupSvc,
+		Search:       searchIdx,
+		Status:       statusSvc,
+	}))
+	framerSvc = MustOpen(framer.OpenService(ctx, framer.ServiceConfig{
+		Framer:       node.Framer,
+		Channel:      channelSvc,
+		Status:       statusSvc,
+		HostProvider: node.Cluster,
+	}))
+	sigs := MustSucceed(signals.New(signals.Config{
+		Channel: channelSvc,
+		Framer:  framerSvc,
+	}))
+	svc = MustOpen(panel.OpenService(ctx, panel.ServiceConfig{
+		DB:       node.DB,
+		Ontology: otg,
+		Search:   searchIdx,
+		Signals:  sigs,
+	}))
+	writer = svc.NewWriter(nil)
+	userSvc := MustOpen(user.OpenService(ctx, user.ServiceConfig{
+		DB:       node.DB,
+		Ontology: otg,
+		Group:    groupSvc,
+		Search:   searchIdx,
+	}))
+	parent := MustSucceed(userSvc.NewWriter(nil).Create(ctx, user.User{Username: "panel-parent"}))
+	parentID = parent.OntologyID()
+})
+
+var _ = BeforeEach(func() { tx = DeferClose(db.OpenTx()) })
+
+var _ = ShouldNotLeakGoroutinesPerSpec()

@@ -13,8 +13,8 @@ syntax = "proto3";
 
 package service.task.pb;
 
+import "core/pkg/service/status/pb/status.proto";
 import "google/protobuf/struct.proto";
-import "x/go/status/pb/status.proto";
 
 option go_package = "github.com/synnaxlabs/synnax/pkg/service/task/pb";
 
@@ -38,17 +38,18 @@ message Task {
   uint64 key = 1;
   // name is a human-readable name for the task.
   string name = 2;
-  // type is the task type (e.g., 'modbus_read', 'labjack_write', 'opc_scan'). Determines
-  // which hardware integration handles the task.
+  // type is the task type (e.g., 'modbus_read', 'labjack_write', 'opc_scan').
+  // Determines which hardware integration handles the task.
   string type = 3;
-  // config is task-specific configuration stored as JSON. Structure varies by task type.
+  // config is task-specific configuration stored as JSON. Structure varies by task
+  // type.
   google.protobuf.Struct config = 4;
   // internal is true if this is an internal system task.
   bool internal = 5;
   // snapshot indicates whether to persist this task's configuration.
   bool snapshot = 6;
   // status is the current execution status of the task.
-  optional .x.status.pb.Status status = 7;
+  optional .service.status.pb.Status status = 7;
 }
 
 // Command is a command to execute on a task in the Driver system.

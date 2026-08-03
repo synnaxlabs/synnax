@@ -14,22 +14,21 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
-	"github.com/synnaxlabs/synnax/pkg/distribution/group"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
-	"github.com/synnaxlabs/synnax/pkg/distribution/node"
-	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
-	"github.com/synnaxlabs/synnax/pkg/distribution/search"
+	"github.com/synnaxlabs/synnax/pkg/service/channel"
+	"github.com/synnaxlabs/synnax/pkg/service/group"
+	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
+	"github.com/synnaxlabs/synnax/pkg/service/node"
+	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
+	"github.com/synnaxlabs/synnax/pkg/service/search"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
-	taskv0 "github.com/synnaxlabs/synnax/pkg/service/task/migrations/v0"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/kv/memkv"
 	"github.com/synnaxlabs/x/query"
-	xstatus "github.com/synnaxlabs/x/status"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -46,9 +45,10 @@ var _ = Describe("Task", Ordered, func() {
 		stat        *status.Service
 	)
 	BeforeAll(func(ctx SpecContext) {
+		ShouldNotLeakGoroutines()
 		db = DeferClose(gorp.Wrap(memkv.New()))
 		otg = MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
-		searchIdx := MustOpen(search.Open())
+		searchIdx := MustOpen(search.OpenIndex())
 		g := MustOpen(group.OpenService(ctx, group.ServiceConfig{
 			DB:       db,
 			Ontology: otg,
@@ -71,7 +71,7 @@ var _ = Describe("Task", Ordered, func() {
 			DB:                  db,
 			Ontology:            otg,
 			Group:               g,
-			HostProvider:        mock.StaticHostKeyProvider(1),
+			HostProvider:        mock.NewStaticHostProvider(1),
 			Status:              stat,
 			HealthCheckInterval: 10 * telem.Millisecond,
 			Search:              searchIdx,
@@ -83,6 +83,7 @@ var _ = Describe("Task", Ordered, func() {
 			Rack:     rackService,
 			Status:   stat,
 			Search:   searchIdx,
+			ImEx:     imex.NewService(),
 		}))
 		testRack = &rack.Rack{Name: "Test Rack"}
 		Expect(rackService.NewWriter(db).Create(ctx, testRack)).To(Succeed())
@@ -188,6 +189,29 @@ var _ = Describe("Task", Ordered, func() {
 		})
 	})
 
+	Describe("CreateMany", func() {
+		It("Should create multiple tasks", func(ctx SpecContext) {
+			tasks := []task.Task{
+				{
+					Key:  task.NewKey(testRack.Key, 0),
+					Name: "Task 1",
+				},
+				{
+					Key:  task.NewKey(testRack.Key, 0),
+					Name: "Task 2",
+				},
+			}
+			Expect(w.CreateMany(ctx, &tasks)).To(Succeed())
+
+			var retrieved []task.Task
+			Expect(svc.NewRetrieve().Where(task.MatchKeys(
+				tasks[0].Key,
+				tasks[1].Key,
+			)).Entries(&retrieved).Exec(ctx, tx)).To(Succeed())
+			Expect(retrieved).To(HaveLen(2))
+		})
+	})
+
 	Describe("Copy", func() {
 
 		It("Should copy a task", func(ctx SpecContext) {
@@ -196,10 +220,10 @@ var _ = Describe("Task", Ordered, func() {
 				Name: "Test Task",
 			}
 			Expect(w.Create(ctx, m)).To(Succeed())
-			Expect(m.Key).To(Equal(task.NewKey(testRack.Key, 4)))
+			Expect(m.Key).To(Equal(task.NewKey(testRack.Key, 6)))
 			Expect(m.Name).To(Equal("Test Task"))
 			t := MustSucceed(w.Copy(ctx, m.Key, "Copied Task", false))
-			Expect(t.Key).To(Equal(task.NewKey(testRack.Key, 5)))
+			Expect(t.Key).To(Equal(task.NewKey(testRack.Key, 7)))
 		})
 
 		It("Should create a snapshot of an existing task", func(ctx SpecContext) {
@@ -208,10 +232,10 @@ var _ = Describe("Task", Ordered, func() {
 				Name: "Test Task",
 			}
 			Expect(w.Create(ctx, m)).To(Succeed())
-			Expect(m.Key).To(Equal(task.NewKey(testRack.Key, 6)))
+			Expect(m.Key).To(Equal(task.NewKey(testRack.Key, 8)))
 			Expect(m.Name).To(Equal("Test Task"))
 			t := MustSucceed(w.Copy(ctx, m.Key, "Snapshotted Task", true))
-			Expect(t.Key).To(Equal(task.NewKey(testRack.Key, 7)))
+			Expect(t.Key).To(Equal(task.NewKey(testRack.Key, 9)))
 			Expect(t.Snapshot).To(BeTrue())
 		})
 
@@ -224,7 +248,7 @@ var _ = Describe("Task", Ordered, func() {
 				Name: "Test Task",
 			}
 			Expect(w.Create(ctx, m)).To(Succeed())
-			Expect(m.Key).To(Equal(task.NewKey(testRack.Key, 8)))
+			Expect(m.Key).To(Equal(task.NewKey(testRack.Key, 10)))
 			Expect(m.Name).To(Equal("Test Task"))
 			var res task.Task
 			Expect(svc.NewRetrieve().Where(task.MatchKeys(m.Key)).Entry(&res).Exec(ctx, tx)).To(Succeed())
@@ -250,7 +274,7 @@ var _ = Describe("Task", Ordered, func() {
 			Expect(snapshots[0].Snapshot).To(BeTrue())
 			var regulars []task.Task
 			Expect(svc.NewRetrieve().Where(task.MatchSnapshot(false)).Entries(&regulars).Exec(ctx, tx)).To(Succeed())
-			Expect(len(regulars)).To(BeNumerically(">", 0))
+			Expect(regulars).ToNot(BeEmpty())
 			for _, t := range regulars {
 				Expect(t.Snapshot).To(BeFalse())
 			}
@@ -294,7 +318,7 @@ var _ = Describe("Task", Ordered, func() {
 			Expect(internals[0].Internal).To(BeTrue())
 			var regulars []task.Task
 			Expect(svc.NewRetrieve().Where(task.MatchInternal(false)).Entries(&regulars).Exec(ctx, tx)).To(Succeed())
-			Expect(len(regulars)).To(BeNumerically(">", 0))
+			Expect(regulars).ToNot(BeEmpty())
 			for _, t := range regulars {
 				Expect(t.Internal).To(BeFalse())
 			}
@@ -331,7 +355,7 @@ var _ = Describe("Task", Ordered, func() {
 			Expect(svc.NewRetrieve().Where(task.MatchKeys(m.Key)).Exec(ctx, tx)).To(MatchError(query.ErrNotFound))
 			var deletedStatus task.Status
 			Expect(status.NewRetrieve[task.StatusDetails](stat).
-				Where(status.MatchKeys[task.StatusDetails](task.OntologyID(m.Key).String())).
+				Where(status.MatchKeys[task.StatusDetails](m.OntologyID().String())).
 				Entry(&deletedStatus).
 				Exec(ctx, tx)).To(MatchError(query.ErrNotFound))
 		})
@@ -347,17 +371,17 @@ var _ = Describe("Task", Ordered, func() {
 
 			var taskStatus task.Status
 			Expect(status.NewRetrieve[task.StatusDetails](stat).
-				Where(status.MatchKeys[task.StatusDetails](task.OntologyID(m.Key).String())).
+				Where(status.MatchKeys[task.StatusDetails](m.OntologyID().String())).
 				Entry(&taskStatus).
 				Exec(ctx, tx)).To(Succeed())
-			Expect(taskStatus.Variant).To(Equal(xstatus.VariantWarning))
+			Expect(taskStatus.Variant).To(Equal(status.VariantWarning))
 			Expect(taskStatus.Message).To(Equal("Status Test Task status unknown"))
 			Expect(taskStatus.Details.Task).To(Equal(m.Key))
 		})
 
 		It("Should use the provided status when creating a task", func(ctx SpecContext) {
 			providedStatus := &task.Status{
-				Variant:     xstatus.VariantSuccess,
+				Variant:     status.VariantSuccess,
 				Message:     "Custom task status",
 				Description: "Task is running",
 				Time:        telem.Now(),
@@ -374,14 +398,14 @@ var _ = Describe("Task", Ordered, func() {
 
 			var taskStatus task.Status
 			Expect(status.NewRetrieve[task.StatusDetails](stat).
-				Where(status.MatchKeys[task.StatusDetails](task.OntologyID(m.Key).String())).
+				Where(status.MatchKeys[task.StatusDetails](m.OntologyID().String())).
 				Entry(&taskStatus).
 				Exec(ctx, tx)).To(Succeed())
-			Expect(taskStatus.Variant).To(Equal(xstatus.VariantSuccess))
+			Expect(taskStatus.Variant).To(Equal(status.VariantSuccess))
 			Expect(taskStatus.Message).To(Equal("Custom task status"))
 			Expect(taskStatus.Description).To(Equal("Task is running"))
 			// Key should be auto-assigned
-			Expect(taskStatus.Key).To(Equal(task.OntologyID(m.Key).String()))
+			Expect(taskStatus.Key).To(Equal(m.OntologyID().String()))
 			// Name should be auto-filled
 			Expect(taskStatus.Name).To(Equal(m.Name))
 			// Details.Task should be auto-filled
@@ -402,6 +426,54 @@ var _ = Describe("Task", Ordered, func() {
 			}
 			Expect(w.Create(ctx, m)).Error().To(MatchError(ContainSubstring("variant")))
 		})
+		It("Should restore a missing status row when the task is re-configured", func(ctx SpecContext) {
+			t := &task.Task{
+				Key:  task.NewKey(testRack.Key, 0),
+				Name: "Self Heal Task",
+			}
+			Expect(w.Create(ctx, t)).To(Succeed())
+
+			Expect(status.NewWriter[task.StatusDetails](stat, tx).
+				Delete(ctx, t.OntologyID().String())).To(Succeed())
+			Expect(status.NewRetrieve[task.StatusDetails](stat).
+				Where(status.MatchKeys[task.StatusDetails](t.OntologyID().String())).
+				Exec(ctx, tx)).To(MatchError(query.ErrNotFound))
+
+			reconfigured := &task.Task{Key: t.Key, Name: t.Name}
+			Expect(w.Create(ctx, reconfigured)).To(Succeed())
+
+			var healed task.Status
+			Expect(status.NewRetrieve[task.StatusDetails](stat).
+				Where(status.MatchKeys[task.StatusDetails](t.OntologyID().String())).
+				Entry(&healed).
+				Exec(ctx, tx)).To(Succeed())
+			Expect(healed.Details.Task).To(Equal(t.Key))
+		})
+
+		It("Should not clobber a live status row on a no-op re-configure", func(ctx SpecContext) {
+			t := &task.Task{
+				Key:  task.NewKey(testRack.Key, 0),
+				Name: "Live Status Task",
+				Status: &task.Status{
+					Variant: status.VariantSuccess,
+					Message: "Task is running",
+					Time:    telem.Now(),
+				},
+			}
+			Expect(w.Create(ctx, t)).To(Succeed())
+
+			reconfigured := &task.Task{Key: t.Key, Name: t.Name}
+			Expect(w.Create(ctx, reconfigured)).To(Succeed())
+
+			var preserved task.Status
+			Expect(status.NewRetrieve[task.StatusDetails](stat).
+				Where(status.MatchKeys[task.StatusDetails](t.OntologyID().String())).
+				Entry(&preserved).
+				Exec(ctx, tx)).To(Succeed())
+			Expect(preserved.Variant).To(Equal(status.VariantSuccess))
+			Expect(preserved.Message).To(Equal("Task is running"))
+		})
+
 		It("Should create an unknown status when copying a task", func(ctx SpecContext) {
 			m := &task.Task{
 				Key:  task.NewKey(testRack.Key, 0),
@@ -413,10 +485,10 @@ var _ = Describe("Task", Ordered, func() {
 
 			var copiedStatus task.Status
 			Expect(status.NewRetrieve[task.StatusDetails](stat).
-				Where(status.MatchKeys[task.StatusDetails](task.OntologyID(copied.Key).String())).
+				Where(status.MatchKeys[task.StatusDetails](copied.OntologyID().String())).
 				Entry(&copiedStatus).
 				Exec(ctx, tx)).To(Succeed())
-			Expect(copiedStatus.Variant).To(Equal(xstatus.VariantWarning))
+			Expect(copiedStatus.Variant).To(Equal(status.VariantWarning))
 			Expect(copiedStatus.Message).To(Equal("Copied Task status unknown"))
 			Expect(copiedStatus.Details.Task).To(Equal(copied.Key))
 		})
@@ -436,10 +508,10 @@ var _ = Describe("Task", Ordered, func() {
 			Eventually(func(g Gomega) {
 				var taskStatus task.Status
 				g.Expect(status.NewRetrieve[task.StatusDetails](stat).
-					Where(status.MatchKeys[task.StatusDetails](task.OntologyID(t.Key).String())).
+					Where(status.MatchKeys[task.StatusDetails](t.OntologyID().String())).
 					Entry(&taskStatus).
 					Exec(ctx, nil)).To(Succeed())
-				g.Expect(taskStatus.Variant).To(Equal(xstatus.VariantWarning))
+				g.Expect(taskStatus.Variant).To(Equal(status.VariantWarning))
 				g.Expect(taskStatus.Message).To(ContainSubstring("not running"))
 				g.Expect(taskStatus.Details.Task).To(Equal(t.Key))
 			}).Should(Succeed())
@@ -456,126 +528,6 @@ var _ = Describe("Task", Ordered, func() {
 				}
 				Expect(c.String()).To(Equal("doc (key=cmd, task=12345)"))
 			})
-		})
-	})
-
-	Describe("Migration", func() {
-		It("Should create unknown statuses for tasks missing them", func(ctx SpecContext) {
-			db := DeferClose(gorp.Wrap(memkv.New()))
-			otg := MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
-			searchIdx := MustOpen(search.Open())
-			g := MustOpen(group.OpenService(ctx, group.ServiceConfig{
-				DB:       db,
-				Ontology: otg,
-				Search:   searchIdx,
-			}))
-			labelSvc := MustOpen(label.OpenService(ctx, label.ServiceConfig{
-				DB:       db,
-				Ontology: otg,
-				Group:    g,
-				Search:   searchIdx,
-			}))
-			stat := MustOpen(status.OpenService(ctx, status.ServiceConfig{
-				Ontology: otg,
-				DB:       db,
-				Group:    g,
-				Label:    labelSvc,
-				Search:   searchIdx,
-			}))
-			rackSvc := MustOpen(rack.OpenService(ctx, rack.ServiceConfig{
-				DB:           db,
-				Ontology:     otg,
-				Group:        g,
-				HostProvider: mock.StaticHostKeyProvider(1),
-				Status:       stat,
-				Search:       searchIdx,
-			}))
-
-			testRack := &rack.Rack{Name: "Migration Test Rack"}
-			Expect(rackSvc.NewWriter(nil).Create(ctx, testRack)).To(Succeed())
-
-			t := taskv0.Task{
-				Key:  taskv0.Key(task.NewKey(testRack.Key, 99)),
-				Name: "Migration Test Task",
-			}
-			Expect(gorp.NewCreate[taskv0.Key, taskv0.Task]().
-				Entry(&t).
-				Exec(ctx, db)).To(Succeed())
-
-			MustOpen(task.OpenService(ctx, task.ServiceConfig{
-				DB:       db,
-				Ontology: otg,
-				Group:    g,
-				Rack:     rackSvc,
-				Status:   stat,
-				Search:   searchIdx,
-			}))
-
-			var restoredStatus task.Status
-			Expect(status.NewRetrieve[task.StatusDetails](stat).
-				Where(status.MatchKeys[task.StatusDetails](task.OntologyID(task.Key(t.Key)).String())).
-				Entry(&restoredStatus).
-				Exec(ctx, nil)).To(Succeed())
-			Expect(restoredStatus.Variant).To(Equal(xstatus.VariantWarning))
-			Expect(restoredStatus.Message).To(Equal("Migration Test Task status unknown"))
-			Expect(restoredStatus.Details.Task).To(Equal(task.Key(t.Key)))
-		})
-
-		It("Should not create statuses for tasks that already have them", func(ctx SpecContext) {
-			db := DeferClose(gorp.Wrap(memkv.New()))
-			otg := MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
-			searchIdx := MustOpen(search.Open())
-			g := MustOpen(group.OpenService(ctx, group.ServiceConfig{
-				DB:       db,
-				Ontology: otg,
-				Search:   searchIdx,
-			}))
-			labelSvc := MustOpen(label.OpenService(ctx, label.ServiceConfig{
-				DB:       db,
-				Ontology: otg,
-				Group:    g,
-				Search:   searchIdx,
-			}))
-			stat := MustOpen(status.OpenService(ctx, status.ServiceConfig{
-				Ontology: otg,
-				DB:       db,
-				Group:    g,
-				Label:    labelSvc,
-				Search:   searchIdx,
-			}))
-			rackSvc := MustOpen(rack.OpenService(ctx, rack.ServiceConfig{
-				DB:           db,
-				Ontology:     otg,
-				Group:        g,
-				HostProvider: mock.StaticHostKeyProvider(1),
-				Status:       stat,
-				Search:       searchIdx,
-			}))
-
-			testRack := &rack.Rack{Name: "Migration Test Rack"}
-			Expect(rackSvc.NewWriter(nil).Create(ctx, testRack)).To(Succeed())
-
-			svc := MustOpen(task.OpenService(ctx, task.ServiceConfig{
-				DB:       db,
-				Ontology: otg,
-				Group:    g,
-				Rack:     rackSvc,
-				Status:   stat,
-				Search:   searchIdx,
-			}))
-			t := &task.Task{
-				Key:  task.NewKey(testRack.Key, 0),
-				Name: "Task With Status",
-			}
-			Expect(svc.NewWriter(nil).Create(ctx, t)).To(Succeed())
-
-			var taskStatus task.Status
-			Expect(status.NewRetrieve[task.StatusDetails](stat).
-				Where(status.MatchKeys[task.StatusDetails](task.OntologyID(t.Key).String())).
-				Entry(&taskStatus).
-				Exec(ctx, nil)).To(Succeed())
-			Expect(taskStatus.Variant).To(Equal(xstatus.VariantWarning))
-			Expect(taskStatus.Message).To(Equal("Task With Status status unknown"))
 		})
 	})
 

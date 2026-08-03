@@ -16,9 +16,17 @@ import {
   ontology,
   ranger,
 } from "@synnaxlabs/client";
-import { array, deep, errors, type optional, primitive, TimeSpan } from "@synnaxlabs/x";
+import {
+  array,
+  control,
+  errors,
+  type optional,
+  primitive,
+  TimeSpan,
+} from "@synnaxlabs/x";
 import { z } from "zod";
 
+import { type channel as aetherChannel } from "@/channel/aether";
 import { Flux } from "@/flux";
 import { type Group } from "@/group";
 import { Ontology } from "@/ontology";
@@ -26,46 +34,23 @@ import { type Ranger } from "@/ranger";
 import { state } from "@/state";
 import { Status } from "@/status";
 
-export const FLUX_STORE_KEY = "channels";
+export {
+  FLUX_STORE_CONFIG,
+  FLUX_STORE_KEY,
+  type FluxStore,
+} from "@/channel/aether/queries";
+
 const RESOURCE_NAME = "channel";
 const PLURAL_RESOURCE_NAME = "channels";
 
-export interface FluxStore extends Flux.UnaryStore<channel.Key, channel.Channel> {}
-
 interface FluxSubStore extends Status.FluxSubStore {
-  [FLUX_STORE_KEY]: FluxStore;
+  [aetherChannel.FLUX_STORE_KEY]: aetherChannel.FluxStore;
   [Ranger.RANGE_ALIASES_FLUX_STORE_KEY]: Ranger.AliasFluxStore;
   [Ontology.RESOURCES_FLUX_STORE_KEY]: Ontology.ResourceFluxStore;
   [Group.FLUX_STORE_KEY]: Group.FluxStore;
 }
 
-const SET_CHANNEL_LISTENER: Flux.ChannelListener<
-  FluxSubStore,
-  typeof channel.payloadZ
-> = {
-  channel: channel.SET_CHANNEL_NAME,
-  schema: channel.payloadZ,
-  onChange: async ({ store, changed, client }) =>
-    store.channels.set(client.channels.sugar(changed)),
-};
-
-const DELETE_CHANNEL_LISTENER: Flux.ChannelListener<FluxSubStore, typeof channel.keyZ> =
-  {
-    channel: channel.DELETE_CHANNEL_NAME,
-    schema: channel.keyZ,
-    onChange: ({ store, changed }) => store.channels.delete(changed),
-  };
-
-export const FLUX_STORE_CONFIG: Flux.UnaryStoreConfig<
-  FluxSubStore,
-  channel.Key,
-  channel.Channel
-> = {
-  equal: (a, b) => deep.equal(a.payload, b.payload),
-  listeners: [SET_CHANNEL_LISTENER, DELETE_CHANNEL_LISTENER],
-};
-
-export const formSchema = channel.newZ
+export const formSchema = channel.payloadZ
   .required({ expression: true })
   .extend({
     name: channel.nameZ,
@@ -115,6 +100,7 @@ export const ZERO_FORM_VALUES: z.infer<
   leaseholder: 0,
   virtual: false,
   expression: "",
+  concurrency: control.Concurrency.exclusive,
   operations: [
     {
       type: "none",
@@ -136,11 +122,10 @@ const retrieveSingle = async ({
   }
   if (isCalculated(ch.payload))
     try {
-      const st = await Status.retrieveSingle<typeof channel.statusZ>({
+      const st = await Status.retrieveSingle({
         store,
         client,
         query: { key: channel.statusKey(key) },
-        detailsSchema: channel.statusZ,
       });
       ch = client.channels.sugar({ ...ch.payload, status: st });
     } catch (e) {
@@ -457,7 +442,7 @@ export interface RenameParams extends Pick<channel.Payload, "key" | "name"> {}
 export const { useUpdate: useRename } = Flux.createUpdate<RenameParams, FluxSubStore>({
   name: RESOURCE_NAME,
   verbs: Flux.RENAME_VERBS,
-  update: async ({ client, data, store, rollbacks }) => {
+  update: async ({ client, data, store, rollbacks, onOptimisticComplete }) => {
     const { key, name } = data;
     rollbacks.push(
       store.channels.set(
@@ -466,6 +451,7 @@ export const { useUpdate: useRename } = Flux.createUpdate<RenameParams, FluxSubS
       ),
     );
     rollbacks.push(Ontology.renameFluxResource(store, channel.ontologyID(key), name));
+    await onOptimisticComplete(data);
     await client.channels.rename(key, name);
     return data;
   },
@@ -504,7 +490,7 @@ export type DeleteParams = channel.Key | channel.Key[];
 export const { useUpdate: useDelete } = Flux.createUpdate<DeleteParams, FluxSubStore>({
   name: RESOURCE_NAME,
   verbs: Flux.DELETE_VERBS,
-  update: async ({ client, data, store, rollbacks }) => {
+  update: async ({ client, data, store, rollbacks, onOptimisticComplete }) => {
     const keys = array.toArray(data);
     const ids = channel.ontologyID(keys);
     const relFilter = Ontology.filterRelationshipsThatHaveIDs(ids);
@@ -512,6 +498,7 @@ export const { useUpdate: useDelete } = Flux.createUpdate<DeleteParams, FluxSubS
     rollbacks.push(store.channels.delete(keys));
     rollbacks.push(store.resources.delete(ontology.idToString(ids)));
     store.channels.delete(keys);
+    await onOptimisticComplete(data);
     await client.channels.delete(keys);
     return data;
   },

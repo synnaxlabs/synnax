@@ -40,55 +40,62 @@ type Config struct {
 	ExcludeGroups    []uint32     `json:"exclude_groups" msgpack:"exclude_groups"`
 }
 
-var (
-	_             config.Config[Config] = Config{}
-	DefaultConfig                       = Config{}
-)
+var _ config.Config[Config] = Config{}
 
 // Validate implements config.Config.
-func (cfg Config) Validate() error {
+func (c Config) Validate() error {
 	v := validate.New("streamer.config")
-	validate.GreaterThanEq(v, "downsample_factor", cfg.DownsampleFactor, 0)
-	validate.GreaterThanEq(v, "throttle_rate", cfg.ThrottleRate, 0)
+	validate.GreaterThanEq(v, "downsample_factor", c.DownsampleFactor, 0)
+	validate.GreaterThanEq(v, "throttle_rate", c.ThrottleRate, 0)
 	return v.Error()
 }
 
 // Override implements config.Config.
-func (cfg Config) Override(other Config) Config {
-	cfg.Keys = override.Slice(cfg.Keys, other.Keys)
-	cfg.SendOpenAck = other.SendOpenAck
-	cfg.DownsampleFactor = override.Numeric(cfg.DownsampleFactor, other.DownsampleFactor)
-	cfg.ThrottleRate = override.Numeric(cfg.ThrottleRate, other.ThrottleRate)
-	cfg.ExcludeGroups = override.Slice(cfg.ExcludeGroups, other.ExcludeGroups)
-	return cfg
+func (c Config) Override(other Config) Config {
+	c.Keys = override.Slice(c.Keys, other.Keys)
+	c.SendOpenAck = other.SendOpenAck
+	c.DownsampleFactor = override.Numeric(c.DownsampleFactor, other.DownsampleFactor)
+	c.ThrottleRate = override.Numeric(c.ThrottleRate, other.ThrottleRate)
+	c.ExcludeGroups = override.Slice(c.ExcludeGroups, other.ExcludeGroups)
+	return c
 }
 
-func (cfg Config) distribution() framer.StreamerConfig {
+func (c Config) distribution() framer.StreamerConfig {
 	return framer.StreamerConfig{
-		Keys:          cfg.Keys,
-		SendOpenAck:   &cfg.SendOpenAck,
-		ExcludeGroups: cfg.ExcludeGroups,
+		Keys:          c.Keys,
+		SendOpenAck:   &c.SendOpenAck,
+		ExcludeGroups: c.ExcludeGroups,
 	}
 }
 
 // ServiceConfig is the configuration for opening a new streamer service.
 type ServiceConfig struct {
+	// Calculation is used to update the calculation request manager with the provided
+	// keys.
+	//
+	// [REQUIRED]
 	Calculation *calculation.Service
-	Channel     *channel.Service
-	DistFramer  *framer.Service
+	// Channel is used to retrieve channel information.
+	//
+	// [REQUIRED]
+	Channel *channel.Service
+	// Framer is the underlying framer service to stream telemetry frames.
+	//
+	// [REQUIRED]
+	Framer *framer.Service
+	// Instrumentation is used for logging, tracing, and metrics.
+	//
+	// [OPTIONAL] - Defaults to noop instrumentation.
 	alamos.Instrumentation
 }
 
-var (
-	_                    config.Config[ServiceConfig] = ServiceConfig{}
-	DefaultServiceConfig                              = ServiceConfig{}
-)
+var _ config.Config[ServiceConfig] = ServiceConfig{}
 
 func (cfg ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	cfg.Instrumentation = override.Zero(cfg.Instrumentation, other.Instrumentation)
 	cfg.Calculation = override.Nil(cfg.Calculation, other.Calculation)
 	cfg.Channel = override.Nil(cfg.Channel, other.Channel)
-	cfg.DistFramer = override.Nil(cfg.DistFramer, other.DistFramer)
+	cfg.Framer = override.Nil(cfg.Framer, other.Framer)
 	return cfg
 }
 
@@ -96,16 +103,16 @@ func (cfg ServiceConfig) Validate() error {
 	v := validate.New("streamer")
 	validate.NotNil(v, "calculation", cfg.Calculation)
 	validate.NotNil(v, "channel", cfg.Channel)
-	validate.NotNil(v, "dist_framer", cfg.DistFramer)
+	validate.NotNil(v, "framer", cfg.Framer)
 	return v.Error()
 }
 
-type Service struct {
-	cfg ServiceConfig
-}
+// Service is the service layer entry point for using streamers to stream telemetry
+// frames.
+type Service struct{ cfg ServiceConfig }
 
 func NewService(cfgs ...ServiceConfig) (*Service, error) {
-	cfg, err := config.New(DefaultServiceConfig, cfgs...)
+	cfg, err := config.New(ServiceConfig{}, cfgs...)
 	if err != nil {
 		return nil, err
 	}
@@ -125,12 +132,12 @@ const (
 )
 
 func (s *Service) New(ctx context.Context, cfgs ...Config) (Streamer, error) {
-	cfg, err := config.New(DefaultConfig, cfgs...)
+	cfg, err := config.New(Config{}, cfgs...)
 	if err != nil {
 		return nil, err
 	}
 	p := plumber.New()
-	dist, err := s.cfg.DistFramer.NewStreamer(ctx, cfg.distribution())
+	dist, err := s.cfg.Framer.NewStreamer(cfg.distribution())
 	if err != nil {
 		return nil, err
 	}

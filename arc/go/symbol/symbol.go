@@ -44,11 +44,35 @@ import (
 	"github.com/synnaxlabs/x/set"
 )
 
-// CallHook runs after the generic func-form validation passes.
-type CallHook func(diags *diagnostics.Diagnostics, funcCall parser.IFunctionCallSuffixContext)
+// Argument is one call argument: a value expression bound to a param by Name,
+// or by position (Index) when Name is empty.
+type Argument struct {
+	// Index is the argument's position in the call's argument list.
+	Index int
+	// Name is the param this argument binds to, or empty if positional.
+	Name string
+	// Expr is the argument's value expression.
+	Expr parser.IExpressionContext
+	// AST is the argument's parser node, for diagnostic source locations.
+	AST antlr.ParserRuleContext
+}
 
-// FlowConfigHook runs after the generic flow-form config validation passes.
-type FlowConfigHook func(diags *diagnostics.Diagnostics, config parser.IConfigValuesContext)
+// ArgumentsHook runs optional symbol-specific argument validation, reporting any
+// findings to the analyzer's diagnostics sink.
+type ArgumentsHook func(diags *diagnostics.Diagnostics, args []Argument)
+
+// TriggerBinding declares what an upstream wire does to a symbol in flow context.
+type TriggerBinding struct {
+	// Target names the param the wire binds its value to, or empty (TriggerOnly)
+	// for pure activation.
+	Target string
+}
+
+// TriggerOnly is the zero TriggerBinding: the wire activates without binding a value.
+var TriggerOnly = TriggerBinding{}
+
+// TriggerInput declares that an upstream wire binds its value to the named param.
+func TriggerInput(name string) TriggerBinding { return TriggerBinding{Target: name} }
 
 // ExecContext indicates which execution context a symbol is valid in.
 type ExecContext int
@@ -58,9 +82,9 @@ const (
 	ExecWASM ExecContext = 1 << iota
 	// ExecFlow marks a symbol as only usable in flow statements (graph nodes).
 	ExecFlow
-	// ExecBoth marks a symbol as usable in both contexts. Inputs must mirror
-	// Config one-for-one (N=0 allowed); upstream edges in flow form are
-	// triggers, not typed inputs. Invariant enforced in stl_test.go.
+	// ExecBoth marks a symbol as usable in both contexts. WASM-form inputs must
+	// mirror flow-form inputs one-for-one (N=0 allowed); upstream edges in flow
+	// form are triggers, not typed inputs. Invariant enforced in stl_test.go.
 	ExecBoth = ExecWASM | ExecFlow
 )
 
@@ -92,8 +116,6 @@ const (
 	KindFunction
 	// KindBlock represents a block scope such as a task or stage.
 	KindBlock
-	// KindConfig represents a configuration parameter (constant).
-	KindConfig
 	// KindInput represents an input parameter to a function or task.
 	KindInput
 	// KindOutput represents an output parameter from a function or task.
@@ -104,9 +126,6 @@ const (
 	KindStage
 	// KindConstant represents a pure literal value in a flow statement.
 	KindConstant
-	// KindGlobalConstant represents a compile-time constant declared at global scope.
-	// Values are inlined at each reference site with no runtime overhead.
-	KindGlobalConstant
 	// KindLoop represents a loop scope (for break/continue validation).
 	KindLoop
 	// KindLoopVariable represents an immutable loop iteration variable.
@@ -130,13 +149,34 @@ const (
 	KindAmbient
 )
 
+// IsValueVariable reports whether s is a `:=`/`$=` value binding.
+func (s *Symbol) IsValueVariable() bool {
+	return s.Kind == KindVariable || s.Kind == KindStatefulVariable
+}
+
+// IsChannelReadWrite reports whether s is a value variable aliasing a channel.
+func (s *Symbol) IsChannelReadWrite() bool {
+	return s.IsValueVariable() && s.Type.Kind == types.KindChan && s.Type.ChanDirection.IsWrite()
+}
+
+// IsReactive reports whether s is a value variable derived from a channel read:
+// a read-only, channel-backed stream.
+func (s *Symbol) IsReactive() bool {
+	return s.IsValueVariable() && s.Type.Kind == types.KindChan && !s.Type.ChanDirection.IsWrite()
+}
+
+// IsLiteral reports whether s is a value variable holding a literal, not a channel.
+func (s *Symbol) IsLiteral() bool {
+	return s.IsValueVariable() && s.Type.Kind != types.KindChan
+}
+
 // Symbol is a named entity in an Arc program and, when it has Children, a
 // container that holds other Symbols. Variables, functions, modules, channels,
 // blocks, loops, sequences, stages, and aliases are all Symbols distinguished
 // by Kind.
 //
 // ID Assignment: Symbols whose Kind allocates a runtime slot (KindVariable,
-// KindStatefulVariable, KindChannel, KindInput, KindOutput, KindConfig,
+// KindStatefulVariable, KindChannel, KindInput, KindOutput,
 // KindLoopVariable) receive a unique ID from the nearest ancestor that owns an
 // ID counter (the root and each function or sequence).
 type Symbol struct {
@@ -145,8 +185,8 @@ type Symbol struct {
 	// AST is the parser node for source location information. Built-in symbols
 	// from a resolver or pre-populated module members have AST == nil.
 	AST antlr.ParserRuleContext
-	// DefaultValue stores the default value literal for optional parameters.
-	// Only used for KindInput and KindConfig symbols. Nil means no default.
+	// DefaultValue holds the symbol's default value, or nil if it has none:
+	// an optional parameter's default, or a literal variable's initial value.
 	DefaultValue any
 	// Name is the symbol's identifier. Container symbols of anonymous kinds
 	// (KindBlock, KindLoop, top-level stages) may have an empty Name.
@@ -157,10 +197,10 @@ type Symbol struct {
 	// assigned to symbols whose Kind allocates a runtime slot.
 	ID int
 	// SourceID tracks the ID of the source symbol for channel type propagation.
-	// When a variable or config param holds a channel reference, this field
-	// stores the ID of the original source (config param or global channel) so
+	// When a variable or input param holds a channel reference, this field
+	// stores the ID of the original source (input param or global channel) so
 	// that Channels.Read/Write can be correctly resolved at instantiation time.
-	// A nil value means this symbol is the original source (e.g., a config param).
+	// A nil value means this symbol is the original source (e.g., an input param).
 	SourceID *int
 	// Internal marks symbols that are only accessible to the compiler (e.g.,
 	// WASM host function signatures used for type suffix derivation). Internal
@@ -168,6 +208,9 @@ type Symbol struct {
 	// reference them, but remain visible to the compiler's resolve.Resolver
 	// which passes IncludeInternal to bypass the filter.
 	Internal bool
+	// Reassigned marks a flow-level value variable written after declaration
+	// (`x = v` or `-> x`), which lowers to a variable node instead of a constant.
+	Reassigned bool
 	// Renameable marks symbols whose backing resource the host can rename via an
 	// out-of-band side effect. Source-defined symbols (AST != nil) are renameable
 	// by source-text edits alone and do not need this flag; resolver-supplied
@@ -179,10 +222,11 @@ type Symbol struct {
 	// Flow, or Both). A zero value is invalid and will cause resolution to
 	// fail, forcing every symbol to be explicitly tagged.
 	Exec ExecContext
-	// AnalyzeCall runs after generic func-form validation. Optional.
-	AnalyzeCall CallHook
-	// AnalyzeFlowConfig runs after generic flow-form config validation. Optional.
-	AnalyzeFlowConfig FlowConfigHook
+	// AnalyzeArguments runs optional symbol-specific argument validation.
+	AnalyzeArguments ArgumentsHook
+	// Trigger names the param an upstream wire binds to in flow context; the
+	// zero value (TriggerOnly) means pure activation.
+	Trigger TriggerBinding
 	// Deprecated points at the canonical replacement Symbol for a deprecated
 	// reference. Nil means not deprecated. When non-nil, analysis helpers
 	// emit a deprecation warning naming Deprecated.QualifiedName(), and the
@@ -307,23 +351,29 @@ func (s *Symbol) AutoName(prefix string) *Symbol {
 	return s
 }
 
+// maxProgramLocalChannelKey is the exclusive upper bound on top-level variable
+// channel keys.
+const maxProgramLocalChannelKey = 1 << 20
+
 // Add creates a new child Symbol from sym and appends it to s.children.
 //
 // If sym has a non-empty Name, Add checks for naming conflicts in the lexical
-// chain. Built-in symbols (AST == nil) can be shadowed. Returns an error if a
-// locally-defined symbol with the same name already exists.
+// chain. Built-in symbols (AST == nil) can be shadowed; Internal symbols are
+// compiler-emitted and skip the check. Returns an error if a locally-defined
+// symbol with the same name already exists.
 //
 // Functions and sequences receive a new ID counter so their slot IDs are
 // independent. Slot-allocating Kinds (variables, channels, params) receive an
 // ID from the nearest ancestor counter.
 func (s *Symbol) Add(ctx context.Context, sym Symbol) (*Symbol, error) {
-	if sym.Name != "" {
+	if sym.Name != "" && !sym.Internal {
 		existing, err := s.Resolve(ctx, sym.Name)
 		if err == nil && existing.AST != nil {
 			tok := existing.AST.GetStart()
 			return nil, errors.Newf(
-				"name %s conflicts with existing symbol at line %d, col %d",
+				"name %s conflicts with existing %s at line %d, col %d",
 				sym.Name,
+				existing.Kind.noun(),
 				tok.GetLine(),
 				tok.GetColumn(),
 			)
@@ -338,16 +388,51 @@ func (s *Symbol) Add(ctx context.Context, sym Symbol) (*Symbol, error) {
 	if sym.Kind == KindFunction {
 		child.Channels = types.NewChannels()
 	}
-	if sym.Kind == KindVariable ||
-		sym.Kind == KindStatefulVariable ||
-		sym.Kind == KindInput ||
-		sym.Kind == KindConfig ||
-		sym.Kind == KindOutput ||
-		sym.Kind == KindLoopVariable {
+	switch sym.Kind {
+	case KindVariable, KindStatefulVariable:
+		if _, err := s.ClosestAncestorOfKind(KindFunction); err != nil {
+			child.ID = s.Root().addIndex()
+			if child.ID >= maxProgramLocalChannelKey {
+				return nil, errors.Newf(
+					"program exceeds the maximum of %d program-local channels",
+					maxProgramLocalChannelKey,
+				)
+			}
+		} else {
+			child.ID = s.addIndex()
+		}
+	case KindInput, KindOutput, KindLoopVariable:
 		child.ID = s.addIndex()
 	}
 	s.children = append(s.children, child)
 	return child, nil
+}
+
+// noun returns a human-readable noun for k, used in diagnostics so a
+// name conflict names what it collides with (variable, channel, function, ...).
+func (k Kind) noun() string {
+	switch k {
+	case KindVariable, KindStatefulVariable, KindLoopVariable:
+		return "variable"
+	case KindChannel:
+		return "channel"
+	case KindFunction:
+		return "function"
+	case KindInput:
+		return "input parameter"
+	case KindOutput:
+		return "output parameter"
+	case KindSequence:
+		return "sequence"
+	case KindStage:
+		return "stage"
+	case KindConstant:
+		return "constant"
+	case KindModule, KindModuleAlias:
+		return "import"
+	default:
+		return "symbol"
+	}
 }
 
 // AddChild appends each already-constructed child to s.children and sets
@@ -509,7 +594,7 @@ func (s *Symbol) Resolve(
 // When name parses as a uint32, the walk matches symbols by ID instead
 // of by Name. The Arc lexer forbids identifiers starting with a digit,
 // so an all-numeric input is unambiguously an ID reference (graph
-// configs, channel-key literals in source). The branches share the walk
+// inputs, channel-key literals in source). The branches share the walk
 // shape (children → global resolver → parent) so a caller passing either
 // kind of key gets the same scoping semantics.
 //
@@ -618,12 +703,12 @@ func (s *Symbol) ClosestAncestorOfKind(kind Kind) (*Symbol, error) {
 	return s.Parent.ClosestAncestorOfKind(kind)
 }
 
-// ResolveConfigChannel replaces an internal config param ID with the actual
+// ResolveInputChannel replaces an internal input param ID with the actual
 // channel ID. For user-defined functions, the analyzer populates fnSym.Channels
 // with internal param IDs when processing the function body, so we replace
 // those with actual channel IDs. For built-in functions, fnSym has no children
 // or channels, so we fall back to adding the channel to Read.
-func ResolveConfigChannel(
+func ResolveInputChannel(
 	c *types.Channels,
 	fnSym *Symbol,
 	paramName string,
@@ -631,22 +716,22 @@ func ResolveConfigChannel(
 	channelName string,
 ) {
 	replaced := false
-	if configParamSym := fnSym.FindChild(paramName); configParamSym != nil {
-		configParamID := uint32(configParamSym.ID)
-		if _, ok := fnSym.Channels.Write[configParamID]; ok {
-			delete(c.Write, configParamID)
+	if inputParamSym := fnSym.FindChild(paramName); inputParamSym != nil {
+		inputParamID := uint32(inputParamSym.ID)
+		if _, ok := fnSym.Channels.Write[inputParamID]; ok {
+			delete(c.Write, inputParamID)
 			c.Write[channelKey] = channelName
 			replaced = true
 		}
-		if _, ok := fnSym.Channels.Read[configParamID]; ok {
-			delete(c.Read, configParamID)
+		if _, ok := fnSym.Channels.Read[inputParamID]; ok {
+			delete(c.Read, inputParamID)
 			c.Read[channelKey] = channelName
 			replaced = true
 		}
 	}
 	if !replaced {
 		dir := types.ChanDirectionRead
-		if param, ok := fnSym.Type.Config.Get(paramName); ok && param.Type.ChanDirection.IsSet() {
+		if param, ok := fnSym.Type.Inputs.Get(paramName); ok && param.Type.ChanDirection.IsSet() {
 			dir = param.Type.ChanDirection
 		}
 		if dir.IsRead() {

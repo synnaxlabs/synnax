@@ -54,16 +54,32 @@ func pathToSegments(segments ...string) []string {
 	})
 }
 
+// PathedError prefixes path onto the location of err. A plain error becomes a
+// PathError rooted at path; an existing PathError has path prepended to its own
+// segments. When err is a joined error (errors.Join), every member is prefixed
+// independently and the join is preserved, so each accumulated validation
+// failure keeps its full nested path rather than collapsing to the first.
 func PathedError(err error, path ...string) error {
-	var errPath PathError
-	segments := pathToSegments(path...)
-	if errors.As(err, &errPath) {
-		errPath.Path = append(segments, errPath.Path...)
-	} else {
-		errPath.Path = segments
-		errPath.Err = err
+	if err == nil {
+		return nil
 	}
-	return errPath
+	return prefixPath(err, pathToSegments(path...))
+}
+
+func prefixPath(err error, segments []string) error {
+	if members := errors.UnwrapMulti(err); members != nil {
+		prefixed := make([]error, len(members))
+		for i, member := range members {
+			prefixed[i] = prefixPath(member, segments)
+		}
+		return errors.Join(prefixed...)
+	}
+	var errPath PathError
+	if errors.As(err, &errPath) {
+		errPath.Path = append(append([]string{}, segments...), errPath.Path...)
+		return errPath
+	}
+	return PathError{Path: segments, Err: err}
 }
 
 func (p PathError) Error() string { return p.joinPath() + ": " + p.Err.Error() }

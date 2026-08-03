@@ -7,8 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-//go:build driver
-
 package log_test
 
 import (
@@ -35,7 +33,7 @@ func (errClosedReader) Close() error             { return nil }
 
 func parseLogEntries(buffer *bytes.Buffer) []map[string]any {
 	var entries []map[string]any
-	for _, line := range strings.Split(strings.TrimSpace(buffer.String()), "\n") {
+	for line := range strings.SplitSeq(strings.TrimSpace(buffer.String()), "\n") {
 		if line == "" {
 			continue
 		}

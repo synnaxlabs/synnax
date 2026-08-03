@@ -306,10 +306,7 @@ func (i *Iterator) autoPrev(ctx context.Context) bool {
 			i.err = err
 			return false
 		}
-		startSample := endSample - nRemaining
-		if startSample < 0 {
-			startSample = 0
-		}
+		startSample := max(endSample-nRemaining, 0)
 		startOffset, err := i.resolver.byteOffset(ctx, i.internal, startSample)
 		if err != nil {
 			i.err = err

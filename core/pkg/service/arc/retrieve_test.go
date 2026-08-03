@@ -23,6 +23,7 @@ var _ = Describe("Retrieve", func() {
 		It("Should retrieve an Arc", func(ctx SpecContext) {
 			a := arc.Arc{
 				Name:  "test-retrieve",
+				Mode:  arc.ModeText,
 				Graph: graph.Graph{},
 				Text:  text.Text{},
 			}
@@ -36,9 +37,9 @@ var _ = Describe("Retrieve", func() {
 
 		It("Should retrieve multiple Arcs", func(ctx SpecContext) {
 			arcs := []arc.Arc{
-				{Name: "arc-multi-1", Graph: graph.Graph{}, Text: text.Text{}},
-				{Name: "arc-multi-2", Graph: graph.Graph{}, Text: text.Text{}},
-				{Name: "arc-multi-3", Graph: graph.Graph{}, Text: text.Text{}},
+				{Name: "arc-multi-1", Mode: arc.ModeText, Graph: graph.Graph{}, Text: text.Text{}},
+				{Name: "arc-multi-2", Mode: arc.ModeText, Graph: graph.Graph{}, Text: text.Text{}},
+				{Name: "arc-multi-3", Mode: arc.ModeText, Graph: graph.Graph{}, Text: text.Text{}},
 			}
 
 			keys := make([]uuid.UUID, 0, len(arcs))
@@ -56,6 +57,7 @@ var _ = Describe("Retrieve", func() {
 			localTx := db.OpenTx()
 			a := arc.Arc{
 				Name:  "tx-test-arc",
+				Mode:  arc.ModeText,
 				Graph: graph.Graph{},
 				Text:  text.Text{},
 			}
@@ -74,6 +76,7 @@ var _ = Describe("Retrieve", func() {
 			localTx := db.OpenTx()
 			a := arc.Arc{
 				Name:  "no-tx-arc",
+				Mode:  arc.ModeText,
 				Graph: graph.Graph{},
 				Text:  text.Text{},
 			}

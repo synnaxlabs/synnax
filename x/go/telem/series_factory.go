@@ -27,9 +27,11 @@ type NumericSample interface {
 		float32 | float64 | TimeStamp
 }
 
-// FixedSample represents any numeric value that can be stored in a Series and has a
-// fixed density.
-type FixedSample interface{ NumericSample | uuid.UUID }
+// FixedSample represents any value that can be stored in a Series and has a fixed
+// density.
+type FixedSample interface {
+	NumericSample | uuid.UUID | bool
+}
 
 // VariableSample is a type that can be stored in a variable-density series.
 type VariableSample interface{ []byte | string }
@@ -66,6 +68,8 @@ func NewSeries[T Sample](data []T) Series {
 		return newFixedSeries(any(data).([]TimeStamp))
 	case uuid.UUID:
 		return newFixedSeries(any(data).([]uuid.UUID))
+	case bool:
+		return newFixedSeries(any(data).([]bool))
 	case string:
 		return newVariableSeries(any(data).([]string))
 	case []byte:
@@ -185,6 +189,8 @@ func UnmarshalSeries[T Sample](series Series) []T {
 		return any(unmarshalFixed[TimeStamp](series.Data)).([]T)
 	case uuid.UUID:
 		return any(unmarshalFixed[uuid.UUID](series.Data)).([]T)
+	case bool:
+		return any(unmarshalFixed[bool](series.Data)).([]T)
 	case string:
 		return any(unmarshalVariable[string](series.Data)).([]T)
 	case []byte:
@@ -246,27 +252,29 @@ func Arrange[T NumericSample](start T, count int, spacing T) Series {
 func NewSeriesFromAny(value any, dt DataType) Series {
 	switch dt {
 	case Uint8T:
-		return NewSeriesV(castNumeric[uint8](value))
+		return NewSeriesV(CastNumeric[uint8](value))
 	case Uint16T:
-		return NewSeriesV(castNumeric[uint16](value))
+		return NewSeriesV(CastNumeric[uint16](value))
 	case Uint32T:
-		return NewSeriesV(castNumeric[uint32](value))
+		return NewSeriesV(CastNumeric[uint32](value))
 	case Uint64T:
-		return NewSeriesV(castNumeric[uint64](value))
+		return NewSeriesV(CastNumeric[uint64](value))
 	case Int8T:
-		return NewSeriesV(castNumeric[int8](value))
+		return NewSeriesV(CastNumeric[int8](value))
 	case Int16T:
-		return NewSeriesV(castNumeric[int16](value))
+		return NewSeriesV(CastNumeric[int16](value))
 	case Int32T:
-		return NewSeriesV(castNumeric[int32](value))
+		return NewSeriesV(CastNumeric[int32](value))
 	case Int64T:
-		return NewSeriesV(castNumeric[int64](value))
+		return NewSeriesV(CastNumeric[int64](value))
 	case Float32T:
-		return NewSeriesV(castNumeric[float32](value))
+		return NewSeriesV(CastNumeric[float32](value))
 	case Float64T:
-		return NewSeriesV(castNumeric[float64](value))
+		return NewSeriesV(CastNumeric[float64](value))
 	case TimeStampT:
-		return NewSeriesV(castNumeric[TimeStamp](value))
+		return NewSeriesV(CastNumeric[TimeStamp](value))
+	case BoolT:
+		return NewSeriesV(castToBool(value))
 	case UUIDT:
 		return NewSeriesV(castToUUID(value))
 	case StringT:
@@ -280,8 +288,16 @@ func NewSeriesFromAny(value any, dt DataType) Series {
 	}
 }
 
-func castNumeric[T NumericSample](value any) T {
+// CastNumeric converts any numeric value (including TimeStamp and TimeSpan) to
+// the sample type T with Go conversion semantics: values may truncate or wrap.
+// Panics if value is not numeric.
+func CastNumeric[T NumericSample](value any) T {
 	switch v := value.(type) {
+	case bool:
+		if v {
+			return T(1)
+		}
+		return T(0)
 	case uint:
 		return T(v)
 	case uint8:
@@ -308,6 +324,8 @@ func castNumeric[T NumericSample](value any) T {
 		return T(v)
 	case TimeStamp:
 		return T(v)
+	case TimeSpan:
+		return T(v)
 	default:
 		var t T
 		panic(fmt.Sprintf("cannot cast %T to %T", value, t))
@@ -316,7 +334,7 @@ func castNumeric[T NumericSample](value any) T {
 
 func castToString(value any) string {
 	switch v := value.(type) {
-	case int, int8, int16, int32, int64, uint, uint8, uint16, uint32, uint64, TimeStamp:
+	case int, int8, int16, int32, int64, uint, uint8, uint16, uint32, uint64, TimeStamp, TimeSpan:
 		return fmt.Sprintf("%d", v)
 	case float32, float64:
 		return fmt.Sprintf("%g", v)
@@ -351,6 +369,8 @@ func castToBytes(value any) []byte {
 		return ByteOrder.AppendUint64(nil, math.Float64bits(v))
 	case TimeStamp:
 		return ByteOrder.AppendUint64(nil, uint64(v))
+	case TimeSpan:
+		return ByteOrder.AppendUint64(nil, uint64(v))
 	case uuid.UUID:
 		return v[:]
 	case string:
@@ -359,6 +379,41 @@ func castToBytes(value any) []byte {
 		return v
 	default:
 		panic(fmt.Sprintf("cannot cast %T to []byte", value))
+	}
+}
+
+func castToBool(value any) bool {
+	switch v := value.(type) {
+	case bool:
+		return v
+	case uint:
+		return v != 0
+	case uint8:
+		return v != 0
+	case uint16:
+		return v != 0
+	case uint32:
+		return v != 0
+	case uint64:
+		return v != 0
+	case int:
+		return v != 0
+	case int8:
+		return v != 0
+	case int16:
+		return v != 0
+	case int32:
+		return v != 0
+	case int64:
+		return v != 0
+	case float32:
+		return v != 0
+	case float64:
+		return v != 0
+	case TimeStamp:
+		return v != 0
+	default:
+		panic(fmt.Sprintf("cannot cast %T to bool", value))
 	}
 }
 

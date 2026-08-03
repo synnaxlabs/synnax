@@ -13,8 +13,7 @@ import { AuthError, NotFoundError } from "@/errors";
 import { group } from "@/group";
 import { ontology } from "@/ontology";
 import { symbol } from "@/schematic/symbol";
-import { createTestClientWithPolicy } from "@/testutil/access";
-import { createTestClient } from "@/testutil/client";
+import { createTestClient, createTestClientWithPolicy } from "@/testutil";
 
 const client = createTestClient();
 
@@ -75,8 +74,8 @@ describe("schematic_symbol", () => {
     it("should allow the caller to create symbols with the correct policy", async () => {
       const userClient = await createTestClientWithPolicy(client, {
         name: "test",
-        objects: [symbol.ontologyID("")],
-        actions: ["create"],
+        objects: [symbol.ontologyID(""), group.ontologyID("")],
+        actions: ["create", "update"],
       });
       const symbolGroup = await client.groups.create({
         parent: ontology.ROOT_ID,

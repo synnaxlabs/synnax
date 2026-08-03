@@ -24,7 +24,8 @@ Key: TypeAlias = str
 
 
 class StatusDetails(BaseModel):
-    """Contains device-specific status details identifying the device and its associated rack.
+    """Contains device-specific status details identifying the device and its associated
+    rack.
 
     Attributes:
         rack: Is the key of the rack this device belongs to.
@@ -39,9 +40,9 @@ Status: TypeAlias = status_.Status[StatusDetails]
 
 
 class Device(BaseModel):
-    """Is a physical piece of hardware connected to Synnax through the Driver
-    system. Devices represent external equipment like LabJack, National
-    Instruments, OPC UA servers, or Modbus devices.
+    """Is a physical piece of hardware connected to Synnax through the Driver system.
+    Devices represent external equipment like LabJack, National Instruments, OPC UA
+    servers, or Modbus devices.
 
     Attributes:
         key: Is the unique identifier for this device.
@@ -56,8 +57,8 @@ class Device(BaseModel):
         properties: Contains device-specific configuration properties stored as JSON.
             Structure varies by device make and model.
         status: Is the current operational status of the device.
-        parent: Is an optional parent resource ID for hierarchical device
-            organization (e.g., NI chassis containing modules).
+        parent: Is an optional parent resource ID for hierarchical device organization
+            (e.g., NI chassis containing modules).
     """
 
     key: Key
@@ -66,8 +67,8 @@ class Device(BaseModel):
     make: str
     model: str
     name: str
-    configured: bool = Field(default=False)
-    properties: dict[str, Any]
+    configured: bool = False
+    properties: dict[str, Any] = Field(default_factory=dict)
     status: Status | None = None
     parent: ontology.ID | None = None
 

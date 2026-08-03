@@ -8,146 +8,49 @@
 // included in the file licenses/APL.txt.
 
 import { schematic } from "@synnaxlabs/client";
-import { type record, uuid, xy } from "@synnaxlabs/x";
-import { useCallback } from "react";
+import { uuid } from "@synnaxlabs/x";
 
 import { Flux } from "@/flux";
-import { useSyncedRef } from "@/hooks";
-import { type FluxSubStore, useDispatch } from "@/schematic/queries";
-import { type DiagramClipboardHandler } from "@/vis/diagram/Diagram";
+import { type FluxSubStore, useSingleDispatch } from "@/schematic/queries";
+import { useKey } from "@/schematic/Suspended";
+import { Diagram } from "@/vis/diagram";
 
 // The "web " prefix is required: Chrome silently drops custom MIME types from
 // the clipboard without it.
 const MIME = "web application/synnax-schematic+json";
-const VERSION = 1;
 
-interface Payload {
-  version: number;
-  nodes: schematic.Node[];
-  edges: schematic.Edge[];
-  configs: Record<string, record.Unknown>;
-  anchor: xy.XY;
-}
-
-const describe = (p: Payload): string => {
-  const n = p.nodes.length;
-  const e = p.edges.length;
-  return `${n} node${n === 1 ? "" : "s"}, ${e} edge${e === 1 ? "" : "s"}`;
-};
-
-const centroid = (nodes: schematic.Node[]): xy.XY => {
-  if (nodes.length === 0) return xy.ZERO;
-  return xy.scale(
-    nodes.reduce((acc, n) => xy.translate(acc, n.position), xy.ZERO),
-    1 / nodes.length,
-  );
-};
-
-export interface UseClipboardArgs {
-  key: schematic.Key;
+export interface UseClipboardParams {
   selected?: string[];
   onPaste?: (newKeys: string[]) => void;
 }
 
-export interface UseClipboardReturn {
-  onCopy: DiagramClipboardHandler;
-  onPaste: DiagramClipboardHandler;
-}
-
 export const useClipboard = ({
-  key,
   selected,
   onPaste,
-}: UseClipboardArgs): UseClipboardReturn => {
-  const { dispatch } = useDispatch();
+}: UseClipboardParams): Diagram.UseClipboardReturn => {
+  const key = useKey();
+  const dispatch = useSingleDispatch();
   const store = Flux.useStore<FluxSubStore>();
-  const selectedRef = useSyncedRef(selected ?? []);
-
-  const handleCopy = useCallback<DiagramClipboardHandler>(
-    (e) => {
-      // Defer to the browser if the user has a real text selection.
-      const text = window.getSelection()?.toString();
-      if (text != null && text.length > 0) return;
+  const adapter: Diagram.ClipboardAdapter<schematic.Node, schematic.Edge> = {
+    mime: MIME,
+    edgeKey: (edge) => edge.key,
+    getSnapshot: () => {
       const schem = store.schematics.get(key);
-      if (schem == null) return;
-      const sel = new Set(selectedRef.current);
-      if (sel.size === 0) return;
-      const ns = schem.nodes.filter((n) => sel.has(n.key));
-      const es = schem.edges.filter((edge) => sel.has(edge.key));
-      if (ns.length === 0 && es.length === 0) return;
-      const configs: Record<string, record.Unknown> = {};
-      for (const k of [...ns.map((n) => n.key), ...es.map((edge) => edge.key)]) {
-        const c = schem.configs[k];
-        if (c != null) configs[k] = c;
-      }
-      const payload: Payload = {
-        version: VERSION,
-        nodes: ns,
-        edges: es,
-        configs,
-        anchor: centroid(ns),
-      };
-      e.preventDefault();
-      e.clipboardData.setData(MIME, JSON.stringify(payload));
-      e.clipboardData.setData("text/plain", describe(payload));
+      if (schem == null) return null;
+      return { nodes: schem.nodes, edges: schem.edges, configs: schem.configs };
     },
-    [key, store],
-  );
-
-  const handlePaste = useCallback<DiagramClipboardHandler>(
-    (e, cursor) => {
-      const raw = e.clipboardData.getData(MIME);
-      if (raw === "") return;
-      let payload: Payload;
-      try {
-        payload = JSON.parse(raw) as Payload;
-      } catch {
-        return;
-      }
-      if (payload.version !== VERSION) return;
-      e.preventDefault();
-      const offset = xy.translation(payload.anchor, cursor);
-      const remap: Record<string, string> = {};
+    apply: ({ nodes, edges, newKeys }) => {
       const actions: schematic.Action[] = [];
-      for (const node of payload.nodes) {
-        const newKey = uuid.create();
-        remap[node.key] = newKey;
-        actions.push(
-          schematic.setNode({
-            node: {
-              ...node,
-              key: newKey,
-              position: xy.translate(node.position, offset),
-            },
-            config: payload.configs[node.key],
-          }),
-        );
+      for (const { node, config } of nodes)
+        actions.push(schematic.setNode({ node, config }));
+      for (const { edge, config } of edges) {
+        const edgeKey = uuid.create();
+        actions.push(schematic.addEdge({ edge: { ...edge, key: edgeKey } }));
+        if (config != null) actions.push(schematic.setConfig({ key: edgeKey, config }));
       }
-      for (const edge of payload.edges) {
-        const src = remap[edge.source.node];
-        const tgt = remap[edge.target.node];
-        if (src == null || tgt == null) continue;
-        const newKey = uuid.create();
-        actions.push(
-          schematic.addEdge({
-            edge: {
-              ...edge,
-              key: newKey,
-              source: { ...edge.source, node: src },
-              target: { ...edge.target, node: tgt },
-            },
-          }),
-        );
-        const cfg = payload.configs[edge.key];
-        if (cfg != null)
-          actions.push(schematic.setConfig({ key: newKey, config: cfg }));
-      }
-      if (actions.length === 0) return;
-      dispatch({ key, actions });
-      onPaste?.(Object.values(remap));
+      dispatch(actions);
+      if (actions.length > 0) onPaste?.(newKeys);
     },
-    [key, dispatch, onPaste],
-  );
-
-  return { onCopy: handleCopy, onPaste: handlePaste };
+  };
+  return Diagram.useClipboard({ adapter, selected });
 };

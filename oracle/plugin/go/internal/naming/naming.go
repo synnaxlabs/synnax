@@ -47,9 +47,9 @@ func IsScreamingCase(s string) bool {
 var goAcronyms = []string{
 	"Acl", "Api", "Ascii", "Cpu", "Css", "Dns", "Eof", "Guid", "Html", "Http",
 	"Https", "Id", "Io", "Ip", "Iso", "Json", "Lhs", "Qps", "Ram", "Rhs",
-	"Rpc", "Sla", "Smtp", "Sql", "Ssh", "Tcp", "Tls", "Ttl", "Udp", "Ui",
-	"Uid", "Uri", "Url", "Utc", "Utf8", "Uuid", "Vm", "Xml", "Xmpp", "Xss",
-	"Xy",
+	"Rpc", "Sla", "Smtp", "Sql", "Ssh", "Svg", "Tcp", "Tls", "Ttl", "Udp",
+	"Ui", "Uid", "Uri", "Url", "Utc", "Utf8", "Uuid", "Vm", "Xml", "Xmpp",
+	"Xss", "Xy",
 }
 
 // ToPascalCase converts a name to PascalCase, preserving Go acronym conventions
@@ -77,12 +77,15 @@ func GetFieldName(f resolution.Field) string {
 }
 
 // GetGoName returns the Go name for a type. It checks for a @go name
-// override first, then falls back to ToPascalCase of the schema type name.
+// override first, then falls back to the declared schema type name. The
+// declared name is used verbatim so acronym-bearing names (RTDType,
+// BaseAIChannel) survive; routing through ToPascalCase would mangle them
+// into names that diverge from how references resolve the type.
 func GetGoName(t resolution.Type) string {
 	if override := domain.GetStringFromType(t, "go", "name"); override != "" {
 		return override
 	}
-	return ToPascalCase(t.Name)
+	return t.Name
 }
 
 // LowerFirst lowercases the leading uppercase run of a string, handling
@@ -119,14 +122,29 @@ func LowerFirst(s string) string {
 func DerivePackageName(outputPath string) string { return filepath.Base(outputPath) }
 
 // DerivePackageAlias creates a unique alias for an imported package to avoid
-// conflicts. For migration version packages (e.g., "graph/migrations/v53"), the
-// grandparent directory name is prepended to distinguish between packages at the
-// same version across different source packages. Otherwise, if the base name
-// conflicts with the current package, it prepends the parent directory.
+// conflicts. Version packages (e.g., "spatial/types/v0") alias to the resource
+// name ("spatial"). Otherwise, if the base name conflicts with the current
+// package, it prepends the parent directory.
 func DerivePackageAlias(outputPath, currentPackage string) string {
 	base := filepath.Base(outputPath)
 	parent := filepath.Base(filepath.Dir(outputPath))
-	if parent == "migrations" {
+	if parent == "types" || parent == "versions" || parent == "migrations" || parent == "legacy" {
+		grandparent := filepath.Base(filepath.Dir(filepath.Dir(outputPath)))
+		return keywords.Escape(grandparent)
+	}
+	if base == currentPackage {
+		return parent + base
+	}
+	return base
+}
+
+// DeriveVersionedAlias is DerivePackageAlias, except version packages keep the
+// version suffix ("spatialv0"). Migration files import two versions of the same
+// resource and need the suffix to disambiguate.
+func DeriveVersionedAlias(outputPath, currentPackage string) string {
+	base := filepath.Base(outputPath)
+	parent := filepath.Base(filepath.Dir(outputPath))
+	if parent == "types" || parent == "versions" || parent == "migrations" || parent == "legacy" {
 		grandparent := filepath.Base(filepath.Dir(filepath.Dir(outputPath)))
 		return grandparent + base
 	}

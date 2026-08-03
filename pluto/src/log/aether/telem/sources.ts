@@ -7,13 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { channel } from "@synnaxlabs/client";
+import { channel, status as cstatus } from "@synnaxlabs/client";
 import {
   compare,
   DataType,
   type destructor,
   type Series,
-  status as xstatus,
   TimeSpan,
   TimeStamp,
 } from "@synnaxlabs/x";
@@ -44,7 +43,7 @@ interface ChannelMeta {
   dataType: DataType;
   leadingBuffer: Series | null;
   readCursor: number;
-  skipSeed: boolean;
+  skipInitialBatch: boolean;
 }
 
 export class StreamMultiChannelLog
@@ -129,8 +128,9 @@ export class StreamMultiChannelLog
       if (removedKeys.size > 0)
         this.entries = this.entries.filter((e) => !removedKeys.has(e.channelKey));
 
-      // When channels change mid-session, the new stream seeds with buffered data
-      // for ALL channels. Skip the seed to avoid re-displaying existing entries.
+      // When channels change mid-session, the new stream replays buffered data
+      // for ALL channels. Skip that initial batch to avoid re-displaying existing
+      // entries.
       const isRestart = this.channelMeta.size > 0;
       this.channelMeta.clear();
       for (const ch of channels)
@@ -139,7 +139,7 @@ export class StreamMultiChannelLog
           leadingBuffer: null,
           readCursor: 0,
           dataType: new DataType(ch.dataType),
-          skipSeed: isRestart,
+          skipInitialBatch: isRestart,
         });
 
       const streamKeys = channels.map((ch) => ch.key);
@@ -170,11 +170,11 @@ export class StreamMultiChannelLog
           };
           if (allocated != null && allocated.series.length > 0) {
             // First callback after channel change: skip buffered data.
-            if (chMeta.skipSeed) {
+            if (chMeta.skipInitialBatch) {
               const lastSeries = allocated.series[allocated.series.length - 1];
               chMeta.leadingBuffer = lastSeries;
               chMeta.readCursor = lastSeries.length;
-              chMeta.skipSeed = false;
+              chMeta.skipInitialBatch = false;
               continue;
             }
             // Drain unread tail of the old leading buffer before switching.
@@ -192,9 +192,9 @@ export class StreamMultiChannelLog
           // Read new in-place writes to the current leading buffer.
           const buf = chMeta.leadingBuffer;
           if (buf == null || buf.length <= chMeta.readCursor) continue;
-          if (chMeta.skipSeed) {
+          if (chMeta.skipInitialBatch) {
             chMeta.readCursor = buf.length;
-            chMeta.skipSeed = false;
+            chMeta.skipInitialBatch = false;
             continue;
           }
           pushSamples(buf, chMeta.readCursor);
@@ -206,7 +206,7 @@ export class StreamMultiChannelLog
       this.notify();
     } catch (e) {
       this.valid = false;
-      this.onStatusChange?.(xstatus.fromException(e, "failed to stream log channels"));
+      this.onStatusChange?.(cstatus.fromException(e, "failed to stream log channels"));
     }
   }
 

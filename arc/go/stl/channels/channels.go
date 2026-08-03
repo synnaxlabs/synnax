@@ -56,18 +56,22 @@ func NewSymbols() []*symbol.Symbol {
 			Exec: symbol.ExecFlow,
 			Type: types.Function(types.FunctionProperties{
 				Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.Variable("T", nil)}},
-				Config:  types.Params{{Name: "channel", Type: types.ReadChan(types.Variable("T", nil))}},
+				Inputs:  types.Params{{Name: "channel", Type: types.ReadChan(types.Variable("T", nil))}},
 			}),
+			Trigger: symbol.TriggerOnly,
 		},
 		{
 			Name: "write",
 			Kind: symbol.KindFunction,
 			Exec: symbol.ExecFlow,
 			Type: types.Function(types.FunctionProperties{
-				Inputs:  types.Params{{Name: ir.DefaultInputParam, Type: types.Variable("T", nil)}},
+				Inputs: types.Params{
+					{Name: ir.DefaultInputParam, Type: types.Variable("T", nil)},
+					{Name: "channel", Type: types.WriteChan(types.Variable("T", nil))},
+				},
 				Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.U8()}},
-				Config:  types.Params{{Name: "channel", Type: types.WriteChan(types.Variable("T", nil))}},
 			}),
+			Trigger: symbol.TriggerInput(ir.DefaultInputParam),
 		},
 	}
 }
@@ -117,55 +121,113 @@ func (h *Host) Create(_ context.Context, cfg node.Config) (node.Node, error) {
 	if !isSource && !isSink {
 		return nil, query.ErrNotFound
 	}
-	var nodeCfg config
-	if err := schema.Parse(cfg.Node.Config.ValueMap(), &nodeCfg); err != nil {
+	channelIdx := -1
+	if idx, terr := cfg.State.ResolveInput("channel"); terr == nil {
+		channelIdx = idx
+	}
+	schema := valueFedSchema
+	if cfg.State.RefSourced(channelIdx) {
+		schema = edgeFedSchema
+	}
+	var inputs nodeInputs
+	if err := schema.Parse(cfg.Node.Inputs.ValueMap(), &inputs); err != nil {
 		return nil, err
 	}
 	if isSource {
 		return &source{
-			State: cfg.State,
-			key:   nodeCfg.Channel,
-			state: h.state,
+			State:      cfg.State,
+			key:        inputs.Channel,
+			currKey:    inputs.Channel,
+			channelIdx: channelIdx,
+			state:      h.state,
 		}, nil
 	}
-	return &sink{State: cfg.State, state: h.state, key: nodeCfg.Channel}, nil
+	inputIdx, err := cfg.State.ResolveInput(ir.DefaultInputParam)
+	if err != nil {
+		return nil, err
+	}
+	return &sink{
+		State:      cfg.State,
+		state:      h.state,
+		key:        inputs.Channel,
+		inputIdx:   inputIdx,
+		channelIdx: channelIdx,
+	}, nil
 }
 
-var schema = zyn.Object(map[string]zyn.Schema{
+// An unbound source or sink requires its channel key as an input value.
+var valueFedSchema = zyn.Object(map[string]zyn.Schema{
 	"channel": zyn.Uint32().Coerce(),
 })
 
-type config struct {
+// An alias-bound source or sink takes its key from the binding edge at runtime.
+var edgeFedSchema = zyn.Object(map[string]zyn.Schema{
+	"channel": zyn.Uint32().Coerce().Optional(),
+})
+
+type nodeInputs struct {
 	Channel uint32 `json:"channel"`
+}
+
+// boundKey returns the channel a node currently targets: the binding edge's
+// latest key when present, otherwise the configured key.
+func boundKey(s *node.State, channelIdx int, configured uint32) uint32 {
+	if t := s.RefInput(channelIdx); t.Len() > 0 {
+		return telem.ValueAt[uint32](t, -1)
+	}
+	return configured
 }
 
 type source struct {
 	*node.State
-	state         *ProgramState
-	key           uint32
+	state   *ProgramState
+	key     uint32
+	currKey uint32
+	// channelIdx is the channel ref input's index; -1 when not alias-bound.
+	channelIdx    int
 	highWaterMark telem.Alignment
 	clock         telem.MonoClock
 }
 
 func (s *source) Init(node.Context) {}
 
+// rebindTo re-points the source at key. A rebind is not a value:
+// only values arriving afterward fire
+func (s *source) rebindTo(key uint32) {
+	s.currKey = key
+	s.highWaterMark = 0
+	s.raiseWaterMark()
+}
+
+// raiseWaterMark advances the mark past all buffered data on the bound channel.
+func (s *source) raiseWaterMark() {
+	data, _, ok := s.state.readSeries(s.currKey)
+	if !ok || len(data.Series) == 0 {
+		return
+	}
+	if ab := data.Series[len(data.Series)-1].AlignmentBounds(); ab.Upper > s.highWaterMark {
+		s.highWaterMark = ab.Upper
+	}
+}
+
 // Reset advances the high water mark to the current channel alignment,
 // ensuring that when a stage is (re-)activated it only responds to
 // data that arrives after activation rather than stale pre-existing data.
 func (s *source) Reset() {
 	s.State.Reset()
-	data, _, ok := s.state.readSeries(s.key)
-	if !ok || len(data.Series) == 0 {
+	if key := boundKey(s.State, s.channelIdx, s.key); key != s.currKey {
+		s.rebindTo(key)
 		return
 	}
-	ab := data.Series[len(data.Series)-1].AlignmentBounds()
-	if ab.Upper > s.highWaterMark {
-		s.highWaterMark = ab.Upper
-	}
+	s.raiseWaterMark()
 }
 
 func (s *source) Next(ctx node.Context) {
-	data, indexData, ok := s.state.readSeries(s.key)
+	if key := boundKey(s.State, s.channelIdx, s.key); key != s.currKey {
+		s.rebindTo(key)
+		return
+	}
+	data, indexData, ok := s.state.readSeries(s.currKey)
 	if !ok {
 		return
 	}
@@ -203,20 +265,23 @@ func (s *source) Next(ctx node.Context) {
 
 type sink struct {
 	*node.State
-	state *ProgramState
-	key   uint32
+	state    *ProgramState
+	key      uint32
+	inputIdx int
+	// channelIdx is the channel ref input's index; -1 when not alias-bound.
+	channelIdx int
 }
 
 func (s *sink) Next(ctx node.Context) {
 	if !s.RefreshInputs() {
 		return
 	}
-	data := s.Input(0)
-	time := s.InputTime(0)
+	data := s.Input(s.inputIdx)
+	time := s.InputTime(s.inputIdx)
 	if data.Len() == 0 {
 		return
 	}
-	s.state.writeChannel(s.key, data, time)
+	s.state.writeChannel(boundKey(s.State, s.channelIdx, s.key), data, time)
 	lastTS := telem.ValueAt[telem.TimeStamp](time, -1)
 	out := s.Output(0)
 	out.Resize(1)
@@ -225,7 +290,7 @@ func (s *sink) Next(ctx node.Context) {
 	out.TimeRange = data.TimeRange
 	outTime := s.OutputTime(0)
 	outTime.Resize(1)
-	telem.SetValueAt[telem.TimeStamp](*outTime, 0, lastTS)
+	telem.SetValueAt(*outTime, 0, lastTS)
 	outTime.Alignment = data.Alignment
 	outTime.TimeRange = data.TimeRange
 	ctx.MarkChanged(0)
@@ -332,7 +397,7 @@ func bindStr(builder wazero.HostModuleBuilder, cs *ProgramState, ss *strings.Pro
 			if !ok {
 				return
 			}
-			cs.writeValue(chID, telem.NewSeriesV[string](str))
+			cs.writeValue(chID, telem.NewSeriesV(str))
 		}).Export("write_str")
 	return builder
 }

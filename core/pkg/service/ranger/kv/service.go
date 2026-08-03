@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+// Package kv implements a service for managing key-value pairs on ranges.
 package kv
 
 import (
@@ -14,7 +15,8 @@ import (
 	"io"
 
 	"github.com/synnaxlabs/alamos"
-	"github.com/synnaxlabs/synnax/pkg/distribution/signals"
+	"github.com/synnaxlabs/synnax/pkg/service/ranger/kv/versions"
+	"github.com/synnaxlabs/synnax/pkg/service/signals"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/gorp"
 	xio "github.com/synnaxlabs/x/io"
@@ -30,10 +32,7 @@ type ServiceConfig struct {
 	alamos.Instrumentation
 }
 
-var (
-	_             config.Config[ServiceConfig] = ServiceConfig{}
-	DefaultConfig                              = ServiceConfig{}
-)
+var _ config.Config[ServiceConfig] = ServiceConfig{}
 
 // Validate implements config.Config.
 func (c ServiceConfig) Validate() error {
@@ -59,7 +58,7 @@ type Service struct {
 
 // OpenService opens a new kv.Service with the provided configuration.
 func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err error) {
-	cfg, err := config.New(DefaultConfig, cfgs...)
+	cfg, err := config.New(ServiceConfig{}, cfgs...)
 	if err != nil {
 		return nil, err
 	}
@@ -68,12 +67,13 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	defer func() { err = cleanup(err) }()
 	if s.table, err = gorp.OpenTable(ctx, gorp.TableConfig[string, Pair]{
 		DB:              cfg.DB,
+		Migrations:      versions.Migrations,
 		Instrumentation: cfg.Instrumentation,
 	}); !ok(err, s.table) {
 		return nil, err
 	}
 	if cfg.Signals != nil {
-		signalsCfg := signals.GorpPublisherConfigString[Pair](s.table.Observe())
+		signalsCfg := signals.GorpPublisherConfigString(s.table.Observe())
 		signalsCfg.SetName = "sy_range_kv_set"
 		signalsCfg.DeleteName = "sy_range_kv_delete"
 		var sig io.Closer

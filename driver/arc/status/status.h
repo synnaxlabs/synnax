@@ -9,14 +9,14 @@
 
 #pragma once
 
-#include <functional>
 #include <memory>
 #include <string>
 #include <utility>
+#include <variant>
 
+#include "client/cpp/status/status.h"
 #include "client/cpp/synnax.h"
 #include "x/cpp/errors/errors.h"
-#include "x/cpp/status/status.h"
 #include "x/cpp/telem/telem.h"
 
 #include "arc/cpp/runtime/node/node.h"
@@ -24,14 +24,9 @@
 #include "arc/cpp/stl/stl.h"
 #include "arc/cpp/stl/strings/state.h"
 #include "arc/cpp/types/types.h"
+#include "driver/arc/reporter.h"
 
 namespace driver::arc::status {
-
-/// @brief Reporter surfaces an stdlib-originated failure as a task-level status.
-/// Mirrors the Go-side taskreporter.Reporter so set failures land as visible
-/// task statuses (warnings) rather than silent log lines.
-using Reporter = std::function<
-    void(const std::string &variant, const std::string &message)>;
 
 // Reporter message templates. Keep in sync with
 // core/pkg/service/arc/status/status.go.
@@ -58,53 +53,60 @@ inline std::string dispatch_set(
     if (err) {
         LOG(ERROR) << "status.set failed: key_or_name=" << key_or_name
                    << " error=" << err.data;
-        report(x::status::VARIANT_WARNING, set_failure_msg(err.data));
+        report(set_failure_msg(err.data));
         return "";
     }
-    if (res.multiple_matches)
-        report(x::status::VARIANT_WARNING, set_multi_match_msg(key_or_name, res.key));
+    if (res.multiple_matches) report(set_multi_match_msg(key_or_name, res.key));
     return res.key;
 }
 
+/// @brief validates that the named param holds a string value.
+inline x::errors::Error
+validate_string(const ::arc::types::Params &params, const std::string &name) {
+    const auto &p = params[name];
+    // A var-bound param takes its value from the variable at fire time, so the
+    // declared initial carries no contract.
+    if (p.type.kind == ::arc::types::Kind::VarRef) return x::errors::NIL;
+    const auto sv = ::arc::types::to_sample_value(p.value, p.type);
+    if (sv.has_value() && std::holds_alternative<std::string>(*sv))
+        return x::errors::NIL;
+    return x::errors::Error(
+        x::errors::VALIDATION,
+        "status.set inputs: " + name + " must be a string"
+    );
+}
+
 /// @brief Flow node for `status.set`. Calls dispatch_set on every trigger and
-/// emits the resolved key on Output(0).
+/// emits the resolved key on Output(0). Inputs are read at fire time so
+/// var-bound params track the referenced variable's latest value.
 class SetStatus : public ::arc::runtime::node::Node {
     ::arc::runtime::state::Node state;
     std::shared_ptr<synnax::Synnax> client;
     Reporter report;
-    std::string key_or_name;
-    std::string message;
-    std::string variant;
 
 public:
     SetStatus(
         ::arc::runtime::state::Node &&state,
         std::shared_ptr<synnax::Synnax> client,
-        Reporter report,
-        std::string key_or_name,
-        std::string message,
-        std::string variant
+        Reporter report
     ):
-        state(std::move(state)),
-        client(std::move(client)),
-        report(std::move(report)),
-        key_or_name(std::move(key_or_name)),
-        message(std::move(message)),
-        variant(std::move(variant)) {}
+        state(std::move(state)), client(std::move(client)), report(std::move(report)) {}
 
     x::errors::Error next(::arc::runtime::node::Context &ctx) override {
         const std::string resolved_key = dispatch_set(
             this->client,
             this->report,
-            this->key_or_name,
-            this->message,
-            this->variant
+            this->state.string_input("key_or_name"),
+            this->state.string_input("message"),
+            this->state.string_input("variant")
         );
         *this->state.output(0) = x::telem::Series(resolved_key);
         *this->state.output_time(0) = x::telem::Series(x::telem::TimeStamp::now());
         ctx.mark_changed(0);
         return x::errors::NIL;
     }
+
+    void reset() override { this->state.reset(); }
 
     [[nodiscard]] bool is_output_truthy(size_t output_idx) const override {
         return this->state.is_output_truthy(output_idx);
@@ -158,21 +160,14 @@ public:
     std::pair<std::unique_ptr<::arc::runtime::node::Node>, x::errors::Error>
     create(::arc::runtime::node::Config &&cfg) override {
         if (!this->handles(cfg.node.type)) return {nullptr, x::errors::NOT_FOUND};
-        const auto get_str = [&](const std::string &key) -> std::string {
-            const auto &p = cfg.node.config[key];
-            auto sv = ::arc::types::to_sample_value(p.value, p.type);
-            if (!sv.has_value()) return "";
-            const auto *s = std::get_if<std::string>(&*sv);
-            return s != nullptr ? *s : "";
-        };
+        for (const auto *name: {"key_or_name", "message", "variant"})
+            if (const auto err = validate_string(cfg.node.inputs, name); err)
+                return {nullptr, err};
         return {
             std::make_unique<SetStatus>(
                 std::move(cfg.state),
                 this->client,
-                this->report,
-                get_str("key_or_name"),
-                get_str("message"),
-                get_str("variant")
+                this->report
             ),
             x::errors::NIL
         };

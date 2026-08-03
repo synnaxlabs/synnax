@@ -1,3 +1,12 @@
+# Copyright 2026 Synnax Labs, Inc.
+#
+# Use of this software is governed by the Business Source License included in the file
+# licenses/BSL.txt.
+#
+# As of the Change Date specified in that file, in accordance with the Business Source
+# License, use of this software will be governed by the Apache License, Version 2.0,
+# included in the file licenses/APL.txt.
+
 load("@rules_cc//cc:defs.bzl", "cc_library", "cc_test")
 
 cc_library(
@@ -13,13 +22,13 @@ cc_library(
     deps = [
         "//client/cpp/errors",
         "//client/cpp/ontology",
+        "//client/cpp/status",
         "//core/pkg/service/task:task_grpc",
         "//core/pkg/transport/grpc:api_grpc",
         "//freighter/cpp:freighter",
         "//x/cpp/errors",
         "//x/cpp/json",
         "//x/cpp/pb",
-        "//x/cpp/status",
         "@nlohmann_json//:json",
     ],
 )

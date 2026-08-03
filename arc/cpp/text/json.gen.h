@@ -12,21 +12,39 @@
 #pragma once
 
 #include <string>
+#include <vector>
 
+#include "x/cpp/crdt/json.gen.h"
 #include "x/cpp/json/json.h"
 
 #include "arc/cpp/text/types.gen.h"
 
 namespace arc::text {
 
+inline Document Document::parse(x::json::Parser parser) {
+    return Document{
+        .inserts = parser.field<std::vector<::x::crdt::Insert>>("inserts"),
+        .deletes = parser.field<std::vector<::x::crdt::Delete>>("deletes"),
+    };
+}
+
+inline x::json::json Document::to_json() const {
+    x::json::json j;
+    j["inserts"] = x::json::to_array(this->inserts);
+    j["deletes"] = x::json::to_array(this->deletes);
+    return j;
+}
+
 inline Text Text::parse(x::json::Parser parser) {
     return Text{
-        .raw = parser.field<std::string>("raw"),
+        .doc = parser.field<Document>("doc"),
+        .raw = parser.field<std::string>("raw", ""),
     };
 }
 
 inline x::json::json Text::to_json() const {
     x::json::json j;
+    j["doc"] = this->doc.to_json();
     j["raw"] = this->raw;
     return j;
 }

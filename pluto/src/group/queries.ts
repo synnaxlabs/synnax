@@ -56,7 +56,7 @@ export const retrieveSingle = async ({
   return group.groupZ.parse(res.data);
 };
 
-export interface CreateParams extends group.CreateArgs {}
+export interface CreateParams extends group.CreateParams {}
 
 export const { useUpdate: useCreate } = Flux.createUpdate<CreateParams, FluxSubStore>({
   name: RESOURCE_NAME,
@@ -157,10 +157,11 @@ export interface RenameParams extends Pick<group.Group, "key" | "name"> {}
 export const { useUpdate: useRename } = Flux.createUpdate<RenameParams, FluxSubStore>({
   name: RESOURCE_NAME,
   verbs: Flux.RENAME_VERBS,
-  update: async ({ client, data, store, rollbacks }) => {
+  update: async ({ client, data, store, rollbacks, onOptimisticComplete }) => {
     const { key, name } = data;
     rollbacks.push(Flux.partialUpdate(store.groups, key, { name }));
     rollbacks.push(Ontology.renameFluxResource(store, group.ontologyID(key), name));
+    await onOptimisticComplete(data);
     await client.groups.rename(key, name);
     return data;
   },

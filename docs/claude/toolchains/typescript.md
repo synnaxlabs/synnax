@@ -1,393 +1,182 @@
 # TypeScript Development
 
-## TypeScript/JavaScript Packages
-
-The monorepo uses **pnpm workspaces** with **catalog dependencies** for centralized
-version management:
-
-- **Alamos** (`/alamos/ts/`) - Distributed instrumentation and observability with
-  OpenTelemetry integration
-- **Client** (`/client/ts/`) - TypeScript client library for Synnax server API
-- **Console** (`/console/`) - Main Tauri desktop application
-- **Drift** (`/drift/`) - Redux state synchronization for multi-window Tauri apps
-- **Freighter** (`/freighter/ts/`) - Protocol-agnostic transport layer (HTTP, WebSocket,
-  gRPC)
-- **Media** (`/x/media/`) - Media utilities and helpers
-- **Pluto** (`/pluto/`) - High-performance React visualization component library
-- **X** (`/x/ts/`) - Shared TypeScript utilities and helpers
-
-All packages use:
-
-- **Vite** for bundling with dual CJS/ESM output
-- **TypeScript 5.9+** with strict mode
-- **Vitest** for testing
-- **ESLint 9** with flat config format
-- **Turbo** for build orchestration and caching
-
-## Build Commands
-
-- `pnpm build` - Build all packages using Turbo
-- `pnpm build:alamos` - Build Alamos instrumentation library
-- `pnpm build:client` - Build only the client libraries
-- `pnpm build:console` - Build only the Console application
-- `pnpm build:drift` - Build Drift state synchronization library
-- `pnpm build:freighter` - Build Freighter transport layer
-- `pnpm build:media` - Build Media utilities
-- `pnpm build:pluto` - Build only the Pluto component library
-- `pnpm build:x` - Build X utility library
-- `pnpm check-types` - Type check all TypeScript packages
-- `pnpm check-types:console` - Type check only Console
-
-## Development & Testing
-
-- `pnpm dev:console` - Start Console in development mode (Tauri)
-- `pnpm dev:console-vite` - Start Console Vite dev server only
-- `pnpm dev:pluto` - Start Pluto development server
-- `pnpm test` - Run all tests across packages
-- `pnpm test:console` - Run Console tests
-- `pnpm test:pluto` - Run Pluto tests
-- `pnpm watch` - Watch mode for all packages
-
-### Console Dev Login
-
-When running the Console in dev mode, connect to a local Synnax server with:
-
-- **Host**: `localhost`
-- **Port**: `9090`
-- **Username**: `synnax`
-- **Password**: `seldon`
-
-Note: The login form shows placeholder text but does NOT pre-fill values. You must
-actually type the username and password into the fields before clicking Log In.
-
-## Code Quality
-
-- `pnpm lint` - Lint all packages with ESLint
-- `pnpm fix` - Auto-fix linting issues across packages
-- `pnpm lint:console` - Lint only Console package
-- `pnpm fix:console` - Fix linting issues in Console
-
-## Code Style
-
-- **Formatter**: Prettier (configured in `.prettierrc`)
-  - 88 character line length
-  - Configured plugins for XML, Astro, shell scripts, TOML
-- **Linter**: ESLint 9 with flat config (`eslint.config.ts`)
-  - React plugin with strict JSX rules
-  - TypeScript ESLint with type-checked rules
-  - Simple import sort plugin for automatic import ordering
-  - Consistent type imports: `import { type Foo } from "bar"`
-- **Import style**: Prefer absolute imports over relative (`@/components` not
-  `../../../components`)
-- **React patterns**: Function components, hooks, no prop-types (use TypeScript)
-- **Exports**: Dual CJS/ESM via Vite build
-
-### Key ESLint Rules
-
-- `@typescript-eslint/consistent-type-imports` - Inline type imports
-- `simple-import-sort/imports` - Automatic import sorting
-- `simple-import-sort/exports` - Automatic export sorting
-- `react/react-in-jsx-scope` - Off (not needed in React 17+)
-- `react/jsx-curly-brace-presence` - Never use braces for strings
-- `react/jsx-filename-extension` - Only `.jsx` and `.tsx` files
-- `react/jsx-boolean-value` - Enforce consistent boolean attribute style
-- `react/jsx-no-constructed-context-values` - Prevent re-renders
-- `@typescript-eslint/no-floating-promises` - Require await/void for promises
-- `@typescript-eslint/no-unused-vars` - Allow underscore-prefixed vars
-
-## Testing with Vitest
-
-### Structure
-
-- Test files use `*.spec.ts` extension
-- Tests co-located with source code
-- BDD-style with `describe`/`it` blocks
-
-### Example
-
-```typescript
-import { describe, it, expect, vi, beforeEach } from "vitest";
-
-describe("Feature Name", () => {
-  describe("Sub-feature", () => {
-    beforeEach(() => {
-      // Setup
-    });
-
-    it("should do something specific", () => {
-      expect(result).toEqual(expected);
-    });
-  });
-});
-```
-
-### Key Features
-
-- **Mocking:** Uses `vi.fn()` for function mocks
-- **Assertions:** Standard expect API (`toEqual`, `toBe`, `toHaveBeenCalledTimes`)
-- **Setup/Teardown:** `beforeEach`, `beforeAll`, `afterAll`
-- **Async testing:** Native async/await support
-- **React Testing:** Uses `@testing-library/react` for component tests
-- **Hooks testing:** `@testing-library/react` for custom hooks
-
-## Package Structure
-
-Each package follows this structure:
-
-```
-package-name/
-├── src/
-│   ├── index.ts              # Main entry point
-│   ├── feature/
-│   │   ├── feature.ts
-│   │   └── feature.spec.ts   # Tests co-located
-│   └── ...
-├── dist/                     # Vite build output
-│   ├── index.js              # ESM
-│   ├── index.cjs             # CommonJS
-│   └── src/                  # Type declarations
-├── package.json
-├── tsconfig.json
-├── tsconfig.vite.json
-├── vite.config.ts
-├── eslint.config.ts
-└── README.md
-```
-
-### package.json Pattern
-
-```json
-{
-  "name": "@synnaxlabs/package-name",
-  "type": "module",
-  "exports": {
-    ".": {
-      "types": "./dist/src/index.d.ts",
-      "import": "./dist/index.js",
-      "require": "./dist/index.cjs"
-    }
-  },
-  "scripts": {
-    "build": "tsc --noEmit && vite build",
-    "check-types": "tsc --noEmit",
-    "test": "vitest",
-    "lint": "eslint",
-    "fix": "eslint --fix",
-    "madge": "madge --circular src"
-  }
-}
-```
-
-## Circular Dependency Detection
-
-Use `madge` to detect circular dependencies:
-
-```bash
-pnpm madge         # Check all packages
-pnpm madge:console # Check only Console
-```
-
-## Error Handling
-
-The codebase has a typed-error system in `x/ts/src/errors/errors.ts` that supports
-network-portable encoding (the registry carries `name` and `stack` opaquely across the
-worker / Tauri / WebSocket boundary). `freighter/ts/src/errors.ts` and
-`client/ts/src/errors.ts` are the canonical examples — domain errors are built with
-`errors.createTyped("namespace")` and `.sub("subtype")`, then registered with
-`errors.register({ encode, decode })`.
-
-The rules below mirror the Go discipline in `docs/claude/toolchains/go.md` adapted for
-TypeScript's looser type system.
-
-### Rule 1: Preserve the cause when re-throwing
-
-When a caught error is wrapped, augmented, or replaced with a different error, the
-original **must** be attached as `Error.cause` (ES2022). This keeps the underlying stack
-trace and message printable via V8's automatic `[cause]:` chain rendering, which is the
-single biggest tool for debugging distributed failures (worker boundaries, Tauri IPC,
-async middleware).
-
-This applies both to wrapping a real `Error` and to constructing a synthetic `Error`
-from a non-`Error` rejection (e.g. `new Error(String(err))`).
-
-**Correct:**
-
-```ts
-try {
-  await client.send(...);
-} catch (err) {
-  throw new Error(`failed to authenticate ${username}`, { cause: err });
-}
-
-return err instanceof Error ? err : new Error(String(err), { cause: err });
-```
-
-**Incorrect — never do this:**
-
-```ts
-try {
-  await client.send(...);
-} catch (err) {
-  throw new Error("authentication failed"); // ❌ loses err
-}
-
-return err instanceof Error ? err : new Error(String(err)); // ❌ drops original
-```
-
-**Pass-through re-throws are fine.** When the catch block does not add information (a
-filter that re-throws everything that isn't `EOF`; a cleanup that re-throws after
-closing a stream; an instrumentation middleware that records the error and propagates
-it), keep `throw err` as-is. Wrapping a pass-through only adds noise.
-
-```ts
-try {
-  return await op();
-} catch (err: unknown) {
-  if (EOF.matches(err)) return DONE;
-  throw errors.fromUnknown(err); // pass-through — no new context to add, make it Error
-}
-```
-
-### Rule 2: Prefer typed errors for matchable conditions
-
-When callers (including tests) may want to branch on an error's identity —
-`if (NotFoundError.matches(err))` — define a typed error class via
-`errors.createTyped()` or `.sub()` from `x/ts/errors`, register it with
-`errors.register({ encode, decode })`, and throw an instance. Do not throw
-`new Error("not found")` and expect callers to substring-match the message.
-
-A typed error survives Tauri IPC, Worker `postMessage`, WebSocket round-trips, and HTTP
-freighter calls with its type intact, because the registry has an encoder/decoder for
-it. A generic `Error` becomes `errors.Unknown` on the other side.
-
-**Correct:**
-
-```ts
-// x/ts errors infrastructure
-export class TabNotFoundError extends TreeError.sub("tab_not_found") {}
-
-if (tab == null) throw new TabNotFoundError(`tab ${key} not found in mosaic`);
-
-// caller
-if (TabNotFoundError.matches(err)) return null;
-```
-
-**Incorrect — caller has to substring-match a magic string:**
-
-```ts
-if (tab == null) throw new Error("tab not found");           // ❌
-if (err instanceof Error && err.message.includes("tab")) ... // ❌
-```
-
-Generic `throw new Error("...")` is acceptable for one-off invariants that nothing
-matches on (assertions, internal sanity checks). When in doubt, the threshold is: "is
-any caller, now or plausibly soon, going to want to detect this specific failure?" If
-yes, type it.
-
-### Rule 3: Never silently drop `.catch()` errors
-
-A `.catch()` that returns `undefined`, swallows the rejection, or routes to a callback
-that does nothing is a debugging black hole — every flaky failure becomes invisible.
-Every `.catch()` must do at least one of:
-
-- **Propagate** (re-throw, reject, or hand to an error callback).
-- **Log** — `console.error(err)` or `console.error("short description", err)`. Add a
-  label only when the stack trace V8 prints with the error would not, on its own, name
-  the failing operation — e.g. a single function with multiple distinct `.catch()`
-  sites, or a wrapping function where the inner call's identity is the interesting bit.
-  Generic utilities (a hook like `useAsyncEffect`) can use bare `.catch(console.error)`;
-  the stack already names them. When you do label, keep it to the operation that failed
-  (`"failed to write state"`) — do **not** prefix with the package or module name (no
-  `"drift:"`, `"persist:"`, `"useAsyncEffect:"`), since that information is already in
-  the stack frames.
-- **Document why ignoring is correct** — a one-line comment explaining the invariant
-  that makes the failure safe to drop.
-
-**Correct:**
-
-```ts
-engine.persist(state).catch((err: unknown) => {
-  console.error("failed to write state", err);
-});
-
-featuresPromise.then(setFeatures).catch((err: unknown) => {
-  console.error("failed to resolve language features service", err);
-});
-```
-
-**Incorrect — never do this:**
-
-```ts
-featuresPromise.then(setFeatures).catch(() => {}); // ❌ silently dropped
-```
-
-### Rule 4: Document error contracts on public APIs
-
-For exported functions, methods, and React hooks that can throw or reject, name the
-errors they raise in the JSDoc. The reader should be able to learn what to handle
-without reading the implementation.
+## Packages
+
+pnpm workspaces with catalog dependencies: `/alamos/ts/` (instrumentation),
+`/client/ts/` (Synnax client), `/console/` (Tauri app), `/drift/` (multi-window Redux
+sync), `/freighter/ts/` (transport), `/x/media/`, `/pluto/` (viz components), `/x/ts/`
+(shared utilities). All use Vite (ESM-only output), TypeScript strict, Vitest, ESLint
+flat config, Turbo for orchestration.
+
+## Commands
+
+- `pnpm build` / `pnpm build:<pkg>` (console, pluto, client, x, drift, freighter,
+  alamos, media)
+- `pnpm check-types` / `pnpm check-types:console`
+- `pnpm dev:console` (Tauri) / `pnpm dev:console-vite` (Vite only, faster, no Tauri
+  APIs) / `pnpm dev:pluto`
+- `pnpm test` / `pnpm test:<pkg>`
+- `pnpm lint` / `pnpm fix` (also per-pkg variants)
+- `pnpm madge` / `pnpm madge:console` — circular dependency check
+
+### Console dev login
+
+Local server: host `localhost`, port `9090`, user `synnax`, password `seldon`. The login
+form shows placeholders but does NOT pre-fill — actually type the values.
+
+## Style
+
+- Prettier, 88-char lines. ESLint flat config.
+- Function components + hooks; TypeScript instead of prop-types.
+- Absolute imports: `@/components`, never `../../../components`.
+- Inline type imports: `import { type Foo } from "bar"`; simple-import-sort for
+  import/export ordering.
+- JSX: no braces for string props, consistent boolean attributes, no constructed context
+  values.
+- `no-floating-promises`: await or `void` every promise. Unused vars must be
+  underscore-prefixed.
+
+## Namespaces & Imports
+
+Modules form namespaces via barrels; consumers use member access.
+
+### Rule 1: Namespaces are formed with `export * as`
+
+A module's `index.ts` re-exports its public surface:
+`export * as Channel from "@/channel/external"`. Never import-side
+`import * as X from "..."` — the barrel is the only namespace mechanism. (Exception: a
+dependency subpath that ships only named exports but is conceptually one namespace, e.g.
+`import * as Drift from "@synnaxlabs/drift/react"`.)
+
+### Rule 2: Cross-module imports go through the namespace
+
+`import { Range } from "@/range"` then `Range.FavoriteButton` — never
+`import { FavoriteButton } from "@/range/FavoriteButton"` from another module.
+Same-module sibling files import named members directly and use them unqualified (the
+barrel would be circular). Spec files follow the same rule — tests are not exempt.
+
+### Rule 3: Package subpaths mirror `src/` layout
+
+Where a package exposes subpath entries (`@synnaxlabs/pluto/testutil`), exports-map keys
+and vite `lib.entry` keys use real slash paths
+(`"telem/aether": "src/telem/aether/index.ts"`) so `dist/` mirrors the subpath.
+
+### Rule 4: Alias only to resolve a name collision
+
+`import { X as Y }` is banned except when the bare name `X` is already bound in the
+file. Never alias to shorten a name, dodge the namespace-carries-context rule, or by
+preference — an alias exists to name a real collision, nothing else. When a collision
+forces one, which side gets the bare name and which gets aliased follows the file's own
+subject:
+
+- **Wrapping the same name**: a file whose own primary export shares the exact name of
+  the lower-layer/pluto component it wraps aliases that import to `Base` (`Tree as Base`
+  in a Tree wrapper, `Toolbar as Base` in a Toolbar wrapper, `Schematic as Base` in a
+  Schematic tree adapter). `Base.<Member>` reads as "the underlying implementation."
+- **Secondary collision**: when the colliding import isn't the file's own primary
+  subject (a type built on top of it, a companion `Props` type, an unrelated same-named
+  import), alias it to `Base` + the identifier (`Store as BaseStore`,
+  `ChannelListProps as BaseProps`, `Diagram as BaseDiagram`).
+- **Cross-package/layer collision**: when a local or feature-layer identifier collides
+  with an imported one, alias the import to the identifier prefixed (or, for lowercase
+  namespaces, suffixed) with a short tag for its origin, matching the identifier's own
+  casing: `P` for `@synnaxlabs/pluto` (`Form as PForm`, `Menu as PMenu`, `CSS as PCSS`),
+  `Platform` for console's `platform/` layer (`Device as PlatformDevice`,
+  `Nav as PlatformNav`), `Client`/`client` for `@synnaxlabs/client` (`Synnax as Client`,
+  `table as clientTable`), `X` for `@synnaxlabs/x` (`TimeSpan as XTimeSpan`), and the
+  short name of any other third-party package (`Position as RFPosition` for
+  `@xyflow/react`). The file's own identifier keeps the bare name; only the import is
+  aliased.
+
+## Comments
+
+The universal body-comment and doc-comment rules in the root CLAUDE.md apply. TypeScript
+form: JSDoc `/** */` directly above the declaration. Tags: `@param name - Description.`,
+`@returns`, `@throws {ErrType} if ...` (see Error Handling Rule 4), `{@link Symbol}` for
+cross-references. Never put types in JSDoc; the signature carries them.
 
 ```ts
 /**
- * Authenticates against the cluster and returns the active user.
- *
- * @throws {AuthError} if the credentials are rejected.
- * @throws {Unreachable} if the cluster cannot be reached.
+ * Parses the value into a TimeStamp.
+ * @param value - The timestamp value to parse.
+ * @returns The parsed TimeStamp.
+ * @throws {ValidationError} if the value cannot be parsed.
  */
-async retrieveUser(): Promise<user.User> { ... }
 ```
 
-This is most valuable for the freighter / client / Aether public surfaces. Internal
-helpers don't need it.
+## Testing (Vitest — never Jest)
 
-### Rule 5: Always check types via the pnpm scripts
+`*.spec.ts` co-located with source. `describe`/`it` blocks, `vi.fn()` mocks,
+`@testing-library/react` for components and hooks, native async/await support. Avoid
+testing implementation details.
 
-After error-handling changes — especially ones that touch `try` / `catch` shapes — run
-`pnpm check-types` and `pnpm lint`. Do not run `npx tsc` directly; it may not pick up
-the right `tsconfig`. The error-encoding registry will silently round-trip an
-incorrectly-typed error as `errors.Unknown`, so type errors here can be invisible at
-runtime.
+## Error Handling
 
-## Common Gotchas
+Typed-error system lives in `x/ts/src/errors/errors.ts`; canonical usage in
+`freighter/ts/src/errors.ts` and `client/ts/src/errors.ts`. Domain errors are built with
+`errors.createTyped("namespace")` / `.sub("subtype")` and registered with
+`errors.register({ encode, decode })` so they survive worker / Tauri IPC / WebSocket
+boundaries.
 
-- **Console**: Has both Tauri (`dev:console`) and Vite-only (`dev:console-vite`)
-  development modes
-- **pnpm catalog**: Shared dependency versions in `pnpm-workspace.yaml`; use `catalog:`
-  prefix in package.json
-- **Turbo**: Build cache can cause issues; clear with `npx turbo clean`
-- **Absolute imports**: TypeScript paths configured in tsconfig.json, ensure bundler
-  respects them
-- **Vitest**: Always import from "vitest", not Jest
-- **React 19**: Using latest React 19.1.1 - check for breaking changes from React 18
+### Rule 1: Preserve the cause when re-throwing
 
-## Visual Verification with Playwright
+Any wrapped, augmented, or replaced error must carry the original as `Error.cause` —
+including synthetic errors built from non-Error rejections:
 
-After making console UI changes, verify them visually using the Playwright MCP tools
-against the Vite dev server at `localhost:5173`.
+```ts
+throw new Error(`failed to authenticate ${username}`, { cause: err });
+return err instanceof Error ? err : new Error(String(err), { cause: err });
+```
 
-### Workflow
+Pass-through re-throws that add no context stay `throw err` — wrapping them only adds
+noise.
 
-1. Ensure `pnpm dev:console-vite` is running (or ask the user)
-2. Use `browser_navigate` to go to `http://localhost:5173`
-3. Navigate to the relevant page, modal, or component
-4. Use `browser_snapshot` to inspect the rendered UI and verify changes
-5. Use the command palette (`Cmd+Shift+P`) to open specific modals or views
+### Rule 2: Typed errors for matchable conditions
 
-### Tips
+If any caller (now or plausibly soon) will branch on an error's identity, define a typed
+error (`TreeError.sub("tab_not_found")`), register it, throw it, and match with
+`TabNotFoundError.matches(err)`. Never throw `new Error("not found")` and expect
+substring matching — a generic `Error` decodes as `errors.Unknown` on the other side of
+any boundary. Bare `new Error("...")` is fine only for one-off invariants nothing
+matches on.
 
-- Take a fresh `browser_snapshot` before each interaction — refs go stale after
-  navigation
-- The command palette is useful for reaching specific forms (e.g.,
-  `> Connect an HTTP server`)
-- Check both the visual layout and the default values/state of form fields
+### Rule 3: Never silently drop `.catch()` errors
 
-## Development Best Practices
+Every `.catch()` must propagate, log, or document why ignoring is correct. Logging:
+`console.error(err)`; add a short label only when the stack wouldn't name the failing
+operation (`"failed to write state"`) — never a module/package prefix (no `"drift:"`).
+Generic utilities can use bare `.catch(console.error)`. `.catch(() => {})` is a
+debugging black hole.
 
-- **Always prefer absolute imports** over relative imports in TypeScript projects
-- **Vitest for testing** - always use Vitest APIs, not Jest
-- **Dependency injection & composition** - prefer composition over singletons and
-  inheritance
-- **Type everything** - use TypeScript strict mode, avoid `any`
-- **Test co-location** - keep tests next to source files for better discoverability
-- **Visual verification** - use Playwright MCP to verify console UI changes at
-  `localhost:5173`
+### Rule 4: Document error contracts on public APIs
+
+`@throws {AuthError} if ...` JSDoc on exported functions, methods, and hooks that can
+throw/reject — most valuable on freighter/client/Aether surfaces; internal helpers
+exempt.
+
+### Rule 5: Type-check via pnpm scripts only
+
+After error-handling changes run `pnpm check-types` and `pnpm lint`. Never raw `npx tsc`
+(wrong tsconfig). Mistyped errors silently round-trip as `errors.Unknown`, so type
+errors here are invisible at runtime.
+
+## Package Layout
+
+`src/index.ts` entry, tests co-located, `dist/` output (ESM `index.js`, types at
+`dist/src/index.d.ts`). Standard scripts: `build` = `tsc --noEmit && vite build`, plus
+`check-types`, `test`, `lint`, `fix`, `madge`.
+
+## Gotchas
+
+- pnpm catalog: shared versions in `pnpm-workspace.yaml`; use `catalog:` prefix in
+  package.json.
+- Turbo build cache issues: `npx turbo clean`.
+- React 19 (19.1.1) — check for React 18 breaking changes.
+
+## Visual Verification (Playwright MCP)
+
+After console UI changes, verify against the Vite dev server at `localhost:5173` (ensure
+`pnpm dev:console-vite` is running or ask): `browser_navigate` → navigate to the
+page/modal → `browser_snapshot` to inspect layout and form defaults. The command palette
+(`Cmd+Shift+P`) reaches specific modals (e.g. `> Connect an HTTP server`). Take a fresh
+snapshot before each interaction — refs go stale after navigation.

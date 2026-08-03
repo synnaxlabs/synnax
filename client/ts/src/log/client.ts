@@ -8,34 +8,31 @@
 // included in the file licenses/APL.txt.
 
 import { type UnaryClient } from "@synnaxlabs/freighter";
-import { array, caseconv, record } from "@synnaxlabs/x";
+import { array } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { type Key, keyZ, type Log, logZ, type New, newZ } from "@/log/types.gen";
+import { type Action, dispatchReqZ, rename as renameAction } from "@/log/actions.gen";
+import { type Key, keyZ, type Log, logZ, type New } from "@/log/types.gen";
+import { project } from "@/project";
 import { checkForMultipleOrNoResults } from "@/util/retrieve";
-import { workspace } from "@/workspace";
 
-const renameReqZ = z.object({ key: keyZ, name: z.string() });
+export const SET_CHANNEL_NAME = "sy_log_set";
 
-const setDataReqZ = z.object({
-  key: keyZ,
-  data: caseconv.preserveCase(record.unknownZ()),
-});
 const deleteReqZ = z.object({ keys: keyZ.array() });
 
 const retrieveReqZ = z.object({ keys: keyZ.array() });
-const singleRetrieveArgsZ = z
+const singleRetrieveParamsZ = z
   .object({ key: keyZ })
   .transform(({ key }) => ({ keys: [key] }));
 
-export const retrieveArgsZ = z.union([singleRetrieveArgsZ, retrieveReqZ]);
-export type RetrieveArgs = z.input<typeof retrieveArgsZ>;
-export type RetrieveSingleParams = z.input<typeof singleRetrieveArgsZ>;
+export const retrieveParamsZ = z.union([singleRetrieveParamsZ, retrieveReqZ]);
+export type RetrieveParams = z.input<typeof retrieveParamsZ>;
+export type RetrieveSingleParams = z.input<typeof singleRetrieveParamsZ>;
 export type RetrieveMultipleParams = z.input<typeof retrieveReqZ>;
 
-const retrieveResZ = z.object({ logs: array.nullishToEmpty(logZ) });
+const retrieveResZ = z.object({ logs: logZ.array().default(() => []) });
 
-const createReqZ = z.object({ workspace: workspace.keyZ, logs: newZ.array() });
+const createReqZ = z.object({ project: project.keyZ, logs: logZ.array() });
 const createResZ = z.object({ logs: logZ.array() });
 
 const emptyResZ = z.object({});
@@ -47,13 +44,13 @@ export class Client {
     this.client = client;
   }
 
-  async create(workspace: workspace.Key, log: New): Promise<Log>;
-  async create(workspace: workspace.Key, logs: New[]): Promise<Log[]>;
-  async create(workspace: workspace.Key, logs: New | New[]): Promise<Log | Log[]> {
+  async create(project: project.Key, log: New): Promise<Log>;
+  async create(project: project.Key, logs: New[]): Promise<Log[]>;
+  async create(project: project.Key, logs: New | New[]): Promise<Log | Log[]> {
     const isMany = Array.isArray(logs);
     const res = await this.client.send(
       "/log/create",
-      { workspace, logs: array.toArray(logs) },
+      { project, logs: array.toArray(logs) },
       createReqZ,
       createResZ,
     );
@@ -61,26 +58,31 @@ export class Client {
   }
 
   async rename(key: Key, name: string): Promise<void> {
-    await this.client.send("/log/rename", { key, name }, renameReqZ, emptyResZ);
+    await this.dispatch(key, "", [renameAction({ name })]);
   }
 
-  async setData(key: Key, data: record.Unknown): Promise<void> {
-    await this.client.send("/log/set-data", { key, data }, setDataReqZ, emptyResZ);
+  async dispatch(key: Key, dispatchKey: string, actions: Action[]): Promise<void> {
+    await this.client.send(
+      "/log/dispatch",
+      { key, dispatchKey, actions },
+      dispatchReqZ,
+      emptyResZ,
+    );
   }
 
-  async retrieve(args: RetrieveSingleParams): Promise<Log>;
-  async retrieve(args: RetrieveMultipleParams): Promise<Log[]>;
+  async retrieve(params: RetrieveSingleParams): Promise<Log>;
+  async retrieve(params: RetrieveMultipleParams): Promise<Log[]>;
   async retrieve(
-    args: RetrieveSingleParams | RetrieveMultipleParams,
+    params: RetrieveSingleParams | RetrieveMultipleParams,
   ): Promise<Log | Log[]> {
-    const isSingle = singleRetrieveArgsZ.safeParse(args).success;
+    const isSingle = singleRetrieveParamsZ.safeParse(params).success;
     const res = await this.client.send(
       "/log/retrieve",
-      args,
-      retrieveArgsZ,
+      params,
+      retrieveParamsZ,
       retrieveResZ,
     );
-    checkForMultipleOrNoResults("Log", args, res.logs, isSingle);
+    checkForMultipleOrNoResults("Log", params, res.logs, isSingle);
     return isSingle ? res.logs[0] : res.logs;
   }
 

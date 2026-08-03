@@ -652,7 +652,7 @@ describe("Triggers", () => {
     it("should still trigger undo/redo in input elements", async () => {
       const callback = vi.fn();
       const C = () => {
-        Triggers.use({ callback, triggers: [["Control", "Z"]] });
+        Triggers.use({ callback, triggers: [Triggers.UNDO] });
         return <input type="text" data-testid="input" />;
       };
       const { getByTestId } = render(
@@ -669,7 +669,7 @@ describe("Triggers", () => {
 
       expect(callback).toHaveBeenCalledWith({
         target: input,
-        triggers: [["Control", "Z"]],
+        triggers: [Triggers.UNDO],
         prevTriggers: [["Control"]],
         cursor: { x: 10, y: 10 },
         stage: "start",

@@ -18,12 +18,12 @@ import (
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
-	"github.com/synnaxlabs/synnax/pkg/service/arc"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/channel/calculation"
 	"github.com/synnaxlabs/synnax/pkg/service/channel/calculation/compiler"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation/calculator"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation/graph"
+	"github.com/synnaxlabs/synnax/pkg/service/framer/writer"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/config"
@@ -31,7 +31,6 @@ import (
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/override"
-	xstatus "github.com/synnaxlabs/x/status"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
 	"go.uber.org/zap"
@@ -46,43 +45,38 @@ type Status = calculation.Status
 
 // ServiceConfig is the configuration for opening the calculation service.
 type ServiceConfig struct {
-	// ChannelObservable is used to listen to real-time changes in calculated channels
-	// so the calculation routines can be updated accordingly.
-	// [REQUIRED]
-	ChannelObservable observe.Observable[gorp.TxReader[channel.Key, channel.Channel]]
-	DB                *gorp.DB
-	// Framer is the underlying frame service to stream cache channel values and write
-	// calculated samples.
+	// Framer is the underlying frame service used to stream cached channel values.
+	//
 	// [REQUIRED]
 	Framer *framer.Service
-	// Channel is used to retrieve information about the channels being calculated.
+	// Writer is the service-layer writer service used to open the writers that write
+	// calculated samples back to the cluster.
+	//
+	// [REQUIRED]
+	Writer *writer.Service
+	// Channel is used to retrieve information about the channels being calculated and
+	// to resolve channel symbols for Arc expression compilation.
 	//
 	// [REQUIRED]
 	Channel *channel.Service
-	// Arc is used for compiling arc programs used for executing calculations.
-	// [REQUIRED]
-	Arc *arc.Service
 	// Status is used for persisting calculation status updates.
+	//
 	// [REQUIRED]
 	Status *status.Service
+	// Instrumentation is used for logging, tracing, and metrics.
+	//
+	// [OPTIONAL] - Defaults to noop instrumentation.
 	alamos.Instrumentation
 }
 
-var (
-	_ config.Config[ServiceConfig] = ServiceConfig{}
-	// DefaultServiceConfig is the default configuration for opening the calculation
-	// service.
-	DefaultServiceConfig = ServiceConfig{}
-)
+var _ config.Config[ServiceConfig] = ServiceConfig{}
 
 // Validate implements config.Config.
 func (c ServiceConfig) Validate() error {
 	v := validate.New("calculate")
 	validate.NotNil(v, "framer", c.Framer)
+	validate.NotNil(v, "writer", c.Writer)
 	validate.NotNil(v, "channel", c.Channel)
-	validate.NotNil(v, "channel_observable", c.ChannelObservable)
-	validate.NotNil(v, "arc", c.Arc)
-	validate.NotNil(v, "db", c.DB)
 	validate.NotNil(v, "status", c.Status)
 	return v.Error()
 }
@@ -91,10 +85,8 @@ func (c ServiceConfig) Validate() error {
 func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
 	c.Framer = override.Nil(c.Framer, other.Framer)
+	c.Writer = override.Nil(c.Writer, other.Writer)
 	c.Channel = override.Nil(c.Channel, other.Channel)
-	c.ChannelObservable = override.Nil(c.ChannelObservable, other.ChannelObservable)
-	c.Arc = override.Nil(c.Arc, other.Arc)
-	c.DB = override.Nil(c.DB, other.DB)
 	c.Status = override.Nil(c.Status, other.Status)
 	return c
 }
@@ -111,17 +103,16 @@ type Service struct {
 	statusWriter status.Writer[types.Nil]
 }
 
-// OpenService opens the service with the provided configuration. The service must be closed
-// when it is no longer needed.
+// OpenService opens the service with the provided configuration. The service must be
+// closed when it is no longer needed.
 func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
-	cfg, err := config.New(DefaultServiceConfig, cfgs...)
+	cfg, err := config.New(ServiceConfig{}, cfgs...)
 	if err != nil {
 		return nil, err
 	}
 	g, err := graph.New(graph.Config{
 		Instrumentation: cfg.Child("calculation.graph"),
 		Channel:         cfg.Channel,
-		SymbolResolver:  cfg.Arc.NewSymbolResolver(nil),
 	})
 	if err != nil {
 		return nil, err
@@ -131,12 +122,16 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 		cfg:          cfg,
 		statusWriter: status.NewWriter[types.Nil](cfg.Status, nil),
 	}
-	s.disconnectFromChannelChanges = cfg.ChannelObservable.OnChange(s.handleChange)
+	s.disconnectFromChannelChanges = cfg.Channel.Observe().OnChange(s.handleChange)
 	s.mu.graph = g
 	s.mu.calculators = make(map[channel.Key]*calculator.Calculator)
 	s.mu.groups = make(map[int]*group)
 
-	if err := cfg.Channel.DeleteManyByNames(ctx, legacyStatusChannels, true); err != nil {
+	if err := cfg.Channel.NewWriter(nil).DeleteManyByNames(
+		ctx,
+		legacyStatusChannels,
+		true,
+	); err != nil {
 		cfg.L.Debug("failed to delete legacy status channels", zap.Error(err))
 	}
 
@@ -152,7 +147,11 @@ func (s *Service) setStatus(
 	for _, st := range statuses {
 		chKey, err := channel.ParseKey(st.Key)
 		if err != nil {
-			s.cfg.L.Error("failed to parse channel key from status", zap.Error(err), zap.String("key", st.Key))
+			s.cfg.L.Error(
+				"failed to parse channel key from status",
+				zap.Error(err),
+				zap.String("key", st.Key),
+			)
 			continue
 		}
 		s.cfg.L.Warn(st.String())
@@ -165,7 +164,11 @@ func (s *Service) setStatus(
 			Description: st.Description,
 			Time:        telem.Now(),
 		}); err != nil {
-			s.cfg.L.Error("failed to set status", zap.Error(err), zap.String("key", statusKey))
+			s.cfg.L.Error(
+				"failed to set status",
+				zap.Error(err),
+				zap.String("key", statusKey),
+			)
 		}
 	}
 }
@@ -188,10 +191,12 @@ func (s *Service) handleChange(
 		}
 		if err := s.updateCalculation(ctx, ch); err != nil {
 			s.setStatus(ctx, calculator.Status{
-				Key:         ch.Key().String(),
-				Name:        ch.Name,
-				Variant:     xstatus.VariantError,
-				Message:     fmt.Sprintf("failed to compile calculation for %s", ch.Name),
+				Key:     ch.Key().String(),
+				Name:    ch.Name,
+				Variant: status.VariantError,
+				Message: fmt.Sprintf(
+					"failed to compile calculation for %s", ch.Name,
+				),
 				Description: err.Error(),
 			})
 		}
@@ -216,16 +221,15 @@ func (s *Service) openOrGetCalculator(
 ) (*calculator.Calculator, error) {
 	calc, err := calculator.Open(ctx, calculator.Config{Module: mod})
 	if err != nil {
-		return nil, errors.Wrapf(err, "failed to open calculator for channel %s", mod.Channel)
+		return nil, errors.Wrapf(
+			err, "failed to open calculator for channel %s", mod.Channel,
+		)
 	}
 	s.mu.calculators[calc.Channel().Key()] = calc
 	return calc, err
 }
 
-func groupEquals(
-	mods []compiler.Module,
-	g *group,
-) bool {
+func groupEquals(mods []compiler.Module, g *group) bool {
 	if g == nil {
 		return false
 	}
@@ -240,7 +244,11 @@ func groupEquals(
 	return true
 }
 
-func (s *Service) updateGroup(ctx context.Context, key int, mods []compiler.Module) error {
+func (s *Service) updateGroup(
+	ctx context.Context,
+	key int,
+	mods []compiler.Module,
+) error {
 	g := s.mu.groups[key]
 	if groupEquals(mods, g) {
 		return nil
@@ -266,9 +274,10 @@ func (s *Service) updateGroup(ctx context.Context, key int, mods []compiler.Modu
 		ctx,
 		groupConfig{
 			Instrumentation: s.cfg.Child("group"),
-			Calculators:     calculators,
-			OnStatusChange:  s.setStatus,
-			Framer:          s.cfg.Framer,
+			calculators:     calculators,
+			onStatusChange:  s.setStatus,
+			framer:          s.cfg.Framer,
+			writer:          s.cfg.Writer,
 		},
 	)
 	if err != nil {
@@ -312,8 +321,8 @@ func (s *Service) rebuildGroups(ctx context.Context) error {
 // Close stops all calculations and closes the service. No other methods should be
 // called after Close.
 func (s *Service) Close() error {
-	// Disconnect from channel changes FIRST to prevent new change events
-	// This must be done outside the lock to avoid deadlock with handleChange
+	// Disconnect from channel changes FIRST to prevent new change events This must be
+	// done outside the lock to avoid deadlock with handleChange
 	s.disconnectFromChannelChanges()
 
 	s.mu.Lock()
@@ -330,7 +339,9 @@ func (s *Service) Close() error {
 // being calculated. If the channel is already being calculated, the number of active
 // requests will be increased. The caller must close the returned io.Closer when the
 // calculation is no longer needed, which will decrement the number of active requests.
-func (s *Service) updateRequests(ctx context.Context, added, removed []channel.Key) error {
+func (s *Service) updateRequests(
+	ctx context.Context, added, removed []channel.Key,
+) error {
 	var (
 		channels []channel.Channel
 		statuses []calculator.Status
@@ -362,7 +373,7 @@ func (s *Service) updateRequests(ctx context.Context, added, removed []channel.K
 			statuses = append(statuses, calculator.Status{
 				Key:         ch.Key().String(),
 				Name:        ch.Name,
-				Variant:     xstatus.VariantError,
+				Variant:     status.VariantError,
 				Message:     fmt.Sprintf("Failed to request calculation for %s", ch),
 				Description: err.Error(),
 			})
@@ -381,7 +392,9 @@ func (s *Service) updateRequests(ctx context.Context, added, removed []channel.K
 		s.cfg.L.Debug("calculation requests added", zap.Stringers("channels", added))
 	}
 	if len(removed) > 0 {
-		s.cfg.L.Debug("calculation requests removed", zap.Stringers("channels", removed))
+		s.cfg.L.Debug(
+			"calculation requests removed", zap.Stringers("channels", removed),
+		)
 	}
 	return nil
 }
@@ -397,8 +410,11 @@ type RequestManager struct {
 
 func (r *RequestManager) Set(ctx context.Context, keys channel.Keys) error {
 	added, removed := lo.Difference(keys, r.currKeys)
+	if err := r.svc.updateRequests(ctx, added, removed); err != nil {
+		return err
+	}
 	r.currKeys = keys
-	return r.svc.updateRequests(ctx, added, removed)
+	return nil
 }
 
 func (r *RequestManager) Close(ctx context.Context) error {

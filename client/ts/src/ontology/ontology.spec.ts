@@ -11,7 +11,7 @@ import { describe, expect, it, test } from "vitest";
 
 import { group } from "@/group";
 import { ontology } from "@/ontology";
-import { createTestClient } from "@/testutil/client";
+import { createTestClient } from "@/testutil";
 
 const client = createTestClient();
 
@@ -247,13 +247,13 @@ describe("Ontology", () => {
 
     describe("type matching", () => {
       it("should return true when types match", () => {
-        const match: ontology.MatchRelationshipArgs = { type: "parent" };
+        const match: ontology.MatchRelationshipParams = { type: "parent" };
         const result = ontology.matchRelationship(sampleRelationship, match);
         expect(result).toBe(true);
       });
 
       it("should return false when types don't match", () => {
-        const match: ontology.MatchRelationshipArgs = { type: "child" };
+        const match: ontology.MatchRelationshipParams = { type: "child" };
         const result = ontology.matchRelationship(sampleRelationship, match);
         expect(result).toBe(false);
       });
@@ -261,7 +261,7 @@ describe("Ontology", () => {
 
     describe("from ID matching", () => {
       it("should return true when from type matches", () => {
-        const match: ontology.MatchRelationshipArgs = {
+        const match: ontology.MatchRelationshipParams = {
           type: "parent",
           from: { type: "group" },
         };
@@ -270,7 +270,7 @@ describe("Ontology", () => {
       });
 
       it("should return true when from key matches", () => {
-        const match: ontology.MatchRelationshipArgs = {
+        const match: ontology.MatchRelationshipParams = {
           type: "parent",
           from: { key: "test-group" },
         };
@@ -279,7 +279,7 @@ describe("Ontology", () => {
       });
 
       it("should return true when both from type and key match", () => {
-        const match: ontology.MatchRelationshipArgs = {
+        const match: ontology.MatchRelationshipParams = {
           type: "parent",
           from: { type: "group", key: "test-group" },
         };
@@ -288,7 +288,7 @@ describe("Ontology", () => {
       });
 
       it("should return false when from type doesn't match", () => {
-        const match: ontology.MatchRelationshipArgs = {
+        const match: ontology.MatchRelationshipParams = {
           type: "parent",
           from: { type: "channel" },
         };
@@ -297,7 +297,7 @@ describe("Ontology", () => {
       });
 
       it("should return false when from key doesn't match", () => {
-        const match: ontology.MatchRelationshipArgs = {
+        const match: ontology.MatchRelationshipParams = {
           type: "parent",
           from: { key: "wrong-key" },
         };
@@ -306,7 +306,7 @@ describe("Ontology", () => {
       });
 
       it("should return false when from type matches but key doesn't", () => {
-        const match: ontology.MatchRelationshipArgs = {
+        const match: ontology.MatchRelationshipParams = {
           type: "parent",
           from: { type: "group", key: "wrong-key" },
         };
@@ -317,7 +317,7 @@ describe("Ontology", () => {
 
     describe("to ID matching", () => {
       it("should return true when to type matches", () => {
-        const match: ontology.MatchRelationshipArgs = {
+        const match: ontology.MatchRelationshipParams = {
           type: "parent",
           to: { type: "channel" },
         };
@@ -326,7 +326,7 @@ describe("Ontology", () => {
       });
 
       it("should return true when to key matches", () => {
-        const match: ontology.MatchRelationshipArgs = {
+        const match: ontology.MatchRelationshipParams = {
           type: "parent",
           to: { key: "test-channel" },
         };
@@ -335,7 +335,7 @@ describe("Ontology", () => {
       });
 
       it("should return true when both to type and key match", () => {
-        const match: ontology.MatchRelationshipArgs = {
+        const match: ontology.MatchRelationshipParams = {
           type: "parent",
           to: { type: "channel", key: "test-channel" },
         };
@@ -344,7 +344,7 @@ describe("Ontology", () => {
       });
 
       it("should return false when to type doesn't match", () => {
-        const match: ontology.MatchRelationshipArgs = {
+        const match: ontology.MatchRelationshipParams = {
           type: "parent",
           to: { type: "group" },
         };
@@ -359,7 +359,7 @@ describe("Ontology", () => {
       });
 
       it("should return false when to type matches but key doesn't", () => {
-        const match: ontology.MatchRelationshipArgs = {
+        const match: ontology.MatchRelationshipParams = {
           type: "parent",
           to: { type: "channel", key: "wrong-key" },
         };
@@ -370,7 +370,7 @@ describe("Ontology", () => {
 
     describe("combined matching", () => {
       it("should return true when all specified criteria match", () => {
-        const match: ontology.MatchRelationshipArgs = {
+        const match: ontology.MatchRelationshipParams = {
           type: "parent",
           from: { type: "group", key: "test-group" },
           to: { type: "channel", key: "test-channel" },
@@ -380,7 +380,7 @@ describe("Ontology", () => {
       });
 
       it("should return false when type matches but from doesn't", () => {
-        const match: ontology.MatchRelationshipArgs = {
+        const match: ontology.MatchRelationshipParams = {
           type: "parent",
           from: { type: "channel" },
           to: { type: "channel", key: "test-channel" },
@@ -390,7 +390,7 @@ describe("Ontology", () => {
       });
 
       it("should return false when type matches but to doesn't", () => {
-        const match: ontology.MatchRelationshipArgs = {
+        const match: ontology.MatchRelationshipParams = {
           type: "parent",
           from: { type: "group", key: "test-group" },
           to: { type: "group" },
@@ -400,7 +400,7 @@ describe("Ontology", () => {
       });
 
       it("should return false when from and to match but type doesn't", () => {
-        const match: ontology.MatchRelationshipArgs = {
+        const match: ontology.MatchRelationshipParams = {
           type: "child",
           from: { type: "group", key: "test-group" },
           to: { type: "channel", key: "test-channel" },
@@ -412,13 +412,13 @@ describe("Ontology", () => {
 
     describe("partial matching", () => {
       it("should return true when only type is specified and matches", () => {
-        const match: ontology.MatchRelationshipArgs = { type: "parent" };
+        const match: ontology.MatchRelationshipParams = { type: "parent" };
         const result = ontology.matchRelationship(sampleRelationship, match);
         expect(result).toBe(true);
       });
 
       it("should return true when only from type is specified and matches", () => {
-        const match: ontology.MatchRelationshipArgs = {
+        const match: ontology.MatchRelationshipParams = {
           type: "parent",
           from: { type: "group" },
         };
@@ -427,7 +427,7 @@ describe("Ontology", () => {
       });
 
       it("should return true when only to type is specified and matches", () => {
-        const match: ontology.MatchRelationshipArgs = {
+        const match: ontology.MatchRelationshipParams = {
           type: "parent",
           to: { type: "channel" },
         };
@@ -436,7 +436,7 @@ describe("Ontology", () => {
       });
 
       it("should return true when only from key is specified and matches", () => {
-        const match: ontology.MatchRelationshipArgs = {
+        const match: ontology.MatchRelationshipParams = {
           type: "parent",
           from: { key: "test-group" },
         };
@@ -445,7 +445,7 @@ describe("Ontology", () => {
       });
 
       it("should return true when only to key is specified and matches", () => {
-        const match: ontology.MatchRelationshipArgs = {
+        const match: ontology.MatchRelationshipParams = {
           type: "parent",
           to: { key: "test-channel" },
         };
@@ -456,7 +456,7 @@ describe("Ontology", () => {
 
     describe("edge cases", () => {
       it("should handle empty from and to objects", () => {
-        const match: ontology.MatchRelationshipArgs = {
+        const match: ontology.MatchRelationshipParams = {
           type: "parent",
           from: {},
           to: {},
@@ -471,7 +471,7 @@ describe("Ontology", () => {
           type: "parent",
           to: { type: "channel", key: "" },
         };
-        const match: ontology.MatchRelationshipArgs = {
+        const match: ontology.MatchRelationshipParams = {
           type: "parent",
           from: { key: "" },
           to: { key: "" },

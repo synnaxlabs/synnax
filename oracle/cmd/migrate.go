@@ -21,9 +21,9 @@ import (
 	"github.com/synnaxlabs/oracle/analyzer"
 	"github.com/synnaxlabs/oracle/format"
 	"github.com/synnaxlabs/oracle/paths"
+	"github.com/synnaxlabs/oracle/pipeline"
 	"github.com/synnaxlabs/oracle/plugin"
 	gomigrate "github.com/synnaxlabs/oracle/plugin/go/migrate"
-	"github.com/synnaxlabs/oracle/resolution"
 	"github.com/synnaxlabs/oracle/snapshot"
 	"github.com/synnaxlabs/x/errors"
 )
@@ -51,21 +51,12 @@ func runMigrate(cmd *cobra.Command) error {
 		return errors.Wrap(err, "migrate must be run within a git repository")
 	}
 
-	schemaFiles, err := expandGlobs([]string{"schemas/*.oracle"}, repoRoot)
+	normalizedFiles, err := pipeline.DiscoverSchemas(repoRoot)
 	if err != nil {
 		return err
 	}
-	if len(schemaFiles) == 0 {
+	if len(normalizedFiles) == 0 {
 		return errors.New("no schema files found")
-	}
-
-	normalizedFiles := make([]string, 0, len(schemaFiles))
-	for _, f := range schemaFiles {
-		relPath, err := paths.Normalize(f, repoRoot)
-		if err != nil {
-			return errors.Wrapf(err, "failed to normalize schema path %q", f)
-		}
-		normalizedFiles = append(normalizedFiles, relPath)
 	}
 
 	printSchemaCount(len(normalizedFiles))
@@ -75,11 +66,9 @@ func runMigrate(cmd *cobra.Command) error {
 	_ = registry.Register(gomigrate.New())
 
 	// Load old snapshot if one exists.
-	schemasDir := filepath.Join(repoRoot, "schemas")
-	snapshotsDir := filepath.Join(schemasDir, ".snapshots")
-	latestVersion, err := snapshot.LatestVersion(snapshotsDir)
+	latestVersion, loadSnapshot, err := snapshot.TableLoader(ctx, repoRoot)
 	if err != nil {
-		return errors.Wrap(err, "failed to read snapshot version")
+		return err
 	}
 
 	// Analyze current schemas.
@@ -98,28 +87,6 @@ func runMigrate(cmd *cobra.Command) error {
 		return errors.Wrap(err, "failed to read core version")
 	}
 
-	loadSnapshot := func(version int) (*resolution.Table, error) {
-		vDir := filepath.Join(snapshotsDir, fmt.Sprintf("v%d", version))
-		files, err := snapshot.Files(vDir)
-		if err != nil || len(files) == 0 {
-			return nil, nil
-		}
-		snapshotLoader := snapshot.NewFileLoader(vDir, repoRoot)
-		normalized := make([]string, 0, len(files))
-		for _, f := range files {
-			rel, err := filepath.Rel(vDir, f)
-			if err != nil {
-				return nil, errors.Wrapf(err, "failed to compute relative path for %s", f)
-			}
-			normalized = append(normalized, "schemas/"+strings.TrimSuffix(rel, ".oracle"))
-		}
-		t, diag := analyzer.Analyze(ctx, normalized, snapshotLoader)
-		if diag != nil && !diag.Ok() {
-			return nil, errors.Newf("failed to analyze snapshot v%d", version)
-		}
-		return t, nil
-	}
-
 	// Build the plugin request.
 	req := &plugin.Request{
 		Resolutions:     table,
@@ -128,15 +95,30 @@ func runMigrate(cmd *cobra.Command) error {
 		LoadSnapshot:    loadSnapshot,
 	}
 
-	// If we have a previous snapshot, load it for diffing.
+	// If we have a previous snapshot, load it for diffing. A snapshot the
+	// current grammar can no longer analyze is historical text, not a
+	// baseline — migrate proceeds without diffing rather than failing.
 	if latestVersion > 0 {
 		oldTable, err := loadSnapshot(latestVersion)
-		if err != nil {
+		if err != nil && !errors.Is(err, snapshot.ErrAnalysis) {
 			return errors.Wrap(err, "failed to load latest snapshot")
 		}
-		if oldTable != nil {
+		switch {
+		case err != nil:
+			printDim(fmt.Sprintf(
+				"snapshot v%d no longer parses under the current grammar; "+
+					"migration diffing resumes at the next snapshot",
+				latestVersion,
+			))
+		case oldTable != nil:
 			req.OldResolutions = oldTable
 			req.SnapshotVersion = latestVersion
+			if gomigrate.SnapshotPreVersioning(oldTable) {
+				printDim(fmt.Sprintf(
+					"snapshot v%d predates @go version; migration diffing resumes at the next snapshot",
+					latestVersion,
+				))
+			}
 		}
 	}
 
@@ -162,7 +144,7 @@ func runMigrate(cmd *cobra.Command) error {
 		if err := writeFileIfChanged(fullPath, canonical); err != nil {
 			return errors.Wrapf(err, "failed to write %s", f.Path)
 		}
-		if strings.HasSuffix(f.Path, "/migrate.go") && !strings.Contains(f.Path, "/migrations/") {
+		if strings.HasSuffix(f.Path, "/migrate.go") {
 			templates = append(templates, f.Path)
 		}
 		if verbose {

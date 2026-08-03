@@ -19,8 +19,8 @@ import (
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
 	lsp "github.com/synnaxlabs/x/lsp"
-	"github.com/synnaxlabs/x/lsp/protocol"
 	"github.com/synnaxlabs/x/set"
+	"go.lsp.dev/protocol"
 	"go.uber.org/zap"
 )
 
@@ -376,10 +376,19 @@ var completions = []completionInfo{
 	},
 }
 
+// optStr wraps a string in an Optional, leaving it absent when empty so empty fields
+// stay off the wire.
+func optStr(s string) protocol.Optional[string] {
+	if s == "" {
+		return protocol.Optional[string]{}
+	}
+	return protocol.NewOptional(s)
+}
+
 func (s *Server) Completion(
 	ctx context.Context,
 	params *protocol.CompletionParams,
-) (*protocol.CompletionList, error) {
+) (protocol.CompletionResult, error) {
 	doc, ok := s.getDocument(params.TextDocument.URI)
 	if !ok {
 		return nil, nil
@@ -434,13 +443,13 @@ func (s *Server) getCompletionItems(
 		return getImportPathCompletions(doc, prefix, pos, root)
 	}
 
-	if completionCtx == ContextConfigParamName || completionCtx == ContextConfigParamValue {
-		configInfo := extractConfigContext(doc.displayContent(), pos)
-		if configInfo != nil {
-			if completionCtx == ContextConfigParamName {
-				return s.getConfigParamCompletions(ctx, doc, prefix, configInfo, root)
+	if completionCtx == ContextInputParamName || completionCtx == ContextInputParamValue {
+		inputInfo := extractInputContext(doc.displayContent(), pos)
+		if inputInfo != nil {
+			if completionCtx == ContextInputParamName {
+				return s.getInputParamCompletions(ctx, doc, prefix, inputInfo, root)
 			}
-			return s.getConfigValueCompletions(ctx, doc, prefix, configInfo, root)
+			return s.getInputValueCompletions(ctx, doc, prefix, inputInfo, root)
 		}
 	}
 
@@ -479,13 +488,15 @@ func (s *Server) getCompletionItems(
 			continue
 		}
 		item := protocol.CompletionItem{
-			Label:         c.Label,
-			Kind:          c.Kind,
-			Detail:        c.Detail,
-			Documentation: c.Doc,
+			Label:  c.Label,
+			Kind:   c.Kind,
+			Detail: optStr(c.Detail),
+		}
+		if c.Doc != "" {
+			item.Documentation = protocol.String(c.Doc)
 		}
 		if c.Insert != "" {
-			item.InsertText = c.Insert
+			item.InsertText = protocol.NewOptional(c.Insert)
 			item.InsertTextFormat = c.InsertFormat
 		}
 		items = append(items, item)
@@ -545,7 +556,7 @@ func (s *Server) getCompletionItems(
 					}
 					qualifiedName := modulePrefix + sym.Name
 					item := symbolCompletionItem(sym)
-					item.FilterText = qualifiedName
+					item.FilterText = protocol.NewOptional(qualifiedName)
 					item.TextEdit = &protocol.TextEdit{
 						Range: protocol.Range{
 							Start: protocol.Position{Line: pos.Line, Character: startChar},
@@ -612,7 +623,7 @@ func symbolCompletionItem(sym *symbol.Symbol) protocol.CompletionItem {
 		return protocol.CompletionItem{
 			Label:  sym.Name,
 			Kind:   protocol.CompletionItemKindModule,
-			Detail: "module",
+			Detail: protocol.NewOptional("module"),
 		}
 	}
 	var (
@@ -632,7 +643,7 @@ func symbolCompletionItem(sym *symbol.Symbol) protocol.CompletionItem {
 	return protocol.CompletionItem{
 		Label:  sym.Name,
 		Kind:   kind,
-		Detail: detail,
+		Detail: optStr(detail),
 	}
 }
 
@@ -670,7 +681,7 @@ func getImportPathCompletions(
 			items = append(items, protocol.CompletionItem{
 				Label:  child.Name,
 				Kind:   protocol.CompletionItemKindModule,
-				Detail: "module",
+				Detail: protocol.NewOptional("module"),
 			})
 		}
 	}
@@ -763,7 +774,7 @@ func readImportPath(tokens []antlr.Token, start int) (string, int) {
 // applyInvocationSuffix appends an invocation snippet — `($0)` in an
 // imperative/WASM context, `{$0}` in a flow context — to a function
 // completion item so the cursor lands inside ready to receive arguments
-// or config. No-op for non-function kinds, which insert their bare name.
+// or inputs. No-op for non-function kinds, which insert their bare name.
 // The suffix is appended to TextEdit.NewText when set, otherwise to
 // InsertText (falling back to Label when InsertText is empty).
 func applyInvocationSuffix(item *protocol.CompletionItem, kind symbol.Kind, execFilter symbol.ExecContext) {
@@ -774,14 +785,14 @@ func applyInvocationSuffix(item *protocol.CompletionItem, kind symbol.Kind, exec
 	if execFilter == symbol.ExecWASM {
 		suffix = "($0)"
 	}
-	if item.TextEdit != nil {
-		item.TextEdit.NewText += suffix
+	if edit, ok := item.TextEdit.(*protocol.TextEdit); ok {
+		edit.NewText += suffix
 	} else {
-		base := item.InsertText
+		base, _ := item.InsertText.Get()
 		if base == "" {
 			base = item.Label
 		}
-		item.InsertText = base + suffix
+		item.InsertText = protocol.NewOptional(base + suffix)
 	}
 	item.InsertTextFormat = protocol.InsertTextFormatSnippet
 }
@@ -945,7 +956,7 @@ func appendModuleMemberCompletions(
 				seen.Add(qualifiedName)
 				item := symbolCompletionItem(member)
 				item.Label = qualifiedName
-				item.FilterText = qualifiedName
+				item.FilterText = protocol.NewOptional(qualifiedName)
 				item.TextEdit = &protocol.TextEdit{
 					Range: protocol.Range{
 						Start: protocol.Position{Line: pos.Line, Character: startChar},
@@ -988,7 +999,7 @@ func (s *Server) getAuthorityEntryCompletions(
 		items = append(items, protocol.CompletionItem{
 			Label:  name,
 			Kind:   protocol.CompletionItemKindVariable,
-			Detail: t.String(),
+			Detail: protocol.NewOptional(t.String()),
 		})
 	}
 	if root != nil {
@@ -1050,7 +1061,7 @@ func (s *Server) collectSymbols(
 		items = append(items, protocol.CompletionItem{
 			Label:  name,
 			Kind:   protocol.CompletionItemKindVariable,
-			Detail: t.String(),
+			Detail: protocol.NewOptional(t.String()),
 		})
 	}
 	if root != nil {
@@ -1072,46 +1083,46 @@ func (s *Server) collectSymbols(
 	return items
 }
 
-func (s *Server) getConfigParamCompletions(
+func (s *Server) getInputParamCompletions(
 	ctx context.Context,
 	doc *Document,
 	prefix string,
-	configInfo *configContextInfo,
+	inputInfo *inputContextInfo,
 	root *symbol.Symbol,
 ) []protocol.CompletionItem {
-	fnType, ok := s.resolveFunctionType(ctx, doc, configInfo.functionName, root)
+	fnType, ok := s.resolveFunctionType(ctx, doc, inputInfo.functionName, root)
 	if !ok {
 		return []protocol.CompletionItem{}
 	}
-	existingSet := set.New(configInfo.existingParams...)
+	existingSet := set.New(inputInfo.existingParams...)
 	var items []protocol.CompletionItem
-	for _, param := range fnType.Config {
+	for _, param := range fnType.Inputs {
 		if existingSet.Contains(param.Name) || !strings.HasPrefix(param.Name, prefix) {
 			continue
 		}
 		items = append(items, protocol.CompletionItem{
 			Label:            param.Name,
 			Kind:             protocol.CompletionItemKindProperty,
-			Detail:           param.Type.String(),
-			InsertText:       param.Name + "=",
+			Detail:           protocol.NewOptional(param.Type.String()),
+			InsertText:       protocol.NewOptional(param.Name + "="),
 			InsertTextFormat: protocol.InsertTextFormatPlainText,
 		})
 	}
 	return items
 }
 
-func (s *Server) getConfigValueCompletions(
+func (s *Server) getInputValueCompletions(
 	ctx context.Context,
 	doc *Document,
 	prefix string,
-	configInfo *configContextInfo,
+	inputInfo *inputContextInfo,
 	root *symbol.Symbol,
 ) []protocol.CompletionItem {
-	fnType, ok := s.resolveFunctionType(ctx, doc, configInfo.functionName, root)
+	fnType, ok := s.resolveFunctionType(ctx, doc, inputInfo.functionName, root)
 	if !ok {
 		return []protocol.CompletionItem{}
 	}
-	param, found := fnType.Config.Get(configInfo.currentParamName)
+	param, found := fnType.Inputs.Get(inputInfo.currentParamName)
 	if !found {
 		return []protocol.CompletionItem{}
 	}
@@ -1128,7 +1139,7 @@ func (s *Server) getConfigValueCompletions(
 			items = append(items, protocol.CompletionItem{
 				Label:  c.Label,
 				Kind:   c.Kind,
-				Detail: c.Detail,
+				Detail: optStr(c.Detail),
 			})
 		}
 	}

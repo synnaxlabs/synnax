@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import "@/select/MultipleTrigger.css";
+
 import { array, type color, primitive, type record, unique } from "@synnaxlabs/x";
 import { type ReactElement, type ReactNode, useCallback } from "react";
 
@@ -19,7 +21,7 @@ import { Haul } from "@/haul";
 import { useSyncedRef } from "@/hooks";
 import { Icon } from "@/icon";
 import { List } from "@/list";
-import { useContext, useItemState, useSelection } from "@/select/Provider";
+import { useContext, useItemState, useSelected } from "@/select/Context";
 import { Tag } from "@/tag";
 import { Text } from "@/text";
 
@@ -105,7 +107,7 @@ export const MultipleTrigger = <
   children = multipleTag as unknown as RenderProp<MultipleTagProps<K>>,
   renderIcon,
 }: MultipleTriggerProps<K, E>): ReactElement => {
-  const value = useSelection<K>();
+  const value = useSelected<K>();
   const valueRef = useSyncedRef(value);
   const { setSelected } = useContext<K>();
   const { getItem } = List.useUtilContext<K, E>();
@@ -179,7 +181,11 @@ export const MultipleTrigger = <
       grow
     >
       {value.length === 0 && (
-        <Text.Text color={8} weight={400} style={{ padding: "0 1rem" }}>
+        <Text.Text
+          color={8}
+          weight={400}
+          className={CSS.B("select-multiple-trigger-placeholder")}
+        >
           {icon}
           {placeholder}
         </Text.Text>

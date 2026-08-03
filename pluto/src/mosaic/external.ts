@@ -7,7 +7,21 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-export * from "@/mosaic/Mosaic";
-export * from "@/mosaic/tree";
-export * from "@/mosaic/types";
-export * from "@/mosaic/use";
+export {
+  type DropPosition,
+  Frame,
+  type FrameProps,
+  type OnCreateProps,
+  type OnDropProps,
+  type OnFileDropProps,
+} from "@/mosaic/Frame";
+export * from "@/mosaic/haul";
+export { Leaf, type LeafProps } from "@/mosaic/Leaf";
+export { Shield } from "@/mosaic/Shield";
+export { Split, type SplitProps } from "@/mosaic/Split";
+export { useDragTab, type UseDragTabReturn } from "@/mosaic/useDragTab";
+export {
+  useSelectorDropProps,
+  type UseSelectorDropPropsParams,
+  type UseSelectorDropPropsReturn,
+} from "@/mosaic/useSelectorDropProps";

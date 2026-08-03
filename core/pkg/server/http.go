@@ -28,6 +28,11 @@ type SecureHTTPBranch struct {
 	internal *fiber.App
 	// Transports is a list of transports that the Branch will serve.
 	Transports []http.BindableTransport
+	// MaxIdleWorkerDuration sets fasthttp's idle worker reap interval, which also
+	// bounds how long the server's worker-pool janitor goroutine can outlive Stop. Zero
+	// keeps the fasthttp default (10s). Tests set this low so goroutine leak checks
+	// don't flag the janitor.
+	MaxIdleWorkerDuration time.Duration
 }
 
 var _ Branch = (*SecureHTTPBranch)(nil)
@@ -46,6 +51,9 @@ func (*SecureHTTPBranch) Key() string { return "http" }
 // Init implements Branch.
 func (b *SecureHTTPBranch) Init(ctx BranchContext) {
 	b.internal = fiber.New(b.getConfig(ctx))
+	if b.MaxIdleWorkerDuration > 0 {
+		b.internal.Server().MaxIdleWorkerDuration = b.MaxIdleWorkerDuration
+	}
 	b.maybeRouteDebugUtil(ctx)
 	b.internal.Use(cors.New(cors.Config{AllowOrigins: []string{"*"}}))
 	for _, t := range b.Transports {

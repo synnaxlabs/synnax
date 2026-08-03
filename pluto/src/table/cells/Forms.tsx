@@ -10,7 +10,7 @@
 import "@/table/cells/Forms.css";
 
 import { color, type text } from "@synnaxlabs/x";
-import { type PropsWithChildren, useCallback } from "react";
+import { type PropsWithChildren } from "react";
 
 import { Color } from "@/color";
 import { CSS } from "@/css";
@@ -27,79 +27,67 @@ export interface FormProps {
   onVariantChange: (variant: Variant) => void;
 }
 
-const valueFormStyle = { padding: "2rem" };
-
 const ValueFormWrapper = (props: PropsWithChildren) => (
-  <Flex.Box {...props} style={valueFormStyle} y />
+  <Flex.Box {...props} className={CSS.B("table-cell-value-form")} y />
 );
 
-const valueTabs = [
-  { tabKey: "style", name: "Style" },
-  { tabKey: "telem", name: "Telemetry" },
-  { tabKey: "redline", name: "Redline" },
-];
-
-export const ValueForm = ({ onVariantChange }: FormProps) => {
-  const content: Tabs.RenderProp = useCallback(({ tabKey }) => {
-    switch (tabKey) {
-      case "telem":
-        return (
-          <ValueFormWrapper>
-            <Value.TelemForm path="" />
-          </ValueFormWrapper>
-        );
-      case "redline":
-        return (
-          <ValueFormWrapper>
-            <Value.RedlineForm path="redline" />
-          </ValueFormWrapper>
-        );
-      default:
-        return (
-          <ValueFormWrapper>
-            <Flex.Box x>
-              <Input.Item label="Variant" padHelpText={false}>
-                <SelectVariant onChange={onVariantChange} value="value" />
-              </Input.Item>
-              <Form.Field<color.Crude>
-                hideIfNull
-                label="Color"
-                align="start"
-                padHelpText={false}
-                path="color"
-              >
-                {({ value, onChange, variant: _, ...rest }) => (
-                  <Color.Swatch
-                    value={value ?? color.setAlpha(color.ZERO, 1)}
-                    onChange={onChange}
-                    {...rest}
-                    bordered
-                  />
-                )}
-              </Form.Field>
-              <Form.Field<text.Level>
-                path="level"
-                label="Size"
-                hideIfNull
-                padHelpText={false}
-              >
-                {({ value, onChange, variant: _, ...rest }) => (
-                  <Select.Text.Level value={value} onChange={onChange} {...rest} />
-                )}
-              </Form.Field>
-            </Flex.Box>
-          </ValueFormWrapper>
-        );
-    }
-  }, []);
-  const tabsProps = Tabs.useStatic({ tabs: valueTabs, content });
-  return <Tabs.Tabs {...tabsProps} />;
-};
-
-const textFormStyle = { padding: "2rem" };
+export const ValueForm = ({ onVariantChange }: FormProps) => (
+  <Tabs.Frame initialValue="style">
+    <Tabs.Selector>
+      <Tabs.Tab itemKey="style">Style</Tabs.Tab>
+      <Tabs.Tab itemKey="telem">Telemetry</Tabs.Tab>
+      <Tabs.Tab itemKey="redline">Redline</Tabs.Tab>
+    </Tabs.Selector>
+    <Tabs.Content itemKey="style">
+      <ValueFormWrapper>
+        <Flex.Box x>
+          <Input.Item label="Variant" padHelpText={false}>
+            <SelectVariant onChange={onVariantChange} value="value" />
+          </Input.Item>
+          <Form.Field<color.Crude>
+            hideIfNull
+            label="Color"
+            align="start"
+            padHelpText={false}
+            path="color"
+          >
+            {({ value, onChange, variant: _, ...rest }) => (
+              <Color.Swatch
+                value={value ?? color.setAlpha(color.ZERO, 1)}
+                onChange={onChange}
+                {...rest}
+                bordered
+              />
+            )}
+          </Form.Field>
+          <Form.Field<text.Level>
+            path="level"
+            label="Size"
+            hideIfNull
+            padHelpText={false}
+          >
+            {({ value, onChange, variant: _, ...rest }) => (
+              <Select.Text.Level value={value} onChange={onChange} {...rest} />
+            )}
+          </Form.Field>
+        </Flex.Box>
+      </ValueFormWrapper>
+    </Tabs.Content>
+    <Tabs.Content itemKey="telem">
+      <ValueFormWrapper>
+        <Value.TelemForm path="" />
+      </ValueFormWrapper>
+    </Tabs.Content>
+    <Tabs.Content itemKey="redline">
+      <ValueFormWrapper>
+        <Value.RedlineForm path="redline" />
+      </ValueFormWrapper>
+    </Tabs.Content>
+  </Tabs.Frame>
+);
 
 export const TextForm = ({ onVariantChange }: FormProps) => (
-  <Flex.Box x grow style={textFormStyle}>
+  <Flex.Box x grow className={CSS.B("table-cell-text-form")}>
     <Input.Item label="Variant" padHelpText={false}>
       <SelectVariant onChange={onVariantChange} value="text" />
     </Input.Item>

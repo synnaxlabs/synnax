@@ -13,7 +13,6 @@ import { deep } from "@/deep";
 import { errors } from "@/errors";
 import { fmt } from "@/fmt";
 import { primitive } from "@/primitive";
-import { type status } from "@/status";
 
 const DEFAULT_LABEL = "value";
 const PARSE_ERROR_TYPE = "zod.parse";
@@ -386,7 +385,7 @@ const formatContextLine = (
   return fmt.stringify(context, options);
 };
 
-interface FormatArgs {
+interface FormatParams {
   issues: ReadonlyArray<z.core.$ZodIssue>;
   input: unknown;
   label: string;
@@ -400,7 +399,7 @@ const format = ({
   label,
   context,
   formatOptions,
-}: FormatArgs): string => {
+}: FormatParams): string => {
   const opts = formatOptions ?? {};
   const flat = expandUnrecognizedKeys(flattenIssues(issues));
   const count = flat.length === 1 ? "1 issue" : `${flat.length} issues`;
@@ -411,7 +410,7 @@ const format = ({
   return parts.join("\n\n");
 };
 
-export interface ParseErrorArgs {
+export interface ParseErrorParams {
   issues: ReadonlyArray<z.core.$ZodIssue>;
   input: unknown;
   label: string;
@@ -434,16 +433,20 @@ export interface ParseErrorArgs {
  * unrecognized-keys expansion, while `err.issues` exposes the original zod array
  * unchanged for programmatic consumers.
  */
-export class ParseError
-  extends errors.createTyped(PARSE_ERROR_TYPE)
-  implements status.Custom
-{
+export class ParseError extends errors.createTyped(PARSE_ERROR_TYPE) {
   readonly issues: ReadonlyArray<z.core.$ZodIssue>;
   readonly input: unknown;
   readonly label: string;
   readonly context?: Record<string, unknown>;
 
-  constructor({ issues, input, label, context, cause, formatOptions }: ParseErrorArgs) {
+  constructor({
+    issues,
+    input,
+    label,
+    context,
+    cause,
+    formatOptions,
+  }: ParseErrorParams) {
     super(format({ issues, input, label, context, formatOptions }), { cause });
     this.issues = issues;
     this.input = input;
@@ -451,7 +454,7 @@ export class ParseError
     this.context = context;
   }
 
-  toStatus(): Partial<status.Crude<z.ZodRecord, "error">> {
+  toStatus() {
     const details: Record<string, unknown> = {
       input: fmt.value(this.input),
       issues: this.issues,

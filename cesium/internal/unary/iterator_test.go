@@ -12,6 +12,7 @@ package unary_test
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	. "github.com/synnaxlabs/alamos/testutil"
 	"github.com/synnaxlabs/cesium"
 	"github.com/synnaxlabs/cesium/internal/channel"
 	. "github.com/synnaxlabs/cesium/internal/testutil"
@@ -141,12 +142,12 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 						// domains get flipped in order by read.
 						Expect(unary.Write(ctx, indexDB, 10*telem.SecondTS, telem.NewSeriesSecondsTSV(10, 11, 12, 13, 14, 15, 16, 17, 18))).To(Succeed())
 						w, _ := MustSucceed2(db.OpenWriter(ctx, unary.WriterConfig{Start: 10 * telem.SecondTS, End: 17 * telem.SecondTS, Subject: control.Subject{Key: "test_writer"}}))
-						Expect(w.Write(telem.NewSeriesV[telem.TimeStamp](10, 11, 12, 13, 14, 15, 16)))
+						MustSucceed(w.Write(telem.NewSeriesV[telem.TimeStamp](10, 11, 12, 13, 14, 15, 16)))
 						MustSucceed(w.Commit(ctx))
 						MustSucceed(w.Close())
 
 						w, _ = MustSucceed2(db.OpenWriter(ctx, unary.WriterConfig{Start: 17 * telem.SecondTS, Subject: control.Subject{Key: "test_writer"}}))
-						Expect(w.Write(telem.NewSeriesV[int64](17, 18)))
+						MustSucceed(w.Write(telem.NewSeriesV[int64](17, 18)))
 						MustSucceed(w.Commit(ctx))
 						MustSucceed(w.Close())
 
@@ -618,12 +619,12 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 								Expect(i.Value().SeriesAt(1).TimeRange).To(Equal((10 * telem.SecondTS).Range(12*telem.SecondTS + 1)))
 
 								// Current iterator view: [13*telem.SecondTS, 14*telem.SecondTS+1)
-								Expect(i.Next(ctx, 1*telem.Second+1))
+								Expect(i.Next(ctx, 1*telem.Second+1)).To(BeTrue())
 								Expect(i.Value().Count()).To(Equal(1))
 								Expect(i.Value().SeriesAt(0)).To(telem.MatchSeriesDataV[int64](13))
 								Expect(i.Value().SeriesAt(0).TimeRange).To(Equal((13 * telem.SecondTS).Range(14*telem.SecondTS + 1)))
 
-								Expect(i.Next(ctx, 4*telem.Second))
+								Expect(i.Next(ctx, 4*telem.Second)).To(BeTrue())
 								Expect(i.Value().Count()).To(Equal(1))
 								Expect(i.Value().SeriesAt(0)).To(telem.MatchSeriesDataV[int64](15, 17))
 								Expect(i.Value().SeriesAt(0).TimeRange).To(Equal((14*telem.SecondTS + 1).Range(17*telem.SecondTS + 1)))
@@ -720,12 +721,12 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 								Expect(i.Value().SeriesAt(0).TimeRange).To(Equal((13 * telem.SecondTS).Range(17*telem.SecondTS + 1)))
 
 								// Current iterator view: [10*telem.SecondTS, 12*telem.SecondTS+1)
-								Expect(i.Prev(ctx, 2*telem.Second+1))
+								Expect(i.Prev(ctx, 2*telem.Second+1)).To(BeTrue())
 								Expect(i.Value().Count()).To(Equal(1))
 								Expect(i.Value().SeriesAt(0)).To(telem.MatchSeriesDataV[int64](10, 11, 12))
 								Expect(i.Value().SeriesAt(0).TimeRange).To(Equal((10 * telem.SecondTS).Range(12*telem.SecondTS + 1)))
 
-								Expect(i.Prev(ctx, 10*telem.Second))
+								Expect(i.Prev(ctx, 10*telem.Second)).To(BeTrue())
 								Expect(i.Value().Count()).To(Equal(1))
 								Expect(i.Value().SeriesAt(0)).To(telem.MatchSeriesDataV[int64](0, 1, 4, 6))
 								Expect(i.Value().SeriesAt(0).TimeRange).To(Equal((0 * telem.SecondTS).Range(6*telem.SecondTS + 1)))

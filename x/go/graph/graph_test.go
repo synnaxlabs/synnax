@@ -12,9 +12,8 @@ package graph_test
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/x/query"
-
 	"github.com/synnaxlabs/x/graph"
+	"github.com/synnaxlabs/x/query"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -131,7 +130,7 @@ var _ = Describe("TarjanSCC", func() {
 			"a": {"b"},
 		}
 		first := graph.TarjanSCC(adj)
-		for i := 0; i < 50; i++ {
+		for range 50 {
 			Expect(graph.TarjanSCC(adj)).To(Equal(first))
 		}
 	})
@@ -296,7 +295,7 @@ var _ = Describe("TopoSort", func() {
 			"d": {},
 		}
 		first := MustSucceed(graph.TopoSort(adj))
-		for i := 0; i < 50; i++ {
+		for range 50 {
 			Expect(MustSucceed(graph.TopoSort(adj))).To(Equal(first))
 		}
 	})

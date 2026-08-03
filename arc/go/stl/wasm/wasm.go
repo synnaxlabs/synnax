@@ -12,7 +12,6 @@ package wasm
 import (
 	"context"
 	"math"
-	"strings"
 
 	"github.com/synnaxlabs/arc/runtime/node"
 	stlstrings "github.com/synnaxlabs/arc/stl/strings"
@@ -40,21 +39,26 @@ func (w *Module) Create(_ context.Context, cfg node.Config) (node.Node, error) {
 	if fn == nil {
 		return nil, query.ErrNotFound
 	}
-	// Entry nodes have no incoming edges and are not expression nodes.
-	// They should only execute once per stage entry.
-	isEntryNode := !strings.HasPrefix(cfg.Node.Key, "expression_") &&
-		len(cfg.Program.Edges.GetInputs(cfg.Node.Key)) == 0
+	isEntryNode := cfg.Node.IsEntryNode(cfg.Program.Edges)
 
-	configCount := len(cfg.Node.Config)
-	params := make([]uint64, configCount+len(irFn.Inputs))
-	for i, param := range cfg.Node.Config {
-		if s, ok := param.Value.(string); ok {
-			// String config params get a stable handle that persists across Flush calls.
-			params[i] = uint64(w.Strings.CreateConfig(s))
+	// Each input fills one WASM param slot. Edge-fed inputs (nil Value) are streamed
+	// per sample in Next; literal inputs get their constant value set once here.
+	params := make([]uint64, len(irFn.Inputs))
+	varInputs := make([]bool, len(cfg.Node.Inputs))
+	for i, param := range cfg.Node.Inputs {
+		if param.Type.Kind == types.KindVarRef {
+			varInputs[i] = true
 			continue
 		}
-		val, err := ConvertConfigValue(param.Value)
-
+		if param.Value == nil {
+			continue
+		}
+		if s, ok := param.Value.(string); ok {
+			// A literal string gets a stable handle that persists across Flush calls.
+			params[i] = uint64(w.Strings.CreateLiteral(s))
+			continue
+		}
+		val, err := ConvertLiteralValue(param.Value)
 		if err != nil {
 			return nil, err
 		}
@@ -80,8 +84,10 @@ func (w *Module) Create(_ context.Context, cfg node.Config) (node.Node, error) {
 	}
 
 	stringInputs := make([]bool, len(irFn.Inputs))
+	chanInputs := make([]bool, len(irFn.Inputs))
 	for i, inp := range irFn.Inputs {
 		stringInputs[i] = inp.Type.Kind == types.KindString
+		chanInputs[i] = inp.Type.Kind == types.KindChan
 	}
 
 	stringOutputs := make([]bool, len(irFn.Outputs))
@@ -89,6 +95,10 @@ func (w *Module) Create(_ context.Context, cfg node.Config) (node.Node, error) {
 		stringOutputs[i] = out.Type.Kind == types.KindString
 	}
 
+	selIdx := -1
+	if idx, err := cfg.State.ResolveInput("$sel"); err == nil {
+		selIdx = idx
+	}
 	n := &nodeImpl{
 		State:         cfg.State,
 		ir:            cfg.Node,
@@ -99,19 +109,21 @@ func (w *Module) Create(_ context.Context, cfg node.Config) (node.Node, error) {
 		outputValues:  make([]result, len(irFn.Outputs)),
 		memBase:       base,
 		params:        params,
-		configCount:   configCount,
 		offsets:       make([]int, len(irFn.Outputs)),
 		isEntryNode:   isEntryNode,
+		selIdx:        selIdx,
 		nodeKeySetter: w.NodeKeySetter,
 		stringInputs:  stringInputs,
+		chanInputs:    chanInputs,
+		varInputs:     varInputs,
 		stringOutputs: stringOutputs,
 		strings:       w.Strings,
 	}
 	return n, nil
 }
 
-// ConvertConfigValue converts a config value to uint64 for WASM function calls.
-func ConvertConfigValue(v any) (uint64, error) {
+// ConvertLiteralValue converts a literal value to uint64 for WASM function calls.
+func ConvertLiteralValue(v any) (uint64, error) {
 	switch val := v.(type) {
 	case int8:
 		return uint64(val), nil
@@ -138,7 +150,7 @@ func ConvertConfigValue(v any) (uint64, error) {
 	case telem.TimeSpan:
 		return uint64(val), nil
 	default:
-		err := errors.Newf("unsupported config value type: %T", v)
+		err := errors.Newf("unsupported literal value type: %T", v)
 		zap.S().DPanic(err.Error())
 		return 0, err
 	}

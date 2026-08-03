@@ -15,16 +15,15 @@ import (
 
 	"github.com/synnaxlabs/synnax/pkg/api/auth"
 	"github.com/synnaxlabs/synnax/pkg/api/config"
-	"github.com/synnaxlabs/synnax/pkg/distribution/group"
-	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
+	"github.com/synnaxlabs/synnax/pkg/service/group"
+	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	xconfig "github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/gorp"
 )
 
 type Service struct {
-	db       *gorp.DB
 	access   *rbac.Service
 	internal *group.Service
 }
@@ -35,9 +34,8 @@ func NewService(cfgs ...config.LayerConfig) (*Service, error) {
 		return nil, err
 	}
 	return &Service{
-		db:       cfg.Distribution.DB,
 		access:   cfg.Service.RBAC,
-		internal: cfg.Distribution.Group,
+		internal: cfg.Service.Group,
 	}, nil
 }
 
@@ -54,26 +52,49 @@ type (
 
 func (s *Service) Create(
 	ctx context.Context,
+	tx gorp.Tx,
 	req CreateRequest,
 ) (CreateResponse, error) {
-	if err := s.access.Enforce(ctx, access.Request{
+	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionCreate,
-		Objects: []ontology.ID{group.OntologyID(req.Key)},
+		Objects: []ontology.ID{{Type: ontology.ResourceTypeGroup}},
 	}); err != nil {
 		return CreateResponse{}, err
 	}
-	var res CreateResponse
-	if err := s.db.WithTx(ctx, func(tx gorp.Tx) error {
-		w := s.internal.NewWriter(tx)
-		g, err := w.CreateWithKey(ctx, req.Key, req.Name, req.Parent)
-		if err != nil {
-			return err
-		}
-		res.Group = g
-		return nil
-	}); err != nil {
+	g, err := s.internal.NewWriter(tx).CreateWithKey(ctx, req.Key, req.Name, req.Parent)
+	if err != nil {
 		return CreateResponse{}, err
+	}
+	return CreateResponse{Group: g}, nil
+}
+
+type (
+	RetrieveRequest struct {
+		Keys []group.Key `json:"keys" msgpack:"keys" validate:"required"`
+	}
+	RetrieveResponse struct {
+		Groups []group.Group `json:"groups" msgpack:"groups"`
+	}
+)
+
+func (s *Service) Retrieve(
+	ctx context.Context,
+	req RetrieveRequest,
+) (RetrieveResponse, error) {
+	var res RetrieveResponse
+	if err := s.internal.NewRetrieve().
+		Where(group.MatchKeys(req.Keys...)).
+		Entries(&res.Groups).
+		Exec(ctx, nil); err != nil {
+		return RetrieveResponse{}, err
+	}
+	if err := s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
+		Subject: auth.GetSubject(ctx),
+		Action:  access.ActionRetrieve,
+		Objects: group.OntologyIDsFromGroups(res.Groups),
+	}); err != nil {
+		return RetrieveResponse{}, err
 	}
 	return res, nil
 }
@@ -84,18 +105,17 @@ type DeleteRequest struct {
 
 func (s *Service) Delete(
 	ctx context.Context,
+	tx gorp.Tx,
 	req DeleteRequest,
 ) (types.Nil, error) {
-	if err := s.access.Enforce(ctx, access.Request{
+	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionDelete,
 		Objects: group.OntologyIDs(req.Keys),
 	}); err != nil {
 		return types.Nil{}, err
 	}
-	return types.Nil{}, s.db.WithTx(ctx, func(tx gorp.Tx) error {
-		return s.internal.NewWriter(tx).Delete(ctx, req.Keys...)
-	})
+	return types.Nil{}, s.internal.NewWriter(tx).Delete(ctx, req.Keys...)
 }
 
 type RenameRequest struct {
@@ -105,16 +125,15 @@ type RenameRequest struct {
 
 func (s *Service) Rename(
 	ctx context.Context,
+	tx gorp.Tx,
 	req RenameRequest,
 ) (types.Nil, error) {
-	if err := s.access.Enforce(ctx, access.Request{
+	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionUpdate,
 		Objects: []ontology.ID{group.OntologyID(req.Key)},
 	}); err != nil {
 		return types.Nil{}, err
 	}
-	return types.Nil{}, s.db.WithTx(ctx, func(tx gorp.Tx) error {
-		return s.internal.NewWriter(tx).Rename(ctx, req.Key, req.Name)
-	})
+	return types.Nil{}, s.internal.NewWriter(tx).Rename(ctx, req.Key, req.Name)
 }

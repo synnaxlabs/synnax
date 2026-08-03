@@ -19,7 +19,7 @@ import (
 
 func TestDeleter(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Deleter Suite")
+	RunSpecs(t, "Distribution Framer Deleter Suite")
 }
 
 var _ = ShouldNotLeakGoroutinesPerSpec()

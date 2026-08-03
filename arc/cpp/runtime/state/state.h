@@ -60,17 +60,39 @@ class Node {
     std::vector<size_t> input_source_idx;
     std::vector<size_t> output_idx;
 
+    /// @brief marks an input whose source output is absent from program state.
+    static constexpr size_t NO_SOURCE = ~size_t{0};
+
     struct InputEntry {
-        size_t source;
+        size_t source{NO_SOURCE};
         Series data;
         Series time;
         x::telem::TimeStamp last_timestamp{0};
         bool consumed{true};
     };
 
+    /// @brief selects when a consumed input re-arms and fires again.
+    enum class Rearm : uint8_t {
+        /// @brief re-arms on scope Reset and on fresh data.
+        Always,
+        /// @brief re-arms only on fresh data: reads fire on unseen values.
+        OnFresh,
+        /// @brief re-arms only on scope Reset: self-writes fire once per entry.
+        OnReset,
+        /// @brief absorbs pending data on Reset: only post-entry values fire.
+        OnArrival,
+    };
+
     std::vector<InputEntry> accumulated;
     std::vector<Series> aligned_data;
     std::vector<Series> aligned_time;
+    // is_reference marks inputs that are channel references rather than value
+    // streams. Reference inputs carry no data series and never gate execution.
+    std::vector<bool> is_reference;
+    /// @brief rearm[i] selects when a consumed input i fires again.
+    std::vector<Rearm> rearm;
+    /// @brief params holds the node's input params with their configured values.
+    types::Params params;
 
     Node(
         State &state,
@@ -80,7 +102,10 @@ class Node {
         std::vector<size_t> output_idx,
         std::vector<InputEntry> accumulated,
         std::vector<Series> aligned_data,
-        std::vector<Series> aligned_time
+        std::vector<Series> aligned_time,
+        std::vector<bool> is_reference,
+        std::vector<Rearm> rearm,
+        types::Params params
     ):
         state(state),
         inputs(std::move(inputs)),
@@ -89,7 +114,13 @@ class Node {
         output_idx(std::move(output_idx)),
         accumulated(std::move(accumulated)),
         aligned_data(std::move(aligned_data)),
-        aligned_time(std::move(aligned_time)) {}
+        aligned_time(std::move(aligned_time)),
+        is_reference(std::move(is_reference)),
+        rearm(std::move(rearm)),
+        params(std::move(params)) {}
+
+    /// @brief marks input i consumed at its current source timestamp.
+    void absorb_input(size_t i);
 
 public:
     Node(const Node &) = delete;
@@ -143,11 +174,70 @@ public:
     /// refresh_inputs does not block on them before they receive real data.
     void init_input(size_t param_index, const Series &data, const Series &time);
 
-    /// @brief Resets accumulated input state for runtime restart.
+    /// @brief reports whether the reference input at param_index is edge-fed.
+    [[nodiscard]] bool ref_sourced(size_t param_index) const;
+
+    /// @brief returns the current data of an edge-fed reference input, or a null
+    /// series when the input is unedged.
+    [[nodiscard]] Series ref_input(size_t param_index) const;
+
+    /// @brief returns the named input's current value: the referenced
+    /// variable's value when var-bound (its declared initial until first written),
+    /// else the configured value.
+    [[nodiscard]] std::string string_input(const std::string &name) const;
+
+    /// @brief returns the named input's current value: the referenced
+    /// variable's value when var-bound (its declared initial until first written),
+    /// else the configured value.
+    template<typename T>
+    [[nodiscard]] T numeric_input(const std::string &name) const {
+        const auto [i, err] = this->resolve_input(name);
+        if (err) return 0;
+        if (const auto s = this->ref_input(i); s != nullptr && s->size() > 0)
+            return s->at<T>(-1);
+        const auto &p = this->params[i];
+        if (const auto v = types::to_sample_value(p.value, p.type))
+            return x::telem::cast<T>(*v);
+        return 0;
+    }
+
+    /// @brief marks every data input consumed at its current source timestamp,
+    /// so only writes after this call re-fire the node.
+    void absorb_inputs();
+
+    /// @brief returns input i's unconsumed data, marking it consumed. ok is
+    /// false when input i is a reference or has no new data.
+    [[nodiscard]] std::pair<Series, bool> consume_input(size_t i);
+
+    /// @brief reports whether input i has unconsumed data, without consuming it.
+    [[nodiscard]] bool input_fresh(size_t i) const;
+
+    /// @brief returns the series of the most-recently-changed input, marking it
+    /// consumed for last-write-wins. ok is false when no input has new data.
+    [[nodiscard]] std::pair<Series, bool> last_changed();
+
+    /// @brief returns the position of the named input, or a NOT_FOUND error if
+    /// the node has no such param. Resolve at construction so wiring mistakes fail
+    /// at load.
+    [[nodiscard]] std::pair<size_t, x::errors::Error>
+    resolve_input(const std::string &name) const;
+
+    /// @brief Re-arms every input when the node's stage is (re)activated, so a node
+    /// whose gating inputs are all literal-valued re-runs instead of staying consumed.
     void reset() {
-        for (auto &entry: this->accumulated) {
-            entry.last_timestamp = x::telem::TimeStamp(0);
-            entry.consumed = true;
+        for (size_t i = 0; i < this->accumulated.size(); i++) {
+            switch (this->rearm[i]) {
+                case Rearm::OnFresh:
+                    break;
+                case Rearm::OnArrival:
+                    this->absorb_input(i);
+                    break;
+                case Rearm::Always:
+                case Rearm::OnReset:
+                    this->accumulated[i].consumed = false;
+                    this->accumulated[i].last_timestamp = x::telem::TimeStamp(0);
+                    break;
+            }
         }
     }
 

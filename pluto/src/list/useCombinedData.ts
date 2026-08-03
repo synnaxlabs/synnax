@@ -12,7 +12,7 @@ import { useCallback, useMemo } from "react";
 
 import { type FrameProps, type GetItem } from "@/list/Frame";
 
-export interface UseCombinedDataArgs<
+export interface UseCombinedDataParams<
   K extends record.Key,
   E extends record.Keyed<K> | undefined = record.Keyed<K> | undefined,
 > {
@@ -26,7 +26,7 @@ export const useCombinedData = <
 >({
   first,
   second,
-}: UseCombinedDataArgs<K, E>): FrameProps<K, E> => {
+}: UseCombinedDataParams<K, E>): FrameProps<K, E> => {
   const data = useMemo(
     () => [...first.data, ...second.data],
     [first.data, second.data],

@@ -12,3 +12,11 @@
 .pluto-table-cell-select-variant {
     min-width: 30rem;
 }
+
+.pluto-table-cell-value-form {
+    padding: 2rem;
+}
+
+.pluto-table-cell-text-form {
+    padding: 2rem;
+}

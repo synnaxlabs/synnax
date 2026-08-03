@@ -34,18 +34,18 @@ class Subject(BaseModel):
     Attributes:
         key: Is a unique identifier for the subject.
         name: Is a human-readable name for the subject.
-        group: Optional identifier shared by subjects from the same logical group
-            (e.g.) all writers from the same Driver rack.
+        group: Optional identifier shared by subjects from the same logical group (e.g.)
+            all writers from the same Driver rack.
     """
 
     key: str
     name: str
-    group: int | None = Field(default=None, ge=0, le=4294967295)
+    group: int = Field(default=0, ge=0, le=4294967295)
 
 
 class State(BaseModel, Generic[R]):
-    """Represents the state of control over a resource at a point in time,
-    capturing who controls what and with how much authority.
+    """Represents the state of control over a resource at a point in time, capturing who
+    controls what and with how much authority.
 
     Attributes:
         subject: Is the entity controlling the resource.
@@ -61,8 +61,8 @@ class State(BaseModel, Generic[R]):
 class Transfer(BaseModel, Generic[R]):
     """Represents a transfer of control over a resource. It is represented as a
     transition from one state to another over the same resource. A transfer between
-    resources that are different will result in a panic when any transfer methods
-    are called.
+    resources that are different will result in a panic when any transfer methods are
+    called.
 
     If From is nil, the entity was uncontrolled before the transfer. If To is nil, the
     resource is uncontrolled after the transfer.
@@ -88,4 +88,4 @@ class Update(BaseModel, Generic[R]):
         transfers: Is the list of control transfers that occurred in this update.
     """
 
-    transfers: list[Transfer[R]]
+    transfers: list[Transfer[R]] = Field(default_factory=list)

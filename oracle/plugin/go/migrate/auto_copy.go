@@ -7,19 +7,22 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-// auto_copy.go generates migrate_auto.gen.go files containing AutoMigrateX
+// auto_copy.go generates migrate_auto.gen.go files containing autoMigrateX
 // functions that convert between frozen and live type versions.
 package migrate
 
 import (
 	"bytes"
 	"fmt"
+	"path/filepath"
+	"slices"
 	"sort"
 	"strings"
 	"text/template"
 
 	"github.com/synnaxlabs/oracle/plugin/domain"
 	"github.com/synnaxlabs/oracle/plugin/go/internal/naming"
+	"github.com/synnaxlabs/oracle/plugin/go/internal/schemadiff"
 	"github.com/synnaxlabs/oracle/plugin/gomod"
 	"github.com/synnaxlabs/oracle/plugin/output"
 	"github.com/synnaxlabs/oracle/resolution"
@@ -34,15 +37,16 @@ import (
 func generateAutoCopy(
 	pkg, outputPath, repoRoot string,
 	types []resolution.Type,
-	diff map[string]TypeDiff,
+	diff map[string]schemadiff.TypeDiff,
 	oldTable, newTable *resolution.Table,
 	skipEntries bool,
+	wrappers map[string]string,
 ) ([]byte, error) {
 	c := &collector{
 		pkg: pkg, outputPath: outputPath, repoRoot: repoRoot,
 		diff: diff, oldTable: oldTable, newTable: newTable,
 		imports: make(map[string]importEntry), generated: make(set.Set[string]),
-		skipEntries: skipEntries,
+		skipEntries: skipEntries, wrappers: wrappers,
 	}
 	data := c.collect(types)
 	if len(data.Funcs) == 0 {
@@ -79,6 +83,8 @@ type funcData struct {
 	Preamble       []step
 	Fields         []field
 	SliceElemExpr  string
+	SliceOldElem   string
+	SliceNewElem   string
 	SliceHasErr    bool
 }
 
@@ -89,6 +95,8 @@ type step struct {
 	Call     string
 	Type     string
 	ElemExpr string
+	OldElem  string
+	NewElem  string
 }
 
 type field struct {
@@ -110,32 +118,32 @@ var autoCopyTmpl = template.Must(template.New("autoCopy").Parse(`// Code generat
 package {{.Package}}
 
 import (
+	"context"
+{{- if .Imports}}
+{{end}}
 {{- range .Imports}}
-	{{.Alias}} "{{.Path}}"
+	{{if .Alias}}{{.Alias}} {{end}}"{{.Path}}"
 {{- end}}
 )
 {{range $fn := .Funcs}}
 {{- if eq $fn.Kind "cast"}}
-func AutoMigrate{{$fn.GoName}}{{$fn.TypeParamsDecl}}({{- if $fn.UsesCtx}}ctx{{else}}_{{end}} context.Context, old {{$fn.OldTypeName}}) ({{$fn.NewTypeName}}, error) {
+func autoMigrate{{$fn.GoName}}{{$fn.TypeParamsDecl}}({{- if $fn.UsesCtx}}ctx{{else}}_{{end}} context.Context, old {{$fn.OldTypeName}}) ({{$fn.NewTypeName}}, error) {
 	return {{$fn.NewTypeName}}(old), nil
 }
 {{else if eq $fn.Kind "slice"}}
-func AutoMigrate{{$fn.GoName}}{{$fn.TypeParamsDecl}}({{- if $fn.UsesCtx}}ctx{{else}}_{{end}} context.Context, old {{$fn.OldTypeName}}) ({{$fn.NewTypeName}}, error) {
-	result := make({{$fn.NewTypeName}}, len(old))
-	for i, v := range old {
+func autoMigrate{{$fn.GoName}}{{$fn.TypeParamsDecl}}({{- if $fn.UsesCtx}}ctx{{else}}_{{end}} context.Context, old {{$fn.OldTypeName}}) ({{$fn.NewTypeName}}, error) {
 {{- if $fn.SliceHasErr}}
-		var err error
-		if result[i], err = {{$fn.SliceElemExpr}}; err != nil {
-			return nil, err
-		}
+	return lo.MapErr(old, func(v {{$fn.SliceOldElem}}, _ int) ({{$fn.SliceNewElem}}, error) {
+		return {{$fn.SliceElemExpr}}
+	})
 {{- else}}
-		result[i] = {{$fn.SliceElemExpr}}
+	return lo.Map(old, func(v {{$fn.SliceOldElem}}, _ int) {{$fn.SliceNewElem}} {
+		return {{$fn.SliceElemExpr}}
+	}), nil
 {{- end}}
-	}
-	return result, nil
 }
 {{else if eq $fn.Kind "struct"}}
-func AutoMigrate{{$fn.GoName}}{{$fn.TypeParamsDecl}}({{- if $fn.UsesCtx}}ctx{{else}}_{{end}} context.Context, old {{$fn.OldTypeName}}) ({{$fn.NewTypeName}}, error) {
+func autoMigrate{{$fn.GoName}}{{$fn.TypeParamsDecl}}({{- if $fn.UsesCtx}}ctx{{else}}_{{end}} context.Context, old {{$fn.OldTypeName}}) ({{$fn.NewTypeName}}, error) {
 {{- range $fn.Preamble}}
 {{- if eq .Kind "migrate"}}
 	{{.VarName}}, err := {{.Call}}
@@ -158,18 +166,16 @@ func AutoMigrate{{$fn.GoName}}{{$fn.TypeParamsDecl}}({{- if $fn.UsesCtx}}ctx{{el
 		{{.VarName}} = &v
 	}
 {{- else if eq .Kind "sliceMigrate"}}
-	{{.VarName}} := make({{.Type}}, len({{.Accessor}}))
-	for i, v := range {{.Accessor}} {
-		var err error
-		if {{.VarName}}[i], err = {{.ElemExpr}}; err != nil {
-			return {{$fn.ZeroValue}}, err
-		}
+	{{.VarName}}, err := lo.MapErr({{.Accessor}}, func(v {{.OldElem}}, _ int) ({{.NewElem}}, error) {
+		return {{.ElemExpr}}
+	})
+	if err != nil {
+		return {{$fn.ZeroValue}}, err
 	}
 {{- else if eq .Kind "sliceCast"}}
-	{{.VarName}} := make({{.Type}}, len({{.Accessor}}))
-	for i, v := range {{.Accessor}} {
-		{{.VarName}}[i] = {{.ElemExpr}}
-	}
+	{{.VarName}} := lo.Map({{.Accessor}}, func(v {{.OldElem}}, _ int) {{.NewElem}} {
+		return {{.ElemExpr}}
+	})
 {{- end}}
 {{- end}}
 	return {{$fn.NewTypeName}}{
@@ -185,22 +191,27 @@ func AutoMigrate{{$fn.GoName}}{{$fn.TypeParamsDecl}}({{- if $fn.UsesCtx}}ctx{{el
 
 type collector struct {
 	pkg, outputPath, repoRoot string
-	diff                      map[string]TypeDiff
+	diff                      map[string]schemadiff.TypeDiff
 	oldTable, newTable        *resolution.Table
 	imports                   map[string]importEntry
 	generated                 set.Set[string]
 	pending                   []resolution.Type
 	funcs                     []funcData
 	skipEntries               bool
+	// wrappers maps qualified type names to their developer-wrapper names,
+	// deciding exported vs unexported routing (see wrapperNames).
+	wrappers map[string]string
+	// usesLo marks that an emitted function body calls a samber/lo helper.
+	usesLo bool
 }
 
 func (c *collector) collect(types []resolution.Type) fileData {
 	for _, typ := range types {
 		td, hasDiff := c.diff[typ.QualifiedName]
-		if !hasDiff || td.Kind == TypeUnchanged {
+		if !hasDiff || td.Kind == schemadiff.TypeUnchanged {
 			continue
 		}
-		if false && c.skipEntries && c.isEntryType(typ) { // TEMP
+		if c.skipEntries && c.isEntryType(typ) {
 			continue
 		}
 		c.ensureFunc(typ)
@@ -210,9 +221,12 @@ func (c *collector) collect(types []resolution.Type) fileData {
 		c.pending = c.pending[1:]
 		c.ensureFunc(typ)
 	}
-	// Always import context because every AutoMigrate function signature
-	// includes context.Context as a parameter.
-	imps := []importEntry{{Path: "context"}}
+	if c.usesLo {
+		c.imports["github.com/samber/lo"] = importEntry{Path: "github.com/samber/lo"}
+	}
+	// context renders as its own standard-library group in the template;
+	// every function signature includes context.Context.
+	imps := make([]importEntry, 0, len(c.imports))
 	for _, imp := range c.imports {
 		imps = append(imps, imp)
 	}
@@ -325,13 +339,53 @@ func (c *collector) structFuncFromForms(
 		c.addField(&fn, ext, "old."+name, name, false)
 	}
 	for _, oldField := range oldSF.Fields {
-		if findField(newSF.Fields, oldField.Name) == nil {
+		// A field omitted on either side never reaches the wire: a decoded old
+		// entry carries the zero value, and the encoder drops the new field.
+		// Copying would also couple versions whose memory-only types diverged.
+		if domain.GetStringFromField(oldField, "go", "marshal") == "omit" {
+			continue
+		}
+		newField := findField(newSF.Fields, oldField.Name)
+		if newField == nil {
+			continue
+		}
+		if domain.GetStringFromField(*newField, "go", "marshal") == "omit" {
+			continue
+		}
+		if c.unionMismatch(oldField.Type, newField.Type) {
 			continue
 		}
 		name := naming.GetFieldName(oldField)
-		c.addField(&fn, oldField.Type, "old."+name, name, oldField.IsHardOptional)
+		c.addField(&fn, oldField.Type, "old."+name, name, oldField.Optional)
 	}
 	return fn
+}
+
+// unionMismatch reports whether a field's old and new types disagree on
+// union-ness at any position, which auto-copy cannot bridge; such fields are
+// left to the hand-written migration.
+func (c *collector) unionMismatch(oldRef, newRef resolution.TypeRef) bool {
+	if isUnionIn(oldRef, c.oldTable) != isUnionIn(newRef, c.newTable) {
+		return true
+	}
+	n := min(len(oldRef.TypeArgs), len(newRef.TypeArgs))
+	for i := range n {
+		if c.unionMismatch(oldRef.TypeArgs[i], newRef.TypeArgs[i]) {
+			return true
+		}
+	}
+	return false
+}
+
+// isUnionIn reports whether a type reference resolves to a discriminated
+// union within the given table.
+func isUnionIn(ref resolution.TypeRef, table *resolution.Table) bool {
+	resolved, ok := ref.Resolve(table)
+	if !ok {
+		return false
+	}
+	_, isUnion := resolved.Form.(resolution.UnionForm)
+	return isUnion
 }
 
 func (c *collector) addField(fn *funcData, ref resolution.TypeRef, accessor, goName string, isOptional bool) {
@@ -358,18 +412,30 @@ func (c *collector) sliceFunc(
 		return funcData{GoName: goName, OldTypeName: oldTypeName, NewTypeName: newTypeName, Kind: "cast"}
 	}
 	td, hasDiff := c.diff[elemResolved.QualifiedName]
-	needsMigration := hasDiff && td.Kind != TypeUnchanged
+	needsMigration := hasDiff && td.Kind != schemadiff.TypeUnchanged
+	if !needsMigration && c.isSameType(elemResolved) {
+		return funcData{
+			GoName: goName, OldTypeName: oldTypeName, NewTypeName: newTypeName,
+			Kind: "cast",
+		}
+	}
 	if needsMigration || c.hasOracleDefinedFields(elemResolved) {
+		c.usesLo = true
 		return funcData{
 			GoName: goName, OldTypeName: oldTypeName, NewTypeName: newTypeName,
 			Kind: "slice", UsesCtx: true, SliceHasErr: true,
 			SliceElemExpr: c.requireFunc(elemResolved) + "(ctx, v)",
+			SliceOldElem:  c.resolveTypeName(elemResolved, c.oldTable),
+			SliceNewElem:  c.resolveNewTypeName(elemResolved),
 		}
 	}
 	if c.isOracleDefined(elemResolved) {
+		c.usesLo = true
 		return funcData{
 			GoName: goName, OldTypeName: oldTypeName, NewTypeName: newTypeName,
 			Kind: "slice", SliceElemExpr: c.resolveNewTypeName(elemResolved) + "(v)",
+			SliceOldElem: c.resolveTypeName(elemResolved, c.oldTable),
+			SliceNewElem: c.resolveNewTypeName(elemResolved),
 		}
 	}
 	return funcData{GoName: goName, OldTypeName: oldTypeName, NewTypeName: newTypeName, Kind: "cast"}
@@ -386,73 +452,76 @@ func (c *collector) classifyField(
 	}
 	if bgf, ok := resolved.Form.(resolution.BuiltinGenericForm); ok {
 		if bgf.Name == "Array" && len(ref.TypeArgs) > 0 {
-			return c.classifySlice(ref.TypeArgs[0], accessor, goName, "[]")
+			return c.classifySlice(ref.TypeArgs[0], accessor, goName)
 		}
 		return classification{inline: accessor}
 	}
 	if elemRef, ok := arrayBaseRef(resolved); ok {
-		return c.classifySlice(elemRef, accessor, goName, c.resolveNewTypeName(resolved))
+		return c.classifySlice(elemRef, accessor, goName)
 	}
 	if !c.isOracleDefined(resolved) {
 		return classification{inline: accessor}
 	}
 	td, hasDiff := c.diff[resolved.QualifiedName]
-	needsMigration := hasDiff && td.Kind != TypeUnchanged
+	// An unchanged type aliases its predecessor in the new version, so old and
+	// new denote the same Go type and the value assigns directly.
+	if !hasDiff || td.Kind == schemadiff.TypeUnchanged {
+		return classification{inline: accessor}
+	}
 	varName := naming.LowerFirst(goName)
-	if needsMigration || c.hasOracleDefinedFields(resolved) {
-		helper := c.requireFunc(resolved)
-		if isOptional {
-			newType := c.resolveNewTypeName(resolved)
-			return classification{needsPreamble: true, usesCtx: true, step: step{
-				Kind: "optionalMigrate", VarName: varName, Accessor: accessor,
-				Call: fmt.Sprintf("%s(ctx, *%s)", helper, accessor), Type: newType,
-			}}
-		}
-		return classification{needsPreamble: true, usesCtx: true, step: step{
-			Kind: "migrate", VarName: varName,
-			Call: fmt.Sprintf("%s(ctx, %s)", helper, accessor),
-		}}
-	}
-	newType := c.resolveNewTypeName(resolved)
+	helper := c.requireFunc(resolved)
 	if isOptional {
-		return classification{needsPreamble: true, step: step{
-			Kind: "optionalCast", VarName: varName, Accessor: accessor, Type: newType,
+		newType := c.resolveNewTypeName(resolved)
+		return classification{needsPreamble: true, usesCtx: true, step: step{
+			Kind: "optionalMigrate", VarName: varName, Accessor: accessor,
+			Call: fmt.Sprintf("%s(ctx, *%s)", helper, accessor), Type: newType,
 		}}
 	}
-	return classification{inline: fmt.Sprintf("%s(%s)", newType, accessor)}
+	return classification{needsPreamble: true, usesCtx: true, step: step{
+		Kind: "migrate", VarName: varName,
+		Call: fmt.Sprintf("%s(ctx, %s)", helper, accessor),
+	}}
 }
 
 func (c *collector) classifySlice(
-	elemRef resolution.TypeRef, accessor, goName, sliceTypePrefix string,
+	elemRef resolution.TypeRef, accessor, goName string,
 ) classification {
 	elemResolved, ok := c.resolveRef(elemRef)
 	if !ok {
 		return classification{inline: accessor}
 	}
 	td, hasDiff := c.diff[elemResolved.QualifiedName]
-	needsMigration := hasDiff && td.Kind != TypeUnchanged
-	if !needsMigration && !c.isOracleDefined(elemResolved) {
+	// Unchanged element types alias their predecessors, so the slice types are
+	// identical and the value assigns directly.
+	if !hasDiff || td.Kind == schemadiff.TypeUnchanged {
 		return classification{inline: accessor}
 	}
 	varName := naming.LowerFirst(goName)
-	newElem := c.resolveNewTypeName(elemResolved)
-	sliceType := sliceTypePrefix
-	if sliceTypePrefix == "[]" {
-		sliceType = "[]" + newElem
-	}
-	if needsMigration || c.hasOracleDefinedFields(elemResolved) {
-		return classification{needsPreamble: true, usesCtx: true, step: step{
-			Kind: "sliceMigrate", VarName: varName, Accessor: accessor,
-			Type: sliceType, ElemExpr: c.requireFunc(elemResolved) + "(ctx, v)",
-		}}
-	}
-	return classification{needsPreamble: true, step: step{
-		Kind: "sliceCast", VarName: varName, Accessor: accessor,
-		Type: sliceType, ElemExpr: newElem + "(v)",
+	c.usesLo = true
+	return classification{needsPreamble: true, usesCtx: true, step: step{
+		Kind: "sliceMigrate", VarName: varName, Accessor: accessor,
+		ElemExpr: c.requireFunc(elemResolved) + "(ctx, v)",
+		OldElem:  c.resolveTypeName(elemResolved, c.oldTable),
+		NewElem:  c.resolveNewTypeName(elemResolved),
 	}}
 }
 
 // --- Type resolution helpers ---
+
+// isSameType reports whether the old and new tables resolve typ to the same Go
+// type (same package path and name), making any migration a pure copy.
+func (c *collector) isSameType(typ resolution.Type) bool {
+	oldT, ok := c.oldTable.Get(typ.QualifiedName)
+	if !ok {
+		return false
+	}
+	newT, ok := c.newTable.Get(typ.QualifiedName)
+	if !ok {
+		return false
+	}
+	return naming.GetGoName(oldT) == naming.GetGoName(newT) &&
+		output.GetPath(oldT, "go") == output.GetPath(newT, "go")
+}
 
 func (c *collector) requireFunc(typ resolution.Type) string {
 	goName := naming.GetGoName(typ)
@@ -465,19 +534,34 @@ func (c *collector) requireFunc(typ resolution.Type) string {
 	}
 	if !isLocal {
 		td, ok := c.diff[typ.QualifiedName]
-		isLocal = !ok || td.Kind == TypeUnchanged
+		isLocal = !ok || td.Kind == schemadiff.TypeUnchanged
 	}
 	if isLocal {
 		if !c.generated.Contains(typ.QualifiedName) {
 			c.pending = append(c.pending, typ)
 		}
-		return "AutoMigrate" + goName
+		// Every changed struct gets a MigrateX/migrateX wrapper in the
+		// developer template; route local references through it so
+		// hand-written fixups in the wrapper apply to nested occurrences too.
+		if td, ok := c.diff[typ.QualifiedName]; ok && td.Kind == schemadiff.TypeChanged {
+			if _, isStruct := typ.Form.(resolution.StructForm); isStruct {
+				if n, ok := c.wrappers[typ.QualifiedName]; ok {
+					return n
+				}
+				return "Migrate" + goName
+			}
+		}
+		return "autoMigrate" + goName
 	}
-	// For TypeChanged types in external packages, call MigrateX (the developer
-	// template) instead of AutoMigrateX, so developer customization takes effect.
-	prefix := "AutoMigrate"
-	if td, ok := c.diff[typ.QualifiedName]; ok && td.Kind == TypeChanged {
-		prefix = "Migrate"
+	// External packages expose only MigrateX (the developer template); the
+	// auto-copy helpers are unexported. Both live in the dependency's incoming
+	// version package, so the import targets the type's NEW path, not the
+	// frozen one being read from.
+	prefix := "Migrate"
+	if nt, ok := c.newTable.Get(typ.QualifiedName); ok {
+		if p := output.GetPath(nt, "go"); p != "" {
+			goPath = p
+		}
 	}
 	imp := c.addImport(goPath)
 	return imp.Alias + "." + prefix + goName
@@ -509,7 +593,22 @@ func (c *collector) addImport(goPath string) importEntry {
 	if imp, ok := c.imports[importPath]; ok {
 		return imp
 	}
-	imp := importEntry{Alias: naming.DerivePackageAlias(goPath, c.pkg), Path: importPath}
+	// A sibling version of the same resource imports under its bare directory
+	// name, matching the hand-written migration convention (v0 "…/versions/v0").
+	// Other resources import under their resource name, falling back to the
+	// versioned form only when two versions of one resource meet in a file.
+	alias := naming.DerivePackageAlias(goPath, c.pkg)
+	if filepath.Dir(goPath) == filepath.Dir(c.outputPath) {
+		alias = filepath.Base(goPath)
+	} else {
+		for _, existing := range c.imports {
+			if existing.Alias == alias {
+				alias = naming.DeriveVersionedAlias(goPath, c.pkg)
+				break
+			}
+		}
+	}
+	imp := importEntry{Alias: alias, Path: importPath}
 	c.imports[importPath] = imp
 	return imp
 }
@@ -546,19 +645,12 @@ func (c *collector) hasOracleDefinedFields(typ resolution.Type) bool {
 			return true
 		}
 	}
-	for _, ext := range sf.Extends {
-		if c.refHasOracleType(ext) {
-			return true
-		}
-	}
-	return false
+	return slices.ContainsFunc(sf.Extends, c.refHasOracleType)
 }
 
 func (c *collector) refHasOracleType(ref resolution.TypeRef) bool {
-	for _, arg := range ref.TypeArgs {
-		if c.refHasOracleType(arg) {
-			return true
-		}
+	if slices.ContainsFunc(ref.TypeArgs, c.refHasOracleType) {
+		return true
 	}
 	resolved, ok := ref.Resolve(c.oldTable)
 	if !ok {
@@ -572,12 +664,24 @@ func (c *collector) isStructLike(typ resolution.Type) bool {
 	case resolution.StructForm:
 		return true
 	case resolution.AliasForm:
+		// An alias to an array of an oracle struct (e.g. Members = Member[]) is
+		// struct-like: its elements need a per-element migrate, not a slice cast.
+		if elemRef, isArr := arrayBaseRef(typ); isArr {
+			if elem, ok := c.resolveRef(elemRef); ok {
+				return c.isStructLike(elem)
+			}
+		}
 		if r, ok := form.Target.Resolve(c.oldTable); ok {
 			if _, s := r.Form.(resolution.StructForm); s {
 				return true
 			}
 		}
 	case resolution.DistinctForm:
+		if elemRef, isArr := arrayBaseRef(typ); isArr {
+			if elem, ok := c.resolveRef(elemRef); ok {
+				return c.isStructLike(elem)
+			}
+		}
 		if r, ok := form.Base.Resolve(c.oldTable); ok {
 			if _, s := r.Form.(resolution.StructForm); s {
 				return true
@@ -589,9 +693,9 @@ func (c *collector) isStructLike(typ resolution.Type) bool {
 
 // --- Pure helpers ---
 
-func needsAutoMigrate(types []resolution.Type, diff map[string]TypeDiff) bool {
+func needsAutoMigrate(types []resolution.Type, diff map[string]schemadiff.TypeDiff) bool {
 	for _, typ := range types {
-		if td, ok := diff[typ.QualifiedName]; ok && td.Kind != TypeUnchanged {
+		if td, ok := diff[typ.QualifiedName]; ok && td.Kind != schemadiff.TypeUnchanged {
 			return true
 		}
 	}

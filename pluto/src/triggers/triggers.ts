@@ -421,3 +421,6 @@ export const purgeMouse = (triggers: Trigger[]): Trigger[] =>
   triggers
     .map((t) => t.filter((k) => !k.startsWith("Mouse")))
     .filter((t) => t.length > 0);
+
+export const UNDO: Trigger = ["Control", "Z"];
+export const REDO: Trigger = ["Control", "Shift", "Z"];

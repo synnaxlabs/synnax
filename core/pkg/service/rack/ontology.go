@@ -16,8 +16,8 @@ import (
 	"strconv"
 
 	"github.com/samber/lo"
-	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
-	"github.com/synnaxlabs/synnax/pkg/distribution/search"
+	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/search"
 	xchange "github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/gorp"
 	xiter "github.com/synnaxlabs/x/iter"
@@ -25,16 +25,12 @@ import (
 	"github.com/synnaxlabs/x/zyn"
 )
 
-func OntologyID(k Key) ontology.ID {
-	return ontology.ID{Type: ontology.ResourceTypeRack, Key: k.String()}
-}
-
 func OntologyIDs(keys []Key) []ontology.ID {
-	return lo.Map(keys, func(key Key, _ int) ontology.ID { return OntologyID(key) })
+	return lo.Map(keys, func(key Key, _ int) ontology.ID { return key.OntologyID() })
 }
 
 func OntologyIDsFromRacks(racks []Rack) []ontology.ID {
-	return lo.Map(racks, func(r Rack, _ int) ontology.ID { return OntologyID(r.Key) })
+	return lo.Map(racks, func(r Rack, _ int) ontology.ID { return r.OntologyID() })
 }
 
 func KeyFromOntologyID(id ontology.ID) (Key, error) {
@@ -46,14 +42,9 @@ func KeyFromOntologyID(id ontology.ID) (Key, error) {
 }
 
 func KeysFromOntologyIDs(ids []ontology.ID) ([]Key, error) {
-	keys := make([]Key, len(ids))
-	var err error
-	for i, id := range ids {
-		if keys[i], err = KeyFromOntologyID(id); err != nil {
-			return nil, err
-		}
-	}
-	return keys, nil
+	return lo.MapErr(ids, func(id ontology.ID, _ int) (Key, error) {
+		return KeyFromOntologyID(id)
+	})
 }
 
 var schema = zyn.Object(map[string]zyn.Schema{
@@ -62,7 +53,7 @@ var schema = zyn.Object(map[string]zyn.Schema{
 })
 
 func newResource(r Rack) ontology.Resource {
-	return ontology.NewResource(schema, OntologyID(r.Key), r.Name, r)
+	return ontology.NewResource(schema, r.OntologyID(), r.Name, r)
 }
 
 type change = xchange.Change[Key, Rack]
@@ -73,9 +64,6 @@ var (
 )
 
 func (s *Service) Type() ontology.ResourceType { return ontology.ResourceTypeRack }
-
-// Schema implements ontology.Service.
-func (s *Service) Schema() zyn.Schema { return schema }
 
 // RetrieveResource implements ontology.Service.
 func (s *Service) RetrieveResource(ctx context.Context, key string, tx gorp.Tx) (ontology.Resource, error) {
@@ -93,7 +81,7 @@ func (s *Service) RetrieveResource(ctx context.Context, key string, tx gorp.Tx) 
 func translateChange(c change) ontology.Change {
 	return ontology.Change{
 		Variant: c.Variant,
-		Key:     OntologyID(c.Key).String(),
+		Key:     c.Key.OntologyID().String(),
 		Value:   newResource(c.Value),
 	}
 }

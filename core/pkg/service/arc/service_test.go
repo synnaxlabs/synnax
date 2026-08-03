@@ -17,19 +17,21 @@ import (
 	"github.com/synnaxlabs/arc/ir"
 	. "github.com/synnaxlabs/arc/lsp/testutil"
 	"github.com/synnaxlabs/arc/types"
-	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
-	"github.com/synnaxlabs/x/lsp/protocol"
+	"github.com/synnaxlabs/synnax/pkg/service/channel"
+	"github.com/synnaxlabs/x/encoding/msgpack"
 	. "github.com/synnaxlabs/x/lsp/testutil"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
+	"go.lsp.dev/uri"
 )
 
 var _ = Describe("CompileProgram", func() {
 	It("Should retrieve and compile an Arc with a valid graph", func(ctx SpecContext) {
 		a := arc.Arc{
 			Name: "test-arc",
+			Mode: arc.ModeGraph,
 			Graph: graph.Graph{
 				Functions: []ir.Function{
 					{
@@ -63,6 +65,7 @@ var _ = Describe("CompileProgram", func() {
 	It("Should return error when graph compilation fails", func(ctx SpecContext) {
 		a := arc.Arc{
 			Name: "invalid-arc",
+			Mode: arc.ModeGraph,
 			Graph: graph.Graph{
 				Functions: []ir.Function{
 					{
@@ -73,13 +76,16 @@ var _ = Describe("CompileProgram", func() {
 					},
 				},
 				Nodes: []graph.Node{
-					{Key: "src", Type: "source"},
+					{Key: "src"},
 				},
-				Edges: []ir.Edge{
-					{
+				Inputs: map[string]msgpack.EncodedJSON{
+					"src": {"type": "source"},
+				},
+				Edges: graph.Edges{
+					{Edge: ir.Edge{
 						Source: ir.Handle{Node: "src", Param: ir.DefaultOutputParam},
 						Target: ir.Handle{Node: "nonexistent", Param: "input"},
-					},
+					}},
 				},
 			},
 		}
@@ -109,13 +115,13 @@ var _ = Describe("NewLSP", func() {
 		client := &MockClient{}
 		server.SetClient(client)
 
-		uri := protocol.DocumentURI("file:///test.arc")
+		uri := uri.URI("file:///test.arc")
 		OpenArcDocument(server, ctx, uri, "func test() {\n\tx := test_lsp_channel\n}")
 		Expect(client.Diagnostics()).To(HaveLen(1))
-		Expect(client.Diagnostics()[0].Message).To(ContainSubstring("undefined symbol"))
+		Expect(DiagnosticMessage(client.Diagnostics()[0])).To(ContainSubstring("undefined symbol"))
 
 		ch := channel.Channel{Name: "test_lsp_channel", DataType: telem.Float32T, Virtual: true}
-		Expect(dist.Channel.NewWriter(nil).Create(ctx, &ch)).To(Succeed())
+		Expect(channelSvc.NewWriter(nil).Create(ctx, &ch)).To(Succeed())
 
 		Eventually(func() int {
 			return len(client.Diagnostics())

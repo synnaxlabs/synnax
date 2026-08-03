@@ -15,10 +15,10 @@ import (
 
 	"github.com/synnaxlabs/synnax/pkg/api/auth"
 	"github.com/synnaxlabs/synnax/pkg/api/config"
-	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/service/device"
+	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
@@ -34,7 +34,6 @@ type (
 )
 
 type Service struct {
-	db     *gorp.DB
 	access *rbac.Service
 	rack   *rack.Service
 	device *device.Service
@@ -48,7 +47,6 @@ func NewService(cfgs ...config.LayerConfig) (*Service, error) {
 		return nil, err
 	}
 	return &Service{
-		db:     cfg.Distribution.DB,
 		rack:   cfg.Service.Rack,
 		device: cfg.Service.Device,
 		task:   cfg.Service.Task,
@@ -68,30 +66,20 @@ type (
 
 func (s *Service) Create(
 	ctx context.Context,
+	tx gorp.Tx,
 	req CreateRequest,
 ) (CreateResponse, error) {
-	var res CreateResponse
-	if err := s.access.Enforce(ctx, access.Request{
+	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionCreate,
-		Objects: rack.OntologyIDsFromRacks(req.Racks),
-	}); err != nil {
-		return res, err
-	}
-	if err := s.db.WithTx(ctx, func(tx gorp.Tx) error {
-		w := s.rack.NewWriter(tx)
-		for i, r := range req.Racks {
-			if err := w.Create(ctx, &r); err != nil {
-				return err
-			}
-			req.Racks[i] = r
-		}
-		res.Racks = req.Racks
-		return nil
+		Objects: []ontology.ID{{Type: ontology.ResourceTypeRack}},
 	}); err != nil {
 		return CreateResponse{}, err
 	}
-	return res, nil
+	if err := s.rack.NewWriter(tx).CreateMany(ctx, &req.Racks); err != nil {
+		return CreateResponse{}, err
+	}
+	return CreateResponse(req), nil
 }
 
 type (
@@ -107,7 +95,7 @@ type (
 		IncludeStatus bool       `json:"include_status" msgpack:"include_status"`
 	}
 	RetrieveResponse struct {
-		Racks []rack.Rack `json:"racks" msgpack:"racks"`
+		Racks []rack.Rack `json:"racks,omitzero" msgpack:"racks,omitzero"`
 	}
 )
 
@@ -116,7 +104,6 @@ func (s *Service) Retrieve(
 	req RetrieveRequest,
 ) (RetrieveResponse, error) {
 	var (
-		res            RetrieveResponse
 		hasSearch      = len(req.SearchTerm) > 0
 		hasKeys        = len(req.Keys) > 0
 		hasNames       = len(req.Names) > 0
@@ -151,35 +138,30 @@ func (s *Service) Retrieve(
 		q = q.Where(rack.MatchIntegration(req.Integration))
 	}
 	if err := q.Entries(&resRacks).Exec(ctx, nil); err != nil {
-		return res, err
+		return RetrieveResponse{}, err
 	}
 
 	if req.IncludeStatus {
-		keys := make([]rack.Key, len(resRacks))
-		for i := range resRacks {
-			keys[i] = resRacks[i].Key
-		}
 		statuses := make([]rack.Status, 0, len(resRacks))
 		if err := status.NewRetrieve[rack.StatusDetails](s.status).
 			Where(status.MatchKeys[rack.StatusDetails](ontology.IDsToKeys(rack.OntologyIDsFromRacks(resRacks))...)).
 			Entries(&statuses).
 			Exec(ctx, nil); err != nil {
-			return res, err
+			return RetrieveResponse{}, err
 		}
 		for i, stat := range statuses {
-			resRacks[i].Status = (*rack.Status)(&stat)
+			resRacks[i].Status = &stat
 		}
 	}
 
-	if err := s.access.Enforce(ctx, access.Request{
+	if err := s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionRetrieve,
 		Objects: rack.OntologyIDsFromRacks(resRacks),
 	}); err != nil {
-		return res, err
+		return RetrieveResponse{}, err
 	}
-	res.Racks = resRacks
-	return res, nil
+	return RetrieveResponse{Racks: resRacks}, nil
 }
 
 type DeleteRequest struct {
@@ -195,45 +177,43 @@ func embeddedGuard(_ gorp.Context, r rack.Rack) error {
 
 func (s *Service) Delete(
 	ctx context.Context,
+	tx gorp.Tx,
 	req DeleteRequest,
 ) (types.Nil, error) {
-	var res types.Nil
-	if err := s.access.Enforce(ctx, access.Request{
+	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionDelete,
 		Objects: rack.OntologyIDs(req.Keys),
 	}); err != nil {
-		return res, err
+		return types.Nil{}, err
 	}
-	return res, s.db.WithTx(ctx, func(tx gorp.Tx) error {
-		exists, err := s.device.NewRetrieve().Where(device.MatchRacks(req.Keys...)).Exists(ctx, tx)
-		if err != nil {
-			return err
+	exists, err := s.device.NewRetrieve().Where(device.MatchRacks(req.Keys...)).Exists(ctx, tx)
+	if err != nil {
+		return types.Nil{}, err
+	}
+	if exists {
+		return types.Nil{}, errors.Wrapf(
+			validate.ErrValidation,
+			"cannot delete rack when devices are still attached",
+		)
+	}
+	exists, err = s.task.NewRetrieve().
+		Where(task.And(task.MatchInternal(false), task.MatchRacks(req.Keys...))).
+		Exists(ctx, tx)
+	if err != nil {
+		return types.Nil{}, err
+	}
+	if exists {
+		return types.Nil{}, errors.Wrapf(
+			validate.ErrValidation,
+			"cannot delete rack when tasks are still attached",
+		)
+	}
+	w := s.rack.NewWriter(tx)
+	for _, k := range req.Keys {
+		if err := w.DeleteGuard(ctx, k, embeddedGuard); err != nil {
+			return types.Nil{}, err
 		}
-		if exists {
-			return errors.Wrapf(
-				validate.ErrValidation,
-				"cannot delete rack when devices are still attached",
-			)
-		}
-		exists, err = s.task.NewRetrieve().
-			Where(task.And(task.MatchInternal(false), task.MatchRacks(req.Keys...))).
-			Exists(ctx, tx)
-		if err != nil {
-			return err
-		}
-		if exists {
-			return errors.Wrapf(
-				validate.ErrValidation,
-				"cannot delete rack when tasks are still attached",
-			)
-		}
-		w := s.rack.NewWriter(tx)
-		for _, k := range req.Keys {
-			if err = w.DeleteGuard(ctx, k, embeddedGuard); err != nil {
-				return err
-			}
-		}
-		return nil
-	})
+	}
+	return types.Nil{}, nil
 }

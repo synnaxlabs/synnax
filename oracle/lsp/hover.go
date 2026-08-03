@@ -13,7 +13,7 @@ import (
 	"context"
 	"strings"
 
-	"github.com/synnaxlabs/x/lsp/protocol"
+	"go.lsp.dev/protocol"
 )
 
 var hoverDocs = map[string]string{
@@ -134,7 +134,7 @@ func (s *Server) Hover(_ context.Context, params *protocol.HoverParams) (*protoc
 
 	if docStr, ok := hoverDocs[word]; ok {
 		return &protocol.Hover{
-			Contents: protocol.MarkupContent{Kind: protocol.Markdown, Value: docStr},
+			Contents: &protocol.MarkupContent{Kind: protocol.MarkupKindMarkdown, Value: docStr},
 		}, nil
 	}
 
@@ -147,10 +147,7 @@ func getWordAtPosition(content string, pos protocol.Position) string {
 		return ""
 	}
 	line := lines[pos.Line]
-	col := int(pos.Character)
-	if col > len(line) {
-		col = len(line)
-	}
+	col := min(int(pos.Character), len(line))
 
 	start := col
 	for start > 0 && isWordChar(line[start-1]) {

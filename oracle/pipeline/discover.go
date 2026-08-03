@@ -10,20 +10,37 @@
 package pipeline
 
 import (
+	"io/fs"
+	"os"
 	"path/filepath"
 	"sort"
 
 	"github.com/synnaxlabs/x/errors"
 )
 
-// SchemaGlob is the canonical pattern for discovering top-level schema files.
-const SchemaGlob = "schemas/*.oracle"
-
 func globOracleSchemas(repoRoot string) ([]string, error) {
-	pattern := filepath.Join(repoRoot, SchemaGlob)
-	matches, err := filepath.Glob(pattern)
+	root := filepath.Join(repoRoot, "schemas")
+	var matches []string
+	err := filepath.WalkDir(root, func(path string, d fs.DirEntry, err error) error {
+		if err != nil {
+			if os.IsNotExist(err) && path == root {
+				return filepath.SkipAll
+			}
+			return err
+		}
+		if d.IsDir() {
+			if d.Name() == "snapshots" && filepath.Dir(path) == root {
+				return filepath.SkipDir
+			}
+			return nil
+		}
+		if filepath.Ext(path) == ".oracle" {
+			matches = append(matches, path)
+		}
+		return nil
+	})
 	if err != nil {
-		return nil, errors.Wrapf(err, "invalid glob pattern %q", pattern)
+		return nil, errors.Wrapf(err, "walk schema directory %q", root)
 	}
 	sort.Strings(matches)
 	return matches, nil

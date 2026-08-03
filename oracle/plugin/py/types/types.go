@@ -12,6 +12,7 @@ package types
 import (
 	"bytes"
 	"fmt"
+	"slices"
 	"strings"
 	"text/template"
 
@@ -28,6 +29,7 @@ import (
 	"github.com/synnaxlabs/oracle/plugin/output"
 	"github.com/synnaxlabs/oracle/plugin/py/keywords"
 	pyprimitives "github.com/synnaxlabs/oracle/plugin/py/primitives"
+	"github.com/synnaxlabs/oracle/plugin/resolver"
 	"github.com/synnaxlabs/oracle/resolution"
 	"github.com/synnaxlabs/x/set"
 )
@@ -67,6 +69,7 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 		MergeByName:     true,
 		CollectTypeDefs: true,
 		CollectEnums:    true,
+		CollectUnions:   true,
 	}
 	return gen.Generate(req)
 }
@@ -75,7 +78,7 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 type pyFileGenerator struct{}
 
 func (g *pyFileGenerator) GenerateFile(ctx *framework.GenerateContext) (string, error) {
-	content, err := generatePyFile(ctx.Namespace, ctx.OutputPath, ctx.Structs, ctx.Enums, ctx.TypeDefs, ctx.Table)
+	content, err := generatePyFile(ctx.Namespace, ctx.OutputPath, ctx.Structs, ctx.Enums, ctx.TypeDefs, ctx.Unions, ctx.Table)
 	if err != nil {
 		return "", err
 	}
@@ -88,6 +91,7 @@ func generatePyFile(
 	structs []resolution.Type,
 	enums []resolution.Type,
 	typeDefs []resolution.Type,
+	unions []resolution.Type,
 	table *resolution.Table,
 ) ([]byte, error) {
 	data := &templateData{
@@ -103,7 +107,7 @@ func generatePyFile(
 		data.imports.addPydantic("BaseModel")
 	}
 
-	skip := func(typ resolution.Type) bool { return omit.IsType(typ, "py") }
+	skip := func(typ resolution.Type) bool { return omit.IsSkipped(typ, "py") }
 	rawKeyFields := key.Collect(structs, table, skip)
 	keyFields := convertKeyFields(rawKeyFields, data)
 	allStructs := lo.Filter(table.StructTypes(), func(typ resolution.Type, _ int) bool {
@@ -130,39 +134,56 @@ func generatePyFile(
 		}
 	}
 
-	// Separate distinct types from alias types
-	var distinctTypeDefs []resolution.Type
+	// A TypeAlias assignment evaluates its right-hand side eagerly, so an alias
+	// whose target names a type defined in the SAME file (e.g. Nodes = list[Node])
+	// must be emitted after that type or list[Node] raises NameError at import.
+	// Those are collected into trailingTypeDefs and emitted after every struct and
+	// union. Aliases that only reference primitives or imported (cross-namespace)
+	// types have no same-file forward-reference hazard and keep their existing
+	// position: distinct primitive aliases (e.g. Key = uuid) up-front, other
+	// aliases (e.g. Status = status.Status[...]) topologically sorted with structs.
 	var aliasTypeDefs []resolution.Type
+	var trailingTypeDefs []resolution.Type
 	for _, td := range typeDefs {
-		switch td.Form.(type) {
-		case resolution.AliasForm:
+		_, isAlias := td.Form.(resolution.AliasForm)
+		switch {
+		case typeDefRefsSameNamespaceType(td, table):
+			trailingTypeDefs = append(trailingTypeDefs, td)
+		case isAlias:
 			aliasTypeDefs = append(aliasTypeDefs, td)
 		default:
-			distinctTypeDefs = append(distinctTypeDefs, td)
+			data.TypeDefs = append(data.TypeDefs, processTypeDef(td, table, data))
 		}
-	}
-
-	// Process distinct types first (they don't depend on other schema types)
-	for _, td := range distinctTypeDefs {
-		data.TypeDefs = append(data.TypeDefs, processTypeDef(td, table, data))
 	}
 
 	for _, e := range enums {
 		data.Enums = append(data.Enums, processEnum(e, data))
 	}
 
-	// Combine aliases and structs for topological sorting
+	// Hazard-free aliases sort up-front with structs and unions, preserving their
+	// existing positions. Same-file-referencing aliases are appended last so that
+	// when a reference cycle forces the topological sort to fall back to input
+	// order, those eagerly-evaluated list[...] / dict[...] assignments land after
+	// the classes they name. For acyclic aliases the sort still positions them by
+	// dependency (e.g. Functions before IR), so the trailing input order only
+	// matters inside a cycle. Any forward reference that remains is resolved by the
+	// model_rebuild() calls emitted at the end of the file.
 	var combinedTypes []resolution.Type
 	combinedTypes = append(combinedTypes, aliasTypeDefs...)
 	combinedTypes = append(combinedTypes, structs...)
+	combinedTypes = append(combinedTypes, unions...)
+	combinedTypes = append(combinedTypes, trailingTypeDefs...)
 
-	// Sort topologically so dependencies come before dependents
 	sortedTypes := table.TopologicalSort(combinedTypes)
 
-	// Process in sorted order
-	for _, typ := range sortedTypes {
+	typePos := make(map[string]int, len(sortedTypes))
+	for i, typ := range sortedTypes {
+		typePos[typ.QualifiedName] = i
+	}
+
+	for i, typ := range sortedTypes {
 		switch typ.Form.(type) {
-		case resolution.AliasForm:
+		case resolution.AliasForm, resolution.DistinctForm:
 			data.SortedDecls = append(data.SortedDecls, sortedDeclData{
 				IsTypeDef: true,
 				TypeDef:   processTypeDef(typ, table, data),
@@ -179,6 +200,19 @@ func generatePyFile(
 			data.SortedDecls = append(data.SortedDecls, sortedDeclData{
 				IsStruct: true,
 				Struct:   sd,
+			})
+			// A struct that names a same-file type defined at or after its own
+			// position (a self-reference or a cycle) leaves a forward reference
+			// pydantic cannot resolve until the file finishes loading, so emit a
+			// trailing model_rebuild() for it.
+			if structHasForwardRef(typ, i, typePos, table) {
+				data.RebuildModels = append(data.RebuildModels, sd.PyName)
+			}
+		case resolution.UnionForm:
+			u := processUnion(typ, table, data, keyFields)
+			data.SortedDecls = append(data.SortedDecls, sortedDeclData{
+				IsUnion: true,
+				Union:   u,
 			})
 		}
 	}
@@ -242,6 +276,81 @@ func processEnum(typ resolution.Type, data *templateData) enumData {
 		IsIntEnum:     form.IsIntEnum,
 		LiteralValues: strings.Join(literalValues, ", "),
 	}
+}
+
+// typeDefRefsSameNamespaceType reports whether a type alias's target references a
+// type declared in the same namespace (and therefore the same generated file).
+// Array and map wrappers are followed to their element/value types. Only these
+// aliases carry a same-file forward-reference hazard: an eagerly-evaluated
+// list[...] / dict[...] assignment names a class that may be defined later in the
+// file. References to primitives or to imported (cross-namespace) types are safe.
+func typeDefRefsSameNamespaceType(td resolution.Type, table *resolution.Table) bool {
+	var refs func(ref resolution.TypeRef) bool
+	refs = func(ref resolution.TypeRef) bool {
+		if ref.Name == "Array" || ref.Name == "Map" {
+			return slices.ContainsFunc(ref.TypeArgs, refs)
+		}
+		if ref.Name == "" || ref.IsTypeParam() || resolution.IsPrimitive(ref.Name) {
+			return false
+		}
+		resolved, ok := table.Get(ref.Name)
+		if !ok {
+			resolved, ok = table.Lookup(td.Namespace, ref.Name)
+		}
+		return ok && resolved.Namespace == td.Namespace
+	}
+	switch form := td.Form.(type) {
+	case resolution.AliasForm:
+		return refs(form.Target)
+	case resolution.DistinctForm:
+		return refs(form.Base)
+	default:
+		return false
+	}
+}
+
+// structHasForwardRef reports whether a struct at position selfIdx references a
+// type in the same namespace that is emitted at or after selfIdx (a self-reference
+// or a member of a reference cycle). With deferred annotations such a reference is
+// unresolved at class-definition time; pydantic resolves it once the file finishes
+// loading, which requires a model_rebuild() call. References to types defined
+// earlier in the file or in imported (cross-namespace) modules are already
+// resolvable and need no rebuild.
+func structHasForwardRef(typ resolution.Type, selfIdx int, typePos map[string]int, table *resolution.Table) bool {
+	var refs func(ref resolution.TypeRef) bool
+	refs = func(ref resolution.TypeRef) bool {
+		if ref.Name == "Array" || ref.Name == "Map" {
+			return slices.ContainsFunc(ref.TypeArgs, refs)
+		}
+		if ref.Name == "" || ref.IsTypeParam() || resolution.IsPrimitive(ref.Name) {
+			return false
+		}
+		resolved, ok := table.Get(ref.Name)
+		if !ok {
+			resolved, ok = table.Lookup(typ.Namespace, ref.Name)
+		}
+		if !ok || resolved.Namespace != typ.Namespace {
+			return false
+		}
+		if pos, ok := typePos[resolved.QualifiedName]; ok && pos >= selfIdx {
+			return true
+		}
+		// Follow a same-namespace alias target (e.g. inputs Params -> list[Param])
+		// to the type it ultimately names.
+		switch f := resolved.Form.(type) {
+		case resolution.AliasForm:
+			return refs(f.Target)
+		case resolution.DistinctForm:
+			return refs(f.Base)
+		}
+		return false
+	}
+	for _, field := range resolution.UnifiedFields(typ, table) {
+		if refs(field.Type) {
+			return true
+		}
+	}
+	return false
 }
 
 func processTypeDef(typ resolution.Type, table *resolution.Table, data *templateData) typeDefData {
@@ -332,9 +441,11 @@ func typeDefBaseToPython(typeRef resolution.TypeRef, currentNamespace string, ta
 	if resolution.IsPrimitive(typeRef.Name) {
 		return primitiveToPython(typeRef.Name, data)
 	}
-	// Handle Array type
+	// Handle Array type. Collection elements are resolved via typeToPython, which
+	// handles every form (struct, enum, alias, union); typeDefBaseToPython only
+	// special-cases distinct bases and would yield Any for a struct element.
 	if typeRef.Name == "Array" && len(typeRef.TypeArgs) > 0 {
-		elemType := typeDefBaseToPython(typeRef.TypeArgs[0], currentNamespace, table, data)
+		elemType := typeToPython(typeRef.TypeArgs[0], table, data)
 		// Fixed-size array -> tuple type
 		if typeRef.ArraySize != nil {
 			data.imports.addTyping("Tuple")
@@ -344,7 +455,13 @@ func typeDefBaseToPython(typeRef resolution.TypeRef, currentNamespace string, ta
 			}
 			return fmt.Sprintf("Tuple[%s]", strings.Join(elements, ", "))
 		}
-		return elemType
+		return fmt.Sprintf("list[%s]", elemType)
+	}
+	// Handle Map type
+	if typeRef.Name == "Map" && len(typeRef.TypeArgs) >= 2 {
+		keyType := typeToPython(typeRef.TypeArgs[0], table, data)
+		valueType := typeToPython(typeRef.TypeArgs[1], table, data)
+		return fmt.Sprintf("dict[%s, %s]", keyType, valueType)
 	}
 	// Try to resolve another typedef
 	resolved, ok := typeRef.Resolve(table)
@@ -369,6 +486,14 @@ func typeDefBaseToPython(typeRef resolution.TypeRef, currentNamespace string, ta
 	return "Any"
 }
 
+// hashableKey reports whether field is a @key field that can serve as the basis
+// for __hash__. An optional key (e.g. on a creation payload, where the key is
+// assigned by the server) is normally absent, so hashing by it is meaningless;
+// only a required key yields a __hash__.
+func hashableKey(field resolution.Field) bool {
+	return key.HasKey(field) && !field.Optional
+}
+
 func processStruct(
 	entry resolution.Type,
 	table *resolution.Table,
@@ -387,8 +512,9 @@ func processStruct(
 		return sd
 	}
 
-	// Check for py domain omit
-	if domain.HasExprFromType(entry, "py", "omit") {
+	// Check for py domain omit or hand-written implementation
+	if domain.HasExprFromType(entry, "py", "omit") ||
+		domain.HasExprFromType(entry, "py", "hand") {
 		sd.Skip = true
 		return sd
 	}
@@ -437,6 +563,24 @@ func processStruct(
 		}
 
 		if allParentsValid {
+			// A domain removal (-@domain) cannot be expressed through class
+			// inheritance — the base class still carries the domain — so emit a
+			// flattened standalone class. Typeless overrides are already resolved
+			// by the analyzer.
+			if resolver.HasDomainOmissions(form) {
+				sd.HasExtends = false
+				sd.ExtendsNames = nil
+				flat := resolution.UnifiedFields(entry, table)
+				sd.Fields = make([]fieldData, 0, len(flat))
+				for _, field := range flat {
+					sd.Fields = append(sd.Fields, processField(field, table, data, keyFields, form.OmittedFields))
+					if hashableKey(field) {
+						sd.KeyField = field.Name
+					}
+				}
+				return sd
+			}
+
 			// Get all parent fields for comparison (first parent wins on conflict)
 			parentFields := make([]resolution.Field, 0)
 			seenFields := make(set.Set[string])
@@ -456,9 +600,9 @@ func processStruct(
 			// type: ignore comments.
 			hasTypeConflict := false
 			for _, field := range form.Fields {
-				if field.IsOptional || field.IsHardOptional {
+				if field.Optional {
 					for _, pf := range parentFields {
-						if pf.Name == field.Name && !pf.IsOptional && !pf.IsHardOptional {
+						if pf.Name == field.Name && !pf.Optional {
 							hasTypeConflict = true
 							break
 						}
@@ -493,13 +637,13 @@ func processStruct(
 					if childField, ok := childFieldsByName[pf.Name]; ok {
 						fd := processField(childField, table, data, keyFields, form.OmittedFields)
 						sd.Fields = append(sd.Fields, fd)
-						if key.HasKey(childField) {
+						if hashableKey(childField) {
 							sd.KeyField = childField.Name
 						}
 					} else {
 						fd := processField(pf, table, data, keyFields, form.OmittedFields)
 						sd.Fields = append(sd.Fields, fd)
-						if key.HasKey(pf) {
+						if hashableKey(pf) {
 							sd.KeyField = pf.Name
 						}
 					}
@@ -512,7 +656,7 @@ func processStruct(
 					}
 					fd := processField(field, table, data, keyFields, form.OmittedFields)
 					sd.Fields = append(sd.Fields, fd)
-					if key.HasKey(field) {
+					if hashableKey(field) {
 						sd.KeyField = field.Name
 					}
 				}
@@ -528,14 +672,14 @@ func processStruct(
 				redefinedFields.Add(field.Name)
 				fd := processField(field, table, data, keyFields, form.OmittedFields)
 				sd.Fields = append(sd.Fields, fd)
-				// Check if this field has @key annotation for __hash__ generation
-				if key.HasKey(field) {
+				// Only a required @key field yields a __hash__.
+				if hashableKey(field) {
 					sd.KeyField = field.Name
 				}
 			}
 			// Also check parent fields for @key if not redefined
 			for _, pf := range parentFields {
-				if !redefinedFields.Contains(pf.Name) && key.HasKey(pf) {
+				if !redefinedFields.Contains(pf.Name) && hashableKey(pf) {
 					sd.KeyField = pf.Name
 				}
 			}
@@ -550,16 +694,13 @@ func processStruct(
 				for _, pf := range parentFields {
 					if pf.Name == omittedName {
 						data.imports.addPydantic("Field")
-						fd := fieldData{
-							Name:   pf.Name,
-							PyType: typeToPython(pf.Type, table, data),
-						}
-						if pf.IsOptional || pf.IsHardOptional {
-							fd.PyType = fd.PyType + " | None"
-							fd.Default = " = Field(default=None, exclude=True)"
-						} else {
-							fd.Default = " = Field(exclude=True)"
-						}
+						// Run the inherited field through the normal field
+						// pipeline so it keeps its real type, default, and
+						// validation; processField adds exclude=True because the
+						// name is in OmittedFields. A hand-built default here
+						// would drop the parent's default and make an excluded
+						// defaulted field wrongly required.
+						fd := processField(pf, table, data, keyFields, form.OmittedFields)
 						sd.Fields = append(sd.Fields, fd)
 						break
 					}
@@ -574,8 +715,8 @@ func processStruct(
 	sd.Fields = make([]fieldData, 0, len(allFields))
 	for _, field := range allFields {
 		sd.Fields = append(sd.Fields, processField(field, table, data, keyFields, nil))
-		// Check if this field has @key annotation for __hash__ generation
-		if key.HasKey(field) {
+		// Only a required @key field yields a __hash__.
+		if hashableKey(field) {
 			sd.KeyField = field.Name
 		}
 	}
@@ -591,6 +732,16 @@ func getPyName(typ resolution.Type) string {
 // it returns something like "Status[D, V]" instead of just "Status".
 func buildExtendsExpr(extendsRef resolution.TypeRef, parent resolution.Type, table *resolution.Table, data *templateData) string {
 	baseName := getPyName(parent)
+
+	// A base class defined in another schema module must be imported and
+	// referenced through its module alias (e.g. task_.BaseReadConfig).
+	if parent.Namespace != data.Namespace {
+		outputPath := output.GetPath(parent, "py")
+		if outputPath == "" {
+			outputPath = parent.Namespace
+		}
+		baseName = addCrossNamespaceImport(toPythonModulePath(outputPath), baseName, data)
+	}
 
 	// Check if parent is generic
 	parentForm, ok := parent.Form.(resolution.StructForm)
@@ -635,21 +786,18 @@ func processField(
 ) fieldData {
 	escapedName := keywords.Escape(field.Name)
 	fd := fieldData{
-		Name:           escapedName,
-		Doc:            doc.Get(field.Domains),
-		IsOptional:     field.IsOptional,
-		IsHardOptional: field.IsHardOptional,
-		IsArray:        field.Type.Name == "Array",
+		Name:       escapedName,
+		Doc:        doc.Get(field.Domains),
+		IsOptional: field.Optional,
+		IsArray:    field.Type.Name == "Array",
 	}
 	if escapedName != field.Name {
 		fd.Alias = field.Name
 	}
 
 	baseType := typeToPython(field.Type, table, data)
-	var fieldConstraints []string
-	if validateDomain, ok := field.Domains["validate"]; ok {
-		fieldConstraints = collectValidation(validateDomain, field.Type, table, data)
-	}
+	validateDomain := field.Domains["validate"]
+	fieldConstraints := collectValidation(validateDomain, field.Default, field.Type, table, data)
 
 	if bounds, ok := sizedIntBounds(field.Type, table); ok {
 		hasGe := lo.ContainsBy(fieldConstraints, func(c string) bool {
@@ -678,14 +826,41 @@ func processField(
 		fd.PyType = baseType
 	}
 
-	// Both soft optional (?) and hard optional (??) become T | None in Python
-	if field.IsOptional || field.IsHardOptional {
+	// Optional (?) fields become T | None in Python (no pointer distinction). A field
+	// typed as an optional type parameter (e.g. details Details, where Details?) is
+	// likewise optional: an unspecialized struct may omit it. A required collection
+	// defaults an absent value to its empty form, so it is always present and
+	// iterable; the server omits a nil ("not loaded") collection from the wire, so
+	// the default is what fills it. CollectionKind sees through aliases and
+	// type-parameter constraints so an alias- or type-parameter-typed collection is
+	// defaulted too.
+	isOptionalTypeParam := field.Type.IsTypeParam() &&
+		field.Type.TypeParam != nil && field.Type.TypeParam.Optional
+	if field.Optional || isOptionalTypeParam {
 		fd.PyType = fd.PyType + " | None"
+	} else if kind, isCollection := resolution.CollectionKind(field.Type, table); isCollection {
+		if kind == "Array" {
+			fieldConstraints = ensureDefaultFactory(fieldConstraints, "list")
+		} else {
+			fieldConstraints = ensureDefaultFactory(fieldConstraints, "dict")
+		}
 	}
 
-	fd.Default = buildDefault(field, fieldConstraints, fd.Alias, data)
+	fd.Default = buildDefault(field, fieldConstraints, fd.Alias, data, isOptionalTypeParam)
 
 	return fd
+}
+
+// ensureDefaultFactory appends a default_factory constraint unless one is already
+// present, so a required collection with no declared default still defaults to empty
+// when the field is absent.
+func ensureDefaultFactory(constraints []string, factory string) []string {
+	for _, c := range constraints {
+		if strings.HasPrefix(c, "default_factory=") {
+			return constraints
+		}
+	}
+	return append(constraints, "default_factory="+factory)
 }
 
 func buildDefault(
@@ -693,8 +868,9 @@ func buildDefault(
 	constraints []string,
 	alias string,
 	data *templateData,
+	optionalTypeParam bool,
 ) string {
-	isAnyOptional := field.IsOptional || field.IsHardOptional
+	isAnyOptional := field.Optional || optionalTypeParam
 
 	// When field is optional, filter out any default= constraints from validation
 	// since we'll be using default=None for the optional field
@@ -719,6 +895,12 @@ func buildDefault(
 	}
 
 	if hasConstraints {
+		// A lone immutable scalar default needs no Field() wrapper: emit a bare
+		// default so `name: str = ""` reads more directly than Field(default="").
+		// Mutable defaults use default_factory (never default=), so this is safe.
+		if len(constraints) == 1 && strings.HasPrefix(constraints[0], "default=") {
+			return " = " + strings.TrimPrefix(constraints[0], "default=")
+		}
 		data.imports.addPydantic("Field")
 		return fmt.Sprintf(" = Field(%s)", strings.Join(constraints, ", "))
 	}
@@ -728,12 +910,13 @@ func buildDefault(
 
 func collectValidation(
 	domain resolution.Domain,
+	defaultVal *resolution.ExpressionValue,
 	typeRef resolution.TypeRef,
 	table *resolution.Table,
 	data *templateData,
 ) []string {
 	rules := validation.Parse(domain)
-	if validation.IsEmpty(rules) {
+	if validation.IsEmpty(rules) && defaultVal == nil {
 		return nil
 	}
 	var constraints []string
@@ -763,51 +946,174 @@ func collectValidation(
 			}
 		}
 	}
-	if rules.Default != nil {
-		switch rules.Default.Kind {
+	if defaultVal != nil {
+		switch defaultVal.Kind {
 		case resolution.ValueKindBool:
-			if rules.Default.BoolValue {
+			if defaultVal.BoolValue {
 				constraints = append(constraints, "default=True")
 			} else {
 				constraints = append(constraints, "default=False")
 			}
 		case resolution.ValueKindInt:
 			// Type-aware: uuid with default 0 → UUID(int=0)
-			if isUUIDType(typeRef, table) && rules.Default.IntValue == 0 {
+			if isUUIDType(typeRef, table) && defaultVal.IntValue == 0 {
 				data.imports.addUUID("UUID")
 				constraints = append(constraints, "default=UUID(int=0)")
 			} else if wrapper := resolveDistinctWrapper(typeRef, table, data); wrapper != "" {
 				// Wrap int defaults in the distinct type constructor (e.g., TimeSpan(0))
-				constraints = append(constraints, fmt.Sprintf("default=%s(%d)", wrapper, rules.Default.IntValue))
+				constraints = append(constraints, fmt.Sprintf("default=%s(%d)", wrapper, defaultVal.IntValue))
 			} else {
-				constraints = append(constraints, fmt.Sprintf("default=%d", rules.Default.IntValue))
+				constraints = append(constraints, fmt.Sprintf("default=%d", defaultVal.IntValue))
 			}
 		case resolution.ValueKindFloat:
-			constraints = append(constraints, fmt.Sprintf("default=%f", rules.Default.FloatValue))
+			constraints = append(constraints, fmt.Sprintf("default=%f", defaultVal.FloatValue))
 		case resolution.ValueKindString:
-			constraints = append(constraints, fmt.Sprintf("default=%q", rules.Default.StringValue))
+			constraints = append(constraints, fmt.Sprintf("default=%q", defaultVal.StringValue))
 		case resolution.ValueKindIdent:
 			// Handle identifier-based defaults like "now" for timestamps
-			if rules.Default.IdentValue == "now" && isTimeStampType(typeRef, table) {
+			if defaultVal.IdentValue == "now" && isTimeStampType(typeRef, table) {
 				constraints = append(constraints, "default_factory=telem.TimeStamp.now")
 			}
-			// Handle "create" for auto-generating string keys
-			// Use key.ResolvePrimitive to handle type aliases like `Key distinct string`
+			// Handle "create" for auto-generating keys. uuid keys generate a UUID
+			// object; string keys generate a stringified UUID. uuid is a string
+			// primitive, so check it first.
+			// Use key.ResolvePrimitive to handle type aliases like `Key distinct string`.
 			primitive := key.ResolvePrimitive(typeRef, table)
-			if rules.Default.IdentValue == "create" && (isString || primitive == "string") {
-				data.imports.addUUID("uuid4")
-				constraints = append(constraints, "default_factory=lambda: str(uuid4())")
+			if defaultVal.IdentValue == "create" {
+				if primitive == "uuid" {
+					data.imports.addUUID("uuid4")
+					constraints = append(constraints, "default_factory=uuid4")
+				} else if isString || primitive == "string" {
+					data.imports.addUUID("uuid4")
+					constraints = append(constraints, "default_factory=lambda: str(uuid4())")
+				}
 			}
-			if ev, ok := validation.ResolveEnumVariant(rules.Default.IdentValue, typeRef, table); ok {
+			if ev, ok := validation.ResolveEnumVariant(defaultVal.IdentValue, typeRef, table); ok {
 				variantRef := enumVariantToPython(ev, table, data)
 				constraints = append(constraints, fmt.Sprintf("default=%s", variantRef))
+			}
+		case resolution.ValueKindArray:
+			// Lists are mutable, so they must use default_factory, never default=.
+			if len(defaultVal.Elements) == 0 {
+				constraints = append(constraints, "default_factory=list")
+			} else {
+				constraints = append(constraints, fmt.Sprintf("default_factory=lambda: %s", pyDefaultLiteral(typeRef, *defaultVal, table, data)))
+			}
+		case resolution.ValueKindStruct:
+			// Records (dict[str, Any]) and maps are mutable dicts, so they use
+			// default_factory. An empty default becomes dict; a populated one a dict
+			// literal. Other struct types default to a model constructor.
+			kind, _ := resolution.CollectionKind(typeRef, table)
+			if typeRef.Name == "record" || kind == "Map" {
+				if len(defaultVal.Fields) == 0 {
+					constraints = append(constraints, "default_factory=dict")
+				} else {
+					constraints = append(constraints, fmt.Sprintf("default_factory=lambda: %s", pyDefaultLiteral(typeRef, *defaultVal, table, data)))
+				}
+			} else {
+				// Models are mutable, so they must use default_factory, never default=.
+				constraints = append(constraints, fmt.Sprintf("default_factory=lambda: %s", pyDefaultLiteral(typeRef, *defaultVal, table, data)))
 			}
 		}
 	}
 	return constraints
 }
 
+// pyDefaultLiteral renders a default value as a Python literal. typeRef is the
+// declared type of the value, used to resolve enum variants, array element
+// types, and nested struct field types. Arrays and structs recurse.
+func pyDefaultLiteral(typeRef resolution.TypeRef, val resolution.ExpressionValue, table *resolution.Table, data *templateData) string {
+	switch val.Kind {
+	case resolution.ValueKindString:
+		return fmt.Sprintf("%q", val.StringValue)
+	case resolution.ValueKindInt:
+		return fmt.Sprintf("%d", val.IntValue)
+	case resolution.ValueKindFloat:
+		return fmt.Sprintf("%f", val.FloatValue)
+	case resolution.ValueKindBool:
+		if val.BoolValue {
+			return "True"
+		}
+		return "False"
+	case resolution.ValueKindIdent:
+		if ev, ok := validation.ResolveEnumVariant(val.IdentValue, typeRef, table); ok {
+			return enumVariantToPython(ev, table, data)
+		}
+		return val.IdentValue
+	case resolution.ValueKindArray:
+		elem := pyArrayElementType(typeRef)
+		parts := make([]string, 0, len(val.Elements))
+		for _, el := range val.Elements {
+			parts = append(parts, pyDefaultLiteral(elem, el, table, data))
+		}
+		return "[" + strings.Join(parts, ", ") + "]"
+	case resolution.ValueKindStruct:
+		if kind, _ := resolution.CollectionKind(typeRef, table); typeRef.Name == "record" || kind == "Map" {
+			return pyRecordLiteral(val, table, data)
+		}
+		return pyStructLiteral(typeRef, val, table, data)
+	}
+	return ""
+}
+
+// pyRecordLiteral renders a record default as a Python dict literal. Record
+// values carry no declared field types, so each entry's value is rendered from
+// its own kind.
+func pyRecordLiteral(val resolution.ExpressionValue, table *resolution.Table, data *templateData) string {
+	if len(val.Fields) == 0 {
+		return "{}"
+	}
+	parts := make([]string, 0, len(val.Fields))
+	for _, fv := range val.Fields {
+		parts = append(parts, fmt.Sprintf("%q: %s", fv.Name, pyDefaultLiteral(resolution.TypeRef{}, fv.Value, table, data)))
+	}
+	return "{" + strings.Join(parts, ", ") + "}"
+}
+
+// pyStructLiteral renders a struct default as a Python model constructor call,
+// resolving each field's value against its declared type in the struct named by
+// typeRef.
+func pyStructLiteral(typeRef resolution.TypeRef, val resolution.ExpressionValue, table *resolution.Table, data *templateData) string {
+	resolved, ok := typeRef.Resolve(table)
+	if !ok {
+		return "None"
+	}
+	className := getPyName(resolved)
+	if resolved.Namespace != data.Namespace {
+		outputPath := output.GetPath(resolved, "py")
+		if outputPath == "" {
+			outputPath = resolved.Namespace
+		}
+		className = addCrossNamespaceImport(toPythonModulePath(outputPath), className, data)
+	}
+	fieldsByName := map[string]resolution.Field{}
+	for _, f := range resolution.UnifiedFields(resolved, table) {
+		fieldsByName[f.Name] = f
+	}
+	parts := make([]string, 0, len(val.Fields))
+	for _, fv := range val.Fields {
+		parts = append(parts, fmt.Sprintf("%s=%s", keywords.Escape(fv.Name), pyDefaultLiteral(fieldsByName[fv.Name].Type, fv.Value, table, data)))
+	}
+	return className + "(" + strings.Join(parts, ", ") + ")"
+}
+
+// pyArrayElementType returns the element type of an array type reference, or the
+// reference itself when it is not an array.
+func pyArrayElementType(typeRef resolution.TypeRef) resolution.TypeRef {
+	if typeRef.Name == "Array" && len(typeRef.TypeArgs) > 0 {
+		return typeRef.TypeArgs[0]
+	}
+	return typeRef
+}
+
 func enumVariantToPython(ev validation.EnumVariant, table *resolution.Table, data *templateData) string {
+	// String-valued enums are emitted as a Literal alias with no runtime class to
+	// dot into, so reference the variant's string value directly (the field's type
+	// is that Literal). Only integer enums become IntEnum classes whose members can
+	// be accessed as Enum.variant.
+	if form, ok := ev.Type.Form.(resolution.EnumForm); ok && !form.IsIntEnum {
+		return fmt.Sprintf("%q", ev.Variant.StringValue())
+	}
 	enumName := domain.GetName(ev.Type, "py")
 	variantRef := fmt.Sprintf("%s.%s", enumName, ev.Variant.Name)
 	if ev.Type.Namespace != data.Namespace {
@@ -944,7 +1250,10 @@ func typeToPython(
 		return primitiveToPython(typeRef.Name, data)
 	}
 
-	// Handle Array type
+	// Handle Array type. The bare element type is returned (not list[...]); field
+	// processing wraps array-typed fields in list[...] itself off the element type,
+	// so wrapping here would double-wrap. Alias contexts that need list[...] use
+	// typeDefBaseToPython / typeRefToPythonAlias instead.
 	if typeRef.Name == "Array" && len(typeRef.TypeArgs) > 0 {
 		elemType := typeToPython(typeRef.TypeArgs[0], table, data)
 		// Fixed-size array -> tuple type
@@ -957,6 +1266,13 @@ func typeToPython(
 			return fmt.Sprintf("Tuple[%s]", strings.Join(elements, ", "))
 		}
 		return elemType
+	}
+
+	// Handle Map type
+	if typeRef.Name == "Map" && len(typeRef.TypeArgs) >= 2 {
+		keyType := typeToPython(typeRef.TypeArgs[0], table, data)
+		valueType := typeToPython(typeRef.TypeArgs[1], table, data)
+		return fmt.Sprintf("dict[%s, %s]", keyType, valueType)
 	}
 
 	// Try to resolve the type
@@ -1025,6 +1341,17 @@ func typeToPython(
 		}
 		return pyName
 
+	case resolution.UnionForm:
+		if resolved.Namespace != data.Namespace {
+			outputPath := output.GetPath(resolved, "py")
+			if outputPath == "" {
+				outputPath = resolved.Namespace
+			}
+			modulePath := toPythonModulePath(outputPath)
+			return addCrossNamespaceImport(modulePath, pyName, data)
+		}
+		return pyName
+
 	default:
 		data.imports.addTyping("Any")
 		return "Any"
@@ -1036,6 +1363,19 @@ func typeRefToPythonAlias(
 	table *resolution.Table,
 	data *templateData,
 ) string {
+	// Array and map alias targets (e.g. Nodes = Node[], Authorities = map<...>) are
+	// builtin generics that do not resolve to a struct, so handle them here rather
+	// than falling through to the scalar/struct path below.
+	if typeRef.Name == "Array" && len(typeRef.TypeArgs) > 0 && typeRef.ArraySize == nil {
+		return fmt.Sprintf("list[%s]", typeToPython(typeRef.TypeArgs[0], table, data))
+	}
+	if typeRef.Name == "Map" && len(typeRef.TypeArgs) >= 2 {
+		return fmt.Sprintf(
+			"dict[%s, %s]",
+			typeToPython(typeRef.TypeArgs[0], table, data),
+			typeToPython(typeRef.TypeArgs[1], table, data),
+		)
+	}
 	resolved, ok := typeRef.Resolve(table)
 	if !ok {
 		return typeToPython(typeRef, table, data)
@@ -1084,8 +1424,8 @@ func toPythonModulePath(repoPath string) string {
 
 	path := repoPath
 	for _, prefix := range prefixes {
-		if strings.HasPrefix(path, prefix) {
-			path = strings.TrimPrefix(path, prefix)
+		if after, ok := strings.CutPrefix(path, prefix); ok {
+			path = after
 			break
 		}
 	}
@@ -1225,22 +1565,25 @@ func (m *importManager) AddImport(category, path, name string) {
 }
 
 type templateData struct {
-	imports     *importManager
-	Ontology    *ontologyData
-	Namespace   string
-	OutputPath  string
-	Structs     []structData
-	Enums       []enumData
-	TypeDefs    []typeDefData
-	SortedDecls []sortedDeclData
-	TypeVars    []typeVarData
+	imports       *importManager
+	Ontology      *ontologyData
+	Namespace     string
+	OutputPath    string
+	Structs       []structData
+	Enums         []enumData
+	TypeDefs      []typeDefData
+	SortedDecls   []sortedDeclData
+	TypeVars      []typeVarData
+	RebuildModels []string
 }
 
 type sortedDeclData struct {
 	TypeDef   typeDefData
 	Struct    structData
+	Union     unionData
 	IsTypeDef bool
 	IsStruct  bool
+	IsUnion   bool
 }
 
 type typeDefData struct {
@@ -1305,14 +1648,13 @@ type structData struct {
 }
 
 type fieldData struct {
-	Name           string
-	Alias          string
-	Doc            string
-	PyType         string
-	Default        string
-	IsOptional     bool
-	IsHardOptional bool
-	IsArray        bool
+	Name       string
+	Alias      string
+	Doc        string
+	PyType     string
+	Default    string
+	IsOptional bool
+	IsArray    bool
 }
 
 type enumData struct {
@@ -1343,26 +1685,59 @@ type moduleImportData struct {
 	Alias string
 }
 
-func formatGoogleDocstring(s structData) string {
-	fields := make([]doc.FieldDoc, 0, len(s.Fields))
-	for _, f := range s.Fields {
+func googleDocstring(docText string, fields []fieldData) string {
+	fds := make([]doc.FieldDoc, 0, len(fields))
+	for _, f := range fields {
 		if f.Doc != "" {
-			fields = append(fields, doc.FieldDoc{Name: f.Name, Doc: f.Doc})
+			fds = append(fds, doc.FieldDoc{Name: f.Name, Doc: f.Doc})
 		}
 	}
-	return doc.FormatPyDocstringGoogle(s.Doc, fields)
+	return doc.FormatPyDocstringGoogle(docText, fds)
 }
 
-func hasDocumentation(s structData) bool {
-	if s.Doc != "" {
+func hasFieldOrTypeDoc(docText string, fields []fieldData) bool {
+	if docText != "" {
 		return true
 	}
-	for _, f := range s.Fields {
+	for _, f := range fields {
 		if f.Doc != "" {
 			return true
 		}
 	}
 	return false
+}
+
+func formatGoogleDocstring(s structData) string {
+	return googleDocstring(s.Doc, s.Fields)
+}
+
+func hasDocumentation(s structData) bool {
+	return hasFieldOrTypeDoc(s.Doc, s.Fields)
+}
+
+// formatVariantDocstring renders a union variant's summary docstring. A variant
+// inherits its fields from the union base and payload classes, which carry the
+// field-level docs, so the variant docstring is a bare summary with no
+// Attributes section.
+func formatVariantDocstring(v unionVariantData) string {
+	return googleDocstring(v.Doc, nil)
+}
+
+// pyDocComment renders doc text as a Python line comment, capitalizing the first
+// letter (Python convention omits the identifier name) and prefixing every line
+// with "# ". It is used to document module-level aliases that cannot carry a
+// docstring, such as a discriminated union's Annotated alias.
+func pyDocComment(docText string) string {
+	if docText == "" {
+		return ""
+	}
+	r := []rune(docText)
+	docText = strings.ToUpper(string(r[0])) + string(r[1:])
+	lines := strings.Split(docText, "\n")
+	for i := range lines {
+		lines[i] = "# " + lines[i]
+	}
+	return strings.Join(lines, "\n")
 }
 
 // genericArg returns the Python type argument for a type parameter in Generic[...].
@@ -1380,14 +1755,16 @@ func toScreamingSnake(s string) string {
 }
 
 var templateFuncs = template.FuncMap{
-	"title":                 lo.Capitalize,
-	"join":                  strings.Join,
-	"upper":                 strings.ToUpper,
-	"screamingSnake":        toScreamingSnake,
-	"formatGoogleDocstring": formatGoogleDocstring,
-	"hasDocumentation":      hasDocumentation,
-	"genericArg":            genericArg,
-	"hasTypeParams":         hasTypeParams,
+	"title":                  lo.Capitalize,
+	"join":                   strings.Join,
+	"upper":                  strings.ToUpper,
+	"screamingSnake":         toScreamingSnake,
+	"formatGoogleDocstring":  formatGoogleDocstring,
+	"hasDocumentation":       hasDocumentation,
+	"formatVariantDocstring": formatVariantDocstring,
+	"pyDocComment":           pyDocComment,
+	"genericArg":             genericArg,
+	"hasTypeParams":          hasTypeParams,
 }
 
 var fileTemplate = template.Must(template.New("python").Funcs(templateFuncs).Parse(`# Code generated by Oracle. DO NOT EDIT.
@@ -1527,9 +1904,42 @@ class {{ .PyName }}(BaseModel):
     def __hash__(self) -> int:
         return hash(self.{{ .KeyField }})
 {{- end }}
+{{- if and (not .Fields) (not .KeyField) (not (hasDocumentation .)) (not .HasKeywordAlias) }}
+    pass
 {{- end }}
 {{- end }}
 {{- end }}
+{{- end }}
+{{- else if .IsUnion }}
+{{- with .Union }}
+{{- $disc := .DiscName }}
+{{- range .Variants }}
+
+
+class {{ .ClassName }}({{ range $i, $p := .Parents }}{{ if $i }}, {{ end }}{{ $p }}{{ end }}):
+{{- if .Doc }}
+{{ formatVariantDocstring . }}
+{{- end }}
+    {{ $disc }}: Literal["{{ .Value }}"]
+{{- range .Fields }}
+    {{ .Name }}: {{ .PyType }}{{ .Default }}
+{{- end }}
+{{- end }}
+
+
+{{ if .Doc }}{{ pyDocComment .Doc }}
+{{ end -}}
+{{ .Name }} = Annotated[
+    Union[{{ range $i, $v := .Variants }}{{ if $i }}, {{ end }}{{ $v.ClassName }}{{ end }}],
+    Field(discriminator="{{ .DiscName }}"),
+]
+{{- end }}
+{{- end }}
+{{- end }}
+{{- if .RebuildModels }}
+
+{{ range .RebuildModels }}
+{{ . }}.model_rebuild()
 {{- end }}
 {{- end }}
 {{- if .Ontology }}

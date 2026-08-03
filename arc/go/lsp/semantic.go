@@ -19,8 +19,8 @@ import (
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/x/diagnostics"
 	"github.com/synnaxlabs/x/lsp"
-	"github.com/synnaxlabs/x/lsp/protocol"
 	"github.com/synnaxlabs/x/set"
+	"go.lsp.dev/protocol"
 )
 
 const (
@@ -41,12 +41,12 @@ const (
 	SemanticTokenTypeEdgeConditional
 	SemanticTokenTypeEdgeContinuous
 	SemanticTokenTypeConstant
-	SemanticTokenTypeConfig
 	SemanticTokenTypeInput
 	SemanticTokenTypeOutput
 	SemanticTokenTypeNamespace
 	SemanticTokenTypeStringRaw
 	SemanticTokenTypeStringPlaceholder
+	SemanticTokenTypeChannelVariable
 )
 
 var semanticTokenTypes = []string{
@@ -67,12 +67,12 @@ var semanticTokenTypes = []string{
 	"edgeConditional",
 	"edgeContinuous",
 	"constant",
-	"config",
 	"input",
 	"output",
 	"namespace",
 	"stringRaw",
 	"stringPlaceholder",
+	"channelVariable",
 }
 
 func (s *Server) SemanticTokensFull(ctx context.Context, params *protocol.SemanticTokensParams) (*protocol.SemanticTokens, error) {
@@ -358,7 +358,18 @@ func classifyIdentifierAt(ctx context.Context, name string, line1, col0 int, roo
 	if err != nil || sym == nil {
 		return nil
 	}
+	if t := classifyVarKind(sym); t != nil {
+		return t
+	}
 	return mapSymbolKind(sym.Kind)
+}
+
+func classifyVarKind(sym *symbol.Symbol) *uint32 {
+	if !sym.IsChannelReadWrite() && !sym.IsReactive() {
+		return nil
+	}
+	tokenType := uint32(SemanticTokenTypeChannelVariable)
+	return &tokenType
 }
 
 func mapSymbolKind(kind symbol.Kind) *uint32 {
@@ -368,12 +379,10 @@ func mapSymbolKind(kind symbol.Kind) *uint32 {
 		tokenType = SemanticTokenTypeFunction
 	case symbol.KindVariable:
 		tokenType = SemanticTokenTypeVariable
-	case symbol.KindConstant, symbol.KindGlobalConstant:
+	case symbol.KindConstant:
 		tokenType = SemanticTokenTypeConstant
 	case symbol.KindStatefulVariable:
 		tokenType = SemanticTokenTypeStatefulVariable
-	case symbol.KindConfig:
-		tokenType = SemanticTokenTypeConfig
 	case symbol.KindInput:
 		tokenType = SemanticTokenTypeInput
 	case symbol.KindOutput:
@@ -469,12 +478,12 @@ func expandStringToken(ctx context.Context, t antlr.Token, docIR ir.IR) []lsp.To
 	}
 	const delimLen = 1
 	bodyOff := prefixLen + delimLen
-	cursor := diagnostics.Position{Line: t.GetLine() - 1, Col: t.GetColumn()}
+	cursor := protocol.Position{Line: uint32(t.GetLine() - 1), Character: uint32(t.GetColumn())}
 	prevOff := 0
 	posOf := func(off int) (uint32, uint32) {
-		cursor = cursor.Advance(text[prevOff:], off-prevOff)
+		cursor = diagnostics.Advance(cursor, text[prevOff:], off-prevOff)
 		prevOff = off
-		return uint32(cursor.Line), uint32(cursor.Col)
+		return cursor.Line, cursor.Character
 	}
 	var tokens []lsp.Token
 	emit := func(a, b int, tt uint32) {

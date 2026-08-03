@@ -7,8 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { ontology, type rack, task } from "@synnaxlabs/client";
-import { array, type optional, TimeStamp } from "@synnaxlabs/x";
+import { ontology, type rack, status, task } from "@synnaxlabs/client";
+import { array, type optional } from "@synnaxlabs/x";
 import { useCallback } from "react";
 import { z } from "zod";
 
@@ -58,15 +58,13 @@ const SET_COMMAND_LISTENER: Flux.ChannelListener<FluxSubStore, typeof task.comma
   onChange: ({ store, changed }) => {
     store.statuses.set(task.statusKey(changed.task), (prev) => {
       if (prev == null || !LOADING_COMMANDS.includes(changed.type)) return prev;
-      const status: task.Status = {
+      return status.create<task.StatusDetailsZodObject>({
         key: task.statusKey(changed.task),
         name: "Task Status",
-        time: TimeStamp.now(),
         variant: "loading",
         message: `Running ${changed.type} command...`,
-        details: { task: changed.task, running: true, data: {} },
-      };
-      return status;
+        details: { task: changed.task, running: true, cmd: "", data: {} },
+      });
     });
   },
 };
@@ -134,7 +132,17 @@ export const createRetrieve = <S extends task.Schemas = task.Schemas>(schemas?: 
     },
   });
 
-export const { useRetrieve, useRetrieveObservable } = createRetrieve();
+export const { useRetrieve, useRetrieveObservable, useEnsureRetrieved } =
+  createRetrieve();
+
+export const [useSelectName, useGetName] = Flux.createSelector<
+  FluxSubStore,
+  { key: task.Key },
+  string
+>({
+  subscribe: (store, { key }, notify) => store.tasks.onSet(notify, key),
+  select: (store, { key }) => store.tasks.get(key)?.name ?? "Task",
+});
 
 export const useRetrieveObservableName = ({
   onChange,
@@ -227,8 +235,11 @@ export interface CreateFormParams<S extends task.Schemas = task.Schemas> {
 
 export interface InitialValues<
   S extends task.Schemas = task.Schemas,
-> extends optional.Optional<task.Payload<S>, "key"> {
+> extends optional.Optional<task.Payload<S>, "key" | "internal" | "snapshot"> {
   key?: task.Key;
+  /** Rack to pre-select when creating a new task. Ignored when key is set, as the
+   * rack is already encoded in the task key. */
+  rackKey?: rack.Key;
 }
 
 export type FormQuery = {
@@ -240,7 +251,7 @@ const taskToFormValues = <S extends task.Schemas = task.Schemas>(
 ): z.infer<FormSchema<S>> => ({
   key: t.key,
   name: t.name,
-  rackKey: t.key == null ? 0 : task.rackKey(t.key),
+  rackKey: t.key == null ? (t.rackKey ?? 0) : task.rackKey(t.key),
   type: t.type,
   config: t.config,
   status: t.status,
@@ -322,7 +333,7 @@ export type DeleteParams = task.Key | task.Key[];
 export const { useUpdate: useDelete } = Flux.createUpdate<DeleteParams, FluxSubStore>({
   name: RESOURCE_NAME,
   verbs: Flux.DELETE_VERBS,
-  update: async ({ client, data, store, rollbacks }) => {
+  update: async ({ client, data, store, rollbacks, onOptimisticComplete }) => {
     const keys = array.toArray(data);
     const ids = task.ontologyID(keys);
     const relFilter = Ontology.filterRelationshipsThatHaveIDs(ids);
@@ -332,6 +343,7 @@ export const { useUpdate: useDelete } = Flux.createUpdate<DeleteParams, FluxSubS
     const statusKeys = keys.map((key) => task.statusKey(key));
     rollbacks.push(store.statuses.delete(statusKeys));
     // Task client will automatically handle the deletion of the statuses.
+    await onOptimisticComplete(data);
     await client.tasks.delete(keys);
     return data;
   },
@@ -363,16 +375,17 @@ export const { useUpdate: useCreateSnapshot } = Flux.createUpdate<
   },
 });
 
-export interface UseRenameArgs extends Pick<task.Payload, "key" | "name"> {}
+export interface UseRenameParams extends Pick<task.Payload, "key" | "name"> {}
 
 export const rename = async (
-  params: Flux.UpdateParams<UseRenameArgs, FluxSubStore>,
-): Promise<UseRenameArgs> => {
+  params: Flux.UpdateParams<UseRenameParams, FluxSubStore>,
+): Promise<UseRenameParams> => {
   const {
     client,
     data,
     rollbacks,
     store,
+    onOptimisticComplete,
     data: { key, name },
   } = params;
   rollbacks.push(
@@ -382,12 +395,16 @@ export const rename = async (
     ),
   );
   rollbacks.push(Ontology.renameFluxResource(store, task.ontologyID(key), name));
+  await onOptimisticComplete(data);
   const t = await retrieveSingle({ ...params, query: { key } });
   await client.tasks.create({ ...t.payload, name });
   return data;
 };
 
-export const { useUpdate: useRename } = Flux.createUpdate<UseRenameArgs, FluxSubStore>({
+export const { useUpdate: useRename } = Flux.createUpdate<
+  UseRenameParams,
+  FluxSubStore
+>({
   name: RESOURCE_NAME,
   verbs: Flux.RENAME_VERBS,
   update: rename,

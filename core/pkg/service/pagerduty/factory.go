@@ -18,7 +18,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/override"
-	xstatus "github.com/synnaxlabs/x/status"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
 	"go.uber.org/zap"
@@ -77,11 +76,11 @@ func (f *factory) ConfigureTask(
 	}
 	var cfg AlertTaskConfig
 	if err := t.Config.Unmarshal(&cfg); err != nil {
-		f.setConfigStatus(ctx, t, xstatus.VariantError, err.Error())
+		f.setConfigStatus(ctx, t, status.VariantError, err.Error())
 		return nil, err
 	}
 	if err := cfg.Validate(); err != nil {
-		f.setConfigStatus(ctx, t, xstatus.VariantError, err.Error())
+		f.setConfigStatus(ctx, t, status.VariantError, err.Error())
 		return nil, err
 	}
 	pdTask := &alertTask{factoryCfg: f.cfg, task: t, cfg: cfg}
@@ -91,7 +90,7 @@ func (f *factory) ConfigureTask(
 		}
 	} else {
 		f.setConfigStatus(
-			ctx, t, xstatus.VariantSuccess, "Task configured successfully",
+			ctx, t, status.VariantSuccess, "Task configured successfully",
 		)
 	}
 	return pdTask, nil
@@ -100,11 +99,11 @@ func (f *factory) ConfigureTask(
 func (f *factory) setConfigStatus(
 	ctx context.Context,
 	t task.Task,
-	variant xstatus.Variant,
+	variant status.Variant,
 	message string,
 ) {
 	stat := task.Status{
-		Key:     task.OntologyID(t.Key).String(),
+		Key:     t.OntologyID().String(),
 		Name:    t.Name,
 		Variant: variant,
 		Message: message,

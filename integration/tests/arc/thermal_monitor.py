@@ -23,7 +23,7 @@ from examples.simulators import ThermalSimDAQ
 
 import synnax as sy
 from framework.utils import create_indexed_pair, create_virtual_channel
-from tests.arc.arc_case import ArcConsoleCase
+from tests.arc.arc import ArcCase
 
 ARC_SOURCE = """
 func count_heater_cycles(heater_on u8) i64 {
@@ -64,7 +64,7 @@ sequence monitor {
     stage cooling {
         0 -> heater_cmd
         temp_sensor > 80 => abort
-        temp_sensor < 40 => heating
+        temp_sensor < 50 => heating
     }
 }
 
@@ -77,7 +77,7 @@ sequence abort {
 """
 
 
-class ThermalMonitor(ArcConsoleCase):
+class ThermalMonitor(ArcCase):
     """Test Arc thermal monitor with stateful variables and looping sequence."""
 
     arc_source = ARC_SOURCE

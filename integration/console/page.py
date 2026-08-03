@@ -92,7 +92,7 @@ class ConsolePage:
         in the Console UI via Playwright automation. It does NOT create a new page.
 
         The separation exists because:
-        - UI page creation: Handled by workspace.create_page() which clicks buttons
+        - UI page creation: Handled by project.create_page() which clicks buttons
           and interacts with the Console UI via Playwright
         - Python wrapper creation: This constructor creates a Python object that
           provides programmatic access to the already-existing UI page
@@ -128,7 +128,7 @@ class ConsolePage:
         """
         tab = self._get_tab()
         tab.wait_for(state="visible", timeout=5000)
-        close_button = tab.get_by_label("pluto-tabs__close")
+        close_button = tab.get_by_label("Close", exact=True)
         close_button.wait_for(state="visible", timeout=5000)
         close_button.click()
 
@@ -166,10 +166,10 @@ class ConsolePage:
         if self.pane_locator and self.pane_locator.count() > 0:
             self.pane_locator.click()
 
-    def _initialize_from_workspace(self, tab_locator: Locator, page_id: str) -> None:
-        """Initialize page after workspace creates it.
+    def _initialize_from_project(self, tab_locator: Locator, page_id: str) -> None:
+        """Initialize page after project creates it.
 
-        This is called by workspace after create_page() to set up the page instance.
+        This is called by project after create_page() to set up the page instance.
         """
         self.tab_locator = tab_locator
         self.id = page_id
@@ -287,7 +287,7 @@ class ConsolePage:
         Returns:
             The current page title
         """
-        self.page.locator("#properties").click(timeout=5000)
+        self.page.get_by_role("tab", name="Properties", exact=True).click(timeout=5000)
         return self.layout.get_input_field("Title")
 
     def copy_link(self) -> str:

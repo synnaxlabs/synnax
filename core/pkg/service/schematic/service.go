@@ -14,17 +14,17 @@ import (
 	stdio "io"
 
 	"github.com/synnaxlabs/alamos"
-	"github.com/synnaxlabs/synnax/pkg/distribution/group"
-	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
-	"github.com/synnaxlabs/synnax/pkg/distribution/search"
-	"github.com/synnaxlabs/synnax/pkg/distribution/signals"
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
-	v55 "github.com/synnaxlabs/synnax/pkg/service/schematic/migrations/v55"
+	"github.com/synnaxlabs/synnax/pkg/service/group"
+	"github.com/synnaxlabs/synnax/pkg/service/imex"
+	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic/symbol"
+	"github.com/synnaxlabs/synnax/pkg/service/schematic/versions"
+	"github.com/synnaxlabs/synnax/pkg/service/search"
+	"github.com/synnaxlabs/synnax/pkg/service/signals"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/io"
-	"github.com/synnaxlabs/x/migrate"
 	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/service"
@@ -34,30 +34,39 @@ import (
 // ServiceConfig is the configuration for opening a schematic service.
 type ServiceConfig struct {
 	// Instrumentation for logging, tracing, and metrics.
+	//
+	// [OPTIONAL] - Defaults to noop instrumentation.
 	alamos.Instrumentation
 	// DB is the database that the schematic service will store schematics in.
+	//
 	// [REQUIRED]
 	DB *gorp.DB
 	// Ontology is used to define relationships between schematics and other entities in
 	// the Synnax resource graph.
+	//
 	// [REQUIRED]
 	Ontology *ontology.Ontology
 	// Group is used to create and manage groups for symbols.
+	//
 	// [OPTIONAL]
 	Group *group.Service
-	// Signals is used to propagate changes to schematics and symbols throughout the cluster.
+	// Signals is used to propagate changes to schematics and symbols throughout the
+	// cluster.
+	//
 	// [OPTIONAL]
 	Signals *signals.Provider
 	// Search is the search index for fuzzy searching schematics.
+	//
 	// [REQUIRED]
 	Search *search.Index
+	// ImEx is the import/export registry the schematic service registers itself with as
+	// the exporter for schematic resources during OpenService.
+	//
+	// [REQUIRED]
+	ImEx *imex.Service
 }
 
-var (
-	_ config.Config[ServiceConfig] = ServiceConfig{}
-	// DefaultServiceConfig is the default configuration for opening a schematic service.
-	DefaultServiceConfig = ServiceConfig{}
-)
+var _ config.Config[ServiceConfig] = ServiceConfig{}
 
 // Override implements config.Config.
 func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
@@ -67,6 +76,7 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Group = override.Nil(c.Group, other.Group)
 	c.Signals = override.Nil(c.Signals, other.Signals)
 	c.Search = override.Nil(c.Search, other.Search)
+	c.ImEx = override.Nil(c.ImEx, other.ImEx)
 	return c
 }
 
@@ -76,12 +86,13 @@ func (c ServiceConfig) Validate() error {
 	validate.NotNil(v, "db", c.DB)
 	validate.NotNil(v, "ontology", c.Ontology)
 	validate.NotNil(v, "search", c.Search)
+	validate.NotNil(v, "imex", c.ImEx)
 	return v.Error()
 }
 
 // Service is the primary service for retrieving and modifying schematics from Synnax.
 type Service struct {
-	ServiceConfig
+	cfg    ServiceConfig
 	Symbol *symbol.Service
 	closer io.MultiCloser
 	table  *gorp.Table[Key, Schematic]
@@ -92,31 +103,23 @@ type Service struct {
 // Each configuration will be used as an override for the previous configuration in the
 // list. See the Config struct for information on which fields should be set.
 func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err error) {
-	cfg, err := config.New(DefaultServiceConfig, cfgs...)
+	cfg, err := config.New(ServiceConfig{}, cfgs...)
 	if err != nil {
 		return nil, err
 	}
-	s = &Service{ServiceConfig: cfg, state: actions.NewState[Key, Action]()}
+	s = &Service{cfg: cfg, state: actions.NewState[Key, Action]()}
 	cleanup, ok := service.NewOpener(ctx, &s.closer)
 	defer func() { err = cleanup(err) }()
-	if s.table, err = gorp.OpenTable[Key, Schematic](ctx, gorp.TableConfig[Key, Schematic]{
-		DB: cfg.DB,
-		Migrations: []migrate.Migration{
-			gorp.CodecMigration[Key, v55.Schematic]("msgpack_to_orc"),
-			migrate.WithAddedDeps(
-				gorp.NewEntryMigration[Key, Key, v55.Schematic, Schematic](
-					"v55_lift_typed_schematic",
-					MigrateSchematic,
-				),
-				"msgpack_to_orc",
-			),
-		},
+	if s.table, err = gorp.OpenTable(ctx, gorp.TableConfig[Key, Schematic]{
+		DB:              cfg.DB,
+		Migrations:      versions.Migrations,
 		Instrumentation: cfg.Instrumentation,
 	}); !ok(err, s.table) {
 		return nil, err
 	}
 	cfg.Ontology.RegisterService(s)
 	cfg.Search.RegisterService(s)
+	cfg.ImEx.RegisterExporter(s)
 	if s.Symbol, err = symbol.OpenService(ctx, symbol.ServiceConfig{
 		Instrumentation: cfg.Child("symbol"),
 		DB:              cfg.DB,
@@ -124,6 +127,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 		Group:           cfg.Group,
 		Signals:         cfg.Signals,
 		Search:          cfg.Search,
+		ImEx:            cfg.ImEx,
 	}); !ok(err, s.Symbol) {
 		return nil, err
 	}
@@ -150,32 +154,29 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 func (s *Service) Close() error { return s.closer.Close() }
 
 // OnAction subscribes the given handler to the action stream emitted by
-// Writer.Dispatch. The handler runs synchronously inside Dispatch after the
-// underlying transaction commits. The returned Disconnect removes the handler.
+// Writer.Dispatch. The handler runs synchronously inside Dispatch after the underlying
+// transaction commits. The returned Disconnect removes the handler.
 func (s *Service) OnAction(
 	handler func(context.Context, actions.Scoped[Key, Action]),
 ) observe.Disconnect {
 	return s.state.OnAction(handler)
 }
 
-// NewWriter opens a new writer for creating, updating, and deleting logs in Synnax. If
-// tx is provided, the writer will use that transaction. If tx is nil, the Writer
-// will execute the operations directly on the underlying gorp.DB.
+// NewWriter opens a new writer for creating, updating, and deleting schematics in
+// Synnax. If tx is provided, the writer will use that transaction. If tx is nil, the
+// Writer will execute the operations directly on the underlying gorp.DB.
 func (s *Service) NewWriter(tx gorp.Tx) Writer {
-	tx = gorp.OverrideTx(s.DB, tx)
+	tx = gorp.OverrideTx(s.cfg.DB, tx)
 	return Writer{
 		tx:         tx,
-		otgWriter:  s.Ontology.NewWriter(tx),
-		otg:        s.Ontology,
+		otgWriter:  s.cfg.Ontology.NewWriter(tx),
+		otg:        s.cfg.Ontology,
 		table:      s.table,
 		dispatcher: s.state.Dispatcher(),
 	}
 }
 
-// NewRetrieve opens a new query build for retrieving logs from Synnax.
+// NewRetrieve opens a new query build for retrieving schematics from Synnax.
 func (s *Service) NewRetrieve() Retrieve {
-	return Retrieve{
-		gorp:   s.table.NewRetrieve(),
-		baseTX: s.DB,
-	}
+	return Retrieve{gorp: s.table.NewRetrieve(), baseTX: s.cfg.DB}
 }

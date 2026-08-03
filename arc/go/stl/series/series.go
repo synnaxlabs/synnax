@@ -13,7 +13,6 @@ import (
 	"context"
 
 	"github.com/synnaxlabs/arc/ir"
-
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/lsp/doc"
@@ -44,7 +43,8 @@ func newUserLenSymbol() *symbol.Symbol {
 			Inputs:  types.Params{{Name: ir.DefaultInputParam, Type: types.Variable("T", nil)}},
 			Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.I64()}},
 		}),
-		Doc: lenDoc,
+		Trigger: symbol.TriggerOnly,
+		Doc:     lenDoc,
 	}
 }
 

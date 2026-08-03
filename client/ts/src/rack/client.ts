@@ -39,10 +39,10 @@ const retrieveReqZ = z.object({
   offset: z.int().optional(),
   includeStatus: z.boolean().optional(),
 });
-const retrieveResZ = z.object({ racks: array.nullishToEmpty(payloadZ) });
+const retrieveResZ = z.object({ racks: payloadZ.array().default(() => []) });
 export const rackZ = payloadZ;
 
-const singleRetrieveArgsZ = z.union([
+const singleRetrieveParamsZ = z.union([
   z
     .object({
       key: keyZ,
@@ -56,15 +56,15 @@ const singleRetrieveArgsZ = z.union([
     })
     .transform(({ name, includeStatus }) => ({ names: [name], includeStatus })),
 ]);
-export type RetrieveSingleParams = z.input<typeof singleRetrieveArgsZ>;
+export type RetrieveSingleParams = z.input<typeof singleRetrieveParamsZ>;
 
-const multiRetrieveArgsZ = retrieveReqZ;
+const multiRetrieveParamsZ = retrieveReqZ;
 
-export type RetrieveMultipleParams = z.input<typeof multiRetrieveArgsZ>;
+export type RetrieveMultipleParams = z.input<typeof multiRetrieveParamsZ>;
 
-const retrieveArgsZ = z.union([singleRetrieveArgsZ, multiRetrieveArgsZ]);
+const retrieveParamsZ = z.union([singleRetrieveParamsZ, multiRetrieveParamsZ]);
 
-export type RetrieveArgs = z.input<typeof retrieveArgsZ>;
+export type RetrieveParams = z.input<typeof retrieveParamsZ>;
 
 const createReqZ = z.object({ racks: newZ.array() });
 const createResZ = z.object({ racks: payloadZ.array() });
@@ -104,18 +104,18 @@ export class Client {
     return isSingle ? sugared[0] : sugared;
   }
 
-  async retrieve(args: RetrieveSingleParams): Promise<Rack>;
-  async retrieve(args: RetrieveMultipleParams): Promise<Rack[]>;
-  async retrieve(args: RetrieveArgs): Promise<Rack | Rack[]> {
-    const isSingle = "key" in args || "name" in args;
+  async retrieve(params: RetrieveSingleParams): Promise<Rack>;
+  async retrieve(params: RetrieveMultipleParams): Promise<Rack[]>;
+  async retrieve(params: RetrieveParams): Promise<Rack | Rack[]> {
+    const isSingle = "key" in params || "name" in params;
     const res = await this.client.send(
       "/rack/retrieve",
-      args,
-      retrieveArgsZ,
+      params,
+      retrieveParamsZ,
       retrieveResZ,
     );
     const sugared = this.sugar(res.racks);
-    checkForMultipleOrNoResults("Rack", args, sugared, isSingle);
+    checkForMultipleOrNoResults("Rack", params, sugared, isSingle);
     return isSingle ? sugared[0] : sugared;
   }
 
@@ -126,8 +126,8 @@ export class Client {
     const sugared = array
       .toArray(payloads)
       .map(
-        ({ key, name, status, integrations }) =>
-          new Rack(key, name, this.tasks, status, integrations),
+        ({ key, name, status, integrations, taskCounter, embedded }) =>
+          new Rack(key, name, this.tasks, status, integrations, taskCounter, embedded),
       );
     return isSingle ? sugared[0] : sugared;
   }
@@ -137,7 +137,9 @@ export class Rack {
   key: Key;
   name: string;
   status?: Status;
-  integrations?: string[];
+  integrations: string[];
+  taskCounter: number;
+  embedded: boolean;
   private readonly tasks: task.Client;
 
   constructor(
@@ -145,13 +147,17 @@ export class Rack {
     name: string,
     taskClient: task.Client,
     status?: Status,
-    integrations?: string[],
+    integrations: string[] = [],
+    taskCounter: number = 0,
+    embedded: boolean = false,
   ) {
     this.key = key;
     this.name = name;
     this.tasks = taskClient;
     this.status = status;
     this.integrations = integrations;
+    this.taskCounter = taskCounter;
+    this.embedded = embedded;
   }
 
   async listTasks(): Promise<task.Task[]> {
@@ -185,6 +191,8 @@ export class Rack {
       name: this.name,
       status: this.status,
       integrations: this.integrations,
+      taskCounter: this.taskCounter,
+      embedded: this.embedded,
     };
   }
 }

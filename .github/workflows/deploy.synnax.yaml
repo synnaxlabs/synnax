@@ -1,3 +1,12 @@
+# Copyright 2026 Synnax Labs, Inc.
+#
+# Use of this software is governed by the Business Source License included in the file
+# licenses/BSL.txt.
+#
+# As of the Change Date specified in that file, in accordance with the Business Source
+# License, use of this software will be governed by the Apache License, Version 2.0,
+# included in the file licenses/APL.txt.
+
 name: Deploy - Synnax
 
 on:
@@ -85,7 +94,7 @@ jobs:
       VERSION: ${{ steps.version.outputs.VERSION }}
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Get version
         id: version
@@ -109,7 +118,7 @@ jobs:
       CONSOLE_VERSION: ${{ steps.console-version.outputs.VERSION }}
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Get Console Version
         id: console-version
@@ -142,8 +151,9 @@ jobs:
                 owner: context.repo.owner,
                 repo: context.repo.repo,
                 tag_name: synnaxTag,
+                target_commitish: context.sha,
                 name: 'Synnax v${{ needs.setup.outputs.VERSION }}',
-                draft: false,
+                draft: true,
                 prerelease: false
               });
             }
@@ -195,7 +205,7 @@ jobs:
       GH_TOKEN: ${{ github.token }}
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Download Core Binary
         uses: actions/download-artifact@v8
@@ -248,7 +258,7 @@ jobs:
       GH_TOKEN: ${{ github.token }}
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Create Driver Install Script for NI Linux Real-Time
         run: |
@@ -267,6 +277,21 @@ jobs:
         run: |
           gh release upload --clobber synnax-v${{ needs.setup.outputs.VERSION }} install-driver-nilinuxrt.sh
 
+  publish-core-release:
+    name: Publish Core Release
+    runs-on: ubuntu-latest
+    needs: [setup, build, windows-installer, ni-install-script]
+    if: github.event_name == 'push'
+    permissions:
+      contents: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - name: Publish Release
+        run: |
+          gh release edit synnax-v${{ needs.setup.outputs.VERSION }} \
+            --draft=false --repo ${{ github.repository }}
+
   publish-console-update:
     name: Publish Console Auto-Update
     runs-on: ubuntu-latest
@@ -278,7 +303,7 @@ jobs:
       VERSION: ${{ needs.create-release.outputs.CONSOLE_VERSION }}
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Get Console Version
         id: console-version
@@ -292,7 +317,7 @@ jobs:
         if: github.ref == 'refs/heads/main'
 
       - name: Set up Node.js
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@v7
         if: github.ref == 'refs/heads/main'
         with:
           node-version-file: package.json

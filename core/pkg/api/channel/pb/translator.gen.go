@@ -13,12 +13,11 @@ package pb
 
 import (
 	"github.com/synnaxlabs/synnax/pkg/api/channel"
-	distributionchannel "github.com/synnaxlabs/synnax/pkg/distribution/channel"
-	channelpb "github.com/synnaxlabs/synnax/pkg/distribution/channel/pb"
-	"github.com/synnaxlabs/synnax/pkg/distribution/node"
+	servicechannel "github.com/synnaxlabs/synnax/pkg/service/channel"
+	channelpb "github.com/synnaxlabs/synnax/pkg/service/channel/pb"
+	"github.com/synnaxlabs/synnax/pkg/service/node"
+	statuspb "github.com/synnaxlabs/synnax/pkg/service/status/pb"
 	controlpb "github.com/synnaxlabs/x/control/pb"
-	"github.com/synnaxlabs/x/status"
-	statuspb "github.com/synnaxlabs/x/status/pb"
 	"github.com/synnaxlabs/x/telem"
 	gotypes "go/types"
 )
@@ -40,16 +39,18 @@ func ChannelToPB(r channel.Channel) (*Channel, error) {
 		DataType:    string(r.DataType),
 		IsIndex:     r.IsIndex,
 		Index:       uint32(r.Index),
-		Alias:       r.Alias,
 		Virtual:     r.Virtual,
 		Internal:    r.Internal,
 		Expression:  r.Expression,
 		Operations:  operationsVal,
 		Concurrency: concurrencyVal,
 	}
+	if r.Alias != nil {
+		pb.Alias = r.Alias
+	}
 	if r.Status != nil {
 		var err error
-		pb.Status, err = statuspb.StatusToPB[gotypes.Nil]((status.Status[gotypes.Nil])(*r.Status), nil)
+		pb.Status, err = statuspb.StatusToPB(*r.Status, nil)
 		if err != nil {
 			return nil, err
 		}
@@ -72,22 +73,24 @@ func ChannelFromPB(pb *Channel) (channel.Channel, error) {
 	if err != nil {
 		return channel.Channel{}, err
 	}
-	r.Key = distributionchannel.Key(pb.Key)
-	r.Name = distributionchannel.Name(pb.Name)
+	r.Key = servicechannel.Key(pb.Key)
+	r.Name = servicechannel.Name(pb.Name)
 	r.Leaseholder = node.Key(pb.Leaseholder)
 	r.DataType = telem.DataType(pb.DataType)
 	r.IsIndex = pb.IsIndex
-	r.Index = distributionchannel.Key(pb.Index)
-	r.Alias = pb.Alias
+	r.Index = servicechannel.Key(pb.Index)
 	r.Virtual = pb.Virtual
 	r.Internal = pb.Internal
 	r.Expression = pb.Expression
+	if pb.Alias != nil {
+		r.Alias = pb.Alias
+	}
 	if pb.Status != nil {
 		val, err := statuspb.StatusFromPB[gotypes.Nil](pb.Status, nil)
 		if err != nil {
 			return channel.Channel{}, err
 		}
-		r.Status = (*channel.Status)(&val)
+		r.Status = &val
 	}
 	return r, nil
 }

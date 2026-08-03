@@ -33,11 +33,11 @@ func openRootUser(ctx context.Context, username, pwd string) *user.Service {
 	return MustOpen(user.OpenService(ctx, cfg))
 }
 
-// seedUser registers a user record and matching credentials in a single transaction.
+// createUser registers a user record and matching credentials in a single transaction.
 // Non-root users go through the public Writer.Create; root users are inserted with
 // the raw gorp writer because [user.Writer.Create] now rejects RootUser=true. The
 // raw insert mirrors what the reconciler does internally.
-func seedUser(
+func createUser(
 	ctx context.Context,
 	svc *user.Service,
 	username, password string,
@@ -59,16 +59,16 @@ func seedUser(
 		if err := gorp.WrapWriter[user.Key, user.User](tx).Set(ctx, u); err != nil {
 			return err
 		}
-		return otg.NewWriter(tx).DefineResource(ctx, user.OntologyID(u.Key))
+		return otg.NewWriter(tx).DefineResources(ctx, u.OntologyID())
 	})).To(Succeed())
 	return u
 }
 
-// seedUserRecordOnly creates a user record without registering credentials, simulating
-// an orphan record that the reconciler must heal by registering creds. Root records are
-// inserted with the raw gorp writer because [user.Writer.Create] now rejects
-// RootUser=true.
-func seedUserRecordOnly(
+// createUserRecordOnly creates a user record without registering credentials,
+// simulating an orphan record that the reconciler must heal by registering creds. Root
+// records are inserted with the raw gorp writer because [user.Writer.Create] now
+// rejects RootUser=true.
+func createUserRecordOnly(
 	ctx context.Context, svc *user.Service, username string, root bool,
 ) user.User {
 	if !root {
@@ -79,15 +79,15 @@ func seedUserRecordOnly(
 		if err := gorp.WrapWriter[user.Key, user.User](tx).Set(ctx, u); err != nil {
 			return err
 		}
-		return otg.NewWriter(tx).DefineResource(ctx, user.OntologyID(u.Key))
+		return otg.NewWriter(tx).DefineResources(ctx, u.OntologyID())
 	})).To(Succeed())
 	return u
 }
 
-// seedAuthRowOnly registers credentials without creating a user record, simulating an
+// createAuthRowOnly registers credentials without creating a user record, simulating an
 // orphan auth row that the reconciler must heal by creating the corresponding user
 // record.
-func seedAuthRowOnly(ctx context.Context, username, password string) {
+func createAuthRowOnly(ctx context.Context, username, password string) {
 	Expect(authSvc.NewWriter(nil).Register(ctx, auth.Credentials{
 		Username: username, Password: password,
 	})).To(Succeed())
@@ -131,8 +131,8 @@ func purgeUsersAndAuth(ctx context.Context) {
 		if err := gorp.WrapWriter[user.Key, user.User](tx).Delete(ctx, keys...); err != nil {
 			return err
 		}
-		if err := otg.NewWriter(tx).DeleteManyResources(
-			ctx, user.OntologyIDsFromKeys(keys),
+		if err := otg.NewWriter(tx).DeleteResources(
+			ctx, user.OntologyIDsFromKeys(keys)...,
 		); err != nil {
 			return err
 		}
@@ -205,7 +205,7 @@ var _ = Describe("Root user reconciliation", Serial, func() {
 	Describe("Promotion of an existing non-root user", func() {
 		It("Should promote the existing user, rotate their password, and demote previous roots", func(ctx SpecContext) {
 			seedSvc := openRootUser(ctx, "old-root", "p")
-			seedUser(ctx, seedSvc, "gamma", "x", false)
+			createUser(ctx, seedSvc, "gamma", "x", false)
 			gammaBefore := findUser(ctx, seedSvc, "gamma")
 			Expect(gammaBefore.RootUser).To(BeFalse())
 			Expect(seedSvc.Close()).To(Succeed())
@@ -227,7 +227,7 @@ var _ = Describe("Root user reconciliation", Serial, func() {
 		})
 		It("Should promote and keep the same password when config matches the existing password", func(ctx SpecContext) {
 			seedSvc := DeferClose(openRootUser(ctx, "old-root", "p"))
-			seedUser(ctx, seedSvc, "gamma", "same-pwd", false)
+			createUser(ctx, seedSvc, "gamma", "same-pwd", false)
 			gammaBefore := findUser(ctx, seedSvc, "gamma")
 
 			s := openRootUser(ctx, "gamma", "same-pwd")
@@ -243,8 +243,8 @@ var _ = Describe("Root user reconciliation", Serial, func() {
 	Describe("Stale root users", func() {
 		It("Should collapse multiple stale roots when new credentials are configured", func(ctx SpecContext) {
 			seedSvc := openRootUser(ctx, "root-bootstrap", "p")
-			seedUser(ctx, seedSvc, "stale1", "x", true)
-			seedUser(ctx, seedSvc, "stale2", "x", true)
+			createUser(ctx, seedSvc, "stale1", "x", true)
+			createUser(ctx, seedSvc, "stale2", "x", true)
 			Expect(seedSvc.Close()).To(Succeed())
 			s := openRootUser(ctx, "fresh", "p4")
 			Expect(findUser(ctx, s, "stale1").RootUser).To(BeFalse())
@@ -254,9 +254,9 @@ var _ = Describe("Root user reconciliation", Serial, func() {
 		})
 		It("Should collapse multiple stale roots without credentials, retaining exactly one", func(ctx SpecContext) {
 			seedSvc := openRootUser(ctx, "root-bootstrap", "p")
-			seedUser(ctx, seedSvc, "charlie", "x", true)
-			seedUser(ctx, seedSvc, "alpha", "x", true)
-			seedUser(ctx, seedSvc, "beta", "x", true)
+			createUser(ctx, seedSvc, "charlie", "x", true)
+			createUser(ctx, seedSvc, "alpha", "x", true)
+			createUser(ctx, seedSvc, "beta", "x", true)
 			Expect(rootUsers(ctx, seedSvc)).To(HaveLen(4))
 			Expect(seedSvc.Close()).To(Succeed())
 			s := openRootUser(ctx, "", "")
@@ -282,7 +282,7 @@ var _ = Describe("Root user reconciliation", Serial, func() {
 	Describe("Orphan state recovery", func() {
 		It("Should register credentials when a root user record exists without an auth row", func(ctx SpecContext) {
 			seedSvc := openRootUser(ctx, "root-bootstrap", "p")
-			orphan := seedUserRecordOnly(ctx, seedSvc, "orphan-record", true)
+			orphan := createUserRecordOnly(ctx, seedSvc, "orphan-record", true)
 			Expect(seedSvc.Close()).To(Succeed())
 			Expect(authSvc.Authenticate(ctx, nil, auth.Credentials{
 				Username: "orphan-record", Password: "newpassword",
@@ -297,7 +297,7 @@ var _ = Describe("Root user reconciliation", Serial, func() {
 			Expect(rootUsers(ctx, s)).To(HaveLen(1))
 		})
 		It("Should create the user record when an auth row exists without one", func(ctx SpecContext) {
-			seedAuthRowOnly(ctx, "orphan-auth", "p")
+			createAuthRowOnly(ctx, "orphan-auth", "p")
 			s := openRootUser(ctx, "orphan-auth", "p")
 			Expect(findUser(ctx, s, "orphan-auth").RootUser).To(BeTrue())
 			Expect(authSvc.Authenticate(ctx, nil, auth.Credentials{
@@ -306,7 +306,7 @@ var _ = Describe("Root user reconciliation", Serial, func() {
 			Expect(rootUsers(ctx, s)).To(HaveLen(1))
 		})
 		It("Should rotate the auth password when an orphan auth row has a different password", func(ctx SpecContext) {
-			seedAuthRowOnly(ctx, "orphan-auth-rot", "old-password")
+			createAuthRowOnly(ctx, "orphan-auth-rot", "old-password")
 			s := openRootUser(ctx, "orphan-auth-rot", "new-password")
 			Expect(findUser(ctx, s, "orphan-auth-rot").RootUser).To(BeTrue())
 			Expect(authSvc.Authenticate(ctx, nil, auth.Credentials{

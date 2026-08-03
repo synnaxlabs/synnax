@@ -18,11 +18,12 @@ import (
 	"github.com/synnaxlabs/oracle/plugin/framework"
 	"github.com/synnaxlabs/oracle/resolution"
 	"github.com/synnaxlabs/x/errors"
+	. "github.com/synnaxlabs/x/testutil"
 )
 
 func TestFramework(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Framework Suite")
+	RunSpecs(t, "Plugin Framework Suite")
 }
 
 var _ = Describe("MergeTypes", func() {
@@ -100,8 +101,8 @@ var _ = Describe("MergeTypes", func() {
 
 		_ = framework.MergeTypes(a, b)
 
-		Expect(len(a)).To(Equal(originalALen))
-		Expect(len(b)).To(Equal(originalBLen))
+		Expect(a).To(HaveLen(originalALen))
+		Expect(b).To(HaveLen(originalBLen))
 	})
 })
 
@@ -504,3 +505,5 @@ var _ = Describe("Collect Helpers", func() {
 		})
 	})
 })
+
+var _ = ShouldNotLeakGoroutinesPerSpec()

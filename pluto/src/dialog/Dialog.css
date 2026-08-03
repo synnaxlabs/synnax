@@ -26,7 +26,8 @@
         &.pluto--visible {
             top: 15%;
             border-color: var(--pluto-gray-l6);
-            min-width: 400px;
+            min-width: min(110rem, 100%);
+            max-width: 100%;
             overflow: hidden;
             box-shadow: var(--pluto-shadow-v1);
             border-radius: 1rem;
