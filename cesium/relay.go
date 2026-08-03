@@ -33,8 +33,8 @@ type relay struct {
 	bufferSize int
 }
 
-// DBStreamingConfig is the configuration for cesium's streaming mechanisms.
-type DBStreamingConfig struct {
+// dbStreamingConfig is the configuration for cesium's streaming mechanisms.
+type dbStreamingConfig struct {
 	// BufferSize sets the buffer size for the main streaming pipe and for each
 	// streamer's connection to it. All written frames are moved through the main
 	// pipe, so the value should be relatively large.
@@ -45,8 +45,8 @@ type DBStreamingConfig struct {
 }
 
 var (
-	_                        config.Config[DBStreamingConfig] = DBStreamingConfig{}
-	DefaultDBStreamingConfig                                  = DBStreamingConfig{
+	_                        config.Config[dbStreamingConfig] = dbStreamingConfig{}
+	defaultDBStreamingConfig                                  = dbStreamingConfig{
 		// 1000 * 72 bytes = 72kb
 		BufferSize:          1000,
 		SlowConsumerTimeout: 20 * time.Millisecond,
@@ -54,13 +54,13 @@ var (
 )
 
 // Override implements config.Config.
-func (sc DBStreamingConfig) Override(other DBStreamingConfig) DBStreamingConfig {
+func (sc dbStreamingConfig) Override(other dbStreamingConfig) dbStreamingConfig {
 	sc.BufferSize = override.Numeric(sc.BufferSize, other.BufferSize)
 	sc.SlowConsumerTimeout = override.Numeric(sc.SlowConsumerTimeout, other.SlowConsumerTimeout)
 	return sc
 }
 
-func (sc DBStreamingConfig) Validate() error {
+func (sc dbStreamingConfig) Validate() error {
 	v := validate.New("cesium.db_streaming_config")
 	validate.Positive(v, "buffer_size", sc.BufferSize)
 	validate.Positive(v, "slow_consumer_timeout", sc.SlowConsumerTimeout)
@@ -70,7 +70,7 @@ func (sc DBStreamingConfig) Validate() error {
 func openRelay(
 	sCtx signal.Context,
 	ins alamos.Instrumentation,
-	cfg DBStreamingConfig,
+	cfg dbStreamingConfig,
 ) *relay {
 	delta := confluence.NewDynamicDeltaMultiplier[relayResponse](
 		cfg.SlowConsumerTimeout,

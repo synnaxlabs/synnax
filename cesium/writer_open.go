@@ -121,7 +121,7 @@ const AlwaysIndexPersistOnAutoCommit telem.TimeSpan = -1
 
 var _ config.Config[WriterConfig] = WriterConfig{}
 
-func DefaultWriterConfig() WriterConfig {
+func defaultWriterConfig() WriterConfig {
 	return WriterConfig{
 		ControlSubject:           xcontrol.Subject{Key: uuid.New().String()},
 		Authorities:              []xcontrol.Authority{xcontrol.AuthorityAbsolute},
@@ -197,7 +197,7 @@ func (db *DB) OpenWriter(ctx context.Context, cfgs ...WriterConfig) (*Writer, er
 }
 
 func (db *DB) newStreamWriter(ctx context.Context, cfgs ...WriterConfig) (w *streamWriter, err error) {
-	cfg, err := config.New(DefaultWriterConfig(), cfgs...)
+	cfg, err := config.New(defaultWriterConfig(), cfgs...)
 	if err != nil {
 		return nil, err
 	}

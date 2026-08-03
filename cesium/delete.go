@@ -43,7 +43,7 @@ type GCConfig struct {
 
 var (
 	_               config.Config[GCConfig] = GCConfig{}
-	DefaultGCConfig                         = GCConfig{
+	defaultGCConfig                         = GCConfig{
 		MaxGoroutine: 10,
 		TryInterval:  30 * time.Second,
 		Threshold:    0.2,

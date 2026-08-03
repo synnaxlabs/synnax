@@ -336,11 +336,11 @@ var _ = Describe("Streamer Behavior", func() {
 							[]telem.Series{telem.NewSeriesV(v)},
 						))).To(BeTrue())
 					}
-					// Stall past the relay's slow consumer timeout while the frames are
-					// in flight. The streamer's buffered connection must hold every
-					// frame; with an unbuffered connection the relay would drop all but
-					// the first few frames here.
-					time.Sleep(4 * cesium.DefaultDBStreamingConfig.SlowConsumerTimeout)
+					// Stall past the relay's slow consumer timeout (20ms) while the
+					// frames are in flight. The streamer's buffered connection must
+					// hold every frame; with an unbuffered connection the relay would
+					// drop all but the first few frames here.
+					time.Sleep(100 * time.Millisecond)
 					for v := range int64(frameCount) {
 						var res cesium.StreamerResponse
 						Eventually(o.Outlet()).Should(Receive(&res))

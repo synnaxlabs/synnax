@@ -26,7 +26,7 @@ type options struct {
 	metaCodec       encoding.Codec
 	dirname         string
 	gcCfg           GCConfig
-	streamingConfig DBStreamingConfig
+	streamingConfig dbStreamingConfig
 	fileSize        telem.Size
 }
 
@@ -45,9 +45,9 @@ func newOptions(dirname string, opts ...Option) (*options, error) {
 func mergeAndValidateOptions(o *options) error {
 	o.metaCodec = override.Nil[encoding.Codec](json.Codec, o.metaCodec)
 	o.fs = override.Nil(xfs.Default, o.fs)
-	o.gcCfg = DefaultGCConfig.Override(o.gcCfg)
+	o.gcCfg = defaultGCConfig.Override(o.gcCfg)
 	o.fileSize = override.Numeric(1*telem.Gigabyte, o.fileSize)
-	o.streamingConfig = DefaultDBStreamingConfig.Override(o.streamingConfig)
+	o.streamingConfig = defaultDBStreamingConfig.Override(o.streamingConfig)
 	if err := o.gcCfg.Validate(); err != nil {
 		return err
 	}
