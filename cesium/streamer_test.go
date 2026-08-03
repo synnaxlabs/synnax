@@ -11,6 +11,7 @@ package cesium_test
 
 import (
 	"runtime"
+	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -252,6 +253,49 @@ var _ = Describe("Streamer Behavior", func() {
 					var res cesium.StreamerResponse
 					Eventually(o.Outlet()).Should(Receive(&res))
 					Expect(res.Group).To(Equal(uint32(0)))
+					i.Close()
+					Expect(sCtx.Wait()).To(Succeed())
+					Expect(w.Close()).To(Succeed())
+				})
+			})
+
+			Describe("Slow Consumers", func() {
+				It("Should buffer frames for a consumer that stalls past the slow consumer timeout", func(ctx SpecContext) {
+					var slowCh cesium.ChannelKey = 9
+					Expect(db.CreateChannel(
+						ctx,
+						cesium.Channel{Key: slowCh, Name: "Feynman", DataType: telem.Int64T, Virtual: true},
+					)).To(Succeed())
+					w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
+						Channels: []cesium.ChannelKey{slowCh},
+						Start:    10 * telem.SecondTS,
+					}))
+					r := MustSucceed(db.NewStreamer(ctx, cesium.StreamerConfig{
+						Channels: []cesium.ChannelKey{slowCh},
+					}))
+					i, o := confluence.Attach(r, 1)
+					sCtx, cancel := signal.WithCancel(ctx)
+					defer cancel()
+					r.Flow(sCtx, confluence.CloseOutputInletsOnExit())
+
+					const frameCount = 10
+					for v := range int64(frameCount) {
+						MustSucceed(w.Write(telem.MultiFrame(
+							[]cesium.ChannelKey{slowCh},
+							[]telem.Series{telem.NewSeriesV(v)},
+						)))
+					}
+					// Stall past the relay's slow consumer timeout while the frames
+					// are in flight. The streamer's buffered connection must hold
+					// every frame; with an unbuffered connection the relay would
+					// drop all but the first few frames here.
+					time.Sleep(4 * cesium.DefaultDBStreamingConfig.SlowConsumerTimeout)
+					for v := range int64(frameCount) {
+						var res cesium.StreamerResponse
+						Eventually(o.Outlet()).Should(Receive(&res))
+						Expect(res.Frame.Count()).To(Equal(1))
+						Expect(res.Frame.SeriesAt(0)).To(telem.MatchSeriesDataV(v))
+					}
 					i.Close()
 					Expect(sCtx.Wait()).To(Succeed())
 					Expect(w.Close()).To(Succeed())
