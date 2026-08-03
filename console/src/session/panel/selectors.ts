@@ -71,6 +71,16 @@ export const selectSelectedTabs = (
 export const selectSelected = (state: StoreState): panel.Key | undefined =>
   selectWindowState(state).selected;
 
+/**
+ * @returns the panels the active window keeps mounted, most recently selected first.
+ * The selected panel, when there is one, is always the first key.
+ */
+export const selectMounted = (state: StoreState): panel.Key[] =>
+  selectWindowState(state).mounted;
+
+/** @returns the active window's mounted panels, as {@link selectMounted}. */
+export const useSelectMounted = (): panel.Key[] => Select.useMemo(selectMounted, []);
+
 const selectOverlaid = (state: StoreState): boolean =>
   selectWindowState(state).isOverlaid;
 

@@ -126,4 +126,47 @@ describe("Panel.Mosaic keep-alive", () => {
     );
     expect(unmounts).toHaveLength(0);
   });
+
+  // Without this the keep-alive set grows for the window's whole lifetime, and
+  // every visited panel keeps streaming its channels with nothing on screen.
+  it("should unmount the least recently selected panel past the cap", async () => {
+    const panels: panel.Panel[] = [];
+    for (let i = 0; i < 6; i++) panels.push(await probePanel());
+    const { wrapper, store } = await setup();
+    render(<Mosaic onCreateTab={createTab} />, { wrapper });
+
+    for (const { key } of panels) {
+      act(() => {
+        store.dispatch(Session.Panel.select({ key }));
+      });
+      await waitFor(() => expect(screen.getByText(`content-${key}`)).toBeTruthy());
+    }
+
+    // The first five stay mounted through the sixth selection; only the least
+    // recently selected one is released.
+    expect(unmounts).toEqual([panels[0].key]);
+    expect(mountCount(panels[1].key)).toBe(1);
+  });
+
+  it("should unmount a panel deleted while another is selected", async () => {
+    const a = await probePanel();
+    const b = await probePanel();
+    const { wrapper, store } = await setup();
+    render(<Mosaic onCreateTab={createTab} />, { wrapper });
+
+    act(() => {
+      store.dispatch(Session.Panel.select({ key: a.key }));
+    });
+    await waitFor(() => expect(screen.getByText(`content-${a.key}`)).toBeTruthy());
+    act(() => {
+      store.dispatch(Session.Panel.select({ key: b.key }));
+    });
+    await waitFor(() => expect(screen.getByText(`content-${b.key}`)).toBeTruthy());
+
+    act(() => {
+      store.dispatch(Session.Panel.remove(a.key));
+    });
+    await waitFor(() => expect(unmounts).toEqual([a.key]));
+    expect(screen.getByText(`content-${b.key}`)).toBeTruthy();
+  });
 });

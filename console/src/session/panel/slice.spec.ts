@@ -8,8 +8,9 @@
 // included in the file licenses/APL.txt.
 
 import { combineReducers, configureStore } from "@reduxjs/toolkit";
+import { type panel } from "@synnaxlabs/client";
 import { Drift } from "@synnaxlabs/drift";
-import { uuid } from "@synnaxlabs/x";
+import { deep, uuid } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
 import { Panel } from "@/session/panel";
@@ -48,11 +49,12 @@ describe("Panel Slice", () => {
       expect(Panel.ZERO_SLICE_STATE).toEqual({ windows: {} });
     });
 
-    it("should default a window to no selection, no panels, and not overlaid", () => {
+    it("should default a window to no selection, no panels, and nothing mounted", () => {
       expect(Panel.windowStateZ.parse({})).toEqual({
         selected: undefined,
         isOverlaid: false,
         panels: {},
+        mounted: [],
       });
     });
 
@@ -72,6 +74,78 @@ describe("Panel Slice", () => {
     it("should clear the selected panel", () => {
       const state = run(Panel.select({ key: PANEL }), Panel.clearSelected({}));
       expect(Panel.selectSelected(state)).toBeUndefined();
+    });
+
+    // The window shows the empty state, but the panels it already warmed stay
+    // mounted so selecting one again is still instant.
+    it("should leave the mounted set intact", () => {
+      const state = run(Panel.select({ key: PANEL }), Panel.clearSelected({}));
+      expect(Panel.selectMounted(state)).toEqual([PANEL]);
+    });
+  });
+
+  describe("mounted", () => {
+    // Six panels, one more than the cap, so the tail eviction is observable.
+    const KEYS = Array.from({ length: 6 }, () => uuid.create());
+    const selectAll = (...keys: panel.Key[]): TestState =>
+      run(...keys.map((key) => Panel.select({ key })));
+
+    it("should record selected panels most recently selected first", () => {
+      const state = selectAll(KEYS[0], KEYS[1], KEYS[2]);
+      expect(Panel.selectMounted(state)).toEqual([KEYS[2], KEYS[1], KEYS[0]]);
+    });
+
+    it("should move a reselected panel back to the front without duplicating it", () => {
+      const state = selectAll(KEYS[0], KEYS[1], KEYS[0]);
+      expect(Panel.selectMounted(state)).toEqual([KEYS[0], KEYS[1]]);
+    });
+
+    it("should evict the least recently selected panel past the cap", () => {
+      const mounted = Panel.selectMounted(selectAll(...KEYS));
+      expect(mounted).toHaveLength(5);
+      expect(mounted[0]).toEqual(KEYS[5]);
+      expect(mounted).not.toContain(KEYS[0]);
+    });
+
+    // The selected panel is the head, so the cap can never evict what the window
+    // is currently showing out from under it.
+    it("should keep the selected panel mounted at the cap", () => {
+      const state = selectAll(...KEYS);
+      const selected = Panel.selectSelected(state);
+      expect(selected).toEqual(KEYS[5]);
+      expect(Panel.selectMounted(state)[0]).toEqual(selected);
+    });
+
+    it("should track each window's mounted panels separately", () => {
+      const state = run(
+        Panel.select({ key: KEYS[0] }),
+        Panel.select({ windowKey: "other", key: KEYS[1] }),
+      );
+      expect(Panel.selectMounted(state)).toEqual([KEYS[0]]);
+      expect(state[Panel.SLICE_NAME].windows.other.mounted).toEqual([KEYS[1]]);
+    });
+
+    it("should drop a removed panel from every window's mounted set", () => {
+      const state = run(
+        Panel.select({ key: KEYS[0] }),
+        Panel.select({ windowKey: "other", key: KEYS[0] }),
+        Panel.remove(KEYS[0]),
+      );
+      expect(Panel.selectMounted(state)).toEqual([]);
+      expect(state[Panel.SLICE_NAME].windows.other.mounted).toEqual([]);
+    });
+
+    // Panels enter the mounted set on selection, so the fallback is the most
+    // recently used survivor rather than the earliest one the window visited.
+    it("should fall back to the most recently used panel when the selected one is removed", () => {
+      const state = run(
+        Panel.select({ key: KEYS[0] }),
+        Panel.select({ key: KEYS[1] }),
+        Panel.select({ key: KEYS[2] }),
+        Panel.remove(KEYS[2]),
+      );
+      expect(Panel.selectSelected(state)).toEqual(KEYS[1]);
+      expect(Panel.selectMounted(state)).toEqual([KEYS[1], KEYS[0]]);
     });
   });
 
@@ -337,6 +411,33 @@ describe("Panel Slice", () => {
       expect(Panel.selectSelected(state)).toEqual(OTHER_PANEL);
       expect(Panel.selectSelectedTabs(state, OTHER_PANEL)).toEqual([OTHER_TAB]);
       expect(state[Panel.SLICE_NAME].windows.other.panels[PANEL]).toBeUndefined();
+    });
+  });
+
+  describe("purgeSliceState", () => {
+    // The persist driver purges a copy of the store state, never the frozen state
+    // itself, so the copy is part of the call contract being exercised here.
+    const purge = (...actions: Panel.Action[]): TestState =>
+      Panel.purgeSliceState(deep.copy(run(...actions)));
+
+    // A project swap hydrates the stored slice wholesale, so clearing the mounted
+    // set on write is what stops one project's panels staying mounted into the next.
+    it("should clear every window's mounted panels", () => {
+      const state = purge(
+        Panel.select({ key: PANEL }),
+        Panel.select({ windowKey: "other", key: OTHER_PANEL }),
+      );
+      expect(Panel.selectMounted(state)).toEqual([]);
+      expect(state[Panel.SLICE_NAME].windows.other.mounted).toEqual([]);
+    });
+
+    it("should leave the selection and per-panel tab state persisted", () => {
+      const state = purge(
+        Panel.select({ key: PANEL }),
+        Panel.internalSelectTab({ key: PANEL, tabKey: TAB, otherTabKeys: [TAB] }),
+      );
+      expect(Panel.selectSelected(state)).toEqual(PANEL);
+      expect(Panel.selectSelectedTabs(state, PANEL)).toEqual([TAB]);
     });
   });
 
