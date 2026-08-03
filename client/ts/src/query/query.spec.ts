@@ -676,6 +676,25 @@ describe("Answers", () => {
       expect(handler).toHaveBeenLastCalledWith([rec("a", 5), rec("b", 4)]);
     });
 
+    // Regression: membership is patched from table events, and an unmaintained
+    // entry received none, so a member that appeared during the gap is missing
+    // from the answer a remount is served.
+    it("refetches an answer that settled before an unmaintained gap", async () => {
+      const table = newTable();
+      let members: Rec[] = [];
+      const fetch = vi.fn(async () => {
+        table.set(members);
+        return members.map(({ key }) => key);
+      });
+      const answers = listSpace(table, fetch);
+      const unsubscribe = answers.onChange({ min: 3 }, vi.fn());
+      expect(await answers.retrieve({ min: 3 })).toEqual([]);
+      unsubscribe();
+      members = [rec("a", 5)];
+      answers.onChange({ min: 3 }, vi.fn());
+      await expect.poll(() => answers.getCached({ min: 3 })).toEqual([rec("a", 5)]);
+    });
+
     it("evicts a record that stops matching the query", async () => {
       const table = newTable();
       const answers = listSpace(table, async () => {
