@@ -146,7 +146,7 @@ var (
 type change = xchange.Change[string, Alias]
 
 // Type implements ontology.Service.
-func (*Service) Type() ontology.ResourceType { return ontology.ResourceTypeRangeAlias }
+func (s *Service) Type() ontology.ResourceType { return ontology.ResourceTypeRangeAlias }
 
 // RetrieveResource implements ontology.Service.
 func (s *Service) RetrieveResource(

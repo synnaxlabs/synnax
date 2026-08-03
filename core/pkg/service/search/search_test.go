@@ -33,7 +33,7 @@ type mockService struct {
 
 func (m *mockService) Type() ontology.ResourceType { return m.resourceType }
 
-func (*mockService) OpenNexter(context.Context) (iter.Seq[ontology.Resource], io.Closer, error) {
+func (m *mockService) OpenNexter(context.Context) (iter.Seq[ontology.Resource], io.Closer, error) {
 	return func(func(ontology.Resource) bool) {}, xio.NopCloser, nil
 }
 

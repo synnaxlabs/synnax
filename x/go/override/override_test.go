@@ -21,11 +21,11 @@ type myInterface interface {
 
 type myInterfacePointerImpl struct{}
 
-func (*myInterfacePointerImpl) DoSomething() {}
+func (m *myInterfacePointerImpl) DoSomething() {}
 
 type myInterfaceValueImpl struct{}
 
-func (myInterfaceValueImpl) DoSomething() {}
+func (m myInterfaceValueImpl) DoSomething() {}
 
 var _ = Describe("Override", func() {
 	Describe("Numeric", func() {

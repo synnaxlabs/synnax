@@ -26,7 +26,7 @@ const (
 	KeyFree             = Key(math.MaxUint12)
 )
 
-func (Key) Parse(str string) (Key, error) {
+func (k Key) Parse(str string) (Key, error) {
 	key, err := strconv.Atoi(str)
 	return Key(key), err
 }

@@ -35,7 +35,7 @@ func resolveBinary(s *node.State) (lhs, rhs int, err error) {
 	return
 }
 
-func (*Host) Create(_ context.Context, cfg node.Config) (node.Node, error) {
+func (h *Host) Create(_ context.Context, cfg node.Config) (node.Node, error) {
 	if cat, ok := typedOps[cfg.Node.Type]; ok {
 		lhsIdx, rhsIdx, err := resolveBinary(cfg.State)
 		if err != nil {

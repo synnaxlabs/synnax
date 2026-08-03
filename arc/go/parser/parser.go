@@ -202,7 +202,7 @@ func (e *errorListener) SyntaxError(
 //
 // The check uses character positions: if prev token ends at position X,
 // and next token starts at position X+1, they are adjacent.
-func (*ArcParser) TokensAdjacent(prev, next antlr.Token) bool {
+func (p *ArcParser) TokensAdjacent(prev, next antlr.Token) bool {
 	if prev == nil || next == nil {
 		return false
 	}

@@ -49,7 +49,7 @@ const fieldDocIndent = 4
 var primitiveMapper = goprimitives.Mapper()
 
 // Plugin generates Go type definitions from Oracle schema definitions.
-type Plugin struct{ options Options }
+type Plugin struct{ Options Options }
 
 // Options configures the go/types plugin.
 type Options struct {
@@ -65,19 +65,19 @@ func DefaultOptions() Options {
 }
 
 // New creates a new go/types plugin with the given options.
-func New(opts Options) *Plugin { return &Plugin{options: opts} }
+func New(opts Options) *Plugin { return &Plugin{Options: opts} }
 
 // Name returns the plugin identifier.
-func (*Plugin) Name() string { return "go/types" }
+func (p *Plugin) Name() string { return "go/types" }
 
 // Domains returns the domains this plugin handles.
-func (*Plugin) Domains() []string { return []string{"go"} }
+func (p *Plugin) Domains() []string { return []string{"go"} }
 
 // Requires returns plugin dependencies.
-func (*Plugin) Requires() []string { return nil }
+func (p *Plugin) Requires() []string { return nil }
 
 // Check verifies generated files are up-to-date. Currently unimplemented.
-func (*Plugin) Check(*plugin.Request) error { return nil }
+func (p *Plugin) Check(*plugin.Request) error { return nil }
 
 // Generate produces Go type definitions for structs, enums, and typedefs with @go flag.
 // Version-laid-out packages (@go version + a keyed struct) emit their types into the
@@ -104,7 +104,7 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 	closure := PersistedClosure(rewritten)
 	versionedGen := &framework.Generator{
 		Domain:      "go",
-		FilePattern: p.options.FileNamePattern,
+		FilePattern: p.Options.FileNamePattern,
 		FileGenerator: &goFileGenerator{
 			preds:    preds,
 			original: req.Resolutions,
@@ -125,7 +125,7 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 	}
 	unversionedGen := &framework.Generator{
 		Domain:        "go",
-		FilePattern:   p.options.FileNamePattern,
+		FilePattern:   p.Options.FileNamePattern,
 		FileGenerator: &goFileGenerator{},
 		PathFilter: func(outputPath string) bool {
 			_, versioned := pathMap[outputPath]
@@ -151,7 +151,7 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 	// layout must not be re-declared there.
 	transientGen := &framework.Generator{
 		Domain:      "go",
-		FilePattern: p.options.FileNamePattern,
+		FilePattern: p.Options.FileNamePattern,
 		FileGenerator: &goFileGenerator{
 			original: req.Resolutions,
 			pathMap:  pathMap,
@@ -179,7 +179,7 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 	resp.Files = append(resp.Files, transientResp.Files...)
 	aliasGen := &framework.Generator{
 		Domain:          "go",
-		FilePattern:     p.options.FileNamePattern,
+		FilePattern:     p.Options.FileNamePattern,
 		FileGenerator:   &aliasFileGenerator{pathMap: pathMap},
 		PathFilter:      pathFilter,
 		MergeByName:     false,
@@ -195,7 +195,7 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 	resp.Files = mergeByPath(resp.Files, aliasResp.Files)
 	selectorGen := &framework.Generator{
 		Domain:          "go",
-		FilePattern:     "versions/" + p.options.FileNamePattern,
+		FilePattern:     "versions/" + p.Options.FileNamePattern,
 		FileGenerator:   &aliasFileGenerator{pathMap: pathMap, pkg: "versions"},
 		PathFilter:      pathFilter,
 		MergeByName:     false,

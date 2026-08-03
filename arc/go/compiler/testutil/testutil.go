@@ -272,7 +272,7 @@ func (m *opcodeMatcher) FailureMessage(actual any) string {
 	return b.String()
 }
 
-func (*opcodeMatcher) NegatedFailureMessage(actual any) string {
+func (m *opcodeMatcher) NegatedFailureMessage(actual any) string {
 	var actualOpcodes wasm.OPCodes
 
 	switch v := actual.(type) {

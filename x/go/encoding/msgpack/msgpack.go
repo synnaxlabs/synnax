@@ -28,10 +28,10 @@ var Codec http.Codec = &codec{}
 
 type codec struct{}
 
-func (*codec) ContentType() string { return "application/msgpack" }
+func (c *codec) ContentType() string { return "application/msgpack" }
 
 // Encode implements the encoding.Encoder interface.
-func (*codec) Encode(_ context.Context, value any) ([]byte, error) {
+func (c *codec) Encode(_ context.Context, value any) ([]byte, error) {
 	b, err := msgpack.Marshal(value)
 	return b, encoding.SugarEncodingErr(value, err)
 }
@@ -43,7 +43,7 @@ func (c *codec) Decode(ctx context.Context, data []byte, value any) error {
 }
 
 // DecodeStream implements the encoding.Decoder interface.
-func (*codec) DecodeStream(_ context.Context, r io.Reader, value any) error {
+func (c *codec) DecodeStream(_ context.Context, r io.Reader, value any) error {
 	if err := msgpack.NewDecoder(r).Decode(value); err != nil {
 		data, _ := io.ReadAll(r)
 		return encoding.SugarDecodingErr(data, value, err)

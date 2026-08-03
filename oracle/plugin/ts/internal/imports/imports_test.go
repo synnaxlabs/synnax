@@ -10,10 +10,18 @@
 package imports_test
 
 import (
+	"testing"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/oracle/plugin/ts/internal/imports"
+	. "github.com/synnaxlabs/x/testutil"
 )
+
+func TestImports(t *testing.T) {
+	RegisterFailHandler(Fail)
+	RunSpecs(t, "Plugin TS Imports Suite")
+}
 
 var _ = Describe("Manager", func() {
 	var m *imports.Manager
@@ -79,3 +87,5 @@ var _ = Describe("Manager", func() {
 		Expect(m.InternalNamedImports()).To(BeNil())
 	})
 })
+
+var _ = ShouldNotLeakGoroutinesPerSpec()

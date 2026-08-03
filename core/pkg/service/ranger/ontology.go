@@ -65,7 +65,7 @@ var (
 
 type change = xchange.Change[Key, Range]
 
-func (*Service) Type() ontology.ResourceType { return ontology.ResourceTypeRange }
+func (s *Service) Type() ontology.ResourceType { return ontology.ResourceTypeRange }
 
 // RetrieveResource implements ontology.Service.
 func (s *Service) RetrieveResource(

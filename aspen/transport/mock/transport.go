@@ -83,9 +83,9 @@ func (t *transport) Configure(addr address.Address, _ alamos.Instrumentation, _ 
 	return nil
 }
 
-func (*transport) Serve() error { return nil }
+func (t *transport) Serve() error { return nil }
 
-func (*transport) Close() error { return nil }
+func (t *transport) Close() error { return nil }
 
 func (t *transport) PledgeClient() pledge.TransportClient { return t.pledgeClient }
 

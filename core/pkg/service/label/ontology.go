@@ -85,7 +85,7 @@ var (
 	_ search.Service   = (*Service)(nil)
 )
 
-func (*Service) Type() ontology.ResourceType { return ontology.ResourceTypeLabel }
+func (s *Service) Type() ontology.ResourceType { return ontology.ResourceTypeLabel }
 
 // RetrieveResource implements ontology.Service.
 func (s *Service) RetrieveResource(ctx context.Context, key string, tx gorp.Tx) (ontology.Resource, error) {

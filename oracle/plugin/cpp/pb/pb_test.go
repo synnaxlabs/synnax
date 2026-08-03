@@ -10,11 +10,19 @@
 package pb_test
 
 import (
+	"testing"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/oracle/plugin/cpp/pb"
 	. "github.com/synnaxlabs/oracle/testutil"
+	. "github.com/synnaxlabs/x/testutil"
 )
+
+func TestCppPB(t *testing.T) {
+	RegisterFailHandler(Fail)
+	RunSpecs(t, "Plugin Cpp PB Suite")
+}
 
 var _ = Describe("C++ PB Plugin", func() {
 	var (
@@ -1496,3 +1504,5 @@ var _ = Describe("C++ PB Plugin", func() {
 		})
 	})
 })
+
+var _ = ShouldNotLeakGoroutinesPerSpec()

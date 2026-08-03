@@ -174,4 +174,4 @@ func (f *factory) setConfigStatus(
 	}
 }
 
-func (*factory) Name() string { return "arc" }
+func (f *factory) Name() string { return "arc" }

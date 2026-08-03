@@ -73,7 +73,7 @@ var (
 type change = xchange.Change[Key, Channel]
 
 // Type implements ontology.Service.
-func (*Service) Type() ontology.ResourceType { return ontology.ResourceTypeChannel }
+func (s *Service) Type() ontology.ResourceType { return ontology.ResourceTypeChannel }
 
 // RetrieveResource implements ontology.Service.
 func (s *Service) RetrieveResource(

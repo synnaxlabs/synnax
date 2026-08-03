@@ -26,9 +26,9 @@ type benchService struct {
 	observe.Noop[iter.Seq[ontology.Change]]
 }
 
-func (*benchService) Type() ontology.ResourceType { return "bench" }
+func (s *benchService) Type() ontology.ResourceType { return "bench" }
 
-func (*benchService) OpenNexter(context.Context) (iter.Seq[ontology.Resource], io.Closer, error) {
+func (s *benchService) OpenNexter(context.Context) (iter.Seq[ontology.Resource], io.Closer, error) {
 	return func(func(ontology.Resource) bool) {}, xio.NopCloser, nil
 }
 

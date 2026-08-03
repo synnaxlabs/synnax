@@ -41,7 +41,7 @@ func (b *syncBuffer) Write(p []byte) (int, error) {
 	return b.buf.Write(p)
 }
 
-func (*syncBuffer) Sync() error { return nil }
+func (b *syncBuffer) Sync() error { return nil }
 
 func (b *syncBuffer) String() string {
 	b.mu.Lock()

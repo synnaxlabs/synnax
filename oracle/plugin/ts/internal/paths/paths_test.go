@@ -10,10 +10,18 @@
 package paths_test
 
 import (
+	"testing"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/oracle/plugin/ts/internal/paths"
+	. "github.com/synnaxlabs/x/testutil"
 )
+
+func TestPaths(t *testing.T) {
+	RegisterFailHandler(Fail)
+	RunSpecs(t, "Plugin TS Paths Suite")
+}
 
 var _ = Describe("FindPackage", func() {
 	It("Should return nil for paths outside any known workspace", func() {
@@ -60,3 +68,5 @@ var _ = Describe("CalculateImport", func() {
 		Expect(got).ToNot(ContainSubstring(`\`))
 	})
 })
+
+var _ = ShouldNotLeakGoroutinesPerSpec()

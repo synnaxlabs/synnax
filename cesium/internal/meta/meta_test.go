@@ -164,18 +164,18 @@ var _ encoding.Codec = (*brokenCodec)(nil)
 
 var errEncoding = errors.New("broken json.Codec")
 
-func (*brokenCodec) Encode(context.Context, any) ([]byte, error) {
+func (b *brokenCodec) Encode(context.Context, any) ([]byte, error) {
 	return nil, errEncoding
 }
 
-func (*brokenCodec) EncodeStream(context.Context, io.Writer, any) error {
+func (b *brokenCodec) EncodeStream(context.Context, io.Writer, any) error {
 	return errEncoding
 }
 
-func (*brokenCodec) Decode(context.Context, []byte, any) error {
+func (b *brokenCodec) Decode(context.Context, []byte, any) error {
 	return errEncoding
 }
 
-func (*brokenCodec) DecodeStream(context.Context, io.Reader, any) error {
+func (b *brokenCodec) DecodeStream(context.Context, io.Reader, any) error {
 	return errEncoding
 }

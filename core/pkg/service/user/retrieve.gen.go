@@ -37,7 +37,7 @@ type indexes struct {
 // result on the Service struct.
 func newIndexes() indexes {
 	return indexes{
-		username: gorp.NewLookupIndex(
+		username: gorp.NewLookupIndex[Key, User, string](
 			"username",
 			func(e *User) string { return e.Username },
 		),
@@ -66,22 +66,22 @@ type Filter = gorp.BoundFilter[Retrieve, Key, User]
 // Match wraps a closure that needs the Retrieve into a Filter. The Retrieve
 // value is supplied by Retrieve.Where at evaluation time.
 func Match(f func(ctx gorp.Context, r Retrieve, e *User) (bool, error)) Filter {
-	return gorp.MatchBound(f)
+	return gorp.MatchBound[Retrieve, Key, User](f)
 }
 
 // And returns a filter that matches when all provided filters match.
 func And(fs ...Filter) Filter {
-	return gorp.AndBound(fs...)
+	return gorp.AndBound[Retrieve, Key, User](fs...)
 }
 
 // Or returns a filter that matches when any provided filter matches.
 func Or(fs ...Filter) Filter {
-	return gorp.OrBound(fs...)
+	return gorp.OrBound[Retrieve, Key, User](fs...)
 }
 
 // Not returns a filter that inverts the provided filter.
 func Not(f Filter) Filter {
-	return gorp.NotBound(f)
+	return gorp.NotBound[Retrieve, Key, User](f)
 }
 
 // MatchKeys returns a filter that restricts results to users whose key

@@ -19,7 +19,7 @@ import (
 
 func TestPB(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Telem Protocol Buffers Suite")
+	RunSpecs(t, "Telem PB Suite")
 }
 
 var _ = ShouldNotLeakGoroutinesPerSpec()

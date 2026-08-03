@@ -23,10 +23,10 @@ type mockPlugin struct {
 	err   error
 }
 
-func (*mockPlugin) Name() string                { return "mock" }
-func (*mockPlugin) Domains() []string           { return []string{"go"} }
-func (*mockPlugin) Requires() []string          { return nil }
-func (*mockPlugin) Check(*plugin.Request) error { return nil }
+func (m *mockPlugin) Name() string                { return "mock" }
+func (m *mockPlugin) Domains() []string           { return []string{"go"} }
+func (m *mockPlugin) Requires() []string          { return nil }
+func (m *mockPlugin) Check(*plugin.Request) error { return nil }
 
 func (m *mockPlugin) Generate(*plugin.Request) (*plugin.Response, error) {
 	if m.err != nil {
@@ -40,10 +40,10 @@ type reqCapturingPlugin struct {
 	lastReq *plugin.Request
 }
 
-func (*reqCapturingPlugin) Name() string                { return "mock" }
-func (*reqCapturingPlugin) Domains() []string           { return []string{"go"} }
-func (*reqCapturingPlugin) Requires() []string          { return nil }
-func (*reqCapturingPlugin) Check(*plugin.Request) error { return nil }
+func (m *reqCapturingPlugin) Name() string                { return "mock" }
+func (m *reqCapturingPlugin) Domains() []string           { return []string{"go"} }
+func (m *reqCapturingPlugin) Requires() []string          { return nil }
+func (m *reqCapturingPlugin) Check(*plugin.Request) error { return nil }
 
 func (m *reqCapturingPlugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 	m.lastReq = req

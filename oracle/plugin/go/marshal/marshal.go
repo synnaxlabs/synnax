@@ -31,7 +31,7 @@ import (
 )
 
 // Plugin generates gorp.Codec implementations for structs annotated with @go marshal.
-type Plugin struct{ options Options }
+type Plugin struct{ Options Options }
 
 // Options configures the go/marshal plugin.
 type Options struct {
@@ -55,12 +55,12 @@ func DefaultOptions() Options {
 }
 
 // New creates a new go/marshal plugin with the given options.
-func New(opts Options) *Plugin { return &Plugin{options: opts} }
+func New(opts Options) *Plugin { return &Plugin{Options: opts} }
 
-func (*Plugin) Name() string                { return "go/marshal" }
-func (*Plugin) Domains() []string           { return []string{"go"} }
-func (*Plugin) Requires() []string          { return []string{"go/types"} }
-func (*Plugin) Check(*plugin.Request) error { return nil }
+func (p *Plugin) Name() string                { return "go/marshal" }
+func (p *Plugin) Domains() []string           { return []string{"go"} }
+func (p *Plugin) Requires() []string          { return []string{"go/types"} }
+func (p *Plugin) Check(*plugin.Request) error { return nil }
 
 func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 	resp := &plugin.Response{Files: make([]plugin.File, 0)}
@@ -153,7 +153,7 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 	// A codec pins a persisted wire format to a type shape, so every marshalled type
 	// must live in a versions/vN package where that shape is immutable. A codec target
 	// outside versions/vN means the type (or one it persists) is missing @go version.
-	if p.options.RequireVersioned {
+	if p.Options.RequireVersioned {
 		for goPath := range allPkgs {
 			if isVersionedPath(goPath) {
 				continue
@@ -190,12 +190,12 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 			return nil, errors.Wrapf(err, "failed to generate codec for %s", goPath)
 		}
 		resp.Files = append(resp.Files, plugin.File{
-			Path:    fmt.Sprintf("%s/%s", goPath, p.options.FileNamePattern),
+			Path:    fmt.Sprintf("%s/%s", goPath, p.Options.FileNamePattern),
 			Content: content,
 		})
 	}
 
-	if p.options.GenerateTests {
+	if p.Options.GenerateTests {
 		sortedMergedPkgs := make([]string, 0, len(merged))
 		for goPath := range merged {
 			sortedMergedPkgs = append(sortedMergedPkgs, goPath)
@@ -213,7 +213,7 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 			}
 			if testContent != nil {
 				resp.Files = append(resp.Files, plugin.File{
-					Path:    fmt.Sprintf("%s/%s", goPath, p.options.TestFileNamePattern),
+					Path:    fmt.Sprintf("%s/%s", goPath, p.Options.TestFileNamePattern),
 					Content: testContent,
 				})
 			}

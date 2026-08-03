@@ -46,7 +46,7 @@ func newResource(r Role) ontology.Resource {
 
 type change = xchange.Change[Key, Role]
 
-func (*Service) Type() ontology.ResourceType { return ontology.ResourceTypeRole }
+func (s *Service) Type() ontology.ResourceType { return ontology.ResourceTypeRole }
 
 // RetrieveResource implements ontology.Service.
 func (s *Service) RetrieveResource(

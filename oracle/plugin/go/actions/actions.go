@@ -45,15 +45,15 @@ func DefaultOptions() Options {
 }
 
 // Plugin emits the generated action codec.
-type Plugin struct{ options Options }
+type Plugin struct{ Options Options }
 
 // New constructs a Plugin with the given options.
-func New(opts Options) *Plugin { return &Plugin{options: opts} }
+func New(opts Options) *Plugin { return &Plugin{Options: opts} }
 
-func (*Plugin) Name() string                  { return "go/actions" }
-func (*Plugin) Domains() []string             { return []string{"go"} }
-func (*Plugin) Requires() []string            { return []string{"go/types"} }
-func (*Plugin) Check(_ *plugin.Request) error { return nil }
+func (p *Plugin) Name() string                  { return "go/actions" }
+func (p *Plugin) Domains() []string             { return []string{"go"} }
+func (p *Plugin) Requires() []string            { return []string{"go/types"} }
+func (p *Plugin) Check(_ *plugin.Request) error { return nil }
 
 var goPostWriter = &exec.PostWriter{
 	Extensions: []string{".go"},
@@ -61,7 +61,7 @@ var goPostWriter = &exec.PostWriter{
 }
 
 // PostWrite runs gofmt on the generated files.
-func (*Plugin) PostWrite(files []string) error {
+func (p *Plugin) PostWrite(files []string) error {
 	return goPostWriter.PostWrite(files)
 }
 
@@ -83,14 +83,14 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 			return nil, err
 		}
 		resp.Files = append(resp.Files, plugin.File{
-			Path:    outputPath + "/" + p.options.FileNamePattern,
+			Path:    outputPath + "/" + p.Options.FileNamePattern,
 			Content: content,
 		})
 	}
 	return resp, nil
 }
 
-func (*Plugin) generateFile(
+func (p *Plugin) generateFile(
 	typ resolution.Type,
 	form resolution.StructForm,
 	outputPath string,

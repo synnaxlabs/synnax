@@ -18,7 +18,7 @@ func HaveOccurred() any    { return nil }
 
 type Assertion struct{}
 
-func (Assertion) ToNot(any) {}
+func (a Assertion) ToNot(any) {}
 
 func returnsValErr() (int, error) { return 0, nil }
 

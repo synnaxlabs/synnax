@@ -67,10 +67,10 @@ var (
 type change = xchange.Change[Key, Device]
 
 // Type returns the type of the device ontology service.
-func (*Service) Type() ontology.ResourceType { return ontology.ResourceTypeDevice }
+func (s *Service) Type() ontology.ResourceType { return ontology.ResourceTypeDevice }
 
 // SearchableFields implements ontology.SearchableFieldsProvider.
-func (*Service) SearchableFields() []string {
+func (s *Service) SearchableFields() []string {
 	return []string{"make", "model", "location"}
 }
 

@@ -213,7 +213,7 @@ func (w Writer) Delete(ctx context.Context, keys ...Key) error {
 	return w.otgWriter.DeleteResources(ctx, OntologyIDs(allKeys)...)
 }
 
-func (Writer) validate(r Range) error {
+func (w Writer) validate(r Range) error {
 	v := validate.New("ranger.range")
 	validate.NotNil(v, "key", r.Key)
 	validate.NonZero(v, "time_range.start", r.TimeRange.Start)

@@ -76,7 +76,7 @@ func (w Writer) Delete(ctx context.Context, keys ...Key) error {
 	return w.otgWriter.DeleteResources(ctx, OntologyIDs(keys)...)
 }
 
-func (Writer) validate(v View) error {
+func (w Writer) validate(v View) error {
 	vld := validate.New("view.view")
 	validate.NotEmptyString(vld, "name", v.Name)
 	validate.NotEmptyString(vld, "type", v.Type)

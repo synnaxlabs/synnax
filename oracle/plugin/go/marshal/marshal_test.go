@@ -11,6 +11,7 @@ package marshal_test
 
 import (
 	"context"
+	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -22,6 +23,11 @@ import (
 	"github.com/synnaxlabs/x/errors"
 	. "github.com/synnaxlabs/x/testutil"
 )
+
+func TestGoMarshal(t *testing.T) {
+	RegisterFailHandler(Fail)
+	RunSpecs(t, "Plugin Go Marshal Suite")
+}
 
 // unversionedOptions disables the versions/vN requirement for specs that exercise codec
 // mechanics on ad-hoc unversioned schemas.
@@ -1517,3 +1523,5 @@ var _ = Describe("Versioned codec requirement", func() {
 			ToContain("Thing) EncodeOrc")
 	})
 })
+
+var _ = ShouldNotLeakGoroutinesPerSpec()

@@ -63,7 +63,7 @@ var (
 	_ search.Service   = (*Service)(nil)
 )
 
-func (*Service) Type() ontology.ResourceType { return ontology.ResourceTypeRack }
+func (s *Service) Type() ontology.ResourceType { return ontology.ResourceTypeRack }
 
 // RetrieveResource implements ontology.Service.
 func (s *Service) RetrieveResource(ctx context.Context, key string, tx gorp.Tx) (ontology.Resource, error) {

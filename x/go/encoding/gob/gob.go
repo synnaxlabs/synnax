@@ -24,7 +24,7 @@ var Codec = &codec{}
 type codec struct{}
 
 // Encode implements the encoding.Encoder interface.
-func (*codec) Encode(_ context.Context, value any) ([]byte, error) {
+func (e *codec) Encode(_ context.Context, value any) ([]byte, error) {
 	var (
 		buff bytes.Buffer
 		err  = gob.NewEncoder(&buff).Encode(value)
@@ -37,7 +37,7 @@ func (*codec) Encode(_ context.Context, value any) ([]byte, error) {
 }
 
 // EncodeStream implements the encoding.Encoder interface.
-func (*codec) EncodeStream(_ context.Context, w io.Writer, value any) error {
+func (e *codec) EncodeStream(_ context.Context, w io.Writer, value any) error {
 	err := gob.NewEncoder(w).Encode(value)
 	if err != nil {
 		return encoding.SugarEncodingErr(value, err)
@@ -55,7 +55,7 @@ func (e *codec) Decode(ctx context.Context, data []byte, value any) error {
 }
 
 // DecodeStream implements the encoding.Decoder interface.
-func (*codec) DecodeStream(_ context.Context, r io.Reader, value any) error {
+func (e *codec) DecodeStream(_ context.Context, r io.Reader, value any) error {
 	if err := gob.NewDecoder(r).Decode(value); err != nil {
 		data, _ := io.ReadAll(r)
 		return encoding.SugarDecodingErr(data, value, err)

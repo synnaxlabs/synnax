@@ -32,7 +32,7 @@ func (d *defaultFS) Sub(name string) (FS, error) {
 }
 
 // Exists implements FS.
-func (*defaultFS) Exists(name string) (bool, error) {
+func (d *defaultFS) Exists(name string) (bool, error) {
 	_, err := os.Stat(name)
 	if err == nil {
 		return true, nil
@@ -44,7 +44,7 @@ func (*defaultFS) Exists(name string) (bool, error) {
 }
 
 // List implements FS.
-func (*defaultFS) List(dirName string) ([]os.FileInfo, error) {
+func (d *defaultFS) List(dirName string) ([]os.FileInfo, error) {
 	entries, err := os.ReadDir(dirName)
 	if err != nil {
 		return nil, err
@@ -59,12 +59,12 @@ func (*defaultFS) List(dirName string) ([]os.FileInfo, error) {
 }
 
 // Remove implements FS.
-func (*defaultFS) Remove(name string) error { return os.RemoveAll(name) }
+func (d *defaultFS) Remove(name string) error { return os.RemoveAll(name) }
 
 // Rename implements FS.
-func (*defaultFS) Rename(name string, newName string) error {
+func (d *defaultFS) Rename(name string, newName string) error {
 	return os.Rename(name, newName)
 }
 
 // Stat implements FS.
-func (*defaultFS) Stat(name string) (os.FileInfo, error) { return os.Stat(name) }
+func (d *defaultFS) Stat(name string) (os.FileInfo, error) { return os.Stat(name) }

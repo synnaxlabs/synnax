@@ -31,11 +31,11 @@ type EmptyTranslator struct{}
 var _ Translator[types.Nil, *emptypb.Empty] = EmptyTranslator{}
 
 // Forward implements Translator.
-func (EmptyTranslator) Forward(ctx context.Context, t types.Nil) (*emptypb.Empty, error) {
+func (et EmptyTranslator) Forward(ctx context.Context, t types.Nil) (*emptypb.Empty, error) {
 	return &emptypb.Empty{}, nil
 }
 
 // Backward implements Translator.
-func (EmptyTranslator) Backward(context.Context, *emptypb.Empty) (types.Nil, error) {
+func (et EmptyTranslator) Backward(context.Context, *emptypb.Empty) (types.Nil, error) {
 	return types.Nil{}, nil
 }

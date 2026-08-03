@@ -304,7 +304,7 @@ type varBinding interface {
 
 func (v *VarInput[T]) initialValue() any { return v.initial }
 
-func (*VarInput[T]) elemType() types.Type {
+func (v *VarInput[T]) elemType() types.Type {
 	return types.FromTelem(telem.InferDataType[T]())
 }
 

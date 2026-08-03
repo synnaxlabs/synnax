@@ -88,7 +88,7 @@ func (n *nodeImpl) call(ctx context.Context, params ...uint64) ([]result, error)
 	return n.outputValues, nil
 }
 
-func (*nodeImpl) Init(node.Context) {}
+func (n *nodeImpl) Init(node.Context) {}
 
 // dataFresh reports whether any input other than $sel has unconsumed data.
 func (n *nodeImpl) dataFresh() bool {

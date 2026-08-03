@@ -30,9 +30,9 @@ type mockNode struct {
 
 func (m *mockNode) Next(node.Context) { m.nextCalled++ }
 
-func (*mockNode) IsOutputTruthy(int) bool { return false }
+func (m *mockNode) IsOutputTruthy(int) bool { return false }
 
-func (*mockNode) Reset() {}
+func (m *mockNode) Reset() {}
 
 type mockFactory struct {
 	returnNode   node.Node

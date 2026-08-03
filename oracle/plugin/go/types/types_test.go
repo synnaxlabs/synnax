@@ -11,12 +11,13 @@ package types_test
 
 import (
 	"context"
-	"encoding/json"
+	gojson "encoding/json"
 	"go/parser"
 	"go/token"
 	"os"
 	"path/filepath"
 	"strings"
+	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -25,9 +26,14 @@ import (
 	"github.com/synnaxlabs/oracle/plugin/go/types"
 	"github.com/synnaxlabs/oracle/resolution"
 	. "github.com/synnaxlabs/oracle/testutil"
-	"github.com/synnaxlabs/x/errors"
+	gotesterrors "github.com/synnaxlabs/x/errors"
 	. "github.com/synnaxlabs/x/testutil"
 )
+
+func TestGoTypes(t *testing.T) {
+	RegisterFailHandler(Fail)
+	RunSpecs(t, "Plugin Go Types Suite")
+}
 
 var _ = Describe("Go Types Plugin", func() {
 	var (
@@ -2455,40 +2461,40 @@ func (u rtScale) MarshalJSON() ([]byte, error) {
 	case rtScaleLinear:
 		t = rtScaleTypeLinear
 	default:
-		return nil, errors.Newf("rtScale: unknown variant %T", u.Variant)
+		return nil, gotesterrors.Newf("rtScale: unknown variant %T", u.Variant)
 	}
-	raw, err := json.Marshal(u.Variant)
+	raw, err := gojson.Marshal(u.Variant)
 	if err != nil {
 		return nil, err
 	}
-	fields := map[string]json.RawMessage{}
-	if err := json.Unmarshal(raw, &fields); err != nil {
+	fields := map[string]gojson.RawMessage{}
+	if err := gojson.Unmarshal(raw, &fields); err != nil {
 		return nil, err
 	}
-	tag, err := json.Marshal(t)
+	tag, err := gojson.Marshal(t)
 	if err != nil {
 		return nil, err
 	}
 	fields["type"] = tag
-	return json.Marshal(fields)
+	return gojson.Marshal(fields)
 }
 
 func (u *rtScale) UnmarshalJSON(data []byte) error {
 	var disc struct {
 		Type rtScaleType `json:"type"`
 	}
-	if err := json.Unmarshal(data, &disc); err != nil {
+	if err := gojson.Unmarshal(data, &disc); err != nil {
 		return err
 	}
 	switch disc.Type {
 	case rtScaleTypeLinear:
 		var v rtScaleLinear
-		if err := json.Unmarshal(data, &v); err != nil {
+		if err := gojson.Unmarshal(data, &v); err != nil {
 			return err
 		}
 		u.Variant = v
 	default:
-		return errors.Newf("rtScale: unknown type %q", disc.Type)
+		return gotesterrors.Newf("rtScale: unknown type %q", disc.Type)
 	}
 	return nil
 }
@@ -2518,22 +2524,22 @@ func (rtChanV) isRtChanVariant() {}
 type rtChan struct{ Variant rtChanVariant }
 
 func (u rtChan) MarshalJSON() ([]byte, error) {
-	raw, err := json.Marshal(u.Variant)
+	raw, err := gojson.Marshal(u.Variant)
 	if err != nil {
 		return nil, err
 	}
-	fields := map[string]json.RawMessage{}
-	if err := json.Unmarshal(raw, &fields); err != nil {
+	fields := map[string]gojson.RawMessage{}
+	if err := gojson.Unmarshal(raw, &fields); err != nil {
 		return nil, err
 	}
-	tag, _ := json.Marshal(rtChanTypeV)
+	tag, _ := gojson.Marshal(rtChanTypeV)
 	fields["type"] = tag
-	return json.Marshal(fields)
+	return gojson.Marshal(fields)
 }
 
 func (u *rtChan) UnmarshalJSON(data []byte) error {
 	var v rtChanV
-	if err := json.Unmarshal(data, &v); err != nil {
+	if err := gojson.Unmarshal(data, &v); err != nil {
 		return err
 	}
 	u.Variant = v
@@ -2549,9 +2555,9 @@ var _ = Describe("Union codec round trip", func() {
 				Scale:  rtScale{Variant: rtScaleLinear{rtLinearScale{Slope: 1.5}}},
 			},
 		}}
-		data := MustSucceed(json.Marshal(in))
+		data := MustSucceed(gojson.Marshal(in))
 		var m map[string]any
-		Expect(json.Unmarshal(data, &m)).To(Succeed())
+		Expect(gojson.Unmarshal(data, &m)).To(Succeed())
 		Expect(m).To(SatisfyAll(
 			HaveKeyWithValue("type", "v"),
 			HaveKey("port"),
@@ -2559,7 +2565,7 @@ var _ = Describe("Union codec round trip", func() {
 			HaveKeyWithValue("custom_scale", HaveKeyWithValue("type", "linear")),
 		))
 		var out rtChan
-		Expect(json.Unmarshal(data, &out)).To(Succeed())
+		Expect(gojson.Unmarshal(data, &out)).To(Succeed())
 		got := out.Variant.(rtChanV)
 		Expect(got.Port).To(Equal(int32(7)))
 		Expect(got.MinVal).To(Equal(-10.0))
@@ -3079,3 +3085,5 @@ var _ = Describe("Unversioned Consumers", func() {
 			ToContain("type Channel struct")
 	})
 })
+
+var _ = ShouldNotLeakGoroutinesPerSpec()

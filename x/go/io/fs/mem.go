@@ -288,7 +288,7 @@ func (f *memNode) Size() int64 {
 	return int64(len(f.mu.data))
 }
 
-func (*memNode) Sys() any { return nil }
+func (f *memNode) Sys() any { return nil }
 
 // walk walks the directory tree for the fullname, calling f at each step. If f returns
 // an error, the walk will be aborted and return that same error.

@@ -10,10 +10,18 @@
 package naming_test
 
 import (
+	"testing"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/oracle/plugin/cpp/naming"
+	. "github.com/synnaxlabs/x/testutil"
 )
+
+func TestNaming(t *testing.T) {
+	RegisterFailHandler(Fail)
+	RunSpecs(t, "CPP Naming Suite")
+}
 
 var _ = Describe("VariantTypeName", func() {
 	DescribeTable("should derive the C++ variant struct name",
@@ -26,3 +34,5 @@ var _ = Describe("VariantTypeName", func() {
 		Entry("reserved-word variant value", "Scale", "map", "ScaleMap"),
 	)
 })
+
+var _ = ShouldNotLeakGoroutinesPerSpec()

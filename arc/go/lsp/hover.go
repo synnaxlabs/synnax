@@ -296,7 +296,7 @@ var keywordDocs = map[string]string{
 	).Render(),
 }
 
-func (*Server) getOperatorAtPosition(content string, pos protocol.Position) string {
+func (s *Server) getOperatorAtPosition(content string, pos protocol.Position) string {
 	line, ok := lsp.GetLine(content, pos.Line)
 	if !ok {
 		return ""
@@ -320,15 +320,15 @@ func (*Server) getOperatorAtPosition(content string, pos protocol.Position) stri
 	return ""
 }
 
-func (*Server) getOperatorHoverContents(op string) string {
+func (s *Server) getOperatorHoverContents(op string) string {
 	return operatorDocs[op]
 }
 
-func (*Server) getHoverContents(word string) string {
+func (s *Server) getHoverContents(word string) string {
 	return keywordDocs[word]
 }
 
-func (*Server) extractDocComment(content string, sym *symbol.Symbol) string {
+func (s *Server) extractDocComment(content string, sym *symbol.Symbol) string {
 	if sym.AST == nil {
 		return ""
 	}
@@ -615,7 +615,7 @@ func formatModuleMembersList(sym *symbol.Symbol) []string {
 }
 
 // symbolToLocation converts a symbol to an LSP Location pointing to its definition
-func (*Server) symbolToLocation(
+func (s *Server) symbolToLocation(
 	docURI uri.URI,
 	sym *symbol.Symbol,
 ) *protocol.Location {

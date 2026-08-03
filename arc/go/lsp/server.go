@@ -245,7 +245,7 @@ func (s *Server) Initialized(context.Context, *protocol.InitializedParams) error
 
 // DocumentSymbol returns an empty result. Existing clients probe this method without
 // checking capabilities; the embedded UnimplementedServer would error instead.
-func (*Server) DocumentSymbol(
+func (s *Server) DocumentSymbol(
 	context.Context,
 	*protocol.DocumentSymbolParams,
 ) (protocol.DocumentSymbolResult, error) {
@@ -253,7 +253,7 @@ func (*Server) DocumentSymbol(
 }
 
 // Symbols returns an empty result; see DocumentSymbol.
-func (*Server) Symbols(
+func (s *Server) Symbols(
 	context.Context,
 	*protocol.WorkspaceSymbolParams,
 ) (protocol.WorkspaceSymbolResult, error) {

@@ -78,7 +78,7 @@ type Host struct{}
 // NewHost constructs a selector Host.
 func NewHost() *Host { return &Host{} }
 
-func (*Host) Create(_ context.Context, cfg node.Config) (node.Node, error) {
+func (h *Host) Create(_ context.Context, cfg node.Config) (node.Node, error) {
 	if cfg.Node.Type != symbolName {
 		return nil, query.ErrNotFound
 	}

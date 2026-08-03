@@ -385,7 +385,7 @@ func (r Retrieve) retrieveEntities(
 	return entries.All(), err
 }
 
-func (Retrieve) extractIDs(clause gorp.Retrieve[string, Resource]) []ID {
+func (r Retrieve) extractIDs(clause gorp.Retrieve[string, Resource]) []ID {
 	entries := clause.GetEntries()
 	resources := entries.All()
 	ids := make([]ID, 0, len(resources))

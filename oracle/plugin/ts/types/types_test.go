@@ -11,6 +11,7 @@ package types_test
 
 import (
 	"strings"
+	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -20,6 +21,11 @@ import (
 	. "github.com/synnaxlabs/oracle/testutil"
 	. "github.com/synnaxlabs/x/testutil"
 )
+
+func TestTypes(t *testing.T) {
+	RegisterFailHandler(Fail)
+	RunSpecs(t, "Plugin TS Types Suite")
+}
 
 var _ = Describe("TSFormatter", func() {
 	f := types.TSFormatter
@@ -3021,3 +3027,5 @@ var _ = Describe("TS Union Field & Variant Coverage", func() {
 		ExpectContent(resp, "types.gen.ts").ToContain(`scales.scaleZ`)
 	})
 })
+
+var _ = ShouldNotLeakGoroutinesPerSpec()

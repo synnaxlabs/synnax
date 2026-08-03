@@ -43,7 +43,7 @@ func (i IteratorConfig) Override(other IteratorConfig) IteratorConfig {
 }
 
 // Validate implements config.Config.
-func (IteratorConfig) Validate() error { return nil }
+func (i IteratorConfig) Validate() error { return nil }
 
 var (
 	_                     config.Config[IteratorConfig] = IteratorConfig{}

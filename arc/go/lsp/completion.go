@@ -1023,7 +1023,7 @@ func (s *Server) getAuthorityEntryCompletions(
 	return items
 }
 
-func (*Server) resolveFunctionType(
+func (s *Server) resolveFunctionType(
 	ctx context.Context,
 	doc *Document,
 	name string,
@@ -1044,7 +1044,7 @@ func (*Server) resolveFunctionType(
 	return types.Type{}, false
 }
 
-func (*Server) collectSymbols(
+func (s *Server) collectSymbols(
 	ctx context.Context,
 	doc *Document,
 	prefix string,

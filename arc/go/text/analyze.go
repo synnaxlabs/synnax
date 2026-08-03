@@ -203,7 +203,7 @@ func (s *shellBuilder) addTransition(t ir.Transition) {
 // the innermost. Used when a cross-level `=> X` resolves to a frame further
 // up the stack — the transition must live on the frame that owns X so the
 // scheduler advances that frame's active step.
-func (*shellBuilder) addTransitionTo(f *seqFrame, t ir.Transition) {
+func (s *shellBuilder) addTransitionTo(f *seqFrame, t ir.Transition) {
 	f.transitions = append(f.transitions, t)
 }
 

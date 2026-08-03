@@ -64,10 +64,10 @@ var (
 	_ search.FieldsProvider = (*Service)(nil)
 )
 
-func (*Service) Type() ontology.ResourceType { return ontology.ResourceTypeTask }
+func (s *Service) Type() ontology.ResourceType { return ontology.ResourceTypeTask }
 
 // SearchableFields implements ontology.SearchableFieldsProvider.
-func (*Service) SearchableFields() []string { return []string{"type"} }
+func (s *Service) SearchableFields() []string { return []string{"type"} }
 
 // RetrieveResource implements ontology.Service.
 func (s *Service) RetrieveResource(ctx context.Context, key string, tx gorp.Tx) (ontology.Resource, error) {

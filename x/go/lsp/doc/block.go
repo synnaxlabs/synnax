@@ -197,4 +197,4 @@ type divider struct{}
 func Divider() Block { return divider{} }
 
 // Render returns the markdown horizontal rule.
-func (divider) Render() string { return "---" }
+func (d divider) Render() string { return "---" }

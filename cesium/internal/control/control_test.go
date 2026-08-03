@@ -31,7 +31,7 @@ type testResource struct {
 
 var _ control.Resource = (*testResource)(nil)
 
-func (testResource) ChannelKey() channel.Key { return channel.Key(0) }
+func (t testResource) ChannelKey() channel.Key { return channel.Key(0) }
 
 func createResourceNoErr(value int) (func() (t testResource, err error), func() int) {
 	var count int
