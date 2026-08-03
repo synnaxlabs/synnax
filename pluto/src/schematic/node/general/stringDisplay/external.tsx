@@ -25,7 +25,7 @@ export const defaultConfig = (t: Theming.Theme): Config => ({
   variant: VARIANT,
   orientation: "left",
   color: color.ZERO,
-  level: "h5",
+  level: "p",
   inlineSize: 100,
   label: Label.defaultConfig("String Display"),
   stalenessTimeout: 5,

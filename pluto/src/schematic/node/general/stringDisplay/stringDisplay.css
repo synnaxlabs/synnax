@@ -23,5 +23,9 @@
 
     & .pluto-string-display__content {
         padding: 0.5rem 1.5rem;
+
+        & .pluto-text {
+            min-height: 1lh;
+        }
     }
 }
