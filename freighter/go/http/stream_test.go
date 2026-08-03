@@ -143,8 +143,7 @@ var _ = Describe("Stream", Ordered, Serial, func() {
 				ownApp, ownAddr := serveRouter(router)
 
 				// A raw peer that upgrades and then never reads. Control frames are
-				// only
-				// processed inside a read, so the close message goes unanswered.
+				// only processed inside a read, so the close message goes unanswered.
 				headers := http.Header{}
 				headers.Set(fiber.HeaderContentType, "application/json")
 				conn, res := MustSucceed2((&ws.Dialer{}).DialContext(
