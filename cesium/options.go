@@ -10,12 +10,15 @@
 package cesium
 
 import (
+	"time"
+
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/x/encoding"
 	"github.com/synnaxlabs/x/encoding/json"
 	xfs "github.com/synnaxlabs/x/io/fs"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/telem"
+	"github.com/synnaxlabs/x/validate"
 )
 
 type Option func(*options)
@@ -27,6 +30,9 @@ type options struct {
 	dirname   string
 	gcCfg     GCConfig
 	fileSize  telem.Size
+	// relayBufferSize is the buffer size for the relay's main streaming pipe and for
+	// each streamer's connection to it.
+	relayBufferSize int
 }
 
 func (o *options) Report() alamos.Report {
@@ -44,8 +50,18 @@ func newOptions(dirname string, opts ...Option) (*options, error) {
 func mergeAndValidateOptions(o *options) error {
 	o.metaCodec = override.Nil[encoding.Codec](json.Codec, o.metaCodec)
 	o.fs = override.Nil(xfs.Default, o.fs)
-	o.gcCfg = defaultGCConfig.Override(o.gcCfg)
+	o.gcCfg = GCConfig{
+		MaxGoroutine: 10,
+		TryInterval:  30 * time.Second,
+		Threshold:    0.2,
+	}.Override(o.gcCfg)
 	o.fileSize = override.Numeric(1*telem.Gigabyte, o.fileSize)
+	o.relayBufferSize = override.Numeric(defaultRelayBufferSize, o.relayBufferSize)
+	v := validate.New("cesium.options")
+	validate.Positive(v, "buffer_size", o.relayBufferSize)
+	if err := v.Error(); err != nil {
+		return err
+	}
 	return o.gcCfg.Validate()
 }
 
@@ -68,3 +84,8 @@ func WithInstrumentation(i alamos.Instrumentation) Option {
 // may still exceed this value, it is not likely to exceed by much with frequent
 // commits. Defaults to 1GB
 func WithFileSizeCap(cap telem.Size) Option { return func(o *options) { o.fileSize = cap } }
+
+// WithBufferSize sets the buffer size, in frames, of the relay pipe that streams
+// written frames to streamers, and of each streamer's connection to that pipe.
+// Defaults to 1000 frames.
+func WithBufferSize(size int) Option { return func(o *options) { o.relayBufferSize = size } }

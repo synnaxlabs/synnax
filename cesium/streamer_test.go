@@ -13,7 +13,6 @@ import (
 	"context"
 	"io"
 	"runtime"
-	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -315,32 +314,32 @@ var _ = Describe("Streamer Behavior", func() {
 			})
 
 			Describe("Slow Consumers", func() {
-				It("Should buffer frames for a consumer that stalls past the slow consumer timeout", func(ctx SpecContext) {
-					var slowCh cesium.ChannelKey = 9
-					Expect(db.CreateChannel(
+				It("Should buffer frames for a consumer that stalls during writes", func(ctx SpecContext) {
+					const bufferSize = 10
+					// Writing past the relay's total buffered capacity would force
+					// the writer to block until the relay times out and drops frames
+					// for the stalled consumer, so undersized buffering surfaces as
+					// missing frames in the drain below.
+					const frameCount = 2 * bufferSize
+					sub := MustSucceed(fs.Sub("slow-consumer"))
+					subDB := openDBOnFS(ctx, sub, cesium.WithBufferSize(bufferSize))
+					defer func() { Expect(subDB.Close()).To(Succeed()) }()
+					key := GenerateChannelKey()
+					Expect(subDB.CreateChannel(
 						ctx,
-						cesium.Channel{Key: slowCh, Name: "Feynman", DataType: telem.Int64T, Virtual: true},
+						cesium.Channel{Key: key, Name: "Feynman", DataType: telem.Int64T, Virtual: true},
 					)).To(Succeed())
-					w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
-						Channels: []cesium.ChannelKey{slowCh},
+					w := MustSucceed(subDB.OpenWriter(ctx, cesium.WriterConfig{
+						Channels: []cesium.ChannelKey{key},
 						Start:    10 * telem.SecondTS,
 					}))
-					_, o, closer := openStreamer(ctx, db, cesium.StreamerConfig{
-						Channels: []cesium.ChannelKey{slowCh},
+					_, o, closer := openStreamer(ctx, subDB, cesium.StreamerConfig{
+						Channels: []cesium.ChannelKey{key},
 					})
 
-					const frameCount = 10
 					for v := range int64(frameCount) {
-						Expect(w.Write(telem.MultiFrame(
-							[]cesium.ChannelKey{slowCh},
-							[]telem.Series{telem.NewSeriesV(v)},
-						))).To(BeTrue())
+						Expect(w.Write(telem.UnaryFrame(key, telem.NewSeriesV(v)))).To(BeTrue())
 					}
-					// Stall past the relay's slow consumer timeout (20ms) while the
-					// frames are in flight. The streamer's buffered connection must
-					// hold every frame; with an unbuffered connection the relay would
-					// drop all but the first few frames here.
-					time.Sleep(100 * time.Millisecond)
 					for v := range int64(frameCount) {
 						var res cesium.StreamerResponse
 						Eventually(o.Outlet()).Should(Receive(&res))

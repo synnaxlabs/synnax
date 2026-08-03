@@ -27,25 +27,28 @@ type relayResponse struct {
 type relay struct {
 	delta *confluence.DynamicDeltaMultiplier[relayResponse]
 	inlet confluence.Inlet[relayResponse]
+	// bufferSize is the capacity of each streamer connection stream opened by
+	// connect.
+	bufferSize int
 }
 
 const (
-	// relayBufferSize is the buffer size for the relay's main streaming pipe and for
-	// each streamer's connection to it. All written frames are moved through the main
-	// pipe, so the value is relatively large.
+	// defaultRelayBufferSize is the default buffer size for the relay's main streaming
+	// pipe and for each streamer's connection to it. All written frames are moved
+	// through the main pipe, so the value is relatively large.
 	// 1000 * 72 bytes = 72kb
-	relayBufferSize = 1000
+	defaultRelayBufferSize = 1000
 	// slowConsumerTimeout is the maximum amount of time the relay will wait for a
 	// consumer to receive a frame before dropping the frame.
 	slowConsumerTimeout = 20 * time.Millisecond
 )
 
-func openRelay(sCtx signal.Context, ins alamos.Instrumentation) *relay {
+func openRelay(sCtx signal.Context, ins alamos.Instrumentation, bufferSize int) *relay {
 	delta := confluence.NewDynamicDeltaMultiplier[relayResponse](
 		slowConsumerTimeout,
 		ins,
 	)
-	writes := confluence.NewStream[relayResponse](relayBufferSize)
+	writes := confluence.NewStream[relayResponse](bufferSize)
 	delta.InFrom(writes)
 	delta.Flow(
 		sCtx,
@@ -53,11 +56,11 @@ func openRelay(sCtx signal.Context, ins alamos.Instrumentation) *relay {
 		confluence.WithRetryOnPanic(),
 		confluence.WithAddress("relay"),
 	)
-	return &relay{delta: delta, inlet: writes}
+	return &relay{delta: delta, inlet: writes, bufferSize: bufferSize}
 }
 
 func (r *relay) connect() (confluence.Outlet[relayResponse], func()) {
-	frames := confluence.NewStream[relayResponse](relayBufferSize)
+	frames := confluence.NewStream[relayResponse](r.bufferSize)
 	frames.SetInletAddress(address.Newf("%s_storage", address.Rand().String()))
 	r.delta.Connect(frames)
 	return frames, func() {
