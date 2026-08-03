@@ -26,8 +26,8 @@ export interface OptimisticParams<R> {
 }
 
 /**
- * Runs an optimistic write. On commit failure the rollbacks run and the error
- * rethrows; on success the cache keeps the optimistic state.
+ * Runs an optimistic write. When commit or `onOptimistic` fails the rollbacks
+ * run and the error rethrows; on success the cache keeps the optimistic state.
  */
 export const optimistic = async <R>({
   rollbacks,
@@ -36,6 +36,8 @@ export const optimistic = async <R>({
 }: OptimisticParams<R>): Promise<R> => {
   const rollback = new destructor.Chain();
   rollback.add(...rollbacks);
-  await onOptimistic?.();
-  return await rollback.guard(commit);
+  return await rollback.guard(async () => {
+    await onOptimistic?.();
+    return await commit();
+  });
 };

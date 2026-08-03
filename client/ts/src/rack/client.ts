@@ -42,6 +42,7 @@ const retrieveReqZ = z.object({
   offset: z.int().optional(),
   includeStatus: z.boolean().optional(),
 });
+const retrieveMultiParamsZ = retrieveReqZ.or(query.keyListZ(keyZ));
 const retrieveResZ = z.object({ racks: payloadZ.array().default(() => []) });
 export const rackZ = payloadZ;
 
@@ -93,6 +94,7 @@ const singleQueryZ = z
   .union([
     z.strictObject({ key: keyZ, includeStatus: z.boolean().optional() }),
     z.strictObject({ name: z.string(), includeStatus: z.boolean().optional() }),
+    keyZ.transform((key) => ({ key })),
   ])
   .transform(normalizeSingle);
 
@@ -143,7 +145,7 @@ export interface ClientConfig {
 }
 
 export class Client extends query.Retriever<
-  typeof retrieveReqZ,
+  typeof retrieveMultiParamsZ,
   Key,
   Omit<Payload, "status">,
   Rack,
@@ -186,7 +188,7 @@ export class Client extends query.Retriever<
       name: "rack",
       table: store,
       request: {
-        schema: retrieveReqZ,
+        schema: retrieveMultiParamsZ,
         fetch: async (req) => (await this.fetchThrough(req)).map(stripStatus),
         matches: (r, req) => requestFilter(req)(r),
         serverFields: SERVER_FIELDS,
