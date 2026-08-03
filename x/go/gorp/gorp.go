@@ -41,7 +41,7 @@ func (db *DB) OpenTx() Tx { return &tx{Tx: db.DB.OpenTx(), options: db.options} 
 
 // txIdentity returns nil. DB has no per-tx state because operations against
 // it commit directly.
-func (db *DB) txIdentity() *txState { return nil }
+func (*DB) txIdentity() *txState { return nil }
 
 // WithTx executes the callback within the provided transaction Tx. If the callback
 // returns an error, the transaction is aborted, no writes are committed, and the

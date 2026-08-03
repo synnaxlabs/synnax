@@ -38,7 +38,7 @@ import (
 // primitiveMapper is the C++-specific primitive type mapper.
 var primitiveMapper = cppprimitives.Mapper()
 
-type Plugin struct{ Options Options }
+type Plugin struct{ options Options }
 
 type Options struct {
 	FileNamePattern string
@@ -50,15 +50,15 @@ func DefaultOptions() Options {
 	}
 }
 
-func New(opts Options) *Plugin { return &Plugin{Options: opts} }
+func New(opts Options) *Plugin { return &Plugin{options: opts} }
 
-func (p *Plugin) Name() string { return "cpp/types" }
+func (*Plugin) Name() string { return "cpp/types" }
 
-func (p *Plugin) Domains() []string { return []string{"cpp"} }
+func (*Plugin) Domains() []string { return []string{"cpp"} }
 
-func (p *Plugin) Requires() []string { return nil }
+func (*Plugin) Requires() []string { return nil }
 
-func (p *Plugin) Check(req *plugin.Request) error {
+func (*Plugin) Check(req *plugin.Request) error {
 	return nil
 }
 
@@ -140,7 +140,7 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 			return nil, errors.Wrapf(err, "failed to generate %s", outputPath)
 		}
 		resp.Files = append(resp.Files, plugin.File{
-			Path:    fmt.Sprintf("%s/%s", outputPath, p.Options.FileNamePattern),
+			Path:    fmt.Sprintf("%s/%s", outputPath, p.options.FileNamePattern),
 			Content: content,
 		})
 	}
@@ -156,7 +156,7 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 			return errors.Wrapf(err, "failed to generate %s", outputPath)
 		}
 		resp.Files = append(resp.Files, plugin.File{
-			Path:    fmt.Sprintf("%s/%s", outputPath, p.Options.FileNamePattern),
+			Path:    fmt.Sprintf("%s/%s", outputPath, p.options.FileNamePattern),
 			Content: content,
 		})
 		return nil
@@ -355,7 +355,7 @@ func derivePBCppNamespace(pbOutputPath string) string {
 	return fmt.Sprintf("::%s::%s::pb", prefix, namespace)
 }
 
-func (p *Plugin) processEnum(e resolution.Type) enumData {
+func (*Plugin) processEnum(e resolution.Type) enumData {
 	form, ok := e.Form.(resolution.EnumForm)
 	if !ok {
 		return enumData{Name: e.Name}
@@ -684,7 +684,7 @@ func (p *Plugin) processStruct(entry resolution.Type, data *templateData) struct
 	return sd
 }
 
-func (p *Plugin) processTypeParam(tp resolution.TypeParam, data *templateData) typeParamData {
+func (*Plugin) processTypeParam(tp resolution.TypeParam, data *templateData) typeParamData {
 	tpd := typeParamData{Name: tp.Name}
 	if tp.Optional {
 		tpd.HasDefault = true
@@ -894,7 +894,7 @@ func (p *Plugin) cppStructLiteral(typeRef resolution.TypeRef, val resolution.Exp
 // cppEnumVariantRef renders a fully-qualified C++ reference to an enum variant.
 // Int enums generate as enum classes and are referenced Enum::Variant; string
 // enums generate as ENUM_VARIANT string constants and must be referenced as such.
-func (p *Plugin) cppEnumVariantRef(ev validation.EnumVariant, data *templateData) string {
+func (*Plugin) cppEnumVariantRef(ev validation.EnumVariant, data *templateData) string {
 	ref := fmt.Sprintf("%s::%s", ev.Type.Name, toPascalCase(ev.Variant.Name))
 	if form, ok := ev.Type.Form.(resolution.EnumForm); ok && !form.IsIntEnum {
 		ref = fmt.Sprintf(
@@ -989,7 +989,7 @@ func (p *Plugin) typeRefToCpp(typeRef resolution.TypeRef, data *templateData) st
 
 // resolveUnionType resolves a discriminated union to its C++ std::variant alias
 // name, adding the cross-namespace include when the union lives elsewhere.
-func (p *Plugin) resolveUnionType(resolved resolution.Type, data *templateData) string {
+func (*Plugin) resolveUnionType(resolved resolution.Type, data *templateData) string {
 	name := domain.GetName(resolved, "cpp")
 	if resolved.Namespace != data.rawNs {
 		targetOutputPath := output.GetPath(resolved, "cpp")
@@ -1003,7 +1003,7 @@ func (p *Plugin) resolveUnionType(resolved resolution.Type, data *templateData) 
 	return name
 }
 
-func (p *Plugin) primitiveToCpp(primitive string, data *templateData) string {
+func (*Plugin) primitiveToCpp(primitive string, data *templateData) string {
 	mapping := primitiveMapper.Map(primitive)
 	if mapping.TargetType == "any" {
 		return "void"
@@ -1065,7 +1065,7 @@ func (p *Plugin) resolveStructType(resolved resolution.Type, typeArgs []resoluti
 	return p.buildGenericType(name, typeArgs, &resolved, data)
 }
 
-func (p *Plugin) resolveEnumType(resolved resolution.Type, form resolution.EnumForm, data *templateData) string {
+func (*Plugin) resolveEnumType(resolved resolution.Type, form resolution.EnumForm, data *templateData) string {
 	if !form.IsIntEnum {
 		data.includes.addSystem("string")
 		return "std::string"
@@ -1086,7 +1086,7 @@ func (p *Plugin) resolveEnumType(resolved resolution.Type, form resolution.EnumF
 	return name
 }
 
-func (p *Plugin) resolveDistinctType(resolved resolution.Type, data *templateData) string {
+func (*Plugin) resolveDistinctType(resolved resolution.Type, data *templateData) string {
 	name := domain.GetName(resolved, "cpp")
 
 	if resolved.Namespace != data.rawNs {
@@ -1385,7 +1385,7 @@ func (p *Plugin) resolveExtendsType(extendsRef resolution.TypeRef, parent resolu
 
 // extractOntology extracts ontology metadata from structs that have both @ontology domain
 // and a field with @key annotation. Returns nil if no suitable struct is found.
-func (p *Plugin) extractOntology(
+func (*Plugin) extractOntology(
 	structs []resolution.Type,
 	table *resolution.Table,
 	data *templateData,

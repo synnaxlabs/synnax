@@ -30,7 +30,7 @@ import (
 	"github.com/synnaxlabs/x/set"
 )
 
-type Plugin struct{ Options Options }
+type Plugin struct{ options Options }
 
 type Options struct {
 	FileNamePattern string
@@ -42,15 +42,15 @@ func DefaultOptions() Options {
 	}
 }
 
-func New(opts Options) *Plugin { return &Plugin{Options: opts} }
+func New(opts Options) *Plugin { return &Plugin{options: opts} }
 
-func (p *Plugin) Name() string { return "cpp/pb" }
+func (*Plugin) Name() string { return "cpp/pb" }
 
-func (p *Plugin) Domains() []string { return []string{"cpp", "pb"} }
+func (*Plugin) Domains() []string { return []string{"cpp", "pb"} }
 
-func (p *Plugin) Requires() []string { return []string{"cpp/types", "pb/types"} }
+func (*Plugin) Requires() []string { return []string{"cpp/types", "pb/types"} }
 
-func (p *Plugin) Check(*plugin.Request) error { return nil }
+func (*Plugin) Check(*plugin.Request) error { return nil }
 
 func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 	resp := &plugin.Response{Files: make([]plugin.File, 0)}
@@ -167,7 +167,7 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 		}
 		if len(content) > 0 {
 			resp.Files = append(resp.Files, plugin.File{
-				Path:    fmt.Sprintf("%s/%s", outputPath, p.Options.FileNamePattern),
+				Path:    fmt.Sprintf("%s/%s", outputPath, p.options.FileNamePattern),
 				Content: content,
 			})
 		}
@@ -518,7 +518,7 @@ func (p *Plugin) generateFieldConversion(
 	}
 }
 
-func (p *Plugin) generateJSONFieldConversion(
+func (*Plugin) generateJSONFieldConversion(
 	field resolution.Field,
 	cppFieldName,
 	pbAccessorName string,
@@ -541,7 +541,7 @@ func (p *Plugin) generateJSONFieldConversion(
 	return forward, backward
 }
 
-func (p *Plugin) generatePrimitiveConversion(
+func (*Plugin) generatePrimitiveConversion(
 	primitive, cppFieldName, pbAccessorName, pbSetter string,
 	isOptional bool,
 	data *templateData,
@@ -712,7 +712,7 @@ func (p *Plugin) typeRefToCppForTranslator(typeRef resolution.TypeRef, data *tem
 	return name
 }
 
-func (p *Plugin) generateTypeParamConversion(
+func (*Plugin) generateTypeParamConversion(
 	field resolution.Field,
 	cppFieldName, pbAccessorName string,
 ) (forward, backward string) {
@@ -760,7 +760,7 @@ func (p *Plugin) generateTypeParamConversion(
 	return forward, backward
 }
 
-func (p *Plugin) generateEnumConversion(
+func (*Plugin) generateEnumConversion(
 	resolved resolution.Type,
 	form resolution.EnumForm,
 	cppFieldName, pbAccessorName, pbSetter string,
@@ -1068,7 +1068,7 @@ func (p *Plugin) generateMapConversion(
 	return forward, backward
 }
 
-func (p *Plugin) isFixedSizeUint8Array(typeRef resolution.TypeRef, table *resolution.Table) bool {
+func (*Plugin) isFixedSizeUint8Array(typeRef resolution.TypeRef, table *resolution.Table) bool {
 	resolved, ok := typeRef.Resolve(table)
 	if !ok {
 		return false
@@ -1095,7 +1095,7 @@ func (p *Plugin) isFixedSizeUint8Array(typeRef resolution.TypeRef, table *resolu
 	return false
 }
 
-func (p *Plugin) generateFixedSizeUint8ArrayConversion(
+func (*Plugin) generateFixedSizeUint8ArrayConversion(
 	field resolution.Field,
 	data *templateData,
 ) (forward, backward string) {
@@ -1210,7 +1210,7 @@ func (p *Plugin) generateNestedArrayConversion(
 	return forward, backward
 }
 
-func (p *Plugin) processEnumForTranslation(
+func (*Plugin) processEnumForTranslation(
 	e resolution.Type,
 	data *templateData,
 ) *enumTranslatorData {

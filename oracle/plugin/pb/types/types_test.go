@@ -11,7 +11,6 @@ package types_test
 
 import (
 	"strings"
-	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -21,11 +20,6 @@ import (
 	. "github.com/synnaxlabs/oracle/testutil"
 	. "github.com/synnaxlabs/x/testutil"
 )
-
-func TestPBTypes(t *testing.T) {
-	RegisterFailHandler(Fail)
-	RunSpecs(t, "Plugin PB Types Suite")
-}
 
 // pbDomains creates domains that enable pb generation with the given go output path.
 // The pb plugin derives its output from @go output + "/pb".
@@ -1098,5 +1092,3 @@ var _ = Describe("Protobuf Union Generation", func() {
 			)
 	})
 })
-
-var _ = ShouldNotLeakGoroutinesPerSpec()

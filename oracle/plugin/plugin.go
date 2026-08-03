@@ -48,7 +48,7 @@ func (r *Request) ResolvePath(repoRelative string) string {
 }
 
 // RelativeImport computes the relative import path from one path to another.
-func (r *Request) RelativeImport(from, to string) (string, error) {
+func (*Request) RelativeImport(from, to string) (string, error) {
 	return paths.RelativeImport(from, to)
 }
 

@@ -27,7 +27,7 @@ type entry struct {
 
 func (m entry) GorpKey() int32 { return m.ID }
 
-func (m entry) SetOptions() []any { return nil }
+func (entry) SetOptions() []any { return nil }
 
 type prefixEntry struct {
 	ID   int32
@@ -36,7 +36,7 @@ type prefixEntry struct {
 
 func (m prefixEntry) GorpKey() string { return "prefix-" + strconv.Itoa(int(m.ID)) }
 
-func (m prefixEntry) SetOptions() []any { return nil }
+func (prefixEntry) SetOptions() []any { return nil }
 
 type grape struct {
 	ID   int32
@@ -45,7 +45,7 @@ type grape struct {
 
 func (m grape) GorpKey() int32 { return m.ID }
 
-func (m grape) SetOptions() []any { return nil }
+func (grape) SetOptions() []any { return nil }
 
 var _ = Describe("Create", Ordered, func() {
 	var (

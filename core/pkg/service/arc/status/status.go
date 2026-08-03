@@ -136,7 +136,7 @@ func NewModule(ctx context.Context, cfg ModuleConfig) (node.Factory, error) {
 	return m, nil
 }
 
-func (m *module) ModuleName() string { return moduleName }
+func (*module) ModuleName() string { return moduleName }
 
 func (m *module) Create(ctx context.Context, cfg node.Config) (node.Node, error) {
 	switch cfg.Node.Type {

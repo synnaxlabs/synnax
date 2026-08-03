@@ -59,7 +59,7 @@ func newResource(p Policy) ontology.Resource {
 
 type change = xchange.Change[Key, Policy]
 
-func (s *Service) Type() ontology.ResourceType { return ontology.ResourceTypePolicy }
+func (*Service) Type() ontology.ResourceType { return ontology.ResourceTypePolicy }
 
 // RetrieveResource implements ontology.Service.
 func (s *Service) RetrieveResource(

@@ -112,7 +112,7 @@ func (s *setAuthority) Reset() {
 	s.initialized = false
 }
 
-func (s *setAuthority) IsOutputTruthy(int) bool { return false }
+func (*setAuthority) IsOutputTruthy(int) bool { return false }
 
 func (s *setAuthority) Next(node.Context) {
 	if s.initialized {

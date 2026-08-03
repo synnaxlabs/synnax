@@ -514,7 +514,7 @@ func resolveBackwardEffectiveDomainTR(i *domain.Iterator) (effectiveDomainBounds
 
 // search returns an approximation for the number of samples before a given timestamp. If the
 // timestamp exists in the underlying index, the approximation will be exact.
-func (i *Domain) search(ts telem.TimeStamp, r *domain.Reader) (Approximation[int64], error) {
+func (*Domain) search(ts telem.TimeStamp, r *domain.Reader) (Approximation[int64], error) {
 	var (
 		start int64
 		end   = sampleCount(r.Size()) - 1

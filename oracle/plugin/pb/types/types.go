@@ -40,7 +40,7 @@ const defaultModulePrefix = "github.com/synnaxlabs/synnax/"
 // primitiveMapper is the Protobuf-specific primitive type mapper.
 var primitiveMapper = pbprimitives.Mapper()
 
-type Plugin struct{ Options Options }
+type Plugin struct{ options Options }
 
 type Options struct {
 	FileNamePattern string
@@ -52,15 +52,15 @@ func DefaultOptions() Options {
 	}
 }
 
-func New(opts Options) *Plugin { return &Plugin{Options: opts} }
+func New(opts Options) *Plugin { return &Plugin{options: opts} }
 
-func (p *Plugin) Name() string { return "pb/types" }
+func (*Plugin) Name() string { return "pb/types" }
 
-func (p *Plugin) Domains() []string { return []string{"pb"} }
+func (*Plugin) Domains() []string { return []string{"pb"} }
 
-func (p *Plugin) Requires() []string { return nil }
+func (*Plugin) Requires() []string { return nil }
 
-func (p *Plugin) Check(req *plugin.Request) error { return nil }
+func (*Plugin) Check(req *plugin.Request) error { return nil }
 
 func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 	resp := &plugin.Response{Files: make([]plugin.File, 0)}
@@ -297,7 +297,7 @@ func deriveGoPackage(outputPath, repoRoot string) string {
 	return gomod.ResolveImportPath(outputPath, repoRoot, defaultModulePrefix)
 }
 
-func (p *Plugin) processEnum(e resolution.Type) enumData {
+func (*Plugin) processEnum(e resolution.Type) enumData {
 	form, ok := e.Form.(resolution.EnumForm)
 	if !ok {
 		return enumData{Name: e.Name}
@@ -679,7 +679,7 @@ func (p *Plugin) typeToProto(typeRef resolution.TypeRef, data *templateData) (st
 // resolveUnionType resolves a discriminated union to its protobuf wrapper
 // message name, adding the cross-package import when the union lives in a
 // different proto package.
-func (p *Plugin) resolveUnionType(resolved resolution.Type, data *templateData) (string, error) {
+func (*Plugin) resolveUnionType(resolved resolution.Type, data *templateData) (string, error) {
 	pbName := getPBName(resolved)
 	if pbName == "" {
 		pbName = resolved.Name
@@ -781,7 +781,7 @@ func (p *Plugin) resolveStructType(resolved resolution.Type, data *templateData)
 	return fmt.Sprintf(".%s.%s", pkg, pbName), nil
 }
 
-func (p *Plugin) resolveEnumType(resolved resolution.Type, data *templateData) string {
+func (*Plugin) resolveEnumType(resolved resolution.Type, data *templateData) string {
 	if resolved.Namespace == data.Namespace {
 		return resolved.Name
 	}

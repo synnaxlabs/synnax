@@ -44,15 +44,15 @@ func DefaultOptions() Options {
 }
 
 // Plugin emits the generated TS action codec.
-type Plugin struct{ Options Options }
+type Plugin struct{ options Options }
 
 // New constructs a Plugin with the given options.
-func New(opts Options) *Plugin { return &Plugin{Options: opts} }
+func New(opts Options) *Plugin { return &Plugin{options: opts} }
 
-func (p *Plugin) Name() string                  { return "ts/actions" }
-func (p *Plugin) Domains() []string             { return []string{"ts"} }
-func (p *Plugin) Requires() []string            { return []string{"ts/types"} }
-func (p *Plugin) Check(_ *plugin.Request) error { return nil }
+func (*Plugin) Name() string                  { return "ts/actions" }
+func (*Plugin) Domains() []string             { return []string{"ts"} }
+func (*Plugin) Requires() []string            { return []string{"ts/types"} }
+func (*Plugin) Check(_ *plugin.Request) error { return nil }
 
 // Generate emits one actions.gen.ts per output package containing structs that
 // declare actions. Structs without actions are skipped.
@@ -72,14 +72,14 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 			return nil, err
 		}
 		resp.Files = append(resp.Files, plugin.File{
-			Path:    outputPath + "/" + p.Options.FileNamePattern,
+			Path:    outputPath + "/" + p.options.FileNamePattern,
 			Content: content,
 		})
 	}
 	return resp, nil
 }
 
-func (p *Plugin) generateFile(
+func (*Plugin) generateFile(
 	typ resolution.Type,
 	form resolution.StructForm,
 	outputPath string,

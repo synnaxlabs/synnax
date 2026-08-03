@@ -22,7 +22,7 @@ type EventSender interface {
 
 type defaultEventSenderImpl struct{}
 
-func (d defaultEventSenderImpl) SendEvent(
+func (defaultEventSenderImpl) SendEvent(
 	ctx context.Context,
 	event pagerduty.V2Event,
 ) (*pagerduty.V2EventResponse, error) {

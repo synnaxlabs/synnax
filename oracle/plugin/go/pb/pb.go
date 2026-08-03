@@ -36,7 +36,7 @@ import (
 )
 
 // Plugin generates protobuf translator functions for the pb/ subdirectory pattern.
-type Plugin struct{ Options Options }
+type Plugin struct{ options Options }
 
 // Options configures the go/pb plugin.
 type Options struct {
@@ -52,19 +52,19 @@ func DefaultOptions() Options {
 }
 
 // New creates a new go/pb plugin with the given options.
-func New(opts Options) *Plugin { return &Plugin{Options: opts} }
+func New(opts Options) *Plugin { return &Plugin{options: opts} }
 
 // Name returns the plugin identifier.
-func (p *Plugin) Name() string { return "go/pb" }
+func (*Plugin) Name() string { return "go/pb" }
 
 // Domains returns the domains this plugin handles.
-func (p *Plugin) Domains() []string { return []string{"pb"} }
+func (*Plugin) Domains() []string { return []string{"pb"} }
 
 // Requires returns plugin dependencies.
-func (p *Plugin) Requires() []string { return []string{"go/types", "pb/types"} }
+func (*Plugin) Requires() []string { return []string{"go/types", "pb/types"} }
 
 // Check verifies generated files are up-to-date. Currently unimplemented.
-func (p *Plugin) Check(*plugin.Request) error { return nil }
+func (*Plugin) Check(*plugin.Request) error { return nil }
 
 // Generate produces translator functions for structs with @pb flag.
 func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
@@ -206,7 +206,7 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 		}
 		if len(content) > 0 {
 			resp.Files = append(resp.Files, plugin.File{
-				Path:    fmt.Sprintf("%s/%s", outputPath, p.Options.TranslatorFileNamePattern),
+				Path:    fmt.Sprintf("%s/%s", outputPath, p.options.TranslatorFileNamePattern),
 				Content: content,
 			})
 		}
@@ -286,7 +286,7 @@ func (p *Plugin) generateFile(
 		}
 		if form.IsGeneric() {
 			// Generate generic translator with type parameters
-			genericTranslator, err := p.processGenericStructForTranslation(s, form, data, req)
+			genericTranslator, err := p.processGenericStructForTranslation(s, form, data)
 			if err != nil {
 				return nil, errors.Wrapf(err, "failed to process generic struct %s", s.Name)
 			}
@@ -294,7 +294,7 @@ func (p *Plugin) generateFile(
 				data.GenericTranslators = append(data.GenericTranslators, *genericTranslator)
 			}
 		} else {
-			translator, err := p.processStructForTranslation(s, form, data, req)
+			translator, err := p.processStructForTranslation(s, data)
 			if err != nil {
 				return nil, errors.Wrapf(err, "failed to process struct %s", s.Name)
 			}
@@ -330,11 +330,11 @@ func (p *Plugin) generateFile(
 			if !ok {
 				continue
 			}
-			pform, ok := payload.Form.(resolution.StructForm)
+			_, ok = payload.Form.(resolution.StructForm)
 			if !ok {
 				continue
 			}
-			pt, err := p.processStructForTranslation(payload, pform, data, req)
+			pt, err := p.processStructForTranslation(payload, data)
 			if err != nil || pt == nil {
 				return nil, errors.Wrapf(err,
 					"failed to process inline payload for union %s variant %q",
@@ -391,7 +391,7 @@ func (p *Plugin) generateFile(
 		if !ok {
 			continue
 		}
-		delegator, err := p.processDelegationTranslator(td, form, data, req)
+		delegator, err := p.processDelegationTranslator(td, form, data)
 		if err != nil {
 			return nil, errors.Wrapf(err, "failed to process delegation translator %s", td.Name)
 		}
@@ -539,7 +539,7 @@ func protocOneofGoName(value string) string {
 // resolveUnionTranslatorName returns the package prefix and function base name
 // for a union's pb translator, adding the cross-package import when the union
 // lives in a different proto package.
-func (p *Plugin) resolveUnionTranslatorName(
+func (*Plugin) resolveUnionTranslatorName(
 	u resolution.Type,
 	data *templateData,
 ) (prefix, name string) {
@@ -560,9 +560,7 @@ func (p *Plugin) resolveUnionTranslatorName(
 
 func (p *Plugin) processStructForTranslation(
 	s resolution.Type,
-	form resolution.StructForm,
 	data *templateData,
-	req *plugin.Request,
 ) (*translatorData, error) {
 	if _, ok := s.Form.(resolution.AliasForm); ok {
 		return nil, nil
@@ -647,7 +645,7 @@ func (p *Plugin) processFieldForTranslation(
 				resolution.IsPrimitive(form.Base.Name) {
 				fd.NeedsPtrConversion = true
 				fd.ForwardExpr, fd.BackwardExpr, _, _ = p.generateTypeDefConversion(
-					typeRef, resolved, form, data, "*r."+goName, "*pb."+pbName,
+					resolved, form, data, "*r."+goName, "*pb."+pbName,
 				)
 			}
 		}
@@ -754,7 +752,6 @@ func (p *Plugin) processGenericStructForTranslation(
 	s resolution.Type,
 	form resolution.StructForm,
 	data *templateData,
-	req *plugin.Request,
 ) (*genericTranslatorData, error) {
 	if _, ok := s.Form.(resolution.AliasForm); ok {
 		return nil, nil
@@ -802,7 +799,7 @@ func (p *Plugin) processGenericStructForTranslation(
 	}
 
 	for _, field := range resolution.UnifiedFields(s, data.table) {
-		fieldData, isTypeParam := p.processGenericFieldForTranslation(field, data, s, form, typeParams)
+		fieldData, isTypeParam := p.processGenericFieldForTranslation(field, data, s)
 		if isTypeParam {
 			translator.TypeParamFields = append(translator.TypeParamFields, fieldData)
 		} else if fieldData.IsOptional {
@@ -821,8 +818,6 @@ func (p *Plugin) processGenericFieldForTranslation(
 	field resolution.Field,
 	data *templateData,
 	parentStruct resolution.Type,
-	parentForm resolution.StructForm,
-	typeParams []typeParamData,
 ) (fieldTranslatorData, bool) {
 	goName := naming.GetFieldName(field)
 	pbName := lo.PascalCase(lo.SnakeCase(field.Name))
@@ -909,7 +904,6 @@ func (p *Plugin) processDelegationTranslator(
 	td resolution.Type,
 	form resolution.DistinctForm,
 	data *templateData,
-	req *plugin.Request,
 ) (*delegationTranslatorData, error) {
 	goName := naming.GetGoName(td)
 
@@ -1128,7 +1122,7 @@ func (p *Plugin) getArraySize(typeRef resolution.TypeRef, table *resolution.Tabl
 	}
 }
 
-func (p *Plugin) generateFixedSizeUint8ArrayConversion(
+func (*Plugin) generateFixedSizeUint8ArrayConversion(
 	typeRef resolution.TypeRef,
 	data *templateData,
 	goField, pbField string,
@@ -1229,7 +1223,7 @@ func (p *Plugin) generateFieldConversion(
 	}
 
 	if _, isEnum := resolved.Form.(resolution.EnumForm); isEnum {
-		f, b := p.generateEnumConversion(typeRef, resolved, data, goFieldName, pbFieldName, field.Optional)
+		f, b := p.generateEnumConversion(resolved, data, goFieldName, pbFieldName, field.Optional)
 		return f, b, "", true, true
 	}
 
@@ -1249,13 +1243,13 @@ func (p *Plugin) generateFieldConversion(
 				}
 			}
 		}
-		f, b, c, be := p.generateTypeDefConversion(typeRef, resolved, form, data, goFieldName, pbFieldName)
+		f, b, c, be := p.generateTypeDefConversion(resolved, form, data, goFieldName, pbFieldName)
 		return f, b, c, false, be
 	}
 
 	if aliasForm, isAlias := resolved.Form.(resolution.AliasForm); isAlias {
 		if resolution.IsPrimitive(aliasForm.Target.Name) {
-			f, b, c, be := p.generateAliasConversion(typeRef, resolved, aliasForm, data, goFieldName, pbFieldName)
+			f, b, c, be := p.generateAliasConversion(resolved, aliasForm, data, goFieldName, pbFieldName)
 			return f, b, c, false, be
 		}
 	}
@@ -1263,7 +1257,7 @@ func (p *Plugin) generateFieldConversion(
 	return goFieldName, pbFieldName, "", false, false
 }
 
-func (p *Plugin) generatePrimitiveConversion(
+func (*Plugin) generatePrimitiveConversion(
 	primitive, goField, pbField string,
 	data *templateData,
 ) (forward, backward string, hasError, hasBackwardError bool) {
@@ -1376,7 +1370,7 @@ func (p *Plugin) generateStructConversion(
 	}
 
 	if actualForm.IsGeneric() && len(typeArgs) > 0 {
-		return p.generateGenericStructConversion(typeRef, resolved, actualStruct, actualForm, typeArgs, data, goField, pbField, isOptional)
+		return p.generateGenericStructConversion(actualStruct, actualForm, typeArgs, data, goField, pbField, isOptional)
 	}
 
 	// A fully-defaulted generic struct (every type param has a default and the
@@ -1395,8 +1389,6 @@ func (p *Plugin) generateStructConversion(
 }
 
 func (p *Plugin) generateGenericStructConversion(
-	typeRef resolution.TypeRef,
-	originalResolved resolution.Type,
 	actualStruct resolution.Type,
 	actualForm resolution.StructForm,
 	typeArgs []resolution.TypeRef,
@@ -1466,7 +1458,7 @@ func (p *Plugin) generateGenericStructConversion(
 	return forward, backward, "", true
 }
 
-func (p *Plugin) ensureAnyHelper(s resolution.Type, data *templateData) {
+func (*Plugin) ensureAnyHelper(s resolution.Type, data *templateData) {
 	key := s.QualifiedName
 	if data.generatedAnyHelpers.Contains(key) {
 		return
@@ -1493,7 +1485,6 @@ func (p *Plugin) ensureAnyHelper(s resolution.Type, data *templateData) {
 }
 
 func (p *Plugin) generateEnumConversion(
-	typeRef resolution.TypeRef,
 	resolved resolution.Type,
 	data *templateData,
 	goField, pbField string,
@@ -1529,7 +1520,6 @@ func (p *Plugin) generateEnumConversion(
 }
 
 func (p *Plugin) generateTypeDefConversion(
-	typeRef resolution.TypeRef,
 	resolved resolution.Type,
 	form resolution.DistinctForm,
 	data *templateData,
@@ -1574,7 +1564,6 @@ func (p *Plugin) generateTypeDefConversion(
 }
 
 func (p *Plugin) generateAliasConversion(
-	typeRef resolution.TypeRef,
 	resolved resolution.Type,
 	form resolution.AliasForm,
 	data *templateData,
@@ -1725,7 +1714,7 @@ func (p *Plugin) generateArrayConversion(
 // qualifiedDistinctGoName returns the Go identifier for a distinct type as it
 // should appear in the generated translator file, including any package prefix
 // and registering the import if the type lives in a different package.
-func (p *Plugin) qualifiedDistinctGoName(resolved resolution.Type, data *templateData) (string, bool) {
+func (*Plugin) qualifiedDistinctGoName(resolved resolution.Type, data *templateData) (string, bool) {
 	prefix := ""
 	goOutput := output.GetPath(resolved, "go")
 	if resolved.Namespace != data.Namespace || (goOutput != "" && goOutput != data.ParentGoPath) {
@@ -1848,7 +1837,7 @@ func (p *Plugin) generateStructNestedArrayConversion(
 	return forward, backward, true
 }
 
-func (p *Plugin) generateEnumTranslator(
+func (*Plugin) generateEnumTranslator(
 	enumRef *resolution.Type,
 	data *templateData,
 ) *enumTranslatorData {
@@ -1921,7 +1910,7 @@ func findStructWithPB(s resolution.Type, table *resolution.Table) (*resolution.T
 	return nil, ""
 }
 
-func (p *Plugin) resolvePBTranslatorInfo(
+func (*Plugin) resolvePBTranslatorInfo(
 	structRef resolution.Type,
 	data *templateData,
 ) (translatorPrefix, translatorStructName string) {
@@ -2030,7 +2019,7 @@ func isEnumType(typeRef resolution.TypeRef, table *resolution.Table) bool {
 	return false
 }
 
-func (p *Plugin) resolveGoTypeLiteral(typeRef resolution.TypeRef, data *templateData) string {
+func (*Plugin) resolveGoTypeLiteral(typeRef resolution.TypeRef, data *templateData) string {
 	resolved, ok := typeRef.Resolve(data.table)
 	if !ok {
 		return ""

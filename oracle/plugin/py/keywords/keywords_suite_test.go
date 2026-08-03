@@ -19,7 +19,7 @@ import (
 
 func TestKeywords(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Plugin Py Keywords Suite")
+	RunSpecs(t, "Plugin Python Keywords Suite")
 }
 
 var _ = ShouldNotLeakGoroutinesPerSpec()

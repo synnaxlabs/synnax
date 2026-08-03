@@ -10,9 +10,6 @@
 package types_test
 
 import (
-	"strings"
-	"testing"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/oracle/analyzer"
@@ -20,12 +17,8 @@ import (
 	"github.com/synnaxlabs/oracle/plugin/cpp/types"
 	. "github.com/synnaxlabs/oracle/testutil"
 	. "github.com/synnaxlabs/x/testutil"
+	"strings"
 )
-
-func TestCppTypes(t *testing.T) {
-	RegisterFailHandler(Fail)
-	RunSpecs(t, "Plugin Cpp Types Suite")
-}
 
 var _ = Describe("CppFormatter", func() {
 	f := types.CppFormatter
@@ -1890,5 +1883,3 @@ var _ = Describe("C++ Union Variant Doc Coverage", func() {
 		commonContent.ToNotContain("struct Task {")
 	})
 })
-
-var _ = ShouldNotLeakGoroutinesPerSpec()

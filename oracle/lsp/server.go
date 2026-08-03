@@ -122,9 +122,7 @@ func (s *Server) Initialize(_ context.Context, params *protocol.InitializeParams
 }
 
 // Shutdown handles the shutdown request.
-func (s *Server) Shutdown(_ context.Context) error {
-	return nil
-}
+func (*Server) Shutdown(context.Context) error { return nil }
 
 // DidOpen handles opening a document.
 func (s *Server) DidOpen(ctx context.Context, params *protocol.DidOpenTextDocumentParams) error {

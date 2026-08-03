@@ -37,7 +37,7 @@ import (
 // primitiveMapper is the Python-specific primitive type mapper.
 var primitiveMapper = pyprimitives.Mapper()
 
-type Plugin struct{ Options Options }
+type Plugin struct{ options Options }
 
 type Options struct {
 	OutputPath      string
@@ -51,20 +51,20 @@ func DefaultOptions() Options {
 	}
 }
 
-func New(opts Options) *Plugin { return &Plugin{Options: opts} }
+func New(opts Options) *Plugin { return &Plugin{options: opts} }
 
-func (p *Plugin) Name() string { return "py/types" }
+func (*Plugin) Name() string { return "py/types" }
 
-func (p *Plugin) Domains() []string { return nil }
+func (*Plugin) Domains() []string { return nil }
 
-func (p *Plugin) Requires() []string { return nil }
+func (*Plugin) Requires() []string { return nil }
 
-func (p *Plugin) Check(req *plugin.Request) error { return nil }
+func (*Plugin) Check(req *plugin.Request) error { return nil }
 
 func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 	gen := &framework.Generator{
 		Domain:          "py",
-		FilePattern:     p.Options.FileNamePattern,
+		FilePattern:     p.options.FileNamePattern,
 		FileGenerator:   &pyFileGenerator{},
 		MergeByName:     true,
 		CollectTypeDefs: true,
@@ -77,7 +77,7 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 // pyFileGenerator implements framework.FileGenerator for Python code generation.
 type pyFileGenerator struct{}
 
-func (g *pyFileGenerator) GenerateFile(ctx *framework.GenerateContext) (string, error) {
+func (*pyFileGenerator) GenerateFile(ctx *framework.GenerateContext) (string, error) {
 	content, err := generatePyFile(ctx.Namespace, ctx.OutputPath, ctx.Structs, ctx.Enums, ctx.TypeDefs, ctx.Unions, ctx.Table)
 	if err != nil {
 		return "", err

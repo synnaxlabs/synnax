@@ -10,19 +10,11 @@
 package union_test
 
 import (
-	"testing"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/x/errors"
-	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/union"
 )
-
-func TestUnion(t *testing.T) {
-	RegisterFailHandler(Fail)
-	RunSpecs(t, "Union Suite")
-}
 
 var _ = Describe("MissingPayload", func() {
 	It("Should wrap ErrMissingPayload so errors.Is matches the sentinel", func() {
@@ -35,5 +27,3 @@ var _ = Describe("MissingPayload", func() {
 		Expect(err).To(MatchError(ContainSubstring(`variant "set_node_position"`)))
 	})
 })
-
-var _ = ShouldNotLeakGoroutinesPerSpec()

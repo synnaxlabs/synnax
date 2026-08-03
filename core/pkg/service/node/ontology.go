@@ -44,7 +44,7 @@ var (
 )
 
 // Type implements ontology.Service.
-func (s *Service) Type() ontology.ResourceType { return ontology.ResourceTypeNode }
+func (*Service) Type() ontology.ResourceType { return ontology.ResourceTypeNode }
 
 // RetrieveResource implements ontology.Service.
 func (s *Service) RetrieveResource(

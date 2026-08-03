@@ -75,13 +75,13 @@ func decodeIDs(ser []byte) ([]ontology.ID, error) {
 
 var _ ontology.Service = (*changeService)(nil)
 
-func (s *changeService) Type() ontology.ResourceType { return ontology.ResourceTypeChannel }
+func (*changeService) Type() ontology.ResourceType { return ontology.ResourceTypeChannel }
 
-func (s *changeService) OpenNexter(context.Context) (iter.Seq[ontology.Resource], io.Closer, error) {
+func (*changeService) OpenNexter(context.Context) (iter.Seq[ontology.Resource], io.Closer, error) {
 	return slices.Values([]ontology.Resource{}), xio.NopCloser, nil
 }
 
-func (s *changeService) RetrieveResource(
+func (*changeService) RetrieveResource(
 	_ context.Context,
 	key string,
 	_ gorp.Tx,

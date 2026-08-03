@@ -47,9 +47,9 @@ func newSampleType(key string) ontology.ID {
 
 var schema = zyn.Object(map[string]zyn.Schema{"key": zyn.String()})
 
-func (s *sampleService) Type() ontology.ResourceType { return ontology.ResourceTypeChannel }
+func (*sampleService) Type() ontology.ResourceType { return ontology.ResourceTypeChannel }
 
-func (s *sampleService) RetrieveResource(_ context.Context, key string, _ gorp.Tx) (ontology.Resource, error) {
+func (*sampleService) RetrieveResource(_ context.Context, key string, _ gorp.Tx) (ontology.Resource, error) {
 	return ontology.NewResource(
 		schema, newSampleType(key), "empty", Sample{Key: key},
 	), nil

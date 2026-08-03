@@ -41,7 +41,7 @@ func (c Config) Override(other Config) Config {
 }
 
 // Validate implements config.Config.
-func (c Config) Validate() error { return nil }
+func (Config) Validate() error { return nil }
 
 // Console serves the web-based console UI. When an FS is provided, it serves the
 // embedded Console assets. Otherwise, it serves a fallback page indicating that the

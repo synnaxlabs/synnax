@@ -10,21 +10,13 @@
 package framework_test
 
 import (
-	"testing"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/oracle/plugin"
 	"github.com/synnaxlabs/oracle/plugin/framework"
 	"github.com/synnaxlabs/oracle/resolution"
 	"github.com/synnaxlabs/x/errors"
-	. "github.com/synnaxlabs/x/testutil"
 )
-
-func TestFramework(t *testing.T) {
-	RegisterFailHandler(Fail)
-	RunSpecs(t, "Plugin Framework Suite")
-}
 
 var _ = Describe("MergeTypes", func() {
 	It("Should combine two slices without duplicates by QualifiedName", func() {
@@ -505,5 +497,3 @@ var _ = Describe("Collect Helpers", func() {
 		})
 	})
 })
-
-var _ = ShouldNotLeakGoroutinesPerSpec()

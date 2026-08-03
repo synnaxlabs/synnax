@@ -33,7 +33,7 @@ import (
 )
 
 // Plugin generates gorp Retrieve query wrappers for structs annotated with @retrieve.
-type Plugin struct{ Options Options }
+type Plugin struct{ options Options }
 
 // Options configures the go/query plugin.
 type Options struct {
@@ -46,19 +46,19 @@ func DefaultOptions() Options {
 }
 
 // New creates a new go/query plugin with the given options.
-func New(opts Options) *Plugin { return &Plugin{Options: opts} }
+func New(opts Options) *Plugin { return &Plugin{options: opts} }
 
 // Name returns the plugin identifier.
-func (p *Plugin) Name() string { return "go/query" }
+func (*Plugin) Name() string { return "go/query" }
 
 // Domains returns the domains this plugin handles.
-func (p *Plugin) Domains() []string { return []string{"go"} }
+func (*Plugin) Domains() []string { return []string{"go"} }
 
 // Requires returns plugin dependencies.
-func (p *Plugin) Requires() []string { return []string{"go/types"} }
+func (*Plugin) Requires() []string { return []string{"go/types"} }
 
 // Check verifies generated files are up-to-date.
-func (p *Plugin) Check(*plugin.Request) error { return nil }
+func (*Plugin) Check(*plugin.Request) error { return nil }
 
 var goPostWriter = &exec.PostWriter{
 	Extensions: []string{".go"},
@@ -66,7 +66,7 @@ var goPostWriter = &exec.PostWriter{
 }
 
 // PostWrite runs gofmt on generated files.
-func (p *Plugin) PostWrite(files []string) error {
+func (*Plugin) PostWrite(files []string) error {
 	return goPostWriter.PostWrite(files)
 }
 
@@ -103,7 +103,7 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 			return nil, fmt.Errorf("failed to generate %s: %w", e.path, err)
 		}
 		resp.Files = append(resp.Files, plugin.File{
-			Path:    fmt.Sprintf("%s/%s", e.path, p.Options.FileNamePattern),
+			Path:    fmt.Sprintf("%s/%s", e.path, p.options.FileNamePattern),
 			Content: content,
 		})
 	}
@@ -480,7 +480,7 @@ type indexes struct {
 func newIndexes() indexes {
 	return indexes{
 {{- range $idx := $ret.Indexes}}
-		{{$idx.StructField}}: gorp.{{if $idx.IsSorted}}NewSortedIndex{{else}}NewLookupIndex{{end}}[{{$ret.KeyType}}, {{$ret.GoName}}, {{$idx.GoType}}](
+		{{$idx.StructField}}: gorp.{{if $idx.IsSorted}}NewSortedIndex{{else}}NewLookupIndex{{end}}(
 			"{{$idx.FieldName}}",
 			func(e *{{$ret.GoName}}) {{$idx.GoType}} { return e.{{$idx.GoName}} },
 		),
@@ -549,22 +549,22 @@ type Filter = gorp.BoundFilter[Retrieve, {{$ret.KeyType}}, {{$ret.GoName}}]
 // Match wraps a closure that needs the Retrieve into a Filter. The Retrieve
 // value is supplied by Retrieve.Where at evaluation time.
 func Match(f func(ctx gorp.Context, r Retrieve, e *{{$ret.GoName}}) (bool, error)) Filter {
-	return gorp.MatchBound[Retrieve, {{$ret.KeyType}}, {{$ret.GoName}}](f)
+	return gorp.MatchBound(f)
 }
 
 // And returns a filter that matches when all provided filters match.
 func And(fs ...Filter) Filter {
-	return gorp.AndBound[Retrieve, {{$ret.KeyType}}, {{$ret.GoName}}](fs...)
+	return gorp.AndBound(fs...)
 }
 
 // Or returns a filter that matches when any provided filter matches.
 func Or(fs ...Filter) Filter {
-	return gorp.OrBound[Retrieve, {{$ret.KeyType}}, {{$ret.GoName}}](fs...)
+	return gorp.OrBound(fs...)
 }
 
 // Not returns a filter that inverts the provided filter.
 func Not(f Filter) Filter {
-	return gorp.NotBound[Retrieve, {{$ret.KeyType}}, {{$ret.GoName}}](f)
+	return gorp.NotBound(f)
 }
 {{if $ret.HasSearch}}
 // Search sets a fuzzy search term that Retrieve will use to filter results.

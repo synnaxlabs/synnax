@@ -12,7 +12,6 @@ package plugin_test
 import (
 	"os"
 	"path/filepath"
-	"testing"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -20,11 +19,6 @@ import (
 	"github.com/synnaxlabs/oracle/plugin"
 	. "github.com/synnaxlabs/x/testutil"
 )
-
-func TestPlugin(t *testing.T) {
-	RegisterFailHandler(Fail)
-	RunSpecs(t, "Plugin Suite")
-}
 
 var _ = Describe("Check Utilities", func() {
 	var tempDir string
@@ -206,5 +200,3 @@ var _ = Describe("Check Utilities", func() {
 		})
 	})
 })
-
-var _ = ShouldNotLeakGoroutinesPerSpec()

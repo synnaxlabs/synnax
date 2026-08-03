@@ -437,7 +437,7 @@ func (b *testValueBuilder) buildStructLiteral(
 	return b.formatComposite(b.pkgPrefix+goName, fieldExprs), nil
 }
 
-func (b *testValueBuilder) formatComposite(typeName string, entries []string) string {
+func (*testValueBuilder) formatComposite(typeName string, entries []string) string {
 	if len(entries) == 0 {
 		return typeName + "{}"
 	}

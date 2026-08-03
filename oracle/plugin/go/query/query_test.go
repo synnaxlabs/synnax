@@ -307,13 +307,13 @@ var _ = Describe("Go Query Plugin", func() {
 					ToContain(
 						"type Filter = gorp.BoundFilter[Retrieve, uint32, Rack]",
 						"func Match(f func(ctx gorp.Context, r Retrieve, e *Rack) (bool, error)) Filter",
-						"return gorp.MatchBound[Retrieve, uint32, Rack](f)",
+						"return gorp.MatchBound(f)",
 						"func And(fs ...Filter) Filter",
-						"return gorp.AndBound[Retrieve, uint32, Rack](fs...)",
+						"return gorp.AndBound(fs...)",
 						"func Or(fs ...Filter) Filter",
-						"return gorp.OrBound[Retrieve, uint32, Rack](fs...)",
+						"return gorp.OrBound(fs...)",
 						"func Not(f Filter) Filter",
-						"return gorp.NotBound[Retrieve, uint32, Rack](f)",
+						"return gorp.NotBound(f)",
 					)
 			})
 
@@ -388,7 +388,7 @@ var _ = Describe("Go Query Plugin", func() {
 						"type Retrieve struct",
 						"type Filter = gorp.BoundFilter[Retrieve, uint32, Rack]",
 						"func And(fs ...Filter) Filter",
-						"gorp.AndBound[Retrieve, uint32, Rack](fs...)",
+						"gorp.AndBound(fs...)",
 						"func MatchNames(vals ...string) Filter",
 						"func (r Retrieve) Where(filter Filter) Retrieve",
 						"r.gorp = r.gorp.Where(filter(r))",
@@ -677,7 +677,7 @@ var _ = Describe("Go Query Plugin", func() {
 						"type indexes struct {",
 						"username *gorp.LookupIndex[uuid.UUID, User, string]",
 						"func newIndexes() indexes",
-						"username: gorp.NewLookupIndex[uuid.UUID, User, string](",
+						"username: gorp.NewLookupIndex(",
 						"\"username\"",
 						"func(e *User) string { return e.Username }",
 						"func (i indexes) all() []gorp.Index[uuid.UUID, User]",
@@ -718,7 +718,7 @@ var _ = Describe("Go Query Plugin", func() {
 						"type indexes struct {",
 						"username *gorp.LookupIndex[uuid.UUID, User, string]",
 						"func newIndexes() indexes",
-						"username: gorp.NewLookupIndex[uuid.UUID, User, string](",
+						"username: gorp.NewLookupIndex(",
 					).
 					ToNotContain(
 						"newUsernameIndex",
@@ -747,7 +747,7 @@ var _ = Describe("Go Query Plugin", func() {
 				ExpectContent(resp, "retrieve.gen.go").
 					ToContain(
 						"createdAt *gorp.SortedIndex[uuid.UUID, Event, int64]",
-						"createdAt: gorp.NewSortedIndex[uuid.UUID, Event, int64](",
+						"createdAt: gorp.NewSortedIndex(",
 						"\"created_at\"",
 						"func(e *Event) int64 { return e.CreatedAt }",
 						"func MatchCreatedAt(v int64) Filter",

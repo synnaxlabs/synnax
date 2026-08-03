@@ -29,7 +29,7 @@ type errSenderCloser struct {
 }
 
 func (e *errSenderCloser) Send(_ int) error { return e.sendErr }
-func (e *errSenderCloser) CloseSend() error { return nil }
+func (*errSenderCloser) CloseSend() error   { return nil }
 
 var _ = Describe("Sender", func() {
 	var net *mock.Network[int, int]
