@@ -75,10 +75,10 @@
     --pluto-fill-hover: var(--pluto-gray-l4);
     --pluto-fill-press: var(--pluto-gray-l5);
 
-    /* The three selection tiers (RFC 0052). Every selected state speaks exactly
-       one tier; features re-point tier tokens in context but never hand-roll a
-       selection fill. Primary flattens are opaque over gray-l1 so plot pixels
-       never bleed through a selected chip. */
+    /* The three selection tiers. Every selected state speaks exactly one tier;
+       features re-point tier tokens in context but never hand-roll a selection
+       fill. Primary flattens are opaque over gray-l1 so plot pixels never bleed
+       through a selected chip. */
 
     /* Control tier: compact controls (segments, toggles), the default selected
        paint for buttons, and the pane-focused tab. */
