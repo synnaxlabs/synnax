@@ -20,6 +20,7 @@ const retrieveRequestZ = z.object({
   keys: keyZ.array().optional(),
   usernames: z.string().array().optional(),
 });
+const retrieveMultiParamsZ = retrieveRequestZ.or(query.keyListZ(keyZ));
 
 const keyRetrieveRequestZ = z
   .object({
@@ -70,6 +71,7 @@ type SingleParams = KeyRetrieveRequest | UsernameRetrieveRequest;
 const singleParamsZ = z.union([
   z.strictObject({ key: keyZ }),
   z.strictObject({ username: z.string() }),
+  keyZ.transform((key) => ({ key })),
 ]);
 
 const singleIdentifier = (params: SingleParams): string =>
@@ -94,7 +96,7 @@ export interface ClientConfig {
 }
 
 export class Client extends query.Retriever<
-  typeof retrieveRequestZ,
+  typeof retrieveMultiParamsZ,
   Key,
   User,
   User,
@@ -133,7 +135,7 @@ export class Client extends query.Retriever<
       name: "user",
       table: store,
       request: {
-        schema: retrieveRequestZ,
+        schema: retrieveMultiParamsZ,
         fetch: async (req) => await this.execRetrieve(req),
         matches: (u, req) => requestFilter(req)(u),
       },

@@ -32,6 +32,7 @@ const retrieveRequestZ = z.object({
   offset: z.number().optional(),
   internal: z.boolean().optional(),
 });
+const retrieveMultiParamsZ = retrieveRequestZ.or(query.keyListZ(keyZ));
 
 const keyRetrieveRequestZ = z
   .object({ key: keyZ })
@@ -108,7 +109,7 @@ export interface ClientConfig {
   ontology: ontology.Client;
 }
 
-export class Client extends query.Retriever<typeof retrieveRequestZ, Key, Role> {
+export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Role> {
   private readonly cfg: ClientConfig;
   private readonly store: query.Table<Key, Role>;
 
@@ -126,7 +127,7 @@ export class Client extends query.Retriever<typeof retrieveRequestZ, Key, Role> 
       name: "role",
       table: store,
       request: {
-        schema: retrieveRequestZ,
+        schema: retrieveMultiParamsZ,
         fetch: async (req) => await this.execRetrieve(req),
         matches: (role, req) => requestFilter(req)(role),
         serverFields: SERVER_FIELDS,

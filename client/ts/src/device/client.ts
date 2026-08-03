@@ -64,6 +64,7 @@ const retrieveRequestZ = z.object({
   includeStatus: z.boolean().optional(),
   includeParent: z.boolean().optional(),
 });
+const retrieveMultiParamsZ = retrieveRequestZ.or(query.keyListZ(keyZ));
 
 const retrieveResZ = <
   Properties extends z.ZodType<record.Unknown> = z.ZodType<record.Unknown>,
@@ -113,7 +114,10 @@ const normalizeSingle = ({ key, includeStatus }: RetrieveSingleParams): SingleQu
   includeStatus === true ? { key, includeStatus: true } : { key };
 
 const singleQueryZ = z
-  .strictObject({ key: keyZ, includeStatus: z.boolean().optional() })
+  .union([
+    z.strictObject({ key: keyZ, includeStatus: z.boolean().optional() }),
+    keyZ.transform((key) => ({ key })),
+  ])
   .transform(normalizeSingle);
 
 /** The table never holds statuses; the status table is their single home. */
@@ -169,7 +173,7 @@ export interface ClientConfig {
 }
 
 export class Client extends query.Retriever<
-  typeof retrieveRequestZ,
+  typeof retrieveMultiParamsZ,
   Key,
   Omit<Device, "status">,
   Device,
@@ -215,7 +219,7 @@ export class Client extends query.Retriever<
       name: "device",
       table: store,
       request: {
-        schema: retrieveRequestZ,
+        schema: retrieveMultiParamsZ,
         fetch: async (req) => (await this.fetchThrough(req)).map(stripStatus),
         matches: (d, req) => requestFilter(req)(d),
         serverFields: SERVER_FIELDS,

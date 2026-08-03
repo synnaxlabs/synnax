@@ -43,6 +43,7 @@ const retrieveReqZ = z.object({
   includeStatus: z.boolean().optional(),
   ignoreNotFoundError: z.boolean().optional(),
 });
+const retrieveMultiParamsZ = retrieveReqZ.or(query.keyListZ(keyZ));
 const createReqZ = z.object({ arcs: arcZ.array() });
 const deleteReqZ = z.object({ keys: keyZ.array() });
 
@@ -83,6 +84,7 @@ export type RetrieveParams = z.input<typeof retrieveParamsZ>;
 const singleQueryZ = z.union([
   z.strictObject({ key: keyZ, includeStatus: z.boolean().optional() }),
   z.strictObject({ name: z.string(), includeStatus: z.boolean().optional() }),
+  keyZ.transform((key) => ({ key })),
 ]);
 
 export interface CreateParams extends New {
@@ -158,7 +160,7 @@ export interface ClientConfig {
 }
 
 export class Client extends query.Retriever<
-  typeof retrieveReqZ,
+  typeof retrieveMultiParamsZ,
   Key,
   Arc,
   Arc,
@@ -203,7 +205,7 @@ export class Client extends query.Retriever<
       name: "arc",
       table: store,
       request: {
-        schema: retrieveReqZ,
+        schema: retrieveMultiParamsZ,
         fetch: async (req) =>
           (await this.execRetrieve(req)).map((a) => this.hydrate(a)),
         matches: (a, req) => requestFilter(req)(a),

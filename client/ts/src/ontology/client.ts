@@ -135,6 +135,11 @@ const retrieveRequestZ = z
     return out;
   });
 
+/** Resources are addressed by `ids`, so a bare key list is that shorthand. */
+const retrieveMultiParamsZ = retrieveRequestZ.or(
+  idZ.array().transform((ids): NormalizedRequest => ({ ids: normalizeIDs(ids) })),
+);
+
 export type RetrieveParams = z.input<typeof retrieveRequestZ>;
 
 const singleParamsZ = z
@@ -163,7 +168,7 @@ export interface ClientConfig {
 
 /** The main client class for executing queries against a Synnax cluster ontology */
 export class Client extends query.Retriever<
-  typeof retrieveRequestZ,
+  typeof retrieveMultiParamsZ,
   string,
   Resource,
   Resource,
@@ -223,7 +228,7 @@ export class Client extends query.Retriever<
       name: "resource",
       table: resources,
       request: {
-        schema: retrieveRequestZ,
+        schema: retrieveMultiParamsZ,
         fetch: async (req) => await this.fetchRequest(req),
         matches: (resource, req) => requestFilter(req)(resource),
       },
