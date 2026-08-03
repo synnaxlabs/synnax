@@ -22,12 +22,11 @@ type Option func(*options)
 
 type options struct {
 	alamos.Instrumentation
-	fs              xfs.FS
-	metaCodec       encoding.Codec
-	dirname         string
-	gcCfg           GCConfig
-	streamingConfig dbStreamingConfig
-	fileSize        telem.Size
+	fs        xfs.FS
+	metaCodec encoding.Codec
+	dirname   string
+	gcCfg     GCConfig
+	fileSize  telem.Size
 }
 
 func (o *options) Report() alamos.Report {
@@ -47,11 +46,7 @@ func mergeAndValidateOptions(o *options) error {
 	o.fs = override.Nil(xfs.Default, o.fs)
 	o.gcCfg = defaultGCConfig.Override(o.gcCfg)
 	o.fileSize = override.Numeric(1*telem.Gigabyte, o.fileSize)
-	o.streamingConfig = defaultDBStreamingConfig.Override(o.streamingConfig)
-	if err := o.gcCfg.Validate(); err != nil {
-		return err
-	}
-	return o.streamingConfig.Validate()
+	return o.gcCfg.Validate()
 }
 
 // WithFS sets the file system that cesium will use to store data. This defaults to the

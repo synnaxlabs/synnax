@@ -15,11 +15,8 @@ import (
 
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/x/address"
-	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/confluence"
-	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/signal"
-	"github.com/synnaxlabs/x/validate"
 )
 
 type relayResponse struct {
@@ -28,55 +25,27 @@ type relayResponse struct {
 }
 
 type relay struct {
-	delta      *confluence.DynamicDeltaMultiplier[relayResponse]
-	inlet      confluence.Inlet[relayResponse]
-	bufferSize int
+	delta *confluence.DynamicDeltaMultiplier[relayResponse]
+	inlet confluence.Inlet[relayResponse]
 }
 
-// dbStreamingConfig is the configuration for cesium's streaming mechanisms.
-type dbStreamingConfig struct {
-	// BufferSize sets the buffer size for the main streaming pipe and for each
-	// streamer's connection to it. All written frames are moved through the main
-	// pipe, so the value should be relatively large.
-	BufferSize int
-	// SlowConsumerTimeout sets the maximum amount of time the relay will wait for a
+const (
+	// relayBufferSize is the buffer size for the relay's main streaming pipe and for
+	// each streamer's connection to it. All written frames are moved through the main
+	// pipe, so the value is relatively large.
+	// 1000 * 72 bytes = 72kb
+	relayBufferSize = 1000
+	// slowConsumerTimeout is the maximum amount of time the relay will wait for a
 	// consumer to receive a frame before dropping the frame.
-	SlowConsumerTimeout time.Duration
-}
-
-var (
-	_                        config.Config[dbStreamingConfig] = dbStreamingConfig{}
-	defaultDBStreamingConfig                                  = dbStreamingConfig{
-		// 1000 * 72 bytes = 72kb
-		BufferSize:          1000,
-		SlowConsumerTimeout: 20 * time.Millisecond,
-	}
+	slowConsumerTimeout = 20 * time.Millisecond
 )
 
-// Override implements config.Config.
-func (sc dbStreamingConfig) Override(other dbStreamingConfig) dbStreamingConfig {
-	sc.BufferSize = override.Numeric(sc.BufferSize, other.BufferSize)
-	sc.SlowConsumerTimeout = override.Numeric(sc.SlowConsumerTimeout, other.SlowConsumerTimeout)
-	return sc
-}
-
-func (sc dbStreamingConfig) Validate() error {
-	v := validate.New("cesium.db_streaming_config")
-	validate.Positive(v, "buffer_size", sc.BufferSize)
-	validate.Positive(v, "slow_consumer_timeout", sc.SlowConsumerTimeout)
-	return v.Error()
-}
-
-func openRelay(
-	sCtx signal.Context,
-	ins alamos.Instrumentation,
-	cfg dbStreamingConfig,
-) *relay {
+func openRelay(sCtx signal.Context, ins alamos.Instrumentation) *relay {
 	delta := confluence.NewDynamicDeltaMultiplier[relayResponse](
-		cfg.SlowConsumerTimeout,
+		slowConsumerTimeout,
 		ins,
 	)
-	writes := confluence.NewStream[relayResponse](cfg.BufferSize)
+	writes := confluence.NewStream[relayResponse](relayBufferSize)
 	delta.InFrom(writes)
 	delta.Flow(
 		sCtx,
@@ -84,11 +53,11 @@ func openRelay(
 		confluence.WithRetryOnPanic(),
 		confluence.WithAddress("relay"),
 	)
-	return &relay{delta: delta, inlet: writes, bufferSize: cfg.BufferSize}
+	return &relay{delta: delta, inlet: writes}
 }
 
 func (r *relay) connect() (confluence.Outlet[relayResponse], func()) {
-	frames := confluence.NewStream[relayResponse](r.bufferSize)
+	frames := confluence.NewStream[relayResponse](relayBufferSize)
 	frames.SetInletAddress(address.Newf("%s_storage", address.Rand().String()))
 	r.delta.Connect(frames)
 	return frames, func() {
