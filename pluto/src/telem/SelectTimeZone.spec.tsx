@@ -40,13 +40,11 @@ describe("SelectTimeZone", () => {
     expect(c.getByText("Local")).toBeTruthy();
   });
 
-  it("should mark the selected time zone as filled", () => {
+  it("should mark the selected time zone as selected", () => {
     const c = render(<Wrapper initial="UTC" />);
-    expect(c.getByText("UTC").closest("button")?.classList).toContain(
-      "pluto-btn--filled",
-    );
+    expect(c.getByText("UTC").closest("button")?.classList).toContain("pluto--selected");
     expect(c.getByText("Local").closest("button")?.classList).not.toContain(
-      "pluto-btn--filled",
+      "pluto--selected",
     );
   });
 
@@ -57,14 +55,14 @@ describe("SelectTimeZone", () => {
     expect(onChange).toHaveBeenCalledWith("local");
   });
 
-  it("should move the filled state to the newly selected button", () => {
+  it("should move the selected state to the newly selected button", () => {
     const c = render(<Wrapper initial="UTC" />);
     fireEvent.click(c.getByText("Local"));
     expect(c.getByText("Local").closest("button")?.classList).toContain(
-      "pluto-btn--filled",
+      "pluto--selected",
     );
     expect(c.getByText("UTC").closest("button")?.classList).not.toContain(
-      "pluto-btn--filled",
+      "pluto--selected",
     );
   });
 });
