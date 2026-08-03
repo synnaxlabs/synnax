@@ -8,10 +8,11 @@
 // included in the file licenses/APL.txt.
 
 import { type connection } from "@synnaxlabs/client";
-import { Flex, Status, Synnax, Text } from "@synnaxlabs/pluto";
+import { Status, Synnax, Text } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
 import { CSS } from "@/platform/css";
+import { Island } from "@/platform/shell/Island";
 
 export const STATUS_LABELS: Record<connection.Status["variant"], string> = {
   success: "Connected",
@@ -61,11 +62,9 @@ export const Connection = ({ cluster }: ConnectionProps): ReactElement | null =>
   const status = isActive ? live : checked;
   const variant = status?.variant ?? "loading";
   return (
-    <Flex.Box
-      x
-      align="center"
+    <Island
       gap="medium"
-      className={CSS(CSS.BE("shell", "island"), CSS.BE("shell", "connection"))}
+      className={CSS.BE("shell", "connection")}
       data-tauri-drag-region
     >
       <Status.Indicator
@@ -81,6 +80,6 @@ export const Connection = ({ cluster }: ConnectionProps): ReactElement | null =>
       <Text.Text status={variant} className={CSS.BE("shell", "connection-status")}>
         {STATUS_LABELS[variant]}
       </Text.Text>
-    </Flex.Box>
+    </Island>
   );
 };

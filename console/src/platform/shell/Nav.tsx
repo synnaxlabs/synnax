@@ -8,28 +8,14 @@
 // included in the file licenses/APL.txt.
 
 import { Flex, OS } from "@synnaxlabs/pluto";
-import { type ReactElement, type ReactNode } from "react";
+import { type ReactElement } from "react";
 
 import { CSS } from "@/platform/css";
 import { Connection, type ConnectionCluster } from "@/platform/shell/Connection";
+import { Island } from "@/platform/shell/Island";
 import { Version } from "@/platform/version";
 import { Window } from "@/platform/window";
 import { Session } from "@/session";
-
-interface IslandProps extends Flex.BoxProps {
-  children: ReactNode;
-}
-
-const Island = ({ children, ...rest }: IslandProps): ReactElement => (
-  <Flex.Box
-    x
-    align="center"
-    className={CSS(CSS.BE("shell", "island"), CSS.BE("shell", "frost"))}
-    {...rest}
-  >
-    {children}
-  </Flex.Box>
-);
 
 export interface NavProps {
   connection?: ConnectionCluster | null;

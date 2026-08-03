@@ -50,10 +50,11 @@ const ContextMenu = ({ keys }: Menu.ContextMenuMenuProps): ReactElement | null =
       async ({ data }: Flux.BeforeUpdateParams<panel.Key | panel.Key[]>) => {
         const panelKeys = array.toArray(data);
         if (panelKeys.length === 0) return false;
-        // The confirmation names the panels, which the strip does not hold: a
-        // snapshot read is enough for a prompt fired from a menu click.
-        const cached = client?.panels.getCached(panelKeys);
-        if (!(await confirm(query.isLive(cached) ? cached : []))) return false;
+        const items = panelKeys.map((key) => {
+          const cached = client?.panels.getCached(key);
+          return { name: query.isLive(cached) ? cached.name : "this panel" };
+        });
+        if (!(await confirm(items))) return false;
         dispatch(Session.Panel.remove(panelKeys));
         return data;
       },
