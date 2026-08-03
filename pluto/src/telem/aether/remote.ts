@@ -343,6 +343,8 @@ export class StreamChannelStringValue
   private latest = "";
   // Buffer length the latest decode was taken at, or -1 to force a re-decode.
   private decodedAt = -1;
+  // Bumped by cleanup to invalidate a read that is still awaiting.
+  private generation = 0;
   private valid = false;
   private readonly onStatusChange?: status.Adder;
   constructor(client: client.Client, props: unknown, options?: CreateOptions) {
@@ -352,6 +354,7 @@ export class StreamChannelStringValue
   }
 
   cleanup(): void {
+    this.generation++;
     this.removeStreamHandler?.();
     this.valid = false;
     this.leadingBuffer?.release();
@@ -377,11 +380,13 @@ export class StreamChannelStringValue
   }
 
   private async read(): Promise<void> {
+    const generation = this.generation;
     try {
       this.valid = true;
       this.removeStreamHandler?.();
       const ch = await this.client.retrieveChannel(this.props.channel);
       const handler: client.StreamHandler = (res) => {
+        if (generation !== this.generation) return;
         const data = res.get(ch.key);
         if (data == null) return;
         const leading = data.series.at(-1);
@@ -393,7 +398,12 @@ export class StreamChannelStringValue
         }
         this.notify();
       };
-      this.removeStreamHandler = await this.client.stream(handler, [ch.key]);
+      const removeStreamHandler = await this.client.stream(handler, [ch.key]);
+      if (generation !== this.generation) {
+        removeStreamHandler();
+        return;
+      }
+      this.removeStreamHandler = removeStreamHandler;
       this.notify();
     } catch (e) {
       this.valid = false;

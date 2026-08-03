@@ -346,6 +346,93 @@ describe("remote", () => {
       expect(series.refCount).toBe(0);
       expect(scsv.value()).toBe("");
     });
+
+    // value() runs read() synchronously up to its first await, so a cleanup() on the
+    // next line lands between the awaits. Without the generation guard the resumed
+    // read subscribes a source that nothing will clean up again.
+    describe("cleanup during an in-flight read", () => {
+      it("should unsubscribe when cleaned up while retrieving the channel", async () => {
+        const scsv = new StreamChannelStringValue(c, { channel: c.channel.key });
+        scsv.value();
+        scsv.cleanup();
+        await expect.poll(() => c.streamF.mock.calls.length).toBe(1);
+        expect(c.streamDestructorF).toHaveBeenCalledTimes(1);
+      });
+
+      it("should unsubscribe when cleaned up while opening the stream", async () => {
+        let releaseStream = (): void => {};
+        const gate = new Promise<void>((resolve) => (releaseStream = resolve));
+        c.stream = async (
+          handler: client.StreamHandler,
+          keys: channel.Key[],
+        ): Promise<destructor.Async> => {
+          c.streamHandler = handler;
+          c.streamKeys = keys;
+          c.streamF(handler, keys);
+          await gate;
+          return c.streamDestructorF;
+        };
+        const scsv = new StreamChannelStringValue(c, { channel: c.channel.key });
+        scsv.value();
+        await expect.poll(() => c.streamF.mock.calls.length).toBe(1);
+        // cleanup cannot unsubscribe here, because the destructor does not exist yet.
+        scsv.cleanup();
+        expect(c.streamDestructorF).not.toHaveBeenCalled();
+        releaseStream();
+        await expect.poll(() => c.streamDestructorF.mock.calls.length).toBe(1);
+      });
+
+      it("should not acquire buffers delivered to a stale handler", async () => {
+        const scsv = new StreamChannelStringValue(c, { channel: c.channel.key });
+        await waitForResolve(scsv);
+        const staleHandler = c.streamHandler;
+        scsv.cleanup();
+        const series = new Series(["ARMED"]);
+        staleHandler?.(new Map([[c.channel.key, new MultiSeries([series])]]));
+        expect(series.refCount).toBe(0);
+      });
+
+      it("should not notify listeners from a stale handler", async () => {
+        const scsv = new StreamChannelStringValue(c, { channel: c.channel.key });
+        await waitForResolve(scsv);
+        const staleHandler = c.streamHandler;
+        const handleChange = vi.fn();
+        scsv.onChange(handleChange);
+        scsv.cleanup();
+        staleHandler?.(
+          new Map([[c.channel.key, new MultiSeries([new Series(["ARMED"])])]]),
+        );
+        expect(handleChange).not.toHaveBeenCalled();
+      });
+
+      it("should stream again after cleanup", async () => {
+        const scsv = new StreamChannelStringValue(c, { channel: c.channel.key });
+        await waitForResolve(scsv);
+        scsv.cleanup();
+        expect(await waitForResolve(scsv)).toBe("");
+        expect(c.streamF).toHaveBeenCalledTimes(2);
+        c.streamHandler?.(
+          new Map([[c.channel.key, new MultiSeries([new Series(["ARMED"])])]]),
+        );
+        await expect.poll(() => scsv.value()).toBe("ARMED");
+      });
+
+      it("should not let a stale handler overwrite a later read's buffer", async () => {
+        const scsv = new StreamChannelStringValue(c, { channel: c.channel.key });
+        await waitForResolve(scsv);
+        const staleHandler = c.streamHandler;
+        scsv.cleanup();
+        await waitForResolve(scsv);
+        const fresh = new Series(["ARMED"]);
+        c.streamHandler?.(new Map([[c.channel.key, new MultiSeries([fresh])]]));
+        await expect.poll(() => scsv.value()).toBe("ARMED");
+        const stale = new Series(["IDLE"]);
+        staleHandler?.(new Map([[c.channel.key, new MultiSeries([stale])]]));
+        expect(scsv.value()).toBe("ARMED");
+        expect(stale.refCount).toBe(0);
+        expect(fresh.refCount).toBe(1);
+      });
+    });
   });
 
   describe("ChannelData", () => {
