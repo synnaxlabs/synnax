@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type destructor, type record } from "@synnaxlabs/x";
-import type z from "zod";
+import z from "zod";
 
 import { NotFoundError, ValidationError } from "@/errors";
 import { type Cache } from "@/query/cache";
@@ -42,9 +42,13 @@ const keysOnly = (query: unknown): unknown[] | null => {
 const isBareKey = (params: unknown): params is record.Key =>
   typeof params === "string" || typeof params === "number";
 
-/** True for params that are a bare list of record keys. */
-const isBareKeys = (params: unknown): params is record.Key[] =>
-  Array.isArray(params) && params.every(isBareKey);
+/**
+ * Request schema arm reading a bare key list as `{ keys }`. Union it onto a
+ * domain's request schema to opt that domain into the shorthand:
+ * `retrieveRequestZ.or(keyListZ(keyZ))`.
+ */
+export const keyListZ = <K extends z.ZodType<record.Key>>(key: K) =>
+  z.array(key).transform((keys) => ({ keys }));
 
 interface ComposeProp<V, D> {
   /**
@@ -103,9 +107,10 @@ export type RetrieverParams<
     /**
      * Discriminates and canonicalizes single params: parse success routes the
      * query to the single space, and the output is the space's query. Object
-     * schemas must reject unknown keys so request params fall through.
+     * schemas must reject unknown keys so request params fall through. Union
+     * in a bare-key arm to accept `retrieve(key)`.
      */
-    schema: z.ZodType<SingleQuery, SingleInput>;
+    schema: z.ZodType<SingleQuery, SingleInput | record.Key>;
     /** The space answering single queries, built via the cache. */
     space: Retrieves<SingleQuery, D>;
   };
@@ -180,31 +185,14 @@ export abstract class Retriever<
       serverFields,
       watch,
     });
-    // A bare key array the schema does not accept directly retries as
-    // `{ keys }` shorthand. A schema that strips the field would silently
-    // match every record, so that retry is rejected instead.
-    this.normalizeRequest = (p) => {
-      const res = schema.safeParse(p);
-      if (res.success) return res.data;
-      if (isBareKeys(p)) {
-        const retried = schema.safeParse({ keys: p });
-        if (retried.success) {
-          if ((retried.data as { keys?: unknown }).keys != null) return retried.data;
-          throw new ValidationError(`${name} does not accept bare key-array queries`);
-        }
-      }
-      throw res.error;
-    };
+    this.normalizeRequest = (p) => schema.parse(p);
     if (single != null) {
       this.singleSpace = single.space;
       const singleSchema = single.schema;
       // Params carrying `key` that fail the single schema are malformed
       // single queries; falling through would silently fetch every record.
-      // A bare key the schema does not accept directly retries as `{ key }`
-      // shorthand, then follows the same fail-loud rule.
       this.trySingle = (p) => {
-        let res = singleSchema.safeParse(p);
-        if (!res.success && isBareKey(p)) res = singleSchema.safeParse({ key: p });
+        const res = singleSchema.safeParse(p);
         if (res.success) return { query: res.data };
         if (isBareKey(p) || (typeof p === "object" && p !== null && "key" in p))
           throw new ValidationError(
@@ -240,8 +228,9 @@ export abstract class Retriever<
 
   /**
    * Reads the record the params address, or every record matching them.
-   * Serves the cache when the answer is fresh, fetching otherwise. A bare
-   * key is shorthand for `{ key }`, a bare key array for `{ keys }`.
+   * Serves the cache when the answer is fresh, fetching otherwise. A bare key
+   * is shorthand for `{ key }`; a bare key list is accepted by domains whose
+   * request schema unions in {@link keyListZ}.
    * @throws {NotFoundError} if a single-record query matches nothing or the
    * record was deleted.
    * @throws {ValidationError} if params contain `key` (or are a bare key)

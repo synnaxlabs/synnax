@@ -34,6 +34,27 @@ Rules:
 - Barrels everywhere: each domain folder in each layer has `index.ts` doing
   `export * as Domain from "@/<layer>/<domain>/external"`.
 
+## Mounting Side Effects
+
+Hotkey handlers, synchronizers and window catchers render nothing but must be mounted to
+run. Nothing fails loudly when one is dropped, so placement follows three rules.
+
+**Effects that act on one document mount with that document**, gated on focus at fire
+time. Pluto's trigger provider fires every registered callback with no arbitration, and
+the mosaic keeps background tabs mounted, so hidden instances listen too. The gate is
+`enableTriggers?: boolean | (() => boolean)`, built from
+`Session.Panel.useGetTabIsFocused()`. Pass the getter, not a boolean: it keeps the
+callback identity stable across focus changes.
+
+**Everything else mounts as high in the tree as its dependencies allow, inside a named
+`SideEffect` component.** Never a bare hook call in a component that draws — that is
+exactly how the line plot hold trigger was silently dropped for five days. Tree position
+is load-bearing: `App.tsx` sits above the crash screen, `Session.Settled.Provider`
+outlives what it repairs, `ProjectSideEffect` needs a selected project.
+
+**A hotkey spec renders the component that owns the mount**, never `renderHook` on the
+effect itself. `app/nav/bar/Top.spec.tsx` is the pattern.
+
 ## Dev Modes
 
 - `pnpm dev:console` — full Tauri: native windows, Tauri APIs, backend hot reload. Use

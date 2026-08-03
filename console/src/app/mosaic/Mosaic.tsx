@@ -9,11 +9,9 @@
 
 import { type ReactElement } from "react";
 
-import { LinePlot } from "@/feature/lineplot";
 import { Panel } from "@/feature/panel";
 import { Selector } from "@/platform/selector";
 
-export const Mosaic = (): ReactElement => {
-  LinePlot.useTriggerHold();
-  return <Panel.Mosaic onCreateTab={Selector.createEmptyTab} />;
-};
+export const Mosaic = (): ReactElement => (
+  <Panel.Mosaic onCreateTab={Selector.createEmptyTab} />
+);

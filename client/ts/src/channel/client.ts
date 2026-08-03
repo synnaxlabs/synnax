@@ -247,7 +247,10 @@ const normalizeSingle = ({
   rangeKey == null ? { key } : { key, rangeKey };
 
 const singleParamsZ = z
-  .strictObject({ key: z.uint32(), rangeKey: rangerKeyZ.optional() })
+  .union([
+    z.strictObject({ key: z.uint32(), rangeKey: rangerKeyZ.optional() }),
+    z.uint32().transform((key) => ({ key })),
+  ])
   .transform(normalizeSingle);
 
 const onlyRangeKey = (options?: RetrieveOptions): boolean =>

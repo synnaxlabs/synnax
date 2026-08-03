@@ -40,6 +40,7 @@ const wireRetrieveRequestZ = z.object({
 const retrieveRequestZ = wireRetrieveRequestZ.extend({
   parent: ontology.idZ.optional(),
 });
+const retrieveMultiParamsZ = retrieveRequestZ.or(query.keyListZ(keyZ));
 
 const singleRetrieveParamsZ = z
   .object({ key: keyZ })
@@ -90,7 +91,7 @@ export interface ClientConfig {
   cache: query.Cache;
 }
 
-export class Client extends query.Retriever<typeof retrieveRequestZ, Key, Symbol> {
+export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Symbol> {
   private readonly cfg: ClientConfig;
   private readonly store: query.Table<Key, Symbol>;
 
@@ -108,7 +109,7 @@ export class Client extends query.Retriever<typeof retrieveRequestZ, Key, Symbol
       name: "schematic symbol",
       table: store,
       request: {
-        schema: retrieveRequestZ,
+        schema: retrieveMultiParamsZ,
         fetch: async (req) => await this.fetchRequest(req),
         matches: (sym, req) => this.requestFilter(req)(sym),
         serverFields: SERVER_FIELDS,

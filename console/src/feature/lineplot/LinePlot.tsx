@@ -45,6 +45,7 @@ import {
   type DownloadLine,
   useDownloadAsCSV,
 } from "@/feature/lineplot/useDownloadAsCSV";
+import { useTriggerHold } from "@/feature/lineplot/useTriggerHold";
 import { ContextMenu } from "@/platform/context-menu";
 import { CSS } from "@/platform/css";
 import { Panel } from "@/platform/panel";
@@ -226,8 +227,9 @@ const Internal = (): ReactElement => {
   const getTabIsFocused = Session.Panel.useGetTabIsFocused();
   const enableTriggers = useCallback(
     () => !modals.isAnyOpen() && getTabIsFocused() && hasUpdatePermission,
-    [hasUpdatePermission, modals],
+    [getTabIsFocused, hasUpdatePermission, modals],
   );
+  useTriggerHold({ key, enabled: enableTriggers });
 
   const handleViewportChange: Viewport.UseHandler = useDebouncedCallback(
     ({ box: b, stage, mode }) => {
