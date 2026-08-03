@@ -16,6 +16,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/cesium"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
@@ -347,7 +348,7 @@ var _ = Describe("Metrics", func() {
 	})
 	Describe("Writer Control Subject", func() {
 		It("Should name the writer after the host node", func(ctx SpecContext) {
-			svc := MustSucceed(metrics.OpenService(ctx, metrics.ServiceConfig{
+			MustOpen(metrics.OpenService(ctx, metrics.ServiceConfig{
 				Channel:            channelSvc,
 				Group:              groupSvc,
 				Ontology:           otg,
@@ -371,18 +372,22 @@ var _ = Describe("Metrics", func() {
 			sCtx := signal.Wrap(ctx)
 			requests, responses := confluence.Attach(streamer, 2)
 			streamer.Flow(sCtx, confluence.CloseOutputInletsOnExit())
+			DeferCleanup(func() {
+				requests.Close()
+				Eventually(responses.Outlet()).Should(BeClosed())
+			})
 			var res framer.StreamerResponse
 			Eventually(responses.Outlet()).Should(Receive(&res))
-			var state string
-			for _, s := range res.Frame.Entries() {
-				state += string(s.Data)
+			update := MustSucceed(cesium.DecodeControlUpdate(res.Frame.SeriesAt(0)))
+			holders := make([]string, 0, len(update.Transfers))
+			for _, t := range update.Transfers {
+				if t.To != nil {
+					holders = append(holders, t.To.Subject.Name)
+				}
 			}
-			Expect(state).To(ContainSubstring(fmt.Sprintf(
+			Expect(holders).To(ContainElement(fmt.Sprintf(
 				"Node %v Metrics Writer", dist.Cluster.HostKey(),
 			)))
-			requests.Close()
-			Eventually(responses.Outlet()).Should(BeClosed())
-			Expect(svc.Close()).To(Succeed())
 		})
 	})
 	Describe("Metric Collection", func() {
