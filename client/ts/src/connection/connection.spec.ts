@@ -130,7 +130,7 @@ describe("connection", () => {
     it("should check the cluster", async () => {
       const info = await sendCheck(liveUnary());
       expect(z.uuid().safeParse(info.clusterKey).success).toBe(true);
-      expect(info.nodeVersion).not.toBeUndefined();
+      expect(info.nodeVersion).not.toEqual("");
     });
 
     it("should fold a check into a connected status", async () => {
