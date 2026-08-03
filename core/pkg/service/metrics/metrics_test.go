@@ -11,10 +11,12 @@ package metrics_test
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/cesium"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
@@ -354,6 +356,50 @@ var _ = Describe("Metrics", func() {
 				Expect(svc.Close()).To(Succeed())
 			},
 		)
+	})
+	Describe("Writer Control Subject", func() {
+		It("Should name the writer after the host node", func(ctx SpecContext) {
+			MustOpen(metrics.OpenService(ctx, metrics.ServiceConfig{
+				Channel:            channelSvc,
+				Group:              groupSvc,
+				Ontology:           otg,
+				Framer:             framerSvc,
+				HostProvider:       dist.Cluster,
+				DB:                 dist.DB,
+				Storage:            dist.Storage,
+				CollectionInterval: 100 * time.Millisecond,
+			}))
+			var controlCh channel.Channel
+			Expect(channelSvc.NewRetrieve().
+				Where(channel.MatchNames(fmt.Sprintf(
+					"sy_node_%v_control", dist.Cluster.HostKey(),
+				))).
+				Entry(&controlCh).
+				Exec(ctx, nil),
+			).To(Succeed())
+			streamer := MustSucceed(framerSvc.NewStreamer(ctx, framer.StreamerConfig{
+				Keys: []channel.Key{controlCh.Key()},
+			}))
+			sCtx := signal.Wrap(ctx)
+			requests, responses := confluence.Attach(streamer, 2)
+			streamer.Flow(sCtx, confluence.CloseOutputInletsOnExit())
+			DeferCleanup(func() {
+				requests.Close()
+				Eventually(responses.Outlet()).Should(BeClosed())
+			})
+			var res framer.StreamerResponse
+			Eventually(responses.Outlet()).Should(Receive(&res))
+			update := MustSucceed(cesium.DecodeControlUpdate(res.Frame.SeriesAt(0)))
+			holders := make([]string, 0, len(update.Transfers))
+			for _, t := range update.Transfers {
+				if t.To != nil {
+					holders = append(holders, t.To.Subject.Name)
+				}
+			}
+			Expect(holders).To(ContainElement(fmt.Sprintf(
+				"Node %v Metrics Writer", dist.Cluster.HostKey(),
+			)))
+		})
 	})
 	Describe("Metric Collection", func() {
 		var (
