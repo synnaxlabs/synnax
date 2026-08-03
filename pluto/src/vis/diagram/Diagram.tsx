@@ -107,15 +107,15 @@ const EDITABLE_PROPS: ReactFlowProps = {
   connectionRadius: 30,
 };
 
-// The canvas stays navigable outside edit mode: plain drag and Shift+drag both
-// pan, scroll and pinch zoom, and selection is fully off so Shift can never
-// start a rubber-band box.
+// The canvas stays navigable outside edit mode: Shift+drag pans, scroll and
+// pinch zoom, and selection is fully off so Shift can never start a
+// rubber-band box.
 const NOT_EDITABLE_PROPS: ReactFlowProps = {
   connectionRadius: 0,
   nodesDraggable: false,
   nodesConnectable: false,
   elementsSelectable: false,
-  panOnDrag: true,
+  panOnDrag: false,
   panActivationKeyCode: "Shift",
   selectionOnDrag: false,
   selectionKeyCode: null,
