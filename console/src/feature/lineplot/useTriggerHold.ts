@@ -7,32 +7,31 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { type lineplot } from "@synnaxlabs/client";
 import { Triggers } from "@synnaxlabs/pluto";
 import { useCallback } from "react";
 
+import { HOLD_TRIGGER } from "@/feature/lineplot/Controls";
 import { Session } from "@/session";
 
-export type Config = Triggers.ModeConfig<"toggle">;
+export interface UseTriggerHoldProps {
+  key: lineplot.Key;
+  enabled: boolean | (() => boolean);
+}
 
-const CONFIG: Triggers.ModeConfig<"toggle"> = {
-  defaultMode: "toggle",
-  toggle: [["H"]],
-};
-
-export const useTriggerHold = (): void => {
+export const useTriggerHold = ({ key, enabled }: UseTriggerHoldProps): void => {
   const dispatch = Session.useDispatch();
-  const flat = Triggers.useFlattenedMemoConfig(CONFIG);
-  const getFocusedKey = Session.LinePlot.useGetFocusedKey();
   Triggers.use({
-    triggers: flat,
+    triggers: HOLD_TRIGGER,
     loose: true,
     callback: useCallback(
-      (e: Triggers.UseEvent) => {
-        if (e.stage !== "start") return;
-        const key = getFocusedKey();
-        if (key != null) dispatch(Session.LinePlot.setControlHold({ key }));
+      ({ stage }: Triggers.UseEvent) => {
+        if (stage !== "start") return;
+        if (enabled === false) return;
+        if (typeof enabled === "function" && !enabled()) return;
+        dispatch(Session.LinePlot.setControlHold({ key }));
       },
-      [dispatch, getFocusedKey],
+      [dispatch, key, enabled],
     ),
   });
 };

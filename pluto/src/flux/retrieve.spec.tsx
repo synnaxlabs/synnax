@@ -501,6 +501,210 @@ describe("useRetrieveSuspended", () => {
     expect(retrieve).toHaveBeenCalledTimes(2);
   });
 
+  describe("equal", () => {
+    const sameNumbers = (a: number[], b: number[]): boolean =>
+      a.length === b.length && a.every((v, i) => v === b[i]);
+
+    interface Harness {
+      utils: ReturnType<typeof render>;
+      seen: number[][];
+      push: (next: number[]) => Promise<void>;
+    }
+
+    // getCached builds a fresh array on every call, the way a query projecting a
+    // cached record down to a narrower shape does. That is the shape `equal` exists
+    // to make usable: without it useSyncExternalStore never settles.
+    const renderProjection = async (key: string): Promise<Harness> => {
+      let source: number[] = [1, 2];
+      let handler: query.ChangeHandler<number[]> | null = null;
+      const { useRetrieveSuspended } = Flux.createRetrieve<{ key: string }, number[]>({
+        name: "Numbers",
+        retrieve: async () => [...source],
+        subscribe: (_, h) => {
+          handler = h;
+          return () => {};
+        },
+        getCached: () => [...source],
+        equal: sameNumbers,
+      });
+
+      const seen: number[][] = [];
+      const Display = (): ReactElement => {
+        const value = useRetrieveSuspended({ key });
+        seen.push(value);
+        return <div data-testid="value">{value.join(",")}</div>;
+      };
+
+      let utils!: ReturnType<typeof render>;
+      await act(async () => {
+        utils = render(
+          <Wrapper>
+            <Errors.SuspenseBoundary
+              loading={null}
+              FallbackComponent={({ error }) => (
+                <div data-testid="error">{error.message}</div>
+              )}
+            >
+              <Display />
+            </Errors.SuspenseBoundary>
+          </Wrapper>,
+        );
+      });
+      return {
+        utils,
+        seen,
+        push: async (next) => {
+          await act(async () => {
+            source = next;
+            handler?.([...next]);
+          });
+        },
+      };
+    };
+
+    it("makes a query that rebuilds its answer on every read renderable", async () => {
+      const { utils, seen } = await renderProjection("equal-stable");
+      // Without the comparator this shape spins useSyncExternalStore until React
+      // gives up with a max-update-depth error, and the boundary eats the tree.
+      expect(utils.queryByTestId("error")).toBeNull();
+      expect(utils.queryByTestId("value")?.textContent).toEqual("1,2");
+      expect(seen.length).toEqual(1);
+    });
+
+    it("hands back the previous answer when the next one compares equal", async () => {
+      const { utils, seen, push } = await renderProjection("equal-hold");
+      const before = seen[seen.length - 1];
+      const renders = seen.length;
+
+      await push([1, 2]);
+
+      expect(utils.queryByTestId("error")).toBeNull();
+      expect(seen.length).toEqual(renders);
+      expect(seen[seen.length - 1]).toBe(before);
+    });
+
+    it("hands back the next answer when it compares unequal", async () => {
+      const { utils, seen, push } = await renderProjection("equal-change");
+      const before = seen[seen.length - 1];
+
+      await push([1, 2, 3]);
+
+      expect(seen[seen.length - 1]).not.toBe(before);
+      expect(utils.queryByTestId("value")?.textContent).toEqual("1,2,3");
+    });
+
+    it("still throws a deleted error for a tombstoned answer", async () => {
+      const tombstone = new query.Deleted<number[]>([1, 2], TimeStamp.now());
+      const { useRetrieveSuspended } = Flux.createRetrieve<{ key: string }, number[]>({
+        name: "Numbers",
+        retrieve: async () => [1, 2],
+        subscribe: () => () => {},
+        getCached: () => tombstone,
+        equal: sameNumbers,
+      });
+
+      const Display = (): ReactElement => {
+        const value = useRetrieveSuspended({ key: "equal-deleted" });
+        return <div data-testid="value">{value.join(",")}</div>;
+      };
+
+      let utils!: ReturnType<typeof render>;
+      await act(async () => {
+        utils = render(
+          <Wrapper>
+            <Errors.SuspenseBoundary
+              loading={null}
+              FallbackComponent={({ error }) => (
+                <div data-testid="error">{error.message}</div>
+              )}
+            >
+              <Display />
+            </Errors.SuspenseBoundary>
+          </Wrapper>,
+        );
+      });
+
+      expect(utils.queryByTestId("error")?.textContent).toEqual("Numbers was deleted");
+    });
+
+    it("still refetches when the subscription invalidates the answer", async () => {
+      let cached: query.Cached<number[]> | undefined;
+      let handler: query.ChangeHandler<number[]> | null = null;
+      const retrieve = vi.fn(async () => {
+        cached = [retrieve.mock.calls.length];
+        return cached;
+      });
+      const { useRetrieveSuspended } = Flux.createRetrieve<{ key: string }, number[]>({
+        name: "Numbers",
+        retrieve,
+        subscribe: (_, h) => {
+          handler = h;
+          return () => {};
+        },
+        getCached: () => cached,
+        equal: sameNumbers,
+      });
+
+      const Display = (): ReactElement => {
+        const value = useRetrieveSuspended({ key: "equal-invalidate" });
+        return <div data-testid="value">{value.join(",")}</div>;
+      };
+
+      let utils!: ReturnType<typeof render>;
+      await act(async () => {
+        utils = render(
+          <Wrapper>
+            <Errors.SuspenseBoundary loading={null}>
+              <Display />
+            </Errors.SuspenseBoundary>
+          </Wrapper>,
+        );
+      });
+      await waitFor(() =>
+        expect(utils.queryByTestId("value")?.textContent).toEqual("1"),
+      );
+
+      await act(async () => {
+        cached = undefined;
+        handler?.(undefined);
+      });
+
+      await waitFor(() =>
+        expect(utils.queryByTestId("value")?.textContent).toEqual("2"),
+      );
+      expect(retrieve).toHaveBeenCalledTimes(2);
+    });
+
+    it("passes the cached answer straight through when no comparator is given", async () => {
+      const cached = [4, 5];
+      const { useRetrieveSuspended } = Flux.createRetrieve<{ key: string }, number[]>({
+        name: "Numbers",
+        retrieve: async () => [],
+        getCached: () => cached,
+      });
+
+      const seen: number[][] = [];
+      const Display = (): ReactElement => {
+        seen.push(useRetrieveSuspended({ key: "no-equal" }));
+        return <div data-testid="value">{seen[seen.length - 1].join(",")}</div>;
+      };
+
+      let utils!: ReturnType<typeof render>;
+      await act(async () => {
+        utils = render(
+          <Wrapper>
+            <Errors.SuspenseBoundary loading={null}>
+              <Display />
+            </Errors.SuspenseBoundary>
+          </Wrapper>,
+        );
+      });
+
+      expect(utils.queryByTestId("value")?.textContent).toEqual("4,5");
+      expect(seen[seen.length - 1]).toBe(cached);
+    });
+  });
+
   describe("not-found wait", () => {
     interface Harness {
       utils: ReturnType<typeof render>;

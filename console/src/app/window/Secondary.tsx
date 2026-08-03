@@ -21,8 +21,13 @@ import { Project } from "@/feature/project";
 import { CSS } from "@/platform/css";
 
 const SideEffect = (): null => {
-  Panel.useTearOff();
   Triggers.use();
+  return null;
+};
+
+// Tear-off reads the required project selectors, so it mounts inside Project.Guard.
+const ProjectSideEffect = (): null => {
+  Panel.useTearOff();
   return null;
 };
 
@@ -31,16 +36,19 @@ const SideEffect = (): null => {
  * strip and the visualization toolbar, and none of the main window's remaining chrome.
  */
 export const Secondary = (): ReactElement => (
-  <Auth.Guard>
-    <Auth.ConnectionGuard nav={false}>
-      <Project.Guard>
-        <SideEffect />
-        <Nav.Bar.Top secondary />
-        <Flex.Box gap="tiny" grow className={CSS.B("secondary")}>
-          <Mosaic.Mosaic />
-          <Nav.Drawer.Bottom />
-        </Flex.Box>
-      </Project.Guard>
-    </Auth.ConnectionGuard>
-  </Auth.Guard>
+  <>
+    <SideEffect />
+    <Auth.Guard>
+      <Auth.ConnectionGuard nav={false}>
+        <Project.Guard>
+          <ProjectSideEffect />
+          <Nav.Bar.Top secondary />
+          <Flex.Box gap="tiny" grow className={CSS.B("secondary")}>
+            <Mosaic.Mosaic />
+            <Nav.Drawer.Bottom />
+          </Flex.Box>
+        </Project.Guard>
+      </Auth.ConnectionGuard>
+    </Auth.Guard>
+  </>
 );
