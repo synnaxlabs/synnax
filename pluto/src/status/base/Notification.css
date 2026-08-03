@@ -23,7 +23,7 @@
     -webkit-backdrop-filter: blur(3rem) saturate(140%);
     backdrop-filter: blur(3rem) saturate(140%);
     width: 275px;
-    box-shadow: var(--pluto-shadow-v2);
+    box-shadow: var(--pluto-shadow-tight);
     border: var(--pluto-border-l6);
     border-radius: var(--pluto-border-radius-medium);
     overflow: hidden;

@@ -157,6 +157,11 @@
     --pluto-shadow-v3:
         lch(0 0 0 / 0.088) 0px 9px 48px, lch(0 0 0 / 0.11) 0px 6px 24px,
         lch(0 0 0 / 0.044) 0px 1px 1px;
+
+    /* v2 without its widest layer, for surfaces stacked a gap apart: the wide
+       layer reaches past the gap and pools on the neighbor instead of the page. */
+    --pluto-shadow-tight:
+        lch(0 0 0 / 0.044) 0px 3px 9px, lch(0 0 0 / 0.044) 0px 1px 1px;
 }
 
 .pluto-theme-synnax-dark {
