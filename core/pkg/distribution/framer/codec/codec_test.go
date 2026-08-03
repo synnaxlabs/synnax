@@ -276,7 +276,18 @@ var _ = Describe("Codec", func() {
 			[]telem.DataType{telem.BoolT},
 			frame.NewMulti(
 				channel.Keys{1},
-				[]telem.Series{telem.NewSeriesV(true, false, true, false, true, false, true, false)},
+				[]telem.Series{
+					telem.NewSeriesV(
+						true,
+						false,
+						true,
+						false,
+						true,
+						false,
+						true,
+						false,
+					),
+				},
 			),
 		),
 		Entry("Bool One Past Byte Boundary",
@@ -284,7 +295,19 @@ var _ = Describe("Codec", func() {
 			[]telem.DataType{telem.BoolT},
 			frame.NewMulti(
 				channel.Keys{1},
-				[]telem.Series{telem.NewSeriesV(true, false, true, false, true, false, true, false, true)},
+				[]telem.Series{
+					telem.NewSeriesV(
+						true,
+						false,
+						true,
+						false,
+						true,
+						false,
+						true,
+						false,
+						true,
+					),
+				},
 			),
 		),
 		Entry("Bool Seven Samples (Partial Last Byte)",
@@ -292,7 +315,9 @@ var _ = Describe("Codec", func() {
 			[]telem.DataType{telem.BoolT},
 			frame.NewMulti(
 				channel.Keys{1},
-				[]telem.Series{telem.NewSeriesV(true, false, true, true, false, false, true)},
+				[]telem.Series{
+					telem.NewSeriesV(true, false, true, true, false, false, true),
+				},
 			),
 		),
 		Entry("Bool Mixed With Other Types",
