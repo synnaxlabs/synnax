@@ -199,6 +199,8 @@ interface Entry<Q extends Params, K extends record.Key, D extends Data> {
   unmaintained?: boolean;
   /** Keys whose membership a fetch in flight deferred; drained on settle. */
   pendingRechecks?: Set<K>;
+  /** Set when a fetch in flight deferred a refetch; honored on settle. */
+  refetchOnSettle?: boolean;
   refetchTimer?: ReturnType<typeof setTimeout>;
 }
 
@@ -305,6 +307,7 @@ export class Queries<
       entry.teardown = undefined;
       entry.unmaintained = true;
       entry.pendingRechecks = undefined;
+      entry.refetchOnSettle = false;
       if (entry.refetchTimer != null) {
         clearTimeout(entry.refetchTimer);
         entry.refetchTimer = undefined;
@@ -424,7 +427,15 @@ export class Queries<
     if (entry.state !== expected) return;
     entry.state = next;
     this.drainRechecks(entry);
-    if (next.variant !== "error") this.touch(entry);
+    if (next.variant === "error") {
+      entry.refetchOnSettle = false;
+      return;
+    }
+    if (entry.refetchOnSettle === true) {
+      entry.refetchOnSettle = false;
+      if (entry.teardown != null) this.scheduleRefetch(entry);
+    }
+    this.touch(entry);
   }
 
   /**
@@ -481,6 +492,12 @@ export class Queries<
   }
 
   private scheduleRefetch(entry: Entry<Q, K, D>): void {
+    // A fetch in flight publishes its own keys on settle, and a refetch racing
+    // it resolves into a state its result no longer matches, so it is dropped.
+    if (entry.state.variant === "loading") {
+      entry.refetchOnSettle = true;
+      return;
+    }
     if (entry.refetchTimer != null) clearTimeout(entry.refetchTimer);
     const wait = DEFAULT_DEBOUNCE.milliseconds;
     entry.refetchTimer = setTimeout(() => {
