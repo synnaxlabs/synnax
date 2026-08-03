@@ -169,6 +169,15 @@ var _ = Describe("Writer Behavior", func() {
 								cesium.Channel{Key: data, Name: "Heller", Index: idx, DataType: telem.Int64T},
 							)).To(Succeed())
 
+							By("Opening a streamer over the index and data channels")
+							s := MustSucceed(db.NewStreamer(ctx, cesium.StreamerConfig{
+								Channels: []cesium.ChannelKey{idx, data},
+							}))
+							in, out := confluence.Attach(s, 2)
+							sCtx, cancel := signal.WithCancel(ctx)
+							defer cancel()
+							s.Flow(sCtx)
+
 							By("Writing the index and data together to seed the index's alignment authority")
 							wA := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
 								Channels: []cesium.ChannelKey{idx, data},
@@ -183,15 +192,8 @@ var _ = Describe("Writer Behavior", func() {
 							)))
 							MustSucceed(wA.Commit())
 							Expect(wA.Close()).To(Succeed())
-
-							By("Opening a streamer over the index and data channels")
-							s := MustSucceed(db.NewStreamer(ctx, cesium.StreamerConfig{
-								Channels: []cesium.ChannelKey{idx, data},
-							}))
-							in, out := confluence.Attach(s, 2)
-							sCtx, cancel := signal.WithCancel(ctx)
-							defer cancel()
-							s.Flow(sCtx)
+							// Drain wA's frame so the next receives observe wB, then wC.
+							Eventually(out.Outlet()).Should(Receive())
 
 							By("Writing index-only samples to push the index domain further ahead")
 							wB := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
@@ -243,6 +245,15 @@ var _ = Describe("Writer Behavior", func() {
 								cesium.Channel{Key: data, Name: "Orwell", Index: idx, DataType: telem.Int64T},
 							)).To(Succeed())
 
+							By("Opening a streamer over the data channel")
+							s := MustSucceed(db.NewStreamer(ctx, cesium.StreamerConfig{
+								Channels: []cesium.ChannelKey{data},
+							}))
+							in, out := confluence.Attach(s, 2)
+							sCtx, cancel := signal.WithCancel(ctx)
+							defer cancel()
+							s.Flow(sCtx)
+
 							By("Seeding the index and data channels together")
 							wSeed := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
 								Channels: []cesium.ChannelKey{idx, data},
@@ -257,6 +268,9 @@ var _ = Describe("Writer Behavior", func() {
 							)))
 							MustSucceed(wSeed.Commit())
 							Expect(wSeed.Close()).To(Succeed())
+							// Drain the seed frame; the index-only write below emits none
+							// since the streamer only subscribes to the data channel.
+							Eventually(out.Outlet()).Should(Receive())
 
 							By("Extending the index to cover the index-less writes")
 							wIdx := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
@@ -269,15 +283,6 @@ var _ = Describe("Writer Behavior", func() {
 							)))
 							MustSucceed(wIdx.Commit())
 							Expect(wIdx.Close()).To(Succeed())
-
-							By("Opening a streamer over the data channel")
-							s := MustSucceed(db.NewStreamer(ctx, cesium.StreamerConfig{
-								Channels: []cesium.ChannelKey{data},
-							}))
-							in, out := confluence.Attach(s, 2)
-							sCtx, cancel := signal.WithCancel(ctx)
-							defer cancel()
-							s.Flow(sCtx)
 
 							By("Running repeated index-less sessions on the data channel")
 							var lastRogue telem.Alignment
