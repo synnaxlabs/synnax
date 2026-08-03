@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { color, text, xy } from "@synnaxlabs/x";
+import { color, text } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { Label } from "@/schematic/node/common/label";
@@ -17,7 +17,6 @@ export const VARIANT = "stringDisplay" as const;
 
 export const configZ = Label.labeledConfigZ.extend({
   variant: z.literal(VARIANT),
-  position: xy.xyZ.optional(),
   color: color.crudeZ.optional(),
   textColor: color.crudeZ.optional(),
   tooltip: z.array(z.string()).optional(),

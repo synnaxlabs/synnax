@@ -14,9 +14,6 @@ import { applyOverScan } from "@/vis/render/util";
 
 export interface FillTextOptions {
   useAtlas?: boolean;
-  // Glyph set of the backing atlas, which silently skips characters it wasn't built
-  // with. Unset shares the default atlas rather than allocating a new one.
-  characters?: string;
 }
 
 export class SugaredOffscreenCanvasRenderingContext2D implements OffscreenCanvasRenderingContext2D {
@@ -600,11 +597,7 @@ export class SugaredOffscreenCanvasRenderingContext2D implements OffscreenCanvas
   ): void {
     const [useAtlas, fillStyle] = this.checkAtlasFillStyle(options.useAtlas);
     if (useAtlas) {
-      const atlas = this.atlasRegistry.get({
-        font: this.font,
-        textColor: fillStyle,
-        characters: options.characters,
-      });
+      const atlas = this.atlasRegistry.get({ font: this.font, textColor: fillStyle });
       atlas.fillText(this, text, x, y);
       return;
     }
@@ -623,11 +616,7 @@ export class SugaredOffscreenCanvasRenderingContext2D implements OffscreenCanvas
   textDimensions(label: string, options: FillTextOptions = {}): dimensions.Dimensions {
     const [useAtlas, fillStyle] = this.checkAtlasFillStyle(options.useAtlas);
     if (useAtlas) {
-      const atlas = this.atlasRegistry.get({
-        font: this.font,
-        textColor: fillStyle,
-        characters: options.characters,
-      });
+      const atlas = this.atlasRegistry.get({ font: this.font, textColor: fillStyle });
       return atlas.measureText(label);
     }
     return text.dimensionsFromMetrics(this.measureText(label));

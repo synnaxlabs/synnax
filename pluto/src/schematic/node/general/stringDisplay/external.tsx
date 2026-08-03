@@ -17,7 +17,6 @@ import { StringDisplay } from "@/schematic/node/general/stringDisplay/Primitive"
 import { Symbol } from "@/schematic/node/general/stringDisplay/Symbol";
 import { type Spec } from "@/schematic/node/spec";
 import { telem } from "@/telem/aether";
-import { Text } from "@/text";
 import { type Theming } from "@/theming";
 
 export * from "@/schematic/node/general/stringDisplay/config";
@@ -34,10 +33,8 @@ export const defaultConfig = (t: Theming.Theme): Config => ({
   telem: telem.streamChannelStringValue({ channel: 0 }),
 });
 
-const Preview = ({ color }: Config): ReactElement => (
-  <StringDisplay color={color}>
-    <Text.Text>Hello World!</Text.Text>
-  </StringDisplay>
+const Preview = ({ color, level }: Config): ReactElement => (
+  <StringDisplay color={color} level={level} value="Hello World!" />
 );
 
 export const spec: Spec<typeof VARIANT, Config> = {
@@ -48,5 +45,4 @@ export const spec: Spec<typeof VARIANT, Config> = {
   Preview,
   defaultConfig,
   zIndex: 4,
-  needsPosition: true,
 };

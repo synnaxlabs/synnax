@@ -44,8 +44,6 @@ export const use = ({
   valueBackgroundOverScan,
   valueBackgroundShift,
   clip,
-  characters,
-  numeric,
 }: UseProps): UseReturn => {
   const memoProps = useMemoDeepEqual({
     box,
@@ -63,8 +61,6 @@ export const use = ({
     valueBackgroundOverScan,
     valueBackgroundShift,
     clip,
-    characters,
-    numeric,
   });
   const [, state, setState] = Aether.use({
     aetherKey,
