@@ -22,11 +22,6 @@ import (
 	"github.com/synnaxlabs/x/text"
 )
 
-// lastStateVersion is the final Console state version ("5.0.0" files). A v5
-// state parks the plot body under pendingUpload; earlier states embed it inline
-// and ride the storage lift's legacy chain.
-const lastStateVersion imex.Version = 5
-
 // consoleAxis mirrors Axis as Console-written files serialize it: camelCase
 // keys. Frozen; Console files no longer evolve.
 type consoleAxis struct {
@@ -103,8 +98,7 @@ func (r consoleRule) rule() Rule {
 }
 
 // consoleDocument mirrors the typed LinePlot body fields as Console-written
-// files serialize them: the typed export's top level, and the v5 state's
-// pendingUpload.
+// files serialize them at the typed export's top level.
 type consoleDocument struct {
 	Title    Title         `json:"title"    msgpack:"title"`
 	Legend   Legend        `json:"legend"   msgpack:"legend"`
@@ -143,15 +137,8 @@ func DecodeImport(ctx context.Context, env imex.Envelope) (LinePlot, error) {
 		}
 		return doc.linePlot(), nil
 	}
-	if env.Version == lastStateVersion {
-		doc, err := imex.DecodePendingUpload[consoleDocument](ctx, env, "line plot")
-		if err != nil {
-			return LinePlot{}, err
-		}
-		return doc.linePlot(), nil
-	}
-	// v0-v4 console states embed the body inline: ride the storage lift, which
-	// dispatches on the version string inside the body.
+	// Console states embed the body inline: ride the storage lift, which
+	// dispatches on the version stamped inside the body.
 	body, err := imex.Decode[msgpack.EncodedJSON](ctx, env)
 	if err != nil {
 		return LinePlot{}, err

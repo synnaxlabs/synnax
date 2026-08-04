@@ -24,7 +24,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/x/query"
 	. "github.com/synnaxlabs/x/testutil"
-	"github.com/synnaxlabs/x/validate"
 )
 
 // loadEnvelope reads a wire-format envelope fixture from versions/testdata and
@@ -110,31 +109,14 @@ var _ = Describe("ImEx", func() {
 		)
 
 		It(
-			"Should import a v5 Console state from its pendingUpload",
-			func(ctx SpecContext) {
-				res := importAndRetrieve(
-					ctx, "versions/testdata/import_v5_state.json",
-					imex.ImportOptions{FileName: "My Plot.json"},
-				)
-				Expect(res.Name).To(Equal("My Plot"))
-				Expect(res.Channels.Y1).To(Equal([]channel.Key{7}))
-				Expect(res.Axes.Y1.Label).To(Equal("speed"))
-				Expect(res.Axes.Y1.ManualBounds).To(
-					Equal(lineplot.ManualBounds{Lower: true, Upper: false}),
-				)
-			},
-		)
-
-		It(
-			"Should reject a v5 Console state with no document data",
+			"Should reject a v5 Console state (rc-era, never released)",
 			func(ctx SpecContext) {
 				Expect(imexSvc.Import(ctx, db,
-					loadEnvelope("versions/testdata/import_v5_state_empty.json"),
-					imex.ImportOptions{FileName: "empty.json"},
-				)).Error().To(SatisfyAll(
-					MatchError(validate.ErrValidation),
-					MatchError(ContainSubstring("no document data")),
-				))
+					loadEnvelope("versions/testdata/import_v5_state.json"),
+					imex.ImportOptions{FileName: "My Plot.json"},
+				)).Error().To(
+					MatchError(ContainSubstring("unknown line plot data version 5")),
+				)
 			},
 		)
 
