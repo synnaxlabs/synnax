@@ -7,15 +7,26 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Action, type Store, type UnknownAction } from "@reduxjs/toolkit";
+import { type Action } from "@reduxjs/toolkit";
 import { type Synnax } from "@synnaxlabs/client";
 import { type destructor, type record } from "@synnaxlabs/x";
+
+/**
+ * The store surface a synchronizer needs. Narrower than a Redux store, whose
+ * replaceReducer pins A in both variance positions and would reject the
+ * session store wherever a synchronizer names only the slices it touches.
+ */
+export interface Store<S, A extends Action> {
+  getState: () => S;
+  dispatch: (action: A) => void;
+  subscribe: (listener: () => void) => destructor.Destructor;
+}
 
 /**
  * Dependencies the host hands to every synchronizer callback. S and A are the
  * synchronizer's slice-composed store shape, never the root store types.
  */
-export interface Params<S = unknown, A extends Action = UnknownAction> {
+export interface Params<S, A extends Action> {
   /** Connected client. The host only invokes callbacks while one exists. */
   client: Synnax;
   /** Session store, for state pulls, subscriptions, and dispatch. */
@@ -27,10 +38,7 @@ export interface Params<S = unknown, A extends Action = UnknownAction> {
  * The host runs reconcile at client-ready and on every epoch bump, and mounts
  * listen once per client, tearing it down on client swap or unmount.
  */
-// The any defaults erase the store shape at the registry boundary: the host
-// always calls with the full session store, which satisfies every
-// synchronizer's slice-composed S.
-export interface Synchronizer<S = any, A extends Action = any> {
+export interface Synchronizer<S, A extends Action> {
   /** Idempotent boundary repair. Pulls state at call time. */
   reconcile: (params: Params<S, A>) => void | Promise<void>;
   /** Mounts steady-state subscriptions: client feeds and store watches. */
@@ -41,14 +49,16 @@ export interface Synchronizer<S = any, A extends Action = any> {
  * Builds a synchronizer. The hook body only captures context (flux handles,
  * adders); execution timing belongs to the host.
  */
-export type Use<S = any, A extends Action = any> = () => Synchronizer<S, A>;
+export type Use<S, A extends Action> = () => Synchronizer<S, A>;
 
 /**
  * Synchronizer hooks keyed by name, mounted in declaration order by the host.
- * A session slice holding cluster references without an entry in a registry
- * is a structural omission.
+ * S and A are the host store's shape: a synchronizer needing only a slice of
+ * it fits, since Store is covariant in its state and contravariant in its
+ * actions. A session slice holding cluster references without an entry in a
+ * registry is a structural omission.
  */
-export type Synchronizers = Record<string, Use>;
+export type Synchronizers<S, A extends Action> = Record<string, Use<S, A>>;
 
 /** The slice of a domain client a remover needs: delete events and an existence sweep. */
 export interface Removable<K extends record.Key> {

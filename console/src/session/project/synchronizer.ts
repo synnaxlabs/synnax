@@ -7,11 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { clearSelected, type StoreState } from "@/session/project/slice";
+import { type Action, clearSelected, type StoreState } from "@/session/project/slice";
 import { Synchronizer } from "@/session/synchronizer";
 
-export const SYNCHRONIZERS: Synchronizer.Synchronizers = {
-  useClearDeletedProject: Synchronizer.createRemover({
+export const SYNCHRONIZERS: Synchronizer.Synchronizers<StoreState, Action> = {
+  useClearDeletedProject: Synchronizer.createRemover<StoreState, Action>({
     domain: (client) => client.projects,
     selectKeys: ({ project: { selected } }: StoreState) =>
       selected == null ? [] : [selected],

@@ -35,7 +35,7 @@ export const App = ({ workerURL }: AppProps): ReactElement => {
     <Errors.OverlayWithoutStore>
       <Session.Context>
         <Pluto.Context workerURL={workerURL}>
-          <Session.Settled.Provider>
+          <Session.SettledProvider>
             <Errors.OverlayWithStore>
               <Panel.Context>
                 <Tree.Context>
@@ -51,7 +51,7 @@ export const App = ({ workerURL }: AppProps): ReactElement => {
                 </Tree.Context>
               </Panel.Context>
             </Errors.OverlayWithStore>
-          </Session.Settled.Provider>
+          </Session.SettledProvider>
         </Pluto.Context>
       </Session.Context>
     </Errors.OverlayWithoutStore>

@@ -169,7 +169,7 @@ export const useCreateModal = Modals.create<CreateModalParams>(
           <Triggers.SaveHelpText action={saveName} />
           <Nav.Bar.End>
             <Button.Button onClick={() => saveLocal()} disabled={variant === "loading"}>
-              Save Locally
+              Save locally
             </Button.Button>
             <Button.Button
               variant="filled"

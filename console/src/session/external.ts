@@ -23,7 +23,6 @@ export * from "@/session/project";
 export * from "@/session/range";
 export * from "@/session/runtime";
 export * from "@/session/schematic";
-export * from "@/session/settled";
 export * from "@/session/status";
 export * from "@/session/store";
 export * from "@/session/synchronizer";

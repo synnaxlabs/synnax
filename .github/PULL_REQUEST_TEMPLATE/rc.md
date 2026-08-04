@@ -88,7 +88,7 @@ I can successfully:
     - [ ] Copy a link to a core.
     - [ ] Hard reload the console.
 - **Search and Command Palette**
-  - [ ] Use the "Log Out" command to log out of the active core.
+  - [ ] Use the "Log out" command to log out of the active core.
 - [ ] Open a core from a link.
 - [ ] Receive meaningful feedback when a core connection fails.
 

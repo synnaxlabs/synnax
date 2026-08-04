@@ -286,7 +286,7 @@ class RangesClient:
         if persisted:
             save_button = self.layout.page.get_by_role("button", name="Save to Synnax")
         else:
-            save_button = self.layout.page.get_by_role("button", name="Save Locally")
+            save_button = self.layout.page.get_by_role("button", name="Save locally")
 
         save_button.click(timeout=2000)
         modal.wait_for(state="hidden", timeout=5000)
