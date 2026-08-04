@@ -49,15 +49,11 @@ func DecodeImport(ctx context.Context, env imex.Envelope) (Table, error) {
 	if env.Version >= Floor {
 		return decodeMigrate(ctx, env)
 	}
-	named, err := imex.BodyNamed(ctx, env)
-	if err != nil {
-		return Table{}, err
-	}
 	// Console-era typed exports ("1.0.0"-stamped or versionless) carry the current
 	// shape with camelCase keys; every Table field key is a single word, so the
 	// standard decoder's case-insensitive matching covers them. Console states
 	// never carry a name.
-	if named {
+	if env.BodyNamed() {
 		return imex.Decode[Table](ctx, env)
 	}
 	if env.Version == lastStateVersion {

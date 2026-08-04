@@ -95,10 +95,11 @@ func newFieldError(field, format string, args ...any) error {
 
 // Envelope is the portable format for a single importable/exportable resource. The
 // public fields hold the wire headers; the body is private — raw bytes plus a bound
-// codec on the import path, a codec-independent map on the export path. Services never
-// touch the body directly: import handlers call Decode[T] to materialize the payload
-// (using the codec the matching UnmarshalX method bound on the way in), and export
-// handlers call Encode[T] to construct an envelope from a typed value.
+// codec plus the flat map the UnmarshalX method already parsed on the import path, a
+// codec-independent map on the export path. Import handlers answer discriminating
+// questions (Body, BodyNamed, matcher routing) from the stored map and call Decode[T]
+// exactly once per import to materialize the payload; export handlers call Encode[T]
+// to construct an envelope from a typed value.
 type Envelope struct {
 	// Version is the per-schema integer version stamped on every envelope.
 	Version Version
@@ -185,7 +186,22 @@ func (e *Envelope) unmarshal(m map[string]any, raw []byte, codec encoding.Codec)
 	}
 	e.codec = codec
 	e.raw = raw
+	e.body = m
 	return nil
+}
+
+// Body returns the envelope body as the flat map parsed from the wire (or built by
+// Encode). It is nil on hand-constructed envelopes. Callers must not mutate it.
+func (e Envelope) Body() map[string]any { return e.body }
+
+// BodyNamed reports whether the envelope body carries a top-level `name` field.
+// Every typed export does (Encode enforces it); legacy Console-state files never do,
+// so importers use this to discriminate the two families at console-era versions.
+// Distinct from Envelope.Name, which the import service may have filled from the
+// caller-supplied file name.
+func (e Envelope) BodyNamed() bool {
+	_, ok := e.body["name"]
+	return ok
 }
 
 // Decode materializes the envelope body as T using the encoding.Codec bound by the
@@ -214,21 +230,6 @@ func Decode[T any](ctx context.Context, e Envelope) (T, error) {
 		return zero, errors.Wrap(err, "decode envelope body")
 	}
 	return t, nil
-}
-
-// BodyNamed reports whether the envelope body carries a top-level `name` field.
-// Every typed export does (Encode enforces it); legacy Console-state files never
-// do, so importers use this to discriminate the two families at console-era
-// versions. Distinct from Envelope.Name, which the import service may have
-// filled from the caller-supplied file name.
-func BodyNamed(ctx context.Context, e Envelope) (bool, error) {
-	peek, err := Decode[struct {
-		Name *string `json:"name"`
-	}](ctx, e)
-	if err != nil {
-		return false, err
-	}
-	return peek.Name != nil, nil
 }
 
 // Encode is the symmetric inverse of Decode. The caller supplies an envelope carrying

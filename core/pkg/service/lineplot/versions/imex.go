@@ -143,13 +143,9 @@ func DecodeImport(ctx context.Context, env imex.Envelope) (LinePlot, error) {
 	if env.Version >= Floor {
 		return decodeMigrate(ctx, env)
 	}
-	named, err := imex.BodyNamed(ctx, env)
-	if err != nil {
-		return LinePlot{}, err
-	}
 	// Console-era typed exports (versionless) carry the current shape with
 	// camelCase keys; console states never carry a name.
-	if named {
+	if env.BodyNamed() {
 		doc, err := imex.Decode[consoleDocument](ctx, env)
 		if err != nil {
 			return LinePlot{}, err

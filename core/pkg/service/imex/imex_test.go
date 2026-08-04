@@ -42,6 +42,22 @@ var _ = Describe("ImEx", func() {
 				Expect(p.Name).To(Equal("n"))
 			})
 
+			It("Should expose the parsed body without a second decode", func() {
+				var env imex.Envelope
+				Expect(json.Unmarshal(
+					[]byte(`{"version":1,"type":"log","name":"n","foo":1}`), &env,
+				)).To(Succeed())
+				Expect(env.Body()).To(HaveKey("foo"))
+				Expect(env.BodyNamed()).To(BeTrue())
+			})
+
+			It("Should report an unnamed body", func() {
+				var env imex.Envelope
+				Expect(json.Unmarshal([]byte(`{"version":1,"foo":1}`), &env)).
+					To(Succeed())
+				Expect(env.BodyNamed()).To(BeFalse())
+			})
+
 			It("Should accept a legacy N.0.0 version string", func() {
 				var env imex.Envelope
 				Expect(json.Unmarshal(

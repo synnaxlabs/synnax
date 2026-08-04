@@ -71,13 +71,9 @@ func DecodeImport(ctx context.Context, env imex.Envelope) (Schematic, error) {
 	if env.Version >= Floor {
 		return decodeMigrate(ctx, env)
 	}
-	named, err := imex.BodyNamed(ctx, env)
-	if err != nil {
-		return Schematic{}, err
-	}
 	// Console-era typed exports ("6.0.0"-stamped or versionless) carry the current
 	// shape with camelCase keys; console states never carry a name.
-	if named {
+	if env.BodyNamed() {
 		doc, err := imex.Decode[consoleDocument](ctx, env)
 		if err != nil {
 			return Schematic{}, err
@@ -98,18 +94,12 @@ func DecodeImport(ctx context.Context, env imex.Envelope) (Schematic, error) {
 	}
 	// v0-v5 console states embed the document inline: ride the storage lift, which
 	// dispatches on the version string inside the body.
-	type snapshotPeek struct {
-		Snapshot bool `json:"snapshot"`
-	}
-	peek, err := imex.Decode[snapshotPeek](ctx, env)
-	if err != nil {
-		return Schematic{}, err
-	}
+	snapshot, _ := env.Body()["snapshot"].(bool)
 	body, err := imex.Decode[msgpack.EncodedJSON](ctx, env)
 	if err != nil {
 		return Schematic{}, err
 	}
 	return v7.MigrateSchematic(ctx, v6.Schematic{
-		Name: env.Name, Snapshot: peek.Snapshot, Data: body,
+		Name: env.Name, Snapshot: snapshot, Data: body,
 	})
 }

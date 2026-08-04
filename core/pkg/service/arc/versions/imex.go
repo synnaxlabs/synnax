@@ -124,14 +124,10 @@ func DecodeImport(ctx context.Context, env imex.Envelope) (Arc, error) {
 	if env.Version >= Floor {
 		return decodeMigrate(ctx, env)
 	}
-	named, err := imex.BodyNamed(ctx, env)
-	if err != nil {
-		return Arc{}, err
-	}
 	// Typed exports always carry a top-level name; console states never do.
 	// Console typed exports are versionless with camelCase keys and the
 	// pre-lift v0 graph shape.
-	if named {
+	if env.BodyNamed() {
 		ct, err := imex.Decode[consoleTyped](ctx, env)
 		if err != nil {
 			return Arc{}, err
