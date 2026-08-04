@@ -7,10 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Store } from "@reduxjs/toolkit";
+import { type Store, type UnknownAction } from "@reduxjs/toolkit";
 import { type connection } from "@synnaxlabs/client";
+import { Drift } from "@synnaxlabs/drift";
+import { useRef } from "react";
 
 import { type Action, changeKey, type StoreState } from "@/session/cluster/slice";
+import { Modals } from "@/session/modals";
 import { type Synchronizer } from "@/session/synchronizer";
 
 const repair = (store: Store<StoreState, Action>, status: connection.Status): void => {
@@ -29,6 +32,35 @@ const syncKey: Synchronizer.Synchronizer<StoreState, Action> = {
     client.connection.onChange((status) => repair(store, status)),
 };
 
+const discard = (
+  store: Store<Drift.StoreState, UnknownAction>,
+  modals: Modals.Store,
+): void => {
+  modals.clear();
+  Drift.selectWindows(store.getState())
+    .filter(({ key, reserved }) => reserved && key !== Drift.MAIN_WINDOW)
+    .forEach(({ key }) => store.dispatch(Drift.closeWindow({ key })));
+};
+
+// Torn-off windows and open modals hold resources from the cluster that is no
+// longer connected. Main window only: a closed window takes its modals with it.
+const useCloseOnClusterChange = (): Synchronizer.Synchronizer<Drift.StoreState> => {
+  const modals = Modals.useStore("useCloseOnClusterChange");
+  const seen = useRef<string | null>(null);
+  return {
+    reconcile: ({ client, store }) => {
+      const { clusterKey } = client.connection.status.details;
+      if (clusterKey === "") return;
+      const previous = seen.current;
+      seen.current = clusterKey;
+      // The ref outlives client swaps, so selecting a different cluster counts
+      // as a change too, not just a replacement at the same address.
+      if (previous != null && previous !== clusterKey) discard(store, modals);
+    },
+  };
+};
+
 export const SYNCHRONIZERS: Synchronizer.Synchronizers = {
   useSyncClusterKey: () => syncKey,
+  useCloseOnClusterChange,
 };
