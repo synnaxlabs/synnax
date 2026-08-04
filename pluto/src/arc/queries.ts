@@ -222,7 +222,7 @@ export const formSchema = z.object({
 
 export const ZERO_FORM_VALUES: z.infer<typeof formSchema> = {
   name: "",
-  mode: "graph",
+  mode: "text",
 };
 
 export type FormQuery = Record<string, never>;
