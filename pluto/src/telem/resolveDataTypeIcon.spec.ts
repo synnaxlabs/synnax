@@ -14,6 +14,10 @@ import { Icon } from "@/icon";
 import { resolveDataTypeIcon } from "@/telem/resolveDataTypeIcon";
 
 describe("resolveDataTypeIcon", () => {
+  it("should return the Boolean icon for BOOLEAN data type", () => {
+    expect(resolveDataTypeIcon(DataType.BOOLEAN)).toBe(Icon.Boolean);
+  });
+
   it("should return the JSON icon for JSON data type", () => {
     expect(resolveDataTypeIcon(DataType.JSON)).toBe(Icon.JSON);
   });

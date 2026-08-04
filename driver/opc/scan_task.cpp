@@ -10,12 +10,11 @@
 #include <memory>
 #include <utility>
 
-#include "glog/logging.h"
+#include "absl/log/log.h"
 #include "open62541/client.h"
 #include "open62541/client_highlevel.h"
 #include "open62541/types.h"
 
-#include "client/cpp/status/status.h"
 #include "x/cpp/json/json.h"
 
 #include "driver/opc/device/device.h"

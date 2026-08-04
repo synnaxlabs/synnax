@@ -23,16 +23,18 @@ import (
 	. "github.com/synnaxlabs/x/testutil"
 )
 
-func openDBOnFS(ctx context.Context, fs fs.FS) *cesium.DB {
+func openDBOnFS(ctx context.Context, fs fs.FS, opts ...cesium.Option) *cesium.DB {
 	return MustSucceed(cesium.Open(ctx,
 		"",
-		cesium.WithFS(fs),
-		cesium.WithInstrumentation(PanicLogger()),
+		append([]cesium.Option{
+			cesium.WithFS(fs),
+			cesium.WithInstrumentation(PanicLogger()),
+		}, opts...)...,
 	))
 }
 
-func mustOpenDBOnFS(ctx context.Context, fs fs.FS) *cesium.DB {
-	return DeferClose(openDBOnFS(ctx, fs))
+func mustOpenDBOnFS(ctx context.Context, fs fs.FS, opts ...cesium.Option) *cesium.DB {
+	return DeferClose(openDBOnFS(ctx, fs, opts...))
 }
 
 func channelKeyToPath(key cesium.ChannelKey) string { return strconv.Itoa(int(key)) }

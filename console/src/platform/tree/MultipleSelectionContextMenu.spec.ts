@@ -55,7 +55,7 @@ describe("Tree.MultipleSelectionContextMenu", () => {
   it("should offer grouping and reload for a mixed-type selection", async () => {
     await setupMixedSelection();
     await screen.findByText("Group selection");
-    await screen.findByText("Reload Console");
+    await screen.findByText("Reload console");
   });
 
   it("should group the mixed selection under a new group when the group item is clicked", async () => {

@@ -139,7 +139,7 @@ describe("range/overview/Overview", () => {
     await renderOverview(rng.key);
     await screen.findByText("Child Ranges");
     fireEvent.click(await waitFor(() => getIconButton(document.body, "add")));
-    expect(await screen.findByText("Save Locally")).toBeTruthy();
+    expect(await screen.findByText("Save locally")).toBeTruthy();
   });
 
   it("lists snapshots and routes selection to the snapshot service", async () => {

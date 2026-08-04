@@ -43,7 +43,7 @@ cc_test(
         "//driver/pipeline",
         "//driver/pipeline/mock",
         "//x/cpp/test",
-        "@glog",
+        "@abseil-cpp//absl/log",
         "@googletest//:gtest_main",
     ],
 )

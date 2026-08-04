@@ -7,9 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Action, type Store } from "@reduxjs/toolkit";
+import { type Action } from "@reduxjs/toolkit";
 import { type destructor } from "@synnaxlabs/x";
 import { memoize } from "proxy-memoize";
+
+import { type Store } from "@/session/synchronizer/create";
 
 /**
  * Runs onChange whenever the selected value changes. The selector is
