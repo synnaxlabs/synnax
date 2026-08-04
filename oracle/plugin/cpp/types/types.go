@@ -97,7 +97,8 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 		if enumPath == "" {
 			continue
 		}
-		if !structCollector.Has(enumPath) && !aliasCollector.Has(enumPath) && !typeDefCollector.Has(enumPath) {
+		if !structCollector.Has(enumPath) && !aliasCollector.Has(enumPath) &&
+			!typeDefCollector.Has(enumPath) {
 			enumOutputPaths[enumPath] = append(enumOutputPaths[enumPath], e)
 		}
 	}
@@ -114,7 +115,16 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 
 		if len(structs) > 0 {
 			namespace := structs[0].Namespace
-			enums = framework.MergeTypes(enums, enum.CollectNamespaceEnums(namespace, outputPath, req.Resolutions, "cpp", nil))
+			enums = framework.MergeTypes(
+				enums,
+				enum.CollectNamespaceEnums(
+					namespace,
+					outputPath,
+					req.Resolutions,
+					"cpp",
+					nil,
+				),
+			)
 		} else {
 			if standaloneEnums, ok := enumOutputPaths[outputPath]; ok {
 				enums = framework.MergeTypes(enums, standaloneEnums)
@@ -125,7 +135,16 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 					namespace = aliases[0].Namespace
 				}
 				if namespace != "" {
-					enums = framework.MergeTypes(enums, enum.CollectNamespaceEnums(namespace, outputPath, req.Resolutions, "cpp", nil))
+					enums = framework.MergeTypes(
+						enums,
+						enum.CollectNamespaceEnums(
+							namespace,
+							outputPath,
+							req.Resolutions,
+							"cpp",
+							nil,
+						),
+					)
 				}
 			}
 		}
@@ -135,7 +154,14 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 			typeDefs = typeDefCollector.Remove(outputPath)
 		}
 		aliases := aliasCollector.Get(outputPath)
-		content, err := p.generateFile(outputPath, structs, enums, typeDefs, aliases, req.Resolutions)
+		content, err := p.generateFile(
+			outputPath,
+			structs,
+			enums,
+			typeDefs,
+			aliases,
+			req.Resolutions,
+		)
 		if err != nil {
 			return nil, errors.Wrapf(err, "failed to generate %s", outputPath)
 		}
@@ -145,22 +171,37 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 		})
 	}
 
-	err = typeDefCollector.ForEach(func(outputPath string, typeDefs []resolution.Type) error {
-		var enums []resolution.Type
-		if len(typeDefs) > 0 {
-			namespace := typeDefs[0].Namespace
-			enums = enum.CollectNamespaceEnums(namespace, outputPath, req.Resolutions, "cpp", nil)
-		}
-		content, err := p.generateFile(outputPath, nil, enums, typeDefs, nil, req.Resolutions)
-		if err != nil {
-			return errors.Wrapf(err, "failed to generate %s", outputPath)
-		}
-		resp.Files = append(resp.Files, plugin.File{
-			Path:    fmt.Sprintf("%s/%s", outputPath, p.Options.FileNamePattern),
-			Content: content,
-		})
-		return nil
-	})
+	err = typeDefCollector.ForEach(
+		func(outputPath string, typeDefs []resolution.Type) error {
+			var enums []resolution.Type
+			if len(typeDefs) > 0 {
+				namespace := typeDefs[0].Namespace
+				enums = enum.CollectNamespaceEnums(
+					namespace,
+					outputPath,
+					req.Resolutions,
+					"cpp",
+					nil,
+				)
+			}
+			content, err := p.generateFile(
+				outputPath,
+				nil,
+				enums,
+				typeDefs,
+				nil,
+				req.Resolutions,
+			)
+			if err != nil {
+				return errors.Wrapf(err, "failed to generate %s", outputPath)
+			}
+			resp.Files = append(resp.Files, plugin.File{
+				Path:    fmt.Sprintf("%s/%s", outputPath, p.Options.FileNamePattern),
+				Content: content,
+			})
+			return nil
+		},
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -421,7 +462,9 @@ func (p *Plugin) processTypeDef(td resolution.Type, data *templateData) typeDefD
 					}
 				}
 			}
-			if sysIncludesExpr, found := cppDomain.Expressions.Find("system_includes"); found {
+			if sysIncludesExpr, found := cppDomain.Expressions.Find(
+				"system_includes",
+			); found {
 				for _, v := range sysIncludesExpr.Values {
 					if v.StringValue != "" {
 						data.includes.addSystem(v.StringValue)
@@ -477,7 +520,10 @@ func (p *Plugin) processAlias(alias resolution.Type, data *templateData) aliasDa
 	}
 }
 
-func (p *Plugin) aliasTargetToCpp(typeRef resolution.TypeRef, data *templateData) string {
+func (p *Plugin) aliasTargetToCpp(
+	typeRef resolution.TypeRef,
+	data *templateData,
+) string {
 	if typeRef.IsTypeParam() && typeRef.TypeParam != nil {
 		if typeRef.TypeParam.HasDefault() {
 			return p.aliasTargetToCpp(*typeRef.TypeParam.Default, data)
@@ -675,7 +721,9 @@ func (p *Plugin) processStruct(entry resolution.Type, data *templateData) struct
 				}
 			}
 		}
-		if sysIncludesExpr, found := cppDomain.Expressions.Find("system_includes"); found {
+		if sysIncludesExpr, found := cppDomain.Expressions.Find(
+			"system_includes",
+		); found {
 			for _, v := range sysIncludesExpr.Values {
 				if v.StringValue != "" {
 					data.includes.addSystem(v.StringValue)
@@ -687,7 +735,10 @@ func (p *Plugin) processStruct(entry resolution.Type, data *templateData) struct
 	return sd
 }
 
-func (p *Plugin) processTypeParam(tp resolution.TypeParam, data *templateData) typeParamData {
+func (p *Plugin) processTypeParam(
+	tp resolution.TypeParam,
+	data *templateData,
+) typeParamData {
 	tpd := typeParamData{Name: tp.Name}
 	if tp.Optional {
 		tpd.HasDefault = true
@@ -701,7 +752,7 @@ func (p *Plugin) processTypeParam(tp resolution.TypeParam, data *templateData) t
 // the C++ type string and the underlying primitive type (if any).
 // Returns empty string if no explicit default is needed (e.g., for types with
 // proper default constructors like std::string, std::vector, std::optional).
-func cppDefaultValue(cppType string, underlyingPrimitive string) string {
+func cppDefaultValue(cppType, underlyingPrimitive string) string {
 	if strings.Contains(cppType, "::telem::TimeStamp") {
 		return "x::telem::TimeStamp(0)"
 	}
@@ -772,7 +823,10 @@ func wrapCppTelemNumeric(cppType, literal string) string {
 	return literal
 }
 
-func getUnderlyingPrimitive(typeRef resolution.TypeRef, table *resolution.Table) string {
+func getUnderlyingPrimitive(
+	typeRef resolution.TypeRef,
+	table *resolution.Table,
+) string {
 	if resolution.IsPrimitive(typeRef.Name) {
 		return typeRef.Name
 	}
@@ -789,7 +843,11 @@ func getUnderlyingPrimitive(typeRef resolution.TypeRef, table *resolution.Table)
 	return ""
 }
 
-func (p *Plugin) processField(field resolution.Field, entry resolution.Type, data *templateData) fieldData {
+func (p *Plugin) processField(
+	field resolution.Field,
+	entry resolution.Type,
+	data *templateData,
+) fieldData {
 	cppType := p.typeRefToCpp(field.Type, data)
 	isSelfRef := resolution.RefersTo(field.Type, entry.QualifiedName, data.table)
 	underlyingPrimitive := getUnderlyingPrimitive(field.Type, data.table)
@@ -830,7 +888,11 @@ func (p *Plugin) processField(field resolution.Field, entry resolution.Type, dat
 // cppDefaultLiteral renders a default value as a C++ brace-init literal. typeRef
 // is the declared type of the value, used to resolve enum variants, array
 // element types, and nested struct field types. Arrays and structs recurse.
-func (p *Plugin) cppDefaultLiteral(typeRef resolution.TypeRef, val resolution.ExpressionValue, data *templateData) string {
+func (p *Plugin) cppDefaultLiteral(
+	typeRef resolution.TypeRef,
+	val resolution.ExpressionValue,
+	data *templateData,
+) string {
 	switch val.Kind {
 	case resolution.ValueKindString:
 		return fmt.Sprintf("%q", val.StringValue)
@@ -845,7 +907,11 @@ func (p *Plugin) cppDefaultLiteral(typeRef resolution.TypeRef, val resolution.Ex
 	case resolution.ValueKindBool:
 		return fmt.Sprintf("%t", val.BoolValue)
 	case resolution.ValueKindIdent:
-		if ev, ok := validation.ResolveEnumVariant(val.IdentValue, typeRef, data.table); ok {
+		if ev, ok := validation.ResolveEnumVariant(
+			val.IdentValue,
+			typeRef,
+			data.table,
+		); ok {
 			return p.cppEnumVariantRef(ev, data)
 		}
 		if val.IdentValue == "true" || val.IdentValue == "false" {
@@ -874,7 +940,11 @@ func (p *Plugin) cppDefaultLiteral(typeRef resolution.TypeRef, val resolution.Ex
 // cppStructLiteral renders a struct default as a C++ designated-initializer list,
 // emitting the provided fields in the struct's declaration order (required for
 // designated initializers in C++).
-func (p *Plugin) cppStructLiteral(typeRef resolution.TypeRef, val resolution.ExpressionValue, data *templateData) string {
+func (p *Plugin) cppStructLiteral(
+	typeRef resolution.TypeRef,
+	val resolution.ExpressionValue,
+	data *templateData,
+) string {
 	resolved, ok := typeRef.Resolve(data.table)
 	if !ok {
 		return "{}"
@@ -889,7 +959,14 @@ func (p *Plugin) cppStructLiteral(typeRef resolution.TypeRef, val resolution.Exp
 		if !has {
 			continue
 		}
-		parts = append(parts, fmt.Sprintf(".%s = %s", cppFieldName(f), p.cppDefaultLiteral(f.Type, v, data)))
+		parts = append(
+			parts,
+			fmt.Sprintf(
+				".%s = %s",
+				cppFieldName(f),
+				p.cppDefaultLiteral(f.Type, v, data),
+			),
+		)
 	}
 	return "{" + strings.Join(parts, ", ") + "}"
 }
@@ -897,7 +974,10 @@ func (p *Plugin) cppStructLiteral(typeRef resolution.TypeRef, val resolution.Exp
 // cppEnumVariantRef renders a fully-qualified C++ reference to an enum variant.
 // Int enums generate as enum classes and are referenced Enum::Variant; string
 // enums generate as ENUM_VARIANT string constants and must be referenced as such.
-func (p *Plugin) cppEnumVariantRef(ev validation.EnumVariant, data *templateData) string {
+func (p *Plugin) cppEnumVariantRef(
+	ev validation.EnumVariant,
+	data *templateData,
+) string {
 	ref := fmt.Sprintf("%s::%s", ev.Type.Name, toPascalCase(ev.Variant.Name))
 	if form, ok := ev.Type.Form.(resolution.EnumForm); ok && !form.IsIntEnum {
 		ref = fmt.Sprintf(
@@ -1024,7 +1104,11 @@ func (p *Plugin) primitiveToCpp(primitive string, data *templateData) string {
 	return mapping.TargetType
 }
 
-func (p *Plugin) resolveStructType(resolved resolution.Type, typeArgs []resolution.TypeRef, data *templateData) string {
+func (p *Plugin) resolveStructType(
+	resolved resolution.Type,
+	typeArgs []resolution.TypeRef,
+	data *templateData,
+) string {
 	name := resolved.Name
 	var cppInclude string
 	isOmitted := omit.IsSkipped(resolved, "cpp")
@@ -1068,7 +1152,11 @@ func (p *Plugin) resolveStructType(resolved resolution.Type, typeArgs []resoluti
 	return p.buildGenericType(name, typeArgs, &resolved, data)
 }
 
-func (p *Plugin) resolveEnumType(resolved resolution.Type, form resolution.EnumForm, data *templateData) string {
+func (p *Plugin) resolveEnumType(
+	resolved resolution.Type,
+	form resolution.EnumForm,
+	data *templateData,
+) string {
 	if !form.IsIntEnum {
 		data.includes.addSystem("string")
 		return "std::string"
@@ -1104,7 +1192,10 @@ func explicitInclude(resolved resolution.Type) string {
 	return expr.Values[0].StringValue
 }
 
-func (p *Plugin) resolveDistinctType(resolved resolution.Type, data *templateData) string {
+func (p *Plugin) resolveDistinctType(
+	resolved resolution.Type,
+	data *templateData,
+) string {
 	name := domain.GetName(resolved, "cpp")
 
 	if resolved.Namespace != data.rawNs {
@@ -1122,7 +1213,11 @@ func (p *Plugin) resolveDistinctType(resolved resolution.Type, data *templateDat
 	return name
 }
 
-func (p *Plugin) resolveAliasType(resolved resolution.Type, typeArgs []resolution.TypeRef, data *templateData) string {
+func (p *Plugin) resolveAliasType(
+	resolved resolution.Type,
+	typeArgs []resolution.TypeRef,
+	data *templateData,
+) string {
 	name := domain.GetName(resolved, "cpp")
 	if resolved.Namespace != data.rawNs {
 		targetOutputPath := output.GetPath(resolved, "cpp")
@@ -1139,7 +1234,12 @@ func (p *Plugin) resolveAliasType(resolved resolution.Type, typeArgs []resolutio
 	return p.buildGenericType(name, typeArgs, &resolved, data)
 }
 
-func (p *Plugin) buildGenericType(baseName string, typeArgs []resolution.TypeRef, targetType *resolution.Type, data *templateData) string {
+func (p *Plugin) buildGenericType(
+	baseName string,
+	typeArgs []resolution.TypeRef,
+	targetType *resolution.Type,
+	data *templateData,
+) string {
 	if len(typeArgs) == 0 {
 		return baseName
 	}
@@ -1181,15 +1281,18 @@ func (p *Plugin) buildGenericType(baseName string, typeArgs []resolution.TypeRef
 	return fmt.Sprintf("%s<%s>", baseName, strings.Join(args, ", "))
 }
 
-// isCppTemplateWithAllDefaults returns true if the type would be generated as a C++ template
+// isCppTemplateWithAllDefaults returns true if the type would be generated as a C++
+// template
 // AND all of its C++ template parameters have defaults.
 //
 // A struct is a C++ template only if it has type params without explicit defaults.
-// Params with explicit defaults are substituted at code generation and don't become template params.
-// Optional params (without explicit defaults) DO become template params with implicit std::monostate default.
+// Params with explicit defaults are substituted at code generation and don't become
+// template params. Optional params (without explicit defaults) DO become template
+// params with implicit std::monostate default.
 //
 // This function returns true when:
-// - The type has at least one type param without explicit default (making it a C++ template)
+// - The type has at least one type param without explicit default (making it a C++
+// template)
 // - All such params are optional (giving them implicit defaults)
 func isCppTemplateWithAllDefaults(t resolution.Type) bool {
 	form, ok := t.Form.(resolution.StructForm)
@@ -1266,7 +1369,8 @@ type ontologyData struct {
 	TypeName string
 	// KeyType is the C++ type name (e.g., "Key").
 	KeyType string
-	// KeyConversion is the expression to convert key to string (e.g., "std::to_string(key)" or "key").
+	// KeyConversion is the expression to convert key to string (e.g.,
+	// "std::to_string(key)" or "key").
 	KeyConversion string
 }
 
@@ -1377,7 +1481,8 @@ func getPBName(s resolution.Type) string {
 func hasExplicitPBName(s resolution.Type) bool {
 	if domain, ok := s.Domains["pb"]; ok {
 		for _, expr := range domain.Expressions {
-			if expr.Name == "name" && len(expr.Values) > 0 && expr.Values[0].StringValue != "" {
+			if expr.Name == "name" && len(expr.Values) > 0 &&
+				expr.Values[0].StringValue != "" {
 				return true
 			}
 		}
@@ -1387,7 +1492,11 @@ func hasExplicitPBName(s resolution.Type) bool {
 
 // resolveExtendsType converts a parent TypeRef to a fully qualified C++ type string.
 // It also adds the necessary include for the parent's header.
-func (p *Plugin) resolveExtendsType(extendsRef resolution.TypeRef, parent resolution.Type, data *templateData) string {
+func (p *Plugin) resolveExtendsType(
+	extendsRef resolution.TypeRef,
+	parent resolution.Type,
+	data *templateData,
+) string {
 	name := domain.GetName(parent, "cpp")
 
 	// Check for cross-namespace reference
@@ -1407,7 +1516,8 @@ func (p *Plugin) resolveExtendsType(extendsRef resolution.TypeRef, parent resolu
 	return p.buildGenericType(name, extendsRef.TypeArgs, &parent, data)
 }
 
-// extractOntology extracts ontology metadata from structs that have both @ontology domain
+// extractOntology extracts ontology metadata from structs that have both @ontology
+// domain
 // and a field with @key annotation. Returns nil if no suitable struct is found.
 func (p *Plugin) extractOntology(
 	structs []resolution.Type,
@@ -1457,7 +1567,10 @@ var templateFuncs = template.FuncMap{
 	"formatDoc":        doc.FormatCpp,
 }
 
-var fileTemplate = template.Must(template.New("cpp-types").Funcs(templateFuncs).Parse(`// Code generated by oracle. DO NOT EDIT.
+var fileTemplate = template.Must(
+	template.New("cpp-types").
+		Funcs(templateFuncs).
+		Parse(`// Code generated by oracle. DO NOT EDIT.
 
 #pragma once
 {{- if .HasIncludes}}
@@ -1682,4 +1795,5 @@ inline synnax::ontology::ID ontology_id(const {{.Ontology.KeyType}}& key) {
 }
 {{- end}}
 }
-`))
+`),
+)

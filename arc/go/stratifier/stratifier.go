@@ -79,7 +79,13 @@ func stratifyScope(
 	case ir.ScopeModeSequential:
 		for i := range s.Steps {
 			if s.Steps[i].Scope != nil {
-				if d := stratifyScope(s.Steps[i].Scope, edges, bumped, diag); d != nil && !d.Ok() {
+				if d := stratifyScope(
+					s.Steps[i].Scope,
+					edges,
+					bumped,
+					diag,
+				); d != nil &&
+					!d.Ok() {
 					return d
 				}
 			}
@@ -199,7 +205,13 @@ func stratifyParallel(
 	for si := range s.Strata {
 		for mi := range s.Strata[si] {
 			if s.Strata[si][mi].Scope != nil {
-				if d := stratifyScope(s.Strata[si][mi].Scope, edges, bumped, diag); d != nil && !d.Ok() {
+				if d := stratifyScope(
+					s.Strata[si][mi].Scope,
+					edges,
+					bumped,
+					diag,
+				); d != nil &&
+					!d.Ok() {
 					return d
 				}
 			}
@@ -255,7 +267,11 @@ func collectScopeOwnership(s ir.Scope, idx int, own map[string]int) {
 // given members under the ownership-projected edge set. Used only to
 // produce a human-readable diagnostic after the relaxation loop fails to
 // converge.
-func findCycle(members []ir.Member, edges []ir.Edge, ownership map[string]int) []string {
+func findCycle(
+	members []ir.Member,
+	edges []ir.Edge,
+	ownership map[string]int,
+) []string {
 	graph := make(map[int][]int, len(members))
 	for _, e := range edges {
 		src, srcOK := ownership[e.Source.Node]

@@ -11,8 +11,8 @@ package task
 
 import (
 	"context"
-	"github.com/google/uuid"
 
+	"github.com/google/uuid"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 )

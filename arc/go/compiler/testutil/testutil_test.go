@@ -139,11 +139,14 @@ var _ = Describe("FunctionScope", func() {
 })
 
 var _ = Describe("NewContext", func() {
-	It("Should create a root compilation context with initialized fields", func(ctx SpecContext) {
-		cCtx := NewContext(ctx)
-		Expect(cCtx.Scope).ToNot(BeNil())
-		Expect(cCtx.Module).ToNot(BeNil())
-		Expect(cCtx.Writer).ToNot(BeNil())
-		Expect(cCtx.TypeMap).ToNot(BeNil())
-	})
+	It(
+		"Should create a root compilation context with initialized fields",
+		func(ctx SpecContext) {
+			cCtx := NewContext(ctx)
+			Expect(cCtx.Scope).ToNot(BeNil())
+			Expect(cCtx.Module).ToNot(BeNil())
+			Expect(cCtx.Writer).ToNot(BeNil())
+			Expect(cCtx.TypeMap).ToNot(BeNil())
+		},
+	)
 })

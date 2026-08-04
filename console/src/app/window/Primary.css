@@ -12,6 +12,7 @@
 .console-main__content {
     padding-right: 1rem;
     padding-bottom: 1rem;
+    padding-left: 0.5rem;
     /* Hover drawers overshoot the docked footprint: tucked under the top bar, fused
        into the left bar's border, bled past the content padding. */
     --left-drawer-inset-left: 8.5rem;
@@ -20,6 +21,10 @@
     --bottom-drawer-inset-left: calc(8rem - 2px);
     --bottom-drawer-inset-right: 0.5rem;
     --bottom-drawer-inset-bottom: 1rem;
+
+    &:has(.console-nav__drawer.pluto--location-left.pluto--hidden) {
+        padding-left: 0;
+    }
 }
 
 .console-main__column {

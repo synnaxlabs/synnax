@@ -18,7 +18,10 @@ import (
 )
 
 func rangeSeconds(start, end int) v0.TimeRange {
-	return v0.TimeRange{Start: v0.TimeStamp(start) * v0.SecondTS, End: v0.TimeStamp(end) * v0.SecondTS}
+	return v0.TimeRange{
+		Start: v0.TimeStamp(start) * v0.SecondTS,
+		End:   v0.TimeStamp(end) * v0.SecondTS,
+	}
 }
 
 var _ = Describe("TimeRange", func() {
@@ -93,7 +96,6 @@ var _ = Describe("TimeRange", func() {
 	})
 
 	Describe("BoundBy", func() {
-
 		It("Should bound the time range to the provided constraints", func() {
 			tr := v0.TimeRange{
 				Start: v0.TimeStamp(v0.Second),
@@ -106,11 +108,9 @@ var _ = Describe("TimeRange", func() {
 			bounded := tr.BoundBy(bound)
 			Expect(bounded.Start).To(Equal(bound.Start))
 			Expect(bounded.End).To(Equal(bound.End))
-
 		})
 
 		It("Should bound the time range even if the start is after the end", func() {
-
 			tr := v0.TimeRange{
 				Start: v0.TimeStamp(v0.Second * 4),
 				End:   v0.TimeStamp(v0.Second),
@@ -157,14 +157,19 @@ var _ = Describe("TimeRange", func() {
 	Describe("ContainsRange", func() {
 		It("Should return true when the ranges overlap with one another", func() {
 			tr := v0.TimeStamp(0).SpanRange(5 * v0.Second)
-			Expect(tr.ContainsRange(v0.TimeStamp(1).SpanRange(2 * v0.Second))).To(BeTrue())
+			Expect(
+				tr.ContainsRange(v0.TimeStamp(1).SpanRange(2 * v0.Second)),
+			).To(BeTrue())
 		})
-		It("Should return false when the start of one range is the end of another", func() {
-			tr := v0.TimeStamp(0).SpanRange(5 * v0.Second)
-			tr2 := v0.TimeStamp(5 * v0.Second).SpanRange(5 * v0.Second)
-			Expect(tr.ContainsRange(tr2)).To(BeFalse())
-			Expect(tr2.ContainsRange(tr)).To(BeFalse())
-		})
+		It(
+			"Should return false when the start of one range is the end of another",
+			func() {
+				tr := v0.TimeStamp(0).SpanRange(5 * v0.Second)
+				tr2 := v0.TimeStamp(5 * v0.Second).SpanRange(5 * v0.Second)
+				Expect(tr.ContainsRange(tr2)).To(BeFalse())
+				Expect(tr2.ContainsRange(tr)).To(BeFalse())
+			},
+		)
 		It("Should return true if checked against itself", func() {
 			tr := v0.TimeStamp(0).SpanRange(5 * v0.Second)
 			Expect(tr.ContainsRange(tr)).To(BeTrue())
@@ -174,21 +179,29 @@ var _ = Describe("TimeRange", func() {
 	Describe("WhereOverlapsWith", func() {
 		It("Should return true when the ranges overlap with one another", func() {
 			tr := v0.TimeStamp(0).SpanRange(5 * v0.Second)
-			Expect(tr.OverlapsWith(v0.TimeStamp(1).SpanRange(2 * v0.Second))).To(BeTrue())
+			Expect(
+				tr.OverlapsWith(v0.TimeStamp(1).SpanRange(2 * v0.Second)),
+			).To(BeTrue())
 		})
 
-		It("Should return false when the start of one range is the end of another", func() {
-			tr := v0.TimeStamp(0).SpanRange(5 * v0.Second)
-			tr2 := v0.TimeStamp(5 * v0.Second).SpanRange(5 * v0.Second)
-			Expect(tr.OverlapsWith(tr2)).To(BeFalse())
-			Expect(tr2.OverlapsWith(tr)).To(BeFalse())
-		})
+		It(
+			"Should return false when the start of one range is the end of another",
+			func() {
+				tr := v0.TimeStamp(0).SpanRange(5 * v0.Second)
+				tr2 := v0.TimeStamp(5 * v0.Second).SpanRange(5 * v0.Second)
+				Expect(tr.OverlapsWith(tr2)).To(BeFalse())
+				Expect(tr2.OverlapsWith(tr)).To(BeFalse())
+			},
+		)
 
-		It("Should return true if the start timestamps of the two ranges are equal", func() {
-			tr1 := v0.TimeStamp(5 * v0.Second).SpanRange(5 * v0.Second)
-			tr2 := v0.TimeStamp(5 * v0.Second).SpanRange(10 * v0.Second)
-			Expect(tr1.OverlapsWith(tr2)).To(BeTrue())
-		})
+		It(
+			"Should return true if the start timestamps of the two ranges are equal",
+			func() {
+				tr1 := v0.TimeStamp(5 * v0.Second).SpanRange(5 * v0.Second)
+				tr2 := v0.TimeStamp(5 * v0.Second).SpanRange(10 * v0.Second)
+				Expect(tr1.OverlapsWith(tr2)).To(BeTrue())
+			},
+		)
 
 		It("Should return true if checked against itself", func() {
 			tr := v0.TimeStamp(0).SpanRange(5 * v0.Second)
@@ -268,7 +281,6 @@ var _ = Describe("TimeRange", func() {
 				Expect(tr.OverlapsWith(tr2)).To(BeTrue())
 			})
 		})
-
 	})
 
 	Describe("Swap", func() {
@@ -321,7 +333,6 @@ var _ = Describe("TimeRange", func() {
 			intersection := tr.Intersection(tr2)
 			Expect(intersection).To(Equal(v0.TimeRangeZero))
 		})
-
 	})
 
 	DescribeTable("Split", func(
@@ -380,7 +391,6 @@ var _ = Describe("TimeRange", func() {
 	})
 
 	Describe("Union", func() {
-
 		Specify("Overlap, first before second", func() {
 			tr := (0 * v0.SecondTS).Range(5 * v0.SecondTS)
 			tr2 := (3 * v0.SecondTS).Range(8 * v0.SecondTS)
@@ -412,6 +422,5 @@ var _ = Describe("TimeRange", func() {
 			Expect(union.Start).To(Equal(1 * v0.SecondTS))
 			Expect(union.End).To(Equal(8 * v0.SecondTS))
 		})
-
 	})
 })

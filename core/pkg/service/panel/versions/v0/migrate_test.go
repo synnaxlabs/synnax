@@ -67,7 +67,9 @@ var _ = Describe("Project layout to panel migration", func() {
 			return
 		}
 		blob := MustSucceed(json.Marshal(p.Layout))
-		Expect(db.Set(ctx, []byte(project.LegacyLayoutKVPrefix+p.Key.String()), blob)).To(Succeed())
+		Expect(
+			db.Set(ctx, []byte(project.LegacyLayoutKVPrefix+p.Key.String()), blob),
+		).To(Succeed())
 	}
 	seedResources := func(ctx context.Context, db *gorp.DB, ids ...ontology.ID) {
 		table := MustOpen(gorp.OpenTable(
@@ -153,174 +155,191 @@ var _ = Describe("Project layout to panel migration", func() {
 		}
 	}
 
-	It("Should convert mosaics into panels parented under the project", func(ctx SpecContext) {
-		db := DeferClose(gorp.Wrap(memkv.New()))
-		projectKey := uuid.New()
-		lpKey, scKey, logKey, tblKey := uuid.NewString(), uuid.NewString(),
-			uuid.NewString(), uuid.NewString()
-		staleKey := uuid.NewString()
-		seedResources(ctx, db,
-			ontology.ID{Type: ontology.ResourceTypeLineplot, Key: lpKey},
-			ontology.ID{Type: ontology.ResourceTypeSchematic, Key: scKey},
-			ontology.ID{Type: ontology.ResourceTypeLog, Key: logKey},
-			ontology.ID{Type: ontology.ResourceTypeTable, Key: tblKey},
-		)
-		stageLayout(ctx, db, project.Project{
-			Key:  projectKey,
-			Name: "Ops",
-			Layout: msgpack.EncodedJSON{
-				"mosaics": map[string]any{
-					"main": map[string]any{
-						"activeTab": lpKey,
-						"root": map[string]any{
-							"key":       1,
-							"direction": "x",
-							"size":      0.25,
-							"first": map[string]any{
-								"key":       2,
-								"direction": "y",
+	It(
+		"Should convert mosaics into panels parented under the project",
+		func(ctx SpecContext) {
+			db := DeferClose(gorp.Wrap(memkv.New()))
+			projectKey := uuid.New()
+			lpKey, scKey, logKey, tblKey := uuid.NewString(), uuid.NewString(),
+				uuid.NewString(), uuid.NewString()
+			staleKey := uuid.NewString()
+			seedResources(ctx, db,
+				ontology.ID{Type: ontology.ResourceTypeLineplot, Key: lpKey},
+				ontology.ID{Type: ontology.ResourceTypeSchematic, Key: scKey},
+				ontology.ID{Type: ontology.ResourceTypeLog, Key: logKey},
+				ontology.ID{Type: ontology.ResourceTypeTable, Key: tblKey},
+			)
+			stageLayout(ctx, db, project.Project{
+				Key:  projectKey,
+				Name: "Ops",
+				Layout: msgpack.EncodedJSON{
+					"mosaics": map[string]any{
+						"main": map[string]any{
+							"activeTab": lpKey,
+							"root": map[string]any{
+								"key":       1,
+								"direction": "x",
+								"size":      0.25,
 								"first": map[string]any{
-									"key":  4,
+									"key":       2,
+									"direction": "y",
+									"first": map[string]any{
+										"key":  4,
+										"tabs": []any{mosaicTab(lpKey)},
+									},
+									"last": map[string]any{
+										"key":  5,
+										"tabs": []any{mosaicTab(scKey)},
+									},
+								},
+								"last": map[string]any{
+									"key": 3,
+									"tabs": []any{
+										mosaicTab(logKey),
+										// Inline app view: no backing resource,
+										// dropped.
+										mosaicTab("docs"),
+										// Viz whose resource was deleted: dropped.
+										mosaicTab(staleKey),
+										// Tab with no layout entry at all: dropped.
+										mosaicTab("orphan"),
+									},
+								},
+							},
+						},
+						"tableWin": map[string]any{
+							"activeTab": tblKey,
+							"root": map[string]any{
+								"key":  1,
+								"tabs": []any{mosaicTab(tblKey)},
+							},
+						},
+					},
+					"layouts": map[string]any{
+						lpKey:    vizLayout(lpKey, "lineplot"),
+						scKey:    vizLayout(scKey, "schematic"),
+						logKey:   vizLayout(logKey, "log"),
+						tblKey:   vizLayout(tblKey, "table"),
+						staleKey: vizLayout(staleKey, "lineplot"),
+						"docs": map[string]any{
+							"key":      "docs",
+							"type":     "docs",
+							"name":     "Documentation",
+							"location": "mosaic",
+						},
+						"main": map[string]any{
+							"key":      "main",
+							"type":     "main",
+							"name":     "Main",
+							"location": "window",
+						},
+						"tableWin": map[string]any{
+							"key":      "tableWin",
+							"type":     "mosaic",
+							"name":     "Table Window",
+							"location": "window",
+						},
+					},
+				},
+			})
+
+			openPanelTable(ctx, db)
+			panels := collectPanels(ctx, db)
+			Expect(panels).To(HaveLen(2))
+
+			main := findPanel(panels, "Main")
+			zeroTabKeys(&main.Root)
+			Expect(main.Root).To(Equal(v0.Node{Variant: v0.NodeSplit{Split: v0.Split{
+				Direction: spatial.DirectionX,
+				Size:      0.25,
+				First: v0.Node{Variant: v0.NodeSplit{Split: v0.Split{
+					Direction: spatial.DirectionY,
+					Size:      0.5,
+					First:     *leaf(resourceTab(ontology.ResourceTypeLineplot, lpKey)),
+					Last:      *leaf(resourceTab(ontology.ResourceTypeSchematic, scKey)),
+				}}},
+				Last: *leaf(resourceTab(ontology.ResourceTypeLog, logKey)),
+			}}}))
+
+			tableWin := findPanel(panels, "Table Window")
+			zeroTabKeys(&tableWin.Root)
+			Expect(tableWin.Root).To(Equal(
+				*leaf(resourceTab(ontology.ResourceTypeTable, tblKey)),
+			))
+
+			By("Defining an ontology resource and parent relationship for each panel")
+			for _, p := range panels {
+				panelID := v0.Panel{Key: p.Key}.OntologyID()
+				Expect(MustSucceed(gorp.NewRetrieve[string, ontology.Resource]().
+					Where(gorp.MatchKeys[string, ontology.Resource](panelID.String())).
+					Exists(ctx, db))).To(BeTrue())
+				Expect(
+					hasRel(
+						ctx,
+						db,
+						rel(project.Project{Key: projectKey}.OntologyID(), panelID),
+					),
+				).
+					To(BeTrue())
+			}
+
+			By("Deleting the staging entry once it has been consumed")
+			Expect(
+				db.Get(ctx, []byte(project.LegacyLayoutKVPrefix+projectKey.String())),
+			).Error().
+				To(MatchError(query.ErrNotFound))
+		},
+	)
+
+	It(
+		"Should collapse splits whose sides lose all of their tabs",
+		func(ctx SpecContext) {
+			db := DeferClose(gorp.Wrap(memkv.New()))
+			lpKey, staleKey := uuid.NewString(), uuid.NewString()
+			seedResources(ctx, db, ontology.ID{
+				Type: ontology.ResourceTypeLineplot, Key: lpKey,
+			})
+			stageLayout(ctx, db, project.Project{
+				Key:  uuid.New(),
+				Name: "Ops",
+				Layout: msgpack.EncodedJSON{
+					"mosaics": map[string]any{
+						"main": map[string]any{
+							"root": map[string]any{
+								"key":       1,
+								"direction": "x",
+								"size":      0.7,
+								"first": map[string]any{
+									"key":  2,
 									"tabs": []any{mosaicTab(lpKey)},
 								},
 								"last": map[string]any{
-									"key":  5,
-									"tabs": []any{mosaicTab(scKey)},
-								},
-							},
-							"last": map[string]any{
-								"key": 3,
-								"tabs": []any{
-									mosaicTab(logKey),
-									// Inline app view: no backing resource, dropped.
-									mosaicTab("docs"),
-									// Viz whose resource was deleted: dropped.
-									mosaicTab(staleKey),
-									// Tab with no layout entry at all: dropped.
-									mosaicTab("orphan"),
+									"key":  3,
+									"tabs": []any{mosaicTab(staleKey)},
 								},
 							},
 						},
 					},
-					"tableWin": map[string]any{
-						"activeTab": tblKey,
-						"root": map[string]any{
-							"key":  1,
-							"tabs": []any{mosaicTab(tblKey)},
-						},
+					"layouts": map[string]any{
+						lpKey:    vizLayout(lpKey, "lineplot"),
+						staleKey: vizLayout(staleKey, "lineplot"),
 					},
 				},
-				"layouts": map[string]any{
-					lpKey:    vizLayout(lpKey, "lineplot"),
-					scKey:    vizLayout(scKey, "schematic"),
-					logKey:   vizLayout(logKey, "log"),
-					tblKey:   vizLayout(tblKey, "table"),
-					staleKey: vizLayout(staleKey, "lineplot"),
-					"docs": map[string]any{
-						"key":      "docs",
-						"type":     "docs",
-						"name":     "Documentation",
-						"location": "mosaic",
-					},
-					"main": map[string]any{
-						"key":      "main",
-						"type":     "main",
-						"name":     "Main",
-						"location": "window",
-					},
-					"tableWin": map[string]any{
-						"key":      "tableWin",
-						"type":     "mosaic",
-						"name":     "Table Window",
-						"location": "window",
-					},
-				},
-			},
-		})
+			})
 
-		openPanelTable(ctx, db)
-		panels := collectPanels(ctx, db)
-		Expect(panels).To(HaveLen(2))
-
-		main := findPanel(panels, "Main")
-		zeroTabKeys(&main.Root)
-		Expect(main.Root).To(Equal(v0.Node{Variant: v0.NodeSplit{Split: v0.Split{
-			Direction: spatial.DirectionX,
-			Size:      0.25,
-			First: v0.Node{Variant: v0.NodeSplit{Split: v0.Split{
-				Direction: spatial.DirectionY,
-				Size:      0.5,
-				First:     *leaf(resourceTab(ontology.ResourceTypeLineplot, lpKey)),
-				Last:      *leaf(resourceTab(ontology.ResourceTypeSchematic, scKey)),
-			}}},
-			Last: *leaf(resourceTab(ontology.ResourceTypeLog, logKey)),
-		}}}))
-
-		tableWin := findPanel(panels, "Table Window")
-		zeroTabKeys(&tableWin.Root)
-		Expect(tableWin.Root).To(Equal(
-			*leaf(resourceTab(ontology.ResourceTypeTable, tblKey)),
-		))
-
-		By("Defining an ontology resource and parent relationship for each panel")
-		for _, p := range panels {
-			panelID := v0.Panel{Key: p.Key}.OntologyID()
-			Expect(MustSucceed(gorp.NewRetrieve[string, ontology.Resource]().
-				Where(gorp.MatchKeys[string, ontology.Resource](panelID.String())).
-				Exists(ctx, db))).To(BeTrue())
-			Expect(hasRel(ctx, db, rel(project.Project{Key: projectKey}.OntologyID(), panelID))).
-				To(BeTrue())
-		}
-
-		By("Deleting the staging entry once it has been consumed")
-		Expect(db.Get(ctx, []byte(project.LegacyLayoutKVPrefix+projectKey.String()))).Error().
-			To(MatchError(query.ErrNotFound))
-	})
-
-	It("Should collapse splits whose sides lose all of their tabs", func(ctx SpecContext) {
-		db := DeferClose(gorp.Wrap(memkv.New()))
-		lpKey, staleKey := uuid.NewString(), uuid.NewString()
-		seedResources(ctx, db, ontology.ID{
-			Type: ontology.ResourceTypeLineplot, Key: lpKey,
-		})
-		stageLayout(ctx, db, project.Project{
-			Key:  uuid.New(),
-			Name: "Ops",
-			Layout: msgpack.EncodedJSON{
-				"mosaics": map[string]any{
-					"main": map[string]any{
-						"root": map[string]any{
-							"key":       1,
-							"direction": "x",
-							"size":      0.7,
-							"first": map[string]any{
-								"key":  2,
-								"tabs": []any{mosaicTab(lpKey)},
-							},
-							"last": map[string]any{
-								"key":  3,
-								"tabs": []any{mosaicTab(staleKey)},
-							},
-						},
-					},
-				},
-				"layouts": map[string]any{
-					lpKey:    vizLayout(lpKey, "lineplot"),
-					staleKey: vizLayout(staleKey, "lineplot"),
-				},
-			},
-		})
-
-		openPanelTable(ctx, db)
-		panels := collectPanels(ctx, db)
-		Expect(panels).To(HaveLen(1))
-		// No "main" layout entry was seeded, so the panel name falls back to the
-		// window key.
-		Expect(panels[0].Name).To(Equal("main"))
-		root := panels[0].Root
-		zeroTabKeys(&root)
-		Expect(root).To(Equal(*leaf(resourceTab(ontology.ResourceTypeLineplot, lpKey))))
-	})
+			openPanelTable(ctx, db)
+			panels := collectPanels(ctx, db)
+			Expect(panels).To(HaveLen(1))
+			// No "main" layout entry was seeded, so the panel name falls back to the
+			// window key.
+			Expect(panels[0].Name).To(Equal("main"))
+			root := panels[0].Root
+			zeroTabKeys(&root)
+			Expect(
+				root,
+			).To(Equal(*leaf(resourceTab(ontology.ResourceTypeLineplot, lpKey))))
+		},
+	)
 
 	It("Should skip corrupt or unmigratable staged layouts", func(ctx SpecContext) {
 		db := DeferClose(gorp.Wrap(memkv.New()))
@@ -362,117 +381,123 @@ var _ = Describe("Project layout to panel migration", func() {
 		Expect(collectPanels(ctx, db)).To(BeEmpty())
 	})
 
-	It("Should convert staged task layout tabs into resource tabs", func(ctx SpecContext) {
-		db := DeferClose(gorp.Wrap(memkv.New()))
-		legacy := "4294967395"
-		taskKey := uuid.New()
-		stageTaskKey(ctx, db, legacy, taskKey)
-		stageLayout(ctx, db, project.Project{
-			Key:  uuid.New(),
-			Name: "Ops",
-			Layout: msgpack.EncodedJSON{
-				"mosaics": map[string]any{
-					"main": map[string]any{
-						"root": map[string]any{
-							"key": 1,
-							"tabs": []any{
-								mosaicTab(legacy),
-								// Inline app view: not a task, dropped.
-								mosaicTab("docs"),
+	It(
+		"Should convert staged task layout tabs into resource tabs",
+		func(ctx SpecContext) {
+			db := DeferClose(gorp.Wrap(memkv.New()))
+			legacy := "4294967395"
+			taskKey := uuid.New()
+			stageTaskKey(ctx, db, legacy, taskKey)
+			stageLayout(ctx, db, project.Project{
+				Key:  uuid.New(),
+				Name: "Ops",
+				Layout: msgpack.EncodedJSON{
+					"mosaics": map[string]any{
+						"main": map[string]any{
+							"root": map[string]any{
+								"key": 1,
+								"tabs": []any{
+									mosaicTab(legacy),
+									// Inline app view: not a task, dropped.
+									mosaicTab("docs"),
+								},
 							},
 						},
 					},
-				},
-				"layouts": map[string]any{
-					legacy: vizLayout(legacy, "ni_analog_read"),
-					"docs": map[string]any{
-						"key":      "docs",
-						"type":     "docs",
-						"name":     "Documentation",
-						"location": "mosaic",
+					"layouts": map[string]any{
+						legacy: vizLayout(legacy, "ni_analog_read"),
+						"docs": map[string]any{
+							"key":      "docs",
+							"type":     "docs",
+							"name":     "Documentation",
+							"location": "mosaic",
+						},
 					},
 				},
-			},
-		})
+			})
 
-		openPanelTable(ctx, db)
-		panels := collectPanels(ctx, db)
-		Expect(panels).To(HaveLen(1))
-		lf, ok := panels[0].Root.Variant.(v0.NodeLeaf)
-		Expect(ok).To(BeTrue())
-		Expect(lf.Tabs).To(HaveLen(1))
-		rt, ok := lf.Tabs[0].Variant.(v0.TabResource)
-		Expect(ok).To(BeTrue())
-		Expect(rt.Key).ToNot(Equal(uuid.Nil))
-		Expect(rt.Resource).To(Equal(ontology.ID{
-			Type: ontology.ResourceTypeTask,
-			Key:  taskKey.String(),
-		}))
+			openPanelTable(ctx, db)
+			panels := collectPanels(ctx, db)
+			Expect(panels).To(HaveLen(1))
+			lf, ok := panels[0].Root.Variant.(v0.NodeLeaf)
+			Expect(ok).To(BeTrue())
+			Expect(lf.Tabs).To(HaveLen(1))
+			rt, ok := lf.Tabs[0].Variant.(v0.TabResource)
+			Expect(ok).To(BeTrue())
+			Expect(rt.Key).ToNot(Equal(uuid.Nil))
+			Expect(rt.Resource).To(Equal(ontology.ID{
+				Type: ontology.ResourceTypeTask,
+				Key:  taskKey.String(),
+			}))
 
-		By("Draining the staging entry")
-		Expect(db.Get(ctx, []byte(task.LegacyKeyKVPrefix+legacy))).Error().
-			To(MatchError(query.ErrNotFound))
-	})
+			By("Draining the staging entry")
+			Expect(db.Get(ctx, []byte(task.LegacyKeyKVPrefix+legacy))).Error().
+				To(MatchError(query.ErrNotFound))
+		},
+	)
 
-	It("Should convert legacy-keyed task view tabs into resource tabs", func(ctx SpecContext) {
-		db := DeferClose(gorp.Wrap(memkv.New()))
-		legacy := "4294967395"
-		taskKey := uuid.New()
-		viewTab := func(viewType string, args msgpack.EncodedJSON) v0.Tab {
-			return v0.Tab{Variant: v0.TabView{
-				TabBase: v0.TabBase{Key: uuid.New()},
-				View:    v0.View{Type: viewType, Args: args},
-			}}
-		}
-		preTable := openPreTaskKeyTable(ctx, db)
-		p := v0.Panel{
-			Key:  uuid.New(),
-			Name: "Ops",
-			Root: v0.Node{Variant: v0.NodeSplit{Split: v0.Split{
-				Direction: spatial.DirectionX,
-				Size:      0.5,
-				First: *leaf(viewTab(
-					"ni_analog_read",
-					msgpack.EncodedJSON{"taskKey": legacy},
-				)),
-				Last: *leaf(
-					viewTab("docs", nil),
-					viewTab("opc_read", msgpack.EncodedJSON{"taskKey": "12345"}),
-				),
-			}}},
-		}
-		Expect(preTable.NewCreate().Entry(&p).Exec(ctx, db)).To(Succeed())
-		stageTaskKey(ctx, db, legacy, taskKey)
+	It(
+		"Should convert legacy-keyed task view tabs into resource tabs",
+		func(ctx SpecContext) {
+			db := DeferClose(gorp.Wrap(memkv.New()))
+			legacy := "4294967395"
+			taskKey := uuid.New()
+			viewTab := func(viewType string, args msgpack.EncodedJSON) v0.Tab {
+				return v0.Tab{Variant: v0.TabView{
+					TabBase: v0.TabBase{Key: uuid.New()},
+					View:    v0.View{Type: viewType, Args: args},
+				}}
+			}
+			preTable := openPreTaskKeyTable(ctx, db)
+			p := v0.Panel{
+				Key:  uuid.New(),
+				Name: "Ops",
+				Root: v0.Node{Variant: v0.NodeSplit{Split: v0.Split{
+					Direction: spatial.DirectionX,
+					Size:      0.5,
+					First: *leaf(viewTab(
+						"ni_analog_read",
+						msgpack.EncodedJSON{"taskKey": legacy},
+					)),
+					Last: *leaf(
+						viewTab("docs", nil),
+						viewTab("opc_read", msgpack.EncodedJSON{"taskKey": "12345"}),
+					),
+				}}},
+			}
+			Expect(preTable.NewCreate().Entry(&p).Exec(ctx, db)).To(Succeed())
+			stageTaskKey(ctx, db, legacy, taskKey)
 
-		openPanelTable(ctx, db)
-		var got v0.Panel
-		Expect(gorp.NewRetrieve[v0.Key, v0.Panel]().
-			Where(gorp.MatchKeys[v0.Key, v0.Panel](p.Key)).
-			Entry(&got).
-			Exec(ctx, db)).To(Succeed())
-		split, ok := got.Root.Variant.(v0.NodeSplit)
-		Expect(ok).To(BeTrue())
-		first, ok := split.First.Variant.(v0.NodeLeaf)
-		Expect(ok).To(BeTrue())
-		converted, ok := first.Tabs[0].Variant.(v0.TabResource)
-		Expect(ok).To(BeTrue())
-		Expect(converted.Resource).To(Equal(ontology.ID{
-			Type: ontology.ResourceTypeTask,
-			Key:  taskKey.String(),
-		}))
+			openPanelTable(ctx, db)
+			var got v0.Panel
+			Expect(gorp.NewRetrieve[v0.Key, v0.Panel]().
+				Where(gorp.MatchKeys[v0.Key, v0.Panel](p.Key)).
+				Entry(&got).
+				Exec(ctx, db)).To(Succeed())
+			split, ok := got.Root.Variant.(v0.NodeSplit)
+			Expect(ok).To(BeTrue())
+			first, ok := split.First.Variant.(v0.NodeLeaf)
+			Expect(ok).To(BeTrue())
+			converted, ok := first.Tabs[0].Variant.(v0.TabResource)
+			Expect(ok).To(BeTrue())
+			Expect(converted.Resource).To(Equal(ontology.ID{
+				Type: ontology.ResourceTypeTask,
+				Key:  taskKey.String(),
+			}))
 
-		By("Leaving view tabs without staged task keys untouched")
-		last, ok := split.Last.Variant.(v0.NodeLeaf)
-		Expect(ok).To(BeTrue())
-		docs, ok := last.Tabs[0].Variant.(v0.TabView)
-		Expect(ok).To(BeTrue())
-		Expect(docs.Args).To(BeNil())
-		other, ok := last.Tabs[1].Variant.(v0.TabView)
-		Expect(ok).To(BeTrue())
-		Expect(other.Args).To(Equal(msgpack.EncodedJSON{"taskKey": "12345"}))
+			By("Leaving view tabs without staged task keys untouched")
+			last, ok := split.Last.Variant.(v0.NodeLeaf)
+			Expect(ok).To(BeTrue())
+			docs, ok := last.Tabs[0].Variant.(v0.TabView)
+			Expect(ok).To(BeTrue())
+			Expect(docs.Args).To(BeNil())
+			other, ok := last.Tabs[1].Variant.(v0.TabView)
+			Expect(ok).To(BeTrue())
+			Expect(other.Args).To(Equal(msgpack.EncodedJSON{"taskKey": "12345"}))
 
-		By("Draining the staging entry")
-		Expect(db.Get(ctx, []byte(task.LegacyKeyKVPrefix+legacy))).Error().
-			To(MatchError(query.ErrNotFound))
-	})
+			By("Draining the staging entry")
+			Expect(db.Get(ctx, []byte(task.LegacyKeyKVPrefix+legacy))).Error().
+				To(MatchError(query.ErrNotFound))
+		},
+	)
 })

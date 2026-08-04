@@ -121,7 +121,8 @@ func (g PersistenceGate) Run(_ context.Context, p *pipeline.Result, _ Env) GateR
 // schemaPathFor best-effort maps a namespace to its schema file path.
 func schemaPathFor(p *pipeline.Result, namespace string) string {
 	for _, rel := range p.Schemas {
-		if strings.HasSuffix(rel, "/"+namespace+".oracle") || rel == namespace+".oracle" {
+		if strings.HasSuffix(rel, "/"+namespace+".oracle") ||
+			rel == namespace+".oracle" {
 			return rel
 		}
 	}

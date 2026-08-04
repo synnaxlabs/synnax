@@ -26,7 +26,8 @@ func makeTyped(kind types.Kind, unitName string) types.Type {
 
 var _ = Describe("Magnitude Safety", func() {
 	Describe("Additive Scale Safety (via ValidateBinaryOp)", func() {
-		DescribeTable("should warn for large magnitude differences",
+		DescribeTable(
+			"should warn for large magnitude differences",
 			func(leftUnit, rightUnit string, kind types.Kind, expectedMagnitude string) {
 				ctx := testCtx()
 				left, right := makeTyped(kind, leftUnit), makeTyped(kind, rightUnit)
@@ -37,7 +38,13 @@ var _ = Describe("Magnitude Safety", func() {
 				Expect(warnings[0].Message).To(ContainSubstring("orders of magnitude"))
 			},
 			Entry("K and pK (12 orders)", "K", "pK", types.KindF64, "12"),
-			Entry("f32 m and nm (9 orders, lower threshold)", "m", "nm", types.KindF32, "orders of magnitude"),
+			Entry(
+				"f32 m and nm (9 orders, lower threshold)",
+				"m",
+				"nm",
+				types.KindF32,
+				"orders of magnitude",
+			),
 		)
 
 		// Special case: K and fK may report 14 or 15 due to floating point
@@ -79,14 +86,18 @@ var _ = Describe("Magnitude Safety", func() {
 
 		It("should error (not warn) when dimensions don't match", func() {
 			ctx := testCtx()
-			Expect(units.ValidateBinaryOp(ctx, "+", makeType("m"), makeType("s"))).To(BeFalse())
+			Expect(
+				units.ValidateBinaryOp(ctx, "+", makeType("m"), makeType("s")),
+			).To(BeFalse())
 			Expect(ctx.Diagnostics.Errors()).To(HaveLen(1))
 			Expect(ctx.Diagnostics.Warnings()).To(BeEmpty())
 		})
 
 		It("should not check magnitude for non-additive operations", func() {
 			ctx := testCtx()
-			Expect(units.ValidateBinaryOp(ctx, "*", makeType("K"), makeType("pK"))).To(BeTrue())
+			Expect(
+				units.ValidateBinaryOp(ctx, "*", makeType("K"), makeType("pK")),
+			).To(BeTrue())
 			Expect(ctx.Diagnostics.Warnings()).To(BeEmpty())
 		})
 	})
@@ -120,7 +131,8 @@ var _ = Describe("Magnitude Safety", func() {
 			Entry("K to i16 pK", "K", types.KindI16, "pK"),
 		)
 
-		DescribeTable("should not warn for safe assignments",
+		DescribeTable(
+			"should not warn for safe assignments",
 			func(srcKind types.Kind, srcUnit string, dstKind types.Kind, dstUnit string) {
 				ctx := testCtx()
 				src := makeTyped(srcKind, srcUnit)
@@ -129,7 +141,13 @@ var _ = Describe("Magnitude Safety", func() {
 				Expect(ctx.Diagnostics.Warnings()).To(BeEmpty())
 			},
 			Entry("km to i32 m (scale up)", types.KindF64, "km", types.KindI32, "m"),
-			Entry("K to f64 pK (float target)", types.KindF64, "K", types.KindF64, "pK"),
+			Entry(
+				"K to f64 pK (float target)",
+				types.KindF64,
+				"K",
+				types.KindF64,
+				"pK",
+			),
 			Entry("same unit", types.KindI32, "K", types.KindI32, "K"),
 			Entry("src nil", types.KindI32, "", types.KindI32, "K"),
 			Entry("dst nil", types.KindI32, "K", types.KindI32, ""),
@@ -151,7 +169,9 @@ var _ = Describe("Magnitude Safety", func() {
 			largeVal := 1e7
 			units.CheckAssignmentScaleSafety(ctx2, src, dst, &largeVal)
 			Expect(ctx2.Diagnostics.Warnings()).To(HaveLen(1))
-			Expect(ctx2.Diagnostics.Warnings()[0].Message).To(ContainSubstring("overflows"))
+			Expect(
+				ctx2.Diagnostics.Warnings()[0].Message,
+			).To(ContainSubstring("overflows"))
 		})
 	})
 })

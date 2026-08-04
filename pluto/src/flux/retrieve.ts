@@ -15,9 +15,16 @@ import {
   type Synnax as Client,
 } from "@synnaxlabs/client";
 import { type destructor, state, TimeSpan } from "@synnaxlabs/x";
-import { use, useCallback, useRef, useState, useSyncExternalStore } from "react";
+import {
+  use,
+  useCallback,
+  useMemo,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from "react";
 
-import { DeletedError } from "@/flux/errors";
+import { DeletedError, type Tombstone, tombstoneOf } from "@/flux/errors";
 import {
   errorResult,
   loadingResult,
@@ -202,6 +209,15 @@ export interface UseInvalidate<Query extends query.Params> {
   (): (query: Query) => void;
 }
 
+/// A hook reading a deletion as a value instead of throwing it: the corpse
+/// while the record is deleted, null while it is present, re-rendering when
+/// that flips. Reach for it only where rendering absence is the caller's job,
+/// so a restore heals the surface without an error boundary to reset. Every
+/// other read should suspend and throw.
+export interface UseTombstone<Query extends query.Params> {
+  (query: Query): Tombstone | null;
+}
+
 export interface CreateRetrieveReturn<
   Query extends query.Params,
   Data extends state.State,
@@ -213,6 +229,7 @@ export interface CreateRetrieveReturn<
   useRetrieveSuspended: UseSuspendedRetrieve<Query, Data>;
   useEnsureRetrieved: UseEnsureRetrieved<Query>;
   useInvalidate: UseInvalidate<Query>;
+  useTombstone: UseTombstone<Query>;
 }
 
 const initialResult = <Data extends state.State>(name: string): Result<Data> =>
@@ -638,6 +655,36 @@ const useInvalidate = <Query extends query.Params, Data extends query.Data>(
   );
 };
 
+interface UseTombstoneParams<Query extends query.Params> {
+  query: Query;
+}
+
+const useTombstone = <Query extends query.Params, Data extends query.Data>({
+  query,
+  subscribe,
+  getCached,
+}: UseTombstoneParams<Query> & CreateRetrieveParams<Query, Data>): Tombstone | null => {
+  const memoQuery = useMemoDeepEqual(query);
+  const client = Synnax.use();
+  const cached = useSyncExternalStore(
+    useCallback(
+      (notify) => {
+        if (subscribe == null || client == null) return NOOP_SUBSCRIBE();
+        return subscribe({ client, query: memoQuery }, () => notify());
+      },
+      [client, memoQuery],
+    ),
+    useCallback(
+      () => (client == null ? undefined : getCached?.({ client, query: memoQuery })),
+      [client, memoQuery],
+    ),
+  );
+  return useMemo(
+    () => (Deleted.matches<Data>(cached) ? tombstoneOf(cached.corpse) : null),
+    [cached],
+  );
+};
+
 export const createRetrieve = <Query extends query.Params, Data extends query.Data>(
   createParams: CreateRetrieveParams<Query, Data>,
 ): CreateRetrieveReturn<Query, Data> => {
@@ -656,5 +703,6 @@ export const createRetrieve = <Query extends query.Params, Data extends query.Da
       useSuspended({ ...createParams, query, locals }),
     useEnsureRetrieved: (query: Query) => useEnsure({ ...createParams, query, locals }),
     useInvalidate: () => useInvalidate<Query, Data>(locals),
+    useTombstone: (query: Query) => useTombstone({ ...createParams, query }),
   };
 };

@@ -51,58 +51,64 @@ var _ = Describe("Migration", func() {
 		return got
 	}
 
-	It("Should lift an untyped v0 symbol into the typed Symbol on retrieve", func(ctx SpecContext) {
-		db := DeferClose(gorp.Wrap(memkv.New()))
-		seed := seedV0(ctx, db, v0.Symbol{
-			Key:  uuid.New(),
-			Name: "pump",
-			Data: map[string]any{
-				"svg":          "<svg>x</svg>",
-				"variant":      "valve",
-				"scale":        2.0,
-				"scale_stroke": true,
-				"states": []any{
-					map[string]any{"key": "on", "name": "On", "regions": []any{
-						map[string]any{
-							"key":          "body",
-							"name":         "Body",
-							"stroke_color": "#ffffff",
-							"selectors":    []any{".body"},
-						},
-					}},
+	It(
+		"Should lift an untyped v0 symbol into the typed Symbol on retrieve",
+		func(ctx SpecContext) {
+			db := DeferClose(gorp.Wrap(memkv.New()))
+			seed := seedV0(ctx, db, v0.Symbol{
+				Key:  uuid.New(),
+				Name: "pump",
+				Data: map[string]any{
+					"svg":          "<svg>x</svg>",
+					"variant":      "valve",
+					"scale":        2.0,
+					"scale_stroke": true,
+					"states": []any{
+						map[string]any{"key": "on", "name": "On", "regions": []any{
+							map[string]any{
+								"key":          "body",
+								"name":         "Body",
+								"stroke_color": "#ffffff",
+								"selectors":    []any{".body"},
+							},
+						}},
+					},
 				},
-			},
-		})
+			})
 
-		got := retrieve(ctx, db, openMigrated(ctx, db), seed.Key)
+			got := retrieve(ctx, db, openMigrated(ctx, db), seed.Key)
 
-		Expect(got.Key).To(Equal(seed.Key))
-		Expect(got.Name).To(Equal("pump"))
-		Expect(got.Version).To(Equal(uint32(1)))
-		Expect(got.Data.SVG).To(Equal("<svg>x</svg>"))
-		Expect(got.Data.Variant).To(Equal("valve"))
-		Expect(got.Data.Scale).To(Equal(2.0))
-		Expect(got.Data.ScaleStroke).To(BeTrue())
-		Expect(got.Data.States).To(HaveLen(1))
-		Expect(got.Data.States[0].Key).To(Equal("on"))
-		Expect(got.Data.States[0].Regions).To(HaveLen(1))
-		region := got.Data.States[0].Regions[0]
-		Expect(region.Key).To(Equal("body"))
-		Expect(region.StrokeColor).To(HaveValue(Equal("#ffffff")))
-		Expect(region.Selectors).To(ConsistOf(".body"))
-	})
+			Expect(got.Key).To(Equal(seed.Key))
+			Expect(got.Name).To(Equal("pump"))
+			Expect(got.Version).To(Equal(uint32(1)))
+			Expect(got.Data.SVG).To(Equal("<svg>x</svg>"))
+			Expect(got.Data.Variant).To(Equal("valve"))
+			Expect(got.Data.Scale).To(Equal(2.0))
+			Expect(got.Data.ScaleStroke).To(BeTrue())
+			Expect(got.Data.States).To(HaveLen(1))
+			Expect(got.Data.States[0].Key).To(Equal("on"))
+			Expect(got.Data.States[0].Regions).To(HaveLen(1))
+			region := got.Data.States[0].Regions[0]
+			Expect(region.Key).To(Equal("body"))
+			Expect(region.StrokeColor).To(HaveValue(Equal("#ffffff")))
+			Expect(region.Selectors).To(ConsistOf(".body"))
+		},
+	)
 
-	It("Should default the scale and stamp the version when unset in v0 data", func(ctx SpecContext) {
-		db := DeferClose(gorp.Wrap(memkv.New()))
-		seed := seedV0(ctx, db, v0.Symbol{
-			Key:  uuid.New(),
-			Name: "bare",
-			Data: map[string]any{"svg": "<svg/>", "variant": "sensor"},
-		})
+	It(
+		"Should default the scale and stamp the version when unset in v0 data",
+		func(ctx SpecContext) {
+			db := DeferClose(gorp.Wrap(memkv.New()))
+			seed := seedV0(ctx, db, v0.Symbol{
+				Key:  uuid.New(),
+				Name: "bare",
+				Data: map[string]any{"svg": "<svg/>", "variant": "sensor"},
+			})
 
-		got := retrieve(ctx, db, openMigrated(ctx, db), seed.Key)
+			got := retrieve(ctx, db, openMigrated(ctx, db), seed.Key)
 
-		Expect(got.Version).To(Equal(uint32(1)))
-		Expect(got.Data.Scale).To(Equal(1.0))
-	})
+			Expect(got.Version).To(Equal(uint32(1)))
+			Expect(got.Data.Scale).To(Equal(1.0))
+		},
+	)
 })

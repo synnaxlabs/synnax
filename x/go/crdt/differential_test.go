@@ -119,8 +119,13 @@ var _ = Describe("Differential against the per-character reference", func() {
 					for j := range runes {
 						runes[j] = rune(alphabet[rng.Intn(len(alphabet))])
 					}
-					roundOps = append(roundOps,
-						recorded{owner: i, inserts: pr.insert(rng.Intn(n+1), string(runes))})
+					roundOps = append(
+						roundOps,
+						recorded{
+							owner:   i,
+							inserts: pr.insert(rng.Intn(n+1), string(runes)),
+						},
+					)
 				}
 				log = append(log, roundOps...)
 				for i, pr := range pairs {

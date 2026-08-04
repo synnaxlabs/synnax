@@ -162,7 +162,12 @@ func (s *Graph) hydrate(ctx context.Context, tx gorp.Tx) error {
 		for i, ch := range channels {
 			nd, err := s.inspectNode(ctx, tx, ch, analyzer)
 			if err != nil {
-				statuses[ch.Key()] = calculation.StatusFromError(ch.Key(), ch.Name, fmt.Sprintf("invalid expression for %s", ch.Name), err)
+				statuses[ch.Key()] = calculation.StatusFromError(
+					ch.Key(),
+					ch.Name,
+					fmt.Sprintf("invalid expression for %s", ch.Name),
+					err,
+				)
 				invalidCount++
 				s.L.Debug("channel expression invalid",
 					zap.Stringer("channel", ch.Key()),
@@ -214,7 +219,10 @@ func (s *Graph) hydrate(ctx context.Context, tx gorp.Tx) error {
 	s.mu.unresolvedByName = nextUnresolved
 	s.mu.Unlock()
 	if len(repairs) > 0 {
-		s.L.Info("persisting DataType repairs from hydration", zap.Int("count", len(repairs)))
+		s.L.Info(
+			"persisting DataType repairs from hydration",
+			zap.Int("count", len(repairs)),
+		)
 		w := s.svc.NewWriter(tx)
 		for _, ch := range repairs {
 			if err := w.ChangeDataType(ctx, ch.Key(), ch.DataType); err != nil {
@@ -231,7 +239,10 @@ func (s *Graph) hydrate(ctx context.Context, tx gorp.Tx) error {
 	return nil
 }
 
-func (s *Graph) handleChanges(ctx context.Context, reader gorp.TxReader[channel.Key, channel.Channel]) {
+func (s *Graph) handleChanges(
+	ctx context.Context,
+	reader gorp.TxReader[channel.Key, channel.Channel],
+) {
 	s.mu.Lock()
 	analyzer := s.newAnalyzer(nil)
 	queued := make(set.Set[channel.Key])
@@ -258,7 +269,15 @@ func (s *Graph) handleChanges(ctx context.Context, reader gorp.TxReader[channel.
 					zap.String("name", ch.Name),
 					zap.Error(err),
 				)
-				s.setNodeStatus(ctx, calculation.StatusFromError(ch.Key(), ch.Name, fmt.Sprintf("invalid expression for %s", ch.Name), err))
+				s.setNodeStatus(
+					ctx,
+					calculation.StatusFromError(
+						ch.Key(),
+						ch.Name,
+						fmt.Sprintf("invalid expression for %s", ch.Name),
+						err,
+					),
+				)
 			} else {
 				s.L.Debug("calculated channel inspected",
 					zap.Stringer("channel", ch.Key()),
@@ -282,7 +301,9 @@ func (s *Graph) handleChanges(ctx context.Context, reader gorp.TxReader[channel.
 		s.enqueueDependents(ch.Key(), queued)
 		unresolvedNames = append(unresolvedNames, ch.Name)
 	}
-	updates = append(updates, s.reconcileQueued(ctx, nil, queued, unresolvedNames, analyzer)...)
+	updates = append(
+		updates,
+		s.reconcileQueued(ctx, nil, queued, unresolvedNames, analyzer)...)
 	s.mu.Unlock()
 	if len(updates) > 0 {
 		s.L.Info("updating channel data types", zap.Int("count", len(updates)))
@@ -367,7 +388,10 @@ func (s *Graph) reconcileQueued(
 				continue
 			}
 			refetched := nd.Channel
-			if err := s.svc.NewRetrieve().Where(channel.MatchKeys(key)).Entry(&refetched).Exec(ctx, tx); err != nil {
+			if err := s.svc.NewRetrieve().
+				Where(channel.MatchKeys(key)).
+				Entry(&refetched).
+				Exec(ctx, tx); err != nil {
 				s.L.Warn("failed to refetch channel during reconciliation",
 					zap.Stringer("channel", key),
 					zap.Error(err),
@@ -384,13 +408,22 @@ func (s *Graph) reconcileQueued(
 					zap.String("name", refetched.Name),
 					zap.Error(err),
 				)
-				s.setNodeStatus(ctx, calculation.StatusFromError(key, refetched.Name, fmt.Sprintf("invalid expression for %s", refetched.Name), err))
+				s.setNodeStatus(
+					ctx,
+					calculation.StatusFromError(
+						key,
+						refetched.Name,
+						fmt.Sprintf("invalid expression for %s", refetched.Name),
+						err,
+					),
+				)
 				continue
 			}
 			s.clearNodeStatus(ctx, key)
 			if oldInvalid || oldType != newNode.DataType {
 				if oldType != newNode.DataType {
-					s.L.Debug("dependent channel DataType changed during reconciliation",
+					s.L.Debug(
+						"dependent channel DataType changed during reconciliation",
 						zap.Stringer("channel", key),
 						zap.String("name", refetched.Name),
 						zap.String("old", string(oldType)),

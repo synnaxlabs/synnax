@@ -38,17 +38,20 @@ var _ = Describe("Transport", func() {
 		client = net.New(gateway)
 	})
 
-	It("Should round-trip a request through the unary transport", func(ctx SpecContext) {
-		var received channel.Keys
-		server.Server().BindHandler(
-			func(_ context.Context, req distdeleter.Request) (types.Nil, error) {
-				received = req.Keys
-				return types.Nil{}, nil
-			},
-		)
-		Expect(client.Client().Send(ctx, leaseholder, distdeleter.Request{
-			Keys: channel.Keys{4, 5},
-		})).To(Equal(types.Nil{}))
-		Expect(received).To(Equal(channel.Keys{4, 5}))
-	})
+	It(
+		"Should round-trip a request through the unary transport",
+		func(ctx SpecContext) {
+			var received channel.Keys
+			server.Server().BindHandler(
+				func(_ context.Context, req distdeleter.Request) (types.Nil, error) {
+					received = req.Keys
+					return types.Nil{}, nil
+				},
+			)
+			Expect(client.Client().Send(ctx, leaseholder, distdeleter.Request{
+				Keys: channel.Keys{4, 5},
+			})).To(Equal(types.Nil{}))
+			Expect(received).To(Equal(channel.Keys{4, 5}))
+		},
+	)
 })

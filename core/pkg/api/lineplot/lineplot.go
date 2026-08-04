@@ -45,7 +45,7 @@ func NewService(cfgs ...config.LayerConfig) (*Service, error) {
 
 type CreateRequest struct {
 	LinePlots []lineplot.LinePlot `json:"line_plots" msgpack:"line_plots"`
-	Project   project.Key         `json:"project" msgpack:"project"`
+	Project   project.Key         `json:"project"    msgpack:"project"`
 }
 
 type CreateResponse struct {
@@ -64,7 +64,8 @@ func (s *Service) Create(
 	}); err != nil {
 		return CreateResponse{}, err
 	}
-	if err := s.internal.NewWriter(tx).CreateMany(ctx, req.Project, &req.LinePlots); err != nil {
+	if err := s.internal.NewWriter(tx).
+		CreateMany(ctx, req.Project, &req.LinePlots); err != nil {
 		return CreateResponse{}, err
 	}
 	return CreateResponse{LinePlots: req.LinePlots}, nil
@@ -89,12 +90,13 @@ func (s *Service) Dispatch(
 	}); err != nil {
 		return types.Nil{}, err
 	}
-	return types.Nil{}, s.internal.NewWriter(tx).Dispatch(ctx, req.Key, req.DispatchKey, req.Actions)
+	return types.Nil{}, s.internal.NewWriter(tx).
+		Dispatch(ctx, req.Key, req.DispatchKey, req.Actions)
 }
 
 type (
 	RetrieveRequest struct {
-		Keys                []lineplot.Key `json:"keys" msgpack:"keys"`
+		Keys                []lineplot.Key `json:"keys"                   msgpack:"keys"`
 		IgnoreNotFoundError bool           `json:"ignore_not_found_error" msgpack:"ignore_not_found_error"`
 	}
 	RetrieveResponse struct {

@@ -119,8 +119,11 @@ func (retrieveRequestTranslator) Forward(
 	req task.RetrieveRequest,
 ) (*RetrieveRequest, error) {
 	return &RetrieveRequest{
-		Rack:          uint32(req.Rack),
-		Keys:          lo.Map(req.Keys, func(k task.Key, _ int) string { return k.String() }),
+		Rack: uint32(req.Rack),
+		Keys: lo.Map(
+			req.Keys,
+			func(k task.Key, _ int) string { return k.String() },
+		),
 		Names:         req.Names,
 		Types:         req.Types,
 		IncludeStatus: req.IncludeStatus,

@@ -28,10 +28,30 @@ var _ = Describe("Dashed names keep -> intact", func() {
 	root := func() *symbol.Symbol {
 		r := symbol.NewRoot(nil, stl.NewSymbols())
 		syms := []arc.Symbol{
-			{Name: "ox_pt_1", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 1},
-			{Name: "ox_pt_doubled", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 2},
-			{Name: "ox-pt-1", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 3},
-			{Name: "ox-pt-doubled", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 4},
+			{
+				Name: "ox_pt_1",
+				Kind: symbol.KindChannel,
+				Type: types.Chan(types.F32()),
+				ID:   1,
+			},
+			{
+				Name: "ox_pt_doubled",
+				Kind: symbol.KindChannel,
+				Type: types.Chan(types.F32()),
+				ID:   2,
+			},
+			{
+				Name: "ox-pt-1",
+				Kind: symbol.KindChannel,
+				Type: types.Chan(types.F32()),
+				ID:   3,
+			},
+			{
+				Name: "ox-pt-doubled",
+				Kind: symbol.KindChannel,
+				Type: types.Chan(types.F32()),
+				ID:   4,
+			},
 		}
 		for i := range syms {
 			r.Parent.AddChild(&syms[i])
@@ -41,8 +61,22 @@ var _ = Describe("Dashed names keep -> intact", func() {
 	It("resolves routing whether or not -> is spaced", func(ctx SpecContext) {
 		fn := "func calc(val f32) f32 { return val * 2 }\n"
 		opt := arc.WithAllowDashedNames(true)
-		MustSucceed(arc.CompileText(ctx, arc.Text{Raw: fn + "ox_pt_1 -> calc{} -> ox_pt_doubled"}, root(), opt))
-		MustSucceed(arc.CompileText(ctx, arc.Text{Raw: fn + "ox_pt_1->calc{}->ox_pt_doubled"}, root(), opt))
+		MustSucceed(
+			arc.CompileText(
+				ctx,
+				arc.Text{Raw: fn + "ox_pt_1 -> calc{} -> ox_pt_doubled"},
+				root(),
+				opt,
+			),
+		)
+		MustSucceed(
+			arc.CompileText(
+				ctx,
+				arc.Text{Raw: fn + "ox_pt_1->calc{}->ox_pt_doubled"},
+				root(),
+				opt,
+			),
+		)
 	})
 
 	It("resolves channel names containing dashes", func(ctx SpecContext) {
@@ -55,15 +89,18 @@ var _ = Describe("Dashed names keep -> intact", func() {
 		))
 	})
 
-	It("keeps spaced subtraction working alongside dashed names", func(ctx SpecContext) {
-		fn := "func calc(val f32) f32 { return val - 1.0 }\n"
-		MustSucceed(arc.CompileText(
-			ctx,
-			arc.Text{Raw: fn + "ox-pt-1 -> calc{} -> ox-pt-doubled"},
-			root(),
-			arc.WithAllowDashedNames(true),
-		))
-	})
+	It(
+		"keeps spaced subtraction working alongside dashed names",
+		func(ctx SpecContext) {
+			fn := "func calc(val f32) f32 { return val - 1.0 }\n"
+			MustSucceed(arc.CompileText(
+				ctx,
+				arc.Text{Raw: fn + "ox-pt-1 -> calc{} -> ox-pt-doubled"},
+				root(),
+				arc.WithAllowDashedNames(true),
+			))
+		},
+	)
 
 	It("keeps subtract-assign working alongside dashed names", func(ctx SpecContext) {
 		fn := "func calc(val f32) f32 {\n\tx f32 := val\n\tx -= 1.0\n\treturn x\n}\n"
@@ -244,12 +281,16 @@ ox_pt_1 -> calc{} -> ox_pt_doubled`,
 
 		Expect(mod.Edges).To(HaveLen(2))
 
-		edge1 := MustBeOk(mod.Edges.FindByTarget(ir.Handle{Node: calcNode.Key, Param: "val"}))
+		edge1 := MustBeOk(
+			mod.Edges.FindByTarget(ir.Handle{Node: calcNode.Key, Param: "val"}),
+		)
 		Expect(edge1.Source.Node).To(Equal(onNode.Key))
 		Expect(edge1.Source.Param).To(Equal("output"))
 		Expect(edge1.Kind).To(Equal(ir.EdgeKindContinuous))
 
-		edge2 := MustBeOk(mod.Edges.FindBySource(ir.Handle{Node: calcNode.Key, Param: "output"}))
+		edge2 := MustBeOk(
+			mod.Edges.FindBySource(ir.Handle{Node: calcNode.Key, Param: "output"}),
+		)
 		Expect(edge2.Target.Node).To(Equal(writeNode.Key))
 		Expect(edge2.Kind).To(Equal(ir.EdgeKindContinuous))
 
@@ -300,7 +341,9 @@ ox_pt_1 -> calc{} -> ox_pt_doubled`,
 		Expect(writeNode.Channels.Write).To(HaveKey(uint32(1)))
 
 		Expect(mod.Edges).To(HaveLen(1))
-		edge := MustBeOk(mod.Edges.FindByTarget(ir.Handle{Node: writeNode.Key, Param: "input"}))
+		edge := MustBeOk(
+			mod.Edges.FindByTarget(ir.Handle{Node: writeNode.Key, Param: "input"}),
+		)
 		Expect(edge.Source.Node).To(Equal(constNode.Key))
 		Expect(edge.Kind).To(Equal(ir.EdgeKindContinuous))
 
@@ -467,17 +510,35 @@ sequence main {
 		Expect(mod.Nodes[0].Type).To(Equal("wait"))
 	})
 
-	It("Should generate typed state imports for stateful variables", func(ctx SpecContext) {
-		// Regression test: stateful variables must produce typed WASM imports
-		// like "state::load_i64", not bare "state::load". This mirrors the
-		// exact program used in the C++ NodeTest.StatefulVariablesAreIsolatedBetweenNodeInstances.
-		channels := []arc.Symbol{
-			{Name: "trigger", Kind: symbol.KindChannel, Type: types.Chan(types.I64()), ID: 1},
-			{Name: "output_a", Kind: symbol.KindChannel, Type: types.Chan(types.I64()), ID: 2},
-			{Name: "output_b", Kind: symbol.KindChannel, Type: types.Chan(types.I64()), ID: 3},
-		}
+	It(
+		"Should generate typed state imports for stateful variables",
+		func(ctx SpecContext) {
+			// Regression test: stateful variables must produce typed WASM imports like
+			// "state::load_i64", not bare "state::load". This mirrors the exact program
+			// used in the C++
+			// NodeTest.StatefulVariablesAreIsolatedBetweenNodeInstances.
+			channels := []arc.Symbol{
+				{
+					Name: "trigger",
+					Kind: symbol.KindChannel,
+					Type: types.Chan(types.I64()),
+					ID:   1,
+				},
+				{
+					Name: "output_a",
+					Kind: symbol.KindChannel,
+					Type: types.Chan(types.I64()),
+					ID:   2,
+				},
+				{
+					Name: "output_b",
+					Kind: symbol.KindChannel,
+					Type: types.Chan(types.I64()),
+					ID:   3,
+				},
+			}
 
-		mod := compile(ctx, `
+			mod := compile(ctx, `
 func counter(trigger i64) i64 {
     count i64 $= 0
     count = count + 1
@@ -487,50 +548,62 @@ trigger -> counter{} -> output_a
 trigger -> counter{} -> output_b
 `, channels...)
 
-		Expect(mod.WASM).ToNot(BeEmpty())
+			Expect(mod.WASM).ToNot(BeEmpty())
 
-		imports := parseWASMImports(mod.WASM)
-		Expect(imports).ToNot(BeEmpty())
+			imports := parseWASMImports(mod.WASM)
+			Expect(imports).ToNot(BeEmpty())
 
-		for _, imp := range imports {
-			if imp.module == "stateful" {
-				// Every state import must have a type suffix (e.g., load_i64, store_i64)
-				Expect(imp.name).ToNot(Equal("load"),
-					"state::load should be state::load_i64 (missing type suffix)")
-				Expect(imp.name).ToNot(Equal("store"),
-					"state::store should be state::store_i64 (missing type suffix)")
-				Expect(
-					strings.HasPrefix(imp.name, "load_") || strings.HasPrefix(imp.name, "store_"),
-				).To(BeTrue(), "unexpected state import: %s", imp.name)
+			for _, imp := range imports {
+				if imp.module == "stateful" {
+					// Every state import must have a type suffix (e.g., load_i64,
+					// store_i64)
+					Expect(imp.name).ToNot(Equal("load"),
+						"state::load should be state::load_i64 (missing type suffix)")
+					Expect(imp.name).ToNot(Equal("store"),
+						"state::store should be state::store_i64 (missing type suffix)")
+					Expect(
+						strings.HasPrefix(imp.name, "load_") ||
+							strings.HasPrefix(imp.name, "store_"),
+					).To(BeTrue(), "unexpected state import: %s", imp.name)
+				}
 			}
-		}
-	})
+		},
+	)
 
-	It("Should return a compile error when () is used instead of {} in a flow", func(ctx SpecContext) {
-		root := symbol.NewRoot(nil, stl.NewSymbols())
-		some := symbol.Symbol{
-			Name: "some_ch",
-			Kind: symbol.KindChannel,
-			Type: types.Chan(types.I64()),
-			ID:   1,
-		}
-		root.Parent.AddChild(&some)
-		t := arc.Text{Raw: `
+	It(
+		"Should return a compile error when () is used instead of {} in a flow",
+		func(ctx SpecContext) {
+			root := symbol.NewRoot(nil, stl.NewSymbols())
+			some := symbol.Symbol{
+				Name: "some_ch",
+				Kind: symbol.KindChannel,
+				Type: types.Chan(types.I64()),
+				ID:   1,
+			}
+			root.Parent.AddChild(&some)
+			t := arc.Text{Raw: `
 some_ch -> check()
 
 func check() {
     a := 1
 }
 `}
-		Expect(arc.CompileText(ctx, t, root)).Error().To(SatisfyAll(
-			MatchError(ContainSubstring("functions in flow statements use {} not ()")),
-			MatchError(ContainSubstring("did you mean: check{}?")),
-		))
-	})
+			Expect(arc.CompileText(ctx, t, root)).Error().To(SatisfyAll(
+				MatchError(
+					ContainSubstring("functions in flow statements use {} not ()"),
+				),
+				MatchError(ContainSubstring("did you mean: check{}?")),
+			))
+		},
+	)
 
 	Describe("Stageless Sequences", func() {
-		It("Should compile a stageless sequence with two writes", func(ctx SpecContext) {
-			mod := compile(ctx, `
+		It(
+			"Should compile a stageless sequence with two writes",
+			func(ctx SpecContext) {
+				mod := compile(
+					ctx,
+					`
 start_cmd => main
 
 sequence main {
@@ -538,22 +611,42 @@ sequence main {
     1 -> valve_b
 }
 `,
-				symbol.Symbol{Name: "start_cmd", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 1},
-				symbol.Symbol{Name: "valve_a", Kind: symbol.KindChannel, Type: types.Chan(types.F64()), ID: 2},
-				symbol.Symbol{Name: "valve_b", Kind: symbol.KindChannel, Type: types.Chan(types.F64()), ID: 3},
-			)
+					symbol.Symbol{
+						Name: "start_cmd",
+						Kind: symbol.KindChannel,
+						Type: types.Chan(types.U8()),
+						ID:   1,
+					},
+					symbol.Symbol{
+						Name: "valve_a",
+						Kind: symbol.KindChannel,
+						Type: types.Chan(types.F64()),
+						ID:   2,
+					},
+					symbol.Symbol{
+						Name: "valve_b",
+						Kind: symbol.KindChannel,
+						Type: types.Chan(types.F64()),
+						ID:   3,
+					},
+				)
 
-			main := findTopLevelScope(mod, "main")
-			Expect(main.Mode).To(Equal(ir.ScopeModeSequential))
-			Expect(main.Steps).To(HaveLen(2))
-			Expect(isFlowMember(main.Steps[0])).To(BeTrue())
-			Expect(isFlowMember(main.Steps[1])).To(BeTrue())
-			// Auto-wired transitions connect the flow steps.
-			Expect(main.Transitions).ToNot(BeEmpty())
-		})
+				main := findTopLevelScope(mod, "main")
+				Expect(main.Mode).To(Equal(ir.ScopeModeSequential))
+				Expect(main.Steps).To(HaveLen(2))
+				Expect(isFlowMember(main.Steps[0])).To(BeTrue())
+				Expect(isFlowMember(main.Steps[1])).To(BeTrue())
+				// Auto-wired transitions connect the flow steps.
+				Expect(main.Transitions).ToNot(BeEmpty())
+			},
+		)
 
-		It("Should compile a stageless sequence with a function node", func(ctx SpecContext) {
-			mod := compile(ctx, `
+		It(
+			"Should compile a stageless sequence with a function node",
+			func(ctx SpecContext) {
+				mod := compile(
+					ctx,
+					`
 start_cmd => main
 
 sequence main {
@@ -562,19 +655,32 @@ sequence main {
     0 -> valve_cmd
 }
 `,
-				symbol.Symbol{Name: "start_cmd", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 1},
-				symbol.Symbol{Name: "valve_cmd", Kind: symbol.KindChannel, Type: types.Chan(types.F64()), ID: 2},
-			)
+					symbol.Symbol{
+						Name: "start_cmd",
+						Kind: symbol.KindChannel,
+						Type: types.Chan(types.U8()),
+						ID:   1,
+					},
+					symbol.Symbol{
+						Name: "valve_cmd",
+						Kind: symbol.KindChannel,
+						Type: types.Chan(types.F64()),
+						ID:   2,
+					},
+				)
 
-			main := findTopLevelScope(mod, "main")
-			Expect(main.Steps).To(HaveLen(3))
-			Expect(isFlowMember(main.Steps[0])).To(BeTrue())
-			Expect(isFlowMember(main.Steps[1])).To(BeTrue())
-			Expect(isFlowMember(main.Steps[2])).To(BeTrue())
-		})
+				main := findTopLevelScope(mod, "main")
+				Expect(main.Steps).To(HaveLen(3))
+				Expect(isFlowMember(main.Steps[0])).To(BeTrue())
+				Expect(isFlowMember(main.Steps[1])).To(BeTrue())
+				Expect(isFlowMember(main.Steps[2])).To(BeTrue())
+			},
+		)
 
 		It("Should compile a mixed stage and flow sequence", func(ctx SpecContext) {
-			mod := compile(ctx, `
+			mod := compile(
+				ctx,
+				`
 start_cmd => main
 
 sequence main {
@@ -586,10 +692,30 @@ sequence main {
     1 -> vent_cmd
 }
 `,
-				symbol.Symbol{Name: "start_cmd", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 1},
-				symbol.Symbol{Name: "press_cmd", Kind: symbol.KindChannel, Type: types.Chan(types.F64()), ID: 2},
-				symbol.Symbol{Name: "press_pt", Kind: symbol.KindChannel, Type: types.Chan(types.F64()), ID: 3},
-				symbol.Symbol{Name: "vent_cmd", Kind: symbol.KindChannel, Type: types.Chan(types.F64()), ID: 4},
+				symbol.Symbol{
+					Name: "start_cmd",
+					Kind: symbol.KindChannel,
+					Type: types.Chan(types.U8()),
+					ID:   1,
+				},
+				symbol.Symbol{
+					Name: "press_cmd",
+					Kind: symbol.KindChannel,
+					Type: types.Chan(types.F64()),
+					ID:   2,
+				},
+				symbol.Symbol{
+					Name: "press_pt",
+					Kind: symbol.KindChannel,
+					Type: types.Chan(types.F64()),
+					ID:   3,
+				},
+				symbol.Symbol{
+					Name: "vent_cmd",
+					Kind: symbol.KindChannel,
+					Type: types.Chan(types.F64()),
+					ID:   4,
+				},
 			)
 
 			main := findTopLevelScope(mod, "main")
@@ -603,8 +729,12 @@ sequence main {
 	})
 
 	Describe("Top-Level Stages", func() {
-		It("Should compile a top-level stage as a single-step sequence", func(ctx SpecContext) {
-			mod := compile(ctx, `
+		It(
+			"Should compile a top-level stage as a single-step sequence",
+			func(ctx SpecContext) {
+				mod := compile(
+					ctx,
+					`
 start_cmd => abort
 
 stage abort {
@@ -612,21 +742,41 @@ stage abort {
     1 -> vent_cmd
 }
 `,
-				symbol.Symbol{Name: "start_cmd", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 1},
-				symbol.Symbol{Name: "all_valves", Kind: symbol.KindChannel, Type: types.Chan(types.F64()), ID: 2},
-				symbol.Symbol{Name: "vent_cmd", Kind: symbol.KindChannel, Type: types.Chan(types.F64()), ID: 3},
-			)
+					symbol.Symbol{
+						Name: "start_cmd",
+						Kind: symbol.KindChannel,
+						Type: types.Chan(types.U8()),
+						ID:   1,
+					},
+					symbol.Symbol{
+						Name: "all_valves",
+						Kind: symbol.KindChannel,
+						Type: types.Chan(types.F64()),
+						ID:   2,
+					},
+					symbol.Symbol{
+						Name: "vent_cmd",
+						Kind: symbol.KindChannel,
+						Type: types.Chan(types.F64()),
+						ID:   3,
+					},
+				)
 
-			abort := findTopLevelScope(mod, "abort")
-			// Top-level stages are now parallel scopes directly under root,
-			// not wrapped in a single-step sequence.
-			Expect(abort.Mode).To(Equal(ir.ScopeModeParallel))
-			Expect(abort.Key).To(Equal("abort"))
-			Expect(scopeNodeRefs(abort)).ToNot(BeEmpty())
-		})
+				abort := findTopLevelScope(mod, "abort")
+				// Top-level stages are now parallel scopes directly under root,
+				// not wrapped in a single-step sequence.
+				Expect(abort.Mode).To(Equal(ir.ScopeModeParallel))
+				Expect(abort.Key).To(Equal("abort"))
+				Expect(scopeNodeRefs(abort)).ToNot(BeEmpty())
+			},
+		)
 
-		It("Should allow => name from a sequence stage to a top-level stage", func(ctx SpecContext) {
-			mod := compile(ctx, `
+		It(
+			"Should allow => name from a sequence stage to a top-level stage",
+			func(ctx SpecContext) {
+				mod := compile(
+					ctx,
+					`
 start_cmd => main
 
 sequence main {
@@ -641,22 +791,49 @@ stage abort {
     1 -> vent_cmd
 }
 `,
-				symbol.Symbol{Name: "start_cmd", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 1},
-				symbol.Symbol{Name: "engine_cmd", Kind: symbol.KindChannel, Type: types.Chan(types.F64()), ID: 2},
-				symbol.Symbol{Name: "abort_btn", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 3},
-				symbol.Symbol{Name: "vent_cmd", Kind: symbol.KindChannel, Type: types.Chan(types.F64()), ID: 4},
-			)
+					symbol.Symbol{
+						Name: "start_cmd",
+						Kind: symbol.KindChannel,
+						Type: types.Chan(types.U8()),
+						ID:   1,
+					},
+					symbol.Symbol{
+						Name: "engine_cmd",
+						Kind: symbol.KindChannel,
+						Type: types.Chan(types.F64()),
+						ID:   2,
+					},
+					symbol.Symbol{
+						Name: "abort_btn",
+						Kind: symbol.KindChannel,
+						Type: types.Chan(types.U8()),
+						ID:   3,
+					},
+					symbol.Symbol{
+						Name: "vent_cmd",
+						Kind: symbol.KindChannel,
+						Type: types.Chan(types.F64()),
+						ID:   4,
+					},
+				)
 
-			_ = findTopLevelScope(mod, "main")
-			abort := findTopLevelScope(mod, "abort")
-			Expect(abort.Mode).To(Equal(ir.ScopeModeParallel))
-			Expect(abort.Activation).ToNot(BeNil(), "abort should carry activation from abort_btn => abort")
-		})
+				_ = findTopLevelScope(mod, "main")
+				abort := findTopLevelScope(mod, "abort")
+				Expect(abort.Mode).To(Equal(ir.ScopeModeParallel))
+				Expect(
+					abort.Activation,
+				).ToNot(BeNil(), "abort should carry activation from abort_btn => abort")
+			},
+		)
 	})
 
 	Describe("Proto Round-Trip", func() {
-		It("Should round-trip a flow step program through proto", func(ctx SpecContext) {
-			mod := compile(ctx, `
+		It(
+			"Should round-trip a flow step program through proto",
+			func(ctx SpecContext) {
+				mod := compile(
+					ctx,
+					`
 start_cmd => main
 
 sequence main {
@@ -665,26 +842,41 @@ sequence main {
     0 -> valve_cmd
 }
 `,
-				symbol.Symbol{Name: "start_cmd", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 1},
-				symbol.Symbol{Name: "valve_cmd", Kind: symbol.KindChannel, Type: types.Chan(types.F64()), ID: 2},
-			)
+					symbol.Symbol{
+						Name: "start_cmd",
+						Kind: symbol.KindChannel,
+						Type: types.Chan(types.U8()),
+						ID:   1,
+					},
+					symbol.Symbol{
+						Name: "valve_cmd",
+						Kind: symbol.KindChannel,
+						Type: types.Chan(types.F64()),
+						ID:   2,
+					},
+				)
 
-			main := findTopLevelScope(mod, "main")
-			Expect(main.Steps).To(HaveLen(3))
+				main := findTopLevelScope(mod, "main")
+				Expect(main.Steps).To(HaveLen(3))
 
-			pb := MustSucceed(programpb.ProgramToPB(mod))
-			reconstructed := MustSucceed(programpb.ProgramFromPB(pb))
+				pb := MustSucceed(programpb.ProgramToPB(mod))
+				reconstructed := MustSucceed(programpb.ProgramFromPB(pb))
 
-			rMain := findTopLevelScope(reconstructed, "main")
-			Expect(rMain.Steps).To(HaveLen(3))
-			Expect(isFlowMember(rMain.Steps[0])).To(BeTrue())
-			Expect(isFlowMember(rMain.Steps[1])).To(BeTrue())
-			Expect(isFlowMember(rMain.Steps[2])).To(BeTrue())
-			Expect(reconstructed.Root.Strata).ToNot(BeEmpty())
-		})
+				rMain := findTopLevelScope(reconstructed, "main")
+				Expect(rMain.Steps).To(HaveLen(3))
+				Expect(isFlowMember(rMain.Steps[0])).To(BeTrue())
+				Expect(isFlowMember(rMain.Steps[1])).To(BeTrue())
+				Expect(isFlowMember(rMain.Steps[2])).To(BeTrue())
+				Expect(reconstructed.Root.Strata).ToNot(BeEmpty())
+			},
+		)
 
-		It("Should round-trip a mixed stage and flow program through proto", func(ctx SpecContext) {
-			mod := compile(ctx, `
+		It(
+			"Should round-trip a mixed stage and flow program through proto",
+			func(ctx SpecContext) {
+				mod := compile(
+					ctx,
+					`
 start_cmd => main
 
 sequence main {
@@ -696,25 +888,50 @@ sequence main {
     1 -> vent_cmd
 }
 `,
-				symbol.Symbol{Name: "start_cmd", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 1},
-				symbol.Symbol{Name: "press_cmd", Kind: symbol.KindChannel, Type: types.Chan(types.F64()), ID: 2},
-				symbol.Symbol{Name: "press_pt", Kind: symbol.KindChannel, Type: types.Chan(types.F64()), ID: 3},
-				symbol.Symbol{Name: "vent_cmd", Kind: symbol.KindChannel, Type: types.Chan(types.F64()), ID: 4},
-			)
+					symbol.Symbol{
+						Name: "start_cmd",
+						Kind: symbol.KindChannel,
+						Type: types.Chan(types.U8()),
+						ID:   1,
+					},
+					symbol.Symbol{
+						Name: "press_cmd",
+						Kind: symbol.KindChannel,
+						Type: types.Chan(types.F64()),
+						ID:   2,
+					},
+					symbol.Symbol{
+						Name: "press_pt",
+						Kind: symbol.KindChannel,
+						Type: types.Chan(types.F64()),
+						ID:   3,
+					},
+					symbol.Symbol{
+						Name: "vent_cmd",
+						Kind: symbol.KindChannel,
+						Type: types.Chan(types.F64()),
+						ID:   4,
+					},
+				)
 
-			pb := MustSucceed(programpb.ProgramToPB(mod))
-			reconstructed := MustSucceed(programpb.ProgramFromPB(pb))
+				pb := MustSucceed(programpb.ProgramToPB(mod))
+				reconstructed := MustSucceed(programpb.ProgramFromPB(pb))
 
-			rMain := findTopLevelScope(reconstructed, "main")
-			Expect(rMain.Steps).To(HaveLen(3))
-			Expect(isStageMember(rMain.Steps[0])).To(BeTrue())
-			Expect(rMain.Steps[0].Key()).To(Equal("press"))
-			Expect(isFlowMember(rMain.Steps[1])).To(BeTrue())
-			Expect(isFlowMember(rMain.Steps[2])).To(BeTrue())
-		})
+				rMain := findTopLevelScope(reconstructed, "main")
+				Expect(rMain.Steps).To(HaveLen(3))
+				Expect(isStageMember(rMain.Steps[0])).To(BeTrue())
+				Expect(rMain.Steps[0].Key()).To(Equal("press"))
+				Expect(isFlowMember(rMain.Steps[1])).To(BeTrue())
+				Expect(isFlowMember(rMain.Steps[2])).To(BeTrue())
+			},
+		)
 
-		It("Should round-trip a top-level stage program through proto", func(ctx SpecContext) {
-			mod := compile(ctx, `
+		It(
+			"Should round-trip a top-level stage program through proto",
+			func(ctx SpecContext) {
+				mod := compile(
+					ctx,
+					`
 start_cmd => abort
 
 stage abort {
@@ -722,18 +939,34 @@ stage abort {
     1 -> vent_cmd
 }
 `,
-				symbol.Symbol{Name: "start_cmd", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 1},
-				symbol.Symbol{Name: "all_valves", Kind: symbol.KindChannel, Type: types.Chan(types.F64()), ID: 2},
-				symbol.Symbol{Name: "vent_cmd", Kind: symbol.KindChannel, Type: types.Chan(types.F64()), ID: 3},
-			)
+					symbol.Symbol{
+						Name: "start_cmd",
+						Kind: symbol.KindChannel,
+						Type: types.Chan(types.U8()),
+						ID:   1,
+					},
+					symbol.Symbol{
+						Name: "all_valves",
+						Kind: symbol.KindChannel,
+						Type: types.Chan(types.F64()),
+						ID:   2,
+					},
+					symbol.Symbol{
+						Name: "vent_cmd",
+						Kind: symbol.KindChannel,
+						Type: types.Chan(types.F64()),
+						ID:   3,
+					},
+				)
 
-			pb := MustSucceed(programpb.ProgramToPB(mod))
-			reconstructed := MustSucceed(programpb.ProgramFromPB(pb))
+				pb := MustSucceed(programpb.ProgramToPB(mod))
+				reconstructed := MustSucceed(programpb.ProgramFromPB(pb))
 
-			rAbort := findTopLevelScope(reconstructed, "abort")
-			Expect(rAbort.Mode).To(Equal(ir.ScopeModeParallel))
-			Expect(scopeNodeRefs(rAbort)).ToNot(BeEmpty())
-		})
+				rAbort := findTopLevelScope(reconstructed, "abort")
+				Expect(rAbort.Mode).To(Equal(ir.ScopeModeParallel))
+				Expect(scopeNodeRefs(rAbort)).ToNot(BeEmpty())
+			},
+		)
 	})
 })
 

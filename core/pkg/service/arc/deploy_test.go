@@ -40,18 +40,21 @@ var _ = Describe("Deploy", func() {
 		return tsk
 	}
 
-	It("Should create a task on the rack stamped with the arc's hash", func(ctx SpecContext) {
-		createArc(ctx, "a -> b")
-		tsk := MustSucceed(svc.NewWriter(tx).Deploy(ctx, a.Key, testRack.Key))
-		Expect(tsk).ToNot(BeNil())
-		Expect(tsk.Rack).To(Equal(testRack.Key))
-		Expect(tsk.Type).To(Equal(arc.TaskType))
-		Expect(tsk.Name).To(Equal(a.Name))
-		Expect(tsk.Config).To(HaveKeyWithValue("arc_key", a.Key.String()))
-		Expect(tsk.Config).To(HaveKey("hash"))
-		stored := retrieveTask(ctx, tsk.Key)
-		Expect(stored.ConfigHash).ToNot(BeEmpty())
-	})
+	It(
+		"Should create a task on the rack stamped with the arc's hash",
+		func(ctx SpecContext) {
+			createArc(ctx, "a -> b")
+			tsk := MustSucceed(svc.NewWriter(tx).Deploy(ctx, a.Key, testRack.Key))
+			Expect(tsk).ToNot(BeNil())
+			Expect(tsk.Rack).To(Equal(testRack.Key))
+			Expect(tsk.Type).To(Equal(arc.TaskType))
+			Expect(tsk.Name).To(Equal(a.Name))
+			Expect(tsk.Config).To(HaveKeyWithValue("arc_key", a.Key.String()))
+			Expect(tsk.Config).To(HaveKey("hash"))
+			stored := retrieveTask(ctx, tsk.Key)
+			Expect(stored.ConfigHash).ToNot(BeEmpty())
+		},
+	)
 
 	It("Should reuse the task on redeploy to the same rack", func(ctx SpecContext) {
 		createArc(ctx, "a -> b")
@@ -79,7 +82,12 @@ var _ = Describe("Deploy", func() {
 		w := svc.NewWriter(tx)
 		first := MustSucceed(w.Deploy(ctx, a.Key, testRack.Key))
 		firstHash := retrieveTask(ctx, first.Key).ConfigHash
-		edited := arc.Arc{Key: a.Key, Name: a.Name, Mode: arc.ModeText, Text: newText("a -> c")}
+		edited := arc.Arc{
+			Key:  a.Key,
+			Name: a.Name,
+			Mode: arc.ModeText,
+			Text: newText("a -> c"),
+		}
 		Expect(w.Create(ctx, &edited)).To(Succeed())
 		second := MustSucceed(w.Deploy(ctx, a.Key, testRack.Key))
 		Expect(retrieveTask(ctx, second.Key).ConfigHash).ToNot(Equal(firstHash))

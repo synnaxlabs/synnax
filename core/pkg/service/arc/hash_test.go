@@ -107,8 +107,7 @@ var _ = Describe("Hash", func() {
 
 		It("Should ignore node and edge ordering", func() {
 			reordered := graphArc()
-			reordered.Graph.Nodes[0], reordered.Graph.Nodes[1] =
-				reordered.Graph.Nodes[1], reordered.Graph.Nodes[0]
+			reordered.Graph.Nodes[0], reordered.Graph.Nodes[1] = reordered.Graph.Nodes[1], reordered.Graph.Nodes[0]
 			reordered.Graph.Edges = append(graph.Edges{{
 				Key: "e3",
 				Edge: ir.Edge{

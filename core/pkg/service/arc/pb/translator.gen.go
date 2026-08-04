@@ -205,8 +205,9 @@ func ModeFromPB(v Mode) (arc.Mode, error) {
 	}
 }
 
-// StatusDetailsToPBAny converts StatusDetails to *anypb.Any for use with generic translators.
-// It wraps the value in structpb.Struct (JSON) for cross-language compatibility.
+// StatusDetailsToPBAny converts StatusDetails to *anypb.Any for use with generic
+// translators. It wraps the value in structpb.Struct (JSON) for cross-language
+// compatibility.
 func StatusDetailsToPBAny(v arc.StatusDetails) (*anypb.Any, error) {
 	pb, err := StatusDetailsToPB(v)
 	if err != nil {
@@ -224,8 +225,9 @@ func StatusDetailsToPBAny(v arc.StatusDetails) (*anypb.Any, error) {
 	return anypb.New(s)
 }
 
-// StatusDetailsFromPBAny converts *anypb.Any to StatusDetails for use with generic translators.
-// It handles both typed protos and JSON (google.protobuf.Struct) for cross-language compatibility.
+// StatusDetailsFromPBAny converts *anypb.Any to StatusDetails for use with generic
+// translators. It handles both typed protos and JSON (google.protobuf.Struct) for
+// cross-language compatibility.
 func StatusDetailsFromPBAny(a *anypb.Any) (arc.StatusDetails, error) {
 	if a == nil {
 		return arc.StatusDetails{}, nil

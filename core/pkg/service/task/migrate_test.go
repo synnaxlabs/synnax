@@ -34,101 +34,106 @@ import (
 )
 
 var _ = Describe("Migrations", func() {
-	It("Should migrate a legacy uint64-keyed task and its status to a UUID key", func(ctx SpecContext) {
-		db := DeferClose(gorp.Wrap(memkv.New(), gorp.WithCodec(msgpack.Codec)))
-		otg := MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
-		searchIdx := MustOpen(search.OpenIndex())
-		g := MustOpen(group.OpenService(ctx, group.ServiceConfig{
-			DB:       db,
-			Ontology: otg,
-			Search:   searchIdx,
-		}))
-		labelSvc := MustOpen(label.OpenService(ctx, label.ServiceConfig{
-			DB:       db,
-			Ontology: otg,
-			Group:    g,
-			Search:   searchIdx,
-		}))
-		stat := MustOpen(status.OpenService(ctx, status.ServiceConfig{
-			Ontology: otg,
-			DB:       db,
-			Group:    g,
-			Label:    labelSvc,
-			Search:   searchIdx,
-		}))
-		rackSvc := MustOpen(rack.OpenService(ctx, rack.ServiceConfig{
-			DB:           db,
-			Ontology:     otg,
-			Group:        g,
-			HostProvider: mock.NewStaticHostProvider(1),
-			Status:       stat,
-			Search:       searchIdx,
-		}))
+	It(
+		"Should migrate a legacy uint64-keyed task and its status to a UUID key",
+		func(ctx SpecContext) {
+			db := DeferClose(gorp.Wrap(memkv.New(), gorp.WithCodec(msgpack.Codec)))
+			otg := MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
+			searchIdx := MustOpen(search.OpenIndex())
+			g := MustOpen(group.OpenService(ctx, group.ServiceConfig{
+				DB:       db,
+				Ontology: otg,
+				Search:   searchIdx,
+			}))
+			labelSvc := MustOpen(label.OpenService(ctx, label.ServiceConfig{
+				DB:       db,
+				Ontology: otg,
+				Group:    g,
+				Search:   searchIdx,
+			}))
+			stat := MustOpen(status.OpenService(ctx, status.ServiceConfig{
+				Ontology: otg,
+				DB:       db,
+				Group:    g,
+				Label:    labelSvc,
+				Search:   searchIdx,
+			}))
+			rackSvc := MustOpen(rack.OpenService(ctx, rack.ServiceConfig{
+				DB:           db,
+				Ontology:     otg,
+				Group:        g,
+				HostProvider: mock.NewStaticHostProvider(1),
+				Status:       stat,
+				Search:       searchIdx,
+			}))
 
-		testRack := &rack.Rack{Name: "Migration Test Rack"}
-		Expect(rackSvc.NewWriter(nil).Create(ctx, testRack)).To(Succeed())
+			testRack := &rack.Rack{Name: "Migration Test Rack"}
+			Expect(rackSvc.NewWriter(nil).Create(ctx, testRack)).To(Succeed())
 
-		legacyKey := v1.Key(uint64(testRack.Key)<<32 | 99)
-		legacyTask := v1.Task{Key: legacyKey, Name: "Legacy Task"}
-		Expect(gorp.NewCreate[v1.Key, v1.Task]().
-			Entry(&legacyTask).
-			Exec(ctx, db)).To(Succeed())
-		legacyID := ontology.ID{
-			Type: ontology.ResourceTypeTask,
-			Key:  strconv.FormatUint(uint64(legacyKey), 10),
-		}
-		Expect(otg.NewWriter(nil).DefineResources(ctx, legacyID)).To(Succeed())
+			legacyKey := v1.Key(uint64(testRack.Key)<<32 | 99)
+			legacyTask := v1.Task{Key: legacyKey, Name: "Legacy Task"}
+			Expect(gorp.NewCreate[v1.Key, v1.Task]().
+				Entry(&legacyTask).
+				Exec(ctx, db)).To(Succeed())
+			legacyID := ontology.ID{
+				Type: ontology.ResourceTypeTask,
+				Key:  strconv.FormatUint(uint64(legacyKey), 10),
+			}
+			Expect(otg.NewWriter(nil).DefineResources(ctx, legacyID)).To(Succeed())
 
-		// Legacy data stored the task key as a msgpack float64; the v0 backfill
-		// must read it through the flex decoder before the re-key runs.
-		legacyStatus := status.Status[any]{
-			Key:     "task:" + strconv.FormatUint(uint64(legacyKey), 10),
-			Name:    "Legacy Task",
-			Variant: status.VariantSuccess,
-			Message: "Started",
-			Time:    telem.Now(),
-			Details: map[string]any{
-				"task":    float64(legacyKey),
-				"running": true,
-				"cmd":     "start",
-			},
-		}
-		Expect(status.NewWriter[any](stat, nil).Set(ctx, &legacyStatus)).To(Succeed())
+			// Legacy data stored the task key as a msgpack float64; the v0 backfill
+			// must read it through the flex decoder before the re-key runs.
+			legacyStatus := status.Status[any]{
+				Key:     "task:" + strconv.FormatUint(uint64(legacyKey), 10),
+				Name:    "Legacy Task",
+				Variant: status.VariantSuccess,
+				Message: "Started",
+				Time:    telem.Now(),
+				Details: map[string]any{
+					"task":    float64(legacyKey),
+					"running": true,
+					"cmd":     "start",
+				},
+			}
+			Expect(
+				status.NewWriter[any](stat, nil).Set(ctx, &legacyStatus),
+			).To(Succeed())
 
-		svc := MustOpen(task.OpenService(ctx, task.ServiceConfig{
-			DB:       db,
-			Ontology: otg,
-			Group:    g,
-			Rack:     rackSvc,
-			Status:   stat,
-			Search:   searchIdx,
-			ImEx:     imex.NewService(),
-		}))
+			svc := MustOpen(task.OpenService(ctx, task.ServiceConfig{
+				DB:       db,
+				Ontology: otg,
+				Group:    g,
+				Rack:     rackSvc,
+				Status:   stat,
+				Search:   searchIdx,
+				ImEx:     imex.NewService(),
+			}))
 
-		var migrated task.Task
-		Expect(svc.NewRetrieve().
-			Where(task.MatchNames("Legacy Task")).
-			Entry(&migrated).
-			Exec(ctx, nil)).To(Succeed())
-		Expect(migrated.Key).ToNot(Equal(uuid.Nil))
-		Expect(migrated.Rack).To(Equal(testRack.Key))
+			var migrated task.Task
+			Expect(svc.NewRetrieve().
+				Where(task.MatchNames("Legacy Task")).
+				Entry(&migrated).
+				Exec(ctx, nil)).To(Succeed())
+			Expect(migrated.Key).ToNot(Equal(uuid.Nil))
+			Expect(migrated.Rack).To(Equal(testRack.Key))
 
-		var restoredStatus task.Status
-		Expect(status.NewRetrieve[task.StatusDetails](stat).
-			Where(status.MatchKeys[task.StatusDetails](task.OntologyID(migrated.Key).String())).
-			Entry(&restoredStatus).
-			Exec(ctx, nil)).To(Succeed())
-		Expect(restoredStatus.Details.Task).To(Equal(migrated.Key))
-		Expect(restoredStatus.Details.Running).To(BeTrue())
-		Expect(restoredStatus.Details.Cmd).To(Equal("start"))
+			var restoredStatus task.Status
+			Expect(status.NewRetrieve[task.StatusDetails](stat).
+				Where(status.MatchKeys[task.StatusDetails](task.OntologyID(migrated.Key).String())).
+				Entry(&restoredStatus).
+				Exec(ctx, nil)).To(Succeed())
+			Expect(restoredStatus.Details.Task).To(Equal(migrated.Key))
+			Expect(restoredStatus.Details.Running).To(BeTrue())
+			Expect(restoredStatus.Details.Cmd).To(Equal("start"))
 
-		Expect(otg.NewRetrieve().
-			WhereIDs(task.OntologyID(migrated.Key)).
-			Exists(ctx, nil)).To(BeTrue())
-		Expect(otg.NewRetrieve().WhereIDs(legacyID).Exists(ctx, nil)).To(BeFalse())
+			Expect(otg.NewRetrieve().
+				WhereIDs(task.OntologyID(migrated.Key)).
+				Exists(ctx, nil)).To(BeTrue())
+			Expect(otg.NewRetrieve().WhereIDs(legacyID).Exists(ctx, nil)).To(BeFalse())
 
-		staged, closer := MustSucceed2(db.Get(ctx, v2.LegacyKeyKVKey(legacyKey)))
-		Expect(string(staged)).To(Equal(migrated.Key.String()))
-		Expect(closer.Close()).To(Succeed())
-	})
+			staged, closer := MustSucceed2(db.Get(ctx, v2.LegacyKeyKVKey(legacyKey)))
+			Expect(string(staged)).To(Equal(migrated.Key.String()))
+			Expect(closer.Close()).To(Succeed())
+		},
+	)
 })

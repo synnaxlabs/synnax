@@ -57,13 +57,16 @@ type refText struct {
 	// tombstones holds ids deleted before their insert was seen, so the delete can be
 	// applied to the character once it arrives.
 	tombstones set.Set[crdt.ID]
-	// pending holds inserts whose origin has not yet been integrated, buffered until the
+	// pending holds inserts whose origin has not yet been integrated, buffered until
+	// the
 	// origin arrives.
 	pending []crdt.Insert
-	// order caches the in-order traversal of every refElement, rebuilt lazily when dirty.
+	// order caches the in-order traversal of every refElement, rebuilt lazily when
+	// dirty.
 	order []*refElement
 	dirty bool
-	// visibleCache caches the live characters in document order. It is nil when stale and
+	// visibleCache caches the live characters in document order. It is nil when stale
+	// and
 	// must be recomputed on the next read.
 	visibleCache []*refElement
 	// str caches the materialized string; strValid reports whether it is current.
@@ -380,7 +383,8 @@ func (t *refText) drain() {
 			if _, seen := t.elements[op.ID]; seen {
 				continue
 			}
-			if _, hasOrigin := t.elements[op.Origin]; !refIsRoot(op.Origin) && !hasOrigin {
+			if _, hasOrigin := t.elements[op.Origin]; !refIsRoot(op.Origin) &&
+				!hasOrigin {
 				remaining = append(remaining, op)
 				continue
 			}

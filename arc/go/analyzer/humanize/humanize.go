@@ -14,9 +14,9 @@ import (
 	"github.com/synnaxlabs/arc/types"
 )
 
-// Type converts an internal type representation to a user-friendly string.
-// Type variables with constraints are displayed by their constraint (e.g., "integer", "float")
-// rather than internal names like "$T1".
+// Type converts an internal type representation to a user-friendly string. Type
+// variables with constraints are displayed by their constraint (e.g., "integer",
+// "float") rather than internal names like "$T1".
 func Type(t types.Type) string {
 	switch t.Kind {
 	case types.KindVariable:

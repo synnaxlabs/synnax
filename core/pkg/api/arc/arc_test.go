@@ -41,214 +41,313 @@ func createArc(ctx context.Context, name string) arc.Arc {
 
 var _ = Describe("Service", func() {
 	Describe("Retrieve", func() {
-		It("Should omit missing keys from a multi-key retrieve instead of failing", func(ctx SpecContext) {
-			a := createArc(ctx, "partial-survivor")
-			grantOn(ctx, author.OntologyID(), access.ActionRetrieve, arc.OntologyID(a.Key))
-			res := MustSucceed(apiSvc.Retrieve(authedCtx(ctx, author), RetrieveRequest{
-				Keys:                []arc.Key{a.Key, uuid.New()},
-				IgnoreNotFoundError: true,
-			}))
-			Expect(res.Arcs).To(HaveLen(1))
-			Expect(res.Arcs[0].Key).To(Equal(a.Key))
-		})
+		It(
+			"Should omit missing keys from a multi-key retrieve instead of failing",
+			func(ctx SpecContext) {
+				a := createArc(ctx, "partial-survivor")
+				grantOn(
+					ctx,
+					author.OntologyID(),
+					access.ActionRetrieve,
+					arc.OntologyID(a.Key),
+				)
+				res := MustSucceed(
+					apiSvc.Retrieve(authedCtx(ctx, author), RetrieveRequest{
+						Keys:                []arc.Key{a.Key, uuid.New()},
+						IgnoreNotFoundError: true,
+					}),
+				)
+				Expect(res.Arcs).To(HaveLen(1))
+				Expect(res.Arcs[0].Key).To(Equal(a.Key))
+			},
+		)
 
-		It("Should return an empty result when every requested key is missing", func(ctx SpecContext) {
-			res := MustSucceed(apiSvc.Retrieve(authedCtx(ctx, author), RetrieveRequest{
-				Keys:                []arc.Key{uuid.New()},
-				IgnoreNotFoundError: true,
-			}))
-			Expect(res.Arcs).To(BeEmpty())
-		})
+		It(
+			"Should return an empty result when every requested key is missing",
+			func(ctx SpecContext) {
+				res := MustSucceed(
+					apiSvc.Retrieve(authedCtx(ctx, author), RetrieveRequest{
+						Keys:                []arc.Key{uuid.New()},
+						IgnoreNotFoundError: true,
+					}),
+				)
+				Expect(res.Arcs).To(BeEmpty())
+			},
+		)
 	})
 
 	Describe("Create", func() {
-		It("Should serve the semantic hash on every created arc", func(ctx SpecContext) {
-			grantOn(
-				ctx,
-				author.OntologyID(),
-				access.ActionCreate,
-				ontology.ID{Type: ontology.ResourceTypeArc},
-			)
-			res := MustSucceed(apiSvc.Create(authedCtx(ctx, author), db, CreateRequest{
-				Arcs: []Arc{{Name: "hash-created", Mode: arc.ModeGraph}},
-			}))
-			Expect(res.Arcs).To(HaveLen(1))
-			Expect(res.Arcs[0].Hash).ToNot(BeNil())
-			Expect(*res.Arcs[0].Hash).To(Equal(MustSucceed(arc.Hash(res.Arcs[0]))))
-		})
+		It(
+			"Should serve the semantic hash on every created arc",
+			func(ctx SpecContext) {
+				grantOn(
+					ctx,
+					author.OntologyID(),
+					access.ActionCreate,
+					ontology.ID{Type: ontology.ResourceTypeArc},
+				)
+				res := MustSucceed(
+					apiSvc.Create(authedCtx(ctx, author), db, CreateRequest{
+						Arcs: []Arc{{Name: "hash-created", Mode: arc.ModeGraph}},
+					}),
+				)
+				Expect(res.Arcs).To(HaveLen(1))
+				Expect(res.Arcs[0].Hash).ToNot(BeNil())
+				Expect(*res.Arcs[0].Hash).To(Equal(MustSucceed(arc.Hash(res.Arcs[0]))))
+			},
+		)
 
-		It("Should hash the stored document, not a client-supplied Raw", func(ctx SpecContext) {
-			grantOn(
-				ctx,
-				author.OntologyID(),
-				access.ActionCreate,
-				ontology.ID{Type: ontology.ResourceTypeArc},
-			)
-			a := Arc{Name: "hash-lying-raw", Mode: arc.ModeText}
-			a.Text.Doc = text.Create("a -> b")
-			a.Text.Raw = "a -> c"
-			res := MustSucceed(apiSvc.Create(authedCtx(ctx, author), db, CreateRequest{
-				Arcs: []Arc{a},
-			}))
-			Expect(res.Arcs[0].Text.Raw).To(Equal("a -> b"))
-			truth := Arc{Mode: arc.ModeText}
-			truth.Text.Doc = text.Create("a -> b")
-			Expect(*res.Arcs[0].Hash).To(Equal(MustSucceed(arc.Hash(truth))))
-		})
+		It(
+			"Should hash the stored document, not a client-supplied Raw",
+			func(ctx SpecContext) {
+				grantOn(
+					ctx,
+					author.OntologyID(),
+					access.ActionCreate,
+					ontology.ID{Type: ontology.ResourceTypeArc},
+				)
+				a := Arc{Name: "hash-lying-raw", Mode: arc.ModeText}
+				a.Text.Doc = text.Create("a -> b")
+				a.Text.Raw = "a -> c"
+				res := MustSucceed(
+					apiSvc.Create(authedCtx(ctx, author), db, CreateRequest{
+						Arcs: []Arc{a},
+					}),
+				)
+				Expect(res.Arcs[0].Text.Raw).To(Equal("a -> b"))
+				truth := Arc{Mode: arc.ModeText}
+				truth.Text.Doc = text.Create("a -> b")
+				Expect(*res.Arcs[0].Hash).To(Equal(MustSucceed(arc.Hash(truth))))
+			},
+		)
 	})
 
 	Describe("Dispatch", func() {
 		Describe("access control", func() {
-			It("Should reject the request with access.ErrDenied when the subject has no policy", func(ctx SpecContext) {
-				a := createArc(ctx, "no-policy")
-				Expect(apiSvc.Dispatch(authedCtx(ctx, author), db, DispatchRequest{
-					Key:         a.Key,
-					DispatchKey: "sess-1",
-					Actions: []arc.Action{arc.NewRemoveNodeAction(arc.RemoveNodePayload{
-						Key: "n1",
-					})},
-				})).Error().To(MatchError(access.ErrDenied))
-			})
+			It(
+				"Should reject the request with access.ErrDenied when the subject has no policy",
+				func(ctx SpecContext) {
+					a := createArc(ctx, "no-policy")
+					Expect(apiSvc.Dispatch(authedCtx(ctx, author), db, DispatchRequest{
+						Key:         a.Key,
+						DispatchKey: "sess-1",
+						Actions: []arc.Action{
+							arc.NewRemoveNodeAction(arc.RemoveNodePayload{
+								Key: "n1",
+							}),
+						},
+					})).Error().To(MatchError(access.ErrDenied))
+				},
+			)
 
-			It("Should accept the request when the subject's policy permits update on the target Arc", func(ctx SpecContext) {
-				a := createArc(ctx, "with-policy")
-				grantUpdateOn(ctx, author.OntologyID(), a.OntologyID())
-				Expect(apiSvc.Dispatch(authedCtx(ctx, author), db, DispatchRequest{
-					Key:         a.Key,
-					DispatchKey: "sess-1",
-					Actions: []arc.Action{arc.NewSetNodeAction(arc.SetNodePayload{
-						Node: graph.Node{Key: "n1", Position: spatial.XY{X: 1, Y: 2}},
-					})},
-				})).Error().To(Succeed())
-				var res arc.Arc
-				Expect(arcSvc.NewRetrieve().
-					Where(arc.MatchKeys(a.Key)).
-					Entry(&res).Exec(ctx, nil)).To(Succeed())
-				Expect(res.Graph.Nodes).To(HaveLen(1))
-				Expect(res.Graph.Nodes[0].Position).To(Equal(spatial.XY{X: 1, Y: 2}))
-			})
+			It(
+				"Should accept the request when the subject's policy permits update on the target Arc",
+				func(ctx SpecContext) {
+					a := createArc(ctx, "with-policy")
+					grantUpdateOn(ctx, author.OntologyID(), a.OntologyID())
+					Expect(apiSvc.Dispatch(authedCtx(ctx, author), db, DispatchRequest{
+						Key:         a.Key,
+						DispatchKey: "sess-1",
+						Actions: []arc.Action{arc.NewSetNodeAction(arc.SetNodePayload{
+							Node: graph.Node{
+								Key:      "n1",
+								Position: spatial.XY{X: 1, Y: 2},
+							},
+						})},
+					})).Error().To(Succeed())
+					var res arc.Arc
+					Expect(arcSvc.NewRetrieve().
+						Where(arc.MatchKeys(a.Key)).
+						Entry(&res).Exec(ctx, nil)).To(Succeed())
+					Expect(res.Graph.Nodes).To(HaveLen(1))
+					Expect(
+						res.Graph.Nodes[0].Position,
+					).To(Equal(spatial.XY{X: 1, Y: 2}))
+				},
+			)
 
-			It("Should reject when the subject's policy targets a different Arc", func(ctx SpecContext) {
-				a := createArc(ctx, "policy-target")
-				b := createArc(ctx, "no-policy-target")
-				grantUpdateOn(ctx, author.OntologyID(), a.OntologyID())
-				Expect(apiSvc.Dispatch(authedCtx(ctx, author), db, DispatchRequest{
-					Key:         b.Key,
-					DispatchKey: "sess-1",
-					Actions: []arc.Action{arc.NewRemoveNodeAction(arc.RemoveNodePayload{
-						Key: "n1",
-					})},
-				})).Error().To(MatchError(access.ErrDenied))
-			})
+			It(
+				"Should reject when the subject's policy targets a different Arc",
+				func(ctx SpecContext) {
+					a := createArc(ctx, "policy-target")
+					b := createArc(ctx, "no-policy-target")
+					grantUpdateOn(ctx, author.OntologyID(), a.OntologyID())
+					Expect(apiSvc.Dispatch(authedCtx(ctx, author), db, DispatchRequest{
+						Key:         b.Key,
+						DispatchKey: "sess-1",
+						Actions: []arc.Action{
+							arc.NewRemoveNodeAction(arc.RemoveNodePayload{
+								Key: "n1",
+							}),
+						},
+					})).Error().To(MatchError(access.ErrDenied))
+				},
+			)
 		})
 
 		Describe("delegation to Writer.Dispatch", func() {
-			It("Should apply a multi-action sequence to the target Arc", func(ctx SpecContext) {
-				a := createArc(ctx, "multi-action")
-				grantUpdateOn(ctx, author.OntologyID(), a.OntologyID())
-				Expect(apiSvc.Dispatch(authedCtx(ctx, author), db, DispatchRequest{
-					Key:         a.Key,
-					DispatchKey: "sess-1",
-					Actions: []arc.Action{
-						arc.NewSetNodeAction(arc.SetNodePayload{Node: graph.Node{Key: "n1"}}),
-						arc.NewSetNodeAction(arc.SetNodePayload{Node: graph.Node{Key: "n2"}}),
-						arc.NewRenameAction(arc.RenamePayload{Name: "renamed-multi"}),
-					},
-				})).Error().To(Succeed())
-				var res arc.Arc
-				Expect(arcSvc.NewRetrieve().
-					Where(arc.MatchKeys(a.Key)).
-					Entry(&res).Exec(ctx, nil)).To(Succeed())
-				Expect(res.Graph.Nodes).To(HaveLen(2))
-				Expect(res.Name).To(Equal("renamed-multi"))
-			})
+			It(
+				"Should apply a multi-action sequence to the target Arc",
+				func(ctx SpecContext) {
+					a := createArc(ctx, "multi-action")
+					grantUpdateOn(ctx, author.OntologyID(), a.OntologyID())
+					Expect(apiSvc.Dispatch(authedCtx(ctx, author), db, DispatchRequest{
+						Key:         a.Key,
+						DispatchKey: "sess-1",
+						Actions: []arc.Action{
+							arc.NewSetNodeAction(
+								arc.SetNodePayload{Node: graph.Node{Key: "n1"}},
+							),
+							arc.NewSetNodeAction(
+								arc.SetNodePayload{Node: graph.Node{Key: "n2"}},
+							),
+							arc.NewRenameAction(
+								arc.RenamePayload{Name: "renamed-multi"},
+							),
+						},
+					})).Error().To(Succeed())
+					var res arc.Arc
+					Expect(arcSvc.NewRetrieve().
+						Where(arc.MatchKeys(a.Key)).
+						Entry(&res).Exec(ctx, nil)).To(Succeed())
+					Expect(res.Graph.Nodes).To(HaveLen(2))
+					Expect(res.Name).To(Equal("renamed-multi"))
+				},
+			)
 
-			It("Should bubble up query.ErrNotFound when the target Arc does not exist", func(ctx SpecContext) {
-				missing := uuid.New()
-				grantUpdateOn(ctx, author.OntologyID(), arc.OntologyID(missing))
-				Expect(apiSvc.Dispatch(authedCtx(ctx, author), db, DispatchRequest{
-					Key:         missing,
-					DispatchKey: "sess-1",
-					Actions: []arc.Action{arc.NewRenameAction(arc.RenamePayload{
-						Name: "ghost",
-					})},
-				})).Error().To(MatchError(query.ErrNotFound))
-			})
+			It(
+				"Should bubble up query.ErrNotFound when the target Arc does not exist",
+				func(ctx SpecContext) {
+					missing := uuid.New()
+					grantUpdateOn(ctx, author.OntologyID(), arc.OntologyID(missing))
+					Expect(apiSvc.Dispatch(authedCtx(ctx, author), db, DispatchRequest{
+						Key:         missing,
+						DispatchKey: "sess-1",
+						Actions: []arc.Action{arc.NewRenameAction(arc.RenamePayload{
+							Name: "ghost",
+						})},
+					})).Error().To(MatchError(query.ErrNotFound))
+				},
+			)
 		})
 
 		Describe("semantic hash", func() {
-			It("Should return the updated hash after a semantic edit", func(ctx SpecContext) {
-				a := createArc(ctx, "hash-echo")
-				grantUpdateOn(ctx, author.OntologyID(), a.OntologyID())
-				before := MustSucceed(arc.Hash(a))
-				res := MustSucceed(apiSvc.Dispatch(authedCtx(ctx, author), db, DispatchRequest{
-					Key:         a.Key,
-					DispatchKey: "sess-1",
-					Actions: []arc.Action{arc.NewSetNodeInputsAction(arc.SetNodeInputsPayload{
-						Key:    "n1",
-						Inputs: msgpack.EncodedJSON{"type": "on", "channel": 1},
-					})},
-				}))
-				Expect(res.Hash).ToNot(BeEmpty())
-				Expect(res.Hash).ToNot(Equal(before))
-			})
+			It(
+				"Should return the updated hash after a semantic edit",
+				func(ctx SpecContext) {
+					a := createArc(ctx, "hash-echo")
+					grantUpdateOn(ctx, author.OntologyID(), a.OntologyID())
+					before := MustSucceed(arc.Hash(a))
+					res := MustSucceed(
+						apiSvc.Dispatch(authedCtx(ctx, author), db, DispatchRequest{
+							Key:         a.Key,
+							DispatchKey: "sess-1",
+							Actions: []arc.Action{
+								arc.NewSetNodeInputsAction(arc.SetNodeInputsPayload{
+									Key: "n1",
+									Inputs: msgpack.EncodedJSON{
+										"type":    "on",
+										"channel": 1,
+									},
+								}),
+							},
+						}),
+					)
+					Expect(res.Hash).ToNot(BeEmpty())
+					Expect(res.Hash).ToNot(Equal(before))
+				},
+			)
 
-			It("Should return an unchanged hash after a layout-only edit", func(ctx SpecContext) {
-				a := createArc(ctx, "hash-layout")
-				grantUpdateOn(ctx, author.OntologyID(), a.OntologyID())
-				placed := MustSucceed(apiSvc.Dispatch(authedCtx(ctx, author), db, DispatchRequest{
-					Key:         a.Key,
-					DispatchKey: "sess-1",
-					Actions: []arc.Action{arc.NewSetNodeAction(arc.SetNodePayload{
-						Node: graph.Node{Key: "n1", Position: spatial.XY{X: 0, Y: 0}},
-					})},
-				}))
-				moved := MustSucceed(apiSvc.Dispatch(authedCtx(ctx, author), db, DispatchRequest{
-					Key:         a.Key,
-					DispatchKey: "sess-2",
-					Actions: []arc.Action{arc.NewSetNodeAction(arc.SetNodePayload{
-						Node: graph.Node{Key: "n1", Position: spatial.XY{X: 9, Y: 9}},
-					})},
-				}))
-				Expect(moved.Hash).To(Equal(placed.Hash))
-			})
+			It(
+				"Should return an unchanged hash after a layout-only edit",
+				func(ctx SpecContext) {
+					a := createArc(ctx, "hash-layout")
+					grantUpdateOn(ctx, author.OntologyID(), a.OntologyID())
+					placed := MustSucceed(
+						apiSvc.Dispatch(authedCtx(ctx, author), db, DispatchRequest{
+							Key:         a.Key,
+							DispatchKey: "sess-1",
+							Actions: []arc.Action{
+								arc.NewSetNodeAction(arc.SetNodePayload{
+									Node: graph.Node{
+										Key:      "n1",
+										Position: spatial.XY{X: 0, Y: 0},
+									},
+								}),
+							},
+						}),
+					)
+					moved := MustSucceed(
+						apiSvc.Dispatch(authedCtx(ctx, author), db, DispatchRequest{
+							Key:         a.Key,
+							DispatchKey: "sess-2",
+							Actions: []arc.Action{
+								arc.NewSetNodeAction(arc.SetNodePayload{
+									Node: graph.Node{
+										Key:      "n1",
+										Position: spatial.XY{X: 9, Y: 9},
+									},
+								}),
+							},
+						}),
+					)
+					Expect(moved.Hash).To(Equal(placed.Hash))
+				},
+			)
 		})
 
 		Describe("Retrieve hash", func() {
-			It("Should serve the semantic hash on every retrieved arc", func(ctx SpecContext) {
-				a := createArc(ctx, "hash-served")
-				grantOn(ctx, author.OntologyID(), access.ActionRetrieve, arc.OntologyID(a.Key))
-				res := MustSucceed(apiSvc.Retrieve(authedCtx(ctx, author), RetrieveRequest{
-					Keys: []arc.Key{a.Key},
-				}))
-				Expect(res.Arcs).To(HaveLen(1))
-				Expect(res.Arcs[0].Hash).ToNot(BeNil())
-				Expect(*res.Arcs[0].Hash).To(Equal(MustSucceed(arc.Hash(res.Arcs[0]))))
-			})
+			It(
+				"Should serve the semantic hash on every retrieved arc",
+				func(ctx SpecContext) {
+					a := createArc(ctx, "hash-served")
+					grantOn(
+						ctx,
+						author.OntologyID(),
+						access.ActionRetrieve,
+						arc.OntologyID(a.Key),
+					)
+					res := MustSucceed(
+						apiSvc.Retrieve(authedCtx(ctx, author), RetrieveRequest{
+							Keys: []arc.Key{a.Key},
+						}),
+					)
+					Expect(res.Arcs).To(HaveLen(1))
+					Expect(res.Arcs[0].Hash).ToNot(BeNil())
+					Expect(
+						*res.Arcs[0].Hash,
+					).To(Equal(MustSucceed(arc.Hash(res.Arcs[0]))))
+				},
+			)
 		})
 
 		Describe("subject identity propagation", func() {
-			It("Should pass the DispatchKey verbatim into the action observer", func(ctx SpecContext) {
-				a := createArc(ctx, "session-propagation")
-				grantUpdateOn(ctx, author.OntologyID(), a.OntologyID())
-				seen := make(chan scopedAction, 1)
-				DeferCleanup(arcSvc.OnAction(func(_ context.Context, sa scopedAction) {
-					seen <- sa
-				}))
-				Expect(apiSvc.Dispatch(authedCtx(ctx, author), db, DispatchRequest{
-					Key:         a.Key,
-					DispatchKey: "session-marker-xyz",
-					Actions: []arc.Action{arc.NewSetNodeAction(arc.SetNodePayload{
-						Node: graph.Node{Key: "n1"},
-					})},
-				})).Error().To(Succeed())
-				var got scopedAction
-				Eventually(seen).Should(Receive(&got))
-				Expect(got.Key).To(Equal(a.Key))
-				Expect(got.DispatchKey).To(Equal("session-marker-xyz"))
-				Expect(got.Seq).To(BeNumerically(">", uint64(0)))
-				Expect(got.Actions).To(HaveLen(1))
-			})
+			It(
+				"Should pass the DispatchKey verbatim into the action observer",
+				func(ctx SpecContext) {
+					a := createArc(ctx, "session-propagation")
+					grantUpdateOn(ctx, author.OntologyID(), a.OntologyID())
+					seen := make(chan scopedAction, 1)
+					DeferCleanup(
+						arcSvc.OnAction(func(_ context.Context, sa scopedAction) {
+							seen <- sa
+						}),
+					)
+					Expect(apiSvc.Dispatch(authedCtx(ctx, author), db, DispatchRequest{
+						Key:         a.Key,
+						DispatchKey: "session-marker-xyz",
+						Actions: []arc.Action{arc.NewSetNodeAction(arc.SetNodePayload{
+							Node: graph.Node{Key: "n1"},
+						})},
+					})).Error().To(Succeed())
+					var got scopedAction
+					Eventually(seen).Should(Receive(&got))
+					Expect(got.Key).To(Equal(a.Key))
+					Expect(got.DispatchKey).To(Equal("session-marker-xyz"))
+					Expect(got.Seq).To(BeNumerically(">", uint64(0)))
+					Expect(got.Actions).To(HaveLen(1))
+				},
+			)
 		})
 	})
 
@@ -263,22 +362,28 @@ var _ = Describe("Service", func() {
 			)
 		}
 
-		It("Should reject the request when the subject has no policy", func(ctx SpecContext) {
-			a := createArc(ctx, "deploy-no-policy")
-			Expect(apiSvc.Deploy(authedCtx(ctx, author), db, DeployRequest{
-				Key:  a.Key,
-				Rack: testRack.Key,
-			})).Error().To(MatchError(access.ErrDenied))
-		})
+		It(
+			"Should reject the request when the subject has no policy",
+			func(ctx SpecContext) {
+				a := createArc(ctx, "deploy-no-policy")
+				Expect(apiSvc.Deploy(authedCtx(ctx, author), db, DeployRequest{
+					Key:  a.Key,
+					Rack: testRack.Key,
+				})).Error().To(MatchError(access.ErrDenied))
+			},
+		)
 
-		It("Should reject when the subject may update the arc but not create tasks", func(ctx SpecContext) {
-			a := createArc(ctx, "deploy-no-task-policy")
-			grantUpdateOn(ctx, author.OntologyID(), a.OntologyID())
-			Expect(apiSvc.Deploy(authedCtx(ctx, author), db, DeployRequest{
-				Key:  a.Key,
-				Rack: testRack.Key,
-			})).Error().To(MatchError(access.ErrDenied))
-		})
+		It(
+			"Should reject when the subject may update the arc but not create tasks",
+			func(ctx SpecContext) {
+				a := createArc(ctx, "deploy-no-task-policy")
+				grantUpdateOn(ctx, author.OntologyID(), a.OntologyID())
+				Expect(apiSvc.Deploy(authedCtx(ctx, author), db, DeployRequest{
+					Key:  a.Key,
+					Rack: testRack.Key,
+				})).Error().To(MatchError(access.ErrDenied))
+			},
+		)
 
 		It("Should deploy the arc and return its task", func(ctx SpecContext) {
 			a := createArc(ctx, "deploy-ok")
@@ -302,10 +407,12 @@ var _ = Describe("Service", func() {
 				access.ActionDelete,
 				ontology.ID{Type: ontology.ResourceTypeTask},
 			)
-			deployed := MustSucceed(apiSvc.Deploy(authedCtx(ctx, author), db, DeployRequest{
-				Key:  a.Key,
-				Rack: testRack.Key,
-			}))
+			deployed := MustSucceed(
+				apiSvc.Deploy(authedCtx(ctx, author), db, DeployRequest{
+					Key:  a.Key,
+					Rack: testRack.Key,
+				}),
+			)
 			Expect(deployed.Task).ToNot(BeNil())
 			res := MustSucceed(apiSvc.Deploy(authedCtx(ctx, author), db, DeployRequest{
 				Key: a.Key,

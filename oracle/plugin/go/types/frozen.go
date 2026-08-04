@@ -90,7 +90,8 @@ func frozenAliasSplit(
 			}
 			// A frozen decl that is itself a predecessor-chain alias denotes
 			// the definer's type; follow the chain and compare type specs.
-			if !cok || !fok || !chainAliasMatches(o, frozSpecs[o], candSpecs[o], predDir) {
+			if !cok || !fok ||
+				!chainAliasMatches(o, frozSpecs[o], candSpecs[o], predDir) {
 				match = false
 				break
 			}
@@ -111,7 +112,8 @@ func frozenAliasSplit(
 			for _, o := range e.owners {
 				for _, ref := range candRefs[o] {
 					refQualified, local := ownerToQualified[ref]
-					if local && refQualified != e.qualified && !aliased.Contains(refQualified) {
+					if local && refQualified != e.qualified &&
+						!aliased.Contains(refQualified) {
 						aliased.Remove(e.qualified)
 						changed = true
 						break
@@ -182,13 +184,22 @@ func normalizeQualifiers(file *ast.File) {
 // type for const blocks, and the receiver's base type for methods. It returns
 // each owner's printed declarations in order, the identifiers they reference,
 // and each owner's printed type spec alone. Package qualifiers print as full
-// import paths (see normalizeQualifiers).
-func groupDecls(src []byte) (map[string][]string, map[string][]string, map[string]string, error) {
-	fset := token.NewFileSet()
-	file, err := parser.ParseFile(fset, "", src, parser.SkipObjectResolution)
+// import paths (see normalizeQualifiers). Declarations print against an empty
+// file set so source line breaks never influence the text: reformatting a
+// frozen file must not change how its declarations compare.
+func groupDecls(
+	src []byte,
+) (map[string][]string, map[string][]string, map[string]string, error) {
+	file, err := parser.ParseFile(
+		token.NewFileSet(),
+		"",
+		src,
+		parser.SkipObjectResolution,
+	)
 	if err != nil {
 		return nil, nil, nil, err
 	}
+	fset := token.NewFileSet()
 	normalizeQualifiers(file)
 	grouped := make(map[string][]ast.Decl)
 	typeSpecs := make(map[string]string)
@@ -287,7 +298,9 @@ func receiverBase(expr ast.Expr) string {
 // chainAliasRe matches a predecessor-chain alias type spec after qualifier
 // normalization: "type X = «…/vN».X", optionally generic. Only aliases into
 // sibling version directories hop; any other target compares as a spec.
-var chainAliasRe = regexp.MustCompile(`^type (\w+)(?:\[[^\]]*\])? = «[^»]*/(v\d+)»\.(\w+)`)
+var chainAliasRe = regexp.MustCompile(
+	`^type (\w+)(?:\[[^\]]*\])? = «[^»]*/(v\d+)»\.(\w+)`,
+)
 
 // chainAliasMatches reports whether the frozen type spec is an alias into a
 // sibling version package whose definition of owner has the same type spec as
@@ -366,7 +379,11 @@ func packageDecls(dir string) (map[string][]string, map[string]string, error) {
 		}
 		fo, _, fs, err := groupDecls(src)
 		if err != nil {
-			return nil, nil, errors.Wrapf(err, "frozen predecessor %s does not parse", f.Name())
+			return nil, nil, errors.Wrapf(
+				err,
+				"frozen predecessor %s does not parse",
+				f.Name(),
+			)
 		}
 		for o, decls := range fo {
 			owners[o] = append(owners[o], decls...)
@@ -440,7 +457,10 @@ func (r *chainResolver) dirFor(importPath string) (string, bool) {
 	if best == "" {
 		return "", false
 	}
-	return filepath.Join(bestDir, strings.TrimPrefix(strings.TrimPrefix(importPath, best), "/")), true
+	return filepath.Join(
+		bestDir,
+		strings.TrimPrefix(strings.TrimPrefix(importPath, best), "/"),
+	), true
 }
 
 // specFor returns the printed type spec declaring name in the package at
@@ -488,7 +508,10 @@ func (r *chainResolver) canonicalize(decl string) string {
 
 // canonicalizeAll canonicalizes every printed declaration and type spec in the
 // grouped maps in place.
-func (r *chainResolver) canonicalizeAll(owners map[string][]string, specs map[string]string) {
+func (r *chainResolver) canonicalizeAll(
+	owners map[string][]string,
+	specs map[string]string,
+) {
 	for o, decls := range owners {
 		for i, d := range decls {
 			decls[i] = r.canonicalize(d)

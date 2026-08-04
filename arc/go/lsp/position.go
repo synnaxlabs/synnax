@@ -24,7 +24,10 @@ func fromProtocol(pos protocol.Position) position {
 	return position{Line: int(pos.Line) + 1, Col: int(pos.Character)}
 }
 
-func findScopeAtInternalPosition(rootScope *symbol.Symbol, pos position) *symbol.Symbol {
+func findScopeAtInternalPosition(
+	rootScope *symbol.Symbol,
+	pos position,
+) *symbol.Symbol {
 	if rootScope == nil {
 		return nil
 	}
@@ -43,7 +46,8 @@ func findScopeRecursive(scope *symbol.Symbol, line, col int, deepest **symbol.Sy
 	if scope.AST != nil && !scope.Internal {
 		start := scope.AST.GetStart()
 		stop := scope.AST.GetStop()
-		if start != nil && stop != nil && isPositionInTokenRange(line, col, start, stop) {
+		if start != nil && stop != nil &&
+			isPositionInTokenRange(line, col, start, stop) {
 			*deepest = scope
 		}
 	}

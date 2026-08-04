@@ -119,105 +119,116 @@ var _ = Describe("Migration", func() {
 		Expect(countRacks(ctx)).To(Equal(1))
 	})
 
-	It("Should not match an embedded rack with a mismatched name", func(ctx SpecContext) {
-		mismatchedRack := v0.Rack{
-			Key:      65538,
-			Name:     "Some Other Embedded Rack",
-			Embedded: true,
-		}
-		Expect(gorp.NewCreate[v0.Key, v0.Rack]().
-			Entry(&mismatchedRack).
-			Exec(ctx, db)).To(Succeed())
+	It(
+		"Should not match an embedded rack with a mismatched name",
+		func(ctx SpecContext) {
+			mismatchedRack := v0.Rack{
+				Key:      65538,
+				Name:     "Some Other Embedded Rack",
+				Embedded: true,
+			}
+			Expect(gorp.NewCreate[v0.Key, v0.Rack]().
+				Entry(&mismatchedRack).
+				Exec(ctx, db)).To(Succeed())
 
-		runMigration(ctx)
+			runMigration(ctx)
 
-		got := retrieveRack(ctx, mismatchedRack.Key)
-		Expect(got.Embedded).To(BeTrue())
-		Expect(got.Name).To(Equal("Some Other Embedded Rack"))
-		Expect(countRacks(ctx)).To(Equal(1))
-	})
+			got := retrieveRack(ctx, mismatchedRack.Key)
+			Expect(got.Embedded).To(BeTrue())
+			Expect(got.Name).To(Equal("Some Other Embedded Rack"))
+			Expect(countRacks(ctx)).To(Equal(1))
+		},
+	)
 
-	It("Should leave an already-renamed embedded rack untouched", func(ctx SpecContext) {
-		existingRack := v0.Rack{
-			Key:      65538,
-			Name:     "Node 1 Embedded Driver",
-			Embedded: true,
-		}
-		Expect(gorp.NewCreate[v0.Key, v0.Rack]().
-			Entry(&existingRack).
-			Exec(ctx, db)).To(Succeed())
+	It(
+		"Should leave an already-renamed embedded rack untouched",
+		func(ctx SpecContext) {
+			existingRack := v0.Rack{
+				Key:      65538,
+				Name:     "Node 1 Embedded Driver",
+				Embedded: true,
+			}
+			Expect(gorp.NewCreate[v0.Key, v0.Rack]().
+				Entry(&existingRack).
+				Exec(ctx, db)).To(Succeed())
 
-		runMigration(ctx)
+			runMigration(ctx)
 
-		embeddedRack := retrieveRack(ctx, existingRack.Key)
-		Expect(embeddedRack.Embedded).To(BeTrue())
-		Expect(embeddedRack.Name).To(Equal("Node 1 Embedded Driver"))
-		Expect(countRacks(ctx)).To(Equal(1))
-	})
+			embeddedRack := retrieveRack(ctx, existingRack.Key)
+			Expect(embeddedRack.Embedded).To(BeTrue())
+			Expect(embeddedRack.Name).To(Equal("Node 1 Embedded Driver"))
+			Expect(countRacks(ctx)).To(Equal(1))
+		},
+	)
 })
 
 var _ = Describe("Status backfill", func() {
-	It("Should read a status whose rack key was stored as float64", func(ctx SpecContext) {
-		db := DeferClose(gorp.Wrap(memkv.New(), gorp.WithCodec(msgpack.Codec)))
-		otg := MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
-		searchIdx := MustOpen(search.OpenIndex())
-		groupSvc := MustOpen(group.OpenService(ctx, group.ServiceConfig{
-			DB:       db,
-			Ontology: otg,
-			Search:   searchIdx,
-		}))
-		labelSvc := MustOpen(label.OpenService(ctx, label.ServiceConfig{
-			DB:       db,
-			Ontology: otg,
-			Group:    groupSvc,
-			Search:   searchIdx,
-		}))
-		statusSvc := MustOpen(status.OpenService(ctx, status.ServiceConfig{
-			Ontology: otg,
-			DB:       db,
-			Group:    groupSvc,
-			Label:    labelSvc,
-			Search:   searchIdx,
-		}))
+	It(
+		"Should read a status whose rack key was stored as float64",
+		func(ctx SpecContext) {
+			db := DeferClose(gorp.Wrap(memkv.New(), gorp.WithCodec(msgpack.Codec)))
+			otg := MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
+			searchIdx := MustOpen(search.OpenIndex())
+			groupSvc := MustOpen(group.OpenService(ctx, group.ServiceConfig{
+				DB:       db,
+				Ontology: otg,
+				Search:   searchIdx,
+			}))
+			labelSvc := MustOpen(label.OpenService(ctx, label.ServiceConfig{
+				DB:       db,
+				Ontology: otg,
+				Group:    groupSvc,
+				Search:   searchIdx,
+			}))
+			statusSvc := MustOpen(status.OpenService(ctx, status.ServiceConfig{
+				Ontology: otg,
+				DB:       db,
+				Group:    groupSvc,
+				Label:    labelSvc,
+				Search:   searchIdx,
+			}))
 
-		rackKey := v0.Key(1<<16 | 1)
-		testRack := &v0.Rack{Key: rackKey, Name: "Migration Test Rack"}
-		Expect(gorp.NewCreate[v0.Key, v0.Rack]().Entry(testRack).Exec(ctx, db)).
-			To(Succeed())
+			rackKey := v0.Key(1<<16 | 1)
+			testRack := &v0.Rack{Key: rackKey, Name: "Migration Test Rack"}
+			Expect(gorp.NewCreate[v0.Key, v0.Rack]().Entry(testRack).Exec(ctx, db)).
+				To(Succeed())
 
-		// Write a status using Status[any] with the rack key as float64, simulating
-		// legacy data where the key was encoded as a MessagePack float64 instead of
-		// uint32.
-		legacyStatus := status.Status[any]{
-			Key:     rackKey.OntologyID().String(),
-			Name:    "Legacy Rack Status",
-			Variant: status.VariantSuccess,
-			Message: "Started",
-			Time:    telem.Now(),
-			Details: map[string]any{
-				"rack": float64(rackKey),
-			},
-		}
-		Expect(status.NewWriter[any](statusSvc, nil).Set(ctx, &legacyStatus)).To(Succeed())
+			// Write a status using Status[any] with the rack key as float64, simulating
+			// legacy data where the key was encoded as a MessagePack float64 instead of
+			// uint32.
+			legacyStatus := status.Status[any]{
+				Key:     rackKey.OntologyID().String(),
+				Name:    "Legacy Rack Status",
+				Variant: status.VariantSuccess,
+				Message: "Started",
+				Time:    telem.Now(),
+				Details: map[string]any{
+					"rack": float64(rackKey),
+				},
+			}
+			Expect(
+				status.NewWriter[any](statusSvc, nil).Set(ctx, &legacyStatus),
+			).To(Succeed())
 
-		// The backfill reads existing statuses as Status[StatusDetails]. This would
-		// fail without the flex DecodeMsgpack on the Key type because the rack key is
-		// stored as a MessagePack float64.
-		Expect(gorp.Migrate(ctx, gorp.MigrateConfig{
-			DB:        db,
-			Namespace: "Rack",
-			Migrations: v0.NewMigrations(v0.MigrationConfig{
-				HostProvider: mock.NewStaticHostProvider(1),
-				Status:       statusSvc,
-			}),
-		})).To(Succeed())
+			// The backfill reads existing statuses as Status[StatusDetails]. This would
+			// fail without the flex DecodeMsgpack on the Key type because the rack key
+			// is stored as a MessagePack float64.
+			Expect(gorp.Migrate(ctx, gorp.MigrateConfig{
+				DB:        db,
+				Namespace: "Rack",
+				Migrations: v0.NewMigrations(v0.MigrationConfig{
+					HostProvider: mock.NewStaticHostProvider(1),
+					Status:       statusSvc,
+				}),
+			})).To(Succeed())
 
-		// Verify the status is readable with the correct typed key.
-		var restoredStatus status.Status[v0.StatusDetails]
-		Expect(status.NewRetrieve[v0.StatusDetails](statusSvc).
-			Where(status.MatchKeys[v0.StatusDetails](rackKey.OntologyID().String())).
-			Entry(&restoredStatus).
-			Exec(ctx, nil)).To(Succeed())
-		Expect(restoredStatus.Details.Rack).To(Equal(rackKey))
-	})
+			// Verify the status is readable with the correct typed key.
+			var restoredStatus status.Status[v0.StatusDetails]
+			Expect(status.NewRetrieve[v0.StatusDetails](statusSvc).
+				Where(status.MatchKeys[v0.StatusDetails](rackKey.OntologyID().String())).
+				Entry(&restoredStatus).
+				Exec(ctx, nil)).To(Succeed())
+			Expect(restoredStatus.Details.Rack).To(Equal(rackKey))
+		},
+	)
 })

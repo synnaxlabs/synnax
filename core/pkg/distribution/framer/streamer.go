@@ -50,12 +50,19 @@ func (c *controlStateSender) getControlUpdateFrame(ctx context.Context) frame.Fr
 
 func (c *controlStateSender) Flow(ctx signal.Context, opts ...confluence.Option) {
 	if c.previouslyContainedControlStateKey {
-		_ = signal.SendUnderContext(ctx, c.Out.Inlet(), StreamerResponse{Frame: c.getControlUpdateFrame(ctx)})
+		_ = signal.SendUnderContext(
+			ctx,
+			c.Out.Inlet(),
+			StreamerResponse{Frame: c.getControlUpdateFrame(ctx)},
+		)
 	}
 	c.LinearTransform.Flow(ctx, opts...)
 }
 
-func (c *controlStateSender) transform(ctx context.Context, req StreamerRequest) (res StreamerResponse, send bool, err error) {
+func (c *controlStateSender) transform(
+	ctx context.Context,
+	req StreamerRequest,
+) (res StreamerResponse, send bool, err error) {
 	containsControlStateKey := lo.Contains(req.Keys, c.controlStateKey)
 	previouslyContainedControlStateKey := c.previouslyContainedControlStateKey
 	c.previouslyContainedControlStateKey = containsControlStateKey
@@ -63,7 +70,7 @@ func (c *controlStateSender) transform(ctx context.Context, req StreamerRequest)
 		send = true
 		res.Frame = c.getControlUpdateFrame(ctx)
 	}
-	return
+	return res, send, err
 }
 
 const (
@@ -81,7 +88,11 @@ func (s *Service) NewStreamer(cfg StreamerConfig) (Streamer, error) {
 	p := plumber.New()
 	plumber.SetSegment(p, relayReaderAddr, rel)
 	plumber.SetSegment(p, controlStateSenderAddr, controlStateSender)
-	plumber.SetSegment(p, requestMultiplierAddr, &confluence.DeltaMultiplier[StreamerRequest]{})
+	plumber.SetSegment(
+		p,
+		requestMultiplierAddr,
+		&confluence.DeltaMultiplier[StreamerRequest]{},
+	)
 	plumber.MultiRouter[StreamerRequest]{
 		Capacity:      5,
 		SourceTargets: []address.Address{requestMultiplierAddr},

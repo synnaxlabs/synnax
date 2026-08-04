@@ -123,9 +123,9 @@ type DispatchResponse struct {
 	Hash string `json:"hash" msgpack:"hash"`
 }
 
-// Dispatch relays the action sequence to the other clients editing the arc, broadcasting
-// it on the arc collaborative-edit signals channel. The caller must hold update access
-// to the arc.
+// Dispatch relays the action sequence to the other clients editing the arc,
+// broadcasting it on the arc collaborative-edit signals channel. The caller must hold
+// update access to the arc.
 func (s *Service) Dispatch(
 	ctx context.Context,
 	tx gorp.Tx,
@@ -159,7 +159,7 @@ func (s *Service) Dispatch(
 type (
 	// DeployRequest binds the arc to a rack. A zero Rack undeploys the arc.
 	DeployRequest struct {
-		Key  arc.Key  `json:"key" msgpack:"key"`
+		Key  arc.Key  `json:"key"  msgpack:"key"`
 		Rack rack.Key `json:"rack" msgpack:"rack"`
 	}
 	// DeployResponse carries the deployed task, or a nil Task after an undeploy.
@@ -203,13 +203,13 @@ func (s *Service) Deploy(
 
 type (
 	RetrieveRequest struct {
-		SearchTerm          string    `json:"search_term" msgpack:"search_term"`
-		Keys                []arc.Key `json:"keys" msgpack:"keys"`
-		Names               []string  `json:"names" msgpack:"names"`
-		Limit               int       `json:"limit" msgpack:"limit"`
-		Offset              int       `json:"offset" msgpack:"offset"`
-		IncludeStatus       bool      `json:"include_status" msgpack:"include_status"`
-		Compile             bool      `json:"compile" msgpack:"compile"`
+		SearchTerm          string    `json:"search_term"            msgpack:"search_term"`
+		Keys                []arc.Key `json:"keys"                   msgpack:"keys"`
+		Names               []string  `json:"names"                  msgpack:"names"`
+		Limit               int       `json:"limit"                  msgpack:"limit"`
+		Offset              int       `json:"offset"                 msgpack:"offset"`
+		IncludeStatus       bool      `json:"include_status"         msgpack:"include_status"`
+		Compile             bool      `json:"compile"                msgpack:"compile"`
 		IgnoreNotFoundError bool      `json:"ignore_not_found_error" msgpack:"ignore_not_found_error"`
 	}
 	RetrieveResponse struct {
@@ -253,8 +253,8 @@ func (s *Service) Retrieve(
 
 	res := RetrieveResponse{Arcs: arcs}
 
-	// Raw is derived from the replicated document and not stored, so materialize it before
-	// compilation and for clients that read the source text directly rather than
+	// Raw is derived from the replicated document and not stored, so materialize it
+	// before compilation and for clients that read the source text directly rather than
 	// reconstructing the document.
 	for i := range res.Arcs {
 		res.Arcs[i].Text = res.Arcs[i].Text.Materialize()

@@ -249,7 +249,7 @@ export const { useUpdate: useCreate } = Flux.createUpdate<CreateParams, arc.Arc>
     }),
 });
 
-export const { useRetrieve, useRetrieveObservable, useEnsureRetrieved } =
+export const { useRetrieve, useRetrieveObservable, useEnsureRetrieved, useTombstone } =
   Flux.createRetrieve<RetrieveQuery, arc.Arc>({
     name: RESOURCE_NAME,
     retrieve: async ({ client, query }) => await client.arcs.retrieve(query),

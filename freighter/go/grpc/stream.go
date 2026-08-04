@@ -111,36 +111,38 @@ func (s *StreamClient[RQ, RQT, RS, RST]) Stream(
 			Protocol: Reporter.Protocol,
 			Params:   make(freighter.Params),
 		},
-		freighter.FinalizerFunc(func(ctx freighter.Context) (oCtx freighter.Context, err error) {
-			ctx = attachContext(ctx)
-			conn, err := s.Pool.Acquire(target)
-			if err != nil {
-				return oCtx, err
-			}
-			grpcClient, err := s.ClientFunc(ctx, conn.ClientConn)
-			oCtx = freighter.Context{
-				Context:  ctx.Context,
-				Role:     ctx.Role,
-				Protocol: ctx.Protocol,
-				Target:   target,
-				Params:   make(freighter.Params),
-				Variant:  ctx.Variant,
-			}
-			if err != nil {
-				return oCtx, err
-			}
-			md, hdrErr := grpcClient.Header()
-			if hdrErr != nil {
-				return oCtx, hdrErr
-			}
-			if errVals := md.Get("error"); len(errVals) > 0 {
-				p := &errors.Payload{}
-				p.Unmarshal(errVals[0])
-				return oCtx, errors.Decode(ctx, *p)
-			}
-			stream = s.adaptStream(grpcClient)
-			return oCtx, nil
-		}),
+		freighter.FinalizerFunc(
+			func(ctx freighter.Context) (oCtx freighter.Context, err error) {
+				ctx = attachContext(ctx)
+				conn, err := s.Pool.Acquire(target)
+				if err != nil {
+					return oCtx, err
+				}
+				grpcClient, err := s.ClientFunc(ctx, conn.ClientConn)
+				oCtx = freighter.Context{
+					Context:  ctx.Context,
+					Role:     ctx.Role,
+					Protocol: ctx.Protocol,
+					Target:   target,
+					Params:   make(freighter.Params),
+					Variant:  ctx.Variant,
+				}
+				if err != nil {
+					return oCtx, err
+				}
+				md, hdrErr := grpcClient.Header()
+				if hdrErr != nil {
+					return oCtx, hdrErr
+				}
+				if errVals := md.Get("error"); len(errVals) > 0 {
+					p := &errors.Payload{}
+					p.Unmarshal(errVals[0])
+					return oCtx, errors.Decode(ctx, *p)
+				}
+				stream = s.adaptStream(grpcClient)
+				return oCtx, nil
+			},
+		),
 	)
 	return stream, err
 }

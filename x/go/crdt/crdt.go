@@ -97,14 +97,15 @@ type Text struct {
 	// tombstones holds ids deleted before their insert was seen, so the delete can be
 	// applied to the character once it arrives.
 	tombstones set.Set[ID]
-	// pending holds inserts whose origin has not yet been integrated, buffered until the
-	// origin arrives.
+	// pending holds inserts whose origin has not yet been integrated, buffered until
+	// the origin arrives.
 	pending []Insert
 	// order caches the in-order traversal of every run, rebuilt lazily when dirty.
 	order []*element
 	dirty bool
 	// lastPlaced is the run most recently created or extended: the likely target of the
-	// next sequential insert, letting a typed or seeded run extend without an id lookup.
+	// next sequential insert, letting a typed or seeded run extend without an id
+	// lookup.
 	lastPlaced *element
 	// str caches the materialized string; strValid reports whether it is current.
 	str      string
@@ -126,8 +127,8 @@ func (t *Text) markDirty() {
 // traversal.
 func (t *Text) markStale() { t.strValid = false }
 
-// New creates an empty document owned by the given replica. The replica must be non-zero
-// and unique among the replicas editing the document.
+// New creates an empty document owned by the given replica. The replica must be
+// non-zero and unique among the replicas editing the document.
 func New(replica uint32) *Text {
 	return &Text{
 		replica:    replica,
@@ -216,7 +217,10 @@ func (t *Text) Snapshot() (inserts []Insert, deletes []Delete) {
 			prev, prevSide := origin, side
 			for i, c := range e.chars {
 				id := e.charID(i)
-				inserts = append(inserts, Insert{ID: id, Origin: prev, Side: prevSide, Char: c})
+				inserts = append(
+					inserts,
+					Insert{ID: id, Origin: prev, Side: prevSide, Char: c},
+				)
 				if e.deleted != nil && e.deleted[i] {
 					deletes = append(deletes, Delete{ID: id})
 				}
@@ -236,8 +240,8 @@ func (t *Text) Snapshot() (inserts []Insert, deletes []Delete) {
 }
 
 // Load applies a snapshot to the document. It is intended for a freshly created
-// document; the local replica's edits remain attributed to its own replica id and do not
-// collide with the snapshot's operations.
+// document; the local replica's edits remain attributed to its own replica id and do
+// not collide with the snapshot's operations.
 func (t *Text) Load(inserts []Insert, deletes []Delete) {
 	t.ApplyInsert(inserts...)
 	t.ApplyDelete(deletes...)
@@ -508,7 +512,8 @@ func (t *Text) ApplyInsert(ops ...Insert) {
 }
 
 // ApplyDelete integrates delete operations produced by other replicas. A delete whose
-// character has not yet been seen is recorded so the character is tombstoned on arrival.
+// character has not yet been seen is recorded so the character is tombstoned on
+// arrival.
 func (t *Text) ApplyDelete(ops ...Delete) {
 	for _, op := range ops {
 		if e, off, ok := t.findRun(op.ID); ok {
@@ -607,7 +612,8 @@ func (t *Text) drain() {
 			if _, _, seen := t.findRun(op.ID); seen {
 				continue
 			}
-			if _, _, hasOrigin := t.findRun(op.Origin); !isRoot(op.Origin) && !hasOrigin {
+			_, _, hasOrigin := t.findRun(op.Origin)
+			if !isRoot(op.Origin) && !hasOrigin {
 				remaining = append(remaining, op)
 				continue
 			}

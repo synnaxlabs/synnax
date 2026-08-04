@@ -106,9 +106,9 @@ var _ = Describe("WriteConfig", func() {
 	})
 
 	It("Should preserve an existing config file on reinstall", func() {
-		Expect(os.MkdirAll(filepath.Dir(configPath), 0755)).To(Succeed())
+		Expect(os.MkdirAll(filepath.Dir(configPath), 0o755)).To(Succeed())
 		originalContent := []byte("listen: localhost:9091\ncustom-key: custom-value\n")
-		Expect(os.WriteFile(configPath, originalContent, 0644)).To(Succeed())
+		Expect(os.WriteFile(configPath, originalContent, 0o644)).To(Succeed())
 
 		viper.Set("listen", "localhost:9999")
 		Expect(service.WriteConfig()).To(Succeed())

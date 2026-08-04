@@ -33,7 +33,10 @@ var _ = Describe("FramerCodec", func() {
 			}
 			req := framer.WriterRequest{
 				Command: framer.WriterCommandWrite,
-				Frame:   frame.NewMulti(keys, []telem.Series{telem.NewSeriesV[int32](1, 2, 3)}),
+				Frame: frame.NewMulti(
+					keys,
+					[]telem.Series{telem.NewSeriesV[int32](1, 2, 3)},
+				),
 			}
 			msg := http.WSMessage[framer.WriterRequest]{Type: "data", Payload: req}
 			encoded := MustSucceed(v.Encode(ctx, msg))
@@ -44,13 +47,18 @@ var _ = Describe("FramerCodec", func() {
 			Expect(resMsg.Payload.Command).To(Equal(framer.WriterCommandWrite))
 			Expect(resMsg.Payload.Frame.KeysSlice()).To(Equal([]channel.Key{1}))
 			Expect(resMsg.Payload.Frame.Count()).To(Equal(1))
-			Expect(resMsg.Payload.Frame.SeriesAt(0)).To(telem.MatchSeriesData(telem.NewSeriesV[int32](1, 2, 3)))
+			Expect(
+				resMsg.Payload.Frame.SeriesAt(0),
+			).To(telem.MatchSeriesData(telem.NewSeriesV[int32](1, 2, 3)))
 		})
 
 		It("Should encode and decode multiple channels", func(ctx SpecContext) {
 			keys := channel.Keys{1, 2, 3}
 			v := framer.Codec{
-				Codec:          codec.NewStatic(keys, []telem.DataType{"int32", "float32", "uint64"}),
+				Codec: codec.NewStatic(
+					keys,
+					[]telem.DataType{"int32", "float32", "uint64"},
+				),
 				LowerPerfCodec: json.Codec,
 			}
 			req := framer.WriterRequest{
@@ -68,9 +76,15 @@ var _ = Describe("FramerCodec", func() {
 			Expect(v.Decode(ctx, encoded, &resMsg)).To(Succeed())
 			Expect(resMsg.Payload.Frame.KeysSlice()).To(Equal([]channel.Key{1, 2, 3}))
 			Expect(resMsg.Payload.Frame.Count()).To(Equal(3))
-			Expect(resMsg.Payload.Frame.SeriesAt(0)).To(telem.MatchSeriesData(telem.NewSeriesV[int32](1, 2)))
-			Expect(resMsg.Payload.Frame.SeriesAt(1)).To(telem.MatchSeriesData(telem.NewSeriesV[float32](1.1, 2.2)))
-			Expect(resMsg.Payload.Frame.SeriesAt(2)).To(telem.MatchSeriesData(telem.NewSeriesV[uint64](100, 200)))
+			Expect(
+				resMsg.Payload.Frame.SeriesAt(0),
+			).To(telem.MatchSeriesData(telem.NewSeriesV[int32](1, 2)))
+			Expect(
+				resMsg.Payload.Frame.SeriesAt(1),
+			).To(telem.MatchSeriesData(telem.NewSeriesV[float32](1.1, 2.2)))
+			Expect(
+				resMsg.Payload.Frame.SeriesAt(2),
+			).To(telem.MatchSeriesData(telem.NewSeriesV[uint64](100, 200)))
 		})
 
 		It("Should encode and decode open command", func(ctx SpecContext) {
@@ -93,7 +107,10 @@ var _ = Describe("FramerCodec", func() {
 				Codec:          cdec,
 				LowerPerfCodec: json.Codec,
 			}
-			req := framer.WriterRequest{Command: framer.WriterCommandOpen, Config: framer.WriterConfig{Keys: keys}}
+			req := framer.WriterRequest{
+				Command: framer.WriterCommandOpen,
+				Config:  framer.WriterConfig{Keys: keys},
+			}
 			msg := http.WSMessage[framer.WriterRequest]{Type: "data", Payload: req}
 			encoded := MustSucceed(v.Encode(ctx, msg))
 			var resMsg http.WSMessage[framer.WriterRequest]
@@ -105,7 +122,10 @@ var _ = Describe("FramerCodec", func() {
 
 		It("Should encode and decode open message", func(ctx SpecContext) {
 			v := framer.Codec{
-				Codec:          codec.NewStatic(channel.Keys{1}, []telem.DataType{"int32"}),
+				Codec: codec.NewStatic(
+					channel.Keys{1},
+					[]telem.DataType{"int32"},
+				),
 				LowerPerfCodec: json.Codec,
 			}
 			msg := http.WSMessage[framer.WriterRequest]{Type: http.WSMessageTypeOpen}
@@ -117,7 +137,10 @@ var _ = Describe("FramerCodec", func() {
 
 		It("Should encode and decode close message", func(ctx SpecContext) {
 			v := framer.Codec{
-				Codec:          codec.NewStatic(channel.Keys{1}, []telem.DataType{"int32"}),
+				Codec: codec.NewStatic(
+					channel.Keys{1},
+					[]telem.DataType{"int32"},
+				),
 				LowerPerfCodec: json.Codec,
 			}
 			msg := http.WSMessage[framer.WriterRequest]{Type: http.WSMessageTypeClose}
@@ -131,11 +154,20 @@ var _ = Describe("FramerCodec", func() {
 	Describe("Frame Writer Response", func() {
 		It("Should encode and decode response", func(ctx SpecContext) {
 			v := framer.Codec{
-				Codec:          codec.NewStatic(channel.Keys{1}, []telem.DataType{"int32"}),
+				Codec: codec.NewStatic(
+					channel.Keys{1},
+					[]telem.DataType{"int32"},
+				),
 				LowerPerfCodec: json.Codec,
 			}
-			res := framer.WriterResponse{Command: framer.WriterCommandWrite, Authorized: true}
-			msg := http.WSMessage[framer.WriterResponse]{Type: http.WSMessageTypeData, Payload: res}
+			res := framer.WriterResponse{
+				Command:    framer.WriterCommandWrite,
+				Authorized: true,
+			}
+			msg := http.WSMessage[framer.WriterResponse]{
+				Type:    http.WSMessageTypeData,
+				Payload: res,
+			}
 			encoded := MustSucceed(v.Encode(ctx, msg))
 			var resMsg http.WSMessage[framer.WriterResponse]
 			Expect(v.Decode(ctx, encoded, &resMsg)).To(Succeed())
@@ -175,52 +207,64 @@ var _ = Describe("FramerCodec", func() {
 			Expect(resMsg.Payload.Keys).To(Equal(keys))
 		})
 
-		It("Should not call Update when the request has no keys", func(ctx SpecContext) {
-			cdec := codec.NewDynamic(apiChannelSvc)
-			v := framer.Codec{Codec: cdec, LowerPerfCodec: json.Codec}
-			msg := http.WSMessage[framer.StreamerRequest]{
-				Type:    "data",
-				Payload: framer.StreamerRequest{},
-			}
-			encoded := MustSucceed(v.Encode(ctx, msg))
-			var resMsg http.WSMessage[framer.StreamerRequest]
-			Expect(v.Decode(ctx, encoded, &resMsg)).To(Succeed())
-			Expect(cdec.Initialized()).To(BeFalse())
-		})
+		It(
+			"Should not call Update when the request has no keys",
+			func(ctx SpecContext) {
+				cdec := codec.NewDynamic(apiChannelSvc)
+				v := framer.Codec{Codec: cdec, LowerPerfCodec: json.Codec}
+				msg := http.WSMessage[framer.StreamerRequest]{
+					Type:    "data",
+					Payload: framer.StreamerRequest{},
+				}
+				encoded := MustSucceed(v.Encode(ctx, msg))
+				var resMsg http.WSMessage[framer.StreamerRequest]
+				Expect(v.Decode(ctx, encoded, &resMsg)).To(Succeed())
+				Expect(cdec.Initialized()).To(BeFalse())
+			},
+		)
 
-		It("Should preserve the existing codec state when a later request has no keys", func(ctx SpecContext) {
-			channels := []channel.Channel{
-				{
-					Name:     UniqueChannelName(),
-					DataType: telem.Int64T,
-					Virtual:  true,
-				},
-			}
-			Expect(channelWriter.CreateMany(ctx, &channels)).To(Succeed())
-			keys := channel.KeysFromChannels(channels)
-			cdec := codec.NewDynamic(apiChannelSvc)
-			Expect(cdec.Update(ctx, keys)).To(Succeed())
-			v := framer.Codec{Codec: cdec, LowerPerfCodec: json.Codec}
+		It(
+			"Should preserve the existing codec state when a later request has no keys",
+			func(ctx SpecContext) {
+				channels := []channel.Channel{
+					{
+						Name:     UniqueChannelName(),
+						DataType: telem.Int64T,
+						Virtual:  true,
+					},
+				}
+				Expect(channelWriter.CreateMany(ctx, &channels)).To(Succeed())
+				keys := channel.KeysFromChannels(channels)
+				cdec := codec.NewDynamic(apiChannelSvc)
+				Expect(cdec.Update(ctx, keys)).To(Succeed())
+				v := framer.Codec{Codec: cdec, LowerPerfCodec: json.Codec}
 
-			emptyMsg := http.WSMessage[framer.StreamerRequest]{
-				Type:    "data",
-				Payload: framer.StreamerRequest{},
-			}
-			encoded := MustSucceed(v.Encode(ctx, emptyMsg))
-			var decoded http.WSMessage[framer.StreamerRequest]
-			Expect(v.Decode(ctx, encoded, &decoded)).To(Succeed())
+				emptyMsg := http.WSMessage[framer.StreamerRequest]{
+					Type:    "data",
+					Payload: framer.StreamerRequest{},
+				}
+				encoded := MustSucceed(v.Encode(ctx, emptyMsg))
+				var decoded http.WSMessage[framer.StreamerRequest]
+				Expect(v.Decode(ctx, encoded, &decoded)).To(Succeed())
 
-			res := framer.StreamerResponse{
-				Frame: frame.NewMulti(keys, []telem.Series{telem.NewSeriesV[int64](7, 8, 9)}),
-			}
-			resMsg := http.WSMessage[framer.StreamerResponse]{Type: "data", Payload: res}
-			resEncoded := MustSucceed(v.Encode(ctx, resMsg))
-			Expect(resEncoded[0]).To(Equal(uint8(255)))
-			var resDecoded http.WSMessage[framer.StreamerResponse]
-			Expect(v.Decode(ctx, resEncoded, &resDecoded)).To(Succeed())
-			Expect(resDecoded.Payload.Frame.SeriesAt(0)).
-				To(telem.MatchSeriesData(telem.NewSeriesV[int64](7, 8, 9)))
-		})
+				res := framer.StreamerResponse{
+					Frame: frame.NewMulti(
+						keys,
+						[]telem.Series{telem.NewSeriesV[int64](7, 8, 9)},
+					),
+				}
+				resMsg := http.WSMessage[framer.StreamerResponse]{
+					Type:    "data",
+					Payload: res,
+				}
+				resEncoded := MustSucceed(v.Encode(ctx, resMsg))
+				Expect(resEncoded[0]).To(Equal(uint8(255)))
+				var resDecoded http.WSMessage[framer.StreamerResponse]
+				Expect(v.Decode(ctx, resEncoded, &resDecoded)).To(Succeed())
+				Expect(resDecoded.Payload.Frame.SeriesAt(0)).
+					To(telem.MatchSeriesData(telem.NewSeriesV[int64](7, 8, 9)))
+			},
+		)
 	})
 
 	Describe("Frame Stream Response", func() {
@@ -231,7 +275,10 @@ var _ = Describe("FramerCodec", func() {
 				LowerPerfCodec: json.Codec,
 			}
 			res := framer.StreamerResponse{
-				Frame: frame.NewMulti(keys, []telem.Series{telem.NewSeriesV[int32](1, 2, 3)}),
+				Frame: frame.NewMulti(
+					keys,
+					[]telem.Series{telem.NewSeriesV[int32](1, 2, 3)},
+				),
 			}
 			msg := http.WSMessage[framer.StreamerResponse]{Type: "data", Payload: res}
 			encoded := MustSucceed(v.Encode(ctx, msg))
@@ -241,13 +288,18 @@ var _ = Describe("FramerCodec", func() {
 			Expect(resMsg.Type).To(Equal(http.WSMessageTypeData))
 			Expect(resMsg.Payload.Frame.KeysSlice()).To(Equal([]channel.Key{1}))
 			Expect(resMsg.Payload.Frame.Count()).To(Equal(1))
-			Expect(resMsg.Payload.Frame.SeriesAt(0)).To(telem.MatchSeriesData(telem.NewSeriesV[int32](1, 2, 3)))
+			Expect(
+				resMsg.Payload.Frame.SeriesAt(0),
+			).To(telem.MatchSeriesData(telem.NewSeriesV[int32](1, 2, 3)))
 		})
 
 		It("Should encode and decode multiple channels", func(ctx SpecContext) {
 			keys := channel.Keys{1, 2}
 			v := framer.Codec{
-				Codec:          codec.NewStatic(keys, []telem.DataType{"float64", "int64"}),
+				Codec: codec.NewStatic(
+					keys,
+					[]telem.DataType{"float64", "int64"},
+				),
 				LowerPerfCodec: json.Codec,
 			}
 			res := framer.StreamerResponse{
@@ -262,12 +314,19 @@ var _ = Describe("FramerCodec", func() {
 			Expect(v.Decode(ctx, encoded, &resMsg)).To(Succeed())
 			Expect(resMsg.Payload.Frame.KeysSlice()).To(Equal([]channel.Key{1, 2}))
 			Expect(resMsg.Payload.Frame.Count()).To(Equal(2))
-			Expect(resMsg.Payload.Frame.SeriesAt(0)).To(telem.MatchSeriesData(telem.NewSeriesV(1.5, 2.5, 3.5)))
-			Expect(resMsg.Payload.Frame.SeriesAt(1)).To(telem.MatchSeriesData(telem.NewSeriesV[int64](1000, 2000, 3000)))
+			Expect(
+				resMsg.Payload.Frame.SeriesAt(0),
+			).To(telem.MatchSeriesData(telem.NewSeriesV(1.5, 2.5, 3.5)))
+			Expect(
+				resMsg.Payload.Frame.SeriesAt(1),
+			).To(telem.MatchSeriesData(telem.NewSeriesV[int64](1000, 2000, 3000)))
 		})
 		It("Should encode and decode empty frame", func(ctx SpecContext) {
 			v := framer.Codec{
-				Codec:          codec.NewStatic(channel.Keys{1}, []telem.DataType{"int32"}),
+				Codec: codec.NewStatic(
+					channel.Keys{1},
+					[]telem.DataType{"int32"},
+				),
 				LowerPerfCodec: json.Codec,
 			}
 			res := framer.StreamerResponse{Frame: frame.Frame{}}
@@ -281,7 +340,10 @@ var _ = Describe("FramerCodec", func() {
 
 		It("Should encode and decode open message", func(ctx SpecContext) {
 			v := framer.Codec{
-				Codec:          codec.NewStatic(channel.Keys{1}, []telem.DataType{"int32"}),
+				Codec: codec.NewStatic(
+					channel.Keys{1},
+					[]telem.DataType{"int32"},
+				),
 				LowerPerfCodec: json.Codec,
 			}
 			msg := http.WSMessage[framer.StreamerResponse]{Type: http.WSMessageTypeOpen}
@@ -293,10 +355,15 @@ var _ = Describe("FramerCodec", func() {
 
 		It("Should encode and decode close message", func(ctx SpecContext) {
 			v := framer.Codec{
-				Codec:          codec.NewStatic(channel.Keys{1}, []telem.DataType{"int32"}),
+				Codec: codec.NewStatic(
+					channel.Keys{1},
+					[]telem.DataType{"int32"},
+				),
 				LowerPerfCodec: json.Codec,
 			}
-			msg := http.WSMessage[framer.StreamerResponse]{Type: http.WSMessageTypeClose}
+			msg := http.WSMessage[framer.StreamerResponse]{
+				Type: http.WSMessageTypeClose,
+			}
 			encoded := MustSucceed(v.Encode(ctx, msg))
 			var resMsg http.WSMessage[framer.StreamerResponse]
 			Expect(v.Decode(ctx, encoded, &resMsg)).To(Succeed())
@@ -305,81 +372,109 @@ var _ = Describe("FramerCodec", func() {
 	})
 
 	Describe("Frame Iterator Request", func() {
-		It("Should encode and decode an open request and update the codec", func(ctx SpecContext) {
-			channels := []channel.Channel{
-				{
-					Name:     UniqueChannelName(),
-					DataType: telem.Int64T,
-					Virtual:  true,
-				},
-				{
-					Name:     UniqueChannelName(),
-					DataType: telem.Int64T,
-					Virtual:  true,
-				},
-			}
-			Expect(channelWriter.CreateMany(ctx, &channels)).To(Succeed())
-			keys := channel.KeysFromChannels(channels)
-			cdec := codec.NewDynamic(apiChannelSvc)
-			v := framer.Codec{
-				Codec:          cdec,
-				LowerPerfCodec: json.Codec,
-			}
-			req := framer.IteratorRequest{Keys: keys}
-			msg := http.WSMessage[framer.IteratorRequest]{Type: "data", Payload: req}
-			encoded := MustSucceed(v.Encode(ctx, msg))
-			var resMsg http.WSMessage[framer.IteratorRequest]
-			Expect(v.Decode(ctx, encoded, &resMsg)).To(Succeed())
-			Expect(cdec.Initialized()).To(BeTrue())
-			Expect(resMsg.Type).To(Equal(http.WSMessageTypeData))
-			Expect(resMsg.Payload.Keys).To(Equal(keys))
-		})
+		It(
+			"Should encode and decode an open request and update the codec",
+			func(ctx SpecContext) {
+				channels := []channel.Channel{
+					{
+						Name:     UniqueChannelName(),
+						DataType: telem.Int64T,
+						Virtual:  true,
+					},
+					{
+						Name:     UniqueChannelName(),
+						DataType: telem.Int64T,
+						Virtual:  true,
+					},
+				}
+				Expect(channelWriter.CreateMany(ctx, &channels)).To(Succeed())
+				keys := channel.KeysFromChannels(channels)
+				cdec := codec.NewDynamic(apiChannelSvc)
+				v := framer.Codec{
+					Codec:          cdec,
+					LowerPerfCodec: json.Codec,
+				}
+				req := framer.IteratorRequest{Keys: keys}
+				msg := http.WSMessage[framer.IteratorRequest]{
+					Type:    "data",
+					Payload: req,
+				}
+				encoded := MustSucceed(v.Encode(ctx, msg))
+				var resMsg http.WSMessage[framer.IteratorRequest]
+				Expect(v.Decode(ctx, encoded, &resMsg)).To(Succeed())
+				Expect(cdec.Initialized()).To(BeTrue())
+				Expect(resMsg.Type).To(Equal(http.WSMessageTypeData))
+				Expect(resMsg.Payload.Keys).To(Equal(keys))
+			},
+		)
 
-		It("Should not call Update when the request has no keys", func(ctx SpecContext) {
-			cdec := codec.NewStatic(channel.Keys{1}, []telem.DataType{"int32"})
-			v := framer.Codec{
-				Codec:          cdec,
-				LowerPerfCodec: json.Codec,
-			}
-			req := framer.IteratorRequest{
-				Command: framer.IteratorCommandNext,
-				Span:    telem.Second,
-			}
-			msg := http.WSMessage[framer.IteratorRequest]{Type: "data", Payload: req}
-			encoded := MustSucceed(v.Encode(ctx, msg))
-			var resMsg http.WSMessage[framer.IteratorRequest]
-			Expect(v.Decode(ctx, encoded, &resMsg)).To(Succeed())
-			Expect(resMsg.Payload.Command).To(Equal(framer.IteratorCommandNext))
-			Expect(resMsg.Payload.Span).To(Equal(telem.Second))
-		})
+		It(
+			"Should not call Update when the request has no keys",
+			func(ctx SpecContext) {
+				cdec := codec.NewStatic(channel.Keys{1}, []telem.DataType{"int32"})
+				v := framer.Codec{
+					Codec:          cdec,
+					LowerPerfCodec: json.Codec,
+				}
+				req := framer.IteratorRequest{
+					Command: framer.IteratorCommandNext,
+					Span:    telem.Second,
+				}
+				msg := http.WSMessage[framer.IteratorRequest]{
+					Type:    "data",
+					Payload: req,
+				}
+				encoded := MustSucceed(v.Encode(ctx, msg))
+				var resMsg http.WSMessage[framer.IteratorRequest]
+				Expect(v.Decode(ctx, encoded, &resMsg)).To(Succeed())
+				Expect(resMsg.Payload.Command).To(Equal(framer.IteratorCommandNext))
+				Expect(resMsg.Payload.Span).To(Equal(telem.Second))
+			},
+		)
 	})
 
 	Describe("Frame Iterator Response", func() {
-		It("Should binary-encode a data variant response carrying a frame", func(ctx SpecContext) {
-			keys := channel.Keys{1}
-			v := framer.Codec{
-				Codec:          codec.NewStatic(keys, []telem.DataType{"int32"}),
-				LowerPerfCodec: json.Codec,
-			}
-			res := framer.IteratorResponse{
-				Variant: framer.IteratorResponseVariantData,
-				Command: framer.IteratorCommandNext,
-				Frame:   frame.NewMulti(keys, []telem.Series{telem.NewSeriesV[int32](1, 2, 3)}),
-			}
-			msg := http.WSMessage[framer.IteratorResponse]{Type: "data", Payload: res}
-			encoded := MustSucceed(v.Encode(ctx, msg))
-			Expect(encoded[0]).To(Equal(uint8(255)))
-			var resMsg http.WSMessage[framer.IteratorResponse]
-			Expect(v.Decode(ctx, encoded, &resMsg)).To(Succeed())
-			Expect(resMsg.Type).To(Equal(http.WSMessageTypeData))
-			Expect(resMsg.Payload.Variant).To(Equal(framer.IteratorResponseVariantData))
-			Expect(resMsg.Payload.Frame.KeysSlice()).To(Equal([]channel.Key{1}))
-			Expect(resMsg.Payload.Frame.SeriesAt(0)).To(telem.MatchSeriesData(telem.NewSeriesV[int32](1, 2, 3)))
-		})
+		It(
+			"Should binary-encode a data variant response carrying a frame",
+			func(ctx SpecContext) {
+				keys := channel.Keys{1}
+				v := framer.Codec{
+					Codec:          codec.NewStatic(keys, []telem.DataType{"int32"}),
+					LowerPerfCodec: json.Codec,
+				}
+				res := framer.IteratorResponse{
+					Variant: framer.IteratorResponseVariantData,
+					Command: framer.IteratorCommandNext,
+					Frame: frame.NewMulti(
+						keys,
+						[]telem.Series{telem.NewSeriesV[int32](1, 2, 3)},
+					),
+				}
+				msg := http.WSMessage[framer.IteratorResponse]{
+					Type:    "data",
+					Payload: res,
+				}
+				encoded := MustSucceed(v.Encode(ctx, msg))
+				Expect(encoded[0]).To(Equal(uint8(255)))
+				var resMsg http.WSMessage[framer.IteratorResponse]
+				Expect(v.Decode(ctx, encoded, &resMsg)).To(Succeed())
+				Expect(resMsg.Type).To(Equal(http.WSMessageTypeData))
+				Expect(
+					resMsg.Payload.Variant,
+				).To(Equal(framer.IteratorResponseVariantData))
+				Expect(resMsg.Payload.Frame.KeysSlice()).To(Equal([]channel.Key{1}))
+				Expect(
+					resMsg.Payload.Frame.SeriesAt(0),
+				).To(telem.MatchSeriesData(telem.NewSeriesV[int32](1, 2, 3)))
+			},
+		)
 
 		It("Should JSON-encode an ack variant response", func(ctx SpecContext) {
 			v := framer.Codec{
-				Codec:          codec.NewStatic(channel.Keys{1}, []telem.DataType{"int32"}),
+				Codec: codec.NewStatic(
+					channel.Keys{1},
+					[]telem.DataType{"int32"},
+				),
 				LowerPerfCodec: json.Codec,
 			}
 			res := framer.IteratorResponse{
@@ -399,27 +494,41 @@ var _ = Describe("FramerCodec", func() {
 			Expect(resMsg.Payload.SeqNum).To(Equal(42))
 		})
 
-		It("Should JSON-encode a data variant response with an empty frame", func(ctx SpecContext) {
-			v := framer.Codec{
-				Codec:          codec.NewStatic(channel.Keys{1}, []telem.DataType{"int32"}),
-				LowerPerfCodec: json.Codec,
-			}
-			res := framer.IteratorResponse{
-				Variant: framer.IteratorResponseVariantData,
-				Frame:   framer.Frame{},
-			}
-			msg := http.WSMessage[framer.IteratorResponse]{Type: "data", Payload: res}
-			encoded := MustSucceed(v.Encode(ctx, msg))
-			Expect(encoded[0]).To(Equal(uint8(254)))
-			var resMsg http.WSMessage[framer.IteratorResponse]
-			Expect(v.Decode(ctx, encoded, &resMsg)).To(Succeed())
-			Expect(resMsg.Payload.Variant).To(Equal(framer.IteratorResponseVariantData))
-			Expect(resMsg.Payload.Frame.Empty()).To(BeTrue())
-		})
+		It(
+			"Should JSON-encode a data variant response with an empty frame",
+			func(ctx SpecContext) {
+				v := framer.Codec{
+					Codec: codec.NewStatic(
+						channel.Keys{1},
+						[]telem.DataType{"int32"},
+					),
+					LowerPerfCodec: json.Codec,
+				}
+				res := framer.IteratorResponse{
+					Variant: framer.IteratorResponseVariantData,
+					Frame:   framer.Frame{},
+				}
+				msg := http.WSMessage[framer.IteratorResponse]{
+					Type:    "data",
+					Payload: res,
+				}
+				encoded := MustSucceed(v.Encode(ctx, msg))
+				Expect(encoded[0]).To(Equal(uint8(254)))
+				var resMsg http.WSMessage[framer.IteratorResponse]
+				Expect(v.Decode(ctx, encoded, &resMsg)).To(Succeed())
+				Expect(
+					resMsg.Payload.Variant,
+				).To(Equal(framer.IteratorResponseVariantData))
+				Expect(resMsg.Payload.Frame.Empty()).To(BeTrue())
+			},
+		)
 
 		It("Should encode and decode an open message", func(ctx SpecContext) {
 			v := framer.Codec{
-				Codec:          codec.NewStatic(channel.Keys{1}, []telem.DataType{"int32"}),
+				Codec: codec.NewStatic(
+					channel.Keys{1},
+					[]telem.DataType{"int32"},
+				),
 				LowerPerfCodec: json.Codec,
 			}
 			msg := http.WSMessage[framer.IteratorResponse]{Type: http.WSMessageTypeOpen}
@@ -431,10 +540,15 @@ var _ = Describe("FramerCodec", func() {
 
 		It("Should encode and decode a close message", func(ctx SpecContext) {
 			v := framer.Codec{
-				Codec:          codec.NewStatic(channel.Keys{1}, []telem.DataType{"int32"}),
+				Codec: codec.NewStatic(
+					channel.Keys{1},
+					[]telem.DataType{"int32"},
+				),
 				LowerPerfCodec: json.Codec,
 			}
-			msg := http.WSMessage[framer.IteratorResponse]{Type: http.WSMessageTypeClose}
+			msg := http.WSMessage[framer.IteratorResponse]{
+				Type: http.WSMessageTypeClose,
+			}
 			encoded := MustSucceed(v.Encode(ctx, msg))
 			var resMsg http.WSMessage[framer.IteratorResponse]
 			Expect(v.Decode(ctx, encoded, &resMsg)).To(Succeed())
@@ -452,7 +566,10 @@ var _ = Describe("FramerCodec", func() {
 				Command: framer.IteratorCommandNext,
 				Ack:     true,
 				SeqNum:  99,
-				Frame:   frame.NewMulti(keys, []telem.Series{telem.NewSeriesV[int32](1, 2, 3)}),
+				Frame: frame.NewMulti(
+					keys,
+					[]telem.Series{telem.NewSeriesV[int32](1, 2, 3)},
+				),
 			}
 			msg := http.WSMessage[framer.IteratorResponse]{Type: "data", Payload: res}
 			encoded := MustSucceed(v.Encode(ctx, msg))
@@ -464,119 +581,183 @@ var _ = Describe("FramerCodec", func() {
 			Expect(resMsg.Payload.Command).To(Equal(framer.IteratorCommand(0)))
 			Expect(resMsg.Payload.Ack).To(BeFalse())
 			Expect(resMsg.Payload.SeqNum).To(Equal(0))
-			Expect(resMsg.Payload.Frame.SeriesAt(0)).To(telem.MatchSeriesData(telem.NewSeriesV[int32](1, 2, 3)))
+			Expect(
+				resMsg.Payload.Frame.SeriesAt(0),
+			).To(telem.MatchSeriesData(telem.NewSeriesV[int32](1, 2, 3)))
 		})
 	})
 
 	Describe("Error paths and edge cases", func() {
-		It("Should return an error from EncodeStream when the value type is not recognized", func(ctx SpecContext) {
-			v := framer.Codec{
-				Codec:          codec.NewStatic(channel.Keys{1}, []telem.DataType{"int32"}),
-				LowerPerfCodec: json.Codec,
-			}
-			Expect(v.Encode(ctx, "not a websocket message")).Error().To(MatchError(ContainSubstring("incompatible type")))
-		})
+		It(
+			"Should return an error from EncodeStream when the value type is not recognized",
+			func(ctx SpecContext) {
+				v := framer.Codec{
+					Codec: codec.NewStatic(
+						channel.Keys{1},
+						[]telem.DataType{"int32"},
+					),
+					LowerPerfCodec: json.Codec,
+				}
+				Expect(
+					v.Encode(ctx, "not a websocket message"),
+				).Error().
+					To(MatchError(ContainSubstring("incompatible type")))
+			},
+		)
 
-		It("Should return an error from DecodeStream when the target type is not recognized", func(ctx SpecContext) {
-			v := framer.Codec{
-				Codec:          codec.NewStatic(channel.Keys{1}, []telem.DataType{"int32"}),
-				LowerPerfCodec: json.Codec,
-			}
-			var target string
-			Expect(v.Decode(ctx, []byte{0xFE}, &target)).To(MatchError(ContainSubstring("incompatible type")))
-		})
+		It(
+			"Should return an error from DecodeStream when the target type is not recognized",
+			func(ctx SpecContext) {
+				v := framer.Codec{
+					Codec: codec.NewStatic(
+						channel.Keys{1},
+						[]telem.DataType{"int32"},
+					),
+					LowerPerfCodec: json.Codec,
+				}
+				var target string
+				Expect(
+					v.Decode(ctx, []byte{0xFE}, &target),
+				).To(MatchError(ContainSubstring("incompatible type")))
+			},
+		)
 
-		It("Should return an error from decodeWriteResponse when given a high-perf prefix", func(ctx SpecContext) {
-			v := framer.Codec{
-				Codec:          codec.NewStatic(channel.Keys{1}, []telem.DataType{"int32"}),
-				LowerPerfCodec: json.Codec,
-			}
-			var resMsg http.WSMessage[framer.WriterResponse]
-			Expect(v.Decode(ctx, []byte{0xFF}, &resMsg)).To(MatchError(ContainSubstring("unexpected high performance codec special character")))
-		})
+		It(
+			"Should return an error from decodeWriteResponse when given a high-perf prefix",
+			func(ctx SpecContext) {
+				v := framer.Codec{
+					Codec: codec.NewStatic(
+						channel.Keys{1},
+						[]telem.DataType{"int32"},
+					),
+					LowerPerfCodec: json.Codec,
+				}
+				var resMsg http.WSMessage[framer.WriterResponse]
+				Expect(
+					v.Decode(ctx, []byte{0xFF}, &resMsg),
+				).To(MatchError(ContainSubstring("unexpected high performance codec special character")))
+			},
+		)
 
-		It("Should keep the codec initialized across non-open iterator requests", func(ctx SpecContext) {
-			channels := []channel.Channel{{
-				Name:     UniqueChannelName(),
-				DataType: telem.Int64T,
-				Virtual:  true,
-			}}
-			Expect(channelWriter.CreateMany(ctx, &channels)).To(Succeed())
-			keys := channel.KeysFromChannels(channels)
-			cdec := codec.NewDynamic(apiChannelSvc)
-			v := framer.Codec{Codec: cdec, LowerPerfCodec: json.Codec}
+		It(
+			"Should keep the codec initialized across non-open iterator requests",
+			func(ctx SpecContext) {
+				channels := []channel.Channel{{
+					Name:     UniqueChannelName(),
+					DataType: telem.Int64T,
+					Virtual:  true,
+				}}
+				Expect(channelWriter.CreateMany(ctx, &channels)).To(Succeed())
+				keys := channel.KeysFromChannels(channels)
+				cdec := codec.NewDynamic(apiChannelSvc)
+				v := framer.Codec{Codec: cdec, LowerPerfCodec: json.Codec}
 
-			openReq := http.WSMessage[framer.IteratorRequest]{
-				Type:    "data",
-				Payload: framer.IteratorRequest{Keys: keys},
-			}
-			encOpen := MustSucceed(v.Encode(ctx, openReq))
-			var decOpen http.WSMessage[framer.IteratorRequest]
-			Expect(v.Decode(ctx, encOpen, &decOpen)).To(Succeed())
-			Expect(cdec.Initialized()).To(BeTrue())
+				openReq := http.WSMessage[framer.IteratorRequest]{
+					Type:    "data",
+					Payload: framer.IteratorRequest{Keys: keys},
+				}
+				encOpen := MustSucceed(v.Encode(ctx, openReq))
+				var decOpen http.WSMessage[framer.IteratorRequest]
+				Expect(v.Decode(ctx, encOpen, &decOpen)).To(Succeed())
+				Expect(cdec.Initialized()).To(BeTrue())
 
-			nextReq := http.WSMessage[framer.IteratorRequest]{
-				Type:    "data",
-				Payload: framer.IteratorRequest{Command: framer.IteratorCommandNext, Span: telem.Second},
-			}
-			encNext := MustSucceed(v.Encode(ctx, nextReq))
-			var decNext http.WSMessage[framer.IteratorRequest]
-			Expect(v.Decode(ctx, encNext, &decNext)).To(Succeed())
-			Expect(cdec.Initialized()).To(BeTrue())
-			Expect(decNext.Payload.Command).To(Equal(framer.IteratorCommandNext))
-		})
+				nextReq := http.WSMessage[framer.IteratorRequest]{
+					Type: "data",
+					Payload: framer.IteratorRequest{
+						Command: framer.IteratorCommandNext,
+						Span:    telem.Second,
+					},
+				}
+				encNext := MustSucceed(v.Encode(ctx, nextReq))
+				var decNext http.WSMessage[framer.IteratorRequest]
+				Expect(v.Decode(ctx, encNext, &decNext)).To(Succeed())
+				Expect(cdec.Initialized()).To(BeTrue())
+				Expect(decNext.Payload.Command).To(Equal(framer.IteratorCommandNext))
+			},
+		)
 
-		It("Should round-trip an iterator data response after a control message", func(ctx SpecContext) {
-			keys := channel.Keys{1}
-			v := framer.Codec{
-				Codec:          codec.NewStatic(keys, []telem.DataType{"int32"}),
-				LowerPerfCodec: json.Codec,
-			}
-			openMsg := http.WSMessage[framer.IteratorResponse]{Type: http.WSMessageTypeOpen}
-			MustSucceed(v.Encode(ctx, openMsg))
+		It(
+			"Should round-trip an iterator data response after a control message",
+			func(ctx SpecContext) {
+				keys := channel.Keys{1}
+				v := framer.Codec{
+					Codec:          codec.NewStatic(keys, []telem.DataType{"int32"}),
+					LowerPerfCodec: json.Codec,
+				}
+				openMsg := http.WSMessage[framer.IteratorResponse]{
+					Type: http.WSMessageTypeOpen,
+				}
+				MustSucceed(v.Encode(ctx, openMsg))
 
-			res := framer.IteratorResponse{
-				Variant: framer.IteratorResponseVariantData,
-				Frame:   frame.NewMulti(keys, []telem.Series{telem.NewSeriesV[int32](7, 8)}),
-			}
-			dataMsg := http.WSMessage[framer.IteratorResponse]{Type: "data", Payload: res}
-			encoded := MustSucceed(v.Encode(ctx, dataMsg))
-			Expect(encoded[0]).To(Equal(uint8(255)))
-			var dec http.WSMessage[framer.IteratorResponse]
-			Expect(v.Decode(ctx, encoded, &dec)).To(Succeed())
-			Expect(dec.Payload.Frame.SeriesAt(0)).To(telem.MatchSeriesData(telem.NewSeriesV[int32](7, 8)))
-		})
+				res := framer.IteratorResponse{
+					Variant: framer.IteratorResponseVariantData,
+					Frame: frame.NewMulti(
+						keys,
+						[]telem.Series{telem.NewSeriesV[int32](7, 8)},
+					),
+				}
+				dataMsg := http.WSMessage[framer.IteratorResponse]{
+					Type:    "data",
+					Payload: res,
+				}
+				encoded := MustSucceed(v.Encode(ctx, dataMsg))
+				Expect(encoded[0]).To(Equal(uint8(255)))
+				var dec http.WSMessage[framer.IteratorResponse]
+				Expect(v.Decode(ctx, encoded, &dec)).To(Succeed())
+				Expect(
+					dec.Payload.Frame.SeriesAt(0),
+				).To(telem.MatchSeriesData(telem.NewSeriesV[int32](7, 8)))
+			},
+		)
 
-		It("Should round-trip a streamer response with an empty frame as JSON", func(ctx SpecContext) {
-			v := framer.Codec{
-				Codec:          codec.NewStatic(channel.Keys{1}, []telem.DataType{"int32"}),
-				LowerPerfCodec: json.Codec,
-			}
-			res := framer.StreamerResponse{Frame: framer.Frame{}}
-			msg := http.WSMessage[framer.StreamerResponse]{Type: "data", Payload: res}
-			encoded := MustSucceed(v.Encode(ctx, msg))
-			Expect(encoded[0]).To(Equal(uint8(254)))
-			var dec http.WSMessage[framer.StreamerResponse]
-			Expect(v.Decode(ctx, encoded, &dec)).To(Succeed())
-			Expect(dec.Payload.Frame.Empty()).To(BeTrue())
-		})
+		It(
+			"Should round-trip a streamer response with an empty frame as JSON",
+			func(ctx SpecContext) {
+				v := framer.Codec{
+					Codec: codec.NewStatic(
+						channel.Keys{1},
+						[]telem.DataType{"int32"},
+					),
+					LowerPerfCodec: json.Codec,
+				}
+				res := framer.StreamerResponse{Frame: framer.Frame{}}
+				msg := http.WSMessage[framer.StreamerResponse]{
+					Type:    "data",
+					Payload: res,
+				}
+				encoded := MustSucceed(v.Encode(ctx, msg))
+				Expect(encoded[0]).To(Equal(uint8(254)))
+				var dec http.WSMessage[framer.StreamerResponse]
+				Expect(v.Decode(ctx, encoded, &dec)).To(Succeed())
+				Expect(dec.Payload.Frame.Empty()).To(BeTrue())
+			},
+		)
 
-		It("Should round-trip a writer SetAuthority command via the JSON path", func(ctx SpecContext) {
-			v := framer.Codec{
-				Codec:          codec.NewStatic(channel.Keys{1}, []telem.DataType{"int32"}),
-				LowerPerfCodec: json.Codec,
-			}
-			req := framer.WriterRequest{
-				Command: framer.WriterCommandSetAuthority,
-				Config:  framer.WriterConfig{Keys: channel.Keys{1}, Authorities: []uint32{255}},
-			}
-			msg := http.WSMessage[framer.WriterRequest]{Type: "data", Payload: req}
-			encoded := MustSucceed(v.Encode(ctx, msg))
-			Expect(encoded[0]).To(Equal(uint8(254)))
-			var dec http.WSMessage[framer.WriterRequest]
-			Expect(v.Decode(ctx, encoded, &dec)).To(Succeed())
-			Expect(dec.Payload.Command).To(Equal(framer.WriterCommandSetAuthority))
-			Expect(dec.Payload.Config.Authorities).To(Equal([]uint32{255}))
-		})
+		It(
+			"Should round-trip a writer SetAuthority command via the JSON path",
+			func(ctx SpecContext) {
+				v := framer.Codec{
+					Codec: codec.NewStatic(
+						channel.Keys{1},
+						[]telem.DataType{"int32"},
+					),
+					LowerPerfCodec: json.Codec,
+				}
+				req := framer.WriterRequest{
+					Command: framer.WriterCommandSetAuthority,
+					Config: framer.WriterConfig{
+						Keys:        channel.Keys{1},
+						Authorities: []uint32{255},
+					},
+				}
+				msg := http.WSMessage[framer.WriterRequest]{Type: "data", Payload: req}
+				encoded := MustSucceed(v.Encode(ctx, msg))
+				Expect(encoded[0]).To(Equal(uint8(254)))
+				var dec http.WSMessage[framer.WriterRequest]
+				Expect(v.Decode(ctx, encoded, &dec)).To(Succeed())
+				Expect(dec.Payload.Command).To(Equal(framer.WriterCommandSetAuthority))
+				Expect(dec.Payload.Config.Authorities).To(Equal([]uint32{255}))
+			},
+		)
 	})
 })

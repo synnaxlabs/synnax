@@ -59,7 +59,8 @@ func VariantFromPB(v Variant) (status.Variant, error) {
 	}
 }
 
-// StatusToPB converts Status to Status using provided type converters.
+// StatusToPB converts Status to Status using provided type
+// converters.
 func StatusToPB[Details any](
 	r status.Status[Details],
 	translateDetails func(Details) (*anypb.Any, error),
@@ -91,7 +92,8 @@ func StatusToPB[Details any](
 	return pb, nil
 }
 
-// StatusFromPB converts Status to Status using provided type converters.
+// StatusFromPB converts Status to Status using provided type
+// converters.
 func StatusFromPB[Details any](
 	pb *Status,
 	translateDetails func(*anypb.Any) (Details, error),
