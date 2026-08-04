@@ -7,15 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { status } from "@synnaxlabs/client";
+import { type status } from "@synnaxlabs/client";
 import { type Flex, type Flux, Form } from "@synnaxlabs/pluto";
-import { useCallback, useState } from "react";
+import { useCallback } from "react";
 
-import { Actions } from "@/platform/task/controls/Actions";
-import { Frame } from "@/platform/task/controls/Frame";
-import { RedeployButton } from "@/platform/task/controls/RedeployButton";
-import { StartStopButton } from "@/platform/task/controls/StartStopButton";
-import { Status } from "@/platform/task/controls/Status";
+import { Bar } from "@/platform/task/controls/Bar";
 import { useDrifted } from "@/platform/task/useDrifted";
 import { useKey } from "@/platform/task/useKey";
 import { useStatus } from "@/platform/task/useStatus";
@@ -28,54 +24,36 @@ export interface ControlsProps extends Flex.BoxProps {
   onStop: () => void;
 }
 
-/**
- * Task controls component that wires up the presentational controls
- * with task-specific data from Form context.
- */
+/** Task controls bar wired to the surrounding task Form context. */
 export const Controls = ({ onDeploy, onStop, formStatus, ...props }: ControlsProps) => {
   const taskStatus = useStatus();
   const isSnapshot = Form.useFieldValue<boolean>("snapshot");
   const key = useKey();
   const drifted = useDrifted();
 
-  const [expanded, setExpanded] = useState(false);
-
-  // Compute effective status (form errors take precedence)
+  // Form errors take precedence over the task status.
   let effectiveStatus: status.Status = taskStatus;
   if (formStatus.variant !== "success") effectiveStatus = formStatus;
 
-  const running = taskStatus.details.running;
-  const handleStartStop = useCallback(() => {
-    if (key == null) return;
-    if (running) onStop();
-    else onDeploy();
-  }, [key, running, onStop, onDeploy]);
-
-  const handleRedeploy = useCallback(() => {
+  const handleDeploy = useCallback(() => {
     if (key == null) return;
     onDeploy();
   }, [key, onDeploy]);
+  const handleStop = useCallback(() => {
+    if (key == null) return;
+    onStop();
+  }, [key, onStop]);
 
-  const handleToggle = useCallback(() => setExpanded((prev) => !prev), []);
-  const handleContract = useCallback(() => setExpanded(false), []);
-
-  const formInvalid = formStatus.variant !== "success";
   return (
-    <Frame expanded={expanded} onContract={handleContract} {...props}>
-      <Status status={effectiveStatus} expanded={expanded} onToggle={handleToggle} />
-      {!isSnapshot && (
-        <Actions>
-          {drifted && (
-            <RedeployButton onClick={handleRedeploy} disabled={formInvalid} />
-          )}
-          <StartStopButton
-            running={running}
-            onClick={handleStartStop}
-            disabled={formInvalid}
-            statusVariant={status.keepVariants(taskStatus.variant, "loading")}
-          />
-        </Actions>
-      )}
-    </Frame>
+    <Bar
+      status={effectiveStatus}
+      running={taskStatus.details.running}
+      drifted={drifted}
+      snapshot={isSnapshot}
+      disabled={formStatus.variant !== "success"}
+      onDeploy={handleDeploy}
+      onStop={handleStop}
+      {...props}
+    />
   );
 };
