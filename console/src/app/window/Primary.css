@@ -15,10 +15,10 @@
     padding-left: 0.5rem;
     /* Hover drawers overshoot the docked footprint: tucked under the top bar, fused
        into the left bar's border, bled past the content padding. */
-    --left-drawer-inset-left: 8rem;
+    --left-drawer-inset-left: 8.5rem;
     --left-drawer-inset-top: 6.5rem;
     --left-drawer-inset-bottom: 0.5rem;
-    --bottom-drawer-inset-left: calc(7.5rem - 2px);
+    --bottom-drawer-inset-left: calc(8rem - 2px);
     --bottom-drawer-inset-right: 0.5rem;
     --bottom-drawer-inset-bottom: 1rem;
 
