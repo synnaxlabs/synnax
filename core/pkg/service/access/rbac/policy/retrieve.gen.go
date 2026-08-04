@@ -49,17 +49,20 @@ func Not(f Filter) Filter {
 	return gorp.NotBound[Retrieve, Key, Policy](f)
 }
 
-// MatchKeys returns a filter that restricts results to policies whose key
-// matches any of the provided values. Composing MatchKeys at the top level
-// of a Where clause (i.e. r.Where(MatchKeys(...))) dispatches Exec to the
-// multi-get fast path; composing inside Or / Not falls back to a full scan.
+// MatchKeys returns a filter that restricts results to
+// policies whose key matches any of the provided
+// values. Composing MatchKeys at the top level of a Where clause (i.e.
+// r.Where(MatchKeys(...))) dispatches Exec to the multi-get fast path; composing
+// inside Or / Not falls back to a full scan.
 func MatchKeys(keys ...Key) Filter {
 	return func(_ Retrieve) gorp.Filter[Key, Policy] {
 		return gorp.MatchKeys[Key, Policy](keys...)
 	}
 }
 
-// MatchNames returns a filter for policies whose Name matches any of the provided values.
+// MatchNames returns a filter for
+// policies whose Name matches any of the
+// provided values.
 func MatchNames(vals ...string) Filter {
 	return func(r Retrieve) gorp.Filter[Key, Policy] {
 		return gorp.Match(func(_ gorp.Context, e *Policy) (bool, error) {
@@ -68,7 +71,8 @@ func MatchNames(vals ...string) Filter {
 	}
 }
 
-// MatchInternal returns a filter for policies by their Internal field.
+// MatchInternal returns a filter for policies by their
+// Internal field.
 func MatchInternal(v bool) Filter {
 	return func(r Retrieve) gorp.Filter[Key, Policy] {
 		return gorp.Match(func(_ gorp.Context, e *Policy) (bool, error) {
@@ -86,14 +90,16 @@ func (r Retrieve) Where(filter Filter) Retrieve {
 	return r
 }
 
-// Entry binds the provided policy as the result container for the query. If
-// multiple policies match, the first one is used.
+// Entry binds the provided policy as the result container for the
+// query. If multiple policies match, the first one is
+// used.
 func (r Retrieve) Entry(e *Policy) Retrieve {
 	r.gorp = r.gorp.Entry(e)
 	return r
 }
 
-// Entries binds the provided slice of policies as the result container for the query.
+// Entries binds the provided slice of policies as the
+// result container for the query.
 func (r Retrieve) Entries(es *[]Policy) Retrieve {
 	r.gorp = r.gorp.Entries(es)
 	return r
@@ -102,7 +108,8 @@ func (r Retrieve) Entries(es *[]Policy) Retrieve {
 // Limit sets the maximum number of policies to return.
 func (r Retrieve) Limit(limit int) Retrieve { r.gorp = r.gorp.Limit(limit); return r }
 
-// Offset sets the starting index of the policies to return.
+// Offset sets the starting index of the policies to
+// return.
 func (r Retrieve) Offset(offset int) Retrieve {
 	r.gorp = r.gorp.Offset(offset)
 	return r

@@ -27,7 +27,7 @@ func DeriveWASMCoordinates(
 	ctx context.Context,
 	scope *symbol.Symbol,
 	ref pendingRef,
-) (wasmModule string, wasmFuncName string) {
+) (wasmModule, wasmFuncName string) {
 	if ref.module == "" {
 		panic("DeriveWASMCoordinates called on local reference: " + ref.name)
 	}
@@ -55,7 +55,8 @@ func DeriveWASMCoordinates(
 // instantiation of a polymorphic symbol. Returns "" if the original type has no
 // type variables.
 func DeriveTypeSuffix(originalType, concreteType types.Type) string {
-	if originalType.Kind != types.KindFunction || concreteType.Kind != types.KindFunction {
+	if originalType.Kind != types.KindFunction ||
+		concreteType.Kind != types.KindFunction {
 		return ""
 	}
 	for i, inp := range originalType.Inputs {

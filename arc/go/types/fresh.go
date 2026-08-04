@@ -9,17 +9,16 @@
 
 package types
 
-import (
-	"slices"
-)
+import "slices"
 
 // Freshen creates a copy of t with all type variables renamed using the given prefix.
-// This is essential when instantiating generic functions to avoid type variable conflicts
-// during unification.
+// This is essential when instantiating generic functions to avoid type variable
+// conflicts during unification.
 //
 // For example, when instantiating a generic function `add<T>(a: T, b: T) -> T` twice,
 // each instantiation needs fresh type variables (e.g., "node1_T" and "node2_T") to
-// prevent unification from incorrectly constraining both instantiations to the same type.
+// prevent unification from incorrectly constraining both instantiations to the same
+// type.
 //
 // The function recursively freshens type variables in:
 //   - Direct type variables (including their constraints)

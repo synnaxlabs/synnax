@@ -93,7 +93,10 @@ var _ = Describe("PipeToLogger", func() {
 
 	Describe("glog format", func() {
 		It("Should parse an info line into level, message, and caller", func() {
-			entries := pipeAndCollect(logger, nil, nil,
+			entries := pipeAndCollect(
+				logger,
+				nil,
+				nil,
 				"I20260208 14:34:21.789995 0x1fa2cec40 start.cpp:19] starting Synnax Driver v0.50.6\n",
 			)
 			Expect(entries).To(HaveLen(1))
@@ -143,7 +146,10 @@ var _ = Describe("PipeToLogger", func() {
 		})
 
 		It("Should parse a debug line", func() {
-			entries := pipeAndCollect(logger, nil, nil,
+			entries := pipeAndCollect(
+				logger,
+				nil,
+				nil,
 				"D20260208 14:34:21.000000 0x1fa2cec40 opc.cpp:12] connecting to server\n",
 			)
 			Expect(entries).To(HaveLen(1))
@@ -155,7 +161,10 @@ var _ = Describe("PipeToLogger", func() {
 		})
 
 		It("Should handle continuation lines as info with previous caller", func() {
-			entries := pipeAndCollect(logger, nil, nil,
+			entries := pipeAndCollect(
+				logger,
+				nil,
+				nil,
 				"I20260208 14:34:21.790466 0x16d327000 rack.cpp:33] real-time capabilities:\n"+
 					"  priority scheduling: yes\n"+
 					"  deadline scheduling: not supported\n",
@@ -181,7 +190,10 @@ var _ = Describe("PipeToLogger", func() {
 		It("Should detect started successfully", func() {
 			started := make(chan struct{})
 			once := &sync.Once{}
-			entries := pipeAndCollect(logger, started, once,
+			entries := pipeAndCollect(
+				logger,
+				started,
+				once,
 				"I20260208 14:34:22.000000 0x16d327000 rack.cpp:200] started successfully\n",
 			)
 			Expect(started).To(BeClosed())
@@ -230,33 +242,36 @@ var _ = Describe("PipeToLogger", func() {
 	})
 
 	Describe("started channel safety", func() {
-		It("Should not panic when started message appears on two concurrent pipes", func() {
-			started := make(chan struct{})
-			once := &sync.Once{}
-			r1, w1 := io.Pipe()
-			r2, w2 := io.Pipe()
-			done1 := make(chan struct{})
-			done2 := make(chan struct{})
-			go func() {
-				defer close(done1)
-				log.PipeToLogger(r1, logger, started, once)
-			}()
-			go func() {
-				defer close(done2)
-				log.PipeToLogger(r2, logger, started, once)
-			}()
-			MustSucceed(w1.Write([]byte(
-				"I20260208 14:34:22.000000 0x16d327000 rack.cpp:200] started successfully\n",
-			)))
-			MustSucceed(w2.Write([]byte(
-				"I20260208 14:34:22.000000 0x16d327000 rack.cpp:200] started successfully\n",
-			)))
-			Expect(w1.Close()).To(Succeed())
-			Expect(w2.Close()).To(Succeed())
-			Eventually(done1).Should(BeClosed())
-			Eventually(done2).Should(BeClosed())
-			Expect(started).To(BeClosed())
-		})
+		It(
+			"Should not panic when started message appears on two concurrent pipes",
+			func() {
+				started := make(chan struct{})
+				once := &sync.Once{}
+				r1, w1 := io.Pipe()
+				r2, w2 := io.Pipe()
+				done1 := make(chan struct{})
+				done2 := make(chan struct{})
+				go func() {
+					defer close(done1)
+					log.PipeToLogger(r1, logger, started, once)
+				}()
+				go func() {
+					defer close(done2)
+					log.PipeToLogger(r2, logger, started, once)
+				}()
+				MustSucceed(w1.Write([]byte(
+					"I20260208 14:34:22.000000 0x16d327000 rack.cpp:200] started successfully\n",
+				)))
+				MustSucceed(w2.Write([]byte(
+					"I20260208 14:34:22.000000 0x16d327000 rack.cpp:200] started successfully\n",
+				)))
+				Expect(w1.Close()).To(Succeed())
+				Expect(w2.Close()).To(Succeed())
+				Eventually(done1).Should(BeClosed())
+				Eventually(done2).Should(BeClosed())
+				Expect(started).To(BeClosed())
+			},
+		)
 	})
 
 	It("Should warn on empty lines", func() {
@@ -291,48 +306,57 @@ var _ = Describe("PipeToLogger", func() {
 	})
 
 	Describe("crash output", func() {
-		It("Should collapse a multi-line signal crash dump into one error entry", func() {
-			entries := pipeAndCollect(logger, nil, nil,
-				"*** synnax-driver crashed: SIGSEGV (segmentation fault) ***\n"+
-					"stack trace:\n"+
-					"0   driver  0x000000010000a1b0  synnax::run() + 48\n",
-			)
-			Expect(entries).To(HaveLen(1))
-			Expect(entries[0]).To(And(
-				HaveKeyWithValue("L", "ERROR"),
-				HaveKeyWithValue("M",
+		It(
+			"Should collapse a multi-line signal crash dump into one error entry",
+			func() {
+				entries := pipeAndCollect(logger, nil, nil,
 					"*** synnax-driver crashed: SIGSEGV (segmentation fault) ***\n"+
 						"stack trace:\n"+
-						"0   driver  0x000000010000a1b0  synnax::run() + 48"),
-			))
-		})
+						"0   driver  0x000000010000a1b0  synnax::run() + 48\n",
+				)
+				Expect(entries).To(HaveLen(1))
+				Expect(entries[0]).To(And(
+					HaveKeyWithValue("L", "ERROR"),
+					HaveKeyWithValue("M",
+						"*** synnax-driver crashed: SIGSEGV (segmentation fault) ***\n"+
+							"stack trace:\n"+
+							"0   driver  0x000000010000a1b0  synnax::run() + 48"),
+				))
+			},
+		)
 
-		It("Should log an unhandled-exception dump at error level including what()", func() {
-			entries := pipeAndCollect(logger, nil, nil,
-				"*** synnax-driver terminated: unhandled exception ***\n"+
-					"  what(): boom-message\n"+
-					"stack trace:\n",
-			)
-			Expect(entries).To(HaveLen(1))
-			Expect(entries[0]).To(And(
-				HaveKeyWithValue("L", "ERROR"),
-				HaveKeyWithValue("M", ContainSubstring("boom-message")),
-			))
-		})
+		It(
+			"Should log an unhandled-exception dump at error level including what()",
+			func() {
+				entries := pipeAndCollect(logger, nil, nil,
+					"*** synnax-driver terminated: unhandled exception ***\n"+
+						"  what(): boom-message\n"+
+						"stack trace:\n",
+				)
+				Expect(entries).To(HaveLen(1))
+				Expect(entries[0]).To(And(
+					HaveKeyWithValue("L", "ERROR"),
+					HaveKeyWithValue("M", ContainSubstring("boom-message")),
+				))
+			},
+		)
 
-		It("Should preserve bracketed frame lines instead of parsing them as glog", func() {
-			frame := "./driver(_ZN3foo3barEv+0x18) [0x55a3c1d2e4f0]"
-			entries := pipeAndCollect(logger, nil, nil,
-				"*** synnax-driver crashed: SIGABRT (abort) ***\n"+
-					"stack trace:\n"+frame+"\n",
-			)
-			Expect(entries).To(HaveLen(1))
-			Expect(entries[0]).To(And(
-				HaveKeyWithValue("L", "ERROR"),
-				HaveKeyWithValue("M", ContainSubstring(frame)),
-				Not(HaveKey("N")),
-			))
-		})
+		It(
+			"Should preserve bracketed frame lines instead of parsing them as glog",
+			func() {
+				frame := "./driver(_ZN3foo3barEv+0x18) [0x55a3c1d2e4f0]"
+				entries := pipeAndCollect(logger, nil, nil,
+					"*** synnax-driver crashed: SIGABRT (abort) ***\n"+
+						"stack trace:\n"+frame+"\n",
+				)
+				Expect(entries).To(HaveLen(1))
+				Expect(entries[0]).To(And(
+					HaveKeyWithValue("L", "ERROR"),
+					HaveKeyWithValue("M", ContainSubstring(frame)),
+					Not(HaveKey("N")),
+				))
+			},
+		)
 
 		It("Should escalate only after the crash banner", func() {
 			entries := pipeAndCollect(logger, nil, nil,
@@ -404,16 +428,19 @@ var _ = Describe("PipeToLogger", func() {
 			Expect(entries[0]).To(HaveKey("S"))
 		})
 
-		It("Should not attach a Go stacktrace to a forwarded driver error line", func() {
-			entries := pipeProd(
-				"E20260208 14:34:21.000000 0x1fa2cec40 rack.cpp:99] boom\n",
-			)
-			Expect(entries).To(HaveLen(1))
-			Expect(entries[0]).To(And(
-				HaveKeyWithValue("L", "ERROR"),
-				Not(HaveKey("S")),
-			))
-		})
+		It(
+			"Should not attach a Go stacktrace to a forwarded driver error line",
+			func() {
+				entries := pipeProd(
+					"E20260208 14:34:21.000000 0x1fa2cec40 rack.cpp:99] boom\n",
+				)
+				Expect(entries).To(HaveLen(1))
+				Expect(entries[0]).To(And(
+					HaveKeyWithValue("L", "ERROR"),
+					Not(HaveKey("S")),
+				))
+			},
+		)
 
 		It("Should not attach a Go stacktrace to a crash dump", func() {
 			entries := pipeProd(

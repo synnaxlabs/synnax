@@ -96,7 +96,10 @@ func parseImportOptions(ctx context.Context) (imex.ImportOptions, error) {
 	v, ok := freighter.MDFromContext(ctx).Get("params")
 	s, isStr := v.(string)
 	if !ok || !isStr || s == "" {
-		return imex.ImportOptions{}, validate.PathedError(validate.ErrRequired, "params")
+		return imex.ImportOptions{}, validate.PathedError(
+			validate.ErrRequired,
+			"params",
+		)
 	}
 	var params importParams
 	if err := json.Unmarshal([]byte(s), &params); err != nil {
@@ -111,7 +114,10 @@ func parseImportOptions(ctx context.Context) (imex.ImportOptions, error) {
 		)
 	}
 	if params.Project == "" {
-		return imex.ImportOptions{}, validate.PathedError(validate.ErrRequired, "project")
+		return imex.ImportOptions{}, validate.PathedError(
+			validate.ErrRequired,
+			"project",
+		)
 	}
 	key, err := uuid.Parse(params.Project)
 	if err != nil {

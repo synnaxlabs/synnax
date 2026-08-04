@@ -40,11 +40,9 @@ var _ = Describe("Pipeline", func() {
 			sink := MustSucceed(GetSink[int](pipe, "sink"))
 			Expect(sink).To(Equal(unarySink))
 		})
-
 	})
 
 	Describe("NewHardShutdown Chain", func() {
-
 		It("Should shutdown the pipe as segments close their inlets", func() {
 			t1 := &confluence.LinearTransform[int, int]{}
 			t1.Transform = func(ctx context.Context, v int) (int, bool, error) {
@@ -82,9 +80,7 @@ var _ = Describe("Pipeline", func() {
 			Expect(v).To(Equal(4))
 			_, ok := <-output.Outlet()
 			Expect(ok).To(BeFalse())
-
 		})
-
 	})
 
 	Describe("GetSink", func() {
@@ -111,7 +107,6 @@ var _ = Describe("Pipeline", func() {
 	})
 
 	Describe("Complex Pipeline", func() {
-
 		It("Should construct and operate the pipe correctly", func() {
 			emitterOne := &confluence.Emitter[int]{Interval: 1 * time.Millisecond}
 			c1 := 0
@@ -198,7 +193,5 @@ var _ = Describe("Pipeline", func() {
 
 			Expect(len(evens) + len(odds)).To(Equal(9))
 		})
-
 	})
-
 })

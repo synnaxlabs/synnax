@@ -54,7 +54,7 @@ func (d *DB) Set(
 		return err
 	}
 	err = b.Commit(ctx)
-	return
+	return err
 }
 
 func (d *DB) Delete(
@@ -68,7 +68,7 @@ func (d *DB) Delete(
 		return err
 	}
 	err = b.Commit(ctx)
-	return
+	return err
 }
 
 func (d *DB) OpenTx() xkv.Tx {
@@ -85,7 +85,9 @@ func (d *DB) OpenTx() xkv.Tx {
 // leaseholder. Each (key, version) tuple is delivered at most once, even
 // when gossip replicates the same op to this node multiple times. For
 // filtered views over the same stream, see NewObservable.
-func (d *DB) OnChange(handler func(ctx context.Context, reader xkv.TxReader)) observe.Disconnect {
+func (d *DB) OnChange(
+	handler func(ctx context.Context, reader xkv.TxReader),
+) observe.Disconnect {
 	return d.NewObservable().OnChange(handler)
 }
 
@@ -124,7 +126,8 @@ func (o *observable) OnChange(
 	handler func(ctx context.Context, reader xkv.TxReader),
 ) observe.Disconnect {
 	return o.db.txObservable.OnChange(func(ctx context.Context, tx TxRequest) {
-		if o.opts.ignoreHostLeaseholder && tx.Leaseholder == o.db.config.Cluster.HostKey() {
+		if o.opts.ignoreHostLeaseholder &&
+			tx.Leaseholder == o.db.config.Cluster.HostKey() {
 			return
 		}
 		handler(ctx, tx.reader())

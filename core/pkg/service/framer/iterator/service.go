@@ -165,7 +165,10 @@ func (s *Service) Open(ctx context.Context, cfg Config) (*Iterator, error) {
 	return &Iterator{requests: req, responses: res, shutdown: cancel, wg: sCtx}, nil
 }
 
-func (s *Service) newCalculationTransform(ctx context.Context, cfg *Config) (*calculationTransform, error) {
+func (s *Service) newCalculationTransform(
+	ctx context.Context,
+	cfg *Config,
+) (*calculationTransform, error) {
 	originalKeys := slices.Clone(cfg.Keys)
 
 	// Fetch the requested channels

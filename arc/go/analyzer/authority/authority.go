@@ -106,7 +106,11 @@ func analyzeEntry(
 			))
 			return
 		}
-		v, ok := parseAuthorityValue(ctx.Diagnostics, entry, entry.INTEGER_LITERAL().GetText())
+		v, ok := parseAuthorityValue(
+			ctx.Diagnostics,
+			entry,
+			entry.INTEGER_LITERAL().GetText(),
+		)
 		if !ok {
 			return
 		}
@@ -123,7 +127,11 @@ func analyzeEntry(
 			))
 			return
 		}
-		v, ok := parseAuthorityValue(ctx.Diagnostics, entry, entry.INTEGER_LITERAL().GetText())
+		v, ok := parseAuthorityValue(
+			ctx.Diagnostics,
+			entry,
+			entry.INTEGER_LITERAL().GetText(),
+		)
 		if !ok {
 			return
 		}
