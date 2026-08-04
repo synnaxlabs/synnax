@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { Icon } from "@synnaxlabs/pluto";
-import { screen, waitFor } from "@testing-library/react";
+import { screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(
@@ -80,30 +80,24 @@ describe("Version Commands", () => {
     expect(await screen.findByText("Up to date")).toBeTruthy();
   });
 
-  it("should download the update and restart via the update command", async () => {
-    mocks.engine = "tauri";
-    const downloadAndInstall = vi.fn(async (onProgress: (event: unknown) => void) => {
-      onProgress({ event: "Started", data: { contentLength: 1000 } });
-      onProgress({ event: "Progress", data: { chunkLength: 1000 } });
-      onProgress({ event: "Finished" });
-    });
-    mocks.update = { version: "9.9.9", downloadAndInstall };
-    const { openCommandPalette, selectCommand } = await renderPalette({
-      commands: Version.COMMANDS,
-    });
-    await openCommandPalette();
-    await selectCommand("Update & restart the Console");
-    await waitFor(() => expect(downloadAndInstall).toHaveBeenCalledTimes(1));
-    await waitFor(() => expect(mocks.relaunch).toHaveBeenCalledTimes(1));
-  });
-
-  it("should hide both commands in the browser", async () => {
+  it("should hide the version info command in the browser", async () => {
     const { openCommandPalette } = await renderPalette({
       commands: [...Version.COMMANDS, SentinelCommand],
     });
     await openCommandPalette();
     await screen.findByText("Sentinel command");
     expect(screen.queryByText("Show version info")).toBeNull();
-    expect(screen.queryByText("Update & restart the Console")).toBeNull();
+  });
+
+  it("should not offer a command that updates without confirmation", async () => {
+    mocks.engine = "tauri";
+    mocks.update = { version: "9.9.9" };
+    const { openCommandPalette } = await renderPalette({
+      commands: [...Version.COMMANDS, SentinelCommand],
+    });
+    await openCommandPalette();
+    await screen.findByText("Sentinel command");
+    expect(screen.queryByText(/Update/)).toBeNull();
+    expect(mocks.relaunch).not.toHaveBeenCalled();
   });
 });

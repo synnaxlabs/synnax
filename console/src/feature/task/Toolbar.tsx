@@ -26,7 +26,7 @@ import {
   Text,
   Tooltip,
 } from "@synnaxlabs/pluto";
-import { array, strings } from "@synnaxlabs/x";
+import { array } from "@synnaxlabs/x";
 import { useCallback, useState } from "react";
 
 import { useOpenSelector } from "@/feature/task/Selector";
@@ -71,6 +71,7 @@ const Content = () => {
   const [selected, setSelected] = useState<task.Key[]>([]);
   const addStatus = Status.useAdder();
   const confirm = Modals.useConfirm();
+  const confirmDelete = Modals.useConfirmDelete({ type: "Task" });
   const menuProps = Menu.useContextMenu();
   const openTab = Panel.useOpenTab();
   const openSelector = useOpenSelector();
@@ -88,20 +89,10 @@ const Content = () => {
       async ({ data: keys }: Flux.BeforeUpdateParams<Task.DeleteParams>) => {
         setSelected([]);
         if (keys.length === 0) return false;
-        const names = strings.naturalLanguageJoin(
-          getItem(array.toArray(keys)).map(({ name }) => name),
-          "tasks",
-        );
-        const confirmed = await confirm({
-          message: `Are you sure you want to delete ${names}?`,
-          description: "This action cannot be undone.",
-          cancel: { label: "Cancel" },
-          confirm: { label: "Delete", variant: "error" },
-        });
-        if (!confirmed) return false;
+        if (!(await confirmDelete(getItem(array.toArray(keys))))) return false;
         return keys;
       },
-      [client, getItem],
+      [client, getItem, confirmDelete],
     ),
     afterFailure: ({ status }) => addStatus(status),
   });
