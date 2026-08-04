@@ -43,7 +43,7 @@ const MissingResourceContent = ({
 }: Errors.FallbackProps): ReactElement => {
   useResetOnRestore(resetErrorBoundary);
   const message = Flux.DeletedError.matches(error)
-    ? "This resource was deleted."
+    ? `${error.corpseName ?? "This resource"} was deleted.`
     : "This resource could not be found.";
   return <EmptyContent message={message} />;
 };

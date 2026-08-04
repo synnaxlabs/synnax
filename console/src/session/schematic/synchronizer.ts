@@ -7,11 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { remove, type StoreState } from "@/session/schematic/slice";
+import { type Action, remove, type StoreState } from "@/session/schematic/slice";
 import { Synchronizer } from "@/session/synchronizer";
 
-export const SYNCHRONIZERS: Synchronizer.Synchronizers = {
-  useRemoveDeletedSchematics: Synchronizer.createRemover({
+export const SYNCHRONIZERS: Synchronizer.Synchronizers<StoreState, Action> = {
+  useRemoveDeletedSchematics: Synchronizer.createRemover<StoreState, Action>({
     domain: (client) => client.schematics,
     selectKeys: (state: StoreState) => Object.keys(state.schematic.schematics),
     remove: (keys) => remove({ keys }),

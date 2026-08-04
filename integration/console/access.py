@@ -62,7 +62,7 @@ class AccessClient:
         palette_input = self.layout.page.locator(
             ".console-palette__input input[role='textbox']"
         )
-        palette_input.fill(">Log Out", timeout=2000)
+        palette_input.fill(">Log out", timeout=2000)
         sy.sleep(0.2)
 
         logout_option = self.layout.page.get_by_text("Log out", exact=True).first

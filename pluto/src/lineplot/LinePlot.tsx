@@ -83,37 +83,15 @@ const AXIS_LOCATIONS: Record<lineplot.AxisKey, location.Outer> = {
   x2: "top",
 };
 
-const UNDO_REDO_CONFIG: Triggers.ModeConfig<"undo" | "redo" | "default"> = {
-  undo: [Triggers.UNDO],
-  redo: [Triggers.REDO],
-  default: [],
-  defaultMode: "default",
-};
-const UNDO_REDO_TRIGGERS = Triggers.flattenConfig(UNDO_REDO_CONFIG);
-
 interface UseUndoRedoTriggersProps {
   key: lineplot.Key;
-  enabled: boolean | (() => boolean);
+  enabled: Triggers.Condition;
 }
 
 const useUndoRedoTriggers = ({ key, enabled }: UseUndoRedoTriggersProps) => {
   const { undo } = useUndo({ key });
   const { redo } = useRedo({ key });
-  Triggers.use({
-    triggers: UNDO_REDO_TRIGGERS,
-    loose: true,
-    callback: useCallback(
-      ({ triggers, stage }: Triggers.UseEvent) => {
-        if (stage !== "start") return;
-        if (enabled === false) return;
-        if (typeof enabled === "function" && !enabled()) return;
-        const mode = Triggers.determineMode(UNDO_REDO_CONFIG, triggers);
-        if (mode === "undo") undo();
-        else if (mode === "redo") redo();
-      },
-      [enabled, undo, redo],
-    ),
-  });
+  Triggers.useUndoRedo({ undo, redo, enabled });
 };
 
 const useAxisDrop = <K extends lineplot.AxisKey>(
@@ -483,7 +461,7 @@ const useViewportReset = ({
 
 export interface LinePlotProps extends FrameProps {
   editable?: boolean;
-  enableTriggers?: boolean | (() => boolean);
+  enableTriggers?: Triggers.Condition;
   resolvedRanges?: Map<string, ResolvedRange>;
   legendVariant?: BaseLegendProps["variant"];
   enableTooltip?: boolean;

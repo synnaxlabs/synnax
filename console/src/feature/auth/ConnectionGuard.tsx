@@ -38,7 +38,7 @@ import { Session } from "@/session";
 export const ConnectionGuard = ({ children }: PropsWithChildren): ReactNode => {
   const client = Synnax.use();
   const status = Synnax.useConnectionStatus();
-  const settled = Session.Settled.use();
+  const settled = Session.useSettled();
   if (client == null) return children;
   if (status.variant === "error" && status.details.reason === "auth") return <Login />;
   if (!settled) return <Splash client={client} status={status} />;
@@ -211,7 +211,7 @@ const Trouble = ({ client, status, checking }: TroubleProps): ReactElement => {
           onClick={() => client.connection.retryNow()}
         >
           <Icon.Refresh />
-          Retry Now
+          Retry now
         </Button.Button>
         <Flex.Box x gap="small" full="x" className={CSS.BE("connection", "actions")}>
           {activeKey != null && (
@@ -222,12 +222,12 @@ const Trouble = ({ client, status, checking }: TroubleProps): ReactElement => {
               onClick={() => openConnect({ clusterKey: activeKey })}
             >
               <Icon.Edit />
-              Edit Connection
+              Edit connection
             </Button.Button>
           )}
           <Button.Button variant="outlined" grow justify="center" onClick={logout}>
             <Icon.Logout />
-            Log Out
+            Log out
           </Button.Button>
         </Flex.Box>
       </Flex.Box>

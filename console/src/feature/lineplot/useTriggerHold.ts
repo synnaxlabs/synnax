@@ -16,7 +16,7 @@ import { Session } from "@/session";
 
 export interface UseTriggerHoldProps {
   key: lineplot.Key;
-  enabled: boolean | (() => boolean);
+  enabled: Triggers.Condition;
 }
 
 export const useTriggerHold = ({ key, enabled }: UseTriggerHoldProps): void => {
@@ -24,14 +24,13 @@ export const useTriggerHold = ({ key, enabled }: UseTriggerHoldProps): void => {
   Triggers.use({
     triggers: HOLD_TRIGGER,
     loose: true,
+    enabled,
     callback: useCallback(
       ({ stage }: Triggers.UseEvent) => {
         if (stage !== "start") return;
-        if (enabled === false) return;
-        if (typeof enabled === "function" && !enabled()) return;
         dispatch(Session.LinePlot.setControlHold({ key }));
       },
-      [dispatch, key, enabled],
+      [dispatch, key],
     ),
   });
 };

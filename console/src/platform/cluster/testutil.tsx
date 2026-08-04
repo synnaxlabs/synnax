@@ -11,37 +11,11 @@ import { type RenderResult } from "@testing-library/react";
 import { type ReactNode } from "react";
 
 import { Modals } from "@/platform/modals";
-import { Session } from "@/session";
 import {
   type ConsolePreloadedState,
   renderWithConsole,
   type TestStore,
 } from "@/testutil";
-
-export const createCluster = (
-  key: string,
-  overrides: Partial<Session.Cluster.Cluster> = {},
-): Session.Cluster.Cluster => ({
-  key,
-  name: key,
-  host: "localhost",
-  port: 9090,
-  username: "synnax",
-  password: "seldon",
-  secure: false,
-  ...overrides,
-});
-
-export const createClusterState = (
-  clusters: Session.Cluster.Cluster[],
-  selected?: string,
-): ConsolePreloadedState => ({
-  [Session.Cluster.SLICE_NAME]: {
-    version: 0,
-    selected,
-    clusters: Object.fromEntries(clusters.map((c) => [c.key, c])),
-  },
-});
 
 /**
  * Renders ui together with a live {@link Modals.Stack} inside the full console provider

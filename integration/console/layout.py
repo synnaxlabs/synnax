@@ -369,7 +369,12 @@ class LayoutClient:
             .first
         )
         checkbox.wait_for(state="attached", timeout=300)
-        checkbox.click()
+        try:
+            checkbox.click(timeout=5000)
+        except PlaywrightTimeoutError:
+            # Toasts stack over the bottom of a form and swallow the click.
+            self.notifications.close_all()
+            checkbox.click(timeout=5000)
 
     def get_toggle(self, toggle_label: str) -> bool:
         """Get the value of a toggle by label."""
@@ -409,47 +414,73 @@ class LayoutClient:
         raise RuntimeError(f"No selected button found from options: {button_options}")
 
     def select_from_dropdown(
-        self, text: str, placeholder: str | None = None, exact: bool = False
+        self,
+        text: str,
+        placeholder: str | None = None,
+        exact: bool = False,
+        reopen: Callable[[], None] | None = None,
     ) -> None:
-        """Select an item from an open dropdown."""
+        """Select an item from an open dropdown.
+
+        :param text: Visible text of the item to select.
+        :param placeholder: Search input placeholder to filter with before selecting.
+        :param exact: Require an exact text match instead of a substring match.
+        :param reopen: Re-opens the dropdown. Called before a retry when the dialog
+            closed before the item was found (e.g. a re-render dismissed it).
+        """
         sy.sleep(0.3)
         target_item = f".pluto-list__item:not(.pluto-tree__item):has-text('{text}')"
 
-        search_input = None
-        if placeholder is not None:
-            search_input = self.page.locator(f"input[placeholder*='{placeholder}']")
-        if search_input is None or search_input.count() == 0:
-            search_input = self.page.locator("input[placeholder*='Search']")
-        if search_input.count() > 0:
-            search_input.wait_for(state="attached", timeout=5000)
-            current_value = search_input.input_value()
-            if current_value != text:
-                search_input.fill(text)
-            sy.sleep(0.2)
+        def apply_search() -> None:
+            search_input = None
+            if placeholder is not None:
+                search_input = self.page.locator(f"input[placeholder*='{placeholder}']")
+            if search_input is None or search_input.count() == 0:
+                search_input = self.page.locator("input[placeholder*='Search']")
+            if search_input.count() > 0:
+                search_input.wait_for(state="attached", timeout=5000)
+                if search_input.input_value() != text:
+                    search_input.fill(text)
+                sy.sleep(0.2)
 
+        apply_search()
+        last_recovery_error: Exception | None = None
         for _ in range(5):
             try:
                 self.page.wait_for_selector(target_item, timeout=5000)
                 if exact:
                     for candidate in self.page.locator(target_item).all():
                         if candidate.inner_text().strip() == text:
-                            candidate.click()
+                            candidate.click(timeout=5000)
                             return
                 else:
                     item = self.page.locator(target_item).first
                     item.wait_for(state="attached", timeout=5000)
-                    item.click()
+                    item.click(timeout=5000)
                     return
             except Exception:
-                sy.sleep(1)
+                try:
+                    # Toasts overlap the dropdown and swallow the click.
+                    self.notifications.close_all()
+                    dialog = self.page.locator(".pluto-dialog__dialog.pluto--visible")
+                    if reopen is not None and dialog.count() == 0:
+                        reopen()
+                        apply_search()
+                    else:
+                        sy.sleep(1)
+                except Exception as e:
+                    # A failed recovery consumes this retry instead of aborting.
+                    last_recovery_error = e
+                    sy.sleep(1)
                 continue
 
         items = self.page.locator(
             ".pluto-list__item:not(.pluto-tree__item)"
         ).all_text_contents()
-        raise RuntimeError(
-            f"Could not find item '{text}' in dropdown. Available items: {items}"
-        )
+        message = f"Could not find item '{text}' in dropdown. Available items: {items}"
+        if last_recovery_error is not None:
+            message += f" (last recovery attempt failed: {last_recovery_error})"
+        raise RuntimeError(message)
 
     def click(self, selector: str | Locator) -> None:
         """Click an element by text selector or Locator.

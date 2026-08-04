@@ -15,9 +15,7 @@ import { LinePlot } from "@/feature/lineplot";
 import { client, project } from "@/feature/lineplot/testutil";
 import { createActiveState } from "@/platform/project/testutil";
 import { Session } from "@/session";
-import { resolveFocusedTab, stubGeometry } from "@/testutil";
-
-stubGeometry();
+import { resolveFocusedTab } from "@/testutil";
 
 describe("LinePlot Commands", () => {
   it("creates a line plot on the server and opens it as a tab", async () => {

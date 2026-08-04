@@ -185,7 +185,7 @@ def render_failure_report(run_dir: Path, tests: list[Test]) -> Path | None:
         lines.append("")
 
     out = run_dir / "all-failures.md"
-    out.write_text("\n".join(lines) + "\n")
+    out.write_text("\n".join(lines) + "\n", encoding="utf-8")
     return out
 
 
@@ -314,7 +314,7 @@ def _render_server_log_tail(bundle: Path | None) -> list[str]:
     if not log.exists() or log.stat().st_size == 0:
         return []
     try:
-        text = log.read_text(errors="replace")
+        text = log.read_text(encoding="utf-8", errors="replace")
     except OSError:
         return []
     lines = text.splitlines()
@@ -386,7 +386,7 @@ def _code_snippet_from_traceback(tb_text: str) -> str | None:
     except ValueError:
         return None
     try:
-        source = file_path.read_text(errors="replace").splitlines()
+        source = file_path.read_text(encoding="utf-8", errors="replace").splitlines()
     except OSError:
         return None
     start = max(0, lineno - 1 - CODE_SNIPPET_CONTEXT)
@@ -420,7 +420,9 @@ def safe_render(run_dir: Path, tests: list[Test]) -> Path | None:
         # Surface the traceback into the bundle so the next debugging session
         # can find it, rather than silently losing it.
         try:
-            (run_dir / "all-failures.error.txt").write_text(_tb.format_exc())
+            (run_dir / "all-failures.error.txt").write_text(
+                _tb.format_exc(), encoding="utf-8"
+            )
         except OSError:
             pass
         return None

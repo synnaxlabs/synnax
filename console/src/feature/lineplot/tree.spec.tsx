@@ -20,7 +20,6 @@ import { describe, expect, it } from "vitest";
 
 import { LinePlot } from "@/feature/lineplot";
 import { client, createPreloadedState, project } from "@/feature/lineplot/testutil";
-import { createCluster, createClusterState } from "@/platform/cluster/testutil";
 import { Modals } from "@/platform/modals";
 import { findButton, findLastButton } from "@/platform/modals/testutil";
 import { type Tree } from "@/platform/tree";
@@ -32,6 +31,7 @@ import {
 } from "@/platform/tree/testutil";
 import { findTreeRow, renderOntologyTree } from "@/platform/tree/treeTestutil";
 import { Session } from "@/session";
+import { createCluster, createClusterState } from "@/session/cluster/testutil";
 import {
   awaitTextEditing,
   captureBrowserDownloads,

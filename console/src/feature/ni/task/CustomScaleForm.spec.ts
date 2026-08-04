@@ -41,7 +41,6 @@ import { open } from "@tauri-apps/plugin-dialog";
 import { NI } from "@/feature/ni";
 import { renderNITaskForm } from "@/feature/ni/task/testutil";
 import { findDialogTriggerByText, selectFromDropdown } from "@/platform/task/testutil";
-import { stubGeometry } from "@/testutil";
 
 const openMock = vi.mocked(open);
 
@@ -49,8 +48,6 @@ const client = createTestClient();
 
 // Draft creates mint their own key; the zero payload's empty key must not be sent.
 const { key: _key, ...ZERO_DRAFT } = NI.Task.ZERO_ANALOG_READ_PAYLOAD;
-
-stubGeometry();
 
 let dir: string;
 

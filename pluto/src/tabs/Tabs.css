@@ -9,9 +9,7 @@
  * included in the file licenses/APL.txt.
  */
 
-/* The strip scrolls its own overflow, so a frame never has to widen its parent to
-   fit its tabs. Without this a frame in a row refuses to shrink past its tabs and
-   shoves its siblings out of the container. */
+/* Lets a frame shrink past its tabs instead of shoving its siblings out. */
 .pluto-tabs {
     min-width: 0;
 }
@@ -30,26 +28,18 @@
 
 .pluto-tabs__selector {
     position: relative;
-    /* Pins the strip to exactly the min-height set by its size class instead of
-       letting fit-content grow it. */
     height: 0 !important;
     max-width: 100%;
     overflow-x: auto;
     overflow-y: hidden;
-    /* The scrollport clips the outset focus halo; every control in the strip
-       draws its ring inset instead. */
+    /* The scrollport clips an outset halo, so rings in the strip draw inset. */
     --pluto-focus-ring-offset: -2px;
 
-    /* Sizing knobs, re-pointed by variant and by enclosing contexts. tab-width is
-       the resting width under fixed sizing, tab-min-width the floor tabs compact to.
-       Holding the selected tab above that floor is opt-in: it only earns its keep on
-       a strip dense enough to compact, and elsewhere it just resizes tabs on click. */
     --pluto-tabs-tab-width: 25rem;
     --pluto-tabs-tab-min-width: 11rem;
     --pluto-tabs-selected-min-width: var(--pluto-tabs-tab-min-width);
 }
 
-/* Overflow policy. */
 .pluto-tabs__selector--overflow-scroll {
     &::-webkit-scrollbar {
         height: 3px;
@@ -68,14 +58,9 @@
     }
 }
 
-/* The mask rides the strip's own scroll progress, so each edge fades only while
-   there are tabs hidden past it: right at the start, both in the middle, left at the
-   end. The timeline is inactive on a strip whose tabs fit, which is what keeps an
-   unscrollable strip unmasked. Without support the animation would run on time
-   instead and mask a strip that fits, hence the guard.
-
-   Every frame carries the same four stops so the gradients interpolate: only the two
-   inner positions move. */
+/* The mask rides the strip's scroll progress, so an edge fades only while tabs are
+   hidden past it. Without timeline support it would run on time instead and mask a
+   strip that fits, hence the guard. */
 @supports (animation-timeline: scroll(self x)) {
     .pluto-tabs__selector--overflow-fade {
         animation: tabs-selector-fade linear;
@@ -105,7 +90,6 @@
     }
 }
 
-/* Where a tab's contents sit along the strip. */
 .pluto-tabs__selector--align-center .pluto-tabs__tab {
     justify-content: center;
     text-align: center;
@@ -116,9 +100,6 @@
     text-align: left;
 }
 
-/* Sizing policy: elastic tabs share the strip and cap at their own label, fixed
-   tabs all rest at the standard width. Both compact to the floor, after which the
-   strip overflows. */
 .pluto-tabs__selector--sizing-elastic
     .pluto-tabs__tab:not(:has([contenteditable="true"])) {
     flex: 1 1 auto;
@@ -163,16 +144,13 @@
     transition: transform 0.15s ease;
 }
 
-/* The dragged tab is hidden while its ghost floats; its slot stays so the shift keeps
-   the strip's width constant. */
 .pluto-tabs__tab--hauled {
     opacity: 0;
     transition: none;
 }
 
-/* Overflowing names get Text's fade-out treatment (see Text.css). Tab children
-   arrive as bare strings that Button wraps, so the fade is applied by descent
-   rather than through Text's overflow prop. */
+/* Tab children arrive as bare strings that Button wraps, so Text's fade-out (see
+   Text.css) is applied by descent rather than through its overflow prop. */
 .pluto-tabs__tab .pluto-text {
     overflow-x: hidden;
     white-space: nowrap;
@@ -186,18 +164,15 @@
     }
 }
 
-/* An idle editable name is a text-selection island inside the draggable tab: a
-   pointer drag starting on it would begin a text selection instead of the tab's
-   drag. Making it non-selectable until it enters edit mode keeps the whole tab a
-   drag handle. */
+/* A drag starting on an idle editable name would select text instead of hauling the
+   tab. Non-selectable until it enters edit mode keeps the whole tab a drag handle. */
 .pluto-tabs__tab .pluto-text--editable:not([contenteditable="true"]) {
     -webkit-user-select: none;
     user-select: none;
 }
 
-/* Tab text ladder, shared by both variants. Contexts re-point the vars (the
-   mosaic quiets unfocused-selected tabs to l10); the focused tab re-points its
-   own selected color to primary, which wins over any inherited value. */
+/* Contexts re-point these vars; a focused tab re-points its own selected color to
+   primary, which wins over any inherited value. */
 .pluto-tabs__selector > .pluto-tabs__tab {
     color: var(--pluto-tabs-text-color, var(--pluto-gray-l9));
     .pluto-text {
@@ -237,8 +212,6 @@
             background 0.15s ease-in-out,
             transform 0.15s ease;
 
-        /* A chip whose label is its own text node spaces itself; composed chips
-           space through their inner text's margins. */
         &:not(:has(.pluto-text)) {
             padding: 0 3rem;
         }
@@ -265,8 +238,7 @@
             }
         }
 
-        /* Tabs speak the subtle tier, outranking the control-tier default. The
-           ring is an inset shadow so the borderless chassis stays out of layout. */
+        /* Subtle tier, outranking the control-tier default. */
         &.pluto--selected {
             --pluto-bg: var(--pluto-selected-subtle-bg);
             --pluto-hover-bg: var(--pluto-selected-subtle-hover-bg);
@@ -274,8 +246,6 @@
             box-shadow: inset 0 0 0 var(--pluto-border-width)
                 var(--pluto-selected-subtle-border-color);
 
-            /* The pane-focused tab speaks the full control tier, matching a
-               selected button exactly. */
             &.pluto--alt-color {
                 --pluto-bg: var(--pluto-selected-bg);
                 --pluto-hover-bg: var(--pluto-selected-hover-bg);
@@ -289,8 +259,6 @@
             margin-left: 0;
         }
 
-        /* The close overlay comes from Button.Close and the reveal contract; the
-           rename guard keeps it hidden while the tab label is being edited. */
         &:has([contenteditable="true"]) .pluto-tabs__close {
             opacity: 0;
             pointer-events: none;
@@ -318,8 +286,7 @@
     }
 }
 
-/* Pills hold a wider selected floor than chips: they rest at a fixed width, so a
-   floor below it never pads a short label the way it would on a chip. */
+/* Pills rest at a fixed width, so a wider selected floor never pads a short label. */
 .pluto-tabs__selector--pill {
     --pluto-tabs-selected-min-width: 20rem;
 }
@@ -342,15 +309,11 @@
     }
 }
 
-/* Only the selected pill shows its outline; the border stays in layout so
-   selection doesn't shift neighbors. */
 .pluto-tabs__selector--pill .pluto-tabs__tab:not(.pluto--selected) {
     border-color: var(--pluto-gray-l5);
     --pluto-bg: var(--pluto-gray-l4);
 }
 
-/* Selected pills keep the outlined chassis: selection reads from the revealed
-   outline, not a tier fill. */
 .pluto-tabs__selector--pill .pluto-tabs__tab.pluto--selected {
     --pluto-bg: var(--pluto-fill-rest);
     --pluto-hover-bg: var(--pluto-fill-hover);
@@ -367,17 +330,14 @@
     fill: var(--pluto-gray-l9);
 }
 
-/* A tab whose name carries a warning status (a deleted resource's corpse)
-   escalates the color to the whole tab. !important outranks the selected and
-   focused text tiers above. */
+/* A warning-status name (a deleted resource's corpse) escalates to the whole tab.
+   !important outranks the selected and focused text tiers above. */
 .pluto-tabs__selector > .pluto-tabs__tab:has(.pluto-text.pluto--status-warning) {
     .pluto-text,
     > .pluto-icon {
         color: var(--pluto-warning-z) !important;
     }
 
-    /* Selection chrome re-mixes the control tier from warning instead of
-       primary, so a selected corpse tab reads amber, ring included. */
     &.pluto--selected {
         --pluto-tabs-warning-bg: color-mix(
             in srgb,
@@ -396,8 +356,6 @@
     }
 }
 
-/* The dot occupies the close slot until the operator hovers, at which point the
-   close button takes its place. */
 .pluto-tabs__tab:has(.pluto-tabs__unsaved):has(.pluto-tabs__close) {
     .pluto-tabs__close {
         display: none;

@@ -10,10 +10,16 @@
 import { type panel } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { Drift } from "@synnaxlabs/drift";
-import { Icon, Panel as PPanel, Text } from "@synnaxlabs/pluto";
+import { Icon, Panel as PPanel, Text, Triggers } from "@synnaxlabs/pluto";
 import { uuid } from "@synnaxlabs/x";
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { type FC, type PropsWithChildren, type ReactElement, useEffect } from "react";
+import {
+  type FC,
+  type PropsWithChildren,
+  type ReactElement,
+  useCallback,
+  useEffect,
+} from "react";
 import { beforeEach, describe, expect, it } from "vitest";
 
 import { Mosaic } from "@/feature/panel/Mosaic";
@@ -69,9 +75,29 @@ const TabProbeContent: Panel.Content = () => {
   return <Text.Text>{`tab-content-${tabKey}`}</Text.Text>;
 };
 
+const TRIGGER: Triggers.Trigger = ["F8"];
+const triggerFires: panel.TabKey[] = [];
+
+// Records every trigger this tab's content actually receives, so a test can assert
+// which tabs the mosaic lets hear a keystroke.
+const TriggerProbeContent: Panel.Content = () => {
+  const tabKey = PPanel.useTabKey();
+  Triggers.use({
+    triggers: TRIGGER,
+    callback: useCallback(
+      ({ stage }: Triggers.UseEvent) => {
+        if (stage === "start") triggerFires.push(tabKey);
+      },
+      [tabKey],
+    ),
+  });
+  return <Text.Text>{`tab-content-${tabKey}`}</Text.Text>;
+};
+
 const REGISTRY: Panel.Tabs = {
   probe: { Content: ProbeContent, Name: ProbeName, Icon: ProbeIcon },
   tabProbe: { Content: TabProbeContent, Name: ProbeName, Icon: ProbeIcon },
+  triggerProbe: { Content: TriggerProbeContent, Name: ProbeName, Icon: ProbeIcon },
 };
 
 const createTab = (): panel.NewTab => ({
@@ -98,7 +124,9 @@ const setup = async (
   });
   const wrapper = ({ children }: PropsWithChildren): ReactElement => (
     <Console>
-      <Panel.RendererContext value={REGISTRY}>{children}</Panel.RendererContext>
+      <Triggers.Provider>
+        <Panel.RendererContext value={REGISTRY}>{children}</Panel.RendererContext>
+      </Triggers.Provider>
     </Console>
   );
   return { wrapper, store };
@@ -354,5 +382,54 @@ describe("Panel.Mosaic overlay", () => {
     await waitFor(() => expect(screen.getByText("Exit Focus")).toBeTruthy());
     expect(screen.queryByText(`tab-content-${tabA.key}`)).toBeNull();
     expect(tabUnmounts).toHaveLength(0);
+  });
+});
+
+describe("Panel.Mosaic trigger scope", () => {
+  beforeEach(() => {
+    triggerFires.length = 0;
+  });
+
+  const triggerProbeTab = (): panel.Tab => ({
+    variant: "view",
+    key: uuid.create(),
+    type: "triggerProbe",
+    args: {},
+  });
+
+  const pressTrigger = (): void => {
+    fireEvent.keyDown(document.body, { code: "F8" });
+    fireEvent.keyUp(document.body, { code: "F8" });
+  };
+
+  it("should only let the focused tab hear a trigger", async () => {
+    const tabA = triggerProbeTab();
+    const tabB = triggerProbeTab();
+    const pan = await createServerPanel(client, {
+      variant: "split",
+      direction: "x",
+      size: 0.5,
+      first: { variant: "leaf", tabs: [tabA] },
+      last: { variant: "leaf", tabs: [tabB] },
+    });
+    const { wrapper, store } = await setup();
+    render(<Mosaic onCreateTab={createTab} />, { wrapper });
+    act(() => void store.dispatch(Session.Panel.select({ key: pan.key })));
+    await waitFor(() => {
+      expect(screen.getByText(`tab-content-${tabA.key}`)).toBeTruthy();
+      expect(screen.getByText(`tab-content-${tabB.key}`)).toBeTruthy();
+    });
+    act(
+      () =>
+        void store.dispatch(
+          Session.Panel.internalSelectTab({
+            key: pan.key,
+            tabKey: tabA.key,
+            otherTabKeys: [tabA.key],
+          }),
+        ),
+    );
+    pressTrigger();
+    expect(triggerFires).toEqual([tabA.key]);
   });
 });

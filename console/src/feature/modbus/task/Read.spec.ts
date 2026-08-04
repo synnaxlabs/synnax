@@ -15,11 +15,9 @@ import { describe, expect, it } from "vitest";
 import { Modbus } from "@/feature/modbus";
 import { createModbusDevice } from "@/feature/modbus/testutil";
 import { awaitCommand, clickDeploy, renderTaskFormTab } from "@/platform/task/testutil";
-import { getIconButton, stubGeometry } from "@/testutil";
+import { getIconButton } from "@/testutil";
 
 const client = createTestClient();
-
-stubGeometry();
 
 // Draft creates mint their own key; the zero payload's empty key must not be sent.
 const { key: _key, ...ZERO_DRAFT } = Modbus.Task.ZERO_READ_PAYLOAD;

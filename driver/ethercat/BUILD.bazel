@@ -46,7 +46,7 @@ cc_library(
         "//x/cpp/json",
         "//x/cpp/lib",
         "//x/cpp/telem",
-        "@glog",
+        "@abseil-cpp//absl/log",
     ] + select({
         ":linux": [
             "//driver/ethercat/igh",

@@ -24,7 +24,6 @@ import {
   type ModalOpenerHandle,
   renderModalOpener,
 } from "@/platform/modals/testutil";
-import { stubGeometry } from "@/testutil";
 
 const client = createTestClient();
 
@@ -62,8 +61,6 @@ const goToConfirmStep = async (): Promise<void> => {
   });
   await screen.findByText("Are you sure you want to delete this data?");
 };
-
-stubGeometry();
 
 describe("DeleteModal", () => {
   describe("form step", () => {

@@ -21,13 +21,10 @@ import {
   createConsoleWrapper,
   findDialogTrigger,
   getIconButton,
-  stubGeometry,
   uniqueName,
 } from "@/testutil";
 
 const client = createTestClient();
-
-stubGeometry();
 
 const createArcRack = async () =>
   await client.racks.create({ name: uniqueName("rack"), integrations: ["arc"] });

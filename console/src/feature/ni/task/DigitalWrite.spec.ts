@@ -16,9 +16,7 @@ import { describe, expect, it } from "vitest";
 import { NI } from "@/feature/ni";
 import { createNIDevice, renderNITaskForm } from "@/feature/ni/task/testutil";
 import { awaitCommand, clickDeploy, commitFieldInput } from "@/platform/task/testutil";
-import { stubGeometry, uniqueName } from "@/testutil";
-
-stubGeometry();
+import { uniqueName } from "@/testutil";
 
 const client = createTestClient();
 
