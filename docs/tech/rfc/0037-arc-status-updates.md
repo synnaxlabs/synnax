@@ -664,7 +664,7 @@ The host function composes service-level methods rather than opening retrieve/wr
 transactions directly. The by-key path delegates to a new `Writer[D].Update` method
 (Section 5.5) which wraps `gorp.NewUpdate` and handles the retrieve-modify-write
 atomically. The by-name path delegates to a new `Writer[D].UpsertByName` method (Section
-5.5) which scopes the retrieve and the subsequent update or create inside a single gorp
+5.5) which scopes the retrieve and the subsequent update or create inside a single Gorp
 transaction, matching the channel service's pattern for analogous name-uniqueness checks
 (see "Concurrency on by-name create" below).
 
@@ -745,7 +745,7 @@ branch on each invocation.
 I think the right resolution here follows the established pattern the channel service
 already uses for the analogous name-uniqueness check on create
 ([`validateChannelNames` in core/pkg/distribution/channel/lease_proxy.go](../../../core/pkg/distribution/channel/lease_proxy.go)):
-wrap the by-name retrieve and the subsequent update or create in a single gorp
+wrap the by-name retrieve and the subsequent update or create in a single Gorp
 transaction, so the two operations are atomic with respect to other callers on the same
 node. Section 5.5 introduces an `UpsertByName` method on `Writer[D]` that encapsulates
 this scoping; the host function in 5.2.1 dispatches to it on the by-name path. This
@@ -908,7 +908,7 @@ modified row inside a single transaction, so the host function does not re-imple
 that pattern.
 
 **`UpsertByName`** scopes the by-name retrieve and the subsequent update or create
-inside a single gorp transaction:
+inside a single Gorp transaction:
 
 ```go
 // UpsertByName finds the status whose Name matches the supplied name and applies
@@ -955,11 +955,11 @@ The transaction serializes concurrent callers on the same node through commit or
 a second caller's `WhereNames` runs only after the first transaction has committed, so
 it observes the row the first caller created and falls into the update-existing branch
 instead of creating a duplicate. The cross-node case is not serialized by this
-transaction (gorp transactions are local to a node's lease holder); the multi-match path
+transaction (Gorp transactions are local to a node's lease holder); the multi-match path
 (Section 5.3.0) is the recovery for the residual cross-node race. This pattern matches
 what the channel service does for its analogous name-uniqueness check on create.
 
-The status service is the only abstraction layer that touches gorp directly; callers
+The status service is the only abstraction layer that touches Gorp directly; callers
 (Arc host functions, future Flow nodes, the existing client API) compose service-level
 methods.
 
@@ -1021,7 +1021,7 @@ package, in `set.go` and `delete.go` respectively.
    `message`/`variant` and run the `uuid.Parse`-then-name dispatch from Sections 4.0 and
    5.2.1; the by-key path delegates to `Writer.Update`; the by-name path delegates to
    `Writer.UpsertByName` (Section 5.5), which scopes the retrieve and the subsequent
-   update or create inside a single gorp transaction; on by-key miss emit an error-level
+   update or create inside a single Gorp transaction; on by-key miss emit an error-level
    task status and return handle 0; on by-name multi-match (errMultipleMatches) emit an
    error-level task status and return handle 0; the touch path (no `message` or
    `variant` supplied against an existing status) refreshes only the row's `time`

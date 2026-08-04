@@ -22,7 +22,7 @@ Objects, arrays, and nulls are not supported as field-level values. The overall 
 and response bodies are JSON objects, but individual extracted/inserted fields must be
 one of the three types above.
 
-**Synnax channel data types:** Numeric types (int8 through float64) and String.
+**Synnax channel data types:** Numeric types (`int8` through `float64`) and String.
 
 UUID, Bytes, and JSON Synnax types are not supported by this driver.
 
@@ -199,7 +199,7 @@ fields. All endpoints are polled at the same rate on each cycle.
 - `rate`: Polling frequency in Hz (e.g., 1.0 = once per second). All endpoints are
   polled on each cycle.
 - `strict`: Task-level setting. If true, lossy numeric conversions (e.g., float 3.7 →
-  int64 truncated to 3) cause the task to enter an error state. If false (default),
+  `int64` truncated to 3) cause the task to enter an error state. If false (default),
   truncation proceeds silently.
 - `endpoints`: Array of endpoints to poll. Each endpoint is an independent HTTP request.
 - `endpoints[].path`: URL path appended to the device's base_url
@@ -246,9 +246,9 @@ midpoint of `(request_start + response_received) / 2` for that channel's index.
   is error-prone and adds complexity. If an API returns numeric values as strings, users
   should store them in Synnax String channels and convert downstream.
 - JSON `number` → Synnax Numeric with `strict=true`: if the JSON value is a float (e.g.,
-  3.7) but the Synnax channel is an integer type (e.g., int64), this is treated as an
+  3.7) but the Synnax channel is an integer type (e.g., `int64`), this is treated as an
   error because the truncation to 3 is lossy. If the JSON value is too large for the
-  Synnax channel type (e.g., 344 → uint8), this is also an error.
+  Synnax channel type (e.g., 344 → `uint8`), this is also an error.
 - JSON `boolean` → Synnax Numeric: `true` becomes 1, `false` becomes 0 (as the channel's
   numeric type).
 

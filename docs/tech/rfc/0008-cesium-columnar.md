@@ -126,7 +126,7 @@ With the introduction of indexes, channels are now split into three separate typ
 
 #### 2.1.0 Index channels
 
-Index channels store ordered int64 timestamp values. They are used to align timestamps
+Index channels store ordered `int64` timestamp values. They are used to align timestamps
 with the root index. Extensive validation is performed on index channels, which means
 write performance is the slowest of the three channel types. Index channels must be
 written to before any data channels that use the index.
@@ -151,7 +151,7 @@ three channel types, because no lookup is required to resolve timestamps.
 
 #### 2.2.0 Index segment validation
 
-1. Data must be ordered int64 values.
+1. Data must be ordered `int64` values.
 2. The `Start` timestamp of a segment must be equal to the first value in its data.
 3. Cannot overlap with other segments.
 

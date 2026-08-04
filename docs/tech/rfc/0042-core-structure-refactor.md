@@ -657,7 +657,7 @@ for any future wire-format change that breaks all frozen decoders at once.
 **Freezing is positional, not a copy step.** Because every version — current included —
 is its own `versions/vN/` package, a bump freezes the outgoing directory in place:
 `oracle migrate` regenerates it one final time from the snapshot (pinning dependency
-imports at snapshot versions and appending gorp entry methods) and simply stops emitting
+imports at snapshot versions and appending Gorp entry methods) and simply stops emitting
 into it; `oracle sync` emits the new current into `versions/v(N+1)/`. The layout is
 uniform: every `@go version` path — value-type packages (`telem`, `spatial`, `color`,
 the arc-module types) included — emits its current version into `versions/vN/`, so a
@@ -670,7 +670,7 @@ carried forward by `oracle migrate` at each bump.
 integers and renamed to `versions/vN/` in the Phase 2 cutover; the v56 snapshot was
 back-filled with the corresponding `@go version` declarations so discipline enforcement
 is live immediately. Stored-but-keyless packages whose schemas declare no `@go version`
-(`ranger/alias`, `ranger/kv` — hand-computed composite gorp keys) are excluded from the
+(`ranger/alias`, `ranger/kv` — hand-computed composite Gorp keys) are excluded from the
 layout for now and keep root emission.
 
 ### 4.4 Import decode and registration
@@ -1176,7 +1176,7 @@ Sequenced so that the lowest-risk, dependency-unblocking work lands first.
   dispatch (deferred to Phase 3, which has its only consumer), byte-divergence detection
   (dropped — see §5.6), the immutability-by-CI rule on snapshot folders (open parameter,
   along with making the advisory oracle CI check required), and stored-but-keyless
-  packages with hand-computed composite gorp keys (`ranger/alias`, `ranger/kv`), which
+  packages with hand-computed composite Gorp keys (`ranger/alias`, `ranger/kv`), which
   keep root emission.
 - **Phase 3 — Peek import (§4.4).** Peek front door (the `imex.Envelope` peek already
   exists and `log` imports through it); generate `versions/decode.go` version dispatch

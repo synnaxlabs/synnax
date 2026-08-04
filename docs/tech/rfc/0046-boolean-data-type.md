@@ -13,7 +13,7 @@ distinct representations that do not agree:
 - **In memory**: byte-packed. One sample per byte, canonical values `0x00` (false) and
   `0x01` (true). The `telem.Series` density invariant is preserved; every existing
   iterator, writer, Cesium reader, and client `TypedArray` view treats a bool sample
-  identically to a uint8 sample.
+  identically to a `uint8` sample.
 - **On the wire**: bit-packed. The Freighter frame codec packs eight samples into one
   byte on send and unpacks back to byte-packed `Series` on receive. Digital traffic
   drops by a factor of eight before any further compression.
@@ -132,7 +132,7 @@ Each `BoolT` sample occupies one byte in `Series.Data`. The sample value is exac
 `0x00` or `0x01`. Density is 1. The `Series` invariant (sample `i` lives at byte offset
 `i * density`) holds. Every existing iterator, writer, Cesium domain reader,
 Distribution aligner, and client-side `TypedArray` view treats a bool sample identically
-to a uint8 sample. No iterator signature, no writer contract, and no offset arithmetic
+to a `uint8` sample. No iterator signature, no writer contract, and no offset arithmetic
 changes.
 
 Client-language surfaces expose language-native booleans (`bool` in Go, `boolean` in

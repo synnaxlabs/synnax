@@ -89,9 +89,9 @@ range. Therefore, the important things to test for are
 
 #### 3.0.0 Data layout
 
-Some important factors to consider are that **keys** are represented as a **uint32**.
+Some important factors to consider are that **keys** are represented as a `uint32`.
 The **Time Range** is represented with a start and end time, both of which are
-**uint64**. Finally, the **data array size** will currently be bound by a **uint32** but
+`uint64`. Finally, the **data array size** will currently be bound by a `uint32` but
 this may be changed in further iterations if discovered to be unnecessary and costly.
 
 The first byte of every frame (represented as a byte array) will contain the flags for
@@ -120,7 +120,7 @@ For the rest of the byte array, the following rules apply </br>
 - Iterate through series sequential (0, 1, 2, ... n)
 - If **Equal Data Size Flag** is not set, then the first four bytes should include the
   size of the data array
-- If **All Channels Flag** is not set, then the next four bytes include the uint32 key
+- If **All Channels Flag** is not set, then the next four bytes include the `uint32` key
   for the designated series
 - Then, all values within the data array should be sent
 - If **Strongly Aligned Timestamp Flag** is not set, then the next 16 bytes should

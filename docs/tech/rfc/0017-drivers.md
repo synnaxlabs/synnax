@@ -40,7 +40,7 @@ type Driver struct {
 The `Key` field would represent two composite `uint16s` where the first `uint16` is the
 **leaseholder** of the driver i.e. which node the driver writes all of its data to. A
 driver can write or read data from channels on any node, but must use this node as its
-gateway for all communications. The second uint16 is simply an incrementing counter
+gateway for all communications. The second `uint16` is simply an incrementing counter
 identifying a particular driver within the scope of its leaseholder. For example, a
 driver could be identified as `Node 5 Driver 2` or `Node 7 Driver 8`. Limiting the
 number of drivers per node to 65535 is a little bit risky, but it helps make the key
@@ -148,7 +148,7 @@ Adaptive teams are always making changes to their system configuration: adding a
 exchanging sensors, changing calibrations, and swapping DAQ tasks. From a user
 perspective, these changes are quite frequent. During setup batched configuration
 changes can come every few minutes. From a software, perspective, however, these changes
-are _very_ infrequent. If a pipeline runs at 200hz and a configuration change comes
+are _very_ infrequent. If a pipeline runs at 200 Hz and a configuration change comes
 every ten minutes, that's 120,000 pipeline iterations between each application. Even
 using 100 pipeline iterations (0.5s) to fetch and apply configuration changes would be
 almost negligible to operation.

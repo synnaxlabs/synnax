@@ -154,7 +154,7 @@ and decreases remain errors.
 
 Migration files for **all** paths live in the incoming version package: `vN` holds
 `migrate.go` / `migrate_auto.gen.go` transforming `v(N-1)` types into `vN` types. The
-generator already scaffolds both gorp-entry and value-type paths this way
+generator already scaffolds both Gorp-entry and value-type paths this way
 (`scaffoldIncoming`, `oracle/plugin/go/migrate/migrate.go`). Legacy reverse-direction
 files (migrations living in the frozen old package, importing the new version) form an
 import cycle the moment the current package aliases backward, so the retrofit moved them
@@ -292,4 +292,4 @@ is ever needed.
   (RFC 0042 §4.3), and this RFC changes nothing outside the Go generator.
 - Snapshot cadence, `oracle snapshot`/`oracle migrate` CLI behavior, and the bump
   discipline in `detectBumps` — all unchanged.
-- The runtime migration dispatch (RFC 0042's deferred `decode.go`) and gorp integration.
+- The runtime migration dispatch (RFC 0042's deferred `decode.go`) and Gorp integration.

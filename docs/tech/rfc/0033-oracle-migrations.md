@@ -7,8 +7,8 @@
 
 A standardized migration system integrated with Oracle's schema-first code generation.
 The system has two layers: a general-purpose migration framework in `x/go/gorp` that any
-gorp user can leverage, and an Oracle code generation layer that produces frozen type
-snapshots, frozen codecs, and migration functions that plug into gorp's infrastructure.
+Gorp user can leverage, and an Oracle code generation layer that produces frozen type
+snapshots, frozen codecs, and migration functions that plug into Gorp's infrastructure.
 
 When Oracle schemas change, migrations are generated that transform stored data from the
 old schema to the new one. Each schema version gets its own `migrations/vN/` sub-package
@@ -21,7 +21,7 @@ should default to for existing data.
 
 - **Oracle**: Schema-first code generation tool that compiles `.oracle` files into Go,
   TypeScript, Python, C++, and Protobuf types.
-- **gorp**: Type-safe ORM wrapping Pebble KV store with `Reader[K, E]` and
+- **Gorp**: Type-safe ORM wrapping Pebble KV store with `Reader[K, E]` and
   `Writer[K, E]` generics. Stores entries under a canonical KV prefix derived from the
   Go type name (e.g., `__gorp__//Schematic`).
 - **Table**: `gorp.Table[K, E]` manages codec-aware reads/writes and runs versioned
@@ -33,7 +33,7 @@ should default to for existing data.
   helper explicitly from within their transform function.
 - **Transform**: Oracle-generated template called for each entry during migration. The
   developer calls the auto-migrate helper and sets default values for new fields.
-- **KV prefix**: The key prefix under which gorp stores all entries of a type (e.g.,
+- **KV prefix**: The key prefix under which Gorp stores all entries of a type (e.g.,
   `__gorp__//Schematic`). Derived from the Go type name via `types.Name[E]()`.
 - **Codec**: Serialization format used to encode/decode entries in the KV store.
   Currently transitioning from msgpack to ORC binary encoding via Oracle-generated
@@ -65,7 +65,7 @@ The goals of this migration system are:
 - Enable the transition from msgpack to binary encoding for storage
 
 The first migration to run through the system is the codec switch from msgpack to binary
-for gorp-stored entries. This is a high-value change that exercises the core migration
+for Gorp-stored entries. This is a high-value change that exercises the core migration
 pipeline (iterate all entries, decode with old codec, re-encode with new codec) without
 requiring schema changes to any individual type. It validates the infrastructure before
 more complex per-type schema migrations are needed.
@@ -101,7 +101,7 @@ of identical codec wiring in `layer.go` that added no information.
 ### 3.1 Nested types are not independent
 
 Nested types (like `types.Param`, `graph.Node`, `ir.Edge`) have no independent storage.
-They exist only as fields within gorp entries. They do not have migration chains. They
+They exist only as fields within Gorp entries. They do not have migration chains. They
 do implement `EncodeOrc`/`DecodeOrc`, but only because the parent's codec calls them
 during encoding. When a nested type changes, the parent entry's migration handles it.
 
@@ -167,23 +167,23 @@ Oracle (build time)              gorp.OpenTable (runtime)
       +-- CI enforcement
 ```
 
-**Layer 1 (gorp)**: A migration framework in `x/go/gorp` that any gorp user can use.
+**Layer 1 (Gorp)**: A migration framework in `x/go/gorp` that any Gorp user can use.
 Provides the `Migration` interface, `OpenTable` with name-based version tracking,
 `NewEntryMigration`, `NewMigration`, dependency-based ordering via `WithDependencies`,
 and transactional execution. Knows nothing about Oracle. Cesium, pebblekv, and
 hand-written migrations all use this layer directly.
 
-**Layer 2 (Oracle)**: Built on top of the gorp layer. Oracle owns schemas, generates
+**Layer 2 (Oracle)**: Built on top of the Gorp layer. Oracle owns schemas, generates
 frozen type snapshots, generates frozen codecs, and generates migration functions that
 implement `gorp.Migration`. The `oracle migrate` CLI produces files that plug into
-gorp's infrastructure.
+Gorp's infrastructure.
 
 ### 4.1 Codec architecture
 
 #### 4.1.0 encoding.Codec is the interface
 
 The platform's universal serialization interface is `encoding.Codec` in `x/go/encoding`.
-No separate gorp-specific codec abstraction.
+No separate Gorp-specific codec abstraction.
 
 ```go
 type Codec interface {
@@ -264,7 +264,7 @@ func (s *Schematic) DecodeOrc(r *orc.Reader) error {
 
 ### 4.2 Migration model
 
-#### 4.2.0 Two migration types at the gorp layer
+#### 4.2.0 Two migration types at the Gorp layer
 
 **EntryMigration[IK, OK, I, O]**: Iterates all entries, decodes each as type `I`, calls
 a transform function to produce type `O`, writes back. Both decoding and encoding use
@@ -480,7 +480,7 @@ pre-transition and post-transition data transparently.
 
 #### 4.4.0 Codec transition scope
 
-The goal is a full codec replacement for all Oracle-managed types stored via gorp:
+The goal is a full codec replacement for all Oracle-managed types stored via Gorp:
 switch from msgpack to direct binary encoding. Since Oracle owns the schema and
 generates both msgpack-compatible Go structs and binary codecs, the codec transition is
 Oracle-generated rather than manually written per-type.
@@ -624,9 +624,9 @@ doesn't have a corresponding migration.
 #### 4.6.1 Nested type propagation
 
 When a nested type changes (e.g., `graph.Node` gains a `label` field), Oracle's
-dependency graph detects that a gorp entry (e.g., `Arc`) contains `graph.Node`. Oracle:
+dependency graph detects that a Gorp entry (e.g., `Arc`) contains `graph.Node`. Oracle:
 
-1. Bumps the gorp entry's version.
+1. Bumps the Gorp entry's version.
 2. Generates the auto-migrate for the parent that walks the tree and calls Node's
    auto-migrate and transform on each node.
 3. Generates an empty transform template for the parent (in case the developer needs
@@ -675,7 +675,7 @@ For a pure nested propagation, the developer doesn't touch the parent transform 
 
 #### 4.6.2 Shared nested types
 
-When a nested type is referenced by multiple gorp entries (e.g., `ir.Edge` used by both
+When a nested type is referenced by multiple Gorp entries (e.g., `ir.Edge` used by both
 `Arc` and `Schematic`), Oracle generates parent auto-migrations for every entry that
 contains the changed type. All generated auto-migrations call the same leaf auto-migrate
 and transform functions. The leaf transform logic is written once.
@@ -683,7 +683,7 @@ and transform functions. The leaf transform logic is written once.
 #### 4.6.3 Execution order
 
 Nested type migrations don't execute independently. They are called within the parent
-entry's auto-migrate. Only gorp entries (types with KV prefixes) have their own
+entry's auto-migrate. Only Gorp entries (types with KV prefixes) have their own
 migration runner. Nested types are migrated as part of their parent's
 read-transform-write cycle.
 
@@ -1073,7 +1073,7 @@ execute within the parent's migration runner.
 
 ### 7.0 Non-oracle types
 
-Non-Oracle gorp-stored types (Cesium internals, Aspen KV metadata, ontology resources)
+Non-Oracle Gorp-stored types (Cesium internals, Aspen KV metadata, ontology resources)
 retain their existing migration mechanisms. This RFC covers only Oracle-managed types.
 
 ### 7.1 Migration tracking storage
@@ -1098,7 +1098,7 @@ types are strongly typed via Oracle. The sequence is:
 
 ### 8.0 Completed work
 
-#### Phase 1: gorp infrastructure
+#### Phase 1: Gorp infrastructure
 
 Branch `sy-3823-gorp-tables`. Merged.
 
@@ -1174,7 +1174,7 @@ Build migration test helpers. Can start anytime after Phase 1.
 | 2   | Nested types don't carry codecs                  | No independent storage. Parent owns encoding.                                 |
 | 3   | Per-entry transform primary, raw escape hatch    | Covers 95% of cases. Raw for complex cross-type ops.                          |
 | 4   | Two-file split (auto.gen + developer transform)  | Safety from golden tests, not manual review.                                  |
-| 5   | Two-layer architecture (gorp + Oracle)           | gorp is general-purpose. Oracle builds on it.                                 |
+| 5   | Two-layer architecture (Gorp + Oracle)           | Gorp is general-purpose. Oracle builds on it.                                 |
 | 6   | Auto-migrate as helper function                  | Developer calls explicitly. Stack-based (value in, value out).                |
 | 7   | Transform keeps context.Context                  | Operational need: cancellation, tracing, logging for long migrations.         |
 | 8   | ORC fallback replaces CodecTransition            | Magic header dispatch handles mixed-format data without explicit re-encoding. |
@@ -1187,7 +1187,7 @@ Build migration test helpers. Can start anytime after Phase 1.
 | 15  | Snapshot: full .oracle file copy per migration   | Human-readable, git-diffable, cheap storage.                                  |
 | 16  | DB-level codec, not per-service                  | Single WithCodec call. ORC dispatch eliminates per-service wiring.            |
 | 17  | Direct binary encoding over protobuf             | Eliminates ToPB/FromPB layer. pb/ retained for transport.                     |
-| 18  | encoding.Codec as universal interface            | Platform-wide. No gorp-specific abstraction.                                  |
+| 18  | encoding.Codec as universal interface            | Platform-wide. No Gorp-specific abstraction.                                  |
 | 19  | Name-based migration tracking over version ints  | Dependency graph is more flexible than sequential numbering.                  |
 
 ## 10 Open questions

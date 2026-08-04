@@ -1292,7 +1292,7 @@ Each Go plugin is implemented independently with clear separation of concerns:
 4. Generate `ConfigureIndexes()` function
 5. Requires: `go/types`
 
-**Deliverable:** `index.gen.go` with gorp index configuration
+**Deliverable:** `index.gen.go` with Gorp index configuration
 
 ### Phase 3: TypeScript plugins
 
@@ -1347,7 +1347,7 @@ Each Go plugin is implemented independently with clear separation of concerns:
 1. Write schemas for all existing structs
 2. Replace hand-written types with generated code
 3. Update services to use generated query builders
-4. Update gorp to support index manager
+4. Update Gorp to support index manager
 5. Deprecate old code paths
 
 **Deliverable:** Full adoption across codebase

@@ -28,7 +28,7 @@ are time-ordered and share the data type of timestamps.
 
 **Telemetry data**: At its core, all of Cesium's samples are stored as binary data on
 the file system. Samples of the same [data type](0007-data-type.md) occupy the same
-number of bytes: for example, to read data from a file containing int64 data, we read
+number of bytes: for example, to read data from a file containing `int64` data, we read
 every 8 bits and marshall each one into decimal form to recover the samples.
 
 **Domain**: A domain is a time range with many samples stored contiguously in the same

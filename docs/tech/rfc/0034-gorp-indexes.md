@@ -5,7 +5,7 @@
 
 ## 0 Summary
 
-This RFC describes the implementation of in-memory secondary indexes for gorp tables.
+This RFC describes the implementation of in-memory secondary indexes for Gorp tables.
 Today, any query that does not look up entries by primary key requires a full table scan
 with per-entry deserialization. By maintaining lightweight, derived index structures in
 memory, we can provide O(1) exact-match lookups and O(log n) sorted/range queries on
@@ -14,7 +14,7 @@ arbitrary fields while keeping primary data in Pebble as the sole source of trut
 ## 1 Motivation
 
 RFC 0026 identified the lack of efficient query mechanisms as the top problem with our
-metadata toolchains. The core issue: gorp supports fast lookups by key but nothing else.
+metadata toolchains. The core issue: Gorp supports fast lookups by key but nothing else.
 Any filter-based query iterates every entry in the table, deserializing each one.
 
 Concrete examples of queries that currently trigger full table scans:
@@ -154,7 +154,7 @@ The design has two layers. Gorp provides the index primitives (backing structure
 registration, maintenance, the per-tx delta overlay). Oracle generates the ergonomic
 call-site code (a per-service `indexes` struct, `MatchX` / `MatchXs` filter
 constructors, sorted-index `Order` helpers, and the registration glue). You can use
-gorp's primitives directly for hand-written indexes, but the intended path is oracle
+Gorp's primitives directly for hand-written indexes, but the intended path is oracle
 generation.
 
 #### 2.2.0 Gorp layer: Index primitives
@@ -229,7 +229,7 @@ cursor for use with `Retrieve.OrderBy`. See §2.5.3.
 The primitives are fully usable without oracle. Hand-written code can call
 `idx.Filter(values...)` directly, or use `idx.Get(values...)` for raw key lookups
 against committed state. The sealed `Index` interface and the unexported observer
-contract mean only gorp can drive a backing structure, but the public constructors and
+contract mean only Gorp can drive a backing structure, but the public constructors and
 query methods are stable.
 
 #### 2.2.1 Oracle layer: Generated code
@@ -295,7 +295,7 @@ service-defined `Retrieve` and produces a `gorp.Filter[K, E]`. This indirection 
 filter constructors read from `r.indexes`, `r.label`, `r.hostProvider`, etc., when
 evaluated by `Retrieve.Where`. The `Match` / `And` / `Or` / `Not` composition helpers in
 each service package are one-line wrappers around `gorp.MatchBound` / `AndBound` /
-`OrBound` / `NotBound`, which means the closure plumbing is written once in the gorp
+`OrBound` / `NotBound`, which means the closure plumbing is written once in the Gorp
 layer rather than re-emitted per service.
 
 For sorted indexes, oracle additionally generates:
@@ -560,8 +560,8 @@ current indexed value. This serves two purposes:
 
 The alternative is scanning the forward map's value slices looking for the key. For a
 lookup index on channel names with 50k channels, that's 50k comparisons per
-update/delete. The reverse map costs roughly 40 bytes per entry (for a uint32 key plus a
-20-byte string value plus map overhead) but makes both operations O(1).
+update/delete. The reverse map costs roughly 40 bytes per entry (for a `uint32` key plus
+a 20-byte string value plus map overhead) but makes both operations O(1).
 
 For `BytesLookup`, the reverse map is keyed on `string` rather than the slice itself,
 since `[]byte` is not strictly comparable.
@@ -604,7 +604,7 @@ register cleanup hooks on the state via `state.onCleanup`, which run in registra
 order from the tx's `Commit` (with `committed=true`) or `Close` (with `committed=false`)
 after the underlying KV operation completes. The `Tx` interface is sealed: the
 unexported method prevents external implementations, so every code path that hands a tx
-to gorp goes through one of these two implementations.
+to Gorp goes through one of these two implementations.
 
 **`deltaOverlay[SK, V]` per index.** Each `Lookup` / `Sorted` / `BytesLookup` embeds a
 `deltaOverlay[SK, V]` that owns a `map[*txState]*delta[SK, V]` guarded by a dedicated
@@ -768,8 +768,8 @@ one-line internal change with no API impact.
 For a lookup index on a table with N entries:
 
 - Forward map: N entries, each a value key plus a slice of primary keys. For channels
-  with ~20 byte names and uint32 keys: ~(20 + 8 + 24) = ~52 bytes per entry.
-- Reverse map: N entries, each a uint32 key plus a string value: ~(4 + 20 + 16) = ~40
+  with ~20 byte names and `uint32` keys: ~(20 + 8 + 24) = ~52 bytes per entry.
+- Reverse map: N entries, each a `uint32` key plus a string value: ~(4 + 20 + 16) = ~40
   bytes per entry.
 - Total: ~92 bytes per entry per index.
 
@@ -826,7 +826,7 @@ The MVP has shipped on `sy-4056-gorp-indexes`. The implementation lives in `x/go
 `order_by.go`, plus updates to `retrieve.go`, `table.go`, `writer.go`, `gorp.go`,
 `observe.go`, `options.go`) and `oracle/plugin/go/query/`. Coverage:
 
-- **Phase 1 (gorp primitives):** `Lookup`, `Sorted`, `BytesLookup` with their backing
+- **Phase 1 (Gorp primitives):** `Lookup`, `Sorted`, `BytesLookup` with their backing
   structures, RWMutex, populate/set/delete, reverse map, per-tx delta overlay with
   commit-time flush. Bool specialization for `Lookup`; small-int dense-array
   specialization is not implemented.
@@ -854,7 +854,7 @@ Beyond the original RFC scope, the implementation also includes:
 
 ## 5 Resolved decisions
 
-1. **Two-layer design: gorp primitives + oracle generation.** Gorp provides sealed
+1. **Two-layer design: Gorp primitives + oracle generation.** Gorp provides sealed
    generic structs (`Lookup[K, E, V]`, `Sorted[K, E, V]`, `BytesLookup[E, V]`) plus the
    `Index[K, E]` interface. Oracle generates the per-Service `indexes` struct, the
    `MatchX` / `MatchXs` filter constructors, and the sorted-index `OrderByX` closures.

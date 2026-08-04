@@ -14,13 +14,13 @@ only difference is how sample indices translate to byte offsets: fixed-density c
 compute the offset arithmetically from a constant density, variable-length channels look
 it up in an in-memory offset table built from length prefixes.
 
-The on-disk format is uint32-length-prefixed samples stored in a single `domain.DB`.
+The on-disk format is `uint32`-length-prefixed samples stored in a single `domain.DB`.
 There is no offset table, trailer, or auxiliary file on disk. An in-memory offset cache
 provides O(1) sample-to-byte-offset translation, populated for free during writes and
 rebuilt by scanning length prefixes on cold reads after process restart.
 
 The `telem.Series` encoding for variable types was changed from newline-delimited to
-uint32-length-prefixed across all four languages (Go, Python, TypeScript, C++). The
+`uint32`-length-prefixed across all four languages (Go, Python, TypeScript, C++). The
 previous encoding was broken for samples containing literal newlines.
 
 ## 1 Vocabulary
@@ -31,7 +31,7 @@ previous encoding was broken for samples containing literal newlines.
   (`StringT`, `JSONT`, `BytesT`).
 - **Virtual channel**: A channel that does not persist data to disk. Stored in
   `cesium/internal/virtual/`.
-- **Length prefix**: A 4-byte little-endian uint32 preceding each sample in a
+- **Length prefix**: A 4-byte little-endian `uint32` preceding each sample in a
   variable-length series, encoding the sample's byte length.
 - **Offset table**: An in-memory `[]uint32` mapping sample index to byte offset within
   a single domain.
@@ -77,13 +77,13 @@ determines whether the writer and iterator treat it as fixed-density or variable
 
 ### 3.1 Series encoding
 
-All variable-length data uses uint32-length-prefixed encoding:
+All variable-length data uses `uint32`-length-prefixed encoding:
 
 ```
 [uint32 len_0][sample_0 bytes][uint32 len_1][sample_1 bytes]...
 ```
 
-Each sample is preceded by a 4-byte little-endian uint32 indicating the sample's byte
+Each sample is preceded by a 4-byte little-endian `uint32` indicating the sample's byte
 length. This format is binary safe (no reserved bytes), self-describing (decodable by
 scanning length prefixes), and has a constant 4-byte overhead per sample. The length
 prefix size is defined as a named constant in each language (`variableLengthPrefixSize`
@@ -95,8 +95,8 @@ is needed between in-memory and persisted format.
 ### 3.2 On-disk format
 
 Variable-length channels store data in a single `domain.DB`. Each domain is a contiguous
-region of uint32-length-prefixed samples. There is no trailer, offset table, or metadata
-on disk. The domain layer sees an opaque byte blob.
+region of `uint32`-length-prefixed samples. There is no trailer, offset table, or
+metadata on disk. The domain layer sees an opaque byte blob.
 
 ### 3.3 Offset resolver
 
@@ -181,9 +181,9 @@ keeps the iterator and delete paths single-implementation.
 
 ### 4.0 Parallel offset Domain.DB
 
-Two `domain.DB` instances per variable-length channel: one for data, one for uint32 byte
-offsets. Rejected because `domain.Writer` autonomously switches files when the file size
-threshold is reached. The two DBs hit this threshold at different times, creating
+Two `domain.DB` instances per variable-length channel: one for data, one for `uint32`
+byte offsets. Rejected because `domain.Writer` autonomously switches files when the file
+size threshold is reached. The two DBs hit this threshold at different times, creating
 misaligned domain boundaries. The coordination logic to force-sync file switches adds
 significant complexity.
 
@@ -207,8 +207,8 @@ one.
 
 ### 4.4 Varint length prefix
 
-Use variable-length integers instead of fixed uint32. Saves 2-3 bytes per sample.
-Rejected because the savings are marginal for realistic sample sizes and uint32 is
+Use variable-length integers instead of fixed `uint32`. Saves 2-3 bytes per sample.
+Rejected because the savings are marginal for realistic sample sizes and `uint32` is
 simpler: fixed-width headers, predictable offsets, single-instruction decode.
 
 ### 4.5 Sibling `variable/` package
@@ -224,7 +224,7 @@ behavioral split at the one point that matters and removed the rest of the dupli
 
 ### 5.0 Phase 1: Series encoding
 
-Switched variable-length encoding from newline-delimited to uint32-length-prefixed in
+Switched variable-length encoding from newline-delimited to `uint32`-length-prefixed in
 `x/go/telem/`, `x/py/x/telem/`, `x/ts/src/telem/`, `x/cpp/telem/`. Updated all
 signals/CDC producers, control digest encoding, and client codec layers. Added
 `MarshalVariableSample()` utility.

@@ -13,7 +13,7 @@ We currently allow callers to write arbitrary byte slices to disk using only a d
 (i.e. the number of bytes per sample). This provides flexibility for users to define
 their own data types, and gives just enough context to perform range lookups
 efficiently, but a density doesn't give any information on what the bytes in a sample
-represent. An 8 byte sample may be a float64, uint64, timestamp, or something else
+represent. An 8 byte sample may be a `float64`, `uint64`, timestamp, or something else
 entirely. This poses a challenge when writing client libraries that aim to provide
 cleanly formatted data to users. To deliver a numpy array to a caller, we need more
 information on the data type.
@@ -48,14 +48,14 @@ extension as possible.
 When assessing potential solutions, I'm thinking about the distinction between a
 self-defining type vs a keyed type. A self-defining type directly provides the caller
 with semantic information on how to parse the type. This is akin to saying, "this is a
-float64, it has eight bytes of data, and meets the IEEE 754 standard."On the other hand,
-a keyed type simply provides a unique identifier for the type, and leaves it to the
+`float64`, it has eight bytes of data, and meets the IEEE 754 standard." On the other
+hand, a keyed type simply provides a unique identifier for the type, and leaves it to the
 consumer to provide a 'registry' of parsers for a particular key.
 
 There are obvious advantages and disadvantages to each approach. A self-defining is
 easier to understand, and provides a more 'natural' way to parse the data. On the other
 hand, it adds storage and information complexity. What are the different fields we need
-to store for a particular type? Can we use the same structure for a float64 as for a
+to store for a particular type? Can we use the same structure for a `float64` as for a
 video frame? Probably not.
 
 A keyed type is much simpler, but may result in more client side code, where we need to

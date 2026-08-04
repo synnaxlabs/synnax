@@ -21,7 +21,7 @@ continuous iteration as Delta's demands evolve.
 - **Regular** (in relation to time-series): A 'regular' Channel is one whose samples
   are recorded at regular intervals (1 Hz, 5 Hz, 10 Hz, etc.)
 - **Samples/Second**: A basic measure of write throughput. The size of a regular sample
-  should be assumed as 8 bytes (i.e. a float64 value) unless otherwise specified,
+  should be assumed as 8 bytes (i.e. a `float64` value) unless otherwise specified,
   whereas an irregular sample is assumed to contain an additional 64 bit timestamp.
   Write throughput can also be expressed in terms of a frequency (1 Hz, 5 Hz, 25 KHz,
   1 MHz, etc.)
