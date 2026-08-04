@@ -723,5 +723,54 @@ describe("Task", async () => {
         off();
       }
     });
+
+    it("preserves deploy info on the optimistic command-loading status", async () => {
+      const t = await testRack.createTask({
+        name: `status-loading-carry-${id.create()}`,
+        config: {},
+        type: "ni",
+      });
+      const params = { key: t.key };
+      const off = client.tasks.onChange(params, vi.fn());
+      try {
+        await client.tasks.retrieve(params);
+        await client.statuses.set({
+          key: id.create(),
+          name: "Task Status",
+          variant: "success",
+          message: "task started",
+          time: TimeStamp.now(),
+          details: {
+            task: t.key,
+            running: true,
+            cmd: "",
+            configHash: "deadbeef",
+            rack: testRack.key,
+            data: {},
+          },
+        });
+        await expect
+          .poll(() => {
+            const cached = client.tasks.getCached(params);
+            if (!query.isLive(cached)) return undefined;
+            return cached.status?.details.configHash;
+          })
+          .toBe("deadbeef");
+        await client.tasks.executeCommand({ task: t.key, type: "stop" });
+        await expect
+          .poll(() => {
+            const cached = client.tasks.getCached(params);
+            if (!query.isLive(cached)) return undefined;
+            return cached.status?.variant;
+          })
+          .toBe("loading");
+        const cached = client.tasks.getCached(params);
+        if (!query.isLive(cached)) throw new Error("expected live cached task");
+        expect(cached.status?.details.configHash).toBe("deadbeef");
+        expect(cached.status?.details.rack).toBe(testRack.key);
+      } finally {
+        off();
+      }
+    });
   });
 });

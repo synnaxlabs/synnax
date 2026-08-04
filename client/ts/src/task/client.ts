@@ -396,6 +396,9 @@ export class Client extends query.Retriever<
       onChange: (changed) => {
         statusStore.set(statusKey(changed.task), (prev) => {
           if (prev == null || !LOADING_COMMANDS.includes(changed.type)) return prev;
+          // Carry the last known deploy info forward: zeroing it would make this
+          // optimistic status claim the task deployed with an empty config/rack.
+          const latest = this.latestStatusOf(changed.task);
           return status.create<StatusDetailsZodObject>({
             key: statusKey(changed.task),
             name: "Task Status",
@@ -405,8 +408,8 @@ export class Client extends query.Retriever<
               task: changed.task,
               running: true,
               cmd: "",
-              configHash: "",
-              rack: 0,
+              configHash: latest?.details.configHash ?? "",
+              rack: latest?.details.rack ?? 0,
               data: {},
             },
           });

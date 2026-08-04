@@ -17,6 +17,8 @@ import { useStatus } from "@/platform/task/useStatus";
  * Whether the running instance was deployed with a different config or rack than the
  * saved task now holds. Tasks that are not running never drift. Both hashes are
  * server-assigned, so an edit surfaces here once its autosave lands, not on keystroke.
+ * A status with an empty deployed hash never drifts: the deployed config is unknown,
+ * not different.
  */
 export const useDrifted = <Schema extends z.ZodType>(
   ctx?: Form.ContextValue<Schema>,
@@ -28,6 +30,6 @@ export const useDrifted = <Schema extends z.ZodType>(
     configHash: deployedHash,
     rack: deployedRack,
   } = useStatus(ctx).details;
-  if (!running || configHash == null) return false;
+  if (!running || configHash == null || deployedHash === "") return false;
   return configHash !== deployedHash || (rackKey ?? 0) !== deployedRack;
 };

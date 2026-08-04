@@ -70,4 +70,10 @@ describe("drifted", () => {
   it("should never drift without a status", () => {
     expect(drifted(newPayload({ hasStatus: false }))).toBe(false);
   });
+
+  it("should never drift when the deployed hash is unknown", () => {
+    // The optimistic command-loading status reports running with an empty hash.
+    expect(drifted(newPayload({ statusHash: "", taskHash: EDITED }))).toBe(false);
+    expect(drifted(newPayload({ statusHash: "", statusRack: 2 }))).toBe(false);
+  });
 });
