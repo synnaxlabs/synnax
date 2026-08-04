@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { status } from "@synnaxlabs/client";
+import { type status } from "@synnaxlabs/client";
 import { type Flex } from "@synnaxlabs/pluto";
 import { type ReactElement, type ReactNode, useCallback, useState } from "react";
 
@@ -28,6 +28,8 @@ export interface BarProps extends Flex.BoxProps {
   disabled?: boolean;
   /** Shown when the status message is empty. */
   fallbackMessage?: string;
+  /** Status variant forwarded to the start/stop button. */
+  startStopVariant?: status.Variant;
   /** Rendered inside the action row, before the deploy controls. */
   extraActions?: ReactNode;
   onDeploy: () => void;
@@ -45,6 +47,7 @@ export const Bar = ({
   snapshot = false,
   disabled = false,
   fallbackMessage,
+  startStopVariant,
   extraActions,
   onDeploy,
   onStop,
@@ -73,7 +76,7 @@ export const Bar = ({
             running={running}
             onClick={handleStartStop}
             disabled={disabled}
-            statusVariant={status.keepVariants(stat.variant, "loading")}
+            statusVariant={startStopVariant}
           />
         </Actions>
       )}

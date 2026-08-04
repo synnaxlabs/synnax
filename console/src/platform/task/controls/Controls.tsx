@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type status } from "@synnaxlabs/client";
+import { status } from "@synnaxlabs/client";
 import { type Flex, type Flux, Form } from "@synnaxlabs/pluto";
 import { useCallback } from "react";
 
@@ -51,6 +51,7 @@ export const Controls = ({ onDeploy, onStop, formStatus, ...props }: ControlsPro
       drifted={drifted}
       snapshot={isSnapshot}
       disabled={formStatus.variant !== "success"}
+      startStopVariant={status.keepVariants(taskStatus.variant, "loading")}
       onDeploy={handleDeploy}
       onStop={handleStop}
       {...props}
