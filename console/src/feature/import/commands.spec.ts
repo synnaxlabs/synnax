@@ -12,9 +12,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { renderPalette } from "@/feature/command/testutil";
 import { Import } from "@/feature/import";
-import { interceptFilePicker, stubGeometry } from "@/testutil";
-
-stubGeometry();
+import { interceptFilePicker } from "@/testutil";
 
 describe("Import Commands", () => {
   afterEach(() => {

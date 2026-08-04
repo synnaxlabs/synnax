@@ -32,15 +32,6 @@ export const PROVIDER_PROPS: Triggers.ProviderProps = {
 
 const CLOSE_WINDOW_TIMEOUT = TimeSpan.milliseconds(350);
 
-const isTextEditActive = (): boolean => {
-  const el = document.activeElement;
-  return (
-    el instanceof HTMLInputElement ||
-    el instanceof HTMLTextAreaElement ||
-    (el instanceof HTMLElement && el.isContentEditable)
-  );
-};
-
 // TODO(SY-4370): open-in-new-window gesture (formerly Control+O) needs a panel
 // equivalent: create a Drift window and select the panel in it.
 
@@ -73,14 +64,13 @@ export const use = (): void => {
   });
   Triggers.use({
     triggers: [["Escape"]],
+    double: true,
     callback: useCallback(
       ({ stage }: Triggers.UseEvent) => {
         if (stage !== "start" || !getIsOverlaid()) return;
-        // A modal or in-progress text edit claims Escape first.
-        if (modals.isAnyOpen() || isTextEditActive()) return;
         sessionDispatch(Session.Panel.stopOverlaying({}));
       },
-      [getIsOverlaid, modals, sessionDispatch],
+      [getIsOverlaid, sessionDispatch],
     ),
   });
   Triggers.use({

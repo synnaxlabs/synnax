@@ -19,7 +19,7 @@ cc_library(
         "//vendor/libmodbus",
         "//x/cpp/errors",
         "//x/cpp/telem",
-        "@glog",
+        "@abseil-cpp//absl/log",
     ],
 )
 
@@ -35,6 +35,6 @@ cc_binary(
         "//driver/modbus/util",
         "//vendor/libmodbus",
         "//x/cpp/errors",
-        "@glog",
+        "@abseil-cpp//absl/log",
     ],
 )

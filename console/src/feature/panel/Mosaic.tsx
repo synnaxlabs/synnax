@@ -23,6 +23,7 @@ import {
   Status,
   Synnax,
   Text,
+  Triggers,
 } from "@synnaxlabs/pluto";
 import { caseconv } from "@synnaxlabs/x";
 import { memo, type PropsWithChildren, type ReactElement, useCallback } from "react";
@@ -203,6 +204,9 @@ const loading = (
 const Content = (): ReactElement => {
   const tabType = Panel.useSelectTabType({});
   const { Content } = useTab();
+  // Background tabs stay mounted, so every tab answers a keystroke unless the ones the
+  // user is not working in are switched off here.
+  const triggersActive = Session.Panel.useGetTabTriggersActive();
   return (
     // The box wraps the boundary rather than sitting inside it: the tab's size
     // belongs to the tab, not to whichever of content, loader, or tombstone is
@@ -213,9 +217,11 @@ const Content = (): ReactElement => {
       empty
       className={CSS(CSS.B(caseconv.toKebab(tabType)), CSS.BE("panel", "tab"))}
     >
-      <Errors.SuspenseBoundary loading={loading} FallbackComponent={ContentFallback}>
-        <Content />
-      </Errors.SuspenseBoundary>
+      <Triggers.Scope active={triggersActive}>
+        <Errors.SuspenseBoundary loading={loading} FallbackComponent={ContentFallback}>
+          <Content />
+        </Errors.SuspenseBoundary>
+      </Triggers.Scope>
     </Flex.Box>
   );
 };

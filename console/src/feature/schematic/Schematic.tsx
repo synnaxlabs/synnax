@@ -103,14 +103,6 @@ const Internal = (): ReactElement => {
     [handleNodeClickAction],
   );
 
-  const modals = Session.Modals.useStore("Schematic");
-  const getTabIsFocused = Session.Panel.useGetTabIsFocused();
-
-  const enableTriggers = useCallback(
-    () => !modals.isAnyOpen() && getTabIsFocused() && isCurrentlyEditable,
-    [getTabIsFocused, isCurrentlyEditable, modals],
-  );
-
   const renderExtraMenuItems = useCallback(
     (): ReactElement => (
       <>
@@ -126,7 +118,7 @@ const Internal = (): ReactElement => {
   return (
     <Controller>
       <Base.Schematic
-        enableTriggers={enableTriggers}
+        enableTriggers={isCurrentlyEditable}
         extraMenuItems={renderExtraMenuItems}
         selected={selected}
         onSelectionChange={handleSelectionChange}

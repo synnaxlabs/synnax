@@ -53,7 +53,7 @@ export interface EditorProps extends Omit<
   BaseDiagram.DiagramProps,
   "nodes" | "edges" | "onNodesChange" | "onEdgesChange" | "onChange"
 > {
-  enableTriggers?: boolean | (() => boolean);
+  enableTriggers?: Triggers.Condition;
   extraMenuItems?: Component.RenderProp<Menu.ContextMenuMenuProps>;
 }
 

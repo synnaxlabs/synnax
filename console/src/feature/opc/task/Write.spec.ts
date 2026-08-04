@@ -20,16 +20,9 @@ import {
   renderTaskFormTab,
   type RenderTaskFormTabOptions,
 } from "@/platform/task/testutil";
-import {
-  awaitTextEditingElement,
-  commitTextEdit,
-  stubGeometry,
-  uniqueName,
-} from "@/testutil";
+import { awaitTextEditingElement, commitTextEdit, uniqueName } from "@/testutil";
 
 const client = createTestClient();
-
-stubGeometry();
 
 const renderWrite = async (options: RenderTaskFormTabOptions = {}) =>
   await renderTaskFormTab(OPC.Task.Write, options);

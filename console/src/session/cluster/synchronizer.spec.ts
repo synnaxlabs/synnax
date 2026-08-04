@@ -13,9 +13,9 @@ import { Synnax } from "@synnaxlabs/pluto";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
-import { createCluster, createClusterState } from "@/platform/cluster/testutil";
 import { Session } from "@/session";
 import { SYNCHRONIZERS } from "@/session/cluster/synchronizer";
+import { createCluster, createClusterState } from "@/session/cluster/testutil";
 import { Synchronizer } from "@/session/synchronizer";
 import { createConnectedConsoleWrapper, renderHookWithConsole } from "@/testutil";
 

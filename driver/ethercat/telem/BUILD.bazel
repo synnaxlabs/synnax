@@ -16,7 +16,7 @@ cc_library(
     visibility = ["//driver/ethercat:__subpackages__"],
     deps = [
         "//x/cpp/telem",
-        "@glog",
+        "@abseil-cpp//absl/log",
     ],
 )
 

@@ -20,11 +20,9 @@ import {
   renderTaskFormTab,
   type RenderTaskFormTabOptions,
 } from "@/platform/task/testutil";
-import { getLabeledInput, stubGeometry, uniqueName } from "@/testutil";
+import { getLabeledInput, uniqueName } from "@/testutil";
 
 const client = createTestClient();
-
-stubGeometry();
 
 const renderRead = async (options: RenderTaskFormTabOptions = {}) =>
   await renderTaskFormTab(OPC.Task.Read, options);

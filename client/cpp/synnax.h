@@ -11,7 +11,7 @@
 
 #include <memory>
 
-#include "glog/logging.h"
+#include "absl/log/log.h"
 
 #include "client/cpp/arc/arc.h"
 #include "client/cpp/channel/channel.h"

@@ -13,19 +13,15 @@
     z-index: 3;
 }
 
-/* A selected pack segment's tinted border must win the negative-margin border
-   collapse against unselected neighbors. */
+/* Wins the negative-margin border collapse against unselected neighbors. */
 .pluto--pack .pluto-btn.pluto--selected {
     z-index: 2;
 }
 
-/* Reveal contract: a container marked pluto--reveals hides marked child actions
-   until hovered. A marked action's own keyboard focus always shows it, so reveal
-   never hides the only keyboard path. */
+/* A pluto--reveals container hides marked child actions until hovered. Keyboard
+   focus always shows one, so reveal never hides the only keyboard path. */
 .pluto--reveals .pluto--reveal {
     opacity: 0;
-    /* An invisible action must not be hit-testable, especially overlay closes
-       sitting over other content. */
     pointer-events: none;
     transition: opacity 0.1s ease-out;
 }
@@ -35,8 +31,8 @@
     pointer-events: auto;
 }
 
-/* Nested containers reveal from the nearest one: an un-hovered inner container
-   (a tag in a hovered row) keeps its own actions hidden. */
+/* Reveal comes from the nearest container: an un-hovered inner one (a tag in a
+   hovered row) keeps its own actions hidden. */
 .pluto--reveals:not(:hover) .pluto--reveal {
     opacity: 0;
     pointer-events: none;
@@ -47,7 +43,6 @@
     pointer-events: auto;
 }
 
-/* Reveal-hidden glyphs settle slightly shrunk so showing reads as a zoom-in. */
 .pluto--reveals:not(:hover) .pluto-btn--close:not(:focus-visible) svg {
     transform: scale(0.9);
 }
@@ -68,20 +63,14 @@
 }
 
 :root {
-    /* The interactive fill band. Surfaces may re-point these: elevated chrome sets
-       them to step toward the canvas (l0-l2) so its controls recess instead of
-       lighten; explicit surface classes reset them to this standard ladder. */
+    /* The interactive fill band. Elevated chrome re-points these to step toward the
+       canvas (l0-l2) so its controls recess instead of lighten. */
     --pluto-fill-rest: var(--pluto-gray-l3);
     --pluto-fill-hover: var(--pluto-gray-l4);
     --pluto-fill-press: var(--pluto-gray-l5);
 
-    /* The three selection tiers. Every selected state speaks exactly one tier;
-       features re-point tier tokens in context but never hand-roll a selection
-       fill. Primary flattens are opaque over gray-l1 so plot pixels never bleed
-       through a selected chip. */
-
-    /* Control tier: compact controls (segments, toggles), the default selected
-       paint for buttons, and the pane-focused tab. */
+    /* The three selection tiers. Every selected state speaks exactly one; never
+       hand-roll a selection fill. */
     --pluto-selected-bg: color-mix(
         in srgb,
         var(--pluto-primary-z) 15%,
@@ -100,17 +89,14 @@
     );
     --pluto-selected-color: var(--pluto-primary-z);
 
-    /* Subtle tier: selected tabs in unfocused panes. Neutral grays; primary is
-       reserved for the focused pane's tab, which speaks the control tier. */
     --pluto-selected-subtle-bg: var(--pluto-fill-hover);
     --pluto-selected-subtle-hover-bg: var(--pluto-fill-press);
     --pluto-selected-subtle-active-bg: var(--pluto-gray-l6);
     --pluto-selected-subtle-border-color: var(--pluto-gray-l7);
     --pluto-selected-subtle-color: var(--pluto-gray-l11);
 
-    /* List tier: rows (list, menu, tree). Selection sits between the hover and
-       pressed fills, chroma-boosted blue-of-neutral at unchanged lightness. Text
-       color is deliberately untouched: rows carry multi-color content. */
+    /* List tier: rows (list, menu, tree). Text color is deliberately untouched,
+       since rows carry multi-color content. */
     --pluto-selected-list-bg: oklch(from var(--pluto-gray-l5-70) l calc(c + 0.025) h);
     --pluto-selected-list-hover-bg: oklch(
         from var(--pluto-gray-l5-85) l calc(c + 0.025) h
@@ -135,16 +121,12 @@
 }
 
 .pluto-theme-synnax-light {
-    /* achromatic (grey/black/white) symbols snap to pure black, legible on the light bg */
     --pluto-symbol-l-extreme: 0;
 
-    /* no floor: dark colors already read fine on the light bg */
     --pluto-symbol-l-min: 0;
 
-    /* cap lightness so pale colors darken enough to read on the light bg */
     --pluto-symbol-l-max: 0.8;
 
-    /* low cutoff: only near-pure greys snap; muddy darks already read as near-black */
     --pluto-symbol-c-thresh: 0.05;
     --pluto-shadow-v1:
         0px 1px 1px rgba(0, 0, 0, 0.02), 0px 4px 8px -4px rgba(0, 0, 0, 0.1),
@@ -158,23 +140,19 @@
         lch(0 0 0 / 0.088) 0px 9px 48px, lch(0 0 0 / 0.11) 0px 6px 24px,
         lch(0 0 0 / 0.044) 0px 1px 1px;
 
-    /* v2 without its widest layer, for surfaces stacked a gap apart: the wide
-       layer reaches past the gap and pools on the neighbor instead of the page. */
+    /* v2 without its widest layer, which reaches past a gap between stacked
+       surfaces and pools on the neighbor instead of the page. */
     --pluto-shadow-tight:
         lch(0 0 0 / 0.044) 0px 3px 9px, lch(0 0 0 / 0.044) 0px 1px 1px;
 }
 
 .pluto-theme-synnax-dark {
-    /* achromatic (grey/black/white) symbols snap to pure white, legible on the dark bg */
     --pluto-symbol-l-extreme: 1;
 
-    /* floor lightness so dark colors lift enough to read on the dark bg */
     --pluto-symbol-l-min: 0.4;
 
-    /* no ceiling: light colors already read fine on the dark bg */
     --pluto-symbol-l-max: 1;
 
-    /* higher than light so muddy darks (invisible on the dark bg) also snap to white */
     --pluto-symbol-c-thresh: 0.09;
     --pluto-shadow-v1:
         lch(0 0 0 / 0.188) 0px 3px 8px, lch(0 0 0 / 0.188) 0px 2px 5px,
@@ -209,14 +187,12 @@
             c h
     );
 
-    /* black or white, whichever is legible on top of the display color. Pinned
-       fully opaque so transparent symbols still get legible text and pills. */
+    /* Pinned fully opaque so transparent symbols still get legible text and pills. */
     --pluto-symbol-contrast: oklch(
         from var(--pluto-symbol-display) clamp(0, (0.6 - l) * 100, 1) 0 0deg / 100%
     );
 
-    /* SVG stroke is inherited, so descendants (node shapes, edge decorations, the
-       gauge arc) pick up the display color without restating it per shape. */
+    /* Inherited, so descendants pick up the display color per shape. */
     stroke: var(--pluto-symbol-display);
 }
 

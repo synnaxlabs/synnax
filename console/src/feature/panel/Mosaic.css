@@ -9,26 +9,22 @@
  * included in the file licenses/APL.txt.
  */
 
-/* Matches .pluto-mosaic so the no-panel placeholder reads as the same surface. */
 .console-mosaic--empty {
     overflow: hidden;
     box-shadow: var(--pluto-shadow-v2);
 }
 
 .console-mosaic__empty-content {
-    /* Raised above dead-center: optical centering under the top chrome. */
     transform: translateY(-4%);
 
-    /* Fixed base + proportional term: matches 12.5% at a typical window height
-       but shrinks at half the rate as the window gets shorter. */
+    /* Matches 12.5% at a typical window height, shrinking at half the rate below it. */
     .synnax-logo-watermark {
         height: calc(12rem + 6.5%);
         opacity: 0.4;
     }
 
-    /* Empty.Action's internal box is 100% x 100% with grow; collapsed here so
-       it sits as a single row under the watermark instead of claiming the
-       whole area. The .pluto--center repeat outweighs the rule it overrides. */
+    /* Collapses Empty.Action's 100% x 100% growing box to a single row under the
+       watermark. The .pluto--center repeat outweighs the rule it overrides. */
     .console-mosaic__empty-action.pluto--center {
         width: auto;
         height: auto;
@@ -37,8 +33,6 @@
 }
 
 .console-panel__tombstone {
-    /* Raised above dead-center: optical centering under the tab strip,
-       matching the mosaic empty state. */
     transform: translateY(-3%);
     container-type: size;
     overflow: hidden;
@@ -49,9 +43,7 @@
     }
 }
 
-/* A short tab cannot seat the whole stack, so it sheds by priority: the glyph
-   is decoration, then the explanatory line. The heading and the actions always
-   survive, since closing the tab is the whole point of the tombstone. */
+/* A short tab sheds by priority. The heading and actions always survive. */
 @container (max-height: 44rem) {
     .console-panel__tombstone-icon {
         display: none;
@@ -64,50 +56,31 @@
     }
 }
 
-/* Positioned so absolutely placed tab content resolves against the tab. */
 .console-panel__tab {
     animation: none !important;
     position: relative;
 }
 
-/* One stretched cell: spares WebKit a level of per-frame flex re-measurement
-   while a pane resizes, and sizes the content child without touching overlays,
-   which are out of flow and keep their own size. Scoped under .console-mosaic
-   to outrank .pluto-flex regardless of bundle order. */
+/* One stretched cell spares WebKit a level of per-frame flex re-measurement while a
+   pane resizes. Scoped under .console-mosaic to outrank .pluto-flex. */
 .console-mosaic .console-panel__tab {
     display: grid;
     grid-template: minmax(0, 1fr) / minmax(0, 1fr);
 }
 
-/* Focus mode reads as a lamp over the pane: everything is l11 light, matching
- * the exit chip. Two layers: --edge (border + inset ring) and --glow. Swap the
- * commented variants to compare. */
+/* Focus mode reads as a lamp over the pane, matching the exit chip. */
 .console-mosaic.pluto-panel-mosaic--overlaid {
-    /* L1 lit rim: the edge itself is light, not stronger chrome. */
     border-color: var(--pluto-gray-l11-35);
     --edge: inset 0 0 0 0.5px var(--pluto-gray-l11-20);
-    /* L2 structural: pre-lamp edge, a stronger gray border.
-    border-color: var(--pluto-gray-l8);
-    --edge: inset 0 0 0 0.5px var(--pluto-gray-l8-40); */
-
-    /* G1 inner wash: frame lit from within, nothing spills outside. */
     --glow: inset 0 0 18px var(--pluto-gray-l11-15);
-    /* G2 inner wash + faint outer bloom: light escapes the rim slightly.
-    --glow:
-        inset 0 0 18px var(--pluto-gray-l11-15),
-        0 0 8px var(--pluto-gray-l11-10); */
-    /* G3 rim only, no glow.
-    --glow: 0 0 transparent; */
-
     box-shadow: var(--edge), var(--glow);
     transition:
         border-color 0.15s ease-in-out,
         box-shadow 0.15s ease-in-out;
 }
 
-/* Hosts the selected panel's kept-alive subtree; unselected panels stay mounted
- * against detached portal elements. Must stay unpositioned: a positioned ancestor
- * lifts the panel above the fixed canvases, hiding every plot's pixels. */
+/* Must stay unpositioned: a positioned ancestor lifts the panel above the fixed
+   canvases, hiding every plot's pixels. */
 .console-panel__host {
     display: flex;
     flex: 1 1 0;

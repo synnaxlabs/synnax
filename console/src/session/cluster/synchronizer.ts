@@ -7,7 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Store, type UnknownAction } from "@reduxjs/toolkit";
 import { type connection } from "@synnaxlabs/client";
 import { Drift } from "@synnaxlabs/drift";
 import { useRef } from "react";
@@ -16,7 +15,13 @@ import { type Action, changeKey, type StoreState } from "@/session/cluster/slice
 import { Modals } from "@/session/modals";
 import { type Synchronizer } from "@/session/synchronizer";
 
-const repair = (store: Store<StoreState, Action>, status: connection.Status): void => {
+interface RequiredStoreState extends StoreState, Drift.StoreState {}
+type RequiredAction = Action | Drift.Action;
+
+const repair = (
+  store: Synchronizer.Store<StoreState, Action>,
+  status: connection.Status,
+): void => {
   if (status.variant !== "success") return;
   const { clusterKey } = status.details;
   const selected = store.getState().cluster.selected;
@@ -33,7 +38,7 @@ const syncKey: Synchronizer.Synchronizer<StoreState, Action> = {
 };
 
 const discard = (
-  store: Store<Drift.StoreState, UnknownAction>,
+  store: Synchronizer.Store<Drift.StoreState, Drift.Action>,
   modals: Modals.Store,
 ): void => {
   modals.clear();
@@ -44,7 +49,10 @@ const discard = (
 
 // Torn-off windows and open modals hold resources from the cluster that is no
 // longer connected. Main window only: a closed window takes its modals with it.
-const useCloseOnClusterChange = (): Synchronizer.Synchronizer<Drift.StoreState> => {
+const useCloseOnClusterChange = (): Synchronizer.Synchronizer<
+  Drift.StoreState,
+  Drift.Action
+> => {
   const modals = Modals.useStore("useCloseOnClusterChange");
   const seen = useRef<string | null>(null);
   return {
@@ -60,7 +68,10 @@ const useCloseOnClusterChange = (): Synchronizer.Synchronizer<Drift.StoreState> 
   };
 };
 
-export const SYNCHRONIZERS: Synchronizer.Synchronizers = {
+export const SYNCHRONIZERS: Synchronizer.Synchronizers<
+  RequiredStoreState,
+  RequiredAction
+> = {
   useSyncClusterKey: () => syncKey,
   useCloseOnClusterChange,
 };

@@ -9,31 +9,24 @@
 
 module(name = "synnax")
 
+bazel_dep(name = "abseil-cpp", version = "20260526.0")
 bazel_dep(name = "boost.uuid", version = "1.90.0.bcr.1")
 bazel_dep(name = "cpp-httplib", version = "0.46.0")
 bazel_dep(name = "curl", version = "8.12.0.bcr.1")
-bazel_dep(name = "gflags", version = "2.2.2.bcr.1")
-bazel_dep(name = "glog", version = "0.7.1.bcr.1")
 bazel_dep(name = "google_benchmark", version = "1.9.5")
 bazel_dep(name = "googletest", version = "1.17.0.bcr.2")
 bazel_dep(name = "gperftools", version = "2.18.1")
-bazel_dep(name = "grpc", version = "1.81.1")
+bazel_dep(name = "grpc", version = "1.83.0")
 bazel_dep(name = "nlohmann_json", version = "3.12.0.bcr.1")
 bazel_dep(name = "platforms", version = "1.1.0")
 bazel_dep(name = "protobuf", version = "35.1")
-bazel_dep(name = "rules_cc", version = "0.2.20")
+bazel_dep(name = "rules_cc", version = "0.2.22")
 bazel_dep(name = "rules_proto_grpc_cpp", version = "5.8.0")
 
 single_version_override(
     module_name = "grpc",
     patch_strip = 1,
     patches = [
-        # grpc's third_party/address_sorting/address_sorting.bzl calls the bare
-        # native.cc_library, which rules_cc 0.2.x removed. Adds the required load().
-        "//patches:grpc-address-sorting-add-load.patch",
-        # Same issue in third_party/xxhash/BUILD: it uses cc_library without loading it.
-        # Adds the load() so the package parses under rules_cc 0.2.x.
-        "//patches:grpc-xxhash-add-load.patch",
         # grpc's TLS targets #include <openssl/ssl.h> while depending only on libssl.
         # Our openssl provider (unlike grpc's native boringssl) does not re-export the
         # public headers from :ssl, so layering_check rejects the include. Disable

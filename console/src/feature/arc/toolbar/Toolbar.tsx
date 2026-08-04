@@ -20,6 +20,7 @@ import {
   Menu,
   Select,
   Status,
+  stopPropagation,
   Text,
 } from "@synnaxlabs/pluto";
 import { type ReactElement, useCallback, useState } from "react";
@@ -96,7 +97,6 @@ const Content = () => {
                 key={key}
                 {...p}
                 onRename={(name) => handleRename({ key, name })}
-                onEdit={() => handleEdit(key)}
                 onDoubleClick={() => handleEdit(key)}
               />
             )}
@@ -145,10 +145,9 @@ export const TOOLBAR: Nav.Toolbar = {
 
 interface ArcListItemProps extends List.ItemProps<arc.Key> {
   onRename: (name: string) => void;
-  onEdit: () => void;
 }
 
-const ArcListItem = ({ onRename, onEdit, ...rest }: ArcListItemProps) => {
+const ArcListItem = ({ onRename, ...rest }: ArcListItemProps) => {
   const { itemKey } = rest;
   const arcItem = List.useItem<arc.Key, arc.Arc>(itemKey);
   const hasUpdatePermission = Access.useUpdateGranted(arc.ontologyID(itemKey));
@@ -185,6 +184,7 @@ const ArcListItem = ({ onRename, onEdit, ...rest }: ArcListItemProps) => {
         <Button.Button
           variant="outlined"
           onClick={onStartStop}
+          onDoubleClick={stopPropagation}
           tooltip={`${running ? "Stop" : "Start"} ${arcItem?.name ?? ""}`}
         >
           {running ? <Icon.Pause /> : <Icon.Play />}

@@ -43,6 +43,6 @@ const syncRanges: Synchronizer.Synchronizer<StoreState, Action> = {
   },
 };
 
-export const SYNCHRONIZERS: Synchronizer.Synchronizers = {
+export const SYNCHRONIZERS: Synchronizer.Synchronizers<StoreState, Action> = {
   useSyncRanges: () => syncRanges,
 };

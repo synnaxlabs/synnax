@@ -52,8 +52,6 @@
     }
 }
 
-/* ---------- faithful reproduction of the shipped value ---------- */
-
 .schx-current {
     display: inline-flex;
     align-items: stretch;
@@ -79,8 +77,6 @@
         font-weight: 500;
     }
 }
-
-/* ---------- quiet chassis shared by every variant ---------- */
 
 .schxv {
     display: inline-flex;
@@ -133,8 +129,6 @@
     }
 }
 
-/* accent placements; each variant allows channel color in exactly one place */
-
 .schxv--tick {
     border-left: 2px solid var(--schx-color, var(--pluto-gray-l8));
 }
@@ -162,8 +156,6 @@
     background: rgba(var(--schx-rgb, 230, 230, 234), 0.14);
     color: var(--schx-color, var(--pluto-gray-l9));
 }
-
-/* ---------- alarm paint, soft-fill language, applies to any variant ---------- */
 
 .schxv--warn,
 .schxv--crit {
@@ -199,8 +191,6 @@
     box-shadow: 0 0 10px rgba(var(--schx-alarm-rgb), 0.25);
 }
 
-/* current-value reference under alarm, for the comparison row */
-
 .schx-current--warn {
     --schx-color: #e2a13c;
 }
@@ -209,12 +199,6 @@
     --schx-color: #e0574a;
 }
 
-/* ==================================================================== */
-/* State indicator study. Each variant spends the state color in a      */
-/* different place; uncolored states fall back to the gray chassis.     */
-/* ==================================================================== */
-
-/* faithful reproduction of the shipped state indicator */
 .schxs-current {
     display: inline-flex;
     align-items: center;
@@ -231,7 +215,6 @@
     }
 }
 
-/* shared chassis, mirrors the shipped (new) value */
 .schxs {
     display: inline-flex;
     align-items: center;
@@ -258,20 +241,17 @@
     }
 }
 
-/* value twin: the new value's colored recipe, driven by the state color */
 .schxs--twin.schxs--colored {
     border-color: var(--schx-color);
     background: rgba(var(--schx-rgb), 0.06);
     color: var(--pluto-gray-l11);
 }
 
-/* soft tint: color fills and speaks, border stays neutral */
 .schxs--tint.schxs--colored {
     background: rgba(var(--schx-rgb), 0.12);
     color: var(--schx-color);
 }
 
-/* dot: quietest, color reduced to a marker */
 .schxs--dot .schxs__dot {
     display: block;
 }
@@ -280,7 +260,6 @@
     color: var(--pluto-gray-l11);
 }
 
-/* pill: borderless soft-fill capsule */
 .schxs--pill {
     border-color: transparent;
     border-radius: 100rem;
@@ -295,11 +274,6 @@
         color: var(--schx-color);
     }
 }
-
-/* ==================================================================== */
-/* Setpoint study: chassis follows the value family; the SET action     */
-/* varies from solid (current) to neutral to soft tint.                 */
-/* ==================================================================== */
 
 .schxp {
     display: inline-flex;
@@ -349,7 +323,6 @@
     }
 }
 
-/* faithful current: symbol-colored border, solid colored Set */
 .schxp--current {
     background: transparent;
     font-family: var(--pluto-font-family);
@@ -380,9 +353,6 @@
     }
 }
 
-/* quiet: chassis and action fully neutral, color ignored */
-
-/* tinted action: neutral chassis, SET takes a soft tint of the color */
 .schxp--tinted.schxp--colored .schxp__go {
     background: rgba(var(--schx-rgb), 0.15);
     color: var(--schx-color);
@@ -396,7 +366,6 @@
     }
 }
 
-/* value twin: colored chassis, SET muted to a soft tint of the color */
 .schxp--twin.schxp--colored {
     border-color: var(--schx-color);
     background: rgba(var(--schx-rgb), 0.06);
@@ -416,7 +385,6 @@
     }
 }
 
-/* twin chassis + fully neutral gray SET, the quietest action */
 .schxp--hybrid.schxp--colored {
     border-color: var(--schx-color);
     background: rgba(var(--schx-rgb), 0.06);

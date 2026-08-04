@@ -14,9 +14,7 @@ import { renderPalette } from "@/feature/command/testutil";
 import { Schematic } from "@/feature/schematic";
 import { client, testProjectKey } from "@/feature/schematic/testutil";
 import { Session } from "@/session";
-import { renderHookWithConsole, resolveFocusedTab, stubGeometry } from "@/testutil";
-
-stubGeometry();
+import { renderHookWithConsole, resolveFocusedTab } from "@/testutil";
 
 describe("Schematic Commands", () => {
   it("is visible when the user may create schematics", async () => {

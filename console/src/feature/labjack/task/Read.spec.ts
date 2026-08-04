@@ -26,11 +26,9 @@ import {
   renderTaskFormTab,
   type RenderTaskFormTabOptions,
 } from "@/platform/task/testutil";
-import { stubGeometry, uniqueName } from "@/testutil";
+import { uniqueName } from "@/testutil";
 
 const client = createTestClient();
-
-stubGeometry();
 
 const renderRead = async (options: RenderTaskFormTabOptions = {}) =>
   await renderTaskFormTab(LabJack.Task.Read, options);

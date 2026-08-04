@@ -38,4 +38,6 @@ const useSyncStatuses: Synchronizer.Use<unknown, Action> = () => {
   );
 };
 
-export const SYNCHRONIZERS: Synchronizer.Synchronizers = { useSyncStatuses };
+export const SYNCHRONIZERS: Synchronizer.Synchronizers<unknown, Action> = {
+  useSyncStatuses,
+};

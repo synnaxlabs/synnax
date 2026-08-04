@@ -51,7 +51,7 @@ const FLATTENED_TRIGGERS = Triggers.flattenConfig(TRIGGER_CONFIG);
 export interface BaseProps extends UseProps, Omit<Flex.BoxProps, "color"> {
   emptyContent?: ReactElement;
   extraContextMenuItems?: ReactNode;
-  enableTriggers?: boolean | (() => boolean);
+  enableTriggers?: Triggers.Condition;
   /** Controlled pause state. When set, the log pauses scrolling while true. */
   hold?: boolean;
   /** Called when an internal gesture (scroll up, H trigger) changes the pause
@@ -188,11 +188,10 @@ export const Base = ({
 
   Triggers.use({
     triggers: FLATTENED_TRIGGERS,
+    enabled: enableTriggers,
     callback: useCallback(
       ({ triggers, stage }: Triggers.UseEvent) => {
         if (stage !== "start") return;
-        if (enableTriggers === false) return;
-        if (typeof enableTriggers === "function" && !enableTriggers()) return;
         const mode = Triggers.determineMode(TRIGGER_CONFIG, triggers);
         if (mode === "selectAll")
           setState((s) => ({ ...s, selectionStart: 0, selectionEnd: SELECT_ALL_END }));
@@ -208,7 +207,7 @@ export const Base = ({
           setState((s) => ({ ...s, scrolling: !s.scrolling }));
         }
       },
-      [setState, enableTriggers, scrolling, onHold],
+      [setState, scrolling, onHold],
     ),
   });
 

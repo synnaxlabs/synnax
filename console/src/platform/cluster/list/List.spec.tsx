@@ -11,12 +11,9 @@ import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 import { Cluster } from "@/platform/cluster";
-import {
-  createCluster,
-  createClusterState,
-  renderClusterUI,
-} from "@/platform/cluster/testutil";
+import { renderClusterUI } from "@/platform/cluster/testutil";
 import { Session } from "@/session";
+import { createCluster, createClusterState } from "@/session/cluster/testutil";
 import { getBySelector, stubClipboardWriteText } from "@/testutil";
 
 describe("cluster List", () => {

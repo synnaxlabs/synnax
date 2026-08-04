@@ -26,11 +26,8 @@ import {
   awaitTextEditingElement,
   commitTextEdit,
   getHeaderIconButton,
-  stubGeometry,
   uniqueName,
 } from "@/testutil";
-
-stubGeometry();
 
 const renderWrite = async (options: RenderTaskFormTabOptions = {}) =>
   await renderTaskFormTab(HTTP.Task.Write, options);

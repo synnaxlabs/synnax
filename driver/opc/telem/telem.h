@@ -9,10 +9,8 @@
 
 #pragma once
 
-/// external
 #include "open62541/types.h"
 
-/// module
 #include "x/cpp/errors/errors.h"
 #include "x/cpp/telem/series.h"
 #include "x/cpp/telem/telem.h"

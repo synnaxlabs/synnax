@@ -90,7 +90,7 @@ describe("range/Explorer", () => {
     await renderExplorer();
     await enableEditing();
     fireEvent.click(await findToolbarIconButton("add"));
-    expect(await screen.findByText("Save Locally")).toBeTruthy();
+    expect(await screen.findByText("Save locally")).toBeTruthy();
   });
 
   it("opens the overview tab when a range is clicked", async () => {
@@ -178,7 +178,7 @@ describe("range/Explorer", () => {
       await renderExplorer();
       fireEvent.contextMenu(await revealRange(rng.name));
       fireEvent.click(await screen.findByText("Create child range"));
-      expect(await screen.findByText("Save Locally")).toBeTruthy();
+      expect(await screen.findByText("Save locally")).toBeTruthy();
     });
 
     it("deletes the range from the cluster after confirmation", async () => {
