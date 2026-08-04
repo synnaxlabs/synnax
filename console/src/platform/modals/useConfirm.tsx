@@ -7,9 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import "@/platform/modals/useConfirm.css";
+
 import { type status } from "@synnaxlabs/client";
 import { Button, type Icon, Nav, Text } from "@synnaxlabs/pluto";
 
+import { CSS } from "@/platform/css";
 import { Body } from "@/platform/modals/Body";
 import { createPrompt, type Prompt } from "@/platform/modals/factory";
 import { Footer } from "@/platform/modals/Footer";
@@ -76,7 +79,7 @@ const Confirm = ({
   icon,
   close,
 }: Session.Modals.ContentProps<ConfirmParams, boolean>) => (
-  <Frame>
+  <Frame className={CSS.B("confirm")}>
     <Header icon={icon}>{title}</Header>
     <Body>
       <Text.Text level="h3" weight={450}>

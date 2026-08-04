@@ -16,9 +16,9 @@ import { useCallback } from "react";
 import { Cluster } from "@/platform/cluster";
 import { ContextMenu as Base } from "@/platform/context-menu";
 import { Link } from "@/platform/link";
+import { Modals } from "@/platform/modals";
 import { Panel } from "@/platform/panel";
 import { Range } from "@/platform/range";
-import { Tree } from "@/platform/tree";
 import { Session } from "@/session";
 
 export const fetchIfNotInState = async (
@@ -53,9 +53,9 @@ const useDelete = () => {
   const handleRemove = (keys: string[]): void => {
     dispatch(Session.Range.remove({ keys }));
   };
-  const confirm = Tree.useConfirmDelete({
+  const confirm = Modals.useConfirmDelete({
     type: "Range",
-    description: "Deleting this range will also delete all child ranges.",
+    description: "Deleting a range also deletes its child ranges.",
   });
   const { update } = Ranger.useDelete({
     beforeUpdate: useCallback(

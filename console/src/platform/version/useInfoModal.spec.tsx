@@ -36,18 +36,14 @@ vi.mock("@tauri-apps/plugin-process", () => ({ relaunch: mocks.relaunch }));
 import { renderWithModals } from "@/platform/modals/testutil";
 import { Version } from "@/platform/version";
 
-interface HarnessProps {
-  autoUpdate?: boolean;
-}
-
-const Harness = ({ autoUpdate }: HarnessProps): ReactElement => {
+const Harness = (): ReactElement => {
   const open = Version.useInfoModal();
-  return <button onClick={() => open({ autoUpdate })}>open</button>;
+  return <button onClick={() => open()}>open</button>;
 };
 Harness.displayName = "Harness";
 
-const openModal = (autoUpdate?: boolean): void => {
-  renderWithModals(<Harness autoUpdate={autoUpdate} />);
+const openModal = (): void => {
+  renderWithModals(<Harness />);
   fireEvent.click(screen.getByRole("button", { name: "open" }));
 };
 
@@ -87,23 +83,22 @@ describe("version useInfoModal", () => {
     expect(mocks.relaunch).toHaveBeenCalledTimes(1);
   });
 
-  it("should install the update without a click when opened with autoUpdate", async () => {
+  it("should report up to date in tauri when the check finds no update", async () => {
     mocks.engine = "tauri";
-    const downloadAndInstall = vi.fn(async (onProgress: (event: unknown) => void) => {
-      onProgress({ event: "Started", data: { contentLength: 1000 } });
-      onProgress({ event: "Progress", data: { chunkLength: 1000 } });
-      onProgress({ event: "Finished" });
-    });
-    mocks.update = { version: "9.9.9", downloadAndInstall };
-    openModal(true);
-    await waitFor(() => expect(downloadAndInstall).toHaveBeenCalledTimes(1));
-    await waitFor(() => expect(mocks.relaunch).toHaveBeenCalledTimes(1));
+    openModal();
+    await waitFor(() => expect(screen.getByText("Up to date")).toBeTruthy());
+    expect(mocks.relaunch).not.toHaveBeenCalled();
   });
 
-  it("should report up to date when opened with autoUpdate and no update exists", async () => {
+  it("should never install an update without a click", async () => {
     mocks.engine = "tauri";
-    openModal(true);
-    await waitFor(() => expect(screen.getByText("Up to date")).toBeTruthy());
+    const downloadAndInstall = vi.fn(async () => {});
+    mocks.update = { version: "9.9.9", downloadAndInstall };
+    openModal();
+    await waitFor(() =>
+      expect(screen.getByText("Version 9.9.9 available")).toBeTruthy(),
+    );
+    expect(downloadAndInstall).not.toHaveBeenCalled();
     expect(mocks.relaunch).not.toHaveBeenCalled();
   });
 });

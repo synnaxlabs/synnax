@@ -39,7 +39,6 @@ import { CSS } from "@/platform/css";
 import { Empty } from "@/platform/empty";
 import { Export } from "@/platform/export";
 import { Modals } from "@/platform/modals";
-import { useConfirmDelete } from "@/platform/tree/useConfirmDelete";
 import { Session } from "@/session";
 
 const HAUL_DRAG_PROPS: Haul.UseDragProps = {
@@ -175,8 +174,9 @@ const RemoteSymbolListContextMenu = ({
 }: RemoteSymbolListContextMenuProps): ReactElement => {
   const firstKey = rest.keys[0];
   const item = List.useItem<schematic.symbol.Key, schematic.symbol.Symbol>(firstKey);
-  const confirmDelete = useConfirmDelete({
-    type: "Schematic.Symbol",
+  const confirmDelete = Modals.useConfirmDelete({
+    type: "Symbol",
+    title: "Schematic.Symbol.Delete",
     icon: "Schematic",
   });
   const openEdit = Symbol.Edit.useModal();

@@ -23,9 +23,9 @@ import {
 import { type FC } from "react";
 
 import { CSS } from "@/platform/css";
+import { Modals } from "@/platform/modals";
 import { Panel } from "@/platform/panel";
 import { Range } from "@/platform/range";
-import { Tree } from "@/platform/tree";
 
 const SnapshotsListItem = ({ className, ...rest }: List.ItemProps<string>) => {
   const { itemKey } = rest;
@@ -34,7 +34,7 @@ const SnapshotsListItem = ({ className, ...rest }: List.ItemProps<string>) => {
   const openTab = Panel.useOpenTab();
   const client = Synnax.use();
   const handleError = Status.useErrorHandler();
-  const promptConfirm = Tree.useConfirmDelete({ type: "Snapshot" });
+  const promptConfirm = Modals.useConfirmDelete({ type: "Snapshot" });
   if (entry == null) return null;
   const { id, name } = entry;
   const svc = services[id.type];

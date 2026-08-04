@@ -13,7 +13,6 @@ import { useCallback, useMemo } from "react";
 
 import { ContextMenu as Base } from "@/platform/context-menu";
 import { Modals } from "@/platform/modals";
-import { Tree } from "@/platform/tree";
 import { Session } from "@/session";
 
 const ContextMenu = ({ keys }: Menu.ContextMenuMenuProps) => {
@@ -24,10 +23,7 @@ const ContextMenu = ({ keys }: Menu.ContextMenuMenuProps) => {
   const hasUpdatePermission = Access.useUpdateGranted(ids);
   const hasDeletePermission = Access.useDeleteGranted(ids);
 
-  const confirm = Tree.useConfirmDelete({
-    type: "Status",
-    description: "This action cannot be undone.",
-  });
+  const confirm = Modals.useConfirmDelete({ type: "Status" });
   const { update: del } = Status.useDelete();
   const handleError = Status.useErrorHandler();
   const renameModal = Modals.useRename();

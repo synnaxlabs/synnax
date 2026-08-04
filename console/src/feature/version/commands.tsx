@@ -13,25 +13,12 @@ import { Command } from "@/platform/command";
 import { Version } from "@/platform/version";
 import { Session } from "@/session";
 
-const useVisible = () => Session.Runtime.ENGINE === "tauri";
-
 export const OpenInfoCommand = Command.create({
   key: "open_version_info",
   name: "Show version info",
   icon: <Icon.Info />,
-  useVisible,
+  useVisible: () => Session.Runtime.ENGINE === "tauri",
   useOnSelect: Version.useInfoModal,
 });
 
-export const UpdateCommand = Command.create({
-  key: "update_console",
-  name: "Update & restart the Console",
-  icon: <Icon.Download />,
-  useVisible,
-  useOnSelect: () => {
-    const openInfo = Version.useInfoModal();
-    return () => openInfo({ autoUpdate: true });
-  },
-});
-
-export const COMMANDS = [OpenInfoCommand, UpdateCommand];
+export const COMMANDS = [OpenInfoCommand];

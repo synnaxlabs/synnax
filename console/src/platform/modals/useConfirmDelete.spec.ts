@@ -15,7 +15,7 @@ import {
   type ModalOpenerHandle,
   renderModalOpener,
 } from "@/platform/modals/testutil";
-import { Tree } from "@/platform/tree";
+import { useConfirmDelete } from "@/platform/modals/useConfirmDelete";
 
 interface OpenConfirmParams {
   items: { name: string } | { name: string }[];
@@ -28,7 +28,7 @@ const openConfirm = async ({
   type = "Channel",
   description,
 }: OpenConfirmParams): Promise<ModalOpenerHandle<Promise<boolean>>> =>
-  await renderModalOpener(() => Tree.useConfirmDelete({ type, description }), [items]);
+  await renderModalOpener(() => useConfirmDelete({ type, description }), [items]);
 
 describe("useConfirmDelete", () => {
   it("should prompt with the resource name and resolve true when confirmed", async () => {
