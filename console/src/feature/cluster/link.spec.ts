@@ -15,7 +15,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import { Cluster } from "@/feature/cluster";
 import { Session } from "@/session";
-import { CONNECTION_PARAMS,createCluster } from "@/session/cluster/testutil";
+import { CONNECTION_PARAMS, createCluster } from "@/session/cluster/testutil";
 import { type State } from "@/session/store";
 import { createConnectedConsoleWrapper } from "@/testutil";
 

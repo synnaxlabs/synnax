@@ -2313,6 +2313,7 @@ TEST(SeriesUUID, TestUUIDsEmpty) {
 TEST(SeriesUUID, TestUUIDsThrowsForNonUUIDType) {
     const Series s(std::vector<int64_t>{1, 2, 3});
     ASSERT_THROW((void) s.uuids(), std::runtime_error);
+}
 
 /// @brief copy_from() should copy data and metadata into the receiver.
 TEST(SeriesCopyFrom, CopiesDataAndMetadataIntoTheReceiver) {
