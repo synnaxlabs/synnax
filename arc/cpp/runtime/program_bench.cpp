@@ -10,13 +10,14 @@
 #include <string>
 #include <vector>
 
+#include "benchmark/benchmark.h"
+
 #include "client/cpp/testutil/testutil.h"
 #include "x/cpp/bench/bench.h"
 #include "x/cpp/telem/telem.h"
 
 #include "arc/cpp/runtime/testutil/compile.h"
 #include "arc/cpp/runtime/testutil/harness.h"
-#include "benchmark/benchmark.h"
 
 namespace arc::runtime { namespace {
 

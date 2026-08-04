@@ -33,6 +33,8 @@ cc_library(
         "//x/cpp/telem",
         "//x/cpp/thread",
         "//x/cpp/thread/rt",
+        "@abseil-cpp//absl/log",
+        "@abseil-cpp//absl/log:check",
     ],
 )
 
