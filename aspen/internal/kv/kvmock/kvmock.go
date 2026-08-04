@@ -50,7 +50,11 @@ func NewBuilder(baseKVCfg kv.Config, baseClusterCfg cluster.Config) *Builder {
 	}
 }
 
-func (b *Builder) New(ctx context.Context, kvCfg kv.Config, clusterCfg cluster.Config) (*kv.DB, error) {
+func (b *Builder) New(
+	ctx context.Context,
+	kvCfg kv.Config,
+	clusterCfg cluster.Config,
+) (*kv.DB, error) {
 	c, err := b.Builder.New(ctx, clusterCfg)
 	if err != nil {
 		return nil, err

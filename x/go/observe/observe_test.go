@@ -49,21 +49,24 @@ var _ = Describe("Observer", func() {
 })
 
 var _ = Describe("Translator", func() {
-	It("Should translate and notify when Translate returns true", func(ctx SpecContext) {
-		base := observe.New[int]()
-		translator := observe.Translator[int, string]{
-			Observable: base,
-			Translate: func(ctx context.Context, v int) (string, bool) {
-				return "translated", true
-			},
-		}
-		var result string
-		translator.OnChange(func(ctx context.Context, v string) {
-			result = v
-		})
-		base.Notify(ctx, 42)
-		Expect(result).To(Equal("translated"))
-	})
+	It(
+		"Should translate and notify when Translate returns true",
+		func(ctx SpecContext) {
+			base := observe.New[int]()
+			translator := observe.Translator[int, string]{
+				Observable: base,
+				Translate: func(ctx context.Context, v int) (string, bool) {
+					return "translated", true
+				},
+			}
+			var result string
+			translator.OnChange(func(ctx context.Context, v string) {
+				result = v
+			})
+			base.Notify(ctx, 42)
+			Expect(result).To(Equal("translated"))
+		},
+	)
 
 	It("Should not notify when Translate returns false", func(ctx SpecContext) {
 		base := observe.New[int]()

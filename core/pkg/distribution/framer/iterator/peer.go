@@ -36,7 +36,10 @@ func newPeerSender(generateSeqNums bool) *peerSender {
 	return s
 }
 
-func (s *peerSender) transform(ctx context.Context, in Request) (out Request, ok bool, err error) {
+func (s *peerSender) transform(
+	ctx context.Context,
+	in Request,
+) (out Request, ok bool, err error) {
 	if s.generateSeqNums {
 		in.SeqNum = s.seqNum
 		s.seqNum++
@@ -61,12 +64,19 @@ func (s *Service) openManyPeers(
 		if err != nil {
 			return sender, receivers, s.closePeerClients(sender.Senders, err)
 		}
-		client, err := s.openPeerClient(ctx, target, Config{Keys: keys, Bounds: bounds, ChunkSize: chunkSize})
+		client, err := s.openPeerClient(
+			ctx,
+			target,
+			Config{Keys: keys, Bounds: bounds, ChunkSize: chunkSize},
+		)
 		if err != nil {
 			return sender, receivers, s.closePeerClients(sender.Senders, err)
 		}
 		sender.Senders = append(sender.Senders, client)
-		receivers = append(receivers, &freightfluence.Receiver[Response]{Receiver: client})
+		receivers = append(
+			receivers,
+			&freightfluence.Receiver[Response]{Receiver: client},
+		)
 	}
 	return sender, receivers, nil
 }
@@ -81,10 +91,16 @@ func (s *Service) closePeerClients(
 	return originalErr
 }
 
-func (s *Service) openPeerClient(ctx context.Context, target address.Address, cfg Config) (ClientStream, error) {
+func (s *Service) openPeerClient(
+	ctx context.Context,
+	target address.Address,
+	cfg Config,
+) (ClientStream, error) {
 	client, err := s.cfg.Transport.Client().Stream(ctx, target)
 	if err != nil {
 		return nil, err
 	}
-	return client, client.Send(Request{Keys: cfg.Keys, ChunkSize: cfg.ChunkSize, Bounds: cfg.Bounds})
+	return client, client.Send(
+		Request{Keys: cfg.Keys, ChunkSize: cfg.ChunkSize, Bounds: cfg.Bounds},
+	)
 }

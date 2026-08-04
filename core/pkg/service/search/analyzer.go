@@ -21,9 +21,14 @@ import (
 )
 
 func init() {
-	lo.Must0(registry.RegisterTokenizer(separatorTokenizer, func(map[string]any, *registry.Cache) (analysis.Tokenizer, error) {
-		return &SepTokenizer{}, nil
-	}))
+	lo.Must0(
+		registry.RegisterTokenizer(
+			separatorTokenizer,
+			func(map[string]any, *registry.Cache) (analysis.Tokenizer, error) {
+				return &SepTokenizer{}, nil
+			},
+		),
+	)
 }
 
 const (

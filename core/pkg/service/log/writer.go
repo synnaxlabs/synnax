@@ -76,7 +76,11 @@ func (w Writer) Create(ctx context.Context, projectKey project.Key, l *Log) erro
 
 // CreateMany creates the given logs within the project provided. If logs with the
 // same key already exist, they will be overwritten.
-func (w Writer) CreateMany(ctx context.Context, projectKey project.Key, logs *[]Log) error {
+func (w Writer) CreateMany(
+	ctx context.Context,
+	projectKey project.Key,
+	logs *[]Log,
+) error {
 	for i := range *logs {
 		if err := w.Create(ctx, projectKey, &(*logs)[i]); err != nil {
 			return err

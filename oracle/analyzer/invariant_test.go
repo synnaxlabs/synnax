@@ -24,7 +24,8 @@ var _ = Describe("Default Invariant", func() {
 	// value, or its zero value must be invalid. The analyzer can settle the bool and
 	// integer-enum cases without bounds, and abstains (accepts) everywhere else so it
 	// never raises a false positive.
-	DescribeTable("a required field with a static default",
+	DescribeTable(
+		"a required field with a static default",
 		func(ctx SpecContext, source, wantErr string) {
 			_, diag := analyzer.AnalyzeSource(ctx, source, "x", loader)
 			if wantErr == "" {
@@ -33,13 +34,15 @@ var _ = Describe("Default Invariant", func() {
 				Expect(diag.Error()).To(ContainSubstring(wantErr))
 			}
 		},
-		Entry("rejects a bool defaulting to true (false is a valid non-zero-distinct value)",
+		Entry(
+			"rejects a bool defaulting to true (false is a valid non-zero-distinct value)",
 			`
 				Cfg struct {
 					visible bool = true
 				}
 			`,
-			"bool default"),
+			"bool default",
+		),
 		Entry("accepts a bool defaulting to false (the zero value)",
 			`
 				Cfg struct {
@@ -71,7 +74,8 @@ var _ = Describe("Default Invariant", func() {
 				}
 			`,
 			""),
-		Entry("accepts a string-enum default (a string enum's zero value is the empty string)",
+		Entry(
+			"accepts a string-enum default (a string enum's zero value is the empty string)",
 			`
 				Level enum {
 					h1 = "h1"
@@ -82,7 +86,8 @@ var _ = Describe("Default Invariant", func() {
 					level Level = LevelH2
 				}
 			`,
-			""),
+			"",
+		),
 		Entry("abstains on a non-zero numeric default (numeric bounds are a follow-up)",
 			`
 				Cfg struct {

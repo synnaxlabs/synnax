@@ -34,7 +34,11 @@ type decodeCountingCodec struct {
 	decodeCount int
 }
 
-func (c *decodeCountingCodec) Decode(ctx context.Context, data []byte, value any) error {
+func (c *decodeCountingCodec) Decode(
+	ctx context.Context,
+	data []byte,
+	value any,
+) error {
 	c.decodeCount++
 	return c.Codec.Decode(ctx, data, value)
 }
@@ -103,15 +107,19 @@ var _ = Describe("Filter Combinators", func() {
 		for i := range 10 {
 			entries[i] = entry{ID: int32(i), Data: "data"}
 		}
-		Expect(gorp.NewCreate[int32, entry]().Entries(&entries).Exec(ctx, tx)).To(Succeed())
+		Expect(
+			gorp.NewCreate[int32, entry]().Entries(&entries).Exec(ctx, tx),
+		).To(Succeed())
 	})
 	AfterEach(func() { Expect(tx.Close()).To(Succeed()) })
 
 	Describe("MatchBound", func() {
 		It("Should thread the bind value into the closure", func(ctx SpecContext) {
-			f := gorp.MatchBound(func(_ gorp.Context, b bindCtx, e *entry) (bool, error) {
-				return e.ID == b.threshold, nil
-			})
+			f := gorp.MatchBound(
+				func(_ gorp.Context, b bindCtx, e *entry) (bool, error) {
+					return e.ID == b.threshold, nil
+				},
+			)
 			var res []entry
 			Expect(gorp.NewRetrieve[int32, entry]().
 				Entries(&res).
@@ -120,23 +128,30 @@ var _ = Describe("Filter Combinators", func() {
 			Expect(res).To(Equal([]entry{entries[4]}))
 		})
 
-		It("Should re-evaluate against a different bind on each call", func(ctx SpecContext) {
-			f := gorp.MatchBound(func(_ gorp.Context, b bindCtx, e *entry) (bool, error) {
-				return e.ID < b.threshold, nil
-			})
-			var lo, hi []entry
-			Expect(gorp.NewRetrieve[int32, entry]().Entries(&lo).
-				Where(f(bindCtx{threshold: 3})).Exec(ctx, tx)).To(Succeed())
-			Expect(gorp.NewRetrieve[int32, entry]().Entries(&hi).
-				Where(f(bindCtx{threshold: 8})).Exec(ctx, tx)).To(Succeed())
-			Expect(lo).To(HaveLen(3))
-			Expect(hi).To(HaveLen(8))
-		})
+		It(
+			"Should re-evaluate against a different bind on each call",
+			func(ctx SpecContext) {
+				f := gorp.MatchBound(
+					func(_ gorp.Context, b bindCtx, e *entry) (bool, error) {
+						return e.ID < b.threshold, nil
+					},
+				)
+				var lo, hi []entry
+				Expect(gorp.NewRetrieve[int32, entry]().Entries(&lo).
+					Where(f(bindCtx{threshold: 3})).Exec(ctx, tx)).To(Succeed())
+				Expect(gorp.NewRetrieve[int32, entry]().Entries(&hi).
+					Where(f(bindCtx{threshold: 8})).Exec(ctx, tx)).To(Succeed())
+				Expect(lo).To(HaveLen(3))
+				Expect(hi).To(HaveLen(8))
+			},
+		)
 
 		It("Should propagate errors from the closure", func(ctx SpecContext) {
-			f := gorp.MatchBound(func(_ gorp.Context, _ bindCtx, _ *entry) (bool, error) {
-				return false, errFilter
-			})
+			f := gorp.MatchBound(
+				func(_ gorp.Context, _ bindCtx, _ *entry) (bool, error) {
+					return false, errFilter
+				},
+			)
 			var res []entry
 			Expect(gorp.NewRetrieve[int32, entry]().Entries(&res).
 				Where(f(bindCtx{})).Exec(ctx, tx)).To(MatchError(errFilter))
@@ -153,14 +168,17 @@ var _ = Describe("Filter Combinators", func() {
 			Expect(res).To(Equal([]entry{entries[3], entries[4], entries[5]}))
 		})
 
-		It("Should return no results when filters are mutually exclusive", func(ctx SpecContext) {
-			var res []entry
-			Expect(gorp.NewRetrieve[int32, entry]().
-				Entries(&res).
-				Where(gorp.And(idGT(5), idLT(3))).
-				Exec(ctx, tx)).To(Succeed())
-			Expect(res).To(BeEmpty())
-		})
+		It(
+			"Should return no results when filters are mutually exclusive",
+			func(ctx SpecContext) {
+				var res []entry
+				Expect(gorp.NewRetrieve[int32, entry]().
+					Entries(&res).
+					Where(gorp.And(idGT(5), idLT(3))).
+					Exec(ctx, tx)).To(Succeed())
+				Expect(res).To(BeEmpty())
+			},
+		)
 
 		It("Should pass through with a single filter", func(ctx SpecContext) {
 			var res []entry
@@ -203,31 +221,39 @@ var _ = Describe("Filter Combinators", func() {
 			Expect(res).To(HaveLen(6))
 		})
 
-		It("AndBound should bind every child to the same Retrieve", func(ctx SpecContext) {
-			combined := gorp.AndBound(boundIDGT(0), boundIDLT(5))
-			// threshold=2 → idGT(2) AND idLT(7)
-			var res []entry
-			Expect(gorp.NewRetrieve[int32, entry]().Entries(&res).
-				Where(combined(bindCtx{threshold: 2})).
-				Exec(ctx, tx)).To(Succeed())
-			Expect(res).To(Equal([]entry{entries[3], entries[4], entries[5], entries[6]}))
-		})
+		It(
+			"AndBound should bind every child to the same Retrieve",
+			func(ctx SpecContext) {
+				combined := gorp.AndBound(boundIDGT(0), boundIDLT(5))
+				// threshold=2 → idGT(2) AND idLT(7)
+				var res []entry
+				Expect(gorp.NewRetrieve[int32, entry]().Entries(&res).
+					Where(combined(bindCtx{threshold: 2})).
+					Exec(ctx, tx)).To(Succeed())
+				Expect(
+					res,
+				).To(Equal([]entry{entries[3], entries[4], entries[5], entries[6]}))
+			},
+		)
 
-		It("AndBound should re-thread the bind on each evaluation", func(ctx SpecContext) {
-			combined := gorp.AndBound(boundIDGT(0), boundIDLT(3))
-			// threshold=1 → idGT(1) AND idLT(4)
-			var first []entry
-			Expect(gorp.NewRetrieve[int32, entry]().Entries(&first).
-				Where(combined(bindCtx{threshold: 1})).
-				Exec(ctx, tx)).To(Succeed())
-			Expect(first).To(Equal([]entry{entries[2], entries[3]}))
-			// threshold=5 → idGT(5) AND idLT(8)
-			var second []entry
-			Expect(gorp.NewRetrieve[int32, entry]().Entries(&second).
-				Where(combined(bindCtx{threshold: 5})).
-				Exec(ctx, tx)).To(Succeed())
-			Expect(second).To(Equal([]entry{entries[6], entries[7]}))
-		})
+		It(
+			"AndBound should re-thread the bind on each evaluation",
+			func(ctx SpecContext) {
+				combined := gorp.AndBound(boundIDGT(0), boundIDLT(3))
+				// threshold=1 → idGT(1) AND idLT(4)
+				var first []entry
+				Expect(gorp.NewRetrieve[int32, entry]().Entries(&first).
+					Where(combined(bindCtx{threshold: 1})).
+					Exec(ctx, tx)).To(Succeed())
+				Expect(first).To(Equal([]entry{entries[2], entries[3]}))
+				// threshold=5 → idGT(5) AND idLT(8)
+				var second []entry
+				Expect(gorp.NewRetrieve[int32, entry]().Entries(&second).
+					Where(combined(bindCtx{threshold: 5})).
+					Exec(ctx, tx)).To(Succeed())
+				Expect(second).To(Equal([]entry{entries[6], entries[7]}))
+			},
+		)
 	})
 
 	Describe("Or", func() {
@@ -292,15 +318,18 @@ var _ = Describe("Filter Combinators", func() {
 				Exec(ctx, tx)).To(MatchError(errFilter))
 		})
 
-		It("OrBound should bind every child to the same Retrieve", func(ctx SpecContext) {
-			combined := gorp.OrBound(boundIDEQ(0), boundIDEQ(2), boundIDEQ(4))
-			// threshold=1 → idEQ(1) OR idEQ(3) OR idEQ(5)
-			var res []entry
-			Expect(gorp.NewRetrieve[int32, entry]().Entries(&res).
-				Where(combined(bindCtx{threshold: 1})).
-				Exec(ctx, tx)).To(Succeed())
-			Expect(res).To(Equal([]entry{entries[1], entries[3], entries[5]}))
-		})
+		It(
+			"OrBound should bind every child to the same Retrieve",
+			func(ctx SpecContext) {
+				combined := gorp.OrBound(boundIDEQ(0), boundIDEQ(2), boundIDEQ(4))
+				// threshold=1 → idEQ(1) OR idEQ(3) OR idEQ(5)
+				var res []entry
+				Expect(gorp.NewRetrieve[int32, entry]().Entries(&res).
+					Where(combined(bindCtx{threshold: 1})).
+					Exec(ctx, tx)).To(Succeed())
+				Expect(res).To(Equal([]entry{entries[1], entries[3], entries[5]}))
+			},
+		)
 	})
 
 	Describe("Not", func() {
@@ -340,7 +369,9 @@ var _ = Describe("Filter Combinators", func() {
 			Expect(gorp.NewRetrieve[int32, entry]().Entries(&res).
 				Where(inverted(bindCtx{threshold: 2})).
 				Exec(ctx, tx)).To(Succeed())
-			Expect(res).To(Equal([]entry{entries[5], entries[6], entries[7], entries[8], entries[9]}))
+			Expect(
+				res,
+			).To(Equal([]entry{entries[5], entries[6], entries[7], entries[8], entries[9]}))
 		})
 	})
 
@@ -354,23 +385,29 @@ var _ = Describe("Filter Combinators", func() {
 			return false, nil
 		})
 
-		It("Or(MatchRaw(true), neverMatch) should match every entry", func(ctx SpecContext) {
-			var res []entry
-			Expect(gorp.NewRetrieve[int32, entry]().
-				Entries(&res).
-				Where(gorp.Or(gorp.MatchRaw[int32, entry](alwaysTrueRaw), neverMatch)).
-				Exec(ctx, tx)).To(Succeed())
-			Expect(res).To(HaveLen(10))
-		})
+		It(
+			"Or(MatchRaw(true), neverMatch) should match every entry",
+			func(ctx SpecContext) {
+				var res []entry
+				Expect(gorp.NewRetrieve[int32, entry]().
+					Entries(&res).
+					Where(gorp.Or(gorp.MatchRaw[int32, entry](alwaysTrueRaw), neverMatch)).
+					Exec(ctx, tx)).To(Succeed())
+				Expect(res).To(HaveLen(10))
+			},
+		)
 
-		It("Or(MatchRaw(containsData), neverMatch) should match every entry", func(ctx SpecContext) {
-			var res []entry
-			Expect(gorp.NewRetrieve[int32, entry]().
-				Entries(&res).
-				Where(gorp.Or(gorp.MatchRaw[int32, entry](containsDataRaw), neverMatch)).
-				Exec(ctx, tx)).To(Succeed())
-			Expect(res).To(HaveLen(10))
-		})
+		It(
+			"Or(MatchRaw(containsData), neverMatch) should match every entry",
+			func(ctx SpecContext) {
+				var res []entry
+				Expect(gorp.NewRetrieve[int32, entry]().
+					Entries(&res).
+					Where(gorp.Or(gorp.MatchRaw[int32, entry](containsDataRaw), neverMatch)).
+					Exec(ctx, tx)).To(Succeed())
+				Expect(res).To(HaveLen(10))
+			},
+		)
 
 		It("Not(MatchRaw(false)) should match every entry", func(ctx SpecContext) {
 			var res []entry
@@ -390,15 +427,18 @@ var _ = Describe("Filter Combinators", func() {
 			Expect(res).To(BeEmpty())
 		})
 
-		It("Or(MatchRaw, Match) should compose correctly under WhereKeys", func(ctx SpecContext) {
-			var res []entry
-			Expect(gorp.NewRetrieve[int32, entry]().
-				Entries(&res).
-				Where(gorp.MatchKeys[int32, entry](1, 2, 3)).
-				Where(gorp.Or(gorp.MatchRaw[int32, entry](containsDataRaw), neverMatch)).
-				Exec(ctx, tx)).To(Succeed())
-			Expect(res).To(HaveLen(3))
-		})
+		It(
+			"Or(MatchRaw, Match) should compose correctly under WhereKeys",
+			func(ctx SpecContext) {
+				var res []entry
+				Expect(gorp.NewRetrieve[int32, entry]().
+					Entries(&res).
+					Where(gorp.MatchKeys[int32, entry](1, 2, 3)).
+					Where(gorp.Or(gorp.MatchRaw[int32, entry](containsDataRaw), neverMatch)).
+					Exec(ctx, tx)).To(Succeed())
+				Expect(res).To(HaveLen(3))
+			},
+		)
 
 		Describe("Pre-screening optimization", func() {
 			var (
@@ -423,7 +463,8 @@ var _ = Describe("Filter Combinators", func() {
 				Expect(countingDB.Close()).To(Succeed())
 			})
 
-			DescribeTable("decode count reflects whether the composed filter pre-screens",
+			DescribeTable(
+				"decode count reflects whether the composed filter pre-screens",
 				func(ctx SpecContext, filter gorp.Filter[int32, entry], wantResults, wantDecodes int) {
 					var res []entry
 					Expect(gorp.NewRetrieve[int32, entry]().
@@ -433,27 +474,35 @@ var _ = Describe("Filter Combinators", func() {
 					Expect(res).To(HaveLen(wantResults))
 					Expect(codec.decodeCount).To(Equal(wantDecodes))
 				},
-				Entry("Or of raw-only children pre-screens, so both rejecting yields no decodes",
+				Entry(
+					"Or of raw-only children pre-screens, so both rejecting yields no decodes",
 					gorp.Or(
 						gorp.MatchRaw[int32, entry](alwaysFalseRaw),
 						gorp.MatchRaw[int32, entry](alwaysFalseRaw),
 					),
-					0, 0,
+					0,
+					0,
 				),
-				Entry("Or with a non-raw child cannot pre-screen, so every entry is decoded",
+				Entry(
+					"Or with a non-raw child cannot pre-screen, so every entry is decoded",
 					gorp.Or(
 						gorp.MatchRaw[int32, entry](alwaysFalseRaw),
 						neverMatch,
 					),
-					0, 10,
+					0,
+					10,
 				),
-				Entry("Not of a raw-only child pre-screens, so inverted raw rejection yields no decodes",
+				Entry(
+					"Not of a raw-only child pre-screens, so inverted raw rejection yields no decodes",
 					gorp.Not(gorp.MatchRaw[int32, entry](alwaysTrueRaw)),
-					0, 0,
+					0,
+					0,
 				),
-				Entry("Not of a non-raw child cannot pre-screen, so every entry is decoded",
+				Entry(
+					"Not of a non-raw child cannot pre-screen, so every entry is decoded",
 					gorp.Not(neverMatch),
-					10, 10,
+					10,
+					10,
 				),
 			)
 		})
@@ -469,7 +518,9 @@ var _ = Describe("Filter Combinators", func() {
 					gorp.And(idGT(6), idLT(9)),
 				)).
 				Exec(ctx, tx)).To(Succeed())
-			Expect(res).To(Equal([]entry{entries[1], entries[2], entries[7], entries[8]}))
+			Expect(
+				res,
+			).To(Equal([]entry{entries[1], entries[2], entries[7], entries[8]}))
 		})
 
 		It("Should support And(Or, Not)", func(ctx SpecContext) {
@@ -505,7 +556,9 @@ var _ = Describe("Filter Combinators", func() {
 					gorp.And(idLT(9), gorp.Not(idLT(7))),
 				)).
 				Exec(ctx, tx)).To(Succeed())
-			Expect(res).To(Equal([]entry{entries[1], entries[2], entries[7], entries[8]}))
+			Expect(
+				res,
+			).To(Equal([]entry{entries[1], entries[2], entries[7], entries[8]}))
 		})
 	})
 
@@ -537,7 +590,9 @@ var _ = Describe("Filter Combinators", func() {
 				Where(gorp.MatchKeys[int32, entry](1, 2, 3, 4, 5)).
 				Where(gorp.Not(idEQ(3))).
 				Exec(ctx, tx)).To(Succeed())
-			Expect(res).To(Equal([]entry{entries[1], entries[2], entries[4], entries[5]}))
+			Expect(
+				res,
+			).To(Equal([]entry{entries[1], entries[2], entries[4], entries[5]}))
 		})
 	})
 
@@ -650,14 +705,17 @@ var _ = Describe("Filter Combinators", func() {
 					Exec(ctx, tx)).To(Succeed())
 				Expect(res).To(HaveLen(10))
 			})
-			It("Should reject all entries when the raw predicate returns false", func(ctx SpecContext) {
-				var res []entry
-				Expect(gorp.NewRetrieve[int32, entry]().
-					Entries(&res).
-					Where(matchRawDataContains([]byte("nonexistent"))).
-					Exec(ctx, tx)).To(Succeed())
-				Expect(res).To(BeEmpty())
-			})
+			It(
+				"Should reject all entries when the raw predicate returns false",
+				func(ctx SpecContext) {
+					var res []entry
+					Expect(gorp.NewRetrieve[int32, entry]().
+						Entries(&res).
+						Where(matchRawDataContains([]byte("nonexistent"))).
+						Exec(ctx, tx)).To(Succeed())
+					Expect(res).To(BeEmpty())
+				},
+			)
 			It("Should propagate raw filter errors", func(ctx SpecContext) {
 				var res []entry
 				Expect(gorp.NewRetrieve[int32, entry]().
@@ -668,30 +726,36 @@ var _ = Describe("Filter Combinators", func() {
 		})
 
 		Describe("And with raw filters", func() {
-			It("Should compose raw stages across multiple raw filters", func(ctx SpecContext) {
-				var res []entry
-				Expect(gorp.NewRetrieve[int32, entry]().
-					Entries(&res).
-					Where(gorp.And(
-						matchRawDataContains([]byte("data")),
-						matchRawDataContains([]byte("ata")),
-					)).
-					Exec(ctx, tx)).To(Succeed())
-				Expect(res).To(HaveLen(10))
-			})
-			It("Should short-circuit the raw stage on first false", func(ctx SpecContext) {
-				calls := 0
-				var res []entry
-				Expect(gorp.NewRetrieve[int32, entry]().
-					Entries(&res).
-					Where(gorp.And(
-						matchRawDataContains([]byte("nonexistent")),
-						matchRawAlways(&calls),
-					)).
-					Exec(ctx, tx)).To(Succeed())
-				Expect(res).To(BeEmpty())
-				Expect(calls).To(Equal(0))
-			})
+			It(
+				"Should compose raw stages across multiple raw filters",
+				func(ctx SpecContext) {
+					var res []entry
+					Expect(gorp.NewRetrieve[int32, entry]().
+						Entries(&res).
+						Where(gorp.And(
+							matchRawDataContains([]byte("data")),
+							matchRawDataContains([]byte("ata")),
+						)).
+						Exec(ctx, tx)).To(Succeed())
+					Expect(res).To(HaveLen(10))
+				},
+			)
+			It(
+				"Should short-circuit the raw stage on first false",
+				func(ctx SpecContext) {
+					calls := 0
+					var res []entry
+					Expect(gorp.NewRetrieve[int32, entry]().
+						Entries(&res).
+						Where(gorp.And(
+							matchRawDataContains([]byte("nonexistent")),
+							matchRawAlways(&calls),
+						)).
+						Exec(ctx, tx)).To(Succeed())
+					Expect(res).To(BeEmpty())
+					Expect(calls).To(Equal(0))
+				},
+			)
 			It("Should propagate raw stage errors", func(ctx SpecContext) {
 				var res []entry
 				Expect(gorp.NewRetrieve[int32, entry]().
@@ -702,28 +766,34 @@ var _ = Describe("Filter Combinators", func() {
 					)).
 					Exec(ctx, tx)).To(MatchError(ContainSubstring("raw filter error")))
 			})
-			It("Should compose Eval and Raw stages independently for a filter carrying both", func(ctx SpecContext) {
-				var res []entry
-				Expect(gorp.NewRetrieve[int32, entry]().
-					Entries(&res).
-					Where(gorp.And(
-						matchEvalAndRaw(5, []byte("data")),
-						idGT(1),
-					)).
-					Exec(ctx, tx)).To(Succeed())
-				Expect(res).To(Equal([]entry{entries[2], entries[3], entries[4]}))
-			})
-			It("Should reject every entry when raw stage rejects and eval would pass", func(ctx SpecContext) {
-				var res []entry
-				Expect(gorp.NewRetrieve[int32, entry]().
-					Entries(&res).
-					Where(gorp.And(
-						matchRawDataContains([]byte("nonexistent")),
-						idGT(0),
-					)).
-					Exec(ctx, tx)).To(Succeed())
-				Expect(res).To(BeEmpty())
-			})
+			It(
+				"Should compose Eval and Raw stages independently for a filter carrying both",
+				func(ctx SpecContext) {
+					var res []entry
+					Expect(gorp.NewRetrieve[int32, entry]().
+						Entries(&res).
+						Where(gorp.And(
+							matchEvalAndRaw(5, []byte("data")),
+							idGT(1),
+						)).
+						Exec(ctx, tx)).To(Succeed())
+					Expect(res).To(Equal([]entry{entries[2], entries[3], entries[4]}))
+				},
+			)
+			It(
+				"Should reject every entry when raw stage rejects and eval would pass",
+				func(ctx SpecContext) {
+					var res []entry
+					Expect(gorp.NewRetrieve[int32, entry]().
+						Entries(&res).
+						Where(gorp.And(
+							matchRawDataContains([]byte("nonexistent")),
+							idGT(0),
+						)).
+						Exec(ctx, tx)).To(Succeed())
+					Expect(res).To(BeEmpty())
+				},
+			)
 		})
 
 		Describe("Or with raw filters", func() {
@@ -731,20 +801,23 @@ var _ = Describe("Filter Combinators", func() {
 			// the raw is dispatched against the entry's raw bytes at decode
 			// time; under all-raw composition the raw OR survives as a
 			// pre-decode pre-screen so no decode is needed.
-			It("Should match entries that pass the raw child OR the eval child", func(ctx SpecContext) {
-				var res []entry
-				Expect(gorp.NewRetrieve[int32, entry]().
-					Entries(&res).
-					Where(gorp.Or(
-						matchRawDataContains([]byte("data")),
-						idEQ(3),
-					)).
-					Exec(ctx, tx)).To(Succeed())
-				// Every entry has Data == "data" so the raw branch matches
-				// all 10; the eval branch only adds entry 3, which is already
-				// covered.
-				Expect(res).To(HaveLen(10))
-			})
+			It(
+				"Should match entries that pass the raw child OR the eval child",
+				func(ctx SpecContext) {
+					var res []entry
+					Expect(gorp.NewRetrieve[int32, entry]().
+						Entries(&res).
+						Where(gorp.Or(
+							matchRawDataContains([]byte("data")),
+							idEQ(3),
+						)).
+						Exec(ctx, tx)).To(Succeed())
+					// Every entry has Data == "data" so the raw branch matches
+					// all 10; the eval branch only adds entry 3, which is already
+					// covered.
+					Expect(res).To(HaveLen(10))
+				},
+			)
 		})
 
 		Describe("Not with raw filters", func() {

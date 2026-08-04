@@ -39,7 +39,10 @@ func newOperationClient(cfg Config) segment {
 	return os
 }
 
-func (g *operationClient) send(_ context.Context, sync TxRequest) (TxRequest, bool, error) {
+func (g *operationClient) send(
+	_ context.Context,
+	sync TxRequest,
+) (TxRequest, bool, error) {
 	// If we have no NewStreamer to propagate, it's best to avoid the network chatter.
 	if sync.empty() {
 		return sync, false, nil
@@ -72,7 +75,10 @@ func newOperationServer(cfg Config, s *kvStore) *operationServer {
 	return &operationServer{Config: cfg, store: s}
 }
 
-func (g *operationServer) handle(ctx context.Context, req TxRequest) (TxRequest, error) {
+func (g *operationServer) handle(
+	ctx context.Context,
+	req TxRequest,
+) (TxRequest, error) {
 	// The handler context is cancelled after it returns, so we need to use a separate
 	// context for executing the tx.
 	req.Context = context.TODO()
@@ -130,10 +136,17 @@ func newFeedbackReceiver(cfg Config) *feedbackReceiver {
 	return &feedbackReceiver{Config: cfg}
 }
 
-func (f *feedbackReceiver) handle(ctx context.Context, msg FeedbackMessage) (types.Nil, error) {
+func (f *feedbackReceiver) handle(
+	ctx context.Context,
+	msg FeedbackMessage,
+) (types.Nil, error) {
 	// The handler context is cancelled after it returns, so we need to use a separate
 	// context for passing the feedback to the pipeline.
-	return types.Nil{}, signal.SendUnderContext(ctx, f.Out.Inlet(), msg.Digests.toRequest(context.TODO()))
+	return types.Nil{}, signal.SendUnderContext(
+		ctx,
+		f.Out.Inlet(),
+		msg.Digests.toRequest(context.TODO()),
+	)
 }
 
 type gossipRecoveryTransform struct {

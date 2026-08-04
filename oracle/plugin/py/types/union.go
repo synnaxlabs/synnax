@@ -77,7 +77,10 @@ func processUnion(
 		}
 		for _, ext := range form.Extends {
 			if parent, ok := ext.Resolve(table); ok {
-				vd.Parents = append(vd.Parents, buildExtendsExpr(ext, parent, table, data))
+				vd.Parents = append(
+					vd.Parents,
+					buildExtendsExpr(ext, parent, table, data),
+				)
 			}
 		}
 		if payload, ok := v.Type.Resolve(table); ok {
@@ -94,7 +97,10 @@ func processUnion(
 						processField(f, table, data, keyFields, nil))
 				}
 			} else {
-				vd.Parents = append(vd.Parents, buildExtendsExpr(v.Type, payload, table, data))
+				vd.Parents = append(
+					vd.Parents,
+					buildExtendsExpr(v.Type, payload, table, data),
+				)
 			}
 		}
 		if len(vd.Parents) == 0 {

@@ -218,7 +218,11 @@ func (t *tapper) startTap(
 	seg.InFrom(requests)
 	seg.OutTo(t.Out)
 	sCtx, cancel := signal.Isolated(signal.WithInstrumentation(t.Child(tapKey)))
-	seg.Flow(sCtx, confluence.RecoverWithErrOnPanic(), confluence.WithAddress(address.Address(tapKey)))
+	seg.Flow(
+		sCtx,
+		confluence.RecoverWithErrOnPanic(),
+		confluence.WithAddress(address.Address(tapKey)),
+	)
 	return requests, signal.NewHardShutdown(sCtx, cancel)
 }
 

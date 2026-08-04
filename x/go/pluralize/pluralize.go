@@ -189,7 +189,8 @@ func isAlreadyPlural(lower string) bool {
 			// common singular ending, it's likely singular. For our use case,
 			// we check if removing the 's' leaves a word ending in a common
 			// singular suffix like "us", "is", "as".
-			if strings.HasSuffix(stem, "u") || strings.HasSuffix(stem, "i") || strings.HasSuffix(stem, "a") {
+			if strings.HasSuffix(stem, "u") || strings.HasSuffix(stem, "i") ||
+				strings.HasSuffix(stem, "a") {
 				// e.g. "status" ends in "us", "alias" ends in "as" - these are singular
 				return false
 			}

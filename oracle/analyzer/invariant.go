@@ -17,8 +17,8 @@ import (
 
 // checkOptionalDefaultInvariant enforces that a field is never both nullable (`?`) and
 // carrying a static default. The two are mutually exclusive models for an absent value:
-// a nullable field derives its default from absence (null/None), while a defaulted field
-// is required and value-filled. Declaring both is contradictory, so the schema is
+// a nullable field derives its default from absence (null/None), while a defaulted
+// field is required and value-filled. Declaring both is contradictory, so the schema is
 // rejected at analysis time. The check is structural and applies to every field type,
 // not just the cases checkDefaultInvariant can settle.
 func checkOptionalDefaultInvariant(c *analysisCtx) {
@@ -108,7 +108,8 @@ func defaultInvariantViolation(
 		}
 		form, ok := ev.Type.Form.(resolution.EnumForm)
 		if !ok || !form.IsIntEnum {
-			// A string enum has no zero member (its zero is ""), so any default is safe.
+			// A string enum has no zero member (its zero is ""), so any default is
+			// safe.
 			return "", false
 		}
 		if len(form.Values) > 0 && form.Values[0].Name != ev.Variant.Name {

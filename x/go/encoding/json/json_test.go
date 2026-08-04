@@ -77,52 +77,68 @@ var _ = Describe("Codec", func() {
 		Expect(json.Codec.ContentType()).To(Equal("application/json"))
 	})
 	Describe("String Number Unmarshaling", func() {
-		DescribeTable("UnmarshalStringInt64", func(input string, expected int64, shouldError bool) {
-			b := []byte(input)
-			val, err := json.UnmarshalStringInt64(b)
-			if shouldError {
-				Expect(err).To(MatchError(ContainSubstring("invalid")))
-			} else {
-				Expect(err).ToNot(HaveOccurred())
-				Expect(val).To(Equal(expected))
-			}
-		},
+		DescribeTable(
+			"UnmarshalStringInt64",
+			func(input string, expected int64, shouldError bool) {
+				b := []byte(input)
+				val, err := json.UnmarshalStringInt64(b)
+				if shouldError {
+					Expect(err).To(MatchError(ContainSubstring("invalid")))
+				} else {
+					Expect(err).ToNot(HaveOccurred())
+					Expect(val).To(Equal(expected))
+				}
+			},
 			Entry("direct number", `123`, int64(123), false),
 			Entry("string number", `"123"`, int64(123), false),
 			Entry("negative number", `-123`, int64(-123), false),
 			Entry("negative string", `"-123"`, int64(-123), false),
-			Entry("max int64", `9223372036854775807`, int64(9223372036854775807), false),
+			Entry(
+				"max int64",
+				`9223372036854775807`,
+				int64(9223372036854775807),
+				false,
+			),
 			Entry("invalid string", `"abc"`, int64(0), true),
 			Entry("invalid json", `{invalid}`, int64(0), true),
 		)
-		DescribeTable("UnmarshalStringUint64", func(input string, expected uint64, shouldError bool) {
-			b := []byte(input)
-			val, err := json.UnmarshalStringUint64(b)
-			if shouldError {
-				Expect(err).To(HaveOccurred())
-			} else {
-				Expect(err).ToNot(HaveOccurred())
-				Expect(val).To(Equal(expected))
-			}
-		},
+		DescribeTable(
+			"UnmarshalStringUint64",
+			func(input string, expected uint64, shouldError bool) {
+				b := []byte(input)
+				val, err := json.UnmarshalStringUint64(b)
+				if shouldError {
+					Expect(err).To(HaveOccurred())
+				} else {
+					Expect(err).ToNot(HaveOccurred())
+					Expect(val).To(Equal(expected))
+				}
+			},
 			Entry("direct number", `123`, uint64(123), false),
 			Entry("string number", `"123"`, uint64(123), false),
-			Entry("max uint64", `18446744073709551615`, uint64(18446744073709551615), false),
+			Entry(
+				"max uint64",
+				`18446744073709551615`,
+				uint64(18446744073709551615),
+				false,
+			),
 			Entry("negative number", `-123`, uint64(0), true),
 			Entry("negative string", `"-123"`, uint64(0), true),
 			Entry("invalid string", `"abc"`, uint64(0), true),
 			Entry("invalid json", `{invalid}`, uint64(0), true),
 		)
-		DescribeTable("UnmarshalStringUint32", func(input string, expected uint32, shouldError bool) {
-			b := []byte(input)
-			val, err := json.UnmarshalStringUint32(b)
-			if shouldError {
-				Expect(err).To(HaveOccurred())
-			} else {
-				Expect(err).ToNot(HaveOccurred())
-				Expect(val).To(Equal(expected))
-			}
-		},
+		DescribeTable(
+			"UnmarshalStringUint32",
+			func(input string, expected uint32, shouldError bool) {
+				b := []byte(input)
+				val, err := json.UnmarshalStringUint32(b)
+				if shouldError {
+					Expect(err).To(HaveOccurred())
+				} else {
+					Expect(err).ToNot(HaveOccurred())
+					Expect(val).To(Equal(expected))
+				}
+			},
 			Entry("direct number", `123`, uint32(123), false),
 			Entry("string number", `"123"`, uint32(123), false),
 			Entry("max uint32", `4294967295`, uint32(4294967295), false),

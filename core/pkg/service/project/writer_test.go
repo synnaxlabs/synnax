@@ -26,11 +26,14 @@ var _ = Describe("Writer", func() {
 			Expect(svc.NewWriter(tx).Create(ctx, &proj)).To(Succeed())
 			Expect(proj.Key).ToNot(Equal(uuid.Nil))
 		})
-		It("Should return a validation error when the name is empty", func(ctx SpecContext) {
-			proj := project.Project{}
-			Expect(svc.NewWriter(tx).Create(ctx, &proj)).
-				To(MatchError(ContainSubstring("name: required")))
-		})
+		It(
+			"Should return a validation error when the name is empty",
+			func(ctx SpecContext) {
+				proj := project.Project{}
+				Expect(svc.NewWriter(tx).Create(ctx, &proj)).
+					To(MatchError(ContainSubstring("name: required")))
+			},
+		)
 	})
 	Describe("CreateMany", func() {
 		It("Should create multiple projects", func(ctx SpecContext) {
@@ -54,7 +57,12 @@ var _ = Describe("Writer", func() {
 			Expect(svc.NewWriter(tx).Create(ctx, &proj)).To(Succeed())
 			Expect(svc.NewWriter(tx).Rename(ctx, proj.Key, "test2")).To(Succeed())
 			var res project.Project
-			Expect(svc.NewRetrieve().Where(project.MatchKeys(proj.Key)).Entry(&res).Exec(ctx, tx)).To(Succeed())
+			Expect(
+				svc.NewRetrieve().
+					Where(project.MatchKeys(proj.Key)).
+					Entry(&res).
+					Exec(ctx, tx),
+			).To(Succeed())
 			Expect(res.Name).To(Equal("test2"))
 		})
 	})
@@ -62,9 +70,17 @@ var _ = Describe("Writer", func() {
 		It("Should set the layout of a project", func(ctx SpecContext) {
 			proj := project.Project{Name: "test"}
 			Expect(svc.NewWriter(tx).Create(ctx, &proj)).To(Succeed())
-			Expect(svc.NewWriter(tx).SetLayout(ctx, proj.Key, map[string]any{"key": "data"})).To(Succeed())
+			Expect(
+				svc.NewWriter(tx).
+					SetLayout(ctx, proj.Key, map[string]any{"key": "data"}),
+			).To(Succeed())
 			var res project.Project
-			Expect(svc.NewRetrieve().Where(project.MatchKeys(proj.Key)).Entry(&res).Exec(ctx, tx)).To(Succeed())
+			Expect(
+				svc.NewRetrieve().
+					Where(project.MatchKeys(proj.Key)).
+					Entry(&res).
+					Exec(ctx, tx),
+			).To(Succeed())
 			Expect(res.Layout["key"]).To(Equal("data"))
 		})
 	})
@@ -74,7 +90,12 @@ var _ = Describe("Writer", func() {
 			Expect(svc.NewWriter(tx).Create(ctx, &proj)).To(Succeed())
 			Expect(svc.NewWriter(tx).Delete(ctx, proj.Key)).To(Succeed())
 			var res project.Project
-			Expect(svc.NewRetrieve().Where(project.MatchKeys(proj.Key)).Entry(&res).Exec(ctx, tx)).ToNot(Succeed())
+			Expect(
+				svc.NewRetrieve().
+					Where(project.MatchKeys(proj.Key)).
+					Entry(&res).
+					Exec(ctx, tx),
+			).ToNot(Succeed())
 		})
 	})
 })

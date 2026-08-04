@@ -34,10 +34,12 @@ var _ = Describe("Formatting", func() {
 			content := "func add(x i32,y i32)i32{return x+y}"
 			OpenArcDocument(server, ctx, uri, content)
 
-			edits := MustSucceed(server.Formatting(ctx, &protocol.DocumentFormattingParams{
-				TextDocument: protocol.TextDocumentIdentifier{URI: uri},
-				Options:      protocol.FormattingOptions{},
-			}))
+			edits := MustSucceed(
+				server.Formatting(ctx, &protocol.DocumentFormattingParams{
+					TextDocument: protocol.TextDocumentIdentifier{URI: uri},
+					Options:      protocol.FormattingOptions{},
+				}),
+			)
 
 			Expect(edits).ToNot(BeNil())
 			Expect(edits).To(HaveLen(1))
@@ -57,8 +59,10 @@ var _ = Describe("Formatting", func() {
 
 		It("should return nil for closed document", func(ctx SpecContext) {
 			Expect(server.Formatting(ctx, &protocol.DocumentFormattingParams{
-				TextDocument: protocol.TextDocumentIdentifier{URI: "file:///nonexistent.arc"},
-				Options:      protocol.FormattingOptions{},
+				TextDocument: protocol.TextDocumentIdentifier{
+					URI: "file:///nonexistent.arc",
+				},
+				Options: protocol.FormattingOptions{},
 			})).To(BeNil())
 		})
 
@@ -66,10 +70,12 @@ var _ = Describe("Formatting", func() {
 			content := "x:=a+b*c"
 			OpenArcDocument(server, ctx, uri, content)
 
-			edits := MustSucceed(server.Formatting(ctx, &protocol.DocumentFormattingParams{
-				TextDocument: protocol.TextDocumentIdentifier{URI: uri},
-				Options:      protocol.FormattingOptions{},
-			}))
+			edits := MustSucceed(
+				server.Formatting(ctx, &protocol.DocumentFormattingParams{
+					TextDocument: protocol.TextDocumentIdentifier{URI: uri},
+					Options:      protocol.FormattingOptions{},
+				}),
+			)
 
 			Expect(edits).ToNot(BeNil())
 			Expect(edits[0].NewText).To(ContainSubstring("x := a + b * c"))
@@ -79,12 +85,14 @@ var _ = Describe("Formatting", func() {
 			content := "func test(){x:=1}"
 			OpenArcDocument(server, ctx, uri, content)
 
-			edits := MustSucceed(server.Formatting(ctx, &protocol.DocumentFormattingParams{
-				TextDocument: protocol.TextDocumentIdentifier{URI: uri},
-				Options: protocol.FormattingOptions{
-					TabSize: 2,
-				},
-			}))
+			edits := MustSucceed(
+				server.Formatting(ctx, &protocol.DocumentFormattingParams{
+					TextDocument: protocol.TextDocumentIdentifier{URI: uri},
+					Options: protocol.FormattingOptions{
+						TabSize: 2,
+					},
+				}),
+			)
 
 			Expect(edits).ToNot(BeNil())
 			Expect(edits[0].NewText).To(ContainSubstring("  x := 1"))
@@ -94,10 +102,12 @@ var _ = Describe("Formatting", func() {
 			content := "delay:=100ms"
 			OpenArcDocument(server, ctx, uri, content)
 
-			edits := MustSucceed(server.Formatting(ctx, &protocol.DocumentFormattingParams{
-				TextDocument: protocol.TextDocumentIdentifier{URI: uri},
-				Options:      protocol.FormattingOptions{},
-			}))
+			edits := MustSucceed(
+				server.Formatting(ctx, &protocol.DocumentFormattingParams{
+					TextDocument: protocol.TextDocumentIdentifier{URI: uri},
+					Options:      protocol.FormattingOptions{},
+				}),
+			)
 
 			Expect(edits).ToNot(BeNil())
 			Expect(edits[0].NewText).To(ContainSubstring("100ms"))
@@ -110,14 +120,16 @@ var _ = Describe("Formatting", func() {
 			content := "x:=1\ny:=2\nz:=3"
 			OpenArcDocument(server, ctx, uri, content)
 
-			edits := MustSucceed(server.RangeFormatting(ctx, &protocol.DocumentRangeFormattingParams{
-				TextDocument: protocol.TextDocumentIdentifier{URI: uri},
-				Range: protocol.Range{
-					Start: protocol.Position{Line: 0, Character: 0},
-					End:   protocol.Position{Line: 0, Character: 4},
-				},
-				Options: protocol.FormattingOptions{},
-			}))
+			edits := MustSucceed(
+				server.RangeFormatting(ctx, &protocol.DocumentRangeFormattingParams{
+					TextDocument: protocol.TextDocumentIdentifier{URI: uri},
+					Range: protocol.Range{
+						Start: protocol.Position{Line: 0, Character: 0},
+						End:   protocol.Position{Line: 0, Character: 4},
+					},
+					Options: protocol.FormattingOptions{},
+				}),
+			)
 
 			Expect(edits).ToNot(BeNil())
 			Expect(edits[0].NewText).To(ContainSubstring("x := 1"))
@@ -125,7 +137,9 @@ var _ = Describe("Formatting", func() {
 
 		It("should return nil for closed document", func(ctx SpecContext) {
 			Expect(server.RangeFormatting(ctx, &protocol.DocumentRangeFormattingParams{
-				TextDocument: protocol.TextDocumentIdentifier{URI: "file:///nonexistent.arc"},
+				TextDocument: protocol.TextDocumentIdentifier{
+					URI: "file:///nonexistent.arc",
+				},
 				Range: protocol.Range{
 					Start: protocol.Position{Line: 0, Character: 0},
 					End:   protocol.Position{Line: 0, Character: 10},

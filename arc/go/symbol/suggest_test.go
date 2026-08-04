@@ -27,11 +27,17 @@ type searchTracker struct {
 	searchCalled bool
 }
 
-func (s *searchTracker) Resolve(ctx context.Context, name string) (*symbol.Symbol, error) {
+func (s *searchTracker) Resolve(
+	ctx context.Context,
+	name string,
+) (*symbol.Symbol, error) {
 	return s.inner.Resolve(ctx, name)
 }
 
-func (s *searchTracker) Search(ctx context.Context, term string) ([]*symbol.Symbol, error) {
+func (s *searchTracker) Search(
+	ctx context.Context,
+	term string,
+) ([]*symbol.Symbol, error) {
 	s.searchCalled = true
 	return s.inner.Search(ctx, term)
 }
@@ -66,28 +72,56 @@ var _ = Describe("Symbol Suggestions", func() {
 	Describe("SuggestSimilar", func() {
 		It("should suggest similar symbol names", func(bCtx SpecContext) {
 			root := symbol.NewRoot(nil, nil)
-			MustSucceed(root.Add(bCtx, symbol.Symbol{Name: "temperature", Kind: symbol.KindVariable}))
-			MustSucceed(root.Add(bCtx, symbol.Symbol{Name: "pressure", Kind: symbol.KindVariable}))
-			MustSucceed(root.Add(bCtx, symbol.Symbol{Name: "humidity", Kind: symbol.KindVariable}))
+			MustSucceed(
+				root.Add(
+					bCtx,
+					symbol.Symbol{Name: "temperature", Kind: symbol.KindVariable},
+				),
+			)
+			MustSucceed(
+				root.Add(
+					bCtx,
+					symbol.Symbol{Name: "pressure", Kind: symbol.KindVariable},
+				),
+			)
+			MustSucceed(
+				root.Add(
+					bCtx,
+					symbol.Symbol{Name: "humidity", Kind: symbol.KindVariable},
+				),
+			)
 
 			suggestions := root.SuggestSimilar(bCtx, "temperatur", 2)
 			Expect(suggestions).To(ContainElement("temperature"))
 		})
 
-		It("should return empty slice when no similar symbols exist", func(bCtx SpecContext) {
-			root := symbol.NewRoot(nil, nil)
-			MustSucceed(root.Add(bCtx, symbol.Symbol{Name: "x", Kind: symbol.KindVariable}))
+		It(
+			"should return empty slice when no similar symbols exist",
+			func(bCtx SpecContext) {
+				root := symbol.NewRoot(nil, nil)
+				MustSucceed(
+					root.Add(bCtx, symbol.Symbol{Name: "x", Kind: symbol.KindVariable}),
+				)
 
-			suggestions := root.SuggestSimilar(bCtx, "temperature", 2)
-			Expect(suggestions).To(BeEmpty())
-		})
+				suggestions := root.SuggestSimilar(bCtx, "temperature", 2)
+				Expect(suggestions).To(BeEmpty())
+			},
+		)
 
 		It("should respect maxSuggestions limit", func(bCtx SpecContext) {
 			root := symbol.NewRoot(nil, nil)
-			MustSucceed(root.Add(bCtx, symbol.Symbol{Name: "cat", Kind: symbol.KindVariable}))
-			MustSucceed(root.Add(bCtx, symbol.Symbol{Name: "bat", Kind: symbol.KindVariable}))
-			MustSucceed(root.Add(bCtx, symbol.Symbol{Name: "rat", Kind: symbol.KindVariable}))
-			MustSucceed(root.Add(bCtx, symbol.Symbol{Name: "hat", Kind: symbol.KindVariable}))
+			MustSucceed(
+				root.Add(bCtx, symbol.Symbol{Name: "cat", Kind: symbol.KindVariable}),
+			)
+			MustSucceed(
+				root.Add(bCtx, symbol.Symbol{Name: "bat", Kind: symbol.KindVariable}),
+			)
+			MustSucceed(
+				root.Add(bCtx, symbol.Symbol{Name: "rat", Kind: symbol.KindVariable}),
+			)
+			MustSucceed(
+				root.Add(bCtx, symbol.Symbol{Name: "hat", Kind: symbol.KindVariable}),
+			)
 
 			suggestions := root.SuggestSimilar(bCtx, "mat", 2)
 			Expect(suggestions).To(HaveLen(2))
@@ -95,9 +129,16 @@ var _ = Describe("Symbol Suggestions", func() {
 
 		It("should search parent scopes", func(bCtx SpecContext) {
 			root := symbol.NewRoot(nil, nil)
-			MustSucceed(root.Add(bCtx, symbol.Symbol{Name: "globalVar", Kind: symbol.KindVariable}))
+			MustSucceed(
+				root.Add(
+					bCtx,
+					symbol.Symbol{Name: "globalVar", Kind: symbol.KindVariable},
+				),
+			)
 
-			child := MustSucceed(root.Add(bCtx, symbol.Symbol{Name: "block", Kind: symbol.KindBlock}))
+			child := MustSucceed(
+				root.Add(bCtx, symbol.Symbol{Name: "block", Kind: symbol.KindBlock}),
+			)
 
 			suggestions := child.SuggestSimilar(bCtx, "globalVa", 2)
 			Expect(suggestions).To(ContainElement("globalVar"))
@@ -105,9 +146,18 @@ var _ = Describe("Symbol Suggestions", func() {
 
 		It("should sort suggestions by distance", func(bCtx SpecContext) {
 			root := symbol.NewRoot(nil, nil)
-			MustSucceed(root.Add(bCtx, symbol.Symbol{Name: "test", Kind: symbol.KindVariable}))
-			MustSucceed(root.Add(bCtx, symbol.Symbol{Name: "tests", Kind: symbol.KindVariable}))
-			MustSucceed(root.Add(bCtx, symbol.Symbol{Name: "testing", Kind: symbol.KindVariable}))
+			MustSucceed(
+				root.Add(bCtx, symbol.Symbol{Name: "test", Kind: symbol.KindVariable}),
+			)
+			MustSucceed(
+				root.Add(bCtx, symbol.Symbol{Name: "tests", Kind: symbol.KindVariable}),
+			)
+			MustSucceed(
+				root.Add(
+					bCtx,
+					symbol.Symbol{Name: "testing", Kind: symbol.KindVariable},
+				),
+			)
 
 			suggestions := root.SuggestSimilar(bCtx, "tset", 3)
 			Expect(suggestions).ToNot(BeEmpty())
@@ -116,7 +166,12 @@ var _ = Describe("Symbol Suggestions", func() {
 
 		It("should not include exact matches", func(bCtx SpecContext) {
 			root := symbol.NewRoot(nil, nil)
-			MustSucceed(root.Add(bCtx, symbol.Symbol{Name: "temperature", Kind: symbol.KindVariable}))
+			MustSucceed(
+				root.Add(
+					bCtx,
+					symbol.Symbol{Name: "temperature", Kind: symbol.KindVariable},
+				),
+			)
 
 			suggestions := root.SuggestSimilar(bCtx, "temperature", 2)
 			Expect(suggestions).NotTo(ContainElement("temperature"))
@@ -126,60 +181,109 @@ var _ = Describe("Symbol Suggestions", func() {
 	Describe("Resolve with suggestions", func() {
 		It("should return UndefinedSymbolError with lazy hint", func(bCtx SpecContext) {
 			root := symbol.NewRoot(nil, nil)
-			MustSucceed(root.Add(bCtx, symbol.Symbol{Name: "temperature", Kind: symbol.KindVariable}))
+			MustSucceed(
+				root.Add(
+					bCtx,
+					symbol.Symbol{Name: "temperature", Kind: symbol.KindVariable},
+				),
+			)
 
 			Expect(root.Resolve(bCtx, "temperatur")).Error().
 				To(MatchError(ContainSubstring("undefined symbol: temperatur")))
 
 			var undefinedErr *symbol.UndefinedSymbolError
-			Expect(errors.As(resolveErr(bCtx, root, "temperatur"), &undefinedErr)).To(BeTrue())
-			Expect(undefinedErr.GetHint()).To(ContainSubstring("did you mean: temperature?"))
+			Expect(
+				errors.As(resolveErr(bCtx, root, "temperatur"), &undefinedErr),
+			).To(BeTrue())
+			Expect(
+				undefinedErr.GetHint(),
+			).To(ContainSubstring("did you mean: temperature?"))
 		})
 
-		It("should not include suggestions when none are close enough", func(bCtx SpecContext) {
-			root := symbol.NewRoot(nil, nil)
-			MustSucceed(root.Add(bCtx, symbol.Symbol{Name: "x", Kind: symbol.KindVariable}))
+		It(
+			"should not include suggestions when none are close enough",
+			func(bCtx SpecContext) {
+				root := symbol.NewRoot(nil, nil)
+				MustSucceed(
+					root.Add(bCtx, symbol.Symbol{Name: "x", Kind: symbol.KindVariable}),
+				)
 
-			Expect(root.Resolve(bCtx, "unknownSymbol")).Error().
-				To(MatchError("undefined symbol: unknownSymbol"))
+				Expect(root.Resolve(bCtx, "unknownSymbol")).Error().
+					To(MatchError("undefined symbol: unknownSymbol"))
 
-			var undefinedErr *symbol.UndefinedSymbolError
-			Expect(errors.As(resolveErr(bCtx, root, "unknownSymbol"), &undefinedErr)).To(BeTrue())
-			Expect(undefinedErr.GetHint()).To(BeEmpty())
-		})
+				var undefinedErr *symbol.UndefinedSymbolError
+				Expect(
+					errors.As(resolveErr(bCtx, root, "unknownSymbol"), &undefinedErr),
+				).To(BeTrue())
+				Expect(undefinedErr.GetHint()).To(BeEmpty())
+			},
+		)
 	})
 
 	Describe("Lazy suggestion performance", func() {
-		It("should not trigger Search on global resolver during Add", func(bCtx SpecContext) {
-			tracker := &searchTracker{
-				inner: StaticResolver{
-					{Name: "builtin_fn", Kind: symbol.KindFunction},
-				},
-			}
-			root := symbol.NewRoot(tracker, nil)
-			MustSucceed(root.Add(bCtx, symbol.Symbol{Name: "alpha", Kind: symbol.KindVariable}))
-			MustSucceed(root.Add(bCtx, symbol.Symbol{Name: "beta", Kind: symbol.KindVariable}))
-			MustSucceed(root.Add(bCtx, symbol.Symbol{Name: "gamma", Kind: symbol.KindVariable}))
-			Expect(tracker.searchCalled).To(BeFalse())
-		})
+		It(
+			"should not trigger Search on global resolver during Add",
+			func(bCtx SpecContext) {
+				tracker := &searchTracker{
+					inner: StaticResolver{
+						{Name: "builtin_fn", Kind: symbol.KindFunction},
+					},
+				}
+				root := symbol.NewRoot(tracker, nil)
+				MustSucceed(
+					root.Add(
+						bCtx,
+						symbol.Symbol{Name: "alpha", Kind: symbol.KindVariable},
+					),
+				)
+				MustSucceed(
+					root.Add(
+						bCtx,
+						symbol.Symbol{Name: "beta", Kind: symbol.KindVariable},
+					),
+				)
+				MustSucceed(
+					root.Add(
+						bCtx,
+						symbol.Symbol{Name: "gamma", Kind: symbol.KindVariable},
+					),
+				)
+				Expect(tracker.searchCalled).To(BeFalse())
+			},
+		)
 
-		It("should provide suggestions via diagnostics.Error with HintProvider", func(bCtx SpecContext) {
-			root := symbol.NewRoot(nil, nil)
-			MustSucceed(root.Add(bCtx, symbol.Symbol{Name: "temperature", Kind: symbol.KindVariable}))
+		It(
+			"should provide suggestions via diagnostics.Error with HintProvider",
+			func(bCtx SpecContext) {
+				root := symbol.NewRoot(nil, nil)
+				MustSucceed(
+					root.Add(
+						bCtx,
+						symbol.Symbol{Name: "temperature", Kind: symbol.KindVariable},
+					),
+				)
 
-			d := diagnostics.Error(resolveErr(bCtx, root, "temperatur"), nil)
-			Expect(d.Message).To(Equal("undefined symbol: temperatur"))
-			Expect(d.Notes).To(HaveLen(1))
-			Expect(d.Notes[0].Message).To(ContainSubstring("did you mean: temperature?"))
-		})
+				d := diagnostics.Error(resolveErr(bCtx, root, "temperatur"), nil)
+				Expect(d.Message).To(Equal("undefined symbol: temperatur"))
+				Expect(d.Notes).To(HaveLen(1))
+				Expect(
+					d.Notes[0].Message,
+				).To(ContainSubstring("did you mean: temperature?"))
+			},
+		)
 
-		It("should not add notes via diagnostics.Error when no suggestions exist", func(bCtx SpecContext) {
-			root := symbol.NewRoot(nil, nil)
-			MustSucceed(root.Add(bCtx, symbol.Symbol{Name: "x", Kind: symbol.KindVariable}))
+		It(
+			"should not add notes via diagnostics.Error when no suggestions exist",
+			func(bCtx SpecContext) {
+				root := symbol.NewRoot(nil, nil)
+				MustSucceed(
+					root.Add(bCtx, symbol.Symbol{Name: "x", Kind: symbol.KindVariable}),
+				)
 
-			d := diagnostics.Error(resolveErr(bCtx, root, "unknownSymbol"), nil)
-			Expect(d.Message).To(Equal("undefined symbol: unknownSymbol"))
-			Expect(d.Notes).To(BeEmpty())
-		})
+				d := diagnostics.Error(resolveErr(bCtx, root, "unknownSymbol"), nil)
+				Expect(d.Message).To(Equal("undefined symbol: unknownSymbol"))
+				Expect(d.Notes).To(BeEmpty())
+			},
+		)
 	})
 })

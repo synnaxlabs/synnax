@@ -107,7 +107,10 @@ func processUnion(entry resolution.Type, data *templateData) unionData {
 		if !ok {
 			continue
 		}
-		baseEmbeds = append(baseEmbeds, variantEmbed{ref: ext, rendered: resolveExtendsType(ext, parent, data)})
+		baseEmbeds = append(
+			baseEmbeds,
+			variantEmbed{ref: ext, rendered: resolveExtendsType(ext, parent, data)},
+		)
 	}
 
 	for _, v := range form.Variants {
@@ -125,7 +128,13 @@ func processUnion(entry resolution.Type, data *templateData) unionData {
 				pform := payload.Form.(resolution.StructForm)
 				for _, ext := range pform.Extends {
 					if parent, ok := ext.Resolve(data.table); ok {
-						embeds = append(embeds, variantEmbed{ref: ext, rendered: resolveExtendsType(ext, parent, data)})
+						embeds = append(
+							embeds,
+							variantEmbed{
+								ref:      ext,
+								rendered: resolveExtendsType(ext, parent, data),
+							},
+						)
 					}
 				}
 				inlineFields = pform.Fields
@@ -134,13 +143,31 @@ func processUnion(entry resolution.Type, data *templateData) unionData {
 				}
 			}
 		} else {
-			embeds = append(embeds, variantEmbed{ref: v.Type, rendered: data.resolver.ResolveTypeRef(v.Type, data.ctx)})
+			embeds = append(
+				embeds,
+				variantEmbed{
+					ref:      v.Type,
+					rendered: data.resolver.ResolveTypeRef(v.Type, data.ctx),
+				},
+			)
 		}
 		for _, e := range embeds {
 			vd.Embeds = append(vd.Embeds, e.rendered)
 		}
-		vd.DefaultRecurse = variantRecurseSteps(embeds, inlineFields, data, defaultsHasOwn, neverSkip)
-		vd.ValidateRecurse = variantRecurseSteps(embeds, inlineFields, data, validateHasOwn, validateSkip)
+		vd.DefaultRecurse = variantRecurseSteps(
+			embeds,
+			inlineFields,
+			data,
+			defaultsHasOwn,
+			neverSkip,
+		)
+		vd.ValidateRecurse = variantRecurseSteps(
+			embeds,
+			inlineFields,
+			data,
+			validateHasOwn,
+			validateSkip,
+		)
 		vd.NeedsApplyDefaults = len(vd.DefaultRecurse) > 0
 		vd.NeedsValidate = len(vd.ValidateRecurse) > 0
 		if vd.NeedsApplyDefaults {
@@ -183,7 +210,10 @@ func variantRecurseSteps(
 	for _, e := range embeds {
 		if resolvesToMethodType(e.ref, data) &&
 			typeNeedsMethod(e.ref, data, set.New[string](), hasOwn, skip) {
-			steps = append(steps, recurseStepData{GoName: embedFieldName(e.rendered), Kind: recurseValue})
+			steps = append(
+				steps,
+				recurseStepData{GoName: embedFieldName(e.rendered), Kind: recurseValue},
+			)
 		}
 	}
 	for _, f := range inlineFields {

@@ -29,25 +29,32 @@ var _ = Describe("GroupByConfigDir", func() {
 		})
 	})
 
-	It("should group files by the nearest directory containing the config file", func() {
-		projA := filepath.Join(tmpDir, "projA")
-		projB := filepath.Join(tmpDir, "projB")
-		Expect(os.MkdirAll(filepath.Join(projA, "src"), 0o755)).To(Succeed())
-		Expect(os.MkdirAll(filepath.Join(projB, "src"), 0o755)).To(Succeed())
-		Expect(os.WriteFile(filepath.Join(projA, "package.json"), []byte("{}"), 0o644)).To(Succeed())
-		Expect(os.WriteFile(filepath.Join(projB, "package.json"), []byte("{}"), 0o644)).To(Succeed())
+	It(
+		"should group files by the nearest directory containing the config file",
+		func() {
+			projA := filepath.Join(tmpDir, "projA")
+			projB := filepath.Join(tmpDir, "projB")
+			Expect(os.MkdirAll(filepath.Join(projA, "src"), 0o755)).To(Succeed())
+			Expect(os.MkdirAll(filepath.Join(projB, "src"), 0o755)).To(Succeed())
+			Expect(
+				os.WriteFile(filepath.Join(projA, "package.json"), []byte("{}"), 0o644),
+			).To(Succeed())
+			Expect(
+				os.WriteFile(filepath.Join(projB, "package.json"), []byte("{}"), 0o644),
+			).To(Succeed())
 
-		files := []string{
-			filepath.Join(projA, "src", "a.ts"),
-			filepath.Join(projA, "src", "b.ts"),
-			filepath.Join(projB, "src", "c.ts"),
-		}
+			files := []string{
+				filepath.Join(projA, "src", "a.ts"),
+				filepath.Join(projA, "src", "b.ts"),
+				filepath.Join(projB, "src", "c.ts"),
+			}
 
-		result := exec.GroupByConfigDir(files, "package.json")
-		Expect(result).To(HaveLen(2))
-		Expect(result[projA]).To(HaveLen(2))
-		Expect(result[projB]).To(HaveLen(1))
-	})
+			result := exec.GroupByConfigDir(files, "package.json")
+			Expect(result).To(HaveLen(2))
+			Expect(result[projA]).To(HaveLen(2))
+			Expect(result[projB]).To(HaveLen(1))
+		},
+	)
 
 	It("should skip files with no ancestor containing the config file", func() {
 		files := []string{filepath.Join(tmpDir, "orphan", "file.ts")}
@@ -75,21 +82,32 @@ var _ = Describe("FindConfigDir", func() {
 		projDir := filepath.Join(tmpDir, "proj")
 		subDir := filepath.Join(projDir, "src", "sub")
 		Expect(os.MkdirAll(subDir, 0o755)).To(Succeed())
-		Expect(os.WriteFile(filepath.Join(projDir, "go.mod"), []byte("module test"), 0o644)).To(Succeed())
+		Expect(
+			os.WriteFile(
+				filepath.Join(projDir, "go.mod"),
+				[]byte("module test"),
+				0o644,
+			),
+		).To(Succeed())
 
 		result := exec.FindConfigDir(filepath.Join(subDir, "file.go"), "go.mod")
 		Expect(result).To(Equal(projDir))
 	})
 
 	It("should return empty string when no config file exists", func() {
-		result := exec.FindConfigDir(filepath.Join(tmpDir, "no", "config", "file.go"), "go.mod")
+		result := exec.FindConfigDir(
+			filepath.Join(tmpDir, "no", "config", "file.go"),
+			"go.mod",
+		)
 		Expect(result).To(BeEmpty())
 	})
 })
 
 var _ = Describe("OnFiles", func() {
 	It("should run a command successfully", func() {
-		Expect(exec.OnFiles([]string{"echo", "hello"}, []string{"a.txt"}, "")).To(Succeed())
+		Expect(
+			exec.OnFiles([]string{"echo", "hello"}, []string{"a.txt"}, ""),
+		).To(Succeed())
 	})
 
 	It("should return an error for a failing command", func() {
