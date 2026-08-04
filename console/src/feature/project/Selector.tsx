@@ -29,8 +29,8 @@ import { Avatar } from "@/feature/project/Avatar";
 import { Button } from "@/platform/button";
 import { ContextMenu as CMenu } from "@/platform/context-menu";
 import { CSS } from "@/platform/css";
+import { Modals } from "@/platform/modals";
 import { Project as PlatformProject } from "@/platform/project";
-import { Tree } from "@/platform/tree";
 import { Session } from "@/session";
 
 /* A click inside an active rename would bubble to the row, selecting the
@@ -80,7 +80,7 @@ export const ContextMenu = ({
   const ids = project.ontologyID(keys);
   const hasUpdatePermission = Access.useUpdateGranted(ids);
   const hasDeletePermission = Access.useDeleteGranted(ids);
-  const confirm = Tree.useConfirmDelete({ type: "Project" });
+  const confirm = Modals.useConfirmDelete({ type: "Project" });
   const { update: del } = Project.useDelete({
     beforeUpdate: useCallback(
       async ({ data }: Flux.BeforeUpdateParams<project.Key | project.Key[]>) => {

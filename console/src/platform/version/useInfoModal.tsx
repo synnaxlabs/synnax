@@ -23,7 +23,7 @@ import {
 import { Size } from "@synnaxlabs/x";
 import { relaunch } from "@tauri-apps/plugin-process";
 import { check, type Update } from "@tauri-apps/plugin-updater";
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
 
 import { CSS } from "@/platform/css";
 import { Modals } from "@/platform/modals";
@@ -109,22 +109,10 @@ const useDownload = (): UseDownloadReturn => {
   return { download, start };
 };
 
-export interface InfoModalParams {
-  /** Starts the download and install as soon as the check finds an update. */
-  autoUpdate?: boolean;
-}
-
-export const useInfoModal = Modals.create<InfoModalParams>(({ autoUpdate = false }) => {
+export const useInfoModal = Modals.create(() => {
   const version = Session.Version.use();
   const available = useUpdateCheck();
   const { download, start } = useDownload();
-  const autoStarted = useRef(false);
-  useEffect(() => {
-    if (!autoUpdate || autoStarted.current || available.variant !== "success") return;
-    if (available.update == null) return;
-    autoStarted.current = true;
-    start(available.update);
-  }, [autoUpdate, available, start]);
   const progressPercent =
     (download.progress.valueOf() / download.total.valueOf()) * 100;
 

@@ -32,6 +32,7 @@ import { Flex } from "@/flex";
 import { useSyncedRef } from "@/hooks";
 import { Icon } from "@/icon";
 import { Menu } from "@/menu";
+import { Status } from "@/status/base";
 import { Theming } from "@/theming";
 import { type Triggers } from "@/triggers";
 
@@ -508,10 +509,18 @@ const EditorInternal = ({
   );
 };
 
+// An editor always occupies a region with room for the orbital, and the Monaco
+// runtime is a heavy first load.
+const LOADING = (
+  <Status.Loading>
+    <Status.Orbital />
+  </Status.Loading>
+);
+
 /** Editor is a Monaco-backed code editor. It suspends while the Monaco runtime
  * initializes on first use, rendering `loading` until ready, and surfaces an
  * initialization failure to the boundary it provides. */
-export const Editor = ({ loading, ...props }: EditorProps) => (
+export const Editor = ({ loading = LOADING, ...props }: EditorProps) => (
   <Errors.SuspenseBoundary loading={loading}>
     <EditorInternal {...props} />
   </Errors.SuspenseBoundary>
