@@ -28,16 +28,9 @@ import { findButton } from "@/platform/modals/testutil";
 import { createResourceTab } from "@/platform/panel/testutil";
 import { Range as PlatformRange } from "@/platform/range";
 import { createTestRange, uniqueRangeName } from "@/platform/range/testutil";
-import {
-  createConsoleWrapper,
-  getIconButton,
-  stubGeometry,
-  uniqueName,
-} from "@/testutil";
+import { createConsoleWrapper, getIconButton, uniqueName } from "@/testutil";
 
 const client = createTestClient();
-
-stubGeometry();
 
 interface RenderOverviewResult {
   onSnapshotClick: ReturnType<typeof vi.fn>;

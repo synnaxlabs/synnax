@@ -19,7 +19,6 @@ import {
   createConsoleWrapper,
   findDialogTrigger,
   getIconButton,
-  stubGeometry,
   uniqueName,
 } from "@/testutil";
 
@@ -41,8 +40,6 @@ const openAddModal = async (): Promise<void> => {
   const addIcon = await waitFor(() => getIconButton(document.body, "add"));
   fireEvent.click(addIcon);
 };
-
-stubGeometry();
 
 describe("Label.Select", () => {
   it("should pass the clicked label's key to onChange in SelectSingle", async () => {

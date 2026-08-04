@@ -14,11 +14,8 @@ import { describe, expect, it } from "vitest";
 import { OPC } from "@/feature/opc";
 import { createOPCDevice } from "@/feature/opc/testutil";
 import { renderModalOpener } from "@/platform/modals/testutil";
-import { stubGeometry } from "@/testutil";
 
 const client = createTestClient();
-
-stubGeometry();
 
 describe("OPC.Device.useConnectModal", () => {
   it("should populate the form from an existing device", async () => {

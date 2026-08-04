@@ -10,6 +10,7 @@
 import { describe, expect, it } from "vitest";
 
 import { Cluster } from "@/session/cluster";
+import { CONNECTION_PARAMS } from "@/session/cluster/testutil";
 
 const TEMP_KEY = "temp-uuid-1234";
 const REAL_KEY = "real-cluster-key-5678";
@@ -43,8 +44,8 @@ describe("purgeDuplicateClusters", () => {
       Cluster.set({
         ...BASE_CLUSTER,
         key: REAL_KEY,
-        username: "synnax",
-        password: "seldon",
+        username: CONNECTION_PARAMS.username,
+        password: CONNECTION_PARAMS.password,
       }),
     );
     expect(

@@ -25,11 +25,9 @@ import {
   clickConfigure,
   renderTaskFormTab,
 } from "@/platform/task/testutil";
-import { stubGeometry, uniqueName } from "@/testutil";
+import { uniqueName } from "@/testutil";
 
 const client = createTestClient();
-
-stubGeometry();
 
 let testRack: rack.Rack;
 

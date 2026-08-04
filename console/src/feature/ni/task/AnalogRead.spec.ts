@@ -24,9 +24,7 @@ import {
   clickConfigure,
   findDialogTriggerByText,
 } from "@/platform/task/testutil";
-import { stubGeometry, uniqueName } from "@/testutil";
-
-stubGeometry();
+import { uniqueName } from "@/testutil";
 
 const client = createTestClient();
 

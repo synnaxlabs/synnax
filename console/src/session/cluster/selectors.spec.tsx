@@ -14,26 +14,14 @@ import { Provider } from "react-redux";
 import { describe, expect, it } from "vitest";
 
 import { Cluster } from "@/session/cluster";
+import { createCluster } from "@/session/cluster/testutil";
 
-const CLUSTER_A: Cluster.Cluster = {
-  key: "a",
-  name: "Alpha",
-  host: "a.example.com",
-  port: 9090,
-  username: "synnax",
-  password: "seldon",
-  secure: false,
-};
-
-const CLUSTER_B: Cluster.Cluster = {
-  key: "b",
+const CLUSTER_A = createCluster("a", { name: "Alpha", host: "a.example.com" });
+const CLUSTER_B = createCluster("b", {
   name: "Beta",
   host: "b.example.com",
-  port: 9090,
-  username: "synnax",
-  password: "seldon",
   secure: true,
-};
+});
 
 const EMPTY_STATE: Cluster.SliceState = {
   version: 0,

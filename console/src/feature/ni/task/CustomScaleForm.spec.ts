@@ -39,11 +39,8 @@ import { open } from "@tauri-apps/plugin-dialog";
 import { NI } from "@/feature/ni";
 import { renderNITaskForm } from "@/feature/ni/task/testutil";
 import { findDialogTriggerByText, selectFromDropdown } from "@/platform/task/testutil";
-import { stubGeometry } from "@/testutil";
 
 const openMock = vi.mocked(open);
-
-stubGeometry();
 
 let dir: string;
 
