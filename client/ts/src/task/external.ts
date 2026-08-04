@@ -8,5 +8,4 @@
 // included in the file licenses/APL.txt.
 
 export * from "@/task/client";
-export * from "@/task/drift";
 export * from "@/task/types.gen";
