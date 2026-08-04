@@ -18,8 +18,8 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 )
 
-// Latest is the portable schema version stamped on exported Arc envelopes and
-// the highest version import accepts. It equals the resource's current schema version.
+// Latest is the portable schema version stamped on exported Arc envelopes and the
+// highest version import accepts. It equals the resource's current schema version.
 const Latest = v3.Version
 
 // Floor is the earliest server-exported schema version: the version the resource
@@ -27,9 +27,8 @@ const Latest = v3.Version
 const Floor = v3.Version
 
 // decodeMigrate decodes an envelope stamped in [Floor, Latest] as its version's
-// Arc shape and lifts it through the per-version migration chain to the
-// current shape. Envelopes outside the window are rejected with a path-scoped
-// validation error.
+// Arc shape and lifts it through the per-version migration chain to the current
+// shape. Envelopes outside the window are rejected with a path-scoped validation error.
 func decodeMigrate(ctx context.Context, env imex.Envelope) (Arc, error) {
 	switch env.Version {
 	case v3.Version:
