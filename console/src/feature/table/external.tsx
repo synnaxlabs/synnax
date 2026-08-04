@@ -41,6 +41,7 @@ const TAB: Panel.Tab = {
     const corpse = query.requireCorpse(client.tables.getCached(resource.key));
     await client.tables.create(project, corpse);
   },
+  useTombstone: Panel.createTombstoneReader(Base),
 };
 
 export const TABS: Panel.Tabs = {

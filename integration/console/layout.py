@@ -120,7 +120,6 @@ class LayoutClient:
         ".console-mosaic .pluto-mosaic__leaf > .pluto-tabs > .pluto-tabs__selector"
     )
     TAB_SELECTOR = f"{TAB_STRIP_SELECTOR} > .pluto-tabs__tab"
-    TOMBSTONE_SELECTOR = ".console-panel__tombstone"
 
     def __init__(self, page: Page):
         self.page = page
@@ -560,9 +559,7 @@ class LayoutClient:
         Returns:
             Locator for the tombstone element
         """
-        return self.page.locator(self.TOMBSTONE_SELECTOR).filter(
-            has_text=f"{name} was deleted"
-        )
+        return self.page.get_by_role("group", name=f"{name} was deleted", exact=True)
 
     def restore_tombstone(self, name: str) -> None:
         """Click Restore on a deleted resource's tombstone.

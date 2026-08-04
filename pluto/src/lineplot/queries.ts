@@ -39,6 +39,7 @@ export const {
   useRetrieveSuspended,
   useRetrieveObservable,
   useEnsureRetrieved,
+  useTombstone,
 } = Flux.createRetrieve<RetrieveQuery, lineplot.LinePlot>({
   name: RESOURCE_NAME,
   retrieve: async ({ client, query }) => await client.lineplots.retrieve(query),

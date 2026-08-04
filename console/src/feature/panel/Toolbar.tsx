@@ -7,14 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Errors, Flux, Icon, Panel } from "@synnaxlabs/pluto";
+import { Errors, type Flux, Icon, Panel } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
-import { type DeletedFallbackProps, resourceOnly } from "@/feature/panel/fallback";
-import { useResetOnRestore } from "@/feature/panel/useResetOnRestore";
 import { Empty } from "@/platform/empty";
 import { type Nav } from "@/platform/nav";
-import { useTab } from "@/platform/panel/tab";
+import { ResourceGuard, useTab } from "@/platform/panel/tab";
 import { Toolbar } from "@/platform/toolbar";
 import { Session } from "@/session";
 
@@ -34,34 +32,27 @@ const EmptyContent = ({
 );
 
 // The toolbar reads the same queries as the tab's content, so a deleted
-// resource throws here too. Show a quiet placeholder; the tombstone with Close
+// resource empties it too. Show a quiet placeholder; the tombstone with Close
 // and Restore lives in the mosaic.
-const DeletedResourceContent = ({
-  error,
-  resetErrorBoundary,
-}: DeletedFallbackProps): ReactElement => {
-  useResetOnRestore(resetErrorBoundary);
-  const name = error.corpseName ?? "This resource";
-  return <EmptyContent message={`${name} was deleted.`} />;
-};
+const DeletedContent = ({ name }: Flux.Tombstone): ReactElement => (
+  <EmptyContent message={`${name ?? "This resource"} was deleted.`} />
+);
 
-const DeletedContent = resourceOnly(DeletedResourceContent);
-
-const Fallback = (props: Errors.FallbackProps): ReactElement => {
-  const { error } = props;
-  if (!Flux.DeletedError.matches(error)) return <Errors.Fallback {...props} />;
-  return <DeletedContent {...props} error={error} />;
-};
-
-const Content = (): ReactElement => {
+const LiveContent = (): ReactElement => {
   const { Toolbar } = useTab();
   if (Toolbar == null) return <EmptyContent />;
   return (
-    <Errors.SuspenseBoundary FallbackComponent={Fallback}>
+    <Errors.SuspenseBoundary>
       <Toolbar />
     </Errors.SuspenseBoundary>
   );
 };
+
+const Content = (): ReactElement => (
+  <ResourceGuard FallbackComponent={DeletedContent}>
+    <LiveContent />
+  </ResourceGuard>
+);
 
 const Wrapper = () => {
   const panelKey = Session.Panel.useSelectSelected();
