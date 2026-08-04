@@ -21,8 +21,9 @@
     }
 }
 
-.console-opc-task-header {
-    height: 4.5rem;
+.console-opc-task-header,
+.console-opc-browser > .pluto-header {
+    height: 6rem;
     flex-shrink: 0;
     flex-grow: 0;
 }
