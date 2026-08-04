@@ -28,16 +28,9 @@ import { findButton } from "@/platform/modals/testutil";
 import { createResourceTab } from "@/platform/panel/testutil";
 import { Range as PlatformRange } from "@/platform/range";
 import { createTestRange, uniqueRangeName } from "@/platform/range/testutil";
-import {
-  createConsoleWrapper,
-  getIconButton,
-  stubGeometry,
-  uniqueName,
-} from "@/testutil";
+import { createConsoleWrapper, getIconButton, uniqueName } from "@/testutil";
 
 const client = createTestClient();
-
-stubGeometry();
 
 interface RenderOverviewResult {
   onSnapshotClick: ReturnType<typeof vi.fn>;
@@ -146,7 +139,7 @@ describe("range/overview/Overview", () => {
     await renderOverview(rng.key);
     await screen.findByText("Child Ranges");
     fireEvent.click(await waitFor(() => getIconButton(document.body, "add")));
-    expect(await screen.findByText("Save Locally")).toBeTruthy();
+    expect(await screen.findByText("Save locally")).toBeTruthy();
   });
 
   it("lists snapshots and routes selection to the snapshot service", async () => {

@@ -24,11 +24,9 @@ import {
   findDialogTriggerByText,
   renderTaskFormTab,
 } from "@/platform/task/testutil";
-import { stubGeometry, uniqueName } from "@/testutil";
+import { uniqueName } from "@/testutil";
 
 const client = createTestClient();
-
-stubGeometry();
 
 const renderRead = async (params = {}) =>
   await renderTaskFormTab(LabJack.Task.Read, LabJack.Task.READ_TYPE, {

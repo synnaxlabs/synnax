@@ -14,6 +14,7 @@ import { Auth } from "@/feature/auth";
 import { Cluster } from "@/feature/cluster";
 import { findButton } from "@/platform/modals/testutil";
 import { Session } from "@/session";
+import { createCluster } from "@/session/cluster/testutil";
 import {
   createSessionConsoleWrapper,
   pinLocationOrigin,
@@ -100,14 +101,14 @@ describe("auth guard", () => {
     pinLocationOrigin("http://localhost:9090");
     const { wrapper, store } = await createSessionConsoleWrapper({ client: null });
     render(
-      <Session.Settled.Provider>
+      <Session.SettledProvider>
         <Auth.Guard>
           <Auth.ConnectionGuard>
             <Cluster.ConnectionBadge />
             <span>authenticated content</span>
           </Auth.ConnectionGuard>
         </Auth.Guard>
-      </Session.Settled.Provider>,
+      </Session.SettledProvider>,
       { wrapper },
     );
     submitCredentials("synnax", uniqueName("wrong"));
@@ -148,31 +149,23 @@ describe("auth guard", () => {
         [Session.Cluster.SLICE_NAME]: {
           ...Session.Cluster.ZERO_SLICE_STATE,
           clusters: {
-            [DEAD_KEY]: {
-              key: DEAD_KEY,
-              name: "Dead",
-              host: "localhost",
-              port: 9098,
-              username: "synnax",
-              password: "seldon",
-              secure: false,
-            },
+            [DEAD_KEY]: createCluster(DEAD_KEY, { name: "Dead", port: 9098 }),
           },
           selected: DEAD_KEY,
         },
       },
     });
     render(
-      <Session.Settled.Provider>
+      <Session.SettledProvider>
         <Auth.Guard>
           <Auth.ConnectionGuard>
             <span>authenticated content</span>
           </Auth.ConnectionGuard>
         </Auth.Guard>
-      </Session.Settled.Provider>,
+      </Session.SettledProvider>,
       { wrapper },
     );
-    expect(await screen.findByText("Retry Now", {}, { timeout: 10000 })).toBeTruthy();
+    expect(await screen.findByText("Retry now", {}, { timeout: 10000 })).toBeTruthy();
     expect(screen.getAllByText("localhost:9098").length).toBeGreaterThan(0);
     expect(screen.queryByText("Preparing your workspace...")).toBeNull();
     expect(screen.queryByText("authenticated content")).toBeNull();

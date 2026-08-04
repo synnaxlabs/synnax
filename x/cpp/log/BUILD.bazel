@@ -8,9 +8,34 @@
 # included in the file licenses/APL.txt.
 
 load("@rules_cc//cc:cc_library.bzl", "cc_library")
+load("@rules_cc//cc:cc_test.bzl", "cc_test")
 
 cc_library(
     name = "log",
+    srcs = ["log.cpp"],
     hdrs = ["log.h"],
     visibility = ["//visibility:public"],
+    deps = [
+        "@abseil-cpp//absl/base:log_severity",
+        "@abseil-cpp//absl/log",
+        "@abseil-cpp//absl/log:globals",
+        "@abseil-cpp//absl/log:initialize",
+        "@abseil-cpp//absl/log:log_entry",
+        "@abseil-cpp//absl/log:log_sink",
+        "@abseil-cpp//absl/log:log_sink_registry",
+    ],
+)
+
+cc_test(
+    name = "log_test",
+    size = "small",
+    srcs = ["log_test.cpp"],
+    deps = [
+        ":log",
+        "@abseil-cpp//absl/log",
+        "@abseil-cpp//absl/log:globals",
+        "@abseil-cpp//absl/log:initialize",
+        "@abseil-cpp//absl/log:log_sink_registry",
+        "@googletest//:gtest_main",
+    ],
 )

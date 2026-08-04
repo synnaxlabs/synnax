@@ -8,10 +8,10 @@
 // included in the file licenses/APL.txt.
 
 import { Synchronizer } from "@/session/synchronizer";
-import { remove, type StoreState } from "@/session/table/slice";
+import { type Action, remove, type StoreState } from "@/session/table/slice";
 
-export const SYNCHRONIZERS: Synchronizer.Synchronizers = {
-  useRemoveDeletedTables: Synchronizer.createRemover({
+export const SYNCHRONIZERS: Synchronizer.Synchronizers<StoreState, Action> = {
+  useRemoveDeletedTables: Synchronizer.createRemover<StoreState, Action>({
     domain: (client) => client.tables,
     selectKeys: (state: StoreState) => Object.keys(state.table.tables),
     remove: (keys) => remove({ keys }),

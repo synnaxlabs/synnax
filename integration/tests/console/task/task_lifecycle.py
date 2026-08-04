@@ -14,8 +14,9 @@ from examples.opcua import OPCUASim
 import synnax as sy
 from console.case import ConsoleCase
 from console.task_page import TaskPage
+from framework.models import SynnaxConnection
 from framework.run_with_connection import run_scripts
-from framework.utils import assert_link_format
+from framework.utils import assert_envelope, assert_link_format
 from tests.driver.simulator_case import SimulatorCase
 from x import random_name
 
@@ -60,7 +61,16 @@ class TaskLifecycle(SimulatorCase, ConsoleCase):
     """Task Lifecycle Tests"""
 
     sim_classes = [OPCUASim]
-    _cleanup_tasks: list[str]
+
+    def __init__(
+        self,
+        synnax_connection: SynnaxConnection = SynnaxConnection(),
+        *,
+        name: str,
+        **params: object,
+    ) -> None:
+        super().__init__(synnax_connection, name=name, **params)
+        self._cleanup_tasks: list[str] = []
 
     def setup_tasks(self) -> None:
         self._cleanup_tasks = list(TASK_NAMES)
@@ -75,7 +85,7 @@ class TaskLifecycle(SimulatorCase, ConsoleCase):
 
     def teardown(self) -> None:
         self.log("Beginning teardown")
-        for name in list(getattr(self, "_cleanup_tasks", [])):
+        for name in list(self._cleanup_tasks):
             try:
                 tasks = self.client.tasks.retrieve(names=[name])
                 if tasks:
@@ -177,10 +187,7 @@ class TaskLifecycle(SimulatorCase, ConsoleCase):
         t = TASKS[0]
         self.log(f"Testing: Export task '{t.name}'")
         exported = self.console.tasks.export_task(t.name)
-        assert "type" in exported, "Exported JSON should contain a 'type' field"
-        assert exported["type"] == t.type, (
-            f"Exported type should be '{t.type}', got '{exported['type']}'"
-        )
+        assert_envelope(exported, envelope_type=t.type, min_version=1, name=t.name)
         assert "channels" in exported, "Exported JSON should contain 'channels'"
         assert len(exported["channels"]) > 0, "Exported channels should not be empty"
 

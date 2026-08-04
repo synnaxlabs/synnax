@@ -23,11 +23,9 @@ import {
   findDialogTriggerByText,
   renderTaskFormTab,
 } from "@/platform/task/testutil";
-import { getIconButton, stubGeometry, uniqueName } from "@/testutil";
+import { getIconButton, uniqueName } from "@/testutil";
 
 const client = createTestClient();
-
-stubGeometry();
 
 const renderWrite = async (params = {}) =>
   await renderTaskFormTab(LabJack.Task.Write, LabJack.Task.WRITE_TYPE, {

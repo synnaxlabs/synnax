@@ -90,7 +90,7 @@ describe("Panel.TabMenuItems", () => {
       const tab = viewTab();
       const { wrapper } = await setup([tab], tab.key);
       renderMenu(wrapper, [tab.key]);
-      await waitFor(() => expect(screen.getByText("Reload Console")).toBeTruthy());
+      await waitFor(() => expect(screen.getByText("Reload console")).toBeTruthy());
       expect(screen.queryByText("Rename")).toBeNull();
     });
 
@@ -157,7 +157,7 @@ describe("Panel.TabMenuItems", () => {
       const tab = resourceTab();
       const { wrapper } = await setup([tab], tab.key);
       renderMenu(wrapper, []);
-      await waitFor(() => expect(screen.getByText("Reload Console")).toBeTruthy());
+      await waitFor(() => expect(screen.getByText("Reload console")).toBeTruthy());
       expect(screen.queryByText("Rename")).toBeNull();
       expect(screen.queryByText("Focus")).toBeNull();
     });

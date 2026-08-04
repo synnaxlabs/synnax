@@ -16,18 +16,12 @@ import { describe, expect, it } from "vitest";
 import { Project } from "@/feature/project";
 import { createActiveState } from "@/platform/project/testutil";
 import { Session } from "@/session";
-import {
-  createConsoleWrapper,
-  getBySelector,
-  renderWithConsole,
-  stubGeometry,
-} from "@/testutil";
+import { createConsoleWrapper, getBySelector, renderWithConsole } from "@/testutil";
 
 const client: Synnax = createTestClient();
 
 // The selector's dialog list is virtualized and renders no rows under jsdom's
 // zero-size layout.
-stubGeometry();
 
 describe("Project.Selector", () => {
   it("renders nothing when the user lacks retrieve permission", async () => {

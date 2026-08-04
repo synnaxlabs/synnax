@@ -18,6 +18,7 @@ import { createActiveState } from "@/platform/project/testutil";
 import { Range } from "@/platform/range";
 import { createTestRange, uniqueRangeName } from "@/platform/range/testutil";
 import { Session } from "@/session";
+import { createCluster } from "@/session/cluster/testutil";
 import { createConsoleWrapper, stubClipboardWriteText, uniqueName } from "@/testutil";
 
 const client = createTestClient();
@@ -110,15 +111,7 @@ describe("Range.Details", () => {
           version: 0,
           selected: "local",
           clusters: {
-            local: {
-              key: "local",
-              name: "Local",
-              host: "localhost",
-              port: 9090,
-              username: "synnax",
-              password: "seldon",
-              secure: false,
-            },
+            local: createCluster("local", { name: "Local" }),
           },
         },
       },

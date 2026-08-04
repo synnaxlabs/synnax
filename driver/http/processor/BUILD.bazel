@@ -20,8 +20,8 @@ cc_library(
         "//driver/http/types",
         "//x/cpp/errors",
         "//x/cpp/telem",
+        "@abseil-cpp//absl/log",
         "@curl",
-        "@glog",
     ],
 )
 

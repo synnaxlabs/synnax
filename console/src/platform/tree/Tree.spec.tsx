@@ -140,7 +140,7 @@ describe("Tree.Tree", () => {
       const tree = container.querySelector(".pluto-tree");
       expect(tree).not.toBeNull();
       fireEvent.contextMenu(tree as Element);
-      await waitFor(() => expect(screen.getByText("Reload Console")).toBeTruthy());
+      await waitFor(() => expect(screen.getByText("Reload console")).toBeTruthy());
       await waitFor(() => expect(screen.getByText("New group")).toBeTruthy());
     });
 

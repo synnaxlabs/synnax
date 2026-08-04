@@ -12,15 +12,11 @@ import { describe, expect, it } from "vitest";
 
 import { Cluster } from "@/feature/cluster";
 import { clickConnectionBadge, hoverConnectionBadge } from "@/feature/cluster/testutil";
-import {
-  createConnectedConsoleWrapper,
-  renderWithConsole,
-  stubGeometry,
-} from "@/testutil";
+import { CONNECTION_PARAMS } from "@/session/cluster/testutil";
+import { createConnectedConsoleWrapper, renderWithConsole } from "@/testutil";
 
 // The tooltip closes itself when its anchor measures zero area, which is jsdom's
 // default, so the hover assertions need real geometry.
-stubGeometry();
 
 describe("ConnectionBadge", () => {
   it("should report disconnected when no cluster connection exists", async () => {
@@ -32,13 +28,7 @@ describe("ConnectionBadge", () => {
   it("should report connected once the provider reaches the cluster", async () => {
     const { wrapper } = await createConnectedConsoleWrapper({
       client: null,
-      connParams: {
-        host: "localhost",
-        port: 9090,
-        username: "synnax",
-        password: "seldon",
-        secure: false,
-      },
+      connParams: CONNECTION_PARAMS,
     });
     const { container } = render(<Cluster.ConnectionBadge />, { wrapper });
     hoverConnectionBadge(container);
@@ -55,13 +45,7 @@ describe("ConnectionBadge", () => {
   it("should show server facts in the dialog once connected", async () => {
     const { wrapper } = await createConnectedConsoleWrapper({
       client: null,
-      connParams: {
-        host: "localhost",
-        port: 9090,
-        username: "synnax",
-        password: "seldon",
-        secure: false,
-      },
+      connParams: CONNECTION_PARAMS,
     });
     const { container } = render(<Cluster.ConnectionBadge />, { wrapper });
     clickConnectionBadge(container);

@@ -23,13 +23,10 @@ import {
   createConsoleWrapper,
   getIconButton,
   getInputByNodePlaceholder,
-  stubGeometry,
   uniqueName,
 } from "@/testutil";
 
 const client = createTestClient();
-
-stubGeometry();
 
 const Harness = (): ReactElement => {
   const { data, getItem, subscribe, retrieve } = Ranger.useList({});
@@ -74,7 +71,7 @@ describe("range/list/List", () => {
     await renderList();
     await waitFor(() => getInputByNodePlaceholder(document.body, "Search Ranges..."));
     fireEvent.click(await waitFor(() => getIconButton(document.body, "add")));
-    expect(await screen.findByText("Save Locally")).toBeTruthy();
+    expect(await screen.findByText("Save locally")).toBeTruthy();
   });
 });
 

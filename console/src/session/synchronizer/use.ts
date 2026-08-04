@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type UnknownAction } from "@reduxjs/toolkit";
+import { type Action } from "@reduxjs/toolkit";
 import { Synnax } from "@synnaxlabs/pluto";
 import { useEffect, useRef, useState } from "react";
 import { useStore } from "react-redux";
@@ -26,11 +26,13 @@ import {
  * return-to-cold: false until the first pass finishes, reset on client change
  * and on the epoch returning to 0 (cluster replacement).
  */
-export const use = (synchronizers: Synchronizers): boolean => {
-  const store = useStore<unknown, UnknownAction>();
+export const use = <S, A extends Action>(
+  synchronizers: Synchronizers<S, A>,
+): boolean => {
+  const store = useStore<S, A>();
   const client = Synnax.use();
   const [verified, setVerified] = useState(false);
-  const entries: [string, Synchronizer][] = Object.entries(synchronizers).map(
+  const entries: [string, Synchronizer<S, A>][] = Object.entries(synchronizers).map(
     ([key, useSynchronizer]) => [key, useSynchronizer()],
   );
   // Epoch-triggered reconciles read the ref so they always see the latest
@@ -40,7 +42,7 @@ export const use = (synchronizers: Synchronizers): boolean => {
   useEffect(() => {
     if (client == null) return;
     setVerified(false);
-    const params: Params = { client, store };
+    const params: Params<S, A> = { client, store };
     // A pass finishing after its cold reset must not count: it verified
     // against a cluster the client no longer mirrors.
     let generation = 0;

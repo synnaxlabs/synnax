@@ -7,7 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Store } from "@reduxjs/toolkit";
 import { panel, project, query } from "@synnaxlabs/client";
 import { Drift } from "@synnaxlabs/drift";
 import { destructor } from "@synnaxlabs/x";
@@ -26,7 +25,7 @@ import { Synchronizer } from "@/session/synchronizer";
 
 interface RequiredStoreState extends StoreState, Project.StoreState {}
 type RequiredAction = Action | Drift.Action;
-type RequiredStore = Store<RequiredStoreState, RequiredAction>;
+type RequiredStore = Synchronizer.Store<RequiredStoreState, RequiredAction>;
 type Params = Synchronizer.Params<RequiredStoreState, RequiredAction>;
 
 const selectKeys = (state: StoreState): string[] => {
@@ -38,8 +37,14 @@ const selectKeys = (state: StoreState): string[] => {
   return [...keys];
 };
 
-export const SYNCHRONIZERS: Synchronizer.Synchronizers = {
-  useRemoveDeletedPanels: Synchronizer.createRemover({
+export const SYNCHRONIZERS: Synchronizer.Synchronizers<
+  RequiredStoreState,
+  RequiredAction
+> = {
+  useRemoveDeletedPanels: Synchronizer.createRemover<
+    RequiredStoreState,
+    RequiredAction
+  >({
     domain: (client) => client.panels,
     selectKeys,
     remove,
@@ -198,7 +203,10 @@ const tabSelections: Synchronizer.Synchronizer<RequiredStoreState, RequiredActio
   },
 };
 
-export const WINDOW_SYNCHRONIZERS: Synchronizer.Synchronizers = {
+export const WINDOW_SYNCHRONIZERS: Synchronizer.Synchronizers<
+  RequiredStoreState,
+  RequiredAction
+> = {
   useReconcileSelection: () => selection,
   useSyncWindowTitle: () => windowTitle,
   useReconcileTabSelections: () => tabSelections,

@@ -19,9 +19,7 @@ import {
   clickConfigure,
   commitFieldInput,
 } from "@/platform/task/testutil";
-import { stubGeometry, uniqueName } from "@/testutil";
-
-stubGeometry();
+import { uniqueName } from "@/testutil";
 
 const client = createTestClient();
 

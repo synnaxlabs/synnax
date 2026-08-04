@@ -37,7 +37,7 @@ cc_library(
         "//x/cpp/loop",
         "//x/cpp/strings",
         "//x/cpp/uuid",
-        "@glog",
+        "@abseil-cpp//absl/log",
         "@nlohmann_json//:json",
     ],
 )

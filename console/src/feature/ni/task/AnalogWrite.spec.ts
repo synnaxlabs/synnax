@@ -19,9 +19,7 @@ import {
   clickConfigure,
   selectFromDropdown,
 } from "@/platform/task/testutil";
-import { isSelectButtonSelected, stubGeometry, uniqueName } from "@/testutil";
-
-stubGeometry();
+import { isSelectButtonSelected, uniqueName } from "@/testutil";
 
 const client = createTestClient();
 

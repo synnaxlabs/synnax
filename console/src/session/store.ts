@@ -118,8 +118,8 @@ const combinedReducer = combineReducers({
 // hydrate replaces the swapped slices wholesale on a session context switch. Drift
 // merges instead, keeping the windows this process is actually running.
 export const reducer: Reducer<State, Action> = (state, action) => {
-  if (state != null && Persist.hydrate.match(action)) {
-    const payload = action.payload as Partial<State>;
+  if (state != null && Persist.matchHydrate<State>(action)) {
+    const { payload } = action;
     const stored = payload[Drift.SLICE_NAME];
     const live = state[Drift.SLICE_NAME];
     state = { ...state, ...payload };

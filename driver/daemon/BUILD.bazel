@@ -8,6 +8,7 @@
 # included in the file licenses/APL.txt.
 
 load("@rules_cc//cc:cc_library.bzl", "cc_library")
+load("@rules_cc//cc:cc_test.bzl", "cc_test")
 
 config_setting(
     name = "nilinuxrt",
@@ -36,6 +37,23 @@ cc_library(
         "//x/cpp/errors",
         "//x/cpp/os",
         "//x/cpp/thread",
-        "@glog",
+        "@abseil-cpp//absl/log",
+    ],
+)
+
+# Exercises the systemd sd_notify protocol, so it only runs where daemon_linux.cpp is
+# the selected implementation: Linux, excluding the NI Linux RT configuration.
+cc_test(
+    name = "daemon_test",
+    size = "small",
+    srcs = ["daemon_test.cpp"],
+    target_compatible_with = select({
+        ":nilinuxrt": ["@platforms//:incompatible"],
+        "@platforms//os:linux": [],
+        "//conditions:default": ["@platforms//:incompatible"],
+    }),
+    deps = [
+        ":daemon",
+        "@googletest//:gtest_main",
     ],
 )
