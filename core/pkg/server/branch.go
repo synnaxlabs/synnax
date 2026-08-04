@@ -55,11 +55,15 @@ const (
 // conditions.
 func (r RoutingPolicy) ShouldServe(insecure, insecureMux bool) bool {
 	if !insecure && !insecureMux {
-		return r == RoutingPolicyServeAlwaysPreferSecure || r == RoutingPolicyServeOnlyIfSecure
+		return r == RoutingPolicyServeAlwaysPreferSecure ||
+			r == RoutingPolicyServeOnlyIfSecure
 	} else if !insecure && insecureMux {
-		return r == RoutingPolicyServeOnInsecureIfSecure || r == RoutingPolicyServeAlwaysPreferInsecure
+		return r == RoutingPolicyServeOnInsecureIfSecure ||
+			r == RoutingPolicyServeAlwaysPreferInsecure
 	} else if insecure && insecureMux {
-		return r == RoutingPolicyServeAlwaysPreferInsecure || r == RoutingPolicyServeOnlyIfInsecure || r == RoutingPolicyServeAlwaysPreferSecure
+		return r == RoutingPolicyServeAlwaysPreferInsecure ||
+			r == RoutingPolicyServeOnlyIfInsecure ||
+			r == RoutingPolicyServeAlwaysPreferSecure
 	}
 	panic("[server]  - invalid routing policy")
 }

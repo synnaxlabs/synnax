@@ -45,13 +45,18 @@ var _ = Describe("ImEx", func() {
 			Expect(env.Type).To(Equal("schematic"))
 			Expect(env.Name).To(Equal("exported"))
 
-			decoded := MustSucceed(imex.Decode[schematic.Schematic](ctx, WireRoundTrip(env)))
+			decoded := MustSucceed(
+				imex.Decode[schematic.Schematic](ctx, WireRoundTrip(env)),
+			)
 			Expect(decoded.Name).To(Equal("exported"))
 			Expect(decoded.Snapshot).To(BeTrue())
 		})
 
 		It("Should return not found for a missing key", func(ctx SpecContext) {
-			id := ontology.ID{Type: ontology.ResourceTypeSchematic, Key: uuid.NewString()}
+			id := ontology.ID{
+				Type: ontology.ResourceTypeSchematic,
+				Key:  uuid.NewString(),
+			}
 			Expect(svc.Export(ctx, id)).Error().To(MatchError(query.ErrNotFound))
 		})
 
@@ -90,17 +95,22 @@ var _ = Describe("ImEx", func() {
 			Expect(res.Configs).To(HaveKey("n1"))
 		})
 
-		It("Should import a Console typed export carrying camelCase keys", func(ctx SpecContext) {
-			res := importAndRetrieve(
-				ctx, "versions/testdata/import_typed_console.json", imex.ImportOptions{},
-			)
-			Expect(res.Name).To(Equal("Console Typed"))
-			Expect(res.Nodes[0].ZIndex).To(Equal(int16(4)))
-			var cfg map[string]any
-			Expect(res.Configs["n1"].Unmarshal(&cfg)).To(Succeed())
-			Expect(cfg).To(HaveKeyWithValue("variant", "valve"))
-			Expect(cfg).To(HaveKey("strokeWidth"))
-		})
+		It(
+			"Should import a Console typed export carrying camelCase keys",
+			func(ctx SpecContext) {
+				res := importAndRetrieve(
+					ctx,
+					"versions/testdata/import_typed_console.json",
+					imex.ImportOptions{},
+				)
+				Expect(res.Name).To(Equal("Console Typed"))
+				Expect(res.Nodes[0].ZIndex).To(Equal(int16(4)))
+				var cfg map[string]any
+				Expect(res.Configs["n1"].Unmarshal(&cfg)).To(Succeed())
+				Expect(cfg).To(HaveKeyWithValue("variant", "valve"))
+				Expect(cfg).To(HaveKey("strokeWidth"))
+			},
+		)
 
 		It("Should import a versionless Console typed export", func(ctx SpecContext) {
 			res := importAndRetrieve(
@@ -111,22 +121,25 @@ var _ = Describe("ImEx", func() {
 			Expect(res.Nodes[0].ZIndex).To(Equal(int16(1)))
 		})
 
-		It("Should import a v6 Console state from its pendingUpload", func(ctx SpecContext) {
-			res := importAndRetrieve(
-				ctx, "versions/testdata/import_v6_state.json",
-				imex.ImportOptions{FileName: "My Schematic.json"},
-			)
-			Expect(res.Name).To(Equal("My Schematic"))
-			Expect(res.Snapshot).To(BeTrue())
-			Expect(res.Nodes[0].ZIndex).To(Equal(int16(2)))
-			Expect(res.Edges[0].Source).To(
-				Equal(schematic.Handle{Node: "n1", Param: "out"}),
-			)
-			var cfg map[string]any
-			Expect(res.Configs["n1"].Unmarshal(&cfg)).To(Succeed())
-			Expect(cfg).To(HaveKeyWithValue("variant", "tank"))
-			Expect(cfg).To(HaveKey("strokeWidth"))
-		})
+		It(
+			"Should import a v6 Console state from its pendingUpload",
+			func(ctx SpecContext) {
+				res := importAndRetrieve(
+					ctx, "versions/testdata/import_v6_state.json",
+					imex.ImportOptions{FileName: "My Schematic.json"},
+				)
+				Expect(res.Name).To(Equal("My Schematic"))
+				Expect(res.Snapshot).To(BeTrue())
+				Expect(res.Nodes[0].ZIndex).To(Equal(int16(2)))
+				Expect(res.Edges[0].Source).To(
+					Equal(schematic.Handle{Node: "n1", Param: "out"}),
+				)
+				var cfg map[string]any
+				Expect(res.Configs["n1"].Unmarshal(&cfg)).To(Succeed())
+				Expect(cfg).To(HaveKeyWithValue("variant", "tank"))
+				Expect(cfg).To(HaveKey("strokeWidth"))
+			},
+		)
 
 		It("Should reject a v6 Console state with no document", func(ctx SpecContext) {
 			Expect(imexSvc.Import(ctx, db,
@@ -138,69 +151,88 @@ var _ = Describe("ImEx", func() {
 			))
 		})
 
-		It("Should import a v3 Console state through the legacy chain", func(ctx SpecContext) {
-			res := importAndRetrieve(
-				ctx, "versions/testdata/import_v3_state.json",
-				imex.ImportOptions{FileName: "Legacy Schematic.json"},
-			)
-			Expect(res.Name).To(Equal("Legacy Schematic"))
-			Expect(res.Nodes[0].ZIndex).To(Equal(int16(3)))
-			Expect(res.Edges[0].Source).To(
-				Equal(schematic.Handle{Node: "n1", Param: "a"}),
-			)
-			Expect(res.Edges[0].Target).To(
-				Equal(schematic.Handle{Node: "n2", Param: "b"}),
-			)
-			var cfg map[string]any
-			Expect(res.Configs["n1"].Unmarshal(&cfg)).To(Succeed())
-			Expect(cfg).To(HaveKeyWithValue("variant", "valve"))
-			Expect(cfg).To(HaveKeyWithValue("color", "#ff0000"))
-		})
+		It(
+			"Should import a v3 Console state through the legacy chain",
+			func(ctx SpecContext) {
+				res := importAndRetrieve(
+					ctx, "versions/testdata/import_v3_state.json",
+					imex.ImportOptions{FileName: "Legacy Schematic.json"},
+				)
+				Expect(res.Name).To(Equal("Legacy Schematic"))
+				Expect(res.Nodes[0].ZIndex).To(Equal(int16(3)))
+				Expect(res.Edges[0].Source).To(
+					Equal(schematic.Handle{Node: "n1", Param: "a"}),
+				)
+				Expect(res.Edges[0].Target).To(
+					Equal(schematic.Handle{Node: "n2", Param: "b"}),
+				)
+				var cfg map[string]any
+				Expect(res.Configs["n1"].Unmarshal(&cfg)).To(Succeed())
+				Expect(cfg).To(HaveKeyWithValue("variant", "valve"))
+				Expect(cfg).To(HaveKeyWithValue("color", "#ff0000"))
+			},
+		)
 
-		It("Should reject an envelope newer than the supported version", func(ctx SpecContext) {
-			Expect(imexSvc.Import(ctx, db,
-				loadEnvelope("versions/testdata/import_bad_version.json"),
-				imex.ImportOptions{},
-			)).Error().To(SatisfyAll(
-				MatchError(ContainSubstring("schematic version 99")),
-				MatchError(ContainSubstring("newer than this Core supports")),
-			))
-		})
+		It(
+			"Should reject an envelope newer than the supported version",
+			func(ctx SpecContext) {
+				Expect(imexSvc.Import(ctx, db,
+					loadEnvelope("versions/testdata/import_bad_version.json"),
+					imex.ImportOptions{},
+				)).Error().To(SatisfyAll(
+					MatchError(ContainSubstring("schematic version 99")),
+					MatchError(ContainSubstring("newer than this Core supports")),
+				))
+			},
+		)
 
-		It("Should generate a fresh key, discarding the key on the wire", func(ctx SpecContext) {
-			id := MustSucceed(imexSvc.Import(ctx, db,
-				loadEnvelope("versions/testdata/import_v7.json"), imex.ImportOptions{},
-			))
-			Expect(id.Key).ToNot(Equal("11111111-2222-3333-4444-555555555555"))
-		})
+		It(
+			"Should generate a fresh key, discarding the key on the wire",
+			func(ctx SpecContext) {
+				id := MustSucceed(imexSvc.Import(
+					ctx,
+					db,
+					loadEnvelope(
+						"versions/testdata/import_v7.json",
+					),
+					imex.ImportOptions{},
+				))
+				Expect(id.Key).ToNot(Equal("11111111-2222-3333-4444-555555555555"))
+			},
+		)
 	})
 
 	Describe("Round trip", func() {
-		It("Should preserve schematic content through export then import", func(ctx SpecContext) {
-			original := schematic.Schematic{
-				Name:  "round-trip",
-				Nodes: []schematic.Node{{Key: "n1", ZIndex: 5}},
-				Edges: []schematic.Edge{{
-					Key:    "e1",
-					Source: schematic.Handle{Node: "n1", Param: "out"},
-					Target: schematic.Handle{Node: "n2", Param: "in"},
-				}},
-			}
-			Expect(svc.NewWriter(nil).Create(ctx, proj.Key, &original)).To(Succeed())
-			env := MustSucceed(svc.Export(ctx, schematic.OntologyID(original.Key)))
-			id := MustSucceed(imexSvc.Import(
-				ctx, db, WireRoundTrip(env), imex.ImportOptions{},
-			))
-			key := MustSucceed(uuid.Parse(id.Key))
-			Expect(key).ToNot(Equal(original.Key))
-			var res schematic.Schematic
-			Expect(svc.NewRetrieve().
-				Where(schematic.MatchKeys(key)).
-				Entry(&res).
-				Exec(ctx, db)).To(Succeed())
-			Expect(res.Name).To(Equal("round-trip"))
-			Expect(res.Nodes).To(Equal(original.Nodes))
-			Expect(res.Edges).To(Equal(original.Edges))
-		})
+		It(
+			"Should preserve schematic content through export then import",
+			func(ctx SpecContext) {
+				original := schematic.Schematic{
+					Name:  "round-trip",
+					Nodes: []schematic.Node{{Key: "n1", ZIndex: 5}},
+					Edges: []schematic.Edge{{
+						Key:    "e1",
+						Source: schematic.Handle{Node: "n1", Param: "out"},
+						Target: schematic.Handle{Node: "n2", Param: "in"},
+					}},
+				}
+				Expect(
+					svc.NewWriter(nil).Create(ctx, proj.Key, &original),
+				).To(Succeed())
+				env := MustSucceed(svc.Export(ctx, schematic.OntologyID(original.Key)))
+				id := MustSucceed(imexSvc.Import(
+					ctx, db, WireRoundTrip(env), imex.ImportOptions{},
+				))
+				key := MustSucceed(uuid.Parse(id.Key))
+				Expect(key).ToNot(Equal(original.Key))
+				var res schematic.Schematic
+				Expect(svc.NewRetrieve().
+					Where(schematic.MatchKeys(key)).
+					Entry(&res).
+					Exec(ctx, db)).To(Succeed())
+				Expect(res.Name).To(Equal("round-trip"))
+				Expect(res.Nodes).To(Equal(original.Nodes))
+				Expect(res.Edges).To(Equal(original.Edges))
+			},
+		)
 	})
 })

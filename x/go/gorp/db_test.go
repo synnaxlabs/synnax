@@ -18,22 +18,39 @@ import (
 
 var _ = Describe("DB", func() {
 	Describe("WithTx", func() {
-		It("Should commit the transaction if the callback returns nil", func(ctx SpecContext) {
-			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-				return gorp.NewCreate[int32, entry]().Entry(&entry{ID: 1, Data: "One"}).Exec(ctx, tx)
-			})).To(Succeed())
-			var res entry
-			Expect(gorp.NewRetrieve[int32, entry]().Where(gorp.MatchKeys[int32, entry](1)).Entry(&res).Exec(ctx, db)).To(Succeed())
-			Expect(res).To(Equal(entry{ID: 1, Data: "One"}))
-		})
-		It("Should not commit the transaction if the callback returns an error", func(ctx SpecContext) {
-			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-				return gorp.NewCreate[int32, entry]().Entry(&entry{ID: 1, Data: "One"}).Exec(ctx, tx)
-			})).To(Succeed())
-			Expect(db.WithTx(ctx, func(_ gorp.Tx) error { return query.ErrNotFound })).
-				ToNot(Succeed())
-			Expect(gorp.NewRetrieve[int32, entry]().Where(gorp.MatchKeys[int32, entry](2)).Exec(ctx, db)).To(MatchError(query.ErrNotFound))
-		})
+		It(
+			"Should commit the transaction if the callback returns nil",
+			func(ctx SpecContext) {
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return gorp.NewCreate[int32, entry]().Entry(&entry{ID: 1, Data: "One"}).
+						Exec(ctx, tx)
+				})).To(Succeed())
+				var res entry
+				Expect(
+					gorp.NewRetrieve[int32, entry]().Where(gorp.MatchKeys[int32, entry](1)).
+						Entry(&res).
+						Exec(ctx, db),
+				).To(Succeed())
+				Expect(res).To(Equal(entry{ID: 1, Data: "One"}))
+			},
+		)
+		It(
+			"Should not commit the transaction if the callback returns an error",
+			func(ctx SpecContext) {
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return gorp.NewCreate[int32, entry]().Entry(&entry{ID: 1, Data: "One"}).
+						Exec(ctx, tx)
+				})).To(Succeed())
+				Expect(
+					db.WithTx(ctx, func(_ gorp.Tx) error { return query.ErrNotFound }),
+				).
+					ToNot(Succeed())
+				Expect(
+					gorp.NewRetrieve[int32, entry]().Where(gorp.MatchKeys[int32, entry](2)).
+						Exec(ctx, db),
+				).To(MatchError(query.ErrNotFound))
+			},
+		)
 	})
 
 	Describe("OverrideTx", func() {
@@ -42,9 +59,12 @@ var _ = Describe("DB", func() {
 			Expect(gorp.OverrideTx(db, tx)).To(Equal(tx))
 			Expect(tx.Close()).To(Succeed())
 		})
-		It("Should return the base transaction if the override transaction is nil", func() {
-			Expect(gorp.OverrideTx(db, nil)).To(Equal(db))
-		})
+		It(
+			"Should return the base transaction if the override transaction is nil",
+			func() {
+				Expect(gorp.OverrideTx(db, nil)).To(Equal(db))
+			},
+		)
 	})
 
 	Describe("KV", func() {

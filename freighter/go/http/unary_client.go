@@ -159,7 +159,9 @@ func (u *unaryClient[RQ, RS]) Send(
 			defer func() { err = errors.Combine(err, httpRes.Body.Close()) }()
 			outCtx := parseResponseCtx(httpRes, target, false)
 
-			decoder, err := u.resolveResponseDecoder(httpRes.Header.Get(fiber.HeaderContentType))
+			decoder, err := u.resolveResponseDecoder(
+				httpRes.Header.Get(fiber.HeaderContentType),
+			)
 			if err != nil {
 				return outCtx, err
 			}

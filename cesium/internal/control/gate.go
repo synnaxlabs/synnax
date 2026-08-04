@@ -52,9 +52,10 @@ func (g *Gate[R]) PeekResource() R {
 	return g.region.resource
 }
 
-// Authorize authorizes the gate's access to the resource. If another gate has precedence,
-// Authorize will return a control.ErrUnauthorized error, and the zero value for the resource.
-// If the gate has control over the resource, returns the resource and a nil error.
+// Authorize authorizes the gate's access to the resource. If another gate has
+// precedence, Authorize will return a control.ErrUnauthorized error, and the zero value
+// for the resource. If the gate has control over the resource, returns the resource and
+// a nil error.
 func (g *Gate[R]) Authorize() (r R, err error) {
 	g.region.RLock()
 	defer g.region.RUnlock()
@@ -82,8 +83,8 @@ func (g *Gate[R]) Authorize() (r R, err error) {
 	)
 }
 
-// Release releases the gate's access to the resource. If the gate is the last gate in
-// a region, i.e., transfer.IsRelease() == true, the resource will be returned. Otherwise,
+// Release releases the gate's access to the resource. If the gate is the last gate in a
+// region, i.e., transfer.IsRelease() == true, the resource will be returned. Otherwise,
 // the zero value of the resource will be returned.
 func (g *Gate[R]) Release() (resource R, transfer Transfer) { return g.region.release(g) }
 

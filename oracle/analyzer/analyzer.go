@@ -280,7 +280,10 @@ func desugarPartialOverrides(c *analysisCtx) {
 				f.Default = pf.Default
 			}
 			if len(pf.Domains) > 0 {
-				domains := make(map[string]resolution.Domain, len(pf.Domains)+len(f.Domains))
+				domains := make(
+					map[string]resolution.Domain,
+					len(pf.Domains)+len(f.Domains),
+				)
 				maps.Copy(domains, pf.Domains)
 				for k, v := range f.Domains {
 					if existing, ok := domains[k]; ok {
@@ -305,7 +308,10 @@ func desugarPartialOverrides(c *analysisCtx) {
 // resolvedParentFields collects the fields a struct inherits, keyed by name, with
 // generic type parameters substituted. The first parent wins on a name conflict,
 // matching UnifiedFields.
-func resolvedParentFields(c *analysisCtx, form resolution.StructForm) map[string]resolution.Field {
+func resolvedParentFields(
+	c *analysisCtx,
+	form resolution.StructForm,
+) map[string]resolution.Field {
 	out := make(map[string]resolution.Field)
 	for _, ext := range form.Extends {
 		parent, ok := ext.Resolve(c.table)
@@ -368,9 +374,12 @@ func validateFieldOverrides(c *analysisCtx, typ resolution.Type) {
 			c.report(d)
 		}
 		if len(f.OmittedDomains) > 0 {
-			d := diagnostics.Errorf(nil,
+			d := diagnostics.Errorf(
+				nil,
 				"field %q in struct %s removes a domain with -@ but overrides no parent field",
-				f.Name, typ.Name)
+				f.Name,
+				typ.Name,
+			)
 			c.report(d)
 		}
 	}
@@ -437,8 +446,14 @@ func effectiveEnumValues(
 	add := func(parentName string, v resolution.EnumValue) bool {
 		if existing, dup := byName[v.Name]; dup {
 			if existing.Value != v.Value {
-				addTypeDiag(c, typ, "enum %s inherits member %q with conflicting values from %s",
-					typ.QualifiedName, v.Name, parentName)
+				addTypeDiag(
+					c,
+					typ,
+					"enum %s inherits member %q with conflicting values from %s",
+					typ.QualifiedName,
+					v.Name,
+					parentName,
+				)
 				return false
 			}
 			return true
@@ -451,11 +466,23 @@ func effectiveEnumValues(
 	for i := range form.Extends {
 		parent, ok := c.table.Get(form.Extends[i].Name)
 		if !ok {
-			addTypeDiag(c, typ, "enum %s extends unknown enum %q", typ.QualifiedName, form.Extends[i].Name)
+			addTypeDiag(
+				c,
+				typ,
+				"enum %s extends unknown enum %q",
+				typ.QualifiedName,
+				form.Extends[i].Name,
+			)
 			return nil, false, false
 		}
 		if _, ok := parent.Form.(resolution.EnumForm); !ok {
-			addTypeDiag(c, typ, "enum %s extends %s, which is not an enum", typ.QualifiedName, parent.QualifiedName)
+			addTypeDiag(
+				c,
+				typ,
+				"enum %s extends %s, which is not an enum",
+				typ.QualifiedName,
+				parent.QualifiedName,
+			)
 			return nil, false, false
 		}
 		// Each branch gets its own copy so visited tracks the ancestor path,
@@ -466,7 +493,12 @@ func effectiveEnumValues(
 			return nil, false, false
 		}
 		if kindSet && pInt != isInt {
-			addTypeDiag(c, typ, "enum %s extends enums of mixed integer and string kinds", typ.QualifiedName)
+			addTypeDiag(
+				c,
+				typ,
+				"enum %s extends enums of mixed integer and string kinds",
+				typ.QualifiedName,
+			)
 			return nil, false, false
 		}
 		isInt, kindSet = pInt, true
@@ -477,8 +509,12 @@ func effectiveEnumValues(
 		}
 	}
 	if kindSet && len(form.Values) > 0 && form.IsIntEnum != isInt {
-		addTypeDiag(c, typ, "enum %s adds members of a different kind than the enums it extends",
-			typ.QualifiedName)
+		addTypeDiag(
+			c,
+			typ,
+			"enum %s adds members of a different kind than the enums it extends",
+			typ.QualifiedName,
+		)
 		return nil, false, false
 	}
 	for _, v := range form.Values {
@@ -555,9 +591,16 @@ func effectiveUnionVariants(
 	add := func(parentName string, v resolution.UnionVariant) bool {
 		if existing, dup := byName[v.Name]; dup {
 			if existing.Type.Name != v.Type.Name {
-				addTypeDiag(c, typ,
+				addTypeDiag(
+					c,
+					typ,
 					"union %s inherits variant %q with conflicting payload types from %s (%s vs %s)",
-					typ.QualifiedName, v.Name, parentName, existing.Type.Name, v.Type.Name)
+					typ.QualifiedName,
+					v.Name,
+					parentName,
+					existing.Type.Name,
+					v.Type.Name,
+				)
 				return false
 			}
 			return true
@@ -576,15 +619,25 @@ func effectiveUnionVariants(
 		}
 		pform, isUnion := parent.Form.(resolution.UnionForm)
 		if !isUnion {
-			addTypeDiag(c, typ,
+			addTypeDiag(
+				c,
+				typ,
 				"union %s cannot mix struct and union bases in extends; %s is not a union",
-				typ.QualifiedName, parent.QualifiedName)
+				typ.QualifiedName,
+				parent.QualifiedName,
+			)
 			return nil, false
 		}
 		if pform.Discriminator != form.Discriminator {
-			addTypeDiag(c, typ,
+			addTypeDiag(
+				c,
+				typ,
 				"union %s extends union %s with a different discriminator (%q vs %q)",
-				typ.QualifiedName, parent.QualifiedName, pform.Discriminator, form.Discriminator)
+				typ.QualifiedName,
+				parent.QualifiedName,
+				pform.Discriminator,
+				form.Discriminator,
+			)
 			return nil, false
 		}
 		pVars := pform.Variants
@@ -710,7 +763,12 @@ func collectAction(
 	for _, f := range body.AllFieldDef() {
 		field := collectField(c, f, typeParams, &hasKeyDomain)
 		if !field.HasType() {
-			d := diagnostics.Errorf(f, "action %s field %q must declare a type", action.Name, field.Name)
+			d := diagnostics.Errorf(
+				f,
+				"action %s field %q must declare a type",
+				action.Name,
+				field.Name,
+			)
 			c.report(d)
 		}
 		action.Fields = append(action.Fields, field)
@@ -812,7 +870,10 @@ func collectTypeParams(params parser.ITypeParamsContext) []resolution.TypeParam 
 	return result
 }
 
-func collectTypeRef(tr parser.ITypeRefContext, typeParams []resolution.TypeParam) resolution.TypeRef {
+func collectTypeRef(
+	tr parser.ITypeRefContext,
+	typeParams []resolution.TypeParam,
+) resolution.TypeRef {
 	if mapCtx, ok := tr.(*parser.TypeRefMapContext); ok {
 		return collectMapTypeRef(mapCtx, typeParams)
 	}
@@ -839,7 +900,10 @@ func collectTypeRef(tr parser.ITypeRefContext, typeParams []resolution.TypeParam
 	return ref
 }
 
-func collectMapTypeRef(mapCtx *parser.TypeRefMapContext, typeParams []resolution.TypeParam) resolution.TypeRef {
+func collectMapTypeRef(
+	mapCtx *parser.TypeRefMapContext,
+	typeParams []resolution.TypeParam,
+) resolution.TypeRef {
 	mt := mapCtx.MapType()
 	typeRefs := mt.AllTypeRef()
 
@@ -852,7 +916,12 @@ func collectMapTypeRef(mapCtx *parser.TypeRefMapContext, typeParams []resolution
 	return ref
 }
 
-func collectField(c *analysisCtx, def parser.IFieldDefContext, typeParams []resolution.TypeParam, hasKeyDomain *bool) resolution.Field {
+func collectField(
+	c *analysisCtx,
+	def parser.IFieldDefContext,
+	typeParams []resolution.TypeParam,
+	hasKeyDomain *bool,
+) resolution.Field {
 	field := resolution.Field{
 		Name:    def.IDENT().GetText(),
 		Domains: make(map[string]resolution.Domain),
@@ -950,7 +1019,10 @@ func collectInlineDomain(def parser.IInlineDomainContext) resolution.Domain {
 	return entry
 }
 
-func collectDomainContent(entry *resolution.Domain, content parser.IDomainContentContext) {
+func collectDomainContent(
+	entry *resolution.Domain,
+	content parser.IDomainContentContext,
+) {
 	if block := content.DomainBlock(); block != nil {
 		for _, e := range block.AllExpression() {
 			expr := resolution.Expression{AST: e, Name: e.IDENT().GetText()}
@@ -1044,7 +1116,10 @@ func collectValue(v parser.IExpressionValueContext) resolution.ExpressionValue {
 	}
 	if f := v.FLOAT_LIT(); f != nil {
 		n, _ := strconv.ParseFloat(f.GetText(), 64)
-		return resolution.ExpressionValue{Kind: resolution.ValueKindFloat, FloatValue: n}
+		return resolution.ExpressionValue{
+			Kind:       resolution.ValueKindFloat,
+			FloatValue: n,
+		}
 	}
 	if b := v.BOOL_LIT(); b != nil {
 		return resolution.ExpressionValue{
@@ -1177,18 +1252,27 @@ func collectInlineVariant(
 	}
 	if body := def.StructBody(); body != nil {
 		for _, f := range body.AllFieldDef() {
-			form.Fields = append(form.Fields, collectField(c, f, nil, &form.HasKeyDomain))
+			form.Fields = append(
+				form.Fields,
+				collectField(c, f, nil, &form.HasKeyDomain),
+			)
 		}
 		for _, fo := range body.AllFieldOmit() {
-			d := diagnostics.Errorf(fo,
+			d := diagnostics.Errorf(
+				fo,
 				"union %s variant %q: field omissions are not supported in inline variant bodies",
-				unionName, variantName)
+				unionName,
+				variantName,
+			)
 			c.report(d)
 		}
 		for _, a := range body.AllActionDef() {
-			d := diagnostics.Errorf(a,
+			d := diagnostics.Errorf(
+				a,
 				"union %s variant %q: actions are not supported in inline variant bodies",
-				unionName, variantName)
+				unionName,
+				variantName,
+			)
 			c.report(d)
 		}
 		for _, d := range body.AllDomain() {
@@ -1200,9 +1284,13 @@ func collectInlineVariant(
 	name := unionName + pascalIdent(variantName) + "Payload"
 	qname := c.namespace + "." + name
 	if _, exists := c.table.Get(qname); exists {
-		d := diagnostics.Errorf(def,
+		d := diagnostics.Errorf(
+			def,
 			"union %s variant %q: inline payload name %s collides with an existing type",
-			unionName, variantName, qname)
+			unionName,
+			variantName,
+			qname,
+		)
 		c.report(d)
 		return variant
 	}
@@ -1417,7 +1505,11 @@ func resolveTypeRefs(c *analysisCtx, typ *resolution.Type) {
 	}
 }
 
-func resolveTypeRef(c *analysisCtx, currentType *resolution.Type, ref *resolution.TypeRef) {
+func resolveTypeRef(
+	c *analysisCtx,
+	currentType *resolution.Type,
+	ref *resolution.TypeRef,
+) {
 	if ref.TypeParam != nil {
 		return
 	}
@@ -1457,9 +1549,13 @@ func resolveTypeRef(c *analysisCtx, currentType *resolution.Type, ref *resolutio
 		}
 	}
 
-	if (resolution.IsPrimitive(name) || resolution.IsConstraint(name)) && len(parts) == 1 {
+	if (resolution.IsPrimitive(name) || resolution.IsConstraint(name)) &&
+		len(parts) == 1 {
 		ref.Name = name
-	} else if typ, ok := c.table.Lookup(ns, name); ok {
+	} else if typ, ok := c.table.Lookup(
+		ns,
+		name,
+	); ok {
 		ref.Name = typ.QualifiedName
 	} else {
 		d := diagnostics.Warningf(nil, "unresolved type: %s", ref.Name)
@@ -1557,16 +1653,25 @@ func validateExtends(c *analysisCtx, typ resolution.Type) {
 				}
 			}
 			if len(extendsRef.TypeArgs) < requiredParams {
-				d := diagnostics.Errorf(nil,
+				d := diagnostics.Errorf(
+					nil,
 					"struct %s extends %s but provides %d type arguments (need at least %d)",
-					typ.Name, parent.Name, len(extendsRef.TypeArgs), requiredParams)
+					typ.Name,
+					parent.Name,
+					len(extendsRef.TypeArgs),
+					requiredParams,
+				)
 				c.report(d)
 			}
 		}
 	}
 
 	if hasCircularInheritance(typ, c.table, make(set.Set[string])) {
-		d := diagnostics.Errorf(nil, "circular inheritance detected: struct %s", typ.Name)
+		d := diagnostics.Errorf(
+			nil,
+			"circular inheritance detected: struct %s",
+			typ.Name,
+		)
 		c.report(d)
 		return
 	}
@@ -1624,9 +1729,14 @@ func validateActionExtends(c *analysisCtx, typ resolution.Type) {
 				}
 			}
 			if len(ext.TypeArgs) < requiredParams {
-				d := diagnostics.Errorf(nil,
+				d := diagnostics.Errorf(
+					nil,
 					"action %s extends %s but provides %d type arguments (need at least %d)",
-					action.Name, parent.Name, len(ext.TypeArgs), requiredParams)
+					action.Name,
+					parent.Name,
+					len(ext.TypeArgs),
+					requiredParams,
+				)
 				c.report(d)
 			}
 		}
@@ -1724,16 +1834,23 @@ func validateTypeParams(c *analysisCtx, typ resolution.Type) {
 			continue
 		}
 		if tp.Default == nil {
-			d := diagnostics.Errorf(nil,
+			d := diagnostics.Errorf(
+				nil,
 				"type parameter %s of %s constrained by 'numeric' requires a default (e.g. = float64); the constraint cannot be expressed concretely in Go, C++, Python, or Proto",
-				tp.Name, typ.Name)
+				tp.Name,
+				typ.Name,
+			)
 			c.report(d)
 			continue
 		}
 		if !resolution.IsNumberPrimitive(tp.Default.Name) {
-			d := diagnostics.Errorf(nil,
+			d := diagnostics.Errorf(
+				nil,
 				"type parameter %s of %s constrained by 'numeric' has non-numeric default %q; default must be a number primitive (int*, uint*, float32, float64)",
-				tp.Name, typ.Name, tp.Default.Name)
+				tp.Name,
+				typ.Name,
+				tp.Default.Name,
+			)
 			c.report(d)
 		}
 	}
@@ -1766,9 +1883,12 @@ func validateUnion(c *analysisCtx, typ resolution.Type) {
 	seenValues := set.New[string]()
 	for _, variant := range form.Variants {
 		if variant.Name == form.Discriminator {
-			d := diagnostics.Errorf(nil,
+			d := diagnostics.Errorf(
+				nil,
 				"union %s declares a variant value %q that collides with the discriminator field name; the generated per-variant and discriminator type names would clash",
-				typ.Name, variant.Name)
+				typ.Name,
+				variant.Name,
+			)
 			c.report(d)
 		}
 		if seenValues.Contains(variant.Name) {
@@ -1803,16 +1923,21 @@ func validateUnion(c *analysisCtx, typ resolution.Type) {
 	}
 
 	if baseFields.Contains(form.Discriminator) {
-		d := diagnostics.Errorf(nil,
+		d := diagnostics.Errorf(
+			nil,
 			"union %s base struct declares the discriminator field %q, which is owned by the union",
-			typ.Name, form.Discriminator)
+			typ.Name,
+			form.Discriminator,
+		)
 		c.report(d)
 	}
 
 	if baseFields.Contains("variant") {
-		d := diagnostics.Errorf(nil,
+		d := diagnostics.Errorf(
+			nil,
 			"union %s base struct declares a field named \"variant\", which is reserved for the union's generated protobuf oneof",
-			typ.Name)
+			typ.Name,
+		)
 		c.report(d)
 	}
 
@@ -1834,9 +1959,14 @@ func validateUnion(c *analysisCtx, typ resolution.Type) {
 		}
 		for _, f := range resolution.UnifiedFields(variantType, c.table) {
 			if f.Name == form.Discriminator {
-				d := diagnostics.Errorf(nil,
+				d := diagnostics.Errorf(
+					nil,
 					"union %s variant %q (%s) declares the discriminator field %q, which is owned by the union",
-					typ.Name, variant.Name, variantType.QualifiedName, form.Discriminator)
+					typ.Name,
+					variant.Name,
+					variantType.QualifiedName,
+					form.Discriminator,
+				)
 				c.report(d)
 				break
 			}
@@ -1844,7 +1974,11 @@ func validateUnion(c *analysisCtx, typ resolution.Type) {
 	}
 }
 
-func hasCircularInheritance(typ resolution.Type, table *resolution.Table, visited set.Set[string]) bool {
+func hasCircularInheritance(
+	typ resolution.Type,
+	table *resolution.Table,
+	visited set.Set[string],
+) bool {
 	if visited.Contains(typ.QualifiedName) {
 		return true
 	}

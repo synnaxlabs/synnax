@@ -50,7 +50,6 @@ var _ = Describe("Cluster", func() {
 	})
 
 	Describe("Node", func() {
-
 		It("Should return a node by its Name", func() {
 			c1 := MustSucceed(builder.New(clusterCtx, cluster.Config{}))
 			c2 := MustSucceed(builder.New(clusterCtx, cluster.Config{}))
@@ -63,11 +62,9 @@ var _ = Describe("Cluster", func() {
 				return n.Key
 			}).Should(Equal(c2.HostKey()))
 		})
-
 	})
 
 	Describe("Resolve", func() {
-
 		It("Should resolve the address of a node by its Name", func() {
 			c1 := MustSucceed(builder.New(clusterCtx, cluster.Config{}))
 			c2 := MustSucceed(builder.New(clusterCtx, cluster.Config{}))
@@ -80,7 +77,5 @@ var _ = Describe("Cluster", func() {
 				return addr
 			}).Should(Equal(address.Address("localhost:0")))
 		})
-
 	})
-
 })

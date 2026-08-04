@@ -50,11 +50,13 @@ var _ = Describe("PublishSignals", func() {
 	BeforeEach(func(ctx SpecContext) {
 		state = actions.NewState[uuid.UUID, testAction]()
 		serviceName = nextServiceName()
-		closer = MustSucceed(actions.PublishSignals(ctx, actions.SignalsConfig[uuid.UUID, testAction]{
-			Provider: sigs,
-			State:    state,
-			Name:     serviceName,
-		}))
+		closer = MustSucceed(
+			actions.PublishSignals(ctx, actions.SignalsConfig[uuid.UUID, testAction]{
+				Provider: sigs,
+				State:    state,
+				Name:     serviceName,
+			}),
+		)
 		DeferCleanup(func() { Expect(closer.Close()).To(Succeed()) })
 		Expect(channelSvc.NewRetrieve().
 			Where(channel.MatchNames(fmt.Sprintf("sy_%s_set", serviceName))).
@@ -83,52 +85,59 @@ var _ = Describe("PublishSignals", func() {
 		Expect(setChannel.Internal).To(BeTrue())
 	})
 
-	It("Should broadcast a Notify call as a JSON-encoded Scoped frame", func(ctx SpecContext) {
-		key := uuid.New()
-		actionSeq := []testAction{{Type: "rename", Payload: "next-name"}}
-		state.Dispatcher().Notify(ctx, key, "dk-1", actionSeq)
-		var res framer.StreamerResponse
-		Eventually(responses.Outlet(), time.Second*5).Should(Receive(&res))
-		Expect(res.Frame.KeysSlice()).To(ConsistOf(setChannel.Key()))
-		samples := res.Frame.SeriesAt(0).Samples()
-		var decoded []actions.Scoped[uuid.UUID, testAction]
-		for sample := range samples {
-			var sa actions.Scoped[uuid.UUID, testAction]
-			Expect(json.Unmarshal(sample, &sa)).To(Succeed())
-			decoded = append(decoded, sa)
-		}
-		Expect(decoded).To(HaveLen(1))
-		Expect(decoded[0].Key).To(Equal(key))
-		Expect(decoded[0].DispatchKey).To(Equal("dk-1"))
-		Expect(decoded[0].Seq).To(Equal(uint64(1)))
-		Expect(decoded[0].Actions).To(Equal(actionSeq))
-	})
-
-	It("Should stamp monotonically increasing Seq across successive Notify calls", func(ctx SpecContext) {
-		key := uuid.New()
-		d := state.Dispatcher()
-		d.Notify(ctx, key, "", []testAction{{Type: "a"}})
-		d.Notify(ctx, key, "", []testAction{{Type: "b"}})
-		d.Notify(ctx, key, "", []testAction{{Type: "c"}})
-		var seqs []uint64
-		Eventually(func(g Gomega) []uint64 {
-			select {
-			case res := <-responses.Outlet():
-				for sample := range res.Frame.SeriesAt(0).Samples() {
-					var sa actions.Scoped[uuid.UUID, testAction]
-					g.Expect(json.Unmarshal(sample, &sa)).To(Succeed())
-					seqs = append(seqs, sa.Seq)
-				}
-			default:
+	It(
+		"Should broadcast a Notify call as a JSON-encoded Scoped frame",
+		func(ctx SpecContext) {
+			key := uuid.New()
+			actionSeq := []testAction{{Type: "rename", Payload: "next-name"}}
+			state.Dispatcher().Notify(ctx, key, "dk-1", actionSeq)
+			var res framer.StreamerResponse
+			Eventually(responses.Outlet(), time.Second*5).Should(Receive(&res))
+			Expect(res.Frame.KeysSlice()).To(ConsistOf(setChannel.Key()))
+			samples := res.Frame.SeriesAt(0).Samples()
+			var decoded []actions.Scoped[uuid.UUID, testAction]
+			for sample := range samples {
+				var sa actions.Scoped[uuid.UUID, testAction]
+				Expect(json.Unmarshal(sample, &sa)).To(Succeed())
+				decoded = append(decoded, sa)
 			}
-			return seqs
-		}, time.Second*5).Should(Equal([]uint64{1, 2, 3}))
-	})
+			Expect(decoded).To(HaveLen(1))
+			Expect(decoded[0].Key).To(Equal(key))
+			Expect(decoded[0].DispatchKey).To(Equal("dk-1"))
+			Expect(decoded[0].Seq).To(Equal(uint64(1)))
+			Expect(decoded[0].Actions).To(Equal(actionSeq))
+		},
+	)
+
+	It(
+		"Should stamp monotonically increasing Seq across successive Notify calls",
+		func(ctx SpecContext) {
+			key := uuid.New()
+			d := state.Dispatcher()
+			d.Notify(ctx, key, "", []testAction{{Type: "a"}})
+			d.Notify(ctx, key, "", []testAction{{Type: "b"}})
+			d.Notify(ctx, key, "", []testAction{{Type: "c"}})
+			var seqs []uint64
+			Eventually(func(g Gomega) []uint64 {
+				select {
+				case res := <-responses.Outlet():
+					for sample := range res.Frame.SeriesAt(0).Samples() {
+						var sa actions.Scoped[uuid.UUID, testAction]
+						g.Expect(json.Unmarshal(sample, &sa)).To(Succeed())
+						seqs = append(seqs, sa.Seq)
+					}
+				default:
+				}
+				return seqs
+			}, time.Second*5).Should(Equal([]uint64{1, 2, 3}))
+		},
+	)
 })
 
 var _ = Describe("SignalsConfig", func() {
 	Describe("Validate", func() {
-		DescribeTable("Should reject configs missing required fields",
+		DescribeTable(
+			"Should reject configs missing required fields",
 			func(mutate func(*actions.SignalsConfig[uuid.UUID, testAction]), wantField string) {
 				state := actions.NewState[uuid.UUID, testAction]()
 				cfg := actions.SignalsConfig[uuid.UUID, testAction]{
@@ -139,12 +148,20 @@ var _ = Describe("SignalsConfig", func() {
 				mutate(&cfg)
 				Expect(cfg.Validate()).To(MatchError(ContainSubstring(wantField)))
 			},
-			Entry("missing provider", func(c *actions.SignalsConfig[uuid.UUID, testAction]) {
-				c.Provider = nil
-			}, "provider"),
-			Entry("missing state", func(c *actions.SignalsConfig[uuid.UUID, testAction]) {
-				c.State = nil
-			}, "state"),
+			Entry(
+				"missing provider",
+				func(c *actions.SignalsConfig[uuid.UUID, testAction]) {
+					c.Provider = nil
+				},
+				"provider",
+			),
+			Entry(
+				"missing state",
+				func(c *actions.SignalsConfig[uuid.UUID, testAction]) {
+					c.State = nil
+				},
+				"state",
+			),
 			Entry("empty name", func(c *actions.SignalsConfig[uuid.UUID, testAction]) {
 				c.Name = ""
 			}, "name"),

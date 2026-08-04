@@ -7,7 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-// Package expression implements type checking and semantic analysis for Arc expressions.
+// Package expression implements type checking and semantic analysis for Arc
+// expressions.
 package expression
 
 import (
@@ -25,9 +26,14 @@ import (
 	"github.com/synnaxlabs/x/query"
 )
 
-func isBool(t basetypes.Type) bool            { return t.IsBool() }
-func isNumeric(t basetypes.Type) bool         { return t.IsNumeric() }
-func isNumericOrString(t basetypes.Type) bool { return t.IsNumeric() || t.Kind == basetypes.KindString }
+func isBool(t basetypes.Type) bool    { return t.IsBool() }
+func isNumeric(t basetypes.Type) bool { return t.IsNumeric() }
+
+func isNumericOrString(
+	t basetypes.Type,
+) bool {
+	return t.IsNumeric() || t.Kind == basetypes.KindString
+}
 
 // tracksChannelRead reports whether reading resolved reads from a channel: a
 // channel symbol, a chan-typed param, or a channel alias. Value vars are not.
@@ -169,7 +175,7 @@ func getRelationalOperator(ctx antlr.ParserRuleContext) string {
 	return "comparison"
 }
 
-func validateType[T antlr.ParserRuleContext, N antlr.ParserRuleContext](
+func validateType[T, N antlr.ParserRuleContext](
 	ctx context.Context[N],
 	items []T,
 	getOperator func(ctx antlr.ParserRuleContext) string,
@@ -188,7 +194,14 @@ func validateType[T antlr.ParserRuleContext, N antlr.ParserRuleContext](
 	}
 
 	if firstType.Kind != basetypes.KindVariable && !check(firstType) {
-		ctx.Diagnostics.Add(diagnostics.Errorf(ctx.AST, "cannot use %s in %s operation", firstType, opName))
+		ctx.Diagnostics.Add(
+			diagnostics.Errorf(
+				ctx.AST,
+				"cannot use %s in %s operation",
+				firstType,
+				opName,
+			),
+		)
 		return
 	}
 
@@ -200,17 +213,24 @@ func validateType[T antlr.ParserRuleContext, N antlr.ParserRuleContext](
 			continue
 		}
 
-		// Check dimensional compatibility first if either operand has units
-		// This must be checked even for type variables since the unit is known at parse time
-		// Note: Power operations (^) are handled separately in analyzePower via ValidatePowerOp.
+		// Check dimensional compatibility first if either operand has units This must
+		// be checked even for type variables since the unit is known at parse time
+		// Note: Power operations (^) are handled separately in analyzePower via
+		// ValidatePowerOp.
 		if firstType.Unit != nil || nextType.Unit != nil {
 			if !units.ValidateBinaryOp(ctx, opName, firstType, nextType) {
 				return
 			}
 		}
 
-		if firstType.Kind == basetypes.KindVariable || nextType.Kind == basetypes.KindVariable {
-			if err := ctx.Constraints.AddCompatible(firstType, nextType, items[i], opName+" operands must be compatible"); err != nil {
+		if firstType.Kind == basetypes.KindVariable ||
+			nextType.Kind == basetypes.KindVariable {
+			if err := ctx.Constraints.AddCompatible(
+				firstType,
+				nextType,
+				items[i],
+				opName+" operands must be compatible",
+			); err != nil {
 				ctx.Diagnostics.Add(diagnostics.Error(err, ctx.AST))
 				return
 			}
@@ -219,13 +239,22 @@ func validateType[T antlr.ParserRuleContext, N antlr.ParserRuleContext](
 			// the concrete type rather than the permissive constraint. Without this,
 			// `1000.0 - f32_ch + f64_ch` would pass because both f32 and f64
 			// individually satisfy FloatConstraint, even though f32 != f64.
-			if firstType.Kind == basetypes.KindVariable && nextType.Kind != basetypes.KindVariable {
+			if firstType.Kind == basetypes.KindVariable &&
+				nextType.Kind != basetypes.KindVariable {
 				firstType = nextType
 			}
 		} else {
 			// Unit compatibility is already validated above by units.ValidateBinaryOp
 			if !types.Compatible(firstType, nextType) {
-				ctx.Diagnostics.Add(diagnostics.Errorf(ctx.AST, "type mismatch: cannot use %s and %s in %s operation", firstType, nextType, opName))
+				ctx.Diagnostics.Add(
+					diagnostics.Errorf(
+						ctx.AST,
+						"type mismatch: cannot use %s and %s in %s operation",
+						firstType,
+						nextType,
+						opName,
+					),
+				)
 				return
 			}
 		}
@@ -304,7 +333,9 @@ func analyzeAdditive(ctx context.Context[parser.IAdditiveExpressionContext]) {
 	)
 }
 
-func analyzeMultiplicative(ctx context.Context[parser.IMultiplicativeExpressionContext]) {
+func analyzeMultiplicative(
+	ctx context.Context[parser.IMultiplicativeExpressionContext],
+) {
 	powers := ctx.AST.AllPowerExpression()
 	for _, power := range powers {
 		analyzePower(context.Child(ctx, power))
@@ -328,7 +359,8 @@ func analyzePower(ctx context.Context[parser.IPowerExpressionContext]) {
 	}
 
 	if ctx.AST.CARET() != nil && power != nil {
-		baseType := types.InferFromUnaryExpression(context.Child(ctx, ctx.AST.UnaryExpression())).Unwrap()
+		baseType := types.InferFromUnaryExpression(context.Child(ctx, ctx.AST.UnaryExpression())).
+			Unwrap()
 		expType := types.InferPower(context.Child(ctx, power)).Unwrap()
 
 		if baseType.Unit != nil || expType.Unit != nil {
@@ -348,13 +380,24 @@ func analyzeUnary(ctx context.Context[parser.IUnaryExpressionContext]) {
 		operandType := types.InferFromUnaryExpression(childCtx)
 		if ctx.AST.MINUS() != nil {
 			if !operandType.IsNumeric() {
-				ctx.Diagnostics.Add(diagnostics.Errorf(ctx.AST, "operator - not supported for type %s", operandType))
+				ctx.Diagnostics.Add(
+					diagnostics.Errorf(
+						ctx.AST,
+						"operator - not supported for type %s",
+						operandType,
+					),
+				)
 				return
 			}
 		} else if ctx.AST.NOT() != nil {
 			if !operandType.IsBool() {
-				ctx.Diagnostics.Add(diagnostics.Errorf(ctx.AST, "operator 'not' requires boolean operand, received %s",
-					operandType))
+				ctx.Diagnostics.Add(
+					diagnostics.Errorf(
+						ctx.AST,
+						"operator 'not' requires boolean operand, received %s",
+						operandType,
+					),
+				)
 				return
 			}
 		}
@@ -407,16 +450,28 @@ func analyzePostfix(ctx context.Context[parser.IPostfixExpressionContext]) {
 				ctx.Diagnostics.Add(diagnostics.Errorf(
 					ctx.AST,
 					"function '%s' cannot be called inside a func block. Use it as a flow statement instead: %s{}",
-					funcName, funcName,
+					funcName,
+					funcName,
 				))
 				return
 			}
 			if funcName != "len" && funcName != "series.len" {
 				if hasMultipleNamedOutputs(scope.Type) {
-					ctx.Diagnostics.Add(diagnostics.Errorf(funcCalls[0],
-						"cannot call function %s: functions with multiple named outputs are not callable", funcName))
+					ctx.Diagnostics.Add(diagnostics.Errorf(
+						funcCalls[0],
+						"cannot call function %s: functions with multiple named outputs are not callable",
+						funcName,
+					))
 				} else {
-					AnalyzeCall(ctx, funcName, scope.Type, inputArguments(funcCalls[0]), scope.AnalyzeArguments, funcCalls[0], "")
+					AnalyzeCall(
+						ctx,
+						funcName,
+						scope.Type,
+						inputArguments(funcCalls[0]),
+						scope.AnalyzeArguments,
+						funcCalls[0],
+						"",
+					)
 				}
 			}
 			if callerFn != nil {
@@ -431,7 +486,10 @@ func analyzePostfix(ctx context.Context[parser.IPostfixExpressionContext]) {
 			}
 		} else {
 			ctx.Diagnostics.Add(diagnostics.Errorf(
-				funcCalls[0], "cannot call non-function %s of type %s", funcName, scope.Type,
+				funcCalls[0],
+				"cannot call non-function %s of type %s",
+				funcName,
+				scope.Type,
 			))
 		}
 	}
@@ -507,7 +565,14 @@ func analyzePrimary(ctx context.Context[parser.IPrimaryExpressionContext]) {
 			if typeCtx := typeCast.Type_(); typeCtx != nil {
 				targetType, _ := types.InferFromTypeContext(typeCtx)
 				if !isValidCast(sourceType, targetType) {
-					ctx.Diagnostics.Add(diagnostics.Errorf(ctx.AST, "cannot cast %s to %s", sourceType, targetType))
+					ctx.Diagnostics.Add(
+						diagnostics.Errorf(
+							ctx.AST,
+							"cannot cast %s to %s",
+							sourceType,
+							targetType,
+						),
+					)
 				}
 			}
 		}

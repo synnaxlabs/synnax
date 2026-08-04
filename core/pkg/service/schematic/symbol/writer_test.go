@@ -91,27 +91,39 @@ var _ = Describe("Writer", func() {
 			Expect(sym.Key).To(Equal(key))
 		})
 
-		It("Should update an existing Symbol if key already exists", func(ctx SpecContext) {
-			key := uuid.New()
-			sym1 := symbol.Symbol{
-				Key:  key,
-				Name: "original-name",
-				Data: symbol.Spec{SVG: "<svg>original</svg>", Variant: "valve"},
-			}
-			Expect(svc.NewWriter(tx).Create(ctx, &sym1, proj.OntologyID())).To(Succeed())
+		It(
+			"Should update an existing Symbol if key already exists",
+			func(ctx SpecContext) {
+				key := uuid.New()
+				sym1 := symbol.Symbol{
+					Key:  key,
+					Name: "original-name",
+					Data: symbol.Spec{SVG: "<svg>original</svg>", Variant: "valve"},
+				}
+				Expect(
+					svc.NewWriter(tx).Create(ctx, &sym1, proj.OntologyID()),
+				).To(Succeed())
 
-			sym2 := symbol.Symbol{
-				Key:  key,
-				Name: "updated-name",
-				Data: symbol.Spec{SVG: "<svg>updated</svg>", Variant: "valve"},
-			}
-			Expect(svc.NewWriter(tx).Create(ctx, &sym2, proj.OntologyID())).To(Succeed())
+				sym2 := symbol.Symbol{
+					Key:  key,
+					Name: "updated-name",
+					Data: symbol.Spec{SVG: "<svg>updated</svg>", Variant: "valve"},
+				}
+				Expect(
+					svc.NewWriter(tx).Create(ctx, &sym2, proj.OntologyID()),
+				).To(Succeed())
 
-			var retrieved symbol.Symbol
-			Expect(svc.NewRetrieve().Where(symbol.MatchKeys(key)).Entry(&retrieved).Exec(ctx, tx)).To(Succeed())
-			Expect(retrieved.Name).To(Equal("updated-name"))
-			Expect(retrieved.Data.SVG).To(Equal("<svg>updated</svg>"))
-		})
+				var retrieved symbol.Symbol
+				Expect(
+					svc.NewRetrieve().
+						Where(symbol.MatchKeys(key)).
+						Entry(&retrieved).
+						Exec(ctx, tx),
+				).To(Succeed())
+				Expect(retrieved.Name).To(Equal("updated-name"))
+				Expect(retrieved.Data.SVG).To(Equal("<svg>updated</svg>"))
+			},
+		)
 
 		It("Should properly set ontology relationships", func(ctx SpecContext) {
 			sym := symbol.Symbol{
@@ -127,28 +139,42 @@ var _ = Describe("Writer", func() {
 				Entries(&res).
 				Exec(ctx, tx)).To(Succeed())
 
-			keys := lo.Map(res, func(r ontology.Resource, _ int) string { return r.ID.Key })
+			keys := lo.Map(
+				res,
+				func(r ontology.Resource, _ int) string { return r.ID.Key },
+			)
 			Expect(keys).To(ContainElement(sym.Key.String()))
 		})
 
-		It("Should create a Symbol under the permanent symbols group if provided", func(ctx SpecContext) {
-			sym := symbol.Symbol{
-				Name: "group-test",
-				Data: symbol.Spec{SVG: "<svg>...</svg>", Variant: "valve"},
-			}
-			groupOntologyID := ontology.ID{Type: "group", Key: svc.Group().Key.String()}
-			Expect(svc.NewWriter(tx).Create(ctx, &sym, groupOntologyID)).To(Succeed())
+		It(
+			"Should create a Symbol under the permanent symbols group if provided",
+			func(ctx SpecContext) {
+				sym := symbol.Symbol{
+					Name: "group-test",
+					Data: symbol.Spec{SVG: "<svg>...</svg>", Variant: "valve"},
+				}
+				groupOntologyID := ontology.ID{
+					Type: "group",
+					Key:  svc.Group().Key.String(),
+				}
+				Expect(
+					svc.NewWriter(tx).Create(ctx, &sym, groupOntologyID),
+				).To(Succeed())
 
-			var res []ontology.Resource
-			Expect(otg.NewRetrieve().
-				WhereIDs(groupOntologyID).
-				TraverseTo(ontology.ChildrenTraverser).
-				Entries(&res).
-				Exec(ctx, tx)).To(Succeed())
+				var res []ontology.Resource
+				Expect(otg.NewRetrieve().
+					WhereIDs(groupOntologyID).
+					TraverseTo(ontology.ChildrenTraverser).
+					Entries(&res).
+					Exec(ctx, tx)).To(Succeed())
 
-			keys := lo.Map(res, func(r ontology.Resource, _ int) string { return r.ID.Key })
-			Expect(keys).To(ContainElement(sym.Key.String()))
-		})
+				keys := lo.Map(
+					res,
+					func(r ontology.Resource, _ int) string { return r.ID.Key },
+				)
+				Expect(keys).To(ContainElement(sym.Key.String()))
+			},
+		)
 	})
 
 	Describe("CreateMany", func() {
@@ -163,7 +189,9 @@ var _ = Describe("Writer", func() {
 					Data: symbol.Spec{SVG: "<svg>2</svg>", Variant: "valve"},
 				},
 			}
-			Expect(svc.NewWriter(tx).CreateMany(ctx, &symbols, proj.OntologyID())).To(Succeed())
+			Expect(
+				svc.NewWriter(tx).CreateMany(ctx, &symbols, proj.OntologyID()),
+			).To(Succeed())
 
 			var retrieved []symbol.Symbol
 			Expect(svc.NewRetrieve().Where(symbol.MatchKeys(
@@ -209,7 +237,12 @@ var _ = Describe("Writer", func() {
 			Expect(svc.NewWriter(tx).Rename(ctx, sym.Key, "renamed")).To(Succeed())
 
 			var res symbol.Symbol
-			Expect(svc.NewRetrieve().Where(symbol.MatchKeys(sym.Key)).Entry(&res).Exec(ctx, tx)).To(Succeed())
+			Expect(
+				svc.NewRetrieve().
+					Where(symbol.MatchKeys(sym.Key)).
+					Entry(&res).
+					Exec(ctx, tx),
+			).To(Succeed())
 			Expect(res.Data.SVG).To(Equal(originalData.SVG))
 		})
 	})
@@ -224,7 +257,10 @@ var _ = Describe("Writer", func() {
 			Expect(svc.NewWriter(tx).Delete(ctx, sym.Key)).To(Succeed())
 
 			var res symbol.Symbol
-			err := svc.NewRetrieve().Where(symbol.MatchKeys(sym.Key)).Entry(&res).Exec(ctx, tx)
+			err := svc.NewRetrieve().
+				Where(symbol.MatchKeys(sym.Key)).
+				Entry(&res).
+				Exec(ctx, tx)
 			Expect(err).To(MatchError(query.ErrNotFound))
 		})
 
@@ -242,9 +278,15 @@ var _ = Describe("Writer", func() {
 				Data: symbol.Spec{SVG: "<svg>3</svg>", Variant: "valve"},
 			}
 
-			Expect(svc.NewWriter(tx).Create(ctx, &sym1, proj.OntologyID())).To(Succeed())
-			Expect(svc.NewWriter(tx).Create(ctx, &sym2, proj.OntologyID())).To(Succeed())
-			Expect(svc.NewWriter(tx).Create(ctx, &sym3, proj.OntologyID())).To(Succeed())
+			Expect(
+				svc.NewWriter(tx).Create(ctx, &sym1, proj.OntologyID()),
+			).To(Succeed())
+			Expect(
+				svc.NewWriter(tx).Create(ctx, &sym2, proj.OntologyID()),
+			).To(Succeed())
+			Expect(
+				svc.NewWriter(tx).Create(ctx, &sym3, proj.OntologyID()),
+			).To(Succeed())
 
 			Expect(svc.NewWriter(tx).Delete(ctx, sym1.Key, sym2.Key)).To(Succeed())
 
@@ -271,7 +313,10 @@ var _ = Describe("Writer", func() {
 				TraverseTo(ontology.ChildrenTraverser).
 				Entries(&resBefore).
 				Exec(ctx, tx)).To(Succeed())
-			keysBefore := lo.Map(resBefore, func(r ontology.Resource, _ int) string { return r.ID.Key })
+			keysBefore := lo.Map(
+				resBefore,
+				func(r ontology.Resource, _ int) string { return r.ID.Key },
+			)
 			Expect(keysBefore).To(ContainElement(sym.Key.String()))
 
 			// Delete the symbol
@@ -284,7 +329,10 @@ var _ = Describe("Writer", func() {
 				TraverseTo(ontology.ChildrenTraverser).
 				Entries(&resAfter).
 				Exec(ctx, tx)).To(Succeed())
-			keysAfter := lo.Map(resAfter, func(r ontology.Resource, _ int) string { return r.ID.Key })
+			keysAfter := lo.Map(
+				resAfter,
+				func(r ontology.Resource, _ int) string { return r.ID.Key },
+			)
 			Expect(keysAfter).ToNot(ContainElement(sym.Key.String()))
 		})
 	})

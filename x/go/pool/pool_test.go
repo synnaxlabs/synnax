@@ -106,38 +106,41 @@ var _ = Describe("Pool", func() {
 				To(MatchError(ContainSubstring("factory: failed")))
 		})
 
-		It("serializes concurrent Acquire calls so the factory only runs once per key", func() {
-			f := newFactory()
-			p := DeferClose(pool.Open(f))
+		It(
+			"serializes concurrent Acquire calls so the factory only runs once per key",
+			func() {
+				f := newFactory()
+				p := DeferClose(pool.Open(f))
 
-			const goroutines = 32
-			var (
-				wg      sync.WaitGroup
-				mu      sync.Mutex
-				results []*fakeAdapter
-			)
-			start := make(chan struct{})
-			for range goroutines {
-				wg.Go(func() {
-					<-start
-					a, err := p.Acquire("shared")
-					if err != nil {
-						return
-					}
-					mu.Lock()
-					results = append(results, a)
-					mu.Unlock()
-				})
-			}
-			close(start)
-			wg.Wait()
+				const goroutines = 32
+				var (
+					wg      sync.WaitGroup
+					mu      sync.Mutex
+					results []*fakeAdapter
+				)
+				start := make(chan struct{})
+				for range goroutines {
+					wg.Go(func() {
+						<-start
+						a, err := p.Acquire("shared")
+						if err != nil {
+							return
+						}
+						mu.Lock()
+						results = append(results, a)
+						mu.Unlock()
+					})
+				}
+				close(start)
+				wg.Wait()
 
-			Expect(results).To(HaveLen(goroutines))
-			Expect(f.created).To(HaveLen(1))
-			for _, a := range results {
-				Expect(a).To(BeIdenticalTo(f.created[0]))
-			}
-		})
+				Expect(results).To(HaveLen(goroutines))
+				Expect(f.created).To(HaveLen(1))
+				for _, a := range results {
+					Expect(a).To(BeIdenticalTo(f.created[0]))
+				}
+			},
+		)
 	})
 
 	Describe("Close", func() {

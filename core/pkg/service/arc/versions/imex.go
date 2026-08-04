@@ -27,14 +27,14 @@ import (
 // camelCase keys, recursing through elem, constraint, and function params.
 // Frozen; Console files no longer evolve.
 type consoleType struct {
-	Inputs        consoleParams         `json:"inputs" msgpack:"inputs"`
-	Outputs       consoleParams         `json:"outputs" msgpack:"outputs"`
-	Config        consoleParams         `json:"config" msgpack:"config"`
-	Kind          typesv0.Kind          `json:"kind" msgpack:"kind"`
-	Name          string                `json:"name" msgpack:"name"`
-	Elem          *consoleType          `json:"elem" msgpack:"elem"`
-	Unit          *typesv0.Unit         `json:"unit" msgpack:"unit"`
-	Constraint    *consoleType          `json:"constraint" msgpack:"constraint"`
+	Inputs        consoleParams         `json:"inputs"        msgpack:"inputs"`
+	Outputs       consoleParams         `json:"outputs"       msgpack:"outputs"`
+	Config        consoleParams         `json:"config"        msgpack:"config"`
+	Kind          typesv0.Kind          `json:"kind"          msgpack:"kind"`
+	Name          string                `json:"name"          msgpack:"name"`
+	Elem          *consoleType          `json:"elem"          msgpack:"elem"`
+	Unit          *typesv0.Unit         `json:"unit"          msgpack:"unit"`
+	Constraint    *consoleType          `json:"constraint"    msgpack:"constraint"`
 	ChanDirection typesv0.ChanDirection `json:"chanDirection" msgpack:"chanDirection"`
 }
 
@@ -58,8 +58,8 @@ func (t consoleType) lift() typesv0.Type {
 
 // consoleParam mirrors typesv0.Param as Console-written files serialize it.
 type consoleParam struct {
-	Name  string      `json:"name" msgpack:"name"`
-	Type  consoleType `json:"type" msgpack:"type"`
+	Name  string      `json:"name"  msgpack:"name"`
+	Type  consoleType `json:"type"  msgpack:"type"`
 	Value any         `json:"value" msgpack:"value"`
 }
 
@@ -73,11 +73,11 @@ func (p consoleParams) lift() typesv0.Params {
 
 // consoleFunction mirrors irv0.Function as Console-written files serialize it.
 type consoleFunction struct {
-	Key      string           `json:"key" msgpack:"key"`
-	Body     irv0.Body        `json:"body" msgpack:"body"`
-	Config   consoleParams    `json:"config" msgpack:"config"`
-	Inputs   consoleParams    `json:"inputs" msgpack:"inputs"`
-	Outputs  consoleParams    `json:"outputs" msgpack:"outputs"`
+	Key      string           `json:"key"      msgpack:"key"`
+	Body     irv0.Body        `json:"body"     msgpack:"body"`
+	Config   consoleParams    `json:"config"   msgpack:"config"`
+	Inputs   consoleParams    `json:"inputs"   msgpack:"inputs"`
+	Outputs  consoleParams    `json:"outputs"  msgpack:"outputs"`
 	Channels typesv0.Channels `json:"channels" msgpack:"channels"`
 }
 
@@ -91,10 +91,10 @@ func (f consoleFunction) lift() irv0.Function {
 // consoleGraph mirrors graphv0.Graph, the pre-lift shape Console files carry:
 // keyless edges and per-node config records that MigrateGraph folds into Inputs.
 type consoleGraph struct {
-	Viewport  graphv0.Viewport  `json:"viewport" msgpack:"viewport"`
+	Viewport  graphv0.Viewport  `json:"viewport"  msgpack:"viewport"`
 	Functions []consoleFunction `json:"functions" msgpack:"functions"`
-	Edges     irv0.Edges        `json:"edges" msgpack:"edges"`
-	Nodes     graphv0.Nodes     `json:"nodes" msgpack:"nodes"`
+	Edges     irv0.Edges        `json:"edges"     msgpack:"edges"`
+	Nodes     graphv0.Nodes     `json:"nodes"     msgpack:"nodes"`
 }
 
 func (g consoleGraph) lift() graphv0.Graph {
@@ -110,9 +110,9 @@ func (g consoleGraph) lift() graphv0.Graph {
 
 // consoleTyped mirrors the typed Arc export written by the Console.
 type consoleTyped struct {
-	Mode  Mode         `json:"mode" msgpack:"mode"`
+	Mode  Mode         `json:"mode"  msgpack:"mode"`
 	Graph consoleGraph `json:"graph" msgpack:"graph"`
-	Text  text.Text    `json:"text" msgpack:"text"`
+	Text  text.Text    `json:"text"  msgpack:"text"`
 }
 
 // DecodeImport materializes the envelope's body as a current-version Arc. Envelopes

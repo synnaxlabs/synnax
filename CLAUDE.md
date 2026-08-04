@@ -44,7 +44,7 @@ needing broader context:
 ## Universal Code Style
 
 - **88-character lines** in all languages. Formatters: Prettier (TS), Ruff (Python),
-  gofmt (Go), clang-format (C++).
+  golangci-lint fmt (Go), clang-format (C++).
 - **BDD-style tests** with the language's framework; co-located with source where the
   language allows.
 - **Absolute imports** in TypeScript (`@/components`).
@@ -106,12 +106,16 @@ Dependencies are explicit, injected inputs — never reached for ambiently. All 
 
 ## Comments (all languages)
 
-**Wrap comment prose at 88 columns by hand.** No formatter reflows comment text —
-Prettier, Ruff, gofmt, and clang-format all leave `//`/`#` prose untouched — so an
-over-long comment line silently passes the format check and ships. After writing or
-editing any comment, verify no line exceeds 88 columns, and re-flow the whole paragraph
-when a mid-line edit pushes a line over. Watch multi-byte runes (em dash `—`, curly
-quotes): byte-count tools overcount, so measure characters.
+**Wrap comment prose at 88 columns by hand, filling each line to the limit.** Prettier,
+Ruff, and clang-format leave `//`/`#` prose untouched, so an over-long comment line
+silently passes the format check and ships. In Go, golines splits over-88 comment lines,
+but mechanically — it breaks mid-phrase instead of reflowing the paragraph — so
+hand-wrap anyway. Break a line only when the next word would push it past 88: Claude
+sessions habitually wrap early (~75–82), leaving ragged short lines that reviewers must
+refill. After writing or editing any comment, check both bounds — no line over 88, no
+line breaking while the next word still fits — and re-flow the whole paragraph when a
+mid-line edit changes its length. Watch multi-byte runes (em dash `—`, curly quotes):
+byte-count tools overcount, so measure characters.
 
 ### 🚨 KEEP COMMENTS SHORT. THIS IS THE #1 VIOLATION. 🚨
 

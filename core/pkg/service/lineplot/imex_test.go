@@ -46,12 +46,17 @@ var _ = Describe("ImEx", func() {
 			Expect(env.Type).To(Equal("lineplot"))
 			Expect(env.Name).To(Equal("exported"))
 
-			decoded := MustSucceed(imex.Decode[lineplot.LinePlot](ctx, WireRoundTrip(env)))
+			decoded := MustSucceed(
+				imex.Decode[lineplot.LinePlot](ctx, WireRoundTrip(env)),
+			)
 			Expect(decoded.Name).To(Equal("exported"))
 		})
 
 		It("Should return not found for a missing key", func(ctx SpecContext) {
-			id := ontology.ID{Type: ontology.ResourceTypeLineplot, Key: uuid.NewString()}
+			id := ontology.ID{
+				Type: ontology.ResourceTypeLineplot,
+				Key:  uuid.NewString(),
+			}
 			Expect(svc.Export(ctx, id)).Error().To(MatchError(query.ErrNotFound))
 		})
 
@@ -87,30 +92,38 @@ var _ = Describe("ImEx", func() {
 			Expect(res.Lines).To(HaveLen(2))
 		})
 
-		It("Should import a Console typed export carrying camelCase keys", func(ctx SpecContext) {
-			res := importAndRetrieve(
-				ctx, "versions/testdata/import_typed_console.json", imex.ImportOptions{},
-			)
-			Expect(res.Name).To(Equal("Console Typed"))
-			Expect(res.Channels.Y1).To(Equal([]channel.Key{3}))
-			Expect(res.Axes.Y1.Label).To(Equal("speed"))
-			Expect(res.Axes.Y1.ManualBounds).To(
-				Equal(lineplot.ManualBounds{Lower: true, Upper: false}),
-			)
-		})
+		It(
+			"Should import a Console typed export carrying camelCase keys",
+			func(ctx SpecContext) {
+				res := importAndRetrieve(
+					ctx,
+					"versions/testdata/import_typed_console.json",
+					imex.ImportOptions{},
+				)
+				Expect(res.Name).To(Equal("Console Typed"))
+				Expect(res.Channels.Y1).To(Equal([]channel.Key{3}))
+				Expect(res.Axes.Y1.Label).To(Equal("speed"))
+				Expect(res.Axes.Y1.ManualBounds).To(
+					Equal(lineplot.ManualBounds{Lower: true, Upper: false}),
+				)
+			},
+		)
 
-		It("Should import a v5 Console state from its pendingUpload", func(ctx SpecContext) {
-			res := importAndRetrieve(
-				ctx, "versions/testdata/import_v5_state.json",
-				imex.ImportOptions{FileName: "My Plot.json"},
-			)
-			Expect(res.Name).To(Equal("My Plot"))
-			Expect(res.Channels.Y1).To(Equal([]channel.Key{7}))
-			Expect(res.Axes.Y1.Label).To(Equal("speed"))
-			Expect(res.Axes.Y1.ManualBounds).To(
-				Equal(lineplot.ManualBounds{Lower: true, Upper: false}),
-			)
-		})
+		It(
+			"Should import a v5 Console state from its pendingUpload",
+			func(ctx SpecContext) {
+				res := importAndRetrieve(
+					ctx, "versions/testdata/import_v5_state.json",
+					imex.ImportOptions{FileName: "My Plot.json"},
+				)
+				Expect(res.Name).To(Equal("My Plot"))
+				Expect(res.Channels.Y1).To(Equal([]channel.Key{7}))
+				Expect(res.Axes.Y1.Label).To(Equal("speed"))
+				Expect(res.Axes.Y1.ManualBounds).To(
+					Equal(lineplot.ManualBounds{Lower: true, Upper: false}),
+				)
+			},
+		)
 
 		It("Should reject a v5 Console state with no body data", func(ctx SpecContext) {
 			Expect(imexSvc.Import(ctx, db,
@@ -122,62 +135,81 @@ var _ = Describe("ImEx", func() {
 			))
 		})
 
-		It("Should import a v0 Console state through the legacy chain", func(ctx SpecContext) {
-			res := importAndRetrieve(
-				ctx, "versions/testdata/import_v0_state.json",
-				imex.ImportOptions{FileName: "Legacy Plot.json"},
-			)
-			Expect(res.Name).To(Equal("Legacy Plot"))
-			Expect(res.Channels.Y1).To(Equal([]channel.Key{9}))
-			Expect(res.Axes.Y1.Label).To(Equal("pressure"))
-			Expect(res.Axes.Y1.ManualBounds).To(
-				Equal(lineplot.ManualBounds{Lower: true, Upper: false}),
-			)
-			Expect(res.Rules).To(HaveLen(1))
-			Expect(res.Rules[0].Label).To(Equal("max"))
-			Expect(res.Rules[0].Position).To(Equal(42.0))
-		})
+		It(
+			"Should import a v0 Console state through the legacy chain",
+			func(ctx SpecContext) {
+				res := importAndRetrieve(
+					ctx, "versions/testdata/import_v0_state.json",
+					imex.ImportOptions{FileName: "Legacy Plot.json"},
+				)
+				Expect(res.Name).To(Equal("Legacy Plot"))
+				Expect(res.Channels.Y1).To(Equal([]channel.Key{9}))
+				Expect(res.Axes.Y1.Label).To(Equal("pressure"))
+				Expect(res.Axes.Y1.ManualBounds).To(
+					Equal(lineplot.ManualBounds{Lower: true, Upper: false}),
+				)
+				Expect(res.Rules).To(HaveLen(1))
+				Expect(res.Rules[0].Label).To(Equal("max"))
+				Expect(res.Rules[0].Position).To(Equal(42.0))
+			},
+		)
 
-		It("Should reject an envelope newer than the supported version", func(ctx SpecContext) {
-			Expect(imexSvc.Import(ctx, db,
-				loadEnvelope("versions/testdata/import_bad_version.json"),
-				imex.ImportOptions{},
-			)).Error().To(SatisfyAll(
-				MatchError(ContainSubstring("lineplot version 99")),
-				MatchError(ContainSubstring("newer than this Core supports")),
-			))
-		})
+		It(
+			"Should reject an envelope newer than the supported version",
+			func(ctx SpecContext) {
+				Expect(imexSvc.Import(ctx, db,
+					loadEnvelope("versions/testdata/import_bad_version.json"),
+					imex.ImportOptions{},
+				)).Error().To(SatisfyAll(
+					MatchError(ContainSubstring("lineplot version 99")),
+					MatchError(ContainSubstring("newer than this Core supports")),
+				))
+			},
+		)
 
-		It("Should generate a fresh key, discarding the key on the wire", func(ctx SpecContext) {
-			id := MustSucceed(imexSvc.Import(ctx, db,
-				loadEnvelope("versions/testdata/import_v6.json"), imex.ImportOptions{},
-			))
-			Expect(id.Key).ToNot(Equal("11111111-2222-3333-4444-555555555555"))
-		})
+		It(
+			"Should generate a fresh key, discarding the key on the wire",
+			func(ctx SpecContext) {
+				id := MustSucceed(imexSvc.Import(
+					ctx,
+					db,
+					loadEnvelope(
+						"versions/testdata/import_v6.json",
+					),
+					imex.ImportOptions{},
+				))
+				Expect(id.Key).ToNot(Equal("11111111-2222-3333-4444-555555555555"))
+			},
+		)
 	})
 
 	Describe("Round trip", func() {
-		It("Should preserve plot content through export then import", func(ctx SpecContext) {
-			original := lineplot.LinePlot{
-				Name:     "round-trip",
-				Channels: lineplot.Channels{Y1: []channel.Key{4, 5}},
-				Ranges:   lineplot.Ranges{X1: []string{"recent"}},
-			}
-			Expect(svc.NewWriter(nil).Create(ctx, proj.Key, &original)).To(Succeed())
-			env := MustSucceed(svc.Export(ctx, lineplot.OntologyID(original.Key)))
-			id := MustSucceed(imexSvc.Import(
-				ctx, db, WireRoundTrip(env), imex.ImportOptions{},
-			))
-			key := MustSucceed(uuid.Parse(id.Key))
-			Expect(key).ToNot(Equal(original.Key))
-			var res lineplot.LinePlot
-			Expect(svc.NewRetrieve().
-				Where(lineplot.MatchKeys(key)).
-				Entry(&res).
-				Exec(ctx, db)).To(Succeed())
-			Expect(res.Name).To(Equal("round-trip"))
-			Expect(res.Channels).To(Equal(original.Channels))
-			Expect(res.Ranges).To(Equal(original.Ranges))
-		})
+		It(
+			"Should preserve plot content through export then import",
+			func(ctx SpecContext) {
+				original := lineplot.LinePlot{
+					Name:     "round-trip",
+					Channels: lineplot.Channels{Y1: []channel.Key{4, 5}},
+					Ranges:   lineplot.Ranges{X1: []string{"recent"}},
+				}
+				Expect(
+					svc.NewWriter(nil).Create(ctx, proj.Key, &original),
+				).To(Succeed())
+				env := MustSucceed(svc.Export(ctx, lineplot.OntologyID(original.Key)))
+				id := MustSucceed(imexSvc.Import(
+					ctx, db, WireRoundTrip(env), imex.ImportOptions{},
+				))
+				key := MustSucceed(uuid.Parse(id.Key))
+				Expect(key).ToNot(Equal(original.Key))
+				var res lineplot.LinePlot
+				Expect(svc.NewRetrieve().
+					Where(lineplot.MatchKeys(key)).
+					Entry(&res).
+					Exec(ctx, db)).To(Succeed())
+				Expect(res.Name).To(Equal("round-trip"))
+				Expect(res.Channels).To(Equal(original.Channels))
+				Expect(res.Ranges).To(Equal(original.Ranges))
+			},
+		)
 	})
 })

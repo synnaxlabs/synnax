@@ -89,13 +89,21 @@ var _ = Describe("Extract", func() {
 
 	It("should use first matching type with ontology domain", func() {
 		types := []resolution.Type{
-			{Name: "First", Form: resolution.StructForm{}, Domains: map[string]resolution.Domain{}},
-			{Name: "Second", Form: resolution.StructForm{}, Domains: map[string]resolution.Domain{
-				"ontology": {Expressions: []resolution.Expression{{
-					Name:   "type",
-					Values: []resolution.ExpressionValue{{StringValue: "task"}},
-				}}},
-			}},
+			{
+				Name:    "First",
+				Form:    resolution.StructForm{},
+				Domains: map[string]resolution.Domain{},
+			},
+			{
+				Name: "Second",
+				Form: resolution.StructForm{},
+				Domains: map[string]resolution.Domain{
+					"ontology": {Expressions: []resolution.Expression{{
+						Name:   "type",
+						Values: []resolution.ExpressionValue{{StringValue: "task"}},
+					}}},
+				},
+			},
 		}
 		keyFields := []key.Field{{Name: "key", Primitive: "uint32"}}
 		result := ontology.Extract(types, keyFields, nil)

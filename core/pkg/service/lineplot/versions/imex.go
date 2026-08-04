@@ -39,13 +39,13 @@ type stateV5 struct {
 // consoleAxis mirrors Axis as Console-written files serialize it: camelCase
 // keys. Frozen; Console files no longer evolve.
 type consoleAxis struct {
-	Key            AxisKey           `json:"key" msgpack:"key"`
-	Label          string            `json:"label" msgpack:"label"`
+	Key            AxisKey           `json:"key"            msgpack:"key"`
+	Label          string            `json:"label"          msgpack:"label"`
 	LabelDirection spatial.Direction `json:"labelDirection" msgpack:"labelDirection"`
-	LabelLevel     text.Level        `json:"labelLevel" msgpack:"labelLevel"`
-	Bounds         spatial.Bounds    `json:"bounds" msgpack:"bounds"`
-	ManualBounds   ManualBounds      `json:"manualBounds" msgpack:"manualBounds"`
-	TickSpacing    float64           `json:"tickSpacing" msgpack:"tickSpacing"`
+	LabelLevel     text.Level        `json:"labelLevel"     msgpack:"labelLevel"`
+	Bounds         spatial.Bounds    `json:"bounds"         msgpack:"bounds"`
+	ManualBounds   ManualBounds      `json:"manualBounds"   msgpack:"manualBounds"`
+	TickSpacing    float64           `json:"tickSpacing"    msgpack:"tickSpacing"`
 	Type           *TickType         `json:"type,omitempty" msgpack:"type,omitempty"`
 }
 
@@ -76,12 +76,12 @@ func (a consoleAxes) axes() Axes {
 
 // consoleLine mirrors Line as Console-written files serialize it.
 type consoleLine struct {
-	Key            string         `json:"key" msgpack:"key"`
+	Key            string         `json:"key"             msgpack:"key"`
 	Label          *string        `json:"label,omitempty" msgpack:"label,omitempty"`
 	Color          *color.Color   `json:"color,omitempty" msgpack:"color,omitempty"`
-	StrokeWidth    float64        `json:"strokeWidth" msgpack:"strokeWidth"`
-	Downsample     uint32         `json:"downsample" msgpack:"downsample"`
-	DownsampleMode DownsampleMode `json:"downsampleMode" msgpack:"downsampleMode"`
+	StrokeWidth    float64        `json:"strokeWidth"     msgpack:"strokeWidth"`
+	Downsample     uint32         `json:"downsample"      msgpack:"downsample"`
+	DownsampleMode DownsampleMode `json:"downsampleMode"  msgpack:"downsampleMode"`
 }
 
 func (l consoleLine) line() Line {
@@ -93,14 +93,14 @@ func (l consoleLine) line() Line {
 
 // consoleRule mirrors Rule as Console-written files serialize it.
 type consoleRule struct {
-	Key       string       `json:"key" msgpack:"key"`
-	Label     string       `json:"label" msgpack:"label"`
+	Key       string       `json:"key"             msgpack:"key"`
+	Label     string       `json:"label"           msgpack:"label"`
 	Color     *color.Color `json:"color,omitempty" msgpack:"color,omitempty"`
-	Axis      AxisKey      `json:"axis" msgpack:"axis"`
-	LineWidth float64      `json:"lineWidth" msgpack:"lineWidth"`
-	LineDash  float64      `json:"lineDash" msgpack:"lineDash"`
-	Units     string       `json:"units" msgpack:"units"`
-	Position  float64      `json:"position" msgpack:"position"`
+	Axis      AxisKey      `json:"axis"            msgpack:"axis"`
+	LineWidth float64      `json:"lineWidth"       msgpack:"lineWidth"`
+	LineDash  float64      `json:"lineDash"        msgpack:"lineDash"`
+	Units     string       `json:"units"           msgpack:"units"`
+	Position  float64      `json:"position"        msgpack:"position"`
 }
 
 func (r consoleRule) rule() Rule {
@@ -115,13 +115,13 @@ func (r consoleRule) rule() Rule {
 // files serialize them: the typed export's top level, and the v5 state's
 // pendingUpload.
 type consoleDocument struct {
-	Title    Title         `json:"title" msgpack:"title"`
-	Legend   Legend        `json:"legend" msgpack:"legend"`
+	Title    Title         `json:"title"    msgpack:"title"`
+	Legend   Legend        `json:"legend"   msgpack:"legend"`
 	Channels Channels      `json:"channels" msgpack:"channels"`
-	Ranges   Ranges        `json:"ranges" msgpack:"ranges"`
-	Axes     consoleAxes   `json:"axes" msgpack:"axes"`
-	Lines    []consoleLine `json:"lines" msgpack:"lines"`
-	Rules    []consoleRule `json:"rules" msgpack:"rules"`
+	Ranges   Ranges        `json:"ranges"   msgpack:"ranges"`
+	Axes     consoleAxes   `json:"axes"     msgpack:"axes"`
+	Lines    []consoleLine `json:"lines"    msgpack:"lines"`
+	Rules    []consoleRule `json:"rules"    msgpack:"rules"`
 }
 
 // linePlot lifts the Console document into the current LinePlot shape.

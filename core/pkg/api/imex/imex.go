@@ -108,7 +108,10 @@ func parseImportOptions(ctx context.Context) (imex.ImportOptions, error) {
 	v, ok := freighter.MDFromContext(ctx).Get("params")
 	s, isStr := v.(string)
 	if !ok || !isStr || s == "" {
-		return imex.ImportOptions{}, validate.PathedError(validate.ErrRequired, "params")
+		return imex.ImportOptions{}, validate.PathedError(
+			validate.ErrRequired,
+			"params",
+		)
 	}
 	var params importParams
 	if err := json.Unmarshal([]byte(s), &params); err != nil {
@@ -123,7 +126,10 @@ func parseImportOptions(ctx context.Context) (imex.ImportOptions, error) {
 		)
 	}
 	if params.Parent == "" {
-		return imex.ImportOptions{}, validate.PathedError(validate.ErrRequired, "parent")
+		return imex.ImportOptions{}, validate.PathedError(
+			validate.ErrRequired,
+			"parent",
+		)
 	}
 	parent, err := ontology.ParseID(params.Parent)
 	if err != nil {

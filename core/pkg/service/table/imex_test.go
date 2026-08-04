@@ -86,96 +86,128 @@ var _ = Describe("ImEx", func() {
 			Expect(res.Cells["c1"].Variant).To(Equal("text"))
 		})
 
-		It("Should import a Console typed export carrying camelCase keys", func(ctx SpecContext) {
-			res := importAndRetrieve(
-				ctx, "versions/testdata/import_typed_console.json", imex.ImportOptions{},
-			)
-			Expect(res.Name).To(Equal("Console Typed"))
-			Expect(res.Rows).To(HaveLen(1))
-			var props map[string]any
-			Expect(res.Cells["c1"].Props.Unmarshal(&props)).To(Succeed())
-			Expect(props).To(HaveKeyWithValue("fooBar", 1.0))
-		})
+		It(
+			"Should import a Console typed export carrying camelCase keys",
+			func(ctx SpecContext) {
+				res := importAndRetrieve(
+					ctx,
+					"versions/testdata/import_typed_console.json",
+					imex.ImportOptions{},
+				)
+				Expect(res.Name).To(Equal("Console Typed"))
+				Expect(res.Rows).To(HaveLen(1))
+				var props map[string]any
+				Expect(res.Cells["c1"].Props.Unmarshal(&props)).To(Succeed())
+				Expect(props).To(HaveKeyWithValue("fooBar", 1.0))
+			},
+		)
 
-		It("Should import a v1 Console state from its pendingUpload", func(ctx SpecContext) {
-			res := importAndRetrieve(
-				ctx, "versions/testdata/import_v1_state.json",
-				imex.ImportOptions{FileName: "My Table.json"},
-			)
-			Expect(res.Name).To(Equal("My Table"))
-			Expect(res.Rows).To(Equal([]table.Row{{Size: 30, Cells: []string{"c1"}}}))
-			var props map[string]any
-			Expect(res.Cells["c1"].Props.Unmarshal(&props)).To(Succeed())
-			Expect(props).To(HaveKeyWithValue("fooBar", 2.0))
-		})
+		It(
+			"Should import a v1 Console state from its pendingUpload",
+			func(ctx SpecContext) {
+				res := importAndRetrieve(
+					ctx, "versions/testdata/import_v1_state.json",
+					imex.ImportOptions{FileName: "My Table.json"},
+				)
+				Expect(res.Name).To(Equal("My Table"))
+				Expect(
+					res.Rows,
+				).To(Equal([]table.Row{{Size: 30, Cells: []string{"c1"}}}))
+				var props map[string]any
+				Expect(res.Cells["c1"].Props.Unmarshal(&props)).To(Succeed())
+				Expect(props).To(HaveKeyWithValue("fooBar", 2.0))
+			},
+		)
 
-		It("Should reject a v1 Console state with no structural data", func(ctx SpecContext) {
-			Expect(imexSvc.Import(ctx, db,
-				loadEnvelope("versions/testdata/import_v1_state_empty.json"),
-				imex.ImportOptions{FileName: "empty.json"},
-			)).Error().To(SatisfyAll(
-				MatchError(validate.ErrValidation),
-				MatchError(ContainSubstring("no structural data")),
-			))
-		})
+		It(
+			"Should reject a v1 Console state with no structural data",
+			func(ctx SpecContext) {
+				Expect(imexSvc.Import(ctx, db,
+					loadEnvelope("versions/testdata/import_v1_state_empty.json"),
+					imex.ImportOptions{FileName: "empty.json"},
+				)).Error().To(SatisfyAll(
+					MatchError(validate.ErrValidation),
+					MatchError(ContainSubstring("no structural data")),
+				))
+			},
+		)
 
-		It("Should import a v0 Console state through the legacy chain", func(ctx SpecContext) {
-			res := importAndRetrieve(
-				ctx, "versions/testdata/import_v0_state.json",
-				imex.ImportOptions{FileName: "Legacy Table.json"},
-			)
-			Expect(res.Name).To(Equal("Legacy Table"))
-			Expect(res.Rows).To(
-				Equal([]table.Row{{Size: 30, Cells: []string{"c1", "c2"}}}),
-			)
-			Expect(res.Columns).To(Equal([]table.Column{{Size: 100}, {Size: 120}}))
-			Expect(res.Cells).To(HaveLen(2))
-			Expect(res.Cells["c2"].Variant).To(Equal("value"))
-			var props map[string]any
-			Expect(res.Cells["c1"].Props.Unmarshal(&props)).To(Succeed())
-			Expect(props).To(HaveKeyWithValue("fooBar", 3.0))
-		})
+		It(
+			"Should import a v0 Console state through the legacy chain",
+			func(ctx SpecContext) {
+				res := importAndRetrieve(
+					ctx, "versions/testdata/import_v0_state.json",
+					imex.ImportOptions{FileName: "Legacy Table.json"},
+				)
+				Expect(res.Name).To(Equal("Legacy Table"))
+				Expect(res.Rows).To(
+					Equal([]table.Row{{Size: 30, Cells: []string{"c1", "c2"}}}),
+				)
+				Expect(res.Columns).To(Equal([]table.Column{{Size: 100}, {Size: 120}}))
+				Expect(res.Cells).To(HaveLen(2))
+				Expect(res.Cells["c2"].Variant).To(Equal("value"))
+				var props map[string]any
+				Expect(res.Cells["c1"].Props.Unmarshal(&props)).To(Succeed())
+				Expect(props).To(HaveKeyWithValue("fooBar", 3.0))
+			},
+		)
 
-		It("Should reject an envelope newer than the supported version", func(ctx SpecContext) {
-			Expect(imexSvc.Import(ctx, db,
-				loadEnvelope("versions/testdata/import_bad_version.json"),
-				imex.ImportOptions{},
-			)).Error().To(SatisfyAll(
-				MatchError(ContainSubstring("table version 99")),
-				MatchError(ContainSubstring("newer than this Core supports")),
-			))
-		})
+		It(
+			"Should reject an envelope newer than the supported version",
+			func(ctx SpecContext) {
+				Expect(imexSvc.Import(ctx, db,
+					loadEnvelope("versions/testdata/import_bad_version.json"),
+					imex.ImportOptions{},
+				)).Error().To(SatisfyAll(
+					MatchError(ContainSubstring("table version 99")),
+					MatchError(ContainSubstring("newer than this Core supports")),
+				))
+			},
+		)
 
-		It("Should generate a fresh key, discarding the key on the wire", func(ctx SpecContext) {
-			id := MustSucceed(imexSvc.Import(ctx, db,
-				loadEnvelope("versions/testdata/import_v2.json"), imex.ImportOptions{},
-			))
-			Expect(id.Key).ToNot(Equal("11111111-2222-3333-4444-555555555555"))
-		})
+		It(
+			"Should generate a fresh key, discarding the key on the wire",
+			func(ctx SpecContext) {
+				id := MustSucceed(imexSvc.Import(
+					ctx,
+					db,
+					loadEnvelope(
+						"versions/testdata/import_v2.json",
+					),
+					imex.ImportOptions{},
+				))
+				Expect(id.Key).ToNot(Equal("11111111-2222-3333-4444-555555555555"))
+			},
+		)
 	})
 
 	Describe("Round trip", func() {
-		It("Should preserve table content through export then import", func(ctx SpecContext) {
-			original := table.Table{
-				Name:    "round-trip",
-				Rows:    []table.Row{{Size: 42, Cells: []string{"c1"}}},
-				Columns: []table.Column{{Size: 77}},
-			}
-			Expect(svc.NewWriter(nil).Create(ctx, proj.Key, &original)).To(Succeed())
-			env := MustSucceed(svc.Export(ctx, table.OntologyID(original.Key)))
-			id := MustSucceed(imexSvc.Import(
-				ctx, db, WireRoundTrip(env), imex.ImportOptions{},
-			))
-			key := MustSucceed(uuid.Parse(id.Key))
-			Expect(key).ToNot(Equal(original.Key))
-			var res table.Table
-			Expect(svc.NewRetrieve().
-				Where(table.MatchKeys(key)).
-				Entry(&res).
-				Exec(ctx, db)).To(Succeed())
-			Expect(res.Name).To(Equal("round-trip"))
-			Expect(res.Rows).To(Equal(original.Rows))
-			Expect(res.Columns).To(Equal(original.Columns))
-		})
+		It(
+			"Should preserve table content through export then import",
+			func(ctx SpecContext) {
+				original := table.Table{
+					Name:    "round-trip",
+					Rows:    []table.Row{{Size: 42, Cells: []string{"c1"}}},
+					Columns: []table.Column{{Size: 77}},
+				}
+				Expect(
+					svc.NewWriter(nil).Create(ctx, proj.Key, &original),
+				).To(Succeed())
+				env := MustSucceed(svc.Export(ctx, table.OntologyID(original.Key)))
+				id := MustSucceed(imexSvc.Import(
+					ctx, db, WireRoundTrip(env), imex.ImportOptions{},
+				))
+				key := MustSucceed(uuid.Parse(id.Key))
+				Expect(key).ToNot(Equal(original.Key))
+				var res table.Table
+				Expect(svc.NewRetrieve().
+					Where(table.MatchKeys(key)).
+					Entry(&res).
+					Exec(ctx, db)).To(Succeed())
+				Expect(res.Name).To(Equal("round-trip"))
+				Expect(res.Rows).To(Equal(original.Rows))
+				Expect(res.Columns).To(Equal(original.Columns))
+			},
+		)
 	})
 })

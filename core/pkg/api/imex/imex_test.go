@@ -57,32 +57,38 @@ func testEnvelope(name string) apiimex.ImportRequest {
 }
 
 var _ = Describe("Import", func() {
-	It("Should hand the file_name and parent params to the importer", func(ctx SpecContext) {
-		key := uuid.New()
-		fctx := rootCtx(ctx)
-		fctx.Set("params", fmt.Sprintf(
-			`{"file_name":"Metrics Log.json","parent":"project:%s"}`, key,
-		))
-		id := MustSucceed(apiSvc.Import(fctx, db, testEnvelope("with-options")))
-		Expect(id.Key).To(Equal("with-options"))
-		Expect(importer.opts.FileName).To(Equal("Metrics Log.json"))
-		Expect(importer.opts.Parent).To(Equal(ontology.ID{
-			Type: ontology.ResourceTypeProject, Key: key.String(),
-		}))
-	})
+	It(
+		"Should hand the file_name and parent params to the importer",
+		func(ctx SpecContext) {
+			key := uuid.New()
+			fctx := rootCtx(ctx)
+			fctx.Set("params", fmt.Sprintf(
+				`{"file_name":"Metrics Log.json","parent":"project:%s"}`, key,
+			))
+			id := MustSucceed(apiSvc.Import(fctx, db, testEnvelope("with-options")))
+			Expect(id.Key).To(Equal("with-options"))
+			Expect(importer.opts.FileName).To(Equal("Metrics Log.json"))
+			Expect(importer.opts.Parent).To(Equal(ontology.ID{
+				Type: ontology.ResourceTypeProject, Key: key.String(),
+			}))
+		},
+	)
 
-	It("Should resolve a typeless envelope through the registered matcher", func(ctx SpecContext) {
-		var env imex.Envelope
-		Expect(json.Unmarshal(
-			[]byte(`{"version":"1.0.0","legacy_marker":true}`), &env,
-		)).To(Succeed())
-		fctx := rootCtx(ctx)
-		fctx.Set("params", fmt.Sprintf(
-			`{"file_name":"Legacy State.json","parent":"project:%s"}`, uuid.New(),
-		))
-		id := MustSucceed(apiSvc.Import(fctx, db, env))
-		Expect(id.Key).To(Equal("Legacy State"))
-	})
+	It(
+		"Should resolve a typeless envelope through the registered matcher",
+		func(ctx SpecContext) {
+			var env imex.Envelope
+			Expect(json.Unmarshal(
+				[]byte(`{"version":"1.0.0","legacy_marker":true}`), &env,
+			)).To(Succeed())
+			fctx := rootCtx(ctx)
+			fctx.Set("params", fmt.Sprintf(
+				`{"file_name":"Legacy State.json","parent":"project:%s"}`, uuid.New(),
+			))
+			id := MustSucceed(apiSvc.Import(fctx, db, env))
+			Expect(id.Key).To(Equal("Legacy State"))
+		},
+	)
 
 	It("Should reject a typeless envelope no matcher claims", func(ctx SpecContext) {
 		var env imex.Envelope
@@ -149,18 +155,24 @@ var _ = Describe("Import", func() {
 	It("Should reject a parent that is not a valid ontology ID", func(ctx SpecContext) {
 		fctx := rootCtx(ctx)
 		fctx.Set("params", `{"file_name":"Metrics Log.json","parent":"no-colon"}`)
-		Expect(apiSvc.Import(fctx, db, testEnvelope("bad-parent"))).Error().To(SatisfyAll(
-			MatchError(ContainSubstring("failed to parse id: no-colon")),
-			MatchError(ContainSubstring("validation error")),
-		))
+		Expect(
+			apiSvc.Import(fctx, db, testEnvelope("bad-parent")),
+		).Error().
+			To(SatisfyAll(
+				MatchError(ContainSubstring("failed to parse id: no-colon")),
+				MatchError(ContainSubstring("validation error")),
+			))
 	})
 
 	It("Should reject params that are not valid JSON", func(ctx SpecContext) {
 		fctx := rootCtx(ctx)
 		fctx.Set("params", "not-json")
-		Expect(apiSvc.Import(fctx, db, testEnvelope("bad-params"))).Error().To(SatisfyAll(
-			MatchError(ContainSubstring("invalid params")),
-			MatchError(ContainSubstring("validation error")),
-		))
+		Expect(
+			apiSvc.Import(fctx, db, testEnvelope("bad-params")),
+		).Error().
+			To(SatisfyAll(
+				MatchError(ContainSubstring("invalid params")),
+				MatchError(ContainSubstring("validation error")),
+			))
 	})
 })

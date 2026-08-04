@@ -44,7 +44,9 @@ var _ = Describe("ImEx", func() {
 			}
 			// Export reads committed data, so the symbol is created outside the
 			// per-spec tx and must be deleted to keep the shared DB's counts intact.
-			Expect(svc.NewWriter(nil).Create(ctx, &sym, proj.OntologyID())).To(Succeed())
+			Expect(
+				svc.NewWriter(nil).Create(ctx, &sym, proj.OntologyID()),
+			).To(Succeed())
 			DeferCleanup(func(ctx SpecContext) {
 				Expect(svc.NewWriter(nil).Delete(ctx, sym.Key)).To(Succeed())
 			})
@@ -67,7 +69,10 @@ var _ = Describe("ImEx", func() {
 		})
 
 		It("Should error on an invalid UUID key", func(ctx SpecContext) {
-			id := ontology.ID{Type: ontology.ResourceTypeSchematicSymbol, Key: "not-a-uuid"}
+			id := ontology.ID{
+				Type: ontology.ResourceTypeSchematicSymbol,
+				Key:  "not-a-uuid",
+			}
 			Expect(svc.Export(ctx, id)).Error().To(MatchError(ContainSubstring("UUID")))
 		})
 	})
@@ -89,63 +94,75 @@ var _ = Describe("ImEx", func() {
 			return res
 		}
 
-		It("Should import a server export carrying snake_case keys", func(ctx SpecContext) {
-			res := importAndRetrieve(ctx, "versions/testdata/import_v2.json")
-			Expect(res.Name).To(Equal("Server Symbol"))
-			Expect(res.Data.SVG).To(Equal("<svg><rect/></svg>"))
-			Expect(res.Data.Variant).To(Equal("valve"))
-			Expect(res.Data.ScaleStroke).To(BeTrue())
-			Expect(res.Data.States).To(HaveLen(1))
-			region := res.Data.States[0].Regions[0]
-			Expect(region.StrokeColor).To(HaveValue(Equal("#ff0000")))
-			Expect(region.FillColor).To(HaveValue(Equal("#00ff00")))
-			Expect(res.Data.Handles).To(HaveLen(1))
-			Expect(res.Data.PreviewViewport).ToNot(BeNil())
-			Expect(res.Data.PreviewViewport.Zoom).To(Equal(3.0))
-		})
+		It(
+			"Should import a server export carrying snake_case keys",
+			func(ctx SpecContext) {
+				res := importAndRetrieve(ctx, "versions/testdata/import_v2.json")
+				Expect(res.Name).To(Equal("Server Symbol"))
+				Expect(res.Data.SVG).To(Equal("<svg><rect/></svg>"))
+				Expect(res.Data.Variant).To(Equal("valve"))
+				Expect(res.Data.ScaleStroke).To(BeTrue())
+				Expect(res.Data.States).To(HaveLen(1))
+				region := res.Data.States[0].Regions[0]
+				Expect(region.StrokeColor).To(HaveValue(Equal("#ff0000")))
+				Expect(region.FillColor).To(HaveValue(Equal("#00ff00")))
+				Expect(res.Data.Handles).To(HaveLen(1))
+				Expect(res.Data.PreviewViewport).ToNot(BeNil())
+				Expect(res.Data.PreviewViewport.Zoom).To(Equal(3.0))
+			},
+		)
 
-		It("Should import a Console export carrying camelCase keys", func(ctx SpecContext) {
-			res := importAndRetrieve(ctx, "versions/testdata/import_console.json")
-			Expect(res.Name).To(Equal("Console Symbol"))
-			Expect(res.Data.Variant).To(Equal("sensor"))
-			Expect(res.Data.Scale).To(Equal(2.0))
-			Expect(res.Data.ScaleStroke).To(BeTrue())
-			Expect(res.Data.States).To(HaveLen(1))
-			region := res.Data.States[0].Regions[0]
-			Expect(region.StrokeColor).To(HaveValue(Equal("#123456")))
-			Expect(region.FillColor).To(HaveValue(Equal("#654321")))
-			Expect(res.Data.Handles).To(HaveLen(1))
-			Expect(res.Data.PreviewViewport).ToNot(BeNil())
-			Expect(res.Data.PreviewViewport.Zoom).To(Equal(6.0))
-		})
+		It(
+			"Should import a Console export carrying camelCase keys",
+			func(ctx SpecContext) {
+				res := importAndRetrieve(ctx, "versions/testdata/import_console.json")
+				Expect(res.Name).To(Equal("Console Symbol"))
+				Expect(res.Data.Variant).To(Equal("sensor"))
+				Expect(res.Data.Scale).To(Equal(2.0))
+				Expect(res.Data.ScaleStroke).To(BeTrue())
+				Expect(res.Data.States).To(HaveLen(1))
+				region := res.Data.States[0].Regions[0]
+				Expect(region.StrokeColor).To(HaveValue(Equal("#123456")))
+				Expect(region.FillColor).To(HaveValue(Equal("#654321")))
+				Expect(res.Data.Handles).To(HaveLen(1))
+				Expect(res.Data.PreviewViewport).ToNot(BeNil())
+				Expect(res.Data.PreviewViewport.Zoom).To(Equal(6.0))
+			},
+		)
 
-		It("Should parent the imported symbol under the permanent symbol group by default", func(ctx SpecContext) {
-			id := MustSucceed(imexSvc.Import(
-				ctx, tx,
-				loadEnvelope("versions/testdata/import_v2.json"),
-				imex.ImportOptions{},
-			))
-			Expect(otg.RelationshipExists(ctx, tx, ontology.Relationship{
-				From: svc.Group().OntologyID(),
-				Type: ontology.RelationshipTypeParentOf,
-				To:   id,
-			})).To(BeTrue())
-		})
+		It(
+			"Should parent the imported symbol under the permanent symbol group by default",
+			func(ctx SpecContext) {
+				id := MustSucceed(imexSvc.Import(
+					ctx, tx,
+					loadEnvelope("versions/testdata/import_v2.json"),
+					imex.ImportOptions{},
+				))
+				Expect(otg.RelationshipExists(ctx, tx, ontology.Relationship{
+					From: svc.Group().OntologyID(),
+					Type: ontology.RelationshipTypeParentOf,
+					To:   id,
+				})).To(BeTrue())
+			},
+		)
 
-		It("Should parent the imported symbol under the given parent group", func(ctx SpecContext) {
-			parent := group.OntologyID(uuid.New())
-			Expect(otg.NewWriter(tx).DefineResources(ctx, parent)).To(Succeed())
-			id := MustSucceed(imexSvc.Import(
-				ctx, tx,
-				loadEnvelope("versions/testdata/import_v2.json"),
-				imex.ImportOptions{Parent: parent},
-			))
-			Expect(otg.RelationshipExists(ctx, tx, ontology.Relationship{
-				From: parent,
-				Type: ontology.RelationshipTypeParentOf,
-				To:   id,
-			})).To(BeTrue())
-		})
+		It(
+			"Should parent the imported symbol under the given parent group",
+			func(ctx SpecContext) {
+				parent := group.OntologyID(uuid.New())
+				Expect(otg.NewWriter(tx).DefineResources(ctx, parent)).To(Succeed())
+				id := MustSucceed(imexSvc.Import(
+					ctx, tx,
+					loadEnvelope("versions/testdata/import_v2.json"),
+					imex.ImportOptions{Parent: parent},
+				))
+				Expect(otg.RelationshipExists(ctx, tx, ontology.Relationship{
+					From: parent,
+					Type: ontology.RelationshipTypeParentOf,
+					To:   id,
+				})).To(BeTrue())
+			},
+		)
 
 		It("Should reject a parent that is not a group", func(ctx SpecContext) {
 			Expect(imexSvc.Import(
@@ -158,48 +175,66 @@ var _ = Describe("ImEx", func() {
 			))
 		})
 
-		It("Should reject an envelope newer than the supported version", func(ctx SpecContext) {
-			Expect(imexSvc.Import(ctx, tx,
-				loadEnvelope("versions/testdata/import_bad_version.json"),
-				imex.ImportOptions{},
-			)).Error().To(SatisfyAll(
-				MatchError(ContainSubstring("schematic_symbol version 99")),
-				MatchError(ContainSubstring("newer than this Core supports")),
-			))
-		})
+		It(
+			"Should reject an envelope newer than the supported version",
+			func(ctx SpecContext) {
+				Expect(imexSvc.Import(ctx, tx,
+					loadEnvelope("versions/testdata/import_bad_version.json"),
+					imex.ImportOptions{},
+				)).Error().To(SatisfyAll(
+					MatchError(ContainSubstring("schematic_symbol version 99")),
+					MatchError(ContainSubstring("newer than this Core supports")),
+				))
+			},
+		)
 
-		It("Should generate a fresh key, discarding the key on the wire", func(ctx SpecContext) {
-			id := MustSucceed(imexSvc.Import(ctx, tx,
-				loadEnvelope("versions/testdata/import_v2.json"), imex.ImportOptions{},
-			))
-			Expect(id.Key).ToNot(Equal("11111111-2222-3333-4444-555555555555"))
-		})
+		It(
+			"Should generate a fresh key, discarding the key on the wire",
+			func(ctx SpecContext) {
+				id := MustSucceed(imexSvc.Import(
+					ctx,
+					tx,
+					loadEnvelope(
+						"versions/testdata/import_v2.json",
+					),
+					imex.ImportOptions{},
+				))
+				Expect(id.Key).ToNot(Equal("11111111-2222-3333-4444-555555555555"))
+			},
+		)
 	})
 
 	Describe("Round trip", func() {
-		It("Should preserve symbol content through export then import", func(ctx SpecContext) {
-			original := symbol.Symbol{
-				Name: "round-trip",
-				Data: symbol.Spec{SVG: "<svg/>", Variant: "valve", ScaleStroke: true},
-			}
-			Expect(svc.NewWriter(nil).Create(ctx, &original, proj.OntologyID())).
-				To(Succeed())
-			DeferCleanup(func(ctx SpecContext) {
-				Expect(svc.NewWriter(nil).Delete(ctx, original.Key)).To(Succeed())
-			})
-			env := MustSucceed(svc.Export(ctx, symbol.OntologyID(original.Key)))
-			id := MustSucceed(imexSvc.Import(
-				ctx, tx, WireRoundTrip(env), imex.ImportOptions{},
-			))
-			key := MustSucceed(uuid.Parse(id.Key))
-			Expect(key).ToNot(Equal(original.Key))
-			var res symbol.Symbol
-			Expect(svc.NewRetrieve().
-				Where(symbol.MatchKeys(key)).
-				Entry(&res).
-				Exec(ctx, tx)).To(Succeed())
-			Expect(res.Name).To(Equal("round-trip"))
-			Expect(res.Data).To(Equal(original.Data))
-		})
+		It(
+			"Should preserve symbol content through export then import",
+			func(ctx SpecContext) {
+				original := symbol.Symbol{
+					Name: "round-trip",
+					Data: symbol.Spec{
+						SVG:         "<svg/>",
+						Variant:     "valve",
+						ScaleStroke: true,
+					},
+				}
+				Expect(svc.NewWriter(nil).Create(ctx, &original, proj.OntologyID())).
+					To(Succeed())
+				DeferCleanup(func(ctx SpecContext) {
+					Expect(svc.NewWriter(nil).Delete(ctx, original.Key)).To(Succeed())
+				})
+				env := MustSucceed(svc.Export(ctx, symbol.OntologyID(original.Key)))
+				id := MustSucceed(imexSvc.Import(
+					ctx, tx, WireRoundTrip(env), imex.ImportOptions{},
+				))
+				key := MustSucceed(uuid.Parse(id.Key))
+				Expect(key).ToNot(Equal(original.Key))
+				var res symbol.Symbol
+				Expect(svc.NewRetrieve().
+					Where(symbol.MatchKeys(key)).
+					Entry(&res).
+					Exec(ctx, tx)).To(Succeed())
+				Expect(res.Name).To(Equal("round-trip"))
+				Expect(res.Data).To(Equal(original.Data))
+			},
+		)
 	})
 })

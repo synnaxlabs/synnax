@@ -20,9 +20,10 @@ var _ = Describe("Resource", func() {
 		It("Should return an error with the correct message", func() {
 			Expect(resource.NewClosedError("test")).To(And(
 				MatchError(resource.ErrClosed),
-				MatchError(ContainSubstring("cannot complete operation on closed test")),
+				MatchError(
+					ContainSubstring("cannot complete operation on closed test"),
+				),
 			))
 		})
 	})
-
 })

@@ -11,7 +11,7 @@ package versions
 
 import (
 	v1 "github.com/synnaxlabs/synnax/pkg/service/schematic/symbol/versions/v1"
-	"github.com/synnaxlabs/synnax/pkg/service/schematic/symbol/versions/v2"
+	v2 "github.com/synnaxlabs/synnax/pkg/service/schematic/symbol/versions/v2"
 	"github.com/synnaxlabs/x/migrate"
 )
 

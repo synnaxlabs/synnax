@@ -36,9 +36,9 @@ type stateV6 struct {
 // consoleNode mirrors Node as Console-written files serialize it: camelCase
 // keys. Frozen; Console files no longer evolve.
 type consoleNode struct {
-	Key      string     `json:"key" msgpack:"key"`
+	Key      string     `json:"key"      msgpack:"key"`
 	Position spatial.XY `json:"position" msgpack:"position"`
-	ZIndex   int16      `json:"zIndex" msgpack:"zIndex"`
+	ZIndex   int16      `json:"zIndex"   msgpack:"zIndex"`
 }
 
 // consoleDocument mirrors the typed Schematic body fields as Console-written
@@ -46,9 +46,9 @@ type consoleNode struct {
 // pendingUpload. Configs values are opaque user JSON and pass through as-is.
 type consoleDocument struct {
 	Snapshot bool                           `json:"snapshot" msgpack:"snapshot"`
-	Nodes    []consoleNode                  `json:"nodes" msgpack:"nodes"`
-	Edges    []Edge                         `json:"edges" msgpack:"edges"`
-	Configs  map[string]msgpack.EncodedJSON `json:"configs" msgpack:"configs"`
+	Nodes    []consoleNode                  `json:"nodes"    msgpack:"nodes"`
+	Edges    []Edge                         `json:"edges"    msgpack:"edges"`
+	Configs  map[string]msgpack.EncodedJSON `json:"configs"  msgpack:"configs"`
 }
 
 // schematic lifts the Console document into the current Schematic shape.

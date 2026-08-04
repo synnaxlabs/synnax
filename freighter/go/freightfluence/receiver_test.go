@@ -40,16 +40,18 @@ var _ = Describe("Receiver", func() {
 		It("Should operate correctly", func(ctx SpecContext) {
 			var receivedValues []int
 			receiverStream := confluence.NewStream[int](10)
-			server.BindHandler(func(ctx context.Context, server freighter.ServerStream[int, int]) error {
-				sCtx, cancel := signal.WithCancel(ctx)
-				defer cancel()
-				receiver := &freightfluence.Receiver[int]{Receiver: server}
-				receiver.OutTo(receiverStream)
-				receiver.Flow(sCtx, confluence.CloseOutputInletsOnExit())
-				By("Receiving values from the input server")
-				receivedValues = append(receivedValues, <-receiverStream.Outlet())
-				return sCtx.Wait()
-			})
+			server.BindHandler(
+				func(ctx context.Context, server freighter.ServerStream[int, int]) error {
+					sCtx, cancel := signal.WithCancel(ctx)
+					defer cancel()
+					receiver := &freightfluence.Receiver[int]{Receiver: server}
+					receiver.OutTo(receiverStream)
+					receiver.Flow(sCtx, confluence.CloseOutputInletsOnExit())
+					By("Receiving values from the input server")
+					receivedValues = append(receivedValues, <-receiverStream.Outlet())
+					return sCtx.Wait()
+				},
+			)
 			stream := MustSucceed(client.Stream(ctx, "localhost:0"))
 			Expect(stream.Send(1)).To(Succeed())
 			Expect(stream.CloseSend()).To(Succeed())
@@ -61,15 +63,17 @@ var _ = Describe("Receiver", func() {
 		})
 		It("Should exit the receiver on context cancellation", func(ctx SpecContext) {
 			receiverStream := confluence.NewStream[int](10)
-			server.BindHandler(func(ctx context.Context, server freighter.ServerStream[int, int]) error {
-				sCtx, cancel := signal.WithCancel(ctx)
-				defer cancel()
-				receiver := &freightfluence.Receiver[int]{Receiver: server}
-				receiver.OutTo(receiverStream)
-				receiver.Flow(sCtx, confluence.CloseOutputInletsOnExit())
-				By("Receiving values from the input server")
-				return sCtx.Wait()
-			})
+			server.BindHandler(
+				func(ctx context.Context, server freighter.ServerStream[int, int]) error {
+					sCtx, cancel := signal.WithCancel(ctx)
+					defer cancel()
+					receiver := &freightfluence.Receiver[int]{Receiver: server}
+					receiver.OutTo(receiverStream)
+					receiver.Flow(sCtx, confluence.CloseOutputInletsOnExit())
+					By("Receiving values from the input server")
+					return sCtx.Wait()
+				},
+			)
 			cancelCtx, cancel := context.WithCancel(ctx)
 			stream := MustSucceed(client.Stream(cancelCtx, "localhost:0"))
 			Expect(stream.Send(1)).To(Succeed())
@@ -83,58 +87,80 @@ var _ = Describe("Receiver", func() {
 		})
 	})
 	Describe("Stream Closure", func() {
-		It("Should not treat ErrStreamClosed as a routine failure", func(ctx SpecContext) {
-			sCtx, cancel := signal.WithCancel(ctx)
-			defer cancel()
-			mockReceiver := &errReceiver{recvErr: freighter.ErrStreamClosed}
-			receiver := &freightfluence.Receiver[int]{Receiver: mockReceiver}
-			outputStream := confluence.NewStream[int](1)
-			receiver.OutTo(outputStream)
-			receiver.Flow(sCtx, confluence.CloseOutputInletsOnExit(), confluence.CancelOnFail())
-			Expect(sCtx.Wait()).To(MatchError(context.Canceled))
-			Eventually(outputStream.Outlet()).Should(BeClosed())
-		})
-		It("Should not treat TransformReceiver ErrStreamClosed as a routine failure", func(ctx SpecContext) {
-			sCtx, cancel := signal.WithCancel(ctx)
-			defer cancel()
-			mockReceiver := &errReceiver{recvErr: freighter.ErrStreamClosed}
-			receiver := &freightfluence.TransformReceiver[int, int]{
-				Receiver:  mockReceiver,
-				Transform: func(_ context.Context, v int) (int, bool, error) { return v, true, nil },
-			}
-			outputStream := confluence.NewStream[int](1)
-			receiver.OutTo(outputStream)
-			receiver.Flow(sCtx, confluence.CloseOutputInletsOnExit(), confluence.CancelOnFail())
-			Expect(sCtx.Wait()).To(MatchError(context.Canceled))
-			Eventually(outputStream.Outlet()).Should(BeClosed())
-		})
-	})
-	Describe("TransformReceiver", func() {
-		It("It should transform values before sending them through the channel", func(ctx SpecContext) {
-			var receivedValues []int
-			receiverStream := confluence.NewStream[int](10)
-			server.BindHandler(func(ctx context.Context, server freighter.ServerStream[int, int]) error {
+		It(
+			"Should not treat ErrStreamClosed as a routine failure",
+			func(ctx SpecContext) {
 				sCtx, cancel := signal.WithCancel(ctx)
 				defer cancel()
-				receiver := &freightfluence.TransformReceiver[int, int]{}
-				receiver.Receiver = server
-				receiver.OutTo(receiverStream)
-				receiver.Transform = func(ctx context.Context, v int) (int, bool, error) {
-					return v * 2, true, nil
+				mockReceiver := &errReceiver{recvErr: freighter.ErrStreamClosed}
+				receiver := &freightfluence.Receiver[int]{Receiver: mockReceiver}
+				outputStream := confluence.NewStream[int](1)
+				receiver.OutTo(outputStream)
+				receiver.Flow(
+					sCtx,
+					confluence.CloseOutputInletsOnExit(),
+					confluence.CancelOnFail(),
+				)
+				Expect(sCtx.Wait()).To(MatchError(context.Canceled))
+				Eventually(outputStream.Outlet()).Should(BeClosed())
+			},
+		)
+		It(
+			"Should not treat TransformReceiver ErrStreamClosed as a routine failure",
+			func(ctx SpecContext) {
+				sCtx, cancel := signal.WithCancel(ctx)
+				defer cancel()
+				mockReceiver := &errReceiver{recvErr: freighter.ErrStreamClosed}
+				receiver := &freightfluence.TransformReceiver[int, int]{
+					Receiver:  mockReceiver,
+					Transform: func(_ context.Context, v int) (int, bool, error) { return v, true, nil },
 				}
-				receiver.Flow(sCtx, confluence.CloseOutputInletsOnExit())
-				By("Receiving values from the input server")
-				receivedValues = append(receivedValues, <-receiverStream.Outlet())
-				return sCtx.Wait()
-			})
-			stream := MustSucceed(client.Stream(ctx, "localhost:0"))
-			Expect(stream.Send(1)).To(Succeed())
-			Expect(stream.CloseSend()).To(Succeed())
-			By("Closing the network pipe on return")
-			Expect(stream.Receive()).Error().To(MatchError(freighter.EOF))
-			Expect(receivedValues).To(Equal([]int{2}))
-			By("Closing the receive server on exit")
-			Eventually(receiverStream.Outlet()).Should(BeClosed())
-		})
+				outputStream := confluence.NewStream[int](1)
+				receiver.OutTo(outputStream)
+				receiver.Flow(
+					sCtx,
+					confluence.CloseOutputInletsOnExit(),
+					confluence.CancelOnFail(),
+				)
+				Expect(sCtx.Wait()).To(MatchError(context.Canceled))
+				Eventually(outputStream.Outlet()).Should(BeClosed())
+			},
+		)
+	})
+	Describe("TransformReceiver", func() {
+		It(
+			"It should transform values before sending them through the channel",
+			func(ctx SpecContext) {
+				var receivedValues []int
+				receiverStream := confluence.NewStream[int](10)
+				server.BindHandler(
+					func(ctx context.Context, server freighter.ServerStream[int, int]) error {
+						sCtx, cancel := signal.WithCancel(ctx)
+						defer cancel()
+						receiver := &freightfluence.TransformReceiver[int, int]{}
+						receiver.Receiver = server
+						receiver.OutTo(receiverStream)
+						receiver.Transform = func(ctx context.Context, v int) (int, bool, error) {
+							return v * 2, true, nil
+						}
+						receiver.Flow(sCtx, confluence.CloseOutputInletsOnExit())
+						By("Receiving values from the input server")
+						receivedValues = append(
+							receivedValues,
+							<-receiverStream.Outlet(),
+						)
+						return sCtx.Wait()
+					},
+				)
+				stream := MustSucceed(client.Stream(ctx, "localhost:0"))
+				Expect(stream.Send(1)).To(Succeed())
+				Expect(stream.CloseSend()).To(Succeed())
+				By("Closing the network pipe on return")
+				Expect(stream.Receive()).Error().To(MatchError(freighter.EOF))
+				Expect(receivedValues).To(Equal([]int{2}))
+				By("Closing the receive server on exit")
+				Eventually(receiverStream.Outlet()).Should(BeClosed())
+			},
+		)
 	})
 })

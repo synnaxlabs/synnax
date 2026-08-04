@@ -13,7 +13,7 @@ import (
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/synnax/pkg/service/schematic/symbol/versions/v2"
+	v2 "github.com/synnaxlabs/synnax/pkg/service/schematic/symbol/versions/v2"
 )
 
 var _ = Describe("Symbol", func() {

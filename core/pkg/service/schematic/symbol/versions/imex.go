@@ -20,11 +20,11 @@ import (
 // consoleRegion mirrors Region as Console-written files serialize it: camelCase
 // keys. Frozen; Console files no longer evolve.
 type consoleRegion struct {
-	Key         string   `json:"key" msgpack:"key"`
-	Name        string   `json:"name" msgpack:"name"`
-	Selectors   []string `json:"selectors" msgpack:"selectors"`
+	Key         string   `json:"key"         msgpack:"key"`
+	Name        string   `json:"name"        msgpack:"name"`
+	Selectors   []string `json:"selectors"   msgpack:"selectors"`
 	StrokeColor *string  `json:"strokeColor" msgpack:"strokeColor"`
-	FillColor   *string  `json:"fillColor" msgpack:"fillColor"`
+	FillColor   *string  `json:"fillColor"   msgpack:"fillColor"`
 }
 
 func (r consoleRegion) region() Region {
@@ -36,8 +36,8 @@ func (r consoleRegion) region() Region {
 
 // consoleState mirrors State on the path to consoleRegion.
 type consoleState struct {
-	Key     string          `json:"key" msgpack:"key"`
-	Name    string          `json:"name" msgpack:"name"`
+	Key     string          `json:"key"     msgpack:"key"`
+	Name    string          `json:"name"    msgpack:"name"`
 	Regions []consoleRegion `json:"regions" msgpack:"regions"`
 }
 
@@ -52,12 +52,12 @@ func (s consoleState) state() State {
 
 // consoleSpec mirrors Spec as Console-written files serialize it.
 type consoleSpec struct {
-	SVG             string            `json:"svg" msgpack:"svg"`
-	States          []consoleState    `json:"states" msgpack:"states"`
-	Variant         string            `json:"variant" msgpack:"variant"`
-	Handles         []Handle          `json:"handles" msgpack:"handles"`
-	Scale           float64           `json:"scale" msgpack:"scale"`
-	ScaleStroke     bool              `json:"scaleStroke" msgpack:"scaleStroke"`
+	SVG             string            `json:"svg"             msgpack:"svg"`
+	States          []consoleState    `json:"states"          msgpack:"states"`
+	Variant         string            `json:"variant"         msgpack:"variant"`
+	Handles         []Handle          `json:"handles"         msgpack:"handles"`
+	Scale           float64           `json:"scale"           msgpack:"scale"`
+	ScaleStroke     bool              `json:"scaleStroke"     msgpack:"scaleStroke"`
 	PreviewViewport *spatial.Viewport `json:"previewViewport" msgpack:"previewViewport"`
 }
 

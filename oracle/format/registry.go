@@ -49,7 +49,11 @@ func (r *Registry) Register(ext string, f Formatter) {
 // Format runs all formatters registered for the file's extension,
 // chaining their output. Returns content unchanged if no formatter is
 // registered.
-func (r *Registry) Format(ctx context.Context, content []byte, absPath string) ([]byte, error) {
+func (r *Registry) Format(
+	ctx context.Context,
+	content []byte,
+	absPath string,
+) ([]byte, error) {
 	ext := filepath.Ext(absPath)
 	formatters, ok := r.byExt[ext]
 	if !ok {
@@ -79,7 +83,11 @@ func (r *Registry) Has(ext string) bool {
 //
 // On the first error the context is cancelled and the partial results are
 // discarded; the caller receives only the wrapped error.
-func (r *Registry) FormatBatch(ctx context.Context, files []File, workers int) ([]File, error) {
+func (r *Registry) FormatBatch(
+	ctx context.Context,
+	files []File,
+	workers int,
+) ([]File, error) {
 	if workers <= 0 {
 		workers = runtime.GOMAXPROCS(0)
 	}
