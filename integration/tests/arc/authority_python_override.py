@@ -41,6 +41,7 @@ class AuthorityPythonOverride(ArcCase):
         "end_test_cmd",
     ]
     sim_daq_class = PressSimDAQ
+    collect_task_status = True
 
     def setup(self) -> None:
         self._override_writer: sy.Writer | None = None
@@ -79,12 +80,21 @@ class AuthorityPythonOverride(ArcCase):
         self.log("Phase 2: Waiting for valve to close (Python override)...")
         self.wait_for_eq("press_vlv_state", 0)
 
+        task = self.task_key(self.arc_name)
+        assert self.wait_for_task_status(
+            task, "Authority held on 1 channel by another writer"
+        ), "Arc did not warn when out-ranked by the authority-255 Python writer"
+
         # Phase 3: Close Python writer, Arc resumes
         self._override_writer.close()
         self._override_writer = None
 
         self.log("Phase 3: Waiting for Arc to resume...")
         self.wait_for_eq("press_vlv_state", 1)
+
+        assert self.wait_for_task_status_clear(task, "Authority held on"), (
+            "Arc control warning did not clear after regaining authority"
+        )
 
     def teardown(self) -> None:
         if self._override_writer is not None:

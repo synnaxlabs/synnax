@@ -38,6 +38,7 @@ class AuthoritySchematicOverride(ArcCase, ConsoleCase):
     end_cmd_channel = "end_test_cmd"
     subscribe_channels = ["press_vlv_state", "press_pt", "end_test_cmd"]
     sim_daq_class = PressSimDAQ
+    collect_task_status = True
 
     def setup(self) -> None:
         self._schematic: Schematic | None = None
@@ -75,12 +76,21 @@ class AuthoritySchematicOverride(ArcCase, ConsoleCase):
 
         self.wait_for_eq("press_vlv_state", 0)
 
+        task = self.task_key(self.arc_name)
+        assert self.wait_for_task_status(
+            task, "Authority held on 1 channel by another writer"
+        ), "Arc did not warn when out-ranked by the authority-255 schematic"
+
         # Phase 3: Release control - Arc should resume
         self.log("Releasing schematic control")
         schematic.release_control()
         self._schematic_controlled = False
 
         self.wait_for_eq("press_vlv_state", 1)
+
+        assert self.wait_for_task_status_clear(task, "Authority held on"), (
+            "Arc control warning did not clear after the schematic released control"
+        )
 
     def teardown(self) -> None:
         if self._schematic_controlled and self._schematic is not None:

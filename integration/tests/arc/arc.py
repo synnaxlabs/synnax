@@ -157,6 +157,20 @@ class ArcCase(SimDaqCase, TestCase):
             )
         return self._task_status.wait_for(task_key, text, timeout)
 
+    def wait_for_task_status_clear(
+        self, task_key: int, text: str, timeout: float = 5.0
+    ) -> bool:
+        """Return True if the latest status for task_key stops containing text.
+
+        Requires collect_task_status = True so the base lifecycle records task
+        status updates for the duration of the test.
+        """
+        if self._task_status is None:
+            raise RuntimeError(
+                "wait_for_task_status_clear requires collect_task_status = True"
+            )
+        return self._task_status.wait_for_clear(task_key, text, timeout)
+
     def task_is_running(self, task_key: int) -> bool:
         """Return True if the latest status reports task_key as running.
 

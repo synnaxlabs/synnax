@@ -21,6 +21,7 @@ cc_library(
     srcs = ["factory.cpp"],
     hdrs = [
         "arc.h",
+        "authority.h",
         "task.h",
     ],
     visibility = ["//visibility:public"],
@@ -33,9 +34,11 @@ cc_library(
         "//driver/arc/status",
         "//driver/bypass",
         "//driver/common",
+        "//driver/control",
         "//driver/pipeline",
         "//driver/task",
         "//x/cpp/breaker",
+        "//x/cpp/control",
         "//x/cpp/json",
         "//x/cpp/telem",
         "//x/cpp/uuid",
@@ -51,6 +54,20 @@ cc_test(
         "//driver/pipeline/mock",
         "//driver/task",
         "//x/cpp/defer",
+        "//x/cpp/test",
+        "@googletest//:gtest_main",
+    ],
+)
+
+cc_test(
+    name = "authority_test",
+    srcs = ["authority_test.cpp"],
+    deps = [
+        "//driver/arc",
+        "//driver/common",
+        "//driver/control",
+        "//driver/task",
+        "//x/cpp/control",
         "//x/cpp/test",
         "@googletest//:gtest_main",
     ],

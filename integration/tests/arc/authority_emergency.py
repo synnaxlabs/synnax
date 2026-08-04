@@ -53,6 +53,7 @@ class AuthorityEmergency(ArcCase):
         "end_test_cmd",
     ]
     sim_daq_class = PressSimDAQ
+    collect_task_status = True
 
     def setup(self) -> None:
         self._override_writer: sy.Writer | None = None
@@ -93,6 +94,11 @@ class AuthorityEmergency(ArcCase):
         )
         self.log("Phase 2: Python writer holding authority 200 with valve open")
 
+        task = self.task_key(self.arc_name)
+        assert self.wait_for_task_status(
+            task, "Authority held on 1 channel by another writer"
+        ), "Arc did not warn when out-ranked by the authority-200 Python writer"
+
         # Phase 3: Pressure rises past 50 -> Arc enters emergency stage
         # set_authority{value=255} fires first (flushed before writes),
         # then 0 -> press_vlv_cmd succeeds because 255 > 200.
@@ -100,6 +106,10 @@ class AuthorityEmergency(ArcCase):
         self.wait_for_eq("press_vlv_state", 0)
         self.log("Phase 3: Verifying vent valve opened...")
         self.wait_for_eq("vent_vlv_state", 1)
+
+        assert self.wait_for_task_status_clear(task, "Authority held on"), (
+            "Arc control warning did not clear after escalating authority to 255"
+        )
 
         # Phase 4: Close Python writer, wait for safe state
         self._override_writer.close()

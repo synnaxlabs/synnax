@@ -60,6 +60,7 @@ class AuthorityArcVsArc(ArcCase):
     end_cmd_channel = "end_test_cmd"
     subscribe_channels = ["press_vlv_state", "press_pt", "end_test_cmd"]
     sim_daq_class = PressSimDAQ
+    collect_task_status = True
 
     def setup(self) -> None:
         create_virtual_channel(self.client, "start_high_cmd", sy.DataType.UINT8)
@@ -76,5 +77,14 @@ class AuthorityArcVsArc(ArcCase):
         self.log("Waiting for Arc B to override (press_vlv_state == 1)...")
         self.wait_for_eq("press_vlv_state", 1)
 
+        low_task = self.task_key(self.arc_name)
+        assert self.wait_for_task_status(
+            low_task, "Authority held on 1 channel by another writer"
+        ), "Low-priority Arc did not warn when out-ranked by the high-priority Arc"
+
         self.log("Waiting for Arc B done stage, Arc A should resume...")
         self.wait_for_eq("press_vlv_state", 0, timeout=10)
+
+        assert self.wait_for_task_status_clear(low_task, "Authority held on"), (
+            "Low-priority Arc warning did not clear after the high-priority Arc yielded"
+        )
