@@ -24,6 +24,7 @@ const TAB: Panel.Tab = {
     const corpse = query.requireCorpse(client.arcs.getCached(resource.key));
     await client.arcs.create(corpse);
   },
+  useTombstone: Panel.createTombstoneReader(Arc),
 };
 
 export const TABS: Panel.Tabs = {

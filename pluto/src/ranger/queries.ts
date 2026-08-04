@@ -94,6 +94,7 @@ export const {
   useRetrieveObservable,
   useRetrieveSuspended: useRetrieveSuspense,
   useEnsureRetrieved,
+  useTombstone,
 } = Flux.createRetrieve<RetrieveQuery, ranger.Range>({
   name: RESOURCE_NAME,
   retrieve: async ({ client, query: { key } }) => await client.ranges.retrieve(key),
