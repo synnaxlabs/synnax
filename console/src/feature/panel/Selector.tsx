@@ -66,7 +66,7 @@ const ContextMenu = ({ keys }: Menu.ContextMenuMenuProps): ReactElement | null =
         <>
           <Menu.Item itemKey="open-in-new-window" onClick={() => openWindow(key)}>
             <Icon.OpenInNewWindow />
-            Open in New Window
+            Open in new window
           </Menu.Item>
           <Menu.Divider />
         </>
