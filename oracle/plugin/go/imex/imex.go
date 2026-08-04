@@ -71,8 +71,8 @@ func (*Plugin) PostWrite(files []string) error { return goPostWriter.PostWrite(f
 // Generate emits imex machinery into the versions tree of every output package whose
 // type declares @go imex: one Version constant per versions/vK package (the version
 // directories on disk, plus the current version), and Latest, Floor, and the
-// decodeMigrate ladder in the versions package root. It errors when a marked type
-// lacks a @go version or when two types at the same path both carry the marker.
+// decodeMigrate ladder in the versions package root. It errors when a marked type lacks
+// a @go version or when two types at the same path both carry the marker.
 func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 	resp := &plugin.Response{}
 	declared := make(map[string]string)
@@ -195,11 +195,11 @@ import "github.com/synnaxlabs/synnax/pkg/service/imex"
 const Version imex.Version = {{.Version}}
 `))
 
-// firstImexVersion returns the earliest @go version at which the type already
-// carried the @go imex marker, walking schema snapshots newest-first. The walk ends
-// at the first snapshot that is unparseable, predates per-resource versioning, or
-// lacks the marker: marker history is contiguous. With no marked snapshot the floor
-// is the current version.
+// firstImexVersion returns the earliest @go version at which the type already carried
+// the @go imex marker, walking schema snapshots newest-first. The walk ends at the
+// first snapshot that is unparseable, predates per-resource versioning, or lacks the
+// marker: marker history is contiguous. With no marked snapshot the floor is the
+// current version.
 func firstImexVersion(req *plugin.Request, qualifiedName string, current int) int {
 	floor := current
 	if req.LoadSnapshot == nil || req.SnapshotVersion <= 0 {
@@ -226,8 +226,8 @@ func firstImexVersion(req *plugin.Request, qualifiedName string, current int) in
 }
 
 // chainArms builds one ladder arm per version in [floor, current): each decodes the
-// stamped vK shape and lifts it through every later bump's exported Migrate<Type>
-// step. Alias-only bumps (no step on disk) pass the value through unchanged.
+// stamped vK shape and lifts it through every later bump's exported Migrate<Type> step.
+// Alias-only bumps (no step on disk) pass the value through unchanged.
 func chainArms(
 	repoRoot, outputPath, goName string,
 	floor, current int,
@@ -274,8 +274,8 @@ func chainArms(
 	return arms, nil
 }
 
-// migrateStepExists reports whether the version package at dir declares the
-// scaffolded per-bump lift Migrate<goName>.
+// migrateStepExists reports whether the version package at dir declares the scaffolded
+// per-bump lift Migrate<goName>.
 func migrateStepExists(dir, goName string) (bool, error) {
 	entries, err := os.ReadDir(dir)
 	if err != nil {
@@ -332,8 +332,8 @@ import (
 {{- end}}
 )
 
-// Latest is the portable schema version stamped on exported {{.Type}} envelopes and
-// the highest version import accepts. It equals the resource's current schema version.
+// Latest is the portable schema version stamped on exported {{.Type}} envelopes and the
+// highest version import accepts. It equals the resource's current schema version.
 const Latest = {{.CurrentPkg}}.Version
 
 // Floor is the earliest server-exported schema version: the version the resource
@@ -341,9 +341,8 @@ const Latest = {{.CurrentPkg}}.Version
 const Floor = {{.FloorPkg}}.Version
 
 // decodeMigrate decodes an envelope stamped in [Floor, Latest] as its version's
-// {{.Type}} shape and lifts it through the per-version migration chain to the
-// current shape. Envelopes outside the window are rejected with a path-scoped
-// validation error.
+// {{.Type}} shape and lifts it through the per-version migration chain to the current
+// shape. Envelopes outside the window are rejected with a path-scoped validation error.
 func decodeMigrate(ctx context.Context, env imex.Envelope) ({{.Type}}, error) {
 	switch env.Version {
 {{- range .Arms}}
