@@ -337,6 +337,7 @@ unitSuffix
 primitiveType
     : numericType
     | STR
+    | BOOL
     ;
 
 numericType

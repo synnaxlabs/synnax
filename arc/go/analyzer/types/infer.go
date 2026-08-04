@@ -60,6 +60,9 @@ func inferPrimitiveType(ctx parser.IPrimitiveTypeContext) (types.Type, error) {
 	if ctx.STR() != nil {
 		return types.String(), nil
 	}
+	if ctx.BOOL() != nil {
+		return types.Bool(), nil
+	}
 	return types.Type{}, errors.New("unknown type: expected a primitive (i32, f64, str, etc.)")
 }
 
