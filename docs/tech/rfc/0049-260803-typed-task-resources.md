@@ -30,16 +30,16 @@ message, and service. Examples: `ni_analog_read`, `opc_read`, `http_read`. The
 typed resource is the root aggregate. It has a uuid key. It owns the name and all
 configuration fields. It is the unit that users create, edit, snapshot, import,
 and export. The generic task becomes a small execution record: `{key, rack,
-internal, auto_start, config_hash}`. The task exists only while the resource is
-deployed to a rack. The typed resource points to its task. A resource without a
-task is a draft.
+config, internal, auto_start, config_hash}`. The task exists only while the
+resource is deployed to a rack. The task points to its resource through a
+`config` ontology ID. A resource without a task is a draft.
 
 Task types become a closed set. The Core validates each configuration at the
 create and update entry points with Oracle-generated validation. The Core owns
-the config migration chain. The Core serves the driver a payload with a strong
-type: a protobuf `oneof`, never an `Any`. The driver and the Console do not parse
-configs by hand. The only parsers are the Oracle-generated Zod, pydantic, and
-proto code.
+the config migration chain. The driver reads each config from a per-type
+endpoint as a typed protobuf message, never as an `Any`. The driver and the
+Console do not parse configs by hand. The only parsers are the Oracle-generated
+Zod, pydantic, and proto code.
 
 ---
 
@@ -71,14 +71,14 @@ Five problems add up. All of them come from config opacity:
    types. SY-4524 (server-side task import) is blocked on this RFC.
 5. **The open set has no remaining value.** Task types were an open set so that
    drivers could change independently (RFC 0017). In practice, each type string is
-   first-party, and the driver and the Core ship together. Openness now only means
+   first-party, and the Driver and the Core ship together. Openness now only means
    that the Core cannot reject bad data and cannot read its own data.
 
 ---
 
 ## 2 - Vocabulary
 
-- **Typed task resource** (or **resource**) — a first-class record with a uuid key
+- **Typed task resource** (or **resource**) — a first-class record with a UUID key
   for one task type (`http_read`, `ni_analog_read`). It holds the name and all
   configuration fields inline. A per-integration service owns it.
 - **Task** — the slim execution record. It exists only while deployed. It is
@@ -88,9 +88,9 @@ Five problems add up. All of them come from config opacity:
 - **Draft** — a typed resource with no task. This is the only undeployed state.
 - **Deploy / undeploy** — to deploy is to make a task on a rack for a resource. To
   undeploy is to delete that task. Undeploy never deletes the resource.
-- **Resolved task payload** — the wire shape that the driver consumes: the slim
-  task joined with the typed config of its resource. The API layer composes it
-  (the resolved-field pattern of RFC 0041).
+- **`config` reference** — the one stored link between the two records: an
+  ontology ID (`<type>:<uuid>`) on the task that points to its parent resource.
+  It is never null.
 - **`empty` resource** — the minimal resource type. It has a name and nothing
   more. It is the parent of internal tasks with no configuration: the scanners and
   the rack status task.
@@ -106,8 +106,9 @@ Five problems add up. All of them come from config opacity:
    C++, and protobuf code. The clients and the driver consume generated code. Hand
    parsing is a defect.
 3. **The specific depends on the generic.** Integration services compose the task
-   service. The task service never learns integration names. Type dispatch occurs
-   above it, in a registry that is wired explicitly at the API composition layer.
+   service. The task service never learns integration names. The `config`
+   reference is opaque data to it: an ontology ID that it stores and indexes,
+   and that only per-type consumers dereference.
 4. **Closed set, loud failure.** Task types are internal dispatch keys. An unknown
    type is a composition bug. The Core rejects it. The Core never stores it and
    never drops it without a report. The one soft edge is the migration of data
@@ -124,27 +125,31 @@ Five problems add up. All of them come from config opacity:
 ### 4.0 - The split
 
 ```
-┌────────────────────────────┐        ┌──────────────────────────────┐
-│ http_read (resource)       │        │ task (execution record)      │
-│  key        uuid           │  0..1  │  key          uuid           │
-│  name       string         │ ─────► │  rack         rack.Key       │
-│  snapshot   bool           │  task  │  internal     bool           │
-│  endpoints  Endpoint[]     │        │  auto_start   bool           │
-│  rate       telem.Rate     │        │  config_hash  uint64         │
-│  ...                       │        │  (status via status service) │
-└────────────────────────────┘        └──────────────────────────────┘
+┌─────────────────────────────┐          ┌──────────────────────────────┐
+│ http_read (resource)        │          │ task (execution record)      │
+│  key        uuid            │  config  │  key          uuid           │
+│  name       string          │ ◄─────── │  rack         rack.Key       │
+│  snapshot   bool            │          │  config       ontology.ID    │
+│  endpoints  Endpoint[]      │          │  internal     bool           │
+│  rate       telem.Rate      │          │  auto_start   bool           │
+│  ...                        │          │  config_hash  uint64         │
+│  task       uuid (resolved) │          │  (status via status service) │
+└─────────────────────────────┘          └──────────────────────────────┘
 ```
 
-The resource holds an optional `task` field (the uuid of the task). The ontology
-mirrors this with a `parent_of` edge from the resource to the task. The server
-stamps the edge in the same transaction that makes the task. PR #2496 established
-this pattern for Arc. This RFC extends the pattern to each integration.
+The task stores a `config` field: the ontology ID of its parent resource
+(`http_read:<uuid>`). This heterogeneous reference is the only stored link
+between the two records, and it is never null. The resource's `task` field is
+not stored. The server resolves it at retrieve time from a gorp index on
+`config` (RFC 0034) — the pattern that PR #2496 established for `Arc.Task`. The
+ontology keeps a `parent_of` edge from the resource to the task for the Console
+tree. The server stamps the edge in the same transaction that makes the task.
 
-Invariant: **each task has exactly one parent resource.** The scanner tasks and
-the rack-status task of the driver obey this rule: the driver makes an `empty`
-resource for them at startup. Because the edge always exists, the task row does
-not need a `type` field. The ontology type of the resource is the type of the
-task. On the wire, the `oneof` case in the resolved payload carries the type.
+Invariant: **each task has exactly one parent resource.** The non-null `config`
+field enforces it. The scanner tasks and the rack-status task of the Driver obey
+this rule: the Driver makes an `empty` resource for them at startup. The task
+row does not need a `type` field. The type part of the `config` ontology ID
+carries it.
 
 ### 4.1 - The slim task
 
@@ -152,17 +157,18 @@ The task keeps only what execution needs:
 
 | Field         | Why it stays                                                      |
 | ------------- | ----------------------------------------------------------------- |
-| `key`         | uuid identity (PR #2603); the target of `sy_task_cmd` and status  |
+| `key`         | UUID identity (PR #2603); the target of `sy_task_cmd` and status  |
 | `rack`        | the deployment target; a mutable field, not key bits (PR #2603)   |
-| `internal`    | hides driver-created tasks from users                             |
+| `config`      | the ontology ID of the parent resource; never null; carries type  |
+| `internal`    | hides Driver-created tasks from users                             |
 | `auto_start`  | execution behavior, lifted out of each per-type config            |
 | `config_hash` | drift detection for deploy-on-start (§4.3)                        |
 
-These fields leave the task: `name` (the resource owns it), `type` (the ontology
-edge and the wire `oneof` own it), `config` (the resource *is* the config), and
-`snapshot` (snapshots do not have task rows, §4.3). Status stays in the status
-service, keyed by the ontology ID of the task. A draft has no status because
-nothing executes.
+These fields leave the task: `name` (the resource owns it), `type` (the type
+part of the `config` reference owns it), the embedded config object (the
+resource *is* the config), and `snapshot` (snapshots do not have task rows,
+§4.3). Status stays in the status service, keyed by the ontology ID of the task.
+A draft has no status because nothing executes.
 
 The generic `/task/create` endpoint is not exposed. Nothing needs it. Users
 create resources through the per-type endpoints. The driver mints its internal
@@ -214,8 +220,8 @@ resource does not have and does not accept a rack.
 
 **Deploy.** A deploy operation on the per-type endpoint receives the resource key
 and a rack key. In one transaction, the service validates the config, examines
-the `integrations` list of the rack, mints the task, writes the `task` field of
-the resource, and stamps the ontology edge. A rack without `ni` causes a hard
+the `integrations` list of the rack, mints the task with its `config` reference,
+and stamps the ontology edge. A rack without `ni` causes a hard
 error for an `ni_analog_read` deploy, because that deploy can never succeed. A
 deploy to a different rack writes the new value into the `rack` field of the
 task. The old driver then tears down, as the draft/deploy RFC specifies for a
@@ -227,21 +233,23 @@ rack move.
 The Core computes `config_hash` (xxhash64 over canonical bytes) when it writes
 the resource, and stores the hash on the task row. On `start`, the driver
 compares the hash with its active instance. Only on a mismatch does it fetch the
-resolved payload again. Drivers report the active hash in the status details.
+typed resource again. Drivers report the active hash in the status details.
 Drift is the difference between the two hashes. Two points change relative to
 that RFC: the input of the hash is the typed resource, and drafts are resources
 without tasks, not tasks without racks (§6.6).
 
 **Edit while deployed.** A write to the resource updates `config_hash` on its
-task row in the same transaction. This fires the current gorp-observe /
-`sy_task_set` path as a metadata refresh. Active tasks do not restart. The
+task row in the same transaction. The service finds the task row through the
+`config` index. The write fires the current gorp-observe / `sy_task_set` path as
+a metadata refresh. Active tasks do not restart. The
 Console shows the drift until the user deploys again with `start`.
 
 **Undeploy / delete.** To delete the task is to undeploy. The execution record
-and its status go away. The resource stays as a draft with `task` cleared. To
-delete the resource is to also delete its task (the Arc `deleteChildTasks`
-pattern). The delete action on a task entry in the Console tree deletes the
-resource, because the resource is the object that the user sees.
+and its status go away. The resource stays as a draft, and its resolved `task`
+field becomes empty. To delete the resource is to also delete its task, found
+through the `config` index (the Arc `deleteChildTasks` pattern). The delete
+action on a task entry in the Console tree deletes the resource, because the
+resource is the object that the user sees.
 
 **Snapshot.** A snapshot is a copy of the resource: a new uuid, `snapshot: true`.
 The copy is immutable through the same guard that protects snapshots today.
@@ -259,10 +267,10 @@ Configs have strong types on each wire. `google.protobuf.Struct` and `Any` are
 gone.
 
 - **Per-type protobuf messages**, generated by the Oracle `@pb` output for each
-  integration. The resolved task payload for gRPC (`TaskRetrieve` and the fetch
-  of the driver) is the slim task plus a `oneof` across all resource config
-  messages. The `oneof` case is the task type on the wire. The driver switches on
-  it and gives the typed message to the factory. The `ErrTaskNotHandled` scan
+  integration. The Driver reads a config from the per-type retrieve endpoint of
+  the applicable integration. Each read returns the typed message for that
+  resource. The Driver switches on the type part of the task's `config` ontology
+  ID and calls the applicable generated client. The `ErrTaskNotHandled` scan
   goes away, because dispatch is exact.
 - **C++** consumes the generated proto types directly. We delete the
   `x::json::Parser` config layer in `driver/*/` for each integration when it cuts
@@ -273,21 +281,21 @@ gone.
   semantic keys became arrays (§4.2), so the task schemas do not need
   `preserveCase` exits.
 
-### 4.5 - The resolved join
+### 4.5 - The stored link and the resolved `task` field
 
-The task service stays unaware of integrations. At the API composition layer, a
-registry maps the ontology type to the resource service. The registry is wired
-explicitly. `TaskRetrieve` uses it to attach the typed config of each task to
-the response. This is the resolved-field pattern from RFC 0041. PR #2496 proved
-it for `Arc.Task`. Here the direction inverts: the task resolves its parent
-resource through the ontology edge. This is the one place where generic code
-dispatches to specific code. It is composed at the wire-up site in `layer.go`,
-never through self-registration.
+The task service stays unaware of integrations. The `config` field is opaque
+data to it: an ontology ID that the service stores, indexes, and never
+dereferences. No registry and no composed payload exist at the API layer. A
+consumer that holds a task goes to the per-type endpoint that the `config` type
+names. A consumer that holds a resource reads its `task` field, which the
+resource service resolves from the gorp index on `config` — the pattern that
+PR #2496 proved for `Arc.Task`.
 
-The flow of the driver keeps its shape: one round trip returns all data that
-configuration needs. The factories of the in-process Go driver (`arc`,
-`pagerduty`, `slack`) receive the typed struct. They do not unmarshal
-`EncodedJSON`.
+The flow of the Driver: `sy_task_set` and the task row give it the slim task. On
+`start` with a hash mismatch, the Driver fetches the typed resource from the
+per-type endpoint. One fetch returns one typed message. The factories of the
+in-process Go driver (`arc`, `pagerduty`, `slack`) receive the typed struct in
+the same way. They do not unmarshal `EncodedJSON`.
 
 ### 4.6 - Migration
 
@@ -299,7 +307,8 @@ A one-time startup migration converts each stored task:
    migrated on the client side into current shapes. It also repairs the semantic
    keys that camelCase conversion corrupted, when it restructures the
    EtherCAT/OPC channel maps into arrays. The migrator then creates the typed
-   resource, links it, and makes the task row slim.
+   resource, writes the `config` reference on the task row, and makes the row
+   slim.
 2. Snapshot tasks convert to snapshot resources. The migration deletes their task
    rows and points the range references to the new resources.
 3. Internal scanner and status tasks convert to `empty` resources. The
@@ -354,20 +363,22 @@ Each numbered phase is a PR, or a short series where noted. At each boundary the
 tree builds, the tests pass, and the product can ship.
 
 1. **Oracle groundwork.** Cross-file extension of a common shape for the shared
-   task config bases. Per-type endpoint generation for resources that hold a
-   `task` reference. `oneof` emission for the resolved payload. This is pure
-   generator work with generator tests. No schema consumes it yet.
+   task config bases. Per-type endpoint generation. Support for an `ontology.ID`
+   field with a gorp index, and for a resolved `task` field on resources. This
+   is pure generator work with generator tests. No schema consumes it yet.
 2. **Schema authorship.** The per-integration `.oracle` files and their generated
    Go/TS/Py/C++/pb artifacts, not yet wired (the NI file adapted from #2433). One
    PR per integration or per small group. Each PR is a reviewable schema plus
    inert generated code.
 3. **Core services, additive.** The per-integration service packages, the `empty`
-   resource, the per-type endpoints, the deploy verb, and the API-layer registry
-   with the resolved join. All of it exists adjacent to the untouched task shape.
+   resource, the per-type endpoints, the deploy verb, and the resolved `task`
+   field on the gorp `config` index. All of it exists adjacent to the untouched
+   task shape.
    Production does not consume it yet. Ginkgo suites exercise it directly. The
    tree stays green because the change is additive.
 4. **Core cutover.** The atomic PR. It makes the task row slim (it drops `type`,
-   `name`, `config`, and `snapshot`, and adds `auto_start`). It runs the §4.6
+   `name`, `snapshot`, and the embedded config object, and adds the `config`
+   reference and `auto_start`). It runs the §4.6
    startup migration. It routes the Go driver factories (arc, pagerduty) through
    typed payloads. It removes `/task/create` and the config/copy paths of the
    task writer. It points the task imex at the resources, which unblocks SY-4524.
@@ -376,7 +387,8 @@ tree builds, the tests pass, and the product can ship.
    this PR to the cutover itself.
 5. **Driver cutover.** One PR per integration wave. Each wave consumes the
    generated C++ proto configs, deletes the `parser.field` config structs, and
-   switches dispatch to the `oneof`. The scanner startup moves to
+   switches dispatch to the `config` ontology ID with a per-type retrieve for
+   each fetch. The scanner startup moves to
    `empty`-resource deploys in the first wave.
 6. **Console migration.** Its own phase, one PR per integration. The forms bind
    to typed resources through generated Zod (the UI-only refinements stay). The
@@ -405,7 +417,7 @@ migrations in this codebase.
    union. It gives typed configs with much less machinery, and that trade is
    real. We rejected it because it types the blob but does not repair the model.
    It gives no per-type ontology presence or permissions. It gives no drafts. It
-   gives no portable uuid identity for imex (task keys carry rack history). And
+   gives no portable UUID identity for ImEx (task keys carry rack history). And
    snapshot and copy stay attached to execution.
 2. **The task/config split RFC (PR #2471) and its Phase 1 (#2472) —
    superseded.** That draft split the same data but kept the task as the root,
@@ -413,17 +425,19 @@ migrations in this codebase.
    embedded-blob fallback for types without a registration, and used a
    three-release dual-write rollout. Its caution was its purpose — and is the
    reason we supersede it. To keep the wire is to keep the open set and the
-   opaque payload that this RFC exists to remove. The registry idea survives at
-   the API composition layer (§4.5). The writer dispatch, the dual write, and the
-   fallback machinery do not.
-3. **The task points to its config (option 2) — rejected.** This puts a per-type
-   reference on the generic row. The task service must then resolve specifics,
-   which is the wrong dependency direction. The identity of the portable artifact
-   stays rack-bound. Drafts get no home. The typed resource that points to its
-   task follows the Arc precedent and keeps the specific→generic arrow.
-4. **`google.protobuf.Any` / `Struct` for configs — rejected.** Typed `oneof`
-   only. `Any` returns dispatch to strings and defeats the purpose. `Struct` is
-   the current state that we remove.
+   opaque payload that this RFC exists to remove. The stored `config` reference
+   and the per-type endpoints replace its provider registry, its writer dispatch,
+   its dual write, and its fallback machinery (§4.5).
+3. **The task as the root aggregate (option 2) — rejected.** In that model,
+   users create and own tasks, and the config is a satellite of the task. The
+   identity of the portable artifact stays rack-bound. Drafts get no home.
+   Snapshot and copy stay attached to execution. The resource as the root
+   follows the Arc precedent. Note the distinction from decision 12: the task
+   does store the `config` reference, but the reference is opaque data to the
+   task service, and the resource stays the root that users own.
+4. **`google.protobuf.Any` / `Struct` for configs — rejected.** Typed per-type
+   messages only. `Any` returns dispatch to strings and defeats the purpose.
+   `Struct` is the current state that we remove.
 5. **Per-type schema files — rejected** in favor of per-integration files. These
    keep the shared channel and scale unions adjacent to their users (§4.2).
 6. **Draft tasks without racks (the draft/deploy RFC model) — replaced.** Two
@@ -435,9 +449,9 @@ migrations in this codebase.
    exactly one embedded rack. A deploy to a node is thus sugar: the deploy
    endpoint resolves the node to its embedded rack. A polymorphic location type
    waits for the rack and device uuid re-key follow-up.
-8. **A `task.name` mirror — rejected.** The resource owns the name. Generic task
-   lists read through the resolved join. A synchronized mirror is a second source
-   of truth, and no consumer needs it more than the join.
+8. **A `task.name` mirror — rejected.** The resource owns the name. Task lists
+   read through the ontology and the per-type services. A synchronized mirror is
+   a second source of truth, and no consumer needs it.
 9. **Snapshot task rows — removed.** A snapshot is a frozen resource copy.
    Execution state has no place in it.
 10. **The open task-type set — closed.** A third-party task type would need a
@@ -445,9 +459,19 @@ migrations in this codebase.
     validation makes the problems of today occur again, and for exactly the tasks
     that are most likely to be malformed. Test suites use a registered test-only
     type behind the service config seam, not a wire bypass.
-11. **Multi-deploy (one resource, many tasks) — future work.** Validation holds
-    the `task` field to 0..1. Fan-out changes the channel-write behavior and
-    needs its own design.
+11. **Multi-deploy (one resource, many tasks) — future work.** Validation
+    permits at most one task to hold a `config` reference to a given resource.
+    Fan-out changes the channel-write behavior and needs its own design.
+12. **A resolved `config` payload on the task (registry + `oneof` envelope) —
+    replaced.** The first draft of this RFC composed the typed config into the
+    task payload at the API layer, through a registry and a protobuf `oneof`.
+    The stored ontology ID gives the same answer as plain data. It deletes the
+    registry and the envelope, and it keeps the task service fully generic.
+    Deploy-on-start makes the config fetch lazy, so no consumer needs the
+    composed payload. We also rejected mutual stored references (a stored `task`
+    field on the resource): two stored links can drift apart. The `config`
+    reference is the single source of truth, and the server resolves the
+    resource's `task` field from it.
 
 ---
 
