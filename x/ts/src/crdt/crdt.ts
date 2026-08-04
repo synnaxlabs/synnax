@@ -24,13 +24,39 @@ const idKey = (id: ID): string => `${id.replica}:${id.counter}`;
 // call stack for large documents, so the materialization is built in chunks.
 const TO_STRING_CHUNK = 8192;
 
+/** Element is a run of characters authored by one replica with contiguous counters.
+ * The in-order traversal of the run tree, skipping deleted characters, yields the
+ * materialized document. Invariants: left children anchor to the first character,
+ * right children anchor to the last, and interior characters never carry children; an
+ * anchor into the interior splits the run first. */
 interface Element {
+  /** id identifies the first character; the character at offset i has counter
+   * id.counter+i. */
   id: ID;
-  char: number;
-  deleted: boolean;
+  chars: number[];
+  /** deleted marks tombstoned characters. It is null when none are; otherwise its
+   * length always equals chars.length. */
+  deleted: boolean[] | null;
+  /** dead is the number of tombstoned characters in this run. */
+  dead: number;
   left: Element[];
   right: Element[];
 }
+
+const lastID = (e: Element): ID => ({
+  replica: e.id.replica,
+  counter: e.id.counter + e.chars.length - 1,
+});
+
+const charID = (e: Element, i: number): ID => ({
+  replica: e.id.replica,
+  counter: e.id.counter + i,
+});
+
+/** hasRight reports whether the character at offset off anchors anything on its right:
+ * a successor within the run, or, for the last character, a right child. */
+const hasRight = (e: Element, off: number): boolean =>
+  off < e.chars.length - 1 || e.right.length > 0;
 
 const sortedInsert = (children: Element[], e: Element): void => {
   let lo = 0;
@@ -50,13 +76,16 @@ export class Text {
   private readonly replica: number;
   private counter = 0;
   private readonly root: Element;
-  private readonly elements = new Map<string, Element>();
+  // index maps each replica to its runs ordered by starting counter, so any character
+  // id resolves to its containing run by binary search.
+  private readonly index = new Map<number, Element[]>();
   private readonly tombstones = new Set<string>();
   private pending: Insert[] = [];
   private order: Element[] = [];
   private dirty = true;
-  // visibleCache caches the live characters in document order; null when stale.
-  private visibleCache: Element[] | null = null;
+  // lastPlaced is the run most recently created or extended: the likely target of the
+  // next sequential insert, letting a typed or seeded run extend without an id lookup.
+  private lastPlaced: Element | null = null;
   // stringCache caches the materialized string; null when stale.
   private stringCache: string | null = null;
   // live is the number of non-deleted characters, maintained incrementally so len is
@@ -65,13 +94,7 @@ export class Text {
 
   constructor(replica: number) {
     this.replica = replica;
-    this.root = {
-      id: ROOT_ID,
-      char: 0,
-      deleted: false,
-      left: [],
-      right: [],
-    };
+    this.root = { id: ROOT_ID, chars: [], deleted: null, dead: 0, left: [], right: [] };
   }
 
   /** replicaID returns the id of the replica that owns this document. */
@@ -94,14 +117,25 @@ export class Text {
       const frame = stack.pop();
       if (frame == null) break;
       const { node, origin, side } = frame;
+      let first = origin;
+      let last = origin;
       if (node !== this.root) {
-        inserts.push({ id: node.id, origin, side, char: node.char });
-        if (node.deleted) deletes.push({ id: node.id });
+        let prev = origin;
+        let prevSide = side;
+        for (let i = 0; i < node.chars.length; i++) {
+          const id = charID(node, i);
+          inserts.push({ id, origin: prev, side: prevSide, char: node.chars[i] });
+          if (node.deleted?.[i] === true) deletes.push({ id });
+          prev = id;
+          prevSide = "right";
+        }
+        first = node.id;
+        last = lastID(node);
       }
       for (let i = node.right.length - 1; i >= 0; i--)
-        stack.push({ node: node.right[i], origin: node.id, side: "right" });
+        stack.push({ node: node.right[i], origin: last, side: "right" });
       for (let i = node.left.length - 1; i >= 0; i--)
-        stack.push({ node: node.left[i], origin: node.id, side: "left" });
+        stack.push({ node: node.left[i], origin: first, side: "left" });
     }
     return { inserts, deletes };
   }
@@ -117,7 +151,6 @@ export class Text {
   // markDirty invalidates the cached traversal and derived caches after a mutation.
   private markDirty(): void {
     this.dirty = true;
-    this.visibleCache = null;
     this.stringCache = null;
   }
 
@@ -128,11 +161,11 @@ export class Text {
     this.dirty = false;
   }
 
-  /** walk performs the in-order traversal of the document tree into order, visiting
-   * each node's left children, then the node, then its right children. The traversal
-   * is iterative with an explicit stack because a document built by typing in a single
-   * direction forms a tree as deep as it is long, which would overflow the call stack
-   * under recursion. */
+  /** walk performs the in-order traversal of the run tree into order, visiting each
+   * node's left children, then the node, then its right children. The traversal is
+   * iterative with an explicit stack because a heavily interleaved document forms a
+   * tree as deep as its run count, which could overflow the call stack under
+   * recursion. */
   private walk(): void {
     const stack: Array<{ node: Element; emit: boolean }> = [
       { node: this.root, emit: false },
@@ -153,11 +186,85 @@ export class Text {
     }
   }
 
-  private visible(): Element[] {
-    if (this.visibleCache != null) return this.visibleCache;
+  // findRun returns the run containing id and the character's offset within it.
+  private findRun(id: ID): [Element, number] | null {
+    const runs = this.index.get(id.replica);
+    if (runs == null) return null;
+    let lo = 0;
+    let hi = runs.length;
+    while (lo < hi) {
+      const mid = (lo + hi) >> 1;
+      if (runs[mid].id.counter <= id.counter) lo = mid + 1;
+      else hi = mid;
+    }
+    if (lo === 0) return null;
+    const e = runs[lo - 1];
+    const off = id.counter - e.id.counter;
+    if (off < e.chars.length) return [e, off];
+    return null;
+  }
+
+  // indexInsert records a new run in the replica index, keeping runs counter-ordered.
+  private indexInsert(e: Element): void {
+    let runs = this.index.get(e.id.replica);
+    if (runs == null) {
+      runs = [];
+      this.index.set(e.id.replica, runs);
+    }
+    let lo = 0;
+    let hi = runs.length;
+    while (lo < hi) {
+      const mid = (lo + hi) >> 1;
+      if (runs[mid].id.counter < e.id.counter) lo = mid + 1;
+      else hi = mid;
+    }
+    runs.splice(lo, 0, e);
+  }
+
+  /** splitAfter splits e after character offset k (0 <= k < length-1) and returns the
+   * new tail run. The tail inherits e's right children, since they anchor to e's old
+   * last character, and becomes e's sole right child. */
+  private splitAfter(e: Element, k: number): Element {
+    const tail: Element = {
+      id: charID(e, k + 1),
+      chars: e.chars.slice(k + 1),
+      deleted: null,
+      dead: 0,
+      left: [],
+      right: e.right,
+    };
+    e.chars.length = k + 1;
+    if (e.deleted != null) {
+      tail.deleted = e.deleted.slice(k + 1);
+      e.deleted.length = k + 1;
+      for (const d of tail.deleted) if (d) tail.dead += 1;
+      e.dead -= tail.dead;
+    }
+    e.right = [tail];
+    this.indexInsert(tail);
+    return tail;
+  }
+
+  // charAt returns the run and character offset of the live character at index.
+  private charAt(index: number): [Element, number] | null {
+    if (index < 0 || index >= this.live) return null;
     this.rebuild();
-    this.visibleCache = this.order.filter((e) => !e.deleted);
-    return this.visibleCache;
+    let seen = 0;
+    for (const e of this.order) {
+      const liveHere = e.chars.length - e.dead;
+      if (index >= seen + liveHere) {
+        seen += liveHere;
+        continue;
+      }
+      let k = index - seen;
+      if (e.dead === 0) return [e, k];
+      for (let i = 0; i < e.chars.length; i++) {
+        if (e.deleted?.[i] === true) continue;
+        if (k === 0) return [e, i];
+        k -= 1;
+      }
+    }
+    return null;
   }
 
   /** len returns the number of live characters in the document. */
@@ -169,12 +276,21 @@ export class Text {
    * cached and reused until the next mutation. */
   toString(): string {
     if (this.stringCache != null) return this.stringCache;
-    const vis = this.visible();
+    this.rebuild();
     let out = "";
-    for (let i = 0; i < vis.length; i += TO_STRING_CHUNK) {
-      const codes = vis.slice(i, i + TO_STRING_CHUNK).map((e) => e.char);
-      out += String.fromCodePoint(...codes);
-    }
+    let buf: number[] = [];
+    const flush = (): void => {
+      out += String.fromCodePoint(...buf);
+      buf = [];
+    };
+    for (const e of this.order) 
+      for (let i = 0; i < e.chars.length; i++) {
+        if (e.dead > 0 && e.deleted?.[i] === true) continue;
+        buf.push(e.chars[i]);
+        if (buf.length >= TO_STRING_CHUNK) flush();
+      }
+    
+    if (buf.length > 0) flush();
     this.stringCache = out;
     return out;
   }
@@ -182,9 +298,9 @@ export class Text {
   /** indexToID returns the id of the character at the given live index, or null when
    * the index is out of range. */
   indexToID(index: number): ID | null {
-    const vis = this.visible();
-    if (index < 0 || index >= vis.length) return null;
-    return vis[index].id;
+    const found = this.charAt(index);
+    if (found == null) return null;
+    return charID(found[0], found[1]);
   }
 
   /** insert inserts text at the given live index and returns the operations that
@@ -194,21 +310,23 @@ export class Text {
   insert(index: number, text: string): Insert[] {
     const chars = Array.from(text);
     if (chars.length === 0) return [];
-    const vis = this.visible();
-    let left: Element;
-    if (index <= 0) left = this.root;
-    else if (index - 1 < vis.length) left = vis[index - 1];
-    else left = vis.length > 0 ? vis[vis.length - 1] : this.root;
-    const right = index >= 0 && index < vis.length ? vis[index] : null;
+    let left = this.root;
+    let leftOff = -1;
+    if (index > 0) {
+      const at = this.charAt(index - 1) ?? this.charAt(this.live - 1);
+      if (at != null) [left, leftOff] = at;
+    }
+    const rightAt = this.charAt(index);
+    const rightID = rightAt != null ? charID(rightAt[0], rightAt[1]) : null;
     const ops: Insert[] = [];
     for (const ch of chars) {
       let origin: ID;
       let side: spatial.XLocation;
-      if (right != null && left.right.length > 0) {
-        origin = right.id;
+      if (rightID != null && hasRight(left, leftOff)) {
+        origin = rightID;
         side = "left";
       } else {
-        origin = left.id;
+        origin = left === this.root ? ROOT_ID : charID(left, leftOff);
         side = "right";
       }
       this.counter += 1;
@@ -218,7 +336,8 @@ export class Text {
         side,
         char: ch.codePointAt(0) ?? 0,
       };
-      left = this.place(op) as Element;
+      const placed = this.place(op);
+      if (placed != null) [left, leftOff] = placed;
       ops.push(op);
     }
     return ops;
@@ -228,11 +347,27 @@ export class Text {
    * operations that describe the edit. The operations are applied to this document
    * before they are returned. */
   delete(index: number, length: number): Delete[] {
-    if (length <= 0) return [];
-    const vis = this.visible();
+    if (length <= 0 || index < 0 || index >= this.live) return [];
+    this.rebuild();
+    const end = Math.min(index + length, this.live);
+    const ids: ID[] = [];
+    let seen = 0;
+    for (const e of this.order) {
+      const liveHere = e.chars.length - e.dead;
+      if (seen + liveHere <= index) {
+        seen += liveHere;
+        continue;
+      }
+      for (let i = 0; i < e.chars.length; i++) {
+        if (e.deleted?.[i] === true) continue;
+        if (seen >= index && seen < end) ids.push(charID(e, i));
+        seen += 1;
+      }
+      if (seen >= end) break;
+    }
     const ops: Delete[] = [];
-    for (let i = index; i < index + length && i < vis.length; i++) {
-      const op: Delete = { id: vis[i].id };
+    for (const id of ids) {
+      const op: Delete = { id };
       this.applyDelete(op);
       ops.push(op);
     }
@@ -244,8 +379,9 @@ export class Text {
    * has not yet arrived are buffered and integrated once it does. */
   applyInsert(...ops: Insert[]): void {
     for (const op of ops)
-      if (this.place(op) != null) this.drain();
-      else this.pending.push(op);
+      if (this.place(op) != null) {
+        if (this.pending.length > 0) this.drain();
+      } else this.pending.push(op);
   }
 
   /** applyDelete integrates delete operations produced by other replicas. A delete
@@ -253,10 +389,13 @@ export class Text {
    * arrival. */
   applyDelete(...ops: Delete[]): void {
     for (const op of ops) {
-      const e = this.elements.get(idKey(op.id));
-      if (e != null) {
-        if (!e.deleted) {
-          e.deleted = true;
+      const found = this.findRun(op.id);
+      if (found != null) {
+        const [e, off] = found;
+        e.deleted ??= new Array<boolean>(e.chars.length).fill(false);
+        if (!e.deleted[off]) {
+          e.deleted[off] = true;
+          e.dead += 1;
           this.live -= 1;
           this.markDirty();
         }
@@ -266,29 +405,71 @@ export class Text {
     }
   }
 
-  private place(op: Insert): Element | null {
-    const key = idKey(op.id);
-    const existing = this.elements.get(key);
+  /** extendsLast reports whether op contiguously appends to the run last touched by
+   * place: its origin is the run's last character, replica and counter continue the
+   * run, and nothing anchors after it. Such an op cannot be a duplicate: were its
+   * counter already placed, the run would have been split or given a right child, and
+   * the check would fail. */
+  private extendsLast(op: Insert): boolean {
+    const e = this.lastPlaced;
+    if (e == null || op.side !== "right" || e.right.length > 0) return false;
+    const last = lastID(e);
+    return (
+      op.id.replica === e.id.replica &&
+      op.origin.replica === last.replica &&
+      op.origin.counter === last.counter &&
+      op.id.counter === e.id.counter + e.chars.length
+    );
+  }
+
+  /** place attaches an insert to the run tree, returning the run and offset holding
+   * the character. It returns null without buffering when the operation's origin is not
+   * yet present. */
+  private place(op: Insert): [Element, number] | null {
+    if (this.extendsLast(op)) {
+      const e = this.lastPlaced as Element;
+      e.chars.push(op.char);
+      e.deleted?.push(false);
+      const off = e.chars.length - 1;
+      if (this.tombstones.size > 0 && this.tombstones.delete(idKey(op.id))) {
+        e.deleted ??= new Array<boolean>(e.chars.length).fill(false);
+        e.deleted[off] = true;
+        e.dead += 1;
+      } else this.live += 1;
+      this.markDirty();
+      return [e, off];
+    }
+    const existing = this.findRun(op.id);
     if (existing != null) return existing;
     let origin = this.root;
+    let originOff = -1;
     if (!isRoot(op.origin)) {
-      const found = this.elements.get(idKey(op.origin));
+      const found = this.findRun(op.origin);
       if (found == null) return null;
-      origin = found;
+      [origin, originOff] = found;
     }
+    const deleted = this.tombstones.delete(idKey(op.id));
     const e: Element = {
       id: op.id,
-      char: op.char,
-      deleted: this.tombstones.delete(key),
+      chars: [op.char],
+      deleted: deleted ? [true] : null,
+      dead: deleted ? 1 : 0,
       left: [],
       right: [],
     };
-    if (op.side === "left") sortedInsert(origin.left, e);
-    else sortedInsert(origin.right, e);
-    this.elements.set(key, e);
-    if (!e.deleted) this.live += 1;
+    if (!deleted) this.live += 1;
+    if (op.side === "left") {
+      if (originOff > 0) origin = this.splitAfter(origin, originOff - 1);
+      sortedInsert(origin.left, e);
+    } else {
+      if (originOff >= 0 && originOff < origin.chars.length - 1)
+        this.splitAfter(origin, originOff);
+      sortedInsert(origin.right, e);
+    }
+    this.indexInsert(e);
+    this.lastPlaced = e;
     this.markDirty();
-    return e;
+    return [e, 0];
   }
 
   private drain(): void {
@@ -296,8 +477,8 @@ export class Text {
       let progressed = false;
       const remaining: Insert[] = [];
       for (const op of this.pending) {
-        if (this.elements.has(idKey(op.id))) continue;
-        if (!isRoot(op.origin) && !this.elements.has(idKey(op.origin))) {
+        if (this.findRun(op.id) != null) continue;
+        if (!isRoot(op.origin) && this.findRun(op.origin) == null) {
           remaining.push(op);
           continue;
         }

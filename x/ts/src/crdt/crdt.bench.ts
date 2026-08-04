@@ -13,7 +13,7 @@ import { crdt } from "@/crdt";
 
 // SIZES are document lengths in characters. They bracket the realistic range for an Arc
 // source file (low thousands) and push past it to expose the scaling curve.
-const SIZES = [100, 1000, 5000, 10000];
+const SIZES = [100, 1000, 5000, 25000];
 
 const buildDoc = (n: number): crdt.Text => {
   const t = new crdt.Text(1);
