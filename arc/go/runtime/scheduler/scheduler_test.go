@@ -82,12 +82,10 @@ func (m *MockNode) IsOutputTruthy(idx int) bool {
 	return m.OutputTruthy[idx]
 }
 
-// markOnNext returns an OnNext callback that calls MarkChanged for the
-// given ordinal each time Next runs. Replaces the symbolic
-// MarkOnNext("name") form — the ordinal comes from the test's IR
-// declaration.
-func markOnNext(ordinal int) func(node.Context) {
-	return func(ctx node.Context) { ctx.MarkChanged(ordinal) }
+// markOnNext returns an OnNext callback that calls MarkChanged for ordinal 0 each
+// time Next runs.
+func markOnNext() func(node.Context) {
+	return func(ctx node.Context) { ctx.MarkChanged(0) }
 }
 
 // MockErrorHandler collects scheduler-reported errors for assertion.
@@ -330,7 +328,7 @@ var _ = Describe("Scheduler", func() {
 			func(ctx SpecContext) {
 				nodeA := mock("A")
 				nodeB := mock("B")
-				nodeA.OnNext = markOnNext(0)
+				nodeA.OnNext = markOnNext()
 				prog := programOf(
 					[]ir.Node{irNode("A", "output"), irNode("B")},
 					[]ir.Edge{continuousEdge("A", "output", "B", "input")},
@@ -351,7 +349,7 @@ var _ = Describe("Scheduler", func() {
 			func(ctx SpecContext) {
 				nodeA := mock("A")
 				nodeB := mock("B")
-				nodeA.OnNext = markOnNext(0)
+				nodeA.OnNext = markOnNext()
 				// Output is not truthy — B must not fire.
 				prog := programOf(
 					[]ir.Node{irNode("A", "output"), irNode("B")},
@@ -571,7 +569,7 @@ var _ = Describe("Scheduler", func() {
 			// (so main activates), then releases on later cycles so the
 			// activation handle isn't re-satisfying after exit.
 			cycleCount := 0
-			trigger.OnNext = func(ctx node.Context) {
+			trigger.OnNext = func(_ node.Context) {
 				cycleCount++
 				if cycleCount > 1 {
 					trigger.OutputTruthy[0] = false
@@ -820,7 +818,7 @@ var _ = Describe("Scheduler", func() {
 				nodeB := mock("B")
 				nodeC := mock("C")
 				// A declares two outputs ("x", "y"); only "x" (ordinal 0) fires.
-				nodeA.OnNext = markOnNext(0)
+				nodeA.OnNext = markOnNext()
 				prog := programOf(
 					[]ir.Node{irNode("A", "x", "y"), irNode("B"), irNode("C")},
 					[]ir.Edge{
@@ -845,7 +843,7 @@ var _ = Describe("Scheduler", func() {
 				nodeA := mock("A")
 				nodeB := mock("B")
 				nodeC := mock("C")
-				nodeA.OnNext = markOnNext(0)
+				nodeA.OnNext = markOnNext()
 				prog := programOf(
 					[]ir.Node{irNode("A", "output"), irNode("B"), irNode("C")},
 					[]ir.Edge{
@@ -870,8 +868,8 @@ var _ = Describe("Scheduler", func() {
 				nodeA := mock("A")
 				nodeB := mock("B")
 				nodeC := mock("C")
-				nodeA.OnNext = markOnNext(0)
-				nodeB.OnNext = markOnNext(0)
+				nodeA.OnNext = markOnNext()
+				nodeB.OnNext = markOnNext()
 				prog := programOf(
 					[]ir.Node{
 						irNode("A", "output"),
@@ -901,8 +899,8 @@ var _ = Describe("Scheduler", func() {
 				nodeA := mock("A")
 				nodeB := mock("B")
 				nodeC := mock("C")
-				nodeA.OnNext = markOnNext(0)
-				nodeB.OnNext = markOnNext(0)
+				nodeA.OnNext = markOnNext()
+				nodeB.OnNext = markOnNext()
 				prog := programOf(
 					[]ir.Node{
 						irNode("A", "output"),
@@ -928,9 +926,9 @@ var _ = Describe("Scheduler", func() {
 		)
 
 		It("Should execute a diamond graph's sink exactly once", func(ctx SpecContext) {
-			mock("A").OnNext = markOnNext(0)
-			mock("B").OnNext = markOnNext(0)
-			mock("C").OnNext = markOnNext(0)
+			mock("A").OnNext = markOnNext()
+			mock("B").OnNext = markOnNext()
+			mock("C").OnNext = markOnNext()
 			nodeD := mock("D")
 			prog := programOf(
 				[]ir.Node{
@@ -961,7 +959,7 @@ var _ = Describe("Scheduler", func() {
 			func(ctx SpecContext) {
 				nodeA := mock("A")
 				nodeB := mock("B")
-				nodeA.OnNext = markOnNext(0)
+				nodeA.OnNext = markOnNext()
 				prog := programOf(
 					[]ir.Node{irNode("A", "output"), irNode("B")},
 					nil,
@@ -1030,7 +1028,7 @@ var _ = Describe("Scheduler", func() {
 				// propagate the change.
 				nodeA := mock("A")
 				nodeB := mock("B")
-				nodeA.OnNext = markOnNext(0)
+				nodeA.OnNext = markOnNext()
 				prog := programOf(
 					[]ir.Node{irNode("A", "output"), irNode("B")},
 					[]ir.Edge{continuousEdge("A", "output", "B", "in")},
@@ -1343,7 +1341,7 @@ var _ = Describe("Scheduler", func() {
 
 		It("Should tolerate a self-loop edge in phase 0", func(ctx SpecContext) {
 			nodeA := mock("A")
-			nodeA.OnNext = markOnNext(0)
+			nodeA.OnNext = markOnNext()
 			prog := programOf(
 				[]ir.Node{irNode("A", "output")},
 				[]ir.Edge{continuousEdge("A", "output", "A", "in")},
@@ -1473,7 +1471,7 @@ var _ = Describe("Scheduler", func() {
 				trigger := mock("trigger", true)
 				firstNode := mock("first_node", true)
 				cycle := 0
-				trigger.OnNext = func(c node.Context) {
+				trigger.OnNext = func(_ node.Context) {
 					cycle++
 					// Release after cycle 1, re-assert on cycle 3.
 					if cycle == 2 {
@@ -1800,8 +1798,8 @@ var _ = Describe("Scheduler", func() {
 			func(ctx SpecContext) {
 				nodeA := mock("A")
 				nodeB := mock("B")
-				nodeA.OnNext = markOnNext(0)
-				nodeB.OnNext = markOnNext(0)
+				nodeA.OnNext = markOnNext()
+				nodeB.OnNext = markOnNext()
 				prog := programOf(
 					[]ir.Node{irNode("A", "output"), irNode("B", "output")},
 					[]ir.Edge{
@@ -1829,7 +1827,7 @@ var _ = Describe("Scheduler", func() {
 			"Should not re-pass when a node marks itself through a self-loop",
 			func(ctx SpecContext) {
 				nodeA := mock("A")
-				nodeA.OnNext = markOnNext(0)
+				nodeA.OnNext = markOnNext()
 				prog := programOf(
 					[]ir.Node{irNode("A", "output")},
 					[]ir.Edge{continuousEdge("A", "output", "A", "in")},
@@ -1848,8 +1846,8 @@ var _ = Describe("Scheduler", func() {
 			func(ctx SpecContext) {
 				nodeA := mock("A")
 				nodeB := mock("B")
-				nodeA.OnNext = markOnNext(0)
-				nodeB.OnNext = markOnNext(0)
+				nodeA.OnNext = markOnNext()
+				nodeB.OnNext = markOnNext()
 				prog := programOf(
 					[]ir.Node{irNode("A", "output"), irNode("B", "output")},
 					[]ir.Edge{
@@ -2159,7 +2157,7 @@ var _ = Describe("Scheduler", func() {
 			func(ctx SpecContext) {
 				nodeA := mock("A")
 				worker := mock("worker")
-				nodeA.OnNext = markOnNext(0)
+				nodeA.OnNext = markOnNext()
 				prog := programOf(
 					[]ir.Node{irNode("A", "output"), irNode("worker")},
 					[]ir.Edge{continuousEdge("A", "output", "worker", "in")},

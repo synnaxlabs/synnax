@@ -34,8 +34,8 @@ func (s *StackTrace) String() string {
 	return b.String()
 }
 
-func mustPrintf(w io.Writer, format string, a ...any) int {
-	return lo.Must1(fmt.Fprintf(w, format, a...))
+func mustPrintf(w io.Writer, format string, a ...any) {
+	lo.Must1(fmt.Fprintf(w, format, a...))
 }
 
 func (s *StackTrace) StringBuilder(b *strings.Builder) {

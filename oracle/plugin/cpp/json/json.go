@@ -194,10 +194,7 @@ func (p *Plugin) generateFile(
 	data.includes.addInternal("x/cpp/json/json.h")
 
 	for _, s := range structs {
-		serializer, err := p.processStruct(s, data)
-		if err != nil {
-			return nil, err
-		}
+		serializer := p.processStruct(s, data)
 		if serializer != nil {
 			data.Serializers = append(data.Serializers, *serializer)
 		}
@@ -280,10 +277,10 @@ func (p *Plugin) resolveExtendsType(
 func (p *Plugin) processStruct(
 	s resolution.Type,
 	data *templateData,
-) (*serializerData, error) {
+) *serializerData {
 	form, ok := s.Form.(resolution.StructForm)
 	if !ok {
-		return nil, nil
+		return nil
 	}
 
 	cppName := domain.GetName(s, "cpp")
@@ -333,7 +330,7 @@ func (p *Plugin) processStruct(
 		}
 	}
 
-	return serializer, nil
+	return serializer
 }
 
 // isSelfReference reports whether t directly or transitively references parent.

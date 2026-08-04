@@ -24,10 +24,10 @@ import (
 
 func analyze(
 	ctx context.Context,
-	source, namespace string,
+	source string,
 	loader *testutil.MockFileLoader,
 ) (*resolution.Table, error) {
-	table, diag := analyzer.AnalyzeSource(ctx, source, namespace, loader)
+	table, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
 	if diag != nil && !diag.Ok() {
 		return nil, diag
 	}
@@ -49,7 +49,7 @@ var _ = Describe("Versioning", func() {
 					name string
 				}
 			`
-			table := MustSucceed(analyze(ctx, source, "test", loader))
+			table := MustSucceed(analyze(ctx, source, loader))
 			v := MustBeOk(versioning.Version(table.MustGet("test.Entry")))
 			Expect(v).To(Equal(3))
 		})
@@ -63,7 +63,7 @@ var _ = Describe("Versioning", func() {
 					key uuid @key
 				}
 			`
-				table := MustSucceed(analyze(ctx, source, "test", loader))
+				table := MustSucceed(analyze(ctx, source, loader))
 				_, ok := versioning.Version(table.MustGet("test.Entry"))
 				Expect(ok).To(BeFalse())
 			},
@@ -75,7 +75,7 @@ var _ = Describe("Versioning", func() {
 					key uuid @key
 				}
 			`
-			table := MustSucceed(analyze(ctx, source, "test", loader))
+			table := MustSucceed(analyze(ctx, source, loader))
 			_, ok := versioning.Version(table.MustGet("test.Entry"))
 			Expect(ok).To(BeFalse())
 		})
@@ -92,7 +92,7 @@ var _ = Describe("Versioning", func() {
 					key uuid @key
 				}
 			`
-				table := MustSucceed(analyze(ctx, source, "test", loader))
+				table := MustSucceed(analyze(ctx, source, loader))
 				Expect(versioning.Pinned(table.MustGet("test.Entry"))).To(BeTrue())
 				v := MustBeOk(versioning.Version(table.MustGet("test.Entry")))
 				Expect(v).To(Equal(2))
@@ -107,7 +107,7 @@ var _ = Describe("Versioning", func() {
 					key uuid @key
 				}
 			`
-			table := MustSucceed(analyze(ctx, source, "test", loader))
+			table := MustSucceed(analyze(ctx, source, loader))
 			Expect(versioning.Pinned(table.MustGet("test.Entry"))).To(BeFalse())
 		})
 	})
@@ -146,7 +146,7 @@ var _ = Describe("Versioning", func() {
 					item dep.Item
 				}
 			`
-				table := MustSucceed(analyze(ctx, source, "test", loader))
+				table := MustSucceed(analyze(ctx, source, loader))
 				Expect(versioning.PathVersions(table)).To(Equal(
 					map[string]int{"out": 3, "dep": 5}))
 			},
@@ -161,7 +161,7 @@ var _ = Describe("Versioning", func() {
 					key uuid @key
 				}
 			`
-				table := MustSucceed(analyze(ctx, source, "test", loader))
+				table := MustSucceed(analyze(ctx, source, loader))
 				Expect(versioning.PathVersions(table)).To(BeEmpty())
 			},
 		)
@@ -174,7 +174,7 @@ var _ = Describe("Versioning", func() {
 					key uuid @key
 				}
 			`
-			table := MustSucceed(analyze(ctx, source, "test", loader))
+			table := MustSucceed(analyze(ctx, source, loader))
 			Expect(versioning.PathVersions(table)).Error().To(MatchError(
 				ContainSubstring("must be a non-negative integer")))
 		})
@@ -196,7 +196,7 @@ var _ = Describe("Versioning", func() {
 					item dep.Item
 				}
 			`
-			table := MustSucceed(analyze(ctx, source, "test", loader))
+			table := MustSucceed(analyze(ctx, source, loader))
 			Expect(versioning.PathVersions(table)).Error().To(MatchError(
 				ContainSubstring("conflicting @go version declarations for out")))
 		})
@@ -209,7 +209,7 @@ var _ = Describe("Versioning", func() {
 					@go migrate
 				}
 			`
-			table := MustSucceed(analyze(ctx, source, "test", loader))
+			table := MustSucceed(analyze(ctx, source, loader))
 			Expect(versioning.PathVersions(table)).Error().To(MatchError(
 				ContainSubstring("@go migrate requires a @go version declaration")))
 		})
@@ -228,7 +228,7 @@ var _ = Describe("Versioning", func() {
 					@go marshal
 				}
 			`
-				table := MustSucceed(analyze(ctx, source, "test", loader))
+				table := MustSucceed(analyze(ctx, source, loader))
 				Expect(versioning.EntryPaths(table)).To(Equal(map[string]int{"out": 3}))
 			},
 		)
@@ -243,7 +243,7 @@ var _ = Describe("Versioning", func() {
 					name string
 				}
 			`
-				table := MustSucceed(analyze(ctx, source, "test", loader))
+				table := MustSucceed(analyze(ctx, source, loader))
 				Expect(versioning.EntryPaths(table)).To(Equal(map[string]int{"out": 3}))
 			},
 		)
@@ -255,7 +255,7 @@ var _ = Describe("Versioning", func() {
 					key uuid @key
 				}
 			`
-			table := MustSucceed(analyze(ctx, source, "test", loader))
+			table := MustSucceed(analyze(ctx, source, loader))
 			Expect(versioning.EntryPaths(table)).To(BeEmpty())
 		})
 	})
@@ -278,7 +278,7 @@ var _ = Describe("Versioning", func() {
 					@go marshal
 				}
 			`
-			table := MustSucceed(analyze(ctx, source, "test", loader))
+			table := MustSucceed(analyze(ctx, source, loader))
 			rewritten, pathMap := MustSucceed2(versioning.RewriteCurrent(table))
 			Expect(pathMap).To(Equal(map[string]string{"out": "out/versions/v3"}))
 			entry := rewritten.MustGet("test.Entry")
@@ -295,7 +295,7 @@ var _ = Describe("Versioning", func() {
 					key uuid @key
 				}
 			`
-			table := MustSucceed(analyze(ctx, source, "test", loader))
+			table := MustSucceed(analyze(ctx, source, loader))
 			rewritten, pathMap := MustSucceed2(versioning.RewriteCurrent(table))
 			Expect(rewritten).To(BeIdenticalTo(table))
 			Expect(pathMap).To(BeEmpty())
@@ -310,7 +310,7 @@ var _ = Describe("AliasSplit", func() {
 
 	analyzeTable := func(ctx context.Context, source string) *resolution.Table {
 		GinkgoHelper()
-		table := MustSucceed(analyze(ctx, source, "test", testutil.NewMockFileLoader()))
+		table := MustSucceed(analyze(ctx, source, testutil.NewMockFileLoader()))
 		return table
 	}
 
@@ -327,7 +327,7 @@ var _ = Describe("AliasSplit", func() {
 			    @go version 2
 			    value int32  extra string
 			}
-		`, "test", loader))
+		`, loader))
 			snapshots := map[int]string{
 				// v56 already declares the current version and cannot anchor.
 				56: `
@@ -381,7 +381,7 @@ var _ = Describe("AliasSplit", func() {
 			    @go version 2
 			    name string
 			}
-		`, "test", loader))
+		`, loader))
 			split := MustSucceed(versioning.AliasSplit(
 				liveTable, 56,
 				func(int) (*resolution.Table, error) { return nil, nil },
@@ -397,10 +397,10 @@ var _ = Describe("AliasSplit", func() {
 			    @go version 0
 			    name string
 			}
-		`, "test", loader))
+		`, loader))
 		split := MustSucceed(versioning.AliasSplit(
 			liveTable, 56,
-			func(version int) (*resolution.Table, error) {
+			func(int) (*resolution.Table, error) {
 				return analyzeTable(ctx, `
 					@go output "out"
 					Stable struct {

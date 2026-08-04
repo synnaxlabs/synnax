@@ -50,7 +50,7 @@ var _ = Describe("Label", Ordered, func() {
 		}))
 		Expect(searchIdx.Initialize(ctx)).To(Succeed())
 	})
-	BeforeEach(func(ctx SpecContext) {
+	BeforeEach(func(_ SpecContext) {
 		tx = db.OpenTx()
 		w = svc.NewWriter(tx)
 	})

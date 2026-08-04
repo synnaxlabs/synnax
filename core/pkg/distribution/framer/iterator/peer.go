@@ -37,7 +37,7 @@ func newPeerSender(generateSeqNums bool) *peerSender {
 }
 
 func (s *peerSender) transform(
-	ctx context.Context,
+	_ context.Context,
 	in Request,
 ) (out Request, ok bool, err error) {
 	if s.generateSeqNums {

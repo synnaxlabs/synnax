@@ -88,17 +88,17 @@ var _ = Describe("Task", Ordered, func() {
 		testRack = &rack.Rack{Name: "Test Rack"}
 		Expect(rackService.NewWriter(db).Create(ctx, testRack)).To(Succeed())
 	})
-	BeforeEach(func(ctx SpecContext) {
+	BeforeEach(func(_ SpecContext) {
 		tx = db.OpenTx()
 		w = svc.NewWriter(tx)
 	})
-	AfterEach(func(ctx SpecContext) {
+	AfterEach(func(_ SpecContext) {
 		Expect(tx.Close()).To(Succeed())
 	})
 	Describe("Task", func() {
 		It(
 			"Should construct and deconstruct a key from its components",
-			func(ctx SpecContext) {
+			func(_ SpecContext) {
 				rk := rack.NewKey(node.Key(1), 1)
 				k := task.NewKey(rk, 2)
 				Expect(k.Rack()).To(Equal(rk))
@@ -109,7 +109,7 @@ var _ = Describe("Task", Ordered, func() {
 	Describe("CommandChannelKey", func() {
 		It(
 			"Should return zero when no channel service is configured",
-			func(ctx SpecContext) {
+			func(_ SpecContext) {
 				Expect(svc.CommandChannelKey()).To(Equal(channel.Key(0)))
 			},
 		)
@@ -599,7 +599,7 @@ var _ = Describe("Task", Ordered, func() {
 		Describe("String", func() {
 			It(
 				"Should return a string representation of the command",
-				func(ctx SpecContext) {
+				func(_ SpecContext) {
 					c := &task.Command{
 						Key:  "cmd",
 						Task: task.Key(12345),
@@ -624,7 +624,7 @@ var _ = Describe("Task", Ordered, func() {
 			Expect(w.Create(ctx, t)).To(Succeed())
 			called := false
 			svc.Observe().
-				OnChange(func(ctx context.Context, _ gorp.TxReader[task.Key, task.Task]) {
+				OnChange(func(_ context.Context, _ gorp.TxReader[task.Key, task.Task]) {
 					called = true
 				})
 			Expect(tx.Commit(ctx)).To(Succeed())

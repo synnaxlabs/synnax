@@ -97,7 +97,7 @@ func isRangeCallExpr(
 
 func compileForRange(
 	ctx context.Context[parser.IForStatementContext],
-	clause parser.IForClauseContext,
+	_ parser.IForClauseContext,
 	name string,
 	funcCall parser.IFunctionCallSuffixContext,
 ) error {
@@ -244,7 +244,7 @@ func compileForRange(
 
 func compileForSeriesIteration(
 	ctx context.Context[parser.IForStatementContext],
-	clause parser.IForClauseContext,
+	_ parser.IForClauseContext,
 	elemName string,
 	indexName string,
 	expr parser.IExpressionContext,

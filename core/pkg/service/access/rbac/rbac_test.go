@@ -100,8 +100,8 @@ var _ = Describe("ServiceConfig", func() {
 
 var _ = Describe("Service", func() {
 	var tx gorp.Tx
-	BeforeEach(func(ctx SpecContext) { tx = db.OpenTx() })
-	AfterEach(func(ctx SpecContext) { Expect(tx.Close()).To(Succeed()) })
+	BeforeEach(func(_ SpecContext) { tx = db.OpenTx() })
+	AfterEach(func(_ SpecContext) { Expect(tx.Close()).To(Succeed()) })
 
 	Describe("OpenService", func() {
 		It("Should open a service with a valid configuration", func(ctx SpecContext) {

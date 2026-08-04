@@ -65,11 +65,12 @@ type errorListener struct {
 }
 
 func (e *errorListener) SyntaxError(
-	_ antlr.Recognizer,
-	_ any,
-	_, _ int,
-	_ string,
-	_ antlr.RecognitionException,
+	antlr.Recognizer,
+	any,
+	int,
+	int,
+	string,
+	antlr.RecognitionException,
 ) {
 	e.hasErrors = true
 }
@@ -251,7 +252,7 @@ func (f *formatter) formatFileDomains(domains []parser.IFileDomainContext) {
 // currentPrefixLen is the length of "@domain" so far, maxPrefixLen is the target.
 func (f *formatter) formatDomainContentAligned(
 	ctx parser.IDomainContentContext,
-	allowBlock bool,
+	_ bool,
 	maxPrefixLen, currentPrefixLen int,
 ) {
 	if ctx.Expression() != nil {
@@ -1183,7 +1184,7 @@ func (f *formatter) formatTypeArgs(ctx parser.ITypeArgsContext) {
 	f.write(">")
 }
 
-func (f *formatter) formatTypeModifiers(ctx parser.ITypeModifiersContext) {
+func (f *formatter) formatTypeModifiers(parser.ITypeModifiersContext) {
 	f.write("?")
 }
 

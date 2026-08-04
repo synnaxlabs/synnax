@@ -16,6 +16,7 @@ linters:
     - must
     - set
     - goroutineleak
+    - blank
   settings:
     ginkgolinter:
       forbid-focus-container: true
@@ -36,6 +37,8 @@ linters:
             - []
             - []
             - - skip-package-name-checks: true
+        - name: unused-receiver
+        - name: unused-parameter
     custom:
       must:
         type: "module"
@@ -52,6 +55,11 @@ linters:
           Enforces goroutine leak checks in Ginkgo suites: every suite must register
           ShouldNotLeakGoroutinesPerSpec, and every BeforeSuite/BeforeAll must call
           ShouldNotLeakGoroutines first.
+      blank:
+        type: "module"
+        description: >
+          Detects blank receivers and all-blank parameter lists that can drop their
+          names entirely.
 formatters:
   enable:
     - gci

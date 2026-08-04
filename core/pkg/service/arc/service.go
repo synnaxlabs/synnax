@@ -156,7 +156,7 @@ func (s *Service) NewLSP() (*lsp.Server, error) {
 		OnRename: func(
 			ctx context.Context,
 			sym *symbol.Symbol,
-			oldName,
+			_,
 			newName string,
 		) error {
 			if sym.Kind != symbol.KindChannel {

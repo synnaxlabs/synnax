@@ -19,7 +19,7 @@ func newLSPCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "lsp",
 		Short: "Start the language server",
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: func(cmd *cobra.Command, _ []string) error {
 			return lsp.New().Serve(cmd.Context(), xos.StdIO)
 		},
 	}

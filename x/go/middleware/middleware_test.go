@@ -38,7 +38,7 @@ type myFinalizer struct{}
 
 var _ middleware.Finalizer[*request, *response] = &myFinalizer{}
 
-func (*myFinalizer) Finalize(req *request) (*response, error) {
+func (*myFinalizer) Finalize(*request) (*response, error) {
 	return nil, nil
 }
 

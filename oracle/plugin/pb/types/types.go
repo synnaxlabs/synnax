@@ -60,7 +60,7 @@ func (*Plugin) Domains() []string { return []string{"pb"} }
 
 func (*Plugin) Requires() []string { return nil }
 
-func (*Plugin) Check(req *plugin.Request) error { return nil }
+func (*Plugin) Check(*plugin.Request) error { return nil }
 
 func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 	resp := &plugin.Response{Files: make([]plugin.File, 0)}

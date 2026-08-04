@@ -92,7 +92,7 @@ func (r *Reporter) Bench(key string, report ReportProvider) {
 // Attach attaches the given ReportProvider to the Reporter with the given key under
 // the Environment env. The Report is lazily evaluated, and will only be called
 // when the instrumentation report is generated.
-func (r *Reporter) Attach(key string, report ReportProvider, env Environment) {
+func (r *Reporter) Attach(key string, report ReportProvider, _ Environment) {
 	if r == nil {
 		return
 	}

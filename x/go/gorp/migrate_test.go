@@ -224,7 +224,7 @@ var _ = Describe("Migrate", func() {
 				m2 := gorp.NewMigration("raw_update", func(
 					ctx context.Context,
 					tx gorp.Tx,
-					ins alamos.Instrumentation,
+					_ alamos.Instrumentation,
 				) error {
 					r := gorp.WrapReader[int32, entryV1](tx)
 					e := MustSucceed(r.Get(ctx, 1))
@@ -409,7 +409,7 @@ var _ = Describe("Migrate", func() {
 			Expect(w.Set(ctx, entryV1{ID: 42, Data: "bad"})).To(Succeed())
 			migration := gorp.NewEntryMigration(
 				"fail_transform",
-				func(_ context.Context, old entryV1) (entryV1, error) {
+				func(_ context.Context, _ entryV1) (entryV1, error) {
 					return entryV1{}, errors.New("transform broke")
 				},
 			)
@@ -427,7 +427,7 @@ var _ = Describe("Migrate", func() {
 			Expect(testDB.Set(ctx, key, []byte("not valid msgpack"))).To(Succeed())
 			migration := gorp.NewEntryMigration(
 				"fail_decode",
-				func(ctx context.Context, old entryV1) (entryV1, error) {
+				func(_ context.Context, old entryV1) (entryV1, error) {
 					return old, nil
 				},
 			)

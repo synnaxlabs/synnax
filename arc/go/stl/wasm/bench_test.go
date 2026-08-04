@@ -351,7 +351,7 @@ func BenchmarkWASMNodeZeroAlloc(b *testing.B) {
 	nodeCtx := node.Context{
 		Context:     ctx,
 		MarkChanged: func(int) {},
-		ReportError: func(err error) {},
+		ReportError: func(_ error) {},
 	}
 
 	*aNode.Output(0) = telem.NewSeriesV[float32](1)

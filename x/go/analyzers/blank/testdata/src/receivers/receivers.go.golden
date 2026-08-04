@@ -1,0 +1,20 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+package receivers
+
+type Service struct{ name string }
+
+func (*Service) Type() string { return "channel" } // want `blank receiver can be removed`
+
+func (Service) Kind() string { return "value" } // want `blank receiver can be removed`
+
+type Generic[T any] struct{ v T }
+
+func (*Generic[T]) Zero() {} // want `blank receiver can be removed`

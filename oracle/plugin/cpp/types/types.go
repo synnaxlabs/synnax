@@ -58,7 +58,7 @@ func (*Plugin) Domains() []string { return []string{"cpp"} }
 
 func (*Plugin) Requires() []string { return nil }
 
-func (*Plugin) Check(req *plugin.Request) error {
+func (*Plugin) Check(*plugin.Request) error {
 	return nil
 }
 

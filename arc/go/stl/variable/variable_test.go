@@ -462,14 +462,14 @@ var _ = Describe("Variable", func() {
 			n = MustSucceed(factory.Create(ctx, cfg))
 		})
 
-		It("Should emit the dispatcher's value", func(ctx SpecContext) {
+		It("Should emit the dispatcher's value", func(_ SpecContext) {
 			emit(d, int64(5), 10)
 			n.Next(nodeCtx)
 			Expect(marked).To(ConsistOf(0))
 			Expect(*v.Output(0)).To(telem.MatchSeriesDataV[int64](5))
 		})
 
-		It("Should re-emit an unchanged recompute", func(ctx SpecContext) {
+		It("Should re-emit an unchanged recompute", func(_ SpecContext) {
 			emit(d, int64(5), 10)
 			n.Next(nodeCtx)
 			emit(d, int64(5), 20)
@@ -482,7 +482,7 @@ var _ = Describe("Variable", func() {
 			Expect(*v.Output(0)).To(telem.MatchSeriesDataV[int64](6))
 		})
 
-		It("Should absorb the value arriving with a re-point", func(ctx SpecContext) {
+		It("Should absorb the value arriving with a re-point", func(_ SpecContext) {
 			emit(d, int64(5), 10)
 			n.Next(nodeCtx)
 			Expect(marked).To(ConsistOf(0))
@@ -496,7 +496,7 @@ var _ = Describe("Variable", func() {
 			Expect(*v.Output(0)).To(telem.MatchSeriesDataV[int64](11))
 		})
 
-		It("Should fire the value after a value-less re-point", func(ctx SpecContext) {
+		It("Should fire the value after a value-less re-point", func(_ SpecContext) {
 			emit(selsrc, uint32(1), 10)
 			n.Next(nodeCtx)
 			Expect(marked).To(BeEmpty())
@@ -508,7 +508,7 @@ var _ = Describe("Variable", func() {
 			Expect(*v.Output(0)).To(telem.MatchSeriesDataV[int64](9))
 		})
 
-		It("Should not alias the dispatcher's output buffer", func(ctx SpecContext) {
+		It("Should not alias the dispatcher's output buffer", func(_ SpecContext) {
 			emit(d, int64(5), 10)
 			n.Next(nodeCtx)
 			d.Output(0).Data[0] = 9
@@ -518,7 +518,7 @@ var _ = Describe("Variable", func() {
 		Describe("Reset", func() {
 			It(
 				"Should fire the first value after a Reset-absorbed initial sel",
-				func(ctx SpecContext) {
+				func(_ SpecContext) {
 					emit(selsrc, uint32(0), 5)
 					n.Reset()
 					emit(d, int64(7), 10)
@@ -528,7 +528,7 @@ var _ = Describe("Variable", func() {
 				},
 			)
 
-			It("Should coalesce values replayed by Reset", func(ctx SpecContext) {
+			It("Should coalesce values replayed by Reset", func(_ SpecContext) {
 				emit(d, int64(5), 10)
 				n.Next(nodeCtx)
 				Expect(marked).To(ConsistOf(0))
@@ -541,7 +541,7 @@ var _ = Describe("Variable", func() {
 				Expect(*v.Output(0)).To(telem.MatchSeriesDataV[int64](6))
 			})
 
-			It("Should keep sel consumed across Reset", func(ctx SpecContext) {
+			It("Should keep sel consumed across Reset", func(_ SpecContext) {
 				emit(selsrc, uint32(1), 10)
 				emit(d, int64(9), 10)
 				n.Next(nodeCtx)

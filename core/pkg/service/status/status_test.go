@@ -63,11 +63,11 @@ var _ = Describe("Status", Ordered, func() {
 		}))
 		Expect(searchIdx.Initialize(ctx)).To(Succeed())
 	})
-	BeforeEach(func(ctx SpecContext) {
+	BeforeEach(func(_ SpecContext) {
 		tx = db.OpenTx()
 		w = svc.NewWriter(tx)
 	})
-	AfterEach(func(ctx SpecContext) {
+	AfterEach(func(_ SpecContext) {
 		Expect(tx.Close()).To(Succeed())
 	})
 
@@ -754,7 +754,7 @@ var _ = Describe("Status", Ordered, func() {
 			Expect(w.Set(ctx, s)).To(Succeed())
 			called := false
 			svc.Observe().
-				OnChange(func(ctx context.Context, _ gorp.TxReader[string, status.Status[any]]) {
+				OnChange(func(_ context.Context, _ gorp.TxReader[string, status.Status[any]]) {
 					called = true
 				})
 			Expect(tx.Commit(ctx)).To(Succeed())

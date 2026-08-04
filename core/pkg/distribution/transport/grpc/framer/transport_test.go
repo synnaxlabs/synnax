@@ -36,7 +36,7 @@ var _ = Describe("Transport", func() {
 		// sets on the response.
 		It("Should round-trip a request over the wire", func(ctx SpecContext) {
 			transport.Writer().Server().BindHandler(func(
-				ctx context.Context,
+				_ context.Context,
 				srv freighter.ServerStream[writer.Request, writer.Response],
 			) error {
 				req, err := srv.Receive()
@@ -59,7 +59,7 @@ var _ = Describe("Transport", func() {
 	Describe("Iterator", func() {
 		It("Should round-trip a request over the wire", func(ctx SpecContext) {
 			transport.Iterator().Server().BindHandler(func(
-				ctx context.Context,
+				_ context.Context,
 				srv freighter.ServerStream[iterator.Request, iterator.Response],
 			) error {
 				req, err := srv.Receive()
@@ -78,7 +78,7 @@ var _ = Describe("Transport", func() {
 	Describe("Relay", func() {
 		It("Should round-trip a request over the wire", func(ctx SpecContext) {
 			transport.Relay().Server().BindHandler(func(
-				ctx context.Context,
+				_ context.Context,
 				srv freighter.ServerStream[relay.Request, relay.Response],
 			) error {
 				if _, err := srv.Receive(); err != nil {

@@ -237,7 +237,7 @@ func (txn *tx) OpenIterator(opts kv.IteratorOptions) (kv.Iterator, error) {
 }
 
 // Commit implements kv.Writer.
-func (txn *tx) Commit(ctx context.Context, opts ...any) error {
+func (txn *tx) Commit(ctx context.Context, _ ...any) error {
 	txn.committed = true
 	return txn.db.apply(ctx, txn)
 }

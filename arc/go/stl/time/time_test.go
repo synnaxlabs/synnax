@@ -1082,27 +1082,27 @@ var _ = Describe("Time", func() {
 		})
 	})
 	Describe("CalculateTolerance", func() {
-		It("Should return half of base interval for 100ms", func(ctx SpecContext) {
+		It("Should return half of base interval for 100ms", func(_ SpecContext) {
 			tolerance := time.CalculateTolerance(100 * telem.Millisecond)
 			Expect(tolerance).To(Equal(50 * telem.Millisecond))
 		})
 		It(
 			"Should return MinTolerance when half interval is less than MinTolerance",
-			func(ctx SpecContext) {
+			func(_ SpecContext) {
 				tolerance := time.CalculateTolerance(2 * telem.Millisecond)
 				Expect(tolerance).To(Equal(time.MinTolerance))
 			},
 		)
 		It(
 			"Should return MinTolerance for MaxInt64 base interval",
-			func(ctx SpecContext) {
+			func(_ SpecContext) {
 				tolerance := time.CalculateTolerance(telem.TimeSpan(math.MaxInt64))
 				Expect(tolerance).To(Equal(time.MinTolerance))
 			},
 		)
 		It(
 			"Should return exactly MinTolerance when half equals MinTolerance",
-			func(ctx SpecContext) {
+			func(_ SpecContext) {
 				tolerance := time.CalculateTolerance(2 * time.MinTolerance)
 				Expect(tolerance).To(Equal(time.MinTolerance))
 			},
@@ -1612,7 +1612,7 @@ var _ = Describe("Time", func() {
 					Reason:          node.ReasonTimerTick,
 					MarkChanged:     func(int) {},
 					MarkSelfChanged: func() {},
-					SetDeadline:     func(d telem.TimeSpan) { deadlineCalled = true },
+					SetDeadline:     func(_ telem.TimeSpan) { deadlineCalled = true },
 				})
 				Expect(deadlineCalled).To(BeFalse())
 			})

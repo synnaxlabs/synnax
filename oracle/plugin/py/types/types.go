@@ -59,7 +59,7 @@ func (*Plugin) Domains() []string { return nil }
 
 func (*Plugin) Requires() []string { return nil }
 
-func (*Plugin) Check(req *plugin.Request) error { return nil }
+func (*Plugin) Check(*plugin.Request) error { return nil }
 
 func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 	gen := &framework.Generator{
@@ -855,7 +855,7 @@ func processField(
 	field resolution.Field,
 	table *resolution.Table,
 	data *templateData,
-	keyFields []keyFieldData,
+	_ []keyFieldData,
 	excludedFields []string,
 ) fieldData {
 	escapedName := keywords.Escape(field.Name)

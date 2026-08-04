@@ -76,10 +76,7 @@ func generateTestCodecFile(
 	table *resolution.Table,
 	repoRoot string,
 ) ([]byte, error) {
-	pkgImport, err := resolveGoImportPath(parentPath, repoRoot)
-	if err != nil {
-		return nil, err
-	}
+	pkgImport := resolveGoImportPath(parentPath, repoRoot)
 	fo := testFileOutput{
 		Package:      packageName,
 		PkgImport:    pkgImport,
@@ -1066,10 +1063,7 @@ func (b *testValueBuilder) goTypeName(typ resolution.Type) (string, error) {
 	if goPath == "" || goPath == b.parentPath {
 		return b.pkgPrefix + goName, nil
 	}
-	importPath, err := resolveGoImportPath(goPath, b.repoRoot)
-	if err != nil {
-		return "", err
-	}
+	importPath := resolveGoImportPath(goPath, b.repoRoot)
 	alias := naming.DerivePackageAlias(goPath, b.packageName)
 	// A versioned sub-package (…/versions/v0) aliases to its bare resource name, which
 	// shadows that resource's root package or another already-imported package sharing

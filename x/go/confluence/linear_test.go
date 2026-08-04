@@ -23,7 +23,7 @@ var _ = Describe("Linear", func() {
 		i := NewStream[int](1)
 		o := NewStream[int](1)
 		s := LinearTransform[int, int]{}
-		s.Transform = func(ctx context.Context, i int) (int, bool, error) {
+		s.Transform = func(_ context.Context, i int) (int, bool, error) {
 			return i * i, true, nil
 		}
 		s.InFrom(i)
@@ -38,7 +38,7 @@ var _ = Describe("Linear", func() {
 		i := NewStream[int](1)
 		o := NewStream[int](1)
 		s := LinearTransform[int, int]{}
-		s.Transform = func(ctx context.Context, i int) (int, bool, error) {
+		s.Transform = func(_ context.Context, _ int) (int, bool, error) {
 			return 0, false, nil
 		}
 		s.InFrom(i)

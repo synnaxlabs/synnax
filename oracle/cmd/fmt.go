@@ -46,7 +46,7 @@ var (
 	fmtDiff  bool
 )
 
-func runFmt(cmd *cobra.Command, args []string) error {
+func runFmt(_ *cobra.Command, args []string) error {
 	printBanner()
 
 	repoRoot, err := paths.RepoRoot()

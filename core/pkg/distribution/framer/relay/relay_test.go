@@ -350,7 +350,7 @@ var _ = Describe("Relay", func() {
 
 		It(
 			"Should deliver the open ack when the streamer is opened with no keys",
-			func(ctx SpecContext) {
+			func(_ SpecContext) {
 				reader := MustSucceed(svc.Framer.NewStreamer(relay.StreamerConfig{
 					SendOpenAck: new(true),
 				}))

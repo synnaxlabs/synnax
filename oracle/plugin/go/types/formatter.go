@@ -27,7 +27,7 @@ type GoImportResolver struct {
 
 func (r *GoImportResolver) ResolveImport(
 	outputPath string,
-	ctx *resolver.Context,
+	_ *resolver.Context,
 ) (importPath, qualifier string, shouldImport bool) {
 	alias := naming.DerivePackageAlias(outputPath, r.CurrentPackage)
 	importPath = gomod.ResolveImportPath(

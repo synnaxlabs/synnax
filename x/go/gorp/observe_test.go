@@ -44,7 +44,7 @@ var _ = Describe("Observe", func() {
 				Exec(ctx, tx)).To(Succeed())
 			called := false
 			entryTable.Observe().
-				OnChange(func(ctx context.Context, r gorp.TxReader[int32, entry]) {
+				OnChange(func(_ context.Context, r gorp.TxReader[int32, entry]) {
 					for ch := range r {
 						Expect(ch.Value).To(Equal(entry{ID: 42, Data: "data"}))
 						Expect(ch.Variant).To(Equal(change.VariantSet))
@@ -66,7 +66,7 @@ var _ = Describe("Observe", func() {
 			).To(Succeed())
 			called := false
 			grapeTable.Observe().
-				OnChange(func(ctx context.Context, r gorp.TxReader[int32, grape]) {
+				OnChange(func(_ context.Context, _ gorp.TxReader[int32, grape]) {
 					called = true
 				})
 			Expect(tx.Commit(ctx)).To(Succeed())
@@ -97,13 +97,13 @@ var _ = Describe("Observe", func() {
 			)
 
 			entryTable.Observe().
-				OnChange(func(ctx context.Context, r gorp.TxReader[int32, entry]) {
+				OnChange(func(_ context.Context, r gorp.TxReader[int32, entry]) {
 					for ch := range r {
 						entryChanges = append(entryChanges, ch)
 					}
 				})
 			grapeTable.Observe().
-				OnChange(func(ctx context.Context, r gorp.TxReader[int32, grape]) {
+				OnChange(func(_ context.Context, r gorp.TxReader[int32, grape]) {
 					for ch := range r {
 						grapeChanges = append(grapeChanges, ch)
 					}
@@ -135,7 +135,7 @@ var _ = Describe("Observe", func() {
 
 			var deleteChanges []change.Change[int32, entry]
 			entryTable.Observe().
-				OnChange(func(ctx context.Context, r gorp.TxReader[int32, entry]) {
+				OnChange(func(_ context.Context, r gorp.TxReader[int32, entry]) {
 					for ch := range r {
 						deleteChanges = append(deleteChanges, ch)
 					}

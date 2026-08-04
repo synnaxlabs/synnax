@@ -197,7 +197,7 @@ func (w Writer) Delete(ctx context.Context, keys ...Key) error {
 			Exec(ctx, w.tx); err != nil {
 			return err
 		}
-		children = lo.Filter(children, func(item ontology.Resource, index int) bool {
+		children = lo.Filter(children, func(item ontology.Resource, _ int) bool {
 			return !lo.Contains(keyStrings, item.ID.Key)
 		})
 		if len(children) > 0 {

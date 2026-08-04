@@ -1188,7 +1188,7 @@ trigger_ch -> emit_period{period=1s}
 
 	Describe("Series Literal Edge Cases", func() {
 		DescribeTable("empty series",
-			func(ctx SpecContext, elemType string, outType types.Type) {
+			func(ctx SpecContext, elemType string, _ types.Type) {
 				expectOutput(ctx, "empty_series", types.I64(), `{
 				s series `+elemType+` := []
 				return len(s)

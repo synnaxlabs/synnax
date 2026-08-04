@@ -27,7 +27,7 @@ var _ = Describe("Service", func() {
 	Describe("Group", func() {
 		It(
 			"Should return the Channels group channels are created under",
-			func(ctx SpecContext) {
+			func(_ SpecContext) {
 				g := svc.Group()
 				Expect(g.Key).ToNot(BeZero())
 				Expect(g.Name).To(Equal("Channels"))
@@ -36,7 +36,7 @@ var _ = Describe("Service", func() {
 	})
 
 	Describe("ShouldValidateNames", func() {
-		It("Should report true by default", func(ctx SpecContext) {
+		It("Should report true by default", func(_ SpecContext) {
 			Expect(svc.ShouldValidateNames()).To(BeTrue())
 		})
 		It(
@@ -109,7 +109,7 @@ var _ = Describe("Service", func() {
 	})
 
 	Describe("Observe", func() {
-		It("Should return a non-nil observable", func(ctx SpecContext) {
+		It("Should return a non-nil observable", func(_ SpecContext) {
 			obs := svc.Observe()
 			Expect(obs).ToNot(BeNil())
 		})

@@ -26,7 +26,7 @@ func newSnapshotCmd() *cobra.Command {
 		Long: `Creates a hermetic copy of all .oracle schema files at the current core
 version. Run this once per release (typically right after bumping the version).
 The snapshot serves as the baseline for oracle migrate on feature branches.`,
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: func(cmd *cobra.Command, _ []string) error {
 			if err := runSnapshot(cmd); err != nil {
 				printError(err.Error())
 				return err
@@ -36,7 +36,7 @@ The snapshot serves as the baseline for oracle migrate on feature branches.`,
 	}
 }
 
-func runSnapshot(_ *cobra.Command) error {
+func runSnapshot(*cobra.Command) error {
 	printBanner()
 	repoRoot, err := paths.RepoRoot()
 	if err != nil {

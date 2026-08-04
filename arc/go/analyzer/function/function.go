@@ -178,7 +178,7 @@ func collectInputs(
 
 // collectOutputs extracts output types without adding them to scope.
 func collectOutputs[T antlr.ParserRuleContext](
-	ctx acontext.Context[T],
+	_ acontext.Context[T],
 	outputType parser.IOutputTypeContext,
 	outputs *types.Params,
 ) {

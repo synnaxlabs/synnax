@@ -50,10 +50,10 @@ type Plugin struct{ options Options }
 // New constructs a Plugin with the given options.
 func New(opts Options) *Plugin { return &Plugin{options: opts} }
 
-func (*Plugin) Name() string                  { return "go/actions" }
-func (*Plugin) Domains() []string             { return []string{"go"} }
-func (*Plugin) Requires() []string            { return []string{"go/types"} }
-func (*Plugin) Check(_ *plugin.Request) error { return nil }
+func (*Plugin) Name() string                { return "go/actions" }
+func (*Plugin) Domains() []string           { return []string{"go"} }
+func (*Plugin) Requires() []string          { return []string{"go/types"} }
+func (*Plugin) Check(*plugin.Request) error { return nil }
 
 var goPostWriter = &exec.PostWriter{
 	Extensions: []string{".go"},

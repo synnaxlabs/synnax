@@ -158,7 +158,7 @@ func (i *Index) Initialize(ctx context.Context) error {
 	defer cancel()
 	for _, svc := range i.services {
 		disconnect := svc.OnChange(
-			func(ctx context.Context, it iter.Seq[ontology.Change]) {
+			func(_ context.Context, it iter.Seq[ontology.Change]) {
 				err := i.WithTx(func(tx Tx) error {
 					for ch := range it {
 						i.L.Debug(

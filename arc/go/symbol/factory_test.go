@@ -290,16 +290,16 @@ type recordingResolver struct {
 }
 
 func (r *recordingResolver) Resolve(
-	_ context.Context,
-	_ string,
+	context.Context,
+	string,
 ) (*symbol.Symbol, error) {
 	r.resolveCalls++
 	return nil, errors.Wrap(query.ErrNotFound, "not found")
 }
 
 func (r *recordingResolver) Search(
-	_ context.Context,
-	_ string,
+	context.Context,
+	string,
 ) ([]*symbol.Symbol, error) {
 	r.searchCalls++
 	return nil, nil

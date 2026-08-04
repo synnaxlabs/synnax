@@ -41,7 +41,7 @@ func init() {
 			}
 			return errors.Payload{}, false
 		},
-		func(ctx context.Context, f errors.Payload) (error, bool) {
+		func(_ context.Context, f errors.Payload) (error, bool) {
 			if f.Type != "myCustomError" {
 				return nil, false
 			}

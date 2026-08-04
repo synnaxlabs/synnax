@@ -92,7 +92,7 @@ var _ = Describe("Rack", Ordered, func() {
 		noTxWriter = svc.NewWriter(nil)
 		Expect(searchIdx.Initialize(ctx)).To(Succeed())
 	})
-	BeforeEach(func(ctx SpecContext) {
+	BeforeEach(func(_ SpecContext) {
 		frozenNow.Store(0)
 		tx = DeferClose(db.OpenTx())
 		writer = svc.NewWriter(tx)
@@ -100,7 +100,7 @@ var _ = Describe("Rack", Ordered, func() {
 	Describe("Key", func() {
 		It(
 			"Should correctly construct a key from its components",
-			func(ctx SpecContext) {
+			func(_ SpecContext) {
 				k := rack.NewKey(1, 2)
 				Expect(k.Node()).To(Equal(node.Key(1)))
 				Expect(k).To(Equal(rack.Key(1<<16 | 2)))
@@ -110,7 +110,7 @@ var _ = Describe("Rack", Ordered, func() {
 	Describe("StatusKey", func() {
 		It(
 			"Should return the ontology ID string for a rack key",
-			func(ctx SpecContext) {
+			func(_ SpecContext) {
 				k := rack.NewKey(1, 2)
 				statusKey := rack.StatusKey(k)
 				Expect(statusKey).To(Equal(k.OntologyID().String()))
@@ -118,14 +118,14 @@ var _ = Describe("Rack", Ordered, func() {
 		)
 		It(
 			"Should return consistent status keys for the same rack key",
-			func(ctx SpecContext) {
+			func(_ SpecContext) {
 				k := rack.NewKey(5, 10)
 				Expect(rack.StatusKey(k)).To(Equal(rack.StatusKey(k)))
 			},
 		)
 		It(
 			"Should return different status keys for different rack keys",
-			func(ctx SpecContext) {
+			func(_ SpecContext) {
 				k1 := rack.NewKey(1, 1)
 				k2 := rack.NewKey(1, 2)
 				Expect(rack.StatusKey(k1)).ToNot(Equal(rack.StatusKey(k2)))

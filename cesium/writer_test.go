@@ -2597,7 +2597,8 @@ var _ = Describe("Writer Behavior", func() {
 							defer shutdown()
 
 							ts := 10 * telem.SecondTS
-							write := func(w *cesium.Writer, n int) {
+							write := func(w *cesium.Writer) {
+								const n = 3
 								stamps := make([]telem.TimeStamp, n)
 								ints := make([]int64, n)
 								for j := range n {
@@ -2625,8 +2626,8 @@ var _ = Describe("Writer Behavior", func() {
 									control.Authority(100),
 								},
 							}))
-							write(low, 3)
-							write(low, 3)
+							write(low)
+							write(low)
 
 							By(
 								"Handing control to a higher-authority writer mid-domain",
@@ -2640,8 +2641,8 @@ var _ = Describe("Writer Behavior", func() {
 									control.Authority(200),
 								},
 							}))
-							write(high, 3)
-							write(high, 3)
+							write(high)
+							write(high)
 
 							Expect(o.paired).To(BeNumerically(">", 0),
 								"the observer never saw a multi-channel frame, so it asserted nothing")

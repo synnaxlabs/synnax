@@ -36,7 +36,7 @@ func StreamSuite(
 				closed := make(chan struct{})
 
 				server.BindHandler(
-					func(ctx context.Context, server freighter.ServerStream[Request, Response]) error {
+					func(_ context.Context, server freighter.ServerStream[Request, Response]) error {
 						defer ginkgo.GinkgoRecover()
 						defer close(closed)
 						for {
@@ -91,7 +91,7 @@ func StreamSuite(
 				server, client, addr := deps()
 				serverClosed := make(chan struct{})
 				server.BindHandler(
-					func(ctx context.Context, server freighter.ServerStream[Request, Response]) error {
+					func(_ context.Context, server freighter.ServerStream[Request, Response]) error {
 						defer ginkgo.GinkgoRecover()
 						defer close(serverClosed)
 						gomega.Expect(server.Receive()).
@@ -120,7 +120,7 @@ func StreamSuite(
 				server, client, addr := deps()
 				serverClosed := make(chan struct{})
 				server.BindHandler(
-					func(ctx context.Context, server freighter.ServerStream[Request, Response]) error {
+					func(_ context.Context, server freighter.ServerStream[Request, Response]) error {
 						defer ginkgo.GinkgoRecover()
 						defer close(serverClosed)
 						for {
@@ -164,7 +164,7 @@ func StreamSuite(
 					server, client, addr := deps()
 					serverClosed := make(chan struct{})
 					server.BindHandler(
-						func(ctx context.Context, server freighter.ServerStream[Request, Response]) error {
+						func(_ context.Context, server freighter.ServerStream[Request, Response]) error {
 							defer ginkgo.GinkgoRecover()
 							defer close(serverClosed)
 							gomega.Expect(server.Receive()).
@@ -189,7 +189,7 @@ func StreamSuite(
 					server, client, addr := deps()
 					serverClosed := make(chan struct{})
 					server.BindHandler(
-						func(ctx context.Context, server freighter.ServerStream[Request, Response]) error {
+						func(_ context.Context, server freighter.ServerStream[Request, Response]) error {
 							defer ginkgo.GinkgoRecover()
 							defer close(serverClosed)
 							gomega.Expect(server.Receive()).
@@ -218,7 +218,7 @@ func StreamSuite(
 					server, client, addr := deps()
 					serverClosed := make(chan struct{})
 					server.BindHandler(
-						func(ctx context.Context, server freighter.ServerStream[Request, Response]) error {
+						func(_ context.Context, server freighter.ServerStream[Request, Response]) error {
 							defer close(serverClosed)
 							defer ginkgo.GinkgoRecover()
 							gomega.Expect(server.Receive()).
@@ -247,7 +247,7 @@ func StreamSuite(
 						server, client, addr := deps()
 						serverClosed := make(chan struct{})
 						server.BindHandler(
-							func(ctx context.Context, server freighter.ServerStream[Request, Response]) error {
+							func(_ context.Context, server freighter.ServerStream[Request, Response]) error {
 								defer close(serverClosed)
 								defer ginkgo.GinkgoRecover()
 								gomega.Expect(server.Receive()).
@@ -280,7 +280,7 @@ func StreamSuite(
 					server, client, addr := deps()
 					serverClosed := make(chan struct{})
 					server.BindHandler(
-						func(ctx context.Context, server freighter.ServerStream[Request, Response]) error {
+						func(_ context.Context, server freighter.ServerStream[Request, Response]) error {
 							defer close(serverClosed)
 							for i := range 10 {
 								req := testutil.MustSucceed(server.Receive())
@@ -312,7 +312,7 @@ func StreamSuite(
 				server, client, addr := deps()
 				serverClosed := make(chan struct{})
 				server.BindHandler(
-					func(ctx context.Context, server freighter.ServerStream[Request, Response]) error {
+					func(_ context.Context, server freighter.ServerStream[Request, Response]) error {
 						defer close(serverClosed)
 						defer ginkgo.GinkgoRecover()
 						gomega.Expect(server.Receive()).
@@ -349,7 +349,7 @@ func StreamSuite(
 				server, client, addr := deps()
 				serverClosed := make(chan struct{})
 				server.BindHandler(
-					func(ctx context.Context, server freighter.ServerStream[Request, Response]) error {
+					func(_ context.Context, server freighter.ServerStream[Request, Response]) error {
 						defer close(serverClosed)
 						defer ginkgo.GinkgoRecover()
 						gomega.Expect(server.Receive()).
@@ -360,7 +360,7 @@ func StreamSuite(
 				)
 				server.Use(freighter.MiddlewareFunc(func(
 					ctx freighter.Context,
-					next freighter.Next,
+					_ freighter.Next,
 				) (freighter.Context, error) {
 					return ctx, errors.New("middleware error")
 				}))

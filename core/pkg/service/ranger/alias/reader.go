@@ -68,12 +68,12 @@ func (r Reader) Resolve(
 	alias string,
 ) (channel.Key, error) {
 	var res Alias
-	matcher := func(ctx gorp.Context, a *Alias) (bool, error) {
+	matcher := func(_ gorp.Context, a *Alias) (bool, error) {
 		return a.Range == rng && a.Alias == alias, nil
 	}
 	rxp, err := regexp.Compile(alias)
 	if err == nil {
-		matcher = func(ctx gorp.Context, a *Alias) (bool, error) {
+		matcher = func(_ gorp.Context, a *Alias) (bool, error) {
 			return a.Range == rng && rxp.MatchString(a.Alias), nil
 		}
 	}

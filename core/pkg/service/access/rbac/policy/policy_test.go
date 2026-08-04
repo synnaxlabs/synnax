@@ -29,11 +29,11 @@ var _ = Describe("Writer", func() {
 		tx gorp.Tx
 		w  policy.Writer
 	)
-	BeforeEach(func(ctx SpecContext) {
+	BeforeEach(func(_ SpecContext) {
 		tx = db.OpenTx()
 		w = svc.NewWriter(tx, false)
 	})
-	AfterEach(func(ctx SpecContext) { Expect(tx.Close()).To(Succeed()) })
+	AfterEach(func(_ SpecContext) { Expect(tx.Close()).To(Succeed()) })
 
 	Describe("Create", func() {
 		It("Should create a policy with auto-generated UUID", func(ctx SpecContext) {
@@ -302,7 +302,7 @@ var _ = Describe("Retriever", func() {
 			Expect(w.Create(ctx, &policies[i])).To(Succeed())
 		}
 	})
-	AfterEach(func(ctx SpecContext) { Expect(tx.Close()).To(Succeed()) })
+	AfterEach(func(_ SpecContext) { Expect(tx.Close()).To(Succeed()) })
 
 	Describe("WhereKeys", func() {
 		It("Should retrieve a single policy by key", func(ctx SpecContext) {
@@ -578,11 +578,11 @@ var _ = Describe("Retriever", func() {
 
 var _ = Describe("Ontology Integration", func() {
 	var tx gorp.Tx
-	BeforeEach(func(ctx SpecContext) { tx = db.OpenTx() })
-	AfterEach(func(ctx SpecContext) { Expect(tx.Close()).To(Succeed()) })
+	BeforeEach(func(_ SpecContext) { tx = db.OpenTx() })
+	AfterEach(func(_ SpecContext) { Expect(tx.Close()).To(Succeed()) })
 
 	Describe("Type", func() {
-		It("Should return correct ontology type", func(ctx SpecContext) {
+		It("Should return correct ontology type", func(_ SpecContext) {
 			Expect(svc.Type()).To(Equal(ontology.ResourceTypePolicy))
 		})
 	})

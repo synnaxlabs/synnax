@@ -34,8 +34,8 @@ var _ Translator[types.Nil, *emptypb.Empty] = EmptyTranslator{}
 
 // Forward implements Translator.
 func (EmptyTranslator) Forward(
-	ctx context.Context,
-	t types.Nil,
+	context.Context,
+	types.Nil,
 ) (*emptypb.Empty, error) {
 	return &emptypb.Empty{}, nil
 }

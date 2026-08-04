@@ -89,19 +89,19 @@ var _ = Describe("Service", func() {
 	})
 
 	Describe("NewWriter", func() {
-		It("Should create a writer with transaction", func(ctx SpecContext) {
+		It("Should create a writer with transaction", func(_ SpecContext) {
 			writer := svc.NewWriter(tx)
 			Expect(writer).ToNot(BeNil())
 		})
 
-		It("Should create a writer without transaction", func(ctx SpecContext) {
+		It("Should create a writer without transaction", func(_ SpecContext) {
 			writer := svc.NewWriter(nil)
 			Expect(writer).ToNot(BeNil())
 		})
 	})
 
 	Describe("NewRetrieve", func() {
-		It("Should create a retrieve query builder", func(ctx SpecContext) {
+		It("Should create a retrieve query builder", func(_ SpecContext) {
 			retrieve := svc.NewRetrieve()
 			Expect(retrieve).ToNot(BeNil())
 		})

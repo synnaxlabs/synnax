@@ -106,7 +106,7 @@ var _ = Describe("Create", Ordered, func() {
 				).To(Succeed())
 				Expect(
 					gorp.NewCreate[int32, entry]().Entry(e).
-						MergeExisting(func(_ gorp.Context, c, e entry) (entry, error) {
+						MergeExisting(func(_ gorp.Context, _, e entry) (entry, error) {
 							Expect(e.GorpKey()).To(Equal(int32(42)))
 							return entry{}, validate.ErrValidation
 						}).

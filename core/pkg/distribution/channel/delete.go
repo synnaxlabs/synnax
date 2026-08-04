@@ -34,7 +34,7 @@ func (s *Service) Delete(ctx context.Context, keys Keys) error {
 }
 
 func (s *Service) deleteHandler(
-	ctx context.Context, req DeleteRequest,
+	_ context.Context, req DeleteRequest,
 ) (types.Nil, error) {
 	return types.Nil{}, s.cfg.TS.DeleteChannels(req.Keys.Storage())
 }

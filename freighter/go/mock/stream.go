@@ -91,7 +91,7 @@ func (s *StreamServer[RQ, RS]) exec(
 	}
 	return s.Exec(
 		ctx,
-		freighter.FinalizerFunc(func(md freighter.Context) (freighter.Context, error) {
+		freighter.FinalizerFunc(func(_ freighter.Context) (freighter.Context, error) {
 			go srv.exec(ctx, s.Handler)
 			return freighter.Context{
 				Target:   s.Address,

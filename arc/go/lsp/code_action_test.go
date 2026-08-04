@@ -217,10 +217,10 @@ var _ = Describe("CodeAction", func() {
 	})
 
 	Describe("Deprecated symbol quick fix", func() {
-		filterByCode := func(diags []protocol.Diagnostic, code string) []protocol.Diagnostic {
+		filterByCode := func(diags []protocol.Diagnostic) []protocol.Diagnostic {
 			out := make([]protocol.Diagnostic, 0, len(diags))
 			for _, d := range diags {
-				if DiagnosticCode(d) == code {
+				if DiagnosticCode(d) == string(codes.DeprecatedSymbol) {
 					out = append(out, d)
 				}
 			}
@@ -233,10 +233,7 @@ var _ = Describe("CodeAction", func() {
 				content := "func test() i64 {\n    return now()\n}\n"
 				OpenArcDocument(server, ctx, uri, content)
 
-				diags := filterByCode(
-					client.Diagnostics(),
-					string(codes.DeprecatedSymbol),
-				)
+				diags := filterByCode(client.Diagnostics())
 				Expect(diags).ToNot(BeEmpty())
 
 				actions := asCodeActions(
@@ -278,10 +275,7 @@ var _ = Describe("CodeAction", func() {
 				content := "import time\n\nfunc test() i64 {\n    return now()\n}\n"
 				OpenArcDocument(server, ctx, uri, content)
 
-				diags := filterByCode(
-					client.Diagnostics(),
-					string(codes.DeprecatedSymbol),
-				)
+				diags := filterByCode(client.Diagnostics())
 				Expect(diags).ToNot(BeEmpty())
 
 				actions := asCodeActions(
@@ -301,10 +295,7 @@ var _ = Describe("CodeAction", func() {
 				content := "import time as t\n\nfunc test() i64 {\n    return now()\n}\n"
 				OpenArcDocument(server, ctx, uri, content)
 
-				diags := filterByCode(
-					client.Diagnostics(),
-					string(codes.DeprecatedSymbol),
-				)
+				diags := filterByCode(client.Diagnostics())
 				Expect(diags).ToNot(BeEmpty())
 
 				actions := asCodeActions(
@@ -325,10 +316,7 @@ var _ = Describe("CodeAction", func() {
 				content := "import time\n\nfunc test() i64 {\n    return time.now()\n}\n"
 				OpenArcDocument(server, ctx, uri, content)
 
-				deprecated := filterByCode(
-					client.Diagnostics(),
-					string(codes.DeprecatedSymbol),
-				)
+				deprecated := filterByCode(client.Diagnostics())
 				Expect(deprecated).To(BeEmpty())
 			},
 		)

@@ -98,12 +98,12 @@ var _ = Describe("CompileProgram", func() {
 })
 
 var _ = Describe("NewLSP", func() {
-	It("Should create an LSP server without error", func(ctx SpecContext) {
+	It("Should create an LSP server without error", func(_ SpecContext) {
 		server := MustSucceed(svc.NewLSP())
 		Expect(server).ToNot(BeNil())
 	})
 
-	It("Should create multiple independent LSP servers", func(ctx SpecContext) {
+	It("Should create multiple independent LSP servers", func(_ SpecContext) {
 		server1 := MustSucceed(svc.NewLSP())
 		server2 := MustSucceed(svc.NewLSP())
 		Expect(server1).ToNot(BeIdenticalTo(server2))

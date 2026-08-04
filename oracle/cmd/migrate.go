@@ -32,7 +32,7 @@ func newMigrateCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "migrate",
 		Short: "Generate migration files for schema changes and take a schema snapshot",
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: func(cmd *cobra.Command, _ []string) error {
 			if err := runMigrate(cmd); err != nil {
 				printError(err.Error())
 				return err

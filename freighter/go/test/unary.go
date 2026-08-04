@@ -30,7 +30,7 @@ func UnarySuite(
 		ginkgo.It("should send a request", func(ctx ginkgo.SpecContext) {
 			server, client, addr := deps()
 			server.BindHandler(
-				func(ctx context.Context, req Request) (Response, error) {
+				func(_ context.Context, req Request) (Response, error) {
 					return Response(req), nil
 				},
 			)
@@ -47,7 +47,7 @@ func UnarySuite(
 			func(ctx ginkgo.SpecContext) {
 				server, client, addr := deps()
 				server.BindHandler(
-					func(ctx context.Context, req Request) (Response, error) {
+					func(_ context.Context, _ Request) (Response, error) {
 						return Response{}, ErrCustom
 					},
 				)
@@ -72,7 +72,7 @@ func UnarySuite(
 				return oMd, err
 			}))
 			server.BindHandler(
-				func(ctx context.Context, req Request) (Response, error) {
+				func(_ context.Context, _ Request) (Response, error) {
 					return Response{}, nil
 				},
 			)

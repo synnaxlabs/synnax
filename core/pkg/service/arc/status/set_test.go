@@ -165,7 +165,7 @@ var _ = Describe("Module", func() {
 	Describe("Construction", func() {
 		It(
 			"Should construct without WASM wiring when rat is nil",
-			func(ctx SpecContext) {
+			func(_ SpecContext) {
 				Expect(mod).ToNot(BeNil())
 			},
 		)

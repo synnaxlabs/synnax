@@ -24,7 +24,7 @@ var _ = Describe("transform", func() {
 		inlet := NewStream[int](3)
 		outlet := NewStream[int](4)
 		square := &LinearTransform[int, int]{}
-		square.Transform = func(ctx context.Context, i int) (int, bool, error) {
+		square.Transform = func(_ context.Context, i int) (int, bool, error) {
 			return i * i, true, nil
 		}
 		square.InFrom(inlet)

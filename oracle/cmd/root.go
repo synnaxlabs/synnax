@@ -28,7 +28,7 @@ func NewRootCmd() *cobra.Command {
 	rootCmd := &cobra.Command{
 		Use:   "oracle",
 		Short: "Schema-first code generation for Synnax",
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: func(cmd *cobra.Command, _ []string) error {
 			return cmd.Help()
 		},
 		// A failed RunE is a normal command outcome (e.g. `check`

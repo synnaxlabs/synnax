@@ -28,8 +28,8 @@ type errSenderCloser struct {
 	sendErr error
 }
 
-func (e *errSenderCloser) Send(_ int) error { return e.sendErr }
-func (*errSenderCloser) CloseSend() error   { return nil }
+func (e *errSenderCloser) Send(int) error { return e.sendErr }
+func (*errSenderCloser) CloseSend() error { return nil }
 
 var _ = Describe("Sender", func() {
 	var net *mock.Network[int, int]
@@ -86,7 +86,7 @@ var _ = Describe("Sender", func() {
 				stream := MustSucceed(client.Stream(sCtx, "localhost:0"))
 				sender := &freightfluence.TransformSender[int, int]{}
 				sender.Sender = stream
-				sender.Transform = func(ctx context.Context, v int) (int, bool, error) {
+				sender.Transform = func(_ context.Context, v int) (int, bool, error) {
 					return v * 2, true, nil
 				}
 				sender.InFrom(senderStream)
@@ -107,7 +107,7 @@ var _ = Describe("Sender", func() {
 					stream := MustSucceed(client.Stream(sCtx, "localhost:0"))
 					sender := &freightfluence.TransformSender[int, int]{}
 					sender.Sender = stream
-					sender.Transform = func(ctx context.Context, v int) (int, bool, error) {
+					sender.Transform = func(_ context.Context, v int) (int, bool, error) {
 						return v * 2, true, errors.New("error")
 					}
 					sender.InFrom(senderStream)
@@ -202,7 +202,7 @@ var _ = Describe("Sender", func() {
 			It("Should route values to the correct stream", func() {
 				sender := &freightfluence.BatchSwitchSender[int, int]{}
 				sender.Senders = clientSender
-				sender.Switch = func(ctx context.Context, v int, o map[address.Address]int) error {
+				sender.Switch = func(_ context.Context, v int, o map[address.Address]int) error {
 					addr := address.Newf("localhost:%v", v)
 					o[addr] = v
 					addr2 := address.Newf("localhost:%v", v+1)
@@ -221,7 +221,7 @@ var _ = Describe("Sender", func() {
 		It("Should exit when the context is canceled", func() {
 			sender := &freightfluence.BatchSwitchSender[int, int]{}
 			sender.Senders = clientSender
-			sender.Switch = func(ctx context.Context, v int, o map[address.Address]int) error {
+			sender.Switch = func(_ context.Context, v int, o map[address.Address]int) error {
 				addr := address.Newf("localhost:%v", v)
 				o[addr] = v
 				return nil
@@ -235,7 +235,7 @@ var _ = Describe("Sender", func() {
 		It("Should exit when the switch returns an error", func() {
 			sender := &freightfluence.BatchSwitchSender[int, int]{}
 			sender.Senders = clientSender
-			sender.Switch = func(ctx context.Context, v int, o map[address.Address]int) error {
+			sender.Switch = func(_ context.Context, _ int, _ map[address.Address]int) error {
 				return errors.New("error")
 			}
 			sender.InFrom(senderStream)

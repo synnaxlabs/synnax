@@ -23,7 +23,7 @@ import (
 )
 
 var _ = Describe("SetupTestServer", func() {
-	It("should create a server and URI with default config", func(ctx SpecContext) {
+	It("should create a server and URI with default config", func(_ SpecContext) {
 		server, docURI := SetupTestServer()
 		Expect(server).ToNot(BeNil())
 		Expect(docURI).To(Equal(uri.URI("file:///test.arc")))
@@ -60,7 +60,7 @@ var _ = Describe("SetupTestServer", func() {
 })
 
 var _ = Describe("SetupTestServerWithClient", func() {
-	It("should return a server, URI, and a non-nil MockClient", func(ctx SpecContext) {
+	It("should return a server, URI, and a non-nil MockClient", func(_ SpecContext) {
 		server, docURI, client := SetupTestServerWithClient()
 		Expect(server).ToNot(BeNil())
 		Expect(docURI).To(Equal(uri.URI("file:///test.arc")))

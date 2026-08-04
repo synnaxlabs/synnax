@@ -45,13 +45,13 @@ var _ = Describe("Pipeline", func() {
 	Describe("NewHardShutdown Chain", func() {
 		It("Should shutdown the pipe as segments close their inlets", func() {
 			t1 := &confluence.LinearTransform[int, int]{}
-			t1.Transform = func(ctx context.Context, v int) (int, bool, error) {
+			t1.Transform = func(_ context.Context, v int) (int, bool, error) {
 				return v * 2, true, nil
 			}
 			SetSegment[int, int](pipe, "t1", t1, confluence.CloseOutputInletsOnExit())
 
 			t2 := &confluence.LinearTransform[int, int]{}
-			t2.Transform = func(ctx context.Context, v int) (int, bool, error) {
+			t2.Transform = func(_ context.Context, v int) (int, bool, error) {
 				return v * 2, true, nil
 			}
 			SetSegment[int, int](pipe, "t2", t2, confluence.CloseOutputInletsOnExit())
@@ -110,7 +110,7 @@ var _ = Describe("Pipeline", func() {
 		It("Should construct and operate the pipe correctly", func() {
 			emitterOne := &confluence.Emitter[int]{Interval: 1 * time.Millisecond}
 			c1 := 0
-			emitterOne.Emit = func(ctx context.Context) (int, error) {
+			emitterOne.Emit = func(_ context.Context) (int, error) {
 				c1++
 				if c1 == 5 {
 					return 0, errors.New("done counting")
@@ -121,7 +121,7 @@ var _ = Describe("Pipeline", func() {
 
 			emitterTwo := &confluence.Emitter[int]{Interval: 1 * time.Millisecond}
 			c2 := 0
-			emitterTwo.Emit = func(ctx context.Context) (int, error) {
+			emitterTwo.Emit = func(_ context.Context) (int, error) {
 				c2++
 				if c2 == 6 {
 					return 0, errors.New("done counting")
@@ -131,13 +131,13 @@ var _ = Describe("Pipeline", func() {
 			SetSource[int](pipe, "emitterTwo", emitterTwo)
 
 			t1 := &confluence.LinearTransform[int, int]{}
-			t1.Transform = func(ctx context.Context, v int) (int, bool, error) {
+			t1.Transform = func(_ context.Context, v int) (int, bool, error) {
 				return v * 2, true, nil
 			}
 			SetSegment[int, int](pipe, "t1", t1)
 
 			t2 := &confluence.LinearTransform[int, int]{}
-			t2.Transform = func(ctx context.Context, v int) (int, bool, error) {
+			t2.Transform = func(_ context.Context, v int) (int, bool, error) {
 				return v * 3, true, nil
 			}
 			SetSegment[int, int](pipe, "t2", t2)
@@ -145,21 +145,21 @@ var _ = Describe("Pipeline", func() {
 			var evens, odds []int
 
 			evenSink := &confluence.UnarySink[int]{}
-			evenSink.Sink = func(ctx context.Context, v int) error {
+			evenSink.Sink = func(_ context.Context, v int) error {
 				evens = append(evens, v)
 				return nil
 			}
 			SetSink[int](pipe, "even", evenSink)
 
 			oddSink := &confluence.UnarySink[int]{}
-			oddSink.Sink = func(ctx context.Context, v int) error {
+			oddSink.Sink = func(_ context.Context, v int) error {
 				odds = append(odds, v)
 				return nil
 			}
 			SetSink[int](pipe, "odd", oddSink)
 
 			sw := &confluence.Switch[int]{}
-			sw.Switch = func(ctx context.Context, v int) (address.Address, bool, error) {
+			sw.Switch = func(_ context.Context, v int) (address.Address, bool, error) {
 				if v%2 == 0 {
 					return "even", true, nil
 				}

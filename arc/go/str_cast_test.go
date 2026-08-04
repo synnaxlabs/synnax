@@ -288,7 +288,7 @@ var _ = Describe("str() typecast end-to-end runtime", func() {
 
 	DescribeTable(
 		"concatenates str() of two float channels with a string literal between them",
-		func(ctx SpecContext, t1, t2 string, dt1, dt2 types.Type, telemDT1, telemDT2 telem.DataType, ingestFn func(*runtimeHarness), expected string) {
+		func(ctx SpecContext, _, _ string, dt1, dt2 types.Type, telemDT1, telemDT2 telem.DataType, ingestFn func(*runtimeHarness), expected string) {
 			resolver := channelSymbols(map[string]channelDef{
 				"p1":  {dt1, 100},
 				"p2":  {dt2, 101},

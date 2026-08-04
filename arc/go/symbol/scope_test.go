@@ -609,7 +609,7 @@ var _ = Describe("Scope", func() {
 		Describe("Module aliases", func() {
 			// buildAmbientRoot constructs a root with a synthetic ambient
 			// prelude that has a single "time" module containing "now".
-			buildAmbientRoot := func(bCtx SpecContext) *symbol.Symbol {
+			buildAmbientRoot := func(_ SpecContext) *symbol.Symbol {
 				timeMod := &symbol.Symbol{Name: "time", Kind: symbol.KindModule}
 				timeMod.AddChild(&symbol.Symbol{
 					Name: "now", Kind: symbol.KindFunction, Type: types.F64(),

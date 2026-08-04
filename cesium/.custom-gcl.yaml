@@ -18,3 +18,6 @@ plugins:
   - module: "github.com/synnaxlabs/x"
     import: "github.com/synnaxlabs/x/analyzers/goroutineleak"
     path: ../x/go
+  - module: "github.com/synnaxlabs/x"
+    import: "github.com/synnaxlabs/x/analyzers/blank"
+    path: ../x/go

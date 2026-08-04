@@ -153,7 +153,7 @@ var _ = Describe("Deleter", Ordered, func() {
 
 	Describe("Mixed Gateway and Peer", Ordered, func() {
 		var s scenario
-		BeforeAll(func(ctx SpecContext) {
+		BeforeAll(func(_ SpecContext) {
 			ShouldNotLeakGoroutines()
 			s = DeferClose(mixedScenario(context.Background()))
 		})

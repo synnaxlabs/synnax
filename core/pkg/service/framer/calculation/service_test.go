@@ -85,7 +85,7 @@ var _ = Describe("Calculation", Ordered, func() {
 		))
 		filtered := lo.Filter(
 			*calculations,
-			func(item channel.Channel, index int) bool {
+			func(item channel.Channel, _ int) bool {
 				return !item.IsIndex
 			},
 		)
@@ -193,7 +193,7 @@ var _ = Describe("Calculation", Ordered, func() {
 				bases []channel.Channel
 				calcs []channel.Channel
 			)
-			BeforeEach(func(ctx SpecContext) {
+			BeforeEach(func(_ SpecContext) {
 				bases = []channel.Channel{
 					{
 						Name:     UniqueChannelName(),
@@ -551,7 +551,7 @@ var _ = Describe("Calculation", Ordered, func() {
 				bases []channel.Channel
 				calcs []channel.Channel
 			)
-			BeforeEach(func(ctx SpecContext) {
+			BeforeEach(func(_ SpecContext) {
 				calc1Name := UniqueChannelName()
 				bases = []channel.Channel{{
 					Name:     UniqueChannelName(),

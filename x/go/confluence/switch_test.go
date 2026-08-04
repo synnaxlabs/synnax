@@ -47,7 +47,7 @@ var _ = Describe("Switch", func() {
 				cancel()
 			})
 			It("Should route values to the correct inlets", func() {
-				sw.Switch = func(ctx context.Context, i int) (address.Address, bool, error) {
+				sw.Switch = func(_ context.Context, i int) (address.Address, bool, error) {
 					if i%2 == 0 {
 						return "single", true, nil
 					} else {
@@ -67,7 +67,7 @@ var _ = Describe("Switch", func() {
 				Expect(ok).To(BeFalse())
 			})
 			It("Should exit of the switch returns an error", func() {
-				sw.Switch = func(ctx context.Context, i int) (address.Address, bool, error) {
+				sw.Switch = func(_ context.Context, _ int) (address.Address, bool, error) {
 					return "", false, errors.New("test error")
 				}
 				sw.Flow(ctx, CloseOutputInletsOnExit())
@@ -78,7 +78,7 @@ var _ = Describe("Switch", func() {
 				Expect(ctx.Wait()).To(MatchError("test error"))
 			})
 			It("Should return an error if the address can't be resolved", func() {
-				sw.Switch = func(ctx context.Context, i int) (address.Address, bool, error) {
+				sw.Switch = func(_ context.Context, _ int) (address.Address, bool, error) {
 					return "hello", true, nil
 				}
 				sw.Flow(ctx, CloseOutputInletsOnExit(), WithAddress("toCoverThis"))
@@ -110,7 +110,7 @@ var _ = Describe("Switch", func() {
 		})
 		It("Should route values to the correct inlets", func() {
 			sw.Switch = func(
-				ctx context.Context,
+				_ context.Context,
 				i []int,
 				o map[address.Address]int,
 			) error {
@@ -138,7 +138,7 @@ var _ = Describe("Switch", func() {
 		})
 		It("Should exit if the context is cancelled", func() {
 			sw.Switch = func(
-				ctx context.Context,
+				_ context.Context,
 				i []int,
 				o map[address.Address]int,
 			) error {

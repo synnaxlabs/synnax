@@ -24,7 +24,7 @@ type CppImportResolver struct {
 
 func (r *CppImportResolver) ResolveImport(
 	outputPath string,
-	ctx *resolver.Context,
+	_ *resolver.Context,
 ) (importPath, qualifier string, shouldImport bool) {
 	includePath := fmt.Sprintf("%s/%s", outputPath, r.FilePattern)
 	return includePath, "", true

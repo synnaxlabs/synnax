@@ -36,7 +36,7 @@ func newSyncCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "sync",
 		Short: "Sync generated code, only writing changed files",
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: func(cmd *cobra.Command, _ []string) error {
 			if err := runSync(cmd); err != nil {
 				printError(err.Error())
 				return err

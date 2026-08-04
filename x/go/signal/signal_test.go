@@ -55,7 +55,7 @@ var _ = Describe("Signal", func() {
 				ctx, cancel := signal.Isolated()
 				cancel()
 				c := 0
-				ctx.Go(func(ctx context.Context) error {
+				ctx.Go(func(_ context.Context) error {
 					c++
 					return nil
 				})
@@ -124,7 +124,7 @@ var _ = Describe("Signal", func() {
 				v := make(chan int, 3)
 				ctx, cancel := signal.Isolated()
 				var c atomic.Int32
-				signal.GoRange(ctx, v, func(ctx context.Context, v int) error {
+				signal.GoRange(ctx, v, func(_ context.Context, _ int) error {
 					c.Add(1)
 					return nil
 				})
@@ -142,7 +142,7 @@ var _ = Describe("Signal", func() {
 				ctx, cancel := signal.Isolated()
 				defer cancel()
 				var c atomic.Int32
-				signal.GoRange(ctx, v, func(ctx context.Context, v int) error {
+				signal.GoRange(ctx, v, func(_ context.Context, _ int) error {
 					c.Add(1)
 					return nil
 				})
@@ -162,7 +162,7 @@ var _ = Describe("Signal", func() {
 					c   atomic.Int32
 					err = errors.New("routine failed")
 				)
-				signal.GoRange(ctx, v, func(ctx context.Context, v int) error {
+				signal.GoRange(ctx, v, func(_ context.Context, _ int) error {
 					c.Add(1)
 					return err
 				})
@@ -182,7 +182,7 @@ var _ = Describe("Signal", func() {
 				signal.GoTick(
 					ctx,
 					500*time.Microsecond,
-					func(ctx context.Context, t time.Time) error {
+					func(_ context.Context, _ time.Time) error {
 						c.Add(1)
 						return nil
 					},
@@ -301,7 +301,7 @@ var _ = Describe("Signal", func() {
 			"Should still propagate the panic error when there is no breaker even if the context is cancelled",
 			func() {
 				ctx, cancel := signal.Isolated()
-				ctx.Go(func(ctx context.Context) error {
+				ctx.Go(func(_ context.Context) error {
 					panic("important error")
 				}, signal.RecoverWithErrOnPanic())
 				cancel()
@@ -330,7 +330,7 @@ var _ = Describe("Signal", func() {
 		It("Should wrap an error panic with routine key", func() {
 			ctx, _ := signal.Isolated()
 			originalErr := errors.New("original panic error")
-			ctx.Go(func(ctx context.Context) error {
+			ctx.Go(func(_ context.Context) error {
 				panic(originalErr)
 			}, signal.RecoverWithErrOnPanic(), signal.WithKey("test-routine"))
 			Expect(ctx.Wait()).To(SatisfyAll(

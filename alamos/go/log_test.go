@@ -48,7 +48,7 @@ var _ = Describe("Log", func() {
 			)
 			buffer = &bytes.Buffer{}
 			zapLogger := logger.Zap().
-				WithOptions(zap.WrapCore(func(core zapcore.Core) zapcore.Core {
+				WithOptions(zap.WrapCore(func(_ zapcore.Core) zapcore.Core {
 					return zapcore.NewCore(
 						zapcore.NewJSONEncoder(zap.NewDevelopmentEncoderConfig()),
 						zapcore.AddSync(buffer),

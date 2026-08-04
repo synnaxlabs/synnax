@@ -256,7 +256,7 @@ var _ = Describe("Graph", func() {
 			Expect(flat[2].Channel.Name).To(Equal("flat3"))
 		})
 
-		It("Should return empty list when no channels", func(ctx SpecContext) {
+		It("Should return empty list when no channels", func(_ SpecContext) {
 			flat := g.CalculateFlat()
 			Expect(flat).To(BeEmpty())
 		})
@@ -311,7 +311,7 @@ var _ = Describe("Graph", func() {
 			Expect(grouped).To(BeEmpty())
 		})
 
-		It("Should return false for non-existent channel", func(ctx SpecContext) {
+		It("Should return false for non-existent channel", func(_ SpecContext) {
 			Expect(MustSucceed(g.Remove(channel.Key(99999)))).To(BeFalse())
 		})
 	})
@@ -469,7 +469,7 @@ var _ = Describe("Graph", func() {
 			Expect(keys.Contains(bases[0].Key())).To(BeFalse())
 		})
 
-		It("Should return empty set when no channels", func(ctx SpecContext) {
+		It("Should return empty set when no channels", func(_ SpecContext) {
 			keys := g.CalculatedKeys()
 			Expect(keys).To(BeEmpty())
 		})
@@ -559,7 +559,7 @@ var _ = Describe("Graph", func() {
 			Expect(baseKeys.Contains(calcs[1].Key())).To(BeFalse())
 		})
 
-		It("Should return empty set when no channels", func(ctx SpecContext) {
+		It("Should return empty set when no channels", func(_ SpecContext) {
 			baseKeys := g.ConcreteBaseKeys()
 			Expect(baseKeys).To(BeEmpty())
 		})

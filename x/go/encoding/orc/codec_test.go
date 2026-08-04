@@ -46,7 +46,7 @@ var errEncode = errors.New("encode failed")
 
 type failEncoder struct{}
 
-func (*failEncoder) EncodeOrc(w *orc.Writer) error { return errEncode }
+func (*failEncoder) EncodeOrc(*orc.Writer) error { return errEncode }
 
 type errReader struct{ err error }
 

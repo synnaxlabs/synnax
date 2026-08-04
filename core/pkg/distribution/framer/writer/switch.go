@@ -92,7 +92,7 @@ func newPeerGatewayFreeSwitch(
 }
 
 func (rl *peerGatewayFreeSwitch) _switch(
-	ctx context.Context,
+	_ context.Context,
 	r Request,
 	oReqs map[address.Address]Request,
 ) error {

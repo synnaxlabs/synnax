@@ -299,7 +299,7 @@ var _ = Describe("Collector", func() {
 			}
 
 			var paths []string
-			Expect(c.ForEach(func(path string, types []resolution.Type) error {
+			Expect(c.ForEach(func(path string, _ []resolution.Type) error {
 				paths = append(paths, path)
 				return nil
 			})).To(Succeed())
@@ -345,7 +345,7 @@ var _ = Describe("Collector", func() {
 			c.Remove("path/first")
 
 			var paths []string
-			Expect(c.ForEach(func(path string, types []resolution.Type) error {
+			Expect(c.ForEach(func(path string, _ []resolution.Type) error {
 				paths = append(paths, path)
 				return nil
 			})).To(Succeed())
@@ -443,7 +443,7 @@ var _ = Describe("Collector", func() {
 			Expect(c.Add(resolution.Type{Name: "TypeA"})).To(Succeed())
 
 			expectedErr := errors.New("callback error")
-			err := c.ForEach(func(path string, types []resolution.Type) error {
+			err := c.ForEach(func(string, []resolution.Type) error {
 				return expectedErr
 			})
 			Expect(err).To(Equal(expectedErr))

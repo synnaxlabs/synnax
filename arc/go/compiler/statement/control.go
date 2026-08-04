@@ -145,15 +145,15 @@ func compileReturnStatement(ctx context.Context[parser.IReturnStatementContext])
 
 func compileExpressionStatement(
 	ctx context.Context[parser.IExpressionContext],
-) (types.Type, error) {
+) error {
 	exprType, err := expression.Compile(ctx)
 	if err != nil {
-		return types.Type{}, err
+		return err
 	}
 	// Drop the result if the expression produced a value (statement-level expressions
 	// discard results)
 	if exprType.IsValid() {
 		ctx.Writer.WriteOpcode(wasm.OpDrop)
 	}
-	return types.Type{}, nil
+	return nil
 }

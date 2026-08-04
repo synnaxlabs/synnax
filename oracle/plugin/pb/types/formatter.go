@@ -22,7 +22,7 @@ type PbImportResolver struct{}
 
 func (*PbImportResolver) ResolveImport(
 	outputPath string,
-	ctx *resolver.Context,
+	_ *resolver.Context,
 ) (importPath, qualifier string, shouldImport bool) {
 	protoPath := outputPath + "/types.gen.proto"
 	parts := strings.Split(outputPath, "/")

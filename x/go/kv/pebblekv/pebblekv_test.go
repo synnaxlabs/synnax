@@ -282,7 +282,7 @@ var _ = Describe("PebbleKV", func() {
 				notified := false
 				var receivedChanges []kv.Change
 
-				db.OnChange(func(ctx context.Context, reader kv.TxReader) {
+				db.OnChange(func(_ context.Context, reader kv.TxReader) {
 					notified = true
 					for change := range reader {
 						receivedChanges = append(receivedChanges, change)
@@ -306,7 +306,7 @@ var _ = Describe("PebbleKV", func() {
 					notified := false
 					var receivedChanges []kv.Change
 
-					db.OnChange(func(ctx context.Context, reader kv.TxReader) {
+					db.OnChange(func(_ context.Context, reader kv.TxReader) {
 						notified = true
 						for change := range reader {
 							receivedChanges = append(receivedChanges, change)
@@ -341,7 +341,7 @@ var _ = Describe("PebbleKV", func() {
 				value := []byte("delete-value")
 				Expect(db.Set(ctx, key, value)).To(Succeed())
 
-				db.OnChange(func(ctx context.Context, reader kv.TxReader) {
+				db.OnChange(func(_ context.Context, reader kv.TxReader) {
 					notified = true
 					for change := range reader {
 						receivedChanges = append(receivedChanges, change)
@@ -362,12 +362,12 @@ var _ = Describe("PebbleKV", func() {
 					subscriber1Called := false
 					subscriber2Called := false
 
-					db.OnChange(func(ctx context.Context, reader kv.TxReader) {
+					db.OnChange(func(_ context.Context, reader kv.TxReader) {
 						subscriber1Called = true
 						Expect(slices.Collect(reader)).ToNot(BeEmpty())
 					})
 
-					db.OnChange(func(ctx context.Context, reader kv.TxReader) {
+					db.OnChange(func(_ context.Context, reader kv.TxReader) {
 						subscriber2Called = true
 						Expect(slices.Collect(reader)).ToNot(BeEmpty())
 					})

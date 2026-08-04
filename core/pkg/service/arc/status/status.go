@@ -149,7 +149,7 @@ func NewModule(ctx context.Context, cfg ModuleConfig) (node.Factory, error) {
 
 func (*module) ModuleName() string { return moduleName }
 
-func (m *module) Create(ctx context.Context, cfg node.Config) (node.Node, error) {
+func (m *module) Create(_ context.Context, cfg node.Config) (node.Node, error) {
 	switch cfg.Node.Type {
 	case setMemberName:
 		if err := setSchema.Validate(cfg.Node.Inputs.ValueMap()); err != nil {

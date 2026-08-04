@@ -125,7 +125,7 @@ func (m *monitor) checkAlive(ctx context.Context) error {
 }
 
 func (m *monitor) handleChange(
-	ctx context.Context,
+	_ context.Context,
 	t gorp.TxReader[string, status.Status[any]],
 ) {
 	m.mu.Lock()
@@ -176,7 +176,7 @@ func openMonitor(
 	signal.GoTick(
 		sCtx,
 		svc.HealthCheckInterval.Duration(),
-		func(ctx context.Context, t time.Time) error {
+		func(ctx context.Context, _ time.Time) error {
 			if err := s.checkAlive(ctx); err != nil {
 				s.L.Error("failed to check alive status", zap.Error(err))
 			}

@@ -26,10 +26,10 @@ var _ = Describe("Observer", func() {
 	It("Should notify all handlers", func(ctx SpecContext) {
 		obs := observe.New[int]()
 		var results []int
-		obs.OnChange(func(ctx context.Context, v int) {
+		obs.OnChange(func(_ context.Context, v int) {
 			results = append(results, v)
 		})
-		obs.OnChange(func(ctx context.Context, v int) {
+		obs.OnChange(func(_ context.Context, v int) {
 			results = append(results, v*2)
 		})
 		obs.Notify(ctx, 5)
@@ -39,7 +39,7 @@ var _ = Describe("Observer", func() {
 	It("Should allow disconnecting handlers", func(ctx SpecContext) {
 		obs := observe.New[int]()
 		called := false
-		disconnect := obs.OnChange(func(ctx context.Context, v int) {
+		disconnect := obs.OnChange(func(_ context.Context, _ int) {
 			called = true
 		})
 		disconnect()
@@ -55,12 +55,12 @@ var _ = Describe("Translator", func() {
 			base := observe.New[int]()
 			translator := observe.Translator[int, string]{
 				Observable: base,
-				Translate: func(ctx context.Context, v int) (string, bool) {
+				Translate: func(_ context.Context, _ int) (string, bool) {
 					return "translated", true
 				},
 			}
 			var result string
-			translator.OnChange(func(ctx context.Context, v string) {
+			translator.OnChange(func(_ context.Context, v string) {
 				result = v
 			})
 			base.Notify(ctx, 42)
@@ -72,12 +72,12 @@ var _ = Describe("Translator", func() {
 		base := observe.New[int]()
 		translator := observe.Translator[int, string]{
 			Observable: base,
-			Translate: func(ctx context.Context, v int) (string, bool) {
+			Translate: func(_ context.Context, _ int) (string, bool) {
 				return "", false
 			},
 		}
 		called := false
-		translator.OnChange(func(ctx context.Context, v string) {
+		translator.OnChange(func(_ context.Context, _ string) {
 			called = true
 		})
 		base.Notify(ctx, 42)
@@ -88,7 +88,7 @@ var _ = Describe("Translator", func() {
 		base := observe.New[int]()
 		translator := observe.Translator[int, int]{
 			Observable: base,
-			Translate: func(ctx context.Context, v int) (int, bool) {
+			Translate: func(_ context.Context, v int) (int, bool) {
 				if v > 10 {
 					return v * 2, true
 				}
@@ -96,7 +96,7 @@ var _ = Describe("Translator", func() {
 			},
 		}
 		var results []int
-		translator.OnChange(func(ctx context.Context, v int) {
+		translator.OnChange(func(_ context.Context, v int) {
 			results = append(results, v)
 		})
 		base.Notify(ctx, 5)
@@ -111,7 +111,7 @@ var _ = Describe("Noop", func() {
 	It("Should not call handlers", func() {
 		var noop observe.Noop[int]
 		called := false
-		noop.OnChange(func(ctx context.Context, v int) {
+		noop.OnChange(func(_ context.Context, _ int) {
 			called = true
 		})
 		Expect(called).To(BeFalse())

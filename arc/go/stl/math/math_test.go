@@ -111,12 +111,7 @@ func openMath(
 	return mathSetup{state: s, inputNode: inputNode, n: n}
 }
 
-func openMathWithReset(
-	ctx SpecContext,
-	nodeType string,
-	dt types.Type,
-	inputs types.Params,
-) mathSetup {
+func openMathWithReset(ctx SpecContext, nodeType string, dt types.Type) mathSetup {
 	g := makeMathGraphWithReset(nodeType, dt)
 	analyzed, diagnostics := graph.Analyze(ctx, g, NewGraphRoot(nil))
 	Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
@@ -124,7 +119,7 @@ func openMathWithReset(
 	inputNode := s.Node("input")
 	m := MustSucceed(stlmath.NewHost(ctx, nil))
 	n := MustSucceed(m.Create(ctx, node.Config{
-		Node:    ir.Node{Key: "math", Type: nodeType, Inputs: inputs},
+		Node:    ir.Node{Key: "math", Type: nodeType},
 		State:   s.Node("math"),
 		Program: program.Program{IR: analyzed},
 	}))
@@ -445,7 +440,7 @@ var _ = Describe("Avg", func() {
 	})
 
 	It("Should reset on signal", func(ctx SpecContext) {
-		s := openMathWithReset(ctx, "avg", types.F64(), nil)
+		s := openMathWithReset(ctx, "avg", types.F64())
 		resetNode := s.state.Node("reset_signal")
 		*s.inputNode.Output(0) = telem.NewSeriesV(10.0, 20.0, 30.0)
 		*s.inputNode.OutputTime(0) = telem.NewSeriesSecondsTSV(1, 2, 3)
@@ -553,7 +548,7 @@ var _ = Describe("Min", func() {
 	})
 
 	It("Should reset on signal", func(ctx SpecContext) {
-		s := openMathWithReset(ctx, "min", types.I32(), nil)
+		s := openMathWithReset(ctx, "min", types.I32())
 		resetNode := s.state.Node("reset_signal")
 		*s.inputNode.Output(0) = telem.NewSeriesV[int32](50, 10, 70)
 		*s.inputNode.OutputTime(0) = telem.NewSeriesSecondsTSV(1, 2, 3)
@@ -645,7 +640,7 @@ var _ = Describe("Max", func() {
 	})
 
 	It("Should reset on signal", func(ctx SpecContext) {
-		s := openMathWithReset(ctx, "max", types.F64(), nil)
+		s := openMathWithReset(ctx, "max", types.F64())
 		resetNode := s.state.Node("reset_signal")
 		*s.inputNode.Output(0) = telem.NewSeriesV(10.0, 50.0, 30.0)
 		*s.inputNode.OutputTime(0) = telem.NewSeriesSecondsTSV(1, 2, 3)
@@ -681,7 +676,7 @@ var _ = Describe("Max", func() {
 	})
 
 	It("Should catch fast reset pulses (1->0 transition)", func(ctx SpecContext) {
-		s := openMathWithReset(ctx, "avg", types.I64(), nil)
+		s := openMathWithReset(ctx, "avg", types.I64())
 		resetNode := s.state.Node("reset_signal")
 
 		*s.inputNode.Output(0) = telem.NewSeriesV[int64](10, 20, 30)
@@ -725,7 +720,7 @@ var _ = Describe("Alignment", func() {
 	})
 
 	It("Should sum alignments when reset signal is connected", func(ctx SpecContext) {
-		s := openMathWithReset(ctx, "avg", types.I64(), nil)
+		s := openMathWithReset(ctx, "avg", types.I64())
 		resetNode := s.state.Node("reset_signal")
 
 		inputSeries := telem.NewSeriesV[int64](10, 20, 30)

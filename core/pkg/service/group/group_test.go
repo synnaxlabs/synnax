@@ -232,7 +232,7 @@ var _ = Describe("Group", Ordered, func() {
 			w := svc.NewWriter(tx)
 			called := false
 			svc.Observe().
-				OnChange(func(ctx context.Context, _ gorp.TxReader[group.Key, group.Group]) {
+				OnChange(func(_ context.Context, _ gorp.TxReader[group.Key, group.Group]) {
 					called = true
 				})
 			MustSucceed(w.Create(ctx, "observe-test", ontology.RootID))

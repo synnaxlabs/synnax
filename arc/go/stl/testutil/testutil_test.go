@@ -48,48 +48,48 @@ var _ = Describe("Testutil", func() {
 	})
 
 	Describe("Argument Encoding", func() {
-		It("Should encode U32 values", func(ctx SpecContext) {
+		It("Should encode U32 values", func(_ SpecContext) {
 			Expect(testutil.U32(42)).To(Equal(uint64(42)))
 		})
 
-		It("Should encode U64 values", func(ctx SpecContext) {
+		It("Should encode U64 values", func(_ SpecContext) {
 			Expect(testutil.U64(math.MaxUint64)).To(Equal(uint64(math.MaxUint64)))
 		})
 
-		It("Should encode I32 values", func(ctx SpecContext) {
+		It("Should encode I32 values", func(_ SpecContext) {
 			Expect(testutil.I32(-1)).To(Equal(uint64(math.MaxUint32)))
 		})
 
-		It("Should encode I64 values", func(ctx SpecContext) {
+		It("Should encode I64 values", func(_ SpecContext) {
 			Expect(testutil.I64(-1)).To(Equal(uint64(math.MaxUint64)))
 		})
 
-		It("Should encode F32 values", func(ctx SpecContext) {
+		It("Should encode F32 values", func(_ SpecContext) {
 			bits := testutil.F32(1.5)
 			Expect(bits).To(Equal(uint64(math.Float32bits(1.5))))
 		})
 
-		It("Should encode F64 values", func(ctx SpecContext) {
+		It("Should encode F64 values", func(_ SpecContext) {
 			bits := testutil.F64(3.14)
 			Expect(bits).To(Equal(math.Float64bits(3.14)))
 		})
 	})
 
 	Describe("Result Decoding", func() {
-		It("Should decode U32 values", func(ctx SpecContext) {
+		It("Should decode U32 values", func(_ SpecContext) {
 			Expect(testutil.AsU32(uint64(42))).To(Equal(uint32(42)))
 		})
 
-		It("Should decode U64 values", func(ctx SpecContext) {
+		It("Should decode U64 values", func(_ SpecContext) {
 			Expect(testutil.AsU64(uint64(99))).To(Equal(uint64(99)))
 		})
 
-		It("Should decode F32 values", func(ctx SpecContext) {
+		It("Should decode F32 values", func(_ SpecContext) {
 			encoded := uint64(math.Float32bits(2.5))
 			Expect(testutil.AsF32(encoded)).To(Equal(float32(2.5)))
 		})
 
-		It("Should decode F64 values", func(ctx SpecContext) {
+		It("Should decode F64 values", func(_ SpecContext) {
 			encoded := math.Float64bits(3.14)
 			Expect(testutil.AsF64(encoded)).To(Equal(3.14))
 		})

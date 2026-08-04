@@ -134,9 +134,7 @@ func Run(ctx context.Context, opts Options) (*Result, error) {
 		return r, err
 	}
 
-	if err := analyze(ctx, r, loader); err != nil {
-		return r, err
-	}
+	analyze(ctx, r, loader)
 
 	if opts.Plugins != nil && r.Resolutions != nil {
 		if err := generate(ctx, r, opts, workers); err != nil {
@@ -225,7 +223,7 @@ func readAndFormat(ctx context.Context, r *Result, opts Options, workers int) er
 	return nil
 }
 
-func analyze(ctx context.Context, r *Result, loader analyzer.FileLoader) error {
+func analyze(ctx context.Context, r *Result, loader analyzer.FileLoader) {
 	start := time.Now()
 	// Use the freshly formatted bytes for analysis. This gives format
 	// drift the same semantic check the canonical source would receive,
@@ -239,7 +237,6 @@ func analyze(ctx context.Context, r *Result, loader analyzer.FileLoader) error {
 	if r.Diagnostics.Ok() {
 		r.Resolutions = table
 	}
-	return nil
 }
 
 func generate(ctx context.Context, r *Result, opts Options, workers int) error {

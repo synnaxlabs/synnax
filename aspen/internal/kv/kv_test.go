@@ -238,7 +238,7 @@ var _ = Describe("txn", func() {
 				Expect(kv).ToNot(BeNil())
 				var mu sync.Mutex
 				var accumulated []xkv.Change
-				kv.OnChange(func(ctx context.Context, r xkv.TxReader) {
+				kv.OnChange(func(_ context.Context, r xkv.TxReader) {
 					mu.Lock()
 					defer mu.Unlock()
 					accumulated = slices.Collect(r)
@@ -259,7 +259,7 @@ var _ = Describe("txn", func() {
 				db := MustSucceed(builder.New(ctx, kv.Config{}, cluster.Config{}))
 
 				gate := make(chan struct{})
-				db.OnChange(func(ctx context.Context, r xkv.TxReader) {
+				db.OnChange(func(_ context.Context, _ xkv.TxReader) {
 					<-gate
 				})
 				defer close(gate)

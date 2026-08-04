@@ -124,7 +124,7 @@ func (w Writer) CreateMany(ctx context.Context, tasks *[]Task) error {
 }
 
 // Delete deletes the task with the given key and its associated status.
-func (w Writer) Delete(ctx context.Context, key Key, allowInternal bool) error {
+func (w Writer) Delete(ctx context.Context, key Key, _ bool) error {
 	if err := w.table.NewDelete().
 		Where(gorp.MatchKeys[Key, Task](key)).
 		Exec(ctx, w.tx); err != nil {

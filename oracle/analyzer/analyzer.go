@@ -916,7 +916,7 @@ func collectMapTypeRef(
 }
 
 func collectField(
-	c *analysisCtx,
+	_ *analysisCtx,
 	def parser.IFieldDefContext,
 	typeParams []resolution.TypeParam,
 	hasKeyDomain *bool,

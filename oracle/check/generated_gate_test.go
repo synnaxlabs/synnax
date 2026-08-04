@@ -26,7 +26,7 @@ import (
 
 type erroringFormatter struct{}
 
-func (erroringFormatter) Format(_ context.Context, _ []byte, _ string) ([]byte, error) {
+func (erroringFormatter) Format(context.Context, []byte, string) ([]byte, error) {
 	return nil, errors.New("synthetic formatter failure")
 }
 

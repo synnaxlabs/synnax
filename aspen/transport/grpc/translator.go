@@ -245,7 +245,7 @@ func (recoveryResponseTranslator) Forward(
 }
 
 func (recoveryResponseTranslator) Backward(
-	ctx context.Context,
+	_ context.Context,
 	tMsg *aspenv1.RecoveryResponse,
 ) (kv.RecoveryResponse, error) {
 	msg := kv.RecoveryResponse{Operations: make([]kv.Operation, len(tMsg.Operations))}

@@ -20,7 +20,7 @@ import (
 func newStorageResponseTranslator(
 	host node.Key,
 ) func(ctx context.Context, in ts.IteratorResponse) (Response, bool, error) {
-	return func(ctx context.Context, res ts.IteratorResponse) (Response, bool, error) {
+	return func(_ context.Context, res ts.IteratorResponse) (Response, bool, error) {
 		return Response{
 			Ack:     res.Ack,
 			Variant: ResponseVariant(res.Variant),
@@ -37,7 +37,7 @@ func newStorageRequestTranslator(
 	generateSeqNums bool,
 ) func(ctx context.Context, in Request) (ts.IteratorRequest, bool, error) {
 	seqNum := 0
-	return func(ctx context.Context, req Request) (ts.IteratorRequest, bool, error) {
+	return func(_ context.Context, req Request) (ts.IteratorRequest, bool, error) {
 		oReq := ts.IteratorRequest{
 			Command: ts.IteratorCommand(req.Command),
 			Span:    req.Span,

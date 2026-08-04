@@ -45,22 +45,23 @@ func baseConfigWithAddr(
 	return cfg, server.Address
 }
 
+const numCandidates = 10
+
 func provisionCandidates(
-	n int,
 	net *mock.Network[pledge.Request, pledge.Response],
 	nodes node.Group,
 	candidates func(i int) func() node.Group,
 	nodeState func(i int) node.State,
 ) node.Group {
 	if candidates == nil {
-		candidates = func(i int) func() node.Group {
+		candidates = func(_ int) func() node.Group {
 			return func() node.Group { return nodes }
 		}
 	}
 	if nodeState == nil {
-		nodeState = func(i int) node.State { return node.StateHealthy }
+		nodeState = func(_ int) node.State { return node.StateHealthy }
 	}
-	for i := range n {
+	for i := range numCandidates {
 		cfg, addr := baseConfigWithAddr(net)
 		Expect(pledge.Arbitrate(cfg, pledge.Config{
 			Candidates: candidates(i),
@@ -124,11 +125,8 @@ var _ = Describe("PledgeServer", func() {
 	Describe("Responsible", func() {
 		Context("Cluster State is Synchronized", func() {
 			It("Should correctly assign an Name", func(ctx SpecContext) {
-				var (
-					nodes         = make(node.Group)
-					numCandidates = 10
-				)
-				provisionCandidates(numCandidates, net, nodes, nil, nil)
+				nodes := make(node.Group)
+				provisionCandidates(net, nodes, nil, nil)
 				candidates := allCandidates(nodes)
 				tCtx, cancel := context.WithTimeout(ctx, 150*time.Millisecond)
 				defer cancel()
@@ -160,7 +158,7 @@ var _ = Describe("PledgeServer", func() {
 						}
 					}
 				)
-				nodes = provisionCandidates(10, net, nodes, candidates, nil)
+				nodes = provisionCandidates(net, nodes, candidates, nil)
 				tCtx, cancel := context.WithTimeout(ctx, 100*time.Millisecond)
 				defer cancel()
 				res := MustSucceed(pledge.Pledge(
@@ -191,7 +189,7 @@ var _ = Describe("PledgeServer", func() {
 					}
 					net = mock.NewNetwork[pledge.Request, pledge.Response]()
 				)
-				provisionCandidates(10, net, nodes, func(i int) func() node.Group {
+				provisionCandidates(net, nodes, func(i int) func() node.Group {
 					return lo.Ternary(i%2 == 0, extraCandidates, allCandidates)
 				}, nil)
 				tCtx, cancel := context.WithTimeout(ctx, 100*time.Millisecond)
@@ -211,12 +209,8 @@ var _ = Describe("PledgeServer", func() {
 		})
 		Context("Too Few Healthy UniqueLeaseholders To Form a Quorum", func() {
 			It("Should return an errQuorumUnreachable", func(ctx SpecContext) {
-				var (
-					numCandidates = 10
-					nodes         = make(node.Group)
-				)
+				nodes := make(node.Group)
 				provisionCandidates(
-					numCandidates,
 					net,
 					nodes,
 					nil,
@@ -242,11 +236,8 @@ var _ = Describe("PledgeServer", func() {
 			It(
 				"Should stop all operations and return a cancellation error",
 				func(ctx SpecContext) {
-					var (
-						numCandidates = 10
-						nodes         = make(node.Group)
-					)
-					provisionCandidates(numCandidates, net, nodes, nil, nil)
+					nodes := make(node.Group)
+					provisionCandidates(net, nodes, nil, nil)
 					tCtx, cancel := context.WithCancel(ctx)
 					cancel()
 					res, err := pledge.Pledge(tCtx, baseConfig(net), pledge.Config{
@@ -264,17 +255,16 @@ var _ = Describe("PledgeServer", func() {
 				var (
 					mu         sync.Mutex
 					nodes      = make(node.Group)
-					candidates = func(i int) func() node.Group {
+					candidates = func(_ int) func() node.Group {
 						return func() node.Group {
 							mu.Lock()
 							defer mu.Unlock()
 							return nodes.Copy()
 						}
 					}
-					numCandidates = 10
-					numPledges    = 2
+					numPledges = 2
 				)
-				provisionCandidates(numCandidates, net, nodes, candidates, nil)
+				provisionCandidates(net, nodes, candidates, nil)
 				tCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
 				defer cancel()
 				var wg sync.WaitGroup

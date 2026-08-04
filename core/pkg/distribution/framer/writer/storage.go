@@ -17,7 +17,7 @@ import (
 )
 
 func newRequestTranslator() func(ctx context.Context, in Request) (ts.WriterRequest, bool, error) {
-	return func(ctx context.Context, in Request) (ts.WriterRequest, bool, error) {
+	return func(_ context.Context, in Request) (ts.WriterRequest, bool, error) {
 		return ts.WriterRequest{
 			Command: ts.WriterCommand(in.Command),
 			Frame:   in.Frame.ToStorage(),
@@ -30,7 +30,7 @@ func newRequestTranslator() func(ctx context.Context, in Request) (ts.WriterRequ
 func newResponseTranslator(
 	host node.Key,
 ) func(ctx context.Context, in ts.WriterResponse) (Response, bool, error) {
-	return func(ctx context.Context, in ts.WriterResponse) (Response, bool, error) {
+	return func(_ context.Context, in ts.WriterResponse) (Response, bool, error) {
 		return Response{
 			Command:    Command(in.Command),
 			SeqNum:     in.SeqNum,

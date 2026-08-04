@@ -448,7 +448,7 @@ var _ = Describe("Table", func() {
 				Expect(table.NewCreate().Entry(&e).Exec(ctx, tx)).To(Succeed())
 				var changes []change.Change[int32, entry]
 				table.Observe().
-					OnChange(func(ctx context.Context, r gorp.TxReader[int32, entry]) {
+					OnChange(func(_ context.Context, r gorp.TxReader[int32, entry]) {
 						for ch := range r {
 							changes = append(changes, ch)
 						}

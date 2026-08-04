@@ -1890,7 +1890,7 @@ var _ = Describe("ProgramState", func() {
 			},
 		)
 
-		It("Should re-arm a self-write feeder only on Reset", func(ctx SpecContext) {
+		It("Should re-arm a self-write feeder only on Reset", func(_ SpecContext) {
 			// A reader writing back into its source variable is a cycle the
 			// analyzer rejects, so build the IR directly.
 			inter := ir.IR{
@@ -2057,7 +2057,7 @@ var _ = Describe("ProgramState", func() {
 
 		It(
 			"Should report an unedged reference input as unsourced",
-			func(ctx SpecContext) {
+			func(_ SpecContext) {
 				inter := ir.IR{Nodes: ir.Nodes{{
 					Key:  "reader",
 					Type: "reader",
@@ -2422,7 +2422,7 @@ func newRefState(ctx SpecContext) *node.ProgramState {
 var _ = Describe("Gating and Absorb Edge Cases", func() {
 	It(
 		"Should gate a value-fed node on an edge into an undeclared param",
-		func(ctx SpecContext) {
+		func(_ SpecContext) {
 			prog := ir.IR{
 				Nodes: ir.Nodes{
 					{
@@ -2460,7 +2460,7 @@ var _ = Describe("Gating and Absorb Edge Cases", func() {
 
 	It(
 		"Should skip reference and unsourced inputs when absorbing",
-		func(ctx SpecContext) {
+		func(_ SpecContext) {
 			prog := ir.IR{
 				Nodes: ir.Nodes{
 					{

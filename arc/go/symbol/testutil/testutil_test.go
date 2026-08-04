@@ -173,7 +173,7 @@ var _ = Describe("StaticResolver", func() {
 			Expect(names).To(Equal([]string{"a", "c"}))
 		})
 
-		It("Should be a no-op when no entry matches", func(ctx SpecContext) {
+		It("Should be a no-op when no entry matches", func(_ SpecContext) {
 			r := StaticResolver{{Name: "a", Kind: symbol.KindVariable}}
 			r.Remove("missing")
 			Expect(r).To(HaveLen(1))

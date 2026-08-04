@@ -333,7 +333,7 @@ var _ = Describe("Driver", func() {
 					name: "test",
 					configureFunc: func(
 						_ context.Context,
-						t task.Task,
+						_ task.Task,
 					) (driver.Task, error) {
 						configureCalled.Store(true)
 						return nil, driver.ErrTaskNotHandled
@@ -1123,7 +1123,7 @@ var _ = Describe("Driver", func() {
 				name: "test",
 				configureFunc: func(
 					cfgCtx context.Context,
-					t task.Task,
+					_ task.Task,
 				) (driver.Task, error) {
 					startOnce.Do(func() { close(configureStarted) })
 					// Block until context is canceled (simulates a well-behaved but

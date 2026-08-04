@@ -28,7 +28,7 @@ import (
 
 var _ = Describe("Select", func() {
 	Describe("NewModule", func() {
-		It("Should create module", func(ctx SpecContext) {
+		It("Should create module", func(_ SpecContext) {
 			module := selector.NewHost()
 			Expect(module).ToNot(BeNil())
 		})

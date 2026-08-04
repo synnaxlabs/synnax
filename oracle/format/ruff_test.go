@@ -24,7 +24,7 @@ import (
 // nearest-pyproject.toml lookup picks our temp dir. We invoke the ruff
 // binary directly (Bin: "ruff") to keep the test independent of a `uv`
 // install.
-func installRuffFixture() (absFile, projectDir string) {
+func installRuffFixture() (absFile string) {
 	GinkgoHelper()
 	root := MustSucceed(os.MkdirTemp("", "ruff-fixture"))
 	DeferCleanup(func() { Expect(os.RemoveAll(root)).To(Succeed()) })
@@ -33,7 +33,7 @@ line-length = 88
 `), 0o644)).To(Succeed())
 	src := filepath.Join(root, "src")
 	Expect(os.MkdirAll(src, 0o755)).To(Succeed())
-	return filepath.Join(src, "foo.py"), root
+	return filepath.Join(src, "foo.py")
 }
 
 var _ = Describe("Ruff Formatter", func() {
@@ -44,7 +44,7 @@ var _ = Describe("Ruff Formatter", func() {
 	})
 
 	It("Should normalise quoting and spacing", func(ctx SpecContext) {
-		absFile, _ := installRuffFixture()
+		absFile := installRuffFixture()
 		raw := []byte("def foo( ):\n  return  'hi'\n")
 		r := &format.Ruff{Bin: "ruff"}
 		out := MustSucceed(r.Format(ctx, raw, absFile))
@@ -53,7 +53,7 @@ var _ = Describe("Ruff Formatter", func() {
 	})
 
 	It("Should be idempotent", func(ctx SpecContext) {
-		absFile, _ := installRuffFixture()
+		absFile := installRuffFixture()
 		raw := []byte(`def foo():
     return "hi"
 `)
@@ -64,7 +64,7 @@ var _ = Describe("Ruff Formatter", func() {
 	})
 
 	It("Should surface a parse error for invalid Python", func(ctx SpecContext) {
-		absFile, _ := installRuffFixture()
+		absFile := installRuffFixture()
 		raw := []byte("def foo(:\n")
 		r := &format.Ruff{Bin: "ruff"}
 		Expect(

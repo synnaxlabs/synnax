@@ -532,7 +532,7 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 							}
 							wg.Wait()
 
-							occurred := lo.Filter(errors, func(err error, i int) bool {
+							occurred := lo.Filter(errors, func(err error, _ int) bool {
 								return err != nil
 							})
 							Expect(occurred).To(HaveLen(writerCount - 1))

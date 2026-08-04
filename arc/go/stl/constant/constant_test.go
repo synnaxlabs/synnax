@@ -28,7 +28,7 @@ import (
 
 var _ = Describe("Constant", func() {
 	Describe("NewModule", func() {
-		It("Should create module", func(ctx SpecContext) {
+		It("Should create module", func(_ SpecContext) {
 			factory := constant.NewHost()
 			Expect(factory).ToNot(BeNil())
 		})

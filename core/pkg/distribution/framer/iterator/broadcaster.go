@@ -27,7 +27,7 @@ func newBroadcaster() *broadcaster {
 }
 
 func (b *broadcaster) transform(
-	ctx context.Context,
+	_ context.Context,
 	in Request,
 ) (out Request, ok bool, err error) {
 	out = in

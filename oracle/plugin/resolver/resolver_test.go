@@ -85,8 +85,8 @@ type MockImportResolver struct {
 }
 
 func (m *MockImportResolver) ResolveImport(
-	outputPath string,
-	ctx *resolver.Context,
+	string,
+	*resolver.Context,
 ) (string, string, bool) {
 	return m.ImportPath, m.Qualifier, m.ShouldImport
 }

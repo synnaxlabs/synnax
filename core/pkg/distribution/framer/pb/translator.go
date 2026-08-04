@@ -57,7 +57,7 @@ type WriterRequestTranslator struct{}
 
 // Backward implements the grpc.Translator interface.
 func (WriterRequestTranslator) Backward(
-	ctx context.Context,
+	_ context.Context,
 	req *WriterRequest,
 ) (writer.Request, error) {
 	fr, err := translateFrameForward(req.Frame)
@@ -94,7 +94,7 @@ func (WriterRequestTranslator) Backward(
 
 // Forward implements the grpc.Translator interface.
 func (WriterRequestTranslator) Forward(
-	ctx context.Context,
+	_ context.Context,
 	req writer.Request,
 ) (*WriterRequest, error) {
 	subject, err := controlpb.SubjectToPB(req.Config.ControlSubject)
@@ -168,7 +168,7 @@ type IteratorRequestTranslator struct{}
 
 // Backward implements the grpc.Translator interface.
 func (IteratorRequestTranslator) Backward(
-	ctx context.Context,
+	_ context.Context,
 	req *IteratorRequest,
 ) (iterator.Request, error) {
 	bounds, err := telempb.TimeRangeFromPB(req.Bounds)
@@ -188,7 +188,7 @@ func (IteratorRequestTranslator) Backward(
 
 // Forward implements the grpc.Translator interface.
 func (IteratorRequestTranslator) Forward(
-	ctx context.Context,
+	_ context.Context,
 	req iterator.Request,
 ) (*IteratorRequest, error) {
 	bounds, err := telempb.TimeRangeToPB(req.Bounds)
@@ -278,7 +278,7 @@ func (RelayResponseTranslator) Backward(
 }
 
 func (RelayResponseTranslator) Forward(
-	ctx context.Context,
+	_ context.Context,
 	res relay.Response,
 ) (*RelayResponse, error) {
 	fr, err := translateFrameBackward(res.Frame)

@@ -567,7 +567,7 @@ var _ = Describe("Task", Ordered, func() {
 			Expect(arcTask.Exec(ctx, task.Command{Type: "stop"})).To(Succeed())
 		})
 
-		It("Should be idempotent on stop", func(ctx SpecContext) {
+		It("Should be idempotent on stop", func(_ SpecContext) {
 			Expect(arcTask.Stop()).To(Succeed())
 			Expect(arcTask.Stop()).To(Succeed())
 		})

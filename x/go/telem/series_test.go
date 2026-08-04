@@ -1068,7 +1068,7 @@ var _ = Describe("Series", func() {
 		It("handles empty series", func() {
 			s := telem.Series{DataType: telem.Int64T}
 			count := 0
-			s.Samples()(func(sample []byte) bool {
+			s.Samples()(func([]byte) bool {
 				count++
 				return true
 			})

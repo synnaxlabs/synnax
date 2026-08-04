@@ -30,7 +30,7 @@ func newMigrateCreateCmd() *cobra.Command {
 		Short: "Scaffold a hand-written migration",
 		Long:  "Creates a migration file with boilerplate in the latest migration version directory.",
 		Args:  cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: func(_ *cobra.Command, args []string) error {
 			if err := runMigrateCreate(args[0]); err != nil {
 				printError(err.Error())
 				return err

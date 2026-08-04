@@ -111,8 +111,8 @@ func (s *Server) getDocument(docURI uri.URI) (*Document, bool) {
 
 // Initialize handles the initialize request.
 func (s *Server) Initialize(
-	_ context.Context,
-	params *protocol.InitializeParams,
+	context.Context,
+	*protocol.InitializeParams,
 ) (*protocol.InitializeResult, error) {
 	return &protocol.InitializeResult{
 		Capabilities: s.capabilities,
