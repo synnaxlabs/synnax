@@ -132,13 +132,14 @@ export const wrapForm = <S extends task.Schemas = task.Schemas>({
   showHeader = true,
   showControls = true,
 }: WrapFormParams<S>): FC<FormTabProps> => {
+  const useForm = PTask.createForm({ schemas, initialValues: getInitialValues({}) });
   const Wrapped: FC<FormTabProps> = ({ taskKey }) => {
     const client = PSynnax.use();
     const handleError = Status.useErrorHandler();
-    const { form, status, saveAsync } = PTask.createForm({
-      schemas,
-      initialValues: getInitialValues({}),
-    })({ query: { key: taskKey }, autoSave: true });
+    const { form, status, saveAsync } = useForm({
+      query: { key: taskKey },
+      autoSave: true,
+    });
 
     // Deploy pipeline: resolve channels and rack through onConfigure, persist
     // the row, then issue the start command so the driver picks it up.
