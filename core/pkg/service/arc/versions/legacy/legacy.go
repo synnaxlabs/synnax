@@ -12,8 +12,7 @@
 // lifting the result into the typed document parts of an Arc. Each subpackage v0..v2
 // owns a frozen Data shape and a single Migrate function that lifts the previous
 // version's Data into its own; this package owns the version dispatch, the forward
-// chain, and the final lift into Document. "3.0.0" states park the document under
-// pendingUpload instead and are handled by the importer directly.
+// chain, and the final lift into Document.
 package legacy
 
 import (
