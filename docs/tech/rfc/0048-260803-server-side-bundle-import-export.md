@@ -118,8 +118,11 @@ bundle files by name:
 }
 ```
 
-The exporter owns file naming: sanitized resource names, deduplicated in the bundle. The
-manifest name (`manifest.json`) is reserved.
+The exporter owns file naming: sanitized resource names, deduplicated in the bundle.
+Sanitized names are compared case-folded and Unicode-normalized, because the Console
+extracts onto case-insensitive filesystems. Collisions get a numeric suffix (`_2`)
+assigned in sorted member order, so repeated exports of an unchanged project produce
+identical file names. `manifest.json` and `LAYOUT.json` are reserved.
 
 ### 4.1 - Endpoints
 
