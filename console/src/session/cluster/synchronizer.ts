@@ -7,13 +7,15 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Store } from "@reduxjs/toolkit";
 import { type connection } from "@synnaxlabs/client";
 
 import { type Action, changeKey, type StoreState } from "@/session/cluster/slice";
 import { type Synchronizer } from "@/session/synchronizer";
 
-const repair = (store: Store<StoreState, Action>, status: connection.Status): void => {
+const repair = (
+  store: Synchronizer.Store<StoreState, Action>,
+  status: connection.Status,
+): void => {
   if (status.variant !== "success") return;
   const { clusterKey } = status.details;
   const selected = store.getState().cluster.selected;
@@ -29,6 +31,6 @@ const syncKey: Synchronizer.Synchronizer<StoreState, Action> = {
     client.connection.onChange((status) => repair(store, status)),
 };
 
-export const SYNCHRONIZERS: Synchronizer.Synchronizers = {
+export const SYNCHRONIZERS: Synchronizer.Synchronizers<StoreState, Action> = {
   useSyncClusterKey: () => syncKey,
 };

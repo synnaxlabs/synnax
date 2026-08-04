@@ -39,7 +39,7 @@ cc_library(
         "//x/cpp/log",
         "//x/cpp/path",
         "//x/cpp/telem",
-        "@glog",
+        "@abseil-cpp//absl/log",
         "@grpc//:grpc++",
         "@nlohmann_json//:json",
     ],

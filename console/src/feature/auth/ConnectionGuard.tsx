@@ -47,7 +47,7 @@ export const ConnectionGuard = ({
 }: ConnectionGuardProps): ReactNode => {
   const client = Synnax.use();
   const status = Synnax.useConnectionStatus();
-  const settled = Session.Settled.use();
+  const settled = Session.useSettled();
   if (client == null) return children;
   if (status.variant === "error" && status.details.reason === "auth")
     return <Login nav={nav} />;
@@ -182,18 +182,18 @@ const Trouble = ({ client, status }: TroubleProps): ReactElement => {
         </Flex.Box>
         <Flex.Box x gap="small" align="center">
           <Button.Button variant="filled" onClick={() => client.connection.retryNow()}>
-            Retry Now
+            Retry now
           </Button.Button>
           {activeKey != null && (
             <Button.Button
               variant="outlined"
               onClick={() => openConnect({ clusterKey: activeKey })}
             >
-              Edit Connection
+              Edit connection
             </Button.Button>
           )}
           <Button.Button variant="outlined" onClick={logout}>
-            Log Out
+            Log out
           </Button.Button>
         </Flex.Box>
       </Flex.Box>

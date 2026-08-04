@@ -10,6 +10,8 @@
 #include <chrono>
 #include <sstream>
 
+#include "absl/log/log.h"
+
 #include "client/cpp/connection/checker.h"
 
 namespace synnax::connection {

@@ -10,7 +10,7 @@
 import { Errors, Flux, Icon, Panel } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
-import { resourceOnly } from "@/feature/panel/fallback";
+import { type DeletedFallbackProps, resourceOnly } from "@/feature/panel/fallback";
 import { useResetOnRestore } from "@/feature/panel/useResetOnRestore";
 import { Empty } from "@/platform/empty";
 import { type Nav } from "@/platform/nav";
@@ -37,17 +37,20 @@ const EmptyContent = ({
 // resource throws here too. Show a quiet placeholder; the tombstone with Close
 // and Restore lives in the mosaic.
 const DeletedResourceContent = ({
+  error,
   resetErrorBoundary,
-}: Errors.FallbackProps): ReactElement => {
+}: DeletedFallbackProps): ReactElement => {
   useResetOnRestore(resetErrorBoundary);
-  return <EmptyContent message="This resource was deleted." />;
+  const name = error.corpseName ?? "This resource";
+  return <EmptyContent message={`${name} was deleted.`} />;
 };
 
 const DeletedContent = resourceOnly(DeletedResourceContent);
 
 const Fallback = (props: Errors.FallbackProps): ReactElement => {
-  if (!Flux.DeletedError.matches(props.error)) return <Errors.Fallback {...props} />;
-  return <DeletedContent {...props} />;
+  const { error } = props;
+  if (!Flux.DeletedError.matches(error)) return <Errors.Fallback {...props} />;
+  return <DeletedContent {...props} error={error} />;
 };
 
 const Content = (): ReactElement => {
