@@ -542,22 +542,20 @@ const useSuspended = <Query extends query.Params, Data extends query.Data>({
   const client = Synnax.use();
   const held = useRef<{ query: Query; value: Data } | null>(null);
 
-  if (client == null)
-    throw new DisconnectedError(`Cannot retrieve ${name}: no Core connected.`);
-
-  const local = localFor(locals, client);
-  const params = { client, query: memoQuery };
-
+  // Every hook runs before the disconnected throw. Gating them on the client
+  // would change this hook's count as the connection comes and goes, which
+  // corrupts the caller's hook order.
   const cached = useSyncExternalStore(
     useCallback(
       (notify) => {
         if (subscribe == null || client == null) return NOOP_SUBSCRIBE();
-        return subscribe(params, () => notify());
+        return subscribe({ client, query: memoQuery }, () => notify());
       },
       [client, memoQuery],
     ),
     useCallback(() => {
-      const next = getCached?.(params);
+      if (client == null) return undefined;
+      const next = getCached?.({ client, query: memoQuery });
       if (equal == null || !isLive<Data>(next)) return next;
       const prev = held.current;
       if (prev != null && prev.query === memoQuery && equal(prev.value, next))
@@ -566,6 +564,12 @@ const useSuspended = <Query extends query.Params, Data extends query.Data>({
       return next;
     }, [client, memoQuery]),
   );
+
+  if (client == null)
+    throw new DisconnectedError(`Cannot retrieve ${name}: no Core connected.`);
+
+  const local = localFor(locals, client);
+  const params = { client, query: memoQuery };
 
   if (cached !== undefined) {
     if (Deleted.matches<Data>(cached))

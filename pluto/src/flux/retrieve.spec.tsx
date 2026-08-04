@@ -17,12 +17,13 @@ import { createTestClient } from "@synnaxlabs/client/testutil";
 import { Unreachable } from "@synnaxlabs/freighter";
 import { color, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { act, fireEvent, render, renderHook, waitFor } from "@testing-library/react";
-import { type ReactElement, useCallback, useState } from "react";
+import { type ReactElement, useCallback, useMemo, useState } from "react";
 import { describe, expect, it, vi } from "vitest";
 
 import { Errors } from "@/errors";
 import { Flux } from "@/flux";
 import { Status } from "@/status/base";
+import { Synnax } from "@/synnax";
 import { createSynnaxWrapper } from "@/testutil/Synnax";
 
 const client = createTestClient();
@@ -1145,5 +1146,48 @@ describe("useEnsureRetrieved", () => {
 
     expect(utils.queryByTestId("error")?.textContent).toBe("Failed to retrieve Number");
     expect(retrieve).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("useRetrieveSuspended connection changes", () => {
+  it("surfaces a disconnect that lands after the read resolved", async () => {
+    const { useRetrieveSuspended } = Flux.createRetrieve<{ key: string }, number>({
+      name: "Number",
+      retrieve: async () => 42,
+    });
+
+    const Display = (): ReactElement => {
+      const value = useRetrieveSuspended({ key: "disconnect-test" });
+      const label = useMemo(() => `value-${value}`, [value]);
+      return <div data-testid="value">{label}</div>;
+    };
+
+    const Harness = ({ connected }: { connected: boolean }): ReactElement => (
+      <Wrapper>
+        <Synnax.TestProvider client={connected ? client : null}>
+          <Errors.SuspenseBoundary
+            loading={<div>loading</div>}
+            FallbackComponent={({ error }) => (
+              <div data-testid="error">{error.message}</div>
+            )}
+          >
+            <Display />
+          </Errors.SuspenseBoundary>
+        </Synnax.TestProvider>
+      </Wrapper>
+    );
+
+    let utils!: ReturnType<typeof render>;
+    await act(async () => {
+      utils = render(<Harness connected />);
+    });
+    await waitFor(() =>
+      expect(utils.queryByTestId("value")?.textContent).toBe("value-42"),
+    );
+
+    await act(async () => {
+      utils.rerender(<Harness connected={false} />);
+    });
+    expect(utils.queryByTestId("error")?.textContent).toContain("no Core connected");
   });
 });
