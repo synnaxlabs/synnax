@@ -131,11 +131,8 @@ const beforeUngroup = async ({ data }: Flux.BeforeUpdateParams<UngroupParams>) =
     state: { shape, nodes, setNodes },
   } = data;
   // Sort the groups by depth that way deeper nested groups are ungrouped first.
-  selection.ids.sort(
-    (a, b) =>
-      PTree.getDepth(ontology.idToString(a), shape) -
-      PTree.getDepth(ontology.idToString(b), shape),
-  );
+  const byDepth = PTree.compareDepth(shape);
+  selection.ids.sort((a, b) => byDepth(ontology.idToString(a), ontology.idToString(b)));
   const prevNodes = PTree.deepCopy(nodes);
   const nextNodes = [
     ...selection.ids.reduce(

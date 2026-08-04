@@ -10,6 +10,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  compareDepth,
   deepCopy,
   filterShape,
   findNode,
@@ -488,6 +489,40 @@ describe("tree/base", () => {
       };
       expect(getDepth("b", shape)).toBe(1);
     });
+
+    it("should return null for a key the shape does not contain", () => {
+      const shape: Shape<string> = {
+        keys: ["a"],
+        nodes: [{ depth: 0, expanded: false, hasChildren: false }],
+      };
+      expect(getDepth("gone", shape)).toBeNull();
+    });
+  });
+
+  describe("compareDepth", () => {
+    const shape: Shape<string> = {
+      keys: ["a", "b", "c"],
+      nodes: [
+        { depth: 2, expanded: false, hasChildren: false },
+        { depth: 0, expanded: false, hasChildren: false },
+        { depth: 1, expanded: false, hasChildren: false },
+      ],
+    };
+
+    it("should order keys shallowest first", () => {
+      expect(["a", "b", "c"].sort(compareDepth(shape))).toEqual(["b", "c", "a"]);
+    });
+
+    it("should hold the order of two keys the shape does not contain", () => {
+      expect(["gone", "alsoGone"].sort(compareDepth(shape))).toEqual([
+        "gone",
+        "alsoGone",
+      ]);
+    });
+
+    it("should sort keys absent from the shape last", () => {
+      expect(["gone", "a", "b"].sort(compareDepth(shape))).toEqual(["b", "a", "gone"]);
+    });
   });
 
   describe("getNodeShape", () => {
@@ -513,6 +548,14 @@ describe("tree/base", () => {
       };
       const result = getNodeShape(shape, "b");
       expect(result).toEqual({ depth: 1, expanded: true, hasChildren: true });
+    });
+
+    it("should return null for a key the shape does not contain", () => {
+      const shape: Shape = {
+        keys: ["a"],
+        nodes: [{ depth: 0, expanded: false, hasChildren: false }],
+      };
+      expect(getNodeShape(shape, "gone")).toBeNull();
     });
   });
 });
