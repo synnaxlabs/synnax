@@ -14,7 +14,7 @@
     "@eslint/js": "^10.0.1",
     "eslint-plugin-react": "^7.37.5",
     "eslint-plugin-simple-import-sort": "^14.0.0",
-    "globals": "^17.8.0",
+    "globals": "^17.9.0",
     "typescript-eslint": "^8.65.0"
   },
   "devDependencies": {

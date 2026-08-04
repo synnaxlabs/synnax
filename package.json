@@ -106,13 +106,13 @@
   "devDependencies": {
     "@prettier/plugin-xml": "^3.4.2",
     "@typescript/typescript6": "catalog:ts6",
-    "knip": "^6.29.0",
+    "knip": "^6.31.0",
     "prettier": "^3.9.6",
     "prettier-plugin-astro": "^0.14.1",
     "prettier-plugin-sh": "^0.19.0",
     "prettier-plugin-toml": "^2.0.6",
     "stylelint-config-standard": "catalog:",
-    "turbo": "^2.10.7"
+    "turbo": "^2.10.8"
   },
   "engines": {
     "node": "^24.18.1"
