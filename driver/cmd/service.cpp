@@ -7,25 +7,42 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-#include "driver/cmd/cmd.h"
+#include "absl/log/log.h"
+
+#include "x/cpp/args/args.h"
+#include "x/cpp/errors/errors.h"
+#include "x/cpp/log/log.h"
+
+#include "driver/daemon/daemon.h"
 
 namespace driver::cmd::sub {
-// Updated helper function with C++ strings
+int start(x::args::Parser &args);
+
+namespace {
 int exec_svc_cmd(
     const std::function<x::errors::Error()> &cmd,
     const std::string &action,
     const std::string &past_tense = ""
 ) {
     if (const auto err = cmd()) {
-        LOG(ERROR) << "" << x::log::RED() << "Failed to " << action << ": " << err
-                   << x::log::RESET();
+        LOG(ERROR) << "Failed to " << action << ": " << err;
         return 1;
     }
     if (!past_tense.empty()) {
-        LOG(INFO) << "" << x::log::GREEN() << past_tense << " successfully"
+        LOG(INFO) << x::log::GREEN() << past_tense << " successfully"
                   << x::log::RESET();
     }
     return 0;
+}
+}
+
+int internal_start(x::args::Parser &args) {
+    daemon::Config config;
+    // Stays nonzero when start throws, so the unit's restart policy engages.
+    int code = 1;
+    config.callback = [&] { code = start(args); };
+    daemon::run(config);
+    return code;
 }
 
 int service_start(x::args::Parser &args) {

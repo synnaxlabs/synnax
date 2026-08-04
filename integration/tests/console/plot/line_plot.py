@@ -12,7 +12,7 @@ import numpy as np
 import synnax as sy
 from console.case import ConsoleCase
 from console.plot import Plot
-from framework.utils import assert_link_format
+from framework.utils import assert_envelope, assert_link_format
 from x import random_name
 
 
@@ -260,8 +260,9 @@ class LinePlot(ConsoleCase):
 
         exported = plot.export_json()
 
-        assert "key" in exported, "Exported JSON should contain 'key'"
-        assert len(exported["key"]) == 36, "Plot key should be a UUID"
+        assert_envelope(
+            exported, envelope_type="lineplot", min_version=1, name=plot.page_name
+        )
         assert "channels" in exported, "Exported JSON should contain 'channels'"
         assert "y1" in exported["channels"], "Channels should include 'y1' axis"
 
@@ -316,8 +317,9 @@ class LinePlot(ConsoleCase):
 
         self.log("Testing export plot via context menu")
         exported = self.console.project.export_page(self.ctx_plot_name)
-        assert "key" in exported, "Exported JSON should contain 'key'"
-        assert len(exported["key"]) == 36, "Plot key should be a UUID"
+        assert_envelope(
+            exported, envelope_type="lineplot", min_version=1, name=self.ctx_plot_name
+        )
         assert "channels" in exported, "Exported JSON should contain 'channels'"
 
         self.log("Testing rename plot via context menu")
