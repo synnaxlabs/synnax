@@ -78,7 +78,8 @@ Five problems add up. All of them come from config opacity:
   bound to a rack.
 - **Integration** — a hardware family and its schema/service unit: `ni`, `opc`,
   `labjack`, `modbus`, `ethercat`, `http`, `arc`, `pagerduty`, `slack`.
-- **Draft** — a typed resource with no task. This is the only undeployed state.
+- **Draft** — a typed resource that has no task and is not a snapshot. This is the only
+  editable undeployed state.
 - **Deploy / undeploy** — to deploy is to make a task on a rack for a resource. To
   undeploy is to delete that task. Undeploy never deletes the resource.
 - **`config` reference** — the one stored link between the two records: an ontology ID
@@ -304,23 +305,17 @@ first. The migration of this RFC assumes UUID task keys and rack-as-field.
 
 ### 4.7 Integration inventory
 
-| Resource types                              | Notes                             |
-| ------------------------------------------- | --------------------------------- |
-| `ni_analog_read/_write`,                    | schema from PR #2433              |
-| `ni_digital_read/_write`, `ni_counter_read` |                                   |
-| `opc_read`, `opc_write`                     |                                   |
-| `labjack_read`, `labjack_write`             |                                   |
-| `modbus_read`, `modbus_write`               |                                   |
-| `ethercat_read`, `ethercat_write`           | channel maps → arrays             |
-| `http_read`, `http_write`                   |                                   |
-| `arc`                                       | retrofit: the standard edge       |
-|                                             | replaces `config{arc_key}`;       |
-|                                             | PR #2496 already moved creation   |
-|                                             | server-side                       |
-| `pagerduty_alert`, `slack_alert`            | Go-side factories; Slack lands in |
-|                                             | this shape                        |
-| `empty`                                     | scanners (`*_scan`, `ni_scanner`) |
-|                                             | and rack status; name only        |
+- `ni_analog_read`, `ni_analog_write`, `ni_digital_read`, `ni_digital_write`,
+  `ni_counter_read` — schema from PR #2433.
+- `opc_read`, `opc_write`.
+- `labjack_read`, `labjack_write`.
+- `modbus_read`, `modbus_write`.
+- `ethercat_read`, `ethercat_write` — channel maps become arrays.
+- `http_read`, `http_write`.
+- `arc` — retrofit: the standard edge replaces `config{arc_key}`. PR #2496 already moved
+  creation server-side.
+- `pagerduty_alert`, `slack_alert` — Go-side factories. Slack lands in this shape.
+- `empty` — scanners (`*_scan`, `ni_scanner`) and rack status. Name only.
 
 The scanner task types (`opc_scan`, `modbus_scan`, …) have no real configuration today.
 They become internal tasks with `empty` parents. They do not get their own resource
