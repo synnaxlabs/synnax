@@ -14,10 +14,16 @@
 // schematic.Schematic.
 package v0
 
-import "encoding/json"
+import (
+	"encoding/json"
 
-// Version is the semantic version string written by the Console at this state version.
-const Version = "0.0.0"
+	"github.com/synnaxlabs/synnax/pkg/service/imex"
+)
+
+// Version is the ImEx schema version of schematic data at this state. The Console
+// stamped it on the wire as the semver string "0.0.0", which legacy.MigrateData
+// decodes onto this numeric version.
+const Version imex.Version = 0
 
 // XY is the planar coordinate shape consoles persisted from version 0.0.0 onward.
 // Identical to spatial.XY at the wire level.
@@ -75,7 +81,7 @@ type ToolbarState struct {
 // Data is the persisted per-schematic state at version 0.0.0. Props values are kept as
 // raw JSON because their shape is per-symbol-variant and opaque to the server.
 type Data struct {
-	Version         string                     `json:"version"`
+	Version         imex.Version               `json:"version"`
 	Editable        bool                       `json:"editable"`
 	FitViewOnResize bool                       `json:"fitViewOnResize"`
 	Snapshot        bool                       `json:"snapshot"`

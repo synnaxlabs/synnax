@@ -15,17 +15,21 @@ package v5
 import (
 	"encoding/json"
 
+	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/schematic/versions/legacy/v0"
 	v1 "github.com/synnaxlabs/synnax/pkg/service/schematic/versions/legacy/v1"
 	v3 "github.com/synnaxlabs/synnax/pkg/service/schematic/versions/legacy/v3"
 )
 
-const Version = "5.0.0"
+// Version is the ImEx schema version of schematic data at this state. The Console
+// stamped it on the wire as the semver string "5.0.0", which legacy.MigrateData
+// decodes onto this numeric version.
+const Version imex.Version = 5
 
 // Data is the persisted per-schematic state at version 5.0.0. Drops the type literal
 // and adds mode and toolbar (UI-only fields that the typed Schematic does not carry).
 type Data struct {
-	Version         string                     `json:"version"`
+	Version         imex.Version               `json:"version"`
 	Editable        bool                       `json:"editable"`
 	FitViewOnResize bool                       `json:"fitViewOnResize"`
 	Snapshot        bool                       `json:"snapshot"`

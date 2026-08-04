@@ -18,23 +18,14 @@ import (
 	v6 "github.com/synnaxlabs/synnax/pkg/service/lineplot/versions/v6"
 	"github.com/synnaxlabs/x/color"
 	"github.com/synnaxlabs/x/encoding/msgpack"
-	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/spatial"
 	"github.com/synnaxlabs/x/text"
-	"github.com/synnaxlabs/x/validate"
 )
 
 // lastStateVersion is the final Console state version ("5.0.0" files). A v5
 // state parks the plot body under pendingUpload; earlier states embed it inline
 // and ride the storage lift's legacy chain.
 const lastStateVersion imex.Version = 5
-
-// stateV5 is the slice of the v5 Console state the importer needs: the plot body
-// parked under pendingUpload when a line plot was never uploaded. The tag is
-// camelCase because the file was written by the Console.
-type stateV5 struct {
-	PendingUpload *consoleDocument `json:"pendingUpload" msgpack:"pendingUpload"`
-}
 
 // consoleAxis mirrors Axis as Console-written files serialize it: camelCase
 // keys. Frozen; Console files no longer evolve.
@@ -153,16 +144,11 @@ func DecodeImport(ctx context.Context, env imex.Envelope) (LinePlot, error) {
 		return doc.linePlot(), nil
 	}
 	if env.Version == lastStateVersion {
-		st, err := imex.Decode[stateV5](ctx, env)
+		doc, err := imex.DecodePendingUpload[consoleDocument](ctx, env, "line plot")
 		if err != nil {
 			return LinePlot{}, err
 		}
-		if st.PendingUpload == nil {
-			return LinePlot{}, errors.Wrap(
-				validate.ErrValidation, "line plot file has no body data",
-			)
-		}
-		return st.PendingUpload.linePlot(), nil
+		return doc.linePlot(), nil
 	}
 	// v0-v4 console states embed the body inline: ride the storage lift, which
 	// dispatches on the version string inside the body.

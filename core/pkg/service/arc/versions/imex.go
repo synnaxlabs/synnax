@@ -148,7 +148,7 @@ func DecodeImport(ctx context.Context, env imex.Envelope) (Arc, error) {
 	if err != nil {
 		return Arc{}, err
 	}
-	doc, err := legacy.Migrate(body)
+	doc, err := legacy.MigrateData(body)
 	if err != nil {
 		return Arc{}, err
 	}

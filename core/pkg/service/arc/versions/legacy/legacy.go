@@ -7,23 +7,27 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-// Package legacy decodes Console arc state files ("0.0.0".."2.0.0") and lifts them
-// into the typed document parts of an Arc. v0 states persist edges in ReactFlow's
-// flat form; v1 and v2 share the nested-handle form and differ only by the
-// set_status props rename applied on the way through. "3.0.0" states park the
-// document under pendingUpload instead and are handled by the importer directly.
+// Package legacy is the single entry point for migrating an opaque Console arc state
+// blob ("0.0.0".."2.0.0" files) through the chain of historical wire formats and
+// lifting the result into the typed document parts of an Arc. Each subpackage v0..v2
+// owns a frozen Data shape and a single Migrate function that lifts the previous
+// version's Data into its own; this package owns the version dispatch, the forward
+// chain, and the final lift into Document. "3.0.0" states park the document under
+// pendingUpload instead and are handled by the importer directly.
 package legacy
 
 import (
-	"encoding/json"
 	"maps"
 
 	"github.com/synnaxlabs/arc/graph"
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/text"
+	v0 "github.com/synnaxlabs/synnax/pkg/service/arc/versions/legacy/v0"
+	v1 "github.com/synnaxlabs/synnax/pkg/service/arc/versions/legacy/v1"
+	v2 "github.com/synnaxlabs/synnax/pkg/service/arc/versions/legacy/v2"
+	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/errors"
-	"github.com/synnaxlabs/x/spatial"
 )
 
 // Document is the typed body a Console state lifts into. Mode is the raw wire
@@ -34,95 +38,53 @@ type Document struct {
 	Mode  string
 }
 
-// state is the shared shape of Console arc states v0-v2. The edge form differs
-// between v0 and v1, so edges stay raw until the version is known.
-type state struct {
-	Version string     `json:"version"`
-	Graph   stateGraph `json:"graph"`
-	Text    stateText  `json:"text"`
-	Mode    string     `json:"mode"`
-}
-
-type stateText struct {
-	Raw string `json:"raw"`
-}
-
-type stateGraph struct {
-	Nodes []stateNode               `json:"nodes"`
-	Edges json.RawMessage           `json:"edges"`
-	Props map[string]map[string]any `json:"props"`
-}
-
-type stateNode struct {
-	Key      string     `json:"key"`
-	Position spatial.XY `json:"position"`
-}
-
-// flatEdge is the v0 edge form: ReactFlow's node-key strings with optional
-// sibling handle fields.
-type flatEdge struct {
-	Key          string  `json:"key"`
-	Source       string  `json:"source"`
-	Target       string  `json:"target"`
-	SourceHandle *string `json:"sourceHandle"`
-	TargetHandle *string `json:"targetHandle"`
-}
-
-// handleEdge is the v1/v2 edge form with nested Handle objects.
-type handleEdge struct {
-	Key    string    `json:"key"`
-	Source ir.Handle `json:"source"`
-	Target ir.Handle `json:"target"`
-}
-
-// Migrate decodes blob as a Console arc state, dispatching on the version string
-// inside the body. States below "2.0.0" have their deprecated set_status node
-// props renamed to status.set, mirroring the Console migration for the removed
-// STL symbol.
-func Migrate(blob msgpack.EncodedJSON) (Document, error) {
-	var s state
-	if err := blob.Unmarshal(&s); err != nil {
-		return Document{}, errors.Wrap(err, "decode arc state")
-	}
-	var (
-		edges graph.Edges
-		err   error
-	)
-	switch s.Version {
-	case "2.0.0", "1.0.0":
-		edges, err = liftHandleEdges(s.Graph.Edges)
-	case "0.0.0", "":
-		edges, err = liftFlatEdges(s.Graph.Edges)
-	default:
-		return Document{}, errors.Newf("unknown arc state version %q", s.Version)
-	}
+// MigrateData decodes the opaque arc state blob, dispatches on its declared version,
+// walks the per-step Migrate functions forward to v2.Data, and lifts the result into
+// a Document. A nil blob and a blob without a version field both fall through to v0
+// and walk the full chain.
+func MigrateData(blob msgpack.EncodedJSON) (Document, error) {
+	version, err := imex.PeekVersion(blob, "arc state")
 	if err != nil {
 		return Document{}, err
 	}
-	props := s.Graph.Props
-	if s.Version != "2.0.0" {
-		props = rewriteSetStatus(props)
+	d, err := dispatch(blob, version)
+	if err != nil {
+		return Document{}, err
 	}
-	inputs := liftInputs(props)
-	nodes := make(graph.Nodes, len(s.Graph.Nodes))
-	for i, n := range s.Graph.Nodes {
-		nodes[i] = graph.Node{Key: n.Key, Position: n.Position}
-	}
-	return Document{
-		Graph: graph.Graph{Nodes: nodes, Edges: edges, Inputs: inputs},
-		Text:  text.Text{Raw: s.Text.Raw},
-		Mode:  s.Mode,
-	}, nil
+	return lift(d), nil
 }
 
-func liftHandleEdges(raw json.RawMessage) (graph.Edges, error) {
-	var in []handleEdge
-	if err := decodeEdges(raw, &in); err != nil {
-		return nil, err
+func dispatch(blob msgpack.EncodedJSON, version imex.Version) (v2.Data, error) {
+	switch version {
+	case v2.Version:
+		return imex.DecodeBlob[v2.Data](blob, "arc state", version)
+	case v1.Version:
+		d, err := imex.DecodeBlob[v1.Data](blob, "arc state", version)
+		if err != nil {
+			return v2.Data{}, err
+		}
+		return v2.Migrate(d), nil
+	case v0.Version:
+		d, err := imex.DecodeBlob[v0.Data](blob, "arc state", version)
+		if err != nil {
+			return v2.Data{}, err
+		}
+		return v2.Migrate(v1.Migrate(d)), nil
+	default:
+		return v2.Data{}, errors.Newf("unknown arc state version %d", version)
 	}
-	out := make(graph.Edges, len(in))
-	for i, e := range in {
-		out[i] = graph.Edge{
+}
+
+// lift converts the latest legacy snapshot into the typed graph, text, and mode
+// parts of an Arc.
+func lift(d v2.Data) Document {
+	nodes := make(graph.Nodes, len(d.Graph.Nodes))
+	for i, n := range d.Graph.Nodes {
+		nodes[i] = graph.Node{Key: n.Key, Position: n.Position}
+	}
+	edges := make(graph.Edges, len(d.Graph.Edges))
+	for i, e := range d.Graph.Edges {
+		edges[i] = graph.Edge{
 			Key: e.Key,
 			Edge: ir.Edge{
 				Source: e.Source,
@@ -131,68 +93,15 @@ func liftHandleEdges(raw json.RawMessage) (graph.Edges, error) {
 			},
 		}
 	}
-	return out, nil
-}
-
-func liftFlatEdges(raw json.RawMessage) (graph.Edges, error) {
-	var in []flatEdge
-	if err := decodeEdges(raw, &in); err != nil {
-		return nil, err
+	return Document{
+		Graph: graph.Graph{
+			Nodes:  nodes,
+			Edges:  edges,
+			Inputs: liftInputs(d.Graph.Props),
+		},
+		Text: text.Text{Raw: d.Text.Raw},
+		Mode: d.Mode,
 	}
-	out := make(graph.Edges, len(in))
-	for i, e := range in {
-		out[i] = graph.Edge{
-			Key: e.Key,
-			Edge: ir.Edge{
-				Source: ir.Handle{Node: e.Source, Param: stringOrEmpty(e.SourceHandle)},
-				Target: ir.Handle{Node: e.Target, Param: stringOrEmpty(e.TargetHandle)},
-				Kind:   ir.EdgeKindContinuous,
-			},
-		}
-	}
-	return out, nil
-}
-
-func decodeEdges(raw json.RawMessage, into any) error {
-	if len(raw) == 0 {
-		return nil
-	}
-	return errors.Wrap(json.Unmarshal(raw, into), "decode arc state edges")
-}
-
-func stringOrEmpty(s *string) string {
-	if s == nil {
-		return ""
-	}
-	return *s
-}
-
-// rewriteSetStatus renames the deprecated set_status node props to status.set.
-// The bare set_status STL symbol was removed; saved graphs must remap the props.
-func rewriteSetStatus(
-	props map[string]map[string]any,
-) map[string]map[string]any {
-	out := make(map[string]map[string]any, len(props))
-	for k, p := range props {
-		if p["key"] != "set_status" {
-			out[k] = p
-			continue
-		}
-		out[k] = map[string]any{
-			"key":         "status.set",
-			"key_or_name": stringOr(p["statusKey"], ""),
-			"variant":     stringOr(p["variant"], "success"),
-			"message":     stringOr(p["message"], ""),
-		}
-	}
-	return out
-}
-
-func stringOr(v any, def string) string {
-	if s, ok := v.(string); ok {
-		return s
-	}
-	return def
 }
 
 // liftInputs converts per-node props (function type under "key") into the typed

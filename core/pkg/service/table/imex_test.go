@@ -120,14 +120,14 @@ var _ = Describe("ImEx", func() {
 		)
 
 		It(
-			"Should reject a v1 Console state with no structural data",
+			"Should reject a v1 Console state with no document data",
 			func(ctx SpecContext) {
 				Expect(imexSvc.Import(ctx, db,
 					loadEnvelope("versions/testdata/import_v1_state_empty.json"),
 					imex.ImportOptions{FileName: "empty.json"},
 				)).Error().To(SatisfyAll(
 					MatchError(validate.ErrValidation),
-					MatchError(ContainSubstring("no structural data")),
+					MatchError(ContainSubstring("no document data")),
 				))
 			},
 		)

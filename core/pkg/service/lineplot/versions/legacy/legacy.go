@@ -11,11 +11,11 @@
 // through the chain of historical wire formats up to the latest legacy snapshot,
 // v4.Data. Each subpackage v0..v4 owns a frozen Data shape and a single Migrate
 // function that lifts the previous version's Data into its own; this package owns the
-// version-string dispatch and the forward chain, so callers never have to think about
-// either.
+// version dispatch and the forward chain, so callers never have to think about either.
 package legacy
 
 import (
+	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/lineplot/versions/legacy/v0"
 	v1 "github.com/synnaxlabs/synnax/pkg/service/lineplot/versions/legacy/v1"
 	v2 "github.com/synnaxlabs/synnax/pkg/service/lineplot/versions/legacy/v2"
@@ -29,63 +29,42 @@ import (
 // version, and walks the per-step Migrate functions forward to v4.Data. A nil blob and
 // a blob without a version field both fall through to v0 and walk the full chain.
 func MigrateData(blob msgpack.EncodedJSON) (v4.Data, error) {
-	var peek struct {
-		Version string `json:"version"`
+	version, err := imex.PeekVersion(blob, "line plot data")
+	if err != nil {
+		return v4.Data{}, err
 	}
-	if blob != nil {
-		if err := blob.Unmarshal(&peek); err != nil {
-			return v4.Data{}, errors.Wrap(err, "peek line plot data version")
-		}
-	}
-	return dispatch(blob, peek.Version)
+	return dispatch(blob, version)
 }
 
-func dispatch(blob msgpack.EncodedJSON, version string) (v4.Data, error) {
+func dispatch(blob msgpack.EncodedJSON, version imex.Version) (v4.Data, error) {
 	switch version {
 	case v4.Version:
-		return decode[v4.Data](blob, version)
+		return imex.DecodeBlob[v4.Data](blob, "line plot data", version)
 	case v3.Version:
-		d, err := decode[v3.Data](blob, version)
+		d, err := imex.DecodeBlob[v3.Data](blob, "line plot data", version)
 		if err != nil {
 			return v4.Data{}, err
 		}
 		return v4.Migrate(d), nil
 	case v2.Version:
-		d, err := decode[v2.Data](blob, version)
+		d, err := imex.DecodeBlob[v2.Data](blob, "line plot data", version)
 		if err != nil {
 			return v4.Data{}, err
 		}
 		return v4.Migrate(v3.Migrate(d)), nil
 	case v1.Version:
-		d, err := decode[v1.Data](blob, version)
+		d, err := imex.DecodeBlob[v1.Data](blob, "line plot data", version)
 		if err != nil {
 			return v4.Data{}, err
 		}
 		return v4.Migrate(v3.Migrate(v2.Migrate(d))), nil
-	case v0.Version, "":
-		decodeVersion := version
-		if decodeVersion == "" {
-			decodeVersion = v0.Version
-		}
-		d, err := decode[v0.Data](blob, decodeVersion)
+	case v0.Version:
+		d, err := imex.DecodeBlob[v0.Data](blob, "line plot data", version)
 		if err != nil {
 			return v4.Data{}, err
 		}
 		return v4.Migrate(v3.Migrate(v2.Migrate(v1.Migrate(d)))), nil
 	default:
-		return v4.Data{}, errors.Newf("unknown line plot data version %q", version)
+		return v4.Data{}, errors.Newf("unknown line plot data version %d", version)
 	}
-}
-
-// decode unmarshals blob as T, treating a nil blob as a zero T so empty entries
-// round-trip without erroring.
-func decode[T any](blob msgpack.EncodedJSON, version string) (T, error) {
-	var d T
-	if blob == nil {
-		return d, nil
-	}
-	if err := blob.Unmarshal(&d); err != nil {
-		return d, errors.Wrapf(err, "decode v%s line plot data", version)
-	}
-	return d, nil
 }

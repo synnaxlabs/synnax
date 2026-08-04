@@ -13,9 +13,15 @@
 // on decode; the on-the-wire model is structurally identical to v3.
 package v4
 
-import v3 "github.com/synnaxlabs/synnax/pkg/service/lineplot/versions/legacy/v3"
+import (
+	"github.com/synnaxlabs/synnax/pkg/service/imex"
+	v3 "github.com/synnaxlabs/synnax/pkg/service/lineplot/versions/legacy/v3"
+)
 
-const Version = "4.0.0"
+// Version is the ImEx schema version of line plot data at this state. The Console
+// stamped it on the wire as the semver string "4.0.0", which legacy.MigrateData
+// decodes onto this numeric version.
+const Version imex.Version = 4
 
 // Data is the wire shape of a per-plot line plot state at v4.0.0. UI-only fields added
 // at this version are ignored on decode.

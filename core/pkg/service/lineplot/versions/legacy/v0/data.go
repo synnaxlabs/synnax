@@ -16,12 +16,14 @@ package v0
 
 import (
 	channel "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v0"
+	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	color "github.com/synnaxlabs/x/color/versions/v0"
 )
 
-// Version is the semantic version string written by the console at this state
-// version.
-const Version = "0.0.0"
+// Version is the ImEx schema version of line plot data at this state. The Console
+// stamped it on the wire as the semver string "0.0.0", which legacy.MigrateData
+// decodes onto this numeric version.
+const Version imex.Version = 0
 
 // XY is the planar coordinate shape consoles persisted from version 0.0.0 onward.
 // Identical to spatial.XY at the wire level.
@@ -136,7 +138,7 @@ type Rule struct {
 // persisted alongside the model fields (viewport, selection) are silently ignored on
 // decode since they do not survive the lift to the typed body.
 type Data struct {
-	Version       string        `json:"version"`
+	Version       imex.Version  `json:"version"`
 	Key           string        `json:"key"`
 	RemoteCreated bool          `json:"remoteCreated"`
 	Title         Title         `json:"title"`

@@ -16,22 +16,13 @@ import (
 	v6 "github.com/synnaxlabs/synnax/pkg/service/schematic/versions/v6"
 	v7 "github.com/synnaxlabs/synnax/pkg/service/schematic/versions/v7"
 	"github.com/synnaxlabs/x/encoding/msgpack"
-	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/spatial"
-	"github.com/synnaxlabs/x/validate"
 )
 
 // lastStateVersion is the final Console state version ("6.0.0" files). A v6
 // state parks the document under pendingUpload; earlier states embed it inline
 // and ride the storage lift's legacy chain.
 const lastStateVersion imex.Version = 6
-
-// stateV6 is the slice of the v6 Console state the importer needs: the document
-// body parked under pendingUpload when a schematic was never uploaded. The tag
-// is camelCase because the file was written by the Console.
-type stateV6 struct {
-	PendingUpload *consoleDocument `json:"pendingUpload" msgpack:"pendingUpload"`
-}
 
 // consoleNode mirrors Node as Console-written files serialize it: camelCase
 // keys. Frozen; Console files no longer evolve.
@@ -81,16 +72,11 @@ func DecodeImport(ctx context.Context, env imex.Envelope) (Schematic, error) {
 		return doc.schematic(), nil
 	}
 	if env.Version == lastStateVersion {
-		st, err := imex.Decode[stateV6](ctx, env)
+		doc, err := imex.DecodePendingUpload[consoleDocument](ctx, env, "schematic")
 		if err != nil {
 			return Schematic{}, err
 		}
-		if st.PendingUpload == nil {
-			return Schematic{}, errors.Wrap(
-				validate.ErrValidation, "schematic file has no document data",
-			)
-		}
-		return st.PendingUpload.schematic(), nil
+		return doc.schematic(), nil
 	}
 	// v0-v5 console states embed the document inline: ride the storage lift, which
 	// dispatches on the version string inside the body.

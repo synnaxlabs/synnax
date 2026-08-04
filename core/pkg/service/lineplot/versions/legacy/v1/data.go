@@ -11,9 +11,15 @@
 // version 1.0.0. v1 introduces the legend overlay position.
 package v1
 
-import v0 "github.com/synnaxlabs/synnax/pkg/service/lineplot/versions/legacy/v0"
+import (
+	"github.com/synnaxlabs/synnax/pkg/service/imex"
+	v0 "github.com/synnaxlabs/synnax/pkg/service/lineplot/versions/legacy/v0"
+)
 
-const Version = "1.0.0"
+// Version is the ImEx schema version of line plot data at this state. The Console
+// stamped it on the wire as the semver string "1.0.0", which legacy.MigrateData
+// decodes onto this numeric version.
+const Version imex.Version = 1
 
 // StickyUnits is the optional axis-by-axis unit hint for a legend position.
 type StickyUnits struct {
@@ -44,7 +50,7 @@ type Legend struct {
 // Data is the wire shape of a per-plot line plot state at v1.0.0. All fields
 // other than Legend are unchanged from v0.
 type Data struct {
-	Version       string           `json:"version"`
+	Version       imex.Version     `json:"version"`
 	Key           string           `json:"key"`
 	RemoteCreated bool             `json:"remoteCreated"`
 	Title         v0.Title         `json:"title"`

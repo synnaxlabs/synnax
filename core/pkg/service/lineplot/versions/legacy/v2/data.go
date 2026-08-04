@@ -13,11 +13,15 @@
 package v2
 
 import (
+	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/lineplot/versions/legacy/v0"
 	v1 "github.com/synnaxlabs/synnax/pkg/service/lineplot/versions/legacy/v1"
 )
 
-const Version = "2.0.0"
+// Version is the ImEx schema version of line plot data at this state. The Console
+// stamped it on the wire as the semver string "2.0.0", which legacy.MigrateData
+// decodes onto this numeric version.
+const Version imex.Version = 2
 
 // Axis is the per-axis configuration at v2. Type is optional; absent (or empty after
 // decode) means the default (linear). Legacy JSON blobs that store "type": null or omit
@@ -52,7 +56,7 @@ type AxesContainer struct {
 
 // Data is the wire shape of a per-plot line plot state at v2.0.0.
 type Data struct {
-	Version       string        `json:"version"`
+	Version       imex.Version  `json:"version"`
 	Key           string        `json:"key"`
 	RemoteCreated bool          `json:"remoteCreated"`
 	Title         v0.Title      `json:"title"`

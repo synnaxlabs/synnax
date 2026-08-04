@@ -14,10 +14,14 @@ package v1
 import (
 	"encoding/json"
 
+	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/schematic/versions/legacy/v0"
 )
 
-const Version = "1.0.0"
+// Version is the ImEx schema version of schematic data at this state. The Console
+// stamped it on the wire as the semver string "1.0.0", which legacy.MigrateData
+// decodes onto this numeric version.
+const Version imex.Version = 1
 
 // LegendUnits is the optional axis-by-axis unit hint for a legend position. May be
 // absent in the wire format.
@@ -50,7 +54,7 @@ type Legend struct {
 // Data is the persisted per-schematic state at version 1.0.0. Adds the legend field to
 // v0.
 type Data struct {
-	Version         string                     `json:"version"`
+	Version         imex.Version               `json:"version"`
 	Editable        bool                       `json:"editable"`
 	FitViewOnResize bool                       `json:"fitViewOnResize"`
 	Snapshot        bool                       `json:"snapshot"`

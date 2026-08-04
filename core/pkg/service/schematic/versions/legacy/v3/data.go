@@ -14,11 +14,15 @@ package v3
 import (
 	"encoding/json"
 
+	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/schematic/versions/legacy/v0"
 	v1 "github.com/synnaxlabs/synnax/pkg/service/schematic/versions/legacy/v1"
 )
 
-const Version = "3.0.0"
+// Version is the ImEx schema version of schematic data at this state. The Console
+// stamped it on the wire as the semver string "3.0.0", which legacy.MigrateData
+// decodes onto this numeric version.
+const Version imex.Version = 3
 
 // Segment is one orthogonal hop on an edge connector path.
 type Segment struct {
@@ -43,7 +47,7 @@ type Edge struct {
 
 // Data is the persisted per-schematic state at version 3.0.0.
 type Data struct {
-	Version         string                     `json:"version"`
+	Version         imex.Version               `json:"version"`
 	Editable        bool                       `json:"editable"`
 	FitViewOnResize bool                       `json:"fitViewOnResize"`
 	Snapshot        bool                       `json:"snapshot"`

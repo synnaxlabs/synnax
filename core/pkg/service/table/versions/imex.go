@@ -16,8 +16,6 @@ import (
 	v1 "github.com/synnaxlabs/synnax/pkg/service/table/versions/v1"
 	v2 "github.com/synnaxlabs/synnax/pkg/service/table/versions/v2"
 	"github.com/synnaxlabs/x/encoding/msgpack"
-	"github.com/synnaxlabs/x/errors"
-	"github.com/synnaxlabs/x/validate"
 )
 
 // lastStateVersion is the final Console state version ("1.0.0" files). A v1
@@ -25,16 +23,9 @@ import (
 // inline and ride the storage lift's legacy chain.
 const lastStateVersion imex.Version = 1
 
-// stateV1 is the slice of the v1 Console state the importer needs: the structural
-// model parked under pendingUpload when a table was never uploaded. The tag is
-// camelCase because the file was written by the Console.
-type stateV1 struct {
-	PendingUpload *stateV1Document `json:"pendingUpload" msgpack:"pendingUpload"`
-}
-
-// stateV1Document mirrors the typed Table body fields as they appear inside a v1
+// consoleDocument mirrors the typed Table body fields as they appear inside a v1
 // Console state's pendingUpload.
-type stateV1Document struct {
+type consoleDocument struct {
 	Rows    []Row           `json:"rows"`
 	Columns []Column        `json:"columns"`
 	Cells   map[string]Cell `json:"cells"`
@@ -57,17 +48,11 @@ func DecodeImport(ctx context.Context, env imex.Envelope) (Table, error) {
 		return imex.Decode[Table](ctx, env)
 	}
 	if env.Version == lastStateVersion {
-		st, err := imex.Decode[stateV1](ctx, env)
+		doc, err := imex.DecodePendingUpload[consoleDocument](ctx, env, "table")
 		if err != nil {
 			return Table{}, err
 		}
-		if st.PendingUpload == nil {
-			return Table{}, errors.Wrap(
-				validate.ErrValidation, "table file has no structural data",
-			)
-		}
-		p := st.PendingUpload
-		return Table{Rows: p.Rows, Columns: p.Columns, Cells: p.Cells}, nil
+		return Table{Rows: doc.Rows, Columns: doc.Columns, Cells: doc.Cells}, nil
 	}
 	// v0 console states embed the structural model inline: ride the storage lift,
 	// which decodes the body through the legacy chain.

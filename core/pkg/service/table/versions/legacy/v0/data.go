@@ -14,8 +14,12 @@
 // table.Table.
 package v0
 
-// Version is the semantic version string written by the Console at this state version.
-const Version = "0.0.0"
+import "github.com/synnaxlabs/synnax/pkg/service/imex"
+
+// Version is the ImEx schema version of table data at this state. The Console stamped
+// it on the wire as the semver string "0.0.0", which legacy.MigrateData decodes onto
+// this numeric version.
+const Version imex.Version = 0
 
 // Data mirrors the Console persisted state at console/src/table/types/v0.ts. Only the
 // structural fields (layout, cells) are decoded; UI-only fields the console happens to

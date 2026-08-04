@@ -11,7 +11,7 @@ package v3
 
 import v2 "github.com/synnaxlabs/synnax/pkg/service/lineplot/versions/legacy/v2"
 
-// Migrate transforms v2 line plot data into v3 by rewriting the version string. The
+// Migrate transforms v2 line plot data into v3 by restamping the version. The
 // UI-only fields added at v3 (mode, control, toolbar) are not modeled on the wire here
 // since they do not survive the final lift.
 func Migrate(old v2.Data) Data {

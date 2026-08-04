@@ -125,15 +125,18 @@ var _ = Describe("ImEx", func() {
 			},
 		)
 
-		It("Should reject a v5 Console state with no body data", func(ctx SpecContext) {
-			Expect(imexSvc.Import(ctx, db,
-				loadEnvelope("versions/testdata/import_v5_state_empty.json"),
-				imex.ImportOptions{FileName: "empty.json"},
-			)).Error().To(SatisfyAll(
-				MatchError(validate.ErrValidation),
-				MatchError(ContainSubstring("no body data")),
-			))
-		})
+		It(
+			"Should reject a v5 Console state with no document data",
+			func(ctx SpecContext) {
+				Expect(imexSvc.Import(ctx, db,
+					loadEnvelope("versions/testdata/import_v5_state_empty.json"),
+					imex.ImportOptions{FileName: "empty.json"},
+				)).Error().To(SatisfyAll(
+					MatchError(validate.ErrValidation),
+					MatchError(ContainSubstring("no document data")),
+				))
+			},
+		)
 
 		It(
 			"Should import a v0 Console state through the legacy chain",
