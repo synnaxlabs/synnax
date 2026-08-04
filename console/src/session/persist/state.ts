@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { createAction, type Middleware } from "@reduxjs/toolkit";
+import { createAction, type Middleware, type PayloadAction } from "@reduxjs/toolkit";
 import {
   type CrudeTimeSpan,
   debounce,
@@ -79,7 +79,16 @@ export const clearState = createAction("persist/clearState");
  * Replaces the swapped slices wholesale when the session context changes.
  * Dispatched by the persistence middleware, applied by a root reducer wrapper.
  */
-export const hydrate = createAction<record.Unknown>("persist/hydrate");
+export const hydrate = createAction<object>("persist/hydrate");
+
+/**
+ * Narrows an action to a hydrate carrying S's persisted slices. The payload is
+ * whatever {@link open} loaded for the same S, so the root reducer wrapper for
+ * a store reads its own slices back.
+ */
+export const matchHydrate = <S extends object>(
+  action: unknown,
+): action is PayloadAction<Partial<S>> => hydrate.match(action);
 /**
  * Marks the start of a partition swap. Between this and the closing hydrate
  * (or endSwap on failure) the store holds the outgoing context's slices.
@@ -404,7 +413,7 @@ const createMiddleware = <S extends object>(
               if (gen !== swapGen) return;
               const loaded = await engine.loadSwap(state, ctx, includeCluster);
               if (gen !== swapGen) return;
-              store.dispatch(hydrate(loaded as record.Unknown));
+              store.dispatch(hydrate(loaded));
             })
             .catch((err: unknown) => {
               if (gen === swapGen) {

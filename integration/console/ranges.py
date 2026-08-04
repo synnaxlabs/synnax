@@ -286,7 +286,7 @@ class RangesClient:
         if persisted:
             save_button = self.layout.page.get_by_role("button", name="Save to Synnax")
         else:
-            save_button = self.layout.page.get_by_role("button", name="Save Locally")
+            save_button = self.layout.page.get_by_role("button", name="Save locally")
 
         save_button.click(timeout=2000)
         modal.wait_for(state="hidden", timeout=5000)
@@ -652,7 +652,7 @@ class RangesClient:
         download = download_info.value
         save_path = resolve_results_path(f"{range_name}.csv")
         download.save_as(save_path)
-        with open(save_path, "r") as f:
+        with open(save_path, "r", encoding="utf-8") as f:
             return f.read()
 
     # ── Metadata ──────────────────────────────────────────────────────────

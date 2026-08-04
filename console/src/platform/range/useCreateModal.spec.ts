@@ -34,7 +34,7 @@ const openModal = async (
   const handle = await renderModalOpener(Range.useCreateModal, [params ?? {}], {
     client: c,
   });
-  await waitFor(() => expect(screen.getByText("Save Locally")).toBeTruthy());
+  await waitFor(() => expect(screen.getByText("Save locally")).toBeTruthy());
   return handle;
 };
 
@@ -54,13 +54,13 @@ describe("Range.useCreateModal", () => {
     expect(screen.getByDisplayValue("Prefilled Range")).toBeTruthy();
   });
 
-  it("should add a non-persisted range to the slice and close on Save Locally", async () => {
+  it("should add a non-persisted range to the slice and close on Save locally", async () => {
     const { store } = await openModal({
       name: "Local Range",
       timeRange: { start: 1000, end: 2000 },
     });
-    await clickWhenEnabled("Save Locally");
-    await waitFor(() => expect(screen.queryByText("Save Locally")).toBeNull());
+    await clickWhenEnabled("Save locally");
+    await waitFor(() => expect(screen.queryByText("Save locally")).toBeNull());
     const ranges = Session.Range.selectMultiple(store.getState());
     const created = ranges.find((r) => r.name === "Local Range");
     expect(created).toBeDefined();
@@ -71,8 +71,8 @@ describe("Range.useCreateModal", () => {
   it("should keep the modal open and add nothing when the name is empty", async () => {
     const { store } = await openModal({ timeRange: { start: 1000, end: 2000 } });
     const before = Session.Range.selectMultiple(store.getState()).length;
-    await clickWhenEnabled("Save Locally");
-    expect(screen.getByText("Save Locally")).toBeTruthy();
+    await clickWhenEnabled("Save locally");
+    expect(screen.getByText("Save locally")).toBeTruthy();
     expect(Session.Range.selectMultiple(store.getState()).length).toBe(before);
   });
 
@@ -90,7 +90,7 @@ describe("Range.useCreateModal", () => {
       expect(created).toBeDefined();
       expect(created?.persisted).toBe(true);
     });
-    await waitFor(() => expect(screen.queryByText("Save Locally")).toBeNull());
+    await waitFor(() => expect(screen.queryByText("Save locally")).toBeNull());
     await waitFor(async () => {
       const retrieved = await client.ranges.retrieve(name);
       expect(retrieved.name).toEqual(name);
@@ -106,7 +106,7 @@ describe("Range.useCreateModal", () => {
       target: { value: renamed },
     });
     await clickWhenEnabled("Save to Synnax");
-    await waitFor(() => expect(screen.queryByText("Save Locally")).toBeNull());
+    await waitFor(() => expect(screen.queryByText("Save locally")).toBeNull());
     await waitFor(async () => {
       const updated = await client.ranges.retrieve(existing.key);
       expect(updated.name).toEqual(renamed);

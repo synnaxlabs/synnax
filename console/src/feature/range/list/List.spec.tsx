@@ -71,7 +71,7 @@ describe("range/list/List", () => {
     await renderList();
     await waitFor(() => getInputByNodePlaceholder(document.body, "Search Ranges..."));
     fireEvent.click(await waitFor(() => getIconButton(document.body, "add")));
-    expect(await screen.findByText("Save Locally")).toBeTruthy();
+    expect(await screen.findByText("Save locally")).toBeTruthy();
   });
 });
 

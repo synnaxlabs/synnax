@@ -27,20 +27,20 @@ import (
 	. "github.com/synnaxlabs/x/testutil"
 )
 
-// openStreamer opens a streamer on db with the given config and starts it in an
-// isolated signal context, returning the streamer's request inlet, its response outlet,
-// and a closer that shuts the streamer down.
-func openStreamer(db *cesium.DB, cfg cesium.StreamerConfig) (
+// openStreamer opens a streamer on db with the given config and starts it in a signal
+// context derived from ctx, returning the streamer's request inlet, its response
+// outlet, and a closer that shuts the streamer down.
+func openStreamer(ctx context.Context, db *cesium.DB, cfg cesium.StreamerConfig) (
 	confluence.Inlet[cesium.StreamerRequest],
 	confluence.Outlet[cesium.StreamerResponse],
 	io.Closer,
 ) {
-	streamer := MustSucceed(db.NewStreamer(context.Background(), cfg))
+	streamer := MustSucceed(db.NewStreamer(ctx, cfg))
 	requests := confluence.NewStream[cesium.StreamerRequest](1)
 	responses := confluence.NewStream[cesium.StreamerResponse](2)
 	streamer.InFrom(requests)
 	streamer.OutTo(responses)
-	sCtx, cancel := signal.Isolated()
+	sCtx, cancel := signal.WithCancel(ctx)
 	streamer.Flow(sCtx, confluence.CloseOutputInletsOnExit())
 	return requests, responses, signal.NewHardShutdown(sCtx, cancel)
 }
@@ -72,7 +72,7 @@ var _ = Describe("Streamer Behavior", func() {
 						Channels: []cesium.ChannelKey{basic1},
 						Start:    10 * telem.SecondTS,
 					}))
-					_, o, closer := openStreamer(db, cesium.StreamerConfig{
+					_, o, closer := openStreamer(ctx, db, cesium.StreamerConfig{
 						Channels: []cesium.ChannelKey{basic1},
 					})
 
@@ -101,7 +101,7 @@ var _ = Describe("Streamer Behavior", func() {
 						Channels: []cesium.ChannelKey{key},
 						Start:    10 * telem.SecondTS,
 					}))
-					r, o, closer := openStreamer(db, cesium.StreamerConfig{})
+					r, o, closer := openStreamer(ctx, db, cesium.StreamerConfig{})
 
 					r.Inlet() <- cesium.StreamerRequest{Channels: []cesium.ChannelKey{key}}
 
@@ -137,7 +137,7 @@ var _ = Describe("Streamer Behavior", func() {
 						Start:    10 * telem.SecondTS,
 						Mode:     cesium.WriterModePersistOnly,
 					}))
-					_, o, closer := openStreamer(db, cesium.StreamerConfig{
+					_, o, closer := openStreamer(ctx, db, cesium.StreamerConfig{
 						Channels: []cesium.ChannelKey{basic2},
 					})
 
@@ -165,7 +165,7 @@ var _ = Describe("Streamer Behavior", func() {
 						Channels: []cesium.ChannelKey{basic2},
 						Start:    10 * telem.SecondTS,
 					}))
-					_, o, closer := openStreamer(db, cesium.StreamerConfig{
+					_, o, closer := openStreamer(ctx, db, cesium.StreamerConfig{
 						Channels: []cesium.ChannelKey{basic2},
 					})
 
@@ -191,7 +191,7 @@ var _ = Describe("Streamer Behavior", func() {
 						ctx,
 						cesium.Channel{Key: basic3, Name: "Schrodinger", DataType: telem.TimeStampT, IsIndex: true},
 					)).To(Succeed())
-					_, o, closer := openStreamer(db, cesium.StreamerConfig{
+					_, o, closer := openStreamer(ctx, db, cesium.StreamerConfig{
 						Channels:    []cesium.ChannelKey{controlKey},
 						SendOpenAck: true,
 					})
@@ -236,7 +236,7 @@ var _ = Describe("Streamer Behavior", func() {
 						Start:          10 * telem.SecondTS,
 						ControlSubject: control.Subject{Name: "GroupWriter", Group: 42},
 					}))
-					_, o, closer := openStreamer(db, cesium.StreamerConfig{
+					_, o, closer := openStreamer(ctx, db, cesium.StreamerConfig{
 						Channels: []cesium.ChannelKey{groupCh},
 					})
 
@@ -262,7 +262,7 @@ var _ = Describe("Streamer Behavior", func() {
 						Start:          10 * telem.SecondTS,
 						ControlSubject: control.Subject{Name: "NoGroupWriter"},
 					}))
-					_, o, closer := openStreamer(db, cesium.StreamerConfig{
+					_, o, closer := openStreamer(ctx, db, cesium.StreamerConfig{
 						Channels: []cesium.ChannelKey{noGroupCh},
 					})
 
@@ -289,7 +289,7 @@ var _ = Describe("Streamer Behavior", func() {
 						Channels: []cesium.ChannelKey{key},
 						Start:    10 * telem.SecondTS,
 					}))
-					r, o, closer := openStreamer(db, cesium.StreamerConfig{})
+					r, o, closer := openStreamer(ctx, db, cesium.StreamerConfig{})
 
 					r.Inlet() <- cesium.StreamerRequest{
 						Channels: []cesium.ChannelKey{key, GenerateChannelKey()},
@@ -310,6 +310,54 @@ var _ = Describe("Streamer Behavior", func() {
 					Expect(res.Frame.KeysSlice()).To(ConsistOf(key))
 					Expect(closer.Close()).To(Succeed())
 					Expect(w.Close()).To(Succeed())
+				})
+			})
+
+			Describe("Slow Consumers", func() {
+				It("Should buffer frames for a consumer that stalls during writes", func(ctx SpecContext) {
+					const bufferSize = 10
+					// Writing past the relay's total buffered capacity would force the
+					// writer to block until the relay times out and drops frames for
+					// the stalled consumer, so undersized buffering surfaces as missing
+					// frames in the drain below.
+					const frameCount int64 = 2 * bufferSize
+					subFS := MustSucceed(fs.Sub("slow-consumer"))
+					subDB := mustOpenDBOnFS(
+						ctx,
+						subFS,
+						cesium.WithRelayBufferSize(bufferSize),
+						cesium.WithStreamBufferSize(bufferSize),
+					)
+					key := GenerateChannelKey()
+					Expect(subDB.CreateChannel(
+						ctx,
+						cesium.Channel{
+							Key:      key,
+							Name:     "Feynman",
+							DataType: telem.Int64T,
+							Virtual:  true,
+						},
+					)).To(Succeed())
+					w := MustOpen(subDB.OpenWriter(ctx, cesium.WriterConfig{
+						Channels: []cesium.ChannelKey{key},
+						Start:    10 * telem.SecondTS,
+					}))
+					_, o, closer := openStreamer(ctx, subDB, cesium.StreamerConfig{
+						Channels: []cesium.ChannelKey{key},
+					})
+					DeferClose(closer)
+
+					for v := range frameCount {
+						Expect(
+							w.Write(telem.UnaryFrame(key, telem.NewSeriesV(v))),
+						).To(BeTrue())
+					}
+					for v := range frameCount {
+						var res cesium.StreamerResponse
+						Eventually(o.Outlet()).Should(Receive(&res))
+						Expect(res.Frame.Count()).To(Equal(1))
+						Expect(res.Frame.SeriesAt(0)).To(telem.MatchSeriesDataV(v))
+					}
 				})
 			})
 
@@ -352,12 +400,12 @@ var _ = Describe("Virtual Channel Streaming", func() {
 					Channels: []cesium.ChannelKey{key},
 					Start:    10 * telem.SecondTS,
 				}))
-				_, o, closer := openStreamer(db, cesium.StreamerConfig{
+				_, o, closer := openStreamer(ctx, db, cesium.StreamerConfig{
 					Channels: []cesium.ChannelKey{key},
 				})
 
 				d := telem.NewSeriesV[int64](1, 2, 3)
-				MustSucceed(w.Write(telem.UnaryFrame(key, d)))
+				Expect(w.Write(telem.UnaryFrame(key, d))).To(BeTrue())
 
 				var res cesium.StreamerResponse
 				Eventually(o.Outlet()).Should(Receive(&res))

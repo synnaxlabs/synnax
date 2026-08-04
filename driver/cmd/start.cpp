@@ -10,13 +10,19 @@
 #include <atomic>
 #include <memory>
 
-#include "x/cpp/args/args.h"
+#include "absl/log/log.h"
 
-#include "driver/cmd/cmd.h"
+#include "x/cpp/args/args.h"
+#include "x/cpp/log/log.h"
+#include "x/cpp/shutdown/shutdown.h"
+
+#include "driver/rack/rack.h"
 
 namespace driver::cmd::sub {
+std::string version();
+
 int start(x::args::Parser &args) {
-    LOG(INFO) << x::log::BLUE() << "starting Synnax Driver " << cmd::version()
+    LOG(INFO) << x::log::BLUE() << "starting Synnax Driver " << version()
               << x::log::RESET();
 
     const bool stdin_stop_enabled = !args.flag("--disable-stdin-stop");

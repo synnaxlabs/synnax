@@ -101,14 +101,14 @@ describe("auth guard", () => {
     pinLocationOrigin("http://localhost:9090");
     const { wrapper, store } = await createSessionConsoleWrapper({ client: null });
     render(
-      <Session.Settled.Provider>
+      <Session.SettledProvider>
         <Auth.Guard>
           <Auth.ConnectionGuard>
             <Cluster.ConnectionBadge />
             <span>authenticated content</span>
           </Auth.ConnectionGuard>
         </Auth.Guard>
-      </Session.Settled.Provider>,
+      </Session.SettledProvider>,
       { wrapper },
     );
     submitCredentials("synnax", uniqueName("wrong"));
@@ -156,16 +156,16 @@ describe("auth guard", () => {
       },
     });
     render(
-      <Session.Settled.Provider>
+      <Session.SettledProvider>
         <Auth.Guard>
           <Auth.ConnectionGuard>
             <span>authenticated content</span>
           </Auth.ConnectionGuard>
         </Auth.Guard>
-      </Session.Settled.Provider>,
+      </Session.SettledProvider>,
       { wrapper },
     );
-    expect(await screen.findByText("Retry Now", {}, { timeout: 10000 })).toBeTruthy();
+    expect(await screen.findByText("Retry now", {}, { timeout: 10000 })).toBeTruthy();
     expect(screen.getAllByText("localhost:9098").length).toBeGreaterThan(0);
     expect(screen.queryByText("Preparing your workspace...")).toBeNull();
     expect(screen.queryByText("authenticated content")).toBeNull();
