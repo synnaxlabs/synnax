@@ -17,7 +17,7 @@ import { ontology } from "@/ontology";
 import { keyZ, type Panel, panelZ, tabKeyZ, tabZ, viewZ } from "@/panel/types.gen";
 
 /**
- * Create replaces the document with the given created state. Emitted by the server on
+ * Create replaces the document with the given created state. Emitted by the Core on
  * create so remote caches ingest new documents; clients never dispatch it.
  */
 export const createPayloadZ = z.object({
