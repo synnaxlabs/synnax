@@ -55,17 +55,20 @@ func Not(f Filter) Filter {
 // Search sets a fuzzy search term that Retrieve will use to filter results.
 func (r Retrieve) Search(term string) Retrieve { r.searchTerm = term; return r }
 
-// MatchKeys returns a filter that restricts results to racks whose key
-// matches any of the provided values. Composing MatchKeys at the top level
-// of a Where clause (i.e. r.Where(MatchKeys(...))) dispatches Exec to the
-// multi-get fast path; composing inside Or / Not falls back to a full scan.
+// MatchKeys returns a filter that restricts results to
+// racks whose key matches any of the provided
+// values. Composing MatchKeys at the top level of a Where clause (i.e.
+// r.Where(MatchKeys(...))) dispatches Exec to the multi-get fast path; composing
+// inside Or / Not falls back to a full scan.
 func MatchKeys(keys ...Key) Filter {
 	return func(_ Retrieve) gorp.Filter[Key, Rack] {
 		return gorp.MatchKeys[Key, Rack](keys...)
 	}
 }
 
-// MatchNames returns a filter for racks whose Name matches any of the provided values.
+// MatchNames returns a filter for
+// racks whose Name matches any of the
+// provided values.
 func MatchNames(vals ...string) Filter {
 	return func(r Retrieve) gorp.Filter[Key, Rack] {
 		return gorp.Match(func(_ gorp.Context, e *Rack) (bool, error) {
@@ -74,7 +77,8 @@ func MatchNames(vals ...string) Filter {
 	}
 }
 
-// MatchEmbedded returns a filter for racks by their Embedded field.
+// MatchEmbedded returns a filter for racks by their
+// Embedded field.
 func MatchEmbedded(v bool) Filter {
 	return func(r Retrieve) gorp.Filter[Key, Rack] {
 		return gorp.Match(func(_ gorp.Context, e *Rack) (bool, error) {
@@ -83,7 +87,9 @@ func MatchEmbedded(v bool) Filter {
 	}
 }
 
-// MatchIntegration returns a filter for racks whose Integrations contains the provided value.
+// MatchIntegration returns a filter for
+// racks whose Integrations contains the provided
+// value.
 func MatchIntegration(v string) Filter {
 	return func(_ Retrieve) gorp.Filter[Key, Rack] {
 		return gorp.Match(func(_ gorp.Context, e *Rack) (bool, error) {
@@ -101,14 +107,16 @@ func (r Retrieve) Where(filter Filter) Retrieve {
 	return r
 }
 
-// Entry binds the provided rack as the result container for the query. If
-// multiple racks match, the first one is used.
+// Entry binds the provided rack as the result container for the
+// query. If multiple racks match, the first one is
+// used.
 func (r Retrieve) Entry(e *Rack) Retrieve {
 	r.gorp = r.gorp.Entry(e)
 	return r
 }
 
-// Entries binds the provided slice of racks as the result container for the query.
+// Entries binds the provided slice of racks as the
+// result container for the query.
 func (r Retrieve) Entries(es *[]Rack) Retrieve {
 	r.gorp = r.gorp.Entries(es)
 	return r
@@ -117,7 +125,8 @@ func (r Retrieve) Entries(es *[]Rack) Retrieve {
 // Limit sets the maximum number of racks to return.
 func (r Retrieve) Limit(limit int) Retrieve { r.gorp = r.gorp.Limit(limit); return r }
 
-// Offset sets the starting index of the racks to return.
+// Offset sets the starting index of the racks to
+// return.
 func (r Retrieve) Offset(offset int) Retrieve {
 	r.gorp = r.gorp.Offset(offset)
 	return r

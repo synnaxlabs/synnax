@@ -23,13 +23,19 @@ var _ = Describe("Retrieve", func() {
 		l := log.Log{
 			Name: "test",
 			Channels: []log.ChannelEntry{
-				{Channel: channel.Key(1), Color: color.MustFromHex("#ff0000"), Notation: notation.NotationStandard},
+				{
+					Channel:  channel.Key(1),
+					Color:    color.MustFromHex("#ff0000"),
+					Notation: notation.NotationStandard,
+				},
 			},
 			HideChannelNames: true,
 		}
 		Expect(svc.NewWriter(tx).Create(ctx, proj.Key, &l)).To(Succeed())
 		var res log.Log
-		Expect(svc.NewRetrieve().Where(log.MatchKeys(l.Key)).Entry(&res).Exec(ctx, tx)).To(Succeed())
+		Expect(
+			svc.NewRetrieve().Where(log.MatchKeys(l.Key)).Entry(&res).Exec(ctx, tx),
+		).To(Succeed())
 		Expect(res).To(Equal(l))
 	})
 })

@@ -219,7 +219,11 @@ func FormatPyComment(name, doc string) string {
 	}
 	firstPrefix := "# " + name + " "
 	subsequentPrefix := "# "
-	lines := wrapText(doc, maxLineWidth-len(firstPrefix), maxLineWidth-len(subsequentPrefix))
+	lines := wrapText(
+		doc,
+		maxLineWidth-len(firstPrefix),
+		maxLineWidth-len(subsequentPrefix),
+	)
 	var result []string
 	for i, line := range lines {
 		if i == 0 {
@@ -245,7 +249,8 @@ func FormatCpp(name, doc string) string {
 		return ""
 	}
 
-	// Calculate available width: "/// @brief Name " for first line, "/// " for subsequent
+	// Calculate available width: "/// @brief Name " for first line, "/// " for
+	// subsequent
 	firstPrefix := "/// @brief " + name + " "
 	subsequentPrefix := "/// "
 	firstLineWidth := maxLineWidth - len(firstPrefix)

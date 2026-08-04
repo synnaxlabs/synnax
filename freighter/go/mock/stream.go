@@ -27,7 +27,9 @@ var (
 
 // NewStreamPair creates a new stream client and server pair that are directly linked to
 // one another i.e. dialing any target on the client will call the server's handler.
-func NewStreamPair[RQ, RS freighter.Payload](buffers ...int) (*StreamServer[RQ, RS], *StreamClient[RQ, RS]) {
+func NewStreamPair[RQ, RS freighter.Payload](
+	buffers ...int,
+) (*StreamServer[RQ, RS], *StreamClient[RQ, RS]) {
 	inB, outB := parseBuffers(buffers)
 	ss := &StreamServer[RQ, RS]{BufferSize: outB, Reporter: reporter}
 	sc := &StreamClient[RQ, RS]{BufferSize: inB, Server: ss, Reporter: reporter}
@@ -75,7 +77,8 @@ type StreamServer[RQ, RS freighter.Payload] struct {
 // BindHandler implements the freighter.Stream interface.
 func (s *StreamServer[RQ, RS]) BindHandler(handler func(
 	ctx context.Context,
-	srv freighter.ServerStream[RQ, RS]) error) {
+	srv freighter.ServerStream[RQ, RS]) error,
+) {
 	s.Handler = handler
 }
 
@@ -90,7 +93,11 @@ func (s *StreamServer[RQ, RS]) exec(
 		ctx,
 		freighter.FinalizerFunc(func(md freighter.Context) (freighter.Context, error) {
 			go srv.exec(ctx, s.Handler)
-			return freighter.Context{Target: s.Address, Protocol: s.Protocol, Params: make(freighter.Params)}, nil
+			return freighter.Context{
+				Target:   s.Address,
+				Protocol: s.Protocol,
+				Params:   make(freighter.Params),
+			}, nil
 		}),
 	)
 }
@@ -117,29 +124,35 @@ func (s *StreamClient[RQ, RS]) Stream(
 			Protocol: s.Protocol,
 			Params:   make(freighter.Params),
 		},
-		freighter.FinalizerFunc(func(ctx freighter.Context) (oCtx freighter.Context, err error) {
-			if target == "" {
-				target = "localhost:0"
-			}
-			var (
-				targetBufferSize int
-				server           *StreamServer[RQ, RS]
-			)
-			if s.Server != nil {
-				server = s.Server
-				targetBufferSize = server.BufferSize
-			} else if s.Network != nil {
-				srv, ok := s.Network.resolveStreamTarget(target)
-				if !ok || srv.Handler == nil {
-					return oCtx, address.NewTargetNotFoundError(target)
+		freighter.FinalizerFunc(
+			func(ctx freighter.Context) (oCtx freighter.Context, err error) {
+				if target == "" {
+					target = "localhost:0"
 				}
-				server = srv
-				targetBufferSize = srv.BufferSize
-			}
-			var serverStream *ServerStream[RQ, RS]
-			stream, serverStream = NewStreams[RQ, RS](ctx, s.BufferSize, targetBufferSize)
-			return server.exec(ctx, serverStream)
-		}),
+				var (
+					targetBufferSize int
+					server           *StreamServer[RQ, RS]
+				)
+				if s.Server != nil {
+					server = s.Server
+					targetBufferSize = server.BufferSize
+				} else if s.Network != nil {
+					srv, ok := s.Network.resolveStreamTarget(target)
+					if !ok || srv.Handler == nil {
+						return oCtx, address.NewTargetNotFoundError(target)
+					}
+					server = srv
+					targetBufferSize = srv.BufferSize
+				}
+				var serverStream *ServerStream[RQ, RS]
+				stream, serverStream = NewStreams[RQ, RS](
+					ctx,
+					s.BufferSize,
+					targetBufferSize,
+				)
+				return server.exec(ctx, serverStream)
+			},
+		),
 	)
 	if err != nil {
 		return nil, err
@@ -160,8 +173,8 @@ func parseBuffers(buffers []int) (int, int) {
 }
 
 type ServerStream[RQ, RS freighter.Payload] struct {
-	// ctx is the context the ServerStream was started with. Yes, Yes! RQ know this is a bad
-	// practice, but in this case we're essentially using it as a data container,
+	// ctx is the context the ServerStream was started with. Yes, Yes! I know this is a
+	// bad practice, but in this case we're essentially using it as a data container,
 	// and we have a very good grasp on how it's used.
 	ctx          context.Context
 	requests     <-chan message[RQ]
@@ -228,8 +241,8 @@ func (s *ServerStream[RQ, RS]) exec(
 }
 
 type ClientStream[RQ, RS freighter.Payload] struct {
-	// ctx is the context the ServerStream was started with. Yes, Yes! I know this is a bad
-	// practice, but in this case we're essentially using it as a data container,
+	// ctx is the context the ServerStream was started with. Yes, Yes! I know this is a
+	// bad practice, but in this case we're essentially using it as a data container,
 	// and we have a very good grasp on how it's used.
 	ctx          context.Context
 	requests     chan<- message[RQ]
@@ -273,8 +286,9 @@ func (c *ClientStream[RQ, RS]) Receive() (res RS, err error) {
 	case <-c.ctx.Done():
 		return res, c.ctx.Err()
 	case msg := <-c.responses:
-		// If our message contains an error, that means the server serverClosed the stream (i.e. serverClosed chan
-		// is serverClosed), so we don't need explicitly listen for its closure.
+		// If our message contains an error, that means the server serverClosed the
+		// stream (i.e. serverClosed chan is serverClosed), so we don't need explicitly
+		// listen for its closure.
 		if msg.error.Type != errors.TypeEmpty {
 			if c.receiveErr == nil {
 				c.receiveErr = errors.Decode(c.ctx, msg.error)

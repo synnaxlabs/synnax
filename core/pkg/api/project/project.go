@@ -68,7 +68,7 @@ func (s *Service) Create(
 
 type RenameRequest struct {
 	Name string      `json:"name" msgpack:"name"`
-	Key  project.Key `json:"key" msgpack:"key"`
+	Key  project.Key `json:"key"  msgpack:"key"`
 }
 
 func (s *Service) Rename(
@@ -88,7 +88,7 @@ func (s *Service) Rename(
 
 type SetLayoutRequest struct {
 	Layout map[string]any `json:"layout" msgpack:"layout"`
-	Key    project.Key    `json:"key" msgpack:"key"`
+	Key    project.Key    `json:"key"    msgpack:"key"`
 }
 
 func (s *Service) SetLayout(
@@ -108,10 +108,10 @@ func (s *Service) SetLayout(
 
 type (
 	RetrieveRequest struct {
-		SearchTerm          string        `json:"search_term" msgpack:"search_term"`
-		Keys                []project.Key `json:"keys" msgpack:"keys"`
-		Limit               int           `json:"limit" msgpack:"limit"`
-		Offset              int           `json:"offset" msgpack:"offset"`
+		SearchTerm          string        `json:"search_term"            msgpack:"search_term"`
+		Keys                []project.Key `json:"keys"                   msgpack:"keys"`
+		Limit               int           `json:"limit"                  msgpack:"limit"`
+		Offset              int           `json:"offset"                 msgpack:"offset"`
 		IgnoreNotFoundError bool          `json:"ignore_not_found_error" msgpack:"ignore_not_found_error"`
 	}
 	RetrieveResponse struct {

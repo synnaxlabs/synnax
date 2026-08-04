@@ -177,7 +177,11 @@ func (s *Scheduler) NextDeadline() telem.TimeSpan { return s.nextDeadline }
 // Next executes one cycle of the reactive computation, re-walking until changes
 // settle. Nodes with pending changes execute in stratum order; sequential scopes
 // advance via their transitions; gated scopes activate when their handle fires.
-func (s *Scheduler) Next(ctx context.Context, elapsed telem.TimeSpan, reason rnode.RunReason) {
+func (s *Scheduler) Next(
+	ctx context.Context,
+	elapsed telem.TimeSpan,
+	reason rnode.RunReason,
+) {
 	s.nextDeadline = telem.TimeSpanMax
 	s.nodeCtx.Context = ctx
 	s.nodeCtx.Elapsed = elapsed
@@ -324,11 +328,11 @@ func (s *Scheduler) clearLeafNodeSelfChanged(m *member) {
 	}
 }
 
-// activateScope marks a scope active and primes its members. Sequential
-// scopes reset their strata members and activate step 0; parallel scopes
-// reset every leaf-node member and cascade-activate always-live nested scopes. Gated children wait for their
-// Activation handle to fire via markChanged; gated children with no handle
-// stay inert (used for named top-level scopes awaiting an external trigger).
+// activateScope marks a scope active and primes its members. Sequential scopes reset
+// their strata members and activate step 0; parallel scopes reset every leaf-node
+// member and cascade-activate always-live nested scopes. Gated children wait for their
+// Activation handle to fire via markChanged; gated children with no handle stay inert
+// (used for named top-level scopes awaiting an external trigger).
 func (s *Scheduler) activateScope(ss *scope) {
 	ss.active = true
 	if ss.ir.Mode == ir.ScopeModeSequential {

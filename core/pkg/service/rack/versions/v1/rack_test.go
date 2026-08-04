@@ -36,5 +36,4 @@ var _ = Describe("Rack", func() {
 			Expect(v1.Rack{Key: key}.OntologyID()).To(Equal(key.OntologyID()))
 		})
 	})
-
 })

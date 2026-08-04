@@ -42,7 +42,10 @@ type unionDispatchVariant struct {
 // serializers carry the discriminator as a leading std::string field followed
 // by the flattened base and variant fields, matching the declarations emitted
 // by the cpp/types plugin.
-func (p *Plugin) processUnion(u resolution.Type, data *templateData) ([]serializerData, unionDispatchData) {
+func (p *Plugin) processUnion(
+	u resolution.Type,
+	data *templateData,
+) ([]serializerData, unionDispatchData) {
 	form := u.Form.(resolution.UnionForm)
 	name := domain.GetName(u, "cpp")
 	data.includes.addSystem("variant")
@@ -60,7 +63,11 @@ func (p *Plugin) processUnion(u resolution.Type, data *templateData) ([]serializ
 	serializers := make([]serializerData, 0, len(form.Variants))
 	for _, v := range form.Variants {
 		variantName := cppnaming.VariantTypeName(name, v.Name)
-		s := serializerData{Name: variantName, HasExtends: true, Fields: make([]fieldData, 0)}
+		s := serializerData{
+			Name:       variantName,
+			HasExtends: true,
+			Fields:     make([]fieldData, 0),
+		}
 		for _, ext := range form.Extends {
 			if parent, ok := ext.Resolve(data.table); ok {
 				s.ParentTypes = append(s.ParentTypes, parentTypeData{

@@ -55,10 +55,14 @@ func newSecureProvider(cfg ProviderConfig) (Provider, error) {
 //
 // Thanks to the CockroachDB team for this list of cipher suites[4].
 //
-// [1]: https://github.com/golang/go/blob/4aa1efed4853ea067d665a952eee77c52faac774/src/crypto/tls/cipher_suites.go#L215-L270
-// [2]: https://www.iana.org/assignments/tls-parameters/tls-parameters.xhtml#tls-parameters-4
-// [3]: https://wiki.mozilla.org/Security/Server_Side_TLS#Intermediate_compatibility_.28recommended.29
-// [4]: https://github.com/cockroachdb/cockroach/blob/a9fcbd15b24bcf09e139785921be8d9ff8cad729/pkg/security/tls.go#L106
+// [1]:
+// https://github.com/golang/go/blob/4aa1efed4853ea067d665a952eee77c52faac774/src/crypto/tls/cipher_suites.go#L215-L270
+// [2]:
+// https://www.iana.org/assignments/tls-parameters/tls-parameters.xhtml#tls-parameters-4
+// [3]:
+// https://wiki.mozilla.org/Security/Server_Side_TLS#Intermediate_compatibility_.28recommended.29
+// [4]:
+// https://github.com/cockroachdb/cockroach/blob/a9fcbd15b24bcf09e139785921be8d9ff8cad729/pkg/security/tls.go#L106
 var defaultCipherSuites = []uint16{
 	tls.TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,
 	tls.TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,
@@ -116,6 +120,8 @@ func (p *secureProvider) getNodeCert(*tls.ClientHelloInfo) (*tls.Certificate, er
 	return p.tls, nil
 }
 
-func (p *secureProvider) getClientCert(*tls.CertificateRequestInfo) (*tls.Certificate, error) {
+func (p *secureProvider) getClientCert(
+	*tls.CertificateRequestInfo,
+) (*tls.Certificate, error) {
 	return p.tls, nil
 }

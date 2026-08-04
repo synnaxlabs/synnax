@@ -36,8 +36,12 @@ type (
 )
 
 var (
-	_ grpc.Translator[auth.LoginRequest, *LoginRequest]   = (*loginRequestTranslator)(nil)
-	_ grpc.Translator[auth.LoginResponse, *LoginResponse] = (*loginResponseTranslator)(nil)
+	_ grpc.Translator[auth.LoginRequest, *LoginRequest] = (*loginRequestTranslator)(
+		nil,
+	)
+	_ grpc.Translator[auth.LoginResponse, *LoginResponse] = (*loginResponseTranslator)(
+		nil,
+	)
 )
 
 func (loginRequestTranslator) Forward(

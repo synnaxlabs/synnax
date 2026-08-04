@@ -15,7 +15,10 @@ import (
 	"go.lsp.dev/protocol"
 )
 
-func (s *Server) Definition(ctx context.Context, params *protocol.DefinitionParams) (protocol.DefinitionResult, error) {
+func (s *Server) Definition(
+	ctx context.Context,
+	params *protocol.DefinitionParams,
+) (protocol.DefinitionResult, error) {
 	doc, ok := s.getDocument(params.TextDocument.URI)
 	if !ok || doc.IR.Symbols == nil {
 		return nil, nil

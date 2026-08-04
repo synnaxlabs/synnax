@@ -7,9 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { schematic } from "@synnaxlabs/client";
+import { query, schematic } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
-import { Icon } from "@synnaxlabs/pluto";
+import { type Flux, Icon, Schematic } from "@synnaxlabs/pluto";
 import { uuid } from "@synnaxlabs/x";
 import {
   act,
@@ -28,7 +28,12 @@ import {
   createServerPanel,
   primePanel,
 } from "@/platform/panel/testutil";
-import { awaitTextEditingElement, commitTextEdit, renderWithConsole } from "@/testutil";
+import {
+  awaitTextEditingElement,
+  commitTextEdit,
+  renderWithConsole,
+  uniqueName,
+} from "@/testutil";
 
 const client = createTestClient();
 
@@ -81,6 +86,72 @@ describe("Panel tab", () => {
       expect(() => renderHook(() => Panel.useTab(), { wrapper: Wrapper })).toThrow(
         "no renderer for tab type unregistered_view",
       );
+    });
+  });
+
+  describe("ResourceGuard", () => {
+    it("swaps to the tombstone once the resource is deleted, and back on restore", async () => {
+      const { key: project } = await client.projects.create({
+        name: uniqueName("project"),
+        layout: {},
+      });
+      const schem = await client.schematics.create(project, { name: "Guarded" });
+      const tabKey = uuid.create();
+      const existing = await createServerPanel(client, {
+        variant: "leaf",
+        tabs: [
+          {
+            variant: "resource",
+            key: tabKey,
+            resource: schematic.ontologyID(schem.key),
+          },
+        ],
+      });
+      const { wrapper: Base } = await createPanelWrapper({
+        client,
+        panelKey: existing.key,
+        tabKey,
+        project,
+      });
+      await primePanel(Base, existing.key);
+      await client.schematics.retrieve(schem.key);
+
+      const renderers: Panel.Tabs = {
+        [schematic.TYPE_ONTOLOGY_ID.type]: {
+          Content: () => <>content</>,
+          Name: () => <>name</>,
+          Icon: () => <>icon</>,
+          useTombstone: Panel.createTombstoneReader(Schematic),
+        },
+      };
+      const Wrapper = ({ children }: PropsWithChildren): ReactElement => (
+        <Base>
+          <Panel.RendererContext value={renderers}>{children}</Panel.RendererContext>
+        </Base>
+      );
+      Wrapper.displayName = "ResourceGuardWrapper";
+      const Fallback = ({ name }: Flux.Tombstone): ReactElement => (
+        <>{name} was deleted</>
+      );
+      render(
+        <Panel.ResourceGuard FallbackComponent={Fallback}>
+          <div>live content</div>
+        </Panel.ResourceGuard>,
+        { wrapper: Wrapper },
+      );
+      expect(await screen.findByText("live content")).toBeTruthy();
+
+      await act(async () => await client.schematics.delete(schem.key));
+      expect(await screen.findByText("Guarded was deleted")).toBeTruthy();
+      expect(screen.queryByText("live content")).toBeNull();
+
+      // Restoring re-creates from the corpse under the original key. The guard
+      // re-reads its own query: no boundary reset and no refetch.
+      const corpse = query.requireCorpse(client.schematics.getCached(schem.key));
+      await act(async () => {
+        await client.schematics.create(project, corpse);
+      });
+      expect(await screen.findByText("live content")).toBeTruthy();
     });
   });
 

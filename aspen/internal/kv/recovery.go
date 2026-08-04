@@ -88,7 +88,9 @@ func (r *recoveryServer) recoverPeer(
 			}
 		}
 
-		if err = stream.Send(RecoveryResponse{Operations: []Operation{op}}); err != nil {
+		if err = stream.Send(
+			RecoveryResponse{Operations: []Operation{op}},
+		); err != nil {
 			return err
 		}
 	}
@@ -99,7 +101,10 @@ func runRecovery(ctx context.Context, cfg Config) error {
 	cfg.Instrumentation = cfg.Child("recovery")
 	nodes := cfg.Cluster.Nodes()
 	sCtx := signal.Wrap(ctx, signal.WithInstrumentation(cfg.Instrumentation))
-	cfg.L.Info("recovering lost key-value operations", zap.Int("peer_node_count", len(nodes)-1))
+	cfg.L.Info(
+		"recovering lost key-value operations",
+		zap.Int("peer_node_count", len(nodes)-1),
+	)
 	for _, n := range nodes {
 		if n.Key == cfg.Cluster.HostKey() {
 			continue
@@ -115,10 +120,13 @@ func runRecovery(ctx context.Context, cfg Config) error {
 	return err
 }
 
-func loadHighWater(ctx context.Context, cfg Config) (highWater version.Counter, err error) {
+func loadHighWater(
+	ctx context.Context,
+	cfg Config,
+) (highWater version.Counter, err error) {
 	iter, err := cfg.Engine.OpenIterator(kv.IterPrefix([]byte(digestPrefix)))
 	if err != nil {
-		return
+		return highWater, err
 	}
 	defer func() {
 		err = errors.Combine(err, iter.Close())
@@ -128,13 +136,13 @@ func loadHighWater(ctx context.Context, cfg Config) (highWater version.Counter, 
 	for iter.First(); iter.Valid(); iter.Next() {
 		v := iter.Value()
 		if err = codec.Decode(ctx, v, &dig); err != nil {
-			return
+			return highWater, err
 		}
 		if dig.Version.NewerThan(highWater) {
 			highWater = dig.Version
 		}
 	}
-	return
+	return highWater, err
 }
 
 func runSingleNodeRecovery(
@@ -146,7 +154,11 @@ func runSingleNodeRecovery(
 	if err != nil {
 		return err
 	}
-	cfg.L.Info("starting recovery for node", zap.Stringer("nodeKey", node.Key), zap.Int64("highWater", int64(hw)))
+	cfg.L.Info(
+		"starting recovery for node",
+		zap.Stringer("nodeKey", node.Key),
+		zap.Int64("highWater", int64(hw)),
+	)
 	stream, err := cfg.RecoveryTransportClient.Stream(ctx, node.Address)
 	if err != nil {
 		return err
@@ -174,7 +186,11 @@ func runSingleNodeRecovery(
 				}
 			}
 		}
-		cfg.L.Info("successfully recovered lost key-value operations", zap.Stringer("node", node.Key), zap.Int("operations", count))
+		cfg.L.Info(
+			"successfully recovered lost key-value operations",
+			zap.Stringer("node", node.Key),
+			zap.Int("operations", count),
+		)
 		return nil
 	})
 }

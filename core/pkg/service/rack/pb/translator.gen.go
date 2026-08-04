@@ -130,8 +130,9 @@ func RacksFromPB(pbs []*Rack) ([]rack.Rack, error) {
 	return result, nil
 }
 
-// StatusDetailsToPBAny converts StatusDetails to *anypb.Any for use with generic translators.
-// It wraps the value in structpb.Struct (JSON) for cross-language compatibility.
+// StatusDetailsToPBAny converts StatusDetails to *anypb.Any for use with generic
+// translators. It wraps the value in structpb.Struct (JSON) for cross-language
+// compatibility.
 func StatusDetailsToPBAny(v rack.StatusDetails) (*anypb.Any, error) {
 	pb, err := StatusDetailsToPB(v)
 	if err != nil {
@@ -149,8 +150,9 @@ func StatusDetailsToPBAny(v rack.StatusDetails) (*anypb.Any, error) {
 	return anypb.New(s)
 }
 
-// StatusDetailsFromPBAny converts *anypb.Any to StatusDetails for use with generic translators.
-// It handles both typed protos and JSON (google.protobuf.Struct) for cross-language compatibility.
+// StatusDetailsFromPBAny converts *anypb.Any to StatusDetails for use with generic
+// translators. It handles both typed protos and JSON (google.protobuf.Struct) for
+// cross-language compatibility.
 func StatusDetailsFromPBAny(a *anypb.Any) (rack.StatusDetails, error) {
 	if a == nil {
 		return rack.StatusDetails{}, nil

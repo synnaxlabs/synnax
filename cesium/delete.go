@@ -131,7 +131,7 @@ func (db *DB) DeleteChannels(chs []ChannelKey) (err error) {
 
 		err = db.removeChannel(ch)
 		if err != nil {
-			return
+			return err
 		}
 
 		// Rename the files first, so we can avoid hogging the mutex while deleting the
@@ -140,7 +140,7 @@ func (db *DB) DeleteChannels(chs []ChannelKey) (err error) {
 		newName := oldName + "-DELETE-" + strconv.Itoa(rand.Int())
 		err = db.fs.Rename(oldName, newName)
 		if err != nil {
-			return
+			return err
 		}
 
 		directoriesToRemove = append(directoriesToRemove, newName)
@@ -150,20 +150,20 @@ func (db *DB) DeleteChannels(chs []ChannelKey) (err error) {
 	for _, ch := range indexChannels {
 		err = db.removeChannel(ch)
 		if err != nil {
-			return
+			return err
 		}
 
 		oldName := keyToDirName(ch)
 		newName := oldName + "-DELETE-" + strconv.Itoa(rand.Int())
 		err = db.fs.Rename(oldName, newName)
 		if err != nil {
-			return
+			return err
 		}
 
 		directoriesToRemove = append(directoriesToRemove, newName)
 	}
 
-	return
+	return err
 }
 
 // removeChannel removes ch from db.mu.dbs.unary or db.mu.dbs.virtual. Returns an
@@ -286,13 +286,16 @@ func (db *DB) garbageCollect(ctx context.Context, maxGoRoutine uint) error {
 }
 
 func (db *DB) startGC(sCtx signal.Context, opts *options) {
-	signal.GoTick(sCtx, opts.gcCfg.TryInterval, func(ctx context.Context, time time.Time) error {
-		err := db.garbageCollect(ctx, opts.gcCfg.MaxGoroutine)
-		if err != nil {
-			db.L.Error("garbage collection error", zap.Error(err))
-		}
-		return nil
-	},
+	signal.GoTick(
+		sCtx,
+		opts.gcCfg.TryInterval,
+		func(ctx context.Context, time time.Time) error {
+			err := db.garbageCollect(ctx, opts.gcCfg.MaxGoroutine)
+			if err != nil {
+				db.L.Error("garbage collection error", zap.Error(err))
+			}
+			return nil
+		},
 		signal.WithRetryOnPanic(10),
 		signal.RecoverWithoutErrOnPanic(),
 		signal.WithKey("gc-ticker"),

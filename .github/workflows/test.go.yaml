@@ -44,7 +44,7 @@ jobs:
         os: [macos-latest, ubuntu-latest, windows-latest]
         include:
           - os: ubuntu-latest
-            fmt: true
+            codegen: true
         exclude:
           - os:
               ${{ (github.ref != 'refs/heads/main' && github.base_ref != 'main') &&
@@ -65,22 +65,18 @@ jobs:
             ${{ inputs.directory }}/go.mod
             ${{ inputs.directory }}/go.sum
 
-      - name: Check formatting
-        if: matrix.fmt
-        run: scripts/check_gofmt.sh ${{ inputs.directory }}
-
       - name: Install stringer
-        if: matrix.fmt
+        if: matrix.codegen
         run: go install golang.org/x/tools/cmd/stringer@v0.48.0
 
       - name: Install antlr4
-        if: matrix.fmt && inputs.install_antlr4
+        if: matrix.codegen && inputs.install_antlr4
         run: |
           scripts/install_antlr4.sh
           echo "$HOME/.local/bin" >> "$GITHUB_PATH"
 
       - name: Verify `go generate` is up to date
-        if: matrix.fmt
+        if: matrix.codegen
         run: scripts/check_go_generate.sh ${{ inputs.directory }}
 
       - name: Lint
