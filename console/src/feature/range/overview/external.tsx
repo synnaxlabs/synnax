@@ -23,6 +23,7 @@ const TAB: Panel.Tab = {
     const corpse = query.requireCorpse(client.ranges.getCached(resource.key));
     await client.ranges.create(corpse.payload);
   },
+  useTombstone: Panel.createTombstoneReader(Ranger),
 };
 
 export const TABS: Panel.Tabs = {
