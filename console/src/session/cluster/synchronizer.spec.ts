@@ -8,8 +8,9 @@
 // included in the file licenses/APL.txt.
 
 import { createTestClient } from "@synnaxlabs/client/testutil";
+import { Drift } from "@synnaxlabs/drift";
 import { Synnax } from "@synnaxlabs/pluto";
-import { renderHook, waitFor } from "@testing-library/react";
+import { act, renderHook, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { createCluster, createClusterState } from "@/platform/cluster/testutil";
@@ -69,5 +70,61 @@ describe("useSyncClusterKey", () => {
     );
     expect(Session.Cluster.selectState(store.getState(), "active-1")).toBeUndefined();
     expect(Session.Cluster.selectState(store.getState(), serverKey)).toBeDefined();
+  });
+});
+
+describe("useCloseOnClusterChange", () => {
+  const AUX_LABEL = "aux";
+  const AUX_KEY = "aux-key";
+
+  const auxWindow: Drift.WindowState = {
+    key: AUX_KEY,
+    stage: "created",
+    processCount: 0,
+    reserved: true,
+    focusCount: 0,
+    centerCount: 0,
+    ordinal: 2,
+  };
+
+  const useSyncWithModals = () => {
+    const modals = Session.Modals.useStore("useCloseOnClusterChange spec");
+    Synchronizer.use(SYNCHRONIZERS);
+    return { modals, status: Synnax.useConnectionStatus() };
+  };
+
+  it("should leave open windows and modals alone on first connect", async () => {
+    const serverKey = await retrieveServerClusterKey();
+    const active = createCluster(serverKey);
+    const { wrapper, store } = await createConnectedConsoleWrapper({
+      client: null,
+      connParams: active,
+      preloadedState: {
+        ...createClusterState([active], serverKey),
+        drift: {
+          ...Session.ZERO_STATE.drift,
+          windows: { ...Session.ZERO_STATE.drift.windows, [AUX_LABEL]: auxWindow },
+          labelKeys: { ...Session.ZERO_STATE.drift.labelKeys, [AUX_LABEL]: AUX_KEY },
+          keyLabels: { ...Session.ZERO_STATE.drift.keyLabels, [AUX_KEY]: AUX_LABEL },
+          nextOrdinal: 3,
+        },
+      },
+    });
+    const { result } = renderHook(useSyncWithModals, { wrapper });
+    act(() =>
+      result.current.modals.push(
+        () => null,
+        {},
+        () => {},
+      ),
+    );
+
+    await waitFor(() => expect(result.current.status.variant).toBe("success"));
+    await waitFor(() =>
+      expect(result.current.status.details.epoch).toBeGreaterThanOrEqual(1),
+    );
+
+    expect(Drift.selectWindow(store.getState(), AUX_KEY)).not.toBeNull();
+    expect(result.current.modals.isAnyOpen()).toBe(true);
   });
 });

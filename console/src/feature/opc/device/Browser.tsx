@@ -211,7 +211,7 @@ export const Browser = ({ device }: BrowserProps) => {
           <Button.Button
             onClick={refresh}
             disabled={initialLoading && status?.variant !== "error"}
-            sharp
+            size="medium"
             variant="text"
           >
             <Icon.Refresh />
