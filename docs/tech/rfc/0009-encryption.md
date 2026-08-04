@@ -21,11 +21,11 @@ implementation for encrypting cluster communications.
 
 ## 1 Vocabulary
 
-- **Node** - A machine in the cluster.
-- **Cluster** - A group of nodes that can communicate with each other.
-- **Gateway** - The node that receives incoming client requests, and forwards them to
+- **Node**: A machine in the cluster.
+- **Cluster**: A group of nodes that can communicate with each other.
+- **Gateway**: The node that receives incoming client requests, and forwards them to
   the appropriate node.
-- **Peer** - A node that receives requests from a gateway, and executes them.
+- **Peer**: A node that receives requests from a gateway, and executes them.
 
 ## 2 Motivation
 

@@ -21,16 +21,16 @@ this effort.
 
 ## 1 Vocabulary
 
-- **Host Function** - A function implemented in Go or C++ and callable from compiled
+- **Host Function**: A function implemented in Go or C++ and callable from compiled
   WASM bytecode via the `call` instruction. Examples: `channel_read_f64`, `math.pow`.
-- **Reactive Node** - A Go-native node in the dataflow graph, executed by the scheduler.
+- **Reactive Node**: A Go-native node in the dataflow graph, executed by the scheduler.
   Never touches WASM. Examples: `set_authority`, `stable_for`, `select`.
-- **Compiler Primitive** - A host function emitted implicitly by the compiler for
+- **Compiler Primitive**: A host function emitted implicitly by the compiler for
   language constructs (variable access, assignment, operators). Users never call these
   directly.
-- **STL Item** - Any standard library artifact: host function, reactive node, or symbol
+- **STL Item**: Any standard library artifact: host function, reactive node, or symbol
   definition.
-- **WASM Import Contract** - The set of `(module, name, signature)` tuples declared in a
+- **WASM Import Contract**: The set of `(module, name, signature)` tuples declared in a
   compiled WASM binary's import section. This is the interface between the compiler and
   all runtimes.
 
@@ -524,7 +524,7 @@ during the transition.
 
 Name-based binding has negligible overhead vs positional. Both wazero and wasmtime use
 hash maps internally for import resolution. The only per-call cost is
-`context.WithValue` for node key injection (~10-20ns), which is dwarfed by WASM FFI
+`context.WithValue` for node key injection (~10-20 ns), which is dwarfed by WASM FFI
 overhead.
 
 ### 7.3 Missing specialization errors

@@ -19,13 +19,13 @@ The design introduces two complementary mechanisms:
 
 ## 1 Vocabulary
 
-- **Authority** - An 8-bit unsigned integer (0-255) representing control precedence over
+- **Authority**: An 8-bit unsigned integer (0-255) representing control precedence over
   a channel. Higher values take precedence.
-- **Control Subject** - An entity (sequence, operator, task) identified by a unique key
+- **Control Subject**: An entity (sequence, operator, task) identified by a unique key
   and name that can hold authority over channels.
-- **Control Transfer** - A change in which subject holds authority over a resource.
-- **Gate** - A subject's authority claim over a channel within a time region.
-- **Silent Skip** - When a write is ignored due to insufficient authority, without
+- **Control Transfer**: A change in which subject holds authority over a resource.
+- **Gate**: A subject's authority claim over a channel within a time region.
+- **Silent Skip**: When a write is ignored due to insufficient authority, without
   raising an error.
 
 ## 2 Motivation

@@ -15,18 +15,18 @@ continuous iteration as Delta's demands evolve.
 
 ## 1 Vocabulary
 
-- **Sample** - An arbitrary byte array recorded at a specific point in time.
-- **Channel** - A collection of samples across a time range.
-- **Segment** - A partitioned region of a channel's data.
-- **Regular** (in relation to time-series) - A 'regular' Channel is one whose samples
-  are recorded at regular intervals (1Hz, 5Hz, 10Hz, etc.)
-- **Samples/Second** - A basic measure of write throughput. The size of a regular sample
-  should be assumed as 8 bytes ( i.e. a float64 value) unless otherwise specified,
+- **Sample**: An arbitrary byte array recorded at a specific point in time.
+- **Channel**: A collection of samples across a time range.
+- **Segment**: A partitioned region of a channel's data.
+- **Regular** (in relation to time-series): A 'regular' Channel is one whose samples
+  are recorded at regular intervals (1 Hz, 5 Hz, 10 Hz, etc.)
+- **Samples/Second**: A basic measure of write throughput. The size of a regular sample
+  should be assumed as 8 bytes (i.e. a float64 value) unless otherwise specified,
   whereas an irregular sample is assumed to contain an additional 64 bit timestamp.
-  Write throughput can also be expressed in terms of a frequency (1Hz, 5Hz, 25 KHz,
-  1MHz, etc.)
-- **DAQ** - Data Acquisition Computer.
-- **Channel Cardinality** - The number of unique channel keys for a set of segments in a
+  Write throughput can also be expressed in terms of a frequency (1 Hz, 5 Hz, 25 KHz,
+  1 MHz, etc.)
+- **DAQ**: data acquisition computer.
+- **Channel Cardinality**: The number of unique channel keys for a set of segments in a
   file.
 
 This RFC expands on these definitions by asserting specific properties of a Channel,
@@ -35,8 +35,8 @@ fluctuate and affect storage engine implementation details.
 
 ## 2 Motivation
 
-The pivot from alpha V1 to V2 is the main driver behind this RFC. Synnax was built as a
-database proxy that merged and synchronized network requests into several databases. V2
+The pivot from alpha v1 to v2 is the main driver behind this RFC. Synnax was built as a
+database proxy that merged and synchronized network requests into several databases. v2
 is a single binary that implements an entire database including a storage engine. This
 means we must:
 
@@ -63,7 +63,7 @@ These all use an LSM + WAL style architecture, which is a good fit for frequent 
 and writes on small amounts of data. However, when it comes to high rate append only
 workloads, they do not scale as well as one might hope. Pebbles' own
 [benchmarks](https://cockroachdb.github.io/pebble/) show a maximum write throughput of
-(approximately) 170,000 samples per second, far below V1's throughput of 6 million
+(approximately) 170,000 samples per second, far below v1's throughput of 6 million
 values per second. An elastic throughput in the range several hundreds of millions of
 values per second is reasonable for append only writes to an SSD.
 
@@ -137,7 +137,7 @@ a fixed sample rate:
 cesium.NewCreateChannel().WithRate(100 * cesium.Hz).Exec(ctx)
 ```
 
-Samples written to this channel are assumed to have a constant separation of 10ms
+Samples written to this channel are assumed to have a constant separation of 10 ms
 between them. Actual separations between samples are not validated or stored. Even the
 most precise sensors and devices have minor irregularities in their sample rates (+/- a
 few nanoseconds in the case of most data acquisition computers (DAQ)). Cesium leaves it
@@ -255,7 +255,7 @@ This approach drastically simplifies Cesium's implementation, allowing it to mak
 well-written iteration APIs to execute queries in an efficient manner. Although the
 actual key-value store used is of relative unimportance, I chose CockroachDB's
 [Pebble](https://github.com/cockroachdb/pebble) as it provides a RocksDB compatible API
-with well written prefix iteration utilities ( very useful for range based lookups).
+with well written prefix iteration utilities (very useful for range based lookups).
 
 There are a number of alternatives such as Dgraph's
 [Badger](https://github.com/dgraph-io/badger). I haven't done any extensive research
@@ -272,30 +272,30 @@ based model as it bears a resemblance to Unix pipes.
 
 Core vocabulary for the following technical specification:
 
-- **Stage** - An interface that receives samples from one or more streams, does some
+- **Stage**: An interface that receives samples from one or more streams, does some
   operation on those samples, and pipes the results to one or more output streams. In a
   [Sawzall](https://research.google/pubs/pub61/) style processing engine, a stage would
   be comparable to an aggregator.
-- **Individual Stage** - An stage that is involved in serving only one request.
-- **Shared Stage** - An stage that is involved in serving multiple requests (i.e.
+- **Individual Stage**: An stage that is involved in serving only one request.
+- **Shared Stage**: An stage that is involved in serving multiple requests (i.e.
   several input streams from different processes)
-- **Pipe** - A pipe is an ordered sequence of stages, where the output stream(s) of each
+- **Pipe**: A pipe is an ordered sequence of stages, where the output stream(s) of each
   stage is the input stream(s) for the next stage. In Cesium's case, the ends of the
   pipe are the caller and disk reader respectively (the order reverses for different
   query variants).
-- **Assembly** - The processing of selecting and initializing segments for a particular
+- **Assembly**: The processing of selecting and initializing segments for a particular
   pipe. Assembly typically involves parsing a query, building a plan, and then
   constructing the pipe.
-- **Execution** - The transfer/processing of samples from one end of the pipe to the
+- **Execution**: The transfer/processing of samples from one end of the pipe to the
   other i.e. the streaming process. Often times, the assembly process doesn't provide
   enough information to fully execute the query, so the execution process parses
   additional context within a sample to order additional transformations/alternative
   routing.
-- **Query** - The process of writing a structured request for pipe assembly and
+- **Query**: The process of writing a structured request for pipe assembly and
   execution. A query is often assembled using some sort of ORM styled method chaining
   API, packed into a serializable structure, and passed to a processing engine that can
   execute it.
-- **Operation** - Cesium Specific - A set of instructions to perform on the disk. This
+- **Operation** (Cesium specific): A set of instructions to perform on the disk. This
   can be reading, writing, etc.
 
 Cesium's query execution model involves a set of individual stages that perform
@@ -315,22 +315,22 @@ WhereTimeRange(telem.NewTimeRange(0, 15)).
 Stream(ctx)
 ```
 
-We're looking for all data from a channel with key 1 from time range 0 to 15 ( the units
+We're looking for all data from a channel with key 1 from time range 0 to 15 (the units
 are unimportant). We can use the following pipe:
 
-- **Stage 0** - Individual - Assembly - Parses a query and does KV operations to
+- **Stage 0**: Individual - Assembly - Parses a query and does KV operations to
   generate a set of disk operations. Passes these operations to Stage 1.
-- **Stage 1** - Individual - Interface - Queues a set of disk operations and waits for
+- **Stage 1**: Individual - Interface - Queues a set of disk operations and waits for
   their execution to complete. Closes the response channel when all ops are completed.
-- **Stage 2** - Shared - Debounced Queue - Receives disk operations from an input stream
+- **Stage 2**: Shared - Debounced Queue - Receives disk operations from an input stream
   and flushes them to the next stage after either reaching a maximum batch size or a
   ticker with an interval has elapsed. This modulates disk IO and improves the quality
   of batching in the next stage.
-- **Stage 3** - Shared - Batcher - Receives a set of disk operations and batches them
+- **Stage 3**: Shared - Batcher - Receives a set of disk operations and batches them
   into more efficient groups. Groups together disk operations that are related to the
   same file, and then sorts the operations by their offset in the file. This maximizes
   sequential IO.
-- **Stage 4** - Shared - Persist - Receives a set of disk operations and distributes
+- **Stage 4**: Shared - Persist - Receives a set of disk operations and distributes
   them over a set of workers to perform concurrent access on different files. This stage
   also manages a set of locks on top of a file system to ensure multiple workers don't
   access the same file in parallel. This stage is also shared with the create query
@@ -355,17 +355,17 @@ req, res, err := cesium.NewCreate().WhereChannels(1).Stream(ctx)
 We're writing a stream of sequential segments for a channel with key 1 to disk. We can
 use the following pipe:
 
-- **Stage 0** - Individual - Assembly - Acquires a lock on the channel and does KV
+- **Stage 0**: Individual - Assembly - Acquires a lock on the channel and does KV
   operations for metadata context. Forks stage 1.
-- **Stage 1** - Interface/Parser - Receives a stream of create requests from the caller,
+- **Stage 1**: Interface/Parser - Receives a stream of create requests from the caller,
   validates them, does KV operations for metadata context, and passes a set of parsed
   operations to the next stage.
-- **Stage 2** - Debounced Queue - Same behavior as for
+- **Stage 2**: Debounced Queue - Same behavior as for
   [Retrieve](#retrieve-query-execution).
-- **Stage 3** - Shared - Batcher - Receives a set of disk operations and batches them
+- **Stage 3**: Shared - Batcher - Receives a set of disk operations and batches them
   into more efficient groups. Groups disk operations belonging to the same file, then
   groups them by channel, and finally sorts them in time-order.
-- **Stage 4** - Shared - Persist - Same behavior as for
+- **Stage 4**: Shared - Persist - Same behavior as for
   [Retrieve](#retrieve-query-execution). This stage is shared with the retrieve query
   pipe.
 
@@ -439,7 +439,7 @@ This representation omits the following metadata:
 
 An option is to include this metadata along with the segment:
 
-| Key 1 | 15:00:00 | 25Hz | 1   | 2   | 3   | 4   | 5   | 6   | 7   | 8   | 9   |
+| Key 1 | 15:00:00 | 25 Hz | 1   | 2   | 3   | 4   | 5   | 6   | 7   | 8   | 9   |
 | ----- | -------- | ---- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 
 Adding this 'header' is the most intuitive way to represent the data, but has
@@ -507,7 +507,7 @@ GRPC).
 This so called 'elasticity' means that the throughput for a channel increases with its
 sample rate. By adjusting other knobs in the database (such as debounce queue flush
 rate, batch size, etc.) we can tune the 'curve' of this relationship to meet specific
-use cases (for example, a 1Hz DAQ that has 10000 channels vs a 1 MHz DAQ that has 10
+use cases (for example, a 1 Hz DAQ that has 10000 channels vs a 1 MHz DAQ that has 10
 channels).
 
 ### 4.6 Channel counts and segment merging
@@ -516,7 +516,7 @@ A Delta node that acquires data is meant to be deployed in proximity to or on a 
 acquisition computer (DAQ). This typically means that a single node will handle no more
 than ~5000 channels at once. Cesium's architecture is designed with this in mind, and
 can handle a relatively small number of channels per database compared to its
-alternatives ( e.g. [TimescaleDB](https://www.timescale.com/), and
+alternatives (e.g. [TimescaleDB](https://www.timescale.com/), and
 [InfluxDB](https://www.influxdata.com/)).
 
 This is the main reason why Cesium allocates a large number of goroutines per query; the
@@ -544,7 +544,7 @@ A segment merging algorithm could resemble the following:
 7. Persist the new segments to KV.
 
 Segment merging is also useful in the case of low rate channels. Channels with samples
-rates under 1Hz will write very small segments. This results in increased IO randomness
+rates under 1 Hz will write very small segments. This results in increased IO randomness
 during reads (Low data rates -> more channels -> smaller segments -> high channel
 cardinality -> frequent random access). By sorting and merging segments, we can reduce
 both the number of kv lookups and increase sequential IO.
@@ -589,7 +589,7 @@ parameters, as larger files will result in more write amplification.
 ### 4.9 Aggregation and transformation
 
 Whether to separate storage and compute within a database is an important design
-decision ( see
+decision (see
 [BigQuery](https://cloud.google.com/blog/products/bigquery/separation-of-storage-and-compute-in-bigquery))
 . This division typically comes in the form of a network partition where one server is
 responsible for storage and another computation, although I think it applies to embedded

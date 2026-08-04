@@ -19,12 +19,12 @@ laid out in the Synnax Specification.
 
 ## 1 Vocabulary
 
-- **Node** - A machine in the cluster.
-- **Cluster** - A group of nodes that can communicate with each other.
-- **Redline** - A threshold for a particular channel value. Most often represents a
+- **Node**: A machine in the cluster.
+- **Cluster**: A group of nodes that can communicate with each other.
+- **Redline**: A threshold for a particular channel value. Most often represents a
   safety limit that triggers an action.
-- **Initiator** - A node that initiates gossip with another node.
-- **Peer** - A node that engages in gossip with an initiating node.
+- **Initiator**: A node that initiates gossip with another node.
+- **Peer**: A node that engages in gossip with an initiating node.
 
 ## 2 Motivation
 
@@ -257,9 +257,9 @@ that disseminates kv updates and tombstones is known as layer 2.
 
 #### 3.2.0 Vocabulary
 
-- **Host** - The node that is responsible for serving the kv operation to the caller
+- **Host**: The node that is responsible for serving the kv operation to the caller
   (i.e. the node where `Get` or `Set` is called). \
-- **Leaseholder** - The only node that can accept writes for a particular key.
+- **Leaseholder**: The only node that can accept writes for a particular key.
 
 #### 3.2.1 Interface
 
@@ -448,7 +448,7 @@ mathematically driven approach.
 
 Once we've determined a suitable interval, we can them move on to the GC process itself.
 
-An update log for a particular key is replaced every time the key is updated ( i.e. the
+An update log for a particular key is replaced every time the key is updated (i.e. the
 version is incremented). We can store a timestamp along with the set metadata. If the
 duration between the timestamp and GC is greater than the convergence interval, we can
 remove the update from persisted storage. The same process applies for both set

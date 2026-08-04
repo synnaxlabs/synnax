@@ -22,15 +22,15 @@ YAML and TOML are accommodated by the design (Section 4.6).
 
 ## 1 Vocabulary
 
-- **Export** - Serialize one resource from the Core into a portable envelope.
-- **Import** - Accept a portable envelope (potentially from an older version), validate
+- **Export**: Serialize one resource from the Core into a portable envelope.
+- **Import**: Accept a portable envelope (potentially from an older version), validate
   it, migrate it to the current schema version, and persist it through the existing
   service create/update path.
-- **Portable envelope** - The flat wire format used for import/export. Always includes a
+- **Portable envelope**: The flat wire format used for import/export. Always includes a
   numeric `version` field and a `type` field alongside all resource fields. Distinct
   from the internal binary (ORC) storage format. Encoded as JSON in the initial release;
   YAML and TOML are accommodated by the design and can be added later.
-- **Frozen type** - A Go struct representing a data structure at a specific historical
+- **Frozen type**: A Go struct representing a data structure at a specific historical
   version. For pre-Oracle versions, these are hand-written. For Oracle-managed versions,
   these are generated in `migrations/vN/`.
 

@@ -16,10 +16,10 @@ will cover:
 
 ## 1 Vocabulary
 
-- **Server** - The core Synnax server (also known as "Synnax Database" or "Synnax
+- **Server**: The core Synnax server (also known as "Synnax Database" or "Synnax
   Engine") that serves reads and writes of telemetry, stores metadata, and handles
   control negotiation.
-- **Console** - A desktop application for controlling and visualizing data within a
+- **Console**: A desktop application for controlling and visualizing data within a
   Synnax cluster.
 
 ## 2 Design
@@ -40,7 +40,7 @@ permissions issues on different users' machines. We'll need to be prepared to co
 communicate and resolve these issues.
 
 Another, minor issue with embedding the server is that the server binaries are about
-50MB each (90MB on Windows). This will increase the size of the Console download
+50 MB each (90 MB on Windows). This will increase the size of the Console download
 substantially, but shouldn't be a major issue.
 
 ### 2.1 Keeping the server alive

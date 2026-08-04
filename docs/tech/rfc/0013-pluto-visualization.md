@@ -16,11 +16,11 @@ leveraging all the benefits of moving heavy lifting to a worker thread.
 
 ## 1 Vocabulary
 
-- **Pluto** - The Synnax React component library. Source code available
+- **Pluto**: The Synnax React component library. Source code available
   [here](../../../pluto).
-- **Telemetry** - Data samples received from sensors and sent to actuators; typically
+- **Telemetry**: Data samples received from sensors and sent to actuators; typically
   stored on Synnax server. More details available [here](../../../pluto).
-- **Series** - A strongly typed collection of telemetry samples over a time range. The
+- **Series**: A strongly typed collection of telemetry samples over a time range. The
   fundamental unit of data transfer in Synnax server.
 
 ## 2 Motivation
@@ -32,7 +32,7 @@ large, live data sets, we're empowering our users to take advantage of all the a
 tooling Synnax has to offer, ultimately delivering our users a much
 
 The current rendering pipeline requires reloading the entire data set on every update.
-Now that we'll be updating at rates of 100Hz or more, this approach is no longer
+Now that we'll be updating at rates of 100 Hz or more, this approach is no longer
 sustainable. We need a method that only receives new data, and only renders the areas of
 the canvas that have changed.
 

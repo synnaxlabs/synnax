@@ -19,33 +19,33 @@ should default to for existing data.
 
 ## 1 Vocabulary
 
-- **Oracle** - Schema-first code generation tool that compiles `.oracle` files into Go,
+- **Oracle**: Schema-first code generation tool that compiles `.oracle` files into Go,
   TypeScript, Python, C++, and Protobuf types.
-- **gorp** - Type-safe ORM wrapping Pebble KV store with `Reader[K, E]` and
+- **gorp**: Type-safe ORM wrapping Pebble KV store with `Reader[K, E]` and
   `Writer[K, E]` generics. Stores entries under a canonical KV prefix derived from the
   Go type name (e.g., `__gorp__//Schematic`).
-- **Table** - `gorp.Table[K, E]` manages codec-aware reads/writes and runs versioned
+- **Table**: `gorp.Table[K, E]` manages codec-aware reads/writes and runs versioned
   migrations at startup via `OpenTable`. Replaces the earlier `EntryManager` concept.
-- **Migration** - A versioned transform that converts entries from one schema version to
+- **Migration**: A versioned transform that converts entries from one schema version to
   the next during server startup.
-- **Auto-migrate** - Oracle-generated helper function that copies all 1:1 fields from
+- **Auto-migrate**: Oracle-generated helper function that copies all 1:1 fields from
   the old type to the new type. Never edited by the developer. The developer calls this
   helper explicitly from within their transform function.
-- **Transform** - Oracle-generated template called for each entry during migration. The
+- **Transform**: Oracle-generated template called for each entry during migration. The
   developer calls the auto-migrate helper and sets default values for new fields.
-- **KV prefix** - The key prefix under which gorp stores all entries of a type (e.g.,
+- **KV prefix**: The key prefix under which gorp stores all entries of a type (e.g.,
   `__gorp__//Schematic`). Derived from the Go type name via `types.Name[E]()`.
-- **Codec** - Serialization format used to encode/decode entries in the KV store.
+- **Codec**: Serialization format used to encode/decode entries in the KV store.
   Currently transitioning from msgpack to ORC binary encoding via Oracle-generated
   `EncodeOrc`/`DecodeOrc` methods on entry types.
-- **ORC** - Oracle Runtime Codec. A binary encoding format with a 3-byte magic header
+- **ORC**: Oracle runtime codec. A binary encoding format with a 3-byte magic header
   (`0x4F, 0x52, 0x43`). Types opt in by implementing
   `orc.SelfEncoder`/`orc.SelfDecoder`. The ORC codec wraps a fallback codec (msgpack)
   and dispatches based on whether the type implements these interfaces.
-- **Frozen type** - A snapshot of a type's struct definition at a previous schema
+- **Frozen type**: A snapshot of a type's struct definition at a previous schema
   version, stored in `migrations/vN/`. Each frozen version has its own codec with type
   assertions matching the frozen type.
-- **Snapshot** - A copy of `.oracle` source files at the time of a migration generation,
+- **Snapshot**: A copy of `.oracle` source files at the time of a migration generation,
   stored in `schemas/.snapshots/<version>/` for CI diffing.
 
 ## 2 Motivation
@@ -393,8 +393,8 @@ released in a subsequent version.
 When multiple migrations are pending, the current design runs each as a full pass over
 all entries:
 
-- **v1->v2**: Iterate all entries, decode as V1, transform to V2, encode, write.
-- **v2->v3**: Iterate all entries again, decode as V2, transform to V3, encode, write.
+- **v1->v2**: Iterate all entries, decode as v1, transform to v2, encode, write.
+- **v2->v3**: Iterate all entries again, decode as v2, transform to v3, encode, write.
 
 An optimization would be to chain transforms in memory (decode once, apply all
 transforms, encode once, write once). However, this complicates the runner because (1)
@@ -567,8 +567,8 @@ has been generated, CI fails. Legacy types are regenerated from the snapshot by
 re-running Oracle's parser on the old `.oracle` source.
 
 This approach is human-readable, git-diffable, and uses Oracle's own source format as
-the authoritative record. Storage is cheap (<200KB per snapshot). Developers can inspect
-snapshots directly to understand what changed between migration versions.
+the authoritative record. Storage is cheap (<200 KB per snapshot). Developers can
+inspect snapshots directly to understand what changed between migration versions.
 
 For the first migration (codec transition): no previous snapshot needed. The old schema
 IS the current schema (same fields, different encoding). The snapshot is created after

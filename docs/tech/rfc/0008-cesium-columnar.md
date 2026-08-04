@@ -20,7 +20,7 @@ breaker for users.
 
 This design extends and modifies the existing Cesium architecture presented in this
 [rfc](https://github.com/synnaxlabs/delta/blob/main/docs/rfc/0001-cesium-segment-storage.md).
-The new architecture (V0.2) introduces the concept of 'indexes' which provide alignment
+The new architecture (v0.2) introduces the concept of 'indexes' which provide alignment
 between timestamp values and data stored in a segment.
 
 ### 2.0 Indexes
@@ -50,7 +50,7 @@ root index, the following formula is used:
 root_index_position = time_stamp / period_of_data_rate
 ```
 
-To make this more concrete, let's say we have a channel that is sampled at 10Hz, and
+To make this more concrete, let's say we have a channel that is sampled at 10 Hz, and
 we're writing ten values to disk starting at timestamp 10 seconds. The data would
 resemble the following:
 

@@ -27,21 +27,21 @@ context if the caller wants to perform network optimization themselves.
 
 ## 1 Vocabulary
 
-- **Sample** - An arbitrary byte array recorded at a specific point in time.
-- **Channel** - A collection of samples across a time range. These samples typically
+- **Sample**: An arbitrary byte array recorded at a specific point in time.
+- **Channel**: A collection of samples across a time range. These samples typically
   come from a single source (sensor, software metric, event, etc.).
-- **Segment** - A partitioned region of a channel's data.
-- **Node** - A machine in the cluster.
-- **Cluster** - A group of nodes that can communicate with each other.
-- **Leaseholder** - A node that holds a lease on a particular piece of data. The
+- **Segment**: A partitioned region of a channel's data.
+- **Node**: A machine in the cluster.
+- **Cluster**: A group of nodes that can communicate with each other.
+- **Leaseholder**: A node that holds a lease on a particular piece of data. The
   leaseholder is the only node that can modify the data.
-- **Gateway** - The node that receives a query, and is responsible for executing it on
+- **Gateway**: The node that receives a query, and is responsible for executing it on
   the cluster.
-- **Data Warehouse (DWH)** - A system used for storing and reporting data for analysis
+- **Data Warehouse (DWH)**: A system used for storing and reporting data for analysis
   and business intelligence purposes. Data warehouses typically involve long-running
   queries on much larger data sets than typical OLTP systems. Data warehouse queries
   fall into the OLAP category of workloads.
-- **OTN** - Over the Network.
+- **OTN**: Over the Network.
 
 ## 2 Motivation
 
@@ -118,19 +118,19 @@ while laying the groundwork for distributed query processing.
 
 ### 3.0 Principles
 
-- **Computation and Aggregation** - DL contains no computation or aggregation logic. Its
+- **Computation and Aggregation**: DL contains no computation or aggregation logic. Its
   focus is completely on serving raw segments reads and writes efficiently.
-- **Network Awareness** - DL's interface does _not_ require the caller to be aware of
+- **Network Awareness**: DL's interface does _not_ require the caller to be aware of
   data locality or underlying network topology. The distribution layer provides optional
   context to the caller if they want to implement optimizations themselves.
-- **Layer Boundary** - Services/domains that do _not_ require custom distribution logic
+- **Layer Boundary**: Services/domains that do _not_ require custom distribution logic
   do not have any components within DL.
-- **Domain Oriented** - DL does not expose a single facade as its interface. Instead, it
+- **Domain Oriented**: DL does not expose a single facade as its interface. Instead, it
   composes a set of domain-separated services that rely on common distribution logic.
-- **Generic** - DL only supports rudimentary, low-level queries in a similar fashion to
+- **Generic**: DL only supports rudimentary, low-level queries in a similar fashion to
   a key-value store. It should not provide any support for specific data types or
   specialty queries.
-- **Transport Abstraction** - DL is not partial to a particular network transport
+- **Transport Abstraction**: DL is not partial to a particular network transport
   implementation (GRPC, WS, HTTP, etc.). It's core logic does not interact with any
   specific networking APIs.
 

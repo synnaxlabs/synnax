@@ -29,19 +29,19 @@ workloads where digital I/O traffic is significant.
 
 ## 1 Vocabulary
 
-- **Boolean channel** - A channel whose data type is `BoolT`.
-- **Canonical representation** - The rule that a well-formed bool sample in memory or on
+- **Boolean channel**: A channel whose data type is `BoolT`.
+- **Canonical representation**: The rule that a well-formed bool sample in memory or on
   disk is exactly `0x00` or `0x01`. No other byte value is valid.
-- **Normalization** - The write-side transformation that maps any nonzero source byte to
+- **Normalization**: The write-side transformation that maps any nonzero source byte to
   `0x01` and any zero byte to `0x00` before the sample enters storage.
-- **Density** - Bytes per sample in memory and on disk. For `BoolT`, density is 1,
+- **Density**: Bytes per sample in memory and on disk. For `BoolT`, density is 1,
   identical to `Uint8T`. Wire density is one eighth of memory density.
-- **Wire codec** - The per-type encode and decode stage inside Freighter that translates
+- **Wire codec**: The per-type encode and decode stage inside Freighter that translates
   between a `Series`'s in-memory byte sequence and its on-the-wire byte sequence.
   Fixed-density types other than `BoolT` encode as raw bytes; variable-length types
   (`StringT`, `JSONT`, `BytesT`) use the length-prefixed codec defined in RFC 0035;
   `BoolT` uses the bit-packed codec defined in §3.2.
-- **Bit-packed wire format** - The Freighter encoding for `BoolT` series: `ceil(N / 8)`
+- **Bit-packed wire format**: The Freighter encoding for `BoolT` series: `ceil(N / 8)`
   bytes of packed data with LSB-first bit order within each byte, accompanied by the
   `sample_count` already present in the frame header.
 

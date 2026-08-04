@@ -25,18 +25,18 @@ previous encoding was broken for samples containing literal newlines.
 
 ## 1 Vocabulary
 
-- **Fixed-density channel** - A channel whose samples all have the same byte size (e.g.,
+- **Fixed-density channel**: A channel whose samples all have the same byte size (e.g.,
   `Float64T` at 8 bytes per sample).
-- **Variable-length channel** - A channel whose samples have varying byte sizes
+- **Variable-length channel**: A channel whose samples have varying byte sizes
   (`StringT`, `JSONT`, `BytesT`).
-- **Virtual channel** - A channel that does not persist data to disk. Stored in
+- **Virtual channel**: A channel that does not persist data to disk. Stored in
   `cesium/internal/virtual/`.
-- **Length prefix** - A 4-byte little-endian uint32 preceding each sample in a
+- **Length prefix**: A 4-byte little-endian uint32 preceding each sample in a
   variable-length series, encoding the sample's byte length.
-- **Offset table** - An in-memory `[]uint32` mapping sample index to byte offset within
+- **Offset table**: An in-memory `[]uint32` mapping sample index to byte offset within
   a single domain.
-- **Offset cache** - A per-channel `map[uint32]*offsetTable` keyed by domain index.
-- **Domain** - A contiguous time-bounded region of data within a `domain.DB`. The
+- **Offset cache**: A per-channel `map[uint32]*offsetTable` keyed by domain index.
+- **Domain**: A contiguous time-bounded region of data within a `domain.DB`. The
   fundamental unit of storage in Cesium.
 
 ## 2 Motivation
@@ -133,7 +133,7 @@ I/O.
 
 **On cold read.** The cache is empty. The first read of a domain opens a reader and
 calls `buildOffsetTable`, which scans length prefixes sequentially. For event-rate data
-(10-100 events/sec) this takes under 10ms per domain. All subsequent reads within the
+(10-100 events/sec) this takes under 10 ms per domain. All subsequent reads within the
 process lifetime are served from the cache.
 
 **On delete or GC.** The resolver's `invalidate` method drops all cached tables. Next

@@ -14,8 +14,8 @@ availability across the Delta cluster.
 
 ## 1 Vocabulary and abbreviations
 
-- **GR** - goroutine
-- **CSP** - Communicating Sequential Processes
+- **GR**: goroutine
+- **CSP**: communicating sequential processes
 
 ## 2 Motivation
 

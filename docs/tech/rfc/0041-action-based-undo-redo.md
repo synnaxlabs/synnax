@@ -27,26 +27,26 @@ history is a separate feature and is out of scope.
 
 ## 1 Vocabulary
 
-- **Document** — A record managed by the Flux substrate that mutates only through
+- **Document**: A record managed by the Flux substrate that mutates only through
   actions. A schematic is one document type; a line plot will be another.
-- **Document state** — The shared, broadcast state of a document. Lives in the Flux
+- **Document state**: The shared, broadcast state of a document. Lives in the Flux
   cache.
-- **Action** — A single discriminated-union mutation defined per document type and
+- **Action**: A single discriminated-union mutation defined per document type and
   generated from a `.oracle` schema (e.g., `SetNodePosition` for schematics).
-- **Reducer** — A per-document-type function that applies a vector of actions and
+- **Reducer**: A per-document-type function that applies a vector of actions and
   returns `{ next, inverse, targets }`. TS-only; the server reducer is unchanged.
-- **Inverse** — A vector of actions that, applied to the post-state, restores the
+- **Inverse**: A vector of actions that, applied to the post-state, restores the
   pre-state.
-- **Targets** — The set of entity keys an action vector touched. Drives coalesce
+- **Targets**: The set of entity keys an action vector touched. Drives coalesce
   identity and stale detection.
-- **Transaction** — A staged group of dispatches committed atomically as one undoable.
+- **Transaction**: A staged group of dispatches committed atomically as one undoable.
   Equivalent to one dispatch of the accumulated actions.
-- **Forward** — The original action vector in a stack entry.
-- **Stack entry** — `{forward, inverse, kind, ts, targets}` on the undo or redo stack.
-- **Kind** — A tag the document classifies a transaction with; used for coalesce.
-- **Coalescing** — Merging two adjacent stack entries with the same kind and targets
+- **Forward**: The original action vector in a stack entry.
+- **Stack entry**: `{forward, inverse, kind, ts, targets}` on the undo or redo stack.
+- **Kind**: A tag the document classifies a transaction with; used for coalesce.
+- **Coalescing**: Merging two adjacent stack entries with the same kind and targets
   within a configured time window so that one undo reverses both.
-- **Stale entry** — A stack entry whose targets have been touched by a remote session
+- **Stale entry**: A stack entry whose targets have been touched by a remote session
   since the entry was pushed.
 
 ## 2 Motivation
@@ -168,10 +168,10 @@ follow-up if a second document type accumulates more than a handful of exclusion
 
 Pluto's Flux substrate exposes two parallel mutation factories:
 
-- **`Flux.createUpdate`** (existing) — free-form path. The user provides an arbitrary
+- **`Flux.createUpdate`** (existing): free-form path. The user provides an arbitrary
   `update` callback that does optimistic apply, server send, and rollback on its own. No
   undo. Used for non-action-based mutations like create, rename, delete, copy.
-- **`Flux.createDispatch`** (new) — action-based path. The substrate owns the local
+- **`Flux.createDispatch`** (new): action-based path. The substrate owns the local
   apply via the reducer, owns the stack, and owns the undo machinery. The user provides
   only the reducer, the channel and schema for remote broadcasts, and a send function.
 
@@ -296,7 +296,7 @@ After a push, the substrate tests the top two entries of the undo stack for coal
 
 - Same `kind`.
 - Same `targets` (compared as unordered primitive arrays).
-- `ts` within the coalesce window (default 500ms; configurable per document type).
+- `ts` within the coalesce window (default 500 ms; configurable per document type).
 
 When all three hold, the entries merge: `forward` concatenates, `inverse` prepends, `ts`
 updates to the newer. The user sees one ⌘Z reverse the entire run.

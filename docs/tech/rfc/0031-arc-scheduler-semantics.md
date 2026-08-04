@@ -30,14 +30,14 @@ The three problems are:
 
 ## 1 Vocabulary
 
-- **Stratum** - A layer in the topological execution order. Stratum 0 contains source
+- **Stratum**: A layer in the topological execution order. Stratum 0 contains source
   nodes (no incoming edges). Higher strata contain nodes that depend on lower ones.
-- **Strata** - The complete set of strata for a stage or global scope.
-- **Convergence loop** - The `execStages()` loop that re-executes stage strata after
+- **Strata**: The complete set of strata for a stage or global scope.
+- **Convergence loop**: The `execStages()` loop that re-executes stage strata after
   transitions until no further transitions occur (stable state).
-- **Short-circuit** - The `transitioned` flag mechanism that stops executing further
+- **Short-circuit**: The `transitioned` flag mechanism that stops executing further
   nodes in a strata pass once a transition fires.
-- **Append semantics** - The change from `writes[key] = data` (replace) to
+- **Append semantics**: The change from `writes[key] = data` (replace) to
   `appendWriteSeries(key, data)` (accumulate), preserving writes across stage
   transitions within a single flush cycle.
 

@@ -8,7 +8,7 @@
 Live telemetry transportation lies at the foundation for any industrial control system.
 Until now, Synnax's focus has been solely on distributed telemetry storage and
 retrieval. While it has been used for plotting in real-time scenarios at rates of up to
-1Hz, dedicated real-time infrastructure is necessary for supporting active control and
+1 Hz, dedicated real-time infrastructure is necessary for supporting active control and
 live visualization/analysis at higher data rates.
 
 In this RFC I propose an architecture for integrating telemetry streaming into the

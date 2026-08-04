@@ -20,10 +20,10 @@ has been changed to 'Series'.
 
 ## 1 Vocabulary
 
-- **Sample** - An arbitrary byte array recorded at a specific point in time.
-- **Channel** - A name collection of samples across a time range.
-- **Density** - The number of bytes per sample.
-- **(Sample/Data) Rate** - The number of samples per second.
+- **Sample**: An arbitrary byte array recorded at a specific point in time.
+- **Channel**: A name collection of samples across a time range.
+- **Density**: The number of bytes per sample.
+- **(Sample/Data) Rate**: The number of samples per second.
 
 ## 2 Array specification
 

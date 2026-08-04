@@ -17,13 +17,13 @@ Synnax's components.
 
 ## 1 Vocabulary
 
-- **Alamos** - The Synnax instrumentation library, and the core package for implementing
+- **Alamos**: The Synnax instrumentation library, and the core package for implementing
   this RFC.
-- **Instrumentation** - The process of collecting and reporting data about the execution
+- **Instrumentation**: The process of collecting and reporting data about the execution
   state of a Synnax cluster. This includes traces, metrics, and logs.
-- **Trace** - A record of the execution of a request through the Synnax cluster.
-- **Metric** - A measurement of a specific aspect of the execution of a request.
-- **Log** - A record of a specific event that occurred during the execution of a
+- **Trace**: A record of the execution of a request through the Synnax cluster.
+- **Metric**: A measurement of a specific aspect of the execution of a request.
+- **Log**: A record of a specific event that occurred during the execution of a
   request.
 
 ## 2 Motivation

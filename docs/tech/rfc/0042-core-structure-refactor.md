@@ -51,26 +51,26 @@ the layer realignment, which unblocks the rest.
 
 ## 1 Vocabulary
 
-- **Distribution layer** - `core/pkg/distribution`. Operations that must be aware of
+- **Distribution layer**: `core/pkg/distribution`. Operations that must be aware of
   cluster topology: channel key allocation and lease routing, and frame
   read/write/stream across nodes.
-- **Service layer** - `core/pkg/service`. Business logic built on the distribution
+- **Service layer**: `core/pkg/service`. Business logic built on the distribution
   layer: metadata CRUD, relationships, search, CDC, and the higher-level channel/node
   services.
-- **Metadata substrate** - `ontology`, `group`, and `search`: the relationship graph,
+- **Metadata substrate**: `ontology`, `group`, and `search`: the relationship graph,
   hierarchical grouping, and full-text index that other services register with. Not
   topology-aware; relocated to the service layer by this RFC.
-- **Resolved field** - A field present on an entity's type but excluded from its Gorp
+- **Resolved field**: A field present on an entity's type but excluded from its Gorp
   record by Oracle (omitted from the generated `EncodeOrc`/`DecodeOrc` codec). Its value
   is computed from another service or the ontology at read time (`range.Labels`,
   `range.Parent`, `task.Status`, `device.Parent`, `rack.Status`).
-- **Frozen type** - A Go struct representing an entity at a specific historical version,
+- **Frozen type**: A Go struct representing an entity at a specific historical version,
   paired with a frozen positional codec. Self-contained; never imports the parent
   service package (RFC 0033 §3.6).
-- **Peek** - Decoding only the `{version, type}` fields of a payload to route and
+- **Peek**: Decoding only the `{version, type}` fields of a payload to route and
   version-dispatch it without parsing the full body. Already used in
   `schematic/migrations/legacy/legacy.go` and `table/migrations/legacy/legacy.go`.
-- **Write seam** - `gorp.Writer.set`, the single point through which every entry is
+- **Write seam**: `gorp.Writer.set`, the single point through which every entry is
   encoded and written to the KV store. The proposed validation chokepoint.
 
 ## 2 Motivation

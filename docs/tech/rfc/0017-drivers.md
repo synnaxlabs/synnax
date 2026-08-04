@@ -182,8 +182,8 @@ pace with the system.
 A task is an independent acquisition or control loop within a driver. Each task
 communicates with a single device from a single vendor, and operates a command or
 acquisition pipeline. The pipelines of a task have a consistent acquisition and command
-acknowledgement rate. For example, a task could represent a continuous 100Hz acquisition
-process from a National Instruments cDAQ.
+acknowledgement rate. For example, a task could represent a continuous 100 Hz
+acquisition process from a National Instruments cDAQ.
 
 By guaranteeing a single sample rate, a single device, and a single vendor, we can
 considerably reduce the complexity ceiling of a task. We won't need to write code that
