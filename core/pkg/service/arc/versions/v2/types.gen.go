@@ -50,6 +50,9 @@ type Arc struct {
 	Graph graph.Graph `json:"graph" msgpack:"graph"`
 	// Text is the text-based Arc source code.
 	Text text.Text `json:"text" msgpack:"text"`
+	// Hash is the server-computed hash of the module's semantic content. Edits that
+	// cannot change compiled behavior, like node moves, do not change it.
+	Hash *string `json:"hash,omitempty" msgpack:"hash,omitempty"`
 	// Program is the compiled module output including IR and WebAssembly bytecode.
 	Program *program.Program `json:"program,omitempty" msgpack:"program,omitempty"`
 	// Status is the current execution status of the module.

@@ -42,6 +42,7 @@ inline Arc Arc::parse(x::json::Parser parser) {
         .mode = parser.field<std::string>("mode"),
         .graph = parser.field<::arc::graph::Graph>("graph"),
         .text = parser.field<::arc::text::Text>("text"),
+        .hash = parser.field<std::optional<std::string>>("hash"),
         .program = parser.field<std::optional<::arc::program::Program>>("program"),
         .status = parser.field<std::optional<Status>>("status"),
     };
@@ -54,6 +55,7 @@ inline x::json::json Arc::to_json() const {
     j["mode"] = this->mode;
     j["graph"] = this->graph.to_json();
     j["text"] = this->text.to_json();
+    j["hash"] = this->hash;
     if (this->program.has_value()) j["program"] = this->program->to_json();
     if (this->status.has_value()) j["status"] = this->status->to_json();
     return j;

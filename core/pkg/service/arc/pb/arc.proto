@@ -46,8 +46,11 @@ message Arc {
   .arc.graph.pb.Graph graph = 4;
   // text is the text-based Arc source code.
   .arc.text.pb.Text text = 5;
+  // hash is the server-computed hash of the module's semantic content. Edits that
+  // cannot change compiled behavior, like node moves, do not change it.
+  optional string hash = 6;
   // program is the compiled module output including IR and WebAssembly bytecode.
-  optional .arc.program.pb.Program program = 6;
+  optional .arc.program.pb.Program program = 7;
   // status is the current execution status of the module.
-  optional .service.status.pb.Status status = 7;
+  optional .service.status.pb.Status status = 8;
 }

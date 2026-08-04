@@ -53,6 +53,11 @@ export const arcZ = z.object({
   graph: graph.graphZ.prefault({}),
   /** text is the text-based Arc source code. */
   text: text.textZ.prefault({}),
+  /**
+   * hash is the server-computed hash of the module's semantic content. Edits that
+   * cannot change compiled behavior, like node moves, do not change it.
+   */
+  hash: z.string().optional(),
   /** program is the compiled module output including IR and WebAssembly bytecode. */
   program: program.programZ.optional(),
   /** status is the current execution status of the module. */

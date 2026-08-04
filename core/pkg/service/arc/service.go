@@ -21,13 +21,14 @@ import (
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/synnax/pkg/service/arc/ranges"
-	"github.com/synnaxlabs/synnax/pkg/service/arc/status"
+	arcstatus "github.com/synnaxlabs/synnax/pkg/service/arc/status"
 	"github.com/synnaxlabs/synnax/pkg/service/arc/versions"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/search"
 	"github.com/synnaxlabs/synnax/pkg/service/signals"
+	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/gorp"
@@ -54,10 +55,14 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	Channel *channel.Service
-	// Task is used for deleting tasks associated with Arcs when Arcs are deleted.
+	// Task is used for creating and deleting the tasks that deploy Arcs to racks.
 	//
 	// [REQUIRED]
 	Task *task.Service
+	// Status is used to check whether an Arc's task is running before undeploying it.
+	//
+	// [REQUIRED]
+	Status *status.Service
 	// Search is the search index for fuzzy searching Arcs.
 	//
 	// [REQUIRED]
@@ -102,6 +107,7 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Search = override.Nil(c.Search, other.Search)
 	c.Channel = override.Nil(c.Channel, other.Channel)
 	c.Task = override.Nil(c.Task, other.Task)
+	c.Status = override.Nil(c.Status, other.Status)
 	c.Signals = override.Nil(c.Signals, other.Signals)
 	c.ImEx = override.Nil(c.ImEx, other.ImEx)
 	c.TextSweepQuiescence = override.Numeric(c.TextSweepQuiescence, other.TextSweepQuiescence)
@@ -117,6 +123,7 @@ func (c ServiceConfig) Validate() error {
 	validate.NotNil(v, "ontology", c.Ontology)
 	validate.NotNil(v, "channel", c.Channel)
 	validate.NotNil(v, "task", c.Task)
+	validate.NotNil(v, "status", c.Status)
 	validate.NotNil(v, "search", c.Search)
 	validate.NotNil(v, "imex", c.ImEx)
 	return v.Error()
@@ -136,7 +143,7 @@ type Service struct {
 func (s *Service) NewRoot(tx gorp.Tx) *symbol.Symbol {
 	syms := slices.Concat(
 		stl.NewSymbols(),
-		status.NewSymbols(),
+		arcstatus.NewSymbols(),
 		ranges.NewSymbols(),
 	)
 	return symbol.NewRoot(s.cfg.Channel.NewArcSymbolResolver(tx), syms)
@@ -265,6 +272,7 @@ func (s *Service) NewWriter(tx gorp.Tx) Writer {
 		otgWriter:  s.cfg.Ontology.NewWriter(tx),
 		otg:        s.cfg.Ontology,
 		task:       s.cfg.Task.NewWriter(tx),
+		status:     s.cfg.Status,
 		table:      s.table,
 		dispatcher: s.state.Dispatcher(),
 		sweeper:    s.sweeper,

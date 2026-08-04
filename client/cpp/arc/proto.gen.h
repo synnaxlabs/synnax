@@ -89,6 +89,7 @@ inline std::pair<::service::arc::pb::Arc, x::errors::Error> Arc::to_proto() cons
         if (err) return {{}, err};
         *pb.mutable_text() = v;
     }
+    if (this->hash.has_value()) pb.set_hash(*this->hash);
     if (this->program.has_value()) {
         auto [v, err] = this->program->to_proto();
         if (err) return {{}, err};
@@ -126,6 +127,7 @@ Arc::from_proto(const ::service::arc::pb::Arc &pb) {
         if (err) return {{}, err};
         cpp.text = v;
     }
+    if (pb.has_hash()) cpp.hash = pb.hash();
     if (pb.has_program()) {
         auto [v, err] = ::arc::program::Program::from_proto(pb.program());
         if (err) return {{}, err};

@@ -46,12 +46,14 @@ func TestAPIArc(t *testing.T) {
 var _ = ShouldNotLeakGoroutinesPerSpec()
 
 var (
-	db      *gorp.DB
-	otg     *ontology.Ontology
-	rbacSvc *rbac.Service
-	arcSvc  *arc.Service
-	apiSvc  *Service
-	author  user.User
+	db       *gorp.DB
+	otg      *ontology.Ontology
+	rbacSvc  *rbac.Service
+	arcSvc   *arc.Service
+	apiSvc   *Service
+	author   user.User
+	rackSvc  *rack.Service
+	testRack *rack.Rack
 )
 
 var _ = BeforeSuite(func(ctx SpecContext) {
@@ -78,7 +80,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Label:    labelSvc,
 		Search:   searchIdx,
 	}))
-	rackSvc := MustOpen(rack.OpenService(ctx, rack.ServiceConfig{
+	rackSvc = MustOpen(rack.OpenService(ctx, rack.ServiceConfig{
 		DB:                  db,
 		Ontology:            otg,
 		Group:               groupSvc,
@@ -111,6 +113,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Ontology: otg,
 		Channel:  channelSvc,
 		Task:     taskSvc,
+		Status:   statusSvc,
 		Search:   searchIdx,
 		ImEx:     imexSvc,
 	}))
@@ -132,6 +135,8 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	}))
 	apiSvc = &Service{internal: arcSvc, access: rbacSvc, status: statusSvc}
 	author = MustSucceed(userSvc.NewWriter(nil).Create(ctx, user.User{Username: "test"}))
+	testRack = &rack.Rack{Name: "API Test Rack"}
+	Expect(rackSvc.NewWriter(nil).Create(ctx, testRack)).To(Succeed())
 })
 
 // authedCtx returns a freighter.Context derived from ctx with the given user

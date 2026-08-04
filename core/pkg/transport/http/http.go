@@ -188,7 +188,8 @@ func Bind(layer *api.Layer, router *http.Router) {
 		ArcCreate:   http.NewUnaryServer[arc.CreateRequest, arc.CreateResponse](router, "/api/v1/arc/create"),
 		ArcDelete:   http.NewUnaryServer[arc.DeleteRequest, types.Nil](router, "/api/v1/arc/delete"),
 		ArcRetrieve: http.NewUnaryServer[arc.RetrieveRequest, arc.RetrieveResponse](router, "/api/v1/arc/retrieve"),
-		ArcDispatch: http.NewUnaryServer[arc.DispatchRequest, types.Nil](router, "/api/v1/arc/dispatch"),
+		ArcDispatch: http.NewUnaryServer[arc.DispatchRequest, arc.DispatchResponse](router, "/api/v1/arc/dispatch"),
+		ArcDeploy:   http.NewUnaryServer[arc.DeployRequest, arc.DeployResponse](router, "/api/v1/arc/deploy"),
 		ArcLSP:      http.NewStreamServer[arc.LSPMessage, arc.LSPMessage](router, "/api/v1/arc/lsp"),
 
 		// STATUS

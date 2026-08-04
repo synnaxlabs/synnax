@@ -517,6 +517,7 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 			Search:          l.Search,
 			Channel:         l.Channel,
 			Task:            l.Task,
+			Status:          l.Status,
 			Signals:         l.Signals,
 			ImEx:            l.ImEx,
 		},

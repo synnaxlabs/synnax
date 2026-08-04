@@ -56,6 +56,8 @@ class Payload(BaseModel):
             text-based Arc code or "graph" for visual dataflow.
         graph: Is the visual dataflow graph representation of the module.
         text: Is the text-based Arc source code.
+        hash: Is the server-computed hash of the module's semantic content. Edits that
+            cannot change compiled behavior, like node moves, do not change it.
         program: Is the compiled module output including IR and WebAssembly bytecode.
         status: Is the current execution status of the module.
     """
@@ -65,6 +67,7 @@ class Payload(BaseModel):
     mode: Mode
     graph: graph_.Graph = Field(default_factory=lambda: graph_.Graph())
     text: text_.Text = Field(default_factory=lambda: text_.Text())
+    hash: str | None = None
     program: program_.Program | None = None
     status: Status | None = None
 

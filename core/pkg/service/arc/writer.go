@@ -16,12 +16,19 @@ import (
 	"github.com/synnaxlabs/arc/text"
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/rack"
+	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/x/crdt"
+	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/query"
+	"github.com/synnaxlabs/x/validate"
 )
+
+// TaskType is the task type for tasks that execute an Arc module.
+const TaskType = "arc"
 
 // Writer is used to create, update, and delete arcs within Synnax. The writer
 // executes all operations within the transaction provided to the Service.NewWriter
@@ -32,6 +39,7 @@ type Writer struct {
 	otgWriter  ontology.Writer
 	otg        *ontology.Ontology
 	task       task.Writer
+	status     *status.Service
 	table      *gorp.Table[Key, Arc]
 	dispatcher actions.Dispatcher[Key, Action]
 	sweeper    textSweeper
@@ -154,6 +162,19 @@ func (w Writer) Delete(ctx context.Context, keys ...Key) error {
 }
 
 func (w Writer) deleteChildTasks(ctx context.Context, key Key) error {
+	taskKeys, err := w.childTaskKeys(ctx, key)
+	if err != nil {
+		return err
+	}
+	for _, taskKey := range taskKeys {
+		if err = w.task.Delete(ctx, taskKey, false); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (w Writer) childTaskKeys(ctx context.Context, key Key) ([]task.Key, error) {
 	var children []ontology.Resource
 	if err := w.otg.NewRetrieve().
 		WhereIDs(OntologyID(key)).
@@ -162,16 +183,83 @@ func (w Writer) deleteChildTasks(ctx context.Context, key Key) error {
 		Entries(&children).
 		ExcludeFieldData(true).
 		Exec(ctx, w.tx); err != nil && !errors.Is(err, query.ErrNotFound) {
-		return err
+		return nil, err
 	}
 	if len(children) == 0 {
-		return nil
+		return nil, nil
 	}
-	taskKeys, err := task.KeysFromOntologyIDs(ontology.ResourceIDs(children))
+	return task.KeysFromOntologyIDs(ontology.ResourceIDs(children))
+}
+
+// Deploy binds the arc with the given key to rackKey by creating its task on that
+// rack, or moving the existing one, stamping the arc's current semantic hash into the
+// task config. A zero rackKey undeploys: the task is deleted, stopping it on its rack.
+// It returns the deployed task, or nil after an undeploy. It returns an error wrapping
+// validate.ErrValidation when undeploying a running task.
+func (w Writer) Deploy(
+	ctx context.Context,
+	key Key,
+	rackKey rack.Key,
+) (*task.Task, error) {
+	existing, err := w.childTaskKeys(ctx, key)
 	if err != nil {
-		return err
+		return nil, err
 	}
+	if rackKey == 0 {
+		return nil, w.undeploy(ctx, existing)
+	}
+	var a Arc
+	if err = w.table.NewRetrieve().
+		Where(gorp.MatchKeys[Key, Arc](key)).
+		Entry(&a).
+		Exec(ctx, w.tx); err != nil {
+		return nil, err
+	}
+	hash, err := Hash(a)
+	if err != nil {
+		return nil, err
+	}
+	tsk := task.Task{
+		Rack:   rackKey,
+		Name:   a.Name,
+		Type:   TaskType,
+		Config: msgpack.EncodedJSON{"arc_key": key.String(), "hash": hash},
+	}
+	if len(existing) > 0 {
+		tsk.Key = existing[0]
+	}
+	if err = w.task.Create(ctx, &tsk); err != nil {
+		return nil, err
+	}
+	if len(existing) == 0 {
+		if err = w.otgWriter.DefineRelationships(
+			ctx,
+			OntologyID(key),
+			ontology.RelationshipTypeParentOf,
+			tsk.OntologyID(),
+		); err != nil {
+			return nil, err
+		}
+	}
+	return &tsk, nil
+}
+
+func (w Writer) undeploy(ctx context.Context, taskKeys []task.Key) error {
 	for _, taskKey := range taskKeys {
+		var stat task.Status
+		err := status.NewRetrieve[task.StatusDetails](w.status).
+			Where(status.MatchKeys[task.StatusDetails](task.OntologyID(taskKey).String())).
+			Entry(&stat).
+			Exec(ctx, w.tx)
+		if err != nil && !errors.Is(err, query.ErrNotFound) {
+			return err
+		}
+		if err == nil && stat.Details.Running {
+			return errors.Wrap(
+				validate.ErrValidation,
+				"cannot undeploy a running arc; stop it first",
+			)
+		}
 		if err = w.task.Delete(ctx, taskKey, false); err != nil {
 			return err
 		}

@@ -144,10 +144,13 @@ type Arc struct {
 	Graph *pb.Graph `protobuf:"bytes,4,opt,name=graph,proto3" json:"graph,omitempty"`
 	// text is the text-based Arc source code.
 	Text *pb1.Text `protobuf:"bytes,5,opt,name=text,proto3" json:"text,omitempty"`
+	// hash is the server-computed hash of the module's semantic content. Edits that
+	// cannot change compiled behavior, like node moves, do not change it.
+	Hash *string `protobuf:"bytes,6,opt,name=hash,proto3,oneof" json:"hash,omitempty"`
 	// program is the compiled module output including IR and WebAssembly bytecode.
-	Program *pb2.Program `protobuf:"bytes,6,opt,name=program,proto3,oneof" json:"program,omitempty"`
+	Program *pb2.Program `protobuf:"bytes,7,opt,name=program,proto3,oneof" json:"program,omitempty"`
 	// status is the current execution status of the module.
-	Status        *pb3.Status `protobuf:"bytes,7,opt,name=status,proto3,oneof" json:"status,omitempty"`
+	Status        *pb3.Status `protobuf:"bytes,8,opt,name=status,proto3,oneof" json:"status,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -217,6 +220,13 @@ func (x *Arc) GetText() *pb1.Text {
 	return nil
 }
 
+func (x *Arc) GetHash() string {
+	if x != nil && x.Hash != nil {
+		return *x.Hash
+	}
+	return ""
+}
+
 func (x *Arc) GetProgram() *pb2.Program {
 	if x != nil {
 		return x.Program
@@ -237,15 +247,17 @@ const file_core_pkg_service_arc_pb_arc_proto_rawDesc = "" +
 	"\n" +
 	"!core/pkg/service/arc/pb/arc.proto\x12\x0eservice.arc.pb\x1a\x1barc/go/graph/pb/graph.proto\x1a\x1farc/go/program/pb/program.proto\x1a\x19arc/go/text/pb/text.proto\x1a'core/pkg/service/status/pb/status.proto\")\n" +
 	"\rStatusDetails\x12\x18\n" +
-	"\arunning\x18\x01 \x01(\bR\arunning\"\xae\x02\n" +
+	"\arunning\x18\x01 \x01(\bR\arunning\"\xd0\x02\n" +
 	"\x03Arc\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12(\n" +
 	"\x04mode\x18\x03 \x01(\x0e2\x14.service.arc.pb.ModeR\x04mode\x12)\n" +
 	"\x05graph\x18\x04 \x01(\v2\x13.arc.graph.pb.GraphR\x05graph\x12%\n" +
-	"\x04text\x18\x05 \x01(\v2\x11.arc.text.pb.TextR\x04text\x126\n" +
-	"\aprogram\x18\x06 \x01(\v2\x17.arc.program.pb.ProgramH\x00R\aprogram\x88\x01\x01\x126\n" +
-	"\x06status\x18\a \x01(\v2\x19.service.status.pb.StatusH\x01R\x06status\x88\x01\x01B\n" +
+	"\x04text\x18\x05 \x01(\v2\x11.arc.text.pb.TextR\x04text\x12\x17\n" +
+	"\x04hash\x18\x06 \x01(\tH\x00R\x04hash\x88\x01\x01\x126\n" +
+	"\aprogram\x18\a \x01(\v2\x17.arc.program.pb.ProgramH\x01R\aprogram\x88\x01\x01\x126\n" +
+	"\x06status\x18\b \x01(\v2\x19.service.status.pb.StatusH\x02R\x06status\x88\x01\x01B\a\n" +
+	"\x05_hashB\n" +
 	"\n" +
 	"\b_programB\t\n" +
 	"\a_status*%\n" +
