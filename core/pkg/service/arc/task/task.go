@@ -124,12 +124,22 @@ func (t *impl) start(ctx context.Context) (err error) {
 		t.setStatus(ctx, status.VariantError, false, err.Error())
 		return err
 	}
-	channelMod, err := channels.NewHost(ctx, wasmRT, drt.state.channel, drt.state.strings)
+	channelMod, err := channels.NewHost(
+		ctx,
+		wasmRT,
+		drt.state.channel,
+		drt.state.strings,
+	)
 	if err != nil {
 		t.setStatus(ctx, status.VariantError, false, err.Error())
 		return err
 	}
-	statefulMod, err := stateful.NewHost(ctx, wasmRT, drt.state.series, drt.state.strings)
+	statefulMod, err := stateful.NewHost(
+		ctx,
+		wasmRT,
+		drt.state.series,
+		drt.state.strings,
+	)
 	if err != nil {
 		t.setStatus(ctx, status.VariantError, false, err.Error())
 		return err
@@ -225,14 +235,18 @@ func (t *impl) start(ctx context.Context) (err error) {
 	tolerance := time.CalculateTolerance(timeMod.BaseInterval)
 	drt.scheduler = scheduler.New(t.prog.Program.IR, nodes, tolerance)
 
-	drt.scheduler.SetErrorHandler(scheduler.ErrorHandlerFunc(func(ctx context.Context, nodeKey string, err error) {
-		t.factoryCfg.L.Warn("runtime error in arc node",
-			zap.String("node", nodeKey),
-			zap.Stringer("task", t.task.Key),
-			zap.Error(err),
-		)
-		t.setRuntimeError(ctx, nodeKey, err)
-	}))
+	drt.scheduler.SetErrorHandler(
+		scheduler.ErrorHandlerFunc(
+			func(ctx context.Context, nodeKey string, err error) {
+				t.factoryCfg.L.Warn("runtime error in arc node",
+					zap.String("node", nodeKey),
+					zap.Stringer("task", t.task.Key),
+					zap.Error(err),
+				)
+				t.setRuntimeError(ctx, nodeKey, err)
+			},
+		),
+	)
 
 	drt.startTime = telem.Now()
 	drt.writeKeys = deps.Writes.Slice()
@@ -259,7 +273,12 @@ func (t *impl) start(ctx context.Context) (err error) {
 			return err
 		}
 		plumber.SetSegment(pipeline, streamerAddr, streamer)
-		plumber.MustConnect[framer.StreamerResponse](pipeline, streamerAddr, runtimeAddr, 10)
+		plumber.MustConnect[framer.StreamerResponse](
+			pipeline,
+			streamerAddr,
+			runtimeAddr,
+			10,
+		)
 		streamer.InFrom(streamerRequests)
 		streamerCloseSignal = xio.NoFailCloserFunc(streamerRequests.Close)
 	} else {
@@ -316,9 +335,16 @@ func (t *impl) start(ctx context.Context) (err error) {
 			},
 		}
 		plumber.SetSink(pipeline, writerResponsesAddr, writerResponses)
-		plumber.MustConnect[framer.WriterResponse](pipeline, writerAddr, writerResponsesAddr, 10)
+		plumber.MustConnect[framer.WriterResponse](
+			pipeline,
+			writerAddr,
+			writerResponsesAddr,
+			10,
+		)
 	}
-	sCtx, cancel := signal.Isolated(signal.WithInstrumentation(t.factoryCfg.Instrumentation))
+	sCtx, cancel := signal.Isolated(
+		signal.WithInstrumentation(t.factoryCfg.Instrumentation),
+	)
 	t.closer = append(
 		closers,
 		signal.NewGracefulShutdown(sCtx, cancel),
@@ -354,11 +380,21 @@ func (t *impl) Stop() error {
 
 func (t *impl) reporter() taskreporter.Reporter {
 	return func(ctx context.Context, variant status.Variant, message string) {
-		t.setStatus(ctx, variant, t.isRunning(), fmt.Sprintf("[%s] %s", t.task.Name, message))
+		t.setStatus(
+			ctx,
+			variant,
+			t.isRunning(),
+			fmt.Sprintf("[%s] %s", t.task.Name, message),
+		)
 	}
 }
 
-func (t *impl) setStatus(ctx context.Context, variant status.Variant, running bool, message string) {
+func (t *impl) setStatus(
+	ctx context.Context,
+	variant status.Variant,
+	running bool,
+	message string,
+) {
 	stat := task.Status{
 		Key:     t.task.OntologyID().String(),
 		Variant: variant,
@@ -366,7 +402,10 @@ func (t *impl) setStatus(ctx context.Context, variant status.Variant, running bo
 		Time:    telem.Now(),
 		Details: task.StatusDetails{Task: t.task.Key, Running: running},
 	}
-	if err := status.NewWriter[task.StatusDetails](t.factoryCfg.Status, nil).Set(ctx, &stat); err != nil {
+	if err := status.NewWriter[task.StatusDetails](
+		t.factoryCfg.Status,
+		nil,
+	).Set(ctx, &stat); err != nil {
 		t.factoryCfg.L.Error(
 			"failed to set status for Arc task",
 			zap.Stringer("key", t.task.Key),
@@ -389,7 +428,10 @@ func (t *impl) setRuntimeError(ctx context.Context, nodeKey string, err error) {
 		Time:        telem.Now(),
 		Details:     task.StatusDetails{Task: t.task.Key, Running: true},
 	}
-	if setErr := status.NewWriter[task.StatusDetails](t.factoryCfg.Status, nil).Set(ctx, &stat); setErr != nil {
+	if setErr := status.NewWriter[task.StatusDetails](
+		t.factoryCfg.Status,
+		nil,
+	).Set(ctx, &stat); setErr != nil {
 		t.factoryCfg.L.Error("failed to set error status", zap.Error(setErr))
 	}
 }
@@ -425,7 +467,10 @@ func (d *dataRuntime) next(
 	}
 	d.state.series.Clear()
 	d.state.strings.Clear()
-	if fr, changed := d.state.channel.Flush(telem.Frame[uint32]{}); changed && d.Out != nil {
+	if fr, changed := d.state.channel.Flush(
+		telem.Frame[uint32]{},
+	); changed &&
+		d.Out != nil {
 		req := framer.WriterRequest{
 			Frame:   frame.NewFromStorage(fr),
 			Command: framer.WriterCommandWrite,
@@ -444,11 +489,17 @@ func (d *dataRuntime) flushAuthorityChanges(ctx context.Context) error {
 	for _, change := range changes {
 		if change.Channel != nil {
 			cfg.Keys = append(cfg.Keys, channel.Key(*change.Channel))
-			cfg.Authorities = append(cfg.Authorities, control.Authority(change.Authority))
+			cfg.Authorities = append(
+				cfg.Authorities,
+				control.Authority(change.Authority),
+			)
 		} else {
 			cfg.Keys = append(cfg.Keys, d.writeKeys...)
 			for range d.writeKeys {
-				cfg.Authorities = append(cfg.Authorities, control.Authority(change.Authority))
+				cfg.Authorities = append(
+					cfg.Authorities,
+					control.Authority(change.Authority),
+				)
 			}
 		}
 	}

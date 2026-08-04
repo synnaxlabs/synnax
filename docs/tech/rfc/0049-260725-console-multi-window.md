@@ -99,9 +99,9 @@ render in every window.
 | Surface                 | Gesture               | Result                           |
 | ----------------------- | --------------------- | -------------------------------- |
 | Palette                 | "Open a new window"   | New window on the selected panel |
-| Panel pill context menu | "Open in New Window"  | New window showing that panel    |
+| Panel pill context menu | "Open in new window"  | New window showing that panel    |
 | Panel pill              | Drag onto the desktop | Same as above; source unchanged  |
-| Tab context menu        | "Move to New Window"  | Mints a panel holding that tab   |
+| Tab context menu        | "Move to new window"  | Mints a panel holding that tab   |
 | Tab                     | Drag onto the desktop | Same as above, under the cursor  |
 
 All five paths bottom out in `Panel.useOpenWindow`: it dispatches `Drift.createWindow`

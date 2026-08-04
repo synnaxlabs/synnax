@@ -10,10 +10,11 @@
 package time_test
 
 import (
+	"time"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	xtime "github.com/synnaxlabs/x/time"
-	"time"
 )
 
 var _ = Describe("Ticker", func() {

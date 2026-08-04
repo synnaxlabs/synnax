@@ -58,7 +58,10 @@ func Parse(source string) (ISchemaContext, *diagnostics.Diagnostics) {
 // parseWithContext executes the parsing with proper error handling.
 // It sets up the lexer, parser, and error listener, then invokes the provided
 // parse function to generate the appropriate parse tree node.
-func parseWithContext[T any](source string, parseFn func(*OracleParser) T) (T, *diagnostics.Diagnostics) {
+func parseWithContext[T any](
+	source string,
+	parseFn func(*OracleParser) T,
+) (T, *diagnostics.Diagnostics) {
 	var (
 		input  = antlr.NewInputStream(source)
 		lexer  = NewOracleLexer(input)
@@ -101,7 +104,10 @@ func (e *errorListener) SyntaxError(
 		Severity: protocol.DiagnosticSeverityError,
 		Range: protocol.Range{
 			Start: protocol.Position{Line: uint32(line - 1), Character: uint32(column)},
-			End:   protocol.Position{Line: uint32(line - 1), Character: uint32(column + 1)},
+			End: protocol.Position{
+				Line:      uint32(line - 1),
+				Character: uint32(column + 1),
+			},
 		},
 		Message: msg,
 	})

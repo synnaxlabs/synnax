@@ -70,7 +70,7 @@ const LeftMenu = () => {
 };
 
 export const Left = (): ReactElement => (
-  <PlatformNav.Bar location="left" size="8rem">
+  <PlatformNav.Bar location="left" size="7.5rem">
     <Nav.Bar.Start bordered align="center">
       <Project.Selector />
     </Nav.Bar.Start>

@@ -52,8 +52,9 @@ type ServiceConfig struct {
 	// Expiration is the duration that the token will be valid for.
 	// [OPTIONAL] [DEFAULT: 1 hour]
 	Expiration time.Duration
-	// RefreshThreshold is the duration before the token expires that a new token will be
-	// issued.
+	// RefreshThreshold is the duration before the token expires that a new token will
+	// be issued.
+	//
 	// [OPTIONAL] [DEFAULT: 5 minutes]
 	RefreshThreshold time.Duration
 }
@@ -125,7 +126,8 @@ func (s *Service) Validate(token string) (user.Key, error) {
 }
 
 // ValidateMaybeRefresh validates the given token. If the token is close to expiration
-// (as defined by the RefreshThreshold), a new token will be issued and returned as well.
+// (as defined by the RefreshThreshold), a new token will be issued and returned as
+// well.
 func (s *Service) ValidateMaybeRefresh(token string) (user.Key, string, error) {
 	id, claims, err := s.validate(token)
 	if err != nil {

@@ -89,14 +89,21 @@ func RunBufGenerate(
 	c := osexec.CommandContext(ctx, "buf", args...)
 	c.Dir = repoRoot
 	if out, err := c.CombinedOutput(); err != nil {
-		return RunBufGenerateResult{}, errors.Wrapf(err, "buf generate failed: %s", string(out))
+		return RunBufGenerateResult{}, errors.Wrapf(
+			err,
+			"buf generate failed: %s",
+			string(out),
+		)
 	}
 	cache.PutStamp(BufGenerateStampKey, inStamp)
 	// Recompute the output stamp post-run; the values we read above
 	// reflect the pre-run on-disk state.
 	postOut, err := bufOutputStamp(ctx, repoRoot)
 	if err != nil {
-		return RunBufGenerateResult{}, errors.Wrap(err, "compute post-run buf output stamp")
+		return RunBufGenerateResult{}, errors.Wrap(
+			err,
+			"compute post-run buf output stamp",
+		)
 	}
 	cache.PutStamp(BufOutputStampKey, postOut)
 	return RunBufGenerateResult{Cached: false}, nil
@@ -220,34 +227,50 @@ func findProtoFiles(repoRoot string) ([]string, error) {
 // vendor / build / .git directories findProtoFiles skips.
 func findPbGoFiles(repoRoot string) ([]string, error) {
 	return walkExtensions(repoRoot, []string{".go"}, func(name string) bool {
-		return strings.HasSuffix(name, ".pb.go") || strings.HasSuffix(name, "_grpc.pb.go")
+		return strings.HasSuffix(name, ".pb.go") ||
+			strings.HasSuffix(name, "_grpc.pb.go")
 	})
 }
 
-func walkExtensions(repoRoot string, exts []string, namePred func(string) bool) ([]string, error) {
-	skipDir := set.New(".git", "node_modules", "dist", "build", "target", "vendor", ".oracle")
+func walkExtensions(
+	repoRoot string,
+	exts []string,
+	namePred func(string) bool,
+) ([]string, error) {
+	skipDir := set.New(
+		".git",
+		"node_modules",
+		"dist",
+		"build",
+		"target",
+		"vendor",
+		".oracle",
+	)
 	var out []string
-	err := filepath.WalkDir(repoRoot, func(path string, d os.DirEntry, err error) error {
-		if err != nil {
-			return err
-		}
-		if d.IsDir() {
-			if skipDir.Contains(d.Name()) {
-				return filepath.SkipDir
+	err := filepath.WalkDir(
+		repoRoot,
+		func(path string, d os.DirEntry, err error) error {
+			if err != nil {
+				return err
 			}
+			if d.IsDir() {
+				if skipDir.Contains(d.Name()) {
+					return filepath.SkipDir
+				}
+				return nil
+			}
+			ext := filepath.Ext(path)
+			matchExt := slices.Contains(exts, ext)
+			if !matchExt {
+				return nil
+			}
+			if namePred != nil && !namePred(filepath.Base(path)) {
+				return nil
+			}
+			out = append(out, path)
 			return nil
-		}
-		ext := filepath.Ext(path)
-		matchExt := slices.Contains(exts, ext)
-		if !matchExt {
-			return nil
-		}
-		if namePred != nil && !namePred(filepath.Base(path)) {
-			return nil
-		}
-		out = append(out, path)
-		return nil
-	})
+		},
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -300,7 +323,7 @@ func FormatBufOutputs(
 		if string(batch[i].Content) == string(f.Content) {
 			continue
 		}
-		if err := os.WriteFile(files[i], f.Content, 0644); err != nil {
+		if err := os.WriteFile(files[i], f.Content, 0o644); err != nil {
 			return written, errors.Wrapf(err, "write %s", files[i])
 		}
 		written++

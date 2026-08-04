@@ -1278,3 +1278,41 @@ describe("useRetrieveSuspended connection changes", () => {
     expect(utils.queryByTestId("error")?.textContent).toContain("no Core connected");
   });
 });
+
+describe("useTombstone", () => {
+  it("reads a deletion as a value and clears it once the record returns", async () => {
+    const lbl = await client.labels.create({
+      name: "Tombstone Label",
+      color: color.construct("#000000"),
+    });
+    let cached: query.Cached<label.Label> | undefined = lbl;
+    let handler: query.ChangeHandler<label.Label> | null = null;
+    const { useTombstone } = Flux.createRetrieve<{ key: label.Key }, label.Label>({
+      name: "Resource",
+      retrieve: async ({ client, query: { key } }) => await client.labels.retrieve(key),
+      subscribe: (_, h) => {
+        handler = h;
+        return () => {};
+      },
+      getCached: () => cached,
+    });
+
+    const { result } = renderHook(() => useTombstone({ key: lbl.key }), {
+      wrapper: Wrapper,
+    });
+    expect(result.current).toBeNull();
+
+    act(() => {
+      cached = new query.Deleted(lbl, TimeStamp.now());
+      handler?.(cached);
+    });
+    expect(result.current?.name).toEqual("Tombstone Label");
+
+    // The restore heals the read on its own: no boundary reset, no refetch.
+    act(() => {
+      cached = lbl;
+      handler?.(cached);
+    });
+    expect(result.current).toBeNull();
+  });
+});

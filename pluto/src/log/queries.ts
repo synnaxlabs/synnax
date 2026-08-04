@@ -31,6 +31,7 @@ export const {
   useRetrieveObservable,
   useRetrieveSuspended,
   useEnsureRetrieved,
+  useTombstone,
 } = Flux.createRetrieve<RetrieveQuery, log.Log>({
   name: RESOURCE_NAME,
   retrieve: async ({ client, query }) => await client.logs.retrieve(query),

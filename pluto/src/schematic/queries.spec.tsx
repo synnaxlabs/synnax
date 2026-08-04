@@ -136,6 +136,27 @@ describe("schematic queries", () => {
     });
   });
 
+  describe("useTombstone", () => {
+    it("reports the corpse on delete and clears it when the schematic is restored", async () => {
+      const doomed = await createTestSchematic(proj.key);
+      await loadSchematic(Wrapper, doomed.key);
+
+      const { result } = renderHook(() => Schematic.useTombstone({ key: doomed.key }), {
+        wrapper: Wrapper,
+      });
+      expect(result.current).toBeNull();
+
+      await client.schematics.delete(doomed.key);
+      await waitFor(() => expect(result.current?.name).toBe("test_schematic"));
+
+      // Restoring re-creates from the corpse, which keeps the original key.
+      // The read heals off the cache alone: no boundary reset, no refetch.
+      const corpse = query.requireCorpse(client.schematics.getCached(doomed.key));
+      await client.schematics.create(proj.key, corpse);
+      await waitFor(() => expect(result.current).toBeNull());
+    });
+  });
+
   describe("selectors", () => {
     let schem: schematic.Schematic;
     beforeAll(async () => {

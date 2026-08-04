@@ -205,7 +205,11 @@ func printBufGenerateStart(changedProtos int) {
 // unchanged and no protoc plugins were invoked.
 func printBufGenerateDone(cached bool, d time.Duration) {
 	if cached {
-		fmt.Printf("    %s %s\n", infoStyle.Render(symbolArrow), dimStyle.Render("cached"))
+		fmt.Printf(
+			"    %s %s\n",
+			infoStyle.Render(symbolArrow),
+			dimStyle.Render("cached"),
+		)
 		return
 	}
 	printArrowDone(d)

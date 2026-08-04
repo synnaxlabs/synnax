@@ -46,7 +46,7 @@
             }
         }
         .pluto-menu-item::after {
-            left: -1.25rem;
+            left: -1.5rem;
             border-top-right-radius: 0.5rem;
             border-bottom-right-radius: 0.5rem;
         }

@@ -50,17 +50,20 @@ func testEnvelope(name string) apiimex.ImportRequest {
 }
 
 var _ = Describe("Import", func() {
-	It("Should hand the file_name and project params to the importer", func(ctx SpecContext) {
-		key := uuid.New()
-		fctx := rootCtx(ctx)
-		fctx.Set("params", fmt.Sprintf(
-			`{"file_name":"Metrics Log.json","project":%q}`, key,
-		))
-		id := MustSucceed(apiSvc.Import(fctx, db, testEnvelope("with-options")))
-		Expect(id.Key).To(Equal("with-options"))
-		Expect(importer.opts.FileName).To(Equal("Metrics Log.json"))
-		Expect(importer.opts.Project).To(Equal(key))
-	})
+	It(
+		"Should hand the file_name and project params to the importer",
+		func(ctx SpecContext) {
+			key := uuid.New()
+			fctx := rootCtx(ctx)
+			fctx.Set("params", fmt.Sprintf(
+				`{"file_name":"Metrics Log.json","project":%q}`, key,
+			))
+			id := MustSucceed(apiSvc.Import(fctx, db, testEnvelope("with-options")))
+			Expect(id.Key).To(Equal("with-options"))
+			Expect(importer.opts.FileName).To(Equal("Metrics Log.json"))
+			Expect(importer.opts.Project).To(Equal(key))
+		},
+	)
 
 	It("Should reject a request with no params", func(ctx SpecContext) {
 		Expect(apiSvc.Import(rootCtx(ctx), db, testEnvelope("no-params"))).Error().
@@ -124,9 +127,12 @@ var _ = Describe("Import", func() {
 	It("Should reject params that are not valid JSON", func(ctx SpecContext) {
 		fctx := rootCtx(ctx)
 		fctx.Set("params", "not-json")
-		Expect(apiSvc.Import(fctx, db, testEnvelope("bad-params"))).Error().To(SatisfyAll(
-			MatchError(ContainSubstring("params must be a valid JSON object")),
-			MatchError(ContainSubstring("validation error")),
-		))
+		Expect(
+			apiSvc.Import(fctx, db, testEnvelope("bad-params")),
+		).Error().
+			To(SatisfyAll(
+				MatchError(ContainSubstring("params must be a valid JSON object")),
+				MatchError(ContainSubstring("validation error")),
+			))
 	})
 })

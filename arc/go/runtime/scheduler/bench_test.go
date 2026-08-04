@@ -87,7 +87,11 @@ func buildFanoutChain(n int) (ir.IR, map[string]node.Node) {
 		edges = append(edges, continuousEdge("src", "out", k, "in"))
 		nodes[k] = newBenchNode()
 	}
-	return programOf(irNodes, edges, rootWithStrata(stratum(p0...), stratum(p1...))), nodes
+	return programOf(
+		irNodes,
+		edges,
+		rootWithStrata(stratum(p0...), stratum(p1...)),
+	), nodes
 }
 
 // buildDeepNested constructs a chain of D nested parallel scopes with one
@@ -151,7 +155,11 @@ func buildSequentialChain(n int) (ir.IR, map[string]node.Node) {
 	}
 	seq := sequentialScope("seq", members, transitions...)
 	seq.Activation = &ir.Handle{Node: "trigger", Param: "go"}
-	return programOf(irNodes, nil, rootWithStrata(stratum(ir.NodeMember("trigger"), ir.ScopeMember(seq)))), nodes
+	return programOf(
+		irNodes,
+		nil,
+		rootWithStrata(stratum(ir.NodeMember("trigger"), ir.ScopeMember(seq))),
+	), nodes
 }
 
 func runTickBench(b *testing.B, prog ir.IR, nodes map[string]node.Node) {

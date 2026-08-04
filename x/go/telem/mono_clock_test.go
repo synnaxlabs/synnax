@@ -61,6 +61,8 @@ var _ = Describe("MonoClock", func() {
 		var c telem.MonoClock
 		ts := c.Now()
 		Expect(ts).To(BeNumerically(">", 0))
-		Expect(ts).To(BeNumerically("~", telem.Now(), telem.TimeStamp(telem.Millisecond)))
+		Expect(
+			ts,
+		).To(BeNumerically("~", telem.Now(), telem.TimeStamp(telem.Millisecond)))
 	})
 })

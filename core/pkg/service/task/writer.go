@@ -144,13 +144,16 @@ func (w Writer) Copy(
 ) (Task, error) {
 	newKey := uuid.New()
 	var res Task
-	if err := w.table.NewUpdate().Where(gorp.MatchKeys[Key, Task](key)).Change(func(_ gorp.Context, t Task) Task {
-		t.Key = newKey
-		t.Name = name
-		t.Snapshot = snapshot
-		res = t
-		return t
-	}).Exec(ctx, w.tx); err != nil {
+	if err := w.table.NewUpdate().
+		Where(gorp.MatchKeys[Key, Task](key)).
+		Change(func(_ gorp.Context, t Task) Task {
+			t.Key = newKey
+			t.Name = name
+			t.Snapshot = snapshot
+			res = t
+			return t
+		}).
+		Exec(ctx, w.tx); err != nil {
 		return Task{}, err
 	}
 	if err := w.status.Set(ctx, resolveStatus(&res, nil)); err != nil {

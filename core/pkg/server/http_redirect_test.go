@@ -46,10 +46,13 @@ var _ = Describe("HttpRedirect", func() {
 			Security: server.SecurityConfig{Insecure: new(false)},
 			Branches: []server.Branch{
 				server.NewHTTPRedirectBranch(),
-				server.NewSimpleHTTPBranch(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-					received = true
-					w.WriteHeader(http.StatusOK)
-				}), server.RoutingPolicyServeAlwaysPreferSecure),
+				server.NewSimpleHTTPBranch(
+					http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+						received = true
+						w.WriteHeader(http.StatusOK)
+					}),
+					server.RoutingPolicyServeAlwaysPreferSecure,
+				),
 			},
 		}))
 
@@ -63,5 +66,4 @@ var _ = Describe("HttpRedirect", func() {
 		Expect(received).To(BeTrue())
 		Expect(b.Close()).To(Succeed())
 	})
-
 })

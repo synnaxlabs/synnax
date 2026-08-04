@@ -13,7 +13,7 @@ package iter
 import "iter"
 
 // Map returns an iterator that applies f to each element of the input iterator.
-func Map[T any, R any](iter iter.Seq[T], f func(T) R) iter.Seq[R] {
+func Map[T, R any](iter iter.Seq[T], f func(T) R) iter.Seq[R] {
 	return func(yield func(R) bool) {
 		for v := range iter {
 			if !yield(f(v)) {

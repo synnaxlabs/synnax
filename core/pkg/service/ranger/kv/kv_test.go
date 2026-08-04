@@ -78,19 +78,22 @@ var _ = Describe("KV", Ordered, func() {
 		Expect(kvSvc.NewWriter(tx).Set(ctx, r.Key, "key", "value")).To(Succeed())
 	})
 
-	It("Should be able to retrieve key-value pairs from a range", func(ctx SpecContext) {
-		r := &ranger.Range{
-			Name: "Range",
-			TimeRange: telem.TimeRange{
-				Start: telem.TimeStamp(5 * telem.Second),
-				End:   telem.TimeStamp(10 * telem.Second),
-			},
-		}
-		Expect(rangerSvc.NewWriter(tx).Create(ctx, r)).To(Succeed())
-		Expect(kvSvc.NewWriter(tx).Set(ctx, r.Key, "key", "value")).To(Succeed())
-		value := MustSucceed(kvSvc.NewReader(tx).Get(ctx, r.Key, "key"))
-		Expect(value).To(Equal("value"))
-	})
+	It(
+		"Should be able to retrieve key-value pairs from a range",
+		func(ctx SpecContext) {
+			r := &ranger.Range{
+				Name: "Range",
+				TimeRange: telem.TimeRange{
+					Start: telem.TimeStamp(5 * telem.Second),
+					End:   telem.TimeStamp(10 * telem.Second),
+				},
+			}
+			Expect(rangerSvc.NewWriter(tx).Create(ctx, r)).To(Succeed())
+			Expect(kvSvc.NewWriter(tx).Set(ctx, r.Key, "key", "value")).To(Succeed())
+			value := MustSucceed(kvSvc.NewReader(tx).Get(ctx, r.Key, "key"))
+			Expect(value).To(Equal("value"))
+		},
+	)
 
 	It("Should be able to delete key-value pairs from a range", func(ctx SpecContext) {
 		r := &ranger.Range{

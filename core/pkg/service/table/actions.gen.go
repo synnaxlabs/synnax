@@ -26,8 +26,8 @@ const (
 	ActionTypeEraseCells = "erase_cells"
 )
 
-// CreatePayload replaces the document with the given created state. Emitted by the
-// server on create so remote caches ingest new documents; clients never dispatch it.
+// CreatePayload replaces the document with the given created state. Emitted by the Core
+// on create so remote caches ingest new documents; clients never dispatch it.
 type CreatePayload struct {
 	Table Table `json:"table" msgpack:"table"`
 }
