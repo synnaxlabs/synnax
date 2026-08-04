@@ -21,6 +21,7 @@ import {
 import {
   channelMapKey,
   createInputChannel,
+  deployReadConfigZ,
   getChannelByMapKey,
   getPDOName,
   getPortLabel,
@@ -137,6 +138,7 @@ export const Read = Task.wrapForm({
   Properties,
   Form,
   schemas: READ_SCHEMAS,
+  deployConfigZ: deployReadConfigZ,
   type: "ethercat_read",
   getInitialValues,
   onConfigure,

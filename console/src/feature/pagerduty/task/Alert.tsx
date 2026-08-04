@@ -34,6 +34,7 @@ import {
   type AlertConfig,
   type AlertPayload,
   type AlertSchemas,
+  deployAlertTaskConfigZ,
   ZERO_ALERT_CONFIG,
   ZERO_ALERT_PAYLOAD,
 } from "@/feature/pagerduty/task/types";
@@ -307,6 +308,7 @@ export const Alert = Task.wrapForm({
   Properties,
   Form,
   schemas: ALERT_SCHEMAS,
+  deployConfigZ: deployAlertTaskConfigZ,
   type: ALERT_TYPE,
   getInitialValues,
   onConfigure,

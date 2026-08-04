@@ -32,6 +32,7 @@ import * as Device from "@/feature/http/device/types";
 import { ContextMenu } from "@/feature/http/task/ContextMenu";
 import { EndpointListItem } from "@/feature/http/task/EndpointListItem";
 import {
+  deployWriteConfigZ,
   type GeneratorType,
   type TimeFormat,
   WRITE_SCHEMAS,
@@ -697,6 +698,7 @@ export const Write = Task.wrapForm({
   Properties,
   Form,
   schemas: WRITE_SCHEMAS,
+  deployConfigZ: deployWriteConfigZ,
   type: WRITE_TYPE,
   getInitialValues,
   onConfigure,

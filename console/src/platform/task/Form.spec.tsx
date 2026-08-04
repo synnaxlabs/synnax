@@ -45,6 +45,7 @@ interface MakeRendererParams {
   showControls?: boolean;
   onConfigure?: Task.OnConfigure<(typeof schemas)["config"]>;
   Form?: FC<Task.FormProps<typeof schemas>>;
+  deployConfigZ?: z.ZodType;
 }
 
 const getInitialValues: Task.GetInitialValues<typeof schemas> = () => ({
@@ -57,10 +58,12 @@ const createRenderer = ({
   showControls = true,
   onConfigure = async (_client, config) => [config, 0],
   Form = ChildForm,
+  deployConfigZ = schemas.config,
 }: MakeRendererParams = {}) =>
   Task.wrapForm<typeof schemas>({
     Form,
     schemas,
+    deployConfigZ,
     type: "test_task",
     getInitialValues,
     onConfigure,
@@ -114,6 +117,66 @@ describe("wrapForm", () => {
       const Renderer = createRenderer({ Form: RackProbe });
       await renderTaskFormTab(Renderer);
       await waitFor(() => expect(screen.getByText("rack:0")).toBeTruthy());
+    });
+  });
+
+  describe("deploy validation gate", () => {
+    const DeviceStatusProbe: FC<Task.FormProps<typeof schemas>> = () => {
+      const { status } = PForm.useField<string>("config.device");
+      return <div>{`device-status:${status.message}`}</div>;
+    };
+    DeviceStatusProbe.displayName = "DeviceStatusProbe";
+
+    it("should block deploy and surface field errors for an invalid config", async () => {
+      const client = createTestClient();
+      const draft = await client.tasks.create({ ...getInitialValues({}), rack: 0 });
+      let configured = false;
+      const Renderer = createRenderer({
+        Form: DeviceStatusProbe,
+        deployConfigZ: schemas.config.extend({
+          device: z.string().min(1, "Must specify a device"),
+        }),
+        onConfigure: async (_client, config) => {
+          configured = true;
+          return [config, 0];
+        },
+      });
+      const { container } = await renderTaskFormTab(Renderer, {
+        client,
+        taskKey: draft.key,
+      });
+      await clickDeploy(container);
+      await waitFor(() =>
+        expect(screen.getByText("device-status:Must specify a device")).toBeTruthy(),
+      );
+      expect(configured).toBe(false);
+    });
+
+    it("should deploy when the only issues are warnings", async () => {
+      const client = createTestClient();
+      const draft = await client.tasks.create({ ...getInitialValues({}), rack: 0 });
+      let configured = false;
+      const Renderer = createRenderer({
+        deployConfigZ: schemas.config.check(({ value, issues }) => {
+          issues.push({
+            code: "custom",
+            message: "device is suspicious",
+            path: ["device"],
+            params: { variant: "warning" },
+            input: value,
+          });
+        }),
+        onConfigure: async (_client, config) => {
+          configured = true;
+          return [config, 0];
+        },
+      });
+      const { container } = await renderTaskFormTab(Renderer, {
+        client,
+        taskKey: draft.key,
+      });
+      await clickDeploy(container);
+      await waitFor(() => expect(configured).toBe(true));
     });
   });
 

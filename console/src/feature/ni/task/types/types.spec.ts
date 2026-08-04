@@ -112,7 +112,7 @@ describe("analog read task", () => {
 
     it("should reject sample rate exceeding 1 MHz", () => {
       expect(
-        NI.Task.analogReadConfigZ.safeParse({
+        NI.Task.deployAnalogReadConfigZ.safeParse({
           ...NI.Task.ZERO_ANALOG_READ_PAYLOAD.config,
           streamRate: 20000,
           sampleRate: 1000001,
@@ -123,7 +123,7 @@ describe("analog read task", () => {
 
     it("should reject negative sample rate", () => {
       expect(
-        NI.Task.analogReadConfigZ.safeParse({
+        NI.Task.deployAnalogReadConfigZ.safeParse({
           ...NI.Task.ZERO_ANALOG_READ_PAYLOAD.config,
           streamRate: 1000,
           sampleRate: -1,
@@ -183,7 +183,7 @@ describe("analog read task", () => {
 
     it("should fail to parse a task with duplicate ports on the same device", () => {
       expect(
-        NI.Task.counterReadConfigZ.safeParse({
+        NI.Task.deployCounterReadConfigZ.safeParse({
           ...NI.Task.ZERO_COUNTER_READ_PAYLOAD.config,
           streamRate: 25,
           sampleRate: 1000,
@@ -211,7 +211,7 @@ describe("analog read task", () => {
 
     it("should fail to parse a task with sample rate less than stream rate", () => {
       expect(
-        NI.Task.counterReadConfigZ.safeParse({
+        NI.Task.deployCounterReadConfigZ.safeParse({
           ...NI.Task.ZERO_COUNTER_READ_PAYLOAD.config,
           streamRate: 1000,
           sampleRate: 500,
@@ -400,5 +400,45 @@ describe("analog read task", () => {
     //     }).success,
     //   ).toEqual(false);
     // });
+  });
+});
+
+describe("draft configs", () => {
+  // Drafts persist server-side before configuration, so the shape schema must
+  // accept every zero config; retrieve parses with it.
+  it("should accept the zero analog read config", () => {
+    expect(
+      NI.Task.ANALOG_READ_SCHEMAS.config.safeParse(
+        NI.Task.ZERO_ANALOG_READ_PAYLOAD.config,
+      ).success,
+    ).toBe(true);
+  });
+  it("should accept the zero analog write config", () => {
+    expect(
+      NI.Task.ANALOG_WRITE_SCHEMAS.config.safeParse(
+        NI.Task.ZERO_ANALOG_WRITE_PAYLOAD.config,
+      ).success,
+    ).toBe(true);
+  });
+  it("should accept the zero counter read config", () => {
+    expect(
+      NI.Task.COUNTER_READ_SCHEMAS.config.safeParse(
+        NI.Task.ZERO_COUNTER_READ_PAYLOAD.config,
+      ).success,
+    ).toBe(true);
+  });
+  it("should accept the zero digital read config", () => {
+    expect(
+      NI.Task.DIGITAL_READ_SCHEMAS.config.safeParse(
+        NI.Task.ZERO_DIGITAL_READ_PAYLOAD.config,
+      ).success,
+    ).toBe(true);
+  });
+  it("should accept the zero digital write config", () => {
+    expect(
+      NI.Task.DIGITAL_WRITE_SCHEMAS.config.safeParse(
+        NI.Task.ZERO_DIGITAL_WRITE_PAYLOAD.config,
+      ).success,
+    ).toBe(true);
   });
 });

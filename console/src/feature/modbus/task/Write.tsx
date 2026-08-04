@@ -27,6 +27,7 @@ import { Select as SelectDevice } from "@/feature/modbus/device/Select";
 import * as Device from "@/feature/modbus/device/types";
 import { SelectOutputChannelTypeField } from "@/feature/modbus/task/SelectOutputChannelTypeField";
 import {
+  deployWriteConfigZ,
   OUTPUT_CHANNEL_SCHEMAS,
   type OutputChannel,
   type OutputChannelType,
@@ -227,6 +228,7 @@ export const Write = Task.wrapForm({
   Properties,
   Form,
   schemas: WRITE_SCHEMAS,
+  deployConfigZ: deployWriteConfigZ,
   type: "modbus_write",
   getInitialValues,
   onConfigure,

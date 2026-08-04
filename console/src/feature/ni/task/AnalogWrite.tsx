@@ -27,6 +27,7 @@ import {
   AO_CHANNEL_TYPE_NAMES,
   type AOChannel,
   type AOChannelType,
+  deployAnalogWriteConfigZ,
   ZERO_ANALOG_WRITE_PAYLOAD,
 } from "@/feature/ni/task/types";
 import { Device as PlatformDevice } from "@/platform/device";
@@ -215,6 +216,7 @@ export const AnalogWrite = Task.wrapForm({
   Properties,
   Form,
   schemas: ANALOG_WRITE_SCHEMAS,
+  deployConfigZ: deployAnalogWriteConfigZ,
   type: "ni_analog_write",
   getInitialValues,
   onConfigure,

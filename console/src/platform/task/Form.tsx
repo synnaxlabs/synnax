@@ -13,6 +13,7 @@ import {
   type device,
   DisconnectedError,
   type rack,
+  type status,
   type Synnax,
   type task,
 } from "@synnaxlabs/client";
@@ -72,6 +73,12 @@ export interface WrapFormParams<S extends task.Schemas = task.Schemas> {
   type: z.infer<S["type"]>;
   onConfigure: OnConfigure<S["config"]>;
   schemas: S;
+  /**
+   * Validates the config when the user deploys. Failures render as field
+   * errors and block the start command; warning-variant issues render but
+   * don't block. Shape schemas stay lax so drafts persist through autosave.
+   */
+  deployConfigZ: z.ZodType;
   getInitialValues: GetInitialValues<S>;
   showHeader?: boolean;
   showControls?: boolean;
@@ -109,11 +116,17 @@ const Header = ({ isSnapshot }: HeaderProps) => (
 
 const SET_OPTIONS: PForm.SetOptions = { notifyOnChange: false };
 
+const issueVariant = (issue: z.core.$ZodIssue): status.Variant =>
+  issue.code === "custom" && issue.params != null && "variant" in issue.params
+    ? (issue.params.variant as status.Variant)
+    : "error";
+
 export const wrapForm = <S extends task.Schemas = task.Schemas>({
   Properties,
   Form,
   schemas,
   type,
+  deployConfigZ,
   getInitialValues,
   onConfigure,
   showHeader = true,
@@ -133,6 +146,17 @@ export const wrapForm = <S extends task.Schemas = task.Schemas>({
       handleError(async () => {
         if (client == null) throw new DisconnectedError();
         const { config, name } = form.value();
+        const result = deployConfigZ.safeParse(config);
+        if (!result.success) {
+          let blocked = false;
+          result.error.issues.forEach((issue) => {
+            const variant = issueVariant(issue);
+            if (variant !== "warning") blocked = true;
+            const path = ["config", ...issue.path].join(".");
+            form.setStatus(path, { key: path, variant, message: issue.message });
+          });
+          if (blocked) return;
+        }
         const [newConfig, newRack] = await onConfigure(client, config, name);
         form.set("config", newConfig, SET_OPTIONS);
         if (primitive.isNonZero(newRack)) form.set("rack", newRack, SET_OPTIONS);

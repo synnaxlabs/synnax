@@ -22,6 +22,7 @@ import {
 } from "@/feature/ni/task/DigitalChannelList";
 import { getDigitalChannelDeviceKey } from "@/feature/ni/task/getDigitalChannelDeviceKey";
 import {
+  deployDigitalReadConfigZ,
   type DIChannel,
   DIGITAL_READ_SCHEMAS,
   DIGITAL_READ_TYPE,
@@ -156,6 +157,7 @@ export const DigitalRead = Task.wrapForm({
   Properties,
   Form,
   schemas: DIGITAL_READ_SCHEMAS,
+  deployConfigZ: deployDigitalReadConfigZ,
   getInitialValues,
   onConfigure,
   type: "ni_digital_read",

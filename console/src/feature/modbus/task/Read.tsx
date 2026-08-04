@@ -18,6 +18,7 @@ import { Select as SelectDevice } from "@/feature/modbus/device/Select";
 import * as Device from "@/feature/modbus/device/types";
 import { SelectInputChannelTypeField } from "@/feature/modbus/task/SelectInputChannelTypeField";
 import {
+  deployReadConfigZ,
   INPUT_CHANNEL_SCHEMAS,
   type InputChannel,
   type InputChannelType,
@@ -229,6 +230,7 @@ export const Read = Task.wrapForm({
   Properties,
   Form,
   schemas: READ_SCHEMAS,
+  deployConfigZ: deployReadConfigZ,
   type: "modbus_read",
   getInitialValues,
   onConfigure,

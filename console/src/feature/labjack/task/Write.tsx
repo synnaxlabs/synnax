@@ -21,6 +21,7 @@ import { useConfigureModal } from "@/feature/labjack/device/useConfigureModal";
 import { getOpenPort } from "@/feature/labjack/task/getOpenPort";
 import { SelectOutputChannelType } from "@/feature/labjack/task/SelectOutputChannelType";
 import {
+  deployWriteConfigZ,
   type OutputChannel,
   type OutputChannelType,
   WRITE_SCHEMAS,
@@ -317,6 +318,7 @@ export const Write = Task.wrapForm({
   Properties,
   Form,
   schemas: WRITE_SCHEMAS,
+  deployConfigZ: deployWriteConfigZ,
   type: "labjack_write",
   getInitialValues,
   onConfigure,

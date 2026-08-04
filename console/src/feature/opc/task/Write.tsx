@@ -17,6 +17,7 @@ import { Select } from "@/feature/opc/device/Select";
 import * as Device from "@/feature/opc/device/types";
 import { type ChannelKeyAndIDGetter, Form } from "@/feature/opc/task/Form";
 import {
+  deployWriteConfigZ,
   type OutputChannel,
   WRITE_SCHEMAS,
   WRITE_TYPE,
@@ -160,6 +161,7 @@ export const Write = Task.wrapForm({
   Properties,
   Form: TaskForm,
   schemas: WRITE_SCHEMAS,
+  deployConfigZ: deployWriteConfigZ,
   type: "opc_write",
   getInitialValues,
   onConfigure,

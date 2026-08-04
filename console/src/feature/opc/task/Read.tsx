@@ -19,6 +19,7 @@ import { Select } from "@/feature/opc/device/Select";
 import * as Device from "@/feature/opc/device/types";
 import { type ChannelKeyAndIDGetter, Form } from "@/feature/opc/task/Form";
 import {
+  deployReadConfigZ,
   type InputChannel,
   READ_SCHEMAS,
   READ_TYPE,
@@ -263,6 +264,7 @@ export const Read = Task.wrapForm({
   Properties,
   Form: TaskForm,
   schemas: READ_SCHEMAS,
+  deployConfigZ: deployReadConfigZ,
   getInitialValues,
   onConfigure,
 });

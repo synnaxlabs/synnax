@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type task } from "@synnaxlabs/client";
+import { device, type task } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/pluto";
 import { z } from "zod";
 
@@ -959,7 +959,7 @@ export const AI_CHANNEL_TYPE_ICONS: Record<AIChannelType, Icon.FC> = {
   [AI_VOLTAGE_CHAN_TYPE]: Icon.Units.Voltage,
 };
 
-const counterChannelExtensionShape = { port: portZ, device: Task.deviceKeyZ };
+const counterChannelExtensionShape = { port: portZ, device: device.keyZ };
 interface CounterChannelExtension extends z.infer<
   z.ZodObject<typeof counterChannelExtensionShape>
 > {}
@@ -1546,9 +1546,16 @@ export const ZERO_DO_CHANNEL: DOChannel = {
 export type DigitalChannel = DIChannel | DOChannel;
 
 const baseReadConfigZ = Task.baseReadConfigZ.extend({
+  sampleRate: z.number(),
+  streamRate: z.number(),
+});
+
+export const deployReadRateShape = {
   sampleRate: z.number().positive().max(1000000),
   streamRate: z.number().positive().max(20000),
-});
+} as const;
+
+const deployStateRateZ = z.number().positive().max(50000);
 interface BaseReadConfig extends z.infer<typeof baseReadConfigZ> {}
 const ZERO_BASE_READ_CONFIG: BaseReadConfig = {
   ...Task.ZERO_BASE_READ_CONFIG,
@@ -1558,7 +1565,7 @@ const ZERO_BASE_READ_CONFIG: BaseReadConfig = {
 
 const baseWriteConfigZ = Task.baseConfigZ.extend({
   dataSaving: z.boolean().default(true),
-  stateRate: z.number().positive().max(50000),
+  stateRate: z.number(),
 });
 interface BaseWriteConfig extends z.infer<typeof baseWriteConfigZ> {}
 const ZERO_BASE_WRITE_CONFIG: BaseWriteConfig = {
@@ -1605,13 +1612,10 @@ const validateDigitalPortsAndLines = ({
 };
 
 export const baseAnalogReadConfigZ = baseReadConfigZ.extend({
-  channels: z
-    .array(aiChannelZ)
-    .check(Task.validateReadChannels)
-    .check(validateAnalogPorts),
+  channels: z.array(aiChannelZ),
 });
 
-export const analogReadConfigZ = baseAnalogReadConfigZ.check(Task.validateStreamRate);
+export const analogReadConfigZ = baseAnalogReadConfigZ;
 export interface AnalogReadConfig extends z.infer<typeof analogReadConfigZ> {}
 export const ZERO_ANALOG_READ_CONFIG: AnalogReadConfig = {
   ...ZERO_BASE_READ_CONFIG,
@@ -1649,16 +1653,21 @@ export const ZERO_ANALOG_READ_PAYLOAD: AnalogReadPayload = {
 
 const validateCounterPorts = createPortValidator("Counter");
 
-const baseCounterReadConfigZ = baseReadConfigZ
-  .omit({ device: true })
+const baseCounterReadConfigZ = baseReadConfigZ.omit({ device: true }).extend({
+  channels: z.array(ciChannelZ),
+});
+export interface CounterReadConfig extends z.infer<typeof baseCounterReadConfigZ> {}
+
+export const deployCounterReadConfigZ = baseCounterReadConfigZ
   .extend({
+    ...deployReadRateShape,
     channels: z
       .array(ciChannelZ)
       .check(Task.validateReadChannels)
-      .check(validateCounterPorts),
+      .check(validateCounterPorts)
+      .check(Task.validateChannelDevices),
   })
   .check(Task.validateStreamRate);
-export interface CounterReadConfig extends z.infer<typeof baseCounterReadConfigZ> {}
 export const counterReadConfigZ = z.union([
   baseReadConfigZ
     .extend({ channels: z.array(z.any()) })
@@ -1697,6 +1706,12 @@ export const ZERO_COUNTER_READ_PAYLOAD: CounterReadPayload = {
 };
 
 export const analogWriteConfigZ = baseWriteConfigZ.extend({
+  channels: z.array(aoChannelZ),
+});
+
+export const deployAnalogWriteConfigZ = analogWriteConfigZ.extend({
+  device: Task.deviceKeyZ,
+  stateRate: deployStateRateZ,
   channels: z
     .array(aoChannelZ)
     .check(Task.validateWriteChannels)
@@ -1730,8 +1745,14 @@ export const ZERO_ANALOG_WRITE_PAYLOAD = {
   snapshot: false,
 } as const satisfies AnalogWritePayload;
 
-export const digitalReadConfigZ = baseReadConfigZ
+export const digitalReadConfigZ = baseReadConfigZ.extend({
+  channels: z.array(diChannelZ),
+});
+
+export const deployDigitalReadConfigZ = digitalReadConfigZ
   .extend({
+    ...deployReadRateShape,
+    device: Task.deviceKeyZ,
     channels: z
       .array(diChannelZ)
       .check(Task.validateReadChannels)
@@ -1767,6 +1788,12 @@ export const ZERO_DIGITAL_READ_PAYLOAD: DigitalReadPayload = {
 };
 
 export const digitalWriteConfigZ = baseWriteConfigZ.extend({
+  channels: z.array(doChannelZ),
+});
+
+export const deployDigitalWriteConfigZ = digitalWriteConfigZ.extend({
+  device: Task.deviceKeyZ,
+  stateRate: deployStateRateZ,
   channels: z
     .array(doChannelZ)
     .check(Task.validateWriteChannels)

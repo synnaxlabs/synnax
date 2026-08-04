@@ -26,6 +26,7 @@ import {
   COUNTER_READ_TYPE,
   counterReadConfigZ,
   type CounterReadSchemas,
+  deployCounterReadConfigZ,
   ZERO_CI_CHANNEL,
   ZERO_COUNTER_READ_PAYLOAD,
 } from "@/feature/ni/task/types";
@@ -213,6 +214,7 @@ export const CounterRead = Task.wrapForm({
   Properties,
   Form,
   schemas: COUNTER_READ_SCHEMAS,
+  deployConfigZ: deployCounterReadConfigZ,
   type: "ni_counter_read",
   getInitialValues,
   onConfigure,

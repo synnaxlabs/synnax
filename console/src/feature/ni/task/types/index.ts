@@ -86,30 +86,35 @@ export type DigitalChannel = v0.DigitalChannel;
 export type Channel = v1.Channel;
 
 export const analogReadConfigZ = v1.analogReadConfigZ;
+export const deployAnalogReadConfigZ = v1.deployAnalogReadConfigZ;
 export const ANALOG_READ_TYPE = v0.ANALOG_READ_TYPE;
 export const ZERO_ANALOG_READ_PAYLOAD = v1.ZERO_ANALOG_READ_PAYLOAD;
 export const ANALOG_READ_SCHEMAS = v1.ANALOG_READ_SCHEMAS;
 export type AnalogReadSchemas = v1.AnalogReadSchemas;
 
 export const analogWriteConfigZ = v0.analogWriteConfigZ;
+export const deployAnalogWriteConfigZ = v0.deployAnalogWriteConfigZ;
 export const ANALOG_WRITE_TYPE = v0.ANALOG_WRITE_TYPE;
 export const ZERO_ANALOG_WRITE_PAYLOAD = v0.ZERO_ANALOG_WRITE_PAYLOAD;
 export const ANALOG_WRITE_SCHEMAS = v0.ANALOG_WRITE_SCHEMAS;
 export type AnalogWriteSchemas = v0.AnalogWriteSchemas;
 
 export const counterReadConfigZ = v0.counterReadConfigZ;
+export const deployCounterReadConfigZ = v0.deployCounterReadConfigZ;
 export const COUNTER_READ_TYPE = v0.COUNTER_READ_TYPE;
 export const ZERO_COUNTER_READ_PAYLOAD = v0.ZERO_COUNTER_READ_PAYLOAD;
 export const COUNTER_READ_SCHEMAS = v0.COUNTER_READ_SCHEMAS;
 export type CounterReadSchemas = v0.CounterReadSchemas;
 
 export const digitalReadConfigZ = v0.digitalReadConfigZ;
+export const deployDigitalReadConfigZ = v0.deployDigitalReadConfigZ;
 export const DIGITAL_READ_TYPE = v0.DIGITAL_READ_TYPE;
 export const ZERO_DIGITAL_READ_PAYLOAD = v0.ZERO_DIGITAL_READ_PAYLOAD;
 export const DIGITAL_READ_SCHEMAS = v0.DIGITAL_READ_SCHEMAS;
 export type DigitalReadSchemas = v0.DigitalReadSchemas;
 
 export const digitalWriteConfigZ = v0.digitalWriteConfigZ;
+export const deployDigitalWriteConfigZ = v0.deployDigitalWriteConfigZ;
 export const DIGITAL_WRITE_TYPE = v0.DIGITAL_WRITE_TYPE;
 export const ZERO_DIGITAL_WRITE_PAYLOAD = v0.ZERO_DIGITAL_WRITE_PAYLOAD;
 export const DIGITAL_WRITE_SCHEMAS = v0.DIGITAL_WRITE_SCHEMAS;

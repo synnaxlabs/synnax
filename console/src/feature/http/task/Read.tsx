@@ -33,6 +33,7 @@ import * as Device from "@/feature/http/device/types";
 import { ContextMenu } from "@/feature/http/task/ContextMenu";
 import { EndpointListItem } from "@/feature/http/task/EndpointListItem";
 import {
+  deployReadConfigZ,
   READ_SCHEMAS,
   READ_TYPE,
   type ReadEndpoint,
@@ -687,6 +688,7 @@ export const Read = Task.wrapForm({
   Properties,
   Form,
   schemas: READ_SCHEMAS,
+  deployConfigZ: deployReadConfigZ,
   type: "http_read",
   getInitialValues,
   onConfigure,

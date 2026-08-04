@@ -26,6 +26,7 @@ import {
   ANALOG_READ_TYPE,
   analogReadConfigZ,
   type AnalogReadSchemas,
+  deployAnalogReadConfigZ,
   ZERO_AI_CHANNEL,
   ZERO_ANALOG_READ_PAYLOAD,
 } from "@/feature/ni/task/types";
@@ -213,6 +214,7 @@ export const AnalogRead = Task.wrapForm({
   Properties,
   Form,
   schemas: ANALOG_READ_SCHEMAS,
+  deployConfigZ: deployAnalogReadConfigZ,
   type: "ni_analog_read",
   getInitialValues,
   onConfigure,

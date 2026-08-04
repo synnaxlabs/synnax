@@ -21,6 +21,7 @@ import { getOpenPort } from "@/feature/labjack/task/getOpenPort";
 import { FORMS } from "@/feature/labjack/task/InputChannelForms";
 import { SelectInputChannelTypeField } from "@/feature/labjack/task/SelectInputChannelTypeField";
 import {
+  deployReadConfigZ,
   INPUT_CHANNEL_SCHEMAS,
   type InputChannel,
   type InputChannelType,
@@ -306,6 +307,7 @@ export const Read = Task.wrapForm({
   Properties,
   Form,
   schemas: READ_SCHEMAS,
+  deployConfigZ: deployReadConfigZ,
   type: "labjack_read",
   getInitialValues,
   onConfigure,

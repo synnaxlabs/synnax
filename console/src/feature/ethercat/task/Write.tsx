@@ -21,6 +21,7 @@ import {
 import {
   channelMapKey,
   createOutputChannel,
+  deployWriteConfigZ,
   getChannelByMapKey,
   getPDOName,
   getPortLabel,
@@ -177,6 +178,7 @@ export const Write = Task.wrapForm({
   Properties,
   Form,
   schemas: WRITE_SCHEMAS,
+  deployConfigZ: deployWriteConfigZ,
   type: "ethercat_write",
   getInitialValues,
   onConfigure,

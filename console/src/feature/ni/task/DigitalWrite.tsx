@@ -22,6 +22,7 @@ import {
 } from "@/feature/ni/task/DigitalChannelList";
 import { getDigitalChannelDeviceKey } from "@/feature/ni/task/getDigitalChannelDeviceKey";
 import {
+  deployDigitalWriteConfigZ,
   DIGITAL_WRITE_SCHEMAS,
   DIGITAL_WRITE_TYPE,
   digitalWriteConfigZ,
@@ -204,6 +205,7 @@ export const DigitalWrite = Task.wrapForm({
   Properties,
   Form,
   schemas: DIGITAL_WRITE_SCHEMAS,
+  deployConfigZ: deployDigitalWriteConfigZ,
   getInitialValues,
   onConfigure,
   type: "ni_digital_write",
