@@ -65,12 +65,16 @@ func (p InsertTabPayload) Handle(state Panel) (Panel, error) {
 	placementGiven := p.TargetTab != nil || p.TargetLeaf != nil ||
 		p.Location != nil || p.Index != nil
 	if exists && !placementGiven {
-		if err := updateLeafAt(&state.Root, existingLeaf, func(leaf Leaf) (Leaf, error) {
-			tabs := append([]Tab{}, leaf.Tabs...)
-			tabs[existingIdx] = p.Tab
-			leaf.Tabs = tabs
-			return leaf, nil
-		}); err != nil {
+		if err := updateLeafAt(
+			&state.Root,
+			existingLeaf,
+			func(leaf Leaf) (Leaf, error) {
+				tabs := append([]Tab{}, leaf.Tabs...)
+				tabs[existingIdx] = p.Tab
+				leaf.Tabs = tabs
+				return leaf, nil
+			},
+		); err != nil {
 			return Panel{}, err
 		}
 		return state, nil
@@ -244,14 +248,18 @@ func (p ResizeSplitPayload) Handle(state Panel) (Panel, error) {
 	if p.Size < 0 || p.Size > 1 {
 		return Panel{}, errInvalidSize
 	}
-	updated, err := updateAt(state.Root, pathDirections(p.Split), func(n Node) (Node, error) {
-		split, ok := n.Variant.(NodeSplit)
-		if !ok {
-			return Node{}, errors.New("node at path is not a split")
-		}
-		split.Size = p.Size
-		return Node{Variant: split}, nil
-	})
+	updated, err := updateAt(
+		state.Root,
+		pathDirections(p.Split),
+		func(n Node) (Node, error) {
+			split, ok := n.Variant.(NodeSplit)
+			if !ok {
+				return Node{}, errors.New("node at path is not a split")
+			}
+			split.Size = p.Size
+			return Node{Variant: split}, nil
+		},
+	)
 	if err != nil {
 		return Panel{}, err
 	}

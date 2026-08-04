@@ -50,17 +50,17 @@ func (r Retrieve) Entry(symbol *Symbol) Retrieve {
 	return r
 }
 
-// Entries binds the given slice of symbols to the query. This pointer is where the results
-// of the query will be stored after Exec is called.
+// Entries binds the given slice of symbols to the query. This pointer is where the
+// results of the query will be stored after Exec is called.
 func (r Retrieve) Entries(symbols *[]Symbol) Retrieve {
 	r.gorp = r.gorp.Entries(symbols)
 	return r
 }
 
-// Exec executes the query against the given transaction. The results of the query
-// will be stored in the pointer given to the Entry or Entries method. If tx is nil,
-// the query will be executed directly against the underlying gorp.DB provided to the
-// symbol service. It's important to note that fuzzy search will not be aware of any writes/
+// Exec executes the query against the given transaction. The results of the query will
+// be stored in the pointer given to the Entry or Entries method. If tx is nil, the
+// query will be executed directly against the underlying gorp.DB provided to the symbol
+// service. It's important to note that fuzzy search will not be aware of any writes/
 // deletes executed on the tx, and will only search the underlying database.
 func (r Retrieve) Exec(ctx context.Context, tx gorp.Tx) error {
 	tx = gorp.OverrideTx(r.baseTX, tx)

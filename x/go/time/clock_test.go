@@ -95,13 +95,16 @@ var _ = Describe("Clock", func() {
 		})
 
 		Describe("AfterFunc", func() {
-			It("Should call scheduled functions when Advance crosses the deadline", func() {
-				f := &xtime.Fake{}
-				done := make(chan struct{})
-				f.AfterFunc(time.Second, func() { close(done) })
-				go f.Advance(2 * time.Second)
-				Eventually(done).Should(BeClosed())
-			})
+			It(
+				"Should call scheduled functions when Advance crosses the deadline",
+				func() {
+					f := &xtime.Fake{}
+					done := make(chan struct{})
+					f.AfterFunc(time.Second, func() { close(done) })
+					go f.Advance(2 * time.Second)
+					Eventually(done).Should(BeClosed())
+				},
+			)
 			It("Should not call functions whose deadline has not been crossed", func() {
 				f := &xtime.Fake{}
 				var called atomic.Int32

@@ -182,7 +182,9 @@ func runMigrate(cmd *cobra.Command) error {
 // readCoreVersion reads core/pkg/version/VERSION and returns the migration
 // version number (major*1000 + minor). For "0.53.4" this returns 53.
 func readCoreVersion(repoRoot string) (int, error) {
-	data, err := os.ReadFile(filepath.Join(repoRoot, "core", "pkg", "version", "VERSION"))
+	data, err := os.ReadFile(
+		filepath.Join(repoRoot, "core", "pkg", "version", "VERSION"),
+	)
 	if err != nil {
 		return 0, errors.Wrap(err, "failed to read core VERSION file")
 	}
@@ -208,8 +210,8 @@ func writeFileIfChanged(path string, content []byte) error {
 		return nil
 	}
 	dir := filepath.Dir(path)
-	if err := os.MkdirAll(dir, 0755); err != nil {
+	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return err
 	}
-	return os.WriteFile(path, content, 0644)
+	return os.WriteFile(path, content, 0o644)
 }

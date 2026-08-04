@@ -42,7 +42,9 @@ func NewCreate[K Key, E Entry[K]]() Create[K, E] {
 // If no entry with a matching GorpKey is found, the function is not called.
 // MergeExisting adds overhead to the query, as a retrieval is required to check for
 // existing entries.
-func (c Create[K, E]) MergeExisting(filter func(ctx Context, creating, existing E) (E, error)) Create[K, E] {
+func (c Create[K, E]) MergeExisting(
+	filter func(ctx Context, creating, existing E) (E, error),
+) Create[K, E] {
 	c.onUpdate = append(c.onUpdate, filter)
 	return c
 }

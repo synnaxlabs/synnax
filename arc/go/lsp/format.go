@@ -38,7 +38,10 @@ func (s *Server) Formatting(
 		{
 			Range: protocol.Range{
 				Start: protocol.Position{Line: 0, Character: 0},
-				End:   protocol.Position{Line: uint32(endLine), Character: uint32(endChar)},
+				End: protocol.Position{
+					Line:      uint32(endLine),
+					Character: uint32(endChar),
+				},
 			},
 			NewText: formatted,
 		},
@@ -69,7 +72,10 @@ func (s *Server) RangeFormatting(
 		{
 			Range: protocol.Range{
 				Start: protocol.Position{Line: 0, Character: 0},
-				End:   protocol.Position{Line: uint32(docEndLine), Character: uint32(docEndChar)},
+				End: protocol.Position{
+					Line:      uint32(docEndLine),
+					Character: uint32(docEndChar),
+				},
 			},
 			NewText: formatted,
 		},

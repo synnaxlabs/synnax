@@ -51,10 +51,14 @@ var _ = Describe("Parse", func() {
 
 	It("should parse min expression with int", func() {
 		domain := resolution.Domain{
-			Expressions: []resolution.Expression{{
-				Name:   "min",
-				Values: []resolution.ExpressionValue{{Kind: resolution.ValueKindInt, IntValue: 10}},
-			}},
+			Expressions: []resolution.Expression{
+				{
+					Name: "min",
+					Values: []resolution.ExpressionValue{
+						{Kind: resolution.ValueKindInt, IntValue: 10},
+					},
+				},
+			},
 		}
 		rules := validation.Parse(domain)
 		Expect(rules.Min).NotTo(BeNil())
@@ -64,10 +68,14 @@ var _ = Describe("Parse", func() {
 
 	It("should parse min expression with float", func() {
 		domain := resolution.Domain{
-			Expressions: []resolution.Expression{{
-				Name:   "min",
-				Values: []resolution.ExpressionValue{{Kind: resolution.ValueKindFloat, FloatValue: 1.5}},
-			}},
+			Expressions: []resolution.Expression{
+				{
+					Name: "min",
+					Values: []resolution.ExpressionValue{
+						{Kind: resolution.ValueKindFloat, FloatValue: 1.5},
+					},
+				},
+			},
 		}
 		rules := validation.Parse(domain)
 		Expect(rules.Min).NotTo(BeNil())
@@ -77,10 +85,14 @@ var _ = Describe("Parse", func() {
 
 	It("should parse max expression", func() {
 		domain := resolution.Domain{
-			Expressions: []resolution.Expression{{
-				Name:   "max",
-				Values: []resolution.ExpressionValue{{Kind: resolution.ValueKindInt, IntValue: 100}},
-			}},
+			Expressions: []resolution.Expression{
+				{
+					Name: "max",
+					Values: []resolution.ExpressionValue{
+						{Kind: resolution.ValueKindInt, IntValue: 100},
+					},
+				},
+			},
 		}
 		rules := validation.Parse(domain)
 		Expect(rules.Max).NotTo(BeNil())
@@ -91,8 +103,14 @@ var _ = Describe("Parse", func() {
 		domain := resolution.Domain{
 			Expressions: []resolution.Expression{
 				{Name: "required"},
-				{Name: "min_length", Values: []resolution.ExpressionValue{{IntValue: 1}}},
-				{Name: "max_length", Values: []resolution.ExpressionValue{{IntValue: 50}}},
+				{
+					Name:   "min_length",
+					Values: []resolution.ExpressionValue{{IntValue: 1}},
+				},
+				{
+					Name:   "max_length",
+					Values: []resolution.ExpressionValue{{IntValue: 50}},
+				},
 			},
 		}
 		rules := validation.Parse(domain)
@@ -103,10 +121,17 @@ var _ = Describe("Parse", func() {
 
 	It("should parse pattern expression without message", func() {
 		domain := resolution.Domain{
-			Expressions: []resolution.Expression{{
-				Name:   "pattern",
-				Values: []resolution.ExpressionValue{{Kind: resolution.ValueKindString, StringValue: "^[a-zA-Z_][a-zA-Z0-9_]*$"}},
-			}},
+			Expressions: []resolution.Expression{
+				{
+					Name: "pattern",
+					Values: []resolution.ExpressionValue{
+						{
+							Kind:        resolution.ValueKindString,
+							StringValue: "^[a-zA-Z_][a-zA-Z0-9_]*$",
+						},
+					},
+				},
+			},
 		}
 		rules := validation.Parse(domain)
 		Expect(rules.Pattern).NotTo(BeNil())
@@ -119,8 +144,14 @@ var _ = Describe("Parse", func() {
 			Expressions: []resolution.Expression{{
 				Name: "pattern",
 				Values: []resolution.ExpressionValue{
-					{Kind: resolution.ValueKindString, StringValue: "^[a-zA-Z_][a-zA-Z0-9_]*$"},
-					{Kind: resolution.ValueKindString, StringValue: "Name must be a valid identifier"},
+					{
+						Kind:        resolution.ValueKindString,
+						StringValue: "^[a-zA-Z_][a-zA-Z0-9_]*$",
+					},
+					{
+						Kind:        resolution.ValueKindString,
+						StringValue: "Name must be a valid identifier",
+					},
 				},
 			}},
 		}

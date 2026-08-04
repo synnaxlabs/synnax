@@ -44,21 +44,24 @@ var _ = Describe("Opener", Ordered, func() {
 		}
 		cleanup, ok = service.NewOpener(cancelCtx, &closer)
 	})
-	It("Should correctly open a set of services that return without an error", func(ctx SpecContext) {
-		open := func(ctx context.Context) error {
-			defer func() {
-				err = cleanup(err)
-			}()
-			if err = func() error {
+	It(
+		"Should correctly open a set of services that return without an error",
+		func(ctx SpecContext) {
+			open := func(ctx context.Context) error {
+				defer func() {
+					err = cleanup(err)
+				}()
+				if err = func() error {
+					return nil
+				}(); ok(err, nil) {
+					return err
+				}
 				return nil
-			}(); ok(err, nil) {
-				return err
 			}
-			return nil
-		}
-		Expect(open(ctx)).To(Succeed())
-		Expect(multiCloserCalls).To(Equal(0))
-	})
+			Expect(open(ctx)).To(Succeed())
+			Expect(multiCloserCalls).To(Equal(0))
+		},
+	)
 	It("Should call the closer if an error occurs", func(ctx SpecContext) {
 		open := func(ctx context.Context) error {
 			defer func() {

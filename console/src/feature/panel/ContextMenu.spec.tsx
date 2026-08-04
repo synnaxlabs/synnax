@@ -179,9 +179,9 @@ describe("Panel.TabMenuItems", () => {
       await primePanel(wrapper, existing.key);
 
       const menu = renderMenu(wrapper, [moved.key]);
-      await waitFor(() => expect(screen.getByText("Move to New Window")).toBeTruthy());
+      await waitFor(() => expect(screen.getByText("Move to new window")).toBeTruthy());
       await act(async () => {
-        fireEvent.click(screen.getByText("Move to New Window"));
+        fireEvent.click(screen.getByText("Move to new window"));
       });
       // The production menu closes on click; the harness unmounts it so the menu's
       // tab-scoped selectors don't re-evaluate against the now-removed tab.

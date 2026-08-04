@@ -19,6 +19,7 @@ type Group map[Key]Node
 func (n Group) WhereState(state State) Group {
 	return n.Where(func(_ Key, n Node) bool { return n.State == state })
 }
+
 func (n Group) WhereNot(keys ...Key) Group {
 	return n.Where(func(id Key, _ Node) bool { return lo.Count(keys, id) == 0 })
 }

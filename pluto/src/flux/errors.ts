@@ -20,6 +20,15 @@ const nameOf = (corpse: unknown): string | undefined => {
   return typeof name === "string" ? name : undefined;
 };
 
+/** The remains of a deleted record, read in place of the record itself. */
+export interface Tombstone {
+  /** The deleted record's name, absent when the corpse carried none. */
+  name?: string;
+}
+
+/** Builds the tombstone a caller renders for the given corpse. */
+export const tombstoneOf = (corpse: unknown): Tombstone => ({ name: nameOf(corpse) });
+
 /**
  * Thrown to the error boundary when a query's cached answer is a deletion. The
  * corpse itself stays in the client's cache, typed; only the deleted record's

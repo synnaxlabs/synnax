@@ -49,7 +49,10 @@ func newVersionAssigner(ctx context.Context, cfg Config) (segment, error) {
 	return v, err
 }
 
-func (va *versionAssigner) assign(ctx context.Context, br TxRequest) (TxRequest, bool, error) {
+func (va *versionAssigner) assign(
+	ctx context.Context,
+	br TxRequest,
+) (TxRequest, bool, error) {
 	latestVer := va.counter.Value()
 	if _, err := va.counter.Add(ctx, int64(br.size())); err != nil {
 		va.L.Error("failed to assign version", zap.Error(err))

@@ -50,12 +50,14 @@ var _ = Describe("Recovery (wire)", Ordered, Serial, func() {
 				ServiceDesc:        &v1.TestUnaryService_ServiceDesc,
 				Internal:           true,
 			}
-			uServer.BindHandler(func(_ context.Context, req test.Request) (test.Response, error) {
-				if req.ID == panicID {
-					panic("boom in unary handler")
-				}
-				return test.Response(req), nil
-			})
+			uServer.BindHandler(
+				func(_ context.Context, req test.Request) (test.Response, error) {
+					if req.ID == panicID {
+						panic("boom in unary handler")
+					}
+					return test.Response(req), nil
+				},
+			)
 			uServer.BindTo(reg)
 
 			sServer := &streamServer{
@@ -127,7 +129,11 @@ var _ = Describe("Recovery (wire)", Ordered, Serial, func() {
 			Error().To(MatchError(ContainSubstring(recovery.ErrPanic.Error())))
 
 		By("continuing to serve subsequent requests")
-		Expect(MustSucceed(unaryClient.Send(ctx, addr, test.Request{ID: 7, Message: "ok"}))).
+		Expect(
+			MustSucceed(
+				unaryClient.Send(ctx, addr, test.Request{ID: 7, Message: "ok"}),
+			),
+		).
 			To(Equal(test.Response{ID: 7, Message: "ok"}))
 	})
 

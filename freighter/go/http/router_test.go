@@ -44,39 +44,61 @@ var _ = Describe("Router", func() {
 		})
 
 		Describe("Override", func() {
-			It("should fill StreamWriteDeadline from the override when receiver is zero", func() {
-				base := fhttp.RouterConfig{}
-				override := fhttp.RouterConfig{StreamWriteDeadline: 50 * time.Millisecond}
-				Expect(base.Override(override).StreamWriteDeadline).
-					To(Equal(50 * time.Millisecond))
-			})
+			It(
+				"should fill StreamWriteDeadline from the override when receiver is zero",
+				func() {
+					base := fhttp.RouterConfig{}
+					override := fhttp.RouterConfig{
+						StreamWriteDeadline: 50 * time.Millisecond,
+					}
+					Expect(base.Override(override).StreamWriteDeadline).
+						To(Equal(50 * time.Millisecond))
+				},
+			)
 
-			It("should preserve receiver's StreamWriteDeadline when the override is zero", func() {
-				base := fhttp.RouterConfig{StreamWriteDeadline: 50 * time.Millisecond}
-				Expect(base.Override(fhttp.RouterConfig{}).StreamWriteDeadline).
-					To(Equal(50 * time.Millisecond))
-			})
+			It(
+				"should preserve receiver's StreamWriteDeadline when the override is zero",
+				func() {
+					base := fhttp.RouterConfig{
+						StreamWriteDeadline: 50 * time.Millisecond,
+					}
+					Expect(base.Override(fhttp.RouterConfig{}).StreamWriteDeadline).
+						To(Equal(50 * time.Millisecond))
+				},
+			)
 
 			It("should let a non-zero override win over a non-zero receiver", func() {
 				base := fhttp.RouterConfig{StreamWriteDeadline: 5 * time.Millisecond}
-				override := fhttp.RouterConfig{StreamWriteDeadline: 50 * time.Millisecond}
+				override := fhttp.RouterConfig{
+					StreamWriteDeadline: 50 * time.Millisecond,
+				}
 				Expect(base.Override(override).StreamWriteDeadline).
 					To(Equal(50 * time.Millisecond))
 			})
 
-			It("should fill Instrumentation from the override when receiver is zero", func() {
-				ins := alamos.New("test")
-				base := fhttp.RouterConfig{}
-				override := fhttp.RouterConfig{Instrumentation: ins}
-				Expect(base.Override(override).Instrumentation.IsZero()).To(BeFalse())
-			})
+			It(
+				"should fill Instrumentation from the override when receiver is zero",
+				func() {
+					ins := alamos.New("test")
+					base := fhttp.RouterConfig{}
+					override := fhttp.RouterConfig{Instrumentation: ins}
+					Expect(
+						base.Override(override).Instrumentation.IsZero(),
+					).To(BeFalse())
+				},
+			)
 
-			It("should preserve receiver's Instrumentation when the override is zero", func() {
-				ins := alamos.New("test")
-				base := fhttp.RouterConfig{Instrumentation: ins}
-				Expect(base.Override(fhttp.RouterConfig{}).Instrumentation.IsZero()).
-					To(BeFalse())
-			})
+			It(
+				"should preserve receiver's Instrumentation when the override is zero",
+				func() {
+					ins := alamos.New("test")
+					base := fhttp.RouterConfig{Instrumentation: ins}
+					Expect(
+						base.Override(fhttp.RouterConfig{}).Instrumentation.IsZero(),
+					).
+						To(BeFalse())
+				},
+			)
 		})
 	})
 
@@ -100,228 +122,296 @@ var _ = Describe("Router", func() {
 		})
 	})
 
-	It("should report an empty Report — the router itself is a passive container", func() {
-		r := MustSucceed(fhttp.NewRouter())
-		Expect(r.Report()).To(BeEmpty())
-	})
+	It(
+		"should report an empty Report — the router itself is a passive container",
+		func() {
+			r := MustSucceed(fhttp.NewRouter())
+			Expect(r.Report()).To(BeEmpty())
+		},
+	)
 
 	Describe("BindTo", func() {
-		It("should register a unary route on the bound fiber app", func(specCtx SpecContext) {
-			addr := address.Newf("localhost:%d", MustSucceed(net.FindOpenPort()))
-			app := newFiberApp(fiber.Config{DisableKeepalive: true})
-			router := MustSucceed(fhttp.NewRouter())
-			server := fhttp.NewUnaryServer[test.Request, test.Response](router, "/echo")
-			server.BindHandler(func(_ context.Context, req test.Request) (test.Response, error) {
-				return test.Response(req), nil
-			})
-			router.BindTo(app)
-			go func() {
-				defer GinkgoRecover()
-				Expect(app.Listen(addr.PortString(), fiber.ListenConfig{
-					DisableStartupMessage: true,
-				})).To(Succeed())
-			}()
-			DeferCleanup(func() { Expect(app.Shutdown()).To(Succeed()) })
+		It(
+			"should register a unary route on the bound fiber app",
+			func(specCtx SpecContext) {
+				addr := address.Newf("localhost:%d", MustSucceed(net.FindOpenPort()))
+				app := newFiberApp(fiber.Config{DisableKeepalive: true})
+				router := MustSucceed(fhttp.NewRouter())
+				server := fhttp.NewUnaryServer[test.Request, test.Response](
+					router,
+					"/echo",
+				)
+				server.BindHandler(
+					func(_ context.Context, req test.Request) (test.Response, error) {
+						return test.Response(req), nil
+					},
+				)
+				router.BindTo(app)
+				go func() {
+					defer GinkgoRecover()
+					Expect(app.Listen(addr.PortString(), fiber.ListenConfig{
+						DisableStartupMessage: true,
+					})).To(Succeed())
+				}()
+				DeferCleanup(func() { Expect(app.Shutdown()).To(Succeed()) })
 
-			Eventually(func(g Gomega) {
-				g.Expect(pollHealth("http://" + addr.String() + "/echo")).To(Succeed())
-			}).WithPolling(time.Millisecond).Should(Succeed())
+				Eventually(func(g Gomega) {
+					g.Expect(pollHealth("http://" + addr.String() + "/echo")).
+						To(Succeed())
+				}).WithPolling(time.Millisecond).Should(Succeed())
 
-			client := MustSucceed(fhttp.NewUnaryClient[test.Request, test.Response](
-				fhttp.UnaryClientConfig{
-					Encoder:  json.Codec,
-					Decoders: []xhttp.Decoder{json.Codec},
-				},
-			))
-			res := MustSucceed(client.Send(specCtx, addr+"/echo", test.Request{ID: 1, Message: "hi"}))
-			Expect(res).To(Equal(test.Response{ID: 1, Message: "hi"}))
-		})
+				client := MustSucceed(fhttp.NewUnaryClient[test.Request, test.Response](
+					fhttp.UnaryClientConfig{
+						Encoder:  json.Codec,
+						Decoders: []xhttp.Decoder{json.Codec},
+					},
+				))
+				res := MustSucceed(
+					client.Send(
+						specCtx,
+						addr+"/echo",
+						test.Request{ID: 1, Message: "hi"},
+					),
+				)
+				Expect(res).To(Equal(test.Response{ID: 1, Message: "hi"}))
+			},
+		)
 
-		It("should cancel in-flight streams when the bound fiber app shuts down", func(specCtx SpecContext) {
-			addr := address.Newf("localhost:%d", MustSucceed(net.FindOpenPort()))
-			app := newFiberApp(fiber.Config{})
-			router := MustSucceed(fhttp.NewRouter())
+		It(
+			"should cancel in-flight streams when the bound fiber app shuts down",
+			func(specCtx SpecContext) {
+				addr := address.Newf("localhost:%d", MustSucceed(net.FindOpenPort()))
+				app := newFiberApp(fiber.Config{})
+				router := MustSucceed(fhttp.NewRouter())
 
-			handlerEntered := make(chan struct{})
-			handlerCtxDone := make(chan struct{})
-			server := fhttp.NewStreamServer[test.Request, test.Response](router, "/stream")
-			server.BindHandler(func(
-				ctx context.Context,
-				_ freighter.ServerStream[test.Request, test.Response],
-			) error {
-				close(handlerEntered)
-				<-ctx.Done()
-				close(handlerCtxDone)
-				return ctx.Err()
-			})
-			router.BindTo(app)
+				handlerEntered := make(chan struct{})
+				handlerCtxDone := make(chan struct{})
+				server := fhttp.NewStreamServer[test.Request, test.Response](
+					router,
+					"/stream",
+				)
+				server.BindHandler(func(
+					ctx context.Context,
+					_ freighter.ServerStream[test.Request, test.Response],
+				) error {
+					close(handlerEntered)
+					<-ctx.Done()
+					close(handlerCtxDone)
+					return ctx.Err()
+				})
+				router.BindTo(app)
 
-			go func() {
-				defer GinkgoRecover()
-				Expect(app.Listen(addr.PortString(), fiber.ListenConfig{
-					DisableStartupMessage: true,
-				})).To(Succeed())
-			}()
+				go func() {
+					defer GinkgoRecover()
+					Expect(app.Listen(addr.PortString(), fiber.ListenConfig{
+						DisableStartupMessage: true,
+					})).To(Succeed())
+				}()
 
-			Eventually(func(g Gomega) {
-				g.Expect(
-					pollHealth("http://" + addr.String() + "/anything"),
-				).To(Succeed())
-			}).WithPolling(time.Millisecond).Should(Succeed())
+				Eventually(func(g Gomega) {
+					g.Expect(
+						pollHealth("http://" + addr.String() + "/anything"),
+					).To(Succeed())
+				}).WithPolling(time.Millisecond).Should(Succeed())
 
-			client := MustSucceed(fhttp.NewStreamClient[test.Request, test.Response](
-				fhttp.StreamClientConfig{Codec: json.Codec},
-			))
-			stream := MustSucceed(client.Stream(specCtx, addr+"/stream"))
-			Eventually(handlerEntered).Should(BeClosed())
+				client := MustSucceed(
+					fhttp.NewStreamClient[test.Request, test.Response](
+						fhttp.StreamClientConfig{Codec: json.Codec},
+					),
+				)
+				stream := MustSucceed(client.Stream(specCtx, addr+"/stream"))
+				Eventually(handlerEntered).Should(BeClosed())
 
-			Expect(app.Shutdown()).To(Succeed())
-			Eventually(handlerCtxDone).Should(BeClosed())
-			Expect(stream.CloseSend()).To(Succeed())
-		})
+				Expect(app.Shutdown()).To(Succeed())
+				Eventually(handlerCtxDone).Should(BeClosed())
+				Expect(stream.CloseSend()).To(Succeed())
+			},
+		)
 	})
 
 	Describe("Use", func() {
-		It("should install middleware on every server registered before the call", func(specCtx SpecContext) {
-			addr := address.Newf("localhost:%d", MustSucceed(net.FindOpenPort()))
-			app := newFiberApp(fiber.Config{DisableKeepalive: true})
-			router := MustSucceed(fhttp.NewRouter())
+		It(
+			"should install middleware on every server registered before the call",
+			func(specCtx SpecContext) {
+				addr := address.Newf("localhost:%d", MustSucceed(net.FindOpenPort()))
+				app := newFiberApp(fiber.Config{DisableKeepalive: true})
+				router := MustSucceed(fhttp.NewRouter())
 
-			var calls int
-			server := fhttp.NewUnaryServer[test.Request, test.Response](router, "/echo")
-			server.BindHandler(func(_ context.Context, req test.Request) (test.Response, error) {
-				return test.Response(req), nil
-			})
-			router.Use(freighter.MiddlewareFunc(func(
-				ctx freighter.Context,
-				next freighter.Next,
-			) (freighter.Context, error) {
-				calls++
-				return next(ctx)
-			}))
-			router.BindTo(app)
-
-			go func() {
-				defer GinkgoRecover()
-				Expect(app.Listen(addr.PortString(), fiber.ListenConfig{
-					DisableStartupMessage: true,
-				})).To(Succeed())
-			}()
-			DeferCleanup(func() { Expect(app.Shutdown()).To(Succeed()) })
-			Eventually(func(g Gomega) {
-				g.Expect(
-					pollHealth("http://" + addr.String() + "/anything"),
-				).To(Succeed())
-			}).WithPolling(time.Millisecond).Should(Succeed())
-
-			client := MustSucceed(fhttp.NewUnaryClient[test.Request, test.Response](
-				fhttp.UnaryClientConfig{
-					Encoder:  json.Codec,
-					Decoders: []xhttp.Decoder{json.Codec},
-				},
-			))
-			MustSucceed(client.Send(specCtx, addr+"/echo", test.Request{ID: 1, Message: "hi"}))
-			Expect(calls).To(Equal(1))
-		})
-
-		It("should not install middleware on servers registered after the call", func(specCtx SpecContext) {
-			addr := address.Newf("localhost:%d", MustSucceed(net.FindOpenPort()))
-			app := newFiberApp(fiber.Config{DisableKeepalive: true})
-			router := MustSucceed(fhttp.NewRouter())
-
-			var calls int
-			router.Use(freighter.MiddlewareFunc(func(
-				ctx freighter.Context,
-				next freighter.Next,
-			) (freighter.Context, error) {
-				calls++
-				return next(ctx)
-			}))
-			server := fhttp.NewUnaryServer[test.Request, test.Response](router, "/echo")
-			server.BindHandler(func(_ context.Context, req test.Request) (test.Response, error) {
-				return test.Response(req), nil
-			})
-			router.BindTo(app)
-
-			go func() {
-				defer GinkgoRecover()
-				Expect(app.Listen(addr.PortString(), fiber.ListenConfig{
-					DisableStartupMessage: true,
-				})).To(Succeed())
-			}()
-			DeferCleanup(func() { Expect(app.Shutdown()).To(Succeed()) })
-			Eventually(func(g Gomega) {
-				g.Expect(
-					pollHealth("http://" + addr.String() + "/anything"),
-				).To(Succeed())
-			}).WithPolling(time.Millisecond).Should(Succeed())
-
-			client := MustSucceed(fhttp.NewUnaryClient[test.Request, test.Response](
-				fhttp.UnaryClientConfig{
-					Encoder:  json.Codec,
-					Decoders: []xhttp.Decoder{json.Codec},
-				},
-			))
-			Expect(client.Send(specCtx, addr+"/echo", test.Request{ID: 1, Message: "hi"})).To(Equal(test.Response{
-				ID:      1,
-				Message: "hi",
-			}))
-			Expect(calls).To(Equal(0))
-		})
-
-		It("should chain multiple middlewares in registration order", func(specCtx SpecContext) {
-			addr := address.Newf("localhost:%d", MustSucceed(net.FindOpenPort()))
-			app := newFiberApp(fiber.Config{DisableKeepalive: true})
-			router := MustSucceed(fhttp.NewRouter())
-
-			var order []string
-			server := fhttp.NewUnaryServer[test.Request, test.Response](router, "/echo")
-			server.BindHandler(func(_ context.Context, req test.Request) (test.Response, error) {
-				order = append(order, "handler")
-				return test.Response(req), nil
-			})
-			router.Use(
-				freighter.MiddlewareFunc(func(
+				var calls int
+				server := fhttp.NewUnaryServer[test.Request, test.Response](
+					router,
+					"/echo",
+				)
+				server.BindHandler(
+					func(_ context.Context, req test.Request) (test.Response, error) {
+						return test.Response(req), nil
+					},
+				)
+				router.Use(freighter.MiddlewareFunc(func(
 					ctx freighter.Context,
 					next freighter.Next,
 				) (freighter.Context, error) {
-					order = append(order, "first")
+					calls++
 					return next(ctx)
-				}),
-				freighter.MiddlewareFunc(func(
+				}))
+				router.BindTo(app)
+
+				go func() {
+					defer GinkgoRecover()
+					Expect(app.Listen(addr.PortString(), fiber.ListenConfig{
+						DisableStartupMessage: true,
+					})).To(Succeed())
+				}()
+				DeferCleanup(func() { Expect(app.Shutdown()).To(Succeed()) })
+				Eventually(func(g Gomega) {
+					g.Expect(
+						pollHealth("http://" + addr.String() + "/anything"),
+					).To(Succeed())
+				}).WithPolling(time.Millisecond).Should(Succeed())
+
+				client := MustSucceed(fhttp.NewUnaryClient[test.Request, test.Response](
+					fhttp.UnaryClientConfig{
+						Encoder:  json.Codec,
+						Decoders: []xhttp.Decoder{json.Codec},
+					},
+				))
+				MustSucceed(
+					client.Send(
+						specCtx,
+						addr+"/echo",
+						test.Request{ID: 1, Message: "hi"},
+					),
+				)
+				Expect(calls).To(Equal(1))
+			},
+		)
+
+		It(
+			"should not install middleware on servers registered after the call",
+			func(specCtx SpecContext) {
+				addr := address.Newf("localhost:%d", MustSucceed(net.FindOpenPort()))
+				app := newFiberApp(fiber.Config{DisableKeepalive: true})
+				router := MustSucceed(fhttp.NewRouter())
+
+				var calls int
+				router.Use(freighter.MiddlewareFunc(func(
 					ctx freighter.Context,
 					next freighter.Next,
 				) (freighter.Context, error) {
-					order = append(order, "second")
+					calls++
 					return next(ctx)
-				}),
-			)
-			router.BindTo(app)
+				}))
+				server := fhttp.NewUnaryServer[test.Request, test.Response](
+					router,
+					"/echo",
+				)
+				server.BindHandler(
+					func(_ context.Context, req test.Request) (test.Response, error) {
+						return test.Response(req), nil
+					},
+				)
+				router.BindTo(app)
 
-			go func() {
-				defer GinkgoRecover()
-				Expect(app.Listen(addr.PortString(), fiber.ListenConfig{
-					DisableStartupMessage: true,
-				})).To(Succeed())
-			}()
-			DeferCleanup(func() { Expect(app.Shutdown()).To(Succeed()) })
-			Eventually(func(g Gomega) {
-				g.Expect(
-					pollHealth("http://" + addr.String() + "/anything"),
-				).To(Succeed())
-			}).WithPolling(time.Millisecond).Should(Succeed())
+				go func() {
+					defer GinkgoRecover()
+					Expect(app.Listen(addr.PortString(), fiber.ListenConfig{
+						DisableStartupMessage: true,
+					})).To(Succeed())
+				}()
+				DeferCleanup(func() { Expect(app.Shutdown()).To(Succeed()) })
+				Eventually(func(g Gomega) {
+					g.Expect(
+						pollHealth("http://" + addr.String() + "/anything"),
+					).To(Succeed())
+				}).WithPolling(time.Millisecond).Should(Succeed())
 
-			client := MustSucceed(fhttp.NewUnaryClient[test.Request, test.Response](
-				fhttp.UnaryClientConfig{
-					Encoder:  json.Codec,
-					Decoders: []xhttp.Decoder{json.Codec},
-				},
-			))
-			Expect(client.Send(specCtx, addr+"/echo", test.Request{ID: 1, Message: "hi"})).To(Equal(test.Response{
-				ID:      1,
-				Message: "hi",
-			}))
-			Expect(order).To(Equal([]string{"first", "second", "handler"}))
-		})
+				client := MustSucceed(fhttp.NewUnaryClient[test.Request, test.Response](
+					fhttp.UnaryClientConfig{
+						Encoder:  json.Codec,
+						Decoders: []xhttp.Decoder{json.Codec},
+					},
+				))
+				Expect(
+					client.Send(
+						specCtx,
+						addr+"/echo",
+						test.Request{ID: 1, Message: "hi"},
+					),
+				).To(Equal(test.Response{
+					ID:      1,
+					Message: "hi",
+				}))
+				Expect(calls).To(Equal(0))
+			},
+		)
+
+		It(
+			"should chain multiple middlewares in registration order",
+			func(specCtx SpecContext) {
+				addr := address.Newf("localhost:%d", MustSucceed(net.FindOpenPort()))
+				app := newFiberApp(fiber.Config{DisableKeepalive: true})
+				router := MustSucceed(fhttp.NewRouter())
+
+				var order []string
+				server := fhttp.NewUnaryServer[test.Request, test.Response](
+					router,
+					"/echo",
+				)
+				server.BindHandler(
+					func(_ context.Context, req test.Request) (test.Response, error) {
+						order = append(order, "handler")
+						return test.Response(req), nil
+					},
+				)
+				router.Use(
+					freighter.MiddlewareFunc(func(
+						ctx freighter.Context,
+						next freighter.Next,
+					) (freighter.Context, error) {
+						order = append(order, "first")
+						return next(ctx)
+					}),
+					freighter.MiddlewareFunc(func(
+						ctx freighter.Context,
+						next freighter.Next,
+					) (freighter.Context, error) {
+						order = append(order, "second")
+						return next(ctx)
+					}),
+				)
+				router.BindTo(app)
+
+				go func() {
+					defer GinkgoRecover()
+					Expect(app.Listen(addr.PortString(), fiber.ListenConfig{
+						DisableStartupMessage: true,
+					})).To(Succeed())
+				}()
+				DeferCleanup(func() { Expect(app.Shutdown()).To(Succeed()) })
+				Eventually(func(g Gomega) {
+					g.Expect(
+						pollHealth("http://" + addr.String() + "/anything"),
+					).To(Succeed())
+				}).WithPolling(time.Millisecond).Should(Succeed())
+
+				client := MustSucceed(fhttp.NewUnaryClient[test.Request, test.Response](
+					fhttp.UnaryClientConfig{
+						Encoder:  json.Codec,
+						Decoders: []xhttp.Decoder{json.Codec},
+					},
+				))
+				Expect(
+					client.Send(
+						specCtx,
+						addr+"/echo",
+						test.Request{ID: 1, Message: "hi"},
+					),
+				).To(Equal(test.Response{
+					ID:      1,
+					Message: "hi",
+				}))
+				Expect(order).To(Equal([]string{"first", "second", "handler"}))
+			},
+		)
 	})
 })

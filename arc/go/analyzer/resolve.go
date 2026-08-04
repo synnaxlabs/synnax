@@ -56,7 +56,13 @@ func ResolveNodeTypes(
 		if !ok {
 			continue
 		}
-		if err := atypes.Check(cs, sourceParam.Type, targetParam.Type, nil, ""); err != nil {
+		if err := atypes.Check(
+			cs,
+			sourceParam.Type,
+			targetParam.Type,
+			nil,
+			"",
+		); err != nil {
 			diag.Add(diagnostics.Error(err, nil))
 			return false
 		}

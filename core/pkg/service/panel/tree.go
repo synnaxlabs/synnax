@@ -56,18 +56,28 @@ func validateTree(root Node) error {
 	return validateNode(root, set.New[uuid.UUID](), set.New[ontology.ID]())
 }
 
-func validateNode(n Node, seen set.Set[uuid.UUID], seenResources set.Set[ontology.ID]) error {
+func validateNode(
+	n Node,
+	seen set.Set[uuid.UUID],
+	seenResources set.Set[ontology.ID],
+) error {
 	switch v := n.Variant.(type) {
 	case NodeLeaf:
 		for _, t := range v.Tabs {
 			key := t.Key()
 			if seen.Contains(key) {
-				return errors.Wrap(validate.ErrValidation, "duplicate tab key in panel tree")
+				return errors.Wrap(
+					validate.ErrValidation,
+					"duplicate tab key in panel tree",
+				)
 			}
 			seen.Add(key)
 			if r, ok := t.Variant.(TabResource); ok {
 				if seenResources.Contains(r.Resource) {
-					return errors.Wrap(validate.ErrValidation, "duplicate resource in panel tree")
+					return errors.Wrap(
+						validate.ErrValidation,
+						"duplicate resource in panel tree",
+					)
 				}
 				seenResources.Add(r.Resource)
 			}
@@ -155,17 +165,21 @@ func updateAt(n Node, dirs []bool, f func(Node) (Node, error)) (Node, error) {
 // errInvalidPath when the path does not resolve or errNotALeaf when it resolves
 // to a split.
 func updateLeafAt(root *Node, pathKey int32, f func(Leaf) (Leaf, error)) error {
-	updated, err := updateAt(*root, pathDirections(pathKey), func(n Node) (Node, error) {
-		leaf, ok := n.Variant.(NodeLeaf)
-		if !ok {
-			return Node{}, errNotALeaf
-		}
-		next, err := f(leaf.Leaf)
-		if err != nil {
-			return Node{}, err
-		}
-		return Node{Variant: NodeLeaf{Leaf: next}}, nil
-	})
+	updated, err := updateAt(
+		*root,
+		pathDirections(pathKey),
+		func(n Node) (Node, error) {
+			leaf, ok := n.Variant.(NodeLeaf)
+			if !ok {
+				return Node{}, errNotALeaf
+			}
+			next, err := f(leaf.Leaf)
+			if err != nil {
+				return Node{}, err
+			}
+			return Node{Variant: NodeLeaf{Leaf: next}}, nil
+		},
+	)
 	if err != nil {
 		return err
 	}
@@ -349,7 +363,9 @@ func insertTabAt(root *Node, leafPath int32, tab Tab, index int32) error {
 // always takes the opposite side; size is the fraction allocated to the
 // original. Errors on locations that do not divide the area in two (e.g.,
 // "center").
-func directionAndSideForLocation(loc spatial.Location) (spatial.Direction, spatial.Order, error) {
+func directionAndSideForLocation(
+	loc spatial.Location,
+) (spatial.Direction, spatial.Order, error) {
 	switch loc {
 	case spatial.LocationLeft:
 		return spatial.DirectionX, spatial.OrderFirst, nil
@@ -374,21 +390,25 @@ func splitLeafAt(root *Node, leafPath int32, loc spatial.Location, size float64)
 	if err != nil {
 		return err
 	}
-	updated, err := updateAt(*root, pathDirections(leafPath), func(n Node) (Node, error) {
-		if _, ok := n.Variant.(NodeLeaf); !ok {
-			return Node{}, errNotALeaf
-		}
-		empty := Node{Variant: NodeLeaf{Leaf: Leaf{Tabs: []Tab{}}}}
-		split := Split{Direction: direction, Size: size}
-		if side == spatial.OrderFirst {
-			split.First = empty
-			split.Last = n
-		} else {
-			split.First = n
-			split.Last = empty
-		}
-		return Node{Variant: NodeSplit{Split: split}}, nil
-	})
+	updated, err := updateAt(
+		*root,
+		pathDirections(leafPath),
+		func(n Node) (Node, error) {
+			if _, ok := n.Variant.(NodeLeaf); !ok {
+				return Node{}, errNotALeaf
+			}
+			empty := Node{Variant: NodeLeaf{Leaf: Leaf{Tabs: []Tab{}}}}
+			split := Split{Direction: direction, Size: size}
+			if side == spatial.OrderFirst {
+				split.First = empty
+				split.Last = n
+			} else {
+				split.First = n
+				split.Last = empty
+			}
+			return Node{Variant: NodeSplit{Split: split}}, nil
+		},
+	)
 	if err != nil {
 		return err
 	}
@@ -399,7 +419,11 @@ func splitLeafAt(root *Node, leafPath int32, loc spatial.Location, size float64)
 // splitLeafForPlacement splits the leaf at leafPath at loc and returns the path
 // key of the new empty sibling leaf created by the split. Returns the same
 // errors as splitLeafAt.
-func splitLeafForPlacement(root *Node, leafPath int32, loc spatial.Location) (int32, error) {
+func splitLeafForPlacement(
+	root *Node,
+	leafPath int32,
+	loc spatial.Location,
+) (int32, error) {
 	if err := splitLeafAt(root, leafPath, loc, 0.5); err != nil {
 		return 0, err
 	}

@@ -30,9 +30,7 @@ import (
 
 var _ = Describe("Meta", func() {
 	for fsName, openFS := range FileSystems {
-		var (
-			fs fs.FS
-		)
+		var fs fs.FS
 		BeforeEach(func() {
 			fs = openFS()
 		})
@@ -67,30 +65,32 @@ var _ = Describe("Meta", func() {
 			})
 
 			Describe("Impossible meta configurations", func() {
-				DescribeTable("meta configs", func(ctx SpecContext, ch channel.Channel, badField string) {
-					key := GenerateChannelKey()
-					subFs := MustSucceed(fs.Sub(strconv.Itoa(int(key))))
-					createdChannel := MustSucceed(
-						meta.Open(
-							ctx,
-							subFs,
-							channel.Channel{
-								Key:      key,
-								Name:     "John",
-								Virtual:  true,
-								DataType: telem.Int64T,
-							},
-							json.Codec),
-					)
-					Expect(createdChannel.Key).To(Equal(key))
+				DescribeTable(
+					"meta configs",
+					func(ctx SpecContext, ch channel.Channel, badField string) {
+						key := GenerateChannelKey()
+						subFs := MustSucceed(fs.Sub(strconv.Itoa(int(key))))
+						createdChannel := MustSucceed(
+							meta.Open(
+								ctx,
+								subFs,
+								channel.Channel{
+									Key:      key,
+									Name:     "John",
+									Virtual:  true,
+									DataType: telem.Int64T,
+								},
+								json.Codec),
+						)
+						Expect(createdChannel.Key).To(Equal(key))
 
-					f := MustSucceed(subFs.Open("meta.json", os.O_WRONLY))
-					Expect(json.Codec.EncodeStream(ctx, f, ch)).To(Succeed())
-					Expect(f.Close()).To(Succeed())
+						f := MustSucceed(subFs.Open("meta.json", os.O_WRONLY))
+						Expect(json.Codec.EncodeStream(ctx, f, ch)).To(Succeed())
+						Expect(f.Close()).To(Succeed())
 
-					Expect(meta.Open(ctx, subFs, ch, json.Codec)).Error().
-						To(MatchError(ContainSubstring(badField)))
-				},
+						Expect(meta.Open(ctx, subFs, ch, json.Codec)).Error().
+							To(MatchError(ContainSubstring(badField)))
+					},
 					Entry(
 						"datatype not set",
 						channel.Channel{
@@ -122,38 +122,40 @@ var _ = Describe("Meta", func() {
 				)
 			})
 
-			It("Should not delete the original file if an error occurs while encoding", func(ctx SpecContext) {
-				key := GenerateChannelKey()
-				subFs := MustSucceed(fs.Sub(strconv.Itoa(int(key))))
-				ch := MustSucceed(meta.Open(
-					ctx,
-					subFs,
-					channel.Channel{
-						Key:      key,
-						Name:     "Faraday",
-						Virtual:  true,
-						DataType: telem.Int64T,
-					},
-					json.Codec,
-				))
-				Expect(ch.Key).To(Equal(key))
+			It(
+				"Should not delete the original file if an error occurs while encoding",
+				func(ctx SpecContext) {
+					key := GenerateChannelKey()
+					subFs := MustSucceed(fs.Sub(strconv.Itoa(int(key))))
+					ch := MustSucceed(meta.Open(
+						ctx,
+						subFs,
+						channel.Channel{
+							Key:      key,
+							Name:     "Faraday",
+							Virtual:  true,
+							DataType: telem.Int64T,
+						},
+						json.Codec,
+					))
+					Expect(ch.Key).To(Equal(key))
 
-				Expect(meta.Create(ctx, subFs, &brokenCodec{}, ch)).Error().
-					To(MatchError(errEncoding))
-				Expect(subFs.Exists("meta.json")).To(BeTrue())
+					Expect(meta.Create(ctx, subFs, &brokenCodec{}, ch)).Error().
+						To(MatchError(errEncoding))
+					Expect(subFs.Exists("meta.json")).To(BeTrue())
 
-				Expect(meta.Read(ctx, subFs, &brokenCodec{})).Error().
-					To(MatchError(errEncoding))
-				Expect(subFs.Exists("meta.json")).To(BeTrue())
-				Expect(subFs.Exists("meta.json.tmp")).To(BeFalse())
+					Expect(meta.Read(ctx, subFs, &brokenCodec{})).Error().
+						To(MatchError(errEncoding))
+					Expect(subFs.Exists("meta.json")).To(BeTrue())
+					Expect(subFs.Exists("meta.json.tmp")).To(BeFalse())
 
-				ch2 := MustSucceed(meta.Read(ctx, subFs, json.Codec))
-				Expect(ch2.Key).To(Equal(key))
-				Expect(ch2.Name).To(Equal("Faraday"))
-				Expect(ch2.Virtual).To(BeTrue())
-				Expect(ch2.DataType).To(Equal(telem.Int64T))
-
-			})
+					ch2 := MustSucceed(meta.Read(ctx, subFs, json.Codec))
+					Expect(ch2.Key).To(Equal(key))
+					Expect(ch2.Name).To(Equal("Faraday"))
+					Expect(ch2.Virtual).To(BeTrue())
+					Expect(ch2.DataType).To(Equal(telem.Int64T))
+				},
+			)
 		})
 	}
 })

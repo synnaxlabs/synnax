@@ -58,7 +58,7 @@ const MoveToNewWindowItem = (): ReactElement => {
   return (
     <Menu.Item itemKey="move-to-new-window" onClick={handleMove}>
       <Icon.OpenInNewWindow />
-      Move to New Window
+      Move to new window
     </Menu.Item>
   );
 };

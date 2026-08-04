@@ -7,15 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Errors, Flux, Icon, Panel } from "@synnaxlabs/pluto";
+import { Errors, type Flux, Icon, Panel } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
-import { resourceOnly } from "@/feature/panel/fallback";
 import { isNotFound } from "@/feature/panel/Mosaic";
-import { useResetOnRestore } from "@/feature/panel/useResetOnRestore";
 import { Empty } from "@/platform/empty";
 import { type Nav } from "@/platform/nav";
-import { useTab } from "@/platform/panel/tab";
+import { ResourceGuard, useTab } from "@/platform/panel/tab";
 import { Toolbar } from "@/platform/toolbar";
 import { Session } from "@/session";
 
@@ -34,38 +32,35 @@ const EmptyContent = ({
   </Toolbar.Content>
 );
 
-// The toolbar reads the same queries as the tab's content, so a deleted or
-// missing resource throws here too. Show a quiet placeholder; the tombstone
-// with Close and Restore lives in the mosaic.
-const MissingResourceContent = ({
-  error,
-  resetErrorBoundary,
-}: Errors.FallbackProps): ReactElement => {
-  useResetOnRestore(resetErrorBoundary);
-  const message = Flux.DeletedError.matches(error)
-    ? `${error.corpseName ?? "This resource"} was deleted.`
-    : "This resource could not be found.";
-  return <EmptyContent message={message} />;
+// The toolbar reads the same queries as the tab's content, so a deleted
+// resource empties it too. Show a quiet placeholder; the tombstone with Close
+// and Restore lives in the mosaic.
+const DeletedContent = ({ name }: Flux.Tombstone): ReactElement => (
+  <EmptyContent message={`${name ?? "This resource"} was deleted.`} />
+);
+
+// The toolbar reads the same queries as the tab's content, so a missing
+// resource throws here too. Deletion is handled by the ResourceGuard.
+const NotFoundFallback = (props: Errors.FallbackProps): ReactElement => {
+  if (!isNotFound(props.error)) return <Errors.Fallback {...props} />;
+  return <EmptyContent message="This resource could not be found." />;
 };
 
-const MissingContent = resourceOnly(MissingResourceContent);
-
-const Fallback = (props: Errors.FallbackProps): ReactElement => {
-  const { error } = props;
-  if (!Flux.DeletedError.matches(error) && !isNotFound(error))
-    return <Errors.Fallback {...props} />;
-  return <MissingContent {...props} />;
-};
-
-const Content = (): ReactElement => {
+const LiveContent = (): ReactElement => {
   const { Toolbar } = useTab();
   if (Toolbar == null) return <EmptyContent />;
   return (
-    <Errors.SuspenseBoundary FallbackComponent={Fallback}>
+    <Errors.SuspenseBoundary FallbackComponent={NotFoundFallback}>
       <Toolbar />
     </Errors.SuspenseBoundary>
   );
 };
+
+const Content = (): ReactElement => (
+  <ResourceGuard FallbackComponent={DeletedContent}>
+    <LiveContent />
+  </ResourceGuard>
+);
 
 const Wrapper = () => {
   const panelKey = Session.Panel.useSelectSelected();
