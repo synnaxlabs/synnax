@@ -10,9 +10,10 @@
  */
 
 .console-arc-create-modal {
+    width: 120rem;
+
     .console-arc-create-modal__mode-select-button {
         padding: 2rem 3rem;
-        max-width: 400px;
         overflow: hidden;
         text-align: start;
     }

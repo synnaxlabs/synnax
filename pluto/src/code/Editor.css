@@ -41,6 +41,11 @@
     color: var(--pluto-gray-l9) !important;
 }
 
+/* Outranks the .mtk* token colors monaco also puts on the injected span. */
+.pluto-editor .pluto-editor__placeholder {
+    color: var(--pluto-text-placeholder) !important;
+}
+
 .pluto-editor {
     height: 100%;
     padding: 2rem 1px;

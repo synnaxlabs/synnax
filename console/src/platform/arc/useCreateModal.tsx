@@ -37,7 +37,7 @@ export interface CreateModalParams {
   initialValues?: Partial<z.infer<typeof Arc.formSchema>>;
 }
 
-const MODE_KEYS: arc.Mode[] = ["graph", "text"];
+const MODE_KEYS: arc.Mode[] = ["text", "graph"];
 
 const QUERY: Arc.FormQuery = {};
 
@@ -120,16 +120,16 @@ export const useCreateModal = Modals.createPrompt<CreateModalResult, CreateModal
                   full="x"
                 >
                   <ArcModeSelectButton
-                    itemKey="graph"
-                    icon={<Icon.Schematic />}
-                    title="Graph"
-                    description="Visual, block-based editor that is best for simple automations such as alarms"
-                  />
-                  <ArcModeSelectButton
                     itemKey="text"
                     icon={<Icon.Text />}
                     title="Text"
                     description="Text-based editor that is best for complex automations such as control sequences"
+                  />
+                  <ArcModeSelectButton
+                    itemKey="graph"
+                    icon={<Icon.Schematic />}
+                    title="Graph"
+                    description="Visual, block-based editor that is best for simple automations such as alarms"
                   />
                 </Select.Buttons>
               )}

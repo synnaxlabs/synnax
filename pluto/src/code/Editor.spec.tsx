@@ -93,6 +93,7 @@ const createFakeModel = (initial: string, language: string, uri?: unknown) => {
     uri,
     language,
     getValue: () => value,
+    getValueLength: () => value.length,
     getPositionAt: (offset: number) => offsetToPosition(value, offset),
     applyEdits: vi.fn((edits: Edit[]) => {
       for (const edit of edits) {
@@ -139,8 +140,14 @@ const createFakeEditor = (model: FakeModel) => {
   model._setNotify((changes) => content.emit({ changes }));
   let position = { lineNumber: 1, column: 1 };
   let selection: Range | null = null;
+  const decorationSets: unknown[][] = [];
   const editor = {
     getModel: () => model,
+    createDecorationsCollection: vi.fn(() => ({
+      set: (next: unknown[]) => decorationSets.push(next),
+      clear: vi.fn(),
+    })),
+    decorationSets,
     getValue: () => model.getValue(),
     getPosition: () => position,
     getSelection: () => selection,
@@ -577,6 +584,87 @@ describe("Editor", () => {
       unmount();
       act(() => editor.userType("after"));
       expect(onValueChange).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("placeholder", () => {
+    const PLACEHOLDER = "write something";
+
+    it("should inject the placeholder while the document is empty", () => {
+      renderEditor({ placeholder: PLACEHOLDER });
+      const [decorations] = monaco.editorInstance.decorationSets;
+      expect(decorations).toEqual([
+        {
+          range: { startLineNumber: 1, startColumn: 1, endLineNumber: 1, endColumn: 1 },
+          options: {
+            // Without showIfCollapsed monaco drops the decoration: its range is empty.
+            showIfCollapsed: true,
+            after: {
+              content: PLACEHOLDER,
+              inlineClassName: "pluto-editor__placeholder",
+            },
+          },
+        },
+      ]);
+    });
+
+    it("should not inject a placeholder when the document already has content", () => {
+      renderEditor({ placeholder: PLACEHOLDER, initialValue: "on x" });
+      expect(monaco.editorInstance.decorationSets).toHaveLength(0);
+    });
+
+    it("should drop the placeholder once, on the edit that fills the document", () => {
+      renderEditor({ placeholder: PLACEHOLDER });
+      const editor = monaco.editorInstance;
+      act(() => editor.userType("o"));
+      act(() => editor.userType("on"));
+      expect(editor.decorationSets).toHaveLength(2);
+      expect(editor.decorationSets[1]).toEqual([]);
+    });
+
+    it("should restore the placeholder when the document is emptied again", () => {
+      renderEditor({ placeholder: PLACEHOLDER });
+      const editor = monaco.editorInstance;
+      act(() => editor.userType("on"));
+      act(() => editor.userType(""));
+      expect(editor.decorationSets).toHaveLength(3);
+      expect(editor.decorationSets[2]).toHaveLength(1);
+    });
+
+    it("should leave decorations alone when no placeholder is given", () => {
+      renderEditor();
+      expect(monaco.editorInstance.decorationSets).toHaveLength(0);
+    });
+  });
+
+  describe("autoFocus", () => {
+    it("should focus the editor a frame after creation", () => {
+      const frames: FrameRequestCallback[] = [];
+      vi.spyOn(window, "requestAnimationFrame").mockImplementation((cb) => {
+        frames.push(cb);
+        return frames.length;
+      });
+      renderEditor({ autoFocus: true });
+      const editor = monaco.editorInstance;
+      // A frame late, so the teardown of whatever opened the editor cannot reclaim focus.
+      expect(editor.focus).not.toHaveBeenCalled();
+      act(() => frames.forEach((f) => f(0)));
+      expect(editor.focus).toHaveBeenCalledTimes(1);
+    });
+
+    it("should not focus the editor when autoFocus is unset", () => {
+      renderEditor();
+      expect(monaco.editorInstance.focus).not.toHaveBeenCalled();
+    });
+
+    it("should cancel the pending frame when torn down before it runs", () => {
+      vi.spyOn(window, "requestAnimationFrame").mockReturnValue(7);
+      const cancel = vi
+        .spyOn(window, "cancelAnimationFrame")
+        .mockImplementation(vi.fn());
+      const { unmount } = renderEditor({ autoFocus: true });
+      unmount();
+      expect(cancel).toHaveBeenCalledWith(7);
     });
   });
 
