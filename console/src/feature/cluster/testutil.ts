@@ -14,10 +14,10 @@ import { getBySelector } from "@/testutil";
 /**
  * Hovers the rendered ConnectionBadge's trigger to open its tooltip. The badge
  * renders an icon-only button with no accessible handle, so the structural selector
- * lives here.
+ * lives here. The tooltip opens on pointerover and ignores touch pointers.
  */
 export const hoverConnectionBadge = (container: HTMLElement): void => {
-  fireEvent.mouseEnter(getBySelector(container, "button"));
+  fireEvent.pointerOver(getBySelector(container, "button"), { pointerType: "mouse" });
 };
 
 /** Clicks the rendered ConnectionBadge's trigger to open its dialog. */

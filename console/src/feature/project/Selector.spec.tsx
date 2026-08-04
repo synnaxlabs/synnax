@@ -16,9 +16,18 @@ import { describe, expect, it } from "vitest";
 import { Project } from "@/feature/project";
 import { createActiveState } from "@/platform/project/testutil";
 import { Session } from "@/session";
-import { createConsoleWrapper, renderWithConsole } from "@/testutil";
+import {
+  createConsoleWrapper,
+  getBySelector,
+  renderWithConsole,
+  stubGeometry,
+} from "@/testutil";
 
 const client: Synnax = createTestClient();
+
+// The selector's dialog list is virtualized and renders no rows under jsdom's
+// zero-size layout.
+stubGeometry();
 
 describe("Project.Selector", () => {
   it("renders nothing when the user lacks retrieve permission", async () => {
@@ -46,10 +55,15 @@ describe("Project.Selector", () => {
       client,
       preloadedState: { [Session.Project.SLICE_NAME]: createActiveState(active) },
     });
-    render(<Project.Selector />, { wrapper });
+    const { container } = render(<Project.Selector />, { wrapper });
 
-    const trigger = await screen.findByText(active.name);
+    // The trigger renders the active project's avatar, not its name.
+    const trigger = await waitFor(() => getBySelector(container, ".console-trigger"));
     fireEvent.click(trigger);
+    // The dialog's list is virtualized and every project in the cluster is a
+    // candidate, so search the target down rather than scrolling to it.
+    const search = await screen.findByPlaceholderText("Search projects...");
+    fireEvent.change(search, { target: { value: target.name } });
     fireEvent.click(await screen.findByText(target.name));
 
     await waitFor(() =>
