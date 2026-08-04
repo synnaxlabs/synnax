@@ -26,7 +26,6 @@
         font-variant-numeric: tabular-nums;
     }
 
-    /* SET stays a quiet gray chip when no symbol color is set. */
     .pluto-btn.pluto-btn--filled.pluto-symbol-button {
         border-width: 1px;
         --pluto-bg: var(--pluto-gray-l3);
@@ -38,10 +37,7 @@
         --pluto-btn-text-color: var(--pluto-gray-l10);
     }
 
-    /* Colored: the value's chassis recipe, SET muted to a tint of the color. */
     &.pluto--colored {
-        /* Focus deepens the fill a step; the border var pin below keeps the
-           ring in the symbol's hue. */
         .pluto-input.pluto-btn:focus-within {
             background: color-mix(
                 in oklab,

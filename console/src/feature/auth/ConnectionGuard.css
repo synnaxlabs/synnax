@@ -21,14 +21,10 @@
     opacity: 1;
 }
 
-/* Holds the countdown's text-line height when only the loading icon renders,
-   so the swap doesn't shift the attempt count below it. */
 .console-connection__countdown {
     height: 1lh;
 }
 
-/* A long name or address wraps whole items onto a new centered line; an item
-   too long even for its own line truncates with an ellipsis. */
 .console-connection__target {
     flex-wrap: wrap;
 
@@ -58,16 +54,10 @@
     height: 2rem;
 }
 
-/* Equal basis so the growing buttons split the row evenly regardless of
-   label length. */
 .console-connection__actions > * {
     flex-basis: 0;
 }
 
-/* ---------- orbital loader ---------- */
-
-/* The splash wears the orbital at full size; the delay is carried by the
-   card's own reveal, so the figure must not hold itself back a second time. */
 .console-connection .pluto-orbital {
     --pluto-orbital-size: 45rem;
     --pluto-loading-delay: 0ms;
