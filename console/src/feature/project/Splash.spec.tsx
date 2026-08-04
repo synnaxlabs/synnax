@@ -39,6 +39,10 @@ describe("project/Splash", () => {
       const { wrapper, store } = await createConsoleWrapper({ client });
       render(<Project.Splash />, { wrapper });
 
+      // The list pages at 20 and the cluster may hold more, so search the project
+      // down instead of assuming it lands on the first page.
+      const search = await screen.findByPlaceholderText("Search projects...");
+      fireEvent.change(search, { target: { value: name } });
       fireEvent.click(await screen.findByText(name));
 
       await waitFor(() => {

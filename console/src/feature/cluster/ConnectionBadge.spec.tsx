@@ -12,7 +12,15 @@ import { describe, expect, it } from "vitest";
 
 import { Cluster } from "@/feature/cluster";
 import { clickConnectionBadge, hoverConnectionBadge } from "@/feature/cluster/testutil";
-import { createConnectedConsoleWrapper, renderWithConsole } from "@/testutil";
+import {
+  createConnectedConsoleWrapper,
+  renderWithConsole,
+  stubGeometry,
+} from "@/testutil";
+
+// The tooltip closes itself when its anchor measures zero area, which is jsdom's
+// default, so the hover assertions need real geometry.
+stubGeometry();
 
 describe("ConnectionBadge", () => {
   it("should report disconnected when no cluster connection exists", async () => {

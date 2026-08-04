@@ -36,7 +36,7 @@ describe("parseType", () => {
 
 describe("getIcon", () => {
   it.each([
-    ["ethercat_read", Icon.Device],
+    ["ethercat_read", Icon.Logo.EtherCAT],
     ["http_scan", Icon.Logo.HTTP],
     ["labjack_read", Icon.Logo.LabJack],
     ["modbus_read", Icon.Logo.Modbus],

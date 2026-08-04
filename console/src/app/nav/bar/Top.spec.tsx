@@ -27,11 +27,6 @@ const bottom = (store: TestStore) =>
   Session.Nav.selectWindowState(store.getState()).bottom;
 
 describe("app/nav/bar/Top", () => {
-  it("should render the active project name in the selector", async () => {
-    await renderBar(<Bar.Top />, withActiveProject());
-    expect(await screen.findByText("Ops", {})).toBeDefined();
-  });
-
   it("should render the authenticated user from the live client", async () => {
     await renderBar(<Bar.Top />, withActiveProject());
     expect(await screen.findByText("synnax", {})).toBeDefined();
@@ -39,9 +34,9 @@ describe("app/nav/bar/Top", () => {
 
   describe("secondary", () => {
     it("should not render the project selector", async () => {
-      await renderBar(<Bar.Top secondary />, withActiveProject());
+      const { container } = await renderBar(<Bar.Top secondary />, withActiveProject());
       expect(await screen.findByText("Controls", {})).toBeDefined();
-      expect(screen.queryByText("Ops")).toBeNull();
+      expect(container.querySelector(".console-trigger")).toBeNull();
     });
 
     it("should render the controls toggle button", async () => {

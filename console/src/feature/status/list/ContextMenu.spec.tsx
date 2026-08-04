@@ -80,7 +80,7 @@ describe("status list context menu", () => {
   it("should copy the status diagnostics to the clipboard", async () => {
     const s = await createStatus("valve stuck open");
     await renderMenu([s.key]);
-    fireEvent.click(await screen.findByText("Copy Diagnostics"));
+    fireEvent.click(await screen.findByText("Copy diagnostics"));
     await waitFor(() => expect(clipboard).toHaveBeenCalledTimes(1));
     const copied = clipboard.mock.calls[0][0];
     expect(copied).toContain(s.name);

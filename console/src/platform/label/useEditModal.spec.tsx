@@ -53,7 +53,9 @@ const openModal = async () => {
 describe("Label.useEditModal", () => {
   it("should reveal the create form when the add button is clicked", async () => {
     await openModal();
-    await waitFor(() => expect(screen.getByText("Search labels...")).toBeTruthy());
+    await waitFor(() =>
+      expect(screen.getByPlaceholderText("Search labels...")).toBeTruthy(),
+    );
     expect(screen.getByText("Edit")).toBeTruthy();
     expect(getCreateItem().className).toContain("pluto--hidden");
     fireEvent.click(getAddButton());
@@ -66,7 +68,9 @@ describe("Label.useEditModal", () => {
 
   it("should persist a new label to the cluster from the create form", async () => {
     const { client } = await openModal();
-    await waitFor(() => expect(screen.getByText("Search labels...")).toBeTruthy());
+    await waitFor(() =>
+      expect(screen.getByPlaceholderText("Search labels...")).toBeTruthy(),
+    );
     fireEvent.click(getAddButton());
     const name = uniqueName("label");
     const nameInput = screen.getByPlaceholderText<HTMLInputElement>("Label Name");
