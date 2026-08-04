@@ -70,7 +70,6 @@ const Content = () => {
   const client = Synnax.use();
   const [selected, setSelected] = useState<task.Key[]>([]);
   const addStatus = Status.useAdder();
-  const confirm = Modals.useConfirm();
   const confirmDelete = Modals.useConfirmDelete({ type: "Task" });
   const menuProps = Menu.useContextMenu();
   const openTab = Panel.useOpenTab();
