@@ -12,7 +12,12 @@ import { describe, expect, it, test } from "vitest";
 
 import { UnauthorizedError, ValidationError } from "@/errors";
 import { ALWAYS_INDEX_PERSIST_ON_AUTO_COMMIT, WriterMode } from "@/framer/writer";
-import { createTestClient, newIndexedPair, secondsLinspace } from "@/testutil";
+import {
+  createTestClient,
+  newIndexedBoolPair,
+  newIndexedPair,
+  secondsLinspace,
+} from "@/testutil";
 import { randomSeries } from "@/util/telem";
 
 const client = createTestClient();
@@ -34,6 +39,28 @@ describe("Writer", () => {
         await writer.close();
       }
       expect(true).toBe(true);
+    });
+
+    test("bool write and read round-trip", async () => {
+      const [index, boolCh] = await newIndexedBoolPair(client);
+      const samples = [true, false, true, true, false, false, false, true, true];
+      const start = TimeStamp.seconds(1);
+      const writer = await client.openWriter({
+        start,
+        channels: [index, boolCh],
+      });
+      try {
+        await writer.write({
+          [index.key]: secondsLinspace(1, samples.length),
+          [boolCh.key]: new Series({ data: samples, dataType: DataType.BOOLEAN }),
+        });
+        await writer.commit();
+      } finally {
+        await writer.close();
+      }
+      const fr = await client.read(TimeRange.MAX, boolCh.key);
+      expect(fr.series[0].length).toEqual(samples.length);
+      expect(Array.from(fr.series[0])).toEqual(samples);
     });
 
     test("write to unknown channel key", async () => {
@@ -255,7 +282,7 @@ describe("Writer", () => {
       await expect(async () => {
         await writer.close();
       }).rejects.toThrow(ValidationError);
-    }, 5000000);
+    });
 
     test("write with errOnUnauthorized", async () => {
       const channels = await newIndexedPair(client);

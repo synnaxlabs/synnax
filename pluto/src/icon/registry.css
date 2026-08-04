@@ -13,6 +13,18 @@
     animation: spin 1s infinite linear;
 }
 
+/* Default transform-box for SVG elements is view-box, so center resolves to
+   the icon's midpoint and both stars orbit it. */
+.pluto-icon--loading .pluto-loading__orbit {
+    transform-origin: center;
+    animation: spin 1.2s linear infinite;
+}
+
+.pluto-icon--loading .pluto-loading__orbit--reverse {
+    animation-duration: 1.8s;
+    animation-direction: reverse;
+}
+
 @keyframes spin {
     from {
         transform: rotate(0deg);

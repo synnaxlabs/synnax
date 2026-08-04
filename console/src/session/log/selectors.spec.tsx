@@ -18,7 +18,10 @@ import { Log } from "@/session/log";
 
 const KEY = "log-1";
 
-const customState = Log.stateZ.parse({ toolbar: { selectedTab: "properties" } });
+const customState = Log.stateZ.parse({
+  hold: true,
+  toolbar: { selectedTab: "properties" },
+});
 
 const storeWith = (slice: Log.SliceState) =>
   configureStore({
@@ -61,6 +64,13 @@ describe("log selector hooks", () => {
       wrapper: wrapperFor(createCustomStore(), KEY),
     });
     expect(result.current).toBe("properties");
+  });
+
+  it("should read the hold state", () => {
+    const { result } = renderHook(() => Log.useSelectHold(), {
+      wrapper: wrapperFor(createCustomStore(), KEY),
+    });
+    expect(result.current).toBe(true);
   });
 });
 

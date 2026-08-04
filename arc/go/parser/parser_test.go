@@ -1297,7 +1297,7 @@ sensor -> demux{threshold=100} -> {
 
 				// First entry: high -> alarm{}
 				Expect(entries[0].IDENTIFIER(0).GetText()).To(Equal("high"))
-				Expect(entries[0].AllARROW()).To(BeEmpty())
+				Expect(entries[0].AllFlowOperator()).To(BeEmpty())
 				highTargets := entries[0].AllFlowNode()
 				Expect(highTargets).To(HaveLen(1))
 				Expect(highTargets[0].Function()).NotTo(BeNil())
@@ -1309,6 +1309,22 @@ sensor -> demux{threshold=100} -> {
 				Expect(lowTargets).To(HaveLen(1))
 				Expect(lowTargets[0].Function()).NotTo(BeNil())
 				Expect(lowTargets[0].Function().IDENTIFIER().GetText()).To(Equal("logger"))
+			})
+
+			It("Should parse a => transition inside a routing case body", func() {
+				prog := mustParseProgram(`
+sensor -> select{} -> {
+    true: value > 450 => restore_helium
+}`)
+				flow := prog.TopLevelItem(0).FlowStatement()
+				entries := flow.AllRoutingTable()[0].AllRoutingEntry()
+				Expect(entries).To(HaveLen(1))
+				Expect(entries[0].IDENTIFIER(0).GetText()).To(Equal("true"))
+				Expect(entries[0].AllFlowNode()).To(HaveLen(2))
+				ops := entries[0].AllFlowOperator()
+				Expect(ops).To(HaveLen(1))
+				Expect(ops[0].TRANSITION()).NotTo(BeNil())
+				Expect(ops[0].ARROW()).To(BeNil())
 			})
 
 			It("Should parse routing table with three outputs", func() {
@@ -1385,7 +1401,7 @@ sensor -> state_router{} -> {
 				Expect(entries[0].IDENTIFIER(0).GetText()).To(Equal("idle_out"))
 				entry0Nodes := entries[0].AllFlowNode()
 				Expect(entry0Nodes).To(HaveLen(2))
-				Expect(entries[0].AllARROW()).To(HaveLen(1))
+				Expect(entries[0].AllFlowOperator()).To(HaveLen(1))
 				Expect(entry0Nodes[0].Function().IDENTIFIER().GetText()).To(Equal("processor"))
 				Expect(entry0Nodes[1].Function().IDENTIFIER().GetText()).To(Equal("idle_display"))
 
@@ -1393,7 +1409,39 @@ sensor -> state_router{} -> {
 				Expect(entries[1].IDENTIFIER(0).GetText()).To(Equal("active_out"))
 				entry1Nodes := entries[1].AllFlowNode()
 				Expect(entry1Nodes).To(HaveLen(2))
-				Expect(entries[1].AllARROW()).To(HaveLen(1))
+				Expect(entries[1].AllFlowOperator()).To(HaveLen(1))
+				Expect(entry1Nodes[0].Function().IDENTIFIER().GetText()).To(Equal("controller"))
+				Expect(entry1Nodes[1].Identifier().IDENTIFIER().GetText()).To(Equal("actuator"))
+			})
+
+			It("Should parse routing table with chained nodes via => transition", func() {
+				prog := mustParseProgram(`
+sensor -> state_router{} -> {
+    idle_out: processor{} => idle_display{},
+    active_out: controller{} => actuator
+}`)
+
+				flow := prog.TopLevelItem(0).FlowStatement()
+				entries := flow.AllRoutingTable()[0].AllRoutingEntry()
+				Expect(entries).To(HaveLen(2))
+
+				// First entry: idle_out: processor{} => idle_display{}
+				Expect(entries[0].IDENTIFIER(0).GetText()).To(Equal("idle_out"))
+				entry0Nodes := entries[0].AllFlowNode()
+				Expect(entry0Nodes).To(HaveLen(2))
+				ops0 := entries[0].AllFlowOperator()
+				Expect(ops0).To(HaveLen(1))
+				Expect(ops0[0].TRANSITION()).NotTo(BeNil())
+				Expect(entry0Nodes[0].Function().IDENTIFIER().GetText()).To(Equal("processor"))
+				Expect(entry0Nodes[1].Function().IDENTIFIER().GetText()).To(Equal("idle_display"))
+
+				// Second entry: active_out: controller{} => actuator
+				Expect(entries[1].IDENTIFIER(0).GetText()).To(Equal("active_out"))
+				entry1Nodes := entries[1].AllFlowNode()
+				Expect(entry1Nodes).To(HaveLen(2))
+				ops1 := entries[1].AllFlowOperator()
+				Expect(ops1).To(HaveLen(1))
+				Expect(ops1[0].TRANSITION()).NotTo(BeNil())
 				Expect(entry1Nodes[0].Function().IDENTIFIER().GetText()).To(Equal("controller"))
 				Expect(entry1Nodes[1].Identifier().IDENTIFIER().GetText()).To(Equal("actuator"))
 			})
@@ -1449,7 +1497,7 @@ stage1{} -> {
 				entry0 := entries[0]
 				Expect(entry0.IDENTIFIER(0).GetText()).To(Equal("out1"))
 				Expect(entry0.AllFlowNode()).To(HaveLen(2))
-				Expect(entry0.AllARROW()).To(HaveLen(1))
+				Expect(entry0.AllFlowOperator()).To(HaveLen(1))
 				Expect(entry0.AllIDENTIFIER()).To(HaveLen(2))
 				Expect(entry0.IDENTIFIER(1).GetText()).To(Equal("input"))
 
@@ -1457,7 +1505,39 @@ stage1{} -> {
 				entry1 := entries[1]
 				Expect(entry1.IDENTIFIER(0).GetText()).To(Equal("out2"))
 				Expect(entry1.AllFlowNode()).To(HaveLen(2))
-				Expect(entry1.AllARROW()).To(HaveLen(1))
+				Expect(entry1.AllFlowOperator()).To(HaveLen(1))
+				Expect(entry1.AllIDENTIFIER()).To(HaveLen(2))
+				Expect(entry1.IDENTIFIER(1).GetText()).To(Equal("value"))
+			})
+
+			It("Should parse routing table with => chained processing and parameter mapping", func() {
+				prog := mustParseProgram(`
+stage1{} -> {
+    out1: filter{} => amplifier{}: input,
+    out2: processor{} => converter{}: value
+} -> stage2{}`)
+
+				flow := prog.TopLevelItem(0).FlowStatement()
+				entries := flow.AllRoutingTable()[0].AllRoutingEntry()
+				Expect(entries).To(HaveLen(2))
+
+				// First entry: out1: filter{} => amplifier{}: input
+				entry0 := entries[0]
+				Expect(entry0.IDENTIFIER(0).GetText()).To(Equal("out1"))
+				Expect(entry0.AllFlowNode()).To(HaveLen(2))
+				ops0 := entry0.AllFlowOperator()
+				Expect(ops0).To(HaveLen(1))
+				Expect(ops0[0].TRANSITION()).NotTo(BeNil())
+				Expect(entry0.AllIDENTIFIER()).To(HaveLen(2))
+				Expect(entry0.IDENTIFIER(1).GetText()).To(Equal("input"))
+
+				// Second entry: out2: processor{} => converter{}: value
+				entry1 := entries[1]
+				Expect(entry1.IDENTIFIER(0).GetText()).To(Equal("out2"))
+				Expect(entry1.AllFlowNode()).To(HaveLen(2))
+				ops1 := entry1.AllFlowOperator()
+				Expect(ops1).To(HaveLen(1))
+				Expect(ops1[0].TRANSITION()).NotTo(BeNil())
 				Expect(entry1.AllIDENTIFIER()).To(HaveLen(2))
 				Expect(entry1.IDENTIFIER(1).GetText()).To(Equal("value"))
 			})
@@ -1550,7 +1630,7 @@ sensor -> demux{threshold=100.0} -> {
 				// First entry: sensor1 -> lowpass{cutoff=0.5} -> a
 				entry0 := entries[0]
 				Expect(entry0.IDENTIFIER(0).GetText()).To(Equal("sensor1"))
-				Expect(entry0.AllARROW()).To(HaveLen(1)) // sensor1 -> lowpass{} -> a
+				Expect(entry0.AllFlowOperator()).To(HaveLen(1)) // sensor1 -> lowpass{} -> a
 				entry0Nodes := entry0.AllFlowNode()
 				Expect(entry0Nodes).To(HaveLen(2)) // lowpass{}, a
 				Expect(entry0Nodes[0].Function().IDENTIFIER().GetText()).To(Equal("lowpass"))
@@ -1559,11 +1639,51 @@ sensor -> demux{threshold=100.0} -> {
 				// Second entry: sensor2 -> scale{factor=2.0} -> b
 				entry1 := entries[1]
 				Expect(entry1.IDENTIFIER(0).GetText()).To(Equal("sensor2"))
-				Expect(entry1.AllARROW()).To(HaveLen(1))
+				Expect(entry1.AllFlowOperator()).To(HaveLen(1))
 				entry1Nodes := entry1.AllFlowNode()
 				Expect(entry1Nodes).To(HaveLen(2))
 				Expect(entry1Nodes[0].Function().IDENTIFIER().GetText()).To(Equal("scale"))
 				Expect(entry1Nodes[1].Identifier().IDENTIFIER().GetText()).To(Equal("b"))
+			})
+
+			It("Should parse input routing with => flow chains", func() {
+				prog := mustParseProgram(`
+{
+    sensor1: lowpass{cutoff=0.5} => a,
+    sensor2: scale{factor=2.0} => b
+} -> add{}`)
+
+				flow := prog.TopLevelItem(0).FlowStatement()
+				entries := flow.AllRoutingTable()[0].AllRoutingEntry()
+				Expect(entries).To(HaveLen(2))
+
+				entry0 := entries[0]
+				Expect(entry0.IDENTIFIER(0).GetText()).To(Equal("sensor1"))
+				ops0 := entry0.AllFlowOperator()
+				Expect(ops0).To(HaveLen(1))
+				Expect(ops0[0].TRANSITION()).NotTo(BeNil())
+				Expect(entry0.AllFlowNode()).To(HaveLen(2))
+
+				entry1 := entries[1]
+				Expect(entry1.IDENTIFIER(0).GetText()).To(Equal("sensor2"))
+				ops1 := entry1.AllFlowOperator()
+				Expect(ops1).To(HaveLen(1))
+				Expect(ops1[0].TRANSITION()).NotTo(BeNil())
+			})
+
+			It("Should parse a case body mixing -> and => operators in order", func() {
+				prog := mustParseProgram(`
+sensor -> demux{} -> {
+    out: filter{} -> amplify{} => sink
+}`)
+
+				flow := prog.TopLevelItem(0).FlowStatement()
+				entry := flow.AllRoutingTable()[0].AllRoutingEntry()[0]
+				Expect(entry.AllFlowNode()).To(HaveLen(3))
+				ops := entry.AllFlowOperator()
+				Expect(ops).To(HaveLen(2))
+				Expect(ops[0].ARROW()).NotTo(BeNil())      // filter -> amplify
+				Expect(ops[1].TRANSITION()).NotTo(BeNil()) // amplify => sink
 			})
 		})
 	})

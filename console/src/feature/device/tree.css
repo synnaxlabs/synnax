@@ -13,15 +13,12 @@
     .console-name-location {
         width: 0;
         .console-name {
-            text-overflow: ellipsis;
-            overflow: hidden;
             flex-shrink: 1;
         }
         .console-location {
             line-height: 100%;
             margin-top: 0.25rem;
-            overflow: hidden;
-            text-overflow: ellipsis;
+            margin-left: auto;
             flex-shrink: 10;
         }
     }

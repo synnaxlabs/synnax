@@ -47,12 +47,12 @@ export const tooltipMessage = (
       if (status.details?.valid === true)
         return {
           message: "Uncontrolled. Click to take control.",
-          chipColor: "var(--pluto-gray-l12)",
+          chipColor: "var(--pluto-gray-l11)",
           chipIcon: Icon.Circle,
         };
       return {
         message: "No channel connected. This element cannot be controlled.",
-        chipColor: "var(--pluto-gray-l7)",
+        chipColor: "var(--pluto-text-disabled)",
         chipIcon: Icon.Circle,
         disabled: true,
       };

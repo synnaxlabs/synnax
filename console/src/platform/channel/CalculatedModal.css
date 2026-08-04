@@ -34,5 +34,12 @@
 
     .console-operations {
         height: 13rem;
+
+        /* The window holds a seconds value; the reset channel holds channel names
+        and takes the width the window doesn't need. */
+        .console-operations__window {
+            width: 30rem;
+            min-width: 0;
+        }
     }
 }

@@ -20,7 +20,7 @@ from tests.migration.rbac_setup import (
     USERS_SPEC,
 )
 
-BUILTIN_ROLES = ["Owner", "Engineer", "Operator", "Viewer"]
+BUILTIN_ROLES = ["Owner", "Engineer", "Host", "Operator", "Viewer"]
 
 
 def _get_user_role_names(client: sy.Synnax, username: str) -> list[str]:

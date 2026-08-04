@@ -18,6 +18,7 @@ export * from "@/platform/docs/useOpenTab";
 
 const TAB: Panel.Tab = {
   Content: Docs,
+  Icon: Icon.QuestionMark,
   Name: Panel.createStaticTabName({
     name: "Documentation",
     icon: <Icon.QuestionMark />,

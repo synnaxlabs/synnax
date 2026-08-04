@@ -10,8 +10,8 @@
 import "@/platform/notifications/Feed.css";
 
 import { type status } from "@synnaxlabs/client";
-import { Flex, Status } from "@synnaxlabs/pluto";
-import { type FC, type ReactElement } from "react";
+import { Button, Flex, Status } from "@synnaxlabs/pluto";
+import { type FC, type ReactElement, useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 
 import { CSS } from "@/platform/css";
@@ -27,6 +27,8 @@ export type Matcher = (
 
 export interface Notification extends FC<NotificationProps> {
   match: Matcher;
+  /** Marks a renderer that never displays, so the feed skips it when counting. */
+  suppress?: boolean;
 }
 
 const Default: Notification = ({ status, silence }) => (
@@ -37,6 +39,7 @@ Default.match = () => true;
 export const createSuppressed = (match: Matcher): Notification => {
   const Suppressed: Notification = () => null;
   Suppressed.match = match;
+  Suppressed.suppress = true;
   return Suppressed;
 };
 
@@ -64,14 +67,49 @@ interface FeedProps {
   notifications: Notification[];
 }
 
+const VISIBLE_CAP = 4;
+
 export const Feed = ({ notifications }: FeedProps): ReactElement => {
-  const { statuses, silence } = Status.useNotifications();
+  const { statuses, silence, silenceAll } = Status.useNotifications();
+  const [expanded, setExpanded] = useState(false);
+  const rendered = statuses
+    .map((status) => ({
+      status,
+      Render: notifications.find((n) => n.match(status)) ?? Default,
+    }))
+    .filter(({ Render }) => Render.suppress !== true);
+  const overflow = rendered.length - VISIBLE_CAP;
+  const showAll = expanded && overflow > 0;
+  useEffect(() => {
+    if (overflow <= 0) setExpanded(false);
+  }, [overflow]);
+  const visible = showAll ? rendered : rendered.slice(0, VISIBLE_CAP);
   return createPortal(
     <Flex.Box y className={CSS.B("notifications")}>
-      {statuses.map((status) => {
-        const Match = notifications.find((n) => n.match(status)) ?? Default;
-        return <Match key={status.key} status={status} silence={silence} />;
-      })}
+      <Flex.Box y className={CSS.BE("notifications", "stack")}>
+        {visible.map(({ status, Render }) => (
+          <Render key={status.key} status={status} silence={silence} />
+        ))}
+      </Flex.Box>
+      {overflow > 0 && (
+        <Flex.Box
+          x
+          justify="end"
+          gap="small"
+          className={CSS.BE("notifications", "controls")}
+        >
+          <Button.Button
+            size="small"
+            variant="outlined"
+            onClick={() => setExpanded(!showAll)}
+          >
+            {showAll ? "Show Less" : `+${overflow} More`}
+          </Button.Button>
+          <Button.Button size="small" variant="outlined" onClick={silenceAll}>
+            Clear All
+          </Button.Button>
+        </Flex.Box>
+      )}
     </Flex.Box>,
     document.getElementById("root") as HTMLElement,
   );

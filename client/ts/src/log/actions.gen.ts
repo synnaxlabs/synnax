@@ -14,7 +14,17 @@ import { z } from "zod";
 
 import { actions } from "@/actions";
 import { channel } from "@/channel";
-import { channelEntryZ, keyZ, type Log } from "@/log/types.gen";
+import { channelEntryZ, keyZ, type Log, logZ } from "@/log/types.gen";
+
+/**
+ * Create replaces the document with the given created state. Emitted by the server on
+ * create so remote caches ingest new documents; clients never dispatch it.
+ */
+export const createPayloadZ = z.object({
+  log: logZ,
+});
+
+export type CreatePayload = z.infer<typeof createPayloadZ>;
 
 /** Rename renames the log. */
 export const renamePayloadZ = z.object({
@@ -176,6 +186,7 @@ export type SetHideReceiptTimestampPayload = z.infer<
 >;
 
 export const actionZ = z.discriminatedUnion("type", [
+  z.object({ type: z.literal("create"), create: createPayloadZ }),
   z.object({ type: z.literal("rename"), rename: renamePayloadZ }),
   z.object({ type: z.literal("add_channel"), addChannel: addChannelPayloadZ }),
   z.object({ type: z.literal("remove_channel"), removeChannel: removeChannelPayloadZ }),
@@ -224,6 +235,11 @@ export const actionZ = z.discriminatedUnion("type", [
 ]);
 
 export type Action = z.infer<typeof actionZ>;
+
+export const create = (payload: z.input<typeof createPayloadZ>): Action => ({
+  type: "create",
+  create: createPayloadZ.parse(payload),
+});
 
 export const rename = (payload: z.input<typeof renamePayloadZ>): Action => ({
   type: "rename",
@@ -327,6 +343,7 @@ export type HandlerResult = actions.HandlerResult<Action>;
 export type ReduceAllResult = actions.ReduceAllResult<Log, Action>;
 
 export interface Handlers {
+  create: (state: Draft<Log>, payload: CreatePayload) => HandlerResult;
   rename: (state: Draft<Log>, payload: RenamePayload) => HandlerResult;
   addChannel: (state: Draft<Log>, payload: AddChannelPayload) => HandlerResult;
   removeChannel: (state: Draft<Log>, payload: RemoveChannelPayload) => HandlerResult;
@@ -377,6 +394,8 @@ export interface Handlers {
 export const createReduceAll = (handlers: Handlers) =>
   actions.createReduceAll<Log, Action>((state, action) => {
     switch (action.type) {
+      case "create":
+        return handlers.create(state, action.create);
       case "rename":
         return handlers.rename(state, action.rename);
       case "add_channel":

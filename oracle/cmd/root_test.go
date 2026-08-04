@@ -15,13 +15,12 @@ import (
 	"os"
 	"path/filepath"
 
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
 	"github.com/spf13/cobra"
 	"github.com/synnaxlabs/oracle/format"
 	"github.com/synnaxlabs/oracle/pipeline"
 	"github.com/synnaxlabs/oracle/plugin"
-
-	. "github.com/onsi/ginkgo/v2"
-	. "github.com/onsi/gomega"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -344,7 +343,7 @@ var _ = Describe("snapshot command", Ordered, func() {
 		cmd := NewRootCmd()
 		MustSucceed(executeCommand(cmd, "snapshot"))
 
-		snapshotFile := filepath.Join(repoDir, "schemas", ".snapshots", "v53", "user.oracle")
+		snapshotFile := filepath.Join(repoDir, "schemas", "snapshots", "v53", "user.oracle")
 		Expect(snapshotFile).To(BeAnExistingFile())
 
 		content := string(MustSucceed(os.ReadFile(snapshotFile)))
@@ -448,7 +447,7 @@ var _ = Describe("migrate create with existing migrations", Ordered, func() {
 
 	AfterAll(func() { cleanup() })
 
-	It("should depend on the latest existing version", func() {
+	It("should scaffold into the latest existing version directory", func() {
 		cmd := NewRootCmd()
 		MustSucceed(executeCommand(cmd, "migrate", "create", "fix_index",
 			"--service", "core/pkg/service/user"))
@@ -458,7 +457,7 @@ var _ = Describe("migrate create with existing migrations", Ordered, func() {
 		Expect(migrationFile).To(BeAnExistingFile())
 
 		content := string(MustSucceed(os.ReadFile(migrationFile)))
-		Expect(content).To(ContainSubstring("v53_schema_migration"))
+		Expect(content).To(ContainSubstring(`gorp.NewMigration("fix_index"`))
 	})
 })
 

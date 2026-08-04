@@ -72,12 +72,12 @@ describe("Label.Select", () => {
   it("should open the label editor from the SelectSingle add action", async () => {
     await renderSelect(<Label.SelectSingle value={undefined} onChange={vi.fn()} />);
     await openAddModal();
-    await waitFor(() => expect(screen.getByText("Search labels")).toBeTruthy());
+    await waitFor(() => expect(screen.getByText("Search labels...")).toBeTruthy());
   });
 
   it("should open the label editor from the SelectMultiple add action", async () => {
     await renderSelect(<Label.SelectMultiple value={[]} onChange={vi.fn()} />);
     await openAddModal();
-    await waitFor(() => expect(screen.getByText("Search labels")).toBeTruthy());
+    await waitFor(() => expect(screen.getByText("Search labels...")).toBeTruthy());
   });
 });

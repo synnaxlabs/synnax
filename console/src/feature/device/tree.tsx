@@ -60,6 +60,9 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
   const customMenuItems = C ? <C {...props} /> : null;
   return (
     <ContextMenu.Menu>
+      {hasUpdatePermission && singleResource && (
+        <ContextMenu.RenameItem onClick={rename} />
+      )}
       {hasUpdatePermission && (
         <Group.ContextMenuItem
           ids={ids}
@@ -68,19 +71,10 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
           onClick={() => group(props)}
         />
       )}
-      {hasUpdatePermission && singleResource && (
-        <ContextMenu.RenameItem onClick={rename} />
-      )}
       {customMenuItems != null && (
         <>
           <Menu.Divider />
           {customMenuItems}
-        </>
-      )}
-      {hasDeletePermission && (
-        <>
-          <Menu.Divider />
-          <ContextMenu.DeleteItem onClick={handleDelete} />
         </>
       )}
       <Menu.Divider />
@@ -95,9 +89,11 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
             }
           />
           <Tree.CopyPropertiesContextMenuItem {...props} />
-          <Menu.Divider />
         </>
       )}
+      <Menu.Divider />
+      {hasDeletePermission && <ContextMenu.DeleteItem onClick={handleDelete} />}
+      <Menu.Divider />
       <ContextMenu.ReloadConsoleItem />
     </ContextMenu.Menu>
   );
@@ -108,6 +104,8 @@ const icon = (resource: ontology.Resource) => getIcon(getMake(resource.data?.mak
 const Content = ({ resource, className, icon: _icon, ...rest }: Tree.ContentProps) => {
   const { itemKey } = rest;
   const devStatus = Device.useRetrieve({ key: resource.id.key }).data?.status;
+  const location =
+    typeof resource.data?.location === "string" ? resource.data.location : "";
   return (
     <PTree.Item className={CSS(className, CSS.B("device-ontology-item"))} {...rest}>
       <Flex.Box x grow align="center" className={CSS.B("name-location")}>
@@ -118,17 +116,19 @@ const Content = ({ resource, className, icon: _icon, ...rest }: Tree.ContentProp
           allowDoubleClick={false}
           value={resource.name}
           onChange
-          overflow="ellipsis"
+          overflow="fade"
           status={status.keepVariants(devStatus?.variant, "disabled")}
         />
-        <Text.Text
-          level="small"
-          color={9}
-          className={CSS.B("location")}
-          overflow="nowrap"
-        >
-          {typeof resource.data?.location === "string" ? resource.data.location : ""}
-        </Text.Text>
+        {location !== "" && (
+          <Text.Text
+            level="small"
+            color={9}
+            className={CSS.B("location")}
+            overflow="fade"
+          >
+            {location}
+          </Text.Text>
+        )}
       </Flex.Box>
       <Device.StatusIndicator status={devStatus} />
     </PTree.Item>

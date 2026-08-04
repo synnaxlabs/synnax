@@ -99,6 +99,34 @@ describe("Log Slice", () => {
     });
   });
 
+  describe("setHold", () => {
+    it("should set the hold state", () => {
+      const getState = renderGetter(Log.useGetState);
+      act(() => {
+        store.dispatch(Log.create({ key: KEY }));
+        store.dispatch(Log.setHold({ key: KEY, hold: true }));
+      });
+      expect(getState().hold).toBe(true);
+    });
+
+    it("should toggle the hold state when hold is omitted", () => {
+      const getState = renderGetter(Log.useGetState);
+      act(() => {
+        store.dispatch(Log.create({ key: KEY }));
+        store.dispatch(Log.setHold({ key: KEY }));
+      });
+      expect(getState().hold).toBe(true);
+      act(() => void store.dispatch(Log.setHold({ key: KEY })));
+      expect(getState().hold).toBe(false);
+    });
+
+    it("should provision state on first action for an unknown key", () => {
+      const getState = renderGetter(Log.useGetState, "absent");
+      act(() => void store.dispatch(Log.setHold({ key: "absent", hold: true })));
+      expect(getState().hold).toBe(true);
+    });
+  });
+
   describe("remove", () => {
     it("should remove a log by key", () => {
       const getState = renderGetter(Log.useGetState);

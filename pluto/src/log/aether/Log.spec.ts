@@ -308,6 +308,28 @@ describe("log/aether/Log", () => {
       // so the early return on line 217 fires and no render is requested.
       expect(recorder.loopCalls).toHaveLength(0);
     });
+
+    // Regression: the telem onChange handler requested a render unconditionally, so a
+    // hidden log with live data enqueued a render (and its erase cleanup) per frame.
+    it("should not request render when telem data arrives while hidden", () => {
+      const { source, recorder } = setup([makeEntry(0)], REGION_500, {
+        visible: false,
+      });
+      const before = recorder.loopCalls.length;
+      source.push(makeEntry(1));
+      source.notify();
+      expect(recorder.loopCalls).toHaveLength(before);
+    });
+
+    it("should request render when telem data arrives while visible", () => {
+      const { source, recorder } = setup([makeEntry(0)], REGION_500, {
+        visible: true,
+      });
+      const before = recorder.loopCalls.length;
+      source.push(makeEntry(1));
+      source.notify();
+      expect(recorder.loopCalls.length).toBeGreaterThan(before);
+    });
   });
 
   describe("scrollback with continued scrolling", () => {

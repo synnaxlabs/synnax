@@ -72,7 +72,7 @@ const Content = () => {
   return (
     <Menu.ContextMenu menu={contextMenu} {...menuProps}>
       <Toolbar.Content className={CSS(CSS.B("arc-toolbar"), menuProps.className)}>
-        <Toolbar.Header padded>
+        <Toolbar.Header>
           <Toolbar.Title icon={<Icon.Arc />}>Arcs</Toolbar.Title>
           <Actions handleCreate={create} />
         </Toolbar.Header>
@@ -118,18 +118,14 @@ const Actions = ({ handleCreate }: ActionsProps): ReactElement | null => {
   if (!hasCreatePermission && !hasRetrievePermission) return null;
   return (
     <Toolbar.Actions>
-      {hasCreatePermission && (
-        <Toolbar.Action tooltip="Create Arc" onClick={handleCreate}>
-          <Icon.Add />
+      {hasRetrievePermission && (
+        <Toolbar.Action tooltip="Open Arc Explorer" onClick={openExplorer}>
+          <Icon.Explore />
         </Toolbar.Action>
       )}
-      {hasRetrievePermission && (
-        <Toolbar.Action
-          tooltip="Open Arc Explorer"
-          onClick={openExplorer}
-          variant="filled"
-        >
-          <Icon.Explore />
+      {hasCreatePermission && (
+        <Toolbar.Action tooltip="Create Arc" onClick={handleCreate} variant="filled">
+          <Icon.Add />
         </Toolbar.Action>
       )}
     </Toolbar.Actions>

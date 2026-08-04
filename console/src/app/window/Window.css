@@ -14,4 +14,10 @@
     width: 100%;
     overflow: hidden;
     background: var(--pluto-gray-l2);
+
+    /* Chrome controls recess toward the canvas instead of lightening; nested
+       panes reset to the standard ladder via their surface classes. */
+    --pluto-fill-rest: var(--pluto-gray-l0);
+    --pluto-fill-hover: var(--pluto-gray-l1);
+    --pluto-fill-press: var(--pluto-gray-l2);
 }

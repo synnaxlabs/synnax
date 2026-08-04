@@ -22,7 +22,9 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	xconfig "github.com/synnaxlabs/x/config"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
+	"github.com/synnaxlabs/x/query"
 )
 
 type Service struct {
@@ -77,16 +79,17 @@ func (s *Service) Create(
 
 type (
 	RetrieveRequest struct {
-		Internal      *bool      `json:"internal" msgpack:"internal"`
-		Snapshot      *bool      `json:"snapshot" msgpack:"snapshot"`
-		SearchTerm    string     `json:"search_term" msgpack:"search_term"`
-		Keys          []task.Key `json:"keys" msgpack:"keys"`
-		Names         []string   `json:"names" msgpack:"names"`
-		Types         []string   `json:"types" msgpack:"types"`
-		Limit         int        `json:"limit" msgpack:"limit"`
-		Offset        int        `json:"offset" msgpack:"offset"`
-		Rack          rack.Key   `json:"rack" msgpack:"rack"`
-		IncludeStatus bool       `json:"include_status" msgpack:"include_status"`
+		Internal            *bool      `json:"internal" msgpack:"internal"`
+		Snapshot            *bool      `json:"snapshot" msgpack:"snapshot"`
+		SearchTerm          string     `json:"search_term" msgpack:"search_term"`
+		Keys                []task.Key `json:"keys" msgpack:"keys"`
+		Names               []string   `json:"names" msgpack:"names"`
+		Types               []string   `json:"types" msgpack:"types"`
+		Limit               int        `json:"limit" msgpack:"limit"`
+		Offset              int        `json:"offset" msgpack:"offset"`
+		Rack                rack.Key   `json:"rack" msgpack:"rack"`
+		IncludeStatus       bool       `json:"include_status" msgpack:"include_status"`
+		IgnoreNotFoundError bool       `json:"ignore_not_found_error" msgpack:"ignore_not_found_error"`
 	}
 	RetrieveResponse struct {
 		Tasks []task.Task `json:"tasks,omitzero" msgpack:"tasks,omitzero"`
@@ -134,7 +137,11 @@ func (s *Service) Retrieve(
 		q = q.Where(task.MatchRacks(req.Rack))
 	}
 	var res RetrieveResponse
-	if err := q.Entries(&res.Tasks).Exec(ctx, nil); err != nil {
+	err := q.Entries(&res.Tasks).Exec(ctx, nil)
+	if req.IgnoreNotFoundError && err != nil {
+		err = errors.Skip(err, query.ErrNotFound)
+	}
+	if err != nil {
 		return RetrieveResponse{}, err
 	}
 
@@ -215,7 +222,7 @@ func (s *Service) Copy(
 	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionCreate,
-		Objects: []ontology.ID{task.OntologyID(t.Key)},
+		Objects: []ontology.ID{t.OntologyID()},
 	}); err != nil {
 		return CopyResponse{}, err
 	}

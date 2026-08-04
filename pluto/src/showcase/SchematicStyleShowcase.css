@@ -1,0 +1,427 @@
+/*
+ * Copyright 2026 Synnax Labs, Inc.
+ *
+ * Use of this software is governed by the Business Source License included in the file
+ * licenses/BSL.txt.
+ *
+ * As of the Change Date specified in that file, in accordance with the Business Source
+ * License, use of this software will be governed by the Apache License, Version 2.0,
+ * included in the file licenses/APL.txt.
+ */
+
+/* Lab-only styles for the schematic value study. Verdicts so far: value takes
+   the quiet chassis, alarms take soft-fill tints, drawings keep production
+   styling, ink is out. */
+
+.schx-canvas {
+    background: var(--pluto-gray-l0);
+    border: var(--pluto-border);
+    border-radius: 1.5rem;
+    padding: 5rem;
+    /* Raw spans don't inherit Pluto's font (Text applies it per-component). */
+    font-family: var(--pluto-font-family);
+}
+
+.schx-grid {
+    display: grid;
+    grid-template-columns: 16rem repeat(4, max-content);
+    column-gap: 8rem;
+    row-gap: 6rem;
+    align-items: center;
+}
+
+.schx-grid__head {
+    font-size: var(--pluto-small-size);
+    color: var(--pluto-gray-l8);
+}
+
+.schx-grid__name {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+
+    & > span:first-child {
+        font-size: var(--pluto-p-size);
+        color: var(--pluto-gray-l10);
+        font-weight: 500;
+    }
+
+    & > span:last-child {
+        font-size: var(--pluto-small-size);
+        color: var(--pluto-gray-l8);
+    }
+}
+
+/* ---------- faithful reproduction of the shipped value ---------- */
+
+.schx-current {
+    display: inline-flex;
+    align-items: stretch;
+    border: 2px solid var(--schx-color, var(--pluto-gray-l11));
+    border-radius: var(--pluto-border-radius);
+    overflow: hidden;
+
+    .schx-current__reading {
+        display: flex;
+        align-items: center;
+        padding: 0.75rem 1rem 0.75rem 1.5rem;
+        font-size: var(--pluto-p-size);
+        color: var(--pluto-gray-l11);
+    }
+
+    .schx-current__units {
+        display: flex;
+        align-items: center;
+        padding: 0 1rem;
+        background: var(--schx-color, var(--pluto-gray-l11));
+        color: var(--pluto-gray-l0);
+        font-size: var(--pluto-small-size);
+        font-weight: 500;
+    }
+}
+
+/* ---------- quiet chassis shared by every variant ---------- */
+
+.schxv {
+    display: inline-flex;
+    align-items: center;
+    gap: 1rem;
+    padding: 0.9rem 1.75rem;
+    border: 1px solid var(--pluto-gray-l6);
+    border-radius: 1rem;
+    background: color-mix(in srgb, var(--pluto-gray-l1) 60%, transparent);
+
+    .schxv__reading {
+        font-family: var(--pluto-code-font-family, ui-monospace, monospace);
+        font-variant-numeric: tabular-nums;
+        font-size: var(--pluto-p-size);
+        font-weight: 550;
+        color: var(--pluto-gray-l11);
+    }
+
+    .schxv__units {
+        font-size: var(--pluto-small-size);
+        color: var(--pluto-gray-l8);
+    }
+}
+
+/* The sy-3882 branch value, faithful: neutral = 1px gray border + l1 fill;
+   colored = 1px channel border + 6% tint fill. Fixed 80px content area,
+   plain-weight mono reading, quiet units, no pill. */
+.schxv--march {
+    gap: 0;
+    padding: 0;
+    border-radius: var(--pluto-border-radius);
+    background: var(--pluto-gray-l1);
+    font-feature-settings: "tnum" 1;
+
+    .schxv__reading {
+        inline-size: 80px;
+        flex-grow: 1;
+        padding: 0.5rem 1.5rem;
+        font-weight: 400;
+    }
+
+    .schxv__units {
+        padding: 0 1rem;
+        color: var(--pluto-gray-l9);
+    }
+
+    &.schxv--colored {
+        border-color: var(--schx-color);
+        background: rgba(var(--schx-rgb), 0.06);
+    }
+}
+
+/* accent placements; each variant allows channel color in exactly one place */
+
+.schxv--tick {
+    border-left: 2px solid var(--schx-color, var(--pluto-gray-l8));
+}
+
+.schxv--reading .schxv__reading {
+    color: var(--schx-color, var(--pluto-gray-l11));
+}
+
+.schxv--units .schxv__units {
+    color: var(--schx-color, var(--pluto-gray-l8));
+}
+
+.schxv--capsule {
+    padding-right: 0.9rem;
+
+    .schxv__units {
+        background: var(--pluto-gray-l3);
+        color: var(--pluto-gray-l9);
+        border-radius: 0.75rem;
+        padding: 0.25rem 1rem;
+    }
+}
+
+.schxv--capsule.schxv--capsule-tinted .schxv__units {
+    background: rgba(var(--schx-rgb, 230, 230, 234), 0.14);
+    color: var(--schx-color, var(--pluto-gray-l9));
+}
+
+/* ---------- alarm paint, soft-fill language, applies to any variant ---------- */
+
+.schxv--warn,
+.schxv--crit {
+    border-color: rgba(var(--schx-alarm-rgb), 0.4);
+    background: rgba(var(--schx-alarm-rgb), 0.12);
+
+    .schxv__reading {
+        color: var(--schx-alarm);
+    }
+
+    .schxv__units {
+        color: rgba(var(--schx-alarm-rgb), 0.65);
+    }
+
+    &.schxv--tick {
+        border-left-color: var(--schx-alarm);
+    }
+
+    &.schxv--capsule .schxv__units {
+        background: rgba(var(--schx-alarm-rgb), 0.16);
+        color: var(--schx-alarm);
+    }
+}
+
+.schxv--warn {
+    --schx-alarm: #e2a13c;
+    --schx-alarm-rgb: 226, 161, 60;
+}
+
+.schxv--crit {
+    --schx-alarm: #e0574a;
+    --schx-alarm-rgb: 224, 87, 74;
+    box-shadow: 0 0 10px rgba(var(--schx-alarm-rgb), 0.25);
+}
+
+/* current-value reference under alarm, for the comparison row */
+
+.schx-current--warn {
+    --schx-color: #e2a13c;
+}
+
+.schx-current--crit {
+    --schx-color: #e0574a;
+}
+
+/* ==================================================================== */
+/* State indicator study. Each variant spends the state color in a      */
+/* different place; uncolored states fall back to the gray chassis.     */
+/* ==================================================================== */
+
+/* faithful reproduction of the shipped state indicator */
+.schxs-current {
+    display: inline-flex;
+    align-items: center;
+    border: 2px solid var(--pluto-gray-l11);
+    border-radius: var(--pluto-border-radius);
+    padding: 0.5rem 1.5rem;
+    font-family: var(--pluto-code-font-family, ui-monospace, monospace);
+    font-size: var(--pluto-p-size);
+    color: var(--pluto-gray-l11);
+
+    &.schxs--colored {
+        background: var(--schx-color);
+        color: var(--pluto-gray-l0);
+    }
+}
+
+/* shared chassis, mirrors the shipped (new) value */
+.schxs {
+    display: inline-flex;
+    align-items: center;
+    gap: 1.25rem;
+    border: 1px solid var(--pluto-gray-l6);
+    border-radius: var(--pluto-border-radius);
+    background: var(--pluto-gray-l1);
+    padding: 0.5rem 1.5rem;
+    font-family: var(--pluto-code-font-family, ui-monospace, monospace);
+    font-size: var(--pluto-p-size);
+    color: var(--pluto-gray-l10);
+    transition:
+        border-color 0.15s ease-in-out,
+        background 0.15s ease-in-out,
+        color 0.15s ease-in-out;
+
+    .schxs__dot {
+        display: none;
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        background: var(--schx-color, var(--pluto-gray-l8));
+        flex-shrink: 0;
+    }
+}
+
+/* value twin: the new value's colored recipe, driven by the state color */
+.schxs--twin.schxs--colored {
+    border-color: var(--schx-color);
+    background: rgba(var(--schx-rgb), 0.06);
+    color: var(--pluto-gray-l11);
+}
+
+/* soft tint: color fills and speaks, border stays neutral */
+.schxs--tint.schxs--colored {
+    background: rgba(var(--schx-rgb), 0.12);
+    color: var(--schx-color);
+}
+
+/* dot: quietest, color reduced to a marker */
+.schxs--dot .schxs__dot {
+    display: block;
+}
+
+.schxs--dot.schxs--colored {
+    color: var(--pluto-gray-l11);
+}
+
+/* pill: borderless soft-fill capsule */
+.schxs--pill {
+    border-color: transparent;
+    border-radius: 100rem;
+    padding: 0.5rem 2rem;
+
+    .schxs__dot {
+        display: block;
+    }
+
+    &.schxs--colored {
+        background: rgba(var(--schx-rgb), 0.14);
+        color: var(--schx-color);
+    }
+}
+
+/* ==================================================================== */
+/* Setpoint study: chassis follows the value family; the SET action     */
+/* varies from solid (current) to neutral to soft tint.                 */
+/* ==================================================================== */
+
+.schxp {
+    display: inline-flex;
+    align-items: stretch;
+    border: 1px solid var(--pluto-gray-l6);
+    border-radius: var(--pluto-border-radius);
+    background: var(--pluto-gray-l1);
+    overflow: hidden;
+    font-size: var(--pluto-small-size);
+    transition:
+        border-color 0.15s ease-in-out,
+        background 0.15s ease-in-out;
+
+    .schxp__field {
+        display: inline-flex;
+        align-items: center;
+        gap: 1rem;
+        padding: 0.9rem 1.5rem;
+        font-family: var(--pluto-code-font-family, ui-monospace, monospace);
+        font-variant-numeric: tabular-nums;
+        color: var(--pluto-gray-l11);
+    }
+
+    .schxp__units {
+        color: var(--pluto-gray-l8);
+        font-family: var(--pluto-font-family);
+    }
+
+    .schxp__go {
+        border: none;
+        border-left: 1px solid var(--pluto-gray-l6);
+        background: var(--pluto-gray-l3);
+        color: var(--pluto-gray-l10);
+        font-family: var(--pluto-font-family);
+        font-size: var(--pluto-small-size);
+        font-weight: 500;
+        padding: 0 2rem;
+        cursor: pointer;
+
+        &:hover {
+            background: var(--pluto-gray-l4);
+        }
+
+        &:active {
+            background: var(--pluto-gray-l5);
+        }
+    }
+}
+
+/* faithful current: symbol-colored border, solid colored Set */
+.schxp--current {
+    background: transparent;
+    font-family: var(--pluto-font-family);
+
+    .schxp__field {
+        font-family: var(--pluto-font-family);
+        font-variant-numeric: normal;
+    }
+
+    &.schxp--colored {
+        border-color: var(--schx-color);
+
+        .schxp__go {
+            border-left-color: var(--schx-color);
+            background: var(--schx-color);
+            color: var(--pluto-gray-l0);
+
+            &:hover {
+                background: rgba(var(--schx-rgb), 0.85);
+            }
+        }
+    }
+
+    &:not(.schxp--colored) .schxp__go {
+        background: var(--pluto-gray-l11);
+        color: var(--pluto-gray-l0);
+        border-left-color: var(--pluto-gray-l11);
+    }
+}
+
+/* quiet: chassis and action fully neutral, color ignored */
+
+/* tinted action: neutral chassis, SET takes a soft tint of the color */
+.schxp--tinted.schxp--colored .schxp__go {
+    background: rgba(var(--schx-rgb), 0.15);
+    color: var(--schx-color);
+
+    &:hover {
+        background: rgba(var(--schx-rgb), 0.25);
+    }
+
+    &:active {
+        background: rgba(var(--schx-rgb), 0.35);
+    }
+}
+
+/* value twin: colored chassis, SET muted to a soft tint of the color */
+.schxp--twin.schxp--colored {
+    border-color: var(--schx-color);
+    background: rgba(var(--schx-rgb), 0.06);
+
+    .schxp__go {
+        border-left-color: rgba(var(--schx-rgb), 0.35);
+        background: rgba(var(--schx-rgb), 0.18);
+        color: var(--schx-color);
+
+        &:hover {
+            background: rgba(var(--schx-rgb), 0.28);
+        }
+
+        &:active {
+            background: rgba(var(--schx-rgb), 0.38);
+        }
+    }
+}
+
+/* twin chassis + fully neutral gray SET, the quietest action */
+.schxp--hybrid.schxp--colored {
+    border-color: var(--schx-color);
+    background: rgba(var(--schx-rgb), 0.06);
+
+    .schxp__go {
+        border-left-color: rgba(var(--schx-rgb), 0.35);
+    }
+}

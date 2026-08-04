@@ -13,7 +13,6 @@ import { type rack, type status } from "@synnaxlabs/client";
 import {
   Button,
   Component,
-  type Device as PDevice,
   Flex,
   Flux,
   Haul,
@@ -107,20 +106,18 @@ type RetrieveNodesQuery = {
 
 const { useRetrieveObservable: useRetrieveNodes } = Flux.createRetrieve<
   RetrieveNodesQuery,
-  ScannedNode[],
-  PDevice.FluxSubStore
+  ScannedNode[]
 >({
   name: "OPC UA Node",
   retrieve: async ({
     client,
-    store,
     query: {
       rack,
       connection,
       clicked: { id },
     },
   }) => {
-    const scanTask = await retrieveScanTask(client, store, rack);
+    const scanTask = await retrieveScanTask(client, rack);
     const { details, variant, message } = await scanTask.executeCommandSync({
       type: BROWSE_COMMAND_TYPE,
       timeout: TimeSpan.seconds(10),
@@ -190,7 +187,7 @@ export const Browser = ({ device }: BrowserProps) => {
   else if (initialLoading)
     content = (
       <Flex.Box center>
-        <Icon.Loading className={CSS.BE("opc-browser", "loading-icon")} color={7} />
+        <Icon.Loading className={CSS.BE("opc-browser", "loading-icon")} color={9} />
       </Flex.Box>
     );
   else
@@ -215,7 +212,6 @@ export const Browser = ({ device }: BrowserProps) => {
             onClick={refresh}
             disabled={initialLoading && status?.variant !== "error"}
             sharp
-            contrast={2}
             variant="text"
           >
             <Icon.Refresh />

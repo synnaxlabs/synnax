@@ -97,22 +97,18 @@ const TreeContextMenu: Tree.ContextMenu = (props): ReactElement => {
   );
   return (
     <ContextMenu.Menu>
-      {hasUpdatePermission && singleResource && (
+      {hasUpdatePermission && (
         <>
-          <ContextMenu.RenameItem onClick={handleRename} />
-          <Menu.Divider />
+          {singleResource && <ContextMenu.RenameItem onClick={handleRename} />}
+          <Group.ContextMenuItem
+            ids={ids}
+            shape={shape}
+            rootID={rootID}
+            onClick={() => group(props)}
+          />
         </>
       )}
-      {hasDeletePermission && <ContextMenu.DeleteItem onClick={handleDelete} />}
-      {hasUpdatePermission && (
-        <Group.ContextMenuItem
-          ids={ids}
-          shape={shape}
-          rootID={rootID}
-          onClick={() => group(props)}
-        />
-      )}
-      {hasUpdatePermission || (hasDeletePermission && <Menu.Divider />)}
+      <Menu.Divider />
       {singleResource && (
         <>
           {hasLinePlotCreatePermission && (
@@ -152,9 +148,11 @@ const TreeContextMenu: Tree.ContextMenu = (props): ReactElement => {
             onClick={() => handleLink({ name: first.name, ontologyID: first.id })}
           />
           <Tree.CopyPropertiesContextMenuItem {...props} />
-          <Menu.Divider />
         </>
       )}
+      <Menu.Divider />
+      {hasDeletePermission && <ContextMenu.DeleteItem onClick={handleDelete} />}
+      <Menu.Divider />
       <ContextMenu.ReloadConsoleItem />
     </ContextMenu.Menu>
   );

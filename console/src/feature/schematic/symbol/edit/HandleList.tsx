@@ -68,7 +68,7 @@ const HandleListItem = (props: HandleListItemProps) => {
         <Text.Text level="small" weight={500}>
           Handle {index + 1}
         </Text.Text>
-        <Text.Text level="small" color={7}>
+        <Text.Text level="small" color={9}>
           ({Math.round(scaledPos.x)}%, {Math.round(scaledPos.y)}%)
         </Text.Text>
       </Flex.Box>
@@ -82,7 +82,7 @@ const HandleListItem = (props: HandleListItemProps) => {
           onClick={() => remove(itemKey)}
           size="small"
           variant="text"
-          ghost
+          reveal
         >
           <Icon.Close />
         </Button.Button>
@@ -103,11 +103,11 @@ export const HandleList = ({ value, onChange, onAddHandle }: HandleListProps) =>
 
   return (
     <Flex.Box y gap={1} className={CSS.B("schematic-handle-list")}>
-      <Header.Header level="p" bordered={false} padded>
+      <Header.Header level="p" bordered={false}>
         <Header.Title level="p" weight={500}>
           Handles
         </Header.Title>
-        <Button.Button onClick={onAddHandle} size="small" variant="outlined">
+        <Button.Button onClick={onAddHandle} size="small" variant="filled">
           <Icon.Add />
         </Button.Button>
       </Header.Header>

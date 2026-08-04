@@ -38,7 +38,7 @@ export const Select = ({
     (key: device.Key, { set }: Form.ContextValue) => {
       if (client == null || primitive.isZero(key)) return;
       handleError(async () => {
-        const { configured, rack } = await client.devices.retrieve({ key });
+        const { configured, rack } = await client.devices.retrieve(key);
         set("rackKey", rack);
         if (configured) return;
         onConfigure(key);
@@ -54,7 +54,7 @@ export const Select = ({
   }, [make, model, filterProp]);
   return (
     <Form.Field<string> grow label={label} onChange={handleDeviceChange} path={path}>
-      {({ value, onChange, variant }) => (
+      {({ value, onChange, preview }) => (
         <Device.SelectSingle
           value={value}
           onChange={onChange}
@@ -63,7 +63,7 @@ export const Select = ({
           emptyContent={emptyContent}
           grow
           icon={icon}
-          variant={variant}
+          preview={preview}
         />
       )}
     </Form.Field>

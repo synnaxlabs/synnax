@@ -9,6 +9,7 @@
 
 export * from "@/arc/graph";
 export * from "@/arc/haul";
+export * from "@/arc/Icons";
 export * from "@/arc/language";
 export * from "@/arc/queries";
 export { Scope } from "@/arc/scope";

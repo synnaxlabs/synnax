@@ -9,6 +9,17 @@
  * included in the file licenses/APL.txt.
  */
 
+.pluto-schematic__empty {
+    position: absolute;
+    inset: 0;
+    z-index: 10;
+    pointer-events: none;
+
+    & > * {
+        pointer-events: auto;
+    }
+}
+
 .pluto-schematic {
     .react-flow__node.selected .pluto-symbol-primitive {
         /* make an inset box shadow to simulate a background */

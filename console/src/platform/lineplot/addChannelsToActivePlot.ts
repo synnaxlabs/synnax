@@ -8,7 +8,6 @@
 // included in the file licenses/APL.txt.
 
 import { type channel, lineplot, type Synnax } from "@synnaxlabs/client";
-import { id } from "@synnaxlabs/x";
 
 // addChannelsToActivePlot dispatches AddChannel actions for each channel that
 // is not already on the y1 axis of the target plot. It runs outside of React
@@ -20,12 +19,12 @@ export const addChannelsToActivePlot = async (
   key: lineplot.Key,
   channels: channel.Key[],
 ): Promise<void> => {
-  const existing = await client.lineplots.retrieve({ key });
+  const existing = await client.lineplots.retrieve(key);
   const present = new Set(existing.channels.y1);
   const additions = channels.filter((c) => !present.has(c));
   if (additions.length === 0) return;
   const actions = additions.map((c) =>
     lineplot.addChannel({ axisKey: "y1", channel: c }),
   );
-  await client.lineplots.dispatch(key, id.create(), actions);
+  await client.lineplots.dispatch(key, actions);
 };

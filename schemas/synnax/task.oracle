@@ -17,7 +17,8 @@ import "schemas/synnax/status"
 @pb
 
 Key = uuid {
-    @doc value "is a unique identifier for a task."
+    @go version 2
+    @doc value  "is a unique identifier for a task."
 }
 
 StatusDetails struct<Data? = record> {
@@ -43,12 +44,14 @@ StatusDetails struct<Data? = record> {
         @doc value "contains task-specific status data."
     }
 
+    @go version        2
     @doc value         "contains task-specific status details including execution state."
     @ts concrete_types
 }
 
 Status<Data? = record> = status.Status<StatusDetails<Data>> {
-    @doc value """
+    @go version 2
+    @doc value  """
         is task-specific status information including execution state and task-specific data.
     """
 }
@@ -106,6 +109,7 @@ Task struct<
         @go marshal omit
     }
 
+    @go version    2
     @doc value     """
         is an executable unit of work in the Driver system. Tasks represent
         specific hardware operations such as reading sensor data, writing

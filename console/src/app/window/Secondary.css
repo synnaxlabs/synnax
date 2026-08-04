@@ -10,5 +10,8 @@
  */
 
 .console-secondary {
-    padding: 0 1rem 1rem 1rem;
+    margin: 0 1rem 1rem 1rem;
+    --bottom-drawer-inset-left: 1rem;
+    --bottom-drawer-inset-right: 1rem;
+    --bottom-drawer-inset-bottom: 1rem;
 }

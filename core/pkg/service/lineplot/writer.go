@@ -49,22 +49,27 @@ func (w Writer) Create(ctx context.Context, projectKey project.Key, lp *LinePlot
 	if err := w.table.NewCreate().Entry(lp).Exec(ctx, w.tx); err != nil {
 		return err
 	}
-	if exists {
-		return nil
+	if !exists {
+		otgID := lp.OntologyID()
+		if err := w.otg.DefineResources(ctx, otgID); err != nil {
+			return err
+		}
+		if projectKey != uuid.Nil {
+			if err := w.otg.DefineRelationships(
+				ctx,
+				project.OntologyID(projectKey),
+				ontology.RelationshipTypeParentOf,
+				otgID,
+			); err != nil {
+				return err
+			}
+		}
 	}
-	otgID := OntologyID(lp.Key)
-	if err := w.otg.DefineResources(ctx, otgID); err != nil {
-		return err
-	}
-	if projectKey == uuid.Nil {
-		return nil
-	}
-	return w.otg.DefineRelationships(
-		ctx,
-		project.OntologyID(projectKey),
-		ontology.RelationshipTypeParentOf,
-		otgID,
+	// Notify last: a create rejected by ontology validation must not be broadcast.
+	w.dispatcher.Notify(
+		ctx, lp.Key, "", []Action{NewCreateAction(CreatePayload{LinePlot: *lp})},
 	)
+	return nil
 }
 
 // CreateMany creates the given line plots within the project provided. If line plots

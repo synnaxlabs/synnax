@@ -161,7 +161,7 @@ var _ = Describe("Factory", func() {
 					Expect(tsk).ToNot(BeNil())
 					var stat task.Status
 					Expect(status.NewRetrieve[task.StatusDetails](statusSvc).
-						Where(status.MatchKeys[task.StatusDetails](task.OntologyID(t.Key).String())).
+						Where(status.MatchKeys[task.StatusDetails](t.OntologyID().String())).
 						Entry(&stat).Exec(ctx, nil)).To(Succeed())
 					Expect(stat.Variant).To(BeEquivalentTo("success"))
 					Expect(stat.Message).To(Equal("Task configured successfully"))
@@ -186,7 +186,7 @@ var _ = Describe("Factory", func() {
 				Expect(tsk).ToNot(BeNil())
 				var stat task.Status
 				Expect(status.NewRetrieve[task.StatusDetails](statusSvc).
-					Where(status.MatchKeys[task.StatusDetails](task.OntologyID(t.Key).String())).
+					Where(status.MatchKeys[task.StatusDetails](t.OntologyID().String())).
 					Entry(&stat).Exec(ctx, nil)).To(Succeed())
 				Expect(stat.Variant).To(BeEquivalentTo("success"))
 				Expect(stat.Message).To(Equal("Task started successfully"))

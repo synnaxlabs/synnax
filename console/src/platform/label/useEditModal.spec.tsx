@@ -23,8 +23,8 @@ const Harness = (): ReactElement => {
 Harness.displayName = "Harness";
 
 const getAddButton = (): HTMLButtonElement => {
-  const btn = document.querySelector<HTMLButtonElement>(".console-label__add-btn");
-  if (btn == null) throw new Error("add button not found");
+  const btn = document.querySelector<HTMLButtonElement>(".console-label__create");
+  if (btn == null) throw new Error("create button not found");
   return btn;
 };
 
@@ -53,7 +53,7 @@ const openModal = async () => {
 describe("Label.useEditModal", () => {
   it("should reveal the create form when the add button is clicked", async () => {
     await openModal();
-    await waitFor(() => expect(screen.getByText("Search labels")).toBeTruthy());
+    await waitFor(() => expect(screen.getByText("Search labels...")).toBeTruthy());
     expect(screen.getByText("Edit")).toBeTruthy();
     expect(getCreateItem().className).toContain("pluto--hidden");
     fireEvent.click(getAddButton());
@@ -66,7 +66,7 @@ describe("Label.useEditModal", () => {
 
   it("should persist a new label to the cluster from the create form", async () => {
     const { client } = await openModal();
-    await waitFor(() => expect(screen.getByText("Search labels")).toBeTruthy());
+    await waitFor(() => expect(screen.getByText("Search labels...")).toBeTruthy());
     fireEvent.click(getAddButton());
     const name = uniqueName("label");
     const nameInput = screen.getByPlaceholderText<HTMLInputElement>("Label Name");

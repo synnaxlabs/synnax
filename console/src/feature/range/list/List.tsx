@@ -21,8 +21,8 @@ import {
   List as PList,
   Menu,
   Select,
-  type state,
 } from "@synnaxlabs/pluto";
+import { type state } from "@synnaxlabs/x";
 import { type ReactElement, type ReactNode, useCallback, useState } from "react";
 
 import { ContextMenu } from "@/feature/range/list/ContextMenu";
@@ -103,7 +103,7 @@ export const List = ({
         onChange={setSelected}
         value={selected}
         onFetchMore={handleFetchMore}
-        itemHeight={45}
+        itemHeight={40}
       >
         {enableSearch && (
           <Flex.Box
@@ -179,7 +179,7 @@ const AddButton = (): ReactElement | null => {
   const hasCreatePermission = Access.useCreateGranted(ranger.TYPE_ONTOLOGY_ID);
   if (!hasCreatePermission) return null;
   return (
-    <Button.Button tooltip="Create Range" onClick={() => openCreate()}>
+    <Button.Button tooltip="Create Range" onClick={() => openCreate()} variant="filled">
       <Icon.Add />
     </Button.Button>
   );

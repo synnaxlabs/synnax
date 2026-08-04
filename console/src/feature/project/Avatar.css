@@ -1,0 +1,69 @@
+/*
+ * Copyright 2026 Synnax Labs, Inc.
+ *
+ * Use of this software is governed by the Business Source License included in the file
+ * licenses/BSL.txt.
+ *
+ * As of the Change Date specified in that file, in accordance with the Business Source
+ * License, use of this software will be governed by the Apache License, Version 2.0,
+ * included in the file licenses/APL.txt.
+ */
+
+.console-project-avatar {
+    width: 4rem;
+    height: 4rem;
+    border-radius: var(--pluto-border-radius-small);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 2rem;
+    font-weight: 500;
+    line-height: 1;
+    letter-spacing: -0.03em;
+    user-select: none;
+    -webkit-user-select: none;
+    flex-shrink: 0;
+}
+
+/* Narrow-arc gradient with a lightness tilt (lit from the top-left): restrained
+   chroma keeps it dusty while the tilt gives it depth at tile size. The frost
+   gradient is the fill's milky translucent twin, used by rimmed placements. */
+.console-project-avatar--dusty {
+    --console-avatar-fill: linear-gradient(
+        135deg,
+        oklch(0.62 0.17 var(--console-avatar-hue)),
+        oklch(0.42 0.16 calc(var(--console-avatar-hue) + 70))
+    );
+    --console-avatar-frost: linear-gradient(
+        135deg,
+        oklch(0.8 0.09 var(--console-avatar-hue) / 0.7),
+        oklch(0.62 0.08 calc(var(--console-avatar-hue) + 70) / 0.7)
+    );
+    background: var(--console-avatar-fill);
+    color: oklch(0.9 0.08 calc(var(--console-avatar-hue) + 20));
+    box-shadow:
+        inset 0 0 0 var(--pluto-border-width)
+            oklch(0.8 0.09 var(--console-avatar-hue) / 0.4),
+        var(--pluto-shadow-v1);
+}
+
+/* Tone-on-tone: alpha tint sits in the surface; the color lives in the glyph. */
+.console-project-avatar--tint {
+    background: oklch(0.65 0.12 var(--console-avatar-hue) / 0.16);
+    color: oklch(0.82 0.1 var(--console-avatar-hue));
+}
+
+.console-project-avatar--solid {
+    background: oklch(0.45 0.08 var(--console-avatar-hue));
+    color: oklch(0.9 0.06 var(--console-avatar-hue));
+}
+
+/* Vercel direction, tamed: wider arc and more chroma than dusty, white glyph. */
+.console-project-avatar--vivid {
+    background: linear-gradient(
+        135deg,
+        oklch(0.6 0.17 var(--console-avatar-hue)),
+        oklch(0.6 0.17 calc(var(--console-avatar-hue) + 70))
+    );
+    color: white;
+}

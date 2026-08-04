@@ -60,6 +60,25 @@ const revealRange = async (name: string): Promise<HTMLElement> => {
   return await screen.findByText(name);
 };
 
+const rowOf = (el: HTMLElement): HTMLElement => {
+  const row = el.closest<HTMLElement>(".pluto-list__item");
+  if (row == null) throw new Error("list item not found");
+  return row;
+};
+
+const checkboxOf = (el: HTMLElement): HTMLInputElement => {
+  const box = rowOf(el).querySelector<HTMLInputElement>("input[type='checkbox']");
+  if (box == null) throw new Error("checkbox not found");
+  return box;
+};
+
+const focusedTabs = (store: TestStore): string[] => {
+  const state = store.getState();
+  const panelKey = Session.Panel.selectSelected(state);
+  if (panelKey == null) return [];
+  return Session.Panel.selectSelectedTabs(state, panelKey);
+};
+
 describe("range/Explorer", () => {
   it("lists ranges stored on the cluster", async () => {
     const rng = await createTestRange(client);
@@ -79,6 +98,41 @@ describe("range/Explorer", () => {
     const { store } = await renderExplorer();
     fireEvent.click(await revealRange(rng.name));
     await expectFocusedRange(store, rng.key);
+  });
+
+  describe("selection", () => {
+    it.each([
+      ["shift", { shiftKey: true }],
+      ["control", { ctrlKey: true }],
+      ["command", { metaKey: true }],
+    ])("selects rather than opens when %s is held", async (_, modifier) => {
+      const rng = await createTestRange(client);
+      const { store } = await renderExplorer();
+      const name = await revealRange(rng.name);
+      const before = focusedTabs(store);
+      fireEvent.click(name, modifier);
+      await waitFor(() => expect(checkboxOf(name).checked).toBe(true));
+      expect(focusedTabs(store)).toEqual(before);
+    });
+
+    it("selects without opening when the checkbox is clicked", async () => {
+      const rng = await createTestRange(client);
+      const { store } = await renderExplorer();
+      const name = await revealRange(rng.name);
+      const before = focusedTabs(store);
+      fireEvent.click(checkboxOf(name));
+      await waitFor(() => expect(checkboxOf(name).checked).toBe(true));
+      expect(focusedTabs(store)).toEqual(before);
+    });
+
+    it("leaves the range unselected when clicked without a modifier", async () => {
+      const rng = await createTestRange(client);
+      const { store } = await renderExplorer();
+      const name = await revealRange(rng.name);
+      fireEvent.click(name);
+      await expectFocusedRange(store, rng.key);
+      expect(checkboxOf(name).checked).toBe(false);
+    });
   });
 
   describe("context menu", () => {

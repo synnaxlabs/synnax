@@ -7,8 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { schematic } from "@synnaxlabs/client";
-import { Flux, type Pluto, Schematic, Status, Synnax } from "@synnaxlabs/pluto";
+import { query, schematic } from "@synnaxlabs/client";
+import { Status, Synnax } from "@synnaxlabs/pluto";
 import { useCallback, useMemo } from "react";
 
 import { Panel } from "@/platform/panel";
@@ -29,15 +29,10 @@ type NodeClickHandler = (nodeId: string, dblClick: boolean) => void;
 
 export const useHandleNodeClickAction = (schematicKey: string): NodeClickHandler => {
   const client = Synnax.use();
-  const fluxStore = Flux.useStore<Pluto.FluxStore>();
   const getSchematic = Session.Schematic.useGet();
   const retrieve: SchematicRetriever | null = useMemo(
-    () =>
-      client != null
-        ? (key: string) =>
-            Schematic.retrieveSingle({ store: fluxStore, client, query: { key } })
-        : null,
-    [fluxStore, client],
+    () => (client != null ? (key: string) => client.schematics.retrieve(key) : null),
+    [client],
   );
   const handleError = Status.useErrorHandler();
   const openTab = Panel.useOpenTab();
@@ -46,7 +41,8 @@ export const useHandleNodeClickAction = (schematicKey: string): NodeClickHandler
     (nodeId: string, dblClick: boolean) => {
       const ui = getSchematic({ key: schematicKey });
       if (ui == null || ui.editable || retrieve == null) return;
-      const config = fluxStore.schematics.get(schematicKey)?.configs?.[nodeId];
+      const cached = client?.schematics.getCached(schematicKey);
+      const config = query.isLive(cached) ? cached.configs?.[nodeId] : undefined;
       if (
         config?.variant !== "offPageReference" ||
         typeof config.page !== "string" ||
@@ -64,6 +60,6 @@ export const useHandleNodeClickAction = (schematicKey: string): NodeClickHandler
         `Schematic "${name}" not found`,
       );
     },
-    [getSchematic, schematicKey, retrieve, openTab, handleError, fluxStore],
+    [getSchematic, schematicKey, retrieve, openTab, handleError, client],
   );
 };

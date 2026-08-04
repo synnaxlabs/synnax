@@ -31,7 +31,9 @@ import { createConnectedConsoleWrapper } from "@/testutil";
 
 const retrieveNodeVersion = async (): Promise<string> => {
   const client = createTestClient();
-  const { nodeVersion } = await client.connectivity.check();
+  const {
+    details: { nodeVersion },
+  } = await client.connect();
   client.close();
   if (nodeVersion == null) throw new Error("cluster did not report a node version");
   return nodeVersion;
@@ -79,11 +81,11 @@ describe("Version.use", () => {
         connParams: TEST_CLIENT_PARAMS,
       });
       const { result } = renderHook(
-        () => ({ version: Version.use(), connection: Synnax.useConnectionState() }),
+        () => ({ version: Version.use(), connection: Synnax.useConnectionStatus() }),
         { wrapper },
       );
-      await waitFor(() => expect(result.current.connection.status).toBe("connected"));
-      expect(result.current.connection.nodeVersion).toBe(nodeVersion);
+      await waitFor(() => expect(result.current.connection.variant).toBe("success"));
+      expect(result.current.connection.details.nodeVersion).toBe(nodeVersion);
       await waitFor(() => expect(result.current.version).toBe("0.42.0"));
     });
   });

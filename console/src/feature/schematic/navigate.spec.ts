@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { panel, schematic } from "@synnaxlabs/client";
-import { Flux, type Pluto, Schematic as PSchematic, Status } from "@synnaxlabs/pluto";
+import { Status } from "@synnaxlabs/pluto";
 import { uuid } from "@synnaxlabs/x";
 import { act, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
@@ -44,18 +44,13 @@ const renderNavigateHook = async ({
   const hook = await renderHookWithConsole(
     () => ({
       handler: useHandleNodeClickAction(source.key),
-      fluxStore: Flux.useStore<Pluto.FluxStore>(),
       notifications: Status.useNotifications(),
     }),
     { client, preloadedState: createPreloadedState(source.key, { editable }) },
   );
   hook.store.dispatch(Session.Project.select(await testProjectKey()));
   await act(async () => {
-    await PSchematic.retrieveSingle({
-      store: hook.result.current.fluxStore,
-      client,
-      query: { key: source.key },
-    });
+    await client.schematics.retrieve(source.key);
   });
   return { source, ...hook };
 };

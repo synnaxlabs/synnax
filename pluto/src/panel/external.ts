@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+export * from "@/panel/haul";
 export * from "@/panel/Mosaic";
 export * from "@/panel/queries";
 export * from "@/panel/scope";

@@ -10,6 +10,7 @@ nextURL: "/reference/control/arc/reference/errors"
 ---
 
 import { Divider, Icon, Text } from "@synnaxlabs/pluto";
+import { Arc } from "@/components";
 import Details from "@/components/details/Details.astro";
 import { mdxOverrides } from "@/components/mdxOverrides";
 
@@ -52,13 +53,29 @@ function call, so it can be wired into a chain or called inside a `func`.
 
 </Details>
 
-```arc
-trigger -> time.now{} -> current_time
+<Arc.Tabs client:load>
 
+<Fragment slot="flow">
+
+```arc
+stage stamp {
+  trigger -> time.now{} -> current_time
+}
+```
+
+</Fragment>
+
+<Fragment slot="function">
+
+```arc
 func stamp() {
     current_time = time.now()
 }
 ```
+
+</Fragment>
+
+</Arc.Tabs>
 
 <Divider.Divider x />
 

@@ -16,4 +16,3 @@ export * from "@/platform/range/snapshots";
 export * from "@/platform/range/useAddToActivePlot";
 export * from "@/platform/range/useAddToNewPlot";
 export * from "@/platform/range/useCreateModal";
-export * from "@/platform/range/useListenForChanges";

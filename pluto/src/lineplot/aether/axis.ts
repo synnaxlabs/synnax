@@ -30,12 +30,12 @@ export const baseAxisStateZ = axis.axisStateZ
   .extend({
     axisKey: z.string().optional(),
     bounds: bounds.boundsZ().optional(),
-    autoBounds: z
+    manualBounds: z
       .object({
-        lower: z.boolean().default(true),
-        upper: z.boolean().default(true),
+        lower: z.boolean().default(false),
+        upper: z.boolean().default(false),
       })
-      .or(z.boolean().default(true)),
+      .prefault({}),
     autoBoundPadding: z.number().optional(),
     autoBoundUpdateInterval: TimeSpan.z.default(TimeSpan.seconds(10)),
     size: z.number().default(0),
@@ -154,14 +154,18 @@ export class BaseAxis<
   ): [bounds.Bounds, Error | null] {
     if (hold && this.internal.boundSnapshot != null)
       return [this.internal.boundSnapshot, null];
-    const { lower, upper } = parseAutoBounds(this.state.autoBounds);
-    if (!lower && !upper && this.state.bounds != null) {
+    const { manualBounds } = this.state;
+    const autoLower = !manualBounds.lower;
+    const autoUpper = !manualBounds.upper;
+    if (!autoLower && !autoUpper && this.state.bounds != null) {
       this.internal.boundSnapshot = this.state.bounds;
       return [this.state.bounds, null];
     }
     const merge = (auto: bounds.Bounds): bounds.Bounds => ({
-      upper: upper || this.state.bounds == null ? auto.upper : this.state.bounds.upper,
-      lower: lower || this.state.bounds == null ? auto.lower : this.state.bounds.lower,
+      upper:
+        autoUpper || this.state.bounds == null ? auto.upper : this.state.bounds.upper,
+      lower:
+        autoLower || this.state.bounds == null ? auto.lower : this.state.bounds.lower,
     });
     let ab: bounds.Bounds;
     let err: Error | null = null;
@@ -176,8 +180,8 @@ export class BaseAxis<
     this.internal.boundSnapshot = bounds;
     if (
       this.state.bounds == null ||
-      (lower && this.state.bounds.lower !== bounds.lower) ||
-      (upper && this.state.bounds.upper !== bounds.upper)
+      (autoLower && this.state.bounds.lower !== bounds.lower) ||
+      (autoUpper && this.state.bounds.upper !== bounds.upper)
     )
       this.internal.updateBounds?.(bounds);
     return [bounds, err];
@@ -199,10 +203,3 @@ export class BaseAxis<
     ];
   }
 }
-
-export const parseAutoBounds = (
-  autoBounds: boolean | { lower?: boolean; upper?: boolean },
-): { lower: boolean; upper: boolean } => {
-  if (typeof autoBounds === "boolean") return { lower: autoBounds, upper: autoBounds };
-  return { lower: autoBounds?.lower ?? true, upper: autoBounds?.upper ?? true };
-};

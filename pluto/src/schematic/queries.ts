@@ -11,56 +11,34 @@ import {
   NotFoundError,
   type ontology,
   type project,
+  query,
   schematic,
+  type Synnax as Client,
 } from "@synnaxlabs/client";
-import { array, compare, type record, uuid, xy } from "@synnaxlabs/x";
+import { array, compare, type record, uuid, verbs, xy } from "@synnaxlabs/x";
 import { useCallback } from "react";
 
 import { Flux } from "@/flux";
-import { Ontology } from "@/ontology";
 import { Edge } from "@/schematic/edge";
 import { type ElementConfig } from "@/schematic/element";
 import { Node } from "@/schematic/node";
 import { Scope } from "@/schematic/scope";
-import { type Symbol } from "@/schematic/symbol";
+import { Synnax } from "@/synnax";
 import { Theming } from "@/theming";
 
-export const FLUX_STORE_KEY = "schematics";
 const RESOURCE_NAME = "schematic";
-
-export interface FluxStore extends Flux.UndoableUnaryStore<
-  schematic.Key,
-  schematic.Schematic,
-  schematic.Action
-> {}
-
-export interface FluxSubStore extends Flux.Store {
-  [FLUX_STORE_KEY]: FluxStore;
-  [Ontology.RELATIONSHIPS_FLUX_STORE_KEY]: Ontology.RelationshipFluxStore;
-  [Ontology.RESOURCES_FLUX_STORE_KEY]: Ontology.ResourceFluxStore;
-}
 
 export type RetrieveQuery = schematic.RetrieveSingleParams;
 
-export const retrieveSingle = async ({
-  store,
-  client,
-  query: { key },
-}: Flux.RetrieveParams<RetrieveQuery, FluxSubStore>) => {
-  const cached = store.schematics.get(key);
-  if (cached != null) return cached;
-  const s = await client.schematics.retrieve({ key });
-  store.schematics.set(s);
-  return s;
-};
-
+// Prefers the cached copy: it may hold locally replayed edits ahead of the
+// server.
 export const { useRetrieveSuspended, useRetrieveObservable, useEnsureRetrieved } =
-  Flux.createRetrieve<RetrieveQuery, schematic.Schematic, FluxSubStore>({
+  Flux.createRetrieve<RetrieveQuery, schematic.Schematic>({
     name: RESOURCE_NAME,
-    retrieve: retrieveSingle,
-    retrieveCached: ({ store, query: { key } }) => store.schematics.get(key),
-    mountListeners: ({ store, query: { key }, onChange }) =>
-      store.schematics.onSet(onChange, key),
+    retrieve: async ({ client, query }) => await client.schematics.retrieve(query),
+    subscribe: ({ client, query }, handler) =>
+      client.schematics.onChange(query, handler),
+    getCached: ({ client, query }) => client.schematics.getCached(query),
   });
 
 export interface SelectKeyParams {
@@ -68,52 +46,66 @@ export interface SelectKeyParams {
 }
 
 const requireSchematic = (
-  store: FluxSubStore,
+  client: Client | null,
   key: schematic.Key,
 ): schematic.Schematic => {
-  const schem = store.schematics.get(key);
-  if (schem == null) throw new NotFoundError(`Schematic with key ${key} not found`);
-  return schem;
+  const cached = client?.schematics.getCached(key);
+  if (cached == null) throw new NotFoundError(`Schematic with key ${key} not found`);
+  if (query.Deleted.matches(cached))
+    throw new Flux.DeletedError(`${RESOURCE_NAME} was deleted`, cached.corpse);
+  return cached;
 };
 
+const getSchematic = (
+  client: Client | null,
+  key: schematic.Key,
+): schematic.Schematic | undefined => {
+  const cached = client?.schematics.getCached(key);
+  if (!query.isLive(cached)) return undefined;
+  return cached;
+};
+
+const subscribe = (
+  { client, args: { key } }: Flux.SelectorParams<SelectKeyParams>,
+  notify: () => void,
+) => (client == null ? () => {} : client.schematics.onChange(key, notify));
+
 export const [useSelectAllNodes, useGetAllNodes] = Scope.bindSelector(
-  Flux.createSelector<FluxSubStore, SelectKeyParams, schematic.Node[]>({
-    subscribe: (store, { key }, notify) => store.schematics.onSet(notify, key),
-    select: (store, { key }) => requireSchematic(store, key).nodes,
+  Flux.createSelector<SelectKeyParams, schematic.Node[]>({
+    subscribe,
+    select: ({ client, args: { key } }) => requireSchematic(client, key).nodes,
   }),
 );
 
 export const [useSelectAllEdges, useGetAllEdges] = Scope.bindSelector(
-  Flux.createSelector<FluxSubStore, SelectKeyParams, schematic.Edge[]>({
-    subscribe: (store, { key }, notify) => store.schematics.onSet(notify, key),
-    select: (store, { key }) => requireSchematic(store, key).edges,
+  Flux.createSelector<SelectKeyParams, schematic.Edge[]>({
+    subscribe,
+    select: ({ client, args: { key } }) => requireSchematic(client, key).edges,
   }),
 );
 
-export interface SelectConfigParams {
-  key: schematic.Key;
+export interface SelectConfigParams extends SelectKeyParams {
   elKey: string;
 }
 
 export const [useSelectElementConfig, useGetElementConfig] = Scope.bindSelector(
-  Flux.createSelector<FluxSubStore, SelectConfigParams, ElementConfig | undefined>({
-    subscribe: (store, { key }, notify) => store.schematics.onSet(notify, key),
-    select: (store, { key, elKey }) =>
-      requireSchematic(store, key).configs[elKey] as ElementConfig | undefined,
+  Flux.createSelector<SelectConfigParams, ElementConfig | undefined>({
+    subscribe,
+    select: ({ client, args: { key, elKey } }) =>
+      requireSchematic(client, key).configs[elKey] as ElementConfig | undefined,
   }),
 );
 
-export interface SelectConfigsParams {
-  key: schematic.Key;
+export interface SelectConfigsParams extends SelectKeyParams {
   keys: string[];
 }
 
 export const [useSelectConfigs, useGetConfigs] = Scope.bindSelector(
-  Flux.createSelector<FluxSubStore, SelectConfigsParams, Map<string, ElementConfig>>({
-    subscribe: (store, { key }, notify) => store.schematics.onSet(notify, key),
-    select: (store, { key, keys }) => {
+  Flux.createSelector<SelectConfigsParams, Map<string, ElementConfig>>({
+    subscribe,
+    select: ({ client, args: { key, keys } }) => {
       const result = new Map<string, ElementConfig>();
-      const s = store.schematics.get(key);
+      const s = getSchematic(client, key);
       if (s == null || keys.length === 0) return result;
       for (const elKey of keys) {
         const cfg = s.configs?.[elKey];
@@ -125,16 +117,15 @@ export const [useSelectConfigs, useGetConfigs] = Scope.bindSelector(
   }),
 );
 
-export interface SelectNodesParams {
-  key: schematic.Key;
+export interface SelectNodesParams extends SelectKeyParams {
   keys: string[];
 }
 
 export const [useSelectNodes, useGetNodes] = Scope.bindSelector(
-  Flux.createSelector<FluxSubStore, SelectNodesParams, schematic.Node[]>({
-    subscribe: (store, { key }, notify) => store.schematics.onSet(notify, key),
-    select: (store, { key, keys }) => {
-      const s = store.schematics.get(key);
+  Flux.createSelector<SelectNodesParams, schematic.Node[]>({
+    subscribe,
+    select: ({ client, args: { key, keys } }) => {
+      const s = getSchematic(client, key);
       if (s == null || keys.length === 0) return [];
       const keySet = new Set(keys);
       return s.nodes.filter((n) => keySet.has(n.key));
@@ -148,32 +139,28 @@ export interface SelectFieldParams {
 }
 
 export const [useSelectSnapshot, useGetSnapshot] = Scope.bindSelector(
-  Flux.createSelector<FluxSubStore, SelectFieldParams, boolean>({
-    subscribe: (store, { key }, notify) => store.schematics.onSet(notify, key),
-    select: (store, { key }) => requireSchematic(store, key).snapshot,
+  Flux.createSelector<SelectFieldParams, boolean>({
+    subscribe,
+    select: ({ client, args: { key } }) => requireSchematic(client, key).snapshot,
   }),
 );
 
 export const [useSelectName, useGetName] = Scope.bindSelector(
-  Flux.createSelector<FluxSubStore, SelectKeyParams, string>({
-    subscribe: (store, { key }, notify) => store.schematics.onSet(notify, key),
-    select: (store, { key }) => requireSchematic(store, key).name,
+  Flux.createSelector<SelectKeyParams, string>({
+    subscribe,
+    select: ({ client, args: { key } }) => requireSchematic(client, key).name,
   }),
 );
 
 export type DeleteParams = schematic.Key | schematic.Key[];
 
-export const { useUpdate: useDelete } = Flux.createUpdate<DeleteParams, FluxSubStore>({
+export const { useUpdate: useDelete } = Flux.createUpdate<DeleteParams>({
   name: RESOURCE_NAME,
-  verbs: Flux.DELETE_VERBS,
-  update: async ({ client, data, rollbacks, store, onOptimisticComplete }) => {
-    const keys = array.toArray(data);
-    const ids = schematic.ontologyID(keys);
-    const relFilter = Ontology.filterRelationshipsThatHaveIDs(ids);
-    rollbacks.push(store.relationships.delete(relFilter));
-    await onOptimisticComplete(data);
-    await client.schematics.delete(data);
-    rollbacks.push(store.schematics.delete(keys));
+  verbs: verbs.DELETE,
+  update: async ({ client, data, onOptimisticComplete }) => {
+    await client.schematics.delete(data, {
+      onOptimistic: async () => await onOptimisticComplete(data),
+    });
     return data;
   },
 });
@@ -182,16 +169,11 @@ export interface CopyParams extends schematic.CopyParams {}
 
 export const { useUpdate: useCopy } = Flux.createUpdate<
   CopyParams,
-  FluxSubStore,
   schematic.Schematic
 >({
   name: RESOURCE_NAME,
-  verbs: Flux.COPY_VERBS,
-  update: async ({ client, data, store }) => {
-    const copy = await client.schematics.copy(data);
-    store.schematics.set(copy);
-    return copy;
-  },
+  verbs: verbs.COPY,
+  update: async ({ client, data }) => await client.schematics.copy(data),
 });
 
 export interface UseCreateParams extends schematic.New {
@@ -200,20 +182,14 @@ export interface UseCreateParams extends schematic.New {
 
 export const { useUpdate: useCreate } = Flux.createUpdate<
   UseCreateParams,
-  FluxSubStore,
   schematic.Schematic
 >({
   name: RESOURCE_NAME,
-  verbs: Flux.CREATE_VERBS,
-  update: async ({ client, data, store, rollbacks, onOptimisticComplete }) => {
-    const optimistic = schematic.schematicZ.parse(data);
-    rollbacks.push(store.schematics.set(optimistic));
-    await onOptimisticComplete(optimistic);
-    const project = data.project ?? uuid.ZERO;
-    const created = await client.schematics.create(project, optimistic);
-    store.schematics.set(created);
-    return created;
-  },
+  verbs: verbs.CREATE,
+  update: async ({ client, data, onOptimisticComplete }) =>
+    await client.schematics.create(data.project ?? uuid.ZERO, data, {
+      onOptimistic: async ([optimistic]) => await onOptimisticComplete(optimistic),
+    }),
 });
 
 export interface SnapshotPair extends Pick<schematic.Schematic, "key" | "name"> {}
@@ -223,12 +199,9 @@ export interface SnapshotParams {
   parentID: ontology.ID;
 }
 
-export const { useUpdate: useSnapshot } = Flux.createUpdate<
-  SnapshotParams,
-  FluxSubStore
->({
+export const { useUpdate: useSnapshot } = Flux.createUpdate<SnapshotParams>({
   name: RESOURCE_NAME,
-  verbs: Flux.SNAPSHOT_VERBS,
+  verbs: verbs.SNAPSHOT,
   update: async ({ client, data }) => {
     const { schematics, parentID } = data;
     const ids = await Promise.all(
@@ -275,52 +248,14 @@ const augmentWithEdgeSegments = (
   return [...actions, ...extra];
 };
 
-const kindOfTransaction = (actions: schematic.Action[]): string => {
-  if (actions.length === 0) return "default";
-  // A drag dispatches a stream of `set_node_position` per frame, plus
-  // `set_config` companions synthesized by augmentWithEdgeSegments for any
-  // affected edges. Both shapes are part of one user gesture and must coalesce
-  // together — classify them all as "move" so the per-kind coalesce window
-  // collapses them into a single undoable.
-  const hasMove = actions.some((a) => a.type === "set_node_position");
-  const onlyMoveOrSegment = actions.every(
-    (a) => a.type === "set_node_position" || a.type === "set_config",
-  );
-  if (hasMove && onlyMoveOrSegment) return "move";
-  if (actions.length === 1) return actions[0].type;
-  return "transaction";
-};
-
-export const FLUX_STORE_CONFIG = Flux.createUndoableStore<
-  schematic.Key,
-  schematic.Schematic,
-  schematic.Action,
-  typeof FLUX_STORE_KEY,
-  FluxSubStore
->({
-  storeKey: FLUX_STORE_KEY,
-  reduce: schematic.reduceAll,
-  preprocess: augmentWithEdgeSegments,
-  channel: schematic.SET_CHANNEL_NAME,
-  schema: schematic.scopedActionZ,
-  kindOf: kindOfTransaction,
-});
-
 export const {
   useDispatch,
   useUndo: useUndoBase,
   useRedo: useRedoBase,
   useSingleDispatch: useSingleDispatchBase,
-} = Flux.createDispatch<
-  schematic.Key,
-  schematic.Schematic,
-  schematic.Action,
-  typeof FLUX_STORE_KEY,
-  FluxSubStore
->({
-  storeKey: FLUX_STORE_KEY,
-  send: ({ client, key, actions, dispatchKey }) =>
-    client.schematics.dispatch(key, dispatchKey, actions),
+} = Flux.createDispatch<schematic.Key, schematic.Schematic, schematic.Action>({
+  domain: (client) => client.schematics,
+  preprocess: augmentWithEdgeSegments,
 });
 
 export const useSingleDispatch = Scope.bindHook(useSingleDispatchBase);
@@ -329,15 +264,11 @@ export const useRedo = Scope.bindHook(useRedoBase);
 
 export interface RenameParams extends Pick<schematic.Schematic, "key" | "name"> {}
 
-export const { useUpdate: useRename } = Flux.createUpdate<RenameParams, FluxSubStore>({
+export const { useUpdate: useRename } = Flux.createUpdate<RenameParams>({
   name: RESOURCE_NAME,
-  verbs: Flux.RENAME_VERBS,
-  update: async ({ client, data, rollbacks, store, onOptimisticComplete }) => {
+  verbs: verbs.RENAME,
+  update: async ({ client, data, onOptimisticComplete }) => {
     const { key, name } = data;
-    const current = store.schematics.get(key);
-    if (current != null)
-      rollbacks.push(store.schematics.set(key, { ...current, name }));
-    rollbacks.push(Ontology.renameFluxResource(store, schematic.ontologyID(key), name));
     await onOptimisticComplete(data);
     await client.schematics.rename(key, name);
     return data;
@@ -353,7 +284,7 @@ export interface AddNodeProps {
 }
 
 export const useAddNode = () => {
-  const store = Flux.useStore<Symbol.FluxSubStore>();
+  const client = Synnax.use();
   const theme = Theming.use();
   const dispatch = useSingleDispatch();
 
@@ -362,8 +293,8 @@ export const useAddNode = () => {
       const config = Node.resolveSpec(variant).defaultConfig(theme);
       if (Node.isCustomConfig(config) && specKey != null) {
         config.specKey = specKey;
-        const sym = store.schematicSymbols.get(specKey);
-        if (config.label != null && sym != null) config.label.label = sym.name;
+        const sym = client?.schematics.symbols.getCached(specKey);
+        if (config.label != null && query.isLive(sym)) config.label.label = sym.name;
       }
       dispatch(
         schematic.setNode({
@@ -372,6 +303,6 @@ export const useAddNode = () => {
         }),
       );
     },
-    [dispatch, theme, store],
+    [dispatch, theme, client],
   );
 };

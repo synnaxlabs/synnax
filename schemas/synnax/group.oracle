@@ -10,10 +10,10 @@
 @ts output "client/ts/src/group"
 @go output "core/pkg/service/group"
 @py output "client/py/synnax/group"
-@pb
 
 Key = uuid {
-    @doc value "is a unique identifier for a group, represented as a UUID."
+    @go version 0
+    @doc value  "is a unique identifier for a group, represented as a UUID."
 }
 
 Group struct {
@@ -26,6 +26,7 @@ Group struct {
         @filter
     }
 
+    @go version    0
     @doc value     """
         is a named collection container for organizing related resources. Groups
         provide hierarchical organization through the ontology system.

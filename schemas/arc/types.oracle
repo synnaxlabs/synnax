@@ -38,18 +38,21 @@ Kind enum {
     stage                        = 23
     var_ref                      = 24
 
-    @doc value """
+    @go version 1
+    @doc value  """
         is the type category for Arc's type system, including primitives, compound
         types, and meta-types.
     """
 }
 
 ChanDirection enum {
-    none  = 0
-    read  = 1
-    write = 2
+    none       = 0
+    read       = 1
+    write      = 2
+    read_write = 3
 
-    @doc value "indicates read/write direction for channel-typed parameters."
+    @go version 1
+    @doc value  "indicates read/write direction for channel-typed parameters."
 }
 
 FunctionProperties struct {
@@ -60,7 +63,8 @@ FunctionProperties struct {
         @doc value "contains output parameter definitions."
     }
 
-    @doc value "contains common parameter definitions for function-like types."
+    @go version 1
+    @doc value  "contains common parameter definitions for function-like types."
 }
 
 Type struct extends FunctionProperties {
@@ -83,6 +87,7 @@ Type struct extends FunctionProperties {
         @doc value "indicates read/write direction for channel-typed parameters."
     }
 
+    @go version          1
     @doc value           """
         is a type in Arc's type system with optional element type for compounds,
         physical units, and constraints.
@@ -103,11 +108,13 @@ Param struct {
         @doc value "is an optional default value."
     }
 
+    @go version  1
     @doc value   "is a named, typed parameter with optional default value."
     @cpp methods "[[nodiscard]] std::string to_string() const" "friend std::ostream& operator<<(std::ostream& os, const Param& p)"
 }
 
 Params Param[] {
+    @go version  1
     @doc value   """
         is a collection of named, typed parameters for function inputs or outputs.
     """
@@ -122,6 +129,7 @@ Channels struct {
         @doc value "contains writable channel indices mapped to parameter names."
     }
 
+    @go version  1
     @doc value   """
         contains channel declarations for reading from and writing to Synnax channels.
     """
@@ -154,6 +162,7 @@ Dimensions struct {
         @doc value "is the data size dimension exponent (bytes)."
     }
 
+    @go version  1
     @doc value   """
         contains physical dimension exponents for dimensional analysis (SI base quantities).
     """
@@ -171,6 +180,7 @@ Unit struct {
         @doc value "is the unit name (e.g., 'psi', 'ns', 'm/s')."
     }
 
+    @go version  1
     @doc value   """
         is a physical unit with dimensions and scale factor for unit-aware computation.
     """

@@ -577,9 +577,9 @@ describe("queries", () => {
 
       await waitFor(() => expect(result.current.variant).toEqual("success"));
 
-      const children = await client.ontology.retrieveChildren(
-        group.ontologyID(parentGroup.key),
-      );
+      const children = await client.ontology.children.retrieve({
+        ids: group.ontologyID(parentGroup.key),
+      });
       expect(children.length).toBeGreaterThan(0);
 
       const snapshotChild = children.find(
@@ -862,9 +862,7 @@ describe("queries", () => {
         expect(result.current.form.get("name").value).toEqual("updatedTaskName");
       });
 
-      const updatedTask = await client.tasks.retrieve({
-        key: testTask.key,
-      });
+      const updatedTask = await client.tasks.retrieve(testTask.key);
       expect(updatedTask.name).toEqual("updatedTaskName");
     });
 
@@ -1422,9 +1420,7 @@ describe("queries", () => {
 
       await waitFor(
         async () => {
-          const updatedTask = await client.tasks.retrieve({
-            key: testTask.key,
-          });
+          const updatedTask = await client.tasks.retrieve(testTask.key);
           expect(updatedTask.name).toEqual("autoSavedName");
         },
         { timeout: 3000 },

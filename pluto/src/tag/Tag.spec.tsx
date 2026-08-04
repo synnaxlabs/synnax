@@ -25,7 +25,7 @@ describe("Tag", () => {
   it("should render a close button if onClose is provided", () => {
     const close = vi.fn();
     const c = render(<Tag.Tag onClose={close}>Test</Tag.Tag>);
-    const btn = c.getByLabelText("close");
+    const btn = c.getByLabelText("Close");
     expect(btn).toBeTruthy();
     fireEvent.click(btn);
     expect(close).toHaveBeenCalled();

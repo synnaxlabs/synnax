@@ -59,7 +59,7 @@ describe("log ontology service", () => {
     await screen.findByText(`Are you sure you want to delete ${l.name}?`);
     fireEvent.click(findModalButton("Delete"));
     await waitFor(async () => {
-      await expect(client.logs.retrieve({ key: l.key })).rejects.toSatisfy((e) =>
+      await expect(client.logs.retrieve(l.key)).rejects.toSatisfy((e) =>
         NotFoundError.matches(e),
       );
     });

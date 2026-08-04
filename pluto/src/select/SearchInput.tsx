@@ -11,6 +11,7 @@ import { useState } from "react";
 
 import { type Dialog } from "@/dialog";
 import { Flex } from "@/flex";
+import { Icon } from "@/icon";
 import { type Input } from "@/input";
 import { Text as InputText } from "@/input/Text";
 
@@ -32,9 +33,10 @@ export const SearchInput = ({
     <InputText
       value={term}
       autoFocus
+      flush
+      startContent={<Icon.Search />}
       placeholder={searchPlaceholder}
       size={dialogVariant === "modal" ? "large" : "medium"}
-      contrast={3}
       rounded
       grow
       full="x"

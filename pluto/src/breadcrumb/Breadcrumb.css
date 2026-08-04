@@ -20,7 +20,7 @@
 
     &.pluto-breadcrumb--highlight-last {
         & > :not(:last-child) {
-            color: var(--pluto-gray-l8);
+            color: var(--pluto-gray-l9);
             font-weight: 350;
         }
 
@@ -37,13 +37,13 @@
         }
 
         & > :not(:first-child) {
-            color: var(--pluto-gray-l8);
+            color: var(--pluto-gray-l9);
             font-weight: 350;
         }
     }
 
     & .pluto-breadcrumb__separator {
-        color: var(--pluto-gray-l8);
+        color: var(--pluto-gray-l9);
         transform: scale(0.9);
     }
 

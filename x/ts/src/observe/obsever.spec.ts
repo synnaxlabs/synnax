@@ -10,6 +10,7 @@
 import { describe, expect, it } from "vitest";
 
 import { observe } from "@/observe";
+import { TimeSpan } from "@/telem";
 
 describe("observe", () => {
   describe("Observer", () => {
@@ -51,6 +52,73 @@ describe("observe", () => {
       observer.notify(1);
       observer.notify(2);
       expect(values).toEqual([]);
+    });
+  });
+
+  describe("until", () => {
+    it("should resolve immediately when the current value satisfies", async () => {
+      const observer = new observe.Observer<number>();
+      await expect(
+        observe.until(
+          observer,
+          () => 5,
+          (v) => v > 3,
+        ),
+      ).resolves.toBe(5);
+    });
+
+    it("should resolve with the first satisfying value", async () => {
+      const observer = new observe.Observer<number>();
+      const current = 0;
+      const promise = observe.until(
+        observer,
+        () => current,
+        (v) => v > 2,
+      );
+      observer.notify(1);
+      observer.notify(3);
+      await expect(promise).resolves.toBe(3);
+    });
+
+    it("should ignore values that do not satisfy", async () => {
+      const observer = new observe.Observer<number>();
+      const promise = observe.until(
+        observer,
+        () => 0,
+        (v) => v > 2,
+        TimeSpan.milliseconds(10),
+      );
+      observer.notify(1);
+      observer.notify(2);
+      await expect(promise).rejects.toThrow(/timed out/);
+    });
+
+    it("should reject when the timeout elapses", async () => {
+      const observer = new observe.Observer<number>();
+      await expect(
+        observe.until(
+          observer,
+          () => 0,
+          (v) => v > 2,
+          TimeSpan.milliseconds(5),
+        ),
+      ).rejects.toThrow(/timed out/);
+    });
+
+    it("should unsubscribe once settled", async () => {
+      const observer = new observe.Observer<number>();
+      await observe
+        .until(
+          observer,
+          () => 0,
+          (v) => v > 2,
+          TimeSpan.milliseconds(5),
+        )
+        .catch(() => {});
+      const values: number[] = [];
+      observer.onChange((value) => values.push(value));
+      observer.notify(9);
+      expect(values).toEqual([9]);
     });
   });
 });

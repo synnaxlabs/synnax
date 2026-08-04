@@ -113,7 +113,7 @@ describe("channel/ontology", () => {
       const tab = await resolveFocusedTab(store, client);
       if (tab.variant !== "resource") throw new Error("expected a resource tab");
       expect(tab.resource.type).toBe("lineplot");
-      const plot = await client.lineplots.retrieve({ key: tab.resource.key });
+      const plot = await client.lineplots.retrieve(tab.resource.key);
       expect(plot.name).toBe("Line Plot");
       expect(plot.channels.y1).toContain(ch.key);
     });
@@ -155,27 +155,27 @@ describe("channel/ontology", () => {
       );
       fireEvent.doubleClick(await findTreeRow(ch.name));
       await waitFor(async () => {
-        const { channels } = await client.lineplots.retrieve({ key: plot.key });
+        const { channels } = await client.lineplots.retrieve(plot.key);
         expect(channels.y1).toContain(ch.key);
       });
     });
 
-    it("does not include a virtual channel without an expression in the created plot", async () => {
+    it("opens a virtual channel without an expression in a log", async () => {
       const virtualCh = await createChannel({ isIndex: false, virtual: true });
-      const realCh = await createChannel();
       const proj = await client.projects.create({
         name: uniqueName("proj"),
         layout: {},
       });
-      const root = await createChannelGroup(virtualCh, realCh);
+      const root = await createChannelGroup(virtualCh);
       const { store } = await renderChannelTree(root);
       store.dispatch(Session.Project.select(proj.key));
       fireEvent.doubleClick(await findTreeRow(virtualCh.name));
-      fireEvent.doubleClick(await findTreeRow(realCh.name));
       const tab = await resolveFocusedTab(store, client);
       if (tab.variant !== "resource") throw new Error("expected a resource tab");
-      const plot = await client.lineplots.retrieve({ key: tab.resource.key });
-      expect(plot.channels.y1).toEqual([realCh.key]);
+      expect(tab.resource.type).toBe("log");
+      const opened = await client.logs.retrieve(tab.resource.key);
+      expect(opened.name).toBe("Log");
+      expect(opened.channels.map((e) => e.channel)).toContain(virtualCh.key);
     });
   });
 

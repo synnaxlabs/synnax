@@ -160,7 +160,7 @@ export const useCreateModal = Modals.create<CreateModalParams>(
                 )}
               </Form.Field>
               <Form.Field<string[]> path="labels" required={false}>
-                {({ variant, ...p }) => <Label.SelectMultiple zIndex={100} {...p} />}
+                {({ preview: _, ...p }) => <Label.SelectMultiple zIndex={100} {...p} />}
               </Form.Field>
             </Flex.Box>
           </Form.Form>

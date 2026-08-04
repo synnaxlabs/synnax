@@ -81,7 +81,7 @@ export const useCreateModal = Modals.create(({ close }) => {
               }}
             />
             <Form.Field<string> path="dataType" label="Data type" grow>
-              {({ variant: _, ...p }) => (
+              {({ preview: _, ...p }) => (
                 <Telem.SelectDataType {...p} disabled={isIndex} zIndex={100} full="x" />
               )}
             </Form.Field>

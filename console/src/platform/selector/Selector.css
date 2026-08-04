@@ -15,6 +15,11 @@
     justify-content: safe center;
     padding-block: 5rem;
 
+    & > .pluto-icon {
+        height: var(--pluto-height-medium);
+        width: var(--pluto-width-medium);
+    }
+
     & .pluto-btn {
         width: 100px;
     }

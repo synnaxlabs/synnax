@@ -66,7 +66,7 @@ const useDelete = () => {
         handleRemove(keys);
         return true;
       },
-      [],
+      [confirm, ranges],
     ),
   });
   return update;
@@ -154,11 +154,9 @@ export const ContextMenu = ({ keys: [key] }: Menu.ContextMenuMenuProps) => {
               View details
             </Menu.Item>
           )}
+          <Menu.Divider />
           {hasUpdatePermission && (
-            <>
-              <Menu.Divider />
-              <Base.RenameItem onClick={() => Text.edit(`text-${key}`)} />
-            </>
+            <Base.RenameItem onClick={() => Text.edit(`text-${key}`)} />
           )}
           {hasCreatePermission && rng.persisted && (
             <Menu.Item itemKey="addChildRange" onClick={handleAddChildRange}>
@@ -179,32 +177,27 @@ export const ContextMenu = ({ keys: [key] }: Menu.ContextMenuMenuProps) => {
               Add to new plot
             </Menu.Item>
           )}
+          {!rng.persisted && hasCreatePermission && client != null && (
+            <Menu.Item itemKey="save" onClick={() => persist(rng.key)}>
+              <Icon.Save />
+              Save to Synnax
+            </Menu.Item>
+          )}
+          <Menu.Divider />
+          {rng.persisted && (
+            <Link.CopyContextMenuItem
+              onClick={() =>
+                handleLink({ name: rng.name, ontologyID: ranger.ontologyID(rng.key) })
+              }
+            />
+          )}
           <Menu.Divider />
           <Menu.Item itemKey="remove" onClick={() => handleRemove([rng.key])}>
             <Icon.Close />
             Unfavorite
           </Menu.Item>
-          {rng.persisted ? (
-            <>
-              {hasDeletePermission && <Base.DeleteItem onClick={() => del(rng.key)} />}
-              <Menu.Divider />
-              <Link.CopyContextMenuItem
-                onClick={() =>
-                  handleLink({ name: rng.name, ontologyID: ranger.ontologyID(rng.key) })
-                }
-              />
-            </>
-          ) : (
-            hasCreatePermission &&
-            client != null && (
-              <>
-                <Menu.Divider />
-                <Menu.Item itemKey="save" onClick={() => persist(rng.key)}>
-                  <Icon.Save />
-                  Save to Synnax
-                </Menu.Item>
-              </>
-            )
+          {rng.persisted && hasDeletePermission && (
+            <Base.DeleteItem onClick={() => del(rng.key)} />
           )}
         </>
       )}

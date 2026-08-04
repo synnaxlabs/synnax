@@ -35,7 +35,7 @@ const createRule = async () => {
   fireEvent.click(screen.getByText("Create an annotation"));
   await screen.findByText("Rule 1");
   await waitFor(async () => {
-    const plot = await client.lineplots.retrieve({ key: handle.key });
+    const plot = await client.lineplots.retrieve(handle.key);
     expect(plot.rules).toHaveLength(1);
   });
   return handle;
@@ -47,7 +47,7 @@ describe("lineplot/toolbar/Annotations", () => {
     expect(screen.getByText("Units")).toBeDefined();
     expect(screen.getByText("Position")).toBeDefined();
     await waitFor(async () => {
-      const plot = await client.lineplots.retrieve({ key });
+      const plot = await client.lineplots.retrieve(key);
       expect(plot.rules).toHaveLength(1);
       expect(plot.rules[0].label).toBe("Rule 1");
       expect(
@@ -61,7 +61,7 @@ describe("lineplot/toolbar/Annotations", () => {
     fireEvent.click(getIconButton(result.container, "add"));
     expect(await screen.findByText("Rule 2")).toBeDefined();
     await waitFor(async () => {
-      const plot = await client.lineplots.retrieve({ key });
+      const plot = await client.lineplots.retrieve(key);
       expect(plot.rules).toHaveLength(2);
     });
   });
@@ -71,7 +71,7 @@ describe("lineplot/toolbar/Annotations", () => {
     const input = getLabeledInput("Label");
     fireEvent.change(input, { target: { value: "Max Pressure" } });
     await waitFor(async () => {
-      const plot = await client.lineplots.retrieve({ key });
+      const plot = await client.lineplots.retrieve(key);
       expect(plot.rules[0].label).toBe("Max Pressure");
     });
   });
@@ -81,7 +81,7 @@ describe("lineplot/toolbar/Annotations", () => {
     const input = getLabeledInput("Units");
     fireEvent.change(input, { target: { value: "psi" } });
     await waitFor(async () => {
-      const plot = await client.lineplots.retrieve({ key });
+      const plot = await client.lineplots.retrieve(key);
       expect(plot.rules[0].units).toBe("psi");
     });
   });
@@ -90,7 +90,7 @@ describe("lineplot/toolbar/Annotations", () => {
     const { key } = await createRule();
     fireEvent.click(screen.getByText("Y2"));
     await waitFor(async () => {
-      const plot = await client.lineplots.retrieve({ key });
+      const plot = await client.lineplots.retrieve(key);
       expect(plot.rules[0].axis).toBe("y2");
     });
   });
@@ -101,7 +101,7 @@ describe("lineplot/toolbar/Annotations", () => {
     fireEvent.change(input, { target: { value: "5" } });
     fireEvent.blur(input);
     await waitFor(async () => {
-      const plot = await client.lineplots.retrieve({ key });
+      const plot = await client.lineplots.retrieve(key);
       expect(plot.rules[0].lineWidth).toBe(5);
     });
   });
@@ -112,7 +112,7 @@ describe("lineplot/toolbar/Annotations", () => {
     fireEvent.change(input, { target: { value: "42" } });
     fireEvent.blur(input);
     await waitFor(async () => {
-      const plot = await client.lineplots.retrieve({ key });
+      const plot = await client.lineplots.retrieve(key);
       expect(plot.rules[0].position).toBe(42);
     });
   });
@@ -123,7 +123,7 @@ describe("lineplot/toolbar/Annotations", () => {
     fireEvent.change(input, { target: { value: "8" } });
     fireEvent.blur(input);
     await waitFor(async () => {
-      const plot = await client.lineplots.retrieve({ key });
+      const plot = await client.lineplots.retrieve(key);
       expect(plot.rules[0].lineDash).toBe(8);
     });
   });
@@ -134,7 +134,7 @@ describe("lineplot/toolbar/Annotations", () => {
     fireEvent.click(await screen.findByText("Delete"));
     expect(await screen.findByText("No annotations added.")).toBeDefined();
     await waitFor(async () => {
-      const plot = await client.lineplots.retrieve({ key });
+      const plot = await client.lineplots.retrieve(key);
       expect(plot.rules).toHaveLength(0);
     });
     expect(

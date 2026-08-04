@@ -13,7 +13,7 @@
     transition: transform 0.2s ease;
     transform-origin: center;
     will-change: transform;
-    color: var(--pluto-gray-l8);
+    color: var(--pluto-gray-l9);
 
     &.pluto--location-left {
         transform: rotate(270deg) scale(0.8);

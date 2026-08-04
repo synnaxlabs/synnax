@@ -7,13 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { group, type schematic } from "@synnaxlabs/client";
+import { group, schematic } from "@synnaxlabs/client";
 import { Status } from "@synnaxlabs/pluto";
 import { act, fireEvent, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { Schematic } from "@/feature/schematic";
 import { client, createSymbolPayload } from "@/feature/schematic/testutil";
+import { Export } from "@/platform/export";
 import { findButton, renderModalOpener } from "@/platform/modals/testutil";
 import {
   captureBrowserDownloads,
@@ -47,7 +48,7 @@ const createSymbolGroup = async (
   return { grp, symbols };
 };
 
-describe("Schematic.Symbol.useExport", () => {
+describe("exporting a symbol", () => {
   it("downloads the symbol as JSON", async () => {
     const downloads = captureBrowserDownloads();
     const name = uniqueName("symbol");
@@ -56,16 +57,14 @@ describe("Schematic.Symbol.useExport", () => {
       ...createSymbolPayload(name),
       parent: group.ontologyID(root.key),
     });
-    const { result } = await renderHookWithConsole(() => Schematic.Symbol.useExport(), {
-      client,
-    });
-    act(() => result.current(symbol.key));
+    const { result } = await renderHookWithConsole(() => Export.use(), { client });
+    act(() => result.current(schematic.symbol.ontologyID(symbol.key)));
     await waitFor(() => expect(downloads.anchors).toHaveLength(1));
     expect(downloads.anchors[0].download).toBe(`${name}.json`);
     const contents = JSON.parse(
       new TextDecoder().decode(await downloads.blobs[0].arrayBuffer()),
     );
-    expect(contents).toMatchObject({ key: symbol.key, name });
+    expect(contents).toMatchObject({ name, type: "schematic_symbol" });
     expect(contents.data.svg).toBe(symbol.data.svg);
   });
 });
@@ -102,7 +101,7 @@ describe("Schematic.Symbol.useExportGroup", () => {
       if (entry == null) throw new Error(`manifest missing symbol ${symbol.name}`);
       const written = picker.files.get(entry.file);
       if (written == null) throw new Error(`symbol file ${entry.file} not written`);
-      expect(JSON.parse(written)).toMatchObject({ key: symbol.key });
+      expect(JSON.parse(written)).toMatchObject({ name: symbol.name });
     }
   });
 

@@ -29,7 +29,7 @@ const configs: Device.TaskContextMenuItemConfig[] = [
 const setup = async (configured: boolean, itemClient: Synnax | null = client) => {
   const onConfigure = vi.fn();
   const resource = createDeviceResource({ key: id.create(), name: "dev", configured });
-  const { store, wrapper } = await renderMenuItem(
+  const { store } = await renderMenuItem(
     <Device.TaskContextMenuItems
       onConfigure={onConfigure}
       selection={createSelection({ ids: [resource.id] })}
@@ -39,18 +39,22 @@ const setup = async (configured: boolean, itemClient: Synnax | null = client) =>
     { client: itemClient },
   );
   let created: CreatedPanel | null = null;
-  if (itemClient != null)
-    created = await createSelectedPanel(wrapper, store, itemClient);
+  if (itemClient != null) {
+    created = await createSelectedPanel(store, itemClient);
+    // useOpenTab reads the panel query cache; warm it and keep it subscribed
+    // so dispatches stay visible.
+    await itemClient.panels.retrieve(created.panelKey);
+  }
   return { onConfigure, key: resource.id.key, store, created };
 };
 
-const findViewTab = (
+const findViewTab = async (
   created: CreatedPanel | null,
   type: string,
-): panel.TabView | undefined => {
+): Promise<panel.TabView | undefined> => {
   assertDefined(created, "no panel was created");
-  const doc = created.fluxStore.panels.get(created.panelKey);
-  if (doc?.root.variant !== "leaf") return undefined;
+  const doc = await client.panels.retrieve(created.panelKey);
+  if (doc.root.variant !== "leaf") return undefined;
   return doc.root.tabs.find(
     (t): t is panel.TabView => t.variant === "view" && t.type === type,
   );
@@ -68,8 +72,8 @@ describe("TaskContextMenuItems", () => {
     await waitFor(() => expect(screen.getByText("Create Read Task")).toBeTruthy());
     fireEvent.click(screen.getByText("Create Read Task"));
     expect(onConfigure).toHaveBeenCalledWith(key);
-    await waitFor(() => {
-      const tab = findViewTab(created, "test_read");
+    await waitFor(async () => {
+      const tab = await findViewTab(created, "test_read");
       assertDefined(tab, "read task view tab was not opened");
       expect(tab.args).toEqual({ deviceKey: key });
     });
@@ -80,11 +84,11 @@ describe("TaskContextMenuItems", () => {
     await waitFor(() => expect(screen.getByText("Create Write Task")).toBeTruthy());
     fireEvent.click(screen.getByText("Create Write Task"));
     expect(onConfigure).not.toHaveBeenCalled();
-    await waitFor(() => {
-      const tab = findViewTab(created, "test_write");
+    await waitFor(async () => {
+      const tab = await findViewTab(created, "test_write");
       assertDefined(tab, "write task view tab was not opened");
       expect(tab.args).toEqual({ deviceKey: key });
     });
-    expect(findViewTab(created, "test_read")).toBeUndefined();
+    expect(await findViewTab(created, "test_read")).toBeUndefined();
   });
 });

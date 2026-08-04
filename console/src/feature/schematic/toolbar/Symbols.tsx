@@ -29,10 +29,7 @@ import { id, uuid } from "@synnaxlabs/x";
 import { type ReactElement, useCallback, useEffect, useMemo, useState } from "react";
 
 import { Symbol } from "@/feature/schematic/symbol";
-import {
-  useExport as useExportSymbol,
-  useExportGroup,
-} from "@/feature/schematic/symbol/export";
+import { useExportGroup } from "@/feature/schematic/symbol/export";
 import {
   useImport as useImportSymbol,
   useImportGroup,
@@ -184,7 +181,7 @@ const RemoteSymbolListContextMenu = ({
   });
   const openEdit = Symbol.Edit.useModal();
   const renameModal = Modals.useRename();
-  const exportSymbol = useExportSymbol();
+  const exportSymbol = Export.use();
   const rename = Schematic.Symbol.useRename({
     beforeUpdate: async ({ data }) => {
       const { name } = data;
@@ -211,17 +208,23 @@ const RemoteSymbolListContextMenu = ({
   };
   return (
     <ContextMenu.Menu>
-      <ContextMenu.DeleteItem onClick={() => del.update(firstKey)} />
+      <Menu.Item itemKey="edit" onClick={handleEdit}>
+        <Icon.Edit />
+        Edit
+      </Menu.Item>
       <ContextMenu.RenameItem
         onClick={() => {
           if (item != null) rename.update(item);
         }}
       />
-      <Menu.Item itemKey="edit" onClick={handleEdit}>
-        <Icon.Edit />
-        Edit
-      </Menu.Item>
-      <Export.ContextMenuItem onClick={() => exportSymbol(firstKey)} />
+      <Menu.Divider />
+      <Export.ContextMenuItem
+        onClick={() => exportSymbol(schematic.symbol.ontologyID(firstKey))}
+      />
+      <Menu.Divider />
+      <ContextMenu.DeleteItem onClick={() => del.update(firstKey)} />
+      <Menu.Divider />
+      <ContextMenu.ReloadConsoleItem />
     </ContextMenu.Menu>
   );
 };
@@ -291,7 +294,7 @@ const GroupListItem = (props: List.ItemProps<group.Key>): ReactElement | null =>
       value={selected}
       onChange={onSelect}
       className={CSS(Menu.CONTEXT_TARGET, selected && Menu.CONTEXT_SELECTED)}
-      textColor={9}
+      textColor={selected ? undefined : 9}
     >
       {GroupIcon != null && <GroupIcon />}
       {group.name}
@@ -445,21 +448,25 @@ const GroupListContextMenu = ({
   if (!isRemoteGroup) return null;
   return (
     <ContextMenu.Menu>
-      <ContextMenu.DeleteItem
-        onClick={() => {
-          if (item != null) deleteSymbolGroup(item);
-        }}
-      />
       <ContextMenu.RenameItem
         onClick={() => {
           if (item != null) rename.update(item);
         }}
       />
+      <Menu.Divider />
       <Export.ContextMenuItem
         onClick={() => {
           if (item != null) exportGroup(item);
         }}
       />
+      <Menu.Divider />
+      <ContextMenu.DeleteItem
+        onClick={() => {
+          if (item != null) deleteSymbolGroup(item);
+        }}
+      />
+      <Menu.Divider />
+      <ContextMenu.ReloadConsoleItem />
     </ContextMenu.Menu>
   );
 };
@@ -578,13 +585,10 @@ export const Symbols = (): ReactElement => {
         <Input.Text
           value={searchTerm}
           onChange={setSearchTerm}
-          placeholder={
-            <>
-              <Icon.Search />
-              Search symbols
-            </>
-          }
-          size="small"
+          placeholder="Search symbols..."
+          startContent={<Icon.Search />}
+          flush
+          className={CSS.BE("schematic", "symbols", "search")}
         />
         <GroupList
           value={groupKey}

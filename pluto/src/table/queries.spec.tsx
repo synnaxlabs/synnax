@@ -92,11 +92,11 @@ describe("table queries", () => {
       expect(result.current.data?.name).toEqual("created_table");
       expect(result.current.data?.project).toEqual(project.key);
 
-      const retrieved = await client.tables.retrieve({ key });
+      const retrieved = await client.tables.retrieve(key);
       expect(retrieved.name).toEqual("created_table");
     });
 
-    it("should store created table in flux store", async () => {
+    it("should cache the created table for subsequent retrieves", async () => {
       const project = await client.projects.create({
         name: "store_project",
         layout: {},
@@ -140,7 +140,7 @@ describe("table queries", () => {
       });
       expect(result.current.variant).toEqual("success");
 
-      const retrieved = await client.tables.retrieve({ key });
+      const retrieved = await client.tables.retrieve(key);
       expect(retrieved.rows).toHaveLength(2);
       expect(retrieved.columns).toHaveLength(2);
       expect(retrieved.rows[0].cells).toHaveLength(2);
@@ -174,7 +174,7 @@ describe("table queries", () => {
       });
       expect(result.current.variant).toEqual("success");
 
-      const retrieved = await client.tables.retrieve({ key });
+      const retrieved = await client.tables.retrieve(key);
       expect(retrieved.rows).toHaveLength(1);
       expect(retrieved.columns).toHaveLength(1);
       expect(retrieved.rows[0].cells).toEqual(["x"]);
@@ -194,7 +194,7 @@ describe("table queries", () => {
         });
       });
       expect(result.current.variant).toEqual("error");
-      await expect(client.tables.retrieve({ key })).rejects.toThrow(NotFoundError);
+      await expect(client.tables.retrieve(key)).rejects.toThrow(NotFoundError);
     });
   });
 
@@ -227,7 +227,7 @@ describe("table queries", () => {
         });
       });
 
-      const retrieved = await client.tables.retrieve({ key: created.key });
+      const retrieved = await client.tables.retrieve(created.key);
       expect(retrieved.name).toEqual("renamed_table");
     });
 
@@ -278,9 +278,7 @@ describe("table queries", () => {
         await result.current.updateAsync(created.key);
       });
       expect(result.current.variant).toEqual("success");
-      await expect(client.tables.retrieve({ key: created.key })).rejects.toThrow(
-        NotFoundError,
-      );
+      await expect(client.tables.retrieve(created.key)).rejects.toThrow(NotFoundError);
     });
 
     it("should delete multiple tables", async () => {
@@ -303,12 +301,8 @@ describe("table queries", () => {
 
       expect(result.current.variant).toEqual("success");
 
-      await expect(client.tables.retrieve({ key: created1.key })).rejects.toThrow(
-        NotFoundError,
-      );
-      await expect(client.tables.retrieve({ key: created2.key })).rejects.toThrow(
-        NotFoundError,
-      );
+      await expect(client.tables.retrieve(created1.key)).rejects.toThrow(NotFoundError);
+      await expect(client.tables.retrieve(created2.key)).rejects.toThrow(NotFoundError);
     });
   });
 
@@ -543,7 +537,7 @@ describe("table queries", () => {
       await utils.findByTestId("loaded");
     };
 
-    it("populates the store so downstream selectors resolve", async () => {
+    it("populates the cache so downstream selectors resolve", async () => {
       const proj = await client.projects.create({
         name: `ensure_ws_${uuid.create()}`,
         layout: {},

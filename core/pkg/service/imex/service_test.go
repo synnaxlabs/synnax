@@ -19,6 +19,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
+	. "github.com/synnaxlabs/synnax/pkg/service/imex/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/project"
 	"github.com/synnaxlabs/x/errors"
@@ -42,14 +43,7 @@ func sampleResource(name string) testResource {
 func sampleEnvelope(name string, typ ontology.ResourceType) imex.Envelope {
 	env := imex.Envelope{Version: testVersion, Type: string(typ)}
 	Expect(imex.Encode(&env, sampleResource(name))).To(Succeed())
-	return wireRoundTrip(env)
-}
-
-func wireRoundTrip(env imex.Envelope) imex.Envelope {
-	b := MustSucceed(json.Marshal(env))
-	var out imex.Envelope
-	Expect(json.Unmarshal(b, &out)).To(Succeed())
-	return out
+	return WireRoundTrip(env)
 }
 
 type testEntry struct {
@@ -399,7 +393,7 @@ var _ = Describe("Service", func() {
 			Expect(env.Version).To(Equal(testVersion))
 			Expect(env.Type).To(Equal(string(ontology.ResourceTypeChannel)))
 			Expect(env.Name).To(Equal("Round Trip"))
-			roundTripped := MustSucceed(imex.Decode[testResource](ctx, wireRoundTrip(env)))
+			roundTripped := MustSucceed(imex.Decode[testResource](ctx, WireRoundTrip(env)))
 			Expect(roundTripped.FieldOne).To(Equal("value"))
 			Expect(roundTripped.FieldTwo).To(Equal(42))
 		})

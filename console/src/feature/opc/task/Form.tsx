@@ -81,7 +81,7 @@ const ChannelListItem = <C extends Channel>({
           namePath={`${path}.name`}
         />
         <Flex.Box x align="center" gap="tiny">
-          <Icon.Variable color={7} />
+          <Icon.Variable color={9} />
           <Text.Text
             level="small"
             weight={350}

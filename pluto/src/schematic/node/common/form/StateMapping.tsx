@@ -84,7 +84,7 @@ const StateMappingListItem = ({
         onClick={() => onRemove(itemKey)}
         size="small"
         variant="text"
-        ghost
+        reveal
       >
         <Icon.Close />
       </Button.Button>

@@ -126,7 +126,13 @@ export const Leaf = ({
         return items;
       }
       const dropped = filterTabDropHaulItems(items);
-      if (dropped.length > 0) onDrop?.({ nodeKey, tabKey: dropped[0].key, location });
+      if (dropped.length > 0)
+        onDrop?.({
+          nodeKey,
+          tabKey: dropped[0].key,
+          data: dropped[0].data,
+          location,
+        });
       const created = filterTabCreateHaulItems(items);
       if (created.length > 0)
         onCreate?.({ nodeKey, location, tabKeys: created.map(({ key }) => key) });

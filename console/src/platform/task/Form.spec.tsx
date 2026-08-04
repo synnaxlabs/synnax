@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { createTestClient } from "@synnaxlabs/client/testutil";
-import { Form as PForm } from "@synnaxlabs/pluto";
+import { Form as PForm, Icon } from "@synnaxlabs/pluto";
 import { screen, waitFor } from "@testing-library/react";
 import { type FC } from "react";
 import { describe, expect, it } from "vitest";
@@ -54,6 +54,7 @@ const createRenderer = ({
 }: MakeRendererParams = {}) =>
   Task.wrapForm<typeof schemas>({
     Form,
+    Icon: Icon.Task,
     schemas,
     type: "test_task",
     getInitialValues: () => ({
@@ -139,7 +140,7 @@ describe("wrapForm", () => {
       const result = await renderTaskFormTab(Renderer, "test_task", { client });
       await clickConfigure();
       const taskKey = await awaitTaskKey(result);
-      const created = await client.tasks.retrieve({ key: taskKey });
+      const created = await client.tasks.retrieve(taskKey);
       expect(created.name).toBe("New Test Task");
       expect(created.type).toBe("test_task");
       expect(created.rack).toBe(rack.key);

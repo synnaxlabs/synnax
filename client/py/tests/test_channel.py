@@ -7,17 +7,16 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-import random
-
 import numpy as np
 import pytest
 
 import synnax as sy
+from x.strings import random_name
 from x.telem import seconds_linspace
 
 
 def channel_name() -> str:
-    return f"test_{random.randint(0, 1000000)}"
+    return f"test_{random_name()}"
 
 
 @pytest.mark.channel
@@ -123,6 +122,18 @@ class TestChannel:
         assert channel.data_type == sy.DataType.TIMESTAMP
         assert channel.is_index is True
         assert channel.index == channel.key
+
+    def test_create_bool(self, client: sy.Synnax):
+        """Should create a channel with a BOOL data type"""
+        idx = client.channels.create(
+            name=channel_name(), data_type=sy.DataType.TIMESTAMP, is_index=True
+        )
+        ch = client.channels.create(
+            name=channel_name(), data_type=sy.DataType.BOOL, index=idx.key
+        )
+        assert ch.data_type == sy.DataType.BOOL
+        res = client.channels.retrieve(ch.key)
+        assert res.data_type == sy.DataType.BOOL
 
     def test_create_virtual(self, client: sy.Synnax):
         """Should create a virtual channel"""

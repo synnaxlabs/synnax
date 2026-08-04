@@ -68,10 +68,10 @@ describe("User.useRegisterModal", () => {
     const created = await client.users.retrieve({ username });
     expect(created.firstName).toEqual("Ada");
     expect(created.lastName).toEqual("Lovelace");
-    const parents = await client.ontology.retrieveParents(
-      user.ontologyID(created.key),
-      { types: ["role"] },
-    );
+    const parents = await client.ontology.parents.retrieve({
+      ids: user.ontologyID(created.key),
+      types: ["role"],
+    });
     expect(parents.map((p) => p.id.key)).toContain(role.key);
   });
 });

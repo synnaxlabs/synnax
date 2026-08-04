@@ -233,6 +233,7 @@ const onConfigure: Task.OnConfigure<WriteSchemas["config"]> = async (
 export const Write = Task.wrapForm({
   Properties,
   Form,
+  Icon: Icon.Logo.Modbus,
   schemas: WRITE_SCHEMAS,
   type: "modbus_write",
   getInitialValues,

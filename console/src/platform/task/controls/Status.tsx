@@ -48,6 +48,7 @@ export const Status = ({
       variant="text"
       direction={expanded ? "y" : "x"}
       onClick={onToggle}
+      tabIndex={0}
       {...props}
     >
       <Flex.Box
@@ -77,7 +78,7 @@ export const Status = ({
             <Telem.Text.TimeStamp
               className={CSS.BE("task-status", "time-stamp")}
               level="small"
-              color={8}
+              color={9}
               format="time"
               displayTimeZone="local"
             >

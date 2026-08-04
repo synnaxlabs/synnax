@@ -166,7 +166,7 @@ func (s *Service) Retrieve(
 		for i, d := range res.Devices {
 			var parent ontology.Resource
 			err := s.ontology.NewRetrieve().
-				WhereIDs(device.OntologyID(d.Key)).
+				WhereIDs(d.OntologyID()).
 				TraverseTo(ontology.ParentsTraverser).
 				Limit(1).
 				ExcludeFieldData(true).
