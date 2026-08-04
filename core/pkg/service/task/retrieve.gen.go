@@ -64,17 +64,20 @@ func Not(f Filter) Filter {
 // Search sets a fuzzy search term that Retrieve will use to filter results.
 func (r Retrieve) Search(term string) Retrieve { r.searchTerm = term; return r }
 
-// MatchKeys returns a filter that restricts results to tasks whose key
-// matches any of the provided values. Composing MatchKeys at the top level
-// of a Where clause (i.e. r.Where(MatchKeys(...))) dispatches Exec to the
-// multi-get fast path; composing inside Or / Not falls back to a full scan.
+// MatchKeys returns a filter that restricts results to
+// tasks whose key matches any of the provided
+// values. Composing MatchKeys at the top level of a Where clause (i.e.
+// r.Where(MatchKeys(...))) dispatches Exec to the multi-get fast path; composing
+// inside Or / Not falls back to a full scan.
 func MatchKeys(keys ...Key) Filter {
 	return func(_ Retrieve) gorp.Filter[Key, Task] {
 		return gorp.MatchKeys[Key, Task](keys...)
 	}
 }
 
-// MatchRacks returns a filter for tasks whose Rack matches any of the provided values.
+// MatchRacks returns a filter for
+// tasks whose Rack matches any of the
+// provided values.
 func MatchRacks(vals ...rack.Key) Filter {
 	return func(r Retrieve) gorp.Filter[Key, Task] {
 		return gorp.Match(func(_ gorp.Context, e *Task) (bool, error) {
@@ -83,7 +86,9 @@ func MatchRacks(vals ...rack.Key) Filter {
 	}
 }
 
-// MatchNames returns a filter for tasks whose Name matches any of the provided values.
+// MatchNames returns a filter for
+// tasks whose Name matches any of the
+// provided values.
 func MatchNames(vals ...string) Filter {
 	return func(r Retrieve) gorp.Filter[Key, Task] {
 		return gorp.Match(func(_ gorp.Context, e *Task) (bool, error) {
@@ -92,7 +97,9 @@ func MatchNames(vals ...string) Filter {
 	}
 }
 
-// MatchTypes returns a filter for tasks whose Type matches any of the provided values.
+// MatchTypes returns a filter for
+// tasks whose Type matches any of the
+// provided values.
 func MatchTypes(vals ...string) Filter {
 	return func(r Retrieve) gorp.Filter[Key, Task] {
 		return gorp.Match(func(_ gorp.Context, e *Task) (bool, error) {
@@ -101,7 +108,8 @@ func MatchTypes(vals ...string) Filter {
 	}
 }
 
-// MatchInternal returns a filter for tasks by their Internal field.
+// MatchInternal returns a filter for tasks by their
+// Internal field.
 func MatchInternal(v bool) Filter {
 	return func(r Retrieve) gorp.Filter[Key, Task] {
 		return gorp.Match(func(_ gorp.Context, e *Task) (bool, error) {
@@ -110,7 +118,8 @@ func MatchInternal(v bool) Filter {
 	}
 }
 
-// MatchSnapshot returns a filter for tasks by their Snapshot field.
+// MatchSnapshot returns a filter for tasks by their
+// Snapshot field.
 func MatchSnapshot(v bool) Filter {
 	return func(r Retrieve) gorp.Filter[Key, Task] {
 		return gorp.Match(func(_ gorp.Context, e *Task) (bool, error) {
@@ -128,14 +137,16 @@ func (r Retrieve) Where(filter Filter) Retrieve {
 	return r
 }
 
-// Entry binds the provided task as the result container for the query. If
-// multiple tasks match, the first one is used.
+// Entry binds the provided task as the result container for the
+// query. If multiple tasks match, the first one is
+// used.
 func (r Retrieve) Entry(e *Task) Retrieve {
 	r.gorp = r.gorp.Entry(e)
 	return r
 }
 
-// Entries binds the provided slice of tasks as the result container for the query.
+// Entries binds the provided slice of tasks as the
+// result container for the query.
 func (r Retrieve) Entries(es *[]Task) Retrieve {
 	r.gorp = r.gorp.Entries(es)
 	return r
@@ -144,7 +155,8 @@ func (r Retrieve) Entries(es *[]Task) Retrieve {
 // Limit sets the maximum number of tasks to return.
 func (r Retrieve) Limit(limit int) Retrieve { r.gorp = r.gorp.Limit(limit); return r }
 
-// Offset sets the starting index of the tasks to return.
+// Offset sets the starting index of the tasks to
+// return.
 func (r Retrieve) Offset(offset int) Retrieve {
 	r.gorp = r.gorp.Offset(offset)
 	return r
