@@ -425,7 +425,7 @@ var _ = Describe("Task", Ordered, func() {
 	})
 
 	Describe("Status", func() {
-		It("Should create an unknown status when creating a task", func(ctx SpecContext) {
+		It("Should create a not-deployed status when creating a task", func(ctx SpecContext) {
 			m := &task.Task{
 				Rack: testRack.Key,
 				Name: "Status Test Task",
@@ -437,8 +437,8 @@ var _ = Describe("Task", Ordered, func() {
 				Where(status.MatchKeys[task.StatusDetails](m.OntologyID().String())).
 				Entry(&taskStatus).
 				Exec(ctx, tx)).To(Succeed())
-			Expect(taskStatus.Variant).To(Equal(status.VariantWarning))
-			Expect(taskStatus.Message).To(Equal("Status Test Task status unknown"))
+			Expect(taskStatus.Variant).To(Equal(status.VariantDisabled))
+			Expect(taskStatus.Message).To(Equal("Status Test Task has not been deployed"))
 			Expect(taskStatus.Details.Task).To(Equal(m.Key))
 		})
 
@@ -511,6 +511,8 @@ var _ = Describe("Task", Ordered, func() {
 				Entry(&healed).
 				Exec(ctx, tx)).To(Succeed())
 			Expect(healed.Details.Task).To(Equal(t.Key))
+			Expect(healed.Variant).To(Equal(status.VariantWarning))
+			Expect(healed.Message).To(Equal("Self Heal Task status unknown"))
 		})
 
 		It("Should not clobber a live status row on a no-op re-configure", func(ctx SpecContext) {
@@ -537,7 +539,7 @@ var _ = Describe("Task", Ordered, func() {
 			Expect(preserved.Message).To(Equal("Task is running"))
 		})
 
-		It("Should create an unknown status when copying a task", func(ctx SpecContext) {
+		It("Should create a not-deployed status when copying a task", func(ctx SpecContext) {
 			m := &task.Task{
 				Rack: testRack.Key,
 				Name: "Original Task",
@@ -551,8 +553,8 @@ var _ = Describe("Task", Ordered, func() {
 				Where(status.MatchKeys[task.StatusDetails](copied.OntologyID().String())).
 				Entry(&copiedStatus).
 				Exec(ctx, tx)).To(Succeed())
-			Expect(copiedStatus.Variant).To(Equal(status.VariantWarning))
-			Expect(copiedStatus.Message).To(Equal("Copied Task status unknown"))
+			Expect(copiedStatus.Variant).To(Equal(status.VariantDisabled))
+			Expect(copiedStatus.Message).To(Equal("Copied Task has not been deployed"))
 			Expect(copiedStatus.Details.Task).To(Equal(copied.Key))
 		})
 	})
