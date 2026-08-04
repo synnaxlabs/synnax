@@ -16,11 +16,11 @@ Today, a task is one record with an opaque `config` field. The field is a
 `map[string]any` in Go, a `json::object_t` in C++, a `dict[str, Any]` in Python, and a
 `record.Unknown` in TS. On the wire, it is a `google.protobuf.Struct`. The Core does not
 parse it. Each integration defines its config shape three times by hand: in Console Zod,
-in Python pydantic, and in C++ `parser.field<T>()` calls. The three copies do not stay
+in Python Pydantic, and in C++ `parser.field<T>()` calls. The three copies do not stay
 identical.
 
 This RFC inverts the model. Each task type becomes a first-class resource with a strong
-type. Each resource has its own Oracle schema, ontology type, protobuf message, and
+type. Each resource has its own Oracle schema, ontology type, Protobuf message, and
 service. Examples: `ni_analog_read`, `opc_read`, `http_read`. The typed resource is the
 root aggregate. It has a UUID key. It owns the name and all configuration fields. It is
 the unit that users create, edit, snapshot, import, and export. The generic task becomes
@@ -30,9 +30,9 @@ resource through a `config` ontology ID. A resource without a task is a draft.
 
 Task types become a closed set. The Core validates each configuration at the create and
 update entry points with Oracle-generated validation. The Core owns the config migration
-chain. The driver reads each config from a per-type endpoint as a typed protobuf
-message, never as an `Any`. The driver and the Console do not parse configs by hand. The
-only parsers are the Oracle-generated Zod, pydantic, and proto code.
+chain. The Driver reads each config from a per-type endpoint as a typed Protobuf
+message, never as an `Any`. The Driver and the Console do not parse configs by hand. The
+only parsers are the Oracle-generated Zod, Pydantic, and proto code.
 
 ---
 
@@ -50,7 +50,7 @@ Five problems add up. All of them come from config opacity:
    bytes and does not touch it. Config schema changes occur on the client side, or not
    at all. The Console holds a private version chain in
    `console/src/feature/ni/task/types/v0.ts`. The Python client reads old shapes
-   incorrectly and does not report it. The driver fails to parse them.
+   incorrectly and does not report it. The Driver fails to parse them.
 3. **Wire case-conversion corrupts semantic keys.** The task config does not have a
    `preserveCase` wrapper. Thus the TS codec (`x/ts/src/binary/codec.ts`) converts
    record keys that are data, not identifiers. Examples: OPC NodeIds and EtherCAT
@@ -94,7 +94,7 @@ Five problems add up. All of them come from config opacity:
 1. **The Core owns persisted data and its migrations.** Config shapes are persisted
    data. Their schema and version chain belong to the Core, not to each client.
 2. **Write the shape one time.** One Oracle schema generates the Go, TS, Python, C++,
-   and protobuf code. The clients and the driver consume generated code. Hand parsing is
+   and Protobuf code. The clients and the Driver consume generated code. Hand parsing is
    a defect.
 3. **The specific depends on the generic.** Integration services compose the task
    service. The task service never learns integration names. The `config` reference is
@@ -161,7 +161,7 @@ service, keyed by the ontology ID of the task. A draft has no status because not
 executes.
 
 The generic `/task/create` endpoint is not exposed. Nothing needs it. Users create
-resources through the per-type endpoints. The driver mints its internal tasks through
+resources through the per-type endpoints. The Driver mints its internal tasks through
 the deploy path against `empty` resources.
 
 ### 4.2 Schemas and services
@@ -212,14 +212,14 @@ rack key. In one transaction, the service validates the config, examines the
 `integrations` list of the rack, mints the task with its `config` reference, and stamps
 the ontology edge. A rack without `ni` causes a hard error for an `ni_analog_read`
 deploy, because that deploy can never succeed. A deploy to a different rack writes the
-new value into the `rack` field of the task. The old driver then tears down, as the
+new value into the `rack` field of the task. The old Driver then tears down, as the
 draft/deploy RFC specifies for a rack move.
 
 **Start / stop, deploy-on-start.** This RFC builds on the task draft/deploy RFC (PR
 #2595) and its SY-4488 implementation stack, and keeps its behavior: `sy_task_set` is
 metadata-only, and the `start` command absorbs configuration. The Core computes
 `config_hash` (xxhash64 over canonical bytes) when it writes the resource, and stores
-the hash on the task row. On `start`, the driver compares the hash with its active
+the hash on the task row. On `start`, the Driver compares the hash with its active
 instance. Only on a mismatch does it fetch the typed resource again. Drivers report the
 active hash in the status details. Drift is the difference between the two hashes. Two
 points change relative to that RFC: the input of the hash is the typed resource, and
@@ -251,7 +251,7 @@ to clone.
 
 Configs have strong types on each wire. `google.protobuf.Struct` and `Any` are gone.
 
-- **Per-type protobuf messages**, generated by the Oracle `@pb` output for each
+- **Per-type Protobuf messages**, generated by the Oracle `@pb` output for each
   integration. The Driver reads a config from the per-type retrieve endpoint of the
   applicable integration. Each read returns the typed message for that resource. The
   Driver switches on the type part of the task's `config` ontology ID and calls the
@@ -260,7 +260,7 @@ Configs have strong types on each wire. `google.protobuf.Struct` and `Any` are g
 - **C++** consumes the generated proto types directly. We delete the `x::json::Parser`
   config layer in `driver/*/` for each integration when it cuts over.
 - **TS and Python** use the HTTP JSON/msgpack transports with generated Zod schemas and
-  pydantic models against the per-type endpoints. The schema controls the wire field
+  Pydantic models against the per-type endpoints. The schema controls the wire field
   names, so the TS case conversion is exact. The maps with semantic keys became arrays
   (§4.2), so the task schemas do not need `preserveCase` exits.
 
@@ -293,9 +293,9 @@ A one-time startup migration converts each stored task:
 2. Snapshot tasks convert to snapshot resources. The migration deletes their task rows
    and points the range references to the new resources.
 3. Internal scanner and status tasks convert to `empty` resources. The
-   create-if-not-exists path in the driver startup moves to the deploy flow.
+   create-if-not-exists path in the Driver startup moves to the deploy flow.
 4. **Unknown type strings cause a warning and quarantine.** The migration keeps the row
-   under a quarantine key with an error status. The driver does not configure it. The
+   under a quarantine key with an error status. The Driver does not configure it. The
    log reports it clearly. The migration does not drop it, and also does not keep it
    active without a report.
 
@@ -372,14 +372,14 @@ builds, the tests pass, and the product can ship.
    resource UUIDs. Autosave (the flow of #2605) targets the resource. The drift and
    deploy UX follows the draft/deploy RFC. We delete the `??` fallback lookups and the
    client-side NI version chain.
-7. **Python rewiring.** The generated pydantic resource models replace the hand-written
+7. **Python rewiring.** The generated Pydantic resource models replace the hand-written
    config models. The wrappers in the style of `StarterStopperMixin` stay as sugar over
    create, deploy, and start.
 8. **Arc + Slack alignment.** Complete the Arc retrofit on top of #2496 (drop
    `config{arc_key}`, use the standard edge). Land `slack_alert` (SY-3995) directly in
    the new shape.
 
-**Compatibility:** the wire for task payloads breaks at Phase 4. The Core, the driver,
+**Compatibility:** the wire for task payloads breaks at Phase 4. The Core, the Driver,
 and the Console ship the cutover together (lockstep releases, no window of coexistence).
 Persisted data migrates forward automatically. There is no downgrade path across
 Phase 4. This is the standard position for storage migrations in this codebase.
@@ -439,7 +439,7 @@ Phase 4. This is the standard position for storage migrations in this codebase.
     channel-write behavior and needs its own design.
 12. **A resolved `config` payload on the task (registry + `oneof` envelope) —
     replaced.** The first draft of this RFC composed the typed config into the task
-    payload at the API layer, through a registry and a protobuf `oneof`. The stored
+    payload at the API layer, through a registry and a Protobuf `oneof`. The stored
     ontology ID gives the same answer as plain data. It deletes the registry and the
     envelope, and it keeps the task service fully generic. Deploy-on-start makes the
     config fetch lazy, so no consumer needs the composed payload. We also rejected
@@ -473,4 +473,4 @@ Phase 4. This is the standard position for storage migrations in this codebase.
    §4.3 holds in both shapes.
 3. The quarantine surface for unknown-type rows at migration (§4.6): the status variant,
    and whether the Console lists them.
-4. The wave order of the driver and Console cutovers across integrations in Phases 5–6.
+4. The wave order of the Driver and Console cutovers across integrations in Phases 5–6.
