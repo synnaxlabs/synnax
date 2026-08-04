@@ -8,12 +8,17 @@
 // included in the file licenses/APL.txt.
 
 import { type channel, NotFoundError, status } from "@synnaxlabs/client";
-import { Channel, Flex, Form, Text, Tooltip } from "@synnaxlabs/pluto";
+import { Channel, Flex, type Flux, Form, Text, Tooltip } from "@synnaxlabs/pluto";
 import { location, type optional, primitive } from "@synnaxlabs/x";
-import { useCallback, useEffect, useMemo } from "react";
+import { useCallback, useMemo } from "react";
 
 import { CSS } from "@/platform/css";
 import { Session } from "@/session";
+
+const RETRIEVE_OPTIONS: Omit<
+  Flux.UseDirectRetrieveParams<Channel.RetrieveQuery, channel.Channel>,
+  "query"
+> = { beforeRetrieve: ({ query }) => query.key !== 0 };
 
 export interface ChannelNameProps extends optional.Optional<
   Omit<Text.MaybeEditableProps, "value">,
@@ -38,11 +43,10 @@ export const ChannelName = ({
   const onChange = fieldCtx?.onChange;
   const formName = Form.useFieldValue<string>(namePath, { optional: true });
   const range = Session.Range.useSelectSelectedKey();
-  const { data, retrieve, ...restResult } = Channel.useRetrieveStateful();
-  useEffect(() => {
-    if (channel === 0) return;
-    retrieve({ key: channel, rangeKey: range ?? undefined });
-  }, [channel, range]);
+  const { data, ...restResult } = Channel.useRetrieve(
+    { key: channel, rangeKey: range ?? undefined },
+    RETRIEVE_OPTIONS,
+  );
   const { update } = Channel.useRename();
   const name = getName(data, formName, defaultName);
   const handleRename = useCallback(
