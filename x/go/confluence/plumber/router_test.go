@@ -151,6 +151,5 @@ var _ = Describe("Router", func() {
 				Expect(sinkTwo.In.Outlet()).To(Receive(Equal(1)))
 			})
 		})
-
 	})
 })

@@ -15,8 +15,8 @@ import (
 )
 
 type Options struct {
-	// Signal is a slice of signal.RoutineOptions defining the behaviour of the goroutine
-	// running the segment.
+	// Signal is a slice of signal.RoutineOptions defining the behaviour of the
+	// goroutine running the segment.
 	Signal []signal.RoutineOption
 	// CloseOutputInletsOnExit indicates that the segment should close the inlets to the
 	// output streams when the segment exits.

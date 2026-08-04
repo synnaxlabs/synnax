@@ -99,7 +99,8 @@ func (c *core) maybeStop() {
 		return
 	default:
 		for _, r := range c.mu.routines {
-			if r.state.state == RoutineStateStarting || r.state.state == RoutineStateRunning {
+			if r.state.state == RoutineStateStarting ||
+				r.state.state == RoutineStateRunning {
 				return
 			}
 		}

@@ -59,7 +59,10 @@ func Migrate(ctx context.Context, cfg Config) (set.Set[string], error) {
 		}
 	}
 	if len(pending) == 0 {
-		cfg.L.Info("all migrations already applied", zap.Int("applied", len(cfg.Applied)))
+		cfg.L.Info(
+			"all migrations already applied",
+			zap.Int("applied", len(cfg.Applied)),
+		)
 		return cfg.Applied, nil
 	}
 	pendingKeys := make([]string, len(pending))
@@ -75,7 +78,11 @@ func Migrate(ctx context.Context, cfg Config) (set.Set[string], error) {
 		key := m.Key()
 		cfg.L.Info("running migration", zap.String("migration", key))
 		if err := m.Run(ctx, cfg.Instrumentation); err != nil {
-			cfg.L.Error("migration failed", zap.String("migration", key), zap.Error(err))
+			cfg.L.Error(
+				"migration failed",
+				zap.String("migration", key),
+				zap.Error(err),
+			)
 			return nil, errors.Wrapf(err, "migration %s failed", key)
 		}
 		cfg.L.Info("migration completed", zap.String("migration", key))

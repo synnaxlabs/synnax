@@ -96,7 +96,11 @@ func (s *Service) Close() error { return s.table.Close() }
 // creds.Password does not match the stored hash. Any other failure (e.g. a storage
 // error during the retrieve) is returned verbatim so callers can distinguish a
 // transient system failure from a credential mismatch.
-func (s *Service) Authenticate(ctx context.Context, tx gorp.Tx, creds Credentials) error {
+func (s *Service) Authenticate(
+	ctx context.Context,
+	tx gorp.Tx,
+	creds Credentials,
+) error {
 	if err := creds.Validate(); err != nil {
 		return err
 	}

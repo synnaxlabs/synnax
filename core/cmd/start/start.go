@@ -102,33 +102,58 @@ func (c CoreConfig) Validate() error {
 
 func (c CoreConfig) Override(other CoreConfig) CoreConfig {
 	return CoreConfig{
-		Instrumentation:      override.Zero(c.Instrumentation, other.Instrumentation),
-		insecure:             override.Nil(c.insecure, other.insecure),
-		debug:                override.Nil(c.debug, other.debug),
-		autoCert:             override.Nil(c.autoCert, other.autoCert),
-		verifier:             override.String(c.verifier, other.verifier),
-		memBacked:            override.Nil(c.memBacked, other.memBacked),
-		listeners:            override.Slice(c.listeners, other.listeners),
-		peers:                override.Slice(c.peers, other.peers),
-		dataPath:             override.String(c.dataPath, other.dataPath),
-		slowConsumerTimeout:  override.Numeric(c.slowConsumerTimeout, other.slowConsumerTimeout),
-		rootCredentials:      override.Zero(c.rootCredentials, other.rootCredentials),
-		noDriver:             override.Nil(c.noDriver, other.noDriver),
-		taskOpTimeout:        override.Numeric(c.taskOpTimeout, other.taskOpTimeout),
-		taskPollInterval:     override.Numeric(c.taskPollInterval, other.taskPollInterval),
-		taskShutdownTimeout:  override.Numeric(c.taskShutdownTimeout, other.taskShutdownTimeout),
-		taskWorkerCount:      override.Numeric(c.taskWorkerCount, other.taskWorkerCount),
-		certFactoryConfig:    c.certFactoryConfig.Override(other.certFactoryConfig),
-		enabledIntegrations:  override.Slice(c.enabledIntegrations, other.enabledIntegrations),
-		disabledIntegrations: override.Slice(c.disabledIntegrations, other.disabledIntegrations),
-		validateChannelNames: override.Nil(c.validateChannelNames, other.validateChannelNames),
+		Instrumentation: override.Zero(c.Instrumentation, other.Instrumentation),
+		insecure:        override.Nil(c.insecure, other.insecure),
+		debug:           override.Nil(c.debug, other.debug),
+		autoCert:        override.Nil(c.autoCert, other.autoCert),
+		verifier:        override.String(c.verifier, other.verifier),
+		memBacked:       override.Nil(c.memBacked, other.memBacked),
+		listeners:       override.Slice(c.listeners, other.listeners),
+		peers:           override.Slice(c.peers, other.peers),
+		dataPath:        override.String(c.dataPath, other.dataPath),
+		slowConsumerTimeout: override.Numeric(
+			c.slowConsumerTimeout,
+			other.slowConsumerTimeout,
+		),
+		rootCredentials: override.Zero(c.rootCredentials, other.rootCredentials),
+		noDriver:        override.Nil(c.noDriver, other.noDriver),
+		taskOpTimeout:   override.Numeric(c.taskOpTimeout, other.taskOpTimeout),
+		taskPollInterval: override.Numeric(
+			c.taskPollInterval,
+			other.taskPollInterval,
+		),
+		taskShutdownTimeout: override.Numeric(
+			c.taskShutdownTimeout,
+			other.taskShutdownTimeout,
+		),
+		taskWorkerCount: override.Numeric(
+			c.taskWorkerCount,
+			other.taskWorkerCount,
+		),
+		certFactoryConfig: c.certFactoryConfig.Override(other.certFactoryConfig),
+		enabledIntegrations: override.Slice(
+			c.enabledIntegrations,
+			other.enabledIntegrations,
+		),
+		disabledIntegrations: override.Slice(
+			c.disabledIntegrations,
+			other.disabledIntegrations,
+		),
+		validateChannelNames: override.Nil(
+			c.validateChannelNames,
+			other.validateChannelNames,
+		),
 	}
 }
 
 // BootupCore contains the most important Core startup logic. It does and should not
 // read any variables from viper, and instead should be called with  fully configured
 // CoreConfigs.
-func BootupCore(ctx context.Context, onServerStarted chan struct{}, cfgs ...CoreConfig) (err error) {
+func BootupCore(
+	ctx context.Context,
+	onServerStarted chan struct{},
+	cfgs ...CoreConfig,
+) (err error) {
 	cfg, err := config.New(DefaultCoreConfig, cfgs...)
 	if err != nil {
 		return err
@@ -251,7 +276,11 @@ func BootupCore(ctx context.Context, onServerStarted chan struct{}, cfgs ...Core
 		return err
 	}
 
-	serverListeners, err := cfg.listeners.Resolve(securityProvider, cfg.certFactoryConfig, *cfg.insecure)
+	serverListeners, err := cfg.listeners.Resolve(
+		securityProvider,
+		cfg.certFactoryConfig,
+		*cfg.insecure,
+	)
 	if !ok(err, nil) {
 		return err
 	}
@@ -294,9 +323,12 @@ func BootupCore(ctx context.Context, onServerStarted chan struct{}, cfgs ...Core
 	if embeddedDriver, err := driver.Open(
 		ctx,
 		driver.Config{
-			Enabled:             new(!*cfg.noDriver),
-			Insecure:            cfg.insecure,
-			Integrations:        parseIntegrations(cfg.enabledIntegrations, cfg.disabledIntegrations),
+			Enabled:  new(!*cfg.noDriver),
+			Insecure: cfg.insecure,
+			Integrations: parseIntegrations(
+				cfg.enabledIntegrations,
+				cfg.disabledIntegrations,
+			),
 			Instrumentation:     cfg.Child("driver"),
 			Address:             cfg.listeners.AdvertiseAddress(),
 			RackKey:             serviceLayer.Rack.EmbeddedKey,

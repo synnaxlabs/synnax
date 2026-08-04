@@ -82,8 +82,10 @@ var _ = Describe("Ontology Generation", func() {
 			ToContain(`"item"`)
 	})
 
-	It("Should respect a @ts type override on the key's distinct type definition", func(ctx SpecContext) {
-		source := `
+	It(
+		"Should respect a @ts type override on the key's distinct type definition",
+		func(ctx SpecContext) {
+			source := `
 			@ts output "out"
 
 			Key uint64 {
@@ -97,13 +99,16 @@ var _ = Describe("Ontology Generation", func() {
 				@ontology type "item"
 			}
 		`
-		resp := MustGenerate(ctx, source, "item", loader, p)
-		ExpectContent(resp, "types.gen.ts").
-			ToContain(`"item"`)
-	})
+			resp := MustGenerate(ctx, source, "item", loader, p)
+			ExpectContent(resp, "types.gen.ts").
+				ToContain(`"item"`)
+		},
+	)
 
-	It("Should not emit ontology metadata for structs without @ontology", func(ctx SpecContext) {
-		source := `
+	It(
+		"Should not emit ontology metadata for structs without @ontology",
+		func(ctx SpecContext) {
+			source := `
 			@ts output "out"
 
 			Plain struct {
@@ -111,8 +116,9 @@ var _ = Describe("Ontology Generation", func() {
 				name string
 			}
 		`
-		resp := MustGenerate(ctx, source, "plain", loader, p)
-		content := MustContentOf(resp, "types.gen.ts")
-		Expect(content).ToNot(ContainSubstring("ontologyID"))
-	})
+			resp := MustGenerate(ctx, source, "plain", loader, p)
+			content := MustContentOf(resp, "types.gen.ts")
+			Expect(content).ToNot(ContainSubstring("ontologyID"))
+		},
+	)
 })

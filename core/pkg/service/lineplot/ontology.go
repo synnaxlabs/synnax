@@ -63,13 +63,20 @@ type change = xchange.Change[Key, LinePlot]
 func (s *Service) Type() ontology.ResourceType { return ontology.ResourceTypeLineplot }
 
 // RetrieveResource implements ontology.Service.
-func (s *Service) RetrieveResource(ctx context.Context, key string, tx gorp.Tx) (ontology.Resource, error) {
+func (s *Service) RetrieveResource(
+	ctx context.Context,
+	key string,
+	tx gorp.Tx,
+) (ontology.Resource, error) {
 	k, err := uuid.Parse(key)
 	if err != nil {
 		return ontology.Resource{}, err
 	}
 	var linePlot LinePlot
-	if err = s.NewRetrieve().Where(MatchKeys(k)).Entry(&linePlot).Exec(ctx, tx); err != nil {
+	if err = s.NewRetrieve().
+		Where(MatchKeys(k)).
+		Entry(&linePlot).
+		Exec(ctx, tx); err != nil {
 		return ontology.Resource{}, err
 	}
 	return newResource(linePlot), nil
@@ -84,7 +91,9 @@ func translateChange(c change) ontology.Change {
 }
 
 // OnChange implements ontology.Service.
-func (s *Service) OnChange(f func(context.Context, iter.Seq[ontology.Change])) observe.Disconnect {
+func (s *Service) OnChange(
+	f func(context.Context, iter.Seq[ontology.Change]),
+) observe.Disconnect {
 	handleChange := func(ctx context.Context, reader gorp.TxReader[Key, LinePlot]) {
 		f(ctx, xiter.Map(reader, translateChange))
 	}
@@ -92,7 +101,9 @@ func (s *Service) OnChange(f func(context.Context, iter.Seq[ontology.Change])) o
 }
 
 // OpenNexter implements ontology.Service.
-func (s *Service) OpenNexter(ctx context.Context) (iter.Seq[ontology.Resource], io.Closer, error) {
+func (s *Service) OpenNexter(
+	ctx context.Context,
+) (iter.Seq[ontology.Resource], io.Closer, error) {
 	n, closer, err := s.table.OpenNexter(ctx)
 	if err != nil {
 		return nil, nil, err

@@ -27,7 +27,10 @@ type synchronizer struct {
 	nodeCount int
 }
 
-func newSynchronizer(nodeCount int, ins alamos.Instrumentation) confluence.Segment[Response, Response] {
+func newSynchronizer(
+	nodeCount int,
+	ins alamos.Instrumentation,
+) confluence.Segment[Response, Response] {
 	s := &synchronizer{nodeCount: nodeCount, ins: ins}
 	s.nodeCount = nodeCount
 	s.Transform = s.sync
@@ -45,7 +48,9 @@ func (s *synchronizer) sync(_ context.Context, res Response) (Response, bool, er
 
 	if res.SeqNum != s.cycle.res.SeqNum {
 		s.ins.L.DPanic(
-			"received out of order response", zap.Int("expected", s.cycle.res.SeqNum), zap.Int("actual", res.SeqNum),
+			"received out of order response",
+			zap.Int("expected", s.cycle.res.SeqNum),
+			zap.Int("actual", res.SeqNum),
 		)
 		return res, false, nil
 	}

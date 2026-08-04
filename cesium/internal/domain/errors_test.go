@@ -30,7 +30,10 @@ var _ = Describe("Errors", func() {
 			existingTr := (telem.SecondTS * 2).SpanRange(4 * telem.Second)
 			point := (2 * telem.SecondTS).Add(1 * telem.Second)
 			Expect(domain.NewPointWriteConflictError(point, existingTr)).To(MatchError(
-				Equal("1970-01-01T00:00:03Z overlaps with existing data occupying time range 1970-01-01T00:00:02Z - :06 (4s). Timestamp occurs 1s after the start and 3s before the end of the range: write overlaps with existing data in database: validation error")),
+				Equal(
+					"1970-01-01T00:00:03Z overlaps with existing data occupying time range 1970-01-01T00:00:02Z - :06 (4s). Timestamp occurs 1s after the start and 3s before the end of the range: write overlaps with existing data in database: validation error",
+				),
+			),
 			)
 		})
 	})

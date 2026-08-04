@@ -37,7 +37,10 @@ type FmtStrSegment struct {
 
 // FmtStrHasPlaceholder reports whether any segment is a placeholder.
 func FmtStrHasPlaceholder(segs []FmtStrSegment) bool {
-	return slices.ContainsFunc(segs, func(s FmtStrSegment) bool { return s.IsPlaceholder })
+	return slices.ContainsFunc(
+		segs,
+		func(s FmtStrSegment) bool { return s.IsPlaceholder },
+	)
 }
 
 // StringFlags carries the optional r/f prefix and the quote style of a string
@@ -121,7 +124,10 @@ func UnescapeString(body string, multi bool) (string, error) {
 			}
 			cp, err := strconv.ParseUint(body[i+2:i+6], 16, 32)
 			if err != nil {
-				return "", errors.Newf(`invalid \u escape %q in string literal`, body[i:i+6])
+				return "", errors.Newf(
+					`invalid \u escape %q in string literal`,
+					body[i:i+6],
+				)
 			}
 			b.WriteRune(rune(cp))
 			i += 6

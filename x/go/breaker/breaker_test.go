@@ -26,24 +26,34 @@ var _ = Describe("Breaker", func() {
 		Expect(b.Wait()).To(BeFalse())
 		cancel()
 	})
-	It("Should be canceled as the underlying context is canceled", func(specCtx SpecContext) {
-		ctx, cancel := context.WithCancel(specCtx)
-		done := make(chan struct{})
-		b := MustSucceed(breaker.NewBreaker(ctx, breaker.Config{BaseInterval: 1 * time.Hour}))
-		go func() {
-			time.Sleep(500 * time.Millisecond)
-			cancel()
-		}()
-		go func() {
-			Expect(b.Wait()).To(BeFalse())
-			done <- struct{}{}
-		}()
-		Eventually(done).Should(Receive())
-	})
+	It(
+		"Should be canceled as the underlying context is canceled",
+		func(specCtx SpecContext) {
+			ctx, cancel := context.WithCancel(specCtx)
+			done := make(chan struct{})
+			b := MustSucceed(
+				breaker.NewBreaker(ctx, breaker.Config{BaseInterval: 1 * time.Hour}),
+			)
+			go func() {
+				time.Sleep(500 * time.Millisecond)
+				cancel()
+			}()
+			go func() {
+				Expect(b.Wait()).To(BeFalse())
+				done <- struct{}{}
+			}()
+			Eventually(done).Should(Receive())
+		},
+	)
 	It("Should scale the timeout every time it fails", func(ctx SpecContext) {
 		b := MustSucceed(breaker.NewBreaker(
 			ctx,
-			breaker.Config{BaseInterval: 10 * time.Millisecond, Scale: 2, MaxRetries: 10}),
+			breaker.Config{
+				BaseInterval: 10 * time.Millisecond,
+				Scale:        2,
+				MaxRetries:   10,
+			},
+		),
 		)
 		start := time.Now()
 		Expect(b.Wait()).To(BeTrue()) // 10ms
@@ -52,6 +62,8 @@ var _ = Describe("Breaker", func() {
 		Expect(b.Wait()).To(BeTrue()) // 80ms
 		Expect(b.Wait()).To(BeTrue()) // 160ms
 		duration := time.Since(start)
-		Expect(duration).To(BeNumerically("~", 310*time.Millisecond, 100*time.Millisecond))
+		Expect(
+			duration,
+		).To(BeNumerically("~", 310*time.Millisecond, 100*time.Millisecond))
 	})
 })

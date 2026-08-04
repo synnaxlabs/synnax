@@ -56,7 +56,9 @@ var _ = Describe("Check", func() {
 		It("should add equality constraint when second type is variable", func() {
 			tv := types.Variable("U", nil)
 			ast := testutil.NewMockAST(1)
-			Expect(atypes.Check(cs, types.F64(), tv, ast, "another reason")).To(Succeed())
+			Expect(
+				atypes.Check(cs, types.F64(), tv, ast, "another reason"),
+			).To(Succeed())
 			Expect(cs.Constraints).To(HaveLen(1))
 			Expect(cs.Constraints[0].Left).To(Equal(types.F64()))
 			Expect(cs.Constraints[0].Right).To(Equal(tv))
@@ -83,7 +85,9 @@ var _ = Describe("Check", func() {
 		It("should add constraint for variable with channel type", func() {
 			tv := types.Variable("T", nil)
 			ast := testutil.NewMockAST(1)
-			Expect(atypes.Check(cs, tv, types.Chan(types.F32()), ast, "var with chan")).To(Succeed())
+			Expect(
+				atypes.Check(cs, tv, types.Chan(types.F32()), ast, "var with chan"),
+			).To(Succeed())
 			Expect(cs.Constraints).To(HaveLen(1))
 			Expect(cs.Constraints[0].Right.Kind).To(Equal(types.KindChan))
 		})
@@ -91,7 +95,9 @@ var _ = Describe("Check", func() {
 		It("should add constraint for variable with series type", func() {
 			tv := types.Variable("T", nil)
 			ast := testutil.NewMockAST(1)
-			Expect(atypes.Check(cs, types.Series(types.I64()), tv, ast, "series with var")).To(Succeed())
+			Expect(
+				atypes.Check(cs, types.Series(types.I64()), tv, ast, "series with var"),
+			).To(Succeed())
 			Expect(cs.Constraints).To(HaveLen(1))
 			Expect(cs.Constraints[0].Left.Kind).To(Equal(types.KindSeries))
 		})
@@ -118,16 +124,37 @@ var _ = Describe("Check", func() {
 	})
 
 	Describe("Mismatched Concrete Types", func() {
-		DescribeTable("should return error for different types",
+		DescribeTable(
+			"should return error for different types",
 			func(t1, t2 types.Type, expectedMsg string) {
 				ast := testutil.NewMockAST(1)
 				Expect(atypes.Check(cs, t1, t2, ast, "test")).
 					Error().To(MatchError(ContainSubstring(expectedMsg)))
 			},
-			Entry("f32 with f64", types.F32(), types.F64(), "type mismatch in test: expected f32, got f64"),
-			Entry("i32 with i64", types.I32(), types.I64(), "type mismatch in test: expected i32, got i64"),
-			Entry("u8 with i8", types.U8(), types.I8(), "type mismatch in test: expected u8, got i8"),
-			Entry("string with i32", types.String(), types.I32(), "type mismatch in test: expected str, got i32"),
+			Entry(
+				"f32 with f64",
+				types.F32(),
+				types.F64(),
+				"type mismatch in test: expected f32, got f64",
+			),
+			Entry(
+				"i32 with i64",
+				types.I32(),
+				types.I64(),
+				"type mismatch in test: expected i32, got i64",
+			),
+			Entry(
+				"u8 with i8",
+				types.U8(),
+				types.I8(),
+				"type mismatch in test: expected u8, got i8",
+			),
+			Entry(
+				"string with i32",
+				types.String(),
+				types.I32(),
+				"type mismatch in test: expected str, got i32",
+			),
 		)
 	})
 
@@ -149,15 +176,25 @@ var _ = Describe("Check", func() {
 
 		It("should succeed for same kind with same unit", func() {
 			ast := testutil.NewMockAST(1)
-			t1 := types.Type{Kind: types.KindF32, Unit: &types.Unit{Name: "psi", Scale: 1}}
-			t2 := types.Type{Kind: types.KindF32, Unit: &types.Unit{Name: "psi", Scale: 1}}
+			t1 := types.Type{
+				Kind: types.KindF32,
+				Unit: &types.Unit{Name: "psi", Scale: 1},
+			}
+			t2 := types.Type{
+				Kind: types.KindF32,
+				Unit: &types.Unit{Name: "psi", Scale: 1},
+			}
 			Expect(atypes.Check(cs, t1, t2, ast, "test")).To(Succeed())
 		})
 
 		It("should succeed for i64 ns vs i64 (timestamp <-> int64)", func() {
 			ast := testutil.NewMockAST(1)
-			Expect(atypes.Check(cs, types.TimeStamp(), types.I64(), ast, "test")).To(Succeed())
-			Expect(atypes.Check(cs, types.I64(), types.TimeStamp(), ast, "test")).To(Succeed())
+			Expect(
+				atypes.Check(cs, types.TimeStamp(), types.I64(), ast, "test"),
+			).To(Succeed())
+			Expect(
+				atypes.Check(cs, types.I64(), types.TimeStamp(), ast, "test"),
+			).To(Succeed())
 		})
 
 		It("should succeed for chan i64 ns <-> chan i64", func() {
@@ -219,19 +256,33 @@ var _ = Describe("Check", func() {
 	Describe("Channel Types", func() {
 		It("should succeed for matching channel types", func() {
 			ast := testutil.NewMockAST(1)
-			Expect(atypes.Check(cs, types.Chan(types.F32()), types.Chan(types.F32()), ast, "test")).To(Succeed())
+			Expect(
+				atypes.Check(
+					cs,
+					types.Chan(types.F32()),
+					types.Chan(types.F32()),
+					ast,
+					"test",
+				),
+			).To(Succeed())
 		})
 
 		It("should fail for channel element type mismatch", func() {
 			ast := testutil.NewMockAST(1)
-			Expect(atypes.Check(cs, types.Chan(types.F32()), types.Chan(types.F64()), ast, "test")).
-				Error().To(MatchError(ContainSubstring("type mismatch in test (element types): expected f32, got f64")))
+			Expect(
+				atypes.Check(cs, types.Chan(types.F32()), types.Chan(types.F64()), ast, "test"),
+			).
+				Error().
+				To(MatchError(ContainSubstring("type mismatch in test (element types): expected f32, got f64")))
 		})
 
 		It("should fail for channel with different integer element types", func() {
 			ast := testutil.NewMockAST(1)
-			Expect(atypes.Check(cs, types.Chan(types.I32()), types.Chan(types.I64()), ast, "test")).
-				Error().To(MatchError(ContainSubstring("type mismatch in test (element types): expected i32, got i64")))
+			Expect(
+				atypes.Check(cs, types.Chan(types.I32()), types.Chan(types.I64()), ast, "test"),
+			).
+				Error().
+				To(MatchError(ContainSubstring("type mismatch in test (element types): expected i32, got i64")))
 		})
 
 		It("should succeed for nested matching channels", func() {
@@ -246,7 +297,8 @@ var _ = Describe("Check", func() {
 			t1 := types.Chan(types.Chan(types.I32()))
 			t2 := types.Chan(types.Chan(types.I64()))
 			Expect(atypes.Check(cs, t1, t2, ast, "test")).
-				Error().To(MatchError(ContainSubstring("type mismatch in test (element types) (element types): expected i32, got i64")))
+				Error().
+				To(MatchError(ContainSubstring("type mismatch in test (element types) (element types): expected i32, got i64")))
 		})
 
 		It("should fail for nested channel depth mismatch", func() {
@@ -254,7 +306,8 @@ var _ = Describe("Check", func() {
 			t1 := types.Chan(types.Chan(types.I32()))
 			t2 := types.Chan(types.I32())
 			Expect(atypes.Check(cs, t1, t2, ast, "test")).
-				Error().To(MatchError(ContainSubstring("type mismatch in test (element types): expected chan i32, got i32")))
+				Error().
+				To(MatchError(ContainSubstring("type mismatch in test (element types): expected chan i32, got i32")))
 		})
 
 		It("should add constraint for channel with variable element", func() {
@@ -273,19 +326,33 @@ var _ = Describe("Check", func() {
 	Describe("Series Types", func() {
 		It("should succeed for matching series types", func() {
 			ast := testutil.NewMockAST(1)
-			Expect(atypes.Check(cs, types.Series(types.I64()), types.Series(types.I64()), ast, "test")).To(Succeed())
+			Expect(
+				atypes.Check(
+					cs,
+					types.Series(types.I64()),
+					types.Series(types.I64()),
+					ast,
+					"test",
+				),
+			).To(Succeed())
 		})
 
 		It("should fail for series element type mismatch", func() {
 			ast := testutil.NewMockAST(1)
-			Expect(atypes.Check(cs, types.Series(types.F32()), types.Series(types.F64()), ast, "test")).
-				Error().To(MatchError(ContainSubstring("type mismatch in test (element types): expected f32, got f64")))
+			Expect(
+				atypes.Check(cs, types.Series(types.F32()), types.Series(types.F64()), ast, "test"),
+			).
+				Error().
+				To(MatchError(ContainSubstring("type mismatch in test (element types): expected f32, got f64")))
 		})
 
 		It("should fail for series with different integer element types", func() {
 			ast := testutil.NewMockAST(1)
-			Expect(atypes.Check(cs, types.Series(types.I32()), types.Series(types.U32()), ast, "test")).
-				Error().To(MatchError(ContainSubstring("type mismatch in test (element types): expected i32, got u32")))
+			Expect(
+				atypes.Check(cs, types.Series(types.I32()), types.Series(types.U32()), ast, "test"),
+			).
+				Error().
+				To(MatchError(ContainSubstring("type mismatch in test (element types): expected i32, got u32")))
 		})
 
 		It("should succeed for nested matching series", func() {
@@ -300,7 +367,8 @@ var _ = Describe("Check", func() {
 			t1 := types.Series(types.Series(types.F32()))
 			t2 := types.Series(types.Series(types.F64()))
 			Expect(atypes.Check(cs, t1, t2, ast, "test")).
-				Error().To(MatchError(ContainSubstring("type mismatch in test (element types) (element types): expected f32, got f64")))
+				Error().
+				To(MatchError(ContainSubstring("type mismatch in test (element types) (element types): expected f32, got f64")))
 		})
 
 		It("should fail for nested series depth mismatch", func() {
@@ -308,7 +376,8 @@ var _ = Describe("Check", func() {
 			t1 := types.Series(types.Series(types.I32()))
 			t2 := types.Series(types.I32())
 			Expect(atypes.Check(cs, t1, t2, ast, "test")).
-				Error().To(MatchError(ContainSubstring("type mismatch in test (element types): expected series i32, got i32")))
+				Error().
+				To(MatchError(ContainSubstring("type mismatch in test (element types): expected series i32, got i32")))
 		})
 
 		It("should add constraint for series with variable element", func() {
@@ -325,19 +394,23 @@ var _ = Describe("Check", func() {
 	})
 
 	Describe("Mixed Channel and Series", func() {
-		It("should succeed for channel containing series with matching element", func() {
-			ast := testutil.NewMockAST(1)
-			t1 := types.Chan(types.Series(types.F32()))
-			t2 := types.Chan(types.Series(types.F32()))
-			Expect(atypes.Check(cs, t1, t2, ast, "test")).To(Succeed())
-		})
+		It(
+			"should succeed for channel containing series with matching element",
+			func() {
+				ast := testutil.NewMockAST(1)
+				t1 := types.Chan(types.Series(types.F32()))
+				t2 := types.Chan(types.Series(types.F32()))
+				Expect(atypes.Check(cs, t1, t2, ast, "test")).To(Succeed())
+			},
+		)
 
 		It("should fail for channel containing series with mismatched element", func() {
 			ast := testutil.NewMockAST(1)
 			t1 := types.Chan(types.Series(types.F32()))
 			t2 := types.Chan(types.Series(types.F64()))
 			Expect(atypes.Check(cs, t1, t2, ast, "test")).
-				Error().To(MatchError(ContainSubstring("type mismatch in test (element types) (element types): expected f32, got f64")))
+				Error().
+				To(MatchError(ContainSubstring("type mismatch in test (element types) (element types): expected f32, got f64")))
 		})
 
 		It("should fail for channel vs series at same level", func() {
@@ -345,7 +418,8 @@ var _ = Describe("Check", func() {
 			t1 := types.Chan(types.Series(types.F32()))
 			t2 := types.Chan(types.Chan(types.F32()))
 			Expect(atypes.Check(cs, t1, t2, ast, "test")).
-				Error().To(MatchError(ContainSubstring("type mismatch in test (element types): expected series f32, got chan f32")))
+				Error().
+				To(MatchError(ContainSubstring("type mismatch in test (element types): expected series f32, got chan f32")))
 		})
 
 		It("should add constraint for deeply nested variable", func() {
@@ -357,7 +431,9 @@ var _ = Describe("Check", func() {
 			Expect(cs.Constraints).To(HaveLen(1))
 			Expect(cs.Constraints[0].Left).To(Equal(tv))
 			Expect(cs.Constraints[0].Right).To(Equal(types.I32()))
-			Expect(cs.Constraints[0].Reason).To(Equal("deep (element types) (element types)"))
+			Expect(
+				cs.Constraints[0].Reason,
+			).To(Equal("deep (element types) (element types)"))
 		})
 	})
 
@@ -365,7 +441,9 @@ var _ = Describe("Check", func() {
 		It("should preserve reason for direct type variable constraint", func() {
 			ast := testutil.NewMockAST(1)
 			tv := types.Variable("T", nil)
-			Expect(atypes.Check(cs, tv, types.F32(), ast, "original reason")).To(Succeed())
+			Expect(
+				atypes.Check(cs, tv, types.F32(), ast, "original reason"),
+			).To(Succeed())
 			Expect(cs.Constraints[0].Reason).To(Equal("original reason"))
 		})
 
@@ -393,14 +471,18 @@ var _ = Describe("Check", func() {
 			t1 := types.Series(types.Series(tv))
 			t2 := types.Series(types.Series(types.U64()))
 			Expect(atypes.Check(cs, t1, t2, ast, "nested")).To(Succeed())
-			Expect(cs.Constraints[0].Reason).To(Equal("nested (element types) (element types)"))
+			Expect(
+				cs.Constraints[0].Reason,
+			).To(Equal("nested (element types) (element types)"))
 		})
 	})
 
 	Describe("Constraint System Integration", func() {
 		It("should not add constraints for matching concrete types", func() {
 			ast := testutil.NewMockAST(1)
-			Expect(atypes.Check(cs, types.F32(), types.F32(), ast, "test")).To(Succeed())
+			Expect(
+				atypes.Check(cs, types.F32(), types.F32(), ast, "test"),
+			).To(Succeed())
 			Expect(cs.Constraints).To(BeEmpty())
 		})
 

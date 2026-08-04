@@ -46,37 +46,42 @@ var _ = Describe("Transport", func() {
 		Expect(server.Framer()).ToNot(BeNil())
 	})
 
-	It("Should route a channel create request through the bundled transport", func(ctx SpecContext) {
-		server.Channel().CreateServer().BindHandler(
-			func(
-				_ context.Context, req channel.CreateMessage,
-			) (channel.CreateMessage, error) {
-				return req, nil
-			},
-		)
-		res := MustSucceed(client.Channel().CreateClient().Send(
-			ctx,
-			leaseholder,
-			channel.CreateMessage{Channels: []channel.Channel{{Name: "alpha"}}},
-		))
-		Expect(res.Channels).To(HaveLen(1))
-		Expect(res.Channels[0].Name).To(Equal("alpha"))
-	})
+	It(
+		"Should route a channel create request through the bundled transport",
+		func(ctx SpecContext) {
+			server.Channel().CreateServer().BindHandler(
+				func(
+					_ context.Context, req channel.CreateMessage,
+				) (channel.CreateMessage, error) {
+					return req, nil
+				},
+			)
+			res := MustSucceed(client.Channel().CreateClient().Send(
+				ctx,
+				leaseholder,
+				channel.CreateMessage{Channels: []channel.Channel{{Name: "alpha"}}},
+			))
+			Expect(res.Channels).To(HaveLen(1))
+			Expect(res.Channels[0].Name).To(Equal("alpha"))
+		},
+	)
 
-	It("Should route a framer delete request through the bundled transport", func(ctx SpecContext) {
-		var received channel.Keys
-		server.Framer().Deleter().Server().BindHandler(
-			func(_ context.Context, req deleter.Request) (types.Nil, error) {
-				received = req.Keys
-				return types.Nil{}, nil
-			},
-		)
-		Expect(client.Framer().Deleter().Client().Send(
-			ctx,
-			leaseholder,
-			deleter.Request{Keys: channel.Keys{9}},
-		)).To(Equal(types.Nil{}))
-		Expect(received).To(Equal(channel.Keys{9}))
-	})
-
+	It(
+		"Should route a framer delete request through the bundled transport",
+		func(ctx SpecContext) {
+			var received channel.Keys
+			server.Framer().Deleter().Server().BindHandler(
+				func(_ context.Context, req deleter.Request) (types.Nil, error) {
+					received = req.Keys
+					return types.Nil{}, nil
+				},
+			)
+			Expect(client.Framer().Deleter().Client().Send(
+				ctx,
+				leaseholder,
+				deleter.Request{Keys: channel.Keys{9}},
+			)).To(Equal(types.Nil{}))
+			Expect(received).To(Equal(channel.Keys{9}))
+		},
+	)
 })

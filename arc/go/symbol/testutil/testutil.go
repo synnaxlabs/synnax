@@ -46,7 +46,8 @@ func NewRoot(resolver symbol.Resolver, extras ...symbol.Symbol) *symbol.Symbol {
 func BeAValidationPathError() types.GomegaMatcher {
 	return gomega.MatchError(func(err error) bool {
 		var pathErr validate.PathError
-		return errors.As(err, &pathErr) && errors.Is(pathErr.Err, validate.ErrValidation)
+		return errors.As(err, &pathErr) &&
+			errors.Is(pathErr.Err, validate.ErrValidation)
 	}, "be a validation path error")
 }
 
@@ -101,7 +102,10 @@ func (r *StaticResolver) Remove(name string) {
 
 // Resolve looks up name by scanning the slice. Returns query.ErrNotFound
 // (wrapped) when the name is absent.
-func (r StaticResolver) Resolve(_ context.Context, name string) (*symbol.Symbol, error) {
+func (r StaticResolver) Resolve(
+	_ context.Context,
+	name string,
+) (*symbol.Symbol, error) {
 	for i := range r {
 		if r[i].Name == name {
 			sym := r[i]
@@ -113,7 +117,10 @@ func (r StaticResolver) Resolve(_ context.Context, name string) (*symbol.Symbol,
 
 // Search returns entries whose name has the given prefix or is within a
 // Levenshtein distance of 2 from the term.
-func (r StaticResolver) Search(_ context.Context, term string) ([]*symbol.Symbol, error) {
+func (r StaticResolver) Search(
+	_ context.Context,
+	term string,
+) ([]*symbol.Symbol, error) {
 	var results []*symbol.Symbol
 	for i := range r {
 		name := r[i].Name

@@ -32,12 +32,12 @@ type Key interface {
 	comparable
 }
 
-// Entry is a go type that can be queried against a DB. All go types must implement the Entry
-// interface so that they can be stored. Entry must be serializable by the Encodings and decoder
-// provided to the WithCodec option when instantiating a DB.
+// Entry is a go type that can be queried against a DB. All go types must implement the
+// Entry interface so that they can be stored. Entry must be serializable by the
+// Encodings and decoder provided to the WithCodec option when instantiating a DB.
 type Entry[K Key] interface {
-	// GorpKey returns a unique key for the entry. gorp.DB will not raise
-	// an error if the key is a duplicate. Key must be serializable by encoder and decoder.
+	// GorpKey returns a unique key for the entry. gorp.DB will not raise an error if
+	// the key is a duplicate. Key must be serializable by encoder and decoder.
 	GorpKey() K
 	// SetOptions returns a slice of options passed to kv.db.set.
 	SetOptions() []any
@@ -201,8 +201,10 @@ func (e *Entries[K, E]) ensureCap(n int) {
 	*e.entries = (*e.entries)[:0]
 }
 
-const magicPrefix = "gorp."
-const migrationVersionPrefix = "gorp.migration."
+const (
+	magicPrefix            = "gorp."
+	migrationVersionPrefix = "gorp.migration."
+)
 
 // keyCodec encodes and decodes primary keys to and from prefixed
 // pebble keys for entry type E.

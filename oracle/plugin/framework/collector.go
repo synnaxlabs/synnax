@@ -79,7 +79,10 @@ func (c *Collector) Add(typ resolution.Type) error {
 	}
 	idx := c.findEntry(outputPath)
 	if idx == -1 {
-		c.entries = append(c.entries, PathEntry{Path: outputPath, Types: []resolution.Type{typ}})
+		c.entries = append(
+			c.entries,
+			PathEntry{Path: outputPath, Types: []resolution.Type{typ}},
+		)
 	} else {
 		c.entries[idx].Types = append(c.entries[idx].Types, typ)
 	}

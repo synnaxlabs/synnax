@@ -27,34 +27,40 @@ func scoped(dispatchKey string, seq uint64) actions.Scoped[string, testAction] {
 }
 
 var _ = Describe("Recorder", func() {
-	It("Should return recorded actions in the order they were received", func(ctx SpecContext) {
-		rec := &Recorder[string, testAction]{}
-		rec.Record(ctx, scoped("a", 0))
-		rec.Record(ctx, scoped("b", 1))
-		rec.Record(ctx, scoped("c", 2))
-		seen := rec.Snapshot()
-		Expect(seen).To(HaveLen(3))
-		Expect(seen[0].DispatchKey).To(Equal("a"))
-		Expect(seen[1].DispatchKey).To(Equal("b"))
-		Expect(seen[2].DispatchKey).To(Equal("c"))
-	})
+	It(
+		"Should return recorded actions in the order they were received",
+		func(ctx SpecContext) {
+			rec := &Recorder[string, testAction]{}
+			rec.Record(ctx, scoped("a", 0))
+			rec.Record(ctx, scoped("b", 1))
+			rec.Record(ctx, scoped("c", 2))
+			seen := rec.Snapshot()
+			Expect(seen).To(HaveLen(3))
+			Expect(seen[0].DispatchKey).To(Equal("a"))
+			Expect(seen[1].DispatchKey).To(Equal("b"))
+			Expect(seen[2].DispatchKey).To(Equal("c"))
+		},
+	)
 
 	It("Should return an empty snapshot before anything is recorded", func() {
 		rec := &Recorder[string, testAction]{}
 		Expect(rec.Snapshot()).To(BeEmpty())
 	})
 
-	It("Should return a copy that does not alias the internal slice", func(ctx SpecContext) {
-		rec := &Recorder[string, testAction]{}
-		rec.Record(ctx, scoped("a", 0))
-		first := rec.Snapshot()
-		first[0].DispatchKey = "mutated"
-		rec.Record(ctx, scoped("b", 1))
-		second := rec.Snapshot()
-		Expect(second).To(HaveLen(2))
-		Expect(second[0].DispatchKey).To(Equal("a"))
-		Expect(second[1].DispatchKey).To(Equal("b"))
-	})
+	It(
+		"Should return a copy that does not alias the internal slice",
+		func(ctx SpecContext) {
+			rec := &Recorder[string, testAction]{}
+			rec.Record(ctx, scoped("a", 0))
+			first := rec.Snapshot()
+			first[0].DispatchKey = "mutated"
+			rec.Record(ctx, scoped("b", 1))
+			second := rec.Snapshot()
+			Expect(second).To(HaveLen(2))
+			Expect(second[0].DispatchKey).To(Equal("a"))
+			Expect(second[1].DispatchKey).To(Equal("b"))
+		},
+	)
 
 	It("Should record concurrently without data races", func(ctx SpecContext) {
 		rec := &Recorder[string, testAction]{}

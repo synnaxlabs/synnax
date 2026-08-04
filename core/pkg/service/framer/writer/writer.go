@@ -77,7 +77,7 @@ func (w *Writer) Write(frame frame.Frame) (authorized bool, err error) {
 		return false, err
 	}
 	authorized = !*w.cfg.Sync || res.Authorized
-	return
+	return authorized, err
 }
 
 // Commit commits all writes since the last commit, returning the end timestamp of the

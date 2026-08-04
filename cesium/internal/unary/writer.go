@@ -83,7 +83,11 @@ func (c WriterConfig) Validate() error {
 	validate.NotNil(v, "err_on_unauthorized_open", c.ErrOnUnauthorizedOpen)
 	validate.NotNil(v, "persist", c.Persist)
 	validate.NotNil(v, "enable_auto_commit", c.EnableAutoCommit)
-	v.Ternary("end", !c.End.IsZero() && c.End.Before(c.Start), "end timestamp must be after or equal to start timestamp")
+	v.Ternary(
+		"end",
+		!c.End.IsZero() && c.End.Before(c.Start),
+		"end timestamp must be after or equal to start timestamp",
+	)
 	return v.Error()
 }
 
@@ -95,8 +99,14 @@ func (c WriterConfig) Override(other WriterConfig) WriterConfig {
 	c.Authority = override.Numeric(c.Authority, other.Authority)
 	c.Persist = override.Nil(c.Persist, other.Persist)
 	c.EnableAutoCommit = override.Nil(c.EnableAutoCommit, other.EnableAutoCommit)
-	c.AutoIndexPersistInterval = override.Zero(c.AutoIndexPersistInterval, other.AutoIndexPersistInterval)
-	c.ErrOnUnauthorizedOpen = override.Nil(c.ErrOnUnauthorizedOpen, other.ErrOnUnauthorizedOpen)
+	c.AutoIndexPersistInterval = override.Zero(
+		c.AutoIndexPersistInterval,
+		other.AutoIndexPersistInterval,
+	)
+	c.ErrOnUnauthorizedOpen = override.Nil(
+		c.ErrOnUnauthorizedOpen,
+		other.ErrOnUnauthorizedOpen,
+	)
 	return c
 }
 
@@ -128,8 +138,8 @@ type controlledWriter struct {
 	// rather than only at region creation. This field is accessed atomically because
 	// Gate.Authorize and Gate.PeekResource return a shared pointer to this struct, and
 	// the region's RWMutex is released before the caller accesses the field. This means
-	// one goroutine may write alignment through Authorize while another reads it through
-	// PeekResource concurrently.
+	// one goroutine may write alignment through Authorize while another reads it
+	// through PeekResource concurrently.
 	alignment atomic.Uint64
 	// tracker holds per-domain offset state shared across every Writer that takes
 	// control of this resource. It is created once when the resource is opened and
@@ -165,9 +175,9 @@ type Writer struct {
 	// but not limited to density and index.
 	Channel channel.Channel
 	cfg     WriterConfig
-	// highWaterMark is a hot-path optimization when writing to an index channel. We can avoid
-	// unnecessary index lookups by keeping track of the highest timestamp written. Only
-	// valid when Channel.IsIndex is true.
+	// highWaterMark is a hot-path optimization when writing to an index channel. We can
+	// avoid unnecessary index lookups by keeping track of the highest timestamp
+	// written. Only valid when Channel.IsIndex is true.
 	highWaterMark telem.TimeStamp
 	// closed stores whether the writer is closed. Operations like Write and Commit do
 	// not succeed on closed writers.
@@ -192,25 +202,27 @@ func (db *DB) OpenWriter(ctx context.Context, cfgs ...WriterConfig) (
 		idx:       db.index(),
 		wrapError: db.wrapError,
 	}
-	if w.control, transfer, err = db.controller.OpenGate(control.GateConfig[*controlledWriter]{
-		ErrIfControlled:       new(false),
-		ErrOnUnauthorizedOpen: cfg.ErrOnUnauthorizedOpen,
-		TimeRange:             cfg.controlTimeRange(),
-		Authority:             cfg.Authority,
-		Subject:               cfg.Subject,
-		OpenResource: func() (*controlledWriter, error) {
-			cw := &controlledWriter{
-				channelKey: db.cfg.Channel.Key,
-				tracker:    db.resolver.newTracker(cfg.Start),
-			}
-			domainCfg := cfg.domain()
-			domainCfg.OnRollover = cw.tracker.rollover
-			dw, err := db.domain.OpenWriter(ctx, domainCfg)
-			cw.Writer = dw
-			cw.storeAlignment(telem.NewAlignment(db.leadingAlignment.Add(1), 0))
-			return cw, err
+	if w.control, transfer, err = db.controller.OpenGate(
+		control.GateConfig[*controlledWriter]{
+			ErrIfControlled:       new(false),
+			ErrOnUnauthorizedOpen: cfg.ErrOnUnauthorizedOpen,
+			TimeRange:             cfg.controlTimeRange(),
+			Authority:             cfg.Authority,
+			Subject:               cfg.Subject,
+			OpenResource: func() (*controlledWriter, error) {
+				cw := &controlledWriter{
+					channelKey: db.cfg.Channel.Key,
+					tracker:    db.resolver.newTracker(cfg.Start),
+				}
+				domainCfg := cfg.domain()
+				domainCfg.OnRollover = cw.tracker.rollover
+				dw, err := db.domain.OpenWriter(ctx, domainCfg)
+				cw.Writer = dw
+				cw.storeAlignment(telem.NewAlignment(db.leadingAlignment.Add(1), 0))
+				return cw, err
+			},
 		},
-	}); err != nil {
+	); err != nil {
 		return nil, transfer, w.wrapError(err)
 	}
 	return w, transfer, w.wrapError(err)
@@ -252,7 +264,10 @@ func (w *Writer) Write(series telem.Series) (telem.Alignment, error) {
 // WriteAt validates and writes the given series, stamping it with a, an alignment
 // resolved in the sample space of this channel's index. Returns the alignment of the
 // first sample written.
-func (w *Writer) WriteAt(series telem.Series, a telem.Alignment) (telem.Alignment, error) {
+func (w *Writer) WriteAt(
+	series telem.Series,
+	a telem.Alignment,
+) (telem.Alignment, error) {
 	return w.write(series, a, false)
 }
 
@@ -336,7 +351,10 @@ func (w *Writer) CommitWithEnd(ctx context.Context, end telem.TimeStamp) (err er
 	return w.wrapError(err)
 }
 
-func (w *Writer) commitWithEnd(ctx context.Context, end telem.TimeStamp) (telem.TimeStamp, error) {
+func (w *Writer) commitWithEnd(
+	ctx context.Context,
+	end telem.TimeStamp,
+) (telem.TimeStamp, error) {
 	dw, err := w.control.Authorize()
 	if err != nil {
 		return 0, err

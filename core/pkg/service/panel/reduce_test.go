@@ -35,7 +35,9 @@ var _ = Describe("Reduce", func() {
 		k := uuid.New()
 		next := MustSucceed(panel.Reduce(
 			panel.Panel{Root: leafNode()},
-			panel.NewInsertTabAction(panel.InsertTabPayload{Tab: tab(k), TargetLeaf: new(int32(1))}),
+			panel.NewInsertTabAction(
+				panel.InsertTabPayload{Tab: tab(k), TargetLeaf: new(int32(1))},
+			),
 		))
 		Expect(tabKeys(next.Root)).To(ContainElement(k))
 	})
@@ -53,7 +55,9 @@ var _ = Describe("Reduce", func() {
 		k1, k2 := uuid.New(), uuid.New()
 		next := MustSucceed(panel.Reduce(
 			panel.Panel{Root: leafNode(tab(k1), tab(k2))},
-			panel.NewMoveTabAction(panel.MoveTabPayload{Key: k1, TargetLeaf: 1, Index: new(int32(2))}),
+			panel.NewMoveTabAction(
+				panel.MoveTabPayload{Key: k1, TargetLeaf: 1, Index: new(int32(2))},
+			),
 		))
 		Expect(tabKeys(next.Root)).To(Equal([]uuid.UUID{k2, k1}))
 	})
@@ -62,14 +66,18 @@ var _ = Describe("Reduce", func() {
 		k1, k2 := uuid.New(), uuid.New()
 		next := MustSucceed(panel.Reduce(
 			panel.Panel{Root: leafNode(tab(k1), tab(k2))},
-			panel.NewSplitTabAction(panel.SplitTabPayload{Key: k2, Direction: spatial.DirectionX}),
+			panel.NewSplitTabAction(
+				panel.SplitTabPayload{Key: k2, Direction: spatial.DirectionX},
+			),
 		))
 		MustBeOk(asSplit(next.Root))
 	})
 
 	It("Should route a ResizeSplit action", func() {
 		next := MustSucceed(panel.Reduce(
-			panel.Panel{Root: splitNode(spatial.DirectionX, 0.5, leafNode(), leafNode())},
+			panel.Panel{
+				Root: splitNode(spatial.DirectionX, 0.5, leafNode(), leafNode()),
+			},
 			panel.NewResizeSplitAction(panel.ResizeSplitPayload{Split: 1, Size: 0.7}),
 		))
 		split := MustBeOk(asSplit(next.Root))
@@ -110,13 +118,16 @@ var _ = Describe("Reduce", func() {
 		next := MustSucceed(panel.Reduce(
 			panel.Panel{Name: "old", Root: leafNode()},
 			panel.NewRenameAction(panel.RenamePayload{Name: "new"}),
-			panel.NewInsertTabAction(panel.InsertTabPayload{Tab: tab(k), TargetLeaf: new(int32(1))}),
+			panel.NewInsertTabAction(
+				panel.InsertTabPayload{Tab: tab(k), TargetLeaf: new(int32(1))},
+			),
 		))
 		Expect(next.Name).To(Equal("new"))
 		Expect(tabKeys(next.Root)).To(ContainElement(k))
 	})
 
-	DescribeTable("Should return a missing-payload error and leave state unchanged when an action carries no payload",
+	DescribeTable(
+		"Should return a missing-payload error and leave state unchanged when an action carries no payload",
 		func(actionType string) {
 			p := panel.Panel{Root: leafNode()}
 			res, err := panel.Reduce(p, panel.Action{Type: actionType})

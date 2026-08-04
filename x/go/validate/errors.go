@@ -85,7 +85,12 @@ func prefixPath(err error, segments []string) error {
 func (p PathError) Error() string { return p.joinPath() + ": " + p.Err.Error() }
 
 func NewInvalidTypeError(expected, received string) error {
-	return errors.Wrapf(ErrInvalidType, "expected %s but received %s", expected, received)
+	return errors.Wrapf(
+		ErrInvalidType,
+		"expected %s but received %s",
+		expected,
+		received,
+	)
 }
 
 const (

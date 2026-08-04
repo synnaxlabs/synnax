@@ -29,10 +29,10 @@ func NewHost() *Host { return &Host{} }
 
 func resolveBinary(s *node.State) (lhs, rhs int, err error) {
 	if lhs, err = s.ResolveInput(ir.LHSInputParam); err != nil {
-		return
+		return lhs, rhs, err
 	}
 	rhs, err = s.ResolveInput(ir.RHSInputParam)
-	return
+	return lhs, rhs, err
 }
 
 func (h *Host) Create(_ context.Context, cfg node.Config) (node.Node, error) {
@@ -77,7 +77,8 @@ func (n *binary) Next(ctx node.Context) {
 	*n.OutputTime(0) = n.InputTime(n.lhsIdx)
 	alignment := lhs.Alignment + rhs.Alignment
 	timeRange := telem.TimeRange{Start: lhs.TimeRange.Start, End: lhs.TimeRange.End}
-	if !rhs.TimeRange.Start.IsZero() && (timeRange.Start.IsZero() || rhs.TimeRange.Start < timeRange.Start) {
+	if !rhs.TimeRange.Start.IsZero() &&
+		(timeRange.Start.IsZero() || rhs.TimeRange.Start < timeRange.Start) {
 		timeRange.Start = rhs.TimeRange.Start
 	}
 	if rhs.TimeRange.End > timeRange.End {
