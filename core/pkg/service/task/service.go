@@ -11,6 +11,7 @@ package task
 
 import (
 	"context"
+	"io"
 
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
@@ -19,6 +20,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/search"
+	"github.com/synnaxlabs/synnax/pkg/service/signals"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task/versions"
 	"github.com/synnaxlabs/x/config"
@@ -63,6 +65,11 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	Search *search.Index
+	// Signals is used to propagate task changes through the Synnax signals' channel
+	// communication mechanism.
+	//
+	// [OPTIONAL]
+	Signals *signals.Provider
 	// ImEx is the import/export registry the task service registers itself with as the
 	// exporter for task resources during OpenService.
 	//
@@ -86,6 +93,7 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Status = override.Nil(c.Status, other.Status)
 	c.Channel = override.Nil(c.Channel, other.Channel)
 	c.Search = override.Nil(c.Search, other.Search)
+	c.Signals = override.Nil(c.Signals, other.Signals)
 	c.ImEx = override.Nil(c.ImEx, other.ImEx)
 	return c
 }
@@ -158,6 +166,26 @@ func OpenService(ctx context.Context, configs ...ServiceConfig) (s *Service, err
 	}
 	disconnect := cfg.Rack.OnSuspect(s.onSuspectRack)
 	ok(nil, xio.NoFailCloserFunc(disconnect))
+	if cfg.Signals != nil {
+		var sig io.Closer
+		if sig, err = signals.PublishFromGorp(
+			ctx,
+			cfg.Signals,
+			signals.GorpPublisherConfig[Key, Task]{
+				Observable:     s.table.Observe(),
+				SetDataType:    telem.JSONT,
+				DeleteDataType: telem.UUIDT,
+				MarshalDelete:  func(k Key) ([]byte, error) { return k[:], nil },
+				MarshalSet: func(t Task) ([]byte, error) {
+					t.Config = nil
+					t.Status = nil
+					return signals.MarshalJSON[Key, Task](t)
+				},
+			},
+		); !ok(err, sig) {
+			return nil, err
+		}
+	}
 	return s, nil
 }
 
