@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { fireEvent, screen, waitFor } from "@testing-library/react";
+import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 import { Cluster } from "@/platform/cluster";
@@ -17,7 +17,7 @@ import {
   renderClusterUI,
 } from "@/platform/cluster/testutil";
 import { Session } from "@/session";
-import { stubClipboardWriteText } from "@/testutil";
+import { getBySelector, stubClipboardWriteText } from "@/testutil";
 
 describe("cluster List", () => {
   it("should call onChange with the clicked cluster's key", async () => {
@@ -35,11 +35,13 @@ describe("cluster List", () => {
   });
 
   it("should open the connect modal from the empty action", async () => {
-    await renderClusterUI(
+    const { container } = await renderClusterUI(
       <Cluster.List value={undefined} onChange={vi.fn()} />,
       createClusterState([]),
     );
-    fireEvent.click(await screen.findByText("Add a Core"));
+    // The footer create button carries the same label, so scope to the list body.
+    const items = getBySelector<HTMLElement>(container, ".console-cluster-list__items");
+    fireEvent.click(await within(items).findByText("Add a Core"));
     await waitFor(() =>
       expect(screen.getByPlaceholderText("Synnax Core")).toBeTruthy(),
     );
