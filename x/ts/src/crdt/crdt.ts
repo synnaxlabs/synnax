@@ -300,13 +300,13 @@ export class Text {
       out += String.fromCodePoint(...buf);
       buf = [];
     };
-    for (const e of this.order) 
+    for (const e of this.order)
       for (let i = 0; i < e.chars.length; i++) {
         if (e.dead > 0 && e.deleted?.[i] === true) continue;
         buf.push(e.chars[i]);
         if (buf.length >= TO_STRING_CHUNK) flush();
       }
-    
+
     if (buf.length > 0) flush();
     this.stringCache = out;
     return out;
