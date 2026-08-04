@@ -13,20 +13,62 @@ import {
   NotFoundError,
   query,
 } from "@synnaxlabs/client";
-import { createTestClient } from "@synnaxlabs/client/testutil";
+import {
+  createSeverableProxy,
+  createTestClient,
+  TEST_CLIENT_PARAMS,
+} from "@synnaxlabs/client/testutil";
 import { Unreachable } from "@synnaxlabs/freighter";
-import { color, TimeSpan, TimeStamp } from "@synnaxlabs/x";
+import { color, id, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { act, fireEvent, render, renderHook, waitFor } from "@testing-library/react";
-import { type ReactElement, useCallback, useState } from "react";
+import {
+  type FC,
+  type PropsWithChildren,
+  type ReactElement,
+  useCallback,
+  useMemo,
+  useState,
+} from "react";
 import { describe, expect, it, vi } from "vitest";
 
+import { aetherTest } from "@/aether/test";
 import { Errors } from "@/errors";
 import { Flux } from "@/flux";
+import { status } from "@/status/aether";
 import { Status } from "@/status/base";
+import { Synnax } from "@/synnax";
+import { synnax } from "@/synnax/aether";
 import { createSynnaxWrapper } from "@/testutil/Synnax";
 
 const client = createTestClient();
 const Wrapper = createSynnaxWrapper({ client });
+
+/** Mounts the real provider against a live cluster reached through `port`. */
+const createLiveWrapper = (port: number): FC<PropsWithChildren> => {
+  const AetherProvider = aetherTest.createProvider({
+    ...synnax.REGISTRY,
+    ...status.REGISTRY,
+  });
+  const connParams = {
+    ...TEST_CLIENT_PARAMS,
+    port,
+    // Unbounded retries: a capped breaker stops the streamer from ever reopening.
+    retry: {
+      baseInterval: TimeSpan.milliseconds(10),
+      maxInterval: TimeSpan.milliseconds(50),
+      scale: 1.5,
+    },
+  };
+  const Live = ({ children }: PropsWithChildren): ReactElement => (
+    <AetherProvider>
+      <Status.Aggregator>
+        <Synnax.Provider connParams={connParams}>{children}</Synnax.Provider>
+      </Status.Aggregator>
+    </AetherProvider>
+  );
+  Live.displayName = "LiveWrapper";
+  return Live;
+};
 
 describe("retrieve", () => {
   describe("useDirect", () => {
@@ -1076,6 +1118,52 @@ describe("useRetrieveSuspended", () => {
       expect(retrieve).toHaveBeenCalledTimes(1);
     });
   });
+
+  it("refetches a read that failed during an outage once the connection returns", async () => {
+    const proxy = await createSeverableProxy();
+    try {
+      const [first, second] = await client.labels.create([
+        { name: `first-${id.create()}`, color: "#000000" },
+        { name: `second-${id.create()}`, color: "#000000" },
+      ]);
+      const { useRetrieveSuspended } = Flux.createRetrieve<{ key: string }, string>({
+        name: "Label",
+        retrieve: async ({ client, query }) =>
+          (await client.labels.retrieve(query.key)).name,
+      });
+      const Display = ({ labelKey }: { labelKey: string }): ReactElement => (
+        <div>{useRetrieveSuspended({ key: labelKey })}</div>
+      );
+      const Live = createLiveWrapper(proxy.port);
+      const tree = (labelKey: string): ReactElement => (
+        <Live>
+          <Errors.SuspenseBoundary
+            loading={<div>loading</div>}
+            FallbackComponent={() => <div data-testid="error">failed</div>}
+          >
+            <Display labelKey={labelKey} />
+          </Errors.SuspenseBoundary>
+        </Live>
+      );
+
+      // The first read opens the change stream, which is what advances the epoch
+      // once the connection returns.
+      const utils = render(tree(first.key));
+      await waitFor(() => expect(utils.getByText(first.name)).toBeTruthy());
+
+      // The second label was never read, so it cannot be served from the cache.
+      await proxy.sever();
+      utils.rerender(tree(second.key));
+      await waitFor(() => expect(utils.getByTestId("error")).toBeTruthy());
+
+      await proxy.restore();
+      await waitFor(() => expect(utils.getByText(second.name)).toBeTruthy(), {
+        timeout: 20000,
+      });
+    } finally {
+      await proxy.close();
+    }
+  }, 30000);
 });
 
 describe("useEnsureRetrieved", () => {
@@ -1145,5 +1233,48 @@ describe("useEnsureRetrieved", () => {
 
     expect(utils.queryByTestId("error")?.textContent).toBe("Failed to retrieve Number");
     expect(retrieve).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("useRetrieveSuspended connection changes", () => {
+  it("surfaces a disconnect that lands after the read resolved", async () => {
+    const { useRetrieveSuspended } = Flux.createRetrieve<{ key: string }, number>({
+      name: "Number",
+      retrieve: async () => 42,
+    });
+
+    const Display = (): ReactElement => {
+      const value = useRetrieveSuspended({ key: "disconnect-test" });
+      const label = useMemo(() => `value-${value}`, [value]);
+      return <div data-testid="value">{label}</div>;
+    };
+
+    const Harness = ({ connected }: { connected: boolean }): ReactElement => (
+      <Wrapper>
+        <Synnax.TestProvider client={connected ? client : null}>
+          <Errors.SuspenseBoundary
+            loading={<div>loading</div>}
+            FallbackComponent={({ error }) => (
+              <div data-testid="error">{error.message}</div>
+            )}
+          >
+            <Display />
+          </Errors.SuspenseBoundary>
+        </Synnax.TestProvider>
+      </Wrapper>
+    );
+
+    let utils!: ReturnType<typeof render>;
+    await act(async () => {
+      utils = render(<Harness connected />);
+    });
+    await waitFor(() =>
+      expect(utils.queryByTestId("value")?.textContent).toBe("value-42"),
+    );
+
+    await act(async () => {
+      utils.rerender(<Harness connected={false} />);
+    });
+    expect(utils.queryByTestId("error")?.textContent).toContain("no Core connected");
   });
 });
