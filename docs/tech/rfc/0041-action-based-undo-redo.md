@@ -33,12 +33,12 @@ history is a separate feature and is out of scope.
   cache.
 - **Action**: A single discriminated-union mutation defined per document type and
   generated from a `.oracle` schema (e.g., `SetNodePosition` for schematics).
-- **Reducer**: A per-document-type function that applies a vector of actions and
-  returns `{ next, inverse, targets }`. TS-only; the server reducer is unchanged.
+- **Reducer**: A per-document-type function that applies a vector of actions and returns
+  `{ next, inverse, targets }`. TS-only; the server reducer is unchanged.
 - **Inverse**: A vector of actions that, applied to the post-state, restores the
   pre-state.
-- **Targets**: The set of entity keys an action vector touched. Drives coalesce
-  identity and stale detection.
+- **Targets**: The set of entity keys an action vector touched. Drives coalesce identity
+  and stale detection.
 - **Transaction**: A staged group of dispatches committed atomically as one undoable.
   Equivalent to one dispatch of the accumulated actions.
 - **Forward**: The original action vector in a stack entry.
@@ -75,7 +75,7 @@ right level for this work is the substrate. Per-document-type code only contribu
 parts that genuinely vary by type — the action set, the inverse logic, the kind
 classifier.
 
-### 2.3 "Server-Side Undo" conflates two features
+### 2.3 "server-side undo" conflates two features
 
 The original framing (`sy-3038-add-server-side-undo-and-redo`) treated undo as a
 durable, server-owned feature. This conflates two distinct user needs:
@@ -171,9 +171,9 @@ Pluto's Flux substrate exposes two parallel mutation factories:
 - **`Flux.createUpdate`** (existing): free-form path. The user provides an arbitrary
   `update` callback that does optimistic apply, server send, and rollback on its own. No
   undo. Used for non-action-based mutations like create, rename, delete, copy.
-- **`Flux.createDispatch`** (new): action-based path. The substrate owns the local
-  apply via the reducer, owns the stack, and owns the undo machinery. The user provides
-  only the reducer, the channel and schema for remote broadcasts, and a send function.
+- **`Flux.createDispatch`** (new): action-based path. The substrate owns the local apply
+  via the reducer, owns the stack, and owns the undo machinery. The user provides only
+  the reducer, the channel and schema for remote broadcasts, and a send function.
 
 The action-based path is split across two factories so doc-type code can build the store
 independently of the dispatch hooks:
@@ -245,7 +245,7 @@ interface UndoState<A> {
 Stacks are not persisted across reloads, not synced via Drift, and not part of the
 broadcast surface. They live and die with the cache entry.
 
-### 3.4 Dispatch, Push, rollback
+### 3.4 Dispatch, push, rollback
 
 The dispatch path in `apply` (shared by `useDispatch`, `useUndo`, `useRedo`):
 
@@ -449,7 +449,7 @@ Coverage on the substrate:
    transactional dispatch path.
 
 2. **`undoable` is a callback, not a schema annotation.** Adding `undoable: bool` to the
-   oracle schema language would have touched the generator, the Go emitter, the TS
+   Oracle schema language would have touched the generator, the Go emitter, the TS
    emitter, and every existing action declaration. A per-store `isUndoable` callback
    expresses the same intent in one line and confines the change to the substrate.
 

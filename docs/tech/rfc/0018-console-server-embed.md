@@ -33,14 +33,14 @@ changes to the `tauri.conf.json` file. Integrating this into CI will require pul
 latest server binaries from the Synnax repository and placing them into the appropriate
 directory. This part of the process shouldn't be too challenging.
 
-One of the major concerns with embedding the server is ensuring that the running console
+One of the major concerns with embedding the server is ensuring that the running Console
 has sufficient permissions to actually execute the binaries. We'll need to test on all
 three operating systems to ensure everything works. There also may be unexpected
 permissions issues on different users' machines. We'll need to be prepared to correctly
 communicate and resolve these issues.
 
-Another, minor issue with embedding the server is that the server binaries are about
-50 MB each (90 MB on Windows). This will increase the size of the Console download
+Another, minor issue with embedding the server is that the server binaries are about 50
+MB each (90 MB on Windows). This will increase the size of the Console download
 substantially, but shouldn't be a major issue.
 
 ### 2.1 Keeping the server alive
@@ -48,6 +48,6 @@ substantially, but shouldn't be a major issue.
 There are four major pieces to starting and keeping the server alive:
 
 1. Starting the server when the Console is opened.
-2. If the server crashes, restart it with any changes parameters.
+2. If the server crashes, restart it with any changed parameters.
 3. Shutting down the server when the Console closes.
 4. Making sure we correctly clean up any stranded P&IDs.

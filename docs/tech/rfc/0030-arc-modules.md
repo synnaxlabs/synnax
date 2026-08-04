@@ -21,8 +21,8 @@ this effort.
 
 ## 1 Vocabulary
 
-- **Host Function**: A function implemented in Go or C++ and callable from compiled
-  WASM bytecode via the `call` instruction. Examples: `channel_read_f64`, `math.pow`.
+- **Host Function**: A function implemented in Go or C++ and callable from compiled WASM
+  bytecode via the `call` instruction. Examples: `channel_read_f64`, `math.pow`.
 - **Reactive Node**: A Go-native node in the dataflow graph, executed by the scheduler.
   Never touches WASM. Examples: `set_authority`, `stable_for`, `select`.
 - **Compiler Primitive**: A host function emitted implicitly by the compiler for
@@ -87,7 +87,7 @@ Organization is semantic: a `math` module contains everything related to mathema
 operations, regardless of which execution layer (WASM or reactive graph) a particular
 item runs in.
 
-### 3.1 One List, three consumers
+### 3.1 One list, three consumers
 
 The system derives all of its wiring from a single list of modules. From this list, it
 produces the symbol resolver (for the analyzer), the node factory chain (for the
@@ -129,7 +129,7 @@ symbols and host functions (no reactive nodes). A `control` module might only pr
 symbols and reactive nodes (no host functions). The interface methods return
 `query.NotFound` for capabilities they don't support.
 
-#### 4.0.0 HostRuntime abstraction
+#### 4.0.0 `HostRuntime` abstraction
 
 `HostRuntime` abstracts the WASM engine so modules don't import engine-specific
 packages:
@@ -170,7 +170,7 @@ From this one list, the system derives:
 
 ### 4.1 Symbol resolution
 
-#### 4.1.0 ModuleResolver
+#### 4.1.0 `ModuleResolver`
 
 For modules that own a namespace (like `math`), a concrete `ModuleResolver` helper
 strips the prefix before delegating to the module's internal `MapResolver`:
@@ -299,7 +299,7 @@ func (w *wazeroHostRuntime) Export(wasmModule, name string, impl any) error {
 #### 4.4.1 Go generics for type variants
 
 Replace ~10,000 lines of generated code with generic templates. Functions that operate
-on i32-compatible types share a single implementation:
+on `i32`-compatible types share a single implementation:
 
 ```go
 func bindChannelRead[T ~uint8 | ~uint16 | ~uint32 | ~int8 | ~int16 | ~int32](
@@ -381,24 +381,24 @@ modules (like `math`) ignore it entirely.
 `arc/` is the language library. It ships with every module that has no external
 dependencies:
 
-- `channel` — read/write host functions (compiler primitives)
-- `state` — stateful variable load/store
-- `series` — create, index, slice, arithmetic, comparison
-- `string` — from_literal, concat, equal, len
-- `math` — pow (future: sqrt, sin, cos, abs, clamp)
-- `time` — now
-- `op` — operator symbols and series arithmetic
-- `control` — set_authority, stable_for, select, constant
-- `telem` — on, write (source/sink graph nodes)
-- `stage` — stage_entry graph node
-- `stat` — avg, min, max graph nodes
-- `error` — panic
+- `channel`: read/write host functions (compiler primitives)
+- `state`: stateful variable load/store
+- `series`: create, index, slice, arithmetic, comparison
+- `string`: from_literal, concat, equal, len
+- `math`: pow (future: sqrt, sin, cos, abs, clamp)
+- `time`: now
+- `op`: operator symbols and series arithmetic
+- `control`: set_authority, stable_for, select, constant
+- `telem`: on, write (source/sink graph nodes)
+- `stage`: stage_entry graph node
+- `stat`: avg, min, max graph nodes
+- `error`: panic
 
 #### 4.6.1 What lives in `core/`
 
 `core/` provides modules that depend on Synnax server services:
 
-- `status` — set_status (needs `status.Service`)
+- `status`: set_status (needs `status.Service`)
 
 `core/` assembles the full module list: all of `arc/`'s built-in modules plus its own
 server-specific modules. The C++ driver does the same with its own set.
@@ -425,7 +425,7 @@ arc/go/compiler/
     resolve/            two-phase compile-then-link resolver
 ```
 
-### 4.7 Dual execution: Host functions as graph nodes
+### 4.7 Dual execution: host functions as graph nodes
 
 A function like `math.sqrt` needs to work in both execution layers:
 
@@ -441,7 +441,7 @@ underlying implementation where appropriate.
 Not every host function automatically becomes a graph node. The module author explicitly
 opts in by providing a factory.
 
-## 5 User-facing import syntax (Future)
+## 5 User-facing import syntax (future)
 
 The internal module infrastructure established by this RFC enables a future user-facing
 `import` syntax:
@@ -473,13 +473,13 @@ lookup is a localized implementation detail that doesn't affect the module inter
 
 ## 6 Implementation phases
 
-### 6.0 Phase 1: Foundation
+### 6.0 Phase 1: foundation
 
 Create `arc/go/stl/` with the `Module` interface, `HostRuntime` interface, and helper
 types. Create empty module stubs that satisfy the interface but delegate to existing
 code. Create the compiler resolver type. Existing tests pass unchanged.
 
-### 6.1 Phase 2: Compiler migration
+### 6.1 Phase 2: compiler migration
 
 Replace `ImportIndex` with the two-phase resolver. Update all compiler callsites. WASM
 binaries begin using module namespaces. Temporarily support both old and new import
@@ -496,12 +496,12 @@ Move symbol definitions and node factories from `runtime/` packages to `stl/`. E
 module provides symbols and factories through the `Module` interface. Delete old
 `runtime/` packages.
 
-### 6.4 Phase 5: State decomposition
+### 6.4 Phase 5: state decomposition
 
 Extract module-owned state slices from the monolithic `state.State`. Update `core/` to
 use module state handles for ingest/flush. Delete `runtime/wasm/bindings/` entirely.
 
-### 6.5 Phase 6: Cleanup
+### 6.5 Phase 6: cleanup
 
 Delete `compiler/bindings/` directory. Produce C++ WASM import contract specification.
 Verify no references to old `ImportIndex`, `Bindings`, or `BindRuntime` remain.

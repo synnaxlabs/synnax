@@ -152,8 +152,8 @@ per-record store.
 
 ### 3.3 Errors and the boundary
 
-The substrate's contract with a consumer's error boundary is: a thrown value is always a
-`Error` (with the original `xstatus.Status` on `cause`). `x/ts/src/status/status.ts`
+The substrate's contract with a consumer's error boundary is: a thrown value is always
+an `Error` (with the original `xstatus.Status` on `cause`). `x/ts/src/status/status.ts`
 gains `status.toError(status)`, which builds an `Error` whose `message` is the wrapped
 status message, copies `name` and `stack` from the inner error preserved on
 `details.error`, and stashes the full status on `cause`. The suspended hooks call it

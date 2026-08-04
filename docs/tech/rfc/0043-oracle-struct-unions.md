@@ -419,7 +419,7 @@ Oracle, starting with the simplest (Modbus) and working up to NI.
   codec; see section 5.1), Python, C++, and Protobuf (including pb translators for union
   fields, record arrays, and union map values). Union-typed fields resolve to the union
   in every target.
-- **Storage + wire integration.** Unions encode fully binary in the orc codec: a
+- **Storage + wire integration.** Unions encode fully binary in the ORC codec: a
   length-prefixed discriminator string followed by the active variant's base and payload
   structs encoded positionally through their own codecs. The string tag keeps stored
   bytes stable under variant addition and reordering; variant field changes version
@@ -466,9 +466,9 @@ Oracle, starting with the simplest (Modbus) and working up to NI.
 2. **Integer discriminators.** All existing Synnax unions use strings. Recommendation:
    strings only for now.
 
-3. **Validation generation.** NI channels have complex cross-field validation ("pre-
-   scaled values must be monotonically increasing"). Recommendation: defer to a future
-   RFC on advanced validation; keep union validation structural.
+3. **Validation generation.** NI channels have complex cross-field validation
+   ("pre-scaled values must be monotonically increasing"). Recommendation: defer to a
+   future RFC on advanced validation; keep union validation structural.
 
 4. **Zero value selection.** Which variant is a union's default? Recommendation: first
    declared variant, with an optional `@default` domain to override.

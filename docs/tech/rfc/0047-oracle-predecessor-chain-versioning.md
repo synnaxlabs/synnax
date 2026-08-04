@@ -11,7 +11,7 @@
 Under the full-copy layout every `versions/vN/` package was a complete copy: when a
 resource bumped its `@go version`, Oracle re-emitted every type at the path into the new
 version directory, and the freeze step re-emitted every type into the outgoing one.
-Between arc's `types/versions/v0` and `v1`, two types changed shape; roughly ten were
+Between Arc's `types/versions/v0` and `v1`, two types changed shape; roughly ten were
 duplicated, along with their codecs and enum stringers, and the hand-written method
 files were ported by hand.
 
@@ -44,7 +44,7 @@ cutover:
    include ALL types from that package" (deleted with this RFC).
 2. **Hand-written files ported by hand.** `moveHelpers` (also deleted) carried the
    version package's method file forward wholesale and deleted the outgoing copy, and
-   files like arc's `type.go` and `msgpack.go` (~1,300 lines with tests) had to follow
+   files like Arc's `type.go` and `msgpack.go` (~1,300 lines with tests) had to follow
    the current version by manual copy. Each port was an opportunity for drift.
 3. **Migration auto-copies were busywork.** `v0.Param` and `v1.Param` were distinct
    structs even when byte-identical, so `migrate_auto.gen.go` generated field-by-field
@@ -80,7 +80,7 @@ cutover:
    comparison is the gate, and `schemadiff.SchemaDiff`'s `TypeDescendantChanged` already
    classifies it.
 4. **Code lives with the definer.** Go forbids methods on aliased non-local types, so
-   hand-written method files (`<resource>.go`, arc's `type.go`) sit in the defining
+   hand-written method files (`<resource>.go`, Arc's `type.go`) sit in the defining
    package permanently. When a type is redefined at a bump, its methods are ported to
    the new definer; omissions surface as compile errors at root call sites.
 
@@ -163,10 +163,10 @@ and retargeted their callers; paths whose current packages emitted no aliases ke
 legacy files until they next bump.
 
 Each version package exports a single entry point — `Migration`, or `Migrations` when
-one bump carries several steps (arc v1's shape lift plus its `set_status` rename) — and
+one bump carries several steps (Arc v1's shape lift plus its `set_status` rename) — and
 a hand-written `versions/migrations.go` concatenates them into the ordered chain the
-service registers with gorp. Codec re-encodings (`gorp.CodecMigration`) are pinned in
-the version package whose stored bytes they rewrite (arc v0's `msgpack_to_orc`), not in
+service registers with Gorp. Codec re-encodings (`gorp.CodecMigration`) are pinned in
+the version package whose stored bytes they rewrite (Arc v0's `msgpack_to_orc`), not in
 the version that followed them.
 
 Auto-copy generation simplifies: when a nested type is `TypeUnchanged`, old and new
@@ -187,7 +187,7 @@ Current packages keep referencing their dependencies' current versions via
 
 ### 4.5 Amendments to RFC 0042
 
-RFC 0042 §4.3.1 ("Each Version Is Self-Contained") is amended: a version package
+RFC 0042 §4.3.1 ("Each version is self-contained") is amended: a version package
 presents a complete _namespace_, not a self-contained copy. `vN` imports `v(N-1)` by
 design — the RFC 0033 §3.6 rule that a version imports nothing outside itself already
 bent when incoming-package migrations imported their predecessor; the chain makes that
@@ -217,8 +217,8 @@ at current, pre-versioning baseline → define all).
 current grammar, so the frozen-source fallback drives the retrofit: one sync regenerated
 every current version package against its frozen predecessor, collapsing byte-identical
 declarations into aliases. Reconciliation moved hand-written methods whose receiver
-types became aliases to their definer packages (arc's `dimensions.go` and
-`ChanDirection` methods, rack/task `Key` methods, arc service's `StatusDetails`
+types became aliases to their definer packages (Arc's `dimensions.go` and
+`ChanDirection` methods, rack/task `Key` methods, Arc service's `StatusDetails`
 decoder), deleted the now-duplicate enum `_string.go` files from current packages, and
 relocated the cycle-inducing legacy migrations (§4.3). The cutover also renamed the
 version directory from `types/` to `versions/`, routed package-root re-exports through
@@ -232,7 +232,7 @@ source-level.
 
 ## 6 Resolved decisions
 
-**6.0 - Backward aliasing (new → old), not forward materialization.** The alternative
+**6.0 — Backward aliasing (new → old), not forward materialization.** The alternative
 kept definitions in the current package and materialized frozen copies into historical
 packages at divergence time. Rejected: it rewrites history on every divergence,
 contradicting the frozen-snapshot principle, and the current packages churn anyway. The
@@ -240,19 +240,19 @@ trade is real: under backward aliasing, a type's definition and methods stay in 
 version folder where it last changed, so current packages become thin alias surfaces
 over definitions scattered by last-change time.
 
-**6.1 - Predecessor chain, not direct-to-definer.** `v2.T = v1.T` even when the definer
+**6.1 — Predecessor chain, not direct-to-definer.** `v2.T = v1.T` even when the definer
 is v0. Both compile to the identical type; the chain needs only the predecessor baseline
 (what `plugin.Request` carries), keeps each package to one version import, and makes a
 bump's diff read as the delta against its predecessor. The trade: a human reading
 `v4/types.gen.go` may hop files to reach a struct body — mitigated by gopls and by
 grepping for the definition.
 
-**6.2 - Existing full-copy history is grandfathered.** Frozen full-copy directories stay
+**6.2 — Existing full-copy history is grandfathered.** Frozen full-copy directories stay
 as they are; an alias-form current version chains into them exactly as it would into
 alias-form history. Rewriting history for uniformity was rejected as pure churn against
 immutable packages.
 
-**6.2a - Frozen-source baseline over transcribed or annotated history.** Two retrofit
+**6.2a — Frozen-source baseline over transcribed or annotated history.** Two retrofit
 alternatives were rejected: transcribing the pre-versioning snapshots into current
 grammar (hand-authoring ~30 schemas of history, and the frozen snapshots are frozen),
 and a per-type `@go changed` annotation (relies on humans reconstructing which types
@@ -263,11 +263,11 @@ future generator-style change makes affected types fall back to definitions rath
 aliases — safe, but churny; the snapshot-declared baseline takes over from the first
 post-versioning snapshot onward.
 
-**6.3 - Migrations live in the incoming package for all paths.** The generator already
+**6.3 — Migrations live in the incoming package for all paths.** The generator already
 scaffolds this way; the RFC ratifies it, and the retrofit moved the legacy
 reverse-direction files that would otherwise cycle (§4.3).
 
-**6.4 - Version directories become permanently pinned.** Full copies allowed, in
+**6.4 — Version directories become permanently pinned.** Full copies allowed, in
 principle, deleting ancient version packages wholesale. The chain gives that up: every
 version is reachable from current through aliases. Accepted — nothing prunes these
 directories today, and a future compaction mechanism (§7) can restore the ability if it

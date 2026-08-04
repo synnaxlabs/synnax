@@ -26,32 +26,32 @@ identical observable behavior.
 
 ## 1 Vocabulary
 
-- **Layer 1 (dataflow)** is the graph of `Function`, `Node`, and `Edge` that expresses
+- **Layer 1 (dataflow)**: The graph of `Function`, `Node`, and `Edge` that expresses
   pure compute. Flat, consumed by the analyzer and the compiler. Unchanged by this RFC.
-- **Layer 2 (execution shell)** is the tree rooted at `IR.root` that governs when and in
+- **Layer 2 (execution shell)**: The tree rooted at `IR.root` that governs when and in
   what order subsets of the dataflow graph execute. Redesigned by this RFC.
-- **Scope** is the single Layer-2 primitive. Every `sequence`, `stage`, and flow step
+- **Scope**: The single Layer-2 primitive. Every `sequence`, `stage`, and flow step
   lowers to a Scope.
-- **Mode** is `parallel` or `sequential`. It decides whether a scope's children run
+- **Mode**: `parallel` or `sequential`. It decides whether a scope's children run
   together (respecting data dependencies) or one at a time (with transition rules).
-- **Liveness** is `always` or `gated`. It decides whether a scope is continuously active
+- **Liveness**: `always` or `gated`. It decides whether a scope is continuously active
   (root-like) or activates only when its activation handle fires.
-- **Phase** is one execution layer inside a parallel scope. Members in the same phase
-  have no data dependency among themselves. Phase N depends only on phases 0 to N-1.
-- **Member** is a child of a scope. Either a reference to a Layer-1 node (`NodeRef`) or
-  a nested scope.
-- **NodeRef** is a Layer-2 handle that points at a Layer-1 node by key.
-- **Transition** is a declarative rule on a sequential scope: when a dataflow handle
+- **Phase**: One execution layer inside a parallel scope. Members in the same phase have
+  no data dependency among themselves. Phase N depends only on phases 0 to N-1.
+- **Member**: A child of a scope. Either a reference to a Layer-1 node (`NodeRef`) or a
+  nested scope.
+- **NodeRef**: A Layer-2 handle that points at a Layer-1 node by key.
+- **Transition**: A declarative rule on a sequential scope: when a dataflow handle
   becomes truthy, switch the active member or exit the scope.
-- **Activation** is the event of a gated scope becoming active. Activation cascades a
+- **Activation**: The event of a gated scope becoming active. Activation cascades a
   reset through directly-owned node members, and recursively activates gated children
   that carry no activation handle of their own.
-- **Gate** is a bare expression or `wait{}` node that appears as a sequential step. It
+- **Gate**: A bare expression or `wait{}` node that appears as a sequential step. It
   advances the sequence when its output becomes truthy.
-- **Write cascading** is the behavior where consecutive write steps in a sequence
-  advance on the same tick. Each write is immediately truthy, and the sequential
-  scheduler's convergence loop keeps advancing until it hits a step whose output is not
-  truthy (a gate, a reactive stage, or a non-trivial sub-sequence).
+- **Write cascading**: The behavior where consecutive write steps in a sequence advance
+  on the same tick. Each write is immediately truthy, and the sequential scheduler's
+  convergence loop keeps advancing until it hits a step whose output is not truthy (a
+  gate, a reactive stage, or a non-trivial sub-sequence).
 
 ## 2 Motivation
 
@@ -224,7 +224,7 @@ never emits it, and the scheduler need not handle it specially.
 
 `IR.root` is always `Scope{mode: parallel, liveness: always}`. Its phases mix `NodeRef`
 members (module-scope reactive flow: channel reads, timers, bare flow statements) and
-nested Scope members (top-level sequences and top-level stages). Top level stages are no
+nested Scope members (top-level sequences and top-level stages). Top-level stages are no
 longer wrapped in an implicit single-step sequence; they sit directly as members under
 the root.
 
@@ -433,7 +433,7 @@ unreachable.
 Anonymous top-level stages (`stage { ... }` without a name) receive a synthesized key
 during analysis so the root's members remain uniquely keyed.
 
-### 5.2 Stageless sequence (Flow Steps)
+### 5.2 Stageless sequence (flow steps)
 
 ```arc
 sequence main {
@@ -844,7 +844,7 @@ stage abort {
 ```
 
 If `ox_pt_1 < 15` fires first, the enclosing sequence advances past the stage. If the
-30s timeout fires first, `=> abort` decomposes (§5.6) into an exit on the current
+`30s` timeout fires first, `=> abort` decomposes (§5.6) into an exit on the current
 sequence and an activation on the top-level `abort` scope.
 
 ### 8.3 Jumping backwards
@@ -901,7 +901,7 @@ same result).
 
 ## 9 Examples
 
-### 9.0 Before and after: Valve timing
+### 9.0 Before and after: valve timing
 
 Before:
 
@@ -1097,7 +1097,7 @@ messages should be phrased from source-level context (the AST node where the dia
 fires) rather than from IR-level type names, so that a user reading a diagnostic does
 not need to know whether a given construct is a `parallel` or `sequential` Scope.
 
-## 12 Appendix: Source references
+## 12 Appendix: source references
 
 Anchors for reviewers:
 

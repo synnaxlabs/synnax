@@ -15,13 +15,13 @@ manager to handle panics in its goroutines.
 ## 2 Motivation
 
 The utilization of goroutines is crucial to Synnax. GRs are present in the lifetime of
-almost all requests and responses to and from Synnax. When one of these GRs reach a
+almost all requests and responses to and from Synnax. When one of these GRs reaches a
 state where continuing execution is dangerous and results in data corruption, it panics
 and ceases execution. By default, panicking in one GR propagates throughout the program
 and eventually crashes the entire Synnax process.
 
 However, not every GR's panic should crash the entire system: a non-mission critical
-component of Synnax like Garbage Collection's panic should not cause the entire system
+component of Synnax like garbage collection's panic should not cause the entire system
 to shut down in production.
 
 ## 3 Design
@@ -31,7 +31,7 @@ We provide the following panic recovery options:
 - `RecoverErr`: Recover from the panic, but fail the goroutine as if an error had
   occurred.
 - `RecoverNoErr`: Recover from the panic, but exit the goroutine as if no error had
-  occurred
+  occurred.
 - `PropagatePanic`: Log relevant debug information for the panic, and propagate the
   panic to parent GR and eventually the rest of the system.
 - `Restart`: Used along with the option `WithMaxRestart`, after a GR panics, try to

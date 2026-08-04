@@ -45,7 +45,7 @@ The three problems that require addressing are the following:
 
 The array-based data structure is the culprit in the first problem: if we can track the
 current position of the iterator via a pointer instead of a position, the problem of
-shifting positions no longer occurs. For the second and third problem, better
+shifting positions no longer occurs. For the second and third problems, better
 synchronization is needed: ideally, the iterator has a read lock for the entire duration
 of a read operation (even during syscalls). However, this was previously impossible as
 with an array-based domain index, a lock must be acquired on the entire array, leading
@@ -95,18 +95,18 @@ Tree-based structure (AVL / RB tree):
 
 Linked-list-based structure (skip list):
 
-- Probabilistically `O(log n)` insert, update, delete (worst case O(n)).
+- Probabilistically `O(log n)` insert, update, delete (worst case `O(n)`).
 - `O(n)` range delete.
 - **`O(1)` insertion to leading edge**.
 - **Can be locked in a fine-grained manner**: every operation needs to only lock the
   operating node and its two neighbors, not the entire list.
 
 Obviously, a skip list is a better choice than a tree-based structure. Nevertheless,
-There are some concerns:
+there are some concerns:
 
 1. Ranged deletion becomes more tricky. They take `O(n)` time, and, more
    problematically, are harder to coordinate concurrently: locks on _all_ nodes must be
-   acquired prior to an operation
+   acquired prior to an operation.
 2. The expected value for the number of nodes is `O(2n)` (pardon the unscientific use of
    big-O). This is twice the memory overhead we had in Cesium before.
 3. A skip list is a probabilistic data structure that introduces a lot of complexity.

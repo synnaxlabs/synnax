@@ -64,18 +64,18 @@ The need to establish abstract relationships extends beyond authorization scheme
 At its core, the ontology is represented by a directed, acyclic graph or
 [DAG](https://en.wikipedia.org/wiki/Directed_acyclic_graph). This graph is composed of
 vertexes and edges. Vertexes represent particular resources in the cluster (channel,
-user, node, group, device, etc). The edges between vertexes represent a relationship
+user, node, group, device, etc.). The edges between vertexes represent a relationship
 between them.
 
 A caller can traverse the graph by following the relationships of a vertex. They can
 also define new vertexes and edges, and assign properties to them (such as permissions).
 
-It's important to note that the ontology does not store any concrete data. It's vertexes
+It's important to note that the ontology does not store any concrete data. Its vertexes
 and edges simply hold references to the particular service where the data can be
 accessed from. It's not the responsibility of the ontology to provide implementations
-for creating a new channel, device, etc. It's only it's responsibility to characterize
+for creating a new channel, device, etc. It's only its responsibility to characterize
 the relationships between (i.e. this channel belongs to this device which belongs to
-this node when can be accessed by this group of users).
+this node which can be accessed by this group of users).
 
 To make the ontology more semantic, I'm changing the names 'vertex' and 'edge' to
 _resource_ and _relationship_. Vertex and edge imply that a particular service adding
@@ -86,11 +86,11 @@ provide a simpler view by implying that two entities share a connection.
 
 As its name suggests, a DAG has two important properties:
 
-1. Directed - Relationships between entities have a defined hierarchy. When we build a
-   relationship between a node and a channel, we'd like to say that a channel _belongs_
-   to a node (and definitely not vice versa).
-2. Acyclic - There can be no closed loops in the graph. This prevents an entity from
-   having a relationship with itself.
+- **Directed**: Relationships between entities have a defined hierarchy. When we build a
+  relationship between a node and a channel, we'd like to say that a channel _belongs_
+  to a node (and definitely not vice versa).
+- **Acyclic**: There can be no closed loops in the graph. This prevents an entity from
+  having a relationship with itself.
 
 In many ways, a DAG is similar to a directory with shortcuts. When opening the command
 line on a Windows machine from the desktop, the executable for the program is not
@@ -108,10 +108,10 @@ of these relationships in a tree is impossible, but it's easy to do in a DAG:
 <h6 align="middle">A simple channel ontology represented as a DAG</h6>
 </p>
 
-The location of 'Temperature Sensor 2' can be represented my the path " /temperature
+The location of 'Temperature Sensor 2' can be represented by the path "/temperature
 sensors/temperature sensor 2" or by "nodes/node 1/temperature sensor 2". Both of these
 paths are valid and intuitive ways of navigating the ontology. It just depends on the
-callers needs.
+caller's needs.
 
 It's also important to note that although this graph has undirected cycles, it does not
 have any directed cycles. If we were to introduce a directed cycle like the following,
@@ -192,9 +192,9 @@ type Service interface {
 ```
 
 Within the ontology, we can store a map of services for each resource type. As a caller
-traverse the DAG, we can use the service to retrieve the data for a particular resource.
-Of course, this means we need to extend the `ontology.Resource` type to support holding
-resource data along with the reference.
+traverses the DAG, we can use the service to retrieve the data for a particular
+resource. Of course, this means we need to extend the `ontology.Resource` type to
+support holding resource data along with the reference.
 
 #### 2.3.0 Integrating resource data
 
@@ -202,7 +202,7 @@ The process for retrieving resource data is as follows:
 
 1. A caller traverses the DAG until they find a resource of interest.
 2. The ontology does a key-value lookup for the appropriate service.
-3. The service retrieve the data for the resource, and binds it to the
+3. The service retrieves the data for the resource, and binds it to the
    `ontology.Resource` from the DAG.
 4. The `ontology.Resource` is returned to the caller.
 
@@ -276,7 +276,7 @@ func Enforce(resource Resource) error {
 
 This is similar to the `fiber.Ctx.Locals()` implementation, where we can set arbitrary
 key-value pairs and get them later. While it works, the idea of turning a struct into a
-map makes me fee a bit woozy (kind of like injecting a bunch of random variables into a
+map makes me feel a bit woozy (kind of like injecting a bunch of random variables into a
 context).
 
 #### 2.3.2 Looking to GraphQL for inspiration
@@ -286,7 +286,7 @@ microservices. Of course, the ontology can also be used as an internal bus for
 communicating data within the codebase itself.
 
 GraphQL defines its resources using a Schema, where the properties (names, types,
-validation rules, etc. ) are defined for each resource type. A user writes a collection
+validation rules, etc.) are defined for each resource type. A user writes a collection
 of schemas, and then uses them to query the API.
 
 We can take a similar approach by extending the `Service` interface to ask for a schema
@@ -300,7 +300,7 @@ type Service interface {
 }
 ```
 
-This could be particularly useful if we want to support resources writes through the
+This could be particularly useful if we want to support resource writes through the
 ontology, and could eventually allow for the creation of type-safe APIs.
 
 #### 2.3.3 (Mild) digression - Thinking architecturally
@@ -312,25 +312,25 @@ code that can be imported and implemented into your general purpose language of 
 
 If we're talking about using a type-safe API to communicate between two microservices A
 and B, where A stores the resource (the 'server') and B queries it (the 'client'), I
-think it's important to ask _who is responsible for defining the API?_.
+think it's important to ask _who is responsible for defining the API?_
 
 Unless the server is specifically designed to support arbitrary data types and
 relationships (like a database), I think it's prudent to assume the server is
 responsible for letting the client know which resources it exposes. This establishes a
 clear contract with a single source of truth.
 
-This leads me to ask why we define our schemas in custom languages and them compile them
+This leads me to ask why we define our schemas in custom languages and then compile them
 to GP libraries instead of defining them in their _native_ type and compiling them to a
 custom schema language?
 
 This approach adds complexity, as we need to add support for bidirectional code
 generation, but it seems to do a better job of allocating single responsibility. It's
-the type-safe APIs job to:
+the type-safe API's job to:
 
 1. Tell the client what type of resources it exposes.
 2. Transport resources to and from the server.
 
-This doesn't mean it's the APIs job to _define the resources themselves_. Why don't we
+This doesn't mean it's the API's job to _define the resources themselves_. Why don't we
 do that in the microservice code itself, where the majority of the core logic lives?
 
 This is the approach I'd like to try with the ontology, where it essentially serves as
@@ -343,7 +343,7 @@ This approach may have unforeseen pitfalls. I guess we'll find out.
 
 #### 2.4.0 Writes through the ontology
 
-Right now, we're only able to read resource data from the ontology. I think its
+Right now, we're only able to read resource data from the ontology. I think it's
 pertinent to consider whether we'd like to add support for writing to resources in the
 future.
 
@@ -352,5 +352,5 @@ resource data. On the other hand, we've already established strongly typed schem
 could use them to automatically create type-safe write APIs so that services don't have
 to implement their own.
 
-We won't know until we've put the existing design through its paces, so I'll lease this
+We won't know until we've put the existing design through its paces, so I'll leave this
 as an open question.

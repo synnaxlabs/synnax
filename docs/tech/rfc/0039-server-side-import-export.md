@@ -11,8 +11,8 @@ structures and always exporting the current version. A single import endpoint an
 single export endpoint route to the correct service via a type string. The portable
 format is a `map[string]any` where every resource is self-describing.
 
-Historical TypeScript migrations are ported to Go as handwritten typed structs with
-handwritten Zyn schemas for validation. Future versions use Oracle-generated frozen
+Historical TypeScript migrations are ported to Go as hand-written typed structs with
+hand-written Zyn schemas for validation. Future versions use Oracle-generated frozen
 types, Zyn schemas, and migration functions. Import decodes the request body into a
 `map[string]any`, validates it with Zyn, parses into version-specific typed structs,
 runs the migration chain to the current version, and persists through the existing
@@ -112,7 +112,7 @@ text formats (JSON, YAML, TOML) are unaffected by that transition. Oracle is pos
 to generate Protobuf descriptors alongside the existing codecs when that transition
 happens.
 
-### 3.2 Every exported resource carries its Version, Type, and name
+### 3.2 Every exported resource carries its `version`, `type`, and `name`
 
 Every exported envelope includes a numeric `version` field, a `type` field, and a `name`
 field — in the JSON form, in any future YAML or TOML form, and in the in-memory
@@ -204,7 +204,7 @@ Old Console exports used semver strings for the version field (e.g., `"1.0.0"`).
 Core accepts both integer and semver string versions on import, converting the latter on
 the fly (see section 4.3).
 
-### 4.2 Two independent Paths, shared migration logic
+### 4.2 Two independent paths, shared migration logic
 
 Import/export and storage migration are two independent pipelines that share migration
 functions as their core business logic.
@@ -309,7 +309,7 @@ handler ever sees it, so schemas don't need to declare or accommodate them.
 
 ### 4.4 Versioned types and Zyn schemas
 
-#### 4.4.0 Historical versions (Pre-Oracle)
+#### 4.4.0 Historical versions (pre-Oracle)
 
 The Console's TypeScript migrations are ported to Go. For each historical version:
 
@@ -337,10 +337,10 @@ construct a new element per entry.
 **Menu item list mutations**. Layout v5->v8 filters or appends strings to a nav items
 slice.
 
-**Type field renames**. Layout v8->v9 renames `"arc_editor"` to the current arc type
+**Type field renames**. Layout v8->v9 renames `"arc_editor"` to the current Arc type
 string. Iterate layouts, check the type field, replace.
 
-#### 4.4.1 Future versions (Oracle-Managed)
+#### 4.4.1 Future versions (Oracle-managed)
 
 Once a type is defined in an `.oracle` schema, Oracle generates for each version:
 
@@ -634,7 +634,7 @@ boundary concern.
 
 ## 6 Resolved design decisions
 
-### 6.0 Flat Format, no envelope wrapper
+### 6.0 Flat format, no envelope wrapper
 
 The portable format is a flat object — flat in JSON, and flat in YAML or TOML if those
 are added later. All fields sit at the same level. There is no nested `data` object.

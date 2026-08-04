@@ -126,12 +126,12 @@ preservation) and bit-packed on the wire (for bandwidth). Disk stays byte-packed
 now, with a future Cesium storage codec expected to compress aggressively using the same
 codec abstraction the wire layer establishes here.
 
-### 3.1 In memory: Byte-packed
+### 3.1 In memory: byte-packed
 
 Each `BoolT` sample occupies one byte in `Series.Data`. The sample value is exactly
 `0x00` or `0x01`. Density is 1. The `Series` invariant (sample `i` lives at byte offset
 `i * density`) holds. Every existing iterator, writer, Cesium domain reader,
-Distribution aligner, and client-side `TypedArray` view treats a bool sample identically
+distribution aligner, and client-side `TypedArray` view treats a bool sample identically
 to a `uint8` sample. No iterator signature, no writer contract, and no offset arithmetic
 changes.
 
@@ -140,7 +140,7 @@ TypeScript, `np.bool_` in Python, `bool` in C++). The conversion between the lan
 value and the canonical byte happens at the edge of the client library, not inside
 `Series` operations.
 
-### 3.2 On the wire: Bit-packed codec
+### 3.2 On the wire: bit-packed codec
 
 The Freighter frame codec encodes `BoolT` series using a bit-packed format. A series of
 `N` samples transmits as `ceil(N / 8)` bytes. Sample `k` occupies bit `k mod 8` of byte
@@ -193,7 +193,7 @@ does not grow a new marshaling contract.
 Network impact: a deployment with 1000 digital channels sampling at 1 kHz drops from 1
 MB/s to 125 KB/s of digital traffic before any further compression is applied.
 
-### 3.3 On disk: Byte-packed
+### 3.3 On disk: byte-packed
 
 Cesium persists `BoolT` samples as byte-packed bytes on disk. Density lookup returns 1,
 `offsetResolver` takes the fixed-density branch, and domain layout, iterator state,

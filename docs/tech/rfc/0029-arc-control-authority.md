@@ -73,7 +73,7 @@ patterns in compiled sequences.
 
 The four primary use cases driving this feature:
 
-#### Emergency override (Abort Pattern)
+#### Emergency override (abort pattern)
 
 ```
 Nominal sequence (authority 200) controls pressure valve
@@ -301,8 +301,8 @@ set_authority{value=<0-255>, channel=<channel_name>}
 
 Parameters:
 
-- `value` - Integer literal in range 0-255 (required)
-- `channel` - Channel identifier (optional). If absent, applies to all write channels.
+- `value`: Integer literal in range 0-255 (required)
+- `channel`: Channel identifier (optional). If absent, applies to all write channels.
   Compile-time validated against the bound channel set.
 
 `set_authority{}` is a void sink with no output parameters. It has a trigger input
@@ -337,7 +337,7 @@ set_authority{value=254, channel=pressure}
 abort_condition => set_authority{value=254}
 ```
 
-#### 4.1.4 Example: Abort pattern
+#### 4.1.4 Example: abort pattern
 
 ```arc
 authority 100
@@ -363,7 +363,7 @@ sequence abort {
 
 ### 4.2 Behavior on authority loss
 
-#### 4.2.0 Silent skip (Default)
+#### 4.2.0 Silent skip (default)
 
 When an Arc sequence attempts to write to a channel but lacks sufficient authority, the
 write is **silently skipped**:
@@ -385,7 +385,7 @@ writing:
 4. Operator releases control
 5. Arc sequence's writes to `valve` automatically succeed again
 
-The Arc sequence never "lost" its authority declaration - it was simply outranked
+The Arc sequence never "lost" its authority declaration — it was simply outranked
 temporarily.
 
 #### 4.2.2 No detection mechanisms (v1)
@@ -530,7 +530,7 @@ type AuthorityConfig struct {
 
 ### 5.3 Runtime changes
 
-#### 5.3.0 Writer configuration (Static Authority)
+#### 5.3.0 Writer configuration (static authority)
 
 Modify the Arc runtime to use authority config from IR when opening writers:
 
@@ -683,11 +683,11 @@ Existing Arc programs continue to work unchanged:
 
 This RFC introduces control authority mechanisms to Arc through:
 
-1. **`authority` declaration** - Top-level static declaration of initial authorities
-   (bare number for default, `identifier number` for per-channel overrides)
-2. **`set_authority{}`** - Runtime node for dynamic authority changes within sequences
-   (optional `channel` param; absent = all write channels)
-3. **Silent skip** - Graceful handling of authority conflicts
+- **`authority` declaration**: Top-level static declaration of initial authorities (bare
+  number for default, `identifier number` for per-channel overrides)
+- **`set_authority{}`**: Runtime node for dynamic authority changes within sequences
+  (optional `channel` param; absent = all write channels)
+- **Silent skip**: Graceful handling of authority conflicts
 
 The design prioritizes simplicity for v1 while leaving room for future extensions like
 pattern matching, groups, and authority detection.

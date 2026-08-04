@@ -80,7 +80,7 @@ const GENERATOR_DATA: Select.StaticEntry<GeneratorType | TimeFormat>[] = [
   { key: "iso8601", name: "Timestamp (ISO 8601)" },
   { key: "unix_sec", name: "Timestamp (s)" },
   { key: "unix_ms", name: "Timestamp (ms)" },
-  { key: "unix_us", name: "Timestamp (μs)" },
+  { key: "unix_us", name: "Timestamp (µs)" },
   { key: "unix_ns", name: "Timestamp (ns)" },
 ];
 

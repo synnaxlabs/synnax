@@ -1,4 +1,4 @@
-# 44 Oracle Optionality, Defaults, and input/output types
+# 44 Oracle optionality, defaults, and input/output types
 
 - **Author**: Emiliano Bonilla
 - **Date**: 2026-06-15
@@ -44,8 +44,8 @@ so the table failed to load.
 
 Teaching Go to fill defaults would fix the symptom. The real gap is that Oracle never
 decided, in one place, when a field may be missing, what its absence means, and who
-fills it in. Each language answers differently: TypeScript (zod) and Python (pydantic)
-can see which fields a caller sent, while Go and the ORC codec cannot. zod already
+fills it in. Each language answers differently: TypeScript (Zod) and Python (Pydantic)
+can see which fields a caller sent, while Go and the ORC codec cannot. Zod already
 follows a sensible model where the data on the wire is complete and defaults are filled
 at the edges. This RFC writes that model down and makes every language follow it.
 
@@ -169,7 +169,7 @@ keep it.
 ### 5.2 Validation, which the server does not do yet
 
 Keeping bad data out of storage means rejecting invalid values when we decode them, not
-quietly repairing them. zod and pydantic already do this; the Go server does not. The
+quietly repairing them. Zod and Pydantic already do this; the Go server does not. The
 generated `IsValid` checks exist but are never called, so an empty-string enum decodes
 and stores without complaint. That is the second half of the bug that started this RFC.
 Adding the check is easy, since the methods already exist, and it runs on writes and on
@@ -219,7 +219,7 @@ the base type is reused and the server strips `@output` and fills defaults.
 | Language   | `New`                                                                                              |
 | ---------- | -------------------------------------------------------------------------------------------------- |
 | TypeScript | a derived type, `z.input<typeof newZ>`, computed from the schema.                                  |
-| Python     | a generated pydantic class.                                                                        |
+| Python     | a generated Pydantic class.                                                                        |
 | Go         | none; the create handler uses the base struct, strips `@output`, fills defaults, validates.        |
 | C++        | none; the base struct is reused, and designated initializers leave other fields at their defaults. |
 
@@ -274,7 +274,7 @@ appeared.
 
 ---
 
-## 9 Example: Generated code
+## 9 Example: generated code
 
 A small schema that exercises the model: a server-assigned key, a required field with a
 non-zero default, a required field whose zero value is invalid, two nullable fields, and

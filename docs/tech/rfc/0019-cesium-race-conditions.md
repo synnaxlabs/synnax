@@ -24,12 +24,12 @@ _indexes_ a channel by associating a time stamp to each sample. It does not make
 to query the data at 00:05 out of [10, 30, 23, 90], but it does once we know that those
 samples correspond to [00:03, 00:04, 00:05, 00:10]. It is necessary that each channel
 has an index, and note that the index itself must be stored in a channel – all samples
-are time-ordered and share the data type of timestamps.
+are time-ordered and share the data type of time stamps.
 
 **Telemetry data**: At its core, all of Cesium's samples are stored as binary data on
 the file system. Samples of the same [data type](0007-data-type.md) occupy the same
 number of bytes: for example, to read data from a file containing `int64` data, we read
-every 8 bits and marshall each one into decimal form to recover the samples.
+every 8 bits and marshal each one into decimal form to recover the samples.
 
 **Domain**: A domain is a time range with many samples stored contiguously in the same
 file. In Cesium, **domains must not overlap each other**: the same moment in time cannot
@@ -67,9 +67,9 @@ files in the file system.
     <h6>Domain-level concepts</h6>
 </div>
 
-**unaryDB**: The `unaryDB` is the layer above the Domain DB in Cesium. While the latter
-is responsible for storing concrete data, the Unary DB is responsible for associating
-the time-series data with the correct timestamps via an _index_.
+**unaryDB**: The `unaryDB` is the layer above the `domainDB` in Cesium. While the latter
+is responsible for storing concrete data, the `unaryDB` is responsible for associating
+the time-series data with the correct time stamps via an _index_.
 
 **cesiumDB**: The `cesiumDB` is the highest level of abstraction in the storage engine:
 it comprises multiple `unaryDB`s to represent multiple channels.
@@ -115,12 +115,12 @@ they are numerically labeled and more files get created as existing files get fi
 
 At the highest level of abstraction, Cesium provides one unified interface to read,
 write, delete, and stream data from multiple channels. A `cesiumDB` comprises many
-channels, each one of which corresponding to a `virtualDB` or an `unaryDB`. A
-`virtualDB` contains no data, so it will not be a topic of our discussion.
+channels, each one of which corresponding to a `virtualDB` or a `unaryDB`. A `virtualDB`
+contains no data, so it will not be a topic of our discussion.
 
 A `unaryDB` is a second level of abstraction in the database structure: it is composed
-of a `domainDB` an index, and the controller: the index is responsible for querying the
-timestamps corresponding to telemetry data, the controller is responsible for
+of a `domainDB`, an index, and the controller: the index is responsible for querying the
+time stamps corresponding to telemetry data, the controller is responsible for
 controlling writes to the database between different writers, and the `domainDB` is
 responsible for storing the actual telemetry data.
 
@@ -166,7 +166,7 @@ Both goroutines try to access the same variable, `sharedInt`, leading to potenti
 errors: for example, if `add` and `sub` are run at the same time, they may each read
 `x`'s value as 1 and effectuate their operation on 1, leading the end result to become 0
 or 4 as opposed to the desired value of 3. The above type of race conditions can be
-caught thanks to golang's built-in race detector.
+caught thanks to Go's built-in race detector.
 
 The second type, however, is more subtle. Consider the following code that introduces a
 mutex to fix the race condition:
@@ -205,8 +205,8 @@ go sub()
 
 The code eliminates race conditions of the first type: all accesses to the variable
 `sharedInt` are in series and not parallel. However, another problem arises: since we
-unlock the mutex during the execution of `checkCondition()`, by the time we lock it
-again to add to it – the condition may no longer be satisfied anymore, causing undesired
+unlock the mutex during the execution of `isPositive()`, by the time we lock it again to
+add to it – the condition may no longer be satisfied anymore, causing undesired
 behavior. This type of race conditions generally involve concurrent – but not parallel –
 modification to a field, causing following statements to be incorrect. Race conditions
 of this type are very subtle and hard to catch; once caught, they usually require a
@@ -245,8 +245,8 @@ As `fun1` tries to acquire a lock on `mu2`, it can't as `fun2` holds it – the 
 for `mu1` – the execution in the thread of `fun2` is also blocked. Therefore, both
 threads are blocked and the program never halts, resulting in a deadlock.
 
-In Cesium, most race conditions are of the second type, as the other two types results
-are easily debuggable.
+In Cesium, most race conditions are of the second type, as the other two types are
+easily debuggable.
 
 #### 3.1.1 Overview of Cesium's operations
 
@@ -287,7 +287,7 @@ Write operations are performed through a writer. A write occurs in 3 phases:
 
 Upon commit, a new pointer is inserted into the domain index to record the location of
 the newly written data, enabling it for reads and other operations. Note that a writer
-may be committed multiple times (see discussion in [3.2.1](#421-writing)).
+may be committed multiple times (see discussion in [3.2.0](#320-writing)).
 
 ##### 3.1.1.2 Cesium deletions
 
@@ -310,7 +310,7 @@ updated offsets and the original file is swapped for the replica.
 Reading does not modify data in the domain index nor in the file system. Therefore, it
 will not contend with other operations. However, other operations that modify the domain
 index or the file system will affect correct reads – see discussion in
-[3.2.2](#422-reading).
+[3.2.1](#321-reading).
 
 #### 3.1.3 Write-delete contention
 
@@ -377,10 +377,10 @@ possibility that while writer A is writing a large series to the database, write
 with a higher authority, gets a call to `Write` and starts writing to the database –
 note that since they are two different writers, they are writing to different files in
 the domain; upon commit, only one commit can happen at once, and if the two writers
-write on the same time ranges, only one commit succeeds. Therefore, race condition is
-properly handled by the controller.
+write on the same time ranges, only one commit succeeds. Therefore, the race condition
+is properly handled by the controller.
 
-#### 3.1.7 Garbage collection-Garbage collection contention
+#### 3.1.7 Garbage collection-garbage collection contention
 
 If two garbage collection subprocesses run at the same time, we risk a serious data
 race: the underlying data in the file system may be modified by two entities at the same
@@ -392,13 +392,13 @@ There are two cases for delete-delete contention: either the two time ranges con
 over the same pointer(s), or they are disjoint: the case where they are disjoint is
 simple: we can simply use mutex locks to turn the operations into serial operations to
 the domain index and there would be no conflicts (see the detailed deletion section
-3.2.3).
+3.2.2).
 
 If the two deletions contend over the same pointers, there are two more cases: the two
 time ranges could overlap each other, in which case the controller in the `unaryDB`
 would return an error and disallow the deletion, or they don't overlap each other, in
 which case the operation is turned into a serial operation of the domain index (see
-section [3.2.3](#423-deletion)).
+section [3.2.2](#322-deletion)).
 
 The following diagram summarizes possible conflicts between these entities:
 
@@ -518,7 +518,7 @@ implementation, no writer may concurrently call two writer methods.
 
 #### 3.2.1 Reading
 
-We will simplify the iterator have the following properties that we will need when
+We will simplify the iterator to have the following properties that we will need when
 analyzing race conditions:
 
 ```go
@@ -541,7 +541,7 @@ domains are stored on the file system – that is tracked by the domain index �
 iterator's purpose is to determine where to read and create a file system reader that
 can only read that section of the file.
 
-In a `domainDB`, reading goes through three phases:
+In a `domainDB`, reading goes through four phases:
 
 1. Using commands such as `Seek`, `Next`, or `Prev`, find the position of the domain of
    interest that contains the time range we wish to read.
@@ -549,7 +549,7 @@ In a `domainDB`, reading goes through three phases:
 3. Create a section reader based on information in the stored pointer: the offset for
    this reader is set to 0 where the domain starts in the file system, and EOF where the
    length of the domain is reached.
-4. Use the section reader as an `ReaderAtCloser` to read binary data.
+4. Use the section reader as a `ReaderAtCloser` to read binary data.
 
 Note that there are various race conditions here! These race conditions are a
 combination of three categories: change to the pointer itself, change to the domain
@@ -590,14 +590,14 @@ is no longer consistent with the value.
 
 Note that for creation of the reader, the offset and length information are not based on
 the pointer stored in memory, but the pointer loaded into the iterator. If the pointer
-of interest was modified, the created read does not read the correct chunk of data.
+of interest was modified, the created reader does not read the correct chunk of data.
 
 This is not necessarily a problem – as documented, the iterator does not iterate over
-pointers in a snapshot of the `domainDB`. but rather stores a pointer that was correct
+pointers in a snapshot of the `domainDB`, but rather stores a pointer that was correct
 _at some point in time_. However, this behavior may be inconvenient: for example,
-consider an open reader on domain that gets keeps getting updated with consecutive
-`Write`s: the reader would maintain the original domain's length and end time stamp
-until it is reloaded.
+consider an open reader on domain that keeps getting updated with consecutive `Write`s:
+the reader would maintain the original domain's length and end time stamp until it is
+reloaded.
 
 Operations that could cause this discrepancy between the iterator-stored pointer and the
 pointer in domain index are:
@@ -620,7 +620,7 @@ In a `domainDB`, deletion occurs in four steps:
 1. Find the domains containing the starting and ending time stamps.
 2. Calculate the offsets (number of samples) from the start time stamps of those domains
    to the desired time stamps.
-3. Search the domains where start and end time stamps found again.
+3. Search the domains where start and end time stamps were found again.
 4. Remove pointers in between and update the domains at the two ends with the new
    offsets.
 
@@ -647,13 +647,13 @@ not affect the offset calculation.
 Garbage collection in `domainDB` rewrites the underlying telemetry data and modifies the
 domain index to contain the new offsets. This is done in 8 steps:
 
-1. Garbage Collect writers (i.e. close and discard file handles on oversize files).
+1. Garbage collect writers (i.e. close and discard file handles on oversize files).
 2. Iterate over files in the domain database.
 3. For a given file, check that it is oversize and has no open writers on it.
 4. Read and store a copy of all pointers for domains on that file.
-5. Transcribe pointers
+5. Transcribe pointers.
    1. Open a reader on the file.
-   2. Create a copy file in write mode
+   2. Create a copy file in write mode.
    3. Using the pointers, read in the domains and re-write them in the new file, while
       keeping track of the change in offset.
 6. Rename the new file to the old file, delete the old file.
@@ -688,7 +688,7 @@ the location of domains in the file may no longer be where they are in the domai
 this could only be due to another garbage collection process as, as mentioned before,
 there cannot be `Write` operations on the pointers affected by garbage collection.
 
-To this end, race condition occurs when there are two garbage collection processes
+To this end, a race condition occurs when there are two garbage collection processes
 running concurrently. A fix could be to ensure that this never happens.
 
 ### 3.3 unaryDB race conditions
@@ -742,14 +742,14 @@ exclusive lock on the region is also applied.
 
 Writing to a `unaryDB` is simply an extension from `domainDB`, except with more
 complications with respect to the `unaryDB` structures controller and index. Each write
-is consisted of 4 steps:
+consists of 4 steps:
 
 1. Create a writer and store it in the controller region.
 2. Acquire the writer from the controller if the writer has authority.
 3. Write telemetry data.
 4. Commit telemetry data.
 
-Since writer methods may not be called concurrently and steps 2 - 3 do not introduce any
+Since writer methods may not be called concurrently and steps 2-3 do not introduce any
 new behaviors other than their domain counterparts, there are no associated race
 conditions. For step 4 – committing the telemetry data – in the current implementation
 of Cesium, `CommitWithEnd` will always be called with an end time stamp, so we will not
@@ -758,17 +758,17 @@ stamp.
 
 #### 3.3.2 Reading
 
-Just like in `domainDB`, reading in Unary is also handled by the iterator, however, the
-Unary iterator directly reads data into a frame as opposed to merely providing a means
-to read data (like the domain iterator). In addition, moving the iterator in a `unaryDB`
-via `Next` requires an additional argument – the time span to move the iterator by: i.e.
-the iterator does not move to the next domain, but rather moves to contain the next
-`span` time span.
+Just like in `domainDB`, reading in a `unaryDB` is also handled by the iterator,
+however, the `unaryDB` iterator directly reads data into a frame as opposed to merely
+providing a means to read data (like the domain iterator). In addition, moving the
+iterator in a `unaryDB` via `Next` requires an additional argument – the time span to
+move the iterator by: i.e. the iterator does not move to the next domain, but rather
+moves to contain the next `span` time span.
 
 The two main types of operations of a unary iterator are `Seek`s – i.e. moving the
 iterator to a specific position of the domain index and `Next`/`Prev` – i.e. reading
 data. The `Seek` operations are simple forwarding calls to `Seek` calls in `domainDB`,
-so the race conditions mentioned in 4.2.2.1 apply here as well.
+so the race conditions mentioned in 3.2.1.0 apply here as well.
 
 `Next` is the means of reading data of the iterator – and note that `Prev` is exactly
 congruent, but in the opposite direction. We will analyze the race conditions that might
@@ -782,7 +782,7 @@ While the iterator's frame does not contain all of its view:
    only done at most twice.)
 2. Based on the offset and length, read the binary data into a series and insert it into
    the iterator's frame in chronological order (i.e. append if we are reading `Next` and
-   prepend if we are reading `Prev`)
+   prepend if we are reading `Prev`).
 3. Move the internal iterator forward to the next domain.
 
 <div align="center">
@@ -800,7 +800,7 @@ In step 2, this requires that the underlying file's data in the specified locati
 the offset and length found in step one has not changed – this is a possible race
 condition with garbage collection.
 
-In step 3, this involves moving the domain iterator, so all the race condition in a
+In step 3, this involves moving the domain iterator, so all the race conditions in a
 `domainDB` also apply here.
 
 #### 3.3.3 Deleting
@@ -826,11 +826,11 @@ channels).
 In a `cesiumDB`, each entity may control multiple channels – i.e. multiple unary or
 virtual databases. Fortunately, the execution of these entities on different channels do
 not interfere with each other: a writer on one unary channel will not cause race
-conditions on another channel. Similarly, iterator in a `cesiumDB` is simply a stream
+conditions on another channel. Similarly, an iterator in a `cesiumDB` is simply a stream
 wrapper that forwards the commands it receives to its `unaryDB` internal iterators.
 
 Out of the four entities, the only entity that requires particular attention at the
-cesium level is the deleter, as we must not delete index `unaryDBs` that contain time
+Cesium level is the deleter, as we must not delete index `unaryDBs` that contain time
 stamp data for other data channels. To this end, we first check under an absolute
 controller region that the time range is neither controlled by a writer (in which case
 we would report that there is data in that time range) nor containing any time stamp
@@ -856,7 +856,7 @@ Here is a list of race conditions revealed from this RFC:
   - Iterator: garbage collection during `Read()` from a created section reader.
   - Multiple garbage collection processes on the same file running concurrently.
 - `unaryDB`:
-  - Iterator: index's `domainDB` gets Garbage Collected during `Next` or `Prev`.
+  - Iterator: index's `domainDB` gets garbage collected during `Next` or `Prev`.
 - `cesiumDB`:
   - Writing to an index channel while deleting that index channel with data depending on
     the said channel.

@@ -33,8 +33,8 @@ previous encoding was broken for samples containing literal newlines.
   `cesium/internal/virtual/`.
 - **Length prefix**: A 4-byte little-endian `uint32` preceding each sample in a
   variable-length series, encoding the sample's byte length.
-- **Offset table**: An in-memory `[]uint32` mapping sample index to byte offset within
-  a single domain.
+- **Offset table**: An in-memory `[]uint32` mapping sample index to byte offset within a
+  single domain.
 - **Offset cache**: A per-channel `map[uint32]*offsetTable` keyed by domain index.
 - **Domain**: A contiguous time-bounded region of data within a `domain.DB`. The
   fundamental unit of storage in Cesium.
@@ -179,7 +179,7 @@ keeps the iterator and delete paths single-implementation.
 
 ## 4 Alternatives considered
 
-### 4.0 Parallel offset Domain.DB
+### 4.0 Parallel offset `domain.DB`
 
 Two `domain.DB` instances per variable-length channel: one for data, one for `uint32`
 byte offsets. Rejected because `domain.Writer` autonomously switches files when the file
@@ -197,7 +197,7 @@ data.
 ### 4.2 Newline delimiter
 
 Keep the `\n`-delimited format. Rejected because `\n` is common in text data. Any sample
-containing a literal newline corrupts Series operations.
+containing a literal newline corrupts `Series` operations.
 
 ### 4.3 Null byte delimiter
 
@@ -222,21 +222,21 @@ behavioral split at the one point that matters and removed the rest of the dupli
 
 ## 5 Implementation
 
-### 5.0 Phase 1: Series encoding
+### 5.0 Phase 1: series encoding
 
 Switched variable-length encoding from newline-delimited to `uint32`-length-prefixed in
 `x/go/telem/`, `x/py/x/telem/`, `x/ts/src/telem/`, `x/cpp/telem/`. Updated all
 signals/CDC producers, control digest encoding, and client codec layers. Added
 `MarshalVariableSample()` utility.
 
-### 5.1 Phase 2: Sibling `variable/` package
+### 5.1 Phase 2: sibling `variable/` package
 
 Added `cesium/internal/variable/` with its own DB, Writer, Iterator, Delete, and offset
-cache. Wired into all cesium top-level files: `db.go`, `open.go`, `channel.go`,
+cache. Wired into all Cesium top-level files: `db.go`, `open.go`, `channel.go`,
 `delete.go`, `control.go`, `iterator_open.go`, `iterator_stream.go`, `writer_open.go`,
 `writer_stream.go`. Removed the persisted-variable validation gate.
 
-### 5.2 Phase 3: Package unification
+### 5.2 Phase 3: package unification
 
 Collapsed the `variable/` package into `unary/`. The two variants now share one package,
 one writer, one iterator, and one delete path. Density-dependent logic is isolated in

@@ -8,7 +8,7 @@
 This serves to outline plans for improving stability to Synnax as well as maintaining an
 ongoing prioritization and awareness of stability and reliability of the software we
 develop. This expands on steps described on 2024-06-13 regarding
-[Engineering Process Standardization](./0020-engineering-workflow.md)
+[Engineering Process Standardization](./0020-engineering-workflow.md).
 
 In short, the sources of instability and pain for the customer could come from each of
 the following areas currently:
@@ -18,7 +18,7 @@ the following areas currently:
 - Driver
 - Cesium
 - Client Libraries
-- Deployment.
+- Deployment
 
 ## 1 Current state
 
@@ -32,7 +32,7 @@ clearly defined methods for addressing these bugs or identifying them beyond use
 We currently have been providing support to our customers remotely, receiving feedback
 on bugs and issues as they come across them. However, I believe there is a layer of
 insulation between the users of our product and their experience with the use of our
-product. While being able to be on a zoom with them several times a week provides
+product. While being able to be on a Zoom with them several times a week provides
 meaningful feedback on the product, I think it is not the ideal format in which we can
 get quick information on issues to diagnose. Not being on site with our users has added
 additional days of engineering work to simply recreate the problem users are having. And
@@ -51,25 +51,24 @@ in which faults can arise and outpace our stability efforts.
 
 In order to better qualify the readiness of our software, it's important we have an
 indication of the importance of any particular issue. I propose we use the following
-mapping to the priority levels in linear and stay very disciplined in qualifying the
+mapping to the priority levels in Linear and stay very disciplined in qualifying the
 urgency of tasks in the following manner:
 
 Urgent (1): This bug or lack of feature will stop the user from making progress on their
-hardware development and testing. Could cause significant lost of time and resources for
+hardware development and testing. Could cause significant loss of time and resources for
 the customer. Examples are critical bugs which can cause complete failure of a system or
 subsystem of the product.
 
 High (2): This bug or lack of feature significantly reduces quality of a user's
-experience and are important to get done before any new feature development is
-completed. These are bugs which significantly slow down work or could lead to repeated
-work.
+experience and is important to get done before any new feature development is completed.
+These are bugs which significantly slow down work or could lead to repeated work.
 
-Medium(3): This bug or lack of feature makes a noticeable impact to the user's
+Medium (3): This bug or lack of feature makes a noticeable impact to the user's
 experience and should be targeted to be addressed in the next release. Alternatively,
 these are also bugs which have a decent workaround for them but must be addressed
 eventually.
 
-Low(4): These bugs have low impact on the user and could be put off to future releases
+Low (4): These bugs have low impact on the user and could be put off to future releases
 if necessary.
 
 ### 2.2 Software ownership
@@ -81,16 +80,16 @@ reliability of their software.
 
 In general, it is important that everyone is responsible for their own software. That
 is, if they introduce a bug or instability, it is their responsibility to address the
-problem. This is ultimately is the most productive way to address issues as the RE will
+problem. This is ultimately the most productive way to address issues as the RE will
 have the most context for solving the problem.
 
 ### 2.3 Metrics from active product use
 
-One setback in operating in the aerospace industry and only hosting Synnax on prem is
-the inability to receive logs from crashes, errors of our software. Not having a single
-automated source for this information will become increasingly problematic, particularly
-when customers begin to outnumber of available engineers. Further, these limits are
-ability for early issue detection as issues that arise are only brought up at the
+One setback in operating in the aerospace industry and only hosting Synnax on-prem is
+the inability to receive logs from crashes and errors of our software. Not having a
+single automated source for this information will become increasingly problematic,
+particularly when customers begin to outnumber available engineers. Further, this limits
+our ability for early issue detection as issues that arise are only brought up at the
 customer's discretion. While this already creates a delay between the failure event and
 our ability to diagnose it, it also means we do not have information on the customer's
 interpretation of such bugs. I believe it would be meaningful information to know what
@@ -101,24 +100,24 @@ Further, while we can expose a lot of bugs, there are a lot of patterns of use a
 customer may go through for their specific application that cause bugs via unique
 interactions between components; I believe it is infeasible to think that we can exhaust
 these possible patterns of use through internal testing and QA. While well performed QA
-can lead to a significant gains in software reliability, it is naive to solely rely on
+can lead to significant gains in software reliability, it is naive to solely rely on
 that due to the breadth of subsystems and arrangements our software can exist in.
 
-The exact solution to this is not clear but a couple actions that could be taken:
+The exact solution to this is not clear but a couple of actions that could be taken:
 
-1. Whenever one runs into a bug, we immediately log it in as a linear issue. This has
+1. Whenever one runs into a bug, we immediately log it in as a Linear issue. This has
    been essentially the current method we have been operating under but is inconsistent
    in rigor and logging all issues we see in a consistent manner.
 
-2. Integrating monitor tooling to the software. At the very least, we can have these
+2. Integrating monitoring tooling in the software. At the very least, we can have these
    tools active in internal usage of product but also if we do have some teams like MASA
-   who could potentially leave this tools active, it creates a channel of error
+   who could potentially leave these tools active, it creates a channel of error
    communication for us. The ability to have access to a tool that immediately notifies
    us of faults would be very valuable in improving our workflow for bug handling and
    stability.
 
 3. Finding a customer locally to be able to get more on-site support and immediate
-   feedback on. This may mean finding a customer that is not exactly in our ICP, but
+   feedback. This may mean finding a customer that is not exactly in our ICP, but
    mirrors the usage of Synnax in a way that still provides us meaningful information
    about the product. I believe this could be worth pursuing.
 
@@ -128,7 +127,7 @@ We ultimately should be defining things similar to service-level agreements form
 internal baselines for expected quality of our product. A current issue we have is being
 in a limbo of deciding when our product is polished/stable enough to go out and focus
 securing more pilots/contracts. The result is being cautious in going all out in sales
-in fear of delivering a premature product. By defining service level agreements for a
+in fear of delivering a premature product. By defining service-level agreements for a
 particular type of customer, we can have targets that allow us to say that, once we
 reach a certain level of engineering work and can verify certain metrics/functionality
 on the product, we can then pursue sales with that customer without concerns of
@@ -153,12 +152,12 @@ the correct ones.
 ### 2.5 Intentional fault injection
 
 On a system basis, having a more intentional and comprehensive method of intentionally
-causing faults. At the very least, it's important to make of all possible failure cases
-a system/subsystem can be in, what causes them and whether they have a mechanism for
-testing (unit testing, integration). It is ultimately the RE's job to ensure this is
+causing faults. At the very least, it's important to make a list of all possible failure
+cases a system/subsystem can be in, what causes them and whether they have a mechanism
+for testing (unit testing, integration). It is ultimately the RE's job to ensure this is
 done for their respective software.
 
-## 3 Outstanding TODOS:
+## 3 Outstanding TODOs
 
 1. Identify REs for the major sections of the codebase
    1. Evaluate any existing holes that need to be addressed which could be:
@@ -170,5 +169,5 @@ done for their respective software.
 2. Constructing and evaluating our current list of issues and bugs and what we are
    aiming to guarantee before we make a larger push in sales.
 3. Long term
-   1. reliability evaluation for each of the components. Creating an internal process to
+   1. Reliability evaluation for each of the components. Creating an internal process to
       go through a real use of our product

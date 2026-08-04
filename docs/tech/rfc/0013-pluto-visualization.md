@@ -19,7 +19,7 @@ leveraging all the benefits of moving heavy lifting to a worker thread.
 - **Pluto**: The Synnax React component library. Source code available
   [here](../../../pluto).
 - **Telemetry**: Data samples received from sensors and sent to actuators; typically
-  stored on Synnax server. More details available [here](../../../pluto).
+  stored on Synnax server. More details available [here](../telemetry.md).
 - **Series**: A strongly typed collection of telemetry samples over a time range. The
   fundamental unit of data transfer in Synnax server.
 
@@ -29,7 +29,7 @@ Line based visualization is by far the primary means of accessing the data that 
 stores. Many existing visualization systems feel clunky, and are typically intended for
 static, small data sets. By providing an interface that allows access and exploration of
 large, live data sets, we're empowering our users to take advantage of all the advanced
-tooling Synnax has to offer, ultimately delivering our users a much
+tooling Synnax has to offer, ultimately delivering our users a much better experience.
 
 The current rendering pipeline requires reloading the entire data set on every update.
 Now that we'll be updating at rates of 100 Hz or more, this approach is no longer
@@ -47,7 +47,7 @@ to make incremental improvements to each area without affecting others.
 
 ### 3.0 React remains in control
 
-Pluto is a React component library, and maintaining a react-focused API lifts the burden
+Pluto is a React component library, and maintaining a React-focused API lifts the burden
 of implementing custom logic to decide the structure and lifecycle of visualization
 components. A React-focused API is also more familiar to our users, allowing them to use
 high-powered multithreaded visualizations as if they were working with simple
@@ -65,7 +65,7 @@ these expensive operations to a worker process, we can drastically reduce the co
 load on the main thread, leading to a much smoother experience for our users even when
 working with large, real-time data sets.
 
-### 3.2 The visualization Core remains generic
+### 3.2 The visualization core remains generic
 
 Pluto is a component library, and as such, the core visualization logic should remain
 independent of any Synnax specific interfaces/telemetry systems. This provides us with a
@@ -88,7 +88,7 @@ the main thread.
 #### 4.0.0 The Aether component tree
 
 On the worker thread, Aether maintains a composite tree of components whose
-implementation feels similar to a Class-based React component. To fork a new component,
+implementation feels similar to a class-based React component. To fork a new component,
 we use the `render` function, which takes in a registry of component factories. The
 `render` function then receives messages from the main thread to update the component
 tree, creating and destroying components as necessary.
@@ -133,11 +133,11 @@ export class MyWorkerButton extends AetherLeaf {
 
 It's important to note that the subclass we implement for an `AetherComposite` does
 **not** have control over the lifecycle of its children (can't create them, delete them,
-or set their state). This is intentional, as the aether component tree is driven by
+or set their state). This is intentional, as the Aether component tree is driven by
 React on the main thread. The worker component tree does, however, have access to its
 children, and can execute methods on them.
 
-**Aether does not implement any rendering patterns**. All aether does is maintain a tree
+**Aether does not implement any rendering patterns**. All Aether does is maintain a tree
 of stateful components and allow the user to respond to state changes. In some cases, a
 component may want to render something to the screen, but, in other cases, the component
 may only be used for computation or data fetching.
@@ -163,11 +163,11 @@ context API requires considerable effort, and this approach is sufficient for ou
 React's `StrictMode` forcibly re-renders a component twice and runs its effects twice.
 Aether uses an ID generator (`nanoid`) to assign unique keys to components. Without
 strict mode, the hooks that manage the lifecycle of the component work as expected. Even
-in the case of effects running multiple times, the components works. The problem arises
-because react renders the component one twice _and then_ runs the effects twice. This
-means that the initial, synchronous bootstrapping code for a component runs for the
-first rerender but never gets cleaned up. This is intentional behavior by the React
-team, and is useful for catching bugs, but in our situation it's a problem.
+in the case of effects running multiple times, the component works. The problem arises
+because React renders the component twice _and then_ runs the effects twice. This means
+that the initial, synchronous bootstrapping code for a component runs for the first
+rerender but never gets cleaned up. This is intentional behavior by the React team, and
+is useful for catching bugs, but in our situation it's a problem.
 
 ### 4.1 Visualization component structure
 
@@ -184,7 +184,7 @@ children.
 #### 4.1.0 The line plot component
 
 To demonstrate the flexibility of this approach, we'll use the line plot component as an
-example. The code for a plot a single line is as follows:
+example. The code for a plot with a single line is as follows:
 
 ```typescript jsx
 <LinePlot>
@@ -242,7 +242,7 @@ main thread and then have them automatically linked to the corresponding compone
 the worker thread.
 
 The largest hurdle here is that the client-side telemetry infrastructure (clients,
-sockets, caches) are _stateful_. We need to maintain a lot of complex life cycles,
+sockets, caches) is _stateful_. We need to maintain a lot of complex life cycles,
 perform careful cleanup, and manage a considerable amount of state.
 
 #### 4.2.0 Standard interfaces for telemetry sources
@@ -282,7 +282,7 @@ WebGL rendering context to draw that line to the screen. A `Valve` component can
 It's easy to see how we can compose and extend telemetry sources to alter their
 functionality. For example, we could wrap several different numeric sources representing
 data from different channels, execute some equation on them, and then expose the result
-as another source with an identical interfaces. This pattern is remarkably powerful, and
+as another source with an identical interface. This pattern is remarkably powerful, and
 allows us to provide fine-grained transformations on data to our users while adding
 minimal complexity.
 
