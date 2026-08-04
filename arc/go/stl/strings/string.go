@@ -43,17 +43,26 @@ func NewSymbols() []*symbol.Symbol {
 	mod.AddChild(
 		symbol.InternalHostFunc(
 			"from_literal",
-			types.Params{{Name: "ptr", Type: types.I32()}, {Name: "len", Type: types.I32()}},
+			types.Params{
+				{Name: "ptr", Type: types.I32()},
+				{Name: "len", Type: types.I32()},
+			},
 			types.Params{{Name: "handle", Type: types.I32()}},
 		),
 		symbol.InternalHostFunc(
 			"concat",
-			types.Params{{Name: "a", Type: types.String()}, {Name: "b", Type: types.String()}},
+			types.Params{
+				{Name: "a", Type: types.String()},
+				{Name: "b", Type: types.String()},
+			},
 			types.Params{{Name: ir.DefaultOutputParam, Type: types.String()}},
 		),
 		symbol.InternalHostFunc(
 			"equal",
-			types.Params{{Name: "a", Type: types.String()}, {Name: "b", Type: types.String()}},
+			types.Params{
+				{Name: "a", Type: types.String()},
+				{Name: "b", Type: types.String()},
+			},
 			types.Params{{Name: ir.DefaultOutputParam, Type: types.I32()}},
 		),
 		symbol.InternalHostFunc(
@@ -164,7 +173,7 @@ func NewHost(
 	}
 	builder := rt.NewHostModuleBuilder(Name)
 	builder = builder.NewFunctionBuilder().
-		WithFunc(func(_ context.Context, ptr uint32, length uint32) uint32 {
+		WithFunc(func(_ context.Context, ptr, length uint32) uint32 {
 			if h.memory == nil {
 				return 0
 			}
@@ -175,7 +184,7 @@ func NewHost(
 			return s.Create(string(data))
 		}).Export("from_literal")
 	builder = builder.NewFunctionBuilder().
-		WithFunc(func(_ context.Context, h1 uint32, h2 uint32) uint32 {
+		WithFunc(func(_ context.Context, h1, h2 uint32) uint32 {
 			s1, ok1 := s.Get(h1)
 			s2, ok2 := s.Get(h2)
 			if !ok1 || !ok2 {
@@ -184,7 +193,7 @@ func NewHost(
 			return s.Create(s1 + s2)
 		}).Export("concat")
 	builder = builder.NewFunctionBuilder().
-		WithFunc(func(_ context.Context, h1 uint32, h2 uint32) uint32 {
+		WithFunc(func(_ context.Context, h1, h2 uint32) uint32 {
 			s1, ok1 := s.Get(h1)
 			s2, ok2 := s.Get(h2)
 			if ok1 && ok2 && s1 == s2 {
@@ -199,17 +208,62 @@ func NewHost(
 			}
 			return 0
 		}).Export("len")
-	builder = registerFrom(builder, s, "from_i32", func(v int32) string { return strconv.FormatInt(int64(v), 10) })
-	builder = registerFrom(builder, s, "from_u32", func(v uint32) string { return strconv.FormatUint(uint64(v), 10) })
-	builder = registerFrom(builder, s, "from_i64", func(v int64) string { return strconv.FormatInt(v, 10) })
-	builder = registerFrom(builder, s, "from_u64", func(v uint64) string { return strconv.FormatUint(v, 10) })
-	builder = registerFrom(builder, s, "from_f32", func(v float32) string { return strconv.FormatFloat(float64(v), 'g', -1, 32) })
-	builder = registerFrom(builder, s, "from_f64", func(v float64) string { return strconv.FormatFloat(v, 'g', -1, 64) })
-	builder = registerFormat(builder, h, "format_i32", func(v int32) any { return int64(v) })
-	builder = registerFormat(builder, h, "format_u32", func(v uint32) any { return uint64(v) })
+	builder = registerFrom(
+		builder,
+		s,
+		"from_i32",
+		func(v int32) string { return strconv.FormatInt(int64(v), 10) },
+	)
+	builder = registerFrom(
+		builder,
+		s,
+		"from_u32",
+		func(v uint32) string { return strconv.FormatUint(uint64(v), 10) },
+	)
+	builder = registerFrom(
+		builder,
+		s,
+		"from_i64",
+		func(v int64) string { return strconv.FormatInt(v, 10) },
+	)
+	builder = registerFrom(
+		builder,
+		s,
+		"from_u64",
+		func(v uint64) string { return strconv.FormatUint(v, 10) },
+	)
+	builder = registerFrom(
+		builder,
+		s,
+		"from_f32",
+		func(v float32) string { return strconv.FormatFloat(float64(v), 'g', -1, 32) },
+	)
+	builder = registerFrom(
+		builder,
+		s,
+		"from_f64",
+		func(v float64) string { return strconv.FormatFloat(v, 'g', -1, 64) },
+	)
+	builder = registerFormat(
+		builder,
+		h,
+		"format_i32",
+		func(v int32) any { return int64(v) },
+	)
+	builder = registerFormat(
+		builder,
+		h,
+		"format_u32",
+		func(v uint32) any { return uint64(v) },
+	)
 	builder = registerFormat(builder, h, "format_i64", func(v int64) any { return v })
 	builder = registerFormat(builder, h, "format_u64", func(v uint64) any { return v })
-	builder = registerFormat(builder, h, "format_f32", func(v float32) any { return float64(v) })
+	builder = registerFormat(
+		builder,
+		h,
+		"format_f32",
+		func(v float32) any { return float64(v) },
+	)
 	builder = registerFormat(builder, h, "format_f64", func(v float64) any { return v })
 	builder = builder.NewFunctionBuilder().
 		WithFunc(func(_ context.Context, handle, ptr, length uint32) uint32 {

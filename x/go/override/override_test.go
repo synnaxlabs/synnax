@@ -71,11 +71,17 @@ var _ = Describe("Override", func() {
 		})
 		Context("Pointer", func() {
 			It("Should return the override value if it is not nil", func() {
-				v := override.Nil[*myInterfacePointerImpl](nil, &myInterfacePointerImpl{})
+				v := override.Nil[*myInterfacePointerImpl](
+					nil,
+					&myInterfacePointerImpl{},
+				)
 				Expect(v).ToNot(BeNil())
 			})
 			It("Should return the value if the override value is nil", func() {
-				v := override.Nil[*myInterfacePointerImpl](&myInterfacePointerImpl{}, nil)
+				v := override.Nil[*myInterfacePointerImpl](
+					&myInterfacePointerImpl{},
+					nil,
+				)
 				Expect(v).ToNot(BeNil())
 			})
 		})

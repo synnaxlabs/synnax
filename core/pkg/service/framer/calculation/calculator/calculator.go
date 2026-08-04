@@ -78,11 +78,12 @@ func (c Config) Validate() error {
 	return v.Error()
 }
 
-// Open opens a new calculator that evaluates the Expression of the provided
-// channel. The requiredChannels provided must include ALL and ONLY the channels
-// corresponding to the keys specified in ch.Requires.
+// Open opens a new calculator that evaluates the Expression of the provided channel.
+// The requiredChannels provided must include ALL and ONLY the channels corresponding to
+// the keys specified in ch.Requires.
 //
-// The calculator must be closed by calling Close() after use, or memory leaks will occur.
+// The calculator must be closed by calling Close() after use, or memory leaks will
+// occur.
 func Open(ctx context.Context, cfgs ...Config) (_ *Calculator, err error) {
 	cfg, err := config.New(Config{}, cfgs...)
 	if err != nil {
@@ -129,13 +130,23 @@ func Open(ctx context.Context, cfgs ...Config) (_ *Calculator, err error) {
 		closers = append(closers, io.CloserFunc(func() error {
 			return wasmRT.Close(ctx)
 		}))
-		if statefulMod, err = stateful.NewHost(ctx, wasmRT, cs.series, cs.strings); err != nil {
+		if statefulMod, err = stateful.NewHost(
+			ctx,
+			wasmRT,
+			cs.series,
+			cs.strings,
+		); err != nil {
 			return nil, err
 		}
 		if _, err = series.NewHost(ctx, wasmRT, cs.series); err != nil {
 			return nil, err
 		}
-		if stringsMod, err = stlstrings.NewHost(ctx, wasmRT, cs.strings, nil); err != nil {
+		if stringsMod, err = stlstrings.NewHost(
+			ctx,
+			wasmRT,
+			cs.strings,
+			nil,
+		); err != nil {
 			return nil, err
 		}
 		if _, err = stlmath.NewHost(ctx, wasmRT); err != nil {

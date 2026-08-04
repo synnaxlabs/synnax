@@ -19,17 +19,19 @@ type IteratorOptions struct {
 // Iterator iterates over key-value pairs in order. It is not necessary to exhaust the
 // Iterator, but it is necessary to close it after use.
 type Iterator interface {
-	// First moves the iterator to the first key-value pair. Returns true if the Iterator
-	// contains at least one key-value pair.
+	// First moves the iterator to the first key-value pair. Returns true if the
+	// Iterator contains at least one key-value pair.
 	First() bool
 	// Last moves the iterator to the last key-value pair. Returns true if the Iterator
 	// contains at least one key-value pair.
 	Last() bool
-	// Next advances to the next key-value pair. Returns true if the Iterator is pointing
-	// to a valid key-value pair (i.e. an exhausted Iterator will return false).
+	// Next advances to the next key-value pair. Returns true if the Iterator is
+	// pointing to a valid key-value pair (i.e. an exhausted Iterator will return
+	// false).
 	Next() bool
-	// Prev returns the previous key-value pair. Returns true if the Iterator is pointing
-	// to a valid key-value pair (i.e. a reverse-exhausted Iterator will return false).
+	// Prev returns the previous key-value pair. Returns true if the Iterator is
+	// pointing to a valid key-value pair (i.e. a reverse-exhausted Iterator will return
+	// false).
 	Prev() bool
 	// Valid returns true if the iterator is currently positioned at a valid
 	// key-value pair.
@@ -49,9 +51,10 @@ type Iterator interface {
 	// or equal to the given key. Returns true if such a pair is found and false if
 	// otherwise.
 	SeekGE(key []byte) bool
-	// SetBounds sets the lower and upper bounds for the iterator. Once SetBounds returns,
-	// the caller is free to mutate the provided slices. The iterator will always be
-	// invalidated and must be repositioned with a call to SeekGE, SeekLT, First, or Last.
+	// SetBounds sets the lower and upper bounds for the iterator. Once SetBounds
+	// returns, the caller is free to mutate the provided slices. The iterator will
+	// always be invalidated and must be repositioned with a call to SeekGE, SeekLT,
+	// First, or Last.
 	SetBounds(lower, upper []byte)
 	// Error returns any accumulated error.
 	Error() error
@@ -59,8 +62,8 @@ type Iterator interface {
 	Close() error
 }
 
-// IterPrefix returns IteratorOptions, that when passed to writer.NewStreamIterator, will
-// return an Iterator that only iterates over keys with the given prefix.
+// IterPrefix returns IteratorOptions, that when passed to writer.NewStreamIterator,
+// will return an Iterator that only iterates over keys with the given prefix.
 func IterPrefix(prefix []byte) IteratorOptions {
 	return IteratorOptions{LowerBound: prefix, UpperBound: prefixUpperBound(prefix)}
 }

@@ -87,7 +87,10 @@ func newMigration(cfg MigrationConfig) migrate.Migration {
 				Exec(ctx, tx); err != nil {
 				return err
 			}
-			cfg.L.Debug("converting groups to parent ranges", zap.Int("groups", len(groups)))
+			cfg.L.Debug(
+				"converting groups to parent ranges",
+				zap.Int("groups", len(groups)),
+			)
 
 			otgWriter := cfg.Ontology.NewWriter(tx)
 			if err := otgWriter.DeleteOutgoingRelationshipsOfType(
@@ -97,7 +100,8 @@ func newMigration(cfg MigrationConfig) migrate.Migration {
 			); err != nil {
 				return err
 			}
-			if err := cfg.Group.NewWriter(tx).Delete(ctx, topLevelGroup.Key); err != nil {
+			if err := cfg.Group.NewWriter(tx).
+				Delete(ctx, topLevelGroup.Key); err != nil {
 				return err
 			}
 
@@ -138,7 +142,10 @@ func newMigration(cfg MigrationConfig) migrate.Migration {
 				if len(childRanges) == 0 {
 					continue
 				}
-				tr := telem.TimeRange{Start: telem.TimeStampMax, End: telem.TimeStampMin}
+				tr := telem.TimeRange{
+					Start: telem.TimeStampMax,
+					End:   telem.TimeStampMin,
+				}
 				for _, cr := range childRanges {
 					rKey, err := uuid.Parse(cr.ID.Key)
 					if err != nil {

@@ -77,7 +77,9 @@ var _ ontology.Service = (*changeService)(nil)
 
 func (s *changeService) Type() ontology.ResourceType { return ontology.ResourceTypeChannel }
 
-func (s *changeService) OpenNexter(context.Context) (iter.Seq[ontology.Resource], io.Closer, error) {
+func (s *changeService) OpenNexter(
+	context.Context,
+) (iter.Seq[ontology.Resource], io.Closer, error) {
 	return slices.Values([]ontology.Resource{}), xio.NopCloser, nil
 }
 
@@ -96,158 +98,198 @@ func (s *changeService) RetrieveResource(
 
 var _ = Describe("Signals", func() {
 	Describe("Resource Changes", func() {
-		It("Should correctly propagate resource changes to the ontology", func(ctx SpecContext) {
+		It(
+			"Should correctly propagate resource changes to the ontology",
+			func(ctx SpecContext) {
+				var resCh channel.Channel
+				Expect(
+					channelSvc.NewRetrieve().
+						Where(channel.MatchNames("sy_ontology_resource_set")).
+						Entry(&resCh).
+						Exec(ctx, nil),
+				).To(Succeed())
+				streamer := MustSucceed(
+					framerSvc.NewStreamer(ctx, framer.StreamerConfig{
+						Keys: channel.Keys{resCh.Key()},
+					}),
+				)
+				requests, responses := confluence.Attach(streamer, 2)
+				sCtx, cancel := signal.Isolated()
+				streamer.Flow(sCtx, confluence.CloseOutputInletsOnExit())
+				time.Sleep(5 * time.Millisecond)
+				closeStreamer := signal.NewHardShutdown(sCtx, cancel)
+				key := "hello"
+				svc.NotifyGenerator(ctx, func() iter.Seq[ontology.Change] {
+					return slices.Values([]ontology.Change{
+						{
+							Variant: change.VariantSet,
+							Key:     newChangeID(key).String(),
+							Value: ontology.NewResource(
+								changeSchema,
+								newChangeID(key),
+								"empty",
+								map[string]any{"key": key},
+							),
+						},
+					})
+				})
+				var res framer.StreamerResponse
+				Eventually(responses.Outlet()).Should(Receive(&res))
+				s := res.Frame.SeriesAt(0)
+				Expect(s.Len()).To(Equal(int64(1)))
+				for s := range s.Samples() {
+					r := ontology.Resource{}
+					Expect((json.Codec).Decode(ctx, s, &r)).To(Succeed())
+					Expect(r.ID).To(Equal(newChangeID(key)))
+				}
+				requests.Close()
+				Eventually(responses.Outlet()).Should(BeClosed())
+				Expect(closeStreamer.Close()).To(Succeed())
+			},
+		)
+		It(
+			"Should correctly propagate resource deletes to the ontology",
+			func(ctx SpecContext) {
+				var resCh channel.Channel
+				Expect(
+					channelSvc.NewRetrieve().
+						Where(channel.MatchNames("sy_ontology_resource_delete")).
+						Entry(&resCh).
+						Exec(ctx, nil),
+				).To(Succeed())
+				streamer := MustSucceed(
+					framerSvc.NewStreamer(ctx, framer.StreamerConfig{
+						Keys: channel.Keys{resCh.Key()},
+					}),
+				)
+				requests, responses := confluence.Attach(streamer, 2)
+				sCtx, cancel := signal.Isolated()
+				streamer.Flow(sCtx, confluence.CloseOutputInletsOnExit())
+				time.Sleep(5 * time.Millisecond)
+				closeStreamer := signal.NewHardShutdown(sCtx, cancel)
+				key := "hello"
+				svc.NotifyGenerator(ctx, func() iter.Seq[ontology.Change] {
+					return slices.Values([]ontology.Change{
+						{
+							Variant: change.VariantDelete,
+							Key:     newChangeID(key).String(),
+						},
+					})
+				})
+				var res framer.StreamerResponse
+				Eventually(responses.Outlet()).Should(Receive(&res))
+				ids := MustSucceed(decodeIDs(res.Frame.SeriesAt(0).Data))
+				// There's a condition here where we might receive the channel creation
+				// signal, so we just do a length assertion.
+				Expect(ids).ToNot(BeEmpty())
+				Expect(ids[0].Type).ToNot(BeEmpty())
+				Expect(ids[0].Key).ToNot(BeEmpty())
+				requests.Close()
+				Eventually(responses.Outlet()).Should(BeClosed())
+				Expect(closeStreamer.Close()).To(Succeed())
+			},
+		)
+	})
+	It(
+		"Should correctly propagate relationship set to the ontology",
+		func(ctx SpecContext) {
 			var resCh channel.Channel
-			Expect(channelSvc.NewRetrieve().Where(channel.MatchNames("sy_ontology_resource_set")).Entry(&resCh).Exec(ctx, nil)).To(Succeed())
+			Expect(
+				channelSvc.NewRetrieve().
+					Where(channel.MatchNames("sy_ontology_relationship_set")).
+					Entry(&resCh).
+					Exec(ctx, nil),
+			).To(Succeed())
 			streamer := MustSucceed(framerSvc.NewStreamer(ctx, framer.StreamerConfig{
 				Keys: channel.Keys{resCh.Key()},
 			}))
 			requests, responses := confluence.Attach(streamer, 2)
 			sCtx, cancel := signal.Isolated()
 			streamer.Flow(sCtx, confluence.CloseOutputInletsOnExit())
-			time.Sleep(5 * time.Millisecond)
+			time.Sleep(10 * time.Millisecond)
 			closeStreamer := signal.NewHardShutdown(sCtx, cancel)
-			key := "hello"
-			svc.NotifyGenerator(ctx, func() iter.Seq[ontology.Change] {
-				return slices.Values([]ontology.Change{
-					{
-						Variant: change.VariantSet,
-						Key:     newChangeID(key).String(),
-						Value: ontology.NewResource(
-							changeSchema,
-							newChangeID(key),
-							"empty",
-							map[string]any{"key": key},
-						),
-					},
-				})
-			})
+			defer func() {
+				GinkgoRecover()
+				Expect(closeStreamer.Close()).To(Succeed())
+			}()
+
+			w := otg.NewWriter(nil)
+			firstResource := newChangeID("abc")
+			secondResource := newChangeID("def")
+			Expect(w.DefineResources(ctx, firstResource)).To(Succeed())
+			Expect(w.DefineResources(ctx, secondResource)).To(Succeed())
+			Expect(w.DefineRelationships(
+				ctx, firstResource, ontology.RelationshipTypeParentOf, secondResource,
+			)).To(Succeed())
 			var res framer.StreamerResponse
-			Eventually(responses.Outlet()).Should(Receive(&res))
-			s := res.Frame.SeriesAt(0)
-			Expect(s.Len()).To(Equal(int64(1)))
-			for s := range s.Samples() {
-				r := ontology.Resource{}
-				Expect((json.Codec).Decode(ctx, s, &r)).To(Succeed())
-				Expect(r.ID).To(Equal(newChangeID(key)))
-			}
-			requests.Close()
-			Eventually(responses.Outlet()).Should(BeClosed())
-			Expect(closeStreamer.Close()).To(Succeed())
-		})
-		It("Should correctly propagate resource deletes to the ontology", func(ctx SpecContext) {
-			var resCh channel.Channel
-			Expect(channelSvc.NewRetrieve().Where(channel.MatchNames("sy_ontology_resource_delete")).Entry(&resCh).Exec(ctx, nil)).To(Succeed())
-			streamer := MustSucceed(framerSvc.NewStreamer(ctx, framer.StreamerConfig{
-				Keys: channel.Keys{resCh.Key()},
-			}))
-			requests, responses := confluence.Attach(streamer, 2)
-			sCtx, cancel := signal.Isolated()
-			streamer.Flow(sCtx, confluence.CloseOutputInletsOnExit())
-			time.Sleep(5 * time.Millisecond)
-			closeStreamer := signal.NewHardShutdown(sCtx, cancel)
-			key := "hello"
-			svc.NotifyGenerator(ctx, func() iter.Seq[ontology.Change] {
-				return slices.Values([]ontology.Change{
-					{
-						Variant: change.VariantDelete,
-						Key:     newChangeID(key).String(),
-					},
-				})
-			})
-			var res framer.StreamerResponse
-			Eventually(responses.Outlet()).Should(Receive(&res))
-			ids := MustSucceed(decodeIDs(res.Frame.SeriesAt(0).Data))
+			Eventually(responses.Outlet(), 10*time.Second).Should(Receive(&res))
+			relationships := MustSucceed(
+				decodeRelationships(res.Frame.SeriesAt(0).Data),
+			)
 			// There's a condition here where we might receive the channel creation
 			// signal, so we just do a length assertion.
-			Expect(ids).ToNot(BeEmpty())
-			Expect(ids[0].Type).ToNot(BeEmpty())
-			Expect(ids[0].Key).ToNot(BeEmpty())
+			Expect(relationships).ToNot(BeEmpty())
+			Expect(relationships[0].Type).ToNot(BeEmpty())
+			Expect(relationships[0].From.Key).ToNot(BeEmpty())
+			Expect(relationships[0].To.Key).ToNot(BeEmpty())
 			requests.Close()
 			Eventually(responses.Outlet()).Should(BeClosed())
-			Expect(closeStreamer.Close()).To(Succeed())
-		})
-	})
-	It("Should correctly propagate relationship set to the ontology", func(ctx SpecContext) {
-		var resCh channel.Channel
-		Expect(channelSvc.NewRetrieve().Where(channel.MatchNames("sy_ontology_relationship_set")).Entry(&resCh).Exec(ctx, nil)).To(Succeed())
-		streamer := MustSucceed(framerSvc.NewStreamer(ctx, framer.StreamerConfig{
-			Keys: channel.Keys{resCh.Key()},
-		}))
-		requests, responses := confluence.Attach(streamer, 2)
-		sCtx, cancel := signal.Isolated()
-		streamer.Flow(sCtx, confluence.CloseOutputInletsOnExit())
-		time.Sleep(10 * time.Millisecond)
-		closeStreamer := signal.NewHardShutdown(sCtx, cancel)
-		defer func() {
-			GinkgoRecover()
-			Expect(closeStreamer.Close()).To(Succeed())
-		}()
+		},
+	)
+	It(
+		"Should correctly propagate a relationship delete to the ontology",
+		func(ctx SpecContext) {
+			var resCh channel.Channel
+			By("Correctly creating the deletion channel.")
+			Expect(
+				channelSvc.NewRetrieve().
+					Where(channel.MatchNames("sy_ontology_relationship_delete")).
+					Entry(&resCh).
+					Exec(ctx, nil),
+			).To(Succeed())
+			By("Opening a streamer on the deletion channel")
+			streamer := MustSucceed(framerSvc.NewStreamer(ctx, framer.StreamerConfig{
+				Keys: channel.Keys{resCh.Key()},
+			}))
+			requests, responses := confluence.Attach(streamer, 2)
+			sCtx, cancel := signal.Isolated()
+			streamer.Flow(sCtx, confluence.CloseOutputInletsOnExit())
+			time.Sleep(5 * time.Millisecond)
+			closeStreamer := signal.NewHardShutdown(sCtx, cancel)
+			defer func() {
+				GinkgoRecover()
+				Expect(closeStreamer.Close()).To(Succeed())
+			}()
 
-		w := otg.NewWriter(nil)
-		firstResource := newChangeID("abc")
-		secondResource := newChangeID("def")
-		Expect(w.DefineResources(ctx, firstResource)).To(Succeed())
-		Expect(w.DefineResources(ctx, secondResource)).To(Succeed())
-		Expect(w.DefineRelationships(
-			ctx, firstResource, ontology.RelationshipTypeParentOf, secondResource,
-		)).To(Succeed())
-		var res framer.StreamerResponse
-		Eventually(responses.Outlet(), 10*time.Second).Should(Receive(&res))
-		relationships := MustSucceed(decodeRelationships(res.Frame.SeriesAt(0).Data))
-		// There's a condition here where we might receive the channel creation
-		// signal, so we just do a length assertion.
-		Expect(relationships).ToNot(BeEmpty())
-		Expect(relationships[0].Type).ToNot(BeEmpty())
-		Expect(relationships[0].From.Key).ToNot(BeEmpty())
-		Expect(relationships[0].To.Key).ToNot(BeEmpty())
-		requests.Close()
-		Eventually(responses.Outlet()).Should(BeClosed())
-	})
-	It("Should correctly propagate a relationship delete to the ontology", func(ctx SpecContext) {
-		var resCh channel.Channel
-		By("Correctly creating the deletion channel.")
-		Expect(channelSvc.NewRetrieve().Where(channel.MatchNames("sy_ontology_relationship_delete")).Entry(&resCh).Exec(ctx, nil)).To(Succeed())
-		By("Opening a streamer on the deletion channel")
-		streamer := MustSucceed(framerSvc.NewStreamer(ctx, framer.StreamerConfig{
-			Keys: channel.Keys{resCh.Key()},
-		}))
-		requests, responses := confluence.Attach(streamer, 2)
-		sCtx, cancel := signal.Isolated()
-		streamer.Flow(sCtx, confluence.CloseOutputInletsOnExit())
-		time.Sleep(5 * time.Millisecond)
-		closeStreamer := signal.NewHardShutdown(sCtx, cancel)
-		defer func() {
-			GinkgoRecover()
-			Expect(closeStreamer.Close()).To(Succeed())
-		}()
-
-		w := otg.NewWriter(nil)
-		firstResource := newChangeID("abc")
-		secondResource := newChangeID("def")
-		Expect(w.DefineResources(ctx, firstResource)).To(Succeed())
-		Expect(w.DefineResources(ctx, secondResource)).To(Succeed())
-		By("Creating the relationship")
-		Expect(w.DefineRelationships(
-			ctx, firstResource, ontology.RelationshipTypeParentOf, secondResource,
-		)).To(Succeed())
-		By("Deleting the relationship")
-		Expect(w.DeleteRelationships(ctx, ontology.Relationship{
-			From: firstResource,
-			Type: ontology.RelationshipTypeParentOf,
-			To:   secondResource,
-		})).To(Succeed())
-		var res framer.StreamerResponse
-		Eventually(responses.Outlet()).Should(Receive(&res))
-		By("Decoding the relationships")
-		relationships := MustSucceed(decodeRelationships(res.Frame.SeriesAt(0).Data))
-		// There's a condition here where we might receive the channel creation
-		// signal, so we just do a length assertion.
-		Expect(relationships).ToNot(BeEmpty())
-		Expect(relationships[0].Type).ToNot(BeEmpty())
-		Expect(relationships[0].From.Key).ToNot(BeEmpty())
-		Expect(relationships[0].To.Key).ToNot(BeEmpty())
-		requests.Close()
-		Eventually(responses.Outlet()).Should(BeClosed())
-	})
+			w := otg.NewWriter(nil)
+			firstResource := newChangeID("abc")
+			secondResource := newChangeID("def")
+			Expect(w.DefineResources(ctx, firstResource)).To(Succeed())
+			Expect(w.DefineResources(ctx, secondResource)).To(Succeed())
+			By("Creating the relationship")
+			Expect(w.DefineRelationships(
+				ctx, firstResource, ontology.RelationshipTypeParentOf, secondResource,
+			)).To(Succeed())
+			By("Deleting the relationship")
+			Expect(w.DeleteRelationships(ctx, ontology.Relationship{
+				From: firstResource,
+				Type: ontology.RelationshipTypeParentOf,
+				To:   secondResource,
+			})).To(Succeed())
+			var res framer.StreamerResponse
+			Eventually(responses.Outlet()).Should(Receive(&res))
+			By("Decoding the relationships")
+			relationships := MustSucceed(
+				decodeRelationships(res.Frame.SeriesAt(0).Data),
+			)
+			// There's a condition here where we might receive the channel creation
+			// signal, so we just do a length assertion.
+			Expect(relationships).ToNot(BeEmpty())
+			Expect(relationships[0].Type).ToNot(BeEmpty())
+			Expect(relationships[0].From.Key).ToNot(BeEmpty())
+			Expect(relationships[0].To.Key).ToNot(BeEmpty())
+			requests.Close()
+			Eventually(responses.Outlet()).Should(BeClosed())
+		},
+	)
 })

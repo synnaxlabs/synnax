@@ -60,7 +60,9 @@ func inferPrimitiveType(ctx parser.IPrimitiveTypeContext) (types.Type, error) {
 	if ctx.STR() != nil {
 		return types.String(), nil
 	}
-	return types.Type{}, errors.New("unknown type: expected a primitive (i32, f64, str, etc.)")
+	return types.Type{}, errors.New(
+		"unknown type: expected a primitive (i32, f64, str, etc.)",
+	)
 }
 
 func inferNumericType(ctx parser.INumericTypeContext) (types.Type, error) {
@@ -70,7 +72,9 @@ func inferNumericType(ctx parser.INumericTypeContext) (types.Type, error) {
 	if float := ctx.FloatType(); float != nil {
 		return inferFloatType(float)
 	}
-	return types.Type{}, errors.New("unknown type: expected a numeric type (i32, f64, etc.)")
+	return types.Type{}, errors.New(
+		"unknown type: expected a numeric type (i32, f64, etc.)",
+	)
 }
 
 func inferIntegerType(ctx parser.IIntegerTypeContext) (types.Type, error) {
@@ -146,7 +150,9 @@ func inferSeriesType(ctx parser.ISeriesTypeContext) (types.Type, error) {
 		}
 		return types.Series(valueType), nil
 	}
-	return types.Type{}, errors.New("series elements must be a primitive type (i32, f64, str, etc.)")
+	return types.Type{}, errors.New(
+		"series elements must be a primitive type (i32, f64, str, etc.)",
+	)
 }
 
 // Compatible returns true if t1 and t2 have compatible base types after unwrapping

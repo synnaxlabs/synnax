@@ -98,7 +98,7 @@ func (r *region[R]) open(cfg GateConfig[R]) (g *Gate[R], t Transfer, err error) 
 			r.curr.Subject(),
 		)
 		g = nil
-		return
+		return g, t, err
 	}
 	r.gates.Add(g)
 	r.counter++
@@ -112,7 +112,8 @@ func (r *region[R]) shouldBeInControl(candidate *Gate[R]) bool {
 	// Three cases here: no one is in control, provided-gate has higher authority,
 	// a provided gate has equal authority and a higher position.
 	higherAuth := candidate.authority > r.curr.authority
-	betterPos := candidate.authority == r.curr.authority && candidate.position < r.curr.position
+	betterPos := candidate.authority == r.curr.authority &&
+		candidate.position < r.curr.position
 	return higherAuth || betterPos
 }
 

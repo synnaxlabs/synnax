@@ -62,7 +62,13 @@ func (s Status[D]) String() string {
 	}
 
 	var zeroDetails D
-	if detailStr := fmt.Sprintf("%v", s.Details); detailStr != fmt.Sprintf("%v", zeroDetails) {
+	if detailStr := fmt.Sprintf(
+		"%v",
+		s.Details,
+	); detailStr != fmt.Sprintf(
+		"%v",
+		zeroDetails,
+	) {
 		_, _ = fmt.Fprintf(&b, "\n  Details: %v", s.Details)
 	}
 

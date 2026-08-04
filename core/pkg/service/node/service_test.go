@@ -42,17 +42,28 @@ var _ = Describe("Service", func() {
 					MatchError(ContainSubstring("must be non-nil")),
 				))
 			},
-			Entry("cluster", "cluster", func(c *node.ServiceConfig) { c.Cluster = nil }),
-			Entry("ontology", "ontology", func(c *node.ServiceConfig) { c.Ontology = nil }),
+			Entry(
+				"cluster",
+				"cluster",
+				func(c *node.ServiceConfig) { c.Cluster = nil },
+			),
+			Entry(
+				"ontology",
+				"ontology",
+				func(c *node.ServiceConfig) { c.Ontology = nil },
+			),
 			Entry("search", "search", func(c *node.ServiceConfig) { c.Search = nil }),
 		)
 	})
 
 	Describe("NewService", func() {
-		It("Should define the free-node sentinel resource in the ontology", func(ctx SpecContext) {
-			Expect(testOtg.NewRetrieve().WhereIDs(node.OntologyID(node.KeyFree)).
-				Exists(ctx, nil)).To(BeTrue())
-		})
+		It(
+			"Should define the free-node sentinel resource in the ontology",
+			func(ctx SpecContext) {
+				Expect(testOtg.NewRetrieve().WhereIDs(node.OntologyID(node.KeyFree)).
+					Exists(ctx, nil)).To(BeTrue())
+			},
+		)
 
 		It("Should reject a config that fails validation", func(ctx SpecContext) {
 			Expect(node.NewService(ctx, node.ServiceConfig{})).

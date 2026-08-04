@@ -16,7 +16,8 @@ import (
 	"time"
 )
 
-// StaleFile describes a generated file that is out of date relative to its source schema.
+// StaleFile describes a generated file that is out of date relative to its source
+// schema.
 type StaleFile struct {
 	// GenTime is the modification time of the generated file (zero if missing)
 	GenTime time.Time
@@ -28,7 +29,8 @@ type StaleFile struct {
 	Schema string
 }
 
-// StaleError is returned when generated files are out of date with their source schemas.
+// StaleError is returned when generated files are out of date with their source
+// schemas.
 type StaleError struct {
 	// Plugin is the name of the plugin whose output is stale
 	Plugin string
@@ -42,10 +44,20 @@ func (e *StaleError) Error() string {
 	}
 
 	var sb strings.Builder
-	_, _ = fmt.Fprintf(&sb, "plugin '%s' has %d stale file(s):\n", e.Plugin, len(e.Files))
+	_, _ = fmt.Fprintf(
+		&sb,
+		"plugin '%s' has %d stale file(s):\n",
+		e.Plugin,
+		len(e.Files),
+	)
 	for _, f := range e.Files {
 		if f.GenTime.IsZero() {
-			_, _ = fmt.Fprintf(&sb, "  - %s (missing, source: %s)\n", f.Generated, f.Schema)
+			_, _ = fmt.Fprintf(
+				&sb,
+				"  - %s (missing, source: %s)\n",
+				f.Generated,
+				f.Schema,
+			)
 		} else {
 			_, _ = fmt.Fprintf(&sb, "  - %s (modified: %s, source %s modified: %s)\n",
 				f.Generated, f.GenTime.Format(time.RFC3339),
@@ -55,7 +67,8 @@ func (e *StaleError) Error() string {
 	return sb.String()
 }
 
-// DependencyStaleError is returned when a plugin's required dependency has stale output.
+// DependencyStaleError is returned when a plugin's required dependency has stale
+// output.
 type DependencyStaleError struct {
 	// Reason is the underlying error from the dependency's Check()
 	Reason error
@@ -68,7 +81,10 @@ type DependencyStaleError struct {
 func (e *DependencyStaleError) Error() string {
 	return fmt.Sprintf(
 		"plugin '%s' requires '%s' to be up-to-date.\n\n  %s\n  Run: oracle generate -p %s",
-		e.Plugin, e.Dependency, e.Reason, e.Dependency,
+		e.Plugin,
+		e.Dependency,
+		e.Reason,
+		e.Dependency,
 	)
 }
 

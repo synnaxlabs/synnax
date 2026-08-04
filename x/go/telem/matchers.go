@@ -56,9 +56,12 @@ func MatchSeries(expected Series, opts ...SeriesMatcherOption) types.GomegaMatch
 
 // MatchWrittenSeries returns a Gomega matcher that compares two Series for equality,
 // but excludes TimeRange and Alignment fields by default. This is useful when comparing
-// Series that have been written to and read from storage, where these fields might differ
-// but the actual data remains the same.
-func MatchWrittenSeries(expected Series, opts ...SeriesMatcherOption) types.GomegaMatcher {
+// Series that have been written to and read from storage, where these fields might
+// differ but the actual data remains the same.
+func MatchWrittenSeries(
+	expected Series,
+	opts ...SeriesMatcherOption,
+) types.GomegaMatcher {
 	m := &seriesMatcher{
 		expected:       expected,
 		excludedFields: set.New("TimeRange", "Alignment"),
@@ -86,18 +89,25 @@ func MatchSeriesDataV[T Sample](data ...T) types.GomegaMatcher {
 func (m *seriesMatcher) Match(actual any) (success bool, err error) {
 	actualSeries, ok := actual.(Series)
 	if !ok {
-		return false, errors.Newf("MatchSeries matcher expects a Series but got %K", actual)
+		return false, errors.Newf(
+			"MatchSeries matcher expects a Series but got %K",
+			actual,
+		)
 	}
-	if !m.excludedFields.Contains("DataType") && actualSeries.DataType != m.expected.DataType {
+	if !m.excludedFields.Contains("DataType") &&
+		actualSeries.DataType != m.expected.DataType {
 		return false, nil
 	}
-	if !m.excludedFields.Contains("TimeRange") && actualSeries.TimeRange != m.expected.TimeRange {
+	if !m.excludedFields.Contains("TimeRange") &&
+		actualSeries.TimeRange != m.expected.TimeRange {
 		return false, nil
 	}
-	if !m.excludedFields.Contains("Alignment") && actualSeries.Alignment != m.expected.Alignment {
+	if !m.excludedFields.Contains("Alignment") &&
+		actualSeries.Alignment != m.expected.Alignment {
 		return false, nil
 	}
-	if !m.excludedFields.Contains("Data") && !bytes.Equal(actualSeries.Data, m.expected.Data) {
+	if !m.excludedFields.Contains("Data") &&
+		!bytes.Equal(actualSeries.Data, m.expected.Data) {
 		return false, nil
 	}
 	return true, nil
@@ -119,21 +129,24 @@ func (m *seriesMatcher) FailureMessage(actual any) string {
 			actualSeries.DataType,
 		))
 	}
-	if !m.excludedFields.Contains("TimeRange") && actualSeries.TimeRange != m.expected.TimeRange {
+	if !m.excludedFields.Contains("TimeRange") &&
+		actualSeries.TimeRange != m.expected.TimeRange {
 		differences = append(differences, fmt.Sprintf(
 			"TimeRange:\n\tExpected: %s\n\tActual: %s",
 			m.expected.TimeRange,
 			actualSeries.TimeRange,
 		))
 	}
-	if !m.excludedFields.Contains("Alignment") && actualSeries.Alignment != m.expected.Alignment {
+	if !m.excludedFields.Contains("Alignment") &&
+		actualSeries.Alignment != m.expected.Alignment {
 		differences = append(differences, fmt.Sprintf(
 			"Alignment:\n\tExpected: %v\n\tActual: %v",
 			m.expected.Alignment,
 			actualSeries.Alignment,
 		))
 	}
-	if dataTypesEqual && !m.excludedFields.Contains("Data") && !bytes.Equal(actualSeries.Data, m.expected.Data) {
+	if dataTypesEqual && !m.excludedFields.Contains("Data") &&
+		!bytes.Equal(actualSeries.Data, m.expected.Data) {
 		differences = append(differences, fmt.Sprintf(
 			"Data:\n\tExpected: %v\n\tActual: %v",
 			m.expected.DataString(),
@@ -168,18 +181,32 @@ type frameMatcher[K xtypes.SizedNumeric] struct {
 // MatchFrame returns a Gomega matcher that compares two Frame objects for equality.
 // The matcher verifies that both frames have the same number of series and that each
 // series matches its corresponding one in the expected frame. K must be a numeric type.
-func MatchFrame[K xtypes.SizedNumeric](expected Frame[K], matchSeriesOpts ...SeriesMatcherOption) types.GomegaMatcher {
+func MatchFrame[K xtypes.SizedNumeric](
+	expected Frame[K],
+	matchSeriesOpts ...SeriesMatcherOption,
+) types.GomegaMatcher {
 	return &frameMatcher[K]{expected: expected, matchSeriesOpts: matchSeriesOpts}
 }
 
-func MatchWrittenFrame[K xtypes.SizedNumeric](expected Frame[K], opts ...SeriesMatcherOption) types.GomegaMatcher {
-	return &frameMatcher[K]{expected: expected, matchSeriesOpts: append([]SeriesMatcherOption{ExcludeSeriesFields("TimeRange", "Alignment")}, opts...)}
+func MatchWrittenFrame[K xtypes.SizedNumeric](
+	expected Frame[K],
+	opts ...SeriesMatcherOption,
+) types.GomegaMatcher {
+	return &frameMatcher[K]{
+		expected: expected,
+		matchSeriesOpts: append(
+			[]SeriesMatcherOption{ExcludeSeriesFields("TimeRange", "Alignment")},
+			opts...),
+	}
 }
 
 func (m *frameMatcher[K]) Match(actual any) (success bool, err error) {
 	actualFrame, ok := actual.(Frame[K])
 	if !ok {
-		return false, errors.Newf("MatchFrame matcher expects a Frame but got %K", actual)
+		return false, errors.Newf(
+			"MatchFrame matcher expects a Frame but got %K",
+			actual,
+		)
 	}
 	if actualFrame.Count() != m.expected.Count() {
 		return false, nil
@@ -191,7 +218,9 @@ func (m *frameMatcher[K]) Match(actual any) (success bool, err error) {
 			return false, nil
 		}
 		for i, s := range decodedSeries.Series {
-			matched, err := MatchSeries(originalSeries.Series[i], m.matchSeriesOpts...).Match(s)
+			matched, err := MatchSeries(
+				originalSeries.Series[i],
+				m.matchSeriesOpts...).Match(s)
 			if !matched || err != nil {
 				return matched, err
 			}
@@ -229,8 +258,11 @@ func (m *frameMatcher[K]) NegatedFailureMessage(actual any) string {
 		return fmt.Sprintf("Expected Frame but got %K", actual)
 	}
 	if actualFrame.Count() != m.expected.Count() {
-		return fmt.Sprintf("Frames have different number of series: expected %d, got %d",
-			m.expected.Count(), actualFrame.Count())
+		return fmt.Sprintf(
+			"Frames have different number of series: expected %d, got %d",
+			m.expected.Count(),
+			actualFrame.Count(),
+		)
 	}
 	for k := range actualFrame.Keys() {
 		decodedSeries := actualFrame.Get(k)

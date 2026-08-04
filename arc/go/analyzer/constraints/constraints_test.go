@@ -99,7 +99,9 @@ var _ = Describe("Constraint System", func() {
 				chanType = types.Chan(tv)
 			)
 			system.Substitutions["T"] = types.F64()
-			Expect(system.ApplySubstitutions(chanType)).To(Equal(types.Chan(types.F64())))
+			Expect(
+				system.ApplySubstitutions(chanType),
+			).To(Equal(types.Chan(types.F64())))
 		})
 
 		It("should apply substitutions in series types", func() {
@@ -131,7 +133,8 @@ var _ = Describe("Constraint System", func() {
 			var (
 				tv    = types.Variable("T", nil)
 				props = types.FunctionProperties{
-					Outputs: types.Params{{Name: "result", Type: tv}}}
+					Outputs: types.Params{{Name: "result", Type: tv}},
+				}
 				fnType = types.Function(props)
 			)
 			system.Substitutions["T"] = types.I64()
@@ -146,7 +149,8 @@ var _ = Describe("Constraint System", func() {
 			var (
 				tv    = types.Variable("T", nil)
 				props = types.FunctionProperties{
-					Inputs: types.Params{{Name: "threshold", Type: tv}}}
+					Inputs: types.Params{{Name: "threshold", Type: tv}},
+				}
 				fnType = types.Function(props)
 			)
 			system.Substitutions["T"] = types.F64()
@@ -232,7 +236,9 @@ var _ = Describe("Constraint System", func() {
 				tv2        = types.Variable("T2", nil)
 			)
 			Expect(system.AddEquality(tv1, types.F32(), nil, "T1 = f32")).To(Succeed())
-			Expect(system.AddCompatible(tv2, types.I32(), nil, "T2 ~ i32")).To(Succeed())
+			Expect(
+				system.AddCompatible(tv2, types.I32(), nil, "T2 ~ i32"),
+			).To(Succeed())
 			system.Substitutions["T1"] = types.F32()
 			str := system.String()
 			Expect(str).To(ContainSubstring("Type Variables"))
@@ -258,30 +264,33 @@ var _ = Describe("Constraint System", func() {
 			Expect(str).To(ContainSubstring("(unresolved)"))
 		})
 
-		It("should distinguish equality vs compatible constraints in string output", func() {
-			var (
-				tv1 = types.Variable("T1", nil)
-				tv2 = types.Variable("T2", nil)
-			)
-			Expect(system.AddEquality(
-				tv1,
-				types.F32(),
-				nil,
-				"equality constraint",
-			)).To(Succeed())
-			Expect(system.AddCompatible(
-				tv2,
-				types.I32(),
-				nil,
-				"compatible constraint",
-			)).To(Succeed())
-			Expect(system.String()).To(SatisfyAll(
-				ContainSubstring("≡"),
-				ContainSubstring("~"),
-				ContainSubstring("equality constraint"),
-				ContainSubstring("compatible constraint"),
-			))
-		})
+		It(
+			"should distinguish equality vs compatible constraints in string output",
+			func() {
+				var (
+					tv1 = types.Variable("T1", nil)
+					tv2 = types.Variable("T2", nil)
+				)
+				Expect(system.AddEquality(
+					tv1,
+					types.F32(),
+					nil,
+					"equality constraint",
+				)).To(Succeed())
+				Expect(system.AddCompatible(
+					tv2,
+					types.I32(),
+					nil,
+					"compatible constraint",
+				)).To(Succeed())
+				Expect(system.String()).To(SatisfyAll(
+					ContainSubstring("≡"),
+					ContainSubstring("~"),
+					ContainSubstring("equality constraint"),
+					ContainSubstring("compatible constraint"),
+				))
+			},
+		)
 
 		It("should show constraint reasons", func() {
 			tv := types.Variable("T", nil)
@@ -291,7 +300,9 @@ var _ = Describe("Constraint System", func() {
 				nil,
 				"because we need float precision",
 			)).To(Succeed())
-			Expect(system.String()).To(ContainSubstring("because we need float precision"))
+			Expect(
+				system.String(),
+			).To(ContainSubstring("because we need float precision"))
 		})
 	})
 })

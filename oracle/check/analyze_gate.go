@@ -69,7 +69,10 @@ func (g AnalyzeGate) Run(_ context.Context, p *pipeline.Result, _ Env) GateRepor
 	return r
 }
 
-func severityFromDiagnostic(s protocol.DiagnosticSeverity, warningsAsErrors bool) Severity {
+func severityFromDiagnostic(
+	s protocol.DiagnosticSeverity,
+	warningsAsErrors bool,
+) Severity {
 	switch s {
 	case protocol.DiagnosticSeverityError:
 		return SeverityError

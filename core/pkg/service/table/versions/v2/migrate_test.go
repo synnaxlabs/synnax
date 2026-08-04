@@ -104,13 +104,16 @@ var _ = Describe("MigrateTable", func() {
 			Entry("v0 mixed variants", "v0_mixed_variants.json"),
 		)
 
-		It("Should produce the canonical output when called directly", func(ctx SpecContext) {
-			blob := loadFixture("v0_mixed_variants.json")
-			out := migrateSeed(ctx, v1.Table{
-				Key: fixedKey, Name: "v0_mixed_variants.json", Data: blob,
-			})
-			assertMigrated("v0_mixed_variants.json", out)
-		})
+		It(
+			"Should produce the canonical output when called directly",
+			func(ctx SpecContext) {
+				blob := loadFixture("v0_mixed_variants.json")
+				out := migrateSeed(ctx, v1.Table{
+					Key: fixedKey, Name: "v0_mixed_variants.json", Data: blob,
+				})
+				assertMigrated("v0_mixed_variants.json", out)
+			},
+		)
 	})
 
 	Describe("v0 reshape semantics", func() {
@@ -118,8 +121,10 @@ var _ = Describe("MigrateTable", func() {
 			return migrateSeed(ctx, v1.Table{Key: uuid.New(), Data: jsonMap(body)})
 		}
 
-		It("Should flatten layout.rows[*].cells from CellLayout[] to []string", func(ctx SpecContext) {
-			out := migrateBody(ctx, `{
+		It(
+			"Should flatten layout.rows[*].cells from CellLayout[] to []string",
+			func(ctx SpecContext) {
+				out := migrateBody(ctx, `{
 				"version": "0.0.0",
 				"layout": {
 					"rows": [{"size": 36, "cells": [{"key": "a"}, {"key": "b"}]}],
@@ -127,10 +132,11 @@ var _ = Describe("MigrateTable", func() {
 				},
 				"cells": {}
 			}`)
-			Expect(out.Rows).To(HaveLen(1))
-			Expect(out.Rows[0].Size).To(Equal(36.0))
-			Expect(out.Rows[0].Cells).To(Equal([]string{"a", "b"}))
-		})
+				Expect(out.Rows).To(HaveLen(1))
+				Expect(out.Rows[0].Size).To(Equal(36.0))
+				Expect(out.Rows[0].Cells).To(Equal([]string{"a", "b"}))
+			},
+		)
 
 		It("Should drop the per-cell selected flag", func(ctx SpecContext) {
 			out := migrateBody(ctx, `{
@@ -147,8 +153,10 @@ var _ = Describe("MigrateTable", func() {
 			Expect(cell.Props).NotTo(HaveKey("selected"))
 		})
 
-		It("Should preserve arbitrary key casing inside cell props through the migration", func(ctx SpecContext) {
-			out := migrateBody(ctx, `{
+		It(
+			"Should preserve arbitrary key casing inside cell props through the migration",
+			func(ctx SpecContext) {
+				out := migrateBody(ctx, `{
 				"version": "0.0.0",
 				"layout": {"rows": [], "columns": []},
 				"cells": {
@@ -162,21 +170,25 @@ var _ = Describe("MigrateTable", func() {
 					}
 				}
 			}`)
-			Expect(out.Cells["a"].Props).To(SatisfyAll(
-				HaveKeyWithValue("camelCaseKey", "v1"),
-				HaveKeyWithValue("PascalCaseKey", "v2"),
-				HaveKeyWithValue("snake_case_key", "v3"),
-			))
-		})
+				Expect(out.Cells["a"].Props).To(SatisfyAll(
+					HaveKeyWithValue("camelCaseKey", "v1"),
+					HaveKeyWithValue("PascalCaseKey", "v2"),
+					HaveKeyWithValue("snake_case_key", "v3"),
+				))
+			},
+		)
 
-		It("Should pass through the gorp-entry fields (Key, Name)", func(ctx SpecContext) {
-			key := uuid.New()
-			out := migrateSeed(ctx, v1.Table{
-				Key: key, Name: "trip-table", Data: jsonMap(`{"version": "0.0.0"}`),
-			})
-			Expect(out.Key).To(Equal(key))
-			Expect(out.Name).To(Equal("trip-table"))
-		})
+		It(
+			"Should pass through the gorp-entry fields (Key, Name)",
+			func(ctx SpecContext) {
+				key := uuid.New()
+				out := migrateSeed(ctx, v1.Table{
+					Key: key, Name: "trip-table", Data: jsonMap(`{"version": "0.0.0"}`),
+				})
+				Expect(out.Key).To(Equal(key))
+				Expect(out.Name).To(Equal("trip-table"))
+			},
+		)
 
 		DescribeTable("Should produce empty (not nil) collections for empty inputs",
 			func(ctx SpecContext, data msgpack.EncodedJSON) {
@@ -194,8 +206,10 @@ var _ = Describe("MigrateTable", func() {
 			Entry("empty object", jsonMap(`{}`)),
 		)
 
-		It("Should preserve cell key, variant, and full props through the migration", func(ctx SpecContext) {
-			out := migrateBody(ctx, `{
+		It(
+			"Should preserve cell key, variant, and full props through the migration",
+			func(ctx SpecContext) {
+				out := migrateBody(ctx, `{
 				"version": "0.0.0",
 				"layout": {"rows": [], "columns": []},
 				"cells": {
@@ -211,18 +225,21 @@ var _ = Describe("MigrateTable", func() {
 					}
 				}
 			}`)
-			cell := out.Cells["alpha"]
-			Expect(cell.Key).To(Equal("alpha"))
-			Expect(cell.Variant).To(Equal("value"))
-			Expect(cell.Props).To(SatisfyAll(
-				HaveKey("telem"),
-				HaveKey("redline"),
-				HaveKeyWithValue("color", "#ff0000"),
-			))
-		})
+				cell := out.Cells["alpha"]
+				Expect(cell.Key).To(Equal("alpha"))
+				Expect(cell.Variant).To(Equal("value"))
+				Expect(cell.Props).To(SatisfyAll(
+					HaveKey("telem"),
+					HaveKey("redline"),
+					HaveKeyWithValue("color", "#ff0000"),
+				))
+			},
+		)
 
-		It("Should preserve multi-row layout ordering and per-row size", func(ctx SpecContext) {
-			out := migrateBody(ctx, `{
+		It(
+			"Should preserve multi-row layout ordering and per-row size",
+			func(ctx SpecContext) {
+				out := migrateBody(ctx, `{
 				"version": "0.0.0",
 				"layout": {
 					"rows": [
@@ -233,15 +250,16 @@ var _ = Describe("MigrateTable", func() {
 				},
 				"cells": {}
 			}`)
-			Expect(out.Rows).To(HaveLen(2))
-			Expect(out.Rows[0].Size).To(Equal(36.0))
-			Expect(out.Rows[0].Cells).To(Equal([]string{"a", "b"}))
-			Expect(out.Rows[1].Size).To(Equal(50.0))
-			Expect(out.Rows[1].Cells).To(Equal([]string{"c", "d"}))
-			Expect(out.Columns).To(HaveLen(2))
-			Expect(out.Columns[0].Size).To(Equal(72.0))
-			Expect(out.Columns[1].Size).To(Equal(100.0))
-		})
+				Expect(out.Rows).To(HaveLen(2))
+				Expect(out.Rows[0].Size).To(Equal(36.0))
+				Expect(out.Rows[0].Cells).To(Equal([]string{"a", "b"}))
+				Expect(out.Rows[1].Size).To(Equal(50.0))
+				Expect(out.Rows[1].Cells).To(Equal([]string{"c", "d"}))
+				Expect(out.Columns).To(HaveLen(2))
+				Expect(out.Columns[0].Size).To(Equal(72.0))
+				Expect(out.Columns[1].Size).To(Equal(100.0))
+			},
+		)
 	})
 
 	Describe("malformed input", func() {
@@ -258,10 +276,12 @@ var _ = Describe("MigrateTable", func() {
 	})
 
 	Describe("storage integration", func() {
-		It("Should lift a v0 wire-format blob into the typed Table on retrieve", func(ctx SpecContext) {
-			key := uuid.New()
-			got := migrateSeed(ctx, v1.Table{
-				Key: key, Name: "Pressure Readouts", Data: jsonMap(`{
+		It(
+			"Should lift a v0 wire-format blob into the typed Table on retrieve",
+			func(ctx SpecContext) {
+				key := uuid.New()
+				got := migrateSeed(ctx, v1.Table{
+					Key: key, Name: "Pressure Readouts", Data: jsonMap(`{
 					"version": "0.0.0",
 					"editable": true,
 					"layout": {
@@ -277,23 +297,29 @@ var _ = Describe("MigrateTable", func() {
 						}
 					}
 				}`),
-			})
-			Expect(got.Key).To(Equal(key))
-			Expect(got.Name).To(Equal("Pressure Readouts"))
-			Expect(got.Rows).To(HaveLen(1))
-			Expect(got.Rows[0].Cells).To(Equal([]string{"pt1"}))
-			Expect(got.Columns).To(HaveLen(1))
-			Expect(got.Cells["pt1"].Variant).To(Equal("value"))
-			Expect(got.Cells["pt1"].Props["color"]).To(Equal("#00aaff"))
-		})
+				})
+				Expect(got.Key).To(Equal(key))
+				Expect(got.Name).To(Equal("Pressure Readouts"))
+				Expect(got.Rows).To(HaveLen(1))
+				Expect(got.Rows[0].Cells).To(Equal([]string{"pt1"}))
+				Expect(got.Columns).To(HaveLen(1))
+				Expect(got.Cells["pt1"].Variant).To(Equal("value"))
+				Expect(got.Cells["pt1"].Props["color"]).To(Equal("#00aaff"))
+			},
+		)
 
-		It("Should lift a minimal blob lacking layout / cells fields", func(ctx SpecContext) {
-			got := migrateSeed(ctx, v1.Table{
-				Key: uuid.New(), Name: "Empty", Data: jsonMap(`{"version": "0.0.0"}`),
-			})
-			Expect(got.Rows).To(BeEmpty())
-			Expect(got.Columns).To(BeEmpty())
-			Expect(got.Cells).To(BeEmpty())
-		})
+		It(
+			"Should lift a minimal blob lacking layout / cells fields",
+			func(ctx SpecContext) {
+				got := migrateSeed(ctx, v1.Table{
+					Key:  uuid.New(),
+					Name: "Empty",
+					Data: jsonMap(`{"version": "0.0.0"}`),
+				})
+				Expect(got.Rows).To(BeEmpty())
+				Expect(got.Columns).To(BeEmpty())
+				Expect(got.Cells).To(BeEmpty())
+			},
+		)
 	})
 })

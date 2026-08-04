@@ -126,38 +126,47 @@ func (cs *ProgramState) WriteChannelU8(key uint32, v uint8) {
 	appendFixedWriteSample(cs, key, v)
 	cs.writeIndexedTimestamp(key)
 }
+
 func (cs *ProgramState) WriteChannelU16(key uint32, v uint16) {
 	appendFixedWriteSample(cs, key, v)
 	cs.writeIndexedTimestamp(key)
 }
-func (cs *ProgramState) WriteChannelU32(key uint32, v uint32) {
+
+func (cs *ProgramState) WriteChannelU32(key, v uint32) {
 	appendFixedWriteSample(cs, key, v)
 	cs.writeIndexedTimestamp(key)
 }
+
 func (cs *ProgramState) WriteChannelU64(key uint32, v uint64) {
 	appendFixedWriteSample(cs, key, v)
 	cs.writeIndexedTimestamp(key)
 }
+
 func (cs *ProgramState) WriteChannelI8(key uint32, v int8) {
 	appendFixedWriteSample(cs, key, v)
 	cs.writeIndexedTimestamp(key)
 }
+
 func (cs *ProgramState) WriteChannelI16(key uint32, v int16) {
 	appendFixedWriteSample(cs, key, v)
 	cs.writeIndexedTimestamp(key)
 }
+
 func (cs *ProgramState) WriteChannelI32(key uint32, v int32) {
 	appendFixedWriteSample(cs, key, v)
 	cs.writeIndexedTimestamp(key)
 }
+
 func (cs *ProgramState) WriteChannelI64(key uint32, v int64) {
 	appendFixedWriteSample(cs, key, v)
 	cs.writeIndexedTimestamp(key)
 }
+
 func (cs *ProgramState) WriteChannelF32(key uint32, v float32) {
 	appendFixedWriteSample(cs, key, v)
 	cs.writeIndexedTimestamp(key)
 }
+
 func (cs *ProgramState) WriteChannelF64(key uint32, v float64) {
 	appendFixedWriteSample(cs, key, v)
 	cs.writeIndexedTimestamp(key)
@@ -170,7 +179,11 @@ func (cs *ProgramState) writeIndexedTimestamp(key uint32) {
 	}
 }
 
-func appendFixedWriteSample[T telem.FixedSample](cs *ProgramState, key uint32, value T) {
+func appendFixedWriteSample[T telem.FixedSample](
+	cs *ProgramState,
+	key uint32,
+	value T,
+) {
 	dt := telem.InferDataType[T]()
 	acc, exists := cs.writes[key]
 	if !exists {
@@ -197,7 +210,7 @@ func appendFixedWriteSample[T telem.FixedSample](cs *ProgramState, key uint32, v
 // readSeries reads buffered data and time series from a channel.
 func (cs *ProgramState) readSeries(
 	key uint32,
-) (data telem.MultiSeries, time telem.MultiSeries, ok bool) {
+) (data, time telem.MultiSeries, ok bool) {
 	data, ok = cs.reads[key]
 	if !ok {
 		return telem.MultiSeries{}, telem.MultiSeries{}, false

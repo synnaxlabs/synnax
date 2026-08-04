@@ -19,7 +19,8 @@ import (
 )
 
 var _ = Describe("Normalize", func() {
-	DescribeTable("Should coerce per-channel enums to their valid value or the standard default",
+	DescribeTable(
+		"Should coerce per-channel enums to their valid value or the standard default",
 		func(in v1.ChannelEntry, notat notation.Notation, format telem.TimestampFormat, tz telem.TimeZone) {
 			out := v1.Data{Channels: []v1.ChannelEntry{in}}.Normalize()
 			Expect(out.Channels).To(HaveLen(1))
@@ -27,21 +28,35 @@ var _ = Describe("Normalize", func() {
 			Expect(out.Channels[0].Timestamp.Format).To(Equal(format))
 			Expect(out.Channels[0].Timestamp.Tz).To(Equal(tz))
 		},
-		Entry("out-of-set values fall back to the standard defaults",
+		Entry(
+			"out-of-set values fall back to the standard defaults",
 			v1.ChannelEntry{
-				Channel:   channel.Key(1),
-				Notation:  notation.Notation("unsupported"),
-				Timestamp: v1.TimestampConfig{Format: telem.TimestampFormat("calendar"), Tz: telem.TimeZone("MST")},
+				Channel:  channel.Key(1),
+				Notation: notation.Notation("unsupported"),
+				Timestamp: v1.TimestampConfig{
+					Format: telem.TimestampFormat("calendar"),
+					Tz:     telem.TimeZone("MST"),
+				},
 			},
-			notation.NotationStandard, telem.TimestampFormatPreciseDate, telem.TimeZoneLocal),
-		Entry("empty values fall back to the standard defaults",
+			notation.NotationStandard,
+			telem.TimestampFormatPreciseDate,
+			telem.TimeZoneLocal,
+		),
+		Entry(
+			"empty values fall back to the standard defaults",
 			v1.ChannelEntry{Channel: channel.Key(1)},
-			notation.NotationStandard, telem.TimestampFormatPreciseDate, telem.TimeZoneLocal),
+			notation.NotationStandard,
+			telem.TimestampFormatPreciseDate,
+			telem.TimeZoneLocal,
+		),
 		Entry("in-set values are preserved",
 			v1.ChannelEntry{
-				Channel:   channel.Key(1),
-				Notation:  notation.NotationScientific,
-				Timestamp: v1.TimestampConfig{Format: telem.TimestampFormatISO, Tz: telem.TimeZoneUTC},
+				Channel:  channel.Key(1),
+				Notation: notation.NotationScientific,
+				Timestamp: v1.TimestampConfig{
+					Format: telem.TimestampFormatISO,
+					Tz:     telem.TimeZoneUTC,
+				},
 			},
 			notation.NotationScientific, telem.TimestampFormatISO, telem.TimeZoneUTC),
 	)

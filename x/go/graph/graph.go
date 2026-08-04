@@ -18,11 +18,11 @@ import (
 	"github.com/synnaxlabs/x/set"
 )
 
-// TarjanSCC returns all strongly connected components of the directed graph
-// represented by the adjacency list adj. Each SCC is a slice of nodes. Singleton
-// nodes that do not participate in a cycle are still returned as single-element
-// SCCs. The order of SCCs is reverse topological. Node visitation order and SCC
-// member order are sorted for deterministic output. O(V log V + E) time, O(V + E) space.
+// TarjanSCC returns all strongly connected components of the directed graph represented
+// by the adjacency list adj. Each SCC is a slice of nodes. Singleton nodes that do not
+// participate in a cycle are still returned as single-element SCCs. The order of SCCs
+// is reverse topological. Node visitation order and SCC member order are sorted for
+// deterministic output. O(V log V + E) time, O(V + E) space.
 func TarjanSCC[T cmp.Ordered](adj map[T][]T) [][]T {
 	var (
 		idx      int

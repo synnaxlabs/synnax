@@ -45,7 +45,7 @@ const (
 		fmt.Fprintf(os.Stderr, "failed to format output: %v\n", err)
 		os.Exit(1)
 	}
-	if err := os.WriteFile("token_literals.go", formatted, 0644); err != nil {
+	if err := os.WriteFile("token_literals.go", formatted, 0o644); err != nil {
 		fmt.Fprintf(os.Stderr, "failed to write output: %v\n", err)
 		os.Exit(1)
 	}

@@ -24,5 +24,4 @@ var _ = Describe("Uint", func() {
 			Expect(types.BoolToUint8(false)).To(Equal(uint8(0)))
 		})
 	})
-
 })
