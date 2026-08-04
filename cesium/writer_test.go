@@ -2817,7 +2817,10 @@ var _ = Describe("Writer Behavior", func() {
 							)).To(Succeed())
 
 							w := MustSucceed(db2.OpenWriter(ctx, cesium.WriterConfig{
-								Channels:                 []cesium.ChannelKey{index, basic},
+								Channels: []cesium.ChannelKey{
+									index,
+									basic,
+								},
 								Start:                    10 * telem.SecondTS,
 								AutoIndexPersistInterval: cesium.AlwaysIndexPersistOnAutoCommit,
 							}))
@@ -2849,7 +2852,10 @@ var _ = Describe("Writer Behavior", func() {
 							Expect(w.Close()).To(Succeed())
 
 							w = MustSucceed(db2.OpenWriter(ctx, cesium.WriterConfig{
-								Channels:                 []cesium.ChannelKey{index, basic},
+								Channels: []cesium.ChannelKey{
+									index,
+									basic,
+								},
 								Start:                    17 * telem.SecondTS,
 								AutoIndexPersistInterval: cesium.AlwaysIndexPersistOnAutoCommit,
 							}))
@@ -2939,7 +2945,10 @@ var _ = Describe("Writer Behavior", func() {
 								"Asserting that upon writing to the channels, the writes go to appropriate files",
 							)
 							w = MustSucceed(db2.OpenWriter(ctx, cesium.WriterConfig{
-								Channels:                 []cesium.ChannelKey{index, basic},
+								Channels: []cesium.ChannelKey{
+									index,
+									basic,
+								},
 								Start:                    30 * telem.SecondTS,
 								AutoIndexPersistInterval: cesium.AlwaysIndexPersistOnAutoCommit,
 							}))
