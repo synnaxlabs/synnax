@@ -12,7 +12,6 @@
 .console-palette__content {
     max-height: 500px;
     overflow: visible !important;
-    /* Outmuscles the modal surface's min-width floor (110rem) and max-width 100%. */
     &.pluto-dialog__dialog.pluto--modal.pluto--visible {
         width: 95vw;
         min-width: 0;

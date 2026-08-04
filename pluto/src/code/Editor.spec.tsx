@@ -9,10 +9,13 @@
 
 import { act, fireEvent, render, screen } from "@testing-library/react";
 import { createRef } from "react";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, type Mock, vi } from "vitest";
 
 import { Editor, type EditorHandle } from "@/code/Editor";
 import { type EditorExtension, type Language } from "@/code/language";
+import { Triggers } from "@/triggers";
+
+const ESCAPE: Triggers.Trigger = ["Escape"];
 
 // Mock the Provider module — the real one pulls in the monaco-vscode-api runtime, whose
 // deep CSS imports cannot be evaluated under Node's ESM loader. We feed Editor a fake
@@ -183,10 +186,11 @@ type FakeEditor = ReturnType<typeof createFakeEditor>;
 const createFakeMonaco = () => {
   let lastEditor: FakeEditor | null = null;
   let lastCreatedModel: FakeModel | null = null;
+  let lastInputArea: HTMLTextAreaElement | null = null;
   const editor = {
     create: vi.fn(
       (
-        _container: HTMLElement,
+        container: HTMLElement,
         options: {
           value?: string;
           model?: FakeModel;
@@ -200,6 +204,9 @@ const createFakeMonaco = () => {
           options.model ?? createFakeModel(options.value ?? "", options.language ?? "");
         const ed = createFakeEditor(model);
         (ed as FakeEditor & { options: unknown }).options = options;
+        // Monaco holds keyboard focus in a hidden textarea inside the container.
+        lastInputArea = document.createElement("textarea");
+        container.appendChild(lastInputArea);
         lastEditor = ed;
         return ed;
       },
@@ -224,6 +231,10 @@ const createFakeMonaco = () => {
     get editorInstance(): FakeEditor {
       if (lastEditor == null) throw new Error("editor not created");
       return lastEditor;
+    },
+    get inputArea(): HTMLTextAreaElement {
+      if (lastInputArea == null) throw new Error("editor not created");
+      return lastInputArea;
     },
     get createdModel(): FakeModel | null {
       return lastCreatedModel;
@@ -665,6 +676,58 @@ describe("Editor", () => {
       const { unmount } = renderEditor({ autoFocus: true });
       unmount();
       expect(cancel).toHaveBeenCalledWith(7);
+    });
+  });
+
+  describe("escape", () => {
+    const renderWithSubscriber = (callback: Mock) => {
+      const C = () => {
+        // double mirrors the app-level Escape handlers: a quick second press arrives as
+        // a double trigger, and they still need to see it.
+        Triggers.use({ triggers: ESCAPE, callback, double: true });
+        return <Editor language="arc" />;
+      };
+      return render(
+        <Triggers.Provider>
+          <C />
+        </Triggers.Provider>,
+      );
+    };
+
+    const pressEscape = (target: HTMLElement) => {
+      fireEvent.keyDown(target, { key: "Escape", code: "Escape" });
+      fireEvent.keyUp(target, { key: "Escape", code: "Escape" });
+    };
+
+    // Subscribers act on the press, not the release, so only the start stage counts.
+    const presses = (callback: Mock): number =>
+      callback.mock.calls.filter(([e]) => e.stage === "start").length;
+
+    it("should blur the editor without notifying other subscribers", () => {
+      const callback = vi.fn();
+      renderWithSubscriber(callback);
+      const { inputArea } = monaco;
+      inputArea.focus();
+      pressEscape(inputArea);
+      expect(document.activeElement).not.toBe(inputArea);
+      expect(presses(callback)).toBe(0);
+    });
+
+    it("should let a second press reach other subscribers", () => {
+      const callback = vi.fn();
+      renderWithSubscriber(callback);
+      const { inputArea } = monaco;
+      inputArea.focus();
+      pressEscape(inputArea);
+      pressEscape(document.body);
+      expect(presses(callback)).toBe(1);
+    });
+
+    it("should not claim a press made outside the editor", () => {
+      const callback = vi.fn();
+      renderWithSubscriber(callback);
+      pressEscape(document.body);
+      expect(presses(callback)).toBe(1);
     });
   });
 

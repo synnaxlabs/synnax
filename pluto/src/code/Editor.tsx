@@ -34,8 +34,9 @@ import { Icon } from "@/icon";
 import { Menu } from "@/menu";
 import { Status } from "@/status/base";
 import { Theming } from "@/theming";
-import { type Triggers } from "@/triggers";
+import { Triggers } from "@/triggers";
 
+const ESCAPE_TRIGGER: Triggers.Trigger = ["Escape"];
 const CUT_TRIGGER: Triggers.Trigger = ["Control", "X"];
 const COPY_TRIGGER: Triggers.Trigger = ["Control", "C"];
 const PASTE_TRIGGER: Triggers.Trigger = ["Control", "V"];
@@ -415,6 +416,19 @@ const use = ({
   useEffect(() => {
     monaco.editor.setTheme(theme);
   }, [monaco, theme]);
+
+  // A first Escape steps out of the editor, a second reaches whatever encloses it. The
+  // priority sits above Dialog.Frame's so the blur happens before a modal would close.
+  Triggers.use({
+    triggers: ESCAPE_TRIGGER,
+    priority: 120,
+    double: true,
+    callback: useCallback(({ stage, target, stopPropagation }: Triggers.UseEvent) => {
+      if (stage !== "start" || containerRef.current?.contains(target) !== true) return;
+      target.blur();
+      stopPropagation();
+    }, []),
+  });
 
   const handle = useMemo<EditorHandle>(
     () => ({
