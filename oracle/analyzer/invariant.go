@@ -45,7 +45,7 @@ func checkOptionalDefaultInvariant(c *analysisCtx) {
 	}
 }
 
-// checkDefaultInvariant enforces the default invariant from RFC 0043: a required field
+// checkDefaultInvariant enforces the default invariant from RFC 0044: a required field
 // that carries a static default must either default to its type's zero value, or have a
 // type whose zero value is not a valid value. When neither holds, value-based
 // default-filling could overwrite a deliberate zero (a `precision` of 0, a `visible` of
