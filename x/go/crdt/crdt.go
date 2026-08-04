@@ -71,6 +71,19 @@ func (e *element) charID(i int) ID {
 	return ID{Replica: e.id.Replica, Counter: e.id.Counter + uint32(i)}
 }
 
+// kill tombstones the character at offset off, reporting whether it was live.
+func (e *element) kill(off int) bool {
+	if e.deleted == nil {
+		e.deleted = make([]bool, len(e.chars))
+	}
+	if e.deleted[off] {
+		return false
+	}
+	e.deleted[off] = true
+	e.dead++
+	return true
+}
+
 // Text is a replicated text document. A Text is owned by a single replica, identified
 // at construction; local edits are attributed to that replica. Text is not safe for
 // concurrent use.
@@ -101,11 +114,17 @@ type Text struct {
 	live int
 }
 
-// markDirty invalidates the cached traversal and derived caches after a mutation.
+// markDirty invalidates every derived cache after a structural mutation: one that
+// creates, splits, or attaches a run and so changes the traversal.
 func (t *Text) markDirty() {
 	t.dirty = true
 	t.strValid = false
 }
+
+// markStale invalidates only the materialized string, for mutations that change a
+// run's content in place (an appended or tombstoned character) without changing the
+// traversal.
+func (t *Text) markStale() { t.strValid = false }
 
 // New creates an empty document owned by the given replica. The replica must be non-zero
 // and unique among the replicas editing the document.
@@ -493,14 +512,9 @@ func (t *Text) ApplyInsert(ops ...Insert) {
 func (t *Text) ApplyDelete(ops ...Delete) {
 	for _, op := range ops {
 		if e, off, ok := t.findRun(op.ID); ok {
-			if e.deleted == nil {
-				e.deleted = make([]bool, len(e.chars))
-			}
-			if !e.deleted[off] {
-				e.deleted[off] = true
-				e.dead++
+			if e.kill(off) {
 				t.live--
-				t.markDirty()
+				t.markStale()
 			}
 			continue
 		}
@@ -521,29 +535,31 @@ func (t *Text) extends(op Insert) bool {
 		op.ID.Counter == e.id.Counter+uint32(len(e.chars))
 }
 
+// extend appends op's character to the run last touched by place, which extends must
+// have approved.
+func (t *Text) extend(op Insert) (*element, int) {
+	e := t.lastPlaced
+	e.chars = append(e.chars, op.Char)
+	if e.deleted != nil {
+		e.deleted = append(e.deleted, false)
+	}
+	off := len(e.chars) - 1
+	if len(t.tombstones) > 0 && t.tombstones.Contains(op.ID) {
+		e.kill(off)
+		t.tombstones.Remove(op.ID)
+	} else {
+		t.live++
+	}
+	t.markStale()
+	return e, off
+}
+
 // place attaches an insert to the run tree, returning the run and offset holding the
 // character. It returns nil without buffering when the operation's origin is not yet
 // present.
 func (t *Text) place(op Insert) (*element, int) {
 	if t.extends(op) {
-		e := t.lastPlaced
-		e.chars = append(e.chars, op.Char)
-		if e.deleted != nil {
-			e.deleted = append(e.deleted, false)
-		}
-		off := len(e.chars) - 1
-		if len(t.tombstones) > 0 && t.tombstones.Contains(op.ID) {
-			if e.deleted == nil {
-				e.deleted = make([]bool, len(e.chars))
-			}
-			e.deleted[off] = true
-			e.dead++
-			t.tombstones.Remove(op.ID)
-		} else {
-			t.live++
-		}
-		t.markDirty()
-		return e, off
+		return t.extend(op)
 	}
 	if e, off, ok := t.findRun(op.ID); ok {
 		return e, off
@@ -557,8 +573,7 @@ func (t *Text) place(op Insert) (*element, int) {
 	}
 	e := &element{id: op.ID, chars: []int32{op.Char}}
 	if t.tombstones.Contains(op.ID) {
-		e.deleted = []bool{true}
-		e.dead = 1
+		e.kill(0)
 		t.tombstones.Remove(op.ID)
 	} else {
 		t.live++

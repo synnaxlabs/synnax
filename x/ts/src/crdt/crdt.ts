@@ -53,6 +53,15 @@ const charID = (e: Element, i: number): ID => ({
   counter: e.id.counter + i,
 });
 
+/** kill tombstones the character at offset off, reporting whether it was live. */
+const kill = (e: Element, off: number): boolean => {
+  e.deleted ??= new Array<boolean>(e.chars.length).fill(false);
+  if (e.deleted[off]) return false;
+  e.deleted[off] = true;
+  e.dead += 1;
+  return true;
+};
+
 /** hasRight reports whether the character at offset off anchors anything on its right:
  * a successor within the run, or, for the last character, a right child. */
 const hasRight = (e: Element, off: number): boolean =>
@@ -148,9 +157,17 @@ export class Text {
     this.applyDelete(...snapshot.deletes);
   }
 
-  // markDirty invalidates the cached traversal and derived caches after a mutation.
+  // markDirty invalidates every derived cache after a structural mutation: one that
+  // creates, splits, or attaches a run and so changes the traversal.
   private markDirty(): void {
     this.dirty = true;
+    this.stringCache = null;
+  }
+
+  // markStale invalidates only the materialized string, for mutations that change a
+  // run's content in place (an appended or tombstoned character) without changing the
+  // traversal.
+  private markStale(): void {
     this.stringCache = null;
   }
 
@@ -392,12 +409,9 @@ export class Text {
       const found = this.findRun(op.id);
       if (found != null) {
         const [e, off] = found;
-        e.deleted ??= new Array<boolean>(e.chars.length).fill(false);
-        if (!e.deleted[off]) {
-          e.deleted[off] = true;
-          e.dead += 1;
+        if (kill(e, off)) {
           this.live -= 1;
-          this.markDirty();
+          this.markStale();
         }
         continue;
       }
@@ -422,23 +436,24 @@ export class Text {
     );
   }
 
+  /** extend appends op's character to the run last touched by place, which
+   * extendsLast must have approved. */
+  private extend(op: Insert): [Element, number] {
+    const e = this.lastPlaced as Element;
+    e.chars.push(op.char);
+    e.deleted?.push(false);
+    const off = e.chars.length - 1;
+    if (this.tombstones.size > 0 && this.tombstones.delete(idKey(op.id))) kill(e, off);
+    else this.live += 1;
+    this.markStale();
+    return [e, off];
+  }
+
   /** place attaches an insert to the run tree, returning the run and offset holding
    * the character. It returns null without buffering when the operation's origin is not
    * yet present. */
   private place(op: Insert): [Element, number] | null {
-    if (this.extendsLast(op)) {
-      const e = this.lastPlaced as Element;
-      e.chars.push(op.char);
-      e.deleted?.push(false);
-      const off = e.chars.length - 1;
-      if (this.tombstones.size > 0 && this.tombstones.delete(idKey(op.id))) {
-        e.deleted ??= new Array<boolean>(e.chars.length).fill(false);
-        e.deleted[off] = true;
-        e.dead += 1;
-      } else this.live += 1;
-      this.markDirty();
-      return [e, off];
-    }
+    if (this.extendsLast(op)) return this.extend(op);
     const existing = this.findRun(op.id);
     if (existing != null) return existing;
     let origin = this.root;
@@ -448,16 +463,16 @@ export class Text {
       if (found == null) return null;
       [origin, originOff] = found;
     }
-    const deleted = this.tombstones.delete(idKey(op.id));
     const e: Element = {
       id: op.id,
       chars: [op.char],
-      deleted: deleted ? [true] : null,
-      dead: deleted ? 1 : 0,
+      deleted: null,
+      dead: 0,
       left: [],
       right: [],
     };
-    if (!deleted) this.live += 1;
+    if (this.tombstones.delete(idKey(op.id))) kill(e, 0);
+    else this.live += 1;
     if (op.side === "left") {
       if (originOff > 0) origin = this.splitAfter(origin, originOff - 1);
       sortedInsert(origin.left, e);
