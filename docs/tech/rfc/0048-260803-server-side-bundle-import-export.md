@@ -14,12 +14,12 @@ bundles: projects with their children, and symbol groups with their symbols. Thi
 designs that bundle layer.
 
 A bundle is a directory on disk: one flat envelope file for each member resource, plus a
-manifest (`project.json` or `group.json`) that names and versions the bundle. On the
-wire, a bundle is that directory zipped. Each bundle root gets its own typed endpoint
-pair. The bundle code composes the existing single-resource leaf registry.
-Cross-references inside a bundle use file names. Importers always mint fresh keys. The
-Core owns the full format, including migration of all legacy directory layouts. Bundle
-import is all-or-nothing in one transaction.
+`manifest.json` that types, names, and versions the bundle. On the wire, a bundle is
+that directory zipped. Each bundle root gets its own typed endpoint pair. The bundle
+code composes the existing single-resource leaf registry. Cross-references inside a
+bundle use file names. Importers always mint fresh keys. The Core owns the full format,
+including migration of all legacy directory layouts. Bundle import is all-or-nothing in
+one transaction.
 
 ## 1 - Motivation
 
@@ -44,9 +44,8 @@ the artifact shape.
 
 - **Bundle**: a multi-resource portable artifact. A directory on disk, a zip on the
   wire.
-- **Manifest**: the file at the bundle root that names and versions the bundle:
-  `project.json` for a project, `group.json` for a symbol group. Its name carries the
-  bundle kind; its body is `{version, name}`.
+- **Manifest**: the `manifest.json` file at the bundle root. Its `{version, type, name}`
+  body versions the bundle, states its kind (`project` or `symbol_group`), and names it.
 - **Member**: any other `.json` file in the directory. Each member is a self-describing
   flat envelope.
 - **Bundle-local key**: a file name. All cross-references between bundle members use
@@ -77,26 +76,27 @@ An exported project named "Test Stand 12":
 
 ```
 Test Stand 12/
-  project.json
+  manifest.json
   controls.json          (panel)
   pressurization.json    (schematic)
   chamber_pressure.json  (lineplot)
 ```
 
-`project.json` names and versions the bundle, nothing more:
+`manifest.json` types, names, and versions the bundle, nothing more:
 
 ```json
 {
   "version": 1,
+  "type": "project",
   "name": "Test Stand 12"
 }
 ```
 
-The manifest carries no `type` field: the endpoint (§4.1) already knows the bundle kind,
-and the manifest's file name states it on disk. It carries no member list either. The
-members are every other `.json` file in the directory. Non-JSON files (`README.md`,
-`.gitignore`) are ignored, so a bundle can live in a repository. A `.json` member that
-is not a valid envelope is a validation error.
+The `type` field states the bundle kind: `project` or `symbol_group`. Each import
+endpoint (§4.1) rejects a manifest whose type does not match its bundle kind. The
+manifest carries no member list. The members are every other `.json` file in the
+directory. Non-JSON files (`README.md`, `.gitignore`) are ignored, so a bundle can live
+in a repository. A `.json` member that is not a valid envelope is a validation error.
 
 Each member self-describes through its `{version, type, name}` headers. The server peeks
 the headers of every member — the existing envelope peek, no body decode — to resolve
@@ -119,7 +119,7 @@ bundle files by name:
 ```
 
 The exporter owns file naming: sanitized resource names, deduplicated in the bundle. The
-manifest names (`project.json`, `group.json`) are reserved.
+manifest name (`manifest.json`) is reserved.
 
 ### 4.1 - Endpoints
 
@@ -152,16 +152,18 @@ There is no new registry, no new interface, and no shared bundle type. The share
 is three small helpers:
 
 - A zip codec between raw bytes and `map[string][]byte` (standard library
-  `archive/zip`). This is domain-blind and lives in `x/go`.
+  `archive/zip`). This is domain-blind and lives in `x/go`. Decode returns an error on a
+  duplicate entry name and on an entry name that contains a path separator: the bundle
+  namespace is flat.
 - The existing envelope header peek (`imex.Envelope.UnmarshalJSON`,
   `core/pkg/service/imex/imex.go:141`), applied per member file, with the version guard
   (`imex.NewErrUnsupportedVersion`).
 - An access-check helper in `imex`: `ActionCreate` for each distinct member type.
 
-Each service defines its own two-field manifest struct (`{Version, Name}`) beside its
-bundle code. The API services call the owning domain services directly: `api/project`
-calls `project.Service.ExportBundle`/`ImportBundle`, and `api/schematic` calls the
-symbol service's group methods.
+Each service defines its own manifest struct (`{Version, Type, Name}`) beside its bundle
+code. The API services call the owning domain services directly: `api/project` calls
+`project.Service.ExportBundle`/`ImportBundle`, and `api/schematic` calls the symbol
+service's group methods.
 
 ### 4.3 - Project Bundles
 
@@ -174,14 +176,15 @@ reorder is free.
 1. Retrieve the project and its ontology children.
 2. Encode each child panel as a panel envelope. Rewrite each resource tab that targets a
    bundled file to `{file}` form. Strip tabs that target anything else: `range` tabs and
-   documents owned by other projects. View-variant tabs are inline and export as-is.
-3. Export each child document through the leaf registry. The Console's
-   `EXPORTABLE_TYPES` copy dies; the bundle code consults the registry it composes.
-4. Emit `project.json`.
+   documents owned by other projects. The strip is silent; the export response does not
+   report dropped tabs. View-variant tabs are inline and export as-is.
+3. Export each child document through the leaf registry. The bundle code consults the
+   registry it composes. This removes the Console's `EXPORTABLE_TYPES` copy.
+4. Emit `manifest.json`.
 
 **Import** (`project.Service.ImportBundle`):
 
-1. Create a fresh project. Use the `project.json` name, then the `file_name` fallback.
+1. Create a fresh project. Use the manifest name, then the `file_name` fallback.
 2. Import each non-panel member through the leaf registry with `ImportOptions.Project`
    set to the new project key. Leaf importers own parenting
    (`core/pkg/service/log/writer.go:69`). Record each file-name → new `ontology.ID`
@@ -194,9 +197,10 @@ The full import runs on one `gorp.Tx` (`core/pkg/api/layer.go:579` pattern). Any
 rolls back the whole bundle. The error is path-scoped to the failing file.
 
 The panel service also gains server-side validation: a resource tab's type must be in
-{`schematic`, `lineplot`, `log`, `table`, `arc`, `task`, `range`}. This turns the
-Console renderer registry (`console/src/app/panel/Context.tsx:24-35`) into a schema
-invariant.
+{`schematic`, `lineplot`, `log`, `table`, `arc`, `task`, `range`}. This set is the
+resource-tab subset of the Console renderer registry
+(`console/src/app/panel/Context.tsx:24-35`), promoted to a schema invariant; the
+registry's view-tab types stay Console-only.
 
 ### 4.4 - Symbol Group Bundles
 
@@ -205,29 +209,30 @@ and `Ontology`.
 
 **Export** takes a group key. It validates that every child of the group is a
 `schematic_symbol` and returns a validation error otherwise. It exports each symbol
-through the leaf registry and writes `group.json`.
+through the leaf registry and writes `manifest.json`.
 
 **Import** creates a fresh group under the permanent "Schematic Symbols" group
-(`core/pkg/service/schematic/symbol/service.go:116`), named from `group.json`, and
+(`core/pkg/service/schematic/symbol/service.go:116`), named from the manifest, and
 imports each symbol under it through the leaf symbol importer (new in Phase 1). Symbol
 bundles have no cross-references, so there is no rewrite pass.
 
 ### 4.5 - Legacy Formats
 
-The Console zips the picked directory and uploads it unconditionally. The server
-recognizes each historical layout:
+The Console zips the picked directory's top-level files and uploads the archive
+unconditionally. The server recognizes each historical layout:
 
-1. `project.json` / `group.json` present: current format. Guard the version, then
-   proceed.
-2. `LAYOUT.json` present: the legacy project directory every stable release writes
-   (version 0). Recreate documents; drop the mosaic tiling (matches current Console
-   behavior, SY-4370 TODO).
-3. `manifest.json` present with `version: 1`: the legacy Console-written symbol group
-   format (`{file, key, name}` entries); migrated by the group importer.
+1. `manifest.json` present: route on its `{version, type}`. A `symbol_group` manifest at
+   version 1 is the legacy Console-written format (`{file, key, name}` entries); the
+   group importer migrates it. Every other pair is the current format: guard the
+   version, then match the type against the endpoint.
+2. No `manifest.json`, `LAYOUT.json` present: the legacy project directory every stable
+   release writes (version 0). Recreate documents; drop the mosaic tiling (matches
+   current Console behavior, SY-4370 TODO).
+3. Neither present: a validation error.
 
 The interim `PANELS.json` layout exists only in rc pre-releases and never shipped in a
-stable release. This RFC renames it into the `project.json` format before it does, so it
-gets no migration path.
+stable release. This RFC renames it into the `manifest.json` format before it does, so
+it gets no migration path.
 
 Legacy migration lives in frozen per-version packages, following the log importer's
 chain (`core/pkg/service/log/imex.go:80`). The Console deletes all legacy ingest code.
@@ -239,9 +244,9 @@ Each bundle kind owns its manifest version sequence (RFC 0039 §6.1):
 | Bundle       | Version | Meaning                                |
 | ------------ | ------- | -------------------------------------- |
 | project      | 0       | Legacy dir (`LAYOUT.json`)             |
-| project      | 1       | `project.json` (this RFC)              |
+| project      | 1       | `manifest.json` (this RFC)             |
 | symbol group | 1       | Legacy Console-written `manifest.json` |
-| symbol group | 2       | `group.json` (this RFC)                |
+| symbol group | 2       | `manifest.json` (this RFC)             |
 
 The manifest version governs the manifest schema and layout rules only. Member files
 carry their own resource versions and migrate through the leaf machinery.
@@ -253,7 +258,7 @@ for the root type and each distinct member type before any body decodes; export 
 ### 4.7 - Console Changes
 
 The Console's role shrinks to: pick a directory, zip or unzip, stream, report status.
-Kill list, once all phases land:
+Once all phases land, the Console deletes:
 
 - `feature/project/export.ts` and `import.ts` orchestration: panel walking,
   `EXPORTABLE_TYPES`, `remapNode`, `ingestLegacy`, the legacy zod schemas.
@@ -316,9 +321,10 @@ Phases 3 and 4 are independent after Phase 2 and can land in either order.
   self-describes through its envelope headers. A declared member list in the manifest
   was rejected as redundant with the headers. Non-JSON files are ignored; an invalid
   `.json` member is a validation error.
-- **6.7 Type-named manifests** (`project.json`, `group.json`) with `{version, name}`
-  bodies. A fixed `manifest.json` with a `type` field was rejected: the typed endpoints
-  already carry the bundle kind, so the field was redundant.
+- **6.7 A fixed `manifest.json`** with a `{version, type, name}` body. Type-named
+  manifests (`project.json`, `group.json`) were rejected: one fixed name gives every
+  format, including the legacy symbol format, a single recognition point on disk. The
+  `type` field lets each endpoint reject a bundle of the wrong kind.
 - **6.8 Symbol groups only.** Generic group bundling was rejected for scope. Export
   errors on a group with non-symbol children.
 - **6.9 Ranges are stripped on export and rejected on import.** Bundling ranges was
