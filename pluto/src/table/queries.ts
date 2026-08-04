@@ -7,13 +7,18 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { NotFoundError, type project, table } from "@synnaxlabs/client";
-import { array, compare, id, uuid, type xy } from "@synnaxlabs/x";
+import {
+  NotFoundError,
+  type project,
+  query,
+  type Synnax as Client,
+  type table,
+} from "@synnaxlabs/client";
+import { compare, id, uuid, verbs, type xy } from "@synnaxlabs/x";
 import { useCallback, useMemo } from "react";
 
 import { Flux } from "@/flux";
 import { useSyncedRef } from "@/hooks/ref";
-import { Ontology } from "@/ontology";
 import { Cell } from "@/table/cells";
 import { Scope } from "@/table/scope";
 import { Theming } from "@/theming";
@@ -21,72 +26,59 @@ import { Theming } from "@/theming";
 const BASE_ROW_SIZE = 36;
 const BASE_COL_SIZE = 72;
 
-export const FLUX_STORE_KEY = "tables";
 const RESOURCE_NAME = "table";
-
-export interface FluxStore extends Flux.UndoableUnaryStore<
-  table.Key,
-  table.Table,
-  table.Action
-> {}
-
-export interface FluxSubStore extends Flux.Store {
-  [FLUX_STORE_KEY]: FluxStore;
-  [Ontology.RELATIONSHIPS_FLUX_STORE_KEY]: Ontology.RelationshipFluxStore;
-  [Ontology.RESOURCES_FLUX_STORE_KEY]: Ontology.ResourceFluxStore;
-}
 
 export type RetrieveQuery = table.RetrieveSingleParams;
 
-export const retrieveSingle = async ({
-  store,
-  client,
-  query: { key },
-}: Flux.RetrieveParams<RetrieveQuery, FluxSubStore>) => {
-  const cached = store.tables.get(key);
-  if (cached != null) return cached;
-  const t = await client.tables.retrieve({ key });
-  store.tables.set(t);
-  return t;
-};
-
 export const { useRetrieve, useRetrieveObservable, useEnsureRetrieved } =
-  Flux.createRetrieve<RetrieveQuery, table.Table, FluxSubStore>({
+  Flux.createRetrieve<RetrieveQuery, table.Table>({
     name: RESOURCE_NAME,
-    retrieve: retrieveSingle,
-    retrieveCached: ({ store, query: { key } }) => store.tables.get(key),
-    mountListeners: ({ store, query: { key }, onChange }) =>
-      store.tables.onSet(onChange, key),
+    retrieve: async ({ client, query }) => await client.tables.retrieve(query),
+    subscribe: ({ client, query }, handler) => client.tables.onChange(query, handler),
+    getCached: ({ client, query }) => client.tables.getCached(query),
   });
 
 export interface SelectKeyParams {
   key: table.Key;
 }
 
-const requireTable = (store: FluxSubStore, key: table.Key): table.Table => {
-  const t = store.tables.get(key);
-  if (t == null) throw new NotFoundError(`Table with key ${key} not found`);
-  return t;
+const requireTable = (client: Client | null, key: table.Key): table.Table => {
+  const cached = client?.tables.getCached(key);
+  if (cached == null) throw new NotFoundError(`Table with key ${key} not found`);
+  if (query.Deleted.matches(cached))
+    throw new Flux.DeletedError(`${RESOURCE_NAME} was deleted`, cached.corpse);
+  return cached;
 };
 
+const getTable = (client: Client | null, key: table.Key): table.Table | undefined => {
+  const cached = client?.tables.getCached(key);
+  if (!query.isLive(cached)) return undefined;
+  return cached;
+};
+
+const subscribe = (
+  { client, args: { key } }: Flux.SelectorParams<SelectKeyParams>,
+  notify: () => void,
+) => (client == null ? () => {} : client.tables.onChange(key, notify));
+
 export const [useSelectName, useGetName] = Scope.bindSelector(
-  Flux.createSelector<FluxSubStore, SelectKeyParams, string>({
-    subscribe: (store, { key }, notify) => store.tables.onSet(notify, key),
-    select: (store, { key }) => requireTable(store, key).name,
+  Flux.createSelector<SelectKeyParams, string>({
+    subscribe,
+    select: ({ client, args: { key } }) => requireTable(client, key).name,
   }),
 );
 
 export const [useSelectRows, useGetRows] = Scope.bindSelector(
-  Flux.createSelector<FluxSubStore, SelectKeyParams, table.Row[]>({
-    subscribe: (store, { key }, notify) => store.tables.onSet(notify, key),
-    select: (store, { key }) => requireTable(store, key).rows,
+  Flux.createSelector<SelectKeyParams, table.Row[]>({
+    subscribe,
+    select: ({ client, args: { key } }) => requireTable(client, key).rows,
   }),
 );
 
 export const [useSelectColumns, useGetColumns] = Scope.bindSelector(
-  Flux.createSelector<FluxSubStore, SelectKeyParams, table.Column[]>({
-    subscribe: (store, { key }, notify) => store.tables.onSet(notify, key),
-    select: (store, { key }) => requireTable(store, key).columns,
+  Flux.createSelector<SelectKeyParams, table.Column[]>({
+    subscribe,
+    select: ({ client, args: { key } }) => requireTable(client, key).columns,
   }),
 );
 
@@ -96,10 +88,10 @@ export interface SelectCellParams {
 }
 
 export const [useSelectCell, useGetCell] = Scope.bindSelector(
-  Flux.createSelector<FluxSubStore, SelectCellParams, Cell.Config | undefined>({
-    subscribe: (store, { key }, notify) => store.tables.onSet(notify, key),
-    select: (store, { key, cellKey }) =>
-      store.tables.get(key)?.cells?.[cellKey] as Cell.Config | undefined,
+  Flux.createSelector<SelectCellParams, Cell.Config | undefined>({
+    subscribe,
+    select: ({ client, args: { key, cellKey } }) =>
+      getTable(client, key)?.cells?.[cellKey] as Cell.Config | undefined,
   }),
 );
 
@@ -113,13 +105,12 @@ export interface SelectCellsParams {
 // caller-provided key order; consumers that need positional iteration should
 // iterate cellKeys and look up via the map.
 export const [useSelectCells, useGetCells] = Scope.bindSelector(
-  Flux.createSelector<FluxSubStore, SelectCellsParams, Map<string, Cell.Config>>({
-    subscribe: (store, { key }, notify) => store.tables.onSet(notify, key),
-    select: (store, { key, cellKeys }) => {
+  Flux.createSelector<SelectCellsParams, Map<string, Cell.Config>>({
+    subscribe,
+    select: ({ client, args: { key, cellKeys } }) => {
       const result = new Map<string, Cell.Config>();
-      if (cellKeys.length === 0) return result;
-      const t = store.tables.get(key);
-      if (t == null) return result;
+      const t = getTable(client, key);
+      if (t == null || cellKeys.length === 0) return result;
       for (const cellKey of cellKeys) {
         const cell = t.cells?.[cellKey] as Cell.Config | undefined;
         if (cell != null) result.set(cellKey, cell);
@@ -132,16 +123,13 @@ export const [useSelectCells, useGetCells] = Scope.bindSelector(
 
 export type DeleteParams = table.Key | table.Key[];
 
-export const { useUpdate: useDelete } = Flux.createUpdate<DeleteParams, FluxSubStore>({
+export const { useUpdate: useDelete } = Flux.createUpdate<DeleteParams>({
   name: RESOURCE_NAME,
-  verbs: Flux.DELETE_VERBS,
-  update: async ({ client, data, rollbacks, store, onOptimisticComplete }) => {
-    const keys = array.toArray(data);
-    const ids = table.ontologyID(keys);
-    const relFilter = Ontology.filterRelationshipsThatHaveIDs(ids);
-    rollbacks.push(store.relationships.delete(relFilter));
-    await onOptimisticComplete(data);
-    await client.tables.delete(data);
+  verbs: verbs.DELETE,
+  update: async ({ client, data, onOptimisticComplete }) => {
+    await client.tables.delete(data, {
+      onOptimistic: async () => await onOptimisticComplete(data),
+    });
     return data;
   },
 });
@@ -167,22 +155,13 @@ const createDefaultLayout = (
   };
 };
 
-const { useUpdate: useCreateBase } = Flux.createUpdate<
-  CreateParams,
-  FluxSubStore,
-  table.Table
->({
+const { useUpdate: useCreateBase } = Flux.createUpdate<CreateParams, table.Table>({
   name: RESOURCE_NAME,
-  verbs: Flux.CREATE_VERBS,
-  update: async ({ client, data, store, rollbacks, onOptimisticComplete }) => {
-    const optimistic = table.tableZ.parse(data);
-    rollbacks.push(store.tables.set(optimistic));
-    await onOptimisticComplete(optimistic);
-    const project = data.project ?? uuid.ZERO;
-    const created = await client.tables.create(project, optimistic);
-    store.tables.set(created);
-    return created;
-  },
+  verbs: verbs.CREATE,
+  update: async ({ client, data, onOptimisticComplete }) =>
+    await client.tables.create(data.project ?? uuid.ZERO, data, {
+      onOptimistic: async ([optimistic]) => await onOptimisticComplete(optimistic),
+    }),
 });
 
 // useCreate creates a new table. If the caller passes no rows or columns,
@@ -215,52 +194,15 @@ export interface UseRenameParams {
   name: string;
 }
 
-export const { useUpdate: useRename } = Flux.createUpdate<
-  UseRenameParams,
-  FluxSubStore
->({
+export const { useUpdate: useRename } = Flux.createUpdate<UseRenameParams>({
   name: RESOURCE_NAME,
-  verbs: Flux.RENAME_VERBS,
-  update: async ({ client, data, rollbacks, store, onOptimisticComplete }) => {
+  verbs: verbs.RENAME,
+  update: async ({ client, data, onOptimisticComplete }) => {
     const { key, name } = data;
-    rollbacks.push(Flux.partialUpdate(store.tables, key, { name }));
-    rollbacks.push(Ontology.renameFluxResource(store, table.ontologyID(key), name));
     await onOptimisticComplete(data);
     await client.tables.rename(key, name);
     return data;
   },
-});
-
-// kindOfTransaction classifies an action batch for the undoable store's
-// per-kind coalesce window. Continuous resize gestures (a stream of
-// resize_row or resize_col actions) collapse into a single undo step;
-// successive set_cell actions on the same cell coalesce per-cell so typing
-// inside one cell collapses to one undo step but switching cells starts a
-// fresh entry; everything else is treated as a discrete user action.
-const kindOfTransaction = (actions: table.Action[]): string => {
-  if (actions.length === 0) return "default";
-  if (actions.every((a) => a.type === "resize_row" || a.type === "resize_col"))
-    return "resize";
-  if (actions.length === 1) {
-    const a = actions[0];
-    if (a.type === "set_cell") return `set_cell:${a.setCell.cell.key}`;
-    return a.type;
-  }
-  return "transaction";
-};
-
-export const FLUX_STORE_CONFIG = Flux.createUndoableStore<
-  table.Key,
-  table.Table,
-  table.Action,
-  typeof FLUX_STORE_KEY,
-  FluxSubStore
->({
-  storeKey: FLUX_STORE_KEY,
-  reduce: table.reduceAll,
-  channel: table.SET_CHANNEL_NAME,
-  schema: table.scopedActionZ,
-  kindOf: kindOfTransaction,
 });
 
 export const {
@@ -268,16 +210,8 @@ export const {
   useUndo: useUndoBase,
   useRedo: useRedoBase,
   useSingleDispatch: useSingleDispatchBase,
-} = Flux.createDispatch<
-  table.Key,
-  table.Table,
-  table.Action,
-  typeof FLUX_STORE_KEY,
-  FluxSubStore
->({
-  storeKey: FLUX_STORE_KEY,
-  send: ({ client, key, actions, dispatchKey }) =>
-    client.tables.dispatch(key, dispatchKey, actions),
+} = Flux.createDispatch<table.Key, table.Table, table.Action>({
+  domain: (client) => client.tables,
 });
 
 export const useSingleDispatch = Scope.bindHook(useSingleDispatchBase);

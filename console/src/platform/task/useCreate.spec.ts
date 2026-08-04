@@ -38,7 +38,7 @@ const useCreateTest = Task.createUseCreate({ getInitialValues });
 const setup = async () => {
   const store = await createTestStore();
   const { wrapper } = await createConsoleWrapper({ client, store });
-  const created = await createSelectedPanel(wrapper, store, client);
+  const created = await createSelectedPanel(store, client);
   const { result } = renderHook(() => useCreateTest(), { wrapper });
   return { created, result };
 };
@@ -74,7 +74,7 @@ describe("createUseCreate", () => {
     });
     const store = await createTestStore();
     const { wrapper } = await createConsoleWrapper({ client, store });
-    const created = await createSelectedPanel(wrapper, store, client);
+    const created = await createSelectedPanel(store, client);
     const { result } = renderHook(() => useCreateFromConfig(), { wrapper });
     act(() => result.current({ config: { device: "dev-2" } }));
     const key = await awaitTaskResourceTab(created);
@@ -93,7 +93,7 @@ describe("createUseCreate", () => {
     });
     const store = await createTestStore();
     const { wrapper } = await createConsoleWrapper({ client, store });
-    const created = await createSelectedPanel(wrapper, store, client);
+    const created = await createSelectedPanel(store, client);
     const { result } = renderHook(() => useCreateOther(), { wrapper });
     act(() => result.current());
     const key = await awaitTaskResourceTab(created);

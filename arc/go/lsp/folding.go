@@ -13,10 +13,10 @@ import (
 	"context"
 
 	"github.com/synnaxlabs/arc/symbol"
-	"github.com/synnaxlabs/x/lsp/protocol"
+	"go.lsp.dev/protocol"
 )
 
-func (s *Server) FoldingRange(
+func (s *Server) FoldingRanges(
 	_ context.Context,
 	params *protocol.FoldingRangeParams,
 ) ([]protocol.FoldingRange, error) {
@@ -37,13 +37,12 @@ func collectFoldingRanges(scope *symbol.Symbol, ranges *[]protocol.FoldingRange)
 			startLine := start.GetLine() - 1
 			endLine := stop.GetLine() - 1
 			if endLine > startLine {
-				kind := foldingRangeKind(scope.Kind)
 				*ranges = append(*ranges, protocol.FoldingRange{
 					StartLine:      uint32(startLine),
-					StartCharacter: uint32(start.GetColumn()),
+					StartCharacter: new(uint32(start.GetColumn())),
 					EndLine:        uint32(endLine),
-					EndCharacter:   uint32(stop.GetColumn() + len(stop.GetText())),
-					Kind:           kind,
+					EndCharacter:   new(uint32(stop.GetColumn() + len(stop.GetText()))),
+					Kind:           protocol.FoldingRangeKindRegion,
 				})
 			}
 		}
@@ -59,14 +58,5 @@ func isFoldableKind(kind symbol.Kind) bool {
 		return true
 	default:
 		return false
-	}
-}
-
-func foldingRangeKind(kind symbol.Kind) protocol.FoldingRangeKind {
-	switch kind {
-	case symbol.KindFunction, symbol.KindSequence, symbol.KindStage, symbol.KindLoop:
-		return protocol.RegionFoldingRange
-	default:
-		return protocol.RegionFoldingRange
 	}
 }

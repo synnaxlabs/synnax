@@ -78,6 +78,25 @@ span.pluto-text {
         display: block;
     }
 
+    /* Overflowing text fades out at the right edge, Chrome-style, instead of
+       ellipsizing. The self scroll timeline is inactive until the text actually
+       overflows, so fitted text never fades. animation-timeline must follow the
+       animation shorthand, which resets it. */
+    &.pluto-text--overflow-fade {
+        white-space: nowrap;
+        overflow-x: hidden;
+        display: block;
+        animation: text-fade linear;
+        animation-timeline: scroll(self x);
+    }
+
+    /* Engines without scroll timelines (Safari < 26, Firefox < 156) ellipsize. */
+    @supports not (animation-timeline: scroll(self x)) {
+        &.pluto-text--overflow-fade {
+            text-overflow: ellipsis;
+        }
+    }
+
     &.pluto-text--overflow-clip {
         white-space: nowrap;
         overflow: hidden;
@@ -97,5 +116,19 @@ span.pluto-text {
         -webkit-box-orient: vertical;
         overflow: hidden;
         text-overflow: ellipsis;
+    }
+}
+
+/* Identical 0% and 100% frames make the mask a constant that applies only while
+   the scroll timeline is active. Contexts tune the width via
+   --pluto-text-fade-width. */
+@keyframes text-fade {
+    0%,
+    100% {
+        mask-image: linear-gradient(
+            to right,
+            black calc(100% - var(--pluto-text-fade-width, 2.25rem)),
+            transparent
+        );
     }
 }

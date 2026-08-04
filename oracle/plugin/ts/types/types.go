@@ -243,7 +243,7 @@ func (p *Plugin) generateFile(
 		GenerateTypes: p.Options.GenerateTypes,
 		Manager:       imports.NewManager(),
 	}
-	skip := func(s resolution.Type) bool { return omit.IsType(s, "ts") }
+	skip := func(s resolution.Type) bool { return omit.IsSkipped(s, "ts") }
 	rawKeyFields := key.Collect(structs, req.Resolutions, skip)
 	data.Ontology = p.extractOntology(structs, rawKeyFields, skip, req.Resolutions)
 	if data.Ontology != nil {
@@ -588,7 +588,7 @@ func (p *Plugin) processStruct(entry resolution.Type, table *resolution.Table, d
 					sd.UseInput = true
 				case "type_only":
 					sd.TypeOnly = true
-				case "omit":
+				case "omit", "hand":
 					sd.Handwritten = true
 				case "name":
 					if len(expr.Values) > 0 {
@@ -658,7 +658,7 @@ func (p *Plugin) processStruct(entry resolution.Type, table *resolution.Table, d
 				sd.UseInput = true
 			case "type_only":
 				sd.TypeOnly = true
-			case "omit":
+			case "omit", "hand":
 				sd.Handwritten = true
 			case "concrete_types":
 				sd.ConcreteTypes = true

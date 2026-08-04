@@ -11,8 +11,8 @@
 
 .pluto-arc__read-icon-frame {
     background-color: var(--pluto-primary-z-20);
-    border-top-left-radius: 1rem;
-    border-bottom-left-radius: 1rem;
+    border-top-left-radius: var(--pluto-border-radius-small);
+    border-bottom-left-radius: var(--pluto-border-radius-small);
     height: 8rem;
     padding: 0 1rem;
 }

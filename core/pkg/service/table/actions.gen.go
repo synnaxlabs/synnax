@@ -11,11 +11,10 @@
 
 package table
 
-import (
-	"github.com/synnaxlabs/x/union"
-)
+import "github.com/synnaxlabs/x/union"
 
 const (
+	ActionTypeCreate     = "create"
 	ActionTypeRename     = "rename"
 	ActionTypeAddRow     = "add_row"
 	ActionTypeRemoveRow  = "remove_row"
@@ -26,6 +25,12 @@ const (
 	ActionTypeSetCell    = "set_cell"
 	ActionTypeEraseCells = "erase_cells"
 )
+
+// CreatePayload replaces the document with the given created state. Emitted by the
+// server on create so remote caches ingest new documents; clients never dispatch it.
+type CreatePayload struct {
+	Table Table `json:"table" msgpack:"table"`
+}
 
 // RenamePayload renames the table.
 type RenamePayload struct {
@@ -117,6 +122,7 @@ type EraseCellsPayload struct {
 // the variant; the matching pointer field carries the payload and others are nil.
 type Action struct {
 	Type       string             `json:"type" msgpack:"type"`
+	Create     *CreatePayload     `json:"create,omitempty" msgpack:"create,omitempty"`
 	Rename     *RenamePayload     `json:"rename,omitempty" msgpack:"rename,omitempty"`
 	AddRow     *AddRowPayload     `json:"add_row,omitempty" msgpack:"add_row,omitempty"`
 	RemoveRow  *RemoveRowPayload  `json:"remove_row,omitempty" msgpack:"remove_row,omitempty"`
@@ -137,6 +143,11 @@ func Reduce(state Table, actions ...Action) (Table, error) {
 	var err error
 	for _, a := range actions {
 		switch a.Type {
+		case ActionTypeCreate:
+			if a.Create == nil {
+				return state, union.MissingPayload(a.Type)
+			}
+			state, err = a.Create.Handle(state)
 		case ActionTypeRename:
 			if a.Rename == nil {
 				return state, union.MissingPayload(a.Type)
@@ -190,6 +201,11 @@ func Reduce(state Table, actions ...Action) (Table, error) {
 		}
 	}
 	return state, nil
+}
+
+// NewCreateAction wraps a CreatePayload in an Action envelope.
+func NewCreateAction(p CreatePayload) Action {
+	return Action{Type: ActionTypeCreate, Create: &p}
 }
 
 // NewRenameAction wraps a RenamePayload in an Action envelope.

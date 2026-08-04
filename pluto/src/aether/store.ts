@@ -8,11 +8,10 @@
 // included in the file licenses/APL.txt.
 
 import { UnexpectedError, ValidationError } from "@synnaxlabs/client";
-import { type CrudeTimeSpan, errors, TimeSpan, zod } from "@synnaxlabs/x";
+import { type CrudeTimeSpan, errors, state, TimeSpan, zod } from "@synnaxlabs/x";
 import { type z } from "zod";
 
 import { aether } from "@/aether/aether";
-import { state } from "@/state";
 
 const DEFAULT_INVOKE_TIMEOUT = TimeSpan.seconds(5);
 
@@ -129,7 +128,8 @@ export interface RegisterParams<
 }
 
 /** Per-component operations returned by {@link Store.register}: typed setState, delete,
- * and method callers. */
+ * and method callers. Scoped to the registration that produced it: once a same-path
+ * re-registration displaces that entry, every operation no-ops (async invokes reject). */
 export interface Handle<
   StateSchema extends z.ZodType<state.State, state.State>,
   Methods extends aether.MethodsSchema = aether.EmptyMethodsSchema,
@@ -428,32 +428,36 @@ export class Store {
     if (entry == null)
       throw new UnexpectedError(`[aether.store] missing entry for id ${id}`);
 
+    // Guard every operation on entry identity: a same-path re-registration
+    // (StrictMode remount, single-commit re-parent) replaces the entry, and the
+    // displaced instance's stale delete must not tear down its successor.
     const setState = (
       next: RawSetArg<StateSchema>,
       transfer: Transferable[] = [],
     ): void => {
-      const e = this.getEntry<StateSchema>(id);
-      if (e == null) return;
+      if (this.entries.get(id) !== entry) return;
       const raw = state.executeSetter<z.input<StateSchema>, z.infer<StateSchema>>(
         next,
-        e.state,
+        entry.state,
       );
-      const parsed = zod.parse(e.schema, raw, { label: e.type });
-      e.state = parsed;
+      const parsed = zod.parse(entry.schema, raw, { label: entry.type });
+      entry.state = parsed;
       this.snapshots.set(id, parsed);
       this.send(
-        { variant: "update", path: e.path, state: parsed, type: e.type },
+        { variant: "update", path: entry.path, state: parsed, type: entry.type },
         transfer,
       );
       this.listeners.get(id)?.forEach((l) => l());
     };
 
-    const handleDelete = () => this.unregister(entry.path);
+    const handleDelete = () => {
+      if (this.entries.get(id) !== entry) return;
+      this.unregister(entry.path);
+    };
 
     const invokeMethod = (method: string, args: unknown[]): void => {
-      const e = this.getEntry<StateSchema>(id);
-      if (e == null) return;
-      this.send({ variant: "invoke_request", path: e.path, method, args });
+      if (this.entries.get(id) !== entry) return;
+      this.send({ variant: "invoke_request", path: entry.path, method, args });
     };
 
     const invokeMethodAsync = (
@@ -464,20 +468,19 @@ export class Store {
       ),
     ): Promise<unknown> =>
       new Promise((resolve, reject) => {
-        const e = this.getEntry<StateSchema>(id);
-        if (e == null || e.controller.signal.aborted)
+        if (this.entries.get(id) !== entry || entry.controller.signal.aborted)
           return reject(new Error("Component deleted"));
         const invokeKey = this.invokeTracker.nextKey(id);
         this.invokeTracker.track(
           invokeKey,
           resolve,
           reject,
-          AbortSignal.any([signal, e.controller.signal]),
+          AbortSignal.any([signal, entry.controller.signal]),
         );
         this.send({
           variant: "invoke_request",
           key: invokeKey,
-          path: e.path,
+          path: entry.path,
           method,
           args,
         });

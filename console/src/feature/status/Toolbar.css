@@ -17,4 +17,5 @@
 .console-status-list-item-labels {
     overflow-x: auto;
     height: fit-content;
+    --pluto-focus-ring-offset: -2px;
 }

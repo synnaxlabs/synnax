@@ -11,23 +11,15 @@
 
 package access
 
+import "github.com/synnaxlabs/synnax/pkg/service/access/versions"
+
 // Action is the fundamental operations that are controlled by the permission system.
 // Actions define what operations a subject can perform on resources.
-type Action string
+type Action = versions.Action
 
 const (
-	ActionCreate   Action = "create"
-	ActionDelete   Action = "delete"
-	ActionRetrieve Action = "retrieve"
-	ActionUpdate   Action = "update"
+	ActionCreate   Action = versions.ActionCreate
+	ActionDelete   Action = versions.ActionDelete
+	ActionRetrieve Action = versions.ActionRetrieve
+	ActionUpdate   Action = versions.ActionUpdate
 )
-
-// IsValid reports whether a is one of the defined Action values.
-func (a Action) IsValid() bool {
-	switch a {
-	case ActionCreate, ActionDelete, ActionRetrieve, ActionUpdate:
-		return true
-	default:
-		return false
-	}
-}

@@ -25,6 +25,7 @@ type ProvisionResult struct {
 	OwnerKey    role.Key
 	EngineerKey role.Key
 	OperatorKey role.Key
+	HostKey     role.Key
 	ViewerKey   role.Key
 }
 
@@ -39,6 +40,9 @@ func Provision(
 ) (result ProvisionResult, err error) {
 	err = db.WithTx(ctx, func(tx gorp.Tx) error {
 		if result.ViewerKey, err = provisionRole(ctx, viewerRole, []policy.Policy{viewerPolicy}, tx, policySvc, roleSvc); err != nil {
+			return err
+		}
+		if result.HostKey, err = provisionRole(ctx, hostRole, hostPolicies, tx, policySvc, roleSvc); err != nil {
 			return err
 		}
 		if result.OperatorKey, err = provisionRole(ctx, operatorRole, operatorPolicies, tx, policySvc, roleSvc); err != nil {

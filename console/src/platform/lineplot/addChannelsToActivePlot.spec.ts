@@ -54,7 +54,7 @@ describe("LinePlot.addChannelsToActivePlot", () => {
     const key = await createPlot();
     await LinePlot.addChannelsToActivePlot(client, key, [ch1.key, ch2.key]);
     await waitFor(async () => {
-      const { channels } = await client.lineplots.retrieve({ key });
+      const { channels } = await client.lineplots.retrieve(key);
       expect(channels.y1).toContain(ch1.key);
       expect(channels.y1).toContain(ch2.key);
     });
@@ -64,7 +64,7 @@ describe("LinePlot.addChannelsToActivePlot", () => {
     const key = await createPlot();
     await LinePlot.addChannelsToActivePlot(client, key, [ch1.key]);
     await waitFor(async () => {
-      const { channels } = await client.lineplots.retrieve({ key });
+      const { channels } = await client.lineplots.retrieve(key);
       expect(channels.y1).toContain(ch1.key);
     });
 

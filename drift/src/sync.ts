@@ -38,6 +38,7 @@ const purgeWinStateToProps = (
     prerenderLabel,
     reserved,
     minimized,
+    ordinal,
     ...rest
   } = window;
   return rest;

@@ -8,13 +8,14 @@
 // included in the file licenses/APL.txt.
 
 import { lineplot as clientLineplot, type lineplot } from "@synnaxlabs/client";
+import { expectLive } from "@synnaxlabs/client/testutil";
 import { box, dimensions, xy } from "@synnaxlabs/x";
-import { describe, expect, it, vi } from "vitest";
+import { assert, describe, expect, it, vi } from "vitest";
 
 import { LinePlot } from "@/feature/lineplot";
 import { client, project } from "@/feature/lineplot/testutil";
 import { type Panel } from "@/platform/panel";
-import { createGrantedFluxStore, createTestFluxStore, uniqueName } from "@/testutil";
+import { awaitGranted, uniqueName } from "@/testutil";
 
 const zeroAxis = (key: string) => ({
   key,
@@ -296,40 +297,34 @@ describe("lineplot import", () => {
 
 describe("lineplot ingest", () => {
   it("creates the plot on the cluster and opens it as a tab", async () => {
-    const store = await createGrantedFluxStore(
-      client,
-      clientLineplot.TYPE_ONTOLOGY_ID,
-      "update",
-    );
+    await awaitGranted(client, clientLineplot.TYPE_ONTOLOGY_ID, "update");
     const openTab = vi.fn<Panel.OpenTab>();
     const name = uniqueName("imported");
     await LinePlot.ingest(TYPED_EXPORT, {
       name,
       openTab,
-      store,
       client,
       projectKey: await project(),
       fileName: "test.json",
     });
     expect(openTab).toHaveBeenCalledTimes(1);
     const spec = openTab.mock.calls[0][0];
-    if (!("resource" in spec)) throw new Error("expected a resource tab spec");
+    assert("resource" in spec, "expected a resource tab spec");
     if (typeof spec.resource === "string")
       throw new Error("expected a resolved resource, got an id string");
     expect(spec.resource.type).toBe("lineplot");
-    const created = await client.lineplots.retrieve({ key: spec.resource.key });
+    const created = await client.lineplots.retrieve(spec.resource.key);
     expect(created.name).toBe(name);
     expect(created.channels.y1).toEqual([65538]);
-    expect(store.lineplots.get(spec.resource.key)?.name).toBe(name);
+    const cached = client.lineplots.getCached(spec.resource.key);
+    expect(expectLive(cached).name).toBe(name);
   });
 
   it("rejects the import when the permission cache has no grant", async () => {
-    const store = createTestFluxStore(null);
     await expect(
       LinePlot.ingest(TYPED_EXPORT, {
         name: "denied",
         openTab: vi.fn<Panel.OpenTab>(),
-        store,
         client: null,
         projectKey: "project-1",
         fileName: "test.json",

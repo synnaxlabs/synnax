@@ -7,12 +7,11 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-import random
-
 import pytest
 from pydantic import ValidationError
 
 import synnax as sy
+from x.strings import random_name
 
 
 @pytest.mark.labjack
@@ -521,21 +520,21 @@ class TestLabJackDevicePropertyUpdates:
         device = client.devices.create(device)
 
         # Create channels
-        rand_int = random.randint(0, 100000)
+        suffix = random_name()
         time_ch = client.channels.create(
-            name=f"labjack_time_{rand_int}",
+            name=f"labjack_time_{suffix}",
             data_type=sy.DataType.TIMESTAMP,
             is_index=True,
         )
 
         ch1 = client.channels.create(
-            name=f"ain0_{rand_int}",
+            name=f"ain0_{suffix}",
             data_type=sy.DataType.FLOAT32,
             index=time_ch.key,
         )
 
         ch2 = client.channels.create(
-            name=f"fio4_{rand_int}",
+            name=f"fio4_{suffix}",
             data_type=sy.DataType.UINT8,
             index=time_ch.key,
         )
@@ -595,41 +594,41 @@ class TestLabJackDevicePropertyUpdates:
 
         device = client.devices.create(device)
 
-        rand_int = random.randint(0, 100000)
+        suffix = random_name()
 
         # Create command and state channels
         cmd_time = client.channels.create(
-            name=f"cmd_time_{rand_int}",
+            name=f"cmd_time_{suffix}",
             data_type=sy.DataType.TIMESTAMP,
             is_index=True,
         )
 
         state_time = client.channels.create(
-            name=f"state_time_{rand_int}",
+            name=f"state_time_{suffix}",
             data_type=sy.DataType.TIMESTAMP,
             is_index=True,
         )
 
         dac0_cmd = client.channels.create(
-            name=f"dac0_command_{rand_int}",
+            name=f"dac0_command_{suffix}",
             data_type=sy.DataType.FLOAT32,
             index=cmd_time.key,
         )
 
         dac0_state = client.channels.create(
-            name=f"dac0_state_{rand_int}",
+            name=f"dac0_state_{suffix}",
             data_type=sy.DataType.FLOAT32,
             index=state_time.key,
         )
 
         fio4_cmd = client.channels.create(
-            name=f"fio4_command_{rand_int}",
+            name=f"fio4_command_{suffix}",
             data_type=sy.DataType.UINT8,
             index=cmd_time.key,
         )
 
         fio4_state = client.channels.create(
-            name=f"fio4_state_{rand_int}",
+            name=f"fio4_state_{suffix}",
             data_type=sy.DataType.UINT8,
             index=state_time.key,
         )

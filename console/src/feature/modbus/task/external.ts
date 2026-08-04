@@ -10,20 +10,14 @@
 import { Read, readIngester, ReadSelectable } from "@/feature/modbus/task/Read";
 import { READ_TYPE, WRITE_TYPE } from "@/feature/modbus/task/types";
 import { Write, writeIngester, WriteSelectable } from "@/feature/modbus/task/Write";
-import { type Export } from "@/platform/export";
 import { type Import } from "@/platform/import";
 import { type Selector } from "@/platform/selector";
-import { Task } from "@/platform/task";
+import { type Task } from "@/platform/task";
 
 export * from "@/feature/modbus/task/commands";
 export * from "@/feature/modbus/task/Read";
 export * from "@/feature/modbus/task/types";
 export * from "@/feature/modbus/task/Write";
-
-export const EXTRACTORS: Export.Extractors = {
-  [READ_TYPE]: Task.extract,
-  [WRITE_TYPE]: Task.extract,
-};
 
 export const FILE_INGESTERS: Import.FileIngesters = {
   [READ_TYPE]: readIngester,

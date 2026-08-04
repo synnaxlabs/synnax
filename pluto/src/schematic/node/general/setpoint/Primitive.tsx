@@ -37,13 +37,19 @@ export const Setpoint = ({
   disabled,
 }: RenderProps): ReactElement => {
   const [currValue, setCurrValue] = useState(value);
+  const symbolColor = symbolColorVar(color);
   const mergedStyle = useMemo(
-    () => ({ ...style, [CSS.var("symbol-color")]: symbolColorVar(color) }),
-    [style, color],
+    () => ({ ...style, [CSS.var("symbol-color")]: symbolColor }),
+    [style, symbolColor],
   );
   return (
     <Primitive.Div
-      className={CSS(CSS.B("setpoint"), CSS.B("symbol-colored"), className)}
+      className={CSS(
+        CSS.B("setpoint"),
+        CSS.B("symbol-colored"),
+        symbolColor != null && CSS.M("colored"),
+        className,
+      )}
       orientation={orientation}
       style={mergedStyle}
     >

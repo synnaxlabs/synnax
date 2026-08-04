@@ -15,10 +15,9 @@ import {
   Input,
   List as Base,
   Select,
-  type state,
   Triggers,
 } from "@synnaxlabs/pluto";
-import { type record } from "@synnaxlabs/x";
+import { type record, type state } from "@synnaxlabs/x";
 import { type FC, type ReactElement, useCallback } from "react";
 
 import { CSS } from "@/platform/css";
@@ -55,13 +54,12 @@ export const ListItem = ({
     (e: React.MouseEvent<HTMLDivElement>) => {
       // Only trigger on the synthetic click, which means we won't accidentally call
       // `onSelect` twice.
-      if (e.detail === SYNTHETIC_CLICK_DETAIL) onSelect?.(itemKey);
+      if (e.detail === SYNTHETIC_CLICK_DETAIL) onSelect?.(itemKey, e);
     },
     [onSelect, itemKey],
   );
   return (
     <Select.ListItem
-      highlightHovered
       justify="between"
       align="center"
       onClick={handleClick}
@@ -112,8 +110,8 @@ export const BaseList = <E extends record.Keyed<string>>({
         className={CSS(CSS.BE("palette", "input"))}
         placeholder={inputPlaceholder}
         size="huge"
+        flush
         autoFocus
-        contrast={3}
         onChange={handleSearch}
         borderColor={8}
         value={value}

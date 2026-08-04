@@ -43,18 +43,6 @@ func newChangeID(key string) ontology.ID {
 	return ontology.ID{Key: key, Type: ontology.ResourceTypeChannel}
 }
 
-func encodeID(id ontology.ID) []byte {
-	return telem.MarshalVariableSample([]byte(id.String()))
-}
-
-func encodeIDs(ids []ontology.ID) []byte {
-	var buf []byte
-	for _, id := range ids {
-		buf = append(buf, encodeID(id)...)
-	}
-	return buf
-}
-
 func decodeRelationships(ser []byte) ([]ontology.Relationship, error) {
 	samples := telem.UnmarshalSeries[string](telem.Series{
 		DataType: telem.StringT, Data: ser,
@@ -107,13 +95,6 @@ func (s *changeService) RetrieveResource(
 }
 
 var _ = Describe("Signals", func() {
-	Describe("DecodeIDs", func() {
-		It("Should decode a series of IDs", func() {
-			encoded := encodeIDs([]ontology.ID{newChangeID("one"), newChangeID("two")})
-			decoded := MustSucceed(decodeIDs(encoded))
-			Expect(decoded).To(Equal([]ontology.ID{newChangeID("one"), newChangeID("two")}))
-		})
-	})
 	Describe("Resource Changes", func() {
 		It("Should correctly propagate resource changes to the ontology", func(ctx SpecContext) {
 			var resCh channel.Channel

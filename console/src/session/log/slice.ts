@@ -20,6 +20,7 @@ export const toolbarStateZ = z.object({
 export interface ToolbarState extends z.infer<typeof toolbarStateZ> {}
 
 export const stateZ = z.object({
+  hold: z.boolean().default(false),
   toolbar: toolbarStateZ.prefault({}),
 });
 export interface State extends z.infer<typeof stateZ> {}
@@ -49,6 +50,10 @@ export interface CreatePayload extends KeyedPayload, NewState {}
 
 export interface SetActiveToolbarTabPayload extends KeyedPayload {
   tab: ToolbarTab;
+}
+
+export interface SetHoldPayload extends KeyedPayload {
+  hold?: boolean;
 }
 
 export interface RemovePayload {
@@ -84,13 +89,18 @@ export const { actions, reducer } = createSlice({
         state.toolbar.selectedTab = tab;
       },
     ),
+    setHold: withSelectedState(
+      (state, { payload: { hold } }: PayloadAction<SetHoldPayload>) => {
+        state.hold = hold ?? !state.hold;
+      },
+    ),
     remove: (state, { payload }: PayloadAction<RemovePayload>) => {
       payload.keys.forEach((key) => delete state.logs[key]);
     },
   },
 });
 
-export const { create, setSelectedToolbarTab, remove } = actions;
+export const { create, setSelectedToolbarTab, setHold, remove } = actions;
 
 export type Action = ReturnType<(typeof actions)[keyof typeof actions]>;
 

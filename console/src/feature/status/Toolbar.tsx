@@ -23,7 +23,7 @@ import {
   Telem,
   Text,
 } from "@synnaxlabs/pluto";
-import { type ReactElement, useEffect, useState } from "react";
+import { type ReactElement, useState } from "react";
 
 import { Explorer } from "@/feature/status/explorer";
 import { contextMenu } from "@/feature/status/list/ContextMenu";
@@ -72,10 +72,6 @@ const List = (): ReactElement => {
 const ListItem = (props: BaseList.ItemProps<status.Key>) => {
   const { itemKey } = props;
   const q = Status.useRetrieve({ key: itemKey });
-  const dispatch = Session.useDispatch();
-  useEffect(() => {
-    if (q.variant === "error") dispatch(Session.Status.removeFavorites([itemKey]));
-  }, [q.variant, dispatch, itemKey]);
   if (q.variant !== "success") return null;
   const item = q.data;
   if (item == null) return null;
@@ -120,7 +116,7 @@ const listItem = Component.renderProp(ListItem);
 
 const Content = (): ReactElement => (
   <Toolbar.Content>
-    <Toolbar.Header padded>
+    <Toolbar.Header>
       <Toolbar.Title icon={<Icon.Status />}>Statuses</Toolbar.Title>
       <Actions />
     </Toolbar.Header>
@@ -136,18 +132,18 @@ const Actions = (): ReactElement | null => {
   if (!hasCreatePermission && !hasRetrievePermission) return null;
   return (
     <Toolbar.Actions>
-      {hasCreatePermission && (
-        <Toolbar.Action tooltip="Create status" onClick={() => openCreate()}>
-          <Icon.Add />
+      {hasRetrievePermission && (
+        <Toolbar.Action tooltip="Open Status Explorer" onClick={openExplorer}>
+          <Icon.Explore />
         </Toolbar.Action>
       )}
-      {hasRetrievePermission && (
+      {hasCreatePermission && (
         <Toolbar.Action
-          tooltip="Open Status Explorer"
-          onClick={openExplorer}
+          tooltip="Create status"
+          onClick={() => openCreate()}
           variant="filled"
         >
-          <Icon.Explore />
+          <Icon.Add />
         </Toolbar.Action>
       )}
     </Toolbar.Actions>

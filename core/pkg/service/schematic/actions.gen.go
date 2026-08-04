@@ -18,6 +18,7 @@ import (
 )
 
 const (
+	ActionTypeCreate          = "create"
 	ActionTypeRename          = "rename"
 	ActionTypeSetNodePosition = "set_node_position"
 	ActionTypeSetNode         = "set_node"
@@ -26,6 +27,12 @@ const (
 	ActionTypeRemoveEdge      = "remove_edge"
 	ActionTypeSetConfig       = "set_config"
 )
+
+// CreatePayload replaces the document with the given created state. Emitted by the
+// server on create so remote caches ingest new documents; clients never dispatch it.
+type CreatePayload struct {
+	Schematic Schematic `json:"schematic" msgpack:"schematic"`
+}
 
 // RenamePayload renames the schematic.
 type RenamePayload struct {
@@ -76,6 +83,7 @@ type SetConfigPayload struct {
 // the variant; the matching pointer field carries the payload and others are nil.
 type Action struct {
 	Type            string                  `json:"type" msgpack:"type"`
+	Create          *CreatePayload          `json:"create,omitempty" msgpack:"create,omitempty"`
 	Rename          *RenamePayload          `json:"rename,omitempty" msgpack:"rename,omitempty"`
 	SetNodePosition *SetNodePositionPayload `json:"set_node_position,omitempty" msgpack:"set_node_position,omitempty"`
 	SetNode         *SetNodePayload         `json:"set_node,omitempty" msgpack:"set_node,omitempty"`
@@ -94,6 +102,11 @@ func Reduce(state Schematic, actions ...Action) (Schematic, error) {
 	var err error
 	for _, a := range actions {
 		switch a.Type {
+		case ActionTypeCreate:
+			if a.Create == nil {
+				return state, union.MissingPayload(a.Type)
+			}
+			state, err = a.Create.Handle(state)
 		case ActionTypeRename:
 			if a.Rename == nil {
 				return state, union.MissingPayload(a.Type)
@@ -137,6 +150,11 @@ func Reduce(state Schematic, actions ...Action) (Schematic, error) {
 		}
 	}
 	return state, nil
+}
+
+// NewCreateAction wraps a CreatePayload in an Action envelope.
+func NewCreateAction(p CreatePayload) Action {
+	return Action{Type: ActionTypeCreate, Create: &p}
 }
 
 // NewRenameAction wraps a RenamePayload in an Action envelope.

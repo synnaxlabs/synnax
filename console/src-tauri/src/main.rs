@@ -41,30 +41,37 @@ fn set_transparent_titlebar(win: &Window, transparent: bool) {
     let window: Retained<NSWindow> =
         unsafe { Retained::retain(ns_window as *mut NSWindow).unwrap() };
 
-    let mut style_mask = window.styleMask();
-    if transparent {
-        style_mask.insert(NSWindowStyleMask::FullSizeContentView);
-    } else {
-        style_mask.remove(NSWindowStyleMask::FullSizeContentView);
+    let fullscreen = window.styleMask().contains(NSWindowStyleMask::FullScreen);
+    if !fullscreen {
+        let mut style_mask = window.styleMask();
+        if transparent {
+            style_mask.insert(NSWindowStyleMask::FullSizeContentView);
+        } else {
+            style_mask.remove(NSWindowStyleMask::FullSizeContentView);
+        }
+        window.setStyleMask(style_mask);
+
+        window.setTitleVisibility(if transparent {
+            NSWindowTitleVisibility::Hidden
+        } else {
+            NSWindowTitleVisibility::Visible
+        });
+
+        window.setTitlebarAppearsTransparent(true);
     }
-    window.setStyleMask(style_mask);
 
-    window.setTitleVisibility(if transparent {
-        NSWindowTitleVisibility::Hidden
-    } else {
-        NSWindowTitleVisibility::Visible
-    });
-
-    window.setTitlebarAppearsTransparent(true);
-
+    // Hide rather than remove: AppKit re-attaches removed standard buttons when it
+    // relays out the titlebar (e.g. on setTitle), while hidden instances stay hidden.
+    // In fullscreen the native buttons are the only way out, so they come back.
+    let hide = transparent && !fullscreen;
     if let Some(close) = window.standardWindowButton(NSWindowButton::CloseButton) {
-        close.removeFromSuperview();
+        close.setHidden(hide);
     }
     if let Some(miniaturize) = window.standardWindowButton(NSWindowButton::MiniaturizeButton) {
-        miniaturize.removeFromSuperview();
+        miniaturize.setHidden(hide);
     }
     if let Some(zoom) = window.standardWindowButton(NSWindowButton::ZoomButton) {
-        zoom.removeFromSuperview();
+        zoom.setHidden(hide);
     }
 }
 
@@ -86,12 +93,8 @@ fn main() {
             tauri::WindowEvent::ThemeChanged { .. } => {
                 set_transparent_titlebar(win, true);
             }
-            tauri::WindowEvent::Resized(size) => {
-                let monitor = win.current_monitor().unwrap().unwrap();
-                let screen = monitor.size();
-                if size != screen {
-                    set_transparent_titlebar(win, true);
-                }
+            tauri::WindowEvent::Resized(_) => {
+                set_transparent_titlebar(win, true);
             }
             tauri::WindowEvent::Moved(position) => {
                 if position.x != 0 && position.y != 0 {

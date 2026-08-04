@@ -97,9 +97,7 @@ export const Palette = (): ReactElement => {
           className={CSS(CSS.BE("palette", "btn"))}
           variant="outlined"
           align="center"
-          size="large"
           justify="center"
-          contrast={2}
           textColor={9}
           gap="small"
           full="x"
@@ -110,7 +108,7 @@ export const Palette = (): ReactElement => {
           className={CSS.BE("palette", "content")}
           bordered={false}
           pack
-          rounded={1}
+          rounded="small"
         >
           <List value={value} inputPlaceholder={inputPlaceholder} onChange={setValue} />
         </Dialog.Dialog>

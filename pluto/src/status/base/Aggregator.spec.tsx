@@ -152,6 +152,50 @@ describe("Aggregator", () => {
     });
   });
 
+  describe("silenceAll", () => {
+    it("should silence every active notification", () => {
+      const { result } = renderHook(
+        () => ({
+          add: Status.useAdder(),
+          statuses: Status.useNotifications(),
+        }),
+        { wrapper },
+      );
+      act(() => {
+        result.current.add({ variant: "success", message: "First" });
+      });
+      act(() => {
+        result.current.add({ variant: "error", message: "Second" });
+      });
+      expect(result.current.statuses.statuses).toHaveLength(2);
+      act(() => {
+        result.current.statuses.silenceAll();
+      });
+      expect(result.current.statuses.statuses).toHaveLength(0);
+    });
+
+    it("should not silence a notification added afterward", () => {
+      const { result } = renderHook(
+        () => ({
+          add: Status.useAdder(),
+          statuses: Status.useNotifications(),
+        }),
+        { wrapper },
+      );
+      act(() => {
+        result.current.add({ variant: "success", message: "First" });
+      });
+      act(() => {
+        result.current.statuses.silenceAll();
+      });
+      act(() => {
+        result.current.add({ variant: "info", message: "Second" });
+      });
+      expect(result.current.statuses.statuses).toHaveLength(1);
+      expect(result.current.statuses.statuses[0].message).toEqual("Second");
+    });
+  });
+
   describe("handleError", () => {
     it("should create a status from an exception", () => {
       const { result } = renderHook(

@@ -7,12 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { state } from "@synnaxlabs/x";
 import { renderHook } from "@testing-library/react";
 import { useCallback } from "react";
 import { describe, expect, it } from "vitest";
 
 import { List } from "@/list";
-import { state } from "@/state";
 
 describe("pager", () => {
   it("should fetch the correct page when onFetchMore is called", () => {

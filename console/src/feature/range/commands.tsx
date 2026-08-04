@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { ranger } from "@synnaxlabs/client";
-import { Access, Icon, Ranger } from "@synnaxlabs/pluto";
+import { Access, Ranger } from "@synnaxlabs/pluto";
 
 import { Explorer } from "@/feature/range/explorer";
 import { Command } from "@/platform/command";
@@ -25,7 +25,7 @@ export const CreateCommand = Command.create({
 export const OpenExplorerCommand = Command.create({
   key: "open_explorer",
   name: "Open the Range Explorer",
-  icon: <Icon.Explore />,
+  icon: <Ranger.ExplorerIcon />,
   useOnSelect: Explorer.useOpenTab,
   useVisible: () => Access.useRetrieveGranted(ranger.TYPE_ONTOLOGY_ID),
 });

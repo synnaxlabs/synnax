@@ -10,7 +10,7 @@
 import { type location, type spatial } from "@synnaxlabs/x";
 
 import { type ontology } from "@/ontology";
-import { type Node, type NodeLeaf, type Tab } from "@/panel/types.gen";
+import { type Node, type NodeLeaf, type Tab, type TabKey } from "@/panel/types.gen";
 
 // Nodes in the panel tree are identified by path-derived numeric keys: the root
 // is ROOT_NODE_KEY, and a split's children are childNodeKey(key, "first" | "last").
@@ -98,6 +98,13 @@ export const findTabByType = (
   if (node.variant === "leaf")
     return node.tabs.find((t) => t.variant === "view" && t.type === type);
   return findTabByType(node.first, type) ?? findTabByType(node.last, type);
+};
+
+/** leafTabGroups returns each leaf's ordered tab keys, leaves in traversal order. */
+export const leafTabGroups = (node: Node | undefined): TabKey[][] => {
+  if (node == null) return [];
+  if (node.variant === "leaf") return [node.tabs.map((t) => t.key)];
+  return [...leafTabGroups(node.first), ...leafTabGroups(node.last)];
 };
 
 /** firstTab returns the first tab in traversal order, or null for an empty tree. */

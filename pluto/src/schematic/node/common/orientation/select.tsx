@@ -137,8 +137,8 @@ export interface ButtonProps extends Omit<BaseButton.ButtonProps, "children"> {
 
 export const Button = ({ selected, className, ...rest }: ButtonProps): ReactElement => (
   <BaseButton.Button
-    variant="text"
-    className={CSS(className, CSS.selected(selected))}
+    variant={selected ? "outlined" : "text"}
+    className={CSS(className, CSS.B("select-btn"), CSS.selected(selected))}
     size="tiny"
     {...rest}
   >

@@ -13,6 +13,7 @@ import z from "zod";
 
 import { group } from "@/group";
 import { ontology } from "@/ontology";
+import { query } from "@/query";
 import { status } from "@/status";
 import { createTestClient } from "@/testutil";
 
@@ -100,7 +101,9 @@ describe("Status", () => {
 
       expect(s.key).toBe("child-status");
 
-      const resources = await client.ontology.retrieveChildren(parentOntologyID);
+      const resources = await client.ontology.children.retrieve({
+        ids: parentOntologyID,
+      });
 
       const statusResource = resources.find((r) => r.id.key === "child-status");
       expect(statusResource).toBeDefined();
@@ -117,10 +120,29 @@ describe("Status", () => {
         time: TimeStamp.now(),
       });
 
-      const retrieved = await client.statuses.retrieve({ key: "retrieve-test" });
+      const retrieved = await client.statuses.retrieve("retrieve-test");
       expect(retrieved.key).toBe(created.key);
       expect(retrieved.name).toBe(created.name);
       expect(retrieved.variant).toBe(created.variant);
+    });
+
+    it("should retrieve a single status when detailsSchema is explicitly undefined", async () => {
+      const created = await client.statuses.set({
+        name: "Undefined Schema Test",
+        key: "undefined-schema-test",
+        variant: "info",
+        message: "Test undefined schema",
+        time: TimeStamp.now(),
+      });
+
+      const retrieved = await client.statuses.retrieve({
+        key: "undefined-schema-test",
+        includeLabels: true,
+        detailsSchema: undefined,
+      });
+      expect(Array.isArray(retrieved)).toBe(false);
+      expect(retrieved.key).toBe(created.key);
+      expect(retrieved.name).toBe(created.name);
     });
 
     it("should retrieve multiple statuses by keys", async () => {
@@ -247,9 +269,7 @@ describe("Status", () => {
 
       await client.statuses.delete(s.key);
 
-      await expect(
-        async () => await client.statuses.retrieve({ key: s.key }),
-      ).rejects.toThrow();
+      await expect(async () => await client.statuses.retrieve(s.key)).rejects.toThrow();
     });
 
     it("should delete multiple statuses", async () => {
@@ -320,6 +340,54 @@ describe("Status", () => {
       });
       expect(retrievedStat.key).toEqual(stat.key);
       expect(retrievedStat.labels).toHaveLength(2);
+    });
+
+    it("should update a subscribed hasLabels answer when labels change", async () => {
+      const lbl = await client.labels.create({
+        name: "Membership Label",
+        color: color.construct("#00FF00"),
+      });
+      const member = uuid.create();
+      const joiner = uuid.create();
+      await client.statuses.set([
+        {
+          name: "Member",
+          key: member,
+          variant: "info",
+          message: "member",
+          time: TimeStamp.now(),
+        },
+        {
+          name: "Joiner",
+          key: joiner,
+          variant: "info",
+          message: "joiner",
+          time: TimeStamp.now(),
+        },
+      ]);
+      await client.labels.label(status.ontologyID(member), [lbl.key]);
+      const params = { hasLabels: [lbl.key] };
+      const off = client.statuses.onChange(params, () => {});
+      try {
+        const initial = await client.statuses.retrieve(params);
+        expect(initial.map((s) => s.key)).toEqual([member]);
+        await client.labels.label(status.ontologyID(joiner), [lbl.key]);
+        await expect
+          .poll(() => {
+            const cached = client.statuses.getCached(params);
+            return query.isLive(cached) && cached.some((s) => s.key === joiner);
+          })
+          .toBe(true);
+        await client.labels.remove(status.ontologyID(member), [lbl.key]);
+        await expect
+          .poll(() => {
+            const cached = client.statuses.getCached(params);
+            return query.isLive(cached) && !cached.some((s) => s.key === member);
+          })
+          .toBe(true);
+      } finally {
+        off();
+      }
     });
   });
 
@@ -488,6 +556,26 @@ describe("fromException", () => {
     expect(status.fromException(new CustomError("boom"), "Saving failed").message).toBe(
       "Saving failed: Failed to parse task config",
     );
+  });
+
+  it("should surface the cause chain as the description", () => {
+    const err = new Error("failed to reconcile projects cache", {
+      cause: new Error("projects not found", { cause: new Error("query") }),
+    });
+    const s = status.fromException(err);
+    expect(s.message).toBe("failed to reconcile projects cache");
+    expect(s.description).toBe("projects not found: query");
+  });
+
+  it("should append the cause chain after a caller-provided message", () => {
+    const err = new Error("outer", { cause: new Error("inner") });
+    const s = status.fromException(err, "Saving failed");
+    expect(s.message).toBe("Saving failed");
+    expect(s.description).toBe("outer: inner");
+  });
+
+  it("should leave the description empty without a cause or message", () => {
+    expect(status.fromException(new Error("boom")).description).toBe("");
   });
 });
 

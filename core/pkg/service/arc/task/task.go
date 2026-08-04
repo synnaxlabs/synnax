@@ -364,7 +364,7 @@ func (t *impl) reporter() taskreporter.Reporter {
 
 func (t *impl) setStatus(ctx context.Context, variant status.Variant, running bool, message string) {
 	stat := task.Status{
-		Key:     task.OntologyID(t.task.Key).String(),
+		Key:     t.task.OntologyID().String(),
 		Variant: variant,
 		Message: message,
 		Time:    telem.Now(),
@@ -386,7 +386,7 @@ func (t *impl) setRuntimeError(ctx context.Context, nodeKey string, err error) {
 		nodeType = n.Type
 	}
 	stat := task.Status{
-		Key:         task.OntologyID(t.task.Key).String(),
+		Key:         t.task.OntologyID().String(),
 		Variant:     status.VariantWarning,
 		Message:     fmt.Sprintf("Runtime error in %s", nodeType),
 		Description: err.Error(),

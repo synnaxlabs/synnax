@@ -7,12 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type panel } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/pluto";
-import { useCallback } from "react";
 
 import { SELECTABLES } from "@/app/selector/selectables";
-import { Panel } from "@/platform/panel";
+import { type Panel } from "@/platform/panel";
 import { Selector as Base } from "@/platform/selector";
 
 export const useVisible = (): boolean =>
@@ -22,22 +20,9 @@ export const useVisible = (): boolean =>
 
 export const Selector = Base.create({
   selectables: SELECTABLES,
-  icon: <Icon.Add />,
-  tabTitle: "Create tab",
-  text: "Create a tab",
+  icon: <Icon.Component />,
+  tabTitle: "Create component",
+  text: "Create a component",
 });
 
-export const TAB_TYPE = "selector";
-
-export const TABS: Panel.Tabs = { [TAB_TYPE]: Selector };
-
-export const createEmptyTab = (): panel.NewTab => ({
-  variant: "view",
-  type: TAB_TYPE,
-  args: {},
-});
-
-export const useOpenTab = (): (() => void) => {
-  const openTab = Panel.useOpenTab();
-  return useCallback(() => openTab(createEmptyTab()), [openTab]);
-};
+export const TABS: Panel.Tabs = { [Base.TAB_TYPE]: Selector };

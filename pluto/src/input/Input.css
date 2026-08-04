@@ -23,10 +23,36 @@
 
     &:focus-within:not(.pluto-btn--text):not(.pluto--status-warning):not(
             .pluto--status-error
-        ) {
+        ):not(.pluto--flush) {
         --pluto-border-color: rgb(var(--pluto-btn-color, var(--pluto-primary-z-rgb)));
         border-color: var(--pluto-border-color);
         box-shadow: inset 0 0 0 0.5px var(--pluto-border-color);
+    }
+
+    /* A flush input is its surface's sole keystroke target: no focus ring, at least
+       a form field's large height, content inset to align with the list rows below
+       it. */
+    &.pluto--flush {
+        min-height: max(var(--pluto-height-large), var(--pluto-height, 0px));
+
+        & input,
+        & textarea {
+            padding: 0 2rem;
+        }
+
+        & .pluto-input__placeholder {
+            padding-left: 2rem;
+            width: calc(100% - 2rem);
+        }
+
+        & .pluto-input__start-content {
+            padding-left: 1.5rem;
+            color: var(--pluto-gray-l9);
+        }
+
+        & .pluto-input__start-content + input {
+            padding-left: 1.5rem;
+        }
     }
 
     & input,
@@ -45,7 +71,7 @@
 
         &::placeholder,
         &::-webkit-input-placeholder {
-            color: var(--pluto-gray-l8);
+            color: var(--pluto-text-placeholder);
             text-overflow: ellipsis;
             max-width: 100%;
         }
@@ -68,9 +94,12 @@
         white-space: nowrap;
     }
 
-    .pluto-input__placeholder,
+    .pluto-input__placeholder {
+        color: var(--pluto-text-placeholder);
+    }
+
     .pluto-input__end-content {
-        color: var(--pluto-gray-l8);
+        color: var(--pluto-gray-l9);
     }
 
     .pluto-input__start-content {
@@ -87,7 +116,7 @@
         & .pluto-input__placeholder,
         & .pluto-input__end-content,
         & input::placeholder {
-            color: var(--pluto-gray-l6);
+            color: var(--pluto-text-disabled);
         }
     }
 
@@ -95,18 +124,19 @@
         padding-right: 1.5rem;
     }
 
-    &.pluto--shadow:not(:focus):not(:focus-within):not(:hover) {
-        background: var(--pluto-gray-l0);
-        & > * {
-            border-color: transparent;
-        }
-        & > *:not(.pluto-input) {
-            opacity: 0;
-        }
+    /* Shadow: an edit-in-place cell. The outlined chassis is invisible at rest and
+       materializes on hover. */
+    &.pluto-btn.pluto--shadow {
+        --pluto-bg: transparent;
+        --pluto-border-color: transparent;
+        --pluto-hover-bg: var(--pluto-fill-hover);
+        --pluto-active-bg: var(--pluto-fill-press);
+        --pluto-hover-border-color: var(--pluto-gray-l7);
+        --pluto-active-border-color: var(--pluto-gray-l8);
     }
 
     &.pluto-btn--text,
-    &.pluto--preview {
+    &.pluto-btn--preview {
         background: none;
         border-radius: 0;
         border: none;
@@ -120,19 +150,21 @@
     }
 }
 
-.pluto-input__container:has(.pluto-btn--shadow) {
-    .pluto-btn--outlined,
-    .pluto-btn--text {
+/* A shadow cell's packed neighbors (drag handle, alias sync, copy) hide until the
+   group is hovered or focused. The cell itself is excluded: its value always reads. */
+.pluto-input__container:has(> .pluto--shadow) {
+    & > *:not(.pluto--shadow) {
         opacity: 0;
     }
-    &:hover {
-        & .pluto-btn--outlined,
-        & .pluto-btn--text {
-            opacity: 1;
-        }
-        & .pluto-btn--shadow {
-            border-color: var(--pluto-hover-border-color);
-            background: var(--pluto-hover-bg);
-        }
+
+    &:is(:hover, :focus-within) > *:not(.pluto--shadow) {
+        opacity: 1;
+    }
+
+    /* Hovering a neighbor materializes the cell so the group lights as one. A
+       focused cell keeps its focus border. */
+    &:hover > .pluto--shadow:not(:focus-within) {
+        border-color: var(--pluto-hover-border-color);
+        background: var(--pluto-hover-bg);
     }
 }

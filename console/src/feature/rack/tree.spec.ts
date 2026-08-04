@@ -77,7 +77,7 @@ describe("rack ontology service", () => {
     await screen.findByText(`Are you sure you want to delete ${r.name}?`);
     fireEvent.click(findModalButton("Delete"));
     await waitFor(async () => {
-      await expect(client.racks.retrieve({ key: r.key })).rejects.toSatisfy((e) =>
+      await expect(client.racks.retrieve(r.key)).rejects.toSatisfy((e) =>
         NotFoundError.matches(e),
       );
     });

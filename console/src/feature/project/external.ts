@@ -17,5 +17,4 @@ export * from "@/feature/project/Selector";
 export * from "@/feature/project/Splash";
 export * from "@/feature/project/Toolbar";
 export * from "@/feature/project/tree";
-export * from "@/feature/project/useCheckCore";
 export * from "@/platform/project/external";

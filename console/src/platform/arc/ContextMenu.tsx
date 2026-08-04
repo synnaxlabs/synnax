@@ -93,21 +93,15 @@ export const ContextMenu = ({
           </Menu.Item>
           <Menu.Divider />
           <Base.RenameItem onClick={() => Text.edit(`${textIdPrefix}-${keys[0]}`)} />
-          <Menu.Divider />
         </>
       )}
+      <Menu.Divider />
+      {isSingle && <Link.CopyContextMenuItem onClick={handleCopyLink} />}
+      <Menu.Divider />
       {hasDeletePermission && someSelected && (
-        <>
-          <Base.DeleteItem onClick={() => del(keys)} />
-          <Menu.Divider />
-        </>
+        <Base.DeleteItem onClick={() => del(keys)} />
       )}
-      {isSingle && (
-        <>
-          <Link.CopyContextMenuItem onClick={handleCopyLink} />
-          <Menu.Divider />
-        </>
-      )}
+      <Menu.Divider />
       <Base.ReloadConsoleItem />
     </Base.Menu>
   );

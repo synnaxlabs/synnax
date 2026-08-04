@@ -162,9 +162,7 @@ export const buildStack = (options: ProviderOptions = {}): BuiltStack => {
     driver.update(
       path,
       synnax.Provider.TYPE,
-      synnax.Provider.stateZ.parse(
-        stateOf(options.synnax, { props: null, state: null }),
-      ),
+      synnax.Provider.stateZ.parse(stateOf(options.synnax, { props: null })),
     );
     providers.synnax = driver.find<synnax.Provider>([...path]);
   }

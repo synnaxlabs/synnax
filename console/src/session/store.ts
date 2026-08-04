@@ -16,7 +16,6 @@ import {
   Tuple,
 } from "@reduxjs/toolkit";
 import { Drift } from "@synnaxlabs/drift";
-import { type deep, type record } from "@synnaxlabs/x";
 import { useDispatch as baseUseDispatch, useStore as baseUseStore } from "react-redux";
 
 import { Arc } from "@/session/arc";
@@ -37,7 +36,7 @@ import { Status } from "@/session/status";
 import { Table } from "@/session/table";
 import { Theme } from "@/session/theme";
 
-const PERSIST_EXCLUDE: Array<deep.Key<State> | ((func: State) => State)> = [
+const PERSIST_EXCLUDE: Array<Persist.ExcludeFn<State>> = [
   ...Panel.PERSIST_EXCLUDE,
   Haul.PERSIST_EXCLUDE,
   ...Arc.PERSIST_EXCLUDE,
@@ -46,6 +45,35 @@ const PERSIST_EXCLUDE: Array<deep.Key<State> | ((func: State) => State)> = [
   ...Schematic.PERSIST_EXCLUDE,
   ...Table.PERSIST_EXCLUDE,
 ];
+
+// Every persisted slice lives in exactly one partition scope: global,
+// per-cluster, or per-cluster-per-project.
+const PERSIST_SCOPES: Persist.Scopes<State> = {
+  global: [Cluster.SLICE_NAME, Color.SLICE_NAME, Docs.SLICE_NAME, Theme.SLICE_NAME],
+  cluster: [Project.SLICE_NAME],
+  project: [
+    Arc.SLICE_NAME,
+    Drift.SLICE_NAME,
+    Haul.SLICE_NAME,
+    LinePlot.SLICE_NAME,
+    Log.SLICE_NAME,
+    Nav.SLICE_NAME,
+    Panel.SLICE_NAME,
+    Range.SLICE_NAME,
+    Schematic.SLICE_NAME,
+    Status.SLICE_NAME,
+    Table.SLICE_NAME,
+  ],
+};
+
+const PERSIST_MIGRATORS: Persist.SliceMigrators<State> = {
+  [Status.SLICE_NAME]: (raw) => Status.migrateSlice(raw as Status.AnySliceState),
+};
+
+const getPersistContext = (state: State): Persist.Context => ({
+  cluster: state[Cluster.SLICE_NAME].selected,
+  project: state[Project.SLICE_NAME].selected,
+});
 
 export const ZERO_STATE: State = {
   [Arc.SLICE_NAME]: Arc.ZERO_SLICE_STATE,
@@ -58,6 +86,7 @@ export const ZERO_STATE: State = {
   [Panel.SLICE_NAME]: Panel.ZERO_SLICE_STATE,
   [Log.SLICE_NAME]: Log.ZERO_SLICE_STATE,
   [LinePlot.SLICE_NAME]: LinePlot.ZERO_SLICE_STATE,
+  [Persist.SLICE_NAME]: Persist.ZERO_SLICE_STATE,
   [Project.SLICE_NAME]: Project.ZERO_SLICE_STATE,
   [Range.SLICE_NAME]: Range.ZERO_SLICE_STATE,
   [Schematic.SLICE_NAME]: Schematic.ZERO_SLICE_STATE,
@@ -66,7 +95,7 @@ export const ZERO_STATE: State = {
   [Theme.SLICE_NAME]: Theme.ZERO_SLICE_STATE,
 };
 
-export const reducer = combineReducers({
+const combinedReducer = combineReducers({
   [Arc.SLICE_NAME]: Arc.reducer,
   [Cluster.SLICE_NAME]: Cluster.reducer,
   [Color.SLICE_NAME]: Color.reducer,
@@ -77,6 +106,7 @@ export const reducer = combineReducers({
   [Panel.SLICE_NAME]: Panel.reducer,
   [Log.SLICE_NAME]: Log.reducer,
   [LinePlot.SLICE_NAME]: LinePlot.reducer,
+  [Persist.SLICE_NAME]: Persist.reducer,
   [Project.SLICE_NAME]: Project.reducer,
   [Range.SLICE_NAME]: Range.reducer,
   [Schematic.SLICE_NAME]: Schematic.reducer,
@@ -84,6 +114,19 @@ export const reducer = combineReducers({
   [Table.SLICE_NAME]: Table.reducer,
   [Theme.SLICE_NAME]: Theme.reducer,
 }) as unknown as Reducer<State, Action>;
+
+// hydrate replaces the swapped slices wholesale on a session context switch. Drift
+// merges instead, keeping the windows this process is actually running.
+export const reducer: Reducer<State, Action> = (state, action) => {
+  if (state != null && Persist.hydrate.match(action)) {
+    const payload = action.payload as Partial<State>;
+    const stored = payload[Drift.SLICE_NAME];
+    const live = state[Drift.SLICE_NAME];
+    state = { ...state, ...payload };
+    if (stored != null) state[Drift.SLICE_NAME] = Drift.restoreWindows(live, stored);
+  }
+  return combinedReducer(state, action);
+};
 
 export interface State {
   [Arc.SLICE_NAME]: Arc.SliceState;
@@ -94,6 +137,7 @@ export interface State {
   [Haul.SLICE_NAME]: Haul.SliceState;
   [Log.SLICE_NAME]: Log.SliceState;
   [LinePlot.SLICE_NAME]: LinePlot.SliceState;
+  [Persist.SLICE_NAME]: Persist.SliceState;
   [Project.SLICE_NAME]: Project.SliceState;
   [Nav.SLICE_NAME]: Nav.SliceState;
   [Panel.SLICE_NAME]: Panel.SliceState;
@@ -130,27 +174,6 @@ const DEFAULT_WINDOW_PROPS: Omit<Drift.WindowProps, "key"> = {
   minSize: { width: 625, height: 375 },
 };
 
-interface OpenPersistReturn {
-  initialState?: State;
-  persistMiddleware: Middleware<record.Unknown, State, Dispatch<Action>>;
-}
-
-const openPersist = async (): Promise<OpenPersistReturn> => {
-  if (!Runtime.isMainWindow())
-    return {
-      initialState: undefined,
-      persistMiddleware: () => (next) => (action) => next(action),
-    };
-  const engine = await Persist.open<State>({
-    initial: ZERO_STATE,
-    exclude: PERSIST_EXCLUDE,
-  });
-  return {
-    initialState: engine.initialState,
-    persistMiddleware: Persist.middleware(engine),
-  };
-};
-
 export const BASE_MIDDLEWARE = [...Nav.MIDDLEWARE, ...Panel.MIDDLEWARE];
 
 export interface CreateStoreOptions extends Partial<
@@ -160,6 +183,8 @@ export interface CreateStoreOptions extends Partial<
   >
 > {
   enablePersistence?: boolean;
+  /** Overrides the persistence KV store. Tests inject an in-memory KV. */
+  openKV?: Persist.KVOpener;
 }
 
 export const createStore = async (opts: CreateStoreOptions = {}): Promise<Store> => {
@@ -168,13 +193,21 @@ export const createStore = async (opts: CreateStoreOptions = {}): Promise<Store>
     enablePrerender = !IS_DEV,
     debug = false,
     enablePersistence = true,
+    openKV,
   } = opts;
   let { preloadedState } = opts;
   const middleware: Middleware[] = [...BASE_MIDDLEWARE];
   if (enablePersistence) {
-    const { initialState, persistMiddleware } = await openPersist();
-    preloadedState ??= initialState;
-    middleware.push(persistMiddleware);
+    const persist = await Persist.open<State>({
+      initial: ZERO_STATE,
+      scopes: PERSIST_SCOPES,
+      getContext: getPersistContext,
+      migrators: PERSIST_MIGRATORS,
+      exclude: PERSIST_EXCLUDE,
+      openKV,
+    });
+    preloadedState ??= persist.initialState;
+    middleware.push(persist.middleware);
   }
   return await Drift.configureStore<State, Action>({
     runtime,

@@ -13,7 +13,6 @@ import { act, renderHook, waitFor } from "@testing-library/react";
 import { type FC, type PropsWithChildren } from "react";
 import { afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 
-import { Ontology } from "@/ontology";
 import { Symbol } from "@/schematic/symbol";
 import { createAsyncSynnaxWrapper } from "@/testutil/Synnax";
 
@@ -23,10 +22,7 @@ describe("Symbol queries", () => {
   let wrapper: FC<PropsWithChildren>;
 
   beforeAll(async () => {
-    wrapper = await createAsyncSynnaxWrapper({
-      client,
-      excludeFluxStores: [Ontology.RESOURCES_FLUX_STORE_KEY],
-    });
+    wrapper = await createAsyncSynnaxWrapper({ client });
   });
 
   beforeEach(() => {
@@ -282,15 +278,13 @@ describe("Symbol queries", () => {
         return key;
       });
 
-      const retrieved = await client.schematics.symbols.retrieve({
-        key: key!,
-      });
+      const retrieved = await client.schematics.symbols.retrieve(key!);
       expect(retrieved.name).toBe("created-symbol");
       expect(retrieved.data.svg).toBe("<svg>created</svg>");
 
-      const children = await client.ontology.retrieveChildren(
-        group.ontologyID(parent.key),
-      );
+      const children = await client.ontology.children.retrieve({
+        ids: group.ontologyID(parent.key),
+      });
       expect(children.length).toBe(1);
       expect(children[0].id.key).toBe(retrieved.key);
       expect(children[0].name).toBe("created-symbol");
@@ -341,9 +335,7 @@ describe("Symbol queries", () => {
         expect(result.current.variant).toEqual("success");
       });
 
-      const retrieved = await client.schematics.symbols.retrieve({
-        key: symbol.key,
-      });
+      const retrieved = await client.schematics.symbols.retrieve(symbol.key);
       expect(retrieved.name).toBe("updated-name");
       expect(retrieved.data.svg).toBe("<svg>updated</svg>");
     });
@@ -375,9 +367,7 @@ describe("Symbol queries", () => {
         expect(result.current.variant).toEqual("success");
       });
 
-      const retrieved = await client.schematics.symbols.retrieve({
-        key: symbol.key,
-      });
+      const retrieved = await client.schematics.symbols.retrieve(symbol.key);
       expect(retrieved.name).toBe("new-name");
     });
   });

@@ -33,10 +33,9 @@ const Header = ({ onAdd }: HeaderProps) => {
         <PHeader.Actions>
           <Button.Button
             onClick={onAdd}
-            variant="text"
-            contrast={2}
+            variant="filled"
             tooltip="Add Channel"
-            sharp
+            size="small"
           >
             <Icon.Add />
           </Button.Button>

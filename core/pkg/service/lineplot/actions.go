@@ -18,6 +18,11 @@ import (
 	"github.com/synnaxlabs/x/validate"
 )
 
+// Handle replaces the document with its created state.
+func (p CreatePayload) Handle(LinePlot) (LinePlot, error) {
+	return p.LinePlot, nil
+}
+
 // Handle replaces the line plot's name.
 func (p RenamePayload) Handle(state LinePlot) (LinePlot, error) {
 	state.Name = p.Name

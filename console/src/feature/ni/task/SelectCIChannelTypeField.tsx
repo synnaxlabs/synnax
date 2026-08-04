@@ -51,7 +51,7 @@ export const SelectCIChannelTypeField = Form.buildSelectField<CIChannelType, Ent
       return {
         key: type,
         name: CI_CHANNEL_TYPE_NAMES[type],
-        icon: <Icon color={8} />,
+        icon: <Icon color={9} />,
       };
     }),
   },

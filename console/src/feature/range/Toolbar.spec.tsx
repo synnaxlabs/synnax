@@ -23,6 +23,7 @@ import {
   commitTextEdit,
   createConsoleWrapper,
   getIconButton,
+  openContextMenu,
   resolveFocusedTab,
   selectTestProject,
   type TestStore,
@@ -76,10 +77,6 @@ const renderToolbar = async ({
   return { store };
 };
 
-const openContextMenu = async (name: string): Promise<void> => {
-  fireEvent.contextMenu(await screen.findByText(name));
-};
-
 describe("range/Toolbar", () => {
   it("shows the empty state and opens the Range Explorer from it", async () => {
     const { store } = await renderToolbar();
@@ -103,7 +100,10 @@ describe("range/Toolbar", () => {
   it("sets the clicked range as active", async () => {
     const rng = toState(await createTestRange(client));
     const { store } = await renderToolbar({ ranges: [rng] });
-    fireEvent.click(await screen.findByText(rng.name));
+    await screen.findByText(rng.name);
+    // Re-query synchronously: async permission resolution can replace the text node,
+    // detaching a match held across an await before the click lands.
+    fireEvent.click(screen.getByText(rng.name));
     await waitFor(() =>
       expect(Session.Range.selectSelectedKey(store.getState())).toBe(rng.key),
     );

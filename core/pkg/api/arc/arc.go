@@ -27,7 +27,9 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	xconfig "github.com/synnaxlabs/x/config"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
+	"github.com/synnaxlabs/x/query"
 )
 
 type (
@@ -126,13 +128,14 @@ func (s *Service) Dispatch(
 
 type (
 	RetrieveRequest struct {
-		SearchTerm    string    `json:"search_term" msgpack:"search_term"`
-		Keys          []arc.Key `json:"keys" msgpack:"keys"`
-		Names         []string  `json:"names" msgpack:"names"`
-		Limit         int       `json:"limit" msgpack:"limit"`
-		Offset        int       `json:"offset" msgpack:"offset"`
-		IncludeStatus bool      `json:"include_status" msgpack:"include_status"`
-		Compile       bool      `json:"compile" msgpack:"compile"`
+		SearchTerm          string    `json:"search_term" msgpack:"search_term"`
+		Keys                []arc.Key `json:"keys" msgpack:"keys"`
+		Names               []string  `json:"names" msgpack:"names"`
+		Limit               int       `json:"limit" msgpack:"limit"`
+		Offset              int       `json:"offset" msgpack:"offset"`
+		IncludeStatus       bool      `json:"include_status" msgpack:"include_status"`
+		Compile             bool      `json:"compile" msgpack:"compile"`
+		IgnoreNotFoundError bool      `json:"ignore_not_found_error" msgpack:"ignore_not_found_error"`
 	}
 	RetrieveResponse struct {
 		Arcs []Arc `json:"arcs,omitzero" msgpack:"arcs,omitzero"`
@@ -165,7 +168,11 @@ func (s *Service) Retrieve(
 	if req.Offset > 0 {
 		q = q.Offset(req.Offset)
 	}
-	if err := q.Exec(ctx, nil); err != nil {
+	err := q.Exec(ctx, nil)
+	if req.IgnoreNotFoundError && err != nil {
+		err = errors.Skip(err, query.ErrNotFound)
+	}
+	if err != nil {
 		return RetrieveResponse{}, err
 	}
 

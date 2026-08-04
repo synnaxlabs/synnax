@@ -8,4 +8,5 @@
 // included in the file licenses/APL.txt.
 
 export * from "@/session/persist/kv";
+export * from "@/session/persist/slice";
 export * from "@/session/persist/state";

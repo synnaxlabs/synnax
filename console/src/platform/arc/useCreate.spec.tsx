@@ -23,14 +23,17 @@ const Harness = (): ReactElement => {
 Harness.displayName = "Harness";
 
 describe("arc useCreate", () => {
-  it("should open the create modal with a disabled Create button", async () => {
+  it("should reject an empty name with a validation error", async () => {
     await renderArc(<Harness />);
     fireEvent.click(screen.getByRole("button", { name: "open" }));
     await waitFor(() =>
       expect(screen.getByPlaceholderText("Automation Name")).toBeTruthy(),
     );
     const create = screen.getByRole("button", { name: "Create" });
-    expect(create.className).toContain("pluto--disabled");
+    await act(async () => {
+      fireEvent.click(create);
+    });
+    await waitFor(() => expect(screen.getByText("Name is required")).toBeTruthy());
   });
 
   it("should create the arc on the server after the modal completes", async () => {
@@ -43,7 +46,6 @@ describe("arc useCreate", () => {
     fireEvent.change(input, { target: { value: name } });
 
     const create = screen.getByRole("button", { name: "Create" });
-    await waitFor(() => expect(create.className).not.toContain("pluto--disabled"));
     await act(async () => {
       fireEvent.click(create);
     });

@@ -14,6 +14,13 @@
     height: inherit;
     position: relative;
 
+    /* Focusable (tabIndex -1) only so clipboard events land in the diagram; a
+       keypress after a click would otherwise ring the whole schematic. */
+    &:focus,
+    &:focus-visible {
+        outline: none;
+    }
+
     .pluto-diagram {
         .react-flow__selection,
         .react-flow__nodesselection-rect {

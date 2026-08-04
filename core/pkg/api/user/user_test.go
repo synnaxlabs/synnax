@@ -31,7 +31,7 @@ func nonRootCtx(ctx SpecContext) (freighter.Context, user.User) {
 		Username: "non-root-" + uuid.NewString(),
 	}))
 	fctx := freighter.Context{Context: ctx, Params: freighter.Params{}}
-	fctx.Set("Subject", user.OntologyID(u.Key))
+	fctx.Set("Subject", u.OntologyID())
 	return fctx, u
 }
 

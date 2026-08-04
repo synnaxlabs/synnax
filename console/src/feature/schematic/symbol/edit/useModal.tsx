@@ -173,10 +173,10 @@ export const useModal = Modals.create<ModalParams>(
                 <Flex.Box
                   className={CSS.BE("schematic", "sidebar")}
                   y
-                  rounded={1}
+                  rounded="small"
                   background={0}
                   bordered
-                  borderColor={5}
+                  borderColor={6}
                 >
                   <Flex.Box className={CSS.BE("schematic", "name")}>
                     <Form.TextField
@@ -190,7 +190,7 @@ export const useModal = Modals.create<ModalParams>(
                   </Flex.Box>
                   <Divider.Divider x />
                   <Flex.Box y>
-                    <Header.Header level="p" bordered={false} padded>
+                    <Header.Header level="p" bordered={false}>
                       <Header.Title level="p" weight={500}>
                         States
                       </Header.Title>
@@ -218,7 +218,7 @@ export const useModal = Modals.create<ModalParams>(
                   />
                   <Divider.Divider x />
                   <Flex.Box y>
-                    <Header.Header level="p" bordered={false} padded>
+                    <Header.Header level="p" bordered={false}>
                       <Header.Title level="p" weight={500}>
                         Properties
                       </Header.Title>

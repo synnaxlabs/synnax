@@ -61,12 +61,15 @@ func (w Writer) Create(ctx context.Context, a *Arc) error {
 	if err = w.table.NewCreate().Entry(a).Exec(ctx, w.tx); err != nil {
 		return err
 	}
-	otgID := OntologyID(a.Key)
 	if !exists {
-		if err = w.otgWriter.DefineResources(ctx, otgID); err != nil {
+		if err = w.otgWriter.DefineResources(ctx, a.OntologyID()); err != nil {
 			return err
 		}
 	}
+	// Notify last: a create rejected by ontology validation must not be broadcast.
+	w.dispatcher.Notify(
+		ctx, a.Key, "", []Action{NewCreateAction(CreatePayload{Arc: *a})},
+	)
 	return nil
 }
 

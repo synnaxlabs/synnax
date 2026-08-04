@@ -162,11 +162,15 @@ const Content = () => {
   return (
     <Menu.ContextMenu menu={contextMenu} {...menuProps}>
       <Toolbar.Content className={CSS(CSS.B("task-toolbar"), menuProps.className)}>
-        <Toolbar.Header padded>
+        <Toolbar.Header>
           <Toolbar.Title icon={<Icon.Task />}>Tasks</Toolbar.Title>
           {hasCreatePermission && (
             <Toolbar.Actions>
-              <Toolbar.Action tooltip="Create task" onClick={() => openSelector()}>
+              <Toolbar.Action
+                tooltip="Create task"
+                onClick={() => openSelector()}
+                variant="filled"
+              >
                 <Icon.Add />
               </Toolbar.Action>
             </Toolbar.Actions>
@@ -345,7 +349,7 @@ const ContextMenu = ({
   const addStatus = Status.useAdder();
   const copyLinkToClipboard = Cluster.useCopyLinkToClipboard();
 
-  const handleExport = PlatformTask.useExport();
+  const handleExport = Export.use();
   const handleLink = useCallback(
     (key: task.Key) => {
       const name = selectedTasks.find((t) => t.key === key)?.name;
@@ -377,7 +381,21 @@ const ContextMenu = ({
               Stop
             </Menu.Item>
           )}
-          {(canStart || canStop) && <Menu.Divider />}
+        </>
+      )}
+      <Menu.Divider />
+      {isSingle && (
+        <Menu.Item itemKey="edit" onClick={() => onEdit(keys[0])}>
+          <Icon.Edit />
+          Edit configuration
+        </Menu.Item>
+      )}
+      {hasUpdatePermission && isSingle && (
+        <PlatformContextMenu.RenameItem onClick={() => Text.edit(`text-${keys[0]}`)} />
+      )}
+      <Menu.Divider />
+      {hasUpdatePermission && (
+        <>
           {canEnableDataSaving && (
             <Menu.Item
               itemKey="enableDataSaving"
@@ -396,56 +414,36 @@ const ContextMenu = ({
               Disable data saving
             </Menu.Item>
           )}
-          {(canEnableDataSaving || canDisableDataSaving) && <Menu.Divider />}
-          {isSingle && (
-            <>
-              <PlatformContextMenu.RenameItem
-                onClick={() => Text.edit(`text-${keys[0]}`)}
-              />
-              <Menu.Divider />
-            </>
-          )}
-        </>
-      )}
-      {isSingle && (
-        <>
-          <Menu.Item itemKey="edit" onClick={() => onEdit(keys[0])}>
-            <Icon.Edit />
-            Edit configuration
-          </Menu.Item>
-          <Menu.Divider />
         </>
       )}
       {hasCreatePermission && showSnapshotToActiveRange && (
-        <>
-          <Range.SnapshotMenuItem
-            range={activeRange}
-            key="snapshot"
-            onClick={() =>
-              snapshotToActiveRange({
-                tasks: selectedTasks.map(({ name, ontologyID: { key } }) => ({
-                  key,
-                  name,
-                })),
-              })
-            }
-          />
-          <Menu.Divider />
-        </>
+        <Range.SnapshotMenuItem
+          range={activeRange}
+          key="snapshot"
+          onClick={() =>
+            snapshotToActiveRange({
+              tasks: selectedTasks.map(({ name, ontologyID: { key } }) => ({
+                key,
+                name,
+              })),
+            })
+          }
+        />
       )}
+      <Menu.Divider />
       {isSingle && (
         <>
-          <Export.ContextMenuItem onClick={() => handleExport(keys[0])} />
+          <Export.ContextMenuItem
+            onClick={() => handleExport(task.ontologyID(keys[0]))}
+          />
           <Link.CopyContextMenuItem onClick={() => handleLink(keys[0])} />
-          <Menu.Divider />
         </>
       )}
+      <Menu.Divider />
       {hasDeletePermission && someSelected && (
-        <>
-          <PlatformContextMenu.DeleteItem onClick={() => onDelete(keys)} />
-          <Menu.Divider />
-        </>
+        <PlatformContextMenu.DeleteItem onClick={() => onDelete(keys)} />
       )}
+      <Menu.Divider />
       <PlatformContextMenu.ReloadConsoleItem />
     </PlatformContextMenu.Menu>
   );

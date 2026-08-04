@@ -11,8 +11,20 @@ import { Provider } from "@synnaxlabs/drift/react";
 import { useInitializerRef } from "@synnaxlabs/pluto";
 import { type ReactNode } from "react";
 
+import { Arc } from "@/session/arc";
+import { Cluster } from "@/session/cluster";
+import { LinePlot } from "@/session/lineplot";
+import { Log } from "@/session/log";
 import { Modals } from "@/session/modals";
+import { Panel } from "@/session/panel";
+import { Project } from "@/session/project";
+import { Range } from "@/session/range";
+import { Runtime } from "@/session/runtime";
+import { Schematic } from "@/session/schematic";
+import { Status } from "@/session/status";
 import { createStore } from "@/session/store";
+import { Synchronizer } from "@/session/synchronizer";
+import { Table } from "@/session/table";
 
 export interface ContextProps {
   children: ReactNode;
@@ -26,3 +38,31 @@ export const Context = ({ children }: ContextProps) => {
     </Modals.Context>
   );
 };
+
+const MAIN_SYNCHRONIZERS: Synchronizer.Synchronizers = {
+  ...Arc.SYNCHRONIZERS,
+  ...Cluster.SYNCHRONIZERS,
+  ...LinePlot.SYNCHRONIZERS,
+  ...Log.SYNCHRONIZERS,
+  ...Panel.SYNCHRONIZERS,
+  ...Project.SYNCHRONIZERS,
+  ...Range.SYNCHRONIZERS,
+  ...Schematic.SYNCHRONIZERS,
+  ...Status.SYNCHRONIZERS,
+  ...Table.SYNCHRONIZERS,
+};
+
+const WINDOW_SYNCHRONIZERS: Synchronizer.Synchronizers = Panel.WINDOW_SYNCHRONIZERS;
+
+/**
+ * Mounts the session synchronizers for this window. Must be called below the
+ * Pluto providers, in every window.
+ * @returns whether a full reconcile pass has completed since the last
+ * return-to-cold.
+ */
+export const useSynchronizers = (): boolean =>
+  Synchronizer.use(
+    Runtime.isMainWindow()
+      ? { ...WINDOW_SYNCHRONIZERS, ...MAIN_SYNCHRONIZERS }
+      : WINDOW_SYNCHRONIZERS,
+  );

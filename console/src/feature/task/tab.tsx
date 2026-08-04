@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { Panel as PPanel, Status, Task as Base, Text } from "@synnaxlabs/pluto";
+import { cloneElement } from "react";
 
 import { EtherCAT } from "@/feature/ethercat";
 import { HTTP } from "@/feature/http";
@@ -49,19 +50,28 @@ const Content: Panel.Content = () => {
 
 const Name: Panel.TabName = () => {
   const tabKey = PPanel.useTabKey();
+  const isEditTarget = Panel.useIsNameEditTarget();
   const { key } = PPanel.useSelectTabResource();
+  Base.useEnsureRetrieved({ key });
+  const name = Base.useSelectName({ key });
   const { data } = Base.useRetrieve({ key });
   const { update: rename } = Base.useRename();
   return (
     <>
       {getIcon(data?.type ?? "")}
       <Text.Editable
-        id={Panel.tabNameID(tabKey)}
-        value={data?.name ?? ""}
+        id={isEditTarget ? Panel.tabNameID(tabKey) : undefined}
+        value={name}
         onChange={(name) => rename({ key, name })}
       />
     </>
   );
 };
 
-export const TAB: Panel.Tab = { Content, Name };
+const Icon: Panel.TabIcon = (props) => {
+  const { key } = PPanel.useSelectTabResource();
+  const { data } = Base.useRetrieve({ key });
+  return cloneElement(getIcon(data?.type ?? ""), props);
+};
+
+export const TAB: Panel.Tab = { Content, Name, Icon };

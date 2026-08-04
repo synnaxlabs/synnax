@@ -18,7 +18,6 @@ import {
   List,
   Select,
   Status,
-  stopPropagation,
   Tag,
   Telem,
   Text,
@@ -63,7 +62,6 @@ export const Item = (props: ItemProps): ReactElement | null => {
       className={CSS(CSS.BE("status", "list-item"))}
       justify="between"
       selected={selected}
-      rounded={!selected}
     >
       <Form.Form<typeof Status.formSchema> {...form}>
         <Flex.Box x empty>
@@ -71,8 +69,7 @@ export const Item = (props: ItemProps): ReactElement | null => {
             value={selected}
             onChange={onSelect}
             size="medium"
-            onClick={stopPropagation}
-            ghost={!selected}
+            reveal={!selected}
           />
           <Text.Text level="p" weight={450}>
             <Status.Indicator variant={variant} />
@@ -105,9 +102,9 @@ export const Item = (props: ItemProps): ReactElement | null => {
             >
               {time}
             </Telem.Text.TimeSpanSince>
-            <Icon.Time color={8} />
+            <Icon.Time color={9} />
           </Text.Text>
-          <Button.Favorite isFavorite={isFavorite} onFavorite={handleFavorite} ghost />
+          <Button.Favorite isFavorite={isFavorite} onFavorite={handleFavorite} reveal />
         </Flex.Box>
       </Form.Form>
     </List.Item>

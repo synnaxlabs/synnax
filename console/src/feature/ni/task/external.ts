@@ -39,10 +39,9 @@ import {
   DIGITAL_READ_TYPE,
   DIGITAL_WRITE_TYPE,
 } from "@/feature/ni/task/types";
-import { type Export } from "@/platform/export";
 import { type Import } from "@/platform/import";
 import { type Selector } from "@/platform/selector";
-import { Task } from "@/platform/task";
+import { type Task } from "@/platform/task";
 
 export * from "@/feature/ni/task/AnalogRead";
 export * from "@/feature/ni/task/AnalogWrite";
@@ -52,14 +51,6 @@ export * from "@/feature/ni/task/DigitalRead";
 export * from "@/feature/ni/task/DigitalWrite";
 export * from "@/feature/ni/task/types";
 export * from "@/feature/ni/task/useToggleScanner";
-
-export const EXTRACTORS: Export.Extractors = {
-  [ANALOG_READ_TYPE]: Task.extract,
-  [ANALOG_WRITE_TYPE]: Task.extract,
-  [COUNTER_READ_TYPE]: Task.extract,
-  [DIGITAL_READ_TYPE]: Task.extract,
-  [DIGITAL_WRITE_TYPE]: Task.extract,
-};
 
 export const FILE_INGESTERS: Import.FileIngesters = {
   [ANALOG_READ_TYPE]: analogReadIngester,

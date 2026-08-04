@@ -7,36 +7,32 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { connection, Synnax, type SynnaxParams } from "@synnaxlabs/client";
+import { migrate } from "@synnaxlabs/x";
 import {
-  type connection,
-  type status,
-  Synnax,
-  type SynnaxParams,
-  TimeSpan,
-} from "@synnaxlabs/client";
-import { type breaker, caseconv, migrate } from "@synnaxlabs/x";
-import { type PropsWithChildren, type ReactElement, useCallback, useMemo } from "react";
+  type PropsWithChildren,
+  type ReactElement,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+} from "react";
 import z from "zod";
 
 import { Aether } from "@/aether";
 import { context } from "@/context";
-import { useAsyncEffect, useCombinedStateAndRef } from "@/hooks";
+import { useCombinedStateAndRef } from "@/hooks";
+import { useMemoDeepEqual } from "@/memo";
 import { Status } from "@/status/base";
 import { synnax } from "@/synnax/aether";
 
 export interface ContextValue extends synnax.ContextValue {
-  state: connection.State;
+  status: connection.Status;
 }
 
 const ZERO_CONTEXT_VALUE: ContextValue = {
   ...synnax.ZERO_CONTEXT_VALUE,
-  state: Synnax.connectivity.DEFAULT,
-};
-
-const DEFAULT_RETRY_CONFIG: breaker.Config = {
-  maxRetries: 4,
-  baseInterval: TimeSpan.seconds(1),
-  scale: 2,
+  status: connection.DEFAULT_STATUS,
 };
 
 const [Context, useContext] = context.create({
@@ -46,18 +42,11 @@ const [Context, useContext] = context.create({
 
 export const use = () => useContext().client;
 
-export const useConnectionState = () => useContext().state;
+export const useConnectionStatus = () => useContext().status;
 
 export interface ProviderProps extends PropsWithChildren {
   connParams?: SynnaxParams;
 }
-
-export const CONNECTION_STATE_VARIANTS: Record<connection.Status, status.Variant> = {
-  connected: "success",
-  connecting: "loading",
-  disconnected: "disabled",
-  failed: "error",
-};
 
 export const SERVER_VERSION_MISMATCH = "serverVersionMismatch";
 export const CLOCK_SKEW_EXCEEDED = "clockSkewExceeded";
@@ -76,8 +65,11 @@ export const clockSkewDetailsSchema = z.object({
 
 export interface StatusDetails extends z.infer<typeof statusDetailsSchema> {}
 
-const addClockSkewStatus = (addStatus: Status.Adder, state: connection.State): void => {
-  const skew = state.clockSkew;
+const addClockSkewStatus = (
+  addStatus: Status.Adder,
+  status: connection.Status,
+): void => {
+  const skew = status.details.clockSkew;
   const direction = skew.valueOf() > 0n ? "ahead of" : "behind";
   addStatus<typeof clockSkewDetailsSchema>({
     variant: "warning",
@@ -93,24 +85,52 @@ const addClockSkewStatus = (addStatus: Status.Adder, state: connection.State): v
   });
 };
 
-const createErrorDescription = (
-  oldServer: boolean,
-  clientVersion: string,
-  nodeVersion?: string,
-): string =>
-  `Core version ${nodeVersion != null ? `${nodeVersion} ` : ""}is ${oldServer ? "older" : "newer"} than client version ${clientVersion}. Compatibility issues may arise.`;
+const reasonOf = (status: connection.Status): connection.Reason | undefined =>
+  status.variant === "error" ? status.details.reason : undefined;
+
+const addVersionMismatchStatus = (
+  addStatus: Status.Adder,
+  status: connection.Status,
+): void => {
+  const oldServer =
+    status.details.nodeVersion == null ||
+    migrate.semVerOlder(status.details.nodeVersion, status.details.clientVersion);
+  addStatus<typeof statusDetailsSchema>({
+    variant: "warning",
+    message: "Incompatible Core version",
+    description: `Core version ${status.details.nodeVersion != null ? `${status.details.nodeVersion} ` : ""}is ${oldServer ? "older" : "newer"} than client version ${status.details.clientVersion}. Compatibility issues may arise.`,
+    details: {
+      type: SERVER_VERSION_MISMATCH,
+      oldServer,
+      nodeVersion: status.details.nodeVersion,
+      clientVersion: status.details.clientVersion,
+    },
+  });
+};
 
 interface TestProviderProps extends PropsWithChildren {
   client: Synnax | null;
+  status?: connection.Status;
 }
 
-export const TestProvider = ({ children, client }: TestProviderProps): ReactElement => {
+export const TestProvider = ({
+  children,
+  client,
+  status,
+}: TestProviderProps): ReactElement => {
   const { path } = Aether.useUnidirectional({
     type: synnax.Provider.TYPE,
     schema: synnax.Provider.stateZ,
-    state: { props: null, state: null },
+    state: { props: null },
   });
-  const value = useMemo(() => ({ ...ZERO_CONTEXT_VALUE, client }), [client]);
+  const value = useMemo(
+    () => ({
+      ...ZERO_CONTEXT_VALUE,
+      client,
+      status: status ?? ZERO_CONTEXT_VALUE.status,
+    }),
+    [client, status],
+  );
   return (
     <Context value={value}>
       <Aether.Composite path={path}>{children}</Aether.Composite>
@@ -118,98 +138,63 @@ export const TestProvider = ({ children, client }: TestProviderProps): ReactElem
   );
 };
 
-export const Provider = ({ children, connParams }: ProviderProps): ReactElement => {
+export const Provider = ({
+  children,
+  connParams: connParamsProp,
+}: ProviderProps): ReactElement => {
+  // The client's lifetime keys on param content: a content-equal rewrite of
+  // the params object (state hydration) must not tear down the connection.
+  const connParams = useMemoDeepEqual(connParamsProp);
   const [state, setState, ref] =
     useCombinedStateAndRef<ContextValue>(ZERO_CONTEXT_VALUE);
 
   const { path } = Aether.useUnidirectional({
     type: synnax.Provider.TYPE,
     schema: synnax.Provider.stateZ,
-    state: { props: connParams ?? null, state: null },
+    state: { props: connParams ?? null },
   });
 
   const addStatus = Status.useAdder();
+  const handleError = Status.useErrorHandler();
+  const versionWarned = useRef(false);
 
   const handleChange = useCallback(
-    (state: connection.State) => {
-      if (ref.current.state.status !== state.status)
-        addStatus({
-          variant: CONNECTION_STATE_VARIANTS[state.status],
-          message: state.message ?? caseconv.capitalize(state.status),
-        });
-      if (state.status === "connected" && state.clockSkewExceeded)
-        addClockSkewStatus(addStatus, state);
-      setState((prev) => ({ ...prev, state }));
+    (connStatus: connection.Status) => {
+      const prev = ref.current.status;
+      if (
+        prev.variant !== connStatus.variant ||
+        prev.message !== connStatus.message ||
+        reasonOf(prev) !== reasonOf(connStatus)
+      )
+        addStatus({ variant: connStatus.variant, message: connStatus.message });
+      if (connStatus.variant === "success") {
+        if (connStatus.details.clockSkewExceeded)
+          addClockSkewStatus(addStatus, connStatus);
+        if (!connStatus.details.clientServerCompatible && !versionWarned.current) {
+          versionWarned.current = true;
+          addVersionMismatchStatus(addStatus, connStatus);
+        }
+      }
+      setState((prev) => ({ ...prev, status: connStatus }));
     },
     [addStatus],
   );
 
-  useAsyncEffect(
-    async (signal) => {
-      if (state.client != null) state.client.close();
-      if (connParams == null) return setState(ZERO_CONTEXT_VALUE);
-
-      const client = new Synnax({
-        retry: DEFAULT_RETRY_CONFIG,
-        ...connParams,
-        connectivityPollFrequency: TimeSpan.seconds(2),
-      });
-
-      setState({
-        client,
-        state: {
-          ...Synnax.connectivity.DEFAULT,
-          status: "connecting",
-          message: "Connecting...",
-          clientVersion: client.clientVersion,
-        },
-      });
-
-      const connectivity = await client.connectivity.check();
-      if (signal.aborted) return;
-
-      setState({ client, state: connectivity });
-      addStatus({
-        variant: CONNECTION_STATE_VARIANTS[connectivity.status],
-        message: connectivity.message ?? connectivity.status.toUpperCase(),
-      });
-
-      if (connectivity.status === "connected" && connectivity.clockSkewExceeded)
-        addClockSkewStatus(addStatus, connectivity);
-
-      if (connectivity.status === "connected" && !connectivity.clientServerCompatible) {
-        const oldServer =
-          connectivity.nodeVersion == null ||
-          migrate.semVerOlder(connectivity.nodeVersion, connectivity.clientVersion);
-
-        const description = createErrorDescription(
-          oldServer,
-          connectivity.clientVersion,
-          connectivity.nodeVersion,
-        );
-
-        addStatus<typeof statusDetailsSchema>({
-          variant: "warning",
-          message: "Incompatible Core version",
-          description,
-          details: {
-            type: SERVER_VERSION_MISMATCH,
-            oldServer,
-            nodeVersion: connectivity.nodeVersion,
-            clientVersion: connectivity.clientVersion,
-          },
-        });
-      }
-
-      client.connectivity.onChange(handleChange);
-
-      return () => {
-        client.close();
-        setState(ZERO_CONTEXT_VALUE);
-      };
-    },
-    [connParams, handleChange],
-  );
+  useEffect(() => {
+    if (connParams == null) {
+      setState(ZERO_CONTEXT_VALUE);
+      return;
+    }
+    versionWarned.current = false;
+    const client = new Synnax({ ...connParams, onInternalError: handleError });
+    setState({ client, status: client.connection.status });
+    const detach = client.connection.onChange(handleChange);
+    return () => {
+      detach();
+      client.close();
+      setState(ZERO_CONTEXT_VALUE);
+    };
+  }, [connParams, handleChange, handleError]);
 
   return (
     <Context value={state}>

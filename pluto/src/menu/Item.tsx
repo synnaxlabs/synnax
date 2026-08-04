@@ -26,7 +26,7 @@ export const Item = ({
   size,
   ...rest
 }: ItemProps): ReactElement => {
-  const { onClick: ctxOnClick, selected, level = "p", gap, background } = useContext();
+  const { onClick: ctxOnClick, selected, level = "p", gap } = useContext();
   const handleClick: Button.ButtonProps["onClick"] = (e) => {
     ctxOnClick(itemKey);
     onClick?.(e);
@@ -34,7 +34,6 @@ export const Item = ({
   const _selected = selected === itemKey;
   return (
     <Button.Button
-      contrast={background}
       level={level}
       overflow="nowrap"
       onClick={handleClick}

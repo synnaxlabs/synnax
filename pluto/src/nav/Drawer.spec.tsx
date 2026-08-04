@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type xy } from "@synnaxlabs/x";
-import { fireEvent, render } from "@testing-library/react";
+import { act, fireEvent, render } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 import { Nav } from "@/nav";
@@ -36,7 +36,12 @@ const handleOf = (c: ReturnType<typeof render>): HTMLElement => {
 
 // Cursor.useDrag captures the pointer on the handle, then tracks moves/up on window.
 // The from -> to distance must exceed the activation threshold for the drag to begin.
-const pressMove = (c: ReturnType<typeof render>, from: xy.XY, to: xy.XY): void => {
+// Moves are coalesced onto the next animation frame, so pressMove awaits one.
+const pressMove = async (
+  c: ReturnType<typeof render>,
+  from: xy.XY,
+  to: xy.XY,
+): Promise<void> => {
   fireEvent.pointerDown(handleOf(c), {
     pointerId: 1,
     button: 0,
@@ -45,14 +50,22 @@ const pressMove = (c: ReturnType<typeof render>, from: xy.XY, to: xy.XY): void =
     clientY: from.y,
   });
   fireEvent.pointerMove(window, { pointerId: 1, clientX: to.x, clientY: to.y });
+  await act(
+    async () =>
+      await new Promise<void>((resolve) => requestAnimationFrame(() => resolve())),
+  );
 };
 
 const release = (to: xy.XY): void => {
   fireEvent.pointerUp(window, { pointerId: 1, clientX: to.x, clientY: to.y });
 };
 
-const drag = (c: ReturnType<typeof render>, from: xy.XY, to: xy.XY): void => {
-  pressMove(c, from, to);
+const drag = async (
+  c: ReturnType<typeof render>,
+  from: xy.XY,
+  to: xy.XY,
+): Promise<void> => {
+  await pressMove(c, from, to);
   release(to);
 };
 
@@ -89,82 +102,82 @@ describe("Nav.Drawer", () => {
   });
 
   describe("resize within the collapse threshold", () => {
-    it("should call onResize with the clamped size", () => {
+    it("should call onResize with the clamped size", async () => {
       const onResize = vi.fn();
       const c = renderDrawer({ onResize });
-      drag(c, { x: 500, y: 0 }, { x: 460, y: 0 });
+      await drag(c, { x: 500, y: 0 }, { x: 460, y: 0 });
       expect(onResize).toHaveBeenCalled();
       expect(onResize.mock.lastCall?.[0]).toEqual(160);
     });
 
-    it("should call onResizeEnd and not onCollapse on release", () => {
+    it("should call onResizeEnd and not onCollapse on release", async () => {
       const onResizeEnd = vi.fn();
       const onCollapse = vi.fn();
       const c = renderDrawer({ onResizeEnd, onCollapse });
-      drag(c, { x: 500, y: 0 }, { x: 460, y: 0 });
+      await drag(c, { x: 500, y: 0 }, { x: 460, y: 0 });
       expect(onResizeEnd).toHaveBeenCalledWith(160, expect.anything());
       expect(onCollapse).not.toHaveBeenCalled();
     });
 
-    it("should stay visible throughout the drag", () => {
+    it("should stay visible throughout the drag", async () => {
       const c = renderDrawer();
-      pressMove(c, { x: 500, y: 0 }, { x: 460, y: 0 });
+      await pressMove(c, { x: 500, y: 0 }, { x: 460, y: 0 });
       expect(drawerOf(c).className).toContain("pluto--visible");
       release({ x: 460, y: 0 });
     });
   });
 
   describe("resize past the collapse threshold", () => {
-    it("should hide the drawer mid-drag and suppress onResize", () => {
+    it("should hide the drawer mid-drag and suppress onResize", async () => {
       const onResize = vi.fn();
       const c = renderDrawer({ onResize });
-      pressMove(c, { x: 500, y: 0 }, { x: 250, y: 0 });
+      await pressMove(c, { x: 500, y: 0 }, { x: 250, y: 0 });
       expect(drawerOf(c).className).toContain("pluto--hidden");
       expect(onResize).not.toHaveBeenCalled();
       release({ x: 250, y: 0 });
     });
 
-    it("should call onCollapse and not onResizeEnd on release", () => {
+    it("should call onCollapse and not onResizeEnd on release", async () => {
       const onResizeEnd = vi.fn();
       const onCollapse = vi.fn();
       const c = renderDrawer({ onResizeEnd, onCollapse });
-      drag(c, { x: 500, y: 0 }, { x: 250, y: 0 });
+      await drag(c, { x: 500, y: 0 }, { x: 250, y: 0 });
       expect(onCollapse).toHaveBeenCalledTimes(1);
       expect(onResizeEnd).not.toHaveBeenCalled();
     });
 
-    it("should clear the transient collapsed state after release", () => {
+    it("should clear the transient collapsed state after release", async () => {
       const c = renderDrawer();
-      drag(c, { x: 500, y: 0 }, { x: 250, y: 0 });
+      await drag(c, { x: 500, y: 0 }, { x: 250, y: 0 });
       expect(drawerOf(c).className).toContain("pluto--visible");
     });
   });
 
   describe("collapseThreshold", () => {
-    it("should collapse for a smaller overshoot when the threshold is low", () => {
+    it("should collapse for a smaller overshoot when the threshold is low", async () => {
       const onCollapse = vi.fn();
       const c = renderDrawer({ collapseThreshold: 10, onCollapse });
-      drag(c, { x: 500, y: 0 }, { x: 380, y: 0 });
+      await drag(c, { x: 500, y: 0 }, { x: 380, y: 0 });
       expect(onCollapse).toHaveBeenCalledTimes(1);
     });
 
-    it("should not collapse for the same overshoot when the threshold is high", () => {
+    it("should not collapse for the same overshoot when the threshold is high", async () => {
       const onCollapse = vi.fn();
       const onResizeEnd = vi.fn();
       const c = renderDrawer({ onCollapse, onResizeEnd });
-      drag(c, { x: 500, y: 0 }, { x: 380, y: 0 });
+      await drag(c, { x: 500, y: 0 }, { x: 380, y: 0 });
       expect(onCollapse).not.toHaveBeenCalled();
       expect(onResizeEnd).toHaveBeenCalled();
     });
   });
 
   describe("when already collapsed", () => {
-    it("should ignore drags entirely", () => {
+    it("should ignore drags entirely", async () => {
       const onResize = vi.fn();
       const onResizeEnd = vi.fn();
       const onCollapse = vi.fn();
       const c = renderDrawer({ collapsed: true, onResize, onResizeEnd, onCollapse });
-      drag(c, { x: 500, y: 0 }, { x: 250, y: 0 });
+      await drag(c, { x: 500, y: 0 }, { x: 250, y: 0 });
       expect(onResize).not.toHaveBeenCalled();
       expect(onResizeEnd).not.toHaveBeenCalled();
       expect(onCollapse).not.toHaveBeenCalled();

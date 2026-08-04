@@ -87,6 +87,9 @@ interface InternalState {
   namePadding: Record<string, string>;
   charWidth: number;
   lineHeight: number;
+  // Downward nudge aligning the selection band with glyph ink (see
+  // Draw2D.measureInkOffsetY).
+  selectionOffsetY: number;
   tsLen: number;
   selectionColor: color.Color;
   stopListeningTelem?: destructor.Destructor;
@@ -148,6 +151,7 @@ export class Log extends aether.Leaf<typeof logStateZ, InternalState> {
 
     i.lineHeight = i.theme.typography[this.state.font].size * i.theme.sizes.base;
     i.charWidth = i.draw2d.measureCharWidth(this.state.font);
+    i.selectionOffsetY = i.draw2d.measureInkOffsetY(this.state.font, i.lineHeight);
     i.tsLen =
       this.state.timestampPrecision === 0 ? 8 : 9 + this.state.timestampPrecision;
 
@@ -247,7 +251,7 @@ export class Log extends aether.Leaf<typeof logStateZ, InternalState> {
         this.clampSelection(evictedCount);
       }
       this.checkEmpty();
-      this.requestRender();
+      if (this.state.visible) this.requestRender();
     });
     if (!this.state.visible && !this.prevState.visible) return;
     this.requestRender();
@@ -383,7 +387,7 @@ export class Log extends aether.Leaf<typeof logStateZ, InternalState> {
       region: box.construct(
         xy.translate(box.topLeft(reg), {
           x: 0,
-          y: highlightStart * lh + CONTENT_PADDING,
+          y: highlightStart * lh + CONTENT_PADDING + this.internal.selectionOffsetY,
         }),
         { width: box.width(reg), height: rowCount * lh },
       ),

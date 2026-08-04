@@ -34,7 +34,7 @@ describe("Arc.useLink", () => {
     const tab = await resolveFocusedTab(store, client);
     if (tab.variant !== "resource") throw new Error("expected a resource tab");
     expect(tab.resource.type).toBe("arc");
-    const retrieved = await client.arcs.retrieve({ key: tab.resource.key });
+    const retrieved = await client.arcs.retrieve(tab.resource.key);
     expect(retrieved.name).toBe("Control Sequence");
   });
 });

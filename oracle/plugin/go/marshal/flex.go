@@ -20,7 +20,7 @@ import (
 // flexible DecodeMsgpack and UnmarshalJSON methods should be generated. These
 // methods handle type coercion (float64 -> uint64, string -> uint64, etc.) so
 // the type decodes correctly when used inside generic containers that fall back
-// to msgpack/JSON reflection-based decoding.
+// to MessagePack/JSON reflection-based decoding.
 type FlexCodec struct {
 	GoName   string
 	Receiver string
@@ -78,6 +78,7 @@ func generateFlexMethods(fc FlexCodec) (string, error) {
 }
 
 const flexTemplate = `
+// DecodeMsgpack coerces numeric or string MessagePack values into {{.GoName}}.
 func ({{.Receiver}} *{{.GoName}}) DecodeMsgpack(dec *msgpack.Decoder) error {
 	n, err := xmsgpack.{{.MsgpackHelper}}(dec)
 	if err != nil {
@@ -87,6 +88,7 @@ func ({{.Receiver}} *{{.GoName}}) DecodeMsgpack(dec *msgpack.Decoder) error {
 	return nil
 }
 
+// UnmarshalJSON coerces JSON numbers or strings into {{.GoName}}.
 func ({{.Receiver}} *{{.GoName}}) UnmarshalJSON(b []byte) error {
 	n, err := xjson.{{.JSONHelper}}(b)
 	if err != nil {

@@ -9,33 +9,36 @@
 
 import "@/feature/auth/Login.css";
 
-import { status, Synnax as Client } from "@synnaxlabs/client";
 import { Logo } from "@synnaxlabs/media";
 import {
   Button,
   Flex,
   Form,
+  Icon,
   type Input,
   Status,
-  Text,
+  Synnax,
   type Triggers,
 } from "@synnaxlabs/pluto";
+import { uuid } from "@synnaxlabs/x";
 import { type ReactElement, useCallback, useState } from "react";
 import { z } from "zod";
 
-import { LoginNav } from "@/feature/auth/LoginNav";
 import { Cluster } from "@/platform/cluster";
 import { CSS } from "@/platform/css";
+import { Shell } from "@/platform/shell";
 import { Session } from "@/session";
 
-const SIGN_IN_TRIGGER: Triggers.Trigger = ["Enter"];
+const LOG_IN_TRIGGER: Triggers.Trigger = ["Enter"];
+
+// The surface is a stepped wizard: pick a cluster, then authenticate against
+// it. Serving-cluster (browser) mode has no cluster step.
+type Step = "clusters" | "login";
 
 const credentialsZ = z.object({
   username: z.string().min(1, "Username is required"),
   password: z.string().min(1, "Password is required"),
 });
-
-export interface Credentials extends z.infer<typeof credentialsZ> {}
 
 const USERNAME_INPUT_PROPS: Partial<Input.TextProps> = {
   placeholder: "synnax",
@@ -49,132 +52,124 @@ const PASSWORD_INPUT_PROPS: Partial<Input.TextProps> = {
   size: "large",
 };
 
+/**
+ * Full-screen login surface: cluster selection plus credential entry. Serves
+ * both initial login (no session selected) and credential re-entry when the
+ * active cluster rejects auth, in which case the live connection status is
+ * shown and submitting for the active cluster resumes its connection.
+ */
 export const Login = (): ReactElement => {
+  const client = Synnax.use();
+  const connStatus = Synnax.useConnectionStatus();
   const servingCluster = Cluster.detectConnection();
-  const [stat, setStatus] = useState<status.Status>(() =>
-    status.create({ variant: "disabled", message: "" }),
-  );
   const clusters = Session.Cluster.useSelectMany();
-  const [selectedKey, setSelectedKey] = useState<string | undefined>(clusters[0]?.key);
+  const activeKey = Session.Cluster.useSelectSelectedKey();
+  const [selectedKey, setSelectedKey] = useState<string | undefined>(activeKey);
   const selectedCluster = Session.Cluster.useSelectState(selectedKey);
   const dispatch = Session.useDispatch();
-  const handleError = Status.useErrorHandler();
+  const [step, setStep] = useState<Step>(() =>
+    servingCluster != null || activeKey != null ? "login" : "clusters",
+  );
+  const target = servingCluster ?? selectedCluster;
 
   const methods = Form.use<typeof credentialsZ>({
     schema: credentialsZ,
-    values: { username: "", password: "" },
-    onChange: () => {
-      const usernameTouched = methods.get("username").touched;
-      const passwordTouched = methods.get("password").touched;
-      setStatus(
-        status.create({
-          variant: usernameTouched && passwordTouched ? "success" : "disabled",
-          message: "",
-        }),
-      );
-    },
+    values: { username: selectedCluster?.username ?? "", password: "" },
   });
 
-  const handleSubmit = (): void =>
-    handleError(async () => {
-      const clusterToConnect = servingCluster ?? selectedCluster;
-      if (!methods.validate() || clusterToConnect == null) return;
-      const credentials = methods.value();
-      setStatus(status.create({ variant: "loading", message: "Connecting..." }));
-      const client = new Client({ ...clusterToConnect, ...credentials });
-      const state = await client.connectivity.check();
-      const key = state.clusterKey;
-      if (state.status !== "connected") {
-        const message = state.message ?? "Unknown error";
-        return setStatus(status.create({ variant: "error", message }));
-      }
-      dispatch(Session.Cluster.set({ ...clusterToConnect, key, ...credentials }));
-      dispatch(Session.Cluster.select(key));
-    }, "Failed to log in");
+  const handleSubmit = (): void => {
+    const clusterToConnect = servingCluster ?? selectedCluster;
+    if (!methods.validate() || clusterToConnect == null) return;
+    const credentials = methods.value();
+    const key =
+      servingCluster == null && selectedCluster != null
+        ? selectedCluster.key
+        : (activeKey ?? uuid.create());
+    // A same-credentials resubmit leaves the connection params untouched, so the
+    // provider never swaps the client; nudge the existing one to reconnect.
+    if (client != null && key === activeKey) client.reauthenticate(credentials);
+    dispatch(Session.Cluster.set({ ...clusterToConnect, key, ...credentials }));
+    dispatch(Session.Cluster.select(key));
+  };
 
   const handleSelectedClusterChange = useCallback(
     (key?: string) => {
       if (key == null) return;
-      methods.reset();
+      const next = clusters.find((c) => c.key === key);
+      if (next == null) return;
+      methods.reset({ username: next.username ?? "", password: "" });
       setSelectedKey(key);
+      setStep("login");
     },
-    [methods],
+    [methods, clusters],
   );
 
   return (
-    <Flex.Box y empty className={CSS.B("login")}>
-      <LoginNav />
-      <Flex.Box
-        y
-        align="center"
-        justify="center"
-        background={1}
-        gap="huge"
-        grow
-        data-tauri-drag-region
-        className={CSS.BE("login", "content")}
-      >
-        <Logo
-          variant="title"
-          className={CSS.BE("login", "logo")}
-          data-tauri-drag-region
+    <Shell.Frame
+      className={CSS(CSS.B("login"), CSS.M(`step-${step}`))}
+      connection={step === "login" ? target : undefined}
+    >
+      {step === "clusters" ? (
+        <Cluster.List
+          className={CSS.BE("shell", "list")}
+          value={undefined}
+          onChange={handleSelectedClusterChange}
         />
-        <Flex.Box
-          pack
-          x
-          className={CSS(
-            CSS.BE("login", "container"),
-            servingCluster != null && CSS.M("narrow"),
-          )}
-          grow={false}
-          rounded={1.5}
-          background={0}
-        >
+      ) : (
+        <Flex.Box y gap="huge" className={CSS.BE("login", "form")} grow>
           {servingCluster == null && (
-            <Cluster.List
-              className={CSS.BE("login", "list")}
-              value={selectedKey}
-              onChange={handleSelectedClusterChange}
-            />
+            <Button.Button
+              variant="text"
+              className={CSS.BE("login", "back")}
+              onClick={() => setStep("clusters")}
+            >
+              <Icon.Arrow.Left />
+            </Button.Button>
           )}
-          <Flex.Box
-            y
-            gap="huge"
-            className={CSS.BE("login", "form")}
-            bordered
-            grow
-            shrink={false}
-          >
-            <Form.Form<typeof credentialsZ> {...methods}>
-              <Flex.Box y align="center" grow gap="huge" shrink={false}>
-                <Text.Text level="h2" color={11} weight={450}>
-                  Log In
-                </Text.Text>
-                <Flex.Box y full="x" empty>
-                  <Form.TextField path="username" inputProps={USERNAME_INPUT_PROPS} />
-                  <Form.TextField path="password" inputProps={PASSWORD_INPUT_PROPS} />
-                </Flex.Box>
-                <Flex.Box gap="small" align="center">
+          <Form.Form<typeof credentialsZ> {...methods}>
+            <Flex.Box y align="center" justify="center" grow gap="huge" shrink={false}>
+              <Flex.Box center grow={false} className={CSS.BE("shell", "mark-ring")}>
+                <Logo variant="icon" className={CSS.BE("shell", "mark")} />
+              </Flex.Box>
+              <Flex.Box y full="x" empty>
+                <Form.TextField
+                  path="username"
+                  required={false}
+                  inputProps={USERNAME_INPUT_PROPS}
+                />
+                <Form.TextField
+                  path="password"
+                  required={false}
+                  inputProps={PASSWORD_INPUT_PROPS}
+                />
+              </Flex.Box>
+              <Flex.Box gap="small" align="center" full="x">
+                {client != null && (
                   <Flex.Box className={CSS.BE("login", "status")}>
-                    {stat.message !== "" && (
-                      <Status.Summary variant={stat.variant} message={stat.message} />
+                    {connStatus.message !== "" && (
+                      <Status.Summary
+                        variant={connStatus.variant}
+                        message={connStatus.message}
+                      />
                     )}
                   </Flex.Box>
-                  <Button.Button
-                    onClick={handleSubmit}
-                    status={stat.variant}
-                    trigger={SIGN_IN_TRIGGER}
-                    variant="filled"
-                    size="large"
-                  >
-                    Log In
-                  </Button.Button>
-                </Flex.Box>
+                )}
+                <Button.Button
+                  onClick={handleSubmit}
+                  trigger={LOG_IN_TRIGGER}
+                  variant="filled"
+                  size="large"
+                  full="x"
+                  justify="center"
+                >
+                  Log In
+                  <Icon.Arrow.Right />
+                </Button.Button>
               </Flex.Box>
-            </Form.Form>
-          </Flex.Box>
+            </Flex.Box>
+          </Form.Form>
         </Flex.Box>
-      </Flex.Box>
-    </Flex.Box>
+      )}
+    </Shell.Frame>
   );
 };

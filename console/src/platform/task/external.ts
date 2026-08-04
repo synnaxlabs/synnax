@@ -14,7 +14,6 @@ export * from "@/platform/task/createIngester";
 export * from "@/platform/task/CreateMenuItem";
 export * from "@/platform/task/DriftBadge";
 export * from "@/platform/task/EnableDisableButton";
-export * from "@/platform/task/export";
 export * from "@/platform/task/fields";
 export * from "@/platform/task/Form";
 export * from "@/platform/task/getChannelNameID";

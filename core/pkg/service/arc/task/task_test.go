@@ -345,7 +345,7 @@ var _ = Describe("Task", Ordered, func() {
 				To(HaveOccurred())
 			var stat task.Status
 			Expect(status.NewRetrieve[task.StatusDetails](statusSvc).
-				Where(status.MatchKeys[task.StatusDetails](task.OntologyID(svcTask.Key).String())).
+				Where(status.MatchKeys[task.StatusDetails](svcTask.OntologyID().String())).
 				Entry(&stat).Exec(ctx, nil)).To(Succeed())
 			Expect(stat.Variant).To(BeEquivalentTo("error"))
 			Expect(stat.Message).To(ContainSubstring("invalid UUID"))
@@ -370,7 +370,7 @@ var _ = Describe("Task", Ordered, func() {
 				To(MatchError(query.ErrNotFound))
 			var stat task.Status
 			Expect(status.NewRetrieve[task.StatusDetails](statusSvc).
-				Where(status.MatchKeys[task.StatusDetails](task.OntologyID(svcTask.Key).String())).
+				Where(status.MatchKeys[task.StatusDetails](svcTask.OntologyID().String())).
 				Entry(&stat).Exec(ctx, nil)).To(Succeed())
 			Expect(stat.Variant).To(BeEquivalentTo("error"))
 			Expect(stat.Message).To(ContainSubstring("not found"))
@@ -398,7 +398,7 @@ var _ = Describe("Task", Ordered, func() {
 			defer func() { Expect(t.Stop(true)).To(Succeed()) }()
 			var stat task.Status
 			Expect(status.NewRetrieve[task.StatusDetails](statusSvc).
-				Where(status.MatchKeys[task.StatusDetails](task.OntologyID(svcTask.Key).String())).
+				Where(status.MatchKeys[task.StatusDetails](svcTask.OntologyID().String())).
 				Entry(&stat).Exec(ctx, nil)).To(Succeed())
 			Expect(stat.Variant).To(BeEquivalentTo("success"))
 			Expect(stat.Message).To(Equal("Task configured successfully"))
@@ -583,7 +583,7 @@ var _ = Describe("Task", Ordered, func() {
 			defer func() { Expect(t.Stop(true)).To(Succeed()) }()
 			var stat task.Status
 			Expect(status.NewRetrieve[task.StatusDetails](statusSvc).
-				Where(status.MatchKeys[task.StatusDetails](task.OntologyID(svcTask.Key).String())).
+				Where(status.MatchKeys[task.StatusDetails](svcTask.OntologyID().String())).
 				Entry(&stat).Exec(ctx, nil)).To(Succeed())
 			Expect(stat.Variant).To(BeEquivalentTo("success"))
 			Expect(stat.Message).To(Equal("Task started successfully"))
@@ -734,29 +734,29 @@ var _ = Describe("Task", Ordered, func() {
 				Inputs: alarmConfigs,
 				Edges: graph.Edges{
 					{Edge: ir.Edge{
-						Source: graph.Handle{Node: "on", Param: ir.DefaultOutputParam},
-						Target: graph.Handle{Node: "ge", Param: ir.LHSInputParam},
+						Source: ir.Handle{Node: "on", Param: ir.DefaultOutputParam},
+						Target: ir.Handle{Node: "ge", Param: ir.LHSInputParam},
 					}},
 					{Edge: ir.Edge{
-						Source: graph.Handle{Node: "constant", Param: ir.DefaultOutputParam},
-						Target: graph.Handle{Node: "ge", Param: ir.RHSInputParam},
+						Source: ir.Handle{Node: "constant", Param: ir.DefaultOutputParam},
+						Target: ir.Handle{Node: "ge", Param: ir.RHSInputParam},
 					}},
 					{Edge: ir.Edge{
-						Source: graph.Handle{Node: "ge", Param: ir.DefaultOutputParam},
-						Target: graph.Handle{Node: "stable_for", Param: ir.DefaultInputParam},
+						Source: ir.Handle{Node: "ge", Param: ir.DefaultOutputParam},
+						Target: ir.Handle{Node: "stable_for", Param: ir.DefaultInputParam},
 					}},
 					{Edge: ir.Edge{
-						Source: graph.Handle{Node: "stable_for", Param: ir.DefaultOutputParam},
-						Target: graph.Handle{Node: "select", Param: ir.DefaultOutputParam},
+						Source: ir.Handle{Node: "stable_for", Param: ir.DefaultOutputParam},
+						Target: ir.Handle{Node: "select", Param: ir.DefaultOutputParam},
 					}},
 					// status_success/error fire on select outputs (edges below).
 					{Edge: ir.Edge{
-						Source: graph.Handle{Node: "select", Param: "false"},
-						Target: graph.Handle{Node: "status_success", Param: ir.DefaultOutputParam},
+						Source: ir.Handle{Node: "select", Param: "false"},
+						Target: ir.Handle{Node: "status_success", Param: ir.DefaultOutputParam},
 					}},
 					{Edge: ir.Edge{
-						Source: graph.Handle{Node: "select", Param: "true"},
-						Target: graph.Handle{Node: "status_error", Param: ir.DefaultOutputParam},
+						Source: ir.Handle{Node: "select", Param: "true"},
+						Target: ir.Handle{Node: "status_error", Param: ir.DefaultOutputParam},
 					}},
 				},
 			}
@@ -776,9 +776,9 @@ var _ = Describe("Task", Ordered, func() {
 			Expect(w.Write(frame.NewUnary(ch.Key(), telem.NewSeriesV[float32](25)))).To(BeTrue())
 			Expect(w.Close()).To(Succeed())
 			Eventually(func(g Gomega) {
-				var stat status.Status[svcarc.StatusDetails]
+				var stat svcarc.Status
 				g.Expect(status.NewRetrieve[svcarc.StatusDetails](statusSvc).
-					Where(status.Match(func(_ gorp.Context, _ status.Retrieve[svcarc.StatusDetails], s *status.Status[svcarc.StatusDetails]) (bool, error) {
+					Where(status.Match(func(_ gorp.Context, _ status.Retrieve[svcarc.StatusDetails], s *svcarc.Status) (bool, error) {
 						return s.Name == "ox_alarm", nil
 					})).Entry(&stat).Exec(ctx, nil)).To(Succeed())
 				g.Expect(stat.Variant).To(BeEquivalentTo("error"))
@@ -822,10 +822,10 @@ var _ = Describe("Task", Ordered, func() {
 			Expect(w.Write(frame.NewUnary(trig.Key(), telem.NewSeriesV[uint8](1)))).To(BeTrue())
 			Expect(w.Close()).To(Succeed())
 
-			byName := func(name string) status.Status[svcarc.StatusDetails] {
-				var stat status.Status[svcarc.StatusDetails]
+			byName := func(name string) svcarc.Status {
+				var stat svcarc.Status
 				Expect(status.NewRetrieve[svcarc.StatusDetails](statusSvc).
-					Where(status.Match(func(_ gorp.Context, _ status.Retrieve[svcarc.StatusDetails], s *status.Status[svcarc.StatusDetails]) (bool, error) {
+					Where(status.Match(func(_ gorp.Context, _ status.Retrieve[svcarc.StatusDetails], s *svcarc.Status) (bool, error) {
 						return s.Name == name, nil
 					})).Entry(&stat).Exec(ctx, nil)).To(Succeed())
 				return stat
@@ -833,9 +833,9 @@ var _ = Describe("Task", Ordered, func() {
 
 			Eventually(func(g Gomega) {
 				g.Expect(status.NewRetrieve[svcarc.StatusDetails](statusSvc).
-					Where(status.Match(func(_ gorp.Context, _ status.Retrieve[svcarc.StatusDetails], s *status.Status[svcarc.StatusDetails]) (bool, error) {
+					Where(status.Match(func(_ gorp.Context, _ status.Retrieve[svcarc.StatusDetails], s *svcarc.Status) (bool, error) {
 						return s.Name == base+"_d", nil
-					})).Entry(&status.Status[svcarc.StatusDetails]{}).Exec(ctx, nil)).To(Succeed())
+					})).Entry(&svcarc.Status{}).Exec(ctx, nil)).To(Succeed())
 			}).Should(Succeed())
 
 			Expect(byName(base + "_b").Variant).To(BeEquivalentTo("error"))
@@ -871,8 +871,8 @@ var _ = Describe("Task", Ordered, func() {
 				Inputs: reportConfigs,
 				Edges: graph.Edges{
 					{Edge: ir.Edge{
-						Source: graph.Handle{Node: "on", Param: ir.DefaultOutputParam},
-						Target: graph.Handle{Node: "status_set", Param: ir.DefaultOutputParam},
+						Source: ir.Handle{Node: "on", Param: ir.DefaultOutputParam},
+						Target: ir.Handle{Node: "status_set", Param: ir.DefaultOutputParam},
 					}},
 				},
 			}
@@ -895,7 +895,7 @@ var _ = Describe("Task", Ordered, func() {
 			Expect(fw.Write(frame.NewUnary(ch.Key(), telem.NewSeriesV[float32](1)))).To(BeTrue())
 			Expect(fw.Close()).To(Succeed())
 
-			taskKey := task.OntologyID(svcTask.Key).String()
+			taskKey := svcTask.OntologyID().String()
 			Eventually(func(g Gomega) {
 				var stat task.Status
 				g.Expect(status.NewRetrieve[task.StatusDetails](statusSvc).
@@ -1684,7 +1684,7 @@ var _ = Describe("Task", Ordered, func() {
 			Eventually(func(g Gomega) {
 				var stat task.Status
 				g.Expect(status.NewRetrieve[task.StatusDetails](statusSvc).
-					Where(status.MatchKeys[task.StatusDetails](task.OntologyID(svcTask.Key).String())).
+					Where(status.MatchKeys[task.StatusDetails](svcTask.OntologyID().String())).
 					Entry(&stat).Exec(ctx, nil)).To(Succeed())
 				g.Expect(stat.Variant).To(BeEquivalentTo("warning"))
 				g.Expect(stat.Message).To(ContainSubstring("Runtime error in"))
@@ -1806,7 +1806,7 @@ var _ = Describe("Task", Ordered, func() {
 			Eventually(func(g Gomega) {
 				var stat task.Status
 				g.Expect(status.NewRetrieve[task.StatusDetails](statusSvc).
-					Where(status.MatchKeys[task.StatusDetails](task.OntologyID(svcTask.Key).String())).
+					Where(status.MatchKeys[task.StatusDetails](svcTask.OntologyID().String())).
 					Entry(&stat).Exec(ctx, nil)).To(Succeed())
 				g.Expect(stat.Variant).To(BeEquivalentTo("warning"))
 				g.Expect(stat.Description).To(ContainSubstring("integer divide by zero"))
@@ -1828,5 +1828,148 @@ var _ = Describe("Task", Ordered, func() {
 			}
 			Expect(foundValid).To(BeTrue(), "Expected to receive valid output (5) after error")
 		})
+	})
+
+	Describe("Channel Trigger Alignment", func() {
+		// Stage-entry Reset anchors the trigger's mark to the last buffered series, so
+		// index-less sessions poison it only when buffered before watch entry; the
+		// while-watching entry covers the injection ordering after entry.
+		DescribeTable("fires channel-triggered transitions across writer sessions",
+			func(ctx SpecContext, rogueSessions int, roguesAfterEntry bool) {
+				suffix := uuid.NewString()[:8]
+				idxCh := &channel.Channel{
+					Name:     "trig_align_idx_" + suffix,
+					IsIndex:  true,
+					DataType: telem.TimeStampT,
+				}
+				Expect(channelWriter.Create(ctx, idxCh)).To(Succeed())
+				p3 := &channel.Channel{
+					Name:       "trig_align_p3_" + suffix,
+					LocalIndex: idxCh.LocalKey,
+					DataType:   telem.Float32T,
+				}
+				Expect(channelWriter.Create(ctx, p3)).To(Succeed())
+				goCh := &channel.Channel{
+					Name:     "trig_align_go_" + suffix,
+					Virtual:  true,
+					DataType: telem.Uint8T,
+				}
+				Expect(channelWriter.Create(ctx, goCh)).To(Succeed())
+				marker := &channel.Channel{
+					Name:     "trig_align_marker_" + suffix,
+					Virtual:  true,
+					DataType: telem.Uint8T,
+				}
+				Expect(channelWriter.Create(ctx, marker)).To(Succeed())
+
+				prog := arc.Text{
+					Raw: fmt.Sprintf(`
+						sequence cooldown {
+							stage watch {
+								(%s < 10) => done
+							}
+							stage done {
+								1 -> %s
+							}
+						}
+
+						%s => cooldown
+					`, p3.Name, marker.Name, goCh.Name),
+				}
+
+				p3Out, closeP3 := openTestStreamer(ctx, channel.Keys{p3.Key()}, 10)
+				defer closeP3()
+				markerOut, closeMarker := openTestStreamer(ctx, channel.Keys{marker.Key()}, 2)
+				defer closeMarker()
+
+				t := newTask(ctx, newTextFactory(ctx, prog))
+				Expect(t.Exec(ctx, task.Command{Type: "start"})).To(Succeed())
+				defer func() { Expect(t.Stop(true)).To(Succeed()) }()
+
+				By("Streaming p3 above the threshold from the sim session")
+				sim1 := MustSucceed(framerSvc.OpenWriter(ctx, framer.WriterConfig{
+					Keys:  channel.Keys{idxCh.Key(), p3.Key()},
+					Start: 10 * telem.SecondTS,
+				}))
+				Expect(sim1.Write(frame.NewMulti(
+					[]channel.Key{idxCh.Key(), p3.Key()},
+					[]telem.Series{
+						telem.NewSeriesSecondsTSV(10, 11, 12, 13),
+						telem.NewSeriesV[float32](500, 500, 500, 500),
+					},
+				))).To(BeTrue())
+				Eventually(p3Out).Should(Receive())
+				Expect(sim1.Close()).To(Succeed())
+
+				By("Extending the index to cover the index-less sessions")
+				wIdx := MustSucceed(framerSvc.OpenWriter(ctx, framer.WriterConfig{
+					Keys:  channel.Keys{idxCh.Key()},
+					Start: 14 * telem.SecondTS,
+				}))
+				Expect(wIdx.Write(frame.NewUnary(
+					idxCh.Key(),
+					telem.NewSeriesSecondsTSV(14, 15, 16, 17, 18, 19, 20, 21, 22, 23),
+				))).To(BeTrue())
+				Expect(wIdx.Close()).To(Succeed())
+
+				enterWatch := func() {
+					time.Sleep(50 * time.Millisecond)
+					goW := MustSucceed(framerSvc.OpenWriter(ctx, framer.WriterConfig{
+						Keys:  channel.Keys{goCh.Key()},
+						Start: telem.Now(),
+					}))
+					Expect(goW.Write(frame.NewUnary(goCh.Key(), telem.NewSeriesV[uint8](1)))).To(BeTrue())
+					Expect(goW.Close()).To(Succeed())
+					time.Sleep(50 * time.Millisecond)
+				}
+
+				if roguesAfterEntry {
+					By("Entering the watch stage before the index-less sessions")
+					enterWatch()
+				}
+
+				By("Running index-less sessions on p3")
+				for i := range rogueSessions {
+					wR := MustSucceed(framerSvc.OpenWriter(ctx, framer.WriterConfig{
+						Keys:  channel.Keys{p3.Key()},
+						Start: telem.TimeStamp(15+i) * telem.SecondTS,
+					}))
+					Expect(wR.Write(frame.NewUnary(
+						p3.Key(),
+						telem.NewSeriesV[float32](500),
+					))).To(BeTrue())
+					Eventually(p3Out).Should(Receive())
+					Expect(wR.Close()).To(Succeed())
+				}
+
+				if !roguesAfterEntry {
+					By("Entering the watch stage with the index-less sessions buffered")
+					enterWatch()
+				}
+
+				By("Resuming the sim session with p3 below the threshold")
+				sim2 := MustSucceed(framerSvc.OpenWriter(ctx, framer.WriterConfig{
+					Keys:  channel.Keys{idxCh.Key(), p3.Key()},
+					Start: 40 * telem.SecondTS,
+				}))
+				defer func() { Expect(sim2.Close()).To(Succeed()) }()
+				for i := range 2 {
+					Expect(sim2.Write(frame.NewMulti(
+						[]channel.Key{idxCh.Key(), p3.Key()},
+						[]telem.Series{
+							telem.NewSeriesSecondsTSV(telem.TimeStamp(40 + i)),
+							telem.NewSeriesV[float32](0.01),
+						},
+					))).To(BeTrue())
+					Eventually(p3Out).Should(Receive())
+				}
+
+				Eventually(markerOut, time.Second*5).Should(Receive(),
+					"cooldown transition never fired: on{} trigger stalled after index-less sessions")
+			},
+			Entry("with a single writer session", 0, false),
+			Entry("after index-less sessions on the trigger channel", 6, false),
+			Entry("with index-less sessions injected while watching", 6, true),
+		)
 	})
 })

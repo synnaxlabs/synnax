@@ -17,7 +17,7 @@ import { use } from "@/platform/device/use";
 import { Empty } from "@/platform/empty";
 
 const DEFAULT_NONE_SELECTED_CONTENT = (
-  <Text.Text center color={8}>
+  <Text.Text center color={9}>
     No device selected.
   </Text.Text>
 );

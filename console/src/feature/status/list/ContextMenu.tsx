@@ -66,25 +66,27 @@ const ContextMenu = ({ keys }: Menu.ContextMenuMenuProps) => {
 
   return (
     <Base.Menu>
+      {hasUpdatePermission && isSingle && (
+        <Base.RenameItem onClick={() => rename.update(statuses[0])} />
+      )}
+      <Menu.Divider />
       <Base.FavoriteItems
         anyFavorited={anyFavorited}
         anyNotFavorited={anyNotFavorited}
         onFavorite={() => dispatch(Session.Status.addFavorites(keys))}
         onUnfavorite={() => dispatch(Session.Status.removeFavorites(keys))}
       />
-      {(anyFavorited || anyNotFavorited) && <Menu.Divider />}
+      <Menu.Divider />
       {!isEmpty && (
-        <>
-          <Menu.CopyItem
-            itemKey="copyDiagnostics"
-            text={getCopyText}
-            successMessage="Copied diagnostics to clipboard"
-          >
-            Copy Diagnostics
-          </Menu.CopyItem>
-          <Menu.Divider />
-        </>
+        <Menu.CopyItem
+          itemKey="copyDiagnostics"
+          text={getCopyText}
+          successMessage="Copied diagnostics to clipboard"
+        >
+          Copy diagnostics
+        </Menu.CopyItem>
       )}
+      <Menu.Divider />
       {hasDeletePermission && !isEmpty && (
         <Base.DeleteItem
           onClick={() => {
@@ -95,9 +97,8 @@ const ContextMenu = ({ keys }: Menu.ContextMenuMenuProps) => {
           }}
         />
       )}
-      {hasUpdatePermission && isSingle && (
-        <Base.RenameItem onClick={() => rename.update(statuses[0])} />
-      )}
+      <Menu.Divider />
+      <Base.ReloadConsoleItem />
     </Base.Menu>
   );
 };

@@ -58,6 +58,18 @@ export const useDrag = ({ onMove, onStart, onEnd }: UseDragProps): UseDragStart 
       const mouseKey = Triggers.eventKey(e);
       let started = false;
 
+      // Moves are coalesced to one onMove per animation frame: WebKit delivers
+      // pointermove at input rate, not display rate, so forwarding each event
+      // would run multiple render passes per frame.
+      let frame: number | null = null;
+      let latest: PointerEvent | null = null;
+
+      const flush = (): void => {
+        frame = null;
+        if (latest == null) return;
+        onMove?.(box.construct(start, xy.construct(latest)), mouseKey, latest);
+      };
+
       const handleMove = (me: PointerEvent): void => {
         if (me.pointerId !== pointerId) return;
         const next = xy.construct(me);
@@ -67,7 +79,8 @@ export const useDrag = ({ onMove, onStart, onEnd }: UseDragProps): UseDragStart 
           el.setPointerCapture(pointerId);
           onStart?.(start, mouseKey, el);
         }
-        onMove?.(box.construct(start, next), mouseKey, me);
+        latest = me;
+        frame ??= requestAnimationFrame(flush);
       };
 
       const handleEnd = (ee: PointerEvent): void => {
@@ -75,6 +88,12 @@ export const useDrag = ({ onMove, onStart, onEnd }: UseDragProps): UseDragStart 
         window.removeEventListener("pointermove", handleMove);
         window.removeEventListener("pointerup", handleEnd);
         window.removeEventListener("pointercancel", handleEnd);
+        // A move queued for the next frame must still reach onMove: consumers
+        // persist move-built state on end, and a release can outrun the frame.
+        if (frame != null) {
+          cancelAnimationFrame(frame);
+          flush();
+        }
         if (!started) return;
         if (el.hasPointerCapture(pointerId)) el.releasePointerCapture(pointerId);
         onEnd?.(box.construct(start, xy.construct(ee)), mouseKey, ee);

@@ -3231,6 +3231,91 @@ time.wait{duration=500ms} -> output`
 				Expect(amplifyToDisplay.Target.Node).To(Equal("display_0"))
 			})
 
+			It("Should generate a conditional edge for a => chained case body", func(ctx SpecContext) {
+				resolver := []symbol.Symbol{
+					{Name: "signal", Kind: symbol.KindChannel, Type: types.Chan(types.F64()), ID: 10102},
+				}
+				source := `
+				func demux{threshold f64} (value f64) (high f64, low f64) {
+				    if (value > threshold) {
+				        high = value
+				    } else {
+				        low = value
+				    }
+				}
+
+				func amplify{} (signal f64) f64 {
+				    return signal * 2
+				}
+
+				func display{} (value f64) {}
+
+				signal -> demux{threshold=100.0} -> {
+				    high: amplify{} => display{}
+				}`
+				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+				inter, diagnostics := text.Analyze(ctx, parsedText, NewRoot(nil, resolver...))
+				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+
+				// The routed output feeds the first node continuously...
+				Expect(findEdgeBySourceParam(inter.Edges, "high").Kind).
+					To(Equal(ir.EdgeKindContinuous))
+
+				// ...while the => between amplify and display is conditional.
+				var amplifyToDisplay ir.Edge
+				for _, e := range inter.Edges {
+					if e.Source.Node == "amplify_0" {
+						amplifyToDisplay = e
+					}
+				}
+				Expect(amplifyToDisplay.Target.Node).To(Equal("display_0"))
+				Expect(amplifyToDisplay.Kind).To(Equal(ir.EdgeKindConditional))
+			})
+
+			It("Should assign per-edge kinds in a case body mixing -> and =>", func(ctx SpecContext) {
+				resolver := []symbol.Symbol{
+					{Name: "signal", Kind: symbol.KindChannel, Type: types.Chan(types.F64()), ID: 10103},
+				}
+				source := `
+				func demux{threshold f64} (value f64) (high f64, low f64) {
+				    if (value > threshold) {
+				        high = value
+				    } else {
+				        low = value
+				    }
+				}
+
+				func filter{} (value f64) f64 { return value }
+				func amplify{} (value f64) f64 { return value * 2 }
+				func sink{} (value f64) {}
+
+				signal -> demux{threshold=100.0} -> {
+				    high: filter{} -> amplify{} => sink{}
+				}`
+				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+				inter, diagnostics := text.Analyze(ctx, parsedText, NewRoot(nil, resolver...))
+				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+
+				edgeFrom := func(node string) ir.Edge {
+					for _, e := range inter.Edges {
+						if e.Source.Node == node {
+							return e
+						}
+					}
+					return ir.Edge{}
+				}
+
+				// high -> filter: routed feed, continuous.
+				Expect(findEdgeBySourceParam(inter.Edges, "high").Kind).
+					To(Equal(ir.EdgeKindContinuous))
+				// filter -> amplify: continuous.
+				Expect(edgeFrom("filter_0").Target.Node).To(Equal("amplify_0"))
+				Expect(edgeFrom("filter_0").Kind).To(Equal(ir.EdgeKindContinuous))
+				// amplify => sink: conditional.
+				Expect(edgeFrom("amplify_0").Target.Node).To(Equal("sink_0"))
+				Expect(edgeFrom("amplify_0").Kind).To(Equal(ir.EdgeKindConditional))
+			})
+
 			It("Should not create phantom output edges for void functions in routing branches", func(ctx SpecContext) {
 				resolver := []symbol.Symbol{
 					{Name: "counter", Kind: symbol.KindChannel, Type: types.Chan(types.U32()), ID: 10301},
@@ -3300,7 +3385,7 @@ time.wait{duration=500ms} -> output`
 				    return value * 2
 				}
 
-				sensor -> filter{} -> transform{}`
+				sensor -> filter{} => transform{}`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 				inter, diagnostics := text.Analyze(ctx, parsedText, NewRoot(nil, resolver...))
 				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
@@ -3328,7 +3413,7 @@ time.wait{duration=500ms} -> output`
 
 				func logger{} (value f64) {}
 
-				signal -> demux{threshold=100.0} -> {
+				signal => demux{threshold=100.0} -> {
 				    high: alarm{},
 				    low: logger{}
 				}`

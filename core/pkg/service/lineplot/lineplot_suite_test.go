@@ -15,6 +15,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
+	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/lineplot"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/project"
@@ -26,7 +27,7 @@ import (
 
 func TestLinePlot(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Service LinePlot Suite")
+	RunSpecs(t, "Service Line Plot Suite")
 }
 
 var _ = ShouldNotLeakGoroutinesPerSpec()
@@ -62,6 +63,7 @@ var (
 			DB:       db,
 			Ontology: otg,
 			Search:   searchIdx,
+			ImEx:     imex.NewService(),
 		}))
 		proj.Name = "test-project"
 		Expect(projectSvc.NewWriter(nil).Create(ctx, &proj)).To(Succeed())

@@ -22,9 +22,7 @@ export interface CSSType extends BEM {
   align: (position: spatial.Alignment | "") => string;
   dir: (direction?: direction.Crude) => string | false;
   clickable: (shade?: Theming.Shade) => string;
-  sharp: (sharp?: boolean) => string | false;
   disabled: (disabled?: boolean) => string | false;
-  rounded: (rounded?: boolean) => string | false;
   bordered: (location?: location.Crude | spatial.Alignment | boolean) => string | false;
   noSelect: string;
   selected: (selected: boolean) => string | false;
@@ -51,8 +49,6 @@ const newCSS = (prefix: string): CSSType => {
   CSS.disabled = (disabled) => disabled === true && CSS.M("disabled");
   CSS.align = (position) => CSS.M(position);
   CSS.dir = (dir) => dir != null && CSS.M("direction", direction.construct(dir));
-  CSS.sharp = (sharp) => !(sharp === false) && CSS.M("sharp");
-  CSS.rounded = (rounded) => !(rounded === false) && CSS.M("rounded");
   CSS.bordered = (loc) => {
     if (typeof loc === "boolean") return loc && CSS.M("bordered");
     return loc != null ? CSS.M(`bordered-${loc.toString()}`) : CSS.M("bordered");

@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Icon } from "@synnaxlabs/pluto";
+import { Arc } from "@synnaxlabs/pluto";
 
 import { Explorer } from "@/feature/arc/explorer/Explorer";
 import { Panel } from "@/platform/panel";
@@ -18,7 +18,11 @@ export const TAB_TYPE = "arc_explorer";
 
 const TAB: Panel.Tab = {
   Content: Explorer,
-  Name: Panel.createStaticTabName({ name: "Arc Explorer", icon: <Icon.Arc /> }),
+  Icon: Arc.ExplorerIcon,
+  Name: Panel.createStaticTabName({
+    name: "Arc Explorer",
+    icon: <Arc.ExplorerIcon />,
+  }),
 };
 
 export const TABS: Panel.Tabs = {

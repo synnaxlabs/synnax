@@ -61,7 +61,7 @@ const DefaultRow = ({
       onChange
       allowDoubleClick={false}
       className={CSS.BE("tree-item", "name")}
-      overflow="ellipsis"
+      overflow="fade"
     />
   </Base.Item>
 );

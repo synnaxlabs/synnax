@@ -10,10 +10,28 @@
  */
 
 .console-notifications {
-    height: unset !important;
     position: absolute;
     z-index: 20;
     bottom: 3rem;
     right: 3rem;
-    overflow: unset;
+    max-height: calc(100% - 6rem);
+
+    .console-notifications__stack {
+        min-height: 0;
+        overflow-y: auto;
+
+        > * {
+            flex-shrink: 0;
+        }
+    }
+
+    .console-notifications__controls {
+        flex-shrink: 0;
+
+        .pluto-btn {
+            --pluto-bg: color-mix(in srgb, var(--pluto-gray-l2) 70%, transparent);
+            -webkit-backdrop-filter: blur(3rem) saturate(140%);
+            backdrop-filter: blur(3rem) saturate(140%);
+        }
+    }
 }

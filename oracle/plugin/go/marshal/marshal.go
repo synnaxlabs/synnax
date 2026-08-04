@@ -13,11 +13,16 @@ package marshal
 
 import (
 	"fmt"
+	"path/filepath"
+	"regexp"
 	"sort"
+	"strings"
 
 	"github.com/synnaxlabs/oracle/plugin"
 	"github.com/synnaxlabs/oracle/plugin/domain"
 	"github.com/synnaxlabs/oracle/plugin/go/internal/naming"
+	"github.com/synnaxlabs/oracle/plugin/go/internal/versioning"
+	gotypes "github.com/synnaxlabs/oracle/plugin/go/types"
 	"github.com/synnaxlabs/oracle/plugin/gomod"
 	"github.com/synnaxlabs/oracle/plugin/output"
 	"github.com/synnaxlabs/oracle/resolution"
@@ -33,6 +38,10 @@ type Options struct {
 	FileNamePattern     string
 	TestFileNamePattern string
 	GenerateTests       bool
+	// RequireVersioned rejects codecs targeting a package outside versions/vN so
+	// persisted wire formats stay pinned to an immutable shape. Disabled by unit tests
+	// that exercise codec mechanics on ad-hoc unversioned schemas.
+	RequireVersioned bool
 }
 
 // DefaultOptions returns the default plugin options.
@@ -41,6 +50,7 @@ func DefaultOptions() Options {
 		FileNamePattern:     "codec.gen.go",
 		TestFileNamePattern: "codec_gen_test.go",
 		GenerateTests:       true,
+		RequireVersioned:    true,
 	}
 }
 
@@ -55,12 +65,26 @@ func (p *Plugin) Check(*plugin.Request) error { return nil }
 func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 	resp := &plugin.Response{Files: make([]plugin.File, 0)}
 
-	// Collect all entry types and their adapter status.
-	type entryInfo struct {
-		goName string
-		goPath string
+	// Types that alias their predecessor version carry its codec methods
+	// through the alias; only defined types get codecs in the current package.
+	aliased, err := gotypes.AliasedTypes(req)
+	if err != nil {
+		return nil, err
 	}
-	var entryTypes []entryInfo
+
+	// Version-laid-out packages emit their codecs alongside the current
+	// types in types/vN; the rewrite shifts every affected path at once so
+	// cross-package codec references stay version-pinned.
+	rewritten, _, err := versioning.RewriteCurrent(req.Resolutions)
+	if err != nil {
+		return nil, err
+	}
+	versionedReq := *req
+	versionedReq.Resolutions = rewritten
+	req = &versionedReq
+
+	// Collect all entry types.
+	var entryTypes []resolution.Type
 	for _, entry := range req.Resolutions.StructTypes() {
 		if !domain.HasExprFromType(entry, "go", "marshal") {
 			continue
@@ -74,12 +98,15 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 				return nil, errors.Wrapf(err, "invalid output path for %s", entry.Name)
 			}
 		}
-		entryTypes = append(entryTypes, entryInfo{goName: naming.GetGoName(entry), goPath: goPath})
+		entryTypes = append(entryTypes, entry)
 	}
 
 	// Collect DistinctForm types with @go marshal flex.
 	flexByPkg := make(map[string][]FlexCodec)
 	for _, dt := range req.Resolutions.DistinctTypes() {
+		if aliased.Contains(dt.QualifiedName) {
+			continue
+		}
 		marshalVal := domain.GetStringFromType(dt, "go", "marshal")
 		if marshalVal != "flex" {
 			continue
@@ -99,20 +126,16 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 
 	// Merge all entry types' dependency trees per package.
 	merged := make(map[string]map[string]resolution.Type)
-	for _, ei := range entryTypes {
-		var entry resolution.Type
-		for _, t := range req.Resolutions.StructTypes() {
-			if naming.GetGoName(t) == ei.goName {
-				entry = t
-				break
-			}
-		}
+	for _, entry := range entryTypes {
 		byPkg, _ := collectSerializableTypes(entry, req.Resolutions)
 		for goPath, types := range byPkg {
 			if merged[goPath] == nil {
 				merged[goPath] = make(map[string]resolution.Type)
 			}
 			for _, t := range types {
+				if aliased.Contains(t.QualifiedName) {
+					continue
+				}
 				merged[goPath][t.QualifiedName] = t
 			}
 		}
@@ -125,6 +148,29 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 	}
 	for goPath := range flexByPkg {
 		allPkgs.Add(goPath)
+	}
+
+	// A codec pins a persisted wire format to a type shape, so every marshalled type
+	// must live in a versions/vN package where that shape is immutable. A codec target
+	// outside versions/vN means the type (or one it persists) is missing @go version.
+	if p.Options.RequireVersioned {
+		for goPath := range allPkgs {
+			if isVersionedPath(goPath) {
+				continue
+			}
+			names := make([]string, 0, len(merged[goPath])+len(flexByPkg[goPath]))
+			for _, t := range merged[goPath] {
+				names = append(names, naming.GetGoName(t))
+			}
+			for _, f := range flexByPkg[goPath] {
+				names = append(names, f.GoName)
+			}
+			sort.Strings(names)
+			return nil, errors.Newf(
+				"cannot generate a codec for %s in %s: @go marshal types must be versioned; add @go version to them",
+				strings.Join(names, ", "), goPath,
+			)
+		}
 	}
 
 	// Generate one file per package in sorted order for deterministic output.
@@ -205,6 +251,9 @@ type importEntry struct {
 	Alias string
 }
 
+// versionDir matches version sub-directory names ("v0", "v12").
+var versionDir = regexp.MustCompile(`/v\d+$`)
+
 func sortedImports(m map[string]string) []importEntry {
 	keys := make([]string, 0, len(m))
 	for k := range m {
@@ -213,7 +262,13 @@ func sortedImports(m map[string]string) []importEntry {
 	sort.Strings(keys)
 	entries := make([]importEntry, 0, len(keys))
 	for _, k := range keys {
-		entries = append(entries, importEntry{Path: k, Alias: m[k]})
+		alias := m[k]
+		// Version directories always import under an explicit alias so the
+		// qualifier's origin stays visible.
+		if alias == "" && versionDir.MatchString(k) {
+			alias = filepath.Base(k)
+		}
+		entries = append(entries, importEntry{Path: k, Alias: alias})
 	}
 	return entries
 }
@@ -235,4 +290,10 @@ func GenerateCodecFile(
 
 func resolveGoImportPath(outputPath, repoRoot string) (string, error) {
 	return gomod.ResolveImportPath(outputPath, repoRoot, gomod.DefaultModulePrefix), nil
+}
+
+// isVersionedPath reports whether goPath is a versions/vN package (its parent directory
+// is "versions"), the only place a codec may be generated.
+func isVersionedPath(goPath string) bool {
+	return filepath.Base(filepath.Dir(goPath)) == "versions"
 }

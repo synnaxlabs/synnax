@@ -305,7 +305,7 @@ const FieldListItem = (props: List.ItemProps<string> & { epKey: string }) => {
           resourceName="generator"
         />
       )}
-      <Text.Text level="small" color={7}>
+      <Text.Text level="small" color={9}>
         {fieldType}
       </Text.Text>
     </Select.ListItem>
@@ -378,19 +378,17 @@ const AdditionalFields: FC<{ epKey: string }> = ({ epKey }) => {
           <Header.Actions>
             <Button.Button
               onClick={handleAddStatic}
-              variant="text"
-              contrast={2}
+              variant="filled"
               tooltip="Add static field"
-              sharp
+              size="small"
             >
               <Icon.Add />
             </Button.Button>
             <Button.Button
               onClick={handleAddGenerated}
-              variant="text"
-              contrast={2}
+              variant="filled"
               tooltip="Add generated field"
-              sharp
+              size="small"
             >
               <Icon.Time />
             </Button.Button>
@@ -538,10 +536,9 @@ const Form: FC<Task.FormProps<WriteSchemas>> = () => {
             <Header.Actions>
               <Button.Button
                 onClick={handleAddEndpoint}
-                variant="text"
-                contrast={2}
+                variant="filled"
                 tooltip="Add endpoint"
-                sharp
+                size="small"
               >
                 <Icon.Add />
               </Button.Button>

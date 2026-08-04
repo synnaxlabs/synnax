@@ -14,6 +14,7 @@ import { type ReactElement, useCallback, useRef } from "react";
 
 import { type Component } from "@/component";
 import { CSS } from "@/css";
+import { Flex } from "@/flex";
 import { Haul } from "@/haul";
 import { useSyncedRef } from "@/hooks";
 import { Icon } from "@/icon";
@@ -49,6 +50,8 @@ export interface SchematicProps extends Omit<
 > {
   enableTriggers?: boolean | (() => boolean);
   extraMenuItems?: Component.RenderProp<Menu.ContextMenuMenuProps>;
+  /** Rendered as a centered overlay when the schematic has no nodes. */
+  emptyContent?: ReactElement;
 }
 const AUTO_RENDER_INTERVAL = TimeSpan.seconds(1).milliseconds;
 const DRAG_HANDLE_SELECTOR = `.${Node.DRAG_HANDLE_CLASS}`;
@@ -62,6 +65,7 @@ export const Schematic = ({
   enableTriggers,
   extraMenuItems,
   editable,
+  emptyContent,
   children,
   ...props
 }: SchematicProps): ReactElement => {
@@ -193,6 +197,11 @@ export const Schematic = ({
       {...props}
     >
       {children}
+      {nodes.length === 0 && emptyContent != null && (
+        <Flex.Box center className={CSS.BE("schematic", "empty")}>
+          {emptyContent}
+        </Flex.Box>
+      )}
       <Menu.ContextMenu {...contextMenu} menu={renderMenu} />
     </Diagram>
   );

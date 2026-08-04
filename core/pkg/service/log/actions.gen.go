@@ -20,6 +20,7 @@ import (
 )
 
 const (
+	ActionTypeCreate                    = "create"
 	ActionTypeRename                    = "rename"
 	ActionTypeAddChannel                = "add_channel"
 	ActionTypeRemoveChannel             = "remove_channel"
@@ -36,6 +37,12 @@ const (
 	ActionTypeSetHideChannelNames       = "set_hide_channel_names"
 	ActionTypeSetHideReceiptTimestamp   = "set_hide_receipt_timestamp"
 )
+
+// CreatePayload replaces the document with the given created state. Emitted by the
+// server on create so remote caches ingest new documents; clients never dispatch it.
+type CreatePayload struct {
+	Log Log `json:"log" msgpack:"log"`
+}
 
 // RenamePayload renames the log.
 type RenamePayload struct {
@@ -141,6 +148,7 @@ type SetHideReceiptTimestampPayload struct {
 // the variant; the matching pointer field carries the payload and others are nil.
 type Action struct {
 	Type                      string                            `json:"type" msgpack:"type"`
+	Create                    *CreatePayload                    `json:"create,omitempty" msgpack:"create,omitempty"`
 	Rename                    *RenamePayload                    `json:"rename,omitempty" msgpack:"rename,omitempty"`
 	AddChannel                *AddChannelPayload                `json:"add_channel,omitempty" msgpack:"add_channel,omitempty"`
 	RemoveChannel             *RemoveChannelPayload             `json:"remove_channel,omitempty" msgpack:"remove_channel,omitempty"`
@@ -167,6 +175,11 @@ func Reduce(state Log, actions ...Action) (Log, error) {
 	var err error
 	for _, a := range actions {
 		switch a.Type {
+		case ActionTypeCreate:
+			if a.Create == nil {
+				return state, union.MissingPayload(a.Type)
+			}
+			state, err = a.Create.Handle(state)
 		case ActionTypeRename:
 			if a.Rename == nil {
 				return state, union.MissingPayload(a.Type)
@@ -250,6 +263,11 @@ func Reduce(state Log, actions ...Action) (Log, error) {
 		}
 	}
 	return state, nil
+}
+
+// NewCreateAction wraps a CreatePayload in an Action envelope.
+func NewCreateAction(p CreatePayload) Action {
+	return Action{Type: ActionTypeCreate, Create: &p}
 }
 
 // NewRenameAction wraps a RenamePayload in an Action envelope.

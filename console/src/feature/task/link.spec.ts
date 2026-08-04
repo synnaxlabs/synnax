@@ -28,7 +28,7 @@ describe("Task.useLink", () => {
       config: {},
     });
     const { wrapper, store } = await createConsoleWrapper({ client });
-    const created = await createSelectedPanel(wrapper, store, client);
+    const created = await createSelectedPanel(store, client);
     const { result } = renderHook(() => Task.useLink(), { wrapper });
     await act(async () => {
       await result.current({ client, key: String(task.key) });

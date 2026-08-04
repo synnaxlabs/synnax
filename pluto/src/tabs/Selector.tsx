@@ -27,18 +27,52 @@ import { CSS } from "@/css";
 import { Flex } from "@/flex";
 import { Haul } from "@/haul";
 import { useCombinedRefs } from "@/hooks";
+import { Select } from "@/select";
 import { KEY_ATTRIBUTE, KEY_SELECTOR } from "@/tabs/Frame";
 import { Triggers } from "@/triggers";
 
 /**
  * The visual variant of a tab selector.
  *
- * - `default`: flat strip with a bottom border and a primary-colored underline on the
- *   selected tab.
- * - `pill`: separated rounded buttons; the selected tab has a filled background and
- *   no underline.
+ * - `default`: rounded chip tabs on a borderless strip; the selected tab carries a
+ *   subtle fill.
+ * - `pill`: separated outlined rounded buttons.
  */
 export type Variant = "default" | "pill";
+
+/**
+ * Where a tab's contents sit along the strip's main axis. Vertical strips always
+ * start-align; a label centered in a tall column reads as adrift.
+ */
+export type Align = "center" | "start";
+
+/**
+ * How tabs claim width.
+ *
+ * - `elastic`: tabs share the strip and cap at their own label width.
+ * - `fixed`: every tab rests at the same standard width.
+ *
+ * Both compact toward `--pluto-tabs-tab-min-width` before the strip overflows.
+ */
+export type Sizing = "elastic" | "fixed";
+
+/**
+ * What the strip does once its tabs no longer fit.
+ *
+ * - `scroll`: scrolls behind a thin scrollbar.
+ * - `fade`: scrolls with no scrollbar, its trailing edge masked to a fade.
+ */
+export type Overflow = "scroll" | "fade";
+
+interface VariantDefaults {
+  align: Align;
+  sizing: Sizing;
+}
+
+const VARIANT_DEFAULTS: Record<Variant, VariantDefaults> = {
+  default: { align: "center", sizing: "elastic" },
+  pill: { align: "start", sizing: "fixed" },
+};
 
 interface ContextValue {
   /** size sets the height of the strip and the typography level of its tabs. */
@@ -154,6 +188,20 @@ const resetTabs = (selector: HTMLElement, snap: boolean): void => {
   tabs.forEach((tab) => (tab.style.transition = ""));
 };
 
+/**
+ * scrollSelectedIntoView brings the strip's selected tab into the scrollport. Keys
+ * naming tabs in other strips are skipped, so frames sharing one selection each scroll
+ * only their own.
+ */
+const scrollSelectedIntoView = (selector: HTMLElement, keys: Set<string>): void => {
+  if (keys.size === 0) return;
+  for (const tab of selector.querySelectorAll<HTMLElement>(KEY_SELECTOR))
+    if (keys.has(tab.getAttribute(KEY_ATTRIBUTE) ?? "")) {
+      tab.scrollIntoView({ block: "nearest", inline: "nearest" });
+      return;
+    }
+};
+
 /** The dragging state a strip drop reports, plus the resolved insertion index. */
 export interface SelectorOnDropParams extends Haul.OnDropProps {
   /**
@@ -163,11 +211,23 @@ export interface SelectorOnDropParams extends Haul.OnDropProps {
   index: number;
 }
 
-export interface SelectorProps extends Omit<Flex.BoxProps, "onDrop"> {
+// align is claimed for the tabs' own alignment; the strip's cross-axis alignment is
+// the Selector's to decide, not a caller's.
+export interface SelectorProps extends Omit<Flex.BoxProps, "onDrop" | "align"> {
   /** size sets the height of the strip and the typography level of its tabs. */
   size?: Component.Size;
-  /** variant is the visual variant applied to the strip's tabs. */
+  /**
+   * variant is the chassis its tabs wear: borderless chips on a plain strip, or
+   * separated outlined pills. Everything else about how the strip behaves is a knob
+   * below, which variant only supplies the default for.
+   */
   variant?: Variant;
+  /** align places a tab's contents along the strip. Defaults per variant. */
+  align?: Align;
+  /** sizing decides how tabs claim width. Defaults per variant. */
+  sizing?: Sizing;
+  /** overflow decides what the strip does once its tabs no longer fit. */
+  overflow?: Overflow;
   /**
    * haulType enables drag-and-drop reordering by declaring the Haul item type the
    * strip accepts. When set, dragging an accepted item over the strip renders an
@@ -198,6 +258,9 @@ export const Selector = ({
   ref,
   size = "medium",
   variant = "default",
+  align,
+  sizing,
+  overflow = "scroll",
   haulType = "",
   canDrop,
   onDrop,
@@ -212,11 +275,13 @@ export const Selector = ({
   gap,
   ...rest
 }: SelectorProps): ReactElement => {
-  const isDefault = variant === "default";
   const internalRef = useRef<HTMLDivElement | null>(null);
   const combinedRef = useCombinedRefs(ref, internalRef);
   const dir: direction.Direction = Flex.parseDirection(direction, x, y) ?? "x";
   const horizontal = dir === "x";
+  const defaults = VARIANT_DEFAULTS[variant];
+  const resolvedAlign = align ?? (horizontal ? defaults.align : "start");
+  const resolvedSizing = sizing ?? defaults.sizing;
 
   const handleKeyDown = useCallback<KeyboardEventHandler<HTMLDivElement>>(
     (e) => {
@@ -247,6 +312,14 @@ export const Selector = ({
     },
     [onKeyDown, horizontal],
   );
+
+  // Kept on the strip rather than on each tab so one selection change schedules one
+  // effect instead of one per tab.
+  const selected = Select.useSelected<string>();
+  useLayoutEffect(() => {
+    const el = internalRef.current;
+    if (el != null) scrollSelectedIntoView(el, new Set(selected));
+  }, [selected]);
 
   const [indicatorOffset, setIndicatorOffset] = useState<number | null>(null);
   // The applied shift (insertion index + dragged key), or null when none. Doubles as
@@ -381,12 +454,15 @@ export const Selector = ({
         className={CSS(
           CSS.BE("tabs", "selector"),
           CSS.BEM("tabs", "selector", variant),
+          CSS.BEM("tabs", "selector", "align", resolvedAlign),
+          CSS.BEM("tabs", "selector", "sizing", resolvedSizing),
+          CSS.BEM("tabs", "selector", "overflow", overflow),
           className,
         )}
         size={size}
         align="center"
-        empty={empty ?? isDefault}
-        gap={gap ?? (isDefault ? undefined : "small")}
+        empty={empty}
+        gap={gap ?? "small"}
         direction={dir}
         onKeyDown={handleKeyDown}
         {...rest}

@@ -17,13 +17,15 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
+	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/search"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
-	v56 "github.com/synnaxlabs/synnax/pkg/service/task/migrations/v56"
+	v1 "github.com/synnaxlabs/synnax/pkg/service/task/versions/v1"
+	v2 "github.com/synnaxlabs/synnax/pkg/service/task/versions/v2"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/kv/memkv"
@@ -66,9 +68,9 @@ var _ = Describe("Migrations", func() {
 		testRack := &rack.Rack{Name: "Migration Test Rack"}
 		Expect(rackSvc.NewWriter(nil).Create(ctx, testRack)).To(Succeed())
 
-		legacyKey := v56.Key(uint64(testRack.Key)<<32 | 99)
-		legacyTask := v56.Task{Key: legacyKey, Name: "Legacy Task"}
-		Expect(gorp.NewCreate[v56.Key, v56.Task]().
+		legacyKey := v1.Key(uint64(testRack.Key)<<32 | 99)
+		legacyTask := v1.Task{Key: legacyKey, Name: "Legacy Task"}
+		Expect(gorp.NewCreate[v1.Key, v1.Task]().
 			Entry(&legacyTask).
 			Exec(ctx, db)).To(Succeed())
 		legacyID := ontology.ID{
@@ -100,6 +102,7 @@ var _ = Describe("Migrations", func() {
 			Rack:     rackSvc,
 			Status:   stat,
 			Search:   searchIdx,
+			ImEx:     imex.NewService(),
 		}))
 
 		var migrated task.Task
@@ -124,7 +127,7 @@ var _ = Describe("Migrations", func() {
 			Exists(ctx, nil)).To(BeTrue())
 		Expect(otg.NewRetrieve().WhereIDs(legacyID).Exists(ctx, nil)).To(BeFalse())
 
-		staged, closer := MustSucceed2(db.Get(ctx, task.LegacyKeyKVKey(legacyKey)))
+		staged, closer := MustSucceed2(db.Get(ctx, v2.LegacyKeyKVKey(legacyKey)))
 		Expect(string(staged)).To(Equal(migrated.Key.String()))
 		Expect(closer.Close()).To(Succeed())
 	})

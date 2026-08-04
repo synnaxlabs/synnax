@@ -158,32 +158,32 @@ export class Measure extends aether.Leaf<typeof measureStateZ, InternalState> {
 
   private get verticalLineColor(): color.Color {
     if (color.isColor(this.state.color)) {
-      if (color.isZero(this.state.color)) return this.internal.theme.colors.gray.l8;
+      if (color.isZero(this.state.color)) return this.internal.theme.colors.gray.l9;
       return this.state.color;
     }
 
     if (color.isZero(this.state.color.verticalLine))
-      return this.internal.theme.colors.gray.l8;
+      return this.internal.theme.colors.gray.l9;
     return this.state.color.verticalLine;
   }
 
   private get horizontalLineColor(): color.Color {
     if (color.isColor(this.state.color)) {
-      if (color.isZero(this.state.color)) return this.internal.theme.colors.gray.l8;
+      if (color.isZero(this.state.color)) return this.internal.theme.colors.gray.l9;
       return this.state.color;
     }
     if (color.isZero(this.state.color.horizontalLine))
-      return this.internal.theme.colors.gray.l8;
+      return this.internal.theme.colors.gray.l9;
     return this.state.color.horizontalLine;
   }
 
   private get obliqueLineColor(): color.Color {
     if (color.isColor(this.state.color)) {
-      if (color.isZero(this.state.color)) return this.internal.theme.colors.gray.l8;
+      if (color.isZero(this.state.color)) return this.internal.theme.colors.gray.l9;
       return this.state.color;
     }
     if (color.isZero(this.state.color.obliqueLine))
-      return this.internal.theme.colors.gray.l8;
+      return this.internal.theme.colors.gray.l9;
     return this.state.color.obliqueLine;
   }
 

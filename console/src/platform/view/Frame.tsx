@@ -297,7 +297,7 @@ const Item = ({ itemKey }: List.ItemProps<view.Key>): ReactElement | null => {
           id={List.itemNameID(itemKey)}
           value={name}
           allowDoubleClick={false}
-          color={7}
+          color={9}
           onChange={handleRename}
           className={CSS.BE("view", "view-item")}
         />

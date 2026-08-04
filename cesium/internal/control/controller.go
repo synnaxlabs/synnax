@@ -158,6 +158,22 @@ func (c *Controller[R]) LeadingState() (state *State) {
 	return
 }
 
+// ResourceAt returns the resource held by the region overlapping tr, reporting false
+// when no region covers it. Regions occupy non-overlapping time ranges, so at most one
+// can match. The returned resource is safe to read only through fields that are
+// themselves safe for concurrent access, as the controller's lock is released before
+// the caller touches it.
+func (c *Controller[R]) ResourceAt(tr telem.TimeRange) (res R, ok bool) {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	for _, reg := range c.regions {
+		if reg.timeRange.OverlapsWith(tr) {
+			return reg.resource, true
+		}
+	}
+	return res, false
+}
+
 // OpenGate opens a new gate for the region occupying the specified time range. If the
 // region does not exist, it will be created and cfg.OpenResource will be called.
 // If the region does exist, the new gate will be added to the authority chain for the

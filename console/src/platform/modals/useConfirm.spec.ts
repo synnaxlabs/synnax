@@ -45,6 +45,16 @@ describe("Confirm", () => {
     await waitFor(() => expect(screen.queryByText("Are you sure?")).toBeNull());
   });
 
+  it("should resolve true when confirmed via the save trigger", async () => {
+    const handle = await openConfirm(BASE);
+    await screen.findByRole("button", { name: "Confirm" });
+    fireEvent.keyDown(document.body, { code: "ControlLeft" });
+    fireEvent.keyDown(document.body, { code: "Enter" });
+    fireEvent.keyUp(document.body, { code: "Enter" });
+    fireEvent.keyUp(document.body, { code: "ControlLeft" });
+    await expect(handle.result()).resolves.toBe(true);
+  });
+
   it("should resolve null when dismissed without an answer", async () => {
     const handle = await openConfirm(BASE);
     await screen.findByText("Are you sure?");

@@ -9,10 +9,15 @@
 
 import "@/log/Log.css";
 
-import { box, location, strings } from "@synnaxlabs/x";
-import { type ReactElement, type ReactNode, useCallback, useRef } from "react";
+import { box, strings } from "@synnaxlabs/x";
+import {
+  type ReactElement,
+  type ReactNode,
+  useCallback,
+  useEffect,
+  useRef,
+} from "react";
 
-import { Button } from "@/button";
 import { CSS } from "@/css";
 import { type Flex } from "@/flex";
 import { useCombinedRefs } from "@/hooks/ref";
@@ -24,6 +29,7 @@ import { Triggers } from "@/triggers";
 import { Canvas } from "@/vis/canvas";
 
 const COPY_TRIGGER: Triggers.Trigger = ["Control", "C"];
+export const PAUSE_TRIGGER: Triggers.Trigger = ["H"];
 
 // Select-all sends "to end" rather than a concrete index so the entry count never
 // has to be synced from the worker on every batch. The worker holds entries.length
@@ -35,7 +41,7 @@ type Mode = "selectAll" | "clearSelection" | "togglePause" | "default";
 const TRIGGER_CONFIG: Triggers.ModeConfig<Mode> = {
   selectAll: [["Control", "A"]],
   clearSelection: [["Escape"]],
-  togglePause: [["H"]],
+  togglePause: [PAUSE_TRIGGER],
   default: [],
   defaultMode: "default",
 };
@@ -46,6 +52,11 @@ export interface BaseProps extends UseProps, Omit<Flex.BoxProps, "color"> {
   emptyContent?: ReactElement;
   extraContextMenuItems?: ReactNode;
   enableTriggers?: boolean | (() => boolean);
+  /** Controlled pause state. When set, the log pauses scrolling while true. */
+  hold?: boolean;
+  /** Called when an internal gesture (scroll up, H trigger) changes the pause
+   * state. Controlled callers must reflect the value back through hold. */
+  onHold?: (hold: boolean) => void;
 }
 
 export const Base = ({
@@ -66,6 +77,9 @@ export const Base = ({
   telem,
   extraContextMenuItems,
   enableTriggers,
+  hold,
+  onHold,
+  children,
   ...rest
 }: BaseProps): ReactElement | null => {
   const { state, setState } = use({
@@ -89,6 +103,11 @@ export const Base = ({
     visibleStart,
     computedLineHeight,
   } = state;
+
+  useEffect(() => {
+    if (hold == null || hold === scrolling) return;
+    setState((s) => ({ ...s, scrolling: hold }));
+  }, [hold, scrolling, setState]);
 
   const resizeRef = Canvas.useRegion(
     useCallback((b) => setState((s) => ({ ...s, region: b })), [setState]),
@@ -184,10 +203,12 @@ export const Base = ({
             selectionEnd: -1,
             selectedText: "",
           }));
-        else if (mode === "togglePause")
+        else if (mode === "togglePause") {
+          onHold?.(!scrolling);
           setState((s) => ({ ...s, scrolling: !s.scrolling }));
+        }
       },
-      [setState, enableTriggers],
+      [setState, enableTriggers, scrolling, onHold],
     ),
   });
 
@@ -231,6 +252,7 @@ export const Base = ({
         tabIndex={0}
         className={CSS(CSS.B("log"), className)}
         onWheel={(e) => {
+          if (e.deltaY < 0 && !scrolling) onHold?.(true);
           setState((s) => ({
             ...s,
             wheelPos: s.wheelPos - e.deltaY,
@@ -250,19 +272,7 @@ export const Base = ({
         onContextMenu={menuProps.open}
         {...rest}
       >
-        {empty ? (
-          emptyContent
-        ) : (
-          <Button.Button
-            className={CSS(CSS.BE("log", "live"), scrolling && CSS.M("active"))}
-            variant="outlined"
-            onClick={() => setState((s) => ({ ...s, scrolling: !s.scrolling }))}
-            tooltip={scrolling ? "Resume Scrolling" : "Pause Scrolling"}
-            tooltipLocation={location.BOTTOM_LEFT}
-          >
-            <Icon.Dynamic />
-          </Button.Button>
-        )}
+        {empty ? emptyContent : children}
       </div>
     </Menu.ContextMenu>
   );

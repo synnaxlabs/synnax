@@ -12,7 +12,17 @@ import { type Draft } from "immer";
 import { z } from "zod";
 
 import { actions } from "@/actions";
-import { cellTemplateZ, cellZ, keyZ, type Table } from "@/table/types.gen";
+import { cellTemplateZ, cellZ, keyZ, type Table, tableZ } from "@/table/types.gen";
+
+/**
+ * Create replaces the document with the given created state. Emitted by the server on
+ * create so remote caches ingest new documents; clients never dispatch it.
+ */
+export const createPayloadZ = z.object({
+  table: tableZ,
+});
+
+export type CreatePayload = z.infer<typeof createPayloadZ>;
 
 /** Rename renames the table. */
 export const renamePayloadZ = z.object({
@@ -133,6 +143,7 @@ export const eraseCellsPayloadZ = z.object({
 export type EraseCellsPayload = z.infer<typeof eraseCellsPayloadZ>;
 
 export const actionZ = z.discriminatedUnion("type", [
+  z.object({ type: z.literal("create"), create: createPayloadZ }),
   z.object({ type: z.literal("rename"), rename: renamePayloadZ }),
   z.object({ type: z.literal("add_row"), addRow: addRowPayloadZ }),
   z.object({ type: z.literal("remove_row"), removeRow: removeRowPayloadZ }),
@@ -145,6 +156,11 @@ export const actionZ = z.discriminatedUnion("type", [
 ]);
 
 export type Action = z.infer<typeof actionZ>;
+
+export const create = (payload: z.input<typeof createPayloadZ>): Action => ({
+  type: "create",
+  create: createPayloadZ.parse(payload),
+});
 
 export const rename = (payload: z.input<typeof renamePayloadZ>): Action => ({
   type: "rename",
@@ -196,6 +212,7 @@ export type HandlerResult = actions.HandlerResult<Action>;
 export type ReduceAllResult = actions.ReduceAllResult<Table, Action>;
 
 export interface Handlers {
+  create: (state: Draft<Table>, payload: CreatePayload) => HandlerResult;
   rename: (state: Draft<Table>, payload: RenamePayload) => HandlerResult;
   addRow: (state: Draft<Table>, payload: AddRowPayload) => HandlerResult;
   removeRow: (state: Draft<Table>, payload: RemoveRowPayload) => HandlerResult;
@@ -210,6 +227,8 @@ export interface Handlers {
 export const createReduceAll = (handlers: Handlers) =>
   actions.createReduceAll<Table, Action>((state, action) => {
     switch (action.type) {
+      case "create":
+        return handlers.create(state, action.create);
       case "rename":
         return handlers.rename(state, action.rename);
       case "add_row":

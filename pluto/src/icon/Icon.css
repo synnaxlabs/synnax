@@ -24,6 +24,15 @@
         fill: inherit !important;
     }
 
+    & .pluto-icon__halo {
+        color: var(--pluto-bg, var(--pluto-gray-l0));
+
+        & :is(path, circle, rect, line, polyline, polygon) {
+            stroke-width: 3;
+            stroke-linejoin: round;
+        }
+    }
+
     & .pluto-sub__bg {
         transition: var(--pluto-btn-transition);
         fill: var(--pluto-bg, var(--pluto-gray-l0)) !important;

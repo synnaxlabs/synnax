@@ -16,6 +16,10 @@ telemetry. Monorepo:
 - **Oracle** (`/oracle/`, Go) generates Go/TS/Python/C++/proto bindings from `.oracle`
   schemas in `/schemas/`. Never hand-edit generated code. See `oracle/CLAUDE.md`.
 
+Arc, Cesium, Aspen, Core, Console, Pluto, Freighter, Alamos, Gorp, Drift, Driver,
+Oracle, and X are proper nouns — capitalize them in prose (comments, docs, commit
+messages, PRs).
+
 ## Documentation
 
 Language and component rules auto-load from package-root `CLAUDE.md` stubs when you
@@ -95,6 +99,13 @@ Dependencies are explicit, injected inputs — never reached for ambiently. All 
   as normal validation when the key is user-provided. Never a silent no-op.
 
 ## Comments (all languages)
+
+**Wrap comment prose at 88 columns by hand.** No formatter reflows comment text —
+Prettier, Ruff, gofmt, and clang-format all leave `//`/`#` prose untouched — so an
+over-long comment line silently passes the format check and ships. After writing or
+editing any comment, verify no line exceeds 88 columns, and re-flow the whole paragraph
+when a mid-line edit pushes a line over. Watch multi-byte runes (em dash `—`, curly
+quotes): byte-count tools overcount, so measure characters.
 
 ### 🚨 KEEP COMMENTS SHORT. THIS IS THE #1 VIOLATION. 🚨
 

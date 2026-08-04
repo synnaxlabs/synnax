@@ -7,15 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { DisconnectedError, schematic } from "@synnaxlabs/client";
+import { DisconnectedError, query, schematic } from "@synnaxlabs/client";
 import { Icon, Schematic as Base } from "@synnaxlabs/pluto";
 
-import { extract } from "@/feature/schematic/export";
 import { ingest } from "@/feature/schematic/import";
 import { Schematic } from "@/feature/schematic/Schematic";
 import { Selectable } from "@/feature/schematic/Selectable";
 import { Toolbar } from "@/feature/schematic/toolbar/Toolbar";
-import { type Export } from "@/platform/export";
 import { type Import } from "@/platform/import";
 import { Panel } from "@/platform/panel";
 import { type Range } from "@/platform/range";
@@ -32,8 +30,6 @@ export * from "@/platform/schematic/external";
 
 const TAB_TYPE = schematic.TYPE_ONTOLOGY_ID.type;
 
-export const EXTRACTORS: Export.Extractors = { [TAB_TYPE]: extract };
-
 export const FILE_INGESTERS: Import.FileIngesters = { [TAB_TYPE]: ingest };
 
 export const SELECTABLES: Selector.Selectable[] = [Selectable];
@@ -41,7 +37,12 @@ export const SELECTABLES: Selector.Selectable[] = [Selectable];
 const TAB: Panel.Tab = {
   Content: Schematic,
   Toolbar,
+  Icon: Icon.Schematic,
   Name: Panel.createEditableTabName(Base, <Icon.Schematic />),
+  restore: async ({ client, project, resource }) => {
+    const corpse = query.requireCorpse(client.schematics.getCached(resource.key));
+    await client.schematics.create(project, corpse);
+  },
 };
 
 export const TABS: Panel.Tabs = {
@@ -53,7 +54,7 @@ export const SNAPSHOT_SERVICES: Range.SnapshotServices = {
     icon: <Icon.Schematic />,
     onClick: async ({ id }, { client, openTab }) => {
       if (client == null) throw new DisconnectedError();
-      await client.schematics.retrieve({ key: id.key });
+      await client.schematics.retrieve(id.key);
       openTab({ variant: "resource", resource: id });
     },
     onDelete: async ({ id: { key } }, { client }) => {

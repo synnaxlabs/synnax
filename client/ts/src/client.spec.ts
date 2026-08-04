@@ -7,139 +7,110 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { TimeSpan } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
-import { z } from "zod";
 
-import { checkConnection, newConnectionChecker } from "@/client";
-import { TEST_CLIENT_PARAMS } from "@/testutil";
+import { type connection } from "@/connection";
+import { AuthError, DisconnectedError } from "@/errors";
+import { createTestClient, TEST_CLIENT_PARAMS } from "@/testutil";
 
-describe("checkConnection", () => {
-  it("should check connection to the server", async () => {
-    const state = await checkConnection({
-      host: TEST_CLIENT_PARAMS.host,
-      port: TEST_CLIENT_PARAMS.port,
-      secure: false,
-    });
-    expect(state.status).toEqual("connected");
-    expect(z.uuid().safeParse(state.clusterKey).success).toBe(true);
+const reasonOf = (status: connection.Status): connection.Reason | undefined =>
+  status.variant === "error" ? status.details.reason : undefined;
+
+const FAST_RETRY = {
+  baseInterval: TimeSpan.milliseconds(5),
+  scale: 1,
+  maxRetries: 2,
+};
+
+describe("connect", () => {
+  it("should await the client's first success", async () => {
+    const client = createTestClient();
+    const state = await client.connect();
+    expect(state.variant).toEqual("success");
+    expect(state.details.streamLive).toBe(true);
+    client.close();
   });
 
-  it("should include client version in the connection check", async () => {
-    const state = await checkConnection({
-      host: TEST_CLIENT_PARAMS.host,
-      port: TEST_CLIENT_PARAMS.port,
-      secure: false,
-    });
-    expect(state.clientVersion).toBeDefined();
-    expect(state.clientServerCompatible).toBe(true);
+  it("should be idempotent on an already-connected client", async () => {
+    const client = createTestClient();
+    await client.connect();
+    const state = await client.connect();
+    expect(state.variant).toEqual("success");
+    client.close();
   });
 
-  it("should support custom name parameter", async () => {
-    const state = await checkConnection({
-      host: TEST_CLIENT_PARAMS.host,
-      port: TEST_CLIENT_PARAMS.port,
-      secure: false,
-      name: "test-client",
-    });
-    expect(state.status).toEqual("connected");
+  it("should reject with AuthError on bad credentials", async () => {
+    const client = createTestClient({ password: "definitely-wrong" });
+    await expect(client.connect()).rejects.toThrow(AuthError);
+    client.close();
   });
 
-  it("should handle connection failure to invalid host", async () => {
-    const state = await checkConnection({
-      host: "invalid-host-that-does-not-exist",
+  it("should reject against an unreachable cluster after the retry budget", async () => {
+    const client = createTestClient({ port: 9999, retry: FAST_RETRY });
+    await expect(client.connect()).rejects.toThrow();
+    client.close();
+  });
+
+  it("should recover from an auth failure via reauthenticate", async () => {
+    const client = createTestClient({ password: "definitely-wrong" });
+    await expect(client.connect()).rejects.toThrow(AuthError);
+    expect(reasonOf(client.connection.status)).toEqual("auth");
+    client.reauthenticate({
+      username: TEST_CLIENT_PARAMS.username,
+      password: TEST_CLIENT_PARAMS.password,
+    });
+    const state = await client.connect();
+    expect(state.variant).toEqual("success");
+    client.close();
+  });
+
+  it("should reject on timeout", async () => {
+    // the backoff outlasts the timeout, so the timeout is what rejects rather
+    // than an escalation to error(unreachable)
+    const client = createTestClient({
       port: 9999,
-      secure: false,
-      retry: {
-        maxRetries: 0, // Disable retries for faster test
-      },
+      retry: { baseInterval: TimeSpan.seconds(1), scale: 1, maxRetries: 100 },
     });
-    expect(state.status).toEqual("failed");
+    await expect(
+      client.connect({ timeout: TimeSpan.milliseconds(10) }),
+    ).rejects.toThrow(/timed out after/);
+    client.close();
   });
 
-  it("should handle connection failure to invalid port", async () => {
-    const state = await checkConnection({
-      host: TEST_CLIENT_PARAMS.host,
-      port: 9999, // Wrong port
-      secure: false,
-      retry: {
-        maxRetries: 0, // Disable retries for faster test
-      },
-    });
-    expect(state.status).toEqual("failed");
+  it("should become disabled on close", async () => {
+    const client = createTestClient();
+    await client.connect();
+    client.close();
+    expect(client.connection.status.variant).toEqual("disabled");
   });
 });
 
-describe("newConnectionChecker", () => {
-  it("should create a connection checker", () => {
-    const checker = newConnectionChecker({
-      host: TEST_CLIENT_PARAMS.host,
-      port: TEST_CLIENT_PARAMS.port,
-      secure: false,
+describe("short circuit", () => {
+  it("should reject requests instantly while unreachable and heal on recovery", async () => {
+    const client = createTestClient({
+      port: 9999,
+      retry: FAST_RETRY,
     });
-    expect(checker).toBeDefined();
+    await expect(client.connect()).rejects.toThrow();
+    expect(reasonOf(client.connection.status)).toEqual("unreachable");
+    const start = performance.now();
+    await expect(client.channels.retrieve(["missing"])).rejects.toThrow(
+      DisconnectedError,
+    );
+    expect(performance.now() - start).toBeLessThan(100);
+    client.close();
   });
 
-  it("should create a checker that can check connection", async () => {
-    const checker = newConnectionChecker({
-      host: TEST_CLIENT_PARAMS.host,
-      port: TEST_CLIENT_PARAMS.port,
-      secure: false,
+  it("should not short-circuit while connected", async () => {
+    const client = createTestClient();
+    await client.connect();
+    const ch = await client.channels.create({
+      name: `short_circuit_test_${Math.floor(Math.random() * 1e9)}`,
+      dataType: "float32",
+      virtual: true,
     });
-    const state = await checker.check();
-    expect(state.status).toEqual("connected");
-    expect(z.uuid().safeParse(state.clusterKey).success).toBe(true);
-  });
-
-  it("should support custom name parameter", async () => {
-    const checker = newConnectionChecker({
-      host: TEST_CLIENT_PARAMS.host,
-      port: TEST_CLIENT_PARAMS.port,
-      secure: false,
-      name: "custom-checker-name",
-    });
-    const state = await checker.check();
-    expect(state.status).toEqual("connected");
-  });
-
-  it("should support secure connection parameter", () => {
-    const checker = newConnectionChecker({
-      host: TEST_CLIENT_PARAMS.host,
-      port: TEST_CLIENT_PARAMS.port,
-      secure: true,
-    });
-    expect(checker).toBeDefined();
-  });
-
-  it("should create multiple independent checkers", async () => {
-    const checker1 = newConnectionChecker({
-      host: TEST_CLIENT_PARAMS.host,
-      port: TEST_CLIENT_PARAMS.port,
-      secure: false,
-      name: "checker-1",
-    });
-    const checker2 = newConnectionChecker({
-      host: TEST_CLIENT_PARAMS.host,
-      port: TEST_CLIENT_PARAMS.port,
-      secure: false,
-      name: "checker-2",
-    });
-
-    const state1 = await checker1.check();
-    const state2 = await checker2.check();
-
-    expect(state1.status).toEqual("connected");
-    expect(state2.status).toEqual("connected");
-    expect(checker1).not.toBe(checker2); // Different instances
-  });
-
-  it("should handle version compatibility checking", async () => {
-    const checker = newConnectionChecker({
-      host: TEST_CLIENT_PARAMS.host,
-      port: TEST_CLIENT_PARAMS.port,
-      secure: false,
-    });
-    const state = await checker.check();
-    expect(state.clientVersion).toBeDefined();
-    expect(state.clientServerCompatible).toBe(true);
+    expect(ch.key).not.toBe(0);
+    client.close();
   });
 });

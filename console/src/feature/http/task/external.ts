@@ -10,20 +10,14 @@
 import { Read, readIngester, ReadSelectable } from "@/feature/http/task/Read";
 import { READ_TYPE, WRITE_TYPE } from "@/feature/http/task/types";
 import { Write, writeIngester, WriteSelectable } from "@/feature/http/task/Write";
-import { type Export } from "@/platform/export";
 import { type Import } from "@/platform/import";
 import { type Selector } from "@/platform/selector";
-import { Task } from "@/platform/task";
+import { type Task } from "@/platform/task";
 
 export * from "@/feature/http/task/commands";
 export * from "@/feature/http/task/Read";
 export * from "@/feature/http/task/types";
 export * from "@/feature/http/task/Write";
-
-export const EXTRACTORS: Export.Extractors = {
-  [READ_TYPE]: Task.extract,
-  [WRITE_TYPE]: Task.extract,
-};
 
 export const FILE_INGESTERS: Import.FileIngesters = {
   [READ_TYPE]: readIngester,

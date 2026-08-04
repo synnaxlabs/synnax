@@ -7,24 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import {
-  arc,
-  NotFoundError,
-  ontology,
-  type rack,
-  status,
-  task,
-} from "@synnaxlabs/client";
-import {
-  compare,
-  errors,
-  id,
-  type optional,
-  primitive,
-  type record,
-  uuid,
-  xy,
-} from "@synnaxlabs/x";
+import { arc, NotFoundError, query, type Synnax, type task } from "@synnaxlabs/client";
+import { compare, type record, verbs, xy } from "@synnaxlabs/x";
 import { useCallback } from "react";
 import z from "zod";
 
@@ -32,79 +16,19 @@ import { Node } from "@/arc/graph/node";
 import { Scope } from "@/arc/scope";
 import { Flux } from "@/flux";
 import { type List } from "@/list";
-import { state } from "@/state";
-import { type Status } from "@/status";
-import { Task } from "@/task";
 import { Theming } from "@/theming";
 import { type Diagram } from "@/vis/diagram";
 
-export interface FluxStore extends Flux.UndoableUnaryStore<
-  arc.Key,
-  arc.Arc,
-  arc.Action
-> {}
-
-export const FLUX_STORE_KEY = "arcs";
 const RESOURCE_NAME = "Arc";
 const PLURAL_RESOURCE_NAME = "Arcs";
-
-export interface FluxSubStore extends Status.FluxSubStore, Task.FluxSubStore {
-  [FLUX_STORE_KEY]: FluxStore;
-}
-
-// kindOfTransaction classifies an action batch for the undo coalesce window. A
-// node drag dispatches a stream of set_node_position actions for a single
-// gesture; classifying them all as "move" collapses them into one undoable.
-const kindOfTransaction = (actions: arc.Action[]): string => {
-  if (actions.length === 0) return "default";
-  const hasMove = actions.some((a) => a.type === "set_node_position");
-  const onlyMove = actions.every((a) => a.type === "set_node_position");
-  if (hasMove && onlyMove) return "move";
-  if (actions.length === 1) return actions[0].type;
-  return "transaction";
-};
-
-const undoableStoreConfig = Flux.createUndoableStore<
-  arc.Key,
-  arc.Arc,
-  arc.Action,
-  typeof FLUX_STORE_KEY,
-  FluxSubStore
->({
-  storeKey: FLUX_STORE_KEY,
-  reduce: arc.reduceAll,
-  channel: arc.SET_CHANNEL_NAME,
-  schema: arc.scopedActionZ,
-  isUndoable: arc.isUndoable,
-  kindOf: kindOfTransaction,
-});
-
-const DELETE_ARC_LISTENER: Flux.ChannelListener<FluxSubStore, typeof arc.keyZ> = {
-  channel: arc.DELETE_CHANNEL_NAME,
-  schema: arc.keyZ,
-  onChange: ({ store, changed }) => store.arcs.delete(changed),
-};
-
-export const FLUX_STORE_CONFIG: Flux.UnaryStoreConfig<FluxSubStore> = {
-  ...undoableStoreConfig,
-  listeners: [...undoableStoreConfig.listeners, DELETE_ARC_LISTENER],
-};
 
 const {
   useDispatch,
   useUndo: useUndoBase,
   useRedo: useRedoBase,
   useSingleDispatch: useSingleDispatchBase,
-} = Flux.createDispatch<
-  arc.Key,
-  arc.Arc,
-  arc.Action,
-  typeof FLUX_STORE_KEY,
-  FluxSubStore
->({
-  storeKey: FLUX_STORE_KEY,
-  send: ({ client, key, actions, dispatchKey }) =>
-    client.arcs.dispatch(key, dispatchKey, actions),
+} = Flux.createDispatch<arc.Key, arc.Arc, arc.Action>({
+  domain: (client) => client.arcs,
 });
 
 export { useDispatch };
@@ -116,36 +40,48 @@ export interface SelectKeyParams {
   key: arc.Key;
 }
 
-const requireArc = (store: FluxSubStore, key: arc.Key): arc.Arc => {
-  const a = store.arcs.get(key);
-  if (a == null) throw new NotFoundError(`Arc with key ${key} not found`);
-  return a;
+const requireArc = (client: Synnax | null, key: arc.Key): arc.Arc => {
+  const cached = client?.arcs.getCached(key);
+  if (cached == null) throw new NotFoundError(`Arc with key ${key} not found`);
+  if (query.Deleted.matches(cached))
+    throw new Flux.DeletedError(`${RESOURCE_NAME} was deleted`, cached.corpse);
+  return cached;
 };
 
+const getArc = (client: Synnax | null, key: arc.Key): arc.Arc | undefined => {
+  const cached = client?.arcs.getCached(key);
+  if (!query.isLive(cached)) return undefined;
+  return cached;
+};
+
+const subscribe = (
+  { client, args: { key } }: Flux.SelectorParams<SelectKeyParams>,
+  notify: () => void,
+) => (client == null ? () => {} : client.arcs.onChange(key, notify));
+
 // useSelectAllNodes returns every graph node of the Arc with the given key as diagram
-// nodes. graph.Node is a structural superset of Diagram.Node, so the stored array
+// nodes. graph.Node is a structural superset of Diagram.Node, so the cached array
 // is returned by reference with no translation, keeping selections referentially
-// stable across unrelated store updates.
+// stable across unrelated cache updates.
 export const [useSelectAllNodes, useGetAllNodes] = Scope.bindSelector(
-  Flux.createSelector<FluxSubStore, SelectKeyParams, Diagram.Node[]>({
-    subscribe: (store, { key }, notify) => store.arcs.onSet(notify, key),
-    select: (store, { key }) => requireArc(store, key).graph.nodes,
+  Flux.createSelector<SelectKeyParams, Diagram.Node[]>({
+    subscribe,
+    select: ({ client, args: { key } }) => requireArc(client, key).graph.nodes,
   }),
 );
 
-export interface SelectNodesParams {
-  key: arc.Key;
+export interface SelectNodesParams extends SelectKeyParams {
   keys: string[];
 }
 
 // useSelectNodes returns only the graph nodes whose keys are in the given set. The
-// filter runs in the store and the result is compared by value, so a consumer that
-// tracks a selection re-renders only when its nodes change, not on every node mutation.
+// result is compared by value, so a consumer that tracks a selection re-renders only
+// when its nodes change, not on every node mutation.
 export const [useSelectNodes, useGetNodes] = Scope.bindSelector(
-  Flux.createSelector<FluxSubStore, SelectNodesParams, Diagram.Node[]>({
-    subscribe: (store, { key }, notify) => store.arcs.onSet(notify, key),
-    select: (store, { key, keys }) => {
-      const a = store.arcs.get(key);
+  Flux.createSelector<SelectNodesParams, Diagram.Node[]>({
+    subscribe,
+    select: ({ client, args: { key, keys } }) => {
+      const a = getArc(client, key);
       if (a == null || keys.length === 0) return [];
       const keySet = new Set(keys);
       return a.graph.nodes.filter((n) => keySet.has(n.key));
@@ -155,55 +91,54 @@ export const [useSelectNodes, useGetNodes] = Scope.bindSelector(
 );
 
 // useSelectAllEdges returns every graph edge of the Arc with the given key as diagram
-// edges. graph.Edge is a structural superset of Diagram.Edge, so the stored array
+// edges. graph.Edge is a structural superset of Diagram.Edge, so the cached array
 // is returned by reference with no translation, keeping selections referentially
-// stable across unrelated store updates.
+// stable across unrelated cache updates.
 export const [useSelectAllEdges, useGetAllEdges] = Scope.bindSelector(
-  Flux.createSelector<FluxSubStore, SelectKeyParams, Diagram.Edge[]>({
-    subscribe: (store, { key }, notify) => store.arcs.onSet(notify, key),
-    select: (store, { key }) => requireArc(store, key).graph.edges,
+  Flux.createSelector<SelectKeyParams, Diagram.Edge[]>({
+    subscribe,
+    select: ({ client, args: { key } }) => requireArc(client, key).graph.edges,
   }),
 );
 
-export interface SelectNodePropsParams {
-  key: arc.Key;
+export interface SelectNodePropsParams extends SelectKeyParams {
   nodeKey: string;
 }
 
 // useSelectNodeConfig returns the typed config for a single graph node. Returned by
 // reference, so the selection only re-runs when that node's config changes.
 export const [useSelectNodeConfig, useGetNodeConfig] = Scope.bindSelector(
-  Flux.createSelector<FluxSubStore, SelectNodePropsParams, Node.Config>({
-    subscribe: (store, { key }, notify) => store.arcs.onSet(notify, key),
-    select: (store, { key, nodeKey }) =>
-      requireArc(store, key).graph.inputs[nodeKey] as Node.Config,
+  Flux.createSelector<SelectNodePropsParams, Node.Config>({
+    subscribe,
+    select: ({ client, args: { key, nodeKey } }) =>
+      requireArc(client, key).graph.inputs[nodeKey] as Node.Config,
   }),
 );
 
 // useSelectMode returns the representation mode of the Arc with the given key. It
-// requires the arc to be loaded into the store, so callers must render it beneath an
-// Arc.Suspended boundary that has retrieved the arc.
+// requires the arc to be cached, so callers must render it beneath an Arc.Suspended
+// boundary that has retrieved the arc.
 export const [useSelectMode, useGetMode] = Scope.bindSelector(
-  Flux.createSelector<FluxSubStore, SelectKeyParams, arc.Mode>({
-    subscribe: (store, { key }, notify) => store.arcs.onSet(notify, key),
-    select: (store, { key }) => requireArc(store, key).mode,
+  Flux.createSelector<SelectKeyParams, arc.Mode>({
+    subscribe,
+    select: ({ client, args: { key } }) => requireArc(client, key).mode,
   }),
 );
 
-// useSelectHasText reports whether the Arc with the given key has loaded into the store.
-// It returns a stable boolean, so an editor that drives its document imperatively re-renders
-// only when the document first becomes available, not on every subsequent edit.
+// useSelectHasText reports whether the Arc with the given key has a cached document.
+// It returns a stable boolean, so an editor that drives its document imperatively
+// re-renders only when the document first becomes available, not on every edit.
 export const [useSelectHasText, useGetHasText] = Scope.bindSelector(
-  Flux.createSelector<FluxSubStore, SelectKeyParams, boolean>({
-    subscribe: (store, { key }, notify) => store.arcs.onSet(notify, key),
-    select: (store, { key }) => store.arcs.get(key)?.text.doc != null,
+  Flux.createSelector<SelectKeyParams, boolean>({
+    subscribe,
+    select: ({ client, args: { key } }) => getArc(client, key)?.text.doc != null,
   }),
 );
 
 export const [useSelectName, useGetName] = Scope.bindSelector(
-  Flux.createSelector<FluxSubStore, SelectKeyParams, string>({
-    subscribe: (store, { key }, notify) => store.arcs.onSet(notify, key),
-    select: (store, { key }) => requireArc(store, key).name,
+  Flux.createSelector<SelectKeyParams, string>({
+    subscribe,
+    select: ({ client, args: { key } }) => requireArc(client, key).name,
   }),
 );
 
@@ -246,196 +181,86 @@ export type RetrieveQuery = {
   includeStatus?: boolean;
 };
 
-const retrieveSingle = async ({
-  client,
-  query,
-  store,
-}: Flux.RetrieveParams<RetrieveQuery, FluxSubStore>) => {
-  const cached = store.arcs.get(query.key);
-  if (cached != null) return cached;
-  const arc = await client.arcs.retrieve(query);
-  store.arcs.set(arc);
-  return arc;
-};
-
 export type ListQuery = List.PagerParams & {
   keys?: arc.Key[];
 };
 
-export const useList = Flux.createList<ListQuery, arc.Key, arc.Arc, FluxSubStore>({
+export const useList = Flux.createList<ListQuery, arc.Key, arc.Arc>({
   name: PLURAL_RESOURCE_NAME,
-  retrieveCached: ({ store, query }) =>
-    store.arcs.get((a) => {
-      if (primitive.isNonZero(query.keys)) return query.keys.includes(a.key);
-      return true;
-    }),
-  retrieve: async ({ client, query, store }) => {
-    const arcs = await client.arcs.retrieve({ ...query, includeStatus: true });
-    store.arcs.setIfAbsent(arcs);
-    return arcs;
-  },
-  retrieveByKey: async ({ client, key, store }) =>
-    await retrieveSingle({ client, query: { key }, store }),
-  mountListeners: ({ store, onChange, onDelete }) => [
-    store.arcs.onSet(onChange),
-    store.arcs.onDelete(onDelete),
-  ],
+  retrieve: async ({ client, query }) =>
+    await client.arcs.retrieve({ ...query, includeStatus: true }),
+  retrieveByKey: async ({ client, key }) => await client.arcs.retrieve(key),
+  subscribe: ({ client, query }, handler) =>
+    client.arcs.onChange({ ...query, includeStatus: true }, handler),
+  getCached: ({ client, query }) =>
+    client.arcs.getCached({ ...query, includeStatus: true }),
 });
 
-export const { useUpdate: useDelete } = Flux.createUpdate<
-  arc.Key | arc.Key[],
-  FluxSubStore
->({
+export const { useUpdate: useDelete } = Flux.createUpdate<arc.Key | arc.Key[]>({
   name: PLURAL_RESOURCE_NAME,
-  verbs: Flux.DELETE_VERBS,
-  update: async ({ client, data, store, rollbacks, onOptimisticComplete }) => {
-    rollbacks.push(store.arcs.delete(data));
-    await onOptimisticComplete(data);
-    await client.arcs.delete(data);
+  verbs: verbs.DELETE,
+  update: async ({ client, data, onOptimisticComplete }) => {
+    await client.arcs.delete(data, {
+      onOptimistic: async () => await onOptimisticComplete(data),
+    });
     return data;
   },
 });
 
-export type FormValues = optional.Optional<arc.Arc, "key">;
-
-export const formSchema: z.ZodType<FormValues> = arc.arcZ
-  .partial({ key: true, name: true })
-  .extend({ name: z.string() });
-
-export const ZERO_FORM_VALUES: z.infer<typeof formSchema> = formSchema.parse({
-  name: "",
-  mode: "text",
+export const formSchema = z.object({
+  key: arc.keyZ.optional(),
+  name: z.string().min(1, "Name is required"),
+  mode: arc.modeZ,
 });
 
-export const useForm = Flux.createForm<
-  Partial<RetrieveQuery>,
-  typeof formSchema,
-  FluxSubStore
->({
+export const ZERO_FORM_VALUES: z.infer<typeof formSchema> = {
+  name: "",
+  mode: "graph",
+};
+
+export type FormQuery = Record<string, never>;
+
+export const useForm = Flux.createForm<FormQuery, typeof formSchema>({
   name: RESOURCE_NAME,
   schema: formSchema,
   initialValues: ZERO_FORM_VALUES,
-  retrieve: async ({ client, query, reset, store }) => {
-    if (!("key" in query) || primitive.isZero(query.key)) return;
-    reset(await retrieveSingle({ client, query: query as RetrieveQuery, store }));
-  },
-  update: async ({ client, value, reset, store, rollbacks }) => {
-    const updated = await client.arcs.create(value());
-    reset(updated);
-    rollbacks.push(store.arcs.set(updated.key, updated));
+  retrieve: async () => {},
+  update: async ({ client, value, set }) => {
+    const res = await client.arcs.create(value());
+    set("key", res.key);
   },
 });
 
-export interface CreateParams extends arc.New {
-  rack?: rack.Key;
-}
+export interface CreateParams extends arc.CreateParams {}
 
-const TASK_TYPE = "arc";
-
-const taskStatusDataZ = z.null().optional();
-
-const configuringStatus = (
-  taskKey: task.Key,
-  rackKey: rack.Key,
-): task.Status<typeof taskStatusDataZ> =>
-  status.create<ReturnType<typeof task.statusDetailsZ<typeof taskStatusDataZ>>>({
-    key: task.statusKey(taskKey),
-    name: "Configuring task",
-    variant: "loading",
-    message: "Configuring task...",
-    details: {
-      task: taskKey,
-      running: false,
-      cmd: "",
-      configHash: "",
-      rack: rackKey,
-      data: undefined,
-    },
-  });
-
-const TASK_SCHEMAS = {
-  type: z.literal(TASK_TYPE),
-  config: z.object({ arcKey: z.string() }),
-  statusData: taskStatusDataZ,
-} as const satisfies task.Schemas;
-
-export const { useUpdate: useCreate } = Flux.createUpdate<
-  CreateParams,
-  FluxSubStore,
-  arc.Arc
->({
+export const { useUpdate: useCreate } = Flux.createUpdate<CreateParams, arc.Arc>({
   name: RESOURCE_NAME,
-  verbs: Flux.CREATE_VERBS,
-  update: async ({ client, data, store, rollbacks, onOptimisticComplete }) => {
-    const { rack } = data;
-    const optimistic: arc.Arc = arc.arcZ.parse(data);
-    let taskKey: task.Key | undefined;
-    // If the caller selected a rack to deploy the arc on, we need to create a task
-    // for it. Reuse the existing task's key when one exists; the rack field on the
-    // created task moves it between racks.
-    if (rack != null) {
-      taskKey = uuid.create();
-      if (data.key != null) {
-        const tsk = await retrieveTask({ client, store, query: { arcKey: data.key } });
-        if (tsk != null) taskKey = tsk.key;
-      }
-    }
-    rollbacks.push(store.arcs.set(optimistic));
-    await onOptimisticComplete(optimistic);
-    const prog = await client.arcs.create(optimistic);
-    if (taskKey == null || rack == null) return prog;
-    const { key, name } = prog;
-    const newTsk = await client.tasks.create(
-      {
-        key: taskKey,
-        rack,
-        name,
-        type: TASK_TYPE,
-        config: { arcKey: key },
-        status: configuringStatus(taskKey, rack),
-      },
-      TASK_SCHEMAS,
-    );
-    await client.ontology.addChildren(arc.ontologyID(key), task.ontologyID(newTsk.key));
-    return prog;
-  },
+  verbs: verbs.CREATE,
+  update: async ({ client, data, onOptimisticComplete }) =>
+    await client.arcs.create(data, {
+      onOptimistic: async ([optimistic]) => await onOptimisticComplete(optimistic),
+    }),
 });
 
 export const { useRetrieve, useRetrieveObservable, useEnsureRetrieved } =
-  Flux.createRetrieve<RetrieveQuery, arc.Arc, FluxSubStore>({
+  Flux.createRetrieve<RetrieveQuery, arc.Arc>({
     name: RESOURCE_NAME,
-    retrieve: retrieveSingle,
-    retrieveCached: ({ store, query }) => store.arcs.get(query.key),
-    mountListeners: ({ store, query, onChange }) => {
-      if (!("key" in query) || primitive.isZero(query.key)) return [];
-      return [store.arcs.onSet(onChange, query.key)];
-    },
+    retrieve: async ({ client, query }) => await client.arcs.retrieve(query),
+    subscribe: ({ client, query }, handler) => client.arcs.onChange(query, handler),
+    getCached: ({ client, query }) => client.arcs.getCached(query),
   });
 
 export interface RenameParams extends Pick<arc.Arc, "key" | "name"> {}
 
-export const { useUpdate: useRename } = Flux.createUpdate<RenameParams, FluxSubStore>({
+export const { useUpdate: useRename } = Flux.createUpdate<RenameParams>({
   name: RESOURCE_NAME,
-  verbs: Flux.RENAME_VERBS,
-  update: async (params) => {
-    const {
-      client,
-      store,
-      data: { key, name },
-      rollbacks,
-      onOptimisticComplete,
-    } = params;
-    const task = await retrieveTask({ client, store, query: { arcKey: key } });
-    if (task != null) await Task.rename({ ...params, data: { key: task.key, name } });
-    rollbacks.push(
-      store.arcs.set(
-        key,
-        state.skipUndefined((p) => ({ ...p, name })),
-      ),
-    );
-    await onOptimisticComplete({ key, name });
-    await client.arcs.dispatch(key, id.create(), [arc.rename({ name })]);
-    return { key, name };
+  verbs: verbs.RENAME,
+  update: async ({ client, data, onOptimisticComplete }) => {
+    const { key, name } = data;
+    await client.arcs.rename(key, name, {
+      onOptimistic: async () => await onOptimisticComplete(data),
+    });
+    return data;
   },
 });
 
@@ -443,123 +268,13 @@ export type RetrieveTaskParams = {
   arcKey: arc.Key;
 };
 
-export const retrieveTask = async ({
-  client,
-  query,
-  store,
-}: Flux.RetrieveParams<RetrieveTaskParams, FluxSubStore>): Promise<
-  task.Task | undefined
-> => {
-  const arcOntologyID = arc.ontologyID(query.arcKey);
-  const cachedChild = store.relationships.get((r) =>
-    ontology.matchRelationship(r, {
-      from: arcOntologyID,
-      type: ontology.PARENT_OF_RELATIONSHIP_TYPE,
-      to: { type: "task" },
-    }),
-  )[0];
-
-  let taskKey = cachedChild?.to.key;
-
-  if (taskKey == null) {
-    let children: ontology.Resource[];
-    try {
-      children = await client.ontology.retrieveChildren(arcOntologyID, {
-        types: ["task"],
-      });
-    } catch (e) {
-      // if the arc doesn't exist then it can't have a task.
-      if (NotFoundError.matches(e)) return undefined;
-      throw errors.fromUnknown(e);
-    }
-    children.forEach((c) => {
-      const rel: ontology.Relationship = {
-        from: arcOntologyID,
-        type: ontology.PARENT_OF_RELATIONSHIP_TYPE,
-        to: c.id,
-      };
-      store.relationships.set(ontology.relationshipToString(rel), rel);
-    });
-    if (children.length === 0) return undefined;
-    taskKey = children[0].id.key;
-  }
-
-  return await Task.retrieveSingle({ store, client, query: { key: taskKey } });
-};
-
 export const { useRetrieve: useRetrieveTask } = Flux.createRetrieve<
   RetrieveTaskParams,
-  task.Task | undefined,
-  FluxSubStore
+  task.Task | null
 >({
   name: "Task",
-  retrieve: retrieveTask,
-  mountListeners: ({ store, query, onChange, client }) => {
-    if (!("arcKey" in query) || primitive.isZero(query.arcKey)) return [];
-    const arcOntologyID = arc.ontologyID(query.arcKey);
-
-    return [
-      store.relationships.onSet(async (rel) => {
-        const isTaskChild = ontology.matchRelationship(rel, {
-          from: arcOntologyID,
-          type: ontology.PARENT_OF_RELATIONSHIP_TYPE,
-          to: { type: "task" },
-        });
-        if (!isTaskChild) return;
-        const tsk = await Task.retrieveSingle({
-          store,
-          client,
-          query: { key: rel.to.key },
-        });
-        onChange(tsk);
-      }),
-
-      store.relationships.onDelete(async (relKey) => {
-        const rel = ontology.relationshipZ.parse(relKey);
-        const isTaskChild = ontology.matchRelationship(rel, {
-          from: arcOntologyID,
-          type: ontology.PARENT_OF_RELATIONSHIP_TYPE,
-          to: { type: "task" },
-        });
-        if (!isTaskChild) return;
-        onChange(undefined);
-      }),
-
-      store.tasks.onSet(async (tsk) => {
-        const isChild =
-          store.relationships.get((r) =>
-            ontology.matchRelationship(r, {
-              from: arcOntologyID,
-              type: ontology.PARENT_OF_RELATIONSHIP_TYPE,
-              to: task.ontologyID(tsk.key),
-            }),
-          ).length > 0;
-        if (isChild)
-          onChange((prev) => {
-            if (prev == null) return tsk;
-            return client.tasks.sugar({ ...tsk.payload, status: prev.status });
-          });
-      }),
-
-      store.statuses.onSet(async (status) => {
-        if (!status.key.startsWith("task")) return;
-        const cachedRel = store.relationships.get((r) =>
-          ontology.matchRelationship(r, {
-            from: arcOntologyID,
-            type: ontology.PARENT_OF_RELATIONSHIP_TYPE,
-            to: { type: "task" },
-          }),
-        )[0];
-        if (cachedRel == null) return;
-        const taskStatusKey = task.statusKey(cachedRel.to.key);
-        if (status.key !== taskStatusKey) return;
-        const parsed = task.statusZ(z.unknown().optional()).safeParse(status);
-        if (!parsed.success) return;
-        onChange((prev) => {
-          if (prev == null) return prev;
-          return client.tasks.sugar({ ...prev.payload, status: parsed.data });
-        });
-      }),
-    ];
-  },
+  retrieve: async ({ client, query }) => await client.arcs.task.retrieve(query.arcKey),
+  subscribe: ({ client, query }, handler) =>
+    client.arcs.task.onChange(query.arcKey, handler),
+  getCached: ({ client, query }) => client.arcs.task.getCached(query.arcKey),
 });

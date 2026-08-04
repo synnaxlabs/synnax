@@ -17,8 +17,8 @@ import (
 	. "github.com/synnaxlabs/x/testutil"
 )
 
-// magic is the orc magic header. intentional kept separate from the
-// production package definition to ensure format does not unexpectedly get changed.
+// magic is the Orc magic header. intentional kept separate from the production package
+// definition to ensure format does not unexpectedly get changed.
 var magic = [3]byte{0x4F, 0x52, 0x43}
 
 func TestOrc(t *testing.T) {

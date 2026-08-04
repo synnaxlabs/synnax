@@ -73,7 +73,7 @@ export const Swatch = ({
       variant="floating"
     >
       {swatch}
-      <Dialog.Dialog rounded={1}>
+      <Dialog.Dialog rounded="small">
         <Picker value={value} onChange={onChange} />
       </Dialog.Dialog>
     </Dialog.Frame>

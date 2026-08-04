@@ -21,7 +21,6 @@ import {
 } from "@synnaxlabs/pluto";
 import { type ReactElement, useCallback } from "react";
 
-import { useExport } from "@/feature/lineplot/export";
 import { Annotations } from "@/feature/lineplot/toolbar/Annotations";
 import { Axes } from "@/feature/lineplot/toolbar/Axes";
 import { Data } from "@/feature/lineplot/toolbar/Data";
@@ -38,7 +37,6 @@ const Internal = (): ReactElement => {
   const key = LinePlot.useKey();
   const name = LinePlot.useSelectName();
   const dispatch = Session.useDispatch();
-  const handleExport = useExport();
   const activeTab = Session.LinePlot.useSelectActiveToolbarTab();
   const hasUpdatePermission = Access.useUpdateGranted(lineplot.ontologyID(key));
   const handleTabSelect = useCallback(
@@ -62,21 +60,20 @@ const Internal = (): ReactElement => {
             <Flex.Box x empty className={CSS.BE("line-plot", "toolbar", "actions")}>
               <Button.Button
                 tooltip="Download as CSV"
-                sharp
                 size="medium"
                 variant="text"
                 onClick={downloadAsCSV}
               >
                 <Icon.CSV />
               </Button.Button>
-              <Export.ToolbarButton onExport={() => handleExport(key)} />
+              <Export.ToolbarButton getID={() => lineplot.ontologyID(key)} />
               <Cluster.CopyLinkToolbarButton
                 name={name}
                 ontologyID={lineplot.ontologyID(key)}
               />
             </Flex.Box>
             {hasUpdatePermission && (
-              <Tabs.Selector className={CSS.BE("line-plot", "toolbar", "selector")}>
+              <Tabs.Selector>
                 <Tabs.Tab itemKey="data">Data</Tabs.Tab>
                 <Tabs.Tab itemKey="lines">Lines</Tabs.Tab>
                 <Tabs.Tab itemKey="axes">Axes</Tabs.Tab>

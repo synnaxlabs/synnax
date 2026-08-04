@@ -11,7 +11,6 @@ import { ontology, table } from "@synnaxlabs/client";
 import { Access, Icon, Menu, Mosaic, Table as Base } from "@synnaxlabs/pluto";
 import { array } from "@synnaxlabs/x";
 
-import { useExport } from "@/feature/table/export";
 import { Cluster } from "@/platform/cluster";
 import { ContextMenu } from "@/platform/context-menu";
 import { Export } from "@/platform/export";
@@ -44,7 +43,7 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
   } = props;
   const handleDelete = useDelete(props);
   const handleLink = Cluster.useCopyLinkToClipboard();
-  const handleExport = useExport();
+  const handleExport = Export.use();
   const rename = useRename(props);
   const group = Group.useCreateFromSelection();
   const hasUpdatePermission = Access.useUpdateGranted(ids);
@@ -56,7 +55,7 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
     <ContextMenu.Menu>
       {hasUpdatePermission && (
         <>
-          <ContextMenu.RenameItem onClick={rename} />
+          {isSingle && <ContextMenu.RenameItem onClick={rename} />}
           <Group.ContextMenuItem
             ids={ids}
             shape={shape}
@@ -65,18 +64,19 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
           />
         </>
       )}
-      {hasDeletePermission && <ContextMenu.DeleteItem onClick={handleDelete} />}
-      {(hasUpdatePermission || hasDeletePermission) && <Menu.Divider />}
+      <Menu.Divider />
       {isSingle && (
         <>
-          <Export.ContextMenuItem onClick={() => handleExport(first.id.key)} />
+          <Export.ContextMenuItem onClick={() => handleExport(first.id)} />
           <Link.CopyContextMenuItem
             onClick={() => handleLink({ name: first.name, ontologyID: firstID })}
           />
           <Tree.CopyPropertiesContextMenuItem {...props} />
-          <Menu.Divider />
         </>
       )}
+      <Menu.Divider />
+      {hasDeletePermission && <ContextMenu.DeleteItem onClick={handleDelete} />}
+      <Menu.Divider />
       <ContextMenu.ReloadConsoleItem />
     </ContextMenu.Menu>
   );

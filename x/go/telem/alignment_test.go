@@ -14,38 +14,48 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
+var _ = Describe("NewAlignment", func() {
+	It("Should construct the alignment from the given domain and sample indexes", func() {
+		align := telem.NewAlignment(2, 1)
+		Expect(align.SampleIndex()).To(Equal(uint32(1)))
+		Expect(align.DomainIndex()).To(Equal(uint32(2)))
+	})
+	It("Should construct a zero alignment", func() {
+		Expect(uint64(telem.NewAlignment(0, 0))).To(Equal(uint64(0)))
+	})
+})
 var _ = Describe("Alignment", func() {
-	Describe("NewAlignment", func() {
-		It("Should construct the alignment from the given domain and sample indexes", func() {
-			align := telem.NewAlignment(2, 1)
-			Expect(align.SampleIndex()).To(Equal(uint32(1)))
-			Expect(align.DomainIndex()).To(Equal(uint32(2)))
+	Describe("DomainIndex", func() {
+		It("Should return the domain index held in the upper 32 bits", func() {
+			Expect(telem.NewAlignment(2, 1).DomainIndex()).To(Equal(uint32(2)))
 		})
-		It("Should construct a zero alignment", func() {
-			Expect(uint64(telem.NewAlignment(0, 0))).To(Equal(uint64(0)))
+	})
+
+	Describe("SampleIndex", func() {
+		It("Should return the sample index held in the lower 32 bits", func() {
+			Expect(telem.NewAlignment(2, 1).SampleIndex()).To(Equal(uint32(1)))
 		})
 	})
 
 	Describe("MarshalJSON", func() {
 		It("Should marshal the alignment as a JSON string", func() {
-			align := telem.NewAlignment(2, 1)
-			marshalled := MustSucceed(align.MarshalJSON())
-			Expect(string(marshalled)).To(Equal(fmt.Sprintf(`"%v"`, uint64(align))))
+			a := telem.NewAlignment(2, 1)
+			marshalled := MustSucceed(a.MarshalJSON())
+			Expect(string(marshalled)).To(Equal(fmt.Sprintf(`"%v"`, uint64(a))))
 		})
 	})
 
 	Describe("UnmarshalJSON", func() {
 		It("Should unmarshal the alignment from a JSON string", func() {
-			align := telem.NewAlignment(2, 1)
-			marshalled := MustSucceed(align.MarshalJSON())
+			a := telem.NewAlignment(2, 1)
+			marshalled := MustSucceed(a.MarshalJSON())
 			var unmarshalled telem.Alignment
 			Expect(unmarshalled.UnmarshalJSON(marshalled)).To(Succeed())
-			Expect(unmarshalled).To(Equal(align))
+			Expect(unmarshalled).To(Equal(a))
 		})
 
 		It("Should unmarshal the alignment from a number", func() {
@@ -55,19 +65,17 @@ var _ = Describe("Alignment", func() {
 		})
 
 		It("Should return an error and leave the alignment untouched on invalid input", func() {
-			align := telem.NewAlignment(2, 1)
-			Expect(align.UnmarshalJSON([]byte(`"not-a-number"`))).To(
+			a := telem.NewAlignment(2, 1)
+			Expect(a.UnmarshalJSON([]byte(`"not-a-number"`))).To(
 				MatchError(ContainSubstring("invalid syntax")),
 			)
-			Expect(align).To(Equal(telem.NewAlignment(2, 1)))
+			Expect(a).To(Equal(telem.NewAlignment(2, 1)))
 		})
 	})
 
 	Describe("AddSamples", func() {
 		It("Should add to the alignment sample index", func() {
-			align := telem.NewAlignment(2, 1)
-			align = align.AddSamples(3)
-			Expect(align.SampleIndex()).To(Equal(uint32(4)))
+			Expect(telem.NewAlignment(2, 1).AddSamples(3).SampleIndex()).To(Equal(uint32(4)))
 		})
 	})
 

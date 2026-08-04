@@ -101,11 +101,16 @@ describe("log/Base", () => {
       expect(screen.getByText("Empty Log")).toBeDefined();
     });
 
-    it("should render the live button when not empty", () => {
+    it("should render children when not empty", () => {
       setupAether({ empty: false });
-      const { container } = renderLog();
-      const liveButton = container.querySelector(".pluto-log__live");
-      expect(liveButton).not.toBeNull();
+      renderLog({ children: <div data-testid="overlay" /> });
+      expect(screen.getByTestId("overlay")).toBeDefined();
+    });
+
+    it("should not render children when empty", () => {
+      setupAether({ empty: true });
+      renderLog({ children: <div data-testid="overlay" /> });
+      expect(screen.queryByTestId("overlay")).toBeNull();
     });
 
     it("should render custom empty content when provided", () => {
@@ -120,13 +125,67 @@ describe("log/Base", () => {
     });
   });
 
-  describe("live button", () => {
-    it("should toggle scrolling when clicked", () => {
-      const { setState } = setupAether({ empty: false, scrolling: false });
-      const { container } = renderLog();
-      const btn = container.querySelector(".pluto-log__live") as HTMLElement;
-      fireEvent.click(btn);
-      expect(setState).toHaveBeenCalled();
+  describe("hold", () => {
+    const scrollingResults = (
+      setState: ReturnType<typeof vi.fn>,
+      state: Record<string, unknown>,
+    ): unknown[] =>
+      setState.mock.calls
+        .map(([updater]) => (typeof updater === "function" ? updater(state) : updater))
+        .map((r) => (r as Record<string, unknown>).scrolling);
+
+    it("should sync the hold prop into aether scrolling state", () => {
+      const { setState, state } = setupAether({ empty: false, scrolling: false });
+      renderLog({ hold: true });
+      expect(scrollingResults(setState, state)).toContain(true);
+    });
+
+    it("should leave aether state alone when hold matches scrolling", () => {
+      const { setState, state } = setupAether({ empty: false, scrolling: false });
+      renderLog({ hold: false });
+      expect(scrollingResults(setState, state)).not.toContain(true);
+    });
+
+    it("should call onHold on scroll up", () => {
+      setupAether({ empty: false, scrolling: false });
+      const onHold = vi.fn();
+      const { container } = renderLog({ onHold });
+      fireEvent.wheel(getLogDiv(container), { deltaY: -100 });
+      expect(onHold).toHaveBeenCalledWith(true);
+    });
+
+    it("should not call onHold on scroll down", () => {
+      setupAether({ empty: false, scrolling: false });
+      const onHold = vi.fn();
+      const { container } = renderLog({ onHold });
+      fireEvent.wheel(getLogDiv(container), { deltaY: 100 });
+      expect(onHold).not.toHaveBeenCalled();
+    });
+
+    it("should not call onHold on scroll up when already paused", () => {
+      setupAether({ empty: false, scrolling: true });
+      const onHold = vi.fn();
+      const { container } = renderLog({ hold: true, onHold });
+      fireEvent.wheel(getLogDiv(container), { deltaY: -100 });
+      expect(onHold).not.toHaveBeenCalled();
+    });
+
+    it("should call onHold with the toggled value on the H trigger", () => {
+      setupAether({ empty: false, scrolling: false });
+      const onHold = vi.fn();
+      renderLog({ onHold, enableTriggers: true });
+      fireEvent.keyDown(document.body, { code: "KeyH" });
+      fireEvent.keyUp(document.body, { code: "KeyH" });
+      expect(onHold).toHaveBeenCalledWith(true);
+    });
+
+    it("should not call onHold on the H trigger when enableTriggers returns false", () => {
+      setupAether({ empty: false, scrolling: false });
+      const onHold = vi.fn();
+      renderLog({ onHold, enableTriggers: () => false });
+      fireEvent.keyDown(document.body, { code: "KeyH" });
+      fireEvent.keyUp(document.body, { code: "KeyH" });
+      expect(onHold).not.toHaveBeenCalled();
     });
   });
 

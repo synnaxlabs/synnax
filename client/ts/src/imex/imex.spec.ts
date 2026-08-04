@@ -127,9 +127,9 @@ describe("Imex", () => {
         fileName: `${name}.json`,
         project: proj.key,
       });
-      const children = await client.ontology.retrieveChildren(
-        project.ontologyID(proj.key),
-      );
+      const children = await client.ontology.children.retrieve({
+        ids: project.ontologyID(proj.key),
+      });
       expect(children.map((child) => child.id.key)).toContain(oid.key);
     });
 

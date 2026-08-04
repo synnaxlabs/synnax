@@ -18,8 +18,11 @@ class MockIntersectionObserver {
   unobserve = vi.fn();
 }
 
+// Installed at module scope: an async describe body can open a socket at
+// collection time, before any beforeAll runs.
+installTestWebSocket();
+
 beforeAll(() => {
-  installTestWebSocket();
   vi.stubGlobal("ResizeObserver", ResizeObserver);
   vi.stubGlobal("OffscreenCanvas", {});
   vi.stubGlobal("IntersectionObserver", MockIntersectionObserver);
@@ -27,6 +30,9 @@ beforeAll(() => {
   HTMLElement.prototype.setPointerCapture = () => {};
   HTMLElement.prototype.releasePointerCapture = () => {};
   HTMLElement.prototype.hasPointerCapture = () => false;
+  // jsdom does not implement scrollIntoView; Tabs.Selector calls it to reveal the
+  // selected tab.
+  Element.prototype.scrollIntoView = () => {};
 });
 
 afterAll(() => {

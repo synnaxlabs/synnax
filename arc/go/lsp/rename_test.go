@@ -20,15 +20,16 @@ import (
 	. "github.com/synnaxlabs/arc/symbol/testutil"
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/errors"
-	"github.com/synnaxlabs/x/lsp/protocol"
 	. "github.com/synnaxlabs/x/lsp/testutil"
 	. "github.com/synnaxlabs/x/testutil"
+	"go.lsp.dev/protocol"
+	"go.lsp.dev/uri"
 )
 
 var _ = Describe("Rename", func() {
 	var (
 		server *lsp.Server
-		uri    protocol.DocumentURI
+		uri    uri.URI
 	)
 
 	BeforeEach(func() {
@@ -54,8 +55,10 @@ var _ = Describe("Rename", func() {
 				},
 			}))
 			Expect(result).ToNot(BeNil())
-			Expect(result.Start.Line).To(Equal(uint32(1)))
-			Expect(result.Start.Character).To(Equal(uint32(4)))
+			r, ok := result.(*protocol.Range)
+			Expect(ok).To(BeTrue(), "expected a *protocol.Range, got %T", result)
+			Expect(r.Start.Line).To(Equal(uint32(1)))
+			Expect(r.Start.Character).To(Equal(uint32(4)))
 		})
 
 		It("should return nil for keywords", func(ctx SpecContext) {

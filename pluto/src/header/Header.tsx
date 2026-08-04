@@ -20,7 +20,6 @@ export interface HeaderProps extends Omit<Flex.BoxProps, "children" | "el"> {
   level?: text.Level;
   divided?: boolean;
   bordered?: boolean;
-  padded?: boolean;
   children: ReactNode | [ReactNode, ReactNode];
 }
 
@@ -50,7 +49,6 @@ export const Header = ({
   level = "p",
   divided = false,
   bordered = true,
-  padded = false,
   ...rest
 }: HeaderProps): ReactElement => {
   const value = useMemo(() => ({ level, divided }), [level, divided]);
@@ -65,7 +63,6 @@ export const Header = ({
           CSS.B("header"),
           bordered && CSS.bordered("bottom"),
           divided && CSS.BM("header", "divided"),
-          padded && CSS.BM("header", "padded"),
           className,
         )}
         {...rest}
