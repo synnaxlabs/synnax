@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { query } from "@synnaxlabs/client";
 import { Panel as PPanel, Status, Task as Base, Text } from "@synnaxlabs/pluto";
 import { cloneElement } from "react";
 
@@ -33,15 +34,13 @@ export const FORMS: Task.Forms = {
 
 const Content: Panel.Content = () => {
   const { key } = PPanel.useSelectTabResource();
-  const { data, status, variant } = Base.useRetrieve({ key });
-  if (variant !== "success" || data == null)
-    return <Status.Summary status={status} center />;
-  const Form = FORMS[data.type];
+  const { type } = Base.useRetrieveSuspended({ key });
+  const Form = FORMS[type];
   if (Form == null)
     return (
       <Status.Summary
         variant="error"
-        message={`No editor for task type ${data.type}`}
+        message={`No editor for task type ${type}`}
         center
       />
     );
@@ -74,4 +73,14 @@ const Icon: Panel.TabIcon = (props) => {
   return cloneElement(getIcon(data?.type ?? ""), props);
 };
 
-export const TAB: Panel.Tab = { Content, Name, Icon };
+export const TAB: Panel.Tab = {
+  Content,
+  Name,
+  Icon,
+  restore: async ({ client, resource }) => {
+    const corpse = query.requireCorpse(client.tasks.getCached(resource.key));
+    // The status goes with the instance, not the row: a restored task has
+    // nothing running, so core seeds it as never deployed.
+    await client.tasks.create({ ...corpse.payload, status: undefined });
+  },
+};

@@ -40,6 +40,7 @@ export const {
   useRetrieve,
   useRetrieveEffect,
   useRetrieveObservable,
+  useRetrieveSuspended,
   useEnsureRetrieved,
 } = createRetrieve();
 
