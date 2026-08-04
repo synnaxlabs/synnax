@@ -189,7 +189,11 @@ func (w Writer) RenameMany(
 // channels, resolves existing channels, allocates keys and storage through the
 // distribution allocator, writes the rich channel records to the table, and registers
 // ontology resources.
-func (w Writer) create(ctx context.Context, _channels *[]Channel, opts createOptions) error {
+func (w Writer) create(
+	ctx context.Context,
+	_channels *[]Channel,
+	opts createOptions,
+) error {
 	channels := *_channels
 	for i := range channels {
 		if err := channels[i].Validate(); err != nil {
@@ -197,8 +201,14 @@ func (w Writer) create(ctx context.Context, _channels *[]Channel, opts createOpt
 		}
 	}
 	if *w.svc.cfg.ValidateNames {
-		skipExisting := opts.retrieveIfNameExists || opts.overwriteIfNameExistsAndDifferentProperties
-		if err := w.validateChannelNames(ctx, KeysFromChannels(channels), Names(channels), skipExisting); err != nil {
+		skipExisting := opts.retrieveIfNameExists ||
+			opts.overwriteIfNameExistsAndDifferentProperties
+		if err := w.validateChannelNames(
+			ctx,
+			KeysFromChannels(channels),
+			Names(channels),
+			skipExisting,
+		); err != nil {
 			return err
 		}
 	}
@@ -209,7 +219,10 @@ func (w Writer) create(ctx context.Context, _channels *[]Channel, opts createOpt
 		if ch.IsCalculated() {
 			if ch.LocalIndex != 0 && ch.LocalKey == 0 {
 				return validate.PathedError(
-					errors.Wrap(validate.ErrValidation, "calculated channels cannot specify an index manually"),
+					errors.Wrap(
+						validate.ErrValidation,
+						"calculated channels cannot specify an index manually",
+					),
 					"local_index",
 				)
 			}
@@ -473,7 +486,9 @@ func (w Writer) allocateAndWrite(
 	w.svc.mu.Lock()
 	defer w.svc.mu.Unlock()
 	count := w.svc.mu.externalNonVirtualSet.Size()
-	if err := w.svc.cfg.IntOverflowCheck(types.Uint20(int(count) + externalNewCount)); err != nil {
+	if err := w.svc.cfg.IntOverflowCheck(
+		types.Uint20(int(count) + externalNewCount),
+	); err != nil {
 		return err
 	}
 	toCreate := make([]Channel, 0, len(newIndices))

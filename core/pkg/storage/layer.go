@@ -7,9 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-// All included pebble code is copyrighted by the cockroachdb team, and is licensed under
-// the BSD 3-Clause License. See the repository file license/BSD-3-Clause.txt for more
-// information.
+// All included pebble code is copyrighted by the cockroachdb team, and is licensed
+// under the BSD 3-Clause License. See the repository file license/BSD-3-Clause.txt for
+// more information.
 
 // Package storage provides entities for managing node local storage. Synnax implements
 // two database classes for storing its data:
@@ -134,8 +134,18 @@ func (cfg LayerConfig) Override(other LayerConfig) LayerConfig {
 func (cfg LayerConfig) Validate() error {
 	v := validate.New("storage")
 	v.Ternaryf("dirname", !*cfg.InMemory && cfg.Dirname == "", "dirname must be set")
-	v.Ternaryf("kv_engine", !lo.Contains(kvEngines, cfg.KVEngine), "invalid key-value engine %s", cfg.KVEngine)
-	v.Ternaryf("ts_engine", !lo.Contains(tsEngines, cfg.TSEngine), "invalid time-series engine %s", cfg.TSEngine)
+	v.Ternaryf(
+		"kv_engine",
+		!lo.Contains(kvEngines, cfg.KVEngine),
+		"invalid key-value engine %s",
+		cfg.KVEngine,
+	)
+	v.Ternaryf(
+		"ts_engine",
+		!lo.Contains(tsEngines, cfg.TSEngine),
+		"invalid time-series engine %s",
+		cfg.TSEngine,
+	)
 	v.Ternary("permissions", cfg.Perm == 0, "insufficient permission bits on directory")
 	return v.Error()
 }
@@ -171,12 +181,12 @@ type Layer struct {
 // is invalid, Open returns a nil Layer and the configuration error.
 //
 // When LayerConfig.InMemory is false, Open acquires an exclusive lock on the directory
-// specified in LayerConfig.Dirname. If the lock cannot be acquired (commonly due to another
-// storage layer or unrelated process accessing it), then Open will return a nil Layer
-// and an error.
+// specified in LayerConfig.Dirname. If the lock cannot be acquired (commonly due to
+// another storage layer or unrelated process accessing it), then Open will return a nil
+// Layer and an error.
 //
-// If the returned error is nil, then the Layer must be closed after use. None of
-// the services in the Layer should be used after Close is called. It is the caller's
+// If the returned error is nil, then the Layer must be closed after use. None of the
+// services in the Layer should be used after Close is called. It is the caller's
 // responsibility to ensure that the Layer is not accessed after it is closed.
 func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	cfg, err := config.New(DefaultLayerConfig, cfgs...)
@@ -337,7 +347,10 @@ func openPebbleCache(cfg LayerConfig) (*pebble.Cache, io.Closer, error) {
 
 func openKV(cfg LayerConfig, fs vfs.FS, cache *pebble.Cache) (kv.DB, error) {
 	if cfg.KVEngine != KVEnginePebble {
-		return nil, errors.Newf("[storage] - unsupported key-value engine: %s", cfg.KVEngine)
+		return nil, errors.Newf(
+			"[storage] - unsupported key-value engine: %s",
+			cfg.KVEngine,
+		)
 	}
 	ins := cfg.Child("kv")
 	dirname := filepath.Join(cfg.Dirname, "kv")
@@ -346,7 +359,9 @@ func openKV(cfg LayerConfig, fs vfs.FS, cache *pebble.Cache) (kv.DB, error) {
 		return nil, err
 	}
 	if requiresMigration {
-		cfg.L.Info("existing key-value store requires migration. this may take a moment. Be patient and do not kill this process or risk corrupting data")
+		cfg.L.Info(
+			"existing key-value store requires migration. this may take a moment. Be patient and do not kill this process or risk corrupting data",
+		)
 		if err = pebblekv.Migrate(dirname, ins); err != nil {
 			return nil, err
 		}
@@ -404,7 +419,10 @@ func openKV(cfg LayerConfig, fs vfs.FS, cache *pebble.Cache) (kv.DB, error) {
 
 func openTS(ctx context.Context, cfg LayerConfig, fs xfs.FS) (*ts.DB, error) {
 	if cfg.TSEngine != TSEngineCesium {
-		return nil, errors.Newf("[storage] - unsupported time-series engine: %s", cfg.TSEngine)
+		return nil, errors.Newf(
+			"[storage] - unsupported time-series engine: %s",
+			cfg.TSEngine,
+		)
 	}
 	return ts.Open(ctx, ts.Config{
 		Instrumentation: cfg.Child("ts"),

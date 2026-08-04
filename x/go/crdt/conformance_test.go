@@ -43,8 +43,8 @@ type step struct {
 	Length  int    `json:"length"`
 }
 
-// genOp is a generated operation paired with the replica that produced it, so a sync can
-// deliver it to every other replica.
+// genOp is a generated operation paired with the replica that produced it, so a sync
+// can deliver it to every other replica.
 type genOp struct {
 	owner int
 	apply func(*crdt.Text)

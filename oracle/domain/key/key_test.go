@@ -129,7 +129,9 @@ var _ = Describe("Collect", func() {
 		Expect(table.Add(resolution.Type{
 			Name:          "UserID",
 			QualifiedName: "pkg.UserID",
-			Form:          resolution.DistinctForm{Base: resolution.TypeRef{Name: "uuid"}},
+			Form: resolution.DistinctForm{
+				Base: resolution.TypeRef{Name: "uuid"},
+			},
 		})).To(Succeed())
 
 		types := []resolution.Type{{
@@ -199,7 +201,9 @@ var _ = Describe("ResolvePrimitive", func() {
 		Expect(table.Add(resolution.Type{
 			Name:          "UserID",
 			QualifiedName: "pkg.UserID",
-			Form:          resolution.DistinctForm{Base: resolution.TypeRef{Name: "uuid"}},
+			Form: resolution.DistinctForm{
+				Base: resolution.TypeRef{Name: "uuid"},
+			},
 		})).To(Succeed())
 
 		ref := resolution.TypeRef{Name: "pkg.UserID"}
@@ -210,12 +214,16 @@ var _ = Describe("ResolvePrimitive", func() {
 		Expect(table.Add(resolution.Type{
 			Name:          "BaseID",
 			QualifiedName: "pkg.BaseID",
-			Form:          resolution.DistinctForm{Base: resolution.TypeRef{Name: "uint64"}},
+			Form: resolution.DistinctForm{
+				Base: resolution.TypeRef{Name: "uint64"},
+			},
 		})).To(Succeed())
 		Expect(table.Add(resolution.Type{
 			Name:          "UserID",
 			QualifiedName: "pkg.UserID",
-			Form:          resolution.DistinctForm{Base: resolution.TypeRef{Name: "pkg.BaseID"}},
+			Form: resolution.DistinctForm{
+				Base: resolution.TypeRef{Name: "pkg.BaseID"},
+			},
 		})).To(Succeed())
 
 		ref := resolution.TypeRef{Name: "pkg.UserID"}

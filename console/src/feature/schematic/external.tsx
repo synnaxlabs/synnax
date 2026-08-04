@@ -43,6 +43,7 @@ const TAB: Panel.Tab = {
     const corpse = query.requireCorpse(client.schematics.getCached(resource.key));
     await client.schematics.create(project, corpse);
   },
+  useTombstone: Panel.createTombstoneReader(Base),
 };
 
 export const TABS: Panel.Tabs = {

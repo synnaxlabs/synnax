@@ -18,7 +18,8 @@ on:
       - alamos/go/**
       - codecov.yaml
       - oracle/**
-      - scripts/check_gofmt.sh
+      - scripts/check_go_generate.sh
+      - scripts/install_antlr4.sh
       - x/go/**
   push:
     branches:
@@ -31,7 +32,8 @@ on:
       - alamos/go/**
       - codecov.yaml
       - oracle/**
-      - scripts/check_gofmt.sh
+      - scripts/check_go_generate.sh
+      - scripts/install_antlr4.sh
       - x/go/**
   workflow_dispatch:
 

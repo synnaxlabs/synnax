@@ -80,18 +80,29 @@ var _ = Describe("DerivePackageAlias", func() {
 		Expect(naming.DerivePackageAlias("core/pkg/user", "channel")).To(Equal("user"))
 	})
 
-	It("should prepend parent directory when base name matches current package", func() {
-		Expect(naming.DerivePackageAlias("core/pkg/channel", "channel")).To(Equal("pkgchannel"))
-	})
+	It(
+		"should prepend parent directory when base name matches current package",
+		func() {
+			Expect(
+				naming.DerivePackageAlias("core/pkg/channel", "channel"),
+			).To(Equal("pkgchannel"))
+		},
+	)
 
 	It("should handle single segment paths without conflict", func() {
 		Expect(naming.DerivePackageAlias("user", "channel")).To(Equal("user"))
 	})
 
 	It("should alias version packages to the resource name", func() {
-		Expect(naming.DerivePackageAlias("x/go/spatial/versions/v0", "v0")).To(Equal("spatial"))
-		Expect(naming.DerivePackageAlias("arc/go/graph/migrations/v53", "v53")).To(Equal("graph"))
-		Expect(naming.DerivePackageAlias("arc/go/ir/versions/v2", "other")).To(Equal("ir"))
+		Expect(
+			naming.DerivePackageAlias("x/go/spatial/versions/v0", "v0"),
+		).To(Equal("spatial"))
+		Expect(
+			naming.DerivePackageAlias("arc/go/graph/migrations/v53", "v53"),
+		).To(Equal("graph"))
+		Expect(
+			naming.DerivePackageAlias("arc/go/ir/versions/v2", "other"),
+		).To(Equal("ir"))
 	})
 
 	It("should handle full import paths with migrations pattern", func() {
@@ -101,25 +112,41 @@ var _ = Describe("DerivePackageAlias", func() {
 	})
 
 	It("should keep the versioned form for a resource named types", func() {
-		Expect(naming.DerivePackageAlias("arc/go/types/versions/v1", "v2")).To(Equal("types"))
+		Expect(
+			naming.DerivePackageAlias("arc/go/types/versions/v1", "v2"),
+		).To(Equal("types"))
 	})
 })
 
 var _ = Describe("DeriveVersionedAlias", func() {
 	It("should keep the version suffix on version packages", func() {
-		Expect(naming.DeriveVersionedAlias("x/go/spatial/versions/v0", "v0")).To(Equal("spatialv0"))
-		Expect(naming.DeriveVersionedAlias("arc/go/graph/migrations/v53", "v53")).To(Equal("graphv53"))
-		Expect(naming.DeriveVersionedAlias("arc/go/ir/migrations/v53", "other")).To(Equal("irv53"))
-		Expect(naming.DeriveVersionedAlias("core/pkg/service/arc/migrations/v53", "other")).To(Equal("arcv53"))
+		Expect(
+			naming.DeriveVersionedAlias("x/go/spatial/versions/v0", "v0"),
+		).To(Equal("spatialv0"))
+		Expect(
+			naming.DeriveVersionedAlias("arc/go/graph/migrations/v53", "v53"),
+		).To(Equal("graphv53"))
+		Expect(
+			naming.DeriveVersionedAlias("arc/go/ir/migrations/v53", "other"),
+		).To(Equal("irv53"))
+		Expect(
+			naming.DeriveVersionedAlias("core/pkg/service/arc/migrations/v53", "other"),
+		).To(Equal("arcv53"))
 	})
 
 	It("should keep the version suffix for a resource named types", func() {
-		Expect(naming.DeriveVersionedAlias("arc/go/types/versions/v1", "v2")).To(Equal("typesv1"))
+		Expect(
+			naming.DeriveVersionedAlias("arc/go/types/versions/v1", "v2"),
+		).To(Equal("typesv1"))
 	})
 
 	It("should fall back to base-name rules for unversioned paths", func() {
-		Expect(naming.DeriveVersionedAlias("core/pkg/user", "channel")).To(Equal("user"))
-		Expect(naming.DeriveVersionedAlias("core/pkg/channel", "channel")).To(Equal("pkgchannel"))
+		Expect(
+			naming.DeriveVersionedAlias("core/pkg/user", "channel"),
+		).To(Equal("user"))
+		Expect(
+			naming.DeriveVersionedAlias("core/pkg/channel", "channel"),
+		).To(Equal("pkgchannel"))
 	})
 })
 
@@ -161,7 +188,12 @@ var _ = Describe("GetGoName", func() {
 			Domains: map[string]resolution.Domain{
 				"go": {
 					Expressions: []resolution.Expression{
-						{Name: "name", Values: []resolution.ExpressionValue{{IdentValue: "CustomName"}}},
+						{
+							Name: "name",
+							Values: []resolution.ExpressionValue{
+								{IdentValue: "CustomName"},
+							},
+						},
 					},
 				},
 			},
@@ -182,7 +214,12 @@ var _ = Describe("GetFieldName", func() {
 			Domains: map[string]resolution.Domain{
 				"go": {
 					Expressions: []resolution.Expression{
-						{Name: "name", Values: []resolution.ExpressionValue{{IdentValue: "Timestamp"}}},
+						{
+							Name: "name",
+							Values: []resolution.ExpressionValue{
+								{IdentValue: "Timestamp"},
+							},
+						},
 					},
 				},
 			},

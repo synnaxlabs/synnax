@@ -287,16 +287,28 @@ func deprecatedSymbolQuickFix(
 	tokenEndLine, tokenEndChar := tokenEndLineChar(token)
 	edits := []protocol.TextEdit{{
 		Range: protocol.Range{
-			Start: protocol.Position{Line: uint32(tokenStartLine), Character: uint32(tokenStartChar)},
-			End:   protocol.Position{Line: uint32(tokenEndLine), Character: uint32(tokenEndChar)},
+			Start: protocol.Position{
+				Line:      uint32(tokenStartLine),
+				Character: uint32(tokenStartChar),
+			},
+			End: protocol.Position{
+				Line:      uint32(tokenEndLine),
+				Character: uint32(tokenEndChar),
+			},
 		},
 		NewText: replacementName,
 	}}
 	if module := replacementModule(repl); module != "" {
-		edits = append(buildAutoImportEditFromSnapshot(snap.Content, snap.Symbols, module), edits...)
+		edits = append(
+			buildAutoImportEditFromSnapshot(snap.Content, snap.Symbols, module),
+			edits...)
 	}
 	return &protocol.CodeAction{
-		Title:       fmt.Sprintf("Replace '%s' with '%s'", token.GetText(), replacementName),
+		Title: fmt.Sprintf(
+			"Replace '%s' with '%s'",
+			token.GetText(),
+			replacementName,
+		),
 		Kind:        new(protocol.CodeActionKindQuickFix),
 		Diagnostics: []protocol.Diagnostic{diag},
 		IsPreferred: new(true),
@@ -402,7 +414,7 @@ func isTriviaToken(t antlr.Token) bool {
 // buildReplacementName returns the dotted reference the user should write
 // for repl, preferring an existing module alias when one is in scope and
 // falling back to repl's canonical QualifiedName otherwise.
-func buildReplacementName(symbols *symbol.Symbol, repl *symbol.Symbol) string {
+func buildReplacementName(symbols, repl *symbol.Symbol) string {
 	if repl.Parent == nil || repl.Parent.Kind != symbol.KindModule {
 		return repl.QualifiedName()
 	}
@@ -458,7 +470,12 @@ func missingImportQuickFix(
 	if scope == nil {
 		return nil
 	}
-	if sym, err := scope.Resolve(ctx, name, symbol.WithoutUsageTracking); err == nil && sym != nil {
+	if sym, err := scope.Resolve(
+		ctx,
+		name,
+		symbol.WithoutUsageTracking,
+	); err == nil &&
+		sym != nil {
 		return nil
 	}
 	if !scope.IsAmbientModule(name) {

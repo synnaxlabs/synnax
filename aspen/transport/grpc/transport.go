@@ -337,7 +337,11 @@ func (t *Transport) Report() alamos.Report {
 	return t.pledgeServer.Report()
 }
 
-func (t *Transport) Configure(addr address.Address, ins alamos.Instrumentation, external bool) error {
+func (t *Transport) Configure(
+	addr address.Address,
+	ins alamos.Instrumentation,
+	external bool,
+) error {
 	if external {
 		return nil
 	}

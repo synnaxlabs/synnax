@@ -36,7 +36,9 @@ func compoundOpToString(compoundOp parser.ICompoundOpContext) string {
 	}
 }
 
-func compileVariableDeclaration(ctx context.Context[parser.IVariableDeclarationContext]) error {
+func compileVariableDeclaration(
+	ctx context.Context[parser.IVariableDeclarationContext],
+) error {
 	if localVar := ctx.AST.LocalVariable(); localVar != nil {
 		return compileLocalVariable(context.Child(ctx, localVar))
 	}
@@ -65,7 +67,10 @@ func compileLocalVariable(ctx context.Context[parser.ILocalVariableContext]) err
 	//   sp2 := sp        (where sp is a variable with chan f32)
 	//   alias := channel (where channel is a global KindChannel)
 	if varType.Kind == types.KindChan || varScope.Kind == symbol.KindChannel {
-		if rhsScope, kind := resolveChannelSource(ctx, ctx.AST.Expression()); kind != channelSourceNone {
+		if rhsScope, kind := resolveChannelSource(
+			ctx,
+			ctx.AST.Expression(),
+		); kind != channelSourceNone {
 			switch kind {
 			case channelSourceLocal:
 				// Params and variables have WASM locals holding the channel key
@@ -83,7 +88,11 @@ func compileLocalVariable(ctx context.Context[parser.ILocalVariableContext]) err
 	exprCtx := context.Child(ctx, ctx.AST.Expression()).WithHint(varType)
 	exprType, err := expression.Compile(exprCtx)
 	if err != nil {
-		return errors.Wrapf(err, "failed to compile initialization expression for '%s'", name)
+		return errors.Wrapf(
+			err,
+			"failed to compile initialization expression for '%s'",
+			name,
+		)
 	}
 	if !types.Equal(varType, exprType) {
 		if err = expression.EmitCast(ctx, exprType, varType); err != nil {
@@ -149,7 +158,11 @@ func compileStatefulVariable(
 	exprCtx := context.Child(ctx, ctx.AST.Expression()).WithHint(varType)
 	_, err = expression.Compile(exprCtx)
 	if err != nil {
-		return errors.Wrapf(err, "failed to compile initialization for stateful variable '%s'", name)
+		return errors.Wrapf(
+			err,
+			"failed to compile initialization for stateful variable '%s'",
+			name,
+		)
 	}
 
 	// Stack is now: [varID, initValue/initHandle]
@@ -201,8 +214,10 @@ func compileIndexedAssignment(
 	return nil
 }
 
-// compileIndexedCompoundAssignment handles indexed compound assignment statements (series[i] += value)
-// Equivalent to: arr[i] = arr[i] op expr
+// compileIndexedCompoundAssignment handles indexed compound assignment statements
+// (series[i] += value).
+//
+//	Equivalent to: arr[i] = arr[i] op expr
 func compileIndexedCompoundAssignment(
 	ctx context.Context[parser.IAssignmentContext],
 	scope *symbol.Symbol,
@@ -264,7 +279,9 @@ func compileIndexedCompoundAssignment(
 	return nil
 }
 
-// compileSeriesCompoundAssignment handles whole-series compound assignment (series += value)
+// compileSeriesCompoundAssignment handles whole-series compound assignment (series +=
+// value).
+//
 // Equivalent to: series = series op expr (broadcast or element-wise)
 func compileSeriesCompoundAssignment(
 	ctx context.Context[parser.IAssignmentContext],
@@ -286,7 +303,13 @@ func compileSeriesCompoundAssignment(
 	}
 
 	isScalar := exprType.Kind != types.KindSeries
-	if err = ctx.Resolver.EmitSeriesArithmetic(ctx.Writer, ctx.WriterID, op, elemType, isScalar); err != nil {
+	if err = ctx.Resolver.EmitSeriesArithmetic(
+		ctx.Writer,
+		ctx.WriterID,
+		op,
+		elemType,
+		isScalar,
+	); err != nil {
 		return err
 	}
 
@@ -326,7 +349,9 @@ func compileCompoundAssignment(
 	op := compoundOpToString(compoundOp)
 	ctx.Writer.WriteLocalGet(scope.ID)
 
-	exprType, err := expression.Compile(context.Child(ctx, ctx.AST.Expression()).WithHint(varType))
+	exprType, err := expression.Compile(
+		context.Child(ctx, ctx.AST.Expression()).WithHint(varType),
+	)
 	if err != nil {
 		return err
 	}
@@ -353,7 +378,11 @@ func compileCompoundAssignment(
 		ctx.Writer.WriteI32Const(int32(scope.ID))
 		ctx.Writer.WriteLocalGet(scope.ID)
 		if varType.Kind == types.KindSeries {
-			ctx.Resolver.EmitStateStoreSeries(ctx.Writer, ctx.WriterID, varType.Unwrap())
+			ctx.Resolver.EmitStateStoreSeries(
+				ctx.Writer,
+				ctx.WriterID,
+				varType.Unwrap(),
+			)
 		} else {
 			ctx.Resolver.EmitStateStore(ctx.Writer, ctx.WriterID, varType.Unwrap())
 		}
@@ -406,9 +435,15 @@ func compileAssignment(
 	}
 
 	targetType := varType.UnwrapChan()
-	exprType, err := expression.Compile(context.Child(ctx, ctx.AST.Expression()).WithHint(targetType))
+	exprType, err := expression.Compile(
+		context.Child(ctx, ctx.AST.Expression()).WithHint(targetType),
+	)
 	if err != nil {
-		return errors.Wrapf(err, "failed to compile assignment expression for '%s'", name)
+		return errors.Wrapf(
+			err,
+			"failed to compile assignment expression for '%s'",
+			name,
+		)
 	}
 	if !types.Equal(targetType, exprType) {
 		if err = expression.EmitCast(ctx, exprType, targetType); err != nil {
@@ -436,7 +471,11 @@ func compileAssignment(
 		ctx.Writer.WriteI32Const(int32(scope.ID))
 		ctx.Writer.WriteLocalGet(scope.ID)
 		if varType.Kind == types.KindSeries {
-			ctx.Resolver.EmitStateStoreSeries(ctx.Writer, ctx.WriterID, varType.Unwrap())
+			ctx.Resolver.EmitStateStoreSeries(
+				ctx.Writer,
+				ctx.WriterID,
+				varType.Unwrap(),
+			)
 		} else {
 			ctx.Resolver.EmitStateStore(ctx.Writer, ctx.WriterID, varType.Unwrap())
 		}

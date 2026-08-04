@@ -77,7 +77,11 @@ func NewLicense(repoRoot string) (*License, error) {
 // Format prepends or refreshes the license header on content. Files
 // with extensions outside the supported set pass through unchanged.
 // The context is unused; License is in-process and pure CPU.
-func (l *License) Format(_ context.Context, content []byte, absPath string) ([]byte, error) {
+func (l *License) Format(
+	_ context.Context,
+	content []byte,
+	absPath string,
+) ([]byte, error) {
 	header, ok := l.headersByExt[filepath.Ext(absPath)]
 	if !ok {
 		return content, nil
@@ -162,7 +166,8 @@ func stripLineHeader(content []byte, prefix string) []byte {
 	if !bytes.HasPrefix(lines[0], []byte(prefix)) {
 		return content
 	}
-	if !bytes.Contains(lines[0], []byte("Copyright")) || !bytes.Contains(lines[0], []byte("Synnax Labs")) {
+	if !bytes.Contains(lines[0], []byte("Copyright")) ||
+		!bytes.Contains(lines[0], []byte("Synnax Labs")) {
 		return content
 	}
 	// Walk forward through the contiguous comment block. The license
@@ -194,7 +199,8 @@ func stripBlockHeader(content []byte) []byte {
 		return content
 	}
 	header := content[:idx+2]
-	if !bytes.Contains(header, []byte("Copyright")) || !bytes.Contains(header, []byte("Synnax Labs")) {
+	if !bytes.Contains(header, []byte("Copyright")) ||
+		!bytes.Contains(header, []byte("Synnax Labs")) {
 		return content
 	}
 	rest := content[idx+2:]

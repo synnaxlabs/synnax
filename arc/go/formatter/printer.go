@@ -128,7 +128,11 @@ func (p *printer) print(tokens []antlr.Token) string {
 	return out + "\n"
 }
 
-func (p *printer) isLastTokenOnLine(tok antlr.Token, idx int, tokens []antlr.Token) bool {
+func (p *printer) isLastTokenOnLine(
+	tok antlr.Token,
+	idx int,
+	tokens []antlr.Token,
+) bool {
 	tokLine := tok.GetLine()
 	if idx+1 >= len(tokens) {
 		return true
@@ -140,7 +144,9 @@ func (p *printer) isLastTokenOnLine(tok antlr.Token, idx int, tokens []antlr.Tok
 	return nextTok.GetLine() != tokLine
 }
 
-func (p *printer) separateTokens(tokens []antlr.Token) (visible []antlr.Token, comments []antlr.Token) {
+func (p *printer) separateTokens(
+	tokens []antlr.Token,
+) (visible, comments []antlr.Token) {
 	for _, tok := range tokens {
 		switch tok.GetTokenType() {
 		case parser.ArcLexerSINGLE_LINE_COMMENT, parser.ArcLexerMULTI_LINE_COMMENT:
@@ -151,7 +157,7 @@ func (p *printer) separateTokens(tokens []antlr.Token) (visible []antlr.Token, c
 			visible = append(visible, tok)
 		}
 	}
-	return
+	return visible, comments
 }
 
 func (p *printer) emitLeadingCommentsPreFetched(comments []antlr.Token) {
@@ -177,7 +183,11 @@ func (p *printer) flushPendingLineEnd() {
 	}
 }
 
-func (p *printer) shouldAddTrailingComma(tok antlr.Token, idx int, tokens []antlr.Token) bool {
+func (p *printer) shouldAddTrailingComma(
+	tok antlr.Token,
+	idx int,
+	tokens []antlr.Token,
+) bool {
 	tokType := tok.GetTokenType()
 	if tokType == parser.ArcLexerCOMMA || tokType == parser.ArcLexerLBRACE ||
 		tokType == parser.ArcLexerLPAREN {
@@ -252,7 +262,12 @@ func (p *printer) emitTrailingComments(ca *commentAttacher) {
 	}
 }
 
-func (p *printer) emitToken(tok antlr.Token, idx int, tokens []antlr.Token, ca *commentAttacher) {
+func (p *printer) emitToken(
+	tok antlr.Token,
+	idx int,
+	tokens []antlr.Token,
+	ca *commentAttacher,
+) {
 	tokType := tok.GetTokenType()
 	tokLine := tok.GetLine()
 
@@ -944,11 +959,13 @@ func countImportItems(idx int, tokens []antlr.Token) int {
 		// Skip through `.IDENT` segments and an optional `as IDENT`.
 		for i+2 < len(tokens) {
 			next := tokens[i+1].GetTokenType()
-			if next == parser.ArcLexerDOT && tokens[i+2].GetTokenType() == parser.ArcLexerIDENTIFIER {
+			if next == parser.ArcLexerDOT &&
+				tokens[i+2].GetTokenType() == parser.ArcLexerIDENTIFIER {
 				i += 2
 				continue
 			}
-			if next == parser.ArcLexerAS && tokens[i+2].GetTokenType() == parser.ArcLexerIDENTIFIER {
+			if next == parser.ArcLexerAS &&
+				tokens[i+2].GetTokenType() == parser.ArcLexerIDENTIFIER {
 				i += 2
 			}
 			break
@@ -1094,7 +1111,7 @@ func (p *printer) inCollapsedImportParen() bool {
 		p.importCollapseDepths.Contains(len(p.parenContextStack))
 }
 
-func (p *printer) needsNewlineAfter(tokType int, idx int, tokens []antlr.Token) bool {
+func (p *printer) needsNewlineAfter(tokType, idx int, tokens []antlr.Token) bool {
 	if idx+1 >= len(tokens) {
 		return false
 	}
@@ -1177,7 +1194,8 @@ func (p *printer) isUnitSuffix(tok antlr.Token) bool {
 		return false
 	}
 	prevType := p.prevToken.GetTokenType()
-	if prevType != parser.ArcLexerINTEGER_LITERAL && prevType != parser.ArcLexerFLOAT_LITERAL {
+	if prevType != parser.ArcLexerINTEGER_LITERAL &&
+		prevType != parser.ArcLexerFLOAT_LITERAL {
 		return false
 	}
 	return p.tokensAdjacent(p.prevToken, tok)
@@ -1247,7 +1265,9 @@ func (p *printer) isType(tokType int) bool {
 
 func (p *printer) isLiteral(tokType int) bool {
 	switch tokType {
-	case parser.ArcLexerINTEGER_LITERAL, parser.ArcLexerFLOAT_LITERAL, parser.ArcLexerSTR_LITERAL,
+	case parser.ArcLexerINTEGER_LITERAL,
+		parser.ArcLexerFLOAT_LITERAL,
+		parser.ArcLexerSTR_LITERAL,
 		parser.ArcLexerSTR_LITERAL_MULTI:
 		return true
 	}
@@ -1374,7 +1394,8 @@ func reorderAuthorityEntries(tokens []antlr.Token) []antlr.Token {
 				case parser.ArcLexerIDENTIFIER:
 					entry := authorityEntry{tokens: []antlr.Token{tokens[i]}}
 					i++
-					if i < len(tokens) && tokens[i].GetTokenType() == parser.ArcLexerINTEGER_LITERAL {
+					if i < len(tokens) &&
+						tokens[i].GetTokenType() == parser.ArcLexerINTEGER_LITERAL {
 						entry.tokens = append(entry.tokens, tokens[i])
 						i++
 					}

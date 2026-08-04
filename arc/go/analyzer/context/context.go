@@ -96,7 +96,8 @@ type Context[AST antlr.ParserRuleContext] struct {
 	Constraints *constraints.System
 	// TypeMap caches resolved types for AST nodes.
 	TypeMap map[antlr.ParserRuleContext]types.Type
-	// CallEdges tracks function call relationships for post-analysis channel propagation.
+	// CallEdges tracks function call relationships for post-analysis channel
+	// propagation.
 	CallEdges *[]CallEdge
 	// AST is the current AST node being analyzed.
 	AST AST
