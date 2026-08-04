@@ -126,8 +126,8 @@ The exporter owns file naming: sanitized resource names, deduplicated in the bun
 Sanitized names are compared case-folded and Unicode-normalized, because the Console
 extracts onto case-insensitive filesystems. Collisions get a numeric suffix (`_2`)
 assigned in sorted member order, so repeated exports of an unchanged project produce
-identical file names. The `manifest` and `LAYOUT` base names are reserved in every
-supported extension.
+identical file names. The `manifest` base name is reserved in every supported extension.
+`LAYOUT.json` is a legal member name: recognition checks `manifest.json` first (§4.5).
 
 ### 4.1 - Endpoints
 
@@ -170,8 +170,8 @@ is three small helpers:
 
 Each service defines its own manifest struct (`{Version, Type, Name}`) beside its bundle
 code. The API services call the owning domain services directly: `api/project` calls
-`project.Service.ExportBundle`/`ImportBundle`, and `api/schematic` calls the symbol
-service's group methods.
+`project.Service.Export`/`Import`, and `api/schematic` calls the symbol service's group
+methods.
 
 ### 4.3 - Project Bundles
 
@@ -179,7 +179,7 @@ service's group methods.
 must open before project in `layer.go`; neither package imports the other, so the
 reorder is free.
 
-**Export** (`project.Service.ExportBundle`):
+**Export** (`project.Service.Export`):
 
 1. Retrieve the project and its ontology children.
 2. Encode each child panel as a panel envelope. Rewrite each resource tab that targets a
@@ -190,7 +190,7 @@ reorder is free.
    registry it composes. This removes the Console's `EXPORTABLE_TYPES` copy.
 4. Emit `manifest.json`.
 
-**Import** (`project.Service.ImportBundle`):
+**Import** (`project.Service.Import`):
 
 1. Create a fresh project. Use the manifest name, then the `file_name` fallback.
 2. Import each non-panel member through the leaf registry with `ImportOptions.Project`
@@ -294,10 +294,9 @@ migration work.
 Pure additive plumbing.
 
 **Phase 3 — Project bundles.** Reorder `layer.go`; add `ImEx` and `Panel` to
-`project.ServiceConfig`; implement `ExportBundle`/`ImportBundle`; add the
-`/project/export` and `/project/import` endpoints; add panel tab-type validation;
-implement `LAYOUT.json` migration. Cut the Console over and delete its project
-orchestration.
+`project.ServiceConfig`; implement `Export`/`Import`; add the `/project/export` and
+`/project/import` endpoints; add panel tab-type validation; implement `LAYOUT.json`
+migration. Cut the Console over and delete its project orchestration.
 
 **Phase 4 — Symbol group bundles.** Implement the group export/import methods and
 endpoints, with legacy v1 manifest migration. Cut the Console over and delete its group
