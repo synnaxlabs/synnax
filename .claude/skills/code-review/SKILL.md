@@ -2,11 +2,11 @@
 name: code-review
 description:
   Process and hard rules for conducting code reviews in this repo: PRs, branches,
-  commit ranges, and working diffs, plus triaging incoming review comments on a PR you
-  authored. Use whenever reviewing any diff-shaped artifact, walking the user through a
-  change, assessing mergeability, or drafting responses to reviewer or bot comments.
-  Extends and overrides the built-in code-review skill. Enforces true-base attribution,
-  a chunked reading guide, verification before reporting, and severity discipline.
+  commit ranges, and working diffs. Use whenever reviewing any diff-shaped artifact,
+  walking the user through a change, or assessing mergeability. Extends and overrides
+  the built-in code-review skill. Enforces true-base attribution, a chunked reading
+  guide, verification before reporting, and severity discipline. Triaging incoming
+  comments on a PR you authored belongs to the `pr-comments` skill.
 ---
 
 # Code Review
@@ -40,9 +40,8 @@ rules below.
 6. **Report and walk through** (Rules 7–9). Severity-disciplined findings, delivered as
    a user-paced walkthrough, collapsible into postable review comments.
 
-Author-side triage of incoming review comments runs Rules 3, 5, and 6 per comment, then
-Rule 10's verdict-first format. Findings go to the user in conversation, always; nothing
-is posted to GitHub without an explicit instruction in that session.
+Findings go to the user in conversation, always; nothing is posted to GitHub without an
+explicit instruction in that session.
 
 ## Rule 1: Attribute against the true base
 
@@ -217,22 +216,12 @@ more robust." (No line, no defect, no evaluable fix.)
   the tier is Question, no customer names, no em dashes. Posting anything to GitHub
   still requires the explicit instruction.
 
-## Rule 10: Author-side triage — incoming review comments
+## Rule 10: Author-side triage lives in `pr-comments`
 
-For review comments (human or bot) on a PR you authored:
-
-- **One comment at a time, simplest first.** Never batch, never auto-implement a
-  reviewer's suggestion across the board.
-- **Read what the comment points at** — the surrounding code, the linked file, the
-  thread — not just the diff hunk under it.
-- **Verify the claim through Rule 5** before agreeing or rebutting. Reviewers are
-  sometimes wrong; rebuttals cite evidence, not vibes.
-- **Verdict-first recommendation to the user**, in the house reply register: "Real bug;
-  fix is …", "Intentional, because …", "Fixed in <sha>" (after the fix lands), or "Needs
-  discussion". The user decides implement / skip / respond; replies are posted only on
-  their instruction.
-- Contested design threads escalate to a synchronous conversation, matching house
-  practice — never a twelve-round comment war.
+Triaging incoming review comments on a PR you authored is owned by the `pr-comments`
+skill. Load it instead of working from this one. Rule 5's verification gate and Rule 6's
+trap list still apply per comment; everything else about that workflow, discovery of the
+unresolved threads, the one-at-a-time loop, and the batched GitHub writes, lives there.
 
 ## Rule 11: Tooling — CI runs the checks, the reviewer reads
 
@@ -255,6 +244,6 @@ live cluster belong to the user. The reviewer's instruments are reading and sear
 | Assigning severity              | One of Blocking / Should-fix / Nit / Question; else silence     |
 | Attaching a fix                 | Proportional: inline, structural-first, sign-off, or discussion |
 | Delivering the review           | Map + verdict counts, then user-paced chunk walkthrough         |
-| Incoming review comment         | One at a time; verified; verdict-first recommendation           |
+| Incoming review comment         | Not this skill; load `pr-comments`                              |
 | Writing anything to GitHub      | Explicit user instruction in this session                       |
 | Tempted to run lint/tests       | Don't — read CI; tooling is investigative only                  |
