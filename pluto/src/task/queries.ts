@@ -42,6 +42,7 @@ export const {
   useRetrieveObservable,
   useRetrieveSuspended,
   useEnsureRetrieved,
+  useTombstone,
 } = createRetrieve();
 
 export interface SelectKeyParams {
