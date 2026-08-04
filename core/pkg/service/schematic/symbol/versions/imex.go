@@ -78,14 +78,12 @@ type consoleSymbol struct {
 }
 
 // DecodeImport materializes the envelope's body as a current-version Symbol.
-// Envelopes below Latest are Console-written camelCase files; an envelope newer
-// than Latest is rejected with a path-scoped validation error.
+// Envelopes stamped at or above Floor decode through the generated migration
+// chain; envelopes below Floor are Console-written camelCase files. An envelope
+// newer than Latest is rejected with a path-scoped validation error.
 func DecodeImport(ctx context.Context, env imex.Envelope) (Symbol, error) {
-	switch {
-	case env.Version > Latest:
-		return Symbol{}, imex.NewErrUnsupportedVersion(env.Type, env.Version, Latest)
-	case env.Version == Latest:
-		return imex.Decode[Symbol](ctx, env)
+	if env.Version >= Floor {
+		return decodeMigrate(ctx, env)
 	}
 	cs, err := imex.Decode[consoleSymbol](ctx, env)
 	if err != nil {

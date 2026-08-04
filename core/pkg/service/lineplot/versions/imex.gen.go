@@ -11,8 +11,29 @@
 
 package versions
 
-import "github.com/synnaxlabs/synnax/pkg/service/lineplot/versions/v6"
+import (
+	"context"
+
+	"github.com/synnaxlabs/synnax/pkg/service/imex"
+	"github.com/synnaxlabs/synnax/pkg/service/lineplot/versions/v6"
+)
 
 // Latest is the portable schema version stamped on exported LinePlot envelopes and
 // the highest version import accepts. It equals the resource's current schema version.
 const Latest = v6.Version
+
+// Floor is the earliest server-exported schema version: the version the resource
+// carried when it first declared @go imex.
+const Floor = v6.Version
+
+// decodeMigrate decodes an envelope stamped in [Floor, Latest] as its version's
+// LinePlot shape and lifts it through the per-version migration chain to the
+// current shape. Envelopes outside the window are rejected with a path-scoped
+// validation error.
+func decodeMigrate(ctx context.Context, env imex.Envelope) (LinePlot, error) {
+	switch env.Version {
+	case v6.Version:
+		return imex.Decode[LinePlot](ctx, env)
+	}
+	return LinePlot{}, imex.NewErrUnsupportedVersion(env.Type, env.Version, Latest)
+}

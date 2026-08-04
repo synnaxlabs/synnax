@@ -51,8 +51,12 @@ or generator logic and schemas disagree.
   when another versioned schema embeds the type; unexported when only the package's own
   gorp wiring or auto-copies call it.
 - `@go imex` (bare marker, requires `@go version`) on an imex-registered resource's root
-  struct emits `imex.gen.go` with a `Version imex.Version` constant equal to the schema
-  version — the portable envelope version is never hand-maintained.
+  struct emits `imex.gen.go` files across the versions tree: a `Version imex.Version`
+  constant in every `versions/vK` package, plus `Latest`, `Floor` (earliest snapshot
+  carrying the marker), and a `decodeMigrate` ladder in the versions root that lifts
+  server-era envelopes through the per-bump `Migrate<Type>` steps. The envelope version
+  and migration chain are never hand-maintained; hand `versions/imex.go` files route
+  `>= Floor` envelopes to the ladder and keep only frozen Console-era decoding.
 
 ## Tag Minimization
 

@@ -23,13 +23,13 @@ import (
 const typedVersion imex.Version = 2
 
 // DecodeImport materializes the envelope's body as a current-version Log. Envelopes
-// older than Latest are legacy camelCase Console exports and are lifted forward
-// through the migration chain; an envelope newer than Latest is rejected with a
-// path-scoped validation error.
+// stamped at or above Floor decode through the generated migration chain; older
+// ones are legacy camelCase Console exports and are lifted forward. An envelope
+// newer than Latest is rejected with a path-scoped validation error.
 func DecodeImport(ctx context.Context, env imex.Envelope) (Log, error) {
 	switch {
-	case env.Version > Latest:
-		return Log{}, imex.NewErrUnsupportedVersion(env.Type, env.Version, Latest)
+	case env.Version >= Floor:
+		return decodeMigrate(ctx, env)
 	case env.Version >= typedVersion:
 		return imex.Decode[Log](ctx, env)
 	default:

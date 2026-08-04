@@ -116,25 +116,22 @@ type consoleTyped struct {
 }
 
 // DecodeImport materializes the envelope's body as a current-version Arc. Envelopes
-// older than Latest are Console-era files — camelCase typed exports or console
-// states — and are lifted forward; an envelope newer than Latest is rejected with a
-// path-scoped validation error.
+// stamped at or above Floor decode through the generated migration chain; older
+// ones are Console-era files — camelCase typed exports or console states — and are
+// lifted forward. An envelope newer than Latest is rejected with a path-scoped
+// validation error.
 func DecodeImport(ctx context.Context, env imex.Envelope) (Arc, error) {
-	if env.Version > Latest {
-		return Arc{}, imex.NewErrUnsupportedVersion(env.Type, env.Version, Latest)
+	if env.Version >= Floor {
+		return decodeMigrate(ctx, env)
 	}
 	named, err := imex.BodyNamed(ctx, env)
 	if err != nil {
 		return Arc{}, err
 	}
 	// Typed exports always carry a top-level name; console states never do.
-	// Server exports stamp the current version with snake_case keys; Console
-	// typed exports are versionless with camelCase keys and the pre-lift v0
-	// graph shape.
+	// Console typed exports are versionless with camelCase keys and the
+	// pre-lift v0 graph shape.
 	if named {
-		if env.Version == Latest {
-			return imex.Decode[Arc](ctx, env)
-		}
 		ct, err := imex.Decode[consoleTyped](ctx, env)
 		if err != nil {
 			return Arc{}, err

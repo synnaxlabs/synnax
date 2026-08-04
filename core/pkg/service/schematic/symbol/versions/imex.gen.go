@@ -11,8 +11,29 @@
 
 package versions
 
-import "github.com/synnaxlabs/synnax/pkg/service/schematic/symbol/versions/v2"
+import (
+	"context"
+
+	"github.com/synnaxlabs/synnax/pkg/service/imex"
+	"github.com/synnaxlabs/synnax/pkg/service/schematic/symbol/versions/v2"
+)
 
 // Latest is the portable schema version stamped on exported Symbol envelopes and
 // the highest version import accepts. It equals the resource's current schema version.
 const Latest = v2.Version
+
+// Floor is the earliest server-exported schema version: the version the resource
+// carried when it first declared @go imex.
+const Floor = v2.Version
+
+// decodeMigrate decodes an envelope stamped in [Floor, Latest] as its version's
+// Symbol shape and lifts it through the per-version migration chain to the
+// current shape. Envelopes outside the window are rejected with a path-scoped
+// validation error.
+func decodeMigrate(ctx context.Context, env imex.Envelope) (Symbol, error) {
+	switch env.Version {
+	case v2.Version:
+		return imex.Decode[Symbol](ctx, env)
+	}
+	return Symbol{}, imex.NewErrUnsupportedVersion(env.Type, env.Version, Latest)
+}

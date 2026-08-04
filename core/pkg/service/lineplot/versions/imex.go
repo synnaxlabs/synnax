@@ -135,17 +135,13 @@ func (d consoleDocument) linePlot() LinePlot {
 }
 
 // DecodeImport materializes the envelope's body as a current-version LinePlot.
-// Envelopes older than Latest are Console-era files — camelCase typed exports or
-// console states — and are lifted forward; an envelope newer than Latest is
-// rejected with a path-scoped validation error.
+// Envelopes stamped at or above Floor decode through the generated migration
+// chain; older ones are Console-era files — camelCase typed exports or console
+// states — and are lifted forward. An envelope newer than Latest is rejected
+// with a path-scoped validation error.
 func DecodeImport(ctx context.Context, env imex.Envelope) (LinePlot, error) {
-	switch {
-	case env.Version > Latest:
-		return LinePlot{}, imex.NewErrUnsupportedVersion(
-			env.Type, env.Version, Latest,
-		)
-	case env.Version == Latest:
-		return imex.Decode[LinePlot](ctx, env)
+	if env.Version >= Floor {
+		return decodeMigrate(ctx, env)
 	}
 	named, err := imex.BodyNamed(ctx, env)
 	if err != nil {
