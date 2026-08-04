@@ -26,11 +26,13 @@ import (
 	"github.com/synnaxlabs/x/validate"
 )
 
+// Service implements the ImEx API.
 type Service struct {
 	access   *rbac.Service
 	internal *imex.Service
 }
 
+// NewService creates a new ImEx API service.
 func NewService(cfgs ...config.LayerConfig) (*Service, error) {
 	cfg, err := xconfig.New(config.DefaultLayerConfig, cfgs...)
 	if err != nil {
@@ -43,10 +45,13 @@ func NewService(cfgs ...config.LayerConfig) (*Service, error) {
 }
 
 type (
-	ImportRequest  = imex.Envelope
+	// ImportRequest is the request type for the Import endpoint.
+	ImportRequest = imex.Envelope
+	// ImportResponse is the response type for the Import endpoint.
 	ImportResponse = ontology.ID
 )
 
+// Import imports a resource from an envelope.
 func (s *Service) Import(
 	ctx context.Context,
 	tx gorp.Tx,
@@ -90,6 +95,7 @@ func (s *Service) Import(
 }
 
 type importParams struct {
+	// FileName is the name of the file the envelope was read from, e.g. "table.json".
 	FileName string `json:"file_name"`
 	// Parent carries the compact "type:key" string form clients send.
 	Parent string `json:"parent"`
@@ -133,10 +139,13 @@ func parseImportOptions(ctx context.Context) (imex.ImportOptions, error) {
 }
 
 type (
-	ExportRequest  = ontology.ID
+	// ExportRequest is the request type for the Export endpoint.
+	ExportRequest = ontology.ID
+	// ExportResponse is the response type for the Export endpoint.
 	ExportResponse = imex.Envelope
 )
 
+// Export exports a resource to an envelope.
 func (s *Service) Export(
 	ctx context.Context,
 	req ExportRequest,

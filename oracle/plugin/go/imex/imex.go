@@ -9,9 +9,9 @@
 
 // Package imex generates the portable import/export version constants for any Oracle
 // struct that declares the bare `@go imex` marker. Every versions/vK package gains a
-// Version constant equal to K, and the versions package root gains Latest, aliasing
-// the current version's constant. Latest keeps the wire envelope version and the
-// storage schema version a single sequence per resource.
+// Version constant equal to K, and the versions package root gains Latest, aliasing the
+// current version's constant. Latest keeps the wire envelope version and the storage
+// schema version a single sequence per resource.
 package imex
 
 import (
@@ -33,8 +33,8 @@ import (
 	"github.com/synnaxlabs/x/errors"
 )
 
-// goModulePrefix resolves repo-relative output paths to Go import paths when no
-// go.mod is discoverable, mirroring the go/types plugin.
+// goModulePrefix resolves repo-relative output paths to Go import paths when no go.mod
+// is discoverable, mirroring the go/types plugin.
 const goModulePrefix = "github.com/synnaxlabs/synnax/"
 
 // Options configures the imex plugin output.
@@ -62,11 +62,11 @@ var goPostWriter = &exec.PostWriter{Commands: [][]string{{"gofmt", "-w"}}}
 // PostWrite runs gofmt on the generated files.
 func (*Plugin) PostWrite(files []string) error { return goPostWriter.PostWrite(files) }
 
-// Generate emits imex version constants into the versions tree of every output
-// package whose type declares @go imex: one Version constant per versions/vK
-// package (the version directories on disk, plus the current version), and a
-// Latest constant in the versions package root. It errors when a marked type
-// lacks a @go version or when two types at the same path both carry the marker.
+// Generate emits imex version constants into the versions tree of every output package
+// whose type declares @go imex: one Version constant per versions/vK package (the
+// version directories on disk, plus the current version), and a Latest constant in the
+// versions package root. It errors when a marked type lacks a @go version or when two
+// types at the same path both carry the marker.
 func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 	resp := &plugin.Response{}
 	declared := make(map[string]string)
@@ -128,8 +128,8 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 			Path:    outputPath + "/versions/" + p.options.FileNamePattern,
 			Content: buf.Bytes(),
 		})
-		// The constants used to be emitted at the package root; clean the old
-		// location up.
+		// The constants used to be emitted at the package root; clean the old location
+		// up.
 		resp.Deletions = append(
 			resp.Deletions, outputPath+"/"+p.options.FileNamePattern,
 		)
@@ -137,8 +137,8 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 	return resp, nil
 }
 
-// versionDirs returns the numeric version sub-directories present under the
-// output package's versions/ tree on disk, ascending.
+// versionDirs returns the numeric version sub-directories present under the output
+// package's versions/ tree on disk, ascending.
 func versionDirs(repoRoot, outputPath string) ([]int, error) {
 	entries, err := os.ReadDir(filepath.Join(repoRoot, outputPath, "versions"))
 	if err != nil {
