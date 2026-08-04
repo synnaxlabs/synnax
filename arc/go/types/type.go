@@ -104,6 +104,9 @@ func F64() Type { return Type{Kind: KindF64} }
 // String returns a UTF-8 string type.
 func String() Type { return Type{Kind: KindString} }
 
+// Bool returns a boolean type.
+func Bool() Type { return Type{Kind: KindBool} }
+
 // TimeStamp returns an i64 type with nanosecond time units.
 func TimeStamp() Type {
 	return Type{Kind: KindI64, Unit: &Unit{Dimensions: DimTime, Scale: 1, Name: "ns"}}
@@ -239,6 +242,8 @@ var (
 // FromTelem converts a telemetry data type to an Arc type.
 func FromTelem(t telem.DataType) Type {
 	switch t {
+	case telem.BoolT:
+		return Bool()
 	case telem.Uint8T:
 		return U8()
 	case telem.Uint16T:

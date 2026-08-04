@@ -36,6 +36,7 @@ export enum Kind {
   sequence = 22,
   stage = 23,
   var_ref = 24,
+  bool = 25,
 }
 export const kindZ = z.enum(Kind);
 

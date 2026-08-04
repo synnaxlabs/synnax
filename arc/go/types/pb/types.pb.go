@@ -60,6 +60,7 @@ const (
 	Kind_KIND_SEQUENCE                     Kind = 22
 	Kind_KIND_STAGE                        Kind = 23
 	Kind_KIND_VAR_REF                      Kind = 24
+	Kind_KIND_BOOL                         Kind = 25
 )
 
 // Enum value maps for Kind.
@@ -88,6 +89,7 @@ var (
 		22: "KIND_SEQUENCE",
 		23: "KIND_STAGE",
 		24: "KIND_VAR_REF",
+		25: "KIND_BOOL",
 	}
 	Kind_value = map[string]int32{
 		"KIND_INVALID":                      0,
@@ -113,6 +115,7 @@ var (
 		"KIND_SEQUENCE":                     22,
 		"KIND_STAGE":                        23,
 		"KIND_VAR_REF":                      24,
+		"KIND_BOOL":                         25,
 	}
 )
 
@@ -706,7 +709,7 @@ const file_arc_go_types_pb_types_proto_rawDesc = "" +
 	"dimensions\x18\x01 \x01(\v2\x18.arc.types.pb.DimensionsR\n" +
 	"dimensions\x12\x14\n" +
 	"\x05scale\x18\x02 \x01(\x01R\x05scale\x12\x12\n" +
-	"\x04name\x18\x03 \x01(\tR\x04name*\xae\x03\n" +
+	"\x04name\x18\x03 \x01(\tR\x04name*\xbd\x03\n" +
 	"\x04Kind\x12\x10\n" +
 	"\fKIND_INVALID\x10\x00\x12\f\n" +
 	"\bKIND_U_8\x10\x01\x12\r\n" +
@@ -732,7 +735,8 @@ const file_arc_go_types_pb_types_proto_rawDesc = "" +
 	"\rKIND_SEQUENCE\x10\x16\x12\x0e\n" +
 	"\n" +
 	"KIND_STAGE\x10\x17\x12\x10\n" +
-	"\fKIND_VAR_REF\x10\x18*z\n" +
+	"\fKIND_VAR_REF\x10\x18\x12\r\n" +
+	"\tKIND_BOOL\x10\x19*z\n" +
 	"\rChanDirection\x12\x17\n" +
 	"\x13CHAN_DIRECTION_NONE\x10\x00\x12\x17\n" +
 	"\x13CHAN_DIRECTION_READ\x10\x01\x12\x18\n" +

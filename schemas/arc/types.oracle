@@ -37,6 +37,7 @@ Kind enum {
     sequence                     = 22
     stage                        = 23
     var_ref                      = 24
+    bool                         = 25
 
     @go version 1
     @doc value  """

@@ -41,6 +41,7 @@ enum Kind {
   KIND_SEQUENCE = 22;
   KIND_STAGE = 23;
   KIND_VAR_REF = 24;
+  KIND_BOOL = 25;
 }
 
 // ChanDirection indicates read/write direction for channel-typed parameters.

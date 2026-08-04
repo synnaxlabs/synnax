@@ -41,6 +41,7 @@ class Kind(IntEnum):
     sequence = 22
     stage = 23
     var_ref = 24
+    bool = 25
 
 
 class ChanDirection(IntEnum):

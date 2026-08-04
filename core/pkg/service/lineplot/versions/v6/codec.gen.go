@@ -80,7 +80,7 @@ func (a Axis) EncodeOrc(w *orc.Writer) error {
 	w.Float64(float64(a.TickSpacing))
 	if a.Type != nil {
 		w.Bool(true)
-		w.String(string(*a.Type))
+		w.String(string((*a.Type)))
 	} else {
 		w.Bool(false)
 	}
@@ -314,7 +314,7 @@ func (lv Line) EncodeOrc(w *orc.Writer) error {
 	w.String(lv.Key)
 	if lv.Label != nil {
 		w.Bool(true)
-		w.String(*lv.Label)
+		w.String((*lv.Label))
 	} else {
 		w.Bool(false)
 	}
