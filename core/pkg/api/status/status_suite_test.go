@@ -81,7 +81,9 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 			RBAC:   rbacSvc,
 		},
 	}))
-	author = MustSucceed(userSvc.NewWriter(nil).Create(ctx, user.User{Username: "test"}))
+	author = MustSucceed(
+		userSvc.NewWriter(nil).Create(ctx, user.User{Username: "test"}),
+	)
 })
 
 func authedCtx(ctx SpecContext, u user.User) freighter.Context {
@@ -93,7 +95,10 @@ func authedCtx(ctx SpecContext, u user.User) freighter.Context {
 // freshUser creates a user with no role assignments. Use this for "unauthorized"
 // specs so accumulated grants on the shared author don't leak in.
 func freshUser(ctx SpecContext) user.User {
-	return MustSucceed(userSvc.NewWriter(nil).Create(ctx, user.User{Username: "anon-" + uuid.New().String()}))
+	return MustSucceed(
+		userSvc.NewWriter(nil).
+			Create(ctx, user.User{Username: "anon-" + uuid.New().String()}),
+	)
 }
 
 // grantOn assigns a role granting the given actions on the given objects to the

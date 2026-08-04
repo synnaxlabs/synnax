@@ -265,13 +265,16 @@ var _ = Describe("TopoSort", func() {
 		})).Error().To(MatchError(graph.ErrCyclicDependency))
 	})
 
-	It("Should return ErrCyclicDependency when only part of the graph is cyclic", func() {
-		Expect(graph.TopoSort(map[string][]string{
-			"a": {},
-			"b": {"c"},
-			"c": {"b"},
-		})).Error().To(MatchError(graph.ErrCyclicDependency))
-	})
+	It(
+		"Should return ErrCyclicDependency when only part of the graph is cyclic",
+		func() {
+			Expect(graph.TopoSort(map[string][]string{
+				"a": {},
+				"b": {"c"},
+				"c": {"b"},
+			})).Error().To(MatchError(graph.ErrCyclicDependency))
+		},
+	)
 
 	It("Should return query.ErrNotFound for an unknown dependency", func() {
 		Expect(graph.TopoSort(map[string][]string{

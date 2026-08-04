@@ -48,7 +48,11 @@ var _ = Describe("MigrateData", func() {
 		})
 
 		It("Should fall back to v0 when the blob has no version field", func() {
-			out := MustSucceed(legacy.MigrateData(jsonMap(`{"title": {"level": "h4", "visible": false}}`)))
+			out := MustSucceed(
+				legacy.MigrateData(
+					jsonMap(`{"title": {"level": "h4", "visible": false}}`),
+				),
+			)
 			Expect(out.Version).To(Equal(v4.Version))
 			Expect(out.Title.Level).To(Equal("h4"))
 		})

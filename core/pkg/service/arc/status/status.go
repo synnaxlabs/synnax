@@ -44,18 +44,27 @@ const allowedVariantsList = "success, info, warning, error, loading, disabled"
 // memberDoc is the LSP hover body for status.set. The renderer prepends the
 // title from the symbol name and kind, so it is omitted here.
 var memberDoc = doc.New(
-	doc.Paragraph("Sets a status notification on the cluster. Used to report alarms, warnings, or operational state."),
+	doc.Paragraph(
+		"Sets a status notification on the cluster. Used to report alarms, warnings, or operational state.",
+	),
 	doc.Divider(),
-	doc.Code("arc", "status_key := sensor -> status.set{key_or_name=\"ox_alarm\", variant=\"error\", message=\"Overpressure\"}"),
+	doc.Code(
+		"arc",
+		"status_key := sensor -> status.set{key_or_name=\"ox_alarm\", variant=\"error\", message=\"Overpressure\"}",
+	),
 	doc.Divider(),
-	doc.Paragraph("Accepted variants: success, info, warning, error, loading, disabled."),
+	doc.Paragraph(
+		"Accepted variants: success, info, warning, error, loading, disabled.",
+	),
 	doc.Divider(),
 	doc.Paragraph("Outputs the resolved status key as a string."),
 )
 
 // moduleDoc is the LSP hover body for the status module itself.
 var moduleDoc = doc.New(
-	doc.Paragraph("Publishes status notifications (alarms, warnings, operational state) to the cluster."),
+	doc.Paragraph(
+		"Publishes status notifications (alarms, warnings, operational state) to the cluster.",
+	),
 )
 
 // newSetSymbolType returns a fresh function type for status.set per call so
@@ -128,7 +137,9 @@ func NewModule(ctx context.Context, cfg ModuleConfig) (node.Factory, error) {
 					"status.set: invalid string handle from WASM runtime")
 				return 0
 			}
-			return strings.Create(dispatchSet(ctx, m.stat, m.report, keyOrName, msg, variant))
+			return strings.Create(
+				dispatchSet(ctx, m.stat, m.report, keyOrName, msg, variant),
+			)
 		}).Export(setMemberName)
 	if _, err := builder.Instantiate(ctx); err != nil {
 		return nil, err
@@ -206,7 +217,10 @@ func analyzeStatusSetArguments(diags *diagnostics.Diagnostics, args []symbol.Arg
 	}
 }
 
-func checkVariantLiteral(diags *diagnostics.Diagnostics, expr parser.IExpressionContext) {
+func checkVariantLiteral(
+	diags *diagnostics.Diagnostics,
+	expr parser.IExpressionContext,
+) {
 	lit := parser.GetLiteral(expr)
 	if lit == nil {
 		return

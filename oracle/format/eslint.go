@@ -56,7 +56,11 @@ type eslintReport struct {
 // the legacy post-hook's stance. A fatal parse error from eslint is
 // surfaced as an error since it indicates the generated source is
 // broken.
-func (e *ESLint) Format(ctx context.Context, content []byte, absPath string) ([]byte, error) {
+func (e *ESLint) Format(
+	ctx context.Context,
+	content []byte,
+	absPath string,
+) ([]byte, error) {
 	args := append([]string{}, e.Args...)
 	args = append(args,
 		"--fix-dry-run",
@@ -79,11 +83,20 @@ func (e *ESLint) Format(ctx context.Context, content []byte, absPath string) ([]
 		return nil, err
 	}
 	if len(stdout) == 0 {
-		return nil, errors.Newf("eslint produced empty output for %s (cwd=%s)", absPath, dir)
+		return nil, errors.Newf(
+			"eslint produced empty output for %s (cwd=%s)",
+			absPath,
+			dir,
+		)
 	}
 	var reports []eslintReport
 	if err := json.Unmarshal(stdout, &reports); err != nil {
-		return nil, errors.Wrapf(err, "parse eslint output for %s: %s", absPath, string(stdout))
+		return nil, errors.Wrapf(
+			err,
+			"parse eslint output for %s: %s",
+			absPath,
+			string(stdout),
+		)
 	}
 	if len(reports) == 0 {
 		return content, nil

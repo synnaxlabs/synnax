@@ -23,7 +23,11 @@ import (
 
 func (s *Server) logUnexpectedSymbolError(sym *symbol.Symbol, err error) {
 	if err != nil && !errors.Is(err, query.ErrNotFound) {
-		s.cfg.L.Error("unexpected failure resolving symbol", zap.Stringer("symbol", sym), zap.Error(err))
+		s.cfg.L.Error(
+			"unexpected failure resolving symbol",
+			zap.Stringer("symbol", sym),
+			zap.Error(err),
+		)
 	}
 }
 
@@ -88,7 +92,12 @@ func (s *Server) Rename(
 		return nil, nil
 	}
 	if s.cfg.OnRename != nil {
-		if err := s.cfg.OnRename(ctx, targetSym, targetSym.Name, params.NewName); err != nil {
+		if err := s.cfg.OnRename(
+			ctx,
+			targetSym,
+			targetSym.Name,
+			params.NewName,
+		); err != nil {
 			return nil, err
 		}
 	}

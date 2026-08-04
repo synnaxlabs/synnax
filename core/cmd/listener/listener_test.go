@@ -26,7 +26,7 @@ import (
 	. "github.com/synnaxlabs/x/testutil"
 )
 
-func listenerObj(address string, source string) map[string]any {
+func listenerObj(address, source string) map[string]any {
 	return map[string]any{
 		"address": address,
 		"cert":    map[string]any{"source": source},
@@ -54,8 +54,12 @@ var _ = Describe("Listener", func() {
 		It("Should parse a list of listener objects", func() {
 			viper.Set(listener.FlagListen, []any{
 				map[string]any{
-					"address":   "core01:9090",
-					"cert":      map[string]any{"source": "file", "cert": "d.crt", "key": "d.key"},
+					"address": "core01:9090",
+					"cert": map[string]any{
+						"source": "file",
+						"cert":   "d.crt",
+						"key":    "d.key",
+					},
 					"advertise": true,
 				},
 				listenerObj("node01:9091", "tailscale"),
@@ -73,7 +77,8 @@ var _ = Describe("Listener", func() {
 			viper.Set(cmdcert.FlagAutoCert, true)
 			viper.Set(listener.FlagListen, []any{listenerObj("core01:9090", "auto")})
 			Expect(listener.Parse()).
-				Error().To(MatchError(ContainSubstring("cannot be combined with a listen list")))
+				Error().
+				To(MatchError(ContainSubstring("cannot be combined with a listen list")))
 		})
 	})
 
@@ -111,10 +116,16 @@ var _ = Describe("Listener", func() {
 
 		DescribeTable("Should reject a cert or key path on a source that ignores them",
 			func(source, certPath, keyPath string) {
-				Expect(listener.Configs{{
-					Address: "a:9090",
-					Cert:    listener.CertConfig{Source: source, Cert: certPath, Key: keyPath},
-				}}.Validate()).To(MatchError(ContainSubstring("does not read a cert or key path")))
+				Expect(listener.Configs{
+					{
+						Address: "a:9090",
+						Cert: listener.CertConfig{
+							Source: source,
+							Cert:   certPath,
+							Key:    keyPath,
+						},
+					},
+				}.Validate()).To(MatchError(ContainSubstring("does not read a cert or key path")))
 			},
 			Entry("auto with cert path", auto.SourceType, "n.crt", ""),
 			Entry("auto with key path", auto.SourceType, "", "n.key"),
@@ -122,17 +133,27 @@ var _ = Describe("Listener", func() {
 		)
 
 		It("Should accept a cert and key path on the file source", func() {
-			Expect(listener.Configs{{
-				Address: "a:9090",
-				Cert:    listener.CertConfig{Source: file.SourceType, Cert: "n.crt", Key: "n.key"},
-			}}.Validate()).To(Succeed())
+			Expect(listener.Configs{
+				{
+					Address: "a:9090",
+					Cert: listener.CertConfig{
+						Source: file.SourceType,
+						Cert:   "n.crt",
+						Key:    "n.key",
+					},
+				},
+			}.Validate()).To(Succeed())
 		})
 	})
 
 	Describe("ValidateAdvertiseSource", func() {
 		It("Should reject a tailscale source on the advertised listener", func() {
 			Expect(listener.Configs{
-				{Address: "a:9090", Cert: listener.CertConfig{Source: tailscale.SourceType}, Advertise: true},
+				{
+					Address:   "a:9090",
+					Cert:      listener.CertConfig{Source: tailscale.SourceType},
+					Advertise: true,
+				},
 				{Address: "b:9091", Cert: listener.CertConfig{Source: auto.SourceType}},
 			}.ValidateAdvertiseSource()).
 				To(MatchError(ContainSubstring("advertised listener cannot use the Tailscale source")))
@@ -140,7 +161,10 @@ var _ = Describe("Listener", func() {
 
 		It("Should reject a tailscale source on the implicit first listener", func() {
 			Expect(listener.Configs{
-				{Address: "a:9090", Cert: listener.CertConfig{Source: tailscale.SourceType}},
+				{
+					Address: "a:9090",
+					Cert:    listener.CertConfig{Source: tailscale.SourceType},
+				},
 				{Address: "b:9091", Cert: listener.CertConfig{Source: auto.SourceType}},
 			}.ValidateAdvertiseSource()).
 				To(MatchError(ContainSubstring("advertised listener cannot use the Tailscale source")))
@@ -148,8 +172,15 @@ var _ = Describe("Listener", func() {
 
 		It("Should accept a tailscale source on a non-advertised listener", func() {
 			Expect(listener.Configs{
-				{Address: "a:9090", Cert: listener.CertConfig{Source: auto.SourceType}, Advertise: true},
-				{Address: "b:9091", Cert: listener.CertConfig{Source: tailscale.SourceType}},
+				{
+					Address:   "a:9090",
+					Cert:      listener.CertConfig{Source: auto.SourceType},
+					Advertise: true,
+				},
+				{
+					Address: "b:9091",
+					Cert:    listener.CertConfig{Source: tailscale.SourceType},
+				},
 			}.ValidateAdvertiseSource()).To(Succeed())
 		})
 	})

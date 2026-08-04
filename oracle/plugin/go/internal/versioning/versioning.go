@@ -17,8 +17,8 @@ package versioning
 
 import (
 	"fmt"
-	"github.com/synnaxlabs/oracle/domain/omit"
 
+	"github.com/synnaxlabs/oracle/domain/omit"
 	"github.com/synnaxlabs/oracle/plugin/domain"
 	"github.com/synnaxlabs/oracle/plugin/output"
 	"github.com/synnaxlabs/oracle/resolution"
@@ -95,7 +95,8 @@ func PathVersions(table *resolution.Table) (map[string]int, error) {
 		if !ok {
 			if domain.HasExprFromType(t, "go", "migrate") {
 				return nil, errors.Newf(
-					"%s: @go migrate requires a @go version declaration", t.QualifiedName,
+					"%s: @go migrate requires a @go version declaration",
+					t.QualifiedName,
 				)
 			}
 			continue
@@ -109,7 +110,11 @@ func PathVersions(table *resolution.Table) (map[string]int, error) {
 		if prev, ok := versions[goPath]; ok && prev != v {
 			return nil, errors.Newf(
 				"conflicting @go version declarations for %s: %s declares %d, %s declares %d",
-				goPath, declared[goPath], prev, t.QualifiedName, v,
+				goPath,
+				declared[goPath],
+				prev,
+				t.QualifiedName,
+				v,
 			)
 		}
 		versions[goPath] = v
@@ -143,10 +148,12 @@ func CurrentPathMap(table *resolution.Table) (map[string]string, error) {
 	return pathMap, nil
 }
 
-// RewriteCurrent returns a table with every version-laid-out package's
-// @go output rewritten to its current versions/vN sub-path, plus the applied
-// path map keyed by original path.
-func RewriteCurrent(table *resolution.Table) (*resolution.Table, map[string]string, error) {
+// RewriteCurrent returns a table with every version-laid-out package's @go output
+// rewritten to its current versions/vN sub-path, plus the applied path map keyed by
+// original path.
+func RewriteCurrent(
+	table *resolution.Table,
+) (*resolution.Table, map[string]string, error) {
 	pathMap, err := CurrentPathMap(table)
 	if err != nil {
 		return nil, nil, err
@@ -162,7 +169,10 @@ func RewriteCurrent(table *resolution.Table) (*resolution.Table, map[string]stri
 // paths are unchanged. Types that do not declare @go version also stay put:
 // they are transient (never persisted), living at the package root rather
 // than the version layout even when siblings at their path are versioned.
-func RewriteOutputPaths(table *resolution.Table, pathMap map[string]string) *resolution.Table {
+func RewriteOutputPaths(
+	table *resolution.Table,
+	pathMap map[string]string,
+) *resolution.Table {
 	clone := &resolution.Table{
 		Imports:    table.Imports,
 		Namespaces: table.Namespaces,
@@ -189,13 +199,23 @@ func RewriteOutputPaths(table *resolution.Table, pathMap map[string]string) *res
 					if expr.Name == "output" && len(expr.Values) > 0 {
 						newVals := make([]resolution.ExpressionValue, len(expr.Values))
 						copy(newVals, expr.Values)
-						newVals[0] = resolution.ExpressionValue{StringValue: mirroredPath}
-						newExprs[i] = resolution.Expression{AST: expr.AST, Name: expr.Name, Values: newVals}
+						newVals[0] = resolution.ExpressionValue{
+							StringValue: mirroredPath,
+						}
+						newExprs[i] = resolution.Expression{
+							AST:    expr.AST,
+							Name:   expr.Name,
+							Values: newVals,
+						}
 					} else {
 						newExprs[i] = expr
 					}
 				}
-				newDomains[k] = resolution.Domain{AST: v.AST, Name: v.Name, Expressions: newExprs}
+				newDomains[k] = resolution.Domain{
+					AST:         v.AST,
+					Name:        v.Name,
+					Expressions: newExprs,
+				}
 			} else {
 				newDomains[k] = v
 			}

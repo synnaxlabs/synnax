@@ -41,13 +41,19 @@ var _ = Describe("OperationSender", func() {
 		)
 		BeforeEach(func() {
 			t1, t2, t3 = net.UnaryServer(""), net.UnaryServer(""), net.UnaryServer("")
-			nodes = node.Group{1: {Key: 1, Address: t1.Address}, 2: {Key: 2, Address: t2.Address}}
+			nodes = node.Group{
+				1: {Key: 1, Address: t1.Address},
+				2: {Key: 2, Address: t2.Address},
+			}
 			sOne = store.New(context.Background())
 			sOne.SetState(context.Background(), store.State{Nodes: nodes, HostKey: 1})
 			nodesTwo = nodes.Copy()
 			nodesTwo[3] = node.Node{Key: 3, Address: t3.Address, State: node.StateDead}
 			sTwo := store.New(context.Background())
-			sTwo.SetState(context.Background(), store.State{Nodes: nodesTwo, HostKey: 2})
+			sTwo.SetState(
+				context.Background(),
+				store.State{Nodes: nodesTwo, HostKey: 2},
+			)
 			// gossipCtx is derived from context.Background() because it is stored
 			// in a shared var and used by It blocks, so it must outlive BeforeEach.
 			gossipCtx, cancel = signal.WithCancel(context.Background())
@@ -82,14 +88,17 @@ var _ = Describe("OperationSender", func() {
 			}()
 			Eventually(func(g Gomega) {
 				g.Expect(sOne.CopyState().Nodes).To(HaveLen(3))
-				g.Expect(sOne.CopyState().Nodes[1].Heartbeat.Version).To(BeNumerically(">", uint32(2)))
+				g.Expect(sOne.CopyState().Nodes[1].Heartbeat.Version).
+					To(BeNumerically(">", uint32(2)))
 				g.Expect(sOne.CopyState().Nodes[3].State).To(Equal(node.StateDead))
-				g.Expect(sOne.CopyState().Nodes[2].Heartbeat.Version).To(Equal(uint32(0)))
+				g.Expect(sOne.CopyState().Nodes[2].Heartbeat.Version).
+					To(Equal(uint32(0)))
 			}).Should(Succeed())
 		})
 		It("Should DPanic when an invalid message is received", func() {
 			Expect(func() {
-				_, _ = net.UnaryClient().Send(context.Background(), t2.Address, gossip.Message{})
+				_, _ = net.UnaryClient().
+					Send(context.Background(), t2.Address, gossip.Message{})
 			}).To(Panic())
 		})
 	})

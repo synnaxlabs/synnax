@@ -39,11 +39,12 @@ func OnFiles(
 // PostWriter provides a reusable PostWrite implementation for plugins.
 // It groups files by project directory and runs commands in order.
 type PostWriter struct {
-	// ConfigFile is the file that marks a project directory (e.g., "package.json", "pyproject.toml").
-	// If empty, files are run from their containing directory without grouping.
+	// ConfigFile is the file that marks a project directory (e.g., "package.json",
+	// "pyproject.toml"). If empty, files are run from their containing directory
+	// without grouping.
 	ConfigFile string
-	// Extensions filters files to only those matching the given extensions (e.g., []string{".go"}).
-	// If empty, all files are processed.
+	// Extensions filters files to only those matching the given extensions (e.g.,
+	// []string{".go"}). If empty, all files are processed.
 	Extensions []string
 	// Commands are the commands to run in order on each group of files.
 	Commands [][]string

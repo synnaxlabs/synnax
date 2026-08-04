@@ -26,7 +26,9 @@ var _ = Describe("Status", func() {
 		})
 
 		It("Should return different keys for different channel keys", func() {
-			Expect(calculation.StatusKey(channel.Key(1))).ToNot(Equal(calculation.StatusKey(channel.Key(2))))
+			Expect(
+				calculation.StatusKey(channel.Key(1)),
+			).ToNot(Equal(calculation.StatusKey(channel.Key(2))))
 		})
 	})
 

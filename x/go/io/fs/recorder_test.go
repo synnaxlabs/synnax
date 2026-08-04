@@ -36,7 +36,10 @@ var _ = Describe("Recorder", func() {
 				})
 
 				It("Should not record a failed open", func() {
-					Expect(rec.Open("missing.bin", os.O_RDONLY)).Error().To(HaveOccurred())
+					Expect(
+						rec.Open("missing.bin", os.O_RDONLY),
+					).Error().
+						To(HaveOccurred())
 					Expect(rec.Events()).To(BeEmpty())
 				})
 			})
@@ -59,7 +62,12 @@ var _ = Describe("Recorder", func() {
 				It("Should record WriteAt with offset and length", func() {
 					MustSucceed(f.WriteAt([]byte("hi"), 7))
 					Expect(rec.Filter(xfs.MatchName("a.bin"))).To(ConsistOf(
-						xfs.Event{Op: xfs.OpWriteAt, Name: "a.bin", Offset: 7, Length: 2},
+						xfs.Event{
+							Op:     xfs.OpWriteAt,
+							Name:   "a.bin",
+							Offset: 7,
+							Length: 2,
+						},
 					))
 				})
 
@@ -69,7 +77,12 @@ var _ = Describe("Recorder", func() {
 					buf := make([]byte, 4)
 					MustSucceed(f.ReadAt(buf, 1))
 					Expect(rec.Filter(xfs.MatchName("a.bin"))).To(ConsistOf(
-						xfs.Event{Op: xfs.OpReadAt, Name: "a.bin", Offset: 1, Length: 4},
+						xfs.Event{
+							Op:     xfs.OpReadAt,
+							Name:   "a.bin",
+							Offset: 1,
+							Length: 4,
+						},
 					))
 				})
 
@@ -105,16 +118,19 @@ var _ = Describe("Recorder", func() {
 			})
 
 			Describe("Sub", func() {
-				It("Should record events from sub-derived FS instances into the parent log", func() {
-					sub := MustSucceed(rec.Sub("nested"))
-					f := MustSucceed(sub.Open("a.bin", os.O_CREATE|os.O_RDWR))
-					DeferClose(f)
-					MustSucceed(f.Write([]byte("xyz")))
-					Expect(rec.Events()).To(Equal([]xfs.Event{
-						{Op: xfs.OpOpen, Name: "a.bin"},
-						{Op: xfs.OpWrite, Name: "a.bin", Length: 3},
-					}))
-				})
+				It(
+					"Should record events from sub-derived FS instances into the parent log",
+					func() {
+						sub := MustSucceed(rec.Sub("nested"))
+						f := MustSucceed(sub.Open("a.bin", os.O_CREATE|os.O_RDWR))
+						DeferClose(f)
+						MustSucceed(f.Write([]byte("xyz")))
+						Expect(rec.Events()).To(Equal([]xfs.Event{
+							{Op: xfs.OpOpen, Name: "a.bin"},
+							{Op: xfs.OpWrite, Name: "a.bin", Length: 3},
+						}))
+					},
+				)
 
 				It("Should share the event log across nested Subs", func() {
 					subA := MustSucceed(rec.Sub("a"))
@@ -145,7 +161,9 @@ var _ = Describe("Recorder", func() {
 						{Op: xfs.OpOpen, Name: "a.bin"},
 						{Op: xfs.OpWrite, Name: "a.bin", Length: 1},
 					}))
-					Expect(rec.Filter(xfs.MatchName("b.bin"), xfs.MatchOp(xfs.OpWrite))).
+					Expect(
+						rec.Filter(xfs.MatchName("b.bin"), xfs.MatchOp(xfs.OpWrite)),
+					).
 						To(Equal([]xfs.Event{
 							{Op: xfs.OpWrite, Name: "b.bin", Length: 2},
 						}))
@@ -171,7 +189,9 @@ var _ = Describe("Recorder", func() {
 					MustSucceed(a.WriteAt([]byte("zw"), 4))
 					MustSucceed(a.ReadAt(make([]byte, 1), 0))
 					Expect(rec.Count(xfs.MatchOp(xfs.OpWriteAt))).To(Equal(2))
-					Expect(rec.Count(xfs.MatchOp(xfs.OpWriteAt), xfs.MatchLength(2))).To(Equal(2))
+					Expect(
+						rec.Count(xfs.MatchOp(xfs.OpWriteAt), xfs.MatchLength(2)),
+					).To(Equal(2))
 					Expect(rec.Count(xfs.MatchOp(xfs.OpReadAt))).To(Equal(1))
 				})
 
@@ -195,27 +215,33 @@ var _ = Describe("Recorder", func() {
 			})
 
 			Describe("Pass-through", func() {
-				It("Should pass non-recorded FS methods through to the inner FS without recording", func() {
-					f := MustSucceed(rec.Open("a.bin", os.O_CREATE|os.O_RDWR))
-					DeferClose(f)
-					MustSucceed(f.Write([]byte("hello")))
-					rec.Reset()
+				It(
+					"Should pass non-recorded FS methods through to the inner FS without recording",
+					func() {
+						f := MustSucceed(rec.Open("a.bin", os.O_CREATE|os.O_RDWR))
+						DeferClose(f)
+						MustSucceed(f.Write([]byte("hello")))
+						rec.Reset()
 
-					Expect(rec.Exists("a.bin")).To(BeTrue())
-					Expect(rec.Exists("missing.bin")).To(BeFalse())
-					Expect(rec.Events()).To(BeEmpty())
-				})
+						Expect(rec.Exists("a.bin")).To(BeTrue())
+						Expect(rec.Exists("missing.bin")).To(BeFalse())
+						Expect(rec.Events()).To(BeEmpty())
+					},
+				)
 
-				It("Should pass non-recorded File methods through to the inner File without recording", func() {
-					f := MustSucceed(rec.Open("a.bin", os.O_CREATE|os.O_RDWR))
-					DeferClose(f)
-					MustSucceed(f.Write([]byte("hello")))
-					rec.Reset()
+				It(
+					"Should pass non-recorded File methods through to the inner File without recording",
+					func() {
+						f := MustSucceed(rec.Open("a.bin", os.O_CREATE|os.O_RDWR))
+						DeferClose(f)
+						MustSucceed(f.Write([]byte("hello")))
+						rec.Reset()
 
-					Expect(f.Truncate(2)).To(Succeed())
-					Expect(f.Sync()).To(Succeed())
-					Expect(rec.Events()).To(BeEmpty())
-				})
+						Expect(f.Truncate(2)).To(Succeed())
+						Expect(f.Sync()).To(Succeed())
+						Expect(rec.Events()).To(BeEmpty())
+					},
+				)
 			})
 
 			Describe("Intent-based recording", func() {
@@ -231,24 +257,38 @@ var _ = Describe("Recorder", func() {
 					buf := make([]byte, 16)
 					_, _ = f.ReadAt(buf, 0)
 					Expect(rec.Filter(xfs.MatchName("a.bin"))).To(ConsistOf(
-						xfs.Event{Op: xfs.OpReadAt, Name: "a.bin", Offset: 0, Length: 16},
+						xfs.Event{
+							Op:     xfs.OpReadAt,
+							Name:   "a.bin",
+							Offset: 0,
+							Length: 16,
+						},
 					))
 				})
 
-				It("Should record the requested length when ReadAt fails past EOF", func() {
-					f := MustSucceed(rec.Open("a.bin", os.O_CREATE|os.O_RDWR))
-					DeferClose(f)
-					MustSucceed(f.Write([]byte("hi")))
-					rec.Reset()
+				It(
+					"Should record the requested length when ReadAt fails past EOF",
+					func() {
+						f := MustSucceed(rec.Open("a.bin", os.O_CREATE|os.O_RDWR))
+						DeferClose(f)
+						MustSucceed(f.Write([]byte("hi")))
+						rec.Reset()
 
-					// Reading past the end of the file fails, but the recorder should
-					// still capture the attempt with the caller-requested length.
-					buf := make([]byte, 4)
-					_, _ = f.ReadAt(buf, 100)
-					Expect(rec.Filter(xfs.MatchName("a.bin"))).To(ConsistOf(
-						xfs.Event{Op: xfs.OpReadAt, Name: "a.bin", Offset: 100, Length: 4},
-					))
-				})
+						// Reading past the end of the file fails, but the recorder
+						// should still capture the attempt with the caller-requested
+						// length.
+						buf := make([]byte, 4)
+						_, _ = f.ReadAt(buf, 100)
+						Expect(rec.Filter(xfs.MatchName("a.bin"))).To(ConsistOf(
+							xfs.Event{
+								Op:     xfs.OpReadAt,
+								Name:   "a.bin",
+								Offset: 100,
+								Length: 4,
+							},
+						))
+					},
+				)
 			})
 
 			Describe("Concurrency", func() {
@@ -272,7 +312,9 @@ var _ = Describe("Recorder", func() {
 					}
 					wg.Wait()
 
-					Expect(rec.Filter(xfs.MatchName("a.bin"))).To(HaveLen(writers * writesPerWriter))
+					Expect(
+						rec.Filter(xfs.MatchName("a.bin")),
+					).To(HaveLen(writers * writesPerWriter))
 				})
 			})
 		})

@@ -28,8 +28,12 @@ func mathModuleWithAbs() *symbol.Symbol {
 		Name: "abs",
 		Kind: symbol.KindFunction,
 		Type: types.Function(types.FunctionProperties{
-			Inputs:  types.Params{{Name: "x", Type: types.Variable("T", &numConstraint)}},
-			Outputs: types.Params{{Name: "result", Type: types.Variable("T", &numConstraint)}},
+			Inputs: types.Params{
+				{Name: "x", Type: types.Variable("T", &numConstraint)},
+			},
+			Outputs: types.Params{
+				{Name: "result", Type: types.Variable("T", &numConstraint)},
+			},
 		}),
 	})
 	return mod
@@ -142,7 +146,9 @@ var _ = Describe("DeriveTypeSuffix", func() {
 	It("Should return the correct suffix for polymorphic types", func() {
 		numConstraint := types.NumericConstraint()
 		original := types.Function(types.FunctionProperties{
-			Inputs: types.Params{{Name: "x", Type: types.Variable("T", &numConstraint)}},
+			Inputs: types.Params{
+				{Name: "x", Type: types.Variable("T", &numConstraint)},
+			},
 		})
 		concrete := types.Function(types.FunctionProperties{
 			Inputs: types.Params{{Name: "x", Type: types.I32()}},
@@ -153,7 +159,9 @@ var _ = Describe("DeriveTypeSuffix", func() {
 	It("Should return suffixes for all Arc numeric types", func() {
 		numConstraint := types.NumericConstraint()
 		original := types.Function(types.FunctionProperties{
-			Inputs: types.Params{{Name: "x", Type: types.Variable("T", &numConstraint)}},
+			Inputs: types.Params{
+				{Name: "x", Type: types.Variable("T", &numConstraint)},
+			},
 		})
 		cases := []struct {
 			concreteType types.Type
@@ -182,7 +190,10 @@ var _ = Describe("DeriveTypeSuffix", func() {
 var _ = Describe("DeriveWASMFuncType", func() {
 	It("Should convert Arc types to WASM value types", func() {
 		arcType := types.Function(types.FunctionProperties{
-			Inputs:  types.Params{{Name: "a", Type: types.I32()}, {Name: "b", Type: types.F64()}},
+			Inputs: types.Params{
+				{Name: "a", Type: types.I32()},
+				{Name: "b", Type: types.F64()},
+			},
 			Outputs: types.Params{{Name: "result", Type: types.I64()}},
 		})
 		ft := resolve.DeriveWASMFuncType(arcType)

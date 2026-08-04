@@ -187,7 +187,12 @@ func BenchmarkIteratorResponseTranslator_Forward(b *testing.B) {
 		{64, 10, 100},
 	}
 	for _, c := range cases {
-		name := fmt.Sprintf("channels=%d/domains=%d/samples=%d", c.channels, c.domains, c.samples)
+		name := fmt.Sprintf(
+			"channels=%d/domains=%d/samples=%d",
+			c.channels,
+			c.domains,
+			c.samples,
+		)
 		b.Run(name, func(b *testing.B) {
 			keys, dataTypes, fr := benchIteratorFrame(c.channels, c.domains, c.samples)
 			cdec := codec.NewStatic(keys, dataTypes)
@@ -226,7 +231,12 @@ func BenchmarkIteratorResponseTranslator_Forward_NoCodec(b *testing.B) {
 		{64, 10, 100},
 	}
 	for _, c := range cases {
-		name := fmt.Sprintf("channels=%d/domains=%d/samples=%d", c.channels, c.domains, c.samples)
+		name := fmt.Sprintf(
+			"channels=%d/domains=%d/samples=%d",
+			c.channels,
+			c.domains,
+			c.samples,
+		)
 		b.Run(name, func(b *testing.B) {
 			_, _, fr := benchIteratorFrame(c.channels, c.domains, c.samples)
 			t := frameIteratorResponseTranslator{}
@@ -254,7 +264,12 @@ func BenchmarkIteratorResponseTranslator_Backward(b *testing.B) {
 		{64, 10, 100},
 	}
 	for _, c := range cases {
-		name := fmt.Sprintf("channels=%d/domains=%d/samples=%d", c.channels, c.domains, c.samples)
+		name := fmt.Sprintf(
+			"channels=%d/domains=%d/samples=%d",
+			c.channels,
+			c.domains,
+			c.samples,
+		)
 		b.Run(name, func(b *testing.B) {
 			keys, dataTypes, fr := benchIteratorFrame(c.channels, c.domains, c.samples)
 			cdec := codec.NewStatic(keys, dataTypes)

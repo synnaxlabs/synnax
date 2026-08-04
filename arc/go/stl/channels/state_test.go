@@ -36,7 +36,11 @@ var _ = Describe("ProgramState", func() {
 				{Key: 10, Index: 11},
 				{Key: 20, Index: 21},
 			})
-			cs.WriteChannel(10, telem.NewSeriesV[float32](1.0), telem.NewSeriesSecondsTSV(100))
+			cs.WriteChannel(
+				10,
+				telem.NewSeriesV[float32](1.0),
+				telem.NewSeriesSecondsTSV(100),
+			)
 			fr, changed := cs.Flush(telem.Frame[uint32]{})
 			Expect(changed).To(BeTrue())
 			Expect(fr.Get(11).Series).To(HaveLen(1))
@@ -106,7 +110,13 @@ var _ = Describe("ProgramState", func() {
 
 		It("Should handle series with boundary float values", func() {
 			s.Ingest(telem.UnaryFrame[uint32](
-				5, telem.NewSeriesV(math.MaxFloat64, math.SmallestNonzeroFloat64, math.Inf(1), math.Inf(-1)),
+				5,
+				telem.NewSeriesV(
+					math.MaxFloat64,
+					math.SmallestNonzeroFloat64,
+					math.Inf(1),
+					math.Inf(-1),
+				),
 			))
 			ser := MustBeOk(s.ReadValue(5))
 			Expect(ser.Len()).To(Equal(int64(4)))

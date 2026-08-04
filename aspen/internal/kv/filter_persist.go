@@ -67,7 +67,12 @@ func (fp *filterPersist) _switch(
 	ctx, span := fp.T.Debug(b.Context, "tx-filter-persist")
 	defer span.End()
 
-	accepted := TxRequest{Sender: b.Sender, doneF: b.doneF, Context: b.Context, span: b.span}
+	accepted := TxRequest{
+		Sender:  b.Sender,
+		doneF:   b.doneF,
+		Context: b.Context,
+		span:    b.span,
+	}
 	rejected := TxRequest{Sender: b.Sender, Context: b.Context, span: b.span}
 
 	err := xkv.WithTx(ctx, fp.db, func(txn xkv.Tx) error {

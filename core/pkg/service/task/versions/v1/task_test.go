@@ -54,5 +54,4 @@ var _ = Describe("Task", func() {
 			Expect(v1.Task{Key: key}.OntologyID()).To(Equal(key.OntologyID()))
 		})
 	})
-
 })
