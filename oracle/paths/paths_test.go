@@ -104,17 +104,23 @@ var _ = Describe("Paths", func() {
 
 	Describe("RelativeImport", func() {
 		It("Should compute relative path between sibling directories", func() {
-			rel := MustSucceed(paths.RelativeImport("client/ts/src/user", "client/ts/src/group"))
+			rel := MustSucceed(
+				paths.RelativeImport("client/ts/src/user", "client/ts/src/group"),
+			)
 			Expect(rel).To(Equal("../group"))
 		})
 
 		It("Should compute relative path to nested directory", func() {
-			rel := MustSucceed(paths.RelativeImport("client/ts/src", "client/ts/src/user"))
+			rel := MustSucceed(
+				paths.RelativeImport("client/ts/src", "client/ts/src/user"),
+			)
 			Expect(rel).To(Equal("./user"))
 		})
 
 		It("Should compute relative path to parent directory", func() {
-			rel := MustSucceed(paths.RelativeImport("client/ts/src/user", "client/ts/src"))
+			rel := MustSucceed(
+				paths.RelativeImport("client/ts/src/user", "client/ts/src"),
+			)
 			Expect(rel).To(Equal(".."))
 		})
 
@@ -124,7 +130,9 @@ var _ = Describe("Paths", func() {
 		})
 
 		It("Should compute relative path across different branches", func() {
-			rel := MustSucceed(paths.RelativeImport("client/ts/src/user", "core/pkg/service/group"))
+			rel := MustSucceed(
+				paths.RelativeImport("client/ts/src/user", "core/pkg/service/group"),
+			)
 			Expect(rel).To(Equal("../../../../core/pkg/service/group"))
 		})
 	})

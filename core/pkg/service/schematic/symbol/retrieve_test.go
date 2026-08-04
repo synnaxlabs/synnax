@@ -107,7 +107,9 @@ var _ = Describe("Retrieve", func() {
 				Name: "no-tx-symbol",
 				Data: symbol.Spec{SVG: "<svg>no-tx</svg>", Variant: "valve"},
 			}
-			Expect(svc.NewWriter(nil).Create(ctx, &symNoTx, proj.OntologyID())).To(Succeed())
+			Expect(
+				svc.NewWriter(nil).Create(ctx, &symNoTx, proj.OntologyID()),
+			).To(Succeed())
 
 			var retrieved symbol.Symbol
 			Expect(svc.NewRetrieve().
@@ -155,7 +157,9 @@ var _ = Describe("Retrieve", func() {
 				Name: "large-symbol",
 				Data: largeData,
 			}
-			Expect(svc.NewWriter(tx).Create(ctx, &largeSym, proj.OntologyID())).To(Succeed())
+			Expect(
+				svc.NewWriter(tx).Create(ctx, &largeSym, proj.OntologyID()),
+			).To(Succeed())
 
 			var retrieved symbol.Symbol
 			Expect(svc.NewRetrieve().

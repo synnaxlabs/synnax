@@ -54,17 +54,20 @@ var _ = Describe("Versioning", func() {
 			Expect(v).To(Equal(3))
 		})
 
-		It("Should return false when the file declares no version", func(ctx SpecContext) {
-			source := `
+		It(
+			"Should return false when the file declares no version",
+			func(ctx SpecContext) {
+				source := `
 				@go output "out"
 				Entry struct {
 					key uuid @key
 				}
 			`
-			table := MustSucceed(analyze(ctx, source, "test", loader))
-			_, ok := versioning.Version(table.MustGet("test.Entry"))
-			Expect(ok).To(BeFalse())
-		})
+				table := MustSucceed(analyze(ctx, source, "test", loader))
+				_, ok := versioning.Version(table.MustGet("test.Entry"))
+				Expect(ok).To(BeFalse())
+			},
+		)
 
 		It("Should return false when the type has no go domain", func(ctx SpecContext) {
 			source := `
@@ -79,19 +82,22 @@ var _ = Describe("Versioning", func() {
 	})
 
 	Describe("Pinned", func() {
-		It("Should report the pinned marker on a version declaration", func(ctx SpecContext) {
-			source := `
+		It(
+			"Should report the pinned marker on a version declaration",
+			func(ctx SpecContext) {
+				source := `
 				@go output "out"
 				Entry struct {
 				    @go version 2 pinned
 					key uuid @key
 				}
 			`
-			table := MustSucceed(analyze(ctx, source, "test", loader))
-			Expect(versioning.Pinned(table.MustGet("test.Entry"))).To(BeTrue())
-			v := MustBeOk(versioning.Version(table.MustGet("test.Entry")))
-			Expect(v).To(Equal(2))
-		})
+				table := MustSucceed(analyze(ctx, source, "test", loader))
+				Expect(versioning.Pinned(table.MustGet("test.Entry"))).To(BeTrue())
+				v := MustBeOk(versioning.Version(table.MustGet("test.Entry")))
+				Expect(v).To(Equal(2))
+			},
+		)
 
 		It("Should report false without the marker", func(ctx SpecContext) {
 			source := `
@@ -121,15 +127,17 @@ var _ = Describe("Versioning", func() {
 	})
 
 	Describe("PathVersions", func() {
-		It("Should map each versioned output path to its version", func(ctx SpecContext) {
-			loader.Add("schemas/dep.oracle", `
+		It(
+			"Should map each versioned output path to its version",
+			func(ctx SpecContext) {
+				loader.Add("schemas/dep.oracle", `
 				@go output "dep"
 				Item struct {
 				    @go version 5
 					key uuid @key
 				}
 			`)
-			source := `
+				source := `
 				import "schemas/dep"
 				@go output "out"
 				Entry struct {
@@ -138,21 +146,25 @@ var _ = Describe("Versioning", func() {
 					item dep.Item
 				}
 			`
-			table := MustSucceed(analyze(ctx, source, "test", loader))
-			Expect(versioning.PathVersions(table)).To(Equal(
-				map[string]int{"out": 3, "dep": 5}))
-		})
+				table := MustSucceed(analyze(ctx, source, "test", loader))
+				Expect(versioning.PathVersions(table)).To(Equal(
+					map[string]int{"out": 3, "dep": 5}))
+			},
+		)
 
-		It("Should return an empty map when no versions are declared", func(ctx SpecContext) {
-			source := `
+		It(
+			"Should return an empty map when no versions are declared",
+			func(ctx SpecContext) {
+				source := `
 				@go output "out"
 				Entry struct {
 					key uuid @key
 				}
 			`
-			table := MustSucceed(analyze(ctx, source, "test", loader))
-			Expect(versioning.PathVersions(table)).To(BeEmpty())
-		})
+				table := MustSucceed(analyze(ctx, source, "test", loader))
+				Expect(versioning.PathVersions(table)).To(BeEmpty())
+			},
+		)
 
 		It("Should error on a negative version", func(ctx SpecContext) {
 			source := `
@@ -204,8 +216,10 @@ var _ = Describe("Versioning", func() {
 	})
 
 	Describe("EntryPaths", func() {
-		It("Should include versioned paths containing a keyed struct", func(ctx SpecContext) {
-			source := `
+		It(
+			"Should include versioned paths containing a keyed struct",
+			func(ctx SpecContext) {
+				source := `
 				@go output "out"
 				Entry struct {
 				    @go version 3
@@ -214,21 +228,25 @@ var _ = Describe("Versioning", func() {
 					@go marshal
 				}
 			`
-			table := MustSucceed(analyze(ctx, source, "test", loader))
-			Expect(versioning.EntryPaths(table)).To(Equal(map[string]int{"out": 3}))
-		})
+				table := MustSucceed(analyze(ctx, source, "test", loader))
+				Expect(versioning.EntryPaths(table)).To(Equal(map[string]int{"out": 3}))
+			},
+		)
 
-		It("Should include versioned paths with no keyed struct", func(ctx SpecContext) {
-			source := `
+		It(
+			"Should include versioned paths with no keyed struct",
+			func(ctx SpecContext) {
+				source := `
 				@go output "out"
 				Value struct {
 				    @go version 3
 					name string
 				}
 			`
-			table := MustSucceed(analyze(ctx, source, "test", loader))
-			Expect(versioning.EntryPaths(table)).To(Equal(map[string]int{"out": 3}))
-		})
+				table := MustSucceed(analyze(ctx, source, "test", loader))
+				Expect(versioning.EntryPaths(table)).To(Equal(map[string]int{"out": 3}))
+			},
+		)
 
 		It("Should exclude keyed structs with no version", func(ctx SpecContext) {
 			source := `
@@ -296,8 +314,10 @@ var _ = Describe("AliasSplit", func() {
 		return table
 	}
 
-	It("Should use the latest snapshot declaring the predecessor version", func(ctx SpecContext) {
-		liveTable := MustSucceed(analyze(ctx, `
+	It(
+		"Should use the latest snapshot declaring the predecessor version",
+		func(ctx SpecContext) {
+			liveTable := MustSucceed(analyze(ctx, `
 			@go output "out"
 			Stable struct {
 			    @go version 2
@@ -308,9 +328,9 @@ var _ = Describe("AliasSplit", func() {
 			    value int32  extra string
 			}
 		`, "test", loader))
-		snapshots := map[int]string{
-			// v56 already declares the current version and cannot anchor.
-			56: `
+			snapshots := map[int]string{
+				// v56 already declares the current version and cannot anchor.
+				56: `
 				@go output "out"
 				Stable struct {
 				    @go version 2
@@ -321,7 +341,7 @@ var _ = Describe("AliasSplit", func() {
 				    value int32  extra string
 				}
 			`,
-			55: `
+				55: `
 				@go output "out"
 				Stable struct {
 				    @go version 1
@@ -332,39 +352,43 @@ var _ = Describe("AliasSplit", func() {
 				    value int32
 				}
 			`,
-		}
-		split := MustSucceed(versioning.AliasSplit(
-			liveTable, 56,
-			func(version int) (*resolution.Table, error) {
-				src, ok := snapshots[version]
-				if !ok {
-					return nil, nil
-				}
-				return analyzeTable(ctx, src), nil
-			},
-		))
-		Expect(split).To(HaveKey("out"))
-		Expect(split["out"].PredecessorVersion).To(Equal(1))
-		Expect(split["out"].Aliased).To(HaveLen(1))
-		for qn := range split["out"].Aliased {
-			Expect(qn).To(HaveSuffix("Stable"))
-		}
-	})
+			}
+			split := MustSucceed(versioning.AliasSplit(
+				liveTable, 56,
+				func(version int) (*resolution.Table, error) {
+					src, ok := snapshots[version]
+					if !ok {
+						return nil, nil
+					}
+					return analyzeTable(ctx, src), nil
+				},
+			))
+			Expect(split).To(HaveKey("out"))
+			Expect(split["out"].PredecessorVersion).To(Equal(1))
+			Expect(split["out"].Aliased).To(HaveLen(1))
+			for qn := range split["out"].Aliased {
+				Expect(qn).To(HaveSuffix("Stable"))
+			}
+		},
+	)
 
-	It("Should return nothing when no snapshot declares the predecessor", func(ctx SpecContext) {
-		liveTable := MustSucceed(analyze(ctx, `
+	It(
+		"Should return nothing when no snapshot declares the predecessor",
+		func(ctx SpecContext) {
+			liveTable := MustSucceed(analyze(ctx, `
 			@go output "out"
 			Stable struct {
 			    @go version 2
 			    name string
 			}
 		`, "test", loader))
-		split := MustSucceed(versioning.AliasSplit(
-			liveTable, 56,
-			func(int) (*resolution.Table, error) { return nil, nil },
-		))
-		Expect(split).To(BeEmpty())
-	})
+			split := MustSucceed(versioning.AliasSplit(
+				liveTable, 56,
+				func(int) (*resolution.Table, error) { return nil, nil },
+			))
+			Expect(split).To(BeEmpty())
+		},
+	)
 
 	It("Should return nothing for paths at version zero", func(ctx SpecContext) {
 		liveTable := MustSucceed(analyze(ctx, `

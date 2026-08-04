@@ -401,7 +401,8 @@ var _ = Describe("Type Casts", func() {
 		`),
 	)
 
-	DescribeTable("String to Numeric Casts (rejected)",
+	DescribeTable(
+		"String to Numeric Casts (rejected)",
 		func(ctx SpecContext, code string) { expectFailure(ctx, code, nil, "cannot cast") },
 		Entry("str to i8", `
 			func testFunc() {

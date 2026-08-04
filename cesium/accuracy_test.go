@@ -32,7 +32,18 @@ var _ = Describe("Accuracy", func() {
 					key    cesium.ChannelKey = 2
 					idxKey cesium.ChannelKey = 3
 					first                    = []int64{1, 2, 3, 4, 5, 6, 7, 8, 9, 10}
-					second                   = []int64{13, 14, 15, 16, 17, 18, 19, 20, 21, 22}
+					second                   = []int64{
+						13,
+						14,
+						15,
+						16,
+						17,
+						18,
+						19,
+						20,
+						21,
+						22,
+					}
 					// Converted to seconds on write
 					firstTS  = []telem.TimeStamp{2, 4, 6, 8, 10, 12, 13, 17, 18, 20}
 					secondTS = []telem.TimeStamp{22, 24, 29, 32, 33, 34, 35, 36, 38, 40}
@@ -41,13 +52,51 @@ var _ = Describe("Accuracy", func() {
 					ShouldNotLeakGoroutines()
 					Expect(db.CreateChannel(
 						ctx,
-						cesium.Channel{Name: "Rufus", Key: idxKey, IsIndex: true, DataType: telem.TimeStampT},
-						cesium.Channel{Name: "Du", Key: key, Index: idxKey, DataType: telem.Int64T},
+						cesium.Channel{
+							Name:     "Rufus",
+							Key:      idxKey,
+							IsIndex:  true,
+							DataType: telem.TimeStampT,
+						},
+						cesium.Channel{
+							Name:     "Du",
+							Key:      key,
+							Index:    idxKey,
+							DataType: telem.Int64T,
+						},
 					)).To(Succeed())
-					Expect(db.WriteSeries(ctx, idxKey, 2*telem.SecondTS, telem.NewSeriesSecondsTSV(firstTS...))).To(Succeed())
-					Expect(db.WriteSeries(ctx, idxKey, 22*telem.SecondTS, telem.NewSeriesSecondsTSV(secondTS...))).To(Succeed())
-					Expect(db.WriteSeries(ctx, key, 2*telem.SecondTS, telem.NewSeries(first))).To(Succeed())
-					Expect(db.WriteSeries(ctx, key, 22*telem.SecondTS, telem.NewSeries(second))).To(Succeed())
+					Expect(
+						db.WriteSeries(
+							ctx,
+							idxKey,
+							2*telem.SecondTS,
+							telem.NewSeriesSecondsTSV(firstTS...),
+						),
+					).To(Succeed())
+					Expect(
+						db.WriteSeries(
+							ctx,
+							idxKey,
+							22*telem.SecondTS,
+							telem.NewSeriesSecondsTSV(secondTS...),
+						),
+					).To(Succeed())
+					Expect(
+						db.WriteSeries(
+							ctx,
+							key,
+							2*telem.SecondTS,
+							telem.NewSeries(first),
+						),
+					).To(Succeed())
+					Expect(
+						db.WriteSeries(
+							ctx,
+							key,
+							22*telem.SecondTS,
+							telem.NewSeries(second),
+						),
+					).To(Succeed())
 				})
 				DescribeTable("Accuracy",
 					func(ctx SpecContext,
@@ -59,7 +108,9 @@ var _ = Describe("Accuracy", func() {
 							actual = make([]int64, 0, len(expected))
 						)
 						for series := range frame.Series() {
-							actual = append(actual, telem.UnmarshalSeries[int64](series)...)
+							actual = append(
+								actual,
+								telem.UnmarshalSeries[int64](series)...)
 						}
 						Expect(actual).To(Equal(expected))
 					},
@@ -113,8 +164,30 @@ var _ = Describe("Accuracy", func() {
 						idxKey2 cesium.ChannelKey = 7
 						key1    cesium.ChannelKey = 8
 						key2    cesium.ChannelKey = 9
-						data1                     = []int64{1, 2, 3, 4, 5, 6, 7, 8, 9, 10}
-						data2                     = []int64{11, 12, 13, 14, 15, 16, 17, 18, 19, 20}
+						data1                     = []int64{
+							1,
+							2,
+							3,
+							4,
+							5,
+							6,
+							7,
+							8,
+							9,
+							10,
+						}
+						data2 = []int64{
+							11,
+							12,
+							13,
+							14,
+							15,
+							16,
+							17,
+							18,
+							19,
+							20,
+						}
 						// converted to seconds on write
 						idxData1 = []telem.TimeStamp{1, 3, 5, 7, 9, 11, 18, 22, 31, 35}
 						idxData2 = []telem.TimeStamp{1, 2, 6, 7, 12, 14, 17, 21, 27, 33}
@@ -123,15 +196,63 @@ var _ = Describe("Accuracy", func() {
 						ShouldNotLeakGoroutines()
 						Expect(db.CreateChannel(
 							ctx,
-							cesium.Channel{Name: "Albert", Key: idxKey1, DataType: telem.TimeStampT, IsIndex: true},
-							cesium.Channel{Name: "Park", Key: idxKey2, DataType: telem.TimeStampT, IsIndex: true},
-							cesium.Channel{Name: "Sheffield", Key: key1, Index: idxKey1, DataType: telem.Int64T},
-							cesium.Channel{Name: "London", Key: key2, Index: idxKey2, DataType: telem.Int64T},
+							cesium.Channel{
+								Name:     "Albert",
+								Key:      idxKey1,
+								DataType: telem.TimeStampT,
+								IsIndex:  true,
+							},
+							cesium.Channel{
+								Name:     "Park",
+								Key:      idxKey2,
+								DataType: telem.TimeStampT,
+								IsIndex:  true,
+							},
+							cesium.Channel{
+								Name:     "Sheffield",
+								Key:      key1,
+								Index:    idxKey1,
+								DataType: telem.Int64T,
+							},
+							cesium.Channel{
+								Name:     "London",
+								Key:      key2,
+								Index:    idxKey2,
+								DataType: telem.Int64T,
+							},
 						)).To(Succeed())
-						Expect(db.WriteSeries(ctx, idxKey1, 1*telem.SecondTS, telem.NewSeriesSecondsTSV(idxData1...))).To(Succeed())
-						Expect(db.WriteSeries(ctx, idxKey2, 1*telem.SecondTS, telem.NewSeriesSecondsTSV(idxData2...))).To(Succeed())
-						Expect(db.WriteSeries(ctx, key1, 1*telem.SecondTS, telem.NewSeries(data1))).To(Succeed())
-						Expect(db.WriteSeries(ctx, key2, 1*telem.SecondTS, telem.NewSeries(data2))).To(Succeed())
+						Expect(
+							db.WriteSeries(
+								ctx,
+								idxKey1,
+								1*telem.SecondTS,
+								telem.NewSeriesSecondsTSV(idxData1...),
+							),
+						).To(Succeed())
+						Expect(
+							db.WriteSeries(
+								ctx,
+								idxKey2,
+								1*telem.SecondTS,
+								telem.NewSeriesSecondsTSV(idxData2...),
+							),
+						).To(Succeed())
+						Expect(
+							db.WriteSeries(
+								ctx,
+								key1,
+								1*telem.SecondTS,
+								telem.NewSeries(data1),
+							),
+						).To(Succeed())
+						Expect(
+							db.WriteSeries(
+								ctx,
+								key2,
+								1*telem.SecondTS,
+								telem.NewSeries(data2),
+							),
+						).To(Succeed())
 					})
 					DescribeTable("Accuracy",
 						func(ctx SpecContext,
@@ -146,9 +267,13 @@ var _ = Describe("Accuracy", func() {
 							)
 							for k, series := range frame.Entries() {
 								if k == key1 {
-									actual1 = append(actual1, telem.UnmarshalSeries[int64](series)...)
+									actual1 = append(
+										actual1,
+										telem.UnmarshalSeries[int64](series)...)
 								} else {
-									actual2 = append(actual2, telem.UnmarshalSeries[int64](series)...)
+									actual2 = append(
+										actual2,
+										telem.UnmarshalSeries[int64](series)...)
 								}
 							}
 							Expect(actual1).To(Equal(expected1))

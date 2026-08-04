@@ -90,15 +90,36 @@ var _ = Describe("Parse", func() {
 			}),
 		Entry("placeholder with float spec", "{x:.2f}",
 			[]literal.FmtStrSegment{
-				{Text: "x", Spec: ".2f", IsPlaceholder: true, Start: 0, End: 7, SpecOffset: 2},
+				{
+					Text:          "x",
+					Spec:          ".2f",
+					IsPlaceholder: true,
+					Start:         0,
+					End:           7,
+					SpecOffset:    2,
+				},
 			}),
 		Entry("placeholder with integer spec", "{n:d}",
 			[]literal.FmtStrSegment{
-				{Text: "n", Spec: "d", IsPlaceholder: true, Start: 0, End: 5, SpecOffset: 2},
+				{
+					Text:          "n",
+					Spec:          "d",
+					IsPlaceholder: true,
+					Start:         0,
+					End:           5,
+					SpecOffset:    2,
+				},
 			}),
 		Entry("placeholder with padded integer spec", "{n:05d}",
 			[]literal.FmtStrSegment{
-				{Text: "n", Spec: "05d", IsPlaceholder: true, Start: 0, End: 7, SpecOffset: 2},
+				{
+					Text:          "n",
+					Spec:          "05d",
+					IsPlaceholder: true,
+					Start:         0,
+					End:           7,
+					SpecOffset:    2,
+				},
 			}),
 		Entry("placeholder with arithmetic expression", "{a + b}",
 			[]literal.FmtStrSegment{
@@ -107,7 +128,14 @@ var _ = Describe("Parse", func() {
 		Entry("placeholder with rightmost colon splitting expr from spec",
 			"{a:b:.2f}",
 			[]literal.FmtStrSegment{
-				{Text: "a:b", Spec: ".2f", IsPlaceholder: true, Start: 0, End: 9, SpecOffset: 4},
+				{
+					Text:          "a:b",
+					Spec:          ".2f",
+					IsPlaceholder: true,
+					Start:         0,
+					End:           9,
+					SpecOffset:    4,
+				},
 			}),
 		Entry("placeholder with function call", "{len(x)}",
 			[]literal.FmtStrSegment{
@@ -121,9 +149,23 @@ var _ = Describe("Parse", func() {
 			"a={a:.2f} b={b:d}",
 			[]literal.FmtStrSegment{
 				{Text: "a=", Start: 0, End: 2, SpecOffset: -1},
-				{Text: "a", Spec: ".2f", IsPlaceholder: true, Start: 2, End: 9, SpecOffset: 4},
+				{
+					Text:          "a",
+					Spec:          ".2f",
+					IsPlaceholder: true,
+					Start:         2,
+					End:           9,
+					SpecOffset:    4,
+				},
 				{Text: " b=", Start: 9, End: 12, SpecOffset: -1},
-				{Text: "b", Spec: "d", IsPlaceholder: true, Start: 12, End: 17, SpecOffset: 14},
+				{
+					Text:          "b",
+					Spec:          "d",
+					IsPlaceholder: true,
+					Start:         12,
+					End:           17,
+					SpecOffset:    14,
+				},
 			}),
 		Entry(`doubled opening brace is literal`, `{{`,
 			[]literal.FmtStrSegment{
@@ -200,7 +242,13 @@ var _ = Describe("Parse", func() {
 			}),
 		Entry("placeholder with balanced nested braces", "{f({a: 1})}",
 			[]literal.FmtStrSegment{
-				{Text: "f({a: 1})", IsPlaceholder: true, Start: 0, End: 11, SpecOffset: -1},
+				{
+					Text:          "f({a: 1})",
+					IsPlaceholder: true,
+					Start:         0,
+					End:           11,
+					SpecOffset:    -1,
+				},
 			}),
 		Entry("placeholder with balanced nested braces and spec",
 			"{f({a: 1}):d}",
@@ -216,7 +264,13 @@ var _ = Describe("Parse", func() {
 			}),
 		Entry("placeholder with slice expression", "{arr[0:5]}",
 			[]literal.FmtStrSegment{
-				{Text: "arr[0:5]", IsPlaceholder: true, Start: 0, End: 10, SpecOffset: -1},
+				{
+					Text:          "arr[0:5]",
+					IsPlaceholder: true,
+					Start:         0,
+					End:           10,
+					SpecOffset:    -1,
+				},
 			}),
 		Entry("placeholder with slice expression and spec", "{arr[0:5]:s}",
 			[]literal.FmtStrSegment{
@@ -245,7 +299,10 @@ var _ = Describe("Parse", func() {
 
 	DescribeTable("error cases",
 		func(body, errSubstr string) {
-			Expect(literal.FmtStrParse(body)).Error().To(MatchError(ContainSubstring(errSubstr)))
+			Expect(
+				literal.FmtStrParse(body),
+			).Error().
+				To(MatchError(ContainSubstring(errSubstr)))
 		},
 		Entry("lone opening brace", "{", "unmatched '{'"),
 		Entry("opening brace with body, no close", "{foo", "unmatched '{'"),
@@ -338,10 +395,14 @@ var _ = Describe("ValidateSpec", func() {
 		t    types.Type
 	}
 	intTypes := []namedType{
-		{"i8", types.I8()}, {"i16", types.I16()},
-		{"i32", types.I32()}, {"i64", types.I64()},
-		{"u8", types.U8()}, {"u16", types.U16()},
-		{"u32", types.U32()}, {"u64", types.U64()},
+		{"i8", types.I8()},
+		{"i16", types.I16()},
+		{"i32", types.I32()},
+		{"i64", types.I64()},
+		{"u8", types.U8()},
+		{"u16", types.U16()},
+		{"u32", types.U32()},
+		{"u64", types.U64()},
 	}
 	floatTypes := []namedType{{"f32", types.F32()}, {"f64", types.F64()}}
 	stringType := namedType{"string", types.String()}
@@ -381,13 +442,19 @@ var _ = Describe("ValidateSpec", func() {
 	nonIntTypes := append(append([]namedType{}, floatTypes...), stringType)
 	nonFloatTypes := append(append([]namedType{}, intTypes...), stringType)
 	nonStringTypes := append(append([]namedType{}, intTypes...), floatTypes...)
-	allTypes := append(append(append([]namedType{}, intTypes...), floatTypes...), stringType)
+	allTypes := append(
+		append(append([]namedType{}, intTypes...), floatTypes...),
+		stringType,
+	)
 
 	var invalidArgs []any
-	invalidArgs = append(invalidArgs, func(spec string, t types.Type, errSubstr string) {
-		Expect(literal.FmtStrValidateSpec(spec, t)).
-			To(MatchError(ContainSubstring(errSubstr)))
-	})
+	invalidArgs = append(
+		invalidArgs,
+		func(spec string, t types.Type, errSubstr string) {
+			Expect(literal.FmtStrValidateSpec(spec, t)).
+				To(MatchError(ContainSubstring(errSubstr)))
+		},
+	)
 	// Integer-only verbs rejected on every non-integer type.
 	for _, verb := range []string{"d", "o", "O", "c", "b", "x", "X"} {
 		for _, nt := range nonIntTypes {
@@ -417,14 +484,40 @@ var _ = Describe("ValidateSpec", func() {
 		}
 	}
 	// Spec-shape and malformed-spec error cases.
-	invalidArgs = append(invalidArgs,
+	invalidArgs = append(
+		invalidArgs,
 		Entry("unknown verb on int", "z", types.I32(), "invalid format spec"),
 		Entry("unknown verb on float", "z", types.F64(), "invalid format spec"),
-		Entry("blacklisted verb with flag on i32", "+v", types.I32(), "invalid format spec"),
-		Entry("blacklisted verb with width on f64", "5v", types.F64(), "invalid format spec"),
-		Entry("trailing chars after float verb", "f.2", types.F64(), "invalid format spec"),
-		Entry("trailing chars after integer verb", "d5", types.I32(), "invalid format spec"),
-		Entry("trailing chars after string verb", "sx", types.String(), "invalid format spec"),
+		Entry(
+			"blacklisted verb with flag on i32",
+			"+v",
+			types.I32(),
+			"invalid format spec",
+		),
+		Entry(
+			"blacklisted verb with width on f64",
+			"5v",
+			types.F64(),
+			"invalid format spec",
+		),
+		Entry(
+			"trailing chars after float verb",
+			"f.2",
+			types.F64(),
+			"invalid format spec",
+		),
+		Entry(
+			"trailing chars after integer verb",
+			"d5",
+			types.I32(),
+			"invalid format spec",
+		),
+		Entry(
+			"trailing chars after string verb",
+			"sx",
+			types.String(),
+			"invalid format spec",
+		),
 		Entry("precision before width", ".2-5f", types.F64(), "invalid format spec"),
 		Entry("flag after width", "5+d", types.I32(), "invalid format spec"),
 		Entry("missing verb", "5", types.I32(), "invalid format spec"),
@@ -435,12 +528,16 @@ var _ = Describe("ValidateSpec", func() {
 
 	It("validates against the constraint of a constrained type variable", func() {
 		intConstraint := types.IntegerConstraint()
-		Expect(literal.FmtStrValidateSpec("d", types.Variable("T", &intConstraint))).To(Succeed())
+		Expect(
+			literal.FmtStrValidateSpec("d", types.Variable("T", &intConstraint)),
+		).To(Succeed())
 	})
 
 	It("rejects a spec invalid for the variable's constraint", func() {
 		stringConstraint := types.String()
-		Expect(literal.FmtStrValidateSpec(".2f", types.Variable("T", &stringConstraint))).
+		Expect(
+			literal.FmtStrValidateSpec(".2f", types.Variable("T", &stringConstraint)),
+		).
 			To(MatchError(ContainSubstring("invalid format spec")))
 	})
 

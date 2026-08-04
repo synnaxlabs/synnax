@@ -31,13 +31,18 @@ var _ = Describe("ImEx", func() {
 			Expect(env.Type).To(Equal("schematic"))
 			Expect(env.Name).To(Equal("exported"))
 
-			decoded := MustSucceed(imex.Decode[schematic.Schematic](ctx, WireRoundTrip(env)))
+			decoded := MustSucceed(
+				imex.Decode[schematic.Schematic](ctx, WireRoundTrip(env)),
+			)
 			Expect(decoded.Name).To(Equal("exported"))
 			Expect(decoded.Snapshot).To(BeTrue())
 		})
 
 		It("Should return not found for a missing key", func(ctx SpecContext) {
-			id := ontology.ID{Type: ontology.ResourceTypeSchematic, Key: uuid.NewString()}
+			id := ontology.ID{
+				Type: ontology.ResourceTypeSchematic,
+				Key:  uuid.NewString(),
+			}
 			Expect(svc.Export(ctx, id)).Error().To(MatchError(query.ErrNotFound))
 		})
 

@@ -54,19 +54,18 @@ type ModuleNamer interface {
 type CompoundFactory []Factory
 
 func (f CompoundFactory) Create(ctx context.Context, cfg Config) (Node, error) {
-	// Strip module prefix from the node type so factories only match bare names.
-	// The compiler emits qualified names (e.g. "time.interval", "control.set_authority")
-	// into the IR; normalizing here keeps prefix awareness out of individual
-	// factories.
+	// Strip module prefix from the node type so factories only match bare names. The
+	// compiler emits qualified names (e.g. "time.interval", "control.set_authority")
+	// into the IR; normalizing here keeps prefix awareness out of individual factories.
 	var modulePrefix string
 	if i := strings.LastIndex(cfg.Node.Type, "."); i >= 0 {
 		modulePrefix = cfg.Node.Type[:i]
 		cfg.Node.Type = cfg.Node.Type[i+1:]
 	}
 	for _, factory := range f {
-		// When the IR node has a module prefix (e.g. "control" from "control.set_authority"),
-		// skip factories belonging to a different module. Factories that don't
-		// implement ModuleNamer are always considered.
+		// When the IR node has a module prefix (e.g. "control" from
+		// "control.set_authority"), skip factories belonging to a different module.
+		// Factories that don't implement ModuleNamer are always considered.
 		if modulePrefix != "" {
 			if namer, ok := factory.(ModuleNamer); ok {
 				if name := namer.ModuleName(); name != "" && name != modulePrefix {

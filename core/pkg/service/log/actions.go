@@ -171,7 +171,8 @@ func (p SwapChannelPayload) Handle(state Log) (Log, error) {
 // Handle sets the log-level timestamp precision. It returns validate.ErrValidation
 // when the precision is outside the inclusive range [0, 3].
 func (p SetTimestampPrecisionPayload) Handle(state Log) (Log, error) {
-	if p.TimestampPrecision < minTimestampPrecision || p.TimestampPrecision > maxTimestampPrecision {
+	if p.TimestampPrecision < minTimestampPrecision ||
+		p.TimestampPrecision > maxTimestampPrecision {
 		return Log{}, errors.Wrapf(
 			validate.ErrValidation,
 			"timestamp precision %d out of range [%d, %d]",
@@ -199,7 +200,10 @@ func (p SetHideReceiptTimestampPayload) Handle(state Log) (Log, error) {
 // channelEntryIndex returns the index of the entry referencing the given channel,
 // or -1 when no entry references it.
 func channelEntryIndex(entries []ChannelEntry, key channel.Key) int {
-	return slices.IndexFunc(entries, func(e ChannelEntry) bool { return e.Channel == key })
+	return slices.IndexFunc(
+		entries,
+		func(e ChannelEntry) bool { return e.Channel == key },
+	)
 }
 
 // defaultChannelEntry builds a channel entry with the schema's default display

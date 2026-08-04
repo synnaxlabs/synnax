@@ -30,7 +30,7 @@ const RESOURCE_NAME = "table";
 
 export type RetrieveQuery = table.RetrieveSingleParams;
 
-export const { useRetrieve, useRetrieveObservable, useEnsureRetrieved } =
+export const { useRetrieve, useRetrieveObservable, useEnsureRetrieved, useTombstone } =
   Flux.createRetrieve<RetrieveQuery, table.Table>({
     name: RESOURCE_NAME,
     retrieve: async ({ client, query }) => await client.tables.retrieve(query),

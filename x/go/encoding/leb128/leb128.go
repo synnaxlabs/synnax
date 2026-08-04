@@ -13,8 +13,9 @@ import (
 	"io"
 )
 
-// WriteUnsigned writes an unsigned LEB128 encoded integer to the given writer.
-// LEB128 (Little Endian Base 128) is a variable-length encoding used in WASM and other formats.
+// WriteUnsigned writes an unsigned LEB128 encoded integer to the given writer. LEB128
+// (Little Endian Base 128) is a variable-length encoding used in WASM and other
+// formats.
 func WriteUnsigned(w io.ByteWriter, val uint64) error {
 	for {
 		b := byte(val & 0x7f)

@@ -37,7 +37,11 @@ var _ = Describe("Unary racing", func() {
 				indexKey = GenerateChannelKey()
 				dataKey = GenerateChannelKey()
 				fs = openFS()
-				indexFS, dataFS := MustSucceed(fs.Sub("index")), MustSucceed(fs.Sub("data"))
+				indexFS, dataFS := MustSucceed(
+					fs.Sub("index"),
+				), MustSucceed(
+					fs.Sub("data"),
+				)
 				indexDB = MustSucceed(unary.Open(ctx, unary.Config{
 					FS:        indexFS,
 					MetaCodec: json.Codec,
@@ -72,8 +76,48 @@ var _ = Describe("Unary racing", func() {
 
 			Describe("Multiple deletes", func() {
 				Specify("Overlapping regions – index", func(ctx SpecContext) {
-					Expect(unary.Write(ctx, indexDB, 10*telem.SecondTS, telem.NewSeriesSecondsTSV(10, 11, 12, 13, 15, 16, 18, 19, 20, 21, 22, 24))).To(Succeed())
-					Expect(unary.Write(ctx, dataDB, 10*telem.SecondTS, telem.NewSeriesV[int64](10, 11, 12, 13, 15, 16, 18, 19, 20, 21, 22, 24))).To(Succeed())
+					Expect(
+						unary.Write(
+							ctx,
+							indexDB,
+							10*telem.SecondTS,
+							telem.NewSeriesSecondsTSV(
+								10,
+								11,
+								12,
+								13,
+								15,
+								16,
+								18,
+								19,
+								20,
+								21,
+								22,
+								24,
+							),
+						),
+					).To(Succeed())
+					Expect(
+						unary.Write(
+							ctx,
+							dataDB,
+							10*telem.SecondTS,
+							telem.NewSeriesV[int64](
+								10,
+								11,
+								12,
+								13,
+								15,
+								16,
+								18,
+								19,
+								20,
+								21,
+								22,
+								24,
+							),
+						),
+					).To(Succeed())
 
 					var wg sync.WaitGroup
 					wg.Add(4)
@@ -82,8 +126,22 @@ var _ = Describe("Unary racing", func() {
 						go func() {
 							defer GinkgoRecover()
 							defer wg.Done()
-							Expect(dataDB.Delete(ctx, (telem.TimeStamp(11+i) * telem.SecondTS).Range(telem.TimeStamp(12+i)*telem.SecondTS))).To(Succeed())
-							Expect(dataDB.Delete(ctx, (telem.TimeStamp(16+i) * telem.SecondTS).Range(telem.TimeStamp(17+i)*telem.SecondTS))).To(Succeed())
+							Expect(
+								dataDB.Delete(
+									ctx,
+									(telem.TimeStamp(11+i) * telem.SecondTS).Range(
+										telem.TimeStamp(12+i)*telem.SecondTS,
+									),
+								),
+							).To(Succeed())
+							Expect(
+								dataDB.Delete(
+									ctx,
+									(telem.TimeStamp(16+i) * telem.SecondTS).Range(
+										telem.TimeStamp(17+i)*telem.SecondTS,
+									),
+								),
+							).To(Succeed())
 						}()
 					}
 
@@ -95,13 +153,21 @@ var _ = Describe("Unary racing", func() {
 					Expect(f.Count()).To(Equal(3))
 					first := f.SeriesAt(0)
 					Expect(first.Data).To(Equal(telem.NewSeriesV[int64](10).Data))
-					Expect(first.TimeRange).To(Equal((10 * telem.SecondTS).Range(11 * telem.SecondTS)))
+					Expect(
+						first.TimeRange,
+					).To(Equal((10 * telem.SecondTS).Range(11 * telem.SecondTS)))
 					second := f.SeriesAt(1)
 					Expect(second.Data).To(Equal(telem.NewSeriesV[int64](15).Data))
-					Expect(second.TimeRange).To(Equal((15 * telem.SecondTS).Range(16 * telem.SecondTS)))
+					Expect(
+						second.TimeRange,
+					).To(Equal((15 * telem.SecondTS).Range(16 * telem.SecondTS)))
 					third := f.SeriesAt(2)
-					Expect(third.Data).To(Equal(telem.NewSeriesV[int64](20, 21, 22, 24).Data))
-					Expect(third.TimeRange).To(Equal((20 * telem.SecondTS).Range(24*telem.SecondTS + 1)))
+					Expect(
+						third.Data,
+					).To(Equal(telem.NewSeriesV[int64](20, 21, 22, 24).Data))
+					Expect(
+						third.TimeRange,
+					).To(Equal((20 * telem.SecondTS).Range(24*telem.SecondTS + 1)))
 				})
 			})
 		})

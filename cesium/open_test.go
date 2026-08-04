@@ -31,113 +31,141 @@ var _ = Describe("Open", func() {
 				fs = openFS()
 			})
 			Describe("Opening db on existing folder", func() {
-				It("Should not panic when opening a db in a directory with already existing files", func(ctx SpecContext) {
-					s := MustSucceed(fs.Sub("sub"))
-					MustSucceed(s.Sub("1234notnumeric"))
-					f := MustSucceed(s.Open("123.txt", os.O_CREATE))
-					Expect(f.Close()).To(Succeed())
+				It(
+					"Should not panic when opening a db in a directory with already existing files",
+					func(ctx SpecContext) {
+						s := MustSucceed(fs.Sub("sub"))
+						MustSucceed(s.Sub("1234notnumeric"))
+						f := MustSucceed(s.Open("123.txt", os.O_CREATE))
+						Expect(f.Close()).To(Succeed())
 
-					db := openDBOnFS(ctx, s)
-					Expect(db.Close()).To(Succeed())
-				})
+						db := openDBOnFS(ctx, s)
+						Expect(db.Close()).To(Succeed())
+					},
+				)
 
-				It("Should error when numeric folders do not have meta.json file", func(ctx SpecContext) {
-					s := MustSucceed(fs.Sub("sub"))
-					MustSucceed(s.Sub("1"))
+				It(
+					"Should error when numeric folders do not have meta.json file",
+					func(ctx SpecContext) {
+						s := MustSucceed(fs.Sub("sub"))
+						MustSucceed(s.Sub("1"))
 
-					Expect(cesium.Open(
-						ctx,
-						"",
-						cesium.WithFS(s),
-						cesium.WithInstrumentation(PanicLogger()),
-					)).Error().To(MatchError(ContainSubstring("required")))
-				})
+						Expect(cesium.Open(
+							ctx,
+							"",
+							cesium.WithFS(s),
+							cesium.WithInstrumentation(PanicLogger()),
+						)).Error().To(MatchError(ContainSubstring("required")))
+					},
+				)
 
-				It("Should not error when db gets created with proper numeric folders", func(ctx SpecContext) {
-					s := MustSucceed(fs.Sub("sub0"))
-					db := openDBOnFS(ctx, s)
-					key := GenerateChannelKey()
+				It(
+					"Should not error when db gets created with proper numeric folders",
+					func(ctx SpecContext) {
+						s := MustSucceed(fs.Sub("sub0"))
+						db := openDBOnFS(ctx, s)
+						key := GenerateChannelKey()
 
-					Expect(db.CreateChannel(ctx, cesium.Channel{
-						Key:      key,
-						Name:     "Edison",
-						IsIndex:  true,
-						DataType: telem.TimeStampT,
-					})).To(Succeed())
-					Expect(db.Close()).To(Succeed())
+						Expect(db.CreateChannel(ctx, cesium.Channel{
+							Key:      key,
+							Name:     "Edison",
+							IsIndex:  true,
+							DataType: telem.TimeStampT,
+						})).To(Succeed())
+						Expect(db.Close()).To(Succeed())
 
-					db = openDBOnFS(ctx, s)
-					ch := MustSucceed(db.RetrieveChannel(ctx, key))
+						db = openDBOnFS(ctx, s)
+						ch := MustSucceed(db.RetrieveChannel(ctx, key))
 
-					Expect(ch.Key).To(Equal(key))
-					Expect(ch.IsIndex).To(BeTrue())
+						Expect(ch.Key).To(Equal(key))
+						Expect(ch.IsIndex).To(BeTrue())
 
-					Expect(db.Write(ctx, 1*telem.SecondTS, telem.MultiFrame(
-						[]cesium.ChannelKey{key},
-						[]telem.Series{telem.NewSeriesSecondsTSV(1, 2, 3, 4, 5)},
-					))).To(Succeed())
+						Expect(db.Write(ctx, 1*telem.SecondTS, telem.MultiFrame(
+							[]cesium.ChannelKey{key},
+							[]telem.Series{telem.NewSeriesSecondsTSV(1, 2, 3, 4, 5)},
+						))).To(Succeed())
 
-					f := MustSucceed(db.Read(ctx, telem.TimeRangeMax, key))
-					Expect(f.SeriesAt(0)).To(telem.MatchSeriesData(telem.NewSeriesSecondsTSV(1, 2, 3, 4, 5)))
-					Expect(db.Close()).To(Succeed())
-				})
+						f := MustSucceed(db.Read(ctx, telem.TimeRangeMax, key))
+						Expect(
+							f.SeriesAt(0),
+						).To(telem.MatchSeriesData(telem.NewSeriesSecondsTSV(1, 2, 3, 4, 5)))
+						Expect(db.Close()).To(Succeed())
+					},
+				)
 
-				It("Should not error when db is opened on existing directory", func(ctx SpecContext) {
-					s := MustSucceed(fs.Sub("sub3"))
-					db := openDBOnFS(ctx, s)
-					indexKey := GenerateChannelKey()
-					key := GenerateChannelKey()
+				It(
+					"Should not error when db is opened on existing directory",
+					func(ctx SpecContext) {
+						s := MustSucceed(fs.Sub("sub3"))
+						db := openDBOnFS(ctx, s)
+						indexKey := GenerateChannelKey()
+						key := GenerateChannelKey()
 
-					By("Opening two channels")
-					Expect(db.CreateChannel(ctx, cesium.Channel{
-						Key:      indexKey,
-						Name:     "Tesla",
-						IsIndex:  true,
-						DataType: telem.TimeStampT,
-					})).To(Succeed())
-					Expect(db.CreateChannel(ctx, cesium.Channel{
-						Key:      key,
-						Name:     "Faraday",
-						Index:    indexKey,
-						DataType: telem.Int64T,
-					})).To(Succeed())
-					Expect(db.Write(ctx, 1*telem.SecondTS, telem.MultiFrame(
-						[]cesium.ChannelKey{indexKey, key},
-						[]telem.Series{telem.NewSeriesSecondsTSV(1, 2, 3, 4, 5), telem.NewSeriesV[int64](1, 2, 3, 4, 5)},
-					))).To(Succeed())
+						By("Opening two channels")
+						Expect(db.CreateChannel(ctx, cesium.Channel{
+							Key:      indexKey,
+							Name:     "Tesla",
+							IsIndex:  true,
+							DataType: telem.TimeStampT,
+						})).To(Succeed())
+						Expect(db.CreateChannel(ctx, cesium.Channel{
+							Key:      key,
+							Name:     "Faraday",
+							Index:    indexKey,
+							DataType: telem.Int64T,
+						})).To(Succeed())
+						Expect(db.Write(ctx, 1*telem.SecondTS, telem.MultiFrame(
+							[]cesium.ChannelKey{indexKey, key},
+							[]telem.Series{
+								telem.NewSeriesSecondsTSV(1, 2, 3, 4, 5),
+								telem.NewSeriesV[int64](1, 2, 3, 4, 5),
+							},
+						))).To(Succeed())
 
-					By("Closing the db")
-					Expect(db.Close()).To(Succeed())
+						By("Closing the db")
+						Expect(db.Close()).To(Succeed())
 
-					By("Reopening the db on the file system with existing data")
-					db = openDBOnFS(ctx, s)
-					ch := MustSucceed(db.RetrieveChannel(ctx, key))
-					Expect(ch).ToNot(BeNil())
-					Expect(ch.Key).To(Equal(key))
-					Expect(ch.Index).To(Equal(indexKey))
-					Expect(ch.DataType).To(Equal(telem.Int64T))
+						By("Reopening the db on the file system with existing data")
+						db = openDBOnFS(ctx, s)
+						ch := MustSucceed(db.RetrieveChannel(ctx, key))
+						Expect(ch).ToNot(BeNil())
+						Expect(ch.Key).To(Equal(key))
+						Expect(ch.Index).To(Equal(indexKey))
+						Expect(ch.DataType).To(Equal(telem.Int64T))
 
-					ch = MustSucceed(db.RetrieveChannel(ctx, indexKey))
-					Expect(ch).ToNot(BeNil())
-					Expect(ch.Key).To(Equal(indexKey))
-					Expect(ch.IsIndex).To(BeTrue())
-					Expect(ch.DataType).To(Equal(telem.TimeStampT))
+						ch = MustSucceed(db.RetrieveChannel(ctx, indexKey))
+						Expect(ch).ToNot(BeNil())
+						Expect(ch.Key).To(Equal(indexKey))
+						Expect(ch.IsIndex).To(BeTrue())
+						Expect(ch.DataType).To(Equal(telem.TimeStampT))
 
-					By("Asserting that writes to the db still occurs normally")
-					Expect(db.Write(ctx, 11*telem.SecondTS, telem.MultiFrame(
-						[]cesium.ChannelKey{key, indexKey},
-						[]telem.Series{telem.NewSeriesV[int64](11, 12, 13, 14, 15), telem.NewSeriesSecondsTSV(11, 12, 13, 14, 15)},
-					))).To(Succeed())
+						By("Asserting that writes to the db still occurs normally")
+						Expect(db.Write(ctx, 11*telem.SecondTS, telem.MultiFrame(
+							[]cesium.ChannelKey{key, indexKey},
+							[]telem.Series{
+								telem.NewSeriesV[int64](11, 12, 13, 14, 15),
+								telem.NewSeriesSecondsTSV(11, 12, 13, 14, 15),
+							},
+						))).To(Succeed())
 
-					f := MustSucceed(db.Read(ctx, telem.TimeRangeMax, key))
-					Expect(f.SeriesAt(0).TimeRange).To(Equal((1 * telem.SecondTS).Range(5*telem.SecondTS + 1)))
-					Expect(f.SeriesAt(0).Data).To(Equal(telem.NewSeriesV[int64](1, 2, 3, 4, 5).Data))
+						f := MustSucceed(db.Read(ctx, telem.TimeRangeMax, key))
+						Expect(
+							f.SeriesAt(0).TimeRange,
+						).To(Equal((1 * telem.SecondTS).Range(5*telem.SecondTS + 1)))
+						Expect(
+							f.SeriesAt(0).Data,
+						).To(Equal(telem.NewSeriesV[int64](1, 2, 3, 4, 5).Data))
 
-					Expect(f.SeriesAt(1).TimeRange).To(Equal((11 * telem.SecondTS).Range(15*telem.SecondTS + 1)))
-					Expect(f.SeriesAt(1).Data).To(Equal(telem.NewSeriesV[int64](11, 12, 13, 14, 15).Data))
+						Expect(
+							f.SeriesAt(1).TimeRange,
+						).To(Equal((11 * telem.SecondTS).Range(15*telem.SecondTS + 1)))
+						Expect(
+							f.SeriesAt(1).Data,
+						).To(Equal(telem.NewSeriesV[int64](11, 12, 13, 14, 15).Data))
 
-					Expect(db.Close()).To(Succeed())
-				})
+						Expect(db.Close()).To(Succeed())
+					},
+				)
 			})
 		})
 	}

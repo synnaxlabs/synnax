@@ -81,7 +81,8 @@ func CommandsFromPB(pbs []*Command) ([]task.Command, error) {
 	return result, nil
 }
 
-// StatusDetailsToPB converts StatusDetails to StatusDetails using provided type converters.
+// StatusDetailsToPB converts StatusDetails to StatusDetails using provided type
+// converters.
 func StatusDetailsToPB(
 	r task.StatusDetails,
 ) (*StatusDetails, error) {
@@ -102,7 +103,8 @@ func StatusDetailsToPB(
 	return pb, nil
 }
 
-// StatusDetailsFromPB converts StatusDetails to StatusDetails using provided type converters.
+// StatusDetailsFromPB converts StatusDetails to StatusDetails using provided type
+// converters.
 func StatusDetailsFromPB(
 	pb *StatusDetails,
 ) (task.StatusDetails, error) {
@@ -156,7 +158,8 @@ func StatusDetailsListFromPB(
 	return result, nil
 }
 
-// TaskToPB converts Task to Task using provided type converters.
+// TaskToPB converts Task to Task using provided type
+// converters.
 func TaskToPB(
 	r task.Task,
 ) (*Task, error) {
@@ -184,7 +187,8 @@ func TaskToPB(
 	return pb, nil
 }
 
-// TaskFromPB converts Task to Task using provided type converters.
+// TaskFromPB converts Task to Task using provided type
+// converters.
 func TaskFromPB(
 	pb *Task,
 ) (task.Task, error) {
@@ -245,8 +249,9 @@ func TasksFromPB(
 	return result, nil
 }
 
-// StatusDetailsToPBAny converts StatusDetails to *anypb.Any for use with generic translators.
-// It wraps the value in structpb.Struct (JSON) for cross-language compatibility.
+// StatusDetailsToPBAny converts StatusDetails to *anypb.Any for use with generic
+// translators. It wraps the value in structpb.Struct (JSON) for cross-language
+// compatibility.
 func StatusDetailsToPBAny(v task.StatusDetails) (*anypb.Any, error) {
 	pb, err := StatusDetailsToPB(v)
 	if err != nil {
@@ -264,8 +269,9 @@ func StatusDetailsToPBAny(v task.StatusDetails) (*anypb.Any, error) {
 	return anypb.New(s)
 }
 
-// StatusDetailsFromPBAny converts *anypb.Any to StatusDetails for use with generic translators.
-// It handles both typed protos and JSON (google.protobuf.Struct) for cross-language compatibility.
+// StatusDetailsFromPBAny converts *anypb.Any to StatusDetails for use with generic
+// translators. It handles both typed protos and JSON (google.protobuf.Struct) for
+// cross-language compatibility.
 func StatusDetailsFromPBAny(a *anypb.Any) (task.StatusDetails, error) {
 	if a == nil {
 		return task.StatusDetails{}, nil

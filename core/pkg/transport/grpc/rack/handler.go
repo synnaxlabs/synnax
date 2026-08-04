@@ -58,7 +58,10 @@ var (
 	_ grpc.Translator[rack.DeleteRequest, *DeleteRequest]       = deleteRequestTranslator{}
 )
 
-func (createRequestTranslator) Forward(_ context.Context, req rack.CreateRequest) (*CreateRequest, error) {
+func (createRequestTranslator) Forward(
+	_ context.Context,
+	req rack.CreateRequest,
+) (*CreateRequest, error) {
 	racks, err := pb.RacksToPB(req.Racks)
 	if err != nil {
 		return nil, err

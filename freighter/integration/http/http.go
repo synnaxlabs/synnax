@@ -37,42 +37,79 @@ func BindTo(f *fiber.App) error {
 	echoServer := http.NewStreamServer[Message, Message](router, "/stream/echo")
 	echoServer.BindHandler(streamEcho)
 
-	streamSendMessageAfterClientCloseServer := http.NewStreamServer[Message, Message](router, "/stream/sendMessageAfterClientClose")
-	streamSendMessageAfterClientCloseServer.BindHandler(streamSendMessageAfterClientClose)
+	streamSendMessageAfterClientCloseServer := http.NewStreamServer[Message, Message](
+		router,
+		"/stream/sendMessageAfterClientClose",
+	)
+	streamSendMessageAfterClientCloseServer.BindHandler(
+		streamSendMessageAfterClientClose,
+	)
 
-	streamReceiveAndExitWithErrServer := http.NewStreamServer[Message, Message](router, "/stream/receiveAndExitWithErr")
+	streamReceiveAndExitWithErrServer := http.NewStreamServer[Message, Message](
+		router,
+		"/stream/receiveAndExitWithErr",
+	)
 	streamReceiveAndExitWithErrServer.BindHandler(streamReceiveAndExitWithErr)
 
-	streamImmediatelyExitWithErrServer := http.NewStreamServer[Message, Message](router, "/stream/immediatelyExitWithErr")
+	streamImmediatelyExitWithErrServer := http.NewStreamServer[Message, Message](
+		router,
+		"/stream/immediatelyExitWithErr",
+	)
 	streamImmediatelyExitWithErrServer.BindHandler(streamImmediatelyExitWithErr)
 
-	streamImmediatelyExitNominallyServer := http.NewStreamServer[Message, Message](router, "/stream/immediatelyExitNominally")
+	streamImmediatelyExitNominallyServer := http.NewStreamServer[Message, Message](
+		router,
+		"/stream/immediatelyExitNominally",
+	)
 	streamImmediatelyExitNominallyServer.BindHandler(streamImmediatelyExitNominally)
 
-	streamRespondWithTenMessagesServer := http.NewStreamServer[Message, Message](router, "/stream/respondWithTenMessages")
+	streamRespondWithTenMessagesServer := http.NewStreamServer[Message, Message](
+		router,
+		"/stream/respondWithTenMessages",
+	)
 	streamRespondWithTenMessagesServer.BindHandler(streamRespondWithTenMessages)
 
 	unaryGetEchoServer := http.NewUnaryServer[Message, Message](router, "/unary/echo")
 	unaryGetEchoServer.BindHandler(unaryEcho)
 
-	unaryParamEchoServer := http.NewUnaryServer[Message, Message](router, "/unary/paramEcho")
+	unaryParamEchoServer := http.NewUnaryServer[Message, Message](
+		router,
+		"/unary/paramEcho",
+	)
 	unaryParamEchoServer.BindHandler(unaryParamEcho)
 
-	unaryMiddlewareCheckServer := http.NewUnaryServer[Message, Message](router, "/unary/middlewareCheck")
+	unaryMiddlewareCheckServer := http.NewUnaryServer[Message, Message](
+		router,
+		"/unary/middlewareCheck",
+	)
 	unaryMiddlewareCheckServer.BindHandler(unaryEcho)
 	unaryMiddlewareCheckServer.Use(freighter.MiddlewareFunc(checkMiddleware))
 
-	streamMiddlewareCheckServer := http.NewStreamServer[Message, Message](router, "/stream/middlewareCheck")
+	streamMiddlewareCheckServer := http.NewStreamServer[Message, Message](
+		router,
+		"/stream/middlewareCheck",
+	)
 	streamMiddlewareCheckServer.BindHandler(streamEcho)
 	streamMiddlewareCheckServer.Use(freighter.MiddlewareFunc(checkMiddleware))
 
-	streamSlamMessagesServer := http.NewStreamServer[Message, Message](router, "/stream/slamMessages")
+	streamSlamMessagesServer := http.NewStreamServer[Message, Message](
+		router,
+		"/stream/slamMessages",
+	)
 	streamSlamMessagesServer.BindHandler(streamSlamMessages)
-	slamMessagesTimeoutCheck := http.NewUnaryServer[Message, Message](router, "/unary/slamMessagesTimeoutCheck")
+	slamMessagesTimeoutCheck := http.NewUnaryServer[Message, Message](
+		router,
+		"/unary/slamMessagesTimeoutCheck",
+	)
 	slamMessagesTimeoutCheck.BindHandler(slamMessagesTimeoutCheckHandler)
 
-	streamEventuallyResponseWithMessageServer := http.NewStreamServer[Message, Message](router, "/stream/eventuallyResponseWithMessage")
-	streamEventuallyResponseWithMessageServer.BindHandler(streamEventuallyResponseWithMessage)
+	streamEventuallyResponseWithMessageServer := http.NewStreamServer[Message, Message](
+		router,
+		"/stream/eventuallyResponseWithMessage",
+	)
+	streamEventuallyResponseWithMessageServer.BindHandler(
+		streamEventuallyResponseWithMessage,
+	)
 
 	router.BindTo(f)
 
@@ -147,7 +184,9 @@ func flakyUnavailable(c fiber.Ctx) error {
 	if !flakySeen.Contains(req.Message) {
 		flakySeen.Add(req.Message)
 		c.Status(fiber.StatusServiceUnavailable)
-		return c.SendString(`{"type":"integration.error","data":"1,transient unavailable"}`)
+		return c.SendString(
+			`{"type":"integration.error","data":"1,transient unavailable"}`,
+		)
 	}
 	req.ID++
 	body, err := json.Marshal(req)

@@ -45,7 +45,9 @@ func createV4() v4.Data {
 			Segments:     []v3.Segment{{Direction: "x", Length: 10}},
 			Data:         json.RawMessage(`{"color":"#ff0000"}`),
 		}},
-		Props:        map[string]json.RawMessage{"n1": json.RawMessage(`{"key":"valve"}`)},
+		Props: map[string]json.RawMessage{
+			"n1": json.RawMessage(`{"key":"valve"}`),
+		},
 		Control:      "released",
 		Legend:       v1.ZeroLegend,
 		Key:          "3e8f9a52-2c1d-4a6b-9f27-c05561f7f2a4",

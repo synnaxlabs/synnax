@@ -56,12 +56,15 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	}))
 	authSvc := MustOpen(auth.OpenService(ctx, auth.ServiceConfig{DB: db}))
 	userSvc := MustOpen(user.OpenService(ctx, user.ServiceConfig{
-		DB:              db,
-		Ontology:        otg,
-		Group:           groupSvc,
-		Search:          searchIdx,
-		Auth:            authSvc,
-		RootCredentials: auth.Credentials{Username: "api-imex-suite-root", Password: "p"},
+		DB:       db,
+		Ontology: otg,
+		Group:    groupSvc,
+		Search:   searchIdx,
+		Auth:     authSvc,
+		RootCredentials: auth.Credentials{
+			Username: "api-imex-suite-root",
+			Password: "p",
+		},
 	}))
 	rbacSvc := MustOpen(rbac.OpenService(ctx, rbac.ServiceConfig{
 		DB:       db,
