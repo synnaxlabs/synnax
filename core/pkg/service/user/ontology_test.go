@@ -28,12 +28,15 @@ import (
 
 var _ = Describe("Ontology", func() {
 	Describe("OntologyID", func() {
-		It("Should build an ontology ID with the user resource type and the key", func() {
-			key := uuid.New()
-			id := user.OntologyID(key)
-			Expect(id.Type).To(Equal(ontology.ResourceTypeUser))
-			Expect(id.Key).To(Equal(key.String()))
-		})
+		It(
+			"Should build an ontology ID with the user resource type and the key",
+			func() {
+				key := uuid.New()
+				id := user.OntologyID(key)
+				Expect(id.Type).To(Equal(ontology.ResourceTypeUser))
+				Expect(id.Key).To(Equal(key.String()))
+			},
+		)
 	})
 	Describe("OntologyIDsFromKeys", func() {
 		It("Should map a slice of keys to a slice of ontology IDs", func() {
@@ -83,38 +86,46 @@ var _ = Describe("Ontology", func() {
 	})
 	Describe("SearchableFields", func() {
 		It("Should return username, first_name, and last_name", func() {
-			Expect(svc.SearchableFields()).To(ConsistOf("username", "first_name", "last_name"))
+			Expect(
+				svc.SearchableFields(),
+			).To(ConsistOf("username", "first_name", "last_name"))
 		})
-		It("Should index first_name for fuzzy search via the suite's search index", func(ctx SpecContext) {
-			created := MustSucceed(writer.Create(ctx, user.User{
-				Username:  uuid.NewString(),
-				FirstName: "Persephone",
-				LastName:  "Quintarelli",
-			}))
-			Eventually(func(g Gomega) {
-				ids, err := searchIdx.Search(ctx, search.Request{
-					Type: ontology.ResourceTypeUser,
-					Term: "Persephone",
-				})
-				g.Expect(err).ToNot(HaveOccurred())
-				g.Expect(ids).To(ContainElement(created.OntologyID()))
-			}).Should(Succeed())
-		})
-		It("Should index last_name for fuzzy search via the suite's search index", func(ctx SpecContext) {
-			created := MustSucceed(writer.Create(ctx, user.User{
-				Username:  uuid.NewString(),
-				FirstName: "Marigold",
-				LastName:  "Ravenscroft",
-			}))
-			Eventually(func(g Gomega) {
-				ids, err := searchIdx.Search(ctx, search.Request{
-					Type: ontology.ResourceTypeUser,
-					Term: "Ravenscroft",
-				})
-				g.Expect(err).ToNot(HaveOccurred())
-				g.Expect(ids).To(ContainElement(created.OntologyID()))
-			}).Should(Succeed())
-		})
+		It(
+			"Should index first_name for fuzzy search via the suite's search index",
+			func(ctx SpecContext) {
+				created := MustSucceed(writer.Create(ctx, user.User{
+					Username:  uuid.NewString(),
+					FirstName: "Persephone",
+					LastName:  "Quintarelli",
+				}))
+				Eventually(func(g Gomega) {
+					ids, err := searchIdx.Search(ctx, search.Request{
+						Type: ontology.ResourceTypeUser,
+						Term: "Persephone",
+					})
+					g.Expect(err).ToNot(HaveOccurred())
+					g.Expect(ids).To(ContainElement(created.OntologyID()))
+				}).Should(Succeed())
+			},
+		)
+		It(
+			"Should index last_name for fuzzy search via the suite's search index",
+			func(ctx SpecContext) {
+				created := MustSucceed(writer.Create(ctx, user.User{
+					Username:  uuid.NewString(),
+					FirstName: "Marigold",
+					LastName:  "Ravenscroft",
+				}))
+				Eventually(func(g Gomega) {
+					ids, err := searchIdx.Search(ctx, search.Request{
+						Type: ontology.ResourceTypeUser,
+						Term: "Ravenscroft",
+					})
+					g.Expect(err).ToNot(HaveOccurred())
+					g.Expect(ids).To(ContainElement(created.OntologyID()))
+				}).Should(Succeed())
+			},
+		)
 	})
 	Describe("RetrieveResource", func() {
 		It("Should retrieve a user's schema entity by its key", func(ctx SpecContext) {
@@ -136,14 +147,20 @@ var _ = Describe("Ontology", func() {
 					},
 				}))
 		})
-		It("Should return an error when the key is not a valid UUID", func(ctx SpecContext) {
-			Expect(svc.RetrieveResource(ctx, "not-a-uuid", nil)).Error().
-				To(MatchError(ContainSubstring("invalid UUID")))
-		})
-		It("Should return query.ErrNotFound when no user has the given key", func(ctx SpecContext) {
-			Expect(svc.RetrieveResource(ctx, uuid.NewString(), nil)).Error().
-				To(MatchError(query.ErrNotFound))
-		})
+		It(
+			"Should return an error when the key is not a valid UUID",
+			func(ctx SpecContext) {
+				Expect(svc.RetrieveResource(ctx, "not-a-uuid", nil)).Error().
+					To(MatchError(ContainSubstring("invalid UUID")))
+			},
+		)
+		It(
+			"Should return query.ErrNotFound when no user has the given key",
+			func(ctx SpecContext) {
+				Expect(svc.RetrieveResource(ctx, uuid.NewString(), nil)).Error().
+					To(MatchError(query.ErrNotFound))
+			},
+		)
 	})
 	Describe("OnChange", func() {
 		// OnChange publishes the gorp-table change stream through translateChange so
@@ -157,11 +174,13 @@ var _ = Describe("Ontology", func() {
 					mu      sync.Mutex
 					changes []ontology.Change
 				)
-				disconnect := svc.OnChange(func(_ context.Context, it iter.Seq[ontology.Change]) {
-					mu.Lock()
-					defer mu.Unlock()
-					changes = append(changes, slices.Collect(it)...)
-				})
+				disconnect := svc.OnChange(
+					func(_ context.Context, it iter.Seq[ontology.Change]) {
+						mu.Lock()
+						defer mu.Unlock()
+						changes = append(changes, slices.Collect(it)...)
+					},
+				)
 				DeferCleanup(disconnect)
 
 				created := MustSucceed(writer.Create(ctx, user.User{
@@ -194,23 +213,26 @@ var _ = Describe("Ontology", func() {
 			})
 	})
 	Describe("OpenNexter", func() {
-		It("Should iterate over all users currently stored in the service", func(ctx SpecContext) {
-			a := MustSucceed(writer.Create(ctx, user.User{
-				Username: uuid.NewString(),
-			}))
-			b := MustSucceed(writer.Create(ctx, user.User{
-				Username: uuid.NewString(),
-			}))
+		It(
+			"Should iterate over all users currently stored in the service",
+			func(ctx SpecContext) {
+				a := MustSucceed(writer.Create(ctx, user.User{
+					Username: uuid.NewString(),
+				}))
+				b := MustSucceed(writer.Create(ctx, user.User{
+					Username: uuid.NewString(),
+				}))
 
-			seq, closer := MustSucceed2(svc.OpenNexter(ctx))
-			DeferClose(closer)
+				seq, closer := MustSucceed2(svc.OpenNexter(ctx))
+				DeferClose(closer)
 
-			seen := make(map[string]string)
-			for resource := range seq {
-				seen[resource.ID.String()] = resource.Name
-			}
-			Expect(seen).To(HaveKeyWithValue(a.OntologyID().String(), a.Username))
-			Expect(seen).To(HaveKeyWithValue(b.OntologyID().String(), b.Username))
-		})
+				seen := make(map[string]string)
+				for resource := range seq {
+					seen[resource.ID.String()] = resource.Name
+				}
+				Expect(seen).To(HaveKeyWithValue(a.OntologyID().String(), a.Username))
+				Expect(seen).To(HaveKeyWithValue(b.OntologyID().String(), b.Username))
+			},
+		)
 	})
 })

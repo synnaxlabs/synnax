@@ -45,24 +45,29 @@ func migrateSeed(ctx SpecContext, seed v0.Arc) v1.Arc {
 }
 
 var _ = Describe("MigrateArc", func() {
-	It("Should carry the arc's key, name, mode, graph, and text", func(ctx SpecContext) {
-		key := uuid.New()
-		migrated := migrateSeed(ctx, v0.Arc{
-			Key:  key,
-			Name: "my-arc",
-			Mode: v0.ModeText,
-			Text: text.Text{Raw: "x := 1"},
-			Graph: graph.Graph{
-				Functions: ir.Functions{{Key: "scale", Body: ir.Body{Raw: "x * 2"}}},
-			},
-		})
-		Expect(migrated.Key).To(Equal(key))
-		Expect(migrated.Name).To(Equal("my-arc"))
-		Expect(migrated.Mode).To(Equal(v1.ModeText))
-		Expect(migrated.Text.Raw).To(Equal("x := 1"))
-		Expect(migrated.Graph.Functions).To(HaveLen(1))
-		Expect(migrated.Graph.Functions[0].Key).To(Equal("scale"))
-	})
+	It(
+		"Should carry the arc's key, name, mode, graph, and text",
+		func(ctx SpecContext) {
+			key := uuid.New()
+			migrated := migrateSeed(ctx, v0.Arc{
+				Key:  key,
+				Name: "my-arc",
+				Mode: v0.ModeText,
+				Text: text.Text{Raw: "x := 1"},
+				Graph: graph.Graph{
+					Functions: ir.Functions{
+						{Key: "scale", Body: ir.Body{Raw: "x * 2"}},
+					},
+				},
+			})
+			Expect(migrated.Key).To(Equal(key))
+			Expect(migrated.Name).To(Equal("my-arc"))
+			Expect(migrated.Mode).To(Equal(v1.ModeText))
+			Expect(migrated.Text.Raw).To(Equal("x := 1"))
+			Expect(migrated.Graph.Functions).To(HaveLen(1))
+			Expect(migrated.Graph.Functions[0].Key).To(Equal("scale"))
+		},
+	)
 
 	It("Should drop the persisted program and status", func(ctx SpecContext) {
 		migrated := migrateSeed(ctx, v0.Arc{
@@ -76,39 +81,46 @@ var _ = Describe("MigrateArc", func() {
 })
 
 var _ = Describe("Migrations", func() {
-	It("Should rename deprecated set_status nodes to status.set", func(ctx SpecContext) {
-		got := migrateSeed(ctx, v0.Arc{
-			Key:  uuid.New(),
-			Name: "Legacy Status Graph",
-			Mode: v0.ModeGraph,
-			Graph: graph.Graph{
-				Nodes: graph.Nodes{
-					{
-						Key:  "alarm",
-						Type: "set_status",
-						Config: msgpack.EncodedJSON{
-							"statusKey":   "ox_alarm",
-							"variant":     "error",
-							"message":     "Overpressure",
-							"description": "dropped on migrate",
+	It(
+		"Should rename deprecated set_status nodes to status.set",
+		func(ctx SpecContext) {
+			got := migrateSeed(ctx, v0.Arc{
+				Key:  uuid.New(),
+				Name: "Legacy Status Graph",
+				Mode: v0.ModeGraph,
+				Graph: graph.Graph{
+					Nodes: graph.Nodes{
+						{
+							Key:  "alarm",
+							Type: "set_status",
+							Config: msgpack.EncodedJSON{
+								"statusKey":   "ox_alarm",
+								"variant":     "error",
+								"message":     "Overpressure",
+								"description": "dropped on migrate",
+							},
+						},
+						{
+							Key:    "scale",
+							Type:   "scale",
+							Config: msgpack.EncodedJSON{"factor": "2"},
 						},
 					},
-					{Key: "scale", Type: "scale", Config: msgpack.EncodedJSON{"factor": "2"}},
 				},
-			},
-		})
-		Expect(got.Graph.Nodes).To(HaveLen(2))
-		alarm := got.Graph.Nodes[0]
-		Expect(alarm.Type).To(Equal("status.set"))
-		Expect(alarm.Config).To(Equal(msgpack.EncodedJSON{
-			"key_or_name": "ox_alarm",
-			"variant":     "error",
-			"message":     "Overpressure",
-		}))
-		scale := got.Graph.Nodes[1]
-		Expect(scale.Type).To(Equal("scale"))
-		Expect(scale.Config).To(Equal(msgpack.EncodedJSON{"factor": "2"}))
-	})
+			})
+			Expect(got.Graph.Nodes).To(HaveLen(2))
+			alarm := got.Graph.Nodes[0]
+			Expect(alarm.Type).To(Equal("status.set"))
+			Expect(alarm.Config).To(Equal(msgpack.EncodedJSON{
+				"key_or_name": "ox_alarm",
+				"variant":     "error",
+				"message":     "Overpressure",
+			}))
+			scale := got.Graph.Nodes[1]
+			Expect(scale.Type).To(Equal("scale"))
+			Expect(scale.Config).To(Equal(msgpack.EncodedJSON{"factor": "2"}))
+		},
+	)
 
 	It("Should default missing set_status config parameters", func(ctx SpecContext) {
 		got := migrateSeed(ctx, v0.Arc{

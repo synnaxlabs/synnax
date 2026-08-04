@@ -93,18 +93,27 @@ var _ = Describe("Codec", func() {
 		It("Should return an error for unsupported types", func() {
 			b := MustSucceed(vmsgpack.Marshal([]int{1, 2, 3}))
 			dec := vmsgpack.NewDecoder(bytes.NewReader(b))
-			Expect(msgpack.UnmarshalUint64(dec)).Error().To(MatchError(ContainSubstring("cannot unmarshal")))
+			Expect(
+				msgpack.UnmarshalUint64(dec),
+			).Error().
+				To(MatchError(ContainSubstring("cannot unmarshal")))
 		})
 		It("Should return an error for invalid string", func() {
 			b := MustSucceed(vmsgpack.Marshal("not-a-number"))
 			dec := vmsgpack.NewDecoder(bytes.NewReader(b))
-			Expect(msgpack.UnmarshalUint64(dec)).Error().To(MatchError(ContainSubstring("invalid")))
+			Expect(
+				msgpack.UnmarshalUint64(dec),
+			).Error().
+				To(MatchError(ContainSubstring("invalid")))
 		})
 		DescribeTable("Should return an error for negative values",
 			func(value any) {
 				b := MustSucceed(vmsgpack.Marshal(value))
 				dec := vmsgpack.NewDecoder(bytes.NewReader(b))
-				Expect(msgpack.UnmarshalUint64(dec)).Error().To(MatchError(ContainSubstring("negative")))
+				Expect(
+					msgpack.UnmarshalUint64(dec),
+				).Error().
+					To(MatchError(ContainSubstring("negative")))
 			},
 			Entry("negative int64", int64(-1)),
 			Entry("negative int32", int32(-1)),
@@ -139,18 +148,27 @@ var _ = Describe("Codec", func() {
 		It("Should return an error for unsupported types", func() {
 			b := MustSucceed(vmsgpack.Marshal(map[string]int{"a": 1}))
 			dec := vmsgpack.NewDecoder(bytes.NewReader(b))
-			Expect(msgpack.UnmarshalUint32(dec)).Error().To(MatchError(ContainSubstring("cannot unmarshal")))
+			Expect(
+				msgpack.UnmarshalUint32(dec),
+			).Error().
+				To(MatchError(ContainSubstring("cannot unmarshal")))
 		})
 		It("Should return an error for invalid string", func() {
 			b := MustSucceed(vmsgpack.Marshal("invalid"))
 			dec := vmsgpack.NewDecoder(bytes.NewReader(b))
-			Expect(msgpack.UnmarshalUint32(dec)).Error().To(MatchError(ContainSubstring("invalid")))
+			Expect(
+				msgpack.UnmarshalUint32(dec),
+			).Error().
+				To(MatchError(ContainSubstring("invalid")))
 		})
 		DescribeTable("Should return an error for negative values",
 			func(value any) {
 				b := MustSucceed(vmsgpack.Marshal(value))
 				dec := vmsgpack.NewDecoder(bytes.NewReader(b))
-				Expect(msgpack.UnmarshalUint32(dec)).Error().To(MatchError(Or(ContainSubstring("negative"), ContainSubstring("out of uint32 range"))))
+				Expect(
+					msgpack.UnmarshalUint32(dec),
+				).Error().
+					To(MatchError(Or(ContainSubstring("negative"), ContainSubstring("out of uint32 range"))))
 			},
 			Entry("negative int64", int64(-1)),
 			Entry("negative int32", int32(-1)),
@@ -164,7 +182,10 @@ var _ = Describe("Codec", func() {
 			func(value any) {
 				b := MustSucceed(vmsgpack.Marshal(value))
 				dec := vmsgpack.NewDecoder(bytes.NewReader(b))
-				Expect(msgpack.UnmarshalUint32(dec)).Error().To(MatchError(Or(ContainSubstring("exceeds uint32 max"), ContainSubstring("out of uint32 range"))))
+				Expect(
+					msgpack.UnmarshalUint32(dec),
+				).Error().
+					To(MatchError(Or(ContainSubstring("exceeds uint32 max"), ContainSubstring("out of uint32 range"))))
 			},
 			Entry("uint64 overflow", uint64(5000000000)),
 			Entry("int64 overflow", int64(5000000000)),
@@ -188,25 +209,28 @@ var _ = Describe("Codec", func() {
 			Expect(result["key"]).To(Equal("value"))
 			Expect(result["count"]).To(BeNumerically("==", 42))
 		})
-		It("Should decode a struct field from a JSON string for backwards compatibility", func() {
-			type OldConfig struct {
-				Name   string `msgpack:"name"`
-				Schema string `msgpack:"schema"`
-			}
-			type NewConfig struct {
-				Name   string              `msgpack:"name"`
-				Schema msgpack.EncodedJSON `msgpack:"schema"`
-			}
-			old := OldConfig{
-				Name:   "test",
-				Schema: `{"field":"value"}`,
-			}
-			b := MustSucceed(vmsgpack.Marshal(old))
-			var result NewConfig
-			Expect(vmsgpack.Unmarshal(b, &result)).To(Succeed())
-			Expect(result.Name).To(Equal("test"))
-			Expect(result.Schema["field"]).To(Equal("value"))
-		})
+		It(
+			"Should decode a struct field from a JSON string for backwards compatibility",
+			func() {
+				type OldConfig struct {
+					Name   string `msgpack:"name"`
+					Schema string `msgpack:"schema"`
+				}
+				type NewConfig struct {
+					Name   string              `msgpack:"name"`
+					Schema msgpack.EncodedJSON `msgpack:"schema"`
+				}
+				old := OldConfig{
+					Name:   "test",
+					Schema: `{"field":"value"}`,
+				}
+				b := MustSucceed(vmsgpack.Marshal(old))
+				var result NewConfig
+				Expect(vmsgpack.Unmarshal(b, &result)).To(Succeed())
+				Expect(result.Name).To(Equal("test"))
+				Expect(result.Schema["field"]).To(Equal("value"))
+			},
+		)
 		It("Should decode nil to nil", func() {
 			b := MustSucceed(vmsgpack.Marshal(nil))
 			var result msgpack.EncodedJSON
@@ -266,12 +290,16 @@ var _ = Describe("Codec", func() {
 		It("Should return an error for an invalid JSON string", func() {
 			b := MustSucceed(vmsgpack.Marshal("not valid json"))
 			var result msgpack.EncodedJSON
-			Expect(vmsgpack.Unmarshal(b, &result)).To(MatchError(ContainSubstring("failed to unmarshal JSON string")))
+			Expect(
+				vmsgpack.Unmarshal(b, &result),
+			).To(MatchError(ContainSubstring("failed to unmarshal JSON string")))
 		})
 		It("Should return an error for unsupported types", func() {
 			b := MustSucceed(vmsgpack.Marshal(42))
 			var result msgpack.EncodedJSON
-			Expect(vmsgpack.Unmarshal(b, &result)).To(MatchError(ContainSubstring("unsupported type")))
+			Expect(
+				vmsgpack.Unmarshal(b, &result),
+			).To(MatchError(ContainSubstring("unsupported type")))
 		})
 		It("Should return an error for non-string map keys", func() {
 			m := map[int]string{1: "a"}
@@ -281,7 +309,9 @@ var _ = Describe("Codec", func() {
 				return dec.DecodeUntypedMap()
 			})
 			var result msgpack.EncodedJSON
-			Expect(result.DecodeMsgpack(dec)).To(MatchError(ContainSubstring("non-string key")))
+			Expect(
+				result.DecodeMsgpack(dec),
+			).To(MatchError(ContainSubstring("non-string key")))
 		})
 		Describe("Unmarshal", func() {
 			It("Should unmarshal into a typed struct", func() {

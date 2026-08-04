@@ -152,7 +152,9 @@ func log(ctx freighter.Context, err error, cfg Config) {
 	// which happens when performing tasks like reloading web pages. As such,
 	// we don't consider it anomalous and don't log it.
 	if errors.Skip(err, context.Canceled) != nil {
-		cfg.L.Warn(ctx.Target.String(), append(args, zap.String("error", err.Error()))...)
+		cfg.L.Warn(
+			ctx.Target.String(),
+			append(args, zap.String("error", err.Error()))...)
 	} else {
 		cfg.L.Debug(ctx.Target.String(), args...)
 	}

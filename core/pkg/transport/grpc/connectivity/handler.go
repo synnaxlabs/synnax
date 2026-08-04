@@ -31,7 +31,9 @@ type (
 
 type responseTranslator struct{}
 
-var _ grpc.Translator[connectivity.CheckResponse, *CheckResponse] = (*responseTranslator)(nil)
+var _ grpc.Translator[connectivity.CheckResponse, *CheckResponse] = (*responseTranslator)(
+	nil,
+)
 
 func (responseTranslator) Forward(
 	_ context.Context,

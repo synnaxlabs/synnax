@@ -18,7 +18,7 @@ import { ir } from "@/arc/ir";
 import { type Arc, arcZ, keyZ } from "@/arc/types.gen";
 
 /**
- * Create replaces the document with the given created state. Emitted by the server on
+ * Create replaces the document with the given created state. Emitted by the Core on
  * create so remote caches ingest new documents; clients never dispatch it.
  */
 export const createPayloadZ = z.object({

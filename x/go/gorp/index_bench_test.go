@@ -420,12 +420,16 @@ func BenchmarkComposeAndScan(b *testing.B) {
 				var out []indexBenchEntry
 				if err := table.NewRetrieve().
 					Where(gorp.And(
-						gorp.Match(func(_ gorp.Context, e *indexBenchEntry) (bool, error) {
-							return e.Name == targetName, nil
-						}),
-						gorp.Match(func(_ gorp.Context, e *indexBenchEntry) (bool, error) {
-							return e.Category == targetCat, nil
-						}),
+						gorp.Match(
+							func(_ gorp.Context, e *indexBenchEntry) (bool, error) {
+								return e.Name == targetName, nil
+							},
+						),
+						gorp.Match(
+							func(_ gorp.Context, e *indexBenchEntry) (bool, error) {
+								return e.Category == targetCat, nil
+							},
+						),
 					)).
 					Entries(&out).Exec(ctx, db); err != nil {
 					b.Fatal(err)

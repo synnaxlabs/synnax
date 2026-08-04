@@ -22,7 +22,8 @@ type ScaledTicker struct {
 	dur   time.Duration
 }
 
-// NewScaledTicker returns a new ScaledTicker that ticks at the given duration and scale.
+// NewScaledTicker returns a new ScaledTicker that ticks at the given duration and
+// scale.
 func NewScaledTicker(d time.Duration, scale float64) *ScaledTicker {
 	c := make(chan time.Duration)
 	t := &ScaledTicker{dur: d, Scale: scale, stop: make(chan struct{}), C: c}

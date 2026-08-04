@@ -30,14 +30,20 @@ type calculationUpdaterTransform struct {
 
 var _ confluence.Segment[Request, framer.StreamerRequest] = &calculationUpdaterTransform{}
 
-func (t *calculationUpdaterTransform) transform(ctx context.Context, req Request) (framer.StreamerRequest, bool, error) {
+func (t *calculationUpdaterTransform) transform(
+	ctx context.Context,
+	req Request,
+) (framer.StreamerRequest, bool, error) {
 	if err := t.calcManager.Set(ctx, req.Keys); err != nil {
 		t.L.Error("failed to update calculated channels", zap.Error(err))
 	}
 	return framer.StreamerRequest{Keys: req.Keys}, true, nil
 }
 
-func (t *calculationUpdaterTransform) Flow(ctx signal.Context, opts ...confluence.Option) {
+func (t *calculationUpdaterTransform) Flow(
+	ctx signal.Context,
+	opts ...confluence.Option,
+) {
 	t.LinearTransform.Flow(ctx, append(opts, confluence.Defer(func() {
 		// Explicitly use a context.TODO() here as the parent context may have
 		// been cancelled.

@@ -23,43 +23,59 @@ import (
 )
 
 var _ = Describe("AnalyzeArguments hook (flow form)", func() {
-	It("Should invoke the hook on a flow-form invocation that carries input", func(bCtx SpecContext) {
-		var (
-			called  int
-			gotArgs []symbol.Argument
-		)
-		params := types.Params{{Name: "x", Type: types.I32()}}
-		trig := symbol.Symbol{Name: "trig", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 1}
-		hooked := symbol.Symbol{
-			Name: "hooked",
-			Kind: symbol.KindFunction,
-			Exec: symbol.ExecBoth,
-			Type: types.Function(types.FunctionProperties{Inputs: params}),
-			AnalyzeArguments: func(_ *diagnostics.Diagnostics, args []symbol.Argument) {
-				called++
-				gotArgs = args
-			},
-		}
-		ast := MustSucceed(parser.Parse(`trig -> hooked{x=1}`))
-		ctx := acontext.NewRoot(bCtx, ast, NewRoot(nil, trig, hooked))
-		analyzer.AnalyzeProgram(ctx)
-		Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
-		Expect(called).To(Equal(1))
-		Expect(gotArgs).To(HaveLen(1))
-	})
+	It(
+		"Should invoke the hook on a flow-form invocation that carries input",
+		func(bCtx SpecContext) {
+			var (
+				called  int
+				gotArgs []symbol.Argument
+			)
+			params := types.Params{{Name: "x", Type: types.I32()}}
+			trig := symbol.Symbol{
+				Name: "trig",
+				Kind: symbol.KindChannel,
+				Type: types.Chan(types.U8()),
+				ID:   1,
+			}
+			hooked := symbol.Symbol{
+				Name: "hooked",
+				Kind: symbol.KindFunction,
+				Exec: symbol.ExecBoth,
+				Type: types.Function(types.FunctionProperties{Inputs: params}),
+				AnalyzeArguments: func(_ *diagnostics.Diagnostics, args []symbol.Argument) {
+					called++
+					gotArgs = args
+				},
+			}
+			ast := MustSucceed(parser.Parse(`trig -> hooked{x=1}`))
+			ctx := acontext.NewRoot(bCtx, ast, NewRoot(nil, trig, hooked))
+			analyzer.AnalyzeProgram(ctx)
+			Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
+			Expect(called).To(Equal(1))
+			Expect(gotArgs).To(HaveLen(1))
+		},
+	)
 
-	It("Should not invoke the hook when the symbol does not define one", func(bCtx SpecContext) {
-		params := types.Params{{Name: "x", Type: types.I32()}}
-		trig := symbol.Symbol{Name: "trig", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 1}
-		plain := symbol.Symbol{
-			Name: "plain",
-			Kind: symbol.KindFunction,
-			Exec: symbol.ExecBoth,
-			Type: types.Function(types.FunctionProperties{Inputs: params}),
-		}
-		ast := MustSucceed(parser.Parse(`trig -> plain{x=1}`))
-		ctx := acontext.NewRoot(bCtx, ast, NewRoot(nil, trig, plain))
-		Expect(func() { analyzer.AnalyzeProgram(ctx) }).ToNot(Panic())
-		Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
-	})
+	It(
+		"Should not invoke the hook when the symbol does not define one",
+		func(bCtx SpecContext) {
+			params := types.Params{{Name: "x", Type: types.I32()}}
+			trig := symbol.Symbol{
+				Name: "trig",
+				Kind: symbol.KindChannel,
+				Type: types.Chan(types.U8()),
+				ID:   1,
+			}
+			plain := symbol.Symbol{
+				Name: "plain",
+				Kind: symbol.KindFunction,
+				Exec: symbol.ExecBoth,
+				Type: types.Function(types.FunctionProperties{Inputs: params}),
+			}
+			ast := MustSucceed(parser.Parse(`trig -> plain{x=1}`))
+			ctx := acontext.NewRoot(bCtx, ast, NewRoot(nil, trig, plain))
+			Expect(func() { analyzer.AnalyzeProgram(ctx) }).ToNot(Panic())
+			Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
+		},
+	)
 })

@@ -83,13 +83,16 @@ var _ = Describe("PebbleKV", func() {
 			Expect(db.Get(ctx, rollbackKey)).Error().To(MatchError(query.ErrNotFound))
 		})
 
-		It("Should not return a value if a transaction hasn't been committed", func(ctx SpecContext) {
-			tx := db.OpenTx()
-			key := []byte("abc-tx-key")
-			value := []byte("abc-tx-value")
-			Expect(tx.Set(ctx, key, value)).To(Succeed())
-			Expect(db.Get(ctx, key)).Error().To(MatchError(query.ErrNotFound))
-		})
+		It(
+			"Should not return a value if a transaction hasn't been committed",
+			func(ctx SpecContext) {
+				tx := db.OpenTx()
+				key := []byte("abc-tx-key")
+				value := []byte("abc-tx-value")
+				Expect(tx.Set(ctx, key, value)).To(Succeed())
+				Expect(db.Get(ctx, key)).Error().To(MatchError(query.ErrNotFound))
+			},
+		)
 
 		It("Should iterate over values correctly", func(ctx SpecContext) {
 			// Setup test data
@@ -239,14 +242,19 @@ var _ = Describe("PebbleKV", func() {
 			Expect(db.Commit(ctx)).To(Succeed())
 		})
 
-		It("Should immediately return false when opening a reader directly on the DB", func(ctx SpecContext) {
-			Expect(db.Set(ctx, []byte("reader-key"), []byte("reader-value"))).To(Succeed())
-			reader := db.NewReader()
-			Expect(reader).ToNot(BeNil())
-			for range reader {
-				Fail("reader should be empty")
-			}
-		})
+		It(
+			"Should immediately return false when opening a reader directly on the DB",
+			func(ctx SpecContext) {
+				Expect(
+					db.Set(ctx, []byte("reader-key"), []byte("reader-value")),
+				).To(Succeed())
+				reader := db.NewReader()
+				Expect(reader).ToNot(BeNil())
+				for range reader {
+					Fail("reader should be empty")
+				}
+			},
+		)
 	})
 
 	Describe("Observer", func() {
@@ -292,35 +300,38 @@ var _ = Describe("PebbleKV", func() {
 				Expect(receivedChanges[0].Value).To(Equal(value))
 			})
 
-			It("Should notify observers when committing a transaction", func(ctx SpecContext) {
-				notified := false
-				var receivedChanges []kv.Change
+			It(
+				"Should notify observers when committing a transaction",
+				func(ctx SpecContext) {
+					notified := false
+					var receivedChanges []kv.Change
 
-				db.OnChange(func(ctx context.Context, reader kv.TxReader) {
-					notified = true
-					for change := range reader {
-						receivedChanges = append(receivedChanges, change)
-					}
-				})
+					db.OnChange(func(ctx context.Context, reader kv.TxReader) {
+						notified = true
+						for change := range reader {
+							receivedChanges = append(receivedChanges, change)
+						}
+					})
 
-				tx := db.OpenTx()
-				key1 := []byte("tx-key-1")
-				value1 := []byte("tx-value-1")
-				key2 := []byte("tx-key-2")
-				value2 := []byte("tx-value-2")
+					tx := db.OpenTx()
+					key1 := []byte("tx-key-1")
+					value1 := []byte("tx-value-1")
+					key2 := []byte("tx-key-2")
+					value2 := []byte("tx-value-2")
 
-				Expect(tx.Set(ctx, key1, value1)).To(Succeed())
-				Expect(tx.Set(ctx, key2, value2)).To(Succeed())
-				Expect(tx.Commit(ctx)).To(Succeed())
-				Expect(tx.Close()).To(Succeed())
+					Expect(tx.Set(ctx, key1, value1)).To(Succeed())
+					Expect(tx.Set(ctx, key2, value2)).To(Succeed())
+					Expect(tx.Commit(ctx)).To(Succeed())
+					Expect(tx.Close()).To(Succeed())
 
-				Eventually(func() bool { return notified }).Should(BeTrue())
-				Expect(receivedChanges).To(HaveLen(2))
-				Expect(receivedChanges[0].Key).To(Equal(key1))
-				Expect(receivedChanges[0].Value).To(Equal(value1))
-				Expect(receivedChanges[1].Key).To(Equal(key2))
-				Expect(receivedChanges[1].Value).To(Equal(value2))
-			})
+					Eventually(func() bool { return notified }).Should(BeTrue())
+					Expect(receivedChanges).To(HaveLen(2))
+					Expect(receivedChanges[0].Key).To(Equal(key1))
+					Expect(receivedChanges[0].Value).To(Equal(value1))
+					Expect(receivedChanges[1].Key).To(Equal(key2))
+					Expect(receivedChanges[1].Value).To(Equal(value2))
+				},
+			)
 
 			It("Should notify observers on Delete operations", func(ctx SpecContext) {
 				notified := false
@@ -345,26 +356,31 @@ var _ = Describe("PebbleKV", func() {
 				Expect(receivedChanges[0].Key).To(Equal(key))
 			})
 
-			It("Should provide fresh readers to each subscriber", func(ctx SpecContext) {
-				subscriber1Called := false
-				subscriber2Called := false
+			It(
+				"Should provide fresh readers to each subscriber",
+				func(ctx SpecContext) {
+					subscriber1Called := false
+					subscriber2Called := false
 
-				db.OnChange(func(ctx context.Context, reader kv.TxReader) {
-					subscriber1Called = true
-					Expect(slices.Collect(reader)).ToNot(BeEmpty())
-				})
+					db.OnChange(func(ctx context.Context, reader kv.TxReader) {
+						subscriber1Called = true
+						Expect(slices.Collect(reader)).ToNot(BeEmpty())
+					})
 
-				db.OnChange(func(ctx context.Context, reader kv.TxReader) {
-					subscriber2Called = true
-					Expect(slices.Collect(reader)).ToNot(BeEmpty())
-				})
+					db.OnChange(func(ctx context.Context, reader kv.TxReader) {
+						subscriber2Called = true
+						Expect(slices.Collect(reader)).ToNot(BeEmpty())
+					})
 
-				key := []byte("multi-subscriber-key")
-				value := []byte("multi-subscriber-value")
-				Expect(db.Set(ctx, key, value)).To(Succeed())
+					key := []byte("multi-subscriber-key")
+					value := []byte("multi-subscriber-value")
+					Expect(db.Set(ctx, key, value)).To(Succeed())
 
-				Eventually(func() bool { return subscriber1Called && subscriber2Called }).Should(BeTrue())
-			})
+					Eventually(
+						func() bool { return subscriber1Called && subscriber2Called },
+					).Should(BeTrue())
+				},
+			)
 		})
 
 		Context("With observation disabled", Ordered, func() {
@@ -373,99 +389,121 @@ var _ = Describe("PebbleKV", func() {
 				open(true)
 			})
 
-			It("Should not panic when using Set without an observer", func(ctx SpecContext) {
-				key := []byte("no-observer-key")
-				value := []byte("no-observer-value")
-				Expect(db.Set(ctx, key, value)).To(Succeed())
-
-				got, closer := MustSucceed2(db.Get(ctx, key))
-				Expect(got).To(Equal(value))
-				Expect(closer.Close()).To(Succeed())
-			})
-
-			It("Should not panic when committing transactions without an observer", func(ctx SpecContext) {
-				tx := db.OpenTx()
-				key := []byte("no-observer-tx-key")
-				value := []byte("no-observer-tx-value")
-
-				Expect(tx.Set(ctx, key, value)).To(Succeed())
-				Expect(tx.Commit(ctx)).To(Succeed())
-				Expect(tx.Close()).To(Succeed())
-
-				got, closer := MustSucceed2(db.Get(ctx, key))
-				Expect(got).To(Equal(value))
-				Expect(closer.Close()).To(Succeed())
-			})
-
-			It("Should handle Delete operations without an observer", func(ctx SpecContext) {
-				key := []byte("no-observer-delete-key")
-				value := []byte("no-observer-delete-value")
-
-				Expect(db.Set(ctx, key, value)).To(Succeed())
-				Expect(db.Delete(ctx, key)).To(Succeed())
-
-				Expect(db.Get(ctx, key)).Error().To(MatchError(query.ErrNotFound))
-			})
-
-			It("Should perform basic operations correctly without observers", func(ctx SpecContext) {
-				// Multiple operations to ensure no observer-related panics
-				for i := range 10 {
-					key := []byte{byte(100 + i)}
-					value := []byte{byte(200 + i)}
+			It(
+				"Should not panic when using Set without an observer",
+				func(ctx SpecContext) {
+					key := []byte("no-observer-key")
+					value := []byte("no-observer-value")
 					Expect(db.Set(ctx, key, value)).To(Succeed())
-				}
 
-				// Verify all values
-				for i := range 10 {
-					key := []byte{byte(100 + i)}
-					expectedValue := []byte{byte(200 + i)}
 					got, closer := MustSucceed2(db.Get(ctx, key))
-					Expect(got).To(Equal(expectedValue))
+					Expect(got).To(Equal(value))
 					Expect(closer.Close()).To(Succeed())
-				}
-			})
+				},
+			)
 
-			It("Should handle batch operations in transactions without observers", func(ctx SpecContext) {
-				tx := db.OpenTx()
+			It(
+				"Should not panic when committing transactions without an observer",
+				func(ctx SpecContext) {
+					tx := db.OpenTx()
+					key := []byte("no-observer-tx-key")
+					value := []byte("no-observer-tx-value")
 
-				// Batch set
-				for i := range 5 {
-					key := []byte{byte(50 + i)}
-					value := []byte{byte(150 + i)}
 					Expect(tx.Set(ctx, key, value)).To(Succeed())
-				}
+					Expect(tx.Commit(ctx)).To(Succeed())
+					Expect(tx.Close()).To(Succeed())
 
-				Expect(tx.Commit(ctx)).To(Succeed())
-				Expect(tx.Close()).To(Succeed())
-
-				// Verify all values
-				for i := range 5 {
-					key := []byte{byte(50 + i)}
-					expectedValue := []byte{byte(150 + i)}
 					got, closer := MustSucceed2(db.Get(ctx, key))
-					Expect(got).To(Equal(expectedValue))
+					Expect(got).To(Equal(value))
 					Expect(closer.Close()).To(Succeed())
-				}
-			})
+				},
+			)
 
-			It("Should never invoke handlers registered via OnChange", func(ctx SpecContext) {
-				handlerCalled := false
-				disconnect := db.OnChange(func(context.Context, kv.TxReader) {
-					handlerCalled = true
-				})
-				Expect(disconnect).NotTo(BeNil())
+			It(
+				"Should handle Delete operations without an observer",
+				func(ctx SpecContext) {
+					key := []byte("no-observer-delete-key")
+					value := []byte("no-observer-delete-value")
 
-				Expect(db.Set(ctx, []byte("disabled-notify-set"), []byte("v"))).To(Succeed())
-				Expect(db.Delete(ctx, []byte("disabled-notify-set"))).To(Succeed())
+					Expect(db.Set(ctx, key, value)).To(Succeed())
+					Expect(db.Delete(ctx, key)).To(Succeed())
 
-				tx := db.OpenTx()
-				Expect(tx.Set(ctx, []byte("disabled-notify-tx"), []byte("v"))).To(Succeed())
-				Expect(tx.Commit(ctx)).To(Succeed())
-				Expect(tx.Close()).To(Succeed())
+					Expect(db.Get(ctx, key)).Error().To(MatchError(query.ErrNotFound))
+				},
+			)
 
-				Expect(handlerCalled).To(BeFalse())
-				disconnect()
-			})
+			It(
+				"Should perform basic operations correctly without observers",
+				func(ctx SpecContext) {
+					// Multiple operations to ensure no observer-related panics
+					for i := range 10 {
+						key := []byte{byte(100 + i)}
+						value := []byte{byte(200 + i)}
+						Expect(db.Set(ctx, key, value)).To(Succeed())
+					}
+
+					// Verify all values
+					for i := range 10 {
+						key := []byte{byte(100 + i)}
+						expectedValue := []byte{byte(200 + i)}
+						got, closer := MustSucceed2(db.Get(ctx, key))
+						Expect(got).To(Equal(expectedValue))
+						Expect(closer.Close()).To(Succeed())
+					}
+				},
+			)
+
+			It(
+				"Should handle batch operations in transactions without observers",
+				func(ctx SpecContext) {
+					tx := db.OpenTx()
+
+					// Batch set
+					for i := range 5 {
+						key := []byte{byte(50 + i)}
+						value := []byte{byte(150 + i)}
+						Expect(tx.Set(ctx, key, value)).To(Succeed())
+					}
+
+					Expect(tx.Commit(ctx)).To(Succeed())
+					Expect(tx.Close()).To(Succeed())
+
+					// Verify all values
+					for i := range 5 {
+						key := []byte{byte(50 + i)}
+						expectedValue := []byte{byte(150 + i)}
+						got, closer := MustSucceed2(db.Get(ctx, key))
+						Expect(got).To(Equal(expectedValue))
+						Expect(closer.Close()).To(Succeed())
+					}
+				},
+			)
+
+			It(
+				"Should never invoke handlers registered via OnChange",
+				func(ctx SpecContext) {
+					handlerCalled := false
+					disconnect := db.OnChange(func(context.Context, kv.TxReader) {
+						handlerCalled = true
+					})
+					Expect(disconnect).NotTo(BeNil())
+
+					Expect(
+						db.Set(ctx, []byte("disabled-notify-set"), []byte("v")),
+					).To(Succeed())
+					Expect(db.Delete(ctx, []byte("disabled-notify-set"))).To(Succeed())
+
+					tx := db.OpenTx()
+					Expect(
+						tx.Set(ctx, []byte("disabled-notify-tx"), []byte("v")),
+					).To(Succeed())
+					Expect(tx.Commit(ctx)).To(Succeed())
+					Expect(tx.Close()).To(Succeed())
+
+					Expect(handlerCalled).To(BeFalse())
+					disconnect()
+				},
+			)
 		})
 	})
 })

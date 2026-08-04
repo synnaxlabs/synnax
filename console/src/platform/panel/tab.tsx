@@ -13,9 +13,9 @@ import {
   type project,
   type Synnax,
 } from "@synnaxlabs/client";
-import { context, type Icon, Panel, Text } from "@synnaxlabs/pluto";
+import { context, type Flux, type Icon, Panel, Text } from "@synnaxlabs/pluto";
 import { type record } from "@synnaxlabs/x";
-import { type FC } from "react";
+import { type FC, type ReactElement } from "react";
 
 export interface TabName extends FC<record.Empty> {}
 export interface TabIcon extends Icon.FC {}
@@ -26,6 +26,11 @@ export interface RestoreParams {
   client: Synnax;
   project: project.Key;
   resource: ontology.ID;
+}
+
+/** Reads the corpse of the surrounding tab's resource, null while it is present. */
+export interface UseTombstone {
+  (): Flux.Tombstone | null;
 }
 
 export interface Tab {
@@ -42,6 +47,11 @@ export interface Tab {
    * types that cannot be restored; their tombstones offer Close only.
    */
   restore?: (params: RestoreParams) => Promise<void>;
+  /**
+   * Reads whether the tab's resource has been deleted. Absent for view tabs,
+   * which address no resource of their own.
+   */
+  useTombstone?: UseTombstone;
 }
 
 export interface Tabs extends Record<string, Tab> {}
@@ -64,6 +74,60 @@ export const useTab = (): Tab => {
   const renderer = useRendererContext()[type];
   if (renderer == null) throw new NotFoundError(`no renderer for tab type ${type}`);
   return renderer;
+};
+
+export interface TombstoneService {
+  useTombstone: (query: { key: string }) => Flux.Tombstone | null;
+}
+
+/** Binds a domain's tombstone read to the surrounding tab's resource. */
+export const createTombstoneReader = (service: TombstoneService): UseTombstone => {
+  const useRead: UseTombstone = () => {
+    const { key } = Panel.useSelectTabResource();
+    return service.useTombstone({ key });
+  };
+  return useRead;
+};
+
+export interface ResourceGuardProps {
+  /** Rendered in place of children while the tab's resource is deleted. */
+  FallbackComponent: FC<Flux.Tombstone>;
+  children: ReactElement;
+}
+
+interface DeletableProps extends ResourceGuardProps {
+  useTombstone: UseTombstone;
+}
+
+// Split from ResourceGuard so the tombstone read is unconditional: a tab type
+// addressing no resource must not change the hook count of the component that
+// renders one that does.
+const Deletable = ({
+  useTombstone,
+  FallbackComponent,
+  children,
+}: DeletableProps): ReactElement => {
+  const tombstone = useTombstone();
+  if (tombstone == null) return children;
+  return <FallbackComponent {...tombstone} />;
+};
+
+/**
+ * Renders children while the tab's resource exists and the fallback while it has
+ * been deleted, swapping back on its own once the resource returns. A tab type
+ * addressing no resource of its own always renders children.
+ */
+export const ResourceGuard = ({
+  FallbackComponent,
+  children,
+}: ResourceGuardProps): ReactElement => {
+  const { useTombstone } = useTab();
+  if (useTombstone == null) return children;
+  return (
+    <Deletable useTombstone={useTombstone} FallbackComponent={FallbackComponent}>
+      {children}
+    </Deletable>
+  );
 };
 
 export interface CreateStaticTabNameParams {

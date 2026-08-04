@@ -25,9 +25,21 @@ var _ = Describe("FindCompletion", func() {
 
 	BeforeEach(func() {
 		items = []protocol.CompletionItem{
-			{Label: "sensor", Detail: protocol.NewOptional("chan f32"), Kind: protocol.CompletionItemKindVariable},
-			{Label: "pressure", Detail: protocol.NewOptional("chan f64"), Kind: protocol.CompletionItemKindVariable},
-			{Label: "len", Detail: protocol.NewOptional("func"), Kind: protocol.CompletionItemKindFunction},
+			{
+				Label:  "sensor",
+				Detail: protocol.NewOptional("chan f32"),
+				Kind:   protocol.CompletionItemKindVariable,
+			},
+			{
+				Label:  "pressure",
+				Detail: protocol.NewOptional("chan f64"),
+				Kind:   protocol.CompletionItemKindVariable,
+			},
+			{
+				Label:  "len",
+				Detail: protocol.NewOptional("func"),
+				Kind:   protocol.CompletionItemKindFunction,
+			},
 		}
 	})
 
@@ -83,7 +95,9 @@ var _ = Describe("HasCompletion", func() {
 	})
 
 	It("should return false for an empty items slice", func() {
-		Expect(testutil.HasCompletion([]protocol.CompletionItem{}, "sensor")).To(BeFalse())
+		Expect(
+			testutil.HasCompletion([]protocol.CompletionItem{}, "sensor"),
+		).To(BeFalse())
 	})
 
 	It("should return true for the last item in the slice", func() {
@@ -268,25 +282,31 @@ var _ = Describe("Server request helpers", func() {
 	BeforeEach(func() { server = &stubServer{} })
 
 	Describe("OpenDocument", func() {
-		It("Should send a DidOpen with the document's identity and content", func(ctx SpecContext) {
-			testutil.OpenDocument(server, ctx, docURI, "func main() {}", "arc")
-			doc := server.lastOpened.TextDocument
-			Expect(doc.URI).To(Equal(docURI))
-			Expect(doc.LanguageID).To(Equal(protocol.LanguageKind("arc")))
-			Expect(doc.Version).To(Equal(int32(1)))
-			Expect(doc.Text).To(Equal("func main() {}"))
-		})
+		It(
+			"Should send a DidOpen with the document's identity and content",
+			func(ctx SpecContext) {
+				testutil.OpenDocument(server, ctx, docURI, "func main() {}", "arc")
+				doc := server.lastOpened.TextDocument
+				Expect(doc.URI).To(Equal(docURI))
+				Expect(doc.LanguageID).To(Equal(protocol.LanguageKind("arc")))
+				Expect(doc.Version).To(Equal(int32(1)))
+				Expect(doc.Text).To(Equal("func main() {}"))
+			},
+		)
 	})
 
 	Describe("ChangeDocument", func() {
-		It("Should send a whole-document change with the given version", func(ctx SpecContext) {
-			testutil.ChangeDocument(server, ctx, docURI, "updated", 7)
-			Expect(server.lastChanged.TextDocument.Version).To(Equal(int32(7)))
-			Expect(server.lastChanged.ContentChanges).To(HaveLen(1))
-			whole, ok := server.lastChanged.ContentChanges[0].(*protocol.TextDocumentContentChangeWholeDocument)
-			Expect(ok).To(BeTrue())
-			Expect(whole.Text).To(Equal("updated"))
-		})
+		It(
+			"Should send a whole-document change with the given version",
+			func(ctx SpecContext) {
+				testutil.ChangeDocument(server, ctx, docURI, "updated", 7)
+				Expect(server.lastChanged.TextDocument.Version).To(Equal(int32(7)))
+				Expect(server.lastChanged.ContentChanges).To(HaveLen(1))
+				whole, ok := server.lastChanged.ContentChanges[0].(*protocol.TextDocumentContentChangeWholeDocument)
+				Expect(ok).To(BeTrue())
+				Expect(whole.Text).To(Equal("updated"))
+			},
+		)
 	})
 
 	Describe("Hover", func() {

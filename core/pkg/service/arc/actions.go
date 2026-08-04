@@ -80,7 +80,9 @@ func (p SetNodeInputsPayload) Handle(state Arc) (Arc, error) {
 func (p RemoveNodePayload) Handle(state Arc) (Arc, error) {
 	for i := range state.Graph.Nodes {
 		if state.Graph.Nodes[i].Key == p.Key {
-			state.Graph.Nodes = append(state.Graph.Nodes[:i], state.Graph.Nodes[i+1:]...)
+			state.Graph.Nodes = append(
+				state.Graph.Nodes[:i],
+				state.Graph.Nodes[i+1:]...)
 			break
 		}
 	}
@@ -154,8 +156,8 @@ func (p DeleteCharPayload) Handle(state Arc) (Arc, error) {
 }
 
 // Handle drops the insert and delete operations of the given already-deleted characters
-// from the arc's replicated text document. Because the characters are tombstoned, and so
-// invisible, removing their operations does not change the materialized text. It is
+// from the arc's replicated text document. Because the characters are tombstoned, and
+// so invisible, removing their operations does not change the materialized text. It is
 // emitted by the server's text sweeper to reclaim the space held by tombstones.
 func (p ForgetCharsPayload) Handle(state Arc) (Arc, error) {
 	if len(p.IDs) == 0 {
@@ -195,8 +197,8 @@ func newLastEdits() *lastEdits {
 	return &lastEdits{times: make(map[Key]telem.TimeStamp)}
 }
 
-// get returns the recorded last-edit time for the arc, or the zero time if none has been
-// recorded.
+// get returns the recorded last-edit time for the arc, or the zero time if none has
+// been recorded.
 func (l *lastEdits) get(key Key) telem.TimeStamp {
 	l.mu.Lock()
 	defer l.mu.Unlock()
@@ -219,16 +221,16 @@ func (l *lastEdits) forget(key Key) {
 }
 
 // textSweeper reclaims the space held by tombstoned characters in an arc's replicated
-// text document. Deleting a character leaves both its insert and delete operation in the
-// op-log forever, so a heavily edited document grows without bound; the sweeper drops
-// those operations once it is safe to do so.
+// text document. Deleting a character leaves both its insert and delete operation in
+// the op-log forever, so a heavily edited document grows without bound; the sweeper
+// drops those operations once it is safe to do so.
 //
 // Safety hinges on quiescence. A tombstoned character can only be forgotten once every
-// editor has observed its deletion: an editor that still sees the character could anchor
-// a new insertion to it, and that insertion would be orphaned if the character were
-// already gone. The sweeper treats an arc as safe to sweep when no edit has reached it
-// for the quiescence window, by which point every outstanding delete has propagated to
-// every editor.
+// editor has observed its deletion: an editor that still sees the character could
+// anchor a new insertion to it, and that insertion would be orphaned if the character
+// were already gone. The sweeper treats an arc as safe to sweep when no edit has
+// reached it for the quiescence window, by which point every outstanding delete has
+// propagated to every editor.
 type textSweeper struct {
 	now        func() telem.TimeStamp
 	quiescence telem.TimeSpan
@@ -265,11 +267,11 @@ func (s textSweeper) recordEdit(key Key) { s.edits.set(key, s.now()) }
 // the tracker does not retain keys for arcs that no longer exist.
 func (s textSweeper) forget(key Key) { s.edits.forget(key) }
 
-// forgettable returns the ids of the tombstoned characters in doc that are safe to drop:
-// those whose entire subtree is also tombstoned, so removing them orphans no surviving
-// character (see crdt.Text.Collectable). It returns nil when fewer than the configured
-// threshold are present, so a sweep is only triggered once enough space is reclaimable to
-// justify the broadcast.
+// forgettable returns the ids of the tombstoned characters in doc that are safe to
+// drop: those whose entire subtree is also tombstoned, so removing them orphans no
+// surviving character (see crdt.Text.Collectable). It returns nil when fewer than the
+// configured threshold are present, so a sweep is only triggered once enough space is
+// reclaimable to justify the broadcast.
 func (s textSweeper) forgettable(doc text.Document) []crdt.ID {
 	if len(doc.Deletes) == 0 {
 		return nil

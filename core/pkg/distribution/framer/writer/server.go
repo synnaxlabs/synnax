@@ -40,9 +40,13 @@ func (sf *server) handle(ctx context.Context, server ServerStream) error {
 
 	// Senders and receivers must be set up to distribution requests and responses
 	// to their storage counterparts.
-	receiver := &freightfluence.TransformReceiver[ts.WriterRequest, Request]{Receiver: server}
+	receiver := &freightfluence.TransformReceiver[ts.WriterRequest, Request]{
+		Receiver: server,
+	}
 	receiver.Transform = newRequestTranslator()
-	sender := &freightfluence.TransformSender[ts.WriterResponse, Response]{Sender: freighter.SenderNopCloser[Response]{StreamSender: server}}
+	sender := &freightfluence.TransformSender[ts.WriterResponse, Response]{
+		Sender: freighter.SenderNopCloser[Response]{StreamSender: server},
+	}
 	sender.Transform = newResponseTranslator(sf.HostResolver.HostKey())
 
 	w, err := sf.TS.NewStreamWriter(ctx, req.Config.toStorage())
@@ -56,7 +60,11 @@ func (sf *server) handle(ctx context.Context, server ServerStream) error {
 	plumber.SetSink(pipe, "sender", sender)
 	plumber.MustConnect[ts.WriterRequest](pipe, "receiver", "toStorage", 1)
 	plumber.MustConnect[ts.WriterResponse](pipe, "toStorage", "sender", 1)
-	pipe.Flow(sCtx, confluence.CloseOutputInletsOnExit(), confluence.RecoverWithErrOnPanic())
+	pipe.Flow(
+		sCtx,
+		confluence.CloseOutputInletsOnExit(),
+		confluence.RecoverWithErrOnPanic(),
+	)
 
 	err = sCtx.Wait()
 	return err

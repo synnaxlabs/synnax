@@ -37,7 +37,8 @@ const (
 	OperationTypeDerivative OperationType = "derivative"
 )
 
-// IsValid reports whether o is one of the defined OperationType values.
+// IsValid reports whether o is one of the defined OperationType
+// values.
 func (o OperationType) IsValid() bool {
 	switch o {
 	case OperationTypeMin, OperationTypeMax, OperationTypeAvg, OperationTypeNone, OperationTypeDerivative:

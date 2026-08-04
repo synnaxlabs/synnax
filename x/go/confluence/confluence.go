@@ -11,31 +11,28 @@
 // building concurrent value passing programs. Confluence is built around two core
 // types: Value and Segment.
 //
-// A Value can is any piece of data that can be passed through
-// a go channel. Because channels are typically mutex locked, values should generally
-// be exchanged as batches of data as opposed to individual entities (i.e.
-// pass []int as the as opposed to int).
+// A Value can is any piece of data that can be passed through a go channel. Because
+// channels are typically mutex locked, values should generally be exchanged as batches
+// of data as opposed to individual entities (i.e. pass []int as the as opposed to int).
 //
-// A Segment is an entity that processes values. A Segment is typically
-// a goroutine that reads values from an input channel, does some operation on them
-// (sum, avg, IO write, network write, etc.), and passes a result to an output channel.
-// This is not to say that the functionality of a Segment cannot extend beyond a
-// simple transformation.
+// A Segment is an entity that processes values. A Segment is typically a goroutine that
+// reads values from an input channel, does some operation on them (sum, avg, IO write,
+// network write, etc.), and passes a result to an output channel. This is not to say
+// that the functionality of a Segment cannot extend beyond a simple transformation.
 //
-// For example, a Segment can route values from a set of inputs (called Outlets) to
-// a set of outputs (called Inlets). The input-Outlet, outlet-Inlet naming convention
+// For example, a Segment can route values from a set of inputs (called Outlets) to a
+// set of outputs (called Inlets). The input-Outlet, outlet-Inlet naming convention
 // might seem strange at first, but the general idea is that an Outlet is the end of a
 // stream that emits values (i.e. <-chan Value) and an Inlet is a stream that receives
 // values (i.e. chan<- Value). Inlets and Outlets are also addressable, which allows you
 // to send messages to segments with different addresses based on some criteria.
 //
-// Collections of segments also be composed into a pipeline using the plumber
-// package's plumber.Pipeline. The Pipeline type is itself a Segment that can be
-// connected to other Segments. This allows for a flexible and powerful
-// composition capabilities.
+// Collections of segments also be composed into a pipeline using the plumber package's
+// plumber.Pipeline. The Pipeline type is itself a Segment that can be connected to
+// other Segments. This allows for a flexible and powerful composition capabilities.
 //
-// The confluence package provides a number of built-in Frame that can be used
-// by themselves or embedded into custom Segment(sink) that provide functionality specific
+// The confluence package provides a number of built-in Frame that can be used by
+// themselves or embedded into custom Segment(sink) that provide functionality specific
 // to your use case.
 //
 // A Segment is a composition of three interfaces:
@@ -48,9 +45,9 @@
 //     streams (Inlet(sink)). Inlets(sink) are bound to the Sink (and therefore Segment)
 //     by calling the ApplySink.OutTo(inlets ...Inlet[ValueType]) method.
 //
-//  3. Sink - A Sink is the part of the Segment that can receive values.
-//     Input streams (Outlet(sink)). Outlet(sink) are bound to the Sink (and therefore Segment)
-//     by calling the Sink.InFrom(outlets ...Outlet[ValueType]) method.
+//  3. Sink - A Sink is the part of the Segment that can receive values. Input streams
+//     (Outlet(sink)). Outlet(sink) are bound to the Sink (and therefore Segment) by
+//     calling the Sink.InFrom(outlets ...Outlet[ValueType]) method.
 //
 // All of this flexibility comes at the cost of needing to follow a few important rules
 // and principles when writing programs based on confluence:
@@ -85,10 +82,10 @@ import (
 // Value represents an item that can be sent through a Stream.
 type Value = any
 
-// Segment is a type that reads a value from a set of Inlet(sink), performs some operation,
-// transformation, etc.and writes a value to a set of Outlet(sink). The user of a Segment
-// should be unaware of what occurs internally, and should only pass values through the
-// Inlet and Outlet interfaces.
+// Segment is a type that reads a value from a set of Inlet(sink), performs some
+// operation, transformation, etc.and writes a value to a set of Outlet(sink). The user
+// of a Segment should be unaware of what occurs internally, and should only pass values
+// through the Inlet and Outlet interfaces.
 type Segment[I, O Value] interface {
 	Sink[I]
 	Source[O]
@@ -104,16 +101,17 @@ type Flow interface {
 	Flow(ctx signal.Context, opts ...Option)
 }
 
-// Sink is an interface that accepts values from a set of Outlet(sink). The user of a Sink
-// should be unaware of what occurs internally, and should only pass values through
+// Sink is an interface that accepts values from a set of Outlet(sink). The user of a
+// Sink should be unaware of what occurs internally, and should only pass values through
 // the Outlet interfaces.
 type Sink[O Value] interface {
 	InFrom(outlets ...Outlet[O])
 	Flow
 }
 
-// Source is an interface that sends values to a set of Inlet(sink). The user of a Source
-// should be unaware of what occurs internally, and should only pass values through // the Inlet interfaces.
+// Source is an interface that sends values to a set of Inlet(sink). The user of a
+// Source should be unaware of what occurs internally, and should only pass values
+// through the Inlet interfaces.
 type Source[I Value] interface {
 	OutTo(inlets ...Inlet[I])
 	Flow
@@ -127,8 +125,9 @@ type Source[I Value] interface {
 type TransformFunc[I, O Value] func(ctx context.Context, i I) (o O, shouldSend bool, err error)
 
 // GeneratorFunc returns a function that generates a new value. If shouldSend is false,
-// the returned function will not be used and the generator will proceed to the next cycle.
-// If the returned error is not nil, the generator goroutine will exit with the error.
+// the returned function will not be used and the generator will proceed to the next
+// cycle. If the returned error is not nil, the generator goroutine will exit with the
+// error.
 type GeneratorFunc[I, O Value] func(ctx context.Context, i I) (gen func() O, shouldSend bool, err error)
 
 // Inlet is the end of a Stream that accepts values and can be addressed.

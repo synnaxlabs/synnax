@@ -50,7 +50,10 @@ func topoLevels(registry *plugin.Registry) [][]plugin.Plugin {
 				level = append(level, p)
 			}
 		}
-		sort.Slice(level, func(i, j int) bool { return level[i].Name() < level[j].Name() })
+		sort.Slice(
+			level,
+			func(i, j int) bool { return level[i].Name() < level[j].Name() },
+		)
 		for _, p := range level {
 			placed.Add(p.Name())
 			delete(remaining, p.Name())

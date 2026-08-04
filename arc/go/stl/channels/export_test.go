@@ -17,7 +17,7 @@ func (cs *ProgramState) WriteValue(key uint32, value telem.Series) {
 
 func (cs *ProgramState) ReadSeries(
 	key uint32,
-) (data telem.MultiSeries, time telem.MultiSeries, ok bool) {
+) (data, time telem.MultiSeries, ok bool) {
 	return cs.readSeries(key)
 }
 

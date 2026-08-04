@@ -29,14 +29,17 @@ var _ = Describe("MigrateData", func() {
 			Error().To(MatchError(ContainSubstring("invalid version")))
 	})
 
-	It("Should leave an enum outside the closed set unchanged for the lift to default", func() {
-		blob := msgpack.EncodedJSON{
-			"version":  "1.0.0",
-			"channels": []any{map[string]any{"channel": 1, "notation": "garbage"}},
-		}
-		result := MustSucceed(legacy.MigrateData(blob))
-		Expect(result.Channels[0].Notation).To(Equal(notation.Notation("garbage")))
-	})
+	It(
+		"Should leave an enum outside the closed set unchanged for the lift to default",
+		func() {
+			blob := msgpack.EncodedJSON{
+				"version":  "1.0.0",
+				"channels": []any{map[string]any{"channel": 1, "notation": "garbage"}},
+			}
+			result := MustSucceed(legacy.MigrateData(blob))
+			Expect(result.Channels[0].Notation).To(Equal(notation.Notation("garbage")))
+		},
+	)
 
 	It("Should not reject a zero channel key (the chain skips validation)", func() {
 		blob := msgpack.EncodedJSON{

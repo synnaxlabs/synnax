@@ -57,7 +57,8 @@ func (t Transfer[R]) assertValid() {
 		return
 	}
 	if t.From.Resource != t.To.Resource {
-		zap.S().DPanicf("transfer must have the same resource in its to and from field. received %s and %s", t.From.Resource, t.To.Resource)
+		zap.S().
+			DPanicf("transfer must have the same resource in its to and from field. received %s and %s", t.From.Resource, t.To.Resource)
 	}
 }
 
@@ -97,10 +98,20 @@ func (t Transfer[R]) String() string {
 		return "no transfer occurred"
 	}
 	if t.IsAcquire() {
-		return fmt.Sprintf("%s(%v) acquired %v", t.To.Subject, t.To.Authority, t.To.Resource)
+		return fmt.Sprintf(
+			"%s(%v) acquired %v",
+			t.To.Subject,
+			t.To.Authority,
+			t.To.Resource,
+		)
 	}
 	if t.IsRelease() {
-		return fmt.Sprintf("%s(%v) released %v", t.From.Subject, t.From.Authority, t.From.Resource)
+		return fmt.Sprintf(
+			"%s(%v) released %v",
+			t.From.Subject,
+			t.From.Authority,
+			t.From.Resource,
+		)
 	}
 	return fmt.Sprintf("transfer over %v from %s(%v) to %s(%v)",
 		t.From.Resource,

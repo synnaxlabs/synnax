@@ -56,7 +56,10 @@ func (d *DeltaTransformMultiplier[I, O]) Flow(ctx signal.Context, opts ...Option
 	d.GoRange(ctx, d.transformAndMultiply, o.Signal...)
 }
 
-func (d *DeltaTransformMultiplier[I, O]) transformAndMultiply(ctx context.Context, i I) error {
+func (d *DeltaTransformMultiplier[I, O]) transformAndMultiply(
+	ctx context.Context,
+	i I,
+) error {
 	o, ok, err := d.Transform(ctx, i)
 	if !ok || err != nil {
 		return err
@@ -100,17 +103,17 @@ func (d *DynamicDeltaMultiplier[V]) Connect(inlets ...Inlet[V]) {
 	d.connections <- inlets
 }
 
-// Disconnect removes one or more inlets from the DynamicDeltaMultiplier's output streams.
-// The inlets will no longer receive values from the input stream.
+// Disconnect removes one or more inlets from the DynamicDeltaMultiplier's output
+// streams. The inlets will no longer receive values from the input stream.
 func (d *DynamicDeltaMultiplier[V]) Disconnect(inlets ...Inlet[V]) {
 	d.disconnections <- inlets
 }
 
 // Flow implements the Segment interface. It continuously reads values from the input
-// stream and distributes them to all connected output streams. If a timeout is configured,
-// it will attempt to send values to downstream consumers within the timeout period.
-// The Flow method handles dynamic connection and disconnection of output streams
-// through the connections and disconnections channels.
+// stream and distributes them to all connected output streams. If a timeout is
+// configured, it will attempt to send values to downstream consumers within the timeout
+// period. The Flow method handles dynamic connection and disconnection of output
+// streams through the connections and disconnections channels.
 func (d *DynamicDeltaMultiplier[v]) Flow(ctx signal.Context, opts ...Option) {
 	o := NewOptions(opts)
 	ctx.Go(func(ctx context.Context) error {

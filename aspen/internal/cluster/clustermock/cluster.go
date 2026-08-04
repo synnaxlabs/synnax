@@ -37,13 +37,19 @@ func NewBuilder(cfgs ...cluster.Config) *Builder {
 	}
 }
 
-func (b *Builder) New(ctx context.Context, cfgs ...cluster.Config) (*cluster.Cluster, error) {
+func (b *Builder) New(
+	ctx context.Context,
+	cfgs ...cluster.Config,
+) (*cluster.Cluster, error) {
 	gossipServer := b.GossipNet.UnaryServer("")
 	pledgeServer := b.PledgeNet.UnaryServer(gossipServer.Address)
 	cfgs = append(b.Configs, cfgs...)
 	cfgs = append(cfgs, cluster.Config{
 		HostAddress: gossipServer.Address,
-		Gossip:      gossip.Config{TransportClient: b.GossipNet.UnaryClient(), TransportServer: gossipServer},
+		Gossip: gossip.Config{
+			TransportClient: b.GossipNet.UnaryClient(),
+			TransportServer: gossipServer,
+		},
 		Pledge: pledge.Config{
 			TransportClient: b.PledgeNet.UnaryClient(),
 			TransportServer: pledgeServer,

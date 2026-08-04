@@ -38,10 +38,14 @@ var _ = Describe("ResolveNodeTypes", func() {
 				Outputs: types.Params{{Name: "output", Type: types.F64()}},
 			},
 			{
-				Key:     "stat",
-				Type:    "avg",
-				Inputs:  types.Params{{Name: "input", Type: types.Variable("avg_0_T", nil)}},
-				Outputs: types.Params{{Name: "output", Type: types.Variable("avg_0_T", nil)}},
+				Key:  "stat",
+				Type: "avg",
+				Inputs: types.Params{
+					{Name: "input", Type: types.Variable("avg_0_T", nil)},
+				},
+				Outputs: types.Params{
+					{Name: "output", Type: types.Variable("avg_0_T", nil)},
+				},
 			},
 		}
 		edges := ir.Edges{{
@@ -56,20 +60,34 @@ var _ = Describe("ResolveNodeTypes", func() {
 
 	It("Should error on missing source node", func() {
 		nodes := ir.Nodes{
-			{Key: "target", Type: "sink", Inputs: types.Params{{Name: "input", Type: types.F64()}}},
+			{
+				Key:    "target",
+				Type:   "sink",
+				Inputs: types.Params{{Name: "input", Type: types.F64()}},
+			},
 		}
 		edges := ir.Edges{{
 			Source: ir.Handle{Node: "nonexistent", Param: "output"},
 			Target: ir.Handle{Node: "target", Param: "input"},
 		}}
 		Expect(analyzer.ResolveNodeTypes(nodes, edges, cs, diag)).To(BeFalse())
-		Expect(diag.String()).To(ContainSubstring("source node 'nonexistent' not found"))
+		Expect(
+			diag.String(),
+		).To(ContainSubstring("source node 'nonexistent' not found"))
 	})
 
 	It("Should error on missing source output param", func() {
 		nodes := ir.Nodes{
-			{Key: "source", Type: "on", Outputs: types.Params{{Name: "output", Type: types.F64()}}},
-			{Key: "target", Type: "sink", Inputs: types.Params{{Name: "input", Type: types.F64()}}},
+			{
+				Key:     "source",
+				Type:    "on",
+				Outputs: types.Params{{Name: "output", Type: types.F64()}},
+			},
+			{
+				Key:    "target",
+				Type:   "sink",
+				Inputs: types.Params{{Name: "input", Type: types.F64()}},
+			},
 		}
 		edges := ir.Edges{{
 			Source: ir.Handle{Node: "source", Param: "bad_param"},
@@ -81,20 +99,36 @@ var _ = Describe("ResolveNodeTypes", func() {
 
 	It("Should error on missing target node", func() {
 		nodes := ir.Nodes{
-			{Key: "source", Type: "on", Outputs: types.Params{{Name: "output", Type: types.F64()}}},
+			{
+				Key:     "source",
+				Type:    "on",
+				Outputs: types.Params{{Name: "output", Type: types.F64()}},
+			},
 		}
 		edges := ir.Edges{{
 			Source: ir.Handle{Node: "source", Param: "output"},
 			Target: ir.Handle{Node: "nonexistent", Param: "input"},
 		}}
 		Expect(analyzer.ResolveNodeTypes(nodes, edges, cs, diag)).To(BeFalse())
-		Expect(diag.String()).To(ContainSubstring("target node 'nonexistent' not found"))
+		Expect(
+			diag.String(),
+		).To(ContainSubstring("target node 'nonexistent' not found"))
 	})
 
 	It("Should skip edges with missing target input param", func() {
 		nodes := ir.Nodes{
-			{Key: "source", Type: "on", Outputs: types.Params{{Name: "output", Type: types.F64()}}},
-			{Key: "target", Type: "func", Inputs: types.Params{{Name: "value", Type: types.F64(), Value: float64(0)}}},
+			{
+				Key:     "source",
+				Type:    "on",
+				Outputs: types.Params{{Name: "output", Type: types.F64()}},
+			},
+			{
+				Key:  "target",
+				Type: "func",
+				Inputs: types.Params{
+					{Name: "value", Type: types.F64(), Value: float64(0)},
+				},
+			},
 		}
 		edges := ir.Edges{{
 			Source: ir.Handle{Node: "source", Param: "output"},
@@ -106,7 +140,11 @@ var _ = Describe("ResolveNodeTypes", func() {
 
 	It("Should error when a required input has no incoming edge", func() {
 		nodes := ir.Nodes{
-			{Key: "sel", Type: "select", Inputs: types.Params{{Name: "output", Type: types.U8()}}},
+			{
+				Key:    "sel",
+				Type:   "select",
+				Inputs: types.Params{{Name: "output", Type: types.U8()}},
+			},
 		}
 		Expect(analyzer.ResolveNodeTypes(nodes, ir.Edges{}, cs, diag)).To(BeFalse())
 		Expect(diag.String()).To(ContainSubstring(
@@ -115,7 +153,13 @@ var _ = Describe("ResolveNodeTypes", func() {
 
 	It("Should not error when an unconnected input has a default value", func() {
 		nodes := ir.Nodes{
-			{Key: "gen", Type: "gen", Inputs: types.Params{{Name: "seed", Type: types.I64(), Value: int64(1)}}},
+			{
+				Key:  "gen",
+				Type: "gen",
+				Inputs: types.Params{
+					{Name: "seed", Type: types.I64(), Value: int64(1)},
+				},
+			},
 		}
 		Expect(analyzer.ResolveNodeTypes(nodes, ir.Edges{}, cs, diag)).To(BeTrue())
 		Expect(diag.Ok()).To(BeTrue())
@@ -123,8 +167,16 @@ var _ = Describe("ResolveNodeTypes", func() {
 
 	It("Should not error when a required input is satisfied by an edge", func() {
 		nodes := ir.Nodes{
-			{Key: "source", Type: "on", Outputs: types.Params{{Name: "output", Type: types.U8()}}},
-			{Key: "sel", Type: "select", Inputs: types.Params{{Name: "input", Type: types.U8()}}},
+			{
+				Key:     "source",
+				Type:    "on",
+				Outputs: types.Params{{Name: "output", Type: types.U8()}},
+			},
+			{
+				Key:    "sel",
+				Type:   "select",
+				Inputs: types.Params{{Name: "input", Type: types.U8()}},
+			},
 		}
 		edges := ir.Edges{{
 			Source: ir.Handle{Node: "source", Param: "output"},
@@ -136,8 +188,16 @@ var _ = Describe("ResolveNodeTypes", func() {
 
 	It("Should error on type mismatch between concrete types", func() {
 		nodes := ir.Nodes{
-			{Key: "source", Type: "on", Outputs: types.Params{{Name: "output", Type: types.F64()}}},
-			{Key: "target", Type: "sink", Inputs: types.Params{{Name: "input", Type: types.U8()}}},
+			{
+				Key:     "source",
+				Type:    "on",
+				Outputs: types.Params{{Name: "output", Type: types.F64()}},
+			},
+			{
+				Key:    "target",
+				Type:   "sink",
+				Inputs: types.Params{{Name: "input", Type: types.U8()}},
+			},
 		}
 		edges := ir.Edges{{
 			Source: ir.Handle{Node: "source", Param: "output"},
@@ -149,7 +209,11 @@ var _ = Describe("ResolveNodeTypes", func() {
 
 	It("Should succeed with no edges", func() {
 		nodes := ir.Nodes{
-			{Key: "source", Type: "on", Outputs: types.Params{{Name: "output", Type: types.F64()}}},
+			{
+				Key:     "source",
+				Type:    "on",
+				Outputs: types.Params{{Name: "output", Type: types.F64()}},
+			},
 		}
 		Expect(analyzer.ResolveNodeTypes(nodes, ir.Edges{}, cs, diag)).To(BeTrue())
 		Expect(diag.Ok()).To(BeTrue())
@@ -157,15 +221,25 @@ var _ = Describe("ResolveNodeTypes", func() {
 
 	It("Should apply substitutions to input params", func() {
 		nodes := ir.Nodes{
-			{Key: "source", Type: "on", Outputs: types.Params{{Name: "output", Type: types.F32()}}},
+			{
+				Key:     "source",
+				Type:    "on",
+				Outputs: types.Params{{Name: "output", Type: types.F32()}},
+			},
 			{
 				Key:  "func",
 				Type: "transform",
 				Inputs: types.Params{
-					{Name: "threshold", Type: types.Variable("T_0", nil), Value: float32(0)},
+					{
+						Name:  "threshold",
+						Type:  types.Variable("T_0", nil),
+						Value: float32(0),
+					},
 					{Name: "input", Type: types.Variable("T_0", nil)},
 				},
-				Outputs: types.Params{{Name: "output", Type: types.Variable("T_0", nil)}},
+				Outputs: types.Params{
+					{Name: "output", Type: types.Variable("T_0", nil)},
+				},
 			},
 		}
 		edges := ir.Edges{{

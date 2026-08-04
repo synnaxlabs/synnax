@@ -205,7 +205,14 @@ func analyzeBlock(pass *analysis.Pass, stmts []ast.Stmt) bool {
 		if !ok {
 			continue
 		}
-		if reportDiagnostic(pass, assignStmt, expectStmt, rhsCall, errName, assignIdx == i-1) {
+		if reportDiagnostic(
+			pass,
+			assignStmt,
+			expectStmt,
+			rhsCall,
+			errName,
+			assignIdx == i-1,
+		) {
 			found = true
 		}
 	}
@@ -282,7 +289,8 @@ func matchExpectErrNotHaveOccurred(expr ast.Expr) (string, bool) {
 	if !ok {
 		return "", false
 	}
-	if !isNamedFunc(expectCall, "Expect") && !isNamedFunc(expectCall, "ExpectWithOffset") {
+	if !isNamedFunc(expectCall, "Expect") &&
+		!isNamedFunc(expectCall, "ExpectWithOffset") {
 		return "", false
 	}
 	var errArg ast.Expr
@@ -367,7 +375,8 @@ func reportDiagnostic(
 	if numLHS == 1 && errIdx == 0 {
 		msg = fmt.Sprintf(
 			"Expect(%s).ToNot(HaveOccurred()) can be replaced with Expect(%s).To(Succeed())",
-			errName, callStr,
+			errName,
+			callStr,
 		)
 		fixText = fmt.Sprintf("Expect(%s).To(Succeed())", callStr)
 	} else if numLHS == 2 && errIdx == 1 {

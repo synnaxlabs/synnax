@@ -56,30 +56,45 @@ var _ = Describe("BindTo", func() {
 		}
 	})
 
-	It("Should respond to /unary/echo with the request payload and the ID incremented", func() {
-		app := fiber.New(fiber.Config{})
-		Expect(ihttp.BindTo(app)).To(Succeed())
+	It(
+		"Should respond to /unary/echo with the request payload and the ID incremented",
+		func() {
+			app := fiber.New(fiber.Config{})
+			Expect(ihttp.BindTo(app)).To(Succeed())
 
-		body := MustSucceed(json.Marshal(ihttp.Message{Message: "hello", ID: 1}))
-		req := MustSucceed(http.NewRequest(http.MethodPost, "http://localhost/unary/echo", bytes.NewReader(body)))
-		req.Header.Set(fiber.HeaderContentType, fiber.MIMEApplicationJSON)
-		req.Header.Set(fiber.HeaderAccept, fiber.MIMEApplicationJSON)
+			body := MustSucceed(json.Marshal(ihttp.Message{Message: "hello", ID: 1}))
+			req := MustSucceed(
+				http.NewRequest(
+					http.MethodPost,
+					"http://localhost/unary/echo",
+					bytes.NewReader(body),
+				),
+			)
+			req.Header.Set(fiber.HeaderContentType, fiber.MIMEApplicationJSON)
+			req.Header.Set(fiber.HeaderAccept, fiber.MIMEApplicationJSON)
 
-		resp := MustSucceed(app.Test(req))
-		DeferCleanup(func() { Expect(resp.Body.Close()).To(Succeed()) })
-		Expect(resp.StatusCode).To(Equal(http.StatusOK))
+			resp := MustSucceed(app.Test(req))
+			DeferCleanup(func() { Expect(resp.Body.Close()).To(Succeed()) })
+			Expect(resp.StatusCode).To(Equal(http.StatusOK))
 
-		var msg ihttp.Message
-		Expect(json.NewDecoder(resp.Body).Decode(&msg)).To(Succeed())
-		Expect(msg).To(Equal(ihttp.Message{Message: "hello", ID: 2}))
-	})
+			var msg ihttp.Message
+			Expect(json.NewDecoder(resp.Body).Decode(&msg)).To(Succeed())
+			Expect(msg).To(Equal(ihttp.Message{Message: "hello", ID: 2}))
+		},
+	)
 
 	It("Should reject /unary/middlewareCheck when the Test header is missing", func() {
 		app := fiber.New(fiber.Config{})
 		Expect(ihttp.BindTo(app)).To(Succeed())
 
 		body := MustSucceed(json.Marshal(ihttp.Message{Message: "hello", ID: 1}))
-		req := MustSucceed(http.NewRequest(http.MethodPost, "http://localhost/unary/middlewareCheck", bytes.NewReader(body)))
+		req := MustSucceed(
+			http.NewRequest(
+				http.MethodPost,
+				"http://localhost/unary/middlewareCheck",
+				bytes.NewReader(body),
+			),
+		)
 		req.Header.Set(fiber.HeaderContentType, fiber.MIMEApplicationJSON)
 		req.Header.Set(fiber.HeaderAccept, fiber.MIMEApplicationJSON)
 
@@ -88,24 +103,33 @@ var _ = Describe("BindTo", func() {
 		Expect(resp.StatusCode).ToNot(Equal(http.StatusOK))
 	})
 
-	It("Should pass /unary/middlewareCheck when the Test header is set to 'test'", func() {
-		app := fiber.New(fiber.Config{})
-		Expect(ihttp.BindTo(app)).To(Succeed())
+	It(
+		"Should pass /unary/middlewareCheck when the Test header is set to 'test'",
+		func() {
+			app := fiber.New(fiber.Config{})
+			Expect(ihttp.BindTo(app)).To(Succeed())
 
-		body := MustSucceed(json.Marshal(ihttp.Message{Message: "hello", ID: 7}))
-		req := MustSucceed(http.NewRequest(http.MethodPost, "http://localhost/unary/middlewareCheck", bytes.NewReader(body)))
-		req.Header.Set(fiber.HeaderContentType, fiber.MIMEApplicationJSON)
-		req.Header.Set(fiber.HeaderAccept, fiber.MIMEApplicationJSON)
-		req.Header.Set("Test", "test")
+			body := MustSucceed(json.Marshal(ihttp.Message{Message: "hello", ID: 7}))
+			req := MustSucceed(
+				http.NewRequest(
+					http.MethodPost,
+					"http://localhost/unary/middlewareCheck",
+					bytes.NewReader(body),
+				),
+			)
+			req.Header.Set(fiber.HeaderContentType, fiber.MIMEApplicationJSON)
+			req.Header.Set(fiber.HeaderAccept, fiber.MIMEApplicationJSON)
+			req.Header.Set("Test", "test")
 
-		resp := MustSucceed(app.Test(req))
-		DeferCleanup(func() { Expect(resp.Body.Close()).To(Succeed()) })
-		Expect(resp.StatusCode).To(Equal(http.StatusOK))
+			resp := MustSucceed(app.Test(req))
+			DeferCleanup(func() { Expect(resp.Body.Close()).To(Succeed()) })
+			Expect(resp.StatusCode).To(Equal(http.StatusOK))
 
-		var msg ihttp.Message
-		Expect(json.NewDecoder(resp.Body).Decode(&msg)).To(Succeed())
-		Expect(msg.ID).To(Equal(8))
-	})
+			var msg ihttp.Message
+			Expect(json.NewDecoder(resp.Body).Decode(&msg)).To(Succeed())
+			Expect(msg.ID).To(Equal(8))
+		},
+	)
 })
 
 var _ = Describe("unaryParamEcho", func() {
@@ -118,7 +142,9 @@ var _ = Describe("unaryParamEcho", func() {
 			target += "?" + query
 		}
 		body := MustSucceed(json.Marshal(ihttp.Message{Message: message}))
-		req := MustSucceed(http.NewRequest(http.MethodPost, target, bytes.NewReader(body)))
+		req := MustSucceed(
+			http.NewRequest(http.MethodPost, target, bytes.NewReader(body)),
+		)
 		req.Header.Set(fiber.HeaderContentType, fiber.MIMEApplicationJSON)
 		req.Header.Set(fiber.HeaderAccept, fiber.MIMEApplicationJSON)
 
@@ -165,7 +191,13 @@ var _ = Describe("unaryParamEcho", func() {
 var _ = Describe("flakyUnavailable", func() {
 	post := func(app *fiber.App, msg ihttp.Message) *http.Response {
 		body := MustSucceed(json.Marshal(msg))
-		req := MustSucceed(http.NewRequest(http.MethodPost, "http://localhost/unary/flakyUnavailable", bytes.NewReader(body)))
+		req := MustSucceed(
+			http.NewRequest(
+				http.MethodPost,
+				"http://localhost/unary/flakyUnavailable",
+				bytes.NewReader(body),
+			),
+		)
 		req.Header.Set(fiber.HeaderContentType, fiber.MIMEApplicationJSON)
 		req.Header.Set(fiber.HeaderAccept, fiber.MIMEApplicationJSON)
 		resp := MustSucceed(app.Test(req))
@@ -185,19 +217,22 @@ var _ = Describe("flakyUnavailable", func() {
 		Expect(pld.Type).To(Equal("integration.error"))
 	})
 
-	It("Should echo nominally with the ID incremented when the same message is retried", func() {
-		app := fiber.New(fiber.Config{})
-		Expect(ihttp.BindTo(app)).To(Succeed())
+	It(
+		"Should echo nominally with the ID incremented when the same message is retried",
+		func() {
+			app := fiber.New(fiber.Config{})
+			Expect(ihttp.BindTo(app)).To(Succeed())
 
-		first := post(app, ihttp.Message{Message: "flaky-recovers", ID: 1})
-		Expect(first.StatusCode).To(Equal(http.StatusServiceUnavailable))
+			first := post(app, ihttp.Message{Message: "flaky-recovers", ID: 1})
+			Expect(first.StatusCode).To(Equal(http.StatusServiceUnavailable))
 
-		second := post(app, ihttp.Message{Message: "flaky-recovers", ID: 1})
-		Expect(second.StatusCode).To(Equal(http.StatusOK))
-		var msg ihttp.Message
-		Expect(json.NewDecoder(second.Body).Decode(&msg)).To(Succeed())
-		Expect(msg).To(Equal(ihttp.Message{Message: "flaky-recovers", ID: 2}))
-	})
+			second := post(app, ihttp.Message{Message: "flaky-recovers", ID: 1})
+			Expect(second.StatusCode).To(Equal(http.StatusOK))
+			var msg ihttp.Message
+			Expect(json.NewDecoder(second.Body).Decode(&msg)).To(Succeed())
+			Expect(msg).To(Equal(ihttp.Message{Message: "flaky-recovers", ID: 2}))
+		},
+	)
 
 	It("Should track the first-seen state of each message independently", func() {
 		app := fiber.New(fiber.Config{})
@@ -218,7 +253,13 @@ var _ = Describe("emptyResponse", func() {
 		Expect(ihttp.BindTo(app)).To(Succeed())
 
 		body := MustSucceed(json.Marshal(ihttp.Message{Message: "x", ID: 1}))
-		req := MustSucceed(http.NewRequest(http.MethodPost, "http://localhost/unary/emptyResponse", bytes.NewReader(body)))
+		req := MustSucceed(
+			http.NewRequest(
+				http.MethodPost,
+				"http://localhost/unary/emptyResponse",
+				bytes.NewReader(body),
+			),
+		)
 		req.Header.Set(fiber.HeaderContentType, fiber.MIMEApplicationJSON)
 		req.Header.Set(fiber.HeaderAccept, fiber.MIMEApplicationJSON)
 

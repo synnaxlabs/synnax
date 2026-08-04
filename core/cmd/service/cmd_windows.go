@@ -96,7 +96,10 @@ func syncFlagsToViper(cmd *cobra.Command, _ []string) error {
 		return err
 	}
 	viper.SetDefault(cmdstart.FlagData, filepath.Join(ConfigDir(), "data"))
-	viper.SetDefault(instrumentation.FlagLogFilePath, filepath.Join(ConfigDir(), "logs", "synnax.log"))
+	viper.SetDefault(
+		instrumentation.FlagLogFilePath,
+		filepath.Join(ConfigDir(), "logs", "synnax.log"),
+	)
 	viper.SetDefault(cert.FlagCertsDir, filepath.Join(ConfigDir(), "certs"))
 	return nil
 }
@@ -173,9 +176,13 @@ func FormatStatus(c *cobra.Command, info StatusInfo) {
 		c.Printf("Status:  %s (PID: %d)\n", info.State, info.ProcessID)
 	} else {
 		c.Printf("Status:  %s\n", info.State)
-		if info.State == "Stopped" && (info.Win32ExitCode != 0 || info.ServiceSpecificExitCode != 0) {
+		if info.State == "Stopped" &&
+			(info.Win32ExitCode != 0 || info.ServiceSpecificExitCode != 0) {
 			if info.ServiceSpecificExitCode != 0 {
-				c.Printf("Exit:    Service error code %d\n", info.ServiceSpecificExitCode)
+				c.Printf(
+					"Exit:    Service error code %d\n",
+					info.ServiceSpecificExitCode,
+				)
 			} else {
 				c.Printf("Exit:    Win32 error code %d\n", info.Win32ExitCode)
 			}
@@ -291,7 +298,9 @@ func readRecentLogs(filePath string, maxEntries int) (_ []string, err error) {
 		if e.Error != "" {
 			msg += ": " + e.Error
 		}
-		line := ts.Format("2006-01-02 15:04:05") + " " + info.color + info.label + colorReset + " " + msg
+		line := ts.Format(
+			"2006-01-02 15:04:05",
+		) + " " + info.color + info.label + colorReset + " " + msg
 		lines = append(lines, line)
 	}
 	return lines, scanner.Err()
