@@ -9,9 +9,11 @@
 
 // Package crdt implements a replicated text sequence: a conflict-free data type that
 // lets many replicas concurrently edit a single string and always converge to the same
-// value. The merge rule is the non-interleaving list CRDT in which each character is a
-// node in a tree, anchored to an existing character on its left or right, so that
-// concurrent runs of text inserted at the same position are never interleaved.
+// value. The merge rule is the non-interleaving list CRDT in which each character is
+// anchored to an existing character on its left or right, so that concurrent runs of
+// text inserted at the same position are never interleaved. Contiguous characters
+// authored by one replica are stored as a single run node, split only when a
+// concurrent edit anchors inside the run.
 //
 // The Insert, Delete, and ID types are generated from schemas/crdt.oracle and shared
 // with the TypeScript implementation (@synnaxlabs/x crdt); the two runtimes materialize
@@ -39,37 +41,58 @@ func idLess(a, b ID) bool {
 	return a.Counter < b.Counter
 }
 
-// element is a node in the document tree. The in-order traversal of the tree, skipping
-// deleted nodes, yields the materialized document.
+// element is a run of characters authored by one replica with contiguous counters. The
+// in-order traversal of the run tree, skipping deleted characters, yields the
+// materialized document. Invariants: left children anchor to the first character, right
+// children anchor to the last, and interior characters never carry children; an anchor
+// into the interior splits the run first.
 type element struct {
-	id      ID
-	char    int32
-	deleted bool
+	// id identifies the first character; the character at offset i has counter
+	// id.Counter+i.
+	id    ID
+	chars []int32
+	// deleted marks tombstoned characters. It is nil when none are; otherwise its
+	// length always equals len(chars).
+	deleted []bool
+	// dead is the number of tombstoned characters in this run.
+	dead int
 	// left and right hold the children anchored on each side, each kept sorted by id.
 	left  []*element
 	right []*element
+}
+
+// lastID returns the id of the run's last character.
+func (e *element) lastID() ID {
+	return ID{Replica: e.id.Replica, Counter: e.id.Counter + uint32(len(e.chars)-1)}
+}
+
+// charID returns the id of the character at offset i.
+func (e *element) charID(i int) ID {
+	return ID{Replica: e.id.Replica, Counter: e.id.Counter + uint32(i)}
 }
 
 // Text is a replicated text document. A Text is owned by a single replica, identified
 // at construction; local edits are attributed to that replica. Text is not safe for
 // concurrent use.
 type Text struct {
-	replica  uint32
-	counter  uint32
-	root     *element
-	elements map[ID]*element
+	replica uint32
+	counter uint32
+	root    *element
+	// index maps each replica to its runs ordered by starting counter, so any character
+	// id resolves to its containing run by binary search.
+	index map[uint32][]*element
 	// tombstones holds ids deleted before their insert was seen, so the delete can be
 	// applied to the character once it arrives.
 	tombstones set.Set[ID]
 	// pending holds inserts whose origin has not yet been integrated, buffered until the
 	// origin arrives.
 	pending []Insert
-	// order caches the in-order traversal of every element, rebuilt lazily when dirty.
+	// order caches the in-order traversal of every run, rebuilt lazily when dirty.
 	order []*element
 	dirty bool
-	// visibleCache caches the live characters in document order. It is nil when stale and
-	// must be recomputed on the next read.
-	visibleCache []*element
+	// lastPlaced is the run most recently created or extended: the likely target of the
+	// next sequential insert, letting a typed or seeded run extend without an id lookup.
+	lastPlaced *element
 	// str caches the materialized string; strValid reports whether it is current.
 	str      string
 	strValid bool
@@ -81,7 +104,6 @@ type Text struct {
 // markDirty invalidates the cached traversal and derived caches after a mutation.
 func (t *Text) markDirty() {
 	t.dirty = true
-	t.visibleCache = nil
 	t.strValid = false
 }
 
@@ -91,13 +113,76 @@ func New(replica uint32) *Text {
 	return &Text{
 		replica:    replica,
 		root:       &element{},
-		elements:   make(map[ID]*element),
+		index:      make(map[uint32][]*element),
 		tombstones: set.New[ID](),
 	}
 }
 
 // Replica returns the id of the replica that owns this document.
 func (t *Text) Replica() uint32 { return t.replica }
+
+// findRun returns the run containing id and the character's offset within it.
+func (t *Text) findRun(id ID) (*element, int, bool) {
+	runs := t.index[id.Replica]
+	lo, hi := 0, len(runs)
+	for lo < hi {
+		mid := (lo + hi) / 2
+		if runs[mid].id.Counter <= id.Counter {
+			lo = mid + 1
+		} else {
+			hi = mid
+		}
+	}
+	if lo == 0 {
+		return nil, 0, false
+	}
+	e := runs[lo-1]
+	off := int(id.Counter - e.id.Counter)
+	if off < len(e.chars) {
+		return e, off, true
+	}
+	return nil, 0, false
+}
+
+// indexInsert records a new run in the replica index, keeping runs counter-ordered.
+func (t *Text) indexInsert(e *element) {
+	runs := t.index[e.id.Replica]
+	lo, hi := 0, len(runs)
+	for lo < hi {
+		mid := (lo + hi) / 2
+		if runs[mid].id.Counter < e.id.Counter {
+			lo = mid + 1
+		} else {
+			hi = mid
+		}
+	}
+	runs = append(runs, nil)
+	copy(runs[lo+1:], runs[lo:])
+	runs[lo] = e
+	t.index[e.id.Replica] = runs
+}
+
+// splitAfter splits e after character offset k (0 <= k < len-1) and returns the new
+// tail run. The tail inherits e's right children, since they anchor to e's old last
+// character, and becomes e's sole right child.
+func (t *Text) splitAfter(e *element, k int) *element {
+	tail := &element{id: e.charID(k + 1), chars: e.chars[k+1:]}
+	e.chars = e.chars[: k+1 : k+1]
+	if e.deleted != nil {
+		tail.deleted = e.deleted[k+1:]
+		e.deleted = e.deleted[: k+1 : k+1]
+		for _, d := range tail.deleted {
+			if d {
+				tail.dead++
+			}
+		}
+		e.dead -= tail.dead
+	}
+	tail.right = e.right
+	e.right = []*element{tail}
+	t.indexInsert(tail)
+	return tail
+}
 
 // Snapshot captures the full current state of the document as the operations that
 // reconstruct it when applied to an empty document, in an order where every operation's
@@ -107,17 +192,24 @@ func (t *Text) Replica() uint32 { return t.replica }
 func (t *Text) Snapshot() (inserts []Insert, deletes []Delete) {
 	var walk func(e *element, origin ID, side spatial.XLocation)
 	walk = func(e *element, origin ID, side spatial.XLocation) {
+		first, last := origin, origin
 		if e != t.root {
-			inserts = append(inserts, Insert{ID: e.id, Origin: origin, Side: side, Char: e.char})
-			if e.deleted {
-				deletes = append(deletes, Delete{ID: e.id})
+			prev, prevSide := origin, side
+			for i, c := range e.chars {
+				id := e.charID(i)
+				inserts = append(inserts, Insert{ID: id, Origin: prev, Side: prevSide, Char: c})
+				if e.deleted != nil && e.deleted[i] {
+					deletes = append(deletes, Delete{ID: id})
+				}
+				prev, prevSide = id, spatial.XLocationRight
 			}
+			first, last = e.id, e.lastID()
 		}
 		for _, c := range e.left {
-			walk(c, e.id, spatial.XLocationLeft)
+			walk(c, first, spatial.XLocationLeft)
 		}
 		for _, c := range e.right {
-			walk(c, e.id, spatial.XLocationRight)
+			walk(c, last, spatial.XLocationRight)
 		}
 	}
 	walk(t.root, ID{}, spatial.XLocationRight)
@@ -142,10 +234,10 @@ func (t *Text) rebuild() {
 	t.dirty = false
 }
 
-// walk appends the in-order traversal of the tree to t.order, excluding the root
-// sentinel. The traversal is iterative with an explicit stack because a document built by
-// typing in a single direction forms a tree as deep as it is long, which would overflow
-// the call stack under recursion.
+// walk appends the in-order traversal of the run tree to t.order, excluding the root
+// sentinel. The traversal is iterative with an explicit stack because a heavily
+// interleaved document forms a tree as deep as its run count, which could overflow the
+// call stack under recursion.
 func (t *Text) walk() {
 	type frame struct {
 		node *element
@@ -171,21 +263,34 @@ func (t *Text) walk() {
 	}
 }
 
-// visible returns the live characters in document order. The result is cached and reused
-// until the next mutation.
-func (t *Text) visible() []*element {
-	if t.visibleCache != nil {
-		return t.visibleCache
+// charAt returns the run and character offset of the live character at index.
+func (t *Text) charAt(index int) (*element, int, bool) {
+	if index < 0 || index >= t.live {
+		return nil, 0, false
 	}
 	t.rebuild()
-	out := make([]*element, 0, len(t.order))
+	seen := 0
 	for _, e := range t.order {
-		if !e.deleted {
-			out = append(out, e)
+		liveHere := len(e.chars) - e.dead
+		if index >= seen+liveHere {
+			seen += liveHere
+			continue
+		}
+		k := index - seen
+		if e.dead == 0 {
+			return e, k, true
+		}
+		for i := range e.chars {
+			if e.deleted[i] {
+				continue
+			}
+			if k == 0 {
+				return e, i, true
+			}
+			k--
 		}
 	}
-	t.visibleCache = out
-	return out
+	return nil, 0, false
 }
 
 // Len returns the number of live characters in the document.
@@ -201,22 +306,37 @@ func (t *Text) Collectable() []ID {
 	var out []ID
 	var visit func(e *element) bool
 	visit = func(e *element) bool {
-		subtreeDead := true
+		leftDead, rightDead := true, true
 		for _, c := range e.left {
 			if !visit(c) {
-				subtreeDead = false
+				leftDead = false
 			}
 		}
 		for _, c := range e.right {
 			if !visit(c) {
-				subtreeDead = false
+				rightDead = false
 			}
 		}
-		if e == t.root || !e.deleted || !subtreeDead {
+		if e == t.root || !rightDead {
 			return false
 		}
-		out = append(out, e.id)
-		return true
+		n := len(e.chars)
+		// Only the fully-tombstoned tail of a run can be collectable, since each
+		// character anchors its successor.
+		sufStart := n
+		if e.deleted != nil {
+			for i := n - 1; i >= 0 && e.deleted[i]; i-- {
+				sufStart = i
+			}
+		}
+		for i := sufStart; i < n; i++ {
+			// The first character also anchors the run's left children.
+			if i == 0 && !leftDead {
+				continue
+			}
+			out = append(out, e.charID(i))
+		}
+		return e.dead == n && leftDead && rightDead
 	}
 	visit(t.root)
 	return out
@@ -228,10 +348,20 @@ func (t *Text) String() string {
 	if t.strValid {
 		return t.str
 	}
-	vis := t.visible()
-	runes := make([]rune, len(vis))
-	for i, e := range vis {
-		runes[i] = rune(e.char)
+	t.rebuild()
+	runes := make([]rune, 0, t.live)
+	for _, e := range t.order {
+		if e.dead == 0 {
+			for _, c := range e.chars {
+				runes = append(runes, rune(c))
+			}
+			continue
+		}
+		for i, c := range e.chars {
+			if !e.deleted[i] {
+				runes = append(runes, rune(c))
+			}
+		}
 	}
 	t.str = string(runes)
 	t.strValid = true
@@ -241,11 +371,20 @@ func (t *Text) String() string {
 // IndexToID returns the id of the character at the given live index. The second return
 // is false if the index is out of range.
 func (t *Text) IndexToID(index int) (ID, bool) {
-	vis := t.visible()
-	if index < 0 || index >= len(vis) {
+	e, off, ok := t.charAt(index)
+	if !ok {
 		return ID{}, false
 	}
-	return vis[index].id, true
+	return e.charID(off), true
+}
+
+// hasRight reports whether the character at offset off anchors anything on its right: a
+// successor within the run, or, for the last character, a right child.
+func hasRight(e *element, off int) bool {
+	if off < len(e.chars)-1 {
+		return true
+	}
+	return len(e.right) > 0
 }
 
 // Insert inserts text at the given live index and returns the operations that describe
@@ -257,29 +396,30 @@ func (t *Text) Insert(index int, text string) []Insert {
 	if len(runes) == 0 {
 		return nil
 	}
-	vis := t.visible()
-	var left *element
-	if index <= 0 {
-		left = t.root
-	} else if index-1 < len(vis) {
-		left = vis[index-1]
-	} else if len(vis) > 0 {
-		left = vis[len(vis)-1]
-	} else {
-		left = t.root
+	left, leftOff := t.root, -1
+	if index > 0 {
+		if e, off, ok := t.charAt(index - 1); ok {
+			left, leftOff = e, off
+		} else if e, off, ok := t.charAt(t.live - 1); ok {
+			left, leftOff = e, off
+		}
 	}
-	var right *element
-	if index >= 0 && index < len(vis) {
-		right = vis[index]
+	var rightID ID
+	haveRight := false
+	if e, off, ok := t.charAt(index); ok {
+		rightID, haveRight = e.charID(off), true
 	}
 	ops := make([]Insert, 0, len(runes))
 	for _, r := range runes {
 		var origin ID
 		var side spatial.XLocation
-		if right != nil && len(left.right) > 0 {
-			origin, side = right.id, spatial.XLocationLeft
-		} else {
-			origin, side = left.id, spatial.XLocationRight
+		switch {
+		case haveRight && hasRight(left, leftOff):
+			origin, side = rightID, spatial.XLocationLeft
+		case left == t.root:
+			origin, side = ID{}, spatial.XLocationRight
+		default:
+			origin, side = left.charID(leftOff), spatial.XLocationRight
 		}
 		t.counter++
 		op := Insert{
@@ -288,7 +428,7 @@ func (t *Text) Insert(index int, text string) []Insert {
 			Side:   side,
 			Char:   r,
 		}
-		left = t.place(op)
+		left, leftOff = t.place(op)
 		ops = append(ops, op)
 	}
 	return ops
@@ -298,13 +438,35 @@ func (t *Text) Insert(index int, text string) []Insert {
 // operations that describe the edit. The operations are applied to this document before
 // they are returned.
 func (t *Text) Delete(index, length int) []Delete {
-	if length <= 0 {
+	if length <= 0 || index < 0 || index >= t.live {
 		return nil
 	}
-	vis := t.visible()
-	ops := make([]Delete, 0, length)
-	for i := index; i < index+length && i < len(vis); i++ {
-		op := Delete{ID: vis[i].id}
+	t.rebuild()
+	end := min(index+length, t.live)
+	ids := make([]ID, 0, end-index)
+	seen := 0
+	for _, e := range t.order {
+		liveHere := len(e.chars) - e.dead
+		if seen+liveHere <= index {
+			seen += liveHere
+			continue
+		}
+		for i := range e.chars {
+			if e.deleted != nil && e.deleted[i] {
+				continue
+			}
+			if seen >= index && seen < end {
+				ids = append(ids, e.charID(i))
+			}
+			seen++
+		}
+		if seen >= end {
+			break
+		}
+	}
+	ops := make([]Delete, 0, len(ids))
+	for _, id := range ids {
+		op := Delete{ID: id}
 		t.ApplyDelete(op)
 		ops = append(ops, op)
 	}
@@ -316,8 +478,10 @@ func (t *Text) Delete(index, length int) []Delete {
 // yet arrived are buffered and integrated once it does.
 func (t *Text) ApplyInsert(ops ...Insert) {
 	for _, op := range ops {
-		if t.place(op) != nil {
-			t.drain()
+		if e, _ := t.place(op); e != nil {
+			if len(t.pending) > 0 {
+				t.drain()
+			}
 		} else {
 			t.pending = append(t.pending, op)
 		}
@@ -328,9 +492,13 @@ func (t *Text) ApplyInsert(ops ...Insert) {
 // character has not yet been seen is recorded so the character is tombstoned on arrival.
 func (t *Text) ApplyDelete(ops ...Delete) {
 	for _, op := range ops {
-		if e, ok := t.elements[op.ID]; ok {
-			if !e.deleted {
-				e.deleted = true
+		if e, off, ok := t.findRun(op.ID); ok {
+			if e.deleted == nil {
+				e.deleted = make([]bool, len(e.chars))
+			}
+			if !e.deleted[off] {
+				e.deleted[off] = true
+				e.dead++
 				t.live--
 				t.markDirty()
 			}
@@ -340,36 +508,76 @@ func (t *Text) ApplyDelete(ops ...Delete) {
 	}
 }
 
-// place attaches an insert to the tree, returning the created element. It returns nil
-// without buffering when the operation was already integrated or its origin is not yet
+// extends reports whether op contiguously appends to the run last touched by place: its
+// origin is the run's last character, replica and counter continue the run, and nothing
+// anchors after it. Such an op cannot be a duplicate: were its counter already placed,
+// the run would have been split or given a right child, and the check would fail.
+func (t *Text) extends(op Insert) bool {
+	e := t.lastPlaced
+	return e != nil && op.Side == spatial.XLocationRight &&
+		len(e.right) == 0 &&
+		op.ID.Replica == e.id.Replica &&
+		op.Origin == e.lastID() &&
+		op.ID.Counter == e.id.Counter+uint32(len(e.chars))
+}
+
+// place attaches an insert to the run tree, returning the run and offset holding the
+// character. It returns nil without buffering when the operation's origin is not yet
 // present.
-func (t *Text) place(op Insert) *element {
-	if e, ok := t.elements[op.ID]; ok {
-		return e
+func (t *Text) place(op Insert) (*element, int) {
+	if t.extends(op) {
+		e := t.lastPlaced
+		e.chars = append(e.chars, op.Char)
+		if e.deleted != nil {
+			e.deleted = append(e.deleted, false)
+		}
+		off := len(e.chars) - 1
+		if len(t.tombstones) > 0 && t.tombstones.Contains(op.ID) {
+			if e.deleted == nil {
+				e.deleted = make([]bool, len(e.chars))
+			}
+			e.deleted[off] = true
+			e.dead++
+			t.tombstones.Remove(op.ID)
+		} else {
+			t.live++
+		}
+		t.markDirty()
+		return e, off
 	}
-	origin := t.root
+	if e, off, ok := t.findRun(op.ID); ok {
+		return e, off
+	}
+	origin, originOff := t.root, -1
 	if !isRoot(op.Origin) {
 		var ok bool
-		if origin, ok = t.elements[op.Origin]; !ok {
-			return nil
+		if origin, originOff, ok = t.findRun(op.Origin); !ok {
+			return nil, 0
 		}
 	}
-	e := &element{id: op.ID, char: op.Char}
+	e := &element{id: op.ID, chars: []int32{op.Char}}
 	if t.tombstones.Contains(op.ID) {
-		e.deleted = true
+		e.deleted = []bool{true}
+		e.dead = 1
 		t.tombstones.Remove(op.ID)
-	}
-	if op.Side == spatial.XLocationLeft {
-		origin.left = sortedInsert(origin.left, e)
 	} else {
-		origin.right = sortedInsert(origin.right, e)
-	}
-	t.elements[op.ID] = e
-	if !e.deleted {
 		t.live++
 	}
+	if op.Side == spatial.XLocationLeft {
+		if originOff > 0 {
+			origin = t.splitAfter(origin, originOff-1)
+		}
+		origin.left = sortedInsert(origin.left, e)
+	} else {
+		if originOff >= 0 && originOff < len(origin.chars)-1 {
+			t.splitAfter(origin, originOff)
+		}
+		origin.right = sortedInsert(origin.right, e)
+	}
+	t.indexInsert(e)
+	t.lastPlaced = e
 	t.markDirty()
-	return e
+	return e, 0
 }
 
 // drain integrates buffered inserts whose origin has since arrived, repeating until no
@@ -379,10 +587,10 @@ func (t *Text) drain() {
 		progressed := false
 		remaining := t.pending[:0]
 		for _, op := range t.pending {
-			if _, seen := t.elements[op.ID]; seen {
+			if _, _, seen := t.findRun(op.ID); seen {
 				continue
 			}
-			if _, hasOrigin := t.elements[op.Origin]; !isRoot(op.Origin) && !hasOrigin {
+			if _, _, hasOrigin := t.findRun(op.Origin); !isRoot(op.Origin) && !hasOrigin {
 				remaining = append(remaining, op)
 				continue
 			}

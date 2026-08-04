@@ -19,7 +19,7 @@ import (
 
 // benchSizes are document lengths in characters. They bracket the realistic range for an
 // Arc source file (low thousands) and push past it to expose the scaling curve.
-var benchSizes = []int{100, 1000, 5000, 10000}
+var benchSizes = []int{100, 1000, 5000, 25000}
 
 // buildDoc types n characters into a fresh document one at a time, appending each.
 func buildDoc(n int) *crdt.Text {
