@@ -99,7 +99,9 @@ func (p Program) String() string {
 	} else {
 		hash := sha256.Sum256(p.WASM)
 		shortHash := hex.EncodeToString(hash[:])[:8]
-		lo.Must(fmt.Fprintf(&b, "WASM: %d bytes (sha256: %s...)", len(p.WASM), shortHash))
+		lo.Must(
+			fmt.Fprintf(&b, "WASM: %d bytes (sha256: %s...)", len(p.WASM), shortHash),
+		)
 	}
 	b.WriteString("\n")
 

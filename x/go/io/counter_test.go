@@ -27,7 +27,9 @@ var _ = Describe("Counter", func() {
 		Context("FS: "+fsName, Ordered, func() {
 			BeforeEach(func() { fs = openFS() })
 			It("Should create a new counter when the file does not exist", func() {
-				f := MustSucceed(fs.Open("counterfile", os.O_CREATE|os.O_EXCL|os.O_RDWR))
+				f := MustSucceed(
+					fs.Open("counterfile", os.O_CREATE|os.O_EXCL|os.O_RDWR),
+				)
 
 				c := MustSucceed(NewInt32Counter(f))
 				Expect(c.Value()).To(Equal(int32(0)))

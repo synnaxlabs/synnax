@@ -91,34 +91,41 @@ var _ = Describe("MigrateTask", func() {
 		Expect(got.Status).To(BeNil())
 	})
 
-	It("drops Status and preserves core wire fields when v1 entries carry a populated Status", func(ctx SpecContext) {
-		key := v0.Key(0x0000_0001_0000_00ab)
-		seed := v0.Task{
-			Key:    key,
-			Name:   "Loaded Task",
-			Type:   "opc_read",
-			Config: msgpack.EncodedJSON{"endpoint": "opc.tcp://localhost:4840"},
-			Status: &v0.Status{
-				Key:         "task:" + uuid.NewString(),
-				Name:        "running",
-				Variant:     "success",
-				Message:     "task acquiring",
-				Description: "5 channels",
-				Time:        telem.TimeStamp(telem.Now()),
-				Details: v0.StatusDetails{
-					Task:    key,
-					Running: true,
-					Cmd:     "start",
+	It(
+		"drops Status and preserves core wire fields when v1 entries carry a populated Status",
+		func(ctx SpecContext) {
+			key := v0.Key(0x0000_0001_0000_00ab)
+			seed := v0.Task{
+				Key:    key,
+				Name:   "Loaded Task",
+				Type:   "opc_read",
+				Config: msgpack.EncodedJSON{"endpoint": "opc.tcp://localhost:4840"},
+				Status: &v0.Status{
+					Key:         "task:" + uuid.NewString(),
+					Name:        "running",
+					Variant:     "success",
+					Message:     "task acquiring",
+					Description: "5 channels",
+					Time:        telem.TimeStamp(telem.Now()),
+					Details: v0.StatusDetails{
+						Task:    key,
+						Running: true,
+						Cmd:     "start",
+					},
+					Labels: []label.Label{
+						{
+							Key:   uuid.New(),
+							Name:  "active",
+							Color: color.Color{G: 200, A: 1},
+						},
+					},
 				},
-				Labels: []label.Label{
-					{Key: uuid.New(), Name: "active", Color: color.Color{G: 200, A: 1}},
-				},
-			},
-		}
-		got := migrateSeed(ctx, seed)
-		Expect(got.Key).To(Equal(seed.Key))
-		Expect(got.Name).To(Equal(seed.Name))
-		Expect(got.Type).To(Equal(seed.Type))
-		Expect(got.Status).To(BeNil())
-	})
+			}
+			got := migrateSeed(ctx, seed)
+			Expect(got.Key).To(Equal(seed.Key))
+			Expect(got.Name).To(Equal(seed.Name))
+			Expect(got.Type).To(Equal(seed.Type))
+			Expect(got.Status).To(BeNil())
+		},
+	)
 })

@@ -57,9 +57,9 @@ type Reporter struct {
 	meta    InstrumentationMeta
 }
 
-// NewReporter instantiates a new Reporter using the given configurations. If no configurations
-// are provided, the function will return an error. To use a no-op reporter, simply
-// pass a nil-pointer.
+// NewReporter instantiates a new Reporter using the given configurations. If no
+// configurations are provided, the function will return an error. To use a no-op
+// reporter, simply pass a nil-pointer.
 func NewReporter(configs ...ReporterConfig) (*Reporter, error) {
 	cfg, err := config.New(DefaultReporterConfig, configs...)
 	if err != nil {
@@ -76,15 +76,15 @@ func (r *Reporter) Debug(key string, report ReportProvider) {
 }
 
 // Prod attaches the given ReportProvider to the Reporter with the given key in the
-// production (Prod) environment . The Report is lazily evaluated, and will only be called
-// when the instrumentation report is generated.
+// production (Prod) environment. The Report is lazily evaluated, and will only be
+// called when the instrumentation report is generated.
 func (r *Reporter) Prod(key string, report ReportProvider) {
 	r.Attach(key, report, EnvironmentProd)
 }
 
 // Bench attaches the given ReportProvider to the Reporter with the given key in the
-// benchmark (Bench) environment . The Report is lazily evaluated, and will only be called
-// when the instrumentation report is generated.
+// benchmark (Bench) environment. The Report is lazily evaluated, and will only be
+// called when the instrumentation report is generated.
 func (r *Reporter) Bench(key string, report ReportProvider) {
 	r.Attach(key, report, EnvironmentBench)
 }

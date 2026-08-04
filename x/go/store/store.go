@@ -83,8 +83,8 @@ func (c *core[S]) PeekState() (S, func()) {
 	return c.state, c.mu.RUnlock
 }
 
-// Observable is a wrapper around a Store that allows the caller to observe
-// State changes. SinkTarget create a new store.Observable, called store.ObservableWrap().
+// Observable is a wrapper around a Store that allows the caller to observe State
+// changes. SinkTarget create a new store.Observable, called store.ObservableWrap().
 type Observable[S, O any] interface {
 	Store[S]
 	observe.Observable[O]

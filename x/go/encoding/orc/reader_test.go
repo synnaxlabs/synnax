@@ -203,16 +203,22 @@ var _ = Describe("Reader", func() {
 			Expect(r.CollectionLen()).To(Equal(uint32(50)))
 		})
 
-		It("Should reject collection length exceeding MaxCollectionLen in direct mode", func() {
-			prev := orc.MaxCollectionLen
-			defer func() { orc.MaxCollectionLen = prev }()
-			orc.MaxCollectionLen = 5
-			w := orc.NewWriter(0)
-			w.Uint32(6)
-			r := orc.NewReader(nil)
-			r.ResetBytes(w.Bytes())
-			Expect(r.CollectionLen()).Error().To(MatchError(orc.ErrExceedCollectionLen))
-		})
+		It(
+			"Should reject collection length exceeding MaxCollectionLen in direct mode",
+			func() {
+				prev := orc.MaxCollectionLen
+				defer func() { orc.MaxCollectionLen = prev }()
+				orc.MaxCollectionLen = 5
+				w := orc.NewWriter(0)
+				w.Uint32(6)
+				r := orc.NewReader(nil)
+				r.ResetBytes(w.Bytes())
+				Expect(
+					r.CollectionLen(),
+				).Error().
+					To(MatchError(orc.ErrExceedCollectionLen))
+			},
+		)
 
 		It("Should return error on truncated data", func() {
 			r := orc.NewReader(bytesReader([]byte{0, 0}))
@@ -309,11 +315,14 @@ var _ = Describe("Reader", func() {
 			Expect(r.Uint16()).Error().To(MatchError(io.EOF))
 		})
 
-		It("Should return ErrUnexpectedEOF on truncated uint16 with partial data", func() {
-			r := orc.NewReader(nil)
-			r.ResetBytes([]byte{1})
-			Expect(r.Uint16()).Error().To(MatchError(io.ErrUnexpectedEOF))
-		})
+		It(
+			"Should return ErrUnexpectedEOF on truncated uint16 with partial data",
+			func() {
+				r := orc.NewReader(nil)
+				r.ResetBytes([]byte{1})
+				Expect(r.Uint16()).Error().To(MatchError(io.ErrUnexpectedEOF))
+			},
+		)
 
 		It("Should return EOF on truncated uint64 when at end of data", func() {
 			r := orc.NewReader(nil)
@@ -321,11 +330,14 @@ var _ = Describe("Reader", func() {
 			Expect(r.Uint64()).Error().To(MatchError(io.EOF))
 		})
 
-		It("Should return ErrUnexpectedEOF on truncated uint64 with partial data", func() {
-			r := orc.NewReader(nil)
-			r.ResetBytes([]byte{1, 2, 3})
-			Expect(r.Uint64()).Error().To(MatchError(io.ErrUnexpectedEOF))
-		})
+		It(
+			"Should return ErrUnexpectedEOF on truncated uint64 with partial data",
+			func() {
+				r := orc.NewReader(nil)
+				r.ResetBytes([]byte{1, 2, 3})
+				Expect(r.Uint64()).Error().To(MatchError(io.ErrUnexpectedEOF))
+			},
+		)
 
 		It("Should return EOF on Read with no data remaining", func() {
 			r := orc.NewReader(nil)

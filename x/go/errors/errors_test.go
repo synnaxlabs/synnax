@@ -88,11 +88,14 @@ var _ = Describe("Is", func() {
 		It("Should return nil if the error is nil", func() {
 			Expect(errors.Skip(nil, nil)).To(Succeed())
 		})
-		It("Should return the error if the error does not match the reference error", func() {
-			e1 := errors.Newf("test1")
-			e2 := errors.Newf("test2")
-			Expect(errors.Skip(e1, e2)).To(Equal(e1))
-		})
+		It(
+			"Should return the error if the error does not match the reference error",
+			func() {
+				e1 := errors.Newf("test1")
+				e2 := errors.Newf("test2")
+				Expect(errors.Skip(e1, e2)).To(Equal(e1))
+			},
+		)
 	})
 
 	Describe("Combine", func() {
@@ -162,7 +165,9 @@ var _ = Describe("Is", func() {
 		})
 
 		It("Should return nil for a single-cause error", func() {
-			Expect(errors.UnwrapMulti(errors.Wrap(errors.New("base"), "context"))).To(BeNil())
+			Expect(
+				errors.UnwrapMulti(errors.Wrap(errors.New("base"), "context")),
+			).To(BeNil())
 		})
 
 		It("Should return nil for a nil error", func() {
@@ -188,7 +193,9 @@ var _ = Describe("Is", func() {
 		})
 
 		It("Should handle multiple format arguments", func() {
-			Expect(errors.Newf("test %s %d", "error", 123)).To(MatchError(Equal("test error 123")))
+			Expect(
+				errors.Newf("test %s %d", "error", 123),
+			).To(MatchError(Equal("test error 123")))
 		})
 	})
 

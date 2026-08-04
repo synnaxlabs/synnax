@@ -152,7 +152,8 @@ var _ = Describe("Codec", func() {
 	})
 
 	Describe("Channels", func() {
-		DescribeTable("should round-trip encode and decode",
+		DescribeTable(
+			"should round-trip encode and decode",
 			func(original v0.Channels) {
 				w := orc.NewWriter(0)
 				Expect(original.EncodeOrc(w)).To(Succeed())
@@ -167,7 +168,10 @@ var _ = Describe("Codec", func() {
 				Write: map[uint32]string{3: "test_2"},
 			}),
 			Entry("zero values", v0.Channels{Read: nil, Write: nil}),
-			Entry("empty collections", v0.Channels{Read: map[uint32]string{}, Write: map[uint32]string{}}),
+			Entry(
+				"empty collections",
+				v0.Channels{Read: map[uint32]string{}, Write: map[uint32]string{}},
+			),
 		)
 	})
 })

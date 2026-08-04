@@ -86,7 +86,10 @@ func (t *calculationTransform) processResponse(ctx context.Context, res Response
 	t.Out.Inlet() <- res
 }
 
-func (t *calculationTransform) processBufferedFrames(ctx context.Context, ackRes Response) {
+func (t *calculationTransform) processBufferedFrames(
+	ctx context.Context,
+	ackRes Response,
+) {
 	defer func() { t.pendingFrames = t.pendingFrames[:0] }()
 	if len(t.pendingFrames) == 0 {
 		if t.accumulatedError != nil {

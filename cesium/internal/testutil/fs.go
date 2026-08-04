@@ -54,7 +54,10 @@ func CopyFS(srcFS, destFS xfs.FS) error {
 				return err
 			}
 
-			destFile, err := destFS.Open(item.Name(), os.O_CREATE|os.O_WRONLY|os.O_TRUNC)
+			destFile, err := destFS.Open(
+				item.Name(),
+				os.O_CREATE|os.O_WRONLY|os.O_TRUNC,
+			)
 			if err != nil {
 				return errors.Combine(err, srcFile.Close())
 			}

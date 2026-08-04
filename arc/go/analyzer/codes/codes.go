@@ -20,7 +20,8 @@ import "github.com/synnaxlabs/x/diagnostics"
 const (
 	// TypeMismatch indicates incompatible types in an operation or assignment.
 	TypeMismatch diagnostics.ErrorCode = "ARC2001"
-	// TypeConstraintViolation indicates a type doesn't satisfy a type variable's constraint.
+	// TypeConstraintViolation indicates a type doesn't satisfy a type variable's
+	// constraint.
 	TypeConstraintViolation diagnostics.ErrorCode = "ARC2003"
 
 	// FuncArgCount indicates wrong number of arguments in a function call.

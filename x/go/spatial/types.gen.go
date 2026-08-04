@@ -95,7 +95,8 @@ const (
 	LocationCenter Location = "center"
 )
 
-// IsValid reports whether l is one of the defined Location values.
+// IsValid reports whether l is one of the defined Location
+// values.
 func (l Location) IsValid() bool {
 	switch l {
 	case LocationTop, LocationRight, LocationBottom, LocationLeft, LocationCenter:
@@ -113,7 +114,8 @@ const (
 	OrderLast  Order = "last"
 )
 
-// IsValid reports whether o is one of the defined Order values.
+// IsValid reports whether o is one of the defined Order
+// values.
 func (o Order) IsValid() bool {
 	switch o {
 	case OrderFirst, OrderLast:

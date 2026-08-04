@@ -74,7 +74,9 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 	// Inline union variant payloads have no standalone type in other targets,
 	// but protobuf oneof members must reference a named message, so synthetic
 	// payloads generate messages here.
-	if err := structCollector.AddAll(req.Resolutions.SyntheticStructTypes()); err != nil {
+	if err := structCollector.AddAll(
+		req.Resolutions.SyntheticStructTypes(),
+	); err != nil {
 		return nil, err
 	}
 
@@ -88,31 +90,49 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 	pbPathFunc := func(typ resolution.Type, table *resolution.Table) string {
 		return enum.FindPBOutputPath(typ, table)
 	}
-	err := structCollector.ForEach(func(outputPath string, structs []resolution.Type) error {
-		namespace := ""
-		if len(structs) > 0 {
-			namespace = structs[0].Namespace
-		}
-		enums := enum.CollectReferenced(structs, req.Resolutions)
-		enums = framework.MergeTypes(enums, enum.CollectNamespaceEnums(namespace, outputPath, req.Resolutions, "pb", pbPathFunc))
-		var unions []resolution.Type
-		if unionCollector.Has(outputPath) {
-			unions = unionCollector.Remove(outputPath)
-		}
-		if !hasEmittableType(structs, enums, unions) {
+	err := structCollector.ForEach(
+		func(outputPath string, structs []resolution.Type) error {
+			namespace := ""
+			if len(structs) > 0 {
+				namespace = structs[0].Namespace
+			}
+			enums := enum.CollectReferenced(structs, req.Resolutions)
+			enums = framework.MergeTypes(
+				enums,
+				enum.CollectNamespaceEnums(
+					namespace,
+					outputPath,
+					req.Resolutions,
+					"pb",
+					pbPathFunc,
+				),
+			)
+			var unions []resolution.Type
+			if unionCollector.Has(outputPath) {
+				unions = unionCollector.Remove(outputPath)
+			}
+			if !hasEmittableType(structs, enums, unions) {
+				return nil
+			}
+			content, err := p.generateFile(
+				outputPath,
+				structs,
+				enums,
+				unions,
+				req.Resolutions,
+				req.RepoRoot,
+			)
+			if err != nil {
+				return errors.Wrapf(err, "failed to generate %s", outputPath)
+			}
+			filename := namespace + ".proto"
+			resp.Files = append(resp.Files, plugin.File{
+				Path:    fmt.Sprintf("%s/%s", outputPath, filename),
+				Content: content,
+			})
 			return nil
-		}
-		content, err := p.generateFile(outputPath, structs, enums, unions, req.Resolutions, req.RepoRoot)
-		if err != nil {
-			return errors.Wrapf(err, "failed to generate %s", outputPath)
-		}
-		filename := namespace + ".proto"
-		resp.Files = append(resp.Files, plugin.File{
-			Path:    fmt.Sprintf("%s/%s", outputPath, filename),
-			Content: content,
-		})
-		return nil
-	})
+		},
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -143,7 +163,14 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 			return nil
 		}
 		namespace := kept[0].Namespace
-		content, err := p.generateFile(outputPath, nil, kept, nil, req.Resolutions, req.RepoRoot)
+		content, err := p.generateFile(
+			outputPath,
+			nil,
+			kept,
+			nil,
+			req.Resolutions,
+			req.RepoRoot,
+		)
 		if err != nil {
 			return errors.Wrapf(err, "failed to generate %s", outputPath)
 		}
@@ -158,21 +185,39 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 		return nil, err
 	}
 
-	err = unionCollector.ForEach(func(outputPath string, unions []resolution.Type) error {
-		namespace := unions[0].Namespace
-		enums := enum.CollectReferenced(unions, req.Resolutions)
-		enums = framework.MergeTypes(enums, enum.CollectNamespaceEnums(namespace, outputPath, req.Resolutions, "pb", pbPathFunc))
-		content, err := p.generateFile(outputPath, nil, enums, unions, req.Resolutions, req.RepoRoot)
-		if err != nil {
-			return errors.Wrapf(err, "failed to generate %s", outputPath)
-		}
-		filename := namespace + ".proto"
-		resp.Files = append(resp.Files, plugin.File{
-			Path:    fmt.Sprintf("%s/%s", outputPath, filename),
-			Content: content,
-		})
-		return nil
-	})
+	err = unionCollector.ForEach(
+		func(outputPath string, unions []resolution.Type) error {
+			namespace := unions[0].Namespace
+			enums := enum.CollectReferenced(unions, req.Resolutions)
+			enums = framework.MergeTypes(
+				enums,
+				enum.CollectNamespaceEnums(
+					namespace,
+					outputPath,
+					req.Resolutions,
+					"pb",
+					pbPathFunc,
+				),
+			)
+			content, err := p.generateFile(
+				outputPath,
+				nil,
+				enums,
+				unions,
+				req.Resolutions,
+				req.RepoRoot,
+			)
+			if err != nil {
+				return errors.Wrapf(err, "failed to generate %s", outputPath)
+			}
+			filename := namespace + ".proto"
+			resp.Files = append(resp.Files, plugin.File{
+				Path:    fmt.Sprintf("%s/%s", outputPath, filename),
+				Content: content,
+			})
+			return nil
+		},
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -328,7 +373,10 @@ func (p *Plugin) processEnum(e resolution.Type) enumData {
 	return ed
 }
 
-func (p *Plugin) processStruct(entry resolution.Type, data *templateData) (messageData, error) {
+func (p *Plugin) processStruct(
+	entry resolution.Type,
+	data *templateData,
+) (messageData, error) {
 	_, ok := entry.Form.(resolution.StructForm)
 	if !ok {
 		if _, isAlias := entry.Form.(resolution.AliasForm); isAlias {
@@ -361,7 +409,11 @@ func (p *Plugin) processStruct(entry resolution.Type, data *templateData) (messa
 	return md, nil
 }
 
-func (p *Plugin) processField(field resolution.Field, number int, data *templateData) (fieldData, error) {
+func (p *Plugin) processField(
+	field resolution.Field,
+	number int,
+	data *templateData,
+) (fieldData, error) {
 	if p.isFixedSizeUint8Array(field.Type, data.table) {
 		return fieldData{
 			Name:       casing.FieldSnake(field.Name),
@@ -445,7 +497,10 @@ func (p *Plugin) isArrayType(typeRef resolution.TypeRef, table *resolution.Table
 	}
 }
 
-func (p *Plugin) getArrayElementType(typeRef resolution.TypeRef, table *resolution.Table) (resolution.TypeRef, bool) {
+func (p *Plugin) getArrayElementType(
+	typeRef resolution.TypeRef,
+	table *resolution.Table,
+) (resolution.TypeRef, bool) {
 	if typeRef.Name == "Array" && len(typeRef.TypeArgs) > 0 {
 		return typeRef.TypeArgs[0], true
 	}
@@ -470,7 +525,10 @@ func (p *Plugin) getArrayElementType(typeRef resolution.TypeRef, table *resoluti
 	}
 }
 
-func (p *Plugin) isFixedSizeUint8Array(typeRef resolution.TypeRef, table *resolution.Table) bool {
+func (p *Plugin) isFixedSizeUint8Array(
+	typeRef resolution.TypeRef,
+	table *resolution.Table,
+) bool {
 	arraySize := p.getArraySize(typeRef, table)
 	if arraySize == nil {
 		return false
@@ -492,7 +550,10 @@ func (p *Plugin) isFixedSizeUint8Array(typeRef resolution.TypeRef, table *resolu
 	return false
 }
 
-func (p *Plugin) getArraySize(typeRef resolution.TypeRef, table *resolution.Table) *int64 {
+func (p *Plugin) getArraySize(
+	typeRef resolution.TypeRef,
+	table *resolution.Table,
+) *int64 {
 	if typeRef.Name == "Array" && typeRef.ArraySize != nil {
 		return typeRef.ArraySize
 	}
@@ -512,7 +573,10 @@ func (p *Plugin) getArraySize(typeRef resolution.TypeRef, table *resolution.Tabl
 	}
 }
 
-func (p *Plugin) isNestedArrayType(typeRef resolution.TypeRef, table *resolution.Table) bool {
+func (p *Plugin) isNestedArrayType(
+	typeRef resolution.TypeRef,
+	table *resolution.Table,
+) bool {
 	if !p.isArrayType(typeRef, table) {
 		return false
 	}
@@ -526,14 +590,20 @@ func (p *Plugin) isNestedArrayType(typeRef resolution.TypeRef, table *resolution
 // generateOptionalArrayWrapper registers (once) a wrapper message holding the
 // repeated element type, so an optional list can be represented as a nullable
 // message field. Returns the wrapper message name.
-func (p *Plugin) generateOptionalArrayWrapper(typeRef resolution.TypeRef, data *templateData) (string, error) {
+func (p *Plugin) generateOptionalArrayWrapper(
+	typeRef resolution.TypeRef,
+	data *templateData,
+) (string, error) {
 	elemType, ok := p.getArrayElementType(typeRef, data.table)
 	if !ok {
 		return "", errors.New("could not get element type for optional array")
 	}
 	elemProtoType, err := p.typeToProto(elemType, data)
 	if err != nil {
-		return "", errors.Wrap(err, "could not convert optional array element type to proto")
+		return "", errors.Wrap(
+			err,
+			"could not convert optional array element type to proto",
+		)
 	}
 	wrapperName := p.getOptionalArrayWrapperName(typeRef, data.table)
 	if data.wrapperMessages == nil {
@@ -553,7 +623,10 @@ func (p *Plugin) generateOptionalArrayWrapper(typeRef resolution.TypeRef, data *
 
 // getOptionalArrayWrapperName derives the wrapper message name for an optional list
 // (e.g. "Label" -> "LabelList"), distinct from the nested-array "Wrapper" suffix.
-func (p *Plugin) getOptionalArrayWrapperName(typeRef resolution.TypeRef, table *resolution.Table) string {
+func (p *Plugin) getOptionalArrayWrapperName(
+	typeRef resolution.TypeRef,
+	table *resolution.Table,
+) string {
 	elemType, ok := p.getArrayElementType(typeRef, table)
 	if !ok {
 		return "ListWrapper"
@@ -567,7 +640,10 @@ func (p *Plugin) getOptionalArrayWrapperName(typeRef resolution.TypeRef, table *
 	return "ListWrapper"
 }
 
-func (p *Plugin) getNestedArrayWrapperName(typeRef resolution.TypeRef, table *resolution.Table) string {
+func (p *Plugin) getNestedArrayWrapperName(
+	typeRef resolution.TypeRef,
+	table *resolution.Table,
+) string {
 	elemType, ok := p.getArrayElementType(typeRef, table)
 	if !ok {
 		return "ArrayWrapper"
@@ -585,7 +661,10 @@ func (p *Plugin) getNestedArrayWrapperName(typeRef resolution.TypeRef, table *re
 	return "ArrayWrapper"
 }
 
-func (p *Plugin) generateNestedArrayWrapper(typeRef resolution.TypeRef, data *templateData) (string, error) {
+func (p *Plugin) generateNestedArrayWrapper(
+	typeRef resolution.TypeRef,
+	data *templateData,
+) (string, error) {
 	elemType, ok := p.getArrayElementType(typeRef, data.table)
 	if !ok {
 		return "", errors.New("could not get element type for nested array")
@@ -619,7 +698,10 @@ func (p *Plugin) generateNestedArrayWrapper(typeRef resolution.TypeRef, data *te
 	return wrapperName, nil
 }
 
-func (p *Plugin) typeToProto(typeRef resolution.TypeRef, data *templateData) (string, error) {
+func (p *Plugin) typeToProto(
+	typeRef resolution.TypeRef,
+	data *templateData,
+) (string, error) {
 	if typeRef.IsTypeParam() && typeRef.TypeParam != nil {
 		if typeRef.TypeParam.HasDefault() {
 			return p.typeToProto(*typeRef.TypeParam.Default, data)
@@ -637,7 +719,10 @@ func (p *Plugin) typeToProto(typeRef resolution.TypeRef, data *templateData) (st
 	case resolution.PrimitiveForm:
 		mapping := primitiveMapper.Map(form.Name)
 		if mapping.TargetType == "any" {
-			return "", errors.Newf("primitive type %q has no protobuf mapping", form.Name)
+			return "", errors.Newf(
+				"primitive type %q has no protobuf mapping",
+				form.Name,
+			)
 		}
 		for _, imp := range mapping.Imports {
 			data.imports.add(imp.Path)
@@ -672,14 +757,21 @@ func (p *Plugin) typeToProto(typeRef resolution.TypeRef, data *templateData) (st
 		return p.resolveUnionType(resolved, data)
 
 	default:
-		return "", errors.Newf("unknown type form %T for type %q", resolved.Form, resolved.Name)
+		return "", errors.Newf(
+			"unknown type form %T for type %q",
+			resolved.Form,
+			resolved.Name,
+		)
 	}
 }
 
 // resolveUnionType resolves a discriminated union to its protobuf wrapper
 // message name, adding the cross-package import when the union lives in a
 // different proto package.
-func (p *Plugin) resolveUnionType(resolved resolution.Type, data *templateData) (string, error) {
+func (p *Plugin) resolveUnionType(
+	resolved resolution.Type,
+	data *templateData,
+) (string, error) {
 	pbName := getPBName(resolved)
 	if pbName == "" {
 		pbName = resolved.Name
@@ -703,7 +795,10 @@ func (p *Plugin) resolveUnionType(resolved resolution.Type, data *templateData) 
 // adjacently tagged (the oneof field number is the discriminator), so the
 // variant messages are referenced directly rather than flattened, and bases
 // nest as messages so translators can delegate to the bases' own translators.
-func (p *Plugin) processUnion(entry resolution.Type, data *templateData) (messageData, error) {
+func (p *Plugin) processUnion(
+	entry resolution.Type,
+	data *templateData,
+) (messageData, error) {
 	form := entry.Form.(resolution.UnionForm)
 	name := getPBName(entry)
 	if name == "" {
@@ -736,7 +831,12 @@ func (p *Plugin) processUnion(entry resolution.Type, data *templateData) (messag
 	for _, v := range form.Variants {
 		protoType, err := p.typeToProto(v.Type, data)
 		if err != nil {
-			return messageData{}, errors.Wrapf(err, "union %q variant %q", entry.Name, v.Name)
+			return messageData{}, errors.Wrapf(
+				err,
+				"union %q variant %q",
+				entry.Name,
+				v.Name,
+			)
 		}
 		oneof.Variants = append(oneof.Variants, oneofVariantData{
 			Name:   casing.FieldSnake(v.Name),
@@ -749,13 +849,20 @@ func (p *Plugin) processUnion(entry resolution.Type, data *templateData) (messag
 	return md, nil
 }
 
-func (p *Plugin) resolveStructType(resolved resolution.Type, data *templateData) (string, error) {
+func (p *Plugin) resolveStructType(
+	resolved resolution.Type,
+	data *templateData,
+) (string, error) {
 	form, ok := resolved.Form.(resolution.StructForm)
 	if !ok {
 		if aliasForm, isAlias := resolved.Form.(resolution.AliasForm); isAlias {
 			return p.typeToProto(aliasForm.Target, data)
 		}
-		return "", errors.Newf("expected struct form for type %q, got %T", resolved.Name, resolved.Form)
+		return "", errors.Newf(
+			"expected struct form for type %q, got %T",
+			resolved.Name,
+			resolved.Form,
+		)
 	}
 	_ = form
 
@@ -798,9 +905,15 @@ func (p *Plugin) resolveEnumType(resolved resolution.Type, data *templateData) s
 	return fmt.Sprintf(".%s.%s", pkg, resolved.Name)
 }
 
-func (p *Plugin) resolveMapType(typeRef resolution.TypeRef, data *templateData) (string, error) {
+func (p *Plugin) resolveMapType(
+	typeRef resolution.TypeRef,
+	data *templateData,
+) (string, error) {
 	if len(typeRef.TypeArgs) < 2 {
-		return "", errors.Newf("Map type requires 2 type arguments, got %d", len(typeRef.TypeArgs))
+		return "", errors.Newf(
+			"Map type requires 2 type arguments, got %d",
+			len(typeRef.TypeArgs),
+		)
 	}
 
 	keyType, err := p.typeToProto(typeRef.TypeArgs[0], data)
@@ -898,7 +1011,10 @@ var templateFuncs = template.FuncMap{
 	"formatDoc": doc.FormatProto,
 }
 
-var fileTemplate = template.Must(template.New("proto").Funcs(templateFuncs).Parse(`// Code generated by oracle. DO NOT EDIT.
+var fileTemplate = template.Must(
+	template.New("proto").
+		Funcs(templateFuncs).
+		Parse(`// Code generated by oracle. DO NOT EDIT.
 
 syntax = "proto3";
 
@@ -942,4 +1058,5 @@ message {{.Name}} {
 {{- end}}
 }
 {{- end}}
-`))
+`),
+)

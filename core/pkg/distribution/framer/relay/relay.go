@@ -103,8 +103,14 @@ func (c Config) Override(other Config) Config {
 	c.HostResolver = override.Nil(c.HostResolver, other.HostResolver)
 	c.TS = override.Nil(c.TS, other.TS)
 	c.FreeWrites = override.Nil(c.FreeWrites, other.FreeWrites)
-	c.SlowConsumerTimeout = override.Numeric(c.SlowConsumerTimeout, other.SlowConsumerTimeout)
-	c.ResponseBufferSize = override.Numeric(c.ResponseBufferSize, other.ResponseBufferSize)
+	c.SlowConsumerTimeout = override.Numeric(
+		c.SlowConsumerTimeout,
+		other.SlowConsumerTimeout,
+	)
+	c.ResponseBufferSize = override.Numeric(
+		c.ResponseBufferSize,
+		other.ResponseBufferSize,
+	)
 	c.DemandBufferSize = override.Numeric(c.DemandBufferSize, other.DemandBufferSize)
 	return c
 }
@@ -185,7 +191,9 @@ func (r *Relay) Close() error {
 	return err
 }
 
-func (r *Relay) connectToDelta(buf int) (confluence.Outlet[Response], observe.Disconnect) {
+func (r *Relay) connectToDelta(
+	buf int,
+) (confluence.Outlet[Response], observe.Disconnect) {
 	var (
 		data = confluence.NewStream[Response](buf)
 		addr = address.Newf("%s_%s", r.ins.Meta.Path, address.Rand().String())

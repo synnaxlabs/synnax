@@ -84,7 +84,6 @@ var _ = Describe("Switch", func() {
 				sw.Flow(ctx, CloseOutputInletsOnExit(), WithAddress("toCoverThis"))
 				input.Inlet() <- 1
 				Expect(ctx.Wait()).To(MatchError(address.ErrNotFound))
-
 			})
 		})
 	})
@@ -155,6 +154,5 @@ var _ = Describe("Switch", func() {
 			cancel()
 			Expect(ctx.Wait()).To(MatchError(context.Canceled))
 		})
-
 	})
 })

@@ -20,12 +20,16 @@ var _ = Describe("Union", func() {
 	Describe("Basic Parsing", func() {
 		Specify("matches first variant (string)", func() {
 			var dest any
-			Expect(zyn.Union(zyn.String(), zyn.Number()).Parse("hello", &dest)).To(Succeed())
+			Expect(
+				zyn.Union(zyn.String(), zyn.Number()).Parse("hello", &dest),
+			).To(Succeed())
 			Expect(dest).To(Equal("hello"))
 		})
 		Specify("matches second variant (number)", func() {
 			var dest any
-			Expect(zyn.Union(zyn.String(), zyn.Number()).Parse(42.0, &dest)).To(Succeed())
+			Expect(
+				zyn.Union(zyn.String(), zyn.Number()).Parse(42.0, &dest),
+			).To(Succeed())
 			Expect(dest).To(Equal(42.0))
 		})
 		Specify("matches bool variant", func() {
@@ -35,17 +39,23 @@ var _ = Describe("Union", func() {
 		})
 		Specify("first match wins", func() {
 			var dest any
-			Expect(zyn.Union(zyn.String(), zyn.String()).Parse("hello", &dest)).To(Succeed())
+			Expect(
+				zyn.Union(zyn.String(), zyn.String()).Parse("hello", &dest),
+			).To(Succeed())
 			Expect(dest).To(Equal("hello"))
 		})
 		Specify("concrete destination: first variant", func() {
 			var dest string
-			Expect(zyn.Union(zyn.String(), zyn.Number()).Parse("hello", &dest)).To(Succeed())
+			Expect(
+				zyn.Union(zyn.String(), zyn.Number()).Parse("hello", &dest),
+			).To(Succeed())
 			Expect(dest).To(Equal("hello"))
 		})
 		Specify("concrete destination: second variant", func() {
 			var dest float64
-			Expect(zyn.Union(zyn.String(), zyn.Number()).Parse(42.0, &dest)).To(Succeed())
+			Expect(
+				zyn.Union(zyn.String(), zyn.Number()).Parse(42.0, &dest),
+			).To(Succeed())
 			Expect(dest).To(Equal(42.0))
 		})
 		Specify("concrete destination: no match", func() {
@@ -56,14 +66,18 @@ var _ = Describe("Union", func() {
 	})
 	Describe("Validate", func() {
 		It("Should succeed when data matches a variant", func() {
-			Expect(zyn.Union(zyn.String(), zyn.Number()).Validate("hello")).To(Succeed())
+			Expect(
+				zyn.Union(zyn.String(), zyn.Number()).Validate("hello"),
+			).To(Succeed())
 		})
 		It("Should fail when data matches no variant", func() {
 			Expect(zyn.Union(zyn.Uint32(), zyn.Bool()).Validate([]any{1, 2})).
 				To(MatchError(ContainSubstring("did not match any of 2 union variants")))
 		})
 		It("Should succeed when optional union receives nil", func() {
-			Expect(zyn.Union(zyn.String(), zyn.Number()).Optional().Validate(nil)).To(Succeed())
+			Expect(
+				zyn.Union(zyn.String(), zyn.Number()).Optional().Validate(nil),
+			).To(Succeed())
 		})
 		It("Should fail when required union receives nil", func() {
 			Expect(zyn.Union(zyn.String(), zyn.Number()).Validate(nil)).
@@ -92,7 +106,9 @@ var _ = Describe("Union", func() {
 	Describe("Optional Fields", func() {
 		Specify("optional with nil value", func() {
 			var dest any
-			Expect(zyn.Union(zyn.String(), zyn.Number()).Optional().Parse(nil, &dest)).To(Succeed())
+			Expect(
+				zyn.Union(zyn.String(), zyn.Number()).Optional().Parse(nil, &dest),
+			).To(Succeed())
 		})
 		Specify("required with nil value", func() {
 			var dest any
@@ -149,7 +165,9 @@ var _ = Describe("Union", func() {
 			Expect(unionShape.Variants()[1].DataType()).To(Equal(zyn.NumberT))
 		})
 		It("Should reflect optional", func() {
-			Expect(zyn.Union(zyn.String(), zyn.Number()).Optional().Shape().Optional()).To(BeTrue())
+			Expect(
+				zyn.Union(zyn.String(), zyn.Number()).Optional().Shape().Optional(),
+			).To(BeTrue())
 		})
 	})
 	Describe("Constructor", func() {

@@ -61,14 +61,14 @@ type Text struct {
 	// tombstones holds ids deleted before their insert was seen, so the delete can be
 	// applied to the character once it arrives.
 	tombstones set.Set[ID]
-	// pending holds inserts whose origin has not yet been integrated, buffered until the
-	// origin arrives.
+	// pending holds inserts whose origin has not yet been integrated, buffered until
+	// the origin arrives.
 	pending []Insert
 	// order caches the in-order traversal of every element, rebuilt lazily when dirty.
 	order []*element
 	dirty bool
-	// visibleCache caches the live characters in document order. It is nil when stale and
-	// must be recomputed on the next read.
+	// visibleCache caches the live characters in document order. It is nil when stale
+	// and must be recomputed on the next read.
 	visibleCache []*element
 	// str caches the materialized string; strValid reports whether it is current.
 	str      string
@@ -85,8 +85,8 @@ func (t *Text) markDirty() {
 	t.strValid = false
 }
 
-// New creates an empty document owned by the given replica. The replica must be non-zero
-// and unique among the replicas editing the document.
+// New creates an empty document owned by the given replica. The replica must be
+// non-zero and unique among the replicas editing the document.
 func New(replica uint32) *Text {
 	return &Text{
 		replica:    replica,
@@ -108,7 +108,10 @@ func (t *Text) Snapshot() (inserts []Insert, deletes []Delete) {
 	var walk func(e *element, origin ID, side spatial.XLocation)
 	walk = func(e *element, origin ID, side spatial.XLocation) {
 		if e != t.root {
-			inserts = append(inserts, Insert{ID: e.id, Origin: origin, Side: side, Char: e.char})
+			inserts = append(
+				inserts,
+				Insert{ID: e.id, Origin: origin, Side: side, Char: e.char},
+			)
 			if e.deleted {
 				deletes = append(deletes, Delete{ID: e.id})
 			}
@@ -125,8 +128,8 @@ func (t *Text) Snapshot() (inserts []Insert, deletes []Delete) {
 }
 
 // Load applies a snapshot to the document. It is intended for a freshly created
-// document; the local replica's edits remain attributed to its own replica id and do not
-// collide with the snapshot's operations.
+// document; the local replica's edits remain attributed to its own replica id and do
+// not collide with the snapshot's operations.
 func (t *Text) Load(inserts []Insert, deletes []Delete) {
 	t.ApplyInsert(inserts...)
 	t.ApplyDelete(deletes...)
@@ -143,9 +146,9 @@ func (t *Text) rebuild() {
 }
 
 // walk appends the in-order traversal of the tree to t.order, excluding the root
-// sentinel. The traversal is iterative with an explicit stack because a document built by
-// typing in a single direction forms a tree as deep as it is long, which would overflow
-// the call stack under recursion.
+// sentinel. The traversal is iterative with an explicit stack because a document built
+// by typing in a single direction forms a tree as deep as it is long, which would
+// overflow the call stack under recursion.
 func (t *Text) walk() {
 	type frame struct {
 		node *element
@@ -171,8 +174,8 @@ func (t *Text) walk() {
 	}
 }
 
-// visible returns the live characters in document order. The result is cached and reused
-// until the next mutation.
+// visible returns the live characters in document order. The result is cached and
+// reused until the next mutation.
 func (t *Text) visible() []*element {
 	if t.visibleCache != nil {
 		return t.visibleCache
@@ -325,7 +328,8 @@ func (t *Text) ApplyInsert(ops ...Insert) {
 }
 
 // ApplyDelete integrates delete operations produced by other replicas. A delete whose
-// character has not yet been seen is recorded so the character is tombstoned on arrival.
+// character has not yet been seen is recorded so the character is tombstoned on
+// arrival.
 func (t *Text) ApplyDelete(ops ...Delete) {
 	for _, op := range ops {
 		if e, ok := t.elements[op.ID]; ok {

@@ -68,7 +68,10 @@ func TableLoader(
 				e.err = errors.Wrapf(err, "failed to compute relative path for %s", f)
 				return nil, e.err
 			}
-			normalized = append(normalized, "schemas/"+strings.TrimSuffix(rel, ".oracle"))
+			normalized = append(
+				normalized,
+				"schemas/"+strings.TrimSuffix(rel, ".oracle"),
+			)
 		}
 		t, diag := analyzer.Analyze(ctx, normalized, loader)
 		if diag != nil && !diag.Ok() {

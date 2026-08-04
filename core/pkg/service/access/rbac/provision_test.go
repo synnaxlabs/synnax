@@ -27,18 +27,31 @@ var _ = Describe("Provision", func() {
 	BeforeEach(func() { tx = DeferClose(db.OpenTx()) })
 
 	Describe("Built-in roles", func() {
-		It("Should have created all built-in roles during OpenService", func(ctx SpecContext) {
-			for _, name := range []string{"Owner", "Engineer", "Host", "Operator", "Viewer"} {
-				var r role.Role
-				Expect(rbacSvc.Role.NewRetrieve().Where(role.MatchNames(name)).Entry(&r).Exec(ctx, tx)).To(Succeed())
-				Expect(r.Key).ToNot(Equal(uuid.Nil))
-				Expect(r.Internal).To(BeTrue())
-			}
-		})
+		It(
+			"Should have created all built-in roles during OpenService",
+			func(ctx SpecContext) {
+				for _, name := range []string{"Owner", "Engineer", "Host", "Operator", "Viewer"} {
+					var r role.Role
+					Expect(
+						rbacSvc.Role.NewRetrieve().
+							Where(role.MatchNames(name)).
+							Entry(&r).
+							Exec(ctx, tx),
+					).To(Succeed())
+					Expect(r.Key).ToNot(Equal(uuid.Nil))
+					Expect(r.Internal).To(BeTrue())
+				}
+			},
+		)
 		It("Should have created policies for each role", func(ctx SpecContext) {
 			for _, name := range []string{"Owner", "Engineer", "Host", "Operator", "Viewer"} {
 				var r role.Role
-				Expect(rbacSvc.Role.NewRetrieve().Where(role.MatchNames(name)).Entry(&r).Exec(ctx, tx)).To(Succeed())
+				Expect(
+					rbacSvc.Role.NewRetrieve().
+						Where(role.MatchNames(name)).
+						Entry(&r).
+						Exec(ctx, tx),
+				).To(Succeed())
 				var policies []ontology.Resource
 				Expect(otg.NewRetrieve().
 					WhereIDs(r.OntologyID()).
@@ -54,10 +67,17 @@ var _ = Describe("Provision", func() {
 		var subject ontology.ID
 		BeforeEach(func(ctx SpecContext) {
 			var r role.Role
-			Expect(rbacSvc.Role.NewRetrieve().Where(role.MatchNames("Host")).Entry(&r).Exec(ctx, tx)).To(Succeed())
+			Expect(
+				rbacSvc.Role.NewRetrieve().
+					Where(role.MatchNames("Host")).
+					Entry(&r).
+					Exec(ctx, tx),
+			).To(Succeed())
 			subject = ontology.ID{Type: "user", Key: uuid.New().String()}
 			Expect(otg.NewWriter(tx).DefineResources(ctx, subject)).To(Succeed())
-			Expect(rbacSvc.Role.NewWriter(tx, true).AssignRole(ctx, subject, r.Key)).To(Succeed())
+			Expect(
+				rbacSvc.Role.NewWriter(tx, true).AssignRole(ctx, subject, r.Key),
+			).To(Succeed())
 		})
 
 		DescribeTable("grants full access to driver resource types",
@@ -135,78 +155,97 @@ var _ = Describe("Provision", func() {
 			Entry("delete", access.ActionDelete, MatchError(access.ErrDenied)),
 		)
 
-		It("Should attach exactly the driver resource types to the edit policy", func(ctx SpecContext) {
-			var p policy.Policy
-			Expect(rbacSvc.Policy.NewRetrieve().
-				Where(policy.MatchNames("Host Edit Access")).
-				Entry(&p).
-				Exec(ctx, tx)).To(Succeed())
-			Expect(p.Actions).To(ConsistOf(access.AllActions))
-			Expect(p.Objects).To(ConsistOf(
-				ontology.ID{Type: ontology.ResourceTypeRange},
-				ontology.ID{Type: ontology.ResourceTypeRack},
-				ontology.ID{Type: ontology.ResourceTypeDevice},
-				ontology.ID{Type: ontology.ResourceTypeTask},
-				ontology.ID{Type: ontology.ResourceTypeArc},
-				ontology.ID{Type: ontology.ResourceTypeStatus},
-			))
-		})
+		It(
+			"Should attach exactly the driver resource types to the edit policy",
+			func(ctx SpecContext) {
+				var p policy.Policy
+				Expect(rbacSvc.Policy.NewRetrieve().
+					Where(policy.MatchNames("Host Edit Access")).
+					Entry(&p).
+					Exec(ctx, tx)).To(Succeed())
+				Expect(p.Actions).To(ConsistOf(access.AllActions))
+				Expect(p.Objects).To(ConsistOf(
+					ontology.ID{Type: ontology.ResourceTypeRange},
+					ontology.ID{Type: ontology.ResourceTypeRack},
+					ontology.ID{Type: ontology.ResourceTypeDevice},
+					ontology.ID{Type: ontology.ResourceTypeTask},
+					ontology.ID{Type: ontology.ResourceTypeArc},
+					ontology.ID{Type: ontology.ResourceTypeStatus},
+				))
+			},
+		)
 	})
 
 	Describe("Idempotency", func() {
-		It("Should produce the same role keys when opened again", func(ctx SpecContext) {
-			var ownerBefore role.Role
-			Expect(rbacSvc.Role.NewRetrieve().Where(role.MatchNames("Owner")).Entry(&ownerBefore).Exec(ctx, tx)).To(Succeed())
+		It(
+			"Should produce the same role keys when opened again",
+			func(ctx SpecContext) {
+				var ownerBefore role.Role
+				Expect(
+					rbacSvc.Role.NewRetrieve().
+						Where(role.MatchNames("Owner")).
+						Entry(&ownerBefore).
+						Exec(ctx, tx),
+				).To(Succeed())
 
-			svc2 := MustOpen(rbac.OpenService(ctx, rbac.ServiceConfig{
-				DB:       db,
-				Ontology: otg,
-				Group:    groupSvc,
-				Search:   searchIdx,
-				User:     userSvc,
-			}))
+				svc2 := MustOpen(rbac.OpenService(ctx, rbac.ServiceConfig{
+					DB:       db,
+					Ontology: otg,
+					Group:    groupSvc,
+					Search:   searchIdx,
+					User:     userSvc,
+				}))
 
-			var ownerAfter role.Role
-			Expect(svc2.Role.NewRetrieve().Where(role.MatchNames("Owner")).Entry(&ownerAfter).Exec(ctx, tx)).To(Succeed())
-			Expect(ownerAfter.Key).To(Equal(ownerBefore.Key))
-		})
+				var ownerAfter role.Role
+				Expect(
+					svc2.Role.NewRetrieve().
+						Where(role.MatchNames("Owner")).
+						Entry(&ownerAfter).
+						Exec(ctx, tx),
+				).To(Succeed())
+				Expect(ownerAfter.Key).To(Equal(ownerBefore.Key))
+			},
+		)
 	})
 
 	Describe("Policy updates", func() {
-		It("Should update existing policy objects on re-provision", func(ctx SpecContext) {
-			var ownerPolicy policy.Policy
-			Expect(rbacSvc.Policy.NewRetrieve().
-				Where(policy.MatchNames("Owner")).
-				Entry(&ownerPolicy).
-				Exec(ctx, nil)).To(Succeed())
-			originalObjects := ownerPolicy.Objects
-			Expect(originalObjects).ToNot(BeEmpty())
+		It(
+			"Should update existing policy objects on re-provision",
+			func(ctx SpecContext) {
+				var ownerPolicy policy.Policy
+				Expect(rbacSvc.Policy.NewRetrieve().
+					Where(policy.MatchNames("Owner")).
+					Entry(&ownerPolicy).
+					Exec(ctx, nil)).To(Succeed())
+				originalObjects := ownerPolicy.Objects
+				Expect(originalObjects).ToNot(BeEmpty())
 
-			// Simulate stale DB by stripping objects in a committed transaction
-			staleTx := db.OpenTx()
-			Expect(gorp.NewUpdate[policy.Key, policy.Policy]().
-				Where(gorp.MatchKeys[policy.Key, policy.Policy](ownerPolicy.Key)).
-				Change(func(_ gorp.Context, p policy.Policy) policy.Policy {
-					p.Objects = p.Objects[:1]
-					return p
-				}).Exec(ctx, staleTx)).To(Succeed())
-			Expect(staleTx.Commit(ctx)).To(Succeed())
+				// Simulate stale DB by stripping objects in a committed transaction
+				staleTx := db.OpenTx()
+				Expect(gorp.NewUpdate[policy.Key, policy.Policy]().
+					Where(gorp.MatchKeys[policy.Key, policy.Policy](ownerPolicy.Key)).
+					Change(func(_ gorp.Context, p policy.Policy) policy.Policy {
+						p.Objects = p.Objects[:1]
+						return p
+					}).Exec(ctx, staleTx)).To(Succeed())
+				Expect(staleTx.Commit(ctx)).To(Succeed())
 
-			// Re-open service, which re-provisions
-			svc2 := MustOpen(rbac.OpenService(ctx, rbac.ServiceConfig{
-				DB:       db,
-				Ontology: otg,
-				Group:    groupSvc,
-				Search:   searchIdx,
-				User:     userSvc,
-			}))
+				// Re-open service, which re-provisions
+				svc2 := MustOpen(rbac.OpenService(ctx, rbac.ServiceConfig{
+					DB:       db,
+					Ontology: otg,
+					Group:    groupSvc,
+					Search:   searchIdx,
+					User:     userSvc,
+				}))
 
-			var updated policy.Policy
-			Expect(svc2.Policy.NewRetrieve().
-				Where(policy.MatchNames("Owner")).
-				Entry(&updated).
-				Exec(ctx, nil)).To(Succeed())
-			Expect(updated.Objects).To(Equal(originalObjects))
-		})
+				var updated policy.Policy
+				Expect(svc2.Policy.NewRetrieve().
+					Where(policy.MatchNames("Owner")).
+					Entry(&updated).
+					Exec(ctx, nil)).To(Succeed())
+				Expect(updated.Objects).To(Equal(originalObjects))
+			},
+		)
 	})
 })

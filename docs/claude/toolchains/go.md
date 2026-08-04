@@ -18,9 +18,11 @@ Modules reference siblings via relative-path `replace` directives in each `go.mo
 
 ## Style
 
-gofmt, 88-char lines (editor-enforced), standard Go idioms. Imports grouped: stdlib,
-external, internal. Format with `scripts/gofmt.sh <path>`, check with
-`scripts/check_gofmt.sh <path>` (see `docs/claude/scripts.md`).
+golangci-lint built-in formatters (gofmt, gofumpt, gci, goimports, golines, swaggo;
+configured in the root `.golangci.yaml`), 88-char lines, standard Go idioms. Imports
+grouped: stdlib, then all others (gci). Format with `golangci-lint fmt` in the module,
+check with `golangci-lint fmt --diff`. `golangci-lint run` (CI) also fails on
+unformatted files.
 
 ## Packages & Naming
 

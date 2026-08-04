@@ -120,7 +120,10 @@ func findScopeAt(
 	return findScopeAtInternalPosition(symbols, fromProtocol(astPos))
 }
 
-func (d *Document) resolveSymbolAtPosition(ctx context.Context, pos protocol.Position) (*symbol.Symbol, error) {
+func (d *Document) resolveSymbolAtPosition(
+	ctx context.Context,
+	pos protocol.Position,
+) (*symbol.Symbol, error) {
 	word := d.getWordAtPosition(pos)
 	if word == "" {
 		return nil, nil

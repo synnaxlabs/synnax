@@ -17,11 +17,11 @@ import (
 )
 
 var _ = Describe("Variable + Literal Operations", func() {
-	DescribeTable("should compile variable + literal with correct bytecode for all numeric types",
+	DescribeTable(
+		"should compile variable + literal with correct bytecode for all numeric types",
 		func(bCtx SpecContext, source string, instructions ...any) {
 			Expect(compileBlock(bCtx, source)).To(MatchOpcodes(instructions...))
 		},
-
 		// u8 operations
 		Entry("u8 variable + u8 literal",
 			`
@@ -35,7 +35,6 @@ var _ = Describe("Variable + Literal Operations", func() {
 			OpI32Add,
 			OpLocalSet, 1,
 		),
-
 		Entry("u8 variable - u8 literal",
 			`
 			x u8 := 20
@@ -48,7 +47,6 @@ var _ = Describe("Variable + Literal Operations", func() {
 			OpI32Sub,
 			OpLocalSet, 1,
 		),
-
 		Entry("u8 variable * u8 literal",
 			`
 			x u8 := 3
@@ -61,7 +59,6 @@ var _ = Describe("Variable + Literal Operations", func() {
 			OpI32Mul,
 			OpLocalSet, 1,
 		),
-
 		Entry("u8 variable / u8 literal",
 			`
 			x u8 := 20
@@ -74,7 +71,6 @@ var _ = Describe("Variable + Literal Operations", func() {
 			OpI32DivU,
 			OpLocalSet, 1,
 		),
-
 		Entry("u8 variable % u8 literal",
 			`
 			x u8 := 17
@@ -87,7 +83,6 @@ var _ = Describe("Variable + Literal Operations", func() {
 			OpI32RemU,
 			OpLocalSet, 1,
 		),
-
 		// u16 operations
 		Entry("u16 variable + u16 literal",
 			`
@@ -101,7 +96,6 @@ var _ = Describe("Variable + Literal Operations", func() {
 			OpI32Add,
 			OpLocalSet, 1,
 		),
-
 		Entry("u16 variable / u16 literal",
 			`
 			x u16 := 200
@@ -114,7 +108,6 @@ var _ = Describe("Variable + Literal Operations", func() {
 			OpI32DivU,
 			OpLocalSet, 1,
 		),
-
 		Entry("u16 variable % u16 literal",
 			`
 			x u16 := 77
@@ -127,7 +120,6 @@ var _ = Describe("Variable + Literal Operations", func() {
 			OpI32RemU,
 			OpLocalSet, 1,
 		),
-
 		// u32 operations
 		Entry("u32 variable + u32 literal",
 			`
@@ -141,7 +133,6 @@ var _ = Describe("Variable + Literal Operations", func() {
 			OpI32Add,
 			OpLocalSet, 1,
 		),
-
 		Entry("u32 variable / u32 literal",
 			`
 			x u32 := 1000
@@ -154,7 +145,6 @@ var _ = Describe("Variable + Literal Operations", func() {
 			OpI32DivU,
 			OpLocalSet, 1,
 		),
-
 		Entry("u32 variable % u32 literal",
 			`
 			x u32 := 177
@@ -167,7 +157,6 @@ var _ = Describe("Variable + Literal Operations", func() {
 			OpI32RemU,
 			OpLocalSet, 1,
 		),
-
 		// u64 operations
 		Entry("u64 variable + u64 literal",
 			`
@@ -181,7 +170,6 @@ var _ = Describe("Variable + Literal Operations", func() {
 			OpI64Add,
 			OpLocalSet, 1,
 		),
-
 		Entry("u64 variable / u64 literal",
 			`
 			x u64 := 10000
@@ -194,7 +182,6 @@ var _ = Describe("Variable + Literal Operations", func() {
 			OpI64DivU,
 			OpLocalSet, 1,
 		),
-
 		Entry("u64 variable % u64 literal",
 			`
 			x u64 := 1777
@@ -207,7 +194,6 @@ var _ = Describe("Variable + Literal Operations", func() {
 			OpI64RemU,
 			OpLocalSet, 1,
 		),
-
 		// i8 operations
 		Entry("i8 variable + i8 literal",
 			`
@@ -221,7 +207,6 @@ var _ = Describe("Variable + Literal Operations", func() {
 			OpI32Add,
 			OpLocalSet, 1,
 		),
-
 		Entry("i8 variable - i8 literal",
 			`
 			x i8 := 20
@@ -234,7 +219,6 @@ var _ = Describe("Variable + Literal Operations", func() {
 			OpI32Sub,
 			OpLocalSet, 1,
 		),
-
 		Entry("i8 variable / i8 literal",
 			`
 			x i8 := 20
@@ -247,7 +231,6 @@ var _ = Describe("Variable + Literal Operations", func() {
 			OpI32DivS,
 			OpLocalSet, 1,
 		),
-
 		Entry("i8 variable % i8 literal",
 			`
 			x i8 := 17
@@ -260,7 +243,6 @@ var _ = Describe("Variable + Literal Operations", func() {
 			OpI32RemS,
 			OpLocalSet, 1,
 		),
-
 		// i16 operations
 		Entry("i16 variable + i16 literal",
 			`
@@ -274,7 +256,6 @@ var _ = Describe("Variable + Literal Operations", func() {
 			OpI32Add,
 			OpLocalSet, 1,
 		),
-
 		Entry("i16 variable / i16 literal",
 			`
 			x i16 := 200
@@ -287,7 +268,6 @@ var _ = Describe("Variable + Literal Operations", func() {
 			OpI32DivS,
 			OpLocalSet, 1,
 		),
-
 		Entry("i16 variable % i16 literal",
 			`
 			x i16 := 77
@@ -300,7 +280,6 @@ var _ = Describe("Variable + Literal Operations", func() {
 			OpI32RemS,
 			OpLocalSet, 1,
 		),
-
 		// i32 operations
 		Entry("i32 variable + i32 literal",
 			`
@@ -314,7 +293,6 @@ var _ = Describe("Variable + Literal Operations", func() {
 			OpI32Add,
 			OpLocalSet, 1,
 		),
-
 		Entry("i32 variable / i32 literal",
 			`
 			x i32 := 1000
@@ -327,7 +305,6 @@ var _ = Describe("Variable + Literal Operations", func() {
 			OpI32DivS,
 			OpLocalSet, 1,
 		),
-
 		Entry("i32 variable % i32 literal",
 			`
 			x i32 := 177
@@ -340,7 +317,6 @@ var _ = Describe("Variable + Literal Operations", func() {
 			OpI32RemS,
 			OpLocalSet, 1,
 		),
-
 		// i64 operations
 		Entry("i64 variable + i64 literal",
 			`
@@ -354,7 +330,6 @@ var _ = Describe("Variable + Literal Operations", func() {
 			OpI64Add,
 			OpLocalSet, 1,
 		),
-
 		Entry("i64 variable - i64 literal",
 			`
 			x i64 := 20000
@@ -367,7 +342,6 @@ var _ = Describe("Variable + Literal Operations", func() {
 			OpI64Sub,
 			OpLocalSet, 1,
 		),
-
 		Entry("i64 variable / i64 literal",
 			`
 			x i64 := 10000
@@ -380,7 +354,6 @@ var _ = Describe("Variable + Literal Operations", func() {
 			OpI64DivS,
 			OpLocalSet, 1,
 		),
-
 		Entry("i64 variable % i64 literal",
 			`
 			x i64 := 1777
@@ -393,7 +366,6 @@ var _ = Describe("Variable + Literal Operations", func() {
 			OpI64RemS,
 			OpLocalSet, 1,
 		),
-
 		// f32 operations
 		Entry("f32 variable + f32 literal",
 			`
@@ -407,7 +379,6 @@ var _ = Describe("Variable + Literal Operations", func() {
 			OpF32Add,
 			OpLocalSet, 1,
 		),
-
 		Entry("f32 variable - f32 literal",
 			`
 			x f32 := 20.5
@@ -420,7 +391,6 @@ var _ = Describe("Variable + Literal Operations", func() {
 			OpF32Sub,
 			OpLocalSet, 1,
 		),
-
 		Entry("f32 variable * f32 literal",
 			`
 			x f32 := 3.5
@@ -433,7 +403,6 @@ var _ = Describe("Variable + Literal Operations", func() {
 			OpF32Mul,
 			OpLocalSet, 1,
 		),
-
 		Entry("f32 variable / f32 literal",
 			`
 			x f32 := 10.0
@@ -446,7 +415,6 @@ var _ = Describe("Variable + Literal Operations", func() {
 			OpF32Div,
 			OpLocalSet, 1,
 		),
-
 		// f64 operations
 		Entry("f64 variable + f64 literal",
 			`
@@ -460,7 +428,6 @@ var _ = Describe("Variable + Literal Operations", func() {
 			OpF64Add,
 			OpLocalSet, 1,
 		),
-
 		Entry("f64 variable - f64 literal",
 			`
 			x f64 := 200.5
@@ -473,7 +440,6 @@ var _ = Describe("Variable + Literal Operations", func() {
 			OpF64Sub,
 			OpLocalSet, 1,
 		),
-
 		Entry("f64 variable * f64 literal",
 			`
 			x f64 := 35.5
@@ -486,7 +452,6 @@ var _ = Describe("Variable + Literal Operations", func() {
 			OpF64Mul,
 			OpLocalSet, 1,
 		),
-
 		Entry("f64 variable / f64 literal",
 			`
 			x f64 := 100.0
@@ -499,7 +464,6 @@ var _ = Describe("Variable + Literal Operations", func() {
 			OpF64Div,
 			OpLocalSet, 1,
 		),
-
 		// Comparison operations - unsigned types
 		Entry("u8 variable < u8 literal",
 			`
@@ -513,7 +477,6 @@ var _ = Describe("Variable + Literal Operations", func() {
 			OpI32LtU,
 			OpLocalSet, 1,
 		),
-
 		Entry("u16 variable > u16 literal",
 			`
 			x u16 := 50
@@ -526,7 +489,6 @@ var _ = Describe("Variable + Literal Operations", func() {
 			OpI32GtU,
 			OpLocalSet, 1,
 		),
-
 		Entry("u32 variable <= u32 literal",
 			`
 			x u32 := 100
@@ -539,7 +501,6 @@ var _ = Describe("Variable + Literal Operations", func() {
 			OpI32LeU,
 			OpLocalSet, 1,
 		),
-
 		Entry("u64 variable >= u64 literal",
 			`
 			x u64 := 1000
@@ -552,7 +513,6 @@ var _ = Describe("Variable + Literal Operations", func() {
 			OpI64GeU,
 			OpLocalSet, 1,
 		),
-
 		// Comparison operations - signed types
 		Entry("i8 variable < i8 literal",
 			`
@@ -566,7 +526,6 @@ var _ = Describe("Variable + Literal Operations", func() {
 			OpI32LtS,
 			OpLocalSet, 1,
 		),
-
 		Entry("i16 variable > i16 literal",
 			`
 			x i16 := 50
@@ -579,7 +538,6 @@ var _ = Describe("Variable + Literal Operations", func() {
 			OpI32GtS,
 			OpLocalSet, 1,
 		),
-
 		Entry("i32 variable <= i32 literal",
 			`
 			x i32 := 100
@@ -592,7 +550,6 @@ var _ = Describe("Variable + Literal Operations", func() {
 			OpI32LeS,
 			OpLocalSet, 1,
 		),
-
 		Entry("i64 variable >= i64 literal",
 			`
 			x i64 := 1000
@@ -605,7 +562,6 @@ var _ = Describe("Variable + Literal Operations", func() {
 			OpI64GeS,
 			OpLocalSet, 1,
 		),
-
 		// Comparison operations - float types
 		Entry("f32 variable < f32 literal",
 			`
@@ -619,7 +575,6 @@ var _ = Describe("Variable + Literal Operations", func() {
 			OpF32Lt,
 			OpLocalSet, 1,
 		),
-
 		Entry("f64 variable > f64 literal",
 			`
 			x f64 := 50.5
@@ -632,7 +587,6 @@ var _ = Describe("Variable + Literal Operations", func() {
 			OpF64Gt,
 			OpLocalSet, 1,
 		),
-
 		// Equality operations (work for all types)
 		Entry("u8 variable == u8 literal",
 			`
@@ -646,7 +600,6 @@ var _ = Describe("Variable + Literal Operations", func() {
 			OpI32Eq,
 			OpLocalSet, 1,
 		),
-
 		Entry("i32 variable != i32 literal",
 			`
 			x i32 := 100
@@ -659,7 +612,6 @@ var _ = Describe("Variable + Literal Operations", func() {
 			OpI32Ne,
 			OpLocalSet, 1,
 		),
-
 		Entry("f64 variable == f64 literal",
 			`
 			x f64 := 3.14
@@ -672,7 +624,6 @@ var _ = Describe("Variable + Literal Operations", func() {
 			OpF64Eq,
 			OpLocalSet, 1,
 		),
-
 		// Mixed operations - literal on left side
 		Entry("u8 literal + u8 variable",
 			`
@@ -686,7 +637,6 @@ var _ = Describe("Variable + Literal Operations", func() {
 			OpI32Add,
 			OpLocalSet, 1,
 		),
-
 		Entry("i32 literal - i32 variable",
 			`
 			x i32 := 10
@@ -699,7 +649,6 @@ var _ = Describe("Variable + Literal Operations", func() {
 			OpI32Sub,
 			OpLocalSet, 1,
 		),
-
 		Entry("f32 literal * f32 variable",
 			`
 			x f32 := 2.5

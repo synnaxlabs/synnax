@@ -79,65 +79,84 @@ var _ = Describe("Stream", Ordered, Serial, func() {
 	})
 
 	Describe("Report", func() {
-		It("should report the stream server's protocol and the content types it can negotiate at upgrade time", func() {
-			report := server.Report()
-			Expect(report["protocol"]).To(Equal("websocket"))
-			Expect(report["encodings"]).To(Equal([]string{
-				"application/json", "application/msgpack",
-			}))
-		})
+		It(
+			"should report the stream server's protocol and the content types it can negotiate at upgrade time",
+			func() {
+				report := server.Report()
+				Expect(report["protocol"]).To(Equal("websocket"))
+				Expect(report["encodings"]).To(Equal([]string{
+					"application/json", "application/msgpack",
+				}))
+			},
+		)
 	})
 
 	Describe("Upgrade Negotiation", func() {
-		It("should return 415 Unsupported Media Type when the upgrade request advertises a Content-Type with no registered codec", func(ctx context.Context) {
-			headers := http.Header{}
-			headers.Set(fiber.HeaderContentType, "application/x-no-such-codec")
-			_, res, err := (&ws.Dialer{}).DialContext(ctx, "ws://"+addr.String()+"/", headers)
-			Expect(err).To(MatchError(ws.ErrBadHandshake))
-			Expect(res).ToNot(BeNil())
-			DeferCleanup(func() { Expect(res.Body.Close()).To(Succeed()) })
-			Expect(res.StatusCode).To(Equal(http.StatusUnsupportedMediaType))
-		})
+		It(
+			"should return 415 Unsupported Media Type when the upgrade request advertises a Content-Type with no registered codec",
+			func(ctx context.Context) {
+				headers := http.Header{}
+				headers.Set(fiber.HeaderContentType, "application/x-no-such-codec")
+				_, res, err := (&ws.Dialer{}).DialContext(
+					ctx,
+					"ws://"+addr.String()+"/",
+					headers,
+				)
+				Expect(err).To(MatchError(ws.ErrBadHandshake))
+				Expect(res).ToNot(BeNil())
+				DeferCleanup(func() { Expect(res.Body.Close()).To(Succeed()) })
+				Expect(res.StatusCode).To(Equal(http.StatusUnsupportedMediaType))
+			},
+		)
 
-		It("should return 426 Upgrade Required when the request is not a websocket upgrade", func() {
-			res := MustSucceed(http.Get("http://" + addr.String() + "/"))
-			DeferCleanup(func() { Expect(res.Body.Close()).To(Succeed()) })
-			Expect(res.StatusCode).To(Equal(http.StatusUpgradeRequired))
-		})
+		It(
+			"should return 426 Upgrade Required when the request is not a websocket upgrade",
+			func() {
+				res := MustSucceed(http.Get("http://" + addr.String() + "/"))
+				DeferCleanup(func() { Expect(res.Body.Close()).To(Succeed()) })
+				Expect(res.StatusCode).To(Equal(http.StatusUpgradeRequired))
+			},
+		)
 	})
 
 	Describe("Shutdown", func() {
 		// Serves its own app: shutting down the shared one would strand later specs.
-		It("should stop serving a stream whose peer never answers the close message", func(ctx SpecContext) {
-			router := MustSucceed(fhttp.NewRouter(fhttp.RouterConfig{
-				StreamWriteDeadline: test.WriteDeadline,
-			}))
-			ownServer := fhttp.NewStreamServer[test.Request, test.Response](router, "/")
-			serving := make(chan struct{})
-			ownServer.BindHandler(func(
-				_ context.Context,
-				stream freighter.ServerStream[test.Request, test.Response],
-			) error {
-				close(serving)
-				_, err := stream.Receive()
-				return err
-			})
-			ownApp, ownAddr := serveRouter(router)
+		It(
+			"should stop serving a stream whose peer never answers the close message",
+			func(ctx SpecContext) {
+				router := MustSucceed(fhttp.NewRouter(fhttp.RouterConfig{
+					StreamWriteDeadline: test.WriteDeadline,
+				}))
+				ownServer := fhttp.NewStreamServer[test.Request, test.Response](
+					router,
+					"/",
+				)
+				serving := make(chan struct{})
+				ownServer.BindHandler(func(
+					_ context.Context,
+					stream freighter.ServerStream[test.Request, test.Response],
+				) error {
+					close(serving)
+					_, err := stream.Receive()
+					return err
+				})
+				ownApp, ownAddr := serveRouter(router)
 
-			// A raw peer that upgrades and then never reads. Control frames are only
-			// processed inside a read, so the close message goes unanswered.
-			headers := http.Header{}
-			headers.Set(fiber.HeaderContentType, "application/json")
-			conn, res := MustSucceed2((&ws.Dialer{}).DialContext(
-				ctx, "ws://"+ownAddr.String()+"/", headers,
-			))
-			DeferCleanup(func() { Expect(conn.Close()).To(Succeed()) })
-			Expect(res.Body.Close()).To(Succeed())
-			Eventually(serving).Should(BeClosed())
+				// A raw peer that upgrades and then never reads. Control frames are
+				// only processed inside a read, so the close message goes unanswered.
+				headers := http.Header{}
+				headers.Set(fiber.HeaderContentType, "application/json")
+				conn, res := MustSucceed2((&ws.Dialer{}).DialContext(
+					ctx, "ws://"+ownAddr.String()+"/", headers,
+				))
+				DeferCleanup(func() { Expect(conn.Close()).To(Succeed()) })
+				Expect(res.Body.Close()).To(Succeed())
+				Eventually(serving).Should(BeClosed())
 
-			shutdown := make(chan error, 1)
-			go func() { shutdown <- ownApp.Shutdown() }()
-			Eventually(shutdown, 5*time.Second).Should(Receive(BeNil()))
-		})
+				shutdown := make(chan error, 1)
+				go func() { shutdown <- ownApp.Shutdown() }()
+				Eventually(shutdown, 5*time.Second).Should(Receive(BeNil()))
+			},
+		)
 	})
 })
