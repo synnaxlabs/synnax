@@ -82,6 +82,7 @@ func (s *Service) Create(
 		return CreateResponse{}, err
 	}
 	for i := range req.Arcs {
+		req.Arcs[i].Text = req.Arcs[i].Text.Materialize()
 		hash, err := arc.Hash(req.Arcs[i])
 		if err != nil {
 			return CreateResponse{}, err

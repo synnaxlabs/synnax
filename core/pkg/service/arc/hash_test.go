@@ -68,6 +68,21 @@ var _ = Describe("Hash", func() {
 			b.Graph = graphArc().Graph
 			Expect(MustSucceed(arc.Hash(a))).To(Equal(MustSucceed(arc.Hash(b))))
 		})
+
+		It("Should hash a pre-materialized arc identically", func() {
+			a := textArc("a -> b")
+			materialized := a
+			materialized.Text = materialized.Text.Materialize()
+			Expect(MustSucceed(arc.Hash(materialized))).
+				To(Equal(MustSucceed(arc.Hash(a))))
+		})
+
+		It("Should trust a non-empty Raw over the document", func() {
+			a := textArc("a -> b")
+			a.Text.Raw = "a -> c"
+			Expect(MustSucceed(arc.Hash(a))).
+				To(Equal(MustSucceed(arc.Hash(textArc("a -> c")))))
+		})
 	})
 
 	Describe("Graph mode", func() {

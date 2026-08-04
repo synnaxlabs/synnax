@@ -37,11 +37,15 @@ type semanticContent struct {
 // characters. Only the active mode's source contributes: text mode hashes the
 // materialized source, graph mode hashes the graph without layout data. Equal content
 // hashes equally regardless of edit history, so an edit that is undone restores the
-// original hash.
+// original hash. A non-empty Text.Raw is trusted as the materialized source; callers
+// holding one must not have mutated the document since it was derived.
 func Hash(a Arc) (string, error) {
 	content := semanticContent{Mode: a.Mode}
 	if a.Mode == ModeText {
-		content.Text = a.Text.Materialize().Raw
+		content.Text = a.Text.Raw
+		if content.Text == "" {
+			content.Text = a.Text.Materialize().Raw
+		}
 	} else {
 		content.Functions = a.Graph.Functions
 		content.Nodes = make([]string, len(a.Graph.Nodes))

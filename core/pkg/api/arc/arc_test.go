@@ -16,6 +16,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/arc/graph"
+	"github.com/synnaxlabs/arc/text"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	arc "github.com/synnaxlabs/synnax/pkg/service/arc"
@@ -74,6 +75,25 @@ var _ = Describe("Service", func() {
 			Expect(res.Arcs).To(HaveLen(1))
 			Expect(res.Arcs[0].Hash).ToNot(BeNil())
 			Expect(*res.Arcs[0].Hash).To(Equal(MustSucceed(arc.Hash(res.Arcs[0]))))
+		})
+
+		It("Should hash the stored document, not a client-supplied Raw", func(ctx SpecContext) {
+			grantOn(
+				ctx,
+				author.OntologyID(),
+				access.ActionCreate,
+				ontology.ID{Type: ontology.ResourceTypeArc},
+			)
+			a := Arc{Name: "hash-lying-raw", Mode: arc.ModeText}
+			a.Text.Doc = text.Create("a -> b")
+			a.Text.Raw = "a -> c"
+			res := MustSucceed(apiSvc.Create(authedCtx(ctx, author), db, CreateRequest{
+				Arcs: []Arc{a},
+			}))
+			Expect(res.Arcs[0].Text.Raw).To(Equal("a -> b"))
+			truth := Arc{Mode: arc.ModeText}
+			truth.Text.Doc = text.Create("a -> b")
+			Expect(*res.Arcs[0].Hash).To(Equal(MustSucceed(arc.Hash(truth))))
 		})
 	})
 
