@@ -37,7 +37,6 @@ import {
 import { ContextMenu as PlatformContextMenu } from "@/platform/context-menu";
 import { CSS } from "@/platform/css";
 import { Modals } from "@/platform/modals";
-import { Tree } from "@/platform/tree";
 import {
   Context,
   type StaticView,
@@ -242,10 +241,10 @@ const ContextMenu = ({ keys }: Menu.ContextMenuMenuProps): ReactElement | null =
   if (getItem == null) throw new UnexpectedError("No item getter found");
   const views = getItem(keys);
   const filteredViews = views.filter((v) => v.static !== true);
-  const confirm = Tree.useConfirmDelete({
+  const confirm = Modals.useConfirmDelete({
     icon: "View",
-    type: caseconv.capitalize(plural(resourceType)),
-    description: "Deletion will permanently remove the view(s).",
+    type: caseconv.capitalize(resourceType),
+    description: "Deletion permanently removes the views.",
   });
   const { update: del } = PView.useDelete({
     beforeUpdate: useCallback(

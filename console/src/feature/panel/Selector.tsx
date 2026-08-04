@@ -34,14 +34,14 @@ import { useCreate } from "@/feature/panel/useCreate";
 import { useOpenWindow } from "@/feature/panel/useOpenWindow";
 import { ContextMenu as CMenu } from "@/platform/context-menu";
 import { CSS } from "@/platform/css";
-import { Tree } from "@/platform/tree";
+import { Modals } from "@/platform/modals";
 import { Session } from "@/session";
 
 const ContextMenu = ({ keys }: Menu.ContextMenuMenuProps): ReactElement | null => {
   const ids = panel.ontologyID(keys);
   const hasUpdatePermission = Access.useUpdateGranted(ids);
   const hasDeletePermission = Access.useDeleteGranted(ids);
-  const confirm = Tree.useConfirmDelete({ type: "Panel" });
+  const confirm = Modals.useConfirmDelete({ type: "Panel" });
   const dispatch = useDispatch();
   const client = Synnax.use();
   const openWindow = useOpenWindow();
