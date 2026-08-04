@@ -150,7 +150,60 @@ interface UseProps {
   scrollBeyondLastLine?: boolean;
   openContextMenu?: Menu.ContextMenuProps["open"];
   extensions?: EditorExtension[];
+  /** placeholder is ghost text shown on the first line while the document is empty. It
+   * is injected, so it never enters the model or the user's selection. Read when the
+   * editor is created. */
+  placeholder?: string;
+  /** autoFocus places the cursor in the editor once it is created. Read when the editor
+   * is created. */
+  autoFocus?: boolean;
 }
+
+const PLACEHOLDER_RANGE: Monaco.IRange = {
+  startLineNumber: 1,
+  startColumn: 1,
+  endLineNumber: 1,
+  endColumn: 1,
+};
+
+// showIfCollapsed is load-bearing: the range is empty, so monaco renders nothing
+// without it.
+const renderPlaceholder =
+  (content: string): EditorExtension =>
+  (editor) => {
+    const model = editor.getModel();
+    if (model == null) return { dispose: () => {} };
+    const decorations = editor.createDecorationsCollection();
+    const decoration: Monaco.editor.IModelDeltaDecoration = {
+      range: PLACEHOLDER_RANGE,
+      options: {
+        showIfCollapsed: true,
+        after: { content, inlineClassName: CSS.BE("editor", "placeholder") },
+      },
+    };
+    let shown = false;
+    const render = () => {
+      const show = model.getValueLength() === 0;
+      if (show === shown) return;
+      shown = show;
+      decorations.set(show ? [decoration] : []);
+    };
+    render();
+    const contentDispose = editor.onDidChangeModelContent(render);
+    return {
+      dispose: () => {
+        contentDispose.dispose();
+        decorations.clear();
+      },
+    };
+  };
+
+// A frame's delay: whatever opened the editor tears its own DOM down after the editor
+// mounts, and that teardown drops focus back onto the body.
+const focusNextFrame: EditorExtension = (editor) => {
+  const frame = requestAnimationFrame(() => editor.focus());
+  return { dispose: () => cancelAnimationFrame(frame) };
+};
 
 const useTheme = (hasCustomTheme: boolean) => {
   const theme = Theming.use();
@@ -272,9 +325,13 @@ const use = ({
   scrollBeyondLastLine = false,
   openContextMenu,
   extensions,
+  placeholder,
+  autoFocus = false,
 }: UseProps): UseReturn => {
   const containerRef = useRef<HTMLDivElement>(null);
   const editorRef = useRef<Monaco.editor.IStandaloneCodeEditor | null>(null);
+  const autoFocusRef = useSyncedRef(autoFocus);
+  const placeholderRef = useSyncedRef(placeholder);
   const openContextMenuRef = useSyncedRef(openContextMenu);
   const onValueChangeRef = useSyncedRef(onValueChange);
   const onEditRef = useSyncedRef(onEdit);
@@ -336,7 +393,13 @@ const use = ({
       }),
     );
 
-    const extensionDisposables = resolvedExtensions?.map((ext) => ext(editor)) ?? [];
+    const builtins: EditorExtension[] = [];
+    if (placeholderRef.current != null)
+      builtins.push(renderPlaceholder(placeholderRef.current));
+    if (autoFocusRef.current) builtins.push(focusNextFrame);
+    const extensionDisposables = [...(resolvedExtensions ?? []), ...builtins].map(
+      (ext) => ext(editor),
+    );
 
     return () => {
       contentDispose.dispose();
@@ -395,6 +458,8 @@ const EditorInternal = ({
   isBlock,
   scrollBeyondLastLine,
   extensions,
+  placeholder,
+  autoFocus,
   background = 1,
   ...rest
 }: Omit<EditorProps, "loading">) => {
@@ -408,6 +473,8 @@ const EditorInternal = ({
     scrollBeyondLastLine,
     openContextMenu: menuProps.open,
     extensions,
+    placeholder,
+    autoFocus,
   });
   useImperativeHandle(ref, () => handle, [handle]);
 
