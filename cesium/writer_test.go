@@ -14,7 +14,6 @@ import (
 	"fmt"
 	"math/rand"
 	"os"
-	"runtime"
 	"strconv"
 	"sync"
 	"time"
@@ -98,11 +97,21 @@ var _ = Describe("Writer Behavior", func() {
 								basic1Index = GenerateChannelKey()
 							)
 
-							By("Creating an index channel")
+							By("Creating an index and a data channel")
 							Expect(db.CreateChannel(
 								ctx,
 								cesium.Channel{Key: basic1Index, Name: "Orwell", IsIndex: true, DataType: telem.TimeStampT},
+								cesium.Channel{Key: basic1, Name: "Huxley", Index: basic1Index, DataType: telem.Int64T},
 							)).To(Succeed())
+
+							By("Opening a streamer over the index and data channels")
+							s := MustSucceed(db.NewStreamer(ctx, cesium.StreamerConfig{
+								Channels: []cesium.ChannelKey{basic1, basic1Index},
+							}))
+							i, o := confluence.Attach(s, 2)
+							sCtx, cancel := signal.WithCancel(ctx)
+							defer cancel()
+							s.Flow(sCtx)
 
 							By("Writing to the Index Channel")
 							w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
@@ -118,28 +127,17 @@ var _ = Describe("Writer Behavior", func() {
 							end := MustSucceed(w.Commit())
 							Expect(w.Close()).To(Succeed())
 							Expect(end).To(Equal(13*telem.SecondTS + 1))
-							// Sleep for 20 ms and schedule to allow the current
-							// frame to be processed by the relay, ensuring we don't
-							// read the first written value out of the streamer.
-							runtime.Gosched()
-							time.Sleep(20 * time.Millisecond)
+							// Drain the index-only frame so the next receive observes
+							// the co-write.
+							var fIdx cesium.StreamerResponse
+							Eventually(o.Outlet()).Should(Receive(&fIdx))
+							Expect(fIdx.Frame.Count()).To(Equal(1))
 
-							By("Creating a data channel")
-							Expect(db.CreateChannel(
-								ctx,
-								cesium.Channel{Key: basic1, Name: "Huxley", Index: basic1Index, DataType: telem.Int64T},
-							)).To(Succeed())
+							By("Co-writing the index and data channels")
 							w = MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
 								Channels: []cesium.ChannelKey{basic1, basic1Index},
 								Start:    14 * telem.SecondTS,
 							}))
-							s := MustSucceed(db.NewStreamer(ctx, cesium.StreamerConfig{
-								Channels: []cesium.ChannelKey{basic1, basic1Index},
-							}))
-							i, o := confluence.Attach(s, 1)
-							sCtx, cancel := signal.WithCancel(ctx)
-							defer cancel()
-							s.Flow(sCtx)
 							MustSucceed(w.Write(telem.MultiFrame(
 								[]cesium.ChannelKey{basic1, basic1Index},
 								[]telem.Series{
@@ -147,7 +145,8 @@ var _ = Describe("Writer Behavior", func() {
 									telem.NewSeriesSecondsTSV(14, 15),
 								},
 							)))
-							f := <-o.Outlet()
+							var f cesium.StreamerResponse
+							Eventually(o.Outlet()).Should(Receive(&f))
 							Expect(f.Frame.Count()).To(Equal(2))
 							basic1Alignment := f.Frame.SeriesAt(0).Alignment
 							basicIndex1Alignment := f.Frame.SeriesAt(1).Alignment
@@ -172,6 +171,15 @@ var _ = Describe("Writer Behavior", func() {
 								cesium.Channel{Key: data, Name: "Heller", Index: idx, DataType: telem.Int64T},
 							)).To(Succeed())
 
+							By("Opening a streamer over the index and data channels")
+							s := MustSucceed(db.NewStreamer(ctx, cesium.StreamerConfig{
+								Channels: []cesium.ChannelKey{idx, data},
+							}))
+							in, out := confluence.Attach(s, 2)
+							sCtx, cancel := signal.WithCancel(ctx)
+							defer cancel()
+							s.Flow(sCtx)
+
 							By("Writing the index and data together to seed the index's alignment authority")
 							wA := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
 								Channels: []cesium.ChannelKey{idx, data},
@@ -186,15 +194,11 @@ var _ = Describe("Writer Behavior", func() {
 							)))
 							MustSucceed(wA.Commit())
 							Expect(wA.Close()).To(Succeed())
-
-							By("Opening a streamer over the index and data channels")
-							s := MustSucceed(db.NewStreamer(ctx, cesium.StreamerConfig{
-								Channels: []cesium.ChannelKey{idx, data},
-							}))
-							in, out := confluence.Attach(s, 2)
-							sCtx, cancel := signal.WithCancel(ctx)
-							defer cancel()
-							s.Flow(sCtx)
+							// Drain wA's frame so the next receives observe wB, then
+							// wC.
+							var fA cesium.StreamerResponse
+							Eventually(out.Outlet()).Should(Receive(&fA))
+							Expect(fA.Frame.Count()).To(Equal(2))
 
 							By("Writing index-only samples to push the index domain further ahead")
 							wB := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
@@ -246,6 +250,15 @@ var _ = Describe("Writer Behavior", func() {
 								cesium.Channel{Key: data, Name: "Orwell", Index: idx, DataType: telem.Int64T},
 							)).To(Succeed())
 
+							By("Opening a streamer over the data channel")
+							s := MustSucceed(db.NewStreamer(ctx, cesium.StreamerConfig{
+								Channels: []cesium.ChannelKey{data},
+							}))
+							in, out := confluence.Attach(s, 2)
+							sCtx, cancel := signal.WithCancel(ctx)
+							defer cancel()
+							s.Flow(sCtx)
+
 							By("Seeding the index and data channels together")
 							wSeed := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
 								Channels: []cesium.ChannelKey{idx, data},
@@ -260,6 +273,12 @@ var _ = Describe("Writer Behavior", func() {
 							)))
 							MustSucceed(wSeed.Commit())
 							Expect(wSeed.Close()).To(Succeed())
+							// Drain the seed frame; the index-only write below emits
+							// none since the streamer only subscribes to the data
+							// channel.
+							var fSeed cesium.StreamerResponse
+							Eventually(out.Outlet()).Should(Receive(&fSeed))
+							Expect(fSeed.Frame.Get(data).Series[0]).To(telem.MatchSeriesDataV[int64](1, 2))
 
 							By("Extending the index to cover the index-less writes")
 							wIdx := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
@@ -272,15 +291,6 @@ var _ = Describe("Writer Behavior", func() {
 							)))
 							MustSucceed(wIdx.Commit())
 							Expect(wIdx.Close()).To(Succeed())
-
-							By("Opening a streamer over the data channel")
-							s := MustSucceed(db.NewStreamer(ctx, cesium.StreamerConfig{
-								Channels: []cesium.ChannelKey{data},
-							}))
-							in, out := confluence.Attach(s, 2)
-							sCtx, cancel := signal.WithCancel(ctx)
-							defer cancel()
-							s.Flow(sCtx)
 
 							By("Running repeated index-less sessions on the data channel")
 							var lastRogue telem.Alignment

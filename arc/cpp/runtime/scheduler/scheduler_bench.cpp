@@ -13,15 +13,15 @@
 #include <utility>
 #include <vector>
 
+#include "benchmark/benchmark.h"
+
 #include "x/cpp/bench/bench.h"
 #include "x/cpp/errors/errors.h"
 #include "x/cpp/telem/telem.h"
 
 #include "arc/cpp/ir/ir.h"
-#include "arc/cpp/runtime/errors/errors.h"
 #include "arc/cpp/runtime/node/node.h"
 #include "arc/cpp/runtime/scheduler/scheduler.h"
-#include "benchmark/benchmark.h"
 
 namespace arc::runtime::scheduler { namespace {
 

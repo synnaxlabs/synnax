@@ -14,8 +14,6 @@
 #include <string>
 #include <vector>
 
-#include "glog/logging.h"
-
 #include "client/cpp/synnax.h"
 #include "x/cpp/breaker/breaker.h"
 #include "x/cpp/json/json.h"

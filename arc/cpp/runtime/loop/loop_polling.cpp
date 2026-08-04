@@ -10,7 +10,7 @@
 #include <chrono>
 #include <thread>
 
-#include "glog/logging.h"
+#include "absl/log/log.h"
 
 #include "x/cpp/loop/loop.h"
 #include "x/cpp/telem/telem.h"

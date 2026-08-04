@@ -15,7 +15,7 @@
 #include <string>
 #include <thread>
 
-#include "glog/logging.h"
+#include "absl/log/log.h"
 #include <dirent.h>
 #include <linux/sched.h>
 #include <sched.h>
