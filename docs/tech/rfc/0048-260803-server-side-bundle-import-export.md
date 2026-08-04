@@ -46,8 +46,8 @@ the artifact shape.
   wire.
 - **Manifest**: the `manifest.json` file at the bundle root. Its `{version, type, name}`
   body versions the bundle, states its kind (`project` or `symbol_group`), and names it.
-- **Member**: any other `.json` file in the directory. Each member is a self-describing
-  flat envelope.
+- **Member**: any other file in the directory whose extension names a supported
+  serialization (§4.0). Each member is a self-describing flat envelope.
 - **Bundle-local key**: a file name. All cross-references between bundle members use
   file names.
 - **Leaf registry**: the single-resource `Importer`/`Exporter` registry on
@@ -94,9 +94,13 @@ Test Stand 12/
 
 The `type` field states the bundle kind: `project` or `symbol_group`. Each import
 endpoint (§4.1) rejects a manifest whose type does not match its bundle kind. The
-manifest carries no member list. The members are every other `.json` file in the
-directory. Non-JSON files (`README.md`, `.gitignore`) are ignored, so a bundle can live
-in a repository. A `.json` member that is not a valid envelope is a validation error.
+manifest carries no member list.
+
+The file extension names the serialization. This RFC implements JSON only; YAML and TOML
+add extensions and codecs later, with no change to the layout, the reference form, or
+the migration rules. The members are every other file in a supported extension. Files in
+other extensions (`README.md`, `.gitignore`) are ignored, so a bundle can live in a
+repository. A member that does not decode to a valid envelope is a validation error.
 
 Each member self-describes through its `{version, type, name}` headers. The server peeks
 the headers of every member — the existing envelope peek, no body decode — to resolve
@@ -122,7 +126,8 @@ The exporter owns file naming: sanitized resource names, deduplicated in the bun
 Sanitized names are compared case-folded and Unicode-normalized, because the Console
 extracts onto case-insensitive filesystems. Collisions get a numeric suffix (`_2`)
 assigned in sorted member order, so repeated exports of an unchanged project produce
-identical file names. `manifest.json` and `LAYOUT.json` are reserved.
+identical file names. The `manifest` and `LAYOUT` base names are reserved in every
+supported extension.
 
 ### 4.1 - Endpoints
 
@@ -320,10 +325,10 @@ Phases 3 and 4 are independent after Phase 2 and can land in either order.
   Renaming a file breaks references to it; import fails loud and names the file.
 - **6.5 One envelope file per panel.** A single `PANELS.json` was rejected as a
   special-cased blob. Panels are bundle-internal and never leaf-registered.
-- **6.6 Inferred membership.** Members are the `.json` files beside the manifest; each
+- **6.6 Inferred membership.** Members are the envelope files beside the manifest; each
   self-describes through its envelope headers. A declared member list in the manifest
-  was rejected as redundant with the headers. Non-JSON files are ignored; an invalid
-  `.json` member is a validation error.
+  was rejected as redundant with the headers. Files in unsupported extensions are
+  ignored; a member that fails to decode is a validation error.
 - **6.7 A fixed `manifest.json`** with a `{version, type, name}` body. Type-named
   manifests (`project.json`, `group.json`) were rejected: one fixed name gives every
   format, including the legacy symbol format, a single recognition point on disk. The
@@ -345,6 +350,9 @@ Phases 3 and 4 are independent after Phase 2 and can land in either order.
 - **6.15 Console UX is directory-in, directory-out.** The zip is wire-only.
 - **6.16 Import returns the full created resource** (`project.Project`, `group.Group`),
   not just a key.
+- **6.17 Serialization is a file-extension property.** The layout, the file-name
+  reference form, and the manifest rules are serialization-agnostic. JSON is the only
+  codec this RFC implements; YAML and TOML land later as new extensions.
 
 ## 7 - Open Questions
 
@@ -363,4 +371,4 @@ Phases 3 and 4 are independent after Phase 2 and can land in either order.
 - **Standalone range import/export.**
 - **Cross-cluster identity, merge, or sync.**
 - **Draft (user-owned) panels**; bundles cover project-owned panels only.
-- **YAML/TOML bundle members**; bundles assume JSON members for now.
+- **YAML/TOML codecs.** The extension rule (§4.0) admits them; only JSON ships here.
