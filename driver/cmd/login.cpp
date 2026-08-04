@@ -7,9 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-#include "x/cpp/cli/cli.h"
+#include "absl/log/log.h"
 
-#include "driver/cmd/cmd.h"
+#include "x/cpp/args/args.h"
+#include "x/cpp/cli/cli.h"
+#include "x/cpp/log/log.h"
+
+#include "driver/rack/rack.h"
 
 namespace driver::cmd::sub {
 int login(x::args::Parser &args) {
@@ -26,8 +30,7 @@ int login(x::args::Parser &args) {
         const synnax::Synnax probe(config);
         const auto state = probe.connectivity->check();
         if (state.status != synnax::connection::Status::CONNECTED) {
-            LOG(ERROR) << x::log::RED() << "failed to connect: " << state.message
-                       << x::log::RESET();
+            LOG(ERROR) << "failed to connect: " << state.message;
             return 1;
         }
     }
@@ -39,14 +42,12 @@ int login(x::args::Parser &args) {
     LOG(INFO) << "connecting to Synnax using the following parameters: \n" << config;
     const synnax::Synnax client(config);
     if (const auto err = client.auth->authenticate()) {
-        LOG(ERROR) << x::log::RED() << "failed to authenticate: " << err
-                   << x::log::RESET();
+        LOG(ERROR) << "failed to authenticate: " << err;
         return 1;
     }
     LOG(INFO) << x::log::GREEN() << "successfully logged in!" << x::log::RESET();
     if (const auto err = rack::Config::save_conn_params(args, config)) {
-        LOG(ERROR) << x::log::RED() << "failed to save credentials: " << err
-                   << x::log::RESET();
+        LOG(ERROR) << "failed to save credentials: " << err;
         return 1;
     }
     LOG(INFO) << x::log::GREEN() << "credentials saved successfully!"

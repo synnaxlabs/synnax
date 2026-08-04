@@ -13,30 +13,16 @@ import { describe, expect, it } from "vitest";
 
 import { User } from "@/platform/user";
 import { Session } from "@/session";
+import { createCluster, createClusterState } from "@/session/cluster/testutil";
 import { createConsoleWrapper, renderWithConsole } from "@/testutil";
 
-const createClusterState = (username: string, selected = "LOCAL") => ({
-  [Session.Cluster.SLICE_NAME]: {
-    version: 0 as const,
-    selected,
-    clusters: {
-      LOCAL: {
-        key: "LOCAL",
-        name: "Local",
-        host: "localhost",
-        port: 9090,
-        username,
-        password: "seldon",
-        secure: false,
-      },
-    },
-  },
-});
+const createStateWithUser = (username: string, selected = "LOCAL") =>
+  createClusterState([createCluster("LOCAL", { name: "Local", username })], selected);
 
 describe("User.Badge", () => {
   it("should fall back to the cluster username when no user is loaded", async () => {
     await renderWithConsole(<User.Badge />, {
-      preloadedState: createClusterState("cluster-user"),
+      preloadedState: createStateWithUser("cluster-user"),
     });
     expect(screen.getByText("cluster-user")).toBeTruthy();
   });
@@ -45,7 +31,7 @@ describe("User.Badge", () => {
     const client = createTestClient();
     const { wrapper } = await createConsoleWrapper({
       client,
-      preloadedState: createClusterState("fallback_user"),
+      preloadedState: createStateWithUser("fallback_user"),
     });
     render(<User.Badge />, { wrapper });
     await waitFor(() => expect(screen.getByText("synnax")).toBeTruthy());
@@ -54,7 +40,7 @@ describe("User.Badge", () => {
 
   it("should log out of the active cluster when Log out is clicked", async () => {
     const { store } = await renderWithConsole(<User.Badge />, {
-      preloadedState: createClusterState("cluster-user"),
+      preloadedState: createStateWithUser("cluster-user"),
     });
     expect(Session.Cluster.selectSelectedKey(store.getState())).toBe("LOCAL");
     fireEvent.click(screen.getByText("cluster-user"));

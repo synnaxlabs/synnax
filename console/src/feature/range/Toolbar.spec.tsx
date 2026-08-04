@@ -207,7 +207,7 @@ describe("range/Toolbar", () => {
       await renderToolbar({ ranges: [rng] });
       await openContextMenu(rng.name);
       fireEvent.click(await screen.findByText("Create child range"));
-      expect(await screen.findByText("Save Locally")).toBeTruthy();
+      expect(await screen.findByText("Save locally")).toBeTruthy();
     });
   });
 
@@ -215,7 +215,7 @@ describe("range/Toolbar", () => {
     await renderToolbar();
     const action = await waitFor(() => getIconButton(document.body, "add"));
     fireEvent.click(action);
-    expect(await screen.findByText("Save Locally")).toBeTruthy();
+    expect(await screen.findByText("Save locally")).toBeTruthy();
   });
 });
 

@@ -282,8 +282,6 @@
         }
     }
 
-    /* A selected button speaks the control selection tier by default. Tabs, list
-       rows, and menu items override with their own tiers at higher specificity. */
     &.pluto--selected {
         --pluto-bg: var(--pluto-selected-bg);
         --pluto-hover-bg: var(--pluto-selected-hover-bg);
@@ -315,8 +313,6 @@
         }
     }
 
-    /* Close overlay: a glyph close seated over the host's leading icon. Reveal
-       handles hiding; the host supplies any icon fade of its own. */
     &.pluto-btn--close {
         position: absolute;
         left: 0.25rem;
@@ -342,8 +338,6 @@
      specificity of the hover and active states. */
     /* pluto--focus-frozen marks a control whose pointer states freeze while it
        holds focus: hover and press swap nothing until it blurs. */
-    /* [data-context-menu-open] is stamped by Menu.useContextMenu so a target keeps
-       its hover look while its context menu is open. */
     &:not(.pluto-btn--prevent-click, .pluto--disabled) {
         &:is(:hover, .pluto--hovered, [data-context-menu-open]):not(
                 .pluto--focus-frozen:focus-within

@@ -18,16 +18,9 @@ import {
   clickConfigure,
   renderTaskFormTab,
 } from "@/platform/task/testutil";
-import {
-  awaitTextEditingElement,
-  commitTextEdit,
-  getIconButton,
-  stubGeometry,
-} from "@/testutil";
+import { awaitTextEditingElement, commitTextEdit, getIconButton } from "@/testutil";
 
 const client = createTestClient();
-
-stubGeometry();
 
 describe("Modbus.Write", () => {
   it("should create command channels and indexes for the built channels on configure", async () => {

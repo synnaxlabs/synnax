@@ -18,11 +18,8 @@ import {
   installPickedDirectory,
   interceptFilePicker,
   removeFilePickers,
-  stubGeometry,
   uniqueName,
 } from "@/testutil";
-
-stubGeometry();
 
 const client = createTestClient();
 

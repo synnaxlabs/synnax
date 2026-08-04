@@ -9,7 +9,7 @@
 
 #pragma once
 
-#include "glog/logging.h"
+#include "absl/log/log.h"
 
 #include "driver/task/task.h"
 
@@ -52,7 +52,7 @@ inline std::pair<bool, x::errors::Error> create_if_type_not_exists_on_rack(
 ///   1. A task of the specified type already exists
 ///   2. Task creation fails
 ///   3. Task configuration fails
-/// - Logs errors and warnings through glog
+/// - Logs errors and warnings
 template<typename F>
 std::vector<std::pair<synnax::task::Task, std::unique_ptr<task::Task>>>
 configure_initial_factory_tasks(
@@ -97,7 +97,7 @@ configure_initial_factory_tasks(
 /// @param integration_name Name of the integration for logging purposes
 /// @return Error if any occurred during the operation (NOT_FOUND errors are skipped)
 /// @note
-/// - Logs success/failure through glog
+/// - Logs success/failure
 /// - Silently succeeds if no task of the specified type exists
 /// - Useful for cleaning up legacy tasks during system upgrades or reconfigurations
 inline x::errors::Error delete_legacy_task_by_type(

@@ -15,6 +15,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import { Cluster } from "@/feature/cluster";
 import { Session } from "@/session";
+import { CONNECTION_PARAMS,createCluster } from "@/session/cluster/testutil";
 import { type State } from "@/session/store";
 import { createConnectedConsoleWrapper } from "@/testutil";
 
@@ -23,20 +24,7 @@ const createState = (clusterKeys: string[], selected: string | null): State => (
   [Session.Cluster.SLICE_NAME]: {
     ...Session.Cluster.ZERO_SLICE_STATE,
     selected: selected ?? undefined,
-    clusters: Object.fromEntries(
-      clusterKeys.map((k) => [
-        k,
-        {
-          key: k,
-          name: k,
-          host: "localhost",
-          port: 9090,
-          username: "synnax",
-          password: "seldon",
-          secure: false,
-        },
-      ]),
-    ),
+    clusters: Object.fromEntries(clusterKeys.map((k) => [k, createCluster(k)])),
   },
 });
 
@@ -132,27 +120,13 @@ describe("useLink", () => {
     } = await c.connect();
     const { wrapper } = await createConnectedConsoleWrapper({
       client: null,
-      connParams: {
-        host: "localhost",
-        port: 9090,
-        username: "synnax",
-        password: "seldon",
-        secure: false,
-      },
+      connParams: CONNECTION_PARAMS,
       preloadedState: {
         [Session.Cluster.SLICE_NAME]: {
           ...Session.Cluster.ZERO_SLICE_STATE,
           selected: clusterKey,
           clusters: {
-            [clusterKey]: {
-              key: clusterKey,
-              name: "Local",
-              host: "localhost",
-              port: 9090,
-              username: "synnax",
-              password: "seldon",
-              secure: false,
-            },
+            [clusterKey]: createCluster(clusterKey, { name: "Local" }),
           },
         },
       },

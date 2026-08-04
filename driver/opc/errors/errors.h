@@ -9,13 +9,10 @@
 
 #pragma once
 
-/// external
 #include "open62541/types.h"
 
-/// module
 #include "x/cpp/errors/errors.h"
 
-/// internal
 #include "driver/errors/errors.h"
 
 namespace driver::opc::errors {

@@ -9,12 +9,9 @@
  * included in the file licenses/APL.txt.
  */
 
-/* The strip's right cap: the create button over the surface overflowing tabs
-   disappear into. A sticky box stops at its containing block's content edge,
-   so a shadow, not the box, covers the strip's end padding. A wider box would
-   add scrollable width and set a fitting strip scrolling. */
+/* A sticky box stops at its containing block's content edge, so a shadow, not the
+   box, covers the strip's end padding. A wider box would add scrollable width. */
 .pluto-panel-mosaic__cap {
-    /* Fill, shadow and fade all read the surface: a mismatch shows as a seam. */
     --surface: var(--pluto-gray-l0);
     --spill: 1rem;
     position: sticky;
@@ -23,8 +20,6 @@
     flex-shrink: 0;
     align-self: stretch;
     background: var(--surface);
-    /* Offset by its own spread: the fill grows right and vertically, never
-       left, so the fade stays flush against the cap. */
     box-shadow: var(--spill) 0 0 var(--spill) var(--surface);
 
     &::before {
@@ -39,9 +34,8 @@
     }
 }
 
-/* The fade only earns its keep on a strip that scrolls, so it rides the strip's
-   own scroll timeline: inactive, and so invisible, while the tabs fit. Both
-   stops hold the same value, leaving scroll position out of it. */
+/* Riding the strip's scroll timeline leaves the fade inactive while the tabs fit.
+   Both stops hold the same value, leaving scroll position out of it. */
 @supports (animation-timeline: scroll(nearest x)) {
     .pluto-panel-mosaic__cap::before {
         animation: panel-mosaic-cap-fade linear;
@@ -65,11 +59,9 @@
     }
 }
 
-/* High-contrast monochrome chip: built from l11, the same tone as the frame's
-   focus glow, so chip and frame read as one light. Repeats the variant classes
-   to outrank the text variant's own fill vars. */
+/* Built from l11, the frame's focus-glow tone, so chip and frame read as one light.
+   The repeated variant classes outrank the text variant's own fill vars. */
 .pluto-btn.pluto-btn--text.pluto-panel-mosaic__overlaid-exit {
-    /* Matches the tab chip radius so the strip reads as one family. */
     border-radius: var(--pluto-border-radius-small);
     border: var(--pluto-border-width) solid var(--pluto-gray-l11-30);
     color: var(--pluto-gray-l11);
@@ -78,8 +70,6 @@
     --pluto-active-bg: var(--pluto-gray-l11-20);
 }
 
-/* Tabs are taller and bottom-aligned, so strip-centering rides high: pin to
-   the bottom and split the height difference to center on the tab band. */
 .pluto-panel-mosaic__overlaid-exit {
     align-self: flex-end;
     margin-bottom: calc((var(--pluto-tabs-tab-height) - var(--pluto-height)) / 2);
@@ -91,15 +81,13 @@
     position: relative;
 }
 
-/* Single-child pass-through: block spares WebKit a level of per-frame flex
-   re-measurement while a pane or drawer resizes. */
+/* Spares WebKit a level of per-frame flex re-measurement while a pane resizes. */
 .pluto-mosaic__leaf > .pluto-tabs > .pluto-tabs__content,
 .pluto-panel-mosaic__overlaid-leaf > .pluto-tabs__content {
     display: block;
 }
 
-/* Mosaic strips have no bottom divider, so chips sit flush with the content edge:
-   a slightly taller strip with taller, bottom-aligned tabs. A selected pane's tab
+/* No bottom divider, so chips sit flush with the content edge. A selected pane's tab
    reads a step quieter than the focused tab, which re-points its own color. */
 .pluto-mosaic__leaf > .pluto-tabs > .pluto-tabs__selector--default.pluto--direction-x,
 .pluto-panel-mosaic__overlaid-leaf > .pluto-tabs__selector--default.pluto--direction-x {
@@ -107,14 +95,9 @@
     --pluto-tabs-tab-height: round(4.3333rem, 1px);
     --pluto-tabs-tab-align: flex-end;
     --pluto-tabs-selected-text-color: var(--pluto-gray-l10);
-    /* Document strips fill up, so the selected tab holds a wider floor than its
-       neighbors and its name stays readable once they have all compacted. */
     --pluto-tabs-selected-min-width: 14rem;
 }
 
-/* The overlaid tab joins the lamp: the same l11 chip treatment as the exit
-   chip, so both ends of the strip read as one lit family. Both tiers re-point:
-   the focused tab reads the control tokens, unfocused ones the subtle tokens. */
 .pluto-panel-mosaic__overlaid-leaf > .pluto-tabs__selector--default.pluto--direction-x {
     --pluto-selected-subtle-bg: var(--pluto-gray-l11-10);
     --pluto-selected-subtle-hover-bg: var(--pluto-gray-l11-10);

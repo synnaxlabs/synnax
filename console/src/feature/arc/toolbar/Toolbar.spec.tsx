@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { type panel } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
@@ -59,6 +60,14 @@ const focusedResourceKey = async (store: TestStore): Promise<string> => {
   return tab.resource.key;
 };
 
+const openTabs = async (store: TestStore): Promise<panel.Tab[]> => {
+  const panelKey = Session.Panel.selectSelected(store.getState());
+  if (panelKey == null) throw new Error("no panel selected");
+  const { root } = await client.panels.retrieve(panelKey);
+  if (root.variant !== "leaf") throw new Error("expected a leaf panel root");
+  return root.tabs;
+};
+
 describe("arc/Toolbar", () => {
   it("renders a created arc with its deployment state", async () => {
     const arc = await createArc();
@@ -96,6 +105,27 @@ describe("arc/Toolbar", () => {
     const { store } = await renderToolbar();
     fireEvent.doubleClick(await screen.findByText(arc.name));
     expect(await focusedResourceKey(store)).toBe(arc.key);
+  });
+
+  it("keeps the editor closed when the start button is double clicked", async () => {
+    const started = await createArc();
+    const opened = await createArc();
+    const { store } = await renderToolbar();
+    await screen.findByText(started.name);
+    await screen.findByText(opened.name);
+    // The start button mounts only once the update permission resolves, so poll the
+    // row for it instead of reading it off the first render.
+    const start = await waitFor(() => {
+      const row = document.getElementById(started.key);
+      if (row == null) throw new Error(`no list item for ${started.name}`);
+      return getIconButton(row, "play");
+    });
+    fireEvent.doubleClick(start);
+    // Opening the other arc gives a leaked double click time to land, so the tab count
+    // below is not read before the editor would have appeared.
+    fireEvent.doubleClick(screen.getByText(opened.name));
+    expect(await focusedResourceKey(store)).toBe(opened.key);
+    expect(await openTabs(store)).toHaveLength(1);
   });
 
   describe("context menu", () => {

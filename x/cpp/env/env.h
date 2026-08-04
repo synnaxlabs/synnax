@@ -14,7 +14,7 @@
 #include <type_traits>
 #include <vector>
 
-#include "glog/logging.h"
+#include "absl/log/log.h"
 
 #include "x/cpp/caseconv/caseconv.h"
 #include "x/cpp/errors/errors.h"

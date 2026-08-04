@@ -9,6 +9,7 @@
 
 export * from "@/triggers/hooks";
 export * from "@/triggers/Provider";
+export * from "@/triggers/Scope";
 export * from "@/triggers/Status";
 export * from "@/triggers/Text";
 export * from "@/triggers/triggers";

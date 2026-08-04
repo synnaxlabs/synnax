@@ -43,9 +43,6 @@ vi.mock("@tauri-apps/plugin-process", () => ({ relaunch: mocks.relaunch }));
 import { renderPalette } from "@/feature/command/testutil";
 import { Version } from "@/feature/version";
 import { Command } from "@/platform/command";
-import { stubGeometry } from "@/testutil";
-
-stubGeometry();
 
 // Always-visible sentinel proving the command list rendered before asserting the
 // version commands are absent.

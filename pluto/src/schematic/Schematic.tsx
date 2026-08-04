@@ -48,7 +48,7 @@ export interface SchematicProps extends Omit<
   | "onEdgesChange"
   | "onChange"
 > {
-  enableTriggers?: boolean | (() => boolean);
+  enableTriggers?: Triggers.Condition;
   extraMenuItems?: Component.RenderProp<Menu.ContextMenuMenuProps>;
   /** Rendered as a centered overlay when the schematic has no nodes. */
   emptyContent?: ReactElement;
