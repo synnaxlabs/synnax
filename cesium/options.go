@@ -76,9 +76,7 @@ func WithFS(fs xfs.FS) Option { return func(o *options) { o.fs = fs } }
 
 // WithGCConfig sets the garbage collection configuration for the DB. See the GCConfig
 // struct for more details.
-func WithGCConfig(config GCConfig) Option {
-	return func(o *options) { o.gcCfg = config }
-}
+func WithGCConfig(gcCfg GCConfig) Option { return func(o *options) { o.gcCfg = gcCfg } }
 
 // WithInstrumentation sets the instrumentation the DB will use for logging, tracing,
 // etc. Defaults to noop instrumentation.
@@ -94,9 +92,9 @@ func WithFileSizeCap(cap telem.Size) Option {
 	return func(o *options) { o.fileSize = cap }
 }
 
-// WithRelayBufferSize sets the buffer size, in frames, of the relay's main pipe.
-// Every written frame moves through this pipe, and writers block when it fills.
-// Defaults to 1000 frames.
+// WithRelayBufferSize sets the buffer size, in frames, of the relay's main pipe. Every
+// written frame moves through this pipe, and writers block when it fills. Defaults to
+// 1000 frames.
 func WithRelayBufferSize(size int) Option {
 	return func(o *options) { o.relayBufferSize = size }
 }
