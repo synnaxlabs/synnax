@@ -125,11 +125,10 @@ bundle files by name:
 }
 ```
 
-The exporter owns file naming: sanitized resource names. Sanitized names are compared
-case-folded and Unicode-normalized, because the Console extracts onto case-insensitive
-filesystems. A collision is an export error that names the colliding resources; rename
-one and re-export. The `manifest` base name is reserved in every supported extension.
-`LAYOUT.json` is a legal member name: recognition checks `manifest.json` first (§4.5).
+The exporter owns file naming: sanitized resource names. Name-collision rules for export
+and import live in §4.8. The `manifest` base name is reserved in every supported
+extension. `LAYOUT.json` is a legal member name: recognition checks `manifest.json`
+first (§4.5).
 
 ### 4.1 - Endpoints
 
@@ -162,9 +161,8 @@ There is no new registry, no new interface, and no shared bundle type. The share
 is three small helpers:
 
 - A zip codec between raw bytes and `map[string][]byte` (standard library
-  `archive/zip`). This is domain-blind and lives in `x/go`. Decode returns an error on a
-  duplicate entry name and on an entry name that contains a path separator: the bundle
-  namespace is flat.
+  `archive/zip`). This is domain-blind and lives in `x/go`. Decode rejects illegal and
+  duplicate entry names (§4.8): the bundle namespace is flat.
 - The existing envelope header peek (`imex.Envelope.UnmarshalJSON`,
   `core/pkg/service/imex/imex.go:141`), applied per member file, with the version guard
   (`imex.NewErrUnsupportedVersion`).
@@ -281,6 +279,20 @@ Once all phases land, the Console deletes:
 
 New Console code: a zip utility at the runtime boundary (library choice in §6) and
 client methods for the four endpoints.
+
+### 4.8 - Name Collisions
+
+File names are bundle-local keys, so both sides of the wire validate them. Names are
+compared case-folded and Unicode-normalized, because the Console extracts bundles onto
+case-insensitive filesystems.
+
+- **Export**: two members whose sanitized names compare equal are an export error that
+  names the colliding resources; rename one and re-export.
+- **Zip decode**: an entry name that is empty, is `.` or `..`, contains a path separator
+  (`/` or `\`), or repeats an earlier entry name is a decode error.
+- **Import validation**: a `members` list that repeats an entry, or that holds two
+  entries that compare equal, is a validation error. A crafted archive cannot bypass the
+  export rules.
 
 ## 5 - Implementation Phases
 
