@@ -223,13 +223,15 @@ recognizes each historical layout:
 
 1. `project.json` / `group.json` present: current format. Guard the version, then
    proceed.
-2. `PANELS.json` present: legacy project directory (version 0). Files from this era
-   carry `key` fields; the migration remaps panel-tab references through them,
-   best-effort, as the Console does today.
-3. `LAYOUT.json` present: the console-state era. Recreate documents; drop the mosaic
-   tiling (matches current Console behavior, SY-4370 TODO).
-4. `manifest.json` present with `version: 1`: the legacy Console-written symbol
+2. `LAYOUT.json` present: the legacy project directory every stable release writes
+   (version 0). Recreate documents; drop the mosaic tiling (matches current Console
+   behavior, SY-4370 TODO).
+3. `manifest.json` present with `version: 1`: the legacy Console-written symbol
    group format (`{file, key, name}` entries); migrated by the group importer.
+
+The interim `PANELS.json` layout exists only in rc pre-releases and never shipped in
+a stable release. This RFC renames it into the `project.json` format before it does,
+so it gets no migration path.
 
 Legacy migration lives in frozen per-version packages, following the log importer's
 chain (`core/pkg/service/log/imex.go:80`). The Console deletes all legacy ingest
@@ -241,7 +243,7 @@ Each bundle kind owns its manifest version sequence (RFC 0039 §6.1):
 
 | Bundle       | Version | Meaning                                       |
 | ------------ | ------- | --------------------------------------------- |
-| project      | 0       | Legacy dir (`PANELS.json` / `LAYOUT.json`)    |
+| project      | 0       | Legacy dir (`LAYOUT.json`)                    |
 | project      | 1       | `project.json` (this RFC)                     |
 | symbol group | 1       | Legacy Console-written `manifest.json`        |
 | symbol group | 2       | `group.json` (this RFC)                       |
@@ -286,8 +288,8 @@ helper. Pure additive plumbing.
 **Phase 3 — Project bundles.** Reorder `layer.go`; add `ImEx` and `Panel` to
 `project.ServiceConfig`; implement `ExportBundle`/`ImportBundle`; add the
 `/project/export` and `/project/import` endpoints; add panel tab-type validation;
-implement `PANELS.json`/`LAYOUT.json` migration. Cut the Console over and delete its
-project orchestration.
+implement `LAYOUT.json` migration. Cut the Console over and delete its project
+orchestration.
 
 **Phase 4 — Symbol group bundles.** Implement the group export/import methods and
 endpoints, with legacy v1 manifest migration. Cut the Console over and delete its
