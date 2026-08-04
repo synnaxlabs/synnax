@@ -35,7 +35,9 @@ type Writer struct {
 // and [auth.ErrRepeatedUsername] if a user with u.Username already exists.
 func (w Writer) Create(ctx context.Context, u User) (User, error) {
 	if u.RootUser {
-		return User{}, errors.New("cannot create a root user; root users are provisioned at startup")
+		return User{}, errors.New(
+			"cannot create a root user; root users are provisioned at startup",
+		)
 	}
 	return w.create(ctx, u)
 }

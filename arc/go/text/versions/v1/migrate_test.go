@@ -18,18 +18,24 @@ import (
 )
 
 var _ = Describe("MigrateText", func() {
-	It("Should seed the replicated document from the raw source", func(ctx SpecContext) {
-		migrated := MustSucceed(v1.MigrateText(ctx, v0.Text{Raw: "x := 1"}))
-		Expect(migrated.Materialize().Raw).To(Equal("x := 1"))
-	})
+	It(
+		"Should seed the replicated document from the raw source",
+		func(ctx SpecContext) {
+			migrated := MustSucceed(v1.MigrateText(ctx, v0.Text{Raw: "x := 1"}))
+			Expect(migrated.Materialize().Raw).To(Equal("x := 1"))
+		},
+	)
 
 	It("Should leave the derived raw text empty", func(ctx SpecContext) {
 		migrated := MustSucceed(v1.MigrateText(ctx, v0.Text{Raw: "x := 1"}))
 		Expect(migrated.Raw).To(BeEmpty())
 	})
 
-	It("Should produce an empty document when there is no raw text", func(ctx SpecContext) {
-		migrated := MustSucceed(v1.MigrateText(ctx, v0.Text{}))
-		Expect(migrated.Materialize().Raw).To(BeEmpty())
-	})
+	It(
+		"Should produce an empty document when there is no raw text",
+		func(ctx SpecContext) {
+			migrated := MustSucceed(v1.MigrateText(ctx, v0.Text{}))
+			Expect(migrated.Materialize().Raw).To(BeEmpty())
+		},
+	)
 })

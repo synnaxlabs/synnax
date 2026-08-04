@@ -57,7 +57,8 @@ const (
 	TimestampFormatDateTime    TimestampFormat = "dateTime"
 )
 
-// IsValid reports whether t is one of the defined TimestampFormat values.
+// IsValid reports whether t is one of the defined TimestampFormat
+// values.
 func (t TimestampFormat) IsValid() bool {
 	switch t {
 	case TimestampFormatISO, TimestampFormatISODate, TimestampFormatTime, TimestampFormatPreciseTime, TimestampFormatDate, TimestampFormatPreciseDate, TimestampFormatDateTime:
@@ -75,7 +76,8 @@ const (
 	TimeZoneUTC   TimeZone = "UTC"
 )
 
-// IsValid reports whether t is one of the defined TimeZone values.
+// IsValid reports whether t is one of the defined TimeZone
+// values.
 func (t TimeZone) IsValid() bool {
 	switch t {
 	case TimeZoneLocal, TimeZoneUTC:

@@ -162,15 +162,24 @@ var _ = Describe("Type", func() {
 	})
 
 	Describe("UnwrapChan", func() {
-		DescribeTable("should unwrap channel types to their element type",
-			func(t types.Type, expected types.Type) {
+		DescribeTable(
+			"should unwrap channel types to their element type",
+			func(t, expected types.Type) {
 				Expect(t.UnwrapChan()).To(Equal(expected))
 			},
 			Entry("chan i32 -> i32", types.Chan(types.I32()), types.I32()),
 			Entry("chan f64 -> f64", types.Chan(types.F64()), types.F64()),
 			Entry("chan u8 -> u8", types.Chan(types.U8()), types.U8()),
-			Entry("chan timestamp -> timestamp", types.Chan(types.TimeStamp()), types.TimeStamp()),
-			Entry("chan series i32 -> series i32", types.Chan(types.Series(types.I32())), types.Series(types.I32())),
+			Entry(
+				"chan timestamp -> timestamp",
+				types.Chan(types.TimeStamp()),
+				types.TimeStamp(),
+			),
+			Entry(
+				"chan series i32 -> series i32",
+				types.Chan(types.Series(types.I32())),
+				types.Series(types.I32()),
+			),
 		)
 
 		DescribeTable("should leave series types unchanged",
@@ -211,13 +220,22 @@ var _ = Describe("Type", func() {
 			Entry("stage", types.Stage()),
 		)
 
-		DescribeTable("should handle edge cases",
-			func(t types.Type, expected types.Type) {
+		DescribeTable(
+			"should handle edge cases",
+			func(t, expected types.Type) {
 				Expect(t.UnwrapChan()).To(Equal(expected))
 			},
 			Entry("invalid type", types.Type{}, types.Type{}),
-			Entry("chan with nil Elem", types.Type{Kind: types.KindChan, Elem: nil}, types.Type{Kind: types.KindChan, Elem: nil}),
-			Entry("nested chan", types.Chan(types.Chan(types.I32())), types.Chan(types.I32())),
+			Entry(
+				"chan with nil Elem",
+				types.Type{Kind: types.KindChan, Elem: nil},
+				types.Type{Kind: types.KindChan, Elem: nil},
+			),
+			Entry(
+				"nested chan",
+				types.Chan(types.Chan(types.I32())),
+				types.Chan(types.I32()),
+			),
 		)
 	})
 
@@ -244,7 +262,8 @@ var _ = Describe("Type", func() {
 					Expect(t.IsNumeric()).To(BeFalse())
 				},
 				Entry("String", types.String()),
-				// Note: TimeStamp() and TimeSpan() are now i64 with units, so they ARE numeric
+				// Note: TimeStamp() and TimeSpan() are now i64 with units, so they ARE
+				// numeric.
 			)
 
 			It("Should check value type for channels", func() {
@@ -280,11 +299,14 @@ var _ = Describe("Type", func() {
 				Expect(tv.IsNumeric()).To(BeTrue())
 			})
 
-			It("Should return true for type variable with concrete numeric type constraint", func() {
-				constraint := types.I32()
-				tv := types.Variable("N", &constraint)
-				Expect(tv.IsNumeric()).To(BeTrue())
-			})
+			It(
+				"Should return true for type variable with concrete numeric type constraint",
+				func() {
+					constraint := types.I32()
+					tv := types.Variable("N", &constraint)
+					Expect(tv.IsNumeric()).To(BeTrue())
+				},
+			)
 		})
 
 		Describe("IsInteger", func() {
@@ -396,7 +418,8 @@ var _ = Describe("Type", func() {
 		})
 
 		Describe("IntegerMaxValue", func() {
-			DescribeTable("Should return correct max value for integer types",
+			DescribeTable(
+				"Should return correct max value for integer types",
 				func(t types.Type, expected int64) {
 					Expect(t.IntegerMaxValue()).To(Equal(expected))
 				},
@@ -407,7 +430,11 @@ var _ = Describe("Type", func() {
 				Entry("U8", types.U8(), int64(math.MaxUint8)),
 				Entry("U16", types.U16(), int64(math.MaxUint16)),
 				Entry("U32", types.U32(), int64(math.MaxUint32)),
-				Entry("U64", types.U64(), int64(math.MaxInt64)), // Uses MaxInt64 for comparison safety
+				Entry(
+					"U64",
+					types.U64(),
+					int64(math.MaxInt64),
+				), // Uses MaxInt64 for comparison safety
 			)
 
 			DescribeTable("Should panic for non-integer types",
@@ -528,7 +555,8 @@ var _ = Describe("Type", func() {
 			Entry("TimeSpan", types.TimeSpan(), "i64 ns"),
 		)
 
-		DescribeTable("Should return correct strings for compound types",
+		DescribeTable(
+			"Should return correct strings for compound types",
 			func(t types.Type, expected string) {
 				Expect(t.String()).To(Equal(expected))
 			},
@@ -536,11 +564,20 @@ var _ = Describe("Type", func() {
 			Entry("chan f64", types.Chan(types.F64()), "chan f64"),
 			Entry("series i32", types.Series(types.I32()), "series i32"),
 			Entry("series f64", types.Series(types.F64()), "series f64"),
-			Entry("chan with nil Elem", types.Type{Kind: types.KindChan, Elem: nil}, "chan <invalid>"),
-			Entry("series with nil Elem", types.Type{Kind: types.KindSeries, Elem: nil}, "series <invalid>"),
+			Entry(
+				"chan with nil Elem",
+				types.Type{Kind: types.KindChan, Elem: nil},
+				"chan <invalid>",
+			),
+			Entry(
+				"series with nil Elem",
+				types.Type{Kind: types.KindSeries, Elem: nil},
+				"series <invalid>",
+			),
 		)
 
-		DescribeTable("Should return correct strings for type variables and constraints",
+		DescribeTable(
+			"Should return correct strings for type variables and constraints",
 			func(t types.Type, expected string) {
 				Expect(t.String()).To(Equal(expected))
 			},

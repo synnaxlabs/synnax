@@ -31,7 +31,8 @@ var _ = Describe("BoolBitPacking", func() {
 	})
 
 	Describe("Round-Trip", func() {
-		DescribeTable("preserves canonical bytes",
+		DescribeTable(
+			"preserves canonical bytes",
 			func(samples []byte) {
 				packed := packBoolBits(samples)
 				Expect(packed).To(HaveLen((len(samples) + 7) / 8))
@@ -42,7 +43,10 @@ var _ = Describe("BoolBitPacking", func() {
 			Entry("seven bits", []byte{1, 0, 1, 1, 0, 0, 1}),
 			Entry("eight bits", []byte{1, 0, 1, 0, 1, 0, 1, 0}),
 			Entry("nine bits", []byte{1, 0, 1, 0, 1, 0, 1, 0, 1}),
-			Entry("sixteen bits", []byte{1, 0, 1, 1, 0, 0, 1, 0, 0, 1, 0, 1, 1, 1, 0, 1}),
+			Entry(
+				"sixteen bits",
+				[]byte{1, 0, 1, 1, 0, 0, 1, 0, 0, 1, 0, 1, 1, 1, 0, 1},
+			),
 		)
 	})
 })

@@ -45,35 +45,39 @@ var _ = Describe("Migration", func() {
 		}
 	}
 
-	It("Should extract legacy policies into the KV mapping and delete them", func(ctx SpecContext) {
-		u1 := ontology.ID{Type: ontology.ResourceTypeUser, Key: uuid.NewString()}
-		u2 := ontology.ID{Type: ontology.ResourceTypeUser, Key: uuid.NewString()}
-		shared := newLegacy(u1, u2)
-		single := newLegacy(u1)
-		modern := v0.Policy{
-			Key:     uuid.New(),
-			Objects: []ontology.ID{{Type: "label"}},
-			Actions: []access.Action{"retrieve"},
-		}
-		Expect(gorp.NewCreate[uuid.UUID, v0.Policy]().
-			Entries(&[]v0.Policy{shared, single, modern}).Exec(ctx, db)).To(Succeed())
+	It(
+		"Should extract legacy policies into the KV mapping and delete them",
+		func(ctx SpecContext) {
+			u1 := ontology.ID{Type: ontology.ResourceTypeUser, Key: uuid.NewString()}
+			u2 := ontology.ID{Type: ontology.ResourceTypeUser, Key: uuid.NewString()}
+			shared := newLegacy(u1, u2)
+			single := newLegacy(u1)
+			modern := v0.Policy{
+				Key:     uuid.New(),
+				Objects: []ontology.ID{{Type: "label"}},
+				Actions: []access.Action{"retrieve"},
+			}
+			Expect(gorp.NewCreate[uuid.UUID, v0.Policy]().
+				Entries(&[]v0.Policy{shared, single, modern}).
+				Exec(ctx, db)).To(Succeed())
 
-		run(ctx)
+			run(ctx)
 
-		mappings := MustSucceed(v0.ReadLegacyMappings(ctx, db))
-		Expect(mappings).To(HaveLen(2))
-		byUser := make(map[string][]v0.Policy, len(mappings))
-		for _, m := range mappings {
-			byUser[m.UserOntologyID.String()] = m.Policies
-		}
-		Expect(byUser[u1.String()]).To(ConsistOf(shared, single))
-		Expect(byUser[u2.String()]).To(ConsistOf(shared))
+			mappings := MustSucceed(v0.ReadLegacyMappings(ctx, db))
+			Expect(mappings).To(HaveLen(2))
+			byUser := make(map[string][]v0.Policy, len(mappings))
+			for _, m := range mappings {
+				byUser[m.UserOntologyID.String()] = m.Policies
+			}
+			Expect(byUser[u1.String()]).To(ConsistOf(shared, single))
+			Expect(byUser[u2.String()]).To(ConsistOf(shared))
 
-		var remaining []v0.Policy
-		Expect(gorp.NewRetrieve[uuid.UUID, v0.Policy]().
-			Entries(&remaining).Exec(ctx, db)).To(Succeed())
-		Expect(remaining).To(ConsistOf(modern))
-	})
+			var remaining []v0.Policy
+			Expect(gorp.NewRetrieve[uuid.UUID, v0.Policy]().
+				Entries(&remaining).Exec(ctx, db)).To(Succeed())
+			Expect(remaining).To(ConsistOf(modern))
+		},
+	)
 
 	It("Should write no mapping when no legacy policies exist", func(ctx SpecContext) {
 		modern := v0.Policy{Key: uuid.New(), Actions: []access.Action{"all"}}
@@ -83,20 +87,23 @@ var _ = Describe("Migration", func() {
 		Expect(v0.ReadLegacyMappings(ctx, db)).To(BeNil())
 	})
 
-	It("Should skip extraction when the pre-gorp migration flag is set", func(ctx SpecContext) {
-		Expect(db.Set(
-			ctx, []byte("sy_rbac_migration_performed"), []byte{1},
-		)).To(Succeed())
-		legacy := newLegacy(ontology.ID{Type: ontology.ResourceTypeUser, Key: "u1"})
-		Expect(gorp.NewCreate[uuid.UUID, v0.Policy]().
-			Entry(&legacy).Exec(ctx, db)).To(Succeed())
-		run(ctx)
-		Expect(v0.ReadLegacyMappings(ctx, db)).To(BeNil())
-		var remaining []v0.Policy
-		Expect(gorp.NewRetrieve[uuid.UUID, v0.Policy]().
-			Entries(&remaining).Exec(ctx, db)).To(Succeed())
-		Expect(remaining).To(ConsistOf(legacy))
-	})
+	It(
+		"Should skip extraction when the pre-gorp migration flag is set",
+		func(ctx SpecContext) {
+			Expect(db.Set(
+				ctx, []byte("sy_rbac_migration_performed"), []byte{1},
+			)).To(Succeed())
+			legacy := newLegacy(ontology.ID{Type: ontology.ResourceTypeUser, Key: "u1"})
+			Expect(gorp.NewCreate[uuid.UUID, v0.Policy]().
+				Entry(&legacy).Exec(ctx, db)).To(Succeed())
+			run(ctx)
+			Expect(v0.ReadLegacyMappings(ctx, db)).To(BeNil())
+			var remaining []v0.Policy
+			Expect(gorp.NewRetrieve[uuid.UUID, v0.Policy]().
+				Entries(&remaining).Exec(ctx, db)).To(Succeed())
+			Expect(remaining).To(ConsistOf(legacy))
+		},
+	)
 })
 
 var _ = Describe("Legacy mappings", func() {
@@ -105,7 +112,9 @@ var _ = Describe("Legacy mappings", func() {
 
 	writeMapping := func(ctx SpecContext, mappings []v0.LegacyUserMapping) {
 		raw := MustSucceed(json.Marshal(mappings))
-		Expect(db.Set(ctx, []byte("sy_rbac_legacy_permission_mapping"), raw)).To(Succeed())
+		Expect(
+			db.Set(ctx, []byte("sy_rbac_legacy_permission_mapping"), raw),
+		).To(Succeed())
 	}
 
 	Describe("ReadLegacyMappings", func() {

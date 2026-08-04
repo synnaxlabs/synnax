@@ -33,7 +33,10 @@ import (
 // cluster and returns a node Service registered with them. Test fixtures use this
 // instead of the mock cluster's pre-registered services so that the test owns the
 // ontology lifecycle and avoids duplicate-registration panics.
-func openTestService(ctx context.Context, c cluster.Cluster) (*node.Service, *ontology.Ontology) {
+func openTestService(
+	ctx context.Context,
+	c cluster.Cluster,
+) (*node.Service, *ontology.Ontology) {
 	db := DeferClose(gorp.Wrap(memkv.New()))
 	otg := MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
 	idx := MustOpen(search.OpenIndex())
@@ -59,11 +62,14 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 
 var _ = Describe("Ontology", func() {
 	Describe("OntologyID", func() {
-		It("Should construct an ID with the node resource type and a stringified key", func() {
-			id := node.OntologyID(7)
-			Expect(id.Type).To(Equal(ontology.ResourceTypeNode))
-			Expect(id.Key).To(Equal("7"))
-		})
+		It(
+			"Should construct an ID with the node resource type and a stringified key",
+			func() {
+				id := node.OntologyID(7)
+				Expect(id.Type).To(Equal(ontology.ResourceTypeNode))
+				Expect(id.Key).To(Equal("7"))
+			},
+		)
 
 		It("Should round-trip the free node key", func() {
 			id := node.OntologyID(node.KeyFree)
@@ -81,24 +87,32 @@ var _ = Describe("Ontology", func() {
 		Describe("RetrieveResource", func() {
 			It("Should return a resource for the host node", func(ctx SpecContext) {
 				host := testCluster.Nodes[1].Cluster.HostKey()
-				res := MustSucceed(testSvc.RetrieveResource(ctx, strconv.Itoa(int(host)), nil))
+				res := MustSucceed(
+					testSvc.RetrieveResource(ctx, strconv.Itoa(int(host)), nil),
+				)
 				Expect(res.ID).To(Equal(node.OntologyID(host)))
 				Expect(res.Name).To(Equal("Node 1"))
 			})
 
-			It("Should return a synthetic resource for the free node key", func(ctx SpecContext) {
-				res := MustSucceed(testSvc.RetrieveResource(
-					ctx,
-					strconv.Itoa(int(node.KeyFree)),
-					nil,
-				))
-				Expect(res.ID).To(Equal(node.OntologyID(node.KeyFree)))
-			})
+			It(
+				"Should return a synthetic resource for the free node key",
+				func(ctx SpecContext) {
+					res := MustSucceed(testSvc.RetrieveResource(
+						ctx,
+						strconv.Itoa(int(node.KeyFree)),
+						nil,
+					))
+					Expect(res.ID).To(Equal(node.OntologyID(node.KeyFree)))
+				},
+			)
 
-			It("Should return ErrNodeNotFound for a key that is not in the cluster", func(ctx SpecContext) {
-				Expect(testSvc.RetrieveResource(ctx, "999", nil)).
-					Error().To(MatchError(aspen.ErrNodeNotFound))
-			})
+			It(
+				"Should return ErrNodeNotFound for a key that is not in the cluster",
+				func(ctx SpecContext) {
+					Expect(testSvc.RetrieveResource(ctx, "999", nil)).
+						Error().To(MatchError(aspen.ErrNodeNotFound))
+				},
+			)
 
 			It("Should return an error for a non-numeric key", func(ctx SpecContext) {
 				Expect(testSvc.RetrieveResource(ctx, "not-a-number", nil)).
@@ -107,40 +121,51 @@ var _ = Describe("Ontology", func() {
 		})
 
 		Describe("OpenNexter", func() {
-			It("Should iterate over every node currently in the cluster", func(ctx SpecContext) {
-				seq, closer := MustSucceed2(testSvc.OpenNexter(ctx))
-				DeferClose(closer)
-				resources := slices.Collect(seq)
-				expected := lo.MapToSlice(testCluster.Nodes, func(k node.Key, _ mock.Node) string {
-					return strconv.Itoa(int(k))
-				})
-				keys := lo.Map(resources, func(r ontology.Resource, _ int) string {
-					return r.ID.Key
-				})
-				Expect(keys).To(ConsistOf(expected))
-			})
+			It(
+				"Should iterate over every node currently in the cluster",
+				func(ctx SpecContext) {
+					seq, closer := MustSucceed2(testSvc.OpenNexter(ctx))
+					DeferClose(closer)
+					resources := slices.Collect(seq)
+					expected := lo.MapToSlice(
+						testCluster.Nodes,
+						func(k node.Key, _ mock.Node) string {
+							return strconv.Itoa(int(k))
+						},
+					)
+					keys := lo.Map(resources, func(r ontology.Resource, _ int) string {
+						return r.ID.Key
+					})
+					Expect(keys).To(ConsistOf(expected))
+				},
+			)
 		})
 
 		Describe("OnChange", func() {
-			It("Should translate cluster changes into ontology changes when a node joins", func(ctx SpecContext) {
-				ephemeral := mock.NewCluster(ctx, 1)
-				ephemeralSvc, _ := openTestService(ctx, ephemeral.Nodes[1].Cluster)
+			It(
+				"Should translate cluster changes into ontology changes when a node joins",
+				func(ctx SpecContext) {
+					ephemeral := mock.NewCluster(ctx, 1)
+					ephemeralSvc, _ := openTestService(ctx, ephemeral.Nodes[1].Cluster)
 
-				received := make(chan ontology.Change, 8)
-				disconnect := ephemeralSvc.OnChange(func(_ context.Context, changes iter.Seq[ontology.Change]) {
-					for ch := range changes {
-						received <- ch
-					}
-				})
-				DeferCleanup(disconnect)
+					received := make(chan ontology.Change, 8)
+					disconnect := ephemeralSvc.OnChange(
+						func(_ context.Context, changes iter.Seq[ontology.Change]) {
+							for ch := range changes {
+								received <- ch
+							}
+						},
+					)
+					DeferCleanup(disconnect)
 
-				newNode := ephemeral.Provision(ctx)
-				newKey := newNode.Cluster.HostKey()
+					newNode := ephemeral.Provision(ctx)
+					newKey := newNode.Cluster.HostKey()
 
-				var change ontology.Change
-				Eventually(received).Should(Receive(&change))
-				Expect(change.Key).To(Equal(node.OntologyID(newKey).String()))
-			})
+					var change ontology.Change
+					Eventually(received).Should(Receive(&change))
+					Expect(change.Key).To(Equal(node.OntologyID(newKey).String()))
+				},
+			)
 		})
 	})
 })

@@ -53,14 +53,18 @@ var _ = Describe("EdgeKind", func() {
 		})
 
 		It("Should unmarshal Continuous edge", func() {
-			data := []byte(`{"source":{"node":"a","param":"out"},"target":{"node":"b","param":"in"},"kind":1}`)
+			data := []byte(
+				`{"source":{"node":"a","param":"out"},"target":{"node":"b","param":"in"},"kind":1}`,
+			)
 			var edge v0.Edge
 			Expect(json.Unmarshal(data, &edge)).To(Succeed())
 			Expect(edge.Kind).To(Equal(v0.EdgeKindContinuous))
 		})
 
 		It("Should unmarshal Conditional edge", func() {
-			data := []byte(`{"source":{"node":"cond","param":"output"},"target":{"node":"stage_entry","param":"activate"},"kind":2}`)
+			data := []byte(
+				`{"source":{"node":"cond","param":"output"},"target":{"node":"stage_entry","param":"activate"},"kind":2}`,
+			)
 			var edge v0.Edge
 			Expect(json.Unmarshal(data, &edge)).To(Succeed())
 			Expect(edge.Kind).To(Equal(v0.EdgeKindConditional))

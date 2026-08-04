@@ -9,17 +9,14 @@
 
 #pragma once
 
-/// std.
 #include <functional>
 
-/// internal.
 #include "x/cpp/errors/errors.h"
 
 namespace driver::daemon {
-// Callback type for the main application logic
-using ApplicationCallback = std::function<void(int argc, char *argv[])>;
+using ApplicationCallback = std::function<void()>;
 
-// Status codes that can be reported to the system service manager
+/// @brief status codes reported to the system service manager.
 enum class Status {
     INITIALIZING,
     READY,
@@ -28,31 +25,27 @@ enum class Status {
     ERROR_ // ERROR is already a reserved macro in <winerror.h>
 };
 
-// Configuration for the daemon
 struct Config {
-    // How often to send watchdog notifications (in seconds)
+    /// @brief how often to send watchdog notifications, in seconds.
     int watchdog_interval = 10;
-    // The application's main logic callback
+    /// @brief the application's main logic callback.
     ApplicationCallback callback;
 };
 
-// Service management functions
 x::errors::Error install_service();
 
 x::errors::Error uninstall_service();
 
-// Service control functions
 x::errors::Error start_service();
 
 x::errors::Error stop_service();
 
 x::errors::Error restart_service();
 
-// Service status functions.
 x::errors::Error view_logs();
 
 x::errors::Error status();
 
-// Runs the application as a daemon with the given configuration
-void run(const Config &config, int argc, char *argv[]);
+/// @brief runs the application as a daemon with the given configuration.
+void run(const Config &config);
 }

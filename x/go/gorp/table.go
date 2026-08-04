@@ -305,7 +305,11 @@ func normalizeKeysMigration[K Key, E Entry[K]]() migrate.Migration {
 				rawValue := itr.Value()
 				var entry E
 				if err = tx.Decode(ctx, rawValue, &entry); err != nil {
-					return errors.Wrapf(err, "normalize_keys: failed to decode entry at old prefix key %x", itr.Key())
+					return errors.Wrapf(
+						err,
+						"normalize_keys: failed to decode entry at old prefix key %x",
+						itr.Key(),
+					)
 				}
 				if err = tx.Delete(ctx, itr.Key()); err != nil {
 					return err

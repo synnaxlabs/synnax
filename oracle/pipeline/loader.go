@@ -29,7 +29,10 @@ type overlayLoader struct {
 	overlay map[string][]byte
 }
 
-func newOverlayLoader(inner analyzer.FileLoader, overlay map[string][]byte) *overlayLoader {
+func newOverlayLoader(
+	inner analyzer.FileLoader,
+	overlay map[string][]byte,
+) *overlayLoader {
 	return &overlayLoader{inner: inner, overlay: overlay}
 }
 

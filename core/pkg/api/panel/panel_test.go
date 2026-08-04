@@ -41,13 +41,16 @@ func hasParent(ctx context.Context, parent ontology.ID, key panel.Key) bool {
 
 var _ = Describe("Service", func() {
 	Describe("Create", func() {
-		It("Should reject the request when the subject has no create policy", func(ctx SpecContext) {
-			u := newUser(ctx)
-			p := panel.Panel{Key: uuid.New(), Name: "no-policy"}
-			Expect(apiSvc.Create(authedCtx(ctx, u), nil, CreateRequest{
-				Panels: []panel.Panel{p},
-			})).Error().To(MatchError(access.ErrDenied))
-		})
+		It(
+			"Should reject the request when the subject has no create policy",
+			func(ctx SpecContext) {
+				u := newUser(ctx)
+				p := panel.Panel{Key: uuid.New(), Name: "no-policy"}
+				Expect(apiSvc.Create(authedCtx(ctx, u), nil, CreateRequest{
+					Panels: []panel.Panel{p},
+				})).Error().To(MatchError(access.ErrDenied))
+			},
+		)
 
 		It("Should create the panels under the provided parent", func(ctx SpecContext) {
 			u := newUser(ctx)
@@ -66,57 +69,78 @@ var _ = Describe("Service", func() {
 			Expect(hasParent(ctx, parentID, p.Key)).To(BeTrue())
 		})
 
-		It("Should parent a parent-less panel to the creating user as a draft", func(ctx SpecContext) {
-			u := newUser(ctx)
-			p := panel.Panel{Key: uuid.New(), Name: "draft"}
-			grant(ctx, u.OntologyID(), access.ActionCreate,
-				ontology.ID{Type: ontology.ResourceTypePanel})
-			Expect(apiSvc.Create(authedCtx(ctx, u), nil, CreateRequest{
-				Panels: []panel.Panel{p},
-			})).Error().To(Succeed())
-			Expect(hasParent(ctx, u.OntologyID(), p.Key)).To(BeTrue())
-		})
+		It(
+			"Should parent a parent-less panel to the creating user as a draft",
+			func(ctx SpecContext) {
+				u := newUser(ctx)
+				p := panel.Panel{Key: uuid.New(), Name: "draft"}
+				grant(ctx, u.OntologyID(), access.ActionCreate,
+					ontology.ID{Type: ontology.ResourceTypePanel})
+				Expect(apiSvc.Create(authedCtx(ctx, u), nil, CreateRequest{
+					Panels: []panel.Panel{p},
+				})).Error().To(Succeed())
+				Expect(hasParent(ctx, u.OntologyID(), p.Key)).To(BeTrue())
+			},
+		)
 	})
 
 	Describe("Retrieve", func() {
-		It("Should return the panels matching the requested keys", func(ctx SpecContext) {
-			p := createPanel(ctx, "retrievable")
-			grant(ctx, author.OntologyID(), access.ActionRetrieve, p.OntologyID())
-			res := MustSucceed(apiSvc.Retrieve(authedCtx(ctx, author), RetrieveRequest{
-				Keys: []panel.Key{p.Key},
-			}))
-			Expect(res.Panels).To(HaveLen(1))
-			Expect(res.Panels[0].Key).To(Equal(p.Key))
-			Expect(res.Panels[0].Name).To(Equal("retrievable"))
-		})
+		It(
+			"Should return the panels matching the requested keys",
+			func(ctx SpecContext) {
+				p := createPanel(ctx, "retrievable")
+				grant(ctx, author.OntologyID(), access.ActionRetrieve, p.OntologyID())
+				res := MustSucceed(
+					apiSvc.Retrieve(authedCtx(ctx, author), RetrieveRequest{
+						Keys: []panel.Key{p.Key},
+					}),
+				)
+				Expect(res.Panels).To(HaveLen(1))
+				Expect(res.Panels[0].Key).To(Equal(p.Key))
+				Expect(res.Panels[0].Name).To(Equal("retrievable"))
+			},
+		)
 
-		It("Should reject the request when the subject cannot retrieve a matched panel", func(ctx SpecContext) {
-			p := createPanel(ctx, "forbidden")
-			Expect(apiSvc.Retrieve(authedCtx(ctx, author), RetrieveRequest{
-				Keys: []panel.Key{p.Key},
-			})).Error().To(MatchError(access.ErrDenied))
-		})
+		It(
+			"Should reject the request when the subject cannot retrieve a matched panel",
+			func(ctx SpecContext) {
+				p := createPanel(ctx, "forbidden")
+				Expect(apiSvc.Retrieve(authedCtx(ctx, author), RetrieveRequest{
+					Keys: []panel.Key{p.Key},
+				})).Error().To(MatchError(access.ErrDenied))
+			},
+		)
 
-		It("Should omit missing keys from a multi-key retrieve instead of failing", func(ctx SpecContext) {
-			p := createPanel(ctx, "partial-survivor")
-			missing := uuid.New()
-			grant(ctx, author.OntologyID(), access.ActionRetrieve,
-				panel.OntologyID(p.Key), panel.OntologyID(missing))
-			res := MustSucceed(apiSvc.Retrieve(authedCtx(ctx, author), RetrieveRequest{
-				Keys:                []panel.Key{p.Key, missing},
-				IgnoreNotFoundError: true,
-			}))
-			Expect(res.Panels).To(HaveLen(1))
-			Expect(res.Panels[0].Key).To(Equal(p.Key))
-		})
+		It(
+			"Should omit missing keys from a multi-key retrieve instead of failing",
+			func(ctx SpecContext) {
+				p := createPanel(ctx, "partial-survivor")
+				missing := uuid.New()
+				grant(ctx, author.OntologyID(), access.ActionRetrieve,
+					panel.OntologyID(p.Key), panel.OntologyID(missing))
+				res := MustSucceed(
+					apiSvc.Retrieve(authedCtx(ctx, author), RetrieveRequest{
+						Keys:                []panel.Key{p.Key, missing},
+						IgnoreNotFoundError: true,
+					}),
+				)
+				Expect(res.Panels).To(HaveLen(1))
+				Expect(res.Panels[0].Key).To(Equal(p.Key))
+			},
+		)
 
-		It("Should return an empty result when every requested key is missing", func(ctx SpecContext) {
-			res := MustSucceed(apiSvc.Retrieve(authedCtx(ctx, author), RetrieveRequest{
-				Keys:                []panel.Key{uuid.New()},
-				IgnoreNotFoundError: true,
-			}))
-			Expect(res.Panels).To(BeEmpty())
-		})
+		It(
+			"Should return an empty result when every requested key is missing",
+			func(ctx SpecContext) {
+				res := MustSucceed(
+					apiSvc.Retrieve(authedCtx(ctx, author), RetrieveRequest{
+						Keys:                []panel.Key{uuid.New()},
+						IgnoreNotFoundError: true,
+					}),
+				)
+				Expect(res.Panels).To(BeEmpty())
+			},
+		)
 
 		It("Should honor the limit and offset bounds", func(ctx SpecContext) {
 			a := createPanel(ctx, "page-a")
@@ -133,39 +157,50 @@ var _ = Describe("Service", func() {
 	})
 
 	Describe("Dispatch", func() {
-		It("Should reject the request when the subject has no update policy", func(ctx SpecContext) {
-			p := createPanel(ctx, "dispatch-denied")
-			Expect(apiSvc.Dispatch(authedCtx(ctx, author), nil, DispatchRequest{
-				Key:         p.Key,
-				DispatchKey: "sess-1",
-				Actions:     []panel.Action{panel.NewRenameAction(panel.RenamePayload{Name: "x"})},
-			})).Error().To(MatchError(access.ErrDenied))
-		})
+		It(
+			"Should reject the request when the subject has no update policy",
+			func(ctx SpecContext) {
+				p := createPanel(ctx, "dispatch-denied")
+				Expect(apiSvc.Dispatch(authedCtx(ctx, author), nil, DispatchRequest{
+					Key:         p.Key,
+					DispatchKey: "sess-1",
+					Actions: []panel.Action{
+						panel.NewRenameAction(panel.RenamePayload{Name: "x"}),
+					},
+				})).Error().To(MatchError(access.ErrDenied))
+			},
+		)
 
-		It("Should apply the action sequence to the target panel", func(ctx SpecContext) {
-			p := createPanel(ctx, "dispatch-ok")
-			grant(ctx, author.OntologyID(), access.ActionUpdate, p.OntologyID())
-			Expect(apiSvc.Dispatch(authedCtx(ctx, author), nil, DispatchRequest{
-				Key:         p.Key,
-				DispatchKey: "sess-1",
-				Actions: []panel.Action{
-					panel.NewRenameAction(panel.RenamePayload{Name: "renamed"}),
-				},
-			})).Error().To(Succeed())
-			var got panel.Panel
-			Expect(panelSvc.NewRetrieve().Where(panel.MatchKeys(p.Key)).
-				Entry(&got).Exec(ctx, nil)).To(Succeed())
-			Expect(got.Name).To(Equal("renamed"))
-		})
+		It(
+			"Should apply the action sequence to the target panel",
+			func(ctx SpecContext) {
+				p := createPanel(ctx, "dispatch-ok")
+				grant(ctx, author.OntologyID(), access.ActionUpdate, p.OntologyID())
+				Expect(apiSvc.Dispatch(authedCtx(ctx, author), nil, DispatchRequest{
+					Key:         p.Key,
+					DispatchKey: "sess-1",
+					Actions: []panel.Action{
+						panel.NewRenameAction(panel.RenamePayload{Name: "renamed"}),
+					},
+				})).Error().To(Succeed())
+				var got panel.Panel
+				Expect(panelSvc.NewRetrieve().Where(panel.MatchKeys(p.Key)).
+					Entry(&got).Exec(ctx, nil)).To(Succeed())
+				Expect(got.Name).To(Equal("renamed"))
+			},
+		)
 	})
 
 	Describe("Delete", func() {
-		It("Should reject the request when the subject has no delete policy", func(ctx SpecContext) {
-			p := createPanel(ctx, "delete-denied")
-			Expect(apiSvc.Delete(authedCtx(ctx, author), nil, DeleteRequest{
-				Keys: []panel.Key{p.Key},
-			})).Error().To(MatchError(access.ErrDenied))
-		})
+		It(
+			"Should reject the request when the subject has no delete policy",
+			func(ctx SpecContext) {
+				p := createPanel(ctx, "delete-denied")
+				Expect(apiSvc.Delete(authedCtx(ctx, author), nil, DeleteRequest{
+					Keys: []panel.Key{p.Key},
+				})).Error().To(MatchError(access.ErrDenied))
+			},
+		)
 
 		It("Should delete the panels with the given keys", func(ctx SpecContext) {
 			p := createPanel(ctx, "deletable")

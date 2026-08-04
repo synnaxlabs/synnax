@@ -15,18 +15,19 @@ import (
 	cfs "github.com/synnaxlabs/x/confluence"
 )
 
-// Stitch is the method a Router  uses to stitch together the segments specified in its route.
+// Stitch is the method a Router  uses to stitch together the segments specified in its
+// route.
 type Stitch byte
 
 const (
-	// StitchUnary is the default stitching method. It means the router will create a single stream and connected
-	// it to all input sink and source segments.
+	// StitchUnary is the default stitching method. It means the router will create a
+	// single stream and connected it to all input sink and source segments.
 	StitchUnary Stitch = iota
-	// StitchWeave is a stitching method that means the router will create a stream for each unique combination of
-	// sink and source.
+	// StitchWeave is a stitching method that means the router will create a stream for
+	// each unique combination of sink and source.
 	StitchWeave
-	// StitchConvergent is a stitching where a router creates a stream for each sink and connects it
-	// to all input sources.
+	// StitchConvergent is a stitching where a router creates a stream for each sink and
+	// connects it to all input sources.
 	StitchConvergent
 )
 
@@ -51,7 +52,13 @@ func (u UnaryRouter[V]) MustRoute(p *Pipeline) {
 }
 
 func MustConnect[V cfs.Value](pipe *Pipeline, source, sink address.Address, cap int) {
-	UnaryRouter[V]{SourceTarget: source, SinkTarget: sink, Capacity: cap}.MustRoute(pipe)
+	UnaryRouter[V]{
+		SourceTarget: source,
+		SinkTarget:   sink,
+		Capacity:     cap,
+	}.MustRoute(
+		pipe,
+	)
 }
 
 type MultiRouter[V cfs.Value] struct {
@@ -79,7 +86,7 @@ func (m MultiRouter[V]) MustRoute(p *Pipeline) {
 
 func (m MultiRouter[V]) linear(p *Pipeline) error {
 	stream := cfs.NewStream[V](m.Capacity)
-	return m.iterAddresses(func(from address.Address, to address.Address) error {
+	return m.iterAddresses(func(from, to address.Address) error {
 		return route(p, from, to, stream)
 	})
 }
@@ -99,7 +106,9 @@ func (m MultiRouter[V]) convergent(p *Pipeline) error {
 	})
 }
 
-func (m MultiRouter[V]) iterAddresses(f func(source, sink address.Address) error) error {
+func (m MultiRouter[V]) iterAddresses(
+	f func(source, sink address.Address) error,
+) error {
 	return iter(m.SourceTargets, func(source address.Address) error {
 		return iter(m.SinkTargets, func(sink address.Address) error {
 			return f(source, sink)
@@ -116,7 +125,11 @@ func iter(targets []address.Address, f func(to address.Address) error) error {
 	return nil
 }
 
-func route[V cfs.Value](p *Pipeline, sourceTarget, sinkTarget address.Address, stream *cfs.Stream[V]) error {
+func route[V cfs.Value](
+	p *Pipeline,
+	sourceTarget, sinkTarget address.Address,
+	stream *cfs.Stream[V],
+) error {
 	source, err := GetSource[V](p, sourceTarget)
 	if err != nil {
 		return err

@@ -53,7 +53,9 @@ var (
 	_ grpc.Translator[kv.GetRequest, *GetRequest]       = (*getRequestTranslator)(nil)
 	_ grpc.Translator[kv.GetResponse, *GetResponse]     = (*getResponseTranslator)(nil)
 	_ grpc.Translator[kv.SetRequest, *SetRequest]       = (*setRequestTranslator)(nil)
-	_ grpc.Translator[kv.DeleteRequest, *DeleteRequest] = (*deleteRequestTranslator)(nil)
+	_ grpc.Translator[kv.DeleteRequest, *DeleteRequest] = (*deleteRequestTranslator)(
+		nil,
+	)
 )
 
 func (getRequestTranslator) Forward(
@@ -61,7 +63,8 @@ func (getRequestTranslator) Forward(
 	r kv.GetRequest,
 ) (*GetRequest, error) {
 	return &GetRequest{
-		Range: r.Range.String(), Keys: r.Keys}, nil
+		Range: r.Range.String(), Keys: r.Keys,
+	}, nil
 }
 
 func (getRequestTranslator) Backward(

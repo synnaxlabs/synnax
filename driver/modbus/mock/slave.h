@@ -11,7 +11,6 @@
 
 #include <algorithm>
 #include <atomic>
-#include <memory>
 #include <mutex>
 #include <thread>
 #include <unordered_map>
@@ -30,15 +29,13 @@
 #include <unistd.h>
 #endif
 
+#include "absl/log/log.h"
 #include "modbus/modbus.h"
 
 #include "x/cpp/errors/errors.h"
 #include "x/cpp/telem/telem.h"
 
 #include "driver/modbus/util/util.h"
-
-/// glog
-#include "glog/logging.h"
 
 namespace driver::modbus::mock {
 /// @brief Configuration for a mock Modbus slave

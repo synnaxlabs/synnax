@@ -112,55 +112,67 @@ var _ = Describe("Service", func() {
 	})
 
 	Describe("OpenService", func() {
-		It("Should open and close a service from a valid configuration", func(ctx SpecContext) {
-			Expect(MustOpen(framer.OpenService(
-				ctx, newFramerConfig(ctx, mock.NewNode(ctx)),
-			))).ToNot(BeNil())
-		})
-		It("Should return an error for an invalid configuration", func(ctx SpecContext) {
-			Expect(framer.OpenService(ctx, framer.ServiceConfig{})).
-				Error().To(MatchError(ContainSubstring("must be non-nil")))
-		})
+		It(
+			"Should open and close a service from a valid configuration",
+			func(ctx SpecContext) {
+				Expect(MustOpen(framer.OpenService(
+					ctx, newFramerConfig(ctx, mock.NewNode(ctx)),
+				))).ToNot(BeNil())
+			},
+		)
+		It(
+			"Should return an error for an invalid configuration",
+			func(ctx SpecContext) {
+				Expect(framer.OpenService(ctx, framer.ServiceConfig{})).
+					Error().To(MatchError(ContainSubstring("must be non-nil")))
+			},
+		)
 	})
 
 	Describe("Control update channel configuration", func() {
 		controlChannelName := func(n mock.Node) string {
 			return fmt.Sprintf("sy_node_%v_control", n.Cluster.HostKey())
 		}
-		It("Should create the host node's control update channel on open", func(ctx SpecContext) {
-			var controlChannels []channel.Channel
-			Expect(channelSvc.
-				NewRetrieve().
-				Where(channel.MatchNames(controlChannelName(node))).
-				Entries(&controlChannels).
-				Exec(ctx, nil),
-			).To(Succeed())
-			Expect(controlChannels).To(HaveLen(1))
-			controlCh := controlChannels[0]
-			Expect(controlCh.Virtual).To(BeTrue())
-			Expect(controlCh.Internal).To(BeTrue())
-			Expect(controlCh.DataType).To(Equal(telem.StringT))
-			Expect(controlCh.Leaseholder).To(Equal(node.Cluster.HostKey()))
-		})
-		It("Should reuse an existing control update channel rather than recreating it", func(ctx SpecContext) {
-			n := mock.NewNode(ctx)
-			cfg := newFramerConfig(ctx, n)
-			name := controlChannelName(n)
-			existing := channel.Channel{
-				Name:        name,
-				Leaseholder: n.Cluster.HostKey(),
-				Virtual:     true,
-				DataType:    telem.StringT,
-				Internal:    true,
-			}
-			Expect(cfg.Channel.NewWriter(nil).Create(ctx, &existing)).To(Succeed())
-			Expect(MustOpen(framer.OpenService(ctx, cfg))).ToNot(BeNil())
-			Expect(cfg.Channel.
-				NewRetrieve().
-				Where(channel.MatchNames(name)).
-				Count(ctx, nil),
-			).To(Equal(1))
-		})
+		It(
+			"Should create the host node's control update channel on open",
+			func(ctx SpecContext) {
+				var controlChannels []channel.Channel
+				Expect(channelSvc.
+					NewRetrieve().
+					Where(channel.MatchNames(controlChannelName(node))).
+					Entries(&controlChannels).
+					Exec(ctx, nil),
+				).To(Succeed())
+				Expect(controlChannels).To(HaveLen(1))
+				controlCh := controlChannels[0]
+				Expect(controlCh.Virtual).To(BeTrue())
+				Expect(controlCh.Internal).To(BeTrue())
+				Expect(controlCh.DataType).To(Equal(telem.StringT))
+				Expect(controlCh.Leaseholder).To(Equal(node.Cluster.HostKey()))
+			},
+		)
+		It(
+			"Should reuse an existing control update channel rather than recreating it",
+			func(ctx SpecContext) {
+				n := mock.NewNode(ctx)
+				cfg := newFramerConfig(ctx, n)
+				name := controlChannelName(n)
+				existing := channel.Channel{
+					Name:        name,
+					Leaseholder: n.Cluster.HostKey(),
+					Virtual:     true,
+					DataType:    telem.StringT,
+					Internal:    true,
+				}
+				Expect(cfg.Channel.NewWriter(nil).Create(ctx, &existing)).To(Succeed())
+				Expect(MustOpen(framer.OpenService(ctx, cfg))).ToNot(BeNil())
+				Expect(cfg.Channel.
+					NewRetrieve().
+					Where(channel.MatchNames(name)).
+					Count(ctx, nil),
+				).To(Equal(1))
+			},
+		)
 	})
 
 	Describe("OpenWriter", func() {
@@ -178,16 +190,28 @@ var _ = Describe("Service", func() {
 				},
 			))).To(BeTrue())
 		})
-		It("Should return an error when a key has no corresponding channel", func(ctx SpecContext) {
-			Expect(framerSvc.OpenWriter(ctx, framer.WriterConfig{
-				Start: telem.SecondTS,
-				Keys:  []channel.Key{channel.NewKey(node.Cluster.HostKey(), 9999)},
-			})).Error().To(MatchError(query.ErrNotFound))
-		})
-		It("Should return a validation error when no keys are provided", func(ctx SpecContext) {
-			Expect(framerSvc.OpenWriter(ctx, framer.WriterConfig{Start: telem.SecondTS})).
-				Error().To(MatchError(ContainSubstring("keys: must be non-empty")))
-		})
+		It(
+			"Should return an error when a key has no corresponding channel",
+			func(ctx SpecContext) {
+				Expect(framerSvc.OpenWriter(ctx, framer.WriterConfig{
+					Start: telem.SecondTS,
+					Keys:  []channel.Key{channel.NewKey(node.Cluster.HostKey(), 9999)},
+				})).Error().To(MatchError(query.ErrNotFound))
+			},
+		)
+		It(
+			"Should return a validation error when no keys are provided",
+			func(ctx SpecContext) {
+				Expect(
+					framerSvc.OpenWriter(
+						ctx,
+						framer.WriterConfig{Start: telem.SecondTS},
+					),
+				).
+					Error().
+					To(MatchError(ContainSubstring("keys: must be non-empty")))
+			},
+		)
 	})
 
 	Describe("NewStreamWriter", func() {
@@ -214,12 +238,15 @@ var _ = Describe("Service", func() {
 			inlet.Close()
 			Eventually(outlet.Outlet()).Should(BeClosed())
 		})
-		It("Should return an error when a key has no corresponding channel", func(ctx SpecContext) {
-			Expect(framerSvc.NewStreamWriter(ctx, framer.WriterConfig{
-				Start: telem.SecondTS,
-				Keys:  []channel.Key{channel.NewKey(node.Cluster.HostKey(), 9999)},
-			})).Error().To(MatchError(query.ErrNotFound))
-		})
+		It(
+			"Should return an error when a key has no corresponding channel",
+			func(ctx SpecContext) {
+				Expect(framerSvc.NewStreamWriter(ctx, framer.WriterConfig{
+					Start: telem.SecondTS,
+					Keys:  []channel.Key{channel.NewKey(node.Cluster.HostKey(), 9999)},
+				})).Error().To(MatchError(query.ErrNotFound))
+			},
+		)
 	})
 
 	Describe("OpenIterator", func() {
@@ -238,24 +265,27 @@ var _ = Describe("Service", func() {
 	})
 
 	Describe("NewStreamIterator", func() {
-		It("Should stream iteration responses for resolved channels", func(ctx SpecContext) {
-			idxCh, dataCh := createIndexed(ctx)
-			write(ctx, idxCh, dataCh)
-			s := MustSucceed(framerSvc.NewStreamIterator(ctx, framer.IteratorConfig{
-				Keys:   []channel.Key{idxCh.Key(), dataCh.Key()},
-				Bounds: telem.TimeRangeMax,
-			}))
-			sCtx, cancel := signal.Isolated()
-			defer cancel()
-			inlet, outlet := confluence.Attach(s)
-			s.Flow(sCtx, confluence.CloseOutputInletsOnExit())
-			inlet.Inlet() <- framer.IteratorRequest{Command: iterator.CommandSeekFirst}
-			var res framer.IteratorResponse
-			Eventually(outlet.Outlet()).Should(Receive(&res))
-			Expect(res.Ack).To(BeTrue())
-			inlet.Close()
-			Eventually(outlet.Outlet()).Should(BeClosed())
-		})
+		It(
+			"Should stream iteration responses for resolved channels",
+			func(ctx SpecContext) {
+				idxCh, dataCh := createIndexed(ctx)
+				write(ctx, idxCh, dataCh)
+				s := MustSucceed(framerSvc.NewStreamIterator(ctx, framer.IteratorConfig{
+					Keys:   []channel.Key{idxCh.Key(), dataCh.Key()},
+					Bounds: telem.TimeRangeMax,
+				}))
+				sCtx, cancel := signal.Isolated()
+				defer cancel()
+				inlet, outlet := confluence.Attach(s)
+				s.Flow(sCtx, confluence.CloseOutputInletsOnExit())
+				inlet.Inlet() <- framer.IteratorRequest{Command: iterator.CommandSeekFirst}
+				var res framer.IteratorResponse
+				Eventually(outlet.Outlet()).Should(Receive(&res))
+				Expect(res.Ack).To(BeTrue())
+				inlet.Close()
+				Eventually(outlet.Outlet()).Should(BeClosed())
+			},
+		)
 	})
 
 	Describe("NewStreamer", func() {

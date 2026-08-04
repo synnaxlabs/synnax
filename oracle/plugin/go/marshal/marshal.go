@@ -168,7 +168,8 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 			sort.Strings(names)
 			return nil, errors.Newf(
 				"cannot generate a codec for %s in %s: @go marshal types must be versioned; add @go version to them",
-				strings.Join(names, ", "), goPath,
+				strings.Join(names, ", "),
+				goPath,
 			)
 		}
 	}
@@ -209,11 +210,19 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 				packageName, goPath, entries, req.Resolutions, req.RepoRoot,
 			)
 			if testErr != nil {
-				return nil, errors.Wrapf(testErr, "failed to generate codec tests for %s", goPath)
+				return nil, errors.Wrapf(
+					testErr,
+					"failed to generate codec tests for %s",
+					goPath,
+				)
 			}
 			if testContent != nil {
 				resp.Files = append(resp.Files, plugin.File{
-					Path:    fmt.Sprintf("%s/%s", goPath, p.Options.TestFileNamePattern),
+					Path: fmt.Sprintf(
+						"%s/%s",
+						goPath,
+						p.Options.TestFileNamePattern,
+					),
 					Content: testContent,
 				})
 			}
@@ -274,8 +283,8 @@ func sortedImports(m map[string]string) []importEntry {
 }
 
 // GenerateCodecFile generates a complete codec file for the given entries using the
-// specified package name and output path context. This is used by the migrate plugin
-// to generate frozen codecs for old schema versions. Each entry gets EncodeOrc/DecodeOrc
+// specified package name and output path context. This is used by the migrate plugin to
+// generate frozen codecs for old schema versions. Each entry gets EncodeOrc/DecodeOrc
 // methods that implement the orc.SelfEncoder and orc.SelfDecoder interfaces.
 func GenerateCodecFile(
 	packageName string,
@@ -285,7 +294,14 @@ func GenerateCodecFile(
 	table *resolution.Table,
 	repoRoot string,
 ) ([]byte, error) {
-	return generateEncoderCodecFile(packageName, parentPath, entries, flex, table, repoRoot)
+	return generateEncoderCodecFile(
+		packageName,
+		parentPath,
+		entries,
+		flex,
+		table,
+		repoRoot,
+	)
 }
 
 func resolveGoImportPath(outputPath, repoRoot string) (string, error) {

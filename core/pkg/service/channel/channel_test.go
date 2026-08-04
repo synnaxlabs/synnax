@@ -40,7 +40,9 @@ var _ = Describe("NewKey", func() {
 
 var _ = Describe("KeysFromUint32", func() {
 	It("Should reinterpret a slice of uint32 as Keys", func() {
-		Expect(channel.KeysFromUint32([]uint32{1, 2, 3})).To(Equal(channel.Keys{1, 2, 3}))
+		Expect(
+			channel.KeysFromUint32([]uint32{1, 2, 3}),
+		).To(Equal(channel.Keys{1, 2, 3}))
 	})
 })
 

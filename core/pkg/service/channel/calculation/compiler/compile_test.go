@@ -123,12 +123,18 @@ var _ = Describe("Compile", func() {
 			ChannelService: channelSvc,
 			Channel:        calc,
 		}))
-		Expect(mod.Dependencies.Reads.Slice()).To(ContainElements(channel.KeysFromChannels(channels)))
+		Expect(
+			mod.Dependencies.Reads.Slice(),
+		).To(ContainElements(channel.KeysFromChannels(channels)))
 		Expect(mod.Dependencies.Writes.Slice()).To(ContainElement(calc.Key()))
 	})
 
 	It("Should compile expression with derivative operation", func(ctx SpecContext) {
-		base := channel.Channel{Name: UniqueChannelName(), DataType: telem.Float64T, Virtual: true}
+		base := channel.Channel{
+			Name:     UniqueChannelName(),
+			DataType: telem.Float64T,
+			Virtual:  true,
+		}
 		Expect(channelWriter.Create(ctx, &base)).To(Succeed())
 		calc := channel.Channel{
 			Name:       UniqueChannelName(),

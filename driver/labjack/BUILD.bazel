@@ -47,7 +47,7 @@ cc_library(
         "//x/cpp/breaker",
         "//x/cpp/json",
         "//x/cpp/loop",
-        "@glog",
+        "@abseil-cpp//absl/log",
         "@nlohmann_json//:json",
     ],
 )

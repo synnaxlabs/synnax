@@ -26,7 +26,11 @@ type Writer struct {
 	dispatcher actions.Dispatcher[Key, Action]
 }
 
-func (w Writer) Create(ctx context.Context, projectKey project.Key, lp *LinePlot) error {
+func (w Writer) Create(
+	ctx context.Context,
+	projectKey project.Key,
+	lp *LinePlot,
+) error {
 	var (
 		exists bool
 		err    error
@@ -34,7 +38,9 @@ func (w Writer) Create(ctx context.Context, projectKey project.Key, lp *LinePlot
 	if lp.Key == uuid.Nil {
 		lp.Key = uuid.New()
 	} else {
-		exists, err = w.table.NewRetrieve().Where(gorp.MatchKeys[Key, LinePlot](lp.Key)).Exists(ctx, w.tx)
+		exists, err = w.table.NewRetrieve().
+			Where(gorp.MatchKeys[Key, LinePlot](lp.Key)).
+			Exists(ctx, w.tx)
 		if err != nil {
 			return err
 		}

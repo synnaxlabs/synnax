@@ -46,14 +46,14 @@ func NewService(cfgs ...config.LayerConfig) (*Service, error) {
 
 type (
 	RetrieveRequest struct {
-		SearchTerm          string                  `json:"search_term" msgpack:"search_term"`
-		IDs                 []ontology.ID           `json:"ids" msgpack:"ids" validate:"required"`
-		Types               []ontology.ResourceType `json:"types" msgpack:"types"`
-		Limit               int                     `json:"limit" msgpack:"limit"`
-		Offset              int                     `json:"offset" msgpack:"offset"`
-		Children            bool                    `json:"children" msgpack:"children"`
-		Parents             bool                    `json:"parents" msgpack:"parents"`
-		ExcludeFieldData    bool                    `json:"exclude_field_data" msgpack:"exclude_field_data"`
+		SearchTerm          string                  `json:"search_term"            msgpack:"search_term"`
+		IDs                 []ontology.ID           `json:"ids"                    msgpack:"ids"                    validate:"required"`
+		Types               []ontology.ResourceType `json:"types"                  msgpack:"types"`
+		Limit               int                     `json:"limit"                  msgpack:"limit"`
+		Offset              int                     `json:"offset"                 msgpack:"offset"`
+		Children            bool                    `json:"children"               msgpack:"children"`
+		Parents             bool                    `json:"parents"                msgpack:"parents"`
+		ExcludeFieldData    bool                    `json:"exclude_field_data"     msgpack:"exclude_field_data"`
 		IgnoreNotFoundError bool                    `json:"ignore_not_found_error" msgpack:"ignore_not_found_error"`
 	}
 	RetrieveResponse struct {
@@ -72,7 +72,10 @@ func (s *Service) Retrieve(
 			return RetrieveResponse{}, err
 		}
 		resources = make([]ontology.Resource, 0, len(ids))
-		err = s.ontology.NewRetrieve().WhereIDs(ids...).Entries(&resources).Exec(ctx, nil)
+		err = s.ontology.NewRetrieve().
+			WhereIDs(ids...).
+			Entries(&resources).
+			Exec(ctx, nil)
 		if errors.Is(err, query.ErrNotFound) {
 			err = nil
 		}
@@ -119,7 +122,7 @@ func (s *Service) Retrieve(
 }
 
 type AddChildrenRequest struct {
-	ID       ontology.ID   `json:"id" msgpack:"id" validate:"required"`
+	ID       ontology.ID   `json:"id"       msgpack:"id"       validate:"required"`
 	Children []ontology.ID `json:"children" msgpack:"children" validate:"required"`
 }
 
@@ -147,7 +150,7 @@ func (s *Service) AddChildren(
 }
 
 type RemoveChildrenRequest struct {
-	ID       ontology.ID   `json:"id" msgpack:"id" validate:"required"`
+	ID       ontology.ID   `json:"id"       msgpack:"id"       validate:"required"`
 	Children []ontology.ID `json:"children" msgpack:"children" validate:"required"`
 }
 
@@ -176,8 +179,8 @@ func (s *Service) RemoveChildren(
 }
 
 type MoveChildrenRequest struct {
-	From     ontology.ID   `json:"from" msgpack:"from" validate:"required"`
-	To       ontology.ID   `json:"to" msgpack:"to" validate:"required"`
+	From     ontology.ID   `json:"from"     msgpack:"from"     validate:"required"`
+	To       ontology.ID   `json:"to"       msgpack:"to"       validate:"required"`
 	Children []ontology.ID `json:"children" msgpack:"children" validate:"required"`
 }
 
