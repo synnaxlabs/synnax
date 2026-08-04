@@ -30,14 +30,24 @@ type Writer struct {
 	table     *gorp.Table[Key, Task]
 }
 
-func resolveStatus(t *Task, provided *Status) *Status {
+// resolveStatus returns the status to persist for t. Without a provided status, a
+// task created for the first time provably has no live instance, so it gets a quiet
+// "has not been deployed" placeholder; an existing task may be running, so its
+// placeholder stays a "status unknown" warning.
+func resolveStatus(t *Task, provided *Status, existed bool) *Status {
 	if provided == nil {
+		message := fmt.Sprintf("%s status unknown", t.Name)
+		variant := status.VariantWarning
+		if !existed {
+			message = fmt.Sprintf("%s has not been deployed", t.Name)
+			variant = status.VariantDisabled
+		}
 		return &Status{
 			Key:     t.OntologyID().String(),
 			Time:    telem.Now(),
 			Name:    t.Name,
-			Message: fmt.Sprintf("%s status unknown", t.Name),
-			Variant: status.VariantWarning,
+			Message: message,
+			Variant: variant,
 			Details: StatusDetails{Task: t.Key},
 		}
 	}
@@ -49,7 +59,7 @@ func resolveStatus(t *Task, provided *Status) *Status {
 
 // healStatus restores a task's status row if it has gone missing (e.g. deleted
 // out-of-band) without clobbering a live one. Tasks are re-created on every scan cycle,
-// so on a no-op update the default "unknown" status must not overwrite a status the
+// so on a no-op update the placeholder status must not overwrite a status the
 // driver has already reported; it is only written when no row exists.
 func (w Writer) healStatus(ctx context.Context, stat *Status) error {
 	if exists, err := gorp.NewRetrieve[string, Status]().
@@ -60,8 +70,9 @@ func (w Writer) healStatus(ctx context.Context, stat *Status) error {
 	return w.status.Set(ctx, stat)
 }
 
-// Create creates or updates a task. If a status is provided on the task,
-// it will be used instead of the default "unknown" status.
+// Create creates or updates a task. A provided status is persisted as given. Without
+// one, a new task gets a "has not been deployed" placeholder, and an existing task
+// keeps its reported status (healed to "status unknown" if the row is missing).
 func (w Writer) Create(ctx context.Context, t *Task) error {
 	if t.Key == uuid.Nil {
 		t.Key = uuid.New()
@@ -72,8 +83,10 @@ func (w Writer) Create(ctx context.Context, t *Task) error {
 	}
 	providedStatus := t.Status // Preserve before clearing for Gorp
 	t.Status = nil             // Status stored separately, not in Gorp
+	existed := false
 	if err := w.table.NewCreate().
 		MergeExisting(func(_ gorp.Context, creating, existing Task) (Task, error) {
+			existed = true
 			if existing.Snapshot {
 				creating.Config = existing.Config
 				creating.ConfigHash = existing.ConfigHash
@@ -84,7 +97,7 @@ func (w Writer) Create(ctx context.Context, t *Task) error {
 		Exec(ctx, w.tx); err != nil {
 		return err
 	}
-	stat := resolveStatus(t, providedStatus)
+	stat := resolveStatus(t, providedStatus, existed)
 	if providedStatus != nil {
 		if err := w.status.Set(ctx, stat); err != nil {
 			return err
@@ -153,7 +166,7 @@ func (w Writer) Copy(
 	}).Exec(ctx, w.tx); err != nil {
 		return Task{}, err
 	}
-	if err := w.status.Set(ctx, resolveStatus(&res, nil)); err != nil {
+	if err := w.status.Set(ctx, resolveStatus(&res, nil, false)); err != nil {
 		return Task{}, err
 	}
 	if err := w.otgWriter.DefineResources(ctx, OntologyID(newKey)); err != nil {
