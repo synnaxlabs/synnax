@@ -63,8 +63,9 @@ type UnaryServer[RQ, RQT, RS, RST freighter.Payload] struct {
 	// handler is the handler that will be called when a request is received.
 	handler func(context.Context, RQ) (RS, error)
 	freighter.MiddlewareCollector
-	// Internal indicates whether the service is for go-to-go communication only, allowing
-	// for more advanced error encoding that propagates stack traces, causes, etc.
+	// Internal indicates whether the service is for go-to-go communication only,
+	// allowing for more advanced error encoding that propagates stack traces, causes,
+	// etc.
 	Internal bool
 }
 
@@ -97,38 +98,43 @@ func (u *UnaryClient[RQ, RQT, RS, RST]) Send(
 			Params:   make(freighter.Params),
 			Variant:  freighter.VariantUnary,
 		},
-		freighter.FinalizerFunc(func(iCtx freighter.Context) (oCtx freighter.Context, err error) {
-			iCtx = attachContext(iCtx)
-			conn, err := u.Pool.Acquire(target)
-			if err != nil {
+		freighter.FinalizerFunc(
+			func(iCtx freighter.Context) (oCtx freighter.Context, err error) {
+				iCtx = attachContext(iCtx)
+				conn, err := u.Pool.Acquire(target)
+				if err != nil {
+					return oCtx, err
+				}
+				tReq, err := u.RequestTranslator.Forward(iCtx, req)
+				if err != nil {
+					return oCtx, err
+				}
+				tRes, err := u.Exec(iCtx, conn.ClientConn, tReq)
+				oCtx = freighter.Context{
+					Context:  iCtx.Context,
+					Protocol: iCtx.Protocol,
+					Target:   address.Address(u.ServiceDesc.ServiceName),
+					Params:   make(freighter.Params),
+					Role:     iCtx.Role,
+				}
+				if err != nil {
+					p := &errors.Payload{}
+					p.Unmarshal(status.Convert(err).Message())
+					return oCtx, errors.Decode(iCtx, *p)
+				}
+				res, err = u.ResponseTranslator.Backward(iCtx, tRes)
 				return oCtx, err
-			}
-			tReq, err := u.RequestTranslator.Forward(iCtx, req)
-			if err != nil {
-				return oCtx, err
-			}
-			tRes, err := u.Exec(iCtx, conn.ClientConn, tReq)
-			oCtx = freighter.Context{
-				Context:  iCtx.Context,
-				Protocol: iCtx.Protocol,
-				Target:   address.Address(u.ServiceDesc.ServiceName),
-				Params:   make(freighter.Params),
-				Role:     iCtx.Role,
-			}
-			if err != nil {
-				p := &errors.Payload{}
-				p.Unmarshal(status.Convert(err).Message())
-				return oCtx, errors.Decode(iCtx, *p)
-			}
-			res, err = u.ResponseTranslator.Backward(iCtx, tRes)
-			return oCtx, err
-		}),
+			},
+		),
 	)
 	return res, err
 }
 
 // Exec implements the GRPC service interface.
-func (u *UnaryServer[RQ, RQT, RS, RST]) Exec(ctx context.Context, tReq RQT) (tRes RST, err error) {
+func (u *UnaryServer[RQ, RQT, RS, RST]) Exec(
+	ctx context.Context,
+	tReq RQT,
+) (tRes RST, err error) {
 	oCtx, err := u.MiddlewareCollector.Exec(
 		parseServerContext(ctx, u.ServiceDesc.ServiceName, freighter.VariantUnary),
 		freighter.FinalizerFunc(func(ctx freighter.Context) (freighter.Context, error) {

@@ -177,8 +177,8 @@ func (r Retrieve[K, E]) Entries(entries *[]E) Retrieve[K, E] {
 }
 
 // Entry binds the entry that the Params will fill results into. Repeated calls to Entry
-// or Entries will override All previous calls to Entries or Entry. If isMultiple results
-// are returned by the query, entry will be set to the last result.
+// or Entries will override all previous calls to Entries or Entry. If isMultiple
+// results are returned by the query, entry will be set to the last result.
 func (r Retrieve[K, E]) Entry(entry *E) Retrieve[K, E] {
 	r.entries.bindSingle(entry)
 	return r
@@ -308,7 +308,11 @@ func (r Retrieve[K, E]) Count(ctx context.Context, tx Tx) (count int, err error)
 	}
 	if r.HasFilterKeys() {
 		r.entries.bindMultiple(new(make([]E, 0, len(r.filter.keys))))
-		if _, err := r.execKeys(ctx, tx); err != nil && !errors.Is(err, query.ErrNotFound) {
+		if _, err := r.execKeys(
+			ctx,
+			tx,
+		); err != nil &&
+			!errors.Is(err, query.ErrNotFound) {
 			return 0, err
 		}
 		return len(r.entries.All()), nil
@@ -416,7 +420,8 @@ func (r *Retrieve[K, E]) execKeys(ctx context.Context, tx Tx) ([]K, error) {
 			}
 			if match {
 				validCount++
-				if validCount > r.offset && (r.limit == 0 || validCount <= r.limit+r.offset) {
+				if validCount > r.offset &&
+					(r.limit == 0 || validCount <= r.limit+r.offset) {
 					r.entries.Add(e)
 				}
 			}
@@ -465,7 +470,8 @@ func (r *Retrieve[K, E]) execFilter(ctx context.Context, tx Tx) error {
 		}
 		if match {
 			validCount += 1
-			if (validCount > r.offset) && (r.limit == 0 || validCount <= r.limit+r.offset) {
+			if (validCount > r.offset) &&
+				(r.limit == 0 || validCount <= r.limit+r.offset) {
 				r.entries.Add(*v)
 			}
 		}

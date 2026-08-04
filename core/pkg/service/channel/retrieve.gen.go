@@ -94,17 +94,20 @@ func Not(f Filter) Filter {
 // Search sets a fuzzy search term that Retrieve will use to filter results.
 func (r Retrieve) Search(term string) Retrieve { r.searchTerm = term; return r }
 
-// MatchKeys returns a filter that restricts results to channels whose key
-// matches any of the provided values. Composing MatchKeys at the top level
-// of a Where clause (i.e. r.Where(MatchKeys(...))) dispatches Exec to the
-// multi-get fast path; composing inside Or / Not falls back to a full scan.
+// MatchKeys returns a filter that restricts results to
+// channels whose key matches any of the provided
+// values. Composing MatchKeys at the top level of a Where clause (i.e.
+// r.Where(MatchKeys(...))) dispatches Exec to the multi-get fast path; composing
+// inside Or / Not falls back to a full scan.
 func MatchKeys(keys ...Key) Filter {
 	return func(_ Retrieve) gorp.Filter[Key, Channel] {
 		return gorp.MatchKeys[Key, Channel](keys...)
 	}
 }
 
-// MatchLeaseholders returns a filter for channels whose Leaseholder matches any of the provided values.
+// MatchLeaseholders returns a filter for
+// channels whose Leaseholder matches any of the
+// provided values.
 func MatchLeaseholders(vals ...node.Key) Filter {
 	return func(r Retrieve) gorp.Filter[Key, Channel] {
 		return gorp.Match(func(_ gorp.Context, e *Channel) (bool, error) {
@@ -113,7 +116,9 @@ func MatchLeaseholders(vals ...node.Key) Filter {
 	}
 }
 
-// MatchDataTypes returns a filter for channels whose DataType matches any of the provided values.
+// MatchDataTypes returns a filter for
+// channels whose DataType matches any of the
+// provided values.
 func MatchDataTypes(vals ...telem.DataType) Filter {
 	return func(r Retrieve) gorp.Filter[Key, Channel] {
 		return gorp.Match(func(_ gorp.Context, e *Channel) (bool, error) {
@@ -122,7 +127,8 @@ func MatchDataTypes(vals ...telem.DataType) Filter {
 	}
 }
 
-// MatchIsIndex returns a filter for channels by their IsIndex field.
+// MatchIsIndex returns a filter for channels by their
+// IsIndex field.
 func MatchIsIndex(v bool) Filter {
 	return func(r Retrieve) gorp.Filter[Key, Channel] {
 		return gorp.Match(func(_ gorp.Context, e *Channel) (bool, error) {
@@ -131,7 +137,8 @@ func MatchIsIndex(v bool) Filter {
 	}
 }
 
-// MatchInternal returns a filter for channels by their Internal field.
+// MatchInternal returns a filter for channels by their
+// Internal field.
 func MatchInternal(v bool) Filter {
 	return func(r Retrieve) gorp.Filter[Key, Channel] {
 		return gorp.Match(func(_ gorp.Context, e *Channel) (bool, error) {
@@ -149,14 +156,16 @@ func (r Retrieve) Where(filter Filter) Retrieve {
 	return r
 }
 
-// Entry binds the provided channel as the result container for the query. If
-// multiple channels match, the first one is used.
+// Entry binds the provided channel as the result container for the
+// query. If multiple channels match, the first one is
+// used.
 func (r Retrieve) Entry(e *Channel) Retrieve {
 	r.gorp = r.gorp.Entry(e)
 	return r
 }
 
-// Entries binds the provided slice of channels as the result container for the query.
+// Entries binds the provided slice of channels as the
+// result container for the query.
 func (r Retrieve) Entries(es *[]Channel) Retrieve {
 	r.gorp = r.gorp.Entries(es)
 	return r
@@ -165,7 +174,8 @@ func (r Retrieve) Entries(es *[]Channel) Retrieve {
 // Limit sets the maximum number of channels to return.
 func (r Retrieve) Limit(limit int) Retrieve { r.gorp = r.gorp.Limit(limit); return r }
 
-// Offset sets the starting index of the channels to return.
+// Offset sets the starting index of the channels to
+// return.
 func (r Retrieve) Offset(offset int) Retrieve {
 	r.gorp = r.gorp.Offset(offset)
 	return r

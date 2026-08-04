@@ -99,20 +99,25 @@ var _ = Describe("Pluralize", func() {
 			Expect(pluralize.String("Aliases")).To(Equal("Aliases"))
 			Expect(pluralize.String("Indexes")).To(Equal("Indexes"))
 		})
-		It("Should not double-pluralize words ending in s that are already plural", func() {
-			Expect(pluralize.String("Channels")).To(Equal("Channels"))
-			Expect(pluralize.String("Dimensions")).To(Equal("Dimensions"))
-			Expect(pluralize.String("Authorities")).To(Equal("Authorities"))
-			Expect(pluralize.String("Properties")).To(Equal("Properties"))
-			Expect(pluralize.String("Sequences")).To(Equal("Sequences"))
-			Expect(pluralize.String("Functions")).To(Equal("Functions"))
-			Expect(pluralize.String("Stages")).To(Equal("Stages"))
-			Expect(pluralize.String("Nodes")).To(Equal("Nodes"))
-			Expect(pluralize.String("Edges")).To(Equal("Edges"))
-		})
+		It(
+			"Should not double-pluralize words ending in s that are already plural",
+			func() {
+				Expect(pluralize.String("Channels")).To(Equal("Channels"))
+				Expect(pluralize.String("Dimensions")).To(Equal("Dimensions"))
+				Expect(pluralize.String("Authorities")).To(Equal("Authorities"))
+				Expect(pluralize.String("Properties")).To(Equal("Properties"))
+				Expect(pluralize.String("Sequences")).To(Equal("Sequences"))
+				Expect(pluralize.String("Functions")).To(Equal("Functions"))
+				Expect(pluralize.String("Stages")).To(Equal("Stages"))
+				Expect(pluralize.String("Nodes")).To(Equal("Nodes"))
+				Expect(pluralize.String("Edges")).To(Equal("Edges"))
+			},
+		)
 		It("Should not double-pluralize compound already-plural names", func() {
 			Expect(pluralize.String("StatusDetails")).To(Equal("StatusDetails"))
-			Expect(pluralize.String("FunctionProperties")).To(Equal("FunctionProperties"))
+			Expect(
+				pluralize.String("FunctionProperties"),
+			).To(Equal("FunctionProperties"))
 		})
 	})
 

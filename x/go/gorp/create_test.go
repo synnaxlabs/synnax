@@ -66,7 +66,10 @@ var _ = Describe("Create", Ordered, func() {
 				Data: "The answer to life, the universe, and everything",
 			}
 			Expect(gorp.NewCreate[int32, entry]().Entry(e).Exec(ctx, tx)).To(Succeed())
-			Expect(gorp.NewRetrieve[int32, entry]().Where(gorp.MatchKeys[int32, entry](42)).Exists(ctx, tx)).To(BeTrue())
+			Expect(
+				gorp.NewRetrieve[int32, entry]().Where(gorp.MatchKeys[int32, entry](42)).
+					Exists(ctx, tx),
+			).To(BeTrue())
 		})
 	})
 
@@ -76,53 +79,83 @@ var _ = Describe("Create", Ordered, func() {
 			for i := range 10 {
 				e[i] = entry{ID: int32(i), Data: "data"}
 			}
-			Expect(gorp.NewCreate[int32, entry]().Entries(&e).Exec(ctx, tx)).To(Succeed())
+			Expect(
+				gorp.NewCreate[int32, entry]().Entries(&e).Exec(ctx, tx),
+			).To(Succeed())
 			keys := make([]int32, 10)
 			for i, e := range e {
 				keys[i] = e.ID
 			}
-			Expect(gorp.NewRetrieve[int32, entry]().Where(gorp.MatchKeys[int32, entry](keys...)).
-				Exists(ctx, tx)).To(BeTrue())
+			Expect(
+				gorp.NewRetrieve[int32, entry]().Where(gorp.MatchKeys[int32, entry](keys...)).
+					Exists(ctx, tx),
+			).To(BeTrue())
 		})
 	})
 
 	Describe("Guard", func() {
-		It("Should prevent the accidental override of existing entries", func(ctx SpecContext) {
-			e := &entry{
-				ID:   int32(42),
-				Data: "The answer to life, the universe, and everything",
-			}
-			Expect(gorp.NewCreate[int32, entry]().Entry(e).Exec(ctx, tx)).To(Succeed())
-			Expect(gorp.NewCreate[int32, entry]().Entry(e).MergeExisting(func(_ gorp.Context, c, e entry) (entry, error) {
-				Expect(e.GorpKey()).To(Equal(int32(42)))
-				return entry{}, validate.ErrValidation
-			}).Exec(ctx, tx)).To(MatchError(validate.ErrValidation))
-		})
-		It("Should not call the filter if no entry with a matching GorpKey is found", func(ctx SpecContext) {
-			e := &entry{
-				ID:   42,
-				Data: "The answer to life, the universe, and everything",
-			}
-			c := 0
-			Expect(gorp.NewCreate[int32, entry]().Entry(e).MergeExisting(func(_ gorp.Context, creating, _ entry) (entry, error) {
-				c++
-				return creating, validate.ErrValidation
-			}).Exec(ctx, tx)).To(Succeed())
-			Expect(c).To(Equal(0))
-		})
+		It(
+			"Should prevent the accidental override of existing entries",
+			func(ctx SpecContext) {
+				e := &entry{
+					ID:   int32(42),
+					Data: "The answer to life, the universe, and everything",
+				}
+				Expect(
+					gorp.NewCreate[int32, entry]().Entry(e).Exec(ctx, tx),
+				).To(Succeed())
+				Expect(
+					gorp.NewCreate[int32, entry]().Entry(e).
+						MergeExisting(func(_ gorp.Context, c, e entry) (entry, error) {
+							Expect(e.GorpKey()).To(Equal(int32(42)))
+							return entry{}, validate.ErrValidation
+						}).
+						Exec(ctx, tx),
+				).To(MatchError(validate.ErrValidation))
+			},
+		)
+		It(
+			"Should not call the filter if no entry with a matching GorpKey is found",
+			func(ctx SpecContext) {
+				e := &entry{
+					ID:   42,
+					Data: "The answer to life, the universe, and everything",
+				}
+				c := 0
+				Expect(
+					gorp.NewCreate[int32, entry]().Entry(e).
+						MergeExisting(func(_ gorp.Context, creating, _ entry) (entry, error) {
+							c++
+							return creating, validate.ErrValidation
+						}).
+						Exec(ctx, tx),
+				).To(Succeed())
+				Expect(c).To(Equal(0))
+			},
+		)
 		It("Should merge an existing entry with the new entry", func(ctx SpecContext) {
 			e := &entry{
 				ID:   42,
 				Data: "The answer to life, the universe, and everything",
 			}
 			Expect(gorp.NewCreate[int32, entry]().Entry(e).Exec(ctx, tx)).To(Succeed())
-			Expect(gorp.NewCreate[int32, entry]().Entry(e).MergeExisting(func(_ gorp.Context, _, e entry) (entry, error) {
-				Expect(e.GorpKey()).To(Equal(int32(42)))
-				return entry{ID: e.ID, Data: e.Data + "!"}, nil
-			}).Exec(ctx, tx)).To(Succeed())
+			Expect(
+				gorp.NewCreate[int32, entry]().Entry(e).
+					MergeExisting(func(_ gorp.Context, _, e entry) (entry, error) {
+						Expect(e.GorpKey()).To(Equal(int32(42)))
+						return entry{ID: e.ID, Data: e.Data + "!"}, nil
+					}).
+					Exec(ctx, tx),
+			).To(Succeed())
 			var e2 entry
-			Expect(gorp.NewRetrieve[int32, entry]().Where(gorp.MatchKeys[int32, entry](int32(42))).Entry(&e2).Exec(ctx, tx)).To(Succeed())
-			Expect(e2.Data).To(Equal("The answer to life, the universe, and everything!"))
+			Expect(
+				gorp.NewRetrieve[int32, entry]().Where(gorp.MatchKeys[int32, entry](int32(42))).
+					Entry(&e2).
+					Exec(ctx, tx),
+			).To(Succeed())
+			Expect(
+				e2.Data,
+			).To(Equal("The answer to life, the universe, and everything!"))
 		})
 	})
 
@@ -134,10 +167,18 @@ var _ = Describe("Create", Ordered, func() {
 				entries[i] = entry{ID: int32(i), Data: "data"}
 				keys[i] = int32(i)
 			}
-			Expect(gorp.NewCreate[int32, entry]().Entries(&entries).Exec(ctx, tx)).To(Succeed())
-			Expect(gorp.NewRetrieve[int32, entry]().Where(gorp.MatchKeys[int32, entry](keys...)).Exists(ctx, db)).To(BeFalse())
+			Expect(
+				gorp.NewCreate[int32, entry]().Entries(&entries).Exec(ctx, tx),
+			).To(Succeed())
+			Expect(
+				gorp.NewRetrieve[int32, entry]().Where(gorp.MatchKeys[int32, entry](keys...)).
+					Exists(ctx, db),
+			).To(BeFalse())
 			Expect(tx.Commit(ctx)).To(Succeed())
-			Expect(gorp.NewRetrieve[int32, entry]().Where(gorp.MatchKeys[int32, entry](keys...)).Exists(ctx, tx)).To(BeTrue())
+			Expect(
+				gorp.NewRetrieve[int32, entry]().Where(gorp.MatchKeys[int32, entry](keys...)).
+					Exists(ctx, tx),
+			).To(BeTrue())
 		})
 	})
 })

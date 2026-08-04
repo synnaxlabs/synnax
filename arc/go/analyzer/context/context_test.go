@@ -75,16 +75,19 @@ var _ = Describe("Context", func() {
 			Expect(parent.TypeMap[testAST]).To(Equal(types.I32()))
 		})
 
-		It("Should preserve parent's TypeHint and InTypeInferenceMode", func(ctx SpecContext) {
-			parentAST := testutil.NewMockAST(1)
-			childAST := testutil.NewMockAST(2)
-			parent := analyzerContext.NewRoot(ctx, parentAST, nil)
-			parent.TypeHint = types.F64()
-			parent.InTypeInferenceMode = true
-			child := analyzerContext.Child(parent, childAST)
-			Expect(child.TypeHint).To(Equal(types.F64()))
-			Expect(child.InTypeInferenceMode).To(BeTrue())
-		})
+		It(
+			"Should preserve parent's TypeHint and InTypeInferenceMode",
+			func(ctx SpecContext) {
+				parentAST := testutil.NewMockAST(1)
+				childAST := testutil.NewMockAST(2)
+				parent := analyzerContext.NewRoot(ctx, parentAST, nil)
+				parent.TypeHint = types.F64()
+				parent.InTypeInferenceMode = true
+				child := analyzerContext.Child(parent, childAST)
+				Expect(child.TypeHint).To(Equal(types.F64()))
+				Expect(child.InTypeInferenceMode).To(BeTrue())
+			},
+		)
 	})
 
 	Describe("WithScope", func() {
@@ -113,21 +116,24 @@ var _ = Describe("Context", func() {
 	})
 
 	Describe("WithTypeHint", func() {
-		It("Should return new context with updated type hint", func(specCtx SpecContext) {
-			var (
-				ast    = testutil.NewMockAST(1)
-				ctx    = analyzerContext.NewRoot(specCtx, ast, nil)
-				newCtx = ctx.WithTypeHint(types.F64())
-			)
-			Expect(newCtx.TypeHint).To(Equal(types.F64()))
-			Expect(ctx.TypeHint).To(Equal(types.Type{}))
-			Expect(newCtx.Context).To(Equal(ctx.Context))
-			Expect(newCtx.Scope).To(Equal(ctx.Scope))
-			Expect(newCtx.Diagnostics).To(BeIdenticalTo(ctx.Diagnostics))
-			Expect(newCtx.Constraints).To(BeIdenticalTo(ctx.Constraints))
-			Expect(newCtx.AST).To(Equal(ctx.AST))
-			Expect(newCtx.InTypeInferenceMode).To(Equal(ctx.InTypeInferenceMode))
-		})
+		It(
+			"Should return new context with updated type hint",
+			func(specCtx SpecContext) {
+				var (
+					ast    = testutil.NewMockAST(1)
+					ctx    = analyzerContext.NewRoot(specCtx, ast, nil)
+					newCtx = ctx.WithTypeHint(types.F64())
+				)
+				Expect(newCtx.TypeHint).To(Equal(types.F64()))
+				Expect(ctx.TypeHint).To(Equal(types.Type{}))
+				Expect(newCtx.Context).To(Equal(ctx.Context))
+				Expect(newCtx.Scope).To(Equal(ctx.Scope))
+				Expect(newCtx.Diagnostics).To(BeIdenticalTo(ctx.Diagnostics))
+				Expect(newCtx.Constraints).To(BeIdenticalTo(ctx.Constraints))
+				Expect(newCtx.AST).To(Equal(ctx.AST))
+				Expect(newCtx.InTypeInferenceMode).To(Equal(ctx.InTypeInferenceMode))
+			},
+		)
 
 		It("Should allow chaining with WithScope", func(specCtx SpecContext) {
 			var (
@@ -146,54 +152,63 @@ var _ = Describe("Context", func() {
 	})
 
 	Describe("Integration", func() {
-		It("Should support realistic workflow with one parsed AST", func(specCtx SpecContext) {
-			var (
-				prog     = MustSucceed(parser.Parse(`func test() {}`))
-				rootCtx  = analyzerContext.NewRoot(specCtx, prog, nil)
-				newScope = MustSucceed(rootCtx.Scope.Add(specCtx, symbol.Symbol{
-					Name: "x",
-					Kind: symbol.KindVariable,
-					Type: types.I32(),
-				}))
-				mockChild = testutil.NewMockAST(99)
-				finalCtx  = analyzerContext.Child(rootCtx, mockChild).
-						WithScope(newScope).
-						WithTypeHint(types.String())
-			)
-			Expect(finalCtx.AST).To(Equal(mockChild))
-			Expect(finalCtx.TypeHint).To(Equal(types.String()))
-			Expect(finalCtx.Scope).To(Equal(newScope))
-			finalCtx.Diagnostics.Add(diagnostics.Errorf(finalCtx.AST, "test"))
-			Expect(*rootCtx.Diagnostics).To(HaveLen(1))
-		})
+		It(
+			"Should support realistic workflow with one parsed AST",
+			func(specCtx SpecContext) {
+				var (
+					prog     = MustSucceed(parser.Parse(`func test() {}`))
+					rootCtx  = analyzerContext.NewRoot(specCtx, prog, nil)
+					newScope = MustSucceed(rootCtx.Scope.Add(specCtx, symbol.Symbol{
+						Name: "x",
+						Kind: symbol.KindVariable,
+						Type: types.I32(),
+					}))
+					mockChild = testutil.NewMockAST(99)
+					finalCtx  = analyzerContext.Child(rootCtx, mockChild).
+							WithScope(newScope).
+							WithTypeHint(types.String())
+				)
+				Expect(finalCtx.AST).To(Equal(mockChild))
+				Expect(finalCtx.TypeHint).To(Equal(types.String()))
+				Expect(finalCtx.Scope).To(Equal(newScope))
+				finalCtx.Diagnostics.Add(diagnostics.Errorf(finalCtx.AST, "test"))
+				Expect(*rootCtx.Diagnostics).To(HaveLen(1))
+			},
+		)
 	})
 
 	Describe("ResolveOwnScope", func() {
-		It("Should resolve a named declaration by its identifier", func(specCtx SpecContext) {
-			ast := MustSucceed(parser.Parse(`sequence main {}`))
-			ctx := analyzerContext.NewRoot(specCtx, ast, nil)
-			analyzer.AnalyzeProgram(ctx)
-			seqDecl := ast.AllTopLevelItem()[0].SequenceDeclaration()
-			scope := MustSucceed(analyzerContext.ResolveOwnScope(
-				analyzerContext.Child(ctx, seqDecl)))
-			Expect(scope.Name).To(Equal("main"))
-			Expect(scope.Kind).To(Equal(symbol.KindSequence))
-		})
+		It(
+			"Should resolve a named declaration by its identifier",
+			func(specCtx SpecContext) {
+				ast := MustSucceed(parser.Parse(`sequence main {}`))
+				ctx := analyzerContext.NewRoot(specCtx, ast, nil)
+				analyzer.AnalyzeProgram(ctx)
+				seqDecl := ast.AllTopLevelItem()[0].SequenceDeclaration()
+				scope := MustSucceed(analyzerContext.ResolveOwnScope(
+					analyzerContext.Child(ctx, seqDecl)))
+				Expect(scope.Name).To(Equal("main"))
+				Expect(scope.Kind).To(Equal(symbol.KindSequence))
+			},
+		)
 
-		It("Should resolve an anonymous declaration by its parser rule", func(specCtx SpecContext) {
-			ast := MustSucceed(parser.Parse(`
+		It(
+			"Should resolve an anonymous declaration by its parser rule",
+			func(specCtx SpecContext) {
+				ast := MustSucceed(parser.Parse(`
 				sequence main {
 					stage {}
 				}
 			`))
-			ctx := analyzerContext.NewRoot(specCtx, ast, nil)
-			analyzer.AnalyzeProgram(ctx)
-			seqDecl := ast.AllTopLevelItem()[0].SequenceDeclaration()
-			seqScope := MustSucceed(ctx.Scope.Resolve(ctx, "main"))
-			stageDecl := seqDecl.AllSequenceItem()[0].StageDeclaration()
-			scope := MustSucceed(analyzerContext.ResolveOwnScope(
-				analyzerContext.Child(ctx, stageDecl).WithScope(seqScope)))
-			Expect(scope.Kind).To(Equal(symbol.KindStage))
-		})
+				ctx := analyzerContext.NewRoot(specCtx, ast, nil)
+				analyzer.AnalyzeProgram(ctx)
+				seqDecl := ast.AllTopLevelItem()[0].SequenceDeclaration()
+				seqScope := MustSucceed(ctx.Scope.Resolve(ctx, "main"))
+				stageDecl := seqDecl.AllSequenceItem()[0].StageDeclaration()
+				scope := MustSucceed(analyzerContext.ResolveOwnScope(
+					analyzerContext.Child(ctx, stageDecl).WithScope(seqScope)))
+				Expect(scope.Kind).To(Equal(symbol.KindStage))
+			},
+		)
 	})
 })

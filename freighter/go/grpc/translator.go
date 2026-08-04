@@ -11,13 +11,15 @@ package grpc
 
 import (
 	"context"
-	"github.com/synnaxlabs/freighter"
 	"go/types"
+
+	"github.com/synnaxlabs/freighter"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
 // Translator is an entity that can translate payloads from one type to another. It is
-// mainly used to create separation between protobuf types and application internal types.
+// mainly used to create separation between protobuf types and application internal
+// types.
 type Translator[I, O freighter.Payload] interface {
 	// Forward translates the given input into a transportable output.
 	Forward(ctx context.Context, in I) (O, error)
@@ -31,7 +33,10 @@ type EmptyTranslator struct{}
 var _ Translator[types.Nil, *emptypb.Empty] = EmptyTranslator{}
 
 // Forward implements Translator.
-func (EmptyTranslator) Forward(ctx context.Context, t types.Nil) (*emptypb.Empty, error) {
+func (EmptyTranslator) Forward(
+	ctx context.Context,
+	t types.Nil,
+) (*emptypb.Empty, error) {
 	return &emptypb.Empty{}, nil
 }
 

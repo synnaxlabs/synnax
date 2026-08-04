@@ -52,3 +52,39 @@ linters:
           Enforces goroutine leak checks in Ginkgo suites: every suite must register
           ShouldNotLeakGoroutinesPerSpec, and every BeforeSuite/BeforeAll must call
           ShouldNotLeakGoroutines first.
+formatters:
+  enable:
+    - gci
+    - gofmt
+    - gofumpt
+    - goimports
+    - golines
+    - swaggo
+  settings:
+    gci:
+      no-inline-comments: true
+      no-prefix-comments: true
+    gofmt:
+      rewrite-rules:
+        - pattern: "interface{}"
+          replacement: "any"
+        - pattern: "a[b:len(a)]"
+          replacement: "a[b:]"
+        - pattern: "a[0:b]"
+          replacement: "a[:b]"
+        - pattern: "time.Now().Sub(a)"
+          replacement: "time.Since(a)"
+        - pattern: "a.Sub(time.Now())"
+          replacement: "time.Until(a)"
+        - pattern: "strings.Replace(a, b, c, -1)"
+          replacement: "strings.ReplaceAll(a, b, c)"
+        - pattern: "!(a == b)"
+          replacement: "a != b"
+    gofumpt:
+      extra-rules: true
+    golines:
+      max-len: 88
+      shorten-comments: true
+  exclusions:
+    warn-unused: true
+    generated: strict

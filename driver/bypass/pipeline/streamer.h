@@ -12,6 +12,8 @@
 #include <memory>
 #include <thread>
 
+#include "absl/log/log.h"
+
 #include "freighter/cpp/freighter.h"
 
 #include "driver/bypass/bypass.h"

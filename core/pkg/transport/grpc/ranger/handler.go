@@ -67,13 +67,27 @@ type (
 )
 
 var (
-	_ grpc.Translator[ranger.CreateRequest, *CreateRequest]       = (*createRequestTranslator)(nil)
-	_ grpc.Translator[ranger.CreateResponse, *CreateResponse]     = (*createResponseTranslator)(nil)
-	_ grpc.Translator[ranger.RetrieveRequest, *RetrieveRequest]   = (*retrieveRequestTranslator)(nil)
-	_ grpc.Translator[ranger.RetrieveResponse, *RetrieveResponse] = (*retrieveResponseTranslator)(nil)
-	_ grpc.Translator[ranger.DeleteRequest, *DeleteRequest]       = (*deleteRequestTranslator)(nil)
-	_ grpc.Translator[ranger.RenameRequest, *RenameRequest]       = (*renameRequestTranslator)(nil)
-	_ grpc.Translator[ranger.SetEndRequest, *SetEndRequest]       = (*setEndRequestTranslator)(nil)
+	_ grpc.Translator[ranger.CreateRequest, *CreateRequest] = (*createRequestTranslator)(
+		nil,
+	)
+	_ grpc.Translator[ranger.CreateResponse, *CreateResponse] = (*createResponseTranslator)(
+		nil,
+	)
+	_ grpc.Translator[ranger.RetrieveRequest, *RetrieveRequest] = (*retrieveRequestTranslator)(
+		nil,
+	)
+	_ grpc.Translator[ranger.RetrieveResponse, *RetrieveResponse] = (*retrieveResponseTranslator)(
+		nil,
+	)
+	_ grpc.Translator[ranger.DeleteRequest, *DeleteRequest] = (*deleteRequestTranslator)(
+		nil,
+	)
+	_ grpc.Translator[ranger.RenameRequest, *RenameRequest] = (*renameRequestTranslator)(
+		nil,
+	)
+	_ grpc.Translator[ranger.SetEndRequest, *SetEndRequest] = (*setEndRequestTranslator)(
+		nil,
+	)
 )
 
 func (createRequestTranslator) Forward(

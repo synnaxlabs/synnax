@@ -139,22 +139,34 @@ func NewSymbols() []*symbol.Symbol {
 	mod.AddChild(
 		symbol.InternalHostFunc(
 			"load",
-			types.Params{{Name: "id", Type: types.I32()}, {Name: "init", Type: types.Variable("T", &numConstraint)}},
+			types.Params{
+				{Name: "id", Type: types.I32()},
+				{Name: "init", Type: types.Variable("T", &numConstraint)},
+			},
 			types.Params{{Name: "value", Type: types.Variable("T", &numConstraint)}},
 		),
 		symbol.InternalHostFunc(
 			"store",
-			types.Params{{Name: "id", Type: types.I32()}, {Name: "value", Type: types.Variable("T", &numConstraint)}},
+			types.Params{
+				{Name: "id", Type: types.I32()},
+				{Name: "value", Type: types.Variable("T", &numConstraint)},
+			},
 			nil,
 		),
 		symbol.InternalHostFunc(
 			"load_series",
-			types.Params{{Name: "id", Type: types.I32()}, {Name: "init", Type: types.I32()}},
+			types.Params{
+				{Name: "id", Type: types.I32()},
+				{Name: "init", Type: types.I32()},
+			},
 			types.Params{{Name: "handle", Type: types.I32()}},
 		),
 		symbol.InternalHostFunc(
 			"store_series",
-			types.Params{{Name: "id", Type: types.I32()}, {Name: "handle", Type: types.I32()}},
+			types.Params{
+				{Name: "id", Type: types.I32()},
+				{Name: "handle", Type: types.I32()},
+			},
 			nil,
 		),
 	)
@@ -176,7 +188,7 @@ func bindScalarI32[T i32Compatible](
 	suffix string,
 ) {
 	builder.NewFunctionBuilder().
-		WithFunc(func(_ context.Context, varID uint32, initValue uint32) uint32 {
+		WithFunc(func(_ context.Context, varID, initValue uint32) uint32 {
 			key := h.currentNodeKey
 			inner, ok := store[key]
 			if !ok {
@@ -190,7 +202,7 @@ func bindScalarI32[T i32Compatible](
 			return initValue
 		}).Export("load_" + suffix)
 	builder.NewFunctionBuilder().
-		WithFunc(func(_ context.Context, varID uint32, value uint32) {
+		WithFunc(func(_ context.Context, varID, value uint32) {
 			key := h.currentNodeKey
 			inner, ok := store[key]
 			if !ok {
@@ -293,7 +305,7 @@ func bindScalarF64(builder wazero.HostModuleBuilder, h *Host) {
 
 func bindStr(builder wazero.HostModuleBuilder, h *Host) {
 	builder.NewFunctionBuilder().
-		WithFunc(func(_ context.Context, varID uint32, initHandle uint32) uint32 {
+		WithFunc(func(_ context.Context, varID, initHandle uint32) uint32 {
 			key := h.currentNodeKey
 			inner, ok := h.stateString[key]
 			if !ok {
@@ -309,7 +321,7 @@ func bindStr(builder wazero.HostModuleBuilder, h *Host) {
 			return initHandle
 		}).Export("load_str")
 	builder.NewFunctionBuilder().
-		WithFunc(func(_ context.Context, varID uint32, handle uint32) {
+		WithFunc(func(_ context.Context, varID, handle uint32) {
 			str, ok := h.strings.Get(handle)
 			if !ok {
 				return
@@ -326,7 +338,7 @@ func bindStr(builder wazero.HostModuleBuilder, h *Host) {
 
 func bindSeries(builder wazero.HostModuleBuilder, h *Host, suffix string) {
 	builder.NewFunctionBuilder().
-		WithFunc(func(_ context.Context, varID uint32, initHandle uint32) uint32 {
+		WithFunc(func(_ context.Context, varID, initHandle uint32) uint32 {
 			key := h.currentNodeKey
 			inner, ok := h.stateSeries[key]
 			if !ok {
@@ -342,7 +354,7 @@ func bindSeries(builder wazero.HostModuleBuilder, h *Host, suffix string) {
 			return initHandle
 		}).Export("load_series_" + suffix)
 	builder.NewFunctionBuilder().
-		WithFunc(func(_ context.Context, varID uint32, handle uint32) {
+		WithFunc(func(_ context.Context, varID, handle uint32) {
 			key := h.currentNodeKey
 			inner, ok := h.stateSeries[key]
 			if !ok {

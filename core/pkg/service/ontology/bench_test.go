@@ -117,7 +117,10 @@ func (e *benchEnv) populate(b *testing.B, count int) []ontology.ID {
 	return ids
 }
 
-func (e *benchEnv) populateTree(b *testing.B, depth, width int) (root ontology.ID, leaves []ontology.ID) {
+func (e *benchEnv) populateTree(
+	b *testing.B,
+	depth, width int,
+) (root ontology.ID, leaves []ontology.ID) {
 	tx := e.db.OpenTx()
 	defer func() { _ = tx.Close() }()
 	w := e.otg.NewWriter(tx)
@@ -157,22 +160,28 @@ func (e *benchEnv) populateTree(b *testing.B, depth, width int) (root ontology.I
 func BenchmarkRetrieveByID(b *testing.B) {
 	for _, count := range []int{100, 1000, 10000} {
 		for _, batch := range []int{1, 10, 100} {
-			b.Run(fmt.Sprintf("resources=%d/batch=%d", count, batch), func(b *testing.B) {
-				env := newBenchEnv(b)
-				defer env.close(b)
-				ids := env.populate(b, count)
-				queryIDs := ids[:batch]
-				b.ReportAllocs()
-				b.ResetTimer()
-				var err error
-				for i := 0; i < b.N; i++ {
-					var res []ontology.Resource
-					err = env.otg.NewRetrieve().WhereIDs(queryIDs...).Entries(&res).Exec(env.ctx, nil)
-				}
-				if err != nil {
-					b.Fatalf("benchmark failed: %v", err)
-				}
-			})
+			b.Run(
+				fmt.Sprintf("resources=%d/batch=%d", count, batch),
+				func(b *testing.B) {
+					env := newBenchEnv(b)
+					defer env.close(b)
+					ids := env.populate(b, count)
+					queryIDs := ids[:batch]
+					b.ReportAllocs()
+					b.ResetTimer()
+					var err error
+					for i := 0; i < b.N; i++ {
+						var res []ontology.Resource
+						err = env.otg.NewRetrieve().
+							WhereIDs(queryIDs...).
+							Entries(&res).
+							Exec(env.ctx, nil)
+					}
+					if err != nil {
+						b.Fatalf("benchmark failed: %v", err)
+					}
+				},
+			)
 		}
 	}
 }
@@ -189,7 +198,11 @@ func BenchmarkTraverseChildren(b *testing.B) {
 				var err error
 				for i := 0; i < b.N; i++ {
 					var res []ontology.Resource
-					err = env.otg.NewRetrieve().WhereIDs(root).TraverseTo(ontology.ChildrenTraverser).Entries(&res).Exec(env.ctx, nil)
+					err = env.otg.NewRetrieve().
+						WhereIDs(root).
+						TraverseTo(ontology.ChildrenTraverser).
+						Entries(&res).
+						Exec(env.ctx, nil)
 				}
 				if err != nil {
 					b.Fatalf("benchmark failed: %v", err)
@@ -211,7 +224,11 @@ func BenchmarkTraverseParents(b *testing.B) {
 			var err error
 			for i := 0; i < b.N; i++ {
 				var res []ontology.Resource
-				err = env.otg.NewRetrieve().WhereIDs(leaf).TraverseTo(ontology.ParentsTraverser).Entries(&res).Exec(env.ctx, nil)
+				err = env.otg.NewRetrieve().
+					WhereIDs(leaf).
+					TraverseTo(ontology.ParentsTraverser).
+					Entries(&res).
+					Exec(env.ctx, nil)
 			}
 			if err != nil {
 				b.Fatalf("benchmark failed: %v", err)
@@ -232,7 +249,11 @@ func BenchmarkPagination(b *testing.B) {
 				var err error
 				for i := 0; i < b.N; i++ {
 					var res []ontology.Resource
-					err = env.otg.NewRetrieve().Offset(offset).Limit(50).Entries(&res).Exec(env.ctx, nil)
+					err = env.otg.NewRetrieve().
+						Offset(offset).
+						Limit(50).
+						Entries(&res).
+						Exec(env.ctx, nil)
 				}
 				if err != nil {
 					b.Fatalf("benchmark failed: %v", err)
@@ -275,7 +296,10 @@ func BenchmarkRetrieveByType(b *testing.B) {
 			var err error
 			for i := 0; i < b.N; i++ {
 				var res []ontology.Resource
-				err = env.otg.NewRetrieve().WhereTypes(ontology.ResourceTypeChannel).Entries(&res).Exec(env.ctx, nil)
+				err = env.otg.NewRetrieve().
+					WhereTypes(ontology.ResourceTypeChannel).
+					Entries(&res).
+					Exec(env.ctx, nil)
 			}
 			if err != nil {
 				b.Fatalf("benchmark failed: %v", err)
@@ -339,7 +363,10 @@ func BenchmarkIntermediateTraversalOverhead(b *testing.B) {
 	}
 }
 
-func (e *benchEnv) populateParentsWithChildren(b *testing.B, numParents, childrenPerParent int) []ontology.ID {
+func (e *benchEnv) populateParentsWithChildren(
+	b *testing.B,
+	numParents, childrenPerParent int,
+) []ontology.ID {
 	tx := e.db.OpenTx()
 	defer func() { _ = tx.Close() }()
 	w := e.otg.NewWriter(tx)
@@ -372,45 +399,67 @@ func (e *benchEnv) populateParentsWithChildren(b *testing.B, numParents, childre
 func BenchmarkTraverseChildrenByType(b *testing.B) {
 	for _, numParents := range []int{5, 20} {
 		for _, childrenPerParent := range []int{10, 50} {
-			b.Run(fmt.Sprintf("parents=%d/children=%d/nofilter", numParents, childrenPerParent), func(b *testing.B) {
-				env := newBenchEnv(b)
-				defer env.close(b)
-				parents := env.populateParentsWithChildren(b, numParents, childrenPerParent)
-				b.ReportAllocs()
-				b.ResetTimer()
-				var err error
-				for i := 0; i < b.N; i++ {
-					var res []ontology.Resource
-					err = env.otg.NewRetrieve().
-						WhereIDs(parents...).
-						TraverseTo(ontology.ChildrenTraverser).
-						Entries(&res).
-						Exec(env.ctx, nil)
-				}
-				if err != nil {
-					b.Fatalf("benchmark failed: %v", err)
-				}
-			})
-			b.Run(fmt.Sprintf("parents=%d/children=%d/withfilter", numParents, childrenPerParent), func(b *testing.B) {
-				env := newBenchEnv(b)
-				defer env.close(b)
-				parents := env.populateParentsWithChildren(b, numParents, childrenPerParent)
-				b.ReportAllocs()
-				b.ResetTimer()
-				var err error
-				for i := 0; i < b.N; i++ {
-					var res []ontology.Resource
-					err = env.otg.NewRetrieve().
-						WhereIDs(parents...).
-						TraverseTo(ontology.ChildrenTraverser).
-						WhereTypes(ontology.ResourceTypeChannel).
-						Entries(&res).
-						Exec(env.ctx, nil)
-				}
-				if err != nil {
-					b.Fatalf("benchmark failed: %v", err)
-				}
-			})
+			b.Run(
+				fmt.Sprintf(
+					"parents=%d/children=%d/nofilter",
+					numParents,
+					childrenPerParent,
+				),
+				func(b *testing.B) {
+					env := newBenchEnv(b)
+					defer env.close(b)
+					parents := env.populateParentsWithChildren(
+						b,
+						numParents,
+						childrenPerParent,
+					)
+					b.ReportAllocs()
+					b.ResetTimer()
+					var err error
+					for i := 0; i < b.N; i++ {
+						var res []ontology.Resource
+						err = env.otg.NewRetrieve().
+							WhereIDs(parents...).
+							TraverseTo(ontology.ChildrenTraverser).
+							Entries(&res).
+							Exec(env.ctx, nil)
+					}
+					if err != nil {
+						b.Fatalf("benchmark failed: %v", err)
+					}
+				},
+			)
+			b.Run(
+				fmt.Sprintf(
+					"parents=%d/children=%d/withfilter",
+					numParents,
+					childrenPerParent,
+				),
+				func(b *testing.B) {
+					env := newBenchEnv(b)
+					defer env.close(b)
+					parents := env.populateParentsWithChildren(
+						b,
+						numParents,
+						childrenPerParent,
+					)
+					b.ReportAllocs()
+					b.ResetTimer()
+					var err error
+					for i := 0; i < b.N; i++ {
+						var res []ontology.Resource
+						err = env.otg.NewRetrieve().
+							WhereIDs(parents...).
+							TraverseTo(ontology.ChildrenTraverser).
+							WhereTypes(ontology.ResourceTypeChannel).
+							Entries(&res).
+							Exec(env.ctx, nil)
+					}
+					if err != nil {
+						b.Fatalf("benchmark failed: %v", err)
+					}
+				},
+			)
 		}
 	}
 }
@@ -421,7 +470,10 @@ func BenchmarkTraverseChildrenByType(b *testing.B) {
 // populateParentsWithChildren this models a flat fan of distinct keys, which
 // is the realistic shape after a long-running test suite has accumulated many
 // independent resources.
-func (e *benchEnv) populateLinkedPairs(b *testing.B, count int) (parents, children []ontology.ID) {
+func (e *benchEnv) populateLinkedPairs(
+	b *testing.B,
+	count int,
+) (parents, children []ontology.ID) {
 	tx := e.db.OpenTx()
 	defer func() { _ = tx.Close() }()
 	w := e.otg.NewWriter(tx)
@@ -473,7 +525,11 @@ func BenchmarkDeleteOutgoingRelationshipsOfType(b *testing.B) {
 			parents, _ := env.populateLinkedPairs(b, count)
 			target := parents[count/2]
 			runDeleteBench(b, env, func(w ontology.Writer) error {
-				return w.DeleteOutgoingRelationshipsOfType(env.ctx, target, ontology.RelationshipTypeParentOf)
+				return w.DeleteOutgoingRelationshipsOfType(
+					env.ctx,
+					target,
+					ontology.RelationshipTypeParentOf,
+				)
 			})
 		})
 	}
@@ -487,7 +543,11 @@ func BenchmarkDeleteIncomingRelationshipsOfType(b *testing.B) {
 			_, children := env.populateLinkedPairs(b, count)
 			target := children[count/2]
 			runDeleteBench(b, env, func(w ontology.Writer) error {
-				return w.DeleteIncomingRelationshipsOfType(env.ctx, target, ontology.RelationshipTypeParentOf)
+				return w.DeleteIncomingRelationshipsOfType(
+					env.ctx,
+					target,
+					ontology.RelationshipTypeParentOf,
+				)
 			})
 		})
 	}

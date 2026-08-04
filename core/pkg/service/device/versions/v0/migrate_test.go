@@ -63,61 +63,69 @@ var _ = Describe("Migration", func() {
 		})).To(Succeed())
 	}
 
-	It("Should create unknown statuses for devices missing them", func(ctx SpecContext) {
-		d := v0.Device{
-			Key:      "migration-device",
-			Rack:     1<<16 | 1,
-			Location: "loc",
-			Name:     "Migration Test Device",
-		}
-		Expect(gorp.NewCreate[string, v0.Device]().
-			Entry(&d).
-			Exec(ctx, db)).To(Succeed())
+	It(
+		"Should create unknown statuses for devices missing them",
+		func(ctx SpecContext) {
+			d := v0.Device{
+				Key:      "migration-device",
+				Rack:     1<<16 | 1,
+				Location: "loc",
+				Name:     "Migration Test Device",
+			}
+			Expect(gorp.NewCreate[string, v0.Device]().
+				Entry(&d).
+				Exec(ctx, db)).To(Succeed())
 
-		runMigration(ctx)
+			runMigration(ctx)
 
-		var restoredStatus status.Status[v0.StatusDetails]
-		Expect(status.NewRetrieve[v0.StatusDetails](statusSvc).
-			Where(status.MatchKeys[v0.StatusDetails](d.OntologyID().String())).
-			Entry(&restoredStatus).
-			Exec(ctx, nil)).To(Succeed())
-		Expect(restoredStatus.Variant).To(Equal(status.VariantWarning))
-		Expect(restoredStatus.Message).To(Equal("Migration Test Device state unknown"))
-		Expect(restoredStatus.Details.Device).To(Equal(d.Key))
-		Expect(restoredStatus.Details.Rack).To(Equal(d.Rack))
-	})
+			var restoredStatus status.Status[v0.StatusDetails]
+			Expect(status.NewRetrieve[v0.StatusDetails](statusSvc).
+				Where(status.MatchKeys[v0.StatusDetails](d.OntologyID().String())).
+				Entry(&restoredStatus).
+				Exec(ctx, nil)).To(Succeed())
+			Expect(restoredStatus.Variant).To(Equal(status.VariantWarning))
+			Expect(
+				restoredStatus.Message,
+			).To(Equal("Migration Test Device state unknown"))
+			Expect(restoredStatus.Details.Device).To(Equal(d.Key))
+			Expect(restoredStatus.Details.Rack).To(Equal(d.Rack))
+		},
+	)
 
-	It("Should not create statuses for devices that already have them", func(ctx SpecContext) {
-		d := v0.Device{
-			Key:      "existing-status-device",
-			Rack:     1<<16 | 1,
-			Location: "loc",
-			Name:     "Device With Status",
-			Make:     "Test Make",
-			Model:    "Test Model",
-		}
-		Expect(gorp.NewCreate[string, v0.Device]().
-			Entry(&d).
-			Exec(ctx, db)).To(Succeed())
-		existing := status.Status[v0.StatusDetails]{
-			Key:     d.OntologyID().String(),
-			Name:    d.Name,
-			Variant: status.VariantSuccess,
-			Message: "Device With Status is configured",
-			Time:    telem.Now(),
-			Details: v0.StatusDetails{Rack: d.Rack, Device: d.Key},
-		}
-		Expect(status.NewWriter[v0.StatusDetails](statusSvc, nil).
-			Set(ctx, &existing)).To(Succeed())
+	It(
+		"Should not create statuses for devices that already have them",
+		func(ctx SpecContext) {
+			d := v0.Device{
+				Key:      "existing-status-device",
+				Rack:     1<<16 | 1,
+				Location: "loc",
+				Name:     "Device With Status",
+				Make:     "Test Make",
+				Model:    "Test Model",
+			}
+			Expect(gorp.NewCreate[string, v0.Device]().
+				Entry(&d).
+				Exec(ctx, db)).To(Succeed())
+			existing := status.Status[v0.StatusDetails]{
+				Key:     d.OntologyID().String(),
+				Name:    d.Name,
+				Variant: status.VariantSuccess,
+				Message: "Device With Status is configured",
+				Time:    telem.Now(),
+				Details: v0.StatusDetails{Rack: d.Rack, Device: d.Key},
+			}
+			Expect(status.NewWriter[v0.StatusDetails](statusSvc, nil).
+				Set(ctx, &existing)).To(Succeed())
 
-		runMigration(ctx)
+			runMigration(ctx)
 
-		var deviceStatus status.Status[v0.StatusDetails]
-		Expect(status.NewRetrieve[v0.StatusDetails](statusSvc).
-			Where(status.MatchKeys[v0.StatusDetails](d.OntologyID().String())).
-			Entry(&deviceStatus).
-			Exec(ctx, nil)).To(Succeed())
-		Expect(deviceStatus.Variant).To(Equal(status.VariantSuccess))
-		Expect(deviceStatus.Message).To(ContainSubstring("Device With Status"))
-	})
+			var deviceStatus status.Status[v0.StatusDetails]
+			Expect(status.NewRetrieve[v0.StatusDetails](statusSvc).
+				Where(status.MatchKeys[v0.StatusDetails](d.OntologyID().String())).
+				Entry(&deviceStatus).
+				Exec(ctx, nil)).To(Succeed())
+			Expect(deviceStatus.Variant).To(Equal(status.VariantSuccess))
+			Expect(deviceStatus.Message).To(ContainSubstring("Device With Status"))
+		},
+	)
 })

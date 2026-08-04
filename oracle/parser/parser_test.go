@@ -49,7 +49,9 @@ var _ = Describe("Parser", func() {
 		It("Should parse a single import", func() {
 			schema := MustSucceed(parser.Parse(`import "schema/core/label"`))
 			Expect(schema.AllImportStmt()).To(HaveLen(1))
-			Expect(schema.ImportStmt(0).STRING_LIT().GetText()).To(Equal(`"schema/core/label"`))
+			Expect(
+				schema.ImportStmt(0).STRING_LIT().GetText(),
+			).To(Equal(`"schema/core/label"`))
 		})
 
 		It("Should parse multiple imports", func() {
@@ -226,7 +228,9 @@ var _ = Describe("Parser", func() {
 			Expect(action.EXTENDS()).NotTo(BeNil())
 			refs := action.TypeRefList().AllTypeRef()
 			Expect(refs).To(HaveLen(1))
-			Expect(asTypeRefNormal(refs[0]).QualifiedIdent().IDENT(0).GetText()).To(Equal("Named"))
+			Expect(
+				asTypeRefNormal(refs[0]).QualifiedIdent().IDENT(0).GetText(),
+			).To(Equal("Named"))
 		})
 
 		It("Should parse an action that extends multiple structs", func() {
@@ -241,8 +245,12 @@ var _ = Describe("Parser", func() {
 			action := structDef.StructBody().AllActionDef()[0]
 			refs := action.TypeRefList().AllTypeRef()
 			Expect(refs).To(HaveLen(2))
-			Expect(asTypeRefNormal(refs[0]).QualifiedIdent().IDENT(0).GetText()).To(Equal("A"))
-			Expect(asTypeRefNormal(refs[1]).QualifiedIdent().IDENT(0).GetText()).To(Equal("B"))
+			Expect(
+				asTypeRefNormal(refs[0]).QualifiedIdent().IDENT(0).GetText(),
+			).To(Equal("A"))
+			Expect(
+				asTypeRefNormal(refs[1]).QualifiedIdent().IDENT(0).GetText(),
+			).To(Equal("B"))
 		})
 	})
 
@@ -342,10 +350,14 @@ var _ = Describe("Parser", func() {
 			exprs := block.AllExpression()
 
 			Expect(exprs[0].IDENT().GetText()).To(Equal("default"))
-			Expect(exprs[0].ExpressionValue(0).STRING_LIT().GetText()).To(Equal(`"untitled"`))
+			Expect(
+				exprs[0].ExpressionValue(0).STRING_LIT().GetText(),
+			).To(Equal(`"untitled"`))
 
 			Expect(exprs[1].IDENT().GetText()).To(Equal("pattern"))
-			Expect(exprs[1].ExpressionValue(0).STRING_LIT().GetText()).To(Equal(`"[a-z]+"`))
+			Expect(
+				exprs[1].ExpressionValue(0).STRING_LIT().GetText(),
+			).To(Equal(`"[a-z]+"`))
 		})
 
 		It("Should parse domain expressions with identifier values", func() {

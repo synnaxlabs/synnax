@@ -51,7 +51,7 @@ cc_library(
         "//x/cpp/notify",
         "//x/cpp/telem",
         "//x/cpp/thread/rt",
-        "@glog",
+        "@abseil-cpp//absl/log",
     ],
 )
 

@@ -21,14 +21,18 @@ const rootReducer = combineReducers({
 
 type TestState = ReturnType<typeof rootReducer>;
 
-// run dispatches the actions through a store wired with the inject-key middleware, so
-// actions without an explicit windowKey resolve to the active window. State is read back
-// through the public selectors, exercising the slice, middleware, and selectors together.
-const run = (...actions: Panel.Action[]): TestState => {
-  const store = configureStore({
+const createStore = () =>
+  configureStore({
     reducer: rootReducer,
     middleware: (getDefault) => getDefault().concat(Panel.MIDDLEWARE),
   });
+
+// run dispatches the actions through a store wired with the inject-key middleware, so
+// actions without an explicit windowKey resolve to the active window. State is read
+// back through the public selectors, exercising the slice, middleware, and selectors
+// together.
+const run = (...actions: Panel.Action[]): TestState => {
+  const store = createStore();
   actions.forEach((action) => store.dispatch(action));
   return store.getState();
 };
@@ -180,6 +184,26 @@ describe("Panel Slice", () => {
         Panel.internalSelectTab({ key: OTHER_PANEL, tabKey: TAB, otherTabKeys: [TAB] }),
       );
       expect(Panel.selectSelectedTabs(state, OTHER_PANEL)).toEqual([TAB]);
+    });
+
+    // Regression: reselecting the front tab rebuilt selectedTabs, so the mosaic's
+    // focus-follows-click dispatch changed state identity on every click inside a
+    // focused tab; the resulting mid-click re-render reverted controlled checkbox
+    // toggles before React could read them (SY-4532).
+    it("should keep state identity when the tab is already at the front", () => {
+      const store = createStore();
+      const reselect = () =>
+        store.dispatch(
+          Panel.internalSelectTab({
+            key: PANEL,
+            tabKey: TAB,
+            otherTabKeys: [TAB, OTHER_TAB],
+          }),
+        );
+      reselect();
+      const before = store.getState()[Panel.SLICE_NAME];
+      reselect();
+      expect(store.getState()[Panel.SLICE_NAME]).toBe(before);
     });
   });
 

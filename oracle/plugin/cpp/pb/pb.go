@@ -76,7 +76,11 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 
 		if req.RepoRoot != "" {
 			if err := req.ValidateOutputPath(cppOutputPath); err != nil {
-				return nil, errors.Wrapf(err, "invalid output path for struct %s", entry.Name)
+				return nil, errors.Wrapf(
+					err,
+					"invalid output path for struct %s",
+					entry.Name,
+				)
 			}
 		}
 
@@ -184,7 +188,8 @@ func hasPBFlag(t resolution.Type) bool {
 func hasExplicitPBName(t resolution.Type) bool {
 	if domain, ok := t.Domains["pb"]; ok {
 		for _, expr := range domain.Expressions {
-			if expr.Name == "name" && len(expr.Values) > 0 && expr.Values[0].StringValue != "" {
+			if expr.Name == "name" && len(expr.Values) > 0 &&
+				expr.Values[0].StringValue != "" {
 				return true
 			}
 		}
@@ -306,7 +311,8 @@ func (p *Plugin) generateProto(
 		}
 	}
 
-	if len(data.Translators) == 0 && len(data.EnumTranslators) == 0 && len(data.ArrayWrappers) == 0 {
+	if len(data.Translators) == 0 && len(data.EnumTranslators) == 0 &&
+		len(data.ArrayWrappers) == 0 {
 		return nil, nil
 	}
 
@@ -317,7 +323,11 @@ func (p *Plugin) generateProto(
 	return buf.Bytes(), nil
 }
 
-func (p *Plugin) resolveExtendsType(extendsRef resolution.TypeRef, parent resolution.Type, data *templateData) string {
+func (p *Plugin) resolveExtendsType(
+	extendsRef resolution.TypeRef,
+	parent resolution.Type,
+	data *templateData,
+) string {
 	name := domain.GetName(parent, "cpp")
 
 	if parent.Namespace != data.rawNs {
@@ -335,7 +345,8 @@ func (p *Plugin) resolveExtendsType(extendsRef resolution.TypeRef, parent resolu
 		args := make([]string, 0, len(extendsRef.TypeArgs))
 		if parentForm, ok := parent.Form.(resolution.StructForm); ok {
 			for i, arg := range extendsRef.TypeArgs {
-				if i < len(parentForm.TypeParams) && parentForm.TypeParams[i].HasDefault() {
+				if i < len(parentForm.TypeParams) &&
+					parentForm.TypeParams[i].HasDefault() {
 					continue
 				}
 				args = append(args, p.typeRefToCppForTranslator(arg, data))
@@ -445,7 +456,11 @@ func (p *Plugin) processFieldForTranslation(
 	forwardJSONExpr, backwardJSONExpr := "", ""
 	if isGenericField {
 		pbAccessorName := keywords.Escape(pbFieldName)
-		forwardJSONExpr, backwardJSONExpr = p.generateJSONFieldConversion(field, cppFieldName, pbAccessorName)
+		forwardJSONExpr, backwardJSONExpr = p.generateJSONFieldConversion(
+			field,
+			cppFieldName,
+			pbAccessorName,
+		)
 	}
 
 	return fieldTranslatorData{
@@ -485,7 +500,14 @@ func (p *Plugin) generateFieldConversion(
 	}
 
 	if resolution.IsPrimitive(typeRef.Name) {
-		return p.generatePrimitiveConversion(typeRef.Name, cppFieldName, pbAccessorName, pbSetter, field.Optional, data)
+		return p.generatePrimitiveConversion(
+			typeRef.Name,
+			cppFieldName,
+			pbAccessorName,
+			pbSetter,
+			field.Optional,
+			data,
+		)
 	}
 
 	if typeRef.TypeParam != nil {
@@ -505,13 +527,42 @@ func (p *Plugin) generateFieldConversion(
 
 	switch form := resolved.Form.(type) {
 	case resolution.StructForm:
-		return p.generateStructConversion(typeRef, resolved, field.Optional, data, cppFieldName, pbAccessorName)
+		return p.generateStructConversion(
+			typeRef,
+			resolved,
+			field.Optional,
+			data,
+			cppFieldName,
+			pbAccessorName,
+		)
 	case resolution.EnumForm:
-		return p.generateEnumConversion(resolved, form, cppFieldName, pbAccessorName, pbSetter, data)
+		return p.generateEnumConversion(
+			resolved,
+			form,
+			cppFieldName,
+			pbAccessorName,
+			pbSetter,
+			data,
+		)
 	case resolution.DistinctForm:
-		return p.generateDistinctConversion(resolved, form, cppFieldName, pbAccessorName, pbSetter, data)
+		return p.generateDistinctConversion(
+			resolved,
+			form,
+			cppFieldName,
+			pbAccessorName,
+			pbSetter,
+			data,
+		)
 	case resolution.AliasForm:
-		return p.generateAliasConversion(resolved, form, field.Optional, cppFieldName, pbAccessorName, pbSetter, data)
+		return p.generateAliasConversion(
+			resolved,
+			form,
+			field.Optional,
+			cppFieldName,
+			pbAccessorName,
+			pbSetter,
+			data,
+		)
 	default:
 		return fmt.Sprintf("%s(this->%s)", pbSetter, cppFieldName),
 			fmt.Sprintf("cpp.%s = pb.%s();", cppFieldName, pbAccessorName)
@@ -524,14 +575,23 @@ func (*Plugin) generateJSONFieldConversion(
 	pbAccessorName string,
 ) (forward, backward string) {
 	if field.Optional {
-		forward = fmt.Sprintf("if (this->%s.has_value()) *pb.mutable_%s() = x::json::to_any(*this->%s)", cppFieldName, pbAccessorName, cppFieldName)
+		forward = fmt.Sprintf(
+			"if (this->%s.has_value()) *pb.mutable_%s() = x::json::to_any(*this->%s)",
+			cppFieldName,
+			pbAccessorName,
+			cppFieldName,
+		)
 		backward = fmt.Sprintf(`if (pb.has_%s()) {
         auto [v, err] = x::json::from_any(pb.%s());
         if (err) return {{}, err};
         cpp.%s = v;
     }`, pbAccessorName, pbAccessorName, cppFieldName)
 	} else {
-		forward = fmt.Sprintf("*pb.mutable_%s() = x::json::to_any(this->%s)", pbAccessorName, cppFieldName)
+		forward = fmt.Sprintf(
+			"*pb.mutable_%s() = x::json::to_any(this->%s)",
+			pbAccessorName,
+			cppFieldName,
+		)
 		backward = fmt.Sprintf(`{
         auto [v, err] = x::json::from_any(pb.%s());
         if (err) return {{}, err};
@@ -549,7 +609,12 @@ func (*Plugin) generatePrimitiveConversion(
 	switch primitive {
 	case "uuid":
 		if isOptional {
-			forward = fmt.Sprintf("if (this->%s.has_value()) %s(this->%s->to_string())", cppFieldName, pbSetter, cppFieldName)
+			forward = fmt.Sprintf(
+				"if (this->%s.has_value()) %s(this->%s->to_string())",
+				cppFieldName,
+				pbSetter,
+				cppFieldName,
+			)
 			backward = fmt.Sprintf(`if (!pb.%s().empty()) {
         auto [v, err] = x::uuid::UUID::parse(pb.%s());
         if (err) return {{}, err};
@@ -566,24 +631,45 @@ func (*Plugin) generatePrimitiveConversion(
 		return forward, backward
 	case "timestamp":
 		return fmt.Sprintf("%s(this->%s.nanoseconds())", pbSetter, cppFieldName),
-			fmt.Sprintf("cpp.%s = x::telem::TimeStamp(pb.%s());", cppFieldName, pbAccessorName)
+			fmt.Sprintf(
+				"cpp.%s = x::telem::TimeStamp(pb.%s());",
+				cppFieldName,
+				pbAccessorName,
+			)
 	case "timespan":
 		return fmt.Sprintf("%s(this->%s.nanoseconds())", pbSetter, cppFieldName),
-			fmt.Sprintf("cpp.%s = x::telem::TimeSpan(pb.%s());", cppFieldName, pbAccessorName)
+			fmt.Sprintf(
+				"cpp.%s = x::telem::TimeSpan(pb.%s());",
+				cppFieldName,
+				pbAccessorName,
+			)
 	case "data_type":
 		return fmt.Sprintf("%s(this->%s.to_proto())", pbSetter, cppFieldName),
-			fmt.Sprintf("cpp.%s = x::telem::DataType::from_proto(pb.%s());", cppFieldName, pbAccessorName)
+			fmt.Sprintf(
+				"cpp.%s = x::telem::DataType::from_proto(pb.%s());",
+				cppFieldName,
+				pbAccessorName,
+			)
 	case "record":
 		data.includes.addInternal("x/cpp/json/struct.h")
 		if isOptional {
-			forward = fmt.Sprintf("if (this->%s.has_value()) *pb.mutable_%s() = x::json::to_struct(*this->%s).first", cppFieldName, pbAccessorName, cppFieldName)
+			forward = fmt.Sprintf(
+				"if (this->%s.has_value()) *pb.mutable_%s() = x::json::to_struct(*this->%s).first",
+				cppFieldName,
+				pbAccessorName,
+				cppFieldName,
+			)
 			backward = fmt.Sprintf(`if (pb.has_%s()) {
         auto [v, err] = x::json::from_struct(pb.%s());
         if (err) return {{}, err};
         cpp.%s = v;
     }`, pbAccessorName, pbAccessorName, cppFieldName)
 		} else {
-			forward = fmt.Sprintf("*pb.mutable_%s() = x::json::to_struct(this->%s).first", pbAccessorName, cppFieldName)
+			forward = fmt.Sprintf(
+				"*pb.mutable_%s() = x::json::to_struct(this->%s).first",
+				pbAccessorName,
+				cppFieldName,
+			)
 			backward = fmt.Sprintf(`{
         auto [v, err] = x::json::from_struct(pb.%s());
         if (err) return {{}, err};
@@ -594,22 +680,55 @@ func (*Plugin) generatePrimitiveConversion(
 	case "any":
 		data.includes.addInternal("x/cpp/json/json.h")
 		if isOptional {
-			forward = fmt.Sprintf("if (this->%s.has_value()) pb.set_%s((*this->%s).dump())", cppFieldName, pbAccessorName, cppFieldName)
+			forward = fmt.Sprintf(
+				"if (this->%s.has_value()) pb.set_%s((*this->%s).dump())",
+				cppFieldName,
+				pbAccessorName,
+				cppFieldName,
+			)
 			backward = fmt.Sprintf(`if (pb.has_%s()) {
         cpp.%s = x::json::json::parse(pb.%s(), nullptr, false);
     }`, pbAccessorName, cppFieldName, pbAccessorName)
 		} else {
-			forward = fmt.Sprintf("pb.set_%s(this->%s.dump())", pbAccessorName, cppFieldName)
-			backward = fmt.Sprintf("cpp.%s = x::json::json::parse(pb.%s(), nullptr, false);", cppFieldName, pbAccessorName)
+			forward = fmt.Sprintf(
+				"pb.set_%s(this->%s.dump())",
+				pbAccessorName,
+				cppFieldName,
+			)
+			backward = fmt.Sprintf(
+				"cpp.%s = x::json::json::parse(pb.%s(), nullptr, false);",
+				cppFieldName,
+				pbAccessorName,
+			)
 		}
 		return forward, backward
 	case "bytes":
-		return fmt.Sprintf("pb.set_%s(this->%s.data(), this->%s.size())", pbAccessorName, cppFieldName, cppFieldName),
-			fmt.Sprintf("cpp.%s.assign(pb.%s().begin(), pb.%s().end());", cppFieldName, pbAccessorName, pbAccessorName)
+		return fmt.Sprintf(
+				"pb.set_%s(this->%s.data(), this->%s.size())",
+				pbAccessorName,
+				cppFieldName,
+				cppFieldName,
+			),
+			fmt.Sprintf(
+				"cpp.%s.assign(pb.%s().begin(), pb.%s().end());",
+				cppFieldName,
+				pbAccessorName,
+				pbAccessorName,
+			)
 	default:
 		if isOptional {
-			return fmt.Sprintf("if (this->%s.has_value()) %s(*this->%s)", cppFieldName, pbSetter, cppFieldName),
-				fmt.Sprintf("if (pb.has_%s()) cpp.%s = pb.%s();", pbAccessorName, cppFieldName, pbAccessorName)
+			return fmt.Sprintf(
+					"if (this->%s.has_value()) %s(*this->%s)",
+					cppFieldName,
+					pbSetter,
+					cppFieldName,
+				),
+				fmt.Sprintf(
+					"if (pb.has_%s()) cpp.%s = pb.%s();",
+					pbAccessorName,
+					cppFieldName,
+					pbAccessorName,
+				)
 		}
 		return fmt.Sprintf("%s(this->%s)", pbSetter, cppFieldName),
 			fmt.Sprintf("cpp.%s = pb.%s();", cppFieldName, pbAccessorName)
@@ -658,7 +777,10 @@ func (p *Plugin) generateStructConversion(
 	return forward, backward
 }
 
-func (p *Plugin) typeRefToCppForTranslator(typeRef resolution.TypeRef, data *templateData) string {
+func (p *Plugin) typeRefToCppForTranslator(
+	typeRef resolution.TypeRef,
+	data *templateData,
+) string {
 	if typeRef.IsTypeParam() && typeRef.TypeParam != nil {
 		// For defaulted type params, substitute the default
 		if typeRef.TypeParam.HasDefault() {
@@ -783,8 +905,19 @@ func (*Plugin) generateEnumConversion(
 	pbNamespace := derivePBCppNamespace(pbOutputPath)
 
 	if form.IsIntEnum {
-		forward = fmt.Sprintf("%s(static_cast<%s::%s>(this->%s))", pbSetter, pbNamespace, enumName, cppFieldName)
-		backward = fmt.Sprintf("cpp.%s = static_cast<%s>(pb.%s());", cppFieldName, cppEnumType, pbAccessorName)
+		forward = fmt.Sprintf(
+			"%s(static_cast<%s::%s>(this->%s))",
+			pbSetter,
+			pbNamespace,
+			enumName,
+			cppFieldName,
+		)
+		backward = fmt.Sprintf(
+			"cpp.%s = static_cast<%s>(pb.%s());",
+			cppFieldName,
+			cppEnumType,
+			pbAccessorName,
+		)
 	} else {
 		funcName := funcNamespace + casing.TypeSnake(enumName)
 		forward = fmt.Sprintf(`{
@@ -820,21 +953,47 @@ func (p *Plugin) generateDistinctConversion(
 
 	if omit.IsSkipped(resolved, "cpp") {
 		return fmt.Sprintf("%s(this->%s.to_proto())", pbSetter, cppFieldName),
-			fmt.Sprintf("cpp.%s = %s::from_proto(pb.%s());", cppFieldName, cppName, pbAccessorName)
+			fmt.Sprintf(
+				"cpp.%s = %s::from_proto(pb.%s());",
+				cppFieldName,
+				cppName,
+				pbAccessorName,
+			)
 	}
 
 	if resolution.IsPrimitive(form.Base.Name) {
 		protoType := primitiveToProtoType(form.Base.Name)
-		return fmt.Sprintf("%s(static_cast<%s>(this->%s))", pbSetter, protoType, cppFieldName),
-			fmt.Sprintf("cpp.%s = %s(pb.%s());", cppFieldName, cppName, pbAccessorName)
+		return fmt.Sprintf(
+				"%s(static_cast<%s>(this->%s))",
+				pbSetter,
+				protoType,
+				cppFieldName,
+			),
+			fmt.Sprintf(
+				"cpp.%s = %s(pb.%s());",
+				cppFieldName,
+				cppName,
+				pbAccessorName,
+			)
 	}
 
 	if form.Base.Name == "Array" && len(form.Base.TypeArgs) > 0 {
 		if p.isNestedArrayType(form.Base, data.table) {
-			return p.generateNestedArrayConversion(cppFieldName, pbAccessorName, form.Base, data)
+			return p.generateNestedArrayConversion(
+				cppFieldName,
+				pbAccessorName,
+				form.Base,
+				data,
+			)
 		}
 		elemType := form.Base.TypeArgs[0]
-		return p.generateArrayAliasConversion(cppFieldName, pbAccessorName, elemType, false, data)
+		return p.generateArrayAliasConversion(
+			cppFieldName,
+			pbAccessorName,
+			elemType,
+			false,
+			data,
+		)
 	}
 
 	return fmt.Sprintf("%s(this->%s)", pbSetter, cppFieldName),
@@ -849,15 +1008,33 @@ func (p *Plugin) generateAliasConversion(
 	data *templateData,
 ) (forward, backward string) {
 	if resolution.IsPrimitive(form.Target.Name) {
-		return p.generatePrimitiveConversion(form.Target.Name, cppFieldName, pbAccessorName, pbSetter, isOptional, data)
+		return p.generatePrimitiveConversion(
+			form.Target.Name,
+			cppFieldName,
+			pbAccessorName,
+			pbSetter,
+			isOptional,
+			data,
+		)
 	}
 
 	if form.Target.Name == "Array" && len(form.Target.TypeArgs) > 0 {
 		if p.isNestedArrayType(form.Target, data.table) {
-			return p.generateNestedArrayConversion(cppFieldName, pbAccessorName, form.Target, data)
+			return p.generateNestedArrayConversion(
+				cppFieldName,
+				pbAccessorName,
+				form.Target,
+				data,
+			)
 		}
 		elemType := form.Target.TypeArgs[0]
-		return p.generateArrayAliasConversion(cppFieldName, pbAccessorName, elemType, isOptional, data)
+		return p.generateArrayAliasConversion(
+			cppFieldName,
+			pbAccessorName,
+			elemType,
+			isOptional,
+			data,
+		)
 	}
 
 	targetResolved, ok := form.Target.Resolve(data.table)
@@ -908,7 +1085,15 @@ func (p *Plugin) generateAliasConversion(
 	}
 
 	if targetForm, isAlias := targetResolved.Form.(resolution.AliasForm); isAlias {
-		return p.generateAliasConversion(targetResolved, targetForm, isOptional, cppFieldName, pbAccessorName, pbSetter, data)
+		return p.generateAliasConversion(
+			targetResolved,
+			targetForm,
+			isOptional,
+			cppFieldName,
+			pbAccessorName,
+			pbSetter,
+			data,
+		)
 	}
 
 	return fmt.Sprintf("%s(this->%s)", pbSetter, cppFieldName),
@@ -929,11 +1114,22 @@ func (p *Plugin) generateArrayConversion(
 	}
 
 	if p.isNestedArrayType(typeRef, data.table) {
-		return p.generateNestedArrayConversion(cppFieldName, pbAccessorName, typeRef, data)
+		return p.generateNestedArrayConversion(
+			cppFieldName,
+			pbAccessorName,
+			typeRef,
+			data,
+		)
 	}
 
 	elemType := typeRef.TypeArgs[0]
-	return p.generateArrayElementConversion(cppFieldName, pbAccessorName, elemType, field.Optional, data)
+	return p.generateArrayElementConversion(
+		cppFieldName,
+		pbAccessorName,
+		elemType,
+		field.Optional,
+		data,
+	)
 }
 
 func (p *Plugin) generateArrayAliasConversion(
@@ -942,7 +1138,13 @@ func (p *Plugin) generateArrayAliasConversion(
 	isOptional bool,
 	data *templateData,
 ) (forward, backward string) {
-	return p.generateArrayElementConversion(cppFieldName, pbAccessorName, elemType, isOptional, data)
+	return p.generateArrayElementConversion(
+		cppFieldName,
+		pbAccessorName,
+		elemType,
+		isOptional,
+		data,
+	)
 }
 
 // generateArrayElementConversion renders the proto conversion for an array field.
@@ -986,7 +1188,12 @@ func (p *Plugin) generateArrayElementConversion(
         if (err) return {{}, err};
         *pb.add_%s() = v;
     }`, cppFieldName, pbAccessorName)
-				backward = fmt.Sprintf("if (auto err = x::pb::from_proto_repeated<%s>(cpp.%s, pb.%s())) return {{}, err};", elemCppType, cppFieldName, pbAccessorName)
+				backward = fmt.Sprintf(
+					"if (auto err = x::pb::from_proto_repeated<%s>(cpp.%s, pb.%s())) return {{}, err};",
+					elemCppType,
+					cppFieldName,
+					pbAccessorName,
+				)
 				return forward, backward
 			}
 		}
@@ -1004,8 +1211,16 @@ func (p *Plugin) generateArrayElementConversion(
 		return forward, backward
 	}
 
-	forward = fmt.Sprintf("for (const auto& item : this->%s) pb.add_%s(item)", cppFieldName, pbAccessorName)
-	backward = fmt.Sprintf("for (const auto& item : pb.%s()) cpp.%s.push_back(item);", pbAccessorName, cppFieldName)
+	forward = fmt.Sprintf(
+		"for (const auto& item : this->%s) pb.add_%s(item)",
+		cppFieldName,
+		pbAccessorName,
+	)
+	backward = fmt.Sprintf(
+		"for (const auto& item : pb.%s()) cpp.%s.push_back(item);",
+		pbAccessorName,
+		cppFieldName,
+	)
 
 	return forward, backward
 }
@@ -1062,13 +1277,24 @@ func (p *Plugin) generateMapConversion(
 		}
 	}
 
-	forward = fmt.Sprintf("for (const auto& [k, v] : this->%s) (*pb.mutable_%s())[k] = v", fieldName, accessorName)
-	backward = fmt.Sprintf("for (const auto& [k, v] : pb.%s()) cpp.%s[k] = v;", accessorName, fieldName)
+	forward = fmt.Sprintf(
+		"for (const auto& [k, v] : this->%s) (*pb.mutable_%s())[k] = v",
+		fieldName,
+		accessorName,
+	)
+	backward = fmt.Sprintf(
+		"for (const auto& [k, v] : pb.%s()) cpp.%s[k] = v;",
+		accessorName,
+		fieldName,
+	)
 
 	return forward, backward
 }
 
-func (*Plugin) isFixedSizeUint8Array(typeRef resolution.TypeRef, table *resolution.Table) bool {
+func (*Plugin) isFixedSizeUint8Array(
+	typeRef resolution.TypeRef,
+	table *resolution.Table,
+) bool {
 	resolved, ok := typeRef.Resolve(table)
 	if !ok {
 		return false
@@ -1102,8 +1328,18 @@ func (*Plugin) generateFixedSizeUint8ArrayConversion(
 	fieldName := casing.FieldSnake(field.Name)
 	accessorName := keywords.Escape(fieldName)
 
-	forward = fmt.Sprintf("pb.set_%s(this->%s.data(), this->%s.size())", accessorName, fieldName, fieldName)
-	backward = fmt.Sprintf("std::copy(pb.%s().begin(), pb.%s().end(), cpp.%s.begin());", accessorName, accessorName, fieldName)
+	forward = fmt.Sprintf(
+		"pb.set_%s(this->%s.data(), this->%s.size())",
+		accessorName,
+		fieldName,
+		fieldName,
+	)
+	backward = fmt.Sprintf(
+		"std::copy(pb.%s().begin(), pb.%s().end(), cpp.%s.begin());",
+		accessorName,
+		accessorName,
+		fieldName,
+	)
 	data.includes.addSystem("algorithm")
 
 	return forward, backward
@@ -1129,7 +1365,10 @@ func (p *Plugin) isArrayType(typeRef resolution.TypeRef, table *resolution.Table
 	return false
 }
 
-func (p *Plugin) getArrayElementType(typeRef resolution.TypeRef, table *resolution.Table) (resolution.TypeRef, bool) {
+func (p *Plugin) getArrayElementType(
+	typeRef resolution.TypeRef,
+	table *resolution.Table,
+) (resolution.TypeRef, bool) {
 	if typeRef.Name == "Array" && len(typeRef.TypeArgs) > 0 {
 		return typeRef.TypeArgs[0], true
 	}
@@ -1149,7 +1388,10 @@ func (p *Plugin) getArrayElementType(typeRef resolution.TypeRef, table *resoluti
 	return resolution.TypeRef{}, false
 }
 
-func (p *Plugin) isNestedArrayType(typeRef resolution.TypeRef, table *resolution.Table) bool {
+func (p *Plugin) isNestedArrayType(
+	typeRef resolution.TypeRef,
+	table *resolution.Table,
+) bool {
 	if !p.isArrayType(typeRef, table) {
 		return false
 	}
@@ -1228,8 +1470,16 @@ func (*Plugin) processEnumForTranslation(
 
 	values := make([]enumValueTranslatorData, 0, len(form.Values))
 	for _, v := range form.Values {
-		cppValueName := fmt.Sprintf("%s_%s", toScreamingSnake(e.Name), toScreamingSnake(v.Name))
-		pbValueName := fmt.Sprintf("%s_%s", toScreamingSnake(e.Name), toScreamingSnake(v.Name))
+		cppValueName := fmt.Sprintf(
+			"%s_%s",
+			toScreamingSnake(e.Name),
+			toScreamingSnake(v.Name),
+		)
+		pbValueName := fmt.Sprintf(
+			"%s_%s",
+			toScreamingSnake(e.Name),
+			toScreamingSnake(v.Name),
+		)
 
 		values = append(values, enumValueTranslatorData{
 			CppValue: cppValueName,

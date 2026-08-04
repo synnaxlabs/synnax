@@ -50,24 +50,36 @@ func (constService) OpenNexter(
 }
 
 var _ = Describe("Service", func() {
-	It("Should panic when retrieving a resource whose service is not registered", func(ctx SpecContext) {
-		id := ontology.ID{Type: ontology.ResourceTypeUser, Key: "unregistered"}
-		Expect(otg.NewWriter(tx).DefineResources(ctx, id)).To(Succeed())
-		var res ontology.Resource
-		Expect(func() {
-			_ = otg.NewRetrieve().WhereIDs(id).Entry(&res).Exec(ctx, tx)
-		}).To(PanicWith(ContainSubstring("service user not found")))
-	})
+	It(
+		"Should panic when retrieving a resource whose service is not registered",
+		func(ctx SpecContext) {
+			id := ontology.ID{Type: ontology.ResourceTypeUser, Key: "unregistered"}
+			Expect(otg.NewWriter(tx).DefineResources(ctx, id)).To(Succeed())
+			var res ontology.Resource
+			Expect(func() {
+				_ = otg.NewRetrieve().WhereIDs(id).Entry(&res).Exec(ctx, tx)
+			}).To(PanicWith(ContainSubstring("service user not found")))
+		},
+	)
 
-	It("Should keep the first service when a duplicate type is registered", func(ctx SpecContext) {
-		d := DeferClose(gorp.Wrap(memkv.New()))
-		o := MustOpen(ontology.Open(ctx, ontology.Config{DB: d}))
-		o.RegisterService(constService{typ: ontology.ResourceTypeChannel, name: "first"})
-		o.RegisterService(constService{typ: ontology.ResourceTypeChannel, name: "second"})
-		id := ontology.ID{Type: ontology.ResourceTypeChannel, Key: "dup"}
-		Expect(o.NewWriter(nil).DefineResources(ctx, id)).To(Succeed())
-		var res ontology.Resource
-		Expect(o.NewRetrieve().WhereIDs(id).Entry(&res).Exec(ctx, nil)).To(Succeed())
-		Expect(res.Name).To(Equal("first"))
-	})
+	It(
+		"Should keep the first service when a duplicate type is registered",
+		func(ctx SpecContext) {
+			d := DeferClose(gorp.Wrap(memkv.New()))
+			o := MustOpen(ontology.Open(ctx, ontology.Config{DB: d}))
+			o.RegisterService(
+				constService{typ: ontology.ResourceTypeChannel, name: "first"},
+			)
+			o.RegisterService(
+				constService{typ: ontology.ResourceTypeChannel, name: "second"},
+			)
+			id := ontology.ID{Type: ontology.ResourceTypeChannel, Key: "dup"}
+			Expect(o.NewWriter(nil).DefineResources(ctx, id)).To(Succeed())
+			var res ontology.Resource
+			Expect(
+				o.NewRetrieve().WhereIDs(id).Entry(&res).Exec(ctx, nil),
+			).To(Succeed())
+			Expect(res.Name).To(Equal("first"))
+		},
+	)
 })

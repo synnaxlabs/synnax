@@ -42,9 +42,14 @@ const (
 var (
 	symbolName = "select"
 	symbolDoc  = doc.New(
-		doc.Paragraph("Routes input values to 'true' or 'false' outputs. Values equal to 1 are routed to the true output; all others to false."),
+		doc.Paragraph(
+			"Routes input values to 'true' or 'false' outputs. Values equal to 1 are routed to the true output; all others to false.",
+		),
 		doc.Divider(),
-		doc.Code("arc", "flag -> select{} -> {\n    true: open_valve,\n    false: shut_valve\n}"),
+		doc.Code(
+			"arc",
+			"flag -> select{} -> {\n    true: open_valve,\n    false: shut_valve\n}",
+		),
 	)
 )
 
@@ -126,7 +131,7 @@ func (s *selectNode) Next(ctx node.Context) {
 	falseData.TimeRange = data.TimeRange
 	falseTime.Alignment = data.Alignment
 	falseTime.TimeRange = data.TimeRange
-	var trueIdx, falseIdx = 0, 0
+	trueIdx, falseIdx := 0, 0
 	for i := range data.Data {
 		if data.Data[i] == 1 {
 			trueData.Data[trueIdx] = 1

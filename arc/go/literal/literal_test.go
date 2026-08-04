@@ -36,7 +36,8 @@ var _ = Describe("Literal Parser", func() {
 	// Note: Negative numbers like "-1" are unary expressions, not literals.
 	// They should be tested through the full analyzer, not the literal parser.
 
-	DescribeTable("Numeric literal parsing",
+	DescribeTable(
+		"Numeric literal parsing",
 		func(
 			input string,
 			targetType types.Type,
@@ -56,48 +57,140 @@ var _ = Describe("Literal Parser", func() {
 		},
 		// i8 tests
 		Entry("i8 max value", "127", types.I8(), true, int8(127), types.I8(), ""),
-		Entry("i8 out of range", "128", types.I8(), false, nil, types.Type{}, "out of range for i8"),
+		Entry(
+			"i8 out of range",
+			"128",
+			types.I8(),
+			false,
+			nil,
+			types.Type{},
+			"out of range for i8",
+		),
 		Entry("i8 zero", "0", types.I8(), true, int8(0), types.I8(), ""),
-
 		// i16 tests
-		Entry("i16 max value", "32767", types.I16(), true, int16(32767), types.I16(), ""),
-		Entry("i16 out of range", "32768", types.I16(), false, nil, types.Type{}, "out of range for i16"),
-
+		Entry(
+			"i16 max value",
+			"32767",
+			types.I16(),
+			true,
+			int16(32767),
+			types.I16(),
+			"",
+		),
+		Entry(
+			"i16 out of range",
+			"32768",
+			types.I16(),
+			false,
+			nil,
+			types.Type{},
+			"out of range for i16",
+		),
 		// i32 tests
-		Entry("i32 max value", "2147483647", types.I32(), true, int32(2147483647), types.I32(), ""),
-
+		Entry(
+			"i32 max value",
+			"2147483647",
+			types.I32(),
+			true,
+			int32(2147483647),
+			types.I32(),
+			"",
+		),
 		// i64 tests
 		Entry("i64 typical value", "42", types.I64(), true, int64(42), types.I64(), ""),
-
 		// u8 tests
 		Entry("u8 max value", "255", types.U8(), true, uint8(255), types.U8(), ""),
 		Entry("u8 zero", "0", types.U8(), true, uint8(0), types.U8(), ""),
-
 		// u16 tests
-		Entry("u16 max value", "65535", types.U16(), true, uint16(65535), types.U16(), ""),
-
+		Entry(
+			"u16 max value",
+			"65535",
+			types.U16(),
+			true,
+			uint16(65535),
+			types.U16(),
+			"",
+		),
 		// u32 tests
-		Entry("u32 typical value", "100", types.U32(), true, uint32(100), types.U32(), ""),
-
+		Entry(
+			"u32 typical value",
+			"100",
+			types.U32(),
+			true,
+			uint32(100),
+			types.U32(),
+			"",
+		),
 		// u64 tests
-		Entry("u64 typical value", "100", types.U64(), true, uint64(100), types.U64(), ""),
-
+		Entry(
+			"u64 typical value",
+			"100",
+			types.U64(),
+			true,
+			uint64(100),
+			types.U64(),
+			"",
+		),
 		// Float tests
 		Entry("f32 literal", "3.14", types.F32(), true, float32(3.14), types.F32(), ""),
 		Entry("f64 literal", "3.14159", types.F64(), true, 3.14159, types.F64(), ""),
-
 		// Value type inference
-		Entry("integer defaults to i64", "42", types.Type{}, true, int64(42), types.I64(), ""),
-		Entry("float defaults to f64", "3.14", types.Type{}, true, 3.14, types.F64(), ""),
-
+		Entry(
+			"integer defaults to i64",
+			"42",
+			types.Type{},
+			true,
+			int64(42),
+			types.I64(),
+			"",
+		),
+		Entry(
+			"float defaults to f64",
+			"3.14",
+			types.Type{},
+			true,
+			3.14,
+			types.F64(),
+			"",
+		),
 		// Float to integer conversions (exact)
-		Entry("exact float to i32 (3.0)", "3.0", types.I32(), true, int32(3), types.I32(), ""),
-		Entry("exact float to i32 (0.0)", "0.0", types.I32(), true, int32(0), types.I32(), ""),
-
+		Entry(
+			"exact float to i32 (3.0)",
+			"3.0",
+			types.I32(),
+			true,
+			int32(3),
+			types.I32(),
+			"",
+		),
+		Entry(
+			"exact float to i32 (0.0)",
+			"0.0",
+			types.I32(),
+			true,
+			int32(0),
+			types.I32(),
+			"",
+		),
 		// Float to integer conversions (non-exact - should fail)
-		Entry("non-exact float to i32 (3.14)", "3.14", types.I32(), false, nil, types.Type{}, "cannot convert non-integer float"),
-		Entry("non-exact float to u8 (3.5)", "3.5", types.U8(), false, nil, types.Type{}, "cannot convert non-integer float"),
-
+		Entry(
+			"non-exact float to i32 (3.14)",
+			"3.14",
+			types.I32(),
+			false,
+			nil,
+			types.Type{},
+			"cannot convert non-integer float",
+		),
+		Entry(
+			"non-exact float to u8 (3.5)",
+			"3.5",
+			types.U8(),
+			false,
+			nil,
+			types.Type{},
+			"cannot convert non-integer float",
+		),
 		// Integer to float conversions
 		Entry("int to f32", "42", types.F32(), true, float32(42), types.F32(), ""),
 		Entry("int to f64", "42", types.F64(), true, float64(42), types.F64(), ""),
@@ -105,14 +198,20 @@ var _ = Describe("Literal Parser", func() {
 
 	Describe("Unit literals", func() {
 		Context("Type inference (no target type)", func() {
-			It("Should infer int64 for exact integer result from integer literal", func() {
-				lit := getLiteral("10s")
-				parsed := MustSucceed(literal.Parse(lit, types.Type{}))
-				Expect(parsed.Value).To(Equal(int64(10000000000))) // 10s = 10 billion ns
-				Expect(parsed.Type.Kind).To(Equal(types.KindI64))
-				Expect(parsed.Type.Unit).ToNot(BeNil())
-				Expect(parsed.Type.Unit.Dimensions).To(Equal(types.DimTime))
-			})
+			It(
+				"Should infer int64 for exact integer result from integer literal",
+				func() {
+					lit := getLiteral("10s")
+					parsed := MustSucceed(literal.Parse(lit, types.Type{}))
+					Expect(
+						parsed.Value,
+					).To(Equal(int64(10000000000)))
+					// 10s = 10 billion ns
+					Expect(parsed.Type.Kind).To(Equal(types.KindI64))
+					Expect(parsed.Type.Unit).ToNot(BeNil())
+					Expect(parsed.Type.Unit.Dimensions).To(Equal(types.DimTime))
+				},
+			)
 
 			It("Should infer int64 for 100kg (SI value 100 is exact int)", func() {
 				lit := getLiteral("100kg")
@@ -135,17 +234,23 @@ var _ = Describe("Literal Parser", func() {
 				Expect(parsed.Type.Kind).To(Equal(types.KindI64))
 			})
 
-			It("Should infer float64 for float literal even if SI value is exact int", func() {
-				lit := getLiteral("5.0km")
-				parsed := MustSucceed(literal.Parse(lit, types.Type{}))
-				Expect(parsed.Value).To(Equal(5000.0))
-				Expect(parsed.Type.Kind).To(Equal(types.KindF64))
-			})
+			It(
+				"Should infer float64 for float literal even if SI value is exact int",
+				func() {
+					lit := getLiteral("5.0km")
+					parsed := MustSucceed(literal.Parse(lit, types.Type{}))
+					Expect(parsed.Value).To(Equal(5000.0))
+					Expect(parsed.Type.Kind).To(Equal(types.KindF64))
+				},
+			)
 
 			It("Should infer int64 for 300ms (300 million ns is exact int)", func() {
 				lit := getLiteral("300ms")
 				parsed := MustSucceed(literal.Parse(lit, types.Type{}))
-				Expect(parsed.Value).To(Equal(int64(300000000))) // 300ms = 300 million ns
+				Expect(
+					parsed.Value,
+				).To(Equal(int64(300000000)))
+				// 300ms = 300 million ns
 				Expect(parsed.Type.Kind).To(Equal(types.KindI64))
 			})
 
@@ -198,17 +303,48 @@ var _ = Describe("Literal Parser", func() {
 				Expect(parsed.Type.Kind).To(Equal(types.KindI64))
 			})
 
-			DescribeTable("Time-unit literal boxing per target kind",
+			DescribeTable(
+				"Time-unit literal boxing per target kind",
 				func(text string, target types.Type, expectedValue any, expectedKind types.Kind) {
 					parsed := MustSucceed(literal.Parse(getLiteral(text), target))
 					Expect(parsed.Value).To(Equal(expectedValue))
 					Expect(parsed.Type.Kind).To(Equal(expectedKind))
 				},
-				Entry("i64 boxes telem.TimeSpan", "5400s", types.I64(), telem.Second*5400, types.KindI64),
-				Entry("u64 boxes plain uint64", "5400s", types.U64(), uint64(5_400_000_000_000), types.KindU64),
-				Entry("i32 boxes plain int32", "1s", types.I32(), int32(1_000_000_000), types.KindI32),
-				Entry("zero at i64 boxes telem.TimeSpan(0)", "0s", types.I64(), telem.TimeSpan(0), types.KindI64),
-				Entry("ns at i64 boxes telem.TimeSpan", "54ns", types.I64(), telem.Nanosecond*54, types.KindI64),
+				Entry(
+					"i64 boxes telem.TimeSpan",
+					"5400s",
+					types.I64(),
+					telem.Second*5400,
+					types.KindI64,
+				),
+				Entry(
+					"u64 boxes plain uint64",
+					"5400s",
+					types.U64(),
+					uint64(5_400_000_000_000),
+					types.KindU64,
+				),
+				Entry(
+					"i32 boxes plain int32",
+					"1s",
+					types.I32(),
+					int32(1_000_000_000),
+					types.KindI32,
+				),
+				Entry(
+					"zero at i64 boxes telem.TimeSpan(0)",
+					"0s",
+					types.I64(),
+					telem.TimeSpan(0),
+					types.KindI64,
+				),
+				Entry(
+					"ns at i64 boxes telem.TimeSpan",
+					"54ns",
+					types.I64(),
+					telem.Nanosecond*54,
+					types.KindI64,
+				),
 			)
 
 			It("Should convert to f64", func() {
@@ -331,15 +467,19 @@ var _ = Describe("Literal Parser", func() {
 				Error().To(MatchError(ContainSubstring("cannot assign string to")))
 		})
 
-		It("Should return error for malformed string literal (missing closing quote)", func() {
-			Expect(
-				literal.ParseString(`"hello`, types.String()),
-			).Error().To(MatchError(ContainSubstring("invalid string literal")))
-		})
+		It(
+			"Should return error for malformed string literal (missing closing quote)",
+			func() {
+				Expect(
+					literal.ParseString(`"hello`, types.String()),
+				).Error().To(MatchError(ContainSubstring("invalid string literal")))
+			},
+		)
 	})
 
 	Describe("Raw and multi-line string literals", func() {
-		DescribeTable("ParseString happy path",
+		DescribeTable(
+			"ParseString happy path",
 			func(input string, target types.Type, expected string) {
 				parsed := MustSucceed(literal.ParseString(input, target))
 				Expect(parsed.Value).To(Equal(expected))
@@ -349,38 +489,129 @@ var _ = Describe("Literal Parser", func() {
 			Entry("simple raw", `r"hello"`, types.String(), "hello"),
 			Entry("raw with spaces", `r"hello world"`, types.String(), "hello world"),
 			Entry("raw backslash-n verbatim", `r"a\nb"`, types.String(), `a\nb`),
-			Entry("raw backslash-t verbatim", `r"col1\tcol2"`, types.String(), `col1\tcol2`),
-			Entry("raw escaped quote preserves backslash", `r"\""`, types.String(), `\"`),
-			Entry("raw windows path", `r"C:\Users\path"`, types.String(), `C:\Users\path`),
+			Entry(
+				"raw backslash-t verbatim",
+				`r"col1\tcol2"`,
+				types.String(),
+				`col1\tcol2`,
+			),
+			Entry(
+				"raw escaped quote preserves backslash",
+				`r"\""`,
+				types.String(),
+				`\"`,
+			),
+			Entry(
+				"raw windows path",
+				`r"C:\Users\path"`,
+				types.String(),
+				`C:\Users\path`,
+			),
 			Entry("empty multi", "``", types.String(), ""),
 			Entry("simple multi", "`hello`", types.String(), "hello"),
-			Entry("multi with real newline", "`line1\nline2`", types.String(), "line1\nline2"),
+			Entry(
+				"multi with real newline",
+				"`line1\nline2`",
+				types.String(),
+				"line1\nline2",
+			),
 			Entry("multi three-line literal", "`a\nb\nc`", types.String(), "a\nb\nc"),
-			Entry("multi indentation preserved", "`a\n    b`", types.String(), "a\n    b"),
+			Entry(
+				"multi indentation preserved",
+				"`a\n    b`",
+				types.String(),
+				"a\n    b",
+			),
 			Entry("multi tab char preserved", "`a\tb`", types.String(), "a\tb"),
 			Entry("multi unicode", "`°C`", types.String(), "°C"),
-			Entry("multi processes escape sequences", "`a\\nb`", types.String(), "a\nb"),
+			Entry(
+				"multi processes escape sequences",
+				"`a\\nb`",
+				types.String(),
+				"a\nb",
+			),
 			Entry("raw multi verbatim escapes", "r`a\\nb`", types.String(), `a\nb`),
-			Entry("raw multi with real newline", "r`line1\nline2`", types.String(), "line1\nline2"),
+			Entry(
+				"raw multi with real newline",
+				"r`line1\nline2`",
+				types.String(),
+				"line1\nline2",
+			),
 			Entry("no target type infers string from raw", `r"hi"`, types.Type{}, "hi"),
-			Entry("format single preserves placeholders in body", `f"hi {x}"`, types.String(), "hi {x}"),
-			Entry("format single processes standard escapes", `f"a\nb {x}"`, types.String(), "a\nb {x}"),
-			Entry("format multi preserves placeholders in body", "f`v={x}\nt={t}`", types.String(), "v={x}\nt={t}"),
-			Entry("format multi processes escapes outside placeholders", "f`a\\tb {x}`", types.String(), "a\tb {x}"),
-			Entry("rf preserves placeholder and backslash verbatim", `rf"C:\path\{x}"`, types.String(), `C:\path\{x}`),
-			Entry("fr (order-flipped) behaves identically to rf", `fr"hi {x}"`, types.String(), `hi {x}`),
-			Entry("rf multi preserves placeholder, real newline, and backslash", "rf`v={x}\nraw=\\n`", types.String(), "v={x}\nraw=\\n"),
+			Entry(
+				"format single preserves placeholders in body",
+				`f"hi {x}"`,
+				types.String(),
+				"hi {x}",
+			),
+			Entry(
+				"format single processes standard escapes",
+				`f"a\nb {x}"`,
+				types.String(),
+				"a\nb {x}",
+			),
+			Entry(
+				"format multi preserves placeholders in body",
+				"f`v={x}\nt={t}`",
+				types.String(),
+				"v={x}\nt={t}",
+			),
+			Entry(
+				"format multi processes escapes outside placeholders",
+				"f`a\\tb {x}`",
+				types.String(),
+				"a\tb {x}",
+			),
+			Entry(
+				"rf preserves placeholder and backslash verbatim",
+				`rf"C:\path\{x}"`,
+				types.String(),
+				`C:\path\{x}`,
+			),
+			Entry(
+				"fr (order-flipped) behaves identically to rf",
+				`fr"hi {x}"`,
+				types.String(),
+				`hi {x}`,
+			),
+			Entry(
+				"rf multi preserves placeholder, real newline, and backslash",
+				"rf`v={x}\nraw=\\n`",
+				types.String(),
+				"v={x}\nraw=\\n",
+			),
 		)
 
-		DescribeTable("ParseString errors",
+		DescribeTable(
+			"ParseString errors",
 			func(input string, target types.Type, errSubstring string) {
 				Expect(literal.ParseString(input, target)).
 					Error().To(MatchError(ContainSubstring(errSubstring)))
 			},
-			Entry("non-string target type", `r"hi"`, types.I32(), "cannot assign string to"),
-			Entry("missing leading quote", `hi"`, types.String(), "invalid string literal"),
-			Entry("missing trailing quote", `"hi`, types.String(), "invalid string literal"),
-			Entry("single quote too short", `"`, types.String(), "invalid string literal"),
+			Entry(
+				"non-string target type",
+				`r"hi"`,
+				types.I32(),
+				"cannot assign string to",
+			),
+			Entry(
+				"missing leading quote",
+				`hi"`,
+				types.String(),
+				"invalid string literal",
+			),
+			Entry(
+				"missing trailing quote",
+				`"hi`,
+				types.String(),
+				"invalid string literal",
+			),
+			Entry(
+				"single quote too short",
+				`"`,
+				types.String(),
+				"invalid string literal",
+			),
 			Entry("empty text too short", "", types.String(), "invalid string literal"),
 		)
 
@@ -414,17 +645,26 @@ var _ = Describe("Literal Parser", func() {
 	})
 
 	Describe("Series literals", func() {
-		It("Should return error for series literals (not supported for default values)", func() {
-			lit := getLiteral("[1, 2, 3]")
-			Expect(literal.Parse(lit, types.Series(types.I64()))).
-				Error().To(MatchError(ContainSubstring("series literals not supported for default values")))
-		})
+		It(
+			"Should return error for series literals (not supported for default values)",
+			func() {
+				lit := getLiteral("[1, 2, 3]")
+				Expect(literal.Parse(lit, types.Series(types.I64()))).
+					Error().
+					To(MatchError(ContainSubstring("series literals not supported for default values")))
+			},
+		)
 	})
 
 	Describe("Negate", func() {
 		DescribeTable("should negate numeric values",
 			func(text string, target types.Type, expected any) {
-				parsed := MustSucceed(literal.ParseConst(MustSucceed(parser.ParseExpression(text)), target))
+				parsed := MustSucceed(
+					literal.ParseConst(
+						MustSucceed(parser.ParseExpression(text)),
+						target,
+					),
+				)
 				Expect(parsed.Value).To(Equal(expected))
 			},
 			Entry("int8", "-42", types.I8(), int8(-42)),
@@ -439,7 +679,12 @@ var _ = Describe("Literal Parser", func() {
 		)
 
 		It("Should return non-numeric types unchanged", func() {
-			parsed := MustSucceed(literal.ParseConst(MustSucceed(parser.ParseExpression(`"hello"`)), types.String()))
+			parsed := MustSucceed(
+				literal.ParseConst(
+					MustSucceed(parser.ParseExpression(`"hello"`)),
+					types.String(),
+				),
+			)
 			Expect(parsed.Value).To(Equal("hello"))
 		})
 	})
@@ -465,7 +710,8 @@ var _ = Describe("Literal Parser", func() {
 			return literal.ParseConst(MustSucceed(parser.ParseExpression(text)), target)
 		}
 
-		DescribeTable("parses a bare or single-negated literal to a range-checked value",
+		DescribeTable(
+			"parses a bare or single-negated literal to a range-checked value",
 			func(text string, target types.Type, expected any) {
 				parsed := MustSucceed(parse(text, target))
 				Expect(parsed.Value).To(Equal(expected))
@@ -479,20 +725,49 @@ var _ = Describe("Literal Parser", func() {
 			Entry("negated float", "-2.5", types.F64(), float64(-2.5)),
 			Entry("negated float narrowed to f32", "-2.5", types.F32(), float32(-2.5)),
 			Entry("bare time unit boxes TimeSpan", "5s", types.I64(), telem.Second*5),
-			Entry("negated time unit boxes TimeSpan", "-5s", types.I64(), telem.Second*-5),
-			Entry("negated nanoseconds box TimeSpan", "-54ns", types.I64(), telem.Nanosecond*-54),
+			Entry(
+				"negated time unit boxes TimeSpan",
+				"-5s",
+				types.I64(),
+				telem.Second*-5,
+			),
+			Entry(
+				"negated nanoseconds box TimeSpan",
+				"-54ns",
+				types.I64(),
+				telem.Nanosecond*-54,
+			),
 		)
 
-		DescribeTable("rejects a non-constant or out-of-range value",
+		DescribeTable(
+			"rejects a non-constant or out-of-range value",
 			func(text string, target types.Type, errSubstring string) {
-				Expect(parse(text, target)).Error().To(MatchError(ContainSubstring(errSubstring)))
+				Expect(
+					parse(text, target),
+				).Error().
+					To(MatchError(ContainSubstring(errSubstring)))
 			},
 			Entry("identifier", "x", types.I64(), "not a compile-time constant"),
-			Entry("multi-term expression", "2 + 3", types.I64(), "not a compile-time constant"),
+			Entry(
+				"multi-term expression",
+				"2 + 3",
+				types.I64(),
+				"not a compile-time constant",
+			),
 			Entry("function call", "foo()", types.I64(), "not a compile-time constant"),
-			Entry("power expression", "2 ^ 3", types.I64(), "not a compile-time constant"),
+			Entry(
+				"power expression",
+				"2 ^ 3",
+				types.I64(),
+				"not a compile-time constant",
+			),
 			Entry("negative into unsigned", "-5", types.U8(), "out of range for u8"),
-			Entry("negated magnitude overflow", "-200", types.I8(), "out of range for i8"),
+			Entry(
+				"negated magnitude overflow",
+				"-200",
+				types.I8(),
+				"out of range for i8",
+			),
 		)
 	})
 })

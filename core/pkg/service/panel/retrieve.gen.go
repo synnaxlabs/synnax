@@ -62,10 +62,11 @@ func Not(f Filter) Filter {
 // Search sets a fuzzy search term that Retrieve will use to filter results.
 func (r Retrieve) Search(term string) Retrieve { r.searchTerm = term; return r }
 
-// MatchKeys returns a filter that restricts results to panels whose key
-// matches any of the provided values. Composing MatchKeys at the top level
-// of a Where clause (i.e. r.Where(MatchKeys(...))) dispatches Exec to the
-// multi-get fast path; composing inside Or / Not falls back to a full scan.
+// MatchKeys returns a filter that restricts results to
+// panels whose key matches any of the provided
+// values. Composing MatchKeys at the top level of a Where clause (i.e.
+// r.Where(MatchKeys(...))) dispatches Exec to the multi-get fast path; composing
+// inside Or / Not falls back to a full scan.
 func MatchKeys(keys ...Key) Filter {
 	return func(_ Retrieve) gorp.Filter[Key, Panel] {
 		return gorp.MatchKeys[Key, Panel](keys...)
@@ -81,14 +82,16 @@ func (r Retrieve) Where(filter Filter) Retrieve {
 	return r
 }
 
-// Entry binds the provided panel as the result container for the query. If
-// multiple panels match, the first one is used.
+// Entry binds the provided panel as the result container for the
+// query. If multiple panels match, the first one is
+// used.
 func (r Retrieve) Entry(e *Panel) Retrieve {
 	r.gorp = r.gorp.Entry(e)
 	return r
 }
 
-// Entries binds the provided slice of panels as the result container for the query.
+// Entries binds the provided slice of panels as the
+// result container for the query.
 func (r Retrieve) Entries(es *[]Panel) Retrieve {
 	r.gorp = r.gorp.Entries(es)
 	return r
@@ -97,7 +100,8 @@ func (r Retrieve) Entries(es *[]Panel) Retrieve {
 // Limit sets the maximum number of panels to return.
 func (r Retrieve) Limit(limit int) Retrieve { r.gorp = r.gorp.Limit(limit); return r }
 
-// Offset sets the starting index of the panels to return.
+// Offset sets the starting index of the panels to
+// return.
 func (r Retrieve) Offset(offset int) Retrieve {
 	r.gorp = r.gorp.Offset(offset)
 	return r

@@ -36,11 +36,20 @@ var (
 
 type pledgeTranslator struct{}
 
-func (pledgeTranslator) Forward(_ context.Context, req pledge.Request) (*aspenv1.ClusterPledge, error) {
-	return &aspenv1.ClusterPledge{NodeKey: uint32(req.Key), ClusterKey: req.ClusterKey.String()}, nil
+func (pledgeTranslator) Forward(
+	_ context.Context,
+	req pledge.Request,
+) (*aspenv1.ClusterPledge, error) {
+	return &aspenv1.ClusterPledge{
+		NodeKey:    uint32(req.Key),
+		ClusterKey: req.ClusterKey.String(),
+	}, nil
 }
 
-func (pledgeTranslator) Backward(_ context.Context, msg *aspenv1.ClusterPledge) (pledge.Request, error) {
+func (pledgeTranslator) Backward(
+	_ context.Context,
+	msg *aspenv1.ClusterPledge,
+) (pledge.Request, error) {
 	cKey, err := uuid.Parse(msg.ClusterKey)
 	if err != nil {
 		return pledge.Request{}, err
@@ -50,26 +59,41 @@ func (pledgeTranslator) Backward(_ context.Context, msg *aspenv1.ClusterPledge) 
 
 type clusterGossipTranslator struct{}
 
-func (clusterGossipTranslator) Forward(_ context.Context, msg gossip.Message) (*aspenv1.ClusterGossip, error) {
-	tMsg := &aspenv1.ClusterGossip{Digests: make(map[uint32]*aspenv1.NodeDigest), Nodes: make(map[uint32]*aspenv1.Node)}
+func (clusterGossipTranslator) Forward(
+	_ context.Context,
+	msg gossip.Message,
+) (*aspenv1.ClusterGossip, error) {
+	tMsg := &aspenv1.ClusterGossip{
+		Digests: make(map[uint32]*aspenv1.NodeDigest),
+		Nodes:   make(map[uint32]*aspenv1.Node),
+	}
 	for _, d := range msg.Digests {
 		tMsg.Digests[uint32(d.Key)] = &aspenv1.NodeDigest{
-			Id:        uint32(d.Key),
-			Heartbeat: &aspenv1.Heartbeat{Version: d.Heartbeat.Version, Generation: d.Heartbeat.Generation},
+			Id: uint32(d.Key),
+			Heartbeat: &aspenv1.Heartbeat{
+				Version:    d.Heartbeat.Version,
+				Generation: d.Heartbeat.Generation,
+			},
 		}
 	}
 	for _, n := range msg.Nodes {
 		tMsg.Nodes[uint32(n.Key)] = &aspenv1.Node{
-			Key:       uint32(n.Key),
-			Address:   string(n.Address),
-			State:     uint32(n.State),
-			Heartbeat: &aspenv1.Heartbeat{Version: n.Heartbeat.Version, Generation: n.Heartbeat.Generation},
+			Key:     uint32(n.Key),
+			Address: string(n.Address),
+			State:   uint32(n.State),
+			Heartbeat: &aspenv1.Heartbeat{
+				Version:    n.Heartbeat.Version,
+				Generation: n.Heartbeat.Generation,
+			},
 		}
 	}
 	return tMsg, nil
 }
 
-func (clusterGossipTranslator) Backward(_ context.Context, tMsg *aspenv1.ClusterGossip) (gossip.Message, error) {
+func (clusterGossipTranslator) Backward(
+	_ context.Context,
+	tMsg *aspenv1.ClusterGossip,
+) (gossip.Message, error) {
 	var msg gossip.Message
 	if len(tMsg.Digests) > 0 {
 		msg.Digests = make(map[node.Key]node.Digest)
@@ -79,16 +103,22 @@ func (clusterGossipTranslator) Backward(_ context.Context, tMsg *aspenv1.Cluster
 	}
 	for _, d := range tMsg.Digests {
 		msg.Digests[node.Key(d.Id)] = node.Digest{
-			Key:       node.Key(d.Id),
-			Heartbeat: version.Heartbeat{Version: d.Heartbeat.Version, Generation: d.Heartbeat.Generation},
+			Key: node.Key(d.Id),
+			Heartbeat: version.Heartbeat{
+				Version:    d.Heartbeat.Version,
+				Generation: d.Heartbeat.Generation,
+			},
 		}
 	}
 	for _, n := range tMsg.Nodes {
 		msg.Nodes[node.Key(n.Key)] = node.Node{
-			Key:       node.Key(n.Key),
-			Address:   address.Address(n.Address),
-			State:     node.State(n.State),
-			Heartbeat: version.Heartbeat{Version: n.Heartbeat.Version, Generation: n.Heartbeat.Generation},
+			Key:     node.Key(n.Key),
+			Address: address.Address(n.Address),
+			State:   node.State(n.State),
+			Heartbeat: version.Heartbeat{
+				Version:    n.Heartbeat.Version,
+				Generation: n.Heartbeat.Generation,
+			},
 		}
 	}
 	return msg, nil
@@ -96,15 +126,24 @@ func (clusterGossipTranslator) Backward(_ context.Context, tMsg *aspenv1.Cluster
 
 type batchTranslator struct{}
 
-func (batchTranslator) Forward(_ context.Context, msg kv.TxRequest) (*aspenv1.TxRequest, error) {
-	tMsg := &aspenv1.TxRequest{Sender: uint32(msg.Sender), Leaseholder: uint32(msg.Leaseholder)}
+func (batchTranslator) Forward(
+	_ context.Context,
+	msg kv.TxRequest,
+) (*aspenv1.TxRequest, error) {
+	tMsg := &aspenv1.TxRequest{
+		Sender:      uint32(msg.Sender),
+		Leaseholder: uint32(msg.Leaseholder),
+	}
 	for _, o := range msg.Operations {
 		tMsg.Operations = append(tMsg.Operations, translateOpForward(o))
 	}
 	return tMsg, nil
 }
 
-func (batchTranslator) Backward(ctx context.Context, tMsg *aspenv1.TxRequest) (kv.TxRequest, error) {
+func (batchTranslator) Backward(
+	ctx context.Context,
+	tMsg *aspenv1.TxRequest,
+) (kv.TxRequest, error) {
 	msg := kv.TxRequest{
 		Context:     ctx,
 		Sender:      node.Key(tMsg.Sender),
@@ -141,7 +180,10 @@ func translateOpBackward(msg *aspenv1.Operation) (tMsg kv.Operation) {
 
 type feedbackTranslator struct{}
 
-func (feedbackTranslator) Forward(_ context.Context, msg kv.FeedbackMessage) (*aspenv1.FeedbackMessage, error) {
+func (feedbackTranslator) Forward(
+	_ context.Context,
+	msg kv.FeedbackMessage,
+) (*aspenv1.FeedbackMessage, error) {
 	tMsg := &aspenv1.FeedbackMessage{Sender: uint32(msg.Sender)}
 	for _, f := range msg.Digests {
 		tMsg.Digests = append(tMsg.Digests, &aspenv1.OperationDigest{
@@ -153,7 +195,10 @@ func (feedbackTranslator) Forward(_ context.Context, msg kv.FeedbackMessage) (*a
 	return tMsg, nil
 }
 
-func (feedbackTranslator) Backward(_ context.Context, tMsg *aspenv1.FeedbackMessage) (kv.FeedbackMessage, error) {
+func (feedbackTranslator) Backward(
+	_ context.Context,
+	tMsg *aspenv1.FeedbackMessage,
+) (kv.FeedbackMessage, error) {
 	msg := kv.FeedbackMessage{
 		Sender:  node.Key(tMsg.Sender),
 		Digests: make([]kv.Digest, len(tMsg.Digests)),
@@ -170,25 +215,39 @@ func (feedbackTranslator) Backward(_ context.Context, tMsg *aspenv1.FeedbackMess
 
 type recoveryRequestTranslator struct{}
 
-func (recoveryRequestTranslator) Forward(_ context.Context, msg kv.RecoveryRequest) (*aspenv1.RecoveryRequest, error) {
+func (recoveryRequestTranslator) Forward(
+	_ context.Context,
+	msg kv.RecoveryRequest,
+) (*aspenv1.RecoveryRequest, error) {
 	return &aspenv1.RecoveryRequest{HighWater: int64(msg.HighWater)}, nil
 }
 
-func (recoveryRequestTranslator) Backward(_ context.Context, tMsg *aspenv1.RecoveryRequest) (kv.RecoveryRequest, error) {
+func (recoveryRequestTranslator) Backward(
+	_ context.Context,
+	tMsg *aspenv1.RecoveryRequest,
+) (kv.RecoveryRequest, error) {
 	return kv.RecoveryRequest{HighWater: version.Counter(tMsg.HighWater)}, nil
 }
 
 type recoveryResponseTranslator struct{}
 
-func (recoveryResponseTranslator) Forward(_ context.Context, msg kv.RecoveryResponse) (*aspenv1.RecoveryResponse, error) {
-	tMsg := &aspenv1.RecoveryResponse{Operations: make([]*aspenv1.Operation, len(msg.Operations))}
+func (recoveryResponseTranslator) Forward(
+	_ context.Context,
+	msg kv.RecoveryResponse,
+) (*aspenv1.RecoveryResponse, error) {
+	tMsg := &aspenv1.RecoveryResponse{
+		Operations: make([]*aspenv1.Operation, len(msg.Operations)),
+	}
 	for i, o := range msg.Operations {
 		tMsg.Operations[i] = translateOpForward(o)
 	}
 	return tMsg, nil
 }
 
-func (recoveryResponseTranslator) Backward(ctx context.Context, tMsg *aspenv1.RecoveryResponse) (kv.RecoveryResponse, error) {
+func (recoveryResponseTranslator) Backward(
+	ctx context.Context,
+	tMsg *aspenv1.RecoveryResponse,
+) (kv.RecoveryResponse, error) {
 	msg := kv.RecoveryResponse{Operations: make([]kv.Operation, len(tMsg.Operations))}
 	for i, o := range tMsg.Operations {
 		msg.Operations[i] = translateOpBackward(o)

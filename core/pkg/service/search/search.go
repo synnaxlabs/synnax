@@ -157,28 +157,30 @@ func (i *Index) Initialize(ctx context.Context) error {
 	oCtx, cancel := signal.WithCancel(ctx)
 	defer cancel()
 	for _, svc := range i.services {
-		disconnect := svc.OnChange(func(ctx context.Context, it iter.Seq[ontology.Change]) {
-			err := i.WithTx(func(tx Tx) error {
-				for ch := range it {
-					i.L.Debug(
-						"updating search index",
-						zap.String("key", ch.Key),
-						zap.Stringer("type", svc.Type()),
-						zap.Stringer("variant", ch.Variant),
-					)
-					if err := tx.Apply(ch); err != nil {
-						return err
+		disconnect := svc.OnChange(
+			func(ctx context.Context, it iter.Seq[ontology.Change]) {
+				err := i.WithTx(func(tx Tx) error {
+					for ch := range it {
+						i.L.Debug(
+							"updating search index",
+							zap.String("key", ch.Key),
+							zap.Stringer("type", svc.Type()),
+							zap.Stringer("variant", ch.Variant),
+						)
+						if err := tx.Apply(ch); err != nil {
+							return err
+						}
 					}
+					return nil
+				})
+				if err != nil {
+					i.L.Error("failed to index resource",
+						zap.Stringer("type", svc.Type()),
+						zap.Error(err),
+					)
 				}
-				return nil
-			})
-			if err != nil {
-				i.L.Error("failed to index resource",
-					zap.Stringer("type", svc.Type()),
-					zap.Error(err),
-				)
-			}
-		})
+			},
+		)
 		i.disconnectObservers = append(i.disconnectObservers, disconnect)
 		oCtx.Go(func(ctx context.Context) (err error) {
 			n, closer, err := svc.OpenNexter(ctx)
@@ -320,7 +322,10 @@ func (i *Index) Search(ctx context.Context, req Request) ([]ontology.ID, error) 
 			fields = tf
 		}
 	}
-	words := strings.FieldsFunc(req.Term, func(r rune) bool { return r == ' ' || r == '_' || r == '-' })
+	words := strings.FieldsFunc(
+		req.Term,
+		func(r rune) bool { return r == ' ' || r == '_' || r == '-' },
+	)
 	wordQueries := make([]query.Query, len(words))
 	for i, word := range words {
 		wordQueries[i] = assembleWordQuery(word, fields)
@@ -347,5 +352,8 @@ func (i *Index) Search(ctx context.Context, req Request) ([]ontology.ID, error) 
 	if len(req.Type) == 0 {
 		return ids, nil
 	}
-	return lo.Filter(ids, func(id ontology.ID, _ int) bool { return id.Type == req.Type }), nil
+	return lo.Filter(
+		ids,
+		func(id ontology.ID, _ int) bool { return id.Type == req.Type },
+	), nil
 }

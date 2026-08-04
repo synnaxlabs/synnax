@@ -91,7 +91,11 @@ func newPeerGatewayFreeSwitch(
 	return rl
 }
 
-func (rl *peerGatewayFreeSwitch) _switch(ctx context.Context, r Request, oReqs map[address.Address]Request) error {
+func (rl *peerGatewayFreeSwitch) _switch(
+	ctx context.Context,
+	r Request,
+	oReqs map[address.Address]Request,
+) error {
 	local, remote, free := r.Frame.SplitByHost(rl.host)
 	if rl.has.peer {
 		pr := r

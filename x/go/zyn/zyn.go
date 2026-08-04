@@ -112,8 +112,11 @@ var (
 	NumericTypeSchema   = Enum(NumericTypes...)
 	PrimitiveTypes      = slices.Concat([]DataType{StringT, BoolT, UUIDT}, NumericTypes)
 	PrimitiveTypeSchema = Enum(PrimitiveTypes...)
-	DataTypes           = slices.Concat([]DataType{ObjectT, ArrayT, MapT, UnionT, DiscriminatedUnionT}, PrimitiveTypes)
-	AnyDataTypeSchema   = Enum(DataTypes...)
+	DataTypes           = slices.Concat(
+		[]DataType{ObjectT, ArrayT, MapT, UnionT, DiscriminatedUnionT},
+		PrimitiveTypes,
+	)
+	AnyDataTypeSchema = Enum(DataTypes...)
 )
 
 // Schema is a schema that provides methods for validating and converting data.

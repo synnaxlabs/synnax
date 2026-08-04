@@ -67,7 +67,9 @@ func setupBenchDB(b *testing.B) *gorp.DB {
 // The Table caches the gorp key prefix so each query construction inside the
 // benchmark loop reuses it instead of rebuilding via reflection. The backing
 // DB is returned alongside the Table so benchmarks can pass it to Exec.
-func openBenchTable[K gorp.Key, E gorp.Entry[K]](b *testing.B) (*gorp.Table[K, E], *gorp.DB) {
+func openBenchTable[K gorp.Key, E gorp.Entry[K]](
+	b *testing.B,
+) (*gorp.Table[K, E], *gorp.DB) {
 	b.Helper()
 	db := setupBenchDB(b)
 	t, err := gorp.OpenTable(b.Context(), gorp.TableConfig[K, E]{DB: db})
@@ -169,7 +171,8 @@ func BenchmarkCreate(b *testing.B) {
 							Data: entries[j].Data,
 						}
 					}
-					if err := gorp.NewCreate[int32, benchEntry]().Entries(&e).Exec(ctx, db); err != nil {
+					if err := gorp.NewCreate[int32, benchEntry]().Entries(&e).
+						Exec(ctx, db); err != nil {
 						b.Fatal(err)
 					}
 				}
@@ -192,7 +195,8 @@ func BenchmarkCreate(b *testing.B) {
 							Data: base[j].Data,
 						}
 					}
-					if err := gorp.NewCreate[string, benchStringEntry]().Entries(&e).Exec(ctx, db); err != nil {
+					if err := gorp.NewCreate[string, benchStringEntry]().Entries(&e).
+						Exec(ctx, db); err != nil {
 						b.Fatal(err)
 					}
 				}
@@ -213,7 +217,8 @@ func BenchmarkCreate(b *testing.B) {
 						e[j] = base[j]
 						e[j].ID = int32(i*size+j) + 1
 					}
-					if err := gorp.NewCreate[int32, benchLargeEntry]().Entries(&e).Exec(ctx, db); err != nil {
+					if err := gorp.NewCreate[int32, benchLargeEntry]().Entries(&e).
+						Exec(ctx, db); err != nil {
 						b.Fatal(err)
 					}
 				}
@@ -432,7 +437,8 @@ func BenchmarkDeleteByKeys(b *testing.B) {
 						Data: base[j].Data,
 					}
 				}
-				if err := gorp.NewCreate[int32, benchEntry]().Entries(&e).Exec(ctx, db); err != nil {
+				if err := gorp.NewCreate[int32, benchEntry]().Entries(&e).
+					Exec(ctx, db); err != nil {
 					b.Fatal(err)
 				}
 				keys := make([]int32, size)
@@ -461,7 +467,8 @@ func BenchmarkWithTx(b *testing.B) {
 			key := int32(i % 10000)
 			if err := db.WithTx(ctx, func(tx gorp.Tx) error {
 				entry := benchEntry{ID: key, Data: "data"}
-				if err := gorp.NewCreate[int32, benchEntry]().Entry(&entry).Exec(ctx, tx); err != nil {
+				if err := gorp.NewCreate[int32, benchEntry]().Entry(&entry).
+					Exec(ctx, tx); err != nil {
 					return err
 				}
 				var result benchEntry
@@ -482,7 +489,8 @@ func BenchmarkWithTx(b *testing.B) {
 		for i := 0; i < b.N; i++ {
 			key := int32(i % 10000)
 			entry := benchEntry{ID: key, Data: "data"}
-			if err := gorp.NewCreate[int32, benchEntry]().Entry(&entry).Exec(ctx, db); err != nil {
+			if err := gorp.NewCreate[int32, benchEntry]().Entry(&entry).
+				Exec(ctx, db); err != nil {
 				b.Fatal(err)
 			}
 			var result benchEntry

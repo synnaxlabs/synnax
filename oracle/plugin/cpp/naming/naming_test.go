@@ -16,13 +16,24 @@ import (
 )
 
 var _ = Describe("VariantTypeName", func() {
-	DescribeTable("should derive the C++ variant struct name",
+	DescribeTable(
+		"should derive the C++ variant struct name",
 		func(union, variant, expected string) {
 			Expect(naming.VariantTypeName(union, variant)).To(Equal(expected))
 		},
 		Entry("plain union keeps the union prefix", "Scale", "linear", "ScaleLinear"),
-		Entry("acronym union factors the shared prefix", "AIChannel", "ai_voltage", "AIVoltageChannel"),
-		Entry("variant not repeating the acronym keeps the union prefix", "AIChannel", "voltage", "AIChannelVoltage"),
+		Entry(
+			"acronym union factors the shared prefix",
+			"AIChannel",
+			"ai_voltage",
+			"AIVoltageChannel",
+		),
+		Entry(
+			"variant not repeating the acronym keeps the union prefix",
+			"AIChannel",
+			"voltage",
+			"AIChannelVoltage",
+		),
 		Entry("reserved-word variant value", "Scale", "map", "ScaleMap"),
 	)
 })

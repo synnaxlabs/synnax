@@ -250,7 +250,11 @@ func BenchmarkIteratorCalc_ManyChannels(b *testing.B) {
 			prefix := fmt.Sprintf("many%d", count)
 			indexCh, dataChannels := env.createChannels(b, prefix, count)
 			env.writeData(b, indexCh, dataChannels, 100)
-			calc := env.createCalculation(b, prefix+"_calc", fmt.Sprintf("return %s_sensor_0", prefix))
+			calc := env.createCalculation(
+				b,
+				prefix+"_calc",
+				fmt.Sprintf("return %s_sensor_0", prefix),
+			)
 
 			iter, err := env.iteratorSvc.Open(env.ctx, iterator.Config{
 				Keys:   []channel.Key{calc.Key(), calc.Index()},
@@ -291,7 +295,11 @@ func BenchmarkIteratorCalc_LargeFrames(b *testing.B) {
 			prefix := fmt.Sprintf("large%d", size)
 			indexCh, dataChannels := env.createChannels(b, prefix, 1)
 			env.writeData(b, indexCh, dataChannels, size)
-			calc := env.createCalculation(b, prefix+"_calc", fmt.Sprintf("return %s_sensor_0 * 2", prefix))
+			calc := env.createCalculation(
+				b,
+				prefix+"_calc",
+				fmt.Sprintf("return %s_sensor_0 * 2", prefix),
+			)
 
 			iter, err := env.iteratorSvc.Open(env.ctx, iterator.Config{
 				Keys:   []channel.Key{calc.Key(), calc.Index()},
@@ -337,7 +345,11 @@ func BenchmarkIteratorCalc_CalculatorChain(b *testing.B) {
 			prevName := prefix + "_sensor_0"
 			for i := range length {
 				name := fmt.Sprintf("%s_calc_%d", prefix, i)
-				finalCalc = env.createCalculation(b, name, fmt.Sprintf("return %s + 1", prevName))
+				finalCalc = env.createCalculation(
+					b,
+					name,
+					fmt.Sprintf("return %s + 1", prevName),
+				)
 				prevName = name
 			}
 
@@ -424,7 +436,11 @@ func BenchmarkIteratorCalc_MultipleDomains(b *testing.B) {
 				}
 			}
 
-			calc := env.createCalculation(b, prefix+"_calc", "return "+prefix+"_sensor * 2")
+			calc := env.createCalculation(
+				b,
+				prefix+"_calc",
+				"return "+prefix+"_sensor * 2",
+			)
 			iter, err := env.iteratorSvc.Open(env.ctx, iterator.Config{
 				Keys:   []channel.Key{calc.Key(), calc.Index()},
 				Bounds: telem.TimeRangeMax,
@@ -450,7 +466,10 @@ func BenchmarkIteratorCalc_MultipleDomains(b *testing.B) {
 				b.StartTimer()
 			}
 			b.StopTimer()
-			b.ReportMetric(float64(50*numDomains*b.N)/b.Elapsed().Seconds(), "samples/sec")
+			b.ReportMetric(
+				float64(50*numDomains*b.N)/b.Elapsed().Seconds(),
+				"samples/sec",
+			)
 		})
 	}
 }
@@ -461,7 +480,11 @@ func BenchmarkIteratorCalc_TwoInputAdd(b *testing.B) {
 
 	indexCh, dataChannels := env.createChannels(b, "twoinput", 2)
 	env.writeData(b, indexCh, dataChannels, 100)
-	calc := env.createCalculation(b, "twoinput_calc", "return twoinput_sensor_0 + twoinput_sensor_1")
+	calc := env.createCalculation(
+		b,
+		"twoinput_calc",
+		"return twoinput_sensor_0 + twoinput_sensor_1",
+	)
 
 	iter, err := env.iteratorSvc.Open(env.ctx, iterator.Config{
 		Keys:   []channel.Key{calc.Key(), calc.Index()},
@@ -497,7 +520,11 @@ func BenchmarkIteratorCalc_MixedConcreteAndCalc(b *testing.B) {
 
 	indexCh, dataChannels := env.createChannels(b, "mixed", 2)
 	env.writeData(b, indexCh, dataChannels, 100)
-	calc := env.createCalculation(b, "mixed_calc", "return mixed_sensor_0 + mixed_sensor_1")
+	calc := env.createCalculation(
+		b,
+		"mixed_calc",
+		"return mixed_sensor_0 + mixed_sensor_1",
+	)
 
 	requestKeys := []channel.Key{
 		dataChannels[0].Key(),

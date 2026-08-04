@@ -108,9 +108,11 @@ type Kind int
 const (
 	// KindVariable represents a regular variable within a function or block scope.
 	KindVariable Kind = iota
-	// KindStatefulVariable represents a variable that persists across reactive stage executions.
+	// KindStatefulVariable represents a variable that persists across reactive stage
+	// executions.
 	KindStatefulVariable
-	// KindChannel represents a channel type for inter-task communication via unbounded FIFO queues.
+	// KindChannel represents a channel type for inter-task communication via unbounded
+	// FIFO queues.
 	KindChannel
 	// KindFunction represents a function declaration.
 	KindFunction
@@ -156,13 +158,15 @@ func (s *Symbol) IsValueVariable() bool {
 
 // IsChannelReadWrite reports whether s is a value variable aliasing a channel.
 func (s *Symbol) IsChannelReadWrite() bool {
-	return s.IsValueVariable() && s.Type.Kind == types.KindChan && s.Type.ChanDirection.IsWrite()
+	return s.IsValueVariable() && s.Type.Kind == types.KindChan &&
+		s.Type.ChanDirection.IsWrite()
 }
 
 // IsReactive reports whether s is a value variable derived from a channel read:
 // a read-only, channel-backed stream.
 func (s *Symbol) IsReactive() bool {
-	return s.IsValueVariable() && s.Type.Kind == types.KindChan && !s.Type.ChanDirection.IsWrite()
+	return s.IsValueVariable() && s.Type.Kind == types.KindChan &&
+		!s.Type.ChanDirection.IsWrite()
 }
 
 // IsLiteral reports whether s is a value variable holding a literal, not a channel.
@@ -731,7 +735,10 @@ func ResolveInputChannel(
 	}
 	if !replaced {
 		dir := types.ChanDirectionRead
-		if param, ok := fnSym.Type.Inputs.Get(paramName); ok && param.Type.ChanDirection.IsSet() {
+		if param, ok := fnSym.Type.Inputs.Get(
+			paramName,
+		); ok &&
+			param.Type.ChanDirection.IsSet() {
 			dir = param.Type.ChanDirection
 		}
 		if dir.IsRead() {

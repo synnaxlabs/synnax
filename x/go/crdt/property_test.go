@@ -26,8 +26,8 @@ var contiguousAB = regexp.MustCompile(`^A*B*$|^B*A*$`)
 // edit is a generated mutation that can be replayed against any replica.
 type edit func(*crdt.Text)
 
-// randomEdit applies a random insert or delete to d and returns an edit that replays the
-// generated operations against another replica.
+// randomEdit applies a random insert or delete to d and returns an edit that replays
+// the generated operations against another replica.
 func randomEdit(rng *rand.Rand, d *crdt.Text) edit {
 	const alphabet = "abcdefghijklmnopqrstuvwxyz"
 	n := d.Len()

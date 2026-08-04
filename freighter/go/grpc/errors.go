@@ -11,6 +11,7 @@ package grpc
 
 import (
 	"context"
+
 	"github.com/synnaxlabs/x/errors"
 )
 

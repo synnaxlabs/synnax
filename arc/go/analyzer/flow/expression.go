@@ -33,7 +33,10 @@ func AnalyzeSingleExpression(ctx acontext.Context[parser.IExpressionContext]) {
 	enclosing := ctx.Scope
 	exprType := atypes.InferFromExpression(ctx).Unwrap()
 	t := types.Function(types.FunctionProperties{})
-	t.Outputs = append(t.Outputs, types.Param{Name: ir.DefaultOutputParam, Type: exprType})
+	t.Outputs = append(
+		t.Outputs,
+		types.Param{Name: ir.DefaultOutputParam, Type: exprType},
+	)
 
 	// Literals register as KindConstant; format strings with placeholders register
 	// as synthetic functions so placeholder channel reads track on the right symbol.
@@ -53,7 +56,8 @@ func AnalyzeSingleExpression(ctx acontext.Context[parser.IExpressionContext]) {
 						return
 					}
 					if literal.FmtStrHasPlaceholder(segs) {
-						fnScope, err := ctx.Scope.Root().Add(ctx, symbol.Symbol{Kind: symbol.KindFunction, Type: t, AST: ctx.AST})
+						fnScope, err := ctx.Scope.Root().
+							Add(ctx, symbol.Symbol{Kind: symbol.KindFunction, Type: t, AST: ctx.AST})
 						if err != nil {
 							ctx.Diagnostics.Add(diagnostics.Error(err, ctx.AST))
 							return

@@ -33,11 +33,11 @@ type (
 )
 
 type Config struct {
-	Keys             channel.Keys `json:"keys" msgpack:"keys"`
-	SendOpenAck      bool         `json:"send_open_ack" msgpack:"send_open_ack"`
+	Keys             channel.Keys `json:"keys"              msgpack:"keys"`
+	SendOpenAck      bool         `json:"send_open_ack"     msgpack:"send_open_ack"`
 	DownsampleFactor int          `json:"downsample_factor" msgpack:"downsample_factor"`
-	ThrottleRate     telem.Rate   `json:"throttle_rate" msgpack:"throttle_rate"`
-	ExcludeGroups    []uint32     `json:"exclude_groups" msgpack:"exclude_groups"`
+	ThrottleRate     telem.Rate   `json:"throttle_rate"     msgpack:"throttle_rate"`
+	ExcludeGroups    []uint32     `json:"exclude_groups"    msgpack:"exclude_groups"`
 }
 
 var _ config.Config[Config] = Config{}
@@ -148,15 +148,25 @@ func (s *Service) New(ctx context.Context, cfgs ...Config) (Streamer, error) {
 	}
 	plumber.SetSegment(p, utAddr, ut)
 	plumber.MustConnect[framer.StreamerRequest](p, utAddr, distAddr, requestBufferSize)
-	var routeOutletFrom = distAddr
+	routeOutletFrom := distAddr
 	if cfg.DownsampleFactor > 1 {
 		plumber.SetSegment(p, downsampleAddr, newDownsampler(cfg))
-		plumber.MustConnect[Response](p, routeOutletFrom, downsampleAddr, responseBufferSize)
+		plumber.MustConnect[Response](
+			p,
+			routeOutletFrom,
+			downsampleAddr,
+			responseBufferSize,
+		)
 		routeOutletFrom = downsampleAddr
 	}
 	if cfg.ThrottleRate > 0 {
 		plumber.SetSegment(p, throttleAddr, newThrottle(cfg))
-		plumber.MustConnect[Response](p, routeOutletFrom, throttleAddr, responseBufferSize)
+		plumber.MustConnect[Response](
+			p,
+			routeOutletFrom,
+			throttleAddr,
+			responseBufferSize,
+		)
 		routeOutletFrom = throttleAddr
 	}
 	return &plumber.Segment[Request, Response]{

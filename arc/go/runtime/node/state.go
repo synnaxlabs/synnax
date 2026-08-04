@@ -337,7 +337,8 @@ func (n *State) RefSourced(paramIndex int) bool {
 // RefInput returns the current data of an edge-fed reference input, or an
 // empty series when the input is unedged.
 func (n *State) RefInput(paramIndex int) telem.Series {
-	if paramIndex >= 0 && paramIndex < len(n.inputSources) && n.isReference[paramIndex] {
+	if paramIndex >= 0 && paramIndex < len(n.inputSources) &&
+		n.isReference[paramIndex] {
 		if src := n.inputSources[paramIndex]; src != nil {
 			return src.data
 		}

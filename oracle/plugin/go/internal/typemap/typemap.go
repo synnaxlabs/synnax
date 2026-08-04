@@ -137,7 +137,10 @@ func ResolveLeafPrimitive(
 	case resolution.DistinctForm:
 		base, ok := form.Base.Resolve(table)
 		if !ok {
-			return "", "", errors.Newf("cannot resolve distinct base %s", form.Base.Name)
+			return "", "", errors.Newf(
+				"cannot resolve distinct base %s",
+				form.Base.Name,
+			)
 		}
 		basePrim, _, err := ResolveLeafPrimitive(base, table, goTypeNameFn)
 		if err != nil {
@@ -160,7 +163,10 @@ func ResolveLeafPrimitive(
 	case resolution.AliasForm:
 		target, ok := form.Target.Resolve(table)
 		if !ok {
-			return "", "", errors.Newf("cannot resolve alias target %s", form.Target.Name)
+			return "", "", errors.Newf(
+				"cannot resolve alias target %s",
+				form.Target.Name,
+			)
 		}
 		basePrim, baseCast, err := ResolveLeafPrimitive(target, table, goTypeNameFn)
 		if err != nil {
@@ -175,7 +181,11 @@ func ResolveLeafPrimitive(
 		}
 		return basePrim, "", nil
 	default:
-		return "", "", errors.Newf("unsupported type form for leaf: %T (%s)", form, typ.QualifiedName)
+		return "", "", errors.Newf(
+			"unsupported type form for leaf: %T (%s)",
+			form,
+			typ.QualifiedName,
+		)
 	}
 }
 
@@ -209,10 +219,15 @@ func ResolveGoSliceElemType(
 		if !ok {
 			return "", errors.Newf("cannot resolve type %s", baseRef.Name)
 		}
-		if bg, ok := target.Form.(resolution.BuiltinGenericForm); ok && bg.Name == "Array" && len(baseRef.TypeArgs) > 0 {
+		if bg, ok := target.Form.(resolution.BuiltinGenericForm); ok &&
+			bg.Name == "Array" &&
+			len(baseRef.TypeArgs) > 0 {
 			innerElem, ok := baseRef.TypeArgs[0].Resolve(table)
 			if !ok {
-				return "", errors.Newf("cannot resolve array element %s", baseRef.TypeArgs[0].Name)
+				return "", errors.Newf(
+					"cannot resolve array element %s",
+					baseRef.TypeArgs[0].Name,
+				)
 			}
 			innerGoType, err := ResolveGoSliceElemType(innerElem, table, goTypeNameFn)
 			if err != nil {

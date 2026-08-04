@@ -343,8 +343,10 @@ func (s NodeSpec) Config(values ...any) node.Config {
 		}
 		key := "v_" + in.Name
 		elem := vb.elemType()
-		nodes = append(nodes, ir.Node{Key: key, Type: "variable",
-			Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: elem}}})
+		nodes = append(nodes, ir.Node{
+			Key: key, Type: "variable",
+			Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: elem}},
+		})
 		params = append(params, types.Param{
 			Name: in.Name, Type: types.VarRef(elem, key), Value: vb.initialValue(),
 		})

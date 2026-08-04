@@ -33,9 +33,10 @@ import (
 
 type Plugin struct{}
 
-func New() *Plugin                          { return &Plugin{} }
-func (*Plugin) Name() string                { return "go/migrate" }
-func (*Plugin) Domains() []string           { return []string{"go"} }
+func New() *Plugin                { return &Plugin{} }
+func (*Plugin) Name() string      { return "go/migrate" }
+func (*Plugin) Domains() []string { return []string{"go"} }
+
 func (*Plugin) Requires() []string          { return []string{"go/types", "go/marshal"} }
 func (*Plugin) Check(*plugin.Request) error { return nil }
 
@@ -143,7 +144,9 @@ func (g *generation) detectBumps() error {
 		case newV == oldV && changed:
 			return errors.Newf(
 				"schema shape for %s changed but @go version is still %d; bump it to %d",
-				path, oldV, oldV+1,
+				path,
+				oldV,
+				oldV+1,
 			)
 		case newV == oldV+1:
 			g.bumps[path] = bump{OldVersion: oldV, NewVersion: newV, Changed: changed}
@@ -155,7 +158,9 @@ func (g *generation) detectBumps() error {
 		default:
 			return errors.Newf(
 				"@go version for %s jumped from %d to %d; versions are dense — bump one at a time",
-				path, oldV, newV,
+				path,
+				oldV,
+				newV,
 			)
 		}
 	}
@@ -179,7 +184,12 @@ func (g *generation) pathChanged(path string) bool {
 		if _, versioned := versioning.Version(newType); !versioned {
 			continue
 		}
-		if !schemadiff.SchemasEqual(oldType, newType, g.req.OldResolutions, g.req.Resolutions) {
+		if !schemadiff.SchemasEqual(
+			oldType,
+			newType,
+			g.req.OldResolutions,
+			g.req.Resolutions,
+		) {
 			return true
 		}
 	}
@@ -216,7 +226,9 @@ func (g *generation) scaffoldPath(path string) error {
 }
 
 // pathDiff computes the schema diff for a path's freeze, walking from its
-// @go migrate entries when present and from every keyed struct otherwise.
+//
+//	@go	migrate entries when present and from every keyed struct otherwise.
+//
 // Codec-only bumps (no shape change) synthesize a full-copy diff for each
 // root so the passthrough auto-copy still generates.
 func (g *generation) pathDiff(
@@ -316,7 +328,11 @@ func (g *generation) scaffoldIncoming(
 	}
 
 	templateFile := newPath + "/migrate.go"
-	if _, statErr := os.Stat(filepath.Join(g.req.RepoRoot, templateFile)); !os.IsNotExist(statErr) {
+	if _, statErr := os.Stat(
+		filepath.Join(g.req.RepoRoot, templateFile),
+	); !os.IsNotExist(
+		statErr,
+	) {
 		return nil
 	}
 	oldVersionedPath := versioning.VersionedPath(path, b.OldVersion)
@@ -379,7 +395,10 @@ func (g *generation) scaffoldIncoming(
 		buf.Write(tc)
 	}
 	if buf.Len() > 0 {
-		g.resp.Files = append(g.resp.Files, plugin.File{Path: templateFile, Content: buf.Bytes()})
+		g.resp.Files = append(
+			g.resp.Files,
+			plugin.File{Path: templateFile, Content: buf.Bytes()},
+		)
 	}
 	return nil
 }
@@ -409,14 +428,22 @@ func (g *generation) generateDepMigration(
 	}
 
 	migrateFile := mirroredPath + "/migrate.go"
-	if _, statErr := os.Stat(filepath.Join(g.req.RepoRoot, migrateFile)); !os.IsNotExist(statErr) {
+	if _, statErr := os.Stat(
+		filepath.Join(g.req.RepoRoot, migrateFile),
+	); !os.IsNotExist(
+		statErr,
+	) {
 		return nil
 	}
 	tc, err := renderTypeMigrateTemplate(
 		versionDir, mirroredPath, types, diff, g.rewrittenNew, g.req.RepoRoot, wrappers,
 	)
 	if err != nil {
-		return errors.Wrapf(err, "failed to generate type migrate template for %s", mirroredPath)
+		return errors.Wrapf(
+			err,
+			"failed to generate type migrate template for %s",
+			mirroredPath,
+		)
 	}
 	if tc != nil {
 		g.resp.Files = append(g.resp.Files, plugin.File{Path: migrateFile, Content: tc})
@@ -535,7 +562,10 @@ func renderTypeMigrateTemplate(
 		// Skip types that are their own migrate entries: their developer-edited
 		// transform lives in their own incoming version package. Generating
 		// both would duplicate the template.
-		if newType, ok := newTable.Get(typ.QualifiedName); ok && isMigrateEntry(newType) {
+		if newType, ok := newTable.Get(
+			typ.QualifiedName,
+		); ok &&
+			isMigrateEntry(newType) {
 			continue
 		}
 		goName := naming.GetGoName(typ)
@@ -543,7 +573,11 @@ func renderTypeMigrateTemplate(
 		newGoPath := output.GetPath(newType, "go")
 		newTypeName := naming.GetGoName(newType)
 		if newGoPath != mirroredPath {
-			ip := gomod.ResolveImportPath(newGoPath, repoRoot, gomod.DefaultModulePrefix)
+			ip := gomod.ResolveImportPath(
+				newGoPath,
+				repoRoot,
+				gomod.DefaultModulePrefix,
+			)
 			alias := naming.DeriveVersionedAlias(newGoPath, pkg)
 			if filepath.Dir(newGoPath) == filepath.Dir(mirroredPath) {
 				alias = filepath.Base(newGoPath)

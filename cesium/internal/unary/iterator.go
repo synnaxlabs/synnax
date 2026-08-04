@@ -47,7 +47,9 @@ func (IteratorConfig) Validate() error { return nil }
 
 var (
 	_                     config.Config[IteratorConfig] = IteratorConfig{}
-	DefaultIteratorConfig                               = IteratorConfig{AutoChunkSize: 1e5}
+	DefaultIteratorConfig                               = IteratorConfig{
+		AutoChunkSize: 1e5,
+	}
 )
 
 func IterRange(tr telem.TimeRange) IteratorConfig {
@@ -159,8 +161,8 @@ func (i *Iterator) SeekGE(ctx context.Context, ts telem.TimeStamp) bool {
 		// If the provided ts is in the seeked domain, set the view to be ts.
 		i.seekReset(ts)
 	} else {
-		// Otherwise, set the view to the start of the seeked domain or bounds, whichever
-		// one is later.
+		// Otherwise, set the view to the start of the seeked domain or bounds,
+		// whichever one is later.
 		i.seekReset(i.internal.TimeRange().BoundBy(i.bounds).Start)
 	}
 	return ok
@@ -182,7 +184,7 @@ func (i *Iterator) Next(ctx context.Context, span telem.TimeSpan) (ok bool) {
 	}()
 	if i.atEnd() {
 		i.reset(i.bounds.End.SpanRange(0))
-		return
+		return ok
 	}
 
 	if span == AutoSpan {
@@ -192,19 +194,19 @@ func (i *Iterator) Next(ctx context.Context, span telem.TimeSpan) (ok bool) {
 	i.reset(i.view.End.SpanRange(span).BoundBy(i.bounds))
 
 	if i.view.Span().IsZero() || i.view.End.BeforeEq(i.internal.TimeRange().Start) {
-		return
+		return ok
 	}
 
 	i.accumulate(ctx)
 	if i.satisfied() || i.err != nil {
-		return
+		return ok
 	}
 
 	for i.internal.Next() &&
 		i.accumulate(ctx) &&
 		!i.satisfied() {
 	}
-	return
+	return ok
 }
 
 func (i *Iterator) autoNext(ctx context.Context) bool {
@@ -343,7 +345,7 @@ func (i *Iterator) Prev(ctx context.Context, span telem.TimeSpan) (ok bool) {
 
 	if i.atStart() {
 		i.reset(i.bounds.Start.SpanRange(0))
-		return
+		return ok
 	}
 
 	if span == AutoSpan {
@@ -353,19 +355,19 @@ func (i *Iterator) Prev(ctx context.Context, span telem.TimeSpan) (ok bool) {
 	i.reset(i.view.Start.SpanRange(-1 * span).BoundBy(i.bounds))
 
 	if i.view.Span().IsZero() || i.view.Start.AfterEq(i.internal.TimeRange().End) {
-		return
+		return ok
 	}
 
 	i.accumulate(ctx)
 	if i.satisfied() || i.err != nil {
-		return
+		return ok
 	}
 
 	for i.internal.Prev() &&
 		i.accumulate(ctx) &&
 		!i.satisfied() {
 	}
-	return
+	return ok
 }
 
 // Len returns the number of samples in the iterator's frame.
@@ -420,7 +422,8 @@ func (i *Iterator) insert(series telem.Series) {
 	if series.Len() == 0 {
 		return
 	}
-	if i.frame.Empty() || i.frame.SeriesAt(-1).TimeRange.End.BeforeEq(series.TimeRange.Start) {
+	if i.frame.Empty() ||
+		i.frame.SeriesAt(-1).TimeRange.End.BeforeEq(series.TimeRange.Start) {
 		i.frame = i.frame.Append(i.Channel.Key, series)
 	} else {
 		i.frame = i.frame.Prepend(i.Channel.Key, series)
@@ -516,7 +519,9 @@ func (i *Iterator) approximateStart(ctx context.Context) (
 // range and the end of the current iterator view. If the end of the current view is
 // after the end of the range, the returned value will be the number of samples in the
 // range.
-func (i *Iterator) approximateEnd(ctx context.Context) (endApprox index.DistanceApproximation, err error) {
+func (i *Iterator) approximateEnd(
+	ctx context.Context,
+) (endApprox index.DistanceApproximation, err error) {
 	total, err := i.resolver.domainSampleCount(ctx, i.internal)
 	if err != nil {
 		return index.DistanceApproximation{}, err
@@ -526,7 +531,7 @@ func (i *Iterator) approximateEnd(ctx context.Context) (endApprox index.Distance
 		target := i.internal.TimeRange().Start.Range(i.view.End)
 		endApprox, _, err = i.idx.Distance(ctx, target, index.MustBeContinuous)
 	}
-	return
+	return endApprox, err
 }
 
 // satisfied returns whether an iterator collected all telemetry in its view. An

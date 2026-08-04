@@ -39,9 +39,11 @@ func (s *Service) openManyPeers(
 	error,
 ) {
 	var (
-		receivers         = make([]*freightfluence.Receiver[Response], 0, len(targets))
-		addrMap           = make(proxy.AddressMap)
-		senders           = make(map[address.Address]freighter.StreamSenderCloser[Request])
+		receivers = make([]*freightfluence.Receiver[Response], 0, len(targets))
+		addrMap   = make(proxy.AddressMap)
+		senders   = make(
+			map[address.Address]freighter.StreamSenderCloser[Request],
+		)
 		sender            = newRequestSwitchSender(addrMap, senders)
 		receiverAddresses = make([]address.Address, 0, len(targets))
 	)
@@ -49,16 +51,28 @@ func (s *Service) openManyPeers(
 	for nodeKey, keys := range targets {
 		target, err := s.cfg.HostResolver.Resolve(nodeKey)
 		if err != nil {
-			return sender, receivers, receiverAddresses, senders, s.closePeerClients(senders, err)
+			return sender, receivers, receiverAddresses, senders, s.closePeerClients(
+				senders,
+				err,
+			)
 		}
 		addrMap[nodeKey] = target
 		client, err := s.openPeerClient(ctx, target, cfg.setKeyAuthorities(keys))
 		if err != nil {
-			return sender, receivers, receiverAddresses, senders, s.closePeerClients(senders, err)
+			return sender, receivers, receiverAddresses, senders, s.closePeerClients(
+				senders,
+				err,
+			)
 		}
 		senders[target] = client
-		receivers = append(receivers, &freightfluence.Receiver[Response]{Receiver: client})
-		receiverAddresses = append(receiverAddresses, address.Address("receiver-"+strconv.Itoa(int(nodeKey))))
+		receivers = append(
+			receivers,
+			&freightfluence.Receiver[Response]{Receiver: client},
+		)
+		receiverAddresses = append(
+			receiverAddresses,
+			address.Address("receiver-"+strconv.Itoa(int(nodeKey))),
+		)
 	}
 
 	return sender, receivers, receiverAddresses, senders, nil

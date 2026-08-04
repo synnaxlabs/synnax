@@ -56,12 +56,15 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	}))
 	authSvc = MustOpen(auth.OpenService(ctx, auth.ServiceConfig{DB: db}))
 	userSvc = MustOpen(user.OpenService(ctx, user.ServiceConfig{
-		DB:              db,
-		Ontology:        otg,
-		Group:           groupSvc,
-		Search:          searchIdx,
-		Auth:            authSvc,
-		RootCredentials: auth.Credentials{Username: "api-user-suite-root", Password: "p"},
+		DB:       db,
+		Ontology: otg,
+		Group:    groupSvc,
+		Search:   searchIdx,
+		Auth:     authSvc,
+		RootCredentials: auth.Credentials{
+			Username: "api-user-suite-root",
+			Password: "p",
+		},
 	}))
 	writer = userSvc.NewWriter(nil)
 	rbacSvc := MustOpen(rbac.OpenService(ctx, rbac.ServiceConfig{
@@ -84,7 +87,9 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 
 func findRoot(ctx SpecContext, svc *user.Service, username string) user.User {
 	var u user.User
-	Expect(svc.NewRetrieve().Where(user.MatchUsernames(username)).Entry(&u).Exec(ctx, nil)).To(Succeed())
+	Expect(
+		svc.NewRetrieve().Where(user.MatchUsernames(username)).Entry(&u).Exec(ctx, nil),
+	).To(Succeed())
 	return u
 }
 

@@ -171,12 +171,15 @@ var _ = Describe("MustGenerate", func() {
 		Expect(p.lastReq.Resolutions).NotTo(BeNil())
 	})
 
-	It("should return an empty response when plugin generates no files", func(ctx SpecContext) {
-		p := &mockPlugin{files: []plugin.File{}}
-		source := fmt.Sprintf(SimpleStructTemplate, DomainDirectives["go"])
-		resp := MustGenerate(ctx, source, "user", loader, p)
-		Expect(resp.Files).To(BeEmpty())
-	})
+	It(
+		"should return an empty response when plugin generates no files",
+		func(ctx SpecContext) {
+			p := &mockPlugin{files: []plugin.File{}}
+			source := fmt.Sprintf(SimpleStructTemplate, DomainDirectives["go"])
+			resp := MustGenerate(ctx, source, "user", loader, p)
+			Expect(resp.Files).To(BeEmpty())
+		},
+	)
 
 	It("should return multiple generated files", func(ctx SpecContext) {
 		p := &mockPlugin{
@@ -229,8 +232,10 @@ var _ = Describe("ExpectContent", func() {
 	Describe("ToContain", func() {
 		It("should pass when content contains all substrings", func() {
 			resp := buildResponse(plugin.File{
-				Path:    "out/user.go",
-				Content: []byte("package user\n\ntype User struct {\n\tKey uuid.UUID\n}"),
+				Path: "out/user.go",
+				Content: []byte(
+					"package user\n\ntype User struct {\n\tKey uuid.UUID\n}",
+				),
 			})
 			ExpectContent(resp, "user.go").
 				ToContain("package user", "type User struct", "Key uuid.UUID")
@@ -238,8 +243,10 @@ var _ = Describe("ExpectContent", func() {
 
 		It("should support chaining multiple ToContain calls", func() {
 			resp := buildResponse(plugin.File{
-				Path:    "out/user.go",
-				Content: []byte("package user\n\ntype User struct {\n\tKey uuid.UUID\n\tName string\n}"),
+				Path: "out/user.go",
+				Content: []byte(
+					"package user\n\ntype User struct {\n\tKey uuid.UUID\n\tName string\n}",
+				),
 			})
 			ExpectContent(resp, "user.go").
 				ToContain("package user").
@@ -272,8 +279,10 @@ var _ = Describe("ExpectContent", func() {
 	Describe("ToPreserveOrder", func() {
 		It("should pass when substrings appear in order", func() {
 			resp := buildResponse(plugin.File{
-				Path:    "out/user.go",
-				Content: []byte("package user\n\nimport \"fmt\"\n\ntype User struct {}"),
+				Path: "out/user.go",
+				Content: []byte(
+					"package user\n\nimport \"fmt\"\n\ntype User struct {}",
+				),
 			})
 			ExpectContent(resp, "user.go").
 				ToPreserveOrder("package user", "import", "type User struct")
@@ -281,8 +290,10 @@ var _ = Describe("ExpectContent", func() {
 
 		It("should support chaining with other assertions", func() {
 			resp := buildResponse(plugin.File{
-				Path:    "out/user.go",
-				Content: []byte("package user\n\ntype User struct {\n\tKey string\n\tName string\n}"),
+				Path: "out/user.go",
+				Content: []byte(
+					"package user\n\ntype User struct {\n\tKey string\n\tName string\n}",
+				),
 			})
 			ExpectContent(resp, "user.go").
 				ToContain("package user").
@@ -292,8 +303,10 @@ var _ = Describe("ExpectContent", func() {
 
 		It("should verify ordering across many substrings", func() {
 			resp := buildResponse(plugin.File{
-				Path:    "out/user.go",
-				Content: []byte("package user\n\nimport (\n\t\"fmt\"\n)\n\ntype User struct {\n\tA int\n\tB int\n\tC int\n}"),
+				Path: "out/user.go",
+				Content: []byte(
+					"package user\n\nimport (\n\t\"fmt\"\n)\n\ntype User struct {\n\tA int\n\tB int\n\tC int\n}",
+				),
 			})
 			ExpectContent(resp, "user.go").
 				ToPreserveOrder("package", "import", "type User", "A int", "B int", "C int")

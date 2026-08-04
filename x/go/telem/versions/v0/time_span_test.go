@@ -29,9 +29,11 @@ var _ = Describe("TimeSpan", func() {
 	})
 
 	Describe("Stringer", func() {
-		DescribeTable("Should format a timespan properly", func(span v0.TimeSpan, expected string) {
-			Expect(fmt.Sprintf("%v", span)).To(Equal(expected))
-		},
+		DescribeTable(
+			"Should format a timespan properly",
+			func(span v0.TimeSpan, expected string) {
+				Expect(fmt.Sprintf("%v", span)).To(Equal(expected))
+			},
 			Entry("zero", 0*v0.Nanosecond, "0s"),
 			Entry("nano", 1*v0.Nanosecond, "1ns"),
 			Entry("micro", 1*v0.Microsecond, "1µs"),
@@ -39,7 +41,11 @@ var _ = Describe("TimeSpan", func() {
 			Entry("second", 1*v0.Second, "1s"),
 			Entry("minute", 1*v0.Minute, "1m"),
 			Entry("hour", 1*v0.Hour, "1h"),
-			Entry("combine", 2*v0.Day+80*v0.Minute+1*v0.Millisecond+500*v0.Microsecond+5*v0.Nanosecond, "2d 1h 20m 1ms 500µs 5ns"),
+			Entry(
+				"combine",
+				2*v0.Day+80*v0.Minute+1*v0.Millisecond+500*v0.Microsecond+5*v0.Nanosecond,
+				"2d 1h 20m 1ms 500µs 5ns",
+			),
 			Entry("gap between unit levels", 2*v0.Hour+2*v0.Second, "2h 2s"),
 		)
 	})
@@ -151,12 +157,15 @@ var _ = Describe("TimeSpan", func() {
 			Expect(ts).To(Equal(v0.Second))
 		})
 
-		It("Should return an error and leave the time span untouched on invalid input", func() {
-			ts := v0.Second
-			Expect(json.Unmarshal([]byte(`"not-a-number"`), &ts)).To(
-				MatchError(ContainSubstring("invalid syntax")),
-			)
-			Expect(ts).To(Equal(v0.Second))
-		})
+		It(
+			"Should return an error and leave the time span untouched on invalid input",
+			func() {
+				ts := v0.Second
+				Expect(json.Unmarshal([]byte(`"not-a-number"`), &ts)).To(
+					MatchError(ContainSubstring("invalid syntax")),
+				)
+				Expect(ts).To(Equal(v0.Second))
+			},
+		)
 	})
 })

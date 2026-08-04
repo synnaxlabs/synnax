@@ -55,10 +55,11 @@ func Not(f Filter) Filter {
 	return gorp.NotBound(f)
 }
 
-// MatchKeys returns a filter that restricts results to schematics whose key
-// matches any of the provided values. Composing MatchKeys at the top level
-// of a Where clause (i.e. r.Where(MatchKeys(...))) dispatches Exec to the
-// multi-get fast path; composing inside Or / Not falls back to a full scan.
+// MatchKeys returns a filter that restricts results to
+// schematics whose key matches any of the provided
+// values. Composing MatchKeys at the top level of a Where clause (i.e.
+// r.Where(MatchKeys(...))) dispatches Exec to the multi-get fast path; composing
+// inside Or / Not falls back to a full scan.
 func MatchKeys(keys ...Key) Filter {
 	return func(_ Retrieve) gorp.Filter[Key, Schematic] {
 		return gorp.MatchKeys[Key, Schematic](keys...)
@@ -74,14 +75,16 @@ func (r Retrieve) Where(filter Filter) Retrieve {
 	return r
 }
 
-// Entry binds the provided schematic as the result container for the query. If
-// multiple schematics match, the first one is used.
+// Entry binds the provided schematic as the result container for the
+// query. If multiple schematics match, the first one is
+// used.
 func (r Retrieve) Entry(e *Schematic) Retrieve {
 	r.gorp = r.gorp.Entry(e)
 	return r
 }
 
-// Entries binds the provided slice of schematics as the result container for the query.
+// Entries binds the provided slice of schematics as the
+// result container for the query.
 func (r Retrieve) Entries(es *[]Schematic) Retrieve {
 	r.gorp = r.gorp.Entries(es)
 	return r
@@ -90,7 +93,8 @@ func (r Retrieve) Entries(es *[]Schematic) Retrieve {
 // Limit sets the maximum number of schematics to return.
 func (r Retrieve) Limit(limit int) Retrieve { r.gorp = r.gorp.Limit(limit); return r }
 
-// Offset sets the starting index of the schematics to return.
+// Offset sets the starting index of the schematics to
+// return.
 func (r Retrieve) Offset(offset int) Retrieve {
 	r.gorp = r.gorp.Offset(offset)
 	return r

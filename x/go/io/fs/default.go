@@ -62,7 +62,7 @@ func (*defaultFS) List(dirName string) ([]os.FileInfo, error) {
 func (*defaultFS) Remove(name string) error { return os.RemoveAll(name) }
 
 // Rename implements FS.
-func (*defaultFS) Rename(name string, newName string) error {
+func (*defaultFS) Rename(name, newName string) error {
 	return os.Rename(name, newName)
 }
 

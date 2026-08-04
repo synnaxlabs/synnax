@@ -16,7 +16,7 @@ type SectionReaderAtCloser struct {
 	io.Closer
 }
 
-func NewSectionReaderAtCloser(r ReaderAtCloser, off int64, n int64) *SectionReaderAtCloser {
+func NewSectionReaderAtCloser(r ReaderAtCloser, off, n int64) *SectionReaderAtCloser {
 	sectionReader := io.NewSectionReader(r, off, n)
 	return &SectionReaderAtCloser{ReaderAt: sectionReader, Closer: r}
 }

@@ -31,7 +31,10 @@ type MockImport struct {
 }
 
 func (m *MockImportAdder) AddImport(category, path, alias string) {
-	m.Imports = append(m.Imports, MockImport{Category: category, Path: path, Alias: alias})
+	m.Imports = append(
+		m.Imports,
+		MockImport{Category: category, Path: path, Alias: alias},
+	)
 }
 
 // MockTypeFormatter implements TypeFormatter for testing (Go-like syntax).
@@ -81,7 +84,10 @@ type MockImportResolver struct {
 	ShouldImport bool
 }
 
-func (m *MockImportResolver) ResolveImport(outputPath string, ctx *resolver.Context) (string, string, bool) {
+func (m *MockImportResolver) ResolveImport(
+	outputPath string,
+	ctx *resolver.Context,
+) (string, string, bool) {
 	return m.ImportPath, m.Qualifier, m.ShouldImport
 }
 
@@ -100,7 +106,9 @@ func (*MockPrimitiveMapper) Map(name string) primitives.Mapping {
 	case "uuid":
 		return primitives.Mapping{
 			TargetType: "uuid.UUID",
-			Imports:    []primitives.Import{{Category: "external", Path: "github.com/google/uuid"}},
+			Imports: []primitives.Import{
+				{Category: "external", Path: "github.com/google/uuid"},
+			},
 		}
 	default:
 		return primitives.Mapping{TargetType: "any"}
@@ -255,7 +263,12 @@ var _ = Describe("Resolver", func() {
 					Domains: map[string]resolution.Domain{
 						"go": {
 							Expressions: []resolution.Expression{
-								{Name: "output", Values: []resolution.ExpressionValue{{StringValue: "pkg/types.go"}}},
+								{
+									Name: "output",
+									Values: []resolution.ExpressionValue{
+										{StringValue: "pkg/types.go"},
+									},
+								},
 							},
 						},
 					},
@@ -282,7 +295,12 @@ var _ = Describe("Resolver", func() {
 					Domains: map[string]resolution.Domain{
 						"go": {
 							Expressions: []resolution.Expression{
-								{Name: "output", Values: []resolution.ExpressionValue{{StringValue: "pkg/types.go"}}},
+								{
+									Name: "output",
+									Values: []resolution.ExpressionValue{
+										{StringValue: "pkg/types.go"},
+									},
+								},
 							},
 						},
 					},
@@ -298,37 +316,48 @@ var _ = Describe("Resolver", func() {
 				Expect(result).To(Equal("Container[string]"))
 			})
 
-			It("Should filter defaulted type params in struct when substitution enabled", func() {
-				ctx.SubstituteDefaultedTypeParams = true
-				Expect(table.Add(resolution.Type{
-					Name:          "DefaultedStruct",
-					QualifiedName: "test.DefaultedStruct",
-					Namespace:     "test",
-					Form: resolution.StructForm{
-						TypeParams: []resolution.TypeParam{
-							{Name: "T"},
-							{Name: "V", Default: &resolution.TypeRef{Name: "string"}},
-						},
-					},
-					Domains: map[string]resolution.Domain{
-						"go": {
-							Expressions: []resolution.Expression{
-								{Name: "output", Values: []resolution.ExpressionValue{{StringValue: "pkg/types.go"}}},
+			It(
+				"Should filter defaulted type params in struct when substitution enabled",
+				func() {
+					ctx.SubstituteDefaultedTypeParams = true
+					Expect(table.Add(resolution.Type{
+						Name:          "DefaultedStruct",
+						QualifiedName: "test.DefaultedStruct",
+						Namespace:     "test",
+						Form: resolution.StructForm{
+							TypeParams: []resolution.TypeParam{
+								{Name: "T"},
+								{
+									Name:    "V",
+									Default: &resolution.TypeRef{Name: "string"},
+								},
 							},
 						},
-					},
-				})).To(Succeed())
+						Domains: map[string]resolution.Domain{
+							"go": {
+								Expressions: []resolution.Expression{
+									{
+										Name: "output",
+										Values: []resolution.ExpressionValue{
+											{StringValue: "pkg/types.go"},
+										},
+									},
+								},
+							},
+						},
+					})).To(Succeed())
 
-				typeRef := resolution.TypeRef{
-					Name: "test.DefaultedStruct",
-					TypeArgs: []resolution.TypeRef{
-						{Name: "int32"},
-						{Name: "bool"},
-					},
-				}
-				result := r.ResolveTypeRef(typeRef, ctx)
-				Expect(result).To(Equal("DefaultedStruct[int32]"))
-			})
+					typeRef := resolution.TypeRef{
+						Name: "test.DefaultedStruct",
+						TypeArgs: []resolution.TypeRef{
+							{Name: "int32"},
+							{Name: "bool"},
+						},
+					}
+					result := r.ResolveTypeRef(typeRef, ctx)
+					Expect(result).To(Equal("DefaultedStruct[int32]"))
+				},
+			)
 
 			It("Should return fallback for struct with empty output path", func() {
 				Expect(table.Add(resolution.Type{
@@ -356,7 +385,12 @@ var _ = Describe("Resolver", func() {
 					Domains: map[string]resolution.Domain{
 						"go": {
 							Expressions: []resolution.Expression{
-								{Name: "output", Values: []resolution.ExpressionValue{{StringValue: "external/types.go"}}},
+								{
+									Name: "output",
+									Values: []resolution.ExpressionValue{
+										{StringValue: "external/types.go"},
+									},
+								},
 							},
 						},
 					},
@@ -393,7 +427,12 @@ var _ = Describe("Resolver", func() {
 					Domains: map[string]resolution.Domain{
 						"go": {
 							Expressions: []resolution.Expression{
-								{Name: "output", Values: []resolution.ExpressionValue{{StringValue: "pkg/types.go"}}},
+								{
+									Name: "output",
+									Values: []resolution.ExpressionValue{
+										{StringValue: "pkg/types.go"},
+									},
+								},
 							},
 						},
 					},
@@ -417,7 +456,12 @@ var _ = Describe("Resolver", func() {
 					Domains: map[string]resolution.Domain{
 						"go": {
 							Expressions: []resolution.Expression{
-								{Name: "output", Values: []resolution.ExpressionValue{{StringValue: "external/enums.go"}}},
+								{
+									Name: "output",
+									Values: []resolution.ExpressionValue{
+										{StringValue: "external/enums.go"},
+									},
+								},
 							},
 						},
 					},
@@ -459,7 +503,12 @@ var _ = Describe("Resolver", func() {
 					Domains: map[string]resolution.Domain{
 						"go": {
 							Expressions: []resolution.Expression{
-								{Name: "output", Values: []resolution.ExpressionValue{{StringValue: "pkg/types.go"}}},
+								{
+									Name: "output",
+									Values: []resolution.ExpressionValue{
+										{StringValue: "pkg/types.go"},
+									},
+								},
 							},
 						},
 					},
@@ -481,7 +530,12 @@ var _ = Describe("Resolver", func() {
 					Domains: map[string]resolution.Domain{
 						"go": {
 							Expressions: []resolution.Expression{
-								{Name: "output", Values: []resolution.ExpressionValue{{StringValue: "external/unions.go"}}},
+								{
+									Name: "output",
+									Values: []resolution.ExpressionValue{
+										{StringValue: "external/unions.go"},
+									},
+								},
 							},
 						},
 					},
@@ -523,7 +577,12 @@ var _ = Describe("Resolver", func() {
 					Domains: map[string]resolution.Domain{
 						"go": {
 							Expressions: []resolution.Expression{
-								{Name: "output", Values: []resolution.ExpressionValue{{StringValue: "pkg/types.go"}}},
+								{
+									Name: "output",
+									Values: []resolution.ExpressionValue{
+										{StringValue: "pkg/types.go"},
+									},
+								},
 							},
 						},
 					},
@@ -547,7 +606,12 @@ var _ = Describe("Resolver", func() {
 					Domains: map[string]resolution.Domain{
 						"go": {
 							Expressions: []resolution.Expression{
-								{Name: "output", Values: []resolution.ExpressionValue{{StringValue: "external/types.go"}}},
+								{
+									Name: "output",
+									Values: []resolution.ExpressionValue{
+										{StringValue: "external/types.go"},
+									},
+								},
 							},
 						},
 					},
@@ -589,7 +653,12 @@ var _ = Describe("Resolver", func() {
 					Domains: map[string]resolution.Domain{
 						"go": {
 							Expressions: []resolution.Expression{
-								{Name: "output", Values: []resolution.ExpressionValue{{StringValue: "pkg/types.go"}}},
+								{
+									Name: "output",
+									Values: []resolution.ExpressionValue{
+										{StringValue: "pkg/types.go"},
+									},
+								},
 							},
 						},
 					},
@@ -615,7 +684,12 @@ var _ = Describe("Resolver", func() {
 					Domains: map[string]resolution.Domain{
 						"go": {
 							Expressions: []resolution.Expression{
-								{Name: "output", Values: []resolution.ExpressionValue{{StringValue: "pkg/types.go"}}},
+								{
+									Name: "output",
+									Values: []resolution.ExpressionValue{
+										{StringValue: "pkg/types.go"},
+									},
+								},
 							},
 						},
 					},
@@ -629,37 +703,48 @@ var _ = Describe("Resolver", func() {
 				Expect(result).To(Equal("GenericAlias[string]"))
 			})
 
-			It("Should filter defaulted type params in alias when substitution enabled", func() {
-				ctx.SubstituteDefaultedTypeParams = true
-				Expect(table.Add(resolution.Type{
-					Name:          "DefaultedAlias",
-					QualifiedName: "test.DefaultedAlias",
-					Namespace:     "test",
-					Form: resolution.AliasForm{
-						TypeParams: []resolution.TypeParam{
-							{Name: "T"},
-							{Name: "V", Default: &resolution.TypeRef{Name: "string"}},
-						},
-					},
-					Domains: map[string]resolution.Domain{
-						"go": {
-							Expressions: []resolution.Expression{
-								{Name: "output", Values: []resolution.ExpressionValue{{StringValue: "pkg/types.go"}}},
+			It(
+				"Should filter defaulted type params in alias when substitution enabled",
+				func() {
+					ctx.SubstituteDefaultedTypeParams = true
+					Expect(table.Add(resolution.Type{
+						Name:          "DefaultedAlias",
+						QualifiedName: "test.DefaultedAlias",
+						Namespace:     "test",
+						Form: resolution.AliasForm{
+							TypeParams: []resolution.TypeParam{
+								{Name: "T"},
+								{
+									Name:    "V",
+									Default: &resolution.TypeRef{Name: "string"},
+								},
 							},
 						},
-					},
-				})).To(Succeed())
+						Domains: map[string]resolution.Domain{
+							"go": {
+								Expressions: []resolution.Expression{
+									{
+										Name: "output",
+										Values: []resolution.ExpressionValue{
+											{StringValue: "pkg/types.go"},
+										},
+									},
+								},
+							},
+						},
+					})).To(Succeed())
 
-				typeRef := resolution.TypeRef{
-					Name: "test.DefaultedAlias",
-					TypeArgs: []resolution.TypeRef{
-						{Name: "int32"},
-						{Name: "bool"},
-					},
-				}
-				result := r.ResolveTypeRef(typeRef, ctx)
-				Expect(result).To(Equal("DefaultedAlias[int32]"))
-			})
+					typeRef := resolution.TypeRef{
+						Name: "test.DefaultedAlias",
+						TypeArgs: []resolution.TypeRef{
+							{Name: "int32"},
+							{Name: "bool"},
+						},
+					}
+					result := r.ResolveTypeRef(typeRef, ctx)
+					Expect(result).To(Equal("DefaultedAlias[int32]"))
+				},
+			)
 
 			It("Should add import and qualify cross-namespace alias", func() {
 				Expect(table.Add(resolution.Type{
@@ -670,7 +755,12 @@ var _ = Describe("Resolver", func() {
 					Domains: map[string]resolution.Domain{
 						"go": {
 							Expressions: []resolution.Expression{
-								{Name: "output", Values: []resolution.ExpressionValue{{StringValue: "external/types.go"}}},
+								{
+									Name: "output",
+									Values: []resolution.ExpressionValue{
+										{StringValue: "external/types.go"},
+									},
+								},
 							},
 						},
 					},
@@ -712,8 +802,18 @@ var _ = Describe("Resolver", func() {
 					Domains: map[string]resolution.Domain{
 						"go": {
 							Expressions: []resolution.Expression{
-								{Name: "output", Values: []resolution.ExpressionValue{{StringValue: "pkg/types.go"}}},
-								{Name: "name", Values: []resolution.ExpressionValue{{StringValue: "CustomName"}}},
+								{
+									Name: "output",
+									Values: []resolution.ExpressionValue{
+										{StringValue: "pkg/types.go"},
+									},
+								},
+								{
+									Name: "name",
+									Values: []resolution.ExpressionValue{
+										{StringValue: "CustomName"},
+									},
+								},
 							},
 						},
 					},
@@ -766,7 +866,12 @@ var _ = Describe("Context", func() {
 				Domains: map[string]resolution.Domain{
 					"go": {
 						Expressions: []resolution.Expression{
-							{Name: "output", Values: []resolution.ExpressionValue{{StringValue: "pkg/types.go"}}},
+							{
+								Name: "output",
+								Values: []resolution.ExpressionValue{
+									{StringValue: "pkg/types.go"},
+								},
+							},
 						},
 					},
 				},
@@ -781,7 +886,12 @@ var _ = Describe("Context", func() {
 				Domains: map[string]resolution.Domain{
 					"go": {
 						Expressions: []resolution.Expression{
-							{Name: "output", Values: []resolution.ExpressionValue{{StringValue: "pkg/types.go"}}},
+							{
+								Name: "output",
+								Values: []resolution.ExpressionValue{
+									{StringValue: "pkg/types.go"},
+								},
+							},
 						},
 					},
 				},
@@ -796,7 +906,12 @@ var _ = Describe("Context", func() {
 				Domains: map[string]resolution.Domain{
 					"go": {
 						Expressions: []resolution.Expression{
-							{Name: "output", Values: []resolution.ExpressionValue{{StringValue: "other/types.go"}}},
+							{
+								Name: "output",
+								Values: []resolution.ExpressionValue{
+									{StringValue: "other/types.go"},
+								},
+							},
 						},
 					},
 				},
@@ -829,7 +944,12 @@ var _ = Describe("Context", func() {
 				Domains: map[string]resolution.Domain{
 					"go": {
 						Expressions: []resolution.Expression{
-							{Name: "name", Values: []resolution.ExpressionValue{{StringValue: "OverrideName"}}},
+							{
+								Name: "name",
+								Values: []resolution.ExpressionValue{
+									{StringValue: "OverrideName"},
+								},
+							},
 						},
 					},
 				},
@@ -843,7 +963,12 @@ var _ = Describe("Context", func() {
 				Domains: map[string]resolution.Domain{
 					"py": {
 						Expressions: []resolution.Expression{
-							{Name: "name", Values: []resolution.ExpressionValue{{StringValue: "PythonName"}}},
+							{
+								Name: "name",
+								Values: []resolution.ExpressionValue{
+									{StringValue: "PythonName"},
+								},
+							},
 						},
 					},
 				},
@@ -858,7 +983,12 @@ var _ = Describe("Context", func() {
 				Domains: map[string]resolution.Domain{
 					"go": {
 						Expressions: []resolution.Expression{
-							{Name: "output", Values: []resolution.ExpressionValue{{StringValue: "pkg/types.go"}}},
+							{
+								Name: "output",
+								Values: []resolution.ExpressionValue{
+									{StringValue: "pkg/types.go"},
+								},
+							},
 						},
 					},
 				},
@@ -875,29 +1005,37 @@ var _ = Describe("Context", func() {
 	})
 
 	Describe("IsSameOutputEnum", func() {
-		It("Should return true for enum in same namespace with matching output", func() {
-			// Add a struct in same namespace to provide output path for enum
-			Expect(table.Add(resolution.Type{
-				Name:          "StructInNamespace",
-				QualifiedName: "test.StructInNamespace",
-				Namespace:     "test",
-				Form:          resolution.StructForm{},
-				Domains: map[string]resolution.Domain{
-					"go": {
-						Expressions: []resolution.Expression{
-							{Name: "output", Values: []resolution.ExpressionValue{{StringValue: "pkg/types.go"}}},
+		It(
+			"Should return true for enum in same namespace with matching output",
+			func() {
+				// Add a struct in same namespace to provide output path for enum
+				Expect(table.Add(resolution.Type{
+					Name:          "StructInNamespace",
+					QualifiedName: "test.StructInNamespace",
+					Namespace:     "test",
+					Form:          resolution.StructForm{},
+					Domains: map[string]resolution.Domain{
+						"go": {
+							Expressions: []resolution.Expression{
+								{
+									Name: "output",
+									Values: []resolution.ExpressionValue{
+										{StringValue: "pkg/types.go"},
+									},
+								},
+							},
 						},
 					},
-				},
-			})).To(Succeed())
+				})).To(Succeed())
 
-			enum := resolution.Type{
-				Name:      "Status",
-				Namespace: "test",
-				Form:      resolution.EnumForm{},
-			}
-			Expect(ctx.IsSameOutputEnum(enum)).To(BeTrue())
-		})
+				enum := resolution.Type{
+					Name:      "Status",
+					Namespace: "test",
+					Form:      resolution.EnumForm{},
+				}
+				Expect(ctx.IsSameOutputEnum(enum)).To(BeTrue())
+			},
+		)
 
 		It("Should return false for enum in different namespace", func() {
 			enum := resolution.Type{
@@ -918,7 +1056,12 @@ var _ = Describe("Context", func() {
 				Domains: map[string]resolution.Domain{
 					"go": {
 						Expressions: []resolution.Expression{
-							{Name: "output", Values: []resolution.ExpressionValue{{StringValue: "pkg/enums.go"}}},
+							{
+								Name: "output",
+								Values: []resolution.ExpressionValue{
+									{StringValue: "pkg/enums.go"},
+								},
+							},
 						},
 					},
 				},
@@ -935,7 +1078,12 @@ var _ = Describe("Context", func() {
 				Domains: map[string]resolution.Domain{
 					"go": {
 						Expressions: []resolution.Expression{
-							{Name: "output", Values: []resolution.ExpressionValue{{StringValue: "pkg/types.go"}}},
+							{
+								Name: "output",
+								Values: []resolution.ExpressionValue{
+									{StringValue: "pkg/types.go"},
+								},
+							},
 						},
 					},
 				},

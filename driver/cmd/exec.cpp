@@ -7,11 +7,35 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <iostream>
+#include <string>
+
+#include "absl/log/globals.h"
+#include "absl/log/log.h"
+
+#include "x/cpp/args/args.h"
 #include "x/cpp/crash/crash.h"
+#include "x/cpp/log/log.h"
 
 #include "driver/cmd/cmd.h"
 
 namespace driver::cmd {
+// Subcommands are defined in sibling files, one per command.
+namespace sub {
+int clear(x::args::Parser &args);
+int internal_start(x::args::Parser &args);
+int login(x::args::Parser &args);
+int service_install(x::args::Parser &args);
+int service_restart(x::args::Parser &args);
+int service_start(x::args::Parser &args);
+int service_status(x::args::Parser &args);
+int service_stop(x::args::Parser &args);
+int service_uninstall(x::args::Parser &args);
+int service_view_logs(x::args::Parser &args);
+int start(x::args::Parser &args);
+int version(x::args::Parser &args);
+}
+
 void print_usage() {
     std::cout
         << "Usage: synnax-driver <command> [options]\n"
@@ -36,13 +60,12 @@ void print_usage() {
 }
 
 int exec(const int argc, char *argv[]) {
-    google::InitGoogleLogging(argv[0]);
     x::crash::install("synnax-driver");
     auto args = x::args::Parser(argc, argv);
-    const bool disable_color = args.flag("--no-color");
-    FLAGS_logtostderr = true;
-    FLAGS_colorlogtostderr = !disable_color;
-    if (args.flag("--debug")) FLAGS_v = 2;
+    // Color only when stderr is a terminal so ANSI codes never land in redirected log
+    // files (systemd journal, /var/log/synnax-driver.log on NI Linux RT).
+    x::log::init(!args.flag("--no-color") && x::log::stderr_is_terminal());
+    if (args.flag("--debug")) absl::SetGlobalVLogLevel(2);
     VLOG(1) << "debug logging enabled";
     const std::string command = args.at(1, "command name required");
     if (args.error()) {
@@ -53,6 +76,8 @@ int exec(const int argc, char *argv[]) {
         if (args.flag("--standalone", "-s")) return sub::start(args);
         return sub::service_start(args);
     }
+    // Run by the service manager (systemd ExecStart); omitted from the usage text.
+    if (command == "internal-start") return sub::internal_start(args);
     if (command == "stop") return sub::service_stop(args);
     if (command == "restart") return sub::service_restart(args);
     if (command == "login") return sub::login(args);

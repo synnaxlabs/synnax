@@ -48,8 +48,13 @@ var _ = Describe("Context Detection", func() {
 			"func foo(x i", uint32(0), uint32(12), lsp.ContextTypeAnnotation),
 		Entry("type annotation in func with empty input block",
 			"func foo{} (x ", uint32(0), uint32(14), lsp.ContextTypeAnnotation),
-		Entry("type annotation in func with input block params",
-			"func controller{sensor chan f64} (enable ", uint32(0), uint32(41), lsp.ContextTypeAnnotation),
+		Entry(
+			"type annotation in func with input block params",
+			"func controller{sensor chan f64} (enable ",
+			uint32(0),
+			uint32(41),
+			lsp.ContextTypeAnnotation,
+		),
 
 		// Expression Context
 		Entry("expression after DECLARE",
@@ -82,8 +87,13 @@ var _ = Describe("Context Detection", func() {
 			"func foo() { ", uint32(0), uint32(13), lsp.ContextNone),
 		Entry("statement start on new line in function body",
 			"func foo() {\n    ", uint32(1), uint32(4), lsp.ContextStatementStart),
-		Entry("statement start after closing brace on new line",
-			"if true {\n    x := 1\n}\n", uint32(3), uint32(0), lsp.ContextStatementStart),
+		Entry(
+			"statement start after closing brace on new line",
+			"if true {\n    x := 1\n}\n",
+			uint32(3),
+			uint32(0),
+			lsp.ContextStatementStart,
+		),
 		Entry("statement start at empty file",
 			"", uint32(0), uint32(0), lsp.ContextStatementStart),
 
@@ -95,18 +105,48 @@ var _ = Describe("Context Detection", func() {
 		// the comma or has moved to the next line — comma is a statement
 		// terminator, not an opener, so it does not need the same-line
 		// suppression that ContextNone applies after `{`.
-		Entry("statement-level comma inside sequence body (same line)",
-			"sequence {\n    0 -> \"hello\",", uint32(1), uint32(17), lsp.ContextStatementStart),
-		Entry("statement-level comma inside sequence body (next line)",
-			"sequence {\n    0 -> \"hello\",\n", uint32(2), uint32(0), lsp.ContextStatementStart),
-		Entry("statement-level comma inside stage body (same line)",
-			"stage foo {\n    x = \"bar\",", uint32(1), uint32(14), lsp.ContextStatementStart),
-		Entry("statement-level comma inside stage body (next line)",
-			"stage foo {\n    x = \"bar\",\n    ", uint32(2), uint32(4), lsp.ContextStatementStart),
-		Entry("statement-level comma inside function body (same line)",
-			"func foo() {\n    x := 1,", uint32(1), uint32(11), lsp.ContextStatementStart),
-		Entry("statement-level comma inside function body (next line)",
-			"func foo() {\n    x := 1,\n    ", uint32(2), uint32(4), lsp.ContextStatementStart),
+		Entry(
+			"statement-level comma inside sequence body (same line)",
+			"sequence {\n    0 -> \"hello\",",
+			uint32(1),
+			uint32(17),
+			lsp.ContextStatementStart,
+		),
+		Entry(
+			"statement-level comma inside sequence body (next line)",
+			"sequence {\n    0 -> \"hello\",\n",
+			uint32(2),
+			uint32(0),
+			lsp.ContextStatementStart,
+		),
+		Entry(
+			"statement-level comma inside stage body (same line)",
+			"stage foo {\n    x = \"bar\",",
+			uint32(1),
+			uint32(14),
+			lsp.ContextStatementStart,
+		),
+		Entry(
+			"statement-level comma inside stage body (next line)",
+			"stage foo {\n    x = \"bar\",\n    ",
+			uint32(2),
+			uint32(4),
+			lsp.ContextStatementStart,
+		),
+		Entry(
+			"statement-level comma inside function body (same line)",
+			"func foo() {\n    x := 1,",
+			uint32(1),
+			uint32(11),
+			lsp.ContextStatementStart,
+		),
+		Entry(
+			"statement-level comma inside function body (next line)",
+			"func foo() {\n    x := 1,\n    ",
+			uint32(2),
+			uint32(4),
+			lsp.ContextStatementStart,
+		),
 		Entry("statement-level comma inside nested stage body (same line)",
 			"sequence main {\n    stage press {\n        0 -> \"hello\",",
 			uint32(2), uint32(21), lsp.ContextStatementStart),
@@ -136,8 +176,13 @@ var _ = Describe("Context Detection", func() {
 			"myFunc{thr", uint32(0), uint32(10), lsp.ContextInputParamName),
 		Entry("input param name after comma with partial name",
 			"myFunc{a=1, b", uint32(0), uint32(13), lsp.ContextInputParamName),
-		Entry("input context for function inside stage",
-			"sequence main {\n    stage press {\n        wait{", uint32(2), uint32(13), lsp.ContextInputParamName),
+		Entry(
+			"input context for function inside stage",
+			"sequence main {\n    stage press {\n        wait{",
+			uint32(2),
+			uint32(13),
+			lsp.ContextInputParamName,
+		),
 
 		// Input Param Value Context
 		Entry("input param value after equals",

@@ -20,7 +20,11 @@ import (
 )
 
 // instant builds a Policy whose backoff is zero, so Decide returns without waiting.
-func instant(ctx context.Context, maxRetries int, healthy time.Duration) *restart.Policy {
+func instant(
+	ctx context.Context,
+	maxRetries int,
+	healthy time.Duration,
+) *restart.Policy {
 	return MustSucceed(restart.New(ctx, restart.Config{
 		BaseInterval:  0,
 		Scale:         1,
@@ -44,11 +48,13 @@ var _ = Describe("Policy", func() {
 	})
 
 	Describe("expected shutdown", func() {
-		DescribeTable("Should return Stop regardless of uptime and never consume a retry",
+		DescribeTable(
+			"Should return Stop regardless of uptime and never consume a retry",
 			func(uptime time.Duration) {
 				p := instant(context.Background(), 1, time.Minute)
 				Expect(p.Decide(true, uptime)).To(Equal(restart.Stop))
-				// The retry budget is untouched: a later unexpected exit still restarts.
+				// The retry budget is untouched: a later unexpected exit still
+				// restarts.
 				Expect(p.Decide(false, time.Millisecond)).To(Equal(restart.Restart))
 			},
 			Entry("zero uptime", time.Duration(0)),
@@ -74,17 +80,20 @@ var _ = Describe("Policy", func() {
 	})
 
 	Describe("healthy-uptime reset", func() {
-		It("Should reset the failure counter after a run that exceeds HealthyUptime", func() {
-			p := instant(context.Background(), 2, time.Minute)
-			By("Exhausting the retry budget with rapid crashes")
-			Expect(p.Decide(false, time.Millisecond)).To(Equal(restart.Restart))
-			Expect(p.Decide(false, time.Millisecond)).To(Equal(restart.Restart))
-			By("Restarting again after a healthy run instead of giving up")
-			Expect(p.Decide(false, 2*time.Minute)).To(Equal(restart.Restart))
-			By("Granting the full budget again after the reset")
-			Expect(p.Decide(false, time.Millisecond)).To(Equal(restart.Restart))
-			Expect(p.Decide(false, time.Millisecond)).To(Equal(restart.GiveUp))
-		})
+		It(
+			"Should reset the failure counter after a run that exceeds HealthyUptime",
+			func() {
+				p := instant(context.Background(), 2, time.Minute)
+				By("Exhausting the retry budget with rapid crashes")
+				Expect(p.Decide(false, time.Millisecond)).To(Equal(restart.Restart))
+				Expect(p.Decide(false, time.Millisecond)).To(Equal(restart.Restart))
+				By("Restarting again after a healthy run instead of giving up")
+				Expect(p.Decide(false, 2*time.Minute)).To(Equal(restart.Restart))
+				By("Granting the full budget again after the reset")
+				Expect(p.Decide(false, time.Millisecond)).To(Equal(restart.Restart))
+				Expect(p.Decide(false, time.Millisecond)).To(Equal(restart.GiveUp))
+			},
+		)
 
 		It("Should treat an exit exactly at HealthyUptime as healthy", func() {
 			p := instant(context.Background(), 1, time.Minute)
@@ -97,7 +106,9 @@ var _ = Describe("Policy", func() {
 			Expect(p.Decide(false, time.Millisecond)).To(Equal(restart.Restart))
 			// An uptime past the default (1m) resets, so this restarts rather than
 			// giving up.
-			Expect(p.Decide(false, 2*restart.DefaultHealthyUptime)).To(Equal(restart.Restart))
+			Expect(
+				p.Decide(false, 2*restart.DefaultHealthyUptime),
+			).To(Equal(restart.Restart))
 		})
 	})
 
@@ -105,7 +116,10 @@ var _ = Describe("Policy", func() {
 		It("Should give up when the context is canceled during backoff", func() {
 			ctx, cancel := context.WithCancel(context.Background())
 			p := MustSucceed(restart.New(ctx, restart.Config{
-				BaseInterval: time.Hour, Scale: 1, MaxRetries: 100, HealthyUptime: time.Minute,
+				BaseInterval:  time.Hour,
+				Scale:         1,
+				MaxRetries:    100,
+				HealthyUptime: time.Minute,
 			}))
 			cancel()
 			Expect(p.Decide(false, time.Millisecond)).To(Equal(restart.GiveUp))

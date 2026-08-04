@@ -49,13 +49,19 @@ var schema = zyn.Object(map[string]zyn.Schema{"key": zyn.String()})
 
 func (*sampleService) Type() ontology.ResourceType { return ontology.ResourceTypeChannel }
 
-func (*sampleService) RetrieveResource(_ context.Context, key string, _ gorp.Tx) (ontology.Resource, error) {
+func (*sampleService) RetrieveResource(
+	_ context.Context,
+	key string,
+	_ gorp.Tx,
+) (ontology.Resource, error) {
 	return ontology.NewResource(
 		schema, newSampleType(key), "empty", Sample{Key: key},
 	), nil
 }
 
-func (s *sampleService) OpenNexter(context.Context) (iter.Seq[ontology.Resource], io.Closer, error) {
+func (s *sampleService) OpenNexter(
+	context.Context,
+) (iter.Seq[ontology.Resource], io.Closer, error) {
 	return slices.Values([]ontology.Resource{
 		lo.Must(s.RetrieveResource(context.Background(), "", nil)),
 	}), xio.NopCloser, nil
