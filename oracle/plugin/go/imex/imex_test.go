@@ -18,6 +18,7 @@ import (
 	"github.com/synnaxlabs/oracle/plugin/go/imex"
 	"github.com/synnaxlabs/oracle/resolution"
 	. "github.com/synnaxlabs/oracle/testutil"
+	. "github.com/synnaxlabs/x/testutil"
 )
 
 var _ = Describe("Go ImEx Plugin", func() {
@@ -252,8 +253,7 @@ var _ = Describe("Go ImEx Plugin", func() {
 				req.LoadSnapshot = func(int) (*resolution.Table, error) {
 					return snapshot.Resolutions, nil
 				}
-				resp, err := p.Generate(req)
-				Expect(err).ToNot(HaveOccurred())
+				resp := MustSucceed(p.Generate(req))
 				ExpectContent(
 					resp,
 					"core/pkg/service/log/versions/imex.gen.go",
@@ -308,8 +308,7 @@ var _ = Describe("Go ImEx Plugin", func() {
 				req.LoadSnapshot = func(int) (*resolution.Table, error) {
 					return snapshot.Resolutions, nil
 				}
-				resp, err := p.Generate(req)
-				Expect(err).ToNot(HaveOccurred())
+				resp := MustSucceed(p.Generate(req))
 				ExpectContent(
 					resp,
 					"core/pkg/service/log/versions/imex.gen.go",
@@ -348,8 +347,7 @@ var _ = Describe("Go ImEx Plugin", func() {
 				req.LoadSnapshot = func(int) (*resolution.Table, error) {
 					return snapshot.Resolutions, nil
 				}
-				resp, err := p.Generate(req)
-				Expect(err).ToNot(HaveOccurred())
+				resp := MustSucceed(p.Generate(req))
 				content := MustContentOf(
 					resp,
 					"core/pkg/service/log/versions/imex.gen.go",

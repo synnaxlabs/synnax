@@ -37,6 +37,7 @@ import (
 	"github.com/synnaxlabs/oracle/plugin/gomod"
 	"github.com/synnaxlabs/oracle/plugin/output"
 	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/set"
 )
 
 // goModulePrefix resolves repo-relative output paths to Go import paths when no go.mod
@@ -237,7 +238,7 @@ func chainArms(
 	if floor >= current {
 		return nil, nil
 	}
-	steps := make(map[int]bool, current-floor)
+	steps := make(set.Set[int], current-floor)
 	for j := floor + 1; j <= current; j++ {
 		hasStep, err := migrateStepExists(
 			filepath.Join(repoRoot, versioning.VersionedPath(outputPath, j)), goName,
@@ -245,7 +246,11 @@ func chainArms(
 		if err != nil {
 			return nil, err
 		}
-		steps[j] = hasStep
+		if hasStep {
+			steps.Add(j)
+		} else {
+			steps.Remove(j)
+		}
 	}
 	arms := make([]chainArm, 0, current-floor)
 	for k := floor; k < current; k++ {
@@ -257,7 +262,7 @@ func chainArms(
 		)
 		fmt.Fprintf(&b, "\t\tif err != nil {\n\t\t\treturn %s{}, err\n\t\t}\n", goName)
 		for j := k + 1; j <= current; j++ {
-			if !steps[j] {
+			if !steps.Contains(j) {
 				continue
 			}
 			next := fmt.Sprintf("t%d", j)
