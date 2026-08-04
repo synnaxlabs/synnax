@@ -15,7 +15,7 @@ draft/deploy RFC (PR #2595), and the superseded task/config split RFC (PR #2471)
 
 ---
 
-# 0 - Summary
+## 0 - Summary
 
 Today, a task is one record with an opaque `config` field. The field is a
 `map[string]any` in Go, a `json::object_t` in C++, a `dict[str, Any]` in Python,
@@ -43,7 +43,7 @@ proto code.
 
 ---
 
-# 1 - Motivation
+## 1 - Motivation
 
 Five problems add up. All of them come from config opacity:
 
@@ -76,7 +76,7 @@ Five problems add up. All of them come from config opacity:
 
 ---
 
-# 2 - Vocabulary
+## 2 - Vocabulary
 
 - **Typed task resource** (or **resource**) — a first-class record with a uuid key
   for one task type (`http_read`, `ni_analog_read`). It holds the name and all
@@ -97,7 +97,7 @@ Five problems add up. All of them come from config opacity:
 
 ---
 
-# 3 - Principles
+## 3 - Principles
 
 1. **The Core owns persisted data and its migrations.** Config shapes are
    persisted data. Their schema and version chain belong to the Core, not to each
@@ -119,9 +119,9 @@ Five problems add up. All of them come from config opacity:
 
 ---
 
-# 4 - Design
+## 4 - Design
 
-## 4.0 - The split
+### 4.0 - The split
 
 ```
 ┌────────────────────────────┐        ┌──────────────────────────────┐
@@ -146,7 +146,7 @@ resource for them at startup. Because the edge always exists, the task row does
 not need a `type` field. The ontology type of the resource is the type of the
 task. On the wire, the `oneof` case in the resolved payload carries the type.
 
-## 4.1 - The slim task
+### 4.1 - The slim task
 
 The task keeps only what execution needs:
 
@@ -168,7 +168,7 @@ The generic `/task/create` endpoint is not exposed. Nothing needs it. Users
 create resources through the per-type endpoints. The driver mints its internal
 tasks through the deploy path against `empty` resources.
 
-## 4.2 - Schemas and services
+### 4.2 - Schemas and services
 
 **One Oracle schema file per integration**: `schemas/synnax/ni.oracle`,
 `opc.oracle`, `labjack.oracle`, `modbus.oracle`, `ethercat.oracle`,
@@ -207,7 +207,7 @@ its resources.
   uniqueness) live in the validation of the Go service, at the same entry point.
   Clients can state them again as UI-side refinements.
 
-## 4.3 - Lifecycle
+### 4.3 - Lifecycle
 
 **Create.** `POST /<type>/create` makes a draft: a resource with no task. The
 resource does not have and does not accept a rack.
@@ -253,7 +253,7 @@ in the task table.
 resource. The `Copy` method of the task writer goes away with the config that it
 existed to clone.
 
-## 4.4 - Wire format
+### 4.4 - Wire format
 
 Configs have strong types on each wire. `google.protobuf.Struct` and `Any` are
 gone.
@@ -273,7 +273,7 @@ gone.
   semantic keys became arrays (§4.2), so the task schemas do not need
   `preserveCase` exits.
 
-## 4.5 - The resolved join
+### 4.5 - The resolved join
 
 The task service stays unaware of integrations. At the API composition layer, a
 registry maps the ontology type to the resource service. The registry is wired
@@ -289,7 +289,7 @@ configuration needs. The factories of the in-process Go driver (`arc`,
 `pagerduty`, `slack`) receive the typed struct. They do not unmarshal
 `EncodedJSON`.
 
-## 4.6 - Migration
+### 4.6 - Migration
 
 A one-time startup migration converts each stored task:
 
@@ -312,7 +312,7 @@ A one-time startup migration converts each stored task:
 The migration composes with the uuid re-key migration from PR #2603, which must
 land first. The migration of this RFC assumes uuid task keys and rack-as-field.
 
-## 4.7 - Integration inventory
+### 4.7 - Integration inventory
 
 | Resource types                              | Notes                             |
 | ------------------------------------------- | --------------------------------- |
@@ -343,7 +343,7 @@ generic. The Console already types these by hand. The schemas make it official.
 
 ---
 
-# 5 - Implementation Phases
+## 5 - Implementation Phases
 
 Prerequisite (external to this RFC): the SY-4488 stack — uuid task keys with rack
 as a field (#2603) and deploy-on-start (#2604). The Console autosave PR (#2605)
@@ -398,7 +398,7 @@ migrations in this codebase.
 
 ---
 
-# 6 - Resolved Decisions
+## 6 - Resolved Decisions
 
 1. **A config union inside `Task` — rejected.** This was the alternative to the
    full RFC: keep one task table and type `config` as an Oracle discriminated
@@ -451,7 +451,7 @@ migrations in this codebase.
 
 ---
 
-# 7 - What This RFC Does Not Cover
+## 7 - What This RFC Does Not Cover
 
 - **Typed command args** (`start`, `stop`, `tare`, `test_connection`, `browse`):
   `Command.args` stays opaque. A follow-up can type per-command args with the
@@ -468,7 +468,7 @@ migrations in this codebase.
 
 ---
 
-# 8 - Open Questions
+## 8 - Open Questions
 
 1. The final name of the `empty` resource (`empty`, `plain`, or `internal`).
 2. The endpoint shape of the deploy verb: `POST /<type>/deploy`, or a `rack`
