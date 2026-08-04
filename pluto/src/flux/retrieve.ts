@@ -374,9 +374,11 @@ export const useObservableRetrieve = <
  * Fetch dedup and settled answers for queries the domain client does not
  * cache. Entries persist until the next fetch of the same query replaces
  * them; domain-cached queries never populate `settled`. Scoped per client so
- * a settled error never outlives the client whose fetch produced it.
+ * a settled error never outlives the client whose fetch produced it, and
+ * settled errors are dropped when the connection epoch advances.
  */
 interface LocalCache<Data> {
+  epoch: number;
   inFlight: Map<string, Promise<Data>>;
   settled: Map<string, { data: Data } | { error: Error }>;
 }
@@ -390,12 +392,22 @@ const localFor = <Data extends query.Data>(
   locals: WeakMap<Client, LocalCache<Data>>,
   client: Client,
 ): LocalCache<Data> => {
-  let local = locals.get(client);
-  if (local == null) {
-    local = { inFlight: new Map(), settled: new Map() };
+  const { epoch } = client.connection.status.details;
+  const existing = locals.get(client);
+  if (existing == null) {
+    const local = { epoch, inFlight: new Map(), settled: new Map() };
     locals.set(client, local);
+    return local;
   }
-  return local;
+  if (existing.epoch !== epoch) {
+    existing.epoch = epoch;
+    // A reconnected cluster may well answer a query the dead one could not.
+    // Settled data survives: it is still the best answer until refetched.
+    existing.settled.forEach((entry, hash) => {
+      if ("error" in entry) existing.settled.delete(hash);
+    });
+  }
+  return existing;
 };
 
 const NOOP_SUBSCRIBE = () => () => {};
@@ -424,6 +436,7 @@ const awaitCreation = <Query extends query.Params, Data extends query.Data>(
   },
 ): Promise<Data> =>
   new Promise<Data>((resolve, reject) => {
+    const epoch = local.epoch;
     let settled = false;
     let disconnect: destructor.Destructor = () => {};
     const finish = () => {
@@ -434,7 +447,8 @@ const awaitCreation = <Query extends query.Params, Data extends query.Data>(
     };
     const timer = setTimeout(() => {
       finish();
-      local.settled.set(hash, { error });
+      // A reconnect landed during the wait, so the not-found may no longer hold.
+      if (local.epoch === epoch) local.settled.set(hash, { error });
       reject(error);
     }, NOT_FOUND_WAIT.milliseconds);
     disconnect = subscribe(params, (result) => {
@@ -481,6 +495,7 @@ const suspendOnFetch = <Query extends query.Params, Data extends query.Data>(
   }
   let promise = local.inFlight.get(hash);
   if (promise == null) {
+    const epoch = local.epoch;
     promise = retrieve(params).then(
       (data) => {
         // Domain-cached queries are served by getCached on the next render;
@@ -505,8 +520,9 @@ const suspendOnFetch = <Query extends query.Params, Data extends query.Data>(
           });
         // A failed fetch writes nothing getCached can serve, so the error must
         // settle locally or the next render refetches forever. A later cache
-        // hit short-circuits before this entry is read.
-        local.settled.set(hash, { error });
+        // hit short-circuits before this entry is read. A reconnect that
+        // landed mid-fetch discards the failure instead.
+        if (local.epoch === epoch) local.settled.set(hash, { error });
         local.inFlight.delete(hash);
         throw error;
       },
