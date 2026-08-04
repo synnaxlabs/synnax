@@ -23,7 +23,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/table/versions"
 	"github.com/synnaxlabs/x/query"
 	. "github.com/synnaxlabs/x/testutil"
-	"github.com/synnaxlabs/x/validate"
 )
 
 // loadEnvelope reads a wire-format envelope fixture from versions/testdata and
@@ -103,32 +102,14 @@ var _ = Describe("ImEx", func() {
 		)
 
 		It(
-			"Should import a v1 Console state from its pendingUpload",
-			func(ctx SpecContext) {
-				res := importAndRetrieve(
-					ctx, "versions/testdata/import_v1_state.json",
-					imex.ImportOptions{FileName: "My Table.json"},
-				)
-				Expect(res.Name).To(Equal("My Table"))
-				Expect(
-					res.Rows,
-				).To(Equal([]table.Row{{Size: 30, Cells: []string{"c1"}}}))
-				var props map[string]any
-				Expect(res.Cells["c1"].Props.Unmarshal(&props)).To(Succeed())
-				Expect(props).To(HaveKeyWithValue("fooBar", 2.0))
-			},
-		)
-
-		It(
-			"Should reject a v1 Console state with no document data",
+			"Should reject a v1 Console state (local-only, never exported)",
 			func(ctx SpecContext) {
 				Expect(imexSvc.Import(ctx, db,
-					loadEnvelope("versions/testdata/import_v1_state_empty.json"),
-					imex.ImportOptions{FileName: "empty.json"},
-				)).Error().To(SatisfyAll(
-					MatchError(validate.ErrValidation),
-					MatchError(ContainSubstring("no document data")),
-				))
+					loadEnvelope("versions/testdata/import_v1_state.json"),
+					imex.ImportOptions{FileName: "My Table.json"},
+				)).Error().To(
+					MatchError(ContainSubstring("unknown table data version 1")),
+				)
 			},
 		)
 

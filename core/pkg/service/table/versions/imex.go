@@ -18,19 +18,6 @@ import (
 	"github.com/synnaxlabs/x/encoding/msgpack"
 )
 
-// lastStateVersion is the final Console state version ("1.0.0" files). A v1
-// state parks the structural model under pendingUpload; v0 states embed it
-// inline and ride the storage lift's legacy chain.
-const lastStateVersion imex.Version = 1
-
-// consoleDocument mirrors the typed Table body fields as they appear inside a v1
-// Console state's pendingUpload.
-type consoleDocument struct {
-	Rows    []Row           `json:"rows"`
-	Columns []Column        `json:"columns"`
-	Cells   map[string]Cell `json:"cells"`
-}
-
 // DecodeImport materializes the envelope's body as a current-version Table.
 // Envelopes stamped at or above Floor decode through the generated migration
 // chain; older ones are Console-era files — camelCase typed exports or console
@@ -47,14 +34,7 @@ func DecodeImport(ctx context.Context, env imex.Envelope) (Table, error) {
 	if env.BodyNamed() {
 		return imex.Decode[Table](ctx, env)
 	}
-	if env.Version == lastStateVersion {
-		doc, err := imex.DecodePendingUpload[consoleDocument](ctx, env, "table")
-		if err != nil {
-			return Table{}, err
-		}
-		return Table{Rows: doc.Rows, Columns: doc.Columns, Cells: doc.Cells}, nil
-	}
-	// v0 console states embed the structural model inline: ride the storage lift,
+	// Console states embed the structural model inline: ride the storage lift,
 	// which decodes the body through the legacy chain.
 	body, err := imex.Decode[msgpack.EncodedJSON](ctx, env)
 	if err != nil {

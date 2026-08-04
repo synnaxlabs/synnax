@@ -10,13 +10,10 @@
 package imex_test
 
 import (
-	"encoding/json"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/x/encoding/msgpack"
-	. "github.com/synnaxlabs/x/testutil"
 )
 
 var _ = Describe("PeekVersion", func() {
@@ -66,32 +63,5 @@ var _ = Describe("DecodeBlob", func() {
 		blob := msgpack.EncodedJSON{"name": 42}
 		Expect(imex.DecodeBlob[payload](blob, "test data", 2)).Error().
 			To(MatchError(ContainSubstring("decode v2 test data")))
-	})
-})
-
-var _ = Describe("DecodePendingUpload", func() {
-	type document struct {
-		Name string `json:"name"`
-	}
-
-	envelope := func(body string) imex.Envelope {
-		var env imex.Envelope
-		Expect(json.Unmarshal([]byte(body), &env)).To(Succeed())
-		return env
-	}
-
-	It("Should unwrap the parked document", func(ctx SpecContext) {
-		env := envelope(`{"version":5,"pendingUpload":{"name":"parked"}}`)
-		doc := MustSucceed(imex.DecodePendingUpload[document](ctx, env, "test"))
-		Expect(doc.Name).To(Equal("parked"))
-	})
-
-	It("Should reject a state with no parked document", func(ctx SpecContext) {
-		env := envelope(`{"version":5,"other":true}`)
-		Expect(imex.DecodePendingUpload[document](ctx, env, "test")).Error().
-			To(SatisfyAll(
-				MatchError(ContainSubstring("test file has no document data")),
-				MatchError(ContainSubstring("validation error")),
-			))
 	})
 })

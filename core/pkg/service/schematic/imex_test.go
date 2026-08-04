@@ -23,7 +23,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/schematic/versions"
 	"github.com/synnaxlabs/x/query"
 	. "github.com/synnaxlabs/x/testutil"
-	"github.com/synnaxlabs/x/validate"
 )
 
 // loadEnvelope reads a wire-format envelope fixture from versions/testdata and
@@ -122,34 +121,16 @@ var _ = Describe("ImEx", func() {
 		})
 
 		It(
-			"Should import a v6 Console state from its pendingUpload",
+			"Should reject a v6 Console state (local-only, never exported)",
 			func(ctx SpecContext) {
-				res := importAndRetrieve(
-					ctx, "versions/testdata/import_v6_state.json",
+				Expect(imexSvc.Import(ctx, db,
+					loadEnvelope("versions/testdata/import_v6_state.json"),
 					imex.ImportOptions{FileName: "My Schematic.json"},
+				)).Error().To(
+					MatchError(ContainSubstring("unknown schematic data version 6")),
 				)
-				Expect(res.Name).To(Equal("My Schematic"))
-				Expect(res.Snapshot).To(BeTrue())
-				Expect(res.Nodes[0].ZIndex).To(Equal(int16(2)))
-				Expect(res.Edges[0].Source).To(
-					Equal(schematic.Handle{Node: "n1", Param: "out"}),
-				)
-				var cfg map[string]any
-				Expect(res.Configs["n1"].Unmarshal(&cfg)).To(Succeed())
-				Expect(cfg).To(HaveKeyWithValue("variant", "tank"))
-				Expect(cfg).To(HaveKey("strokeWidth"))
 			},
 		)
-
-		It("Should reject a v6 Console state with no document", func(ctx SpecContext) {
-			Expect(imexSvc.Import(ctx, db,
-				loadEnvelope("versions/testdata/import_v6_state_empty.json"),
-				imex.ImportOptions{FileName: "empty.json"},
-			)).Error().To(SatisfyAll(
-				MatchError(validate.ErrValidation),
-				MatchError(ContainSubstring("no document data")),
-			))
-		})
 
 		It(
 			"Should import a v3 Console state through the legacy chain",

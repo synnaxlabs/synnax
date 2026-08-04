@@ -10,11 +10,8 @@
 package imex
 
 import (
-	"context"
-
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/errors"
-	"github.com/synnaxlabs/x/validate"
 )
 
 // PeekVersion extracts the Version stamped inside an opaque legacy data blob. A nil
@@ -48,28 +45,4 @@ func DecodeBlob[T any](
 		return d, errors.Wrapf(err, "decode v%d %s", v, resource)
 	}
 	return d, nil
-}
-
-// DecodePendingUpload decodes the body of a final-generation Console state envelope,
-// which parks the resource document under a top-level `pendingUpload` key when the
-// resource was never uploaded. Returns a validation error when the key is absent.
-// resource names the file in errors ("line plot").
-func DecodePendingUpload[D any](
-	ctx context.Context,
-	e Envelope,
-	resource string,
-) (D, error) {
-	var zero D
-	st, err := Decode[struct {
-		PendingUpload *D `json:"pendingUpload" msgpack:"pendingUpload"`
-	}](ctx, e)
-	if err != nil {
-		return zero, err
-	}
-	if st.PendingUpload == nil {
-		return zero, errors.Wrapf(
-			validate.ErrValidation, "%s file has no document data", resource,
-		)
-	}
-	return *st.PendingUpload, nil
 }

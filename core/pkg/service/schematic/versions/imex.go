@@ -19,11 +19,6 @@ import (
 	"github.com/synnaxlabs/x/spatial"
 )
 
-// lastStateVersion is the final Console state version ("6.0.0" files). A v6
-// state parks the document under pendingUpload; earlier states embed it inline
-// and ride the storage lift's legacy chain.
-const lastStateVersion imex.Version = 6
-
 // consoleNode mirrors Node as Console-written files serialize it: camelCase
 // keys. Frozen; Console files no longer evolve.
 type consoleNode struct {
@@ -33,8 +28,8 @@ type consoleNode struct {
 }
 
 // consoleDocument mirrors the typed Schematic body fields as Console-written
-// files serialize them: the typed export's top level, and the v6 state's
-// pendingUpload. Configs values are opaque user JSON and pass through as-is.
+// files serialize them at the typed export's top level. Configs values are
+// opaque user JSON and pass through as-is.
 type consoleDocument struct {
 	Snapshot bool                           `json:"snapshot" msgpack:"snapshot"`
 	Nodes    []consoleNode                  `json:"nodes"    msgpack:"nodes"`
@@ -71,15 +66,8 @@ func DecodeImport(ctx context.Context, env imex.Envelope) (Schematic, error) {
 		}
 		return doc.schematic(), nil
 	}
-	if env.Version == lastStateVersion {
-		doc, err := imex.DecodePendingUpload[consoleDocument](ctx, env, "schematic")
-		if err != nil {
-			return Schematic{}, err
-		}
-		return doc.schematic(), nil
-	}
-	// v0-v5 console states embed the document inline: ride the storage lift, which
-	// dispatches on the version string inside the body.
+	// Console states embed the document inline: ride the storage lift, which
+	// dispatches on the version stamped inside the body.
 	snapshot, _ := env.Body()["snapshot"].(bool)
 	body, err := imex.Decode[msgpack.EncodedJSON](ctx, env)
 	if err != nil {
