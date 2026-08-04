@@ -36,7 +36,7 @@ type options struct {
 func (o *options) Report() alamos.Report { return alamos.Report{"dirname": o.dirname} }
 
 func newOptions(dirname string, opts ...Option) (*options, error) {
-	o := &options{dirname: dirname}
+	o := &options{dirname: dirname, streamBufferSize: defaultRelayBufferSize}
 	for _, opt := range opts {
 		opt(o)
 	}
@@ -59,7 +59,6 @@ func mergeAndValidateOptions(o *options) error {
 	}
 	o.gcCfg = gcCfg
 	o.fileSize = override.Numeric(1*telem.Gigabyte, o.fileSize)
-	o.streamBufferSize = override.Numeric(defaultRelayBufferSize, o.streamBufferSize)
 	v := validate.New("cesium.options")
 	validate.Positive(v, "stream_buffer_size", o.streamBufferSize)
 	return v.Error()
