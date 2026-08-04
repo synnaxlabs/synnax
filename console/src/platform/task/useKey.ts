@@ -9,10 +9,14 @@
 
 import { type task } from "@synnaxlabs/client";
 import { Form } from "@synnaxlabs/pluto";
+import { primitive } from "@synnaxlabs/x";
 import { type z } from "zod";
 
 /** Returns null for a task that has not been created yet. */
 export const useKey = <Schema extends z.ZodType>(
   ctx?: Form.ContextValue<Schema>,
-): task.Key | null =>
-  Form.useFieldValue<task.Key>("key", { ctx, optional: true }) ?? null;
+): task.Key | null => {
+  // Zero payloads seed the form with an empty key until the row is retrieved.
+  const key = Form.useFieldValue<task.Key>("key", { ctx, optional: true });
+  return primitive.isZero(key) ? null : key;
+};
