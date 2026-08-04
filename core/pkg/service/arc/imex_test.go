@@ -19,6 +19,7 @@ import (
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
+	"github.com/synnaxlabs/synnax/pkg/service/arc/versions"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	. "github.com/synnaxlabs/synnax/pkg/service/imex/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
@@ -41,7 +42,7 @@ var _ = Describe("ImEx", func() {
 			a := arc.Arc{Name: "exported", Mode: arc.ModeText}
 			Expect(svc.NewWriter(nil).Create(ctx, &a)).To(Succeed())
 			env := MustSucceed(svc.Export(ctx, arc.OntologyID(a.Key)))
-			Expect(env.Version).To(Equal(arc.Version))
+			Expect(env.Version).To(Equal(versions.Latest))
 			Expect(env.Type).To(Equal("arc"))
 			Expect(env.Name).To(Equal("exported"))
 

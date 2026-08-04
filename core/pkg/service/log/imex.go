@@ -14,16 +14,10 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
-	v2 "github.com/synnaxlabs/synnax/pkg/service/log/versions/v2"
-	v3 "github.com/synnaxlabs/synnax/pkg/service/log/versions/v3"
+	"github.com/synnaxlabs/synnax/pkg/service/log/versions"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
-	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/gorp"
 )
-
-// typedVersion is the first envelope version whose body is the typed Log rather
-// than a legacy Console state.
-const typedVersion imex.Version = 2
 
 var (
 	_ imex.ImportExporter = (*Service)(nil)
@@ -39,7 +33,8 @@ func (*Service) Match(body map[string]any) bool {
 }
 
 // Export retrieves the log identified by id and serializes it as an imex.Envelope
-// stamped with Version. It returns query.ErrNotFound if no log exists for id.Key.
+// stamped with versions.Latest. It returns query.ErrNotFound if no log exists for
+// id.Key.
 func (s *Service) Export(ctx context.Context, id ontology.ID) (imex.Envelope, error) {
 	key, err := uuid.Parse(id.Key)
 	if err != nil {
@@ -52,7 +47,7 @@ func (s *Service) Export(ctx context.Context, id ontology.ID) (imex.Envelope, er
 		Exec(ctx, nil); err != nil {
 		return imex.Envelope{}, err
 	}
-	env := imex.Envelope{Version: Version, Type: string(s.Type()), Name: l.Name}
+	env := imex.Envelope{Version: versions.Latest, Type: string(s.Type()), Name: l.Name}
 	if err = imex.Encode(&env, l); err != nil {
 		return imex.Envelope{}, err
 	}
@@ -64,9 +59,10 @@ func (s *Service) Export(ctx context.Context, id ontology.ID) (imex.Envelope, er
 // is generated so that importing always materializes a new resource rather than
 // overwriting an existing log with a colliding key. Logs are project children, so a
 // non-zero opts.Parent must be a project; the log is then created within it exactly
-// as a regular create would be. Envelopes older than Version are legacy camelCase
-// Console exports and are lifted forward through the migration chain; an envelope
-// newer than Version is rejected with a path-scoped validation error.
+// as a regular create would be. Envelopes older than versions.Latest are legacy
+// camelCase Console exports and are lifted forward through the migration chain; an
+// envelope newer than versions.Latest is rejected with a path-scoped validation
+// error.
 func (s *Service) Import(
 	ctx context.Context,
 	tx gorp.Tx,
@@ -77,7 +73,7 @@ func (s *Service) Import(
 	if err != nil {
 		return ontology.ID{}, err
 	}
-	l, err := s.decodeImport(ctx, env)
+	l, err := versions.DecodeImport(ctx, env)
 	if err != nil {
 		return ontology.ID{}, err
 	}
@@ -90,21 +86,4 @@ func (s *Service) Import(
 		return ontology.ID{}, err
 	}
 	return l.OntologyID(), nil
-}
-
-func (s *Service) decodeImport(ctx context.Context, env imex.Envelope) (Log, error) {
-	switch {
-	case env.Version > Version:
-		return Log{}, imex.NewErrUnsupportedVersion(
-			string(s.Type()), env.Version, Version,
-		)
-	case env.Version >= typedVersion:
-		return imex.Decode[Log](ctx, env)
-	default:
-		body, err := imex.Decode[msgpack.EncodedJSON](ctx, env)
-		if err != nil {
-			return Log{}, err
-		}
-		return v3.MigrateLog(ctx, v2.Log{Name: env.Name, Data: body})
-	}
 }

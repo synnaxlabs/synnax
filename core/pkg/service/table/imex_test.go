@@ -20,6 +20,7 @@ import (
 	. "github.com/synnaxlabs/synnax/pkg/service/imex/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/table"
+	"github.com/synnaxlabs/synnax/pkg/service/table/versions"
 	"github.com/synnaxlabs/x/query"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/validate"
@@ -40,7 +41,7 @@ var _ = Describe("ImEx", func() {
 			t := table.Table{Name: "exported"}
 			Expect(svc.NewWriter(nil).Create(ctx, proj.Key, &t)).To(Succeed())
 			env := MustSucceed(svc.Export(ctx, table.OntologyID(t.Key)))
-			Expect(env.Version).To(Equal(table.Version))
+			Expect(env.Version).To(Equal(versions.Latest))
 			Expect(env.Type).To(Equal("table"))
 			Expect(env.Name).To(Equal("exported"))
 

@@ -21,6 +21,7 @@ import (
 	. "github.com/synnaxlabs/synnax/pkg/service/imex/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic/symbol"
+	"github.com/synnaxlabs/synnax/pkg/service/schematic/symbol/versions"
 	"github.com/synnaxlabs/x/query"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -48,7 +49,7 @@ var _ = Describe("ImEx", func() {
 				Expect(svc.NewWriter(nil).Delete(ctx, sym.Key)).To(Succeed())
 			})
 			env := MustSucceed(svc.Export(ctx, symbol.OntologyID(sym.Key)))
-			Expect(env.Version).To(Equal(symbol.Version))
+			Expect(env.Version).To(Equal(versions.Latest))
 			Expect(env.Type).To(Equal("schematic_symbol"))
 			Expect(env.Name).To(Equal("exported"))
 

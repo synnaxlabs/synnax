@@ -20,6 +20,7 @@ import (
 	. "github.com/synnaxlabs/synnax/pkg/service/imex/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic"
+	"github.com/synnaxlabs/synnax/pkg/service/schematic/versions"
 	"github.com/synnaxlabs/x/query"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/validate"
@@ -40,7 +41,7 @@ var _ = Describe("ImEx", func() {
 			s := schematic.Schematic{Name: "exported", Snapshot: true}
 			Expect(svc.NewWriter(nil).Create(ctx, proj.Key, &s)).To(Succeed())
 			env := MustSucceed(svc.Export(ctx, schematic.OntologyID(s.Key)))
-			Expect(env.Version).To(Equal(schematic.Version))
+			Expect(env.Version).To(Equal(versions.Latest))
 			Expect(env.Type).To(Equal("schematic"))
 			Expect(env.Name).To(Equal("exported"))
 

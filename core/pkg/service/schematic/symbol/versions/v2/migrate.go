@@ -16,8 +16,8 @@ import (
 	"github.com/synnaxlabs/x/gorp"
 )
 
-// Migration drops the persisted version field: envelope versioning now lives on
-// the imex wire format alone.
+// Migration drops the persisted version field: envelope versioning now lives on the
+// imex wire format alone.
 var Migration = gorp.NewEntryMigration("v2_drop_symbol_version", migrateSymbol)
 
 func migrateSymbol(_ context.Context, old v1.Symbol) (Symbol, error) {

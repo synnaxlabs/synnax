@@ -20,6 +20,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	. "github.com/synnaxlabs/synnax/pkg/service/imex/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/lineplot"
+	"github.com/synnaxlabs/synnax/pkg/service/lineplot/versions"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/x/query"
 	. "github.com/synnaxlabs/x/testutil"
@@ -41,7 +42,7 @@ var _ = Describe("ImEx", func() {
 			lp := lineplot.LinePlot{Name: "exported"}
 			Expect(svc.NewWriter(nil).Create(ctx, proj.Key, &lp)).To(Succeed())
 			env := MustSucceed(svc.Export(ctx, lineplot.OntologyID(lp.Key)))
-			Expect(env.Version).To(Equal(lineplot.Version))
+			Expect(env.Version).To(Equal(versions.Latest))
 			Expect(env.Type).To(Equal("lineplot"))
 			Expect(env.Name).To(Equal("exported"))
 

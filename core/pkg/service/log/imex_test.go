@@ -20,6 +20,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	. "github.com/synnaxlabs/synnax/pkg/service/imex/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/log"
+	"github.com/synnaxlabs/synnax/pkg/service/log/versions"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/project"
 	"github.com/synnaxlabs/x/color"
@@ -57,7 +58,7 @@ var _ = Describe("ImEx", func() {
 				HideChannelNames:   true,
 			})
 			env := MustSucceed(imexSvc.Export(ctx, l.OntologyID()))
-			Expect(env.Version).To(Equal(log.Version))
+			Expect(env.Version).To(Equal(versions.Latest))
 			Expect(env.Type).To(Equal("log"))
 			Expect(env.Name).To(Equal("exported"))
 
