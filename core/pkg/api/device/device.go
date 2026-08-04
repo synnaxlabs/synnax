@@ -75,18 +75,18 @@ func (s *Service) Create(
 }
 
 type RetrieveRequest struct {
-	SearchTerm     string       `json:"search_term" msgpack:"search_term"`
-	Keys           []device.Key `json:"keys" msgpack:"keys"`
-	Names          []string     `json:"names" msgpack:"names"`
-	Makes          []string     `json:"makes" msgpack:"makes"`
-	Models         []string     `json:"models" msgpack:"models"`
-	Locations      []string     `json:"locations" msgpack:"locations"`
-	Racks          []rack.Key   `json:"racks" msgpack:"racks"`
-	Limit          int          `json:"limit" msgpack:"limit"`
-	Offset         int          `json:"offset" msgpack:"offset"`
+	SearchTerm     string       `json:"search_term"      msgpack:"search_term"`
+	Keys           []device.Key `json:"keys"             msgpack:"keys"`
+	Names          []string     `json:"names"            msgpack:"names"`
+	Makes          []string     `json:"makes"            msgpack:"makes"`
+	Models         []string     `json:"models"           msgpack:"models"`
+	Locations      []string     `json:"locations"        msgpack:"locations"`
+	Racks          []rack.Key   `json:"racks"            msgpack:"racks"`
+	Limit          int          `json:"limit"            msgpack:"limit"`
+	Offset         int          `json:"offset"           msgpack:"offset"`
 	IgnoreNotFound bool         `json:"ignore_not_found" msgpack:"ignore_not_found"`
-	IncludeStatus  bool         `json:"include_status" msgpack:"include_status"`
-	IncludeParent  bool         `json:"include_parent" msgpack:"include_parent"`
+	IncludeStatus  bool         `json:"include_status"   msgpack:"include_status"`
+	IncludeParent  bool         `json:"include_parent"   msgpack:"include_parent"`
 }
 
 type RetrieveResponse struct {

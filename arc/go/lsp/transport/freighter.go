@@ -42,7 +42,9 @@ func (m *JSONRPCMessage) UnmarshalJSON(data []byte) error {
 
 const DefaultMaxContentLength = 10 * 1024 * 1024 // 10MB
 
-var ErrContentLengthExceeded = errors.New("[transport] - content length exceeded maximum allowed size")
+var ErrContentLengthExceeded = errors.New(
+	"[transport] - content length exceeded maximum allowed size",
+)
 
 // streamAdapter wraps a freighter stream to implement jsonrpc2.Stream. Each freighter
 // message carries one fully-encoded JSON-RPC envelope in Content. jsonrpc2 v1 requires

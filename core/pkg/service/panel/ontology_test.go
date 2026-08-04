@@ -38,7 +38,9 @@ var _ = Describe("Ontology", func() {
 			Expect(panel.OntologyIDs([]panel.Key{a, b})).To(Equal([]ontology.ID{
 				panel.OntologyID(a), panel.OntologyID(b),
 			}))
-			Expect(panel.OntologyIDsFromPanels([]panel.Panel{{Key: a}, {Key: b}})).To(Equal(
+			Expect(
+				panel.OntologyIDsFromPanels([]panel.Panel{{Key: a}, {Key: b}}),
+			).To(Equal(
 				[]ontology.ID{panel.OntologyID(a), panel.OntologyID(b)},
 			))
 		})
@@ -70,21 +72,26 @@ var _ = Describe("Ontology", func() {
 			Expect(res.Name).To(Equal("resource"))
 		})
 
-		It("Should error when retrieving a resource with a non-UUID key", func(ctx SpecContext) {
-			Expect(svc.RetrieveResource(ctx, "not-a-uuid", tx)).Error().
-				To(MatchError(ContainSubstring("invalid UUID")))
-		})
+		It(
+			"Should error when retrieving a resource with a non-UUID key",
+			func(ctx SpecContext) {
+				Expect(svc.RetrieveResource(ctx, "not-a-uuid", tx)).Error().
+					To(MatchError(ContainSubstring("invalid UUID")))
+			},
+		)
 
 		It("Should emit a Set change when a panel is created", func(ctx SpecContext) {
 			var (
 				mu      sync.Mutex
 				changes []ontology.Change
 			)
-			DeferCleanup(svc.OnChange(func(_ context.Context, seq iter.Seq[ontology.Change]) {
-				mu.Lock()
-				defer mu.Unlock()
-				changes = append(changes, slices.Collect(seq)...)
-			}))
+			DeferCleanup(
+				svc.OnChange(func(_ context.Context, seq iter.Seq[ontology.Change]) {
+					mu.Lock()
+					defer mu.Unlock()
+					changes = append(changes, slices.Collect(seq)...)
+				}),
+			)
 			p := panel.Panel{Name: "observed", Parent: &parentID}
 			Expect(writer.Create(ctx, &p)).To(Succeed())
 			DeferCleanup(func(ctx SpecContext) {

@@ -274,25 +274,32 @@ func test() {
 	)
 
 	Describe("Error Recovery", func() {
-		It("Should report all independent errors with correct locations", func(bCtx SpecContext) {
-			prog := MustSucceed(parser.Parse(`
+		It(
+			"Should report all independent errors with correct locations",
+			func(bCtx SpecContext) {
+				prog := MustSucceed(parser.Parse(`
 func test() {
 	a := undefined1
 	b := undefined2
 }`))
-			ctx := context.NewRoot(bCtx, prog, nil)
-			analyzer.AnalyzeProgram(ctx)
-			Expect(ctx.Diagnostics.Ok()).To(BeFalse())
-			Expect(*ctx.Diagnostics).To(HaveLen(2))
+				ctx := context.NewRoot(bCtx, prog, nil)
+				analyzer.AnalyzeProgram(ctx)
+				Expect(ctx.Diagnostics.Ok()).To(BeFalse())
+				Expect(*ctx.Diagnostics).To(HaveLen(2))
 
-			diag := (*ctx.Diagnostics)[0]
-			Expect(diag.Message).To(ContainSubstring("undefined symbol: undefined1"))
-			Expect(diag.Range.Start.Line).To(Equal(uint32(2)))
+				diag := (*ctx.Diagnostics)[0]
+				Expect(
+					diag.Message,
+				).To(ContainSubstring("undefined symbol: undefined1"))
+				Expect(diag.Range.Start.Line).To(Equal(uint32(2)))
 
-			diag2 := (*ctx.Diagnostics)[1]
-			Expect(diag2.Message).To(ContainSubstring("undefined symbol: undefined2"))
-			Expect(diag2.Range.Start.Line).To(Equal(uint32(3)))
-		})
+				diag2 := (*ctx.Diagnostics)[1]
+				Expect(
+					diag2.Message,
+				).To(ContainSubstring("undefined symbol: undefined2"))
+				Expect(diag2.Range.Start.Line).To(Equal(uint32(3)))
+			},
+		)
 	})
 
 	DescribeTable("Diagnostic End Range",

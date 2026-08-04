@@ -60,52 +60,93 @@ var _ = Describe("Deleter", Ordered, func() {
 					// Use context.Background() because the iterator must survive
 					// beyond BeforeEach into It/AfterEach. SpecContext is cancelled
 					// when BeforeEach exits, which kills peer streams and deadlocks.
-					i = MustSucceed(s.dist.Framer.OpenIterator(context.Background(), iterator.Config{
-						Keys:   s.keys,
-						Bounds: telem.TimeRangeMax,
-					}))
+					i = MustSucceed(
+						s.dist.Framer.OpenIterator(
+							context.Background(),
+							iterator.Config{
+								Keys:   s.keys,
+								Bounds: telem.TimeRangeMax,
+							},
+						),
+					)
 				})
 				AfterEach(func(ctx SpecContext) {
-					Expect(s.dist.Framer.DeleteTimeRange(ctx, s.keys, telem.TimeRangeMax)).To(Succeed())
+					Expect(
+						s.dist.Framer.DeleteTimeRange(ctx, s.keys, telem.TimeRangeMax),
+					).To(Succeed())
 					Expect(i.Close()).To(Succeed())
 				})
 
 				It("Should delete one channel by key", func(ctx SpecContext) {
-					Expect(s.dist.Framer.DeleteTimeRange(ctx, s.keys[:1], (10 * telem.SecondTS).Range(12*telem.SecondTS))).To(Succeed())
+					Expect(
+						s.dist.Framer.DeleteTimeRange(
+							ctx,
+							s.keys[:1],
+							(10 * telem.SecondTS).Range(12*telem.SecondTS),
+						),
+					).To(Succeed())
 					Expect(i.SeekFirst()).To(BeTrue())
 					Expect(i.Next(telem.TimeSpanMax)).To(BeTrue())
 					Expect(i.Value().Get(s.keys[0]).Len()).To(Equal(int64(1)))
-					Expect(i.Value().Get(s.keys[0]).TimeRange()).To(Equal((12 * telem.SecondTS).Range(12*telem.SecondTS + 1)))
+					Expect(
+						i.Value().Get(s.keys[0]).TimeRange(),
+					).To(Equal((12 * telem.SecondTS).Range(12*telem.SecondTS + 1)))
 				})
 				It("Should delete many channels by keys", func(ctx SpecContext) {
-					Expect(s.dist.Framer.DeleteTimeRange(ctx, s.keys, (10 * telem.SecondTS).Range(12*telem.SecondTS))).To(Succeed())
+					Expect(
+						s.dist.Framer.DeleteTimeRange(
+							ctx,
+							s.keys,
+							(10 * telem.SecondTS).Range(12*telem.SecondTS),
+						),
+					).To(Succeed())
 					Expect(i.SeekFirst()).To(BeTrue())
 					Expect(i.Next(telem.TimeSpanMax)).To(BeTrue())
 					Expect(i.Value().Get(s.keys[1]).Len()).To(Equal(int64(1)))
-					Expect(i.Value().Get(s.keys[1]).TimeRange()).To(Equal((12 * telem.SecondTS).Range(12*telem.SecondTS + 1)))
+					Expect(
+						i.Value().Get(s.keys[1]).TimeRange(),
+					).To(Equal((12 * telem.SecondTS).Range(12*telem.SecondTS + 1)))
 				})
 				It("Should delete all data in a time range", func(ctx SpecContext) {
-					Expect(s.dist.Framer.DeleteTimeRange(ctx, s.keys, telem.TimeRangeMax)).To(Succeed())
+					Expect(
+						s.dist.Framer.DeleteTimeRange(ctx, s.keys, telem.TimeRangeMax),
+					).To(Succeed())
 					Expect(i.SeekFirst()).To(BeFalse())
 				})
-				It("Should be idempotent when deleting an empty range", func(ctx SpecContext) {
-					emptyRange := (100 * telem.SecondTS).Range(200 * telem.SecondTS)
-					Expect(s.dist.Framer.DeleteTimeRange(ctx, s.keys, emptyRange)).To(Succeed())
-					Expect(i.SeekFirst()).To(BeTrue())
-					Expect(i.Next(telem.TimeSpanMax)).To(BeTrue())
-					Expect(i.Value().Get(s.keys[0]).Len()).To(Equal(int64(3)))
-				})
-				It("Should be a no-op when no keys are provided", func(ctx SpecContext) {
-					Expect(s.dist.Framer.DeleteTimeRange(ctx, nil, telem.TimeRangeMax)).To(Succeed())
-					Expect(i.SeekFirst()).To(BeTrue())
-					Expect(i.Next(telem.TimeSpanMax)).To(BeTrue())
-					Expect(i.Value().Get(s.keys[0]).Len()).To(Equal(int64(3)))
-				})
+				It(
+					"Should be idempotent when deleting an empty range",
+					func(ctx SpecContext) {
+						emptyRange := (100 * telem.SecondTS).Range(200 * telem.SecondTS)
+						Expect(
+							s.dist.Framer.DeleteTimeRange(ctx, s.keys, emptyRange),
+						).To(Succeed())
+						Expect(i.SeekFirst()).To(BeTrue())
+						Expect(i.Next(telem.TimeSpanMax)).To(BeTrue())
+						Expect(i.Value().Get(s.keys[0]).Len()).To(Equal(int64(3)))
+					},
+				)
+				It(
+					"Should be a no-op when no keys are provided",
+					func(ctx SpecContext) {
+						Expect(
+							s.dist.Framer.DeleteTimeRange(ctx, nil, telem.TimeRangeMax),
+						).To(Succeed())
+						Expect(i.SeekFirst()).To(BeTrue())
+						Expect(i.Next(telem.TimeSpanMax)).To(BeTrue())
+						Expect(i.Value().Get(s.keys[0]).Len()).To(Equal(int64(3)))
+					},
+				)
 			})
 		})
 		Describe("Channel not found", func() {
 			Specify("By key", func(ctx SpecContext) {
-				Expect(s.dist.Framer.DeleteTimeRange(ctx, channel.Keys{10}, telem.TimeRangeMax)).To(MatchError(ts.ErrChannelNotFound))
+				Expect(
+					s.dist.Framer.DeleteTimeRange(
+						ctx,
+						channel.Keys{10},
+						telem.TimeRangeMax,
+					),
+				).To(MatchError(ts.ErrChannelNotFound))
 			})
 		})
 	}
@@ -117,66 +158,84 @@ var _ = Describe("Deleter", Ordered, func() {
 			s = DeferClose(mixedScenario(context.Background()))
 		})
 
-		It("Should delete channels across gateway and peer nodes", func(ctx SpecContext) {
-			w := MustSucceed(s.dist.Framer.OpenWriter(ctx, writer.Config{
-				Keys:  s.keys,
-				Start: 10 * telem.SecondTS,
-				Sync:  new(true),
-			}))
-			Expect(w.Write(frame.NewMulti(
-				s.keys,
-				[]telem.Series{
-					telem.NewSeriesSecondsTSV(10, 11, 12),
-					telem.NewSeriesSecondsTSV(10, 11, 12),
-					telem.NewSeriesSecondsTSV(10, 11, 12),
-				},
-			))).To(BeTrue())
-			Expect(MustSucceed(w.Commit())).To(Equal(telem.SecondTS*12 + 1))
-			Expect(w.Close()).To(Succeed())
+		It(
+			"Should delete channels across gateway and peer nodes",
+			func(ctx SpecContext) {
+				w := MustSucceed(s.dist.Framer.OpenWriter(ctx, writer.Config{
+					Keys:  s.keys,
+					Start: 10 * telem.SecondTS,
+					Sync:  new(true),
+				}))
+				Expect(w.Write(frame.NewMulti(
+					s.keys,
+					[]telem.Series{
+						telem.NewSeriesSecondsTSV(10, 11, 12),
+						telem.NewSeriesSecondsTSV(10, 11, 12),
+						telem.NewSeriesSecondsTSV(10, 11, 12),
+					},
+				))).To(BeTrue())
+				Expect(MustSucceed(w.Commit())).To(Equal(telem.SecondTS*12 + 1))
+				Expect(w.Close()).To(Succeed())
 
-			Expect(s.dist.Framer.DeleteTimeRange(ctx, s.keys, (10 * telem.SecondTS).Range(12*telem.SecondTS))).To(Succeed())
+				Expect(
+					s.dist.Framer.DeleteTimeRange(
+						ctx,
+						s.keys,
+						(10 * telem.SecondTS).Range(12*telem.SecondTS),
+					),
+				).To(Succeed())
 
-			i := MustSucceed(s.dist.Framer.OpenIterator(ctx, iterator.Config{
-				Keys:   s.keys,
-				Bounds: telem.TimeRangeMax,
-			}))
-			Expect(i.SeekFirst()).To(BeTrue())
-			Expect(i.Next(telem.TimeSpanMax)).To(BeTrue())
-			for _, key := range s.keys {
-				Expect(i.Value().Get(key).Len()).To(Equal(int64(1)))
-				Expect(i.Value().Get(key).TimeRange()).To(Equal((12 * telem.SecondTS).Range(12*telem.SecondTS + 1)))
-			}
-			Expect(i.Close()).To(Succeed())
+				i := MustSucceed(s.dist.Framer.OpenIterator(ctx, iterator.Config{
+					Keys:   s.keys,
+					Bounds: telem.TimeRangeMax,
+				}))
+				Expect(i.SeekFirst()).To(BeTrue())
+				Expect(i.Next(telem.TimeSpanMax)).To(BeTrue())
+				for _, key := range s.keys {
+					Expect(i.Value().Get(key).Len()).To(Equal(int64(1)))
+					Expect(
+						i.Value().Get(key).TimeRange(),
+					).To(Equal((12 * telem.SecondTS).Range(12*telem.SecondTS + 1)))
+				}
+				Expect(i.Close()).To(Succeed())
 
-			Expect(s.dist.Framer.DeleteTimeRange(ctx, s.keys, telem.TimeRangeMax)).To(Succeed())
-		})
+				Expect(
+					s.dist.Framer.DeleteTimeRange(ctx, s.keys, telem.TimeRangeMax),
+				).To(Succeed())
+			},
+		)
 
-		It("Should delete all data across gateway and peer nodes", func(ctx SpecContext) {
-			w := MustSucceed(s.dist.Framer.OpenWriter(ctx, writer.Config{
-				Keys:  s.keys,
-				Start: 10 * telem.SecondTS,
-				Sync:  new(true),
-			}))
-			Expect(w.Write(frame.NewMulti(
-				s.keys,
-				[]telem.Series{
-					telem.NewSeriesSecondsTSV(10, 11, 12),
-					telem.NewSeriesSecondsTSV(10, 11, 12),
-					telem.NewSeriesSecondsTSV(10, 11, 12),
-				},
-			))).To(BeTrue())
-			Expect(MustSucceed(w.Commit())).To(Equal(telem.SecondTS*12 + 1))
-			Expect(w.Close()).To(Succeed())
+		It(
+			"Should delete all data across gateway and peer nodes",
+			func(ctx SpecContext) {
+				w := MustSucceed(s.dist.Framer.OpenWriter(ctx, writer.Config{
+					Keys:  s.keys,
+					Start: 10 * telem.SecondTS,
+					Sync:  new(true),
+				}))
+				Expect(w.Write(frame.NewMulti(
+					s.keys,
+					[]telem.Series{
+						telem.NewSeriesSecondsTSV(10, 11, 12),
+						telem.NewSeriesSecondsTSV(10, 11, 12),
+						telem.NewSeriesSecondsTSV(10, 11, 12),
+					},
+				))).To(BeTrue())
+				Expect(MustSucceed(w.Commit())).To(Equal(telem.SecondTS*12 + 1))
+				Expect(w.Close()).To(Succeed())
 
-			Expect(s.dist.Framer.DeleteTimeRange(ctx, s.keys, telem.TimeRangeMax)).To(Succeed())
+				Expect(
+					s.dist.Framer.DeleteTimeRange(ctx, s.keys, telem.TimeRangeMax),
+				).To(Succeed())
 
-			i := MustSucceed(s.dist.Framer.OpenIterator(ctx, iterator.Config{
-				Keys:   s.keys,
-				Bounds: telem.TimeRangeMax,
-			}))
-			Expect(i.SeekFirst()).To(BeFalse())
-			Expect(i.Close()).To(Succeed())
-		})
+				i := MustSucceed(s.dist.Framer.OpenIterator(ctx, iterator.Config{
+					Keys:   s.keys,
+					Bounds: telem.TimeRangeMax,
+				}))
+				Expect(i.SeekFirst()).To(BeFalse())
+				Expect(i.Close()).To(Succeed())
+			},
+		)
 	})
 })
 

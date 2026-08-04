@@ -124,7 +124,10 @@ func (s *Service) Observe() observe.Observable[gorp.TxReader[Key, Task]] {
 	return s.table.Observe()
 }
 
-func OpenService(ctx context.Context, configs ...ServiceConfig) (s *Service, err error) {
+func OpenService(
+	ctx context.Context,
+	configs ...ServiceConfig,
+) (s *Service, err error) {
 	cfg, err := config.New(ServiceConfig{}, configs...)
 	if err != nil {
 		return nil, err
@@ -141,7 +144,14 @@ func OpenService(ctx context.Context, configs ...ServiceConfig) (s *Service, err
 	}); !ok(err, s.table) {
 		return nil, err
 	}
-	if s.group, err = cfg.Group.CreateOrRetrieve(ctx, "Tasks", ontology.RootID); !ok(err, nil) {
+	if s.group, err = cfg.Group.CreateOrRetrieve(
+		ctx,
+		"Tasks",
+		ontology.RootID,
+	); !ok(
+		err,
+		nil,
+	) {
 		return nil, err
 	}
 	cfg.Ontology.RegisterService(s)
@@ -193,11 +203,14 @@ func (s *Service) CommandChannelKey() channel.Key {
 	return s.commandChannelKey
 }
 
-// cleanupInternalOntologyResources purges existing internal task resources from the ontology.
-// we want to hide internal tasks from the user.
+// cleanupInternalOntologyResources purges existing internal task resources from the
+// ontology. we want to hide internal tasks from the user.
 func (s *Service) cleanupInternalOntologyResources(ctx context.Context) {
 	var tasks []Task
-	if err := s.NewRetrieve().Where(MatchInternal(true)).Entries(&tasks).Exec(ctx, nil); err != nil {
+	if err := s.NewRetrieve().
+		Where(MatchInternal(true)).
+		Entries(&tasks).
+		Exec(ctx, nil); err != nil {
 		s.cfg.L.Warn("unable to retrieve internal tasks for cleanup", zap.Error(err))
 	}
 	ids := make([]ontology.ID, 0, len(tasks))

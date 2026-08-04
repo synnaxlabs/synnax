@@ -35,7 +35,11 @@ var _ kv.DB = &db{}
 
 func newDB() *db { return &db{DB: memkv.New()} }
 
-func (d *db) Get(ctx context.Context, key []byte, opts ...any) ([]byte, io.Closer, error) {
+func (d *db) Get(
+	ctx context.Context,
+	key []byte,
+	opts ...any,
+) ([]byte, io.Closer, error) {
 	d.timesGetCalled++
 	if d.timesGetCalled == 2 {
 		return nil, nil, errDBGetCalled
@@ -45,12 +49,17 @@ func (d *db) Get(ctx context.Context, key []byte, opts ...any) ([]byte, io.Close
 
 var _ = Describe("Verification", func() {
 	Describe("DefaultOverflowCheck", func() {
-		It("should return an error if the count is greater than the free count", func() {
-			Expect(verification.DefaultOverflowCheck(verification.FreeCount + 1)).
-				To(MatchError(verification.ErrFree))
-		})
+		It(
+			"should return an error if the count is greater than the free count",
+			func() {
+				Expect(verification.DefaultOverflowCheck(verification.FreeCount + 1)).
+					To(MatchError(verification.ErrFree))
+			},
+		)
 		It("should return nil if the count is less than the free count", func() {
-			Expect(verification.DefaultOverflowCheck(verification.FreeCount)).To(Succeed())
+			Expect(
+				verification.DefaultOverflowCheck(verification.FreeCount),
+			).To(Succeed())
 		})
 	})
 	Describe("ConfigValues", func() {
@@ -70,7 +79,9 @@ var _ = Describe("Verification", func() {
 			})
 			It("should not error if there is a valid DB", func() {
 				db := memkv.New()
-				cfg := verification.DefaultServiceConfig.Override(verification.ServiceConfig{DB: db})
+				cfg := verification.DefaultServiceConfig.Override(
+					verification.ServiceConfig{DB: db},
+				)
 				Expect(cfg.Validate()).To(Succeed())
 				Expect(db.Close()).To(Succeed())
 			})
@@ -78,7 +89,9 @@ var _ = Describe("Verification", func() {
 		Describe("Override", func() {
 			It("should override the DB", func() {
 				db := memkv.New()
-				cfg := verification.DefaultServiceConfig.Override(verification.ServiceConfig{DB: db})
+				cfg := verification.DefaultServiceConfig.Override(
+					verification.ServiceConfig{DB: db},
+				)
 				Expect(cfg.DB).To(BeEquivalentTo(db))
 				Expect(db.Close()).To(Succeed())
 			})
@@ -165,7 +178,9 @@ var _ = Describe("Verification", func() {
 					Expect(svc).ToNot(BeNil())
 					Expect(svc.IsOverflowed(0)).To(Succeed())
 					Expect(svc.IsOverflowed(100)).To(Succeed())
-					Expect(svc.IsOverflowed(101)).To(MatchError(verification.ErrTooMany))
+					Expect(
+						svc.IsOverflowed(101),
+					).To(MatchError(verification.ErrTooMany))
 					Expect(svc.Close()).To(Succeed())
 				})
 				It("should load a verifier from the DB", func(ctx SpecContext) {

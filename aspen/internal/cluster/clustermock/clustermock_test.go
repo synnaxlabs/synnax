@@ -26,7 +26,9 @@ import (
 var _ = Describe("Cluster Mock", func() {
 	Describe("Builder", func() {
 		It("Should provision a set of cluster ClusterAPIs correctly", func() {
-			cfg := cluster.Config{Gossip: gossip.Config{Interval: 50 * time.Millisecond}}
+			cfg := cluster.Config{
+				Gossip: gossip.Config{Interval: 50 * time.Millisecond},
+			}
 			ctx, cancel := signal.Isolated()
 			builder := clustermock.NewBuilder(cfg)
 			DeferCleanup(func() {

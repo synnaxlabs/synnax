@@ -111,7 +111,11 @@ func generateEncoderCodecFile(
 		if uform, isUnion := e.Type.Form.(resolution.UnionForm); isUnion {
 			uc, err := buildUnionCodec(e.Type, uform, b)
 			if err != nil {
-				return nil, errors.Wrapf(err, "failed to generate union codec for %s", e.GoName)
+				return nil, errors.Wrapf(
+					err,
+					"failed to generate union codec for %s",
+					e.GoName,
+				)
 			}
 			if b.needsMath {
 				fo.NeedsMath = true
@@ -149,7 +153,11 @@ func generateEncoderCodecFile(
 			b.hasTypeParams = true
 			fields := resolution.UnifiedFields(e.Type, b.table)
 			if err := b.processFields(fields, recv, recv); err != nil {
-				return nil, errors.Wrapf(err, "failed to generate generic codec for %s", e.GoName)
+				return nil, errors.Wrapf(
+					err,
+					"failed to generate generic codec for %s",
+					e.GoName,
+				)
 			}
 			if b.needsMath {
 				fo.NeedsMath = true
@@ -169,7 +177,11 @@ func generateEncoderCodecFile(
 		} else {
 			fields := resolution.UnifiedFields(e.Type, b.table)
 			if err := b.processFields(fields, recv, recv); err != nil {
-				return nil, errors.Wrapf(err, "failed to generate codec for %s", e.GoName)
+				return nil, errors.Wrapf(
+					err,
+					"failed to generate codec for %s",
+					e.GoName,
+				)
 			}
 			if b.needsMath {
 				fo.NeedsMath = true
@@ -309,7 +321,11 @@ func (b *encoderBuilder) processFields(
 			if f.Type.TypeParam.HasDefault() {
 				f.Type = *f.Type.TypeParam.Default
 			} else {
-				if err := b.processTypeParamField(getPath, setPath, marshalDirective == "json_only"); err != nil {
+				if err := b.processTypeParamField(
+					getPath,
+					setPath,
+					marshalDirective == "json_only",
+				); err != nil {
 					return err
 				}
 				continue
@@ -362,10 +378,19 @@ func (b *encoderBuilder) processValueByType(
 		// binary discriminator tag plus the variant's struct codecs), so
 		// union fields dispatch like struct fields.
 		ind := b.indent()
-		b.encodeLines = append(b.encodeLines,
-			ind+fmt.Sprintf("if err := %s.EncodeOrc(w); err != nil { return err }", callPath(getPath)))
+		b.encodeLines = append(
+			b.encodeLines,
+			ind+fmt.Sprintf(
+				"if err := %s.EncodeOrc(w); err != nil { return err }",
+				callPath(getPath),
+			),
+		)
 		b.decodeWithErr(
-			ind + fmt.Sprintf("if err = %s.DecodeOrc(r); err != nil { return err }", setPath))
+			ind + fmt.Sprintf(
+				"if err = %s.DecodeOrc(r); err != nil { return err }",
+				setPath,
+			),
+		)
 		return nil
 	case resolution.BuiltinGenericForm:
 		if form.Name == "Array" {
@@ -396,7 +421,10 @@ func (b *encoderBuilder) processValueByType(
 	}
 }
 
-func (b *encoderBuilder) processTypeParamField(getPath, setPath string, jsonOnly bool) error {
+func (b *encoderBuilder) processTypeParamField(
+	getPath, setPath string,
+	jsonOnly bool,
+) error {
 	b.needsJSON = true
 	ind := b.indent()
 	if jsonOnly {
@@ -407,10 +435,14 @@ func (b *encoderBuilder) processTypeParamField(getPath, setPath string, jsonOnly
 			ind+"\tw.WriteWithLen(b)",
 			ind+"}",
 		)
-		b.decodeLines = append(b.decodeLines,
+		b.decodeLines = append(
+			b.decodeLines,
 			ind+"{",
 			ind+"\tb, err := r.ReadWithLen(); if err != nil { return err }",
-			ind+fmt.Sprintf("\tif err = json.Unmarshal(b, &%s); err != nil { return err }", setPath),
+			ind+fmt.Sprintf(
+				"\tif err = json.Unmarshal(b, &%s); err != nil { return err }",
+				setPath,
+			),
 			ind+"}",
 		)
 	} else {
@@ -423,12 +455,16 @@ func (b *encoderBuilder) processTypeParamField(getPath, setPath string, jsonOnly
 			ind+"\tw.WriteWithLen(b)",
 			ind+"}",
 		)
-		b.decodeLines = append(b.decodeLines,
+		b.decodeLines = append(
+			b.decodeLines,
 			ind+fmt.Sprintf("if m, ok := any(&%s).(orc.SelfDecoder); ok {", setPath),
 			ind+"\tif err := m.DecodeOrc(r); err != nil { return err }",
 			ind+"} else {",
 			ind+"\tb, err := r.ReadWithLen(); if err != nil { return err }",
-			ind+fmt.Sprintf("\tif err = json.Unmarshal(b, &%s); err != nil { return err }", setPath),
+			ind+fmt.Sprintf(
+				"\tif err = json.Unmarshal(b, &%s); err != nil { return err }",
+				setPath,
+			),
 			ind+"}",
 		)
 	}
@@ -461,10 +497,19 @@ func (b *encoderBuilder) processStruct(
 	}
 
 	// Method dispatch: call EncodeOrc/DecodeOrc on the field directly.
-	b.encodeLines = append(b.encodeLines,
-		ind+fmt.Sprintf("if err := %s.EncodeOrc(w); err != nil { return err }", callPath(getPath)))
+	b.encodeLines = append(
+		b.encodeLines,
+		ind+fmt.Sprintf(
+			"if err := %s.EncodeOrc(w); err != nil { return err }",
+			callPath(getPath),
+		),
+	)
 	b.decodeWithErr(
-		ind + fmt.Sprintf("if err = %s.DecodeOrc(r); err != nil { return err }", setPath))
+		ind + fmt.Sprintf(
+			"if err = %s.DecodeOrc(r); err != nil { return err }",
+			setPath,
+		),
+	)
 	return nil
 }
 
@@ -654,7 +699,8 @@ func (b *encoderBuilder) processOptional(
 	actual := b.unwrapType(resolved)
 
 	// Optional arrays/maps
-	if bg, ok := actual.Form.(resolution.BuiltinGenericForm); ok && (bg.Name == "Array" || bg.Name == "Map") {
+	if bg, ok := actual.Form.(resolution.BuiltinGenericForm); ok &&
+		(bg.Name == "Array" || bg.Name == "Map") {
 		b.encodeLines = append(b.encodeLines,
 			ind+fmt.Sprintf("if %s != nil {", getPath),
 			ind+"\tw.Bool(true)",
@@ -667,19 +713,30 @@ func (b *encoderBuilder) processOptional(
 		b.inBlock++
 		b.skipNilCheck = true
 		derefGet := "(*" + getPath + ")"
-		if err := b.processValueByType(resolved, f.Type, derefGet, setPath); err != nil {
+		if err := b.processValueByType(
+			resolved,
+			f.Type,
+			derefGet,
+			setPath,
+		); err != nil {
 			return err
 		}
 		b.skipNilCheck = false
 		b.inBlock--
 		b.depth--
-		b.encodeLines = append(b.encodeLines, ind+"} else {", ind+"\tw.Bool(false)", ind+"}")
+		b.encodeLines = append(
+			b.encodeLines,
+			ind+"} else {",
+			ind+"\tw.Bool(false)",
+			ind+"}",
+		)
 		b.decodeLines = append(b.decodeLines, ind+"}", ind+"}")
 		return nil
 	}
 
 	// Optional json/any
-	if prim, ok := actual.Form.(resolution.PrimitiveForm); ok && (prim.Name == "record" || prim.Name == "any") {
+	if prim, ok := actual.Form.(resolution.PrimitiveForm); ok &&
+		(prim.Name == "record" || prim.Name == "any") {
 		b.encodeLines = append(b.encodeLines,
 			ind+fmt.Sprintf("if %s != nil {", getPath),
 			ind+"\tw.Bool(true)",
@@ -695,7 +752,12 @@ func (b *encoderBuilder) processOptional(
 		}
 		b.inBlock--
 		b.depth--
-		b.encodeLines = append(b.encodeLines, ind+"} else {", ind+"\tw.Bool(false)", ind+"}")
+		b.encodeLines = append(
+			b.encodeLines,
+			ind+"} else {",
+			ind+"\tw.Bool(false)",
+			ind+"}",
+		)
 		b.decodeLines = append(b.decodeLines, ind+"}", ind+"}")
 		return nil
 	}
@@ -722,7 +784,12 @@ func (b *encoderBuilder) processOptional(
 	}
 	b.inBlock--
 	b.depth--
-	b.encodeLines = append(b.encodeLines, ind+"} else {", ind+"\tw.Bool(false)", ind+"}")
+	b.encodeLines = append(
+		b.encodeLines,
+		ind+"} else {",
+		ind+"\tw.Bool(false)",
+		ind+"}",
+	)
 	b.decodeLines = append(b.decodeLines,
 		ind+"\t"+setPath+" = &hv",
 		ind+"}",
@@ -756,7 +823,12 @@ func (b *encoderBuilder) processOptionalNilable(
 	b.skipNilCheck = false
 	b.inBlock--
 	b.depth--
-	b.encodeLines = append(b.encodeLines, ind+"} else {", ind+"\tw.Bool(false)", ind+"}")
+	b.encodeLines = append(
+		b.encodeLines,
+		ind+"} else {",
+		ind+"\tw.Bool(false)",
+		ind+"}",
+	)
 	b.decodeLines = append(b.decodeLines, ind+"}", ind+"}")
 	return nil
 }
@@ -803,7 +875,12 @@ func (b *encoderBuilder) processArray(
 	b.inBlock++
 	elemGetPath := getPath + "[" + idx + "]"
 	elemSetPath := setPath + "[" + idx + "]"
-	if err := b.processValueByType(elemType, elemRef, elemGetPath, elemSetPath); err != nil {
+	if err := b.processValueByType(
+		elemType,
+		elemRef,
+		elemGetPath,
+		elemSetPath,
+	); err != nil {
 		return err
 	}
 	b.inBlock--
@@ -907,19 +984,32 @@ func (b *encoderBuilder) processLeaf(
 			b.encodeLines = append(b.encodeLines,
 				ind+fmt.Sprintf("w.String(string(%s))", valPath))
 			b.decodeLine(
-				ind + fmt.Sprintf("{ v, err := r.String(); if err != nil { return err }; %s = %s(v) }", setPath, goTypeCast))
+				ind + fmt.Sprintf(
+					"{ v, err := r.String(); if err != nil { return err }; %s = %s(v) }",
+					setPath,
+					goTypeCast,
+				),
+			)
 		} else {
 			b.encodeLines = append(b.encodeLines,
 				ind+fmt.Sprintf("w.String(%s)", valPath))
 			b.decodeWithErr(
-				ind + fmt.Sprintf("if %s, err = r.String(); err != nil { return err }", setPath))
+				ind + fmt.Sprintf(
+					"if %s, err = r.String(); err != nil { return err }",
+					setPath,
+				),
+			)
 		}
 
 	case "uuid":
 		b.encodeLines = append(b.encodeLines,
 			ind+fmt.Sprintf("w.Write(%s[:])", getPath))
 		b.decodeLine(
-			ind + fmt.Sprintf("if _, err := r.Read(%s[:]); err != nil { return err }", setPath))
+			ind + fmt.Sprintf(
+				"if _, err := r.Read(%s[:]); err != nil { return err }",
+				setPath,
+			),
+		)
 
 	case "record", "any":
 		b.needsJSON = true
@@ -928,9 +1018,13 @@ func (b *encoderBuilder) processLeaf(
 			ind+"\tif err != nil { return err }",
 			ind+"\tw.WriteWithLen(b) }",
 		)
-		b.decodeLines = append(b.decodeLines,
+		b.decodeLines = append(
+			b.decodeLines,
 			ind+"{ b, err := r.ReadWithLen(); if err != nil { return err }",
-			ind+fmt.Sprintf("\tif err = json.Unmarshal(b, &%s); err != nil { return err } }", setPath),
+			ind+fmt.Sprintf(
+				"\tif err = json.Unmarshal(b, &%s); err != nil { return err } }",
+				setPath,
+			),
 		)
 
 	case "bytes":
@@ -941,10 +1035,14 @@ func (b *encoderBuilder) processLeaf(
 			ind+fmt.Sprintf("\tw.WriteWithLen(%s)", valPath),
 			ind+"}",
 		)
-		b.decodeLines = append(b.decodeLines,
+		b.decodeLines = append(
+			b.decodeLines,
 			ind+"{ present, err := r.Bool(); if err != nil { return err }",
 			ind+"if present {",
-			ind+fmt.Sprintf("\t%s, err = r.ReadWithLen(); if err != nil { return err }", setPath),
+			ind+fmt.Sprintf(
+				"\t%s, err = r.ReadWithLen(); if err != nil { return err }",
+				setPath,
+			),
 			ind+"} }",
 		)
 
@@ -952,7 +1050,11 @@ func (b *encoderBuilder) processLeaf(
 		b.encodeLines = append(b.encodeLines,
 			ind+fmt.Sprintf("w.Bool(%s)", valPath))
 		b.decodeWithErr(
-			ind + fmt.Sprintf("if %s, err = r.Bool(); err != nil { return err }", setPath))
+			ind + fmt.Sprintf(
+				"if %s, err = r.Bool(); err != nil { return err }",
+				setPath,
+			),
+		)
 
 	case "int8":
 		b.addIntLeaf(ind, valPath, setPath, goTypeCast, "Int8", "int8", "int8(%s)")
@@ -965,15 +1067,55 @@ func (b *encoderBuilder) processLeaf(
 	case "uint8":
 		b.addIntLeaf(ind, valPath, setPath, goTypeCast, "Uint8", "uint8", "uint8(%s)")
 	case "uint12", "uint16":
-		b.addIntLeaf(ind, valPath, setPath, goTypeCast, "Uint16", "uint16", "uint16(%s)")
+		b.addIntLeaf(
+			ind,
+			valPath,
+			setPath,
+			goTypeCast,
+			"Uint16",
+			"uint16",
+			"uint16(%s)",
+		)
 	case "uint20", "uint32":
-		b.addIntLeaf(ind, valPath, setPath, goTypeCast, "Uint32", "uint32", "uint32(%s)")
+		b.addIntLeaf(
+			ind,
+			valPath,
+			setPath,
+			goTypeCast,
+			"Uint32",
+			"uint32",
+			"uint32(%s)",
+		)
 	case "uint64":
-		b.addIntLeaf(ind, valPath, setPath, goTypeCast, "Uint64", "uint64", "uint64(%s)")
+		b.addIntLeaf(
+			ind,
+			valPath,
+			setPath,
+			goTypeCast,
+			"Uint64",
+			"uint64",
+			"uint64(%s)",
+		)
 	case "float32":
-		b.addIntLeaf(ind, valPath, setPath, goTypeCast, "Float32", "float32", "float32(%s)")
+		b.addIntLeaf(
+			ind,
+			valPath,
+			setPath,
+			goTypeCast,
+			"Float32",
+			"float32",
+			"float32(%s)",
+		)
 	case "float64":
-		b.addIntLeaf(ind, valPath, setPath, goTypeCast, "Float64", "float64", "float64(%s)")
+		b.addIntLeaf(
+			ind,
+			valPath,
+			setPath,
+			goTypeCast,
+			"Float64",
+			"float64",
+			"float64(%s)",
+		)
 
 	default:
 		return errors.Newf("unsupported primitive type: %s", primName)
@@ -992,10 +1134,21 @@ func (b *encoderBuilder) addIntLeaf(
 	}
 	if goTypeCast != "" {
 		b.decodeLine(
-			ind + fmt.Sprintf("{ v, err := r.%s(); if err != nil { return err }; %s = %s(v) }", writerMethod, setPath, cast))
+			ind + fmt.Sprintf(
+				"{ v, err := r.%s(); if err != nil { return err }; %s = %s(v) }",
+				writerMethod,
+				setPath,
+				cast,
+			),
+		)
 	} else {
 		b.decodeWithErr(
-			ind + fmt.Sprintf("if %s, err = r.%s(); err != nil { return err }", setPath, writerMethod))
+			ind + fmt.Sprintf(
+				"if %s, err = r.%s(); err != nil { return err }",
+				setPath,
+				writerMethod,
+			),
+		)
 	}
 }
 
@@ -1127,7 +1280,9 @@ func addNestedTypeParams(ref resolution.TypeRef, out set.Set[string]) {
 
 // --- Helper methods for type resolution ---
 
-func (b *encoderBuilder) resolveTypeRef(ref resolution.TypeRef) (resolution.Type, bool) {
+func (b *encoderBuilder) resolveTypeRef(
+	ref resolution.TypeRef,
+) (resolution.Type, bool) {
 	resolved, ok := ref.Resolve(b.table)
 	if ok {
 		return resolved, true
@@ -1162,7 +1317,9 @@ func (b *encoderBuilder) isGoNilable(ref resolution.TypeRef) bool {
 	return false
 }
 
-func (b *encoderBuilder) resolveLeaf(typ resolution.Type) (primName, goTypeCast string, err error) {
+func (b *encoderBuilder) resolveLeaf(
+	typ resolution.Type,
+) (primName, goTypeCast string, err error) {
 	return typemap.ResolveLeafPrimitive(typ, b.table, b.goTypeName)
 }
 

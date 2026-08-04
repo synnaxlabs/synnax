@@ -49,7 +49,10 @@ type unionVariantData struct {
 // discriminator as a defaulted std::string field followed by the flattened
 // base and variant fields, so the existing struct template and JSON codec
 // handle it like any other struct.
-func (p *Plugin) processUnion(entry resolution.Type, data *templateData) ([]structData, unionData) {
+func (p *Plugin) processUnion(
+	entry resolution.Type,
+	data *templateData,
+) ([]structData, unionData) {
 	form := entry.Form.(resolution.UnionForm)
 	name := domain.GetName(entry, "cpp")
 	data.includes.addSystem("variant")
@@ -77,7 +80,10 @@ func (p *Plugin) processUnion(entry resolution.Type, data *templateData) ([]stru
 		}
 		for _, ext := range form.Extends {
 			if parent, ok := ext.Resolve(data.table); ok {
-				sd.ExtendsTypes = append(sd.ExtendsTypes, p.resolveExtendsType(ext, parent, data))
+				sd.ExtendsTypes = append(
+					sd.ExtendsTypes,
+					p.resolveExtendsType(ext, parent, data),
+				)
 			}
 		}
 		if payload, ok := v.Type.Resolve(data.table); ok {
@@ -93,7 +99,10 @@ func (p *Plugin) processUnion(entry resolution.Type, data *templateData) ([]stru
 					sd.Fields = append(sd.Fields, p.processField(f, payload, data))
 				}
 			} else {
-				sd.ExtendsTypes = append(sd.ExtendsTypes, p.resolveExtendsType(v.Type, payload, data))
+				sd.ExtendsTypes = append(
+					sd.ExtendsTypes,
+					p.resolveExtendsType(v.Type, payload, data),
+				)
 			}
 		}
 		sd.HasExtends = len(sd.ExtendsTypes) > 0

@@ -21,13 +21,16 @@ import (
 
 var _ = Describe("Format", func() {
 	Describe("formatErrorWithStack", func() {
-		It("should include stack trace when formatting errors created with errors.New", func() {
-			err := errors.New("test error")
-			formatted := format.Object(err, 1)
-			Expect(formatted).To(ContainSubstring("test error"))
-			Expect(formatted).To(ContainSubstring("Error Origin Stack Trace:"))
-			Expect(formatted).To(ContainSubstring("format_test.go"))
-		})
+		It(
+			"should include stack trace when formatting errors created with errors.New",
+			func() {
+				err := errors.New("test error")
+				formatted := format.Object(err, 1)
+				Expect(formatted).To(ContainSubstring("test error"))
+				Expect(formatted).To(ContainSubstring("Error Origin Stack Trace:"))
+				Expect(formatted).To(ContainSubstring("format_test.go"))
+			},
+		)
 
 		It("should include stack trace when formatting wrapped errors", func() {
 			baseErr := errors.New("base error")
@@ -41,7 +44,8 @@ var _ = Describe("Format", func() {
 			err := stderrors.New("standard error")
 			formatted := format.Object(err, 1)
 			Expect(formatted).To(ContainSubstring("standard error"))
-			// Should not contain stack trace header since std errors don't have stack traces
+			// Should not contain stack trace header since std errors don't have stack
+			// traces
 		})
 
 		It("should not affect non-error values", func() {

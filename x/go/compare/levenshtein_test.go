@@ -42,8 +42,12 @@ var _ = Describe("LevenshteinDistance", func() {
 
 	Describe("symmetry", func() {
 		It("should return the same distance regardless of argument order", func() {
-			Expect(compare.LevenshteinDistance("foo", "bar")).To(Equal(compare.LevenshteinDistance("bar", "foo")))
-			Expect(compare.LevenshteinDistance("kitten", "sitting")).To(Equal(compare.LevenshteinDistance("sitting", "kitten")))
+			Expect(
+				compare.LevenshteinDistance("foo", "bar"),
+			).To(Equal(compare.LevenshteinDistance("bar", "foo")))
+			Expect(
+				compare.LevenshteinDistance("kitten", "sitting"),
+			).To(Equal(compare.LevenshteinDistance("sitting", "kitten")))
 		})
 	})
 

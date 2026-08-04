@@ -16,10 +16,11 @@ import (
 )
 
 type (
-	// Middleware is an interface that can be implemented to intercept and modify requests
-	// either to a server (client side) or from a client (server side).
+	// Middleware is an interface that can be implemented to intercept and modify
+	// requests either to a server (client side) or from a client (server side).
 	Middleware = middleware.Middleware[Context, Context]
-	// Finalizer is the final middleware in a chain, and is expected to execute the request.
+	// Finalizer is the final middleware in a chain, and is expected to execute the
+	// request.
 	Finalizer = middleware.Finalizer[Context, Context]
 	// Next is a function that is called to continue the middleware chain.
 	Next = func(Context) (Context, error)
@@ -41,14 +42,21 @@ type MiddlewareCollector struct {
 }
 
 // Exec maintains the middleware.Chain interface.
-func (mc *MiddlewareCollector) Exec(fCtx Context, finalizer middleware.Finalizer[Context, Context]) (Context, error) {
+func (mc *MiddlewareCollector) Exec(
+	fCtx Context,
+	finalizer middleware.Finalizer[Context, Context],
+) (Context, error) {
 	return mc.Chain.Exec(fCtx, FinalizerFunc(func(md Context) (Context, error) {
 		return finalizer.Finalize(md)
 	}))
 }
 
 // Use maintains the middleware.Collector interface.
-func (mc *MiddlewareCollector) Use(m ...Middleware) { mc.Chain = append(mc.Chain, m...) }
+func (mc *MiddlewareCollector) Use(
+	m ...Middleware,
+) {
+	mc.Chain = append(mc.Chain, m...)
+}
 
 // MiddlewareFunc is a utility type so that functions can implement Middleware.
 type MiddlewareFunc func(Context, Next) (Context, error)

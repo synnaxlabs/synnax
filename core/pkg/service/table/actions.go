@@ -124,7 +124,11 @@ func (p AddColPayload) Handle(state Table) (Table, error) {
 		state.Rows = slices.Repeat([]Row{{Size: baseRowDim}}, len(cells))
 	}
 	idx := min(int(p.Index), len(state.Columns))
-	state.Columns = slices.Insert(state.Columns, idx, Column{Size: max(p.Size, minCellDim)})
+	state.Columns = slices.Insert(
+		state.Columns,
+		idx,
+		Column{Size: max(p.Size, minCellDim)},
+	)
 	if state.Cells == nil {
 		state.Cells = make(map[string]Cell, len(cells))
 	}
@@ -252,7 +256,11 @@ func (p EraseCellsPayload) Handle(state Table) (Table, error) {
 		if _, ok := state.Cells[k]; !ok {
 			continue
 		}
-		state.Cells[k] = Cell{Key: k, Variant: p.Template.Variant, Props: p.Template.Props}
+		state.Cells[k] = Cell{
+			Key:     k,
+			Variant: p.Template.Variant,
+			Props:   p.Template.Props,
+		}
 	}
 	return state, nil
 }

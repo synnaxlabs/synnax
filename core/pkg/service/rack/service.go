@@ -100,7 +100,10 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.HostProvider = override.Nil(c.HostProvider, other.HostProvider)
 	c.Status = override.Nil(c.Status, other.Status)
 	c.Search = override.Nil(c.Search, other.Search)
-	c.HealthCheckInterval = override.Numeric(c.HealthCheckInterval, other.HealthCheckInterval)
+	c.HealthCheckInterval = override.Numeric(
+		c.HealthCheckInterval,
+		other.HealthCheckInterval,
+	)
 	c.AlertEveryNChecks = override.Numeric(c.AlertEveryNChecks, other.AlertEveryNChecks)
 	c.Now = override.Nil(c.Now, other.Now)
 	return c
@@ -129,7 +132,10 @@ type Service struct {
 	EmbeddedKey Key
 }
 
-func OpenService(ctx context.Context, configs ...ServiceConfig) (s *Service, err error) {
+func OpenService(
+	ctx context.Context,
+	configs ...ServiceConfig,
+) (s *Service, err error) {
 	cfg, err := config.New(DefaultServiceConfig, configs...)
 	if err != nil {
 		return nil, err
@@ -147,7 +153,14 @@ func OpenService(ctx context.Context, configs ...ServiceConfig) (s *Service, err
 	}); !ok(err, s.table) {
 		return nil, err
 	}
-	if s.group, err = cfg.Group.CreateOrRetrieve(ctx, "Devices", ontology.RootID); !ok(err, nil) {
+	if s.group, err = cfg.Group.CreateOrRetrieve(
+		ctx,
+		"Devices",
+		ontology.RootID,
+	); !ok(
+		err,
+		nil,
+	) {
 		return nil, err
 	}
 	counterKey := []byte(cfg.HostProvider.HostKey().String() + ".rack.counter")
@@ -170,7 +183,9 @@ func (s *Service) Observe() observe.Observable[gorp.TxReader[Key, Rack]] {
 	return s.table.Observe()
 }
 
-func (s *Service) OnSuspect(handler func(ctx context.Context, status Status)) observe.Disconnect {
+func (s *Service) OnSuspect(
+	handler func(ctx context.Context, status Status),
+) observe.Disconnect {
 	return s.monitor.OnChange(handler)
 }
 

@@ -191,22 +191,28 @@ var _ = Describe("Integer", func() {
 			Expect(s.Contains(11)).To(BeTrue())
 		})
 
-		It("Should handle inserting a range fully contained in an existing interval", func() {
-			s.Insert(1, 2, 3, 4, 5, 6, 7, 8, 9, 10)
-			s.Insert(4, 5, 6)
-			Expect(s).To(HaveLen(1))
-			Expect(s.Size()).To(Equal(10))
-		})
+		It(
+			"Should handle inserting a range fully contained in an existing interval",
+			func() {
+				s.Insert(1, 2, 3, 4, 5, 6, 7, 8, 9, 10)
+				s.Insert(4, 5, 6)
+				Expect(s).To(HaveLen(1))
+				Expect(s.Size()).To(Equal(10))
+			},
+		)
 
-		It("Should handle inserting a range that spans multiple existing intervals", func() {
-			s.Insert(0, 1, 2)
-			s.Insert(5, 6, 7)
-			s.Insert(10, 11, 12)
-			Expect(s).To(HaveLen(3))
-			s.Insert(0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12)
-			Expect(s).To(HaveLen(1))
-			Expect(s.Size()).To(Equal(13))
-		})
+		It(
+			"Should handle inserting a range that spans multiple existing intervals",
+			func() {
+				s.Insert(0, 1, 2)
+				s.Insert(5, 6, 7)
+				s.Insert(10, 11, 12)
+				Expect(s).To(HaveLen(3))
+				s.Insert(0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12)
+				Expect(s).To(HaveLen(1))
+				Expect(s.Size()).To(Equal(13))
+			},
+		)
 
 		It("Should handle zero", func() {
 			s.Insert(0)

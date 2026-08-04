@@ -109,9 +109,12 @@ var _ = Describe("Task", Ordered, func() {
 		})
 	})
 	Describe("CommandChannelKey", func() {
-		It("Should return zero when no channel service is configured", func(ctx SpecContext) {
-			Expect(svc.CommandChannelKey()).To(Equal(channel.Key(0)))
-		})
+		It(
+			"Should return zero when no channel service is configured",
+			func(ctx SpecContext) {
+				Expect(svc.CommandChannelKey()).To(Equal(channel.Key(0)))
+			},
+		)
 	})
 	Describe("StatusDetails msgpack round-trip", func() {
 		It("Should round-trip a UUID task key", func(ctx SpecContext) {
@@ -164,11 +167,14 @@ var _ = Describe("Task", Ordered, func() {
 		It("Should assign a hash on create", func(ctx SpecContext) {
 			Expect(create(ctx, msgpack.EncodedJSON{"rate": 10})).ToNot(BeEmpty())
 		})
-		It("Should hash equal configs equally regardless of key order", func(ctx SpecContext) {
-			first := create(ctx, msgpack.EncodedJSON{"rate": 10, "port": "COM1"})
-			second := create(ctx, msgpack.EncodedJSON{"port": "COM1", "rate": 10})
-			Expect(first).To(Equal(second))
-		})
+		It(
+			"Should hash equal configs equally regardless of key order",
+			func(ctx SpecContext) {
+				first := create(ctx, msgpack.EncodedJSON{"rate": 10, "port": "COM1"})
+				second := create(ctx, msgpack.EncodedJSON{"port": "COM1", "rate": 10})
+				Expect(first).To(Equal(second))
+			},
+		)
 		It("Should hash differing configs differently", func(ctx SpecContext) {
 			first := create(ctx, msgpack.EncodedJSON{"rate": 10})
 			second := create(ctx, msgpack.EncodedJSON{"rate": 20})
@@ -179,25 +185,31 @@ var _ = Describe("Task", Ordered, func() {
 		})
 		// msgpack clients send integers where JSON clients send floats, so the two
 		// encodings of one config must not read as drift.
-		It("Should hash integer and integral float values identically", func(ctx SpecContext) {
-			Expect(create(ctx, msgpack.EncodedJSON{"rate": 50})).
-				To(Equal(create(ctx, msgpack.EncodedJSON{"rate": 50.0})))
-		})
-		It("Should restore the original hash when an edit is undone", func(ctx SpecContext) {
-			t := &task.Task{
-				Rack:   testRack.Key,
-				Name:   "Test Task",
-				Config: msgpack.EncodedJSON{"rate": 10},
-			}
-			Expect(w.Create(ctx, t)).To(Succeed())
-			original := t.ConfigHash
-			t.Config = msgpack.EncodedJSON{"rate": 20}
-			Expect(w.Create(ctx, t)).To(Succeed())
-			Expect(t.ConfigHash).ToNot(Equal(original))
-			t.Config = msgpack.EncodedJSON{"rate": 10}
-			Expect(w.Create(ctx, t)).To(Succeed())
-			Expect(t.ConfigHash).To(Equal(original))
-		})
+		It(
+			"Should hash integer and integral float values identically",
+			func(ctx SpecContext) {
+				Expect(create(ctx, msgpack.EncodedJSON{"rate": 50})).
+					To(Equal(create(ctx, msgpack.EncodedJSON{"rate": 50.0})))
+			},
+		)
+		It(
+			"Should restore the original hash when an edit is undone",
+			func(ctx SpecContext) {
+				t := &task.Task{
+					Rack:   testRack.Key,
+					Name:   "Test Task",
+					Config: msgpack.EncodedJSON{"rate": 10},
+				}
+				Expect(w.Create(ctx, t)).To(Succeed())
+				original := t.ConfigHash
+				t.Config = msgpack.EncodedJSON{"rate": 20}
+				Expect(w.Create(ctx, t)).To(Succeed())
+				Expect(t.ConfigHash).ToNot(Equal(original))
+				t.Config = msgpack.EncodedJSON{"rate": 10}
+				Expect(w.Create(ctx, t)).To(Succeed())
+				Expect(t.ConfigHash).To(Equal(original))
+			},
+		)
 		It("Should ignore a client-provided hash", func(ctx SpecContext) {
 			t := &task.Task{
 				Rack:       testRack.Key,
@@ -217,7 +229,9 @@ var _ = Describe("Task", Ordered, func() {
 				Name:   "Test Task",
 				Config: msgpack.EncodedJSON{"rate": math.NaN()},
 			}
-			Expect(w.Create(ctx, t)).To(MatchError(ContainSubstring("hash task config")))
+			Expect(
+				w.Create(ctx, t),
+			).To(MatchError(ContainSubstring("hash task config")))
 		})
 		It("Should persist the hash alongside the task", func(ctx SpecContext) {
 			t := &task.Task{
@@ -233,25 +247,28 @@ var _ = Describe("Task", Ordered, func() {
 				Exec(ctx, tx)).To(Succeed())
 			Expect(retrieved.ConfigHash).To(Equal(t.ConfigHash))
 		})
-		It("Should keep the existing hash when a snapshot's config is retained", func(ctx SpecContext) {
-			t := &task.Task{
-				Rack:   testRack.Key,
-				Name:   "Test Task",
-				Config: msgpack.EncodedJSON{"rate": 10},
-			}
-			Expect(w.Create(ctx, t)).To(Succeed())
-			snap := MustSucceed(w.Copy(ctx, t.Key, "Snapshot", true))
-			Expect(snap.ConfigHash).To(Equal(t.ConfigHash))
-			edited := snap
-			edited.Config = msgpack.EncodedJSON{"rate": 999}
-			Expect(w.Create(ctx, &edited)).To(Succeed())
-			var retrieved task.Task
-			Expect(svc.NewRetrieve().
-				Where(task.MatchKeys(snap.Key)).
-				Entry(&retrieved).
-				Exec(ctx, tx)).To(Succeed())
-			Expect(retrieved.ConfigHash).To(Equal(t.ConfigHash))
-		})
+		It(
+			"Should keep the existing hash when a snapshot's config is retained",
+			func(ctx SpecContext) {
+				t := &task.Task{
+					Rack:   testRack.Key,
+					Name:   "Test Task",
+					Config: msgpack.EncodedJSON{"rate": 10},
+				}
+				Expect(w.Create(ctx, t)).To(Succeed())
+				snap := MustSucceed(w.Copy(ctx, t.Key, "Snapshot", true))
+				Expect(snap.ConfigHash).To(Equal(t.ConfigHash))
+				edited := snap
+				edited.Config = msgpack.EncodedJSON{"rate": 999}
+				Expect(w.Create(ctx, &edited)).To(Succeed())
+				var retrieved task.Task
+				Expect(svc.NewRetrieve().
+					Where(task.MatchKeys(snap.Key)).
+					Entry(&retrieved).
+					Exec(ctx, tx)).To(Succeed())
+				Expect(retrieved.ConfigHash).To(Equal(t.ConfigHash))
+			},
+		)
 	})
 
 	Describe("CreateMany", func() {
@@ -278,7 +295,6 @@ var _ = Describe("Task", Ordered, func() {
 	})
 
 	Describe("Copy", func() {
-
 		It("Should copy a task", func(ctx SpecContext) {
 			m := &task.Task{
 				Rack: testRack.Key,
@@ -302,7 +318,6 @@ var _ = Describe("Task", Ordered, func() {
 			Expect(t.Key).ToNot(Equal(m.Key))
 			Expect(t.Snapshot).To(BeTrue())
 		})
-
 	})
 
 	Describe("Retrieve", func() {
@@ -314,7 +329,12 @@ var _ = Describe("Task", Ordered, func() {
 			Expect(w.Create(ctx, m)).To(Succeed())
 			Expect(m.Name).To(Equal("Test Task"))
 			var res task.Task
-			Expect(svc.NewRetrieve().Where(task.MatchKeys(m.Key)).Entry(&res).Exec(ctx, tx)).To(Succeed())
+			Expect(
+				svc.NewRetrieve().
+					Where(task.MatchKeys(m.Key)).
+					Entry(&res).
+					Exec(ctx, tx),
+			).To(Succeed())
 			Expect(res).To(Equal(*m))
 		})
 
@@ -331,12 +351,22 @@ var _ = Describe("Task", Ordered, func() {
 			}
 			Expect(w.Create(ctx, snapshot)).To(Succeed())
 			var snapshots []task.Task
-			Expect(svc.NewRetrieve().Where(task.MatchSnapshot(true)).Entries(&snapshots).Exec(ctx, tx)).To(Succeed())
+			Expect(
+				svc.NewRetrieve().
+					Where(task.MatchSnapshot(true)).
+					Entries(&snapshots).
+					Exec(ctx, tx),
+			).To(Succeed())
 			Expect(snapshots).To(HaveLen(1))
 			Expect(snapshots[0].Name).To(Equal("Snapshot Task"))
 			Expect(snapshots[0].Snapshot).To(BeTrue())
 			var regulars []task.Task
-			Expect(svc.NewRetrieve().Where(task.MatchSnapshot(false)).Entries(&regulars).Exec(ctx, tx)).To(Succeed())
+			Expect(
+				svc.NewRetrieve().
+					Where(task.MatchSnapshot(false)).
+					Entries(&regulars).
+					Exec(ctx, tx),
+			).To(Succeed())
 			Expect(regulars).ToNot(BeEmpty())
 			for _, t := range regulars {
 				Expect(t.Snapshot).To(BeFalse())
@@ -357,7 +387,12 @@ var _ = Describe("Task", Ordered, func() {
 			}
 			Expect(w.Create(ctx, snapshot2)).To(Succeed())
 			var res task.Task
-			Expect(svc.NewRetrieve().Where(task.And(task.MatchSnapshot(true), task.MatchNames("Snapshot Task 1"))).Entry(&res).Exec(ctx, tx)).To(Succeed())
+			Expect(
+				svc.NewRetrieve().
+					Where(task.And(task.MatchSnapshot(true), task.MatchNames("Snapshot Task 1"))).
+					Entry(&res).
+					Exec(ctx, tx),
+			).To(Succeed())
 			Expect(res.Name).To(Equal("Snapshot Task 1"))
 			Expect(res.Snapshot).To(BeTrue())
 		})
@@ -375,12 +410,22 @@ var _ = Describe("Task", Ordered, func() {
 			}
 			Expect(w.Create(ctx, internal)).To(Succeed())
 			var internals []task.Task
-			Expect(svc.NewRetrieve().Where(task.MatchInternal(true)).Entries(&internals).Exec(ctx, tx)).To(Succeed())
+			Expect(
+				svc.NewRetrieve().
+					Where(task.MatchInternal(true)).
+					Entries(&internals).
+					Exec(ctx, tx),
+			).To(Succeed())
 			Expect(internals).To(HaveLen(1))
 			Expect(internals[0].Name).To(Equal("Internal Task"))
 			Expect(internals[0].Internal).To(BeTrue())
 			var regulars []task.Task
-			Expect(svc.NewRetrieve().Where(task.MatchInternal(false)).Entries(&regulars).Exec(ctx, tx)).To(Succeed())
+			Expect(
+				svc.NewRetrieve().
+					Where(task.MatchInternal(false)).
+					Entries(&regulars).
+					Exec(ctx, tx),
+			).To(Succeed())
 			Expect(regulars).ToNot(BeEmpty())
 			for _, t := range regulars {
 				Expect(t.Internal).To(BeFalse())
@@ -401,199 +446,242 @@ var _ = Describe("Task", Ordered, func() {
 			}
 			Expect(w.Create(ctx, internal2)).To(Succeed())
 			var res task.Task
-			Expect(svc.NewRetrieve().Where(task.And(task.MatchInternal(true), task.MatchNames("Internal Task 1"))).Entry(&res).Exec(ctx, tx)).To(Succeed())
+			Expect(
+				svc.NewRetrieve().
+					Where(task.And(task.MatchInternal(true), task.MatchNames("Internal Task 1"))).
+					Entry(&res).
+					Exec(ctx, tx),
+			).To(Succeed())
 			Expect(res.Name).To(Equal("Internal Task 1"))
 			Expect(res.Internal).To(BeTrue())
 		})
 	})
 
 	Describe("Delete", func() {
-		It("Should correctly delete a task and its associated status", func(ctx SpecContext) {
-			m := &task.Task{
-				Rack: testRack.Key,
-				Name: "Test Task",
-			}
-			Expect(w.Create(ctx, m)).To(Succeed())
-			Expect(w.Delete(ctx, m.Key, false)).To(Succeed())
-			Expect(svc.NewRetrieve().Where(task.MatchKeys(m.Key)).Exec(ctx, tx)).To(MatchError(query.ErrNotFound))
-			var deletedStatus task.Status
-			Expect(status.NewRetrieve[task.StatusDetails](stat).
-				Where(status.MatchKeys[task.StatusDetails](m.OntologyID().String())).
-				Entry(&deletedStatus).
-				Exec(ctx, tx)).To(MatchError(query.ErrNotFound))
-		})
+		It(
+			"Should correctly delete a task and its associated status",
+			func(ctx SpecContext) {
+				m := &task.Task{
+					Rack: testRack.Key,
+					Name: "Test Task",
+				}
+				Expect(w.Create(ctx, m)).To(Succeed())
+				Expect(w.Delete(ctx, m.Key, false)).To(Succeed())
+				Expect(
+					svc.NewRetrieve().Where(task.MatchKeys(m.Key)).Exec(ctx, tx),
+				).To(MatchError(query.ErrNotFound))
+				var deletedStatus task.Status
+				Expect(status.NewRetrieve[task.StatusDetails](stat).
+					Where(status.MatchKeys[task.StatusDetails](m.OntologyID().String())).
+					Entry(&deletedStatus).
+					Exec(ctx, tx)).To(MatchError(query.ErrNotFound))
+			},
+		)
 	})
 
 	Describe("Status", func() {
-		It("Should create a not-deployed status when creating a task", func(ctx SpecContext) {
-			m := &task.Task{
-				Rack: testRack.Key,
-				Name: "Status Test Task",
-			}
-			Expect(w.Create(ctx, m)).To(Succeed())
+		It(
+			"Should create a not-deployed status when creating a task",
+			func(ctx SpecContext) {
+				m := &task.Task{
+					Rack: testRack.Key,
+					Name: "Status Test Task",
+				}
+				Expect(w.Create(ctx, m)).To(Succeed())
 
-			var taskStatus task.Status
-			Expect(status.NewRetrieve[task.StatusDetails](stat).
-				Where(status.MatchKeys[task.StatusDetails](m.OntologyID().String())).
-				Entry(&taskStatus).
-				Exec(ctx, tx)).To(Succeed())
-			Expect(taskStatus.Variant).To(Equal(status.VariantDisabled))
-			Expect(taskStatus.Message).To(Equal("Status Test Task has not been deployed"))
-			Expect(taskStatus.Details.Task).To(Equal(m.Key))
-		})
+				var taskStatus task.Status
+				Expect(status.NewRetrieve[task.StatusDetails](stat).
+					Where(status.MatchKeys[task.StatusDetails](m.OntologyID().String())).
+					Entry(&taskStatus).
+					Exec(ctx, tx)).To(Succeed())
+				Expect(taskStatus.Variant).To(Equal(status.VariantDisabled))
+				Expect(
+					taskStatus.Message,
+				).To(Equal("Status Test Task has not been deployed"))
+				Expect(taskStatus.Details.Task).To(Equal(m.Key))
+			},
+		)
 
-		It("Should use the provided status when creating a task", func(ctx SpecContext) {
-			providedStatus := &task.Status{
-				Variant:     status.VariantSuccess,
-				Message:     "Custom task status",
-				Description: "Task is running",
-				Time:        telem.Now(),
-				Details: task.StatusDetails{
-					Running: true,
-				},
-			}
-			m := &task.Task{
-				Rack:   testRack.Key,
-				Name:   "Task with custom status",
-				Status: providedStatus,
-			}
-			Expect(w.Create(ctx, m)).To(Succeed())
+		It(
+			"Should use the provided status when creating a task",
+			func(ctx SpecContext) {
+				providedStatus := &task.Status{
+					Variant:     status.VariantSuccess,
+					Message:     "Custom task status",
+					Description: "Task is running",
+					Time:        telem.Now(),
+					Details: task.StatusDetails{
+						Running: true,
+					},
+				}
+				m := &task.Task{
+					Rack:   testRack.Key,
+					Name:   "Task with custom status",
+					Status: providedStatus,
+				}
+				Expect(w.Create(ctx, m)).To(Succeed())
 
-			var taskStatus task.Status
-			Expect(status.NewRetrieve[task.StatusDetails](stat).
-				Where(status.MatchKeys[task.StatusDetails](m.OntologyID().String())).
-				Entry(&taskStatus).
-				Exec(ctx, tx)).To(Succeed())
-			Expect(taskStatus.Variant).To(Equal(status.VariantSuccess))
-			Expect(taskStatus.Message).To(Equal("Custom task status"))
-			Expect(taskStatus.Description).To(Equal("Task is running"))
-			// Key should be auto-assigned
-			Expect(taskStatus.Key).To(Equal(m.OntologyID().String()))
-			// Name should be auto-filled
-			Expect(taskStatus.Name).To(Equal(m.Name))
-			// Details.Task should be auto-filled
-			Expect(taskStatus.Details.Task).To(Equal(m.Key))
-			// Provided details should be preserved
-			Expect(taskStatus.Details.Running).To(BeTrue())
-		})
+				var taskStatus task.Status
+				Expect(status.NewRetrieve[task.StatusDetails](stat).
+					Where(status.MatchKeys[task.StatusDetails](m.OntologyID().String())).
+					Entry(&taskStatus).
+					Exec(ctx, tx)).To(Succeed())
+				Expect(taskStatus.Variant).To(Equal(status.VariantSuccess))
+				Expect(taskStatus.Message).To(Equal("Custom task status"))
+				Expect(taskStatus.Description).To(Equal("Task is running"))
+				// Key should be auto-assigned
+				Expect(taskStatus.Key).To(Equal(m.OntologyID().String()))
+				// Name should be auto-filled
+				Expect(taskStatus.Name).To(Equal(m.Name))
+				// Details.Task should be auto-filled
+				Expect(taskStatus.Details.Task).To(Equal(m.Key))
+				// Provided details should be preserved
+				Expect(taskStatus.Details.Running).To(BeTrue())
+			},
+		)
 
-		It("Should return a validation error if provided status has empty variant", func(ctx SpecContext) {
-			providedStatus := &task.Status{
-				Time:    telem.Now(),
-				Message: "Status with no variant",
-			}
-			m := &task.Task{
-				Rack:   testRack.Key,
-				Name:   "Task with invalid status",
-				Status: providedStatus,
-			}
-			Expect(w.Create(ctx, m)).Error().To(MatchError(ContainSubstring("variant")))
-		})
-		It("Should restore a missing status row when the task is re-configured", func(ctx SpecContext) {
-			t := &task.Task{
-				Rack: testRack.Key,
-				Name: "Self Heal Task",
-			}
-			Expect(w.Create(ctx, t)).To(Succeed())
-
-			Expect(status.NewWriter[task.StatusDetails](stat, tx).
-				Delete(ctx, t.OntologyID().String())).To(Succeed())
-			Expect(status.NewRetrieve[task.StatusDetails](stat).
-				Where(status.MatchKeys[task.StatusDetails](t.OntologyID().String())).
-				Exec(ctx, tx)).To(MatchError(query.ErrNotFound))
-
-			reconfigured := &task.Task{Key: t.Key, Name: t.Name}
-			Expect(w.Create(ctx, reconfigured)).To(Succeed())
-
-			var healed task.Status
-			Expect(status.NewRetrieve[task.StatusDetails](stat).
-				Where(status.MatchKeys[task.StatusDetails](t.OntologyID().String())).
-				Entry(&healed).
-				Exec(ctx, tx)).To(Succeed())
-			Expect(healed.Details.Task).To(Equal(t.Key))
-			Expect(healed.Variant).To(Equal(status.VariantWarning))
-			Expect(healed.Message).To(Equal("Self Heal Task status unknown"))
-		})
-
-		It("Should not clobber a live status row on a no-op re-configure", func(ctx SpecContext) {
-			t := &task.Task{
-				Rack: testRack.Key,
-				Name: "Live Status Task",
-				Status: &task.Status{
-					Variant: status.VariantSuccess,
-					Message: "Task is running",
+		It(
+			"Should return a validation error if provided status has empty variant",
+			func(ctx SpecContext) {
+				providedStatus := &task.Status{
 					Time:    telem.Now(),
-				},
-			}
-			Expect(w.Create(ctx, t)).To(Succeed())
+					Message: "Status with no variant",
+				}
+				m := &task.Task{
+					Rack:   testRack.Key,
+					Name:   "Task with invalid status",
+					Status: providedStatus,
+				}
+				Expect(
+					w.Create(ctx, m),
+				).Error().
+					To(MatchError(ContainSubstring("variant")))
+			},
+		)
+		It(
+			"Should restore a missing status row when the task is re-configured",
+			func(ctx SpecContext) {
+				t := &task.Task{
+					Rack: testRack.Key,
+					Name: "Self Heal Task",
+				}
+				Expect(w.Create(ctx, t)).To(Succeed())
 
-			reconfigured := &task.Task{Key: t.Key, Name: t.Name}
-			Expect(w.Create(ctx, reconfigured)).To(Succeed())
+				Expect(status.NewWriter[task.StatusDetails](stat, tx).
+					Delete(ctx, t.OntologyID().String())).To(Succeed())
+				Expect(status.NewRetrieve[task.StatusDetails](stat).
+					Where(status.MatchKeys[task.StatusDetails](t.OntologyID().String())).
+					Exec(ctx, tx)).To(MatchError(query.ErrNotFound))
 
-			var preserved task.Status
-			Expect(status.NewRetrieve[task.StatusDetails](stat).
-				Where(status.MatchKeys[task.StatusDetails](t.OntologyID().String())).
-				Entry(&preserved).
-				Exec(ctx, tx)).To(Succeed())
-			Expect(preserved.Variant).To(Equal(status.VariantSuccess))
-			Expect(preserved.Message).To(Equal("Task is running"))
-		})
+				reconfigured := &task.Task{Key: t.Key, Name: t.Name}
+				Expect(w.Create(ctx, reconfigured)).To(Succeed())
 
-		It("Should create a not-deployed status when copying a task", func(ctx SpecContext) {
-			m := &task.Task{
-				Rack: testRack.Key,
-				Name: "Original Task",
-			}
-			Expect(w.Create(ctx, m)).To(Succeed())
+				var healed task.Status
+				Expect(status.NewRetrieve[task.StatusDetails](stat).
+					Where(status.MatchKeys[task.StatusDetails](t.OntologyID().String())).
+					Entry(&healed).
+					Exec(ctx, tx)).To(Succeed())
+				Expect(healed.Details.Task).To(Equal(t.Key))
+				Expect(healed.Variant).To(Equal(status.VariantWarning))
+				Expect(healed.Message).To(Equal("Self Heal Task status unknown"))
+			},
+		)
 
-			copied := MustSucceed(w.Copy(ctx, m.Key, "Copied Task", false))
+		It(
+			"Should not clobber a live status row on a no-op re-configure",
+			func(ctx SpecContext) {
+				t := &task.Task{
+					Rack: testRack.Key,
+					Name: "Live Status Task",
+					Status: &task.Status{
+						Variant: status.VariantSuccess,
+						Message: "Task is running",
+						Time:    telem.Now(),
+					},
+				}
+				Expect(w.Create(ctx, t)).To(Succeed())
 
-			var copiedStatus task.Status
-			Expect(status.NewRetrieve[task.StatusDetails](stat).
-				Where(status.MatchKeys[task.StatusDetails](copied.OntologyID().String())).
-				Entry(&copiedStatus).
-				Exec(ctx, tx)).To(Succeed())
-			Expect(copiedStatus.Variant).To(Equal(status.VariantDisabled))
-			Expect(copiedStatus.Message).To(Equal("Copied Task has not been deployed"))
-			Expect(copiedStatus.Details.Task).To(Equal(copied.Key))
-		})
+				reconfigured := &task.Task{Key: t.Key, Name: t.Name}
+				Expect(w.Create(ctx, reconfigured)).To(Succeed())
+
+				var preserved task.Status
+				Expect(status.NewRetrieve[task.StatusDetails](stat).
+					Where(status.MatchKeys[task.StatusDetails](t.OntologyID().String())).
+					Entry(&preserved).
+					Exec(ctx, tx)).To(Succeed())
+				Expect(preserved.Variant).To(Equal(status.VariantSuccess))
+				Expect(preserved.Message).To(Equal("Task is running"))
+			},
+		)
+
+		It(
+			"Should create a not-deployed status when copying a task",
+			func(ctx SpecContext) {
+				m := &task.Task{
+					Rack: testRack.Key,
+					Name: "Original Task",
+				}
+				Expect(w.Create(ctx, m)).To(Succeed())
+
+				copied := MustSucceed(w.Copy(ctx, m.Key, "Copied Task", false))
+
+				var copiedStatus task.Status
+				Expect(status.NewRetrieve[task.StatusDetails](stat).
+					Where(status.MatchKeys[task.StatusDetails](copied.OntologyID().String())).
+					Entry(&copiedStatus).
+					Exec(ctx, tx)).To(Succeed())
+				Expect(copiedStatus.Variant).To(Equal(status.VariantDisabled))
+				Expect(
+					copiedStatus.Message,
+				).To(Equal("Copied Task has not been deployed"))
+				Expect(copiedStatus.Details.Task).To(Equal(copied.Key))
+			},
+		)
 	})
 
 	Describe("Suspect Rack", func() {
-		It("Should propagate rack warning status to tasks on that rack", func(ctx SpecContext) {
-			r := rack.Rack{Name: "suspect rack"}
-			Expect(rackService.NewWriter(nil).Create(ctx, &r)).To(Succeed())
+		It(
+			"Should propagate rack warning status to tasks on that rack",
+			func(ctx SpecContext) {
+				r := rack.Rack{Name: "suspect rack"}
+				Expect(rackService.NewWriter(nil).Create(ctx, &r)).To(Succeed())
 
-			t := &task.Task{
-				Rack: r.Key,
-				Name: "Test Task",
-			}
-			Expect(svc.NewWriter(nil).Create(ctx, t)).To(Succeed())
+				t := &task.Task{
+					Rack: r.Key,
+					Name: "Test Task",
+				}
+				Expect(svc.NewWriter(nil).Create(ctx, t)).To(Succeed())
 
-			Eventually(func(g Gomega) {
-				var taskStatus task.Status
-				g.Expect(status.NewRetrieve[task.StatusDetails](stat).
-					Where(status.MatchKeys[task.StatusDetails](t.OntologyID().String())).
-					Entry(&taskStatus).
-					Exec(ctx, nil)).To(Succeed())
-				g.Expect(taskStatus.Variant).To(Equal(status.VariantWarning))
-				g.Expect(taskStatus.Message).To(ContainSubstring("not running"))
-				g.Expect(taskStatus.Details.Task).To(Equal(t.Key))
-			}).Should(Succeed())
-		})
+				Eventually(func(g Gomega) {
+					var taskStatus task.Status
+					g.Expect(status.NewRetrieve[task.StatusDetails](stat).
+						Where(status.MatchKeys[task.StatusDetails](t.OntologyID().String())).
+						Entry(&taskStatus).
+						Exec(ctx, nil)).To(Succeed())
+					g.Expect(taskStatus.Variant).To(Equal(status.VariantWarning))
+					g.Expect(taskStatus.Message).To(ContainSubstring("not running"))
+					g.Expect(taskStatus.Details.Task).To(Equal(t.Key))
+				}).Should(Succeed())
+			},
+		)
 	})
 
 	Describe("Command", func() {
 		Describe("String", func() {
-			It("Should return a string representation of the command", func(ctx SpecContext) {
-				k := uuid.New()
-				c := &task.Command{
-					Key:  "cmd",
-					Task: k,
-					Type: "doc",
-				}
-				Expect(c.String()).To(Equal("doc (key=cmd, task=" + k.String() + ")"))
-			})
+			It(
+				"Should return a string representation of the command",
+				func(ctx SpecContext) {
+					k := uuid.New()
+					c := &task.Command{
+						Key:  "cmd",
+						Task: k,
+						Type: "doc",
+					}
+					Expect(
+						c.String(),
+					).To(Equal("doc (key=cmd, task=" + k.String() + ")"))
+				},
+			)
 		})
 	})
 
@@ -609,9 +697,10 @@ var _ = Describe("Task", Ordered, func() {
 			}
 			Expect(w.Create(ctx, t)).To(Succeed())
 			called := false
-			svc.Observe().OnChange(func(ctx context.Context, _ gorp.TxReader[task.Key, task.Task]) {
-				called = true
-			})
+			svc.Observe().
+				OnChange(func(ctx context.Context, _ gorp.TxReader[task.Key, task.Task]) {
+					called = true
+				})
 			Expect(tx.Commit(ctx)).To(Succeed())
 			Expect(called).To(BeTrue())
 		})

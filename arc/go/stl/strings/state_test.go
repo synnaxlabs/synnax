@@ -150,12 +150,15 @@ var _ = Describe("ProgramState", func() {
 			Expect(MustBeOk(s.Get(ch))).To(Equal("fallback"))
 		})
 
-		It("Should return false for handle in gap between transient and literal", func() {
-			s.Create("t")
-			s.CreateLiteral("c")
-			_, ok := s.Get(100)
-			Expect(ok).To(BeFalse())
-		})
+		It(
+			"Should return false for handle in gap between transient and literal",
+			func() {
+				s.Create("t")
+				s.CreateLiteral("c")
+				_, ok := s.Get(100)
+				Expect(ok).To(BeFalse())
+			},
+		)
 	})
 
 	Describe("Clear", func() {
