@@ -30,13 +30,18 @@ type options struct {
 	dirname          string
 	gcCfg            GCConfig
 	fileSize         telem.Size
+	relayBufferSize  int
 	streamBufferSize int
 }
 
 func (o *options) Report() alamos.Report { return alamos.Report{"dirname": o.dirname} }
 
 func newOptions(dirname string, opts ...Option) (*options, error) {
-	o := &options{dirname: dirname, streamBufferSize: defaultRelayBufferSize}
+	o := &options{
+		dirname:          dirname,
+		relayBufferSize:  defaultRelayBufferSize,
+		streamBufferSize: defaultStreamBufferSize,
+	}
 	for _, opt := range opts {
 		opt(o)
 	}
@@ -60,6 +65,7 @@ func mergeAndValidateOptions(o *options) error {
 	o.gcCfg = gcCfg
 	o.fileSize = override.Numeric(1*telem.Gigabyte, o.fileSize)
 	v := validate.New("cesium.options")
+	validate.Positive(v, "relay_buffer_size", o.relayBufferSize)
 	validate.Positive(v, "stream_buffer_size", o.streamBufferSize)
 	return v.Error()
 }
@@ -88,9 +94,15 @@ func WithFileSizeCap(cap telem.Size) Option {
 	return func(o *options) { o.fileSize = cap }
 }
 
-// WithStreamBufferSize sets the buffer size, in frames, of the relay pipe that streams
-// written frames to streamers, and of each streamer's connection to that pipe. Defaults
-// to 1000 frames.
+// WithRelayBufferSize sets the buffer size, in frames, of the relay's main pipe.
+// Every written frame moves through this pipe, and writers block when it fills.
+// Defaults to 1000 frames.
+func WithRelayBufferSize(size int) Option {
+	return func(o *options) { o.relayBufferSize = size }
+}
+
+// WithStreamBufferSize sets the buffer size, in frames, of each streamer's connection
+// to the relay pipe. Defaults to 100 frames.
 func WithStreamBufferSize(size int) Option {
 	return func(o *options) { o.streamBufferSize = size }
 }

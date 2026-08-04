@@ -25,23 +25,31 @@ type relayResponse struct {
 }
 
 type relay struct {
-	delta      *confluence.DynamicDeltaMultiplier[relayResponse]
-	inlet      confluence.Inlet[relayResponse]
-	bufferSize int
+	delta            *confluence.DynamicDeltaMultiplier[relayResponse]
+	inlet            confluence.Inlet[relayResponse]
+	streamBufferSize int
 }
 
 const (
 	// defaultRelayBufferSize is the default buffer size for the relay's main streaming
-	// pipe and for each streamer's connection to it. All written frames are moved
-	// through the main pipe, so the value is relatively large.
+	// pipe. All written frames are moved through this pipe, so the value is relatively
+	// large.
 	// 1000 * 72 bytes = 72kb
 	defaultRelayBufferSize = 1000
+	// defaultStreamBufferSize is the default buffer size for each streamer's
+	// connection to the relay. A smaller buffer absorbs a brief consumer stall while
+	// bounding how stale buffered frames can get.
+	defaultStreamBufferSize = 100
 	// slowConsumerTimeout is the maximum amount of time the relay will wait for a
 	// consumer to receive a frame before dropping the frame.
 	slowConsumerTimeout = 20 * time.Millisecond
 )
 
-func openRelay(sCtx signal.Context, ins alamos.Instrumentation, bufferSize int) *relay {
+func openRelay(
+	sCtx signal.Context,
+	ins alamos.Instrumentation,
+	bufferSize, streamBufferSize int,
+) *relay {
 	delta := confluence.NewDynamicDeltaMultiplier[relayResponse](
 		slowConsumerTimeout,
 		ins,
@@ -54,11 +62,11 @@ func openRelay(sCtx signal.Context, ins alamos.Instrumentation, bufferSize int) 
 		confluence.WithRetryOnPanic(),
 		confluence.WithAddress("relay"),
 	)
-	return &relay{delta: delta, inlet: writes, bufferSize: bufferSize}
+	return &relay{delta: delta, inlet: writes, streamBufferSize: streamBufferSize}
 }
 
 func (r *relay) connect() (confluence.Outlet[relayResponse], func()) {
-	frames := confluence.NewStream[relayResponse](r.bufferSize)
+	frames := confluence.NewStream[relayResponse](r.streamBufferSize)
 	frames.SetInletAddress(address.Newf("%s_storage", address.Rand().String()))
 	r.delta.Connect(frames)
 	return frames, func() {

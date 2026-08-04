@@ -322,7 +322,12 @@ var _ = Describe("Streamer Behavior", func() {
 					// frames in the drain below.
 					const frameCount int64 = 2 * bufferSize
 					subFS := MustSucceed(fs.Sub("slow-consumer"))
-					subDB := mustOpenDBOnFS(ctx, subFS, cesium.WithStreamBufferSize(bufferSize))
+					subDB := mustOpenDBOnFS(
+						ctx,
+						subFS,
+						cesium.WithRelayBufferSize(bufferSize),
+						cesium.WithStreamBufferSize(bufferSize),
+					)
 					key := GenerateChannelKey()
 					Expect(subDB.CreateChannel(
 						ctx,
