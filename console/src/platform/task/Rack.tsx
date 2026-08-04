@@ -8,18 +8,26 @@
 // included in the file licenses/APL.txt.
 
 import { type rack } from "@synnaxlabs/client";
-import { Form as PForm, Icon, Rack as PRack, Text, Tooltip } from "@synnaxlabs/pluto";
+import {
+  type Flux,
+  Form as PForm,
+  Icon,
+  Rack as PRack,
+  Text,
+  Tooltip,
+} from "@synnaxlabs/pluto";
 import { primitive } from "@synnaxlabs/x";
-import { useEffect } from "react";
 
 import { CSS } from "@/platform/css";
 
+const RETRIEVE_OPTIONS: Omit<
+  Flux.UseDirectRetrieveParams<PRack.RetrieveQuery, rack.Rack>,
+  "query"
+> = { beforeRetrieve: ({ query }) => primitive.isNonZero(query.key) };
+
 export const Rack = () => {
   const rackKey = PForm.useFieldValue<rack.Key>("rack", { optional: true }) ?? 0;
-  const { data: rack, retrieve } = PRack.useRetrieveStateful();
-  useEffect(() => {
-    if (primitive.isNonZero(rackKey)) retrieve({ key: rackKey });
-  }, [rackKey, retrieve]);
+  const { data: rack } = PRack.useRetrieve({ key: rackKey }, RETRIEVE_OPTIONS);
   if (!primitive.isNonZero(rackKey) || rack == null) return;
   return (
     <Tooltip.Dialog>
