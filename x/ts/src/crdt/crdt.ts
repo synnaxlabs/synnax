@@ -419,27 +419,25 @@ export class Text {
     }
   }
 
-  /** extendsLast reports whether op contiguously appends to the run last touched by
-   * place: its origin is the run's last character, replica and counter continue the
-   * run, and nothing anchors after it. Such an op cannot be a duplicate: were its
-   * counter already placed, the run would have been split or given a right child, and
-   * the check would fail. */
-  private extendsLast(op: Insert): boolean {
+  /** extendable returns the run op contiguously appends to, or null: the run last
+   * touched by place, when op's origin is its last character, replica and counter
+   * continue it, and nothing anchors after it. Such an op cannot be a duplicate: were
+   * its counter already placed, the run would have been split or given a right child,
+   * and the check would fail. */
+  private extendable(op: Insert): Element | null {
     const e = this.lastPlaced;
-    if (e == null || op.side !== "right" || e.right.length > 0) return false;
+    if (e == null || op.side !== "right" || e.right.length > 0) return null;
     const last = lastID(e);
-    return (
+    const ok =
       op.id.replica === e.id.replica &&
       op.origin.replica === last.replica &&
       op.origin.counter === last.counter &&
-      op.id.counter === e.id.counter + e.chars.length
-    );
+      op.id.counter === e.id.counter + e.chars.length;
+    return ok ? e : null;
   }
 
-  /** extend appends op's character to the run last touched by place, which
-   * extendsLast must have approved. */
-  private extend(op: Insert): [Element, number] {
-    const e = this.lastPlaced as Element;
+  /** extend appends op's character to the run extendable approved. */
+  private extend(e: Element, op: Insert): [Element, number] {
     e.chars.push(op.char);
     e.deleted?.push(false);
     const off = e.chars.length - 1;
@@ -453,7 +451,8 @@ export class Text {
    * the character. It returns null without buffering when the operation's origin is not
    * yet present. */
   private place(op: Insert): [Element, number] | null {
-    if (this.extendsLast(op)) return this.extend(op);
+    const run = this.extendable(op);
+    if (run != null) return this.extend(run, op);
     const existing = this.findRun(op.id);
     if (existing != null) return existing;
     let origin = this.root;

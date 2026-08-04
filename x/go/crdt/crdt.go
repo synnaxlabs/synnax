@@ -522,23 +522,25 @@ func (t *Text) ApplyDelete(ops ...Delete) {
 	}
 }
 
-// extends reports whether op contiguously appends to the run last touched by place: its
-// origin is the run's last character, replica and counter continue the run, and nothing
-// anchors after it. Such an op cannot be a duplicate: were its counter already placed,
-// the run would have been split or given a right child, and the check would fail.
-func (t *Text) extends(op Insert) bool {
+// extendable returns the run op contiguously appends to, or nil: the run last touched
+// by place, when op's origin is its last character, replica and counter continue it,
+// and nothing anchors after it. Such an op cannot be a duplicate: were its counter
+// already placed, the run would have been split or given a right child, and the check
+// would fail.
+func (t *Text) extendable(op Insert) *element {
 	e := t.lastPlaced
-	return e != nil && op.Side == spatial.XLocationRight &&
+	if e != nil && op.Side == spatial.XLocationRight &&
 		len(e.right) == 0 &&
 		op.ID.Replica == e.id.Replica &&
 		op.Origin == e.lastID() &&
-		op.ID.Counter == e.id.Counter+uint32(len(e.chars))
+		op.ID.Counter == e.id.Counter+uint32(len(e.chars)) {
+		return e
+	}
+	return nil
 }
 
-// extend appends op's character to the run last touched by place, which extends must
-// have approved.
-func (t *Text) extend(op Insert) (*element, int) {
-	e := t.lastPlaced
+// extend appends op's character to the run extendable approved.
+func (t *Text) extend(e *element, op Insert) (*element, int) {
 	e.chars = append(e.chars, op.Char)
 	if e.deleted != nil {
 		e.deleted = append(e.deleted, false)
@@ -558,8 +560,8 @@ func (t *Text) extend(op Insert) (*element, int) {
 // character. It returns nil without buffering when the operation's origin is not yet
 // present.
 func (t *Text) place(op Insert) (*element, int) {
-	if t.extends(op) {
-		return t.extend(op)
+	if e := t.extendable(op); e != nil {
+		return t.extend(e, op)
 	}
 	if e, off, ok := t.findRun(op.ID); ok {
 		return e, off
