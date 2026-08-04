@@ -9,10 +9,6 @@
 
 #include <utility>
 
-#include "glog/logging.h"
-#include "mbedtls/error.h"
-#include "mbedtls/x509_crt.h"
-#include "open62541/client_config_default.h"
 #include "open62541/client_highlevel.h"
 #include "open62541/common.h"
 

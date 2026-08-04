@@ -49,7 +49,9 @@ class Counter:
 
         # Configure channel type
         layout.click_btn("Channel Type")
-        layout.select_from_dropdown(chan_type)
+        layout.select_from_dropdown(
+            chan_type, reopen=lambda: layout.click_btn("Channel Type")
+        )
         values["Channel Type"] = chan_type
 
         # Get device (set by task.add_channel)
@@ -121,7 +123,9 @@ class Counter:
         """
         if value is not None:
             self.layout.click_btn(label)
-            self.layout.select_from_dropdown(value)
+            self.layout.select_from_dropdown(
+                value, reopen=lambda: self.layout.click_btn(label)
+            )
             if track:
                 self.form_values[label] = value
         elif track:

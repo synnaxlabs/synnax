@@ -14,6 +14,8 @@
 #include <string>
 #include <vector>
 
+#include "absl/log/log.h"
+
 #include "x/cpp/breaker/breaker.h"
 #include "x/cpp/json/json.h"
 
