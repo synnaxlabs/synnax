@@ -7,14 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-/// std.
 #include <condition_variable>
 #include <filesystem>
 #include <fstream>
 #include <mutex>
 #include <thread>
 
-#include "glog/logging.h"
+#include "absl/log/log.h"
 #include <sys/stat.h>
 #include <systemd/sd-daemon.h>
 
@@ -29,10 +28,6 @@ const std::string BINARY_INSTALL_DIR = "/usr/local/bin";
 const std::string BINARY_NAME = "synnax-driver";
 const std::string SYSTEMD_SERVICE_PATH = "/etc/systemd/system/synnax-driver.service";
 
-std::mutex mtx;
-std::condition_variable cv;
-bool should_stop = false;
-
 auto SYSTEMD_SERVICE_TEMPLATE = R"([Unit]
 Description=Synnax Driver Service
 Documentation=https://docs.synnaxlabs.com/reference/driver
@@ -43,9 +38,7 @@ StartLimitBurst=3
 
 [Service]
 Type=notify
-Environment=GLOG_logtostderr=1
-Environment=GLOG_v=1
-ExecStart=/usr/local/bin/synnax-driver internal-start
+ExecStart=/usr/local/bin/synnax-driver internal-start --disable-stdin-stop
 User=synnax
 Group=synnax
 
@@ -211,34 +204,45 @@ void notify_watchdog() {
     sd_notify(0, "WATCHDOG=1");
 }
 
-void run(const Config &config, int argc, char *argv[]) {
+void run(const Config &config) {
+    std::mutex mtx;
+    std::condition_variable cv;
+    bool should_stop = false;
     update_status(Status::INITIALIZING, "Starting daemon");
 
-    // Start watchdog thread
-    std::thread watchdog([&]() {
+    std::thread watchdog([&] {
         x::thread::set_name("watchdog");
+        std::unique_lock<std::mutex> lock(mtx);
         while (!should_stop) {
             notify_watchdog();
-            std::this_thread::sleep_for(std::chrono::seconds(config.watchdog_interval));
+            cv.wait_for(lock, std::chrono::seconds(config.watchdog_interval), [&] {
+                return should_stop;
+            });
         }
     });
 
     update_status(Status::READY, "Daemon ready");
 
-    // Run the main application logic
+    bool failed = false;
     try {
-        config.callback(argc, argv);
+        config.callback();
     } catch (const std::exception &e) {
+        failed = true;
         update_status(Status::ERROR_, e.what());
         LOG(ERROR) << "Application error: " << e.what();
     }
 
-    // Cleanup
-    update_status(Status::STOPPING, "Stopping daemon");
+    // Cleanup. On failure, send STOPPING=1 alone so the error stays visible as the
+    // unit's STATUS instead of being overwritten with "Stopping".
+    if (failed)
+        sd_notify(0, "STOPPING=1");
+    else
+        update_status(Status::STOPPING, "Stopping daemon");
     {
         std::lock_guard<std::mutex> lock(mtx);
         should_stop = true;
     }
+    cv.notify_all();
     watchdog.join();
 }
 

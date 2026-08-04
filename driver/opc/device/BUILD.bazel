@@ -22,6 +22,6 @@ cc_library(
         "//vendor/open62541",
         "//x/cpp/errors",
         "//x/cpp/telem",
-        "@glog",
+        "@abseil-cpp//absl/log",
     ],
 )

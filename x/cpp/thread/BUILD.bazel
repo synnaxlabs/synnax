@@ -20,7 +20,7 @@ cc_library(
         "//x/cpp/errors",
         "//x/cpp/log",
         "//x/cpp/telem",
-        "@glog",
+        "@abseil-cpp//absl/log",
     ],
 )
 

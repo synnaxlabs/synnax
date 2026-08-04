@@ -13,7 +13,7 @@ cc_library(
     name = "profile",
     hdrs = ["profile.h"],
     visibility = ["//visibility:public"],
-    deps = ["@glog"] + select({
+    deps = ["@abseil-cpp//absl/log"] + select({
         "@platforms//os:windows": [],
         "//conditions:default": ["@gperftools//:cpu_profiler"],
     }),
