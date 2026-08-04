@@ -223,13 +223,7 @@ const Internal = (): ReactElement => {
     [vis.viewport.renderTrigger],
   );
 
-  const modals = Session.Modals.useStore("LinePlot");
-  const getTabIsFocused = Session.Panel.useGetTabIsFocused();
-  const enableTriggers = useCallback(
-    () => !modals.isAnyOpen() && getTabIsFocused() && hasUpdatePermission,
-    [getTabIsFocused, hasUpdatePermission, modals],
-  );
-  useTriggerHold({ key, enabled: enableTriggers });
+  useTriggerHold({ key, enabled: hasUpdatePermission });
 
   const handleViewportChange: Viewport.UseHandler = useDebouncedCallback(
     ({ box: b, stage, mode }) => {
@@ -293,7 +287,7 @@ const Internal = (): ReactElement => {
           ref={linePlotRef}
           aetherKey={key}
           editable={hasUpdatePermission}
-          enableTriggers={enableTriggers}
+          enableTriggers={hasUpdatePermission}
           resolvedRanges={resolvedRanges}
           enableTooltip={enableTooltip}
           enableMeasure={clickMode === "measure"}

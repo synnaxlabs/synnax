@@ -25,13 +25,7 @@ const Internal: Panel.Content = () => {
   const visible = Session.Panel.useSelectIsTabVisible();
   const channelKeys = Base.useSelectChannelKeys();
   const hasChannels = channelKeys.some((k) => !primitive.isZero(k));
-  const modals = Session.Modals.useStore("Log");
   const hold = Session.Log.useSelectHold();
-  const getTabIsFocused = Session.Panel.useGetTabIsFocused();
-  const enableTriggers = useCallback(
-    () => !modals.isAnyOpen() && getTabIsFocused(),
-    [getTabIsFocused, modals],
-  );
 
   const handleDoubleClick = useCallback(() => {
     dispatch(Session.Nav.showBottom({}));
@@ -50,7 +44,6 @@ const Internal: Panel.Content = () => {
   return (
     <Base.Log
       onDoubleClick={handleDoubleClick}
-      enableTriggers={enableTriggers}
       hold={hold}
       onHold={handleHold}
       extraContextMenuItems={EXTRA_CONTEXT_MENU_ITEMS}

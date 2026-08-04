@@ -39,12 +39,13 @@ Rules:
 Hotkey handlers, synchronizers and window catchers render nothing but must be mounted to
 run. Nothing fails loudly when one is dropped, so placement follows three rules.
 
-**Effects that act on one document mount with that document**, gated on focus at fire
-time. Pluto's trigger provider fires every registered callback with no arbitration, and
-the mosaic keeps background tabs mounted, so hidden instances listen too. The gate is
-`enableTriggers?: boolean | (() => boolean)`, built from
-`Session.Panel.useGetTabIsFocused()`. Pass the getter, not a boolean: it keeps the
-callback identity stable across focus changes.
+**Effects that act on one document mount with that document.** Pluto's trigger provider
+fires every registered callback with no arbitration, and the mosaic keeps background
+tabs mounted, so hidden instances would listen too. Focus is handled for you: every
+tab's content mounts inside a `Triggers.Scope` (`feature/panel/Mosaic.tsx`) that
+switches triggers off for background tabs and while a modal is open. Never rebuild that
+predicate in a component. A component passes `enabled` (or `enableTriggers`) only for
+conditions it alone owns, like whether its content is editable.
 
 **Everything else mounts as high in the tree as its dependencies allow, inside a named
 `SideEffect` component.** Never a bare hook call in a component that draws — that is
