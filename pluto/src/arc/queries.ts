@@ -7,7 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { arc, NotFoundError, query, type Synnax, type task } from "@synnaxlabs/client";
+import {
+  arc,
+  NotFoundError,
+  query,
+  type rack,
+  type Synnax,
+  type task,
+} from "@synnaxlabs/client";
 import { compare, type record, verbs, xy } from "@synnaxlabs/x";
 import { useCallback } from "react";
 import z from "zod";
@@ -231,7 +238,7 @@ export const useForm = Flux.createForm<FormQuery, typeof formSchema>({
   },
 });
 
-export interface CreateParams extends arc.CreateParams {}
+export interface CreateParams extends arc.New {}
 
 export const { useUpdate: useCreate } = Flux.createUpdate<CreateParams, arc.Arc>({
   name: RESOURCE_NAME,
@@ -262,6 +269,21 @@ export const { useUpdate: useRename } = Flux.createUpdate<RenameParams>({
     });
     return data;
   },
+});
+
+export interface DeployParams {
+  key: arc.Key;
+  /** Target rack. Zero undeploys the arc. */
+  rack: rack.Key;
+}
+
+export const { useUpdate: useDeploy } = Flux.createUpdate<
+  DeployParams,
+  task.Task | null
+>({
+  name: RESOURCE_NAME,
+  verbs: verbs.DEPLOY,
+  update: async ({ client, data }) => await client.arcs.deploy(data.key, data.rack),
 });
 
 export type RetrieveTaskParams = {

@@ -12,15 +12,7 @@ import {
   type StreamClient,
   type UnaryClient,
 } from "@synnaxlabs/freighter";
-import {
-  array,
-  deep,
-  type destructor,
-  errors,
-  id,
-  primitive,
-  uuid,
-} from "@synnaxlabs/x";
+import { array, deep, type destructor, errors, id, primitive } from "@synnaxlabs/x";
 import { z } from "zod/v4";
 
 import { actions } from "@/actions";
@@ -35,7 +27,8 @@ import { type Arc, arcZ, type Key, keyZ, type New, ontologyID } from "@/arc/type
 import { NotFoundError } from "@/errors";
 import { ontology } from "@/ontology";
 import { query } from "@/query";
-import { status } from "@/status";
+import { rack } from "@/rack";
+import { type status } from "@/status";
 import { task } from "@/task";
 import { checkForMultipleOrNoResults } from "@/util/retrieve";
 
@@ -95,39 +88,9 @@ const singleQueryZ = z.union([
   keyZ.transform((key) => ({ key })),
 ]);
 
-export interface CreateParams extends New {
-  /** Rack to deploy the arc on. Ensures a deployment task exists for it. */
-  rack?: number;
-}
-
-const TASK_TYPE = "arc";
-
-const taskStatusDataZ = z.null().optional();
-
-const configuringStatus = (
-  taskKey: task.Key,
-  rack: number,
-): task.Status<typeof taskStatusDataZ> =>
-  status.create<ReturnType<typeof task.statusDetailsZ<typeof taskStatusDataZ>>>({
-    key: task.statusKey(taskKey),
-    name: "Configuring task",
-    variant: "loading",
-    message: "Configuring task...",
-    details: {
-      task: taskKey,
-      running: false,
-      cmd: "",
-      configHash: "",
-      rack,
-      data: undefined,
-    },
-  });
-
-const TASK_SCHEMAS = {
-  type: z.literal(TASK_TYPE),
-  config: z.object({ arcKey: z.string() }),
-  statusData: taskStatusDataZ,
-} as const satisfies task.Schemas;
+const deployReqZ = z.object({ key: keyZ, rack: rack.keyZ });
+const deployResZ = z.object({ task: task.payloadZ().nullish() });
+const dispatchResZ = z.object({ hash: z.string() });
 
 /**
  * Client-side matching for a request: key and name sets. Server-computed
@@ -272,29 +235,14 @@ export class Client extends query.Retriever<
     });
   }
 
-  async create(arc: CreateParams, opts?: query.WriteOptions<Arc[]>): Promise<Arc>;
-  async create(arcs: CreateParams[], opts?: query.WriteOptions<Arc[]>): Promise<Arc[]>;
+  async create(arc: New, opts?: query.WriteOptions<Arc[]>): Promise<Arc>;
+  async create(arcs: New[], opts?: query.WriteOptions<Arc[]>): Promise<Arc[]>;
   async create(
-    arcs: CreateParams | CreateParams[],
+    arcs: New | New[],
     opts: query.WriteOptions<Arc[]> = {},
   ): Promise<Arc | Arc[]> {
     const isMany = Array.isArray(arcs);
-    const params = array.toArray(arcs);
-    // Resolve the deployment task for each arc targeting a rack. Reuse the
-    // existing task's key when one exists; the rack field on the created task
-    // moves it between racks.
-    const taskKeys = new Map<number, task.Key>();
-    for (let i = 0; i < params.length; i++) {
-      const { rack, key } = params[i];
-      if (rack == null) continue;
-      let taskKey = uuid.create();
-      if (key != null) {
-        const tsk = await this.retrieveTask(key);
-        if (tsk != null) taskKey = tsk.key;
-      }
-      taskKeys.set(i, taskKey);
-    }
-    const optimistic = params.map((a) => arcZ.parse(a));
+    const optimistic = array.toArray(arcs).map((a) => arcZ.parse(a));
     const res = await query.optimistic({
       rollbacks: [this.store.set(optimistic)],
       onOptimistic: () => opts.onOptimistic?.(optimistic),
@@ -307,27 +255,35 @@ export class Client extends query.Retriever<
         ),
     });
     this.store.set(res.arcs);
-    for (const [i, taskKey] of taskKeys) {
-      const created = res.arcs[i];
-      const rack = params[i].rack;
-      if (rack == null) continue;
-      const newTsk = await this.cfg.tasks.create(
-        {
-          key: taskKey,
-          rack,
-          name: created.name,
-          type: TASK_TYPE,
-          config: { arcKey: created.key },
-          status: configuringStatus(taskKey, rack),
-        },
-        TASK_SCHEMAS,
-      );
-      await this.cfg.ontology.addChildren(
-        ontologyID(created.key),
-        task.ontologyID(newTsk.key),
-      );
-    }
     return isMany ? res.arcs : res.arcs[0];
+  }
+
+  /**
+   * Deploys the arc to the given rack, creating its task there or moving the
+   * existing one. The arc's current semantic hash is stamped into the task
+   * config. A zero rack undeploys the arc. Returns the task, or null after an
+   * undeploy.
+   * @throws {ValidationError} when undeploying while the task is running.
+   */
+  async deploy(key: Key, rackKey: rack.Key): Promise<task.Task | null> {
+    const res = await this.cfg.unary.send(
+      "/arc/deploy",
+      { key, rack: rackKey },
+      deployReqZ,
+      deployResZ,
+    );
+    if (res.task == null) return null;
+    const tsk = this.cfg.tasks.sugar(res.task);
+    this.cfg.tasks.store.set(tsk);
+    return tsk;
+  }
+
+  /**
+   * Undeploys the arc, deleting its task and stopping it on its rack.
+   * @throws {ValidationError} when the task is running.
+   */
+  async undeploy(key: Key): Promise<void> {
+    await this.deploy(key, 0);
   }
 
   async rename(key: Key, name: string, opts: query.WriteOptions = {}): Promise<void> {
@@ -453,12 +409,13 @@ export class Client extends query.Retriever<
     dispatchKey: string,
     actions: Action[],
   ): Promise<void> {
-    await this.cfg.unary.send(
+    const res = await this.cfg.unary.send(
       "/arc/dispatch",
       { key, dispatchKey, actions },
       dispatchReqZ,
-      emptyResZ,
+      dispatchResZ,
     );
+    query.partialUpdate(this.store, key, { hash: res.hash });
   }
 
   private async execRetrieve(params: RetrieveParams): Promise<Arc[]> {

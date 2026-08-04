@@ -168,32 +168,89 @@ describe("arc", () => {
         off();
       }
     });
+  });
 
-    it("preserves the deployment task when a rack move fails to commit", async () => {
+  describe("deploy", () => {
+    it("creates the deployment task stamped with the arc's hash", async () => {
+      const rack = await client.racks.create({ name: `rack-${id.create()}` });
+      const created = await client.arcs.create(newTextArc(`deploy-${id.create()}`));
+      const tsk = await client.arcs.deploy(created.key, rack.key);
+      expect(tsk).not.toBeNull();
+      expect(tsk?.rack).toEqual(rack.key);
+      expect(tsk?.type).toEqual("arc");
+      expect(tsk?.config.arcKey).toEqual(created.key);
+      expect(tsk?.config.hash).not.toEqual("");
+      expect(await client.arcs.task.retrieve(created.key)).not.toBeNull();
+    });
+
+    it("reuses the task across redeploys and rack moves", async () => {
       const rackA = await client.racks.create({ name: `rack-${id.create()}` });
       const rackB = await client.racks.create({ name: `rack-${id.create()}` });
-      const created = await client.arcs.create({
-        ...newTextArc(`rack-move-${id.create()}`),
-        rack: rackA.key,
-      });
-      const tsk = await client.arcs.task.retrieve(created.key);
+      const created = await client.arcs.create(newTextArc(`move-${id.create()}`));
+      const first = await client.arcs.deploy(created.key, rackA.key);
+      const moved = await client.arcs.deploy(created.key, rackB.key);
+      expect(moved?.key).toEqual(first?.key);
+      expect(moved?.rack).toEqual(rackB.key);
+    });
+
+    it("restamps the hash when the program changed", async () => {
+      const rack = await client.racks.create({ name: `rack-${id.create()}` });
+      const created = await client.arcs.create(newTextArc(`restamp-${id.create()}`));
+      const first = await client.arcs.deploy(created.key, rack.key);
+      const gen = new crdt.Text(2);
+      const ops = gen.insert(0, "on -> off").map((op) => arc.insertChar(op));
+      await client.arcs.dispatch(created.key, ops);
+      const second = await client.arcs.deploy(created.key, rack.key);
+      expect(second?.key).toEqual(first?.key);
+      expect(second?.config.hash).not.toEqual(first?.config.hash);
+    });
+
+    it("undeploys by deleting the task", async () => {
+      const rack = await client.racks.create({ name: `rack-${id.create()}` });
+      const created = await client.arcs.create(newTextArc(`undeploy-${id.create()}`));
+      const tsk = await client.arcs.deploy(created.key, rack.key);
       if (tsk == null) throw new Error("expected a deployment task");
-      // Task permissions are granted so the rack-move resolution proceeds all
-      // the way to the arc create, which is what gets denied.
+      await client.arcs.undeploy(created.key);
+      await expect(client.tasks.retrieve(tsk.key)).rejects.toThrow();
+      expect((await client.arcs.retrieve(created.key)).key).toEqual(created.key);
+    });
+
+    it("leaves the task untouched when the subject may not deploy", async () => {
+      const rack = await client.racks.create({ name: `rack-${id.create()}` });
+      const created = await client.arcs.create(newTextArc(`denied-${id.create()}`));
+      const tsk = await client.arcs.deploy(created.key, rack.key);
+      if (tsk == null) throw new Error("expected a deployment task");
       const userClient = await createTestClientWithPolicy(client, {
         name: "test",
         objects: [arc.ontologyID(""), task.ontologyID("")],
-        actions: ["retrieve", "delete"],
+        actions: ["retrieve"],
       });
-      await expect(
-        userClient.arcs.create({
-          ...newTextArc(created.name),
-          key: created.key,
-          rack: rackB.key,
-        }),
-      ).rejects.toThrow(AuthError);
+      await expect(userClient.arcs.deploy(created.key, rack.key)).rejects.toThrow(
+        AuthError,
+      );
       const surviving = await client.tasks.retrieve(tsk.key);
-      expect(surviving.key).toEqual(tsk.key);
+      expect(surviving.rack).toEqual(rack.key);
+    });
+  });
+
+  describe("hash", () => {
+    it("serves the semantic hash on retrieve", async () => {
+      const created = await client.arcs.create(newTextArc(`hash-${id.create()}`));
+      const res = await client.arcs.retrieve(created.key);
+      expect(res.hash).toBeTypeOf("string");
+      expect(res.hash).not.toEqual("");
+    });
+
+    it("updates the cached hash from the dispatch response", async () => {
+      const created = await client.arcs.create(newTextArc(`hash-d-${id.create()}`));
+      const before = (await client.arcs.retrieve(created.key)).hash;
+      const gen = new crdt.Text(2);
+      const ops = gen.insert(0, "x -> y").map((op) => arc.insertChar(op));
+      await client.arcs.dispatch(created.key, ops);
+      const cached = expectLive(client.arcs.getCached(created.key));
+      expect(cached?.hash).toBeTypeOf("string");
+      expect(cached?.hash).not.toEqual(before);
+      expect((await client.arcs.retrieve(created.key)).hash).toEqual(cached?.hash);
     });
   });
 });

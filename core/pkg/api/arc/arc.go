@@ -81,6 +81,13 @@ func (s *Service) Create(
 	if err := s.internal.NewWriter(tx).CreateMany(ctx, &req.Arcs); err != nil {
 		return CreateResponse{}, err
 	}
+	for i := range req.Arcs {
+		hash, err := arc.Hash(req.Arcs[i])
+		if err != nil {
+			return CreateResponse{}, err
+		}
+		req.Arcs[i].Hash = &hash
+	}
 	return CreateResponse(req), nil
 }
 

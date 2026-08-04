@@ -389,295 +389,104 @@ describe("Arc queries", () => {
       });
     });
 
-    describe("without rack", () => {
-      it("should create arc without task when no rack is specified", async () => {
-        const { result } = renderHook(() => Arc.useCreate(), { wrapper });
-        const name = `arc_no_rack_${id.create()}`;
-        await act(async () => {
-          await result.current.updateAsync({
-            name,
-            mode: "text",
-          });
-        });
-        await waitFor(() => {
-          expect(result.current.variant).toEqual("success");
-        });
-        const createdArc = await client.arcs.retrieve({ name });
-        const children = await client.ontology.children.retrieve({
-          ids: arc.ontologyID(createdArc.key),
-        });
-        const taskChildren = children.filter((c) => c.id.type === "task");
-        expect(taskChildren).toHaveLength(0);
+    it("does not attach a deployment task", async () => {
+      const { result } = renderHook(() => Arc.useCreate(), { wrapper });
+      const name = `arc_no_task_${id.create()}`;
+      await act(async () => {
+        await result.current.updateAsync({ name, mode: "text" });
       });
+      await waitFor(() => {
+        expect(result.current.variant).toEqual("success");
+      });
+      const createdArc = await client.arcs.retrieve({ name });
+      const children = await client.ontology.children.retrieve({
+        ids: arc.ontologyID(createdArc.key),
+      });
+      const taskChildren = children.filter((c) => c.id.type === "task");
+      expect(taskChildren).toHaveLength(0);
+    });
+  });
+
+  describe("useDeploy", () => {
+    it("creates the deployment task stamped with the arc's hash", async () => {
+      const testRack = await client.racks.create({ name: `rack_${id.create()}` });
+      const created = await client.arcs.create({
+        name: `arc_deploy_${id.create()}`,
+        mode: "text",
+      });
+      const { result } = renderHook(() => Arc.useDeploy(), { wrapper });
+
+      await act(async () => {
+        await result.current.updateAsync({ key: created.key, rack: testRack.key });
+      });
+      await waitFor(() => {
+        expect(result.current.variant).toEqual("success");
+      });
+
+      const tsk = await client.arcs.task.retrieve(created.key);
+      assert(tsk != null);
+      expect(tsk.type).toBe("arc");
+      expect(tsk.rack).toBe(testRack.key);
+      expect(tsk.config.arcKey).toBe(created.key);
+      expect(tsk.config.hash).not.toEqual("");
     });
 
-    describe("with rack", () => {
-      it("should create arc with new task when rack is specified", async () => {
-        const testRack = await client.racks.create({ name: `rack_new_${id.create()}` });
-        const { result } = renderHook(() => Arc.useCreate(), { wrapper });
+    it("reuses the task across redeploys and rack moves", async () => {
+      const rack1 = await client.racks.create({ name: `rack_${id.create()}` });
+      const rack2 = await client.racks.create({ name: `rack_${id.create()}` });
+      const created = await client.arcs.create({
+        name: `arc_move_${id.create()}`,
+        mode: "text",
+      });
+      const { result } = renderHook(() => Arc.useDeploy(), { wrapper });
 
-        const key = uuid.create();
+      await act(async () => {
+        await result.current.updateAsync({ key: created.key, rack: rack1.key });
+      });
+      const first = await client.arcs.task.retrieve(created.key);
+      assert(first != null);
+      expect(first.rack).toBe(rack1.key);
 
-        await act(async () => {
-          await result.current.updateAsync({
-            key,
-            name: `arc_with_rack_${id.create()}`,
-            mode: "text",
-            rack: testRack.key,
-          });
-        });
-
-        await waitFor(async () => {
-          expect(result.current.variant).toEqual("success");
-          const createdArc = await client.arcs.retrieve(key);
-          const children = await client.ontology.children.retrieve({
-            ids: arc.ontologyID(createdArc.key),
-            types: ["task"],
-          });
-          expect(children).toHaveLength(1);
-        });
+      await act(async () => {
+        await result.current.updateAsync({ key: created.key, rack: rack2.key });
+      });
+      await waitFor(() => {
+        expect(result.current.variant).toEqual("success");
       });
 
-      it("should set task type to arc and config with arcKey", async () => {
-        const testRack = await client.racks.create({
-          name: `rack_config_${id.create()}`,
-        });
-        const { result } = renderHook(() => Arc.useCreate(), { wrapper });
+      const moved = await client.tasks.retrieve(first.key);
+      expect(moved.rack).toBe(rack2.key);
+      const children = await client.ontology.children.retrieve({
+        ids: arc.ontologyID(created.key),
+        types: ["task"],
+      });
+      expect(children).toHaveLength(1);
+      expect(children[0].id.key).toBe(first.key);
+    });
 
-        const key = uuid.create();
+    it("undeploys with a zero rack, deleting the task", async () => {
+      const testRack = await client.racks.create({ name: `rack_${id.create()}` });
+      const created = await client.arcs.create({
+        name: `arc_undeploy_${id.create()}`,
+        mode: "text",
+      });
+      const { result } = renderHook(() => Arc.useDeploy(), { wrapper });
 
-        await act(async () => {
-          await result.current.updateAsync({
-            key,
-            name: `arc_config_${id.create()}`,
-            mode: "text",
-            rack: testRack.key,
-          });
-        });
+      await act(async () => {
+        await result.current.updateAsync({ key: created.key, rack: testRack.key });
+      });
+      const tsk = await client.arcs.task.retrieve(created.key);
+      assert(tsk != null);
 
-        await waitFor(async () => {
-          expect(result.current.variant).toEqual("success");
-          const createdArc = await client.arcs.retrieve(key);
-          const children = await client.ontology.children.retrieve({
-            ids: arc.ontologyID(createdArc.key),
-            types: ["task"],
-          });
-          expect(children).toHaveLength(1);
-          const taskKey = children[0].id.key;
-          const retrievedTask = await client.tasks.retrieve(taskKey);
-          expect(retrievedTask.type).toBe("arc");
-          expect(retrievedTask.config).toEqual({ arcKey: createdArc.key });
-          expect(retrievedTask.rack).toBe(testRack.key);
-        });
+      await act(async () => {
+        await result.current.updateAsync({ key: created.key, rack: 0 });
+      });
+      await waitFor(() => {
+        expect(result.current.variant).toEqual("success");
       });
 
-      describe("existing arc", () => {
-        it("should create new task when updating arc that has no task", async () => {
-          const existingArc = await client.arcs.create({
-            name: `existing_no_task_${id.create()}`,
-            mode: "text",
-          });
-
-          const testRack = await client.racks.create({
-            name: `rack_update_${id.create()}`,
-          });
-          const { result } = renderHook(() => Arc.useCreate(), { wrapper });
-
-          await act(async () => {
-            await result.current.updateAsync({
-              key: existingArc.key,
-              mode: existingArc.mode,
-              name: existingArc.name,
-              graph: existingArc.graph,
-              text: existingArc.text,
-              rack: testRack.key,
-            });
-          });
-
-          await waitFor(async () => {
-            expect(result.current.variant).toEqual("success");
-            const children = await client.ontology.children.retrieve({
-              ids: arc.ontologyID(existingArc.key),
-            });
-            const taskChildren = children.filter((c) => c.id.type === "task");
-            expect(taskChildren).toHaveLength(1);
-            const createdTask = await client.tasks.retrieve({
-              key: taskChildren[0].id.key,
-            });
-            expect(createdTask.rack).toBe(testRack.key);
-          });
-        });
-
-        it("should reuse task key when updating arc on same rack", async () => {
-          const testRack = await client.racks.create({
-            name: `rack_reuse_${id.create()}`,
-          });
-          const { result: createResult } = renderHook(() => Arc.useCreate(), {
-            wrapper,
-          });
-
-          const arcKey = uuid.create();
-          const uniqueName = `arc_reuse_${id.create()}`;
-
-          await act(async () => {
-            await createResult.current.updateAsync({
-              key: arcKey,
-              mode: "text",
-              name: uniqueName,
-              rack: testRack.key,
-            });
-          });
-
-          let originalTaskKey: task.Key = "";
-          await waitFor(async () => {
-            expect(createResult.current.variant).toEqual("success");
-            const createdArc = await client.arcs.retrieve(arcKey);
-            const childrenBefore = await client.ontology.children.retrieve({
-              ids: arc.ontologyID(createdArc.key),
-              types: ["task"],
-            });
-            expect(childrenBefore).toHaveLength(1);
-            originalTaskKey = childrenBefore[0].id.key;
-          });
-
-          const { result: updateResult } = renderHook(() => Arc.useCreate(), {
-            wrapper,
-          });
-
-          await act(async () => {
-            await updateResult.current.updateAsync({
-              key: arcKey,
-              mode: "text",
-              name: `${uniqueName}_updated`,
-              rack: testRack.key,
-            });
-          });
-
-          await waitFor(async () => {
-            expect(updateResult.current.variant).toEqual("success");
-            const childrenAfter = await client.ontology.children.retrieve({
-              ids: arc.ontologyID(arcKey),
-              types: ["task"],
-            });
-            expect(childrenAfter).toHaveLength(1);
-            expect(childrenAfter[0].id.key).toBe(originalTaskKey);
-          });
-        });
-
-        it("should move the task when updating arc to different rack", async () => {
-          const rack1 = await client.racks.create({
-            name: `rack_from_${id.create()}`,
-          });
-          const rack2 = await client.racks.create({ name: `rack_to_${id.create()}` });
-          const { result: createResult } = renderHook(() => Arc.useCreate(), {
-            wrapper,
-          });
-
-          const arcKey = uuid.create();
-
-          await act(async () => {
-            await createResult.current.updateAsync({
-              key: arcKey,
-              mode: "text",
-              name: `arc_migrate_${id.create()}`,
-              rack: rack1.key,
-            });
-          });
-
-          let originalTaskKey: task.Key = "";
-          await waitFor(async () => {
-            expect(createResult.current.variant).toEqual("success");
-            const childrenBefore = await client.ontology.children.retrieve({
-              ids: arc.ontologyID(arcKey),
-              types: ["task"],
-            });
-            expect(childrenBefore).toHaveLength(1);
-            originalTaskKey = childrenBefore[0].id.key;
-            const originalTask = await client.tasks.retrieve({ key: originalTaskKey });
-            expect(originalTask.rack).toBe(rack1.key);
-          });
-
-          const { result: updateResult } = renderHook(() => Arc.useCreate(), {
-            wrapper,
-          });
-
-          await act(async () => {
-            await updateResult.current.updateAsync({
-              key: arcKey,
-              mode: "text",
-              name: `arc_migrate_updated`,
-              rack: rack2.key,
-            });
-          });
-
-          await waitFor(async () => {
-            expect(updateResult.current.variant).toEqual("success");
-            const childrenAfter = await client.ontology.children.retrieve({
-              ids: arc.ontologyID(arcKey),
-              types: ["task"],
-            });
-            expect(childrenAfter).toHaveLength(1);
-            const newTaskKey = childrenAfter[0].id.key;
-            expect(newTaskKey).toBe(originalTaskKey);
-            const movedTask = await client.tasks.retrieve({ key: newTaskKey });
-            expect(movedTask.rack).toBe(rack2.key);
-          });
-        });
-
-        it("should keep the original task when migrating to different rack", async () => {
-          const rack1 = await client.racks.create({
-            name: `rack_del_from_${id.create()}`,
-          });
-          const rack2 = await client.racks.create({
-            name: `rack_del_to_${id.create()}`,
-          });
-          const { result: createResult } = renderHook(() => Arc.useCreate(), {
-            wrapper,
-          });
-
-          const arcKey = uuid.create();
-
-          await act(async () => {
-            await createResult.current.updateAsync({
-              key: arcKey,
-              mode: "text",
-              name: `arc_del_${id.create()}`,
-              rack: rack1.key,
-            });
-          });
-
-          let originalTaskKey: task.Key = "";
-          await waitFor(async () => {
-            expect(createResult.current.variant).toEqual("success");
-            const childrenBefore = await client.ontology.children.retrieve({
-              ids: arc.ontologyID(arcKey),
-              types: ["task"],
-            });
-            expect(childrenBefore).toHaveLength(1);
-            originalTaskKey = childrenBefore[0].id.key;
-          });
-
-          const { result: updateResult } = renderHook(() => Arc.useCreate(), {
-            wrapper,
-          });
-
-          await act(async () => {
-            await updateResult.current.updateAsync({
-              key: arcKey,
-              mode: "text",
-              name: `arc_del_updated`,
-              rack: rack2.key,
-            });
-          });
-
-          await waitFor(() => {
-            expect(updateResult.current.variant).toEqual("success");
-          });
-
-          const movedTask = await client.tasks.retrieve({ key: originalTaskKey });
-          expect(movedTask.rack).toBe(rack2.key);
-        });
-      });
+      await expect(client.tasks.retrieve(tsk.key)).rejects.toThrow();
+      expect((await client.arcs.retrieve(created.key)).key).toEqual(created.key);
     });
   });
 

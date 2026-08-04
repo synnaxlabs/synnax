@@ -60,6 +60,23 @@ var _ = Describe("Service", func() {
 		})
 	})
 
+	Describe("Create", func() {
+		It("Should serve the semantic hash on every created arc", func(ctx SpecContext) {
+			grantOn(
+				ctx,
+				author.OntologyID(),
+				access.ActionCreate,
+				ontology.ID{Type: ontology.ResourceTypeArc},
+			)
+			res := MustSucceed(apiSvc.Create(authedCtx(ctx, author), db, CreateRequest{
+				Arcs: []Arc{{Name: "hash-created", Mode: arc.ModeGraph}},
+			}))
+			Expect(res.Arcs).To(HaveLen(1))
+			Expect(res.Arcs[0].Hash).ToNot(BeNil())
+			Expect(*res.Arcs[0].Hash).To(Equal(MustSucceed(arc.Hash(res.Arcs[0]))))
+		})
+	})
+
 	Describe("Dispatch", func() {
 		Describe("access control", func() {
 			It("Should reject the request with access.ErrDenied when the subject has no policy", func(ctx SpecContext) {
