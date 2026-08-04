@@ -22,7 +22,7 @@ identical.
 This RFC inverts the model. Each task type becomes a first-class resource with a strong
 type. Each resource has its own Oracle schema, ontology type, protobuf message, and
 service. Examples: `ni_analog_read`, `opc_read`, `http_read`. The typed resource is the
-root aggregate. It has a uuid key. It owns the name and all configuration fields. It is
+root aggregate. It has a UUID key. It owns the name and all configuration fields. It is
 the unit that users create, edit, snapshot, import, and export. The generic task becomes
 a small execution record: `{key, rack, config, internal, auto_start, config_hash}`. The
 task exists only while the resource is deployed to a rack. The task points to its
@@ -106,7 +106,7 @@ Five problems add up. All of them come from config opacity:
    the cutover (§4.6).
 5. **The resource is what users own.** The configuration is the durable artifact. Users
    draft it, snapshot it, import it, and export it. Execution is temporary and
-   rack-bound. The data model shows this: portable uuid identity on the resource, rack
+   rack-bound. The data model shows this: portable UUID identity on the resource, rack
    binding on the task.
 
 ---
@@ -238,7 +238,7 @@ index (the Arc `deleteChildTasks` pattern). The delete action on a task entry in
 Console tree deletes the resource, because the resource is the object that the user
 sees.
 
-**Snapshot.** A snapshot is a copy of the resource: a new uuid, `snapshot: true`. The
+**Snapshot.** A snapshot is a copy of the resource: a new UUID, `snapshot: true`. The
 copy is immutable through the same guard that protects snapshots today. Ranges refer to
 it exactly as they refer to task snapshots now. A snapshot does not get a task row. A
 frozen config has no execution, so no part of it belongs in the task table.
@@ -299,8 +299,8 @@ A one-time startup migration converts each stored task:
    log reports it clearly. The migration does not drop it, and also does not keep it
    active without a report.
 
-The migration composes with the uuid re-key migration from PR #2603, which must land
-first. The migration of this RFC assumes uuid task keys and rack-as-field.
+The migration composes with the UUID re-key migration from PR #2603, which must land
+first. The migration of this RFC assumes UUID task keys and rack-as-field.
 
 ### 4.7 Integration inventory
 
@@ -335,7 +335,7 @@ already types these by hand. The schemas make it official.
 
 ## 5 Implementation phases
 
-Prerequisite (external to this RFC): the SY-4488 stack — uuid task keys with rack as a
+Prerequisite (external to this RFC): the SY-4488 stack — UUID task keys with rack as a
 field (#2603) and deploy-on-start (#2604). The Console autosave PR (#2605) must target
 the typed resource in Phase 6. It must not land against `task.config`.
 
@@ -369,7 +369,7 @@ builds, the tests pass, and the product can ship.
    moves to `empty`-resource deploys in the first wave.
 6. **Console migration.** Its own phase, one PR per integration. The forms bind to typed
    resources through generated Zod (the UI-only refinements stay). The tabs key on
-   resource uuids. Autosave (the flow of #2605) targets the resource. The drift and
+   resource UUIDs. Autosave (the flow of #2605) targets the resource. The drift and
    deploy UX follows the draft/deploy RFC. We delete the `??` fallback lookups and the
    client-side NI version chain.
 7. **Python rewiring.** The generated pydantic resource models replace the hand-written
@@ -423,7 +423,7 @@ Phase 4. This is the standard position for storage migrations in this codebase.
 7. **The node as a first-class deployment target — deferred.** Each node has exactly one
    embedded rack. A deploy to a node is thus sugar: the deploy endpoint resolves the
    node to its embedded rack. A polymorphic location type waits for the rack and device
-   uuid re-key follow-up.
+   UUID re-key follow-up.
 8. **A `task.name` mirror — rejected.** The resource owns the name. Task lists read
    through the ontology and the per-type services. A synchronized mirror is a second
    source of truth, and no consumer needs it.
@@ -454,7 +454,7 @@ Phase 4. This is the standard position for storage migrations in this codebase.
 - **Typed command args** (`start`, `stop`, `tare`, `test_connection`, `browse`):
   `Command.args` stays opaque. A follow-up can type per-command args with the same union
   machinery.
-- **The uuid re-key of statuses, racks, and devices**, and the move of device management
+- **The UUID re-key of statuses, racks, and devices**, and the move of device management
   to the server side. Status keys stay task-ontology-ID strings here.
 - **Typed device `properties`.** The channel maps with NodeId keys inside device
   properties are the same corruption class as §4.2. They must get the same
