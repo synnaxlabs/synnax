@@ -21,7 +21,6 @@ import { Text } from "@/text";
 export interface AliasInputProps extends Input.TextProps {
   channel: channel.Key;
   range?: string;
-  shadow?: boolean;
   // isDefault reports whether value is the derived default rather than a stored
   // override. The reset button is shown only when an override is present.
   isDefault?: boolean;
@@ -32,8 +31,6 @@ export interface AliasInputProps extends Input.TextProps {
 export const AliasInput = ({
   channel,
   range,
-  shadow,
-  className,
   isDefault,
   onReset,
   ...rest

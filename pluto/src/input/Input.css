@@ -150,19 +150,21 @@
     }
 }
 
-.pluto-input__container:has(.pluto--shadow) {
-    .pluto-btn--outlined,
-    .pluto-btn--text {
+/* A shadow cell's packed neighbors (drag handle, alias sync, copy) hide until the
+   group is hovered or focused. The cell itself is excluded: its value always reads. */
+.pluto-input__container:has(> .pluto--shadow) {
+    & > *:not(.pluto--shadow) {
         opacity: 0;
     }
-    &:hover {
-        & .pluto-btn--outlined,
-        & .pluto-btn--text {
-            opacity: 1;
-        }
-        & .pluto--shadow {
-            border-color: var(--pluto-hover-border-color);
-            background: var(--pluto-hover-bg);
-        }
+
+    &:is(:hover, :focus-within) > *:not(.pluto--shadow) {
+        opacity: 1;
+    }
+
+    /* Hovering a neighbor materializes the cell so the group lights as one. A
+       focused cell keeps its focus border. */
+    &:hover > .pluto--shadow:not(:focus-within) {
+        border-color: var(--pluto-hover-border-color);
+        background: var(--pluto-hover-bg);
     }
 }

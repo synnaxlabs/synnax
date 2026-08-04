@@ -10,6 +10,7 @@
 import { type optional, TimeStamp } from "@synnaxlabs/x";
 import { useState } from "react";
 
+import { Button } from "@/button";
 import { Flex } from "@/flex";
 import { Icon } from "@/icon";
 import { Input } from "@/input";
@@ -159,6 +160,43 @@ export const InputShowcase = () => (
             <InputShowcaseText endContent="m/s" size="medium" />
             <InputShowcaseText endContent="m/s" size="small" />
             <InputShowcaseText endContent="m/s" size="tiny" />
+          </Flex.Box>
+        </Flex.Box>
+      </SubcategorySection>
+
+      <SubcategorySection
+        title="Shadow Cells"
+        description="Edit-in-place cells. The value always reads; the chassis and any packed neighbors appear on hover or focus"
+      >
+        <Flex.Box x gap="large">
+          <Flex.Box y gap="small">
+            <Text.Text level="small" weight={500}>
+              With Drag Handle
+            </Text.Text>
+            <InputShowcaseNumeric variant="shadow" size="medium" />
+            <InputShowcaseNumeric
+              variant="shadow"
+              size="medium"
+              startContent={<Icon.Decimal />}
+            />
+          </Flex.Box>
+          <Flex.Box y gap="small">
+            <Text.Text level="small" weight={500}>
+              With Trailing Button
+            </Text.Text>
+            <InputShowcaseText variant="shadow" placeholder="Catalyst" size="medium">
+              <Button.Button variant="outlined">
+                <Icon.Copy />
+              </Button.Button>
+            </InputShowcaseText>
+            <InputShowcaseText variant="shadow" placeholder="Catalyst" size="medium">
+              <Button.Button variant="outlined">
+                <Icon.Sync />
+              </Button.Button>
+              <Button.Button variant="outlined">
+                <Icon.Rename />
+              </Button.Button>
+            </InputShowcaseText>
           </Flex.Box>
         </Flex.Box>
       </SubcategorySection>
